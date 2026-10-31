@@ -176,3 +176,106 @@
 .vcb-btn.danger:hover:not(:disabled) { background: rgba(180, 35, 24, 0.10); border-color: rgba(180, 35, 24, 0.35); }
 .sheet-vcb { flex-wrap: wrap; height: auto; min-height: 26px; padding: 2px 8px; row-gap: 2px; }
 @media (max-width: 1100px) { .vcb-sheet-info { display: none; } }
+
+/* ============================================================================
+   Responsivo: barra de título, faixa e menu Arquivo em tablets e celulares.
+   O desktop com mouse (> 1024 px) mantém as medidas originais; os blocos abaixo
+   só entram por largura, altura ou ponteiro grosso (toque).
+   ============================================================================ */
+
+/* O acesso rápido é um FitRow: o que não cabe vira o botão "»" em vez de sair da tela. */
+.qat { position: relative; min-width: 0; }
+
+/* Botão de recolher/expandir a faixa, no fim da linha de abas. */
+.rtab-min { flex: none; align-self: center; width: 24px; height: 20px; margin-left: 2px; padding: 0; font-size: 11px; line-height: 1; color: var(--fg-soft); background: transparent; border: 1px solid transparent; border-radius: 2px; }
+.rtab-min:hover { background: var(--accent-soft); border-color: var(--line-strong); color: var(--fg); }
+.rtab-min.min { color: var(--accent); }
+
+/* Faixa recolhida: mantém a linha na grade do app (só as abas ficam visíveis). */
+.ribbon.min { height: 0; min-height: 0; border-bottom: 0; overflow: hidden; }
+
+/* Popups nunca passam da tela; rolam por dentro quando a lista é longa. */
+.fit-pop { max-height: calc(100dvh - 12px); overflow: auto; overscroll-behavior: contain; }
+.fit-pop.qat-pop { display: flex; flex-wrap: wrap; gap: 2px; max-width: 226px; padding: 3px; }
+.fit-pop.tabs { max-height: min(70dvh, 420px); }
+.rb-menu { max-height: calc(100dvh - 12px); overflow-y: auto; overscroll-behavior: contain; }
+
+/* A lista de seções do menu Arquivo rola quando a altura é pequena. */
+.fm-list { overflow-y: auto; }
+
+/* Resultados da busca não saem pela direita em telas médias. */
+@media (max-width: 900px) {
+  .ic-search .ic-results { left: auto; right: 0; min-width: 0; width: min(320px, calc(100vw - 24px)); }
+}
+
+/* Toque: alvos maiores. Vale para tablet/celular (até 1024 px), não para desktop com mouse. */
+@media (max-width: 1024px) and (pointer: coarse) {
+  :root { --titlebar-h: 38px; }
+  .titlebar { height: 38px; gap: 4px; padding: 0 5px; }
+  .qbtn { width: 32px; height: 32px; }
+  .app-h { width: 28px; height: 28px; font-size: 13px; }
+  .vsep { margin: 0 3px; }
+  .ic-search { height: 28px; }
+  .ic-input { font-size: 13px; }
+  .ribbon-tabs { height: 32px; }
+  .rtab { height: 28px; padding: 0 11px; font-size: 12.5px; }
+  .rtab.on { height: 32px; }
+  .rtab-min { width: 30px; height: 26px; font-size: 13px; }
+  .ribbon { height: 96px; }
+  .rb-small { height: 24px; }
+  .rb-small.rb-iconly { width: 26px; }
+  .rb-large { min-width: 48px; }
+  .rb-cols { padding-top: 2px; }
+  .fit-more { min-width: 32px; }
+  .rb-menuitem { min-height: 40px; padding: 8px 12px; }
+  .fit-tab { padding: 10px 14px; }
+  .fm-item { padding: 10px 14px; }
+  .ph-x { padding: 4px 8px; font-size: 14px; }
+}
+
+/* Celular em pé: título some (a vista ativa continua no menu Arquivo/abas), busca vira lupa. */
+@media (max-width: 700px) {
+  .tb-title { display: none; }
+  .titlebar { gap: 4px; padding: 0 4px; }
+  .infocenter { gap: 2px; }
+  .fm-back { inset: var(--titlebar-h, 32px) 0 0 0; }
+
+  .ic-search { width: 30px; height: 28px; padding: 0; justify-content: center; cursor: text; }
+  .ic-search > .ic-input { position: absolute; inset: 0; width: 100%; padding: 0; opacity: 0; cursor: text; }
+  .ic-search > svg { position: relative; z-index: 1; pointer-events: none; }
+  /* Ao focar, a busca ocupa a largura da barra por cima de tudo (sem empurrar os botões). */
+  .ic-search:focus-within { position: fixed; left: 6px; right: 6px; top: 4px; width: auto; height: 32px; z-index: 240; padding: 0 26px 0 0; background: var(--sheet); border-color: var(--accent); box-shadow: var(--shadow); }
+  .ic-search:focus-within > .ic-input { position: static; width: auto; flex: 1; opacity: 1; padding: 0 8px; }
+  .ic-search:focus-within > svg { position: absolute; right: 8px; top: 8px; }
+  .ic-search:focus-within .ic-results { left: 0; right: 0; top: 34px; max-height: 55dvh; overflow: auto; }
+
+  /* Popups de abas/painéis/controles viram folha na base: lista longa e alvo de 44 px. */
+  .fit-pop.tabs { left: 8px !important; right: 8px; top: auto !important; bottom: calc(8px + env(safe-area-inset-bottom)); width: auto; min-width: 0; max-height: 60dvh; padding: 4px 0; border-radius: 6px; }
+  .fit-pop.tabs .fit-tab { min-height: 44px; padding: 12px 16px; }
+  .fit-pop.panels { left: 8px !important; right: 8px; top: auto !important; bottom: calc(8px + env(safe-area-inset-bottom)); width: auto; max-width: none; max-height: 62dvh; overflow: auto; border-radius: 6px; }
+  .fit-pop.panels .rb-panel { width: 100%; border-right: 0; border-bottom: 1px solid var(--line); }
+  .fit-pop.panels .rb-panel:last-child { border-bottom: 0; }
+  .fit-pop.panels .rb-cols { flex-wrap: wrap; }
+  .fit-pop.vcb-pop { left: 8px !important; right: 8px; top: auto !important; bottom: calc(8px + env(safe-area-inset-bottom)); width: auto; min-width: 0; max-height: 60dvh; border-radius: 6px; }
+  .fit-pop.vcb-pop .vcb-btn, .fit-pop.vcb-pop .vcb-field { height: 40px; }
+  .fit-pop.qat-pop { max-width: none; width: 216px; }
+  .fit-pop.qat-pop .qbtn { width: 40px; height: 40px; }
+
+  .ic-help { min-width: 0; width: min(240px, calc(100vw - 16px)); }
+
+  /* Menu Arquivo: uma coluna; a lista de seções vira uma faixa rolável no topo. */
+  .fm { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); width: 100%; }
+  .fm-list { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 2px; padding: 4px 6px; overflow: hidden; border-right: 0; border-bottom: 1px solid var(--line-strong); }
+  .fm-list::-webkit-scrollbar { display: none; }
+  .fm-list hr { display: none; }
+  .fm-item { flex: none; padding: 9px 10px; font-size: 12.5px; white-space: nowrap; }
+  .fm-item.on { box-shadow: inset 0 -3px 0 var(--accent); }
+  .fm-pane { padding: 10px 12px; }
+  .fm-row > span:first-child { width: 90px; }
+  .fm-card { padding: 12px 14px; white-space: normal; }
+}
+
+@media (min-width: 701px) and (max-width: 900px) {
+  .fm { grid-template-columns: 180px minmax(0, 1fr); }
+  .fm-item { padding: 7px 12px; font-size: 12.5px; }
+}

@@ -35,6 +35,7 @@ export function ManageCadDialog(): ReactElement {
           Nenhum desenho CAD importado. Use <b>Importar DXF…</b> para inserir a primeira planta de referência.
         </p>
       ) : (
+        <div className="table-scroll">
         <table className="kbtable">
           <thead>
             <tr>
@@ -89,6 +90,7 @@ export function ManageCadDialog(): ReactElement {
             })}
           </tbody>
         </table>
+        </div>
       )}
       {cads.length > 0 ? (
         <p style={{ margin: '10px 0 0', fontSize: 11.5, color: 'var(--fg-soft)' }}>

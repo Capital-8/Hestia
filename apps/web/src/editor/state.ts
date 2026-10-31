@@ -81,6 +81,8 @@ export interface UiState {
   ribbon: RibbonTabId;
   /** Aba de antes da contextual: volta para ela quando a contextual some. */
   ribbonBack: RibbonTabId;
+  /** Faixa recolhida (só as abas). Em telas baixas/estreitas o corpo da faixa sai de cena; o botão na linha alterna. */
+  ribbonMin: boolean;
   /** Menu Arquivo aberto (aba Arquivo da faixa). */
   fileMenu: boolean;
   /**
@@ -132,6 +134,28 @@ export function setGridStep(step: number): void {
     // Armazenamento indisponível: o intervalo vale só nesta sessão.
   }
 }
+
+const RIBBON_MIN_KEY = 'hestia.ribbonMin';
+
+/**
+ * Faixa recolhida: guardada no navegador. Sem escolha anterior, começa recolhida em telas estreitas ou baixas
+ * (celular em pé e deitado), onde os 84 px do corpo da faixa pesam na área de desenho.
+ */
+function loadRibbonMin(): boolean {
+  const raw = safeGet(RIBBON_MIN_KEY);
+  if (raw === '1' || raw === '0') return raw === '1';
+  return typeof window !== 'undefined' && (window.innerWidth <= 700 || window.innerHeight <= 500);
+}
+
+/** Recolhe ou expande a faixa e guarda a escolha. */
+export function setRibbonMin(v: boolean): void {
+  useUi.setState({ ribbonMin: v });
+  safeSet(RIBBON_MIN_KEY, v ? '1' : '0');
+}
+
+/** Leitura pontual da largura (para ações fora do React); a versão reativa é `ui/useNarrow`. */
+export const telaEstreita = (): boolean =>
+  typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches;
 
 /** Altera capturas (em parte ou todas) e guarda no navegador para sobreviver ao recarregamento. */
 export function setSnap(patch: Partial<SnapOptions>): void {
@@ -318,6 +342,7 @@ export const useUi = create<UiState>(() => ({
   seen3d: false,
   ribbon: 'arquitetura',
   ribbonBack: 'arquitetura',
+  ribbonMin: loadRibbonMin(),
   fileMenu: false,
   openViews: DEFAULT_OPEN_VIEWS.map((v) => ({ ...v })),
 }));
@@ -343,6 +368,11 @@ useUi.subscribe((s, prev) => {
   if (!active) return;
   const next = addView(s.openViews, active);
   if (next !== s.openViews) useUi.setState({ openViews: next });
+  // Em tela estreita os painéis são gavetas: trocar de vista devolve a área de desenho (sem esconder o menu de abas).
+  if (telaEstreita()) {
+    const cur = useUi.getState();
+    if (cur.propsOpen || cur.browserOpen) useUi.setState({ propsOpen: false, browserOpen: false });
+  }
 });
 
 /** Escolhe, só para a sessão, a referência de uma ponta de cota (alça ou troca rápida). */

@@ -36,7 +36,9 @@ export function Dialog({ title, sub, onClose, children, footer, size = '', z, on
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const box = root.current;
     if (manage && box) {
-      const target = box.querySelector<HTMLElement>('[data-autofocus]') ?? focusable(box)[0];
+      // No toque, focar o primeiro botão (o ✕) desenha um anel de foco sem utilidade; o próprio diálogo recebe o foco.
+      const coarse = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+      const target = box.querySelector<HTMLElement>('[data-autofocus]') ?? (coarse ? box : focusable(box)[0]);
       target?.focus();
     }
     const h = (e: KeyboardEvent): void => {
@@ -83,7 +85,7 @@ export function Dialog({ title, sub, onClose, children, footer, size = '', z, on
   }, [manage]);
   return (
     <div className="overlay" style={z ? { zIndex: z } : undefined} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={root} className={`dialog ${size}`} role="dialog" aria-modal="true" aria-label={title}>
+      <div ref={root} className={`dialog ${size}`} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}>
         <div className="dhead">
           <h2>{title}</h2>
           {sub ? <span className="sub">{sub}</span> : null}

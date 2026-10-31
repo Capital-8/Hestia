@@ -32,6 +32,14 @@ export function OpeningTypeSections({ d, onChange, family, leaves, materials, ac
   const Panel = comp.Panel;
   return (
     <div className="op-comps">
+      <select
+        className="select op-nav-select"
+        aria-label={t.oc_list}
+        value={atual}
+        onChange={(e) => pick(e.target.value as OpeningComponentId)}
+      >
+        {visiveis.map((c) => <option key={c.id} value={c.id}>{t[c.labelKey]}</option>)}
+      </select>
       <nav className="op-nav" aria-label={t.oc_list}>
         {visiveis.map((c) => (
           <button

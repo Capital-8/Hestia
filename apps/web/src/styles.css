@@ -27,6 +27,8 @@
   --ro: #eceff2;
   --r: 3px;
   --ic-ink: #5b6369;
+  /* Altura da barra de título; o menu Arquivo começa abaixo dela. */
+  --titlebar-h: 32px;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
@@ -368,7 +370,7 @@ svg { display: block; }
 }
 
 /* ---- diálogos ---- */
-.overlay { position: fixed; inset: 0; background: rgba(10, 16, 20, 0.5); display: grid; place-items: center; z-index: 50; padding: 16px; }
+.overlay { position: fixed; inset: 0; background: rgba(10, 16, 20, 0.5); display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); place-items: center; z-index: 50; padding: 16px; }
 .dialog { background: var(--panel); border: 1px solid var(--line-strong); border-radius: 3px; box-shadow: var(--shadow); width: min(860px, 100%); max-height: min(660px, 100%); display: flex; flex-direction: column; min-height: 0; }
 .dialog.narrow { width: min(520px, 100%); }
 .dialog.mid { width: min(700px, 100%); }
@@ -461,6 +463,8 @@ svg { display: block; }
 /* Lista de componentes (estilo ArchiCAD) à esquerda e o painel do escolhido à direita. */
 .op-comps { display: grid; grid-template-columns: 148px minmax(0, 1fr); flex: 1; min-height: 0; }
 .op-nav { display: flex; flex-direction: column; overflow: auto; min-height: 0; padding: 4px 0; background: var(--chrome); border-right: 1px solid var(--line); }
+/* Alternativa à lista lateral no celular (ver media query no fim do arquivo). */
+.op-nav-select { display: none; }
 .op-nav-item { display: flex; align-items: center; gap: 7px; border: 0; border-left: 3px solid transparent; background: transparent; color: var(--fg); text-align: left; padding: 6px 8px; min-height: 28px; }
 .op-nav-item:hover { background: var(--accent-soft); }
 .op-nav-item.on { background: var(--accent-soft); border-left-color: var(--accent); color: var(--accent); font-weight: 500; }
@@ -716,3 +720,196 @@ svg { display: block; }
 .bnode[draggable="true"] { cursor: default; }
 .bnode.dragging { opacity: 0.5; cursor: grabbing; }
 .sheet-stage[data-drop] { box-shadow: inset 0 0 0 2px var(--accent); }
+
+/* ============================================================================
+   Responsivo: gavetas dos painéis, abas de vistas, diálogos e barras inferiores.
+   O desktop com mouse (> 1024 px) mantém o layout original; os blocos abaixo
+   entram por largura, altura ou ponteiro grosso (toque).
+   ============================================================================ */
+
+/* Rótulo da aba de vista com reticências, para a aba ativa não empurrar os controles. */
+.vtab-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vtab { min-width: 0; }
+
+/* Gaveta de painéis em tela estreita: fundo escurecido clicável (o dock em si fica em dock.css). */
+.dock-scrim { position: absolute; inset: 0; z-index: 19; background: rgba(10, 16, 20, 0.38); touch-action: none; }
+
+/* ---- diálogos em telas estreitas: tela cheia com cabeçalho/rodapé fixos e corpo rolável ---- */
+@supports (height: 100dvh) {
+  .dialog.wide { height: calc(100dvh - 32px); max-height: calc(100dvh - 32px); }
+}
+@media (max-width: 700px) {
+  .overlay { padding: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+  .dialog, .dialog.narrow, .dialog.mid, .dialog.wide, .dialog.xl {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    min-width: 0;
+    max-width: 100vw;
+    border: 0;
+    border-radius: 0;
+  }
+  .dhead { padding: 8px 10px; flex-wrap: nowrap; align-items: center; row-gap: 4px; }
+  .dhead h2 { flex: 0 1 auto; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+  .dhead .sub { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dialog:focus { outline: none; }
+  .dbody { padding: 10px; min-width: 0; overscroll-behavior: contain; }
+  .dfoot { padding: 8px 10px; flex-wrap: wrap; row-gap: 6px; }
+  .dtabs { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; }
+  .dtabs::-webkit-scrollbar { display: none; }
+  .dtab { flex: none; padding: 8px 12px; }
+  .split { grid-template-columns: minmax(0, 1fr); }
+  .field-row { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+  .adv-row { grid-template-columns: minmax(0, 1fr); }
+  .layers .input.num { width: 52px; }
+  .wsched-scroll, .strips-scroll, .matlist { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+  .wsched { min-width: 720px; }
+  .strips-table { min-width: 560px; }
+
+  /* Diálogo de tipo de abertura: biblioteca e componentes em faixa; prévia abaixo, com altura limitada. */
+  .op-head { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px 0; align-items: center; margin: 0; padding: 8px 10px; }
+  .op-head > * { min-width: 0; }
+  .op-head > span { display: none; }
+  .op-head .in, .op-head .select { width: 100%; }
+  .op-head .btns { grid-column: auto; justify-content: flex-start; }
+  .op-main, .op-main.lib-off { grid-template-columns: minmax(0, 1fr); overflow: auto; }
+  .op-comps { grid-template-columns: minmax(0, 1fr); }
+  /* No celular a lista de componentes vira uma lista suspensa: 12 itens em 4 linhas ocupariam meia tela. */
+  .op-nav { display: none; }
+  .op-nav-select { display: block; width: 100%; height: 34px; margin: 0 0 8px; }
+  .op-preview { border-left: 0; border-top: 1px solid var(--line-strong); max-height: 46dvh; }
+  .op-pv-box { min-height: 200px; }
+  .op-pv-box .rv-preview { min-height: 200px; }
+  .dialog.xl .op-section-frames { grid-template-columns: minmax(0, 1fr); min-height: 260px; }
+  .dialog.xl .op-frame-details { grid-template-columns: 1fr 1fr; grid-template-rows: none; }
+  .tdlg-bar { grid-template-columns: 62px minmax(0, 1fr); margin: -10px -10px 10px; padding: 8px 10px; }
+  .tdlg-bar.op-head { margin: 0; padding: 8px 10px; }
+  .type-head { grid-template-columns: minmax(0, 1fr); gap: 4px 0; }
+  .type-head > label { margin-top: 2px; }
+  .type-head > span { display: none; }
+  .type-head .in, .type-head .select { width: 100%; }
+  .type-head .btns { grid-column: auto; justify-content: flex-start; }
+  .tdlg-bar .btns { grid-column: 1 / -1; }
+  .tdlg-mid { margin: -10px; }
+}
+
+/* ---- abas de vistas no celular ---- */
+@media (max-width: 600px) {
+  .viewtabs { padding: 4px 4px 0; gap: 1px; }
+  .vtab { max-width: 45vw; padding: 6px 8px; font-size: 12.5px; }
+  .vtab-close { width: 24px; height: 24px; }
+  .vtab-controls { padding-left: 2px; }
+  .vtab-controls .ibtn { width: 30px; height: 30px; padding: 0; justify-content: center; }
+  .vtab-overflow-menu { position: fixed; left: 8px; right: 8px; top: auto; bottom: calc(8px + env(safe-area-inset-bottom)); width: auto; max-width: none; min-width: 0; max-height: 60dvh; border-radius: 6px; }
+  .vtab-overflow-item { min-height: 44px; padding: 12px 10px; font-size: 13px; }
+}
+
+/* ---- barras inferiores no celular: mensagem em uma linha e controles roláveis, sem sumir com nada ---- */
+.statusbar { padding-bottom: max(4px, env(safe-area-inset-bottom)); }
+.app { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+@media (max-width: 600px) {
+  .statusbar { flex-wrap: wrap; row-gap: 2px; column-gap: 6px; padding: 3px 6px max(3px, env(safe-area-inset-bottom)); min-height: 30px; }
+  .statusbar .msg { flex: 1 1 100%; white-space: nowrap; font-size: 11.5px; }
+  .statusbar .sb-snap { display: none; }
+  .issues-ok { display: none; }
+  .snap-anchor, .issues-anchor { margin-left: 0; }
+  .snap-btn, .issues-btn { min-height: 30px; }
+  /* O grupo Orto/Polar rola na horizontal em vez de ser escondido: o incremento continua acessível. */
+  .angle-group { flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; padding-bottom: 1px; }
+  .angle-group::-webkit-scrollbar { display: none; }
+}
+
+/* ---- toque em tablet/celular: alvos de 30-44 px, sem mexer no desktop com mouse ---- */
+@media (max-width: 1024px) and (pointer: coarse) {
+  .vtab { padding: 7px 10px; font-size: 13px; }
+  .vtab-close { width: 28px; height: 28px; font-size: 16px; }
+  .vtab-controls .ibtn { width: 32px; height: 32px; justify-content: center; padding: 0; }
+  .vtab-overflow-btn { padding: 7px 10px; }
+  .statusbar { min-height: 30px; }
+  .snap-btn, .issues-btn { min-height: 28px; padding: 4px 9px; }
+  .ic-hit { padding: 9px 10px; }
+  .issues-pop, .snap-pop { font-size: 13px; }
+  .ph-x { padding: 4px 8px; }
+}
+
+/* ---- componentes que usavam colunas fixas em estilo inline ---- */
+.mat-split { grid-template-columns: minmax(180px, 1fr) minmax(0, 1.4fr); }
+.dxf-cols { display: flex; gap: 16px; align-items: flex-start; }
+.dxf-list { flex: 1 1 55%; min-width: 320px; max-height: 380px; overflow: auto; }
+.dxf-options { flex: 1 1 45%; min-width: 260px; }
+.table-scroll { max-width: 100%; overflow: auto; overscroll-behavior-x: contain; }
+.rv-menu { max-height: min(430px, 60dvh); }
+
+@media (max-width: 900px) {
+  .mat-split { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 700px) {
+  .dxf-cols { flex-direction: column; }
+  .dxf-list, .dxf-options { flex: 1 1 auto; width: 100%; min-width: 0; }
+  .dxf-list { max-height: 45dvh; }
+}
+@media (max-width: 430px) {
+  .op-pv-actions { grid-template-columns: 1fr 1fr; }
+}
+
+/* ---- Unidades no celular: cada grandeza vira um bloco com os controles embaixo ---- */
+@media (max-width: 600px) {
+  .layers.units { display: block; }
+  .layers.units thead { display: none; }
+  .layers.units tbody, .layers.units tr, .layers.units td { display: block; width: 100%; }
+  .layers.units tr { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .layers.units td { padding: 2px 0; border: 0; }
+  .layers.units td:first-child { padding-bottom: 4px; font-weight: 600; }
+  .layers.units td:nth-child(2)::before { content: 'Unidade'; }
+  .layers.units td:nth-child(3)::before { content: 'Precisão'; }
+  .layers.units td:nth-child(4)::before { content: 'Suprimir zeros'; }
+  .layers.units td:nth-child(2)::before,
+  .layers.units td:nth-child(3)::before,
+  .layers.units td:nth-child(4)::before {
+    display: block;
+    margin: 4px 0 2px;
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--fg-faint);
+  }
+  .layers.units .select { width: 100%; height: 30px; }
+  .layers.units td:nth-child(4) input { width: 20px; height: 20px; }
+}
+
+/* ---- Camadas da parede no celular: cada camada vira um cartão (sem rolagem horizontal) ---- */
+@media (max-width: 600px) {
+  .layers.layers-cards { display: block; width: 100%; }
+  .layers.layers-cards thead { display: none; }
+  .layers.layers-cards tbody { display: block; }
+  .layers.layers-cards tr { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 4px 6px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .layers.layers-cards tr:has(> td[colspan]) { display: block; padding: 6px 0 2px; border-bottom: 0; }
+  .layers.layers-cards td { display: block; min-width: 0; padding: 0; border: 0; }
+  .layers.layers-cards td[colspan] { display: block; width: 100%; }
+  .layers.layers-cards td:nth-child(1) { grid-column: 1; grid-row: 1; align-self: center; }
+  .layers.layers-cards td:nth-child(2) { grid-column: 2; grid-row: 1; }
+  .layers.layers-cards td:nth-child(3) { grid-column: 1 / -1; grid-row: 2; }
+  .layers.layers-cards td:nth-child(4) { grid-column: 1 / 3; grid-row: 3; }
+  .layers.layers-cards.cols-6 td:nth-child(5) { grid-column: 3; grid-row: 3; display: flex; align-items: center; gap: 4px; }
+  .layers.layers-cards td:last-child { grid-column: 3; grid-row: 1; }
+  .layers.layers-cards td:nth-child(2) .select { width: 100%; }
+  .layers.layers-cards td:nth-child(4)::before { content: 'Esp.'; margin-right: 6px; font-size: 10.5px; color: var(--fg-faint); }
+  .layers.layers-cards.cols-6 td:nth-child(5)::before { content: 'Envolve'; font-size: 10.5px; color: var(--fg-faint); }
+  .layers.layers-cards td:last-child .iconrow { justify-content: flex-end; }
+  .layers.layers-cards .input.num { width: 64px; }
+}
+
+/* Tabelas largas (camadas, pesos, atalhos, categorias): rolam dentro da própria tabela,
+   sem empurrar o corpo do diálogo para a horizontal. */
+@media (max-width: 700px) {
+  .dialog .layers:not(.units):not(.layers-cards),
+  .dialog .kbtable,
+  .dialog .tbl {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+}

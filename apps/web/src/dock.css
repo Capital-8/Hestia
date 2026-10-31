@@ -30,3 +30,14 @@ body.dock-dragging, body.dock-dragging * { cursor: grabbing !important; }
 .dd-ghost-body { flex: 1; background: repeating-linear-gradient(var(--sheet) 0 20px, var(--panel) 20px 21px); }
 /* O painel de origem fica esmaecido enquanto é levado. */
 .dock-pane.dd-source { opacity: 0.4; }
+
+/* ---- tela estreita: os painéis viram gavetas sobre a área de desenho ----
+   As regras ficam aqui (depois de dock.css base) porque o CSS é importado nesta ordem: uma regra
+   em styles.css com a mesma especificidade perderia para `.dock { position: relative }` acima. */
+@media (max-width: 900px) {
+  .dock { position: absolute; z-index: 20; top: 0; bottom: 0; max-width: 86vw; box-shadow: 0 0 24px rgba(0, 0, 0, 0.28); }
+  .dock.left { left: 0; border-right: 1px solid var(--line-strong); }
+  .dock.right { right: 0; border-left: 1px solid var(--line-strong); }
+  /* A largura já é limitada pela tela; a alça de largura só atrapalharia o toque. */
+  .dock-split.v { display: none; }
+}

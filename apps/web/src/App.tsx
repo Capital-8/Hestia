@@ -17,6 +17,7 @@ import { Tutorial } from './ui/Tutorial.tsx';
 import { ViewControlBar } from './ui/ViewControlBar.tsx';
 import { ViewTabs } from './ui/ViewTabs.tsx';
 import { ViewportCanvas } from './ui/ViewportCanvas.tsx';
+import { useNarrow } from './ui/useNarrow.ts';
 import { SheetView } from './ui/SheetView.tsx';
 import { SheetDialog } from './ui/dialogs/SheetDialog.tsx';
 import { AddViewDialog } from './ui/dialogs/AddViewDialog.tsx';
@@ -178,6 +179,7 @@ export function App(): ReactElement {
   const widths = dockWidths(propsOpen, browserOpen, dock);
   const theme = useUi((s) => s.theme);
   const dialog = useUi((s) => s.dialog);
+  const narrow = useNarrow();
   // A caixa de texto não entra em `dialog` (DialogKind); as teclas ficam presas a ela enquanto estiver aberta.
   const caixaTextoAberta = useCaixaDeTextoAberta();
 
@@ -229,6 +231,9 @@ export function App(): ReactElement {
         <Dock side="left" />
         <Palco />
         <Dock side="right" />
+        {narrow && (propsOpen || browserOpen) && (
+          <div className="dock-scrim" aria-hidden="true" onPointerDown={() => useUi.setState({ propsOpen: false, browserOpen: false })} />
+        )}
       </div>
       <StatusBar />
       <Dialogs />

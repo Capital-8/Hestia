@@ -16,6 +16,7 @@ export function InfoCenter(): ReactElement {
   const [q, setQ] = useState('');
   const [helpOpen, setHelpOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLInputElement>(null);
   const found = useMemo(() => searchCommands(q, lang, ctx), [q, lang, ctx]);
 
   useEffect(() => {
@@ -40,8 +41,9 @@ export function InfoCenter(): ReactElement {
 
   return (
     <div ref={root} className="infocenter">
-      <div className="ic-search">
+      <div className="ic-search" onClick={() => input.current?.focus()}>
         <input
+          ref={input}
           className="ic-input"
           value={q}
           placeholder={pt ? 'Pesquisar comando' : 'Search commands'}

@@ -127,8 +127,8 @@ export function DxfExportDialog(): ReactElement {
       </div>
 
       {tab === 'documentos' ? (
-        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-          <div style={{ flex: '1 1 55%', minWidth: 320, maxHeight: 380, overflow: 'auto' }}>
+        <div className="dxf-cols">
+          <div className="dxf-list">
             {groups.map((row) => (
               <section key={row.group} style={{ marginBottom: 10 }}>
                 <h3 style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, margin: '4px 0' }}>
@@ -152,7 +152,7 @@ export function DxfExportDialog(): ReactElement {
             ))}
           </div>
 
-          <div style={{ flex: '1 1 45%', minWidth: 260 }}>
+          <div className="dxf-options">
             <h3 style={{ fontSize: 12, margin: '4px 0 6px' }}>Opções</h3>
             <label className="fm-field" style={{ display: 'block', marginBottom: 8 }}>
               Unidade

@@ -107,7 +107,7 @@ export function SlabTypeDialog({ typeId }: { typeId: string }): ReactElement | n
         </div>
         <div className="split">
           <div style={{ minWidth: 0 }}>
-            <table className="layers">
+            <table className="layers layers-cards cols-5">
               <thead>
                 <tr><th>#</th><th>Função</th><th>Material</th><th>Esp. (cm)</th><th /></tr>
               </thead>

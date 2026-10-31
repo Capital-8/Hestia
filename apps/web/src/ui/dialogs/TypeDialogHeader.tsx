@@ -28,7 +28,7 @@ export function TypeDialogHeader({ family, types, currentId, nameFieldId, onDupl
     }
   };
   return (
-    <div className="tdlg-bar">
+    <div className="tdlg-bar type-head">
       <label>Família:</label>
       <div className="in" title={family}>{family}</div>
       <span />

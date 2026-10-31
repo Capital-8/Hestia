@@ -117,7 +117,8 @@ export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | n
         {tab === 'estrutura' && (
           <div className="split">
             <div style={{ minWidth: 0 }}>
-              <table className="layers">
+              <div className="table-scroll">
+              <table className="layers layers-cards cols-6">
                 <thead>
                   <tr><th>#</th><th>Função</th><th>Material</th><th>Esp. (cm)</th><th title="Retorno no vão e nas extremidades">Envolve</th><th /></tr>
                 </thead>
@@ -168,6 +169,7 @@ export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | n
                   <tr><td colSpan={6} style={{ color: 'var(--fg-faint)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Face interna</td></tr>
                 </tbody>
               </table>
+              </div>
               <div className="total"><span>Espessura total</span><strong>{formatQuantity(units, 'smallLength', totalThickness(draft))}</strong></div>
               <button className="btn small" onClick={insert}>+ Inserir camada</button>
               <div className="field-row" style={{ marginTop: 10 }}>

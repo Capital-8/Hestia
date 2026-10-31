@@ -4,7 +4,7 @@ import { openingHasHinge } from '@hestia/tools';
 import { editor } from '../editor/controller.ts';
 import { useI18n } from '../editor/i18n.ts';
 import { perimeterActions, usePerimeter } from '../editor/perimeter.ts';
-import { useUi } from '../editor/state.ts';
+import { useUi, setRibbonMin } from '../editor/state.ts';
 import { Icon } from './Icon.tsx';
 import { txt, type RibbonTab, type RibbonTabId } from './ribbon/model.ts';
 import { PanelView } from './ribbon/parts.tsx';
@@ -65,6 +65,7 @@ export function Ribbon(): ReactElement {
   const ctx = useRibbonCtx();
   const ribbon = useUi((st) => st.ribbon);
   const ribbonBack = useUi((st) => st.ribbonBack);
+  const ribbonMin = useUi((st) => st.ribbonMin);
   const perim = usePerimeter();
   const pTab = useMemo(() => (perim.active ? perimeterTab(perim.target, perim.editing) : null), [perim.active, perim.target, perim.editing]);
   const ctxTab = useMemo(() => (pTab ? null : contextTab(ctx.tool, ctx.selection, ctx.p)), [pTab, ctx.tool, ctx.selection, ctx.p]);
@@ -80,7 +81,11 @@ export function Ribbon(): ReactElement {
 
   const activeId: RibbonTabId = ribbon === 'ctx' && !key ? ribbonBack : ribbon;
   const active: RibbonTab | undefined = activeId === 'ctx' ? ctxTab?.tab : TABS.find((tb) => tb.id === activeId);
-  const select = (id: RibbonTabId): void => useUi.setState({ ribbon: id });
+  // Escolher uma aba com a faixa recolhida abre o corpo (como no Revit): o toque na aba também revela os painéis.
+  const select = (id: RibbonTabId): void => {
+    useUi.setState({ ribbon: id });
+    if (ribbonMin) setRibbonMin(false);
+  };
 
   const panelItems = (): FitItem[] => {
     if (activeId !== 'ctx' || !pTab) {
@@ -142,16 +147,27 @@ export function Ribbon(): ReactElement {
             {txt(ctxLabel, lang)}
           </button>
         )}
+        <button
+          className={`rtab-min${ribbonMin ? ' min' : ''}`}
+          onClick={() => setRibbonMin(!ribbonMin)}
+          title={ribbonMin ? (lang === 'pt' ? 'Expandir a faixa' : 'Expand ribbon') : lang === 'pt' ? 'Recolher a faixa' : 'Minimize ribbon'}
+          aria-label={ribbonMin ? (lang === 'pt' ? 'Expandir a faixa' : 'Expand ribbon') : lang === 'pt' ? 'Recolher a faixa' : 'Minimize ribbon'}
+          aria-expanded={!ribbonMin}
+        >
+          {ribbonMin ? '▴' : '▾'}
+        </button>
       </nav>
-      <FitRow
-        className={`ribbon${activeId === 'ctx' ? ' ctx' : ''}`}
-        role="toolbar"
-        ariaLabel={lang === 'pt' ? 'Ferramentas' : 'Tools'}
-        items={panelItems()}
-        moreLabel={lang === 'pt' ? 'Mais painéis' : 'More panels'}
-        moreContent={PANELS_MORE}
-        popClass="panels"
-      />
+      {ribbonMin ? <div className="ribbon min" aria-hidden="true" /> : (
+        <FitRow
+          className={`ribbon${activeId === 'ctx' ? ' ctx' : ''}`}
+          role="toolbar"
+          ariaLabel={lang === 'pt' ? 'Ferramentas' : 'Tools'}
+          items={panelItems()}
+          moreLabel={lang === 'pt' ? 'Mais painéis' : 'More panels'}
+          moreContent={PANELS_MORE}
+          popClass="panels"
+        />
+      )}
     </>
   );
 }
