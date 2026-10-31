@@ -1,4 +1,5 @@
-import type { Id, Vec2 } from './types.ts';
+import type { Vec2 } from '@hestia/geom';
+import type { Id } from './types.ts';
 
 /**
  * CONTRATO do redesenho de cotas (docs/cotas/CONTRATO.md). Só tipos: as frentes B..G implementam contra eles.
