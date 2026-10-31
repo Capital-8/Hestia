@@ -31,8 +31,17 @@ npx vitest run packages/tools/src packages/model/src --testTimeout=120000
 npx vitest run apps/web/src --testTimeout=120000
 # 181 arquivos, 1509 testes, 1509 passando, 0 falhas
 
+npx vitest run packages apps/web tests --testTimeout=120000
+# 779 arquivos, 8581 testes, 8581 passando, 0 falhas
+
 npx tsc -p tsconfig.json --noEmit
 # limpo
+
+npm run lint
+# 0 erros (1 aviso pré-existente em OpeningFlipGrips.tsx, de outra frente)
+
+npm run build
+# ok (vite build, dist gerado)
 ```
 
 Novos testes de integração: `rampEdgeTool.test.ts` (Deslocar/Dividir/Mover em rampa), além dos testes das
