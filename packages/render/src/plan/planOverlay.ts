@@ -1,6 +1,6 @@
 import { orientedRect, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { frameOfWall, openingGeometry, resolveAngularDimension, resolveCeilings, wallEndCorners, type ResolvedLevel } from '@hestia/engine';
-import { angularDimensionGeometry, dimensionGeometry, dimensionPoints, dimensionText, DIM_TEXT_MM, isCad, isGeneric, isOpening, isWall, levelRoomSeparators, unitsOf, type Id, type Project } from '@hestia/model';
+import { dimensionStyleOf, angularDimensionGeometry, dimensionGeometry, dimensionPoints, dimensionText, DIM_TEXT_MM, isCad, isGeneric, isOpening, isWall, levelRoomSeparators, unitsOf, type Id, type Project } from '@hestia/model';
 import { floorSelectionOps } from './floors.ts';
 import { ALCA_PX, quadradoEm } from './marcadores.ts';
 import { slabSelectionOps } from './slabs.ts';
@@ -154,7 +154,7 @@ function anotacoesDaVista(input: PlanInput, escala: number): { annotations: Retu
 /** Junta o destaque das anotações (caixa, alça do texto e realce do hover) à sobreposição. */
 function comAnotacoes(out: PlanOps, input: PlanInput, escala: number, target: { selection: readonly Id[]; hover: Id | null }): void {
   const { annotations, scale } = anotacoesDaVista(input, escala);
-  const h = annotationHighlightOps(input.project, input.levelId, scale, { select: input.theme.select, paper: input.theme.bg, hoverColor: input.theme.selectHover }, target, annotations);
+  const h = annotationHighlightOps(input.project, input.levelId, scale, { select: input.theme.select, paper: input.theme.bg, hoverColor: input.theme.selectHover, dimStyle: dimensionStyleOf(input.project.settings) }, target, annotations);
   out.fills.push(...h.fills);
   out.strokes.push(...h.strokes);
   out.labels.push(...h.labels);

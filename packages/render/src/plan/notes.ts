@@ -1,13 +1,13 @@
-import { angularDimensionGeometry, dimensionGeometry, dimensionPoints, dimensionText, DIM_TEXT_MM, levelDimensions, levelRoomSeparators, levelTexts, planAnnotationsOf, planOwnsAnnotations, resolveViewProfile, unitsOf, type AreaPlan, type AreaPlanAnnotations, type Id, type Project, type TextNote } from '@hestia/model';
+import { angularDimensionGeometry, dimensionPoints, dimensionValue, DIM_TEXT_MM, formatDimension, levelDimensions, levelRoomSeparators, levelTexts, planAnnotationsOf, planOwnsAnnotations, resolveViewProfile, unitsOf, type AreaPlan, type AreaPlanAnnotations, type Dimension, type DimensionStyle, type Id, type Project, type TextNote } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 import type { Vec2 } from '@hestia/geom';
 import type { Viewport } from '../viewport.ts';
 import { quadradoEm } from './marcadores.ts';
 import { elementTagOps, noteLabel } from './tags.ts';
-import { dimensionLabelOps } from './dimLabels.ts';
+import { drawDimension, layoutDimensions, styleFormatOf, type DimItem } from './dimDraw.ts';
 import { espessuraDeCorte, espessuraDeProjecao, type PlanPaint } from './style.ts';
 import { espessuraVezes } from './espessura.ts';
-import { type Espessura, type FillOp, type LabelOp, type StrokeOp } from './types.ts';
+import { type FillOp, type LabelOp, type StrokeOp } from './types.ts';
 
 /** Cores e seleção para desenhar as anotações. */
 export interface NoteLook {
@@ -17,6 +17,10 @@ export interface NoteLook {
   hoverColor?: string;
   paper?: string;
   selection: Id[];
+  /** Estilo global de cotas (ausente usa o padrão). */
+  dimStyle?: DimensionStyle;
+  /** Cota sob o cursor: destacada inteira (linha, chamadas, marcadores e texto). */
+  hover?: Id | null;
 }
 
 /** Espessura relativa das linhas de separação selecionadas (um pouco maior que a normal, traço mantido). */
@@ -32,6 +36,8 @@ const MOLDURA_MM = 0.35;
 const SELECAO_MM = 0.8;
 /** Meio lado da alça quadrada do texto, em pixels de tela (o ponto de ancoragem é `text.at`). */
 const ALCA_TEXTO_PX = 4;
+/** Espessura das linhas da cota em destaque (hover/seleção) em relação à normal. */
+const DIM_ESTADO_FATOR = 1.5;
 /** Alfa do realce leve sob o cursor (o preenchimento não esconde o desenho de trás). */
 const HOVER_ALPHA = 0.12;
 
@@ -140,18 +146,30 @@ export interface NoteOps {
   labels: LabelOp[];
 }
 
-/** Marcas configuráveis no extremo da linha de cota, medidas em papel para preservar legibilidade. */
-function dimensionMarkStrokes(g: ReturnType<typeof dimensionGeometry>, style: 'slash' | 'arrow' | 'dot', mPerMm: number, color: string, esp: Espessura): StrokeOp[] {
-  if (style === 'slash') return g.ticks.map((pts): StrokeOp => ({ pts: [...pts], closed: false, ...esp, color, alpha: 1 }));
-  const a = g.line[0]; const b = g.line[1];
-  const dx = b.x - a.x; const dy = b.y - a.y; const length = Math.hypot(dx, dy) || 1;
-  const u = { x: dx / length, y: dy / length }; const n = { x: -u.y, y: u.x };
-  const r = (style === 'dot' ? 1.2 : 2.5) * mPerMm;
-  if (style === 'arrow') return [a, b].flatMap((tip, i) => {
-    const inward = i === 0 ? u : { x: -u.x, y: -u.y };
-    return [-1, 1].map((side): StrokeOp => ({ pts: [tip, { x: tip.x + inward.x * r + n.x * r * 0.45 * side, y: tip.y + inward.y * r + n.y * r * 0.45 * side }], closed: false, ...esp, color, alpha: 1 }));
-  });
-  return [a, b].map((center): StrokeOp => ({ pts: Array.from({ length: 16 }, (_, i) => ({ x: center.x + Math.cos(i * Math.PI / 8) * r, y: center.y + Math.sin(i * Math.PI / 8) * r })), closed: true, ...esp, color, alpha: 1 }));
+/**
+ * Itens de cota prontos para o desenho (pontos medidos ou geometria angular + texto formatado com o estilo): o MESMO
+ * caminho da planta, da planta de área, do corte e da elevação.
+ */
+export function dimensionItems(p: Project, levelId: Id, dims: readonly Dimension[], style?: DimensionStyle): DimItem[] {
+  const units = unitsOf(p);
+  const fmt = styleFormatOf(style);
+  const texto = (d: Dimension): string => {
+    const fixo = d.text?.trim();
+    return fixo ? fixo : formatDimension(d, dimensionValue(p, d), units, fmt);
+  };
+  const out: DimItem[] = [];
+  for (const d of dims) {
+    if (d.angular) {
+      const rd = resolveAngularDimension(p, levelId, d);
+      const ang = angularDimensionGeometry(rd);
+      if (!ang) continue;
+      out.push({ d, a: rd.a, b: rd.b, text: texto(rd), ang });
+      continue;
+    }
+    const { a, b } = dimensionPoints(p, d);
+    out.push({ d, a, b, text: texto(d) });
+  }
+  return out;
 }
 
 /**
@@ -182,7 +200,6 @@ export function noteOps(p: Project, levelId: Id, pt: PlanPaint, look: NoteLook, 
   if (!pt.visible) return out;
   const color = pt.color ?? look.ink;
   const picked = (id: Id): boolean => look.selection.includes(id);
-  const mPerMm = scale / 1000;
   const level = p.levels.find((x) => x.id === levelId);
   const dimensions = annotations ? annotations.dimensions : levelDimensions(p, levelId);
   const texts = annotations ? annotations.texts : levelTexts(p, levelId);
@@ -190,42 +207,18 @@ export function noteOps(p: Project, levelId: Id, pt: PlanPaint, look: NoteLook, 
   const detailRegions = annotations ? annotations.detailRegions : (level?.detailRegions ?? []);
   const corte = espessuraDeCorte(pt);
   const projecao = espessuraDeProjecao(pt);
-  // Trechos curtos (valor maior que o trecho) saem com rótulo afastado; `lane` alterna as alturas entre vizinhos.
-  let lane = 0;
-  for (const d of dimensions) {
-    const textMm = d.textHeight ?? DIM_TEXT_MM;
-    const c = picked(d.id) ? look.select : color;
-    if (d.angular) {
-      const rd = resolveAngularDimension(p, levelId, d);
-      const g = angularDimensionGeometry(rd);
-      if (!g) continue;
-      out.strokes.push({ pts: g.arc, closed: false, ...corte, color: c, alpha: 1 });
-      for (const seg of g.extensions) out.strokes.push({ pts: [...seg], closed: false, ...projecao, color: c, alpha: 1 });
-      for (const seg of g.ticks) out.strokes.push({ pts: [...seg], closed: false, ...corte, color: c, alpha: 1 });
-      const label = noteLabel(g.textAt, dimensionText(p, rd, unitsOf(p)), textMm, scale, g.textRotation);
-      const bloco = textBlockModel({ text: label.text, height: textMm }, scale);
-      label.maskBoundary = blocoEm(g.textAt, bloco.w, bloco.h, g.textRotation, 0.45 * mPerMm);
-      label.maskColor = look.paper ?? '#fbfbfa';
-      label.maskBorderColor = 'none';
-      out.labels.push({ ...label, ...(picked(d.id) ? { color: c } : {}) });
-      continue;
-    }
-    const { a, b } = dimensionPoints(p, d);
-    const base = dimensionGeometry(a, b, d.offset, mPerMm, textMm);
-    const g = d.textAt ? dimensionGeometry(a, b, d.offset, mPerMm, textMm, d.textAt) : base;
-    for (const seg of [g.line, ...g.extensions]) out.strokes.push({ pts: [...seg], closed: false, ...corte, color: c, alpha: 1 });
-    out.strokes.push(...dimensionMarkStrokes(g, d.tickStyle ?? 'slash', mPerMm, c, corte));
-    if (d.textAt && Math.hypot(d.textAt.x - base.textAt.x, d.textAt.y - base.textAt.y) > 0.002) out.strokes.push({ pts: [{ x: (g.line[0].x + g.line[1].x) / 2, y: (g.line[0].y + g.line[1].y) / 2 }, d.textAt], closed: false, ...projecao, color: c, alpha: 1 });
-    const lab = dimensionLabelOps(g, d.offset, dimensionText(p, d, unitsOf(p)), textMm, scale, mPerMm, lane, c, corte, v);
-    if (lab.short) lane++;
-    out.labels.push(...lab.labels);
-    for (const label of lab.labels) {
-      const bloco = textBlockModel({ text: label.text, height: textMm }, scale);
-      label.maskBoundary = blocoEm(label.at, bloco.w, bloco.h, label.rotation ?? 0, 0.45 * mPerMm);
-      label.maskColor = look.paper ?? '#fbfbfa';
-      label.maskBorderColor = 'none';
-    }
-    out.strokes.push(...lab.strokes);
+  // Disposição das cotas da vista: o texto que não cabe sai com linha de chamada e os rótulos não se sobrepõem.
+  const layouts = layoutDimensions(dimensionItems(p, levelId, dimensions, look.dimStyle), { scale, style: look.dimStyle, v });
+  for (const l of layouts) {
+    const id = l.item.d.id;
+    const sel = picked(id);
+    const hov = !sel && look.hover === id;
+    const estado = sel || hov;
+    const c = sel ? look.select : hov ? (look.hoverColor ?? look.select) : color;
+    const d = drawDimension(l, scale, { color: c, fina: projecao, marcador: corte, paper: look.paper ?? '#fbfbfa', fator: estado ? DIM_ESTADO_FATOR : 1 });
+    out.fills.push(...d.fills);
+    out.strokes.push(...d.strokes);
+    out.labels.push(...d.labels);
   }
   for (const t of texts) {
     const selecionado = picked(t.id);
@@ -296,9 +289,10 @@ export function annotationHighlightOps(
   p: Project,
   levelId: Id,
   scale: number,
-  look: Pick<NoteLook, 'select' | 'paper' | 'hoverColor'>,
+  look: Pick<NoteLook, 'select' | 'paper' | 'hoverColor' | 'dimStyle'>,
   target: NoteTarget,
   annotations?: AreaPlanAnnotations,
+  v?: Viewport,
 ): NoteOps {
   const out: NoteOps = { fills: [], strokes: [], labels: [] };
   const selected = new Set(target.selection ?? []);
@@ -323,24 +317,22 @@ export function annotationHighlightOps(
     out.fills.push({ ...q.fill, color: '#ffffff', alpha: 1 });
     out.strokes.push({ ...q.traco, widthPx: 1.5, color: look.select, alpha: 1 });
   }
-  // Cotas: o hover cerca o valor (a seleção já muda a cor da cota em `noteOps`).
-  for (const d of a.dimensions) {
-    if (hover !== d.id || selected.has(d.id)) continue;
-    const textMm = d.textHeight ?? DIM_TEXT_MM;
-    if (d.angular) {
-      const rd = resolveAngularDimension(p, levelId, d);
-      const g = angularDimensionGeometry(rd);
-      if (!g) continue;
-      const bloco = textBlockModel({ text: dimensionText(p, rd, unitsOf(p)), height: textMm }, scale);
-      out.fills.push({ polygons: [[blocoEm(g.textAt, bloco.w, bloco.h, g.textRotation, folga)]], color: hoverColor, alpha: HOVER_ALPHA });
-      out.strokes.push({ pts: blocoEm(g.textAt, bloco.w, bloco.h, g.textRotation, folga), closed: true, widthPx: 1.2, color: hoverColor, alpha: 0.7 });
-      continue;
+  // Cotas: o hover destaca a cota INTEIRA (linha, chamadas, marcadores e texto) na cor de realce, mais grossa, e cerca o
+  // valor com o realce leve; a cota selecionada já sai na cor de seleção em `noteOps`. A disposição é a de `noteOps`.
+  if (a.dimensions.some((d) => hover === d.id && !selected.has(d.id))) {
+    const layouts = layoutDimensions(dimensionItems(p, levelId, a.dimensions, look.dimStyle), { scale, style: look.dimStyle, v });
+    const fina = { widthPx: 1.1 };
+    const marcador = { widthPx: 1.6 };
+    for (const l of layouts) {
+      if (hover !== l.item.d.id || selected.has(l.item.d.id)) continue;
+      const d = drawDimension(l, scale, { color: hoverColor, fina, marcador, paper: look.paper ?? '#fbfbfa', fator: DIM_ESTADO_FATOR });
+      out.fills.push(...d.fills);
+      out.strokes.push(...d.strokes);
+      out.labels.push(...d.labels);
+      const bloco = blocoEm(l.textAt, l.w, l.h, l.rotation, folga);
+      out.fills.push({ polygons: [[bloco]], color: hoverColor, alpha: HOVER_ALPHA });
+      out.strokes.push({ pts: bloco, closed: true, widthPx: 1.2, color: hoverColor, alpha: 0.7 });
     }
-    const { a: pa, b: pb } = dimensionPoints(p, d);
-    const g = dimensionGeometry(pa, pb, d.offset, mPerMm, textMm, d.textAt);
-    const bloco = textBlockModel({ text: dimensionText(p, d, unitsOf(p)), height: textMm }, scale);
-    out.fills.push({ polygons: [[blocoEm(g.textAt, bloco.w, bloco.h, g.textRotation, folga)]], color: hoverColor, alpha: HOVER_ALPHA });
-    out.strokes.push({ pts: blocoEm(g.textAt, bloco.w, bloco.h, g.textRotation, folga), closed: true, widthPx: 1.2, color: hoverColor, alpha: 0.7 });
   }
   return out;
 }

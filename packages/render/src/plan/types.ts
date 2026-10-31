@@ -95,6 +95,8 @@ export interface LabelOp {
   rotation?: number;
   center?: boolean;
   widthPx?: number;
+  /** Família da fonte do texto de anotação (estilo de cotas); ausente usa a do CSS. */
+  fontFamily?: string;
   /**
    * Quebra de linha do texto de tela: `'pre-wrap'` preserva as quebras de `\n` do texto e a quebra por `widthPx`; ausente
    * mantém o comportamento antigo (uma linha). O render de tela (PlanLabels) o aplica no estilo do rótulo.

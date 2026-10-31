@@ -1,4 +1,4 @@
-import type { AreaPlanAnnotations, Dimension, Id, Project, SectionAnnotations } from '@hestia/model';
+import { dimensionStyleOf, type AreaPlanAnnotations, type Dimension, type DimensionStyle, type Id, type Project, type SectionAnnotations } from '@hestia/model';
 import { noteOps, type NoteOps } from '../plan/notes.ts';
 import { defaultPaint, type PlanPaint } from '../plan/style.ts';
 import type { SectionInput } from './build.ts';
@@ -10,8 +10,9 @@ import type { SectionInput } from './build.ts';
  * (não são coordenadas `(x,y)` da planta). Por isso as anotações da seção NÃO podem cair no desenho da planta: elas só
  * entram aqui, a partir de `SectionInput.annotations`.
  *
- * Todas as medidas de papel (folga da cota, corpo do texto, marcas) usam a escala fixa `100`: o corte não tem escala de
- * vista própria e as anotações precisam de um desenho estável, independente do zoom/pan. As unidades do valor continuam
+ * Todas as medidas de papel (folga da cota, corpo do texto, marcas) usam a escala da vista quando informada em
+ * `SectionAnnotationOptions.scale`; a vista de corte ainda não guarda escala própria, então o padrão continua `100`
+ * (desenho estável, independente do zoom/pan). As unidades do valor continuam
  * vindo do projeto (por `noteOps`).
  */
 export const SECTION_ANNOTATION_SCALE = 100;
@@ -75,7 +76,19 @@ function sectionDimensions(list: readonly Dimension[] | undefined): Dimension[] 
  * anotações é interpretado como `(t,z)`: distância ao longo do corte e cota. Só usa `input.annotations` — nunca as
  * cotas/textos/etiquetas do nível — e devolve ops vazias quando não há anotação nenhuma.
  */
-export function sectionAnnotationOps(input: SectionInput): NoteOps {
+/** Opções do desenho das anotações do corte/elevação. */
+export interface SectionAnnotationOptions {
+  /** Escala de impressão (1:n) da vista; ausente usa `SECTION_ANNOTATION_SCALE`. */
+  scale?: number;
+  /** Estilo de cotas; ausente usa o do projeto (`dimensionStyleOf(settings)`). */
+  style?: DimensionStyle;
+  /** Cota sob o cursor (ausente usa `input.highlight.hover`). */
+  hoverId?: Id | null;
+  /** Anotações selecionadas (ausente usa `input.highlight.selection`). */
+  selectedIds?: readonly Id[];
+}
+
+export function sectionAnnotationOps(input: SectionInput, opts: SectionAnnotationOptions = {}): NoteOps {
   const empty: NoteOps = { fills: [], strokes: [], labels: [] };
   const annotations = input.annotations;
   if (!hasSectionAnnotations(annotations)) return empty;
@@ -102,11 +115,14 @@ export function sectionAnnotationOps(input: SectionInput): NoteOps {
   const look = {
     ink: input.theme.ink,
     select: input.theme.select,
+    hoverColor: input.theme.selectHover,
     paper: input.theme.bg,
-    selection: input.highlight?.selection ?? [],
+    selection: [...(opts.selectedIds ?? input.highlight?.selection ?? [])],
+    hover: opts.hoverId === undefined ? (input.highlight?.hover ?? null) : opts.hoverId,
+    dimStyle: opts.style ?? dimensionStyleOf(input.project.settings),
   };
   // `annotations` sempre definido: além de substituir as do nível, impede as linhas de separação de ambiente (que são da
   // planta) de entrarem no corte. Sem nível de referência (projeto sem níveis), as cotas/textos/detalhes ainda saem;
   // só as etiquetas ficam de fora, porque dependem do nível para serem encontradas.
-  return noteOps(p, levelId ?? '', paint, look, SECTION_ANNOTATION_SCALE, input.viewport, notes);
+  return noteOps(p, levelId ?? '', paint, look, opts.scale && opts.scale > 0 ? opts.scale : SECTION_ANNOTATION_SCALE, input.viewport, notes);
 }
