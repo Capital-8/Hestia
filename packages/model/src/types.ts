@@ -1,4 +1,5 @@
 /* eslint-disable max-lines */
+import type { DimensionStyle } from './dimensionContract.ts';
 import type { Vec2 } from '@hestia/geom';
 import type { Stair, StairType } from './stairTypes.ts';
 import type { Ramp, RampType } from './rampTypes.ts';
@@ -681,6 +682,8 @@ export interface ProjectSettings {
   showOpeningTags?: boolean;
   /** Referências das cotas dinâmicas (ausente = padrões de `dimensionSettingsOf`). */
   dimensions?: DimensionSettings;
+  /** Estilo GLOBAL das cotas (ausente = DEFAULT_DIMENSION_STYLE; campos ausentes caem no padrão). */
+  dimensionStyle?: Partial<DimensionStyle>;
   /** Unidades do projeto (ausente = padrões de `defaultUnits()`). */
   units?: UnitsSettings;
 }
