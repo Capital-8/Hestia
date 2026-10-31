@@ -14,6 +14,7 @@ import { EPS_T, lineIntervals, prismProjection, rect, sectionFrame, slabQuad, ty
 import { resolveStairsOnLevel } from './stairs.ts';
 import { sectionOfStairs } from './sectionStairs.ts';
 import { resolveRampsOnLevel } from './ramps.ts';
+import type { SectionSnapRing } from './sectionSnapRings.ts';
 import { sectionOfRamps } from './sectionRamps.ts';
 import { OCCLUSION_RANK, visibleParts, type OcclusionItem } from './sectionOcclusion.ts';
 import { uniqueOrigins, type SectionPart } from './sectionParts.ts';
@@ -128,6 +129,8 @@ export interface SectionResult {
   /** Membranas de piso e laje cortadas pelo plano: linha na cota da face (decisão 0023 §5). */
   membranes: SectionMembrane[];
   levels: SectionLevelMark[];
+  /** Aneis (t, z) de degraus, espelhos, patamares e rampas antes da uniao/envoltoria; so captura (snap). Ausente sem escada/rampa. */
+  snapRings?: SectionSnapRing[];
 }
 
 /**
@@ -165,6 +168,7 @@ export function computeSection(p: Project, line: SectionLine, levelIds: Id[] = p
   };
   // Além e vãos ainda sem oclusão (projeção completa): a oclusão e a parte visível vêm no fim.
   const beyond: SectionBeyond[] = [];
+  const snapRings: SectionSnapRing[] = [];
   const membranes: SectionMembrane[] = []; const frame = { line, length, d, n };
   const openings: SectionOpening[] = [];
   let zMin = Infinity;
@@ -270,11 +274,13 @@ export function computeSection(p: Project, line: SectionLine, levelIds: Id[] = p
     const sk = sectionOfStairs(resolveStairsOnLevel(p, levelId), line, p);
     for (const c of sk.cut) addCut(c.materialId, c.polygon, { stairId: c.stairId });
     beyond.push(...sk.beyond);
+    snapRings.push(...sk.snapRings);
     grow(sk.zMin, sk.zMax);
     // Rampas da rampa §4.3: mesma leitura das escadas monolíticas, com `rampId` na origem.
     const rk = sectionOfRamps(resolveRampsOnLevel(p, levelId), line, p);
     for (const c of rk.cut) addCut(c.materialId, c.polygon, { rampId: c.rampId });
     beyond.push(...rk.beyond);
+    snapRings.push(...rk.snapRings);
     grow(rk.zMin, rk.zMax);
     for (const w of wallsOnLevel(p, levelId)) {
       const rw = resolved.walls[w.id];
@@ -390,7 +396,7 @@ export function computeSection(p: Project, line: SectionLine, levelIds: Id[] = p
   const silhouette = unionClipper(...cut.map((c) => c.polygons), ...beyondVisible.map((b) => b.polygons));
   const levels = p.levels.map((l) => ({ levelId: l.id, name: l.name, z: l.elevation }));
   if (!isFinite(zMin)) return { ...empty, levels };
-  return { length, zMin, zMax, cut, silhouette, beyond: beyondVisible, openings: openingsVisible, membranes, levels };
+  return { length, zMin, zMax, cut, silhouette, beyond: beyondVisible, openings: openingsVisible, membranes, levels, ...(snapRings.length > 0 ? { snapRings } : {}) };
 }
 
 /** Telhado no corte (D3): quadriláteros da linha de corte por material e, além do plano, as faixas por camada. */

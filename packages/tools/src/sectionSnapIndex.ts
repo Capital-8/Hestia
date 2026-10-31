@@ -165,6 +165,8 @@ export function buildSectionSnapIndex(section: SectionResult): SectionSnapIndex 
   }
   // Além do plano: elevação visível de paredes, pisos, lajes, telhados, escadas e rampas.
   for (const item of section.beyond) addPolygons(draft, item.polygons, sectionOriginId(item));
+  // Escadas e rampas: aneis de degraus, espelhos, patamares e pecas antes da uniao/envoltoria (vertices concavos).
+  for (const sr of section.snapRings ?? []) addRing(draft, sr.ring, sr.hostId);
   // Vãos: a caixa (peitoril, topo e ombreiras) e as peças visíveis da esquadria.
   for (const opening of section.openings) {
     const box = [

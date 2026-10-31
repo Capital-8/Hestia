@@ -125,3 +125,17 @@ describe('desempenho do rastreamento na seção', () => {
     expect(big.ms / small.ms).toBeLessThan(25);
   });
 });
+
+describe('índice de captura: escada e rampa', () => {
+  it('anéis de degraus entram com hostId da escada, inclusive vértices côncavos', () => {
+    const treads = [v(0, 0), v(1, 0), v(1, 0.2), v(0, 0.2)];
+    const riser = [v(1, 0.2), v(2, 0.2), v(2, 0.4), v(1, 0.4)];
+    const section = emptySection({ snapRings: [{ hostId: 'st1', ring: treads }, { hostId: 'st1', ring: riser }] });
+    const index = buildSectionSnapIndex(section);
+    const host = index.byHost.get('st1')!;
+    expect(host.points.some((p) => p.kind === 'endpoint' && p.x === 1 && p.y === 0.2)).toBe(true);
+    expect(host.points.some((p) => p.kind === 'endpoint' && p.x === 2 && p.y === 0.4)).toBe(true);
+    expect(host.segments.some((e) => e.a.x === 1 && e.b.x === 2 && e.a.y === 0.2)).toBe(true);
+    expect(host.points.some((p) => p.kind === 'midpoint' && p.x === 1.5 && p.y === 0.2)).toBe(true);
+  });
+});

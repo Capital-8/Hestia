@@ -4,6 +4,7 @@ import { planeZ, rampBody, type RampBodyPiece } from './rampBody.ts';
 import type { ResolvedRamp } from './ramps.ts';
 import type { SectionBeyond } from './section.ts';
 import { EPS_T, lineIntervals, sectionFrame, type SectionLine } from './sectionGeom.ts';
+import { prismSnapRings, type SectionSnapRing } from './sectionSnapRings.ts';
 import { convexHull } from './sectionStairs.ts';
 
 /**
@@ -15,6 +16,8 @@ export interface RampSection {
   /** Corte por rampa: material do tipo e a rampa de origem (`rampId`). */
   cut: Array<{ materialId: Id; polygon: Polygon; rampId: Id }>;
   beyond: SectionBeyond[];
+  /** Aneis (t, z) antes da envoltoria, so para captura (snap). */
+  snapRings: SectionSnapRing[];
   /** Cotas extremas (Infinity/−Infinity sem rampa na linha). */
   zMin: number;
   zMax: number;
@@ -26,7 +29,7 @@ const bottomAt = (piece: RampBodyPiece, v: Vec2): number => planeZ(piece.bottom,
 
 /** Corte e projeção das rampas do nível para a linha de corte (ou de elevação, com `depth` grande). */
 export function sectionOfRamps(ramps: ResolvedRamp[], line: SectionLine, _p: Project): RampSection {
-  const out: RampSection = { cut: [], beyond: [], zMin: Infinity, zMax: -Infinity };
+  const out: RampSection = { cut: [], beyond: [], snapRings: [], zMin: Infinity, zMax: -Infinity };
   const { length, d, n, slab } = sectionFrame(line);
   if (length < 1e-6 || ramps.length === 0) return out;
   const along = (v: Vec2): number => (v.x - line.a.x) * d.x + (v.y - line.a.y) * d.y;
@@ -55,6 +58,7 @@ export function sectionOfRamps(ramps: ResolvedRamp[], line: SectionLine, _p: Pro
           { x: lo, y: u0 },
         ];
         out.cut.push({ materialId, polygon: [ring], rampId: rr.id });
+        out.snapRings.push({ hostId: rr.id, ring });
         grow(Math.min(b0, b1, u0, u1), Math.max(b0, b1, u0, u1));
       }
       for (const sp of intersection([[piece.polygon]], slab)) {
@@ -70,6 +74,7 @@ export function sectionOfRamps(ramps: ResolvedRamp[], line: SectionLine, _p: Pro
         ]);
         const hull = convexHull(pts);
         if (hull.length < 3) continue;
+        out.snapRings.push(...prismSnapRings(rr.id, outer, along, (v) => topAt(piece, v), (v) => bottomAt(piece, v)));
         out.beyond.push({
           rampId: rr.id,
           materialId,
