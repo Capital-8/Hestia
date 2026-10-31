@@ -4,6 +4,7 @@ import { formatQuantity, isWall, unitsOf, type Id, type ResolvedUnits } from '@h
 import { ToolBase } from './base.ts';
 import { copyWalls, ghostBands, moveWalls } from './edit.ts';
 import { commitRingEdit, edgeAtCursor, ringOfRef } from './ringTarget.ts';
+import { COMPONENT_EDGE_MSG, componentUnderCursor } from './componentTarget.ts';
 import { ringOps } from './ringOps.ts';
 import type { EdgePick } from './ringEdge.ts';
 import type { PointerInfo } from './types.ts';
@@ -14,7 +15,7 @@ const fmtM = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length'
 export class OffsetTool extends ToolBase {
   readonly id = 'offset';
   readonly label = 'Deslocar';
-  readonly hint = 'Deslocar: passe sobre uma parede ou aresta de piso, laje, telhado ou forro e clique para o lado desejado. A distância está na barra de opções.';
+  readonly hint = 'Deslocar: passe sobre uma parede ou aresta de piso, laje, telhado ou forro e clique para o lado desejado. A distância está na barra de opções. Escada/rampa: use Editar croqui.';
 
   protected reset(): void {
     this.items = [];
@@ -39,7 +40,7 @@ export class OffsetTool extends ToolBase {
 
   private target(p: Vec2): { id: Id; d: Vec2; arc: { a: Vec2; b: Vec2; sag: number } | null } | null {
     const pr = this.env.project();
-    let best: { id: Id; dist: number; n: Vec2; side: number } | null = null;
+    let best: { id: Id; dist: number; half: number; n: Vec2; side: number } | null = null;
     for (const e of Object.values(pr.elements)) {
       if (!isWall(e) || e.levelId !== this.env.levelId()) continue;
       const f = frameOfWall(pr, e.id);
@@ -48,9 +49,10 @@ export class OffsetTool extends ToolBase {
       if (l.t < 0 || l.t > f.length) continue;
       const dd = Math.abs(l.s - f.sMid);
       const n = f.arc ? normalAt(f, l.t) : f.n;
-      if (!best || dd < best.dist) best = { id: e.id, dist: dd, n, side: l.s - f.sMid };
+      if (!best || dd < best.dist) best = { id: e.id, dist: dd, half: f.thickness / 2, n, side: l.s - f.sMid };
     }
-    if (!best || best.dist > 5) return null;
+    // Tolerância de cursor (5 px), não de projeto: o clique numa escada não pode pegar uma parede a metros daqui.
+    if (!best || best.dist > best.half + 5 * this.env.metersPerPixel()) return null;
     const dist0 = this.env.options().offsetDistance;
     const sign = best.side >= 0 ? 1 : -1;
     const w = pr.elements[best.id];
@@ -61,6 +63,12 @@ export class OffsetTool extends ToolBase {
   override move(p: PointerInfo): void {
     this.items = [];
     this.raw = p.raw;
+    const comp = componentUnderCursor(this.env, p.raw);
+    if (comp) {
+      // Não cai no deslocamento de parede: a escada/rampa é do croqui.
+      this.items.push({ kind: 'highlight', ids: [comp.id] });
+      return;
+    }
     const edge = edgeAtCursor(this.env, p.raw);
     if (edge) {
       const off = this.edgeOffset(edge, p.raw);
@@ -80,6 +88,10 @@ export class OffsetTool extends ToolBase {
   }
 
   override click(p: PointerInfo): void {
+    if (componentUnderCursor(this.env, p.raw)) {
+      this.env.say(COMPONENT_EDGE_MSG);
+      return;
+    }
     const edge = edgeAtCursor(this.env, p.raw);
     if (edge) {
       if (this.env.options().offsetCopy) {
