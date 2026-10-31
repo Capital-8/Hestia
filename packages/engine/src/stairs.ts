@@ -71,6 +71,11 @@ export interface ResolvedStair {
   footprint: MultiPolygon;
   /** Erros de croqui e de geometria, mais os avisos de norma. */
   issues: StairIssueItem[];
+  /**
+   * Caixa do croqui em planta (mesmo sem degraus, ex.: topo não acima da base). Mantém a escada visível e selecionável
+   * na planta e no 3D quando o motor não gera geometria.
+   */
+  sketchBounds?: { minX: number; minY: number; maxX: number; maxY: number };
   /** Caracol (decisão 0014): presente quando um lance tem os parâmetros `spiral`; ausente nos demais. */
   spiral?: ResolvedSpiral;
 }
@@ -150,6 +155,15 @@ function resolveOne(p: Project, s: Stair): ResolvedStair | null {
     }
   });
   const footprint: MultiPolygon = steps.length ? union(...steps.map((st) => asMulti(st.polygon))) : [];
+  // Caixa do croqui: serve de fallback visual quando não há degraus (topo <= base), para a escada não sumir da tela.
+  const pts: Vec2[] = [];
+  for (const c of s.components) {
+    const curves = c.kind === 'landing' ? c.boundary : [...c.boundaryLeft, ...c.boundaryRight, ...c.risers, ...c.path];
+    for (const k of curves) pts.push(k.a, k.b);
+  }
+  const sketchBounds = pts.length > 0
+    ? { minX: Math.min(...pts.map((q) => q.x)), minY: Math.min(...pts.map((q) => q.y)), maxX: Math.max(...pts.map((q) => q.x)), maxY: Math.max(...pts.map((q) => q.y)) }
+    : undefined;
   const rs: ResolvedStair = {
     id: s.id,
     levelId: s.levelId,
@@ -164,6 +178,7 @@ function resolveOne(p: Project, s: Stair): ResolvedStair | null {
     risers,
     footprint,
     issues,
+    ...(sketchBounds ? { sketchBounds } : {}),
   };
   rs.issues.push(...stairNormIssues(rs, DEFAULT_STAIR_NORMS));
   const spiralIndex = s.components.findIndex((c) => c.kind === 'run' && spiralParamsOf(c) !== undefined);

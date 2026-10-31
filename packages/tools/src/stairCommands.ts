@@ -1,5 +1,5 @@
 import type { Vec2 } from '@hestia/geom';
-import { isStair, defaultStairTypeId, makeStair, newId, stairBaseZ, stairTopZ, unitsOf, type Id, type Project, type Stair, type StairGenerator, type StairLanding, type StairRun } from '@hestia/model';
+import { isStair, defaultStairTypeId, levelAbove, makeStair, newId, stairBaseZ, stairTopZ, unitsOf, type Id, type Project, type Stair, type StairGenerator, type StairLanding, type StairRun } from '@hestia/model';
 import type { ToolEnv } from './types.ts';
 import { analyzeDraft, partsFromComponents, type DraftReport, type StairLimits } from './stairSketchState.ts';
 
@@ -44,7 +44,7 @@ export function draftStair(p: Project, opts: StairCreateOptions, levelId: Id): S
       id: 'draft',
       typeId,
       levelId,
-      topLevelId: opts.topLevelId ?? null,
+      topLevelId: opts.topLevelId ?? levelAbove(p, levelId)?.id ?? null,
       baseOffset: opts.baseOffset ?? 0,
       topOffset: opts.topOffset ?? 0,
       height: opts.height ?? 2.8,

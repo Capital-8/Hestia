@@ -1,4 +1,5 @@
 import { levelElevation } from './queries.ts';
+import { stairFitPatch } from './stairFit.ts';
 import { isCad, type CadDrawing } from './cad.ts';
 import { isCeiling, isFloor, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Ceiling, type Element, type Floor, type Id, type Project, type Ramp, type Roof, type Room, type Slab, type Stair, type Wall } from './types.ts';
 
@@ -48,5 +49,12 @@ export function applyElementLevel(p: Project, c: SetElementLevel): void {
     else if (isRoom(e)) e.heightOffset = (e.heightOffset ?? 0) + delta;
     else if (isCad(e)) e.offsetZ = (e.offsetZ ?? 0) + delta;
     else e.heightOffset += delta;
+  }
+  // Escada com topo explícito cujo desnível mudou: reajusta os espelhos (decisão 0041), sem tocar no croqui fora dos espelhos.
+  for (const id of ids) {
+    const e = p.elements[id];
+    if (!isStair(e)) continue;
+    const fit = stairFitPatch(p, e);
+    if (fit) e.components = fit.components;
   }
 }

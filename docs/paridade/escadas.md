@@ -2,7 +2,7 @@
 
 Legenda: `[x]` feito e testado · `[ ]` pendente · `[-]` fora de escopo, com o motivo na própria linha.
 Itens marcados **(bloqueante)** precisam estar feitos antes de abrir o próximo elemento (ambientes).
-Fonte: [docs/escadas](../escadas/) (Revit 2026: Stair by Component e croqui; ArchiCAD 29: Stair Tool). Decisões em [docs/decisoes/0011](../decisoes/0011-escadas.md) e [0012](../decisoes/0012-escada-monolitica.md) (monolítica: face inferior, chegada, patamar).
+Fonte: [docs/escadas](../escadas/) (Revit 2026: Stair by Component e croqui; ArchiCAD 29: Stair Tool). Decisões em [docs/decisoes/0011](../decisoes/0011-escadas.md), [0012](../decisoes/0012-escada-monolitica.md) (monolítica: face inferior, chegada, patamar) e [0041](../decisoes/0041-escadas-e-rampas-por-nivel.md) (vínculo de topo por id, modo dos espelhos e reajuste na edição de nível).
 
 ## A · Geometria e croqui
 - [x] A1 Croqui de lance: limites esquerdo e direito, linhas de espelho e caminhada opcional, com retas e arcos **(bloqueante)**
@@ -21,12 +21,16 @@ Fonte: [docs/escadas](../escadas/) (Revit 2026: Stair by Component e croqui; Arc
 - [x] B1 Tipo de escada (espelho máx., piso mín., largura mín., estilo monolítico/piso e espelho, face inferior lisa ou escalonada no monolítico (0012), espessuras, nariz, patamar, folga de cabeça) **(bloqueante)**
 - [x] B2 Editor de tipo de escada
 - [x] B3 Duplicar, renomear, substituir e excluir tipo (bloqueado se em uso)
-- [x] B4 Nível de base e de topo, deslocamentos e altura; altura do espelho = altura ÷ nº de espelhos; topo não acima da base é erro (`stair-top-not-above`) e a escada não gera geometria **(bloqueante)**
+- [x] B4 Nível de base e de topo, deslocamentos e altura; altura do espelho = altura ÷ nº de espelhos; topo não acima da base é erro (`stair-top-not-above`) e a escada não gera degraus **(bloqueante)**
+- [x] B5 Nível de topo guardado por id estável na criação e fixado antes de editar a cota ou inserir nível no meio; editar a cota de um nível não troca o topo automático; sem nível acima, o topo é base + altura (decisão 0041)
+- [x] B6 Modo dos espelhos (`riserMode`): automático (ausente = padrão) acrescenta espelhos interiores quando a altura real h = H ÷ N passa do máximo do tipo; fixo mantém o croqui e aceita o aviso de espelho acima do máximo (decisão 0041)
+- [x] B7 Editar a cota de um nível reajusta as escadas afetadas na mesma transação (um Ctrl+Z) e informa na barra de status ("reajustada(s) à nova altura" / "sem altura válida"); subir a base ou baixar o topo só diminui h, sem remover espelhos (decisão 0041)
+- [x] B8 Erro de norma não apaga a geometria: a escada inválida continua no projeto, visível e selecionável (corpo-placeholder fino quando não há degraus), com o erro no painel de avisos (decisão 0041)
 
 ## C · Relação com o modelo e avisos
 - [x] C1 Furo derivado na laje e no piso do nível de topo (recalcula ao mover a escada; abertura por escada: pé-direito livre, contorno completo ou sem abertura, folga lateral e furo retangular; decisão 0011 §6) **(bloqueante)**
 - [x] C2 Avisos de norma (2e+p, espelho, piso médio, piso entre espelhos de um lance reto, patamar a cada 3,20 m, folga de cabeça) no painel de avisos com "Ir para"; contagem de espelhos diferente da desejada também é aviso (`stair-risers-count`)
-- [x] C3 Aviso de largura do lance menor que a mínima do tipo; erro (bloqueia a geração da escada) de altura do espelho acima do máximo do tipo **(bloqueante)**
+- [x] C3 Aviso de largura do lance menor que a mínima do tipo; erro de altura do espelho acima do máximo do tipo (a geometria existente continua desenhada; decisão 0041) **(bloqueante)**
 - [-] C4 Corrimão e guarda-corpo na escada: etapa própria "guarda-corpo" (decisão do dono, 2026-10-21)
 - [-] C5 Apoios (stringer, carriage): fora da v1 (decisão 0011 #13)
 - [-] C6 Escada de vários andares: fora desta etapa (decisão do dono)
@@ -51,7 +55,7 @@ Fonte: [docs/escadas](../escadas/) (Revit 2026: Stair by Component e croqui; Arc
 - [x] F4 Ferramenta Escada no Ribbon, atalho e barra de opções com contador de espelhos ("Espelhos: N criados, M restantes", ou "M a mais") **(bloqueante)**
 
 ## G · Qualidade
-- [x] G1 Validação do modelo: erros de croqui deixam sem degraus só o lance afetado; altura do espelho acima do máximo e topo não acima da base são erro da escada; norma, largura do lance e folga de cabeça geram aviso **(bloqueante)**
+- [x] G1 Validação do modelo: erros de croqui deixam sem degraus só o lance afetado; altura do espelho acima do máximo e topo não acima da base são erro da escada, mas não apagam o elemento (geometria existente ou placeholder; decisão 0041); norma, largura do lance e folga de cabeça geram aviso **(bloqueante)**
 - [x] G2 Painel de avisos com "Ir para"
 - [x] G3 Casos dourados de alturas, nº de degraus, áreas e volumes **(bloqueante)**
 - [x] G4 Testes de propriedade (degraus disjuntos, união = região entre espelhos, cotas crescentes, sem exceção)

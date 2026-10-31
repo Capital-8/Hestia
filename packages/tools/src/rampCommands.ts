@@ -1,6 +1,7 @@
 import type { Vec2 } from '@hestia/geom';
 import {
   defaultRampTypeId,
+  levelAbove,
   makeRamp,
   newId,
   rampBaseZ,
@@ -32,7 +33,7 @@ export function draftRamp(p: Project, opts: RampToolOptions, levelId: Id): Ramp 
       id: 'draft',
       typeId,
       levelId,
-      topLevelId: opts.topLevelId ?? null,
+      topLevelId: opts.topLevelId ?? levelAbove(p, levelId)?.id ?? null,
       baseOffset: opts.baseOffset ?? 0,
       topOffset: opts.topOffset ?? 0,
       height: opts.height ?? 0.8,
@@ -84,7 +85,7 @@ export function createRampFromPlan(env: ToolEnv, plan: RampPlan, input: RampCrea
     id,
     typeId: input.typeId,
     levelId: input.levelId,
-    topLevelId: input.topLevelId ?? null,
+    topLevelId: input.topLevelId ?? levelAbove(p, input.levelId)?.id ?? null,
     baseOffset: input.baseOffset ?? 0,
     topOffset: input.topOffset ?? 0,
     height: input.height ?? 0.8,

@@ -72,6 +72,11 @@ export interface Stair {
   topOffset: number;
   /** Altura usada só quando não há nível acima e o topo não é explícito. */
   height: number;
+  /**
+   * Como o nº de espelhos reage à altura entre níveis (decisão 0041). `auto` (ausente) = reajusta o croqui quando o
+   * espelho real passa do máximo do tipo; `fixed` = mantém o croqui e aceita o aviso de espelho acima do máximo.
+   */
+  riserMode?: 'auto' | 'fixed';
   components: Array<StairRun | StairLanding>;
   /** Trajeto da escada livre: vértices em metros, do início ao fim; o 1º ponto é o início da escada. Ausente nas demais formas e em projetos antigos. */
   freePath?: Vec2[];

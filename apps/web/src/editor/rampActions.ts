@@ -32,11 +32,37 @@ export function rampBox(r: Ramp): RampBox | null {
   return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
 }
 
-/** Altera campos de uma ou mais rampas num único passo de desfazer (um `updateElements` dentro de uma transação). */
+/** Campos que mudam o desnível/inclinação e, no modo 'slope', pedem o comprimento recalculado. */
+const RAMP_FIT_KEYS: ReadonlySet<keyof Ramp> = new Set(['topLevelId', 'topOffset', 'baseOffset', 'height', 'levelId', 'typeId', 'inputMode', 'slopeTarget']);
+
+/**
+ * Altera campos de uma ou mais rampas num único passo de desfazer (um `updateElements` dentro de uma transação).
+ * No modo 'slope', a mudança de altura regenera o comprimento na mesma transação (decisão 0041); no modo 'length',
+ * o comprimento desenhado manda e o aviso `ramp-slope-differs` aponta a inclinação resultante.
+ */
 export function patchRamps(store: ProjectStore, ids: Id[], patch: Partial<Ramp>, label = 'Editar rampa'): void {
   if (ids.length === 0) return;
+  const refit = Object.keys(patch).some((k) => RAMP_FIT_KEYS.has(k as keyof Ramp));
   store.transaction(label, () => {
     store.exec({ type: 'updateElements', ids, patch });
+    if (!refit) return;
+    for (const id of ids) {
+      const r = store.project.elements[id];
+      if (!r || r.kind !== 'ramp' || r.inputMode !== 'slope' || r.slopeTarget === null) continue;
+      const regen = regenRamp(r, store.project, {});
+      if ('error' in regen) continue;
+      store.exec({
+        type: 'updateElements',
+        ids: [id],
+        patch: {
+          components: regen.components,
+          inputMode: regen.inputMode,
+          slopeTarget: regen.slopeTarget,
+          landingDepth: regen.landingDepth,
+          ...(regen.freePath ? { freePath: regen.freePath } : {}),
+        },
+      });
+    }
   });
 }
 

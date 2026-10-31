@@ -2,6 +2,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import type { DimensionHit } from '@hestia/render';
 import type { Project } from '@hestia/model';
 import { editor, useProjectVersion } from '../editor/controller.ts';
+import { moveLevel } from '../editor/levelActions.ts';
 import { useUi, type ViewKind } from '../editor/state.ts';
 
 /** Contexto em que a cota foi aberta: a vista, o nível ativo e o documento. */
@@ -85,7 +86,8 @@ export const NivelCotaEditor = forwardRef<NivelCotaEditorHandle>(function NivelC
       if (sel && viz && Number.isFinite(valor) && valor > 0.01) {
         // O nível selecionado é o que se move; o vizinho fica fixo (a cota é a distância entre os eixos).
         const elevacao = d.side === 'below' ? viz.elevation + valor : viz.elevation - valor;
-        editor.store.exec({ type: 'upsertLevel', level: { ...sel, elevation: elevacao } });
+        const r = moveLevel(editor.store, sel.id, elevacao);
+        if (r.ok) useUi.setState({ status: r.message });
       }
     }
     setEdicao(null);

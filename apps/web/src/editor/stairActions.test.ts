@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ProjectStore, buildTemplate, makeStair, type Stair, type StairRun } from '@hestia/model';
+import { ProjectStore, buildTemplate, createEmptyProject, defaultStairTypeId, makeStair, type Stair, type StairRun } from '@hestia/model';
 import { keptStairType, patchStairs, stairBox, stairNote } from './stairActions.ts';
 
 const curve = (ax: number, ay: number, bx: number, by: number) => ({ a: { x: ax, y: ay }, b: { x: bx, y: by }, sag: 0 });
@@ -44,6 +44,24 @@ describe('edição em transação única', () => {
     const before = store.project.nextOrder;
     patchStairs(store, [], { mark: 'x' });
     expect(store.project.nextOrder).toBe(before);
+  });
+
+  it('mudar o deslocamento do topo reajusta os espelhos na mesma transação (decisão 0041)', () => {
+    const store = new ProjectStore(createEmptyProject());
+    const curve = (ax: number, ay: number, bx: number, by: number) => ({ a: { x: ax, y: ay }, b: { x: bx, y: by }, sag: 0 });
+    const run16: StairRun = {
+      id: 'r1',
+      kind: 'run',
+      boundaryLeft: [curve(0, 0, 0, 4.2)],
+      boundaryRight: [curve(1, 0, 1, 4.2)],
+      risers: Array.from({ length: 16 }, (_, i) => curve(0, i * 0.28, 1, i * 0.28)),
+      path: [],
+    };
+    store.exec({ type: 'addStair', stair: makeStair({ id: 'st1', typeId: defaultStairTypeId, levelId: 'lv_0', topLevelId: 'lv_1', components: [run16] }) });
+    patchStairs(store, ['st1'], { topOffset: 0.2 }, 'Editar escada');
+    expect(((store.project.elements.st1 as Stair).components[0] as StairRun).risers).toHaveLength(18);
+    store.undo();
+    expect(((store.project.elements.st1 as Stair).components[0] as StairRun).risers).toHaveLength(16);
   });
 });
 

@@ -20,6 +20,20 @@ import { stairOptions } from './typeOptions.ts';
 /** Um grau em radianos: os ângulos do caracol são guardados em rad e mostrados em graus. */
 const DEG = Math.PI / 180;
 
+/** Modo dos espelhos (decisão 0041): `auto` reajusta o croqui à altura; `fixed` mantém o croqui e avisa. */
+export type RiserMode = NonNullable<Stair['riserMode']>;
+
+/** Opções do campo "Espelhos", na ordem exibida: o automático reajusta o nº de espelhos quando o real passa do máximo. */
+export const RISER_MODE_OPTIONS: ReadonlyArray<{ value: RiserMode; label: string }> = [
+  { value: 'auto', label: 'Automático (ajusta à altura)' },
+  { value: 'fixed', label: 'Fixo (mantém o croqui)' },
+];
+
+/** Modo dos espelhos de uma escada; ausente no projeto antigo = automático. */
+export function riserModeOf(stair: Stair): RiserMode {
+  return stair.riserMode ?? 'auto';
+}
+
 /** Avisos e erros de uma escada: os de norma e de croqui (engine) e os de referência do modelo (tipo, nível, topo). */
 function issuesOf(p: Project, id: Id): ValidationIssue[] {
   return [...validateProject(p), ...stairValidationIssues(p)].filter((i) => i.elementId === id);
@@ -43,6 +57,7 @@ export function StairProperties({ stairs }: { stairs: Stair[] }): ReactElement {
   const base = commonOf(stairs, (s) => s.baseOffset);
   const top = commonOf(stairs, (s) => s.topLevelId ?? '');
   const topOff = commonOf(stairs, (s) => s.topOffset);
+  const riserMode = commonOf(stairs, (s) => riserModeOf(s));
   const height = commonOf(stairs, (s) => s.height);
   const openingMode = commonOf(stairs, (s) => s.openingMode);
   const openingHeadroom = commonOf(stairs, (s) => s.openingHeadroom);
@@ -171,6 +186,18 @@ export function StairProperties({ stairs }: { stairs: Stair[] }): ReactElement {
         </Row>
         <Row label="Desloc. da base" htmlFor="p-sbase"><NumField id="p-sbase" value={base.value} mixed={base.mixed} onCommit={(v) => patchHeight(ids, { baseOffset: v })} quantity="length" /></Row>
         <Row label="Desloc. do topo" htmlFor="p-stopoff"><NumField id="p-stopoff" value={topOff.value} mixed={topOff.mixed} onCommit={(v) => patchHeight(ids, { topOffset: v })} quantity="length" /></Row>
+        <Row label="Espelhos" htmlFor="p-stair-riser-mode">
+          <select
+            id="p-stair-riser-mode"
+            className="select"
+            value={riserMode.mixed ? '' : riserMode.value}
+            onChange={(e) => e.target.value && patchStairs(editor.store, ids, { riserMode: e.target.value as RiserMode }, 'Modo dos espelhos')}
+          >
+            {riserMode.mixed && <option value="">variados</option>}
+            {RISER_MODE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </Row>
+        <div className="hint">Automático: mudar a altura do nível reajusta o nº de espelhos. Fixo: a escada mantém o croqui e avisa se o espelho passar do máximo.</div>
         {!top.mixed && top.value === '' && noLevelAbove && (
           <Row label="Altura" htmlFor="p-sheight"><NumField id="p-sheight" value={height.value} mixed={height.mixed} min={0.1} onCommit={(v) => patchHeight(ids, { height: Math.max(0.1, v) })} quantity="length" /></Row>
         )}

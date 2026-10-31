@@ -1,6 +1,6 @@
 import { add, mul, norm, perp, ringArea, sub, type Ring, type Vec2 } from '@hestia/geom';
-import { pieceBottomZ, stairBody, type ResolvedStair, type ResolvedStairRiser, type ResolvedStairStep, type StairBodyPiece } from '@hestia/engine';
-import type { Id, StairType } from '@hestia/model';
+import { pieceBottomZ, sampleChain, stairBody, type ResolvedStair, type ResolvedStairRiser, type ResolvedStairStep, type StairBodyPiece } from '@hestia/engine';
+import type { Id, StairLanding, StairRun, StairType } from '@hestia/model';
 import { riserPoints } from '../stairRisers.ts';
 import { extrudeCaps, ofElement, pushWall, type SolidBatch } from './solids.ts';
 
@@ -12,6 +12,9 @@ const EPS = 1e-9;
 
 /** Espessura mínima (m) de uma peça monolítica: o fundo nunca alcança o topo (decisão 0012 §2). */
 const MIN_PIECE_THICKNESS = 1e-4;
+
+/** Espessura (m) do corpo-placeholder da escada sem degraus: fino, mas visível e pegável no picking. */
+const PLACEHOLDER_THICKNESS = 0.2;
 
 /** Distância (m) para dois vértices serem o mesmo, ou para um vértice cair sobre uma aresta (T-junction). */
 const VERTEX_TOL = 1e-6;
@@ -167,6 +170,52 @@ function assembledBodies(s: ResolvedStair): Body[] {
 }
 
 /**
+ * Escada resolvida com o croqui em planta. O motor expõe a caixa do croqui (`sketchBounds`, mesmo sem degraus) e/ou os
+ * componentes; os campos são lidos como opcionais para a malha não quebrar com escadas resolvidas sem croqui (sem
+ * curvas não há retângulo de onde tirar o placeholder).
+ */
+type StairWithSketch = ResolvedStair & {
+  components?: Array<StairRun | StairLanding>;
+  sketchBounds?: { minX: number; minY: number; maxX: number; maxY: number };
+};
+
+/** Retângulo envolvente do croqui: a caixa do motor quando existe; senão, os pontos de todas as curvas dos componentes. */
+function sketchBoundsOf(s: ResolvedStair): { minX: number; minY: number; maxX: number; maxY: number } | null {
+  const sketch = s as StairWithSketch;
+  if (sketch.sketchBounds) return sketch.sketchBounds;
+  const pts = (sketch.components ?? []).flatMap((c) =>
+    sampleChain(c.kind === 'run' ? [...c.boundaryLeft, ...c.boundaryRight, ...c.risers, ...c.path] : c.boundary),
+  );
+  if (pts.length === 0) return null;
+  const xs = pts.map((p) => p.x);
+  const ys = pts.map((p) => p.y);
+  return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
+}
+
+/**
+ * Corpo-placeholder da escada sem degraus (topo ≤ base, `stair-top-not-above`, croqui sem espelhos): prisma fino do
+ * retângulo envolvente do croqui, apoiado na cota da base. Mantém a escada visível e selecionável no 3D; o erro continua
+ * no painel/validador — o render não decide validade. `null` sem pontos de onde tirar o retângulo.
+ */
+function placeholderBody(s: ResolvedStair): Body | null {
+  const bounds = sketchBoundsOf(s);
+  if (!bounds) return null;
+  const { minX, minY, maxX, maxY } = bounds;
+  if (maxX - minX < EPS || maxY - minY < EPS) return null;
+  return {
+    polygon: [
+      { x: minX, y: minY },
+      { x: maxX, y: minY },
+      { x: maxX, y: maxY },
+      { x: minX, y: maxY },
+    ],
+    bot: () => s.baseZ,
+    top: s.baseZ + PLACEHOLDER_THICKNESS,
+    materialId: s.type.materialId,
+  };
+}
+
+/**
  * Insere, nas arestas dos triângulos, os vértices de outras faces que caem sobre elas (T-junction). Assim cada aresta
  * real casa com a da face vizinha e o desenho de arestas não marca emendas. Só divide triângulos: a superfície não muda.
  */
@@ -251,18 +300,29 @@ function splitTJunctions(b: SolidBatch): void {
  * degrau de `z − treadThickness` a `z`; espelho de `riserThickness` atrás da linha; patamar de `landingThickness`.
  * Poste (decisão 0014 §8): degraus soltos (sem espelho) no material do tipo, e o poste central (cilindro de 24 faces) no
  * `postMaterialId`; cada material vai ao seu lote, e cada peça fecha as próprias paredes onde expostas.
- * Escada com erro (issue `error`) ou sem degraus não gera malha. `arrivalTopOf` dá a cota do topo da chegada de cada
- * escada (`stairArrivalTop`, a face inferior da laje que cobre o último espelho ou o próprio `topZ` quando não há
+ * Erro (`issue` de severidade `error`) não apaga a malha: a geometria dos degraus continua e o erro fica no painel e no
+ * validador. Sem degraus (topo ≤ base, `stair-top-not-above`, croqui sem espelhos), sai um corpo-placeholder fino do
+ * retângulo do croqui, para a escada continuar visível e selecionável. `arrivalTopOf` dá a cota do topo da chegada de
+ * cada escada (`stairArrivalTop`, a face inferior da laje que cobre o último espelho ou o próprio `topZ` quando não há
  * cobertura — a cena sempre passa essa cota). `null` ou sem callback é o recuo padrão antigo (topo − 0,15 m), mantido só
  * para chamadas fora da cena (testes e ferramentas que montam a malha isolada).
  */
 export function buildStairSolids(stairs: ResolvedStair[], arrivalTopOf: (s: ResolvedStair) => number | null = () => null): SolidBatch[] {
   const byMat = new Map<Id, SolidBatch>();
   for (const s of stairs) {
-    if (s.steps.length === 0 || s.issues.some((i) => i.severity === 'error')) continue;
+    // Escada sem degraus: corpo-placeholder do croqui, para continuar no 3D (e no picking) mesmo sem geometria de degrau.
+    if (s.steps.length === 0) {
+      const placeholder = placeholderBody(s);
+      if (!placeholder) continue;
+      const b = batchOf(byMat, placeholder.materialId);
+      ofElement(b, s.id, () => extrudeBodies(b, [placeholder]));
+      continue;
+    }
     const bodies =
       s.type.runStyle === 'monolithic' || s.type.runStyle === 'post'
-        ? monolithicBodies(stairBody(s, { arrivalTopZ: arrivalTopOf(s) ?? undefined }).pieces, s.type)
+        ? // `stairBody` devolve peças vazias quando há erro; pedimos as peças sem os erros: a malha não é o lugar de
+          // apagar a escada (o erro continua no painel/validador). Sem erro, a chamada é a mesma de antes.
+          monolithicBodies(stairBody({ ...s, issues: s.issues.filter((i) => i.severity !== 'error') }, { arrivalTopZ: arrivalTopOf(s) ?? undefined }).pieces, s.type)
         : assembledBodies(s);
     // Um lote por material: cada chamada de `extrudeBodies` só pareia paredes entre peças do mesmo material (cada peça fecha o próprio corpo).
     const byBodyMaterial = new Map<Id, Body[]>();

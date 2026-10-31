@@ -3,6 +3,7 @@ import { COMANDOS_COM_ATALHO, TOOL_GROUPS, type ShortcutCommand } from '@hestia/
 import { nomeComandoLang, useI18n } from '../../editor/i18n.ts';
 import { makeLevel, newId } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
+import { moveLevel, pinAutoTops } from '../../editor/levelActions.ts';
 import { hasAutosave } from '../../editor/storage.ts';
 import { useUi } from '../../editor/state.ts';
 import { useAtalhos } from '../../editor/shortcutConfig.ts';
@@ -36,7 +37,11 @@ export function LevelsDialog(): ReactElement {
           {p.levels.map((l) => (
             <tr key={l.id} style={l.id === destaque ? { background: 'var(--sel-bg, rgba(0,0,0,0.06))' } : undefined} data-selected={l.id === destaque ? 'true' : undefined}>
               <td><TextField value={l.name} onCommit={(v) => run(() => editor.store.exec({ type: 'upsertLevel', level: { ...l, name: v || l.name } }))} /></td>
-              <td><NumField value={l.elevation} quantity="length" onCommit={(v) => run(() => editor.store.exec({ type: 'upsertLevel', level: { ...l, elevation: v } }))} /></td>
+              <td><NumField value={l.elevation} quantity="length" onCommit={(v) => run(() => {
+                const r = moveLevel(editor.store, l.id, v);
+                if (!r.ok) throw new Error(r.message);
+                useUi.setState({ status: r.message });
+              })} /></td>
               <td><button className="btn small danger" onClick={() => run(() => editor.store.exec({ type: 'deleteLevel', id: l.id }))}>Excluir</button></td>
             </tr>
           ))}
@@ -44,7 +49,13 @@ export function LevelsDialog(): ReactElement {
       </table>
       {err ? <p className="error" role="alert">{err}</p> : null}
       <p>
-        <button className="btn small" onClick={() => run(() => editor.store.exec({ type: 'upsertLevel', level: makeLevel({ id: newId('lv'), name: `Pavimento ${p.levels.length + 1}`, elevation: (p.levels[p.levels.length - 1]?.elevation ?? 0) + 3 }) }))}>+ Novo nível</button>
+        <button className="btn small" onClick={() => run(() => {
+          // Inserir um nível no meio não pode trocar o topo automático das escadas que já existem: fixa antes.
+          editor.store.transaction('Novo nível', () => {
+            pinAutoTops(editor.store);
+            editor.store.exec({ type: 'upsertLevel', level: makeLevel({ id: newId('lv'), name: `Pavimento ${p.levels.length + 1}`, elevation: (p.levels[p.levels.length - 1]?.elevation ?? 0) + 3 }) });
+          });
+        })}>+ Novo nível</button>
       </p>
     </Dialog>
   );

@@ -1,5 +1,5 @@
 import { missingText, type StairStatus } from '@hestia/tools';
-import type { Id, Project, ProjectStore, Stair, StairRun } from '@hestia/model';
+import { isStair, stairFitPatch, type Id, type Project, type ProjectStore, type Stair, type StairRun } from '@hestia/model';
 
 interface Pt {
   x: number;
@@ -31,11 +31,26 @@ export function stairBox(s: Stair): StairBox | null {
   return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
 }
 
-/** Altera campos de uma ou mais escadas num único passo de desfazer (um `updateElements` dentro de uma transação). */
+/** Campos que mudam a altura entre níveis e, portanto, podem exigir o reajuste dos espelhos. */
+const FIT_KEYS: ReadonlySet<keyof Stair> = new Set(['topLevelId', 'topOffset', 'baseOffset', 'height', 'levelId', 'typeId', 'riserMode']);
+
+/**
+ * Altera campos de uma ou mais escadas num único passo de desfazer (um `updateElements` dentro de uma transação).
+ * Quando a mudança mexe na altura (nível de topo, deslocamentos, tipo ou modo dos espelhos), a escada é reajustada
+ * na mesma transação (`stairFitPatch`, decisão 0041): mudar a altura não deixa o espelho acima do máximo.
+ */
 export function patchStairs(store: ProjectStore, ids: Id[], patch: Partial<Stair>, label = 'Editar escada'): void {
   if (ids.length === 0) return;
+  const refit = Object.keys(patch).some((k) => FIT_KEYS.has(k as keyof Stair));
   store.transaction(label, () => {
     store.exec({ type: 'updateElements', ids, patch });
+    if (!refit) return;
+    for (const id of ids) {
+      const s = store.project.elements[id];
+      if (!isStair(s)) continue;
+      const fit = stairFitPatch(store.project, s);
+      if (fit) store.exec({ type: 'updateElements', ids: [id], patch: fit });
+    }
   });
 }
 
