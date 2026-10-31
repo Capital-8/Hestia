@@ -30,6 +30,7 @@ export * from './section/build.ts';
 export * from './section/clip.ts';
 export * from './section/frame.ts';
 export * from './section/pick.ts';
+export * from './section/handles.ts';
 export { sectionStyleOf, type SectionStyle } from './section/style.ts';
 // Vista da planta (decisão 0013) e o que a exportação DXF reaproveita dela: a mesma geometria, o mesmo corte e a mesma pegada.
 export { planViewOf, hiddenSelectionOps, type PlanView } from './plan/view.ts';

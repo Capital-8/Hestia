@@ -5,6 +5,7 @@ import { WallTool } from './wallTool.ts';
 import { OpeningTool } from './openingTool.ts';
 import { SelectTool } from './selectTool.ts';
 import { MirrorTool, MoveTool, RotateTool } from './transformTools.ts';
+import { SectionAlignTool, SectionMoveTool } from './sectionEditTools.ts';
 import { ArrayTool } from './arrayTool.ts';
 import { OffsetTool } from './offsetTool.ts';
 import { AlignTool } from './alignTool.ts';
@@ -35,14 +36,15 @@ import { DetailLineTool } from './detailLineTool.ts';
 import { DetailRegionTool } from './detailRegionTool.ts';
 import { TagTool } from './tagTool.ts';
 import { GridTool } from './gridTool.ts';
+import { LevelTool } from './levelTool.ts';
 import { PasteTool } from './pasteTool.ts';
 
-export type ToolId = 'select' | 'wall' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'dimension' | 'angularDimension' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste';
+export type ToolId = 'select' | 'wall' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'dimension' | 'angularDimension' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste';
 
 export const TOOL_GROUPS: Array<{ title: string; tools: ToolId[] }> = [
   { title: 'Construir', tools: ['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'stairrun', 'ramp', 'room'] },
   { title: 'Modificar', tools: ['move', 'copy', 'rotate', 'mirror', 'array', 'offset', 'parallel', 'trim', 'align', 'joins', 'split', 'rehost', 'slope', 'attachroof', 'detachroof'] },
-  { title: 'Anotar', tools: ['dimension', 'angularDimension', 'text', 'detailLine', 'filledRegion', 'tag'] },
+  { title: 'Anotar', tools: ['level', 'dimension', 'angularDimension', 'text', 'detailLine', 'filledRegion', 'tag'] },
   { title: 'Medir', tools: ['measure'] },
 ];
 
@@ -104,7 +106,7 @@ export function createTool(id: ToolId, env: ToolEnv, perimeterTarget: SketchTarg
     case 'window':
       return new OpeningTool(env, 'window');
     case 'move':
-      return new MoveTool(env, false);
+      return env.section?.() ? new SectionMoveTool(env) : new MoveTool(env, false);
     case 'copy':
       return new MoveTool(env, true);
     case 'rotate':
@@ -120,13 +122,15 @@ export function createTool(id: ToolId, env: ToolEnv, perimeterTarget: SketchTarg
     case 'trim':
       return new TrimTool(env);
     case 'align':
-      return new AlignTool(env);
+      return env.section?.() ? new SectionAlignTool(env) : new AlignTool(env);
     case 'joins':
       return new JoinTool(env);
     case 'split':
       return new SplitTool(env);
     case 'measure':
       return new MeasureTool(env);
+    case 'level':
+      return new LevelTool(env);
     case 'rehost':
       return new RehostTool(env);
     case 'section':
@@ -159,6 +163,7 @@ export const TOOL_LABEL: Record<ToolId, string> = {
   joins: 'Junção',
   split: 'Dividir',
   measure: 'Medir',
+  level: 'Nível',
   section: 'Corte',
   rehost: 'Trocar anfitriã',
   attachroof: 'Anexar topo',

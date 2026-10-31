@@ -1,5 +1,5 @@
 import { newId } from '@hestia/model';
-import { ToolBase, viewPlanId } from './base.ts';
+import { addSectionTag, ToolBase, viewPlanId } from './base.ts';
 import type { PointerInfo } from './types.ts';
 
 /** Etiqueta associativa: usa a seleção como anfitrião e vincula o rótulo ao ponto clicado. */
@@ -22,7 +22,7 @@ export class TagTool extends ToolBase {
     const hostId = this.env.selection().find((id) => this.env.project().elements[id]);
     if (!hostId) { this.env.say('Selecione um elemento do modelo antes de posicionar a etiqueta.'); return; }
     const item = { id: newId('tag'), hostId, at: this.snap(p).point, property: this.env.options().tagProperty ?? 'type', leader: this.env.options().tagLeader !== false, orientation: this.env.options().tagOrientation ?? 'horizontal' } as const;
-    this.env.exec({ type: 'addTag', levelId: this.env.levelId(), planId: viewPlanId(this.env), item });
+    if (!addSectionTag(this.env, item)) this.env.exec({ type: 'addTag', levelId: this.env.levelId(), planId: viewPlanId(this.env), item });
     this.env.say('Etiqueta associada ao elemento. Selecione outro elemento para etiquetá-lo também.');
   }
 }

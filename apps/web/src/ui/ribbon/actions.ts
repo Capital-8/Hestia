@@ -369,7 +369,8 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     hint: t('Lista os desenhos DXF importados: visibilidade, enquadramento, renomear e excluir.', 'Lists imported DXF drawings: visibility, framing, rename and delete.'),
     run: openDialog('manageCad'),
   },
-  levels: { label: t('Nível', 'Level'), icon: 'level', hint: t('Cria e edita os níveis do projeto.', 'Create and edit project levels.'), run: openDialog('levels') },
+  levels: { label: t('Gerenciar níveis', 'Manage Levels'), icon: 'level', hint: t('Cria e edita os níveis do projeto.', 'Create and edit project levels.'), run: openDialog('levels') },
+  levelTool: { label: t('Nível (LL)', 'Level (LL)'), icon: 'level', hint: t('Cria um nível no corte ou elevação: clique no início e no fim da linha horizontal.', 'Creates a level in a section or elevation.'), run: () => editor.setTool('level') },
   lineWeights: { label: t('Espessuras de linha', 'Line Weights'), icon: 'detail', hint: t('Pesos de linha por escala, por categoria e limites de detalhe.', 'Line weights by scale and category.'), run: openDialog('lineWeights') },
   units: {
     label: t('Unidades do projeto', 'Project Units'),

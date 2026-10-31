@@ -1,4 +1,4 @@
-import { openingTypeById, angularDimensionGeometry, dimensionGeometry, dimensionPoints, dimensionText, DIM_TEXT_MM, isOpening, isWall, levelDimensions, levelTexts, unitsOf, wallHeight, wallType, type Id, type Project } from '@hestia/model';
+import { openingHeight, openingTypeById, angularDimensionGeometry, dimensionGeometry, dimensionPoints, dimensionText, DIM_TEXT_MM, isOpening, isWall, levelDimensions, levelTexts, unitsOf, wallHeight, wallType, type Id, type Project } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 import type { DxfPoint } from './dxf.ts';
 import type { DxfTextEntity } from './dxfDoc.ts';
@@ -91,7 +91,7 @@ export function notesDxfOf(p: Project, levelId: Id, scale: number): DxfNotes {
       : tag.property === 'mark' ? ('mark' in e ? e.mark : '')
       : tag.property === 'level' ? p.levels.find((l) => l.id === tagLevelId)?.name ?? ''
       : tag.property === 'width' ? isOpening(e) ? `${(openingTypeById(p, e.typeId)?.width ?? 0) * 100} cm` : isWall(e) ? `${wallType(p, e).layers.reduce((s, l) => s + l.thickness, 0) * 100} cm` : ''
-      : isOpening(e) ? `${openingTypeById(p, e.typeId)?.height ?? 0} m` : isWall(e) ? `${wallHeight(p, e)} m` : '';
+      : isOpening(e) ? (() => { const ot = openingTypeById(p, e.typeId); return `${ot ? openingHeight(ot, e) : 0} m`; })() : isWall(e) ? `${wallHeight(p, e)} m` : '';
     if (tag.leader) {
       const host = isOpening(e) ? p.elements[e.hostId] : e;
       const anchor = host ? isWall(host) ? { x: (host.a.x + host.b.x) / 2, y: (host.a.y + host.b.y) / 2 } : 'point' in host ? host.point : 'boundary' in host && host.boundary.length ? { x: host.boundary.reduce((s, q) => s + q.x, 0) / host.boundary.length, y: host.boundary.reduce((s, q) => s + q.y, 0) / host.boundary.length } : null : null;

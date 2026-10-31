@@ -11,6 +11,7 @@ import {
   createEmptyProject,
   migrateProject,
   newId,
+  sectionAnnotationsOf,
   sectionPoints,
   type AnnotationCommand,
   type Command,
@@ -20,7 +21,7 @@ import {
   type SectionView,
   type TemplateId,
 } from '@hestia/model';
-import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId } from '@hestia/tools';
+import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, sectionInferContext, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId } from '@hestia/tools';
 import { transfer } from './transfer.ts';
 import { startCreateSimilar } from './createSimilar.ts';
 import { desfazerOuRefazer } from './historyStatus.ts';
@@ -103,6 +104,9 @@ const VIS_SEQUENCES: Record<string, ShortcutCommand> = {
   V6: 'hideInView', V7: 'hideCategoryInView', V8: 'revealHidden', V9: 'unhideInView', V0: 'unhideCategoryInView',
 };
 
+/** Ferramentas que fazem sentido na vista de corte/elevação. As demais continuam exclusivas da planta. */
+const SECTION_TOOLS = new Set<ToolId>(['select', 'measure', 'level', 'dimension', 'angularDimension', 'text', 'detailLine', 'filledRegion', 'tag', 'align', 'move']);
+
 export class Editor {
   readonly store = new ProjectStore(createEmptyProject());
   /** Arraste de rótulo de ambiente em andamento (mundo); vale na planta de piso e na de área. */
@@ -146,6 +150,23 @@ export class Editor {
   private env: ToolEnv = {
     project: () => this.store.project,
     levelId: () => useUi.getState().levelId,
+    section: () => {
+      const st = useUi.getState();
+      if (st.view !== 'section' || !st.sectionId) return null;
+      const view = this.project.views.find((v) => v.id === st.sectionId);
+      const result = view ? this.sectionOf(view.id) : null;
+      if (!view || !result) return null;
+      return {
+        id: view.id,
+        annotations: () => sectionAnnotationsOf(this.project.views.find((v) => v.id === view.id)),
+        setAnnotations: (annotations) => this.exec({ type: 'setSectionAnnotations', sectionId: view.id, annotations }),
+        inferContext: (extra) => sectionInferContext(result, this.project, st.levelId, 1 / (this.viewport()?.zoom ?? 60), effectiveGridStep(this.viewport()?.zoom ?? 60, st.gridStep), {
+          line: { a: view.a, b: view.b, depth: view.depth },
+          snap: st.options.snap,
+          ...extra,
+        }),
+      };
+    },
     // Contrato do ToolEnv (subagente de modelo): as ferramentas de anotação gravam com `planId` quando há planta de área.
     areaPlanId: () => this.areaPlanIdNow(),
     hiddenInView: () => planViewOf(this.store.project, useUi.getState().levelId).hidden,
@@ -177,6 +198,11 @@ export class Editor {
    */
   private exec(c: Command): void {
     this.avisandoOculto(() => this.exec1(c));
+  }
+
+  /** Comando vindo de um gesto da vista (alças, por exemplo): passa pelo mesmo aviso/fluxo das ferramentas. */
+  applyCommand(c: Command): void {
+    this.exec(c);
   }
 
   /** Política R1: criar na planta de área algo que o perfil oculta não bloqueia a ferramenta, mas avisa na barra de status. */
@@ -312,6 +338,8 @@ export class Editor {
    * Devolve `null` quando a tecla não pertence a nenhuma sequência.
    */
   private atalhoVisibilidadeDaVista(k: string, e: KeyboardEvent): boolean | null {
+    // Se o casador já está no meio de uma ferramenta (ME, DI, MV...), a tecla pertence a ela.
+    if (casador.pendente) return null;
     if (e.altKey || useUi.getState().typed || this.tool.freeText) return null;
     if (!/^[A-Za-z0-9]$/.test(k)) {
       this.limparVisibilidadeBuffer();
@@ -385,8 +413,12 @@ export class Editor {
       return;
     }
     if (this.perimetro.intercepta(id)) return;
-    // Ferramentas de desenho são da planta: escolher uma delas na vista de corte volta à planta.
-    if (useUi.getState().view === 'section') useUi.setState({ view: 'plan', sectionId: null });
+    // No corte/elevação só entram as ferramentas de leitura e anotação. As de desenho de planta não devem expulsar
+    // o usuário da vista: apenas explicam por que não estão disponíveis ali.
+    if (st.view === 'section' && !SECTION_TOOLS.has(id)) {
+      useUi.setState({ status: 'Esta ferramenta é da planta. No corte use Medir, Cota, Texto, Detalhe, Alinhar ou Mover.' });
+      return;
+    }
     if (clearSelectionForTool(id)) useUi.setState({ selection: [] });
     this.activate(id);
   }
@@ -530,11 +562,18 @@ export class Editor {
     }
     if (ui.view === 'section') {
       if (k === 'Escape') {
-        this.closeSection();
+        // Primeiro Esc cancela a ferramenta ativa; com a Selecionar, fecha a vista.
+        if (this.tool.id !== 'select') {
+          this.tool.cancel();
+          this.bump();
+        } else {
+          this.closeSection();
+        }
         return true;
       }
-      // Delete e Backspace excluem a seleção, como na 3D (decisão 0016 §5).
-      return key3d(k, ui.selection, () => this.deleteSelection());
+      // Delete e Backspace excluem a seleção, como na 3D (decisão 0016 §5). As demais teclas seguem para os
+      // atalhos normais de ferramenta/anotação; antes o `key3d` engolia ME/DI/TX/AL.
+      if (k === 'Delete' || k === 'Backspace') return key3d(k, ui.selection, () => this.deleteSelection());
     }
     // Na 3D, Esc segue o da planta (cancela a operação, senão volta à Selecionar; decisão 0016 §5). Ferramenta de escolha (Anexar topo): Enter e Tab seguem para a planta, senão a etapa não avança.
     if (ui.view === '3d' && k !== 'Escape' && !(this.tool.pick3d && (k === 'Enter' || k === 'Tab'))) return key3d(k, ui.selection, () => this.deleteSelection());

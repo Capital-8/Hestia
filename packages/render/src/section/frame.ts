@@ -28,6 +28,7 @@ export interface SectionFrameInput {
   hidden?: ReadonlySet<Id>;
   revealed?: ReadonlySet<Id>;
   annotations?: import('@hestia/model').SectionAnnotations;
+  levelExtents?: Record<Id, { a: number; b: number }>;
   highlight?: { selection: Id[]; hover: Id | null };
   thinLines?: boolean;
 }
@@ -81,7 +82,8 @@ export class SectionFrame {
     const hid = i.hidden?.size ? `h:${[...i.hidden].sort().join(',')}` : '';
     const rev = i.revealed?.size ? `r:${[...i.revealed].sort().join(',')}` : '';
     const ann = i.annotations ? JSON.stringify(i.annotations) : '';
-    return [i.version, i.sectionId, i.theme.bg, i.theme.ink, i.dark ? 'd' : 'l', i.showGrid ? 'g' : '-', i.thinLines ? 't' : '-', hid, rev, ann, sel, hl?.hover ?? ''].join('|');
+    const ext = i.levelExtents ? JSON.stringify(i.levelExtents) : '';
+    return [i.version, i.sectionId, i.theme.bg, i.theme.ink, i.dark ? 'd' : 'l', i.showGrid ? 'g' : '-', i.thinLines ? 't' : '-', hid, rev, ann, ext, sel, hl?.hover ?? ''].join('|');
   }
 
   /**
@@ -105,6 +107,7 @@ export class SectionFrame {
         hidden: input.hidden,
         revealed: input.revealed,
         annotations: input.annotations,
+        levelExtents: input.levelExtents,
         highlight: input.highlight,
         thinLines: input.thinLines,
       });

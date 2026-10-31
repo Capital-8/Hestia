@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_OPENING_TYPES, ProjectStore, createEmptyProject, nextOpeningFavorite, openingCasing, openingFamilies, openingFamilyName, openingFamilyOf, openingFavorites, openingLeaves, openingLintel, openingRough, openingSillBeam, openingSillBoard, openingTypeIssue, openingTypeWarning, type OpeningType } from './index.ts';
+import { DEFAULT_OPENING_TYPES, ProjectStore, createEmptyProject, makeWall, nextOpeningFavorite, openingCasing, openingFamilies, openingFamilyName, openingFamilyOf, openingFavorites, openingHeight, openingLeaves, openingLintel, openingRough, openingSillBeam, openingSillBoard, openingType, openingTypeIssue, openingTypeWarning, type Opening, type OpeningType } from './index.ts';
 
 const tipo = (id: string): OpeningType => {
   const t = DEFAULT_OPENING_TYPES.find((x) => x.id === id);
@@ -220,6 +220,42 @@ describe('favoritos de tipo de abertura', () => {
     expect(nextOpeningFavorite(list, 'b')).toEqual(['a', 'b']);
     expect(nextOpeningFavorite(list, 'a')).toEqual([]);
     expect(list).toEqual(['a']);
+  });
+});
+
+describe('altura por instância', () => {
+  const comJanela = (heightOverride: number | null = null) => {
+    const s = new ProjectStore(createEmptyProject());
+    s.exec({ type: 'addWall', wall: makeWall({ id: 'w', typeId: 'wt_alv14', levelId: 'lv_0', a: { x: 0, y: 0 }, b: { x: 4, y: 0 } }) });
+    s.exec({
+      type: 'addOpening',
+      opening: { id: 'j', kind: 'window', typeId: 'ot_j120', hostId: 'w', offset: 2, flipHand: false, flipFacing: false, sillOverride: null, heightOverride, mark: '' },
+    });
+    return s;
+  };
+
+  it('updateElements aceita altura positiva e null, com desfazer', () => {
+    const s = comJanela();
+    expect((s.project.elements.j as Opening).heightOverride).toBeNull();
+
+    s.exec({ type: 'updateElements', ids: ['j'], patch: { heightOverride: 1.75 } });
+    const o = s.project.elements.j as Opening;
+    expect(o.heightOverride).toBe(1.75);
+    expect(openingHeight(openingType(s.project, o), o)).toBeCloseTo(1.75, 9);
+
+    s.undo();
+    expect((s.project.elements.j as Opening).heightOverride).toBeNull();
+    expect(openingHeight(openingType(s.project, s.project.elements.j as Opening), s.project.elements.j as Opening)).toBeCloseTo(1.2, 9);
+
+    s.exec({ type: 'updateElements', ids: ['j'], patch: { heightOverride: null } });
+    expect((s.project.elements.j as Opening).heightOverride).toBeNull();
+  });
+
+  it('helper ignora override inválido e cai para a altura do tipo', () => {
+    const s = comJanela(-0.5);
+    const o = s.project.elements.j as Opening;
+    expect(openingHeight(openingType(s.project, o), o)).toBeCloseTo(openingType(s.project, o).height, 9);
+    expect(openingHeight(openingType(s.project, o), { ...o, heightOverride: Number.NaN })).toBeCloseTo(openingType(s.project, o).height, 9);
   });
 });
 

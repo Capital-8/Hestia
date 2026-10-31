@@ -62,6 +62,11 @@ export interface InferContext {
   isVisible?: (w: Wall) => boolean;
   /** Desenhos CAD importados indexados: vértices, meios, pontos e cruzamentos das linhas servem de referência. */
   cad?: readonly CadSnapIndex[];
+  /**
+   * Vista de corte/elevação em coordenadas (t, z): as paredes, faces, grades e CAD da planta não entram — só os pontos
+   * e arestas entregues pela vista em `extraPoints`/`extraSegments`. Os cruzamentos entre essas arestas viram captura.
+   */
+  section?: boolean;
 }
 
 const TOL_PX = 10;
@@ -196,6 +201,26 @@ function crossAxis(p: Vec2, d: Vec2, axis: 'x' | 'y', v: number): Vec2 | null {
 }
 
 /**
+ * Cruzamentos entre as arestas da seção (contornos de corte/além, aberturas, membranas e linhas de nível). Só entram os
+ * trechos ao alcance do cursor, então o par a par fica pequeno mesmo numa vista cheia de arestas.
+ */
+function addSectionCrossings(ctx: InferContext, sn: SnapOptions, cursor: Vec2, tol: number, add: (point: Vec2, kind: SnapKind, guides?: Guide[], hostId?: Id, weight?: number) => void): void {
+  if (!sn.intersections) return;
+  const near: Array<{ a: Vec2; b: Vec2; hostId?: Id }> = [];
+  for (const e of ctx.extraSegments ?? []) {
+    if (e.hostId !== undefined && ctx.ignore?.has(e.hostId)) continue;
+    if (dist(e.a, e.b) < 1e-9) continue;
+    if (dist(cursor, closestOnSegment(cursor, e.a, e.b)) <= tol * Math.SQRT2) near.push(e);
+  }
+  for (let i = 0; i < near.length; i++) {
+    for (let j = i + 1; j < near.length; j++) {
+      const p = intersectSegments(near[i]!.a, near[i]!.b, near[j]!.a, near[j]!.b);
+      if (p && dist(cursor, p) <= tol * Math.SQRT2) add(p, 'intersection');
+    }
+  }
+}
+
+/**
  * Motor de inferência único (docs/01 §8): função pura que devolve o melhor ponto e as guias.
  * Todas as ferramentas o consomem; o cursor "adivinha" o que o usuário quer.
  *
@@ -222,8 +247,9 @@ export function infer(cursor: Vec2, ctx: InferContext): Inference {
   }
   // Pavimento atual e, se visível como referência, o de baixo: o que se vê na planta é o que se captura.
   const levels: Id[] = ctx.underlayLevelId ? [ctx.levelId, ctx.underlayLevelId] : [ctx.levelId];
-  const facesIn = (): WallFaces[] => levels.flatMap((l) => facesOf(ctx.project, l));
-  const walls = levels.flatMap((l) => wallsOnLevel(ctx.project, l)).filter((w) => !ctx.ignore?.has(w.id) && (ctx.isVisible?.(w) ?? true));
+  // Na seção, a geometria da planta não é alvo: o que vale são os pontos e arestas da vista.
+  const facesIn = (): WallFaces[] => (ctx.section ? [] : levels.flatMap((l) => facesOf(ctx.project, l)));
+  const walls = ctx.section ? [] : levels.flatMap((l) => wallsOnLevel(ctx.project, l)).filter((w) => !ctx.ignore?.has(w.id) && (ctx.isVisible?.(w) ?? true));
   const cands: Cand[] = [];
   const add = (point: Vec2, kind: SnapKind, guides: Guide[] = [], hostId?: Id, weight: number = WEIGHT[kind]): void => {
     cands.push({ point, kind, weight, guides, hostId });
@@ -260,10 +286,12 @@ export function infer(cursor: Vec2, ctx: InferContext): Inference {
   addExtraPoints(ctx, sn, cursor, tol, add);
   // Arestas de pisos e lajes e ombreiras de aberturas: o pé sobre a aresta é captura de aresta, com o dono para o ignore.
   if (!ctx.onWallsOnly) addExtraSegments(ctx, sn, cursor, tol, add);
+  // Seção: os cruzamentos entre as arestas da vista (contornos, aberturas, membranas e níveis) são captura própria.
+  if (!ctx.onWallsOnly && ctx.section) addSectionCrossings(ctx, sn, cursor, tol, add);
   // Grades de eixos (do projeto): pontas, cruzamentos com grades e paredes e o ponto sobre a linha.
-  if (!ctx.onWallsOnly) addGridSnaps(ctx.project, sn, cursor, tol, walls, ctx.ignore, add);
+  if (!ctx.onWallsOnly && !ctx.section) addGridSnaps(ctx.project, sn, cursor, tol, walls, ctx.ignore, add);
   // Linhas e vértices dos desenhos CAD importados (DXF) servem de referência, como as paredes.
-  if (!ctx.onWallsOnly) addCadSnaps(ctx.cad, sn, cursor, tol, ctx.from, add, ctx.ignore);
+  if (!ctx.onWallsOnly && !ctx.section) addCadSnaps(ctx.cad, sn, cursor, tol, ctx.from, add, ctx.ignore);
   // Faces: cantos, pontos médios, arestas e pé da perpendicular nas faces de acabamento e (opcional) do núcleo.
   const addSegs = (segs: Array<[Vec2, Vec2]>, kind: 'face' | 'core', hostId?: Id): void => {
     for (const [a, b] of segs) {

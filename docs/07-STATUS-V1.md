@@ -120,6 +120,10 @@ elevação são anotações de primeira classe (0030): número, título, rótulo
 estável das elevações; seleção, propriedades, mover/copiar/girar/espelhar, prancha e DXF (`CORTES`/`ELEVACOES`) usam a
 mesma geometria em mm de papel. Etiquetas de parede, rótulos de ambiente e rótulos de escada também usam fonte em
 mm de papel (e as etiquetas de parede seguem a visibilidade da categoria `anotação`).
+- **Edição no corte/elevação**: Medir, Cota, Texto, Detalhe, Etiqueta, Nível, Alinhar e Mover trabalham na própria
+  vista, em coordenadas `(t,z)`, sem voltar à planta. Cotas/textos/detalhes pertencem à vista; peitoril e altura do vão
+  aceitam exceção por instância; alças verticais editam o vão; mover parede acompanha as aberturas. O comando **Nível
+  (LL)** cria o nível e as extensões da linha no mesmo Ctrl+Z (`tests/e2e/corte-editavel.mjs`).
 - **Grades/eixos**: criação, seleção, alças, mover/copiar, captura e painel de propriedades; entram na planta e no IFC
   de entrada/saída quando o arquivo traz `IfcGrid`.
 

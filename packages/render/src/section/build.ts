@@ -6,6 +6,7 @@ import { thinStrokes } from '../plan/thin.ts';
 import type { PlanPaint } from '../plan/style.ts';
 import type { Espessura, FillOp, LabelOp, PlanDrawList, PlanTheme, StrokeOp } from '../plan/types.ts';
 import type { Viewport } from '../viewport.ts';
+import { hasSectionAnnotations, sectionAnnotationOps } from './annotations.ts';
 import { projetarComPerfis } from './perfis.ts';
 import { ownerOf, sectionItems, type SectionItem } from './pick.ts';
 import { sectionStyleOf } from './style.ts';
@@ -23,6 +24,8 @@ export interface SectionInput {
   revealed?: ReadonlySet<Id>;
   /** Cotas, textos e detalhes pertencentes à vista de corte/elevação. */
   annotations?: import('@hestia/model').SectionAnnotations;
+  /** Extensões 2D das linhas de nível nesta vista, em `t`. */
+  levelExtents?: Record<Id, { a: number; b: number }>;
   /** Seleção e cursor (decisão 0016): realçados por cima do desenho. Sem ele, o desenho é o de sempre. */
   highlight?: { selection: Id[]; hover: Id | null };
   /** Linhas finas só na tela (decisão 0015): todo traço do modelo sai com 1 px. Padrão desligado; a prancha não passa. */
@@ -107,9 +110,12 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
 
   // Solo e níveis: linhas finas tracejadas ao longo de todo o comprimento.
   for (const l of s.levels) {
+    const extent = input.levelExtents?.[l.levelId];
+    const x0 = extent ? Math.min(extent.a, extent.b) : -0.5;
+    const x1 = extent ? Math.max(extent.a, extent.b) : s.length + 0.5;
     const edge = [
-      { x: -0.5, y: l.z },
-      { x: s.length + 0.5, y: l.z },
+      { x: x0, y: l.z },
+      { x: x1, y: l.z },
     ];
     strokes.push({ pts: edge, closed: false, widthPx: 1, color: theme.inkSoft, alpha: 0.9, dash: [10, 5] });
     labels.push({ at: edge[1]!, text: `${l.name} ${fmt(unitsOf(input.project), l.z)}`, dx: 6, dy: -8, tone: 'info' });
@@ -314,6 +320,15 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   const hiddenAny = GRAPHICS_CATEGORIES.some((c) => !paint[c].visible);
   const silhouette = hiddenAny || hasHidden ? (silhouetteParts.length > 0 ? union(...silhouetteParts) : []) : s.silhouette;
   for (const ring of ringsOf(silhouette)) strokes.push({ pts: ring, closed: true, widthPx: 2.2, color: theme.ink, alpha: 1 });
+
+  // Anotações da vista de corte/elevação (cotas, textos, detalhes e etiquetas), por cima do desenho do modelo. A
+  // geometria delas é `(t,z)`: distância ao longo do corte e cota. Sem `annotations`, nada muda no desenho.
+  if (hasSectionAnnotations(input.annotations)) {
+    const notes = sectionAnnotationOps(input);
+    fills.push(...notes.fills);
+    strokes.push(...notes.strokes);
+    labels.push(...notes.labels);
+  }
 
   if (input.thinLines) thinStrokes(strokes);
   // Borda azul do Reveal por cima do desenho normal e com a largura própria (não passa pelo `thinStrokes`).

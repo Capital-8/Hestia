@@ -1,7 +1,7 @@
 import { multiArea } from '@hestia/geom';
 import { bandVolume } from './profile.ts';
 import { bandPiece, cutVolume, floorCutters, slabCutters } from './junctionNet.ts';
-import { profileHeightAt, profileMean, openingSill, openingType, openingsOfWall, wallLength, type Id, type Project } from '@hestia/model';
+import { profileHeightAt, profileMean, openingHeight, openingSill, openingType, openingsOfWall, wallLength, type Id, type Project } from '@hestia/model';
 import type { ResolvedLevel } from './types.ts';
 
 export interface LayerQuantity {
@@ -79,7 +79,7 @@ export function quantifyLevel(p: Project, r: ResolvedLevel): Quantities {
     const openings = openingsOfWall(p, w.id).reduce((s, o) => {
       const t = openingType(p, o);
       const top = profiled ? profileHeightAt(profiled, o.offset) : H;
-      const clipped = Math.max(0, Math.min(t.height, top - openingSill(t, o)));
+      const clipped = Math.max(0, Math.min(openingHeight(t, o), top - openingSill(t, o)));
       return s + t.width * clipped;
     }, 0);
     walls.push({

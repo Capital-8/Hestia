@@ -12,6 +12,7 @@ import {
   isStair,
   isWall,
   levelElevation,
+  openingHeight,
   openingSill,
   roofsOnLevel,
   slabRiseAt,
@@ -129,7 +130,7 @@ export function elementZRange(p: Project, e: Element, ctx: Partial<ViewContext> 
     const t = openingTypeById(p, e.typeId);
     if (!isWall(host) || !t) return null;
     const z0 = wallZRange(p, host, ctx.floors, ctx.slabs, ctx.roofs).z0 + openingSill(t, e);
-    return { z0, z1: z0 + t.height };
+    return { z0, z1: z0 + openingHeight(t, e) };
   }
   if (isFloor(e)) {
     const t = p.floorTypes[e.typeId];

@@ -1,4 +1,4 @@
-import { newId, type Id, type Wall } from '@hestia/model';
+import { newId, type DetailLine, type DetailRegion, type Dimension, type ElementTag, type Id, type SectionAnnotations, type TextNote, type Wall } from '@hestia/model';
 import type { Inference, PointerInfo, PreviewItem, Tool, ToolEnv } from './types.ts';
 import { infer, type InferContext } from './infer.ts';
 import { floorEdges, floorVertices } from './floorPick.ts';
@@ -62,6 +62,20 @@ export abstract class ToolBase implements Tool {
   }
 
   protected ctx(extra: Partial<InferContext> = {}): InferContext {
+    // Corte/elevação tem prioridade: a vista entrega o contexto em (t, z). A planta continua igual.
+    const sec = this.env.section?.();
+    if (sec) {
+      // As opções globais valem igual na planta: captura, Orto/Polar e incremento polar.
+      const options = this.env.options();
+      const angle = options.angleMode;
+      return sec.inferContext({
+        snap: options.snap,
+        orthoLock: options.orthoLock || angle?.ortho === true,
+        polar: angle?.polar === true,
+        polarIncrementDeg: angle?.polarIncrementDeg,
+        ...extra,
+      });
+    }
     const project = this.env.project();
     const levelId = this.env.levelId();
     const hidden = this.env.hiddenInView?.();
@@ -109,3 +123,18 @@ export const makeId = newId;
  * gravar a anotação na planta (vista) e não no nível; `undefined` mantém a anotação na planta de piso.
  */
 export const viewPlanId = (env: ToolEnv): Id | undefined => env.areaPlanId?.() ?? undefined;
+
+/** Acrescenta uma anotação no conjunto da vista de corte; falso quando a vista ativa não é corte. */
+function appendSection<K extends keyof SectionAnnotations>(env: ToolEnv, key: K, item: SectionAnnotations[K][number]): boolean {
+  const sec = env.section?.();
+  if (!sec) return false;
+  const current = sec.annotations();
+  sec.setAnnotations({ ...current, [key]: [...current[key], item] as SectionAnnotations[K] });
+  return true;
+}
+
+export const addSectionDimension = (env: ToolEnv, item: Dimension): boolean => appendSection(env, 'dimensions', item);
+export const addSectionText = (env: ToolEnv, item: TextNote): boolean => appendSection(env, 'texts', item);
+export const addSectionDetailLine = (env: ToolEnv, item: DetailLine): boolean => appendSection(env, 'detailLines', item);
+export const addSectionDetailRegion = (env: ToolEnv, item: DetailRegion): boolean => appendSection(env, 'detailRegions', item);
+export const addSectionTag = (env: ToolEnv, item: ElementTag): boolean => appendSection(env, 'tags', item);

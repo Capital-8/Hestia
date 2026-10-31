@@ -95,6 +95,7 @@ export const I18N = {
     tool_attachroof: 'Anexar topo',
     tool_detachroof: 'Desanexar topo',
     tool_measure: 'Medir',
+    tool_level: 'Nível',
     tool_section: 'Corte',
 
     // Painéis
@@ -428,6 +429,7 @@ export const I18N = {
     tool_attachroof: 'Attach Top/Base',
     tool_detachroof: 'Detach Top/Base',
     tool_measure: 'Measure',
+    tool_level: 'Level',
     tool_section: 'Section',
 
     // Palettes

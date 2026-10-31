@@ -3,6 +3,8 @@ import {
   isWall,
   levelElevation,
   openingFamilyName,
+  openingHeight,
+  openingRough,
   openingTypeById,
   profileHeightAt,
   OPENING_FRAME_DEFAULTS,
@@ -324,7 +326,7 @@ function openingCommonProps(o: Opening, t: OpeningType, external: boolean): Arra
   if (typeof t.uValue === 'number' && Number.isFinite(t.uValue)) props.push(['ThermalTransmittance', t.uValue]);
   if (typeof t.acousticRw === 'number' && Number.isFinite(t.acousticRw)) props.push(['AcousticRating', `${t.acousticRw} dB`]);
   if (t.kind === 'window') {
-    const fraction = glazingAreaFraction(t);
+    const fraction = glazingAreaFraction({ ...t, height: openingHeight(t, o) });
     if (fraction !== null) props.push(['GlazingAreaFraction', fraction]);
   }
   return props;
@@ -347,9 +349,12 @@ function addOpenings(c: IfcCtx, openings: readonly IfcOpeningGeo[]): void {
     if (wallId === undefined || !st || !t) continue;
     const axis: IfcPoint = g.u;
     const atZ = (z: number): ReturnType<typeof localPlacement> => localPlacement(c.w, st.place, [g.center.x, g.center.y, z], axis);
+    // Altura efetiva da instância (override ou tipo) governa o furo e a esquadria; o vão bruto mantém a folga do tipo.
+    const height = openingHeight(t, o);
+    const roughHeight = openingRough({ ...t, height }).height;
     // O cortador atravessa a parede 1 cm para cada lado: as faces laterais não ficam coplanares com as faces da parede,
     // que é o caso clássico de CSG com arestas soltas no web-ifc. O furo na face continua com o vão bruto.
-    const voidSolid = extrudeSolid(c.w, rectOf(g.roughWidth, g.thickness + 0.02), 0, g.roughHeight);
+    const voidSolid = extrudeSolid(c.w, rectOf(g.roughWidth, g.thickness + 0.02), 0, roughHeight);
     const voidShape = bodyShape(c.w, c.ctx, 'SweptSolid', [voidSolid]);
     const voidId = c.w.add('IFCOPENINGELEMENT', [gid(`void:${g.openingId}`), OMIT, stepString(t.name), OMIT, OMIT, ref(atZ(g.roughBottomZ - st.elev)), ref(voidShape), OMIT, en('OPENING')]);
     c.w.add('IFCRELVOIDSELEMENT', [gid(`rvoid:${g.openingId}`), OMIT, OMIT, OMIT, ref(wallId), ref(voidId)]);
@@ -367,7 +372,7 @@ function addOpenings(c: IfcCtx, openings: readonly IfcOpeningGeo[]): void {
       }
     } else {
       materialOf(c, t.frameMaterialId);
-      const body = extrudeSolid(c.w, rectOf(g.width, g.thickness), 0, g.height);
+      const body = extrudeSolid(c.w, rectOf(g.width, g.thickness), 0, height);
       c.itemStyles?.push({ item: body, materialId: t.frameMaterialId });
       items.push(body);
     }
@@ -376,8 +381,8 @@ function addOpenings(c: IfcCtx, openings: readonly IfcOpeningGeo[]): void {
     const name = stepString(t.name);
     const fillId =
       o.kind === 'door'
-        ? c.w.add('IFCDOOR', [gid(`door:${g.openingId}`), OMIT, name, OMIT, family, ref(atZ(g.sillZ - st.elev)), shape === null ? OMIT : ref(shape), optStr(o.mark), num(g.height), num(g.width), en('DOOR'), en(doorOperation(t, o.flipHand)), OMIT])
-        : c.w.add('IFCWINDOW', [gid(`window:${g.openingId}`), OMIT, name, OMIT, family, ref(atZ(g.sillZ - st.elev)), shape === null ? OMIT : ref(shape), optStr(o.mark), num(g.height), num(g.width), en('WINDOW'), en(windowPartition(t.leaves)), OMIT]);
+        ? c.w.add('IFCDOOR', [gid(`door:${g.openingId}`), OMIT, name, OMIT, family, ref(atZ(g.sillZ - st.elev)), shape === null ? OMIT : ref(shape), optStr(o.mark), num(height), num(g.width), en('DOOR'), en(doorOperation(t, o.flipHand)), OMIT])
+        : c.w.add('IFCWINDOW', [gid(`window:${g.openingId}`), OMIT, name, OMIT, family, ref(atZ(g.sillZ - st.elev)), shape === null ? OMIT : ref(shape), optStr(o.mark), num(height), num(g.width), en('WINDOW'), en(windowPartition(t.leaves)), OMIT]);
     st.contained.push(fillId);
     c.w.add('IFCRELFILLSELEMENT', [gid(`rfill:${g.openingId}`), OMIT, OMIT, OMIT, ref(voidId), ref(fillId)]);
     // Material de fallback na instância: o web-ifc 0.0.78 ainda não propaga a associação do tipo para a ocorrência.

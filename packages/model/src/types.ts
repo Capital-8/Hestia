@@ -742,6 +742,11 @@ export interface SectionView {
   hidden?: ViewHidden;
   /** Cotas, textos e detalhes pertencentes só a esta vista de corte/elevação. */
   annotations?: SectionAnnotations;
+  /**
+   * Extensões 2D das linhas de nível nesta vista, em coordenadas `t` da linha do corte (0 = início a→b).
+   * Ausente = a linha do nível atravessa a vista inteira, como antes.
+   */
+  levelExtents?: Record<Id, { a: number; b: number }>;
 }
 
 /** Vista alvo de uma ocultação permanente (Hide in View). */

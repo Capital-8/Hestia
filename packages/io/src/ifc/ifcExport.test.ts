@@ -5,6 +5,8 @@ import {
   isWall,
   levelElevation,
   makeWall,
+  openingHeight,
+  openingRough,
   openingSill,
   openingType,
   wallBaseElevation,
@@ -216,6 +218,33 @@ describe('exportIfc: catálogo completo no mostruário', () => {
       expect(panel[4], line).not.toBe('.NOTDEFINED.');
     }
     expect(count(text, 'IFCRELDEFINESBYTYPE')).toBe(new Set(portas.map((o) => o.typeId)).size + new Set(janelas.map((o) => o.typeId)).size);
+  });
+});
+
+describe('exportIfc: altura efetiva da instância', () => {
+  it('IfcWindow e IfcOpeningElement usam o override, não a altura do tipo', () => {
+    const base = buildTemplate('house2');
+    const window = Object.values(base.elements).find((e): e is Opening => isOpening(e) && e.kind === 'window')!;
+    const type = openingType(base, window);
+    const override = type.height + 0.25;
+    const p: Project = {
+      ...base,
+      elements: { ...base.elements, [window.id]: { ...window, heightOverride: override } },
+    };
+    const text = exportIfc(p, geometryFromModel(p), { timestamp: TS });
+    const byId = entitiesById(text);
+
+    const windowLine = entityLines(text, 'IFCWINDOW').find((l) => attrsOf(l)[0]!.replace(/^'|'$/g, '') === ifcGuid(`window:${window.id}`))!;
+    expect(Number(attrsOf(windowLine)[8])).toBeCloseTo(override, 6);
+    expect(Number(attrsOf(windowLine)[9])).toBeCloseTo(type.width, 6);
+
+    const voidLine = entityLines(text, 'IFCOPENINGELEMENT').find((l) => attrsOf(l)[0]!.replace(/^'|'$/g, '') === ifcGuid(`void:${window.id}`))!;
+    const productShapeId = refsIn(attrsOf(voidLine)[6]!)[0]!;
+    const repId = refsIn(attrsOf(byId.get(productShapeId)!)[2]!)[0]!;
+    const itemId = refsIn(attrsOf(byId.get(repId)!)[3]!)[0]!;
+    const solid = attrsOf(byId.get(itemId)!);
+    const roughHeight = openingRough({ ...type, height: openingHeight(type, p.elements[window.id] as Opening) }).height;
+    expect(Number(solid[solid.length - 1])).toBeCloseTo(roughHeight, 6);
   });
 });
 

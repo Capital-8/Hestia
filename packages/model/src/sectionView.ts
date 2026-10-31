@@ -1,6 +1,7 @@
 import { add, applyTransform, dist, mul, norm, perp, sub, type Transform, type Vec2 } from '@hestia/geom';
 import type { Command } from './commands.ts';
 import { newId } from './ids.ts';
+import { sectionLevelExtentIssue } from './sectionLevelExtents.ts';
 import {
   isWall,
   type Id,
@@ -46,6 +47,14 @@ export function sectionViewIssue(v: SectionView): string | null {
     if (!ref) continue;
     if (typeof ref.wallId !== 'string' || clean(ref.wallId) === '') return 'A referência da vista aponta para uma parede vazia.';
     if (ref.end !== 'a' && ref.end !== 'b') return 'A extremidade da referência da vista é inválida.';
+  }
+  if (v.levelExtents !== undefined) {
+    if (!v.levelExtents || typeof v.levelExtents !== 'object') return 'As extensões das linhas de nível são inválidas.';
+    for (const [levelId, extent] of Object.entries(v.levelExtents)) {
+      if (clean(levelId) === '') return 'A extensão da linha de nível aponta para um nível vazio.';
+      const issue = sectionLevelExtentIssue(extent);
+      if (issue) return `Nível "${levelId}": ${issue}`;
+    }
   }
   const m = v.mark;
   if (!m) return null;

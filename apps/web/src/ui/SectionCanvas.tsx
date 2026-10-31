@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import type { Id } from '@hestia/model';
+import { sectionAnnotationsOf, type Id } from '@hestia/model';
 import { DARK, LIGHT, sectionFrame, type PlanDrawList, type Viewport } from '@hestia/render';
 import { editor, useProject } from '../editor/controller.ts';
 import { thinLinesOn } from '../editor/graphicsActions.ts';
@@ -8,8 +8,8 @@ import { Icon } from './Icon.tsx';
 
 /**
  * Quadro da vista de corte ou elevação: a mesma lista de desenho da planta, desenhada pelo mesmo canvas.
- * Sem ferramentas nesta vista; o cálculo do corte é cacheado pelo controlador por projeto. Seleção e cursor realçam o
- * desenho (decisão 0016).
+ * As ferramentas de anotação/edição usam `(t,z)`; o cálculo do corte é cacheado pelo controlador por projeto. Seleção e
+ * cursor realçam o desenho (decisão 0016).
  */
 
 /**
@@ -21,6 +21,7 @@ export function buildSectionFrame(v: Viewport, dark: boolean, hidden?: ReadonlyS
   const st = useUi.getState();
   const section = editor.sectionOf(st.sectionId);
   if (!section || !st.sectionId) return null;
+  const view = editor.project.views.find((x) => x.id === st.sectionId);
   const gpu = st.gpu === 'webgl2' || st.gpu === 'webgpu';
   return sectionFrame.drawList(
     {
@@ -33,6 +34,8 @@ export function buildSectionFrame(v: Viewport, dark: boolean, hidden?: ReadonlyS
       showGrid: st.showGrid,
       hidden,
       revealed,
+      annotations: view ? sectionAnnotationsOf(view) : undefined,
+      levelExtents: view?.levelExtents,
       highlight: { selection: st.selection, hover: st.hover },
       thinLines: thinLinesOn(editor.project, 'section'),
     },

@@ -256,6 +256,8 @@ export function labelOf(c: Command): string {
       return 'Ocultar na vista';
     case 'setSectionAnnotations':
       return 'Anotar no corte';
+    case 'setSectionLevelExtent':
+      return 'Criar/editar nível';
     case 'setSectionGraphics':
       return 'Alterar gráficos do corte';
     case 'resetSectionGraphics':

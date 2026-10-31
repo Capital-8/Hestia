@@ -1,5 +1,5 @@
 import type { Vec2 } from '@hestia/geom';
-import { levelElevation, openingType, wallType, type Element, type Id, type Opening, type Project, type Wall } from '@hestia/model';
+import { levelElevation, openingHeight, openingSill, openingType, wallType, type Element, type Id, type Opening, type Project, type Wall } from '@hestia/model';
 import { buildFrame, pointAt, type WallFrame } from './frame.ts';
 import { caixaDe, empacotarAnel, geometriaVazia, type GeometriaEmpacotada } from './fluxoGeometria.ts';
 import { nivelDoElemento, type AlteracaoProjeto, type ElementoGeometrico, type PatchProvisorio } from './fluxoPatch.ts';
@@ -55,8 +55,8 @@ export function elementoProvisorio(p: Project, e: Element, nivel: Id): ElementoG
       const f = buildFrame(parede, wallType(p, parede));
       if (!f) return null;
       const t = openingType(p, e);
-      const peitoril = e.sillOverride ?? t.sill;
-      return comoElemento(e, cota, parede.baseOffset + peitoril, parede.baseOffset + peitoril + t.height, empacotarAnel(contornoDaAbertura(p, e, f)));
+      const peitoril = openingSill(t, e);
+      return comoElemento(e, cota, parede.baseOffset + peitoril, parede.baseOffset + peitoril + openingHeight(t, e), empacotarAnel(contornoDaAbertura(p, e, f)));
     }
     if ('boundary' in e && Array.isArray(e.boundary) && e.boundary.length >= 3) {
       const deslocamento = 'heightOffset' in e ? e.heightOffset : 0;

@@ -78,8 +78,14 @@ export const wallMaxHeight = (p: Project, w: Wall): number => (w.topProfile && w
 
 export const openingSill = (t: OpeningType, o: Opening): number => o.sillOverride ?? t.sill;
 
-/** Altura efetiva do vão: override da instância ou altura do tipo. */
-export const openingHeight = (t: OpeningType, o: Opening): number => o.heightOverride ?? t.height;
+/**
+ * Altura efetiva do vão: override da instância quando ele é um número finito e positivo; ausente, nulo, inválido ou não
+ * positivo usa a altura do tipo (um override corrompido nunca derruba a geometria).
+ */
+export const openingHeight = (t: OpeningType, o: Opening): number => {
+  const h = o.heightOverride;
+  return typeof h === 'number' && Number.isFinite(h) && h > 0 ? h : t.height;
+};
 
 /** Quantos elementos usam o tipo de parede. */
 export const wallTypeUsage = (p: Project, typeId: Id): number =>

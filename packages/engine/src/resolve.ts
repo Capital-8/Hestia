@@ -15,6 +15,7 @@ import {
   FUNCTION_PRIORITY,
   layerPriority,
   layerSpans,
+  openingHeight,
   openingRough,
   openingSill,
   openingType,
@@ -221,7 +222,9 @@ function clusterWalls(frames: WallFrame[], ends: Map<string, WallEnds>): WallFra
 
 export function openingGeometry(p: Project, o: Opening, f: WallFrame): OpeningGeometry {
   const t = openingType(p, o);
-  const rough = openingRough(t);
+  // Altura efetiva da instância também define o vão bruto: a folga do tipo cresce o furo, não a esquadria.
+  const height = openingHeight(t, o);
+  const rough = openingRough({ ...t, height });
   return {
     openingId: o.id,
     hostId: o.hostId,
@@ -230,7 +233,7 @@ export function openingGeometry(p: Project, o: Opening, f: WallFrame): OpeningGe
     u: tangentAt(f, o.offset),
     n: normalAt(f, o.offset),
     width: t.width,
-    height: t.height,
+    height,
     roughWidth: rough.width,
     roughHeight: rough.height,
     sill: openingSill(t, o),

@@ -1,5 +1,5 @@
 import { levelFrames, pointAt } from '@hestia/engine';
-import { formatQuantity, openingTypeById, openingType, unitsOf, wallHeight, wallType, type ElementTag, type Id, type Project } from '@hestia/model';
+import { formatQuantity, openingHeight, openingTypeById, openingType, unitsOf, wallHeight, wallType, type ElementTag, type Id, type Project } from '@hestia/model';
 import type { Vec2 } from '@hestia/geom';
 import { aberturasDaParede } from './resolucao.ts';
 import type { LabelOp, StrokeOp } from './types.ts';
@@ -82,7 +82,7 @@ export function elementTagText(p: Project, tag: ElementTag): string {
       if (e.kind === 'wall') return formatQuantity(unitsOf(p), 'smallLength', wallType(p, e).layers.reduce((s, l) => s + l.thickness, 0));
       return '';
     case 'height':
-      if (e.kind === 'door' || e.kind === 'window') return formatQuantity(unitsOf(p), 'length', openingType(p, e).height);
+      if (e.kind === 'door' || e.kind === 'window') return formatQuantity(unitsOf(p), 'length', openingHeight(openingType(p, e), e));
       if (e.kind === 'wall') return formatQuantity(unitsOf(p), 'length', wallHeight(p, e));
       if (e.kind === 'room') return formatQuantity(unitsOf(p), 'length', e.ceilingHeight ?? p.defaults.wallHeight);
       return '';

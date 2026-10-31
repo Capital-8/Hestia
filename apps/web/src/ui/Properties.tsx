@@ -16,6 +16,7 @@ import {
   isWall,
   type DetailLevel,
   type JoinKind,
+  openingHeight,
   openingSill,
   totalThickness,
   viewRangeOf,
@@ -269,16 +270,22 @@ function OpeningProps({ items }: { items: Opening[] }): ReactElement {
             {single.sillOverride !== null && (
               <div className="prow"><span /><button className="chiplink" onClick={() => patch(ids, { sillOverride: null })}>Usar peitoril do tipo</button></div>
             )}
+            <Row label="Altura do vão" htmlFor="p-height">
+              <NumField id="p-height" value={type ? openingHeight(type, single) : 0} onCommit={(v) => patch(ids, { heightOverride: v })} quantity="length" min={0.1} onInvalid={() => useUi.setState({ status: 'Altura inválida: digite um número, como 1,20.' })} onValid={() => { if (useUi.getState().status.startsWith('Altura inválida')) useUi.setState({ status: 'Pronto.' }); }} />
+            </Row>
+            {typeof single.heightOverride === 'number' && (
+              <div className="prow"><span /><button className="chiplink" onClick={() => patch(ids, { heightOverride: null })}>Usar altura do tipo</button></div>
+            )}
           </>
         )}
         <Row label="Inverter dobradiça" htmlFor="p-hand"><Check id="p-hand" checked={hand.value} mixed={hand.mixed} onChange={(v) => patch(ids, { flipHand: v })} /></Row>
         <Row label="Inverter sentido" htmlFor="p-facing"><Check id="p-facing" checked={facing.value} mixed={facing.mixed} onChange={(v) => patch(ids, { flipFacing: v })} /></Row>
       </Group>
       <Group title="Dimensões" open={!!single}>
-        {type && (
+        {type && single && (
           <>
             <Row label="Largura" readOnly fromType><span className="val">{fmt('length', type.width)}</span></Row>
-            <Row label="Altura" readOnly fromType><span className="val">{fmt('length', type.height)}</span></Row>
+            <Row label="Altura" readOnly fromType={single.heightOverride == null}><span className="val">{fmt('length', openingHeight(type, single))}</span></Row>
             <Row label="Anfitriã" readOnly><span className="val soft">{host && isWall(host) ? p.wallTypes[host.typeId]?.name ?? '' : ''}</span></Row>
           </>
         )}

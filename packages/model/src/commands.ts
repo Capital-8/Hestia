@@ -55,6 +55,7 @@ import type { DeepPartial, ProjectGraphics, View3DSettings, ViewGraphics, ViewHi
 import { applyViewHidden } from './viewHiddenCommands.ts';
 import { applySectionAnnotations } from './sectionAnnotationCommands.ts';
 import type { SectionAnnotations } from './sectionAnnotations.ts';
+import { applySectionLevelExtent, type SectionLevelExtent } from './sectionLevelExtents.ts';
 import {
   applyLevelGraphics,
   applyProjectGraphics,
@@ -133,6 +134,7 @@ export type Command =
   | { type: 'resetView3D' }
   | { type: 'setViewHidden'; target: ViewHiddenTarget; hidden: ViewHidden | undefined }
   | { type: 'setSectionAnnotations'; sectionId: Id; annotations: SectionAnnotations | undefined }
+  | { type: 'setSectionLevelExtent'; sectionId: Id; levelId: Id; extent: SectionLevelExtent | undefined }
   | { type: 'setSectionGraphics'; patch: DeepPartial<ViewGraphics> }
   | { type: 'resetSectionGraphics' }
   | { type: 'setProjectName'; name: string }
@@ -480,6 +482,9 @@ export function applyCommand(p: Project, c: Command): void {
       break;
     case 'setSectionAnnotations':
       applySectionAnnotations(p, c.sectionId, c.annotations);
+      break;
+    case 'setSectionLevelExtent':
+      applySectionLevelExtent(p, c.sectionId, c.levelId, c.extent);
       break;
     case 'setSectionGraphics':
       applySectionGraphics(p, c.patch);

@@ -47,7 +47,7 @@ export const TAB_ARQUITETURA: RibbonTab = {
       stack(tool('roomsep', 'small'), soonS(t('Etiquetar ambiente', 'Tag Room'), 'tag')),
     ),
     panel('abertura', t('Abertura', 'Opening'), soon(t('Por face', 'By Face'), 'opening'), soon(t('Poço', 'Shaft'), 'opening'), soon(t('Parede', 'Wall'), 'opening'), soon(t('Vertical', 'Vertical'), 'opening'), soon(t('Água-furtada', 'Dormer'), 'opening')),
-    panel('referencia', t('Referência', 'Datum'), act('levels', 'large', t('Nível', 'Level')), tool('grid', 'large', { label: t('Grade', 'Grid'), icon: 'grid' })),
+    panel('referencia', t('Referência', 'Datum'), tool('level', 'large', { label: t('Nível (LL)', 'Level (LL)'), icon: 'level' }), stack(act('levels', 'small', t('Gerenciar níveis', 'Manage Levels'))), tool('grid', 'large', { label: t('Grade', 'Grid'), icon: 'grid' })),
     panel('plano-trabalho', t('Plano de trabalho', 'Work Plane'), soon(t('Definir', 'Set'), 'soon'), stack(soonS(t('Exibir', 'Show'), 'eye'), soonS(t('Plano de referência', 'Ref Plane'), 'soon'), soonS(t('Visualizador', 'Viewer'), 'soon'))),
   ],
 };
