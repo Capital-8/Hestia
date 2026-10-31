@@ -3,6 +3,7 @@ import { ProjectStore, createEmptyProject, type Project, type SectionAnnotations
 import type { SectionOpening, SectionResult } from '@hestia/engine';
 import { infer } from './infer.ts';
 import { sectionInferContext } from './sectionContext.ts';
+import { sectionSnapIndex } from './sectionSnapIndex.ts';
 import { makeEnv, P, clickAt, tool } from './testEnv.ts';
 import { DimensionTool } from './dimensionTool.ts';
 
@@ -148,6 +149,144 @@ describe('inferência na vista de corte (t, z)', () => {
     expect(ctx.previous).toBe(previous);
     expect(ctx.cycle).toBe(1);
     expect(ctx.orthoLock).toBe(false);
+  });
+
+  it('captura o topo e a ombreira do vão', () => {
+    const ctx = ctxOf(baseSection());
+    const top = infer(v(1.25, 2.11), ctx);
+    expect(top.kind).toBe('nearest');
+    expect(top.point.x).toBeCloseTo(1.25);
+    expect(top.point.y).toBeCloseTo(2.1);
+    const jamb = infer(v(1.02, 1.7), ctx);
+    expect(jamb.kind).toBe('nearest');
+    expect(jamb.point.x).toBeCloseTo(1);
+    expect(jamb.point.y).toBeCloseTo(1.7);
+  });
+
+  it('estende a trilha horizontal do topo do vão com guia de alinhamento', () => {
+    const section = baseSection();
+    const ctx = ctxOf(section);
+    // Fora do segmento (o topo vai de t=1 a t=2), na mesma cota: a reta é estendida.
+    const hit = infer(v(2.5, 2.11), ctx);
+    expect(hit.kind).toBe('alignment');
+    expect(hit.point.x).toBeCloseTo(2.5);
+    expect(hit.point.y).toBeCloseTo(2.1);
+    expect(hit.guides).toHaveLength(1);
+    expect(hit.guides[0]).toMatchObject({ kind: 'alignment' });
+    expect(hit.guides[0]!.from).toEqual(v(2, 2.1));
+    // O índice da vista tem a aresta como trilha h/v, com o dono (o vão).
+    const tracks = sectionSnapIndex(section).tracks;
+    expect(tracks.some((tr) => tr.axis === 'h' && tr.hostId === 'op1' && Math.abs(tr.a.y - 2.1) < 1e-9)).toBe(true);
+    expect(tracks.every((tr) => tr.axis === 'h' || tr.axis === 'v')).toBe(true);
+  });
+
+  it('estende a trilha vertical da ombreira e projeta o cursor sobre ela', () => {
+    const hit = infer(v(1.03, 2.5), ctxOf(baseSection()));
+    expect(hit.kind).toBe('alignment');
+    expect(hit.point.x).toBeCloseTo(1);
+    expect(hit.point.y).toBeCloseTo(2.5);
+    expect(hit.guides[0]?.kind).toBe('alignment');
+    expect(hit.guides[0]?.from).toEqual(v(1, 2.1));
+  });
+
+  it('8 px acima do meio do topo do vão: a aresta vence o alinhamento simples do midpoint', () => {
+    // mpp 0,01 → 8 px = 0,08 m. Sem a trilha, o alinhamento vertical do midpoint puxaria para z = 2,18.
+    const hit = infer(v(1.5, 2.18), ctxOf(baseSection()));
+    expect(hit.kind).toBe('alignment');
+    expect(hit.point.x).toBeCloseTo(1.5);
+    expect(hit.point.y).toBeCloseTo(2.1);
+    expect(hit.guides[0]?.kind).toBe('alignment');
+    expect(hit.guides[0]?.to.y).toBeCloseTo(2.1);
+    expect(hit.hostId).toBe('op1');
+  });
+
+  it('8 px ao lado do meio da ombreira: a trilha vertical mantém o x da aresta', () => {
+    const hit = infer(v(1.08, 1.7), ctxOf(baseSection()));
+    expect(hit.kind).toBe('alignment');
+    expect(hit.point.x).toBeCloseTo(1);
+    expect(hit.point.y).toBeCloseTo(1.7);
+    expect(hit.guides[0]?.kind).toBe('alignment');
+    expect(hit.hostId).toBe('op1');
+  });
+
+  it('não cria cruzamento falso do midpoint do topo com outra linha (8 px no zoom do caso central)', () => {
+    // mpp 0,025 → 8 px = 0,20 m. Cursor em 2,30 com uma referência de cota em 2,30 (membrana vertical distante):
+    // antes o x do midpoint do topo cruzava com esse y e puxava para 2,30 em vez da trilha horizontal do vão em 2,10.
+    const base = baseSection();
+    const section = baseSection({
+      membranes: [
+        ...base.membranes,
+        { materialId: 'm2', slabId: 'sl1', pts: [v(3, 2.2), v(3, 2.3)] },
+      ],
+    });
+    const ctx = sectionInferContext(section, emptyProject, 'lv_0', 0.025, 0.1, opts);
+    const hit = infer(v(1.5, 2.3), ctx);
+    expect(hit.kind).toBe('alignment');
+    expect(hit.point.x).toBeCloseTo(1.5);
+    expect(hit.point.y).toBeCloseTo(2.1);
+    expect(hit.guides[0]?.kind).toBe('alignment');
+    expect(hit.guides[0]?.to.y).toBeCloseTo(2.1);
+    expect(hit.hostId).toBe('op1');
+  });
+
+  it('não cria cruzamento falso do midpoint da ombreira com outra linha no modo seção', () => {
+    // A aresta longe (x 0..2,4 em y≈2,8) só tem midpoint em x=1,2; a ombreira tem midpoint em y=1,5. Antes os dois
+    // eixos de midpoint cruzavam perto do cursor e venciam a trilha vertical da ombreira.
+    const section = baseSection({
+      levels: [],
+      membranes: [],
+      beyond: [{ materialId: 'm3', layerIndex: 0, depth: 2, wallId: 'wOut', polygons: [[ring(0, 2.7, 2.4, 2.8)]] }],
+    });
+    const ctx = sectionInferContext(section, emptyProject, 'lv_0', 0.025, 0.1, opts);
+    const hit = infer(v(1.2, 1.58), ctx);
+    expect(hit.kind).toBe('alignment');
+    expect(hit.point.x).toBeCloseTo(1);
+    expect(hit.point.y).toBeCloseTo(1.58);
+    expect(hit.guides[0]?.kind).toBe('alignment');
+    expect(hit.hostId).toBe('op1');
+  });
+
+  it('captura o cruzamento de duas retas estendidas fora dos segmentos', () => {
+    const section = baseSection({
+      cut: [],
+      openings: [],
+      membranes: [],
+      levels: [],
+      beyond: [
+        { materialId: 'm3', layerIndex: 0, depth: 2, wallId: 'wA', polygons: [[ring(3, 0.5, 3.4, 0.7)]] },
+        { materialId: 'm3', layerIndex: 0, depth: 2, wallId: 'wB', polygons: [[ring(3.6, 1, 3.9, 1.4)]] },
+      ],
+    });
+    const hit = infer(v(3.61, 0.51), ctxOf(section));
+    expect(hit.kind).toBe('alignment');
+    expect(hit.point.x).toBeCloseTo(3.6);
+    expect(hit.point.y).toBeCloseTo(0.5);
+    expect(hit.guides.length).toBeGreaterThanOrEqual(1);
+    expect(hit.guides.every((g) => g.kind === 'alignment')).toBe(true);
+  });
+
+  it('exclui o vão oculto dos pontos, arestas e trilhas', () => {
+    const section = baseSection({ cut: [], membranes: [], levels: [] });
+    const ctx = ctxOf(section, emptyProject, { hidden: new Set(['op1']) });
+    expect(ctx.extraTracks?.some((tr) => tr.hostId === 'op1')).toBe(false);
+    expect(ctx.extraSegments?.some((e) => e.hostId === 'op1')).toBe(false);
+    expect(ctx.extraPoints?.some((p) => p.hostId === 'op1')).toBe(false);
+    expect(infer(v(2.5, 2.11), ctx).kind).toBe('none');
+  });
+
+  it('exclui a parede oculta da captura do corte', () => {
+    const section = baseSection({ openings: [], membranes: [], levels: [] });
+    const ctx = ctxOf(section, emptyProject, { hidden: new Set(['w1']) });
+    expect(infer(v(0.01, 0.01), ctx).kind).toBe('none');
+  });
+
+  it('reaproveita o índice entre movimentos (mesmos arrays no contexto)', () => {
+    const section = baseSection();
+    const first = ctxOf(section);
+    const second = ctxOf(section);
+    expect(first.extraPoints).toBe(second.extraPoints);
+    expect(first.extraSegments).toBe(second.extraSegments);
+    expect(first.extraTracks).toBe(second.extraTracks);
   });
 });
 

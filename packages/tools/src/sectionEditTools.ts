@@ -1,8 +1,8 @@
 import { dot, norm, sub, type Vec2 } from '@hestia/geom';
 import { frameOfWall } from '@hestia/engine';
-import { formatQuantity, isOpening, isWall, openingSill, openingType, unitsOf, wallBaseElevation, type Command, type Opening } from '@hestia/model';
+import { formatQuantity, isOpening, isWall, openingSill, openingType, unitsOf, wallBaseElevation, type Command, type Id, type Opening } from '@hestia/model';
 import { ToolBase } from './base.ts';
-import type { PointerInfo, ToolEnv } from './types.ts';
+import type { Inference, PointerInfo, PreviewItem, SnapKind, ToolEnv } from './types.ts';
 
 /** Direção da linha do corte ativo em planta. */
 function sectionDirection(env: ToolEnv): Vec2 | null {
@@ -82,48 +82,187 @@ export class SectionMoveTool extends ToolBase {
   override click(): void { /* o gesto é arrastado; clique sem arrasto não move */ }
 }
 
+const round3 = (v: number): number => Math.round(v * 1000) / 1000;
+
+/** Nome curto da captura, para o status da referência. */
+const SNAP_KIND_LABEL: Partial<Record<SnapKind, string>> = {
+  endpoint: 'ponta',
+  midpoint: 'ponto médio',
+  intersection: 'interseção',
+  face: 'face',
+  core: 'núcleo',
+  nearest: 'aresta',
+  alignment: 'alinhamento',
+  perpendicular: 'perpendicular',
+  center: 'centro',
+  tangent: 'tangente',
+  grid: 'grade',
+  ortho: 'ortogonal',
+  polar: 'polar',
+};
+
+/** Cota no idioma/unidades do projeto, com sinal explícito no rótulo da referência. */
+function cotaText(env: ToolEnv, z: number): string {
+  const text = formatQuantity(unitsOf(env.project()), 'length', z);
+  return z >= 0 ? `+${text}` : text;
+}
+
 /**
- * Alinhar no corte: clique numa cota/nível de referência. Sem Shift alinha o peitoril; com Shift alinha o topo.
- * As referências vêm do snap da seção (níveis, peitoril/topo de outra abertura, arestas).
+ * Trecho horizontal da guia da referência: do início ao fim da vista de corte/elevação. Sem a vista no projeto
+ * (ambiente parcial), usa um trecho em volta do cursor para a guia continuar visível.
+ */
+function guideSpanX(env: ToolEnv, cursorX: number): [number, number] {
+  const sec = env.section?.();
+  const view = sec ? env.project().views.find((v) => v.id === sec.id) : undefined;
+  if (view) {
+    const d = sub(view.b, view.a);
+    const length = Math.hypot(d.x, d.y);
+    if (length > 1e-9) return [0, length];
+  }
+  return [Math.min(0, cursorX - 2), Math.max(1, cursorX + 2)];
+}
+
+/**
+ * Abertura alvo do segundo clique: a selecionada ou, sem seleção de abertura, a que estiver sob o snap (uma aresta
+ * de vão carrega o id da abertura em `hostId`).
+ */
+function targetOpening(env: ToolEnv, inf: Inference, cachedId?: Id | null): Opening | undefined {
+  const p0 = env.project();
+  for (const id of env.selection()) {
+    const e = p0.elements[id];
+    if (isOpening(e)) return e;
+  }
+  const host = inf.hostId !== undefined ? p0.elements[inf.hostId] : undefined;
+  if (isOpening(host)) return host;
+  const cached = cachedId !== undefined && cachedId !== null ? p0.elements[cachedId] : undefined;
+  return isOpening(cached) ? cached : undefined;
+}
+
+/** Referência do primeiro passo: cota, ponto, tipo de captura e dono (para o status e a guia). */
+interface AlignRef {
+  z: number;
+  point: Vec2;
+  kind: SnapKind;
+  hostId?: Id;
+  /** Falso quando o clique caiu no vazio e a cota foi tomada do ponto livre. */
+  snapped: boolean;
+}
+
+/**
+ * Alinhar no corte/elevação em dois passos: primeiro a referência (cota/aresta), depois o alvo (abertura).
+ * Sem Shift alinha o topo do alvo à referência; com Shift alinha o peitoril. Porta só tem topo (Shift avisa).
+ * O primeiro clique nunca altera o modelo: só grava a referência e mostra a guia horizontal persistente.
  */
 export class SectionAlignTool extends ToolBase {
   readonly id = 'align';
   readonly label = 'Alinhar';
-  readonly hint = 'Alinhar no corte: clique numa cota/aresta de referência. Shift alinha o topo; sem Shift alinha o peitoril.';
-  private ref: Vec2 | null = null;
+  readonly hint = 'Alinhar no corte: clique na referência (cota/aresta) e depois no alvo. Alinha o topo; Shift alinha o peitoril.';
+  private ref: AlignRef | null = null;
+  /** Abertura alvo já detectada (seleção ou `hostId`): fica fora da inferência da referência. */
+  private targetId: Id | null = null;
 
-  protected reset(): void { this.ref = null; this.items = []; this.inf = null; }
+  protected reset(): void { this.ref = null; this.targetId = null; this.items = []; this.inf = null; }
   protected busy(): boolean { return this.ref !== null; }
 
+  /** Ids que não podem servir de referência: a seleção e o alvo já detectado. */
+  private referenceIgnore(): Set<Id> {
+    const ignore = new Set<Id>(this.env.selection());
+    if (this.targetId) ignore.add(this.targetId);
+    return ignore;
+  }
+
+  /** Detecta o alvo do segundo passo e o memoriza para as próximas capturas o ignorarem. */
+  private detectTarget(inf: Inference): Opening | undefined {
+    const target = targetOpening(this.env, inf, this.targetId);
+    if (target) this.targetId = target.id;
+    return target;
+  }
+
   override move(p: PointerInfo): void {
-    this.raw = p.raw;
-    const inf = this.snap(p);
-    this.ref = inf.point;
-    this.items = [
-      { kind: 'line', a: { x: this.raw.x - 2, y: inf.point.y }, b: { x: this.raw.x + 2, y: inf.point.y }, dashed: true },
+    const inf = this.snap(p, { ignore: this.referenceIgnore() });
+    if (!this.ref) {
+      this.items = [
+        ...this.referencePreview(inf.point.y, false, inf.point.x),
+        { kind: 'point', at: inf.point },
+      ];
+      return;
+    }
+    const target = this.detectTarget(inf);
+    const items: PreviewItem[] = [
+      ...this.referencePreview(this.ref.z, true),
+      // Fantasma vertical do alvo até a guia da referência.
+      { kind: 'line', a: { x: inf.point.x, y: this.ref.z }, b: inf.point, dashed: true },
       { kind: 'point', at: inf.point },
     ];
+    if (target) items.push({ kind: 'highlight', ids: [target.id] });
+    this.items = items;
   }
 
   override click(p: PointerInfo): void {
-    const inf = this.snap(p);
+    const inf = this.snap(p, { ignore: this.referenceIgnore() });
+    if (!this.ref) { this.setReference(inf); return; }
+    const target = this.detectTarget(inf);
+    if (!target) { this.env.say('Selecione uma abertura ou clique sobre ela para alinhar. Nada foi alterado.'); return; }
+    this.alignTarget(target, p.shift);
+  }
+
+  /** Guia horizontal longa na cota da referência, com o rótulo "Referência +cota". */
+  private referencePreview(z: number, committed: boolean, atX?: number): PreviewItem[] {
+    const [x0, x1] = guideSpanX(this.env, this.raw.x);
+    return [
+      { kind: 'line', a: { x: x0, y: z }, b: { x: x1, y: z }, dashed: !committed },
+      { kind: 'label', at: { x: atX ?? x1, y: z }, text: `Referência ${cotaText(this.env, z)}` },
+    ];
+  }
+
+  private setReference(inf: Inference): void {
+    const snapped = inf.kind !== 'none';
+    this.ref = { z: inf.point.y, point: { ...inf.point }, kind: inf.kind, hostId: inf.hostId, snapped };
+    this.items = [
+      ...this.referencePreview(this.ref.z, true),
+      { kind: 'point', at: this.ref.point },
+    ];
+    const cota = cotaText(this.env, this.ref.z);
+    const origem = snapped
+      ? `Referência em ${SNAP_KIND_LABEL[inf.kind] ?? 'captura'} ${cota}`
+      : `Sem referência de linha: ponto livre ${cota}`;
+    this.env.say(`${origem}. Clique no alvo para alinhar o topo; Shift alinha o peitoril.`);
+  }
+
+  private alignTarget(target: Opening, shift: boolean): void {
+    const ref = this.ref;
+    if (!ref) return;
     const p0 = this.env.project();
-    const id = this.env.selection().find((x) => isOpening(p0.elements[x]));
-    const opening = id ? p0.elements[id] : undefined;
-    if (!isOpening(opening)) { this.env.say('Selecione uma abertura para alinhar no corte.'); return; }
-    const wall = p0.elements[opening.hostId];
-    if (!isWall(wall)) return;
-    const type = openingType(p0, opening);
+    // Sem seleção o alvo pode ter sido achado pela própria captura: ele não pode ser a referência dele mesmo.
+    if (ref.hostId === target.id) {
+      this.env.say('A referência é a própria abertura alvo; escolha outra referência.');
+      return;
+    }
+    const wall = p0.elements[target.hostId];
+    if (!isWall(wall)) { this.env.say('A abertura não tem parede hospedeira; nada foi alterado.'); return; }
+    // Porta não tem peitoril útil: o único alinhamento é o topo.
+    if (target.kind === 'door' && shift) {
+      this.env.say('Porta só alinha o topo; clique no alvo sem Shift. Nada foi alterado.');
+      return;
+    }
     const base = wallBaseElevation(p0, wall);
-    const sill = openingSill(type, opening);
-    const cmd: Command | null = p.shift
-      ? { type: 'updateElements', ids: [opening.id], patch: { heightOverride: Math.max(0.1, Math.round((inf.point.y - base - sill) * 1000) / 1000) } }
-      : opening.kind === 'window'
-        ? { type: 'updateElements', ids: [opening.id], patch: { sillOverride: Math.max(0, Math.round((inf.point.y - base) * 1000) / 1000) } }
-        : null;
-    if (!cmd) { this.env.say('Porta só alinha o topo; use Shift.'); return; }
-    this.env.exec(cmd);
-    this.env.say(p.shift ? 'Topo alinhado. Ctrl+Z desfaz.' : 'Peitoril alinhado. Ctrl+Z desfaz.');
+    const type = openingType(p0, target);
+    let patch: Partial<Opening>;
+    let label: string;
+    if (shift) {
+      const sill = round3(ref.z - base);
+      if (sill < 0) { this.env.say('A referência fica abaixo da base da parede; peitoril não alterado.'); return; }
+      patch = { sillOverride: sill };
+      label = 'Peitoril';
+    } else {
+      const height = round3(ref.z - base - openingSill(type, target));
+      if (height < 0.01) { this.env.say('A referência fica baixa demais para o topo; nada foi alterado.'); return; }
+      patch = { heightOverride: height };
+      label = 'Topo';
+    }
+    // Um comando só: o alinhamento inteiro é um único passo de desfazer.
+    this.env.transaction('Alinhar no corte', () => this.env.exec({ type: 'updateElements', ids: [target.id], patch }));
+    this.env.say(`${label} alinhado em ${cotaText(this.env, ref.z)}. Ctrl+Z desfaz; Esc sai.`);
     this.reset();
   }
 }

@@ -712,6 +712,7 @@ svg { display: block; }
 .pub-ord { min-width: 18px; text-align: right; opacity: 0.6; font-variant-numeric: tabular-nums; }
 .pub-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* ---- arrastar vista do navegador para a prancha ---- */
-.bnode[draggable="true"] { cursor: grab; }
-.bnode.dragging { opacity: 0.5; }
+/* O nó é arrastável para a prancha, mas no hover fica a seta do sistema: a mão só aparece no gesto real de arraste. */
+.bnode[draggable="true"] { cursor: default; }
+.bnode.dragging { opacity: 0.5; cursor: grabbing; }
 .sheet-stage[data-drop] { box-shadow: inset 0 0 0 2px var(--accent); }

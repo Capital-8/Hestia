@@ -35,7 +35,7 @@ import { defaultOpenViews, type PlanKind } from './openViews.ts';
 import { casador } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
 import { elevationCommand, type PlanBox } from './elevations.ts';
 import { deleteSelectionIn } from './deleteIds.ts';
-import { hideSelectedCategoryInView, hideSelectionInView, resetAllTemporary, resetTemporaryHidden, temporaryHideSelection, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideSelectedCategoryInView, unhideSelectionInView } from './viewVisibility.ts';
+import { hideSelectedCategoryInView, hideSelectionInView, resetAllTemporary, resetTemporaryHidden, temporaryHideSelection, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideSelectedCategoryInView, unhideSelectionInView, visibilityOf } from './viewVisibility.ts';
 import { deleteViewAction, renameViewAction, updateViewAction } from './sectionViewActions.ts';
 import { entregarArquivo } from './entregarArquivo.ts';
 import { safeFilename } from './nomeArquivo.ts';
@@ -163,6 +163,8 @@ export class Editor {
         inferContext: (extra) => sectionInferContext(result, this.project, st.levelId, 1 / (this.viewport()?.zoom ?? 60), effectiveGridStep(this.viewport()?.zoom ?? 60, st.gridStep), {
           line: { a: view.a, b: view.b, depth: view.depth },
           snap: st.options.snap,
+          // Hide in View da vista: o que está oculto não pode virar alvo de captura (grades incluídas).
+          hidden: visibilityOf(this.project, st).hidden,
           ...extra,
         }),
       };
@@ -562,12 +564,17 @@ export class Editor {
     }
     if (ui.view === 'section') {
       if (k === 'Escape') {
-        // Primeiro Esc cancela a ferramenta ativa; com a Selecionar, fecha a vista.
+        // Esc no corte/elevação NUNCA fecha a vista: fechar é só pela aba ou pelo botão "Voltar à planta".
+        // Ele cancela a ferramenta ativa e o estado pendente dela; já na Selecionar, limpa seleção, realce e status.
+        casador.limpar();
+        if (ui.typed) useUi.setState({ typed: '' });
+        this.limparArrasteRotulo();
         if (this.tool.id !== 'select') {
           this.tool.cancel();
+          if (useUi.getState().hover) useUi.setState({ hover: null });
           this.bump();
-        } else {
-          this.closeSection();
+        } else if (ui.selection.length > 0 || ui.hover || ui.status) {
+          useUi.setState({ selection: [], hover: null, status: '' });
         }
         return true;
       }

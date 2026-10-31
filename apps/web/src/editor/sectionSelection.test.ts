@@ -41,8 +41,22 @@ describe('seleção na vista de corte (decisão 0016, seção "Seleção em cort
     expect(editor.project.elements.w2).toBeUndefined();
   });
 
-  it('Esc continua fechando o corte', () => {
+  it('Esc na Selecionar limpa a seleção/status e mantém o corte aberto', () => {
+    clickSelect3d('w1', false);
+    useUi.setState({ status: 'Mensagem qualquer' });
     expect(editor.key(tecla('Escape'))).toBe(true);
-    expect(useUi.getState().view).toBe('plan');
+    expect(useUi.getState().view).toBe('section');
+    expect(useUi.getState().sectionId).toBe('corte_a');
+    expect(useUi.getState().selection).toEqual([]);
+    expect(useUi.getState().status).toBe('');
+  });
+
+  it('Esc com ferramenta ativa cancela a ferramenta e também não fecha o corte', () => {
+    editor.setTool('text');
+    expect(useUi.getState().tool).toBe('text');
+    expect(editor.key(tecla('Escape'))).toBe(true);
+    expect(useUi.getState().view).toBe('section');
+    expect(useUi.getState().sectionId).toBe('corte_a');
+    expect(useUi.getState().tool).toBe('select');
   });
 });

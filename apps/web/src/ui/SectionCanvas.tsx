@@ -66,7 +66,7 @@ export function SectionBadge(): ReactElement | null {
       <Icon name={isSection ? 'section' : 'elevation'} size={14} />
       <span className="section-name">{view.name}</span>
       <span className="section-kind">{isSection ? 'Corte' : 'Elevação'}</span>
-      <button className="ibtn" title="Voltar à planta (Esc)" aria-label="Voltar à planta" onClick={() => editor.closeSection()}>
+      <button className="ibtn" title="Fechar corte e voltar à planta" aria-label="Fechar corte e voltar à planta" onClick={() => editor.closeSection()}>
         <Icon name="close" size={14} />
       </button>
     </div>

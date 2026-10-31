@@ -42,7 +42,9 @@ export function StatusBar(): ReactElement {
       <span className="msg" title={status}>{status}</span>
       {pendente ? <span className="mono" aria-label="Sequência de atalho em andamento">{pendente}…</span> : null}
       {view === 'plan' && cursor ? <span className="mono sb-coords">x {formatQuantity(units, 'length', cursor.x)}  y {formatQuantity(units, 'length', cursor.y)}</span> : null}
-      <span className="mono sb-snap">{view === 'plan' && snap && SNAP[snap] ? SNAP[snap] : ''}</span>
+      {/* Corte/elevação trabalham em (t,z): t é a distância ao longo da linha e z a cota. Não são x/y de planta. */}
+      {view === 'section' && cursor ? <span className="mono sb-coords">t {formatQuantity(units, 'length', cursor.x)}  z {formatQuantity(units, 'length', cursor.y)}</span> : null}
+      <span className="mono sb-snap">{view === 'plan' ? (snap && SNAP[snap] ? SNAP[snap] : '') : view === 'section' && snap ? (SNAP[snap] ?? snap) : ''}</span>
       <SnapButton />
       <OrthoButton />
       <span className="sb-filter" title={pt ? `Filtro de seleção: ${nSel} elemento${nSel === 1 ? '' : 's'} selecionado${nSel === 1 ? '' : 's'}` : `Selection filter: ${nSel} selected`}>

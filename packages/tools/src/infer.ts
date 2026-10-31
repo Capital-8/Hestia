@@ -28,6 +28,19 @@ import { DEFAULT_SNAP, type Guide, type Inference, type SnapKind, type SnapOptio
 /** Ponto extra de captura. `hostId` é o elemento dono: some da captura quando ele está em `ignore` (ex.: o piso sendo movido). */
 export type SnapPoint = Vec2 & { hostId?: Id; kind?: SnapKind };
 
+/**
+ * Trilha de alinhamento pronta para o rastreamento: uma aresta (normalmente horizontal/vertical, `axis`) cuja reta
+ * pode ser estendida além das pontas. Na planta são as faces das ombreiras; na seção, as arestas h/v da vista.
+ */
+export interface ExtraTrack {
+  a: Vec2;
+  b: Vec2;
+  hostId?: Id;
+  axis?: 'h' | 'v';
+  /** Marcador da origem da trilha (`face` nas faces e nas arestas alinhadas da seção). */
+  kind?: SnapKind;
+}
+
 export interface InferContext {
   project: Project;
   levelId: Id;
@@ -52,6 +65,11 @@ export interface InferContext {
   snap?: SnapOptions;
   /** Arestas de captura (contornos de pisos e lajes, ombreiras de aberturas): o pé da perpendicular sobre a aresta vira captura. */
   extraSegments?: Array<{ a: Vec2; b: Vec2; hostId?: Id; kind?: SnapKind }>;
+  /**
+   * Trilhas de alinhamento (arestas h/v da seção e ombreiras): a reta é estendida além das pontas e o cursor projeta
+   * sobre ela com guia de alinhamento. `infer` só considera as que passam perto do cursor.
+   */
+  extraTracks?: ExtraTrack[];
   /** Tab: índice do candidato escolhido entre todos os que estão ao alcance (ordenados por custo). */
   cycle?: number;
   /** Captura escolhida na posição anterior do cursor: mantém-na enquanto continuar valendo (histerese). */
@@ -96,6 +114,15 @@ const WEIGHT: Record<SnapKind, number> = {
 };
 /** Cruzamento de duas restrições (x × y, x × face, face × face): o ponto que o usuário mira. */
 const WEIGHT_ALIGN_CROSS = 0.3;
+/**
+ * Candidato da trilha de aresta dentro do segmento: peso baixo para a aresta real vencer o alinhamento simples de um
+ * ponto de referência (ex.: midpoint) sem competir com endpoint (0) nem com a captura de aresta (0.7).
+ */
+const WEIGHT_TRACK = 0.2;
+/** Alinhamento simples só por ponto de referência na seção: acima de `1 + WEIGHT_TRACK`, então a aresta vence. */
+const WEIGHT_ALIGN_SECTION = 1.25;
+
+const dist2 = (a: Vec2, b: Vec2): number => (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y);
 
 interface Cand {
   point: Vec2;
@@ -182,6 +209,9 @@ interface AxisLine {
 interface TrackLine {
   a: Vec2;
   b: Vec2;
+  hostId?: Id;
+  axis?: 'h' | 'v';
+  kind?: SnapKind;
 }
 
 /** Interseção de duas retas infinitas (p1 + k·d1 e p2 + m·d2), ou null se paralelas. */
@@ -206,16 +236,24 @@ function crossAxis(p: Vec2, d: Vec2, axis: 'x' | 'y', v: number): Vec2 | null {
  */
 function addSectionCrossings(ctx: InferContext, sn: SnapOptions, cursor: Vec2, tol: number, add: (point: Vec2, kind: SnapKind, guides?: Guide[], hostId?: Id, weight?: number) => void): void {
   if (!sn.intersections) return;
+  const reach = tol * Math.SQRT2;
+  const reach2 = reach * reach;
   const near: Array<{ a: Vec2; b: Vec2; hostId?: Id }> = [];
   for (const e of ctx.extraSegments ?? []) {
     if (e.hostId !== undefined && ctx.ignore?.has(e.hostId)) continue;
-    if (dist(e.a, e.b) < 1e-9) continue;
-    if (dist(cursor, closestOnSegment(cursor, e.a, e.b)) <= tol * Math.SQRT2) near.push(e);
+    if (dist2(e.a, e.b) < 1e-18) continue;
+    // Caixa expandida: aresta longe do cursor não entra no par a par (a vista pode ter milhares delas).
+    const minX = Math.min(e.a.x, e.b.x) - reach;
+    const maxX = Math.max(e.a.x, e.b.x) + reach;
+    const minY = Math.min(e.a.y, e.b.y) - reach;
+    const maxY = Math.max(e.a.y, e.b.y) + reach;
+    if (cursor.x < minX || cursor.x > maxX || cursor.y < minY || cursor.y > maxY) continue;
+    if (dist2(cursor, closestOnSegment(cursor, e.a, e.b)) <= reach2) near.push(e);
   }
   for (let i = 0; i < near.length; i++) {
     for (let j = i + 1; j < near.length; j++) {
       const p = intersectSegments(near[i]!.a, near[i]!.b, near[j]!.a, near[j]!.b);
-      if (p && dist(cursor, p) <= tol * Math.SQRT2) add(p, 'intersection');
+      if (p && dist2(cursor, p) <= reach2) add(p, 'intersection');
     }
   }
 }
@@ -384,12 +422,16 @@ export function infer(cursor: Vec2, ctx: InferContext): Inference {
         refs.push(seg[0], seg[1]);
       }
     }
-    // Ombreiras das aberturas também são trechos de alinhamento (a linha atravessa a espessura).
-    addExtraTracks(ctx, faceTracks, refs);
+    // Ombreiras das aberturas e arestas h/v da seção também são trechos de alinhamento (a linha atravessa a espessura
+    // e se estende além das pontas). As trilhas distantes do cursor ficam de fora para não varrer a vista inteira.
+    addExtraTracks(ctx, faceTracks, refs, cursor, tol);
   }
   if (!ctx.onWallsOnly && ctx.extraPoints) {
     for (const q of ctx.extraPoints) {
       if (q.hostId !== undefined && ctx.ignore?.has(q.hostId)) continue;
+      // Na seção o midpoint é captura de ponto, mas não vira eixo de alinhamento: o x/y dele cruzaria com outra
+      // linha e criaria um ponto flutuante (ex.: z=2,30) no lugar da aresta real sob o cursor.
+      if (ctx.section && q.kind === 'midpoint') continue;
       refs.push(v2(q.x, q.y));
     }
   }
@@ -410,18 +452,21 @@ export function infer(cursor: Vec2, ctx: InferContext): Inference {
       }
     }
 
-    // Alinhamento simples: uma linha só, com o outro eixo livre (grade, se ligada).
+    // Alinhamento simples: uma linha só, com o outro eixo livre (grade, se ligada). Na seção ele perde da trilha de
+    // aresta (peso `WEIGHT_TRACK`), para uma aresta real sob o cursor não ser trocada por um ponto de referência.
+    const alignWeight = ctx.section ? WEIGHT_ALIGN_SECTION : WEIGHT.alignment;
     for (const l of xLines) {
       const p = v2(l.value, free(cursor.y));
-      add(p, 'alignment', [{ from: l.from, to: p, kind: 'alignment' }]);
+      add(p, 'alignment', [{ from: l.from, to: p, kind: 'alignment' }], undefined, alignWeight);
     }
     for (const l of yLines) {
       const p = v2(free(cursor.x), l.value);
-      add(p, 'alignment', [{ from: l.from, to: p, kind: 'alignment' }]);
+      add(p, 'alignment', [{ from: l.from, to: p, kind: 'alignment' }], undefined, alignWeight);
     }
 
-    // Trechos de face: a projeção do cursor sobre a face vira alinhamento quando está fora do segmento
-    // (dentro do segmento a captura "nearest" já cobre o ponto).
+    // Trechos de face: a projeção do cursor sobre a face vira alinhamento. Fora do segmento, a linha é estendida;
+    // dentro, a aresta real também vira candidato (peso baixo), para vencer o alinhamento simples de um midpoint.
+    const reach2 = tol * tol * 2;
     const tracks = faceTracks.filter((tr) => {
       const d = sub(tr.b, tr.a);
       const dd = dot(d, d);
@@ -431,20 +476,34 @@ export function infer(cursor: Vec2, ctx: InferContext): Inference {
       // chamada de `infer` (o snap ficava ~10× mais lento a cada movimento do mouse).
       const t = dot(sub(cursor, tr.a), d) / dd;
       const projected = v2(tr.a.x + d.x * t, tr.a.y + d.y * t);
-      return dist(cursor, projected) <= tol * Math.SQRT2;
+      return dist2(cursor, projected) <= reach2;
     });
     for (const tr of tracks) {
       const d = sub(tr.b, tr.a);
       const t = dot(sub(cursor, tr.a), d) / dot(d, d);
       const projected = v2(tr.a.x + d.x * t, tr.a.y + d.y * t);
-      if (dist(cursor, projected) <= tol && (t < 0 || t > 1)) {
+      const offset = dist(cursor, projected);
+      if (offset > tol) continue;
+      // Perto de uma ponta, a extremidade (peso 0) e a captura "nearest" já resolvem.
+      const da = dist2(projected, tr.a);
+      const db = dist2(projected, tr.b);
+      if (da <= tol * tol || db <= tol * tol) continue;
+      if (t < 0 || t > 1) {
         const anchor = closestOnSegment(projected, tr.a, tr.b);
-        add(projected, 'alignment', [{ from: anchor, to: projected, kind: 'alignment' }]);
+        // Fora das pontas a extensão não compete com pontos: os refs de alinhamento (peso maior) continuam valendo.
+        add(projected, 'alignment', [{ from: anchor, to: projected, kind: 'alignment' }], tr.hostId, WEIGHT.alignment);
+      } else if (tr.axis === 'h' || tr.axis === 'v') {
+        // Dentro do segmento só as trilhas da seção têm prioridade de aresta; as faces da planta seguem como antes.
+        // Bem em cima da aresta, a captura "nearest" (e o midpoint) continua mandando; a trilha entra quando o
+        // cursor está deslocado o bastante para o alinhamento de um ponto de referência puxá-lo para fora da cota.
+        if (offset <= tol * 0.5) continue;
+        const anchor = da <= db ? tr.a : tr.b;
+        add(projected, 'alignment', [{ from: anchor, to: projected, kind: 'alignment' }], tr.hostId, WEIGHT_TRACK);
       }
     }
 
     // Cruzamentos entre restrições: x × y, x × face, y × face e face × face. São o ponto que o usuário quer.
-    const near = (p: Vec2): boolean => dist(cursor, p) <= tol * Math.SQRT2;
+    const near = (p: Vec2): boolean => dist2(cursor, p) <= tol * tol * 2;
     for (const xl of xLines) {
       for (const yl of yLines) {
         const p = v2(xl.value, yl.value);
@@ -456,11 +515,11 @@ export function infer(cursor: Vec2, ctx: InferContext): Inference {
       const anchorOf = (p: Vec2): Vec2 => closestOnSegment(p, tr.a, tr.b);
       for (const xl of xLines) {
         const p = crossAxis(tr.a, d, 'x', xl.value);
-        if (p && near(p)) add(p, 'alignment', [{ from: xl.from, to: p, kind: 'alignment' }, { from: anchorOf(p), to: p, kind: 'alignment' }], undefined, WEIGHT_ALIGN_CROSS);
+        if (p && near(p)) add(p, 'alignment', [{ from: xl.from, to: p, kind: 'alignment' }, { from: anchorOf(p), to: p, kind: 'alignment' }], tr.hostId, WEIGHT_ALIGN_CROSS);
       }
       for (const yl of yLines) {
         const p = crossAxis(tr.a, d, 'y', yl.value);
-        if (p && near(p)) add(p, 'alignment', [{ from: yl.from, to: p, kind: 'alignment' }, { from: anchorOf(p), to: p, kind: 'alignment' }], undefined, WEIGHT_ALIGN_CROSS);
+        if (p && near(p)) add(p, 'alignment', [{ from: yl.from, to: p, kind: 'alignment' }, { from: anchorOf(p), to: p, kind: 'alignment' }], tr.hostId, WEIGHT_ALIGN_CROSS);
       }
     }
     for (let i = 0; i < tracks.length; i++) {
@@ -469,7 +528,7 @@ export function infer(cursor: Vec2, ctx: InferContext): Inference {
         const t2 = tracks[j]!;
         const p = intersectLines(t1.a, sub(t1.b, t1.a), t2.a, sub(t2.b, t2.a));
         if (p && near(p)) {
-          add(p, 'alignment', [{ from: closestOnSegment(p, t1.a, t1.b), to: p, kind: 'alignment' }, { from: closestOnSegment(p, t2.a, t2.b), to: p, kind: 'alignment' }], undefined, WEIGHT_ALIGN_CROSS);
+          add(p, 'alignment', [{ from: closestOnSegment(p, t1.a, t1.b), to: p, kind: 'alignment' }, { from: closestOnSegment(p, t2.a, t2.b), to: p, kind: 'alignment' }], t1.hostId ?? t2.hostId, WEIGHT_ALIGN_CROSS);
         }
       }
     }

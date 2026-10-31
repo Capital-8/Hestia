@@ -1,8 +1,8 @@
 import type { Vec2 } from '@hestia/geom';
 import { projectGrids, type Id, type Project } from '@hestia/model';
-import type { SectionOrigin, SectionResult } from '@hestia/engine';
-import type { InferContext, SnapPoint } from './infer.ts';
-import type { SnapKind } from './types.ts';
+import type { SectionResult } from '@hestia/engine';
+import type { ExtraTrack, InferContext, SnapPoint } from './infer.ts';
+import { sectionSnapIndex, type SectionSnapSegment } from './sectionSnapIndex.ts';
 
 /**
  * Opções da inferência numa vista de corte/elevação. Além dos campos da vista, aceita qualquer campo de `InferContext`
@@ -19,74 +19,27 @@ export interface SectionInferOptions extends Partial<Omit<InferContext, 'project
   hidden?: ReadonlySet<Id>;
 }
 
-interface Segment {
-  a: Vec2;
-  b: Vec2;
-  hostId?: Id;
-  kind?: SnapKind;
-}
-
-interface Draft {
-  points: SnapPoint[];
-  seenPoints: Set<string>;
-  segments: Segment[];
-  seenSegments: Set<string>;
-}
-
 const round6 = (v: number): number => Math.round(v * 1e6) / 1e6;
-const pointKey = (p: Vec2): string => `${round6(p.x)}:${round6(p.y)}`;
 const EPS = 1e-9;
 
-function addPoint(draft: Draft, p: Vec2, kind: SnapKind, hostId?: Id): void {
-  if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) return;
-  const key = `${kind}|${pointKey(p)}`;
-  if (draft.seenPoints.has(key)) return;
-  draft.seenPoints.add(key);
-  draft.points.push({ x: p.x, y: p.y, kind, ...(hostId !== undefined ? { hostId } : {}) });
+/** Concatena sem copiar quando só há uma fonte (o índice cacheado é reaproveitado entre movimentos do mouse). */
+function concat<T>(...lists: Array<readonly T[] | undefined>): T[] {
+  const present = lists.filter((l): l is readonly T[] => l !== undefined && l.length > 0);
+  if (present.length === 0) return [];
+  if (present.length === 1) return present[0] as T[];
+  return present.flatMap((l) => l as T[]);
 }
 
-function addSegment(draft: Draft, a: Vec2, b: Vec2, hostId?: Id, kind: SnapKind = 'nearest'): void {
-  if (![a.x, a.y, b.x, b.y].every(Number.isFinite)) return;
-  if (Math.hypot(b.x - a.x, b.y - a.y) < EPS) return;
-  const key = `${pointKey(a)}|${pointKey(b)}|${hostId ?? ''}|${kind}`;
-  if (draft.seenSegments.has(key)) return;
-  draft.seenSegments.add(key);
-  draft.segments.push({ a: { x: a.x, y: a.y }, b: { x: b.x, y: b.y }, ...(hostId !== undefined ? { hostId } : {}), kind });
-}
-
-/** Aresta com as pontas e o ponto médio como capturas próprias (extremidade e ponto médio). */
-function addEdge(draft: Draft, a: Vec2, b: Vec2, hostId?: Id): void {
-  addSegment(draft, a, b, hostId);
-  addPoint(draft, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, 'midpoint', hostId);
-}
-
-function addRing(draft: Draft, ring: readonly Vec2[], hostId?: Id): void {
-  if (ring.length === 0) return;
-  for (let i = 0; i < ring.length; i++) {
-    const a = ring[i]!;
-    const b = ring[(i + 1) % ring.length]!;
-    addPoint(draft, a, 'endpoint', hostId);
-    addEdge(draft, a, b, hostId);
-  }
-}
-
-function addPolygons(draft: Draft, polys: ReadonlyArray<ReadonlyArray<readonly Vec2[]>> | undefined, hostId?: Id): void {
-  for (const poly of polys ?? []) for (const ring of poly) addRing(draft, ring, hostId);
-}
-
-/** Id do elemento de origem, quando há um só (para o `ignore` das ferramentas). */
-function originId(o: SectionOrigin): Id | undefined {
-  return o.wallId ?? o.floorId ?? o.slabId ?? o.ceilingId ?? o.roofId ?? o.stairId ?? o.rampId ?? o.openingId;
-}
-
-const finitePoint = (a: Vec2, b: Vec2): boolean => [a.x, a.y, b.x, b.y].every(Number.isFinite);
+const isHidden = (hidden: ReadonlySet<Id> | undefined, hostId: Id | undefined): boolean =>
+  hidden !== undefined && hostId !== undefined && hidden.has(hostId);
 
 /**
  * Inferência da vista de corte/elevação em coordenadas (t, z): x = distância ao longo da linha, y = cota absoluta.
  *
- * O `SectionResult` já vem recortado e ocluído pelo motor; aqui ele vira pontos e arestas de captura. Nada do projeto
- * em planta entra: paredes, faces, grades de planta e CAD ficam de fora (`isVisible` falso e `section` verdadeiro), então
- * um canto de parede que por acaso cai nas mesmas coordenadas (t, z) não captura por engano.
+ * O `SectionResult` já vem recortado e ocluído pelo motor; aqui ele vira pontos, arestas e trilhas de captura. A
+ * geometria da vista fica num índice cacheado por identidade (§`sectionSnapIndex`): mover o mouse não reindexa nada.
+ * Nada do projeto em planta entra: paredes, faces, grades de planta e CAD ficam de fora (`isVisible` falso e `section`
+ * verdadeiro), então um canto de parede que por acaso cai nas mesmas coordenadas (t, z) não captura por engano.
  */
 export function sectionInferContext(
   section: SectionResult,
@@ -98,53 +51,17 @@ export function sectionInferContext(
   extra: Partial<InferContext> = {},
 ): InferContext {
   const { line, grids = true, hidden, ...runtime } = options;
-  const draft: Draft = { points: [], seenPoints: new Set(), segments: [], seenSegments: new Set() };
+  const index = sectionSnapIndex(section);
 
-  // Cortes por material: contornos visíveis das paredes, pisos, lajes e telhados atravessados pelo plano.
-  for (const region of section.cut) {
-    const host = region.sources.length === 1 ? originId(region.sources[0]!) : undefined;
-    addPolygons(draft, region.polygons, host);
-  }
-  // Além do plano: elevação visível de paredes, pisos, lajes, telhados, escadas e rampas.
-  for (const item of section.beyond) addPolygons(draft, item.polygons, originId(item));
-  // Vãos: a caixa (peitoril, topo e ombreiras) e as peças visíveis da esquadria.
-  for (const opening of section.openings) {
-    if (finitePoint({ x: opening.t0, y: opening.z0 }, { x: opening.t1, y: opening.z1 })) {
-      addRing(
-        draft,
-        [
-          { x: opening.t0, y: opening.z0 },
-          { x: opening.t1, y: opening.z0 },
-          { x: opening.t1, y: opening.z1 },
-          { x: opening.t0, y: opening.z1 },
-        ],
-        opening.openingId,
-      );
-    }
-    addPolygons(draft, opening.polygons, opening.openingId);
-  }
-  // Membranas de piso/laje: a linha na cota da face.
-  for (const m of section.membranes) {
-    const [a, b] = m.pts;
-    addPoint(draft, a, 'endpoint', originId(m));
-    addPoint(draft, b, 'endpoint', originId(m));
-    addEdge(draft, a, b, originId(m));
-  }
-  // Níveis: a linha horizontal na cota, de ponta a ponta do corte.
-  for (const level of section.levels) {
-    if (!Number.isFinite(level.z) || !(section.length > 0)) continue;
-    const a = { x: 0, y: level.z };
-    const b = { x: section.length, y: level.z };
-    addPoint(draft, a, 'endpoint', level.levelId);
-    addPoint(draft, b, 'endpoint', level.levelId);
-    addPoint(draft, { x: section.length / 2, y: level.z }, 'midpoint', level.levelId);
-    addSegment(draft, a, b, level.levelId, 'nearest');
-  }
+  // Elementos ocultos na vista saem dos pontos, arestas e trilhas. O filtro devolve o próprio array do índice quando
+  // não há nada oculto, para não alocar a cada movimento.
+  const visiblePoints = hidden && hidden.size > 0 ? index.points.filter((p) => !isHidden(hidden, p.hostId)) : index.points;
+  const visibleSegments = hidden && hidden.size > 0 ? index.segments.filter((e) => !isHidden(hidden, e.hostId)) : index.segments;
+  const visibleTracks = hidden && hidden.size > 0 ? index.tracks.filter((tr) => !isHidden(hidden, tr.hostId)) : index.tracks;
+
   // Grades do projeto projetadas no plano do corte: cada eixo que cruza o plano vira uma vertical em t.
-  if (grids && line) addGrids(draft, project, section, line, hidden);
+  const gridSegments = grids && line ? projectGridSegments(project, section, line, hidden) : [];
 
-  const points = [...draft.points, ...(runtime.extraPoints ?? []), ...(extra.extraPoints ?? [])];
-  const segments = [...draft.segments, ...(runtime.extraSegments ?? []), ...(extra.extraSegments ?? [])];
   return {
     ...runtime,
     ...extra,
@@ -161,8 +78,10 @@ export function sectionInferContext(
     orthoLock: (extra.orthoLock ?? runtime.orthoLock) ?? false,
     polar: (extra.polar ?? runtime.polar) ?? false,
     snap: extra.snap ?? runtime.snap,
-    extraPoints: points,
-    extraSegments: segments,
+    extraPoints: concat<SnapPoint>(visiblePoints, runtime.extraPoints, extra.extraPoints),
+    extraSegments: concat<SectionSnapSegment>(visibleSegments, gridSegments, runtime.extraSegments as SectionSnapSegment[] | undefined, extra.extraSegments as SectionSnapSegment[] | undefined),
+    // Trilhas de alinhamento (arestas h/v): o rastreamento estende a linha além das pontas, como nas faces da planta.
+    extraTracks: concat<ExtraTrack>(visibleTracks, runtime.extraTracks, extra.extraTracks),
   };
 }
 
@@ -171,19 +90,19 @@ export function sectionInferContext(
  * `zMin` e `zMax`. Grades ocultas na vista ficam de fora. A projeção usa a reta inteira do trecho (não só o segmento),
  * porque na elevação a grade costuma terminar antes da linha de vista.
  */
-function addGrids(
-  draft: Draft,
+function projectGridSegments(
   project: Project,
   section: SectionResult,
   line: { a: Vec2; b: Vec2; depth?: number },
   hidden: ReadonlySet<Id> | undefined,
-): void {
+): SectionSnapSegment[] {
   const dx = line.b.x - line.a.x;
   const dy = line.b.y - line.a.y;
   const length = Math.hypot(dx, dy);
-  if (length < EPS) return;
+  if (length < EPS) return [];
   const d = { x: dx / length, y: dy / length };
   const tol = 1e-6;
+  const out: SectionSnapSegment[] = [];
   for (const grid of projectGrids(project)) {
     if (hidden?.has(grid.id)) continue;
     // Grade em arco (2 pontos com flecha) não é projetada: a corda daria um `t` falso.
@@ -202,7 +121,8 @@ function addGrids(
       const t = round6(Math.max(0, Math.min(section.length, k)));
       if (seen.has(t)) continue;
       seen.add(t);
-      addSegment(draft, { x: t, y: section.zMin }, { x: t, y: section.zMax }, grid.id, 'nearest');
+      out.push({ a: { x: t, y: section.zMin }, b: { x: t, y: section.zMax }, hostId: grid.id, kind: 'nearest' });
     }
   }
+  return out;
 }
