@@ -400,14 +400,7 @@ export class SectionAlignTool extends ToolBase {
       const z = ref.z;
       const sill = openingSill(type, o);
       if (target.feature === 'top') {
-        if (o.kind === 'door') {
-          // Porta não tem peitoril útil: o topo continua sendo ajustado pela altura.
-          const height = round3(z - base - sill);
-          if (height < 0.01) { this.env.say('A referência fica baixa demais para o topo; nada foi alterado.'); return; }
-          this.commit({ type: 'updateElements', ids: [o.id], patch: { heightOverride: height } }, `Topo alinhado em ${cotaText(this.env, z)}`);
-          return;
-        }
-        // Janela: alinhar o topo reposiciona o vão (peitoril), preservando a altura da família/instância.
+        // Janela ou porta: alinhar o topo reposiciona o vão pelo peitoril, preservando a altura da família/instância.
         const height = openingHeight(type, o);
         const next = round3(z - base - height);
         if (next < 0) { this.env.say('A referência fica abaixo da base da parede; peitoril não alterado.'); return; }
@@ -415,24 +408,18 @@ export class SectionAlignTool extends ToolBase {
         return;
       }
       if (target.feature === 'sill') {
-        if (o.kind === 'door') { this.env.say('Porta só alinha o topo; peitoril de porta não existe. Nada foi alterado.'); return; }
+        // Portas também podem ser elevadas: o peitoril é a cota de apoio do vão, não a altura da família.
         const next = round3(z - base);
         if (next < 0) { this.env.say('A referência fica abaixo da base da parede; peitoril não alterado.'); return; }
         this.commit({ type: 'updateElements', ids: [o.id], patch: { sillOverride: next } }, `Peitoril alinhado em ${cotaText(this.env, z)}`);
         return;
       }
-      // Centro horizontal: mantém a altura e move o vão (porta ajusta a altura, que não tem peitoril).
+      // Centro horizontal: todos os vãos se reposicionam pelo peitoril, sem mudar a altura da família.
       const height = openingHeight(type, o);
       const dz = z - (base + sill + height / 2);
-      if (o.kind === 'door') {
-        const next = round3(height + 2 * dz);
-        if (next < 0.01) { this.env.say('A referência fica baixa demais para o centro; nada foi alterado.'); return; }
-        this.commit({ type: 'updateElements', ids: [o.id], patch: { heightOverride: next } }, `Centro alinhado em ${cotaText(this.env, z)}`);
-      } else {
-        const next = round3(sill + dz);
-        if (next < 0) { this.env.say('A referência fica abaixo da base da parede; centro não alterado.'); return; }
-        this.commit({ type: 'updateElements', ids: [o.id], patch: { sillOverride: next } }, `Centro alinhado em ${cotaText(this.env, z)}`);
-      }
+      const next = round3(sill + dz);
+      if (next < 0) { this.env.say('A referência fica abaixo da base da parede; centro não alterado.'); return; }
+      this.commit({ type: 'updateElements', ids: [o.id], patch: { sillOverride: next } }, `Centro alinhado em ${cotaText(this.env, z)}`);
       return;
     }
 

@@ -161,6 +161,18 @@ describe('ferramenta Alinhar no corte (referência e alvo por clique)', () => {
     expect(opening(ctx, 'j').heightOverride ?? null).toBeNull();
   });
 
+  it('porta também é reposicionada pelo peitoril ao alinhar o topo, sem mudar a altura', () => {
+    const ctx = scene();
+    const t = tool('align', ctx.env);
+    clickAt(t, 4, 2.3); // topo da janela j (2,30)
+    clickAt(t, 1.5, 2.1); // topo da porta d (2,10; altura 2,10)
+    expect(opening(ctx, 'd').sillOverride).toBeCloseTo(0.2, 9);
+    expect(opening(ctx, 'd').heightOverride ?? null).toBeNull();
+    expect(ctx.store.undoLabel).toBe('Alinhar no corte');
+    ctx.store.undo();
+    expect(opening(ctx, 'd').sillOverride).toBeNull();
+  });
+
   it('referência em ombreira de uma janela e alvo em ombreira de outra: ajusta o offset', () => {
     const ctx = scene();
     const t = tool('align', ctx.env);
@@ -193,14 +205,16 @@ describe('ferramenta Alinhar no corte (referência e alvo por clique)', () => {
     expect(ctx.messages.some((m) => m.includes('própria abertura alvo'))).toBe(true);
   });
 
-  it('porta com a linha do peitoril: avisa que porta só alinha o topo', () => {
+  it('porta também sobe pelo peitoril, sem esticar a altura', () => {
     const ctx = scene();
     const t = tool('align', ctx.env);
-    clickAt(t, 4, 1.1); // referência: peitoril da janela
+    clickAt(t, 4, 1.1); // referência: peitoril da janela (1,10)
     clickAt(t, 1.5, 0); // alvo: linha inferior (peitoril) da porta
+    expect(opening(ctx, 'd').sillOverride).toBeCloseTo(1.1, 9);
     expect(opening(ctx, 'd').heightOverride ?? null).toBeNull();
+    expect(ctx.store.undoLabel).toBe('Alinhar no corte');
+    ctx.store.undo();
     expect(opening(ctx, 'd').sillOverride).toBeNull();
-    expect(ctx.messages.some((m) => m.includes('Porta só alinha o topo'))).toBe(true);
   });
 
   it('alvo parede: move o topo da parede até a referência, num único undo', () => {
