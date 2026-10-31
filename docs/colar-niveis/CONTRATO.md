@@ -134,7 +134,9 @@ export function copyLinkOf(p: Project, elementId: Id): CopyLink | null;
 export function linkRoleIndex(link: CopyLink, elementId: Id): number;
 export function linkedSiblings(p: Project, link: CopyLink, elementId: Id): Id[];
 export function makeCopyLink(
-  p: Project, sourceIds: Id[], byLevel: Record<Id, PasteIds>, mint: MintId,
+  sourceIds: Id[],
+  members: { levelId: Id; ids: Id[] }[],
+  mint: MintId,
 ): CopyLink;
 export interface SyncLinkedElements { linkId: Id; fromId: Id; toIds?: Id[] }
 export function syncLinkedCommand(p: Project, c: SyncLinkedElements): Command | null;

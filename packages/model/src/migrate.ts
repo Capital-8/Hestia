@@ -258,6 +258,9 @@ const migrations: Record<number, Migration> = {
     });
     return { ...raw, areaPlans };
   },
+  // v22 → v23: vínculo de andar-tipo (copyLink). Arquivo antigo não tem `copyLinks`, o que significa nenhum vínculo:
+  // nada a converter, a migração só avança a versão e preserva o restante do arquivo.
+  22: (raw) => ({ ...raw }),
 };
 
 export class SchemaError extends Error {}

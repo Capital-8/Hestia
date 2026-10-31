@@ -1,4 +1,4 @@
-import { isCeiling, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Element, type Id, type Project, type Ramp } from '@hestia/model';
+import { copyLinkOf, isCeiling, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Element, type Id, type Project, type Ramp } from '@hestia/model';
 import type { PerimeterModifyKind, ShortcutCommand, ToolOptions } from '@hestia/tools';
 import { tagAllNotTagged } from '../../editor/tagActions.ts';
 import { addMissingTagsAction } from '../../editor/areaPlanActions.ts';
@@ -262,10 +262,12 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
       return transfer.hasClip() ? false : t('Nada copiado ainda. Use Copiar ou Ctrl+C.', 'Nothing copied yet. Use Copy or Ctrl+C.');
     },
   },
+  syncLinked: { label: t('Sincronizar', 'Sync'), icon: 'layers', hint: t('Leva a geometria e as propriedades do elemento selecionado para as cópias vinculadas, num passo de desfazer.', 'Copies the selected element to its linked typical-floor copies, in one undo step.'), run: () => { editor.syncLinkedSelection(); }, disabled: (c) => (c.selection.some((id) => copyLinkOf(c.p, id) !== null) ? false : t('Selecione um elemento de andar-tipo.', 'Select a typical-floor linked element.')) },
+  unlinkLinked: { label: t('Desvincular', 'Unlink'), icon: 'cutscissors', hint: t('Desfaz o vínculo: as cópias ficam no projeto, mas não sincronizam mais.', 'Removes the link: copies stay but stop syncing.'), run: () => { editor.unlinkLinkedSelection(); }, disabled: (c) => (c.selection.some((id) => copyLinkOf(c.p, id) !== null) ? false : t('Selecione um elemento de andar-tipo.', 'Select a typical-floor linked element.')) },
   pasteAlignedLevels: {
     label: t('Alinhado aos níveis selecionados', 'Aligned to Selected Levels'),
     icon: 'paste',
-    hint: t('Copia a seleção para um ou vários níveis, mantendo o X/Y e os offsets do nível.', 'Copies the selection to one or more levels, keeping X/Y and level offsets.'),
+    hint: t('Copia o que está copiado para os níveis escolhidos, mantendo o X/Y e os offsets do nível (vale em planta, 3D, corte e elevação).', 'Copies what was copied to the chosen levels, keeping X/Y and level offsets (works in plan, 3D, section and elevation).'),
     run: () => { editor.openPasteLevelsDialog(); },
     disabled: (c) => {
       if (c.view === 'sheet') return t('Não vale para pranchas.', 'Not available for sheets.');

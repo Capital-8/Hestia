@@ -15,6 +15,8 @@ export { ToolBase } from './base.ts';
 export * from './wallGeom.ts';
 export * from './clipboard.ts';
 export * from './pasteTool.ts';
+export * from './pasteLevels/types.ts';
+export * from './pasteLevels/command.ts';
 export * from './lengthEdit.ts';
 export * from './hostedLoss.ts';
 export * from './hostedGuard.ts';

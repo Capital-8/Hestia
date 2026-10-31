@@ -10,11 +10,13 @@ import {
   isRamp,
   isWall,
   isRoom,
+  isGeneric,
   type Ceiling,
   type CeilingType,
   type Element,
   type Floor,
   type FloorType,
+  type Generic,
   type Slab,
   type Roof,
   type RoofType,
@@ -73,6 +75,8 @@ import { applyViewCommand } from './viewCommands.ts';
 import { applyCeilingCommand } from './ceilingCommands.ts';
 import { applyRoomCommand } from './roomCommands.ts';
 import { applyOutlineCommand } from './outlineCommands.ts';
+import { applyCopyLinkCommand } from './copyLinkCommands.ts';
+import type { CopyLink } from './copyLink.ts';
 import { applyAreaPlanCommand, dropAreaPlansOfLevel, dropRoomTags, prunePlanElementTags } from './areaPlanCommands.ts';
 import type { AreaPlan, ColorScheme, RoomCategory, RoomTag } from './areaPlan.ts';
 
@@ -81,6 +85,10 @@ export type Command =
   | { type: 'addWall'; wall: Omit<Wall, 'order'> }
   | { type: 'addCadDrawing'; cad: Omit<CadDrawing, 'order'> }
   | { type: 'updateCadDrawing'; id: Id; patch: Partial<Pick<CadDrawing, 'name' | 'visible' | 'offsetZ'>> }
+  | { type: 'addGeneric'; generic: Omit<Generic, 'order'> }
+  | { type: 'updateGeneric'; id: Id; patch: Partial<Omit<Generic, 'id' | 'kind' | 'order'>> }
+  | { type: 'addCopyLink'; link: CopyLink }
+  | { type: 'deleteCopyLink'; id: Id }
   | { type: 'addOpening'; opening: Opening }
   | { type: 'addFloor'; floor: Omit<Floor, 'order'> }
   | { type: 'addSlab'; slab: Omit<Slab, 'order'> }
@@ -231,7 +239,7 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
 }
 
 export function applyCommand(p: Project, c: Command): void {
-  if (applyCeilingCommand(p, c) || applyRoomCommand(p, c) || applyAreaPlanCommand(p, c) || applyOutlineCommand(p, c)) return;
+  if (applyCeilingCommand(p, c) || applyRoomCommand(p, c) || applyAreaPlanCommand(p, c) || applyOutlineCommand(p, c) || applyCopyLinkCommand(p, c)) return;
   switch (c.type) {
     case 'addWall':
       p.elements[c.wall.id] = { ...c.wall, order: p.nextOrder++ };
@@ -242,6 +250,15 @@ export function applyCommand(p: Project, c: Command): void {
     case 'updateCadDrawing': {
       const e = p.elements[c.id];
       if (!isCad(e)) throw new Error('Elemento não é CAD: ' + c.id);
+      p.elements[c.id] = { ...e, ...c.patch };
+      break;
+    }
+    case 'addGeneric':
+      p.elements[c.generic.id] = { ...c.generic, order: p.nextOrder++ };
+      break;
+    case 'updateGeneric': {
+      const e = p.elements[c.id];
+      if (!isGeneric(e)) throw new Error('Objeto importado inexistente: ' + c.id);
       p.elements[c.id] = { ...e, ...c.patch };
       break;
     }

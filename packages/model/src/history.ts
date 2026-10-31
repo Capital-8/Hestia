@@ -156,6 +156,14 @@ export function labelOf(c: Command): string {
       return 'Inserir CAD';
     case 'updateCadDrawing':
       return 'Editar CAD importado';
+    case 'addGeneric':
+      return 'Inserir objeto importado';
+    case 'updateGeneric':
+      return 'Editar objeto importado';
+    case 'addCopyLink':
+      return 'Manter cópias vinculadas';
+    case 'deleteCopyLink':
+      return 'Desvincular';
     case 'addFloor':
       return 'Criar piso';
     case 'upsertFloorType':

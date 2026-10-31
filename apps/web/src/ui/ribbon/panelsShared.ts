@@ -1,4 +1,4 @@
-import { act, panel, soon, soonS, stack, t, tool, type RibbonPanel } from './model.ts';
+import { act, panel, soon, soonS, split, stack, t, tool, type RibbonPanel } from './model.ts';
 
 /** Painéis que se repetem entre a aba Modificar e as abas contextuais (como no Revit). */
 
@@ -22,7 +22,8 @@ export const P_MEASURE: RibbonPanel = panel('medir', t('Medir', 'Measure'), tool
 export const P_CLIPBOARD: RibbonPanel = panel(
   'area-transferencia',
   t('Área de transferência', 'Clipboard'),
-  act('pasteAligned', 'large', t('Colar', 'Paste')),
+  // Colar com a seta ▾: "Colar" segue o cursor; a seta abre o Colar alinhado aos níveis selecionados.
+  split(act('pasteAligned'), [act('pasteAlignedLevels')], t('Colar', 'Paste')),
   stack(act('cutSelection', 'small'), act('copySelection', 'small'), soonS(t('Corresp. tipo', 'Match Type'), 'sametype')),
 );
 
@@ -40,6 +41,7 @@ export const P_SELECTION_EXTRA: RibbonPanel = panel(
   'selecao-extra',
   t('Seleção e nível', 'Selection & Level'),
   stack(act('sameType', 'small'), act('sameName', 'small'), act('moveLevel', 'small')),
+  stack(act('syncLinked', 'small'), act('unlinkLinked', 'small')),
 );
 
 export const P_CREATE: RibbonPanel = panel('criar', t('Criar', 'Create'), act('createSimilar'), soon(t('Criar grupo', 'Create Group'), 'layers'));

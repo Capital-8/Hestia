@@ -22,8 +22,18 @@ export interface PasteIds {
   cad: Id[];
 }
 
-/** Aviso do colar, agregado por nível. */
-export type PasteWarningKind = 'overlap' | 'opening-dropped' | 'too-tall' | 'top-overflow' | 'room-open' | 'ceiling-unlinked';
+/**
+ * Aviso do colar, agregado por nível. `roof-unlinked` é a extensão do W1 para a parede que tinha o topo
+ * anexado a um telhado fora do buffer: o vínculo é limpo e o telhado não vem junto.
+ */
+export type PasteWarningKind =
+  | 'overlap'
+  | 'opening-dropped'
+  | 'too-tall'
+  | 'top-overflow'
+  | 'room-open'
+  | 'ceiling-unlinked'
+  | 'roof-unlinked';
 
 export interface PasteWarning {
   levelId: Id;

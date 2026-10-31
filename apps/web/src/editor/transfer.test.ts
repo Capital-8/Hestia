@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ProjectStore, createEmptyProject, defaultStairTypeId, makeLevel, makeRoom, makeStair, makeWall, stairsOnLevel, wallsOnLevel, type StairLanding, type StairRun, type Wall } from '@hestia/model';
+import { ProjectStore, createEmptyProject, defaultStairTypeId, isOpening, makeLevel, makeRoom, makeStair, makeWall, stairsOnLevel, wallsOnLevel, type StairLanding, type StairRun, type Wall } from '@hestia/model';
 import { Transfer } from './transfer.ts';
 import { useUi } from './state.ts';
 
@@ -136,6 +136,55 @@ describe('copiar e colar escada (controlador web)', () => {
     s.undo();
     expect(stairsOnLevel(s.project, 'lv_1')).toHaveLength(0);
     expect(stairsOnLevel(s.project, 'lv_0')).toHaveLength(1);
+  });
+});
+
+describe('colar alinhado em vários níveis (transferência)', () => {
+  function setupNiveis() {
+    const s = setup();
+    s.exec({ type: 'upsertLevel', level: makeLevel({ id: 'lv_2', name: 'Pav. 2', elevation: 6 }) });
+    s.exec({ type: 'addOpening', opening: { id: 'd1', kind: 'door', typeId: 'ot_p80', hostId: 'A', offset: 1, flipHand: false, flipFacing: false, sillOverride: null, mark: '' } });
+    return s;
+  }
+
+  it('cola em 2 níveis, seleciona tudo e desfaz num passo só', () => {
+    const s = setupNiveis();
+    const t = new Transfer();
+    expect(t.copy(s.project, ['A'])).toBe(true);
+    expect(t.originLevelIds(t.clipBuffer()!)).toEqual(['lv_0']);
+    expect(t.elementCount(t.clipBuffer()!)).toBe(2);
+
+    expect(t.pasteToLevels(s, ['lv_1', 'lv_2'], false)).not.toBeNull();
+    // lv_1 já tinha a parede B; entram a cópia de A e a porta.
+    expect(wallsOnLevel(s.project, 'lv_1')).toHaveLength(2);
+    expect(wallsOnLevel(s.project, 'lv_2')).toHaveLength(1);
+    const portas = Object.values(s.project.elements).filter(isOpening).filter((e) => e.kind === 'door');
+    expect(portas).toHaveLength(3);
+    const portasNoNivel = (levelId: string): number => portas.filter((porta) => {
+      const host = s.project.elements[porta.hostId];
+      return host !== undefined && 'levelId' in host && host.levelId === levelId;
+    }).length;
+    expect(portasNoNivel('lv_0')).toBe(1);
+    expect(portasNoNivel('lv_1')).toBe(1);
+    expect(portasNoNivel('lv_2')).toBe(1);
+    expect(useUi.getState().selection).toHaveLength(4);
+    expect(useUi.getState().status).toMatch(/4 elemento\(s\) colado\(s\) em 2 nível\(is\)/);
+
+    s.undo();
+    expect(wallsOnLevel(s.project, 'lv_2')).toHaveLength(0);
+    expect(wallsOnLevel(s.project, 'lv_1')).toHaveLength(1);
+  });
+
+  it('com vínculo, o lote cria um CopyLink com os membros dos dois níveis', () => {
+    const s = setupNiveis();
+    const t = new Transfer();
+    t.copy(s.project, ['A']);
+    expect(t.pasteToLevels(s, ['lv_1', 'lv_2'], true)).not.toBeNull();
+    const link = s.project.copyLinks?.[0];
+    expect(link?.members.map((m) => m.levelId)).toEqual(['lv_1', 'lv_2']);
+    expect(link?.members.every((m) => m.ids.length === 2)).toBe(true);
+    // O primeiro id de cada membro é a parede (ordem canônica do contrato).
+    expect(link?.members[0]?.ids[0]).toBe(wallsOnLevel(s.project, 'lv_1')[1]?.id);
   });
 });
 

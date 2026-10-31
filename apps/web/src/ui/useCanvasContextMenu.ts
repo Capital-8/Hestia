@@ -7,6 +7,7 @@ import { buildContextMenu, type ContextMenuCtx, type MenuEntry, type MenuView } 
 import { useI18n, toolLabel } from '../editor/i18n.ts';
 import { repeatLast, selectPrevious, useRecent } from '../editor/recentCommands.ts';
 import { clickSelect3d, useUi } from '../editor/state.ts';
+import { transfer } from '../editor/transfer.ts';
 import { hideSelectedCategoryInView, hideSelectionInView, revealActive, selectedCategories, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideAllInView, unhideSelectedCategoryInView, unhideSelectionInView, visibilityOf } from '../editor/viewVisibility.ts';
 import { startCreateSimilar } from '../editor/createSimilar.ts';
 import { comEditarPerimetro, EDITAR_PERIMETRO_ID, idPerimetroEditavel } from './perimeter/perimeterEditavel.ts';
@@ -52,6 +53,8 @@ function contextoAtual(view: MenuView): ContextMenuCtx {
     reveal: revealActive(),
     singleCategory: cats.length === 1 ? cats[0]! : null,
     hasHidden: vis.hidden.size + vis.revealed.size > 0,
+    hasClip: transfer.hasClip(),
+    canCopy: ui.selection.length > 0 && transfer.copyableIds(p, ui.selection).length > 0,
   };
 }
 
@@ -63,7 +66,7 @@ function contextoAtual(view: MenuView): ContextMenuCtx {
 export function abrirMenuDeContexto(x: number, y: number, alvo: Id | null | undefined, view: MenuView): void {
   if (alvo && !useUi.getState().selection.includes(alvo)) clickSelect3d(alvo, false);
   const ctx = contextoAtual(view);
-  const noVazio = alvo === null ? { ...ctx, hasSelection: false, selectionKinds: [], singleType: false } : ctx;
+  const noVazio = alvo === null ? { ...ctx, hasSelection: false, selectionKinds: [], singleType: false, canCopy: false } : ctx;
   const editavel = noVazio.hasSelection && idPerimetroEditavel(editor.project, useUi.getState().selection) !== null;
   useCanvasMenu.setState({ menu: { x, y, ctx: noVazio, items: comEditarPerimetro(buildContextMenu(noVazio), noVazio.lang, editavel) } });
 }
@@ -106,6 +109,9 @@ export function executaComandoDoMenu(id: string, view: MenuView, camera: Camera3
     case 'browser': useUi.setState((s) => ({ browserOpen: !s.browserOpen })); return;
     case 'properties': useUi.setState((s) => ({ propsOpen: !s.propsOpen })); return;
     case 'delete': editor.deleteSelection(); return;
+    case 'copySelection': editor.copySelection(); return;
+    case 'pasteAligned': editor.pasteAligned(); return;
+    case 'pasteAlignedLevels': editor.openPasteLevelsDialog(); return;
     case 'selectAllView': editor.selectAllOfSelectedType(); return;
     case 'createSimilar': startCreateSimilar(editor.project, (id) => editor.setTool(id)); return;
     case 'hideElements': hideSelectionInView(); return;

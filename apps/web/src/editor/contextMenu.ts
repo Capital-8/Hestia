@@ -34,6 +34,10 @@ export interface ContextMenuCtx {
   singleCategory: string | null;
   /** A vista tem algo oculto (permanente ou temporário). */
   hasHidden: boolean;
+  /** Há algo copiado na área de transferência (habilita Colar e Alinhado aos níveis selecionados). */
+  hasClip: boolean;
+  /** A seleção tem algo que Copiar leva (paredes, pisos, lajes, telhados, escadas, rampas, ambientes e aberturas). */
+  canCopy: boolean;
 }
 
 /** Entrada do menu. `soon`: recurso do Revit que o Hestia ainda não tem (esmaecido, com dica). */
@@ -55,6 +59,12 @@ const TEXTOS = {
   repeat: ['Repetir', 'Repeat'],
   recent: ['Comandos recentes', 'Recent Commands'],
   cancel: ['Cancelar', 'Cancel'],
+  copy: ['Copiar', 'Copy'],
+  paste: ['Colar', 'Paste'],
+  pasteLevels: ['Alinhado aos níveis selecionados…', 'Aligned to Selected Levels…'],
+  noSelection: ['Nada selecionado', 'Nothing selected'],
+  nothingCopied: ['Nada copiado. Use Copiar ou Ctrl+C', 'Nothing copied. Use Copy or Ctrl+C'],
+  planOnly: ['Colar seguindo o cursor só vale em planta', 'Paste following the cursor works in plan views only'],
   selectPrevious: ['Selecionar anterior', 'Select Previous'],
   locate: ['Localizar vistas de referência', 'Locate Reference Views'],
   zoomRegion: ['Ampliar região', 'Zoom In Region'],
@@ -88,6 +98,7 @@ const TEXTOS = {
   noRepeat: ['Nenhum comando para repetir', 'No command to repeat'],
   noPrevious: ['Nenhuma seleção anterior', 'No previous selection'],
   oneType: ['Selecione elementos de um só tipo', 'Select elements of one type only'],
+  notCopyable: ['Copiar só vale para paredes, pisos, lajes, telhados, escadas, rampas, ambientes e aberturas hospedadas', 'Copy only works for walls, floors, slabs, roofs, stairs, ramps, rooms and hosted openings'],
 } as const;
 
 type Chave = keyof typeof TEXTOS;
@@ -126,6 +137,31 @@ export function buildContextMenu(ctx: ContextMenuCtx): MenuEntry[] {
   ];
   const locate: MenuEntry[] = plan ? [soon('locate', T('locate'))] : [];
 
+  // Copiar/Colar/Alinhado no topo, com a mesma regra de disponibilidade da faixa (Área de transferência).
+  const clipboard: MenuEntry[] = [
+    {
+      id: 'copySelection',
+      label: T('copy'),
+      shortcut: 'Ctrl+C',
+      disabled: !ctx.canCopy,
+      hint: ctx.canCopy ? undefined : (ctx.hasSelection ? T('notCopyable') : T('noSelection')),
+    },
+    {
+      id: 'pasteAligned',
+      label: T('paste'),
+      shortcut: 'Ctrl+V',
+      // Mesma regra da faixa: o Colar seguindo o cursor só vale em planta.
+      disabled: !ctx.hasClip || ctx.view !== 'plan',
+      hint: ctx.view !== 'plan' ? T('planOnly') : (ctx.hasClip ? undefined : T('nothingCopied')),
+    },
+    {
+      id: 'pasteAlignedLevels',
+      label: T('pasteLevels'),
+      disabled: !ctx.hasClip,
+      hint: ctx.hasClip ? undefined : T('nothingCopied'),
+    },
+  ];
+
   const grupos: MenuEntry[][] = [];
   if (ctx.tool !== 'select') {
     // Ferramenta de criação ativa: Cancelar e o que ajuda a desenhar (sem Repetir nem Selecionar).
@@ -145,6 +181,7 @@ export function buildContextMenu(ctx: ContextMenuCtx): MenuEntry[] {
         soon('selectAllProject', T('selectAllProject')),
       ],
     };
+    grupos.push(clipboard);
     grupos.push([repeat, recentItem]);
     const categoriaOk = ctx.singleCategory !== null;
     const visibilidade: MenuEntry = ctx.reveal
@@ -179,6 +216,7 @@ export function buildContextMenu(ctx: ContextMenuCtx): MenuEntry[] {
     grupos.push([{ id: 'delete', label: T('delete') }, ...locate]);
     grupos.push([...steer, ...zoom]);
   } else {
+    grupos.push(clipboard);
     grupos.push([repeat, recentItem]);
     grupos.push([
       { id: 'selectPrevious', label: T('selectPrevious'), disabled: !ctx.canSelectPrevious, hint: ctx.canSelectPrevious ? undefined : T('noPrevious') },

@@ -151,7 +151,7 @@ describe('migração 12 → 13 (face inferior da escada)', () => {
   it('todo tipo de escada existente ganha face lisa', () => {
     const m = migrateProject(legacyV12());
     expect(m.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(SCHEMA_VERSION).toBe(22);
+    expect(SCHEMA_VERSION).toBe(23);
     for (const t of Object.values(m.stairTypes)) expect(t.undersideStyle).toBe('smooth');
   });
 
@@ -252,7 +252,7 @@ describe('migração 15 → 16 (escada caracol)', () => {
   it('todo tipo existente ganha sobreposição e material do poste padrão', () => {
     const m = migrateProject(legacyV15());
     expect(m.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(SCHEMA_VERSION).toBe(22);
+    expect(SCHEMA_VERSION).toBe(23);
     for (const id of ['stt_monolitica', 'stt_piso_espelho']) {
       expect(m.stairTypes[id]).toMatchObject({ treadOverlap: 0.025, postMaterialId: 'mat_aco' });
     }

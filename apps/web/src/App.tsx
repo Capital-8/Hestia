@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, type ReactElement } from 'react';
 import { editor } from './editor/controller.ts';
+import { transfer } from './editor/transfer.ts';
 import { useProjetoDerivado } from './editor/projetoDerivado.ts';
 import { useUi } from './editor/state.ts';
 import { atalhoAtual } from './editor/shortcutConfig.ts';
@@ -56,6 +57,33 @@ import { ManageCadDialog } from './ui/dialogs/ManageCadDialog.tsx';
 import { MoveLevelDialog } from './ui/MoveLevel.tsx';
 import { GridTypeDialog } from './ui/dialogs/GridTypeDialog.tsx';
 import { TextDialog, useCaixaDeTextoAberta } from './ui/dialogs/TextDialog.tsx';
+import { SelectLevelsDialog } from './ui/dialogs/SelectLevelsDialog.tsx';
+
+/**
+ * Host do diálogo "Selecionar níveis": lê o projeto e o buffer da área de transferência fora do switch de diálogos
+ * (o switch não pode chamar hook) e liga os dois caminhos: prévia no 3D ou colar direto.
+ */
+function SelectLevelsHost(): ReactElement | null {
+  const clip = transfer.clipBuffer();
+  if (!clip) return null;
+  const p = editor.project;
+  return (
+    <SelectLevelsDialog
+      levels={p.levels.map((l) => ({ id: l.id, name: l.name, elevation: l.elevation }))}
+      originLevelIds={transfer.originLevelIds(clip)}
+      elementCount={transfer.elementCount(clip)}
+      initialSelected={useUi.getState().pastePreview?.levelIds ?? []}
+      initialLink={false}
+      onCancel={() => useUi.setState({ dialog: null })}
+      onPreview={(levelIds, link) => {
+        if (editor.previewPasteLevels(levelIds, link)) useUi.setState({ dialog: null });
+      }}
+      onPaste={(levelIds, link) => {
+        if (editor.pasteLevelsDirect(levelIds, link)) useUi.setState({ dialog: null });
+      }}
+    />
+  );
+}
 
 function Dialogs(): ReactElement | null {
   const d = useUi((s) => s.dialog);
@@ -141,6 +169,8 @@ function Dialogs(): ReactElement | null {
       return <MoveLevelDialog onClose={() => useUi.setState({ dialog: null })} />;
     case 'cotasAuto':
       return <AutoCotaDialog />;
+    case 'selectLevels':
+      return <SelectLevelsHost />;
     default:
       return null;
   }
