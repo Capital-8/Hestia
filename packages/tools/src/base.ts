@@ -3,6 +3,7 @@ import type { Inference, PointerInfo, PreviewItem, Tool, ToolEnv } from './types
 import { infer, type InferContext } from './infer.ts';
 import { floorEdges, floorVertices } from './floorPick.ts';
 import { openingSnapGeometry } from './openingSnapPoints.ts';
+import { componentSnapGeometry } from './componentSnap.ts';
 import { cadSnapIndexes } from './snapCad.ts';
 import type { Vec2 } from '@hestia/geom';
 
@@ -85,6 +86,10 @@ export abstract class ToolBase implements Tool {
     const levels = levelsIn(levelId);
     // Aberturas entram na captura com cantos, centro e ombreiras; na inserção de abertura (só paredes) ficam de fora.
     const openings = extra.onWallsOnly ? [] : levels.flatMap((l) => openingSnapGeometry(project, l, visible));
+    // Escadas e rampas entram com as pontas (endpoint) e as linhas amostradas (nearest), como os pisos e as aberturas.
+    const components = extra.onWallsOnly ? [] : levels.flatMap((l) => componentSnapGeometry(project, l));
+    /** O que a vista oculta não é alvo: o ponto ou a aresta some junto com o elemento dono. */
+    const shown = (id?: Id): boolean => id === undefined || !hidden?.has(id);
     const options = this.env.options();
     const angle = options.angleMode;
     return {
@@ -100,8 +105,18 @@ export abstract class ToolBase implements Tool {
       snap: options.snap,
       ...extra,
       // Vértices dos pisos do nível entram sempre; os pontos que a ferramenta passa (contorno em construção) somam-se a eles.
-      extraPoints: [...levels.flatMap((l) => floorVertices(project, l)), ...openings.flatMap((g) => g.points), ...(extra.extraPoints ?? [])],
-      extraSegments: [...levels.flatMap((l) => floorEdges(project, l)), ...openings.flatMap((g) => g.segments), ...(extra.extraSegments ?? [])],
+      extraPoints: [
+        ...levels.flatMap((l) => floorVertices(project, l)),
+        ...openings.flatMap((g) => g.points),
+        ...components.flatMap((g) => g.points).filter((q) => shown(q.hostId)),
+        ...(extra.extraPoints ?? []),
+      ],
+      extraSegments: [
+        ...levels.flatMap((l) => floorEdges(project, l)),
+        ...openings.flatMap((g) => g.segments),
+        ...components.flatMap((g) => g.segments).filter((e) => shown(e.hostId)),
+        ...(extra.extraSegments ?? []),
+      ],
       // Desenhos CAD importados visíveis: o que a vista oculta (temporária ou permanentemente) não se captura.
       cad: cadSnapIndexes(project, levels).filter((ix) => !hidden?.has(ix.id)),
     };
