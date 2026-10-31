@@ -63,3 +63,5 @@ export * from './units.ts';
 export * from './unitsFormat.ts';
 export * from './unitsParse.ts';
 export * from './viewHiddenCommands.ts';
+export * from './sectionAnnotations.ts';
+export * from './sectionAnnotationCommands.ts';

@@ -254,6 +254,8 @@ export function labelOf(c: Command): string {
       return 'Restaurar a vista 3D';
     case 'setViewHidden':
       return 'Ocultar na vista';
+    case 'setSectionAnnotations':
+      return 'Anotar no corte';
     case 'setSectionGraphics':
       return 'Alterar gráficos do corte';
     case 'resetSectionGraphics':

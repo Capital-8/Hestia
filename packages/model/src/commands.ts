@@ -53,6 +53,8 @@ import { viewRangeIssues, type ViewRange } from './viewRange.ts';
 import type { DxfLayerStyle } from './dxfLayerStyle.ts';
 import type { DeepPartial, ProjectGraphics, View3DSettings, ViewGraphics, ViewHidden } from './graphics.ts';
 import { applyViewHidden } from './viewHiddenCommands.ts';
+import { applySectionAnnotations } from './sectionAnnotationCommands.ts';
+import type { SectionAnnotations } from './sectionAnnotations.ts';
 import {
   applyLevelGraphics,
   applyProjectGraphics,
@@ -130,6 +132,7 @@ export type Command =
   | { type: 'setView3D'; patch: DeepPartial<View3DSettings> }
   | { type: 'resetView3D' }
   | { type: 'setViewHidden'; target: ViewHiddenTarget; hidden: ViewHidden | undefined }
+  | { type: 'setSectionAnnotations'; sectionId: Id; annotations: SectionAnnotations | undefined }
   | { type: 'setSectionGraphics'; patch: DeepPartial<ViewGraphics> }
   | { type: 'resetSectionGraphics' }
   | { type: 'setProjectName'; name: string }
@@ -474,6 +477,9 @@ export function applyCommand(p: Project, c: Command): void {
       break;
     case 'setViewHidden':
       applyViewHidden(p, c.target, c.hidden);
+      break;
+    case 'setSectionAnnotations':
+      applySectionAnnotations(p, c.sectionId, c.annotations);
       break;
     case 'setSectionGraphics':
       applySectionGraphics(p, c.patch);

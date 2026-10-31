@@ -7,6 +7,7 @@ import type { Sheet } from './sheet.ts';
 import type { View3DPoint } from './view3dPoints.ts';
 import type { Grid, GridType } from './grid.ts';
 import type { ProjectGraphics, View3DSettings, ViewGraphics, ViewHidden } from './graphics.ts';
+import type { SectionAnnotations } from './sectionAnnotations.ts';
 import type { Opening, OpeningLineConvention, OpeningType } from './openingTypes.ts';
 import type { ProfilePreset } from './openingComposition.ts';
 import type { DimensionSettings } from './dimensionSettings.ts';
@@ -739,6 +740,8 @@ export interface SectionView {
   role?: SectionRole;
   /** Elementos/categorias ocultos nesta vista de corte/elevação (Hide in View). */
   hidden?: ViewHidden;
+  /** Cotas, textos e detalhes pertencentes só a esta vista de corte/elevação. */
+  annotations?: SectionAnnotations;
 }
 
 /** Vista alvo de uma ocultação permanente (Hide in View). */

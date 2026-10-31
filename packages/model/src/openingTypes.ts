@@ -162,6 +162,8 @@ export interface Opening {
   /** Inverte o sentido de abertura (para qual lado a folha gira). */
   flipFacing: boolean;
   sillOverride: number | null;
+  /** Altura por instância; ausente/null usa `OpeningType.height`. */
+  heightOverride?: number | null;
   mark: string;
   /** Propriedades (psets/quantities) lidas do IFC de origem; ausente em elemento nativo ou sem pset. */
   ifcProperties?: IfcProperty[];

@@ -1,7 +1,8 @@
 import type { DimRef, TempDim } from './dims/types.ts';
 import type { HostedLoss } from './hostedLoss.ts';
 import type { Vec2 } from '@hestia/geom';
-import type { Command, Id, LocationLine, Project } from '@hestia/model';
+import type { Command, Id, LocationLine, Project, SectionAnnotations } from '@hestia/model';
+import type { InferContext } from './infer.ts';
 import type { StairToolOptions, StairTone } from './stairSketchState.ts';
 import type { StairRunToolOptions } from './stairRunPlan.ts';
 import type { RampToolOptions } from './rampOptions.ts';
@@ -37,8 +38,22 @@ export type PreviewItem =
   /** Linha de corte ou elevação com a seta do lado de visão (a pré-visualização usa `dashed`). */
   | { kind: 'sectionLine'; a: Vec2; b: Vec2; dashed?: boolean; label?: string; elevation?: boolean };
 
+/** Contexto de uma vista de corte/elevação para as ferramentas que também funcionam nela. */
+export interface SectionToolContext {
+  /** Vista ativa. */
+  id: Id;
+  /** Anotações atuais da vista; o conjunto é a fonte da verdade para as ferramentas de anotação. */
+  annotations(): SectionAnnotations;
+  /** Substitui o conjunto inteiro num único passo de desfazer. */
+  setAnnotations(annotations: SectionAnnotations | undefined): void;
+  /** Contexto de inferência em coordenadas (t, z) da seção, usando só o que está visível. */
+  inferContext(extra?: Partial<InferContext>): InferContext;
+}
+
 export interface ToolEnv {
   project(): Project;
+  /** Presente quando a vista ativa é um corte/elevação; ausente na planta e no 3D. */
+  section?(): SectionToolContext | null;
   levelId(): Id;
   selection(): Id[];
   setSelection(ids: Id[]): void;

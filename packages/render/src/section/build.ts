@@ -21,6 +21,8 @@ export interface SectionInput {
   hidden?: ReadonlySet<Id>;
   /** Elementos que o modo Reveal mostra com borda azul. */
   revealed?: ReadonlySet<Id>;
+  /** Cotas, textos e detalhes pertencentes à vista de corte/elevação. */
+  annotations?: import('@hestia/model').SectionAnnotations;
   /** Seleção e cursor (decisão 0016): realçados por cima do desenho. Sem ele, o desenho é o de sempre. */
   highlight?: { selection: Id[]; hover: Id | null };
   /** Linhas finas só na tela (decisão 0015): todo traço do modelo sai com 1 px. Padrão desligado; a prancha não passa. */
