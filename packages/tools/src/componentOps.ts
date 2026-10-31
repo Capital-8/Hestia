@@ -1,5 +1,5 @@
 import { add, arcFromSagitta, arcLocal, arcPointAt, closestOnSegment, dist, intersectLines, len, sagFromThreePoints, sub, type Arc, type Vec2 } from '@hestia/geom';
-import type { StairCurve } from '@hestia/model';
+import type { StairCurve, StairLanding, StairRun } from '@hestia/model';
 import { JOIN_TOL, offsetCurve } from './stairPickLines.ts';
 import {
   componentEdgeCurve,
@@ -19,34 +19,53 @@ export interface EdgeLine {
 
 const isStraight = (c: StairCurve): boolean => Math.abs(c.sag) < 1e-9;
 
-/** Arrasta as pontas das curvas vizinhas que estavam em `from` para `to` (mesmo campo e componente). */
-function retargetNeighbors(holder: ComponentSketchHolder, ref: ComponentEdgeRef, from: Vec2, to: Vec2): ComponentSketchHolder {
+/**
+ * Arrasta as pontas de TODAS as curvas do componente que estavam em `from` para `to`. A reconexão atravessa os campos:
+ * mover um limite também estica/encolhe os espelhos e a caminhada que terminavam nele, senão o croqui fica com pontas
+ * soltas e o validador recusa a edição.
+ */
+function retargetComponent(holder: ComponentSketchHolder, ref: ComponentEdgeRef, from: Vec2, to: Vec2): ComponentSketchHolder {
   const comp = componentOf(holder, ref);
   if (!comp) return holder;
-  const curves = componentCurvesOf(comp, ref.key);
-  if (!curves) return holder;
   let changed = false;
-  const next = curves.map((c, i) => {
-    if (i === ref.index) return c;
-    let out = c;
-    if (dist(out.a, from) <= JOIN_TOL) {
-      out = { ...out, a: { ...to } };
-      changed = true;
-    }
-    if (dist(out.b, from) <= JOIN_TOL) {
-      out = { ...out, b: { ...to } };
-      changed = true;
-    }
-    return out;
-  });
-  return changed ? replaceComponentCurves(holder, ref, next) : holder;
+  const mapCurves = (curves: StairCurve[], sameKey: boolean): StairCurve[] =>
+    curves.map((c, i) => {
+      if (sameKey && i === ref.index) return c;
+      let out = c;
+      if (dist(out.a, from) <= JOIN_TOL) {
+        out = { ...out, a: { ...to } };
+        changed = true;
+      }
+      if (dist(out.b, from) <= JOIN_TOL) {
+        out = { ...out, b: { ...to } };
+        changed = true;
+      }
+      return out;
+    });
+
+  let next: StairRun | StairLanding;
+  if (comp.kind === 'landing') {
+    next = { ...comp, boundary: mapCurves(comp.boundary, ref.key === 'boundary') };
+  } else {
+    next = {
+      ...comp,
+      boundaryLeft: mapCurves(comp.boundaryLeft, ref.key === 'boundaryLeft'),
+      boundaryRight: mapCurves(comp.boundaryRight, ref.key === 'boundaryRight'),
+      risers: mapCurves(comp.risers, ref.key === 'risers'),
+      path: mapCurves(comp.path, ref.key === 'path'),
+    };
+  }
+  if (!changed) return holder;
+  const components = holder.components.slice();
+  components[ref.part] = next;
+  return { ...holder, components };
 }
 
-/** Substitui a curva e reconecta as vizinhas nas duas pontas antigas. */
+/** Substitui a curva e reconecta todas as vizinhas nas duas pontas antigas. */
 function replaceAndReconnect(holder: ComponentSketchHolder, ref: ComponentEdgeRef, oldCurve: StairCurve, nextCurve: StairCurve): ComponentSketchHolder {
   let out = replaceComponentEdge(holder, ref, nextCurve);
-  out = retargetNeighbors(out, ref, oldCurve.a, nextCurve.a);
-  out = retargetNeighbors(out, ref, oldCurve.b, nextCurve.b);
+  out = retargetComponent(out, ref, oldCurve.a, nextCurve.a);
+  out = retargetComponent(out, ref, oldCurve.b, nextCurve.b);
   return out;
 }
 

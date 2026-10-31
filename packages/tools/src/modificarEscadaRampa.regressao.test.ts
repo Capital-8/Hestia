@@ -245,10 +245,10 @@ describe('pegar escada e rampa: ponto e linhas', () => {
 });
 
 // ---------------------------------------------------------------------------------------------------------------
-// Comportamentos que as frentes A/B/C ainda vão entregar. NÃO apagar: a fase final habilita e roda.
+// Comportamentos entregues pelas frentes A/B/C e ligados na integração.
 // ---------------------------------------------------------------------------------------------------------------
 
-describe.skip('snap global de escada e rampa (habilitar após as frentes A/B/C)', () => {
+describe('snap global de escada e rampa', () => {
   it('pickLinesOf lista as linhas da rampa, não só as da escada', () => {
     const ctx = ctxComEscadaERampa();
     const snap: SnapOptions = { ...DEFAULT_SNAP, axis: true, faces: false, core: false };
@@ -264,7 +264,7 @@ describe.skip('snap global de escada e rampa (habilitar após as frentes A/B/C)'
   });
 });
 
-describe.skip('guardas de aresta em Aparar/Dividir/Deslocar (habilitar após as frentes A/B/C)', () => {
+describe('edição de aresta em Aparar/Dividir/Deslocar', () => {
   it('Deslocar na aresta da escada desloca a escada e não o piso coincidente embaixo', () => {
     const ctx = ctxComPisoCoincidente();
     const piso = ctx.store.project.elements['f1']!;
@@ -272,7 +272,7 @@ describe.skip('guardas de aresta em Aparar/Dividir/Deslocar (habilitar após as 
     ctx.options.offsetDistance = 0.3;
     ctx.options.offsetCopy = false;
     const off = tool('offset', ctx.env);
-    clickAt(off, 2, 0.52);
+    clickAt(off, 2.5, 0.52);
     // A guarda deve impedir que a aresta do piso (embaixo da escada) seja a atingida.
     expect(ctx.store.project.elements['f1']).toEqual(antes);
     // E o Deslocar deve ter agido na aresta da escada.
@@ -291,7 +291,7 @@ describe.skip('guardas de aresta em Aparar/Dividir/Deslocar (habilitar após as 
   });
 });
 
-describe.skip('ids remapeados na cópia de escada e rampa (habilitar após as frentes A/B/C)', () => {
+describe('ids remapeados na cópia de escada e rampa', () => {
   it('copiar uma escada remapeia também os ids dos componentes do croqui', () => {
     const ctx = ctxComEscada();
     ctx.store.exec({

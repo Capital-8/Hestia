@@ -5,10 +5,11 @@ import {
   makeStair,
   wallsOnLevel,
   type Floor,
+  type Stair,
   type StairCurve,
   type StairRun,
 } from '@hestia/model';
-import { COMPONENT_EDGE_MSG, COMPONENT_MOVE_MSG } from './componentTarget.ts';
+import { COMPONENT_EDGE_MSG } from './componentTarget.ts';
 import { clickAt, drawWall, makeEnv, tool } from './testEnv.ts';
 
 const curve = (ax: number, ay: number, bx: number, by: number): StairCurve => ({ a: { x: ax, y: ay }, b: { x: bx, y: by }, sag: 0 });
@@ -41,33 +42,43 @@ function ctxWithStairOverFloor() {
 }
 
 const floorOf = (ctx: ReturnType<typeof ctxWithStairOverFloor>): Floor => ctx.store.project.elements['f'] as Floor;
+const stairOf = (ctx: ReturnType<typeof ctxWithStairOverFloor>): Stair => ctx.store.project.elements['st1'] as Stair;
+const runOf = (ctx: ReturnType<typeof ctxWithStairOverFloor>): StairRun => stairOf(ctx).components[0] as StairRun;
 
-describe('ferramentas de aresta não agem na escada (nem no piso embaixo)', () => {
-  it('Dividir: clique na linha da escada avisa e não corta o piso', () => {
+describe('ferramentas de aresta agem na escada (e não no piso embaixo)', () => {
+  it('Dividir: clique na linha da escada insere vértice no croqui e não corta o piso', () => {
     const ctx = ctxWithStairOverFloor();
     const t = tool('split', ctx.env);
     clickAt(t, 1, 2.5);
-    expect(ctx.msgs.at(-1)).toBe(COMPONENT_EDGE_MSG);
+    expect(ctx.msgs.at(-1)).toBe('Vértice inserido na aresta do croqui.');
+    expect(runOf(ctx).boundaryRight).toHaveLength(2);
     expect(floorOf(ctx).boundary).toHaveLength(4);
     expect(ctx.store.project.elements['f2']).toBeUndefined();
   });
 
-  it('Aparar/Estender: clique na linha da escada avisa e não mexe nas paredes', () => {
+  it('Aparar/Estender: duas arestas do croqui fazem o canto e não mexem nas paredes', () => {
     const ctx = ctxWithStairOverFloor();
+    // Espelhos em y = 2, 3 e 4: aparar o fim do limite direito até o espelho de y = 4 é um croqui válido.
+    ctx.store.exec({
+      type: 'updateElements',
+      ids: ['st1'],
+      patch: { components: [{ ...run('r1'), risers: [curve(0, 2, 1, 2), curve(0, 3, 1, 3), curve(0, 4, 1, 4)] }] },
+    });
     const before = wallsOnLevel(ctx.store.project, 'lv_0').map((w) => ({ id: w.id, a: { ...w.a }, b: { ...w.b } }));
     const t = tool('trim', ctx.env);
     clickAt(t, 1, 2.5);
-    expect(ctx.msgs).toContain(COMPONENT_EDGE_MSG);
+    clickAt(t, 0.5, 4);
+    expect(runOf(ctx).boundaryRight[0]!.b).toEqual({ x: 1, y: 4 });
     expect(wallsOnLevel(ctx.store.project, 'lv_0').map((w) => ({ id: w.id, a: w.a, b: w.b }))).toEqual(before);
   });
 
-  it('Mover sem seleção: clique na linha da escada pede para selecionar o elemento inteiro', () => {
+  it('Mover sem seleção: aresta do croqui da escada move e o piso não se move', () => {
     const ctx = ctxWithStairOverFloor();
     const t = tool('move', ctx.env);
     clickAt(t, 1, 2.5);
-    expect(ctx.msgs).toContain(COMPONENT_MOVE_MSG);
-    // A ferramenta continua à espera (não sai para Selecionar) e o piso não se move.
-    expect(ctx.done()).toBe(0);
+    clickAt(t, 2, 2.5);
+    expect(runOf(ctx).boundaryRight[0]!.a.x).toBeCloseTo(2, 9);
+    expect(runOf(ctx).boundaryRight[0]!.b.x).toBeCloseTo(2, 9);
     expect(floorOf(ctx).boundary[0]).toEqual({ x: 0, y: 0 });
   });
 

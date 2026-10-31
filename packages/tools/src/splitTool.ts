@@ -8,6 +8,8 @@ import { pickFloorAt } from './floorPick.ts';
 import { pickSlabAt } from './slabPick.ts';
 import { commitRingEdit, pickLineTarget, ringOfRef } from './ringTarget.ts';
 import { COMPONENT_EDGE_MSG, componentUnderCursor } from './componentTarget.ts';
+import { componentEdgeAt } from './componentEdge.ts';
+import { splitEdge as splitComponentEdgeCommand } from './componentEdit.ts';
 import { ringOps } from './ringOps.ts';
 import { roofRingPatch } from './roofEdges.ts';
 import { commitRoofPatch } from './roofCheck.ts';
@@ -42,7 +44,7 @@ const fmt = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length',
 export class SplitTool extends ToolBase {
   readonly id = 'split';
   readonly label = 'Dividir';
-  readonly hint = 'Dividir: clique na parede (ponto de corte) ou numa aresta (insere vértice). Piso ou laje: dois cliques dividem. Digite a distância e Enter para medida exata. Tab: com intervalo. Escada/rampa: use Editar croqui.';
+  readonly hint = 'Dividir: clique na parede (ponto de corte) ou numa aresta (insere vértice), inclusive do croqui de escada/rampa. Piso ou laje: dois cliques dividem. Digite a distância e Enter para medida exata. Tab: com intervalo.';
   private hoverId: Id | null = null;
   private gapStart: Cut | null = null;
   private slabStart: SlabStart | null = null;
@@ -123,6 +125,13 @@ export class SplitTool extends ToolBase {
       this.items.push({ kind: 'line', a: this.slabStart.at, b: p.raw, dashed: true });
       return;
     }
+    const compEdge = componentEdgeAt(this.env, p.raw);
+    if (compEdge) {
+      this.hoverId = null;
+      this.items.push({ kind: 'highlight', ids: [compEdge.ref.elementId] }, { kind: 'point', at: compEdge.at });
+      this.inf = { point: compEdge.at, kind: 'nearest', guides: [] };
+      return;
+    }
     const w = this.wallAt(p);
     this.hoverId = w?.id ?? null;
     if (!w) {
@@ -161,6 +170,18 @@ export class SplitTool extends ToolBase {
   override click(p: PointerInfo): void {
     if (this.slabStart) {
       this.finishSlabSplit(p.raw);
+      return;
+    }
+    const compEdge = componentEdgeAt(this.env, p.raw);
+    if (compEdge) {
+      if (this.withGap) {
+        this.env.say('Com intervalo vale só para paredes.');
+        return;
+      }
+      const r = splitComponentEdgeCommand(this.env, compEdge.ref, p.raw);
+      if (r.ok) this.env.say('Vértice inserido na aresta do croqui.');
+      else this.env.say(r.error);
+      this.reset();
       return;
     }
     // A linha da escada/rampa não é aresta de piso: dividir aqui cortaria o piso por baixo sem o usuário ver.

@@ -1,17 +1,21 @@
+/* eslint-disable max-lines -- Mover/Copiar/Girar/Espelhar compartilham a mesma base de seleção, prévia e aresta; dividir perderia a coesão do estado */
 import { angleOf, dist, len, mul, norm, sub, v2, type Vec2 } from '@hestia/geom';
 import { frameOfWall } from '@hestia/engine';
-import { annotationIdsIn, annotationMoveCommands, dimensionSettingsOf, formatQuantity, isOpening, isWall, unitsOf, type Id, type ResolvedUnits } from '@hestia/model';
+import { annotationIdsIn, annotationMoveCommands, dimensionSettingsOf, formatQuantity, isOpening, isRamp, isStair, isWall, unitsOf, type Id, type ResolvedUnits } from '@hestia/model';
 import { ToolBase } from './base.ts';
 import { gridGhosts, moveGrids, selectedGrids } from './gridGeom.ts';
 import { copyWalls, ghostBands, ghostViews, moveWalls, selectedMovables, selectedOpenings, selectedViews, slideOpenings, transformViews, transformWalls } from './edit.ts';
 import { pickAt } from './pick.ts';
 import { parseQuantityText } from './numeric.ts';
 import { commitRingEdit, edgeAtCursor, ringOfRef } from './ringTarget.ts';
-import { COMPONENT_MOVE_MSG, componentUnderCursor } from './componentTarget.ts';
 import { ringOps } from './ringOps.ts';
 import { moveRoomSeparators, movableSeparatorIds, separatorGhostItems } from './roomSeparatorPick.ts';
 import type { EdgePick } from './ringEdge.ts';
 import { DEFAULT_DISJOIN, type PointerInfo, type ToolEnv } from './types.ts';
+import { componentEdgeAt, componentEdgeCurve, type ComponentEdgePick } from './componentEdge.ts';
+import { moveComponentEdge } from './componentOps.ts';
+import { moveEdge as moveComponentEdgeCommand } from './componentEdit.ts';
+import { COMPONENT_MOVE_MSG, componentUnderCursor } from './componentTarget.ts';
 import { displacementDimProvider } from './dims/providers/displacement.ts';
 import type { DimRef, TempDim } from './dims/types.ts';
 
@@ -61,6 +65,10 @@ export class MoveTool extends SelectionTool {
   private cursor: Vec2 | null = null;
   /** Aresta escolhida no primeiro clique (só sem seleção). */
   private edgePick: EdgePick | null = null;
+  /** Aresta do croqui de escada/rampa escolhida no primeiro clique (só sem seleção). */
+  private compPick: ComponentEdgePick | null = null;
+  /** Ponto de apoio da aresta do croqui (o ponto clicado, projetado nela). */
+  private compBase: Vec2 | null = null;
   /** Chave da sessão: todas as cópias de um mesmo Copiar entram num só passo de desfazer. */
   private session: object = {};
   /** Quantas cópias a sessão já fez (Esc, com cópias feitas, encerra a sessão). */
@@ -74,8 +82,8 @@ export class MoveTool extends SelectionTool {
     this.label = copy ? 'Copiar' : 'Mover';
     this.hint = `${this.label}: clique no ponto base e depois no destino, ou digite a distância.`;
     this.edgeHint = copy
-      ? 'Copiar: selecione elementos (Selecionar) para copiar. Uma aresta sozinha ainda não pode ser copiada (escada/rampa: use Editar croqui).'
-      : 'Mover: selecione elementos (Selecionar) ou clique numa aresta de piso, laje, telhado ou forro. Escada/rampa: selecione o elemento inteiro.';
+      ? 'Copiar: selecione elementos (Selecionar) para copiar. Uma aresta sozinha ainda não pode ser copiada (nem de piso/laje, nem do croqui de escada/rampa).'
+      : 'Mover: selecione elementos (Selecionar) ou clique numa aresta de piso, laje, telhado, forro ou do croqui de escada/rampa.';
   }
 
   protected override hasSelection(): boolean {
@@ -107,22 +115,44 @@ export class MoveTool extends SelectionTool {
     this.base = null;
     this.cursor = null;
     this.edgePick = null;
+    this.compPick = null;
+    this.compBase = null;
     this.items = [];
     this.inf = null;
   }
   protected busy(): boolean {
-    return this.base !== null;
+    return this.base !== null || this.compBase !== null;
   }
   override inputPrompt(): string | null {
-    return this.base ? 'Distância' : null;
+    return this.base || this.compBase ? 'Distância' : null;
   }
 
   /** Sem seleção: mostra a aresta sob o cursor ou, depois do clique base, a aresta na posição de destino. */
   private edgeMove(p: PointerInfo): void {
+    // Aresta do croqui de escada/rampa já escolhida: prévia do movimento da aresta.
+    if (this.compPick && this.compBase) {
+      const e = this.env.project().elements[this.compPick.ref.elementId];
+      if (!isStair(e) && !isRamp(e)) return;
+      const inf = this.snap(p, { from: this.compBase });
+      this.cursor = inf.point;
+      const d = sub(inf.point, this.compBase);
+      const next = moveComponentEdge(e, this.compPick.ref, d);
+      const curve = componentEdgeCurve(next, this.compPick.ref);
+      if (!curve) return;
+      this.items.push({ kind: 'line', a: this.compBase, b: inf.point, dashed: true });
+      this.items.push({ kind: 'line', a: curve.a, b: curve.b, dashed: true });
+      this.items.push({ kind: 'label', at: inf.point, text: fmtDisplacement(unitsOf(this.env.project()), d) });
+      return;
+    }
     if (!this.edgePick || !this.base) {
+      const compEdge = componentEdgeAt(this.env, p.raw);
+      if (compEdge) {
+        this.items.push({ kind: 'highlight', ids: [compEdge.ref.elementId] }, { kind: 'line', a: compEdge.a, b: compEdge.b }, { kind: 'point', at: compEdge.at });
+        return;
+      }
       const comp = componentUnderCursor(this.env, p.raw);
       if (comp) {
-        // Não cai na aresta de piso/laje embaixo: a escada/rampa só se move inteira, com seleção.
+        // Não cai na aresta de piso/laje embaixo: a escada/rampa tem aresta própria.
         this.items.push({ kind: 'highlight', ids: [comp.id] });
         return;
       }
@@ -155,8 +185,30 @@ export class MoveTool extends SelectionTool {
 
   /** Sem seleção: o primeiro clique numa aresta define a base; o segundo, o destino. Outro clique sai com a mensagem de seleção. */
   private edgeClick(p: PointerInfo): void {
+    // Segundo clique de uma aresta de escada/rampa já escolhida: move a aresta e encerra.
+    if (this.compPick && this.compBase) {
+      const inf = this.snap(p, { from: this.compBase });
+      const d = sub(inf.point, this.compBase);
+      if (len(d) >= 1e-6) {
+        const r = moveComponentEdgeCommand(this.env, this.compPick.ref, d);
+        if (!r.ok) this.env.say(r.error);
+      }
+      this.reset();
+      this.env.done();
+      return;
+    }
     const pick = this.edgePick;
     if (!pick || !this.base) {
+      const compEdge = componentEdgeAt(this.env, p.raw);
+      if (compEdge) {
+        if (this.copy) {
+          this.env.say('Copiar aresta: não permitido. A cópia sobreporia a linha ou deixaria o croqui aberto (como no Revit).');
+          return;
+        }
+        this.compPick = compEdge;
+        this.compBase = compEdge.at;
+        return;
+      }
       if (componentUnderCursor(this.env, p.raw)) {
         this.env.say(COMPONENT_MOVE_MSG);
         return;
@@ -259,13 +311,22 @@ export class MoveTool extends SelectionTool {
   }
 
   override type(text: string): boolean {
-    if (!this.base) return false;
+    const from = this.compBase ?? this.base;
+    if (!from) return false;
     const v = parseQuantityText(text, unitsOf(this.env.project()), 'length');
     if (v === null) return false;
-    const dir = norm(sub(this.inf?.point ?? this.raw, this.base));
+    const dir = norm(sub(this.inf?.point ?? this.raw, from));
     if (!this.hasSelection()) {
+      const step = mul(len(dir) < 1e-9 ? v2(1, 0) : dir, v);
+      if (this.compPick) {
+        const r = moveComponentEdgeCommand(this.env, this.compPick.ref, step);
+        if (!r.ok) this.env.say(r.error);
+        this.reset();
+        this.env.done();
+        return true;
+      }
       if (!this.edgePick) return false;
-      this.applyEdge(this.edgePick, mul(len(dir) < 1e-9 ? v2(1, 0) : dir, v));
+      this.applyEdge(this.edgePick, step);
       this.reset();
       this.env.done();
       return true;

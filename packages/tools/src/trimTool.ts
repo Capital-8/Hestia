@@ -1,6 +1,7 @@
-import { dist, intersectCircleLine, intersectCircles, intersectLines, sagFromThreePoints, type Vec2 } from '@hestia/geom';
+/* eslint-disable max-lines -- a máquina de estados de Aparar (paredes, anéis e croqui) fica coesa; dividir perderia o histórico de passos */
+import { dist, intersectCircleLine, intersectCircles, intersectLines, sagFromThreePoints, sub, type Vec2 } from '@hestia/geom';
 import { frameOfWall, pointAt, toLocal, type WallFrame } from '@hestia/engine';
-import { isWall, type Id, type Project } from '@hestia/model';
+import { isRamp, isStair, isWall, type Id, type Project } from '@hestia/model';
 import { ToolBase } from './base.ts';
 import { algumMudou, NADA_A_APARAR } from './trimChange.ts';
 import { execWithHostedLoss } from './hostedGuard.ts';
@@ -8,6 +9,9 @@ import { patchCommands, trimPreviewItems, type EndPatch, type TrimPatch } from '
 import type { EdgePick, EdgeRef } from './ringEdge.ts';
 import { commitRingEdit, pickLineTarget, ringOfRef } from './ringTarget.ts';
 import { COMPONENT_EDGE_MSG, componentUnderCursor } from './componentTarget.ts';
+import { componentEdgeAt, componentEdgeCurve, type ComponentEdgePick } from './componentEdge.ts';
+import { trimEdge as trimComponentEdgeCommand } from './componentEdit.ts';
+import { trimComponentEdge } from './componentOps.ts';
 import { ringOps } from './ringOps.ts';
 import type { PointerInfo, TrimMode } from './types.ts';
 
@@ -93,6 +97,11 @@ function sameEdge(a: EdgeRef, b: EdgeRef): boolean {
   return a.elementId === b.elementId && a.hole === b.hole && a.index === b.index;
 }
 
+/** Duas referências da mesma aresta de croqui (elemento, componente, campo e índice). */
+function sameComponentEdge(a: ComponentEdgePick['ref'], b: ComponentEdgePick['ref']): boolean {
+  return a.elementId === b.elementId && a.part === b.part && a.key === b.key && a.index === b.index;
+}
+
 /**
  * Aparar/Estender com três modos (Revit):
  * - 'canto' (Trim/Extend to Corner): clique na parte que deve ficar de cada parede; as duas mudam.
@@ -105,20 +114,23 @@ function sameEdge(a: EdgeRef, b: EdgeRef): boolean {
 export class TrimTool extends ToolBase {
   readonly id = 'trim';
   readonly label = 'Aparar/Estender';
-  readonly hint = 'Aparar/Estender: clique na parede de referência e depois na parede a estender, no lado que deve ficar. Escada/rampa: use Editar croqui.';
+  readonly hint = 'Aparar/Estender: clique na parede de referência e depois na parede a estender, no lado que deve ficar. Arestas de piso/laje/telhado/forro ou do croqui de escada/rampa: duas arestas, como no canto.';
   private first: TrimPick | null = null;
   /** Primeira aresta de anel escolhida, com o ponto do clique sobre ela. */
   private firstEdge: { ref: EdgeRef; at: Vec2 } | null = null;
+  /** Primeira aresta de croqui de escada/rampa escolhida, com o ponto bruto do clique. */
+  private firstComp: { pick: ComponentEdgePick; at: Vec2 } | null = null;
   private group: TrimPick[] = [];
 
   protected reset(): void {
     this.first = null;
     this.firstEdge = null;
+    this.firstComp = null;
     this.group = [];
     this.items = [];
   }
   protected busy(): boolean {
-    return this.first !== null || this.firstEdge !== null || this.group.length > 0;
+    return this.first !== null || this.firstEdge !== null || this.firstComp !== null || this.group.length > 0;
   }
 
   override start(): void {
@@ -133,6 +145,7 @@ export class TrimTool extends ToolBase {
 
   /** Texto do passo atual, por modo. */
   private prompt(): string {
+    if (this.firstComp) return 'Aparar/Estender: agora clique na segunda aresta do croqui.';
     if (this.firstEdge) return 'Aparar/Estender: agora clique na segunda aresta.';
     const mode = this.mode();
     if (mode === 'unico') {
@@ -152,6 +165,12 @@ export class TrimTool extends ToolBase {
 
   /** Esc volta um passo: grupo, depois primeira parede/aresta; sem passo, sai da ferramenta. */
   override cancel(): void {
+    if (this.firstComp) {
+      this.firstComp = null;
+      this.items = [];
+      this.env.say(this.prompt());
+      return;
+    }
     if (this.firstEdge) {
       this.firstEdge = null;
       this.items = [];
@@ -174,6 +193,29 @@ export class TrimTool extends ToolBase {
   }
 
   override move(p: PointerInfo): void {
+    const compEdge = componentEdgeAt(this.env, p.raw);
+    if (compEdge) {
+      this.items = [{ kind: 'highlight', ids: [compEdge.ref.elementId] }, { kind: 'line', a: compEdge.a, b: compEdge.b }, { kind: 'point', at: compEdge.at }];
+      const first = this.firstComp;
+      if (first) {
+        this.items.push({ kind: 'highlight', ids: [first.pick.ref.elementId] });
+        if (!sameComponentEdge(first.pick.ref, compEdge.ref) && Math.abs(first.pick.sag) < 1e-9 && Math.abs(compEdge.sag) < 1e-9) {
+          const e = this.env.project().elements[first.pick.ref.elementId];
+          if (isStair(e) || isRamp(e)) {
+            const end = dist(first.at, first.pick.a) >= dist(first.at, first.pick.b) ? 'a' : 'b';
+            const next = trimComponentEdge(e, first.pick.ref, { p: compEdge.a, d: sub(compEdge.b, compEdge.a) }, end);
+            const curve = next ? componentEdgeCurve(next, first.pick.ref) : null;
+            if (curve) this.items.push({ kind: 'line', a: curve.a, b: curve.b, dashed: true });
+          }
+        }
+      }
+      return;
+    }
+    if (this.firstComp) {
+      // Com a primeira aresta do croqui escolhida, não mistura com parede/anel: mantém só o destaque dela.
+      this.items = [{ kind: 'highlight', ids: [this.firstComp.pick.ref.elementId] }];
+      return;
+    }
     const comp = componentUnderCursor(this.env, p.raw);
     if (comp) {
       this.items = [{ kind: 'highlight', ids: [comp.id] }];
@@ -322,8 +364,40 @@ export class TrimTool extends ToolBase {
 
   /** Mistura de parede e aresta (ou várias com uma só): desfaz a escolha e pede de novo. */
   private mixed(): void {
-    this.env.say('Aparar: escolha duas paredes ou duas arestas.');
+    this.env.say('Aparar: escolha duas paredes, duas arestas de anel ou duas arestas do croqui.');
     this.reset();
+  }
+
+  /** Segunda aresta do croqui: a primeira é aparada até a reta da segunda; a parte clicada fica. */
+  private clickComponentEdge(pick: ComponentEdgePick, p: PointerInfo): void {
+    if (p.shift) {
+      this.env.say('Shift+clique (várias) vale só para paredes.');
+      return;
+    }
+    if (this.first || this.firstEdge || this.group.length) {
+      this.mixed();
+      return;
+    }
+    if (!this.firstComp) {
+      this.firstComp = { pick, at: p.raw };
+      this.env.say(this.prompt());
+      return;
+    }
+    const first = this.firstComp;
+    if (sameComponentEdge(first.pick.ref, pick.ref)) {
+      this.env.say('Escolha outra aresta.');
+      return;
+    }
+    if (Math.abs(first.pick.sag) > 1e-9 || Math.abs(pick.sag) > 1e-9) {
+      this.env.say('Aparar aresta curva: use Editar croqui.');
+      this.reset();
+      return;
+    }
+    const end = dist(first.at, first.pick.a) >= dist(first.at, first.pick.b) ? 'a' : 'b';
+    const r = trimComponentEdgeCommand(this.env, first.pick.ref, { p: pick.a, d: sub(pick.b, pick.a) }, end);
+    this.reset();
+    if (r.ok) this.env.say(`Canto aplicado. ${this.prompt()}`);
+    else this.env.say(r.error);
   }
 
   /**
@@ -377,6 +451,15 @@ export class TrimTool extends ToolBase {
   }
 
   override click(p: PointerInfo): void {
+    const compEdge = componentEdgeAt(this.env, p.raw);
+    if (compEdge) {
+      this.clickComponentEdge(compEdge, p);
+      return;
+    }
+    if (this.firstComp) {
+      this.mixed();
+      return;
+    }
     if (componentUnderCursor(this.env, p.raw)) {
       this.env.say(COMPONENT_EDGE_MSG);
       return;

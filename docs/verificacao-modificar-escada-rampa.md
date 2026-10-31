@@ -1,103 +1,91 @@
 # Verificação — aba Modificar, escada/rampa e snaps
 
-Documento da frente **D (verificação)**. Base: `dc33e03c`. Nenhum código de produção foi alterado;
-a proteção está em `packages/tools/src/modificarEscadaRampa.regressao.test.ts` e os comportamentos
-ainda não entregues ficaram em `describe.skip` para a fase final habilitar.
+Documento da frente **D (verificação)**, atualizado na integração das frentes A/B/C.
+Base: `dc33e03c`. Branch de integração: `feat/mod-integ`.
 
-## Linha de base (medida em 2026-10-31)
+## O que foi entregue
+
+- **A — snap global:** `componentSnapGeometry` leva pontas (`endpoint`) e arestas amostradas (`nearest`) de
+  escadas **e** rampas para o `extraPoints`/`extraSegments` de `ToolBase.ctx`, com `hostId` e cache por
+  projeto/nível. Vale para Parede, Piso, Laje, Forro, Telhado, Rampa, Escada reta/L/U/caracol, Mover,
+  Copiar, Girar, Espelhar, Matriz, cotas e textos.
+- **B — segurança e transformações:** as ferramentas de aresta não caem mais no piso/parede embaixo;
+  `OffsetTool` usa tolerância de cursor (5 px + meia espessura), não 5 m; cópia por `transform` remapeia os
+  `components[].id`; Alinhar reconhece aresta de rampa (translada a rampa inteira, como a escada).
+- **C — edição de aresta:** `componentEdge.ts`/`componentOps.ts`/`componentEdit.ts` dão pick, prévia pura e
+  commit de aresta de escada/rampa. A integração ligou:
+  - **Deslocar** numa aresta do croqui (curva reta ou arco, com reconexão dos espelhos/limites vizinhos);
+  - **Dividir** numa aresta do croqui (insere vértice; reta e arco);
+  - **Mover** sem seleção numa aresta do croqui (move a aresta e mantém a cadeia contínua);
+  - **Aparar** entre duas arestas do croqui (retas; a parte clicada fica).
+- **D — regressão:** `packages/tools/src/modificarEscadaRampa.regressao.test.ts` cobre seleção,
+  transformações, fantasmas, Alinhar, pick e as guardas/edições de aresta. Os cinco casos que estavam em
+  `describe.skip` foram habilitados e passam.
+
+## Resultados da integração
 
 ```powershell
 npx vitest run packages/tools/src packages/model/src --testTimeout=120000
-```
+# 231 arquivos, 2641 testes, 2641 passando, 0 falhas
 
-Resultado exato: **220 arquivos, 2568 testes, 2568 passando, 0 falhas** (137,37 s).
-Não há falhas pré-existentes nesses dois pacotes.
+npx vitest run apps/web/src --testTimeout=120000
+# 181 arquivos, 1509 testes, 1509 passando, 0 falhas
 
-## Comandos de verificação
-
-```powershell
-# Regressão específica de escada/rampa na aba Modificar
-npx vitest run packages/tools/src/modificarEscadaRampa.regressao.test.ts --testTimeout=120000
-
-# Pacotes afetados (tools + model)
-npx vitest run packages/tools/src packages/model/src --testTimeout=120000
-
-# Tipos e estilo
 npx tsc -p tsconfig.json --noEmit
-npx eslint packages/tools/src/modificarEscadaRampa.regressao.test.ts
-npx eslint packages/tools/src packages/model/src
-
-# E2E de escadas (usa apps/web/dist: rode npm run build antes)
-npm run build
-node tests/e2e/escadas.mjs
-node tests/e2e/escadas-closeup.mjs
+# limpo
 ```
 
-Observação: `npm run lint` também roda os verificadores de limites/paridade/unidades do repositório;
-use-o antes do commit final, não só o eslint dos arquivos alterados.
+Novos testes de integração: `rampEdgeTool.test.ts` (Deslocar/Dividir/Mover em rampa), além dos testes das
+frentes A/B/C (`componentSnap`, `componentTarget`, `componentEdge`, `componentOps`, `componentEdit`,
+`offsetTool`, `stairEdgeGuard`, `alignRamp`, `componentCopy`).
 
 ## Checklist manual curto
 
 Pré-requisito: uma planta com uma escada (reta ou caracol) e uma rampa, ambas com um piso/parede logo abaixo.
 
 1. **Selecionar escada/rampa** — clique na escada e na rampa com Selecionar (também por janela).
-   A aba contextual deve abrir e os comandos de Modificar devem ficar habilitados.
-2. **Mover / Copiar** — mover a escada e a rampa alguns metros; copiar (Ctrl) e conferir que a cópia
-   nasce completa, com todos os lances/patamares, sem arrastar o piso/parede embaixo.
-3. **Girar / Espelhar** — girar 90° e espelhar; conferir limites, espelhos, caminhada, seta de subida
-   e, na rampa, o lado do giro (`turn`) invertido só no espelho.
-4. **Matriz** — matriz linear e radial com escada e rampa selecionadas: cada item deve ser um croqui
-   completo; o original fica no lugar.
-5. **Snap em canto de escada/rampa** — com Parede/Laje/Piso ativo, aproximar o cursor das extremidades
-   e arestas da escada e da rampa: os pontos devem capturar como os de parede, com o mesmo indicador.
-6. **Aresta com Aparar/Dividir/Deslocar** — clicar diretamente numa aresta da escada/rampa com cada
-   comando e conferir que a ação atinge a escada/rampa, **não** o piso ou a parede coincidente embaixo.
-   Desfazer (Ctrl+Z) deve devolver o croqui original em um passo.
+2. **Mover / Copiar** — mover a escada e a rampa alguns metros; copiar e conferir que a cópia nasce completa,
+   com todos os lances/patamares, sem arrastar o piso/parede embaixo.
+3. **Girar / Espelhar** — girar 90° e espelhar; conferir limites, espelhos, caminhada, seta de subida e, na
+   rampa, o lado do giro (`turn`) invertido só no espelho.
+4. **Matriz** — matriz linear e radial com escada e rampa selecionadas: cada item completo; o original fica.
+5. **Snap em canto/aresta de escada/rampa** — com Parede/Laje/Piso ativo, aproximar o cursor das
+   extremidades e arestas da escada e da rampa: os pontos devem capturar com o mesmo indicador dos pisos.
+6. **Aresta com Aparar/Dividir/Deslocar/Mover** — clicar diretamente numa aresta da escada/rampa e conferir
+   que a ação atinge o croqui, **não** o piso ou a parede coincidente embaixo. Ctrl+Z devolve o croqui em um
+   passo. Escada/rampa **livre** continua sendo editada pelas alças do trajeto, não por aresta.
 7. **Cancelar** — Esc no meio de Mover/Girar/Espelhar/Matriz não deve gravar nada.
 
-## O que ficou em `describe.skip` (habilitar na fase final)
+## Limitações conhecidas (conscientes)
 
-Os testes abaixo já descrevem o comportamento esperado e falham na base atual de propósito:
+- **Formas livres** (`freePath` na escada, forma `free`/`freePath` na rampa): a edição por aresta é recusada
+  com mensagem; use as alças do trajeto.
+- **Aparar aresta curva:** recusado com mensagem; use Editar croqui. Aparar reta entre duas arestas retas
+  funciona.
+- **Aparar em lance de escada:** o resultado passa pelo validador (`analyzeDraft`); se o corte deixaria
+  espelhos coincidentes ou o croqui inválido, a edição é recusada e nada é gravado. Isso é intencional.
+- **Copiar aresta** continua recusado (a cópia sobreporia a linha ou deixaria o croqui aberto).
+- **Parede paralela / Junção:** continuam sendo ferramentas de parede; clicar numa linha de escada/rampa não
+  cria parede nem une paredes por engano.
+- Caracol: mover/deslocar/aparar limites e espelhos preserva `spiral`; a edição manual do croqui continua
+  descartando o caracol pelo caminho existente (`discardSpiralOnEdit`).
 
-| Grupo | O que verifica | Depende de |
-| --- | --- | --- |
-| `snap global de escada e rampa` | `pickLinesOf` lista também as linhas da rampa; `alignFeaturesAt` reconhece aresta de rampa | frente B |
-| `guardas de aresta em Aparar/Dividir/Deslocar` | Deslocar/Dividir na aresta da escada não altera o piso coincidente embaixo | frente C |
-| `ids remapeados na cópia de escada e rampa` | copiar escada gera ids novos também para os componentes do croqui | frente C (ou A, conforme a entrega) |
+## Comandos de verificação
 
-Ao habilitar, troque `describe.skip` por `describe`; não afrouxe as expectativas. Se um teste falhar
-por bug real, registre o bug e mantenha o teste em skip com comentário até a correção.
+```powershell
+npx vitest run packages/tools/src/modificarEscadaRampa.regressao.test.ts --testTimeout=120000
+npx vitest run packages/tools/src/rampEdgeTool.test.ts --testTimeout=120000
+npx vitest run packages/tools/src packages/model/src --testTimeout=120000
+npx vitest run apps/web/src --testTimeout=120000
+npx tsc -p tsconfig.json --noEmit
+npx eslint <arquivos alterados>
+```
 
-## Riscos conhecidos (estado da base)
-
-- `selectedMovables` já inclui escada e rampa, e `transformStair`/`transformRamp` já movem, giram e
-  espelham componentes + `freePath`. O risco está na **cópia**: `transformEach` copia o elemento com
-  id novo, mas os `id` internos de lances/patamares não são remapeados (ids duplicados entre original
-  e cópia). Isso pode confundir edição por componente e seleção de linhas.
-- `pickLinesOf` só monta linhas de **escada**; a rampa ainda não entra no pick global (Aparar/Dividir/
-  Alinhar por linha e snap de aresta).
-- `alignFeaturesAt` só gera `arestaEscada`; rampa não é feição alinhável ainda.
-- `OffsetTool`/`SplitTool`/`TrimTool` usam `edgeAtCursor` de anéis (piso/laje/telhado/forro). Se a
-  aresta da escada/rampa coincidir com uma aresta de anel, o comando pode atingir o anel embaixo:
-  é exatamente a guarda que falta.
-- A cópia de escada/rampa pela Matriz usa o mesmo caminho de `transform ... copy`, então herda o
-  problema de ids internos.
-- O `transform` do modelo não valida o croqui depois de mover/girar/espelhar; geometrias degeneradas
-  (por exemplo, espelhar no próprio eixo) não são recusadas nesse caminho.
-
-## Entregas esperadas por frente
-
-- **A — aba Modificar / UI:** habilitar Mover, Copiar, Girar, Espelhar, Matriz e Excluir para escada e
-  rampa selecionadas; rótulos/atalhos coerentes com o resto da aba; prévia (fantasmas) ligada nesses
-  comandos.
-- **B — snaps globais:** incluir escada **e** rampa em `pickLinesOf` (limites, espelhos, caminhada,
-  patamares) e nas feições do Alinhar; alimentar o snap global com `stairSnapPoints`/`rampSnapPoints`;
-  manter `pickStairAt`/`pickRampAt`/janela como estão.
-- **C — guardas e offset de aresta:** fazer Aparar/Dividir/Deslocar enxergarem aresta de escada/rampa
-  sem atingir piso/parede/laje embaixo; deslocar aresta com `offsetChain` preservando o croqui válido;
-  remapear ids dos componentes nas cópias (e cobrir com os testes que hoje estão em skip).
+`npm run lint` também roda os verificadores de limites/paridade/unidades do repositório; use-o antes do
+commit final, não só o eslint dos arquivos alterados.
 
 ## Arquivos desta frente
 
-- `packages/tools/src/modificarEscadaRampa.regressao.test.ts` — 12 testes ativos + 5 em `describe.skip`.
+- `packages/tools/src/modificarEscadaRampa.regressao.test.ts` — 17 testes ativos.
+- `packages/tools/src/rampEdgeTool.test.ts` — 3 testes de integração da rampa.
 - `docs/verificacao-modificar-escada-rampa.md` — este documento.

@@ -8,7 +8,6 @@ import {
   type StairRun,
   type Wall,
 } from '@hestia/model';
-import { COMPONENT_EDGE_MSG } from './componentTarget.ts';
 import { clickAt, drawWall, makeEnv, tool } from './testEnv.ts';
 
 const curve = (ax: number, ay: number, bx: number, by: number): StairCurve => ({ a: { x: ax, y: ay }, b: { x: bx, y: by }, sag: 0 });
@@ -38,14 +37,16 @@ function wallAndStair() {
 }
 
 const wallOf = (ctx: ReturnType<typeof wallAndStair>): Wall => wallsOnLevel(ctx.store.project, 'lv_0')[0]!;
+const runOf = (ctx: ReturnType<typeof wallAndStair>): StairRun => stairsOnLevel(ctx.store.project, 'lv_0')[0]!.components[0] as StairRun;
 
 describe('Deslocar: escada/rampa não é parede', () => {
-  it('clique na linha da escada a 2 m da parede não desloca a parede', () => {
+  it('clique na linha da escada desloca a aresta do croqui e não a parede a 2 m', () => {
     const ctx = wallAndStair();
     const before = { ...wallOf(ctx).a };
     const t = tool('offset', ctx.env);
     clickAt(t, 1, 2.5);
-    expect(ctx.msgs).toContain(COMPONENT_EDGE_MSG);
+    // A distância da barra (1 m) vai para a direita de a→b (o clique está sobre a linha).
+    expect(runOf(ctx).boundaryRight[0]!.a.x).toBeCloseTo(2, 9);
     expect(wallOf(ctx).a).toEqual(before);
     expect(wallsOnLevel(ctx.store.project, 'lv_0')).toHaveLength(1);
   });

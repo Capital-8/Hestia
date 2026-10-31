@@ -1,10 +1,13 @@
 import { cross, mul, offsetArc, sub, type Vec2 } from '@hestia/geom';
 import { frameOfWall, normalAt, toLocal } from '@hestia/engine';
-import { formatQuantity, isWall, unitsOf, type Id, type ResolvedUnits } from '@hestia/model';
+import { formatQuantity, isRamp, isStair, isWall, unitsOf, type Id, type ResolvedUnits, type StairCurve } from '@hestia/model';
 import { ToolBase } from './base.ts';
 import { copyWalls, ghostBands, moveWalls } from './edit.ts';
 import { commitRingEdit, edgeAtCursor, ringOfRef } from './ringTarget.ts';
 import { COMPONENT_EDGE_MSG, componentUnderCursor } from './componentTarget.ts';
+import { componentEdgeAt, componentEdgeCurve, type ComponentEdgePick } from './componentEdge.ts';
+import { offsetEdge as offsetComponentEdgeCommand } from './componentEdit.ts';
+import { offsetComponentEdge } from './componentOps.ts';
 import { ringOps } from './ringOps.ts';
 import type { EdgePick } from './ringEdge.ts';
 import type { PointerInfo } from './types.ts';
@@ -15,7 +18,7 @@ const fmtM = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length'
 export class OffsetTool extends ToolBase {
   readonly id = 'offset';
   readonly label = 'Deslocar';
-  readonly hint = 'Deslocar: passe sobre uma parede ou aresta de piso, laje, telhado ou forro e clique para o lado desejado. A distância está na barra de opções. Escada/rampa: use Editar croqui.';
+  readonly hint = 'Deslocar: passe sobre uma parede, aresta de piso/laje/telhado/forro ou aresta do croqui de escada/rampa e clique para o lado desejado. A distância está na barra de opções.';
 
   protected reset(): void {
     this.items = [];
@@ -36,6 +39,17 @@ export class OffsetTool extends ToolBase {
     const next = ringOps.offsetEdge(ring, pick.ref.index, signed);
     const j = (pick.ref.index + 1) % ring.length;
     return { signed, next, a: next[pick.ref.index]!, b: next[j]! };
+  }
+
+  /** Aresta do croqui de escada/rampa deslocada para o lado do cursor (prévia pura, sem gravar). */
+  private componentOffset(pick: ComponentEdgePick, at: Vec2): { signed: number; curve: StairCurve } | null {
+    const e = this.env.project().elements[pick.ref.elementId];
+    if (!isStair(e) && !isRamp(e)) return null;
+    const dist0 = this.env.options().offsetDistance;
+    const signed = cross(sub(pick.b, pick.a), sub(at, pick.a)) > 0 ? dist0 : -dist0;
+    const next = offsetComponentEdge(e, pick.ref, signed);
+    const curve = next ? componentEdgeCurve(next, pick.ref) : null;
+    return curve ? { signed, curve } : null;
   }
 
   private target(p: Vec2): { id: Id; d: Vec2; arc: { a: Vec2; b: Vec2; sag: number } | null } | null {
@@ -63,6 +77,18 @@ export class OffsetTool extends ToolBase {
   override move(p: PointerInfo): void {
     this.items = [];
     this.raw = p.raw;
+    const compEdge = componentEdgeAt(this.env, p.raw);
+    if (compEdge) {
+      this.items.push({ kind: 'highlight', ids: [compEdge.ref.elementId] });
+      const off = this.componentOffset(compEdge, p.raw);
+      if (off) {
+        this.items.push({ kind: 'line', a: compEdge.a, b: compEdge.b });
+        this.items.push({ kind: 'line', a: off.curve.a, b: off.curve.b, dashed: true });
+        const mid = { x: (off.curve.a.x + off.curve.b.x) / 2, y: (off.curve.a.y + off.curve.b.y) / 2 };
+        this.items.push({ kind: 'label', at: mid, text: fmtM(unitsOf(this.env.project()), Math.abs(off.signed)) });
+      }
+      return;
+    }
     const comp = componentUnderCursor(this.env, p.raw);
     if (comp) {
       // Não cai no deslocamento de parede: a escada/rampa é do croqui.
@@ -88,6 +114,21 @@ export class OffsetTool extends ToolBase {
   }
 
   override click(p: PointerInfo): void {
+    const compEdge = componentEdgeAt(this.env, p.raw);
+    if (compEdge) {
+      if (this.env.options().offsetCopy) {
+        this.env.say('Deslocar aresta com cópia: não permitido. A cópia sobreporia a linha ou deixaria o croqui aberto (como no Revit).');
+        return;
+      }
+      const off = this.componentOffset(compEdge, p.raw);
+      if (!off) {
+        this.env.say('A aresta do croqui não pode ser deslocada neste ponto.');
+        return;
+      }
+      const r = offsetComponentEdgeCommand(this.env, compEdge.ref, off.signed);
+      if (!r.ok) this.env.say(r.error);
+      return;
+    }
     if (componentUnderCursor(this.env, p.raw)) {
       this.env.say(COMPONENT_EDGE_MSG);
       return;
