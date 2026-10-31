@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ProjectStore, createEmptyProject, makeWall, type Project } from '@hestia/model';
 import { pickElement, pickModelPoint } from './pick3d.ts';
 import { highlightOf } from './highlight3d.ts';
-import { COR_DO_FANTASMA, CamadaFantasmas, OPACIDADE_DO_FANTASMA } from './ghost.ts';
+import { COR_DAS_ARESTAS, COR_DO_FANTASMA, CamadaFantasmas, OPACIDADE_DO_FANTASMA } from './ghost.ts';
 
 /** Projeto com uma parede no térreo; a prévia acrescenta a cópia no pavimento 2. */
 function projetos(): { base: Project; previa: Project } {
@@ -44,6 +44,14 @@ describe('camada de fantasmas do Colar alinhado', () => {
       expect(m.userData.ghost).toBe(true);
       expect(m.userData.semPick).toBe(true);
       expect(m.userData.ranges).toBeUndefined();
+      // Arestas claras: dão a leitura da geometria quando há muita sobreposição.
+      const arestas = m.children.filter((c): c is THREE.LineSegments => c instanceof THREE.LineSegments);
+      expect(arestas.length).toBeGreaterThan(0);
+      for (const a of arestas) {
+        expect((a.material as THREE.LineBasicMaterial).color.getHex()).toBe(COR_DAS_ARESTAS);
+        expect(a.userData.ghost).toBe(true);
+        expect(a.userData.semPick).toBe(true);
+      }
     }
     // A caixa cobre a parede copiada no nível de destino (cota 3 a 6).
     expect(caixa.isEmpty()).toBe(false);

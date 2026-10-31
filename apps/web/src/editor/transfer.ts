@@ -162,6 +162,12 @@ export class Transfer {
     return true;
   }
 
+  /** Grava um lote já calculado pela prévia e seleciona o resultado. Um único passo de desfazer. */
+  applyPrepared(store: ProjectStore, prepared: { result: PasteLevelsResult; levelIds: Id[] }): boolean {
+    this.applyResult(store, prepared.result, prepared.levelIds);
+    return true;
+  }
+
   /**
    * Cola o copiado em um ou vários níveis, alinhado em X/Y, num único passo de desfazer.
    * Devolve o resultado (para o controlador saber se o preview pode fechar) ou null.
@@ -176,6 +182,12 @@ export class Transfer {
       useUi.setState({ status: 'Não há o que colar nos níveis escolhidos.' });
       return null;
     }
+    this.applyResult(store, r, levelIds);
+    return r;
+  }
+
+  /** Executa o lote, seleciona os ids criados e escreve o status com a contagem de avisos. */
+  private applyResult(store: ProjectStore, r: PasteLevelsResult, levelIds: Id[]): void {
     store.exec(r.command, 'Colar alinhado aos níveis selecionados');
     const ids = levelIds.flatMap((levelId) => {
       const ofLevel = r.byLevel[levelId];
@@ -186,7 +198,6 @@ export class Transfer {
       selection: ids,
       status: `${ids.length} elemento(s) colado(s) em ${levelIds.length} nível(is).${avisos ? ` ${avisos} aviso(s).` : ''} Ctrl+Z desfaz.`,
     });
-    return r;
   }
 
   /** Seleciona os elementos do nível com o tipo dado. Devolve quantos. */

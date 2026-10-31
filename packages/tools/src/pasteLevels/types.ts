@@ -5,6 +5,8 @@ import type { MintId } from '../clipboard.ts';
 export interface PasteLevelsOptions {
   link?: boolean;
   mint?: MintId;
+  /** Pula a contagem de avisos (sobreposição/ambiente aberto); usado no pré-cálculo da prévia, onde só a geometria importa. */
+  semAvisos?: boolean;
 }
 
 /** Ids criados em um nível de destino, por categoria. */

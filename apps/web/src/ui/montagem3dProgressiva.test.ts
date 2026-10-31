@@ -133,6 +133,24 @@ describe('Montagem3dProgressiva: fatias', () => {
     expect(m.montados).toBe(20);
   });
 
+  it('montarTudo resolve os pendentes e aplica uma única cena com todos os níveis', () => {
+    const ids = Array.from({ length: 20 }, (_, i) => `n${i}`);
+    const cena = new CenaAnotada();
+    const fila = filaManual();
+    const fonte = fonteContada();
+    const m = new Montagem3dProgressiva({ cena, fonte, aoAtualizar: () => undefined, aoConcluir: () => undefined, agendar: fila.agendar });
+    m.iniciar(projetoDeIds(ids), OPT, 'n0');
+    const antes = cena.chamadas.length;
+    m.montarTudo();
+    expect(m.montados).toBe(20);
+    expect(fonte.calculados).toHaveLength(20);
+    expect(cena.chamadas.at(-1)!.ids).toEqual(ids);
+    expect(cena.chamadas.length).toBe(antes + 1);
+    // As fatias antigas já agendadas não mexem mais na cena.
+    fila.rodar();
+    expect(cena.chamadas.length).toBe(antes + 1);
+  });
+
   it('o lote cresce quando a fatia é barata (3, 6, 8, 3)', () => {
     const ids = Array.from({ length: 20 }, (_, i) => `n${i}`);
     const cena = new CenaAnotada();

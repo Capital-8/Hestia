@@ -32,7 +32,9 @@ import { buildStairSolids } from './stairSolids.ts';
 /** Violeta do realce de prévia (`--preview` do tema). */
 export const COR_DO_FANTASMA = 0xa855f7;
 /** Opacidade dos fantasmas: translúcidos, mas ainda legíveis sobre o modelo. */
-export const OPACIDADE_DO_FANTASMA = 0.35;
+export const OPACIDADE_DO_FANTASMA = 0.28;
+/** Arestas claras: dão a leitura da geometria quando há muita coisa sobreposta. */
+export const COR_DAS_ARESTAS = 0xf5f3ff;
 
 /** Opções da camada de fantasmas. */
 export interface OpcoesFantasmas {
@@ -60,6 +62,7 @@ export class CamadaFantasmas {
   readonly grupo = new THREE.Group();
   private readonly material: THREE.MeshBasicMaterial;
   private readonly linhas: THREE.LineBasicMaterial;
+  private readonly arestas: THREE.LineBasicMaterial;
   private caixaInterna = caixaVazia();
   private ultimaPrevia: Project | null = null;
   private ultimaBase: Project | null | undefined = undefined;
@@ -78,9 +81,16 @@ export class CamadaFantasmas {
       side: THREE.DoubleSide,
     });
     this.linhas = new THREE.LineBasicMaterial({
-      color: cor,
+      color: COR_DAS_ARESTAS,
       transparent: true,
-      opacity: opacidade,
+      opacity: 0.9,
+      depthWrite: false,
+      depthTest: true,
+    });
+    this.arestas = new THREE.LineBasicMaterial({
+      color: COR_DAS_ARESTAS,
+      transparent: true,
+      opacity: 0.92,
       depthWrite: false,
       depthTest: true,
     });
@@ -167,6 +177,7 @@ export class CamadaFantasmas {
       malha.receiveShadow = false;
       malha.renderOrder = 3;
       malha.userData = { ghost: true, semPick: true };
+      this.comArestas(malha);
       this.grupo.add(malha);
     }
 
@@ -188,6 +199,7 @@ export class CamadaFantasmas {
       malha.receiveShadow = false;
       malha.renderOrder = 3;
       malha.userData = { ghost: true, semPick: true };
+      this.comArestas(malha);
       this.grupo.add(malha);
     }
 
@@ -208,6 +220,14 @@ export class CamadaFantasmas {
     return this.caixa;
   }
 
+  /** Arestas de leitura da malha fantasma (claras, sem profundidade gravada). */
+  private comArestas(malha: THREE.Mesh): void {
+    const arestas = new THREE.LineSegments(new THREE.EdgesGeometry(malha.geometry, 28), this.arestas);
+    arestas.renderOrder = 4;
+    arestas.userData = { ghost: true, semPick: true };
+    malha.add(arestas);
+  }
+
   /** Tira os fantasmas do grupo e libera as geometrias; o material é reaproveitado. */
   limpar(): void {
     for (const filho of [...this.grupo.children]) {
@@ -226,6 +246,7 @@ export class CamadaFantasmas {
     this.limpar();
     this.material.dispose();
     this.linhas.dispose();
+    this.arestas.dispose();
   }
 }
 

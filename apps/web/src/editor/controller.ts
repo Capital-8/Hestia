@@ -24,7 +24,7 @@ import {
 import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId } from '@hestia/tools';
 import { transfer } from './transfer.ts';
 import type { PastePreviewState } from './pasteLevels/types.ts';
-import { consumirManterCameraDaPrevia, manterCameraDaPrevia } from './pastePreview.ts';
+import { consumirManterCameraDaPrevia, guardarOrigemDoColar, limparOrigemDoColar, limparPreviaPreparada, manterCameraDaPrevia, origemDoColar, prepararPrevia, previaPreparada, type OrigemDoColar } from './pastePreview.ts';
 import { startCreateSimilar } from './createSimilar.ts';
 import { desfazerOuRefazer } from './historyStatus.ts';
 import { keptFloorType } from './typeActions.ts'; import { keptSlabType } from './slabTypeActions.ts'; import { PerimeterMode } from './perimeterMode.ts';
@@ -705,8 +705,38 @@ export class Editor {
       useUi.setState({ status: 'Nada copiado. Use Copiar ou Ctrl+C.' });
       return false;
     }
+    // Pré-aquece o 3D atrás do diálogo: quando o usuário clicar em "Pré-visualizar", a cena já está montada.
+    const st = useUi.getState();
+    guardarOrigemDoColar({ view: st.view, levelId: st.levelId, sectionId: st.sectionId, planKind: st.planKind, areaPlanId: st.areaPlanId });
+    limparPreviaPreparada();
+    // Primeiro o diálogo aparece; o 3D começa a montar atrás dele no quadro seguinte (assim o clique não trava).
     useUi.setState({ dialog: 'selectLevels', dialogArg: null });
+    if (st.view !== '3d') {
+      setTimeout(() => {
+        if (useUi.getState().dialog === 'selectLevels' && origemDoColar()) this.setView('3d');
+      }, 150);
+    }
     return true;
+  }
+
+  /** Fecha o diálogo sem colar e devolve a vista de onde ele foi aberto. */
+  cancelPasteLevelsDialog(): void {
+    const origem = origemDoColar();
+    limparOrigemDoColar();
+    limparPreviaPreparada();
+    useUi.setState({ dialog: null });
+    if (origem && origem.view !== '3d') this.restaurarVistaDeOrigem(origem);
+  }
+
+  /** Restaura planta/corte/elevação de origem (o 3D fica montado em segundo plano). */
+  private restaurarVistaDeOrigem(o: OrigemDoColar): void {
+    if (o.view === 'section') {
+      useUi.setState({ view: 'section', sectionId: o.sectionId, levelId: o.levelId });
+    } else if (o.view === 'plan') {
+      useUi.setState({ view: 'plan', planKind: o.planKind, areaPlanId: o.areaPlanId, sectionId: null, levelId: o.levelId });
+    } else {
+      useUi.setState({ view: '3d' });
+    }
   }
 
   /**
@@ -726,23 +756,38 @@ export class Editor {
     }
     // Limpa um sinal de confirmação que tenha sobrado de uma prévia anterior.
     consumirManterCameraDaPrevia();
+    // Calcula o lote e o rascunho ANTES de trocar de vista: o 3D já abre com todos os fantasmas e o "Colar" reaproveita
+    // exatamente este lote (sem recalcular nem trocar os ids).
+    performance.mark('colar-preparar-inicio');
+    const pronta = prepararPrevia(this.project, clip, niveis, link);
+    performance.mark('colar-preparar-fim');
+    performance.measure('colar-preparar', 'colar-preparar-inicio', 'colar-preparar-fim');
+    if (!pronta) {
+      useUi.setState({ status: 'Não há o que colar nos níveis escolhidos.' });
+      return false;
+    }
+    // A vista de origem é a de quando o diálogo abriu (o 3D atrás dele é só pré-aquecimento).
+    const origem = origemDoColar();
     const st = useUi.getState();
     const preview: PastePreviewState = {
       levelIds: niveis,
       count: transfer.elementCount(clip) * niveis.length,
-      originView: st.view,
-      originLevelId: st.levelId,
-      originSectionId: st.sectionId,
-      originPlanKind: st.planKind,
-      originAreaPlanId: st.areaPlanId,
+      originView: origem?.view ?? st.view,
+      originLevelId: origem?.levelId ?? st.levelId,
+      originSectionId: origem?.sectionId ?? st.sectionId,
+      originPlanKind: origem?.planKind ?? st.planKind,
+      originAreaPlanId: origem?.areaPlanId ?? st.areaPlanId,
       link,
     };
+    performance.mark('colar-vista-inicio');
     this.setView('3d');
     useUi.setState({
       pastePreview: preview,
       selection: [],
       status: `Prévia de ${preview.count} cópia(s) em ${niveis.length} nível(is). V cola; X cancela.`,
     });
+    performance.mark('colar-vista-fim');
+    performance.measure('colar-vista', 'colar-vista-inicio', 'colar-vista-fim');
     return true;
   }
 
@@ -750,36 +795,47 @@ export class Editor {
   confirmPasteLevels(): boolean {
     const preview = useUi.getState().pastePreview;
     if (!preview) return false;
-    const r = transfer.pasteToLevels(this.store, preview.levelIds, preview.link);
-    if (r) manterCameraDaPrevia();
+    const pronta = previaPreparada();
+    const mesmaPrevia = pronta !== null
+      && pronta.link === preview.link
+      && pronta.levelIds.length === preview.levelIds.length
+      && pronta.levelIds.every((id, i) => id === preview.levelIds[i]);
+    const ok = mesmaPrevia
+      ? transfer.applyPrepared(this.store, pronta)
+      : transfer.pasteToLevels(this.store, preview.levelIds, preview.link) !== null;
+    if (ok) manterCameraDaPrevia();
+    limparPreviaPreparada();
+    limparOrigemDoColar();
     useUi.setState({ pastePreview: null });
-    return r !== null;
+    return ok;
   }
 
   /** Cancela a prévia e volta para a vista de origem, sem tocar no modelo. */
   cancelPasteLevels(): void {
     const preview = useUi.getState().pastePreview;
+    limparPreviaPreparada();
+    limparOrigemDoColar();
     useUi.setState({ pastePreview: null });
     if (!preview) return;
-    if (preview.originView === 'section') {
-      useUi.setState({ view: 'section', sectionId: preview.originSectionId, levelId: preview.originLevelId, status: 'Colar alinhado cancelado.' });
-    } else if (preview.originView === 'plan') {
-      useUi.setState({
-        view: 'plan',
-        planKind: preview.originPlanKind ?? 'floor',
-        areaPlanId: preview.originAreaPlanId ?? null,
-        sectionId: null,
-        levelId: preview.originLevelId,
-        status: 'Colar alinhado cancelado.',
-      });
-    } else {
-      useUi.setState({ view: '3d', status: 'Colar alinhado cancelado.' });
-    }
+    this.restaurarVistaDeOrigem({
+      view: preview.originView,
+      levelId: preview.originLevelId,
+      sectionId: preview.originSectionId,
+      planKind: preview.originPlanKind ?? 'floor',
+      areaPlanId: preview.originAreaPlanId ?? null,
+    });
+    useUi.setState({ status: 'Colar alinhado cancelado.' });
   }
 
   /** Cola direto, sem prévia (caminho do botão "Colar" do diálogo). */
   pasteLevelsDirect(levelIds: Id[], link: boolean): boolean {
-    return transfer.pasteToLevels(this.store, levelIds, link) !== null;
+    const origem = origemDoColar();
+    limparOrigemDoColar();
+    limparPreviaPreparada();
+    const ok = transfer.pasteToLevels(this.store, levelIds, link) !== null;
+    // O 3D atrás do diálogo era só pré-aquecimento: quem cola direto volta para a vista de onde abriu.
+    if (ok && origem && origem.view !== '3d' && useUi.getState().view === '3d') this.restaurarVistaDeOrigem(origem);
+    return ok;
   }
 
   /** Primeiro vínculo de andar-tipo na seleção (o elemento pode ser a origem ou uma cópia). */

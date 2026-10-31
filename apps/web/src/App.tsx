@@ -74,7 +74,7 @@ function SelectLevelsHost(): ReactElement | null {
       elementCount={transfer.elementCount(clip)}
       initialSelected={useUi.getState().pastePreview?.levelIds ?? []}
       initialLink={false}
-      onCancel={() => useUi.setState({ dialog: null })}
+      onCancel={() => editor.cancelPasteLevelsDialog()}
       onPreview={(levelIds, link) => {
         if (editor.previewPasteLevels(levelIds, link)) useUi.setState({ dialog: null });
       }}

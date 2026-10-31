@@ -17,7 +17,7 @@ import {
   type StairLanding,
   type StairRun,
 } from '@hestia/model';
-import { pasteAlignedCommand, previewPasteLevels, type ClipBuffer } from '@hestia/tools';
+import { pasteAlignedCommand, preparePasteLevels, previewPasteLevels, type ClipBuffer, type PasteLevelsResult } from '@hestia/tools';
 
 /** Ponto (m) no mundo. */
 export interface Ponto3D {
@@ -61,6 +61,64 @@ export type MontadorDePrevia = (p: Project, clip: ClipBuffer, levelIds: Id[], o?
 
 /** Distância mínima/máxima do zoom da órbita (a mesma de `OrbitCamera`). */
 const DISTANCIA = { min: 0.5, max: 600 };
+
+/**
+ * Prévia já calculada: lote de comandos (com os ids finais) + rascunho para os fantasmas. O controlador prepara
+ * isso ANTES de trocar para o 3D, e o canvas usa o mesmo rascunho no primeiro quadro.Confirmar reaproveita o lote,
+ * então os ids dos fantasmas são exatamente os ids que entram no projeto.
+ */
+export interface PreviaPreparada {
+  levelIds: Id[];
+  link: boolean;
+  draft: Project;
+  result: PasteLevelsResult;
+}
+
+let preparada: PreviaPreparada | null = null;
+
+/** Prepara a prévia e guarda para o canvas/confirmar. Devolve null quando não há o que colar. */
+export function prepararPrevia(p: Project, clip: ClipBuffer, levelIds: readonly Id[], link: boolean): PreviaPreparada | null {
+  const r = preparePasteLevels(p, clip, [...levelIds], { link });
+  if (!r) {
+    preparada = null;
+    return null;
+  }
+  preparada = { levelIds: [...levelIds], link, draft: r.draft, result: r.result };
+  return preparada;
+}
+
+/** Prévia preparada para o canvas (null fora do modo de prévia). */
+export function previaPreparada(): PreviaPreparada | null {
+  return preparada;
+}
+
+/** Descarta a prévia preparada (confirmou, cancelou ou saiu do modo). */
+export function limparPreviaPreparada(): void {
+  preparada = null;
+}
+
+/** Vista de onde o diálogo "Selecionar níveis" foi aberto (antes de pré-aquecer o 3D atrás dele). */
+export interface OrigemDoColar {
+  view: 'plan' | '3d' | 'section' | 'sheet';
+  levelId: Id;
+  sectionId: Id | null;
+  planKind: 'floor' | 'roof' | 'area';
+  areaPlanId: Id | null;
+}
+
+let origemDoDialogo: OrigemDoColar | null = null;
+
+export function guardarOrigemDoColar(o: OrigemDoColar): void {
+  origemDoDialogo = o;
+}
+
+export function origemDoColar(): OrigemDoColar | null {
+  return origemDoDialogo;
+}
+
+export function limparOrigemDoColar(): void {
+  origemDoDialogo = null;
+}
 
 /**
  * Confirmação da prévia: o canvas deve manter o enquadramento dos fantasmas (o resultado acabou de entrar no

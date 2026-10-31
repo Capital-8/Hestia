@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ProjectStore, createEmptyProject, makeLevel, makeWall, wallsOnLevel } from '@hestia/model';
 import { editor } from './controller.ts';
+import { previaPreparada } from './pastePreview.ts';
 import { useUi } from './state.ts';
 
 /** Projeto com Térreo, Pav. 1 e Pav. 2, uma parede no Térreo, e a área de transferência já preenchida. */
@@ -48,13 +49,19 @@ describe('colar alinhado aos níveis selecionados (controlador)', () => {
     expect(volta.view).toBe('plan');
     expect(volta.levelId).toBe('lv_0');
     expect(volta.pastePreview).toBeNull();
+    expect(previaPreparada()).toBeNull();
     expect(wallsOnLevel(editor.project, 'lv_1')).toHaveLength(0);
     expect(wallsOnLevel(editor.project, 'lv_2')).toHaveLength(0);
   });
 
   it('V confirma em um passo de desfazer e mantém o 3D com o resultado', () => {
     editor.previewPasteLevels(['lv_1', 'lv_2'], false);
+    // O lote é preparado ANTES de trocar para o 3D: o id que o fantasma mostra é o id que entra no projeto.
+    const idDoFantasma = previaPreparada()?.result.byLevel.lv_1?.walls[0];
+    expect(idDoFantasma).toBeDefined();
     expect(editor.confirmPasteLevels()).toBe(true);
+    expect(wallsOnLevel(editor.project, 'lv_1').some((w) => w.id === idDoFantasma)).toBe(true);
+    expect(previaPreparada()).toBeNull();
     expect(useUi.getState().pastePreview).toBeNull();
     expect(useUi.getState().view).toBe('3d');
     expect(wallsOnLevel(editor.project, 'lv_1')).toHaveLength(1);

@@ -126,7 +126,7 @@ interface BuiltLevel {
  * Gera um nível de destino. Paredes/aberturas/pisos/lajes/telhados/escadas/rampas/ambientes são copiados aqui;
  * forros, genéricos e CAD vêm de `cloneCategories` (W2), que recebe o mapa de paredes e o mapa geral de ids.
  */
-function buildLevel(p: Project, clip: ClipBuffer, levelId: Id, srcLevelId: Id, mint: MintId, warnings: PasteWarning[]): BuiltLevel {
+function buildLevel(p: Project, clip: ClipBuffer, levelId: Id, srcLevelId: Id, mint: MintId, warnings: PasteWarning[], calcularAvisos: boolean): BuiltLevel {
   const ids = emptyIds();
   const sources = emptySources();
   const commands: Command[] = [];
@@ -292,8 +292,10 @@ function buildLevel(p: Project, clip: ClipBuffer, levelId: Id, srcLevelId: Id, m
   for (const c of (clip.ceilings ?? []).slice(0, extra.ids.ceilings.length)) fresh.push({ ...c, levelId });
   warnings.push(...extra.warnings);
 
-  warn('overlap', countOverlap(p, levelId, fresh));
-  warn('room-open', countOpenRooms(p, levelId, wallsOut, roomsOut));
+  if (calcularAvisos) {
+    warn('overlap', countOverlap(p, levelId, fresh));
+    warn('room-open', countOpenRooms(p, levelId, wallsOut, roomsOut));
+  }
 
   return { commands, ids, sources };
 }
@@ -322,7 +324,7 @@ export function pasteAlignedToLevelsCommand(
   const sourcesByLevel: Record<Id, Record<keyof PasteIds, Id[]>> = {};
 
   for (const levelId of levelIds) {
-    const built = buildLevel(p, clip, levelId, srcLevelId, mint, warnings);
+    const built = buildLevel(p, clip, levelId, srcLevelId, mint, warnings, o.semAvisos !== true);
     commands.push(...built.commands);
     byLevel[levelId] = built.ids;
     sourcesByLevel[levelId] = built.sources;
@@ -336,15 +338,32 @@ export function pasteAlignedToLevelsCommand(
   return { command: { type: 'batch', commands }, byLevel, warnings };
 }
 
+/** Lote já calculado e o rascunho da prévia: evita recalcular no clique de "Pré-visualizar" e no "Colar". */
+export interface PreparedPasteLevels {
+  result: PasteLevelsResult;
+  draft: Project;
+}
+
+/**
+ * Calcula o lote UMA vez e monta o rascunho da prévia a partir dele. O controlador guarda o resultado e usa o mesmo
+ * comando ao confirmar, então os ids dos fantasmas são os ids que entram no projeto.
+ */
+export function preparePasteLevels(p: Project, clip: ClipBuffer, levelIds: Id[], o: PasteLevelsOptions = {}): PreparedPasteLevels | null {
+  // Prévia não precisa da contagem de sobreposição/ambiente aberto: são varreduras caras e o usuário quer o 3D já pronto.
+  const result = pasteAlignedToLevelsCommand(p, clip, levelIds, { ...o, semAvisos: true });
+  if (!result) return null;
+  // Rascunho raso: o lote só acrescenta elementos/ordem/vínculo; não precisa clonar o projeto inteiro.
+  const draft: Project = { ...p, elements: { ...p.elements } };
+  applyCommand(draft, result.command);
+  return { result, draft };
+}
+
 /**
  * Rascunho com os elementos colados, sem tocar no projeto real: clona o projeto e aplica o mesmo lote.
  * Lista inválida (ou buffer vazio) devolve a cópia intacta.
  */
 export function previewPasteLevels(p: Project, clip: ClipBuffer, levelIds: Id[], o: PasteLevelsOptions = {}): Project {
-  const draft = structuredClone(p);
-  const r = pasteAlignedToLevelsCommand(p, clip, levelIds, o);
-  if (r) applyCommand(draft, r.command);
-  return draft;
+  return preparePasteLevels(p, clip, levelIds, o)?.draft ?? structuredClone(p);
 }
 
 /** Linha do vínculo: fonte da categoria e ids colados por nível, na ordem canônica. */

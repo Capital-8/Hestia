@@ -38,8 +38,11 @@ await r.step('seta do Colar → diálogo "Selecionar níveis"', async () => {
   await page.locator('.rb-split .rb-bottom:visible').first().click();
   const menu = await page.locator('.rb-menu:visible').innerText();
   r.check('menu tem "Alinhado aos níveis selecionados"', menu.includes('Alinhado aos níveis selecionados'), menu.replace(/\n/g, ' | '));
+  const tMenu = Date.now();
   await page.locator('.rb-menuitem:visible', { hasText: 'Alinhado aos níveis selecionados' }).click();
+  const tMenuClick = Date.now();
   await page.waitForSelector('text=Selecionar níveis');
+  console.log(`tempos: clique no menu ${tMenuClick - tMenu} ms; diálogo visível ${Date.now() - tMenuClick} ms`);
   const aberto = await page.evaluate(() => window.__hestia.useUi.getState().dialog === 'selectLevels');
   r.check('diálogo aberto', aberto);
   r.check('origem desabilitada', await page.locator('#paste-level-lv_0').isDisabled());
@@ -50,9 +53,22 @@ await r.step('seta do Colar → diálogo "Selecionar níveis"', async () => {
 });
 
 await r.step('Pré-visualizar → 3D com fantasmas e aba Modificar | Colar alinhado', async () => {
+  const t0 = Date.now();
   await page.getByRole('button', { name: 'Pré-visualizar' }).click();
+  const tClick = Date.now();
   await page.waitForFunction(() => window.__hestia.useUi.getState().pastePreview !== null && window.__hestia.useUi.getState().view === '3d');
-  await page.waitForTimeout(1200);
+  const t1 = Date.now();
+  const medidas = await page.evaluate(() => performance.getEntriesByType('measure').filter((e) => e.name.startsWith('colar-')).map((e) => ({ nome: e.name, ms: Math.round(e.duration) })));
+  console.log(`tempos: clique ${tClick - t0} ms; estado da prévia ${t1 - tClick} ms; medidas ${JSON.stringify(medidas)}`);
+  await page.waitForFunction(() => {
+    const m = window.__hestia3dMontagem;
+    const p = window.__hestia.editor.store.project;
+    return m && m.montados >= p.levels.length;
+  }, null, { timeout: 30000 });
+  const t2 = Date.now();
+  console.log(`tempos: total até a prévia ${t2 - t0} ms; montagem completa ${t2 - t1} ms`);
+  r.check('prévia e montagem completas em menos de 2 s', t2 - t0 < 2000, `${t2 - t0} ms`);
+  await page.waitForTimeout(600);
   const st = await page.evaluate(() => window.__hestia.useUi.getState());
   r.check('vista 3D', st.view === '3d');
   r.check('2 níveis de destino', st.pastePreview.levelIds.length === 2, st.pastePreview.levelIds.join(','));
@@ -92,8 +108,10 @@ await r.step('X cancela e volta para a planta de origem', async () => {
   const totalAntes = Object.values(await wallsByLevel()).reduce((a, b) => a + b, 0);
   await page.locator('#paste-level-lv_1').check();
   await page.locator('#paste-level-lv_2').check();
+  const t3 = Date.now();
   await page.getByRole('button', { name: 'Pré-visualizar' }).click();
   await page.waitForFunction(() => window.__hestia.useUi.getState().pastePreview !== null);
+  console.log(`tempos: segunda prévia (3D já montado) ${Date.now() - t3} ms`);
   await page.locator('.rb-panel[aria-label="Modo"]:visible button[aria-label="Cancelar"]').first().click();
   await page.waitForFunction(() => window.__hestia.useUi.getState().pastePreview === null);
   const st = await page.evaluate(() => window.__hestia.useUi.getState());

@@ -5,7 +5,7 @@ import { view3dOf, type Id, type Project } from '@hestia/model';
 import { useShallow } from 'zustand/react/shallow';
 import { editor } from '../editor/controller.ts';
 import { transfer } from '../editor/transfer.ts';
-import { consumirManterCameraDaPrevia, guardarCamera, montarPrevia, restaurarCamera, type CameraDaPrevia } from '../editor/pastePreview.ts';
+import { consumirManterCameraDaPrevia, guardarCamera, limparPreviaPreparada, montarPrevia, previaPreparada, restaurarCamera, type CameraDaPrevia } from '../editor/pastePreview.ts';
 import { visibilityOf } from '../editor/viewVisibility.ts';
 import { usePerimeter } from '../editor/perimeter.ts';
 import { hoverSectionAt, sectionPickAt } from '../editor/sectionPick.ts';
@@ -186,6 +186,9 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
    */
   const rascunhoDaPrevia = useCallback((levelIds: readonly Id[], link: boolean): Project | null => {
     if (projetoDePrevia) return projetoDePrevia;
+    // O controlador já calculou o rascunho antes de trocar para o 3D: usa o mesmo (e os mesmos ids do "Colar").
+    const pronta = previaPreparada();
+    if (pronta && pronta.link === link && pronta.levelIds.length === levelIds.length && pronta.levelIds.every((id, i) => id === levelIds[i])) return pronta.draft;
     const chave = `${editor.store.version}|${levelIds.join(',')}|${link}`;
     const guardado = previaProjeto.current;
     if (guardado && guardado.chave === chave) return guardado.projeto;
@@ -207,6 +210,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       fantasmas.current.grupo.removeFromParent();
       previaProjeto.current = null;
       previaRascunho.current = null;
+      limparPreviaPreparada();
       if (!consumirManterCameraDaPrevia() && restaurarCamera(model.current.orbit, cameraAntesDaPrevia.current)) cameraAntesDaPrevia.current = null;
     }
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -250,6 +254,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
         // Gancho de depuração (`?debug=1`): o e2e de perf espera `montados` chegar ao total de níveis.
         if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug')) Object.assign(window, { __hestia3dMontagem: montagem.current });
         montagem.current.atualizar(p, { edges: v3.edges, shadows: v3.shadows, dark, hidden: vis.hidden, revealed: vis.revealed }, st.levelId);
+        // Prévia do Colar alinhado: a cena precisa aparecer completa no mesmo quadro, não pavimento por pavimento.
+        if (st.pastePreview && montagem.current.montados < p.levels.length) montagem.current.montarTudo();
         picker?.invalidar();
       }
       // O nível selecionado no datum (clique no 3D) é aplicado à cena a cada quadro; sem mudança, não refaz nada.
