@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Vec2 } from '@hestia/geom';
 import { computeSection } from '@hestia/engine';
 import { ProjectStore, createEmptyProject, makeWall, type Project, type SectionAnnotations } from '@hestia/model';
-import { pickSectionAnnotation, pickSectionHandle, sectionOpeningHandles } from './handles.ts';
+import { pickSectionAnnotation, pickSectionDimensionGrip, pickSectionHandle, sectionOpeningHandles } from './handles.ts';
 import { pickSection } from './pick.ts';
 
 const v = (x: number, y: number): Vec2 => ({ x, y });
@@ -141,5 +141,53 @@ describe('a seleção existente (pickSection) não muda', () => {
     expect(pickSection(r, v(0.5, 0.5))).toEqual({ id: 'w', kind: 'wall' });
     const j1 = r.openings.find((o) => o.openingId === 'j1')!;
     expect(pickSection(r, v((j1.t0 + j1.t1) / 2, (j1.z0 + j1.z1) / 2))).toEqual({ id: 'j1', kind: 'window' });
+  });
+});
+
+describe('cota do corte: tolerância separada do texto e alças (pickSectionDimensionGrip)', () => {
+  it('a linha usa a tolerância dela e o texto, a sua (mais larga)', () => {
+    const a: SectionAnnotations = {
+      dimensions: [{ id: 'd', a: v(0, 4), b: v(2, 4), offset: 0.5, textAt: v(3, 5) }],
+      texts: [],
+      detailLines: [],
+      detailRegions: [],
+      tags: [],
+    };
+    // Linha em z = 4,5: 0,06 m de tolerância; texto em (3, 5): 0,10 m.
+    expect(pickSectionAnnotation(a, v(1, 4.5 + 0.05), 0.06, 100, 0.1)).toEqual({ id: 'd', kind: 'dimension' });
+    expect(pickSectionAnnotation(a, v(1, 4.5 + 0.09), 0.06, 100, 0.1)).toBeNull();
+    expect(pickSectionAnnotation(a, v(3, 5 + 0.08), 0.06, 100, 0.1)).toEqual({ id: 'd', kind: 'dimension' });
+    expect(pickSectionAnnotation(a, v(3, 5 + 0.15), 0.06, 100, 0.1)).toBeNull();
+    // Sem a tolerância do texto, ela segue a da linha (compatível com a chamada antiga).
+    expect(pickSectionAnnotation(a, v(3, 5 + 0.08), 0.06)).toBeNull();
+  });
+
+  it('a alça do meio muda só o deslocamento; o texto tem prioridade quando as duas estão perto', () => {
+    const a: SectionAnnotations = {
+      dimensions: [{ id: 'd', a: v(0, 4), b: v(2, 4), offset: 0.5, textAt: v(1, 5) }],
+      texts: [],
+      detailLines: [],
+      detailRegions: [],
+      tags: [],
+    };
+    // Meio da linha de cota em (1, 4,5): só a alça de deslocamento.
+    expect(pickSectionDimensionGrip(a, ['d'], v(1, 4.5), 0.06, 0.1)).toEqual({ id: 'd', kind: 'offset', at: v(1, 4.5) });
+    expect(pickSectionDimensionGrip(a, ['d'], v(1, 5), 0.06, 0.1)?.kind).toBe('text');
+    // Texto e meio da linha ao alcance: o texto ganha, como na planta.
+    const perto: SectionAnnotations = { ...a, dimensions: [{ ...a.dimensions[0]!, textAt: v(1, 4.55) }] };
+    expect(pickSectionDimensionGrip(perto, ['d'], v(1, 4.52), 0.06, 0.1)?.kind).toBe('text');
+  });
+
+  it('só com uma única cota selecionada; sem seleção, ou com duas, não há alça', () => {
+    const a: SectionAnnotations = {
+      dimensions: [{ id: 'd', a: v(0, 4), b: v(2, 4), offset: 0.5 }],
+      texts: [],
+      detailLines: [],
+      detailRegions: [],
+      tags: [],
+    };
+    expect(pickSectionDimensionGrip(a, [], v(1, 4.5), 0.06)).toBeNull();
+    expect(pickSectionDimensionGrip(a, ['d', 'outra'], v(1, 4.5), 0.06)).toBeNull();
+    expect(pickSectionDimensionGrip(a, ['outra'], v(1, 4.5), 0.06)).toBeNull();
   });
 });

@@ -35,6 +35,7 @@ import { defaultOpenViews, type PlanKind } from './openViews.ts';
 import { casador } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
 import { elevationCommand, type PlanBox } from './elevations.ts';
 import { deleteSelectionIn } from './deleteIds.ts';
+import { deleteSectionAnnotationsIn, sectionAnnotationIdsIn } from './sectionHandles.ts';
 import { hideSelectedCategoryInView, hideSelectionInView, resetAllTemporary, resetTemporaryHidden, temporaryHideSelection, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideSelectedCategoryInView, unhideSelectionInView, visibilityOf } from './viewVisibility.ts';
 import { deleteViewAction, renameViewAction, updateViewAction } from './sectionViewActions.ts';
 import { entregarArquivo } from './entregarArquivo.ts';
@@ -656,7 +657,7 @@ export class Editor {
     const notes = new Set([...annotationIdsIn(p, st.levelId, sel), ...(plan ? planAnnotationIds(plan).filter((id) => sel.includes(id)) : [])]);
     const views = new Set(p.views.map((v) => v.id));
     const seps = new Set(levelRoomSeparators(p, st.levelId).map((r) => r.id));
-    const keep = sel.filter((id) => p.elements[id] || notes.has(id) || views.has(id) || seps.has(id) || projectGrids(p).some((g) => g.id === id));
+    const keep = sel.filter((id) => p.elements[id] || notes.has(id) || sectionAnnotationIdsIn(p).has(id) || views.has(id) || seps.has(id) || projectGrids(p).some((g) => g.id === id));
     if (keep.length !== sel.length) useUi.setState({ selection: keep });
     const lv = useUi.getState().levelId;
     if (!p.levels.some((l) => l.id === lv)) useUi.setState({ levelId: p.levels[0]?.id ?? 'lv_0' });
@@ -705,6 +706,7 @@ export class Editor {
   }
 
   deleteSelection(): void {
+    if (deleteSectionAnnotationsIn(this.store) === 0) return;
     void deleteSelectionIn(this.store);
   }
 
