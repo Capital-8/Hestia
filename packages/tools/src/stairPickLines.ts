@@ -1,6 +1,6 @@
 import { add, arcFromSagitta, closestOnSegment, cross, dist, intersectLines, mul, norm, perp, sub, type Vec2 } from '@hestia/geom';
 import { frameOfWall, sAtDepth, sampleCurve, wallFaces, type WallFaces } from '@hestia/engine';
-import { coreSpan, floorsOnLevel, slabsOnLevel, stairsOnLevel, wallsOnLevel, type Id, type Project, type StairCurve } from '@hestia/model';
+import { coreSpan, floorsOnLevel, rampsOnLevel, slabsOnLevel, stairsOnLevel, wallsOnLevel, type Id, type Project, type StairCurve } from '@hestia/model';
 import type { SnapOptions } from './types.ts';
 
 /** Folga do clique para "a linha sob o cursor" (px), a mesma ordem do pick de paredes. */
@@ -36,7 +36,7 @@ export function pickLinesOf(p: Project, levelId: Id, snap: SnapOptions, exclude?
   }
   let lines = byKey.get(key);
   if (!lines) {
-    lines = [...wallLines(p, levelId, snap), ...stairLines(p, levelId, exclude), ...ringLines(p, levelId)];
+    lines = [...wallLines(p, levelId, snap), ...stairLines(p, levelId, exclude), ...rampLines(p, levelId, exclude), ...ringLines(p, levelId)];
     byKey.set(key, lines);
   }
   return lines;
@@ -95,6 +95,26 @@ function stairLines(p: Project, levelId: Id, exclude?: Id): PickLine[] {
       for (const x of c.path) out.push({ owner: s.id, group: `${g}:P`, curve: copyCurve(x) });
       // Cada espelho é um grupo próprio: espelho não forma corrente com outro espelho.
       c.risers.forEach((r, j) => out.push({ owner: s.id, group: `${g}:r${j}`, curve: copyCurve(r) }));
+    });
+  }
+  return out;
+}
+
+/** As rampas usam os mesmos componentes da escada: mesmos grupos, com prefixo próprio para não se misturarem. */
+function rampLines(p: Project, levelId: Id, exclude?: Id): PickLine[] {
+  const out: PickLine[] = [];
+  for (const r of rampsOnLevel(p, levelId)) {
+    if (r.id === exclude) continue;
+    r.components.forEach((c, i) => {
+      const g = `ramp:${r.id}:${i}`;
+      if (c.kind === 'landing') {
+        for (const x of c.boundary) out.push({ owner: r.id, group: `${g}:B`, curve: copyCurve(x) });
+        return;
+      }
+      for (const x of c.boundaryLeft) out.push({ owner: r.id, group: `${g}:L`, curve: copyCurve(x) });
+      for (const x of c.boundaryRight) out.push({ owner: r.id, group: `${g}:R`, curve: copyCurve(x) });
+      for (const x of c.path) out.push({ owner: r.id, group: `${g}:P`, curve: copyCurve(x) });
+      c.risers.forEach((x, j) => out.push({ owner: r.id, group: `${g}:r${j}`, curve: copyCurve(x) }));
     });
   }
   return out;

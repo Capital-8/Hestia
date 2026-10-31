@@ -42,12 +42,17 @@ explícito para não ser lido como concluído.
 
 As operações puras estão em `ringOps.ts` (interface `RingOps` em `ringEdge.ts`).
 
-## 5. Fase 2: escadas e ambientes (pendente)
+## 5. Fase 2: escadas e rampas (entregue) e ambientes (pendente)
 
+- **Escada e rampa**: o croqui é uma sequência de componentes (`StairRun`/`StairLanding`), não um anel. A edição
+  por aresta foi implementada em `componentEdge.ts` (pick e referência), `componentOps.ts` (mover, deslocar,
+  dividir, aparar e alinhar) e `componentEdit.ts` (commit por `updateStairComponents`/`updateRampComponents`).
+  As ferramentas Mover (sem seleção), Deslocar, Dividir e Aparar reconhecem a aresta do croqui antes de olhar
+  piso/laje/parede; a reconexão atravessa limites, espelhos e caminhada para manter o croqui contínuo.
+  Formas livres (`freePath`/`shape: 'free'`) continuam sendo editadas pelas alças; Aparar aresta curva é
+  recusado com mensagem.
 - **Ambiente**: o contorno vem do circuito de paredes (`point`); não há contorno próprio. Para editar uma linha de
   ambiente é preciso o equivalente ao Room Separation Line do Revit, um elemento novo. Fora desta entrega.
-- **Escada**: o croqui é uma sequência de linhas de lance, não um anel. Precisa de um tratamento próprio das
-  arestas do lance. Fora desta entrega.
 
 ## 6. Estado da implementação
 
@@ -65,6 +70,8 @@ Não suportado nesta versão (avisa na barra de status, sem gravar):
 - Dividir furos (os furos saem do original) e dividir laje com caimento.
 - Junção de paredes com arestas continua só entre paredes (`joinTool.ts`).
 
-Pendente: escadas e ambientes (§5). Verificação de interface na tela ainda não feita.
+Pendente: ambientes (§5). Escadas e rampas foram entregues com testes de unidade e de ferramenta
+(`modificarEscadaRampa.regressao.test.ts`, `rampEdgeTool.test.ts`, `componentEdge/componentOps/componentEdit`).
+Resta a validação visual na tela (checklist em `docs/verificacao-modificar-escada-rampa.md`).
 
 **Atualização (mesmo dia):** resolvidos nesta rodada: furos na divisão de piso e laje (ficam na parte que contém o seu centro; furo cortado pela linha é descartado), laje com caimento (as duas partes mantêm o plano de caimento) e junção de arestas (feita pelo Aparar entre duas arestas, que é como o Revit une linhas de croqui). Ainda em aberto: copiar aresta e deslocar com cópia (depende de decidir se a cópia vai para outro elemento ou gera um contorno novo, porque no mesmo contorno fechado a cópia ficaria sobreposta); escadas e ambientes (fase 2).

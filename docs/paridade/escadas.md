@@ -49,6 +49,7 @@ Fonte: [docs/escadas](../escadas/) (Revit 2026: Stair by Component e croqui; Arc
 - [x] F2 Painel de propriedades da escada (instância e tipo) **(bloqueante)**
 - [x] F3 Colar alinhado entre níveis inclui escadas
 - [x] F4 Ferramenta Escada no Ribbon, atalho e barra de opções com contador de espelhos ("Espelhos: N criados, M restantes", ou "M a mais") **(bloqueante)**
+- [x] F5 Arestas do croqui em Deslocar/Dividir/Mover/Aparar (retas; formas livres pelas alças) e snap global de escada e rampa
 
 ## G · Qualidade
 - [x] G1 Validação do modelo: erros de croqui deixam sem degraus só o lance afetado; altura do espelho acima do máximo e topo não acima da base são erro da escada; norma, largura do lance e folga de cabeça geram aviso **(bloqueante)**

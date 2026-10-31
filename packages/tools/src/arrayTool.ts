@@ -150,7 +150,7 @@ export class ArrayTool extends SelectionTool {
     this.checkStep();
     this.items = [];
     if (this.radial()) return this.moveRadial(p);
-    const inf = this.snap(p, { from: this.base ?? undefined, ignore: new Set(this.movables()) });
+    const inf = this.snap(p, { from: this.base ?? undefined });
     if (!this.base) {
       this.items.push({ kind: 'point', at: inf.point });
       return;
@@ -164,7 +164,7 @@ export class ArrayTool extends SelectionTool {
 
   /** Radial: antes do centro, mostra a dica no cursor; depois, a pré-visualização dos itens nos ângulos da barra. */
   private moveRadial(p: PointerInfo): void {
-    const inf = this.snap(p, { from: this.base ?? undefined, ignore: new Set(this.movables()) });
+    const inf = this.snap(p, { from: this.base ?? undefined });
     if (!this.base) {
       this.items.push({ kind: 'point', at: inf.point }, { kind: 'label', at: inf.point, text: TEXTOS[this.lang()].centroRadial });
       return;
@@ -216,7 +216,7 @@ export class ArrayTool extends SelectionTool {
 
   override click(p: PointerInfo): void {
     this.checkStep();
-    const inf = this.snap(p, { from: this.base ?? undefined, ignore: new Set(this.movables()) });
+    const inf = this.snap(p, { from: this.base ?? undefined });
     if (this.radial()) {
       if (!this.base) {
         this.startStep(inf.point);

@@ -8,7 +8,7 @@ import { ringOfRef } from './ringTarget.ts';
 
 /** Deslocamento calculado pelo Alinhar. `nada` = já alinhado; `erro` = recusa com a explicação em português. */
 export type AlignSolution =
-  | { kind: 'transladar'; target: 'parede' | 'escada' | 'grade'; id: Id; d: Vec2; distance: number }
+  | { kind: 'transladar'; target: 'parede' | 'escada' | 'rampa' | 'grade'; id: Id; d: Vec2; distance: number }
   | { kind: 'ponta'; wallId: Id; end: 'a' | 'b'; to: Vec2; distance: number }
   | { kind: 'abertura'; openingId: Id; offset: number; distance: number }
   | { kind: 'anel'; ref: EdgeRef; ring: Vec2[]; distance: number }
