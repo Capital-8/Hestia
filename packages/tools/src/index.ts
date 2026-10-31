@@ -48,6 +48,18 @@ export * from './stairSketchState.ts';
 export * from './stairRunEdit.ts';
 export * from './stairStroke.ts';
 export * from './stairPick.ts';
+export * from './componentEdge.ts';
+export * from './componentOps.ts';
+// `offsetEdge` do componente colide com o de roofEdges; no barrel ele sai como `offsetEdgeCommand`.
+export {
+  commitComponentEdge,
+  moveEdge,
+  offsetEdge as offsetEdgeCommand,
+  splitEdge,
+  trimEdge,
+  alignEdge,
+  type ComponentEditResult,
+} from './componentEdit.ts';
 export * from './stairCommands.ts';
 export { StairTool, isStairTool, type StairStatus } from './stairTool.ts';
 export * from './stairRunPlan.ts';
