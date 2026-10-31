@@ -44,7 +44,7 @@ describe('Alinhar rampa', () => {
     });
     const feira = features.find((f) => f.kind === 'arestaRampa');
     expect(feira).toBeDefined();
-    expect(feira!.label).toBe('aresta da rampa');
+    expect(feira!.label).toBe('espelho da rampa');
     expect(feira!.ownerId).toBe('rp1');
     expect(feira!.move).toEqual({ policy: 'transladar', target: 'rampa', id: 'rp1' });
   });

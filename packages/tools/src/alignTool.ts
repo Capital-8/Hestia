@@ -1,5 +1,6 @@
 import { add, mul, type Vec2 } from '@hestia/geom';
-import type { Id } from '@hestia/model';
+import { sampleCurve } from '@hestia/engine';
+import type { Id, StairCurve } from '@hestia/model';
 import { alignFeaturesAt, type AlignFeature } from './alignFeatures.ts';
 import { applyAlignMany } from './alignApply.ts';
 import { solveAlign, type AlignSolution } from './alignSolve.ts';
@@ -7,6 +8,19 @@ import { ToolBase } from './base.ts';
 import type { PointerInfo, PreviewItem } from './types.ts';
 
 const LABEL_HALF = 1.2;
+/** Máximo de segmentos da prévia de uma aresta em arco (a curva inteira, sem pesar no desenho). */
+const MAX_CURVE_SEGMENTS = 48;
+
+/** Pontos da curva reduzidos a no máximo `MAX_CURVE_SEGMENTS` segmentos, preservando o arco inteiro. */
+function previewCurvePoints(c: StairCurve): Vec2[] {
+  const pts = sampleCurve(c);
+  if (pts.length <= MAX_CURVE_SEGMENTS + 1) return pts;
+  const out: Vec2[] = [];
+  for (let i = 0; i <= MAX_CURVE_SEGMENTS; i++) {
+    out.push(pts[Math.round((i * (pts.length - 1)) / MAX_CURVE_SEGMENTS)]!);
+  }
+  return out;
+}
 
 /** Parede que a feição de referência pertence (a própria parede, a da extremidade ou a hospedeira da abertura). */
 function paredeDaFeicao(f: AlignFeature): Id | undefined {
@@ -68,14 +82,30 @@ export class AlignTool extends ToolBase {
     return this.hover[this.hoverIndex] ?? null;
   }
 
-  /** Realce de uma feição com o rótulo do tipo. `ref` usa traço cheio; alvo em espera usa tracejado. */
+  /**
+   * Realce de uma feição. Com `curve` (arco), desenha a curva inteira em segmentos; com `seg`, a aresta exata;
+   * sem nenhum dos dois (eixos e referências), o risco curto centrado em `line.p`. `ref` usa traço cheio; alvo em
+   * espera usa tracejado. O rótulo fica sobre a feição.
+   */
   private featureItems(f: AlignFeature, prefix: string, dashed = false): PreviewItem[] {
-    const a = add(f.line.p, mul(f.line.d, -LABEL_HALF));
-    const b = add(f.line.p, mul(f.line.d, LABEL_HALF));
-    return [
-      { kind: 'line', a, b, halo: true, dashed },
-      { kind: 'label', at: f.line.p, text: `${prefix}${f.label}` },
-    ];
+    const items: PreviewItem[] = [];
+    let labelAt = f.line.p;
+    if (f.curve && Math.abs(f.curve.sag) >= 1e-9) {
+      const pts = previewCurvePoints(f.curve);
+      for (let i = 1; i < pts.length; i++) {
+        items.push({ kind: 'line', a: pts[i - 1]!, b: pts[i]!, halo: true, dashed });
+      }
+      if (pts.length) labelAt = pts[Math.floor(pts.length / 2)]!;
+    } else if (f.seg) {
+      items.push({ kind: 'line', a: f.seg.a, b: f.seg.b, halo: true, dashed });
+      labelAt = mul(add(f.seg.a, f.seg.b), 0.5);
+    } else {
+      const a = add(f.line.p, mul(f.line.d, -LABEL_HALF));
+      const b = add(f.line.p, mul(f.line.d, LABEL_HALF));
+      items.push({ kind: 'line', a, b, halo: true, dashed });
+    }
+    items.push({ kind: 'label', at: labelAt, text: `${prefix}${f.label}` });
+    return items;
   }
 
   private refreshItems(): void {
