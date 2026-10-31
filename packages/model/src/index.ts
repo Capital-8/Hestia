@@ -49,6 +49,7 @@ export * from './openingHardware.ts';
 export * from './openingStyle.ts';
 export * from './openingSupport.ts';
 export * from './dimension.ts';
+export * from './dimensionContract.ts';
 export * from './sectionView.ts';
 export * from './annotations.ts';
 export * from './sheet.ts';
