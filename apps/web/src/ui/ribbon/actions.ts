@@ -262,7 +262,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
       return transfer.hasClip() ? false : t('Nada copiado ainda. Use Copiar ou Ctrl+C.', 'Nothing copied yet. Use Copy or Ctrl+C.');
     },
   },
-  syncLinked: { label: t('Sincronizar', 'Sync'), icon: 'layers', hint: t('Leva a geometria e as propriedades do elemento selecionado para as cópias vinculadas, num passo de desfazer.', 'Copies the selected element to its linked typical-floor copies, in one undo step.'), run: () => { editor.syncLinkedSelection(); }, disabled: (c) => (c.selection.some((id) => copyLinkOf(c.p, id) !== null) ? false : t('Selecione um elemento de andar-tipo.', 'Select a typical-floor linked element.')) },
+  syncLinked: { label: t('Sincronizar', 'Sync'), icon: 'layers', hint: t('Sincroniza o andar-tipo inteiro (paredes, aberturas, pisos, forros...) a partir do nível selecionado, num passo de desfazer.', 'Syncs the whole typical floor (walls, openings, floors, ceilings...) from the selected level, in one undo step.'), run: () => { editor.syncLinkedSelection(); }, disabled: (c) => (c.selection.some((id) => copyLinkOf(c.p, id) !== null) ? false : t('Selecione um elemento de andar-tipo.', 'Select a typical-floor linked element.')) },
   unlinkLinked: { label: t('Desvincular', 'Unlink'), icon: 'cutscissors', hint: t('Desfaz o vínculo: as cópias ficam no projeto, mas não sincronizam mais.', 'Removes the link: copies stay but stop syncing.'), run: () => { editor.unlinkLinkedSelection(); }, disabled: (c) => (c.selection.some((id) => copyLinkOf(c.p, id) !== null) ? false : t('Selecione um elemento de andar-tipo.', 'Select a typical-floor linked element.')) },
   pasteAlignedLevels: {
     label: t('Alinhado aos níveis selecionados', 'Aligned to Selected Levels'),

@@ -12,6 +12,7 @@ import {
   makeWall,
   migrateProject,
   syncLinkedCommand,
+  syncWholeLinkCommand,
   type CopyLink,
   type Generic,
   type Opening,
@@ -45,6 +46,39 @@ let minted = 0;
 const mint = (prefix: string): string => `${prefix}_test${++minted}`;
 
 describe('vínculo de andar-tipo', () => {
+  it('sincroniza o andar-tipo inteiro (parede + telhado) a partir da origem, num undo', () => {
+    const s = storeWithLevels(3);
+    addWall(s, 'w0', 'lv_0');
+    addWall(s, 'w1', 'lv_1');
+    addWall(s, 'w2', 'lv_2');
+    addRoof(s, 'r0', 'lv_0');
+    addRoof(s, 'r1', 'lv_1');
+    addRoof(s, 'r2', 'lv_2');
+    const link = makeCopyLink(
+      ['w0', 'r0'],
+      [
+        { levelId: 'lv_1', ids: ['w1', 'r1'] },
+        { levelId: 'lv_2', ids: ['w2', 'r2'] },
+      ],
+      mint,
+    );
+    s.exec({ type: 'addCopyLink', link });
+    s.exec({ type: 'updateElements', ids: ['w0'], patch: { height: 3.4 } });
+    s.exec({ type: 'updateElements', ids: ['r0'], patch: { heightOffset: 0.3 } });
+
+    const command = syncWholeLinkCommand(s.project, link.id, 'w0');
+    expect(command).not.toBeNull();
+    s.exec(command!);
+    expect((s.project.elements['w1'] as Wall).height).toBe(3.4);
+    expect((s.project.elements['w2'] as Wall).height).toBe(3.4);
+    expect((s.project.elements['r1'] as { heightOffset: number }).heightOffset).toBe(0.3);
+    expect((s.project.elements['r2'] as { heightOffset: number }).heightOffset).toBe(0.3);
+
+    s.undo();
+    expect((s.project.elements['w1'] as Wall).height).not.toBe(3.4);
+    expect((s.project.elements['r1'] as { heightOffset: number }).heightOffset).not.toBe(0.3);
+  });
+
   it('cria o vínculo e localiza origem, cópias e irmãos por papel', () => {
     const s = storeWithLevels(3);
     addWall(s, 'w0', 'lv_0');

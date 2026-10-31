@@ -274,6 +274,26 @@ function syncOne(
  * remapeadas: `topLevelId` por delta de índice, `attachTopRoofId`, `hostId` e `roomId` pela posição
  * no vínculo.
  */
+/**
+ * Sincroniza o andar-tipo INTEIRO a partir do nível do elemento selecionado: parede, aberturas, piso, laje,
+ * forro, telhado, escada, rampa, ambiente etc. de uma vez, num único passo de desfazer. Se o selecionado for
+ * a origem, leva os originais; se for uma cópia, leva o conjunto daquele nível para os outros níveis.
+ */
+export function syncWholeLinkCommand(p: Project, linkId: Id, fromElementId: Id): Command | null {
+  const link = (p.copyLinks ?? []).find((l) => l.id === linkId);
+  if (!link) return null;
+  const fromLevelId = elementLevelIdOf(p, fromElementId);
+  const member = fromLevelId ? link.members.find((m) => m.levelId === fromLevelId) : undefined;
+  const fromIds = member ? member.ids : link.sourceIds;
+  const commands: Command[] = [];
+  for (const fromId of fromIds) {
+    if (!fromId || !p.elements[fromId]) continue;
+    const command = syncLinkedCommand(p, { linkId, fromId });
+    if (command) commands.push(command);
+  }
+  return commands.length > 0 ? { type: 'batch', commands } : null;
+}
+
 export function syncLinkedCommand(p: Project, c: SyncLinkedElements): Command | null {
   const link = (p.copyLinks ?? []).find((l) => l.id === c.linkId);
   if (!link) return null;

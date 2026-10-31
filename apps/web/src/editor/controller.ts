@@ -4,7 +4,7 @@ import type { Vec2 } from '@hestia/geom';
 import { computeSection, cotasAutomaticas, LevelResolveCache, resolveRooms, type AutoCotaOptions, type ResolvedLevel, type SectionResult } from '@hestia/engine';
 import {
   ProjectStore,
-  copyLinkOf, syncLinkedCommand,
+  copyLinkOf, syncWholeLinkCommand,
   annotationIdsIn, projectGrids, areaPlanOf, areaPlansOfLevel, DEFAULT_AREA_GRAPHICS, isRoom,
   planAnnotationIds,
   levelRoomSeparators,
@@ -854,13 +854,13 @@ export class Editor {
       useUi.setState({ status: 'Selecione um elemento de andar-tipo (cópia vinculada) para sincronizar.' });
       return false;
     }
-    const command = syncLinkedCommand(this.project, found);
+    const command = syncWholeLinkCommand(this.project, found.linkId, found.fromId);
     if (!command) {
       useUi.setState({ status: 'Não há outras cópias vinculadas para sincronizar.' });
       return false;
     }
     this.store.exec(command, 'Sincronizar cópias vinculadas');
-    useUi.setState({ status: 'Cópias vinculadas sincronizadas. Ctrl+Z desfaz.' });
+    useUi.setState({ status: 'Andar-tipo sincronizado. Ctrl+Z desfaz.' });
     return true;
   }
 
