@@ -4,7 +4,7 @@ import { distributeRisers } from '@hestia/engine';
 import { ToolBase } from './base.ts';
 import type { InferContext } from './infer.ts';
 import { parseQuantityText } from './numeric.ts';
-import { pickStairAt, stairSnapPoints } from './stairPick.ts';
+import { pickStairAt } from './stairPick.ts';
 import { chainItems, curveItems, treadItems, type TreadPreviewContext } from './stairPreview.ts';
 import {
   analyzeDraft,
@@ -436,19 +436,19 @@ export class StairTool extends ToolBase {
   }
 
   /**
-   * Pontos de captura: escadas do nível e os pontos do croqui (limites, espelhos e a cadeia em curso). No modo de
-   * espelhos, os espelhos já desenhados e a grade ficam de fora: o clique do espelho seguinte seria puxado para a ponta
-   * do anterior, ou para a mesma coluna da grade (0,1 m), e dois espelhos cairiam no mesmo ponto do limite. O snap útil
-   * continua nos limites e na perpendicular.
+   * Pontos de captura do croqui: limites, espelhos e a cadeia em curso. As escadas do nível já entram pela captura
+   * global (base.ts), então só o que está sendo desenhado precisa ser somado aqui. No modo de espelhos, os espelhos já
+   * desenhados e a grade ficam de fora: o clique do espelho seguinte seria puxado para a ponta do anterior, ou para a
+   * mesma coluna da grade (0,1 m), e dois espelhos cairiam no mesmo ponto do limite. O snap útil continua nos limites e
+   * na perpendicular.
    */
   private snapExtra(): Partial<InferContext> {
-    const p = this.env.project();
     const espelhos = this.st.submode === 'espelhos';
     const draft = this.st.parts.flatMap((part) => (espelhos && part.kind !== 'landing' ? [...part.run.boundaryLeft, ...part.run.boundaryRight].flatMap((c) => [c.a, c.b]) : partPoints(part)));
     const pending = this.st.stroke.chain.flatMap((c) => [c.a, c.b]);
     return {
       from: this.st.stroke.last ?? undefined,
-      extraPoints: [...stairSnapPoints(p, this.env.levelId()), ...draft, ...pending],
+      extraPoints: [...draft, ...pending],
       ...(espelhos ? { noGrid: true, snap: { ...DEFAULT_SNAP, ...this.env.options().snap, grid: false } } : {}),
     };
   }
