@@ -57,27 +57,29 @@ class Probe extends ToolBase {
 const pointer = (x: number, y: number): PointerInfo => ({ raw: { x, y }, shift: false, ctrl: false, alt: false });
 
 describe('captura de escadas e rampas (componentSnap)', () => {
-  it('as pontas da escada e da rampa entram com o hostId do elemento', () => {
+  it('os vértices resolvidos da escada e as pontas da rampa entram com o hostId do elemento', () => {
     const { project, stairId, rampId } = setup();
     const g = componentSnapGeometry(project, 'lv_0');
-    expect(g.points).toContainEqual({ ...v(0, 0.5), hostId: stairId, kind: 'endpoint' });
-    expect(g.points).toContainEqual({ ...v(4, -0.5), hostId: stairId, kind: 'endpoint' });
+    // A escada válida entra pela geometria resolvida: cantos dos degraus, da pegada e pontas dos espelhos.
+    expect(g.points).toContainEqual({ ...v(1, 0.5), hostId: stairId, kind: 'endpoint' });
+    expect(g.points).toContainEqual({ ...v(3, -0.5), hostId: stairId, kind: 'endpoint' });
+    // A rampa sem bordas válidas cai no croqui: as pontas do lance continuam na captura.
     expect(g.points).toContainEqual({ ...v(10, 0.5), hostId: rampId, kind: 'endpoint' });
     expect(g.points).toContainEqual({ ...v(14, -0.5), hostId: rampId, kind: 'endpoint' });
     expect(g.points.every((q) => q.kind === 'endpoint')).toBe(true);
   });
 
-  it('as linhas amostradas viram arestas "nearest" com o hostId do elemento', () => {
+  it('as arestas resolvidas viram "nearest" com o hostId do elemento', () => {
     const { project, stairId, rampId } = setup();
     const g = componentSnapGeometry(project, 'lv_0');
     const stair = g.segments.filter((s) => s.hostId === stairId);
     const ramp = g.segments.filter((s) => s.hostId === rampId);
     expect(stair.every((s) => s.kind === 'nearest')).toBe(true);
     expect(ramp.every((s) => s.kind === 'nearest')).toBe(true);
-    expect(stair).toContainEqual({ a: v(0, 0.5), b: v(4, 0.5), hostId: stairId, kind: 'nearest' });
+    // Aresta do degrau (borda da pegada) e espelho aparado no limite do lance.
+    expect(stair).toContainEqual({ a: v(2, 0.5), b: v(1, 0.5), hostId: stairId, kind: 'nearest' });
+    expect(stair).toContainEqual({ a: v(2, -0.5), b: v(2, 0.5), hostId: stairId, kind: 'nearest' });
     expect(ramp).toContainEqual({ a: v(10, 0.5), b: v(14, 0.5), hostId: rampId, kind: 'nearest' });
-    // Cada espelho também é uma aresta de captura.
-    expect(stair).toContainEqual({ a: v(2, -1), b: v(2, 1), hostId: stairId, kind: 'nearest' });
   });
 
   it('o motor captura o canto da escada como endpoint e o ponto sobre a aresta da rampa como nearest', () => {
@@ -85,10 +87,10 @@ describe('captura de escadas e rampas (componentSnap)', () => {
     const g = componentSnapGeometry(project, 'lv_0');
     const context = { extraPoints: g.points, extraSegments: g.segments };
 
-    const corner = at(project, 0.01, 0.49, context);
+    const corner = at(project, 1.01, 0.49, context);
     expect(corner.kind).toBe('endpoint');
     expect(corner.hostId).toBe(stairId);
-    expect(dist(corner.point, v(0, 0.5))).toBeLessThan(1e-9);
+    expect(dist(corner.point, v(1, 0.5))).toBeLessThan(1e-9);
 
     const edge = at(project, 10.37, 0.507, context);
     expect(edge.kind).toBe('nearest');
@@ -102,8 +104,8 @@ describe('captura de escadas e rampas (componentSnap)', () => {
     // Sem alinhamento: a referência da rampa, longe do cursor em x mas na mesma altura, não mascara o resultado.
     const context = { extraPoints: g.points, extraSegments: g.segments, snap: { ...DEFAULT_SNAP, alignment: false } };
 
-    expect(at(project, 0.01, 0.49, context).kind).toBe('endpoint');
-    const semEscada = at(project, 0.01, 0.49, { ...context, ignore: new Set([stairId]) });
+    expect(at(project, 1.01, 0.49, context).kind).toBe('endpoint');
+    const semEscada = at(project, 1.01, 0.49, { ...context, ignore: new Set([stairId]) });
     expect(semEscada.kind).toBe('none');
     expect(semEscada.hostId).toBeUndefined();
   });
