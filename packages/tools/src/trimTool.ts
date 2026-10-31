@@ -7,6 +7,7 @@ import { execWithHostedLoss } from './hostedGuard.ts';
 import { patchCommands, trimPreviewItems, type EndPatch, type TrimPatch } from './trimPreview.ts';
 import type { EdgePick, EdgeRef } from './ringEdge.ts';
 import { commitRingEdit, pickLineTarget, ringOfRef } from './ringTarget.ts';
+import { COMPONENT_EDGE_MSG, componentUnderCursor } from './componentTarget.ts';
 import { ringOps } from './ringOps.ts';
 import type { PointerInfo, TrimMode } from './types.ts';
 
@@ -104,7 +105,7 @@ function sameEdge(a: EdgeRef, b: EdgeRef): boolean {
 export class TrimTool extends ToolBase {
   readonly id = 'trim';
   readonly label = 'Aparar/Estender';
-  readonly hint = 'Aparar/Estender: clique na parede de referência e depois na parede a estender, no lado que deve ficar.';
+  readonly hint = 'Aparar/Estender: clique na parede de referência e depois na parede a estender, no lado que deve ficar. Escada/rampa: use Editar croqui.';
   private first: TrimPick | null = null;
   /** Primeira aresta de anel escolhida, com o ponto do clique sobre ela. */
   private firstEdge: { ref: EdgeRef; at: Vec2 } | null = null;
@@ -173,6 +174,11 @@ export class TrimTool extends ToolBase {
   }
 
   override move(p: PointerInfo): void {
+    const comp = componentUnderCursor(this.env, p.raw);
+    if (comp) {
+      this.items = [{ kind: 'highlight', ids: [comp.id] }];
+      return;
+    }
     const pr = this.env.project();
     const target = pickLineTarget(pr, this.env.levelId(), p.raw, this.env.metersPerPixel());
     this.items = target ? [{ kind: 'highlight', ids: [target.kind === 'wall' ? target.id : target.pick.ref.elementId] }] : [];
@@ -371,6 +377,10 @@ export class TrimTool extends ToolBase {
   }
 
   override click(p: PointerInfo): void {
+    if (componentUnderCursor(this.env, p.raw)) {
+      this.env.say(COMPONENT_EDGE_MSG);
+      return;
+    }
     const pr = this.env.project();
     const target = pickLineTarget(pr, this.env.levelId(), p.raw, this.env.metersPerPixel());
     if (!target) {

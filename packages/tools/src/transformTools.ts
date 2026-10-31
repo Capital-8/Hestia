@@ -7,6 +7,7 @@ import { copyWalls, ghostBands, ghostViews, moveWalls, selectedMovables, selecte
 import { pickAt } from './pick.ts';
 import { parseQuantityText } from './numeric.ts';
 import { commitRingEdit, edgeAtCursor, ringOfRef } from './ringTarget.ts';
+import { COMPONENT_MOVE_MSG, componentUnderCursor } from './componentTarget.ts';
 import { ringOps } from './ringOps.ts';
 import { moveRoomSeparators, movableSeparatorIds, separatorGhostItems } from './roomSeparatorPick.ts';
 import type { EdgePick } from './ringEdge.ts';
@@ -73,8 +74,8 @@ export class MoveTool extends SelectionTool {
     this.label = copy ? 'Copiar' : 'Mover';
     this.hint = `${this.label}: clique no ponto base e depois no destino, ou digite a distância.`;
     this.edgeHint = copy
-      ? 'Copiar: selecione elementos (Selecionar) para copiar. Uma aresta sozinha ainda não pode ser copiada.'
-      : 'Mover: selecione elementos (Selecionar) ou clique numa aresta de piso, laje, telhado ou forro.';
+      ? 'Copiar: selecione elementos (Selecionar) para copiar. Uma aresta sozinha ainda não pode ser copiada (escada/rampa: use Editar croqui).'
+      : 'Mover: selecione elementos (Selecionar) ou clique numa aresta de piso, laje, telhado ou forro. Escada/rampa: selecione o elemento inteiro.';
   }
 
   protected override hasSelection(): boolean {
@@ -119,6 +120,12 @@ export class MoveTool extends SelectionTool {
   /** Sem seleção: mostra a aresta sob o cursor ou, depois do clique base, a aresta na posição de destino. */
   private edgeMove(p: PointerInfo): void {
     if (!this.edgePick || !this.base) {
+      const comp = componentUnderCursor(this.env, p.raw);
+      if (comp) {
+        // Não cai na aresta de piso/laje embaixo: a escada/rampa só se move inteira, com seleção.
+        this.items.push({ kind: 'highlight', ids: [comp.id] });
+        return;
+      }
       const pick = edgeAtCursor(this.env, p.raw);
       if (!pick) return;
       this.items.push({ kind: 'highlight', ids: [pick.ref.elementId] }, { kind: 'line', a: pick.a, b: pick.b }, { kind: 'point', at: pick.at });
@@ -150,6 +157,10 @@ export class MoveTool extends SelectionTool {
   private edgeClick(p: PointerInfo): void {
     const pick = this.edgePick;
     if (!pick || !this.base) {
+      if (componentUnderCursor(this.env, p.raw)) {
+        this.env.say(COMPONENT_MOVE_MSG);
+        return;
+      }
       const found = edgeAtCursor(this.env, p.raw);
       if (!found) {
         this.env.done();

@@ -74,7 +74,8 @@ describe('paredes em arco nas ferramentas', () => {
     const t = tool('wall', env);
     click(t, 0, 0); click(t, 4, 0); click(t, 2, 1);
     const o = tool('offset', env);
-    click(o, 2, 1.2);
+    // Cursor sobre a faixa do arco (a tolerância do Deslocar é de cursor, não de metros).
+    click(o, 2, 1.02);
     expect(walls(store)).toHaveLength(2);
     const c2 = walls(store)[1]!;
     expect(wallArc(c2)!.radius).toBeCloseTo(3, 4);

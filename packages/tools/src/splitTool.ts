@@ -7,6 +7,7 @@ import { pickAt } from './pick.ts';
 import { pickFloorAt } from './floorPick.ts';
 import { pickSlabAt } from './slabPick.ts';
 import { commitRingEdit, pickLineTarget, ringOfRef } from './ringTarget.ts';
+import { COMPONENT_EDGE_MSG, componentUnderCursor } from './componentTarget.ts';
 import { ringOps } from './ringOps.ts';
 import { roofRingPatch } from './roofEdges.ts';
 import { commitRoofPatch } from './roofCheck.ts';
@@ -41,7 +42,7 @@ const fmt = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length',
 export class SplitTool extends ToolBase {
   readonly id = 'split';
   readonly label = 'Dividir';
-  readonly hint = 'Dividir: clique na parede (ponto de corte) ou numa aresta (insere vértice). Piso ou laje: dois cliques dividem. Digite a distância e Enter para medida exata. Tab: com intervalo.';
+  readonly hint = 'Dividir: clique na parede (ponto de corte) ou numa aresta (insere vértice). Piso ou laje: dois cliques dividem. Digite a distância e Enter para medida exata. Tab: com intervalo. Escada/rampa: use Editar croqui.';
   private hoverId: Id | null = null;
   private gapStart: Cut | null = null;
   private slabStart: SlabStart | null = null;
@@ -160,6 +161,11 @@ export class SplitTool extends ToolBase {
   override click(p: PointerInfo): void {
     if (this.slabStart) {
       this.finishSlabSplit(p.raw);
+      return;
+    }
+    // A linha da escada/rampa não é aresta de piso: dividir aqui cortaria o piso por baixo sem o usuário ver.
+    if (componentUnderCursor(this.env, p.raw)) {
+      this.env.say(COMPONENT_EDGE_MSG);
       return;
     }
     const w = this.wallAt(p);

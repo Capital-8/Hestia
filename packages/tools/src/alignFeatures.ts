@@ -12,12 +12,14 @@ import {
   openingType,
   planAnnotationsOf,
   projectGrids,
+  rampsOnLevel,
   stairsOnLevel,
   wallsOnLevel,
   type Id,
   type Project,
 } from '@hestia/model';
 import type { EdgeRef } from './ringEdge.ts';
+import { rampPolylines } from './rampPick.ts';
 import { stairPolylines } from './stairPick.ts';
 import { gridPath } from './gridGeom.ts';
 import type { AlignPrefer } from './types.ts';
@@ -33,6 +35,7 @@ export type AlignKind =
   | 'arestaAnel'
   | 'linhaEsboco'
   | 'arestaEscada'
+  | 'arestaRampa'
   | 'linhaGrade'
   | 'linhaDetalhe'
   | 'separador';
@@ -49,7 +52,7 @@ export interface AlignLine {
  * vizinhos acompanham); `esboco` move a linha do esboço; `nenhum` serve só como referência.
  */
 export type AlignMove =
-  | { policy: 'transladar'; target: 'parede' | 'escada' | 'grade'; id: Id }
+  | { policy: 'transladar'; target: 'parede' | 'escada' | 'rampa' | 'grade'; id: Id }
   | { policy: 'ponta'; wallId: Id; end: 'a' | 'b' }
   | { policy: 'abertura'; openingId: Id; hostId: Id; anchor: 'inicio' | 'fim' | 'centro'; width: number }
   | { policy: 'anel'; ref: EdgeRef }
@@ -65,7 +68,7 @@ export interface AlignFeature {
   label: string;
   ownerId: Id;
   move: AlignMove;
-  /** Pontas do segmento original, quando a feição é uma aresta/linha (anel, esboço, escada). */
+  /** Pontas do segmento original, quando a feição é uma aresta/linha (anel, esboço, escada, rampa). */
   seg?: { a: Vec2; b: Vec2 };
   /** Distância do cursor à feição (m); serve só para ordenar. */
   distance: number;
@@ -277,6 +280,37 @@ function stairFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, hidden?: 
   return out;
 }
 
+/** Arestas amostradas das rampas do nível (limites, bordas, caminhada e patamares), como nas escadas. */
+function rampFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, hidden?: ReadonlySet<Id>): AlignFeature[] {
+  const tol = TOL_PX * mpp;
+  const out: AlignFeature[] = [];
+  for (const r of rampsOnLevel(p, levelId)) {
+    if (hidden?.has(r.id)) continue;
+    rampPolylines(r).forEach((pl, pi) => {
+      for (let i = 0; i + 1 < pl.length; i++) {
+        const a = pl[i]!;
+        const b = pl[i + 1]!;
+        if (degenerate(a, b)) continue;
+        const d = segmentDistance(at, a, b);
+        if (d > tol) continue;
+        out.push(
+          feature(
+            `${r.id}:${pi}:${i}`,
+            'arestaRampa',
+            'aresta da rampa',
+            r.id,
+            line(a, sub(b, a)),
+            { policy: 'transladar', target: 'rampa', id: r.id },
+            d,
+            { a, b },
+          ),
+        );
+      }
+    });
+  }
+  return out;
+}
+
 /** Linhas do esboço do perímetro em edição (retas; arcos ficam de fora do Alinhar). */
 function draftFeatures(draft: SketchDraft | undefined, at: Vec2, mpp: number): AlignFeature[] {
   if (!draft) return [];
@@ -350,6 +384,7 @@ export function alignFeaturesAt(q: AlignQuery): AlignFeature[] {
   }
   out.push(...ringFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden));
   out.push(...stairFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden));
+  out.push(...rampFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden));
   if (q.referenceOnly) out.push(...referenceLineFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.planId));
   out.push(...draftFeatures(q.draft, q.at, q.metersPerPixel));
   return out.sort((a, b) => a.distance - b.distance);
