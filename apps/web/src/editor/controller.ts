@@ -167,6 +167,7 @@ export class Editor {
           hidden: visibilityOf(this.project, st).hidden,
           ...extra,
         }),
+        result: () => result,
       };
     },
     // Contrato do ToolEnv (subagente de modelo): as ferramentas de anotação gravam com `planId` quando há planta de área.

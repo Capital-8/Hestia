@@ -1,6 +1,7 @@
 import type { DimRef, TempDim } from './dims/types.ts';
 import type { HostedLoss } from './hostedLoss.ts';
 import type { Vec2 } from '@hestia/geom';
+import type { SectionResult } from '@hestia/engine';
 import type { Command, Id, LocationLine, Project, SectionAnnotations } from '@hestia/model';
 import type { InferContext } from './infer.ts';
 import type { StairToolOptions, StairTone } from './stairSketchState.ts';
@@ -48,6 +49,8 @@ export interface SectionToolContext {
   setAnnotations(annotations: SectionAnnotations | undefined): void;
   /** Contexto de inferência em coordenadas (t, z) da seção, usando só o que está visível. */
   inferContext(extra?: Partial<InferContext>): InferContext;
+  /** Resultado cacheado da seção ativa (geometria já ocluída/visível), em (t,z). */
+  result(): SectionResult;
 }
 
 export interface ToolEnv {

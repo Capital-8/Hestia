@@ -1,8 +1,8 @@
-import { dot, norm, sub, type Vec2 } from '@hestia/geom';
-import { frameOfWall } from '@hestia/engine';
-import { formatQuantity, isOpening, isWall, openingSill, openingType, unitsOf, wallBaseElevation, type Command, type Id, type Opening } from '@hestia/model';
+import { closestOnSegment, dist, dot, norm, pointInMulti, sub, type MultiPolygon, type Vec2 } from '@hestia/geom';
+import { frameOfWall, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
+import { formatQuantity, isOpening, isWall, levelElevation, openingHeight, openingSill, openingType, unitsOf, wallBaseElevation, wallLength, wallTopElevation, type Command, type Id, type Opening, type Project } from '@hestia/model';
 import { ToolBase } from './base.ts';
-import type { Inference, PointerInfo, PreviewItem, SnapKind, ToolEnv } from './types.ts';
+import type { Guide, Inference, PointerInfo, PreviewItem, SectionToolContext, SnapKind, ToolEnv } from './types.ts';
 
 /** Direção da linha do corte ativo em planta. */
 function sectionDirection(env: ToolEnv): Vec2 | null {
@@ -101,168 +101,397 @@ const SNAP_KIND_LABEL: Partial<Record<SnapKind, string>> = {
   polar: 'polar',
 };
 
-/** Cota no idioma/unidades do projeto, com sinal explícito no rótulo da referência. */
+/** Cota no idioma/unidades do projeto, com sinal explícito. */
 function cotaText(env: ToolEnv, z: number): string {
   const text = formatQuantity(unitsOf(env.project()), 'length', z);
   return z >= 0 ? `+${text}` : text;
 }
 
+const NO_RESULT = 'Esta vista não tem resultado de corte/elevação; o Alinhar no corte está indisponível.';
+
+/** `result()` faz parte de `SectionToolContext`; a leitura é defensiva para ambientes parciais/teste. */
+type SectionWithResult = SectionToolContext & { result?: () => SectionResult };
+
+/** Geometria da vista. Sem resultado a ferramenta avisa e não altera nada. */
+function sectionResult(env: ToolEnv): SectionResult | null {
+  const sec = env.section?.() as SectionWithResult | null | undefined;
+  if (!sec || typeof sec.result !== 'function') return null;
+  try { return sec.result() ?? null; } catch { return null; }
+}
+
+type Axis = 'h' | 'v' | 'point';
+type PieceKind = 'opening' | 'wall' | 'other';
+
 /**
- * Trecho horizontal da guia da referência: do início ao fim da vista de corte/elevação. Sem a vista no projeto
- * (ambiente parcial), usa um trecho em volta do cursor para a guia continuar visível.
+ * Linha semântica de um elemento na vista, em (t, z): a feição (topo, peitoril, ombreira, centro, face, base) e a
+ * reta exata que o clique escolheu. `axis: null` é aresta inclinada: serve de referência pela própria reta.
  */
-function guideSpanX(env: ToolEnv, cursorX: number): [number, number] {
-  const sec = env.section?.();
-  const view = sec ? env.project().views.find((v) => v.id === sec.id) : undefined;
-  if (view) {
-    const d = sub(view.b, view.a);
-    const length = Math.hypot(d.x, d.y);
-    if (length > 1e-9) return [0, length];
+type FeatureLine = { feature: string; label: string; axis: 'h' | 'v' | null; value: number; a: Vec2; b: Vec2 };
+/** Referência semântica do primeiro clique. Nunca altera o modelo. */
+type AlignRef = { hostId?: Id; elementKind: PieceKind; feature: string; label: string; axis: Axis; z: number; t: number; value: number; point: Vec2; line: { a: Vec2; b: Vec2 } | null; guide: Guide | null; snap: SnapKind };
+/** Alvo descoberto pelo segundo clique. */
+type AlignTarget = { hostId: Id; kind: PieceKind; feature: string; label: string; axis: Axis; value: number; line: { a: Vec2; b: Vec2 }; point: Vec2 };
+type Piece = { hostId: Id; depth: number; polygons: MultiPolygon };
+type Pick = { kind: PieceKind; hostId: Id; opening?: SectionOpening; lines: FeatureLine[]; line: FeatureLine };
+
+const TIE = 0.01;
+const LINE_EPS = 1e-7;
+const FEATURE_ORDER = ['top', 'sill', 'jambLeft', 'jambRight', 'base', 'faceLeft', 'faceRight', 'axis', 'edge', 'centerV', 'centerH'];
+
+/** As seis linhas de uma janela/porta: topo, peitoril, duas ombreiras e os dois centros. */
+function openingLines(o: SectionOpening): FeatureLine[] {
+  const mt = (o.t0 + o.t1) / 2, mz = (o.z0 + o.z1) / 2;
+  return [
+    { feature: 'top', label: 'topo', axis: 'h', value: o.z1, a: { x: o.t0, y: o.z1 }, b: { x: o.t1, y: o.z1 } },
+    { feature: 'sill', label: 'peitoril', axis: 'h', value: o.z0, a: { x: o.t0, y: o.z0 }, b: { x: o.t1, y: o.z0 } },
+    { feature: 'jambLeft', label: 'ombreira esquerda', axis: 'v', value: o.t0, a: { x: o.t0, y: o.z0 }, b: { x: o.t0, y: o.z1 } },
+    { feature: 'jambRight', label: 'ombreira direita', axis: 'v', value: o.t1, a: { x: o.t1, y: o.z0 }, b: { x: o.t1, y: o.z1 } },
+    { feature: 'centerV', label: 'centro', axis: 'v', value: mt, a: { x: mt, y: o.z0 }, b: { x: mt, y: o.z1 } },
+    { feature: 'centerH', label: 'centro', axis: 'h', value: mz, a: { x: o.t0, y: mz }, b: { x: o.t1, y: mz } },
+    // Cada linha visível da esquadria (marco, folha, vidro, travessa) também é referência.
+    ...linesOfPolygons(o.polygons ?? []),
+  ];
+}
+
+/** Arestas dos polígonos da vista, classificadas pela posição dentro da caixa (topo/base/faces). */
+function linesOfPolygons(polys: MultiPolygon): FeatureLine[] {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of polys.flatMap((poly) => poly.flat())) {
+    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
   }
-  return [Math.min(0, cursorX - 2), Math.max(1, cursorX + 2)];
+  const out: FeatureLine[] = [];
+  for (const poly of polys) for (const ring of poly) for (let i = 0; i < ring.length; i++) {
+    const a = ring[i]!;
+    const b = ring[(i + 1) % ring.length]!;
+    if (dist(a, b) < 1e-9) continue;
+    const horizontal = Math.abs(b.y - a.y) < LINE_EPS;
+    const vertical = Math.abs(b.x - a.x) < LINE_EPS;
+    if (horizontal) {
+      const y = (a.y + b.y) / 2;
+      const top = Math.abs(y - maxY) < 1e-6;
+      const base = Math.abs(y - minY) < 1e-6;
+      out.push({ feature: top ? 'top' : base ? 'base' : 'edge', label: top ? 'topo' : base ? 'base' : 'aresta', axis: 'h', value: y, a: { ...a }, b: { ...b } });
+    } else if (vertical) {
+      const x = (a.x + b.x) / 2;
+      const left = Math.abs(x - minX) < 1e-6;
+      const right = Math.abs(x - maxX) < 1e-6;
+      out.push({ feature: left ? 'faceLeft' : right ? 'faceRight' : 'edge', label: 'face', axis: 'v', value: x, a: { ...a }, b: { ...b } });
+    } else {
+      out.push({ feature: 'edge', label: 'aresta', axis: null, value: (a.x + b.x) / 2, a: { ...a }, b: { ...b } });
+    }
+  }
+  return out;
+}
+
+/** Linha mais próxima do clique. No empate (canto), a feição compatível com o eixo da referência vence. */
+function nearestLine(lines: FeatureLine[], at: Vec2, prefer: 'h' | 'v' | null = null): FeatureLine | null {
+  if (!lines.length) return null;
+  const scored = lines.map((line) => ({ line, d: dist(at, closestOnSegment(at, line.a, line.b)) }));
+  const min = Math.min(...scored.map((s) => s.d));
+  const ties = scored.filter((s) => s.d <= min + TIE);
+  const compatible = prefer ? ties.filter((s) => s.line.axis === prefer) : [];
+  const pool = compatible.length ? compatible : ties;
+  const rank = (f: FeatureLine): number => { const i = FEATURE_ORDER.indexOf(f.feature); return i < 0 ? FEATURE_ORDER.length : i; };
+  pool.sort((x, y) => rank(x.line) - rank(y.line));
+  return pool[0]?.line ?? null;
+}
+
+const inBox = (o: SectionOpening, at: Vec2, tol: number): boolean =>
+  at.x >= o.t0 - tol && at.x <= o.t1 + tol && at.y >= o.z0 - tol && at.y <= o.z1 + tol;
+
+/** Abertura visível sob o clique. Vãos sobrepostos: o mais perto do plano de corte (menor `depth`) vence. */
+function hitOpening(result: SectionResult, at: Vec2, tol: number, prefer: 'h' | 'v' | null): { opening: SectionOpening; lines: FeatureLine[]; line: FeatureLine } | null {
+  let best: { opening: SectionOpening; lines: FeatureLine[]; line: FeatureLine } | null = null;
+  let score = Infinity;
+  for (const o of result.openings ?? []) {
+    const polys = o.polygons ?? [];
+    const inside = inBox(o, at, tol) || pointInMulti(at, polys);
+    const lines = openingLines(o);
+    const line = nearestLine(lines, at, prefer);
+    if (!line) continue;
+    const d = dist(at, closestOnSegment(at, line.a, line.b));
+    if (!inside && d > tol) continue;
+    const depth = Number.isFinite(o.depth) ? o.depth : 0;
+    const s = (inside ? 0 : 1) + depth * 1e-6 + Math.min(d, tol) * 1e-3;
+    if (s < score) { score = s; best = { opening: o, lines, line }; }
+  }
+  return best;
+}
+
+/** Peças da vista com dono: cortes por origem (profundidade 0) e o que está além do plano. */
+function resultPieces(result: SectionResult): Piece[] {
+  const out: Piece[] = [];
+  const push = (origin: SectionOrigin, polygons: MultiPolygon, depth: number): void => {
+    const hostId = origin.wallId ?? origin.floorId ?? origin.slabId ?? origin.ceilingId ?? origin.roofId ?? origin.stairId ?? origin.rampId ?? origin.openingId;
+    if (hostId !== undefined) out.push({ hostId, depth, polygons });
+  };
+  for (const r of result.cut ?? []) {
+    if (r.parts && r.parts.length) for (const part of r.parts) push(part.origin, part.polygons, 0);
+    else for (const s of r.sources) push(s, r.polygons, 0);
+  }
+  for (const b of result.beyond ?? []) push(b, b.polygons, b.depth);
+  return out;
+}
+
+function hitPiece(pieces: Piece[], at: Vec2, tol: number, prefer: 'h' | 'v' | null): { piece: Piece; lines: FeatureLine[]; line: FeatureLine } | null {
+  let best: { piece: Piece; lines: FeatureLine[]; line: FeatureLine } | null = null;
+  let score = Infinity;
+  for (const piece of pieces) {
+    const inside = pointInMulti(at, piece.polygons);
+    const lines = linesOfPolygons(piece.polygons);
+    const line = nearestLine(lines, at, prefer);
+    if (!line) continue;
+    const d = dist(at, closestOnSegment(at, line.a, line.b));
+    if (!inside && d > tol) continue;
+    const s = (inside ? 0 : 1) + piece.depth * 1e-6 + Math.min(d, tol) * 1e-3;
+    if (s < score) { score = s; best = { piece, lines, line }; }
+  }
+  return best;
+}
+
+/** Elemento sob o clique: abertura primeiro, depois parede, depois qualquer outro dono visível. */
+function pickAt(result: SectionResult, project: Project, at: Vec2, tol: number, prefer: 'h' | 'v' | null): Pick | null {
+  const op = hitOpening(result, at, tol, prefer);
+  if (op) return { kind: 'opening', hostId: op.opening.openingId, opening: op.opening, lines: op.lines, line: op.line };
+  const all = resultPieces(result);
+  const wall = hitPiece(all.filter((p) => isWall(project.elements[p.hostId])), at, tol, prefer);
+  if (wall) return { kind: 'wall', hostId: wall.piece.hostId, lines: wall.lines, line: wall.line };
+  const other = hitPiece(all.filter((p) => !isWall(project.elements[p.hostId])), at, tol, prefer);
+  if (other) return { kind: 'other', hostId: other.piece.hostId, lines: other.lines, line: other.line };
+  return null;
+}
+
+/** Guia persistente: h/v atravessam a vista inteira; a inclinada usa a própria reta. */
+function guideOf(result: SectionResult, axis: Axis, line: FeatureLine): Guide | null {
+  if (axis === 'h') return { from: { x: 0, y: line.value }, to: { x: result.length, y: line.value }, kind: 'alignment' };
+  if (axis === 'v') return { from: { x: line.value, y: result.zMin }, to: { x: line.value, y: result.zMax }, kind: 'alignment' };
+  return line.axis === null ? { from: { ...line.a }, to: { ...line.b }, kind: 'alignment' } : null;
+}
+/** Mesma reta (para a guia fixa não duplicar a guia dinâmica do rastreamento). */
+function sameLine(a: Guide, b: Guide): boolean {
+  const da = sub(a.to, a.from);
+  const db = sub(b.to, b.from);
+  const la = Math.hypot(da.x, da.y);
+  const lb = Math.hypot(db.x, db.y);
+  if (la < 1e-9 || lb < 1e-9) return false;
+  if (Math.abs(da.x * db.y - da.y * db.x) / (la * lb) > 1e-6) return false;
+  return Math.abs(da.x * (b.from.y - a.from.y) - da.y * (b.from.x - a.from.x)) / la < 1e-6;
 }
 
 /**
- * Abertura alvo do segundo clique: a selecionada ou, sem seleção de abertura, a que estiver sob o snap (uma aresta
- * de vão carrega o id da abertura em `hostId`).
- */
-function targetOpening(env: ToolEnv, inf: Inference, cachedId?: Id | null): Opening | undefined {
-  const p0 = env.project();
-  for (const id of env.selection()) {
-    const e = p0.elements[id];
-    if (isOpening(e)) return e;
-  }
-  const host = inf.hostId !== undefined ? p0.elements[inf.hostId] : undefined;
-  if (isOpening(host)) return host;
-  const cached = cachedId !== undefined && cachedId !== null ? p0.elements[cachedId] : undefined;
-  return isOpening(cached) ? cached : undefined;
-}
-
-/** Referência do primeiro passo: cota, ponto, tipo de captura e dono (para o status e a guia). */
-interface AlignRef {
-  z: number;
-  point: Vec2;
-  kind: SnapKind;
-  hostId?: Id;
-  /** Falso quando o clique caiu no vazio e a cota foi tomada do ponto livre. */
-  snapped: boolean;
-}
-
-/**
- * Alinhar no corte/elevação em dois passos: primeiro a referência (cota/aresta), depois o alvo (abertura).
- * Sem Shift alinha o topo do alvo à referência; com Shift alinha o peitoril. Porta só tem topo (Shift avisa).
- * O primeiro clique nunca altera o modelo: só grava a referência e mostra a guia horizontal persistente.
+ * Alinhar no corte/elevação como no Revit, sem seleção:
+ * 1º clique escolhe a referência (a linha/feição sob o cursor) e só mostra a guia persistente;
+ * 2º clique descobre o alvo pelo próprio clique (janela, porta ou parede) e alinha a feição clicada.
+ * Um único passo de desfazer. A referência nunca altera o modelo.
  */
 export class SectionAlignTool extends ToolBase {
   readonly id = 'align';
   readonly label = 'Alinhar';
-  readonly hint = 'Alinhar no corte: clique na referência (cota/aresta) e depois no alvo. Alinha o topo; Shift alinha o peitoril.';
+  readonly hint = 'Alinhar no corte: clique na referência (topo, peitoril, ombreira ou centro) e depois no alvo. Não precisa selecionar.';
   private ref: AlignRef | null = null;
-  /** Abertura alvo já detectada (seleção ou `hostId`): fica fora da inferência da referência. */
-  private targetId: Id | null = null;
 
-  protected reset(): void { this.ref = null; this.targetId = null; this.items = []; this.inf = null; }
+  protected reset(): void { this.ref = null; this.items = []; this.inf = null; }
   protected busy(): boolean { return this.ref !== null; }
 
-  /** Ids que não podem servir de referência: a seleção e o alvo já detectado. */
-  private referenceIgnore(): Set<Id> {
-    const ignore = new Set<Id>(this.env.selection());
-    if (this.targetId) ignore.add(this.targetId);
-    return ignore;
+  override start(): void {
+    this.reset();
+    if (!sectionResult(this.env)) this.env.say(NO_RESULT);
+    else this.env.say(this.hint);
   }
 
-  /** Detecta o alvo do segundo passo e o memoriza para as próximas capturas o ignorarem. */
-  private detectTarget(inf: Inference): Opening | undefined {
-    const target = targetOpening(this.env, inf, this.targetId);
-    if (target) this.targetId = target.id;
-    return target;
+  /** A guia fixa entra na inferência que o editor já desenha (`guideStrokes`), sem linha própria em `items`. */
+  override inference(): Inference | null {
+    const inf = super.inference();
+    const guide = this.ref?.guide;
+    if (!guide) return inf;
+    if (!inf) return { point: this.ref!.point, kind: this.ref!.snap === 'none' ? 'nearest' : this.ref!.snap, guides: [guide] };
+    return { ...inf, guides: [guide, ...inf.guides.filter((g) => !sameLine(g, guide))] };
   }
 
   override move(p: PointerInfo): void {
-    const inf = this.snap(p, { ignore: this.referenceIgnore() });
-    if (!this.ref) {
-      this.items = [
-        ...this.referencePreview(inf.point.y, false, inf.point.x),
-        { kind: 'point', at: inf.point },
-      ];
-      return;
-    }
-    const target = this.detectTarget(inf);
-    const items: PreviewItem[] = [
-      ...this.referencePreview(this.ref.z, true),
-      // Fantasma vertical do alvo até a guia da referência.
-      { kind: 'line', a: { x: inf.point.x, y: this.ref.z }, b: inf.point, dashed: true },
-      { kind: 'point', at: inf.point },
-    ];
-    if (target) items.push({ kind: 'highlight', ids: [target.id] });
+    if (!sectionResult(this.env)) { this.items = []; return; }
+    const inf = this.snap(p);
+    const target = this.ref ? this.findTarget(inf.point) : null;
+    if (!target) { this.items = [{ kind: 'point', at: inf.point }]; return; }
+    const items: PreviewItem[] = [{ kind: 'point', at: inf.point }, { kind: 'highlight', ids: [target.hostId] }];
+    const ghost = this.ghost(target);
+    if (ghost) items.push({ kind: 'line', a: ghost.a, b: ghost.b, dashed: true });
     this.items = items;
   }
 
   override click(p: PointerInfo): void {
-    const inf = this.snap(p, { ignore: this.referenceIgnore() });
+    if (!sectionResult(this.env)) { this.env.say(NO_RESULT); return; }
+    const inf = this.snap(p);
     if (!this.ref) { this.setReference(inf); return; }
-    const target = this.detectTarget(inf);
-    if (!target) { this.env.say('Selecione uma abertura ou clique sobre ela para alinhar. Nada foi alterado.'); return; }
-    this.alignTarget(target, p.shift);
+    const target = this.findTarget(inf.point);
+    if (!target) { this.env.say('Nenhuma janela, porta ou parede sob o clique; nada foi alterado.'); return; }
+    this.apply(target);
   }
 
-  /** Guia horizontal longa na cota da referência, com o rótulo "Referência +cota". */
-  private referencePreview(z: number, committed: boolean, atX?: number): PreviewItem[] {
-    const [x0, x1] = guideSpanX(this.env, this.raw.x);
-    return [
-      { kind: 'line', a: { x: x0, y: z }, b: { x: x1, y: z }, dashed: !committed },
-      { kind: 'label', at: { x: atX ?? x1, y: z }, text: `Referência ${cotaText(this.env, z)}` },
-    ];
+  private tolerance(): number { return Math.max(0.02, this.env.metersPerPixel() * 10); }
+
+  private findTarget(at: Vec2): AlignTarget | null {
+    const result = sectionResult(this.env);
+    if (!result) return null;
+    const prefer = this.ref?.axis === 'h' || this.ref?.axis === 'v' ? this.ref.axis : null;
+    const pick = pickAt(result, this.env.project(), at, this.tolerance(), prefer);
+    if (!pick) return null;
+    const line = pick.line;
+    return { hostId: pick.hostId, kind: pick.kind, feature: line.feature, label: line.label, axis: line.axis ?? 'point', value: line.value, line: { a: line.a, b: line.b }, point: closestOnSegment(at, line.a, line.b) };
   }
 
   private setReference(inf: Inference): void {
-    const snapped = inf.kind !== 'none';
-    this.ref = { z: inf.point.y, point: { ...inf.point }, kind: inf.kind, hostId: inf.hostId, snapped };
-    this.items = [
-      ...this.referencePreview(this.ref.z, true),
-      { kind: 'point', at: this.ref.point },
-    ];
-    const cota = cotaText(this.env, this.ref.z);
-    const origem = snapped
-      ? `Referência em ${SNAP_KIND_LABEL[inf.kind] ?? 'captura'} ${cota}`
-      : `Sem referência de linha: ponto livre ${cota}`;
-    this.env.say(`${origem}. Clique no alvo para alinhar o topo; Shift alinha o peitoril.`);
+    const result = sectionResult(this.env);
+    if (!result) { this.env.say(NO_RESULT); return; }
+    const p0 = this.env.project();
+    const pick = pickAt(result, p0, inf.point, this.tolerance(), null);
+    if (!pick) {
+      this.ref = { elementKind: 'other', feature: 'point', label: 'ponto', axis: 'point', z: inf.point.y, t: inf.point.x, value: inf.point.y, point: { ...inf.point }, line: null, guide: null, snap: inf.kind };
+      this.items = [];
+      this.env.say(`Sem referência de linha: ponto livre ${cotaText(this.env, inf.point.y)}. Clique no alvo para alinhar.`);
+      return;
+    }
+    const line = pick.line;
+    const axis: Axis = line.axis ?? 'point';
+    const at = closestOnSegment(inf.point, line.a, line.b);
+    this.ref = { hostId: pick.hostId, elementKind: pick.kind, feature: line.feature, label: line.label, axis, z: axis === 'h' ? line.value : at.y, t: axis === 'v' ? line.value : at.x, value: line.value, point: at, line: { a: line.a, b: line.b }, guide: guideOf(result, axis, line), snap: inf.kind !== 'none' ? inf.kind : 'nearest' };
+    this.items = [];
+    const el = p0.elements[pick.hostId];
+    const alvo = pick.kind === 'opening' ? (isOpening(el) && el.kind === 'door' ? 'da porta' : 'da janela') : pick.kind === 'wall' ? 'da parede' : 'do elemento';
+    const valor = axis === 'v' ? formatQuantity(unitsOf(p0), 'length', this.ref.t) : cotaText(this.env, this.ref.z);
+    const captura = SNAP_KIND_LABEL[this.ref.snap];
+    this.env.say(`Referência no ${line.label} ${alvo} em ${valor}${captura ? ` (${captura})` : ''}. Clique no alvo para alinhar.`);
   }
 
-  private alignTarget(target: Opening, shift: boolean): void {
+  private ghost(target: AlignTarget): { a: Vec2; b: Vec2 } | null {
+    const ref = this.ref;
+    if (!ref) return null;
+    const a: Vec2 = ref.axis === 'h' ? { x: target.point.x, y: ref.z } : ref.axis === 'v' ? { x: ref.t, y: target.point.y } : { ...ref.point };
+    return dist(a, target.point) < 1e-6 ? null : { a, b: { ...target.point } };
+  }
+
+  private apply(target: AlignTarget): void {
     const ref = this.ref;
     if (!ref) return;
+    if (ref.hostId !== undefined && ref.hostId === target.hostId) {
+      this.env.say(ref.elementKind === 'opening'
+        ? 'A referência é a própria abertura alvo; escolha outra referência. Nada foi alterado.'
+        : 'A referência é o próprio elemento alvo; escolha outra referência. Nada foi alterado.');
+      return;
+    }
+    if (target.kind === 'opening') this.applyOpening(ref, target);
+    else if (target.kind === 'wall') this.applyWall(ref, target);
+    else this.env.say('O alvo não é uma janela, porta ou parede; nada foi alterado.');
+  }
+
+  private applyOpening(ref: AlignRef, target: AlignTarget): void {
     const p0 = this.env.project();
-    // Sem seleção o alvo pode ter sido achado pela própria captura: ele não pode ser a referência dele mesmo.
-    if (ref.hostId === target.id) {
-      this.env.say('A referência é a própria abertura alvo; escolha outra referência.');
-      return;
-    }
-    const wall = p0.elements[target.hostId];
+    const o = p0.elements[target.hostId];
+    if (!isOpening(o)) { this.env.say('A abertura alvo não existe mais; nada foi alterado.'); return; }
+    const wall = p0.elements[o.hostId];
     if (!isWall(wall)) { this.env.say('A abertura não tem parede hospedeira; nada foi alterado.'); return; }
-    // Porta não tem peitoril útil: o único alinhamento é o topo.
-    if (target.kind === 'door' && shift) {
-      this.env.say('Porta só alinha o topo; clique no alvo sem Shift. Nada foi alterado.');
+    const base = wallBaseElevation(p0, wall);
+    const type = openingType(p0, o);
+
+    if (target.feature === 'top' || target.feature === 'sill' || target.feature === 'centerH') {
+      if (ref.axis === 'v') { this.env.say('Alinhamento incompatível: referência vertical não alinha topo/peitoril. Nada foi alterado.'); return; }
+      const z = ref.z;
+      const sill = openingSill(type, o);
+      if (target.feature === 'top') {
+        const height = round3(z - base - sill);
+        if (height < 0.01) { this.env.say('A referência fica baixa demais para o topo; nada foi alterado.'); return; }
+        this.commit({ type: 'updateElements', ids: [o.id], patch: { heightOverride: height } }, `Topo alinhado em ${cotaText(this.env, z)}`);
+        return;
+      }
+      if (target.feature === 'sill') {
+        if (o.kind === 'door') { this.env.say('Porta só alinha o topo; peitoril de porta não existe. Nada foi alterado.'); return; }
+        const next = round3(z - base);
+        if (next < 0) { this.env.say('A referência fica abaixo da base da parede; peitoril não alterado.'); return; }
+        this.commit({ type: 'updateElements', ids: [o.id], patch: { sillOverride: next } }, `Peitoril alinhado em ${cotaText(this.env, z)}`);
+        return;
+      }
+      // Centro horizontal: mantém a altura e move o vão (porta ajusta a altura, que não tem peitoril).
+      const height = openingHeight(type, o);
+      const dz = z - (base + sill + height / 2);
+      if (o.kind === 'door') {
+        const next = round3(height + 2 * dz);
+        if (next < 0.01) { this.env.say('A referência fica baixa demais para o centro; nada foi alterado.'); return; }
+        this.commit({ type: 'updateElements', ids: [o.id], patch: { heightOverride: next } }, `Centro alinhado em ${cotaText(this.env, z)}`);
+      } else {
+        const next = round3(sill + dz);
+        if (next < 0) { this.env.say('A referência fica abaixo da base da parede; centro não alterado.'); return; }
+        this.commit({ type: 'updateElements', ids: [o.id], patch: { sillOverride: next } }, `Centro alinhado em ${cotaText(this.env, z)}`);
+      }
       return;
     }
-    const base = wallBaseElevation(p0, wall);
-    const type = openingType(p0, target);
-    let patch: Partial<Opening>;
-    let label: string;
-    if (shift) {
-      const sill = round3(ref.z - base);
-      if (sill < 0) { this.env.say('A referência fica abaixo da base da parede; peitoril não alterado.'); return; }
-      patch = { sillOverride: sill };
-      label = 'Peitoril';
-    } else {
-      const height = round3(ref.z - base - openingSill(type, target));
-      if (height < 0.01) { this.env.say('A referência fica baixa demais para o topo; nada foi alterado.'); return; }
-      patch = { heightOverride: height };
-      label = 'Topo';
+
+    if (target.feature === 'jambLeft' || target.feature === 'jambRight' || target.feature === 'centerV') {
+      if (ref.axis === 'h') { this.env.say('Alinhamento incompatível: referência horizontal não alinha ombreira/centro vertical. Nada foi alterado.'); return; }
+      const u = sectionDirection(this.env);
+      if (!u) { this.env.say('Não foi possível ler a direção do corte; nada foi alterado.'); return; }
+      const f = frameOfWall(p0, o.hostId);
+      if (!f) { this.env.say('Não foi possível ler o eixo da parede; nada foi alterado.'); return; }
+      const cos = dot(f.u, u);
+      if (Math.abs(cos) < 0.2) { this.env.say('A parede é quase perpendicular ao corte; mover o vão não o alinha na vista. Nada foi alterado.'); return; }
+      const dt = ref.t - target.value;
+      if (Math.abs(dt) < 1e-6) { this.env.say('A ombreira já está alinhada; nada foi alterado.'); return; }
+      const next = round3(o.offset + dt / cos);
+      const half = type.width / 2;
+      const length = wallLength(wall);
+      if (next - half < -1e-6 || next + half > length + 1e-6) { this.env.say('A abertura sairia da parede; nada foi alterado.'); return; }
+      this.commit({ type: 'updateElements', ids: [o.id], patch: { offset: next } }, `Ombreira alinhada em ${formatQuantity(unitsOf(p0), 'length', ref.t)}`);
+      return;
     }
-    // Um comando só: o alinhamento inteiro é um único passo de desfazer.
-    this.env.transaction('Alinhar no corte', () => this.env.exec({ type: 'updateElements', ids: [target.id], patch }));
-    this.env.say(`${label} alinhado em ${cotaText(this.env, ref.z)}. Ctrl+Z desfaz; Esc sai.`);
+
+    this.env.say('A linha do alvo não é topo, peitoril, ombreira ou centro; nada foi alterado.');
+  }
+
+  private applyWall(ref: AlignRef, target: AlignTarget): void {
+    const p0 = this.env.project();
+    const wall = p0.elements[target.hostId];
+    if (!isWall(wall)) { this.env.say('A parede alvo não existe mais; nada foi alterado.'); return; }
+
+    if (target.axis === 'h') {
+      if (ref.axis === 'v') { this.env.say('Alinhamento incompatível: referência vertical não alinha topo/base da parede. Nada foi alterado.'); return; }
+      const top = wallTopElevation(p0, wall);
+      if (target.feature === 'top') {
+        if (wall.topLevelId || wall.topProfile || wall.attachTopToFloor || wall.attachTopToRoof) { this.env.say('O topo da parede está preso a nível/perfil/telhado; não é seguro alinhar. Nada foi alterado.'); return; }
+        const height = round3(ref.z - wallBaseElevation(p0, wall));
+        if (height < 0.01) { this.env.say('A referência fica baixa demais para o topo da parede; nada foi alterado.'); return; }
+        this.commit({ type: 'updateElements', ids: [wall.id], patch: { height } }, `Topo da parede alinhado em ${cotaText(this.env, ref.z)}`);
+        return;
+      }
+      if (target.feature === 'base') {
+        if (wall.attachBottomToFloor || wall.attachTopToFloor || wall.attachTopToRoof || wall.topProfile) { this.env.say('A base/topo da parede está preso a piso/telhado/perfil; não é seguro alinhar. Nada foi alterado.'); return; }
+        const height = round3(top - ref.z);
+        if (height < 0.01) { this.env.say('A referência fica alta demais para a base da parede; nada foi alterado.'); return; }
+        const baseOffset = round3(ref.z - levelElevation(p0, wall.levelId));
+        this.commit({ type: 'updateElements', ids: [wall.id], patch: { baseOffset, height } }, `Base da parede alinhada em ${cotaText(this.env, ref.z)}`);
+        return;
+      }
+      this.env.say('A linha horizontal da parede não é topo nem base; nada foi alterado.');
+      return;
+    }
+
+    if (target.axis === 'v') {
+      if (ref.axis === 'h') { this.env.say('Alinhamento incompatível: referência horizontal não alinha a face da parede. Nada foi alterado.'); return; }
+      const u = sectionDirection(this.env);
+      if (!u) { this.env.say('Não foi possível ler a direção do corte; nada foi alterado.'); return; }
+      const dt = ref.t - target.value;
+      if (Math.abs(dt) < 1e-6) { this.env.say('A parede já está alinhada; nada foi alterado.'); return; }
+      const d = { x: u.x * dt, y: u.y * dt };
+      this.commit({ type: 'transform', ids: [wall.id], transform: { kind: 'translate', d } }, `Parede movida em ${formatQuantity(unitsOf(p0), 'length', Math.abs(dt))}`);
+      return;
+    }
+
+    this.env.say('A aresta da parede é inclinada; alinhar não é seguro. Nada foi alterado.');
+  }
+
+  /** Um comando, uma transação: o alinhamento inteiro é um único passo de desfazer. */
+  private commit(cmd: Command, message: string): void {
+    this.env.transaction('Alinhar no corte', () => this.env.exec(cmd));
+    this.env.say(`${message}. Ctrl+Z desfaz; Esc sai.`);
     this.reset();
   }
 }

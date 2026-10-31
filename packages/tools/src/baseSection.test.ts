@@ -46,6 +46,7 @@ describe('ToolBase.ctx', () => {
       setAnnotations: () => {},
       inferContext: (extra = {}) =>
         sectionInferContext(section, project, 'lv_0', 0.01, 0.1, { line: { a: v(0, 0), b: v(4, 0) } }, extra),
+      result: () => section,
     };
     env.section = () => sec;
     const t = new CtxTool(env);
@@ -93,6 +94,7 @@ describe('ToolBase.ctx', () => {
       annotations: () => ({ dimensions: [], texts: [], detailLines: [], detailRegions: [], tags: [] }),
       setAnnotations: () => {},
       inferContext: () => sectionInferContext(section, original(), 'lv_0', 0.01, 0.1, { line: { a: v(0, 0), b: v(4, 0) } }),
+      result: () => section,
     });
     const t = new CtxTool(env);
     t.context();

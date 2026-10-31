@@ -80,7 +80,8 @@ export function sectionInferContext(
     snap: extra.snap ?? runtime.snap,
     extraPoints: concat<SnapPoint>(visiblePoints, runtime.extraPoints, extra.extraPoints),
     extraSegments: concat<SectionSnapSegment>(visibleSegments, gridSegments, runtime.extraSegments as SectionSnapSegment[] | undefined, extra.extraSegments as SectionSnapSegment[] | undefined),
-    // Trilhas de alinhamento (arestas h/v): o rastreamento estende a linha além das pontas, como nas faces da planta.
+    // Trilhas de alinhamento (todas as arestas da seção, h/v e inclinadas): o rastreamento estende a linha além das
+    // pontas, como nas faces da planta.
     extraTracks: concat<ExtraTrack>(visibleTracks, runtime.extraTracks, extra.extraTracks),
   };
 }

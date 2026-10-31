@@ -4,6 +4,7 @@ import type { SectionOpening, SectionResult } from '@hestia/engine';
 import { infer } from './infer.ts';
 import { sectionInferContext } from './sectionContext.ts';
 import { sectionSnapIndex } from './sectionSnapIndex.ts';
+import { addExtraTracks } from './snapExtras.ts';
 import { makeEnv, P, clickAt, tool } from './testEnv.ts';
 import { DimensionTool } from './dimensionTool.ts';
 
@@ -50,6 +51,22 @@ function baseSection(over: Partial<SectionResult> = {}): SectionResult {
 
 const opts = { line: { a: v(0, 0), b: v(4, 0), depth: 6 } };
 const emptyProject = createEmptyProject();
+
+/** Vista isolada com uma água inclinada (telhado): aresta de (0,2) a (4,4), reta y = 2 + 0,5x. */
+function inclinada(over: Partial<SectionResult> = {}): SectionResult {
+  return {
+    length: 4,
+    zMin: 0,
+    zMax: 5,
+    cut: [],
+    silhouette: [],
+    beyond: [{ materialId: 'm_roof', layerIndex: 0, depth: 2, roofId: 'r1', polygons: [[[v(0, 2), v(4, 2), v(4, 4)]]] }],
+    openings: [],
+    membranes: [],
+    levels: [],
+    ...over,
+  };
+}
 
 const ctxOf = (section: SectionResult, project: Project = emptyProject, over: Parameters<typeof sectionInferContext>[5] = {}) =>
   sectionInferContext(section, project, 'lv_0', 0.01, 0.1, { ...opts, ...over });
@@ -174,10 +191,10 @@ describe('inferência na vista de corte (t, z)', () => {
     expect(hit.guides).toHaveLength(1);
     expect(hit.guides[0]).toMatchObject({ kind: 'alignment' });
     expect(hit.guides[0]!.from).toEqual(v(2, 2.1));
-    // O índice da vista tem a aresta como trilha h/v, com o dono (o vão).
+    // O índice da vista tem a aresta como trilha, com o dono (o vão).
     const tracks = sectionSnapIndex(section).tracks;
     expect(tracks.some((tr) => tr.axis === 'h' && tr.hostId === 'op1' && Math.abs(tr.a.y - 2.1) < 1e-9)).toBe(true);
-    expect(tracks.every((tr) => tr.axis === 'h' || tr.axis === 'v')).toBe(true);
+    expect(tracks.every((tr) => tr.axis === 'h' || tr.axis === 'v' || tr.axis === 'd')).toBe(true);
   });
 
   it('estende a trilha vertical da ombreira e projeta o cursor sobre ela', () => {
@@ -207,6 +224,88 @@ describe('inferência na vista de corte (t, z)', () => {
     expect(hit.point.y).toBeCloseTo(1.7);
     expect(hit.guides[0]?.kind).toBe('alignment');
     expect(hit.hostId).toBe('op1');
+  });
+
+  it('cada aresta da caixa da janela vira referência: topo, peitoril e ombreiras', () => {
+    const tracks = sectionSnapIndex(baseSection()).tracks.filter((tr) => tr.hostId === 'op1');
+    const horizontalAt = (y: number) => tracks.some((tr) => tr.axis === 'h' && Math.abs(tr.a.y - y) < 1e-9 && Math.abs(tr.b.y - y) < 1e-9);
+    const verticalAt = (x: number) => tracks.some((tr) => tr.axis === 'v' && Math.abs(tr.a.x - x) < 1e-9 && Math.abs(tr.b.x - x) < 1e-9);
+    expect(horizontalAt(2.1)).toBe(true); // topo
+    expect(horizontalAt(0.9)).toBe(true); // peitoril
+    expect(verticalAt(1)).toBe(true); // ombreira esquerda
+    expect(verticalAt(2)).toBe(true); // ombreira direita
+
+    const ctx = ctxOf(baseSection());
+    const top = infer(v(1.6, 2.02), ctx);
+    expect(top.kind).toBe('alignment');
+    expect(top.point.x).toBeCloseTo(1.6);
+    expect(top.point.y).toBeCloseTo(2.1);
+    const sill = infer(v(1.6, 0.98), ctx);
+    expect(sill.kind).toBe('alignment');
+    expect(sill.point.x).toBeCloseTo(1.6);
+    expect(sill.point.y).toBeCloseTo(0.9);
+  });
+
+  it('vértice e meio da janela continuam pontos de snap', () => {
+    const ctx = ctxOf(baseSection());
+    const corner = infer(v(1.99, 0.91), ctx);
+    expect(corner.kind).toBe('endpoint');
+    expect(corner.point).toEqual(v(2, 0.9));
+    const mid = infer(v(1.49, 0.91), ctx);
+    expect(mid.kind).toBe('midpoint');
+    expect(mid.point).toEqual(v(1.5, 0.9));
+  });
+
+  it('aresta inclinada do telhado vira trilha e guia ao longo da reta', () => {
+    const section = inclinada();
+    expect(sectionSnapIndex(section).tracks.some((tr) => tr.hostId === 'r1' && tr.axis === 'd')).toBe(true);
+    const ctx = ctxOf(section);
+    // ~6 px (0,07 m) acima da reta, dentro do segmento: a trilha inclinada (peso baixo) vence a aresta `nearest`.
+    const hit = infer(v(1, 2.57), ctx);
+    expect(hit.kind).toBe('alignment');
+    expect(hit.point.y).toBeCloseTo(2 + 0.5 * hit.point.x, 9);
+    expect(hit.guides[0]?.kind).toBe('alignment');
+    expect(hit.hostId).toBe('r1');
+    // Fora das pontas (x > 4) a mesma reta é estendida pelo rastreamento.
+    const ext = infer(v(4.6, 4.35), ctx);
+    expect(ext.kind).toBe('alignment');
+    expect(ext.point.y).toBeCloseTo(2 + 0.5 * ext.point.x, 9);
+    expect(ext.hostId).toBe('r1');
+  });
+
+  it('clique dentro da aresta inclinada não vira none', () => {
+    const hit = infer(v(1, 2.57), ctxOf(inclinada()));
+    expect(hit.kind).not.toBe('none');
+    expect(hit.point.y).toBeCloseTo(2 + 0.5 * hit.point.x, 9);
+  });
+
+  it('aresta inclinada da rampa também vira trilha', () => {
+    const section = inclinada({
+      beyond: [{ materialId: 'm_ramp', layerIndex: 0, depth: 2, rampId: 'rm1', polygons: [[[v(0, 0), v(4, 0), v(4, 2)]]] }],
+    });
+    expect(sectionSnapIndex(section).tracks.some((tr) => tr.hostId === 'rm1' && tr.axis === 'd')).toBe(true);
+    const hit = infer(v(1, 0.57), ctxOf(section));
+    expect(hit.kind).toBe('alignment');
+    expect(hit.point.y).toBeCloseTo(0.5 * hit.point.x, 9);
+    expect(hit.hostId).toBe('rm1');
+  });
+
+  it('ocultar o telhado remove a trilha inclinada da captura', () => {
+    const ctx = ctxOf(inclinada(), emptyProject, { hidden: new Set(['r1']) });
+    expect(ctx.extraTracks?.some((tr) => tr.hostId === 'r1')).toBe(false);
+    expect(infer(v(1, 2.57), ctx).kind).toBe('none');
+  });
+
+  it('deduplica trilhas colineares da mesma reta inclinada, sem perder a referência', () => {
+    // Duas metades da mesma água (e a corda de volta): a reta y = 2 + 0,5x é uma só.
+    const section = inclinada({
+      beyond: [{ materialId: 'm_roof', layerIndex: 0, depth: 2, roofId: 'r1', polygons: [[[v(0, 2), v(2, 3), v(4, 4)]]] }],
+    });
+    const ctx = ctxOf(section);
+    const tracks: Array<{ a: { x: number; y: number }; b: { x: number; y: number } }> = [];
+    addExtraTracks(ctx, tracks, [], v(1, 2.57), 0.1);
+    expect(tracks).toHaveLength(1);
+    expect(infer(v(1, 2.57), ctx).kind).toBe('alignment');
   });
 
   it('não cria cruzamento falso do midpoint do topo com outra linha (8 px no zoom do caso central)', () => {
@@ -303,6 +402,7 @@ describe('MeasureTool na vista de corte', () => {
       annotations: () => ({ dimensions: [], texts: [], detailLines: [], detailRegions: [], tags: [] }),
       setAnnotations: () => {},
       inferContext: (extra = {}) => ctxOf(section, env.project(), extra),
+      result: () => section,
     });
     const project = env.project();
     const measure = tool('measure', env);
@@ -341,6 +441,7 @@ describe('MeasureTool na vista de corte', () => {
       annotations: () => ({ dimensions: [], texts: [], detailLines: [], detailRegions: [], tags: [] }),
       setAnnotations: () => {},
       inferContext: (extra = {}) => ctxOf(section, env.project(), extra),
+      result: () => section,
     });
     const dim = new DimensionTool(env);
     dim.start();
@@ -367,6 +468,7 @@ describe('MeasureTool na vista de corte', () => {
         saved = next ?? { dimensions: [], texts: [], detailLines: [], detailRegions: [], tags: [] };
       },
       inferContext: (extra = {}) => ctxOf(section, env.project(), extra),
+      result: () => section,
     });
     const project = env.project();
     const dim = new DimensionTool(env);

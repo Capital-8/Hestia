@@ -25,6 +25,7 @@ function makeSectionEnv() {
     annotations: () => EMPTY_SECTION_ANNOTATIONS,
     setAnnotations: () => {},
     inferContext: () => ({}) as never,
+    result: () => ({}) as never,
   });
   return { store, env, messages, done };
 }

@@ -51,10 +51,10 @@ export function addExtraSegments(ctx: InferContext, sn: SnapOptions, cursor: Vec
 }
 
 /**
- * Trilhas de alinhamento: as ombreiras das aberturas da planta (arestas `face` de `extraSegments`) e as arestas
- * horizontais/verticais da seção (`extraTracks`). As trilhas da seção passam por um filtro barato de cursor: só as que
- * cruzam a faixa de tolerância entram, então uma vista com milhares de arestas não é varrida por inteiro em cada
- * movimento. A extensão da linha é feita depois por `infer`, sobre a reta de cada trilha.
+ * Trilhas de alinhamento: as ombreiras das aberturas da planta (arestas `face` de `extraSegments`) e as arestas da
+ * seção (`extraTracks`, h/v e inclinadas). As trilhas da seção passam por um filtro barato de cursor: só as que têm a
+ * reta suporte dentro da faixa de tolerância entram, então uma vista com milhares de arestas não é varrida por inteiro
+ * em cada movimento. A extensão da linha além das pontas é feita depois por `infer`, sobre a reta de cada trilha.
  */
 export function addExtraTracks(
   ctx: InferContext,
@@ -72,23 +72,21 @@ export function addExtraTracks(
     tracks.push({ a: e.a, b: e.b, ...(e.hostId !== undefined ? { hostId: e.hostId } : {}) });
     refs.push(e.a, e.b);
   }
-  // Arestas h/v da seção: só as que passam perto do cursor, para não montar um par a par gigante longe dele.
+  // Arestas da seção: só as que passam perto do cursor, para não montar um par a par gigante longe dele.
   const reach = Math.max(0, tol) * Math.SQRT2;
-  const seenLines = new Set<string>();
+  // Dedupe moderado só na seção: várias arestas colineares (a mesma face fatiada por vãos, ou as duas metades de uma
+  // água de telhado) valem uma trilha só, porque `infer` estende a mesma reta. A planta não passa por aqui.
+  const seenLines = ctx.section ? new Set<string>() : null;
   for (const e of ctx.extraTracks ?? []) {
     if (e.hostId !== undefined && ctx.ignore?.has(e.hostId)) continue;
     if (dist2(e.a, e.b) < 1e-18) continue;
     if (cursor && !trackNear(e, cursor, reach)) continue;
-    // Várias arestas colineares (a mesma face de parede fatiada por vãos) valem uma trilha só: a reta é a mesma e
-    // sem isso cada movimento cruzaria centenas de pares paralelos. O hostId da primeira é preservado.
-    const lineKey = e.axis === 'h'
-      ? `h|${Math.round(e.a.y * 1e6)}`
-      : e.axis === 'v'
-        ? `v|${Math.round(e.a.x * 1e6)}`
-        : null;
-    if (lineKey) {
-      if (seenLines.has(lineKey)) continue;
-      seenLines.add(lineKey);
+    if (seenLines) {
+      const lineKey = lineKeyOf(e);
+      if (lineKey) {
+        if (seenLines.has(lineKey)) continue;
+        seenLines.add(lineKey);
+      }
     }
     tracks.push({ a: e.a, b: e.b, ...(e.hostId !== undefined ? { hostId: e.hostId } : {}), ...(e.axis !== undefined ? { axis: e.axis } : {}), ...(e.kind !== undefined ? { kind: e.kind } : {}) });
     refs.push(e.a, e.b);
@@ -96,11 +94,44 @@ export function addExtraTracks(
 }
 
 /**
+ * Chave da reta suporte de uma trilha da seção: h/v pela coordenada e inclinada pela direção canônica + distância à
+ * origem. Duas arestas colineares (mesmo sentido ou sentidos opostos) caem na mesma chave.
+ */
+function lineKeyOf(e: ExtraTrack): string | null {
+  if (e.axis === 'h') return `h|${Math.round(e.a.y * 1e6)}`;
+  if (e.axis === 'v') return `v|${Math.round(e.a.x * 1e6)}`;
+  const dx = e.b.x - e.a.x;
+  const dy = e.b.y - e.a.y;
+  const len = Math.hypot(dx, dy);
+  if (!(len > 1e-12)) return null;
+  let ux = dx / len;
+  let uy = dy / len;
+  // Sentido canônico: o oposto da mesma reta não pode gerar outra chave.
+  if (ux < -1e-9 || (Math.abs(ux) <= 1e-9 && uy < 0)) {
+    ux = -ux;
+    uy = -uy;
+  }
+  const c = -uy * e.a.x + ux * e.a.y;
+  return `d|${Math.round(ux * 1e6)}|${Math.round(uy * 1e6)}|${Math.round(c * 1e6)}`;
+}
+
+/**
  * A trilha passa a até `reach` do cursor? Em h/v a reta é infinita na direção do eixo (é justamente a extensão que o
- * rastreamento oferece), então só a distância perpendicular importa. Nas inclinadas o próprio trecho limita.
+ * rastreamento oferece), então só a distância perpendicular importa; nas inclinadas vale a distância à reta suporte,
+ * também para o cursor além das pontas. Trilhas sem eixo (faces da planta) mantêm o filtro antigo por segmento.
  */
 function trackNear(e: ExtraTrack, cursor: Vec2, reach: number): boolean {
   if (e.axis === 'h') return Math.abs(cursor.y - e.a.y) <= reach;
   if (e.axis === 'v') return Math.abs(cursor.x - e.a.x) <= reach;
+  if (e.axis === 'd') {
+    const dx = e.b.x - e.a.x;
+    const dy = e.b.y - e.a.y;
+    const dd = dx * dx + dy * dy;
+    if (dd < 1e-18) return false;
+    const t = ((cursor.x - e.a.x) * dx + (cursor.y - e.a.y) * dy) / dd;
+    const px = e.a.x + dx * t;
+    const py = e.a.y + dy * t;
+    return dist2(cursor, { x: px, y: py }) <= reach * reach;
+  }
   return boxNear(e.a, e.b, cursor, reach) && dist2(cursor, closestOnSegment(cursor, e.a, e.b)) <= reach * reach;
 }

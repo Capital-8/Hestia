@@ -23,18 +23,20 @@ const emptySection = (over: Partial<SectionResult> = {}): SectionResult => ({
 });
 
 describe('índice de captura da seção', () => {
-  it('classifica arestas h/v como trilhas e mantém inclinadas fora delas', () => {
+  it('toda aresta visível vira trilha, inclusive a inclinada do telhado', () => {
     const section = emptySection({
       cut: [{ materialId: 'm1', polygons: [[ring(0, 0, 4, 3)]], sources: [{ wallId: 'w1' }] }],
-      // Triângulo (água de telhado): a hipotenusa não pode virar trilha.
+      // Triângulo (água de telhado): a hipotenusa também vira trilha, com eixo `d`.
       beyond: [{ materialId: 'm2', layerIndex: 0, depth: 1, roofId: 'r1', polygons: [[[v(0, 3), v(2, 4), v(4, 3)]]] }],
     });
     const index = buildSectionSnapIndex(section);
     expect(index.tracks.length).toBeGreaterThan(0);
-    expect(index.tracks.every((tr) => tr.axis === 'h' || tr.axis === 'v')).toBe(true);
+    expect(index.tracks.every((tr) => tr.axis === 'h' || tr.axis === 'v' || tr.axis === 'd')).toBe(true);
     expect(index.tracks.some((tr) => tr.hostId === 'w1' && tr.axis === 'h')).toBe(true);
-    expect(index.tracks.some((tr) => tr.hostId === 'r1')).toBe(true);
-    // A hipotenusa continua em `segments` (captura de aresta), mas não em `tracks`.
+    // As duas águas inclinadas e a base horizontal do telhado entram como trilhas.
+    expect(index.tracks.filter((tr) => tr.hostId === 'r1' && tr.axis === 'd')).toHaveLength(2);
+    expect(index.tracks.some((tr) => tr.hostId === 'r1' && tr.axis === 'h')).toBe(true);
+    // A hipotenusa continua em `segments` (captura de aresta).
     expect(index.segments.some((e) => e.hostId === 'r1' && Math.abs(e.a.y - e.b.y) > 1e-6 && Math.abs(e.a.x - e.b.x) > 1e-6)).toBe(true);
     // byHost separa o que pertence a cada elemento.
     expect(index.byHost.get('w1')?.tracks.length).toBeGreaterThan(0);
@@ -60,21 +62,27 @@ describe('índice de captura da seção', () => {
   });
 });
 
-/** 5.000 arestas: 1.250 retângulos de 10 cm numa malha de 20 cm. */
+/**
+ * 5.000 arestas: 1.250 quadros de 10 cm numa malha de 20 cm. Cada quadro tem duas arestas h/v e duas inclinadas
+ * (uma "água" curta), então as trilhas inclinadas também entram na medição.
+ */
 function bigSection(count = 1250): SectionResult {
   const beyond: SectionResult['beyond'] = [];
   for (let i = 0; i < count; i++) {
     const x = (i % 50) * 0.2;
     const y = Math.floor(i / 50) * 0.2;
-    beyond.push({ materialId: 'm1', layerIndex: 0, depth: 1, wallId: `w${i}`, polygons: [[ring(x, y, x + 0.1, y + 0.1)]] });
+    const ring4 = [v(x, y), v(x + 0.1, y), v(x + 0.1, y + 0.1), v(x + 0.05, y + 0.06)];
+    beyond.push({ materialId: 'm1', layerIndex: 0, depth: 1, wallId: `w${i}`, polygons: [[ring4]] });
   }
   return emptySection({ length: 10, zMin: 0, zMax: 10, beyond });
 }
 
 describe('desempenho do rastreamento na seção', () => {
-  it('5.000 arestas: a segunda leitura do índice é cacheada e infer não explode', () => {
+  it('5.000 arestas (incluindo inclinadas): a segunda leitura do índice é cacheada e infer não explode', () => {
     const section = bigSection();
     expect(sectionSnapIndex(section).segments).toHaveLength(5000);
+    // 2 h/v + 2 inclinadas por quadro: metade das trilhas é inclinada.
+    expect(sectionSnapIndex(section).tracks.filter((tr) => tr.axis === 'd')).toHaveLength(2500);
 
     const t0 = performance.now();
     const built = buildSectionSnapIndex(section);

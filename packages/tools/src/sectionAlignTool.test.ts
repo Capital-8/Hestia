@@ -1,43 +1,64 @@
 import { describe, expect, it } from 'vitest';
 import { makeWall, type Opening } from '@hestia/model';
+import type { SectionOpening, SectionResult } from '@hestia/engine';
+import type { MultiPolygon } from '@hestia/geom';
 import { clickAt, makeEnv, P, tool } from './testEnv.ts';
 import type { InferContext } from './infer.ts';
 import type { SectionToolContext } from './types.ts';
 
-/** Ponto de captura da seção simulada: (t, z) com o dono do elemento. */
-type SnapPoint = { x: number; y: number; kind: 'endpoint'; hostId?: string };
+/** Caixa do vão na vista: (t0..t1) × (z0..z1). `internal` é um retângulo interno (travessa/montante) da esquadria. */
+interface Box { id: string; kind: 'door' | 'window'; t0: number; t1: number; z0: number; z1: number; depth: number; internal?: [number, number, number, number] }
 
-/**
- * Porta (topo 2,10) e janela (peitoril 1,10 / topo 2,30) na mesma parede, com uma vista de corte de 0 a 6 m.
- * A seção simulada entrega os topos e o peitoril como capturas de extremidade, cada um com o id da abertura.
- */
-const DEFAULT_POINTS: SnapPoint[] = [
-  { x: 1.5, y: 2.1, kind: 'endpoint', hostId: 'd' },
-  { x: 4, y: 2.3, kind: 'endpoint', hostId: 'j' },
-  { x: 4, y: 1.1, kind: 'endpoint', hostId: 'j' },
+const BOXES: Box[] = [
+  { id: 'd', kind: 'door', t0: 1.1, t1: 1.9, z0: 0, z1: 2.1, depth: 0 }, // porta 80 × 210
+  { id: 'j', kind: 'window', t0: 3.4, t1: 4.6, z0: 1.1, z1: 2.3, depth: 1.5, internal: [3.5, 1.65, 4.5, 1.75] }, // janela com travessa interna
+  { id: 'k', kind: 'window', t0: 6.4, t1: 7.6, z0: 0.8, z1: 2.0, depth: 1.5 }, // janela com peitoril por instância 0,80
 ];
 
-function scene(points: SnapPoint[] = DEFAULT_POINTS) {
+const rect = (t0: number, z0: number, t1: number, z1: number): MultiPolygon =>
+  [[[{ x: t0, y: z0 }, { x: t1, y: z0 }, { x: t1, y: z1 }, { x: t0, y: z1 }]]];
+
+const sectionOpening = (b: Box): SectionOpening => {
+  const polygons = rect(b.t0, b.z0, b.t1, b.z1);
+  if (b.internal) polygons.push(...rect(...b.internal));
+  return ({ ...b, openingId: b.id, cut: true, polygons } as unknown as SectionOpening);
+};
+
+/** Seção simulada: parede cortada de 0 a 10 m, três vãos e a guia da vista inteira. */
+function fakeResult(withWall = true): SectionResult {
+  const wall = rect(0, 0, 10, 2.8);
+  return {
+    length: 10,
+    zMin: 0,
+    zMax: 2.8,
+    cut: withWall ? [{ materialId: 'mat_alv', polygons: wall, sources: [{ wallId: 'h' }], parts: [{ origin: { wallId: 'h' }, polygons: wall }] }] : [],
+    silhouette: [],
+    beyond: [],
+    openings: BOXES.map(sectionOpening),
+    membranes: [],
+    levels: [],
+  } as unknown as SectionResult;
+}
+
+/** Pontos de captura da vista: cantos e centros dos vãos (o clique também acha a geometria por `result()`). */
+const snapPoints = BOXES.flatMap((b) => [
+  { x: b.t0, y: b.z0, kind: 'endpoint' as const, hostId: b.id },
+  { x: b.t1, y: b.z0, kind: 'endpoint' as const, hostId: b.id },
+  { x: b.t0, y: b.z1, kind: 'endpoint' as const, hostId: b.id },
+  { x: b.t1, y: b.z1, kind: 'endpoint' as const, hostId: b.id },
+  { x: (b.t0 + b.t1) / 2, y: b.z1, kind: 'midpoint' as const, hostId: b.id },
+]);
+
+function scene({ withResult = true, withWall = true }: { withResult?: boolean; withWall?: boolean } = {}) {
   const ctx = makeEnv();
-  ctx.store.exec({
-    type: 'addWall',
-    wall: makeWall({ id: 'h', typeId: 'wt_alv14', levelId: 'lv_0', a: { x: 0, y: 0 }, b: { x: 6, y: 0 } }),
-  });
-  ctx.store.exec({
-    type: 'addOpening',
-    opening: { id: 'd', kind: 'door', typeId: 'ot_p80', hostId: 'h', offset: 1.5, flipHand: false, flipFacing: false, sillOverride: null, mark: '' },
-  });
-  ctx.store.exec({
-    type: 'addOpening',
-    opening: { id: 'j', kind: 'window', typeId: 'ot_j120', hostId: 'h', offset: 4, flipHand: false, flipFacing: false, sillOverride: null, mark: '' },
-  });
-  ctx.store.exec({
-    type: 'addView',
-    view: { id: 'v1', name: 'Corte A', kind: 'section', a: { x: 0, y: 0 }, b: { x: 6, y: 0 }, depth: 3 },
-  });
+  ctx.store.exec({ type: 'addWall', wall: makeWall({ id: 'h', typeId: 'wt_alv14', levelId: 'lv_0', a: { x: 0, y: 0 }, b: { x: 10, y: 0 } }) });
+  ctx.store.exec({ type: 'addOpening', opening: { id: 'd', kind: 'door', typeId: 'ot_p80', hostId: 'h', offset: 1.5, flipHand: false, flipFacing: false, sillOverride: null, mark: '' } });
+  ctx.store.exec({ type: 'addOpening', opening: { id: 'j', kind: 'window', typeId: 'ot_j120', hostId: 'h', offset: 4, flipHand: false, flipFacing: false, sillOverride: null, mark: '' } });
+  ctx.store.exec({ type: 'addOpening', opening: { id: 'k', kind: 'window', typeId: 'ot_j120', hostId: 'h', offset: 7, flipHand: false, flipFacing: false, sillOverride: 0.8, mark: '' } });
+  ctx.store.exec({ type: 'addView', view: { id: 'v1', name: 'Corte A', kind: 'section', a: { x: 0, y: 0 }, b: { x: 10, y: 0 }, depth: 3 } });
   const messages: string[] = [];
   ctx.env.say = (msg: string) => { messages.push(msg); };
-  const sec: SectionToolContext = {
+  const sec = {
     id: 'v1',
     annotations: () => ({ dimensions: [], texts: [], detailLines: [], detailRegions: [], tags: [] }),
     setAnnotations: () => {},
@@ -48,93 +69,88 @@ function scene(points: SnapPoint[] = DEFAULT_POINTS) {
       gridStep: ctx.env.gridStep(),
       section: true,
       noGrid: true,
-      extraPoints: points,
+      extraPoints: snapPoints,
       extraSegments: [],
       ...extra,
     }),
-  };
+    ...(withResult ? { result: () => fakeResult(withWall) } : {}),
+  } as unknown as SectionToolContext;
   ctx.env.section = () => sec;
   return { ...ctx, messages };
 }
 
 const opening = (ctx: ReturnType<typeof scene>, id: string): Opening => ctx.store.project.elements[id] as Opening;
 
-describe('ferramenta Alinhar no corte (dois passos)', () => {
-  it('o primeiro clique só grava a referência e não altera o modelo', () => {
+describe('ferramenta Alinhar no corte (referência e alvo por clique)', () => {
+  it('começa sem exigir seleção e pede a referência', () => {
+    const ctx = scene();
+    const t = tool('align', ctx.env);
+    expect(ctx.env.selection()).toEqual([]);
+    expect(ctx.messages.some((m) => /clique na referência/i.test(m))).toBe(true);
+    expect(t.preview()).toEqual([]);
+  });
+
+  it('o primeiro clique no topo da porta só grava a referência, sem alterar o modelo', () => {
     const ctx = scene();
     const t = tool('align', ctx.env);
     const version = ctx.store.version;
-    clickAt(t, 1.5, 2.1); // topo da porta
+    clickAt(t, 1.5, 2.1);
+    expect(ctx.store.version).toBe(version);
     expect(opening(ctx, 'd').heightOverride ?? null).toBeNull();
+    expect(ctx.messages.some((m) => m.includes('Clique no alvo'))).toBe(true);
+    expect(ctx.messages.some((m) => m.includes('topo') && m.includes('+2,10'))).toBe(true);
+  });
+
+  it('a guia persistente entra em inference() e o preview não desenha linha própria de referência', () => {
+    const ctx = scene();
+    const t = tool('align', ctx.env);
+    clickAt(t, 1.5, 2.1); // referência: topo da porta
+    const guides = t.inference()?.guides ?? [];
+    const guide = guides.find((g) => g.kind === 'alignment' && Math.abs(g.from.y - 2.1) < 1e-9);
+    expect(guide).toBeDefined();
+    expect(guide?.from.x).toBeCloseTo(0, 9);
+    expect(guide?.to.x).toBeCloseTo(10, 9);
+    expect(guide?.to.y).toBeCloseTo(2.1, 9);
+    // A referência é só a guia da inferência: nenhuma linha própria no preview.
+    expect(t.preview().some((i) => i.kind === 'line')).toBe(false);
+
+    t.move(P(4, 2.3)); // sobre o topo da janela
+    const fullReference = t.preview().find((i) => i.kind === 'line' && i.a.x === 0 && i.a.y === 2.1 && i.b.x === 10);
+    expect(fullReference).toBeUndefined();
+    expect(t.preview().some((i) => i.kind === 'highlight' && i.ids.includes('j'))).toBe(true);
+    expect(t.preview().some((i) => i.kind === 'line' && i.dashed)).toBe(true);
+  });
+
+  it('cada linha interna da janela é referência: clique na travessa, não no topo/peitoril da caixa', () => {
+    const ctx = scene();
+    const t = tool('align', ctx.env);
+    clickAt(t, 4, 1.75); // aresta superior da travessa interna de j (também sobre o centro vertical)
+    const guides = t.inference()?.guides ?? [];
+    const guide = guides.find((g) => g.kind === 'alignment' && Math.abs(g.from.y - 1.75) < 1e-9);
+    expect(guide).toBeDefined();
+    expect(guide?.from.x).toBeCloseTo(0, 9);
+    expect(guide?.to.x).toBeCloseTo(10, 9);
+    // Não pode ter caído no topo (2,30), no peitoril (1,10) nem no centro horizontal (1,70) da caixa.
+    expect(guides.some((g) => g.kind === 'alignment' && [2.3, 1.1, 1.7].some((z) => Math.abs(g.from.y - z) < 1e-9))).toBe(false);
+    expect(ctx.messages.some((m) => m.includes('aresta'))).toBe(true);
+  });
+
+  it('alvo numa linha interna da janela: avisa e não altera, pois não há operação segura', () => {
+    const ctx = scene();
+    const t = tool('align', ctx.env);
+    clickAt(t, 1.5, 2.1); // referência: topo da porta
+    clickAt(t, 4, 1.75); // alvo: travessa interna da janela j
     expect(opening(ctx, 'j').heightOverride ?? null).toBeNull();
     expect(opening(ctx, 'j').sillOverride).toBeNull();
-    expect(ctx.store.version).toBe(version);
-    expect(ctx.messages.some((m) => m.includes('Clique no alvo'))).toBe(true);
+    expect(opening(ctx, 'j').offset).toBeCloseTo(4, 9);
+    expect(ctx.messages.some((m) => m.includes('não é topo, peitoril, ombreira ou centro'))).toBe(true);
   });
 
-  it('prévia mostra a guia da referência de ponta a ponta e o fantasma até o alvo', () => {
+  it('referência no topo da porta e alvo no topo da janela: muda a altura, tudo num único undo', () => {
     const ctx = scene();
     const t = tool('align', ctx.env);
-    clickAt(t, 1.5, 2.1);
-    const guide = t.preview().find((i) => i.kind === 'line');
-    expect(guide?.kind).toBe('line');
-    if (guide?.kind !== 'line') throw new Error('guia ausente');
-    expect(guide.dashed).toBe(false);
-    expect(guide.a.x).toBe(0);
-    expect(guide.a.y).toBeCloseTo(2.1, 9);
-    expect(guide.b.x).toBeCloseTo(6, 9);
-    expect(guide.b.y).toBeCloseTo(2.1, 9);
-    const label = t.preview().find((i) => i.kind === 'label');
-    expect(label?.kind === 'label' ? label.text : '').toMatch(/^Referência \+/);
-
-    t.move(P(4, 2.3));
-    const ghost = t.preview().find((i) => i.kind === 'line' && i.dashed);
-    expect(ghost?.kind).toBe('line');
-    if (ghost?.kind !== 'line') throw new Error('fantasma ausente');
-    expect(ghost.a.x).toBeCloseTo(4, 9);
-    expect(ghost.a.y).toBeCloseTo(2.1, 9);
-    expect(ghost.b.x).toBeCloseTo(4, 9);
-    expect(ghost.b.y).toBeCloseTo(2.3, 9);
-    expect(t.preview().some((i) => i.kind === 'highlight' && i.ids.includes('j'))).toBe(true);
-  });
-
-  it('a janela selecionada não serve de referência para si mesma: usa o topo da porta', () => {
-    // A janela tem o topo a 10 cm do cursor e a porta a 16 cm (8 px a 0,02 m/px): sem o ignore da seleção,
-    // o snap escolheria a janela (+2,30) em vez da porta (+2,10).
-    const ctx = scene([
-      { x: 1.5, y: 2.1, kind: 'endpoint', hostId: 'd' },
-      { x: 1.6, y: 2.3, kind: 'endpoint', hostId: 'j' },
-      { x: 4, y: 1.1, kind: 'endpoint', hostId: 'j' },
-    ]);
-    ctx.env.setSelection(['j']);
-    ctx.env.metersPerPixel = () => 0.02;
-    const t = tool('align', ctx.env);
-    clickAt(t, 1.5, 2.26); // 8 px acima do topo da porta
-    const guide = t.preview().find((i) => i.kind === 'line');
-    expect(guide?.kind).toBe('line');
-    if (guide?.kind !== 'line') throw new Error('guia ausente');
-    expect(guide.a.y).toBeCloseTo(2.1, 9);
-    expect(ctx.messages.some((m) => m.includes('+2,10'))).toBe(true);
-
-    clickAt(t, 4, 2.3);
-    expect(opening(ctx, 'j').heightOverride).toBeCloseTo(1, 9);
-  });
-
-  it('sem seleção, o alvo detectado pelo hostId não pode ser a referência dele mesmo', () => {
-    const ctx = scene();
-    const t = tool('align', ctx.env);
-    clickAt(t, 4, 2.3); // referência: topo da janela (hostId j)
-    clickAt(t, 4, 2.3); // alvo sob o cursor: a mesma janela
-    expect(opening(ctx, 'j').heightOverride ?? null).toBeNull();
-    expect(ctx.messages.some((m) => m.includes('própria abertura alvo'))).toBe(true);
-  });
-
-  it('segundo clique alinha o topo da janela ao topo da porta com um único undo', () => {
-    const ctx = scene();
-    ctx.env.setSelection(['j']);
-    const t = tool('align', ctx.env);
-    clickAt(t, 1.5, 2.1); // referência: topo da porta (2,10)
-    clickAt(t, 4, 2.3); // alvo: janela (peitoril 1,10)
+    clickAt(t, 1.5, 2.1); // topo da porta (2,10)
+    clickAt(t, 4, 2.3); // topo da janela
     // Topo 2,10 com peitoril 1,10 => altura por instância 1,00.
     expect(opening(ctx, 'j').heightOverride).toBeCloseTo(1, 9);
     expect(opening(ctx, 'd').heightOverride ?? null).toBeNull();
@@ -143,72 +159,78 @@ describe('ferramenta Alinhar no corte (dois passos)', () => {
     expect(opening(ctx, 'j').heightOverride ?? null).toBeNull();
   });
 
-  it('com Shift alinha o peitoril da janela à referência', () => {
+  it('referência em ombreira de uma janela e alvo em ombreira de outra: ajusta o offset', () => {
     const ctx = scene();
-    ctx.env.setSelection(['j']);
     const t = tool('align', ctx.env);
-    clickAt(t, 1.5, 2.1); // referência: topo da porta
-    clickAt(t, 4, 2.3, { shift: true });
-    expect(opening(ctx, 'j').sillOverride).toBeCloseTo(2.1, 9);
-    expect(opening(ctx, 'j').heightOverride ?? null).toBeNull();
+    clickAt(t, 4.6, 1.7); // ombreira direita da janela j
+    clickAt(t, 6.4, 1.4); // ombreira esquerda da janela k
+    // A ombreira esquerda de k (6,40) vai para 4,60: o centro sai de 7,00 para 5,20.
+    expect(opening(ctx, 'k').offset).toBeCloseTo(5.2, 9);
+    expect(opening(ctx, 'j').offset).toBeCloseTo(4, 9);
+    expect(ctx.store.undoLabel).toBe('Alinhar no corte');
+    ctx.store.undo();
+    expect(opening(ctx, 'k').offset).toBeCloseTo(7, 9);
   });
 
-  it('porta com Shift avisa que só o topo alinha e não altera nada', () => {
+  it('referência no peitoril e alvo no peitoril: a feição decide, sem Shift', () => {
     const ctx = scene();
-    ctx.env.setSelection(['d']);
     const t = tool('align', ctx.env);
-    clickAt(t, 4, 2.3); // referência: topo da janela
-    clickAt(t, 1.5, 2.1, { shift: true });
+    clickAt(t, 4, 1.1); // peitoril da janela j (1,10)
+    clickAt(t, 7, 0.8, { shift: true }); // peitoril da janela k (0,80); Shift não muda a feição
+    expect(opening(ctx, 'k').sillOverride).toBeCloseTo(1.1, 9);
+    expect(opening(ctx, 'k').heightOverride ?? null).toBeNull();
+  });
+
+  it('referência e alvo na mesma abertura: avisa e não altera', () => {
+    const ctx = scene();
+    const t = tool('align', ctx.env);
+    clickAt(t, 4, 2.3); // referência no topo de j
+    clickAt(t, 4, 2.3); // alvo na mesma janela
+    expect(opening(ctx, 'j').heightOverride ?? null).toBeNull();
+    expect(opening(ctx, 'j').sillOverride).toBeNull();
+    expect(ctx.messages.some((m) => m.includes('própria abertura alvo'))).toBe(true);
+  });
+
+  it('porta com a linha do peitoril: avisa que porta só alinha o topo', () => {
+    const ctx = scene();
+    const t = tool('align', ctx.env);
+    clickAt(t, 4, 1.1); // referência: peitoril da janela
+    clickAt(t, 1.5, 0); // alvo: linha inferior (peitoril) da porta
     expect(opening(ctx, 'd').heightOverride ?? null).toBeNull();
     expect(opening(ctx, 'd').sillOverride).toBeNull();
     expect(ctx.messages.some((m) => m.includes('Porta só alinha o topo'))).toBe(true);
   });
 
-  it('porta sem Shift alinha o topo normalmente', () => {
+  it('alvo parede: move o topo da parede até a referência, num único undo', () => {
     const ctx = scene();
-    ctx.env.setSelection(['d']);
     const t = tool('align', ctx.env);
-    clickAt(t, 4, 2.3); // referência: topo da janela
-    clickAt(t, 1.5, 2.1); // alvo: porta
-    expect(opening(ctx, 'd').heightOverride).toBeCloseTo(2.3, 9);
+    clickAt(t, 1.5, 2.1); // referência: topo da porta (2,10)
+    clickAt(t, 5.5, 2.8); // alvo: topo da parede (base 0, altura 2,80)
+    const wall = ctx.store.project.elements.h;
+    expect(wall && 'height' in wall ? wall.height : 0).toBeCloseTo(2.1, 9);
+    expect(ctx.store.undoLabel).toBe('Alinhar no corte');
+    ctx.store.undo();
+    const back = ctx.store.project.elements.h;
+    expect(back && 'height' in back ? back.height : 0).toBeCloseTo(2.8, 9);
   });
 
-  it('sem seleção, usa a abertura sob o snap (hostId) como alvo', () => {
-    const ctx = scene();
+  it('sem resultado da vista: avisa e não cria referência', () => {
+    const ctx = scene({ withResult: false });
     const t = tool('align', ctx.env);
-    clickAt(t, 1.5, 2.1); // referência: topo da porta
-    clickAt(t, 4, 2.3); // janela sob o cursor, sem seleção
-    expect(opening(ctx, 'j').heightOverride).toBeCloseTo(1, 9);
-  });
-
-  it('Esc durante a referência limpa o passo sem sair nem fechar a vista; o segundo Esc sai', () => {
-    const ctx = scene();
-    const t = tool('align', ctx.env);
+    expect(ctx.messages.some((m) => m.includes('não tem resultado'))).toBe(true);
     clickAt(t, 1.5, 2.1);
-    expect(t.preview().length).toBeGreaterThan(0);
-    t.cancel();
-    expect(ctx.done()).toBe(0);
+    expect(ctx.messages.some((m) => m.includes('não tem resultado'))).toBe(true);
+    expect(t.inference()).toBeNull();
     expect(t.preview()).toEqual([]);
-    expect(ctx.store.project.views).toHaveLength(1);
-    t.cancel();
-    expect(ctx.done()).toBe(1);
   });
 
-  it('sem snap no primeiro clique, usa o ponto livre, avisa e permite alinhar depois', () => {
-    const ctx = scene([]);
+  it('segundo clique no vazio: avisa que não há alvo e não altera', () => {
+    const ctx = scene();
     const t = tool('align', ctx.env);
     const version = ctx.store.version;
-    clickAt(t, 2.5, 1.75);
+    clickAt(t, 1.5, 2.1); // referência
+    clickAt(t, 5.5, 3.6); // fora da parede e dos vãos
     expect(ctx.store.version).toBe(version);
-    expect(ctx.messages.some((m) => m.includes('Sem referência de linha'))).toBe(true);
-    const label = t.preview().find((i) => i.kind === 'label');
-    const text = label?.kind === 'label' ? label.text : '';
-    expect(text).toMatch(/^Referência \+/);
-    expect(text).toContain('1,75');
-
-    ctx.env.setSelection(['j']);
-    clickAt(t, 4, 2.3);
-    // Topo 1,75 com peitoril 1,10 => altura 0,65, mesmo sem linha de referência.
-    expect(opening(ctx, 'j').heightOverride).toBeCloseTo(0.65, 9);
+    expect(ctx.messages.some((m) => m.includes('Nenhuma janela'))).toBe(true);
   });
 });

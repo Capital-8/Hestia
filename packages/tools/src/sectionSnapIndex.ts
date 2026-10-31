@@ -7,8 +7,9 @@ import type { SnapKind } from './types.ts';
  * Geometria de captura da vista de corte/elevação, já em (t, z) e independente do projeto.
  *
  * O índice guarda o que a vista oferece uma vez só: pontos (extremidades e meios), arestas (todos os contornos) e
- * trilhas de alinhamento (somente arestas horizontais/verticais, que o rastreamento consegue estender). A vista é
- * recalculada pelo motor a cada mudança do modelo; o índice é descartado junto com o `SectionResult` (WeakMap).
+ * trilhas de alinhamento (toda aresta visível, horizontal, vertical ou inclinada). A reta de cada trilha é estendida
+ * pelo rastreamento; a inclinação é só mais uma direção de referência, não um caso especial. A vista é recalculada
+ * pelo motor a cada mudança do modelo; o índice é descartado junto com o `SectionResult` (WeakMap).
  */
 export interface SectionSnapPoint extends Vec2 {
   kind: SnapKind;
@@ -23,13 +24,13 @@ export interface SectionSnapSegment {
 }
 
 /**
- * Aresta horizontal (`h`) ou vertical (`v`) usada como trilha de alinhamento. `kind: 'face'` é o mesmo marcador das
- * faces da planta: o rastreamento projeta o cursor na reta e estende a linha além das pontas.
+ * Aresta usada como trilha de alinhamento: `h` (horizontal), `v` (vertical) ou `d` (inclinada). `kind: 'face'` é o
+ * mesmo marcador das faces da planta: o rastreamento projeta o cursor na reta e estende a linha além das pontas.
  */
 export interface SectionSnapTrack {
   a: Vec2;
   b: Vec2;
-  axis: 'h' | 'v';
+  axis: 'h' | 'v' | 'd';
   kind: 'face';
   hostId?: Id;
 }
@@ -62,15 +63,13 @@ export function sectionOriginId(o: SectionOrigin): Id | undefined {
 
 const finite = (p: Vec2): boolean => Number.isFinite(p.x) && Number.isFinite(p.y);
 
-/** Eixo de uma aresta, ou null se for inclinada (só h/v viram trilha de alinhamento). */
-function axisOf(a: Vec2, b: Vec2): 'h' | 'v' | null {
-  if (!finite(a) || !finite(b)) return null;
+/** Eixo de uma aresta: horizontal (`h`), vertical (`v`) ou inclinada (`d`). Zero-length nunca chega aqui. */
+function axisOf(a: Vec2, b: Vec2): 'h' | 'v' | 'd' {
   const dx = Math.abs(b.x - a.x);
   const dy = Math.abs(b.y - a.y);
-  if (dx < EPS && dy < EPS) return null;
   if (dy <= AXIS_EPS) return 'h';
   if (dx <= AXIS_EPS) return 'v';
-  return null;
+  return 'd';
 }
 
 interface Draft {
@@ -103,7 +102,7 @@ function addPoint(draft: Draft, p: Vec2, kind: SnapKind, hostId?: Id): void {
   hostOf(draft, hostId)?.points.push(point);
 }
 
-function addTrack(draft: Draft, a: Vec2, b: Vec2, axis: 'h' | 'v', hostId?: Id): void {
+function addTrack(draft: Draft, a: Vec2, b: Vec2, axis: 'h' | 'v' | 'd', hostId?: Id): void {
   const key = `${pointKey(a)}|${pointKey(b)}|${axis}|${hostId ?? ''}`;
   if (draft.seenTracks.has(key)) return;
   draft.seenTracks.add(key);
@@ -121,10 +120,9 @@ function addSegment(draft: Draft, a: Vec2, b: Vec2, hostId?: Id, kind: SnapKind 
   const segment: SectionSnapSegment = { a: { x: a.x, y: a.y }, b: { x: b.x, y: b.y }, kind, ...(hostId !== undefined ? { hostId } : {}) };
   draft.segments.push(segment);
   hostOf(draft, hostId)?.segments.push(segment);
-  // Só arestas alinhadas aos eixos viram trilha: uma aresta inclinada (água de telhado, rampa) continua sendo
-  // captura de aresta (`nearest`), mas estender a sua reta criaria alinhamentos falsos em (t, z).
-  const axis = axisOf(a, b);
-  if (axis) addTrack(draft, a, b, axis, hostId);
+  // Toda aresta visível vira trilha, inclusive a inclinada (água de telhado, rampa). A reta é estendida por `infer`;
+  // o eixo só orienta o filtro local e a prioridade de aresta dentro do segmento.
+  addTrack(draft, a, b, axisOf(a, b), hostId);
 }
 
 /** Aresta com as pontas e o ponto médio como capturas próprias. */

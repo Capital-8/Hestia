@@ -29,15 +29,15 @@ import { DEFAULT_SNAP, type Guide, type Inference, type SnapKind, type SnapOptio
 export type SnapPoint = Vec2 & { hostId?: Id; kind?: SnapKind };
 
 /**
- * Trilha de alinhamento pronta para o rastreamento: uma aresta (normalmente horizontal/vertical, `axis`) cuja reta
- * pode ser estendida além das pontas. Na planta são as faces das ombreiras; na seção, as arestas h/v da vista.
+ * Trilha de alinhamento pronta para o rastreamento: uma aresta (horizontal, vertical ou inclinada, `axis`) cuja reta
+ * pode ser estendida além das pontas. Na planta são as faces das ombreiras; na seção, todas as arestas da vista.
  */
 export interface ExtraTrack {
   a: Vec2;
   b: Vec2;
   hostId?: Id;
-  axis?: 'h' | 'v';
-  /** Marcador da origem da trilha (`face` nas faces e nas arestas alinhadas da seção). */
+  axis?: 'h' | 'v' | 'd';
+  /** Marcador da origem da trilha (`face` nas faces e nas arestas da seção). */
   kind?: SnapKind;
 }
 
@@ -66,8 +66,8 @@ export interface InferContext {
   /** Arestas de captura (contornos de pisos e lajes, ombreiras de aberturas): o pé da perpendicular sobre a aresta vira captura. */
   extraSegments?: Array<{ a: Vec2; b: Vec2; hostId?: Id; kind?: SnapKind }>;
   /**
-   * Trilhas de alinhamento (arestas h/v da seção e ombreiras): a reta é estendida além das pontas e o cursor projeta
-   * sobre ela com guia de alinhamento. `infer` só considera as que passam perto do cursor.
+   * Trilhas de alinhamento (arestas da seção e ombreiras): a reta é estendida além das pontas e o cursor projeta
+   * sobre ela com guia de alinhamento, inclusive nas inclinadas. `infer` só considera as que passam perto do cursor.
    */
   extraTracks?: ExtraTrack[];
   /** Tab: índice do candidato escolhido entre todos os que estão ao alcance (ordenados por custo). */
@@ -210,7 +210,7 @@ interface TrackLine {
   a: Vec2;
   b: Vec2;
   hostId?: Id;
-  axis?: 'h' | 'v';
+  axis?: 'h' | 'v' | 'd';
   kind?: SnapKind;
 }
 
@@ -422,8 +422,9 @@ export function infer(cursor: Vec2, ctx: InferContext): Inference {
         refs.push(seg[0], seg[1]);
       }
     }
-    // Ombreiras das aberturas e arestas h/v da seção também são trechos de alinhamento (a linha atravessa a espessura
-    // e se estende além das pontas). As trilhas distantes do cursor ficam de fora para não varrer a vista inteira.
+    // Ombreiras das aberturas e todas as arestas da seção (h/v e inclinadas) também são trechos de alinhamento (a
+    // linha atravessa a espessura e se estende além das pontas). As trilhas distantes do cursor ficam de fora para não
+    // varrer a vista inteira.
     addExtraTracks(ctx, faceTracks, refs, cursor, tol);
   }
   if (!ctx.onWallsOnly && ctx.extraPoints) {
@@ -492,10 +493,11 @@ export function infer(cursor: Vec2, ctx: InferContext): Inference {
         const anchor = closestOnSegment(projected, tr.a, tr.b);
         // Fora das pontas a extensão não compete com pontos: os refs de alinhamento (peso maior) continuam valendo.
         add(projected, 'alignment', [{ from: anchor, to: projected, kind: 'alignment' }], tr.hostId, WEIGHT.alignment);
-      } else if (tr.axis === 'h' || tr.axis === 'v') {
-        // Dentro do segmento só as trilhas da seção têm prioridade de aresta; as faces da planta seguem como antes.
-        // Bem em cima da aresta, a captura "nearest" (e o midpoint) continua mandando; a trilha entra quando o
-        // cursor está deslocado o bastante para o alinhamento de um ponto de referência puxá-lo para fora da cota.
+      } else if (tr.axis !== undefined) {
+        // Dentro do segmento, toda trilha da seção (h/v ou inclinada) tem prioridade de aresta; as faces da planta
+        // (sem eixo) seguem como antes. Bem em cima da aresta, a captura "nearest" (e o midpoint) continua mandando;
+        // a trilha entra quando o cursor está deslocado o bastante para o alinhamento de um ponto de referência puxá-lo
+        // para fora da cota.
         if (offset <= tol * 0.5) continue;
         const anchor = da <= db ? tr.a : tr.b;
         add(projected, 'alignment', [{ from: anchor, to: projected, kind: 'alignment' }], tr.hostId, WEIGHT_TRACK);
