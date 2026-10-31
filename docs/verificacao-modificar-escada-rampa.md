@@ -35,18 +35,22 @@ Base: `dc33e03c`. Branch de integração: `feat/mod-integ`.
 - Testes novos: `componentSnapResolvido.test.ts` (reta, L, U, caracol, rampa, chegada/sobreposição, fallback) e
   `alignStairFace.test.ts` (aresta inteira, contagem por curva, arco/tangente, rampa, chegada).
 - Commits: helper `f3a4e7fe`, snap `52791fd1`, Alinhar `dacaa531`; integração em `feat/mod-integ`.
+- **Ajuste final no snap das ferramentas de transformação:** Mover/Copiar/Girar/Espelhar/Matriz ignoravam
+  os próprios elementos selecionados (`ignore: new Set(els)`), então os vértices da escada selecionada não
+  apareciam como candidatos. O filtro foi removido: o próprio vértice serve de ponto-base e de destino.
+  Coberto por `transformSnapStair.test.ts` (6 testes).
 
 ## Resultados da integração
 
 ```powershell
 npx vitest run packages/tools/src packages/model/src --testTimeout=120000
-# 234 arquivos, 2655 testes, 2655 passando, 0 falhas
+# 235 arquivos, 2661 testes, 2661 passando, 0 falhas
 
 npx vitest run apps/web/src --testTimeout=120000
 # 181 arquivos, 1509 testes, 1509 passando, 0 falhas
 
 npx vitest run packages apps/web tests --testTimeout=120000
-# 782 arquivos, 8594 testes, 8594 passando, 0 falhas
+# 783 arquivos, 8600 testes, 8600 passando, 0 falhas
 
 npx tsc -p tsconfig.json --noEmit
 # limpo

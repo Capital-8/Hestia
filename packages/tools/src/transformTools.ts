@@ -241,7 +241,8 @@ export class MoveTool extends SelectionTool {
       return;
     }
     const els = this.movables();
-    const inf = this.snap(p, { from: this.base ?? undefined, ignore: new Set(els) });
+    // Sem `ignore`: os vértices do próprio elemento (escada/rampa inclusive) servem de ponto-base e de destino.
+    const inf = this.snap(p, { from: this.base ?? undefined });
     this.cursor = inf.point;
     if (!this.base) {
       this.items.push({ kind: 'point', at: inf.point });
@@ -299,7 +300,7 @@ export class MoveTool extends SelectionTool {
       this.edgeClick(p);
       return;
     }
-    const inf = this.snap(p, { from: this.base ?? undefined, ignore: new Set(this.movables()) });
+    const inf = this.snap(p, { from: this.base ?? undefined });
     if (!this.base) {
       this.base = inf.point;
       return;
@@ -373,7 +374,7 @@ export class RotateTool extends SelectionTool {
 
   override move(p: PointerInfo): void {
     this.items = [];
-    const inf = this.snap(p, { from: this.center ?? undefined, ignore: new Set(this.movables()) });
+    const inf = this.snap(p, { from: this.center ?? undefined });
     if (!this.center) {
       this.items.push({ kind: 'point', at: inf.point });
       return;
@@ -406,7 +407,7 @@ export class RotateTool extends SelectionTool {
   }
 
   override click(p: PointerInfo): void {
-    const inf = this.snap(p, { from: this.center ?? undefined, ignore: new Set(this.movables()) });
+    const inf = this.snap(p, { from: this.center ?? undefined });
     if (!this.center) {
       this.center = inf.point;
     } else if (!this.ref) {
@@ -472,7 +473,7 @@ export class MirrorTool extends SelectionTool {
       this.items.push(...ghostBands(this.env.project(), this.movables(), t), ...ghostViews(this.env.project(), this.env.selection(), t));
       return;
     }
-    const inf = this.snap(p, { from: this.p1 ?? undefined, ignore: new Set(this.movables()) });
+    const inf = this.snap(p, { from: this.p1 ?? undefined });
     if (!this.p1) {
       this.items.push({ kind: 'point', at: inf.point });
       return;
@@ -514,7 +515,7 @@ export class MirrorTool extends SelectionTool {
       this.apply(f.a, f.b);
       return;
     }
-    const inf = this.snap(p, { from: this.p1 ?? undefined, ignore: new Set(this.movables()) });
+    const inf = this.snap(p, { from: this.p1 ?? undefined });
     if (!this.p1) {
       this.p1 = inf.point;
       return;
