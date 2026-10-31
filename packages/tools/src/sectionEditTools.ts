@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- o Alinhar do corte concentra pick, features, guias e patches; dividir depois. */
 import { closestOnSegment, dist, dot, norm, pointInMulti, sub, type MultiPolygon, type Vec2 } from '@hestia/geom';
 import { frameOfWall, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
 import { formatQuantity, isOpening, isWall, levelElevation, openingHeight, openingSill, openingType, unitsOf, wallBaseElevation, wallLength, wallTopElevation, type Command, type Id, type Opening, type Project } from '@hestia/model';
