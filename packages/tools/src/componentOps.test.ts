@@ -48,6 +48,19 @@ describe('mover aresta do componente', () => {
     expect(risers[0]!.a).toEqual(v(1, -0.8));
     expect(risers[1]!.a).toEqual(v(2, -1));
   });
+
+  it('mover um espelho não deforma os limites que compartilham as pontas', () => {
+    const r: StairRun = {
+      ...run([ln(v(0, 0), v(0, 2))]),
+      boundaryRight: [ln(v(1, 0), v(1, 2))],
+      risers: [ln(v(0, 0), v(1, 0))],
+    };
+    const out = moveComponentEdge({ components: [r] }, { elementId: 'st', part: 0, key: 'risers', index: 0 }, v(0, 0.5));
+    const moved = out.components[0] as StairRun;
+    expect(moved.risers[0]!.a).toEqual(v(0, 0.5));
+    expect(moved.boundaryLeft[0]!.a).toEqual(v(0, 0));
+    expect(moved.boundaryRight[0]!.a).toEqual(v(1, 0));
+  });
 });
 
 describe('deslocar aresta do componente', () => {

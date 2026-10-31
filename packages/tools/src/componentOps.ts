@@ -24,13 +24,15 @@ const isStraight = (c: StairCurve): boolean => Math.abs(c.sag) < 1e-9;
  * mover um limite também estica/encolhe os espelhos e a caminhada que terminavam nele, senão o croqui fica com pontas
  * soltas e o validador recusa a edição.
  */
-function retargetComponent(holder: ComponentSketchHolder, ref: ComponentEdgeRef, from: Vec2, to: Vec2): ComponentSketchHolder {
+function retargetComponent(holder: ComponentSketchHolder, ref: ComponentEdgeRef, from: Vec2, to: Vec2, sameKeyOnly: boolean): ComponentSketchHolder {
   const comp = componentOf(holder, ref);
   if (!comp) return holder;
   let changed = false;
-  const mapCurves = (curves: StairCurve[], sameKey: boolean): StairCurve[] =>
-    curves.map((c, i) => {
-      if (sameKey && i === ref.index) return c;
+  const mapCurves = (curves: StairCurve[], isRefKey: boolean): StairCurve[] => {
+    // Com `sameKeyOnly`, só a própria cadeia se reconecta (caminhada); os limites ficam parados.
+    if (sameKeyOnly && !isRefKey) return curves;
+    return curves.map((c, i) => {
+      if (isRefKey && i === ref.index) return c;
       let out = c;
       if (dist(out.a, from) <= JOIN_TOL) {
         out = { ...out, a: { ...to } };
@@ -42,6 +44,7 @@ function retargetComponent(holder: ComponentSketchHolder, ref: ComponentEdgeRef,
       }
       return out;
     });
+  };
 
   let next: StairRun | StairLanding;
   if (comp.kind === 'landing') {
@@ -61,11 +64,15 @@ function retargetComponent(holder: ComponentSketchHolder, ref: ComponentEdgeRef,
   return { ...holder, components };
 }
 
-/** Substitui a curva e reconecta todas as vizinhas nas duas pontas antigas. */
+/**
+ * Substitui a curva e reconecta as vizinhas nas duas pontas antigas. Mover um limite arrasta espelhos e caminhada;
+ * mover um espelho ou a caminhada reconecta só a própria cadeia (o limite não se deforma atrás do espelho).
+ */
 function replaceAndReconnect(holder: ComponentSketchHolder, ref: ComponentEdgeRef, oldCurve: StairCurve, nextCurve: StairCurve): ComponentSketchHolder {
+  const sameKeyOnly = ref.key === 'risers' || ref.key === 'path';
   let out = replaceComponentEdge(holder, ref, nextCurve);
-  out = retargetComponent(out, ref, oldCurve.a, nextCurve.a);
-  out = retargetComponent(out, ref, oldCurve.b, nextCurve.b);
+  out = retargetComponent(out, ref, oldCurve.a, nextCurve.a, sameKeyOnly);
+  out = retargetComponent(out, ref, oldCurve.b, nextCurve.b, sameKeyOnly);
   return out;
 }
 

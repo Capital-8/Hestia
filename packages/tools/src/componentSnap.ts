@@ -30,6 +30,7 @@ const MIN_SEG = 1e-9;
 const cache = new WeakMap<Project, Map<Id, ComponentSnapGeometry>>();
 
 /** Chave do ponto com 6 casas: junções e amostras repetidas viram uma referência só. */
+// units-ok: chave de deduplicação geométrica, não é texto de medida na interface.
 const pointKey = (q: Vec2): string => `${q.x.toFixed(6)},${q.y.toFixed(6)}`;
 
 /**
