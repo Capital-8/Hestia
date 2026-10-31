@@ -291,11 +291,12 @@ try {
       await clickWorld(tgtX, tgtZ);
       const dep = await alignState();
       const depois = await openingState(janela.id);
-      const esperado = round(refZ - janela.z0); // topo - (base + peitoril atual)
+      const alturaJanela = janela.z1 - janela.z0;
+      const esperado = round(refZ - alturaJanela); // reposiciona o peitoril; a altura não muda
       report.check('segundo clique alinha o topo da janela pelo clique (sem seleção)',
-        near(depois.heightOverride, esperado),
-        `heightOverride=${depois.heightOverride} (esperado ${esperado})`);
-      report.check('o alinhamento do topo não mexe no peitoril', depois.sillOverride === null, String(depois.sillOverride));
+        near(depois.sillOverride, esperado),
+        `sillOverride=${depois.sillOverride} (esperado ${esperado})`);
+      report.check('alinha o topo reposicionando o peitoril, sem mudar a altura', depois.heightOverride === null, String(depois.heightOverride));
       report.check('alinhamento é um único passo: undoLabel="Alinhar no corte"', dep.undoLabel === 'Alinhar no corte', String(dep.undoLabel));
       report.check('status confirma o topo alinhado', /alinhado/i.test(dep.status), dep.status);
       report.check('segundo clique também não seleciona nada', dep.selection.length === 0, JSON.stringify(dep.selection));
@@ -303,7 +304,7 @@ try {
       await undo();
       const voltou = await openingState(janela.id);
       const undoDepois = await alignState();
-      report.check('um undo restaura o heightOverride', voltou.heightOverride === null && voltou.sillOverride === null,
+      report.check('um undo restaura o peitoril', voltou.heightOverride === null && voltou.sillOverride === null,
         JSON.stringify(voltou));
       report.check('não sobra segundo passo de undo do alinhamento', undoDepois.undoLabel !== 'Alinhar no corte',
         String(undoDepois.undoLabel));

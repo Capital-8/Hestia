@@ -146,16 +146,18 @@ describe('ferramenta Alinhar no corte (referência e alvo por clique)', () => {
     expect(ctx.messages.some((m) => m.includes('não é topo, peitoril, ombreira ou centro'))).toBe(true);
   });
 
-  it('referência no topo da porta e alvo no topo da janela: muda a altura, tudo num único undo', () => {
+  it('referência no topo da porta e alvo no topo da janela: reposiciona o peitoril sem mudar a altura', () => {
     const ctx = scene();
     const t = tool('align', ctx.env);
     clickAt(t, 1.5, 2.1); // topo da porta (2,10)
     clickAt(t, 4, 2.3); // topo da janela
-    // Topo 2,10 com peitoril 1,10 => altura por instância 1,00.
-    expect(opening(ctx, 'j').heightOverride).toBeCloseTo(1, 9);
+    // Topo 2,10 com altura de família 1,20 => peitoril 0,90; a altura não muda.
+    expect(opening(ctx, 'j').sillOverride).toBeCloseTo(0.9, 9);
+    expect(opening(ctx, 'j').heightOverride ?? null).toBeNull();
     expect(opening(ctx, 'd').heightOverride ?? null).toBeNull();
     expect(ctx.store.undoLabel).toBe('Alinhar no corte');
     ctx.store.undo();
+    expect(opening(ctx, 'j').sillOverride).toBeNull();
     expect(opening(ctx, 'j').heightOverride ?? null).toBeNull();
   });
 

@@ -287,12 +287,12 @@ try {
         const o = editor.project.elements[id];
         return { heightOverride: o.heightOverride ?? null, sillOverride: o.sillOverride ?? null, status: useUi.getState().status, undoLabel: editor.store.undoLabel, tool: useUi.getState().tool, selection: [...useUi.getState().selection] };
       }, geo.win.id);
-      const expected = geo.door.z1 - geo.win.z0;
+      const expected = geo.door.z1 - (geo.win.z1 - geo.win.z0);
       report.check('segundo clique cria um único passo de undo', aligned.undoLabel === 'Alinhar no corte', String(aligned.undoLabel));
       report.check(
-        `topo da janela alinhado à porta (heightOverride ≈ ${round(expected)})`,
-        near(aligned.heightOverride, expected, 1e-6),
-        `heightOverride=${aligned.heightOverride}`,
+        `topo da janela alinhado à porta reposicionando o peitoril (sillOverride ≈ ${round(expected)})`,
+        near(aligned.sillOverride, expected, 1e-6) && aligned.heightOverride === null,
+        `sillOverride=${aligned.sillOverride} heightOverride=${aligned.heightOverride}`,
       );
       report.check('status confirma o alinhamento', /alinhad[ao]/i.test(aligned.status), aligned.status);
       report.check('o fluxo termina sem seleção', aligned.selection.length === 0, JSON.stringify(aligned.selection));
@@ -304,7 +304,7 @@ try {
         const o = editor.project.elements[id];
         return { heightOverride: o.heightOverride ?? null, sillOverride: o.sillOverride ?? null };
       }, geo.win.id);
-      report.check('undo restaura o heightOverride da janela', undone.heightOverride === null && undone.sillOverride === null, JSON.stringify(undone));
+      report.check('undo restaura a janela (sem override de peitoril/altura)', undone.heightOverride === null && undone.sillOverride === null, JSON.stringify(undone));
     }
   });
 

@@ -399,9 +399,18 @@ export class SectionAlignTool extends ToolBase {
       const z = ref.z;
       const sill = openingSill(type, o);
       if (target.feature === 'top') {
-        const height = round3(z - base - sill);
-        if (height < 0.01) { this.env.say('A referência fica baixa demais para o topo; nada foi alterado.'); return; }
-        this.commit({ type: 'updateElements', ids: [o.id], patch: { heightOverride: height } }, `Topo alinhado em ${cotaText(this.env, z)}`);
+        if (o.kind === 'door') {
+          // Porta não tem peitoril útil: o topo continua sendo ajustado pela altura.
+          const height = round3(z - base - sill);
+          if (height < 0.01) { this.env.say('A referência fica baixa demais para o topo; nada foi alterado.'); return; }
+          this.commit({ type: 'updateElements', ids: [o.id], patch: { heightOverride: height } }, `Topo alinhado em ${cotaText(this.env, z)}`);
+          return;
+        }
+        // Janela: alinhar o topo reposiciona o vão (peitoril), preservando a altura da família/instância.
+        const height = openingHeight(type, o);
+        const next = round3(z - base - height);
+        if (next < 0) { this.env.say('A referência fica abaixo da base da parede; peitoril não alterado.'); return; }
+        this.commit({ type: 'updateElements', ids: [o.id], patch: { sillOverride: next } }, `Topo alinhado em ${cotaText(this.env, z)}`);
         return;
       }
       if (target.feature === 'sill') {
