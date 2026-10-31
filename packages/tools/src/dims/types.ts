@@ -1,5 +1,5 @@
 import type { Vec2 } from '@hestia/geom';
-import type { Command, Element, Id, OpeningDimRef, Project, Quantity, ResolvedDimensionSettings, WallDimRef } from '@hestia/model';
+import type { Command, DimensionElementRef, Element, Id, OpeningDimRef, Project, Quantity, ResolvedDimensionSettings, WallDimRef } from '@hestia/model';
 
 /** Tipo de elemento ao qual um provedor de cotas se liga (o campo `kind` do elemento). */
 export type ElementKind = Element['kind'];
@@ -54,6 +54,11 @@ export interface TempDim {
   quantity?: Quantity;
   /** Medida informativa exibida ao lado da principal (ex.: ângulo do deslocamento). */
   secondary?: DimSecondaryMeasure;
+  /**
+   * Feições de elemento a que `a`/`b` se prendem, quando o provedor as conhece (viram `Dimension.refs`: a cota permanente
+   * acompanha o elemento). Ausente numa ponta = ponto livre.
+   */
+  refs?: { a?: DimensionElementRef; b?: DimensionElementRef };
   /** Pontas na ordem de `a` e `b`. */
   ends: [DimEnd, DimEnd];
   tone?: 'valid' | 'invalid';

@@ -15,6 +15,7 @@ import {
 } from '@hestia/model';
 import { occupiedRanges } from '../../infer.ts';
 import { overlapsPerpendicular, perpendicularNeighbors } from '../../openingPlacement.ts';
+import { matchDimRef, tempRefs } from '../permanent.ts';
 import { hostTargets, type HostTarget } from '../refs.ts';
 import { neighborOpeningTargets } from './openingNeighbors.ts';
 import type { DimContext, DimEditResult, DimEnd, DimProvider, TempDim } from '../types.ts';
@@ -128,6 +129,7 @@ function buildDim(c: SideCtx, side: 'left' | 'right', target: HostTarget, wallRe
     offset: toward * subject.side * DIM_OFFSET,
     value,
     ends: [wallEnd, selfEnd],
+    ...tempRefs(matchDimRef(c.ctx.project, wallPt, [target.ownerId, subject.hostId]), matchDimRef(c.ctx.project, selfPt, [subject.id])),
     ...(edit ? { edit } : {}),
   };
 }

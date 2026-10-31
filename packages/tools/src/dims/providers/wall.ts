@@ -8,6 +8,7 @@ import {
   type Project,
   type WallDimRef,
 } from '@hestia/model';
+import { matchDimRef, tempRefs } from '../permanent.ts';
 import { translateWallsJoined } from '../../wallFollow.ts';
 import { axisGaps, type AxisGap } from './wallAxisGaps.ts';
 import { wallLateralGaps } from './wallLateral.ts';
@@ -63,6 +64,7 @@ function axisDim(project: Project, frame: WallFrame, gap: AxisGap, ref: WallDimR
       { at: a, slot: `${slot}Self`, kind: 'wall', current: ref, options: [ref] },
       { at: b, slot, kind: 'wall', current: ref, options: WALL_DIM_REFS },
     ],
+    ...tempRefs(matchDimRef(project, a, [frame.wall.id]), undefined),
     edit,
   };
 }
@@ -85,6 +87,7 @@ function gapDim(project: Project, frame: WallFrame, gap: ParallelGap, ref: WallD
       { at: a, slot: gap.side > 0 ? 'gapRightA' : 'gapLeftA', kind: 'wall', current: ref, options: WALL_DIM_REFS },
       { at: b, slot: gap.side > 0 ? 'gapRightB' : 'gapLeftB', kind: 'wall', current: ref, options: WALL_DIM_REFS },
     ],
+    ...tempRefs(matchDimRef(project, a, [frame.wall.id]), matchDimRef(project, b, [frame.wall.id])),
     edit,
   };
 }

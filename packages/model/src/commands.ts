@@ -53,6 +53,7 @@ import { withBridgedComposition } from './openingCompositionOf.ts';
 import { comTerminoValido } from './termino.ts';
 import { viewRangeIssues, type ViewRange } from './viewRange.ts';
 import type { DxfLayerStyle } from './dxfLayerStyle.ts';
+import type { DimensionStyle } from './dimensionContract.ts';
 import type { DeepPartial, ProjectGraphics, View3DSettings, ViewGraphics, ViewHidden } from './graphics.ts';
 import { applyViewHidden } from './viewHiddenCommands.ts';
 import { applySectionAnnotations } from './sectionAnnotationCommands.ts';
@@ -143,6 +144,7 @@ export type Command =
   | { type: 'setProjectName'; name: string }
   | { type: 'setDefaults'; patch: Partial<Project['defaults']> }
   | { type: 'setSettings'; patch: Partial<Project['settings']> }
+  | { type: 'setDimensionStyle'; patch: Partial<DimensionStyle> }
   | { type: 'setDxfLayerStyle'; layer: string; style: DxfLayerStyle }
   | { type: 'resetDxfLayers' }
   | { type: 'toggleOpeningFavorite'; id: Id }
@@ -520,6 +522,9 @@ export function applyCommand(p: Project, c: Command): void {
       break;
     case 'setSettings':
       p.settings = { ...p.settings, ...c.patch };
+      break;
+    case 'setDimensionStyle':
+      p.settings = { ...p.settings, dimensionStyle: { ...(p.settings.dimensionStyle ?? {}), ...c.patch } };
       break;
     case 'setDxfLayerStyle': {
       const layer = c.layer.trim();
