@@ -202,18 +202,22 @@ try {
     });
     report.check('corte tem janela e porta visíveis', !!geo && !!geo.win && !!geo.door, JSON.stringify(geo));
     if (geo && geo.win && geo.door) {
-      await page.evaluate((id) => {
+      await page.evaluate(() => {
         const { editor, useUi } = window.__hestia;
-        useUi.setState({ selection: [id] });
+        // Fluxo novo do Revit: nada selecionado; referência e alvo são escolhidos pelos cliques.
+        useUi.setState({ selection: [] });
         editor.setTool('align');
-      }, geo.win.id);
+      });
       await page.waitForTimeout(150);
 
       // Ponto sobre a reta do topo da porta, um pouco além do vão (onde o rastreamento estende a guia).
-      const refX = geo.door.t1 + 0.75;
+      const probeX = geo.door.t1 + 0.75;
+      const probeY = geo.door.z1;
+      const probe = await screenOf(probeX, probeY);
+      // O clique da referência é na linha do topo do vão da porta.
+      const refX = (geo.door.t0 + geo.door.t1) / 2;
       const refY = geo.door.z1;
-      const ref = await screenOf(refX, refY);
-      const topMid = await screenOf((geo.door.t0 + geo.door.t1) / 2, geo.door.z1);
+      const topMid = await screenOf(refX, refY);
 
       // Caso 0: o topo do vão em si (ponto/aresta da porta) também entra na captura.
       await page.mouse.move(topMid.x, topMid.y);
@@ -222,7 +226,7 @@ try {
       report.check('hover sobre o topo do vão da porta reconhece snap', !!topInf && topInf.kind !== 'none', topInf ? `kind=${topInf.kind} guides=${topInf.guides}` : 'inference()=null');
 
       // Caso 1 (interface): mover o mouse e ler a inferência da ferramenta.
-      await page.mouse.move(ref.x, ref.y);
+      await page.mouse.move(probe.x, probe.y);
       await page.waitForTimeout(150);
       const hoverInf = await inference();
       const hoverUi = await ui();
@@ -231,7 +235,7 @@ try {
         !!hoverInf && hoverInf.kind !== 'none' && hoverInf.guides > 0,
         hoverInf
           ? `kind=${hoverInf.kind} guides=${hoverInf.guides}`
-          : `inference()=null; useUi.snapKind='${hoverUi.snapKind}'. Diagnóstico: o ramo do corte em apps/web/src/ui/ViewportCanvas.tsx (onMove) só entrega 'move' à ferramenta com o botão pressionado (drag.mode === 'tool'); sem botão ele chama apenas hoverSectionAt(s). A ferramenta Alinhar só recebe move no clique/arraste.`,
+          : `inference()=null; useUi.snapKind='${hoverUi.snapKind}'. Diagnóstico: o ramo do corte em apps/web/src/ui/ViewportCanvas.tsx (onMove) só alimenta a ferramenta com move quando drag.mode === 'tool' ou quando há ferramenta ativa sem botão; confira o caminho de hover da ferramenta Alinhar.`,
       );
       report.check('barra de status recebe o tipo de snap no hover', hoverUi.snapKind === hoverInf?.kind && hoverInf.kind !== 'none', `snapKind=${hoverUi.snapKind}`);
 
@@ -241,7 +245,7 @@ try {
         editor.pointer('move', { raw: { x, y }, shift: false, ctrl: false, alt: false });
         const i = editor.activeTool.inference();
         return i && { point: i.point, kind: i.kind, guides: i.guides.length, hostId: i.hostId ?? null };
-      }, { x: refX, y: refY });
+      }, { x: probeX, y: probeY });
       report.check('inferência direta (sem a ponte do canvas) reconhece alinhamento', !!direct && direct.kind === 'alignment' && direct.guides > 0, JSON.stringify(direct));
 
       // Caminho real do usuário: clique na referência (o clique sempre chega à ferramenta).
@@ -249,29 +253,39 @@ try {
         const o = window.__hestia.editor.project.elements[id];
         return { heightOverride: o.heightOverride ?? null, sillOverride: o.sillOverride ?? null };
       }, geo.win.id);
-      await page.mouse.click(ref.x, ref.y);
+      await page.mouse.click(topMid.x, topMid.y);
       await page.waitForTimeout(180);
       const refState = await page.evaluate(() => {
         const { editor, useUi } = window.__hestia;
-        return { status: useUi.getState().status, preview: editor.activeTool.preview(), tool: useUi.getState().tool };
+        const i = editor.activeTool.inference();
+        return {
+          status: useUi.getState().status, preview: editor.activeTool.preview(), tool: useUi.getState().tool,
+          selection: [...useUi.getState().selection],
+          guides: (i?.guides ?? []).map((g) => ({ from: g.from, to: g.to, kind: g.kind })),
+        };
       });
-      const line = refState.preview.find((i) => i.kind === 'line' && !i.dashed);
+      const guide = refState.guides.find((g) => g.kind === 'alignment'
+        && near(g.from.y, refY, 1e-6) && near(g.to.y, refY, 1e-6)
+        && near(g.from.x, 0, 1e-6) && near(g.to.x, geo.length, 1e-6));
       report.check('clique na referência avisa e mantém a ferramenta ativa', refState.tool === 'align' && /Refer/i.test(refState.status), refState.status);
+      report.check('clique na referência não seleciona nada', refState.selection.length === 0, JSON.stringify(refState.selection));
       report.check(
-        'guia da referência vai de ponta a ponta na cota da porta',
-        !!line && near(line.a.y, refY, 1e-6) && near(line.b.y, refY, 1e-6) && near(line.a.x, 0, 1e-6) && near(line.b.x, geo.length, 1e-6),
-        line ? `y=${round(line.a.y)} x=[${round(line.a.x)}, ${round(line.b.x)}]` : 'sem linha de guia',
+        'guia da referência vai de ponta a ponta na cota da porta (pela inferência, não pelo preview)',
+        !!guide,
+        guide ? `y=${round(guide.from.y)} x=[${round(guide.from.x)}, ${round(guide.to.x)}]` : `guides=${JSON.stringify(refState.guides)}`,
       );
+      report.check('o preview não desenha uma linha própria de referência',
+        !refState.preview.some((i) => i.kind === 'line' && !i.dashed), JSON.stringify(refState.preview));
       report.check('primeiro clique não altera o modelo', before.heightOverride === null && before.sillOverride === null, JSON.stringify(before));
 
-      // Alvo: a janela selecionada. Um clique em qualquer ponto dela usa a seleção.
-      const target = await screenOf((geo.win.t0 + geo.win.t1) / 2, (geo.win.z0 + geo.win.z1) / 2);
+      // Alvo: a linha do topo da janela. Nada precisa estar selecionado: o segundo clique descobre a janela.
+      const target = await screenOf((geo.win.t0 + geo.win.t1) / 2, geo.win.z1);
       await page.mouse.click(target.x, target.y);
       await page.waitForTimeout(220);
       const aligned = await page.evaluate((id) => {
         const { editor, useUi } = window.__hestia;
         const o = editor.project.elements[id];
-        return { heightOverride: o.heightOverride ?? null, sillOverride: o.sillOverride ?? null, status: useUi.getState().status, undoLabel: editor.store.undoLabel, tool: useUi.getState().tool };
+        return { heightOverride: o.heightOverride ?? null, sillOverride: o.sillOverride ?? null, status: useUi.getState().status, undoLabel: editor.store.undoLabel, tool: useUi.getState().tool, selection: [...useUi.getState().selection] };
       }, geo.win.id);
       const expected = geo.door.z1 - geo.win.z0;
       report.check('segundo clique cria um único passo de undo', aligned.undoLabel === 'Alinhar no corte', String(aligned.undoLabel));
@@ -280,7 +294,8 @@ try {
         near(aligned.heightOverride, expected, 1e-6),
         `heightOverride=${aligned.heightOverride}`,
       );
-      report.check('status confirma o alinhamento', /alinhado/i.test(aligned.status), aligned.status);
+      report.check('status confirma o alinhamento', /alinhad[ao]/i.test(aligned.status), aligned.status);
+      report.check('o fluxo termina sem seleção', aligned.selection.length === 0, JSON.stringify(aligned.selection));
 
       await page.evaluate(() => window.__hestia.editor.store.undo());
       await page.waitForTimeout(180);
