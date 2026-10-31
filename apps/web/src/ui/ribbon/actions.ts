@@ -262,6 +262,16 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
       return transfer.hasClip() ? false : t('Nada copiado ainda. Use Copiar ou Ctrl+C.', 'Nothing copied yet. Use Copy or Ctrl+C.');
     },
   },
+  pasteAlignedLevels: {
+    label: t('Alinhado aos níveis selecionados', 'Aligned to Selected Levels'),
+    icon: 'paste',
+    hint: t('Copia a seleção para um ou vários níveis, mantendo o X/Y e os offsets do nível.', 'Copies the selection to one or more levels, keeping X/Y and level offsets.'),
+    run: () => { editor.openPasteLevelsDialog(); },
+    disabled: (c) => {
+      if (c.view === 'sheet') return t('Não vale para pranchas.', 'Not available for sheets.');
+      return transfer.hasClip() ? false : t('Nada copiado ainda. Use Copiar ou Ctrl+C.', 'Nothing copied yet. Use Copy or Ctrl+C.');
+    },
+  },
   delete: {
     label: t('Excluir', 'Delete'),
     icon: 'close',

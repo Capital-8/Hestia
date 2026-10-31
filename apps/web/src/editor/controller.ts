@@ -695,6 +695,40 @@ export class Editor {
     this.setTool('paste');
     return useUi.getState().tool === 'paste';
   }
+
+  /** Abre o diálogo "Selecionar níveis" do Colar alinhado aos níveis selecionados. */
+  openPasteLevelsDialog(): boolean {
+    if (!transfer.hasClip()) {
+      useUi.setState({ status: 'Nada copiado. Use Copiar ou Ctrl+C.' });
+      return false;
+    }
+    useUi.setState({ dialog: 'selectLevels', dialogArg: null });
+    return true;
+  }
+
+  /** Entra no modo de prévia do colar alinhado (3D enquadrado, aba V/X). Implementação: integração. */
+  previewPasteLevels(_levelIds: Id[], _link: boolean): boolean {
+    useUi.setState({ status: 'Prévia do colar alinhado ainda não ligada.' });
+    return false;
+  }
+
+  /** Confirma a prévia e grava tudo num único passo de desfazer. */
+  confirmPasteLevels(): boolean {
+    useUi.setState({ status: 'Confirmar o colar alinhado ainda não ligado.' });
+    return false;
+  }
+
+  /** Cancela a prévia e volta para a vista de origem, sem tocar no modelo. */
+  cancelPasteLevels(): void {
+    useUi.setState({ pastePreview: null, status: 'Colar alinhado cancelado.' });
+  }
+
+  /** Cola direto, sem prévia (caminho do botão "Colar" do diálogo). */
+  pasteLevelsDirect(_levelIds: Id[], _link: boolean): boolean {
+    useUi.setState({ status: 'Colar alinhado ainda não ligado.' });
+    return false;
+  }
+
   /** Seleciona todas as paredes e aberturas do nível ativo com o tipo dado. */
   selectAllOfType(typeId: Id): number { return transfer.ofType(this.project, useUi.getState().levelId, typeId); }
   /** "Mesmo tipo" (botão na aba Modificar). */

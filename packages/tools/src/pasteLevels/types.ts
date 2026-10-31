@@ -1,0 +1,39 @@
+import type { Command, Id } from '@hestia/model';
+import type { MintId } from '../clipboard.ts';
+
+/** Opções do colar alinhado a vários níveis. `link` guarda o vínculo de andar-tipo (padrão: falso). */
+export interface PasteLevelsOptions {
+  link?: boolean;
+  mint?: MintId;
+}
+
+/** Ids criados em um nível de destino, por categoria. */
+export interface PasteIds {
+  walls: Id[];
+  openings: Id[];
+  floors: Id[];
+  slabs: Id[];
+  ceilings: Id[];
+  roofs: Id[];
+  stairs: Id[];
+  ramps: Id[];
+  rooms: Id[];
+  generics: Id[];
+  cad: Id[];
+}
+
+/** Aviso do colar, agregado por nível. */
+export type PasteWarningKind = 'overlap' | 'opening-dropped' | 'too-tall' | 'top-overflow' | 'room-open' | 'ceiling-unlinked';
+
+export interface PasteWarning {
+  levelId: Id;
+  kind: PasteWarningKind;
+  count: number;
+}
+
+/** Resultado do colar: um único batch e os ids por nível. */
+export interface PasteLevelsResult {
+  command: Command;
+  byLevel: Record<Id, PasteIds>;
+  warnings: PasteWarning[];
+}
