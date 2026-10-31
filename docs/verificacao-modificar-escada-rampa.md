@@ -22,17 +22,31 @@ Base: `dc33e03c`. Branch de integração: `feat/mod-integ`.
   transformações, fantasmas, Alinhar, pick e as guardas/edições de aresta. Os cinco casos que estavam em
   `describe.skip` foram habilitados e passam.
 
+## Atualização E/F — snap resolvido e Alinhar com a aresta inteira
+
+- **E — snap pela geometria resolvida:** `componentSnapGeometry` passou a usar `resolveStairOne`/`resolveRampOne`
+  (degraus, patamares, pegada, espelhos, bordas de lance) e `planComponentsInLevel` (nasce no nível, chega nele ou
+  atravessa a cota). Assim cada vértice/aresta que a planta desenha vira `endpoint`/`nearest`, inclusive a escada
+  esmaecida do pavimento de baixo e a chegada. Sem peça resolvida, o croqui continua como fallback.
+- **F — Alinhar a aresta inteira:** `alignFeaturesAt` cria uma feição por curva lógica (limite, espelho, caminhada,
+  contorno de patamar), com `seg` para retas e `curve` para arcos; arcos usam a tangente no ponto clicado e desenham
+  o arco inteiro. `AlignTool.featureItems` deixou de desenhar o risco fixo de 2,4 m quando existe `seg`/`curve`.
+  A visibilidade segue `planComponentsInLevel`.
+- Testes novos: `componentSnapResolvido.test.ts` (reta, L, U, caracol, rampa, chegada/sobreposição, fallback) e
+  `alignStairFace.test.ts` (aresta inteira, contagem por curva, arco/tangente, rampa, chegada).
+- Commits: helper `f3a4e7fe`, snap `52791fd1`, Alinhar `dacaa531`; integração em `feat/mod-integ`.
+
 ## Resultados da integração
 
 ```powershell
 npx vitest run packages/tools/src packages/model/src --testTimeout=120000
-# 231 arquivos, 2641 testes, 2641 passando, 0 falhas
+# 234 arquivos, 2655 testes, 2655 passando, 0 falhas
 
 npx vitest run apps/web/src --testTimeout=120000
 # 181 arquivos, 1509 testes, 1509 passando, 0 falhas
 
 npx vitest run packages apps/web tests --testTimeout=120000
-# 779 arquivos, 8581 testes, 8581 passando, 0 falhas
+# 782 arquivos, 8594 testes, 8594 passando, 0 falhas
 
 npx tsc -p tsconfig.json --noEmit
 # limpo
@@ -84,6 +98,8 @@ Pré-requisito: uma planta com uma escada (reta ou caracol) e uma rampa, ambas c
 ```powershell
 npx vitest run packages/tools/src/modificarEscadaRampa.regressao.test.ts --testTimeout=120000
 npx vitest run packages/tools/src/rampEdgeTool.test.ts --testTimeout=120000
+npx vitest run packages/tools/src/componentSnapResolvido.test.ts --testTimeout=120000
+npx vitest run packages/tools/src/alignStairFace.test.ts --testTimeout=120000
 npx vitest run packages/tools/src packages/model/src --testTimeout=120000
 npx vitest run apps/web/src --testTimeout=120000
 npx tsc -p tsconfig.json --noEmit
