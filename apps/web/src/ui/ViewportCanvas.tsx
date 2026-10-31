@@ -1,5 +1,5 @@
 /* eslint-disable max-lines -- a vista reúne planta, 3D, corte e o editor da cota; extrair depois. */
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
 import { DARK, LIGHT, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport } from '@hestia/render';
 import { formatQuantity, unitsOf, view3dOf } from '@hestia/model';
 import { useShallow } from 'zustand/react/shallow';
@@ -7,6 +7,7 @@ import { editor } from '../editor/controller.ts';
 import { visibilityOf } from '../editor/viewVisibility.ts';
 import { usePerimeter } from '../editor/perimeter.ts';
 import { hoverSectionAt, sectionPickAt } from '../editor/sectionPick.ts';
+import { gestoDoBotaoNoCorte, idsNaCaixaDoCorte, selecaoComCaixa } from '../editor/sectionBoxSelect.ts';
 import { sectionHandleAt, sectionHandleCommand, sectionOpeningValues } from '../editor/sectionHandles.ts';
 import { clickSelect3d, useUi } from '../editor/state.ts';
 import { consumirCameraPendente, registrarOrbita3D } from '../editor/vista3dAoVivo.ts';
@@ -48,6 +49,8 @@ interface DownAdiado {
 
 /** Rótulos vazios com referência fixa: a planta compara por identidade para não atualizar o estado à toa. */
 const NO_LABELS: LabelOp[] = [];
+/** Retângulo da caixa de seleção do corte; começa oculto e o gesto só muda posição, tamanho e traço. */
+const CAIXA_DE_SELECAO_STYLE: CSSProperties = {position: 'absolute', display: 'none', pointerEvents: 'none', zIndex: 2, border: '1px solid var(--accent)', background: 'var(--accent-soft)' };
 
 /** Desenha o plano (GPU ou CPU) e o 3D, e traduz o ponteiro em chamadas ao editor. */
 export function ViewportCanvas(): ReactElement {
@@ -344,7 +347,30 @@ export function ViewportCanvas(): ReactElement {
   const pointers = useRef(new Map<number, Pt>());
   /** `pick`: o ponteiro foi o botão esquerdo sem Espaço, então um clique sem arrasto na vista 3D escolhe um elemento (Shift pode ser pan). */
   /** `shiftPending`: Shift com ferramenta de desenho na planta; sem arrasto é clique com shift (trava ortogonal), com arrasto vira pan. */
-  const drag = useRef<{ mode: 'tool' | 'pan' | 'orbit' | 'none'; start: Pt; last: Pt; moved: boolean; pick: boolean; shiftPending?: boolean }>({ mode: 'none', start: { x: 0, y: 0 }, last: { x: 0, y: 0 }, moved: false, pick: false });
+  const drag = useRef<{ mode: 'tool' | 'pan' | 'orbit' | 'marquee' | 'none'; start: Pt; last: Pt; moved: boolean; pick: boolean; shiftPending?: boolean }>({ mode: 'none', start: { x: 0, y: 0 }, last: { x: 0, y: 0 }, moved: false, pick: false });
+  /** Retângulo da caixa de seleção do corte (DOM, atualizado sem re-render enquanto o botão está preso). */
+  const caixaRef = useRef<HTMLDivElement>(null);
+  const mostrarCaixa = (a: Pt, b: Pt): void => {
+    const el = caixaRef.current;
+    if (!el) return;
+    el.style.display = 'block';
+    el.style.left = `${Math.min(a.x, b.x)}px`;
+    el.style.top = `${Math.min(a.y, b.y)}px`;
+    el.style.width = `${Math.abs(b.x - a.x)}px`;
+    el.style.height = `${Math.abs(b.y - a.y)}px`;
+    // Janela (esquerda→direita) sólida; cruzamento (direita→esquerda) tracejada, como na planta.
+    el.style.borderStyle = b.x >= a.x ? 'solid' : 'dashed';
+  };
+  const ocultarCaixa = (): void => { if (caixaRef.current) caixaRef.current.style.display = 'none'; };
+  /** Aplica a caixa do corte: converte as pontas para (t,z) e troca (ou soma, com Shift/Ctrl) a seleção. */
+  const aplicarCaixaDoCorte = (a: Pt, b: Pt, somar: boolean): void => {
+    const v = editor.viewport();
+    const st = useUi.getState();
+    const result = st.sectionId ? editor.sectionOf(st.sectionId) : null;
+    if (!v || !result) return;
+    const ids = idsNaCaixaDoCorte(result, screenToWorld(v, a), screenToWorld(v, b));
+    useUi.setState({ selection: selecaoComCaixa(st.selection, ids, somar), selectedLevel: null });
+  };
   const gesture = useRef<{ dist: number; mid: Pt } | null>(null);
   const spaceDown = useRef(false);
   /** Botão direito pressionado: solto sem arrasto (mais de 4 px) abre o menu de contexto. */
@@ -549,7 +575,13 @@ export function ViewportCanvas(): ReactElement {
         editor.pointer('down', info(e, s));
         return;
       }
-      // Sem ferramenta ativa, o botão esquerdo arrasta a vista e, sem arrasto, seleciona (decisão 0016).
+      // Sem ferramenta ativa, o botão esquerdo faz caixa de seleção como na planta; sem arrasto, seleciona (decisão 0016).
+      // Meio, Espaço e Alt arrastam a vista (pan).
+      if (gestoDoBotaoNoCorte({ botao: e.button, espaco: spaceDown.current, alt: e.altKey }) === 'caixa') {
+        drag.current = { mode: 'marquee', start: s, last: s, moved: false, pick: true };
+        if (useUi.getState().hover) useUi.setState({ hover: null });
+        return;
+      }
       drag.current = { mode: 'pan', start: s, last: s, moved: false, pick: e.button === 0 && !spaceDown.current };
       if (useUi.getState().hover) useUi.setState({ hover: null });
       return;
@@ -606,6 +638,11 @@ export function ViewportCanvas(): ReactElement {
     // Sem botão pressionado, o corte realça o elemento sob o cursor (decisão 0016). Com ferramenta, o pointer
     // segue o mesmo fluxo da planta, em coordenadas (t,z).
     if (view === 'section') {
+      if (d.mode === 'marquee') {
+        if (!d.moved && passouDoLimiar(Math.hypot(s.x - d.start.x, s.y - d.start.y))) d.moved = true;
+        if (d.moved) mostrarCaixa(d.start, s);
+        return;
+      }
       if (sectionHandleDrag.current) {
         const v = editor.viewport();
         if (v) {
@@ -711,6 +748,11 @@ export function ViewportCanvas(): ReactElement {
       if (d.shiftPending) editor.pointer('down', inf);
       for (const ev of eventosDeSolta(d.moved)) editor.pointer(ev, inf);
     }
+    // Caixa do corte: arrasto solta a caixa; sem arrasto, cai no clique abaixo (seleciona o elemento ou limpa o vazio).
+    if (d.mode === 'marquee') {
+      ocultarCaixa();
+      if (d.moved) aplicarCaixaDoCorte(d.start, s, e.shiftKey || e.ctrlKey);
+    }
     // Clique sem arrasto na vista 3D. Com ferramenta que aceita pick3d: vai o ponto da superfície sob o cursor (no plano).
     // Sem essa ferramenta (seleção): seleciona o elemento sob o cursor; Shift/Ctrl acrescenta ou alterna (decisão 0016 §3).
     // Clique no vazio deseleciona.
@@ -752,6 +794,7 @@ export function ViewportCanvas(): ReactElement {
     gesture.current = null;
     rightPress.current = null;
     const d = drag.current;
+    if (d.mode === 'marquee') ocultarCaixa();
     if (d.mode === 'tool' && !downAdiado.current && !d.shiftPending) editor.activeTool.cancel?.();
     cancelarDownAdiado();
     drag.current = { mode: 'none', start: fim, last: fim, moved: false, pick: false };
@@ -798,7 +841,8 @@ export function ViewportCanvas(): ReactElement {
   const cursorCss = cursorForView({
     view: ui.view,
     tool: ui.tool,
-    drag: drag.current.mode,
+    // A caixa usa a seta (Selecionar), como a planta; só pan/orbit pedem a mão.
+    drag: drag.current.mode === 'marquee' ? 'none' : drag.current.mode,
     moved: drag.current.moved,
     handle: handleAxis,
   });
@@ -817,6 +861,7 @@ export function ViewportCanvas(): ReactElement {
       <PlanLabels ref={labelLayer} labels={ui.view !== '3d' && labelView ? labels : NO_LABELS} v={labelView} />
       <ViewportOverlays host={host} model={model.current} selection={selection} ui={ui} />
       <NivelCotaEditor ref={cotaRef} />
+      <div ref={caixaRef} style={CAIXA_DE_SELECAO_STYLE} />
     </div>
   );
 }
