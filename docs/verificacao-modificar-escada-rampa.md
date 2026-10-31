@@ -38,19 +38,19 @@ Base: `dc33e03c`. Branch de integração: `feat/mod-integ`.
 - **Ajuste final no snap das ferramentas de transformação:** Mover/Copiar/Girar/Espelhar/Matriz ignoravam
   os próprios elementos selecionados (`ignore: new Set(els)`), então os vértices da escada selecionada não
   apareciam como candidatos. O filtro foi removido: o próprio vértice serve de ponto-base e de destino.
-  Coberto por `transformSnapStair.test.ts` (6 testes).
+  O mesmo vale para **Selecionar + arrastar**. Coberto por `transformSnapStair.test.ts` (7 testes).
 
 ## Resultados da integração
 
 ```powershell
 npx vitest run packages/tools/src packages/model/src --testTimeout=120000
-# 235 arquivos, 2661 testes, 2661 passando, 0 falhas
+# 235 arquivos, 2662 testes, 2662 passando, 0 falhas
 
 npx vitest run apps/web/src --testTimeout=120000
 # 181 arquivos, 1509 testes, 1509 passando, 0 falhas
 
 npx vitest run packages apps/web tests --testTimeout=120000
-# 783 arquivos, 8600 testes, 8600 passando, 0 falhas
+# 783 arquivos, 8601 testes, 8601 passando, 0 falhas
 
 npx tsc -p tsconfig.json --noEmit
 # limpo

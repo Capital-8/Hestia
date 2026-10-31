@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaultStairTypeId, makeStair, type StairCurve, type StairRun } from '@hestia/model';
+import { SelectTool } from './selectTool.ts';
 import { P, makeEnv, tool } from './testEnv.ts';
 import type { ToolId } from './registry.ts';
 
@@ -39,6 +40,16 @@ describe('snap nos vértices do próprio elemento selecionado (escada)', () => {
     const t = tool('move', ctx.env);
     t.click(P(0, 0)); // ponto-base
     t.move(P(1, 2));
+    expect(t.inference()?.kind).toBe('endpoint');
+    expect(t.inference()?.hostId).toBe('st');
+  });
+
+  it('Selecionar + arrastar: o vértice da escada também captura', () => {
+    const ctx = ctxWithSelectedStair();
+    const t = new SelectTool(ctx.env);
+    t.start();
+    t.down(P(0.5, 2));
+    t.drag(P(0, 0));
     expect(t.inference()?.kind).toBe('endpoint');
     expect(t.inference()?.hostId).toBe('st');
   });
