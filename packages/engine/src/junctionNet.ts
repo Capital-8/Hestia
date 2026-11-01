@@ -2,7 +2,7 @@ import { boxOf, boxesOverlap, intersection, multiArea, multiPoints, triangulate,
 import { levelAbove, type Id, type Project } from '@hestia/model';
 import { bandTopAt } from './profile.ts';
 import { fontesDoCortador } from './junctionIndex.ts';
-import { cacheDeCortadores } from './cutterCache.ts';
+import { cacheDeCortadores, type EntradaCortadores } from './cutterCache.ts';
 import { resolveFloors, type ResolvedFloor, type ResolvedFloorLayer } from './floors.ts';
 import { resolveSlabs, slabRiseAt, type ResolvedSlab } from './slabs.ts';
 import { winsOver, type JunctionKind, type JunctionMeta } from './junctionPlanar.ts';
@@ -276,6 +276,33 @@ export function spanRange(sp: SolidPiece): readonly [number, number] | null {
  * Pedaços de cada categoria de um nível, sem filtro: pisos e lajes por camada; paredes por faixa (`wallBandPieces`).
  */
 const levelCuttersCache = new WeakMap<Project, Map<Id, LevelCutters>>();
+
+/**
+ * Chave do cache de cortadores: o nível E o conjunto de níveis do projeto consultado. A junção pede os mesmos cortadores
+ * ao projeto inteiro e a um projeto reduzido (`projetoDaJuncao`), cujas fontes diferem (nível ausente entra pelo id). Com uma
+ * única entrada por nível, as duas versões se sobrescreviam: numa edição, `piso3` e `piso4` eram recalculados duas vezes e
+ * níveis que não mudaram voltavam a ser calculados. Uma entrada por variante evita o vaivém.
+ */
+function chaveDeCortadores(tipo: 'conteudo' | 'conjunto', p: Project, levelId: Id): string {
+  return `${tipo}:${levelId}:${p.levels.map((l) => l.id).join(',')}`;
+}
+
+type TipoCortadores = 'conteudo' | 'conjunto';
+
+/** Procura primeiro a entrada da variante (conjunto de níveis) e depois a genérica do nível; vale a que tem as mesmas fontes. */
+function buscarCortadores(tipo: TipoCortadores, p: Project, levelId: Id, sources: readonly unknown[]): EntradaCortadores | undefined {
+  for (const chave of [chaveDeCortadores(tipo, p, levelId), `${tipo}:${levelId}`]) {
+    const e = cacheDeCortadores.get(chave);
+    if (e && sameSources(e.sources, sources)) return e;
+  }
+  return undefined;
+}
+
+/** Guarda na entrada da variante e na genérica do nível (a variante evita o vaivém; a genérica é compartilhada entre variantes iguais). */
+function guardarCortadores(tipo: TipoCortadores, p: Project, levelId: Id, entrada: EntradaCortadores): void {
+  cacheDeCortadores.set(chaveDeCortadores(tipo, p, levelId), entrada);
+  cacheDeCortadores.set(`${tipo}:${levelId}`, entrada);
+}
 const sameSources = (a: readonly unknown[], b: readonly unknown[]): boolean => a.length === b.length && a.every((x, i) => x === b[i]);
 
 /**
@@ -291,8 +318,8 @@ function levelCutters(p: Project, levelId: Id): LevelCutters {
   const cached = byLevel.get(levelId);
   if (cached) return cached;
   const sources = fontesDoCortador(p, levelId);
-  const content = cacheDeCortadores.get(`conteudo:${levelId}`);
-  if (content && sameSources(content.sources, sources)) {
+  const content = buscarCortadores('conteudo', p, levelId, sources);
+  if (content) {
     byLevel.set(levelId, content.value);
     return content.value;
   }
@@ -302,7 +329,7 @@ function levelCutters(p: Project, levelId: Id): LevelCutters {
     walls: [{ kind: 'wall', pieces: wallBandPieces(p, levelId).map((w) => w.piece) }],
   };
   byLevel.set(levelId, result);
-  cacheDeCortadores.set(`conteudo:${levelId}`, { sources, value: result });
+  guardarCortadores('conteudo', p, levelId, { sources, value: result });
   return result;
 }
 
@@ -362,9 +389,9 @@ export function levelCutterSet(p: Project, levelId: Id): LevelCutters {
     out.slabs.push(...slabs);
     out.walls.push(...walls);
   }
-  const cached = cacheDeCortadores.get(`conjunto:${levelId}`);
-  if (cached && sameSources(cached.sources, sources)) return remember(cached.value);
-  cacheDeCortadores.set(`conjunto:${levelId}`, { sources, value: out });
+  const cached = buscarCortadores('conjunto', p, levelId, sources);
+  if (cached) return remember(cached.value);
+  guardarCortadores('conjunto', p, levelId, { sources, value: out });
   return remember(out);
 }
 

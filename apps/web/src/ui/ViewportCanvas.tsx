@@ -56,7 +56,7 @@ interface DownAdiado {
 /** Rótulos vazios com referência fixa: a planta compara por identidade para não atualizar o estado à toa. */
 const NO_LABELS: LabelOp[] = [];
 /** Retângulo da caixa de seleção do corte; começa oculto e o gesto só muda posição, tamanho e traço. */
-const CAIXA_DE_SELECAO_STYLE: CSSProperties = {position: 'absolute', display: 'none', pointerEvents: 'none', zIndex: 2, border: '1px solid var(--accent)', background: 'var(--accent-soft)' };
+const CAIXA_DE_SELECAO_STYLE: CSSProperties = {position: 'absolute', display: 'none', pointerEvents: 'none', zIndex: 2, border: '1.5px solid var(--accent)', background: 'color-mix(in srgb, var(--accent) 14%, transparent)', boxSizing: 'border-box' };
 
 /** Ganchos da vista 3D para a prévia do Colar alinhado. */
 export interface ViewportCanvasProps {
@@ -452,6 +452,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     el.style.width = `${Math.abs(b.x - a.x)}px`;
     el.style.height = `${Math.abs(b.y - a.y)}px`;
     // Janela (esquerda→direita) sólida; cruzamento (direita→esquerda) tracejada, como na planta.
+    // Igual à caixa da planta (`previewOverlay`, polígono do Selecionar): preenchimento de 14% na cor de destaque, borda de
+    // 1,5 px, tracejada no cruzamento (direita para a esquerda). O --accent-soft é opaco e escondia o modelo.
     el.style.borderStyle = b.x >= a.x ? 'solid' : 'dashed';
   };
   const ocultarCaixa = (): void => { if (caixaRef.current) caixaRef.current.style.display = 'none'; };
