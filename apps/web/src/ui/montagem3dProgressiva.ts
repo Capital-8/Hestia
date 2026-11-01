@@ -1,6 +1,7 @@
 import type { ResolvedLevel } from '@hestia/engine';
 import type { Id, Project } from '@hestia/model';
 import { chavesDeNivel, type Scene3DOptions } from '@hestia/render';
+import { interacaoAtiva, quandoLivre } from '../editor/interacaoAtiva.ts';
 import { useUi } from '../editor/state.ts';
 import { criarFonteNiveisWorker } from './montagem3dNiveis.ts';
 import { publicarProgresso3d } from './progresso3d.ts';
@@ -67,6 +68,14 @@ export interface OpcoesMontagem {
   worker?: FonteWorker | null;
   /** Prazo (ms) de uma resposta do worker antes da rede de segurança (padrão `PRAZO_WORKER_MS`). */
   prazoWorkerMs?: number;
+  /**
+   * Gesto de câmera (órbita, pan, zoom) em andamento ou recém-terminado. Com gesto ativo, nenhuma fatia síncrona roda: a
+   * montagem espera o fim dele (`quandoLivre`), e a cena continua mostrando a malha antiga dos níveis ainda pendentes.
+   * Padrão: o sinal global de `editor/interacaoAtiva.ts`.
+   */
+  interacaoAtiva?: () => boolean;
+  /** Roda `acao` quando não houver gesto ativo (espera e confere de novo). Padrão: `quandoLivre` do sinal global. */
+  quandoLivre?: (acao: () => void) => unknown;
 }
 
 /** Níveis na ordem de montagem: o visível primeiro, depois os mais perto dele. Empate: a ordem do projeto. */
@@ -145,6 +154,10 @@ export class Montagem3dProgressiva {
   private recebidosDesdeAplicar = 0;
   private readonly agendar: (tarefa: () => void) => void;
   private readonly relogio: () => number;
+  private readonly emGesto: () => boolean;
+  private readonly esperarGesto: (acao: () => void) => unknown;
+  /** Último `ResolvedLevel` de cada nível que a cena já mostra e que a edição invalidou: fica na cena até o novo chegar. */
+  private antigos = new Map<Id, ResolvedLevel>();
   private readonly orcamentoMs: number;
   private readonly prazoWorkerMs: number;
   /** Worker dos níveis; `null` depois de desistir dele (duas falhas) ou quando não há. */
@@ -163,6 +176,8 @@ export class Montagem3dProgressiva {
   constructor(private readonly op: OpcoesMontagem) {
     this.agendar = op.agendar ?? agendarPadrao;
     this.relogio = op.relogio ?? (() => performance.now());
+    this.emGesto = op.interacaoAtiva ?? interacaoAtiva;
+    this.esperarGesto = op.quandoLivre ?? quandoLivre;
     this.orcamentoMs = op.orcamentoMs ?? ORCAMENTO_PADRAO_MS;
     this.prazoWorkerMs = op.prazoWorkerMs ?? PRAZO_WORKER_MS;
     this.worker = op.worker ?? null;
@@ -195,6 +210,7 @@ export class Montagem3dProgressiva {
     this.pendentes = ordemDeMontagem(this.ordemProjeto, visivel);
     this.chaves = chavesDoProjeto(p);
     this.prontos = new Map();
+    this.antigos = new Map();
     this.forcar.clear();
     this.recebidosDesdeAplicar = 0;
     this.lote = this.worker ? 1 : LOTE_INICIAL;
@@ -245,6 +261,7 @@ export class Montagem3dProgressiva {
     this.projeto = null;
     this.pendentes = [];
     this.prontos = new Map();
+    this.antigos = new Map();
     this.chaves = new Map();
     this.forcar.clear();
     this.recebidosDesdeAplicar = 0;
@@ -267,6 +284,7 @@ export class Montagem3dProgressiva {
       if (this.prontos.has(id)) continue;
       this.prontos.set(id, this.nivel(id));
     }
+    this.antigos.clear();
     this.pendentes = [];
     this.aplicar();
     this.concluir();
@@ -288,10 +306,14 @@ export class Montagem3dProgressiva {
     const geracao = this.interromper();
     const chaves = chavesDoProjeto(p);
     const prontos = new Map<Id, ResolvedLevel>();
+    const antigos = new Map<Id, ResolvedLevel>();
     for (const id of this.ordemProjeto) {
       const nivel = this.prontos.get(id);
       if (nivel && this.chaves.get(id) === chaves.get(id)) prontos.set(id, nivel);
+      // Nível invalidado: a malha antiga (ou a antiga que já esperava) continua na cena até o novo ficar pronto.
+      else if (nivel ?? this.antigos.get(id)) antigos.set(id, (nivel ?? this.antigos.get(id))!);
     }
+    this.antigos = antigos;
     this.chaves = chaves;
     this.prontos = prontos;
     // Ordem de montagem do projeto (o visível primeiro), só com o que precisa ser re-resolvido.
@@ -301,15 +323,21 @@ export class Montagem3dProgressiva {
     this.soFatias = false;
     this.recebidosDesdeAplicar = 0;
     this.falhas = 0;
-    // Uma edição alcança poucos níveis: a primeira fatia (até `LOTE_INICIAL` deles) sai no mesmo quadro, sem o nível
-    // editado piscar fora da cena. O que sobrar (edição global) segue no worker, como em `iniciar`.
-    this.lote = LOTE_INICIAL;
+    // Uma edição alcança poucos níveis: a primeira fatia sai no mesmo quadro (o nível editado, que é o visível). Os
+    // demais níveis alcançados (vizinhos por cota, edição global) entram um por tarefa, e a cena segue mostrando a malha
+    // antiga deles até lá (`antigos`): nada some nem pisca. Com gesto de câmera ativo, nem a primeira fatia roda agora.
+    this.lote = 1;
     if (this.pendentes.length === 0) {
       this.aplicar();
       return this.concluir();
     }
     this.concluido = false;
     this.worker?.iniciar(p);
+    if (this.emGesto()) {
+      this.agendar(() => this.esperarGesto(() => this.fatia(geracao)));
+      if (this.worker) this.bombear(geracao);
+      return;
+    }
     this.fatia(geracao);
     if (this.worker && this.pendentes.length > 0) this.bombear(geracao);
   }
@@ -329,14 +357,17 @@ export class Montagem3dProgressiva {
   private fatia(geracao: number): void {
     if (geracao !== this.geracao || !this.projeto || !this.opcoes) return;
     const inicio = this.relogio();
-    for (const id of this.pendentes.splice(0, this.lote)) this.prontos.set(id, this.nivel(id));
+    for (const id of this.pendentes.splice(0, this.lote)) {
+      this.prontos.set(id, this.nivel(id));
+      this.antigos.delete(id);
+    }
     this.recebidosDesdeAplicar = 0;
     this.aplicar();
     if (this.pendentes.length === 0) return this.concluir();
     // Com worker, a partir daqui cada nível vem de um pedido (a fatia síncrona é só a primeira e a rede de segurança).
     if (this.worker && !this.soFatias) return;
     this.lote = proximoLote(this.lote, this.relogio() - inicio, this.orcamentoMs);
-    this.agendar(() => this.fatia(geracao));
+    this.agendar(() => this.esperarGesto(() => this.fatia(geracao)));
   }
 
   /**
@@ -375,7 +406,9 @@ export class Montagem3dProgressiva {
           // Nível que já entrou na cena pela rede de segurança: a resposta atrasada é descartada.
           if (!this.pendentes.includes(id)) return;
           this.recebidos.set(id, nivel);
-          this.montarRecebido(geracao);
+          // Um nível por tarefa, cedendo a thread e esperando o fim de um gesto de câmera.
+          if (this.emGesto()) this.pedirPasso(geracao, () => this.montarRecebido(geracao));
+          else this.montarRecebido(geracao);
         },
         () => {
           // Cancelado (outra montagem) ou falhou: só a falha da geração atual vira rede de segurança.
@@ -391,10 +424,12 @@ export class Montagem3dProgressiva {
   private pedirPasso(geracao: number, acao: () => void): void {
     if (this.passoAgendado) return;
     this.passoAgendado = true;
-    this.agendar(() => {
-      this.passoAgendado = false;
-      if (geracao === this.geracao) acao();
-    });
+    this.agendar(() =>
+      this.esperarGesto(() => {
+        this.passoAgendado = false;
+        if (geracao === this.geracao) acao();
+      }),
+    );
   }
 
   /** Monta o primeiro nível pendente que o worker já entregou (ordem do projeto) e reabastece a fila. */
@@ -408,6 +443,7 @@ export class Montagem3dProgressiva {
     this.recebidos.delete(id);
     this.pendentes = this.pendentes.filter((x) => x !== id);
     this.prontos.set(id, nivel);
+    this.antigos.delete(id);
     this.recebidosDesdeAplicar++;
     // Agrupa as respostas do worker: um `ModelScene.update` a cada 3 níveis, não a cada nível. O primeiro nível e o
     // último sempre entram na cena na hora (primeiro quadro e conclusão).
@@ -452,7 +488,7 @@ export class Montagem3dProgressiva {
   private aplicar(): void {
     if (!this.projeto || !this.opcoes) return;
     const niveis = this.ordemProjeto.flatMap((id) => {
-      const nivel = this.prontos.get(id);
+      const nivel = this.prontos.get(id) ?? this.antigos.get(id);
       return nivel ? [nivel] : [];
     });
     this.op.cena.update(this.projeto, niveis, this.opcoes);

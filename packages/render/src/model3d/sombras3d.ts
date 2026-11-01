@@ -25,10 +25,12 @@ export class SombraSobDemanda {
 
   /**
    * Desliga a regeneração automática do renderer e, se o mapa estiver sujo, pede uma neste quadro. Devolve se pediu.
+   * `adiar` (gesto de câmera ativo): o mapa continua sujo e o quadro desenha com o mapa anterior; a nova geração fica para
+   * o primeiro quadro depois do gesto, para a órbita não pagar o passe de sombra inteiro logo depois de uma edição.
    */
-  aplicar(renderer: MapaDeSombraRenderer): boolean {
+  aplicar(renderer: MapaDeSombraRenderer, adiar = false): boolean {
     renderer.shadowMap.autoUpdate = false;
-    if (!this.suja) return false;
+    if (!this.suja || adiar) return false;
     renderer.shadowMap.needsUpdate = true;
     this.suja = false;
     return true;

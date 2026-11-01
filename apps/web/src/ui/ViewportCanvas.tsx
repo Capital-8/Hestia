@@ -25,6 +25,7 @@ import { PlanLabels, type PlanLabelsHandle } from './PlanLabels';
 import { ViewportOverlays } from './ViewportOverlays.tsx';
 import { abrirMenuDeContexto, viewDoMenu } from './useCanvasContextMenu.ts';
 import { useDark } from './useDark.ts';
+import { encerrarGesto, iniciarGesto, interacaoAtiva, marcarInteracao, msAteLiberar } from '../editor/interacaoAtiva.ts';
 import { criarMontagemVista3d, type Montagem3dProgressiva } from './montagem3dProgressiva.ts';
 import { QuadroPlanta } from './quadroPlanta.ts';
 import { medirQuadro, useContarCommitPerf, usePerfDaUrl } from '../debug/perf/index.ts';
@@ -85,6 +86,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   // Ganchos de depuração (?debug=1): câmera orbital do 3D e a cena 3D (o e2e conta as peças do modelo).
   if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug')) Object.assign(window, { __hestia3d: model.current.orbit, __hestia3dModel: model.current });
   const modelKey = useRef('');
+  /** Redesenho agendado para refazer a sombra depois do gesto de câmera (ver `renderQuadro`). */
+  const sombraAdiada = useRef<ReturnType<typeof setTimeout> | null>(null);
   const montagem = useRef<Montagem3dProgressiva | null>(null);
   // A prancha lê a câmera da MESMA vista 3D (decisão 0040) por `vista3dAoVivo`.
   useEffect(() => {
@@ -298,12 +301,23 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       g.gpu.renderer.shadowMap.enabled = v3.shadows;
       g.gpu.setSize(w, h, dpr);
       // Animação da câmera (ViewCube, Início): avança a cada quadro e pede o próximo enquanto anima.
-      if (m.orbit.step(performance.now())) useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
+      if (m.orbit.step(performance.now())) {
+        marcarInteracao();
+        useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
+      }
       // "Ir para o ponto de vista": aplica a câmera pedida no primeiro quadro depois de abrir a aba 3D.
       const pendente = consumirCameraPendente();
       if (pendente) aplicarCameraNaOrbita(m.orbit, pendente);
       m.orbit.setAspect(w, h);
-      m.sombra.aplicar(g.gpu.renderer);
+      // Sombra suja (edição) e gesto de câmera ativo: o mapa novo espera o fim do gesto; a órbita desenha com o anterior.
+      const adiarSombra = v3.shadows && interacaoAtiva();
+      m.sombra.aplicar(g.gpu.renderer, adiarSombra);
+      if (adiarSombra && m.sombra.sujo && sombraAdiada.current === null) {
+        sombraAdiada.current = setTimeout(() => {
+          sombraAdiada.current = null;
+          useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
+        }, msAteLiberar() + 20);
+      }
       safeRender(g, m.scene, m.orbit.camera);
       publish(NO_LABELS, null);
       return;
@@ -666,6 +680,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       }
       const mode = isOrbitReq ? 'orbit' : isPanReq ? 'pan' : (e.button === 0 ? 'orbit' : 'none');
       drag.current = { mode, start: s, last: s, moved: false, pick: e.button === 0 && !spaceDown.current && !e.altKey && !emPrevia };
+      if (mode === 'orbit' || mode === 'pan') iniciarGesto();
       // Ao pressionar, o realce some: enquanto arrasta, o cursor orbita e não destaca.
       if (useUi.getState().hover) useUi.setState({ hover: null });
       return;
@@ -741,6 +756,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
         editor.pan(mid.x - gesture.current.mid.x, mid.y - gesture.current.mid.y);
         editor.zoomWheel(mid, -(d - gesture.current.dist) * 2.4);
       } else {
+        marcarInteracao();
         model.current.orbit.zoom(-(d - gesture.current.dist) * 3);
         model.current.orbit.pan(mid.x - gesture.current.mid.x, mid.y - gesture.current.mid.y);
         useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
@@ -756,8 +772,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
         d.last = s;
         return;
       }
-      if (d.mode === 'orbit') model.current.orbit.orbit(s.x - d.last.x, s.y - d.last.y);
-      else if (d.mode === 'pan') model.current.orbit.pan(s.x - d.last.x, s.y - d.last.y);
+      if (d.mode === 'orbit') { marcarInteracao(); model.current.orbit.orbit(s.x - d.last.x, s.y - d.last.y); }
+      else if (d.mode === 'pan') { marcarInteracao(); model.current.orbit.pan(s.x - d.last.x, s.y - d.last.y); }
       if (d.mode !== 'none') {
         if (!d.moved && passouDoLimiar(Math.hypot(s.x - d.start.x, s.y - d.start.y))) d.moved = true;
         d.last = s;
@@ -853,6 +869,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   };
 
   const onUp = (e: RPointerEvent): void => {
+    encerrarGesto();
     const s = local(e);
     pointers.current.delete(e.pointerId);
     if (sectionDimDrag.current) {
@@ -977,6 +994,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
    * `down` já havia saído — com down adiado (D1) ou Shift pendente a ferramenta nem começou, não há estado a desfazer.
    */
   const onCancel = (e: RPointerEvent): void => {
+    encerrarGesto();
     const fim = pointers.current.get(e.pointerId) ?? drag.current.last;
     pointers.current.delete(e.pointerId);
     gesture.current = null;
@@ -993,6 +1011,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     e.preventDefault();
     const st = useUi.getState();
     if (st.view === '3d') {
+      marcarInteracao();
       // Zoom para o ponto sob o cursor: ao aproximar, o target deriva em direção ao ponto 3D sob o cursor.
       // Isso faz a órbita subsequente girar ao redor do que o usuário estava inspecionando (comportamento Revit/Blender).
       if (e.deltaY < 0) {
