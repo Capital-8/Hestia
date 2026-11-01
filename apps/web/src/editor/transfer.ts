@@ -118,8 +118,14 @@ export class Transfer {
 
   /** Ids que Copiar levaria da seleção (todas as categorias copiáveis e aberturas hospedadas). */
   copyableIds(p: Project, ids: readonly Id[]): Id[] {
-    return copyableIdsOf(p, ids);
+    // A faixa pergunta isto para Copiar e para Recortar a cada desenho: com a mesma seleção e o mesmo projeto, a resposta é a mesma.
+    if (this.ultimosCopiaveis?.p === p && this.ultimosCopiaveis.ids === ids) return this.ultimosCopiaveis.out;
+    const out = copyableIdsOf(p, ids);
+    this.ultimosCopiaveis = { p, ids, out };
+    return out;
   }
+
+  private ultimosCopiaveis: { p: Project; ids: readonly Id[]; out: Id[] } | null = null;
 
   /** Copia a seleção e as aberturas nas paredes. Sem nada copiável, mantém o que já estava copiado. */
   copy(p: Project, ids: Id[]): boolean {

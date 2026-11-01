@@ -722,7 +722,9 @@ export class Editor {
   canCutSelection(ids: readonly Id[] = useUi.getState().selection, p: Project = this.project): boolean {
     if (ids.length === 0) return false;
     const copiaveis = transfer.copyableIds(p, ids);
-    return ids.every((id) => copiaveis.includes(id));
+    if (copiaveis.length < ids.length) return false;
+    const conjunto = new Set(copiaveis);
+    return ids.every((id) => conjunto.has(id));
   }
 
   /** Recortar (Ctrl+X): copia e apaga a seleção num passo de desfazer. */

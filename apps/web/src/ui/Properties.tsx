@@ -1,5 +1,5 @@
 /* eslint-disable max-lines */
-import { useMemo, useState, type ReactElement } from 'react';
+import { useDeferredValue, useMemo, useState, type ReactElement } from 'react';
 import { joinStatus, levelFrames, quantifyLevel, viewRangeWarnings } from '@hestia/engine';
 import {
   FUNCTION_LABEL,
@@ -400,7 +400,8 @@ const GRID_STEPS = [0.05, 0.1, 0.25, 0.5, 1, 2, 5];
 
 export function Properties(): ReactElement {
   const p = useProject();
-  const sel = useUi((s) => s.selection);
+  // O painel lê a seleção num desenho de prioridade baixa: o clique/caixa não espera o painel.
+  const sel = useDeferredValue(useUi((s) => s.selection));
   // Na planta de área, cotas/textos vivem em `plan.annotations`: a seleção precisa procurar lá, não no nível.
   const planId = useUi((s) => (s.planKind === 'area' ? s.areaPlanId : null));
   const note = selectedNote(p, useUi((s) => s.levelId), sel, planId);

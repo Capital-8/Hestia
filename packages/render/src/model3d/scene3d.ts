@@ -119,6 +119,7 @@ export class ModelScene {
   private model = new THREE.Group();
   /** Sobreposições de realce, fora do modelo: não entram nas malhas do modelo nem no picking por faixas. */
   private realces = new RealcesDaCena(this.scene);
+  private conjuntoDaSelecao: { ref: readonly Id[]; ids: Set<Id> } | null = null;
   /** Malhas só de picking no wireframe (fora do modelo; ver `buildPickLayer`). */
   private pickLayer = new THREE.Object3D();
   /** Linhas de nível e rótulos: um grupo só, fora dos níveis (o picking lê `userData.levelId` de cada peça). */
@@ -288,8 +289,15 @@ export class ModelScene {
   highlight(selection: readonly Id[], hover: Id | null, aviso: readonly Id[] = []): void {
     const color = this.frame.dark ? DARK.select : LIGHT.select;
     this.realces.definir('sel', selection, { color, fill: 0.35, edges: 1 });
-    this.realces.definir('hov', hover && !selection.includes(hover) ? [hover] : [], { color, fill: 0.15, edges: 0.6 });
+    this.realces.definir('hov', hover && !this.naSelecao(selection, hover) ? [hover] : [], { color, fill: 0.15, edges: 0.6 });
     this.realces.definir('aviso', aviso, { color: AVISO, fill: 0.4, edges: 1 });
+  }
+
+  /** `selection` tem `id`? Com seleção grande o conjunto é montado uma vez por referência do array, não a cada quadro. */
+  private naSelecao(selection: readonly Id[], id: Id): boolean {
+    if (selection.length <= 8) return selection.includes(id);
+    if (this.conjuntoDaSelecao?.ref !== selection) this.conjuntoDaSelecao = { ref: selection, ids: new Set(selection) };
+    return this.conjuntoDaSelecao.ids.has(id);
   }
 
   /**
