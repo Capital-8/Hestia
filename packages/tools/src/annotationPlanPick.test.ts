@@ -10,7 +10,7 @@ import {
   type AreaPlan,
   type Command,
 } from '@hestia/model';
-import { annotationAt, annotationIdsInBox, dimGripAt, dimTextGripAt, textGripAt } from './annotationPick.ts';
+import { annotationAt, annotationIdsInBox, dimGripAt, dimHitGeometry, dimTextGripAt, textGripAt, viewAnnotationsOf } from './annotationPick.ts';
 import { P, clickAt, makeEnv, tool } from './testEnv.ts';
 
 const LV0 = 'lv_0';
@@ -137,9 +137,12 @@ describe('seleção de anotações na planta de área', () => {
   it('a alça do texto da cota da planta também responde com planId', () => {
     const ctx = withAreaPlan();
     const { dimId } = criaAnotacoes(ctx);
-    // O texto fica acima da linha de cota, a poucos milímetros de papel.
-    expect(dimTextGripAt(ctx.store.project, LV0, [dimId], { x: 2, y: 1.03 }, MPP, 'ap1')).toBe(dimId);
-    expect(dimTextGripAt(ctx.store.project, LV0, [dimId], { x: 2, y: 1.03 }, MPP)).toBeNull();
+    // O texto fica na posição desenhada (mesma geometria do render: estilo e escala da planta de área).
+    const aberta = viewAnnotationsOf(ctx.store.project, LV0, 'ap1');
+    const dim = aberta.dimensions[0]!;
+    const texto = dimHitGeometry(ctx.store.project, dim, dim.a, dim.b, aberta.scale).textAt;
+    expect(dimTextGripAt(ctx.store.project, LV0, [dimId], texto, MPP, 'ap1')).toBe(dimId);
+    expect(dimTextGripAt(ctx.store.project, LV0, [dimId], texto, MPP)).toBeNull();
   });
   it('na planta de área, o texto sobre o ambiente é selecionável (anotação antes do modelo)', () => {
     const store = new ProjectStore(createEmptyProject());

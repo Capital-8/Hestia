@@ -1,5 +1,5 @@
 import { boxOf, boxesOverlap, dist, dot, intersectSegments, len, sub, type Vec2 } from '@hestia/geom';
-import { areaPlanOf, angularDimensionGeometry, dimensionGeometry, dimensionPoints, levelDimensions, levelGraphicsOf, levelTexts, planAnnotationsOf, resolveViewProfile, wallsOnLevel, type DetailLine, type DetailRegion, type Dimension, type DimensionRef, type ElementTag, type Id, type Project, type RoomTag, type TextNote } from '@hestia/model';
+import { areaPlanOf, angularDimensionGeometry, dimensionGeometry, dimensionStyleOf, DIM_TEXT_MM, type DimensionGeometry, dimensionPoints, levelDimensions, levelGraphicsOf, levelTexts, planAnnotationsOf, resolveViewProfile, wallsOnLevel, type DetailLine, type DetailRegion, type Dimension, type DimensionRef, type ElementTag, type Id, type Project, type RoomTag, type TextNote } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 
 /** Tolerância (m) para dizer que um ponto é a extremidade de uma parede. */
@@ -56,6 +56,24 @@ export function textHit(t: TextNote, scale: number, at: Vec2, tol: number): bool
   const u = dx * Math.cos(r) + dy * Math.sin(r);
   const v = -dx * Math.sin(r) + dy * Math.cos(r);
   return Math.abs(u) <= hw && Math.abs(v) <= hh;
+}
+
+
+/**
+ * Geometria da cota com as MESMAS opções do desenho (render/plan/dimDraw.ts `baseLayout`): estilo global + campos da
+ * própria cota (altura do texto), folga/ultrapassagem das extensões, meia-marca e texto centrado, na escala da vista.
+ * Não depende do render (tools não importa render). Limite: o deslocamento automático do texto por anti-sobreposição
+ * (leader sem `textAt`) depende das outras cotas e só existe no layout do render; o `textAt` manual coincide.
+ */
+export function dimHitGeometry(p: Project, d: Dimension, a: Vec2, b: Vec2, scale: number): DimensionGeometry {
+  const st = dimensionStyleOf(p.settings);
+  const th = d.textHeight ?? st.textHeight;
+  return dimensionGeometry(a, b, d.offset, scale / 1000, th > 0 ? th : DIM_TEXT_MM, d.textAt, {
+    extensionGapMm: st.extensionGap,
+    extensionOvershootMm: st.extensionOvershoot,
+    tickHalfMm: st.tickSize / 2,
+    centered: st.textPlacement === 'centered',
+  });
 }
 
 /** Anotações que a vista mostra, com a escala dela: as do nível (planta de piso) ou as da planta de área. */
@@ -138,15 +156,16 @@ export function annotationAt(p: Project, levelId: Id, at: Vec2, mpp: number, pla
       continue;
     }
     const pts = dimensionPoints(p, d);
-    const g = dimensionGeometry(pts.a, pts.b, d.offset, mpp * 4, d.textHeight, d.textAt);
+    const g = dimHitGeometry(p, d, pts.a, pts.b, a.scale);
     if (dist(at, g.textAt) <= 10 * mpp) return { id: d.id, kind: 'dimension' };
+    if (d.textAt && distToSegment(at, mid(g.line[0], g.line[1]), d.textAt) <= 6 * mpp) return { id: d.id, kind: 'dimension' };
     for (const [s, e] of [g.line, ...g.extensions]) if (distToSegment(at, s, e) <= 6 * mpp) return { id: d.id, kind: 'dimension' };
   }
   return null;
 }
 
 /** Anotações da vista dentro da janela de seleção (esquerda→direita contém; direita→esquerda cruza). */
-export function annotationIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2, mpp: number, planId?: Id): Id[] {
+export function annotationIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2, _mpp: number, planId?: Id): Id[] {
   const a0 = viewAnnotationsOf(p, levelId, planId);
   const box = boxOf([a, b]);
   const crossing = b.x < a.x;
@@ -170,7 +189,7 @@ export function annotationIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2, mp
       continue;
     }
     const pts = dimensionPoints(p, d);
-    const g = dimensionGeometry(pts.a, pts.b, d.offset, mpp * 4, d.textHeight, d.textAt);
+    const g = dimHitGeometry(p, d, pts.a, pts.b, a0.scale);
     const pontos = [g.line[0], g.line[1], ...g.extensions.flat(), ...(d.textAt ? [d.textAt] : [])];
     if (pontos.every(dentro) || [g.line, ...g.extensions].some(([s, e]) => segmento(s!, e!))) ids.push(d.id);
   }
@@ -192,24 +211,26 @@ export function annotationIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2, mp
 /** Alça da cota selecionada: o ponto médio da linha de cota. Arrastá-la muda o deslocamento. */
 export function dimGripAt(p: Project, levelId: Id, sel: Id[], at: Vec2, mpp: number, planId?: Id): Id | null {
   if (sel.length !== 1) return null;
-  const d = viewAnnotationsOf(p, levelId, planId).dimensions.find((x) => x.id === sel[0]);
+  const va = viewAnnotationsOf(p, levelId, planId);
+  const d = va.dimensions.find((x) => x.id === sel[0]);
   if (!d || d.angular) return null;
   const pts = dimensionPoints(p, d);
-  const g = dimensionGeometry(pts.a, pts.b, d.offset, mpp * 4);
+  const g = dimHitGeometry(p, { ...d, textAt: undefined }, pts.a, pts.b, va.scale);
   return dist(at, mid(g.line[0], g.line[1])) <= 6 * mpp ? d.id : null;
 }
 
 /** Alça do texto da cota, que pode ser deslocado sem alterar os pontos medidos nem o afastamento da linha. */
 export function dimTextGripAt(p: Project, levelId: Id, sel: Id[], at: Vec2, mpp: number, planId?: Id): Id | null {
   if (sel.length !== 1) return null;
-  const d = viewAnnotationsOf(p, levelId, planId).dimensions.find((x) => x.id === sel[0]);
+  const va = viewAnnotationsOf(p, levelId, planId);
+  const d = va.dimensions.find((x) => x.id === sel[0]);
   if (!d) return null;
   if (d.angular) {
     const g = angularDimensionGeometry(resolveAngularDimension(p, levelId, d));
     return g && dist(at, g.textAt) <= 9 * mpp ? d.id : null;
   }
   const pts = dimensionPoints(p, d);
-  const g = dimensionGeometry(pts.a, pts.b, d.offset, mpp * 4, d.textHeight, d.textAt);
+  const g = dimHitGeometry(p, d, pts.a, pts.b, va.scale);
   return dist(at, g.textAt) <= 9 * mpp ? d.id : null;
 }
 
