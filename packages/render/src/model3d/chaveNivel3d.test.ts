@@ -114,6 +114,26 @@ describe('chaves de nível (conteúdo do pavimento e dos vizinhos por cota)', ()
     expect(escuro.every((k, i) => k !== antes[i])).toBe(true);
   });
 
+  it('o que não vai para a geometria 3D (cortes, plantas de área, esquemas de cor, categorias, contador, nome) não muda nenhuma chave', () => {
+    const p = predio(4);
+    const antes = chaves(p);
+    const outro = {
+      ...p,
+      name: 'Outro nome',
+      nextOrder: p.nextOrder + 50,
+      views: [{ id: 'cx', name: 'Corte', kind: 'section', a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, depth: 5 }],
+      areaPlans: [],
+      roomCategories: [],
+      colorSchemes: [],
+    } as unknown as Project;
+    expect(chaves(outro)).toEqual(antes);
+    // Mas os ajustes da vista 3D e as configurações do projeto continuam mudando tudo.
+    const com3d = { ...p, view3d: { ...(p.view3d ?? {}), shadows: !(p.view3d?.shadows ?? false) } } as unknown as Project;
+    expect(chaves(com3d).every((k, i) => k !== antes[i])).toBe(true);
+    const configurado = { ...p, settings: { ...p.settings, joinTolerance: (p.settings?.joinTolerance ?? 0.02) + 0.01 } } as unknown as Project;
+    expect(chaves(configurado).every((k, i) => k !== antes[i])).toBe(true);
+  });
+
   it('mudar algo do projeto que não é elemento (tipo, cota de referência, altura padrão) muda todas as chaves', () => {
     const p = predio(3);
     const antes = chaves(p);

@@ -48,7 +48,19 @@ export interface FloorResolveOptions {
 }
 
 /** Pisos de todos os níveis do projeto (quem cruza níveis, como a parede anexada, usa esta lista). */
-export const resolveAllFloors = (p: Project, opts: FloorResolveOptions = {}): ResolvedFloor[] => p.levels.flatMap((l) => resolveFloors(p, l.id, opts));
+const todosPisosPorProjeto = new WeakMap<Project, ResolvedFloor[]>();
+
+/**
+ * Com as opções padrão, o resultado fica em cache por projeto (imutável): validação, avisos, anexo de parede e classificação de
+ * vista pedem a lista inteira várias vezes por edição, e resolvê-la custa segundos num prédio grande. O vetor é compartilhado:
+ * quem chama não o altera.
+ */
+export const resolveAllFloors = (p: Project, opts: FloorResolveOptions = {}): ResolvedFloor[] => {
+  if (Object.keys(opts).length > 0) return p.levels.flatMap((l) => resolveFloors(p, l.id, opts));
+  let r = todosPisosPorProjeto.get(p);
+  if (!r) todosPisosPorProjeto.set(p, (r = p.levels.flatMap((l) => resolveFloors(p, l.id, opts))));
+  return r;
+};
 
 /**
  * Geometria dos pisos de um nível. O piso não é recortado pelas paredes (como no Revit, a parede fica sobre o piso

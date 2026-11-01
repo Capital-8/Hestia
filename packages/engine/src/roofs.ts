@@ -147,4 +147,11 @@ export function resolveRoofs(p: Project, levelId: Id): ResolvedRoof[] {
 }
 
 /** Telhados de todos os níveis do projeto (a parede anexada cruza níveis, como com lajes). */
-export const resolveAllRoofs = (p: Project): ResolvedRoof[] => p.levels.flatMap((l) => resolveRoofs(p, l.id));
+const todosTelhadosPorProjeto = new WeakMap<Project, ResolvedRoof[]>();
+
+/** Cache por projeto (ver `resolveAllFloors`). O vetor é compartilhado: quem chama não o altera. */
+export const resolveAllRoofs = (p: Project): ResolvedRoof[] => {
+  let r = todosTelhadosPorProjeto.get(p);
+  if (!r) todosTelhadosPorProjeto.set(p, (r = p.levels.flatMap((l) => resolveRoofs(p, l.id))));
+  return r;
+};

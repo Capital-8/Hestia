@@ -101,4 +101,12 @@ export function resolveSlabs(p: Project, levelId: Id, opts: FloorResolveOptions 
 }
 
 /** Lajes de todos os níveis do projeto (a parede anexada cruza níveis, como com os pisos). */
-export const resolveAllSlabs = (p: Project, opts: FloorResolveOptions = {}): ResolvedSlab[] => p.levels.flatMap((l) => resolveSlabs(p, l.id, opts));
+const todasLajesPorProjeto = new WeakMap<Project, ResolvedSlab[]>();
+
+/** Cache por projeto com as opções padrão (ver `resolveAllFloors`). O vetor é compartilhado: quem chama não o altera. */
+export const resolveAllSlabs = (p: Project, opts: FloorResolveOptions = {}): ResolvedSlab[] => {
+  if (Object.keys(opts).length > 0) return p.levels.flatMap((l) => resolveSlabs(p, l.id, opts));
+  let r = todasLajesPorProjeto.get(p);
+  if (!r) todasLajesPorProjeto.set(p, (r = p.levels.flatMap((l) => resolveSlabs(p, l.id, opts))));
+  return r;
+};
