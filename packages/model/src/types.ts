@@ -248,6 +248,8 @@ export interface Dimension {
   familyId?: Id;
   /** Posição manual do texto em coordenadas do modelo. */
   textAt?: Vec2;
+  /** Cota travada: editar o valor não move os elementos associados (a medida fica como está). Ausente = destravada. */
+  locked?: boolean;
 }
 
 /** Texto de anotação: `at` é o ponto de inserção (centro), `height` em mm de papel, `rotation` em graus. */

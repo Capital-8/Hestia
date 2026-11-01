@@ -74,6 +74,10 @@ export interface UiState {
   previewTick: number;
   /** Referências de cota escolhidas na sessão (`${provedor}:${ponta}` → referência); somem ao trocar de ferramenta ou seleção. */
   dimOverrides: Record<string, WallDimRef | OpeningDimRef>;
+  /** Escolha de nova referência de uma ponta de cota permanente (Shift+clique na alça): o próximo clique na planta é o alvo. */
+  dimRefPick: { dimId: string; slot: 'a' | 'b' } | null;
+  /** Família que o diálogo de famílias abre selecionada (botão "Editar família…" da cota); some ao abrir. */
+  dimFamilyFocus: string | null;
   /**
    * Versão do projeto em que a seleção virou cotas permanentes (botão "I"): enquanto o projeto estiver nela, as cotas
    * temporárias da seleção ficam suspensas para não se sobrepor às pretas. Some na próxima seleção ou alteração.
@@ -345,6 +349,8 @@ export const useUi = create<UiState>(() => ({
   tutorial: false,
   previewTick: 0,
   dimOverrides: {},
+  dimRefPick: null,
+  dimFamilyFocus: null,
   dimsSuspendedVersion: null,
   dimEditId: null,
   cursor: null,

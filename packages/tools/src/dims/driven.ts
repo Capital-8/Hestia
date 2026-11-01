@@ -253,6 +253,7 @@ function moveMover(p: Project, mv: Mover, m: Vec2, dir: Vec2): Moved {
  */
 export function drivenEditCommands(project: Project, dim: Dimension, novoValor: number, fixed?: 'a' | 'b'): DrivenEdit {
   if (dim.angular) return fail('Cota angular: editar o valor para mover elementos ainda não é suportado.');
+  if (dim.locked) return fail('Cota travada: destrave a cota para mudar o valor e mover os elementos.');
   if (!Number.isFinite(novoValor) || !(novoValor > 0)) return fail('Medida inválida: digite uma distância maior que zero.');
   const ms = measure(project, dim);
   if ('error' in ms) return fail(ms.error);

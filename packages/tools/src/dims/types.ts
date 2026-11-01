@@ -8,13 +8,13 @@ export type ElementKind = Element['kind'];
  * Sujeitos de cota que não são elementos de `project.elements` (e por isso não têm `kind`): linhas de detalhe,
  * linhas de perímetro do rascunho e grades/eixos. O provedor registrado resolve o sujeito pelo id da seleção.
  */
-export type NonElementKind = 'detailLine' | 'perimeterLine' | 'grid';
+export type NonElementKind = 'detailLine' | 'perimeterLine' | 'grid' | 'dimension';
 
 /** Chave de registro de um provedor: o tipo do elemento ou um sujeito fora de `project.elements`. */
 export type DimSubjectKind = ElementKind | NonElementKind;
 
 /** Ordem em que a seleção tenta os sujeitos fora de `project.elements` (os ids são únicos por tipo). */
-export const NON_ELEMENT_KINDS: readonly NonElementKind[] = ['detailLine', 'perimeterLine', 'grid'];
+export const NON_ELEMENT_KINDS: readonly NonElementKind[] = ['detailLine', 'perimeterLine', 'grid', 'dimension'];
 
 /** Uma referência de cota de qualquer vocabulário (parede ou esquadria). */
 export type DimRef = WallDimRef | OpeningDimRef;
@@ -29,6 +29,15 @@ export interface DimEnd {
   current: DimRef;
   /** As referências que esta ponta aceita, na ordem em que a alça as percorre. */
   options: ReadonlyArray<DimRef>;
+  /**
+   * Troca de referência de uma ponta de cota permanente: as feições do elemento (`options`), a atual (índice em
+   * `options`) e os comandos que gravam a escolha em `Dimension.refs` (a cota re-resolve a ponta a partir dali).
+   */
+  alt?: {
+    options: ReadonlyArray<DimensionElementRef>;
+    current: number;
+    apply: (next: DimensionElementRef) => Command[];
+  };
 }
 
 /** Resultado puro de uma edição: comandos para executar (num único passo) ou a mensagem que explica a recusa. */

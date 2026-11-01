@@ -1,6 +1,6 @@
 import type { Vec2 } from '@hestia/geom';
-import { OPENING_DIM_REF_LABELS, WALL_DIM_REF_LABELS, dimensionGeometry, isWallDimRef, type FormatOptions, type OpeningDimRef, type Quantity, type WallDimRef } from '@hestia/model';
-import type { DimEnd, DimRef, TempDim } from '@hestia/tools';
+import { OPENING_DIM_REF_LABELS, WALL_DIM_REF_LABELS, dimensionGeometry, isWallDimRef, type Command, type FormatOptions, type OpeningDimRef, type Quantity, type WallDimRef } from '@hestia/model';
+import { dimElementRefLabel, type DimEnd, type DimRef, type TempDim } from '@hestia/tools';
 
 /** Formata uma grandeza em SI na unidade do projeto (o mesmo `useFormat()` do overlay). */
 export type DimFormatter = (q: Quantity, si: number, o?: FormatOptions) => string;
@@ -13,8 +13,13 @@ export interface GripView {
   /** Chave de `dimOverrides`: `${provedor}:${ponta}`. */
   overrideKey: string;
   at: Vec2;
-  current: DimRef;
-  next: DimRef;
+  /** Cota dinâmica de parede/esquadria: a troca é a referência da sessão (`dimOverrides`). */
+  current?: DimRef;
+  next?: DimRef;
+  /** Cota permanente: o clique grava a nova referência no modelo (os comandos devolvidos). */
+  onAlternate?: () => Command[];
+  /** Aceita escolher outro elemento (Shift+clique abre o modo de escolha na planta). */
+  pickable?: boolean;
   title: string;
 }
 
@@ -42,6 +47,15 @@ export function refLabel(ref: DimRef): string {
   return isWallDimRef(ref) ? WALL_DIM_REF_LABELS[ref as WallDimRef] : OPENING_DIM_REF_LABELS[ref as OpeningDimRef];
 }
 
+/**
+ * Cota permanente selecionada: o desenho dela já sai do renderizador da planta (na cor de seleção). A cota dinâmica
+ * fica só com alças e campo de valor; o desenho dela some para não duplicar o texto. Enquanto se digita, o texto aparece.
+ */
+export const ehPermanente = (dim: TempDim): boolean => providerOf(dim) === 'dimension';
+
+export const ocultaDesenhoPermanente = (dim: TempDim, editingKey: string | null): boolean =>
+  ehPermanente(dim) && editingKey !== dim.key;
+
 /** O provedor é o primeiro trecho da chave da cota (`${provedor}:${sujeito}:${ponta}`). */
 export const providerOf = (dim: TempDim): string => dim.key.split(':')[0] ?? '';
 
@@ -63,6 +77,19 @@ export function dimText(dim: TempDim, format: DimFormatter): string {
 }
 
 export function gripOf(dim: TempDim, end: DimEnd, toScreen: (p: Vec2) => Vec2): GripView {
+  const alt = end.alt;
+  if (alt) {
+    const n = alt.options.length;
+    const next = alt.options[(alt.current + 1) % n]!;
+    return {
+      slot: end.slot,
+      overrideKey: `${providerOf(dim)}:${end.slot}`,
+      at: toScreen(end.at),
+      onAlternate: () => alt.apply(next),
+      pickable: true,
+      title: `Referência: ${dimElementRefLabel(alt.options[alt.current]!)} (clique para alternar; Shift+clique para escolher outro elemento)`,
+    };
+  }
   return {
     slot: end.slot,
     overrideKey: `${providerOf(dim)}:${end.slot}`,
@@ -87,6 +114,6 @@ export function viewOfDim(dim: TempDim, toScreen: (p: Vec2) => Vec2, metersPerPi
     editable: dimAcionavel(dim),
     invalid: dim.tone === 'invalid' || invalidKey === dim.key,
     // Ponta com uma só referência não tem o que alternar: sem alça (ela só cobriria as alças de vértice do elemento).
-    grips: dim.ends.filter((e) => e.options.length >= 2).map((e) => gripOf(dim, e, toScreen)),
+    grips: dim.ends.filter((e) => e.options.length >= 2 || (e.alt?.options.length ?? 0) >= 2).map((e) => gripOf(dim, e, toScreen)),
   };
 }

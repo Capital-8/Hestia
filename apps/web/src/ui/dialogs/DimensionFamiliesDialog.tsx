@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useState, type ReactElement } from 'react';
 import {
   DIM_FAMILY_PADRAO,
   defaultDimensionFamilyIdOf,
@@ -54,7 +54,8 @@ export function DimensionFamiliesDialog(): ReactElement {
   // A `Padrão` aparece sempre; as demais vêm das famílias gravadas (sem repetir a implícita).
   const inicial = useMemo(() => [padraoFamily(), ...salvas.filter((f) => f.id !== DIM_FAMILY_PADRAO)], [salvas]);
   const [drafts, setDrafts] = useState<DimensionFamily[]>(() => inicial);
-  const [selecionada, setSelecionada] = useState<string>(() => defaultDimensionFamilyIdOf(p.settings));
+  const [selecionada, setSelecionada] = useState<string>(() => useUi.getState().dimFamilyFocus ?? defaultDimensionFamilyIdOf(p.settings));
+  useEffect(() => { useUi.setState({ dimFamilyFocus: null }); }, []);
   const [padrao, setPadrao] = useState<string>(() => defaultDimensionFamilyIdOf(p.settings));
   const [erro, setErro] = useState<string | null>(null);
   const atual = drafts.find((f) => f.id === selecionada) ?? drafts[0]!;

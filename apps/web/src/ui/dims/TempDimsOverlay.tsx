@@ -9,7 +9,7 @@ import { INVALID_FLASH_MS, resolveDimEdit, suspensionAfterConversion } from './d
 import { larguraDoCampo } from './dimsBox.ts';
 import { capturaCota, holdsLastPreview, rectAround, swallowsPointerButton, type ScreenRect } from './dimsHit.ts';
 import { placeConvertButton, valueRect } from './dimsLayout.ts';
-import { dimAcionavel, dimText, viewOfDim } from './dimsView.ts';
+import { dimAcionavel, dimText, ehPermanente, ocultaDesenhoPermanente, viewOfDim } from './dimsView.ts';
 import { toolDims, useDimContext, useSelectionDims } from './useSelectionDims.ts';
 
 const DANGER = 'var(--danger, #d33)';
@@ -175,8 +175,8 @@ export function TempDimsOverlay(): ReactElement | null {
   return (
     <div style={{ position: 'absolute', inset: 0, zIndex: 12, pointerEvents: 'none' }}>
       <svg width={viewport.width} height={viewport.height} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} aria-hidden="true">
-        {views.map(({ view }) => (
-          <g key={view.key} stroke={view.invalid ? DANGER : 'var(--accent)'} fill="none" strokeWidth={1}>
+        {views.map(({ dim, view }) => (
+          <g key={view.key} stroke={view.invalid ? DANGER : 'var(--accent)'} fill="none" strokeWidth={1} opacity={ocultaDesenhoPermanente(dim, editing?.key ?? null) ? 0 : 1}>
             <line x1={view.line[0].x} y1={view.line[0].y} x2={view.line[1].x} y2={view.line[1].y} />
             {view.extensions.map(([a, b], i) => (
               <line key={`e${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} strokeDasharray="3 2" />
@@ -198,7 +198,7 @@ export function TempDimsOverlay(): ReactElement | null {
               aria-label={`Cota: ${dim.key.split(':').pop()}`}
               title={view.editable ? 'Digite a medida e pressione Enter' : 'Cota de leitura'}
               readOnly={!view.editable}
-              style={{ ...BOX, width, left: view.textAt.x, top: view.textAt.y, transform: `translate(-50%, -50%) rotate(${-(view.textRotation ?? 0)}deg)`, appearance: 'none', lineHeight: '22px', textShadow: '0 0 2px var(--panel), 0 0 3px var(--panel)', pointerEvents: captures(valueRect(view.textAt, width), view.editable, 0), ...(view.invalid ? { color: DANGER } : {}) }}
+              style={{ ...BOX, width, left: view.textAt.x, top: view.textAt.y, transform: `translate(-50%, -50%) rotate(${-(view.textRotation ?? 0)}deg)`, appearance: 'none', lineHeight: '22px', textShadow: '0 0 2px var(--panel), 0 0 3px var(--panel)', pointerEvents: captures(valueRect(view.textAt, width), view.editable, 0), ...(view.invalid ? { color: DANGER } : {}), ...(ocultaDesenhoPermanente(dim, editing?.key ?? null) ? { color: 'transparent', textShadow: 'none' } : {}) }}
               value={texto}
               onPointerDown={stop}
               onPointerUp={stop}
@@ -235,13 +235,26 @@ export function TempDimsOverlay(): ReactElement | null {
                 onPointerMove={hover}
                 onClick={(e) => {
                   stop(e);
-                  setDimOverride(g.overrideKey, g.next);
+                  if (e.shiftKey && g.pickable) {
+                    // Shift+clique: a próxima escolha na planta (clique numa parede, porta...) vira a referência desta ponta.
+                    useUi.setState({ dimRefPick: { dimId: dim.key.split(':')[1] ?? '', slot: g.slot === 'b' ? 'b' : 'a' }, status: 'Clique no elemento para a nova referência (Esc cancela).' });
+                    return;
+                  }
+                  if (g.onAlternate) {
+                    // Cota permanente: a troca é gravada no modelo (um passo de desfazer).
+                    const cmds = g.onAlternate();
+                    if (cmds.length > 0) editor.applyCommands('Trocar referência da cota', cmds);
+                  } else if (g.next) {
+                    setDimOverride(g.overrideKey, g.next);
+                  }
                 }}
               />
             ))}
           </div>
         );
       })}
+      {/* Cota permanente já é permanente: o "I" só converte cotas dinâmicas (parede, porta...). */}
+      {!views.every(({ dim }) => ehPermanente(dim)) && (
       <button
         type="button"
         className="btn"
@@ -258,6 +271,7 @@ export function TempDimsOverlay(): ReactElement | null {
       >
         I
       </button>
+      )}
     </div>
   );
 }

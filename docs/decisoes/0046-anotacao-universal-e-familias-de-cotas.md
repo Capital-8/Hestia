@@ -104,3 +104,9 @@ altura de texto para os rótulos não se encostarem).
 - `packages/io/src/dxfSectionNotes.test.ts` (6): camadas, camadas de anotação com peso 0, escala, família.
 - `apps/web/src/ui/AnnotationProps.test.ts`: painel da cota/texto do corte, valor sem resolver `refs`, família.
 - Suíte completa e `typecheck`/`lint`/`build` no fechamento da rodada.
+
+## Fechamento da implementação (planta)
+- A cota permanente selecionada é editável como cota dinâmica (mesmo caminho das paredes e esquadrias): valor, alças de referência e Shift+clique para escolher outro elemento.
+- Família de cota é aparência nomeada. A cota guarda só o que é próprio dela (texto, deslocamento, direção, trava) e o botão "Editar família…" abre o editor da família. Campos de ajuste individual ficam em "Avançado".
+- Trava (`locked`) bloqueia a edição de valor, não a ferramenta Mover. Padrão: destravada.
+- Corte e elevação ficam fora desta etapa.

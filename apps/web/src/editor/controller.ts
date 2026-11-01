@@ -24,7 +24,7 @@ import {
   type SectionView,
   type TemplateId,
 } from '@hestia/model';
-import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, sectionInferContext, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId } from '@hestia/tools';
+import { annotationAt, pickRefCommands, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, sectionInferContext, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId } from '@hestia/tools';
 import { transfer } from './transfer.ts';
 import type { PastePreviewState } from './pasteLevels/types.ts';
 import { consumirManterCameraDaPrevia, guardarOrigemDoColar, limparOrigemDoColar, limparPreviaPreparada, manterCameraDaPrevia, origemDoColar, prepararPrevia, previaPreparada, type OrigemDoColar } from './pastePreview.ts';
@@ -366,6 +366,14 @@ export class Editor {
   /** Aplica comandos pela mesma regra das aberturas hospedadas usada pelas ferramentas (cotas temporárias). */
   applyCommands(label: string, commands: readonly Command[]): HostedApplyResult { return execWithHostedLoss(this.env, label, commands); }
 
+  /** Grava a feição clicada como nova referência da ponta da cota (ver `pickRefCommands`). */
+  private escolherReferenciaCota(pick: { dimId: string; slot: 'a' | 'b' }, info: PointerInfo): void {
+    const r = pickRefCommands(this.project, useUi.getState().levelId, pick.dimId, pick.slot, info.raw, this.env.metersPerPixel() * 12);
+    if ('error' in r) { useUi.setState({ status: r.error }); return; }
+    const applied = this.applyCommands('Trocar referência da cota', r.commands);
+    useUi.setState({ dimRefPick: null, status: applied.status === 'cancelled' ? '' : 'Referência da cota trocada.' });
+  }
+
   /** Zera a sequência de visibilidade em andamento (troca de vista/projeto). */
   private limparVisibilidadeBuffer(): void {
     this.visBuf = '';
@@ -476,6 +484,8 @@ export class Editor {
 
   pointer(kind: 'move' | 'down' | 'drag' | 'up' | 'click', info: PointerInfo): void {
     const ui = useUi.getState();
+    // Escolha de nova referência de cota (Shift+clique na alça): o próximo clique na planta define a ponta.
+    if (kind === 'click' && ui.dimRefPick) { this.escolherReferenciaCota(ui.dimRefPick, info); this.bump(); return; }
     // Rótulo do ambiente: alvo do arraste na planta de piso e na de área. Só com a ferramenta Selecionar:
     // com Cota/Texto/Etiqueta/Detalhe/Medir ativos, o clique é da ferramenta (a planta de área é de anotação).
     // A posição é do MODELO (vale em todas as vistas).
@@ -626,6 +636,7 @@ export class Editor {
     // Na 3D, Esc segue o da planta (cancela a operação, senão volta à Selecionar; decisão 0016 §5). Ferramenta de escolha (Anexar topo): Enter e Tab seguem para a planta, senão a etapa não avança.
     if (ui.view === '3d' && k !== 'Escape' && !(this.tool.pick3d && (k === 'Enter' || k === 'Tab'))) return key3d(k, ui.selection, () => this.deleteSelection());
     if (k === 'Escape') {
+      if (ui.dimRefPick) useUi.setState({ dimRefPick: null, status: '' });
       casador.limpar(); if (ui.typed) useUi.setState({ typed: '' });
       // Ferramenta de texto: Esc com texto digitado também cancela o ponto, senão a próxima tecla vira texto.
       if (!ui.typed || this.tool.freeText) { this.limparArrasteRotulo(); if (!this.perimetro.esc()) this.tool.cancel(); }

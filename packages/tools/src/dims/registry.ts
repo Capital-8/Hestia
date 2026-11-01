@@ -5,6 +5,7 @@ import { wallDimProvider } from './providers/wall.ts';
 import { outlineDimProvider } from './providers/outline.ts';
 import { detailLineDimProvider, perimeterLineDimProvider } from './providers/line.ts';
 import { gridDimProvider } from './providers/grid.ts';
+import { permanentDimProvider } from './providers/dimension.ts';
 
 // O sujeito varia por provedor; o registro guarda o contrato sem o parâmetro e só `selectionDims` o usa.
 type AnyProvider = DimProvider<never>;
@@ -89,4 +90,5 @@ export function registerBuiltinDimProviders(): void {
   registerDimProvider('detailLine', detailLineDimProvider);
   registerDimProvider('perimeterLine', perimeterLineDimProvider);
   registerDimProvider('grid', gridDimProvider);
+  registerDimProvider('dimension', permanentDimProvider);
 }
