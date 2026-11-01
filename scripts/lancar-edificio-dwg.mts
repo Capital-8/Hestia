@@ -13,9 +13,11 @@ import {
 import { resolveRooms, roomValidationIssues } from '@hestia/engine';
 import { avisosDoProjeto } from '../apps/web/src/editor/avisosProjeto.ts';
 import { planDxf } from '../apps/web/src/editor/dxfExport.ts';
+import { buildFrame, joinStatus } from '@hestia/engine';
+import { ajustaPlanta, type PAdj } from './lancar-edificio-dwg/topologia.mts';
 
-const SAIDA = process.argv[2] ?? 'C:/tmp/ed57393/work/edificio-dwg.hestia.json';
-const PASTA_DXF = process.argv[3] ?? 'C:/tmp/ed57393/work/planta_hestia';
+const SAIDA = process.argv[2] ?? 'C:/Users/Dennylson/Downloads/hestia-edificio-teste/edificio-dwg_v2.hestia.json';
+const PASTA_DXF = process.argv[3] ?? 'C:/tmp/ed57393/work/planta_hestia_v2';
 const B = JSON.parse(readFileSync(join(dirname(new URL(import.meta.url).pathname.replace(/^\//, '')), 'lancar-edificio-dwg', 'building.json'), 'utf8'));
 
 type V = { x: number; y: number };
@@ -31,7 +33,8 @@ const origem = (planta: string): V => v2(B.origem_edificio.por_planta[planta].or
 const loc = (planta: string, g: number[]): V => { const o = origem(planta); return { x: r3(g[0]! - o.x), y: r3(g[1]! - o.y) }; };
 
 // ---------------------------------------------------------------- tipos
-const ESP: Array<[number, number]> = [[0.1, 0.01], [0.125, 0.01], [0.15, 0.015], [0.2, 0.015], [0.25, 0.015], [0.3, 0.015], [0.35, 0.015], [0.4, 0.015]];
+// espessuras: as presentes no JSON (mais 0,10 dos guarda-corpos); reboco de 1 cm até 0,125 m, senão 1,5 cm
+const ESP: Array<[number, number]> = [...new Set<number>([0.1, ...B.paredes.map((w: any) => w.espessura_m as number)])].sort((p, q) => p - q).map((t) => [t, t <= 0.125 ? 0.01 : 0.015]);
 const tipoParede = (t: number, f: number): WallType => {
   const nucleo = r3(t - 2 * f);
   const mat = t <= 0.125 ? 'mat_bloco9' : t <= 0.2 ? 'mat_bloco14' : 'mat_bloco19';
@@ -67,7 +70,15 @@ exec({ type: 'upsertSlabType', slabType: LAJE });
 
 // ---------------------------------------------------------------- paredes
 type Parede = { id: string; planta: string; a: number[]; b: number[]; espessura_m: number; a_local: number[]; b_local: number[]; pilar_curto?: boolean; possivel_batente?: boolean };
-const paredesDe = (planta: string): Parede[] => B.paredes.filter((w: Parede) => w.planta === planta);
+// paredes de comprimento zero no dado (colapsadas pela fusão) não são lançadas; ficam registradas em `semComprimento`
+const semComprimento: string[] = B.paredes.filter((w: Parede) => Math.hypot(w.b_local[0]! - w.a_local[0]!, w.b_local[1]! - w.a_local[1]!) < 0.01).map((w: Parede) => `${w.planta}/${w.id}`);
+const paredesDe = (planta: string): Parede[] => B.paredes.filter((w: Parede) => w.planta === planta && !semComprimento.includes(`${w.planta}/${w.id}`));
+// topologia v3: locationLine nos degraus de eixo e pontas coincidentes (por planta)
+const ADJ = new Map<string, Map<string, PAdj>>();
+for (const pl of ['sotano2', 'semisotano', 'piso1', 'tipo_par', 'tipo_impar', 'azotea']) {
+  console.log(`topologia ${pl}`);
+  ADJ.set(pl, ajustaPlanta(paredesDe(pl) as any, (s) => console.log(s)));
+}
 const cmds: Command[] = [];
 const idsParede = new Map<string, string>(); // `${nivel}|${W}` -> id
 const contagem: Record<string, { paredes: number; aberturas: number; lajes: number; escadas: number; rooms: number }> = {};
@@ -76,14 +87,15 @@ let nPilar = 0, nBatente = 0;
 
 NIVEIS.forEach((n, i) => {
   const topo = n.id === 'azotea' ? { topLevelId: null, height: B.casa_maquinas.altura_m } : { topLevelId: acima(i), topOffset: 0 };
-  // mais espessas primeiro: a parede mais antiga domina a junção (como o template: externas, núcleo, divisórias)
-  const ws = [...paredesDe(n.planta)].sort((p, q) => q.espessura_m - p.espessura_m);
+  // ordem do motor: menor order domina canto/T; ordem_criacao_sugerida = mais espessas/longas primeiro
+  const adj = ADJ.get(n.planta)!;
+  const ws = [...paredesDe(n.planta)].sort((p, q) => adj.get(p.id)!.order - adj.get(q.id)!.order);
   for (const w of ws) {
     const id = `${n.id}-${w.id}`;
     idsParede.set(`${n.id}|${w.id}`, id);
     if (w.pilar_curto) nPilar++;
     if (w.possivel_batente) nBatente++;
-    cmds.push({ type: 'addWall', wall: makeWall({ id, typeId: idParede(w.espessura_m), levelId: n.id, a: v2(w.a_local), b: v2(w.b_local), ...topo }) });
+    cmds.push({ type: 'addWall', wall: makeWall({ id, typeId: idParede(w.espessura_m), levelId: n.id, a: adj.get(w.id)!.a, b: adj.get(w.id)!.b, locationLine: adj.get(w.id)!.loc, ...topo }) });
     cnt(n.id).paredes++;
   }
 });
@@ -118,11 +130,12 @@ NIVEIS.forEach((n) => {
   for (const a of B.aberturas.filter((x: any) => x.planta === n.planta && x.hospedeira)) {
     const host = idsParede.get(`${n.id}|${a.hospedeira}`);
     if (!host) { desvios.push(`${n.id}/${a.id}: hospedeira ${a.hospedeira} inexistente`); continue; }
-    const w = paredesDe(n.planta).find((p) => p.id === a.hospedeira)!;
-    const [ax, ay] = w.a_local as [number, number], [bx, by] = w.b_local as [number, number];
-    const L = Math.hypot(bx - ax, by - ay);
-    const proj = ((a.centro_local[0] - ax) * (bx - ax) + (a.centro_local[1] - ay) * (by - ay)) / L;
-    if (Math.abs(proj - a.offset_m) > 0.02) desvios.push(`${n.id}/${a.id}: offset ${a.offset_m} vs projeção ${proj.toFixed(3)}`);
+    const w = ADJ.get(n.planta)!.get(a.hospedeira)!;
+    const L = Math.hypot(w.b.x - w.a.x, w.b.y - w.a.y);
+    // offset = projeção do centro DXF na linha de locação ajustada (as pontas mudaram em relação ao v3)
+    const proj = r3(((a.centro_local[0] - w.a.x) * (w.b.x - w.a.x) + (a.centro_local[1] - w.a.y) * (w.b.y - w.a.y)) / L);
+    if (Math.abs(proj - a.offset_m) > 0.02) desvios.push(`${n.id}/${a.id}: offset v3 ${a.offset_m} -> ${proj} (ponta da hospedeira ajustada)`);
+    a.offset_m = proj;
     if (a.offset_m - a.largura_m / 2 < -1e-6 || a.offset_m + a.largura_m / 2 > L + 1e-6) desvios.push(`${n.id}/${a.id}: vão excede a parede (offset ${a.offset_m}, L ${L.toFixed(3)})`);
     const typeId = tipoAbertura(a);
     if (!novosTipos.has(typeId)) reaproveitados.add(typeId);
@@ -137,7 +150,8 @@ const ringDeContorno = (planta: string, c: number[][]): Ring => c.map((p) => loc
 function pegadaParedes(planta: string): MultiPolygon {
   const rs: MultiPolygon[] = [];
   for (const w of paredesDe(planta)) {
-    const [ax, ay] = w.a_local as [number, number], [bx, by] = w.b_local as [number, number];
+    const q = ADJ.get(planta)!.get(w.id)!;
+    const [ax, ay, bx, by] = [q.ca.x, q.ca.y, q.cb.x, q.cb.y];
     const L = Math.hypot(bx - ax, by - ay);
     if (L < 1e-6) continue;
     rs.push([[orientedRect((ax + bx) / 2, (ay + by) / 2, (bx - ax) / L, (by - ay) / L, L / 2, w.espessura_m / 2)]]);
@@ -280,7 +294,9 @@ NIVEIS.forEach((n, i) => {
 });
 
 // ---------------------------------------------------------------- ambientes (só os contidos em recinto fechado)
-const ambs = B.ambientes.filter((a: any) => a.recinto_id);
+// v3: os recintos do JSON estão defasados; tenta todo rótulo não vertical e deixa o circuito real do motor decidir.
+const PRIO: Record<string, number> = { ambiente: 0, servicio: 1, circulacion: 2, exterior: 3, numero: 4 };
+const ambs = B.ambientes.filter((a: any) => a.categoria !== 'vertical' && a.ponto_local).sort((p: any, q: any) => (PRIO[p.categoria] ?? 9) - (PRIO[q.categoria] ?? 9));
 const roomsTentativa: Array<{ nivel: string; cmd: Command }> = [];
 NIVEIS.forEach((n) => {
   let num = 1;
@@ -315,6 +331,12 @@ log(`comandos aplicados: ${cmds.length}`);
 }
 
 const p: Project = store.project;
+// eixos reais (centro do corpo) por planta, para a comparação com o DXF original
+if (process.env.EIXOS_JSON ?? 'C:/tmp/ed57393/work/v2_eixos.json') {
+  const eixos: Record<string, unknown> = {};
+  for (const [pl, m] of ADJ) eixos[pl] = [...m.values()].map((q) => ({ id: q.id, a_local: [q.ca.x, q.ca.y].map(r3), b_local: [q.cb.x, q.cb.y].map(r3), espessura_m: q.espessura, loc: q.loc }));
+  writeFileSync(process.env.EIXOS_JSON ?? 'C:/tmp/ed57393/work/v2_eixos.json', JSON.stringify({ paredes: eixos, aberturas: B.aberturas }));
+}
 mkdirSync(dirname(SAIDA), { recursive: true });
 writeFileSync(SAIDA, JSON.stringify(p, null, 1));
 log(`gravado ${SAIDA}`);
@@ -354,6 +376,19 @@ for (const [k] of Object.entries(porTipo)) {
 for (const code of ['wall-type-missing', 'opening-type-missing', 'opening-host-missing', 'level-missing', 'top-level-missing', 'wall-zero-length']) {
   const n = avisos.filter((a) => a.code === code).length;
   if (n) log(`!! ${code}: ${n}`);
+}
+log(`paredes de comprimento zero no dado, não lançadas: ${semComprimento.join(', ') || 'nenhuma'}`);
+log('\n== junções por nível (motor: joinStatus nas pontas; avisos por nível) ==');
+for (const n of NIVEIS) {
+  const ws = (Object.values(p.elements) as any[]).filter((e) => e.kind === 'wall' && e.levelId === n.id && !String(e.id).includes('-GC'));
+  const frames = ws.map((w) => buildFrame(w, p.wallTypes[w.typeId]!)).filter((f): f is NonNullable<typeof f> => !!f);
+  const c: Record<string, number> = { free: 0, pair: 0, node: 0, tee: 0 };
+  for (const w of ws) for (const e of ['a', 'b'] as const) { const k = joinStatus(frames, w.id, e).kind; c[k] = (c[k] ?? 0) + 1; }
+  const ids = new Set(ws.map((w) => w.id));
+  const av = avisos.filter((x: any) => (x.ids ?? [x.elementId]).some((i: string) => ids.has(i)));
+  const k = (code: string): number => av.filter((x: any) => x.code === code).length;
+  const tot = ws.length * 2;
+  log(`${n.id.padEnd(11)} pontas ${tot}: livres ${c.free} (${((100 * c.free!) / tot).toFixed(1)}%) par ${c.pair} nó ${c.node} T ${c.tee} | near-miss ${k('wall-end-near-miss')} overlap ${k('wall-overlap')} unjoined ${k('wall-end-unjoined')}`);
 }
 log(`\ndesvios de dado nas aberturas: ${desvios.length}`);
 for (const d of desvios.slice(0, 20)) log('  ' + d);
