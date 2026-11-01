@@ -29,7 +29,8 @@ import {
   type Project,
 } from '@hestia/model';
 import { buildFrame, normalAt, pointAt, sAtDepth, tangentAt, toLocal, type WallFrame } from './frame.ts';
-import { computeEnds, joinStatus, type EndSpec, type WallEnds } from './joins.ts';
+import type { EndSpec, WallEnds } from './joins.ts';
+import { estruturaDasJuncoes, furosDe, pinturasDoCluster, pintarCompartilhado } from './resolveMemo.ts';
 import { endPoint, layerQuad, membranesOf, sideAt, withBottomProfile, withProfile } from './layerGeom.ts';
 import { flatEnd } from './joinSides.ts';
 import { layerCoreFlags } from './junctionPlanar.ts';
@@ -297,12 +298,13 @@ const perfisDoResolvido = (z: WallZ): Pick<ResolvedWall, 'profileTop' | 'profile
 type Returns = Map<string, Array<{ openingId: Id; poly: MultiPolygon }>>;
 
 function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRange>, returns: Returns, planOpen: (id: Id) => boolean): ClusterCore {
+  const compartilhadas = pinturasDoCluster(items);
   const paintCache = new Map<string, Map<Item, MultiPolygon>>();
   const paintFor = (active: Item[]): Map<Item, MultiPolygon> => {
     const key = active.map((i) => i.uid).sort((x, y) => x - y).join(',');
     let m = paintCache.get(key);
     if (!m) {
-      m = paint(active);
+      m = pintarCompartilhado(compartilhadas, key, active, paint);
       paintCache.set(key, m);
     }
     return m;
@@ -333,7 +335,7 @@ function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRang
       const holes = opens
         .filter((g) => g.hostId === it.wallId && mid > w.z0 + g.sill && mid < w.z0 + g.sill + g.roughHeight)
         .map(openingRect);
-      let poly = holes.length ? difference(frag, ...holes) : frag;
+      let poly = holes.length ? furosDe(frag, holes) : frag;
       // Retorno do acabamento no vão: só nas faixas de altura que o vão atravessa.
       for (const r of returns.get(`${it.wallId}|${it.layerIndex}`) ?? []) {
         const g = opens.find((x) => x.openingId === r.openingId);
@@ -399,24 +401,23 @@ export function resolveLevel(p: Project, levelId: Id, cache: ResolveCache = shar
   // Chave das opções de planta: só o que muda a geometria de planta (o corte já entra pelo `inPlan` dos itens).
   const planSig = planOpenSet ? `open:${[...planOpenSet].sort().join(',')}` : 'open:*';
   const frames = withWallZ(p, walls.map((w) => buildFrame(w, wallType(p, w))).filter((f): f is WallFrame => f !== null));
-  const ends = computeEnds(frames, p.settings?.joinTolerance);
+  const estrutura = estruturaDasJuncoes(levelId, frames, p.settings?.joinTolerance);
   const out: ResolvedLevel = { levelId, walls: {}, clusters: [] };
   // Parede anexada enxerga o piso e a laje por camada (término esvazia o contorno); o próprio término usa o contorno
   // do elemento (`flatAttach`), porque as camadas dependem das paredes (sem ciclo, decisão 0025).
   const { floors, slabs } = attachTargets(p, walls, opts.flatAttach === true);
   // Telhados de todos os níveis só entram se alguma parede deste nível se anexa ao topo do telhado (senão não são lidos).
   const roofs = walls.some((w) => w.attachTopToRoof === true) ? resolveAllRoofs(p) : [];
-  for (const group of clusterWalls(frames, ends)) {
-    const tol = p.settings?.joinTolerance;
+  for (const group of clusterWalls(frames, estrutura.ends)) {
     const freeOf = (f: WallFrame): Array<'a' | 'b'> =>
       (['a', 'b'] as const).filter((w) => {
-        const k = joinStatus(frames, f.wall.id, w, tol).kind;
+        const k = estrutura.status(f.wall.id, w).kind;
         return k === 'free' || k === 'disallowed';
       });
     const throughIds = new Set<Id>();
     for (const f of group) {
       for (const w of ['a', 'b'] as const) {
-        const st = joinStatus(frames, f.wall.id, w, tol);
+        const st = estrutura.status(f.wall.id, w);
         if (st.kind === 'tee') throughIds.add(st.hostId);
       }
     }
@@ -425,7 +426,7 @@ export function resolveLevel(p: Project, levelId: Id, cache: ResolveCache = shar
       const { z0, height } = wz.get(f.wall.id)!;
       // Sem `cutZ`, o corte fica 1,20 m acima da base desta parede (como antes).
       const planCut = opts.cutZ ?? z0 + PLAN_CUT;
-      return buildItems(f, ends.get(f.wall.id)!, freeOf(f), { z0, z1: z0 + height }, throughIds.has(f.wall.id), planCut, opts.outlineWalls?.has(f.wall.id) === true);
+      return buildItems(f, estrutura.ends.get(f.wall.id)!, freeOf(f), { z0, z1: z0 + height }, throughIds.has(f.wall.id), planCut, opts.outlineWalls?.has(f.wall.id) === true);
     });
     items.forEach((it, i) => {
       it.uid = i;
@@ -474,7 +475,7 @@ export function resolveLevel(p: Project, levelId: Id, cache: ResolveCache = shar
         nominalZ0: wallBaseElevation(p, f.wall),
         nominalZ1: wallBaseElevation(p, f.wall) + wallMaxHeight(p, f.wall),
         layers: withProfile(withBottomProfile(core.layers.get(f.wall.id) ?? [], f, wz.get(f.wall.id)!.bottomProfile), f, wz.get(f.wall.id)!.profile),
-        membranes: membranesOf(f, ends.get(f.wall.id)!),
+        membranes: membranesOf(f, estrutura.ends.get(f.wall.id)!),
         ...perfisDoResolvido(wz.get(f.wall.id)!),
       };
       out.walls[f.wall.id] = rw;

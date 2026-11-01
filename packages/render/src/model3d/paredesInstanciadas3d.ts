@@ -24,6 +24,8 @@ export interface ParedesDoNivel {
   batches: SolidBatch[];
   caixas: CaixaDeParede[];
   arestas: number[];
+  /** As mesmas arestas, por parede (para trocar só as de uma parede). */
+  arestasPorParede: Map<Id, number[]>;
 }
 
 /** Uma camada em caixas: as matrizes e, quando as arestas são pedidas, as arestas da camada (pares de pontos). */
@@ -80,14 +82,20 @@ export function buildLevelSolidsComCaixas(r: ResolvedLevel, jl: JunctionLevel | 
   const byMat = new Map<Id, SolidBatch>();
   const caixas: CaixaDeParede[] = [];
   const arestas: number[] = [];
+  const arestasPorParede = new Map<Id, number[]>();
   for (const rw of Object.values(r.walls)) {
     for (const l of rw.layers) {
       const camada = caixasDaCamada(fuseBands(wallLayerBandsAfterJunction(jl, rw, l)), rw.baseZ, comArestas);
       if (camada) {
         for (const matriz of camada.matrizes) caixas.push({ wallId: rw.wallId, materialId: l.materialId, matriz });
         for (const x of camada.arestas) arestas.push(x);
+        if (camada.arestas.length) {
+          const lista = arestasPorParede.get(rw.wallId) ?? [];
+          for (const x of camada.arestas) lista.push(x);
+          arestasPorParede.set(rw.wallId, lista);
+        }
       } else appendSolid(batchOf(byMat, l.materialId, 'wall'), wallLayerSolid(rw, l, jl));
     }
   }
-  return { batches: [...byMat.values()], caixas, arestas };
+  return { batches: [...byMat.values()], caixas, arestas, arestasPorParede };
 }

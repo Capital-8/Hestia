@@ -6,6 +6,7 @@ export * from './termino.ts';
 export * from './membrane.ts';
 export * from './wallType.ts';
 export * from './queries.ts';
+export * from './semEsquadrias.ts';
 export * from './hostedOffset.ts';
 export * from './ids.ts';
 export * from './defaults.ts';

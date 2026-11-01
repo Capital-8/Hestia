@@ -1,7 +1,7 @@
 /* eslint-disable max-lines -- a cena 3D reúne o port GPU (faixas/sombras) e o alizar/esquadrias do plano; extrair depois. */
 import * as THREE from 'three';
-import { applyPartialStructure, frameOfWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
-import { openingsOfWall, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, type GraphicsCategory, type Id, type Material, type Opening, type Project, type View3DSettings, type VisualStyle } from '@hestia/model';
+import { applyPartialStructure, frameOfWall, openingGeometry, junctionOfWalls, pisoOuLajeNaFaixa, type JunctionLevel, type ResolvedWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
+import { openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, type GraphicsCategory, type Id, type Material, type Opening, type Project, type View3DSettings, type VisualStyle } from '@hestia/model';
 import { DARK, LIGHT } from '../plan/types.ts';
 import { AVISO } from '../aviso.ts';
 import { projetoDaJuncao } from '../plan/viewContext.ts';
@@ -22,8 +22,8 @@ import { LEVEL_LINE_OFFSET, levelProjectBox } from './levelsData.ts';
 import { buildRampSolids } from './rampSolids.ts';
 import { RealcesDaCena } from './realceDaCena3d.ts';
 import { buildLevelSolidsComCaixas } from './paredesInstanciadas3d.ts';
-import { CaixasDoNivel } from './caixasDoNivel3d.ts';
-import { arestasDasCaixas, criarCaixaUnitaria } from './caixas3d.ts';
+import { CaixasDoNivel, chaveDaColecao, faixasDosIds, type ColecaoCaixas } from './caixasDoNivel3d.ts';
+import { arestasDasCaixas, criarCaixaUnitaria, geometriaDeCaixas } from './caixas3d.ts';
 import { buildCeilingSolids, buildFloorSolids, buildLevelSolids, buildRoofSolids, buildSlabSolids, filtrarParedesDoNivel, type ElementRange, type SolidBatch } from './solids.ts';
 import { Materiais3D } from './materiais3d.ts';
 import { CacheMalhas, bytesDeNivel, disposeNivel, type EntradaNivel, type PickSource } from './cacheMalhas3d.ts';
@@ -426,6 +426,205 @@ export class ModelScene {
   }
 
   /**
+   * Edição só de esquadrias (janela/porta adicionada, removida, movida, trocada) em paredes de UM nível: troca no nível
+   * já montado apenas as caixas e os prismas da parede hospedeira e das esquadrias dela, sem remontar o nível nem os
+   * vizinhos. `lv` é o nível resolvido com o projeto novo. Devolve falso (nada foi alterado) quando o caso não está
+   * provado como independente do resto: wireframe/arestas, parede oculta ou revelada, estrutura parcial, categoria
+   * escondida, parede que não vira só caixas, ou piso/laje na faixa de cota do vão (o corte deles por parede mudaria).
+   * Provas: pisos e lajes só leem o contorno bruto das paredes (nunca as esquadrias); parede não é cortada por parede
+   * (`pairCuts`); logo as demais peças do nível e dos vizinhos ficam iguais, e a chave deles só é renovada.
+   */
+  atualizarAberturas(p: Project, pAnt: Project, levelId: Id, wallIds: readonly Id[], lv: ResolvedLevel, opt: Scene3DOptions): boolean {
+    const view = view3dOf(p);
+    if (!this.instanciar || this.projeto !== pAnt || pAnt.view3d !== p.view3d || opt.dark !== this.frame.dark) return this.recusar(1);
+    if (isLineStyle(view.style) || this.ocultos.size || this.revelados.size || (opt.hidden?.size ?? 0) || (opt.revealed?.size ?? 0)) return this.recusar(2);
+    if (view.partialStructure !== 'entire') return this.recusar(3);
+    if (!view.overrides.wall.visible || !view.overrides.door.visible || !view.overrides.window.visible) return this.recusar(4);
+    const entrada = this.cenaNiveis.find((e) => e.levelId === levelId);
+    if (!entrada?.instancias || !entrada.lotes || (this.frame.edges && !entrada.arestasParedes) || entrada.instancias.some((c) => !c.ids)) return this.recusar(5);
+    const paredes: ResolvedWall[] = [];
+    for (const id of wallIds) {
+      const rw = lv.walls[id];
+      if (!rw) return this.recusar(6);
+      paredes.push(rw);
+    }
+    const ids = new Set<Id>(wallIds);
+    // O término explícito de piso e laje lê os vãos de porta que chegam ao piso: com ele, porta alterada muda piso/laje.
+    const termino = [...Object.values(p.floorTypes), ...Object.values(p.slabTypes)].some((t) => t.layers.some((l) => terminoEhRegraParede(l)));
+    // Esquadrias antigas e novas das paredes: o vão alterado dá a faixa de cota e a caixa em planta a conferir.
+    const reduzido = projetoDaJuncao(pAnt, levelId);
+    for (const rw of paredes) {
+      const f = frameOfWall(p, rw.wallId);
+      if (!f) return this.recusar(7);
+      for (const proj of [pAnt, p]) {
+        for (const o of openingsOfWall(proj, rw.wallId)) {
+          ids.add(o.id);
+          if (termino && o.kind === 'door' && pAnt.elements[o.id] !== p.elements[o.id]) return this.recusar(10);
+          const g = openingGeometry(proj, o, f);
+          const meia = g.roughWidth / 2 + g.thickness;
+          const z0 = rw.baseZ + g.sill;
+          if (pisoOuLajeNaFaixa(reduzido, levelId, z0, z0 + g.roughHeight, [g.center.x - meia, g.center.y - meia, g.center.x + meia, g.center.y + meia])) return this.recusar(8);
+        }
+      }
+    }
+    if (entrada.lotes.some((b) => b.ids.some((r) => wallIds.includes(r.id)))) return this.recusar(9);
+    const juncao: JunctionLevel = { levelId, elements: new Map(), walls: junctionOfWalls(reduzido, levelId, paredes) };
+    const so: ResolvedLevel = { levelId, walls: Object.fromEntries(paredes.map((rw) => [rw.wallId, rw])), clusters: [] };
+    const novasParedes = buildLevelSolidsComCaixas(so, juncao, this.frame.edges);
+    if (novasParedes.batches.length) return this.recusar(10);
+    const pickMeshes = entrada.grupo.children.filter((o) => (o.userData as { caixasPick?: boolean }).caixasPick) as THREE.Mesh[];
+    if (pickMeshes.length !== entrada.instancias.length) return this.recusar(11);
+    // A partir daqui nada falha: caixas e prismas novos (mesma montagem de `montarNivel`).
+    const caixas = new CaixasDoNivel();
+    for (const c of novasParedes.caixas) caixas.adicionar('wall', c.materialId, c.wallId, c.matriz, false);
+    const prismas: SolidBatch[] = [];
+    const mats = new Set<string>(entrada.mats);
+    const matsAnt = this.mats.noNivel;
+    this.mats.noNivel = mats;
+    for (const rw of paredes) {
+      const f = frameOfWall(p, rw.wallId)!;
+      for (const o of openingsOfWall(p, rw.wallId)) {
+        const a = caixasEPrismasDaAbertura(p, o, f, rw.baseZ, rw.height, view);
+        if (!a) continue;
+        for (const c of a.caixas) caixas.adicionar(o.kind, c.materialId, o.id, c.matriz, false);
+        for (const pr of a.prismas) {
+          prismas.push(loteDeGeometria(pr.geometry, pr.materialId, o.kind, o.id));
+          this.mats.face(p.materials[pr.materialId], o.kind);
+        }
+      }
+    }
+    const novasColecoes = caixas.colecoes();
+    for (const c of novasColecoes) this.mats.face(p.materials[c.materialId], c.categoria);
+    this.mats.noNivel = matsAnt;
+    // Troca: tira das coleções as caixas dos elementos e acrescenta as novas.
+    interface Grupo {
+      categoria: GraphicsCategory;
+      materialId: Id;
+      matrizes: number[];
+      ids: Id[];
+      mudou: boolean;
+    }
+    const grupos: Grupo[] = entrada.instancias.map((c) => {
+      const g: Grupo = { categoria: c.categoria, materialId: c.materialId, matrizes: [], ids: [], mudou: false };
+      c.ids!.forEach((id, k) => {
+        if (ids.has(id)) g.mudou = true;
+        else {
+          g.ids.push(id);
+          for (let j = 0; j < 16; j++) g.matrizes.push(c.matrizes[k * 16 + j]!);
+        }
+      });
+      return g;
+    });
+    const originais = grupos.length;
+    const porChave = new Map(grupos.map((g) => [chaveDaColecao(g.categoria, g.materialId), g] as const));
+    for (const c of novasColecoes) {
+      const k = chaveDaColecao(c.categoria, c.materialId);
+      let g = porChave.get(k);
+      if (!g) {
+        g = { categoria: c.categoria, materialId: c.materialId, matrizes: [], ids: [], mudou: true };
+        porChave.set(k, g);
+        grupos.push(g);
+      }
+      g.mudou = true;
+      for (const x of c.matrizes) g.matrizes.push(x);
+      g.ids.push(...c.ids!);
+    }
+    const colecoes: ColecaoCaixas[] = [];
+    grupos.forEach((g, i) => {
+      let m = i < originais ? pickMeshes[i] : undefined;
+      if (!g.matrizes.length) {
+        if (m) {
+          entrada.grupo.remove(m);
+          m.geometry.dispose();
+        }
+        return;
+      }
+      const matrizes = Float32Array.from(g.matrizes);
+      colecoes.push({ categoria: g.categoria, materialId: g.materialId, matrizes, ids: g.ids });
+      if (!g.mudou) return;
+      if (m) {
+        m.geometry.dispose();
+        m.geometry = geometriaDeCaixas(matrizes);
+      } else {
+        m = new THREE.Mesh(geometriaDeCaixas(matrizes), this.mats.cached('pick', () => new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false })));
+        m.visible = false;
+        entrada.grupo.add(m);
+      }
+      m.userData = { kind: g.categoria, ranges: faixasDosIds(g.ids), caixasPick: true };
+    });
+    const lotes = [...entrada.lotes.filter((b) => !(b.ids.length && b.ids.every((r) => ids.has(r.id)))), ...prismas];
+    // Arestas (padrão da vista): trocam só as das paredes alteradas; as de sólidos e esquadrias não mudam.
+    let arestasParedes = entrada.arestasParedes;
+    let arestasCaixas = entrada.arestasCaixas;
+    let arestas = entrada.arestas;
+    if (this.frame.edges) {
+      const mapa = new Map(entrada.arestasParedes);
+      for (const rw of paredes) {
+        const novas = novasParedes.arestasPorParede.get(rw.wallId);
+        if (novas) mapa.set(rw.wallId, novas);
+        else mapa.delete(rw.wallId);
+      }
+      arestasParedes = mapa;
+      arestasCaixas = Float32Array.from([...mapa.values()].flat());
+      const solidas = entrada.arestasSolidas;
+      const total = (solidas?.length ?? 0) + arestasCaixas.length;
+      arestas = undefined;
+      if (total) {
+        arestas = new Float32Array(total);
+        if (solidas) arestas.set(solidas, 0);
+        arestas.set(arestasCaixas, solidas?.length ?? 0);
+      }
+    }
+    const bytes = bytesDeNivel(entrada.grupo, entrada.picks, colecoes, arestasCaixas, lotes, entrada.arestasSolidas) + (arestas?.byteLength ?? 0);
+    const chaves = this.chavesPara(p, opt);
+    const nova: EntradaNivel = {
+      ...entrada,
+      chave: chaves.get(levelId) ?? `sem-chave:${++this.sequencia}`,
+      instancias: colecoes,
+      lotes,
+      bytes,
+      mats: [...mats],
+      ...(arestasParedes ? { arestasParedes } : {}),
+      ...(arestasCaixas ? { arestasCaixas } : {}),
+      ...(arestas ? { arestas } : {}),
+    };
+    if (!arestas) delete (nova as { arestas?: Float32Array }).arestas;
+    // Vizinhos por cota e níveis com parede no telhado: a geometria é a mesma, só a chave (que embute o conteúdo do vizinho) muda.
+    for (const e of this.cenaNiveis) if (e !== entrada) (e as { chave: string }).chave = chaves.get(e.levelId) ?? e.chave;
+    this.cache.guardar(nova);
+    this.cenaNiveis = this.cenaNiveis.map((e) => (e === entrada ? nova : e));
+    this.projeto = p;
+    this.semOcultos = p;
+    this.soRevelados = p;
+    this.sombra.marcar();
+    this.realces.soltarTodos();
+    this.detach();
+    for (const e of this.cenaNiveis) this.model.add(e.grupo);
+    const res = this.lotes.atualizar(this.cenaNiveis, { instanciar: true, arestas: this.frame.edges, sombras: this.frame.shadows }, true);
+    for (const m of res.solidas) this.model.add(m);
+    for (const m of res.instanciadas) this.model.add(m);
+    for (const l of res.arestas) this.model.add(l);
+    this.faixasDeSombra = res.faixas.map((f) => ({ caixa: f.caixa.isEmpty() ? null : f.caixa.clone(), triangulos: f.triangulos, alvos: [...f.solidas, ...f.instanciadas] }));
+    this.buildPickLayer();
+    this.atualizarNiveis(p);
+    return true;
+  }
+
+  /** Motivo (número do teste) da última recusa de `atualizarAberturas`; diagnóstico. */
+  ultimaRecusa = 0;
+
+  private recusar(motivo: number): false {
+    this.ultimaRecusa = motivo;
+    return false;
+  }
+
+  /** Chaves de conteúdo dos níveis do projeto, com a marca da vista e a visibilidade desta atualização. */
+  private chavesPara(p: Project, opt: Scene3DOptions): Map<Id, string> {
+    const view = view3dOf(p);
+    return chavesDeNivel(p, JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style]), { ocultos: this.ocultos, revelados: this.revelados });
+  }
+
+  /**
    * Geometria do modelo em coordenadas de mundo, para a etapa "papel" da prancha (decisão 0040). Lê `this.model`, o
    * mesmo grupo que a GPU desenha: as malhas viram triângulos e as `LineSegments` viram as arestas que a vista 3D mostra.
    * Ficam de fora o datum dos níveis, o chão, a grade, a camada de picking e os realces, que não são o modelo.
@@ -447,7 +646,9 @@ export class ModelScene {
         // Arestas: pares de pontos (cada dois formam um segmento), já no mundo pela matriz do objeto.
         const pos = o.geometry.getAttribute('position');
         if (!pos) return;
-        for (let i = 0; i < pos.count; i++) {
+        // O lote de linhas da GPU guarda capacidade sobrando depois de uma troca: só vale o `drawRange`.
+        const desenhados = Number.isFinite(o.geometry.drawRange.count) ? Math.min(pos.count, o.geometry.drawRange.start + o.geometry.drawRange.count) : pos.count;
+        for (let i = Math.max(0, o.geometry.drawRange.start); i < desenhados; i++) {
           v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
           arestas.push(v.x, v.y, v.z);
           box.expandByPoint(v);
@@ -657,7 +858,7 @@ export class ModelScene {
     // Paredes com a junção (0023 F4): cada faixa é extrudada só nas partes que sobram dela, como o corte e a planta. As camadas
     // de prismas retangulares viram caixas instanciadas (`paredesInstanciadas3d.ts`); o resto segue como geometria.
     const caixas = this.instanciar ? new CaixasDoNivel() : null;
-    const paredes = !shown('wall') ? { batches: [], caixas: [], arestas: [] } : caixas ? buildLevelSolidsComCaixas(lv, juncao, this.frame.edges) : { batches: buildLevelSolids(lv, juncao).batches, caixas: [], arestas: [] };
+    const paredes = !shown('wall') ? { batches: [], caixas: [], arestas: [], arestasPorParede: new Map<Id, number[]>() } : caixas ? buildLevelSolidsComCaixas(lv, juncao, this.frame.edges) : { batches: buildLevelSolids(lv, juncao).batches, caixas: [], arestas: [], arestasPorParede: new Map<Id, number[]>() };
     for (const c of paredes.caixas) caixas?.adicionar('wall', c.materialId, c.wallId, c.matriz, false);
     caixas?.adicionarArestas(paredes.arestas);
     const floors = shown('floor') ? resolveFloors(p, lv.levelId).filter((f) => !oculto(f.floorId)) : [];
@@ -826,7 +1027,7 @@ export class ModelScene {
       picks,
       mats: [...mats],
       bytes: bytes + (arestas?.byteLength ?? 0),
-      ...(montadas ? { instancias: montadas.colecoes, arestasCaixas: montadas.arestas } : {}),
+      ...(montadas ? { instancias: montadas.colecoes, arestasCaixas: montadas.arestas, arestasParedes: paredes.arestasPorParede } : {}),
       ...(this.instanciar ? { lotes, materiais: eave.materials, ...(arestasSolidas ? { arestasSolidas } : {}), ...(arestas ? { arestas } : {}) } : {}),
     };
   }

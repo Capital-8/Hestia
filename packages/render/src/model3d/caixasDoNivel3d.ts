@@ -15,6 +15,8 @@ export interface ColecaoCaixas {
   readonly categoria: GraphicsCategory;
   readonly materialId: Id;
   readonly matrizes: Float32Array;
+  /** Id do elemento de cada caixa (na ordem das matrizes), para trocar só as caixas de alguns elementos. */
+  readonly ids?: readonly Id[];
 }
 
 /** Chave do grupo: a categoria (visibilidade e substituição, decisão 0015) e o material, como em `lotesMalha3d.ts`. */
@@ -50,6 +52,11 @@ export class CaixasDoNivel {
     for (const x of posicoes) this.arestas.push(x);
   }
 
+  /** As coleções acumuladas (sem criar as malhas de picking), com o id de cada caixa. */
+  colecoes(): ColecaoCaixas[] {
+    return [...this.grupos.values()].map((g) => ({ categoria: g.categoria, materialId: g.materialId, matrizes: Float32Array.from(g.matrizes), ids: g.ids }));
+  }
+
   get vazio(): boolean {
     return this.grupos.size === 0;
   }
@@ -62,7 +69,7 @@ export class CaixasDoNivel {
     const colecoes: ColecaoCaixas[] = [];
     for (const g of this.grupos.values()) {
       const matrizes = Float32Array.from(g.matrizes);
-      colecoes.push({ categoria: g.categoria, materialId: g.materialId, matrizes });
+      colecoes.push({ categoria: g.categoria, materialId: g.materialId, matrizes, ids: g.ids });
       const mesh = new THREE.Mesh(geometriaDeCaixas(matrizes), materialPicking);
       mesh.visible = false;
       // `caixasPick`: malha invisível de propósito (só picking); a seleção por caixa a trata como visível (selecaoPorCaixa3d.ts).

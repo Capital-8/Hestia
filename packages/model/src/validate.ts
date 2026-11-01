@@ -1,4 +1,5 @@
 import { cross, dist, dot, norm, sub, type Vec2 } from '@hestia/geom';
+import { memoSemEsquadrias } from './semEsquadrias.ts';
 import { curveJoinDomainIssues, nearMissIssues, unjoinedEndIssues } from './validateJoins.ts';
 import { floorIssues } from './validateFloors.ts';
 import { slabIssues } from './validateSlabs.ts';
@@ -306,10 +307,8 @@ export function validateProject(p: Project): ValidationIssue[] {
     ...walls.flatMap((w) => wallIssues(p, w)),
     ...openings.flatMap((o) => openingIssues(p, o)),
     ...openingOverlaps(p, openings),
-    ...wallOverlaps(walls),
-    ...unjoinedEndIssues(p, walls),
-    ...nearMissIssues(p, walls),
-    ...curveJoinDomainIssues(p, walls),
+    // Só leem paredes: editar uma esquadria não os recalcula.
+    ...memoSemEsquadrias('validar:paredes', p, () => [...wallOverlaps(walls), ...unjoinedEndIssues(p, walls), ...nearMissIssues(p, walls), ...curveJoinDomainIssues(p, walls)]),
     ...floorIssues(p),
     ...slabIssues(p),
     ...roofIssues(p),

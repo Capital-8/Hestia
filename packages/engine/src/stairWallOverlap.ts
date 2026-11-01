@@ -1,5 +1,5 @@
 import { boxOf, boxesOverlap, intersection, multiArea, union, type Box, type MultiPolygon } from '@hestia/geom';
-import { formatQuantity, unitsOf, isWall, wallsOnLevel, type Id, type Project, type Wall } from '@hestia/model';
+import { formatQuantity, memoSemEsquadrias, unitsOf, isWall, wallsOnLevel, type Id, type Project, type Wall } from '@hestia/model';
 import { resolveLevel } from './resolve.ts';
 import { makeStairIssue, type StairIssueItem } from './stairIssues.ts';
 import { resolveStairs, type ResolvedStair } from './stairs.ts';
@@ -29,6 +29,11 @@ interface WallSolid {
 
 /** Corpo em planta de cada parede do nível. `raw` é a camada antes do recorte de vãos e de prioridade. */
 function wallSolids(p: Project, levelId: Id): WallSolid[] {
+  // Só lê o contorno bruto das camadas (`raw`): editar uma esquadria não o muda.
+  return memoSemEsquadrias(`corpos:${levelId}`, p, () => calcularCorpos(p, levelId));
+}
+
+function calcularCorpos(p: Project, levelId: Id): WallSolid[] {
   if (wallsOnLevel(p, levelId).length === 0) return [];
   const out: WallSolid[] = [];
   for (const rw of Object.values(resolveLevel(p, levelId).walls)) {
