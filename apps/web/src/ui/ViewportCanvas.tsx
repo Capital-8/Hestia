@@ -31,6 +31,8 @@ import { QuadroPlanta } from './quadroPlanta.ts';
 import { medirQuadro, useContarCommitPerf, usePerfDaUrl } from '../debug/perf/index.ts';
 import { eventosDeSolta, gestosComShift, passouDoLimiar } from './planGestos.ts';
 import { Progresso3D } from './Progresso3D.tsx';
+import { ProgressoAbertura } from './ProgressoAbertura.tsx';
+import { registrarPreparo3d } from './preparo3d.ts';
 import { cliqueAdiadoInicial, decidirCliqueAdiado, type EstadoCliqueAdiado } from './cliqueAdiado.ts';
 
 interface Pt {
@@ -215,6 +217,38 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     return projeto;
   }, [projetoDePrevia]);
 
+  // Montagem da vista 3D: inicia (ou reinicia, se a chave mudou) a montagem em fatias. Serve ao quadro da aba 3D e ao preparo
+  // do projeto em segundo plano, que a adianta com a planta na tela (ver `preparo3d.ts`). Devolve true se (re)começou.
+  const darkRef = useRef(dark);
+  darkRef.current = dark;
+  const iniciarMontagem3d = useCallback((darkAgora: boolean, st: ReturnType<typeof useUi.getState>): boolean => {
+    const p = editor.project;
+    const vis = visibilityOf(p, st);
+    // Sombras e arestas são da vista 3D no projeto (decisão 0015 §1): a chave inclui a versão do projeto.
+    const v3 = view3dOf(p);
+    // A visibilidade temporária/Reveal não muda a versão do projeto: ela precisa entrar na chave para a cena
+    // receber `hidden`/`revealed` (sem isto HH/RH mudavam o estado, mas o modelo continuava na tela).
+    const visKey = `${[...vis.hidden].sort().join(',')}|${[...vis.revealed].sort().join(',')}`;
+    const key = `${editor.store.version}|${darkAgora}|${v3.shadows}|${v3.edges}|${v3.openOpenings === true}|${v3.showLevels !== false}|${visKey}`;
+    if (key === modelKey.current) return false;
+    modelKey.current = key;
+    const m = model.current;
+    // Os níveis entram em fatias (ver montagem3dProgressiva.ts): a tela não espera o projeto inteiro. Depois da
+    // primeira montagem, `atualizar` só re-resolve os níveis que a edição alcançou — e nada no tema/visibilidade.
+    montagem.current ??= criarMontagemVista3d(m, (id) => editor.resolved(id), (id) => editor.resolucaoPronta(id));
+    // Gancho de depuração (`?debug=1`): o e2e de perf espera `montados` chegar ao total de níveis.
+    if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug')) Object.assign(window, { __hestia3dMontagem: montagem.current });
+    montagem.current.atualizar(p, { edges: v3.edges, shadows: v3.shadows, dark: darkAgora, hidden: vis.hidden, revealed: vis.revealed }, st.levelId);
+    return true;
+  }, []);
+  useEffect(() => {
+    registrarPreparo3d(() => {
+      iniciarMontagem3d(darkRef.current, useUi.getState());
+      return montagem.current ? { montados: montagem.current.montados, total: montagem.current.total } : null;
+    });
+    return () => registrarPreparo3d(null);
+  }, [iniciarMontagem3d]);
+
   // ---- desenho ----
   const renderQuadro = useCallback(() => {
     const st = useUi.getState();
@@ -257,23 +291,16 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
         picker.redimensionar(pw, ph);
         pickSize.current = { w: pw, h: ph };
       }
-      // Sombras e arestas são da vista 3D no projeto (decisão 0015 §1): a chave inclui a versão do projeto.
-      const v3 = view3dOf(p);
-      // A visibilidade temporária/Reveal não muda a versão do projeto: ela precisa entrar na chave para a cena
-      // receber `hidden`/`revealed` (sem isto HH/RH mudavam o estado, mas o modelo continuava na tela).
-      const visKey = `${[...vis.hidden].sort().join(',')}|${[...vis.revealed].sort().join(',')}`;
-      const key = `${editor.store.version}|${dark}|${v3.shadows}|${v3.edges}|${v3.openOpenings === true}|${v3.showLevels !== false}|${visKey}`;
-      if (key !== modelKey.current) {
-        modelKey.current = key;
-        // Os níveis entram em fatias (ver montagem3dProgressiva.ts): a tela não espera o projeto inteiro. Depois da
-        // primeira montagem, `atualizar` só re-resolve os níveis que a edição alcançou — e nada no tema/visibilidade.
-        montagem.current ??= criarMontagemVista3d(m, (id) => editor.resolved(id), (id) => editor.resolucaoPronta(id));
-        // Gancho de depuração (`?debug=1`): o e2e de perf espera `montados` chegar ao total de níveis.
-        if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug')) Object.assign(window, { __hestia3dMontagem: montagem.current });
-        montagem.current.atualizar(p, { edges: v3.edges, shadows: v3.shadows, dark, hidden: vis.hidden, revealed: vis.revealed }, st.levelId);
+      if (iniciarMontagem3d(dark, st)) {
         // Prévia do Colar alinhado: a cena precisa aparecer completa no mesmo quadro, não pavimento por pavimento.
-        if (st.pastePreview && montagem.current.montados < p.levels.length) montagem.current.montarTudo();
+        if (st.pastePreview && montagem.current && montagem.current.montados < p.levels.length) montagem.current.montarTudo();
         picker?.invalidar();
+      }
+      // Montagem concluída em segundo plano (preparo do projeto, com a planta na tela): o enquadramento inicial fica para
+      // a primeira vez que a aba 3D aparece.
+      if (!st.seen3d && montagem.current && montagem.current.total > 0 && montagem.current.montados >= montagem.current.total) {
+        m.fit();
+        useUi.setState({ seen3d: true });
       }
       // O nível selecionado no datum (clique no 3D) é aplicado à cena a cada quadro; sem mudança, não refaz nada.
       m.selecionarNivel(p, st.selectedLevel);
@@ -298,7 +325,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
             camada.grupo.removeFromParent();
           }
         }
-      g.gpu.renderer.shadowMap.enabled = v3.shadows;
+      g.gpu.renderer.shadowMap.enabled = view3dOf(p).shadows;
       g.gpu.setSize(w, h, dpr);
       // Animação da câmera (ViewCube, Início): avança a cada quadro e pede o próximo enquanto anima.
       if (m.orbit.step(performance.now())) {
@@ -310,7 +337,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       if (pendente) aplicarCameraNaOrbita(m.orbit, pendente);
       m.orbit.setAspect(w, h);
       // Sombra suja (edição) e gesto de câmera ativo: o mapa novo espera o fim do gesto; a órbita desenha com o anterior.
-      const adiarSombra = v3.shadows && interacaoAtiva();
+      const adiarSombra = view3dOf(p).shadows && interacaoAtiva();
       m.sombra.aplicar(g.gpu.renderer, adiarSombra);
       if (adiarSombra && m.sombra.sujo && sombraAdiada.current === null) {
         sombraAdiada.current = setTimeout(() => {
@@ -431,7 +458,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     // Alinha a camada HTML de texto no mesmo requestAnimationFrame do canvas da planta.
     // Isso evita o atraso de um render React entre a câmera e o texto da cota durante pan/zoom.
     labelLayer.current?.syncView(v);
-  }, [size, ready, dark, sketch, rascunhoDaPrevia]);
+  }, [size, ready, dark, sketch, rascunhoDaPrevia, iniciarMontagem3d]);
 
   // Um quadro do rAF: o trabalho de CPU é medido do começo ao fim do desenho; com `?perf=1`, os contadores agrupam
   // draw calls/upload/rebuilds entre estes dois pontos. Sem perf, os métodos são no-op.
@@ -1071,6 +1098,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       <NivelCotaEditor ref={cotaRef} />
       <div ref={caixaRef} style={CAIXA_DE_SELECAO_STYLE} />
       {ui.view === '3d' && <Progresso3D />}
+      <ProgressoAbertura />
     </div>
   );
 }

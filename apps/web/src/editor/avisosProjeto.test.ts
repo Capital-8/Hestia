@@ -24,7 +24,7 @@ describe('agendarAvisos', () => {
     const p = projetoComParede();
     const direto = avisosDoProjeto(p);
     const recebido: ValidationIssue[][] = [];
-    agendarAvisos(p, (a) => recebido.push(a), SETTLE_MS, { worker: null });
+    agendarAvisos(p, (a) => recebido.push(a), SETTLE_MS, () => null);
     vi.advanceTimersByTime(SETTLE_MS);
     vi.runAllTimers();
     expect(recebido).toHaveLength(1);

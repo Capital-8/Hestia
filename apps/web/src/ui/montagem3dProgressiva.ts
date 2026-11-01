@@ -561,7 +561,8 @@ export function criarMontagemVista3d(
     },
     aoConcluir: () => {
       publicarProgresso3d(montagem.total, montagem.total);
-      if (useUi.getState().seen3d) return;
+      // Montagem adiantada em segundo plano, com a planta na tela: o enquadramento fica para a primeira vez que a aba 3D aparece.
+      if (useUi.getState().seen3d || useUi.getState().view !== '3d') return;
       cena.fit();
       useUi.setState({ seen3d: true });
     },

@@ -37,3 +37,39 @@ export function useAdiado<T>(base: object, chave: string, calcular: () => T, atr
   }, [base, chave]);
   return pronto ? (guardados.get(base)!.get(chave) as T) : undefined;
 }
+
+/**
+ * Como `useAdiado`, mas o cálculo pode correr fora da thread principal: `emSegundoPlano` devolve a promessa do resultado
+ * (um worker) ou `null` quando não há como; nesse caso, ou se a promessa falhar, `calcular` roda aqui, como antes. O
+ * resultado vale para `base` + `chave` mesmo que o painel tenha sido desmontado enquanto esperava.
+ */
+export function useAdiadoEmSegundoPlano<T>(base: object, chave: string, calcular: () => T, emSegundoPlano: () => Promise<T> | null, atrasoMs = 0): T | undefined {
+  const [, redesenhar] = useState(0);
+  const pronto = guardados.get(base)?.has(chave) === true;
+  useEffect(() => {
+    if (guardados.get(base)?.has(chave)) return undefined;
+    let cancelado = false;
+    let tempo: ReturnType<typeof setTimeout> | undefined;
+    const guardar = (valor: T): void => {
+      let mapa = guardados.get(base);
+      if (!mapa) guardados.set(base, (mapa = new Map()));
+      if (!mapa.has(chave)) mapa.set(chave, valor);
+      if (!cancelado) redesenhar((n) => n + 1);
+    };
+    const quadro = requestAnimationFrame(() => {
+      tempo = setTimeout(() => {
+        if (cancelado || guardados.get(base)?.has(chave)) return;
+        const promessa = emSegundoPlano();
+        if (!promessa) return guardar(calcular());
+        promessa.then(guardar, () => guardar(calcular()));
+      }, atrasoMs);
+    });
+    return () => {
+      cancelado = true;
+      cancelAnimationFrame(quadro);
+      if (tempo !== undefined) clearTimeout(tempo);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [base, chave]);
+  return pronto ? (guardados.get(base)!.get(chave) as T) : undefined;
+}

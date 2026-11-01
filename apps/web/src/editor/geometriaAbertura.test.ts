@@ -3,7 +3,7 @@ import { resolveLevel, type ResolvedLevel } from '@hestia/engine';
 import { projetoComPavimentos } from '@hestia/engine/src/worker/fixturePavimentos.ts';
 import type { Id, Project } from '@hestia/model';
 import { CacheGeometria, criarArmazenamentoMemoria, ehSerializavel, type ArmazenamentoGeometria } from './geometryCache.ts';
-import { abrirComCache, chaveDoProjeto, TETO_GEOMETRIA_BYTES, type PortasAbertura } from './geometriaAbertura.ts';
+import { abrirComCache, chaveDoProjeto, chavesDosNiveis, limparCacheDeGeometria, restaurarDoCache, TETO_GEOMETRIA_BYTES, VERSAO_ESQUEMA_CACHE, VERSAO_MOTOR_GEOMETRIA, type PortasAbertura } from './geometriaAbertura.ts';
 
 /** Espera o fim das gravações em segundo plano (o cache grava depois da abertura). */
 async function esperar(condicao: () => boolean): Promise<void> {
@@ -111,4 +111,51 @@ describe('abrirComCache: o cache devolve a geometria igual ao cálculo direto', 
     await expect(abrirComCache(aberto.portas, p)).resolves.toBeUndefined();
     expect(aberto.semeados).toEqual([]);
   });
+
+  it('a chave é por conteúdo: não depende de nome, e editar um pavimento não muda as chaves dos distantes', () => {
+    const p = projetoComPavimentos(6);
+    const renomeado = { ...p, name: 'outro nome' };
+    expect([...chavesDosNiveis(renomeado)]).toEqual([...chavesDosNiveis(p)]);
+    const antes = chavesDosNiveis(p);
+    const id = p.levels[0]!.id;
+    const alvo = Object.values(p.elements).find((e) => 'levelId' in e && e.levelId === id && e.kind === 'wall');
+    if (!alvo || alvo.kind !== 'wall') return; // fixture sem parede no primeiro nível: nada a editar
+    const editado: Project = { ...p, elements: { ...p.elements, [alvo.id]: { ...alvo, b: { x: alvo.b.x + 1, y: alvo.b.y } } } };
+    const depois = chavesDosNiveis(editado);
+    expect(depois.get(id)).not.toBe(antes.get(id));
+    const distante = p.levels[p.levels.length - 1]!.id;
+    expect(depois.get(distante)).toBe(antes.get(distante));
+  });
+
+  it('as chaves levam as versões do esquema e do motor (subir a versão invalida o cache)', () => {
+    const p = projetoComPavimentos(1);
+    for (const c of chavesDosNiveis(p).values()) expect(c.startsWith(`v${VERSAO_ESQUEMA_CACHE}.${VERSAO_MOTOR_GEOMETRIA}|`)).toBe(true);
+  });
+
+  it('restaurarDoCache devolve os níveis do cache iguais ao cálculo fresco e limpar esvazia', async () => {
+    const p = projetoComPavimentos(3);
+    const cache = new CacheGeometria({ tetoBytes: TETO_GEOMETRIA_BYTES, armazenamento: criarArmazenamentoMemoria() });
+    const gravado = simular(cache, () => p, calculoDireto(p));
+    await abrirComCache(gravado.portas, p);
+    await esperar(() => cache.quantidade === 3);
+    const r = await restaurarDoCache(gravado.portas, p);
+    expect(r.faltam).toEqual([]);
+    const fresco = calculoDireto(p);
+    for (const l of p.levels) expect(r.semeados.get(l.id)).toEqual(ida(fresco.get(l.id)!));
+    await limparCacheDeGeometria(gravado.portas);
+    expect(cache.quantidade).toBe(0);
+    expect((await restaurarDoCache(gravado.portas, p)).semeados.size).toBe(0);
+  });
+
+  it('teto de bytes: despeja o menos usado (LRU) e nunca passa do teto', async () => {
+    const p = projetoComPavimentos(3);
+    const um = JSON.stringify(calculoDireto(p).get(p.levels[0]!.id)).length;
+    const cache = new CacheGeometria({ tetoBytes: um * 2 + 10, armazenamento: criarArmazenamentoMemoria() });
+    const gravado = simular(cache, () => p, calculoDireto(p));
+    await abrirComCache(gravado.portas, p);
+    await esperar(() => cache.quantidade >= 1);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(cache.bytesOcupados).toBeLessThanOrEqual(um * 2 + 10);
+  });
 });
+

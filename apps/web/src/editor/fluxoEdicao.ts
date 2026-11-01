@@ -181,6 +181,11 @@ export class FluxoEdicao {
     this.resolucao.preaquecerNiveis(alvos);
   }
 
+  /** O nível passa à frente na fila de resolução em segundo plano (o preparo do projeto pede quando o usuário o procura). */
+  priorizarNivel(id: Id): void {
+    this.resolucao.priorizarNivel(id);
+  }
+
   /** Contador que cresce a cada nível pronto ou invalidado: a planta e a 3D observam para saber que algo mudou. */
   get versaoResolucao(): number {
     return this.resolucao.versao;

@@ -4,7 +4,6 @@ import { projetoComPavimentos } from '@hestia/engine/src/worker/fixturePavimento
 import { ProjectStore, type Id, type ValidationIssue } from '@hestia/model';
 import type { Scene3DOptions } from '@hestia/render';
 import { SETTLE_MS, agendarAvisos } from '../editor/avisosProjeto.ts';
-import { VERIFICADORES_DE_AVISOS } from '../editor/avisosCalculo.ts';
 import { FOLGA_GESTO_MS, encerrarGesto, interacaoAtiva, iniciarGesto, marcarInteracao, msAteLiberar, quandoLivre, reiniciarInteracaoParaTeste } from '../editor/interacaoAtiva.ts';
 import { Montagem3dProgressiva, type CenaMontagem, type FonteNiveis } from './montagem3dProgressiva.ts';
 
@@ -161,36 +160,41 @@ describe('avisos do projeto em fatias', () => {
     reiniciarInteracaoParaTeste();
   });
 
-  it('sem worker: um verificador por tarefa e a entrega só no fim', () => {
+  it('sem gesto: calcula depois do prazo de silêncio e entrega uma vez', () => {
     const recebido: ValidationIssue[][] = [];
-    const tarefas: Array<() => void> = [];
-    agendarAvisos(projetoComPavimentos(2), (a) => recebido.push(a), SETTLE_MS, { worker: null, ceder: (x) => tarefas.push(x) });
+    const calcular = vi.fn(() => null);
+    agendarAvisos(projetoComPavimentos(2), (a) => recebido.push(a), SETTLE_MS, calcular);
     vi.advanceTimersByTime(SETTLE_MS);
-    // O primeiro verificador rodou e a thread foi cedida; o resto espera.
-    expect(tarefas).toHaveLength(1);
-    let rodadas = 1;
-    while (tarefas.length > 0) {
-      tarefas.shift()!();
-      rodadas++;
-      if (tarefas.length > 0) expect(recebido).toHaveLength(0);
-    }
-    expect(rodadas).toBe(VERIFICADORES_DE_AVISOS.length + 1);
+    expect(calcular).toHaveBeenCalledTimes(1);
     expect(recebido).toHaveLength(1);
   }, 60_000);
 
   it('gesto ativo adia o cálculo; nova edição (cancelar) descarta o que estava em curso', () => {
     const recebido: ValidationIssue[][] = [];
-    const tarefas: Array<() => void> = [];
+    const calcular = vi.fn(() => null);
     iniciarGesto();
-    const cancelar = agendarAvisos(projetoComPavimentos(2), (a) => recebido.push(a), SETTLE_MS, { worker: null, ceder: (x) => tarefas.push(x) });
+    const cancelar = agendarAvisos(projetoComPavimentos(2), (a) => recebido.push(a), SETTLE_MS, calcular);
     vi.advanceTimersByTime(SETTLE_MS + 500);
-    expect(tarefas).toHaveLength(0); // nada calculado durante o gesto
+    expect(calcular).not.toHaveBeenCalled(); // nada calculado durante o gesto
+    encerrarGesto();
+    t += FOLGA_GESTO_MS + 1;
+    cancelar();
+    vi.advanceTimersByTime(3000);
+    expect(calcular).not.toHaveBeenCalled();
+    expect(recebido).toHaveLength(0);
+  }, 60_000);
+
+  it('gesto ativo adia o cálculo e ele roda ao terminar o gesto', () => {
+    const recebido: ValidationIssue[][] = [];
+    const calcular = vi.fn(() => null);
+    iniciarGesto();
+    agendarAvisos(projetoComPavimentos(2), (a) => recebido.push(a), SETTLE_MS, calcular);
+    vi.advanceTimersByTime(SETTLE_MS + 500);
+    expect(calcular).not.toHaveBeenCalled();
     encerrarGesto();
     t += FOLGA_GESTO_MS + 1;
     vi.advanceTimersByTime(3000);
-    expect(tarefas).toHaveLength(1);
-    cancelar();
-    while (tarefas.length > 0) tarefas.shift()!();
-    expect(recebido).toHaveLength(0);
+    expect(calcular).toHaveBeenCalledTimes(1);
+    expect(recebido).toHaveLength(1);
   }, 60_000);
 });

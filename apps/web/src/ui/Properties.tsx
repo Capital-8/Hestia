@@ -47,7 +47,8 @@ import { ProfileRow } from './ProfileRow.tsx';
 import { FloorProperties } from './FloorProperties.tsx';
 import { RoofProperties } from './RoofProperties.tsx';
 import { SlabProperties } from './SlabProperties.tsx';
-import { useAdiado } from './useAdiado.ts';
+import { useAdiado, useAdiadoEmSegundoPlano } from './useAdiado.ts';
+import { clienteAvisosCompartilhado } from '../editor/avisosCliente.ts';
 import { CeilingProperties } from './CeilingProperties.tsx';
 import { StairProperties } from './StairProperties.tsx';
 import { RampProperties } from './RampProperties.tsx';
@@ -306,7 +307,7 @@ function ViewRangeGroup({ levelId }: { levelId: Id }): ReactElement {
   const p = useProject();
   const range = viewRangeOf(p, levelId);
   // Classificar o nível resolve pisos, lajes e telhados do projeto: fica fora do clique e em cache por projeto.
-  const warnings = useAdiado(p, `avisos-vista|${levelId}|${JSON.stringify(range)}`, () => viewRangeWarnings(p, levelId, range, contextoDaVista(p, levelId))) ?? [];
+  const warnings = useAdiadoEmSegundoPlano(p, `avisos-vista|${levelId}|${JSON.stringify(range)}`, () => viewRangeWarnings(p, levelId, range, contextoDaVista(p, levelId)), () => { const c = clienteAvisosCompartilhado('vista'); return c.disponivel ? c.vista(p, levelId, range) : null; }) ?? [];
   const [error, setError] = useState<string | null>(null);
   const edit = (patch: Partial<ViewRange>): void => setError(editViewRange(editor.store, levelId, patch).error);
   return (
