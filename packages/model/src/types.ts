@@ -250,6 +250,12 @@ export interface Dimension {
   textAt?: Vec2;
   /** Cota travada: editar o valor não move os elementos associados (a medida fica como está). Ausente = destravada. */
   locked?: boolean;
+  /** Valor (m) que a trava mantém: mover um dos elementos arrasta o outro para conservá-lo (restrição, como o cadeado do Revit). */
+  lockedValue?: number;
+  /** Cotas criadas juntas numa sequência formam uma cadeia (um objeto só para o EQ e para apagar/mover). */
+  chainId?: Id;
+  /** EQ: os trechos da cadeia ficam iguais; mover uma ponta redistribui os elementos do meio. */
+  eq?: boolean;
 }
 
 /** Texto de anotação: `at` é o ponto de inserção (centro), `height` em mm de papel, `rotation` em graus. */

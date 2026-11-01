@@ -1,8 +1,29 @@
 import { applyPatches, enablePatches, produceWithPatches, type Patch } from 'immer';
 import { applyCommand, type Command } from './commands.ts';
-import type { Project } from './types.ts';
+import type { Id, Project } from './types.ts';
 
 enablePatches();
+
+/** O que um comando (ou transação) alterou: ids de elementos mudados e removidos. */
+export interface StoreChange { changed: Set<Id>; removed: Set<Id> }
+/**
+ * Gancho de restrições (cotas travadas, EQ, cotas órfãs): roda depois de cada comando/transação e devolve comandos
+ * extras que entram no MESMO passo de desfazer. Lança `Error` para recusar a mudança (nada é gravado).
+ */
+export type StorePostHook = (project: Project, change: StoreChange) => Command[];
+let postHook: StorePostHook | null = null;
+export function setStorePostHook(h: StorePostHook | null): void { postHook = h; }
+
+function summarize(patches: Patch[]): StoreChange {
+  const changed = new Set<Id>();
+  const removed = new Set<Id>();
+  for (const p of patches) {
+    if (p.path[0] !== 'elements' || p.path.length < 2) continue;
+    const id = String(p.path[1]);
+    if (p.op === 'remove' && p.path.length === 2) removed.add(id); else changed.add(id);
+  }
+  return { changed, removed };
+}
 
 interface Entry {
   label: string;
@@ -82,12 +103,39 @@ export class ProjectStore {
     this.savedVersion = this.version;
   }
 
+  /** Roda o gancho de restrições sobre `seen` e aplica os comandos extras; devolve os patches extras. */
+  private settle(seen: Patch[]): { patches: Patch[]; inverse: Patch[] } {
+    const patches: Patch[] = [];
+    const inverse: Patch[] = [];
+    if (!postHook) return { patches, inverse };
+    const change = summarize(seen);
+    if (change.changed.size === 0 && change.removed.size === 0) return { patches, inverse };
+    for (const c of postHook(this.present, change)) {
+      const [next, p, inv] = produceWithPatches(this.present, (draft) => { applyCommand(draft as Project, c); });
+      this.present = next;
+      patches.push(...p);
+      inverse.unshift(...inv);
+    }
+    return { patches, inverse };
+  }
+
   exec(cmd: Command, label = labelOf(cmd)): void {
-    const [next, patches, inverse] = produceWithPatches(this.present, (draft) => {
+    const before = this.present;
+    let [next, patches, inverse] = produceWithPatches(this.present, (draft) => {
       applyCommand(draft as Project, cmd);
     });
     if (patches.length === 0) return;
     this.present = next;
+    if (!this.tx) {
+      try {
+        const extra = this.settle(patches);
+        patches = [...patches, ...extra.patches];
+        inverse = [...extra.inverse, ...inverse];
+      } catch (e) {
+        this.present = before;
+        throw e;
+      }
+    }
     if (this.tx) {
       this.tx.patches.push(...patches);
       this.tx.inverse.unshift(...inverse);
@@ -109,8 +157,21 @@ export class ProjectStore {
       return;
     }
     this.tx = { label, patches: [], inverse: [] };
+    let failure: unknown = null;
     try {
       fn();
+      try {
+        const extra = this.settle(this.tx.patches);
+        this.tx.patches.push(...extra.patches);
+        this.tx.inverse.unshift(...extra.inverse);
+      } catch (e) {
+        // Restrição violada: o passo todo volta, como se nada tivesse acontecido.
+        this.present = applyPatches(this.present, this.tx.inverse);
+        this.tx.patches.length = 0;
+        this.tx.inverse.length = 0;
+        this.emit();
+        failure = e;
+      }
     } finally {
       const done = this.tx;
       this.tx = null;
@@ -128,6 +189,7 @@ export class ProjectStore {
         this.future = [];
         this.emit();
       }
+      if (failure) throw failure;
     }
   }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { dimensionPoints, dimensionValue, levelDimensions, type Project } from '@hestia/model';
 import { drivenEditCommands } from './dims/driven.ts';
+import { eqChainCommands } from './dims/constraints.ts';
 import { chooseRefs } from './dimensionTool.ts';
 import { clickAt, drawWall, makeEnv, tool, walls } from './testEnv.ts';
 
@@ -100,5 +101,77 @@ describe('cota por linha de parede (como o Revit)', () => {
     const total = created.reduce((acc, d) => acc + dimensionValue(ctx.store.project, d), 0);
     expect(total).toBeGreaterThan(5.5);
     expect(dimensionPoints(ctx.store.project, created[0]!).a.x).toBeLessThan(0.2);
+  });
+});
+
+describe('restrições de cota (trava, EQ, órfã)', () => {
+  const setup = () => {
+    const ctx = makeEnv();
+    drawWall(ctx.env, [0, 0], [4, 0]);
+    drawWall(ctx.env, [0, 3], [4, 3]);
+    const t = tool('dimension', ctx.env);
+    clickAt(t, 1.3, HALF + 0.001);
+    clickAt(t, 2.6, 3 - HALF);
+    clickAt(t, 5, 1.5);
+    const lower = walls(ctx.store).find((w) => w.a.y === 0)!;
+    const upper = walls(ctx.store).find((w) => w.a.y === 3)!;
+    return { ctx, lower, upper, dim: () => dims(ctx.store)[0]! };
+  };
+
+  it('cota travada: mover uma parede arrasta a outra e mantém o valor', () => {
+    const { ctx, lower, upper, dim } = setup();
+    const v = dimensionValue(ctx.store.project, dim());
+    ctx.store.exec({ type: 'updateDimension', levelId: 'lv_0', id: dim().id, patch: { locked: true, lockedValue: v } });
+    ctx.store.exec({ type: 'setWallEnds', id: lower.id, a: { x: 0, y: -1 }, b: { x: 4, y: -1 } });
+    expect(dimensionValue(ctx.store.project, dim())).toBeCloseTo(v, 3);
+    const up = ctx.store.project.elements[upper.id] as { a: { y: number } };
+    expect(up.a.y).toBeCloseTo(2, 3);
+    ctx.store.undo();
+    expect((ctx.store.project.elements[upper.id] as { a: { y: number } }).a.y).toBeCloseTo(3, 3);
+  });
+
+  it('cota destravada não restringe', () => {
+    const { ctx, lower, upper } = setup();
+    ctx.store.exec({ type: 'setWallEnds', id: lower.id, a: { x: 0, y: -1 }, b: { x: 4, y: -1 } });
+    expect((ctx.store.project.elements[upper.id] as { a: { y: number } }).a.y).toBeCloseTo(3, 3);
+  });
+
+  it('apagar a parede referenciada remove a cota órfã (e desfaz junto)', () => {
+    const { ctx, lower, dim } = setup();
+    expect(dims(ctx.store)).toHaveLength(1);
+    ctx.store.exec({ type: 'deleteElements', ids: [lower.id] });
+    expect(dims(ctx.store)).toHaveLength(0);
+    ctx.store.undo();
+    expect(dims(ctx.store)).toHaveLength(1);
+    expect(dim()).toBeDefined();
+  });
+});
+
+describe('EQ de cadeia', () => {
+  it('liga o EQ, redistribui o do meio e mantém iguais ao mover a ponta', () => {
+    const ctx = makeEnv();
+    ctx.options.dimensionString = 'continuous';
+    ctx.options.dimensionMode = 'horizontal';
+    for (const x of [0, 3, 10]) drawWall(ctx.env, [x, 0], [x, 4]);
+    const t = tool('dimension', ctx.env);
+    clickAt(t, 0, 2.2); // eixo da parede x=0
+    clickAt(t, 3, 2.2);
+    clickAt(t, 10, 2.2);
+    t.confirm();
+    clickAt(t, 5, -1);
+    const created = dims(ctx.store);
+    expect(created).toHaveLength(2);
+    const chainId = created[0]!.chainId!;
+    expect(chainId).toBeTruthy();
+    const eq = eqChainCommands(ctx.store.project, chainId, true);
+    ctx.store.transaction('EQ', () => { for (const c of eq) ctx.store.exec(c); });
+    const vals = () => dims(ctx.store).map((d) => dimensionValue(ctx.store.project, d));
+    const [a, b] = vals();
+    expect(Math.abs(a! - b!)).toBeLessThan(0.002);
+    const last = walls(ctx.store).find((w) => w.a.x === 10)!;
+    ctx.store.exec({ type: 'setWallEnds', id: last.id, a: { x: 13, y: 0 }, b: { x: 13, y: 4 } });
+    const [a2, b2] = vals();
+    expect(Math.abs(a2! - b2!)).toBeLessThan(0.002);
+    expect(a2! + b2!).toBeGreaterThan(a! + b! + 2.9);
   });
 });

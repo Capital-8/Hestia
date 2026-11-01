@@ -5,3 +5,4 @@ export * from './providers/index.ts';
 export * from './validate.ts';
 export * from './permanent.ts';
 export * from './driven.ts';
+export * from './constraints.ts';
