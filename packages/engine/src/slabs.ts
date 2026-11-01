@@ -1,5 +1,5 @@
 import type { MultiPolygon } from '@hestia/geom';
-import { isMembraneLayer, layerPriority, levelElevation, slabsOnLevel, terminoEhRegraParede, type Id, type Project, type SlabSlope } from '@hestia/model';
+import { fontesSemEsquadrias, isMembraneLayer, layerPriority, levelElevation, slabsOnLevel, terminoEhRegraParede, type Id, type Project, type SlabSlope } from '@hestia/model';
 import { resolveBoundary, type OutlineProblem } from './outlineBound.ts';
 import { layerCoreFlags } from './junctionPlanar.ts';
 import { layerOutlines, memoCut } from './layerOutline.ts';
@@ -49,6 +49,20 @@ export interface ResolvedSlab {
  * derivado (`resolveBoundary`): circuito aberto mantém o último contorno e devolve `problem`.
  */
 export function resolveSlabs(p: Project, levelId: Id, opts: FloorResolveOptions = {}): ResolvedSlab[] {
+  if (Object.keys(opts).length > 0) return calcularLajes(p, levelId, opts);
+  // Lajes não leem janelas (só portas, no término explícito): editar uma janela devolve o resultado guardado (mesmas fontes, por identidade).
+  const fontes = fontesSemEsquadrias(p, true);
+  const chave = `${levelId}|${p.levels.map((l) => l.id).join(',')}`;
+  const antes = lajesPorNivel.get(chave);
+  if (antes && antes.fontes.length === fontes.length && antes.fontes.every((x, i) => x === fontes[i])) return antes.valor;
+  const valor = calcularLajes(p, levelId, opts);
+  lajesPorNivel.set(chave, { fontes, valor });
+  return valor;
+}
+
+const lajesPorNivel = new Map<string, { fontes: readonly unknown[]; valor: ResolvedSlab[] }>();
+
+function calcularLajes(p: Project, levelId: Id, opts: FloorResolveOptions): ResolvedSlab[] {
   const openings = openingsOnLevel(p, levelId);
   const out: ResolvedSlab[] = [];
   for (const s of slabsOnLevel(p, levelId)) {

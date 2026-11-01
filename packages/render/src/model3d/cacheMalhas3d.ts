@@ -35,6 +35,8 @@ export interface EntradaNivel {
   readonly instancias?: readonly ColecaoCaixas[];
   /** Arestas das caixas do nível (pares de pontos); a cena junta as de todos os níveis numa linha só. */
   readonly arestasCaixas?: Float32Array;
+  /** Arestas das caixas por parede (as mesmas de `arestasCaixas`, para trocar só as de uma parede). */
+  readonly arestasParedes?: ReadonlyMap<Id, readonly number[]>;
   /** Sólidos do nível fora das caixas (pisos, lajes, telhados, beirais, escadas e paredes não retangulares). */
   readonly lotes?: readonly SolidBatch[];
   /** Arestas dos sólidos do nível (pares de pontos), quando a vista as pede. */

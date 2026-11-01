@@ -1,7 +1,7 @@
 import { multiArea, union, type MultiPolygon } from '@hestia/geom';
 import type { Id, Project } from '@hestia/model';
 import type { LayerBand, ResolvedLayer, ResolvedWall } from './types.ts';
-import { levelCutterSet, type LevelCutters, type SolidPiece } from './junctionNet.ts';
+import { bandPiece, levelCutterSet, type LevelCutters, type SolidPiece } from './junctionNet.ts';
 import { resolveJunction, type PlanarPiece, type ResolvedPrism } from './junctionPlanar.ts';
 
 /**
@@ -233,4 +233,71 @@ export function wallBandCut(jl: JunctionLevel | undefined, wallId: Id, layerInde
   const wj = jl?.walls.get(wallId);
   if (!wj || !wj.cut) return undefined;
   return wj.bands.get(bandKey(layerIndex, bandIndex));
+}
+
+/** Peças de piso e laje (próprias e de outros níveis) que cortam parede, como entram na junção do nível. */
+function pecasNaoParede(p: Project, levelId: Id): PlanarPiece[] {
+  const cutters = levelCutterSet(p, levelId);
+  const out: PlanarPiece[] = [];
+  for (const sp of [...cutters.floors, ...cutters.slabs].flatMap((c) => c.pieces)) {
+    const meta = sp.meta;
+    if (!meta || (meta.kind === 'slab' && !sp.flat)) continue;
+    const piece = planarOf(sp);
+    if (piece) out.push(piece);
+  }
+  return out;
+}
+
+/**
+ * Junção só de algumas paredes do nível, para a edição de esquadria no 3D: a parede nunca é cortada por outra parede
+ * (`pairCuts`), só por piso e laje, então o resultado dela depende apenas das próprias faixas e das peças de piso e laje.
+ * `p` é o projeto da junção (o reduzido de `projetoDaJuncao`) em que esses cortadores já estão em cache. O resultado
+ * de cada parede é o mesmo que `junctionLevel` daria para ela com as mesmas peças de piso e laje.
+ */
+export function junctionOfWalls(p: Project, levelId: Id, paredes: readonly ResolvedWall[]): ReadonlyMap<Id, WallJunction> {
+  const tagged: Array<{ piece: PlanarPiece; wall: { id: Id; key: string; flat: boolean } }> = [];
+  for (const rw of paredes) {
+    for (const l of rw.layers) {
+      l.bands.forEach((b, bandIndex) => {
+        const sp = bandPiece(rw, b, { priority: l.priority, core: l.core, layerIndex: l.layerIndex, bandIndex });
+        const piece = sp.meta ? planarOf(sp) : null;
+        if (piece) tagged.push({ piece, wall: { id: rw.wallId, key: bandKey(l.layerIndex, bandIndex), flat: sp.flat } });
+      });
+    }
+  }
+  const res = resolveJunction([...tagged.map((t) => t.piece), ...pecasNaoParede(p, levelId)]);
+  const walls = new Map<Id, { cut: boolean; bands: Map<string, ResolvedPrism[]> }>();
+  for (const rw of paredes) walls.set(rw.wallId, { cut: false, bands: new Map() });
+  tagged.forEach(({ piece, wall }, i) => {
+    const parts = res[i]!;
+    const wj = walls.get(wall.id)!;
+    if (wall.flat) {
+      if (lostVolume(piece, parts)) wj.cut = true;
+      wj.bands.set(wall.key, parts);
+    }
+  });
+  return walls;
+}
+
+/**
+ * Alguma peça de piso ou laje (do nível ou de outro que o alcança) ocupa a faixa de cota `[z0, z1]` sobre a caixa
+ * `[minX, minY, maxX, maxY]`? Se não, mudar uma esquadria nessa faixa não altera o corte de piso ou laje por parede.
+ */
+export function pisoOuLajeNaFaixa(p: Project, levelId: Id, z0: number, z1: number, caixa: readonly [number, number, number, number]): boolean {
+  const eps = 1e-6;
+  for (const t of pecasNaoParede(p, levelId)) {
+    if (!(Math.min(t.z1, z1) - Math.max(t.z0, z0) > eps)) continue;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const poly of t.poly) for (const ring of poly) for (const v of ring) {
+      if (v.x < minX) minX = v.x;
+      if (v.x > maxX) maxX = v.x;
+      if (v.y < minY) minY = v.y;
+      if (v.y > maxY) maxY = v.y;
+    }
+    if (maxX >= caixa[0] - eps && minX <= caixa[2] + eps && maxY >= caixa[1] - eps && minY <= caixa[3] + eps) return true;
+  }
+  return false;
 }
