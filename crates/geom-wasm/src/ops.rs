@@ -78,13 +78,16 @@ fn quantizar(valor: f64) -> Result<f64, u32> {
 fn preparar(m: &MultiPoligono) -> Result<Formas, u32> {
     let mut formas: Formas = Vec::with_capacity(m.len());
     for poli in m {
-        if poli.is_empty() {
-            return Err(ERRO_ENTRADA);
+        // Geometria degenerada (polígono sem anéis, anel externo com menos de 3 pontos) não tem área: o TypeScript a
+        // ignora, então aqui também. Devolver erro desligava o kernel inteiro na primeira ocorrência (os dados reais
+        // trazem anéis de 2 pontos). Só coordenada inválida (NaN, infinito, fora da faixa) continua sendo erro.
+        if poli.is_empty() || poli[0].len() < 3 {
+            continue;
         }
         let mut aneis: Poligono = Vec::with_capacity(poli.len());
         for (i, anel) in poli.iter().enumerate() {
             if anel.len() < 3 {
-                return Err(ERRO_ENTRADA);
+                continue; // furo degenerado: sem efeito
             }
             let inverter = (area_com_sinal(anel) > 0.0) != (i == 0);
             let mut pontos: Anel = Vec::with_capacity(anel.len());
@@ -166,21 +169,24 @@ pub fn diferenca(args: &[MultiPoligono]) -> Result<MultiPoligono, u32> {
         .iter()
         .map(preparar)
         .collect::<Result<_, _>>()?;
-    if primeiro.is_empty() {
+    if primeiro.is_empty() || preparados[0].is_empty() {
         return Ok(Vec::new());
     }
-    let subtraendos: Vec<&Formas> = preparados.iter().skip(1).filter(|p| !p.is_empty()).collect();
-    if subtraendos.is_empty() {
+    // UMA passada: todos os subtraendos entram juntos como clip. Com NonZero e a orientação normalizada em `preparar`,
+    // o conjunto de clips equivale à união deles, então `a − (b1 ∪ b2 ∪ ...)` é igual a subtrair um a um — sem refazer
+    // a varredura sobre o acumulado a cada subtraendo (com ~300 subtraendos, a versão em laço era 10× mais lenta que o TS).
+    let mut todos: Formas = Vec::new();
+    for subtraendo in preparados.iter().skip(1) {
+        todos.extend(subtraendo.iter().cloned());
+    }
+    if todos.is_empty() {
         return Ok(primeiro.clone());
     }
-    let mut acumulado = preparados[0].clone();
-    for subtraendo in subtraendos {
-        acumulado = aplicar(&acumulado, subtraendo, OverlayRule::Difference)?;
-        if acumulado.is_empty() {
-            return Ok(Vec::new());
-        }
+    let resultado = aplicar(&preparados[0], &todos, OverlayRule::Difference)?;
+    if resultado.is_empty() {
+        return Ok(Vec::new());
     }
-    Ok(converter(acumulado))
+    Ok(converter(resultado))
 }
 
 /// `intersection(a, b)`.
@@ -383,15 +389,25 @@ mod testes {
     }
 
     #[test]
-    fn degenerados_devolvem_erro_sem_panicar() {
+    fn degenerados_sao_ignorados_e_coordenada_invalida_e_erro() {
+        // Sem área: o resultado é vazio, não erro (o kernel não pode se desligar por causa disso).
         let anel_com_dois_pontos: MultiPoligono = vec![vec![vec![[0.0, 0.0], [1.0, 1.0]]]];
-        assert_eq!(erro(uniao(&[anel_com_dois_pontos])), Some(ERRO_ENTRADA));
+        assert!(uniao(&[anel_com_dois_pontos]).expect("união degenerada").is_empty());
 
         let anel_vazio: MultiPoligono = vec![vec![Vec::new()]];
-        assert_eq!(erro(uniao(&[anel_vazio])), Some(ERRO_ENTRADA));
+        assert!(uniao(&[anel_vazio]).expect("anel vazio").is_empty());
 
         let poligono_sem_aneis: MultiPoligono = vec![Vec::new()];
-        assert_eq!(erro(uniao(&[poligono_sem_aneis])), Some(ERRO_ENTRADA));
+        assert!(uniao(&[poligono_sem_aneis]).expect("polígono sem anéis").is_empty());
+
+        // Degenerado misturado com um quadrado válido: só o quadrado conta.
+        let misto: MultiPoligono = vec![vec![vec![[0.0, 0.0], [1.0, 1.0]]], quadrado(0.0, 0.0, 2.0).remove(0)];
+        assert!((area(&uniao(&[misto]).expect("misto")) - 4.0).abs() < 1e-9);
+
+        // Subtraendo degenerado não muda o minuendo; minuendo degenerado dá vazio.
+        let dois_pontos: MultiPoligono = vec![vec![vec![[0.0, 0.0], [1.0, 1.0]]]];
+        assert!((area(&diferenca(&[quadrado(0.0, 0.0, 2.0), dois_pontos.clone()]).expect("dif")) - 4.0).abs() < 1e-9);
+        assert!(diferenca(&[dois_pontos, quadrado(0.0, 0.0, 2.0)]).expect("dif2").is_empty());
 
         let com_nan: MultiPoligono = vec![vec![vec![
             [f64::NAN, 0.0],
@@ -414,10 +430,10 @@ mod testes {
             Some(ERRO_ENTRADA)
         );
 
-        // Um subtraendo degenerado contamina a diferença inteira, antes de qualquer operação.
-        let degenerado: MultiPoligono = vec![vec![vec![[0.0, 0.0], [1.0, 0.0]]]];
+        // Subtraendo com coordenada inválida continua recusado, antes de qualquer operação.
+        let invalido: MultiPoligono = vec![vec![vec![[f64::NAN, 0.0], [1.0, 0.0], [1.0, 1.0]]]];
         assert_eq!(
-            erro(diferenca(&[quadrado(0.0, 0.0, 10.0), degenerado])),
+            erro(diferenca(&[quadrado(0.0, 0.0, 10.0), invalido])),
             Some(ERRO_ENTRADA)
         );
     }

@@ -57,7 +57,9 @@ function executarOperacao(exports: ExportsKernel, op: number, args: MultiPolygon
   if (codigo !== ERRO.OK) {
     // "Não implementado" não é falha: o seam refaz só esta operação em TypeScript e mantém o
     // kernel ativo para as demais.
-    if (codigo === ERRO.NAO_IMPLEMENTADO) throw new ErroNaoImplementado(nomeDaOperacao(op));
+    // Entrada recusada (coordenada NaN/infinita ou fora da faixa) também vale só para esta operação: o TypeScript a refaz
+    // e o kernel continua ativo. Antes, qualquer recusa acionava o disjuntor e desligava o kernel pelo resto da sessão.
+    if (codigo === ERRO.NAO_IMPLEMENTADO || codigo === ERRO.ENTRADA) throw new ErroNaoImplementado(nomeDaOperacao(op));
     throw new Error('kernel wasm: ' + codigo);
   }
   return lerSaida(exports.memory, exports);
