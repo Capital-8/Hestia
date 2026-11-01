@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import { useMemo, type ReactElement } from 'react';
 import { quantifyFloors } from '@hestia/engine';
 import { FUNCTION_LABEL, floorArea, floorTypeThickness, type Floor, type Id, type Project } from '@hestia/model';
 import { ringPerimeter } from '@hestia/tools';
@@ -40,7 +40,8 @@ export function FloorProperties({ floors }: { floors: Floor[] }): ReactElement {
   const comments = common(floors, (f) => f.comments);
   const single = floors.length === 1 ? floors[0]! : null;
   const type = typeId.mixed ? null : p.floorTypes[typeId.value];
-  const resolved = resolvedAreas(p, floors);
+  const floorKey = floors.map((f) => `${f.id}:${f.levelId}`).join(',');
+  const resolved = useMemo(() => resolvedAreas(p, floors), [p, floorKey]);
   const areaOf = (f: Floor): number => resolved.get(f.id) ?? floorArea(f);
   const area = floors.reduce((s, f) => s + areaOf(f), 0);
   const perimeter = floors.reduce((s, f) => s + ringPerimeter(f.boundary), 0);

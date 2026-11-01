@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import { useMemo, type ReactElement } from 'react';
 import { quantifyRoofs, ROOF_SHAPE_LABEL } from '@hestia/engine';
 import { FUNCTION_LABEL, roofTypeThickness, type Id, type Roof, type RoofShape } from '@hestia/model';
 import { defaultExtrusionProfile } from '@hestia/engine';
@@ -66,7 +66,8 @@ export function RoofProperties({ roofs }: { roofs: Roof[] }): ReactElement {
   const soffit = common(roofs, (r) => r.eave.soffit);
   const type = typeId.mixed ? null : p.roofTypes[typeId.value];
   const hasRidge = single !== null && (single.shape === 'gable' || single.shape === 'shed');
-  const quantities = quantifyRoofs(p, roofs[0]!.levelId);
+  const roofLevelId = roofs[0]!.levelId;
+  const quantities = useMemo(() => quantifyRoofs(p, roofLevelId), [p, roofLevelId]);
   const picked = roofs.map((r) => quantities.roofs.find((q) => q.roofId === r.id)).filter((q): q is NonNullable<typeof q> => q !== undefined);
   const sum = (f: (q: (typeof picked)[number]) => number): number => picked.reduce((s, q) => s + f(q), 0);
   const planArea = sum((q) => q.planArea);

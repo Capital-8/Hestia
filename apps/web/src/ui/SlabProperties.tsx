@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import { useMemo, type ReactElement } from 'react';
 import { quantifySlabs, slabRiseAt } from '@hestia/engine';
 import { FUNCTION_LABEL, slabArea, slabTypeThickness, type Id, type Project, type Slab } from '@hestia/model';
 import { ringPerimeter } from '@hestia/tools';
@@ -62,7 +62,8 @@ export function SlabProperties({ slabs }: { slabs: Slab[] }): ReactElement {
   const comments = common(slabs, (s) => s.comments);
   const single = slabs.length === 1 ? slabs[0]! : null;
   const type = typeId.mixed ? null : p.slabTypes[typeId.value];
-  const resolved = resolvedPlanAreas(p, slabs);
+  const slabKey = slabs.map((s) => `${s.id}:${s.levelId}`).join(',');
+  const resolved = useMemo(() => resolvedPlanAreas(p, slabs), [p, slabKey]);
   const planOf = (x: Slab): number => resolved.get(x.id) ?? slabArea(x);
   const planArea = slabs.reduce((s, x) => s + planOf(x), 0);
   const trueArea = slabs.reduce((s, x) => s + realArea(x, planOf(x)), 0);
