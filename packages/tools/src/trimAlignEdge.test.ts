@@ -93,7 +93,7 @@ describe('aparar entre arestas (Aparar ao canto em anéis)', () => {
     const t = tool('trim', env);
     clickAt(t, 10, 2);
     clickAt(t, 3.5, 0);
-    expect(messages).toContain('Aparar: escolha duas paredes ou duas arestas.');
+    expect(messages).toContain('Aparar: escolha duas paredes, duas arestas de anel ou duas arestas do croqui.');
     expect(floor(store, 'f1').boundary).toEqual(RECT_F1);
     expect(walls(store)[0]!.b.y).toBeCloseTo(5);
   });

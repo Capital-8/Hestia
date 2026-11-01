@@ -1,4 +1,15 @@
-import { closestOnSegment, dist, norm, sub, type SketchDraft, type Vec2 } from '@hestia/geom';
+import {
+  arcFromSagitta,
+  arcLocal,
+  arcPointAt,
+  arcTangentAt,
+  closestOnSegment,
+  dist,
+  norm,
+  sub,
+  type SketchDraft,
+  type Vec2,
+} from '@hestia/geom';
 import { ceilingOutline, frameOfWall, normalAt, pointAt, tangentAt, toLocal, type WallFrame } from '@hestia/engine';
 import {
   areaPlanOf,
@@ -12,13 +23,15 @@ import {
   openingType,
   planAnnotationsOf,
   projectGrids,
-  stairsOnLevel,
   wallsOnLevel,
   type Id,
   type Project,
+  type StairCurve,
 } from '@hestia/model';
 import type { EdgeRef } from './ringEdge.ts';
-import { stairPolylines } from './stairPick.ts';
+import { componentCurvesOf, type ComponentPartKey } from './componentEdge.ts';
+import { planComponentsInLevel, type PlanComponent } from './componentLevels.ts';
+import { distToCurve } from './stairPickLines.ts';
 import { gridPath } from './gridGeom.ts';
 import type { AlignPrefer } from './types.ts';
 
@@ -33,6 +46,7 @@ export type AlignKind =
   | 'arestaAnel'
   | 'linhaEsboco'
   | 'arestaEscada'
+  | 'arestaRampa'
   | 'linhaGrade'
   | 'linhaDetalhe'
   | 'separador';
@@ -49,7 +63,7 @@ export interface AlignLine {
  * vizinhos acompanham); `esboco` move a linha do esboço; `nenhum` serve só como referência.
  */
 export type AlignMove =
-  | { policy: 'transladar'; target: 'parede' | 'escada' | 'grade'; id: Id }
+  | { policy: 'transladar'; target: 'parede' | 'escada' | 'rampa' | 'grade'; id: Id }
   | { policy: 'ponta'; wallId: Id; end: 'a' | 'b' }
   | { policy: 'abertura'; openingId: Id; hostId: Id; anchor: 'inicio' | 'fim' | 'centro'; width: number }
   | { policy: 'anel'; ref: EdgeRef }
@@ -65,8 +79,10 @@ export interface AlignFeature {
   label: string;
   ownerId: Id;
   move: AlignMove;
-  /** Pontas do segmento original, quando a feição é uma aresta/linha (anel, esboço, escada). */
+  /** Pontas do segmento original, quando a feição é uma aresta/linha (anel, esboço, escada, rampa). */
   seg?: { a: Vec2; b: Vec2 };
+  /** Curva lógica completa quando a aresta é um arco (escada/rampa); a prévia desenha o arco inteiro. */
+  curve?: StairCurve;
   /** Distância do cursor à feição (m); serve só para ordenar. */
   distance: number;
 }
@@ -106,8 +122,19 @@ function feature(
   move: AlignMove,
   distance: number,
   seg?: { a: Vec2; b: Vec2 },
+  curve?: StairCurve,
 ): AlignFeature {
-  return { key, kind, label, ownerId, line: l, move, distance, ...(seg ? { seg } : {}) };
+  return {
+    key,
+    kind,
+    label,
+    ownerId,
+    line: l,
+    move,
+    distance,
+    ...(seg ? { seg } : {}),
+    ...(curve ? { curve } : {}),
+  };
 }
 
 /** Feições retas de uma parede: face, eixo, face do núcleo e as duas extremidades. */
@@ -246,33 +273,85 @@ function ringFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, hidden?: R
   return out;
 }
 
-/** Arestas amostradas das escadas do nível (limites, espelhos e caminhada). */
-function stairFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, hidden?: ReadonlySet<Id>): AlignFeature[] {
-  const tol = TOL_PX * mpp;
+/** Campos de curva de cada tipo de componente, na ordem em que entram no pick. */
+const partKeysOf = (isLanding: boolean): ComponentPartKey[] =>
+  isLanding ? ['boundary'] : ['boundaryLeft', 'boundaryRight', 'risers', 'path'];
+
+/** Rótulo da feição conforme o campo da curva: limites, espelhos, caminhada ou contorno de patamar. */
+function componentLabel(c: PlanComponent, key: ComponentPartKey): string {
+  const nome = c.kind === 'stair' ? 'escada' : 'rampa';
+  switch (key) {
+    case 'boundary':
+      return 'contorno do patamar';
+    case 'boundaryLeft':
+    case 'boundaryRight':
+      return `limite da ${nome}`;
+    case 'risers':
+      return `espelho da ${nome}`;
+    case 'path':
+      return 'caminhada';
+  }
+}
+
+/**
+ * Feições de escada/rampa visíveis no nível, uma por CURVA LÓGICA (limite, espelho, caminhada ou contorno de
+ * patamar). Inclui a que nasce no nível, a que chega nele e a que o atravessa, via `planComponentsInLevel`.
+ * Arcos entram com a curva inteira em `curve` e a tangente no ponto mais próximo do cursor em `line`.
+ */
+function componentFeatures(c: PlanComponent, at: Vec2, tol: number): AlignFeature[] {
   const out: AlignFeature[] = [];
-  for (const s of stairsOnLevel(p, levelId)) {
-    if (hidden?.has(s.id)) continue;
-    stairPolylines(s).forEach((pl, pi) => {
-      for (let i = 0; i + 1 < pl.length; i++) {
-        const a = pl[i]!;
-        const b = pl[i + 1]!;
-        if (degenerate(a, b)) continue;
-        const d = segmentDistance(at, a, b);
-        if (d > tol) continue;
+  const kind: AlignKind = c.kind === 'stair' ? 'arestaEscada' : 'arestaRampa';
+  const move: AlignMove = { policy: 'transladar', target: c.kind === 'stair' ? 'escada' : 'rampa', id: c.id };
+  c.components.forEach((part, partIndex) => {
+    for (const key of partKeysOf(part.kind === 'landing')) {
+      const curves = componentCurvesOf(part, key);
+      if (!curves) continue;
+      curves.forEach((curve, index) => {
+        if (degenerate(curve.a, curve.b)) return;
+        const distance = distToCurve(curve, at);
+        if (distance > tol) return;
+        const isArc = Math.abs(curve.sag) >= 1e-9;
+        let l: AlignLine;
+        if (isArc) {
+          const arc = arcFromSagitta(curve.a, curve.b, curve.sag);
+          if (arc) {
+            // Ponto mais próximo no arco: projeta no sistema do arco, limita ao trecho e lê a tangente ali.
+            const t = clamp(arcLocal(arc, at).t, 0, arc.length);
+            l = line(arcPointAt(arc, t), arcTangentAt(arc, t));
+          } else {
+            l = line(curve.a, sub(curve.b, curve.a));
+          }
+        } else {
+          l = line(curve.a, sub(curve.b, curve.a));
+        }
+        const seg = { a: { ...curve.a }, b: { ...curve.b } };
+        const whole: StairCurve | undefined = isArc ? { a: seg.a, b: seg.b, sag: curve.sag } : undefined;
         out.push(
           feature(
-            `${s.id}:${pi}:${i}`,
-            'arestaEscada',
-            'aresta da escada',
-            s.id,
-            line(a, sub(b, a)),
-            { policy: 'transladar', target: 'escada', id: s.id },
-            d,
-            { a, b },
+            `${c.id}:${partIndex}:${key}:${index}`,
+            kind,
+            componentLabel(c, key),
+            c.id,
+            l,
+            move,
+            distance,
+            seg,
+            whole,
           ),
         );
-      }
-    });
+      });
+    }
+  });
+  return out;
+}
+
+/** Arestas de escadas e rampas visíveis no nível (limites, espelhos, caminhada e patamares). */
+function stairRampFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, hidden?: ReadonlySet<Id>): AlignFeature[] {
+  const tol = TOL_PX * mpp;
+  const out: AlignFeature[] = [];
+  for (const c of planComponentsInLevel(p, levelId)) {
+    if (hidden?.has(c.id)) continue;
+    out.push(...componentFeatures(c, at, tol));
   }
   return out;
 }
@@ -349,7 +428,7 @@ export function alignFeaturesAt(q: AlignQuery): AlignFeature[] {
     out.push(...openingFeatures(q.project, frame, q.at, q.metersPerPixel));
   }
   out.push(...ringFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden));
-  out.push(...stairFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden));
+  out.push(...stairRampFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden));
   if (q.referenceOnly) out.push(...referenceLineFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.planId));
   out.push(...draftFeatures(q.draft, q.at, q.metersPerPixel));
   return out.sort((a, b) => a.distance - b.distance);

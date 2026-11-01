@@ -1,4 +1,4 @@
-import { len, mul, norm, sub, v2, type Vec2 } from '@hestia/geom';
+﻿import { len, mul, norm, sub, v2, type Vec2 } from '@hestia/geom';
 import { formatQuantity, unitsOf, type ResolvedUnits } from '@hestia/model';
 import { copyWalls, ghostBands, ghostViews, transformViews } from './edit.ts';
 import { fmtM, SelectionTool } from './transformTools.ts';
@@ -151,8 +151,7 @@ export class ArrayTool extends SelectionTool {
     this.checkStep();
     this.items = [];
     if (this.radial()) return this.moveRadial(p);
-    // Base/centro enxergam a própria seleção; a direção (delta) ignora o que se move, como no Mover.
-    const inf = this.snap(p, { from: this.base ?? undefined, ignore: this.base ? new Set(this.movables()) : undefined });
+    const inf = this.snap(p, { from: this.base ?? undefined });
     if (!this.base) {
       this.items.push({ kind: 'point', at: inf.point });
       return;
@@ -166,7 +165,7 @@ export class ArrayTool extends SelectionTool {
 
   /** Radial: antes do centro, mostra a dica no cursor; depois, a pré-visualização dos itens nos ângulos da barra. */
   private moveRadial(p: PointerInfo): void {
-    const inf = this.snap(p, { from: this.base ?? undefined, ignore: this.base ? new Set(this.movables()) : undefined });
+    const inf = this.snap(p, { from: this.base ?? undefined });
     if (!this.base) {
       this.items.push({ kind: 'point', at: inf.point }, { kind: 'label', at: inf.point, text: TEXTOS[this.lang()].centroRadial });
       return;
@@ -223,7 +222,7 @@ export class ArrayTool extends SelectionTool {
 
   override click(p: PointerInfo): void {
     this.checkStep();
-    const inf = this.snap(p, { from: this.base ?? undefined, ignore: this.base ? new Set(this.movables()) : undefined });
+    const inf = this.snap(p, { from: this.base ?? undefined });
     if (this.radial()) {
       if (!this.base) {
         this.startStep(inf.point);

@@ -3,6 +3,7 @@ import { joinStatus, levelFrames } from '@hestia/engine';
 import { totalThickness, type JoinKind } from '@hestia/model';
 import { ToolBase } from './base.ts';
 import { execWithHostedLoss } from './hostedGuard.ts';
+import { COMPONENT_EDGE_MSG, componentUnderCursor } from './componentTarget.ts';
 import { pickAt } from './pick.ts';
 import type { PointerInfo } from './types.ts';
 
@@ -21,7 +22,7 @@ type Node =
 export class JoinTool extends ToolBase {
   readonly id = 'joins';
   readonly label = 'Junção';
-  readonly hint = 'Junção: clique num canto de duas paredes para alternar Encosto e Esquadria (Tab inverte a dominância). Em T ou nó, clique para não unir a ponta.';
+  readonly hint = 'Junção: clique num canto de duas paredes para alternar Encosto e Esquadria (Tab inverte a dominância). Em T ou nó, clique para não unir a ponta. Escada/rampa: use Editar croqui.';
   private node: Node | null = null;
 
   protected reset(): void {
@@ -67,6 +68,12 @@ export class JoinTool extends ToolBase {
   }
 
   override move(p: PointerInfo): void {
+    const comp = componentUnderCursor(this.env, p.raw);
+    if (comp) {
+      this.node = null;
+      this.items = [{ kind: 'highlight', ids: [comp.id] }];
+      return;
+    }
     this.node = this.find(p.raw);
     this.items = [];
     const n = this.node;
@@ -125,6 +132,10 @@ export class JoinTool extends ToolBase {
   }
 
   override click(p: PointerInfo): void {
+    if (componentUnderCursor(this.env, p.raw)) {
+      this.env.say(COMPONENT_EDGE_MSG);
+      return;
+    }
     this.node = this.find(p.raw);
     const n = this.node;
     if (!n) {

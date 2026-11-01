@@ -431,9 +431,9 @@ export class SelectTool extends ToolBase {
       case 'moving': {
         const els = selectedMovables(pr, this.env.selection());
         const grids = selectedGrids(pr, this.env.selection());
-        const ignore = new Set(els);
-        this.moveBase ??= this.snap({ ...p, raw: this.downPt, shift: false }, { ignore }).point;
-        const inf = this.snap(p, { from: this.moveBase, ignore });
+        // Sem `ignore`: arrastar uma escada/rampa também captura os vértices dela como base e destino.
+        this.moveBase ??= this.snap({ ...p, raw: this.downPt, shift: false }).point;
+        const inf = this.snap(p, { from: this.moveBase });
         this.delta = sub(inf.point, this.moveBase);
         const t = { kind: 'translate' as const, d: this.delta };
         this.items.push(...ghostBands(pr, els, t), ...ghostViews(pr, this.env.selection(), t), ...gridGhosts(pr, grids, this.delta));

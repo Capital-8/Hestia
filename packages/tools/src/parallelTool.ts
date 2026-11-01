@@ -3,6 +3,7 @@ import { frameOfWall, toLocal, type WallFrame } from '@hestia/engine';
 import { formatQuantity, isWall, unitsOf, type Id, type ResolvedUnits } from '@hestia/model';
 import { ToolBase } from './base.ts';
 import { copyWalls, ghostBands } from './edit.ts';
+import { COMPONENT_EDGE_MSG, componentUnderCursor } from './componentTarget.ts';
 import { lengthUnitName, parseQuantityText } from './numeric.ts';
 import type { PointerInfo, PreviewItem } from './types.ts';
 
@@ -19,7 +20,7 @@ const fmtM = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length'
 export class ParallelTool extends ToolBase {
   readonly id = 'parallel';
   readonly label = 'Parede paralela';
-  readonly hint = 'Parede paralela: clique na parede de base e depois do lado desejado, ou digite a distância e Enter. Tab inverte o lado. A distância é medida face a face (padrão) ou entre eixos, conforme a barra de opções.';
+  readonly hint = 'Parede paralela: clique na parede de base e depois do lado desejado, ou digite a distância e Enter. Tab inverte o lado. A distância é medida face a face (padrão) ou entre eixos, conforme a barra de opções. Escada/rampa: use Editar croqui.';
   private base: Id | null = null;
   private frame: WallFrame | null = null;
   private side: 1 | -1 = 1;
@@ -118,6 +119,12 @@ export class ParallelTool extends ToolBase {
     this.last = p;
     this.items = [];
     if (!this.base) {
+      const comp = componentUnderCursor(this.env, p.raw);
+      if (comp) {
+        this.inf = null;
+        this.items.push({ kind: 'highlight', ids: [comp.id] });
+        return;
+      }
       const hit = this.pick(p.raw);
       this.inf = null;
       if (hit) this.items.push({ kind: 'highlight', ids: [hit.id] });
@@ -150,6 +157,10 @@ export class ParallelTool extends ToolBase {
 
   override click(p: PointerInfo): void {
     if (!this.base) {
+      if (componentUnderCursor(this.env, p.raw)) {
+        this.env.say(COMPONENT_EDGE_MSG);
+        return;
+      }
       const hit = this.pick(p.raw);
       if (!hit) return;
       this.base = hit.id;

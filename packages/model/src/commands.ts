@@ -22,6 +22,8 @@ import {
   type Id,
   type Room,
   type Stair,
+  type StairLanding,
+  type StairRun,
   type StairType,
   type Ramp,
   type RampType,
@@ -66,6 +68,7 @@ import {
   resetView3D,
 } from './graphicsCommands.ts';
 
+import { newId } from './ids.ts';
 import { applyAnnotationCommand, type AnnotationCommand } from './annotations.ts';
 import { applySheetCommand, dropOrphanViewports, type SheetCommand } from './sheetCommands.ts';
 import { applyView3DPointCommand, type View3DPointCommand } from './view3dPoints.ts';
@@ -174,14 +177,31 @@ function removeIds(p: Project, ids: Id[]): void {
   for (const e of Object.values(p.elements)) if (isOpening(e) && doomed.has(e.hostId)) doomed.add(e.id);
   for (const id of doomed) delete p.elements[id];
 }
+/**
+ * Ids novos dos componentes do croqui na cópia, com os mesmos prefixos do Copiar/Colar (escada 'r'/'p', rampa 'rc').
+ * Sem isso a cópia repetiria os ids dos lances/patamares e a edição do croqui acertaria o elemento original.
+ * Só roda no caminho com `idMap` (cópia): mover/girar/espelhar mantém os componentes como estão.
+ */
+function remintComponents<E extends Stair | Ramp>(e: E, mint: (prefix: string) => Id): E {
+  const prefix = e.kind === 'stair' ? (c: StairRun | StairLanding): string => (c.kind === 'run' ? 'r' : 'p') : (): string => 'rc';
+  return { ...e, components: e.components.map((c) => ({ ...c, id: mint(prefix(c)) })) };
+}
+
 /** Move/gira/espelha cada elemento do tipo pedido (mesmo padrão para piso, laje, telhado, escada e ambiente). */
-function transformEach<E extends Element>(p: Project, c: Extract<Command, { type: 'transform' }>, pred: (e: Element | undefined) => e is E, map: (e: E, t: Transform) => E): void {
+function transformEach<E extends Element>(
+  p: Project,
+  c: Extract<Command, { type: 'transform' }>,
+  pred: (e: Element | undefined) => e is E,
+  map: (e: E, t: Transform) => E,
+  /** Ajuste só da cópia (ex.: ids novos dos componentes do croqui); a transformação sem cópia não passa por aqui. */
+  onCopy?: (e: E) => E,
+): void {
   const idMap = c.copy?.idMap;
   for (const e of c.ids.map((id) => p.elements[id]).filter(pred)) {
     const next = map(e, c.transform);
     if (idMap) {
       const nid = idMap[e.id];
-      if (nid) p.elements[nid] = { ...next, id: nid, order: p.nextOrder++ } as E;
+      if (nid) p.elements[nid] = { ...(onCopy ? onCopy(next) : next), id: nid, order: p.nextOrder++ } as E;
     } else {
       p.elements[e.id] = next;
     }
@@ -191,8 +211,8 @@ function transformEach<E extends Element>(p: Project, c: Extract<Command, { type
 function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }>): void {
   const idMap = c.copy?.idMap;
   transformEach(p, c, isRoof, transformRoof);
-  transformEach(p, c, isStair, transformStair);
-  transformEach(p, c, isRamp, transformRamp);
+  transformEach(p, c, isStair, transformStair, (s) => remintComponents(s, (prefix) => newId(prefix)));
+  transformEach(p, c, isRamp, transformRamp, (r) => remintComponents(r, (prefix) => newId(prefix)));
   transformEach(p, c, isSlab, (s, t) => transformSlab(s, t, !!c.copy?.idMap));
   transformEach(p, c, isCad, (cad, t) => transformCad(cad, t, !!c.copy?.idMap));
   transformEach(p, c, isFloor, (f, t) => transformFloor(f, t, !!c.copy?.idMap));

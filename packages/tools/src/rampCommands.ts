@@ -1,6 +1,7 @@
-import type { Vec2 } from '@hestia/geom';
+import { dist, type Vec2 } from '@hestia/geom';
 import {
   defaultRampTypeId,
+  isRamp,
   levelAbove,
   makeRamp,
   newId,
@@ -11,6 +12,8 @@ import {
   type Ramp,
   type RampInputMode,
   type RampShape,
+  type StairLanding,
+  type StairRun,
 } from '@hestia/model';
 import type { RampPlan } from '@hestia/engine';
 import type { ToolEnv } from './types.ts';
@@ -103,4 +106,29 @@ export function createRampFromPlan(env: ToolEnv, plan: RampPlan, input: RampCrea
   env.exec({ type: 'addRamp', ramp });
   env.setSelection([id]);
   return { id };
+}
+
+/**
+ * Grava o croqui novo de uma rampa existente em UM comando `updateElements` (um passo de desfazer). Validação mínima:
+ * pelo menos um componente e todas as curvas com comprimento. A rampa livre (forma 'free' ou com `freePath`) é
+ * recusada: editar o croqui à mão descartaria o trajeto.
+ */
+export function updateRampComponents(
+  env: ToolEnv,
+  rampId: Id,
+  components: Array<StairRun | StairLanding>,
+  label = 'Editar croqui da rampa',
+): { ok: true } | { error: string } {
+  const ramp = env.project().elements[rampId];
+  if (!isRamp(ramp)) return { error: 'Rampa não encontrada.' };
+  if (ramp.shape === 'free' || ramp.freePath) return { error: 'A rampa livre não permite editar o croqui pelos componentes.' };
+  if (components.length === 0) return { error: 'O croqui da rampa precisa de pelo menos um componente.' };
+  for (const c of components) {
+    const curves = c.kind === 'landing' ? c.boundary : [...c.boundaryLeft, ...c.boundaryRight, ...c.risers, ...c.path];
+    for (const x of curves) {
+      if (dist(x.a, x.b) <= 1e-9) return { error: 'O croqui da rampa tem uma curva sem comprimento.' };
+    }
+  }
+  env.transaction(label, () => env.exec({ type: 'updateElements', ids: [rampId], patch: { components } }));
+  return { ok: true };
 }

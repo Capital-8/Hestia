@@ -112,7 +112,8 @@ describe('regressão: parede continua deslocando', () => {
     ctx.options.offsetCopy = false;
     ctx.options.offsetDistance = 1;
     const off = tool('offset', ctx.env);
-    clickAt(off, 2, 0.3);
+    // Cursor na faixa da parede: a tolerância do Deslocar é de cursor (5 px), não de metros.
+    clickAt(off, 2, 0.02);
     const ws = walls(ctx.store);
     expect(ws).toHaveLength(1);
     const w = ws[0] as Wall;

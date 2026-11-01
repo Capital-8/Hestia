@@ -24,6 +24,7 @@ export * from './enclosed.ts';
 export * from './roomPick.ts';
 export * from './floorPick.ts';
 export * from './openingSnapPoints.ts';
+export * from './componentSnap.ts';
 export { FloorTool } from './floorTool.ts';
 export * from './roomCreate.ts';
 export * from './ceilingRoom.ts';
@@ -47,6 +48,18 @@ export * from './stairSketchState.ts';
 export * from './stairRunEdit.ts';
 export * from './stairStroke.ts';
 export * from './stairPick.ts';
+export * from './componentEdge.ts';
+export * from './componentOps.ts';
+// `offsetEdge` do componente colide com o de roofEdges; no barrel ele sai como `offsetEdgeCommand`.
+export {
+  commitComponentEdge,
+  moveEdge,
+  offsetEdge as offsetEdgeCommand,
+  splitEdge,
+  trimEdge,
+  alignEdge,
+  type ComponentEditResult,
+} from './componentEdit.ts';
 export * from './stairCommands.ts';
 export { StairTool, isStairTool, type StairStatus } from './stairTool.ts';
 export * from './stairRunPlan.ts';
