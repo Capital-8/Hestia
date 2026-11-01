@@ -80,11 +80,13 @@ export function parseDecimal(raw: string): number {
 
 /** Número para exibir no campo, com vírgula decimal. */
 export function formatDecimal(n: number): string {
+  // units-ok: campo numérico de parâmetros do estilo (mm de papel, casas decimais), não é medida do modelo
   return Number.isFinite(n) ? String(n).replace('.', ',') : '';
 }
 
 /** Valor de cota de exemplo formatado como o estilo manda (precisão, prefixo e sufixo). */
 export function formatDimValue(value: number, style: Pick<DimensionStyle, 'precision' | 'prefix' | 'suffix'>): string {
+  // units-ok: prévia do formato do estilo de cota (precisão/prefixo/sufixo próprios, não é medida do modelo)
   return `${style.prefix}${value.toFixed(style.precision).replace('.', ',')}${style.suffix}`;
 }
 

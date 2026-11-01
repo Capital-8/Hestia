@@ -124,8 +124,8 @@ describe('estilo', () => {
     const a = { x: 0, y: 0 };
     const b = { x: 4, y: 0 };
     const base = dimensionGeometry(a, b, 1, 0.1);
-    expect(dimensionGeometry(a, b, 1, 0.1, 2.5, undefined, DEFAULT_DIMENSION_STYLE)).toEqual(base);
-    const wide = dimensionGeometry(a, b, 1, 0.1, 2.5, undefined, { ...DEFAULT_DIMENSION_STYLE, extensionGap: 3 });
+    expect(dimensionGeometry(a, b, 1, 0.1, 2.5, undefined, {})).toEqual(base);
+    const wide = dimensionGeometry(a, b, 1, 0.1, 2.5, undefined, { extensionGapMm: 3 });
     expect(Math.abs(wide.extensions[0][0].y)).toBeCloseTo(0.3, 9);
     expect(Math.abs(base.extensions[0][0].y)).toBeCloseTo(0.15, 9);
   });
