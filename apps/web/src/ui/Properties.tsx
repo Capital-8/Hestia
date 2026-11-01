@@ -46,6 +46,7 @@ import { ProfileRow } from './ProfileRow.tsx';
 import { FloorProperties } from './FloorProperties.tsx';
 import { RoofProperties } from './RoofProperties.tsx';
 import { SlabProperties } from './SlabProperties.tsx';
+import { useAdiado } from './useAdiado.ts';
 import { CeilingProperties } from './CeilingProperties.tsx';
 import { StairProperties } from './StairProperties.tsx';
 import { RampProperties } from './RampProperties.tsx';
@@ -138,11 +139,9 @@ function WallProps({ walls }: { walls: Wall[] }): ReactElement {
   const comments = common(walls, (w) => w.comments);
   const single = walls.length === 1 ? walls[0]! : null;
   const t = single ? wallType(p, single) : null;
-  const q = useMemo(() => {
-    if (!single) return null;
-    const lv = single.levelId;
-    return quantifyLevel(p, editor.resolved(lv)).walls.find((x) => x.wallId === single.id) ?? null;
-  }, [p, single]);
+  // Quantitativos do nível inteiro (cortes entre paredes): custam mais de 1 s num pavimento grande; saem do clique e ficam em cache.
+  const doNivel = useAdiado(p, `quant-paredes|${single?.levelId ?? ''}`, () => (single ? quantifyLevel(p, editor.resolved(single.levelId)).walls : []));
+  const q = single ? (doNivel?.find((x) => x.wallId === single.id) ?? null) : null;
 
   return (
     <>
@@ -305,7 +304,8 @@ function OpeningProps({ items }: { items: Opening[] }): ReactElement {
 function ViewRangeGroup({ levelId }: { levelId: Id }): ReactElement {
   const p = useProject();
   const range = viewRangeOf(p, levelId);
-  const warnings = useMemo(() => viewRangeWarnings(p, levelId, range), [p, levelId, range]);
+  // Classificar o nível resolve pisos, lajes e telhados do projeto: fica fora do clique e em cache por projeto.
+  const warnings = useAdiado(p, `avisos-vista|${levelId}|${JSON.stringify(range)}`, () => viewRangeWarnings(p, levelId, range)) ?? [];
   const [error, setError] = useState<string | null>(null);
   const edit = (patch: Partial<ViewRange>): void => setError(editViewRange(editor.store, levelId, patch).error);
   return (

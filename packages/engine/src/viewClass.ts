@@ -97,9 +97,17 @@ export function viewClassOf(range: ViewRange, elevation: number, z0: number, z1:
   return 'hidden';
 }
 
-/** Cotas resolvidas do projeto inteiro (todos os níveis), para as faixas de paredes anexadas. */
+const contextoPorProjeto = new WeakMap<Project, ViewContext>();
+
+/** Cotas resolvidas do projeto inteiro (todos os níveis), para as faixas de paredes anexadas. Em cache por projeto (o projeto é imutável: cada edição gera outro objeto):
+ * o painel de Propriedades e a planta pedem o mesmo contexto várias vezes por edição, e resolvê-lo custa segundos. */
 export function viewContextOf(p: Project): ViewContext {
-  return { floors: resolveAllFloors(p), slabs: resolveAllSlabs(p), roofs: resolveAllRoofs(p) };
+  let c = contextoPorProjeto.get(p);
+  if (!c) {
+    c = { floors: resolveAllFloors(p), slabs: resolveAllSlabs(p), roofs: resolveAllRoofs(p) };
+    contextoPorProjeto.set(p, c);
+  }
+  return c;
 }
 
 /** Categoria do elemento; sempre uma das seis (o tipo `Element` é fechado). */
