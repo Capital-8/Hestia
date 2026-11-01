@@ -257,3 +257,54 @@ describe('separadores', () => {
     expect(m.filter((e) => e.separatorBefore).map((e) => e.id)).toEqual(['repeat', 'selectPrevious', 'zoomRegion', 'browser']);
   });
 });
+
+describe('Visíveis na vista (Selecionar todas as instâncias)', () => {
+  const mista = { ...base, hasSelection: true, selectionKinds: ['wall', 'door'], singleType: false };
+
+  it('3D com seleção mista: Selecionar todas e Visíveis na vista habilitados', () => {
+    const m = buildContextMenu({ ...mista, view: '3d' });
+    expect(find(m, 'selectAll').disabled).toBeFalsy();
+    expect(find(m, 'selectAll').hint).toBeUndefined();
+    expect(find(find(m, 'selectAll').children ?? [], 'selectAllView').disabled).toBeFalsy();
+  });
+
+  it('3D com seleção de um só tipo continua habilitado', () => {
+    const m = buildContextMenu({ ...mista, view: '3d', selectionKinds: ['wall'], singleType: true });
+    expect(find(find(m, 'selectAll').children ?? [], 'selectAllView').disabled).toBeFalsy();
+  });
+
+  it('3D sem seleção: aparece Selecionar todas com Visíveis na vista habilitado e No projeto inteiro esmaecido', () => {
+    const m = buildContextMenu({ ...base, view: '3d' });
+    const todas = find(m, 'selectAll');
+    expect(todas.disabled).toBeFalsy();
+    expect(find(todas.children ?? [], 'selectAllView').disabled).toBeFalsy();
+    expect(find(todas.children ?? [], 'selectAllProject').soon).toBe(true);
+    expect(find(todas.children ?? [], 'selectAllProject').disabled).toBe(true);
+  });
+
+  it('3D sem seleção: Visíveis na vista fica no grupo antes de Rodas de navegação e Zoom', () => {
+    const m = buildContextMenu({ ...base, view: '3d' });
+    expect(ids(m).indexOf('selectAll')).toBeLessThan(ids(m).indexOf('steering'));
+    expect(ids(m).indexOf('selectPrevious')).toBeLessThan(ids(m).indexOf('selectAll'));
+  });
+
+  it('planta com seleção mista: Selecionar todas segue desabilitado com o motivo', () => {
+    const m = buildContextMenu({ ...mista, view: 'plan' });
+    expect(find(m, 'selectAll').disabled).toBe(true);
+    expect(find(m, 'selectAll').hint).toBe('Selecione elementos de um só tipo');
+    expect(find(find(m, 'selectAll').children ?? [], 'selectAllView').disabled).toBe(true);
+  });
+
+  it('planta sem seleção: não há Selecionar todas (como antes)', () => {
+    expect(ids(buildContextMenu({ ...base, view: 'plan' }))).not.toContain('selectAll');
+  });
+
+  it('corte com seleção mista segue a planta (desabilitado)', () => {
+    const m = buildContextMenu({ ...mista, view: 'section' });
+    expect(find(find(m, 'selectAll').children ?? [], 'selectAllView').disabled).toBe(true);
+  });
+
+  it('sem seleção no corte: não há Selecionar todas', () => {
+    expect(ids(buildContextMenu({ ...base, view: 'section' }))).not.toContain('selectAll');
+  });
+});
