@@ -277,6 +277,11 @@ export class ResolucaoProgressiva {
     this.prewarmGeracao++;
   }
 
+  /** Pedido de quem prepara o projeto em segundo plano: `id` passa à frente na fila de resolução (ver `preparoProjeto.ts`). */
+  priorizarNivel(id: Id): void {
+    this.priorizar(id);
+  }
+
   /** Torna `id` o nível visível para a fila, sem cancelar o pedido em curso (ele termina e o próximo já é o visível). */
   private priorizar(id: Id): void {
     this.liberados.delete(id);

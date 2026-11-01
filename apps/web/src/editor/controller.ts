@@ -47,7 +47,7 @@ import { safeFilename } from './nomeArquivo.ts';
 import { FluxoEdicao } from './fluxoEdicao.ts';
 import { hiddenCreationWarning } from './profileWarning.ts';
 import { CacheGeometria } from './geometryCache.ts';
-import { abrirComCache, TETO_GEOMETRIA_BYTES, type PortasAbertura } from './geometriaAbertura.ts';
+import { abrirComCache, agendarGravacao, limparCacheDeGeometria, TETO_GEOMETRIA_BYTES, type PortasAbertura, type RestauradoDoCache } from './geometriaAbertura.ts';
 import { aceitaCaractereNumerico } from './entradaNumerica.ts';
 
 
@@ -129,7 +129,7 @@ export class Editor {
   /** Modo "Criar/Editar perímetro" (perimeterMode.ts): abre-se pelas ferramentas Telhado, Piso, Laje e Forro. */
   readonly perimetro = new PerimeterMode({ env: () => this.env, projeto: () => this.project, ativar: (t) => (t ? this.activate('perimeter', t) : this.activate('select')), atualizar: () => this.bump() });
   /** Cache de geometria por projeto: na abertura restaura os níveis (ver `geometriaAbertura.ts`); só a abertura grava. */
-  private readonly portasAbertura: PortasAbertura = {
+  readonly portasAbertura: PortasAbertura = {
     cache: new CacheGeometria({ tetoBytes: TETO_GEOMETRIA_BYTES }),
     atual: () => this.store.project,
     lerNivel: (id) => this.fluxo.nivelPronto(id) ?? this.levels.get(this.store.project, id),
@@ -987,15 +987,24 @@ export class Editor {
     this.load(buildTemplate(id), 'projeto.hestia.json');
   }
 
-  load(p: Project, name: string): void {
+  /** Apaga o cache persistente de geometria (níveis resolvidos). Falha silenciosa. */
+  limparCacheDeGeometria(): Promise<void> {
+    return limparCacheDeGeometria(this.portasAbertura);
+  }
+
+  /** `restaurado`: níveis já lidos do cache antes da carga; nascem prontos, então o nível ativo não é recalculado. */
+  load(p: Project, name: string, restaurado?: RestauradoDoCache): void {
     // Projeto novo (ou aberto): o arraste de rótulo e a visibilidade temporária do projeto anterior não sobrevivem.
     this.limparArrasteRotulo();
     this.limparVisibilidadeBuffer();
     resetAllTemporary();
     this.perimetro.encerrar(); this.store.load(p);
     this.fileName = name;
-    this.levels.clear(); this.fluxo.abrir(p, this.store.version).forEach((id) => this.resolved(id));
-    void abrirComCache(this.portasAbertura, p);
+    this.levels.clear(); const iniciais = this.fluxo.abrir(p, this.store.version);
+    if (restaurado) for (const [id, valor] of restaurado.semeados) this.fluxo.resolucao.semear(id, valor);
+    iniciais.forEach((id) => this.resolved(id));
+    if (restaurado) agendarGravacao(this.portasAbertura, p, restaurado);
+    else void abrirComCache(this.portasAbertura, p);
     this.viewports.clear();
     // Abas de vista são da sessão: projeto novo começa só com o nível ativo, sem herdar abas do anterior.
     useUi.setState({ selection: [], levelId: p.levels[0]?.id ?? 'lv_0', view: 'plan', planKind: 'floor', areaPlanId: null, sectionId: null, openViews: defaultOpenViews(p.levels.map((l) => l.id)), options: { ...useUi.getState().options, wallTypeId: p.defaults.wallTypeId, doorTypeId: p.defaults.doorTypeId, windowTypeId: p.defaults.windowTypeId, floorTypeId: keptFloorType(p, useUi.getState().options.floorTypeId), slabTypeId: keptSlabType(p, useUi.getState().options.slabTypeId) } });

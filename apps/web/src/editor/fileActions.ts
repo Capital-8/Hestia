@@ -1,3 +1,4 @@
+import { abrirProjetoPorFases } from './aberturaProjeto.ts';
 import { editor } from './controller.ts';
 import { saveProjectIfc } from './ifcExport.ts';
 import { savePdf } from './savePdf.ts';
@@ -12,10 +13,8 @@ const why = (e: unknown): string => (e instanceof Error ? e.message : 'falha des
 export async function openProjectFile(f: File | undefined): Promise<void> {
   if (!f) return;
   const texto = await f.text();
-  // Abrir um projeto grande bloqueia a tela por segundos: o aviso precisa ser pintado antes do trabalho síncrono.
-  say(`Abrindo ${f.name}… (projetos grandes levam alguns segundos)`);
-  await new Promise<void>((pronto) => requestAnimationFrame(() => setTimeout(pronto, 0)));
-  const r = editor.openFromText(texto, f.name);
+  say(`Abrindo ${f.name}…`);
+  const r = await abrirProjetoPorFases(texto, f.name);
   say(r.ok ? `Aberto: ${f.name}` : `Não foi possível abrir: ${r.error}`);
 }
 

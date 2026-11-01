@@ -38,6 +38,8 @@ if (new URLSearchParams(location.search).has('debug')) {
   void Promise.all([import('./editor/controller.ts'), import('./editor/state.ts'), import('@hestia/engine'), import('@hestia/tools'), import('@hestia/model')]).then(([c, s, e, t, m]) => {
     (window as unknown as { __hestia: unknown }).__hestia = {
       editor: c.editor,
+      abrirPorFases: (t: string, n: string) => import('./editor/aberturaProjeto.ts').then((a) => a.abrirProjetoPorFases(t, n)),
+      priorizar: (alvo: { nivel?: string; vista?: string }) => import('./editor/aberturaProjeto.ts').then((a) => a.priorizar(alvo)),
       useUi: s.useUi,
       resolveSlabs: e.resolveSlabs,
       resolveFloors: e.resolveFloors,
