@@ -29,6 +29,7 @@ import { criarMontagemVista3d, type Montagem3dProgressiva } from './montagem3dPr
 import { QuadroPlanta } from './quadroPlanta.ts';
 import { medirQuadro, useContarCommitPerf, usePerfDaUrl } from '../debug/perf/index.ts';
 import { eventosDeSolta, gestosComShift, passouDoLimiar } from './planGestos.ts';
+import { Progresso3D } from './Progresso3D.tsx';
 import { cliqueAdiadoInicial, decidirCliqueAdiado, type EstadoCliqueAdiado } from './cliqueAdiado.ts';
 
 interface Pt {
@@ -1022,6 +1023,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       <ViewportOverlays host={host} model={model.current} selection={selection} ui={ui} />
       <NivelCotaEditor ref={cotaRef} />
       <div ref={caixaRef} style={CAIXA_DE_SELECAO_STYLE} />
+      {ui.view === '3d' && <Progresso3D />}
     </div>
   );
 }
