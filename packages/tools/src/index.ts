@@ -16,6 +16,8 @@ export { LevelTool, nextLevelName, LEVEL_Z_TOLERANCE, LEVEL_MIN_EXTENT } from '.
 export * from './wallGeom.ts';
 export * from './clipboard.ts';
 export * from './pasteTool.ts';
+export * from './pasteLevels/types.ts';
+export * from './pasteLevels/command.ts';
 export * from './lengthEdit.ts';
 export * from './hostedLoss.ts';
 export * from './hostedGuard.ts';

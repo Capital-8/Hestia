@@ -4,9 +4,11 @@ import { createEmptyProject, type Project } from '@hestia/model';
 import { useUi } from '../../editor/state.ts';
 import { ACTIONS, type RibbonCtx } from './actions.ts';
 import { allCommands } from './commandSearch.ts';
-import { contextTab, perimeterTab } from './context.ts';
+import { contextTab, pasteLevelsTab, perimeterTab } from './context.ts';
 import { txt, type RibbonItem, type RibbonPanel, type Txt } from './model.ts';
+import { P_CLIPBOARD } from './panelsShared.ts';
 import { TABS, TAB_ORDER } from './tabs.ts';
+import type { PastePreviewState } from '../../editor/pasteLevels/types.ts';
 
 const leaves = (items: RibbonItem[]): RibbonItem[] =>
   items.flatMap((it) => (it.kind === 'stack' ? leaves(it.items) : it.kind === 'split' ? [it.main, ...leaves(it.menu)] : [it]));
@@ -90,6 +92,14 @@ describe('aba contextual', () => {
     expect(contextTab('move', [], p)).toBeNull();
     expect(contextTab('select', [], p)).toBeNull();
   });
+  it('prévia do colar alinhado abre "Modificar | Colar alinhado"', () => {
+    const preview: PastePreviewState = { levelIds: ['n1', 'n2'], count: 4, originView: 'plan', originLevelId: 'n1', originSectionId: null, link: false };
+    const tab = pasteLevelsTab(preview);
+    expect(tab.key).toBe('paste:levels:n1+n2');
+    expect(txt(tab.tab.label, 'pt')).toBe('Modificar | Colar alinhado');
+    expect(txt(tab.tab.label, 'en')).toBe('Modify | Paste Aligned');
+    expect(tab.tab.panels.map((x) => x.id)).toEqual(['selecionar', 'propriedades']);
+  });
 });
 
 describe('disposição dos painéis na faixa', () => {
@@ -146,9 +156,9 @@ describe('copiar, recortar, colar e criar semelhante na faixa', () => {
     expect(ACTIONS.pasteAligned.keys).toBe('Ctrl+V');
   });
 
-  it('as quatro ações estão na faixa', () => {
+  it('as cinco ações de transferência estão na faixa', () => {
     const acoes = leaves(allPanels().flatMap((pn) => pn.items)).flatMap((it) => (it.kind === 'action' ? [it.action] : []));
-    expect(acoes).toEqual(expect.arrayContaining(['copySelection', 'cutSelection', 'pasteAligned', 'createSimilar']));
+    expect(acoes).toEqual(expect.arrayContaining(['copySelection', 'cutSelection', 'pasteAligned', 'pasteAlignedLevels', 'createSimilar']));
   });
 
   it('Copiar fica desabilitado sem seleção e liberado com uma parede', () => {
@@ -174,6 +184,29 @@ describe('copiar, recortar, colar e criar semelhante na faixa', () => {
     const prancha = ACTIONS.pasteAligned.disabled?.(ctx({ view: 'sheet' }));
     expect(prancha).toBeTruthy();
     expect(txt(prancha as Txt, 'pt')).toContain('pranchas');
+  });
+
+  it('Alinhado aos níveis selecionados: sem buffer avisa em planta, 3D e corte; na prancha, não vale', () => {
+    for (const view of ['plan', '3d', 'section']) {
+      const semBuffer = ACTIONS.pasteAlignedLevels.disabled?.(ctx({ view }));
+      expect(txt(semBuffer as Txt, 'pt'), view).toContain('Nada copiado');
+    }
+    const prancha = ACTIONS.pasteAlignedLevels.disabled?.(ctx({ view: 'sheet' }));
+    expect(txt(prancha as Txt, 'pt')).toContain('pranchas');
+  });
+
+  it('a seta do Colar abre "Alinhado aos níveis selecionados" com os textos exatos do Revit', () => {
+    const colar = P_CLIPBOARD.items.find((it) => it.kind === 'split');
+    expect(colar?.kind).toBe('split');
+    if (colar?.kind !== 'split') return;
+    expect(colar.main).toMatchObject({ kind: 'action', action: 'pasteAligned' });
+    expect(colar.menu).toHaveLength(1);
+    const item = colar.menu[0];
+    expect(item).toMatchObject({ kind: 'action', action: 'pasteAlignedLevels' });
+    if (item?.kind !== 'action') return;
+    expect(txt(ACTIONS[item.action].label, 'pt')).toBe('Alinhado aos níveis selecionados');
+    expect(txt(ACTIONS[item.action].label, 'en')).toBe('Aligned to Selected Levels');
+    expect(ACTIONS[item.action].icon).toBe('paste');
   });
 
   it('Criar semelhante fica desabilitado sem seleção e liberado com uma parede', () => {

@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+﻿import { create } from 'zustand';
 import type { Id, LocationLine, OpeningDimRef, WallDimRef } from '@hestia/model';
 import type { Vec2 } from '@hestia/geom';
 import type { Backend } from '@hestia/render';
@@ -9,6 +9,7 @@ import { activeViewOf, addView, type OpenView, type PlanKind } from './openViews
 import type { RibbonTabId } from '../ui/ribbon/model.ts';
 import { loadDock, type DockLayout } from './dockLayout.ts';
 import type { TempViewVisibility } from './viewVisibility.ts';
+import type { PastePreviewState } from './pasteLevels/types.ts';
 
 export type ViewKind = 'plan' | '3d' | 'section' | 'sheet';
 export type ThemePref = 'system' | 'light' | 'dark';
@@ -17,7 +18,7 @@ export type ThemePref = 'system' | 'light' | 'dark';
  * Quem quiser seguir o sistema ou usar o escuro escolhe no menu Arquivo; a escolha vale só para a sessão.
  */
 export const DEFAULT_THEME: ThemePref = 'light';
-export type DialogKind = 'wallType' | 'floorType' | 'materials' | 'levels' | 'openingType' | 'start' | 'shortcuts' | 'shortcutsConfig' | 'about' | 'schedule' | 'floorSchedule' | 'slabType' | 'slabSchedule' | 'ceilingType' | 'ceilingSchedule' | 'roofType' | 'roofSchedule' | 'stairType' | 'stairSchedule' | 'rampType' | 'rampSchedule' | 'openingSchedule' | 'graphicsVisibility' | 'lineWeights' | 'dxfLayers' | 'sheet' | 'addView' | 'renumberSheets' | 'revision' | 'publish' | 'roomSchedule' | 'roomCategories' | 'cotasAuto' | 'moveLevel' | 'levelMoveConflict' | 'gridType' | 'units' | 'dimensions' | 'hostedLoss' | 'alerta' | 'areaMerge' | 'importCad' | 'manageCad' | 'experimentos' | null;
+export type DialogKind = 'wallType' | 'floorType' | 'materials' | 'levels' | 'openingType' | 'start' | 'shortcuts' | 'shortcutsConfig' | 'about' | 'schedule' | 'floorSchedule' | 'slabType' | 'slabSchedule' | 'ceilingType' | 'ceilingSchedule' | 'roofType' | 'roofSchedule' | 'stairType' | 'stairSchedule' | 'rampType' | 'rampSchedule' | 'openingSchedule' | 'graphicsVisibility' | 'lineWeights' | 'dxfLayers' | 'sheet' | 'addView' | 'renumberSheets' | 'revision' | 'publish' | 'roomSchedule' | 'roomCategories' | 'cotasAuto' | 'moveLevel' | 'levelMoveConflict' | 'gridType' | 'units' | 'dimensions' | 'hostedLoss' | 'alerta' | 'areaMerge' | 'importCad' | 'manageCad' | 'experimentos' | 'selectLevels' | null;
 
 export interface UiState {
   tool: ToolId;
@@ -40,6 +41,8 @@ export interface UiState {
   /** Hide/isolate/reveal temporários por vista (sessão; não vai para o projeto). */
   viewTemp: Record<string, TempViewVisibility>;
   selection: Id[];
+  /** Prévia do colar alinhado a vários níveis; null fora do modo de conferência. */
+  pastePreview: PastePreviewState | null;
   /** Nível selecionado no 3D (a seleção de elementos fica vazia quando há um). */
   selectedLevel: Id | null;
   hover: Id | null;
@@ -318,6 +321,7 @@ export const useUi = create<UiState>(() => ({
   sectionId: null,
   sheetId: null,
   selection: [],
+  pastePreview: null,
   selectedLevel: null,
   hover: null,
   options: DEFAULT_OPTIONS,

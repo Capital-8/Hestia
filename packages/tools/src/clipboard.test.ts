@@ -119,7 +119,7 @@ describe('ids que o Copiar levaria (copyableIds)', () => {
     expect(copyableIds(store.project, [doorOf(store).id])).toEqual([]);
   });
 
-  it('forro, objeto genérico, grade, anotação e separador de ambiente ficam de fora', () => {
+  it('grade, anotação e separador de ambiente ficam de fora; forro e objeto genérico entram', () => {
     const { store } = build();
     store.exec({ type: 'addCeiling', ceiling: makeCeiling({ id: 'c1', typeId: 'ct_gesso', levelId: 'lv_0', boundary: [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 }] }) });
     store.exec({ type: 'addText', levelId: 'lv_0', text: { id: 't1', at: { x: 0, y: 0 }, text: 'nota', height: 2.5, rotation: 0 } });
@@ -127,9 +127,10 @@ describe('ids que o Copiar levaria (copyableIds)', () => {
     store.exec({ type: 'addGrid', grid: { id: 'gr1', name: '1', typeId: 'gt_6mm', points: [{ x: 0, y: 0 }, { x: 0, y: 5 }], sag: 0, bubbleStart: true, bubbleEnd: true } });
     const generico: Generic = { id: 'g1', kind: 'generic', levelId: 'lv_0', name: 'Viga', sourceClass: 'IFCBEAM', mesh: { positions: [], indices: [] }, order: 1 };
     const p = { ...store.project, elements: { ...store.project.elements, g1: generico } };
-    expect(copyableIds(p, ['c1', 't1', 'sep1', 'gr1', 'g1'])).toEqual([]);
-    // Com uma parede junto, só a parede (e suas aberturas) sobra.
-    expect(copyableIds(p, ['c1', onLevel(store, 'lv_0')[1]!.id])).toEqual([onLevel(store, 'lv_0')[1]!.id]);
+    expect(copyableIds(p, ['c1', 't1', 'sep1', 'gr1', 'g1'])).toEqual(['c1', 'g1']);
+    // Com uma parede junto, ela e as suas aberturas entram na ordem da seleção.
+    const semPorta = onLevel(store, 'lv_0')[1]!;
+    expect(copyableIds(p, ['c1', semPorta.id])).toEqual(['c1', semPorta.id]);
   });
 
   it('ids inexistentes e duplicatas não aparecem; a ordem é a da seleção e depois as aberturas', () => {
@@ -137,6 +138,18 @@ describe('ids que o Copiar levaria (copyableIds)', () => {
     const [w1, w2] = onLevel(store, 'lv_0');
     expect(copyableIds(store.project, ['zzz'])).toEqual([]);
     expect(copyableIds(store.project, [w1!.id, w1!.id, 'zzz', w2!.id])).toEqual([w1!.id, w2!.id, doorOf(store).id]);
+  });
+
+  it('forro, objeto genérico e CAD formam buffer sozinhos; abertura sozinha continua sem buffer', () => {
+    const { store } = build();
+    store.exec({ type: 'addCeiling', ceiling: makeCeiling({ id: 'c1', typeId: 'ct_gesso', levelId: 'lv_0', boundary: [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 }] }) });
+    const generico: Generic = { id: 'g1', kind: 'generic', levelId: 'lv_0', name: 'Viga', sourceClass: 'IFCBEAM', mesh: { positions: [], indices: [] }, order: 1 };
+    store.exec({ type: 'addCadDrawing', cad: { id: 'cad1', kind: 'cad', levelId: 'lv_0', name: 'Planta', source: 'dxf', unit: 'm', layers: [{ name: '0' }], paths: [{ layer: '0', pts: [{ x: 0, y: 0 }, { x: 2, y: 0 }], closed: false }], texts: [] } });
+    const p = { ...store.project, elements: { ...store.project.elements, g1: generico } };
+    expect(clipboardFrom(p, ['c1'])?.ceilings).toHaveLength(1);
+    expect(clipboardFrom(p, ['g1'])?.generics).toHaveLength(1);
+    expect(clipboardFrom(p, ['cad1'])?.cad).toHaveLength(1);
+    expect(clipboardFrom(p, [doorOf(store).id])).toBeNull();
   });
 
   it('bate com o que clipboardFrom realmente copia', () => {

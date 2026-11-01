@@ -1,9 +1,11 @@
-/* eslint-disable max-lines -- a vista reúne planta, 3D, corte e o editor da cota; extrair depois. */
+﻿/* eslint-disable max-lines -- a vista reúne planta, 3D, corte e o editor da cota; extrair depois. */
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
-import { DARK, LIGHT, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport } from '@hestia/render';
-import { formatQuantity, unitsOf, view3dOf } from '@hestia/model';
+import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport } from '@hestia/render';
+import { formatQuantity, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
 import { useShallow } from 'zustand/react/shallow';
 import { editor } from '../editor/controller.ts';
+import { transfer } from '../editor/transfer.ts';
+import { consumirManterCameraDaPrevia, guardarCamera, limparPreviaPreparada, montarPrevia, previaPreparada, restaurarCamera, type CameraDaPrevia } from '../editor/pastePreview.ts';
 import { visibilityOf } from '../editor/viewVisibility.ts';
 import { usePerimeter } from '../editor/perimeter.ts';
 import { hoverSectionAt, sectionPickAt } from '../editor/sectionPick.ts';
@@ -55,8 +57,17 @@ const NO_LABELS: LabelOp[] = [];
 /** Retângulo da caixa de seleção do corte; começa oculto e o gesto só muda posição, tamanho e traço. */
 const CAIXA_DE_SELECAO_STYLE: CSSProperties = {position: 'absolute', display: 'none', pointerEvents: 'none', zIndex: 2, border: '1px solid var(--accent)', background: 'var(--accent-soft)' };
 
+/** Ganchos da vista 3D para a prévia do Colar alinhado. */
+export interface ViewportCanvasProps {
+  /**
+   * Rascunho da prévia já montado pelo integrador. Quando presente, a cena só o desenha; quando ausente, o
+   * canvas monta o rascunho a partir do clipboard (`montarPrevia`) enquanto `useUi.pastePreview` existir.
+   */
+  projetoDePrevia?: Project | null;
+}
+
 /** Desenha o plano (GPU ou CPU) e o 3D, e traduz o ponteiro em chamadas ao editor. */
-export function ViewportCanvas(): ReactElement {
+export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): ReactElement {
   const host = useRef<HTMLDivElement>(null);
   const labelLayer = useRef<PlanLabelsHandle>(null);
   const gpuRef = useRef<{ gpu: GpuContext; canvas: HTMLCanvasElement } | null>(null);
@@ -65,6 +76,11 @@ export function ViewportCanvas(): ReactElement {
   const pickSize = useRef({ w: 0, h: 0 });
   const plan = useRef(new PlanScene());
   const model = useRef(new ModelScene());
+  // Prévia do Colar alinhado: camada de fantasmas, rascunho em cache e a câmera de antes do comando.
+  const fantasmas = useRef<CamadaFantasmas | null>(null);
+  const previaProjeto = useRef<{ chave: string; projeto: Project } | null>(null);
+  const previaRascunho = useRef<Project | null>(null);
+  const cameraAntesDaPrevia = useRef<CameraDaPrevia | null>(null);
   // Ganchos de depuração (?debug=1): câmera orbital do 3D e a cena 3D (o e2e conta as peças do modelo).
   if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug')) Object.assign(window, { __hestia3d: model.current.orbit, __hestia3dModel: model.current });
   const modelKey = useRef('');
@@ -91,6 +107,8 @@ export function ViewportCanvas(): ReactElement {
   // Só o que a própria tela lê: a mudança de outros campos não re-renderiza a planta (o redesenho sai do agendamento abaixo).
   const ui = useUi(useShallow((s) => ({ view: s.view, gpu: s.gpu, prompt: s.prompt, typed: s.typed, hover: s.hover, tool: s.tool })));
   const selection = useUi((s) => s.selection);
+  /** Prévia do Colar alinhado (só reage ao estado; quem o preenche é o controlador). */
+  const previewState = useUi((s) => s.pastePreview);
   const frame = useRef(0);
   const dprRef = useRef(1);
   const planFrame = useRef<PlanFrame | null>(null);
@@ -158,6 +176,8 @@ export function ViewportCanvas(): ReactElement {
       ro.disconnect();
       c.dispose();
       controlador.current = null;
+      fantasmas.current?.dispose();
+      fantasmas.current = null;
     };
   }, []);
 
@@ -171,11 +191,39 @@ export function ViewportCanvas(): ReactElement {
     if (!sameView(shownView.current, vw)) setLabelView((shownView.current = vw && { ...vw }));
   };
 
+  /**
+   * Rascunho da prévia: o `projetoDePrevia` do integrador, quando vier; senão monta a partir do clipboard.
+   * O cache evita remontar (e sortear ids novos) a cada quadro do rAF.
+   */
+  const rascunhoDaPrevia = useCallback((levelIds: readonly Id[], link: boolean): Project | null => {
+    if (projetoDePrevia) return projetoDePrevia;
+    // O controlador já calculou o rascunho antes de trocar para o 3D: usa o mesmo (e os mesmos ids do "Colar").
+    const pronta = previaPreparada();
+    if (pronta && pronta.link === link && pronta.levelIds.length === levelIds.length && pronta.levelIds.every((id, i) => id === levelIds[i])) return pronta.draft;
+    const chave = `${editor.store.version}|${levelIds.join(',')}|${link}`;
+    const guardado = previaProjeto.current;
+    if (guardado && guardado.chave === chave) return guardado.projeto;
+    const clip = transfer.clipBuffer();
+    if (!clip) return null;
+    const projeto = montarPrevia(editor.project, clip, levelIds, link);
+    previaProjeto.current = projeto ? { chave, projeto } : null;
+    return projeto;
+  }, [projetoDePrevia]);
+
   // ---- desenho ----
   const renderQuadro = useCallback(() => {
     const st = useUi.getState();
     const { w, h } = size;
     if (!ready || w < 10 || h < 10) return;
+    // Saiu da prévia do Colar alinhado: tira os fantasmas e devolve a câmera de antes do comando.
+    if (!st.pastePreview && fantasmas.current) {
+      fantasmas.current.limpar();
+      fantasmas.current.grupo.removeFromParent();
+      previaProjeto.current = null;
+      previaRascunho.current = null;
+      limparPreviaPreparada();
+      if (!consumirManterCameraDaPrevia() && restaurarCamera(model.current.orbit, cameraAntesDaPrevia.current)) cameraAntesDaPrevia.current = null;
+    }
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     dprRef.current = dpr;
     const g = gpuRef.current;
@@ -187,6 +235,8 @@ export function ViewportCanvas(): ReactElement {
       secLive.current = false;
       if (!g) return;
       const m = model.current;
+      // Na prévia do Colar alinhado não há realce de cursor (os cliques de edição estão desligados).
+      if (st.pastePreview && st.hover) useUi.setState({ hover: null });
       // Picking por ID buffer na GPU (R3): WebGL2 com MRT. No WebGPU (ou sem suporte) o BVH continua respondendo.
       const picker =
         g.gpu.backend === 'webgl2'
@@ -216,12 +266,33 @@ export function ViewportCanvas(): ReactElement {
         // Gancho de depuração (`?debug=1`): o e2e de perf espera `montados` chegar ao total de níveis.
         if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug')) Object.assign(window, { __hestia3dMontagem: montagem.current });
         montagem.current.atualizar(p, { edges: v3.edges, shadows: v3.shadows, dark, hidden: vis.hidden, revealed: vis.revealed }, st.levelId);
+        // Prévia do Colar alinhado: a cena precisa aparecer completa no mesmo quadro, não pavimento por pavimento.
+        if (st.pastePreview && montagem.current.montados < p.levels.length) montagem.current.montarTudo();
         picker?.invalidar();
       }
       // O nível selecionado no datum (clique no 3D) é aplicado à cena a cada quadro; sem mudança, não refaz nada.
       m.selecionarNivel(p, st.selectedLevel);
-      // Realce da seleção, do elemento sob o cursor e do aviso de conflito (decisão 0044, amarelo).
-      m.highlight(st.selection, st.hover, st.avisoParede ? [st.avisoParede] : []);
+        // Realce da seleção, do elemento sob o cursor e do aviso de conflito (decisão 0044, amarelo).
+        m.highlight(st.selection, st.hover, st.avisoParede ? [st.avisoParede] : []);
+        // Prévia do Colar alinhado: fantasmas violeta do rascunho, enquadrados uma vez por rascunho.
+        const camada = (fantasmas.current ??= new CamadaFantasmas());
+        if (st.pastePreview) {
+          if (!cameraAntesDaPrevia.current) cameraAntesDaPrevia.current = guardarCamera(m.orbit);
+          const rascunho = rascunhoDaPrevia(st.pastePreview.levelIds, st.pastePreview.link);
+          if (rascunho) {
+            camada.atualizar(rascunho, p);
+            if (camada.grupo.parent !== m.scene) m.scene.add(camada.grupo);
+            if (previaRascunho.current !== rascunho) {
+              previaRascunho.current = rascunho;
+              // Enquadra a origem e os destinos: a caixa do modelo mais a dos fantasmas.
+              const caixa = camada.caixa.union(m.bounds());
+              if (!caixa.isEmpty()) m.orbit.fit(caixa);
+            }
+          } else {
+            camada.limpar();
+            camada.grupo.removeFromParent();
+          }
+        }
       g.gpu.renderer.shadowMap.enabled = v3.shadows;
       g.gpu.setSize(w, h, dpr);
       // Animação da câmera (ViewCube, Início): avança a cada quadro e pede o próximo enquanto anima.
@@ -344,7 +415,7 @@ export function ViewportCanvas(): ReactElement {
     // Alinha a camada HTML de texto no mesmo requestAnimationFrame do canvas da planta.
     // Isso evita o atraso de um render React entre a câmera e o texto da cota durante pan/zoom.
     labelLayer.current?.syncView(v);
-  }, [size, ready, dark, sketch]);
+  }, [size, ready, dark, sketch, rascunhoDaPrevia]);
 
   // Um quadro do rAF: o trabalho de CPU é medido do começo ao fim do desenho; com `?perf=1`, os contadores agrupam
   // draw calls/upload/rebuilds entre estes dois pontos. Sem perf, os métodos são no-op.
@@ -357,6 +428,11 @@ export function ViewportCanvas(): ReactElement {
     const off = useUi.subscribe(sched);
     return () => { off(); cancelAnimationFrame(frame.current); };
   }, [render]);
+
+  // Entrou na prévia do Colar alinhado: o realce do cursor não fica preso ao elemento de antes.
+  useEffect(() => {
+    if (previewState && useUi.getState().hover) useUi.setState({ hover: null });
+  }, [previewState]);
 
   // ---- ponteiro ----
   const pointers = useRef(new Map<number, Pt>());
@@ -532,6 +608,8 @@ export function ViewportCanvas(): ReactElement {
     // Um novo `down` encerra qualquer adiamento anterior (ex.: segundo dedo): o gesto pendente não entrega mais nada.
     cancelarDownAdiado();
     const view = useUi.getState().view;
+    // Prévia do Colar alinhado: os cliques de edição são ignorados; orbitar, pan e zoom continuam.
+    const emPrevia = useUi.getState().pastePreview !== null;
     // Com a cota aberta, um clique fora do input aplica e fecha (o input não propaga o pointerdown).
     if (cotaRef.current?.fecharSeAberto()) return;
     if (pointers.current.size === 2) {
@@ -551,10 +629,10 @@ export function ViewportCanvas(): ReactElement {
     });
     const isPanReq = (isMiddleBtn && !e.shiftKey) || (e.button === 0 && (spaceDown.current || shiftPan));
     // Botão direito: o menu abre ao soltar sem arrasto (onUp). Não cancela a ferramenta: "Cancelar" está no menu.
-    if (e.button === 2) { rightPress.current = { start: s, moved: false }; return; }
+    if (e.button === 2) { if (emPrevia) return; rightPress.current = { start: s, moved: false }; return; }
     if (view === '3d') {
       // Clique na etiqueta/linha de cota: abre o editor ali mesmo, sem começar a órbita.
-      if (e.button === 0 && !spaceDown.current && !e.altKey) {
+      if (!emPrevia && e.button === 0 && !spaceDown.current && !e.altKey) {
         const r = host.current!.getBoundingClientRect();
         const dim = pickDimension(model.current.scene, model.current.orbit.camera, {
           x: (s.x / r.width) * 2 - 1,
@@ -567,7 +645,7 @@ export function ViewportCanvas(): ReactElement {
         }
       }
       const mode = isOrbitReq ? 'orbit' : isPanReq ? 'pan' : (e.button === 0 ? 'orbit' : 'none');
-      drag.current = { mode, start: s, last: s, moved: false, pick: e.button === 0 && !spaceDown.current && !e.altKey };
+      drag.current = { mode, start: s, last: s, moved: false, pick: e.button === 0 && !spaceDown.current && !e.altKey && !emPrevia };
       // Ao pressionar, o realce some: enquanto arrasta, o cursor orbita e não destaca.
       if (useUi.getState().hover) useUi.setState({ hover: null });
       return;
@@ -658,7 +736,7 @@ export function ViewportCanvas(): ReactElement {
         if (!d.moved && passouDoLimiar(Math.hypot(s.x - d.start.x, s.y - d.start.y))) d.moved = true;
         d.last = s;
         useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
-      } else pickHover3d(s);
+      } else if (!useUi.getState().pastePreview) pickHover3d(s);
       return;
     }
     if (d.mode === 'pan') {
@@ -787,7 +865,11 @@ export function ViewportCanvas(): ReactElement {
       const rp = rightPress.current;
       rightPress.current = null;
       // Alvo sob o cursor: 3D e corte pelo pick da vista; planta pelo realce da Selecionar (sem ferramenta, é null).
-      if (!rp.moved) abrirMenuDeContexto(e.clientX, e.clientY, useUi.getState().view === '3d' ? (elementAt3d(s)?.id ?? null) : useUi.getState().view === 'section' ? (sectionPickAt(s)?.id ?? null) : useUi.getState().hover, viewDoMenu(useUi.getState().view));
+      if (!rp.moved) {
+        // Na prévia do Colar alinhado o botão direito não abre o menu de edição.
+        if (useUi.getState().pastePreview) return;
+        abrirMenuDeContexto(e.clientX, e.clientY, useUi.getState().view === '3d' ? (elementAt3d(s)?.id ?? null) : useUi.getState().view === 'section' ? (sectionPickAt(s)?.id ?? null) : useUi.getState().hover, viewDoMenu(useUi.getState().view));
+      }
       return;
     }
     if (gesture.current) {

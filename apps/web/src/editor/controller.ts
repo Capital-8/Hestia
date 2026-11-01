@@ -4,6 +4,7 @@ import type { Vec2 } from '@hestia/geom';
 import { computeSection, cotasAutomaticas, LevelResolveCache, resolveRooms, type AutoCotaOptions, type ResolvedLevel, type SectionResult } from '@hestia/engine';
 import {
   ProjectStore,
+  copyLinkOf, syncWholeLinkCommand,
   annotationIdsIn, projectGrids, areaPlanOf, areaPlansOfLevel, DEFAULT_AREA_GRAPHICS, isRoom,
   planAnnotationIds,
   levelRoomSeparators,
@@ -23,6 +24,8 @@ import {
 } from '@hestia/model';
 import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, sectionInferContext, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId } from '@hestia/tools';
 import { transfer } from './transfer.ts';
+import type { PastePreviewState } from './pasteLevels/types.ts';
+import { consumirManterCameraDaPrevia, guardarOrigemDoColar, limparOrigemDoColar, limparPreviaPreparada, manterCameraDaPrevia, origemDoColar, prepararPrevia, previaPreparada, type OrigemDoColar } from './pastePreview.ts';
 import { startCreateSimilar } from './createSimilar.ts';
 import { desfazerOuRefazer } from './historyStatus.ts';
 import { keptFloorType } from './typeActions.ts'; import { keptSlabType } from './slabTypeActions.ts'; import { PerimeterMode } from './perimeterMode.ts';
@@ -746,6 +749,184 @@ export class Editor {
     this.setTool('paste');
     return useUi.getState().tool === 'paste';
   }
+
+  /** Abre o diálogo "Selecionar níveis" do Colar alinhado aos níveis selecionados. */
+  openPasteLevelsDialog(): boolean {
+    if (!transfer.hasClip()) {
+      useUi.setState({ status: 'Nada copiado. Use Copiar ou Ctrl+C.' });
+      return false;
+    }
+    // Pré-aquece o 3D atrás do diálogo: quando o usuário clicar em "Pré-visualizar", a cena já está montada.
+    const st = useUi.getState();
+    guardarOrigemDoColar({ view: st.view, levelId: st.levelId, sectionId: st.sectionId, planKind: st.planKind, areaPlanId: st.areaPlanId });
+    limparPreviaPreparada();
+    // Primeiro o diálogo aparece; o 3D começa a montar atrás dele no quadro seguinte (assim o clique não trava).
+    useUi.setState({ dialog: 'selectLevels', dialogArg: null });
+    if (st.view !== '3d') {
+      setTimeout(() => {
+        if (useUi.getState().dialog === 'selectLevels' && origemDoColar()) this.setView('3d');
+      }, 150);
+    }
+    return true;
+  }
+
+  /** Fecha o diálogo sem colar e devolve a vista de onde ele foi aberto. */
+  cancelPasteLevelsDialog(): void {
+    const origem = origemDoColar();
+    limparOrigemDoColar();
+    limparPreviaPreparada();
+    useUi.setState({ dialog: null });
+    if (origem && origem.view !== '3d') this.restaurarVistaDeOrigem(origem);
+  }
+
+  /** Restaura planta/corte/elevação de origem (o 3D fica montado em segundo plano). */
+  private restaurarVistaDeOrigem(o: OrigemDoColar): void {
+    if (o.view === 'section') {
+      useUi.setState({ view: 'section', sectionId: o.sectionId, levelId: o.levelId });
+    } else if (o.view === 'plan') {
+      useUi.setState({ view: 'plan', planKind: o.planKind, areaPlanId: o.areaPlanId, sectionId: null, levelId: o.levelId });
+    } else {
+      useUi.setState({ view: '3d' });
+    }
+  }
+
+  /**
+   * Entra no modo de prévia do colar alinhado: guarda a vista de origem, troca para o 3D enquadrado e abre a aba
+   * contextual "Modificar | Colar alinhado" (V confirma, X cancela). Nada é gravado no modelo aqui.
+   */
+  previewPasteLevels(levelIds: Id[], link: boolean): boolean {
+    const clip = transfer.clipBuffer();
+    if (!clip) {
+      useUi.setState({ status: 'Nada copiado. Use Copiar ou Ctrl+C.' });
+      return false;
+    }
+    const niveis = [...new Set(levelIds)];
+    if (niveis.length === 0 || niveis.length !== levelIds.length || !niveis.every((id) => this.project.levels.some((l) => l.id === id))) {
+      useUi.setState({ status: 'Escolha ao menos um nível de destino válido.' });
+      return false;
+    }
+    // Limpa um sinal de confirmação que tenha sobrado de uma prévia anterior.
+    consumirManterCameraDaPrevia();
+    // Calcula o lote e o rascunho ANTES de trocar de vista: o 3D já abre com todos os fantasmas e o "Colar" reaproveita
+    // exatamente este lote (sem recalcular nem trocar os ids).
+    performance.mark('colar-preparar-inicio');
+    const pronta = prepararPrevia(this.project, clip, niveis, link);
+    performance.mark('colar-preparar-fim');
+    performance.measure('colar-preparar', 'colar-preparar-inicio', 'colar-preparar-fim');
+    if (!pronta) {
+      useUi.setState({ status: 'Não há o que colar nos níveis escolhidos.' });
+      return false;
+    }
+    // A vista de origem é a de quando o diálogo abriu (o 3D atrás dele é só pré-aquecimento).
+    const origem = origemDoColar();
+    const st = useUi.getState();
+    const preview: PastePreviewState = {
+      levelIds: niveis,
+      count: transfer.elementCount(clip) * niveis.length,
+      originView: origem?.view ?? st.view,
+      originLevelId: origem?.levelId ?? st.levelId,
+      originSectionId: origem?.sectionId ?? st.sectionId,
+      originPlanKind: origem?.planKind ?? st.planKind,
+      originAreaPlanId: origem?.areaPlanId ?? st.areaPlanId,
+      link,
+    };
+    performance.mark('colar-vista-inicio');
+    this.setView('3d');
+    useUi.setState({
+      pastePreview: preview,
+      selection: [],
+      status: `Prévia de ${preview.count} cópia(s) em ${niveis.length} nível(is). V cola; X cancela.`,
+    });
+    performance.mark('colar-vista-fim');
+    performance.measure('colar-vista', 'colar-vista-inicio', 'colar-vista-fim');
+    return true;
+  }
+
+  /** Confirma a prévia: grava tudo num único passo de desfazer e sai do modo de conferência. */
+  confirmPasteLevels(): boolean {
+    const preview = useUi.getState().pastePreview;
+    if (!preview) return false;
+    const pronta = previaPreparada();
+    const mesmaPrevia = pronta !== null
+      && pronta.link === preview.link
+      && pronta.levelIds.length === preview.levelIds.length
+      && pronta.levelIds.every((id, i) => id === preview.levelIds[i]);
+    const ok = mesmaPrevia
+      ? transfer.applyPrepared(this.store, pronta)
+      : transfer.pasteToLevels(this.store, preview.levelIds, preview.link) !== null;
+    if (ok) manterCameraDaPrevia();
+    limparPreviaPreparada();
+    limparOrigemDoColar();
+    useUi.setState({ pastePreview: null });
+    return ok;
+  }
+
+  /** Cancela a prévia e volta para a vista de origem, sem tocar no modelo. */
+  cancelPasteLevels(): void {
+    const preview = useUi.getState().pastePreview;
+    limparPreviaPreparada();
+    limparOrigemDoColar();
+    useUi.setState({ pastePreview: null });
+    if (!preview) return;
+    this.restaurarVistaDeOrigem({
+      view: preview.originView,
+      levelId: preview.originLevelId,
+      sectionId: preview.originSectionId,
+      planKind: preview.originPlanKind ?? 'floor',
+      areaPlanId: preview.originAreaPlanId ?? null,
+    });
+    useUi.setState({ status: 'Colar alinhado cancelado.' });
+  }
+
+  /** Cola direto, sem prévia (caminho do botão "Colar" do diálogo). */
+  pasteLevelsDirect(levelIds: Id[], link: boolean): boolean {
+    const origem = origemDoColar();
+    limparOrigemDoColar();
+    limparPreviaPreparada();
+    const ok = transfer.pasteToLevels(this.store, levelIds, link) !== null;
+    // O 3D atrás do diálogo era só pré-aquecimento: quem cola direto volta para a vista de onde abriu.
+    if (ok && origem && origem.view !== '3d' && useUi.getState().view === '3d') this.restaurarVistaDeOrigem(origem);
+    return ok;
+  }
+
+  /** Primeiro vínculo de andar-tipo na seleção (o elemento pode ser a origem ou uma cópia). */
+  private linkedSelection(): { linkId: Id; fromId: Id } | null {
+    for (const id of useUi.getState().selection) {
+      const link = copyLinkOf(this.project, id);
+      if (link) return { linkId: link.id, fromId: id };
+    }
+    return null;
+  }
+
+  /** "Sincronizar": leva a geometria/parâmetros do elemento selecionado para as cópias vinculadas. */
+  syncLinkedSelection(): boolean {
+    const found = this.linkedSelection();
+    if (!found) {
+      useUi.setState({ status: 'Selecione um elemento de andar-tipo (cópia vinculada) para sincronizar.' });
+      return false;
+    }
+    const command = syncWholeLinkCommand(this.project, found.linkId, found.fromId);
+    if (!command) {
+      useUi.setState({ status: 'Não há outras cópias vinculadas para sincronizar.' });
+      return false;
+    }
+    this.store.exec(command, 'Sincronizar cópias vinculadas');
+    useUi.setState({ status: 'Andar-tipo sincronizado. Ctrl+Z desfaz.' });
+    return true;
+  }
+
+  /** "Desvincular": as cópias continuam no projeto, mas deixam de fazer parte do andar-tipo. */
+  unlinkLinkedSelection(): boolean {
+    const found = this.linkedSelection();
+    if (!found) {
+      useUi.setState({ status: 'Selecione um elemento de andar-tipo (cópia vinculada) para desvincular.' });
+      return false;
+    }
+    this.store.exec({ type: 'deleteCopyLink', id: found.linkId }, 'Desvincular cópias');
+    useUi.setState({ status: 'Cópias desvinculadas: continuam no projeto, mas não sincronizam mais. Ctrl+Z desfaz.' });
+    return true;
+  }
+
   /** Seleciona todas as paredes e aberturas do nível ativo com o tipo dado. */
   selectAllOfType(typeId: Id): number { return transfer.ofType(this.project, useUi.getState().levelId, typeId); }
   /** "Mesmo tipo" (botão na aba Modificar). */

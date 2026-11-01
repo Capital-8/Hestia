@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type ReactElement } from 'react';
+﻿import { useEffect, useMemo, type ReactElement } from 'react';
 import type { Opening, Project } from '@hestia/model';
 import { openingHasHinge } from '@hestia/tools';
 import { editor } from '../editor/controller.ts';
@@ -9,7 +9,8 @@ import { Icon } from './Icon.tsx';
 import { txt, type RibbonTab, type RibbonTabId } from './ribbon/model.ts';
 import { PanelView } from './ribbon/parts.tsx';
 import { FitRow, type FitItem } from './ribbon/FitRow.tsx';
-import { contextTab, perimeterTab } from './ribbon/context.ts';
+import { contextTab, pasteLevelsTab, perimeterTab } from './ribbon/context.ts';
+import { ConfirmCancelPanel } from './ribbon/ConfirmCancelPanel.tsx';
 import { TABS } from './ribbon/tabs.ts';
 import { useRibbonCtx } from './ribbon/useCtx.ts';
 import { prioridadeDoPainel } from './ribbon/panelPriority.ts';
@@ -67,10 +68,13 @@ export function Ribbon(): ReactElement {
   const ribbonBack = useUi((st) => st.ribbonBack);
   const ribbonMin = useUi((st) => st.ribbonMin);
   const perim = usePerimeter();
-  const pTab = useMemo(() => (perim.active ? perimeterTab(perim.target, perim.editing) : null), [perim.active, perim.target, perim.editing]);
-  const ctxTab = useMemo(() => (pTab ? null : contextTab(ctx.tool, ctx.selection, ctx.p)), [pTab, ctx.tool, ctx.selection, ctx.p]);
-  const key = pTab?.key ?? ctxTab?.key ?? null;
-  const ctxLabel = pTab?.label ?? ctxTab?.tab.label;
+  const pastePreview = useUi((st) => st.pastePreview);
+  // A prévia do Colar alinhado manda na aba contextual: vale mais que o perímetro e que a seleção.
+  const pasteTab = useMemo(() => (pastePreview ? pasteLevelsTab(pastePreview) : null), [pastePreview]);
+  const pTab = useMemo(() => (pasteTab ? null : perim.active ? perimeterTab(perim.target, perim.editing) : null), [pasteTab, perim.active, perim.target, perim.editing]);
+  const ctxTab = useMemo(() => (pasteTab || pTab ? null : contextTab(ctx.tool, ctx.selection, ctx.p)), [pasteTab, pTab, ctx.tool, ctx.selection, ctx.p]);
+  const key = pasteTab?.key ?? pTab?.key ?? ctxTab?.key ?? null;
+  const ctxLabel = pasteTab?.tab.label ?? pTab?.label ?? ctxTab?.tab.label;
 
   // A aba contextual é selecionada sozinha quando nasce (ou quando o assunto muda) e, ao sumir, devolve a aba de antes.
   useEffect(() => {
@@ -80,7 +84,7 @@ export function Ribbon(): ReactElement {
   }, [key]);
 
   const activeId: RibbonTabId = ribbon === 'ctx' && !key ? ribbonBack : ribbon;
-  const active: RibbonTab | undefined = activeId === 'ctx' ? ctxTab?.tab : TABS.find((tb) => tb.id === activeId);
+  const active: RibbonTab | undefined = activeId === 'ctx' ? (pasteTab?.tab ?? ctxTab?.tab) : TABS.find((tb) => tb.id === activeId);
   // Escolher uma aba com a faixa recolhida abre o corpo (como no Revit): o toque na aba também revela os painéis.
   const select = (id: RibbonTabId): void => {
     useUi.setState({ ribbon: id });
@@ -88,6 +92,25 @@ export function Ribbon(): ReactElement {
   };
 
   const panelItems = (): FitItem[] => {
+    if (activeId === 'ctx' && pasteTab && pastePreview) {
+      const niveis = ctx.p.levels.filter((l) => pastePreview.levelIds.includes(l.id)).map((l) => l.name);
+      const items: FitItem[] = pasteTab.tab.panels.map((panel) => ({ key: panel.id, priority: prioridadeDoPainel(panel.id), node: <PanelView panel={panel} ctx={ctx} lang={lang} /> }));
+      // V verde confirma (um único desfazer); X vermelho cancela e volta à vista de origem.
+      items.push({
+        key: 'colar-alinhado',
+        priority: 2,
+        node: (
+          <ConfirmCancelPanel
+            preview={pastePreview}
+            levelNames={niveis}
+            lang={lang}
+            onConfirm={() => { editor.confirmPasteLevels(); }}
+            onCancel={() => { editor.cancelPasteLevels(); }}
+          />
+        ),
+      });
+      return items;
+    }
     if (activeId !== 'ctx' || !pTab) {
       const items: FitItem[] = active?.panels.map((panel) => ({ key: panel.id, priority: prioridadeDoPainel(panel.id), node: <PanelView panel={panel} ctx={ctx} lang={lang} /> })) ?? [];
       // Com uma porta/janela selecionada, a aba contextual ganha os controles de inversão e o alternador de etiquetas.

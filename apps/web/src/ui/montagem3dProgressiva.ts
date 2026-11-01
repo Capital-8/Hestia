@@ -247,6 +247,27 @@ export class Montagem3dProgressiva {
     this.concluido = false;
   }
 
+  /**
+   * Monta todos os níveis pendentes de uma vez, sem fatias nem worker. A prévia do Colar alinhado precisa do modelo
+   * completo no primeiro quadro: um pavimento por fatia faria a cena "crescer" na frente do usuário.
+   */
+  montarTudo(): void {
+    if (!this.projeto || !this.opcoes) return;
+    if (this.pendentes.length === 0) {
+      this.aplicar();
+      this.concluir();
+      return;
+    }
+    this.interromper();
+    for (const id of this.ordemProjeto) {
+      if (this.prontos.has(id)) continue;
+      this.prontos.set(id, this.nivel(id));
+    }
+    this.pendentes = [];
+    this.aplicar();
+    this.concluir();
+  }
+
   /** Desliga o worker (desmontagem da vista). Depois disso a montagem ainda funciona em fatias síncronas. */
   encerrar(): void {
     this.cancelar();

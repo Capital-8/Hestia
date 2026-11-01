@@ -16,9 +16,10 @@ import type { UnitsSettings } from './units.ts';
 import type { AreaPlan, ColorScheme, RoomCategory } from './areaPlan.ts';
 import type { DxfLayerStyle } from './dxfLayerStyle.ts';
 import type { CadDrawing } from './cad.ts';
+import type { CopyLink } from './copyLink.ts';
 
 export type Id = string;
-export const SCHEMA_VERSION = 22;
+export const SCHEMA_VERSION = 23;
 
 export type { Stair, StairCurve, StairGenerator, StairLanding, StairRun, StairRunStyle, StairSpiralParams, StairType, StairUndersideStyle } from './stairTypes.ts';
 export type { Ramp, RampInputMode, RampNormProfile, RampNormRow, RampShape, RampType } from './rampTypes.ts';
@@ -780,6 +781,11 @@ export interface Project {
   /** Presets de perfil das esquadrias (editáveis); a migração 19 → 20 semeia os iniciais. Ausente = os iniciais por leitura. */
   openingProfiles?: Record<Id, ProfilePreset>;
   elements: Record<Id, Element>;
+  /**
+   * Vínculos de andar-tipo criados pelo "Colar alinhado aos níveis selecionados" com a opção
+   * "Manter cópias vinculadas". Ausente = nenhum vínculo (arquivos anteriores à versão 23).
+   */
+  copyLinks?: CopyLink[];
   nextOrder: number;
   defaults: ProjectDefaults;
   settings: ProjectSettings;
