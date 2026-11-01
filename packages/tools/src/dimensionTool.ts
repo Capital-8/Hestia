@@ -3,11 +3,24 @@ import { DIM_MIN_LENGTH, dimRefAt, dimensionGeometry, dimensionValue, formatDime
 import { addSectionDimension, ToolBase, viewPlanId } from './base.ts';
 import { endRefAt, signedOffset } from './annotationPick.ts';
 import { lengthUnitName, parseQuantityText } from './numeric.ts';
-import type { PointerInfo, PreviewItem } from './types.ts';
+import type { PointerInfo, PreviewItem, ToolOptions } from './types.ts';
 
 type AnyRef = DimensionRef | DimensionElementRef;
 /** Tolerância (m) entre o ponto capturado e a feição do elemento. */
 const REF_TOL = 0.005;
+
+/**
+ * Campos de estilo que a cota nova grava: só os que o usuário escolheu na barra de opções. Os demais ficam de fora para
+ * a cota seguir o estilo global do projeto (`ProjectSettings.dimensionStyle`); gravar o padrão a faria ignorá-lo.
+ */
+function styleOverrides(o: ToolOptions): Partial<Dimension> {
+  return {
+    ...(o.dimensionUnit !== undefined ? { unit: o.dimensionUnit } : {}),
+    ...(o.dimensionPrecision !== undefined ? { precision: o.dimensionPrecision } : {}),
+    ...(o.dimensionTextHeight !== undefined ? { textHeight: o.dimensionTextHeight } : {}),
+    ...(o.dimensionTickStyle !== undefined ? { tickStyle: o.dimensionTickStyle } : {}),
+  };
+}
 
 /**
  * Cota alinhada (Revit: Aligned Dimension). Clique no ponto A, no ponto B e depois no lado da linha de cota (ou digite
@@ -213,7 +226,7 @@ export class DimensionTool extends ToolBase {
     this.env.transaction('Criar sequência de cotas', () => {
       for (const d of pairs) {
         const refs = { ...(d.ra ? { a: d.ra } : {}), ...(d.rb ? { b: d.rb } : {}) };
-        const dimension: Dimension = { id: newId('dim'), a: d.a, b: d.b, offset: d.offset, mode: opts.dimensionMode ?? 'aligned', unit: opts.dimensionUnit ?? 'project', ...(opts.dimensionPrecision !== undefined ? { precision: opts.dimensionPrecision } : {}), textHeight: opts.dimensionTextHeight ?? 2.5, tickStyle: opts.dimensionTickStyle ?? 'slash', ...(opts.dimensionPrefix ? { prefix: opts.dimensionPrefix } : {}), ...(opts.dimensionSuffix ? { suffix: opts.dimensionSuffix } : {}), ...(Object.keys(refs).length ? { refs } : {}) };
+        const dimension: Dimension = { id: newId('dim'), a: d.a, b: d.b, offset: d.offset, mode: opts.dimensionMode ?? 'aligned', ...styleOverrides(opts), ...(opts.dimensionPrefix ? { prefix: opts.dimensionPrefix } : {}), ...(opts.dimensionSuffix ? { suffix: opts.dimensionSuffix } : {}), ...(Object.keys(refs).length ? { refs } : {}) };
         if (!addSectionDimension(this.env, dimension)) this.env.exec({ type: 'addDimension', levelId: this.env.levelId(), planId: viewPlanId(this.env), dimension });
       }
     });
@@ -230,7 +243,7 @@ export class DimensionTool extends ToolBase {
     }
     const refs = { ...(this.refA ? { a: this.refA } : {}), ...(this.refB ? { b: this.refB } : {}) };
     const o = this.env.options();
-    const dimension: Dimension = { id: newId('dim'), a, b, offset, mode: o.dimensionMode ?? 'aligned', unit: o.dimensionUnit ?? 'project', ...(o.dimensionPrecision !== undefined ? { precision: o.dimensionPrecision } : {}), prefix: o.dimensionPrefix ?? '', suffix: o.dimensionSuffix ?? '', textHeight: o.dimensionTextHeight ?? 2.5, tickStyle: o.dimensionTickStyle ?? 'slash', ...(Object.keys(refs).length ? { refs } : {}) };
+    const dimension: Dimension = { id: newId('dim'), a, b, offset, mode: o.dimensionMode ?? 'aligned', ...styleOverrides(o), ...(o.dimensionPrefix ? { prefix: o.dimensionPrefix } : {}), ...(o.dimensionSuffix ? { suffix: o.dimensionSuffix } : {}), ...(Object.keys(refs).length ? { refs } : {}) };
     if (!addSectionDimension(this.env, dimension)) this.env.exec({ type: 'addDimension', levelId: this.env.levelId(), planId: viewPlanId(this.env), dimension });
     this.reset();
     this.env.say(this.hint);

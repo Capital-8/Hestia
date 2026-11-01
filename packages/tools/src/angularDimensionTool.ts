@@ -205,8 +205,8 @@ export class AngularDimensionTool extends ToolBase {
       offset: 0,
       angular,
       ...(o.dimensionPrecision !== undefined ? { precision: o.dimensionPrecision } : {}),
-      textHeight: o.dimensionTextHeight ?? 2.5,
-      tickStyle: o.dimensionTickStyle ?? 'slash',
+      ...(o.dimensionTextHeight !== undefined ? { textHeight: o.dimensionTextHeight } : {}),
+      ...(o.dimensionTickStyle !== undefined ? { tickStyle: o.dimensionTickStyle } : {}),
     };
     this.previewDim = dim;
   }
@@ -268,8 +268,8 @@ export class AngularDimensionTool extends ToolBase {
         offset: 0,
         angular,
         ...(o.dimensionPrecision !== undefined ? { precision: o.dimensionPrecision } : {}),
-        textHeight: o.dimensionTextHeight ?? 2.5,
-        tickStyle: o.dimensionTickStyle ?? 'slash',
+        ...(o.dimensionTextHeight !== undefined ? { textHeight: o.dimensionTextHeight } : {}),
+        ...(o.dimensionTickStyle !== undefined ? { tickStyle: o.dimensionTickStyle } : {}),
       };
       // No corte/elevação a cota vai para a vista (mesma gravação da cota linear), nunca para o nível.
       if (this.env.section?.()) {

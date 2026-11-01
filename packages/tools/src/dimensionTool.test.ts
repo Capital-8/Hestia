@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dimensionValue, levelDimensions, levelTexts, type Project } from '@hestia/model';
+import { dimensionValue, levelDimensions, levelTexts, type Command, type Project } from '@hestia/model';
 import { drivenEditCommands } from './dims/driven.ts';
 import { annotationAt } from './annotationPick.ts';
 import { clickAt, drawWall, makeEnv, P, tool } from './testEnv.ts';
@@ -27,7 +27,7 @@ describe('ferramenta Cota', () => {
     clickAt(t, 4, 0);
     clickAt(t, 2, 1);
     const d = dims(ctx.store)[0]!;
-    expect(d.unit).toBe('project');
+    expect(d.unit).toBeUndefined(); // sem gravar o padrão: a cota segue o estilo global do projeto
     expect(d.precision).toBeUndefined();
   });
 
@@ -56,7 +56,7 @@ describe('ferramenta Cota', () => {
     const created = dims(ctx.store);
     expect(created).toHaveLength(2);
     for (const d of created) {
-      expect(d.unit).toBe('project');
+      expect(d.unit).toBeUndefined();
       expect(d.precision).toBeUndefined();
     }
   });
@@ -140,7 +140,8 @@ describe('ferramenta Cota', () => {
     const r = drivenEditCommands(ctx.store.project, d, 2);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    ctx.store.transaction('Alterar cota', () => r.commands.forEach((c) => ctx.store.exec(c)));
+    const cmds = r.commands as Command[];
+    ctx.store.transaction('Alterar cota', () => cmds.forEach((c) => ctx.store.exec(c)));
     expect(dimensionValue(ctx.store.project, d)).toBeCloseTo(2, 3);
   });
 
