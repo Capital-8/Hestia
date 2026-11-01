@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Diálogo "Experimentais": liga e desliga o kernel geométrico experimental (Rust/WASM) e mostra o
  * diagnóstico do contrato (`estadoKernel`) e a medição das operações (`medicaoOperacoes`).
  *
@@ -32,6 +32,7 @@ const OPERACOES: Array<{ chave: keyof MedicaoOperacoes['porOp']; rotulo: string 
 ];
 
 /** Milissegundos com precisão suficiente para comparar as operações sem poluir a tela. */
+  // units-ok: milissegundos de medição de desempenho, unidade fixa de diagnóstico
 const ms = (valor: number): string => `${valor.toFixed(1)} ms`;
 
 const AVISO_LIGADO =

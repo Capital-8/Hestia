@@ -1,4 +1,4 @@
-import { add, type Vec2 } from '@hestia/geom';
+﻿import { add, type Vec2 } from '@hestia/geom';
 import { stairBaseZ, stairTopZ, type Project, type Stair, type StairLanding, type StairRun } from '@hestia/model';
 import { riserCountFor, treadFor, treadRuleOf } from './stairGenerators.ts';
 import { isSpiralRun } from './stairSpiral.ts';
@@ -143,6 +143,7 @@ function ensureLandings(components: Array<StairRun | StairLanding>, H: number, N
   return { components: comps, inserted, needed: true };
 }
 
+  // units-ok: formatação interna de diagnóstico da ficha de escada (2 casas fixas), não é texto de interface
 const fmt2 = (v: number): string => v.toFixed(2).replace('.', ',');
 
 /** Espelho mínimo efetivo do tipo (tipos fora do esquema atual, sem `minRiser` válido, caem no padrão NBR 9050). */

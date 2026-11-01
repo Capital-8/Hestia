@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Plano e resumo da troca de cota de um nível: tipos do plano, verificação de conflitos e resumo em pt-BR.
  * Extraído de levelActions.ts para respeitar o limite de linhas; não importa levelActions.ts (sem import circular).
  */
@@ -125,7 +125,9 @@ export interface LevelMovePlan {
 
 const labelOf = (e: { id: Id; mark: string }): string => (e.mark ? `${e.mark} (${e.id})` : e.id);
 
+  // units-ok: mensagem de diagnóstico do plano de nível usa 3 casas fixas com vírgula para comparar com o aviso
 const f2 = (v: number): string => v.toFixed(2).replace('.', ',');
+  // units-ok: idem: formatação de diagnóstico com 3 casas fixas, não é texto de medida da interface
 const f3 = (v: number): string => v.toFixed(3).replace('.', ',');
 
 /** Espelho mínimo efetivo do tipo (mesmo critério do motor: sem `minRiser` válido, vale 0,16 m ou metade do máximo). */

@@ -99,12 +99,18 @@ describe('ContadoresPerf', () => {
     expect(s.backend).toBe('webgl2');
     expect(s.fps).toBe(50);
     expect(s.janela.n).toBe(3);
-    expect(s.janela.intervaloMs).toMatchObject({ n: 1, mediana: 20 });
-    expect(s.janela.frameMs).toMatchObject({ n: 3, min: 3, max: 6, mediana: 4 });
+    // `performance.now()` pode ser fracionário: as diferenças de tempo são floats, não inteiros exatos.
+    expect(s.janela.intervaloMs).toMatchObject({ n: 1 });
+    expect(s.janela.intervaloMs!.mediana).toBeCloseTo(20, 6);
+    expect(s.janela.frameMs).toMatchObject({ n: 3 });
+    expect(s.janela.frameMs!.min).toBeCloseTo(3, 6);
+    expect(s.janela.frameMs!.max).toBeCloseTo(6, 6);
+    expect(s.janela.frameMs!.mediana).toBeCloseTo(4, 6);
     expect(s.janela.frameMs!.p95).toBeCloseTo(6, 6);
     expect(s.janela.drawCalls).toMatchObject({ n: 3, mediana: 20, max: 30 });
     expect(s.janela.uploads).toMatchObject({ n: 3, mediana: 0, max: 2 });
-    expect(s.quadro).toMatchObject({ indice: 3, ms: 3, drawCalls: 30, triangulos: 5000, uploads: 0, rebuilds: 0 });
+    expect(s.quadro).toMatchObject({ indice: 3, drawCalls: 30, triangulos: 5000, uploads: 0, rebuilds: 0 });
+    expect(s.quadro!.ms).toBeCloseTo(3, 6);
 
     expect(s.total).toEqual({ quadros: 3, drawCalls: 60, triangulos: 9000, uploads: 2, uploadBytes: 200, rebuilds: 3, commitsReact: 2 });
     expect(s.camadas).toEqual({ geometria: 1, sobreposicao: 1, grade: 1 });

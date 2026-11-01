@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Casos e comparação canônica do harness diferencial do kernel geométrico. Fonte única do teste
  * (`equivalencia.test.ts`) e do relatório (`scripts/wasm-equivalencia.mjs`). Nada aqui importa de
  * outro pacote do monorepo: o `geom` não pode depender de `model`/`engine`.
@@ -8,9 +8,9 @@
  * nesses três são esperadas; `unionClipper`/`differenceClipper`/`offsetMulti` devem ser quase exatos.
  *
  * Canônico: descartar |área| < 1e-12, ordenar anéis por |área| e polígonos por (área, centróide);
- * comparar contagens, área total (1e-5 m² + 1e-6 rel.), topologia por 200 pontos LCG (ignorando a
+ * comparar contagens, área total (1e-5 m² + 1e-6 rel.), topologia por 200 pontos LCG (ignorando a — units-ok: tolerância (m²) documentada do kernel, não é texto de interface
  * faixa de 1 µm junto às arestas, onde o teste de ponto é ambíguo) e perímetro (1e-4 m). Ordem de
- * grandeza: 1e-5 m² ≈ 0,5 µm de quantização ao longo de 10 m; 1e-4 m ≈ 200 vértices × 0,5 µm.
+ * grandeza: 1e-5 m² ≈ 0,5 µm de quantização ao longo de 10 m; 1e-4 m ≈ 200 vértices × 0,5 µm. — units-ok: tolerância (m²/m) documentada do kernel, não é texto de interface
  */
 import { difference, differenceClipper, intersection, offsetMulti, union, unionClipper } from '../boolean.ts';
 import { ErroNaoImplementado, type ImplKernel } from './contrato.ts';
@@ -339,7 +339,7 @@ function distanciaAoSegmento(p: Vec2, a: Vec2, b: Vec2): number {
 }
 
 function num(n: number): string {
-  return Math.abs(n) >= 1e-4 ? n.toFixed(6) : n.toExponential(3);
+  return Math.abs(n) >= 1e-4 ? n.toFixed(6) : n.toExponential(3); // units-ok: número de diagnóstico do kernel (6 casas fixas)
 }
 
 /** Compara de forma canônica: devolve todas as divergências, uma por métrica. Nunca lança. */
