@@ -1,0 +1,10 @@
+import { readFileSync } from 'node:fs';
+import { performance } from 'node:perf_hooks';
+import { resolveLevel } from '@hestia/engine';
+import { migrateProject } from '@hestia/model';
+import { ModelScene } from '@hestia/render';
+const p = migrateProject(JSON.parse(readFileSync(process.argv[2]!, 'utf8')));
+const t = (f: () => unknown): number => { const a = performance.now(); f(); return performance.now() - a; };
+let r: ReturnType<typeof resolveLevel>[] = [];
+console.log('resolveLevel x11', t(() => { r = p.levels.map((l) => resolveLevel(p, l.id)); }).toFixed(0), 'ms');
+console.log('ModelScene.update frio', t(() => new ModelScene().update(p, r, { edges: false, shadows: false, dark: false })).toFixed(0), 'ms');

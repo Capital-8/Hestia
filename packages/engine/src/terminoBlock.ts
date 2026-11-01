@@ -79,10 +79,24 @@ export function wallZoneAt(p: Project, rw: ResolvedWall, rule: BlockRule, z1: nu
   return doors.length === 0 ? zone : difference(zone, ...doors);
 }
 
-/** Paredes resolvidas de um nível (o resolvedor do nível, com o cache dele). */
+const paredesPorProjeto = new WeakMap<Project, Map<Id, ResolvedWall[]>>();
+
+/**
+ * Paredes resolvidas de um nível (o resolvedor do nível, com o cache dele). Em cache por projeto e nível: cada piso e cada
+ * laje pede as paredes de até três níveis, e o resolvedor refaz quadros, pontas e alvos de anexo a cada chamada (era a
+ * maior parte da montagem fria da 3D). O projeto é imutável: a edição gera outro objeto e o cache antigo sai com ele.
+ * O vetor devolvido é compartilhado: quem chama não pode alterá-lo.
+ */
 export function wallsOfLevel(p: Project, levelId: Id): ResolvedWall[] {
-  // Anexo plano: as paredes que esvaziam as camadas não dependem das camadas (sem ciclo, decisão 0025).
-  return Object.values(resolveLevel(p, levelId, undefined, { flatAttach: true }).walls);
+  let porNivel = paredesPorProjeto.get(p);
+  if (!porNivel) paredesPorProjeto.set(p, (porNivel = new Map()));
+  let paredes = porNivel.get(levelId);
+  if (!paredes) {
+    // Anexo plano: as paredes que esvaziam as camadas não dependem das camadas (sem ciclo, decisão 0025).
+    paredes = Object.values(resolveLevel(p, levelId, undefined, { flatAttach: true }).walls);
+    porNivel.set(levelId, paredes);
+  }
+  return paredes;
 }
 
 /** Caixa de um polígono (para o filtro barato antes das booleanas). */

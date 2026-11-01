@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import { rampQuantities, rampValidationIssues, regenRamp, resolveRampsOnLevel } from '@hestia/engine';
 import { levelAbove, validateProject, type Id, type Project, type Ramp, type RampInputMode, type RampShape, type StairOpeningMode, type ValidationIssue } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
@@ -12,6 +12,7 @@ import { LevelField } from './LevelField.tsx';
 import { TypeSelector } from './TypeSelector.tsx';
 import { rampOptions } from './typeOptions.ts';
 import { rampSummaryLines } from './rampFormat.ts';
+import { useAdiado } from './useAdiado.ts';
 
 const fmt = (n: number, d = 2): string => n.toFixed(d).replace('.', ',');
 const SHAPE_LABEL: Record<RampShape, string> = { straight: 'Reta', lshape: 'Em L', ushape: 'Em U', free: 'Livre' };
@@ -49,12 +50,14 @@ export function RampProperties({ ramps }: { ramps: Ramp[] }): ReactElement {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [adjustMsg, setAdjustMsg] = useState('');
 
-  const quantities = useMemo(() => {
-    if (!single) return null;
-    const rr = resolveRampsOnLevel(p, single.levelId).find((x) => x.id === single.id);
-    return rr ? { rr, q: rampQuantities(rr) } : null;
-  }, [p, single]);
-  const issues = useMemo(() => (single ? issuesOf(p, single.id) : []), [p, single]);
+  // Resolver o nível e validar o projeto custam segundos num prédio grande: saem do clique e ficam em cache por projeto.
+  const quantities =
+    useAdiado(p, `rampa-quant|${single?.id ?? ''}`, () => {
+      if (!single) return null;
+      const rr = resolveRampsOnLevel(p, single.levelId).find((x) => x.id === single.id);
+      return rr ? { rr, q: rampQuantities(rr) } : null;
+    }, 150) ?? null;
+  const issues = useAdiado(p, `rampa-avisos|${single?.id ?? ''}`, () => (single ? issuesOf(p, single.id) : []), 150) ?? [];
 
   const patch = (targets: Id[], value: Partial<Ramp>): void => patchRamps(editor.store, targets, value);
 

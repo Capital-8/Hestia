@@ -12,6 +12,7 @@ import { commonOf, patchStairs } from '../editor/stairActions.ts';
 import { adjustStairFree, applyStairFreeRegen, patchStairFree } from '../editor/stairFreeActions.ts';
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
 import { useFormat } from './useUnits.ts';
+import { useAdiado } from './useAdiado.ts';
 import { LevelField } from './LevelField.tsx';
 import { TypeSelector } from './TypeSelector.tsx';
 import { stairOptions } from './typeOptions.ts';
@@ -110,12 +111,14 @@ export function StairProperties({ stairs }: { stairs: Stair[] }): ReactElement {
     patchStairs(editor.store, [single.id], { components: r.components }, 'Editar nº de espelhos');
   };
 
-  const quantities = useMemo(() => {
-    if (!single) return null;
-    const r = resolveStairsOnLevel(p, single.levelId).find((x) => x.id === single.id);
-    return r ? stairQuantities(r) : null;
-  }, [p, single]);
-  const issues = useMemo(() => (single ? issuesOf(p, single.id) : []), [p, single]);
+  // Resolver o nível e validar o projeto custam segundos num prédio grande: saem do clique e ficam em cache por projeto.
+  const quantities =
+    useAdiado(p, `escada-quant|${single?.id ?? ''}`, () => {
+      if (!single) return null;
+      const r = resolveStairsOnLevel(p, single.levelId).find((x) => x.id === single.id);
+      return r ? stairQuantities(r) : null;
+    }, 150) ?? null;
+  const issues = useAdiado(p, `escada-avisos|${single?.id ?? ''}`, () => (single ? issuesOf(p, single.id) : []), 150) ?? [];
 
   const patch = (targets: Id[], value: Partial<Stair>): void => patchStairs(editor.store, targets, value);
 

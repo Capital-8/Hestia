@@ -7,9 +7,10 @@ const guardados = new WeakMap<object, Map<string, unknown>>();
  * Cálculo caro de um painel, fora do caminho do clique. O painel aparece na hora (sem o valor); o cálculo roda depois da
  * pintura e o resultado fica em cache por `base` + `chave`, então voltar ao painel com o mesmo projeto é instantâneo.
  * `base` deve ser imutável (o `Project`): ao editar, vem outro objeto e o cache antigo sai com o anterior.
+ * `atrasoMs` espera esse tempo antes de calcular: quem clica de elemento em elemento não paga por cada passagem.
  * Devolve `undefined` enquanto o valor não está pronto.
  */
-export function useAdiado<T>(base: object, chave: string, calcular: () => T): T | undefined {
+export function useAdiado<T>(base: object, chave: string, calcular: () => T, atrasoMs = 0): T | undefined {
   const [, redesenhar] = useState(0);
   const pronto = guardados.get(base)?.has(chave) === true;
   useEffect(() => {
@@ -24,7 +25,7 @@ export function useAdiado<T>(base: object, chave: string, calcular: () => T): T 
         if (!mapa) guardados.set(base, (mapa = new Map()));
         if (!mapa.has(chave)) mapa.set(chave, calcular());
         redesenhar((n) => n + 1);
-      }, 0);
+      }, atrasoMs);
     });
     return () => {
       cancelado = true;

@@ -140,7 +140,7 @@ function WallProps({ walls }: { walls: Wall[] }): ReactElement {
   const single = walls.length === 1 ? walls[0]! : null;
   const t = single ? wallType(p, single) : null;
   // Quantitativos do nível inteiro (cortes entre paredes): custam mais de 1 s num pavimento grande; saem do clique e ficam em cache.
-  const doNivel = useAdiado(p, `quant-paredes|${single?.levelId ?? ''}`, () => (single ? quantifyLevel(p, editor.resolved(single.levelId)).walls : []));
+  const doNivel = useAdiado(p, `quant-paredes|${single?.levelId ?? ''}`, () => (single ? quantifyLevel(p, editor.resolved(single.levelId)).walls : []), 400);
   const q = single ? (doNivel?.find((x) => x.wallId === single.id) ?? null) : null;
 
   return (
