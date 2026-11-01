@@ -36,7 +36,7 @@ export function pickRefCommands(project: Project, levelId: Id, dimId: Id, slot: 
   const hit = dimRefAt(project, levelId, at, tol);
   if (!hit || !isElementRef(hit.ref)) return { error: 'Nenhuma parede, porta, janela ou feição perto do clique.' };
   const outra = d.refs?.[slot === 'a' ? 'b' : 'a'];
-  if (isElementRef(outra) && outra.elementId === hit.ref.elementId && outra.feature === hit.ref.feature && (outra.index ?? 0) === (hit.ref.index ?? 0)) {
+  if (isElementRef(outra) && outra.elementId === hit.ref.elementId && outra.feature === hit.ref.feature && (outra.index ?? 0) === (hit.ref.index ?? 0) && outra.line === hit.ref.line) {
     return { error: 'A outra ponta já usa esta feição.' };
   }
   return { commands: [{ type: 'updateDimension', ...vista, id: dimId, patch: { refs: { ...(d.refs ?? {}), [slot]: hit.ref } } }] };
@@ -53,13 +53,14 @@ export function dimElementRefLabel(r: DimensionElementRef): string {
     case 'opening-edge-a': return 'Borda inicial da esquadria';
     case 'opening-edge-b': return 'Borda final da esquadria';
     case 'opening-center': return 'Centro da esquadria';
+    case 'wall-line': return ({ 'face-hi': 'Face 2 (linha)', 'face-lo': 'Face 1 (linha)', axis: 'Eixo (linha)', 'core-hi': 'Núcleo 2 (linha)', 'core-lo': 'Núcleo 1 (linha)' } as const)[r.line ?? 'axis'];
     case 'vertex': return `Vértice ${n}`;
     case 'edge': return `Aresta ${n}`;
   }
 }
 
 const sameRef = (x: DimensionElementRef, y: DimensionElementRef): boolean =>
-  x.elementId === y.elementId && x.feature === y.feature && (x.index ?? 0) === (y.index ?? 0);
+  x.elementId === y.elementId && x.feature === y.feature && (x.index ?? 0) === (y.index ?? 0) && x.line === y.line;
 
 /**
  * Alternativas de referência de uma ponta permanente: as feições do próprio elemento da ponta (de parede, a parede
@@ -71,7 +72,9 @@ export function endAltOf(project: Project, vista: CotaVista, d: Dimension, which
   if (!el) return undefined;
   const base = isOpening(el) ? project.elements[el.hostId] : el;
   if (!base) return undefined;
-  const options = dimRefCandidates(project, base).map((c) => c.ref);
+  const options = ref.feature === 'wall-line'
+    ? (['face-hi', 'face-lo', 'axis', 'core-hi', 'core-lo'] as const).map((line): DimensionElementRef => ({ ...ref, line }))
+    : dimRefCandidates(project, base).map((c) => c.ref);
   const current = options.findIndex((o) => sameRef(o, ref));
   if (current < 0 || options.length < 2) return undefined;
   return {

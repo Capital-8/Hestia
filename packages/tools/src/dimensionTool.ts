@@ -1,8 +1,16 @@
-import { dist, type Vec2 } from '@hestia/geom';
+import { add, dist, dot, mul, type Vec2 } from '@hestia/geom';
 import {
   DIM_MIN_LENGTH,
   defaultDimensionFamilyIdOf,
-  dimRefAt,
+  dimRefsNear,
+  openingsOfWall,
+  perpendicularBetweenLines,
+  resolveDimRef,
+  wallBodyAt,
+  wallDimFrame,
+  wallLinesNear,
+  wallsOnLevel,
+  type WallLineHit,
   dimensionFormatStyle,
   dimensionGeometry,
   dimensionStyleFor,
@@ -14,6 +22,7 @@ import {
   type Dimension,
   type DimensionElementRef,
   type DimensionRef,
+  type Wall,
 } from '@hestia/model';
 import { addSectionDimension, ToolBase, viewPlanId } from './base.ts';
 import { signedOffset, viewAnnotationsOf } from './annotationPick.ts';
@@ -27,6 +36,59 @@ const REF_TOL = 0.005;
 const SNAP_OFFSET_MM = 3;
 
 type DimMode = 'aligned' | 'horizontal' | 'vertical';
+
+/** Candidatos de referência de uma ponta: pontos de feição, linhas de parede e (modo parede inteira) uma ref forçada. */
+export interface RefCands {
+  forced?: AnyRef;
+  points: Array<{ ref: DimensionElementRef; point: Vec2 }>;
+  lines: WallLineHit[];
+}
+
+const NO_CANDS: RefCands = { points: [], lines: [] };
+/** Raio (px) em que o cursor "pega" a face/eixo de uma parede sem precisar de um snap de ponto. */
+const HOVER_PX = 8;
+/** Snaps de ponto que valem mais que a linha sob o cursor. */
+const STRONG_SNAPS = new Set(['endpoint', 'face', 'core', 'midpoint', 'intersection', 'center']);
+const LINE_RANK: Record<string, number> = { 'face-hi': 0, 'face-lo': 0, axis: 1, 'core-hi': 2, 'core-lo': 2 };
+/** Uma linha só vale como referência de uma cota horizontal/vertical se for perpendicular à direção de medida. */
+const PERP = 0.9999;
+
+const isOpeningRef = (r: DimensionElementRef): boolean => r.feature.startsWith('opening');
+
+/**
+ * Escolhe a referência de cada ponta (o que o Revit faz ao clicar numa face ou num eixo): esquadria vence; depois a
+ * LINHA de parede perpendicular à medida (a cota segue a parede ao movê-la); por fim o ponto de feição. Em cota
+ * alinhada, duas linhas paralelas viram medida perpendicular entre elas.
+ */
+export function chooseRefs(a: RefCands | undefined, b: RefCands | undefined, mode: DimMode): { ra?: AnyRef; rb?: AnyRef } {
+  const A = a ?? NO_CANDS;
+  const B = b ?? NO_CANDS;
+  const pointOf = (c: RefCands): AnyRef | undefined => c.forced ?? c.points[0]?.ref;
+  const opening = (c: RefCands): AnyRef | undefined => c.forced ?? c.points.find((x) => isOpeningRef(x.ref))?.ref;
+  if (mode === 'aligned') {
+    if (!A.forced && !B.forced && !opening(A) && !opening(B)) {
+      let best: { x: WallLineHit; y: WallLineHit; d: number } | null = null;
+      for (const x of A.lines) for (const y of B.lines) {
+        if (Math.abs(x.normal.x * y.normal.y - x.normal.y * y.normal.x) > 1e-6) continue;
+        if (x.ref.elementId === y.ref.elementId && x.ref.line === y.ref.line) continue;
+        const d = x.distance + y.distance;
+        if (!best || d < best.d - 1e-9) best = { x, y, d };
+      }
+      if (best) return { ra: best.x.ref, rb: best.y.ref };
+    }
+    return { ...(pointOf(A) ? { ra: pointOf(A) } : {}), ...(pointOf(B) ? { rb: pointOf(B) } : {}) };
+  }
+  const dir: Vec2 = mode === 'horizontal' ? { x: 1, y: 0 } : { x: 0, y: 1 };
+  const pick = (c: RefCands): AnyRef | undefined => {
+    const o = opening(c);
+    if (o) return o;
+    const line = c.lines.find((l) => Math.abs(l.normal.x * dir.x + l.normal.y * dir.y) >= PERP);
+    return line ? line.ref : pointOf(c);
+  };
+  const ra = pick(A);
+  const rb = pick(B);
+  return { ...(ra ? { ra } : {}), ...(rb ? { rb } : {}) };
+}
 
 /**
  * Campos de estilo que a cota nova grava: só os que o usuário escolheu na barra de opções. Com família escolhida, nada é
@@ -58,8 +120,12 @@ export class DimensionTool extends ToolBase {
   private b: Vec2 | null = null;
   private refA: AnyRef | undefined;
   private refB: AnyRef | undefined;
+  private candA: RefCands = NO_CANDS;
+  private candB: RefCands = NO_CANDS;
   private chain: Vec2[] = [];
-  private chainRefs: Array<AnyRef | undefined> = [];
+  private chainCands: RefCands[] = [];
+  /** Cadeia gerada pelo modo "parede inteira": sempre contínua. */
+  private wallChain = false;
   private offsetStage = false;
   private chainOffset = 0;
 
@@ -72,14 +138,66 @@ export class DimensionTool extends ToolBase {
   /** Metros de modelo por milímetro de papel na escala da vista (a medida de todas as cotas). */
   private mPerMm(): number { return this.scale() / 1000; }
 
-  /**
-   * Ref associativa da feição que coincide com o ponto capturado (planta). No corte/elevação não há refs: o par gravado é
-   * `(t,z)` e as referências de parede da planta não valem (uma coincidência numérica gravaria uma ref falsa).
-   */
-  private refAt(point: Vec2): AnyRef | undefined {
-    if (this.env.section?.()) return undefined;
-    return dimRefAt(this.env.project(), this.env.levelId(), point, REF_TOL)?.ref;
+  /** Ponteiro mais recente (o Tab refaz a prévia com ele). */
+  private last: PointerInfo | null = null;
+  private tabIdx = 0;
+  private hoverKey = '';
+  private hoverHits: WallLineHit[] = [];
+
+  /** Preferência de linha (faces, eixo ou núcleo) da barra de opções. */
+  private lineRank(line: string | undefined): number {
+    const want = this.env.options().dimensionRef ?? 'face';
+    const own = line === 'axis' ? 'axis' : line?.startsWith('core') ? 'core' : 'face';
+    return own === want ? -1 : (LINE_RANK[line ?? 'axis'] ?? 3);
   }
+
+  /** Candidatos de referência no ponto (planta). No corte/elevação não há refs: o par gravado é `(t,z)`. */
+  private candsAt(point: Vec2): RefCands {
+    if (this.env.section?.()) return NO_CANDS;
+    const project = this.env.project();
+    const levelId = this.env.levelId();
+    return { points: dimRefsNear(project, levelId, point, REF_TOL), lines: wallLinesNear(project, levelId, point, REF_TOL) };
+  }
+
+  /**
+   * Ponto e candidatos do cursor. Sem um snap de ponto forte, o cursor "pega" a face/eixo/núcleo de parede mais próximo
+   * (Tab alterna entre eles) e o ponto cai na projeção do cursor nessa linha.
+   */
+  private pick(p: PointerInfo): { point: Vec2; cands: RefCands } {
+    const inf = this.snap(p);
+    this.hoverHits = [];
+    if (this.env.section?.() || STRONG_SNAPS.has(inf.kind)) return { point: inf.point, cands: this.candsAt(inf.point) };
+    const tol = this.env.metersPerPixel() * HOVER_PX;
+    const hits = wallLinesNear(this.env.project(), this.env.levelId(), p.raw, tol)
+      .sort((x, y) => Math.round(x.distance * 1000) - Math.round(y.distance * 1000) || this.lineRank(x.ref.line) - this.lineRank(y.ref.line));
+    if (!hits.length) return { point: inf.point, cands: this.candsAt(inf.point) };
+    const key = hits.map((h) => `${h.ref.elementId}:${h.ref.line}`).join('|');
+    if (key !== this.hoverKey) { this.hoverKey = key; this.tabIdx = 0; }
+    const hit = hits[this.tabIdx % hits.length]!;
+    this.hoverHits = [hit];
+    const cands = this.candsAt(hit.point);
+    // O ponto fica na linha escolhida: ela vai primeiro, as demais continuam como alternativas.
+    return { point: hit.point, cands: { ...cands, lines: [hit, ...cands.lines.filter((l) => !(l.ref.elementId === hit.ref.elementId && l.ref.line === hit.ref.line))] } };
+  }
+
+  /** Realce da linha sob o cursor (a referência que o clique vai gravar). */
+  private hoverItems(): PreviewItem[] {
+    const project = this.env.project();
+    return this.hoverHits.flatMap((h): PreviewItem[] => {
+      const a = resolveDimRef(project, { ...h.ref, along: 0 });
+      const b = resolveDimRef(project, { ...h.ref, along: Number.MAX_SAFE_INTEGER });
+      return a && b ? [{ kind: 'line', a, b, halo: true }, { kind: 'point', at: h.point }] : [];
+    });
+  }
+
+  override tab(): void {
+    if (this.pickWalls() || !this.hoverHits.length) return;
+    this.tabIdx++;
+    if (this.last) this.move(this.last);
+    this.env.say('Tab: próxima referência (face, eixo ou núcleo).');
+  }
+
+  private pickWalls(): boolean { return (this.env.options().dimensionPick ?? 'points') === 'wall'; }
 
   /** Direção efetiva da cota entre dois pontos: `auto` infere horizontal/vertical quando os pontos compartilham um eixo. */
   private modeFor(a: Vec2, b: Vec2): DimMode {
@@ -98,7 +216,7 @@ export class DimensionTool extends ToolBase {
     const mode = this.modeFor(a, b);
     if (mode === 'horizontal') return { a, b: { x: b.x, y: a.y } };
     if (mode === 'vertical') return { a, b: { x: a.x, y: b.y } };
-    return { a, b };
+    return { a, b: perpendicularBetweenLines(this.env.project(), { a: this.refA, b: this.refB }, a, b) };
   }
 
   /** Afastamentos das cotas que já existem na vista ativa (a cota nova encosta nelas) mais o último afastamento usado. */
@@ -142,8 +260,12 @@ export class DimensionTool extends ToolBase {
     this.b = null;
     this.refA = undefined;
     this.refB = undefined;
+    this.candA = NO_CANDS;
+    this.candB = NO_CANDS;
     this.chain = [];
-    this.chainRefs = [];
+    this.chainCands = [];
+    this.wallChain = false;
+    this.hoverHits = [];
     this.offsetStage = false;
     this.items = [];
     this.inf = null;
@@ -170,35 +292,47 @@ export class DimensionTool extends ToolBase {
 
   override move(p: PointerInfo): void {
     this.raw = p.raw;
-    const inf = this.snap(p);
-    if (this.chain.length && !this.a) {
-      this.items = this.offsetStage ? this.chainPreview(this.snapOffset(this.side(p.raw) * roundMm(this.distanceToLine(p.raw)))) : [{ kind: 'point', at: this.chain[0]! }, { kind: 'line', a: this.chain[this.chain.length - 1]!, b: inf.point, dashed: true }];
+    this.last = p;
+    if (this.pickWalls()) {
+      if (this.offsetStage) { this.items = this.chainPreview(this.snapOffset(this.side(p.raw) * roundMm(this.distanceToLine(p.raw)))); return; }
+      const w = wallBodyAt(this.env.project(), this.env.levelId(), p.raw, this.env.metersPerPixel() * HOVER_PX);
+      this.items = w ? [{ kind: 'highlight', ids: [w.id] }] : [];
       return;
     }
-    if (this.a && !this.b) this.items = [{ kind: 'point', at: this.a }, { kind: 'line', a: this.a, b: inf.point, dashed: true }];
-    if (this.a && this.b) this.items = this.previewOf(this.snapOffset(this.side(p.raw) * roundMm(this.distanceToLine(p.raw))));
+    const { point } = this.pick(p);
+    if (this.chain.length && !this.a) {
+      this.items = this.offsetStage ? this.chainPreview(this.snapOffset(this.side(p.raw) * roundMm(this.distanceToLine(p.raw)))) : [{ kind: 'point', at: this.chain[0]! }, { kind: 'line', a: this.chain[this.chain.length - 1]!, b: point, dashed: true }, ...this.hoverItems()];
+      return;
+    }
+    if (this.a && !this.b) this.items = [{ kind: 'point', at: this.a }, { kind: 'line', a: this.a, b: point, dashed: true }, ...this.hoverItems()];
+    else if (this.a && this.b) this.items = this.previewOf(this.snapOffset(this.side(p.raw) * roundMm(this.distanceToLine(p.raw))));
+    else this.items = this.hoverItems();
   }
 
   override click(p: PointerInfo): void {
-    const inf = this.snap(p);
-    const point = inf.point;
+    if (this.pickWalls()) {
+      if (this.offsetStage) this.commitChain(this.snapOffset(this.side(p.raw) * roundMm(this.distanceToLine(p.raw))));
+      else this.clickWall(p);
+      return;
+    }
+    const { point, cands } = this.pick(p);
     if ((this.env.options().dimensionString ?? 'single') !== 'single') {
       if (this.offsetStage) { this.commitChain(this.snapOffset(this.side(p.raw) * roundMm(this.distanceToLine(p.raw)))); return; }
       if (!this.chain.length) {
         this.chain = [point];
-        this.chainRefs = [this.refAt(point)];
+        this.chainCands = [cands];
       } else {
         const last = this.chain[this.chain.length - 1]!;
         if (dist(last, point) < DIM_MIN_LENGTH) return;
         this.chain.push(point);
-        this.chainRefs.push(this.refAt(point));
+        this.chainCands.push(cands);
       }
       this.env.say(`${this.chain.length} referências selecionadas. Continue os cliques e pressione Enter para concluir a sequência.`);
       return;
     }
     if (!this.a) {
       this.a = point;
-      this.refA = this.refAt(point);
+      this.candA = cands;
       this.env.say('Clique no segundo ponto da cota.');
       return;
     }
@@ -211,11 +345,84 @@ export class DimensionTool extends ToolBase {
         return;
       }
       this.b = point;
-      this.refB = this.refAt(point);
+      this.candB = cands;
+      const r = chooseRefs(this.candA, this.candB, this.modeFor(this.a, point));
+      this.refA = r.ra;
+      this.refB = r.rb;
       this.env.say('Clique do lado da linha de cota, ou digite o deslocamento e Enter.');
       return;
     }
     this.commit(this.snapOffset(this.side(p.raw) * roundMm(this.distanceToLine(p.raw))));
+  }
+
+  /**
+   * Modo "parede inteira" (Revit: Pick > Entire Walls): um clique na parede monta a sequência ao longo dela, com as
+   * pontas, as bordas (ou centros) das esquadrias e as paredes que a cruzam; o clique seguinte define o lado.
+   */
+  private clickWall(p: PointerInfo): void {
+    const project = this.env.project();
+    const levelId = this.env.levelId();
+    if (this.env.section?.()) { this.env.say('Parede inteira só funciona na planta.'); return; }
+    const w = wallBodyAt(project, levelId, p.raw, this.env.metersPerPixel() * HOVER_PX);
+    if (!w) { this.env.say('Clique sobre uma parede (reta) para cotá-la inteira.'); return; }
+    const pts = this.wallChainPoints(w);
+    if (pts.length < 2) { this.env.say('A parede não tem pontos suficientes para cotar.'); return; }
+    this.chain = pts.map((x) => x.point);
+    this.chainCands = pts.map((x) => ({ forced: x.ref, points: [], lines: [] }));
+    this.wallChain = true;
+    this.offsetStage = true;
+    this.chainOffset = this.rememberedOffset();
+    this.env.say(`${pts.length - 1} trechos. Clique no lado da linha de cota ou digite o afastamento e Enter.`);
+  }
+
+  /** Pontos de referência ao longo da parede, em ordem, sem repetição (esquadrias e paredes cruzadas ganham da ponta). */
+  private wallChainPoints(w: Wall): Array<{ t: number; point: Vec2; ref: AnyRef }> {
+    const project = this.env.project();
+    const fr = wallDimFrame(project, w);
+    if (!fr) return [];
+    const o = this.env.options();
+    const want = o.dimensionRef ?? 'face';
+    const lines = want === 'axis' ? (['axis'] as const) : want === 'core' ? (['core-hi', 'core-lo'] as const) : (['face-hi', 'face-lo'] as const);
+    const out: Array<{ t: number; point: Vec2; ref: AnyRef; pr: number }> = [];
+    const onAxis = (t: number): Vec2 => add(fr.a, mul(fr.u, t));
+    const ends: DimensionElementRef[] = want === 'axis'
+      ? [{ elementId: w.id, feature: 'wall-axis-a' }, { elementId: w.id, feature: 'wall-axis-b' }]
+      : [{ elementId: w.id, feature: 'wall-face-hi', index: 0 }, { elementId: w.id, feature: 'wall-face-hi', index: 1 }];
+    out.push({ t: 0, point: onAxis(0), ref: ends[0]!, pr: 2 }, { t: fr.length, point: onAxis(fr.length), ref: ends[1]!, pr: 2 });
+    for (const op of openingsOfWall(project, w.id)) {
+      const feats = (o.dimensionOpenings ?? 'widths') === 'centers' ? (['opening-center'] as const) : (['opening-edge-a', 'opening-edge-b'] as const);
+      for (const feature of feats) {
+        const ref: DimensionElementRef = { elementId: op.id, feature };
+        const pt = resolveDimRef(project, ref);
+        if (pt) { const t = dot({ x: pt.x - fr.a.x, y: pt.y - fr.a.y }, fr.u); out.push({ t, point: onAxis(t), ref, pr: 0 }); }
+      }
+    }
+    const half = (fr.sHi - fr.sLo) / 2 + 0.02;
+    for (const c of wallsOnLevel(project, w.levelId)) {
+      if (c.id === w.id || c.sag !== 0) continue;
+      const fc = wallDimFrame(project, c);
+      if (!fc) continue;
+      const den = fr.u.x * fc.u.y - fr.u.y * fc.u.x;
+      if (Math.abs(den) < 0.2) continue;
+      const sAxis = ((fc.a.x - fr.a.x) * fr.u.y - (fc.a.y - fr.a.y) * fr.u.x) / den;
+      if (sAxis < -half || sAxis > fc.length + half) continue;
+      for (const line of lines) {
+        const sc = line === 'axis' ? 0 : line === 'face-hi' || line === 'core-hi' ? fc.sHi : fc.sLo;
+        const base = { x: fc.a.x + fc.n.x * sc - fr.a.x, y: fc.a.y + fc.n.y * sc - fr.a.y };
+        const t = (base.x * fc.u.y - base.y * fc.u.x) / den;
+        if (t < -0.001 || t > fr.length + 0.001) continue;
+        const pt = onAxis(t);
+        const along = Math.min(fc.length, Math.max(0, dot({ x: pt.x - fc.a.x, y: pt.y - fc.a.y }, fc.u)));
+        out.push({ t, point: pt, ref: { elementId: c.id, feature: 'wall-line', line, along }, pr: 1 });
+      }
+    }
+    out.sort((x, y) => x.t - y.t || x.pr - y.pr);
+    const merged: typeof out = [];
+    for (const q of out) {
+      const prev = merged[merged.length - 1];
+      if (prev && Math.abs(q.t - prev.t) < 0.002) { if (q.pr < prev.pr) merged[merged.length - 1] = q; } else merged.push(q);
+    }
+    return merged;
   }
 
   override type(text: string): boolean {
@@ -291,7 +498,7 @@ export class DimensionTool extends ToolBase {
   }
 
   private chainPairs(): Array<{ a: Vec2; b: Vec2; ra?: AnyRef; rb?: AnyRef; offset: number; mode: DimMode }> {
-    const mode = this.env.options().dimensionString ?? 'continuous';
+    const mode = this.wallChain ? 'continuous' : this.env.options().dimensionString ?? 'continuous';
     const out: Array<{ a: Vec2; b: Vec2; ra?: AnyRef; rb?: AnyRef; offset: number; mode: DimMode }> = [];
     const project = (a: Vec2, b: Vec2): { a: Vec2; b: Vec2; mode: DimMode } => {
       const dir = this.modeFor(a, b);
@@ -300,7 +507,7 @@ export class DimensionTool extends ToolBase {
     if (mode === 'continuous') {
       for (let i = 1; i < this.chain.length; i++) {
         const a = this.chain[i - 1]!; const b = this.chain[i]!; const pts = project(a, b);
-        if (dist(pts.a, pts.b) >= DIM_MIN_LENGTH) out.push({ ...pts, ra: this.chainRefs[i - 1], rb: this.chainRefs[i], offset: this.chainOffset });
+        if (dist(pts.a, pts.b) >= DIM_MIN_LENGTH) out.push({ ...pts, ...chooseRefs(this.chainCands[i - 1], this.chainCands[i], pts.mode), offset: this.chainOffset });
       }
     } else {
       const a = this.chain[0]!;
@@ -308,7 +515,7 @@ export class DimensionTool extends ToolBase {
       const mPerMm = this.mPerMm();
       for (let i = 1; i < this.chain.length; i++) {
         const b = this.chain[i]!; const pts = project(a, b);
-        if (dist(pts.a, pts.b) >= DIM_MIN_LENGTH) out.push({ ...pts, ra: this.chainRefs[0], rb: this.chainRefs[i], offset: this.chainOffset + (this.chainOffset >= 0 ? 1 : -1) * (i - 1) * step * mPerMm * 2.5 });
+        if (dist(pts.a, pts.b) >= DIM_MIN_LENGTH) out.push({ ...pts, ...chooseRefs(this.chainCands[0], this.chainCands[i], pts.mode), offset: this.chainOffset + (this.chainOffset >= 0 ? 1 : -1) * (i - 1) * step * mPerMm * 2.5 });
       }
     }
     return out;

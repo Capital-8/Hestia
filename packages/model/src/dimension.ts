@@ -1,7 +1,7 @@
 import { add, len, mul, sub, type Vec2 } from '@hestia/geom';
 import type { AngularDimension, AngularDimensionSide, Dimension, Project } from './types.ts';
 import type { DimensionStyle } from './dimensionContract.ts';
-import { resolveDimEnd } from './dimensionRefs.ts';
+import { perpendicularBetweenLines, resolveDimEnd } from './dimensionRefs.ts';
 import { defaultUnits, type ResolvedUnits } from './units.ts';
 import { formatQuantity } from './unitsFormat.ts';
 
@@ -29,7 +29,7 @@ export function dimensionPoints(p: Pick<Project, 'elements'>, d: Dimension): { a
   const b = resolveDimEnd(p as Project, d.refs?.b, d.b);
   if (d.mode === 'horizontal') return { a, b: { x: b.x, y: a.y } };
   if (d.mode === 'vertical') return { a, b: { x: a.x, y: b.y } };
-  return { a, b };
+  return { a, b: perpendicularBetweenLines(p as Project, d.refs, a, b) };
 }
 
 /**

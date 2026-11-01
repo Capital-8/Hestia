@@ -12,7 +12,11 @@ export type DimFeature =
   | 'wall-face-lo' | 'wall-face-hi'        // faces da parede (perpendicular ao eixo)
   | 'opening-edge-a' | 'opening-edge-b'    // bordas da esquadria ao longo da parede
   | 'opening-center'
+  | 'wall-line'                           // LINHA da parede (eixo, face ou núcleo): a cota mede a perpendicular até outra linha paralela
   | 'vertex' | 'edge';                     // vértice/aresta genérico (laje, escada, rampa...) indexado por `index`
+
+/** Linha da parede a que uma referência `wall-line` se prende (como as referências de linha do Revit). */
+export type DimWallLine = 'axis' | 'face-hi' | 'face-lo' | 'core-hi' | 'core-lo';
 
 /** Referência genérica a um elemento. Convive com o `DimensionRef` antigo (parede+ponta), distinto por `elementId`. */
 export interface DimensionElementRef {
@@ -20,6 +24,10 @@ export interface DimensionElementRef {
   feature: DimFeature;
   /** Índice do vértice/aresta quando `feature` é 'vertex' | 'edge'. */
   index?: number;
+  /** Linha da parede quando `feature` é 'wall-line'. */
+  line?: DimWallLine;
+  /** Posição (m, a partir da ponta `a` da parede) em que a ponta da cota toca a linha; limitada ao comprimento da parede. */
+  along?: number;
 }
 
 /** Marcador de ponta de cota. */

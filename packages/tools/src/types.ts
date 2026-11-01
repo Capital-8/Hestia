@@ -214,6 +214,12 @@ export interface ToolOptions {
   textLeader?: 'none' | 'straight' | 'elbow';
   dimensionMode?: 'auto' | 'aligned' | 'horizontal' | 'vertical';
   dimensionString?: 'single' | 'continuous' | 'baseline';
+  /** Como a cota escolhe o que medir: ponto a ponto (padrão) ou parede inteira (sequência com esquadrias e cruzamentos). */
+  dimensionPick?: 'points' | 'wall';
+  /** Referência preferida ao pegar uma parede: faces (padrão), eixo ou núcleo. */
+  dimensionRef?: 'face' | 'axis' | 'core';
+  /** Parede inteira: esquadrias por largura (bordas) ou por centro. */
+  dimensionOpenings?: 'widths' | 'centers';
   /** Família de cotas da cota nova (ausente/null = família padrão do projeto). */
   dimensionFamilyId?: Id | null;
   /** Último afastamento digitado/arrastado: a cota nova nasce nele (como no Revit). */

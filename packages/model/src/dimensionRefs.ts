@@ -1,5 +1,5 @@
 import { dist, type Vec2 } from '@hestia/geom';
-import type { DimensionElementRef } from './dimensionContract.ts';
+import type { DimensionElementRef, DimWallLine } from './dimensionContract.ts';
 import { openingsOfWall, openingType, wallsOnLevel } from './queries.ts';
 import { coreSpan, totalThickness } from './wallType.ts';
 import { isOpening, isWall, type DimensionRef, type Opening, type Id, type LocationLine, type Project, type Wall } from './types.ts';
@@ -38,7 +38,7 @@ function exteriorOffset(type: { layers: readonly { thickness: number }[] } & Par
   }
 }
 
-interface WallGeo { a: Vec2; b: Vec2; u: Vec2; n: Vec2; length: number; sHi: number; sLo: number; sMid: number }
+interface WallGeo { a: Vec2; b: Vec2; u: Vec2; n: Vec2; length: number; sHi: number; sLo: number; sMid: number; cHi: number; cLo: number }
 
 function wallGeo(p: Pick<Project, 'wallTypes' | 'defaults'>, w: Wall): WallGeo | null {
   const dx = w.b.x - w.a.x;
@@ -55,8 +55,15 @@ function wallGeo(p: Pick<Project, 'wallTypes' | 'defaults'>, w: Wall): WallGeo |
   const sInt = sign * (ext - thickness);
   const sHi = Math.max(sExt, sInt);
   const sLo = Math.min(sExt, sInt);
-  return { a: w.a, b: w.b, u, n: { x: -u.y, y: u.x }, length, sHi, sLo, sMid: (sHi + sLo) / 2 };
+  const core = coreSpan(type);
+  const c1 = sign * (ext - core.from);
+  const c2 = sign * (ext - core.to);
+  return { a: w.a, b: w.b, u, n: { x: -u.y, y: u.x }, length, sHi, sLo, sMid: (sHi + sLo) / 2, cHi: Math.max(c1, c2), cLo: Math.min(c1, c2) };
 }
+
+/** Deslocamento perpendicular (s) de uma linha da parede, a partir do eixo a→b. */
+const lineS = (g: WallGeo, line: DimWallLine): number =>
+  line === 'face-hi' ? g.sHi : line === 'face-lo' ? g.sLo : line === 'core-hi' ? g.cHi : line === 'core-lo' ? g.cLo : 0;
 
 const at = (g: WallGeo, t: number, s: number): Vec2 => ({ x: g.a.x + g.u.x * t + g.n.x * s, y: g.a.y + g.u.y * t + g.n.y * s });
 
@@ -107,6 +114,13 @@ export function resolveDimRef(p: Project, ref: DimensionElementRef | DimensionRe
       const g = wallGeo(p, el);
       if (!g) return null;
       return at(g, ref.index === 1 ? g.length : 0, ref.feature === 'wall-face-hi' ? g.sHi : g.sLo);
+    }
+    case 'wall-line': {
+      if (!isWall(el)) return null;
+      const g = wallGeo(p, el);
+      if (!g) return null;
+      const t = Math.min(g.length, Math.max(0, ref.along ?? g.length / 2));
+      return at(g, t, lineS(g, ref.line ?? 'axis'));
     }
     case 'opening-edge-a':
     case 'opening-edge-b':
@@ -184,4 +198,96 @@ export function resolveDimEnd(p: Project, ref: DimensionRef | DimensionElementRe
     if (ref.axis === 'y') return { x: fallback.x, y: pt.y };
   }
   return pt;
+}
+
+/** Linhas oferecidas por parede, na ordem de prioridade (faces antes do eixo e do núcleo). */
+const WALL_LINES: readonly DimWallLine[] = ['face-hi', 'face-lo', 'axis', 'core-hi', 'core-lo'];
+
+/** Normal unitária (esquerda de a→b) da linha da parede referenciada; null se a ref não é de linha ou a parede sumiu. */
+export function lineRefNormal(p: Pick<Project, 'elements' | 'wallTypes' | 'defaults'>, ref: DimensionRef | DimensionElementRef | undefined): Vec2 | null {
+  if (!ref || !isElementRef(ref) || ref.feature !== 'wall-line') return null;
+  const w = p.elements[ref.elementId];
+  if (!isWall(w)) return null;
+  const g = wallGeo(p, w);
+  return g ? g.n : null;
+}
+
+/** Posição (s) da linha e a normal da parede, para o hit test e a escolha de referências na ferramenta. */
+export interface WallLineHit { ref: DimensionElementRef; point: Vec2; normal: Vec2; distance: number }
+
+/**
+ * Linhas de parede (faces, eixo e núcleo) do nível a até `tol` (m) de `point`. O ponto devolvido é a projeção de `point`
+ * na linha, limitada ao comprimento da parede. Paredes curvas não oferecem linha (a corda não é a linha real).
+ */
+export function wallLinesNear(p: Project, levelId: Id, point: Vec2, tol: number): WallLineHit[] {
+  const out: WallLineHit[] = [];
+  for (const w of wallsOnLevel(p, levelId)) {
+    if (w.sag !== 0) continue;
+    const g = wallGeo(p, w);
+    if (!g) continue;
+    const rel = { x: point.x - g.a.x, y: point.y - g.a.y };
+    const t0 = rel.x * g.u.x + rel.y * g.u.y;
+    const s0 = rel.x * g.n.x + rel.y * g.n.y;
+    const t = Math.min(g.length, Math.max(0, t0));
+    for (const line of WALL_LINES) {
+      const s = lineS(g, line);
+      const d = Math.hypot(t0 - t, s0 - s);
+      if (d > tol) continue;
+      const ref: DimensionElementRef = { elementId: w.id, feature: 'wall-line', line, along: Math.round(t * 1e4) / 1e4 };
+      out.push({ ref, point: at(g, t, s), normal: g.n, distance: d });
+    }
+  }
+  return out.sort((x, y) => x.distance - y.distance);
+}
+
+/**
+ * Cota "alinhada" entre duas referências de linha paralelas: mede a perpendicular às linhas (o que o Revit faz entre faces).
+ * Com qualquer outra combinação devolve `b` como está.
+ */
+export function perpendicularBetweenLines(p: Pick<Project, 'elements' | 'wallTypes' | 'defaults'>, refs: { a?: DimensionRef | DimensionElementRef; b?: DimensionRef | DimensionElementRef } | undefined, a: Vec2, b: Vec2): Vec2 {
+  const na = lineRefNormal(p, refs?.a);
+  const nb = lineRefNormal(p, refs?.b);
+  if (!na || !nb || Math.abs(na.x * nb.y - na.y * nb.x) > 1e-6) return b;
+  const k = (b.x - a.x) * na.x + (b.y - a.y) * na.y;
+  return { x: a.x + na.x * k, y: a.y + na.y * k };
+}
+
+/** TODAS as feições de ponto (não só a melhor) a até `tol` de `point`, na ordem de prioridade e distância. */
+export function dimRefsNear(p: Project, levelId: Id, point: Vec2, tol: number): Array<{ ref: DimensionElementRef; point: Vec2 }> {
+  const out: Array<{ ref: DimensionElementRef; point: Vec2; d: number; i: number }> = [];
+  let i = 0;
+  const consider = (c: { ref: DimensionElementRef; point: Vec2 }): void => {
+    const d = dist(c.point, point);
+    if (d <= tol) out.push({ ...c, d, i: i++ });
+  };
+  for (const w of wallsOnLevel(p, levelId)) for (const c of dimRefCandidates(p, w)) consider(c);
+  for (const el of Object.values(p.elements)) {
+    if (isWall(el) || isOpening(el) || !('levelId' in el) || el.levelId !== levelId) continue;
+    for (const c of dimRefCandidates(p, el)) consider(c);
+  }
+  return out.sort((x, y) => (Math.abs(x.d - y.d) < 1e-9 ? x.i - y.i : x.d - y.d)).map(({ ref, point: pt }) => ({ ref, point: pt }));
+}
+
+/** Geometria de parede para cotas "parede inteira": eixo unitário, normal, comprimento e deslocamentos das faces. */
+export function wallDimFrame(p: Project, w: Wall): { a: Vec2; u: Vec2; n: Vec2; length: number; sHi: number; sLo: number } | null {
+  const g = wallGeo(p, w);
+  return g ? { a: g.a, u: g.u, n: g.n, length: g.length, sHi: g.sHi, sLo: g.sLo } : null;
+}
+
+/** Parede reta do nível cujo corpo (espessura + `tol`) contém `point`; a mais próxima do eixo vence. */
+export function wallBodyAt(p: Project, levelId: Id, point: Vec2, tol: number): Wall | null {
+  let best: Wall | null = null;
+  let bestD = Infinity;
+  for (const w of wallsOnLevel(p, levelId)) {
+    if (w.sag !== 0) continue;
+    const g = wallGeo(p, w);
+    if (!g) continue;
+    const rel = { x: point.x - g.a.x, y: point.y - g.a.y };
+    const t = rel.x * g.u.x + rel.y * g.u.y;
+    const s = rel.x * g.n.x + rel.y * g.n.y;
+    if (t < -tol || t > g.length + tol || s < g.sLo - tol || s > g.sHi + tol) continue;
+    const d = Math.abs(s - g.sMid);
+    if (d < bestD) { bestD = d; best = w; }
+  }
+  return best;
 }

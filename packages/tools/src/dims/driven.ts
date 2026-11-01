@@ -4,6 +4,8 @@ import {
   applyCommand,
   isOpening,
   isWall,
+  perpendicularBetweenLines,
+  resolveDimRef,
   openingTypeById,
   openingsOfWall,
   type Command,
@@ -111,6 +113,11 @@ function featureInfo(p: Project, ref: LooseRef, fallback: Vec2): EndInfo | { err
       const point = projectOnLine(fallback, add(fr.a, mul(fr.n, s)), fr.u);
       return { point, mover: { t: 'wallFace', w: el }, elementId: el.id };
     }
+    if (f === 'wall-line') {
+      const pt = resolveDimRef(p, ref as never);
+      if (!pt) return { error: 'Parede inválida.' };
+      return { point: pt, mover: { t: 'wallFace', w: el }, elementId: el.id };
+    }
     return { error: 'Feição de parede não suportada pela cota dirigida.' };
   }
   if (isOpening(el)) {
@@ -150,6 +157,7 @@ function measure(p: Project, dim: Dimension): { a: EndInfo; b: EndInfo; value: n
   let pb = b.point;
   if (dim.mode === 'horizontal') pb = { x: pb.x, y: pa.y };
   else if (dim.mode === 'vertical') pb = { x: pa.x, y: pb.y };
+  else pb = perpendicularBetweenLines(p, dim.refs, pa, pb);
   const value = len(sub(pb, pa));
   if (value < 1e-9) return { error: 'A cota tem comprimento zero: a direção de medida é indefinida.' };
   return { a, b, value, dir: norm(sub(pb, pa)) };
