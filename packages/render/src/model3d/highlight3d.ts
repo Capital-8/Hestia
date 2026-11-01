@@ -25,11 +25,13 @@ export interface HighlightStyle {
  * (arestas). O que se paga por hover/seleção é só a montagem dos objetos; as arestas de cada elemento ficam em cache por
  * versão da geometria (`geometry.userData.versao`, o mesmo contador do R1).
  *
- * Sem triângulos para os ids (elemento oculto ou fora do modelo), devolve um objeto vazio.
+ * Sem triângulos para os ids (elemento oculto ou fora do modelo), devolve um objeto vazio. Com `preenchimento: false` só as
+ * arestas são montadas (o preenchimento da cena é feito por GPU, ver `realceGpu3d.ts`).
  */
-export function highlightOf(model: THREE.Object3D, ids: readonly Id[], style: HighlightStyle): THREE.Object3D {
+export function highlightOf(model: THREE.Object3D, ids: readonly Id[], style: HighlightStyle, opcoes: { preenchimento?: boolean } = {}): THREE.Object3D {
   const out = new THREE.Object3D();
   if (!ids.length) return out;
+  const comPreenchimento = opcoes.preenchimento !== false;
   const queridos = new Set(ids);
   model.updateMatrixWorld(true);
   const preenchimento = materialDePreenchimento(style);
@@ -46,13 +48,15 @@ export function highlightOf(model: THREE.Object3D, ids: readonly Id[], style: Hi
     const matriz = mesh.matrixWorld;
     for (const s of intervalosDeDesenho(encontradas)) {
       const recorte = recorteDoIntervalo(geo, index, s.start, s.count);
-      const fill = new THREE.Mesh(recorte.fill, preenchimento);
-      fill.renderOrder = 5;
-      fill.matrixAutoUpdate = false;
-      fill.matrix.copy(matriz);
-      // O recorte cobre o elemento no mundo: sem esfera própria para o teste de frustum (a da geometria é a do lote inteiro).
-      fill.frustumCulled = false;
-      out.add(fill);
+      if (comPreenchimento) {
+        const fill = new THREE.Mesh(recorte.fill, preenchimento);
+        fill.renderOrder = 5;
+        fill.matrixAutoUpdate = false;
+        fill.matrix.copy(matriz);
+        // O recorte cobre o elemento no mundo: sem esfera própria para o teste de frustum (a da geometria é a do lote inteiro).
+        fill.frustumCulled = false;
+        out.add(fill);
+      }
       if (recorte.edges) {
         const edges = new THREE.LineSegments(recorte.edges, arestas);
         edges.renderOrder = 6;

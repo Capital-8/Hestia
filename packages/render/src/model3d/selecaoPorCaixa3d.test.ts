@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import type { Id } from '@hestia/model';
 import type { ElementRange } from './solids.ts';
-import { idsNaCaixaDaTela, type RetanguloNdc } from './selecaoPorCaixa3d.ts';
+import { caixasPorElemento, idsNaCaixaDaTela, indicesNaCaixaDaTela, type RetanguloNdc } from './selecaoPorCaixa3d.ts';
 
 /** Câmera em perspectiva olhando para a origem de z = 10 (a frente é z < 10). */
 function camera(): THREE.PerspectiveCamera {
@@ -126,5 +126,36 @@ describe('idsNaCaixaDaTela', () => {
     idsNaCaixaDaTela(s, c, TUDO, 'janela');
     expect(c.matrixWorldInverse.elements).toEqual(antes.elements);
     expect(malha.position.toArray()).toEqual([0, 0, 0]);
+  });
+});
+
+describe('caixa vetorizada (arrays tipados)', () => {
+  it('caixasPorElemento: união dos vértices de todas as faixas do id; id sem vértices fica vazio', () => {
+    const pos = [0, 0, 0, 1, 2, 3, -1, 5, 0, 7, 7, 7];
+    const r = caixasPorElemento([{ id: 'a', start: 0, count: 3 }, { id: 'b', start: 3, count: 0 }, { id: 'a', start: 3, count: 0 }], [0, 1, 2, 3], pos);
+    expect(r.ids).toEqual(['a', 'b']);
+    expect([...r.caixas.slice(0, 6)]).toEqual([-1, 0, 0, 1, 5, 3]);
+    expect(r.caixas[6]).toBe(Infinity);
+  });
+
+  it('indicesNaCaixaDaTela: janela x cruzamento com projeção ortográfica identidade', () => {
+    const pv = new THREE.Matrix4().elements;
+    const mundo = [-0.5, -0.5, 0, 0.5, 0.5, 0, 1.5, 1.5, 0, 2, 2, 0, 3, 3, 0, 4, 4, 0];
+    const r = { x0: -1, y0: -1, x1: 1, y1: 1 };
+    expect(indicesNaCaixaDaTela(mundo, 3, pv, r, 'janela')).toEqual([0]);
+    expect(indicesNaCaixaDaTela(mundo, 3, pv, r, 'cruzamento')).toEqual([0]);
+    expect(indicesNaCaixaDaTela(mundo, 3, pv, { x0: -1, y0: -1, x1: 1.7, y1: 1.7 }, 'cruzamento')).toEqual([0, 1]);
+    expect(indicesNaCaixaDaTela(mundo, 3, pv, { x0: -1, y0: -1, x1: 1.7, y1: 1.7 }, 'janela')).toEqual([0]);
+  });
+
+  it('projetar 2000 caixas leva poucos ms', () => {
+    const n = 2000;
+    const mundo = new Float64Array(6 * n);
+    for (let i = 0; i < n; i++) mundo.set([i % 50, Math.floor(i / 50), 0, (i % 50) + 1, Math.floor(i / 50) + 1, 2], 6 * i);
+    const pv = new THREE.Matrix4().makeScale(0.01, 0.01, 0.01).elements;
+    const t0 = performance.now();
+    const dentro = indicesNaCaixaDaTela(mundo, n, pv, { x0: -1, y0: -1, x1: 1, y1: 1 }, 'janela');
+    expect(performance.now() - t0).toBeLessThan(50);
+    expect(dentro).toHaveLength(n);
   });
 });

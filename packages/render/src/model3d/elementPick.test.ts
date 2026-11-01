@@ -284,15 +284,16 @@ describe('realce na vista 3D (decisão 0016 §4)', () => {
     expect(porta.max.z).toBeLessThan(2.3);
   });
 
-  it('reconstrói só a sobreposição que mudou: a da seleção fica a mesma ao mudar o cursor', () => {
+  it('só refaz o realce que mudou: o da seleção fica o mesmo ao mudar o cursor, e trocar a seleção só troca a máscara', () => {
     const ms = cena(casa());
     ms.highlight(['a'], null);
     const sel = realces(ms);
     expect(sel.length).toBeGreaterThan(0);
     ms.highlight(['a'], 'c');
     expect(realces(ms)).toEqual(expect.arrayContaining(sel));
+    // Trocar a seleção só troca a máscara na GPU: as sobreposições por malha são as mesmas (nada é recriado por elemento).
     ms.highlight(['a', 'b'], null);
-    for (const m of sel) expect(realces(ms)).not.toContain(m);
+    expect(realces(ms)).toEqual(expect.arrayContaining(sel));
   });
 
   it('refazer o modelo apaga o realce (ele guardava a geometria antiga)', () => {
