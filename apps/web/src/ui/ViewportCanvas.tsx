@@ -1,6 +1,6 @@
-﻿/* eslint-disable max-lines -- a vista reúne planta, 3D, corte e o editor da cota; extrair depois. */
+/* eslint-disable max-lines -- a vista reúne planta, 3D, corte e o editor da cota; extrair depois. */
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
-import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport } from '@hestia/render';
+import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLabelsAt, sectionLiveOps, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport } from '@hestia/render';
 import { formatQuantity, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
 import { useShallow } from 'zustand/react/shallow';
 import { editor } from '../editor/controller.ts';
@@ -12,7 +12,7 @@ import { hoverSectionAt, sectionPickAt } from '../editor/sectionPick.ts';
 import { gestoDoBotaoNoCorte, idsNaCaixaDoCorte, selecaoComCaixa } from '../editor/sectionBoxSelect.ts';
 import { sectionDimensionGripAt, sectionDimensionGripCommand, sectionHandleAt, sectionHandleCommand, sectionOpeningValues } from '../editor/sectionHandles.ts';
 import { cotaParaEditar, ehDuploClique, type CliqueAnterior } from '../editor/dimDoubleClick.ts';
-import { dimensionGeometry, dimensionText, sectionAnnotationsOf } from '@hestia/model';
+import { dimensionFormatStyle, dimensionGeometry, dimensionStyleFor, dimensionText, sectionAnnotationsOf } from '@hestia/model';
 import { sectionDimensionPoints, type SectionDimensionGrip } from '@hestia/render';
 import { clickSelect3d, useUi } from '../editor/state.ts';
 import { consumirCameraPendente, registrarOrbita3D } from '../editor/vista3dAoVivo.ts';
@@ -54,6 +54,18 @@ interface DownAdiado {
 
 /** Rótulos vazios com referência fixa: a planta compara por identidade para não atualizar o estado à toa. */
 const NO_LABELS: LabelOp[] = [];
+
+/**
+ * Rótulos do desenho do corte no zoom corrente (mm de papel → px), com cache por lista e zoom. É o equivalente do
+ * `PlanFrame.labels` da planta: sem resolver, o valor da cota cai no estilo de "chip" da interface em vez do texto de cota.
+ */
+function baseLabelsAtZoom(labels: readonly LabelOp[], zoom: number, cache: { current: { labels: readonly LabelOp[]; zoom: number; resolvidos: LabelOp[] } | null }): LabelOp[] {
+  const cur = cache.current;
+  if (cur && cur.labels === labels && cur.zoom === zoom) return cur.resolvidos;
+  const resolvidos = sectionLabelsAt(labels, zoom);
+  cache.current = { labels, zoom, resolvidos };
+  return resolvidos;
+}
 /** Retângulo da caixa de seleção do corte; começa oculto e o gesto só muda posição, tamanho e traço. */
 const CAIXA_DE_SELECAO_STYLE: CSSProperties = {position: 'absolute', display: 'none', pointerEvents: 'none', zIndex: 2, border: '1px solid var(--accent)', background: 'var(--accent-soft)' };
 
@@ -115,6 +127,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   const secDl = useRef<PlanDrawList | null>(null); // R4: última lista BASE de corte escrita na cena
   const secVazia = useRef<{ bg: string; dl: PlanDrawList } | null>(null); // lista vazia estável quando não há resultado de corte
   const secLive = useRef(false); // as camadas vivas do corte têm conteúdo na cena
+  // Rótulos do corte já convertidos do papel para pixels; refeitos só quando a lista base ou o zoom mudam (como no PlanFrame).
+  const secBaseLabels = useRef<{ labels: readonly LabelOp[]; zoom: number; resolvidos: LabelOp[] } | null>(null);
   const quadroRef = useRef<QuadroPlanta | null>(null); // provisório na hora, exato depois da pintura (quadroPlanta.ts)
   const shownLabels = useRef<LabelOp[]>(NO_LABELS);
   const shownView = useRef<Viewport | null>(null);
@@ -327,7 +341,11 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       for (const it of editor.activeTool.preview()) {
         if (it.kind === 'line') liveStrokes.push({ pts: [it.a, it.b], closed: false, widthPx: 1, color: theme.ink, alpha: 1, ...(it.dashed ? { dash: [4, 3] } : {}) });
         else if (it.kind === 'polygon') liveStrokes.push({ pts: it.ring, closed: true, widthPx: 1, color: theme.ink, alpha: 1 });
-        else if (it.kind === 'label') liveLabels.push({ at: it.at, text: it.text, tone: 'info', ...(it.dimensionStyle ? { dimensionStyle: true } : {}) });
+        else if (it.kind === 'label' && it.dimensionStyle) {
+          // Prévia de cota no corte: texto de papel com a fonte da família (sem a caixa do rótulo de interface).
+          const estilo = dimensionStyleFor(p.settings, { familyId: st.options.dimensionFamilyId ?? undefined });
+          for (const l of sectionLabelsAt([{ at: it.at, text: it.text, center: true, rotation: it.rotation, color: theme.ink, papel: { escala: editor.viewScale(), fontMm: estilo.textHeight > 0 ? estilo.textHeight : 2.5 } }], v.zoom)) liveLabels.push(l);
+        } else if (it.kind === 'label') liveLabels.push({ at: it.at, text: it.text, tone: 'info' });
         else if (it.kind === 'point') {
           const r = 3 / Math.max(v.zoom, 1);
           liveStrokes.push({ pts: [{ x: it.at.x - r, y: it.at.y }, { x: it.at.x + r, y: it.at.y }], closed: false, widthPx: 1, color: theme.select, alpha: 1 });
@@ -359,20 +377,44 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       const dimDrag = sectionDimDrag.current;
       if (dimDrag && st.sectionId) {
         const cmd = sectionDimensionGripCommand(p, st.sectionId, dimDrag.grip, dimDrag.at);
-        const ann = (cmd && cmd.type === 'setSectionAnnotations' ? cmd.annotations : undefined) ?? sectionAnnotationsOf(p.views.find((x) => x.id === st.sectionId));
-        const dim = ann.dimensions.find((x) => x.id === dimDrag.grip.id);
-        if (dim && !dim.angular) {
-          const pts = sectionDimensionPoints(dim);
-          const gd = dimensionGeometry(pts.a, pts.b, dim.offset, 100 / 1000, dim.textHeight, dim.textAt);
-          for (const [a1, b1] of [gd.line, ...gd.extensions]) liveStrokes.push({ pts: [a1, b1], closed: false, widthPx: 1, color: theme.select, alpha: 0.9, dash: [4, 3] });
-          liveLabels.push({ at: gd.textAt, text: dimensionText(p, dim, unitsOf(p)), tone: 'info' });
+        const ann = sectionAnnotationsOf(p.views.find((x) => x.id === st.sectionId));
+        const r = 3 / Math.max(v.zoom, 1);
+        if (dimDrag.grip.kind === 'noteText') {
+          // Texto de anotação arrastado: mostra o bloco na posição nova (o desenho base só tem o antigo).
+          const t = ann.texts.find((x) => x.id === dimDrag.grip.id);
+          if (t) {
+            liveLabels.push({ at: { ...dimDrag.at }, text: t.text, tone: 'info', ...(t.rotation ? { rotation: t.rotation } : {}) });
+            liveStrokes.push({ pts: [{ x: dimDrag.at.x - r, y: dimDrag.at.y }, { x: dimDrag.at.x + r, y: dimDrag.at.y }], closed: false, widthPx: 1, color: theme.select, alpha: 1 });
+            liveStrokes.push({ pts: [{ x: dimDrag.at.x, y: dimDrag.at.y - r }, { x: dimDrag.at.x, y: dimDrag.at.y + r }], closed: false, widthPx: 1, color: theme.select, alpha: 1 });
+          }
+        } else {
+          const dim = ann.dimensions.find((x) => x.id === dimDrag.grip.id);
+          const patch = cmd && cmd.type === 'updateDimension' ? cmd.patch : {};
+          const next = dim ? { ...dim, ...patch } : undefined;
+          if (next && !next.angular) {
+            const style = dimensionStyleFor(p.settings, next);
+            const pts = sectionDimensionPoints(next);
+            const gd = dimensionGeometry(pts.a, pts.b, next.offset, editor.viewScale() / 1000, next.textHeight ?? style.textHeight, next.textAt, {
+              extensionGapMm: style.extensionGap,
+              extensionOvershootMm: style.extensionOvershoot,
+              tickHalfMm: style.tickSize / 2,
+              textGapMm: style.textGap,
+              centered: style.textPlacement === 'centered',
+              readConvention: style.readConvention,
+            });
+            for (const [a1, b1] of [gd.line, ...gd.extensions]) liveStrokes.push({ pts: [a1, b1], closed: false, widthPx: 1, color: theme.select, alpha: 0.9, dash: [4, 3] });
+            liveLabels.push({ at: gd.textAt, text: dimensionText(p, next, unitsOf(p), dimensionFormatStyle(style)), tone: 'info' });
+          }
         }
       }
       const live = sectionLiveOps({ project: p, inference: editor.activeTool.inference(), theme });
       liveFills.push(...live.fills);
       liveStrokes.push(...live.strokes);
       liveLabels.push(...live.labels);
-      const labels = liveLabels.length > 0 ? [...baseDl.labels, ...liveLabels] : baseDl.labels;
+      // Rótulos do desenho base no zoom corrente (mm de papel × escala → px), como o `PlanFrame` faz na planta: sem esta
+      // passagem o valor da cota chegava à camada HTML sem `fontPx` e saía no estilo de "chip" (`dim-label`), em caixa.
+      const baseLabels = baseLabelsAtZoom(baseDl.labels, v.zoom, secBaseLabels);
+      const labels = liveLabels.length > 0 ? [...baseLabels, ...liveLabels] : baseLabels;
       const hasLive = liveFills.length > 0 || liveStrokes.length > 0;
       if (g) {
         g.gpu.setSize(w, h, dpr);
@@ -658,7 +700,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       if (vNow && e.button === 0 && !spaceDown.current && !e.altKey && !isMiddleBtn && editor.activeTool.id === 'select' && stNow.selection.length > 0) {
         // A alça da cota selecionada tem prioridade sobre a abertura, a caixa de seleção e o pick de elementos.
         const w = screenToWorld(vNow, s);
-        const grip = sectionDimensionGripAt(editor.project, stNow.sectionId, stNow.selection, w, 8 / vNow.zoom, 10 / vNow.zoom);
+        const grip = sectionDimensionGripAt(editor.project, stNow.sectionId, stNow.selection, w, 8 / vNow.zoom, 10 / vNow.zoom, editor.viewScale());
         if (grip) {
           sectionDimDrag.current = { grip, at: w };
           drag.current = { mode: 'none', start: s, last: s, moved: false, pick: false };
@@ -791,7 +833,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
         const vh = editor.viewport();
         if (host.current && vh && !ferramentaAtiva) {
           const stH = useUi.getState();
-          const sobre = stH.selection.length > 0 && !!sectionDimensionGripAt(editor.project, stH.sectionId, stH.selection, screenToWorld(vh, s), 8 / vh.zoom, 10 / vh.zoom);
+          const sobre = stH.selection.length > 0 && !!sectionDimensionGripAt(editor.project, stH.sectionId, stH.selection, screenToWorld(vh, s), 8 / vh.zoom, 10 / vh.zoom, editor.viewScale());
           host.current.style.cursor = sobre ? 'move' : 'default';
         }
       }
@@ -837,7 +879,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       const cmd = v && sid ? sectionDimensionGripCommand(editor.project, sid, grip, screenToWorld(v, s)) : null;
       if (cmd) {
         editor.applyCommand(cmd);
-        useUi.setState({ status: `${grip.kind === 'text' ? 'Texto da cota movido' : 'Afastamento da cota atualizado'}. Ctrl+Z desfaz.` });
+        const msg = grip.kind === 'noteText' ? 'Texto movido' : grip.kind === 'text' ? 'Texto da cota movido' : 'Afastamento da cota atualizado';
+        useUi.setState({ status: `${msg}. Ctrl+Z desfaz.` });
       }
       useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
       drag.current = { mode: 'none', start: s, last: s, moved: false, pick: false };

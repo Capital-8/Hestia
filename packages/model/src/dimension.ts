@@ -76,10 +76,10 @@ export function formatDimension(d: Dimension, meters: number, units = defaultUni
   return `${prefix}${text}${suffix}`;
 }
 
-/** Texto mostrado na cota: o texto fixo, se houver algum (sem espaços nas pontas); senão, o valor medido com a formatação da cota. */
-export function dimensionText(p: Pick<Project, 'elements'>, d: Dimension, units: ResolvedUnits): string {
+/** Texto mostrado na cota: o texto fixo, se houver algum (sem espaços nas pontas); senão, o valor medido com a formatação da cota (e do estilo/família, quando dado). */
+export function dimensionText(p: Pick<Project, 'elements'>, d: Dimension, units: ResolvedUnits, style?: Partial<Pick<DimensionStyle, 'unit' | 'precision' | 'prefix' | 'suffix'>>): string {
   const fixed = d.text?.trim();
-  return fixed ? fixed : formatDimension(d, dimensionValue(p, d), units);
+  return fixed ? fixed : formatDimension(d, dimensionValue(p, d), units, style);
 }
 
 export interface DimensionGeometry {
@@ -182,6 +182,8 @@ export interface DimensionGeometryOptions {
   textGapMm?: number;
   /** Texto centrado sobre a linha (interrompendo-a) em vez de acima. */
   centered?: boolean;
+  /** Convenção de leitura: `horizontal` mantém o valor na horizontal mesmo em cota vertical. */
+  readConvention?: 'aligned' | 'upright' | 'horizontal';
 }
 
 /**
@@ -207,6 +209,8 @@ export function dimensionGeometry(a: Vec2, b: Vec2, offset: number, mPerMm: numb
   let textRotation = readable;
   if (textRotation > 90) textRotation -= 180;
   if (textRotation <= -90) textRotation += 180;
+  // Convenção de leitura 'horizontal': o valor não acompanha a inclinação da linha (comum em cota vertical de prancha).
+  if (opts.readConvention === 'horizontal') textRotation = 0;
   // Vetor "para cima" do texto: normal esquerda da direção legível.
   const rad = (textRotation * Math.PI) / 180;
   const up: Vec2 = { x: -Math.sin(rad), y: Math.cos(rad) };

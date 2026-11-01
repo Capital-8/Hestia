@@ -1,7 +1,7 @@
 import { add, mul, norm, perp, sub, type Vec2 } from '@hestia/geom';
-import { DEFAULT_DIMENSION_STYLE, DIM_TEXT_MM, dimensionGeometry, type AngularDimensionGeometry, type Dimension, type DimensionGeometry, type DimensionStyle, type DimTick } from '@hestia/model';
+import { DEFAULT_DIMENSION_STYLE, DIM_TEXT_MM, dimensionFormatStyle, dimensionGeometry, type AngularDimensionGeometry, type Dimension, type DimensionGeometry, type DimensionStyle, type DimTick } from '@hestia/model';
 import type { Viewport } from '../viewport.ts';
-import { LANE_HEIGHTS, valorCabeNoTrecho } from './dimLabels.ts';
+import { valorCabeNoTrecho } from './dimLabels.ts';
 import { zoomAtinge } from './limiares.ts';
 import { espessuraVezes } from './espessura.ts';
 import { noteLabel } from './tags.ts';
@@ -26,6 +26,8 @@ export interface DimItem {
   b: Vec2;
   text: string;
   ang?: AngularDimensionGeometry;
+  /** Estilo da família da cota (`Dimension.familyId`), já resolvido; ausente mantém o estilo global da vista. */
+  style?: DimensionStyle;
 }
 
 export interface DimLayoutCtx {
@@ -49,27 +51,18 @@ const MASCARA_MM = 0.45;
 /** Número de pistas (alturas) tentadas antes de deslocar lateralmente. */
 const PISTAS = 4;
 
-/** Estilo efetivo: padrão + projeto (`style`) + campos da própria cota. */
-export function effectiveDimStyle(style: DimensionStyle | undefined, d: Dimension): DimensionStyle {
-  const s = { ...DEFAULT_DIMENSION_STYLE, ...(style ?? {}) };
+/** Estilo efetivo: padrão + projeto (`style`) + família da cota + campos da própria cota (o último vence). */
+export function effectiveDimStyle(style: DimensionStyle | undefined, d: Dimension, family?: DimensionStyle): DimensionStyle {
+  const s = { ...DEFAULT_DIMENSION_STYLE, ...(style ?? {}), ...(family ?? {}) };
   const tick = (d.tickStyle ?? s.tick) as DimTick;
   return { ...s, tick, textHeight: d.textHeight ?? s.textHeight, unit: d.unit ?? s.unit, precision: d.precision ?? s.precision, prefix: d.prefix ?? s.prefix, suffix: d.suffix ?? s.suffix };
 }
 
 /**
  * Campos de formatação do estilo que valem como definidos pelo projeto: os iguais ao padrão não sobrepõem as unidades do
- * projeto (o padrão `precision: 2` não pode apagar as casas das unidades do projeto).
+ * projeto (o padrão `precision: 2` não pode apagar as casas das unidades do projeto). Mesma regra do DXF e da prancha.
  */
-export function styleFormatOf(style: DimensionStyle | undefined): Partial<Pick<DimensionStyle, 'unit' | 'precision' | 'prefix' | 'suffix'>> {
-  if (!style) return {};
-  const D = DEFAULT_DIMENSION_STYLE;
-  return {
-    ...(style.unit !== D.unit ? { unit: style.unit } : {}),
-    ...(style.precision !== D.precision ? { precision: style.precision } : {}),
-    ...(style.prefix !== D.prefix ? { prefix: style.prefix } : {}),
-    ...(style.suffix !== D.suffix ? { suffix: style.suffix } : {}),
-  };
-}
+export const styleFormatOf = dimensionFormatStyle;
 
 /** Retângulo orientado do texto (centro, meia largura/altura e rotação em graus). */
 export interface TextBox {
@@ -148,7 +141,18 @@ function segmentHitsBox(p: Vec2, q: Vec2, b: TextBox): boolean {
   return clip(-d.x, a.x + b.hw) && clip(d.x, b.hw - a.x) && clip(-d.y, a.y + b.hh) && clip(d.y, b.hh - a.y) && t0 <= t1;
 }
 
-const laneHeight = (k: number): number => (k < LANE_HEIGHTS.length ? LANE_HEIGHTS[k]! : LANE_HEIGHTS[LANE_HEIGHTS.length - 1]! + 1.4 * (k - LANE_HEIGHTS.length + 1));
+/**
+ * Distância, em mm de papel, do centro do texto da pista `k` até a linha de cota. Primeira pista colada na linha
+ * (1,6 alturas de texto, como sempre); as seguintes usam o espaçamento de cotas empilhadas do estilo (mínimo de 1,4
+ * altura de texto para os rótulos não se encostarem).
+ */
+export function dimensionLaneOffsetMm(k: number, textMm: number, stackSpacing: number): number {
+  const first = textMm * 1.6;
+  const pitch = Math.max(textMm * 1.4, stackSpacing);
+  return k <= 0 ? first : first + k * pitch;
+}
+
+const laneHeight = dimensionLaneOffsetMm;
 
 /** Ponto do contorno do retângulo mais próximo de `p` (a ponta da linha de chamada junto ao texto). */
 function pontoNoContorno(b: TextBox, p: Vec2): Vec2 {
@@ -179,12 +183,16 @@ export function layoutDimensions(items: readonly DimItem[], ctx: DimLayoutCtx): 
   const livre = (b: TextBox): boolean => placed.every((o) => !overlapBoxes(grow(b, RESPIRO_MM * mPerMm), o));
   for (const l of order) {
     if (!l.g || l.item.d.textAt) { placed.push(l.box); continue; }
-    if (l.fits && livre(l.box)) placed.push(l.box);
+    // `textFit` da família decide o comportamento do valor apertado; 'inside' nunca sai do trecho.
+    const fit = l.style.textFit;
+    if (fit === 'inside') { placed.push(l.box); continue; }
+    if (fit !== 'outside' && l.fits && livre(l.box)) placed.push(l.box);
     else deferred.push(l);
   }
   for (const l of deferred) {
     const g = l.g!;
-    if (!l.style.leaderWhenNoFit) { placed.push(l.box); continue; }
+    const sempreFora = l.style.textFit === 'outside';
+    if (!sempreFora && !l.style.leaderWhenNoFit) { placed.push(l.box); continue; }
     const th = l.textMm * mPerMm;
     const gap = 1.5 * mPerMm;
     const [ta, tb] = g.line;
@@ -199,7 +207,7 @@ export function layoutDimensions(items: readonly DimItem[], ctx: DimLayoutCtx): 
     for (let k = PISTAS; k < PISTAS + 4; k++) tentativas.push([k, 0]);
     let escolhida: TextBox | null = null;
     for (const [k, m] of tentativas) {
-      const c = add(add(mid, mul(out, gap + th * laneHeight(k))), mul(u, m * step));
+      const c = add(add(mid, mul(out, gap + th * laneHeight(k, l.textMm, l.style.stackSpacing))), mul(u, m * step));
       const box: TextBox = { ...l.box, c };
       if (!livre(box)) continue;
       const g2 = grow(box, RESPIRO_MM * mPerMm);
@@ -207,7 +215,7 @@ export function layoutDimensions(items: readonly DimItem[], ctx: DimLayoutCtx): 
       escolhida = box;
       break;
     }
-    const box = escolhida ?? { ...l.box, c: add(mid, mul(out, gap + th * laneHeight(PISTAS))) };
+    const box = escolhida ?? { ...l.box, c: add(mid, mul(out, gap + th * laneHeight(PISTAS, l.textMm, l.style.stackSpacing))) };
     l.box = box;
     l.textAt = box.c;
     l.moved = true;
@@ -226,7 +234,7 @@ function midOf(l: DimLayout): Vec2 {
 
 function baseLayout(item: DimItem, ctx: DimLayoutCtx, mPerMm: number): DimLayout {
   const d = item.d;
-  const style = effectiveDimStyle(ctx.style, d);
+  const style = effectiveDimStyle(ctx.style, d, item.style);
   const textMm = style.textHeight > 0 ? style.textHeight : DIM_TEXT_MM;
   const w = Math.max(1, item.text.length) * textMm * CARACTERE_EM * mPerMm;
   const h = textMm * ALTURA_EM * mPerMm;
@@ -239,7 +247,9 @@ function baseLayout(item: DimItem, ctx: DimLayoutCtx, mPerMm: number): DimLayout
     extensionGapMm: style.extensionGap,
     extensionOvershootMm: style.extensionOvershoot,
     tickHalfMm: style.tickSize / 2,
+    textGapMm: style.textGap,
     centered,
+    readConvention: style.readConvention,
   };
   const base = dimensionGeometry(item.a, item.b, d.offset, mPerMm, textMm, undefined, geomOpts);
   const g = d.textAt ? dimensionGeometry(item.a, item.b, d.offset, mPerMm, textMm, d.textAt, geomOpts) : base;

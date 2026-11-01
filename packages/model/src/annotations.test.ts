@@ -83,3 +83,57 @@ describe('exclusão de anotações pelos ids da seleção', () => {
     expect(annotationRemovals(s.project, LV0, ['zz'])).toEqual([]);
   });
 });
+
+describe('anotações na vista de corte/elevação (mesmos comandos da planta, com sectionId)', () => {
+  const VIEW = { id: 'sv1', name: 'Corte AA', kind: 'section' as const, a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, depth: 5 };
+  const comVista = (): ProjectStore => {
+    const s = new ProjectStore(createEmptyProject());
+    s.exec({ type: 'addView', view: VIEW });
+    return s;
+  };
+  const anot = (s: ProjectStore) => s.project.views.find((v) => v.id === 'sv1')?.annotations;
+
+  it('cota e texto entram na vista, com validação do modelo e desfazer rotulado por item', () => {
+    const s = comVista();
+    s.exec({ type: 'addDimension', levelId: LV0, sectionId: 'sv1', dimension: dim('d1') });
+    s.exec({ type: 'addText', levelId: LV0, sectionId: 'sv1', text: txt('t1') });
+    expect(anot(s)?.dimensions.map((d) => d.id)).toEqual(['d1']);
+    expect(anot(s)?.texts.map((t) => t.id)).toEqual(['t1']);
+    expect(levelDimensions(s.project, LV0)).toHaveLength(0);
+    expect(s.undoLabel).toBe('Criar texto');
+    s.exec({ type: 'updateDimension', levelId: LV0, sectionId: 'sv1', id: 'd1', patch: { offset: 1.2 } });
+    expect(anot(s)?.dimensions[0]!.offset).toBe(1.2);
+    expect(s.undoLabel).toBe('Editar cota');
+    s.exec({ type: 'removeDimension', levelId: LV0, sectionId: 'sv1', id: 'd1' });
+    expect(anot(s)?.dimensions).toHaveLength(0);
+    s.undo();
+    expect(anot(s)?.dimensions[0]!.offset).toBe(1.2);
+    s.undo();
+    expect(anot(s)?.dimensions[0]!.offset).toBe(0.8);
+  });
+
+  it('recusa cota degenerada e cota/texto inexistentes na vista', () => {
+    const s = comVista();
+    expect(() => s.exec({ type: 'addDimension', levelId: LV0, sectionId: 'sv1', dimension: dim('d1', { b: { x: 0, y: 0 } }) })).toThrow('dois pontos distintos');
+    expect(() => s.exec({ type: 'updateDimension', levelId: LV0, sectionId: 'sv1', id: 'x', patch: { offset: 1 } })).toThrow('Cota inexistente');
+    expect(() => s.exec({ type: 'addText', levelId: LV0, sectionId: 'sv1', text: txt('t1', { text: ' ' }) })).toThrow('vazio');
+    expect(anot(s)).toBeUndefined();
+  });
+
+  it('vista inexistente é recusada e o nível continua sendo validado', () => {
+    const s = comVista();
+    expect(() => s.exec({ type: 'addDimension', levelId: LV0, sectionId: 'nao', dimension: dim('d1') })).toThrow(/inexistente/);
+    expect(() => s.exec({ type: 'addDimension', levelId: 'lv_nao', sectionId: 'sv1', dimension: dim('d1') })).toThrow('Nível inexistente');
+  });
+
+  it('cada vista de corte tem o seu conjunto; remover tudo volta a vista sem anotações', () => {
+    const s = comVista();
+    s.exec({ type: 'addView', view: { ...VIEW, id: 'sv2', name: 'Corte BB' } });
+    s.exec({ type: 'addDimension', levelId: LV0, sectionId: 'sv1', dimension: dim('d1') });
+    s.exec({ type: 'addDimension', levelId: LV0, sectionId: 'sv2', dimension: dim('d2') });
+    expect(anot(s)?.dimensions.map((d) => d.id)).toEqual(['d1']);
+    expect(s.project.views.find((v) => v.id === 'sv2')?.annotations?.dimensions.map((d) => d.id)).toEqual(['d2']);
+    s.exec({ type: 'removeDimension', levelId: LV0, sectionId: 'sv2', id: 'd2' });
+    expect(s.project.views.find((v) => v.id === 'sv2')?.annotations).toBeUndefined();
+  });
+});

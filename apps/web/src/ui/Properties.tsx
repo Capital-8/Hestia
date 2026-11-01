@@ -401,9 +401,11 @@ const GRID_STEPS = [0.05, 0.1, 0.25, 0.5, 1, 2, 5];
 export function Properties(): ReactElement {
   const p = useProject();
   const sel = useUi((s) => s.selection);
-  // Na planta de área, cotas/textos vivem em `plan.annotations`: a seleção precisa procurar lá, não no nível.
+  // Na planta de área, cotas/textos vivem em `plan.annotations`; no corte/elevação, em `SectionView.annotations`: a
+  // seleção precisa procurar na vista certa, não no nível.
   const planId = useUi((s) => (s.planKind === 'area' ? s.areaPlanId : null));
-  const note = selectedNote(p, useUi((s) => s.levelId), sel, planId);
+  const sectionId = useUi((s) => (s.view === 'section' ? s.sectionId : null));
+  const note = selectedNote(p, useUi((s) => s.levelId), sel, planId, sectionId);
   const view = selectedView(p, sel);
   const els = sel.map((id) => p.elements[id]).filter((e) => !!e);
   const walls = els.filter(isWall);
@@ -445,7 +447,7 @@ export function Properties(): ReactElement {
           : kinds === 1 && generics.length > 0 ? <GenericProps items={generics} />
           : kinds === 1 && cads.length > 0 ? <CadProps items={cads} />
           : grade ? <GridProperties grid={grade} />
-          : note ? <AnnotationProps dim={note.dim} text={note.text} line={note.line} region={note.region} tag={note.tag} planId={planId} />
+          : note ? <AnnotationProps dim={note.dim} text={note.text} line={note.line} region={note.region} tag={note.tag} section={note.section} planId={planId} sectionId={sectionId} />
           : view ? <SectionViewProps view={view} />
           : nivelSelecionado ? <LevelProps />
           : count > 0 ? (

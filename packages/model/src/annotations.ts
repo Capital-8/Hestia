@@ -2,16 +2,19 @@ import { len, sub, type Vec2 } from '@hestia/geom';
 import { areaPlanOf, planAnnotationsOf, planAnnotationIds, type AreaPlan, type AreaPlanAnnotations } from './areaPlan.ts';
 import { DIM_MIN_LENGTH } from './dimension.ts';
 import { newId } from './ids.ts';
-import { type Dimension, type DetailLine, type DetailRegion, type ElementTag, type Id, type Level, type Project, type RoomSeparator, type TextNote } from './types.ts';
+import { type Dimension, type DetailLine, type DetailRegion, type ElementTag, type Id, type Level, type Project, type RoomSeparator, type SectionView, type TextNote } from './types.ts';
+import { cleanSectionAnnotations, sectionAnnotationsOf, type SectionAnnotations } from './sectionAnnotations.ts';
 
 /**
- * Onde a anotação mora: sempre no nível e, quando `planId` existe, na planta de área (vista).
- * Sem `planId` a anotação continua na planta de piso do nível, como sempre foi.
+ * Onde a anotação mora: sempre no nível e, quando `planId`/`sectionId` existe, na vista (planta de área ou corte/elevação).
+ * Sem eles a anotação continua na planta de piso do nível, como sempre foi.
  */
 interface AnnotationView {
   levelId: Id;
   /** Planta de área dona da anotação; ausente = anotação do nível (planta de piso). */
   planId?: Id;
+  /** Vista de corte/elevação dona da anotação; ausente = anotação de planta. */
+  sectionId?: Id;
 }
 
 /**
@@ -142,12 +145,39 @@ function viewPlan(p: Project, planId: Id, levelId: Id): AreaPlan {
   return plan;
 }
 
+/** Vista de corte/elevação dona da anotação: precisa existir no projeto. */
+function viewSection(p: Project, sectionId: Id): SectionView {
+  const view = p.views.find((v) => v.id === sectionId);
+  if (!view) throw new Error('Vista de corte/elevação inexistente');
+  return view;
+}
+
+/**
+ * Anotações de uma vista de corte/elevação: cada escrita reatribui o conjunto da vista (o desfazer guarda a vista
+ * inteira) e o conjunto vazio volta a `undefined`, como o comando antigo `setSectionAnnotations`.
+ */
+const sectionScope = (view: SectionView): AnnotationScope => {
+  const write = (patch: Partial<SectionAnnotations>): void => {
+    view.annotations = cleanSectionAnnotations({ ...sectionAnnotationsOf(view), ...patch });
+  };
+  return {
+    dimensions: { get: () => sectionAnnotationsOf(view).dimensions, set: (dimensions) => write({ dimensions }) },
+    texts: { get: () => sectionAnnotationsOf(view).texts, set: (texts) => write({ texts }) },
+    detailLines: { get: () => sectionAnnotationsOf(view).detailLines, set: (detailLines) => write({ detailLines }) },
+    detailRegions: { get: () => sectionAnnotationsOf(view).detailRegions, set: (detailRegions) => write({ detailRegions }) },
+    tags: { get: () => sectionAnnotationsOf(view).tags, set: (tags) => write({ tags }) },
+  };
+};
+
 /** Aplica um comando de anotação sobre o rascunho do projeto. Lança Error em texto pt-BR se recusar. */
 export function applyAnnotationCommand(p: Project, c: AnnotationCommand): void {
   const level = p.levels.find((l) => l.id === c.levelId);
   if (!level) throw new Error('Nível inexistente');
-  const planId = 'planId' in c ? c.planId : undefined;
-  const scope = planId ? planScope(viewPlan(p, planId, c.levelId)) : levelScope(level);
+  const scope = 'sectionId' in c && c.sectionId
+    ? sectionScope(viewSection(p, c.sectionId))
+    : 'planId' in c && c.planId
+      ? planScope(viewPlan(p, c.planId, c.levelId))
+      : levelScope(level);
   switch (c.type) {
     case 'addDimension': {
       const issue = dimensionIssue(c.dimension);

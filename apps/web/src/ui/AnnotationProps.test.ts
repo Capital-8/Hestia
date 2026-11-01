@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ProjectStore, areaPlanOf, angularDimensionData, createEmptyProject, levelDimensions, levelTexts, makeWall, planAnnotationsOf, type Dimension } from '@hestia/model';
+import { ProjectStore, areaPlanOf, angularDimensionData, createEmptyProject, levelDimensions, levelTexts, makeWall, planAnnotationsOf, sectionAnnotationsOf, type Dimension } from '@hestia/model';
 import { createAreaPlanAction } from '../editor/areaPlanActions.ts';
 import { editor } from '../editor/controller.ts';
 import { deleteSelectionIn } from '../editor/deleteIds.ts';
@@ -154,5 +154,60 @@ describe('cota angular: lado Volta', () => {
     expect(html).toContain('Maior');
     expect(html).not.toContain('Volta (360° − ângulo)');
     expect(html).toContain('value="minor" selected=""');
+  });
+});
+
+describe('anotações do corte no painel de propriedades', () => {
+  const VIEW = { id: 'sv1', name: 'Corte AA', kind: 'section' as const, a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, depth: 3 };
+  const comCorte = (): ProjectStore => {
+    const s = new ProjectStore(createEmptyProject());
+    s.exec({ type: 'addView', view: VIEW });
+    return s;
+  };
+
+  it('selectedNote com sectionId acha cota/texto da vista e não os do nível', () => {
+    const s = comCorte();
+    s.exec({ type: 'addDimension', levelId: LV0, sectionId: 'sv1', dimension: { id: 'd1', a: { x: 0, y: 0 }, b: { x: 3, y: 0 }, offset: 0.4 } });
+    s.exec({ type: 'addText', levelId: LV0, sectionId: 'sv1', text: { id: 't1', at: { x: 1, y: 1 }, text: 'Nota', height: 2.5, rotation: 0 } });
+    s.exec({ type: 'addDimension', levelId: LV0, dimension: { id: 'dl', a: { x: 0, y: 0 }, b: { x: 2, y: 0 }, offset: 0.3 } });
+    const p = s.project;
+    expect(selectedNote(p, LV0, ['d1'], null, 'sv1')).toMatchObject({ section: true, dim: { id: 'd1' } });
+    expect(selectedNote(p, LV0, ['t1'], null, 'sv1')?.text?.text).toBe('Nota');
+    expect(selectedNote(p, LV0, ['dl'], null, 'sv1')).toBeNull();
+    expect(selectedNote(p, LV0, ['d1'])).toBeNull();
+  });
+
+  it('editar o texto do corte grava na vista e não no nível', () => {
+    const s = comCorte();
+    s.exec({ type: 'addText', levelId: LV0, sectionId: 'sv1', text: { id: 't1', at: { x: 1, y: 1 }, text: 'Antes', height: 2.5, rotation: 0 } });
+    updateTextIn(s, LV0, 't1', { text: 'Depois' }, null, 'sv1');
+    expect(sectionAnnotationsOf(s.project.views.find((v) => v.id === 'sv1')).texts[0]!.text).toBe('Depois');
+    expect(levelTexts(s.project, LV0)).toHaveLength(0);
+    s.undo();
+    expect(sectionAnnotationsOf(s.project.views.find((v) => v.id === 'sv1')).texts[0]!.text).toBe('Antes');
+  });
+
+  it('o painel mede a cota do corte pelas pontas gravadas (sem resolver refs de parede da planta)', () => {
+    const dim: Dimension = {
+      id: 'd1',
+      a: { x: 0, y: 0 },
+      b: { x: 3, y: 0 },
+      offset: 0.4,
+      refs: { a: { wallId: 'w_nao_existe', end: 'a' } },
+    };
+    const html = renderToStaticMarkup(createElement(AnnotationProps, { dim, section: true, sectionId: 'sv1' }));
+    expect(html).toContain('3,00 m');
+    expect(html).toContain('Família');
+  });
+
+  it('o painel mostra o valor da família da cota e a deixa trocar de família', () => {
+    editor.store.exec({ type: 'upsertDimensionFamily', family: { id: 'fam_cm', name: 'Centímetros', tick: 'slash', tickSize: 2.8, textHeight: 2.5, font: 'Arial', extensionGap: 1.5, extensionOvershoot: 2, textPlacement: 'above', textGap: 1.5, readConvention: 'aligned', textFit: 'leader', leaderWhenNoFit: true, stackSpacing: 7, unit: 'cm', precision: 0, prefix: '', suffix: '' } });
+    editor.store.exec({ type: 'setDefaultDimensionFamily', id: 'fam_cm' });
+    const dim: Dimension = { id: 'd1', a: { x: 0, y: 0 }, b: { x: 3, y: 0 }, offset: 0.4, familyId: 'fam_cm' };
+    const html = renderToStaticMarkup(createElement(AnnotationProps, { dim }));
+    expect(html).toContain('300 cm');
+    expect(html).toContain('Centímetros');
+    expect(html).toContain('Padrão');
+    editor.store.exec({ type: 'removeDimensionFamily', id: 'fam_cm' });
   });
 });

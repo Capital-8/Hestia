@@ -1,5 +1,5 @@
 import { areaTableAllRows, computeSection, resolveLevel } from '@hestia/engine';
-import { areaPlanOf, levelGraphicsOf, sectionGraphicsOf, sectionPoints, type Id, type Project, type SheetViewport, type SheetViewSource } from '@hestia/model';
+import { areaPlanOf, levelGraphicsOf, sectionAnnotationsOf, sectionGraphicsOf, sectionPoints, type Id, type Project, type SheetViewport, type SheetViewSource } from '@hestia/model';
 import type { Vec2 } from '@hestia/geom';
 import { buildPlanDrawList, levelBox } from '../plan/build.ts';
 import { LIGHT } from '../plan/types.ts';
@@ -144,6 +144,9 @@ export function sectionPartsOf(p: Project, sectionId: Id, vp: SheetViewport): Vi
     theme: LIGHT,
     dark: false,
     showGrid: false,
+    // Cotas, textos e detalhes da vista entram na prancha/PDF (antes a seção saía sem as anotações dela).
+    annotations: sectionAnnotationsOf(view),
+    levelExtents: view.levelExtents,
   });
   return partsOf(list, toPaper(vp, m), LIGHT);
 }

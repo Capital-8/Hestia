@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- a faixa concentra as ações pontuais (cada uma com rótulo bilíngue, dica e guarda); dividir depois. */
 import { copyLinkOf, isCeiling, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Element, type Id, type Project, type Ramp } from '@hestia/model';
 import type { PerimeterModifyKind, ShortcutCommand, ToolOptions } from '@hestia/tools';
 import { tagAllNotTagged } from '../../editor/tagActions.ts';
@@ -120,6 +121,12 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     icon: 'cotasAuto',
     hint: t('Cotas automáticas do nível ativo: escolha o que cotar, por onde medir e em quais lados.', 'Automatic dimensions for the active level.'),
     run: openDialog('cotasAuto'),
+  },
+  dimensionFamilies: {
+    label: t('Famílias de cotas', 'Dimension Types'),
+    icon: 'dimension',
+    hint: t('Aparência nomeada das cotas (marcador, texto, leitura e formato); a família padrão é a da cota nova.', 'Named dimension appearance (marker, text, read convention and format); the default family is used for new dimensions.'),
+    run: openDialog('dimensionFamilies'),
   },
   typeProps: {
     label: t('Propriedades de tipo', 'Type Properties'),

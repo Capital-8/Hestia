@@ -139,12 +139,32 @@ export const makeId = newId;
  */
 export const viewPlanId = (env: ToolEnv): Id | undefined => env.areaPlanId?.() ?? undefined;
 
-/** Acrescenta uma anotação no conjunto da vista de corte; falso quando a vista ativa não é corte. */
+/**
+ * Acrescenta uma anotação na vista de corte/elevação ativa, pelo MESMO comando por item da planta (`sectionId`), com
+ * validação do modelo e rótulo de desfazer certos. Falso quando a vista ativa não é corte.
+ */
 function appendSection<K extends keyof SectionAnnotations>(env: ToolEnv, key: K, item: SectionAnnotations[K][number]): boolean {
   const sec = env.section?.();
   if (!sec) return false;
-  const current = sec.annotations();
-  sec.setAnnotations({ ...current, [key]: [...current[key], item] as SectionAnnotations[K] });
+  const levelId = env.levelId();
+  const sectionId = sec.id;
+  switch (key) {
+    case 'dimensions':
+      env.exec({ type: 'addDimension', levelId, sectionId, dimension: item as Dimension });
+      break;
+    case 'texts':
+      env.exec({ type: 'addText', levelId, sectionId, text: item as TextNote });
+      break;
+    case 'detailLines':
+      env.exec({ type: 'addDetailLine', levelId, sectionId, item: item as DetailLine });
+      break;
+    case 'detailRegions':
+      env.exec({ type: 'addDetailRegion', levelId, sectionId, item: item as DetailRegion });
+      break;
+    case 'tags':
+      env.exec({ type: 'addTag', levelId, sectionId, item: item as ElementTag });
+      break;
+  }
   return true;
 }
 

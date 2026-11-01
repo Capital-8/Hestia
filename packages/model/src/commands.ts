@@ -56,6 +56,7 @@ import { comTerminoValido } from './termino.ts';
 import { viewRangeIssues, type ViewRange } from './viewRange.ts';
 import type { DxfLayerStyle } from './dxfLayerStyle.ts';
 import type { DimensionStyle } from './dimensionContract.ts';
+import { dimensionFamilyIssue, dimensionFamiliesOf, removeDimensionFamilyFrom, writeDimensionFamily, type DimensionFamily } from './dimensionFamily.ts';
 import type { DeepPartial, ProjectGraphics, View3DSettings, ViewGraphics, ViewHidden } from './graphics.ts';
 import { applyViewHidden } from './viewHiddenCommands.ts';
 import { applySectionAnnotations } from './sectionAnnotationCommands.ts';
@@ -153,6 +154,9 @@ export type Command =
   | { type: 'setDefaults'; patch: Partial<Project['defaults']> }
   | { type: 'setSettings'; patch: Partial<Project['settings']> }
   | { type: 'setDimensionStyle'; patch: Partial<DimensionStyle> }
+  | { type: 'upsertDimensionFamily'; family: DimensionFamily }
+  | { type: 'removeDimensionFamily'; id: Id }
+  | { type: 'setDefaultDimensionFamily'; id: Id }
   | { type: 'setDxfLayerStyle'; layer: string; style: DxfLayerStyle }
   | { type: 'resetDxfLayers' }
   | { type: 'toggleOpeningFavorite'; id: Id }
@@ -553,6 +557,21 @@ export function applyCommand(p: Project, c: Command): void {
     case 'setDimensionStyle':
       p.settings = { ...p.settings, dimensionStyle: { ...(p.settings.dimensionStyle ?? {}), ...c.patch } };
       break;
+    case 'upsertDimensionFamily': {
+      const others = dimensionFamiliesOf(p.settings).filter((f) => f.id !== c.family.id);
+      const issue = dimensionFamilyIssue(c.family, others);
+      if (issue) throw new Error(issue);
+      p.settings = writeDimensionFamily(p.settings, { ...c.family, name: c.family.name.trim() });
+      break;
+    }
+    case 'removeDimensionFamily':
+      p.settings = removeDimensionFamilyFrom(p.settings, c.id);
+      break;
+    case 'setDefaultDimensionFamily': {
+      if (!dimensionFamiliesOf(p.settings).some((f) => f.id === c.id)) throw new Error('Família de cotas inexistente.');
+      p.settings = { ...p.settings, defaultDimensionFamilyId: c.id };
+      break;
+    }
     case 'setDxfLayerStyle': {
       const layer = c.layer.trim();
       if (layer) p.dxfLayers = { ...(p.dxfLayers ?? {}), [layer]: { ...c.style } };

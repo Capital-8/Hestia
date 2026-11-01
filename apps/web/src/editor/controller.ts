@@ -8,6 +8,8 @@ import {
   annotationIdsIn, projectGrids, areaPlanOf, areaPlansOfLevel, DEFAULT_AREA_GRAPHICS, isRoom,
   planAnnotationIds,
   levelRoomSeparators,
+  levelGraphicsOf,
+  sectionGraphicsOf,
   buildTemplate,
   createEmptyProject,
   migrateProject,
@@ -70,6 +72,12 @@ const PLAN_ANNOTATION_TYPES = new Set<Command['type']>([
 ]);
 
 const isPlanAnnotation = (c: Command): c is AnnotationCommand => PLAN_ANNOTATION_TYPES.has(c.type);
+
+/** Id da seção ativa, quando a vista atual é corte/elevação. */
+const activeSectionId = (): Id | null => {
+  const st = useUi.getState();
+  return st.view === 'section' ? st.sectionId : null;
+};
 
 /** Ambiente cujo rótulo está sob um ponto (mundo), com tolerância de 0,10 m além da caixa do texto. */
 function labelHit(p: Project, levelId: Id, scale: number, planId: Id | null, at: Vec2): { roomId: Id; at: Vec2 } | null {
@@ -184,6 +192,7 @@ export class Editor {
     exec: (c) => this.exec(c),
     transaction: (l, fn, session) => this.avisandoOculto(() => this.store.transaction(l, fn, session)),
     metersPerPixel: () => 1 / (this.viewport()?.zoom ?? 60),
+    viewScale: () => this.viewScale(),
     gridStep: () => effectiveGridStep(this.viewport()?.zoom ?? 60, useUi.getState().gridStep),
     say: (m) => useUi.setState({ status: m }), lang: () => useI18n.getState().lang, confirmHostedLoss: (losses, message) => pedirConfirmacaoHostedLoss(losses, message),
     alert: (m, ids) => pedirAlerta(m, ids),
@@ -198,6 +207,24 @@ export class Editor {
   private areaPlanIdNow(): Id | null {
     const st = useUi.getState();
     return st.view === 'plan' && st.planKind === 'area' ? st.areaPlanId : null;
+  }
+
+  /**
+   * Escala de impressão (1:N) da vista ativa: a da planta de área, a do nível ou a do corte/elevação. É a escala que
+   * converte mm de papel em metros de desenho — a mesma na tela, na prancha e no DXF.
+   */
+  viewScale(): number {
+    const st = useUi.getState();
+    if (st.view === 'section') {
+      const s = sectionGraphicsOf(this.project).scale;
+      return Number.isFinite(s) && s > 0 ? s : 100;
+    }
+    if (st.view === 'plan' && st.planKind === 'area' && st.areaPlanId) {
+      const s = areaPlanOf(this.project, st.areaPlanId)?.scale;
+      if (s !== undefined && Number.isFinite(s) && s > 0) return s;
+    }
+    const s = levelGraphicsOf(this.project, st.levelId).scale;
+    return Number.isFinite(s) && s > 0 ? s : 100;
   }
 
   /**
@@ -225,6 +252,13 @@ export class Editor {
   }
 
   private exec1(c: Command): void {
+    // Anotação criada/editada com uma vista de corte aberta mora na vista (SectionView.annotations), pelo MESMO comando
+    // por item da planta. Rede de segurança para comandos antigos/sem `sectionId` explícito.
+    const sectionId = activeSectionId();
+    if (sectionId && isPlanAnnotation(c) && (!('sectionId' in c) || c.sectionId === undefined)) {
+      this.store.exec({ ...c, sectionId } as AnnotationCommand);
+      return;
+    }
     const planId = this.areaPlanIdNow();
     if (planId && isPlanAnnotation(c) && (!('planId' in c) || c.planId === undefined)) {
       this.store.exec({ ...c, planId } as AnnotationCommand);

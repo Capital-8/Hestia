@@ -1,13 +1,13 @@
 import { union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { CLOSED, openingLinePaths, type ProjectedRing, type SectionBeyond, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
-import { dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Project, type ResolvedUnits } from '@hestia/model';
+import { dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, SECTION_TEXT_MM, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Project, type ResolvedUnits } from '@hestia/model';
 import { mix } from '../plan/color.ts';
 import { thinStrokes } from '../plan/thin.ts';
 import { AVISO, AVISO_ALPHA } from '../aviso.ts';
 import type { PlanPaint } from '../plan/style.ts';
 import type { Espessura, FillOp, LabelOp, PlanDrawList, PlanTheme, StrokeOp } from '../plan/types.ts';
 import type { Viewport } from '../viewport.ts';
-import { SECTION_ANNOTATION_SCALE, hasSectionAnnotations, sectionAnnotationOps } from './annotations.ts';
+import { hasSectionAnnotations, sectionAnnotationOps } from './annotations.ts';
 import { projetarComPerfis } from './perfis.ts';
 import { ownerOf, sectionItems, type SectionItem } from './pick.ts';
 import { sectionStyleOf } from './style.ts';
@@ -109,7 +109,8 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
     for (const ring of ringsOf(polygons)) revealStrokes.push({ pts: ring, closed: true, widthPx: REVEAL_WIDTH, color: REVEAL_COLOR, alpha: 1 });
   };
 
-  // Solo e níveis: linhas finas tracejadas ao longo de todo o comprimento.
+  // Solo e níveis: linhas finas tracejadas ao longo de todo o comprimento. O nome/cota do nível sai como texto de papel
+  // (mm × escala da vista), sem a caixa do rótulo de interface: é anotação de nível, como a marca de corte na planta.
   for (const l of s.levels) {
     const extent = input.levelExtents?.[l.levelId];
     const x0 = extent ? Math.min(extent.a, extent.b) : -0.5;
@@ -119,7 +120,15 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
       { x: x1, y: l.z },
     ];
     strokes.push({ pts: edge, closed: false, widthPx: 1, color: theme.inkSoft, alpha: 0.9, dash: [10, 5] });
-    labels.push({ at: edge[1]!, text: `${l.name} ${fmt(unitsOf(input.project), l.z)}`, dx: 6, dy: -8, tone: 'info' });
+    labels.push({
+      at: edge[1]!,
+      text: `${l.name} ${fmt(unitsOf(input.project), l.z)}`,
+      papel: { escala: style.scale, fontMm: SECTION_TEXT_MM, desvio: { mm: 2, ux: 1, uy: -0.9 } },
+      // Alinhado à direita: o texto termina depois da ponta da linha de nível e cresce para dentro do desenho (não
+      // estoura a moldura da vista, como acontecia com o rótulo ancorado à esquerda).
+      align: 'right',
+      color: theme.inkSoft,
+    });
   }
 
   const drawBeyond = (b: SectionBeyond): void => {
@@ -325,10 +334,11 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   // Anotações da vista de corte/elevação (cotas, textos, detalhes e etiquetas), por cima do desenho do modelo. A
   // geometria delas é `(t,z)`: distância ao longo do corte e cota. Sem `annotations`, nada muda no desenho.
   if (hasSectionAnnotations(input.annotations)) {
-    // Escala 100 (padrão da vista, sem escala própria); estilo global do projeto; hover/seleção da UI pelo id da cota.
+    // Escala e aparência da categoria 'anotação' vêm da própria vista (barra de controle da vista), como na planta.
     const notes = sectionAnnotationOps(input, {
-      scale: SECTION_ANNOTATION_SCALE,
+      scale: style.scale,
       style: dimensionStyleOf(input.project.settings),
+      paint: style.paint.annotation,
       hoverId: input.highlight?.hover ?? null,
       selectedIds: input.highlight?.selection ?? [],
     });

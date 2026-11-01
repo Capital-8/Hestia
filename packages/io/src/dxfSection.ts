@@ -2,6 +2,7 @@ import type { DxfLayerStyle, GraphicsCategory, Id, Project } from '@hestia/model
 import type { DxfPoint, DxfPolygons } from './dxf.ts';
 import { DXF_CATEGORY_COLORS, DXF_LINE_WEIGHT_DEFAULT } from './dxf.ts';
 import { writeDxf2000, type DxfDoc, type DxfDocEntity, type DxfDocLayer, type DxfUnit } from './dxfDoc.ts';
+import { DXF_LAYER_COTAS, DXF_LAYER_DETALHE, DXF_LAYER_ETIQUETAS, DXF_LAYER_TEXTOS, dxfTextEntity, type DxfNotes } from './dxfNotes.ts';
 
 /**
  * DXF do corte e da elevação (decisão 0015 §2.7). O desenho é (t, z), com z para cima; o peso da categoria na escala da
@@ -35,9 +36,17 @@ export interface DxfSectionGeometry {
   lineWeights?: Partial<Record<string, number>>;
   /** Estilo por camada vindo da tabela editável do projeto; ausente = `dxfSectionLayerStyleOf`. */
   layerStyles?: Record<string, DxfLayerStyle>;
+  /**
+   * Anotações da vista no plano `(t,z)` (cotas, textos, detalhes e etiquetas), nas mesmas camadas da planta. Quem monta
+   * preenche com `sectionNotesDxfOf`; ausente = o corte sai só com a geometria, como antes.
+   */
+  notes?: DxfNotes;
   /** Unidade de saída do arquivo; ausente = metros. A geometria (t, z) continua em metros. */
   units?: DxfUnit;
 }
+
+/** Camadas de anotação do corte/elevação (as mesmas da planta); são anotação para o peso de linha (0). */
+const NOTE_LAYERS: readonly string[] = [DXF_LAYER_COTAS, DXF_LAYER_TEXTOS, DXF_LAYER_DETALHE, DXF_LAYER_ETIQUETAS];
 
 const CATEGORY_LAYER: Record<GraphicsCategory, string> = {
   wall: 'CORTE_PAREDE',
@@ -63,15 +72,25 @@ export function dxfSectionLayerOf(category: GraphicsCategory, view: 'cut' | 'pro
   return view === 'projection' ? `${base}_PROJECAO` : base;
 }
 
-/** Categoria e papel de uma camada do corte/elevação; `annotation` para os níveis; `undefined` para a camada 0. */
+/** Categoria e papel de uma camada do corte/elevação; `annotation` para os níveis e as anotações; `undefined` para a camada 0. */
 export function dxfSectionLineRoleOf(layer: string): DxfSectionRole | 'annotation' | undefined {
-  if (layer === DXF_SECTION_LAYER_LEVELS) return 'annotation';
+  if (layer === DXF_SECTION_LAYER_LEVELS || NOTE_LAYERS.includes(layer)) return 'annotation';
   if (layer === DXF_SECTION_LAYER_SILHOUETTE) return { category: 'wall', view: 'cut' };
   for (const category of Object.keys(CATEGORY_LAYER) as GraphicsCategory[]) {
     if (layer === CATEGORY_LAYER[category]) return { category, view: 'cut' };
     if (layer === `${CATEGORY_LAYER[category]}_PROJECAO`) return { category, view: 'projection' };
   }
   return undefined;
+}
+
+/** Camadas das anotações presentes na geometria (as mesmas da planta). */
+function noteLayersOf(notes: DxfNotes | undefined): string[] {
+  if (!notes) return [];
+  const found = new Set<string>();
+  for (const t of notes.texts) found.add(t.layer);
+  for (const l of notes.otherLines ?? []) found.add(l.layer);
+  if (notes.lines.length > 0) found.add(DXF_LAYER_COTAS);
+  return [...found].filter((l) => NOTE_LAYERS.includes(l)).sort();
 }
 
 /** Anel sem o vértice de fechamento repetido; com menos de 3 vértices não há área. */
@@ -108,7 +127,7 @@ function shapesOf(geo: DxfSectionGeometry): Shape[] {
 
 /** Nomes das camadas que `exportSectionDxf` põe na tabela (a base de `lineWeights`). */
 export function dxfSectionLayersOf(geo: DxfSectionGeometry): string[] {
-  return [...new Set(['0', ...shapesOf(geo).map((s) => s.layer)])].sort();
+  return [...new Set(['0', ...shapesOf(geo).map((s) => s.layer), ...noteLayersOf(geo.notes)])].sort();
 }
 
 /** Estilo padrão de uma camada do corte: cor da categoria (cinza na projeção), contínua e a espessura pedida. */
@@ -126,12 +145,30 @@ export function dxfSectionLayerStyleOf(layer: string, lineWeight = DXF_LINE_WEIG
  */
 export function sectionDxfDocOf(geo: DxfSectionGeometry): DxfDoc {
   const shapes = shapesOf(geo);
-  const layers: DxfDocLayer[] = [...new Set(['0', ...shapes.map((s) => s.layer)])].sort().map((name) => {
+  const notes = geo.notes;
+  const noteLines = (notes?.lines ?? []).map(([a, b]): DxfDocEntity => ({ kind: 'line', layer: DXF_LAYER_COTAS, a, b }));
+  const noteLeaders = (notes?.otherLines ?? []).map((l): DxfDocEntity => ({ kind: 'line', layer: l.layer, a: l.a, b: l.b }));
+  const noteRegions = (notes?.regions ?? []).filter((r) => r.length >= 3).map((r): DxfDocEntity => ({ kind: 'polyline', layer: DXF_LAYER_DETALHE, points: r, closed: true }));
+  const noteTexts = (notes?.texts ?? []).map((t) => dxfTextEntity(t));
+  const layerNames = [...new Set(['0', ...shapes.map((s) => s.layer), ...noteLayersOf(notes)])].sort();
+  const layers: DxfDocLayer[] = layerNames.map((name) => {
     const style = geo.layerStyles?.[name] ?? dxfSectionLayerStyleOf(name, geo.lineWeights?.[name] ?? DXF_LINE_WEIGHT_DEFAULT);
     return { name, color: style.color, linetype: style.linetype, lineWeight: style.lineWeight };
   });
-  const entities: DxfDocEntity[] = shapes.map((s) => ({ kind: 'polyline', layer: s.layer, points: s.pts, closed: true }));
-  const all = shapes.flatMap((s) => s.pts);
+  const entities: DxfDocEntity[] = [
+    ...shapes.map((s): DxfDocEntity => ({ kind: 'polyline', layer: s.layer, points: s.pts, closed: true })),
+    ...noteRegions,
+    ...noteLines,
+    ...noteLeaders,
+    ...noteTexts,
+  ];
+  const all = [
+    ...shapes.flatMap((s) => s.pts),
+    ...(notes?.lines ?? []).flatMap(([a, b]) => [a, b]),
+    ...(notes?.otherLines ?? []).flatMap((l) => [l.a, l.b]),
+    ...(notes?.texts ?? []).map((t) => t.at),
+    ...(notes?.regions ?? []).flat(),
+  ];
   const lo = all.reduce((m, p) => ({ x: Math.min(m.x, p.x), y: Math.min(m.y, p.y) }), { x: 0, y: 0 });
   const hi = all.reduce((m, p) => ({ x: Math.max(m.x, p.x), y: Math.max(m.y, p.y) }), { x: 0, y: 0 });
   return { layers, entities, extMin: lo, extMax: hi, ...(geo.units === undefined ? {} : { units: geo.units }) };

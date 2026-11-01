@@ -3,6 +3,7 @@ export * from './dxfDoc.ts';
 export * from './dxfImport.ts';
 export * from './dxfGeneric.ts';
 export * from './dxfSection.ts';
+export * from './dxfSectionNotes.ts';
 export * from './ifc/ifcExport.ts';
 export * from './ifc/ifcHestia.ts';
 export * from './ifc/ifcTypes.ts';

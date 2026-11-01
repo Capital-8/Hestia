@@ -29,6 +29,7 @@ export function makeEnv(store = new ProjectStore(createEmptyProject())) {
     alert: (message: string, ids?: readonly Id[]) => { alerts.push(message); alertIds.push([...(ids ?? [])]); },
     done: () => { finished += 1; },
     options: () => options,
+    setOptions: (patch) => { Object.assign(options, patch); },
   };
   return { store, env, options, done: () => finished, sel: () => selection, areaPlanId: () => areaPlan, setAreaPlanId: (id: Id | null) => { areaPlan = id; }, alertas: () => alerts, alertIds: () => alertIds };
 }

@@ -31,7 +31,8 @@ export function sectionPickAt(s: ScreenPt): SectionHit | null {
   if (!v || !result) return null;
   const point = screenToWorld(v, s);
   const view = editor.project.views.find((x) => x.id === id);
-  const note = pickSectionAnnotation(sectionAnnotationsOf(view), point, NOTE_LINE_PX / v.zoom, undefined, NOTE_TEXT_PX / v.zoom);
+  // A escala é a da vista: o mesmo tamanho de papel da cota/texto que o desenho usa (antes ficava fixo em 1:100).
+  const note = pickSectionAnnotation(sectionAnnotationsOf(view), point, NOTE_LINE_PX / v.zoom, editor.viewScale(), NOTE_TEXT_PX / v.zoom);
   if (note) return note;
   return pickSection(result, point, TOLERANCE_PX / v.zoom);
 }

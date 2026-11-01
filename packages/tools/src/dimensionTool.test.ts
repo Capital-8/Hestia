@@ -280,3 +280,59 @@ describe('mover e copiar anotações pelas ferramentas de edição', () => {
     expect(levelTexts(ctx.store.project, 'lv_0')).toHaveLength(2);
   });
 });
+
+describe('ferramenta Cota: direção automática, família e afastamento', () => {
+  it('a direção automática infere horizontal, vertical e mantém alinhada na diagonal', () => {
+    const ctx = makeEnv();
+    const a = tool('dimension', ctx.env);
+    clickAt(a, 0, 0); clickAt(a, 4, 0); clickAt(a, 2, 1);
+    expect(dims(ctx.store)[0]!.mode).toBe('horizontal');
+    const b = tool('dimension', ctx.env);
+    clickAt(b, 0, 0); clickAt(b, 0, 3); clickAt(b, -1, 1.5);
+    expect(dims(ctx.store)[1]!.mode).toBe('vertical');
+    const c = tool('dimension', ctx.env);
+    clickAt(c, 0, 0); clickAt(c, 3, 4); clickAt(c, -1, 4);
+    expect(dims(ctx.store)[2]!.mode).toBe('aligned');
+  });
+
+  it('com família padrão no projeto, a cota nova grava o familyId e não os campos soltos de estilo', () => {
+    const ctx = makeEnv();
+    const familia = {
+      id: 'fam_x', name: 'Arquitetônica', tick: 'slash' as const, tickSize: 2.8, textHeight: 2.5, font: 'Arial',
+      extensionGap: 1.5, extensionOvershoot: 2, textPlacement: 'above' as const, textGap: 1.5,
+      readConvention: 'aligned' as const, textFit: 'leader' as const, leaderWhenNoFit: true, stackSpacing: 7,
+      unit: 'project' as const, precision: 2 as const, prefix: '', suffix: '',
+    };
+    ctx.store.exec({ type: 'upsertDimensionFamily', family: familia });
+    ctx.store.exec({ type: 'setDefaultDimensionFamily', id: 'fam_x' });
+    const t = tool('dimension', ctx.env);
+    clickAt(t, 0, 0); clickAt(t, 4, 0); clickAt(t, 2, 1);
+    const d = dims(ctx.store)[0]!;
+    expect(d.familyId).toBe('fam_x');
+    expect(d.unit).toBeUndefined();
+    expect(d.tickStyle).toBeUndefined();
+  });
+
+  it('sem famílias explícitas a cota não grava familyId (segue o estilo global, como antes)', () => {
+    const ctx = makeEnv();
+    const t = tool('dimension', ctx.env);
+    clickAt(t, 0, 0); clickAt(t, 4, 0); clickAt(t, 2, 1);
+    expect(dims(ctx.store)[0]!.familyId).toBeUndefined();
+  });
+
+  it('o afastamento encosta na linha de cota existente e fica lembrado para a próxima', () => {
+    const ctx = makeEnv();
+    const a = tool('dimension', ctx.env);
+    clickAt(a, 0, 0); clickAt(a, 4, 0); clickAt(a, 2, 1);
+    expect(dims(ctx.store)[0]!.offset).toBeCloseTo(1, 9);
+    expect(ctx.options.dimensionOffset).toBeCloseTo(1, 9);
+    // Cursor a 2 cm da linha existente: a cota nova nasce alinhada com ela (encaixe de 3 mm de papel).
+    const b = tool('dimension', ctx.env);
+    clickAt(b, 0, 0); clickAt(b, 4, 0); clickAt(b, 2, 1.02);
+    expect(dims(ctx.store)[1]!.offset).toBeCloseTo(1, 9);
+    // Cursor longe: o afastamento é o do cursor.
+    const c = tool('dimension', ctx.env);
+    clickAt(c, 0, 0); clickAt(c, 4, 0); clickAt(c, 2, 2);
+    expect(dims(ctx.store)[2]!.offset).toBeCloseTo(2, 9);
+  });
+});
