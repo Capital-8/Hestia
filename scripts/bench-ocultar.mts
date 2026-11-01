@@ -1,0 +1,14 @@
+import { readFileSync } from 'node:fs';
+import { performance } from 'node:perf_hooks';
+import { resolveLevel } from '@hestia/engine';
+import { migrateProject } from '@hestia/model';
+import { ModelScene } from '@hestia/render';
+const p = migrateProject(JSON.parse(readFileSync(process.argv[2]!, 'utf8')));
+const t = (f: () => unknown): number => { const a = performance.now(); f(); return performance.now() - a; };
+const resolved = p.levels.map((l) => resolveLevel(p, l.id));
+const sc = new ModelScene(); const O = { edges: false, shadows: false, dark: false };
+sc.update(p, resolved, O);
+const walls = Object.values(p.elements).filter((e) => e.kind === 'wall');
+const doNivel = (i: number) => walls.filter((w) => (w as { levelId: string }).levelId === p.levels[i]!.id).map((w) => w.id);
+const casos: Array<[string, Set<string>]> = [['1 parede', new Set([walls[5]!.id])], ['outra parede (outro piso)', new Set([walls[700]!.id])], ['restaurar', new Set()], ['isolar: oculta 90% do piso 5', new Set(doNivel(4).slice(0, 130))], ['restaurar', new Set()]];
+for (const [n, hidden] of casos) console.log(n.padEnd(30), t(() => sc.update(p, resolved, { ...O, hidden })).toFixed(0).padStart(6), 'ms');
