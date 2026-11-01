@@ -4,6 +4,7 @@ import { dockPanels, saveDock, type DockSide } from '../editor/dockLayout.ts';
 import { useUi } from '../editor/state.ts';
 import { Browser } from './Browser.tsx';
 import { Properties } from './Properties.tsx';
+import { useNarrow } from './useNarrow.ts';
 
 /** Arrasto com o ponteiro capturado: `move` recebe o deslocamento desde o início; ao soltar, guarda a disposição. */
 function drag(e: ReactPointerEvent, move: (dx: number, dy: number) => void): void {
@@ -32,6 +33,7 @@ export function Dock({ side }: { side: DockSide }): ReactElement {
   const propsOpen = useUi((s) => s.propsOpen);
   const browserOpen = useUi((s) => s.browserOpen);
   const dock = useUi((s) => s.dock);
+  const narrow = useNarrow();
   const ref = useRef<HTMLDivElement>(null);
   const panels = dockPanels(dock, side, { props: propsOpen, browser: browserOpen });
   if (panels.length === 0) return <div className={`dock ${side} empty`} />;
@@ -49,7 +51,7 @@ export function Dock({ side }: { side: DockSide }): ReactElement {
   };
 
   return (
-    <div ref={ref} className={`dock ${side}`} style={{ width: w }}>
+    <div ref={ref} className={`dock ${side}`} style={{ width: w, maxWidth: narrow ? '86vw' : undefined }}>
       {panels.map((p, i) => (
         <Fragment key={p}>
           {both && i === 1 && (

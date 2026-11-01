@@ -3,14 +3,14 @@ import { useProject } from '../editor/controller.ts';
 import { useUi } from '../editor/state.ts';
 import { activeViewOf, sameView, viewKey } from '../editor/openViews.ts';
 import { activateView, closeTab, dropMissingViews, tabOf } from '../editor/viewTabActions.ts';
+import { useNarrow } from './useNarrow.ts';
 import { Icon } from './Icon.tsx';
-
-const narrow = (): boolean => window.innerWidth <= 900;
 
 export function ViewTabs(): ReactElement {
   const p = useProject();
   const s = useUi();
   const active = activeViewOf(s);
+  const narrow = useNarrow();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
@@ -144,7 +144,7 @@ export function ViewTabs(): ReactElement {
         {allTabs.map((t) => (
           <div key={t.key} style={{ display: 'inline-flex', alignItems: 'flex-end' }}>
             <button className="vtab">
-              <Icon name={t.icon} size={14} /> {t.label}
+              <Icon name={t.icon} size={14} /> <span className="vtab-label">{t.label}</span>
             </button>
             <span style={{ width: 20 }} />
           </div>
@@ -159,7 +159,7 @@ export function ViewTabs(): ReactElement {
             className={`vtab${t.active ? ' on' : ''}`}
             onClick={t.onClick}
           >
-            <Icon name={t.icon} size={14} /> {t.label}
+            <Icon name={t.icon} size={14} /> <span className="vtab-label">{t.label}</span>
           </button>
           <button
             type="button"
@@ -221,10 +221,10 @@ export function ViewTabs(): ReactElement {
       <span style={{ flex: 1, minWidth: 4 }} />
 
       <div className="vtab-controls" ref={controlsRef}>
-        <button className="ibtn" onClick={() => useUi.setState({ propsOpen: !s.propsOpen, ...(narrow() && !s.propsOpen ? { browserOpen: false } : {}) })} title="Mostrar/ocultar propriedades" aria-pressed={s.propsOpen}>
+        <button className="ibtn" onClick={() => useUi.setState({ propsOpen: !s.propsOpen, ...(narrow && !s.propsOpen ? { browserOpen: false } : {}) })} title="Mostrar/ocultar propriedades" aria-pressed={s.propsOpen}>
           <Icon name="edit" size={16} />
         </button>
-        <button className="ibtn" onClick={() => useUi.setState({ browserOpen: !s.browserOpen, ...(narrow() && !s.browserOpen ? { propsOpen: false } : {}) })} title="Mostrar/ocultar navegador" aria-pressed={s.browserOpen}>
+        <button className="ibtn" onClick={() => useUi.setState({ browserOpen: !s.browserOpen, ...(narrow && !s.browserOpen ? { propsOpen: false } : {}) })} title="Mostrar/ocultar navegador" aria-pressed={s.browserOpen}>
           <Icon name="levels" size={16} />
         </button>
       </div>

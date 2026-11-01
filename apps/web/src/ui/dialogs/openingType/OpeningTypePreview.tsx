@@ -170,7 +170,7 @@ export function OpeningTypePreview({
             </div>
           </div>
         ) : svg ? (
-          <div style={{ width: '100%', height: '100%', minHeight: 340 }} dangerouslySetInnerHTML={{ __html: svg }} />
+          <div style={{ width: '100%', height: '100%', minHeight: 0 }} dangerouslySetInnerHTML={{ __html: svg }} />
         ) : (
           <div className="op-pv-soon">Prévia indisponível</div>
         )}

@@ -28,6 +28,7 @@ export * from './room.ts';
 export * from './stair.ts';
 export * from './stairTypes.ts';
 export * from './stairTransform.ts';
+export * from './stairFit.ts';
 export * from './ramp.ts';
 export * from './rampTypes.ts';
 export * from './rampTransform.ts';

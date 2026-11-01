@@ -61,7 +61,7 @@ export function UnitsDialog(): ReactElement {
         </>
       }
     >
-      <table className="layers">
+      <table className="layers units">
         <thead>
           <tr>
             <th>Grandeza</th>

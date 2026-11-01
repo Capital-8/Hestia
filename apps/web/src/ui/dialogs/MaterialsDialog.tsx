@@ -57,7 +57,7 @@ export function MaterialsDialog({ pickFor, onPick, onClose }: { pickFor?: string
         </>
       }
     >
-      <div className="split" style={{ gridTemplateColumns: 'minmax(180px, 1fr) minmax(0, 1.4fr)' }}>
+      <div className="split mat-split">
         <div>
           <input id="mat-search" className="input wide" placeholder="Buscar material" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.stopPropagation()} aria-label="Buscar material" />
           <div className="matlist" style={{ marginTop: 6 }}>
