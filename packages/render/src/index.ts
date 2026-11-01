@@ -38,6 +38,7 @@ export * from './section/handles.ts';
 export * from './section/live.ts';
 export { sectionStyleOf, type SectionStyle } from './section/style.ts';
 // Vista da planta (decisão 0013) e o que a exportação DXF reaproveita dela: a mesma geometria, o mesmo corte e a mesma pegada.
+export { contextoDaVista } from './plan/viewContext.ts';
 export { planViewOf, hiddenSelectionOps, type PlanView } from './plan/view.ts';
 export { openingPlanWorldPaths, openingPlanDetail, openingDetailByZoom, type OpeningPlanWorldPath, type OpeningSymbolDetail, type OpeningSymbolOptions } from './plan/symbols.ts';
 // Gráficos da vista (decisão 0015): estilo resolvido por nível, com o zoom corrente, e o padrão de uma categoria.

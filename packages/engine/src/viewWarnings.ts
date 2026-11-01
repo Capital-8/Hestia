@@ -1,5 +1,5 @@
 import type { Id, Project, ViewRange } from '@hestia/model';
-import { classifyLevelEntries, type ViewCategory } from './viewClass.ts';
+import { classifyLevelEntries, type ViewCategory, type ViewContext } from './viewClass.ts';
 
 /** `hidden`: fora do intervalo (acima do topo ou abaixo da profundidade). `beyond`: abaixo da base, dentro da profundidade. */
 export type ViewWarningKind = 'hidden' | 'beyond';
@@ -43,8 +43,8 @@ const messageOf = (category: ViewCategory, kind: ViewWarningKind, count: number)
  * Avisos da vista do nível: um por categoria e estado (`hidden`, `beyond`) que tenha elementos, em ordem de categoria.
  * O telhado acima do topo também aparece (é o caso comum); quem decide mostrar é a interface.
  */
-export function viewRangeWarnings(p: Project, levelId: Id, range: ViewRange): ViewRangeWarning[] {
-  const entries = classifyLevelEntries(p, levelId, range);
+export function viewRangeWarnings(p: Project, levelId: Id, range: ViewRange, ctx?: ViewContext): ViewRangeWarning[] {
+  const entries = classifyLevelEntries(p, levelId, range, ctx);
   const out: ViewRangeWarning[] = [];
   for (const category of CATEGORY_ORDER) {
     // Forro só é desenhado na planta de forro: na planta baixa ele não é aviso de intervalo.

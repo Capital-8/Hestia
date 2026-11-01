@@ -1,5 +1,6 @@
 /* eslint-disable max-lines */
 import { useMemo, useState, type ReactElement } from 'react';
+import { contextoDaVista } from '@hestia/render';
 import { joinStatus, levelFrames, quantifyLevel, viewRangeWarnings } from '@hestia/engine';
 import {
   FUNCTION_LABEL,
@@ -305,7 +306,7 @@ function ViewRangeGroup({ levelId }: { levelId: Id }): ReactElement {
   const p = useProject();
   const range = viewRangeOf(p, levelId);
   // Classificar o nível resolve pisos, lajes e telhados do projeto: fica fora do clique e em cache por projeto.
-  const warnings = useAdiado(p, `avisos-vista|${levelId}|${JSON.stringify(range)}`, () => viewRangeWarnings(p, levelId, range)) ?? [];
+  const warnings = useAdiado(p, `avisos-vista|${levelId}|${JSON.stringify(range)}`, () => viewRangeWarnings(p, levelId, range, contextoDaVista(p, levelId))) ?? [];
   const [error, setError] = useState<string | null>(null);
   const edit = (patch: Partial<ViewRange>): void => setError(editViewRange(editor.store, levelId, patch).error);
   return (

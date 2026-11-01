@@ -92,3 +92,5 @@ export * from './resolveLevels.ts';
 export * from './wallPlanes.ts';
 export * from './openingExtents.ts';
 export * from './angularDimension.ts';
+export * from './assinaturasNivel.ts';
+export * from './sectionIncremental.ts';

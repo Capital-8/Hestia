@@ -10,8 +10,8 @@ import type { Id, Project } from '@hestia/model';
  * isso com `caminhoNaoSerializavel` antes de pedir ao worker; o que não for clonável é resolvido na thread principal.
  */
 
-/** Tipos de resolução que podem rodar no worker (cada um tem uma chamada em `executor.ts`). */
-export const TIPOS_RESOLUCAO = ['nivel', 'patchNivel', 'pisos', 'lajes', 'telhados', 'ambientes', 'juncoes'] as const;
+/** Tipos de resolução que podem rodar no worker (cada um tem uma chamada em `executor.ts`). `corte` usa o id da vista de corte no lugar do nível. */
+export const TIPOS_RESOLUCAO = ['nivel', 'patchNivel', 'pisos', 'lajes', 'telhados', 'ambientes', 'juncoes', 'corte'] as const;
 export type TipoResolucao = (typeof TIPOS_RESOLUCAO)[number];
 
 /**

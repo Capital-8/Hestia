@@ -33,13 +33,14 @@ function tela(x: number, y: number): { x: number; y: number } {
 }
 
 describe('seleção de cota no corte e na elevação (sectionPickAt, alças e exclusão)', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     const store = new ProjectStore(createEmptyProject());
     store.exec({ type: 'addWall', wall: makeWall({ id: 'w1', typeId: 'wt_alv14', levelId: 'lv_0', a: { x: 0, y: 0 }, b: { x: 6, y: 0 }, height: 3 }) });
     store.exec({ type: 'addView', view: { id: 'elev', name: 'Elevação Sul', kind: 'elevation', a: { x: -1, y: -2 }, b: { x: 7, y: -2 }, depth: 20 } });
     store.exec({ type: 'setSectionAnnotations', sectionId: 'elev', annotations: anotacoes() });
     editor.load(store.project, 'teste.hestia.json');
     editor.openSection('elev');
+    await editor.sectionReady('elev'); // o corte é calculado em segundo plano
     editor.ensureViewport(800, 600);
     editor.setViewport({ ...editor.viewport()!, cx: 3, cy: 2.5, zoom: ZOOM });
   });
