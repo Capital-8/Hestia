@@ -1,4 +1,5 @@
 import { missingText, type StairStatus } from '@hestia/tools';
+import { refitStairToHeight } from '@hestia/engine';
 import type { Id, Project, ProjectStore, Stair, StairRun } from '@hestia/model';
 
 interface Pt {
@@ -31,11 +32,36 @@ export function stairBox(s: Stair): StairBox | null {
   return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
 }
 
-/** Altera campos de uma ou mais escadas num único passo de desfazer (um `updateElements` dentro de uma transação). */
+/** Campos que mudam a altura entre níveis e, portanto, podem exigir o reajuste dos espelhos. */
+const FIT_KEYS: ReadonlySet<keyof Stair> = new Set(['topLevelId', 'topOffset', 'baseOffset', 'height', 'levelId', 'typeId', 'riserMode']);
+
+/**
+ * Altera campos de uma ou mais escadas num único passo de desfazer (um `updateElements` dentro de uma transação).
+ * Quando a mudança mexe na altura (nível de topo, deslocamentos, tipo ou modo dos espelhos), a escada é reajustada
+ * na mesma transação pela fórmula do tipo (`refitStairToHeight`, decisão 0041): os lances esticam/encolhem para o piso
+ * calculado e o nº de espelhos é mantido.
+ */
 export function patchStairs(store: ProjectStore, ids: Id[], patch: Partial<Stair>, label = 'Editar escada'): void {
   if (ids.length === 0) return;
+  const refit = Object.keys(patch).some((k) => FIT_KEYS.has(k as keyof Stair));
   store.transaction(label, () => {
     store.exec({ type: 'updateElements', ids, patch });
+    if (!refit) return;
+    for (const id of ids) {
+      const s = store.project.elements[id];
+      if (!s || s.kind !== 'stair') continue;
+      const fit = refitStairToHeight(store.project, s);
+      if (!fit.components) continue;
+      store.exec({
+        type: 'updateElements',
+        ids: [id],
+        patch: {
+          components: fit.components,
+          ...(fit.freePath ? { freePath: fit.freePath } : {}),
+          ...(fit.manualLandings ? { manualLandings: fit.manualLandings } : {}),
+        },
+      });
+    }
   });
 }
 

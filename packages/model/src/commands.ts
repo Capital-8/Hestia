@@ -207,6 +207,7 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
       : {}),
   }));
   const walls = c.ids.map((id) => p.elements[id]).filter(isWall);
+  const wallIds = new Set(walls.map((w) => w.id));
   for (const w of walls) {
     const next = transformWall(w, c.transform);
     if (idMap) {
@@ -217,7 +218,17 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
       p.elements[w.id] = next;
     }
   }
-  if (!idMap) return;
+  if (!idMap) {
+    // Espelhar troca a face para onde a folha abre (`flipFacing`); a mão da dobradiça (`flipHand`) fica.
+    // Só as aberturas das paredes realmente transformadas mudam.
+    if (c.transform.kind === 'mirror') {
+      for (const o of Object.values(p.elements).filter(isOpening)) {
+        if (!wallIds.has(o.hostId)) continue;
+        p.elements[o.id] = { ...o, flipFacing: !o.flipFacing };
+      }
+    }
+    return;
+  }
   // Cópia: leva as aberturas hospedadas junto, no mesmo deslocamento.
   for (const w of walls) {
     const nw = idMap[w.id];
@@ -226,8 +237,7 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
       if (o.hostId !== w.id) continue;
       const nid = idMap[o.id];
       if (!nid) continue;
-      const flip = c.transform.kind === 'mirror';
-      p.elements[nid] = { ...o, id: nid, hostId: nw, flipHand: flip ? !o.flipHand : o.flipHand };
+      p.elements[nid] = { ...o, id: nid, hostId: nw, flipHand: o.flipHand, flipFacing: c.transform.kind === 'mirror' ? !o.flipFacing : o.flipFacing };
     }
   }
 }

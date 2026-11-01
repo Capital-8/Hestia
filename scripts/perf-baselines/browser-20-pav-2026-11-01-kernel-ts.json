@@ -1,0 +1,350 @@
+{
+  "geradoEm": "2026-11-01T02:23:01.487Z",
+  "navegador": {
+    "executavel": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "versao": "156.0.8078.79",
+    "cabecalhoGPU": "padrão do navegador (sem --use-angle=swiftshader)",
+    "headless": true
+  },
+  "app": {
+    "endereco": "http://127.0.0.1:50844",
+    "modo": "producao"
+  },
+  "maquina": {
+    "so": "win32 10.0.19045",
+    "cpu": "Intel(R) Xeon(R) CPU E5-2620 v3 @ 2.40GHz",
+    "ramTotalGB": 15.8
+  },
+  "metodo": {
+    "repeticoes": 5,
+    "panPassos": 60,
+    "zoomPassos": 30,
+    "medida": "do evento ao quadro seguinte pintado (rAF duplo)",
+    "rotulo": "kernel-ts",
+    "parede": "perf_w_<nivel do meio>_25, de (6,4) a (6,8)",
+    "edicao": "setWallEnds pelo store (editor.store.exec), deslocamento de 0.3 m alternado"
+  },
+  "medidas": {
+    "10Pavimentos": {
+      "pavimentos": 10,
+      "paredes": 320,
+      "abrirProjeto": {
+        "n": 5,
+        "medianaMs": 465.7,
+        "p95Ms": 521.2,
+        "mediaMs": 485.62,
+        "minMs": 462,
+        "maxMs": 521.2
+      },
+      "carregarPaginaAteAppPronto": {
+        "n": 5,
+        "medianaMs": 2037,
+        "p95Ms": 2123,
+        "mediaMs": 2051.4,
+        "minMs": 1970,
+        "maxMs": 2123
+      },
+      "primeiraPinturaFCP": {
+        "n": 5,
+        "medianaMs": 1352,
+        "p95Ms": 1400,
+        "mediaMs": 1360,
+        "minMs": 1328,
+        "maxMs": 1400
+      },
+      "plantaNivelDoMeio": {
+        "n": 5,
+        "medianaMs": 55.4,
+        "p95Ms": 550.8,
+        "mediaMs": 154.6,
+        "minMs": 54.9,
+        "maxMs": 550.8
+      },
+      "selecaoPorCliqueNaPlanta": {
+        "cliques": 5,
+        "acertouParede": 5,
+        "tempo": {
+          "n": 5,
+          "medianaMs": 22.1,
+          "p95Ms": 99.5,
+          "mediaMs": 37,
+          "minMs": 18.5,
+          "maxMs": 99.5
+        }
+      },
+      "edicaoParede": {
+        "edicoes": 5,
+        "confirmadasNoStore": 5,
+        "tempo": {
+          "n": 5,
+          "medianaMs": 61.1,
+          "p95Ms": 98.1,
+          "mediaMs": 62.52,
+          "minMs": 36.3,
+          "maxMs": 98.1
+        }
+      },
+      "portaNaParede": {
+        "inseridas": 5,
+        "tempo": {
+          "n": 5,
+          "medianaMs": 236.4,
+          "p95Ms": 250,
+          "mediaMs": 237.08,
+          "minMs": 225,
+          "maxMs": 250
+        }
+      },
+      "janelaNaParede": {
+        "inseridas": 5,
+        "tempo": {
+          "n": 5,
+          "medianaMs": 238.6,
+          "p95Ms": 257.6,
+          "mediaMs": 240.86,
+          "minMs": 229.4,
+          "maxMs": 257.6
+        }
+      },
+      "paredeNova": {
+        "criadas": 5,
+        "tempo": {
+          "n": 5,
+          "medianaMs": 23.9,
+          "p95Ms": 24.9,
+          "mediaMs": 24.08,
+          "minMs": 23.3,
+          "maxMs": 24.9
+        }
+      },
+      "pan": {
+        "n": 300,
+        "medianaMs": 21.9,
+        "p95Ms": 25.1,
+        "mediaMs": 21.1,
+        "minMs": 8.6,
+        "maxMs": 49.5
+      },
+      "zoom": {
+        "n": 150,
+        "medianaMs": 16.5,
+        "p95Ms": 18.8,
+        "mediaMs": 16.3,
+        "minMs": 10.5,
+        "maxMs": 23
+      },
+      "abrir3DPrimeiroQuadro": {
+        "ms": 1981
+      },
+      "abrir3DCargaCompleta": {
+        "ms": 2000
+      },
+      "pick3D": {
+        "cliques": 20,
+        "tempo": {
+          "n": 20,
+          "medianaMs": 21.2,
+          "p95Ms": 25.2,
+          "mediaMs": 21.88,
+          "minMs": 19.4,
+          "maxMs": 26.6
+        }
+      },
+      "orbitar3D": {
+        "passos": 150,
+        "tempo": {
+          "n": 150,
+          "medianaMs": 16.4,
+          "p95Ms": 20.4,
+          "mediaMs": 17.4,
+          "minMs": 14.6,
+          "maxMs": 91.4
+        }
+      },
+      "pan3D": {
+        "passos": 150,
+        "tempo": {
+          "n": 150,
+          "medianaMs": 23.7,
+          "p95Ms": 27.3,
+          "mediaMs": 21.85,
+          "minMs": 11.4,
+          "maxMs": 48.9
+        }
+      },
+      "edicaoParede3D": {
+        "edicoes": 5,
+        "confirmadasNoStore": 5,
+        "tempo": {
+          "n": 5,
+          "medianaMs": 125.9,
+          "p95Ms": 146.4,
+          "mediaMs": 123.04,
+          "minMs": 91,
+          "maxMs": 146.4
+        }
+      }
+    },
+    "20Pavimentos": {
+      "pavimentos": 20,
+      "paredes": 640,
+      "abrirProjeto": {
+        "n": 5,
+        "medianaMs": 446.8,
+        "p95Ms": 466.1,
+        "mediaMs": 437.06,
+        "minMs": 387.1,
+        "maxMs": 466.1
+      },
+      "carregarPaginaAteAppPronto": {
+        "n": 5,
+        "medianaMs": 1698,
+        "p95Ms": 2039,
+        "mediaMs": 1738,
+        "minMs": 1445,
+        "maxMs": 2039
+      },
+      "primeiraPinturaFCP": {
+        "n": 5,
+        "medianaMs": 1180,
+        "p95Ms": 1356,
+        "mediaMs": 1193.6,
+        "minMs": 1012,
+        "maxMs": 1356
+      },
+      "plantaNivelDoMeio": {
+        "n": 5,
+        "medianaMs": 92.7,
+        "p95Ms": 702.5,
+        "mediaMs": 215.96,
+        "minMs": 87.2,
+        "maxMs": 702.5
+      },
+      "selecaoPorCliqueNaPlanta": {
+        "cliques": 5,
+        "acertouParede": 5,
+        "tempo": {
+          "n": 5,
+          "medianaMs": 18.8,
+          "p95Ms": 34.7,
+          "mediaMs": 21.4,
+          "minMs": 16.9,
+          "maxMs": 34.7
+        }
+      },
+      "edicaoParede": {
+        "edicoes": 5,
+        "confirmadasNoStore": 5,
+        "tempo": {
+          "n": 5,
+          "medianaMs": 75.8,
+          "p95Ms": 82.5,
+          "mediaMs": 62.42,
+          "minMs": 34.1,
+          "maxMs": 82.5
+        }
+      },
+      "portaNaParede": {
+        "inseridas": 5,
+        "tempo": {
+          "n": 5,
+          "medianaMs": 228.3,
+          "p95Ms": 237.8,
+          "mediaMs": 226.36,
+          "minMs": 211.6,
+          "maxMs": 237.8
+        }
+      },
+      "janelaNaParede": {
+        "inseridas": 5,
+        "tempo": {
+          "n": 5,
+          "medianaMs": 213.6,
+          "p95Ms": 222.8,
+          "mediaMs": 215.06,
+          "minMs": 209.5,
+          "maxMs": 222.8
+        }
+      },
+      "paredeNova": {
+        "criadas": 5,
+        "tempo": {
+          "n": 5,
+          "medianaMs": 28.5,
+          "p95Ms": 64.9,
+          "mediaMs": 36.1,
+          "minMs": 27.2,
+          "maxMs": 64.9
+        }
+      },
+      "pan": {
+        "n": 300,
+        "medianaMs": 16.7,
+        "p95Ms": 24.5,
+        "mediaMs": 18.89,
+        "minMs": 9.9,
+        "maxMs": 33.5
+      },
+      "zoom": {
+        "n": 150,
+        "medianaMs": 16.5,
+        "p95Ms": 19,
+        "mediaMs": 16.78,
+        "minMs": 14,
+        "maxMs": 27
+      },
+      "abrir3DPrimeiroQuadro": {
+        "ms": 1723
+      },
+      "abrir3DCargaCompleta": {
+        "ms": 1755
+      },
+      "pick3D": {
+        "cliques": 20,
+        "tempo": {
+          "n": 20,
+          "medianaMs": 24.5,
+          "p95Ms": 34.2,
+          "mediaMs": 27.02,
+          "minMs": 21.9,
+          "maxMs": 50.3
+        }
+      },
+      "orbitar3D": {
+        "passos": 150,
+        "tempo": {
+          "n": 150,
+          "medianaMs": 18.9,
+          "p95Ms": 25.3,
+          "mediaMs": 19.91,
+          "minMs": 16.8,
+          "maxMs": 37.4
+        }
+      },
+      "pan3D": {
+        "passos": 150,
+        "tempo": {
+          "n": 150,
+          "medianaMs": 25.4,
+          "p95Ms": 35,
+          "mediaMs": 25.35,
+          "minMs": 14.4,
+          "maxMs": 43.3
+        }
+      },
+      "edicaoParede3D": {
+        "edicoes": 5,
+        "confirmadasNoStore": 5,
+        "tempo": {
+          "n": 5,
+          "medianaMs": 154.3,
+          "p95Ms": 174.9,
+          "mediaMs": 153.48,
+          "minMs": 118,
+          "maxMs": 174.9
+        }
+      }
+    }
+  },
+  "pendencias": []
+}

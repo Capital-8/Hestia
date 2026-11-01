@@ -15,6 +15,8 @@ export function stairIssueText(i: StairTypeIssue, t: Dict): string {
   switch (i.code) {
     case 'stt-name-empty': return t.stt_err_name;
     case 'stt-riser': return t.stt_err_riser;
+    case 'stt-riser-min': return t.stt_err_riser_min;
+    case 'stt-riser-min-range': return t.stt_err_riser_min_range;
     case 'stt-tread': return t.stt_err_tread;
     case 'stt-width': return t.stt_err_width;
     case 'stt-headroom': return t.stt_err_headroom;
@@ -40,6 +42,7 @@ export function stairIssueText(i: StairTypeIssue, t: Dict): string {
 
 const FIELD_LABEL: Record<StairFieldName, keyof Dict> = {
   maxRiser: 'stt_f_maxRiser',
+  minRiser: 'stt_f_minRiser',
   minTread: 'stt_f_minTread',
   minRunWidth: 'stt_f_minRunWidth',
   minHeadroom: 'stt_f_minHeadroom',
@@ -101,6 +104,7 @@ export function StairTypeSections({ draft, set, onStyle, materials, issues, canG
     const base = STAIR_FIELD_LIMITS[field];
     let min: number = base.min;
     let max: number = base.max;
+    if (field === 'minRiser') max = Math.max(base.min, draft.maxRiser - 0.001);
     if (field === 'nosing') max = Math.max(0, draft.minTread - 0.01);
     if (field === 'calcMin') max = Math.max(base.min, draft.calcMax);
     if (field === 'calcMax') min = Math.min(base.max, draft.calcMin);
@@ -205,6 +209,7 @@ export function StairTypeSections({ draft, set, onStyle, materials, issues, canG
       <fieldset className="dsec" id="stt-sec-1">
         <legend>{t.stt_sec_dims}</legend>
         {row('maxRiser')}
+        {row('minRiser')}
         {row('minTread')}
         {row('minRunWidth')}
         {row('minHeadroom')}

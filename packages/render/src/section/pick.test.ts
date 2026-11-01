@@ -3,6 +3,7 @@ import { multiArea, pointInMulti, union, type MultiPolygon, type Vec2 } from '@h
 import { computeSection, type SectionOpening, type SectionResult } from '@hestia/engine';
 import { ProjectStore, createEmptyProject, defaultStairTypeId, makeFloor, makeRoof, makeSlab, makeStair, makeWall, type Project, type StairCurve, type StairRun } from '@hestia/model';
 import { LIGHT } from '../plan/types.ts';
+import { AVISO, AVISO_ALPHA } from '../aviso.ts';
 import { buildSectionDrawList, type SectionInput } from './build.ts';
 import { ownerOf, pickSection, sectionItems } from './pick.ts';
 
@@ -223,6 +224,14 @@ describe('realce na lista de desenho', () => {
   };
   const selectedFills = (d: ReturnType<typeof buildSectionDrawList>) => d.fills.filter((f) => f.color === LIGHT_SELECT && f.alpha === 0.25);
   const hoverStrokes = (d: ReturnType<typeof buildSectionDrawList>) => d.strokes.filter((s) => s.color === LIGHT_SELECT && s.alpha === 0.55);
+
+  it('aviso (decisão 0044): a parede em conflito sai em amarelo, por cima do desenho', () => {
+    const d = buildSectionDrawList(input({ selection: [], hover: null, aviso: ['frente'] }));
+    expect(d.fills.some((f) => f.color === AVISO && f.alpha === AVISO_ALPHA)).toBe(true);
+    expect(d.strokes.some((s) => s.color === AVISO && s.widthPx === 2.5)).toBe(true);
+    const sem = buildSectionDrawList(input({ selection: [], hover: null }));
+    expect(sem.fills.some((f) => f.color === AVISO)).toBe(false);
+  });
 
   it('sem realce, o desenho não traz nenhuma sobreposição da cor de seleção', () => {
     const d = buildSectionDrawList(input());

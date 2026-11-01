@@ -7,6 +7,7 @@ export type StairFormField = StairFieldName | 'materialId' | 'postMaterialId' | 
 /** Ordem de exibição usada por `visibleStairFields` (a mesma das seções do modal). */
 const ORDER: readonly StairFormField[] = [
   'maxRiser',
+  'minRiser',
   'minTread',
   'minRunWidth',
   'minHeadroom',

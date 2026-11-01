@@ -28,6 +28,14 @@ describe('validação estruturada do tipo de escada', () => {
     expect(errors(mono({ runStyle: 'post', treadThickness: 0.03, treadOverlap: 0.04 }))).toContain('stt-overlap');
   });
 
+  it('espelho mínimo: precisa ser > 0 e menor que o máximo', () => {
+    expect(errors(mono({ minRiser: 0.16, maxRiser: 0.18 }))).toEqual([]);
+    expect(errors(mono({ minRiser: 0 }))).toEqual(['stt-riser-min']);
+    expect(errors(mono({ minRiser: 0.18, maxRiser: 0.18 }))).toEqual(['stt-riser-min-range']);
+    expect(errors(mono({ minRiser: 0.2, maxRiser: 0.18 }))).toEqual(['stt-riser-min-range']);
+    expect(STAIR_FIELD_LIMITS.minRiser).toMatchObject({ unit: 'cm', scale: 100 });
+  });
+
   it('espessuras por estilo e nome obrigatório', () => {
     expect(errors(mono({ structuralDepth: 0 }))).toEqual(['stt-mono-depth']);
     expect(errors({ ...DEFAULT_STAIR_TYPES[1]!, treadThickness: 0 })).toEqual(['stt-assembled']);

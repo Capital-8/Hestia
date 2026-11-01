@@ -3,7 +3,8 @@ import { formatQuantity, unitsOf, type ResolvedUnits } from '@hestia/model';
 import { copyWalls, ghostBands, ghostViews, transformViews } from './edit.ts';
 import { fmtM, SelectionTool } from './transformTools.ts';
 import { parseQuantityText } from './numeric.ts';
-import { arraySet, commitRadial, fmtXY, itensSobrepostos, linearStep, radialAngles, radialGhosts } from './arrayRadial.ts';
+import { arraySet, commitRadial, fmtXY, itensSobrepostos, linearStep, radialAngles, radialGhosts, rotations } from './arrayRadial.ts';
+import { refuseCopiesOverlap } from './wallOverlapGuard.ts';
 import type { PointerInfo } from './types.ts';
 
 /**
@@ -150,7 +151,8 @@ export class ArrayTool extends SelectionTool {
     this.checkStep();
     this.items = [];
     if (this.radial()) return this.moveRadial(p);
-    const inf = this.snap(p, { from: this.base ?? undefined, ignore: new Set(this.movables()) });
+    // Base/centro enxergam a própria seleção; a direção (delta) ignora o que se move, como no Mover.
+    const inf = this.snap(p, { from: this.base ?? undefined, ignore: this.base ? new Set(this.movables()) : undefined });
     if (!this.base) {
       this.items.push({ kind: 'point', at: inf.point });
       return;
@@ -164,7 +166,7 @@ export class ArrayTool extends SelectionTool {
 
   /** Radial: antes do centro, mostra a dica no cursor; depois, a pré-visualização dos itens nos ângulos da barra. */
   private moveRadial(p: PointerInfo): void {
-    const inf = this.snap(p, { from: this.base ?? undefined, ignore: new Set(this.movables()) });
+    const inf = this.snap(p, { from: this.base ?? undefined, ignore: this.base ? new Set(this.movables()) : undefined });
     if (!this.base) {
       this.items.push({ kind: 'point', at: inf.point }, { kind: 'label', at: inf.point, text: TEXTOS[this.lang()].centroRadial });
       return;
@@ -182,6 +184,9 @@ export class ArrayTool extends SelectionTool {
     if (len(step) < 1e-6) return;
     const els = this.movables();
     const views = this.views();
+    // Decisão 0044: a matriz não pode criar parede em cima de outra (nem uma cópia em cima da outra).
+    const passos = Array.from({ length: n - 1 }, (_, i) => ({ kind: 'translate' as const, d: mul(step, i + 1) }));
+    if (els.length && refuseCopiesOverlap(this.env, els, passos)) return;
     this.env.transaction('Matriz', () => {
       for (let i = 1; i < n; i++) {
         const t = { kind: 'translate', d: mul(step, i) } as const;
@@ -204,6 +209,8 @@ export class ArrayTool extends SelectionTool {
     const angles = radialAngles(n, angleDeg, this.anchor());
     const p = this.env.project();
     const set = arraySet(p, this.env.selection());
+    // Decisão 0044: nenhuma cópia da matriz radial pode cair em cima de uma parede.
+    if (set.els.length && refuseCopiesOverlap(this.env, set.els, rotations(center, angles))) return;
     // Itens que caem sobre parede existente: o aviso sai na barra, mas a cópia é feita (só avisa, como no croqui).
     const sobre = itensSobrepostos(p, this.env.levelId(), set, center, angles);
     commitRadial(this.env, set, center, angles);
@@ -216,7 +223,7 @@ export class ArrayTool extends SelectionTool {
 
   override click(p: PointerInfo): void {
     this.checkStep();
-    const inf = this.snap(p, { from: this.base ?? undefined, ignore: new Set(this.movables()) });
+    const inf = this.snap(p, { from: this.base ?? undefined, ignore: this.base ? new Set(this.movables()) : undefined });
     if (this.radial()) {
       if (!this.base) {
         this.startStep(inf.point);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildTemplate, createEmptyProject } from '@hestia/model';
-import { levelDataOf, levelElevationLabel, levelProjectBox, LEVEL_HEAD_GAP } from './levelsData.ts';
+import { levelDataOf, levelElevationLabel, levelProjectBox, LEVEL_HEAD_GAP, LEVEL_LINE_OFFSET } from './levelsData.ts';
 
 describe('datum de nível no 3D (dados)', () => {
   it('cota com sinal e vírgula', () => {
@@ -20,16 +20,18 @@ describe('datum de nível no 3D (dados)', () => {
     expect(data[1]!.text).toMatch(/Pavimento 2 \+3,00/);
   });
 
-  it('a linha fica na caixa do projeto, na cota do nível, e a bolha depois do fim', () => {
+  it('a linha fica na caixa do projeto afastada, na cota do nível; o plano usa a margem curta', () => {
     const p = buildTemplate('house2');
-    const box = levelProjectBox(p);
+    const box = levelProjectBox(p, LEVEL_LINE_OFFSET);
+    const planoBox = levelProjectBox(p);
     const data = levelDataOf(p);
     for (const d of data) {
       expect(d.line.a).toMatchObject({ x: box.minX, y: box.minY, z: d.elevation });
       expect(d.line.b).toMatchObject({ x: box.maxX, y: box.minY, z: d.elevation });
       expect(d.headAt.x).toBeCloseTo(box.maxX + LEVEL_HEAD_GAP, 6);
       expect(d.textAt.x).toBeGreaterThan(d.headAt.x);
-      expect(d.plane).toMatchObject({ ...box, z: d.elevation });
+      expect(d.plane).toMatchObject({ ...planoBox, z: d.elevation });
+      expect(d.plane.minY).toBeGreaterThan(box.minY);
     }
   });
 

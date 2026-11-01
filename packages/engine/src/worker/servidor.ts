@@ -1,3 +1,4 @@
+import { garantirKernelExperimental } from '@hestia/geom';
 import type { Id, Project } from '@hestia/model';
 import { MemoriaPatch } from '../fluxoPatch.ts';
 import { executarResolucao } from './executor.ts';
@@ -74,6 +75,10 @@ export function instalarServidor(escopo: EscopoServidor, executor: Executor = cr
       if (i >= 0) fila.splice(i, 1);
       return;
     }
+    // Kernel geométrico experimental: a preferência é da aplicação e não atravessa o `localStorage` até este realm;
+    // ela vem no pedido (`kernel: true`). Fire-and-forget, sem `await` no executor: o pedido atual e os seguintes usam
+    // o que estiver disponível. Sem o campo (o padrão), nada acontece e o caminho é exatamente o de antes.
+    if (mensagem.kernel === true) void garantirKernelExperimental().catch(() => undefined);
     // O projeto é fixado ao chegar o pedido (não ao executá-lo): um pedido da fila de uma versão antiga não vê a seguinte.
     const { versao, estrutura } = mensagem.projeto;
     if (estrutura) ultimo = { versao, estrutura };

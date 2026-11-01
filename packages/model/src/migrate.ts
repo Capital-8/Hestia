@@ -276,6 +276,17 @@ export function migrateProject(raw: unknown): Project {
     v += 1;
     obj.schemaVersion = v;
   }
+  // Espelho mínimo (NBR 9050): tipos de escada antigos não o têm; recebem 0,16 m (ou o máximo/2 se o máximo for menor).
+  // Idempotente e sem nova versão de esquema.
+  if (obj.stairTypes && typeof obj.stairTypes === 'object') {
+    const stairTypes = { ...(obj.stairTypes as Record<string, Record<string, unknown>>) };
+    for (const [id, t] of Object.entries(stairTypes)) {
+      if (!t || typeof t !== 'object' || (typeof t.minRiser === 'number' && t.minRiser > 0)) continue;
+      const max = typeof t.maxRiser === 'number' && t.maxRiser > 0 ? t.maxRiser : 0.18;
+      stairTypes[id] = { ...t, minRiser: max > 0.16 ? 0.16 : max / 2 };
+    }
+    obj = { ...obj, stairTypes };
+  }
   const base = createEmptyProject();
   const p = obj as Partial<Project>;
   if (!p.elements || !p.wallTypes || !p.levels || !p.materials || !p.openingTypes) throw new SchemaError('Arquivo incompleto');

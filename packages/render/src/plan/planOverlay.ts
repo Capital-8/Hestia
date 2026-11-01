@@ -16,6 +16,7 @@ import { ambientesDoNivel, lajesDoNivel, pisosDoNivel, telhadosDoNivel } from '.
 import { labelGhostOps } from './areaPlan.ts';
 import { annotationHighlightOps, blocoEm, drawnAnnotations, textBlockModel } from './notes.ts';
 import type { PlanInput } from './build.ts';
+import { AVISO, AVISO_ALPHA } from '../aviso.ts';
 import type { FillOp, PlanOps } from './types.ts';
 
 const ringsOf = (m: MultiPolygon): Ring[] => m.flatMap((p) => p);
@@ -51,7 +52,32 @@ function elementHighlight(p: Project, geo: ResolvedLevel, ids: Id[], color: stri
 
 /** Azul do contorno do modo Reveal: o elemento oculto volta ao desenho normal e ganha esta borda. */
 const REVEAL = '#2563eb';
-/** Folga da caixa do Reveal em volta do texto de uma anotação, em mm de papel. */
+
+/**
+ * Realce amarelo do aviso (decisão 0044): a parede que impede a operação fica preenchida em amarelo translúcido e com
+ * contorno firme. Só a parede (ou a abertura, quando o aviso vier de um vão): o resto do desenho não muda.
+ */
+function avisoOps(p: Project, geo: ResolvedLevel, id: Id, view: PlanView | null): PlanOps {
+  const out: PlanOps = { fills: [], strokes: [], labels: [] };
+  if (view?.hidden.has(id)) return out;
+  const e = p.elements[id];
+  if (isWall(e)) {
+    const m = wallUnion(geo, id, view?.outlineWalls.has(id) === true);
+    if (m.length === 0) return out;
+    out.fills.push({ polygons: m, color: AVISO, alpha: AVISO_ALPHA });
+    for (const ring of m.flat()) out.strokes.push({ pts: ring, closed: true, widthPx: 2.5, color: AVISO, alpha: 1 });
+    return out;
+  }
+  if (isOpening(e)) {
+    const f = frameOfWall(p, e.hostId);
+    if (!f) return out;
+    const g = openingGeometry(p, e, f);
+    const rect = orientedRect(g.center.x, g.center.y, g.u.x, g.u.y, g.width / 2, g.thickness / 2 + 0.02);
+    out.fills.push({ polygons: [[rect]], color: AVISO, alpha: AVISO_ALPHA });
+    out.strokes.push({ pts: rect, closed: true, widthPx: 2.5, color: AVISO, alpha: 1 });
+  }
+  return out;
+}/** Folga da caixa do Reveal em volta do texto de uma anotação, em mm de papel. */
 const REVEAL_FOLGA_MM = 0.8;
 
 /**
@@ -216,8 +242,15 @@ export function buildPlanHoverOverlay(input: PlanInput): PlanOps {
   const { project: p, theme } = input;
   const { geo, hidden, up, roofHidden, stairs, ramps, view, style } = planContext(input);
   const hover = input.hover;
-  if (!hover || input.selection.includes(hover)) return vazio();
+  const aviso = input.aviso ?? null;
   const out = vazio();
+  // Decisão 0044: a parede que impede a operação fica amarela por cima do desenho, com ou sem hover.
+  if (aviso) {
+    const marca = avisoOps(p, geo, aviso, view);
+    out.fills.push(...marca.fills);
+    out.strokes.push(...marca.strokes);
+  }
+  if (!hover || input.selection.includes(hover)) return out;
   const alcasDeModelo = input.areaPlan === undefined;
   const add = (o: PlanOps): void => {
     out.fills.push(...o.fills);

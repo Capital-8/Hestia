@@ -8,6 +8,7 @@ import type { DimRef, TempDim } from './dims/types.ts';
 import type { InferContext } from './infer.ts';
 import { lengthUnitName, parseQuantityText } from './numeric.ts';
 import type { PointerInfo } from './types.ts';
+import { refuseWallOverlap } from './wallOverlapGuard.ts';
 
 const fmt = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length', m);
 
@@ -134,8 +135,12 @@ export class WallTool extends ToolBase {
       return;
     }
     const pts = this.rectCorners(c);
+    // Decisão 0044: se qualquer um dos quatro lados cair em cima de uma parede existente, o retângulo inteiro é
+    // recusado — nada é criado —, e o primeiro canto continua valendo para escolher outro canto oposto.
+    const lados = [0, 1, 2, 3].map((i) => this.wallAt(pts[i]!, pts[(i + 1) % 4]!));
+    if (lados.some((wall) => refuseWallOverlap(this.env, wall))) return;
     this.env.transaction('Parede retangular', () => {
-      for (let i = 0; i < 4; i++) this.commit(pts[i]!, pts[(i + 1) % 4]!);
+      for (const wall of lados) this.env.exec({ type: 'addWall', wall });
     });
     this.reset();
     this.env.say('Retângulo criado. Clique em outro canto para desenhar outro, ou Esc para sair.');
@@ -184,10 +189,10 @@ export class WallTool extends ToolBase {
     this.env.say(this.isArc() ? 'Clique no ponto final da corda.' : 'Clique para terminar a parede, ou digite o comprimento e Enter.');
   }
 
-  private commit(a: Vec2, b: Vec2, sag = 0): void {
-    if (dist(a, b) < 0.01) return;
+  /** Parede montada a partir do gesto (ainda fora do projeto), com as opções atuais da barra. */
+  private wallAt(a: Vec2, b: Vec2, sag = 0): Omit<Wall, 'order'> {
     const o = this.env.options();
-    const wall: Omit<Wall, 'order'> = makeWall({
+    return makeWall({
       id: makeId('w'),
       typeId: o.wallTypeId,
       levelId: this.env.levelId(),
@@ -203,6 +208,13 @@ export class WallTool extends ToolBase {
       flipped: (o.wallFlipped ?? false) !== this.sideFlip(),
       sag,
     });
+  }
+
+  private commit(a: Vec2, b: Vec2, sag = 0): void {
+    if (dist(a, b) < 0.01) return;
+    const wall = this.wallAt(a, b, sag);
+    // Decisão 0044: não cria parede em cima de outra (mesmo critério do aviso C14).
+    if (refuseWallOverlap(this.env, wall)) return;
     this.env.transaction('Criar parede', () => {
       this.env.exec({ type: 'addWall', wall });
     });

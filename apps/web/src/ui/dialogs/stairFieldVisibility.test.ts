@@ -7,6 +7,7 @@ const STYLES: readonly StairRunStyle[] = ['monolithic', 'assembled', 'post'];
 /** Tabela §8: [monolítica, montada, poste]. */
 const TABLE: Record<StairFormField, readonly [boolean, boolean, boolean]> = {
   maxRiser: [true, true, true],
+  minRiser: [true, true, true],
   minTread: [true, true, true],
   minRunWidth: [true, true, true],
   minHeadroom: [true, true, true],

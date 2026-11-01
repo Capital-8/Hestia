@@ -55,16 +55,18 @@ teste citados abaixo continuam os das rodadas de 2026-10-22/23.
 - Formas uma, duas e quatro águas, contorno qualquer e extrusão de perfil; cumeeira, espigões e rincões; furos; beiral.
 - Topo da parede ajustado ao telhado; planta com águas e setas, 3D, corte, planta de cobertura, DXF, quantitativos e CSV.
 
-**Escadas (inclui caracol)** — 36 feitos, 4 fora de escopo, 0 pendentes (`docs/paridade/escadas.md`).
+**Escadas (inclui caracol)** — 40 feitos, 4 fora de escopo, 0 pendentes (`docs/paridade/escadas.md`).
 - Croqui de lance com patamar, "Pegar linhas" e validação com as mensagens do Revit.
 - Geradores reto, L, U, leque e caracol (até duas voltas, varredura ≤ 4π, decisão 0014), com dois estilos de caracol.
 - Tipos de escada com seção ao vivo; corpo monolítico; furo derivado por laje/piso; avisos de norma e folga de cabeça.
 - Planta com numeração contínua, 3D, corte, DXF, quantitativos e tabela com CSV.
+- Nível de topo por id; editar a cota do nível recalcula o nº de degraus pela fórmula do tipo e continua a escada no último lance; em conflito (parede/sem altura/forma), nada é aplicado e o diálogo oferece acrescentar, cancelar ou excluir — em uma transação (decisão 0041).
 
 **Rampas**
 - Ferramenta Rampa com formas reta, L, U e livre, modo por comprimento ou inclinação, patamares e chegada.
 - Tipo com norma editável (NBR 9050, ADA ou personalizada), largura, inclinação e desnível; avisos do modo ao vivo.
 - Representação em planta, corte, 3D e DXF; mover/copiar/colar, seleção e alças de vértices.
+- Nível de topo por id; mudar o nível regenera o comprimento no modo inclinação e, no modo comprimento, mantém a rampa com o aviso `ramp-slope-differs` (decisão 0041; `docs/paridade/rampas.md`).
 
 **Aberturas por família** — 35 feitos, 7 fora de escopo, 0 pendentes (`docs/paridade/aberturas.md`; decisão 0017).
 - Dez famílias em `OPENING_FAMILIES`: portas giro, dupla, correr, pivotante e vão livre; janelas fixa, basculante,
@@ -315,7 +317,7 @@ Os fluxos de navegador e as capturas estão em `tests/e2e/*.mjs` (`helpers.mjs` 
 ## Qualidade e verificação
 
 - Checklists (feitos + fora de escopo + pendentes): paredes 68+15+0, pisos 44+7+0, lajes 42+3+0, telhados 43+1+0,
-  escadas 36+4+0, aberturas 36+7+0, ambientes 24+4+0, forros 33+0+0, pranchas 34+2+0. O portão de 95% e os bloqueantes
+  escadas 40+4+0, aberturas 36+7+0, ambientes 24+4+0, forros 33+0+0, pranchas 34+2+0. O portão de 95% e os bloqueantes
   são verificados por `scripts/check-parity.mjs` no lint e no CI.
 - `npx vitest run --maxWorkers=4` em 2026-10-23: 293 arquivos e 3577 testes, todos passando (120 s). O `npm run check`
   padrão estourou dois timeouts por carga nesta máquina (`predio10` e `ifcExport`); os mesmos testes passam em

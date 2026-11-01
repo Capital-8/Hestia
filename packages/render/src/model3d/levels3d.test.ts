@@ -8,7 +8,7 @@ import {
   levelPalette,
   type LevelsGroupData,
 } from './levels3d.ts';
-import { levelProjectBox } from './levelsData.ts';
+import { LEVEL_LINE_OFFSET, levelProjectBox } from './levelsData.ts';
 
 /** Câmera olhando para o centro da obra; `forward` é a horizontal da câmera para o alvo. */
 function cameraAt(
@@ -69,7 +69,7 @@ describe('datum de nível no 3D (duas linhas)', () => {
 
   it('câmera a sudeste: canto NW, linha esquerda W, linha de trás N e bolha em SW', () => {
     const p = buildTemplate('house2');
-    const b = levelProjectBox(p);
+    const b = levelProjectBox(p, LEVEL_LINE_OFFSET);
     const g = buildLevels(p, null);
     const { camera, forward } = cameraAt(20, -20, 15);
     layoutLevels(g, camera, forward);
@@ -94,7 +94,7 @@ describe('datum de nível no 3D (duas linhas)', () => {
 
   it('câmera a noroeste: canto SE, linha esquerda S, linha de trás E e bolha em SW', () => {
     const p = buildTemplate('house2');
-    const b = levelProjectBox(p);
+    const b = levelProjectBox(p, LEVEL_LINE_OFFSET);
     const g = buildLevels(p, null);
     const { camera, forward } = cameraAt(-20, 20, 15);
     layoutLevels(g, camera, forward);

@@ -208,3 +208,16 @@ describe('chegada na planta: último degrau só quando o nível de topo não é 
     expect(o.labels.find((l) => l.text === String(N))!.at.y).toBeCloseTo(N * P + P / 2, 6);
   });
 });
+
+describe('escada sem geometria continua visível (decisão 0041)', () => {
+  it('sem degraus, desenha a caixa do croqui em vez de sumir da planta', () => {
+    const s = { ...stair(), steps: [], risers: [], footprint: [], sketchBounds: { minX: 0, minY: 0, maxX: 1, maxY: 3 } };
+    const o = resolverZoom(stairFills(PROJECT, [s], LIGHT, false, 'medium', VIEW), VIEW.zoom);
+    expect(o.fills).toHaveLength(0);
+    expect(o.strokes).toHaveLength(1);
+    expect(o.strokes[0]!.closed).toBe(true);
+    expect(o.strokes[0]!.pts).toEqual([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 3 }, { x: 0, y: 3 }]);
+    // A pegada da seleção/fantasma também usa a caixa: o clique encontra a escada mesmo sem degraus.
+    expect(multiArea(planFootprint(s))).toBeCloseTo(3, 9);
+  });
+});

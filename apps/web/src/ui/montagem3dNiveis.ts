@@ -2,6 +2,7 @@ import type { ResolvedLevel } from '@hestia/engine';
 import type { ClienteResolucao } from '@hestia/engine/src/worker/cliente.ts';
 import type { Id, Project } from '@hestia/model';
 import { editor } from '../editor/controller.ts';
+import { kernelExperimentalLigado } from '../editor/preferenciasKernel.ts';
 import { criarClienteResolucao } from '../editor/resolveWorker.ts';
 import type { FonteWorker } from './montagem3dProgressiva.ts';
 
@@ -23,7 +24,7 @@ import type { FonteWorker } from './montagem3dProgressiva.ts';
 export function criarFonteNiveisWorker(opcoes: { cliente?: ClienteResolucao } = {}): FonteWorker | null {
   let cliente: ClienteResolucao;
   try {
-    cliente = opcoes.cliente ?? criarClienteResolucao({ usarWorker: true });
+    cliente = opcoes.cliente ?? criarClienteResolucao({ usarWorker: true, kernelExperimental: kernelExperimentalLigado() });
   } catch {
     return null;
   }

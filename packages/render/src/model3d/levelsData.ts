@@ -44,8 +44,11 @@ export interface LevelDatum {
   plane: LevelBox & { z: number };
 }
 
-/** Margem padrão da linha além da obra (m). */
+/** Margem curta (m) da caixa da obra: só o plano azul de seleção do nível usa. */
 export const LEVEL_MARGIN = 1;
+
+/** Afastamento (m) das linhas-guia do datum (esquerda e de fundo), da bolha e do texto em relação à caixa da obra. */
+export const LEVEL_LINE_OFFSET = 6;
 
 /** Folga entre o fim da linha e o centro da bolha (m); a bolha tem 0,6 m de raio. */
 export const LEVEL_HEAD_GAP = 0.9;
@@ -73,10 +76,12 @@ export function levelProjectBox(p: Project, margin = LEVEL_MARGIN): LevelBox {
 
 /**
  * Datum de cada nível, do mais baixo ao mais alto. Os Δ abaixo/acima saem da ordem das elevações (empate: id). A linha
- * fica na borda sul da caixa do projeto; a bolha depois do fim e o texto encostado à esquerda dela.
+ * fica na borda sul da caixa do projeto afastada em `LEVEL_LINE_OFFSET`; a bolha depois do fim e o texto encostado à
+ * esquerda dela. O plano de seleção usa a caixa com a margem curta (`LEVEL_MARGIN`).
  */
-export function levelDataOf(p: Project, margin = LEVEL_MARGIN): LevelDatum[] {
-  const box = levelProjectBox(p, margin);
+export function levelDataOf(p: Project, offset = LEVEL_LINE_OFFSET): LevelDatum[] {
+  const box = levelProjectBox(p, offset);
+  const caixaPlano = levelProjectBox(p, LEVEL_MARGIN);
   const ordered = [...p.levels].sort((a, b) => a.elevation - b.elevation || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   return ordered.map((l, i) => {
     const z = l.elevation;
@@ -93,7 +98,7 @@ export function levelDataOf(p: Project, margin = LEVEL_MARGIN): LevelDatum[] {
       headAt: { x: box.maxX + LEVEL_HEAD_GAP, y: box.minY, z },
       // O texto fica à direita da bolha, na mesma direção da linha, fora da silhueta da obra.
       textAt: { x: box.maxX + LEVEL_HEAD_GAP + LEVEL_HEAD_RADIUS + 0.3, y: box.minY, z },
-      plane: { ...box, z },
+      plane: { ...caixaPlano, z },
     };
   });
 }

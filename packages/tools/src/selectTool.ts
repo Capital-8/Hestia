@@ -18,6 +18,7 @@ import { commitCeilingBoundary, commitOutlineBoundary } from './outlineEdit.ts';
 import { lengthUnitName, parseQuantityText } from './numeric.ts';
 import { resizeWallCommands } from './lengthEdit.ts';
 import { execWithHostedLoss } from './hostedGuard.ts';
+import { refuseMoveOverlap } from './wallOverlapGuard.ts';
 import { gripHoldAt, annotationGripHoldAt, ringHandlePreview, type GripFocus, type GripHold } from './selectGrips.ts';
 import { pickStairAt, stairEndpoints, stairIdsInBox } from './stairPick.ts';
 import { pickRampAt, rampEndpoints, rampIdsInBox } from './rampPick.ts';
@@ -497,6 +498,8 @@ export class SelectTool extends ToolBase {
         const views = selectedViews(pr, sel);
         const grids = selectedGrids(pr, sel);
         if ((els.length || views.length || grids.length) && (this.delta.x || this.delta.y)) {
+          // Decisão 0044: as setas também não deixam uma parede em cima de outra.
+          if (els.length && refuseMoveOverlap(this.env, els, { kind: 'translate', d: this.delta })) break;
           if (els.length) moveWalls(this.env, els, this.delta, true, p.alt);
           if (views.length) transformViews(this.env, views, { kind: 'translate', d: this.delta });
           if (grids.length) this.env.transaction('Mover grade', () => moveGrids(this.env, grids, this.delta, false));

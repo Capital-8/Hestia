@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { resolveLevel } from '@hestia/engine';
-import { createEmptyProject } from '@hestia/model';
+import { createEmptyProject, makeWall, ProjectStore } from '@hestia/model';
 import type { PreviewItem } from '@hestia/tools';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { previewOverlay, snapTooltipLabel } from './overlay.ts';
+import { buildPlanHoverOverlay } from './planOverlay.ts';
+import { AVISO, AVISO_ALPHA } from '../aviso.ts';
 import { DARK, LIGHT, type PlanTheme } from './types.ts';
 import type { Viewport } from '../viewport.ts';
 
@@ -106,5 +108,34 @@ describe('prévia da escada por tom (decisão 0011 · interface)', () => {
     expect(snapTooltipLabel({ point: pt, kind: 'alignment', guides: [] })?.text).toBe('Alinhamento');
     expect(snapTooltipLabel({ point: pt, kind: 'none', guides: [] })).toBeNull();
     expect(snapTooltipLabel({ point: pt, kind: 'grid', guides: [] })).toBeNull();
+  });
+});
+
+describe('realce do aviso (decisão 0044)', () => {
+  it('a parede em conflito sai em amarelo, com preenchimento e contorno, na camada de hover', () => {
+    const store = new ProjectStore(createEmptyProject());
+    store.exec({ type: 'addWall', wall: makeWall({ id: 'w1', typeId: 'wt_alv14', levelId: 'lv_0', a: { x: 0, y: 0 }, b: { x: 4, y: 0 } }) });
+    const p = store.project;
+    const input: PlanInput = {
+      project: p,
+      levelId: 'lv_0',
+      resolved: resolveLevel(p, 'lv_0', new Map()),
+      below: null,
+      viewport: VIEW,
+      theme: LIGHT,
+      dark: false,
+      selection: [],
+      hover: null,
+      aviso: 'w1',
+      preview: [],
+      inference: null,
+      showGrid: false,
+    };
+    const com = buildPlanHoverOverlay(input);
+    expect(com.fills.some((f) => f.color === AVISO && f.alpha === AVISO_ALPHA)).toBe(true);
+    expect(com.strokes.some((s) => s.color === AVISO && s.widthPx === 2.5)).toBe(true);
+    const sem = buildPlanHoverOverlay({ ...input, aviso: null });
+    expect(sem.fills).toHaveLength(0);
+    expect(sem.strokes).toHaveLength(0);
   });
 });

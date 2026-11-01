@@ -1,0 +1,27 @@
+[package]
+name = "geom-wasm"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "MIT"
+description = "Kernel geométrico experimental do Hestia (booleanas e offset) compilado para WebAssembly."
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Bibliotecas PURAMENTE Rust de propósito. O alvo é `wasm32-unknown-unknown`, onde compilar C++
+# exigiria clang/LLVM + sysroot (uma tentativa inicial com o crate `clipper2`, que embrulha a
+# biblioteca C++ Clipper2, não builda nesta máquina). Sem C++, `cargo build --target
+# wasm32-unknown-unknown` funciona com o toolchain Rust padrão.
+#
+# `i_overlay` cobre booleanas E offset com miter (`OutlineOffset`), então é a única dependência.
+# Licença MIT OR Apache-2.0, compatível com a MIT do projeto (ver NOTICE).
+i_overlay = "9"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

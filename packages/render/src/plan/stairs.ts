@@ -56,7 +56,14 @@ export function arrivalRing(s: ResolvedStair): Ring | null {
 /** Pegada da escada em planta: a dos degraus mais a chegada (o último degrau), como no 3D. A seleção e o fantasma usam esta. */
 export function planFootprint(s: ResolvedStair): MultiPolygon {
   const last = arrivalRing(s);
-  return last ? union(s.footprint, [[last]]) : s.footprint;
+  const base = last ? union(s.footprint, [[last]]) : s.footprint;
+  if (base.length > 0) return base;
+  // Sem degraus (topo <= base): a caixa do croqui é a pegada, para a escada continuar selecionável na planta.
+  if (s.sketchBounds) {
+    const { minX, minY, maxX, maxY } = s.sketchBounds;
+    return [[[{ x: minX, y: minY }, { x: maxX, y: minY }, { x: maxX, y: maxY }, { x: minX, y: maxY }]]];
+  }
+  return base;
 }
 
 /** Ponto a meio comprimento da polilinha (ponto médio do espelho). */
@@ -338,6 +345,16 @@ export function stairFills(
     // O que passa do topo da vista fica só no contorno, sem preenchimento (fora da faixa de vista).
     const viewTop = view?.topZ ?? Infinity;
     if (s.baseZ > viewTop + 1e-9) continue;
+    // Sem degraus (topo não acima da base, croqui sem espelhos): desenha a caixa do croqui para a escada não sumir
+    // da planta e continuar selecionável. O erro fica no painel; o elemento não é apagado (decisão 0041).
+    if (s.steps.length === 0) {
+      if (s.sketchBounds) {
+        const b = s.sketchBounds;
+        const ring = [{ x: b.minX, y: b.minY }, { x: b.maxX, y: b.minY }, { x: b.maxX, y: b.maxY }, { x: b.minX, y: b.maxY }];
+        out.strokes.push({ pts: ring, closed: true, ...corte, color: theme.ink, alpha: 0.7 });
+      }
+      continue;
+    }
     const topZ = Math.max(viewTop, s.topZ);
     const steps = s.steps.filter((st) => st.z <= topZ + 1e-9);
     const m = p.materials[s.type.materialId];

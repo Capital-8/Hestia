@@ -15,6 +15,7 @@ export * from './outlineCommands.ts';
 export * from './migrate.ts';
 export * from './templates.ts';
 export * from './wall.ts';
+export * from './wallOverlap.ts';
 export * from './validate.ts';
 export { STAIR_MIN_HEIGHT } from './validateStairs.ts';
 export { mansardProblems } from './validateRoofMansard.ts';

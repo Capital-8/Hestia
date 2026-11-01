@@ -38,7 +38,7 @@ export const fmtXY = (u: ResolvedUnits, p: Vec2): string =>
   `${formatQuantity(u, 'length', p.x, { withUnit: false })}; ${formatQuantity(u, 'length', p.y, { withUnit: false })}`;
 
 /** Transformações de rotação de cada cópia (o original, item 0, não entra). */
-const rotations = (center: Vec2, angles: number[]): Transform[] => angles.slice(1).map((angle) => ({ kind: 'rotate', about: center, angle }));
+export const rotations = (center: Vec2, angles: number[]): Transform[] => angles.slice(1).map((angle) => ({ kind: 'rotate', about: center, angle }));
 
 /** Fantasmas de todas as cópias radiais: paredes, vistas e forros (contorno tracejado). */
 export function radialGhosts(env: ToolEnv, set: ArraySet, center: Vec2, angles: number[]): PreviewItem[] {

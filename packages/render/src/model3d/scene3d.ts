@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { applyPartialStructure, frameOfWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
 import { openingsOfWall, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, type GraphicsCategory, type Id, type Material, type Opening, type Project, type View3DSettings, type VisualStyle } from '@hestia/model';
 import { DARK, LIGHT } from '../plan/types.ts';
+import { AVISO } from '../aviso.ts';
 import { projetoDaJuncao } from '../plan/viewContext.ts';
 import { OrbitCamera, cameraBasis } from './orbit.ts';
 import { firstSurfaceDistance } from './pick3d.ts';
@@ -17,7 +18,7 @@ import { buildStairSolids } from './stairSolids.ts';
 import { buildGenericSolids } from './genericSolids.ts';
 import { buildCadLines } from './cad3d.ts';
 import { buildLevels, disposeLevels, layoutLevels } from './levels3d.ts';
-import { levelProjectBox } from './levelsData.ts';
+import { LEVEL_LINE_OFFSET, levelProjectBox } from './levelsData.ts';
 import { buildRampSolids } from './rampSolids.ts';
 import { RealcesDaCena } from './realceDaCena3d.ts';
 import { buildLevelSolidsComCaixas } from './paredesInstanciadas3d.ts';
@@ -291,11 +292,13 @@ export class ModelScene {
   /**
    * Realce na vista 3D (decisão 0016 §4): a seleção (preenchimento 0,35, arestas firmes) e o elemento sob o cursor
    * (0,15, se não for da seleção). Só refaz a sobreposição que mudou; a malha do modelo não é reconstruída.
+   * `aviso` (decisão 0044) é a parede em conflito, em amarelo, por cima dos dois.
    */
-  highlight(selection: readonly Id[], hover: Id | null): void {
+  highlight(selection: readonly Id[], hover: Id | null, aviso: readonly Id[] = []): void {
     const color = this.frame.dark ? DARK.select : LIGHT.select;
     this.realces.definir('sel', selection, { color, fill: 0.35, edges: 1 });
     this.realces.definir('hov', hover && !selection.includes(hover) ? [hover] : [], { color, fill: 0.15, edges: 0.6 });
+    this.realces.definir('aviso', aviso, { color: AVISO, fill: 0.4, edges: 1 });
   }
 
   /**
@@ -394,7 +397,7 @@ export class ModelScene {
     // "Enquadrar": o modelo mais o datum dos níveis, com folga em X para a bolha e o texto não ficarem fora da vista.
     this.caixaEnquadramento.copy(this.boxCache);
     if (view.showLevels !== false && p.levels.length) {
-      const b = levelProjectBox(p);
+      const b = levelProjectBox(p, LEVEL_LINE_OFFSET);
       const cotas = p.levels.map((l) => l.elevation);
       this.caixaEnquadramento.union(
         new THREE.Box3(
@@ -550,11 +553,11 @@ export class ModelScene {
   }
 
   /**
-   * Assinatura barata do que o datum desenha: ids, nomes e cotas dos níveis, a caixa da obra (`levelProjectBox`), o
+   * Assinatura barata do que o datum desenha: ids, nomes e cotas dos níveis, a caixa das linhas do datum (`levelProjectBox` com `LEVEL_LINE_OFFSET`), o
    * nível selecionado, o tema e o mostrar/ocultar níveis. Tudo o mais que `update` recebe fica de fora.
    */
   private assinaturaDosNiveis(p: Project): string {
-    const b = levelProjectBox(p);
+    const b = levelProjectBox(p, LEVEL_LINE_OFFSET);
     const niveis = p.levels.map((l) => `${l.id}\u0001${l.name}\u0001${l.elevation}`).join('\u0002');
     return [
       niveis,

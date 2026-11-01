@@ -107,7 +107,9 @@ export function layoutStairSegment(
     const nPre = Math.min(cap, M, left);
     if (nPre < 2) break;
     let n = nPre;
-    if (balanceTail && left - n === 1) {
+    // Vão infinito (último vão estendido) sempre comporta o patamar depois do rebalanceio: nunca deixa 1 espelho sobrando
+    // (ex.: N = 18 com M = 17 virava 17 + patamar + resto 1 → "não foi possível distribuir os espelhos").
+    if ((balanceTail || !Number.isFinite(span)) && left - n === 1) {
       if (n - 1 >= 2) {
         // Se um patamar em linha ainda vai seguir o lance, o vão restante precisa comportá-lo depois do rebalanceio.
         const follows = nPre === M;

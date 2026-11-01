@@ -17,7 +17,7 @@ export type ThemePref = 'system' | 'light' | 'dark';
  * Quem quiser seguir o sistema ou usar o escuro escolhe no menu Arquivo; a escolha vale só para a sessão.
  */
 export const DEFAULT_THEME: ThemePref = 'light';
-export type DialogKind = 'wallType' | 'floorType' | 'materials' | 'levels' | 'openingType' | 'start' | 'shortcuts' | 'shortcutsConfig' | 'about' | 'schedule' | 'floorSchedule' | 'slabType' | 'slabSchedule' | 'ceilingType' | 'ceilingSchedule' | 'roofType' | 'roofSchedule' | 'stairType' | 'stairSchedule' | 'rampType' | 'rampSchedule' | 'openingSchedule' | 'graphicsVisibility' | 'lineWeights' | 'dxfLayers' | 'sheet' | 'addView' | 'renumberSheets' | 'revision' | 'publish' | 'roomSchedule' | 'roomCategories' | 'cotasAuto' | 'moveLevel' | 'gridType' | 'units' | 'dimensions' | 'hostedLoss' | 'areaMerge' | 'importCad' | 'manageCad' | null;
+export type DialogKind = 'wallType' | 'floorType' | 'materials' | 'levels' | 'openingType' | 'start' | 'shortcuts' | 'shortcutsConfig' | 'about' | 'schedule' | 'floorSchedule' | 'slabType' | 'slabSchedule' | 'ceilingType' | 'ceilingSchedule' | 'roofType' | 'roofSchedule' | 'stairType' | 'stairSchedule' | 'rampType' | 'rampSchedule' | 'openingSchedule' | 'graphicsVisibility' | 'lineWeights' | 'dxfLayers' | 'sheet' | 'addView' | 'renumberSheets' | 'revision' | 'publish' | 'roomSchedule' | 'roomCategories' | 'cotasAuto' | 'moveLevel' | 'levelMoveConflict' | 'gridType' | 'units' | 'dimensions' | 'hostedLoss' | 'alerta' | 'areaMerge' | 'importCad' | 'manageCad' | 'experimentos' | null;
 
 export interface UiState {
   tool: ToolId;
@@ -51,6 +51,8 @@ export interface UiState {
   prompt: string | null;
   dialog: DialogKind;
   dialogArg: string | null;
+  /** Parede em conflito destacada em amarelo na vista (decisão 0044); null = nenhuma. */
+  avisoParede: Id | null;
   showGrid: boolean;
   /** Intervalo da grade de pontos (m); 0 = automático pelo zoom. Vale para o desenho e para a captura. */
   gridStep: number;
@@ -300,6 +302,7 @@ export const useUi = create<UiState>(() => ({
   prompt: null,
   dialog: null,
   dialogArg: null,
+  avisoParede: null,
   // Os pontos e a captura por grade são uma chave só: abrem como a captura foi deixada (`setSnap({ grid })` mantém os dois juntos).
   showGrid: loadSnap().grid,
   gridStep: loadGridStep(),

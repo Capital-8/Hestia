@@ -94,7 +94,7 @@ describe('matriz radial no motor', () => {
     expect(walls(store)).toHaveLength(4);
   });
 
-  it('item da radial que cai sobre parede existente: avisa na barra (o item N), mas copia assim mesmo', () => {
+  it('item da radial que cai sobre parede existente: recusa o lote inteiro (decisão 0044)', () => {
     const { store, env, options } = makeEnv();
     const msgs: string[] = [];
     env.say = (m: string) => msgs.push(m);
@@ -109,10 +109,10 @@ describe('matriz radial no motor', () => {
     options.arrayAngle = 180;
     options.arrayAnchor = 'second';
     const a = tool('array', env);
-    clickAt(a, 2, 1.5); // centro no meio do retângulo: a cópia a 180° cai sobre a parede de cima
+    clickAt(a, 2, 1.5); // centro no meio do retângulo: a cópia a 180° cairia em cima da parede de cima
     a.click(P(0, 0));
-    expect(walls(store)).toHaveLength(antes + 1);
-    expect(msgs.at(-1)).toContain('O item 2 ficou sobre um elemento existente.');
+    expect(walls(store)).toHaveLength(antes);
+    expect(msgs.at(-1)).toContain('em cima da parede');
   });
 
   it('item da radial livre (sem parede no lugar) não gera aviso', () => {

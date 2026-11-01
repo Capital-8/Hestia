@@ -3,7 +3,8 @@ import { frameOfWall } from '@hestia/engine';
 import { annotationIdsIn, annotationMoveCommands, dimensionSettingsOf, formatQuantity, isOpening, isWall, unitsOf, type Id, type ResolvedUnits } from '@hestia/model';
 import { ToolBase } from './base.ts';
 import { gridGhosts, moveGrids, selectedGrids } from './gridGeom.ts';
-import { copyWalls, ghostBands, ghostViews, moveWalls, selectedMovables, selectedOpenings, selectedViews, slideOpenings, transformViews, transformWalls } from './edit.ts';
+import { copyWalls, ghostBands, ghostOpenings, ghostViews, moveWalls, selectedMovables, selectedOpenings, selectedViews, slideOpenings, transformViews, transformWalls } from './edit.ts';
+import { refuseCopyOverlap, refuseMoveOverlap } from './wallOverlapGuard.ts';
 import { pickAt } from './pick.ts';
 import { parseQuantityText } from './numeric.ts';
 import { commitRingEdit, edgeAtCursor, ringOfRef } from './ringTarget.ts';
@@ -178,7 +179,9 @@ export class MoveTool extends SelectionTool {
       return;
     }
     const els = this.movables();
-    const inf = this.snap(p, { from: this.base ?? undefined, ignore: new Set(els) });
+    // Ponto-base enxerga a própria seleção (pegar o canto da parede que vai mover); o destino ignora o que se move,
+    // senão o fantasma cola na geometria original (captura de aresta vale 0,1 e vence qualquer alvo ao lado).
+    const inf = this.snap(p, { from: this.base ?? undefined, ignore: this.base ? new Set(els) : undefined });
     this.cursor = inf.point;
     if (!this.base) {
       this.items.push({ kind: 'point', at: inf.point });
@@ -187,7 +190,7 @@ export class MoveTool extends SelectionTool {
     const d = sub(inf.point, this.base);
     this.items.push({ kind: 'line', a: this.base, b: inf.point, dashed: true });
     const t = { kind: 'translate' as const, d };
-    this.items.push(...ghostBands(this.env.project(), els, t), ...ghostViews(this.env.project(), this.env.selection(), t), ...gridGhosts(this.env.project(), selectedGrids(this.env.project(), this.env.selection()), d));
+    this.items.push(...ghostBands(this.env.project(), els, t), ...ghostOpenings(this.env.project(), els, t), ...ghostViews(this.env.project(), this.env.selection(), t), ...gridGhosts(this.env.project(), selectedGrids(this.env.project(), this.env.selection()), d));
     if (!this.copy) this.items.push(...separatorGhostItems(this.env.project(), this.env.levelId(), movableSeparatorIds(this.env, this.copy), d));
     this.items.push({ kind: 'label', at: inf.point, text: fmtDisplacement(unitsOf(this.env.project()), d) });
   }
@@ -207,6 +210,11 @@ export class MoveTool extends SelectionTool {
     const els = this.movables();
     const views = this.views();
     const t = { kind: 'translate', d } as const;
+    // Decisão 0044: mover/copiar não deixa parede em cima de parede; recusa com mensagem e o gesto pode ser refeito.
+    if (this.copy ? refuseCopyOverlap(this.env, els, t) : refuseMoveOverlap(this.env, els, t)) {
+      this.base = null; // recusa não deixa o ponto-base preso: o próximo clique recomeça
+      return;
+    }
     const seps = movableSeparatorIds(this.env, this.copy);
     // Cotas, textos (decisão 0019) e marcas de corte/elevação seguem a seleção e entram no mesmo passo de desfazer.
     const notes = annotationMoveCommands(this.env.project(), this.env.levelId(), this.env.selection(), d, this.copy);
@@ -236,7 +244,7 @@ export class MoveTool extends SelectionTool {
       this.edgeClick(p);
       return;
     }
-    const inf = this.snap(p, { from: this.base ?? undefined, ignore: new Set(this.movables()) });
+    const inf = this.snap(p, { from: this.base ?? undefined, ignore: this.base ? new Set(this.movables()) : undefined });
     if (!this.base) {
       this.base = inf.point;
       return;
@@ -301,7 +309,9 @@ export class RotateTool extends SelectionTool {
 
   override move(p: PointerInfo): void {
     this.items = [];
-    const inf = this.snap(p, { from: this.center ?? undefined, ignore: new Set(this.movables()) });
+    // Centro e direção de referência capturam na própria seleção (girar em torno do canto da parede); só a direção
+    // final ignora o que gira, para o ângulo não ser puxado para a geometria de origem.
+    const inf = this.snap(p, { from: this.center ?? undefined, ignore: this.ref ? new Set(this.movables()) : undefined });
     if (!this.center) {
       this.items.push({ kind: 'point', at: inf.point });
       return;
@@ -310,7 +320,7 @@ export class RotateTool extends SelectionTool {
     if (this.ref) {
       const ang = this.angleTo(p.raw);
       const t = { kind: 'rotate', about: this.center, angle: ang } as const;
-      this.items.push(...ghostBands(this.env.project(), this.movables(), t), ...ghostViews(this.env.project(), this.env.selection(), t));
+      this.items.push(...ghostBands(this.env.project(), this.movables(), t), ...ghostOpenings(this.env.project(), this.movables(), t), ...ghostViews(this.env.project(), this.env.selection(), t));
       this.items.push({ kind: 'label', at: p.raw, text: formatQuantity(unitsOf(this.env.project()), 'angle', ang) });
     }
   }
@@ -322,6 +332,11 @@ export class RotateTool extends SelectionTool {
     const t = { kind: 'rotate', about: this.center, angle } as const;
     const copy = this.env.options().rotateCopy;
     const disjoin = this.env.options().rotateDisjoin ?? DEFAULT_DISJOIN.rotate;
+    // Decisão 0044: girar (ou girar com cópia) não deixa parede em cima de parede.
+    if (els.length && (copy ? refuseCopyOverlap(this.env, els, t) : refuseMoveOverlap(this.env, els, t))) {
+      this.reset(); // recusa não deixa centro/referência presos
+      return;
+    }
     this.env.transaction(copy ? 'Rotacionar e copiar' : 'Rotacionar', () => {
       if (els.length) {
         if (copy) copyWalls(this.env, els, t);
@@ -334,7 +349,7 @@ export class RotateTool extends SelectionTool {
   }
 
   override click(p: PointerInfo): void {
-    const inf = this.snap(p, { from: this.center ?? undefined, ignore: new Set(this.movables()) });
+    const inf = this.snap(p, { from: this.center ?? undefined, ignore: this.ref ? new Set(this.movables()) : undefined });
     if (!this.center) {
       this.center = inf.point;
     } else if (!this.ref) {
@@ -397,10 +412,12 @@ export class MirrorTool extends SelectionTool {
       this.items.push({ kind: 'highlight', ids: [id] });
       this.items.push({ kind: 'line', a: f.a, b: f.b, dashed: true });
       const t = { kind: 'mirror', a: f.a, b: f.b } as const;
-      this.items.push(...ghostBands(this.env.project(), this.movables(), t), ...ghostViews(this.env.project(), this.env.selection(), t));
+      this.items.push(...ghostBands(this.env.project(), this.movables(), t), ...ghostOpenings(this.env.project(), this.movables(), t), ...ghostViews(this.env.project(), this.env.selection(), t));
       return;
     }
-    const inf = this.snap(p, { from: this.p1 ?? undefined, ignore: new Set(this.movables()) });
+    // O eixo enxerga a própria seleção: espelhar uma parede em torno da face dela (ou da linha de centro) é o uso
+    // corrente. Os dois cliques são referência, não destino; nada se move até o segundo.
+    const inf = this.snap(p, { from: this.p1 ?? undefined });
     if (!this.p1) {
       this.items.push({ kind: 'point', at: inf.point });
       return;
@@ -408,7 +425,7 @@ export class MirrorTool extends SelectionTool {
     this.items.push({ kind: 'line', a: this.p1, b: inf.point, dashed: true });
     if (dist(this.p1, inf.point) > 1e-6) {
       const t = { kind: 'mirror', a: this.p1, b: inf.point } as const;
-      this.items.push(...ghostBands(this.env.project(), this.movables(), t), ...ghostViews(this.env.project(), this.env.selection(), t));
+      this.items.push(...ghostBands(this.env.project(), this.movables(), t), ...ghostOpenings(this.env.project(), this.movables(), t), ...ghostViews(this.env.project(), this.env.selection(), t));
     }
   }
 
@@ -419,6 +436,11 @@ export class MirrorTool extends SelectionTool {
     const t = { kind: 'mirror', a, b } as const;
     const copy = this.env.options().mirrorCopy;
     const disjoin = this.env.options().mirrorDisjoin ?? DEFAULT_DISJOIN.mirror;
+    // Decisão 0044: espelhar (in-place ou com cópia) não deixa parede em cima de parede.
+    if (copy ? refuseCopyOverlap(this.env, els, t) : refuseMoveOverlap(this.env, els, t)) {
+      this.reset(); // recusa não deixa o primeiro ponto do eixo pela metade: o próximo gesto recomeça
+      return;
+    }
     this.env.transaction(copy ? 'Espelhar e copiar' : 'Espelhar', () => {
       if (els.length) {
         if (copy) copyWalls(this.env, els, t);
@@ -442,7 +464,7 @@ export class MirrorTool extends SelectionTool {
       this.apply(f.a, f.b);
       return;
     }
-    const inf = this.snap(p, { from: this.p1 ?? undefined, ignore: new Set(this.movables()) });
+    const inf = this.snap(p, { from: this.p1 ?? undefined });
     if (!this.p1) {
       this.p1 = inf.point;
       return;

@@ -56,6 +56,8 @@ function stairIssueMessage(i: StairTypeIssue): string {
   switch (i.code) {
     case 'stt-name-empty': return 'Dê um nome ao tipo.';
     case 'stt-riser': return 'O espelho máximo precisa ser maior que zero.';
+    case 'stt-riser-min': return 'O espelho mínimo precisa ser maior que zero.';
+    case 'stt-riser-min-range': return 'O espelho mínimo precisa ser menor que o espelho máximo.';
     case 'stt-tread': return 'O piso mínimo precisa ser maior que zero.';
     case 'stt-width': return 'A largura mínima do lance precisa ser maior que zero.';
     case 'stt-headroom': return 'A folga de cabeça precisa ser maior que zero.';

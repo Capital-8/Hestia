@@ -184,15 +184,78 @@ describe('sólidos de escada (3D, decisões 0011 §1 e 0012)', () => {
     expect(unmatchedEdges(buildStairSolids([s], () => low)[0]!)).toBe(0);
   });
 
-  it('escada com erro não gera malha', () => {
+  it('escada com erro (ex.: `stair-riser-too-high`) mantém a malha: o erro fica no painel/validador, não apaga a geometria', () => {
     const issues = [{ code: 'stair-riser-too-high', severity: 'error' as const, message: 'x', stairId: 'st1' }];
-    expect(buildStairSolids([straightStair({ issues })])).toEqual([]);
-    expect(buildStairSolids([straightStair({ issues, type: MONO })])).toEqual([]);
+    const mono = straightStair({ issues });
+    const asm = straightStair({ issues, type: ASSEMBLED });
+    for (const s of [mono, asm]) {
+      const batches = buildStairSolids([s]);
+      expect(batches).toHaveLength(1);
+      expect(batches[0]!.materialId).toBe(s.type.materialId);
+      expect(batches[0]!.indices.length).toBeGreaterThan(0);
+      expect(batches[0]!.ids).toEqual([{ id: s.id, start: 0, count: batches[0]!.indices.length }]);
+      // O erro continua nos avisos da escada: o render não o consume nem o remove.
+      expect(s.issues).toEqual(issues);
+    }
+    expect(Math.abs(total(buildStairSolids([mono])) - total(buildStairSolids([straightStair()])))).toBeLessThan(1e-9);
   });
 
-  it('escada sem degraus não gera malha', () => {
+  it('sem degraus e sem croqui não gera malha', () => {
     const empty = { ...straightStair(), steps: [], risers: [] };
     expect(buildStairSolids([empty as ResolvedStair])).toEqual([]);
+  });
+
+  it('sem degraus mas com croqui: corpo-placeholder fino (0,20 m) do retângulo envolvente, na cota da base', () => {
+    const components: Array<StairRun | StairLanding> = [
+      {
+        id: 'r1',
+        kind: 'run',
+        boundaryLeft: [{ a: { x: 0, y: 0 }, b: { x: 0, y: 3 }, sag: 0 }],
+        boundaryRight: [{ a: { x: 1.2, y: 0 }, b: { x: 1.2, y: 3 }, sag: 0 }],
+        risers: [{ a: { x: 0, y: 0 }, b: { x: 1.2, y: 0 }, sag: 0 }],
+        path: [],
+      },
+      {
+        id: 'p1',
+        kind: 'landing',
+        boundary: [
+          { a: { x: 0, y: 3 }, b: { x: 2, y: 3 }, sag: 0 },
+          { a: { x: 2, y: 3 }, b: { x: 2, y: 4 }, sag: 0 },
+          { a: { x: 2, y: 4 }, b: { x: 0, y: 4 }, sag: 0 },
+          { a: { x: 0, y: 4 }, b: { x: 0, y: 3 }, sag: 0 },
+        ],
+      },
+    ];
+    const base = straightStair({ baseZ: 0.3 });
+    const s = { ...base, steps: [], risers: [], footprint: [], components } as ResolvedStair;
+    const [b] = buildStairSolids([s]);
+    expect(b).toBeDefined();
+    expect(b!.materialId).toBe(base.type.materialId);
+    const xs = b!.positions.filter((_, i) => i % 3 === 0);
+    const ys = b!.positions.filter((_, i) => i % 3 === 1);
+    const zs = b!.positions.filter((_, i) => i % 3 === 2);
+    expect(Math.min(...xs)).toBeCloseTo(0, 9);
+    expect(Math.max(...xs)).toBeCloseTo(2, 9);
+    expect(Math.min(...ys)).toBeCloseTo(0, 9);
+    expect(Math.max(...ys)).toBeCloseTo(4, 9);
+    expect(Math.min(...zs)).toBeCloseTo(0.3, 9);
+    expect(Math.max(...zs)).toBeCloseTo(0.5, 9);
+    expect(Math.abs(total([b!]) - 2 * 4 * 0.2)).toBeLessThan(1e-9);
+    expect(b!.ids).toEqual([{ id: s.id, start: 0, count: b!.indices.length }]);
+    expect(unmatchedEdges(b!)).toBe(0);
+  });
+
+  it('topo não acima da base: escada resolvida sem degraus continua no 3D pelo corpo-placeholder', () => {
+    const components: StairRun[] = [{ id: 'run', kind: 'run', ...generateStraightRun({ start: { x: 0, y: 0 }, dir: { x: 0, y: 1 }, width: 1.2, risers: 16, tread: 0.28 }) }];
+    const store = new ProjectStore(createEmptyProject());
+    store.exec({ type: 'addStair', stair: makeStair({ id: 'st1', typeId: defaultStairTypeId, levelId: 'lv_0', topOffset: -5, components }) });
+    const [rs] = resolveStairsOnLevel(store.project, 'lv_0');
+    expect(rs!.steps).toEqual([]);
+    expect(rs!.topZ).toBeLessThanOrEqual(rs!.baseZ);
+    const [b] = buildStairSolids([rs!]);
+    expect(b).toBeDefined();
+    expect(b!.ids.map((r) => r.id)).toEqual(['st1']);
+    expect(b!.positions.length).toBeGreaterThan(0);
   });
 });
 

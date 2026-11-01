@@ -41,6 +41,8 @@ export interface PlanViewState {
   thinLines: boolean;
   selection: Id[];
   hover: Id | null;
+  /** Parede em conflito (decisão 0044), realçada em amarelo na camada de hover. */
+  aviso?: Id | null;
   preview: PreviewItem[];
   inference: Inference | null;
   /** Elementos ocultos nesta vista (Hide in View + temporário). */
@@ -99,7 +101,7 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
     // Três chaves de sobreposição: a seleção, o alvo do cursor e a camada viva (prévia, guias e captura). Cursor e
     // pré-visualização não refazem os destaques da seleção, e o hover não refaz a geometria do nível.
     overlayKey: `${s.version}|${levelId}|${modo}|${dark}|${s.selection.join(',')}|${areaKey}|${visKey}`,
-    hoverKey: `${s.version}|${levelId}|${modo}|${dark}|${s.selection.join(',')}|${s.hover ?? ''}|${areaKey}|${visKey}`,
+    hoverKey: `${s.version}|${levelId}|${modo}|${dark}|${s.selection.join(',')}|${s.hover ?? ''}|${s.aviso ?? ''}|${areaKey}|${visKey}`,
     liveKey: `${JSON.stringify(s.preview)}|${JSON.stringify(s.inference)}|${sketchKey(s.sketch, v.zoom)}|${JSON.stringify(s.tagGhost ?? null)}|${areaKey}`,
     // Só a geometria lê o nível de baixo: as referências são resolvidas apenas quando ela é refeita.
     geometry: () => {
@@ -113,7 +115,7 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
       return s.sketch ? dimPlanOps(g, theme.bg) : g;
     },
     overlay: () => buildPlanScreenOverlay({ ...base, resolved: resolvido(), below: null, selection: s.selection, hover: null, preview: [], inference: null }),
-    hover: () => buildPlanHoverOverlay({ ...base, resolved: resolvido(), below: null, selection: s.selection, hover: s.hover, preview: [], inference: null }),
+    hover: () => buildPlanHoverOverlay({ ...base, resolved: resolvido(), below: null, selection: s.selection, hover: s.hover, aviso: s.aviso ?? null, preview: [], inference: null }),
     live: () => comEsboco(buildPlanLiveOverlay({ ...base, resolved: resolvido(), below: null, selection: s.selection, hover: null, preview: s.preview, inference: s.inference }), s.sketch, theme, v, unitsOf(p)),
   };
 }

@@ -6,6 +6,8 @@ export function makeEnv(store = new ProjectStore(createEmptyProject())) {
   let selection: Id[] = [];
   let finished = 0;
   let areaPlan: Id | null = null;
+  const alerts: string[] = [];
+  const alertIds: Id[][] = [];
   const options: ToolOptions = {
     wallTypeId: 'wt_alv14', locationLine: 'wallCenter', wallHeight: 2.8, chain: true, wallShape: 'line',
     doorTypeId: 'ot_p80', windowTypeId: 'ot_j120', orthoLock: false, arrayCount: 3, offsetDistance: 1,
@@ -24,10 +26,11 @@ export function makeEnv(store = new ProjectStore(createEmptyProject())) {
     areaPlanId: () => areaPlan,
     gridStep: () => 0.1,
     say: () => {},
+    alert: (message: string, ids?: readonly Id[]) => { alerts.push(message); alertIds.push([...(ids ?? [])]); },
     done: () => { finished += 1; },
     options: () => options,
   };
-  return { store, env, options, done: () => finished, sel: () => selection, areaPlanId: () => areaPlan, setAreaPlanId: (id: Id | null) => { areaPlan = id; } };
+  return { store, env, options, done: () => finished, sel: () => selection, areaPlanId: () => areaPlan, setAreaPlanId: (id: Id | null) => { areaPlan = id; }, alertas: () => alerts, alertIds: () => alertIds };
 }
 
 export const P = (x: number, y: number, extra: Partial<PointerInfo> = {}): PointerInfo => ({ raw: { x, y }, shift: false, ctrl: false, alt: false, ...extra });

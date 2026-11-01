@@ -85,7 +85,7 @@ describe('makeStair e tipos padrão', () => {
       'Escada caracol com poste central',
     ]);
     for (const t of DEFAULT_STAIR_TYPES) {
-      expect(t).toMatchObject({ maxRiser: 0.18, minTread: 0.28, nosing: 0.015, landingThickness: 0.15, minHeadroom: 2.1 });
+      expect(t).toMatchObject({ maxRiser: 0.18, minRiser: 0.16, minTread: 0.28, nosing: 0.015, landingThickness: 0.15, minHeadroom: 2.1 });
     }
     for (const t of DEFAULT_STAIR_TYPES.slice(0, 2)) expect(t.minRunWidth).toBe(0.8);
     expect(DEFAULT_STAIR_TYPES[0]).toMatchObject({ runStyle: 'monolithic', undersideStyle: 'smooth', structuralDepth: 0.2, materialId: 'mat_concreto' });
@@ -421,6 +421,12 @@ describe('escada caracol: tipos, poste e metadado do croqui', () => {
   it('no poste, a sobreposição precisa ser menor que a espessura do degrau; nos outros estilos não é conferida contra ela', () => {
     expect(stairTypeIssue({ runStyle: 'post', treadThickness: 0.05, treadOverlap: 0.05 })).toMatch(/menor que a espessura/);
     expect(stairTypeIssue({ runStyle: 'post', treadThickness: 0.05, treadOverlap: 0.049 })).toBeNull();
+    // Espelho mínimo (NBR 9050: 0,16–0,18 m): positivo e menor que o máximo.
+    const base = { runStyle: 'assembled' as const, treadThickness: 0.03, treadOverlap: 0 };
+    expect(stairTypeIssue({ ...base, minRiser: 0.16, maxRiser: 0.18 })).toBeNull();
+    expect(stairTypeIssue({ ...base, minRiser: 0, maxRiser: 0.18 })).toMatch(/espelho mínimo/);
+    expect(stairTypeIssue({ ...base, minRiser: 0.18, maxRiser: 0.18 })).toMatch(/menor que o espelho máximo/);
+    expect(stairTypeIssue({ ...base, minRiser: 0.2, maxRiser: 0.18 })).toMatch(/menor que o espelho máximo/);
     expect(stairTypeIssue({ runStyle: 'assembled', treadThickness: 0.03, treadOverlap: 0.1 })).toBeNull();
     expect(stairTypeIssue({ runStyle: 'monolithic', treadThickness: 0, treadOverlap: 0 })).toBeNull();
   });

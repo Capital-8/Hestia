@@ -45,6 +45,8 @@ const COLLINEAR_ANGLE = (1 * Math.PI) / 180;
 const COLLINEAR_OFFSET = 0.01;
 
 const label = (e: Element): string => ('mark' in e && e.mark ? `"${e.mark}" (${e.id})` : `"${e.id}"`);
+/** Nome do elemento nas mensagens (mesma forma dos avisos): `"marca" (id)` ou `"id"`. */
+export const elementLabel = label;
 
 function wallIssues(p: Project, w: Wall): ValidationIssue[] {
   const out: ValidationIssue[] = [];

@@ -196,11 +196,14 @@ export class ParallelTool extends ToolBase {
   private create(d: number): void {
     const id = this.base!;
     const plan = this.plan(this.shiftOf(d));
+    let criada = false;
     this.env.transaction('Parede paralela', () => {
       const [nid] = copyWalls(this.env, [id], { kind: 'translate', d: plan.arc ? v2(0, 0) : plan.d });
+      if (nid) criada = true;
       if (plan.arc && nid) this.env.exec({ type: 'updateElements', ids: [nid], patch: { a: plan.arc.a, b: plan.arc.b, sag: plan.arc.sag } });
     });
     this.reset();
-    this.env.say(`Parede paralela criada a ${fmtM(unitsOf(this.env.project()), d)} (${this.byFace() ? 'face a face' : 'entre eixos'}). Ctrl+Z desfaz.`);
+    // Bloqueio da decisão 0044: a mensagem já foi dita; não anuncia uma parede que não nasceu.
+    if (criada) this.env.say(`Parede paralela criada a ${fmtM(unitsOf(this.env.project()), d)} (${this.byFace() ? 'face a face' : 'entre eixos'}). Ctrl+Z desfaz.`);
   }
 }

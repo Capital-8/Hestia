@@ -51,6 +51,7 @@ export * from './stairSpiral.ts';
 export * from './stairNorms.ts';
 export * from './stairIssues.ts';
 export * from './stairs.ts';
+export * from './stairRefit.ts';
 export * from './stairOpenings.ts';
 export * from './stairChecks.ts';
 export * from './stairWallOverlap.ts';

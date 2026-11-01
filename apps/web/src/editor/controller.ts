@@ -29,6 +29,7 @@ import { keptFloorType } from './typeActions.ts'; import { keptSlabType } from '
 import { AUTOSAVE_KEY, safeGet, safeSet } from './storage.ts';
 import { useI18n } from './i18n.ts';
 import { pedirConfirmacaoHostedLoss } from './hostedLossPrompt.ts';
+import { pedirAlerta } from './alertaPrompt.ts';
 import { fitBox, levelFrameBox, panBy, planViewOf, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
 import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
 import { defaultOpenViews, type PlanKind } from './openViews.ts';
@@ -181,6 +182,7 @@ export class Editor {
     metersPerPixel: () => 1 / (this.viewport()?.zoom ?? 60),
     gridStep: () => effectiveGridStep(this.viewport()?.zoom ?? 60, useUi.getState().gridStep),
     say: (m) => useUi.setState({ status: m }), lang: () => useI18n.getState().lang, confirmHostedLoss: (losses, message) => pedirConfirmacaoHostedLoss(losses, message),
+    alert: (m, ids) => pedirAlerta(m, ids),
     done: () => this.setTool('select'),
     openView: (id) => this.openSection(id),
     options: () => useUi.getState().options, setOptions: (patch) => useUi.setState({ options: { ...useUi.getState().options, ...patch } }),

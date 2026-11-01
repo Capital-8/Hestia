@@ -83,6 +83,8 @@ export interface PlanInput {
   dark: boolean;
   selection: Id[];
   hover: Id | null;
+  /** Parede em conflito (decisão 0044): realçada em amarelo na camada de hover. */
+  aviso?: Id | null;
   preview: PreviewItem[];
   inference: Inference | null;
   showGrid: boolean;

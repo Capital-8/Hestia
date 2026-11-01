@@ -1,5 +1,5 @@
-import { applyTransform, dist, dot, type Transform, type Vec2 } from '@hestia/geom';
-import { frameOfWall } from '@hestia/engine';
+import { add, applyTransform, dist, dot, norm, openingSymbolPaths, perp, sub, type Transform, type Vec2 } from '@hestia/geom';
+import { frameOfWall, openingGeometry } from '@hestia/engine';
 import { isCad, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, newId, sectionLabelOf, sectionPoints, viewIdsIn, viewTransformCommands, type Command, type Id, type Project } from '@hestia/model';
 import { followerCommands, planWallFollowers } from './wallFollow.ts';
 import { cadSnapIndexes } from './snapCad.ts';
@@ -114,6 +114,46 @@ export function ghostBands(p: Project, wallIds: Id[], t: Transform): PreviewItem
     const b = applyTransform(t, f.b);
     const sag = f.wall.sag;
     out.push({ kind: 'wallBand', a, b, thickness: f.thickness, sMid: t.kind === 'mirror' ? -f.sMid : f.sMid, sag: t.kind === 'mirror' ? -sag : sag });
+  }
+  return out;
+}
+
+/**
+ * Fantasmas das aberturas hospedadas nas paredes selecionadas, com o mesmo símbolo da planta. Espelhar inverte o lado
+ * de abertura (`flipFacing`) e mantém a mão da dobradiça (`flipHand`), como o comando 'transform' faz no modelo.
+ */
+export function ghostOpenings(p: Project, wallIds: Id[], t: Transform): PreviewItem[] {
+  // Caminho quente do cursor: sem aberturas hospedadas não há o que desenhar e nada é alocado.
+  let any = false;
+  for (const e of Object.values(p.elements)) {
+    if (isOpening(e) && wallIds.includes(e.hostId)) {
+      any = true;
+      break;
+    }
+  }
+  if (!any) return [];
+  const out: PreviewItem[] = [];
+  const mirror = t.kind === 'mirror';
+  for (const id of wallIds) {
+    if (!isWall(p.elements[id])) continue;
+    const f = frameOfWall(p, id);
+    if (!f) continue;
+    for (const e of Object.values(p.elements)) {
+      if (!isOpening(e) || e.hostId !== id) continue;
+      const g = openingGeometry(p, e, f);
+      const center = applyTransform(t, g.center);
+      // Direção ao longo da parede: transforma dois pontos e tira a diferença (o vetor puro não vale para espelho
+      // fora da origem). `perp` devolve a normal à esquerda, como no frame da parede.
+      const u = norm(sub(applyTransform(t, add(g.center, g.u)), center));
+      const n = perp(u);
+      const flipFacing = mirror ? !g.flipFacing : g.flipFacing;
+      for (const st of openingSymbolPaths({ ...g, center, u, n, flipFacing })) {
+        const dash = st.dash ? { dashed: true } : {};
+        for (let i = 1; i < st.pts.length; i++) out.push({ kind: 'line', a: st.pts[i - 1]!, b: st.pts[i]!, ...dash });
+        // Anel fechado (folha pivotante): liga o último ponto ao primeiro.
+        if (st.closed && st.pts.length > 2) out.push({ kind: 'line', a: st.pts[st.pts.length - 1]!, b: st.pts[0]!, ...dash });
+      }
+    }
   }
   return out;
 }

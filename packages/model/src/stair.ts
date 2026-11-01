@@ -37,6 +37,7 @@ export function makeStair(s: StairInput): Omit<Stair, 'order'> {
 /** Valores comuns aos tipos iniciais (decisão 0011 §1, item 8; decisão 0014 §8 para sobreposição e poste). */
 const COMMON = {
   maxRiser: 0.18,
+  minRiser: 0.16,
   minTread: 0.28,
   ...DEFAULT_STAIR_CALC_RULE,
   minRunWidth: 0.8,
@@ -111,7 +112,7 @@ export const DEFAULT_STAIR_TYPES: StairType[] = [
 
 /** Entrada da validação do tipo: os campos de regra são opcionais para aceitar chamadas antigas. */
 export type StairTypeIssueInput = Pick<StairType, 'runStyle' | 'treadThickness' | 'treadOverlap'> &
-  Partial<Pick<StairType, 'minTread' | keyof StairCalcRule>>;
+  Partial<Pick<StairType, 'minTread' | 'minRiser' | 'maxRiser' | keyof StairCalcRule>>;
 
 /**
  * Regras do tipo que o modelo confere ao salvar (`upsertStairType`): estilo conhecido; sobreposição não negativa; no
@@ -131,6 +132,10 @@ export function stairTypeIssue(t: StairTypeIssueInput): string | null {
     if (!(t.calcMin <= t.calcTarget && t.calcTarget <= t.calcMax)) {
       return 'O alvo da regra de cálculo precisa ficar entre o mínimo e o máximo da faixa.';
     }
+  }
+  if (t.minRiser !== undefined && !(t.minRiser > 0)) return 'O espelho mínimo precisa ser maior que zero.';
+  if (t.minRiser !== undefined && t.maxRiser !== undefined && !(t.minRiser < t.maxRiser)) {
+    return 'O espelho mínimo precisa ser menor que o espelho máximo.';
   }
   if (t.maxTread !== undefined && t.minTread !== undefined && !(t.maxTread >= t.minTread)) {
     return 'O piso máximo precisa ser maior ou igual ao piso mínimo.';

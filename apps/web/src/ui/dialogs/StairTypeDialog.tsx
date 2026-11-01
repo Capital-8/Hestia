@@ -112,7 +112,7 @@ export function StairTypeDialog({ typeId }: { typeId: string }): ReactElement | 
   const dirty = hasUnsavedChanges(draft, base);
   const impact = Boolean(
     draft && base && usage > 0 &&
-    (['maxRiser', 'minTread', 'calcRiserFactor', 'calcTreadFactor'] as const).some((f) => draft[f] !== base[f]),
+    (['maxRiser', 'minRiser', 'minTread', 'calcRiserFactor', 'calcTreadFactor'] as const).some((f) => draft[f] !== base[f]),
   );
   const calc = draft ? computeStairCalc(draft, calcHeight / 100) : null;
   const nameIssue = issues.find((i) => i.field === 'name' && i.severity === 'error') ?? issues.find((i) => i.field === 'name');

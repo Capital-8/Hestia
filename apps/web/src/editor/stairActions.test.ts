@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ProjectStore, buildTemplate, makeStair, type Stair, type StairRun } from '@hestia/model';
+import { ProjectStore, buildTemplate, createEmptyProject, defaultStairTypeId, makeStair, type Stair, type StairRun } from '@hestia/model';
 import { keptStairType, patchStairs, stairBox, stairNote } from './stairActions.ts';
 
 const curve = (ax: number, ay: number, bx: number, by: number) => ({ a: { x: ax, y: ay }, b: { x: bx, y: by }, sag: 0 });
@@ -44,6 +44,30 @@ describe('edição em transação única', () => {
     const before = store.project.nextOrder;
     patchStairs(store, [], { mark: 'x' });
     expect(store.project.nextOrder).toBe(before);
+  });
+
+  it('mudar o deslocamento do topo estica o lance pela fórmula, mantendo os espelhos (decisão 0041)', () => {
+    const store = new ProjectStore(createEmptyProject());
+    const curve = (ax: number, ay: number, bx: number, by: number) => ({ a: { x: ax, y: ay }, b: { x: bx, y: by }, sag: 0 });
+    const run18: StairRun = {
+      id: 'r1',
+      kind: 'run',
+      boundaryLeft: [curve(0, 0, 0, 4.76)],
+      boundaryRight: [curve(1, 0, 1, 4.76)],
+      risers: Array.from({ length: 18 }, (_, i) => curve(0, i * 0.28, 1, i * 0.28)),
+      path: [],
+    };
+    store.exec({ type: 'addStair', stair: makeStair({ id: 'st1', typeId: defaultStairTypeId, levelId: 'lv_0', topLevelId: 'lv_1', components: [run18] }) });
+    const lastBefore = (run18.risers[17]!.a.y);
+    patchStairs(store, ['st1'], { topOffset: -0.1 }, 'Editar escada');
+    const after = (store.project.elements.st1 as Stair).components[0] as StairRun;
+    expect(after.risers).toHaveLength(18);
+    expect(after.risers[17]!.a.y).toBeGreaterThan(lastBefore);
+    expect(after.risers[17]!.a.y - after.risers[0]!.a.y).toBeCloseTo(17 * (0.63 - 2 * (2.9 / 18)), 5);
+    store.undo();
+    const back = (store.project.elements.st1 as Stair).components[0] as StairRun;
+    expect(back.risers).toHaveLength(18);
+    expect(back.risers[17]!.a.y).toBeCloseTo(lastBefore, 9);
   });
 });
 

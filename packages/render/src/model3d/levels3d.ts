@@ -1,7 +1,7 @@
 /* eslint-disable max-lines -- o datum reúne duas linhas, bolha, texto, plano e cota no mesmo módulo. */
 import * as THREE from 'three';
 import type { Id, Project } from '@hestia/model';
-import { levelDataOf, levelProjectBox, type LevelBox, type LevelDatum } from './levelsData.ts';
+import { LEVEL_LINE_OFFSET, levelDataOf, levelProjectBox, type LevelBox, type LevelDatum } from './levelsData.ts';
 
 /**
  * Datum de nível no 3D (revisão 2): **duas linhas** por nível — a da esquerda (com a bolha e o texto) e a de trás,
@@ -144,7 +144,7 @@ export function buildLevels(p: Project, selected: Id | null, dark = false): THRE
   const grupo = new THREE.Group();
   const cores = levelPalette(dark);
   const data = levelDataOf(p);
-  const box = levelProjectBox(p);
+  const box = levelProjectBox(p, LEVEL_LINE_OFFSET);
   const views: LevelView[] = [];
   const dimensions: DimensionView[] = [];
   const texturaBolha = texturaDaBolha(cores);
@@ -161,7 +161,7 @@ export function buildLevels(p: Project, selected: Id | null, dark = false): THRE
     const bubble = bolhaDoDatum(d, materialBolha);
     const text = textoDoDatum(d, cores);
     grupo.add(line, lineBack, bubble, text);
-    if (selecionado) grupo.add(planoDoNivel(d, box, cores));
+    if (selecionado) grupo.add(planoDoNivel(d, cores));
     views.push({ datum: d, line, lineBack, bubble, text });
   }
   if (selected !== null) {
@@ -228,9 +228,9 @@ function textoDoDatum(d: LevelDatum, cores: LevelPalette): THREE.Sprite {
   return sprite;
 }
 
-/** Plano azul do nível selecionado: o retângulo entre as duas linhas (a caixa da obra). */
-function planoDoNivel(d: LevelDatum, box: LevelBox, cores: LevelPalette): THREE.Mesh {
-  const { minX, maxX, minY, maxY } = box;
+/** Plano azul do nível selecionado: a caixa da obra com a margem curta (`d.plane`), mais perto da obra que as linhas. */
+function planoDoNivel(d: LevelDatum, cores: LevelPalette): THREE.Mesh {
+  const { minX, maxX, minY, maxY } = d.plane;
   const largura = maxX - minX;
   const altura = maxY - minY;
   const material = new THREE.MeshBasicMaterial({

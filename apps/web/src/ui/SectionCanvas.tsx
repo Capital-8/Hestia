@@ -36,7 +36,7 @@ export function buildSectionFrame(v: Viewport, dark: boolean, hidden?: ReadonlyS
       revealed,
       annotations: view ? sectionAnnotationsOf(view) : undefined,
       levelExtents: view?.levelExtents,
-      highlight: { selection: st.selection, hover: st.hover },
+      highlight: { selection: st.selection, hover: st.hover, aviso: st.avisoParede ? [st.avisoParede] : [] },
       thinLines: thinLinesOn(editor.project, 'section'),
     },
     v,

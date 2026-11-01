@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Vec2 } from '@hestia/geom';
 import { planRamp, planRampFree, rampIssueList, regenRamp, type RampPlan } from '@hestia/engine';
 import { ProjectStore, createEmptyProject, makeLevel, makeRamp, type Ramp, type StairLanding, type StairRun } from '@hestia/model';
-import { adjustRamp, applyRegen } from './rampActions.ts';
+import { adjustRamp, applyRegen, patchRamps } from './rampActions.ts';
 
 const type = createEmptyProject().rampTypes.rmt_nbr9050!;
 const comps = (plan: RampPlan): Array<StairRun | StairLanding> =>
@@ -54,6 +54,16 @@ describe('adjustRamp (botão Ajustar)', () => {
     store.undo();
     expect(rampOf(store).components).toEqual(before);
     expect(rampOf(store).freePath).toEqual(path);
+  });
+
+  it('patchRamps: mudar o deslocamento do topo no modo slope regenera o comprimento (decisão 0041)', () => {
+    const { store, id } = setup(1.2);
+    const before = rampOf(store).components;
+    patchRamps(store, [id], { topOffset: 0.2 }, 'Editar rampa');
+    expect(rampOf(store).components).not.toEqual(before);
+    expect(rampIssueList(store.project).filter((i) => i.code === 'ramp-slope-differs')).toEqual([]);
+    store.undo();
+    expect(rampOf(store).components).toEqual(before);
   });
 
   it('rampa inexistente devolve erro', () => {

@@ -15,3 +15,22 @@ the project.
 
 Third-party dependencies keep their own licenses. See the package manifests and
 their respective license files.
+
+Kernel geométrico experimental (opcional, desligado por padrão). A crate
+`crates/geom-wasm` é puramente Rust e o binário WebAssembly commitado em
+`packages/geom/assets/` contém código das seguintes bibliotecas, todas do projeto
+iShape-Rust (https://github.com/iShape-Rust) sob a licença **MIT OR Apache-2.0**:
+
+- `i_overlay` — booleanas e offset de polígonos (https://github.com/iShape-Rust/iOverlay)
+- `i_shape` — hierarquia de formas
+- `i_float` — ponto e aritmética de ponto flutuante
+- `i_tree` e `i_key_sort` — estruturas de apoio
+
+Além delas, `libm` (MIT OR Apache-2.0), usada pela camada de matemática.
+
+Essas licenças valem para esses componentes; o código do Hestia — inclusive o
+kernel em `crates/geom-wasm`, a ABI, a cola JavaScript e o restante do projeto —
+continua sob a MIT License (ver LICENSE). Os textos completos das licenças MIT e
+Apache-2.0 de cada crate acompanham o pacote publicado no crates.io e podem ser
+lidos em `%USERPROFILE%\.cargo\registry\src\` após `cargo fetch`, ou nos
+repositórios acima.

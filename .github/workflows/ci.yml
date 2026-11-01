@@ -30,6 +30,23 @@ jobs:
       - run: npm ci
       - run: npm run test:perf
 
+  # Kernel geométrico experimental (Rust → WebAssembly): confere o artefato commitado e roda o portão do
+  # experimento (contrato, carregador e diferencial contra o TypeScript). NÃO precisa de Rust: o `.wasm` é
+  # gerado por `npm run build:wasm` por quem mexe na crate e commitado junto. Ainda não bloqueia o merge,
+  # como o job `perf`; ver docs/decisoes/0045.
+  wasm:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/verificar-wasm.mjs
+      - run: npx vitest run --config vitest.wasm.config.ts
+
   # Suíte completa (60 sementes de propriedade, ~8 min). A infra de timeout do vitest foi corrigida (docs/08 §9);
   # não bloqueia enquanto houver reprovações de geometria em aberto. Remover continue-on-error quando estiver verde.
   completo:

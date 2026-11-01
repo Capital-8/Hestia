@@ -12,6 +12,7 @@ export interface StairFieldLimit {
 /** Limites por campo da especificação §3.2 (valores internos em metros). */
 export const STAIR_FIELD_LIMITS = {
   maxRiser: { min: 0.1, max: 0.25, decimals: 1, unit: 'cm', scale: 100 },
+  minRiser: { min: 0.05, max: 0.25, decimals: 1, unit: 'cm', scale: 100 },
   minTread: { min: 0.15, max: 0.45, decimals: 1, unit: 'cm', scale: 100 },
   minRunWidth: { min: 0.4, max: 3, decimals: 1, unit: 'cm', scale: 100 },
   minHeadroom: { min: 1.8, max: 3, decimals: 2, unit: 'm', scale: 1 },
@@ -45,7 +46,7 @@ export type StairValidationInput = Pick<
   StairType,
   'name' | 'maxRiser' | 'minTread' | 'minRunWidth' | 'runStyle' | 'structuralDepth' | 'treadThickness' | 'riserThickness' | 'landingThickness' | 'minHeadroom' | 'nosing'
 > &
-  Partial<Pick<StairType, 'treadOverlap' | 'materialId' | 'postMaterialId' | 'cost' | 'maxTread' | keyof StairCalcRule>>;
+  Partial<Pick<StairType, 'minRiser' | 'treadOverlap' | 'materialId' | 'postMaterialId' | 'cost' | 'maxTread' | keyof StairCalcRule>>;
 
 const err = (field: string, code: string, params: Record<string, number | string> = {}): StairTypeIssue => ({ field, severity: 'error', code, params });
 const warn = (field: string, code: string, params: Record<string, number | string> = {}): StairTypeIssue => ({ field, severity: 'warning', code, params });
@@ -60,6 +61,11 @@ export function validateStairType(t: StairValidationInput, materialIds?: Iterabl
   const out: StairTypeIssue[] = [];
   if (!t.name.trim()) out.push(err('name', 'stt-name-empty'));
   if (!positive(t.maxRiser)) out.push(err('maxRiser', 'stt-riser'));
+  // Espelho mínimo (NBR 9050: 0,16–0,18 m): 0 < mínimo < máximo. Chamadas antigas sem o campo não o validam.
+  if (t.minRiser !== undefined) {
+    if (!positive(t.minRiser)) out.push(err('minRiser', 'stt-riser-min'));
+    else if (positive(t.maxRiser) && !(t.minRiser < t.maxRiser)) out.push(err('minRiser', 'stt-riser-min-range'));
+  }
   if (!positive(t.minTread)) out.push(err('minTread', 'stt-tread'));
   if (!positive(t.minRunWidth)) out.push(err('minRunWidth', 'stt-width'));
   if (!positive(t.minHeadroom)) out.push(err('minHeadroom', 'stt-headroom'));

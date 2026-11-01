@@ -148,6 +148,12 @@ export function FileMenu(): ReactElement | null {
                 <span>{pt ? 'Motor gráfico' : 'Graphics engine'}</span>
                 <span className="badge">{engine}</span>
               </div>
+              <div className="fm-row">
+                <span>{pt ? 'Experimentais' : 'Experiments'}</span>
+                <button className="btn" onClick={() => go(() => useUi.setState({ dialog: 'experimentos', dialogArg: null }))}>
+                  {pt ? 'Kernel geométrico (Rust/WASM)…' : 'Geometry kernel (Rust/WASM)…'}
+                </button>
+              </div>
             </>
           )}
         </div>

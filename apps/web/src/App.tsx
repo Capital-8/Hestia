@@ -28,6 +28,7 @@ import { MaterialsDialog } from './ui/dialogs/MaterialsDialog.tsx';
 import { LevelsDialog, OpeningTypeDialog, ShortcutsDialog, StartDialog } from './ui/dialogs/OtherDialogs.tsx';
 import { UnitsDialog } from './ui/dialogs/UnitsDialog.tsx';
 import { HostedLossDialog } from './ui/dialogs/HostedLossDialog.tsx';
+import { AlertaDialog } from './ui/dialogs/AlertaDialog.tsx';
 import { AreaMergeDialog } from './ui/dialogs/AreaMergeDialog.tsx';
 import { DimensionSettingsDialog } from './ui/dialogs/DimensionSettingsDialog.tsx';
 import { ShortcutsConfigDialog } from './ui/dialogs/ShortcutsConfigDialog.tsx';
@@ -53,7 +54,9 @@ import { LineWeightsDialog } from './ui/dialogs/LineWeightsDialog.tsx';
 import { DxfExportDialog } from './ui/dialogs/DxfExportDialog.tsx';
 import { ImportCadDialog } from './ui/dialogs/ImportCadDialog.tsx';
 import { ManageCadDialog } from './ui/dialogs/ManageCadDialog.tsx';
+import { ExperimentosDialog } from './ui/dialogs/ExperimentosDialog.tsx';
 import { MoveLevelDialog } from './ui/MoveLevel.tsx';
+import { LevelMoveConflictDialog } from './ui/LevelMoveConflictDialog.tsx';
 import { GridTypeDialog } from './ui/dialogs/GridTypeDialog.tsx';
 import { TextDialog, useCaixaDeTextoAberta } from './ui/dialogs/TextDialog.tsx';
 
@@ -105,6 +108,8 @@ function Dialogs(): ReactElement | null {
       return <UnitsDialog />;
     case 'hostedLoss':
       return <HostedLossDialog />;
+    case 'alerta':
+      return <AlertaDialog />;
     case 'areaMerge':
       return <AreaMergeDialog />;
     case 'dimensions':
@@ -137,8 +142,12 @@ function Dialogs(): ReactElement | null {
       return <ImportCadDialog />;
     case 'manageCad':
       return <ManageCadDialog />;
+    case 'experimentos':
+      return <ExperimentosDialog />;
     case 'moveLevel':
       return <MoveLevelDialog onClose={() => useUi.setState({ dialog: null })} />;
+    case 'levelMoveConflict':
+      return <LevelMoveConflictDialog onClose={() => useUi.setState({ dialog: null, dialogArg: null })} />;
     case 'cotasAuto':
       return <AutoCotaDialog />;
     default:

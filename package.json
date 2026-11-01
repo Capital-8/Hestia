@@ -28,7 +28,10 @@
     "test:perf": "vitest run --config vitest.perf.config.ts",
     "bench:interacao": "vite-node scripts/bench-interacao.mts",
     "perf:browser": "node tests/e2e/perf-browser.mjs",
-    "medir:gpu": "node scripts/medir-gpu-memoria.mjs"
+    "medir:gpu": "node scripts/medir-gpu-memoria.mjs",
+    "build:wasm": "node scripts/build-wasm.mjs",
+    "wasm:check": "node scripts/verificar-wasm.mjs",
+    "test:wasm": "vitest run --config vitest.wasm.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

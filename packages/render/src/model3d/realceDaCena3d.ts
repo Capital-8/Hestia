@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import type { Id } from '@hestia/model';
 import { disposeHighlight, highlightOf, type HighlightStyle } from './highlight3d.ts';
 
-/** Ranhuras do realce: a seleção (`sel`) e o elemento sob o cursor (`hov`). */
-export type RanhuraDoRealce = 'sel' | 'hov';
+/** Ranhuras do realce: a seleção (`sel`), o elemento sob o cursor (`hov`) e o aviso de conflito (`aviso`, decisão 0044). */
+export type RanhuraDoRealce = 'sel' | 'hov' | 'aviso';
 
 /** Sobreposição de realce (seleção ou elemento sob o cursor) e a chave que a identifica, para não refazê-la à toa. */
 interface Realce {
@@ -25,7 +25,7 @@ interface Realce {
 export class RealcesDaCena {
   /** Onde as sobreposições ficam; a cena a põe como filha. */
   readonly camada = new THREE.Object3D();
-  private slots: Record<RanhuraDoRealce, Realce | null> = { sel: null, hov: null };
+  private slots: Record<RanhuraDoRealce, Realce | null> = { sel: null, hov: null, aviso: null };
 
   /** `raiz` é de onde as sobreposições copiam os triângulos (a cena inteira). */
   constructor(private readonly raiz: THREE.Object3D) {}
@@ -49,10 +49,11 @@ export class RealcesDaCena {
     this.slots[slot] = null;
   }
 
-  /** Tira as duas sobreposições (o modelo foi refeito, ou a cena será descartada). */
+  /** Tira as três sobreposições (o modelo foi refeito, ou a cena será descartada). */
   soltarTodos(): void {
     this.soltar('sel');
     this.soltar('hov');
+    this.soltar('aviso');
   }
 
   private mesmo(cur: Realce, ids: readonly Id[], style: HighlightStyle): boolean {

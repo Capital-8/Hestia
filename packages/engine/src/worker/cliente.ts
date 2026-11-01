@@ -29,6 +29,12 @@ export interface OpcoesClienteResolucao {
   usarWorker?: boolean;
   /** Cache de resolução usado na thread principal (fallback). */
   cache?: ResolveCache;
+  /**
+   * Kernel geométrico experimental (preferência de aplicação). Com `true` (ou função que devolva `true`), os pedidos ao
+   * worker levam `kernel: true` e ele ativa o wasm (ver `PedidoResolucao.kernel`). Ausente/`false`: os pedidos são
+   * exatamente os de antes. O worker é outro realm: não enxerga o `localStorage`, por isso o flag viaja no protocolo.
+   */
+  kernelExperimental?: boolean | (() => boolean);
 }
 
 /** Pedido ainda sem resposta: guarda o que é preciso para refazê-lo na thread principal se o worker falhar. */
@@ -70,6 +76,12 @@ export class ClienteResolucao {
   /** `'worker'` quando as resoluções vão para o worker; `'principal'` quando rodam na thread principal. */
   get modo(): 'worker' | 'principal' {
     return this.worker ? 'worker' : 'principal';
+  }
+
+  /** Kernel experimental ligado? Booleano ou função (a função lê a preferência na hora de cada pedido). */
+  private kernelExperimentalLigado(): boolean {
+    const opcao = this.opcoes.kernelExperimental;
+    return typeof opcao === 'function' ? opcao() : opcao === true;
   }
 
   /** Quantos pedidos estão sem resposta (medição e testes). */
@@ -148,6 +160,7 @@ export class ClienteResolucao {
     if (this.worker) {
       const repetido = this.enviado?.projeto === p.projeto && this.enviado.versao === p.versao;
       const mensagem: PedidoResolucao = { id: p.id, tipo: p.tipo, nivel: p.nivel, projeto: repetido ? { versao: p.versao } : { versao: p.versao, estrutura: p.projeto }, base: p.base };
+      if (this.kernelExperimentalLigado()) mensagem.kernel = true;
       try {
         this.worker.postMessage(mensagem);
         if (!repetido) this.enviado = { projeto: p.projeto, versao: p.versao };

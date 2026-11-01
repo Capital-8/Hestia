@@ -75,6 +75,12 @@ export interface ToolEnv {
   /** Mensagem da barra de status. */
   say(msg: string): void;
   /**
+   * Alerta modal que o usuário precisa confirmar (OK). Ausente = só a barra de status.
+   * `ids` são os elementos do conflito (decisão 0044: a parede que impede a operação), para a vista realçá-los.
+   * A interface usa o diálogo; os testes podem capturar as mensagens.
+   */
+  alert?(message: string, ids?: readonly Id[]): void;
+  /**
    * Confirma uma operação que deixaria aberturas fora da parede. Ausente = não pergunta (aplica e exclui).
    * Síncrono nos testes; na interface abre o diálogo e resolve quando o usuário escolhe.
    */

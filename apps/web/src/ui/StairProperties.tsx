@@ -6,7 +6,7 @@ import { regenSpiralComponents, regenStraightComponents, spiralInfo, spiralOfSta
 import { editor, useProject } from '../editor/controller.ts';
 import { goToIssue } from '../editor/goToIssue.ts';
 import { I18N, useI18n } from '../editor/i18n.ts';
-import { readLevelKeep } from '../editor/levelActions.ts';
+import { effectiveMinRiser, readLevelKeep, riserBandNote } from '../editor/levelActions.ts';
 import { useUi } from '../editor/state.ts';
 import { commonOf, patchStairs } from '../editor/stairActions.ts';
 import { adjustStairFree, applyStairFreeRegen, patchStairFree } from '../editor/stairFreeActions.ts';
@@ -19,6 +19,20 @@ import { stairOptions } from './typeOptions.ts';
 
 /** Um grau em radianos: os ângulos do caracol são guardados em rad e mostrados em graus. */
 const DEG = Math.PI / 180;
+
+/** Modo dos espelhos (decisão 0041): `auto` reajusta o croqui à altura; `fixed` mantém o croqui e avisa. */
+export type RiserMode = NonNullable<Stair['riserMode']>;
+
+/** Opções do campo "Espelhos", na ordem exibida: o automático reajusta o nº de espelhos quando o real passa do máximo. */
+export const RISER_MODE_OPTIONS: ReadonlyArray<{ value: RiserMode; label: string }> = [
+  { value: 'auto', label: 'Automático (recalcula e continua)' },
+  { value: 'fixed', label: 'Fixo (mantém o desenho)' },
+];
+
+/** Modo dos espelhos de uma escada; ausente no projeto antigo = automático. */
+export function riserModeOf(stair: Stair): RiserMode {
+  return stair.riserMode ?? 'auto';
+}
 
 /** Avisos e erros de uma escada: os de norma e de croqui (engine) e os de referência do modelo (tipo, nível, topo). */
 function issuesOf(p: Project, id: Id): ValidationIssue[] {
@@ -43,6 +57,7 @@ export function StairProperties({ stairs }: { stairs: Stair[] }): ReactElement {
   const base = commonOf(stairs, (s) => s.baseOffset);
   const top = commonOf(stairs, (s) => s.topLevelId ?? '');
   const topOff = commonOf(stairs, (s) => s.topOffset);
+  const riserMode = commonOf(stairs, (s) => riserModeOf(s));
   const height = commonOf(stairs, (s) => s.height);
   const openingMode = commonOf(stairs, (s) => s.openingMode);
   const openingHeadroom = commonOf(stairs, (s) => s.openingHeadroom);
@@ -171,6 +186,18 @@ export function StairProperties({ stairs }: { stairs: Stair[] }): ReactElement {
         </Row>
         <Row label="Desloc. da base" htmlFor="p-sbase"><NumField id="p-sbase" value={base.value} mixed={base.mixed} onCommit={(v) => patchHeight(ids, { baseOffset: v })} quantity="length" /></Row>
         <Row label="Desloc. do topo" htmlFor="p-stopoff"><NumField id="p-stopoff" value={topOff.value} mixed={topOff.mixed} onCommit={(v) => patchHeight(ids, { topOffset: v })} quantity="length" /></Row>
+        <Row label="Espelhos" htmlFor="p-stair-riser-mode">
+          <select
+            id="p-stair-riser-mode"
+            className="select"
+            value={riserMode.mixed ? '' : riserMode.value}
+            onChange={(e) => e.target.value && patchStairs(editor.store, ids, { riserMode: e.target.value as RiserMode }, 'Modo dos espelhos')}
+          >
+            {riserMode.mixed && <option value="">variados</option>}
+            {RISER_MODE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </Row>
+        <div className="hint">Automático: recalcula o nº de degraus e o piso pela fórmula do tipo, continuando no último lance. Fixo: o croqui não muda e a escada só avisa.</div>
         {!top.mixed && top.value === '' && noLevelAbove && (
           <Row label="Altura" htmlFor="p-sheight"><NumField id="p-sheight" value={height.value} mixed={height.mixed} min={0.1} onCommit={(v) => patchHeight(ids, { height: Math.max(0.1, v) })} quantity="length" /></Row>
         )}
@@ -252,6 +279,13 @@ export function StairProperties({ stairs }: { stairs: Stair[] }): ReactElement {
               <Row label="Nº de espelhos"><span className="val">{quantities.riserCount}</span></Row>
             )}
             <Row label="Altura do espelho"><span className="val">{fmt('length', quantities.riserHeight)}</span></Row>
+            {(() => {
+              // Aviso curto de faixa (sem lógica nova: só compara o espelho resultante com [mínimo, máximo] do tipo).
+              const band = type ? riserBandNote(quantities.riserHeight, type) : null;
+              return band && !band.inside ? (
+                <div className="hint" style={{ color: 'var(--warn)' }}>Espelho {band.text}.</div>
+              ) : null;
+            })()}
             <Row label="Piso médio"><span className="val">{fmt('length', quantities.treadMean)}</span></Row>
             <Row label="Largura"><span className="val">{fmt('length', quantities.width)}</span></Row>
             <Row label="Área em planta"><span className="val">{fmt('area', quantities.planArea)}</span></Row>
@@ -279,7 +313,7 @@ export function StairProperties({ stairs }: { stairs: Stair[] }): ReactElement {
       </Group>
       {type && (
         <div className="hint">
-          {type.runStyle === 'monolithic' ? 'Estilo monolítico.' : type.runStyle === 'post' ? 'Estilo de poste central, sem espelho.' : 'Estilo de piso e espelho.'} Espelho máximo {fmt('length', type.maxRiser)}.
+          {type.runStyle === 'monolithic' ? 'Estilo monolítico.' : type.runStyle === 'post' ? 'Estilo de poste central, sem espelho.' : 'Estilo de piso e espelho.'} Espelho {fmt('length', effectiveMinRiser(type))} a {fmt('length', type.maxRiser)}.
         </div>
       )}
     </>

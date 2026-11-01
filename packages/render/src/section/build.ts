@@ -3,6 +3,7 @@ import { CLOSED, openingLinePaths, type ProjectedRing, type SectionBeyond, type 
 import { formatQuantity, GRAPHICS_CATEGORIES, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Project, type ResolvedUnits } from '@hestia/model';
 import { mix } from '../plan/color.ts';
 import { thinStrokes } from '../plan/thin.ts';
+import { AVISO, AVISO_ALPHA } from '../aviso.ts';
 import type { PlanPaint } from '../plan/style.ts';
 import type { Espessura, FillOp, LabelOp, PlanDrawList, PlanTheme, StrokeOp } from '../plan/types.ts';
 import type { Viewport } from '../viewport.ts';
@@ -27,7 +28,7 @@ export interface SectionInput {
   /** Extensões 2D das linhas de nível nesta vista, em `t`. */
   levelExtents?: Record<Id, { a: number; b: number }>;
   /** Seleção e cursor (decisão 0016): realçados por cima do desenho. Sem ele, o desenho é o de sempre. */
-  highlight?: { selection: Id[]; hover: Id | null };
+  highlight?: { selection: Id[]; hover: Id | null; aviso?: Id[] };
   /** Linhas finas só na tela (decisão 0015): todo traço do modelo sai com 1 px. Padrão desligado; a prancha não passa. */
   thinLines?: boolean;
 }
@@ -345,8 +346,9 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
  * Corte unido: as peças guardam a origem (`parts`), então só a parte do dono selecionado é realçada. Sem `parts` (o
  * motor não separa as origens), vale o item inteiro.
  */
-function highlightOps(s: SectionResult, hl: { selection: Id[]; hover: Id | null }, theme: PlanTheme, fills: FillOp[], strokes: StrokeOp[]): void {
-  if (hl.selection.length === 0 && hl.hover === null) return;
+function highlightOps(s: SectionResult, hl: { selection: Id[]; hover: Id | null; aviso?: Id[] }, theme: PlanTheme, fills: FillOp[], strokes: StrokeOp[]): void {
+  const aviso = new Set(hl.aviso ?? []);
+  if (hl.selection.length === 0 && hl.hover === null && aviso.size === 0) return;
   const polysOf = (item: SectionItem, id: Id): MultiPolygon => {
     if (!item.owners.some((o) => o.id === id)) return [];
     if (!item.parts) return item.polygons;
@@ -355,6 +357,14 @@ function highlightOps(s: SectionResult, hl: { selection: Id[]; hover: Id | null 
     return parts.length === 1 ? parts[0]!.polygons : union(...parts.map((part) => part.polygons));
   };
   for (const item of sectionItems(s)) {
+    // Decisão 0044: a parede em conflito ganha o amarelo do aviso por cima da seleção/cursor.
+    const av = [...aviso].map((id) => polysOf(item, id)).filter((m) => m.length > 0);
+    if (av.length > 0) {
+      const polygons = av.length === 1 ? av[0]! : union(...av);
+      fills.push({ polygons, color: AVISO, alpha: AVISO_ALPHA });
+      for (const ring of ringsOf(polygons)) strokes.push({ pts: ring, closed: true, widthPx: 2.5, color: AVISO, alpha: 1 });
+      continue;
+    }
     const sel = hl.selection.map((id) => polysOf(item, id)).filter((m) => m.length > 0);
     if (sel.length > 0) {
       const polygons = sel.length === 1 ? sel[0]! : union(...sel);

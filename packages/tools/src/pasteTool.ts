@@ -4,6 +4,7 @@ import { ToolBase } from './base.ts';
 import { pasteAlignedCommand, type ClipBuffer } from './clipboard.ts';
 import { ghostBands } from './edit.ts';
 import { fmtDisplacement } from './transformTools.ts';
+import { copiesOverlap, notifyWallOverlap } from './wallOverlapGuard.ts';
 import type { PointerInfo, PreviewItem } from './types.ts';
 
 /**
@@ -134,6 +135,13 @@ export class PasteTool extends ToolBase {
     const r = pasteAlignedCommand(this.env.project(), this.clip, this.env.levelId());
     if (!r) {
       this.env.say('Não há o que colar neste nível.');
+      return;
+    }
+    // Decisão 0044: colar também não põe parede em cima de outra (nem em cima da própria origem).
+    const paredes = this.clip.walls.map((w) => ({ ...w, levelId: this.env.levelId() }));
+    const conflito = copiesOverlap(this.env.project(), paredes, [{ kind: 'translate', d: this.delta }]);
+    if (conflito) {
+      notifyWallOverlap(this.env, conflito);
       return;
     }
     const ids = [...r.wallIds, ...r.openingIds, ...r.floorIds, ...r.slabIds, ...r.roofIds, ...r.stairIds, ...r.rampIds, ...r.roomIds];
