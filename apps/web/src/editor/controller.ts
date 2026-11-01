@@ -40,6 +40,7 @@ import { casador } from './shortcutConfig.ts'; import { clearSelectionForTool } 
 import { elevationCommand, type PlanBox } from './elevations.ts';
 import { deleteSelectionIn } from './deleteIds.ts';
 import { deleteSectionAnnotationsIn, sectionAnnotationIdsIn } from './sectionHandles.ts';
+import { selecionarVisiveis3D } from './vista3dAoVivo.ts';
 import { hideSelectedCategoryInView, hideSelectionInView, resetAllTemporary, resetTemporaryHidden, temporaryHideSelection, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideSelectedCategoryInView, unhideSelectionInView, visibilityOf } from './viewVisibility.ts';
 import { deleteViewAction, renameViewAction, updateViewAction } from './sectionViewActions.ts';
 import { entregarArquivo } from './entregarArquivo.ts';
@@ -543,6 +544,8 @@ export class Editor {
       if (tecla === 'x') return this.cutSelection();
       return this.pasteAligned();
     }
+    // Ctrl+A na vista 3D seleciona os elementos visíveis no quadro; na planta, o perímetro (ou nada).
+    if (mod && /^a$/i.test(k) && ui.view === '3d') return selecionarVisiveis3D();
     if (mod) return /^a$/i.test(k) && this.perimetro.selecionarTudo();
     if (k === 'F3') {
       const cur = (useUi.getState().options.snap ?? DEFAULT_SNAP).enabled !== false;

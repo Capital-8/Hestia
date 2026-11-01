@@ -65,7 +65,8 @@ export class CaixasDoNivel {
       colecoes.push({ categoria: g.categoria, materialId: g.materialId, matrizes });
       const mesh = new THREE.Mesh(geometriaDeCaixas(matrizes), materialPicking);
       mesh.visible = false;
-      mesh.userData = { kind: g.categoria, ranges: faixasDosIds(g.ids) };
+      // `caixasPick`: malha invisível de propósito (só picking); a seleção por caixa a trata como visível (selecaoPorCaixa3d.ts).
+      mesh.userData = { kind: g.categoria, ranges: faixasDosIds(g.ids), caixasPick: true };
       grupo.add(mesh);
     }
     return { colecoes, arestas: Float32Array.from(this.arestas) };

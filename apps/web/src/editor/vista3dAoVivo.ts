@@ -1,5 +1,6 @@
 import type { SheetView3DCamera } from '@hestia/model';
-import { cameraDaOrbita, type OrbitCamera } from '@hestia/render';
+import type { Camera, Object3D } from 'three';
+import { cameraDaOrbita, idsNaCaixaDaTela, type OrbitCamera } from '@hestia/render';
 import { useUi } from './state.ts';
 import { activateView } from './viewTabActions.ts';
 
@@ -16,6 +17,29 @@ let pendente: SheetView3DCamera | null = null;
 /** Registra a órbita viva da vista 3D; null quando a vista 3D desmonta. */
 export function registrarOrbita3D(o: OrbitCamera | null): void {
   orbita = o;
+}
+
+/** Cena e câmera vivas da vista 3D (a seleção por caixa e o Ctrl+A leem as malhas e a projeção daqui). */
+let cena3d: { scene: Object3D; camera: Camera } | null = null;
+
+/** Registra a cena e a câmera da vista 3D; null quando a vista 3D desmonta. */
+export function registrarCena3D(c: { scene: Object3D; camera: Camera } | null): void {
+  cena3d = c;
+}
+
+/**
+ * Ctrl+A na vista 3D: seleciona os elementos visíveis no quadro (cruzamento com o retângulo inteiro da tela). Devolve
+ * false quando a vista 3D não está viva, e nada muda.
+ */
+export function selecionarVisiveis3D(): boolean {
+  if (!cena3d) return false;
+  const ids = idsNaCaixaDaTela(cena3d.scene, cena3d.camera, { x0: -1, y0: -1, x1: 1, y1: 1 }, 'cruzamento');
+  useUi.setState({
+    selection: ids,
+    selectedLevel: null,
+    status: ids.length ? `${ids.length} elemento(s) visível(is) selecionado(s).` : 'Nenhum elemento visível na vista 3D.',
+  });
+  return true;
 }
 
 /** Há uma vista 3D viva de onde ler a câmera atual? */
