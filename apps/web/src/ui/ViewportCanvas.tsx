@@ -8,7 +8,10 @@ import { visibilityOf } from '../editor/viewVisibility.ts';
 import { usePerimeter } from '../editor/perimeter.ts';
 import { hoverSectionAt, sectionPickAt } from '../editor/sectionPick.ts';
 import { gestoDoBotaoNoCorte, idsNaCaixaDoCorte, selecaoComCaixa } from '../editor/sectionBoxSelect.ts';
-import { sectionHandleAt, sectionHandleCommand, sectionOpeningValues } from '../editor/sectionHandles.ts';
+import { sectionDimensionGripAt, sectionDimensionGripCommand, sectionHandleAt, sectionHandleCommand, sectionOpeningValues } from '../editor/sectionHandles.ts';
+import { cotaParaEditar, ehDuploClique, type CliqueAnterior } from '../editor/dimDoubleClick.ts';
+import { dimensionGeometry, dimensionText, sectionAnnotationsOf } from '@hestia/model';
+import { sectionDimensionPoints, type SectionDimensionGrip } from '@hestia/render';
 import { clickSelect3d, useUi } from '../editor/state.ts';
 import { consumirCameraPendente, registrarOrbita3D } from '../editor/vista3dAoVivo.ts';
 import { thinLinesOn } from '../editor/graphicsActions.ts';
@@ -282,6 +285,18 @@ export function ViewportCanvas(): ReactElement {
           liveLabels.push({ at: { x: b.x, y: b.y }, text: `Altura ${formatQuantity(unitsOf(p), 'length', values.height)}`, dx: 6, dy: -8, tone: 'info' });
         }
       }
+      const dimDrag = sectionDimDrag.current;
+      if (dimDrag && st.sectionId) {
+        const cmd = sectionDimensionGripCommand(p, st.sectionId, dimDrag.grip, dimDrag.at);
+        const ann = (cmd && cmd.type === 'setSectionAnnotations' ? cmd.annotations : undefined) ?? sectionAnnotationsOf(p.views.find((x) => x.id === st.sectionId));
+        const dim = ann.dimensions.find((x) => x.id === dimDrag.grip.id);
+        if (dim && !dim.angular) {
+          const pts = sectionDimensionPoints(dim);
+          const gd = dimensionGeometry(pts.a, pts.b, dim.offset, 100 / 1000, dim.textHeight, dim.textAt);
+          for (const [a1, b1] of [gd.line, ...gd.extensions]) liveStrokes.push({ pts: [a1, b1], closed: false, widthPx: 1, color: theme.select, alpha: 0.9, dash: [4, 3] });
+          liveLabels.push({ at: gd.textAt, text: dimensionText(p, dim, unitsOf(p)), tone: 'info' });
+        }
+      }
       const live = sectionLiveOps({ project: p, inference: editor.activeTool.inference(), theme });
       liveFills.push(...live.fills);
       liveStrokes.push(...live.strokes);
@@ -378,12 +393,17 @@ export function ViewportCanvas(): ReactElement {
   /** Alça de abertura sendo arrastada no corte e a cota provisória do arraste. */
   const sectionHandleDrag = useRef<{ handle: SectionHandle } | null>(null);
   const sectionHandlePreview = useRef<number | null>(null);
+  /** Alça de cota do corte em arraste e o ponto atual (prévia ao vivo; só grava ao soltar). */
+  const sectionDimDrag = useRef<{ grip: SectionDimensionGrip; at: Pt } | null>(null);
+  /** Último clique sem arrasto da Selecionar, para o duplo clique em cota. */
+  const ultimoCliqueSel = useRef<CliqueAnterior | null>(null);
   /** Down adiado até a vista existir (D1): `load`/`newProject` limpam o mapa de viewports até o quadro seguinte. */
   const downAdiado = useRef<DownAdiado | null>(null);
 
   useEffect(() => {
     const down = (e: KeyboardEvent): void => {
       if (e.code === 'Space') spaceDown.current = true;
+      if (e.key === 'Escape' && sectionDimDrag.current) { sectionDimDrag.current = null; useUi.setState((st) => ({ previewTick: st.previewTick + 1 })); }
     };
     const up = (e: KeyboardEvent): void => {
       if (e.code === 'Space') spaceDown.current = false;
@@ -557,6 +577,18 @@ export function ViewportCanvas(): ReactElement {
       const stNow = useUi.getState();
       const vNow = editor.viewport();
       const result = stNow.sectionId ? editor.sectionOf(stNow.sectionId) : null;
+      if (vNow && e.button === 0 && !spaceDown.current && !e.altKey && !isMiddleBtn && editor.activeTool.id === 'select' && stNow.selection.length > 0) {
+        // A alça da cota selecionada tem prioridade sobre a abertura, a caixa de seleção e o pick de elementos.
+        const w = screenToWorld(vNow, s);
+        const grip = sectionDimensionGripAt(editor.project, stNow.sectionId, stNow.selection, w, 8 / vNow.zoom, 10 / vNow.zoom);
+        if (grip) {
+          sectionDimDrag.current = { grip, at: w };
+          drag.current = { mode: 'none', start: s, last: s, moved: false, pick: false };
+          if (useUi.getState().hover) useUi.setState({ hover: null });
+          useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
+          return;
+        }
+      }
       if (result && vNow && e.button === 0 && !spaceDown.current && !e.altKey && !isMiddleBtn && editor.activeTool.id === 'select') {
         const handle = sectionHandleAt(result, screenToWorld(vNow, s), 8 / vNow.zoom, stNow.selection);
         if (handle) {
@@ -643,6 +675,14 @@ export function ViewportCanvas(): ReactElement {
         if (d.moved) mostrarCaixa(d.start, s);
         return;
       }
+      if (sectionDimDrag.current) {
+        const v = editor.viewport();
+        if (v) {
+          sectionDimDrag.current.at = screenToWorld(v, s);
+          useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
+        }
+        return;
+      }
       if (sectionHandleDrag.current) {
         const v = editor.viewport();
         if (v) {
@@ -669,6 +709,13 @@ export function ViewportCanvas(): ReactElement {
         if (inf && ferramentaAtiva) editor.pointer('move', inf);
         if (inf) useUi.setState({ cursor: inf.raw, snapKind: ferramentaAtiva ? (editor.activeTool.inference()?.kind ?? '') : '' });
         if (!ferramentaAtiva) hoverSectionAt(s);
+        // Cursor de alça sobre a alça da cota selecionada (o resto do tempo, a seta da Selecionar).
+        const vh = editor.viewport();
+        if (host.current && vh && !ferramentaAtiva) {
+          const stH = useUi.getState();
+          const sobre = stH.selection.length > 0 && !!sectionDimensionGripAt(editor.project, stH.sectionId, stH.selection, screenToWorld(vh, s), 8 / vh.zoom, 10 / vh.zoom);
+          host.current.style.cursor = sobre ? 'move' : 'default';
+        }
       }
       return;
     }
@@ -704,6 +751,20 @@ export function ViewportCanvas(): ReactElement {
   const onUp = (e: RPointerEvent): void => {
     const s = local(e);
     pointers.current.delete(e.pointerId);
+    if (sectionDimDrag.current) {
+      const { grip } = sectionDimDrag.current;
+      sectionDimDrag.current = null;
+      const v = editor.viewport();
+      const sid = useUi.getState().sectionId;
+      const cmd = v && sid ? sectionDimensionGripCommand(editor.project, sid, grip, screenToWorld(v, s)) : null;
+      if (cmd) {
+        editor.applyCommand(cmd);
+        useUi.setState({ status: `${grip.kind === 'text' ? 'Texto da cota movido' : 'Afastamento da cota atualizado'}. Ctrl+Z desfaz.` });
+      }
+      useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
+      drag.current = { mode: 'none', start: s, last: s, moved: false, pick: false };
+      return;
+    }
     if (sectionHandleDrag.current) {
       const dragHandle = sectionHandleDrag.current;
       sectionHandleDrag.current = null;
@@ -776,6 +837,22 @@ export function ViewportCanvas(): ReactElement {
     }
     // Clique sem arrasto no corte ou na elevação: o mesmo caminho da 3D (clickSelect3d, que usa selectionAfterClick).
     if (!d.moved && d.pick && useUi.getState().view === 'section') clickSelect3d(sectionPickAt(s)?.id ?? null, e.shiftKey || e.ctrlKey || e.metaKey);
+    // Duplo clique em cota permanente (Selecionar, planta ou corte): abre o editor de valor (dimEditId, frente I3).
+    if (!d.moved && e.button === 0 && editor.activeTool.id === 'select' && useUi.getState().view !== '3d') {
+      const agora: CliqueAnterior = { t: performance.now(), x: s.x, y: s.y };
+      if (ehDuploClique(ultimoCliqueSel.current, agora)) {
+        ultimoCliqueSel.current = null;
+        const st2 = useUi.getState();
+        const vv = editor.viewport();
+        if (vv) {
+          const alvo = st2.view === 'section'
+            ? ({ vista: 'section', sectionId: st2.sectionId, hitId: sectionPickAt(s)?.id ?? null } as const)
+            : ({ vista: 'plan', levelId: st2.levelId, planId: st2.planKind === 'area' ? (st2.areaPlanId ?? undefined) : undefined, mpp: 1 / vv.zoom } as const);
+          const id = cotaParaEditar(editor.project, alvo, screenToWorld(vv, s));
+          if (id) useUi.setState({ dimEditId: id });
+        }
+      } else ultimoCliqueSel.current = agora;
+    }
     // Arrasto que começou sobre o seletor de escala deixa o foco no <select>, e aí Delete e os atalhos são ignorados: solta o foco.
     if (d.moved && document.activeElement?.tagName === 'SELECT') (document.activeElement as HTMLElement).blur();
     drag.current = { mode: 'none', start: s, last: s, moved: false, pick: false };
@@ -793,6 +870,7 @@ export function ViewportCanvas(): ReactElement {
     pointers.current.delete(e.pointerId);
     gesture.current = null;
     rightPress.current = null;
+    if (sectionDimDrag.current) { sectionDimDrag.current = null; useUi.setState((st) => ({ previewTick: st.previewTick + 1 })); }
     const d = drag.current;
     if (d.mode === 'marquee') ocultarCaixa();
     if (d.mode === 'tool' && !downAdiado.current && !d.shiftPending) editor.activeTool.cancel?.();

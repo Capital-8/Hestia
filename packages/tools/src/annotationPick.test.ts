@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ProjectStore, angularDimensionData, angularDimensionGeometry, createEmptyProject, levelDimensions, levelTexts } from '@hestia/model';
-import { annotationAt, annotationIdsInBox } from './annotationPick.ts';
+import { annotationAt, annotationIdsInBox, dimHitGeometry, dimTextGripAt } from './annotationPick.ts';
 import { clickAt, makeEnv, tool } from './testEnv.ts';
 
 /** Texto 'Quarto' colocado em (9, 2) m, com a planta na escala padrão; o cursor mede 0,01 m por pixel. */
@@ -52,5 +52,38 @@ describe('seleção da cota angular reflexa', () => {
     expect(annotationAt(store.project, 'lv_0', arcMid, MPP)).toEqual({ id: 'ang', kind: 'dimension' });
     expect(annotationAt(store.project, 'lv_0', g.textAt, MPP)).toEqual({ id: 'ang', kind: 'dimension' });
     expect(annotationIdsInBox(store.project, 'lv_0', { x: -3, y: -3 }, { x: 3, y: 3 }, MPP)).toContain('ang');
+  });
+});
+
+describe('hit test da cota alinhado ao desenho (I2)', () => {
+  const cria = (extra: Record<string, unknown>) => {
+    const store = new ProjectStore(createEmptyProject());
+    store.exec({ type: 'addDimension', levelId: 'lv_0', dimension: { id: 'd1', a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, offset: 1, ...extra } });
+    return store;
+  };
+
+  it('texto deslocado (textAt) seleciona pela posição desenhada, não pela padrão', () => {
+    const store = cria({ textAt: { x: 6, y: 3 } });
+    expect(annotationAt(store.project, 'lv_0', { x: 6, y: 3 }, MPP)).toEqual({ id: 'd1', kind: 'dimension' });
+    // A posição padrão do texto (acima do meio da linha) já não é alvo do texto.
+    expect(annotationAt(store.project, 'lv_0', { x: 2, y: 1.12 }, MPP)).toBeNull();
+  });
+
+  it('a linha de chamada do texto deslocado também seleciona', () => {
+    const store = cria({ textAt: { x: 6, y: 3 } });
+    expect(annotationAt(store.project, 'lv_0', { x: 4, y: 2 }, MPP)).toEqual({ id: 'd1', kind: 'dimension' });
+  });
+
+  it('o texto usa a altura do estilo global (maior texto sobe a posição padrão)', () => {
+    const a = cria({});
+    const b = cria({ textHeight: 10 });
+    const ga = dimHitGeometry(a.project, levelDimensions(a.project, 'lv_0')[0]!, { x: 0, y: 0 }, { x: 4, y: 0 }, 50);
+    const gb = dimHitGeometry(b.project, levelDimensions(b.project, 'lv_0')[0]!, { x: 0, y: 0 }, { x: 4, y: 0 }, 50);
+    expect(gb.textAt.y).toBeGreaterThan(ga.textAt.y);
+  });
+
+  it('a alça do texto acompanha o texto deslocado', () => {
+    const store = cria({ textAt: { x: 6, y: 3 } });
+    expect(dimTextGripAt(store.project, 'lv_0', ['d1'], { x: 6, y: 3 }, MPP)).toBe('d1');
   });
 });
