@@ -3,6 +3,7 @@ import type { Id, Project } from '@hestia/model';
 import { chavesDeNivel, type Scene3DOptions } from '@hestia/render';
 import { useUi } from '../editor/state.ts';
 import { criarFonteNiveisWorker } from './montagem3dNiveis.ts';
+import { publicarProgresso3d } from './progresso3d.ts';
 
 /** Lote da primeira fatia: o nível visível e os dois vizinhos mais próximos, na mesma montagem síncrona. */
 export const LOTE_INICIAL = 3;
@@ -172,6 +173,14 @@ export class Montagem3dProgressiva {
     return this.prontos.size;
   }
 
+  /** Quantos níveis o projeto tem (denominador do progresso). */
+  get total(): number {
+    return this.ordemProjeto.length;
+  }
+
+  /** Todos os níveis já estavam resolvidos ao iniciar: a montagem segue só em fatias síncronas, sem worker. */
+  private soFatias = false;
+
   /** A montagem está usando o worker (e não o caminho síncrono). */
   get usandoWorker(): boolean {
     return this.worker !== null && this.pendentes.length > 0;
@@ -191,20 +200,15 @@ export class Montagem3dProgressiva {
     this.lote = this.worker ? 1 : LOTE_INICIAL;
     this.falhas = 0;
     this.concluido = false;
-    // Prewarm completo: todos os níveis já estão prontos (segundo plano/cache). Monta tudo no primeiro quadro, num
-    // único `update`, em vez de mostrar só o visível e esperar as fatias do worker.
-    const preaquecidos = this.todosProntos();
-    if (preaquecidos) {
-      this.pendentes = [];
-      for (const [id, nivel] of preaquecidos) this.prontos.set(id, nivel);
-      this.aplicar();
-      this.concluir();
-      return;
-    }
-    if (this.worker) this.worker.iniciar(p);
+    // Prewarm completo: todos os níveis já estão resolvidos (segundo plano/cache); o que custa é montar a malha de cada
+    // um (cerca de 1 s por pavimento grande). Montar todos num `update` travava a tela por ~9 s: entram em fatias de um
+    // pavimento (o visível primeiro), sem worker, cedendo a thread entre elas.
+    this.soFatias = this.todosProntos() !== null;
+    if (this.soFatias) this.lote = 1;
+    if (this.worker && !this.soFatias) this.worker.iniciar(p);
     // Primeira fatia na hora: com worker, só o visível (o primeiro quadro mostra o pavimento ativo).
     this.fatia(geracao);
-    if (this.worker && this.pendentes.length > 0) this.bombear(geracao);
+    if (this.worker && !this.soFatias && this.pendentes.length > 0) this.bombear(geracao);
   }
 
   /**
@@ -294,6 +298,7 @@ export class Montagem3dProgressiva {
     this.pendentes = ordemDeMontagem(this.ordemProjeto, visivel).filter((id) => !prontos.has(id));
     // O `pronto` do segundo plano pode ser da versão anterior do projeto; para os níveis alterados, resolvemos de novo.
     this.forcar = new Set(this.pendentes);
+    this.soFatias = false;
     this.recebidosDesdeAplicar = 0;
     this.falhas = 0;
     // Uma edição alcança poucos níveis: a primeira fatia (até `LOTE_INICIAL` deles) sai no mesmo quadro, sem o nível
@@ -329,7 +334,7 @@ export class Montagem3dProgressiva {
     this.aplicar();
     if (this.pendentes.length === 0) return this.concluir();
     // Com worker, a partir daqui cada nível vem de um pedido (a fatia síncrona é só a primeira e a rede de segurança).
-    if (this.worker) return;
+    if (this.worker && !this.soFatias) return;
     this.lote = proximoLote(this.lote, this.relogio() - inicio, this.orcamentoMs);
     this.agendar(() => this.fatia(geracao));
   }
@@ -510,15 +515,21 @@ export function criarMontagemVista3d(
   resolver: (id: Id) => ResolvedLevel,
   pronto?: (id: Id) => ResolvedLevel | null,
 ): Montagem3dProgressiva {
-  return new Montagem3dProgressiva({
+  const montagem: Montagem3dProgressiva = new Montagem3dProgressiva({
     cena,
     fonte: { resolver, pronto },
-    aoAtualizar: () => useUi.setState((x) => ({ previewTick: x.previewTick + 1 })),
+    aoAtualizar: () => {
+      // Barra de progresso da montagem (ver `Progresso3D`): some quando todos os pavimentos estão na cena.
+      publicarProgresso3d(montagem.montados, montagem.total);
+      useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
+    },
     aoConcluir: () => {
+      publicarProgresso3d(montagem.total, montagem.total);
       if (useUi.getState().seen3d) return;
       cena.fit();
       useUi.setState({ seen3d: true });
     },
     worker: criarFonteNiveisWorker(),
   });
+  return montagem;
 }

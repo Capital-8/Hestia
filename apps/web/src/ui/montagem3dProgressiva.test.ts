@@ -224,7 +224,7 @@ describe('Montagem3dProgressiva: fonte e cancelamento', () => {
 });
 
 describe('Montagem3dProgressiva: prewarm completo', () => {
-  it('todos os níveis prontos: um único update com todos, sem worker nem cálculo na hora', () => {
+  it('todos os níveis prontos: monta em fatias (o visível primeiro), sem worker nem cálculo na hora', () => {
     const ids = ['a', 'b', 'c', 'd'];
     const prontos = new Map(ids.map((id) => [id, nivelFalso(id)] as const));
     const cena = new CenaAnotada();
@@ -236,9 +236,14 @@ describe('Montagem3dProgressiva: prewarm completo', () => {
 
     m.iniciar(projetoDeIds(ids), OPT, 'c');
 
-    // Um `update` com todos, na ordem do projeto: o primeiro quadro já vem completo.
-    expect(cena.chamadas).toHaveLength(1);
-    expect(cena.chamadas[0]!.ids).toEqual(ids);
+    // Montar a malha é o que custa (~1 s por pavimento): a primeira fatia traz só o visível e a tela cede a thread.
+    expect(cena.chamadas.map((c) => c.ids)).toEqual([['c']]);
+    expect(concluidas).toBe(0);
+    expect(m.total).toBe(ids.length);
+    fila.rodar();
+    // Ao fim, a cena recebe todos, na ordem do projeto; nada foi calculado na hora nem pedido ao worker.
+    expect(cena.chamadas.length).toBeGreaterThan(1);
+    expect(cena.chamadas.at(-1)!.ids).toEqual(ids);
     expect(fonte.calculados).toEqual([]);
     expect(worker.pedidos).toEqual([]);
     expect(worker.iniciados).toEqual([]);

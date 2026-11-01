@@ -85,6 +85,28 @@ describe('chaves de nível (conteúdo do pavimento e dos vizinhos por cota)', ()
     expect(mudou).toEqual([true, true, false, false]);
   });
 
+  it('ocultar uma parede refaz só o pavimento dela e os vizinhos por cota, não o projeto inteiro', () => {
+    const p = predio(6);
+    const vis = (ocultos: string[], revelados: string[] = []) => {
+      const m = chavesDeNivel(p, MARCA, { ocultos: new Set(ocultos), revelados: new Set(revelados) });
+      return p.levels.map((l) => m.get(l.id)!);
+    };
+    const livre = vis([]);
+    expect(livre).toEqual(chaves(p));
+    const mudou = vis(['ch_w_2_1']).map((k, i) => k !== livre[i]);
+    expect(mudou).toEqual([false, true, true, true, false, false]);
+    // Revelar também é por nível, e ocultar ≠ revelar o mesmo id.
+    expect(vis([], ['ch_w_4_0']).map((k, i) => k !== livre[i])).toEqual([false, false, false, true, true, true]);
+    expect(vis(['ch_w_2_1'])).not.toEqual(vis([], ['ch_w_2_1']));
+  });
+
+  it('id oculto que não é elemento de nível (global) muda todas as chaves, como antes', () => {
+    const p = predio(3);
+    const livre = chavesDeNivel(p, MARCA);
+    const g = chavesDeNivel(p, MARCA, { ocultos: new Set(['nao-existe']), revelados: new Set() });
+    expect(p.levels.every((l) => g.get(l.id) !== livre.get(l.id))).toBe(true);
+  });
+
   it('mudar a vista (tema, arestas, sombras, estilo) muda todas as chaves', () => {
     const p = predio(3);
     const antes = chaves(p);

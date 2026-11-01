@@ -27,7 +27,7 @@ import { arestasDasCaixas, criarCaixaUnitaria } from './caixas3d.ts';
 import { buildCeilingSolids, buildFloorSolids, buildLevelSolids, buildRoofSolids, buildSlabSolids, filtrarParedesDoNivel, type ElementRange, type SolidBatch } from './solids.ts';
 import { Materiais3D } from './materiais3d.ts';
 import { CacheMalhas, bytesDeNivel, disposeNivel, type EntradaNivel, type PickSource } from './cacheMalhas3d.ts';
-import { chavesDeNivel, hashTexto } from './chaveNivel3d.ts';
+import { chavesDeNivel } from './chaveNivel3d.ts';
 import { caixaDaSelecao } from './selecao3d.ts';
 
 /** O mínimo do renderer que o gancho de quadro da cena lê (o three chama `scene.onBeforeRender` com o renderer real). */
@@ -97,15 +97,6 @@ function projetoComElementos(p: Project, incluir: (id: Id) => boolean): Project 
   const elements: Project['elements'] = {};
   for (const [id, e] of Object.entries(p.elements)) if (incluir(id)) elements[id] = e;
   return { ...p, elements };
-}
-
-/**
- * Marca do conjunto de visibilidade para a chave do nível. Ocultar/revelar muda a malha (ou a sobreposição) montada,
- * então a chave tem de mudar junto: sem isso o cache devolveria o nível do conjunto anterior. O hash mantém a marca curta
- * mesmo no isolamento (que esconde milhares de ids).
- */
-function assinaturaDeVisibilidade(ids: ReadonlySet<Id>): string {
-  return ids.size ? hashTexto([...ids].sort().join('\u0001')) : '-';
 }
 
 /** Estado de uma atualização: a vista 3D, o tema e as arestas e sombras efetivas desta vista. */
@@ -332,9 +323,9 @@ export class ModelScene {
         this.frame.edges,
         this.frame.shadows,
         view.style,
-        assinaturaDeVisibilidade(this.ocultos),
-        assinaturaDeVisibilidade(this.revelados),
       ]),
+      // A visibilidade entra só na chave do nível que contém o elemento (e na dos vizinhos): ocultar uma parede não remonta o resto.
+      { ocultos: this.ocultos, revelados: this.revelados },
     );
     const antes = this.cenaNiveis;
     const atuais: EntradaNivel[] = [];
