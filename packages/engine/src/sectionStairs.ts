@@ -4,6 +4,7 @@ import { stairArrivalTop } from './stairArrival.ts';
 import { stairBody, type StairBodyPiece } from './stairBody.ts';
 import type { ResolvedStair, ResolvedStairRiser } from './stairs.ts';
 import type { SectionBeyond } from './section.ts';
+import { prismSnapRings, type SectionSnapRing } from './sectionSnapRings.ts';
 import { EPS_T, lineIntervals, rect, sectionFrame, type SectionLine } from './sectionGeom.ts';
 
 /**
@@ -20,6 +21,8 @@ export interface StairSection {
   /** Corte por escada: material e a escada de origem (`stairId`). */
   cut: Array<{ materialId: Id; polygon: Polygon; stairId: Id }>;
   beyond: SectionBeyond[];
+  /** Aneis (t, z) antes da uniao e da envoltoria, so para captura (snap). */
+  snapRings: SectionSnapRing[];
   /** Cotas extremas (Infinity/−Infinity sem escada na linha). */
   zMin: number;
   zMax: number;
@@ -81,7 +84,7 @@ const bottomAt = (piece: StairBodyPiece, v: Vec2): number => piece.bottom.a * v.
  * próprio nível de topo (`topZ`), com a chegada flush.
  */
 export function sectionOfStairs(stairs: ResolvedStair[], line: SectionLine, p: Project): StairSection {
-  const out: StairSection = { cut: [], beyond: [], zMin: Infinity, zMax: -Infinity };
+  const out: StairSection = { cut: [], beyond: [], snapRings: [], zMin: Infinity, zMax: -Infinity };
   const { length, d, n, slab } = sectionFrame(line);
   if (length < 1e-6 || stairs.length === 0) return out;
   const along = (v: Vec2): number => (v.x - line.a.x) * d.x + (v.y - line.a.y) * d.y;
@@ -115,6 +118,7 @@ export function sectionOfStairs(stairs: ResolvedStair[], line: SectionLine, p: P
             { x: lo, y: piece.zTop },
           ];
           out.cut.push({ materialId: pieceMaterial, polygon: [ring], stairId: s.id });
+          out.snapRings.push({ hostId: s.id, ring });
           grow(Math.min(f0, f1), piece.zTop);
         }
         for (const sp of intersection([[piece.polygon]], slab)) {
@@ -130,6 +134,7 @@ export function sectionOfStairs(stairs: ResolvedStair[], line: SectionLine, p: P
           ]);
           const hull = convexHull(pts);
           if (hull.length < 3) continue;
+          out.snapRings.push(...prismSnapRings(s.id, outer, along, () => piece.zTop, (v) => bottomAt(piece, v)));
           const zLow = Math.min(...pts.map((q) => q.y));
           out.beyond.push({
             stairId: s.id,
@@ -160,6 +165,7 @@ export function sectionOfStairs(stairs: ResolvedStair[], line: SectionLine, p: P
         const hi = Math.min(length, t1);
         if (hi - lo < EPS_T) continue;
         out.cut.push({ materialId, polygon: [rect(lo, hi, b.z0, b.z1)], stairId: s.id });
+        out.snapRings.push({ hostId: s.id, ring: rect(lo, hi, b.z0, b.z1) });
         grow(b.z0, b.z1);
       }
       // Além do plano (dentro da visão): projeção do bloco, do mais longe ao mais perto pelo `depth`.
@@ -170,6 +176,7 @@ export function sectionOfStairs(stairs: ResolvedStair[], line: SectionLine, p: P
         const tMin = Math.max(0, Math.min(...ts));
         const tMax = Math.min(length, Math.max(...ts));
         if (tMax - tMin < EPS_T) continue;
+        out.snapRings.push(...prismSnapRings(s.id, outer, along, () => b.z1, () => b.z0));
         out.beyond.push({
           stairId: s.id,
           materialId,

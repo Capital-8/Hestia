@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { dimensionValue, levelDimensions, levelTexts, type Project } from '@hestia/model';
+import { dimensionValue, levelDimensions, levelTexts, type Command, type Project } from '@hestia/model';
+import { drivenEditCommands } from './dims/driven.ts';
 import { annotationAt } from './annotationPick.ts';
 import { clickAt, drawWall, makeEnv, P, tool } from './testEnv.ts';
 
@@ -26,7 +27,7 @@ describe('ferramenta Cota', () => {
     clickAt(t, 4, 0);
     clickAt(t, 2, 1);
     const d = dims(ctx.store)[0]!;
-    expect(d.unit).toBe('project');
+    expect(d.unit).toBeUndefined(); // sem gravar o padrão: a cota segue o estilo global do projeto
     expect(d.precision).toBeUndefined();
   });
 
@@ -55,7 +56,7 @@ describe('ferramenta Cota', () => {
     const created = dims(ctx.store);
     expect(created).toHaveLength(2);
     for (const d of created) {
-      expect(d.unit).toBe('project');
+      expect(d.unit).toBeUndefined();
       expect(d.precision).toBeUndefined();
     }
   });
@@ -120,8 +121,28 @@ describe('ferramenta Cota', () => {
     clickAt(t, 4, 0);
     clickAt(t, 2, 1);
     const d = dims(ctx.store)[0]!;
-    expect(d.refs?.a).toEqual({ wallId: expect.any(String), end: 'a' });
-    expect(d.refs?.b).toEqual({ wallId: expect.any(String), end: 'b' });
+    expect(d.refs?.a).toEqual({ elementId: expect.any(String), feature: 'wall-axis-a' });
+    expect(d.refs?.b).toEqual({ elementId: expect.any(String), feature: 'wall-axis-b' });
+  });
+
+  it('cota entre esquadria e parede grava refs associativas e a cota dirigida aplica o valor digitado', () => {
+    const ctx = makeEnv();
+    drawWall(ctx.env, [0, 0], [6, 0]);
+    const host = Object.values(ctx.store.project.elements).find((e) => e.kind === 'wall')!;
+    ctx.store.exec({ type: 'addOpening', opening: { id: 'd1', kind: 'door', typeId: 'ot_p80', hostId: host.id, offset: 3, flipHand: false, flipFacing: false, sillOverride: null, mark: '' } });
+    const t = tool('dimension', ctx.env);
+    clickAt(t, 0, 0);
+    clickAt(t, 3, 0); // centro da porta
+    clickAt(t, 3, 1);
+    const d = dims(ctx.store)[0]!;
+    expect(d.refs?.a).toEqual({ elementId: host.id, feature: 'wall-axis-a' });
+    expect(d.refs?.b).toEqual({ elementId: 'd1', feature: 'opening-center' });
+    const r = drivenEditCommands(ctx.store.project, d, 2);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const cmds = r.commands as Command[];
+    ctx.store.transaction('Alterar cota', () => cmds.forEach((c) => ctx.store.exec(c)));
+    expect(dimensionValue(ctx.store.project, d)).toBeCloseTo(2, 3);
   });
 
   it('ponto livre não guarda referência', () => {

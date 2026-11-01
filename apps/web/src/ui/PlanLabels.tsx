@@ -112,6 +112,7 @@ export const PlanLabels = forwardRef<PlanLabelsHandle, { labels: LabelOp[]; v: V
                     left: sp.x + (l.dx ?? 0),
                     top: sp.y + (l.dy ?? 0),
                     fontSize: l.fontPx,
+                    fontFamily: l.fontFamily,
                     width: l.widthPx,
                     whiteSpace: l.whiteSpace ?? 'pre-wrap',
                     textAlign: l.align,

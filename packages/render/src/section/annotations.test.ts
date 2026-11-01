@@ -40,9 +40,9 @@ describe('anotações da vista de corte/elevação', () => {
     const d = input.annotations!.dimensions[0] as Dimension;
     const draw = buildSectionDrawList(input);
     const base = buildSectionDrawList(baseInput());
-    // `dimensionGeometry` põe a linha a `offset` da normal de a→b: aqui, z = 0,2 + 0,4.
+    // A linha fica a `offset` da normal de a→b (z = 0,2 + 0,4) e o tick slash a ultrapassa 0,98 mm de papel (0,098 m em 1:100).
     expect(draw.strokes.length).toBeGreaterThan(base.strokes.length);
-    expect(draw.strokes.some((s) => !s.closed && s.pts.length === 2 && near(s.pts[0]!, v(0, 0.6)) && near(s.pts[1]!, v(3, 0.6)))).toBe(true);
+    expect(draw.strokes.some((s) => !s.closed && s.pts.length === 2 && near(s.pts[0]!, v(-0.098, 0.6), 1e-6) && near(s.pts[1]!, v(3.098, 0.6), 1e-6))).toBe(true);
     const expected = dimensionText(input.project, d, unitsOf(input.project));
     const label = draw.labels.find((l) => l.text === expected);
     expect(label).toBeDefined();
@@ -108,5 +108,44 @@ describe('anotações da vista de corte/elevação', () => {
     expect(com).not.toBe(sem);
     expect(com.labels.some((l) => l.text === text.text)).toBe(true);
     expect(sem.labels.some((l) => l.text === text.text)).toBe(false);
+  });
+});
+
+describe('cotas do corte: hover, seleção e escala', () => {
+  it('hoverId/selectedIds colorem a cota inteira e a escala informada muda as medidas de papel', async () => {
+    const { sectionAnnotationOps } = await import('./annotations.ts');
+    const input = baseInput(true, { dimensions: [{ id: 'd1', a: v(0, 0.2), b: v(3, 0.2), offset: 0.4 }] });
+    const hover = sectionAnnotationOps(input, { hoverId: 'd1' });
+    const sel = sectionAnnotationOps(input, { selectedIds: ['d1'] });
+    expect(hover.strokes.every((s) => s.color === (input.theme.selectHover ?? input.theme.select))).toBe(true);
+    expect(sel.strokes.every((s) => s.color === input.theme.select)).toBe(true);
+    const a = sectionAnnotationOps(input, { scale: 50 });
+    const b = sectionAnnotationOps(input);
+    expect(a.labels[0]!.papel!.escala).toBe(50);
+    expect(b.labels[0]!.papel!.escala).toBe(100);
+  });
+
+  it('hover e seleção da UI chegam ao desenho do corte pelo id da cota (buildSectionDrawList)', () => {
+    const dim = { id: 'd1', a: v(0, 0.2), b: v(3, 0.2), offset: 0.4 };
+    const base = baseInput(true, { dimensions: [dim] });
+    const semRealce = buildSectionDrawList(base);
+    const hover = buildSectionDrawList({ ...base, highlight: { selection: [], hover: 'd1' } });
+    const sel = buildSectionDrawList({ ...base, highlight: { selection: ['d1'], hover: null } });
+    const cor = (list: typeof semRealce): string[] => list.strokes.map((s) => s.color);
+    expect(cor(hover)).toContain(LIGHT.selectHover ?? LIGHT.select);
+    expect(cor(sel)).toContain(LIGHT.select);
+    expect(cor(semRealce)).not.toContain(LIGHT.select);
+    // Sem realce, a cota sai na cor de tinta (não na de seleção).
+    expect(cor(semRealce).some((c) => c === LIGHT.ink)).toBe(true);
+  });
+
+  it('o estilo global do projeto chega ao desenho do corte (dimensionStyle em settings)', () => {
+    const store = new ProjectStore(createEmptyProject());
+    store.exec({ type: 'addWall', wall: makeWall({ id: 'w1', typeId: 'wt_alv14', levelId: 'lv_0', a: v(0, 0), b: v(6, 0), height: 3 }) });
+    store.exec({ type: 'setDimensionStyle', patch: { textHeight: 9 } });
+    const base = baseInput(true, { dimensions: [{ id: 'd1', a: v(0, 0.2), b: v(3, 0.2), offset: 0.4 }] });
+    const comEstilo = buildSectionDrawList({ ...base, project: store.project });
+    const padrao = buildSectionDrawList(base);
+    expect(JSON.stringify(comEstilo.labels)).not.toEqual(JSON.stringify(padrao.labels));
   });
 });

@@ -12,7 +12,8 @@ import {
 } from '@hestia/model';
 import { alignFeaturesAt, type AlignFeature } from './alignFeatures.ts';
 import { angularReachLinks, frameOfWall, pointAt } from '@hestia/engine';
-import { ToolBase, viewPlanId } from './base.ts';
+import { addSectionDimension, ToolBase, viewPlanId } from './base.ts';
+import { isSectionRef, sectionRefFeatures } from './angularSectionRefs.ts';
 import type { PointerInfo, PreviewItem } from './types.ts';
 
 const LABEL_HALF = 1.2;
@@ -80,6 +81,9 @@ export class AngularDimensionTool extends ToolBase {
   }
 
   private candidates(at: Vec2): AlignFeature[] {
+    // Corte/elevação: as referências são as arestas da vista (t, z); a planta não entra.
+    const sec = this.env.section?.();
+    if (sec) return sectionRefFeatures(sec, at, this.env.metersPerPixel(), this.env.hiddenInView?.());
     return alignFeaturesAt({
       project: this.env.project(),
       levelId: this.env.levelId(),
@@ -106,6 +110,13 @@ export class AngularDimensionTool extends ToolBase {
   }
 
   private featureItems(f: AlignFeature, prefix: string, dashed = false): PreviewItem[] {
+    // Aresta da vista de corte: desenha o trecho real (não a reta de 2,4 m da planta).
+    if (isSectionRef(f) && f.seg) {
+      return [
+        { kind: 'line', a: f.seg.a, b: f.seg.b, halo: true, dashed },
+        { kind: 'label', at: f.line.p, text: `${prefix}${f.label}` },
+      ];
+    }
     const a = add(f.line.p, mul(f.line.d, -LABEL_HALF));
     const b = add(f.line.p, mul(f.line.d, LABEL_HALF));
     return [
@@ -194,8 +205,8 @@ export class AngularDimensionTool extends ToolBase {
       offset: 0,
       angular,
       ...(o.dimensionPrecision !== undefined ? { precision: o.dimensionPrecision } : {}),
-      textHeight: o.dimensionTextHeight ?? 2.5,
-      tickStyle: o.dimensionTickStyle ?? 'slash',
+      ...(o.dimensionTextHeight !== undefined ? { textHeight: o.dimensionTextHeight } : {}),
+      ...(o.dimensionTickStyle !== undefined ? { tickStyle: o.dimensionTickStyle } : {}),
     };
     this.previewDim = dim;
   }
@@ -257,10 +268,15 @@ export class AngularDimensionTool extends ToolBase {
         offset: 0,
         angular,
         ...(o.dimensionPrecision !== undefined ? { precision: o.dimensionPrecision } : {}),
-        textHeight: o.dimensionTextHeight ?? 2.5,
-        tickStyle: o.dimensionTickStyle ?? 'slash',
+        ...(o.dimensionTextHeight !== undefined ? { textHeight: o.dimensionTextHeight } : {}),
+        ...(o.dimensionTickStyle !== undefined ? { tickStyle: o.dimensionTickStyle } : {}),
       };
-      this.env.exec({ type: 'addDimension', levelId: this.env.levelId(), planId: viewPlanId(this.env), dimension });
+      // No corte/elevação a cota vai para a vista (mesma gravação da cota linear), nunca para o nível.
+      if (this.env.section?.()) {
+        if (!addSectionDimension(this.env, dimension)) { this.env.say('Não foi possível gravar a cota na vista de corte.'); return; }
+      } else {
+        this.env.exec({ type: 'addDimension', levelId: this.env.levelId(), planId: viewPlanId(this.env), dimension });
+      }
       this.reset();
       this.env.say(this.hint);
       return;

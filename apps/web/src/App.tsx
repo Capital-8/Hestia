@@ -113,7 +113,7 @@ function Dialogs(): ReactElement | null {
     case 'areaMerge':
       return <AreaMergeDialog />;
     case 'dimensions':
-      return <DimensionSettingsDialog />;
+      return <DimensionSettingsDialog onApplyStyle={(patch) => editor.store.exec({ type: 'setDimensionStyle', patch }, 'Estilo de cotas')} />;
     case 'start':
       return <StartDialog />;
     case 'shortcuts':

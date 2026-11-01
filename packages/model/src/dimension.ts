@@ -1,5 +1,7 @@
 import { add, len, mul, sub, type Vec2 } from '@hestia/geom';
-import { isWall, type AngularDimension, type AngularDimensionSide, type Dimension, type DimensionRef, type Project } from './types.ts';
+import type { AngularDimension, AngularDimensionSide, Dimension, Project } from './types.ts';
+import type { DimensionStyle } from './dimensionContract.ts';
+import { resolveDimEnd } from './dimensionRefs.ts';
 import { defaultUnits, type ResolvedUnits } from './units.ts';
 import { formatQuantity } from './unitsFormat.ts';
 
@@ -23,19 +25,27 @@ export const roundMm = (m: number): number => Math.round(m * 1000) / 1000;
  */
 export function dimensionPoints(p: Pick<Project, 'elements'>, d: Dimension): { a: Vec2; b: Vec2 } {
   if (d.angular) return { a: d.angular.center, b: add(d.angular.center, mul(d.angular.to, d.angular.radius)) };
-  const at = (ref: DimensionRef | undefined, fallback: Vec2): Vec2 => {
-    const w = ref ? p.elements[ref.wallId] : undefined;
-    if (!ref || !isWall(w)) return fallback;
-    const pt = ref.end === 'a' ? w.a : w.b;
-    if (ref.axis === 'x') return { x: pt.x, y: fallback.y };
-    if (ref.axis === 'y') return { x: fallback.x, y: pt.y };
-    return { ...pt };
-  };
-  const a = at(d.refs?.a, d.a);
-  const b = at(d.refs?.b, d.b);
+  const a = resolveDimEnd(p as Project, d.refs?.a, d.a);
+  const b = resolveDimEnd(p as Project, d.refs?.b, d.b);
   if (d.mode === 'horizontal') return { a, b: { x: b.x, y: a.y } };
   if (d.mode === 'vertical') return { a, b: { x: a.x, y: b.y } };
   return { a, b };
+}
+
+/**
+ * Estilo efetivo de uma cota: o estilo global com os campos da própria cota (tickStyle, textHeight, precision,
+ * prefix, suffix, unit) sobrepondo quando presentes.
+ */
+export function effectiveDimStyle(style: DimensionStyle, d: Pick<Dimension, 'tickStyle' | 'textHeight' | 'precision' | 'prefix' | 'suffix' | 'unit'>): DimensionStyle {
+  return {
+    ...style,
+    ...(d.tickStyle !== undefined ? { tick: d.tickStyle } : {}),
+    ...(d.textHeight !== undefined ? { textHeight: d.textHeight } : {}),
+    ...(d.precision !== undefined ? { precision: d.precision } : {}),
+    ...(d.prefix !== undefined ? { prefix: d.prefix } : {}),
+    ...(d.suffix !== undefined ? { suffix: d.suffix } : {}),
+    ...(d.unit !== undefined ? { unit: d.unit } : {}),
+  };
 }
 
 /** Valor da cota em metros, arredondado a 1 mm; em cota angular, o ângulo em radianos. */
@@ -52,14 +62,18 @@ export const formatDimensionValue = (m: number, units = defaultUnits()): string 
  * Formatação de valor para cotas. Sem unidade (ou com a unidade project), usa a unidade e as casas do projeto; a
  * unidade explícita de arquivos antigos (m, cm ou mm) continua valendo. precision sobrepõe as casas.
  */
-export function formatDimension(d: Dimension, meters: number, units = defaultUnits()): string {
+export function formatDimension(d: Dimension, meters: number, units = defaultUnits(), style?: Partial<Pick<DimensionStyle, 'unit' | 'precision' | 'prefix' | 'suffix'>>): string {
+  // Os campos da própria cota sobrepõem o estilo global (quando dado).
+  const prefix = d.prefix ?? style?.prefix ?? '';
+  const suffix = d.suffix ?? style?.suffix ?? '';
   if (d.angular) {
-    const text = formatQuantity(units, 'angle', d.angular.value, { decimals: d.precision ?? d.angular.precision, withUnit: !d.suffix });
-    return `${d.prefix ?? ''}${text}${d.suffix ?? ''}`;
+    const text = formatQuantity(units, 'angle', d.angular.value, { decimals: d.precision ?? style?.precision ?? d.angular.precision, withUnit: !suffix });
+    return `${prefix}${text}${suffix}`;
   }
-  const unit = d.unit && d.unit !== 'project' ? d.unit : undefined;
-  const text = formatQuantity(units, 'length', meters, { unit, decimals: d.precision, withUnit: !d.suffix });
-  return `${d.prefix ?? ''}${text}${d.suffix ?? ''}`;
+  const dUnit = d.unit ?? style?.unit;
+  const unit = dUnit && dUnit !== 'project' ? dUnit : undefined;
+  const text = formatQuantity(units, 'length', meters, { unit, decimals: d.precision ?? style?.precision, withUnit: !suffix });
+  return `${prefix}${text}${suffix}`;
 }
 
 /** Texto mostrado na cota: o texto fixo, se houver algum (sem espaços nas pontas); senão, o valor medido com a formatação da cota. */
@@ -158,20 +172,33 @@ export function angularDimensionData(center: Vec2, from: Vec2, to: Vec2, radius:
   return { refA, refB, center, from, to: complemented, radius, side, base, value: Math.PI * 2 - (base === 'major' ? Math.PI - minor : minor) };
 }
 
+/** Parâmetros de estilo da geometria (mm de papel). Ausentes mantêm os padrões históricos. */
+export interface DimensionGeometryOptions {
+  extensionGapMm?: number;
+  extensionOvershootMm?: number;
+  /** Meio comprimento da marca de 45°. */
+  tickHalfMm?: number;
+  /** Folga entre a linha e o texto 'above'. */
+  textGapMm?: number;
+  /** Texto centrado sobre a linha (interrompendo-a) em vez de acima. */
+  centered?: boolean;
+}
+
 /**
  * Geometria da cota alinhada a–b, em metros. `mPerMm` é quantos metros de mundo cabem em 1 mm de papel
  * (escala da vista / 1000); assim as distâncias de papel (folga, marcas, texto) ficam legíveis em qualquer escala.
  * `offset` leva a linha de cota para o lado esquerdo de a→b (negativo, para o direito).
  */
-export function dimensionGeometry(a: Vec2, b: Vec2, offset: number, mPerMm: number, textMm = DIM_TEXT_MM, textAt?: Vec2): DimensionGeometry {
+export function dimensionGeometry(a: Vec2, b: Vec2, offset: number, mPerMm: number, textMm = DIM_TEXT_MM, textAt?: Vec2, opts: DimensionGeometryOptions = {}): DimensionGeometry {
   const d = sub(b, a);
   const length = len(d);
   const u: Vec2 = length > 0 ? { x: d.x / length, y: d.y / length } : { x: 1, y: 0 };
   const n: Vec2 = { x: -u.y, y: u.x };
   const s = offset >= 0 ? 1 : -1;
-  const gap = DIM_GAP_MM * mPerMm;
-  const over = DIM_OVERSHOOT_MM * mPerMm;
-  const tick = DIM_TICK_HALF_MM * mPerMm;
+  const gap = (opts.extensionGapMm ?? DIM_GAP_MM) * mPerMm;
+  const over = (opts.extensionOvershootMm ?? DIM_OVERSHOOT_MM) * mPerMm;
+  const tick = (opts.tickHalfMm ?? DIM_TICK_HALF_MM) * mPerMm;
+  const textGap = (opts.textGapMm ?? DIM_GAP_MM) * mPerMm;
   const ta = add(a, mul(n, offset));
   const tb = add(b, mul(n, offset));
   // Marca a 45° da linha de cota: direção u girada 45° (u + n)/√2.
@@ -194,7 +221,7 @@ export function dimensionGeometry(a: Vec2, b: Vec2, offset: number, mPerMm: numb
       [sub(ta, t), add(ta, t)],
       [sub(tb, t), add(tb, t)],
     ],
-    textAt: textAt ?? add(mid, mul(up, gap + (textMm * mPerMm) / 2)),
+    textAt: textAt ?? (opts.centered ? mid : add(mid, mul(up, textGap + (textMm * mPerMm) / 2))),
     textRotation,
     length,
   };

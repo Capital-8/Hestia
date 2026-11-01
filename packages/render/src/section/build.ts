@@ -1,13 +1,13 @@
 import { union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { CLOSED, openingLinePaths, type ProjectedRing, type SectionBeyond, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
-import { formatQuantity, GRAPHICS_CATEGORIES, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Project, type ResolvedUnits } from '@hestia/model';
+import { dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Project, type ResolvedUnits } from '@hestia/model';
 import { mix } from '../plan/color.ts';
 import { thinStrokes } from '../plan/thin.ts';
 import { AVISO, AVISO_ALPHA } from '../aviso.ts';
 import type { PlanPaint } from '../plan/style.ts';
 import type { Espessura, FillOp, LabelOp, PlanDrawList, PlanTheme, StrokeOp } from '../plan/types.ts';
 import type { Viewport } from '../viewport.ts';
-import { hasSectionAnnotations, sectionAnnotationOps } from './annotations.ts';
+import { SECTION_ANNOTATION_SCALE, hasSectionAnnotations, sectionAnnotationOps } from './annotations.ts';
 import { projetarComPerfis } from './perfis.ts';
 import { ownerOf, sectionItems, type SectionItem } from './pick.ts';
 import { sectionStyleOf } from './style.ts';
@@ -325,7 +325,13 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   // Anotações da vista de corte/elevação (cotas, textos, detalhes e etiquetas), por cima do desenho do modelo. A
   // geometria delas é `(t,z)`: distância ao longo do corte e cota. Sem `annotations`, nada muda no desenho.
   if (hasSectionAnnotations(input.annotations)) {
-    const notes = sectionAnnotationOps(input);
+    // Escala 100 (padrão da vista, sem escala própria); estilo global do projeto; hover/seleção da UI pelo id da cota.
+    const notes = sectionAnnotationOps(input, {
+      scale: SECTION_ANNOTATION_SCALE,
+      style: dimensionStyleOf(input.project.settings),
+      hoverId: input.highlight?.hover ?? null,
+      selectedIds: input.highlight?.selection ?? [],
+    });
     fills.push(...notes.fills);
     strokes.push(...notes.strokes);
     labels.push(...notes.labels);

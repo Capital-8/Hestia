@@ -12,7 +12,7 @@ export const valueWidthPx = (text: string, fontPx: number): number => text.lengt
  * Distância do centro do rótulo até a linha de cota, em alturas do texto, para os rótulos afastados. Trechos
  * vizinhos que não cabem alternam entre as duas alturas, então um não cobre o outro.
  */
-const LANE_HEIGHTS = [1.6, 3] as const;
+export const LANE_HEIGHTS = [1.6, 3] as const;
 
 export interface DimensionLabelOps {
   labels: LabelOp[];

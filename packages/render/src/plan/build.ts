@@ -1,6 +1,6 @@
 import { add, boxOf, mul, norm, perp, pointInMulti, ringArea, sub, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { buildOpeningModel, cutLevelByJunction, frameOfWall, openingGeometry, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedRoom, type ResolvedSlab } from '@hestia/engine';
-import { openingTypeById, angularDimensionGeometry, dimensionPoints, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, wallsOnLevel, type AreaPlan, type DetailLevel, type Id, type Material, type Project } from '@hestia/model';
+import { openingTypeById, dimensionStyleOf, angularDimensionGeometry, dimensionPoints, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, wallsOnLevel, type AreaPlan, type DetailLevel, type Id, type Material, type Project } from '@hestia/model';
 import { resolveRooms, resolveAngularDimension } from '@hestia/engine';
 import { areaPlanLegendOps, areaPlanRoomOps, areaPlanTableOps, areaPlanTagOps } from './areaPlan.ts';
 import { aberturasDaParede, escadasDoNivel, juncaoDoNivel, paredesDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
@@ -470,7 +470,7 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   // Cotas e textos do nível (decisão 0019), com o estilo da categoria 'anotação'. Na planta de área valem as
   // anotações da própria vista (ou o fallback do nível, já filtrado por `drawnAnnotations`).
   const annotations = areaPlan ? anotacoesSemOcultos(drawnAnnotations(p, input.levelId, areaPlan), hidden) : undefined;
-  const notes = noteOps(pNotas, input.levelId, paint.annotation, { ink: theme.ink, select: theme.select, paper: theme.bg, selection: input.selection }, scale, v, annotations);
+  const notes = noteOps(pNotas, input.levelId, paint.annotation, { ink: theme.ink, select: theme.select, paper: theme.bg, selection: input.selection, dimStyle: dimensionStyleOf(p.settings) }, scale, v, annotations);
   fills.push(...notes.fills);
   strokes.push(...notes.strokes);
   labels.push(...notes.labels);

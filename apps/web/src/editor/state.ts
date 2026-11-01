@@ -76,6 +76,8 @@ export interface UiState {
    * temporárias da seleção ficam suspensas para não se sobrepor às pretas. Some na próxima seleção ou alteração.
    */
   dimsSuspendedVersion: number | null;
+  /** Cota permanente em edição de valor (duplo clique): o editor de valor lê este id e aplica `drivenEditCommands`. */
+  dimEditId: string | null;
   cursor: { x: number; y: number } | null;
   snapKind: string;
   seen3d: boolean;
@@ -316,6 +318,7 @@ export const useUi = create<UiState>(() => ({
   previewTick: 0,
   dimOverrides: {},
   dimsSuspendedVersion: null,
+  dimEditId: null,
   cursor: null,
   snapKind: '',
   seen3d: false,

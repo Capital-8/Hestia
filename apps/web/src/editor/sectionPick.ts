@@ -1,9 +1,13 @@
-import { pickSection, screenToWorld, type SectionPick } from '@hestia/render';
+import { pickSection, pickSectionAnnotation, screenToWorld, type SectionAnnotationPick, type SectionPick } from '@hestia/render';
+import { sectionAnnotationsOf } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
 
 /** Tolerância de clique no corte e na elevação, em pixels de tela (decisão 0016). */
 const TOLERANCE_PX = 4;
+/** Cota e texto de anotação do corte: 6 px na linha, 10 px no texto (a mesma regra da planta, annotationPick.ts). */
+const NOTE_LINE_PX = 6;
+const NOTE_TEXT_PX = 10;
 
 /** Ponto em pixels, relativo ao canvas. */
 export interface ScreenPt {
@@ -11,15 +15,25 @@ export interface ScreenPt {
   y: number;
 }
 
+/** Alvo sob o cursor no corte: um elemento (parede, abertura...) ou uma anotação da vista (cota, texto, detalhe, etiqueta). */
+export type SectionHit = SectionPick | SectionAnnotationPick;
+
 /**
- * Elemento sob o ponto da tela na vista de corte ou elevação aberta (decisão 0016). A tolerância de 4 px vira unidades
- * do desenho (metros) pelo zoom. Null fora do desenho ou no vazio.
+ * Alvo sob o ponto da tela na vista de corte ou elevação aberta (decisão 0016). Anotações da vista (cotas, textos,
+ * detalhes e etiquetas) têm prioridade sobre os elementos: uma cota por cima da parede é a que o clique pega. Os
+ * elementos usam 4 px; as anotações, 6 px na linha e 10 px no texto, convertidos em unidades do desenho pelo zoom.
+ * Null fora do desenho ou no vazio.
  */
-export function sectionPickAt(s: ScreenPt): SectionPick | null {
+export function sectionPickAt(s: ScreenPt): SectionHit | null {
   const v = editor.viewport();
-  const result = editor.sectionOf(useUi.getState().sectionId);
+  const id = useUi.getState().sectionId;
+  const result = editor.sectionOf(id);
   if (!v || !result) return null;
-  return pickSection(result, screenToWorld(v, s), TOLERANCE_PX / v.zoom);
+  const point = screenToWorld(v, s);
+  const view = editor.project.views.find((x) => x.id === id);
+  const note = pickSectionAnnotation(sectionAnnotationsOf(view), point, NOTE_LINE_PX / v.zoom, undefined, NOTE_TEXT_PX / v.zoom);
+  if (note) return note;
+  return pickSection(result, point, TOLERANCE_PX / v.zoom);
 }
 
 let frame = 0;

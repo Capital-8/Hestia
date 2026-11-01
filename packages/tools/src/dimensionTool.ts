@@ -1,9 +1,26 @@
 import { dist, type Vec2 } from '@hestia/geom';
-import { DIM_MIN_LENGTH, dimensionGeometry, dimensionValue, formatDimension, newId, roundMm, unitsOf, type Dimension, type DimensionRef } from '@hestia/model';
+import { DIM_MIN_LENGTH, dimRefAt, dimensionGeometry, dimensionValue, formatDimension, newId, roundMm, unitsOf, type Dimension, type DimensionElementRef, type DimensionRef } from '@hestia/model';
 import { addSectionDimension, ToolBase, viewPlanId } from './base.ts';
 import { endRefAt, signedOffset } from './annotationPick.ts';
 import { lengthUnitName, parseQuantityText } from './numeric.ts';
-import type { PointerInfo, PreviewItem } from './types.ts';
+import type { PointerInfo, PreviewItem, ToolOptions } from './types.ts';
+
+type AnyRef = DimensionRef | DimensionElementRef;
+/** Tolerância (m) entre o ponto capturado e a feição do elemento. */
+const REF_TOL = 0.005;
+
+/**
+ * Campos de estilo que a cota nova grava: só os que o usuário escolheu na barra de opções. Os demais ficam de fora para
+ * a cota seguir o estilo global do projeto (`ProjectSettings.dimensionStyle`); gravar o padrão a faria ignorá-lo.
+ */
+function styleOverrides(o: ToolOptions): Partial<Dimension> {
+  return {
+    ...(o.dimensionUnit !== undefined ? { unit: o.dimensionUnit } : {}),
+    ...(o.dimensionPrecision !== undefined ? { precision: o.dimensionPrecision } : {}),
+    ...(o.dimensionTextHeight !== undefined ? { textHeight: o.dimensionTextHeight } : {}),
+    ...(o.dimensionTickStyle !== undefined ? { tickStyle: o.dimensionTickStyle } : {}),
+  };
+}
 
 /**
  * Cota alinhada (Revit: Aligned Dimension). Clique no ponto A, no ponto B e depois no lado da linha de cota (ou digite
@@ -15,12 +32,17 @@ export class DimensionTool extends ToolBase {
   readonly hint = 'Cota: clique no primeiro ponto medido, depois no segundo. Mova o cursor para o lado da linha de cota e clique (ou digite o deslocamento).';
   private a: Vec2 | null = null;
   private b: Vec2 | null = null;
-  private refA: DimensionRef | undefined;
-  private refB: DimensionRef | undefined;
+  private refA: AnyRef | undefined;
+  private refB: AnyRef | undefined;
   private chain: Vec2[] = [];
-  private chainRefs: Array<DimensionRef | undefined> = [];
+  private chainRefs: Array<AnyRef | undefined> = [];
   private offsetStage = false;
   private chainOffset = 0;
+  /** Ref associativa da feição que coincide com o ponto capturado (planta); no corte, só pontas de parede por coordenada. */
+  private refAt(point: Vec2): AnyRef | undefined {
+    if (this.env.section?.()) return endRefAt(this.env.project(), this.env.levelId(), point);
+    return dimRefAt(this.env.project(), this.env.levelId(), point, REF_TOL)?.ref;
+  }
   private measuredPoints(): { a: Vec2; b: Vec2 } {
     const mode = this.env.options().dimensionMode ?? 'aligned';
     if (mode === 'horizontal') return { a: this.a!, b: { x: this.b!.x, y: this.a!.y } };
@@ -76,19 +98,19 @@ export class DimensionTool extends ToolBase {
       if (this.offsetStage) { this.commitChain(this.side(p.raw) * roundMm(this.distanceToLine(p.raw))); return; }
       if (!this.chain.length) {
         this.chain = [point];
-        this.chainRefs = [endRefAt(this.env.project(), this.env.levelId(), point)];
+        this.chainRefs = [this.refAt(point)];
       } else {
         const last = this.chain[this.chain.length - 1]!;
         if (dist(last, point) < DIM_MIN_LENGTH) return;
         this.chain.push(point);
-        this.chainRefs.push(endRefAt(this.env.project(), this.env.levelId(), point));
+        this.chainRefs.push(this.refAt(point));
       }
       this.env.say(`${this.chain.length} referências selecionadas. Continue os cliques e pressione Enter para concluir a sequência.`);
       return;
     }
     if (!this.a) {
       this.a = point;
-      this.refA = endRefAt(this.env.project(), this.env.levelId(), point);
+      this.refA = this.refAt(point);
       this.env.say('Clique no segundo ponto da cota.');
       return;
     }
@@ -101,7 +123,7 @@ export class DimensionTool extends ToolBase {
         return;
       }
       this.b = point;
-      this.refB = endRefAt(this.env.project(), this.env.levelId(), point);
+      this.refB = this.refAt(point);
       this.env.say('Clique do lado da linha de cota, ou digite o deslocamento e Enter.');
       return;
     }
@@ -163,9 +185,9 @@ export class DimensionTool extends ToolBase {
     return out;
   }
 
-  private chainPairs(): Array<{ a: Vec2; b: Vec2; ra?: DimensionRef; rb?: DimensionRef; offset: number }> {
+  private chainPairs(): Array<{ a: Vec2; b: Vec2; ra?: AnyRef; rb?: AnyRef; offset: number }> {
     const mode = this.env.options().dimensionString ?? 'continuous';
-    const out: Array<{ a: Vec2; b: Vec2; ra?: DimensionRef; rb?: DimensionRef; offset: number }> = [];
+    const out: Array<{ a: Vec2; b: Vec2; ra?: AnyRef; rb?: AnyRef; offset: number }> = [];
     const project = (a: Vec2, b: Vec2): { a: Vec2; b: Vec2 } => {
       const dir = this.env.options().dimensionMode ?? 'aligned';
       return dir === 'horizontal' ? { a, b: { x: b.x, y: a.y } } : dir === 'vertical' ? { a, b: { x: a.x, y: b.y } } : { a, b };
@@ -204,7 +226,7 @@ export class DimensionTool extends ToolBase {
     this.env.transaction('Criar sequência de cotas', () => {
       for (const d of pairs) {
         const refs = { ...(d.ra ? { a: d.ra } : {}), ...(d.rb ? { b: d.rb } : {}) };
-        const dimension: Dimension = { id: newId('dim'), a: d.a, b: d.b, offset: d.offset, mode: opts.dimensionMode ?? 'aligned', unit: opts.dimensionUnit ?? 'project', ...(opts.dimensionPrecision !== undefined ? { precision: opts.dimensionPrecision } : {}), textHeight: opts.dimensionTextHeight ?? 2.5, tickStyle: opts.dimensionTickStyle ?? 'slash', ...(opts.dimensionPrefix ? { prefix: opts.dimensionPrefix } : {}), ...(opts.dimensionSuffix ? { suffix: opts.dimensionSuffix } : {}), ...(Object.keys(refs).length ? { refs } : {}) };
+        const dimension: Dimension = { id: newId('dim'), a: d.a, b: d.b, offset: d.offset, mode: opts.dimensionMode ?? 'aligned', ...styleOverrides(opts), ...(opts.dimensionPrefix ? { prefix: opts.dimensionPrefix } : {}), ...(opts.dimensionSuffix ? { suffix: opts.dimensionSuffix } : {}), ...(Object.keys(refs).length ? { refs } : {}) };
         if (!addSectionDimension(this.env, dimension)) this.env.exec({ type: 'addDimension', levelId: this.env.levelId(), planId: viewPlanId(this.env), dimension });
       }
     });
@@ -221,7 +243,7 @@ export class DimensionTool extends ToolBase {
     }
     const refs = { ...(this.refA ? { a: this.refA } : {}), ...(this.refB ? { b: this.refB } : {}) };
     const o = this.env.options();
-    const dimension: Dimension = { id: newId('dim'), a, b, offset, mode: o.dimensionMode ?? 'aligned', unit: o.dimensionUnit ?? 'project', ...(o.dimensionPrecision !== undefined ? { precision: o.dimensionPrecision } : {}), prefix: o.dimensionPrefix ?? '', suffix: o.dimensionSuffix ?? '', textHeight: o.dimensionTextHeight ?? 2.5, tickStyle: o.dimensionTickStyle ?? 'slash', ...(Object.keys(refs).length ? { refs } : {}) };
+    const dimension: Dimension = { id: newId('dim'), a, b, offset, mode: o.dimensionMode ?? 'aligned', ...styleOverrides(o), ...(o.dimensionPrefix ? { prefix: o.dimensionPrefix } : {}), ...(o.dimensionSuffix ? { suffix: o.dimensionSuffix } : {}), ...(Object.keys(refs).length ? { refs } : {}) };
     if (!addSectionDimension(this.env, dimension)) this.env.exec({ type: 'addDimension', levelId: this.env.levelId(), planId: viewPlanId(this.env), dimension });
     this.reset();
     this.env.say(this.hint);

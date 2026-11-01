@@ -147,7 +147,8 @@ export function TempDimsOverlay(): ReactElement | null {
   };
 
   const makePermanent = (): void => {
-    const cmds = toPermanent(ctx.levelId, dims);
+    const st = useUi.getState();
+    const cmds = toPermanent(ctx.levelId, dims, st.planKind === 'area' ? st.areaPlanId ?? undefined : undefined);
     const before = editor.store.version;
     editor.store.transaction('Converter em cotas permanentes', () => cmds.forEach((c) => editor.store.exec(c)));
     const suspended = suspensionAfterConversion(before, editor.store.version);

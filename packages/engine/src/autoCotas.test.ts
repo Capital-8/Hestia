@@ -103,8 +103,8 @@ describe('cotas automáticas', () => {
     expect(comRef.length).toBeGreaterThan(0);
     for (const c of comRef) {
       const r = (c.refs?.a ?? c.refs?.b)!;
-      expect(r.axis).toBe('x');
-      expect(['a', 'b']).toContain(r.end);
+      expect((r as { axis?: string }).axis).toBe('x');
+      expect(['a', 'b']).toContain((r as { end?: string }).end);
     }
   });
 

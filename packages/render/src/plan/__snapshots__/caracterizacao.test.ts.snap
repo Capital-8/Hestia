@@ -268,6 +268,8 @@ exports[`caracterização do render (golden) > (a) planta de piso: ops do projet
         "y": 1.275,
       },
       "center": true,
+      "color": "#16181c",
+      "fontFamily": "Arial Narrow, Arial, sans-serif",
       "maskBorderColor": "none",
       "maskBoundary": [
         {
@@ -675,26 +677,6 @@ exports[`caracterização do render (golden) > (a) planta de piso: ops do projet
       "pts": [
         {
           "x": 0,
-          "y": 1,
-        },
-        {
-          "x": 4,
-          "y": 1,
-        },
-      ],
-      "widthPx": 1,
-    },
-    {
-      "alpha": 1,
-      "closed": false,
-      "color": "#16181c",
-      "papel": {
-        "escala": 100,
-        "mm": 0.1,
-      },
-      "pts": [
-        {
-          "x": 0,
           "y": 0.15000000000000002,
         },
         {
@@ -720,6 +702,26 @@ exports[`caracterização do render (golden) > (a) planta de piso: ops do projet
         {
           "x": 4,
           "y": 1.2,
+        },
+      ],
+      "widthPx": 1,
+    },
+    {
+      "alpha": 1,
+      "closed": false,
+      "color": "#16181c",
+      "papel": {
+        "escala": 100,
+        "mm": 0.1,
+      },
+      "pts": [
+        {
+          "x": -0.09799999999999999,
+          "y": 1,
+        },
+        {
+          "x": 4.098,
+          "y": 1,
         },
       ],
       "widthPx": 1,
@@ -823,6 +825,8 @@ exports[`caracterização do render (golden) > (b) planta de área com anotaçõ
         "y": 1.6375,
       },
       "center": true,
+      "color": "#16181c",
+      "fontFamily": "Arial Narrow, Arial, sans-serif",
       "maskBorderColor": "none",
       "maskBoundary": [
         {
@@ -1045,26 +1049,6 @@ exports[`caracterização do render (golden) > (b) planta de área com anotaçõ
       "pts": [
         {
           "x": 0,
-          "y": 1.5,
-        },
-        {
-          "x": 4,
-          "y": 1.5,
-        },
-      ],
-      "widthPx": 1,
-    },
-    {
-      "alpha": 1,
-      "closed": false,
-      "color": "#16181c",
-      "papel": {
-        "escala": 50,
-        "mm": 0.18,
-      },
-      "pts": [
-        {
-          "x": 0,
           "y": 0.07500000000000001,
         },
         {
@@ -1090,6 +1074,26 @@ exports[`caracterização do render (golden) > (b) planta de área com anotaçõ
         {
           "x": 4,
           "y": 1.6,
+        },
+      ],
+      "widthPx": 1,
+    },
+    {
+      "alpha": 1,
+      "closed": false,
+      "color": "#16181c",
+      "papel": {
+        "escala": 50,
+        "mm": 0.18,
+      },
+      "pts": [
+        {
+          "x": -0.048999999999999995,
+          "y": 1.5,
+        },
+        {
+          "x": 4.049,
+          "y": 1.5,
         },
       ],
       "widthPx": 1,
@@ -1217,6 +1221,8 @@ exports[`caracterização do render (golden) > (b2) planta de área sem anotaç�
         "y": 1.1375,
       },
       "center": true,
+      "color": "#16181c",
+      "fontFamily": "Arial Narrow, Arial, sans-serif",
       "maskBorderColor": "none",
       "maskBoundary": [
         {
@@ -1439,26 +1445,6 @@ exports[`caracterização do render (golden) > (b2) planta de área sem anotaç�
       "pts": [
         {
           "x": 0,
-          "y": 1,
-        },
-        {
-          "x": 4,
-          "y": 1,
-        },
-      ],
-      "widthPx": 1,
-    },
-    {
-      "alpha": 1,
-      "closed": false,
-      "color": "#16181c",
-      "papel": {
-        "escala": 50,
-        "mm": 0.18,
-      },
-      "pts": [
-        {
-          "x": 0,
           "y": 0.07500000000000001,
         },
         {
@@ -1484,6 +1470,26 @@ exports[`caracterização do render (golden) > (b2) planta de área sem anotaç�
         {
           "x": 4,
           "y": 1.1,
+        },
+      ],
+      "widthPx": 1,
+    },
+    {
+      "alpha": 1,
+      "closed": false,
+      "color": "#16181c",
+      "papel": {
+        "escala": 50,
+        "mm": 0.18,
+      },
+      "pts": [
+        {
+          "x": -0.048999999999999995,
+          "y": 1,
+        },
+        {
+          "x": 4.049,
+          "y": 1,
         },
       ],
       "widthPx": 1,

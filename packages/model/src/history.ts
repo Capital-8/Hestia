@@ -268,6 +268,8 @@ export function labelOf(c: Command): string {
       return 'Padrões do projeto';
     case 'setSettings':
       return 'Configurações do projeto';
+    case 'setDimensionStyle':
+      return 'Estilo de cotas';
     case 'setDxfLayerStyle':
       return 'Editar camada do DXF';
     case 'resetDxfLayers':
