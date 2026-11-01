@@ -13,6 +13,7 @@ const PAINEL = [
   'apps/web/src/ui/RoofProperties.tsx',
   'apps/web/src/ui/StairProperties.tsx',
   'apps/web/src/ui/SectionViewProps.tsx',
+  'apps/web/src/ui/DimensionProps.tsx',
 ];
 /** Orçamento de caracteres do rótulo visível: a coluna de rótulo é 46% da paleta (~117 px a 11 px). */
 const LABEL_MAX = 22;

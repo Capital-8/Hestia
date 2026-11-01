@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { dimensionPoints, dimensionValue, levelDimensions, type Project } from '@hestia/model';
 import { drivenEditCommands } from './dims/driven.ts';
 import { eqChainCommands } from './dims/constraints.ts';
+import { addRefCommands, mergeRefCommands } from './dims/witness.ts';
 import { chooseRefs } from './dimensionTool.ts';
 import { clickAt, drawWall, makeEnv, tool, walls } from './testEnv.ts';
 
@@ -173,5 +174,50 @@ describe('EQ de cadeia', () => {
     const [a2, b2] = vals();
     expect(Math.abs(a2! - b2!)).toBeLessThan(0.002);
     expect(a2! + b2!).toBeGreaterThan(a! + b! + 2.9);
+  });
+});
+
+describe('referências da cota (adicionar/remover)', () => {
+  it('adiciona uma referência no meio (cadeia) e remove de volta', () => {
+    const ctx = makeEnv();
+    drawWall(ctx.env, [0, 0], [4, 0]);
+    drawWall(ctx.env, [0, 1.5], [4, 1.5]);
+    drawWall(ctx.env, [0, 3], [4, 3]);
+    const t = tool('dimension', ctx.env);
+    clickAt(t, 1.3, HALF + 0.001);
+    clickAt(t, 2.6, 3 - HALF);
+    clickAt(t, 5, 1.5);
+    const d0 = dims(ctx.store)[0]!;
+    const r = addRefCommands(ctx.store.project, 'lv_0', d0.id, { x: 2, y: 1.5 - HALF }, 0.02);
+    expect(r).toHaveProperty('commands');
+    if ('commands' in r) ctx.store.transaction('add', () => { for (const c of r.commands) ctx.store.exec(c); });
+    expect(dims(ctx.store)).toHaveLength(2);
+    expect(dims(ctx.store)[0]!.chainId).toBe(dims(ctx.store)[1]!.chainId);
+    const total = dims(ctx.store).reduce((a, d) => a + dimensionValue(ctx.store.project, d), 0);
+    expect(total).toBeCloseTo(3 - 2 * HALF - 0 + 0, 0);
+    const m = mergeRefCommands(ctx.store.project, 'lv_0', dims(ctx.store)[0]!.id, 'b');
+    expect('commands' in m).toBe(true);
+    if ('commands' in m) ctx.store.transaction('rm', () => { for (const c of m.commands) ctx.store.exec(c); });
+    expect(dims(ctx.store)).toHaveLength(1);
+    expect(dimensionValue(ctx.store.project, dims(ctx.store)[0]!)).toBeCloseTo(3 - 2 * HALF, 3);
+  });
+});
+
+describe('prévia ao vivo da cota ao mover a parede', () => {
+  it('desenha a cota com o valor novo durante o Mover', () => {
+    const ctx = makeEnv();
+    drawWall(ctx.env, [0, 0], [4, 0]);
+    drawWall(ctx.env, [0, 3], [4, 3]);
+    const d = tool('dimension', ctx.env);
+    clickAt(d, 1.3, HALF + 0.001);
+    clickAt(d, 2.6, 3 - HALF);
+    clickAt(d, 5, 1.5);
+    const upper = walls(ctx.store).find((w) => w.a.y === 3)!;
+    ctx.env.setSelection([upper.id]);
+    const mv = tool('move', ctx.env);
+    clickAt(mv, 1, 3);
+    mv.move({ raw: { x: 1, y: 4 }, shift: false, ctrl: false, alt: false });
+    const label = mv.preview().find((i) => i.kind === 'label') as { text: string } | undefined;
+    expect(label?.text).toMatch(/3[,.]82/);
   });
 });

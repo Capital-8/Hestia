@@ -4,6 +4,7 @@ import { frameOfWall } from '@hestia/engine';
 import { annotationIdsIn, annotationMoveCommands, dimensionSettingsOf, formatQuantity, isOpening, isRamp, isStair, isWall, unitsOf, type Id, type ResolvedUnits } from '@hestia/model';
 import { ToolBase } from './base.ts';
 import { gridGhosts, moveGrids, selectedGrids } from './gridGeom.ts';
+import { ghostDimensions } from './dimGhost.ts';
 import { copyWalls, ghostBands, ghostOpenings, ghostViews, moveWalls, selectedMovables, selectedOpenings, selectedViews, slideOpenings, transformViews, transformWalls } from './edit.ts';
 import { refuseCopyOverlap, refuseMoveOverlap } from './wallOverlapGuard.ts';
 import { pickAt } from './pick.ts';
@@ -252,7 +253,7 @@ export class MoveTool extends SelectionTool {
     const d = sub(inf.point, this.base);
     this.items.push({ kind: 'line', a: this.base, b: inf.point, dashed: true });
     const t = { kind: 'translate' as const, d };
-    this.items.push(...ghostBands(this.env.project(), els, t), ...ghostOpenings(this.env.project(), els, t), ...ghostViews(this.env.project(), this.env.selection(), t), ...gridGhosts(this.env.project(), selectedGrids(this.env.project(), this.env.selection()), d));
+    this.items.push(...ghostBands(this.env.project(), els, t), ...(this.copy ? [] : ghostDimensions(this.env.project(), this.env.levelId(), els, t, ((this.env.viewScale?.() ?? 100) / 1000))), ...ghostOpenings(this.env.project(), els, t), ...ghostViews(this.env.project(), this.env.selection(), t), ...gridGhosts(this.env.project(), selectedGrids(this.env.project(), this.env.selection()), d));
     if (!this.copy) this.items.push(...separatorGhostItems(this.env.project(), this.env.levelId(), movableSeparatorIds(this.env, this.copy), d));
     this.items.push({ kind: 'label', at: inf.point, text: fmtDisplacement(unitsOf(this.env.project()), d) });
   }
@@ -389,7 +390,7 @@ export class RotateTool extends SelectionTool {
     if (this.ref) {
       const ang = this.angleTo(p.raw);
       const t = { kind: 'rotate', about: this.center, angle: ang } as const;
-      this.items.push(...ghostBands(this.env.project(), this.movables(), t), ...ghostOpenings(this.env.project(), this.movables(), t), ...ghostViews(this.env.project(), this.env.selection(), t));
+      this.items.push(...ghostBands(this.env.project(), this.movables(), t), ...ghostDimensions(this.env.project(), this.env.levelId(), this.movables(), t, ((this.env.viewScale?.() ?? 100) / 1000)), ...ghostOpenings(this.env.project(), this.movables(), t), ...ghostViews(this.env.project(), this.env.selection(), t));
       this.items.push({ kind: 'label', at: p.raw, text: formatQuantity(unitsOf(this.env.project()), 'angle', ang) });
     }
   }
@@ -481,7 +482,7 @@ export class MirrorTool extends SelectionTool {
       this.items.push({ kind: 'highlight', ids: [id] });
       this.items.push({ kind: 'line', a: f.a, b: f.b, dashed: true });
       const t = { kind: 'mirror', a: f.a, b: f.b } as const;
-      this.items.push(...ghostBands(this.env.project(), this.movables(), t), ...ghostOpenings(this.env.project(), this.movables(), t), ...ghostViews(this.env.project(), this.env.selection(), t));
+      this.items.push(...ghostBands(this.env.project(), this.movables(), t), ...ghostDimensions(this.env.project(), this.env.levelId(), this.movables(), t, ((this.env.viewScale?.() ?? 100) / 1000)), ...ghostOpenings(this.env.project(), this.movables(), t), ...ghostViews(this.env.project(), this.env.selection(), t));
       return;
     }
     // O eixo enxerga a própria seleção: espelhar uma parede em torno da face dela (ou da linha de centro) é o uso
@@ -494,7 +495,7 @@ export class MirrorTool extends SelectionTool {
     this.items.push({ kind: 'line', a: this.p1, b: inf.point, dashed: true });
     if (dist(this.p1, inf.point) > 1e-6) {
       const t = { kind: 'mirror', a: this.p1, b: inf.point } as const;
-      this.items.push(...ghostBands(this.env.project(), this.movables(), t), ...ghostOpenings(this.env.project(), this.movables(), t), ...ghostViews(this.env.project(), this.env.selection(), t));
+      this.items.push(...ghostBands(this.env.project(), this.movables(), t), ...ghostDimensions(this.env.project(), this.env.levelId(), this.movables(), t, ((this.env.viewScale?.() ?? 100) / 1000)), ...ghostOpenings(this.env.project(), this.movables(), t), ...ghostViews(this.env.project(), this.env.selection(), t));
     }
   }
 

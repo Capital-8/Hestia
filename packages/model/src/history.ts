@@ -1,29 +1,9 @@
 import { applyPatches, enablePatches, produceWithPatches, type Patch } from 'immer';
 import { applyCommand, type Command } from './commands.ts';
-import type { Id, Project } from './types.ts';
+import { postHookOf, summarize } from './storeHook.ts';
+import type { Project } from './types.ts';
 
 enablePatches();
-
-/** O que um comando (ou transação) alterou: ids de elementos mudados e removidos. */
-export interface StoreChange { changed: Set<Id>; removed: Set<Id> }
-/**
- * Gancho de restrições (cotas travadas, EQ, cotas órfãs): roda depois de cada comando/transação e devolve comandos
- * extras que entram no MESMO passo de desfazer. Lança `Error` para recusar a mudança (nada é gravado).
- */
-export type StorePostHook = (project: Project, change: StoreChange) => Command[];
-let postHook: StorePostHook | null = null;
-export function setStorePostHook(h: StorePostHook | null): void { postHook = h; }
-
-function summarize(patches: Patch[]): StoreChange {
-  const changed = new Set<Id>();
-  const removed = new Set<Id>();
-  for (const p of patches) {
-    if (p.path[0] !== 'elements' || p.path.length < 2) continue;
-    const id = String(p.path[1]);
-    if (p.op === 'remove' && p.path.length === 2) removed.add(id); else changed.add(id);
-  }
-  return { changed, removed };
-}
 
 interface Entry {
   label: string;
@@ -107,6 +87,7 @@ export class ProjectStore {
   private settle(seen: Patch[]): { patches: Patch[]; inverse: Patch[] } {
     const patches: Patch[] = [];
     const inverse: Patch[] = [];
+    const postHook = postHookOf();
     if (!postHook) return { patches, inverse };
     const change = summarize(seen);
     if (change.changed.size === 0 && change.removed.size === 0) return { patches, inverse };
@@ -121,9 +102,11 @@ export class ProjectStore {
 
   exec(cmd: Command, label = labelOf(cmd)): void {
     const before = this.present;
-    let [next, patches, inverse] = produceWithPatches(this.present, (draft) => {
+    const [next, patches0, inverse0] = produceWithPatches(this.present, (draft) => {
       applyCommand(draft as Project, cmd);
     });
+    let patches = patches0;
+    let inverse = inverse0;
     if (patches.length === 0) return;
     this.present = next;
     if (!this.tx) {
@@ -173,24 +156,28 @@ export class ProjectStore {
         failure = e;
       }
     } finally {
-      const done = this.tx;
-      this.tx = null;
-      if (done.patches.length > 0) {
-        const last = this.past[this.past.length - 1];
-        const s = this.lastSession;
-        if (session && s && s.key === session && s.entry === last) {
-          // Undo do passo: o inverso das novas alterações vai antes do inverso já guardado.
-          s.entry.patches.push(...done.patches);
-          s.entry.inverse.unshift(...done.inverse);
-        } else {
-          this.past.push(done);
-          this.lastSession = session ? { key: session, entry: done } : null;
-        }
-        this.future = [];
-        this.emit();
-      }
-      if (failure) throw failure;
+      this.close(session);
     }
+    if (failure) throw failure;
+  }
+
+  /** Encerra a transação aberta e a grava no histórico (junta à sessão anterior quando for a mesma). */
+  private close(session?: object): void {
+    const done = this.tx;
+    this.tx = null;
+    if (!done || done.patches.length === 0) return;
+    const last = this.past[this.past.length - 1];
+    const s = this.lastSession;
+    if (session && s && s.key === session && s.entry === last) {
+      // Undo do passo: o inverso das novas alterações vai antes do inverso já guardado.
+      s.entry.patches.push(...done.patches);
+      s.entry.inverse.unshift(...done.inverse);
+    } else {
+      this.past.push(done);
+      this.lastSession = session ? { key: session, entry: done } : null;
+    }
+    this.future = [];
+    this.emit();
   }
 
   undo(): void {

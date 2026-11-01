@@ -14,6 +14,7 @@ export * from './commands.ts';
 export * from './copyLink.ts';
 export * from './copyLinkCommands.ts';
 export * from './history.ts';
+export { setStorePostHook, type StoreChange, type StorePostHook } from './storeHook.ts';
 export * from './outlineCommands.ts';
 export * from './migrate.ts';
 export * from './templates.ts';

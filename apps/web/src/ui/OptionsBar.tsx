@@ -52,6 +52,27 @@ function DimensionOptions(): ReactElement {
           {familias.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
         </select>
       </label>
+      <label>Selecionar
+        <select className="select" value={o.dimensionPick ?? 'points'} title="Pontos: cada clique é uma referência (Tab alterna face, eixo e núcleo). Parede inteira: um clique cota a parede com esquadrias e paredes que a cruzam." onChange={(e) => set({ dimensionPick: e.target.value as 'points' | 'wall' })}>
+          <option value="points">Referências individuais</option>
+          <option value="wall">Paredes inteiras</option>
+        </select>
+      </label>
+      <label>Referência
+        <select className="select" value={o.dimensionRef ?? 'face'} title="Linha da parede que a cota pega primeiro. Tab alterna entre as linhas sob o cursor." onChange={(e) => set({ dimensionRef: e.target.value as 'face' | 'axis' | 'core' })}>
+          <option value="face">Faces da parede</option>
+          <option value="axis">Eixos da parede</option>
+          <option value="core">Faces do núcleo</option>
+        </select>
+      </label>
+      {o.dimensionPick === 'wall' ? (
+        <label>Esquadrias
+          <select className="select" value={o.dimensionOpenings ?? 'widths'} onChange={(e) => set({ dimensionOpenings: e.target.value as 'widths' | 'centers' })}>
+            <option value="widths">Larguras (bordas)</option>
+            <option value="centers">Centros</option>
+          </select>
+        </label>
+      ) : null}
       <label>Direção
         <select className="select" value={o.dimensionMode ?? 'auto'} onChange={(e) => set({ dimensionMode: e.target.value as 'auto' | 'aligned' | 'horizontal' | 'vertical' })}>
           <option value="auto">Automática (pela referência)</option>
@@ -61,7 +82,7 @@ function DimensionOptions(): ReactElement {
         </select>
       </label>
       <label>Sequência<select className="select" value={o.dimensionString ?? 'single'} onChange={(e) => set({ dimensionString: e.target.value as 'single' | 'continuous' | 'baseline' })}><option value="single">Individual</option><option value="continuous">Contínua</option><option value="baseline">A partir de uma base</option></select></label>
-      {o.dimensionMode === 'aligned' || o.dimensionMode === 'horizontal' || o.dimensionMode === 'vertical' ? null : (
+      {o.dimensionPick === 'wall' || o.dimensionMode === 'aligned' || o.dimensionMode === 'horizontal' || o.dimensionMode === 'vertical' ? null : (
         <span style={{ color: 'var(--fg-soft)' }}>A direção vem dos pontos medidos</span>
       )}
     </>

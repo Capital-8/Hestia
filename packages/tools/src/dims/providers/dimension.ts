@@ -53,7 +53,7 @@ export function dimElementRefLabel(r: DimensionElementRef): string {
     case 'opening-edge-a': return 'Borda inicial da esquadria';
     case 'opening-edge-b': return 'Borda final da esquadria';
     case 'opening-center': return 'Centro da esquadria';
-    case 'wall-line': return ({ 'face-hi': 'Face 2 (linha)', 'face-lo': 'Face 1 (linha)', axis: 'Eixo (linha)', 'core-hi': 'Núcleo 2 (linha)', 'core-lo': 'Núcleo 1 (linha)' } as const)[r.line ?? 'axis'];
+    case 'wall-line': return ({ 'face-hi': 'Face 2', 'face-lo': 'Face 1', axis: 'Eixo', 'core-hi': 'Núcleo 2', 'core-lo': 'Núcleo 1' } as const)[r.line ?? 'axis'];
     case 'vertex': return `Vértice ${n}`;
     case 'edge': return `Aresta ${n}`;
   }

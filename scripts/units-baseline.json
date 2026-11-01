@@ -1,7 +1,7 @@
 {
   "apps/web/src/editor/areaPlanActions.ts": 4,
   "apps/web/src/editor/i18n.ts": 1,
-  "apps/web/src/ui/AnnotationProps.tsx": 6,
+  "apps/web/src/ui/AnnotationProps.tsx": 5,
   "apps/web/src/ui/dialogs/RampScheduleDialog.tsx": 3,
   "apps/web/src/ui/dialogs/RampTypeDialog.tsx": 10,
   "apps/web/src/ui/dialogs/StairCalculatorPanel.tsx": 1,

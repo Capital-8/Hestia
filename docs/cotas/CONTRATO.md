@@ -44,3 +44,12 @@ Testes: cada frente roda só seus arquivos; a suíte completa é do orquestrador
 - **Cotas automáticas:** a geração só adiciona cotas (`addDimension`); não apaga nem sobrescreve as existentes.
 - **Fora do escopo:** corte e elevação (sem alça de referência nem edição de valor), cota angular editando valor, e a trava não impede mover o elemento pela ferramenta Mover (só bloqueia a edição de valor).
 - **Testes:** `packages/tools/src/dims` (392 testes) e `tests/e2e/cotas-permanentes.mjs` (7 passos no navegador). Suíte completa: 822 arquivos de teste passando.
+
+## Onda "cotas como no Revit" (planta)
+- **Referência de LINHA** (`feature: 'wall-line'`, `line: axis | face-hi | face-lo | core-hi | core-lo`, `along`): a ponta da cota prende-se à linha da parede, não a um ponto. Entre duas linhas paralelas a cota alinhada mede a perpendicular (`perpendicularBetweenLines`). Escolha por ponta em `dimensionPick.ts` (`chooseRefs`): esquadria > linha perpendicular à medida > ponto de feição.
+- **Ferramenta de cota:** o cursor "pega" a face/eixo/núcleo sob ele sem precisar de snap de ponto (realce + Tab alterna); barra de opções: Selecionar (pontos | parede inteira), Referência (faces | eixo | núcleo), Esquadrias (larguras | centros). "Parede inteira" (`dimensionWallChain.ts`) monta a cadeia com pontas, esquadrias e paredes que cruzam.
+- **Restrições** (`dims/constraints.ts`, gancho `setStorePostHook` do `ProjectStore`): `Dimension.locked` + `lockedValue` mantém o valor (o elemento não preso se move junto; conflito recusa o passo inteiro); `chainId` + `eq` mantém trechos iguais; cota cujo elemento foi apagado sai no mesmo passo de desfazer.
+- **Cadeia:** cotas criadas juntas compartilham `chainId`. "Adicionar referência" (`addRefCommands`) divide a cota; "Remover referência" (`mergeRefCommands`) junta com o vizinho.
+- **Prévia ao vivo:** mover/girar/espelhar/arrastar parede redesenha as cotas presas a ela com o valor novo (`dimGhost.ts`).
+- **Propriedades da cota** (`DimensionProps.tsx`): grupos Restrições, Referências, Dimensões (valor editável move o elemento), Texto da cota (usar valor real | substituir por texto), Gráficos e Identidade.
+- **Fora do escopo desta onda:** texto acima/abaixo da cota, grips de texto por segmento da cadeia, arrastar a witness line direto no canvas (substituído por "Trocar/Adicionar/Remover referência" no painel).

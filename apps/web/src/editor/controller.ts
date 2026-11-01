@@ -23,7 +23,7 @@ import {
   type SectionView,
   type TemplateId,
 } from '@hestia/model';
-import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, sectionInferContext, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId, pickRefCommands } from '@hestia/tools';
+import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, sectionInferContext, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId, pickRefCommands, addRefCommands } from '@hestia/tools';
 import { ResolucaoCancelada } from '@hestia/engine/src/worker/protocolo.ts';
 import type { ClienteResolucao } from '@hestia/engine/src/worker/cliente.ts';
 import { kernelExperimentalLigado } from './preferenciasKernel.ts';
@@ -421,7 +421,15 @@ export class Editor {
   applyCommands(label: string, commands: readonly Command[]): HostedApplyResult { return execWithHostedLoss(this.env, label, commands); }
 
   /** Grava a feição clicada como nova referência da ponta da cota (ver `pickRefCommands`). */
-  private escolherReferenciaCota(pick: { dimId: string; slot: 'a' | 'b' }, info: PointerInfo): void {
+  private escolherReferenciaCota(pick: { dimId: string; slot: 'a' | 'b'; add?: boolean }, info: PointerInfo): void {
+    const tol = this.env.metersPerPixel() * 12;
+    if (pick.add) {
+      const a = addRefCommands(this.project, useUi.getState().levelId, pick.dimId, info.raw, tol);
+      if ('error' in a) { useUi.setState({ status: a.error }); return; }
+      const done = this.applyCommands('Adicionar referência à cota', a.commands);
+      useUi.setState({ dimRefPick: null, status: done.status === 'cancelled' ? '' : 'Referência adicionada: a cota virou uma cadeia.' });
+      return;
+    }
     const r = pickRefCommands(this.project, useUi.getState().levelId, pick.dimId, pick.slot, info.raw, this.env.metersPerPixel() * 12);
     if ('error' in r) { useUi.setState({ status: r.error }); return; }
     const applied = this.applyCommands('Trocar referência da cota', r.commands);

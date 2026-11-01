@@ -6,7 +6,6 @@ import {
   dimensionFormatStyle,
   dimensionStyleFor,
   dimensionStyleOf,
-  dimensionValue,
   formatDimension,
   levelDimensions,
   levelTexts,
@@ -28,6 +27,7 @@ import { resolveAngularDimension } from '@hestia/engine';
 import { useUi } from '../editor/state.ts';
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
 import { useUnits } from './useUnits.ts';
+import { DimensionProps } from './DimensionProps.tsx';
 
 /** Cota, texto, detalhe ou etiqueta selecionado (decisão 0019); null se a seleção não é uma anotação. */
 export interface NotaSelecionada {
@@ -190,16 +190,7 @@ export function AnnotationProps({ dim, text, line, region, tag, section, planId,
       </select>
     </Row>
   );
-  /** Valor e texto da cota com a família. No corte/elevação o par gravado vale como está (`(t,z)`, sem refs da planta). */
-  const cota = (d: Dimension): { valor: string; textoVazio: string } => {
-    const base: Dimension = section ? d : d;
-    const paraMedir: Pick<Project, 'elements'> = section ? { elements: {} } : p;
-    const estilo = dimensionFormatStyle(dimensionStyleFor(p.settings, d));
-    const valor = formatDimension(base, dimensionValue(paraMedir, d), units, estilo);
-    return { valor, textoVazio: valor };
-  };
   if (dim) {
-    const medida = cota(dim);
     if (dim.angular) {
       // No corte a cota angular não resolve referências de planta: usa a geometria gravada (mesma regra do desenho).
       const shown = section ? dim : resolveAngularDimension(p, levelId, dim);
@@ -222,31 +213,7 @@ export function AnnotationProps({ dim, text, line, region, tag, section, planId,
         </Group>
       );
     }
-    return (
-      <Group title="Cota">
-        <Row label="Valor"><span className="val">{medida.valor}</span></Row>
-        {familiaRow(dim)}
-        <div className="prow"><button className="btn" title="Abrir a família desta cota no editor de famílias" onClick={() => useUi.setState({ dialog: 'dimensionFamilies', dimFamilyFocus: dim.familyId ?? DIM_FAMILY_PADRAO })}>Editar família…</button></div>
-        <Row label="Texto" htmlFor="p-dtext">
-          <TextField id="p-dtext" value={dim.text ?? ''} placeholder={medida.textoVazio} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { text: v.trim() === '' ? undefined : v } }))} />
-        </Row>
-        <Row label="Deslocamento" htmlFor="p-doff">
-          <NumField id="p-doff" value={dim.offset} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { offset: v } }))} quantity="length" />
-        </Row>
-        <Check id="p-dlock" checked={dim.locked === true} onChange={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { locked: v } }))}>Travada (o valor não move os elementos)</Check>
-        <Row label="Direção"><select className="select" value={dim.mode ?? 'aligned'} onChange={(e) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { mode: e.target.value as Dimension['mode'] } }))}><option value="aligned">Alinhada</option><option value="horizontal">Horizontal</option><option value="vertical">Vertical</option></select></Row>
-        <details className="prow">
-        <summary className="soft">Avançado (sobrepõe a família só nesta cota)</summary>
-        <Row label="Unidade"><select className="select" value={dim.unit ?? 'project'} onChange={(e) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { unit: e.target.value as Dimension['unit'] } }))}><option value="project">Projeto</option><option value="m">Metros</option><option value="cm">Centímetros</option><option value="mm">Milímetros</option></select></Row>
-        <Row label="Casas decimais"><select className="select" value={dim.precision ?? 2} onChange={(e) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { precision: Number(e.target.value) as 0 | 1 | 2 | 3 } }))}><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></Row>
-        <Row label="Prefixo" htmlFor="p-dprefix"><TextField id="p-dprefix" value={dim.prefix ?? ''} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { prefix: v } }))} /></Row>
-        <Row label="Sufixo" htmlFor="p-dsuffix"><TextField id="p-dsuffix" value={dim.suffix ?? ''} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { suffix: v } }))} /></Row>
-        <Row label="Altura do texto" htmlFor="p-dheight"><NumField id="p-dheight" value={dim.textHeight ?? 2.5} decimals={1} unit="mm" min={0.5} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { textHeight: v } }))} /></Row>
-        <Row label="Marca"><select className="select" value={dim.tickStyle ?? 'slash'} onChange={(e) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { tickStyle: e.target.value as Dimension['tickStyle'] } }))}><option value="slash">Traço</option><option value="arrow">Seta</option><option value="dot">Ponto</option></select></Row>
-        </details>
-        <div className="prow"><span className="soft">{section ? 'Cota da vista de corte: mede o par (t,z) gravado e não acompanha paredes. Texto vazio mostra o valor medido.' : 'Acompanha a parede quando a extremidade está presa a uma parede. Texto vazio mostra o valor medido.'}</span></div>
-      </Group>
-    );
+    return <DimensionProps dim={dim} section={section} nota={nota} edit={edit} />;
   }
   if (line) return <Group title="Linha de detalhe"><Row label="Traço"><select className="select" value={line.style ?? 'solid'} onChange={(e) => edit(() => nota({ type: 'updateDetailLine', levelId, id: line.id, patch: { style: e.target.value as DetailLine['style'] } }))}><option value="solid">Contínuo</option><option value="dashed">Tracejado</option><option value="dotted">Pontilhado</option></select></Row></Group>;
   if (region) return <Group title="Região de detalhe"><Row label="Preenchimento"><input className="input" type="color" value={region.color ?? '#f5d782'} onChange={(e) => edit(() => nota({ type: 'updateDetailRegion', levelId, id: region.id, patch: { color: e.target.value, mask: false } }))} /></Row><Check id="p-region-mask" checked={region.mask === true} onChange={(v) => edit(() => nota({ type: 'updateDetailRegion', levelId, id: region.id, patch: { mask: v } }))}>Mascarar elementos</Check></Group>;

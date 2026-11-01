@@ -75,7 +75,7 @@ export interface UiState {
   /** Referências de cota escolhidas na sessão (`${provedor}:${ponta}` → referência); somem ao trocar de ferramenta ou seleção. */
   dimOverrides: Record<string, WallDimRef | OpeningDimRef>;
   /** Escolha de nova referência de uma ponta de cota permanente (Shift+clique na alça): o próximo clique na planta é o alvo. */
-  dimRefPick: { dimId: string; slot: 'a' | 'b' } | null;
+  dimRefPick: { dimId: string; slot: 'a' | 'b'; add?: boolean } | null;
   /** Família que o diálogo de famílias abre selecionada (botão "Editar família…" da cota); some ao abrir. */
   dimFamilyFocus: string | null;
   /**

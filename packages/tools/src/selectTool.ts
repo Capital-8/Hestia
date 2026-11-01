@@ -24,6 +24,7 @@ import { pickStairAt, stairEndpoints, stairIdsInBox } from './stairPick.ts';
 import { pickRampAt, rampEndpoints, rampIdsInBox } from './rampPick.ts';
 import { annotationAt, annotationIdsInBox, detailItemAt, dimGripAt, dimTextGripAt, roomTagAt, roomTagIdsInBox, roomTagRing, signedOffset, textGripAt, viewAnnotationsOf } from './annotationPick.ts';
 import { sectionMarkAt, sectionMarkIdsInBox } from './sectionMarkPick.ts';
+import { ghostDimensions } from './dimGhost.ts';
 import { DIM_MIN_LENGTH, dimensionGeometry, dimensionPoints, sectionPoints } from '@hestia/model';
 import { gridGhosts, gridHandlePreview, gridIdsInBox, moveGrids, pickGridAt, selectedGrids } from './gridGeom.ts';
 import { stairHandlePreview } from './stairGrips.ts';
@@ -436,7 +437,7 @@ export class SelectTool extends ToolBase {
         const inf = this.snap(p, { from: this.moveBase });
         this.delta = sub(inf.point, this.moveBase);
         const t = { kind: 'translate' as const, d: this.delta };
-        this.items.push(...ghostBands(pr, els, t), ...ghostViews(pr, this.env.selection(), t), ...gridGhosts(pr, grids, this.delta));
+        this.items.push(...ghostBands(pr, els, t), ...ghostDimensions(pr, this.env.levelId(), els, t, (this.env.viewScale?.() ?? 100) / 1000), ...ghostViews(pr, this.env.selection(), t), ...gridGhosts(pr, grids, this.delta));
         break;
       }
       case 'opening': {
