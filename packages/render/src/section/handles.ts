@@ -9,7 +9,7 @@ import {
   type SectionAnnotations,
   type TextNote,
 } from '@hestia/model';
-import { textBlockModel } from '../plan/notes.ts';
+import { alcaDoTextoEm, textBlockModel } from '../plan/notes.ts';
 
 /**
  * Alças e seleção das anotações de cortes e elevações. Trabalha só com o resultado do motor (caixas e polígonos já
@@ -167,16 +167,20 @@ export function sectionDimensionPoints(d: Dimension): { a: Vec2; b: Vec2 } {
   return { a, b };
 }
 
-/** Alça de uma cota selecionada no corte: `offset` (meio da linha de cota) ou `text` (ponto do texto). */
+/**
+ * Alça de uma anotação selecionada no corte: `offset` (meio da linha de cota), `text` (ponto do texto do valor) ou
+ * `noteText` (alça do texto de anotação). Ela é o único gesto de arraste das anotações da vista.
+ */
 export interface SectionDimensionGrip {
   id: Id;
-  kind: 'offset' | 'text';
+  kind: 'offset' | 'text' | 'noteText';
   at: Vec2;
 }
 
 /**
- * Alça da cota selecionada sob o ponto. Só vale com uma única cota na seleção. O texto tem prioridade sobre o meio da
- * linha (como na planta). A cota angular só tem alça de texto: o arco já é o deslocamento dela.
+ * Alça da anotação selecionada sob o ponto. Vale com uma única anotação na seleção. A alça de texto do próprio TextNote
+ * fica no canto inferior esquerdo do bloco (o mesmo quadradinho que a planta desenha); a âncora também vale. Nas cotas,
+ * o texto tem prioridade sobre o meio da linha (como na planta) e a angular só tem alça de texto.
  */
 export function pickSectionDimensionGrip(
   annotations: SectionAnnotations,
@@ -187,10 +191,16 @@ export function pickSectionDimensionGrip(
   scale = 100,
 ): SectionDimensionGrip | null {
   if (selected.length !== 1) return null;
-  const d = annotations.dimensions.find((x) => x.id === selected[0]);
-  if (!d) return null;
   const s = Number.isFinite(scale) && scale > 0 ? scale : 100;
   const textTol = Math.max(0, textTolerance);
+  const nota = annotations.texts.find((x) => x.id === selected[0]);
+  if (nota) {
+    return distance(point, alcaDoTextoEm(nota, s)) <= Math.max(0, tolerance) || distance(point, nota.at) <= textTol
+      ? { id: nota.id, kind: 'noteText', at: nota.at }
+      : null;
+  }
+  const d = annotations.dimensions.find((x) => x.id === selected[0]);
+  if (!d) return null;
   if (d.angular) {
     const g = angularDimensionGeometry(d);
     return g && distance(point, g.textAt) <= textTol ? { id: d.id, kind: 'text', at: g.textAt } : null;

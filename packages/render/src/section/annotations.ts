@@ -82,6 +82,8 @@ export interface SectionAnnotationOptions {
   scale?: number;
   /** Estilo de cotas; ausente usa o do projeto (`dimensionStyleOf(settings)`). */
   style?: DimensionStyle;
+  /** Aparência da categoria 'anotação' nos gráficos do corte (visibilidade, cor e pesos); ausente usa o padrão. */
+  paint?: PlanPaint;
   /** Cota sob o cursor (ausente usa `input.highlight.hover`). */
   hoverId?: Id | null;
   /** Anotações selecionadas (ausente usa `input.highlight.selection`). */
@@ -92,6 +94,9 @@ export function sectionAnnotationOps(input: SectionInput, opts: SectionAnnotatio
   const empty: NoteOps = { fills: [], strokes: [], labels: [] };
   const annotations = input.annotations;
   if (!hasSectionAnnotations(annotations)) return empty;
+  // A categoria 'Anotação' oculta nos gráficos da vista esconde cotas, textos, detalhes e etiquetas — a mesma regra da
+  // planta (decisão 0019 §2). Antes a seção desenhava sempre, ignorando a visibilidade da vista.
+  if (opts.paint && !opts.paint.visible) return empty;
   const a = annotations!;
   const levelId = referenceLevel(input.project, a);
   const dimensions = sectionDimensions(a.dimensions);
@@ -111,7 +116,9 @@ export function sectionAnnotationOps(input: SectionInput, opts: SectionAnnotatio
   const p: Project = levelId
     ? { ...input.project, levels: input.project.levels.map((level) => (level.id === levelId ? { ...level, tags } : level)) }
     : input.project;
-  const paint: PlanPaint = { ...defaultPaint('annotation', input.viewport.zoom), color: input.theme.ink };
+  const paint: PlanPaint = opts.paint
+    ? { ...opts.paint, color: opts.paint.color ?? input.theme.ink }
+    : { ...defaultPaint('annotation', input.viewport.zoom), color: input.theme.ink };
   const look = {
     ink: input.theme.ink,
     select: input.theme.select,

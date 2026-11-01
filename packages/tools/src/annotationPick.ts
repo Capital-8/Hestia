@@ -1,5 +1,5 @@
 import { boxOf, boxesOverlap, dist, dot, intersectSegments, len, sub, type Vec2 } from '@hestia/geom';
-import { areaPlanOf, angularDimensionGeometry, dimensionGeometry, dimensionStyleOf, DIM_TEXT_MM, type DimensionGeometry, dimensionPoints, levelDimensions, levelGraphicsOf, levelTexts, planAnnotationsOf, resolveViewProfile, wallsOnLevel, type DetailLine, type DetailRegion, type Dimension, type DimensionRef, type ElementTag, type Id, type Project, type RoomTag, type TextNote } from '@hestia/model';
+import { areaPlanOf, angularDimensionGeometry, dimensionGeometry, dimensionStyleFor, DIM_TEXT_MM, type DimensionGeometry, dimensionPoints, levelDimensions, levelGraphicsOf, levelTexts, planAnnotationsOf, resolveViewProfile, wallsOnLevel, type DetailLine, type DetailRegion, type Dimension, type DimensionRef, type ElementTag, type Id, type Project, type RoomTag, type TextNote } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 
 /** Tolerância (m) para dizer que um ponto é a extremidade de uma parede. */
@@ -60,19 +60,22 @@ export function textHit(t: TextNote, scale: number, at: Vec2, tol: number): bool
 
 
 /**
- * Geometria da cota com as MESMAS opções do desenho (render/plan/dimDraw.ts `baseLayout`): estilo global + campos da
- * própria cota (altura do texto), folga/ultrapassagem das extensões, meia-marca e texto centrado, na escala da vista.
- * Não depende do render (tools não importa render). Limite: o deslocamento automático do texto por anti-sobreposição
- * (leader sem `textAt`) depende das outras cotas e só existe no layout do render; o `textAt` manual coincide.
+ * Geometria da cota com as MESMAS opções do desenho (render/plan/dimDraw.ts `baseLayout`): estilo da família da cota +
+ * estilo global + campos da própria cota (altura do texto), folga/ultrapassagem das extensões, meia-marca, convenção de
+ * leitura e texto centrado, na escala da vista. Não depende do render (tools não importa render). Limite: o deslocamento
+ * automático do texto por anti-sobreposição (leader sem `textAt`) depende das outras cotas e só existe no layout do
+ * render; o `textAt` manual coincide.
  */
 export function dimHitGeometry(p: Project, d: Dimension, a: Vec2, b: Vec2, scale: number): DimensionGeometry {
-  const st = dimensionStyleOf(p.settings);
+  const st = dimensionStyleFor(p.settings, d);
   const th = d.textHeight ?? st.textHeight;
   return dimensionGeometry(a, b, d.offset, scale / 1000, th > 0 ? th : DIM_TEXT_MM, d.textAt, {
     extensionGapMm: st.extensionGap,
     extensionOvershootMm: st.extensionOvershoot,
     tickHalfMm: st.tickSize / 2,
+    textGapMm: st.textGap,
     centered: st.textPlacement === 'centered',
+    readConvention: st.readConvention,
   });
 }
 

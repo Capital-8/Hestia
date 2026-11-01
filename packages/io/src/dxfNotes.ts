@@ -1,4 +1,4 @@
-import { openingHeight, openingTypeById, angularDimensionGeometry, dimensionGeometry, dimensionPoints, dimensionText, DIM_TEXT_MM, isOpening, isWall, levelDimensions, levelTexts, unitsOf, wallHeight, wallType, type Id, type Project } from '@hestia/model';
+import { openingHeight, openingTypeById, angularDimensionGeometry, dimensionFormatStyle, dimensionGeometry, dimensionPoints, dimensionStyleFor, dimensionText, isOpening, isWall, levelDimensions, levelTexts, unitsOf, wallHeight, wallType, type Dimension, type DimensionStyle, type DimTick, type ElementTag, type Id, type Project } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 import type { DxfPoint } from './dxf.ts';
 import type { DxfTextEntity } from './dxfDoc.ts';
@@ -27,12 +27,14 @@ export interface DxfNotes {
   regions?: DxfPoint[][];
 }
 
-function dimensionMarks(a: DxfPoint, b: DxfPoint, slash: Array<[DxfPoint, DxfPoint]>, style: 'slash' | 'arrow' | 'dot' | undefined, mPerMm: number): Array<[DxfPoint, DxfPoint]> {
+/** Marcas de ponta da cota no DXF (traço/ponto/seta), na escala da vista. Exportada para o DXF do corte/elevação. */
+export function dimensionMarks(a: DxfPoint, b: DxfPoint, slash: Array<[DxfPoint, DxfPoint]>, style: DimTick | undefined, mPerMm: number): Array<[DxfPoint, DxfPoint]> {
   if (!style || style === 'slash') return slash;
   const dx = b.x - a.x; const dy = b.y - a.y; const len = Math.hypot(dx, dy) || 1;
   const ux = dx / len; const uy = dy / len; const nx = -uy; const ny = ux;
+  // `arrow-open`/`arrow-filled` saem como seta de duas linhas no DXF (o preenchimento é do desenho na tela).
   const r = (style === 'dot' ? 1.2 : 2.5) * mPerMm;
-  if (style === 'arrow') return [a, b].flatMap((tip, i) => {
+  if (style === 'arrow' || style === 'arrow-open' || style === 'arrow-filled') return [a, b].flatMap((tip, i) => {
     const inward = i === 0 ? 1 : -1;
     return [-1, 1].map((side): [DxfPoint, DxfPoint] => [tip, { x: tip.x + ux * inward * r + nx * r * 0.45 * side, y: tip.y + uy * inward * r + ny * r * 0.45 * side }]);
   });
@@ -44,62 +46,98 @@ function dimensionMarks(a: DxfPoint, b: DxfPoint, slash: Array<[DxfPoint, DxfPoi
 }
 
 /**
+ * Cotas de uma vista no DXF, com o estilo da família de cada cota (ou o global) e na escala da vista: as mesmas folgas,
+ * marcas e convenção de leitura do desenho, e o valor formatado pela família. Geometria em metros de desenho. `levelId`
+ * só serve às cotas angulares (a referência de parede da planta); no corte/elevação a geometria já vem resolvida.
+ */
+export function dimensionLinesDxfOf(
+  p: Project,
+  levelId: Id | null,
+  dims: readonly Dimension[],
+  scale: number,
+  out: DxfNotes,
+): void {
+  const mPerMm = scale / 1000;
+  const units = unitsOf(p);
+  out.otherLines ??= [];
+  const styleOf = (d: Dimension): DimensionStyle => dimensionStyleFor(p.settings, d);
+  for (const d of dims) {
+    const style = styleOf(d);
+    const textMm = d.textHeight ?? style.textHeight;
+    const value = dimensionText(p, d, units, dimensionFormatStyle(style));
+    if (d.angular) {
+      const rd = levelId ? resolveAngularDimension(p, levelId, d) : d;
+      const g = angularDimensionGeometry(rd);
+      if (!g) continue;
+      for (let i = 1; i < g.arc.length; i++) out.lines.push([g.arc[i - 1]!, g.arc[i]!]);
+      out.lines.push(...g.extensions, ...g.ticks);
+      out.texts.push({ at: d.textAt ?? g.textAt, text: value, height: textMm * mPerMm, rotation: g.textRotation, layer: DXF_LAYER_COTAS });
+      continue;
+    }
+    const { a, b } = dimensionPoints(p, d);
+    const g = dimensionGeometry(a, b, d.offset, mPerMm, textMm, d.textAt, {
+      extensionGapMm: style.extensionGap,
+      extensionOvershootMm: style.extensionOvershoot,
+      tickHalfMm: style.tickSize / 2,
+      textGapMm: style.textGap,
+      centered: style.textPlacement === 'centered',
+      readConvention: style.readConvention,
+    });
+    out.lines.push(g.line, ...g.extensions, ...dimensionMarks(g.line[0], g.line[1], g.ticks, d.tickStyle ?? style.tick, mPerMm));
+    if (d.textAt && Math.hypot(d.textAt.x - g.textAt.x, d.textAt.y - g.textAt.y) > 0.002) {
+      out.otherLines!.push({ a: { x: (g.line[0].x + g.line[1].x) / 2, y: (g.line[0].y + g.line[1].y) / 2 }, b: d.textAt, layer: DXF_LAYER_COTAS });
+    }
+    out.texts.push({ at: d.textAt ?? g.textAt, text: value, height: textMm * mPerMm, rotation: g.textRotation, layer: DXF_LAYER_COTAS });
+  }
+}
+
+/** Texto de uma etiqueta de elemento (o mesmo valor da tela), ou vazio quando o hóspede sumiu. Planta e corte/elevação. */
+export function tagValueText(p: Project, tag: ElementTag): string {
+  const e = p.elements[tag.hostId];
+  if (!e) return '';
+  const type = e.kind === 'wall' ? p.wallTypes[e.typeId]
+    : e.kind === 'door' || e.kind === 'window' ? openingTypeById(p, e.typeId)
+    : e.kind === 'floor' ? p.floorTypes[e.typeId]
+    : e.kind === 'slab' ? p.slabTypes[e.typeId]
+    : e.kind === 'ceiling' ? p.ceilingTypes[e.typeId]
+    : e.kind === 'roof' ? p.roofTypes[e.typeId]
+    : e.kind === 'stair' ? p.stairTypes[e.typeId] : undefined;
+  const tagHost = isOpening(e) ? p.elements[e.hostId] : undefined;
+  const tagLevelId = 'levelId' in e ? e.levelId : tagHost && 'levelId' in tagHost ? tagHost.levelId : null;
+  return tag.property === 'type' ? (type && 'code' in type ? type.code : '') || (type && 'name' in type ? type.name : '') || e.kind
+    : tag.property === 'name' ? e.kind === 'room' ? e.name : type && 'name' in type ? type.name : e.kind
+    : tag.property === 'mark' ? ('mark' in e ? e.mark : '')
+    : tag.property === 'level' ? p.levels.find((l) => l.id === tagLevelId)?.name ?? ''
+    : tag.property === 'width' ? isOpening(e) ? `${(openingTypeById(p, e.typeId)?.width ?? 0) * 100} cm` : isWall(e) ? `${wallType(p, e).layers.reduce((s, l) => s + l.thickness, 0) * 100} cm` : ''
+    : isOpening(e) ? (() => { const ot = openingTypeById(p, e.typeId); return `${ot ? openingHeight(ot, e) : 0} m`; })() : isWall(e) ? `${wallHeight(p, e)} m` : '';
+}
+
+/**
  * Anotações do nível em metros de desenho. `scale` é o denominador da vista (1:100 → 100): 1 mm de papel = scale/1000 m.
  * Quem chama decide a visibilidade da categoria (a geometria sai inteira aqui).
  */
 export function notesDxfOf(p: Project, levelId: Id, scale: number): DxfNotes {
   const mPerMm = scale / 1000;
-  const lines: Array<[DxfPoint, DxfPoint]> = [];
-  const texts: DxfNoteText[] = [];
-  const otherLines: Array<{ a: DxfPoint; b: DxfPoint; layer: string }> = [];
-  for (const d of levelDimensions(p, levelId)) {
-    if (d.angular) {
-      const rd = resolveAngularDimension(p, levelId, d);
-      const g = angularDimensionGeometry(rd);
-      if (!g) continue;
-      for (let i = 1; i < g.arc.length; i++) lines.push([g.arc[i - 1]!, g.arc[i]!]);
-      lines.push(...g.extensions, ...g.ticks);
-      texts.push({ at: rd.textAt ?? g.textAt, text: dimensionText(p, rd, unitsOf(p)), height: (rd.textHeight ?? DIM_TEXT_MM) * mPerMm, rotation: g.textRotation, layer: DXF_LAYER_COTAS });
-      continue;
-    }
-    const { a, b } = dimensionPoints(p, d);
-    const g = dimensionGeometry(a, b, d.offset, mPerMm);
-    lines.push(g.line, ...g.extensions, ...dimensionMarks(g.line[0], g.line[1], g.ticks, d.tickStyle, mPerMm));
-    if (d.textAt && Math.hypot(d.textAt.x - g.textAt.x, d.textAt.y - g.textAt.y) > 0.002) otherLines.push({ a: { x: (g.line[0].x + g.line[1].x) / 2, y: (g.line[0].y + g.line[1].y) / 2 }, b: d.textAt, layer: DXF_LAYER_COTAS });
-    texts.push({ at: d.textAt ?? g.textAt, text: dimensionText(p, d, unitsOf(p)), height: (d.textHeight ?? DIM_TEXT_MM) * mPerMm, rotation: g.textRotation, layer: DXF_LAYER_COTAS });
-  }
+  const out: DxfNotes = { lines: [], texts: [], otherLines: [] };
+  dimensionLinesDxfOf(p, levelId, levelDimensions(p, levelId), scale, out);
   for (const t of levelTexts(p, levelId)) {
-    if (t.leader) for (let i = 1; i < t.leader.length; i++) otherLines.push({ a: t.leader[i - 1]!, b: t.leader[i]!, layer: DXF_LAYER_TEXTOS });
-    texts.push({ at: t.at, text: t.text, height: t.height * mPerMm, rotation: t.rotation, layer: DXF_LAYER_TEXTOS });
+    if (t.leader) for (let i = 1; i < t.leader.length; i++) out.otherLines!.push({ a: t.leader[i - 1]!, b: t.leader[i]!, layer: DXF_LAYER_TEXTOS });
+    out.texts.push({ at: t.at, text: t.text, height: t.height * mPerMm, rotation: t.rotation, layer: DXF_LAYER_TEXTOS });
   }
   const level = p.levels.find((l) => l.id === levelId);
-  for (const line of level?.detailLines ?? []) otherLines.push({ a: line.a, b: line.b, layer: DXF_LAYER_DETALHE });
+  for (const line of level?.detailLines ?? []) out.otherLines!.push({ a: line.a, b: line.b, layer: DXF_LAYER_DETALHE });
   for (const tag of level?.tags ?? []) {
-    const e = p.elements[tag.hostId];
-    if (!e) continue;
-    const type = e.kind === 'wall' ? p.wallTypes[e.typeId]
-      : e.kind === 'door' || e.kind === 'window' ? openingTypeById(p, e.typeId)
-      : e.kind === 'floor' ? p.floorTypes[e.typeId]
-      : e.kind === 'slab' ? p.slabTypes[e.typeId]
-      : e.kind === 'ceiling' ? p.ceilingTypes[e.typeId]
-      : e.kind === 'roof' ? p.roofTypes[e.typeId]
-      : e.kind === 'stair' ? p.stairTypes[e.typeId] : undefined;
-    const tagHost = isOpening(e) ? p.elements[e.hostId] : undefined;
-    const tagLevelId = 'levelId' in e ? e.levelId : tagHost && 'levelId' in tagHost ? tagHost.levelId : null;
-    const value = tag.property === 'type' ? (type && 'code' in type ? type.code : '') || (type && 'name' in type ? type.name : '') || e.kind
-      : tag.property === 'name' ? e.kind === 'room' ? e.name : type && 'name' in type ? type.name : e.kind
-      : tag.property === 'mark' ? ('mark' in e ? e.mark : '')
-      : tag.property === 'level' ? p.levels.find((l) => l.id === tagLevelId)?.name ?? ''
-      : tag.property === 'width' ? isOpening(e) ? `${(openingTypeById(p, e.typeId)?.width ?? 0) * 100} cm` : isWall(e) ? `${wallType(p, e).layers.reduce((s, l) => s + l.thickness, 0) * 100} cm` : ''
-      : isOpening(e) ? (() => { const ot = openingTypeById(p, e.typeId); return `${ot ? openingHeight(ot, e) : 0} m`; })() : isWall(e) ? `${wallHeight(p, e)} m` : '';
+    if (!p.elements[tag.hostId]) continue;
+    const value = tagValueText(p, tag);
     if (tag.leader) {
+      const e = p.elements[tag.hostId]!;
       const host = isOpening(e) ? p.elements[e.hostId] : e;
       const anchor = host ? isWall(host) ? { x: (host.a.x + host.b.x) / 2, y: (host.a.y + host.b.y) / 2 } : 'point' in host ? host.point : 'boundary' in host && host.boundary.length ? { x: host.boundary.reduce((s, q) => s + q.x, 0) / host.boundary.length, y: host.boundary.reduce((s, q) => s + q.y, 0) / host.boundary.length } : null : null;
-      if (anchor) otherLines.push({ a: anchor, b: tag.at, layer: DXF_LAYER_ETIQUETAS });
+      if (anchor) out.otherLines!.push({ a: anchor, b: tag.at, layer: DXF_LAYER_ETIQUETAS });
     }
-    if (value) texts.push({ at: tag.at, text: value, height: 1.6 * mPerMm, rotation: tag.orientation === 'vertical' ? 90 : 0, layer: DXF_LAYER_ETIQUETAS });
+    if (value) out.texts.push({ at: tag.at, text: value, height: 1.6 * mPerMm, rotation: tag.orientation === 'vertical' ? 90 : 0, layer: DXF_LAYER_ETIQUETAS });
   }
-  return { lines, texts, otherLines, regions: (level?.detailRegions ?? []).map((r) => r.boundary) };
+  return { ...out, regions: (level?.detailRegions ?? []).map((r) => r.boundary) };
 }
 
 /**

@@ -17,7 +17,7 @@ import { StairRunOptionsBar } from './StairRunOptionsBar.tsx';
 import { RampOptionsBar } from './RampOptionsBar.tsx';
 import { ArrayOptionsBar } from './ArrayOptionsBar.tsx';
 import { GridOptionsBar } from './GridOptionsBar.tsx';
-import { formatQuantity, openingFamilies, openingFamilyOf, type LocationLine } from '@hestia/model';
+import { formatQuantity, openingFamilies, openingFamilyOf, DIM_FAMILY_PADRAO, defaultDimensionFamilyIdOf, dimensionFamiliesOf, type LocationLine } from '@hestia/model';
 
 export const LOCATION_LABEL: Record<LocationLine, string> = {
   wallCenter: 'Eixo da parede',
@@ -27,6 +27,46 @@ export const LOCATION_LABEL: Record<LocationLine, string> = {
   coreExterior: 'Face externa do núcleo',
   coreInterior: 'Face interna do núcleo',
 };
+
+/**
+ * Opções da ferramenta Cota: **família** (a aparência nomeada, criada no diálogo "Famílias de cotas") + direção e
+ * sequência. Unidade, casas, marca e altura do texto saíram daqui: são da família (antes a barra gravava esses campos
+ * cota por cota, o que furava o estilo do projeto).
+ */
+function DimensionOptions(): ReactElement {
+  const p = useProject();
+  const o = useUi((s) => s.options);
+  const set = (patch: Partial<typeof o>): void => useUi.setState({ options: { ...useUi.getState().options, ...patch } });
+  const familias = dimensionFamiliesOf(p.settings);
+  const familia = o.dimensionFamilyId ?? defaultDimensionFamilyIdOf(p.settings);
+  return (
+    <>
+      <label>Família
+        <select
+          id="opt-dimfamily"
+          className="select"
+          value={familia}
+          title="Aparência da cota: marcador, texto, folgas e formato. Edite em Famílias de cotas…"
+          onChange={(e) => set({ dimensionFamilyId: e.target.value === DIM_FAMILY_PADRAO ? null : e.target.value })}
+        >
+          {familias.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+        </select>
+      </label>
+      <label>Direção
+        <select className="select" value={o.dimensionMode ?? 'auto'} onChange={(e) => set({ dimensionMode: e.target.value as 'auto' | 'aligned' | 'horizontal' | 'vertical' })}>
+          <option value="auto">Automática (pela referência)</option>
+          <option value="aligned">Alinhada</option>
+          <option value="horizontal">Horizontal</option>
+          <option value="vertical">Vertical</option>
+        </select>
+      </label>
+      <label>Sequência<select className="select" value={o.dimensionString ?? 'single'} onChange={(e) => set({ dimensionString: e.target.value as 'single' | 'continuous' | 'baseline' })}><option value="single">Individual</option><option value="continuous">Contínua</option><option value="baseline">A partir de uma base</option></select></label>
+      {o.dimensionMode === 'aligned' || o.dimensionMode === 'horizontal' || o.dimensionMode === 'vertical' ? null : (
+        <span style={{ color: 'var(--fg-soft)' }}>A direção vem dos pontos medidos</span>
+      )}
+    </>
+  );
+}
 
 /** Tipo Selector do Revit: agrupa os tipos por família e filtra por nome ou código. */
 function OpeningTypePicker({ kind, value, onChange }: { kind: 'door' | 'window'; value: string; onChange: (id: string) => void }): ReactElement {
@@ -144,16 +184,7 @@ export function OptionsBar(): ReactElement {
           Ambientes em todos os circuitos fechados
         </button>
       )}
-      {tool === 'dimension' && (
-        <>
-          <label>Direção<select className="select" value={o.dimensionMode ?? 'aligned'} onChange={(e) => set({ dimensionMode: e.target.value as 'aligned' | 'horizontal' | 'vertical' })}><option value="aligned">Alinhada</option><option value="horizontal">Horizontal</option><option value="vertical">Vertical</option></select></label>
-          <label>Sequência<select className="select" value={o.dimensionString ?? 'single'} onChange={(e) => set({ dimensionString: e.target.value as 'single' | 'continuous' | 'baseline' })}><option value="single">Individual</option><option value="continuous">Contínua</option><option value="baseline">A partir de uma base</option></select></label>
-          <label>Unidade<select className="select" value={o.dimensionUnit ?? 'project'} onChange={(e) => set({ dimensionUnit: e.target.value === 'project' ? undefined : e.target.value as 'm' | 'cm' | 'mm' })}><option value="project">Projeto</option><option value="m">m</option><option value="cm">cm</option><option value="mm">mm</option></select></label>
-          <label>Casas<select className="select" value={o.dimensionPrecision === undefined ? 'project' : String(o.dimensionPrecision)} onChange={(e) => set({ dimensionPrecision: e.target.value === 'project' ? undefined : Number(e.target.value) as 0 | 1 | 2 | 3 })}><option value="project">Projeto</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>
-          <label>Marca<select className="select" value={o.dimensionTickStyle ?? 'slash'} onChange={(e) => set({ dimensionTickStyle: e.target.value as 'slash' | 'arrow' | 'dot' })}><option value="slash">Traço</option><option value="arrow">Seta</option><option value="dot">Ponto</option></select></label>
-          <label>Altura do texto<NumField id="opt-dimheight" value={(o.dimensionTextHeight ?? 2.5) / 1000} quantity="smallLength" min={0.0005} onCommit={(v) => set({ dimensionTextHeight: v * 1000 })} /></label>
-        </>
-      )}
+      {tool === 'dimension' && <DimensionOptions />}
       {tool === 'text' && (
         <>
           <label>Altura<NumField id="opt-textheight" value={(o.textHeight ?? 2.5) / 1000} quantity="smallLength" min={0.0005} onCommit={(v) => set({ textHeight: v * 1000 })} /></label>

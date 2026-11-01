@@ -56,6 +56,7 @@ export * from './openingSupport.ts';
 export * from './dimension.ts';
 export * from './dimensionContract.ts';
 export * from './dimensionStyle.ts';
+export * from './dimensionFamily.ts';
 export * from './dimensionRefs.ts';
 export * from './sectionView.ts';
 export * from './annotations.ts';

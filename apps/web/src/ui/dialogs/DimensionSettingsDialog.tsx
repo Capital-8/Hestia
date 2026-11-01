@@ -7,6 +7,8 @@ import { OPENING_OPTIONS, WALL_OPTIONS, applyDraft, defaultDraft, draftFromProje
 import {
   DIM_TICK_OPTIONS,
   PRECISION_OPTIONS,
+  READ_CONVENTION_OPTIONS,
+  TEXT_FIT_OPTIONS,
   TEXT_PLACEMENT_OPTIONS,
   UNIT_OPTIONS,
   defaultStyleDraft,
@@ -159,6 +161,7 @@ export function DimensionSettingsDialog({ onApplyStyle }: DimensionSettingsDialo
           {tab === 'refs'
             ? <button className="btn" onClick={() => setDraft(defaultDraft())}>Restaurar padrões</button>
             : <button className="btn" onClick={restaurarEstilo}>Restaurar padrão</button>}
+          {tab === 'style' ? <button className="btn" title="Aparência nomeada das cotas (a família Padrão é este estilo global)" onClick={() => useUi.setState({ dialog: 'dimensionFamilies' })}>Famílias de cotas…</button> : null}
           <span style={{ flex: 1 }} />
           <button className="btn" onClick={close}>Cancelar</button>
           <button className="btn primary" onClick={confirmar}>OK</button>
@@ -207,7 +210,10 @@ export function DimensionSettingsDialog({ onApplyStyle }: DimensionSettingsDialo
             {fontRow()}
             {numRow('extensionGap', 'Folga da linha de extensão (mm)')}
             {numRow('extensionOvershoot', 'Ultrapassagem da linha de extensão (mm)')}
+            {numRow('textGap', 'Folga do texto até a linha (mm)')}
             {selectRow('textPlacement', 'Posição do texto', TEXT_PLACEMENT_OPTIONS)}
+            {selectRow('readConvention', 'Leitura do valor', READ_CONVENTION_OPTIONS)}
+            {selectRow('textFit', 'Quando o valor não cabe', TEXT_FIT_OPTIONS)}
             <div className="prow">
               <label htmlFor="dst-leaderWhenNoFit">Linha de chamada quando não cabe</label>
               <input

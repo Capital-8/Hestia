@@ -66,7 +66,9 @@ describe('seleção de cota no corte e na elevação (sectionPickAt, alças e ex
     const grip = sectionDimensionGripAt(p, 'elev', ['dim1'], { x: 1, y: 4.5 }, 0.06, 0.1);
     expect(grip).toMatchObject({ id: 'dim1', kind: 'offset' });
     const cmd = sectionDimensionGripCommand(p, 'elev', grip!, { x: 1, y: 5.2 });
-    expect(cmd?.type).toBe('setSectionAnnotations');
+    // Mesmo comando por item da planta (com `sectionId`): o desfazer guarda só a cota, não o conjunto da vista.
+    expect(cmd?.type).toBe('updateDimension');
+    expect(cmd).toMatchObject({ sectionId: 'elev', id: 'dim1' });
     editor.applyCommand(cmd!);
     const dim = editor.project.views.find((v) => v.id === 'elev')!.annotations!.dimensions.find((d) => d.id === 'dim1')!;
     expect(dim.offset).toBeCloseTo(1.2, 9);

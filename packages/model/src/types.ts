@@ -1,5 +1,6 @@
 /* eslint-disable max-lines */
 import type { DimensionElementRef, DimensionStyle } from './dimensionContract.ts';
+import type { DimensionFamily } from './dimensionFamily.ts';
 import type { Vec2 } from '@hestia/geom';
 import type { Stair, StairType } from './stairTypes.ts';
 import type { Ramp, RampType } from './rampTypes.ts';
@@ -243,8 +244,12 @@ export interface Dimension {
   /** Altura em mm de papel; ausente usa o padrão da categoria. */
   textHeight?: number;
   tickStyle?: 'slash' | 'arrow' | 'dot';
+  /** Família de cotas (aparência nomeada); ausente usa o estilo global do projeto (`settings.dimensionStyle`). */
+  familyId?: Id;
   /** Posição manual do texto em coordenadas do modelo. */
   textAt?: Vec2;
+  /** Cota travada: editar o valor não move os elementos associados (a medida fica como está). Ausente = destravada. */
+  locked?: boolean;
 }
 
 /** Texto de anotação: `at` é o ponto de inserção (centro), `height` em mm de papel, `rotation` em graus. */
@@ -686,6 +691,10 @@ export interface ProjectSettings {
   dimensions?: DimensionSettings;
   /** Estilo GLOBAL das cotas (ausente = DEFAULT_DIMENSION_STYLE; campos ausentes caem no padrão). */
   dimensionStyle?: Partial<DimensionStyle>;
+  /** Famílias de cotas nomeadas (ausente = só a família implícita `Padrão`, que é o estilo global). */
+  dimensionFamilies?: DimensionFamily[];
+  /** Família usada nas cotas novas (ausente = a primeira da lista, ou `Padrão`). */
+  defaultDimensionFamilyId?: Id;
   /** Unidades do projeto (ausente = padrões de `defaultUnits()`). */
   units?: UnitsSettings;
 }

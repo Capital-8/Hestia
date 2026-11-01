@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ProjectStore, createEmptyProject, type Project, type SectionAnnotations } from '@hestia/model';
+import { ProjectStore, createEmptyProject, levelDimensions, sectionAnnotationsOf, type Project, type SectionAnnotations } from '@hestia/model';
 import type { SectionOpening, SectionResult } from '@hestia/engine';
 import { infer } from './infer.ts';
 import { sectionInferContext } from './sectionContext.ts';
@@ -454,19 +454,18 @@ describe('MeasureTool na vista de corte', () => {
   });
 
   it('DimensionTool grava a cota nas anotações da vista, não no modelo', () => {
-    const { env } = makeEnv();
+    const { env, store } = makeEnv();
+    // A vista precisa existir no projeto: a cota entra pelo comando por item (`sectionId`), como na vista real.
+    store.exec({ type: 'addView', view: { id: 'v1', name: 'Corte AA', kind: 'section', a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, depth: 5 } });
+    const annotationsOf = (): SectionAnnotations => sectionAnnotationsOf(store.project.views.find((x) => x.id === 'v1'));
     let commands = 0;
-    env.exec = () => {
-      commands += 1;
-    };
+    const exec = env.exec.bind(env);
+    env.exec = (c) => { commands += 1; exec(c); };
     const section = baseSection();
-    let saved: SectionAnnotations = { dimensions: [], texts: [], detailLines: [], detailRegions: [], tags: [] };
     env.section = () => ({
       id: 'v1',
-      annotations: () => saved,
-      setAnnotations: (next) => {
-        saved = next ?? { dimensions: [], texts: [], detailLines: [], detailRegions: [], tags: [] };
-      },
+      annotations: annotationsOf,
+      setAnnotations: () => { throw new Error('a ferramenta grava por comando (addDimension), não pelo conjunto'); },
       inferContext: (extra = {}) => ctxOf(section, env.project(), extra),
       result: () => section,
     });
@@ -476,10 +475,12 @@ describe('MeasureTool na vista de corte', () => {
     clickAt(dim, 0.02, 0.02);
     clickAt(dim, 3.98, 2.98);
     clickAt(dim, 2, -1);
+    const saved = annotationsOf();
     expect(saved.dimensions).toHaveLength(1);
     expect(saved.dimensions[0]).toMatchObject({ a: v(0, 0), b: v(4, 3) });
     expect(saved.dimensions[0]?.refs).toBeUndefined();
-    expect(commands).toBe(0);
-    expect(env.project()).toBe(project);
+    expect(commands).toBe(1);
+    expect(levelDimensions(store.project, 'lv_0')).toHaveLength(0);
+    expect(env.project()).not.toBe(project);
   });
 });

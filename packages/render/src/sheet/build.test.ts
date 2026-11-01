@@ -104,6 +104,23 @@ describe('composição da prancha', () => {
     expect(list.groups[list.groups.length - 1]!.texts.map((t) => t.text)).toContain('Corte AA · 1:50');
   });
 
+  it('corte na prancha leva as anotações da vista (cota e texto), como a planta', () => {
+    const p = projectWithWall();
+    p.views = [{
+      id: 'sv1', name: 'Corte AA', kind: 'section', a: { x: -1, y: 0 }, b: { x: 5, y: 0 }, depth: 3,
+      annotations: {
+        dimensions: [{ id: 'd1', a: { x: 0, y: 0 }, b: { x: 3, y: 0 }, offset: 0.4 }],
+        texts: [{ id: 't1', at: { x: 2, y: 2.5 }, text: 'Pé-direito', height: 2.5, rotation: 0 }],
+        detailLines: [], detailRegions: [], tags: [],
+      },
+    }];
+    p.sheets = [sheet([{ id: 'v2', view: { kind: 'section', sectionId: 'sv1' }, at: { x: 20, y: 20 }, size: { w: 200, h: 100 }, scale: 100 }])];
+    const list = buildSheetDrawList(p, 'sh1')!;
+    const textos = list.groups[0]!.texts.map((t) => t.text);
+    expect(textos).toContain('Pé-direito');
+    expect(textos.some((t) => t.includes('3,00'))).toBe(true);
+  });
+
   it('3D sai vetorial na prancha: arestas visíveis, sem o aviso antigo', () => {
     const p = projectWithWall();
     p.sheets = [sheet([{ id: 'v3', view: { kind: '3d' }, at: { x: 20, y: 20 }, size: { w: 200, h: 100 }, scale: 100 }])];

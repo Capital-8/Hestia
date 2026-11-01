@@ -26,8 +26,25 @@ export interface DimensionElementRef {
 export type DimTick = 'slash' | 'arrow' | 'dot' | 'arrow-open' | 'arrow-filled';
 
 /**
- * Estilo GLOBAL de cotas (um por projeto, em `ProjectSettings.dimensionStyle`). Medidas em mm de PAPEL
- * (a escala da vista converte para o modelo). Campos da `Dimension` individual, quando presentes, sobrepõem o estilo.
+ * Convenção de leitura do valor (Revit: "Read Convention").
+ * - `aligned`: acompanha o ângulo da linha de cota (padrão histórico), sempre legível por baixo/à esquerda;
+ * - `upright`: igual a `aligned`, sem nunca ficar de cabeça para baixo (o mesmo clamp, explícito na família);
+ * - `horizontal`: sempre horizontal, inclusive nas cotas verticais (comum em prancha de arquitetura).
+ */
+export type DimReadConvention = 'aligned' | 'upright' | 'horizontal';
+
+/**
+ * O que fazer com o valor quando ele não cabe no trecho.
+ * - `leader`: afasta com linha de chamada e empilha em pistas (padrão histórico);
+ * - `inside`: mantém centrado mesmo apertado (não afasta);
+ * - `outside`: sempre fora da linha, com linha de chamada.
+ */
+export type DimTextFit = 'leader' | 'inside' | 'outside';
+
+/**
+ * Estilo de cotas (aparência). Medidas em mm de PAPEL (a escala da vista converte para o modelo).
+ * É o corpo de uma **família de cotas** (`DimensionFamily`) e, no projeto antigo, o estilo global
+ * (`ProjectSettings.dimensionStyle`). Campos da `Dimension` individual, quando presentes, sobrepõem o estilo.
  */
 export interface DimensionStyle {
   tick: DimTick;
@@ -42,6 +59,12 @@ export interface DimensionStyle {
   extensionOvershoot: number;
   /** Texto sobre a linha ('above'), centrado interrompendo-a ('centered'). */
   textPlacement: 'above' | 'centered';
+  /** Folga entre a linha de cota e o texto 'above' (mm de papel). */
+  textGap: number;
+  /** Orientação de leitura do valor. */
+  readConvention: DimReadConvention;
+  /** Quando o texto não cabe no trecho: linha de chamada, dentro ou sempre fora. */
+  textFit: DimTextFit;
   /** Quando o texto não cabe no trecho: usar linha de chamada (leader) e empilhar. */
   leaderWhenNoFit: boolean;
   /** Distância mínima entre linhas de cota empilhadas (mm de papel). */

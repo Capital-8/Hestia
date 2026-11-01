@@ -278,6 +278,12 @@ export function labelOf(c: Command): string {
       return 'Configurações do projeto';
     case 'setDimensionStyle':
       return 'Estilo de cotas';
+    case 'upsertDimensionFamily':
+      return 'Família de cotas';
+    case 'removeDimensionFamily':
+      return 'Excluir família de cotas';
+    case 'setDefaultDimensionFamily':
+      return 'Família de cotas padrão';
     case 'setDxfLayerStyle':
       return 'Editar camada do DXF';
     case 'resetDxfLayers':

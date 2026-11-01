@@ -8,6 +8,8 @@ import {
   annotationIdsIn, projectGrids, areaPlanOf, areaPlansOfLevel, DEFAULT_AREA_GRAPHICS, isRoom,
   planAnnotationIds,
   levelRoomSeparators,
+  levelGraphicsOf,
+  sectionGraphicsOf,
   buildTemplate,
   createEmptyProject,
   migrateProject,
@@ -21,7 +23,7 @@ import {
   type SectionView,
   type TemplateId,
 } from '@hestia/model';
-import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, sectionInferContext, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId } from '@hestia/tools';
+import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, sectionInferContext, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId, pickRefCommands } from '@hestia/tools';
 import { ResolucaoCancelada } from '@hestia/engine/src/worker/protocolo.ts';
 import type { ClienteResolucao } from '@hestia/engine/src/worker/cliente.ts';
 import { kernelExperimentalLigado } from './preferenciasKernel.ts';
@@ -73,6 +75,12 @@ const PLAN_ANNOTATION_TYPES = new Set<Command['type']>([
 ]);
 
 const isPlanAnnotation = (c: Command): c is AnnotationCommand => PLAN_ANNOTATION_TYPES.has(c.type);
+
+/** Id da seção ativa, quando a vista atual é corte/elevação. */
+const activeSectionId = (): Id | null => {
+  const st = useUi.getState();
+  return st.view === 'section' ? st.sectionId : null;
+};
 
 /** Ambiente cujo rótulo está sob um ponto (mundo), com tolerância de 0,10 m além da caixa do texto. */
 function labelHit(p: Project, levelId: Id, scale: number, planId: Id | null, at: Vec2): { roomId: Id; at: Vec2 } | null {
@@ -192,6 +200,7 @@ export class Editor {
     exec: (c) => this.exec(c),
     transaction: (l, fn, session) => this.avisandoOculto(() => this.store.transaction(l, fn, session)),
     metersPerPixel: () => 1 / (this.viewport()?.zoom ?? 60),
+    viewScale: () => this.viewScale(),
     gridStep: () => effectiveGridStep(this.viewport()?.zoom ?? 60, useUi.getState().gridStep),
     say: (m) => useUi.setState({ status: m }), lang: () => useI18n.getState().lang, confirmHostedLoss: (losses, message) => pedirConfirmacaoHostedLoss(losses, message),
     alert: (m, ids) => pedirAlerta(m, ids),
@@ -206,6 +215,24 @@ export class Editor {
   private areaPlanIdNow(): Id | null {
     const st = useUi.getState();
     return st.view === 'plan' && st.planKind === 'area' ? st.areaPlanId : null;
+  }
+
+  /**
+   * Escala de impressão (1:N) da vista ativa: a da planta de área, a do nível ou a do corte/elevação. É a escala que
+   * converte mm de papel em metros de desenho — a mesma na tela, na prancha e no DXF.
+   */
+  viewScale(): number {
+    const st = useUi.getState();
+    if (st.view === 'section') {
+      const s = sectionGraphicsOf(this.project).scale;
+      return Number.isFinite(s) && s > 0 ? s : 100;
+    }
+    if (st.view === 'plan' && st.planKind === 'area' && st.areaPlanId) {
+      const s = areaPlanOf(this.project, st.areaPlanId)?.scale;
+      if (s !== undefined && Number.isFinite(s) && s > 0) return s;
+    }
+    const s = levelGraphicsOf(this.project, st.levelId).scale;
+    return Number.isFinite(s) && s > 0 ? s : 100;
   }
 
   /**
@@ -233,6 +260,13 @@ export class Editor {
   }
 
   private exec1(c: Command): void {
+    // Anotação criada/editada com uma vista de corte aberta mora na vista (SectionView.annotations), pelo MESMO comando
+    // por item da planta. Rede de segurança para comandos antigos/sem `sectionId` explícito.
+    const sectionId = activeSectionId();
+    if (sectionId && isPlanAnnotation(c) && (!('sectionId' in c) || c.sectionId === undefined)) {
+      this.store.exec({ ...c, sectionId } as AnnotationCommand);
+      return;
+    }
     const planId = this.areaPlanIdNow();
     if (planId && isPlanAnnotation(c) && (!('planId' in c) || c.planId === undefined)) {
       this.store.exec({ ...c, planId } as AnnotationCommand);
@@ -386,6 +420,14 @@ export class Editor {
   /** Aplica comandos pela mesma regra das aberturas hospedadas usada pelas ferramentas (cotas temporárias). */
   applyCommands(label: string, commands: readonly Command[]): HostedApplyResult { return execWithHostedLoss(this.env, label, commands); }
 
+  /** Grava a feição clicada como nova referência da ponta da cota (ver `pickRefCommands`). */
+  private escolherReferenciaCota(pick: { dimId: string; slot: 'a' | 'b' }, info: PointerInfo): void {
+    const r = pickRefCommands(this.project, useUi.getState().levelId, pick.dimId, pick.slot, info.raw, this.env.metersPerPixel() * 12);
+    if ('error' in r) { useUi.setState({ status: r.error }); return; }
+    const applied = this.applyCommands('Trocar referência da cota', r.commands);
+    useUi.setState({ dimRefPick: null, status: applied.status === 'cancelled' ? '' : 'Referência da cota trocada.' });
+  }
+
   /** Zera a sequência de visibilidade em andamento (troca de vista/projeto). */
   private limparVisibilidadeBuffer(): void {
     this.visBuf = '';
@@ -496,6 +538,8 @@ export class Editor {
 
   pointer(kind: 'move' | 'down' | 'drag' | 'up' | 'click', info: PointerInfo): void {
     const ui = useUi.getState();
+    // Escolha de nova referência de cota (Shift+clique na alça): o próximo clique na planta define a ponta.
+    if (kind === 'click' && ui.dimRefPick) { this.escolherReferenciaCota(ui.dimRefPick, info); this.bump(); return; }
     // Rótulo do ambiente: alvo do arraste na planta de piso e na de área. Só com a ferramenta Selecionar:
     // com Cota/Texto/Etiqueta/Detalhe/Medir ativos, o clique é da ferramenta (a planta de área é de anotação).
     // A posição é do MODELO (vale em todas as vistas).
@@ -646,6 +690,7 @@ export class Editor {
     // Na 3D, Esc segue o da planta (cancela a operação, senão volta à Selecionar; decisão 0016 §5). Ferramenta de escolha (Anexar topo): Enter e Tab seguem para a planta, senão a etapa não avança.
     if (ui.view === '3d' && k !== 'Escape' && !(this.tool.pick3d && (k === 'Enter' || k === 'Tab'))) return key3d(k, ui.selection, () => this.deleteSelection());
     if (k === 'Escape') {
+      if (ui.dimRefPick) useUi.setState({ dimRefPick: null, status: '' });
       casador.limpar(); if (ui.typed) useUi.setState({ typed: '' });
       // Ferramenta de texto: Esc com texto digitado também cancela o ponto, senão a próxima tecla vira texto.
       if (!ui.typed || this.tool.freeText) { this.limparArrasteRotulo(); if (!this.perimetro.esc()) this.tool.cancel(); }

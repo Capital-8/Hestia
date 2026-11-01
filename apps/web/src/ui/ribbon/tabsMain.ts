@@ -62,7 +62,7 @@ export const TAB_ANOTAR: RibbonTab = {
       tool('dimension', 'large', { label: t('Alinhada', 'Aligned') }),
       tool('angularDimension', 'large', { label: t('Angular', 'Angular') }),
       act('cotasAuto'),
-      stack(soonS(t('Cota de elevação', 'Spot Elevation'), 'dimension'), soonS(t('Coordenada de ponto', 'Spot Coordinate'), 'soon'), soonS(t('Inclinação de ponto', 'Spot Slope'), 'soon')),
+      stack(act('dimensionFamilies', 'small', t('Famílias de cotas', 'Dimension Types')), soonS(t('Cota de elevação', 'Spot Elevation'), 'dimension'), soonS(t('Coordenada de ponto', 'Spot Coordinate'), 'soon')),
     ),
     panel('detalhe', t('Detalhe', 'Detail'), tool('detailLine'), tool('filledRegion'), soon(t('Componente de detalhe', 'Detail Component'), 'component'), soon(t('Nuvem de revisão', 'Revision Cloud'), 'soon')),
     panel('texto', t('Texto', 'Text'), tool('text'), stack(soonS(t('Verificar ortografia', 'Spelling'), 'soon'), soonS(t('Localizar/substituir', 'Find/Replace'), 'search'))),

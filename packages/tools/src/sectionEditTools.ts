@@ -19,14 +19,49 @@ function selectedOpenings(env: ToolEnv, walls: readonly string[]): Opening[] {
   return env.selection().map((id) => p.elements[id]).filter((e): e is Opening => isOpening(e) && !walls.includes(e.hostId));
 }
 
+/** Move as anotações selecionadas da vista em `(dt, dz)` (translação no plano da vista): cota, texto, detalhe e etiqueta. */
+function moveSectionAnnotations(env: ToolEnv, selection: readonly string[], dt: number, dz: number): Command[] {
+  const sec = env.section?.();
+  if (!sec) return [];
+  const a = sec.annotations();
+  const want = new Set(selection);
+  const d = { x: dt, y: dz };
+  const move = (p: Vec2): Vec2 => ({ x: p.x + d.x, y: p.y + d.y });
+  const out: Command[] = [];
+  const levelId = env.levelId();
+  const sectionId = sec.id;
+  for (const dim of a.dimensions) {
+    if (!want.has(dim.id)) continue;
+    out.push({ type: 'updateDimension', levelId, sectionId, id: dim.id, patch: { a: move(dim.a), b: move(dim.b), ...(dim.textAt ? { textAt: move(dim.textAt) } : {}), refs: undefined } });
+  }
+  for (const t of a.texts) {
+    if (!want.has(t.id)) continue;
+    out.push({ type: 'updateText', levelId, sectionId, id: t.id, patch: { at: move(t.at), ...(t.leader ? { leader: t.leader.map(move) } : {}) } });
+  }
+  for (const line of a.detailLines) {
+    if (!want.has(line.id)) continue;
+    out.push({ type: 'updateDetailLine', levelId, sectionId, id: line.id, patch: { a: move(line.a), b: move(line.b) } });
+  }
+  for (const region of a.detailRegions) {
+    if (!want.has(region.id)) continue;
+    out.push({ type: 'updateDetailRegion', levelId, sectionId, id: region.id, patch: { boundary: region.boundary.map(move) } });
+  }
+  for (const tag of a.tags) {
+    if (!want.has(tag.id)) continue;
+    out.push({ type: 'updateTag', levelId, sectionId, id: tag.id, patch: { at: move(tag.at) } });
+  }
+  return out;
+}
+
 /**
  * Mover no corte: horizontal anda ao longo da linha do corte (parede inteira) ou ao longo da parede (abertura);
- * vertical move o peitoril da abertura. É um gesto único com um só undo.
+ * vertical move o peitoril da abertura. Anotações selecionadas (cota, texto, detalhe e etiqueta) andam no plano da vista.
+ * É um gesto único com um só undo.
  */
 export class SectionMoveTool extends ToolBase {
   readonly id = 'move';
   readonly label = 'Mover';
-  readonly hint = 'Mover no corte: arraste a seleção. Horizontal move a parede/abertura; vertical altera o peitoril da janela.';
+  readonly hint = 'Mover no corte: arraste a seleção. Horizontal move a parede/abertura; vertical altera o peitoril da janela. Anotações também se movem.';
   private startPoint: Vec2 | null = null;
 
   protected reset(): void { this.startPoint = null; this.items = []; this.inf = null; }
@@ -61,6 +96,7 @@ export class SectionMoveTool extends ToolBase {
     const wallIds = selection.filter((id) => isWall(p0.elements[id]));
     const openings = selectedOpenings(this.env, wallIds);
     const commands: Command[] = [];
+    const notes = moveSectionAnnotations(this.env, selection, dt, dz);
     if (wallIds.length && Math.abs(dt) > 1e-6) {
       commands.push({ type: 'transform', ids: wallIds, transform: { kind: 'translate', d: { x: u.x * dt, y: u.y * dt } } });
     }
@@ -72,12 +108,13 @@ export class SectionMoveTool extends ToolBase {
       if (Math.abs(dz) > 1e-6) patch.sillOverride = Math.max(0, openingSill(openingType(p0, o), o) + dz);
       if (Object.keys(patch).length) commands.push({ type: 'updateElements', ids: [o.id], patch });
     }
+    commands.push(...notes);
     if (!commands.length) {
-      this.env.say(wallIds.length ? 'Movimento vertical de parede ainda não disponível; use as cotas/propriedades.' : 'Selecione uma parede ou abertura para mover.');
+      this.env.say(wallIds.length ? 'Movimento vertical de parede ainda não disponível; use as cotas/propriedades.' : 'Selecione uma parede, abertura ou anotação para mover.');
       return;
     }
     this.env.transaction('Mover no corte', () => { for (const c of commands) this.env.exec(c); });
-    this.env.say('Movido no corte. Ctrl+Z desfaz.');
+    this.env.say(notes.length > 0 && commands.length === notes.length ? 'Anotações movidas no corte. Ctrl+Z desfaz.' : 'Movido no corte. Ctrl+Z desfaz.');
   }
 
   override click(): void { /* o gesto é arrastado; clique sem arrasto não move */ }

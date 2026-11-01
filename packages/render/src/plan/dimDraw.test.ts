@@ -1,6 +1,6 @@
 import { DEFAULT_DIMENSION_STYLE, type Dimension, type DimensionStyle } from '@hestia/model';
 import { describe, expect, it } from 'vitest';
-import { boxCorners, drawDimension, layoutDimensions, type DimItem, type DimLook } from './dimDraw.ts';
+import { boxCorners, dimensionLaneOffsetMm, drawDimension, layoutDimensions, type DimItem, type DimLook } from './dimDraw.ts';
 import { annotationHighlightOps } from './notes.ts';
 import { ProjectStore, createEmptyProject } from '@hestia/model';
 
@@ -63,6 +63,53 @@ describe('cotas: estilo CAD', () => {
     const lab = drawDimension(l!, SCALE, LOOK).labels[0]!;
     expect(lab.fontFamily).toBe('Courier');
     expect(lab.papel?.fontMm).toBe(3);
+  });
+});
+
+describe('cotas: família de cotas', () => {
+  const comFamilia = (style: DimensionStyle): DimItem => ({ ...item('a', 0, 4), style });
+
+  it('o estilo da família vence o global e a fonte/altura chegam ao rótulo', () => {
+    const [l] = layoutDimensions([comFamilia({ ...DEFAULT_DIMENSION_STYLE, font: 'Courier', textHeight: 4 })], { scale: SCALE, style: { ...DEFAULT_DIMENSION_STYLE, textHeight: 2.5 } });
+    expect(l!.textMm).toBe(4);
+    expect(l!.style.font).toBe('Courier');
+    const lab = drawDimension(l!, SCALE, LOOK).labels[0]!;
+    expect(lab.fontFamily).toBe('Courier');
+    expect(lab.papel?.fontMm).toBe(4);
+  });
+
+  it('campos da cota ainda sobrepõem a família (textHeight da cota vence)', () => {
+    const d = { ...item('a', 0, 4).d, textHeight: 6 };
+    const [l] = layoutDimensions([{ d, a: d.a, b: d.b, text: '4,00 m', style: { ...DEFAULT_DIMENSION_STYLE, textHeight: 4 } }], { scale: SCALE });
+    expect(l!.textMm).toBe(6);
+  });
+
+  it("readConvention 'horizontal' mantém o valor na horizontal em cota vertical", () => {
+    const vertical: DimItem = { d: { id: 'v', a: { x: 0, y: 0 }, b: { x: 0, y: 4 }, offset: 0.6 }, a: { x: 0, y: 0 }, b: { x: 0, y: 4 }, text: '4,00 m' };
+    expect(layoutDimensions([vertical], { scale: SCALE })[0]!.rotation).toBe(90);
+    const horizontal = { ...vertical, style: { ...DEFAULT_DIMENSION_STYLE, readConvention: 'horizontal' as const } };
+    const l = layoutDimensions([horizontal], { scale: SCALE })[0]!;
+    expect(l.rotation).toBe(0);
+    // Com texto horizontal, o "acima da linha" é o eixo y: o valor fica sobre o meio do trecho, e não girado ao lado dele.
+    expect(l.textAt.y).toBeCloseTo(2.275, 6);
+    expect(l.textAt.x).toBeCloseTo(-0.6, 6);
+  });
+
+  it("textFit 'inside' nunca afasta o valor; 'outside' sempre afasta, mesmo cabendo", () => {
+    const curto = { ...item('a', 0, 0.2), style: { ...DEFAULT_DIMENSION_STYLE, textFit: 'inside' as const } };
+    expect(layoutDimensions([curto], { scale: SCALE })[0]!.moved).toBe(false);
+    const fora = { ...comFamilia({ ...DEFAULT_DIMENSION_STYLE, textFit: 'outside' }), d: { id: 'a', a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, offset: 0.6 } };
+    const l = layoutDimensions([fora], { scale: SCALE })[0]!;
+    expect(l.moved).toBe(true);
+    expect(l.leader).toBeDefined();
+  });
+
+  it('stackSpacing define o passo das pistas de texto empilhadas', () => {
+    expect(dimensionLaneOffsetMm(0, 2.5, 7)).toBeCloseTo(4, 9);
+    expect(dimensionLaneOffsetMm(1, 2.5, 7)).toBeCloseTo(4 + 7, 9);
+    expect(dimensionLaneOffsetMm(2, 2.5, 7)).toBeCloseTo(4 + 14, 9);
+    // Muito pequeno: o mínimo de 1,4 altura de texto evita rótulos encostados.
+    expect(dimensionLaneOffsetMm(1, 2.5, 0.5)).toBeCloseTo(4 + 3.5, 9);
   });
 });
 

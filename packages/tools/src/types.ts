@@ -65,6 +65,11 @@ export interface ToolEnv {
   transaction(label: string, fn: () => void, session?: object): void;
   /** Metros por pixel na vista atual; usado para tolerâncias de clique. */
   metersPerPixel(): number;
+  /**
+   * Escala de impressão (1:N) da vista ativa: planta de piso, planta de área ou corte/elevação. É o que converte as
+   * medidas de papel (cota, texto, marca) em metros do desenho, igual na tela, na prancha e no DXF. Ausente = 100.
+   */
+  viewScale?(): number;
   /** Elementos ocultos na planta atual (fora do intervalo de vista ou categoria oculta): não são alvo de captura (S-07). Ausente = nenhum. */
   hiddenInView?(): ReadonlySet<Id>;
   /** Planta de área aberta na vista, quando a planta ativa é uma planta de área; null/ausente na planta de piso. */
@@ -207,8 +212,12 @@ export interface ToolOptions {
   textRotation?: number;
   textWidth?: number;
   textLeader?: 'none' | 'straight' | 'elbow';
-  dimensionMode?: 'aligned' | 'horizontal' | 'vertical';
+  dimensionMode?: 'auto' | 'aligned' | 'horizontal' | 'vertical';
   dimensionString?: 'single' | 'continuous' | 'baseline';
+  /** Família de cotas da cota nova (ausente/null = família padrão do projeto). */
+  dimensionFamilyId?: Id | null;
+  /** Último afastamento digitado/arrastado: a cota nova nasce nele (como no Revit). */
+  dimensionOffset?: number;
   dimensionUnit?: 'm' | 'cm' | 'mm';
   dimensionPrecision?: 0 | 1 | 2 | 3;
   dimensionPrefix?: string;

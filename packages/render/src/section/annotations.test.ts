@@ -149,3 +149,32 @@ describe('cotas do corte: hover, seleção e escala', () => {
     expect(JSON.stringify(comEstilo.labels)).not.toEqual(JSON.stringify(padrao.labels));
   });
 });
+
+describe('anotações do corte: escala e visibilidade da vista', () => {
+  /** Projeto do teste com gráficos do corte salvos (escala e visibilidade da categoria 'anotação'). */
+  function comGraficos(patch: { scale?: number; annotationVisible?: boolean }): { project: ReturnType<typeof baseInput>['project']; input: ReturnType<typeof baseInput> } {
+    const input = baseInput(true, { dimensions: [{ id: 'd1', a: v(0, 0.2), b: v(3, 0.2), offset: 0.4 }] });
+    const project = {
+      ...input.project,
+      sectionGraphics: {
+        ...(patch.scale === undefined ? {} : { scale: patch.scale }),
+        ...(patch.annotationVisible === false ? { overrides: { annotation: { visible: false } } } : {}),
+      },
+    } as typeof input.project;
+    return { project, input: { ...input, project } };
+  }
+
+  it('a escala da vista do corte vale para a cota e para o texto (não é mais fixa em 1:100)', () => {
+    const { input } = comGraficos({ scale: 50 });
+    const draw = buildSectionDrawList(input);
+    const label = draw.labels.find((l) => l.papel?.escala === 50);
+    expect(label).toBeDefined();
+    expect(label!.papel!.fontMm).toBe(2.5);
+  });
+
+  it("categoria 'Anotação' oculta nos gráficos do corte esconde as anotações (como na planta)", () => {
+    const { input } = comGraficos({ annotationVisible: false });
+    const draw = buildSectionDrawList(input);
+    expect(draw.labels.some((l) => l.text === '3,00 m')).toBe(false);
+  });
+});

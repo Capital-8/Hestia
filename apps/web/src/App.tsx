@@ -33,6 +33,7 @@ import { HostedLossDialog } from './ui/dialogs/HostedLossDialog.tsx';
 import { AlertaDialog } from './ui/dialogs/AlertaDialog.tsx';
 import { AreaMergeDialog } from './ui/dialogs/AreaMergeDialog.tsx';
 import { DimensionSettingsDialog } from './ui/dialogs/DimensionSettingsDialog.tsx';
+import { DimensionFamiliesDialog } from './ui/dialogs/DimensionFamiliesDialog.tsx';
 import { ShortcutsConfigDialog } from './ui/dialogs/ShortcutsConfigDialog.tsx';
 import { WallScheduleDialog } from './ui/dialogs/WallScheduleDialog.tsx';
 import { FloorTypeDialog } from './ui/dialogs/FloorTypeDialog.tsx';
@@ -143,6 +144,8 @@ function Dialogs(): ReactElement | null {
       return <AreaMergeDialog />;
     case 'dimensions':
       return <DimensionSettingsDialog onApplyStyle={(patch) => editor.store.exec({ type: 'setDimensionStyle', patch }, 'Estilo de cotas')} />;
+    case 'dimensionFamilies':
+      return <DimensionFamiliesDialog />;
     case 'start':
       return <StartDialog />;
     case 'shortcuts':

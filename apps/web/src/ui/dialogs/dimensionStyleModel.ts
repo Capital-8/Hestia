@@ -1,4 +1,4 @@
-import { DEFAULT_DIMENSION_STYLE, dimensionStyleOf, type DimensionStyle, type DimTick } from '@hestia/model';
+import { DEFAULT_DIMENSION_STYLE, DIM_READ_CONVENTION_OPTIONS, DIM_TEXT_FIT_OPTIONS, dimensionStyleOf, type DimensionStyle, type DimTick } from '@hestia/model';
 
 /** Rascunho do estilo global de cotas (todos os campos, já resolvidos contra o padrão). */
 export type StyleDraft = DimensionStyle;
@@ -7,7 +7,7 @@ export type StyleKey = keyof DimensionStyle;
 export type StyleErrors = Partial<Record<StyleKey, string>>;
 
 /** Campos numéricos (medidas em mm de papel). */
-export type StyleNumKey = 'tickSize' | 'textHeight' | 'extensionGap' | 'extensionOvershoot' | 'stackSpacing';
+export type StyleNumKey = 'tickSize' | 'textHeight' | 'extensionGap' | 'extensionOvershoot' | 'textGap' | 'stackSpacing';
 
 export const STYLE_KEYS: ReadonlyArray<StyleKey> = Object.keys(DEFAULT_DIMENSION_STYLE) as StyleKey[];
 
@@ -17,6 +17,7 @@ export const STYLE_LIMITS: Readonly<Record<StyleNumKey, { min: number; max: numb
   textHeight: { min: 0.5, max: 15 },
   extensionGap: { min: 0, max: 10 },
   extensionOvershoot: { min: 0, max: 10 },
+  textGap: { min: 0, max: 10 },
   stackSpacing: { min: 1, max: 50 },
 };
 
@@ -34,6 +35,12 @@ export const TEXT_PLACEMENT_OPTIONS: ReadonlyArray<{ value: DimensionStyle['text
   { value: 'above', label: 'Acima da linha' },
   { value: 'centered', label: 'Centrado (interrompe a linha)' },
 ];
+
+/** Convenções de leitura do valor (Revit: Read Convention). */
+export const READ_CONVENTION_OPTIONS: ReadonlyArray<{ value: DimensionStyle['readConvention']; label: string }> = DIM_READ_CONVENTION_OPTIONS;
+
+/** Comportamento do valor quando não cabe no trecho. */
+export const TEXT_FIT_OPTIONS: ReadonlyArray<{ value: DimensionStyle['textFit']; label: string }> = DIM_TEXT_FIT_OPTIONS;
 
 export const UNIT_OPTIONS: ReadonlyArray<{ value: DimensionStyle['unit']; label: string }> = [
   { value: 'project', label: 'Unidade do projeto' },
@@ -106,6 +113,8 @@ export function validateStyleDraft(d: StyleDraft): StyleErrors {
   }
   if (!DIM_TICK_OPTIONS.some((o) => o.value === d.tick)) e.tick = 'Marcador desconhecido';
   if (!TEXT_PLACEMENT_OPTIONS.some((o) => o.value === d.textPlacement)) e.textPlacement = 'Posição desconhecida';
+  if (!READ_CONVENTION_OPTIONS.some((o) => o.value === d.readConvention)) e.readConvention = 'Convenção desconhecida';
+  if (!TEXT_FIT_OPTIONS.some((o) => o.value === d.textFit)) e.textFit = 'Comportamento desconhecido';
   if (!UNIT_OPTIONS.some((o) => o.value === d.unit)) e.unit = 'Unidade desconhecida';
   if (!PRECISION_OPTIONS.some((o) => o.value === d.precision)) e.precision = 'Precisão fora de 0 a 3';
   if (d.font.trim() === '') e.font = 'Informe a fonte';

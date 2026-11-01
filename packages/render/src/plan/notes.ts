@@ -1,10 +1,10 @@
-import { angularDimensionGeometry, dimensionPoints, dimensionValue, DIM_TEXT_MM, formatDimension, levelDimensions, levelRoomSeparators, levelTexts, planAnnotationsOf, planOwnsAnnotations, resolveViewProfile, unitsOf, type AreaPlan, type AreaPlanAnnotations, type Dimension, type DimensionStyle, type Id, type Project, type TextNote } from '@hestia/model';
+import { angularDimensionGeometry, dimensionFormatStyle, dimensionPoints, dimensionStyleFor, dimensionValue, DIM_TEXT_MM, formatDimension, levelDimensions, levelRoomSeparators, levelTexts, planAnnotationsOf, planOwnsAnnotations, resolveViewProfile, unitsOf, type AreaPlan, type AreaPlanAnnotations, type Dimension, type DimensionStyle, type Id, type Project, type TextNote } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 import type { Vec2 } from '@hestia/geom';
 import type { Viewport } from '../viewport.ts';
 import { quadradoEm } from './marcadores.ts';
 import { elementTagOps, noteLabel } from './tags.ts';
-import { drawDimension, layoutDimensions, styleFormatOf, type DimItem } from './dimDraw.ts';
+import { drawDimension, layoutDimensions, type DimItem } from './dimDraw.ts';
 import { espessuraDeCorte, espessuraDeProjecao, type PlanPaint } from './style.ts';
 import { espessuraVezes } from './espessura.ts';
 import { type FillOp, type LabelOp, type StrokeOp } from './types.ts';
@@ -148,14 +148,15 @@ export interface NoteOps {
 
 /**
  * Itens de cota prontos para o desenho (pontos medidos ou geometria angular + texto formatado com o estilo): o MESMO
- * caminho da planta, da planta de área, do corte e da elevação.
+ * caminho da planta, da planta de área, do corte e da elevação. A família gravada na cota (`Dimension.familyId`) entra
+ * com o seu estilo e com a sua formatação; sem família, vale o estilo global da vista (comportamento antigo).
  */
 export function dimensionItems(p: Project, levelId: Id, dims: readonly Dimension[], style?: DimensionStyle): DimItem[] {
   const units = unitsOf(p);
-  const fmt = styleFormatOf(style);
+  const familyOf = (d: Dimension): DimensionStyle | undefined => (d.familyId ? dimensionStyleFor(p.settings, d) : undefined);
   const texto = (d: Dimension): string => {
     const fixo = d.text?.trim();
-    return fixo ? fixo : formatDimension(d, dimensionValue(p, d), units, fmt);
+    return fixo ? fixo : formatDimension(d, dimensionValue(p, d), units, dimensionFormatStyle(familyOf(d) ?? style));
   };
   const out: DimItem[] = [];
   for (const d of dims) {
@@ -163,11 +164,13 @@ export function dimensionItems(p: Project, levelId: Id, dims: readonly Dimension
       const rd = resolveAngularDimension(p, levelId, d);
       const ang = angularDimensionGeometry(rd);
       if (!ang) continue;
-      out.push({ d, a: rd.a, b: rd.b, text: texto(rd), ang });
+      const family = familyOf(d);
+      out.push({ d, a: rd.a, b: rd.b, text: texto(rd), ang, ...(family ? { style: family } : {}) });
       continue;
     }
     const { a, b } = dimensionPoints(p, d);
-    out.push({ d, a, b, text: texto(d) });
+    const family = familyOf(d);
+    out.push({ d, a, b, text: texto(d), ...(family ? { style: family } : {}) });
   }
   return out;
 }

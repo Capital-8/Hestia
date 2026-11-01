@@ -18,6 +18,7 @@ import {
   exportSectionDxf,
   notesDxfOf,
   sectionMarksDxfOf,
+  sectionNotesDxfOf,
   writeDxf2000,
   type DxfLevelGeometry,
   type DxfNoteText,
@@ -503,7 +504,9 @@ export function sectionDxfGeometryOf(p: Project, sectionId: Id, units?: DxfUnit)
   });
   const openings = section.openings.flatMap((o) => (shown(o.kind) ? [{ category: o.kind, polygons: o.polygons, cut: o.cut }] : []));
   const allShown = GRAPHICS_CATEGORIES.every(shown);
-  const geo: DxfSectionGeometry = { cut, beyond, openings, ...(allShown ? { silhouette: section.silhouette } : {}) };
+  // Anotações da vista (cotas, textos, detalhes e etiquetas) nas camadas da planta: a categoria oculta não sai, como na tela.
+  const notes = shown('annotation') ? sectionNotesDxfOf(p, sectionId, vg.scale) : undefined;
+  const geo: DxfSectionGeometry = { cut, beyond, openings, ...(allShown ? { silhouette: section.silhouette } : {}), ...(notes === undefined ? {} : { notes }) };
   const lineWeights = sectionLineWeightsOf(p, geo);
   const layerStyles = Object.fromEntries(
     dxfSectionLayersOf(geo).map((layer): [string, DxfLayerStyle] => [layer, p.dxfLayers?.[layer] ?? dxfSectionLayerStyleOf(layer, lineWeights[layer] ?? DXF_LINE_WEIGHT_DEFAULT)]),
