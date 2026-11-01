@@ -5,6 +5,7 @@ import { resolveSlabs } from '../slabs.ts';
 import { resolveRoofs } from '../roofs.ts';
 import { resolveRooms } from '../rooms.ts';
 import { junctionLevel } from '../junctionLevel.ts';
+import { calcularCorteDaVista } from '../sectionIncremental.ts';
 import { gerarPatchNivel, MemoriaPatch } from '../fluxoPatch.ts';
 import type { TipoResolucao } from './protocolo.ts';
 
@@ -38,5 +39,8 @@ export function executarResolucao(tipo: TipoResolucao, p: Project, nivel: Id, ca
       return resolveRooms(p, nivel);
     case 'juncoes':
       return junctionLevel(p, nivel);
+    case 'corte':
+      // `nivel` é o id da vista de corte; o estado incremental por vista vive no módulo (no worker, no próprio worker).
+      return calcularCorteDaVista(p, nivel);
   }
 }

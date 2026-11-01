@@ -1,7 +1,7 @@
 /* eslint-disable max-lines */
 import { useSyncExternalStore } from 'react';
 import type { Vec2 } from '@hestia/geom';
-import { computeSection, cotasAutomaticas, LevelResolveCache, resolveRooms, type AutoCotaOptions, type ResolvedLevel, type SectionResult } from '@hestia/engine';
+import { cotasAutomaticas, LevelResolveCache, resolveRooms, type AutoCotaOptions, type ResolvedLevel, type SectionResult } from '@hestia/engine';
 import {
   ProjectStore,
   copyLinkOf, syncWholeLinkCommand,
@@ -13,7 +13,6 @@ import {
   migrateProject,
   newId,
   sectionAnnotationsOf,
-  sectionPoints,
   type AnnotationCommand,
   type Command,
   type Id,
@@ -23,6 +22,10 @@ import {
   type TemplateId,
 } from '@hestia/model';
 import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, sectionInferContext, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId } from '@hestia/tools';
+import { ResolucaoCancelada } from '@hestia/engine/src/worker/protocolo.ts';
+import type { ClienteResolucao } from '@hestia/engine/src/worker/cliente.ts';
+import { kernelExperimentalLigado } from './preferenciasKernel.ts';
+import { criarClienteResolucao } from './resolveWorker.ts';
 import { transfer } from './transfer.ts';
 import type { PastePreviewState } from './pasteLevels/types.ts';
 import { consumirManterCameraDaPrevia, guardarOrigemDoColar, limparOrigemDoColar, limparPreviaPreparada, manterCameraDaPrevia, origemDoColar, prepararPrevia, previaPreparada, type OrigemDoColar } from './pastePreview.ts';
@@ -136,7 +139,12 @@ export class Editor {
     pendente: (id) => this.fluxo.pendente(id),
     semear: (id, valor) => this.fluxo.resolucao.semear(id, valor),
   };
+  /** Corte por vista: o último resultado válido (pode ser de um projeto anterior, ver `sectionOf`) e o projeto para o qual há pedido em andamento. */
   private sectionCache = new Map<Id, { project: Project; value: SectionResult }>();
+  private sectionPending = new Map<Id, Project>();
+  private sectionClient: ClienteResolucao | null = null;
+  /** Vistas de corte abertas antes de o primeiro resultado chegar: ao chegar, enquadram a vista (como se a caixa existisse na criação). */
+  private sectionToFrame = new Set<Id>();
   /** Caixa pedida antes de a vista ter viewport (ex.: enquadrar um CAD ao abrir a planta dele): aplicada na criação. */
   private pendingBox: PlanBox | null = null;
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -268,6 +276,7 @@ export class Editor {
     if (!cur) {
       const box = this.frameBox();
       if (box) Object.assign(v, fitBox(v, box));
+      else if (id.startsWith('sec:') && !this.sectionCache.has(id.slice(4))) this.sectionToFrame.add(id.slice(4));
     }
     if (!cur && this.pendingBox) {
       Object.assign(v, fitBox(v, this.pendingBox));
@@ -298,17 +307,62 @@ export class Editor {
     this.setViewport(box ? fitBox(v, box) : { ...v, cx: 5, cy: 3.5, zoom: 60 });
   }
 
-  /** Corte calculado de uma vista, cacheado enquanto o projeto não muda (equivale a um useMemo por projeto). */
+  /**
+   * Corte de uma vista. Nunca calcula na thread da tela: devolve na hora o resultado do projeto atual, se já existe; senão
+   * o último resultado válido (de um projeto anterior, que continua na tela) e pede o novo em segundo plano (worker, com as
+   * partes por pavimento reaproveitadas, ver `SecaoIncremental`). Quando o novo chega, publica e redesenha. Na primeira
+   * abertura, sem resultado anterior, devolve `null` até o cálculo terminar.
+   */
   sectionOf(id: Id | null): SectionResult | null {
     if (!id) return null;
     const view = this.project.views.find((x) => x.id === id);
     if (!view) return null;
     const hit = this.sectionCache.get(id);
     if (hit && hit.project === this.project) return hit.value;
-    const pts = sectionPoints(this.project, view);
-    const value = computeSection(this.project, { a: pts.a, b: pts.b, depth: view.depth });
-    this.sectionCache.set(id, { project: this.project, value });
-    return value;
+    this.requestSection(id);
+    return hit?.value ?? null;
+  }
+
+  /** O corte desta vista está calculado para o projeto atual? (falso enquanto a tela mostra o resultado anterior ou nada) */
+  sectionFresh(id: Id | null): boolean {
+    return !!id && this.sectionCache.get(id)?.project === this.project;
+  }
+
+  /** Corte pronto para o projeto atual (espera o cálculo em segundo plano). Para testes e fluxos que precisam do resultado exato. */
+  async sectionReady(id: Id): Promise<SectionResult | null> {
+    for (let i = 0; i < 1000 && !this.sectionFresh(id); i++) {
+      if (!this.project.views.some((x) => x.id === id)) return null;
+      this.sectionOf(id);
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    return this.sectionCache.get(id)?.value ?? null;
+  }
+
+  private requestSection(id: Id): void {
+    const project = this.project;
+    if (this.sectionPending.get(id) === project) return;
+    this.sectionPending.set(id, project);
+    this.sectionClient ??= criarClienteResolucao({ usarWorker: true, kernelExperimental: kernelExperimentalLigado() });
+    const version = this.store.version;
+    void this.sectionClient.resolver('corte', id, project, version).then(
+      (value) => {
+        if (this.sectionPending.get(id) === project) this.sectionPending.delete(id);
+        if (!value) return;
+        const first = !this.sectionCache.has(id);
+        this.sectionCache.set(id, { project, value: value as SectionResult });
+        if (first && this.sectionToFrame.delete(id)) {
+          const key = `sec:${id}`;
+          const vp = this.viewports.get(key);
+          const box = sectionBox(value as SectionResult);
+          if (vp && box) this.viewports.set(key, fitBox(vp, box));
+        }
+        this.bump();
+      },
+      (e: unknown) => {
+        if (this.sectionPending.get(id) === project) this.sectionPending.delete(id);
+        if (!(e instanceof ResolucaoCancelada)) console.error('corte', e);
+      },
+    );
   }
 
   zoomWheel(screen: { x: number; y: number }, deltaY: number): void { const v = this.viewport(); if (v) this.setViewport(zoomAt(v, screen, Math.exp(-deltaY * 0.0015))); }
@@ -997,6 +1051,7 @@ export class Editor {
     this.levels.clear(); this.fluxo.abrir(p, this.store.version).forEach((id) => this.resolved(id));
     void abrirComCache(this.portasAbertura, p);
     this.viewports.clear();
+    this.sectionCache.clear(); this.sectionPending.clear(); this.sectionToFrame.clear(); this.sectionClient?.cancelarTodos();
     // Abas de vista são da sessão: projeto novo começa só com o nível ativo, sem herdar abas do anterior.
     useUi.setState({ selection: [], levelId: p.levels[0]?.id ?? 'lv_0', view: 'plan', planKind: 'floor', areaPlanId: null, sectionId: null, openViews: defaultOpenViews(p.levels.map((l) => l.id)), options: { ...useUi.getState().options, wallTypeId: p.defaults.wallTypeId, doorTypeId: p.defaults.doorTypeId, windowTypeId: p.defaults.windowTypeId, floorTypeId: keptFloorType(p, useUi.getState().options.floorTypeId), slabTypeId: keptSlabType(p, useUi.getState().options.slabTypeId) } });
     this.setTool('select');

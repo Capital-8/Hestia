@@ -1,4 +1,4 @@
-import { closestOnSegment, intersection, machineNumber, orientedRect, triangulate, union, unionClipper, type MultiPolygon, type Polygon, type Ring, type Vec2 } from '@hestia/geom';
+import { intersection, machineNumber, orientedRect, unionClipper, type MultiPolygon, type Polygon, type Vec2 } from '@hestia/geom';
 import { openingLineConvention, openingType, openingsOfWall, wallsOnLevel, type HatchKind, type Id, type OpeningLineConvention, type Project } from '@hestia/model';
 import { bandTopAt } from './profile.ts';
 import { fuseBands } from './bandFuse.ts';
@@ -6,7 +6,10 @@ import { resolveFloors } from './floors.ts';
 import { junctionLevel, layerPartsOf, wallLayerBandsAfterJunction } from './junctionLevel.ts';
 import { resolveSlabs, slabRiseAt } from './slabs.ts';
 import { sectionOfCeilings } from './sectionCeilings.ts';
-import { planeZ, resolveRoofs, type ResolvedRoof } from './roofs.ts';
+import { resolveRoofs } from './roofs.ts';
+import { sectionOfRoofs } from './sectionRoofs.ts';
+
+export { sectionOfRoofs, squareCutRun, type RoofSection } from './sectionRoofs.ts';
 import { frameOfWall, openingGeometry, resolveLevel } from './resolve.ts';
 import { buildOpeningModel } from './openingModel.ts';
 import type { OpeningModel } from './openingModelTypes.ts';
@@ -153,20 +156,24 @@ function groupBeyond(list: SectionBeyond[]): SectionBeyond[] {
 
 /** Camada de laje entre as cotas de base (b0 em t0, b1 em t1) e de topo (u0 em t0, u1 em t1): trapézio se inclinada. */
 
-export function computeSection(p: Project, line: SectionLine, levelIds: Id[] = p.levels.map((l) => l.id)): SectionResult {
-  const { length, d, n, slab } = sectionFrame(line);
-  const empty: SectionResult = { length, zMin: 0, zMax: 3, cut: [], silhouette: [], beyond: [], openings: [], membranes: [], levels: [] };
-  if (length < 1e-6) return empty;
+/** Contribuição de um pavimento ao corte (antes da união e da oclusão); depende só do pavimento, dos vizinhos que ele lê e da linha. */
+export interface SectionLevelPart {
+  cuts: Array<{ materialId: Id; hatch?: HatchKind; polygon: Polygon; origin: SectionOrigin }>;
+  beyond: SectionBeyond[];
+  openings: SectionOpening[];
+  membranes: SectionMembrane[];
+  snapRings: SectionSnapRing[];
+  zMin: number;
+  zMax: number;
+}
 
-  // Cortes por material (união depois, antes da oclusão); cada polígono guarda a origem para `sources`.
-  const cutBy = new Map<string, { materialId: Id; hatch?: HatchKind; items: Array<{ polygon: Polygon; origin: SectionOrigin }> }>();
+/** Parte do corte vinda de um único pavimento: cortes por material, além do plano, vãos, membranas e capturas. */
+export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): SectionLevelPart {
+  const { length, d, n, slab } = sectionFrame(line);
+  const cuts: SectionLevelPart['cuts'] = [];
   const addCut = (materialId: Id, polygon: Polygon, origin: SectionOrigin, hatch?: HatchKind): void => {
-    const key = `${materialId}|${hatch ?? ''}`;
-    const entry = cutBy.get(key) ?? { materialId, hatch, items: [] };
-    entry.items.push({ polygon, origin });
-    cutBy.set(key, entry);
+    cuts.push({ materialId, hatch, polygon, origin });
   };
-  // Além e vãos ainda sem oclusão (projeção completa): a oclusão e a parte visível vêm no fim.
   const beyond: SectionBeyond[] = [];
   const snapRings: SectionSnapRing[] = [];
   const membranes: SectionMembrane[] = []; const frame = { line, length, d, n };
@@ -179,185 +186,215 @@ export function computeSection(p: Project, line: SectionLine, levelIds: Id[] = p
     zMin = Math.min(zMin, z0);
     zMax = Math.max(zMax, z1);
   };
-
-  for (const levelId of levelIds) {
-    const resolved = resolveLevel(p, levelId);
-    // Junção resolvida do nível (P7b e P7c): cada camada de piso, de laje e de parede corta só a parte que sobra dela
-    // (`layerPartsOf` para piso e laje; `wallLayerBandsAfterJunction` para as paredes, 0023 §3 regra B). Sem corte, a
-    // camada inteira. Pisos entram como as paredes: a linha corta cada camada (retângulo t×z) e a laje de visão mostra o
-    // resto.
-    const jl = junctionLevel(p, levelId);
-    for (const f of resolveFloors(p, levelId)) {
-      membranes.push(...membraneCutsOf(f.layers, { floorId: f.floorId }, null, frame));
-      for (const layer of f.layers) {
-        const parts = layerPartsOf(jl.elements.get(f.floorId), layer.layerIndex, [{ poly: layer.polygon, z0: layer.z0, z1: layer.z1 }]);
-        for (const part of parts) {
-          for (const poly of part.poly) {
-            for (const [t0, t1] of lineIntervals(poly, line.a, d, n)) {
-              const lo = Math.max(0, t0);
-              const hi = Math.min(length, t1);
-              if (hi - lo < EPS_T) continue;
-              addCut(layer.materialId, [rect(lo, hi, part.z0, part.z1)], { floorId: f.floorId });
-              grow(part.z0, part.z1);
-            }
-          }
-          for (const sp of intersection(part.poly, slab)) {
-            const outer = sp[0];
-            if (!outer || outer.length < 3) continue;
-            const ts = outer.map(along);
-            const tMin = Math.max(0, Math.min(...ts));
-            const tMax = Math.min(length, Math.max(...ts));
-            if (tMax - tMin < EPS_T) continue;
-            beyond.push({
-              floorId: f.floorId,
-              materialId: layer.materialId,
-              layerIndex: layer.layerIndex,
-              depth: Math.max(0, Math.min(...outer.map(dist))),
-              polygons: [[rect(tMin, tMax, part.z0, part.z1)]],
-            });
+  if (length < 1e-6) return { cuts, beyond, openings, membranes, snapRings, zMin, zMax };
+  const resolved = resolveLevel(p, levelId);
+  // Junção resolvida do nível (P7b e P7c): cada camada de piso, de laje e de parede corta só a parte que sobra dela
+  // (`layerPartsOf` para piso e laje; `wallLayerBandsAfterJunction` para as paredes, 0023 §3 regra B). Sem corte, a
+  // camada inteira. Pisos entram como as paredes: a linha corta cada camada (retângulo t×z) e a laje de visão mostra o
+  // resto.
+  const jl = junctionLevel(p, levelId);
+  for (const f of resolveFloors(p, levelId)) {
+    membranes.push(...membraneCutsOf(f.layers, { floorId: f.floorId }, null, frame));
+    for (const layer of f.layers) {
+      const parts = layerPartsOf(jl.elements.get(f.floorId), layer.layerIndex, [{ poly: layer.polygon, z0: layer.z0, z1: layer.z1 }]);
+      for (const part of parts) {
+        for (const poly of part.poly) {
+          for (const [t0, t1] of lineIntervals(poly, line.a, d, n)) {
+            const lo = Math.max(0, t0);
+            const hi = Math.min(length, t1);
+            if (hi - lo < EPS_T) continue;
+            addCut(layer.materialId, [rect(lo, hi, part.z0, part.z1)], { floorId: f.floorId });
             grow(part.z0, part.z1);
           }
         }
-      }
-    }
-    // Lajes (D3): como os pisos, mas com inclinação; cada cota (base e topo) soma a subida no ponto da linha de corte.
-    // Lajes com caimento não entram na junção (`junctionLevel`) e seguem como antes.
-    for (const sl of resolveSlabs(p, levelId)) {
-      membranes.push(...membraneCutsOf(sl.layers, { slabId: sl.slabId }, sl.slope, frame));
-      for (const layer of sl.layers) {
-        const parts = layerPartsOf(jl.elements.get(sl.slabId), layer.layerIndex, [{ poly: layer.polygon, z0: layer.z0, z1: layer.z1 }]);
-        for (const part of parts) {
-          for (const poly of part.poly) {
-            for (const [t0, t1] of lineIntervals(poly, line.a, d, n)) {
-              const lo = Math.max(0, t0);
-              const hi = Math.min(length, t1);
-              if (hi - lo < EPS_T) continue;
-              const rl = slabRiseAt(sl.slope, { x: line.a.x + d.x * lo, y: line.a.y + d.y * lo });
-              const rh = slabRiseAt(sl.slope, { x: line.a.x + d.x * hi, y: line.a.y + d.y * hi });
-              addCut(layer.materialId, [slabQuad(lo, hi, part.z0 + rl, part.z0 + rh, part.z1 + rl, part.z1 + rh)], { slabId: sl.slabId });
-              grow(part.z0 + Math.min(rl, rh), part.z1 + Math.max(rl, rh));
-            }
-          }
-          for (const sp of intersection(part.poly, slab)) {
-            const outer = sp[0];
-            if (!outer || outer.length < 3) continue;
-            const ts = outer.map(along);
-            const tMin = Math.max(0, Math.min(...ts));
-            const tMax = Math.min(length, Math.max(...ts));
-            if (tMax - tMin < EPS_T) continue;
-            // Laje plana: retângulo. Inclinada: projeção exata do prisma (a cota sobe linear sobre o contorno).
-            const rise = (v: Vec2): number => slabRiseAt(sl.slope, v);
-            const zs = outer.map(rise);
-            beyond.push({
-              slabId: sl.slabId,
-              materialId: layer.materialId,
-              layerIndex: layer.layerIndex,
-              depth: Math.max(0, Math.min(...outer.map(dist))),
-              polygons: sl.slope ? prismProjection(outer, along, (v) => part.z0 + rise(v), (v) => part.z1 + rise(v)) : [[rect(tMin, tMax, part.z0, part.z1)]],
-            });
-            grow(part.z0 + Math.min(...zs), part.z1 + Math.max(...zs));
-          }
+        for (const sp of intersection(part.poly, slab)) {
+          const outer = sp[0];
+          if (!outer || outer.length < 3) continue;
+          const ts = outer.map(along);
+          const tMin = Math.max(0, Math.min(...ts));
+          const tMax = Math.min(length, Math.max(...ts));
+          if (tMax - tMin < EPS_T) continue;
+          beyond.push({
+            floorId: f.floorId,
+            materialId: layer.materialId,
+            layerIndex: layer.layerIndex,
+            depth: Math.max(0, Math.min(...outer.map(dist))),
+            polygons: [[rect(tMin, tMax, part.z0, part.z1)]],
+          });
+          grow(part.z0, part.z1);
         }
-      }
-    }
-    // Forros (decisão 0021): mesmo tratamento dos pisos planos (`sectionCeilings.ts`).
-    const ck = sectionOfCeilings(p, levelId, line);
-    for (const c of ck.cut) addCut(c.materialId, c.polygon, c.origin, c.hatch);
-    beyond.push(...ck.beyond);
-    grow(ck.zMin, ck.zMax);
-    // Telhados (D3): como as lajes, por água e por camada (cada faixa segue a cota da água menos `below`).
-    const rf = sectionOfRoofs(resolveRoofs(p, levelId), line);
-    for (const c of rf.cut) addCut(c.materialId, c.polygon, { roofId: c.roofId });
-    beyond.push(...rf.beyond);
-    grow(rf.zMin, rf.zMax);
-    // Escadas (decisão 0011 §6) das que nascem neste nível: degraus, patamares e espelhos (`sectionStairs.ts`).
-    const sk = sectionOfStairs(resolveStairsOnLevel(p, levelId), line, p);
-    for (const c of sk.cut) addCut(c.materialId, c.polygon, { stairId: c.stairId });
-    beyond.push(...sk.beyond);
-    snapRings.push(...sk.snapRings);
-    grow(sk.zMin, sk.zMax);
-    // Rampas da rampa §4.3: mesma leitura das escadas monolíticas, com `rampId` na origem.
-    const rk = sectionOfRamps(resolveRampsOnLevel(p, levelId), line, p);
-    for (const c of rk.cut) addCut(c.materialId, c.polygon, { rampId: c.rampId });
-    beyond.push(...rk.beyond);
-    snapRings.push(...rk.snapRings);
-    grow(rk.zMin, rk.zMax);
-    for (const w of wallsOnLevel(p, levelId)) {
-      const rw = resolved.walls[w.id];
-      if (!rw) continue;
-      for (const layer of rw.layers) {
-        // Parede recortada pela junção (0023 §3, regra B): a faixa cortada entra só com as partes que sobram.
-        // Faixas fundidas em prismas (bandFuse): sem contorno horizontal falso entre faixas da mesma região.
-        for (const band of fuseBands(wallLayerBandsAfterJunction(jl, rw, layer))) {
-          const z0 = rw.baseZ + band.z0;
-          const z1 = rw.baseZ + band.z1;
-          for (const poly of band.poly) {
-            for (const [t0, t1] of lineIntervals(poly, line.a, d, n)) {
-              const lo = Math.max(0, t0);
-              const hi = Math.min(length, t1);
-              if (hi - lo < EPS_T) continue;
-              const at = (t: number): number => (band.slope ? rw.baseZ + bandTopAt(band, { x: line.a.x + d.x * t, y: line.a.y + d.y * t }) : z1);
-              addCut(layer.materialId, [rect(lo, hi, z0, at(lo), at(hi))], { wallId: w.id });
-              grow(z0, z1);
-            }
-          }
-          for (const sp of intersection(band.poly, slab)) {
-            const outer = sp[0];
-            if (!outer || outer.length < 3) continue;
-            const ts = outer.map(along);
-            const tMin = Math.max(0, Math.min(...ts));
-            const tMax = Math.min(length, Math.max(...ts));
-            if (tMax - tMin < EPS_T) continue;
-            beyond.push({
-              wallId: w.id,
-              materialId: layer.materialId,
-              layerIndex: layer.layerIndex,
-              depth: Math.max(0, Math.min(...outer.map(dist))),
-              // Topo plano: retângulo; topo inclinado: projeção exata do prisma (como as lajes inclinadas).
-              polygons: band.slope ? prismProjection(outer, along, () => z0, (v) => rw.baseZ + bandTopAt(band, v)) : [[rect(tMin, tMax, z0, z1)]],
-            });
-            grow(z0, z1);
-          }
-        }
-      }
-      const f = frameOfWall(p, w.id);
-      if (!f) continue;
-      for (const o of openingsOfWall(p, w.id)) {
-        const g = openingGeometry(p, o, f);
-        const foot = orientedRect(g.center.x, g.center.y, g.u.x, g.u.y, g.width / 2, g.thickness / 2);
-        const crossing = lineIntervals([foot], line.a, d, n).some(([t0, t1]) => t1 > 0 && t0 < length);
-        if (!crossing && intersection([[foot]], slab).length === 0) continue;
-        const t0 = Math.max(0, Math.min(...foot.map(along)));
-        const t1 = Math.min(length, Math.max(...foot.map(along)));
-        if (t1 - t0 < EPS_T) continue;
-        const z0 = rw.baseZ + g.sill;
-        const model = buildOpeningModel(p, o, g, f);
-        const ot = openingType(p, o);
-        const du = d.x * g.u.x + d.y * g.u.y;
-        const dn = d.x * g.n.x + d.y * g.n.y;
-        openings.push({
-          openingId: o.id,
-          kind: g.kind,
-          t0,
-          t1,
-          z0,
-          z1: z0 + g.height,
-          depth: Math.max(0, Math.min(...foot.map(dist))),
-          cut: crossing,
-          polygons: [[rect(t0, t1, z0, z0 + g.height)]],
-          model,
-          openingLine: openingLineConvention(p),
-          // A tela cresce no sentido de `d`; `x = −viewSide·t` equivale a `x = sign(d·u)·t`.
-          viewSide: du >= 0 ? -1 : 1,
-          sSign: dn >= 0 ? 1 : -1,
-          cutT: (line.a.x - g.center.x) * g.u.x + (line.a.y - g.center.y) * g.u.y,
-          frameMaterialId: ot.frameMaterialId,
-          glassMaterialId: ot.glassMaterialId,
-        });
       }
     }
   }
+  // Lajes (D3): como os pisos, mas com inclinação; cada cota (base e topo) soma a subida no ponto da linha de corte.
+  // Lajes com caimento não entram na junção (`junctionLevel`) e seguem como antes.
+  for (const sl of resolveSlabs(p, levelId)) {
+    membranes.push(...membraneCutsOf(sl.layers, { slabId: sl.slabId }, sl.slope, frame));
+    for (const layer of sl.layers) {
+      const parts = layerPartsOf(jl.elements.get(sl.slabId), layer.layerIndex, [{ poly: layer.polygon, z0: layer.z0, z1: layer.z1 }]);
+      for (const part of parts) {
+        for (const poly of part.poly) {
+          for (const [t0, t1] of lineIntervals(poly, line.a, d, n)) {
+            const lo = Math.max(0, t0);
+            const hi = Math.min(length, t1);
+            if (hi - lo < EPS_T) continue;
+            const rl = slabRiseAt(sl.slope, { x: line.a.x + d.x * lo, y: line.a.y + d.y * lo });
+            const rh = slabRiseAt(sl.slope, { x: line.a.x + d.x * hi, y: line.a.y + d.y * hi });
+            addCut(layer.materialId, [slabQuad(lo, hi, part.z0 + rl, part.z0 + rh, part.z1 + rl, part.z1 + rh)], { slabId: sl.slabId });
+            grow(part.z0 + Math.min(rl, rh), part.z1 + Math.max(rl, rh));
+          }
+        }
+        for (const sp of intersection(part.poly, slab)) {
+          const outer = sp[0];
+          if (!outer || outer.length < 3) continue;
+          const ts = outer.map(along);
+          const tMin = Math.max(0, Math.min(...ts));
+          const tMax = Math.min(length, Math.max(...ts));
+          if (tMax - tMin < EPS_T) continue;
+          // Laje plana: retângulo. Inclinada: projeção exata do prisma (a cota sobe linear sobre o contorno).
+          const rise = (v: Vec2): number => slabRiseAt(sl.slope, v);
+          const zs = outer.map(rise);
+          beyond.push({
+            slabId: sl.slabId,
+            materialId: layer.materialId,
+            layerIndex: layer.layerIndex,
+            depth: Math.max(0, Math.min(...outer.map(dist))),
+            polygons: sl.slope ? prismProjection(outer, along, (v) => part.z0 + rise(v), (v) => part.z1 + rise(v)) : [[rect(tMin, tMax, part.z0, part.z1)]],
+          });
+          grow(part.z0 + Math.min(...zs), part.z1 + Math.max(...zs));
+        }
+      }
+    }
+  }
+  // Forros (decisão 0021): mesmo tratamento dos pisos planos (`sectionCeilings.ts`).
+  const ck = sectionOfCeilings(p, levelId, line);
+  for (const c of ck.cut) addCut(c.materialId, c.polygon, c.origin, c.hatch);
+  beyond.push(...ck.beyond);
+  grow(ck.zMin, ck.zMax);
+  // Telhados (D3): como as lajes, por água e por camada (cada faixa segue a cota da água menos `below`).
+  const rf = sectionOfRoofs(resolveRoofs(p, levelId), line);
+  for (const c of rf.cut) addCut(c.materialId, c.polygon, { roofId: c.roofId });
+  beyond.push(...rf.beyond);
+  grow(rf.zMin, rf.zMax);
+  // Escadas (decisão 0011 §6) das que nascem neste nível: degraus, patamares e espelhos (`sectionStairs.ts`).
+  const sk = sectionOfStairs(resolveStairsOnLevel(p, levelId), line, p);
+  for (const c of sk.cut) addCut(c.materialId, c.polygon, { stairId: c.stairId });
+  beyond.push(...sk.beyond);
+  snapRings.push(...sk.snapRings);
+  grow(sk.zMin, sk.zMax);
+  // Rampas da rampa §4.3: mesma leitura das escadas monolíticas, com `rampId` na origem.
+  const rk = sectionOfRamps(resolveRampsOnLevel(p, levelId), line, p);
+  for (const c of rk.cut) addCut(c.materialId, c.polygon, { rampId: c.rampId });
+  beyond.push(...rk.beyond);
+  snapRings.push(...rk.snapRings);
+  grow(rk.zMin, rk.zMax);
+  for (const w of wallsOnLevel(p, levelId)) {
+    const rw = resolved.walls[w.id];
+    if (!rw) continue;
+    for (const layer of rw.layers) {
+      // Parede recortada pela junção (0023 §3, regra B): a faixa cortada entra só com as partes que sobram.
+      // Faixas fundidas em prismas (bandFuse): sem contorno horizontal falso entre faixas da mesma região.
+      for (const band of fuseBands(wallLayerBandsAfterJunction(jl, rw, layer))) {
+        const z0 = rw.baseZ + band.z0;
+        const z1 = rw.baseZ + band.z1;
+        for (const poly of band.poly) {
+          for (const [t0, t1] of lineIntervals(poly, line.a, d, n)) {
+            const lo = Math.max(0, t0);
+            const hi = Math.min(length, t1);
+            if (hi - lo < EPS_T) continue;
+            const at = (t: number): number => (band.slope ? rw.baseZ + bandTopAt(band, { x: line.a.x + d.x * t, y: line.a.y + d.y * t }) : z1);
+            addCut(layer.materialId, [rect(lo, hi, z0, at(lo), at(hi))], { wallId: w.id });
+            grow(z0, z1);
+          }
+        }
+        for (const sp of intersection(band.poly, slab)) {
+          const outer = sp[0];
+          if (!outer || outer.length < 3) continue;
+          const ts = outer.map(along);
+          const tMin = Math.max(0, Math.min(...ts));
+          const tMax = Math.min(length, Math.max(...ts));
+          if (tMax - tMin < EPS_T) continue;
+          beyond.push({
+            wallId: w.id,
+            materialId: layer.materialId,
+            layerIndex: layer.layerIndex,
+            depth: Math.max(0, Math.min(...outer.map(dist))),
+            // Topo plano: retângulo; topo inclinado: projeção exata do prisma (como as lajes inclinadas).
+            polygons: band.slope ? prismProjection(outer, along, () => z0, (v) => rw.baseZ + bandTopAt(band, v)) : [[rect(tMin, tMax, z0, z1)]],
+          });
+          grow(z0, z1);
+        }
+      }
+    }
+    const f = frameOfWall(p, w.id);
+    if (!f) continue;
+    for (const o of openingsOfWall(p, w.id)) {
+      const g = openingGeometry(p, o, f);
+      const foot = orientedRect(g.center.x, g.center.y, g.u.x, g.u.y, g.width / 2, g.thickness / 2);
+      const crossing = lineIntervals([foot], line.a, d, n).some(([t0, t1]) => t1 > 0 && t0 < length);
+      if (!crossing && intersection([[foot]], slab).length === 0) continue;
+      const t0 = Math.max(0, Math.min(...foot.map(along)));
+      const t1 = Math.min(length, Math.max(...foot.map(along)));
+      if (t1 - t0 < EPS_T) continue;
+      const z0 = rw.baseZ + g.sill;
+      const model = buildOpeningModel(p, o, g, f);
+      const ot = openingType(p, o);
+      const du = d.x * g.u.x + d.y * g.u.y;
+      const dn = d.x * g.n.x + d.y * g.n.y;
+      openings.push({
+        openingId: o.id,
+        kind: g.kind,
+        t0,
+        t1,
+        z0,
+        z1: z0 + g.height,
+        depth: Math.max(0, Math.min(...foot.map(dist))),
+        cut: crossing,
+        polygons: [[rect(t0, t1, z0, z0 + g.height)]],
+        model,
+        openingLine: openingLineConvention(p),
+        // A tela cresce no sentido de `d`; `x = −viewSide·t` equivale a `x = sign(d·u)·t`.
+        viewSide: du >= 0 ? -1 : 1,
+        sSign: dn >= 0 ? 1 : -1,
+        cutT: (line.a.x - g.center.x) * g.u.x + (line.a.y - g.center.y) * g.u.y,
+        frameMaterialId: ot.frameMaterialId,
+        glassMaterialId: ot.glassMaterialId,
+      });
+    }
+  }
+  return { cuts, beyond, openings, membranes, snapRings, zMin, zMax };
+}
 
+export function computeSection(p: Project, line: SectionLine, levelIds: Id[] = p.levels.map((l) => l.id)): SectionResult {
+  return assembleSection(p, line, levelIds.map((id) => sectionLevelPart(p, id, line)));
+}
+
+/** União, oclusão e acabamento das partes por pavimento (na ordem dos pavimentos) num `SectionResult`. */
+export function assembleSection(p: Project, line: SectionLine, parts: readonly SectionLevelPart[]): SectionResult {
+  const { length } = sectionFrame(line);
+  const empty: SectionResult = { length, zMin: 0, zMax: 3, cut: [], silhouette: [], beyond: [], openings: [], membranes: [], levels: [] };
+  if (length < 1e-6) return empty;
+  const cutBy = new Map<string, { materialId: Id; hatch?: HatchKind; items: Array<{ polygon: Polygon; origin: SectionOrigin }> }>();
+  const beyond: SectionBeyond[] = [];
+  const snapRings: SectionSnapRing[] = [];
+  const membranes: SectionMembrane[] = [];
+  const openings: SectionOpening[] = [];
+  let zMin = Infinity;
+  let zMax = -Infinity;
+  for (const part of parts) {
+    for (const c of part.cuts) {
+      const key = `${c.materialId}|${c.hatch ?? ''}`;
+      const entry = cutBy.get(key) ?? { materialId: c.materialId, hatch: c.hatch, items: [] };
+      entry.items.push({ polygon: c.polygon, origin: c.origin });
+      cutBy.set(key, entry);
+    }
+    for (const b of part.beyond) beyond.push(b);
+    for (const o of part.openings) openings.push(o);
+    for (const m of part.membranes) membranes.push(m);
+    for (const r of part.snapRings) snapRings.push(r);
+    zMin = Math.min(zMin, part.zMin);
+    zMax = Math.max(zMax, part.zMax);
+  }
   // Linha oculta: corte (depth 0), vãos e o além numa só ordem do mais perto ao mais longe; cada um vê o que sobra.
   // O corte é ocluído peça a peça (uma por origem em cada material), pela cota (`cotaKeys`), não pela ordem de inserção.
   const cutEntries = [...cutBy.values()];
@@ -397,120 +434,4 @@ export function computeSection(p: Project, line: SectionLine, levelIds: Id[] = p
   const levels = p.levels.map((l) => ({ levelId: l.id, name: l.name, z: l.elevation }));
   if (!isFinite(zMin)) return { ...empty, levels };
   return { length, zMin, zMax, cut, silhouette, beyond: beyondVisible, openings: openingsVisible, membranes, levels, ...(snapRings.length > 0 ? { snapRings } : {}) };
-}
-
-/** Telhado no corte (D3): quadriláteros da linha de corte por material e, além do plano, as faixas por camada. */
-export interface RoofSection {
-  /** Corte por água e camada, com o telhado de origem (`roofId`). */
-  cut: Array<{ materialId: Id; polygon: Polygon; roofId: Id }>;
-  beyond: SectionBeyond[];
-  /** Cotas extremas (Infinity/-Infinity sem telhado na linha). */
-  zMin: number;
-  zMax: number;
-}
-
-/** Envoltória convexa (cadeia monótona), anel anti-horário; com menos de 3 vértices, pontos colineares. */
-function convexHull(pts: Vec2[]): Ring {
-  const s = [...pts].sort((a, b) => a.x - b.x || a.y - b.y);
-  const cross = (o: Vec2, a: Vec2, b: Vec2): number => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
-  const chain = (seq: Vec2[]): Vec2[] => {
-    const h: Vec2[] = [];
-    for (const q of seq) {
-      while (h.length >= 2 && cross(h[h.length - 2]!, h[h.length - 1]!, q) <= 0) h.pop();
-      h.push(q);
-    }
-    h.pop();
-    return h;
-  };
-  return [...chain(s), ...chain([...s].reverse())];
-}
-
-/**
- * Corte esquadro (Revit: Rafter Cut 'square') no beiral: a base da camada recua ao longo da água, de modo que o corte
- * fica perpendicular ao plano. Com G = % / 100 e T a espessura vertical da camada, o deslocamento ao longo da subida é
- * s = G·T/(1+G²); o comprimento do corte (perpendicular ao plano) é T·cos θ. Para 100 % e T = 10 cm: s = 5,00 cm e
- * corte de 7,07 cm.
- */
-export function squareCutRun(percent: number, thickness: number): number {
-  return ((percent / 100) * thickness) / (1 + (percent / 100) ** 2);
-}
-
-/**
- * Telhados no corte e na elevação (D3), como as lajes. Por água e por camada, a faixa vertical de cada ponto p vai de
- * top(p) − below − thickness a top(p) − below. No corte, a linha dá intervalos de t dentro da água e cada faixa é um
- * quadrilátero (topo e base são lineares em t). Além do plano, cada triângulo da água projeta-se em (t, z) com
- * seis pontos (topo e base); a envoltória convexa de cada um e a união delas é a silhueta da camada (exata para
- * águas convexas, que é o caso das formas predefinidas).
- */
-export function sectionOfRoofs(roofs: ResolvedRoof[], line: SectionLine): RoofSection {
-  const out: RoofSection = { cut: [], beyond: [], zMin: Infinity, zMax: -Infinity };
-  const { length, d, n, slab } = sectionFrame(line);
-  if (length < 1e-6) return out;
-  const along = (v: Vec2): number => (v.x - line.a.x) * d.x + (v.y - line.a.y) * d.y;
-  const dist = (v: Vec2): number => (v.x - line.a.x) * n.x + (v.y - line.a.y) * n.y;
-  const at = (t: number): Vec2 => ({ x: line.a.x + d.x * t, y: line.a.y + d.y * t });
-  for (const r of roofs) {
-    const layers = r.layers.filter((l) => l.thickness > 1e-9);
-    // Corte esquadro só nas extremidades sobre uma aresta de beiral (linha 'eave'); prumo (padrão) não muda nada.
-    const square = r.rafterCut === 'square';
-    const eaves = r.lines.filter((l) => l.kind === 'eave');
-    const onEave = (v: Vec2): boolean => square && eaves.some((l) => Math.hypot(closestOnSegment(v, l.a, l.b).x - v.x, closestOnSegment(v, l.a, l.b).y - v.y) < 1e-6);
-    for (const pl of r.planes) {
-      const cuts = pl.polygon
-        .flatMap((poly) => lineIntervals(poly, line.a, d, n))
-        .map(([t0, t1]): [number, number] => [Math.max(0, t0), Math.min(length, t1)])
-        .filter(([lo, hi]) => hi - lo >= EPS_T);
-      const view = intersection(pl.polygon, slab);
-      for (const l of layers) {
-        const top = (v: Vec2): number => planeZ(pl, v) - l.below;
-        const G = pl.percent / 100;
-        const run = square ? squareCutRun(pl.percent, l.thickness) : 0;
-        // Cosseno entre a seção e a subida da água: no corte esquadro, a base desloca s / cos ao longo da seção.
-        const c = d.x * pl.up.x + d.y * pl.up.y;
-        for (const [lo, hi] of cuts) {
-          const u0 = top(at(lo));
-          const u1 = top(at(hi));
-          let bl: Vec2 = { x: lo, y: u0 - l.thickness };
-          let br: Vec2 = { x: hi, y: u1 - l.thickness };
-          if (square && Math.abs(c) > 1e-9) {
-            const k = run / c;
-            if (c > 0 && lo + k < hi && onEave(at(lo))) bl = { x: lo + k, y: top(at(lo + k)) - l.thickness };
-            if (c < 0 && hi + k > lo && onEave(at(hi))) br = { x: hi + k, y: top(at(hi + k)) - l.thickness };
-          }
-          out.cut.push({ materialId: l.materialId, polygon: [[bl, br, { x: hi, y: u1 }, { x: lo, y: u0 }]], roofId: r.roofId });
-          out.zMin = Math.min(out.zMin, u0 - l.thickness, u1 - l.thickness);
-          out.zMax = Math.max(out.zMax, u0, u1);
-        }
-        const parts: MultiPolygon[] = [];
-        let depth = Infinity;
-        for (const piece of view) {
-          const outer = piece[0];
-          if (!outer || outer.length < 3) continue;
-          depth = Math.min(depth, ...outer.map(dist));
-          const mesh = triangulate(piece);
-          for (let i = 0; i < mesh.indices.length; i += 3) {
-            const pts = [0, 1, 2].flatMap((k) => {
-              const j = mesh.indices[i + k]!;
-              const v = { x: mesh.positions[2 * j]!, y: mesh.positions[2 * j + 1]! };
-              // Corte esquadro no beiral: a base recua s ao longo da subida (projeta-se em s·cos e sobe G·s).
-              const base = square && onEave(v) ? { x: along(v) + run * c, y: top(v) + G * run - l.thickness } : { x: along(v), y: top(v) - l.thickness };
-              return [{ x: along(v), y: top(v) }, base];
-            });
-            const hull = convexHull(pts);
-            if (hull.length >= 3) parts.push([[hull]]);
-          }
-        }
-        if (!parts.length) continue;
-        const polygons = union(...parts);
-        out.beyond.push({ roofId: r.roofId, materialId: l.materialId, layerIndex: l.layerIndex, depth: Math.max(0, depth), polygons });
-        for (const ring of polygons.flat()) {
-          for (const v of ring) {
-            out.zMin = Math.min(out.zMin, v.y);
-            out.zMax = Math.max(out.zMax, v.y);
-          }
-        }
-      }
-    }
-  }
-  return out;
 }
