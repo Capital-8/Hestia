@@ -63,6 +63,8 @@ export function SlabProperties({ slabs }: { slabs: Slab[] }): ReactElement {
   const single = slabs.length === 1 ? slabs[0]! : null;
   const type = typeId.mixed ? null : p.slabTypes[typeId.value];
   const slabKey = slabs.map((s) => `${s.id}:${s.levelId}`).join(',');
+  // A lista `slabs` é nova a cada render do painel; a chave por ids/níveis é o que identifica a seleção (senão o memo nunca valeria).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const resolved = useMemo(() => resolvedPlanAreas(p, slabs), [p, slabKey]);
   const planOf = (x: Slab): number => resolved.get(x.id) ?? slabArea(x);
   const planArea = slabs.reduce((s, x) => s + planOf(x), 0);

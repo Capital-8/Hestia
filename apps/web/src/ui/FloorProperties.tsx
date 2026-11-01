@@ -41,6 +41,8 @@ export function FloorProperties({ floors }: { floors: Floor[] }): ReactElement {
   const single = floors.length === 1 ? floors[0]! : null;
   const type = typeId.mixed ? null : p.floorTypes[typeId.value];
   const floorKey = floors.map((f) => `${f.id}:${f.levelId}`).join(',');
+  // A lista `floors` é nova a cada render do painel; a chave por ids/níveis é o que identifica a seleção (senão o memo nunca valeria).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const resolved = useMemo(() => resolvedAreas(p, floors), [p, floorKey]);
   const areaOf = (f: Floor): number => resolved.get(f.id) ?? floorArea(f);
   const area = floors.reduce((s, f) => s + areaOf(f), 0);
