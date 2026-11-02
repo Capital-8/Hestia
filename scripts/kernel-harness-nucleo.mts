@@ -11,6 +11,8 @@ import { GerenciadorKernelV2 } from '../packages/geom/src/kernel/v2/gerenciador.
 import { fonteDeParedes } from '../packages/geom/src/kernel/v2/paredes.ts';
 import { argumentosA2, decodificarA2, referenciaA2 } from '../packages/engine/src/kernelA2.ts';
 import { compararA2 } from './kernel-harness-a2.mts';
+import { argumentosA3, decodificarA3a, montarCenaA3, referenciaA3a } from '../packages/engine/src/kernelA3.ts';
+import { compararA3 } from './kernel-harness-a3.mts';
 import { fonteDeSecoes } from '../packages/geom/src/kernel/v2/quadros.ts';
 import {
   referenciaEstatisticasNivel,
@@ -90,6 +92,7 @@ export interface OpcoesHarness {
 export async function executarHarness({ projeto, wasm, gerenciador, a1 }: OpcoesHarness): Promise<ResultadoHarness> {
   const { paredes, ignoradas, nomes } = paredesDoProjeto(projeto);
   const cenaA1 = montarCenaA1(projeto);
+  const cenaA3 = montarCenaA3(projeto, cenaA1);
   const rodarA1 = a1 ?? Boolean(wasm);
   const tolJuncao = projeto.settings?.joinTolerance ?? 0.02;
   let desvioMaximoA1 = 0;
@@ -111,6 +114,8 @@ export async function executarHarness({ projeto, wasm, gerenciador, a1 }: Opcoes
     paredes_quadro: { colunas: cenaA1.secoes.paredes_quadro, n: cenaA1.nLinhas.paredes_quadro },
     faixas: { colunas: cenaA1.secoes.faixas, n: cenaA1.nLinhas.faixas },
     paredes_z: { colunas: cenaA1.secoes.paredes_z, n: cenaA1.nLinhas.paredes_z },
+    tipos_abertura: { colunas: cenaA3.secoes.tipos_abertura, n: cenaA3.nLinhas.tipos_abertura },
+    aberturas: { colunas: cenaA3.secoes.aberturas, n: cenaA3.nLinhas.aberturas },
   });
   const cena = CenaV2.criar(ger, rodarA1 ? fonteDeSecoes(secoesA1) : fonteDeParedes(() => paredes));
   const uploadTotal = performance.now() - t0;
@@ -185,6 +190,13 @@ export async function executarHarness({ projeto, wasm, gerenciador, a1 }: Opcoes
         if (cmp2.divergencias.length > 0) falha(`itens_pintados difere: ${cmp2.divergencias.slice(0, 5).join(' | ')}`);
         desvioMaximoA1 = Math.max(desvioMaximoA1, cmp2.desvioMaximo);
         registrar('itens_pintados', rm2, t2, cmp2.divergencias.length === 0);
+        // aberturas_geom (A3a): vãos (openingGeometry e openingRect) contra o motor TypeScript
+        const [refA3, rm3] = medir(() => referenciaA3a(projeto, levelId, cenaA1, cenaA3));
+        const [s3, t3] = medir(() => decodificarA3a(cena.consultar('aberturas_geom', argumentosA3(cenaA1, levelId))));
+        const cmp3 = compararA3(refA3, s3);
+        if (cmp3.divergencias.length > 0) falha(`aberturas_geom difere: ${cmp3.divergencias.slice(0, 5).join(' | ')}`);
+        desvioMaximoA1 = Math.max(desvioMaximoA1, cmp3.desvioMaximo);
+        registrar('aberturas_geom', rm3, t3, cmp3.divergencias.length === 0);
       }
       if (passada === 1) linhas.push(...acc.values());
     }

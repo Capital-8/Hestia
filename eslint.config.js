@@ -22,4 +22,6 @@ export default tseslint.config(
     },
   },
   { files: ['**/*.test.ts'], rules: { 'max-lines': 'off' } },
+  // Gerado a partir de crates/geom-wasm/schema/cena-v*.json (scripts/gerar-esquema-kernel.mjs): cresce com o esquema.
+  { files: ['**/*.gerado.ts'], rules: { 'max-lines': 'off' } },
 );
