@@ -89,6 +89,12 @@ export interface OpcoesHarness {
 export async function executarHarness({ projeto, wasm, gerenciador }: OpcoesHarness): Promise<ResultadoHarness> {
   const { paredes, ignoradas, nomes } = paredesDoProjeto(projeto);
   const ger = gerenciador ?? (wasm ? await GerenciadorKernelV2.dosBytes(wasm) : gerenciadorFalso().ger);
+  // Ciclo vazio antes da base: o Rust mantém um resíduo fixo (~544 bytes: tabela de handles + texto de erro).
+  for (let i = 0; i < 2; i++) {
+    const aquecimento = CenaV2.criar(ger, fonteDeParedes(() => paredes.slice(0, 2)));
+    aquecimento.consultar('estatisticas_nivel', [0]);
+    aquecimento.destruir();
+  }
   const inicial = ger.instancia().exports.memoria_usada();
   const divergencias: string[] = [];
 

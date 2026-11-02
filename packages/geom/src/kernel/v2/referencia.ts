@@ -5,8 +5,8 @@
  * Regras (as mesmas de `crates/geom-wasm/src/consultas.rs`):
  * - caixa da parede = caixa do segmento expandida por `espessura / 2` em cada lado;
  * - `paredes_na_caixa`: a caixa da parede cruza a caixa pedida (fronteira inclusiva);
- * - `pares_proximos`: a caixa de uma parede expandida por `tol` cruza a da outra (equivale a a distância por
- *   eixo entre as caixas, zero se se sobrepõem, ser <= tol nos dois eixos); fronteira inclusiva;
+ * - `pares_proximos`: cada caixa (com espessura) expandida por `tol / 2` em cada lado; cruzamento inclusivo
+ *   (distância por eixo entre as caixas <= tol);
  * - resultados em ordem crescente de `id_num` / pares lexicográficos.
  */
 import { NIVEL_TODOS } from './esquema.gerado.ts';
@@ -85,12 +85,13 @@ export function referenciaParedesNaCaixa(
 export function referenciaParesProximos(paredes: readonly LinhaParede[], nivel: number, tol: number): Uint32Array {
   const ps = doNivel(paredes, nivel);
   const caixas = ps.map(caixaDaParede);
+  const g = tol / 2;
   const pares: number[] = [];
   for (let i = 0; i < ps.length; i++) {
     const a = caixas[i]!;
     for (let j = i + 1; j < ps.length; j++) {
       const b = caixas[j]!;
-      if (a.minx - tol <= b.maxx && a.maxx + tol >= b.minx && a.miny - tol <= b.maxy && a.maxy + tol >= b.miny) {
+      if (a.minx - g <= b.maxx + g && b.minx - g <= a.maxx + g && a.miny - g <= b.maxy + g && b.miny - g <= a.maxy + g) {
         pares.push(ps[i]!.id, ps[j]!.id);
       }
     }

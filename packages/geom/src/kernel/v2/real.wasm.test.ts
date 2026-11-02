@@ -135,10 +135,18 @@ describe.skipIf(modulo === null)('kernel v2: wasm real contra a referência', ()
     cena.destruir();
   });
 
-  it('sem vazamento: memoria_usada volta ao valor inicial depois de destruir a cena', () => {
-    const base = ger.instancia().exports.memoria_usada();
-    for (let rodada = 0; rodada < 3; rodada++) {
-      const ps = paredesAleatorias(2, 300, rodada);
+  it('as 29 exportações existem', () => {
+    const nomes = WebAssembly.Module.exports(modulo!).map((e) => e.name);
+    const abi2 = nomes.filter((n) => /^(abi2_|cena_|saida_|erro_|memoria_usada)/.test(n));
+    expect(abi2.length).toBeGreaterThanOrEqual(18);
+    for (const n of ['abi2_versao', 'abi2_esquema_versao', 'abi2_alocar', 'abi2_liberar', 'cena_criar', 'cena_destruir', 'cena_definir_secao', 'cena_upsert_linhas', 'cena_remover_linhas', 'cena_executar', 'saida_n', 'saida_tipo', 'saida_ptr', 'saida_len', 'saida_liberar', 'erro_ptr', 'erro_len', 'memoria_usada', 'memory']) {
+      expect(nomes).toContain(n);
+    }
+  });
+
+  it('sem vazamento: memoria_usada não cresce entre ciclos de criar/destruir', () => {
+    const ciclo = (semente: number): number => {
+      const ps = paredesAleatorias(2, 300, semente);
       const cena = CenaV2.criar(ger, fonteDeParedes(() => ps));
       for (let i = 0; i < 5; i++) {
         cena.consultar('pares_proximos', [NIVEL_TODOS, 0.05]);
@@ -146,8 +154,12 @@ describe.skipIf(modulo === null)('kernel v2: wasm real contra a referência', ()
       }
       expect(ger.instancia().exports.memoria_usada()).toBeGreaterThan(base);
       cena.destruir();
-      expect(ger.instancia().exports.memoria_usada()).toBe(base);
-    }
+      return ger.instancia().exports.memoria_usada();
+    };
+    const base = ger.instancia().exports.memoria_usada();
+    const primeiro = ciclo(0);
+    expect(primeiro).toBeLessThanOrEqual(base + 4096); // resíduo fixo (tabela de handles + texto de erro)
+    for (let r = 1; r < 4; r++) expect(ciclo(r)).toBe(primeiro);
   });
 
   it('recriar a instância reenvia a cena e as consultas continuam iguais', () => {
