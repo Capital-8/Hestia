@@ -123,3 +123,24 @@ coordenada, 1e-6 m²/m³; só o fragmento do pintor segue a 0048.
   perfis), no projeto real e nos sintéticos.
 
 A4 (modo sombra e interruptor) vem depois, e a parada para validação visual do dono é única, depois da A4.
+
+## 8 — A3a entregue (2026-11-02)
+
+Esquema `cena-v4.json` (`versao` 4; renomeado de `cena-v3.json`, todos os leitores atualizados). Seções novas `tipos_abertura`
+(`largura`, `altura`, `peitoril`, `folga_w`, `folga_h`, `folhas`, `plano`) e `aberturas` (`tipo_num`, `parede_num`, `kind`,
+`deslocamento`, `flip_mao`, `flip_frente`, `tem_peitoril`/`peitoril`, `tem_altura`/`altura`). O JS envia o tipo já normalizado para o
+vão (`openingType` = `spanTypeOf`, que cobre `nominalRef` leaf e composição) e os overrides da instância; o Rust calcula a altura
+efetiva (`openingHeight`: override só se > 0), o vão bruto (`openingRough`, folga negativa vale 0), o peitoril (`sillOverride ?? sill`, o 0
+conta), centro, `u`, `n` (no deslocamento, pelo quadro da A1) e `cutHalf` (`cutHalfOf`, só em arco). Consulta nova `aberturas_geom(nivel_num)`
+devolve por abertura `ids`, `dados`, `medidas` (16 valores, `meia_prof` NaN em parede reta) e `retangulo` (os 4 vértices de `openingRect`).
+`furos_de` (`furosDe` sem o cache) existe em `a3.rs` como função interna para a A3c e usa `ops::diferenca` (1 µm, a escala da ABI v1;
+o pintor da A2 segue a única exceção, 0048).
+
+Decisão de interface: os perfis de topo e de base de `wallZRange` **não** entram em `paredes_z` na A3a (nenhuma consulta da A3a os lê;
+entram na A3d, onde `withProfile`/`withBottomProfile` os consomem). `paredes_z` fica como na v3 (`z0`, `altura`).
+
+Equivalência: referência `packages/engine/src/kernelA3.ts` (`referenciaA3a` extrai `openingGeometry` e `openingRect`; nada de geometria
+reescrita em TS), harness `scripts/kernel-harness-a3.mts`, testes `tests/kernel-a3a-referencia.test.ts` e `tests/kernel-a3a.wasm.test.ts`.
+Identidade exata, todo número a 1 µm e área do furo a 1e-6 m², sem exceção; o desvio medido é ~5e-16. Onze mutações do Rust (folga do furo,
+sinal da altura em `>=` e `> 1e-6`, piso da folga, piso do radicando do desvio, peitoril 0, `s_mid`, normal e tangente no início em vez do
+deslocamento, folga do furo em arco, ordem dos vértices) foram todas reprovadas pelo teste.
