@@ -48,3 +48,33 @@ Estimativa: 2,5–3,5 mil linhas de Rust, como já previsto.
 - Ordem de iteração e desempate do pintor (`priority`, `through`, `coreT`, `order`, `layerIndex`) precisam ser
   idênticos; manhas do TS são reproduzidas primeiro, correções depois e separadas.
 - `VERSAO_MOTOR_GEOMETRIA` sobe se o resultado de `resolveLevel` mudar (cache IndexedDB).
+
+## 6 — A1 entregue (2026-11-02)
+
+Esquema `cena-v2.json` (`versao` 2; o arquivo foi renomeado de `cena-v1.json` e todos os leitores atualizados).
+Diferente do rascunho da seção 3, a seção `paredes` **não mudou de forma**: as três consultas da Fase 0 e o harness
+continuam como estavam, e a A1 acrescenta seções novas com a mesma chave `id_num`:
+
+| Seção | Conteúdo |
+|---|---|
+| `paredes_quadro` | `tipo_num`, `ordem`, `linha_loc`, `invertida`, `sem_junta_a/b`, `junta_a/b_tipo` e `_inverte`, `sag`, `z0`, `topo` (o JS envia `z0` e `topo` prontos: `wallBaseElevation` e base + `wallMaxHeight`) |
+| `tipos_parede` | `n_camadas` (conferência de integridade) |
+| `camadas` | `tipo_num`, `indice`, `espessura`, `funcao`, `tem_prioridade`/`prioridade` (o núcleo é derivado da função, como `coreRange`) |
+
+Consulta nova `quadros_e_juncoes(nivel_num, tol_juncao)`: `tol_juncao` é um argumento a mais que o rascunho não previa,
+porque `Project.settings.joinTolerance` entra em `computeEnds`/`joinStatus`. Saídas (codificação por saída no JSON):
+`ids`, `quadro` (17 valores por parede), `arco`, `estado_pontas`, `parceiros`, `pontas_cab`/`pontas_dados` (corte de cada
+extremidade: reto, esquadria, degraus ou plano), `cordas_cab`/`cordas` e `grupos`.
+
+Regras de equivalência que a implementação fixou (e que o harness verifica):
+
+- A ordem dos quadros é a de `wallsOnLevel`: `ordem` crescente, empate por `id_num` (o JS interna os ids na ordem de
+  iteração do projeto, então o empate reproduz a ordenação estável).
+- `Math.hypot` e `Math.round` do V8 são reproduzidos (`hipot`, `arredonda_js` em `geo2d.rs`); `sin`/`cos`/`atan2` usam o
+  `libm` do wasm, que descende do mesmo fdlibm do V8. No Node o desvio máximo medido foi 1,8e-15 m.
+- `hi` e `lo` de `EndSpec` são sempre o mesmo corte (só `both` os constrói), então uma extremidade guarda um corte só.
+- A referência é o próprio motor, extraída por `packages/engine/src/kernelA1.ts` (`levelFrames`, `computeEnds`,
+  `joinStatus`, `clusterWalls`, agora exportada); o Rust não tem versão intermediária em TypeScript. O falso do lado
+  TypeScript responde `NAO_IMPLEMENTADO` à consulta nova.
+- Módulos Rust: `geo2d` (vetores e arcos), `quadro` (`WallFrame`), `juncoes` (`joins*`), `grupos` (`clusterWalls` e
+  `endPoint`), `secoes_a1` (armazenamento e validação das seções) e `a1` (a consulta e a codificação das saídas).

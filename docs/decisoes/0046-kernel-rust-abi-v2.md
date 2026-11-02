@@ -21,7 +21,7 @@ Não migram: React, desenho do three.js, cola de editor e comandos.
 
 1. **Fronteira e dados.** O projeto entra no WASM **uma vez**, em seções de colunas (um array tipado por campo, ids
    internados em `u32`); mudanças entram como upsert/remoção de linhas; respostas voltam como arrays tipados. O formato
-   é descrito por `crates/geom-wasm/schema/cena-v1.json` (fonte única, versionada). Um teste de contrato de cada lado
+   é descrito por `crates/geom-wasm/schema/cena-v2.json` (fonte única, versionada; renomeado de `cena-v1.json` na sub-etapa A1 da fatia A, ver 0047 §6). Um teste de contrato de cada lado
    (TS e Rust) lê esse JSON e confere as constantes.
 2. **O estado do Rust é cache.** A fonte da verdade é o projeto no JavaScript. Toda instância, cena e saída pode ser
    descartada e reconstruída a partir dele. Isso é o que torna segura a recriação de instância.
@@ -66,7 +66,7 @@ de `memory.buffer`** (a memória pode ter crescido e destacado o buffer anterior
 | Função | Assinatura | Descrição |
 |---|---|---|
 | `abi2_versao` | `() -> u32` | `2` |
-| `abi2_esquema_versao` | `() -> u32` | `versao` de `cena-v1.json` (`1`) |
+| `abi2_esquema_versao` | `() -> u32` | `versao` de `cena-v2.json` (`2` desde a sub-etapa A1; era `1` na Fase 0) |
 | `abi2_alocar` | `(bytes: u32) -> u32` | ponteiro alinhado a 8 bytes, ou `0` em falha |
 | `abi2_liberar` | `(ptr: u32, bytes: u32)` | libera uma alocação de `abi2_alocar` |
 | `cena_criar` | `() -> u32` | handle `>= 1`, ou `0` em falha |
@@ -115,7 +115,7 @@ seção desconhecida → `ENTRADA`.
   `abi2_esquema_versao`, aplica a política de recriação do item 3 e expõe o estado ao diálogo "Experimentais".
 - **Cena** (`CenaV2`): `definirSecao`, `upsert`, `remover`, `consultar`, `destruir`. Mantém uma **fonte da cena**
   (função que reenvia tudo) para a recriação.
-- **Codificação por esquema**: um único módulo gerado ou dirigido por `cena-v1.json`; o teste de contrato garante que
+- **Codificação por esquema**: um único módulo gerado ou dirigido por `cena-v2.json`; o teste de contrato garante que
   tipos, ordem de colunas, ids de seção/consulta e códigos batem com o Rust.
 - **Erros**: `ErroKernelLeve` (o chamador cai para o TypeScript naquela chamada) e `ErroKernelGrave` (já tratado pelo
   gerenciador; só chega ao chamador se desligou).
