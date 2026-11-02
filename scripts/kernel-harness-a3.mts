@@ -230,10 +230,31 @@ export interface ComparacaoA3c {
   silhuetasForaDaTolerancia: number;
   /** Regiões/silhuetas aceitas por exceção nomeada (0049). */
   excecoesUsadas: number;
-  /** Estatística da 0049, medida SEM bloquear: regiões e silhuetas de topologia diferente, acima do limite 1e-5 + 5e-4 x área, e a maior fração desse limite. */
+  /** Estatística da 0049 (medida, não bloqueia por si). */
+  estat0049: Estat0049;
+}
+
+/** Estatística das regiões e silhuetas fora das exceções nomeadas (0049). */
+export interface Estat0049 {
+  /** Regiões/silhuetas cuja contagem de peças/furos SIGNIFICATIVOS difere. */
   topologiaDiferente: number;
-  acimaDoLimite0049: number;
-  maxFracaoDoLimite0049: number;
+  /** Componentes (peças e furos) abaixo do limiar de fiapo, nos dois lados. */
+  fiaposDeRegiao: number;
+  /** Maior razão `max(dArea, simétrica) / perímetro / 1e-6` (o `K` da regra 3). */
+  maxK: number;
+  /** Componentes sem par (qualquer tamanho, nas regiões de topologia diferente ou não): contagem, maior área, > 1e-4, > 1e-3, em peças e em furos. */
+  semPar: { n: number; max: number; acima1e4: number; acima1e3: number; pecas: number; furos: number };
+}
+
+export const estat0049Zero = (): Estat0049 => ({ topologiaDiferente: 0, fiaposDeRegiao: 0, maxK: 0, semPar: { n: 0, max: 0, acima1e4: 0, acima1e3: 0, pecas: 0, furos: 0 } });
+
+export function somaEstat0049(a: Estat0049, b: Estat0049): void {
+  a.topologiaDiferente += b.topologiaDiferente;
+  a.fiaposDeRegiao += b.fiaposDeRegiao;
+  a.maxK = Math.max(a.maxK, b.maxK);
+  a.semPar.n += b.semPar.n;
+  a.semPar.max = Math.max(a.semPar.max, b.semPar.max);
+  for (const k of ['acima1e4', 'acima1e3', 'pecas', 'furos'] as const) a.semPar[k] += b.semPar[k];
 }
 
 const simetrica = (a: MultiPolygon, b: MultiPolygon): number => areaDaForma(a.length && b.length ? difference(a, b) : a) + areaDaForma(a.length && b.length ? difference(b, a) : b);
@@ -290,33 +311,124 @@ export function faixasIguais(ref: FaixaA3c[], rust: FaixaA3c[], nota: (tipo: Tip
   return { erro: null, refinamento: true };
 }
 
-/** Limite de região e silhueta da decisão 0049: 1e-5 + 5e-4 x área (máximo observado no A3c: 1e-5 + 4,2e-4 x área). */
-export const COEF_REGIAO_0049 = 5e-4;
+// ---- Decisão 0049 (refinada): regiões por material e silhuetas -------------------------------------------------------------
+//
+// 1. Topologia igual nos componentes SIGNIFICATIVOS (área > `LIMIAR_FIAPO`): mesmo número de peças e de furos. Componentes menores são
+//    fiapos de arredondamento: contam em `fiaposDeRegiao` e a área deles já está no limite.
+// 2. Limite `1e-5 + K x perímetro x 1e-6` (diferença de área e diferença simétrica); `K_REGIAO_0049` vem da medição (0047 §11).
+// 3. Guarda de erro grosseiro de 1e-2 m².
+// 4. Exceções nomeadas (defeito do TS): só a guarda de erro grosseiro, e só se o Rust concordar com a união exata (`verificaExcecao`).
 
-/** Exceção NOMEADA da 0049 (defeito do TS, não do Rust): região do `material` (e do `grupo`, se dado) cujo desvio só tem a guarda de erro grosseiro. */
+/** Limiar de fiapo (m²) dos componentes de uma região (0049, regra 2). */
+export const LIMIAR_FIAPO = 1e-4;
+
+/**
+ * `K` da regra 3 da 0049: 1,5 x a maior razão `simétrica / perímetro / 1e-6` medida no estresse (12 sementes x 2 pavimentos x 7 opções de planta,
+ * A3c e A3d) fora das exceções nomeadas. Ver 0047 §11 (valor medido e amostra).
+ */
+export const K_REGIAO_0049 = Number.POSITIVE_INFINITY;
+
+/** Exceção NOMEADA da 0049 (defeito do TS, não do Rust): região do `material` (e do `grupo`, se dado) e, com `silhueta`, a silhueta do mesmo grupo. */
 export interface ExcecaoNomeada {
   material: number;
   grupo?: number;
+  /** A exceção cobre também a silhueta do mesmo grupo (derivada da mesma união). */
+  silhueta?: boolean;
   motivo: string;
+}
+
+const areaAnelAbs = (r: Array<{ x: number; y: number }>): number => Math.abs(areaAnel(r));
+/** Perímetro total (todos os anéis) de uma forma. */
+export const perimetroDaForma = (m: MultiPolygon): number => m.reduce((t, p) => t + p.reduce((s, r) => s + r.reduce((u, q, i) => u + Math.hypot(q.x - r[(i + 1) % r.length]!.x, q.y - r[(i + 1) % r.length]!.y), 0), 0), 0);
+
+interface Componente {
+  area: number;
+  tipo: 'peça' | 'furo';
+  poly: MultiPolygon;
+}
+
+/** Peças (área líquida) e furos (anel interno) de uma forma. */
+function componentesDaForma(m: MultiPolygon): Componente[] {
+  const out: Componente[] = [];
+  for (const p of m) {
+    const outer = p[0] ?? [];
+    const furos = p.slice(1);
+    out.push({ area: areaAnelAbs(outer) - furos.reduce((t, h) => t + areaAnelAbs(h), 0), tipo: 'peça', poly: [p] });
+    for (const h of furos) out.push({ area: areaAnelAbs(h), tipo: 'furo', poly: [[h]] });
+  }
+  return out;
+}
+
+/** Componentes de `a` sem par em `b` (nenhum componente de mesmo tipo de `b` cobre ao menos metade do menor dos dois). */
+function semPar(a: Componente[], b: Componente[]): Componente[] {
+  return a.filter((x) => !b.some((y) => {
+    if (x.tipo !== y.tipo) return false;
+    const inter = areaDaForma(intersection(x.poly, y.poly));
+    return inter > 0.5 * Math.min(x.area, y.area);
+  }));
+}
+
+export interface Topologia0049 {
+  /** Nº de peças e de furos significativos de cada lado. */
+  ts: string;
+  rust: string;
+  /** Componentes sem par (qualquer tamanho) de cada lado. */
+  semPar: Componente[];
+  /** Fiapos (abaixo do limiar) em cada lado. */
+  fiapos: number;
+}
+
+/** Topologia da 0049: contagem dos componentes significativos. */
+export function topologia0049(a: MultiPolygon, b: MultiPolygon): Topologia0049 {
+  const ca = componentesDaForma(a);
+  const cb = componentesDaForma(b);
+  const sig = (c: Componente[]): string => `${c.filter((x) => x.tipo === 'peça' && x.area > LIMIAR_FIAPO).length}/${c.filter((x) => x.tipo === 'furo' && x.area > LIMIAR_FIAPO).length}`;
+  return {
+    ts: sig(ca),
+    rust: sig(cb),
+    semPar: [...semPar(ca, cb), ...semPar(cb, ca)],
+    fiapos: [...ca, ...cb].filter((x) => x.area <= LIMIAR_FIAPO).length,
+  };
 }
 
 /** Estatística da 0049 de uma região/silhueta (não bloqueia; a decisão de bloqueio é de `regiao0049`). */
 function estatistica0049(r: ComparacaoA3c, a: MultiPolygon, b: MultiPolygon, c: RegiaoCmp, nomeada: boolean): void {
   if (nomeada) return;
-  const tol = TOL_AREA_ABS_A2 + COEF_REGIAO_0049 * Math.max(areaDaForma(a), areaDaForma(b));
-  if (topologia(a) !== topologia(b)) r.topologiaDiferente++;
-  if (c.dArea > tol || c.sim > tol) r.acimaDoLimite0049++;
-  r.maxFracaoDoLimite0049 = Math.max(r.maxFracaoDoLimite0049, Math.max(c.dArea, c.sim) / tol);
+  const perim = Math.max(perimetroDaForma(a), perimetroDaForma(b));
+  const k = perim > 0 ? Math.max(c.dArea, c.sim) / (perim * 1e-6) : 0;
+  r.estat0049.maxK = Math.max(r.estat0049.maxK, k);
+  const t = topologia0049(a, b);
+  r.estat0049.fiaposDeRegiao += t.fiapos;
+  if (t.ts !== t.rust) r.estat0049.topologiaDiferente++;
+  for (const x of t.semPar) {
+    const s = r.estat0049.semPar;
+    s.n++;
+    s.max = Math.max(s.max, x.area);
+    if (x.area > 1e-4) s.acima1e4++;
+    if (x.area > 1e-3) s.acima1e3++;
+    if (x.tipo === 'peça') s.pecas++;
+    else s.furos++;
+  }
 }
 
-/** Topologia de uma forma: nº de peças e de furos. */
-const topologia = (m: MultiPolygon): string => `${m.length}/${m.reduce((t, p) => t + Math.max(0, p.length - 1), 0)}`;
+/** Tolerância de concordância do Rust com a geometria exata nas exceções nomeadas (0049, "Exceções nomeadas"). */
+export const TOL_CONCORDA_EXATO = 1e-6;
+
+/** União EXATA (`polygon-clipping`) dos cortes das camadas do grupo (e do material, se dado): o que a região (ou a silhueta) deveria ser. */
+function exataDosCortes(r: ClusterA3c, grupo: number, material: number | null): MultiPolygon {
+  const partes = r.camadas.filter((c) => c.grupo === grupo && (material === null || c.material === material) && c.cut.length).map((c) => c.cut);
+  return partes.length ? union(...partes) : [];
+}
+
+function concordaComExato(rust: MultiPolygon, exato: MultiPolygon): string | null {
+  const d = Math.abs(areaDaForma(rust) - areaDaForma(exato));
+  return d <= TOL_CONCORDA_EXATO ? null : `área do Rust ${areaDaForma(rust)} x união exata ${areaDaForma(exato)} (|d| = ${d}, limite ${TOL_CONCORDA_EXATO})`;
+}
 
 /**
- * Regiões por material e silhuetas seguem a decisão 0049 (e BLOQUEIAM): topologia igual (nº de peças e de furos), diferença de área e
- * diferença simétrica dentro de 1e-5 + 5e-4 x área e guarda de erro grosseiro de 1e-2 m². `regioesForaDaTolerancia`/
- * `silhuetasForaDaTolerancia` continuam como ESTATÍSTICA (quantas passam do critério antigo da 0048, 1e-5 + 1e-6 x área, e ficam dentro da 0049).
- * `excecoes`: lista de exceções nomeadas (defeito do TS), só com a guarda de erro grosseiro.
+ * Regiões por material e silhuetas seguem a decisão 0049 refinada (e BLOQUEIAM). `excecoes`: lista de exceções nomeadas (defeito do TS), só com a
+ * guarda de erro grosseiro; `verificaExcecao` (opcional) confere que o Rust concorda com a geometria exata. `regioesForaDaTolerancia`/
+ * `silhuetasForaDaTolerancia` seguem como estatística (passam do critério antigo da 0048 e ficam dentro da 0049).
  */
 export function compararA3c(
   ref: ClusterA3c,
@@ -325,15 +437,21 @@ export function compararA3c(
   maxDivergencias = 20,
   excecoes: readonly ExcecaoNomeada[] = [],
   comparadorDeFaixas: typeof faixasIguais = faixasIguais,
+  k = K_REGIAO_0049,
 ): ComparacaoA3c {
   /** Critério da 0049 de uma região/silhueta; `erro` nulo = aceita. */
-  const regiao0049 = (a: MultiPolygon, b: MultiPolygon, nomeada: ExcecaoNomeada | undefined): { c: RegiaoCmp; erro: string | null } => {
+  const regiao0049 = (a: MultiPolygon, b: MultiPolygon, nomeada: boolean): { c: RegiaoCmp; erro: string | null } => {
     const c = regiaoIgual(a, b);
-    const tol = TOL_AREA_ABS_A2 + COEF_REGIAO_0049 * Math.max(areaDaForma(a), areaDaForma(b));
+    const perim = Math.max(perimetroDaForma(a), perimetroDaForma(b));
+    const tol = TOL_AREA_ABS_A2 + k * perim * 1e-6;
     if (c.sim > ERRO_GROSSEIRO_REGIAO || c.dArea > ERRO_GROSSEIRO_REGIAO) return { c, erro: `erro grosseiro: diferença simétrica ${c.sim}, de área ${c.dArea} (guarda ${ERRO_GROSSEIRO_REGIAO})` };
     if (nomeada) return { c, erro: null };
-    if (c.dArea > tol || c.sim > tol) return { c, erro: `diferença de área ${c.dArea}, simétrica ${c.sim} (limite 0049 ${tol}; fração ${(Math.max(c.dArea, c.sim) / tol).toFixed(2)}; área ${areaDaForma(a)})${topologia(a) !== topologia(b) ? ` e topologia (peças/furos) ${topologia(b)} (Rust) x ${topologia(a)} (TS)` : ''}` };
-    if (topologia(a) !== topologia(b)) return { c, erro: `topologia (peças/furos) ${topologia(b)} (Rust) x ${topologia(a)} (TS)` };
+    if (c.dArea > tol || c.sim > tol) return { c, erro: `diferença de área ${c.dArea}, simétrica ${c.sim} (limite 0049 ${tol}; K medido ${(Math.max(c.dArea, c.sim) / (perim * 1e-6)).toFixed(2)}; perímetro ${perim.toFixed(2)}; área ${areaDaForma(a)})` };
+    const t = topologia0049(a, b);
+    if (t.ts !== t.rust) {
+      const grandes = t.semPar.filter((x) => x.area > LIMIAR_FIAPO);
+      return { c, erro: `topologia dos componentes significativos (peças/furos) ${t.rust} (Rust) x ${t.ts} (TS); sem par acima de ${LIMIAR_FIAPO}: ${grandes.map((x) => `${x.tipo} ${x.area}`).join(', ') || 'nenhum'}` };
+    }
     return { c, erro: null };
   };
   const divergencias: string[] = [];
@@ -359,9 +477,7 @@ export function compararA3c(
     regioesForaDaTolerancia: 0,
     silhuetasForaDaTolerancia: 0,
     excecoesUsadas: 0,
-    topologiaDiferente: 0,
-    acimaDoLimite0049: 0,
-    maxFracaoDoLimite0049: 0,
+    estat0049: estat0049Zero(),
   };
   const nota = (tipo: TipoDeFormaA3c, c: RegiaoCmp): void => {
     r.formas++;
@@ -463,24 +579,30 @@ export function compararA3c(
       continue;
     }
     const nomeada = excecoes.find((e) => e.material === a.material && (e.grupo === undefined || e.grupo === a.grupo));
-    const { c, erro } = regiao0049(a.poligonos, b.poligonos, nomeada);
+    const exato = nomeada ? exataDosCortes(rust, a.grupo, a.material) : null;
+    const falhaExcecao = exato ? concordaComExato(b.poligonos, exato) : null;
+    const { c, erro } = regiao0049(a.poligonos, b.poligonos, nomeada !== undefined);
     estatistica0049(r, a.poligonos, b.poligonos, c, nomeada !== undefined);
-    if (erro) divergencias.push(`região ${i} (grupo ${a.grupo}, material ${a.material}): ${erro}`);
+    if (falhaExcecao) divergencias.push(`região ${i} (grupo ${a.grupo}, material ${a.material}), exceção nomeada (${nomeada!.motivo}): o Rust não concorda com a união exata: ${falhaExcecao}`);
+    else if (erro) divergencias.push(`região ${i} (grupo ${a.grupo}, material ${a.material}): ${erro}`);
     else {
-      if (c.erro) {
-        if (nomeada && (c.dArea > TOL_AREA_ABS_A2 + COEF_REGIAO_0049 * Math.max(areaDaForma(a.poligonos), areaDaForma(b.poligonos)) || c.sim > TOL_AREA_ABS_A2 + COEF_REGIAO_0049 * Math.max(areaDaForma(a.poligonos), areaDaForma(b.poligonos)))) r.excecoesUsadas++;
-        else r.regioesForaDaTolerancia++;
-      }
+      if (nomeada) r.excecoesUsadas++;
+      else if (c.erro) r.regioesForaDaTolerancia++;
       nota('regiao', c);
       r.regioes++;
     }
   }
   for (let g = 0; g < ref.silhuetas.length && divergencias.length < maxDivergencias; g++) {
-    const { c, erro } = regiao0049(ref.silhuetas[g]!, rust.silhuetas[g]!, undefined);
-    estatistica0049(r, ref.silhuetas[g]!, rust.silhuetas[g]!, c, false);
-    if (erro) divergencias.push(`silhueta do grupo ${g}: ${erro}`);
+    const nomeada = excecoes.find((e) => e.silhueta && (e.grupo === undefined || e.grupo === g) && rust.regioes.some((x) => x.grupo === g && x.material === e.material));
+    const exato = nomeada ? exataDosCortes(rust, g, null) : null;
+    const falhaExcecao = exato ? concordaComExato(rust.silhuetas[g]!, exato) : null;
+    const { c, erro } = regiao0049(ref.silhuetas[g]!, rust.silhuetas[g]!, nomeada !== undefined);
+    estatistica0049(r, ref.silhuetas[g]!, rust.silhuetas[g]!, c, nomeada !== undefined);
+    if (falhaExcecao) divergencias.push(`silhueta do grupo ${g}, exceção nomeada (${nomeada!.motivo}): o Rust não concorda com a união exata: ${falhaExcecao}`);
+    else if (erro) divergencias.push(`silhueta do grupo ${g}: ${erro}`);
     else {
-      if (c.erro) r.silhuetasForaDaTolerancia++;
+      if (nomeada) r.excecoesUsadas++;
+      else if (c.erro) r.silhuetasForaDaTolerancia++;
       nota('silhueta', c);
       r.silhuetas++;
     }

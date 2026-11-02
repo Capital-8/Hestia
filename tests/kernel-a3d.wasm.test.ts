@@ -16,7 +16,7 @@ import { CenaV2 } from '../packages/geom/src/kernel/v2/cena.ts';
 import { ErroKernelLeve } from '../packages/geom/src/kernel/v2/erros.ts';
 import { GerenciadorKernelV2 } from '../packages/geom/src/kernel/v2/gerenciador.ts';
 import { fonteDeSecoes } from '../packages/geom/src/kernel/v2/quadros.ts';
-import { compararA3d, type ComparacaoA3d, type ExcecaoNomeada } from '../scripts/kernel-harness-a3.mts';
+import { compararA3d, estat0049Zero, somaEstat0049, type ComparacaoA3d, type Estat0049, type ExcecaoNomeada } from '../scripts/kernel-harness-a3.mts';
 import { variantesDoNivel } from '../scripts/kernel-a3c-estresse.mts';
 import { projetoDeEstresseA3d, projetoDeParedeComPerfil } from '../scripts/kernel-a3d-estresse.mts';
 
@@ -91,9 +91,7 @@ interface Cobertura {
   silhuetasFora: number;
   excecoes: number;
   maxFracaoDoLimite: number;
-  topologiaDiferente: number;
-  acimaDoLimite0049: number;
-  maxFracaoDoLimite0049: number;
+  estat: Estat0049;
 }
 const zero = (): Cobertura => ({
   comparacoes: 0,
@@ -120,9 +118,7 @@ const zero = (): Cobertura => ({
   silhuetasFora: 0,
   excecoes: 0,
   maxFracaoDoLimite: 0,
-  topologiaDiferente: 0,
-  acimaDoLimite0049: 0,
-  maxFracaoDoLimite0049: 0,
+  estat: estat0049Zero(),
 });
 const SOMAS = ['paredes', 'paredesComPerfilTopo', 'paredesComPerfilBase', 'paredesComPerfilDoModelo', 'paredesComMembranas', 'membranas', 'faixasInclinadas', 'grupos', 'camadas', 'camadasCurvas', 'faixas', 'regioes', 'silhuetas', 'estritas', 'formas', 'faixasPorRefinamento', 'fiapos', 'fiaposRust'] as const;
 const soma = (a: Cobertura, b: ComparacaoA3d | Cobertura): void => {
@@ -133,13 +129,11 @@ const soma = (a: Cobertura, b: ComparacaoA3d | Cobertura): void => {
   a.regioesFora += 'regioesFora' in b ? b.regioesFora : b.regioesForaDaTolerancia;
   a.silhuetasFora += 'silhuetasFora' in b ? b.silhuetasFora : b.silhuetasForaDaTolerancia;
   a.excecoes += 'excecoes' in b ? b.excecoes : b.excecoesUsadas;
-  a.topologiaDiferente += b.topologiaDiferente;
-  a.acimaDoLimite0049 += b.acimaDoLimite0049;
-  a.maxFracaoDoLimite0049 = Math.max(a.maxFracaoDoLimite0049, b.maxFracaoDoLimite0049);
+  somaEstat0049(a.estat, 'estat' in b ? b.estat : b.estat0049);
 };
 
 /** Exceção nomeada da 0049: semente 1, pavimento 0, material 2 (defeito do `unionClipper` do TS; o Rust está a 2e-6 m² da união exata). */
-const EXCECAO_SEMENTE_1 = (semente: number, nivel: number): ExcecaoNomeada[] => (semente === 1 && nivel === 0 ? [{ material: 2, motivo: 'defeito do TS: o unionClipper infla a região em 3,5e-3 m² junto a uma parede curva (0049)' }] : []);
+const EXCECAO_SEMENTE_1 = (semente: number, nivel: number): ExcecaoNomeada[] => (semente === 1 && nivel === 0 ? [{ material: 2, grupo: 0, silhueta: true, motivo: 'defeito do TS: o unionClipper infla a região em 3,5e-3 m² e preenche um entalhe junto a uma parede curva (0049)' }] : []);
 
 interface Plano {
   semente?: number;
@@ -183,7 +177,7 @@ function compararProjeto(p: Project, plano: Plano = {}, opcoes?: OpcoesA3c[]): C
 
 const relata = (rotulo: string, c: Cobertura): void => {
   console.log(
-    `[A3d ${rotulo}] ${c.comparacoes} comparações, paredes ${c.paredes} (perfil de topo ${c.paredesComPerfilTopo}, de base ${c.paredesComPerfilBase}, topProfile do modelo ${c.paredesComPerfilDoModelo}, com membranas ${c.paredesComMembranas}: ${c.membranas}), grupos ${c.grupos}, camadas ${c.camadas} (curvas ${c.camadasCurvas}), faixas ${c.faixas} (inclinadas ${c.faixasInclinadas}; camadas só por refinamento: ${c.faixasPorRefinamento}), regiões ${c.regioes} (acima do critério 0048, dentro da 0049: ${c.regioesFora}), silhuetas ${c.silhuetas} (idem: ${c.silhuetasFora}), exceções nomeadas ${c.excecoes}, 0049 (medido, sem bloquear): topologia diferente ${c.topologiaDiferente}, acima do limite ${c.acimaDoLimite0049}, máx. fração do limite ${c.maxFracaoDoLimite0049.toFixed(2)}; máx. fração do limite 0048 ${c.maxFracaoDoLimite.toFixed(2)}, formas estritas ${c.estritas}/${c.formas}, fiapos ${c.fiapos} (Rust ${c.fiaposRust}), desvio máx. de campos ${c.desvioMaximo}`,
+    `[A3d ${rotulo}] ${c.comparacoes} comparações, paredes ${c.paredes} (perfil de topo ${c.paredesComPerfilTopo}, de base ${c.paredesComPerfilBase}, topProfile do modelo ${c.paredesComPerfilDoModelo}, com membranas ${c.paredesComMembranas}: ${c.membranas}), grupos ${c.grupos}, camadas ${c.camadas} (curvas ${c.camadasCurvas}), faixas ${c.faixas} (inclinadas ${c.faixasInclinadas}; camadas só por refinamento: ${c.faixasPorRefinamento}), regiões ${c.regioes} (acima do critério 0048, dentro da 0049: ${c.regioesFora}), silhuetas ${c.silhuetas} (idem: ${c.silhuetasFora}), exceções nomeadas ${c.excecoes}, 0049 (medido): ${JSON.stringify(c.estat)}; máx. fração do limite 0048 ${c.maxFracaoDoLimite.toFixed(2)}, formas estritas ${c.estritas}/${c.formas}, fiapos ${c.fiapos} (Rust ${c.fiaposRust}), desvio máx. de campos ${c.desvioMaximo}`,
   );
 };
 

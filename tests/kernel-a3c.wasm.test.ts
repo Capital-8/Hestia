@@ -6,7 +6,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { migrateProject, type Project } from '@hestia/model';
 import { difference, type MultiPolygon } from '@hestia/geom';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { montarCenaA1, zDoNivel } from '../packages/engine/src/kernelA1.ts';
 import { argumentosA3, argumentosA3c, decodificarA3a, decodificarA3c, montarCenaA3, referenciaA3c, type OpcoesA3c } from '../packages/engine/src/kernelA3.ts';
 import { syntheticProject } from '../packages/engine/src/fixtureSintetica.ts';
@@ -16,7 +16,7 @@ import { ErroKernelLeve } from '../packages/geom/src/kernel/v2/erros.ts';
 import { GerenciadorKernelV2 } from '../packages/geom/src/kernel/v2/gerenciador.ts';
 import { fonteDeSecoes } from '../packages/geom/src/kernel/v2/quadros.ts';
 import { areaDaForma } from '../scripts/kernel-harness-a2.mts';
-import { compararA3c, type ComparacaoA3c, type ExcecaoNomeada } from '../scripts/kernel-harness-a3.mts';
+import { compararA3c, estat0049Zero, somaEstat0049, type ComparacaoA3c, type Estat0049, type ExcecaoNomeada } from '../scripts/kernel-harness-a3.mts';
 import { projetoDeEstresseA3c, projetoDeParedesSobrepostas, variantesDoNivel } from '../scripts/kernel-a3c-estresse.mts';
 
 const caminho = caminhoDoWasm();
@@ -53,7 +53,15 @@ const cenaDe = (p: Project) => {
   return { cena, a1, a3 };
 };
 
+/** Modo de MEDIÇÃO (A3D_MEDIR=1): junta as divergências em vez de reprovar e imprime o resumo no fim (ver kernel-a3d.wasm.test.ts). */
+const MEDIR = process.env['A3D_MEDIR'] === '1';
+const medidas: string[] = [];
+afterAll(() => {
+  if (MEDIR) console.log(['[A3c medição] ' + medidas.length + ' divergências', ...medidas.map((m) => m.slice(0, 700))].join('\n'));
+});
+
 interface Cobertura {
+  estat: Estat0049;
   comparacoes: number;
   grupos: number;
   camadas: number;
@@ -75,6 +83,7 @@ interface Cobertura {
   silhuetasFora: number;
 }
 const zero = (): Cobertura => ({
+  estat: estat0049Zero(),
   comparacoes: 0,
   grupos: 0,
   camadas: 0,
@@ -97,6 +106,7 @@ const zero = (): Cobertura => ({
 });
 const CONTADORES = ['grupos', 'camadas', 'camadasCurvas', 'faixas', 'regioes', 'silhuetas', 'camadasComFaixas', 'camadasComVariasFaixas', 'camadasComCorte', 'estritas', 'formas', 'faixasPorRefinamento', 'fiapos', 'fiaposRust'] as const;
 const soma = (a: Cobertura, b: ComparacaoA3c | Cobertura): void => {
+  somaEstat0049(a.estat, 'estat' in b ? b.estat : b.estat0049);
   a.comparacoes += 'comparacoes' in b ? b.comparacoes : 1;
   for (const k of CONTADORES) a[k] += b[k];
   for (const k of Object.keys(a.maxSimetrica) as Array<keyof Cobertura['maxSimetrica']>) a.maxSimetrica[k] = Math.max(a.maxSimetrica[k], b.maxSimetrica[k]);
@@ -108,7 +118,7 @@ const soma = (a: Cobertura, b: ComparacaoA3c | Cobertura): void => {
 
 /** Opções de planta de um pavimento do teste: `escolhidas` índices de `variantesDoNivel` (padrão: todas). */
 /** Exceção nomeada da 0049: semente 1, pavimento 0, material 2 (defeito do `unionClipper` do TS; o Rust está a 2e-6 m² da união exata). */
-const EXCECAO_SEMENTE_1 = (semente: number, nivel: number): ExcecaoNomeada[] => (semente === 1 && nivel === 0 ? [{ material: 2, motivo: 'defeito do TS: o unionClipper infla a região em 3,5e-3 m² junto a uma parede curva (0049)' }] : []);
+const EXCECAO_SEMENTE_1 = (semente: number, nivel: number): ExcecaoNomeada[] => (semente === 1 && nivel === 0 ? [{ material: 2, grupo: 0, silhueta: true, motivo: 'defeito do TS: o unionClipper infla a região em 3,5e-3 m² e preenche um entalhe junto a uma parede curva (0049)' }] : []);
 
 interface Plano {
   semente?: number;
@@ -136,7 +146,9 @@ function compararProjeto(p: Project, plano: Plano = {}, opcoes?: OpcoesA3c[]): C
         const ref = referenciaA3c(p, l.id, a1, op);
         const rust = decodificarA3c(cena.consultar('cluster_resolvido', argumentosA3c(p, l.id, a1, a3, op)));
         const cmp = compararA3c(ref, rust, curvas, 20, plano.excecoes?.(nivel) ?? []);
-        expect(cmp.divergencias, `${l.id} ${JSON.stringify({ cutZ: op.cutZ, contorno: op.outlineWalls?.size, planOpenings: op.planOpenings?.size })}: ${cmp.divergencias.slice(0, 3).join(' | ')}`).toEqual([]);
+        const rotulo = `${l.id} ${JSON.stringify({ cutZ: op.cutZ, contorno: op.outlineWalls?.size, planOpenings: op.planOpenings?.size })}`;
+        if (MEDIR) medidas.push(...cmp.divergencias.map((d) => `${rotulo}: ${d}`));
+        else expect(cmp.divergencias, `${rotulo}: ${cmp.divergencias.slice(0, 3).join(' | ')}`).toEqual([]);
         soma(cov, cmp);
       }
     });
@@ -148,7 +160,7 @@ function compararProjeto(p: Project, plano: Plano = {}, opcoes?: OpcoesA3c[]): C
 
 const relata = (rotulo: string, c: Cobertura): void => {
   console.log(
-    `[A3c ${rotulo}] ${c.comparacoes} comparações, grupos ${c.grupos}, camadas ${c.camadas} (curvas ${c.camadasCurvas}, com faixas ${c.camadasComFaixas}, várias faixas ${c.camadasComVariasFaixas}, com corte ${c.camadasComCorte}), faixas ${c.faixas} (camadas só por refinamento: ${c.faixasPorRefinamento}), regiões ${c.regioes} (fora da 0048: ${c.regioesFora}), silhuetas ${c.silhuetas} (fora: ${c.silhuetasFora}), formas estritas ${c.estritas}/${c.formas}, fiapos ${c.fiapos} (Rust ${c.fiaposRust}), máx. simétrica ${JSON.stringify(c.maxSimetrica)}`,
+    `[A3c ${rotulo}] 0049 ${JSON.stringify(c.estat)}; ${c.comparacoes} comparações, grupos ${c.grupos}, camadas ${c.camadas} (curvas ${c.camadasCurvas}, com faixas ${c.camadasComFaixas}, várias faixas ${c.camadasComVariasFaixas}, com corte ${c.camadasComCorte}), faixas ${c.faixas} (camadas só por refinamento: ${c.faixasPorRefinamento}), regiões ${c.regioes} (fora da 0048: ${c.regioesFora}), silhuetas ${c.silhuetas} (fora: ${c.silhuetasFora}), formas estritas ${c.estritas}/${c.formas}, fiapos ${c.fiapos} (Rust ${c.fiaposRust}), máx. simétrica ${JSON.stringify(c.maxSimetrica)}`,
   );
 };
 
