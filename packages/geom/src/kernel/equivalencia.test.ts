@@ -19,6 +19,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { MultiPolygon } from '../polygon.ts';
+import { caminhoDoWasm } from './caminhoWasm.ts';
 import { definirImplKernel, resetarEstadoKernel, type ImplKernel } from './contrato.ts';
 import {
   CASOS,
@@ -46,7 +47,7 @@ function mensagem(e: unknown): string {
 }
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
-const CAMINHO_WASM = resolve(AQUI, '..', '..', 'assets', 'geom_wasm.wasm');
+const CAMINHO_WASM = caminhoDoWasm();
 const CAMINHO_IMPL = resolve(AQUI, 'implementacaoRust.ts');
 /** Alvos tentados em ordem: caminho absoluto (Vite resolve), URL de arquivo e caminho relativo. */
 const ALVOS_IMPL = [CAMINHO_IMPL, pathToFileURL(CAMINHO_IMPL).href, './implementacaoRust.ts'];

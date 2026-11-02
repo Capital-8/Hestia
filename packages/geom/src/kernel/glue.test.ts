@@ -9,7 +9,6 @@
  * aí os testes de geometria são pulados e um teste confere a clareza dessa rejeição.
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { multiArea, type MultiPolygon } from '../polygon.ts';
 import {
@@ -20,11 +19,12 @@ import {
   type ExportsKernel,
   type SaidaAbi,
 } from './abis.ts';
+import { caminhoDoWasm } from './caminhoWasm.ts';
 import { ativarKernelExperimental, desativarKernelExperimental } from './carregador.ts';
 import { VERSAO_ABI, estadoKernel, resetarEstadoKernel, type ImplKernel } from './contrato.ts';
 import { criarImplKernelDoWasm } from './implementacaoRust.ts';
 
-const caminhoArtefato = fileURLToPath(new URL('../../assets/geom_wasm.wasm', import.meta.url));
+const caminhoArtefato = caminhoDoWasm();
 const temArtefato = existsSync(caminhoArtefato);
 
 /** `Buffer` compartilha o pool do Node; copia só o intervalo que interessa num `ArrayBuffer` limpo. */
