@@ -451,8 +451,9 @@ export function compararA3c(
     if (nomeada) return { c, erro: null };
     if (c.dArea > tol || c.sim > tol) return { c, erro: `diferença de área ${c.dArea}, simétrica ${c.sim} (limite 0049 ${tol}; K medido ${(Math.max(c.dArea, c.sim) / (perim * 1e-6)).toFixed(2)}; perímetro ${perim.toFixed(2)}; área ${areaDaForma(a)})` };
     const t = topologia0049(a, b);
-    if (t.ts !== t.rust) {
-      const grandes = t.semPar.filter((x) => x.area > LIMIAR_FIAPO);
+    // Regra 2: cada componente acima do limiar precisa ter par (peça dividida em duas que se tocam ainda tem par pela sobreposição).
+    const grandes = t.semPar.filter((x) => x.area > LIMIAR_FIAPO);
+    if (grandes.length) {
       return { c, erro: `topologia dos componentes significativos (peças/furos) ${t.rust} (Rust) x ${t.ts} (TS), após canonicalizar; sem par acima de ${LIMIAR_FIAPO}: ${grandes.map((x) => `${x.tipo} ${x.area} [${x.lado}] ${JSON.stringify(x.poly[0]![0]!.slice(0, 12).map((q) => [+q.x.toFixed(4), +q.y.toFixed(4)]))}`).join('; ') || 'nenhum'}` };
     }
     return { c, erro: null };
