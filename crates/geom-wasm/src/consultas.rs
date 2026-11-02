@@ -1,4 +1,4 @@
-//! As três consultas da Fase 0 da ABI v2 (`schema/cena-v3.json`), sobre a seção `paredes`. A quarta,
+//! As três consultas da Fase 0 da ABI v2 (`schema/cena-v4.json`), sobre a seção `paredes`. A quarta,
 //! `quadros_e_juncoes`, vive em `a1.rs`.
 //!
 //! ## Regras exatas (o harness do lado TypeScript deve reproduzi-las)

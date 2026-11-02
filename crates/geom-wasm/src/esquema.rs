@@ -1,12 +1,12 @@
-//! Constantes que espelham `schema/cena-v3.json` (fonte única do contrato, decisão 0046).
+//! Constantes que espelham `schema/cena-v4.json` (fonte única do contrato, decisão 0046).
 //!
 //! O teste `contrato_confere_com_json` (no fim deste arquivo) lê o JSON e confere tudo daqui:
 //! ids de seção, ordem e tipos das colunas, ids de consulta, saídas, códigos de erro e limites.
 //! Mudou o JSON => sobe `VERSAO_ESQUEMA` e este arquivo.
 
-/// `versao` de `cena-v3.json`.
-pub const VERSAO_ESQUEMA: u32 = 3;
-/// `abi` de `cena-v3.json`.
+/// `versao` de `cena-v4.json`.
+pub const VERSAO_ESQUEMA: u32 = 4;
+/// `abi` de `cena-v4.json`.
 pub const VERSAO_ABI2: u32 = 2;
 
 /// Códigos de retorno (3.1 do 0046).
@@ -74,6 +74,8 @@ pub const SECAO_TIPOS_PAREDE: u32 = 3;
 pub const SECAO_CAMADAS: u32 = 4;
 pub const SECAO_FAIXAS: u32 = 5;
 pub const SECAO_PAREDES_Z: u32 = 6;
+pub const SECAO_TIPOS_ABERTURA: u32 = 7;
+pub const SECAO_ABERTURAS: u32 = 8;
 
 const fn col(nome: &'static str, tipo: Tipo) -> Coluna {
     Coluna { nome, tipo }
@@ -158,6 +160,39 @@ pub const SECOES: &[Secao] = &[
         chave: "id_num",
         colunas: &[col("id_num", Tipo::U32), col("z0", Tipo::F64), col("altura", Tipo::F64)],
     },
+    Secao {
+        id: SECAO_TIPOS_ABERTURA,
+        nome: "tipos_abertura",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("largura", Tipo::F64),
+            col("altura", Tipo::F64),
+            col("peitoril", Tipo::F64),
+            col("folga_w", Tipo::F64),
+            col("folga_h", Tipo::F64),
+            col("folhas", Tipo::U8),
+            col("plano", Tipo::U8),
+        ],
+    },
+    Secao {
+        id: SECAO_ABERTURAS,
+        nome: "aberturas",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("tipo_num", Tipo::U32),
+            col("parede_num", Tipo::U32),
+            col("kind", Tipo::U8),
+            col("deslocamento", Tipo::F64),
+            col("flip_mao", Tipo::U8),
+            col("flip_frente", Tipo::U8),
+            col("tem_peitoril", Tipo::U8),
+            col("peitoril", Tipo::F64),
+            col("tem_altura", Tipo::U8),
+            col("altura", Tipo::F64),
+        ],
+    },
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -193,6 +228,7 @@ pub const CONSULTA_PAREDES_NA_CAIXA: u32 = 2;
 pub const CONSULTA_PARES_PROXIMOS: u32 = 3;
 pub const CONSULTA_QUADROS_E_JUNCOES: u32 = 4;
 pub const CONSULTA_ITENS_PINTADOS: u32 = 5;
+pub const CONSULTA_ABERTURAS_GEOM: u32 = 6;
 
 pub const CONSULTAS: &[Consulta] = &[
     Consulta {
@@ -252,6 +288,18 @@ pub const CONSULTAS: &[Consulta] = &[
             SaidaDef { nome: "pontos", tipo: Tipo::F64, elementos: Elementos::Livre },
         ],
     },
+    Consulta {
+        id: CONSULTA_ABERTURAS_GEOM,
+        nome: "aberturas_geom",
+        args: &["nivel_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "ids", tipo: Tipo::U32, elementos: Elementos::N },
+            SaidaDef { nome: "dados", tipo: Tipo::U32, elementos: Elementos::Multiplo(7) },
+            SaidaDef { nome: "medidas", tipo: Tipo::F64, elementos: Elementos::Multiplo(16) },
+            SaidaDef { nome: "retangulo", tipo: Tipo::F64, elementos: Elementos::Multiplo(8) },
+        ],
+    },
 ];
 
 pub fn secao(id: u32) -> Option<&'static Secao> {
@@ -291,7 +339,7 @@ mod testes {
     use super::*;
     use serde_json::Value;
 
-    const JSON: &str = include_str!("../schema/cena-v3.json");
+    const JSON: &str = include_str!("../schema/cena-v4.json");
 
     fn tipo_de(nome: &str) -> Tipo {
         match nome {

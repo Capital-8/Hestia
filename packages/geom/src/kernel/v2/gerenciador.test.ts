@@ -22,7 +22,7 @@ describe('GerenciadorKernelV2', () => {
       expect((e as ErroKernelGrave).codigo).toBe(CODIGOS.VERSAO);
     }
     const { ger } = gerenciadorFalso();
-    expect(ger.estado()).toMatchObject({ ligado: true, versaoAbi: 2, versaoEsquema: 3, recriacoesTotal: 0 });
+    expect(ger.estado()).toMatchObject({ ligado: true, versaoAbi: 2, versaoEsquema: 4, recriacoesTotal: 0 });
   });
 
   it('recriar reenvia a cena pela fonte e troca a instância', () => {

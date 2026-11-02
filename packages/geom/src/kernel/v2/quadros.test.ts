@@ -21,10 +21,10 @@ const secoes = (): SecoesDaCena => ({
   },
 });
 
-describe('esquema v3 (A1 e A2) no lado TypeScript', () => {
-  it('versão 3, seções novas e as consultas quadros_e_juncoes e itens_pintados no esquema', () => {
-    expect(ESQUEMA_VERSAO).toBe(3);
-    expect(Object.keys(SECOES)).toEqual(['paredes', 'paredes_quadro', 'tipos_parede', 'camadas', 'faixas', 'paredes_z']);
+describe('esquema v4 (A1, A2 e A3a) no lado TypeScript', () => {
+  it('versão 4, seções novas e as consultas quadros_e_juncoes, itens_pintados e aberturas_geom no esquema', () => {
+    expect(ESQUEMA_VERSAO).toBe(4);
+    expect(Object.keys(SECOES)).toEqual(['paredes', 'paredes_quadro', 'tipos_parede', 'camadas', 'faixas', 'paredes_z', 'tipos_abertura', 'aberturas']);
     expect(CONSULTAS.quadros_e_juncoes.id).toBe(4);
     expect([...CONSULTAS.quadros_e_juncoes.args]).toEqual(['nivel_num', 'tol_juncao']);
     expect(CONSULTAS.quadros_e_juncoes.saidas.map((s) => s.nome)).toEqual([
@@ -36,7 +36,7 @@ describe('esquema v3 (A1 e A2) no lado TypeScript', () => {
     expect(CONSULTAS.itens_pintados.saidas.map((s) => s.nome)).toEqual(['itens', 'itens_num', 'formas_cab', 'poligonos', 'aneis', 'pontos']);
   });
 
-  it('o falso aceita as seis seções e responde NAO_IMPLEMENTADO às consultas de geometria', () => {
+  it('o falso aceita as oito seções e responde NAO_IMPLEMENTADO às consultas de geometria', () => {
     const { ger } = gerenciadorFalso();
     const cena = CenaV2.criar(ger, fonteDeSecoes(secoes));
     try {
@@ -49,6 +49,13 @@ describe('esquema v3 (A1 e A2) no lado TypeScript', () => {
       }
       try {
         cena.consultar('itens_pintados', [0, 0.02, 0, 0, 1, 7]);
+        expect.unreachable();
+      } catch (e) {
+        expect(e).toBeInstanceOf(ErroKernelLeve);
+        expect((e as ErroKernelLeve).codigo).toBe(CODIGOS.NAO_IMPLEMENTADO);
+      }
+      try {
+        cena.consultar('aberturas_geom', [0]);
         expect.unreachable();
       } catch (e) {
         expect(e).toBeInstanceOf(ErroKernelLeve);

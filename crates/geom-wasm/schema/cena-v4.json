@@ -1,6 +1,6 @@
 {
-  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`. v3 (sub-etapa A2): colunas novas em `camadas` (material_num, envolve) e `tipos_parede` (wrap_ends, n_faixas), seções `faixas` e `paredes_z` e a consulta `itens_pintados`; as demais seções e consultas não mudaram.",
-  "versao": 3,
+  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`. v3 (sub-etapa A2): colunas novas em `camadas` (material_num, envolve) e `tipos_parede` (wrap_ends, n_faixas), seções `faixas` e `paredes_z` e a consulta `itens_pintados`; as demais seções e consultas não mudaram. v4 (sub-etapa A3a, vãos): seções `tipos_abertura` e `aberturas` e a consulta `aberturas_geom`; as demais não mudaram. Os perfis de topo e base de `wallZRange` NÃO entram em `paredes_z` nesta versão (nenhuma consulta da A3a os lê; entram na A3d, onde `withProfile`/`withBottomProfile` os consomem).",
+  "versao": 4,
   "abi": 2,
   "tipos": {
     "u32": {
@@ -252,6 +252,98 @@
           "tipo": "f64"
         }
       ]
+    },
+    {
+      "id": 7,
+      "nome": "tipos_abertura",
+      "chave": "id_num",
+      "descricao": "Tipo de abertura já normalizado para o VÃO (o que `openingType` devolve: `spanTypeOf` aplicado, então `largura`/`altura` são o vão mesmo com nominalRef leaf ou composição; o JS calcula isso). peitoril: OpeningType.sill. folga_w/folga_h: OpeningType.roughOversize (w, h), 0 se ausente ou inválido no JS; valor negativo vale 0 (nonNeg). folhas: 0..4. plano (PlanSymbol): 0 swing, 1 double, 2 sliding, 3 pivot, 4 fixed, 5 tilt, 6 casement, 7 dblact, 8 pocket, 9 bifold, 10 accordion, 11 garage, 12 hinged, 13 hung, 14 pivotwin, 15 louver. Sem texto.",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "largura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "altura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "peitoril",
+          "tipo": "f64"
+        },
+        {
+          "nome": "folga_w",
+          "tipo": "f64"
+        },
+        {
+          "nome": "folga_h",
+          "tipo": "f64"
+        },
+        {
+          "nome": "folhas",
+          "tipo": "u8"
+        },
+        {
+          "nome": "plano",
+          "tipo": "u8"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "nome": "aberturas",
+      "chave": "id_num",
+      "descricao": "Aberturas (Opening). parede_num: id_num da parede hospedeira em `paredes`. tipo_num: chave de `tipos_abertura`. kind: 0 door, 1 window (o `kind` da instância, devolvido como está). deslocamento: Opening.offset (distância do centro ao início da parede, ao longo do eixo). flip_mao/flip_frente: flipHand/flipFacing (0 ou 1). tem_peitoril=1 usa `peitoril` no lugar do peitoril do tipo (sillOverride ?? t.sill; o JS manda 0 para null/ausente). tem_altura=1 usa `altura` no lugar da altura do tipo SE for > 0 (heightOverride válido; senão vale a do tipo, como `openingHeight`). Ordem de iteração no JS = ordem crescente de id_num dentro da parede.",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "parede_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "kind",
+          "tipo": "u8"
+        },
+        {
+          "nome": "deslocamento",
+          "tipo": "f64"
+        },
+        {
+          "nome": "flip_mao",
+          "tipo": "u8"
+        },
+        {
+          "nome": "flip_frente",
+          "tipo": "u8"
+        },
+        {
+          "nome": "tem_peitoril",
+          "tipo": "u8"
+        },
+        {
+          "nome": "peitoril",
+          "tipo": "f64"
+        },
+        {
+          "nome": "tem_altura",
+          "tipo": "u8"
+        },
+        {
+          "nome": "altura",
+          "tipo": "f64"
+        }
+      ]
     }
   ],
   "consultas": [
@@ -443,6 +535,40 @@
           "tipo": "f64",
           "elementos": "livre",
           "descricao": "Pares (x, y) em metros, na ordem das saídas anteriores"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "nome": "aberturas_geom",
+      "descricao": "Sub-etapa A3a: `openingGeometry` (resolve.ts) e `openingRect` (openingCut.ts) de cada abertura cuja parede hospedeira está num nível. Ordem: paredes na ordem dos quadros de `quadros_e_juncoes` (ordem, id_num; sem as de corda < 1e-4 m) e, em cada parede, aberturas por id_num crescente. Abertura de parede que não tem quadro, ou de parede de outro nível, não sai. Tipo inexistente em `tipos_abertura`, valores não finitos ou enums fora do domínio => ENTRADA. nivel_num = 0xFFFFFFFF é ENTRADA.",
+      "args": [
+        "nivel_num"
+      ],
+      "saidas": [
+        {
+          "nome": "ids",
+          "tipo": "u32",
+          "elementos": "n",
+          "descricao": "id_num de cada abertura"
+        },
+        {
+          "nome": "dados",
+          "tipo": "u32",
+          "elementos": "7n",
+          "descricao": "7 valores por abertura: parede_num, tipo_num, kind, folhas, plano, flip_mao, flip_frente (os mesmos de `aberturas`/`tipos_abertura`, devolvidos como estão)"
+        },
+        {
+          "nome": "medidas",
+          "tipo": "f64",
+          "elementos": "16n",
+          "descricao": "16 valores por abertura: cx, cy (center), ux, uy (u: tangente no deslocamento), nx, ny (n: normal à esquerda), largura, altura (width, height efetiva), vao_largura, vao_altura (roughWidth, roughHeight), peitoril (sill), espessura (thickness da parede), s_hi, s_lo, deslocamento (offset), meia_prof (cutHalf; NaN se a parede é reta, onde o TS deixa `cutHalf` ausente)"
+        },
+        {
+          "nome": "retangulo",
+          "tipo": "f64",
+          "elementos": "8n",
+          "descricao": "8 valores por abertura: os 4 vértices (x, y) de `openingRect` (orientedRect(center, u, roughWidth/2, cutHalf ?? thickness/2 + 0,02)), na ordem do TS"
         }
       ]
     }

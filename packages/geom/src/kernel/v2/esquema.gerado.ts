@@ -1,7 +1,7 @@
-// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v3.json.
+// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v4.json.
 // Não edite à mão: mude o JSON e rode `node scripts/gerar-esquema-kernel.mjs`.
 
-export const ESQUEMA_VERSAO = 3;
+export const ESQUEMA_VERSAO = 4;
 export const ABI_VERSAO = 2;
 export const NIVEL_TODOS = 4294967295;
 
@@ -244,6 +244,94 @@ export const SECOES = {
         "tipo": "f64"
       }
     ]
+  },
+  "tipos_abertura": {
+    "id": 7,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "largura",
+        "tipo": "f64"
+      },
+      {
+        "nome": "altura",
+        "tipo": "f64"
+      },
+      {
+        "nome": "peitoril",
+        "tipo": "f64"
+      },
+      {
+        "nome": "folga_w",
+        "tipo": "f64"
+      },
+      {
+        "nome": "folga_h",
+        "tipo": "f64"
+      },
+      {
+        "nome": "folhas",
+        "tipo": "u8"
+      },
+      {
+        "nome": "plano",
+        "tipo": "u8"
+      }
+    ]
+  },
+  "aberturas": {
+    "id": 8,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "tipo_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "parede_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "kind",
+        "tipo": "u8"
+      },
+      {
+        "nome": "deslocamento",
+        "tipo": "f64"
+      },
+      {
+        "nome": "flip_mao",
+        "tipo": "u8"
+      },
+      {
+        "nome": "flip_frente",
+        "tipo": "u8"
+      },
+      {
+        "nome": "tem_peitoril",
+        "tipo": "u8"
+      },
+      {
+        "nome": "peitoril",
+        "tipo": "f64"
+      },
+      {
+        "nome": "tem_altura",
+        "tipo": "u8"
+      },
+      {
+        "nome": "altura",
+        "tipo": "f64"
+      }
+    ]
   }
 } as const;
 
@@ -401,6 +489,34 @@ export const CONSULTAS = {
         "nome": "pontos",
         "tipo": "f64",
         "elementos": "livre"
+      }
+    ]
+  },
+  "aberturas_geom": {
+    "id": 6,
+    "args": [
+      "nivel_num"
+    ],
+    "saidas": [
+      {
+        "nome": "ids",
+        "tipo": "u32",
+        "elementos": "n"
+      },
+      {
+        "nome": "dados",
+        "tipo": "u32",
+        "elementos": "7n"
+      },
+      {
+        "nome": "medidas",
+        "tipo": "f64",
+        "elementos": "16n"
+      },
+      {
+        "nome": "retangulo",
+        "tipo": "f64",
+        "elementos": "8n"
       }
     ]
   }
