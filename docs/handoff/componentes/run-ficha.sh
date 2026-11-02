@@ -16,8 +16,5 @@ if [ ! -d "$WT" ]; then git -C "$RAIZ" worktree add "$WT" -b "feat/fam-$ID" "$BA
 cp "$FICHA" "$WT/.ficha.md"  # fora do controle de versão (ver .git/info/exclude do worktree)
 echo ".ficha.md" >> "$(git -C "$WT" rev-parse --git-path info/exclude)"
 cd "$WT"
-opencode run -m opencode-go/deepseek-v4.1-flash --dir "$WT" \
-  -f docs/handoff/regras-gerais.md -f docs/handoff/componentes/REGRAS-FLASH.md -f .ficha.md \
-  "Execute a ficha anexa (.ficha.md) seguindo as regras anexas. Trabalhe só neste diretório. Termine com tudo commitado e o relatório pedido." \
-  > "$LOGS/$ID.log" 2>&1
+opencode run "Execute a ficha anexa (.ficha.md) seguindo as regras anexas. Trabalhe só neste diretório. Termine com tudo commitado e o relatório pedido."   -m opencode-go/deepseek-v4.1-flash --dir "$WT"   -f docs/handoff/regras-gerais.md -f docs/handoff/componentes/REGRAS-FLASH.md -f .ficha.md   > "$LOGS/$ID.log" 2>&1
 echo "executor terminou: $ID (log em $LOGS/$ID.log)"
