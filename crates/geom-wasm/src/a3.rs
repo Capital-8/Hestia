@@ -16,7 +16,7 @@ use crate::cena::Cena;
 use crate::consultas::Saida;
 use crate::esquema::{ENTRADA, NIVEL_TODOS};
 use crate::geo2d::V;
-use crate::ops::diferenca;
+use crate::ops::{diferenca_com_escala, ESCALA_FINA};
 use crate::quadro::{normal_em, ponto_em, tangente_em, Quadro};
 use crate::secoes_a3::{Abertura, TipoAbertura};
 use crate::{Anel, MultiPoligono};
@@ -108,7 +108,7 @@ pub fn furos_de(frag: &MultiPoligono, vaos: &[MultiPoligono]) -> Result<MultiPol
     let mut args: Vec<MultiPoligono> = Vec::with_capacity(vaos.len() + 1);
     args.push(frag.clone());
     args.extend(vaos.iter().cloned());
-    diferenca(&args)
+    diferenca_com_escala(&args, ESCALA_FINA)
 }
 
 /// Aberturas de um nível, na ordem da consulta: paredes na ordem dos quadros e, em cada parede, por `id_num`.

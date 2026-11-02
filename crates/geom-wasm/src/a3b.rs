@@ -11,7 +11,7 @@
 //! vizinhas). O pintado que o recorte usa é o da A2 (`a2::pintar_nivel`), como `solveCluster` usa `plan`.
 //! O memo do `makeReturnClipper` só guarda resultados e não é portado.
 
-use crate::a2::{pintar_nivel, Codificador, OpcoesDePlanta};
+use crate::a2::{pintar_nivel, Codificador, NivelPintado, OpcoesDePlanta};
 use crate::cena::Cena;
 use crate::consultas::Saida;
 use crate::envolvimento::{camadas_envolventes, faixa_de_profundidade, lados_do_modo};
@@ -276,22 +276,28 @@ pub fn recortar_retorno(poly: &MultiPoligono, parede: u32, vizinhos: &[(u32, Cai
     diferenca(&args).map_err(traduz)
 }
 
-/// Executa `retornos_geom(nivel_num, tol_juncao, opcoes)`.
-pub fn retornos_geom(cena: &Cena, nivel: u32, tol: f64, opcoes: &OpcoesDePlanta) -> Result<Vec<Saida>, u32> {
-    if nivel == NIVEL_TODOS {
-        return Err(ENTRADA);
-    }
-    let pintado = pintar_nivel(cena, nivel, tol, opcoes)?;
+/// Um retorno de `insertReturns` de um nível, com a parede, a abertura e o grupo a que pertence.
+pub struct RetornoDoNivel {
+    pub parede: u32,
+    pub abertura: u32,
+    /// `layerIndex` da camada envolvente.
+    pub camada: usize,
+    pub grupo: u32,
+    /// `insertMode` efetivo.
+    pub modo: u8,
+    pub poly: MultiPoligono,
+}
+
+/// Os retornos de todos os grupos de um nível, na ordem de `resolveLevel`: grupos de `clusterWalls`, paredes na ordem do
+/// grupo, aberturas por id crescente (a ordem de `openingsOfWall`) e, em cada uma, a ordem de `insertReturns`.
+pub fn retornos_do_nivel(cena: &Cena, pintado: &NivelPintado) -> Result<Vec<RetornoDoNivel>, u32> {
     // Aberturas por parede, por id crescente (a ordem de `openingsOfWall`).
     let mut por_parede: std::collections::BTreeMap<u32, Vec<(u32, Abertura)>> = std::collections::BTreeMap::new();
     for (&id, a) in &cena.a3.aberturas {
         por_parede.entry(a.parede).or_default().push((id, *a));
     }
-    let mut cod = Codificador::default();
-    let mut retornos: Vec<u32> = Vec::new();
+    let mut saida = Vec::new();
     for (gi, g) in pintado.grupos.iter().enumerate() {
-        let vizinhos: Vec<(u32, Caixa4, Option<&MultiPoligono>)> =
-            g.itens.iter().enumerate().map(|(k, it)| (it.parede, it.caixa, if it.em_planta { Some(&g.fragmentos[k]) } else { None })).collect();
         for &i in &g.membros {
             let f = &pintado.quadros[i];
             let tn = cena.a1.quadros.get(&f.id).ok_or(ENTRADA)?.tipo;
@@ -305,14 +311,34 @@ pub fn retornos_geom(cena: &Cena, nivel: u32, tol: f64, opcoes: &OpcoesDePlanta)
                 let modo = modo_de_insercao(wrap_inserts, t);
                 let cam = CamadasDoTipo { funcoes: &funcoes, espessuras: &espessuras, envolve: &envolve };
                 for r in retornos_do_vao(f, &cam, a.deslocamento, t.largura, modo, t, a.flip_frente)? {
-                    let recorte = recortar_retorno(&r.poly, f.id, &vizinhos)?;
-                    retornos.extend([f.id, *id, r.camada as u32, gi as u32, modo as u32]);
-                    let (bi, bn) = cod.forma(&r.poly);
-                    let (ri, rn) = cod.forma(&recorte);
-                    cod.formas_cab.extend([bi, bn, ri, rn]);
+                    saida.push(RetornoDoNivel { parede: f.id, abertura: *id, camada: r.camada, grupo: gi as u32, modo, poly: r.poly });
                 }
             }
         }
+    }
+    Ok(saida)
+}
+
+/// Executa `retornos_geom(nivel_num, tol_juncao, opcoes)`.
+pub fn retornos_geom(cena: &Cena, nivel: u32, tol: f64, opcoes: &OpcoesDePlanta) -> Result<Vec<Saida>, u32> {
+    if nivel == NIVEL_TODOS {
+        return Err(ENTRADA);
+    }
+    let pintado = pintar_nivel(cena, nivel, tol, opcoes)?;
+    let mut cod = Codificador::default();
+    let mut retornos: Vec<u32> = Vec::new();
+    // `(parede, caixa, pintado em planta)` dos itens de cada grupo, para o recorte (o `plan` de `solveCluster`).
+    let vizinhos_por_grupo: Vec<Vec<(u32, Caixa4, Option<&MultiPoligono>)>> = pintado
+        .grupos
+        .iter()
+        .map(|g| g.itens.iter().enumerate().map(|(k, it)| (it.parede, it.caixa, if it.em_planta { Some(&g.fragmentos[k]) } else { None })).collect())
+        .collect();
+    for r in retornos_do_nivel(cena, &pintado)? {
+        let recorte = recortar_retorno(&r.poly, r.parede, &vizinhos_por_grupo[r.grupo as usize])?;
+        retornos.extend([r.parede, r.abertura, r.camada as u32, r.grupo, r.modo as u32]);
+        let (bi, bn) = cod.forma(&r.poly);
+        let (ri, rn) = cod.forma(&recorte);
+        cod.formas_cab.extend([bi, bn, ri, rn]);
     }
     Ok(vec![Saida::U32(retornos), Saida::U32(cod.formas_cab), Saida::U32(cod.poligonos), Saida::U32(cod.aneis), Saida::F64(cod.pontos)])
 }

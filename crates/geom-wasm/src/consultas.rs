@@ -29,7 +29,7 @@
 
 use crate::cena::Cena;
 use crate::esquema::{
-    self, Tipo, CONSULTA_ESTATISTICAS_NIVEL, CONSULTA_ABERTURAS_GEOM, CONSULTA_ITENS_PINTADOS, CONSULTA_RETORNOS_GEOM, CONSULTA_PARES_PROXIMOS, CONSULTA_PAREDES_NA_CAIXA, CONSULTA_QUADROS_E_JUNCOES,
+    self, Tipo, CONSULTA_ESTATISTICAS_NIVEL, CONSULTA_ABERTURAS_GEOM, CONSULTA_CLUSTER_RESOLVIDO, CONSULTA_ITENS_PINTADOS, CONSULTA_RETORNOS_GEOM, CONSULTA_PARES_PROXIMOS, CONSULTA_PAREDES_NA_CAIXA, CONSULTA_QUADROS_E_JUNCOES,
     ENTRADA,
     NAO_IMPLEMENTADO,
 };
@@ -155,6 +155,46 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
             } else {
                 crate::a2::itens_pintados(cena, nivel, tol, &opcoes)
             }
+        }
+        CONSULTA_CLUSTER_RESOLVIDO => {
+            let nivel = arg_nivel(args[0])?;
+            let tol = arg_finito(args[1])?;
+            if tol < 0.0 {
+                return Err(ENTRADA);
+            }
+            let tem_corte = match args[2] {
+                x if x == 0.0 => false,
+                x if x == 1.0 => true,
+                _ => return Err(ENTRADA),
+            };
+            let corte = arg_finito(args[3])?;
+            let n_contorno = arg_nivel(args[4])? as usize;
+            let tem_aberturas = match args[5] {
+                x if x == 0.0 => false,
+                x if x == 1.0 => true,
+                _ => return Err(ENTRADA),
+            };
+            let n_aberturas = arg_nivel(args[6])? as usize;
+            if !tem_aberturas && n_aberturas != 0 {
+                return Err(ENTRADA);
+            }
+            let fixos = def.args.len();
+            if n_contorno.checked_add(n_aberturas).and_then(|t| t.checked_add(fixos)) != Some(args.len()) {
+                return Err(ENTRADA);
+            }
+            let mut contorno = std::collections::BTreeSet::new();
+            for &a in &args[fixos..fixos + n_contorno] {
+                contorno.insert(arg_nivel(a)?);
+            }
+            let mut aberturas_planta = std::collections::BTreeSet::new();
+            for &a in &args[fixos + n_contorno..] {
+                aberturas_planta.insert(arg_nivel(a)?);
+            }
+            let opcoes = crate::a3c::OpcoesDoCluster {
+                planta: crate::a2::OpcoesDePlanta { corte_z: if tem_corte { Some(corte) } else { None }, contorno },
+                aberturas_planta: if tem_aberturas { Some(aberturas_planta) } else { None },
+            };
+            crate::a3c::cluster_resolvido(cena, nivel, tol, &opcoes)
         }
         CONSULTA_ABERTURAS_GEOM => crate::a3::aberturas_geom(cena, arg_nivel(args[0])?),
         _ => Err(NAO_IMPLEMENTADO),

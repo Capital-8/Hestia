@@ -217,13 +217,17 @@ pub fn interseccao(a: &MultiPoligono, b: &MultiPoligono) -> Result<MultiPoligono
 
 /// `offsetMulti(m, delta)`.
 pub fn offset(m: &MultiPoligono, delta: f64) -> Result<MultiPoligono, u32> {
-    if m.is_empty() {
-        return Ok(Vec::new());
-    }
     if !delta.is_finite() {
         return Err(ERRO_ENTRADA);
     }
-    let delta_em_um = delta * ESCALA;
+    offset_em_um(m, delta * ESCALA)
+}
+
+/// Offset com `delta` já em unidades de 1 µm (positivo dilata), cantos em esquadria.
+fn offset_em_um(m: &MultiPoligono, delta_em_um: f64) -> Result<MultiPoligono, u32> {
+    if m.is_empty() {
+        return Ok(Vec::new());
+    }
     if !delta_em_um.is_finite() || delta_em_um.abs() > LIMITE_ESCALADO {
         return Err(ERRO_ENTRADA);
     }
@@ -240,6 +244,26 @@ pub fn offset(m: &MultiPoligono, delta: f64) -> Result<MultiPoligono, u32> {
         .outline_fixed_scale_as::<i64>(&estilo, 1.0)
         .map_err(|_| ERRO_INTERNO)?;
     Ok(converter(resultado, ESCALA))
+}
+
+/// `closeGaps(m, eps)` de `boolean.ts` (A3c): fechamento morfológico, dilata `eps` metros, une (non-zero), contrai `eps` e une de
+/// novo. O TS usa `ClipperOffset(2, ...)` em inteiros de 1 µm; aqui o offset é o de `offset` (i_overlay, miter até 60°), o mesmo
+/// que a ABI v1 já expõe como `offsetMulti`. `eps` vira inteiros de 1 µm exatos (`eps * 1e6` arredondado, 3 para 3e-6).
+pub fn fechar_frestas(m: &MultiPoligono, eps: f64) -> Result<MultiPoligono, u32> {
+    if m.is_empty() {
+        return Ok(Vec::new());
+    }
+    let passo = (eps * ESCALA).round();
+    let dilatado = uniao(&[offset_em_um(m, passo)?])?;
+    let contraido = offset_em_um(&dilatado, -passo)?;
+    uniao(&[contraido])
+}
+
+/// `closeGapsSafe(m, eps, maxLoss)`: o fechamento só vale se a área não cair mais que `max_perda` nem subir mais que 1e-3 m².
+pub fn fechar_frestas_seguro(m: &MultiPoligono, eps: f64, max_perda: f64) -> Result<MultiPoligono, u32> {
+    let fechado = fechar_frestas(m, eps)?;
+    let delta = crate::pintor::area_da_forma(&fechado) - crate::pintor::area_da_forma(m);
+    Ok(if delta >= -max_perda && delta <= 1e-3 { fechado } else { m.clone() })
 }
 
 #[cfg(test)]
@@ -270,6 +294,37 @@ mod testes {
 
     fn erro(r: Result<MultiPoligono, u32>) -> Option<u32> {
         r.err()
+    }
+
+    #[test]
+    fn fechar_frestas_cola_pecas_separadas_por_2_micrometros() {
+        // dois quadrados de 1 m com uma fresta de 2 µm: o fechamento (eps 3 µm) os une num retângulo só
+        let a = quadrado(0.0, 0.0, 1.0);
+        let mut b = quadrado(1.000002, 0.0, 1.0);
+        let mut dois = a.clone();
+        dois.append(&mut b);
+        let r = fechar_frestas(&dois, 3e-6).expect("fechar");
+        assert_eq!(r.len(), 1, "uma peça só");
+        assert!((area(&r) - 2.000002).abs() < 1e-5, "área {}", area(&r));
+        // fresta de 10 µm (maior que 2 x eps): continua em duas peças
+        let mut c = quadrado(1.00001, 0.0, 1.0);
+        let mut dois = a.clone();
+        dois.append(&mut c);
+        assert_eq!(fechar_frestas(&dois, 3e-6).expect("fechar").len(), 2);
+        assert!(fechar_frestas(&Vec::new(), 3e-6).expect("vazio").is_empty());
+    }
+
+    #[test]
+    fn fechar_frestas_seguro_devolve_a_entrada_se_a_area_muda_demais() {
+        // quadrado de 0,5 m com furo quadrado de 2 µm de lado: o fechamento preencheria o furo (ganho < 1e-3: vale)
+        let mut q = quadrado(0.0, 0.0, 0.5);
+        q[0].push(vec![[0.2, 0.2], [0.2, 0.200002], [0.200002, 0.200002], [0.200002, 0.2]]);
+        let r = fechar_frestas_seguro(&q, 3e-6, 2e-5).expect("seguro");
+        assert!((area(&r) - 0.25).abs() < 1e-5);
+        // tira fina de 2 µm x 20 m: o fechamento a mantém (dilata e contrai), mas se perdesse mais que maxLoss devolveria a entrada
+        let fina: MultiPoligono = vec![vec![vec![[0.0, 0.0], [20.0, 0.0], [20.0, 0.000002], [0.0, 0.000002]]]];
+        let s = fechar_frestas_seguro(&fina, 3e-6, 2e-5).expect("seguro");
+        assert!(area(&s) >= area(&fina) - 2e-5 - 1e-12);
     }
 
     #[test]
