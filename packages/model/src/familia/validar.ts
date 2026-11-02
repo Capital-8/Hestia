@@ -1,4 +1,10 @@
+import { ordemDeAvaliacao } from './grafo.ts';
 import type { Familia } from './tipos.ts';
+import { validarDuplicados, validarIds, validarLimites, validarObrigatorios } from './validarEstrutura.ts';
+import { validarFormulas } from './validarFormulas.ts';
+import { validarParametros } from './validarParametros.ts';
+import { validarReferencias } from './validarReferencias.ts';
+import { criarProblema, ehObjeto } from './validarComum.ts';
 
 /*
  * Validação de uma família (ADR 0049 §3.6). FICHA E1-validar: implementar `validarFamilia`. Testes em `validar.test.ts`.
@@ -52,6 +58,34 @@ export interface Problema {
  * 8. ciclo — `ordemDeAvaliacao` com ciclo: UM erro 'ciclo' com os ids na mensagem ('familia').
  */
 export function validarFamilia(f: Familia): Problema[] {
-  void f;
-  throw new Error('não implementado: ficha E1-validar');
+  if (!ehObjeto(f)) {
+    return [criarProblema('tipo', 'a família precisa ser um objeto', 'familia')];
+  }
+
+  // A ordem das regras (e do resultado) é a da lista acima.
+  return [
+    ...validarObrigatorios(f),
+    ...validarLimites(f),
+    ...validarIds(f),
+    ...validarDuplicados(f),
+    ...validarParametros(f),
+    ...validarFormulas(f),
+    ...validarReferencias(f),
+    ...validarCiclo(f),
+  ];
+}
+
+/**
+ * Regra 8: um único erro `ciclo` quando `ordemDeAvaliacao` acusa dependência circular. O grafo pode ainda ser o esqueleto
+ * desta fase em paralelo; nesse caso (qualquer exceção) a regra fica silenciosa para não derrubar as demais.
+ */
+function validarCiclo(f: Familia): Problema[] {
+  try {
+    const resultado = ordemDeAvaliacao(f);
+    if (resultado.ok) return [];
+    return [criarProblema('ciclo', `ciclo de dependência entre: ${resultado.ciclo.join(' → ')}`, 'familia')];
+  } catch {
+    // TODO: depende de E1-grafo (o grafo deste worktree ainda é esqueleto).
+    return [];
+  }
 }
