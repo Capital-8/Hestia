@@ -241,3 +241,21 @@ Conforme a 0049, regiões e silhuetas agora BLOQUEIAM (topologia igual, limite 1
 Todo o resto passou: 384 paredes (30 com profileTop, 56 com profileBottom, 75 com topProfile do modelo, 53 com membranas), 2074 camadas, 6574 faixas (616 inclinadas), desvio máximo de campos 1,1e-16, 0 fiapos só do Rust.
 
 Mutações do A3d: pendentes para o fim da A. Build final do `.wasm` e `npm run wasm:check` também (o binário commitado segue o da A3b).
+
+### 11.1 — A 0049 refinada aplicada (A3c e A3d)
+
+Critério de regiões e silhuetas (bloqueante), na ordem: (1) guarda de 1e-2 m²; (2) limite `1e-5 + K × perímetro × 1e-6` m² na diferença de área e na simétrica, com
+**K = 6**; (3) componentes (peças e furos) acima de 1e-4 m² precisam ter par, depois de canonicalizar os dois lados (`canonica`, união exata). Componente sem par
+é EQUIVALENTE quando existe também na forma do outro lado com outra representação: para furo, a interseção do furo com a forma sólida do outro lado cabe no limite da regra 3;
+para peça, a peça está dentro da forma do outro lado até o limite. Componentes abaixo de 1e-4 m² contam em `fiaposDeRegiao`.
+
+Medição de K (todos os casos: estresse 12 sementes x 2 pavimentos x 1 opção, retas, arcos, sintéticos de 10 e 20 pavimentos, fixture casa-2-quartos, fora das exceções):
+maior razão `max(diferença de área, simétrica) / perímetro / 1e-6` = **3,94** (A3c, Estresse 11, pavimento 1, opções padrão) e **3,99** (A3d, Estresse 8, pavimento 0, `cutZ` 0,05);
+K = 3,99 × 1,5 = 5,98, arredondado para cima: 6. Componentes sem par acima do fiapo resolvidos pela verificação de equivalência: 1 (um furo de 0,00354 m², silhueta do
+grupo 1, Estresse 4, pavimento 1: o Rust tem o vazio como fenda auto-tangente); é também o maior. Sem par no total (qualquer tamanho): 121 no A3c e 129 no A3d, quase todos
+fiapos de arredondamento.
+
+Exceções nomeadas (só valem se verificadas automaticamente): (1) semente 1, pavimento 0, grupo 0, material 2 e a silhueta do mesmo grupo (defeito do `unionClipper` do TS;
+o Rust concorda com a união exata dos cortes dentro do limite da regra 3, a silhueta comparada sem o fechamento de frestas); (2) estresse retas, semente 101, parede 18,
+camada 4, recorte pelo perfil (`polygon-clipping`: as fatias da faixa de entrada somam mais que a faixa; o Rust nunca ganha área em relação à entrada, por z0, a 1e-6 m²).
+A verificação de (2) é por desigualdade (as fatias que o perfil descarta só diminuem a soma), não por igualdade. Se o TS deixar de ter o defeito, a exceção reprova como obsoleta.

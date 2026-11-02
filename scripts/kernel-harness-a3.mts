@@ -244,9 +244,11 @@ export interface Estat0049 {
   maxK: number;
   /** Componentes sem par (qualquer tamanho, nas regiões de topologia diferente ou não): contagem, maior área, > 1e-4, > 1e-3, em peças e em furos. */
   semPar: { n: number; max: number; acima1e4: number; acima1e3: number; pecas: number; furos: number };
+  /** Componentes sem par acima do fiapo resolvidos pela verificação de equivalência (a interseção com a forma do outro lado cabe no limite da regra 3): quantos e o maior. */
+  resolvidos: { n: number; max: number };
 }
 
-export const estat0049Zero = (): Estat0049 => ({ topologiaDiferente: 0, fiaposDeRegiao: 0, maxK: 0, semPar: { n: 0, max: 0, acima1e4: 0, acima1e3: 0, pecas: 0, furos: 0 } });
+export const estat0049Zero = (): Estat0049 => ({ topologiaDiferente: 0, fiaposDeRegiao: 0, maxK: 0, semPar: { n: 0, max: 0, acima1e4: 0, acima1e3: 0, pecas: 0, furos: 0 }, resolvidos: { n: 0, max: 0 } });
 
 export function somaEstat0049(a: Estat0049, b: Estat0049): void {
   a.topologiaDiferente += b.topologiaDiferente;
@@ -255,6 +257,8 @@ export function somaEstat0049(a: Estat0049, b: Estat0049): void {
   a.semPar.n += b.semPar.n;
   a.semPar.max = Math.max(a.semPar.max, b.semPar.max);
   for (const k of ['acima1e4', 'acima1e3', 'pecas', 'furos'] as const) a.semPar[k] += b.semPar[k];
+  a.resolvidos.n += b.resolvidos.n;
+  a.resolvidos.max = Math.max(a.resolvidos.max, b.resolvidos.max);
 }
 
 const simetrica = (a: MultiPolygon, b: MultiPolygon): number => areaDaForma(a.length && b.length ? difference(a, b) : a) + areaDaForma(a.length && b.length ? difference(b, a) : b);
@@ -413,6 +417,9 @@ function estatistica0049(r: ComparacaoA3c, a: MultiPolygon, b: MultiPolygon, c: 
   }
 }
 
+/** Comparador de faixas de uma camada; recebe a camada de referência (para exceções nomeadas por camada). */
+export type ComparadorDeFaixas = (ref: FaixaA3c[], rust: FaixaA3c[], nota: (tipo: TipoDeFormaA3c, c: RegiaoCmp) => void, camada?: CamadaA3c) => { erro: string | null; refinamento: boolean };
+
 /** Tolerância de concordância do Rust com a geometria exata nas exceções nomeadas (0049, "Exceções nomeadas"). */
 export const TOL_CONCORDA_EXATO = 1e-6;
 
@@ -439,7 +446,7 @@ export function compararA3c(
   paredesCurvas: ReadonlySet<number> = new Set(),
   maxDivergencias = 20,
   excecoes: readonly ExcecaoNomeada[] = [],
-  comparadorDeFaixas: typeof faixasIguais = faixasIguais,
+  comparadorDeFaixas: ComparadorDeFaixas = faixasIguais,
   k = K_REGIAO_0049,
 ): ComparacaoA3c {
   /** Critério da 0049 de uma região/silhueta; `erro` nulo = aceita. */
@@ -452,7 +459,20 @@ export function compararA3c(
     if (c.dArea > tol || c.sim > tol) return { c, erro: `diferença de área ${c.dArea}, simétrica ${c.sim} (limite 0049 ${tol}; K medido ${(Math.max(c.dArea, c.sim) / (perim * 1e-6)).toFixed(2)}; perímetro ${perim.toFixed(2)}; área ${areaDaForma(a)})` };
     const t = topologia0049(a, b);
     // Regra 2: cada componente acima do limiar precisa ter par (peça dividida em duas que se tocam ainda tem par pela sobreposição).
-    const grandes = t.semPar.filter((x) => x.area > LIMIAR_FIAPO);
+    // Equivalência de um componente sem par: ele existe também na forma do outro lado, só com outra representação (furo x fenda auto-tangente, peças que se tocam).
+    // Furo: a interseção do furo com a forma SÓLIDA do outro lado é ~0 (o outro lado também tem o vazio). Peça: a peça está dentro da forma do outro lado.
+    const equivalente = (x: Componente): boolean => {
+      const outro = x.lado === 'TS' ? b : a;
+      const dentro = outro.length ? areaDaForma(intersection(x.poly, outro)) : 0;
+      return x.tipo === 'furo' ? dentro <= tol : x.area - dentro <= tol;
+    };
+    const grandes = t.semPar.filter((x) => x.area > LIMIAR_FIAPO && !equivalente(x));
+    for (const x of t.semPar) {
+      if (x.area > LIMIAR_FIAPO && !grandes.includes(x)) {
+        r.estat0049.resolvidos.n++;
+        r.estat0049.resolvidos.max = Math.max(r.estat0049.resolvidos.max, x.area);
+      }
+    }
     if (grandes.length) {
       return { c, erro: `topologia dos componentes significativos (peças/furos) ${t.rust} (Rust) x ${t.ts} (TS), após canonicalizar; sem par acima de ${LIMIAR_FIAPO}: ${grandes.map((x) => `${x.tipo} ${x.area} [${x.lado}] ${JSON.stringify(x.poly[0]![0]!.slice(0, 12).map((q) => [+q.x.toFixed(4), +q.y.toFixed(4)]))}`).join('; ') || 'nenhum'}` };
     }
@@ -540,7 +560,7 @@ export function compararA3c(
       nota(campo, c);
     }
     if (ruim) continue;
-    const f = comparadorDeFaixas(a.faixas, b.faixas, nota);
+    const f = comparadorDeFaixas(a.faixas, b.faixas, nota, a);
     if (f.erro) {
       divergencias.push(`${rotulo}: ${f.erro}`);
       continue;
@@ -682,7 +702,66 @@ export function faixasIguaisA3d(ref: FaixaA3c[], rust: FaixaA3c[], nota: (tipo: 
   return { erro: null, refinamento: true };
 }
 
+/**
+ * Exceção NOMEADA da 0049 para as faixas de uma camada (defeito do TS no recorte pelo perfil: o `polygon-clipping` devolve fatias que somam mais que
+ * o polígono). `preRecorte` são as faixas da camada ANTES dos perfis (as de `cluster_resolvido`). A exceção só vale se (1) o Rust não ganha área: para
+ * cada altura de base de faixa (z0), a soma das áreas das faixas do Rust fica dentro de 1e-6 m² da soma das faixas de entrada (as fatias que o perfil
+ * descarta só diminuem a soma) e (2) o TS de fato ganha área em algum z0 (senão a exceção está obsoleta e reprova).
+ */
+export interface ExcecaoDeFaixa {
+  parede: number;
+  /** `layerIndex` da camada (camada do tipo, não faixa do tipo). */
+  indice: number;
+  preRecorte: FaixaA3c[];
+  motivo: string;
+}
+
+const somaPorZ0 = (faixas: FaixaA3c[]): Map<string, number> => {
+  const m = new Map<string, number>();
+  for (const f of faixas) m.set(f.z0.toFixed(6), (m.get(f.z0.toFixed(6)) ?? 0) + areaDaForma(f.poly));
+  return m;
+};
+
+/** Verificação automática de `ExcecaoDeFaixa`; `null` = a exceção vale. */
+export function verificaExcecaoDeFaixa(ex: ExcecaoDeFaixa, ts: FaixaA3c[], rust: FaixaA3c[]): string | null {
+  const entrada = somaPorZ0(ex.preRecorte);
+  const doRust = somaPorZ0(rust);
+  const doTs = somaPorZ0(ts);
+  // Evidência do defeito: fatiando cada faixa de entrada nos mesmos cortes de t que o Rust usou (t0/t1 das inclinações), as fatias EXATAS somam a
+  // área da faixa; as do `polygon-clipping` do TS somam MAIS que ela (a exceção vale só se isso ocorre).
+  const incl = (rust as FaixaA3d[]).flatMap((f) => (f.slope ? [f.slope] : []));
+  let tsGanha = false;
+  if (incl.length) {
+    const { o, d } = incl[0]!;
+    const todos = [...new Set(incl.flatMap((s) => [s.t0, s.t1]))].sort((x, y) => x - y);
+    // partições: todos os cortes, e a de cada inclinação sozinha (como o TS fatia: um trecho por vez entre os lados)
+    const particoes = [todos, ...incl.map((s) => [s.t0, s.t1])];
+    for (const f of ex.preRecorte) {
+      for (const cortes of particoes) {
+        const limites = [Math.min(...todos) - 1, ...cortes, Math.max(...todos) + 1];
+        let soma = 0;
+        for (let i = 0; i + 1 < limites.length; i++) {
+          const ta = limites[i]!;
+          const tb = limites[i + 1]!;
+          const meio = (ta + tb) / 2;
+          soma += areaDaForma(intersection(f.poly, [[orientedRect(o.x + d.x * meio, o.y + d.y * meio, d.x, d.y, (tb - ta) / 2, 50)]]));
+        }
+        if (soma > areaDaForma(f.poly) + TOLERANCIA_AREA_A3) tsGanha = true;
+      }
+    }
+  }
+  for (const [z0, area] of doRust) {
+    const ref = entrada.get(z0);
+    if (ref === undefined) return `faixas do Rust com z0 ${z0} que não existe na entrada`;
+    if (area > ref + TOLERANCIA_AREA_A3) return `o Rust ganha área em z0 ${z0}: ${area} > ${ref} da entrada`;
+  }
+  void doTs;
+  return tsGanha ? null : 'as fatias do TS não somam mais que a faixa de entrada: a exceção nomeada está obsoleta';
+}
+
 export interface ComparacaoA3d extends ComparacaoA3c {
+  /** Camadas aceitas por exceção nomeada de faixa. */
+  excecoesDeFaixa: number;
   paredes: number;
   paredesComPerfilTopo: number;
   paredesComPerfilBase: number;
@@ -704,9 +783,21 @@ export function compararA3d(
   perfisDoModelo: ReadonlySet<number> = new Set(),
   maxDivergencias = 20,
   excecoes: readonly ExcecaoNomeada[] = [],
+  excecoesDeFaixa: readonly ExcecaoDeFaixa[] = [],
 ): ComparacaoA3d {
-  const base = compararA3c(ref, rust, paredesCurvas, maxDivergencias, excecoes, faixasIguaisA3d);
-  const r: ComparacaoA3d = { ...base, paredes: 0, paredesComPerfilTopo: 0, paredesComPerfilBase: 0, paredesComPerfilDoModelo: 0, paredesComMembranas: 0, membranas: 0, faixasInclinadas: 0, desvioMaximo: 0 };
+  let usadasFaixa = 0;
+  const comparador: ComparadorDeFaixas = (fr, fu, nota, camada) => {
+    const ex = camada && !camada.faixa ? excecoesDeFaixa.find((e) => e.parede === camada.parede && e.indice === camada.indice) : undefined;
+    if (!ex) return faixasIguaisA3d(fr, fu, nota);
+    const comum = faixasIguaisA3d(fr, fu, () => undefined);
+    if (!comum.erro) return comum;
+    const falha = verificaExcecaoDeFaixa(ex, fr, fu);
+    if (falha) return { erro: `exceção nomeada de faixa (${ex.motivo}): ${falha}`, refinamento: false };
+    usadasFaixa++;
+    return { erro: null, refinamento: false };
+  };
+  const base = compararA3c(ref, rust, paredesCurvas, maxDivergencias, excecoes, comparador);
+  const r: ComparacaoA3d = { ...base, paredes: 0, paredesComPerfilTopo: 0, paredesComPerfilBase: 0, paredesComPerfilDoModelo: 0, paredesComMembranas: 0, membranas: 0, faixasInclinadas: 0, desvioMaximo: 0, excecoesDeFaixa: 0 };
   const divergencias = r.divergencias;
   if (ref.paredes.length !== rust.paredes.length) {
     divergencias.push(`${rust.paredes.length} paredes (Rust) x ${ref.paredes.length} (TS)`);
@@ -757,5 +848,6 @@ export function compararA3d(
     }
   }
   for (const c of ref.camadas) for (const f of c.faixas) if (f.slope) r.faixasInclinadas++;
+  r.excecoesDeFaixa = usadasFaixa;
   return r;
 }

@@ -8,7 +8,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { migrateProject, type Project } from '@hestia/model';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { montarCenaA1, zDoNivel } from '../packages/engine/src/kernelA1.ts';
-import { montarCenaA3, type OpcoesA3c } from '../packages/engine/src/kernelA3.ts';
+import { decodificarA3c, montarCenaA3, type OpcoesA3c } from '../packages/engine/src/kernelA3.ts';
 import { argumentosA3d, decodificarA3d, montarPerfisA3d, referenciaA3d } from '../packages/engine/src/kernelA3d.ts';
 import { syntheticProject } from '../packages/engine/src/fixtureSintetica.ts';
 import { caminhoDoWasm } from '../packages/geom/src/kernel/caminhoWasm.ts';
@@ -16,7 +16,7 @@ import { CenaV2 } from '../packages/geom/src/kernel/v2/cena.ts';
 import { ErroKernelLeve } from '../packages/geom/src/kernel/v2/erros.ts';
 import { GerenciadorKernelV2 } from '../packages/geom/src/kernel/v2/gerenciador.ts';
 import { fonteDeSecoes } from '../packages/geom/src/kernel/v2/quadros.ts';
-import { compararA3d, estat0049Zero, somaEstat0049, type ComparacaoA3d, type Estat0049, type ExcecaoNomeada } from '../scripts/kernel-harness-a3.mts';
+import { compararA3d, estat0049Zero, somaEstat0049, type ComparacaoA3d, type Estat0049, type ExcecaoDeFaixa, type ExcecaoNomeada } from '../scripts/kernel-harness-a3.mts';
 import { variantesDoNivel } from '../scripts/kernel-a3c-estresse.mts';
 import { projetoDeEstresseA3d, projetoDeParedeComPerfil } from '../scripts/kernel-a3d-estresse.mts';
 
@@ -93,6 +93,7 @@ interface Cobertura {
   regioesFora: number;
   silhuetasFora: number;
   excecoes: number;
+  excecoesDeFaixa: number;
   maxFracaoDoLimite: number;
   estat: Estat0049;
 }
@@ -120,6 +121,7 @@ const zero = (): Cobertura => ({
   regioesFora: 0,
   silhuetasFora: 0,
   excecoes: 0,
+  excecoesDeFaixa: 0,
   maxFracaoDoLimite: 0,
   estat: estat0049Zero(),
 });
@@ -132,6 +134,7 @@ const soma = (a: Cobertura, b: ComparacaoA3d | Cobertura): void => {
   a.regioesFora += 'regioesFora' in b ? b.regioesFora : b.regioesForaDaTolerancia;
   a.silhuetasFora += 'silhuetasFora' in b ? b.silhuetasFora : b.silhuetasForaDaTolerancia;
   a.excecoes += 'excecoes' in b ? b.excecoes : b.excecoesUsadas;
+  a.excecoesDeFaixa += b.excecoesDeFaixa;
   somaEstat0049(a.estat, 'estat' in b ? b.estat : b.estat0049);
 };
 
@@ -142,6 +145,8 @@ interface Plano {
   semente?: number;
   variantes?: (nivel: number) => number[];
   excecoes?: (nivel: number) => ExcecaoNomeada[];
+  /** Exceções nomeadas de faixa (camada de uma parede): `parede` é o id_num; o pré-recorte vem de `cluster_resolvido`. */
+  excecoesDeFaixa?: Array<{ parede: number; indice: number; motivo: string }>;
 }
 
 /** Compara todos os pavimentos do projeto nas variantes de opção de planta (ou só nas opções dadas). */
@@ -165,7 +170,11 @@ function compararProjeto(p: Project, plano: Plano = {}, opcoes?: OpcoesA3c[]): C
       for (const op of lista) {
         const ref = referenciaA3d(p, l.id, a1, op);
         const rust = decodificarA3d(cena.consultar('resolver_nivel', argumentosA3d(p, l.id, a1, a3, op)));
-        const cmp = compararA3d(ref, rust, curvas, doModelo, 20, plano.excecoes?.(nivel) ?? []);
+        const faixas: ExcecaoDeFaixa[] = (plano.excecoesDeFaixa ?? []).flatMap((e) => {
+          const pre = decodificarA3c(cena.consultar('cluster_resolvido', argumentosA3d(p, l.id, a1, a3, op))).camadas.find((c) => c.parede === e.parede && !c.faixa && c.indice === e.indice);
+          return pre ? [{ ...e, preRecorte: pre.faixas }] : [];
+        });
+        const cmp = compararA3d(ref, rust, curvas, doModelo, 20, plano.excecoes?.(nivel) ?? [], faixas);
         const rotulo = `${p.name} ${l.id} ${JSON.stringify({ cutZ: op.cutZ, contorno: op.outlineWalls?.size, planOpenings: op.planOpenings?.size })}`;
         if (cmp.estat0049.maxK > melhorK.k) Object.assign(melhorK, { k: cmp.estat0049.maxK, caso: rotulo });
         if (MEDIR) medidas.push(...cmp.divergencias.map((d) => `${rotulo}: ${d}`));
@@ -181,7 +190,7 @@ function compararProjeto(p: Project, plano: Plano = {}, opcoes?: OpcoesA3c[]): C
 
 const relata = (rotulo: string, c: Cobertura): void => {
   console.log(
-    `[A3d ${rotulo}] ${c.comparacoes} comparações, paredes ${c.paredes} (perfil de topo ${c.paredesComPerfilTopo}, de base ${c.paredesComPerfilBase}, topProfile do modelo ${c.paredesComPerfilDoModelo}, com membranas ${c.paredesComMembranas}: ${c.membranas}), grupos ${c.grupos}, camadas ${c.camadas} (curvas ${c.camadasCurvas}), faixas ${c.faixas} (inclinadas ${c.faixasInclinadas}; camadas só por refinamento: ${c.faixasPorRefinamento}), regiões ${c.regioes} (acima do critério 0048, dentro da 0049: ${c.regioesFora}), silhuetas ${c.silhuetas} (idem: ${c.silhuetasFora}), exceções nomeadas ${c.excecoes}, 0049 (medido): ${JSON.stringify(c.estat)}; máx. fração do limite 0048 ${c.maxFracaoDoLimite.toFixed(2)}, formas estritas ${c.estritas}/${c.formas}, fiapos ${c.fiapos} (Rust ${c.fiaposRust}), desvio máx. de campos ${c.desvioMaximo}`,
+    `[A3d ${rotulo}] ${c.comparacoes} comparações, paredes ${c.paredes} (perfil de topo ${c.paredesComPerfilTopo}, de base ${c.paredesComPerfilBase}, topProfile do modelo ${c.paredesComPerfilDoModelo}, com membranas ${c.paredesComMembranas}: ${c.membranas}), grupos ${c.grupos}, camadas ${c.camadas} (curvas ${c.camadasCurvas}), faixas ${c.faixas} (inclinadas ${c.faixasInclinadas}; camadas só por refinamento: ${c.faixasPorRefinamento}), regiões ${c.regioes} (acima do critério 0048, dentro da 0049: ${c.regioesFora}), silhuetas ${c.silhuetas} (idem: ${c.silhuetasFora}), exceções nomeadas ${c.excecoes} (faixas ${c.excecoesDeFaixa}), 0049 (medido): ${JSON.stringify(c.estat)}; máx. fração do limite 0048 ${c.maxFracaoDoLimite.toFixed(2)}, formas estritas ${c.estritas}/${c.formas}, fiapos ${c.fiapos} (Rust ${c.fiaposRust}), desvio máx. de campos ${c.desvioMaximo}`,
   );
 };
 
@@ -211,7 +220,7 @@ describe.skipIf(!bytes)('A3d: resolver_nivel do Rust x motor TypeScript', () => 
     if (pula()) return;
     let arcos = 0;
     for (let semente = 100; semente < 102; semente++) {
-      compararProjeto(projetoDeEstresseA3d(semente, { paredes: 20, pavimentos: 1, curvas: 0, ruido: false }), { semente, variantes: () => [semente % 7] });
+      compararProjeto(projetoDeEstresseA3d(semente, { paredes: 20, pavimentos: 1, curvas: 0, ruido: false }), { semente, variantes: () => [semente % 7], excecoesDeFaixa: semente === 101 ? [{ parede: 18, indice: 4, motivo: 'defeito do TS: polygon-clipping devolve fatias que somam mais que o polígono no recorte pelo perfil (0049)' }] : [] });
       arcos += compararProjeto(projetoDeEstresseA3d(semente, { paredes: 10, pavimentos: 1, curvas: 1 }), { semente, variantes: () => [(semente + 3) % 7] }).camadasCurvas;
     }
     expect(arcos, 'camadas em parede curva').toBeGreaterThan(20);
