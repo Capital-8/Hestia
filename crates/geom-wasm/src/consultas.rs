@@ -1,4 +1,4 @@
-//! As três consultas da Fase 0 da ABI v2 (`schema/cena-v2.json`), sobre a seção `paredes`. A quarta,
+//! As três consultas da Fase 0 da ABI v2 (`schema/cena-v3.json`), sobre a seção `paredes`. A quarta,
 //! `quadros_e_juncoes`, vive em `a1.rs`.
 //!
 //! ## Regras exatas (o harness do lado TypeScript deve reproduzi-las)
@@ -29,7 +29,7 @@
 
 use crate::cena::Cena;
 use crate::esquema::{
-    self, Tipo, CONSULTA_ESTATISTICAS_NIVEL, CONSULTA_PARES_PROXIMOS, CONSULTA_PAREDES_NA_CAIXA, CONSULTA_QUADROS_E_JUNCOES,
+    self, Tipo, CONSULTA_ESTATISTICAS_NIVEL, CONSULTA_ITENS_PINTADOS, CONSULTA_PARES_PROXIMOS, CONSULTA_PAREDES_NA_CAIXA, CONSULTA_QUADROS_E_JUNCOES,
     ENTRADA,
     NAO_IMPLEMENTADO,
 };
@@ -93,7 +93,11 @@ pub fn par_proximo(a: &Caixa, b: &Caixa, g: f64) -> bool {
 /// Executa a consulta `id` com os argumentos `args`.
 pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u32> {
     let def = esquema::consulta(id).ok_or(NAO_IMPLEMENTADO)?;
-    if args.len() != def.args.len() {
+    if def.args_variaveis {
+        if args.len() < def.args.len() {
+            return Err(ENTRADA);
+        }
+    } else if args.len() != def.args.len() {
         return Err(ENTRADA);
     }
     match id {
@@ -123,6 +127,30 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
                 return Err(ENTRADA);
             }
             crate::a1::quadros_e_juncoes(cena, nivel, tol)
+        }
+        CONSULTA_ITENS_PINTADOS => {
+            let nivel = arg_nivel(args[0])?;
+            let tol = arg_finito(args[1])?;
+            if tol < 0.0 {
+                return Err(ENTRADA);
+            }
+            let tem_corte = match args[2] {
+                x if x == 0.0 => false,
+                x if x == 1.0 => true,
+                _ => return Err(ENTRADA),
+            };
+            let corte = arg_finito(args[3])?;
+            // `n_contorno` ids de parede vêm depois dos 5 argumentos fixos.
+            let n = arg_nivel(args[4])? as usize;
+            if args.len() != def.args.len() + n {
+                return Err(ENTRADA);
+            }
+            let mut contorno = std::collections::BTreeSet::new();
+            for &a in &args[def.args.len()..] {
+                contorno.insert(arg_nivel(a)?);
+            }
+            let opcoes = crate::a2::OpcoesDePlanta { corte_z: if tem_corte { Some(corte) } else { None }, contorno };
+            crate::a2::itens_pintados(cena, nivel, tol, &opcoes)
         }
         _ => Err(NAO_IMPLEMENTADO),
     }

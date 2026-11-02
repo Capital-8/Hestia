@@ -3,8 +3,9 @@
 //! sub-etapa A1 (decisão 0047).
 
 use crate::geo2d::{arco_amostra, V};
-use crate::juncoes::{ponto_da_esquadria, Corte, Degrau, Pontas};
-use crate::quadro::{acerto_no_plano, ponto_em, Quadro};
+use crate::camadas::{ponto_no_corte, Borda};
+use crate::juncoes::{Corte, Degrau, Pontas};
+use crate::quadro::Quadro;
 
 /// Folga das caixas dos grupos (m).
 pub const CLUSTER_PAD: f64 = 0.02;
@@ -25,34 +26,9 @@ pub fn t_da_faixa(r: &Degrau, s: f64) -> f64 {
     r.t + (t1 - r.t) * f
 }
 
-/// `stepT` com a borda `low`.
-fn t_do_degrau(runs: &[Degrau], s: f64) -> f64 {
-    let Some(&primeiro) = runs.first() else { return 0.0 };
-    let mut run = primeiro;
-    for r in runs {
-        if r.s > s + 1e-12 {
-            break;
-        }
-        run = *r;
-    }
-    t_da_faixa(&run, s)
-}
-
 /// `endPoint(f, which, spec, s)`: ponto da extremidade na espessura `s`.
 pub fn ponto_da_ponta(f: &Quadro, which: usize, corte: &Corte, s: f64) -> V {
-    match corte {
-        Corte::Reto(t) => ponto_em(f, *t, s),
-        Corte::Plano { p, q, .. } => {
-            let perto = ponto_em(f, if which == 0 { 0.0 } else { f.length }, s);
-            acerto_no_plano(f, s, *p, *q, perto).unwrap_or(perto)
-        }
-        Corte::Degraus(runs) => ponto_em(f, t_do_degrau(runs, s), s),
-        Corte::Esquadria(se, ot) => {
-            let d = if se.sigma > 0.0 { se.s_hi - s } else { s - se.s_lo };
-            let p = ponto_da_esquadria(se, ot, 0.0f64.max(d.min(se.s_hi - se.s_lo)));
-            p.unwrap_or_else(|| ponto_em(f, if which == 0 { 0.0 } else { f.length }, s))
-        }
-    }
+    ponto_no_corte(f, which, corte, s, Borda::Baixa)
 }
 
 /// `clusterWalls`: grupos de índices de quadro, numerados na ordem do primeiro membro; dentro de cada

@@ -294,7 +294,13 @@ pub(crate) mod testes_util {
     }
 
     pub fn bytes_tipos(ts: &[TipoT]) -> Vec<u8> {
-        [c32(&ts.iter().map(|t| t.0).collect::<Vec<_>>()), c32(&ts.iter().map(|t| t.1.len() as u32).collect::<Vec<_>>())].concat()
+        [
+            c32(&ts.iter().map(|t| t.0).collect::<Vec<_>>()),
+            c32(&ts.iter().map(|t| t.1.len() as u32).collect::<Vec<_>>()),
+            c8(&ts.iter().map(|_| 0u8).collect::<Vec<_>>()),
+            c32(&ts.iter().map(|_| 0u32).collect::<Vec<_>>()),
+        ]
+        .concat()
     }
 
     /// Linhas de `camadas` de todos os tipos; ids sequenciais.
@@ -306,6 +312,7 @@ pub(crate) mod testes_util {
         let mut fun = Vec::new();
         let mut tem = Vec::new();
         let mut pri = Vec::new();
+        let mut mat = Vec::new();
         for (tn, cs) in ts {
             for (i, (e, f, p)) in cs.iter().enumerate() {
                 ids.push(ids.len() as u32 + 1);
@@ -315,10 +322,12 @@ pub(crate) mod testes_util {
                 fun.push(*f);
                 tem.push(p.is_some() as u8);
                 pri.push(p.unwrap_or(0.0));
+                mat.push(*tn * 100 + i as u32);
             }
         }
         let n = ids.len() as u32;
-        (n, [c32(&ids), c32(&tipo), c32(&ix), c64(&esp), c8(&fun), c8(&tem), c64(&pri)].concat())
+        let env = vec![0u8; ids.len()];
+        (n, [c32(&ids), c32(&tipo), c32(&ix), c64(&esp), c8(&fun), c8(&tem), c64(&pri), c32(&mat), c8(&env)].concat())
     }
 
     /// Tipo padrão dos testes: uma camada de estrutura de 0,2 m.
@@ -527,7 +536,7 @@ mod testes {
         c.upsert(SECAO_CAMADAS, 1, &bc).expect("upsert");
         assert!(quadros_e_juncoes(&c, 0, 0.02).is_ok());
         // índice de camada fora de 0..n
-        let ruim = [c32(&[1]), c32(&[1]), c32(&[3]), c64(&[0.2]), c8(&[0]), c8(&[0]), c64(&[0.0])].concat();
+        let ruim = [c32(&[1]), c32(&[1]), c32(&[3]), c64(&[0.2]), c8(&[0]), c8(&[0]), c64(&[0.0]), c32(&[1]), c8(&[0])].concat();
         c.upsert(SECAO_CAMADAS, 1, &ruim).expect("upsert");
         assert_eq!(quadros_e_juncoes(&c, 0, 0.02).err(), Some(ENTRADA));
         // enums e flags fora do domínio, não finitos e chave duplicada
@@ -545,9 +554,9 @@ mod testes {
         let off_invertida = 8 + 8 + 8 + 8;
         raw[off_invertida] = 2;
         assert_eq!(m.definir_secao(SECAO_PAREDES_QUADRO, 1, &raw), Err(ENTRADA));
-        let ruim_camada = [c32(&[1]), c32(&[1]), c32(&[0]), c64(&[-0.1]), c8(&[0]), c8(&[0]), c64(&[0.0])].concat();
+        let ruim_camada = [c32(&[1]), c32(&[1]), c32(&[0]), c64(&[-0.1]), c8(&[0]), c8(&[0]), c64(&[0.0]), c32(&[1]), c8(&[0])].concat();
         assert_eq!(m.definir_secao(SECAO_CAMADAS, 1, &ruim_camada), Err(ENTRADA));
-        let ruim_funcao = [c32(&[1]), c32(&[1]), c32(&[0]), c64(&[0.1]), c8(&[6]), c8(&[0]), c64(&[0.0])].concat();
+        let ruim_funcao = [c32(&[1]), c32(&[1]), c32(&[0]), c64(&[0.1]), c8(&[6]), c8(&[0]), c64(&[0.0]), c32(&[1]), c8(&[0])].concat();
         assert_eq!(m.definir_secao(SECAO_CAMADAS, 1, &ruim_funcao), Err(ENTRADA));
         // falha não altera a cena (atômico)
         assert_eq!(m.a1.quadros.len(), 0);

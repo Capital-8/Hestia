@@ -48,7 +48,8 @@ const MIN_AREA = 1e-9;
 const EPS_Z = 1e-6;
 const CLUSTER_PAD = 0.02;
 
-interface Item {
+/** Item por camada (e faixa vertical) de uma parede; exportado para a referência da sub-etapa A2 do kernel Rust (decisão 0047). */
+export interface Item {
   wallId: Id;
   layerIndex: number;
   materialId: Id;
@@ -103,7 +104,7 @@ function flatT(f: WallFrame, which: 'a' | 'b', spec: EndSpec, sFace: number): nu
   return toLocal(f, endPoint(f, which, spec, sFace)).t;
 }
 
-function buildItems(
+export function buildItems(
   f: WallFrame,
   ends: WallEnds,
   freeEnds: Array<'a' | 'b'>,
@@ -165,7 +166,7 @@ function buildItems(
 }
 
 /** Algoritmo do pintor por prioridade (docs/05 §1): o menor número de prioridade é aceito primeiro e corta os demais. */
-function paint(items: Item[]): Map<Item, MultiPolygon> {
+export function paint(items: Item[]): Map<Item, MultiPolygon> {
   // Prioridade igual: a parede que atravessa um T vem primeiro (a que chega para na face dela, como no Revit);
   // só depois valem o núcleo mais robusto e a ordem de criação (paredes sobrepostas sem junção).
   const sorted = [...items].sort((x, y) => x.priority - y.priority || Number(y.through) - Number(x.through) || y.coreT - x.coreT || x.order - y.order || x.layerIndex - y.layerIndex);

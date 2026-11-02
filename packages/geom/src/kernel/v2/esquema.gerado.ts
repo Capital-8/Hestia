@@ -1,7 +1,7 @@
-// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v2.json.
+// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v3.json.
 // Não edite à mão: mude o JSON e rode `node scripts/gerar-esquema-kernel.mjs`.
 
-export const ESQUEMA_VERSAO = 2;
+export const ESQUEMA_VERSAO = 3;
 export const ABI_VERSAO = 2;
 export const NIVEL_TODOS = 4294967295;
 
@@ -136,6 +136,14 @@ export const SECOES = {
       {
         "nome": "n_camadas",
         "tipo": "u32"
+      },
+      {
+        "nome": "wrap_ends",
+        "tipo": "u8"
+      },
+      {
+        "nome": "n_faixas",
+        "tipo": "u32"
       }
     ]
   },
@@ -169,6 +177,70 @@ export const SECOES = {
       },
       {
         "nome": "prioridade",
+        "tipo": "f64"
+      },
+      {
+        "nome": "material_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "envolve",
+        "tipo": "u8"
+      }
+    ]
+  },
+  "faixas": {
+    "id": 5,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "tipo_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "indice",
+        "tipo": "u32"
+      },
+      {
+        "nome": "lado",
+        "tipo": "u8"
+      },
+      {
+        "nome": "material_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "espessura",
+        "tipo": "f64"
+      },
+      {
+        "nome": "z0",
+        "tipo": "f64"
+      },
+      {
+        "nome": "z1",
+        "tipo": "f64"
+      }
+    ]
+  },
+  "paredes_z": {
+    "id": 6,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "z0",
+        "tipo": "f64"
+      },
+      {
+        "nome": "altura",
         "tipo": "f64"
       }
     ]
@@ -286,6 +358,49 @@ export const CONSULTAS = {
         "nome": "grupos",
         "tipo": "u32",
         "elementos": "n"
+      }
+    ]
+  },
+  "itens_pintados": {
+    "id": 5,
+    "args": [
+      "nivel_num",
+      "tol_juncao",
+      "tem_corte_z",
+      "corte_z",
+      "n_contorno"
+    ],
+    "argsVariaveis": true,
+    "saidas": [
+      {
+        "nome": "itens",
+        "tipo": "u32",
+        "elementos": "9n"
+      },
+      {
+        "nome": "itens_num",
+        "tipo": "f64",
+        "elementos": "6n"
+      },
+      {
+        "nome": "formas_cab",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "poligonos",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "aneis",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "pontos",
+        "tipo": "f64",
+        "elementos": "livre"
       }
     ]
   }

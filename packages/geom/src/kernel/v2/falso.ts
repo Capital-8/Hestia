@@ -157,13 +157,14 @@ export function criarInstanciaFalsa(opcoes: OpcoesFalso = {}): InstanciaFalsa {
     if (nArgs > ARGS_MAX) return falhar(CODIGOS.LIMITE, 'argumentos demais');
     const nome = (Object.keys(CONSULTAS) as (keyof typeof CONSULTAS)[]).find((k) => CONSULTAS[k].id === consulta);
     if (!nome) return falhar(CODIGOS.NAO_IMPLEMENTADO, `consulta ${consulta} desconhecida`);
-    if (nArgs !== CONSULTAS[nome].args.length) return falhar(CODIGOS.ENTRADA, 'número de argumentos');
+    const def = CONSULTAS[nome] as { args: readonly string[]; argsVariaveis?: boolean };
+    if (def.argsVariaveis ? nArgs < def.args.length : nArgs !== def.args.length) return falhar(CODIGOS.ENTRADA, 'número de argumentos');
     const args = Array.from(new Float64Array(memory.buffer, ptrArgs, nArgs));
     if (args.some((a) => !Number.isFinite(a))) return falhar(CODIGOS.ENTRADA, 'argumento não finito');
     if (!nivelValido(args[0]!)) return falhar(CODIGOS.ENTRADA, 'nível fora de [0, 2^32) ou fracionário');
     if ((nome === 'pares_proximos' || nome === 'quadros_e_juncoes') && args[1]! < 0) return falhar(CODIGOS.ENTRADA, 'tolerância negativa');
-    // O falso não implementa geometria: quadros e junções só existem no Rust (a referência é o motor TypeScript).
-    if (nome === 'quadros_e_juncoes') return falhar(CODIGOS.NAO_IMPLEMENTADO, 'quadros_e_juncoes não é implementada no falso');
+    // O falso não implementa geometria: quadros, junções e itens pintados só existem no Rust (a referência é o motor TypeScript).
+    if (nome === 'quadros_e_juncoes' || nome === 'itens_pintados') return falhar(CODIGOS.NAO_IMPLEMENTADO, `${nome} não é implementada no falso`);
     const paredes: LinhaParede[] = [...(cena.get(SECOES.paredes.id)?.values() ?? [])].map((l) => ({
       id: l.id_num!,
       nivel: l.nivel_num!,

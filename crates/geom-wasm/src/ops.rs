@@ -37,6 +37,12 @@ use crate::{Anel, MultiPoligono, Poligono, ERRO_ENTRADA, ERRO_INTERNO};
 /// Escala da quantização: 1 µm, a mesma de `CLIP_SCALE` em `boolean.ts`.
 const ESCALA: f64 = 1e6;
 
+/// Escala fina (1 nm) para o pintor da sub-etapa A2. Com 1 µm a quantização desloca cada aresta até 0,5 µm e a área de
+/// um fragmento de perímetro de alguns metros até ~1e-5 m² — mais que a tolerância de 1e-6 m² da decisão 0046 §2.4 —,
+/// enquanto o TypeScript (`difference` = polygon-clipping, exato em todas as medições) não quantiza. A 1 nm o erro cai
+/// três ordens de grandeza e as coordenadas ficam muito abaixo de 1 µm. Mesmo algoritmo (non-zero, `i_overlay`).
+pub const ESCALA_FINA: f64 = 1e9;
+
 /// Limite de coordenada escalada para o arredondamento continuar exato em `f64` (bem abaixo de
 /// 2^53). Coordenadas acima disso não são representáveis em µm sem perder precisão; recusar é
 /// melhor que arredondar em silêncio.
@@ -63,11 +69,11 @@ fn area_com_sinal(anel: &Anel) -> f64 {
 
 /// `Math.round(x * 1e6)` do JS, inclusive para negativos (meio para +∞). Recusa NaN, infinito e
 /// coordenadas fora da faixa exata de `f64`.
-fn quantizar(valor: f64) -> Result<f64, u32> {
+fn quantizar(valor: f64, escala: f64) -> Result<f64, u32> {
     if !valor.is_finite() {
         return Err(ERRO_ENTRADA);
     }
-    let escalado = valor * ESCALA;
+    let escalado = valor * escala;
     if !escalado.is_finite() || escalado.abs() > LIMITE_ESCALADO {
         return Err(ERRO_ENTRADA);
     }
@@ -75,7 +81,7 @@ fn quantizar(valor: f64) -> Result<f64, u32> {
 }
 
 /// Valida, orienta e quantiza um multipolígono para o formato do `i_overlay`.
-fn preparar(m: &MultiPoligono) -> Result<Formas, u32> {
+fn preparar(m: &MultiPoligono, escala: f64) -> Result<Formas, u32> {
     let mut formas: Formas = Vec::with_capacity(m.len());
     for poli in m {
         // Geometria degenerada (polígono sem anéis, anel externo com menos de 3 pontos) não tem área: o TypeScript a
@@ -93,11 +99,11 @@ fn preparar(m: &MultiPoligono) -> Result<Formas, u32> {
             let mut pontos: Anel = Vec::with_capacity(anel.len());
             if inverter {
                 for p in anel.iter().rev() {
-                    pontos.push([quantizar(p[0])?, quantizar(p[1])?]);
+                    pontos.push([quantizar(p[0], escala)?, quantizar(p[1], escala)?]);
                 }
             } else {
                 for p in anel.iter() {
-                    pontos.push([quantizar(p[0])?, quantizar(p[1])?]);
+                    pontos.push([quantizar(p[0], escala)?, quantizar(p[1], escala)?]);
                 }
             }
             aneis.push(pontos);
@@ -108,7 +114,7 @@ fn preparar(m: &MultiPoligono) -> Result<Formas, u32> {
 }
 
 /// Converte a saída do `i_overlay` para o modelo do ABI, de volta em metros.
-fn converter(formas: Formas) -> MultiPoligono {
+fn converter(formas: Formas, escala: f64) -> MultiPoligono {
     let mut saida: MultiPoligono = Vec::with_capacity(formas.len());
     for poli in formas {
         let mut aneis: Poligono = Vec::with_capacity(poli.len());
@@ -123,7 +129,7 @@ fn converter(formas: Formas) -> MultiPoligono {
             aneis.push(
                 anel
                     .into_iter()
-                    .map(|p| [p[0] / ESCALA, p[1] / ESCALA])
+                    .map(|p| [p[0] / escala, p[1] / escala])
                     .collect(),
             );
         }
@@ -147,7 +153,7 @@ pub fn uniao(args: &[MultiPoligono]) -> Result<MultiPoligono, u32> {
     }
     let mut todas: Formas = Vec::new();
     for m in args {
-        todas.extend(preparar(m)?);
+        todas.extend(preparar(m, ESCALA)?);
     }
     if todas.is_empty() {
         return Ok(Vec::new());
@@ -156,18 +162,24 @@ pub fn uniao(args: &[MultiPoligono]) -> Result<MultiPoligono, u32> {
     // depender da ordem (equivale ao `unionClipper` do TS).
     let vazio: Formas = Vec::new();
     let resultado = aplicar(&todas, &vazio, OverlayRule::Union)?;
-    Ok(converter(resultado))
+    Ok(converter(resultado, ESCALA))
 }
 
 /// `difference(a, ...bs)` e `differenceClipper(a, ...bs)`.
 pub fn diferenca(args: &[MultiPoligono]) -> Result<MultiPoligono, u32> {
+    diferenca_com_escala(args, ESCALA)
+}
+
+/// `diferenca` com a escala da quantização (inteiros por metro) à escolha de quem chama. A sub-etapa A2 usa
+/// [`ESCALA_FINA`] (ver lá).
+pub fn diferenca_com_escala(args: &[MultiPoligono], escala: f64) -> Result<MultiPoligono, u32> {
     let Some(primeiro) = args.first() else {
         return Err(ERRO_ENTRADA);
     };
     // Valida todos antes dos atalhos: entrada degenerada nunca chega ao `i_overlay`.
     let preparados: Vec<Formas> = args
         .iter()
-        .map(preparar)
+        .map(|m| preparar(m, escala))
         .collect::<Result<_, _>>()?;
     if primeiro.is_empty() || preparados[0].is_empty() {
         return Ok(Vec::new());
@@ -186,7 +198,7 @@ pub fn diferenca(args: &[MultiPoligono]) -> Result<MultiPoligono, u32> {
     if resultado.is_empty() {
         return Ok(Vec::new());
     }
-    Ok(converter(resultado))
+    Ok(converter(resultado, escala))
 }
 
 /// `intersection(a, b)`.
@@ -194,13 +206,13 @@ pub fn interseccao(a: &MultiPoligono, b: &MultiPoligono) -> Result<MultiPoligono
     if a.is_empty() || b.is_empty() {
         return Ok(Vec::new());
     }
-    let a = preparar(a)?;
-    let b = preparar(b)?;
+    let a = preparar(a, ESCALA)?;
+    let b = preparar(b, ESCALA)?;
     if a.is_empty() || b.is_empty() {
         return Ok(Vec::new());
     }
     let resultado = aplicar(&a, &b, OverlayRule::Intersect)?;
-    Ok(converter(resultado))
+    Ok(converter(resultado, ESCALA))
 }
 
 /// `offsetMulti(m, delta)`.
@@ -215,7 +227,7 @@ pub fn offset(m: &MultiPoligono, delta: f64) -> Result<MultiPoligono, u32> {
     if !delta_em_um.is_finite() || delta_em_um.abs() > LIMITE_ESCALADO {
         return Err(ERRO_ENTRADA);
     }
-    let formas = preparar(m)?;
+    let formas = preparar(m, ESCALA)?;
     if formas.is_empty() {
         return Ok(Vec::new());
     }
@@ -227,7 +239,7 @@ pub fn offset(m: &MultiPoligono, delta: f64) -> Result<MultiPoligono, u32> {
     let resultado = formas
         .outline_fixed_scale_as::<i64>(&estilo, 1.0)
         .map_err(|_| ERRO_INTERNO)?;
-    Ok(converter(resultado))
+    Ok(converter(resultado, ESCALA))
 }
 
 #[cfg(test)]

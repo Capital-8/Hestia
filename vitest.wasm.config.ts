@@ -9,7 +9,7 @@ import { defineConfig } from 'vitest/config';
 // primeira instância compila o módulo e o diferencial pode comparar centenas de pares de polígonos.
 export default defineConfig({
   test: {
-    include: ['packages/geom/src/kernel/**/*.test.ts', 'tests/kernel-a1.wasm.test.ts'],
+    include: ['packages/geom/src/kernel/**/*.test.ts', 'tests/kernel-a*.wasm.test.ts'],
     environment: 'node',
     testTimeout: 30_000,
   },

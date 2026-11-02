@@ -2,11 +2,14 @@
  * Adaptador da sub-etapa A1 do kernel Rust (decisão 0047). NÃO calcula geometria: só
  * (1) monta as seções de coluna da cena v2 a partir de um `Project` e
  * (2) EXTRAI do TypeScript existente (`levelFrames`, `computeEnds`, `joinStatus`, `clusterWalls`) o que o Rust
- * produz em `quadros_e_juncoes`, na mesma codificação plana (ver `crates/geom-wasm/schema/cena-v2.json`), para o
+ * produz em `quadros_e_juncoes`, na mesma codificação plana (ver `crates/geom-wasm/schema/cena-v3.json`), para o
  * harness e os testes compararem. A referência de correção é o próprio motor; nada aqui reimplementa o algoritmo.
  */
-import { totalThickness, wallBaseElevation, wallMaxHeight, type Id, type LocationLine, type Project, type Wall, type WallType } from '@hestia/model';
+import { totalThickness, wallBaseElevation, wallMaxHeight, wallsOnLevel, type Id, type LocationLine, type Project, type Wall, type WallType, type WrapMode } from '@hestia/model';
 import { clusterWalls, levelFrames } from './resolve.ts';
+import { attachTargets } from './attachTargets.ts';
+import { resolveAllRoofs } from './roofs.ts';
+import { wallZRange, type WallZ } from './wallZ.ts';
 import { computeEnds, DEFAULT_JOIN_TOL, joinStatus, type JoinStatus, type SideSpec, type WallEnds } from './joins.ts';
 import type { MiterSide } from './joinTypes.ts';
 import type { WallFrame } from './frame.ts';
@@ -15,11 +18,26 @@ export type ColunasA1 = Record<string, number[]>;
 
 const LINHA_LOC: Record<LocationLine, number> = { wallCenter: 0, coreCenter: 1, finishExterior: 2, finishInterior: 3, coreExterior: 4, coreInterior: 5 };
 const FUNCAO: Record<string, number> = { structure: 0, substrate: 1, thermal: 2, membrane: 3, finish1: 4, finish2: 5 };
+const WRAP: Record<WrapMode, number> = { none: 0, exterior: 1, interior: 2, both: 3 };
+
+/**
+ * Cota real (`wallZRange`) das paredes de um nível, montada como `resolveLevel` a monta: pisos e lajes pelo
+ * `attachTargets` e telhados só se alguma parede do nível se anexa a um. É o que o Rust recebe em `paredes_z`
+ * (A2: a cota depende de pisos, lajes e telhados, que só migram nas fatias B e E).
+ */
+export function zDoNivel(p: Project, levelId: Id, flatAttach = false): Map<Id, WallZ> {
+  const walls = wallsOnLevel(p, levelId);
+  const { floors, slabs } = attachTargets(p, walls, flatAttach);
+  const roofs = walls.some((w) => w.attachTopToRoof === true) ? resolveAllRoofs(p) : [];
+  return new Map(walls.map((w) => [w.id, wallZRange(p, w, floors, slabs, roofs)] as const));
+}
 
 export interface CenaA1 {
   /** Seções por nome do esquema v2, em colunas. */
-  secoes: { paredes: ColunasA1; paredes_quadro: ColunasA1; tipos_parede: ColunasA1; camadas: ColunasA1 };
-  nLinhas: { paredes: number; paredes_quadro: number; tipos_parede: number; camadas: number };
+  secoes: { paredes: ColunasA1; paredes_quadro: ColunasA1; tipos_parede: ColunasA1; camadas: ColunasA1; faixas: ColunasA1; paredes_z: ColunasA1 };
+  nLinhas: { paredes: number; paredes_quadro: number; tipos_parede: number; camadas: number; faixas: number; paredes_z: number };
+  /** id do material -> `material_num`. */
+  materialDe: Map<Id, number>;
   /** id da parede -> `id_num`. */
   idDe: Map<Id, number>;
   /** id do nível -> `nivel_num`. */
@@ -32,7 +50,7 @@ function tipoDe(p: Project, w: Wall): WallType | undefined {
   return p.wallTypes[w.typeId] ?? p.wallTypes[p.defaults.wallTypeId];
 }
 
-/** Projeto -> seções `paredes`, `paredes_quadro`, `tipos_parede` e `camadas`. Ids internados na ordem do projeto. */
+/** Projeto -> seções `paredes`, `paredes_quadro`, `tipos_parede`, `camadas`, `faixas` e `paredes_z`. Ids internados na ordem do projeto. */
 export function montarCenaA1(p: Project): CenaA1 {
   const nivelDe = new Map<Id, number>(p.levels.map((l, i) => [l.id, i] as const));
   const idDe = new Map<Id, number>();
@@ -42,12 +60,22 @@ export function montarCenaA1(p: Project): CenaA1 {
   const quadro = col();
   const tipos = col();
   const camadas = col();
+  const faixas = col();
+  const paredesZ = col();
+  const materialDe = new Map<Id, number>();
+  const materialNum = (id: Id): number => {
+    let n = materialDe.get(id);
+    if (n === undefined) materialDe.set(id, (n = materialDe.size + 1));
+    return n;
+  };
+  const zPorNivel = new Map<Id, Map<Id, WallZ>>();
   const push = (c: ColunasA1, nome: string, v: number): void => {
     (c[nome] ??= []).push(v);
   };
   let ignoradas = 0;
   let proximoTipo = 1;
   let proximaCamada = 1;
+  let proximaFaixa = 1;
   let proximoId = 1;
   for (const el of Object.values(p.elements)) {
     if (el.kind !== 'wall') continue;
@@ -65,6 +93,8 @@ export function montarCenaA1(p: Project): CenaA1 {
       tipoNum.set(tipo.id, tn);
       push(tipos, 'id_num', tn);
       push(tipos, 'n_camadas', tipo.layers.length);
+      push(tipos, 'wrap_ends', WRAP[tipo.wrapEnds] ?? 0);
+      push(tipos, 'n_faixas', (tipo.strips ?? []).length);
       tipo.layers.forEach((l, i) => {
         push(camadas, 'id_num', proximaCamada++);
         push(camadas, 'tipo_num', tn!);
@@ -73,6 +103,18 @@ export function montarCenaA1(p: Project): CenaA1 {
         push(camadas, 'funcao', FUNCAO[l.function] ?? 255);
         push(camadas, 'tem_prioridade', l.priority === undefined ? 0 : 1);
         push(camadas, 'prioridade', l.priority ?? 0);
+        push(camadas, 'material_num', materialNum(l.materialId));
+        push(camadas, 'envolve', l.wraps ? 1 : 0);
+      });
+      (tipo.strips ?? []).forEach((st, k) => {
+        push(faixas, 'id_num', proximaFaixa++);
+        push(faixas, 'tipo_num', tn!);
+        push(faixas, 'indice', k);
+        push(faixas, 'lado', st.side === 'interior' ? 1 : 0);
+        push(faixas, 'material_num', materialNum(st.materialId));
+        push(faixas, 'espessura', st.thickness);
+        push(faixas, 'z0', st.z0);
+        push(faixas, 'z1', st.z1);
       });
     }
     push(paredes, 'id_num', id);
@@ -97,6 +139,12 @@ export function montarCenaA1(p: Project): CenaA1 {
     push(quadro, 'sag', el.sag);
     push(quadro, 'z0', z0);
     push(quadro, 'topo', z0 + wallMaxHeight(p, el));
+    let zs = zPorNivel.get(el.levelId);
+    if (!zs) zPorNivel.set(el.levelId, (zs = zDoNivel(p, el.levelId)));
+    const z = zs.get(el.id)!;
+    push(paredesZ, 'id_num', id);
+    push(paredesZ, 'z0', z.z0);
+    push(paredesZ, 'altura', z.height);
   }
   const vazio = (c: ColunasA1, nomes: string[]): ColunasA1 => {
     for (const n of nomes) c[n] ??= [];
@@ -104,11 +152,21 @@ export function montarCenaA1(p: Project): CenaA1 {
   };
   vazio(paredes, ['id_num', 'nivel_num', 'ax', 'ay', 'bx', 'by', 'espessura']);
   vazio(quadro, ['id_num', 'tipo_num', 'ordem', 'linha_loc', 'invertida', 'sem_junta_a', 'sem_junta_b', 'junta_a_tipo', 'junta_a_inverte', 'junta_b_tipo', 'junta_b_inverte', 'sag', 'z0', 'topo']);
-  vazio(tipos, ['id_num', 'n_camadas']);
-  vazio(camadas, ['id_num', 'tipo_num', 'indice', 'espessura', 'funcao', 'tem_prioridade', 'prioridade']);
+  vazio(tipos, ['id_num', 'n_camadas', 'wrap_ends', 'n_faixas']);
+  vazio(camadas, ['id_num', 'tipo_num', 'indice', 'espessura', 'funcao', 'tem_prioridade', 'prioridade', 'material_num', 'envolve']);
+  vazio(faixas, ['id_num', 'tipo_num', 'indice', 'lado', 'material_num', 'espessura', 'z0', 'z1']);
+  vazio(paredesZ, ['id_num', 'z0', 'altura']);
   return {
-    secoes: { paredes, paredes_quadro: quadro, tipos_parede: tipos, camadas },
-    nLinhas: { paredes: paredes['id_num']!.length, paredes_quadro: quadro['id_num']!.length, tipos_parede: tipos['id_num']!.length, camadas: camadas['id_num']!.length },
+    secoes: { paredes, paredes_quadro: quadro, tipos_parede: tipos, camadas, faixas, paredes_z: paredesZ },
+    nLinhas: {
+      paredes: paredes['id_num']!.length,
+      paredes_quadro: quadro['id_num']!.length,
+      tipos_parede: tipos['id_num']!.length,
+      camadas: camadas['id_num']!.length,
+      faixas: faixas['id_num']!.length,
+      paredes_z: paredesZ['id_num']!.length,
+    },
+    materialDe,
     idDe,
     nivelDe,
     ignoradas,

@@ -1,6 +1,6 @@
 {
-  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`; a seção `paredes` e as três consultas da Fase 0 não mudaram.",
-  "versao": 2,
+  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`. v3 (sub-etapa A2): colunas novas em `camadas` (material_num, envolve) e `tipos_parede` (wrap_ends, n_faixas), seções `faixas` e `paredes_z` e a consulta `itens_pintados`; as demais seções e consultas não mudaram.",
+  "versao": 3,
   "abi": 2,
   "tipos": {
     "u32": {
@@ -129,7 +129,7 @@
       "id": 3,
       "nome": "tipos_parede",
       "chave": "id_num",
-      "descricao": "Tipo de parede. n_camadas deve bater com as linhas de `camadas` do tipo (senão ENTRADA na consulta). Sem texto: nomes e materiais ficam no JS.",
+      "descricao": "Tipo de parede. n_camadas deve bater com as linhas de `camadas` do tipo e n_faixas com as de `faixas` (senão ENTRADA na consulta). wrap_ends: WallType.wrapEnds, 0 none, 1 exterior, 2 interior, 3 both. Sem texto: nomes e materiais ficam no JS.",
       "colunas": [
         {
           "nome": "id_num",
@@ -138,6 +138,14 @@
         {
           "nome": "n_camadas",
           "tipo": "u32"
+        },
+        {
+          "nome": "wrap_ends",
+          "tipo": "u8"
+        },
+        {
+          "nome": "n_faixas",
+          "tipo": "u32"
         }
       ]
     },
@@ -145,7 +153,7 @@
       "id": 4,
       "nome": "camadas",
       "chave": "id_num",
-      "descricao": "Camadas dos tipos, da face externa para a interna (ordem por `indice`, que deve ser 0..n_camadas-1 sem repetição). funcao: 0 structure, 1 substrate, 2 thermal, 3 membrane, 4 finish1, 5 finish2 (prioridades padrão 1,2,3,3,4,5). tem_prioridade=1 usa `prioridade` no lugar da padrão da função (layerPriority). O núcleo (coreRange/coreSpan) é derivado: do primeiro ao último layer de função structure; sem estrutura, o tipo inteiro.",
+      "descricao": "Camadas dos tipos, da face externa para a interna (ordem por `indice`, que deve ser 0..n_camadas-1 sem repetição). funcao: 0 structure, 1 substrate, 2 thermal, 3 membrane, 4 finish1, 5 finish2 (prioridades padrão 1,2,3,3,4,5). tem_prioridade=1 usa `prioridade` no lugar da padrão da função (layerPriority). O núcleo (coreRange/coreSpan) é derivado: do primeiro ao último layer de função structure; sem estrutura, o tipo inteiro. material_num: material da camada, interno pelo JS (só identidade; nada é calculado a partir dele). envolve: Layer.wraps (0 ou 1), a camada contorna a ponta livre da parede quando o tipo tem wrapEnds.",
       "colunas": [
         {
           "nome": "id_num",
@@ -173,6 +181,74 @@
         },
         {
           "nome": "prioridade",
+          "tipo": "f64"
+        },
+        {
+          "nome": "material_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "envolve",
+          "tipo": "u8"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "nome": "faixas",
+      "chave": "id_num",
+      "descricao": "Faixas verticais do tipo (WallType.strips: rodapé, barra de azulejo), na ordem de `indice` (0..n_faixas-1 sem repetição, a ordem do tipo). lado: 0 exterior, 1 interior. z0 e z1 são alturas relativas à base da parede (como WallStrip.z0/z1).",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "lado",
+          "tipo": "u8"
+        },
+        {
+          "nome": "material_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "espessura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z0",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z1",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "nome": "paredes_z",
+      "chave": "id_num",
+      "descricao": "Cota real da parede (a de wallZRange, já com anexos a piso, laje e telhado, calculada pelo JS; o Rust não a deriva): z0 = cota absoluta da base, altura = altura máxima. Uma linha para cada parede do nível que a consulta itens_pintados resolve. Difere de `paredes_quadro.z0/topo` (cotas nominais, usadas pelas junções).",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "z0",
+          "tipo": "f64"
+        },
+        {
+          "nome": "altura",
           "tipo": "f64"
         }
       ]
@@ -310,6 +386,63 @@
           "tipo": "u32",
           "elementos": "n",
           "descricao": "Índice do grupo (cluster) de cada parede. Grupos numerados na ordem da primeira parede de cada um; caixas de ponta e arco expandidas por CLUSTER_PAD = 0.02 m, sobreposição inclusiva, união transitiva"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "nome": "itens_pintados",
+      "descricao": "Sub-etapa A2: itens por camada (buildItems) e pintor (paint) de cada grupo de paredes de um nível, só em planta. Itens na ordem do TypeScript: grupos na ordem de clusterWalls; dentro do grupo, as paredes em ordem de quadro e, em cada parede, as camadas (ordem do tipo, sem as de espessura < 1e-6) e depois as faixas verticais. Todo item sai, mesmo com fragmento vazio. `fragment` só é calculado para item em planta (pintura entre os itens em planta do grupo) ou de contorno (pintura só entre os itens de contorno do grupo); item que não é nem um nem outro sai com fragmento vazio. Parede sem linha em `paredes_z`, `paredes_quadro`, camadas/faixas incoerentes ou tipo inexistente => ENTRADA. nivel_num = 0xFFFFFFFF é ENTRADA.",
+      "args": [
+        "nivel_num",
+        "tol_juncao",
+        "tem_corte_z",
+        "corte_z",
+        "n_contorno"
+      ],
+      "argsVariaveis": "depois dos 5 fixos vêm n_contorno valores: id_num das paredes de contorno (PlanResolveOptions.outlineWalls)",
+      "argsDescricao": {
+        "tol_juncao": "como em quadros_e_juncoes",
+        "tem_corte_z": "1 se PlanResolveOptions.cutZ foi dado, senão 0 (o corte fica 1,20 m acima da base de cada parede)",
+        "corte_z": "cota absoluta do plano de corte (ignorada se tem_corte_z = 0, mas finita)",
+        "n_contorno": "quantas paredes de contorno vêm a seguir (inteiro >= 0)"
+      },
+      "saidas": [
+        {
+          "nome": "itens",
+          "tipo": "u32",
+          "elementos": "9n",
+          "descricao": "9 valores por item: id_num da parede, grupo (índice do grupo, como `grupos` de quadros_e_juncoes), faixa (0 camada, 1 faixa vertical), indice (índice da camada no tipo, ou da faixa em `faixas`; layerIndex do TS é -(indice+1) nas faixas), material_num, core, em_planta (inPlan), contorno (outline), atravessa (through)"
+        },
+        {
+          "nome": "itens_num",
+          "tipo": "f64",
+          "elementos": "6n",
+          "descricao": "6 valores por item: prioridade, ordem (Wall.order), nucleo_t (coreT), z0, z1 (absolutas), espessura"
+        },
+        {
+          "nome": "formas_cab",
+          "tipo": "u32",
+          "elementos": "4n",
+          "descricao": "4 valores por item: bruto_ini, bruto_n, fragmento_ini, fragmento_n: faixas (em polígonos, não em u32) da saída `poligonos` para o `shape` bruto e para o `fragment` pintado"
+        },
+        {
+          "nome": "poligonos",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por polígono: ini, n em anéis (não em u32) da saída `aneis`; o primeiro anel é o externo, os demais furos"
+        },
+        {
+          "nome": "aneis",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por anel: ini, n em pontos (não em f64) da saída `pontos`"
+        },
+        {
+          "nome": "pontos",
+          "tipo": "f64",
+          "elementos": "livre",
+          "descricao": "Pares (x, y) em metros, na ordem das saídas anteriores"
         }
       ]
     }

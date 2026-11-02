@@ -1,12 +1,12 @@
-//! Constantes que espelham `schema/cena-v2.json` (fonte única do contrato, decisão 0046).
+//! Constantes que espelham `schema/cena-v3.json` (fonte única do contrato, decisão 0046).
 //!
 //! O teste `contrato_confere_com_json` (no fim deste arquivo) lê o JSON e confere tudo daqui:
 //! ids de seção, ordem e tipos das colunas, ids de consulta, saídas, códigos de erro e limites.
 //! Mudou o JSON => sobe `VERSAO_ESQUEMA` e este arquivo.
 
-/// `versao` de `cena-v2.json`.
-pub const VERSAO_ESQUEMA: u32 = 2;
-/// `abi` de `cena-v2.json`.
+/// `versao` de `cena-v3.json`.
+pub const VERSAO_ESQUEMA: u32 = 3;
+/// `abi` de `cena-v3.json`.
 pub const VERSAO_ABI2: u32 = 2;
 
 /// Códigos de retorno (3.1 do 0046).
@@ -72,6 +72,8 @@ pub const SECAO_PAREDES: u32 = 1;
 pub const SECAO_PAREDES_QUADRO: u32 = 2;
 pub const SECAO_TIPOS_PAREDE: u32 = 3;
 pub const SECAO_CAMADAS: u32 = 4;
+pub const SECAO_FAIXAS: u32 = 5;
+pub const SECAO_PAREDES_Z: u32 = 6;
 
 const fn col(nome: &'static str, tipo: Tipo) -> Coluna {
     Coluna { nome, tipo }
@@ -117,7 +119,7 @@ pub const SECOES: &[Secao] = &[
         id: SECAO_TIPOS_PAREDE,
         nome: "tipos_parede",
         chave: "id_num",
-        colunas: &[col("id_num", Tipo::U32), col("n_camadas", Tipo::U32)],
+        colunas: &[col("id_num", Tipo::U32), col("n_camadas", Tipo::U32), col("wrap_ends", Tipo::U8), col("n_faixas", Tipo::U32)],
     },
     Secao {
         id: SECAO_CAMADAS,
@@ -131,7 +133,30 @@ pub const SECOES: &[Secao] = &[
             col("funcao", Tipo::U8),
             col("tem_prioridade", Tipo::U8),
             col("prioridade", Tipo::F64),
+            col("material_num", Tipo::U32),
+            col("envolve", Tipo::U8),
         ],
+    },
+    Secao {
+        id: SECAO_FAIXAS,
+        nome: "faixas",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("tipo_num", Tipo::U32),
+            col("indice", Tipo::U32),
+            col("lado", Tipo::U8),
+            col("material_num", Tipo::U32),
+            col("espessura", Tipo::F64),
+            col("z0", Tipo::F64),
+            col("z1", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_PAREDES_Z,
+        nome: "paredes_z",
+        chave: "id_num",
+        colunas: &[col("id_num", Tipo::U32), col("z0", Tipo::F64), col("altura", Tipo::F64)],
     },
 ];
 
@@ -158,6 +183,8 @@ pub struct Consulta {
     pub id: u32,
     pub nome: &'static str,
     pub args: &'static [&'static str],
+    /// Aceita argumentos além dos fixos (`argsVariaveis` no JSON); o resto é definido pela consulta.
+    pub args_variaveis: bool,
     pub saidas: &'static [SaidaDef],
 }
 
@@ -165,12 +192,14 @@ pub const CONSULTA_ESTATISTICAS_NIVEL: u32 = 1;
 pub const CONSULTA_PAREDES_NA_CAIXA: u32 = 2;
 pub const CONSULTA_PARES_PROXIMOS: u32 = 3;
 pub const CONSULTA_QUADROS_E_JUNCOES: u32 = 4;
+pub const CONSULTA_ITENS_PINTADOS: u32 = 5;
 
 pub const CONSULTAS: &[Consulta] = &[
     Consulta {
         id: CONSULTA_ESTATISTICAS_NIVEL,
         nome: "estatisticas_nivel",
         args: &["nivel_num"],
+        args_variaveis: false,
         saidas: &[
             SaidaDef { nome: "n_paredes", tipo: Tipo::U32, elementos: Elementos::Fixo(1) },
             SaidaDef { nome: "caixa", tipo: Tipo::F64, elementos: Elementos::Fixo(4) },
@@ -181,18 +210,21 @@ pub const CONSULTAS: &[Consulta] = &[
         id: CONSULTA_PAREDES_NA_CAIXA,
         nome: "paredes_na_caixa",
         args: &["nivel_num", "minx", "miny", "maxx", "maxy"],
+        args_variaveis: false,
         saidas: &[SaidaDef { nome: "ids", tipo: Tipo::U32, elementos: Elementos::N }],
     },
     Consulta {
         id: CONSULTA_PARES_PROXIMOS,
         nome: "pares_proximos",
         args: &["nivel_num", "tol"],
+        args_variaveis: false,
         saidas: &[SaidaDef { nome: "pares", tipo: Tipo::U32, elementos: Elementos::DoisN }],
     },
     Consulta {
         id: CONSULTA_QUADROS_E_JUNCOES,
         nome: "quadros_e_juncoes",
         args: &["nivel_num", "tol_juncao"],
+        args_variaveis: false,
         saidas: &[
             SaidaDef { nome: "ids", tipo: Tipo::U32, elementos: Elementos::N },
             SaidaDef { nome: "quadro", tipo: Tipo::F64, elementos: Elementos::Multiplo(17) },
@@ -204,6 +236,20 @@ pub const CONSULTAS: &[Consulta] = &[
             SaidaDef { nome: "cordas_cab", tipo: Tipo::U32, elementos: Elementos::DoisN },
             SaidaDef { nome: "cordas", tipo: Tipo::F64, elementos: Elementos::Livre },
             SaidaDef { nome: "grupos", tipo: Tipo::U32, elementos: Elementos::N },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_ITENS_PINTADOS,
+        nome: "itens_pintados",
+        args: &["nivel_num", "tol_juncao", "tem_corte_z", "corte_z", "n_contorno"],
+        args_variaveis: true,
+        saidas: &[
+            SaidaDef { nome: "itens", tipo: Tipo::U32, elementos: Elementos::Multiplo(9) },
+            SaidaDef { nome: "itens_num", tipo: Tipo::F64, elementos: Elementos::Multiplo(6) },
+            SaidaDef { nome: "formas_cab", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "poligonos", tipo: Tipo::U32, elementos: Elementos::DoisN },
+            SaidaDef { nome: "aneis", tipo: Tipo::U32, elementos: Elementos::DoisN },
+            SaidaDef { nome: "pontos", tipo: Tipo::F64, elementos: Elementos::Livre },
         ],
     },
 ];
@@ -245,7 +291,7 @@ mod testes {
     use super::*;
     use serde_json::Value;
 
-    const JSON: &str = include_str!("../schema/cena-v2.json");
+    const JSON: &str = include_str!("../schema/cena-v3.json");
 
     fn tipo_de(nome: &str) -> Tipo {
         match nome {
@@ -293,6 +339,7 @@ mod testes {
             assert_eq!(jc["nome"].as_str(), Some(rc.nome));
             let args: Vec<&str> = jc["args"].as_array().expect("args").iter().filter_map(|a| a.as_str()).collect();
             assert_eq!(args, rc.args, "args de {}", rc.nome);
+            assert_eq!(jc["argsVariaveis"].is_string(), rc.args_variaveis, "argsVariaveis de {}", rc.nome);
             let saidas = jc["saidas"].as_array().expect("saidas");
             assert_eq!(saidas.len(), rc.saidas.len());
             for (js, rs) in saidas.iter().zip(rc.saidas) {

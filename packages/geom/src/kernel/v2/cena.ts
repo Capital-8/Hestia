@@ -118,7 +118,8 @@ export class CenaV2 implements ParticipanteDaInstancia {
       const def = CONSULTAS[nome];
       const nArgs: number = args.length;
       const esperados: number = def.args.length;
-      if (nArgs !== esperados) {
+      const variaveis = 'argsVariaveis' in def && def.argsVariaveis === true;
+      if (variaveis ? nArgs < esperados : nArgs !== esperados) {
         throw new ErroKernelLeve(CODIGOS.ENTRADA, `${nome} espera ${esperados} argumentos, recebeu ${nArgs}`);
       }
       const t0 = performance.now();

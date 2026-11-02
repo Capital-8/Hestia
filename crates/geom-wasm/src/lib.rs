@@ -48,13 +48,18 @@ pub mod ops;
 // ABI v2 (decisão 0046): cenas em colunas, consultas e índice espacial. A ABI v1 abaixo continua
 // exportada e inalterada até a fatia A cobrir o mesmo uso.
 pub mod a1;
+pub mod a2;
 pub mod abi2;
+pub mod camadas;
 pub mod cena;
+pub mod envolvimento;
 pub mod consultas;
 pub mod esquema;
 pub mod geo2d;
 pub mod grupos;
+pub mod itens;
 pub mod juncoes;
+pub mod pintor;
 pub mod indice;
 pub mod memoria;
 pub mod quadro;
