@@ -9,6 +9,8 @@
  * nesse caso o padrão é o TypeScript, exatamente como hoje.
  */
 
+import { CHAVE_FATIAS, FATIAS, interpretarLista, type Fatia } from '@hestia/geom';
+
 /** Caminho escolhido pelo usuário: o kernel experimental (`rust`) ou o TypeScript de sempre (`ts`). */
 export type FlagKernel = 'rust' | 'ts';
 
@@ -75,3 +77,67 @@ export function ligarKernelExperimental(ligado: boolean): void {
  * (`hestia:kernel`) ligam todas as fatias; o comportamento do kernel v1 não muda.
  */
 export { kernelFatiaLigada, fatiasLigadas, type Fatia } from '@hestia/geom';
+
+/** Acesso à URL e ao `localStorage`, injetável nos testes. O padrão lê o ambiente real. */
+export interface AmbienteKernel {
+  busca?: string | null;
+  ler?: (chave: string) => string | null;
+  gravar?: (chave: string, valor: string | null) => void;
+}
+
+function ambienteReal(): AmbienteKernel {
+  let busca: string | null = null;
+  try {
+    busca = typeof location === 'undefined' ? null : location.search;
+  } catch {
+    busca = null;
+  }
+  return {
+    busca,
+    ler: (chave) => armazenamento()?.getItem(chave) ?? null,
+    gravar: (chave, valor) => {
+      const a = armazenamento();
+      if (!a) return;
+      if (valor === null) a.removeItem(chave);
+      else a.setItem(chave, valor);
+    },
+  };
+}
+
+/** Fatias que o interruptor do diálogo "Experimentais" libera. As demais aparecem desabilitadas. */
+export const FATIAS_HABILITADAS: readonly Fatia[] = ['A'];
+
+/** Lista de fatias gravada pelo diálogo (`hestia:kernel:fatias`); vazia quando não há. */
+export function lerFatiasSalvas(amb: AmbienteKernel = ambienteReal()): Set<Fatia> {
+  return interpretarLista(amb.ler?.(CHAVE_FATIAS)) ?? new Set<Fatia>();
+}
+
+/**
+ * Grava a lista de fatias no formato que `fatias.ts` lê (`A,C`, em ordem). Lista vazia grava `-`: texto não nulo
+ * sem fatias conhecidas, que `fatias.ts` lê como "nenhuma fatia" e que vence `hestia:kernel=rust`.
+ */
+export function gravarFatiasSalvas(fatias: ReadonlySet<Fatia>, amb: AmbienteKernel = ambienteReal()): void {
+  const texto = FATIAS.filter((f) => fatias.has(f)).join(',') || '-';
+  amb.gravar?.(CHAVE_FATIAS, texto);
+}
+
+/** Qual parâmetro da URL trava as fatias: `kernelFatias` (lista), `kernel` (`rust`/`ts`) ou `null` (a URL não opina). */
+export function forcaDaUrl(amb: AmbienteKernel = ambienteReal()): 'kernelFatias' | 'kernel' | null {
+  let params: URLSearchParams;
+  try {
+    params = new URLSearchParams(amb.busca ?? '');
+  } catch {
+    return null;
+  }
+  if (interpretarLista(params.get('kernelFatias'))) return 'kernelFatias';
+  const geral = params.get('kernel');
+  return geral === 'rust' || geral === 'ts' ? 'kernel' : null;
+}
+
+/** Chave do modo sombra (decisão 0046 §7.1). A lógica do modo sombra entra com a A3d; aqui só a preferência. */
+export const CHAVE_MODO_SOMBRA = 'hestia:kernel:sombra';
+
+/** Modo sombra ligado? Padrão `false`; só `'true'` liga. */
+export function lerModoSombra(amb: AmbienteKernel = ambienteReal()): boolean {
+  return amb.ler?.(CHAVE_MODO_SOMBRA) === 'true';
+}

@@ -22,5 +22,5 @@ export { difference, differenceClipper, intersection, offsetMulti, union, unionC
 export { ativarKernelExperimental, desativarKernelExperimental, garantirKernelExperimental } from './kernel/carregador.ts';
 export { estadoKernel, type EstadoKernel, type ImplKernel } from './kernel/contrato.ts';
 // Kernel v2 (ABI v2, decisão 0046): chaves de liberação por fatia.
-export { kernelFatiaLigada, fatiasLigadas, FATIAS, type Fatia } from './kernel/v2/fatias.ts';
+export { kernelFatiaLigada, fatiasLigadas, interpretarLista, CHAVE_FATIAS, FATIAS, type Fatia } from './kernel/v2/fatias.ts';
 export { medicaoOperacoes, resetarMedicaoOperacoes, type MedicaoOperacoes } from './operacoesKernel.ts';
