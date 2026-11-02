@@ -2,7 +2,7 @@
  * Adaptador da sub-etapa A1 do kernel Rust (decisão 0047). NÃO calcula geometria: só
  * (1) monta as seções de coluna da cena v2 a partir de um `Project` e
  * (2) EXTRAI do TypeScript existente (`levelFrames`, `computeEnds`, `joinStatus`, `clusterWalls`) o que o Rust
- * produz em `quadros_e_juncoes`, na mesma codificação plana (ver `crates/geom-wasm/schema/cena-v4.json`), para o
+ * produz em `quadros_e_juncoes`, na mesma codificação plana (ver `crates/geom-wasm/schema/cena-v5.json`), para o
  * harness e os testes compararem. A referência de correção é o próprio motor; nada aqui reimplementa o algoritmo.
  */
 import { totalThickness, wallBaseElevation, wallMaxHeight, wallsOnLevel, type Id, type LocationLine, type Project, type Wall, type WallType, type WrapMode } from '@hestia/model';

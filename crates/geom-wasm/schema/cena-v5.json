@@ -1,6 +1,6 @@
 {
-  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`. v3 (sub-etapa A2): colunas novas em `camadas` (material_num, envolve) e `tipos_parede` (wrap_ends, n_faixas), seções `faixas` e `paredes_z` e a consulta `itens_pintados`; as demais seções e consultas não mudaram. v4 (sub-etapa A3a, vãos): seções `tipos_abertura` e `aberturas` e a consulta `aberturas_geom`; as demais não mudaram. Os perfis de topo e base de `wallZRange` NÃO entram em `paredes_z` nesta versão (nenhuma consulta da A3a os lê; entram na A3d, onde `withProfile`/`withBottomProfile` os consomem).",
-  "versao": 4,
+  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`. v3 (sub-etapa A2): colunas novas em `camadas` (material_num, envolve) e `tipos_parede` (wrap_ends, n_faixas), seções `faixas` e `paredes_z` e a consulta `itens_pintados`; as demais seções e consultas não mudaram. v4 (sub-etapa A3a, vãos): seções `tipos_abertura` e `aberturas` e a consulta `aberturas_geom`; as demais não mudaram. Os perfis de topo e base de `wallZRange` NÃO entram em `paredes_z` nesta versão (nenhuma consulta da A3a os lê; entram na A3d, onde `withProfile`/`withBottomProfile` os consomem). v5 (sub-etapa A3b, retornos de acabamento nos vãos): `tipos_parede.wrap_inserts`; `tipos_abertura` ganha janela, fechamento, tem_alizar, estilo_batente, modo_prof, prof_pedida, larg_batente e esp_folha (tudo o que `insertMode` e `insertReturns` leem do tipo da abertura, já resolvido pelo JS); consulta `retornos_geom`; as demais seções e consultas não mudaram.",
+  "versao": 5,
   "abi": 2,
   "tipos": {
     "u32": {
@@ -129,7 +129,7 @@
       "id": 3,
       "nome": "tipos_parede",
       "chave": "id_num",
-      "descricao": "Tipo de parede. n_camadas deve bater com as linhas de `camadas` do tipo e n_faixas com as de `faixas` (senão ENTRADA na consulta). wrap_ends: WallType.wrapEnds, 0 none, 1 exterior, 2 interior, 3 both. Sem texto: nomes e materiais ficam no JS.",
+      "descricao": "Tipo de parede. n_camadas deve bater com as linhas de `camadas` do tipo e n_faixas com as de `faixas` (senão ENTRADA na consulta). wrap_ends: WallType.wrapEnds, 0 none, 1 exterior, 2 interior, 3 both. Sem texto: nomes e materiais ficam no JS. wrap_inserts (v5): WallType.wrapInserts, mesma codificação de wrap_ends.",
       "colunas": [
         {
           "nome": "id_num",
@@ -146,6 +146,10 @@
         {
           "nome": "n_faixas",
           "tipo": "u32"
+        },
+        {
+          "nome": "wrap_inserts",
+          "tipo": "u8"
         }
       ]
     },
@@ -257,7 +261,7 @@
       "id": 7,
       "nome": "tipos_abertura",
       "chave": "id_num",
-      "descricao": "Tipo de abertura já normalizado para o VÃO (o que `openingType` devolve: `spanTypeOf` aplicado, então `largura`/`altura` são o vão mesmo com nominalRef leaf ou composição; o JS calcula isso). peitoril: OpeningType.sill. folga_w/folga_h: OpeningType.roughOversize (w, h), 0 se ausente ou inválido no JS; valor negativo vale 0 (nonNeg). folhas: 0..4. plano (PlanSymbol): 0 swing, 1 double, 2 sliding, 3 pivot, 4 fixed, 5 tilt, 6 casement, 7 dblact, 8 pocket, 9 bifold, 10 accordion, 11 garage, 12 hinged, 13 hung, 14 pivotwin, 15 louver. Sem texto.",
+      "descricao": "Tipo de abertura já normalizado para o VÃO (o que `openingType` devolve: `spanTypeOf` aplicado, então `largura`/`altura` são o vão mesmo com nominalRef leaf ou composição; o JS calcula isso). peitoril: OpeningType.sill. folga_w/folga_h: OpeningType.roughOversize (w, h), 0 se ausente ou inválido no JS; valor negativo vale 0 (nonNeg). folhas: 0..4. plano (PlanSymbol): 0 swing, 1 double, 2 sliding, 3 pivot, 4 fixed, 5 tilt, 6 casement, 7 dblact, 8 pocket, 9 bifold, 10 accordion, 11 garage, 12 hinged, 13 hung, 14 pivotwin, 15 louver. Sem texto. Colunas da v5 (retornos, A3b; todas já resolvidas pelo JS a partir do tipo, o Rust não as deriva): janela: OpeningType.kind (0 door, 1 window; é o do TIPO, `ot.kind` de insertFrameFootprint). fechamento: OpeningType.closure, 0 none, 1 exterior, 2 interior, 3 both, 4 inherit. tem_alizar: 1 se `openingCasing(t)` ou o casing da composição (`faces` diferente de none e `width` > 0) valem, o que força o fechamento efetivo a none. estilo_batente: openingFrameStyle (0 rebate, 1 simple, 2 aduela, 3 block). modo_prof: frameDepthMode (0 wall, 1 core, 2 fixed; valor inválido vale wall). prof_pedida: a profundidade que `openingFrameDepth` pede no modo fixed (frameDepth se finito e > 0, senão 0,09). larg_batente: `openingFrame(t).frameWidth` (padrão aplicado). esp_folha: `openingFrame(t).leafThickness` (padrão aplicado).",
       "colunas": [
         {
           "nome": "id_num",
@@ -290,6 +294,38 @@
         {
           "nome": "plano",
           "tipo": "u8"
+        },
+        {
+          "nome": "janela",
+          "tipo": "u8"
+        },
+        {
+          "nome": "fechamento",
+          "tipo": "u8"
+        },
+        {
+          "nome": "tem_alizar",
+          "tipo": "u8"
+        },
+        {
+          "nome": "estilo_batente",
+          "tipo": "u8"
+        },
+        {
+          "nome": "modo_prof",
+          "tipo": "u8"
+        },
+        {
+          "nome": "prof_pedida",
+          "tipo": "f64"
+        },
+        {
+          "nome": "larg_batente",
+          "tipo": "f64"
+        },
+        {
+          "nome": "esp_folha",
+          "tipo": "f64"
         }
       ]
     },
@@ -569,6 +605,57 @@
           "tipo": "f64",
           "elementos": "8n",
           "descricao": "8 valores por abertura: os 4 vértices (x, y) de `openingRect` (orientedRect(center, u, roughWidth/2, cutHalf ?? thickness/2 + 0,02)), na ordem do TS"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "nome": "retornos_geom",
+      "descricao": "Sub-etapa A3b: retornos de acabamento nos vãos (`insertMode` e `insertReturns` de wrap.ts) e o recorte de cada um pelo `makeReturnClipper` (clipReturn.ts) contra o pintado em planta do grupo. Mesmos argumentos e mesma orquestração de `itens_pintados` (grupos, pontas livres, paredes que atravessam um T, corte da planta): o `painted` do recorte é o `fragment` dos itens em planta do grupo (pintura entre os itens em planta). Ordem dos retornos: grupos na ordem de clusterWalls; dentro do grupo, as paredes em ordem de quadro, em cada parede as aberturas por id_num crescente e, em cada abertura, a ordem de `insertReturns` (lados exterior depois interior; em cada lado, as camadas envolventes do núcleo para fora). Abertura de parede sem quadro não sai; tipo de abertura inexistente, camadas/tipos incoerentes ou parede sem linha em `paredes_z` => ENTRADA. A escala das booleanas é a de `ops::diferenca`/`interseccao` (1 µm, a da ABI v1), inclusive no recorte (`differenceClipper`). nivel_num = 0xFFFFFFFF é ENTRADA.",
+      "args": [
+        "nivel_num",
+        "tol_juncao",
+        "tem_corte_z",
+        "corte_z",
+        "n_contorno"
+      ],
+      "argsVariaveis": "depois dos 5 fixos vêm n_contorno valores: id_num das paredes de contorno (PlanResolveOptions.outlineWalls)",
+      "argsDescricao": {
+        "tol_juncao": "como em quadros_e_juncoes",
+        "tem_corte_z": "1 se PlanResolveOptions.cutZ foi dado, senão 0 (o corte fica 1,20 m acima da base de cada parede)",
+        "corte_z": "cota absoluta do plano de corte (ignorada se tem_corte_z = 0, mas finita)",
+        "n_contorno": "quantas paredes de contorno vêm a seguir (inteiro >= 0)"
+      },
+      "saidas": [
+        {
+          "nome": "retornos",
+          "tipo": "u32",
+          "elementos": "5n",
+          "descricao": "5 valores por retorno: parede_num, abertura_num, camada (layerIndex), grupo (índice do grupo, como em `grupos` de quadros_e_juncoes), modo (insertMode efetivo: 0 none, 1 exterior, 2 interior, 3 both; um retorno só existe com modo diferente de none)"
+        },
+        {
+          "nome": "formas_cab",
+          "tipo": "u32",
+          "elementos": "4n",
+          "descricao": "4 valores por retorno: bruto_ini, bruto_n, recorte_ini, recorte_n: faixas (em polígonos, não em u32) da saída `poligonos` para o retorno de `insertReturns` e para o resultado de `makeReturnClipper` sobre ele"
+        },
+        {
+          "nome": "poligonos",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por polígono: ini, n em anéis (não em u32) da saída `aneis`; o primeiro anel é o externo, os demais furos"
+        },
+        {
+          "nome": "aneis",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por anel: ini, n em pontos (não em f64) da saída `pontos`"
+        },
+        {
+          "nome": "pontos",
+          "tipo": "f64",
+          "elementos": "livre",
+          "descricao": "Pares (x, y) em metros, na ordem das saídas anteriores"
         }
       ]
     }

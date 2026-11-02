@@ -1,7 +1,7 @@
-// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v4.json.
+// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v5.json.
 // Não edite à mão: mude o JSON e rode `node scripts/gerar-esquema-kernel.mjs`.
 
-export const ESQUEMA_VERSAO = 4;
+export const ESQUEMA_VERSAO = 5;
 export const ABI_VERSAO = 2;
 export const NIVEL_TODOS = 4294967295;
 
@@ -144,6 +144,10 @@ export const SECOES = {
       {
         "nome": "n_faixas",
         "tipo": "u32"
+      },
+      {
+        "nome": "wrap_inserts",
+        "tipo": "u8"
       }
     ]
   },
@@ -280,6 +284,38 @@ export const SECOES = {
       {
         "nome": "plano",
         "tipo": "u8"
+      },
+      {
+        "nome": "janela",
+        "tipo": "u8"
+      },
+      {
+        "nome": "fechamento",
+        "tipo": "u8"
+      },
+      {
+        "nome": "tem_alizar",
+        "tipo": "u8"
+      },
+      {
+        "nome": "estilo_batente",
+        "tipo": "u8"
+      },
+      {
+        "nome": "modo_prof",
+        "tipo": "u8"
+      },
+      {
+        "nome": "prof_pedida",
+        "tipo": "f64"
+      },
+      {
+        "nome": "larg_batente",
+        "tipo": "f64"
+      },
+      {
+        "nome": "esp_folha",
+        "tipo": "f64"
       }
     ]
   },
@@ -517,6 +553,44 @@ export const CONSULTAS = {
         "nome": "retangulo",
         "tipo": "f64",
         "elementos": "8n"
+      }
+    ]
+  },
+  "retornos_geom": {
+    "id": 7,
+    "args": [
+      "nivel_num",
+      "tol_juncao",
+      "tem_corte_z",
+      "corte_z",
+      "n_contorno"
+    ],
+    "argsVariaveis": true,
+    "saidas": [
+      {
+        "nome": "retornos",
+        "tipo": "u32",
+        "elementos": "5n"
+      },
+      {
+        "nome": "formas_cab",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "poligonos",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "aneis",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "pontos",
+        "tipo": "f64",
+        "elementos": "livre"
       }
     ]
   }
