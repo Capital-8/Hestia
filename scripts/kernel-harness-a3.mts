@@ -326,7 +326,7 @@ export const LIMIAR_FIAPO = 1e-4;
  * `K` da regra 3 da 0049: 1,5 x a maior razão `simétrica / perímetro / 1e-6` medida no estresse (12 sementes x 2 pavimentos x 7 opções de planta,
  * A3c e A3d) fora das exceções nomeadas. Ver 0047 §11 (valor medido e amostra).
  */
-export const K_REGIAO_0049 = Number.POSITIVE_INFINITY;
+export const K_REGIAO_0049 = 6;
 
 /** Exceção NOMEADA da 0049 (defeito do TS, não do Rust): região do `material` (e do `grupo`, se dado) e, com `silhueta`, a silhueta do mesmo grupo. */
 export interface ExcecaoNomeada {
@@ -342,6 +342,7 @@ const areaAnelAbs = (r: Array<{ x: number; y: number }>): number => Math.abs(are
 export const perimetroDaForma = (m: MultiPolygon): number => m.reduce((t, p) => t + p.reduce((s, r) => s + r.reduce((u, q, i) => u + Math.hypot(q.x - r[(i + 1) % r.length]!.x, q.y - r[(i + 1) % r.length]!.y), 0), 0), 0);
 
 interface Componente {
+  lado?: 'TS' | 'Rust';
   area: number;
   tipo: 'peça' | 'furo';
   poly: MultiPolygon;
@@ -380,13 +381,14 @@ export interface Topologia0049 {
 
 /** Topologia da 0049: contagem dos componentes significativos. */
 export function topologia0049(a: MultiPolygon, b: MultiPolygon): Topologia0049 {
-  const ca = componentesDaForma(a);
-  const cb = componentesDaForma(b);
+  // Canonicaliza os dois lados (união exata: funde peças que se tocam por aresta ou tangência e tira vértices colineares).
+  const ca = componentesDaForma(canonica(a));
+  const cb = componentesDaForma(canonica(b));
   const sig = (c: Componente[]): string => `${c.filter((x) => x.tipo === 'peça' && x.area > LIMIAR_FIAPO).length}/${c.filter((x) => x.tipo === 'furo' && x.area > LIMIAR_FIAPO).length}`;
   return {
     ts: sig(ca),
     rust: sig(cb),
-    semPar: [...semPar(ca, cb), ...semPar(cb, ca)],
+    semPar: [...semPar(ca, cb).map((x) => ({ ...x, lado: 'TS' as const })), ...semPar(cb, ca).map((x) => ({ ...x, lado: 'Rust' as const }))],
     fiapos: [...ca, ...cb].filter((x) => x.area <= LIMIAR_FIAPO).length,
   };
 }
@@ -422,7 +424,8 @@ function exataDosCortes(r: ClusterA3c, grupo: number, material: number | null): 
 
 function concordaComExato(rust: MultiPolygon, exato: MultiPolygon): string | null {
   const d = Math.abs(areaDaForma(rust) - areaDaForma(exato));
-  return d <= TOL_CONCORDA_EXATO ? null : `área do Rust ${areaDaForma(rust)} x união exata ${areaDaForma(exato)} (|d| = ${d}, limite ${TOL_CONCORDA_EXATO})`;
+  const limite = TOL_AREA_ABS_A2 + K_REGIAO_0049 * Math.max(perimetroDaForma(rust), perimetroDaForma(exato)) * 1e-6;
+  return d <= limite ? null : `área do Rust ${areaDaForma(rust)} x união exata ${areaDaForma(exato)} (|d| = ${d}, limite da regra 3 ${limite})`;
 }
 
 /**
@@ -450,7 +453,7 @@ export function compararA3c(
     const t = topologia0049(a, b);
     if (t.ts !== t.rust) {
       const grandes = t.semPar.filter((x) => x.area > LIMIAR_FIAPO);
-      return { c, erro: `topologia dos componentes significativos (peças/furos) ${t.rust} (Rust) x ${t.ts} (TS); sem par acima de ${LIMIAR_FIAPO}: ${grandes.map((x) => `${x.tipo} ${x.area}`).join(', ') || 'nenhum'}` };
+      return { c, erro: `topologia dos componentes significativos (peças/furos) ${t.rust} (Rust) x ${t.ts} (TS), após canonicalizar; sem par acima de ${LIMIAR_FIAPO}: ${grandes.map((x) => `${x.tipo} ${x.area} [${x.lado}] ${JSON.stringify(x.poly[0]![0]!.slice(0, 12).map((q) => [+q.x.toFixed(4), +q.y.toFixed(4)]))}`).join('; ') || 'nenhum'}` };
     }
     return { c, erro: null };
   };

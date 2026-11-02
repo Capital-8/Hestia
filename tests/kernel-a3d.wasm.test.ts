@@ -26,7 +26,10 @@ import { projetoDeEstresseA3d, projetoDeParedeComPerfil } from '../scripts/kerne
  */
 const MEDIR = process.env['A3D_MEDIR'] === '1';
 const medidas: string[] = [];
+/** Maior K (razão simétrica/perímetro/1e-6, 0049) de todos os casos do arquivo, para o registro no 0047 §11. */
+const melhorK = { k: 0, caso: '' };
 afterAll(() => {
+  console.log(`[A3d K medido] máximo ${melhorK.k} em ${melhorK.caso}`);
   if (MEDIR) console.log(['[A3d medição] ' + medidas.length + ' divergências', ...medidas.map((m) => m.slice(0, 700))].join('\n'));
 });
 
@@ -163,7 +166,8 @@ function compararProjeto(p: Project, plano: Plano = {}, opcoes?: OpcoesA3c[]): C
         const ref = referenciaA3d(p, l.id, a1, op);
         const rust = decodificarA3d(cena.consultar('resolver_nivel', argumentosA3d(p, l.id, a1, a3, op)));
         const cmp = compararA3d(ref, rust, curvas, doModelo, 20, plano.excecoes?.(nivel) ?? []);
-        const rotulo = `${l.id} ${JSON.stringify({ cutZ: op.cutZ, contorno: op.outlineWalls?.size, planOpenings: op.planOpenings?.size })}`;
+        const rotulo = `${p.name} ${l.id} ${JSON.stringify({ cutZ: op.cutZ, contorno: op.outlineWalls?.size, planOpenings: op.planOpenings?.size })}`;
+        if (cmp.estat0049.maxK > melhorK.k) Object.assign(melhorK, { k: cmp.estat0049.maxK, caso: rotulo });
         if (MEDIR) medidas.push(...cmp.divergencias.map((d) => `${rotulo}: ${d}`));
         else expect(cmp.divergencias, `${rotulo}: ${cmp.divergencias.slice(0, 3).join(' | ')}`).toEqual([]);
         soma(cov, cmp);
