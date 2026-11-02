@@ -216,3 +216,4 @@ bloqueantes; um guarda de erro grosseiro (1e-2 m², fora da equivalência) pega 
 Não feito por causa da parada: build final do  e 
 > hestia@0.1.0 wasm:check
 > node scripts/verificar-wasm.mjs (o binário commitado é o da A3b; o hash das fontes diverge até o rebuild).
+Mutações do A3c: pendentes para o fim da A (as dezoito acima foram rodadas uma vez, antes da mudança de método; ver o resultado acima).
