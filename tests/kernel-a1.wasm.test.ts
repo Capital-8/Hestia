@@ -7,7 +7,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { migrateProject, type Project } from '@hestia/model';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { montarCenaA1, referenciaA1 } from '../packages/engine/src/kernelA1.ts';
+import { montarCenaA1, referenciaA1, type SaidaA1 } from '../packages/engine/src/kernelA1.ts';
 import { syntheticProject } from '../packages/engine/src/fixtureSintetica.ts';
 import { caminhoDoWasm } from '../packages/geom/src/kernel/caminhoWasm.ts';
 import { CenaV2 } from '../packages/geom/src/kernel/v2/cena.ts';
@@ -15,7 +15,7 @@ import { ErroKernelLeve } from '../packages/geom/src/kernel/v2/erros.ts';
 import { GerenciadorKernelV2 } from '../packages/geom/src/kernel/v2/gerenciador.ts';
 import { fonteDeSecoes } from '../packages/geom/src/kernel/v2/quadros.ts';
 import { compararA1 } from '../scripts/kernel-harness-a1.mts';
-import { projetoDeEstresse } from '../scripts/kernel-a1-estresse.mts';
+import { casosDeLimiar, projetoDeEstresse } from '../scripts/kernel-a1-estresse.mts';
 
 const caminho = caminhoDoWasm();
 const bytes = existsSync(caminho) ? readFileSync(caminho) : null;
@@ -162,4 +162,43 @@ describe.skipIf(!bytes)('A1: quadros_e_juncoes do Rust x motor TypeScript', () =
     compararProjeto(projetoDeEstresse(11, { paredes: 40, pavimentos: 2 }));
     expect(ger!.instancia().exports.memoria_usada()).toBe(antes);
   });
+});
+
+/**
+ * Duas saídas do TypeScript diferem em alguma topologia ou coordenada. Comparação exata de propósito: é só um teste de
+ * que o caso enxerga a variável. No clamp de 0,01 m a função é contínua na fronteira, então a diferença entre os lados é
+ * a própria margem (~3e-7 m); quem prova a sensibilidade ali é a mutação contra o Rust, não esta checagem.
+ */
+const saidasDiferem = (x: SaidaA1, y: SaidaA1): boolean =>
+  (Object.keys(x) as Array<keyof SaidaA1>).some((k) => {
+    const a = x[k];
+    const b = y[k];
+    if (a.length !== b.length) return true;
+    return a.some((v, i) => {
+      const w = b[i]!;
+      if (Number.isNaN(v) || Number.isNaN(w)) return Number.isNaN(v) !== Number.isNaN(w);
+      return v !== w;
+    });
+  });
+
+describe('A1: cada limiar de decisão muda a saída do motor TypeScript entre os dois lados', () => {
+  // Sem wasm: prova que os casos discriminam. Se o caso de um limiar não mudar nada, a mutação dele seria invisível.
+  const porLimiar = new Map<string, Partial<Record<'abaixo' | 'acima', Project>>>();
+  for (const c of casosDeLimiar()) porLimiar.set(c.limiar, { ...porLimiar.get(c.limiar), [c.lado]: c.projeto });
+  for (const [limiar, lados] of porLimiar) {
+    it(limiar, () => {
+      const ref = (p: Project): SaidaA1 => referenciaA1(p, 'lv_0', montarCenaA1(p));
+      expect(lados.abaixo && lados.acima).toBeTruthy();
+      expect(saidasDiferem(ref(lados.abaixo!), ref(lados.acima!))).toBe(true);
+    });
+  }
+});
+
+describe.skipIf(!bytes)('A1: limiares de decisão, nos dois lados de cada um (margem de 1e-6 relativo)', () => {
+  for (const c of casosDeLimiar()) {
+    it(`${c.limiar} · ${c.lado} do valor ${c.valor}`, () => {
+      if (ger === null) return;
+      compararProjeto(c.projeto);
+    });
+  }
 });
