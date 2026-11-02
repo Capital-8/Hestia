@@ -104,8 +104,10 @@ describe.skipIf(!bytes)('A3b: retornos_geom do Rust x motor TypeScript', () => {
     expect(total.porModo[2], 'modo interior').toBeGreaterThan(20);
     expect(total.porModo[3], 'modo both').toBeGreaterThan(100);
     expect(total.recortados, 'retornos recortados por parede vizinha').toBeGreaterThan(0);
-    console.log(`[A3b] retornos ${total.retornos} (exterior ${total.porModo[1]}, interior ${total.porModo[2]}, both ${total.porModo[3]}), recortados ${total.recortados}, formas estritas ${total.estritas}/${total.formas}, desvio ${total.desvio}, fiapos do TS ${total.fiapos}`);
-    expect(total.fiapos, 'fiapos do TS (retornos de área <= 1e-6 que o Rust não devolve)').toBeLessThan(total.retornos * 0.4);
+    console.log(`[A3b] retornos ${total.retornos} (exterior ${total.porModo[1]}, interior ${total.porModo[2]}, both ${total.porModo[3]}), recortados ${total.recortados}, formas estritas ${total.estritas}/${total.formas}, desvio ${total.desvio}, fiapos ${total.fiapos} (${((100 * total.fiapos) / (total.retornos + total.fiapos)).toFixed(1)}%)`);
+    // Fiapos (retorno presente só de um lado, área <= 1e-6 m²): medido 146 de 722 retornos (20,2%) no estresse das sementes 1..12;
+    // o limite 25% dá margem pequena e pega uma mudança que faça o Rust deixar de devolver retornos de verdade.
+    expect(total.fiapos / (total.retornos + total.fiapos), 'fração de fiapos').toBeLessThanOrEqual(0.25);
   }, 120_000);
 
   it('só retas, e só arcos', () => {

@@ -124,25 +124,28 @@ function formaIgual(a: MultiPolygon, b: MultiPolygon): { erro: string | null; es
   return { erro: null, estrita: false, desvio: 0 };
 }
 
-export function compararA3b(refTodos: RetornoA3b[], rust: RetornoA3b[], maxDivergencias = 20): ComparacaoA3b {
+export function compararA3b(refTodos: RetornoA3b[], rustTodos: RetornoA3b[], maxDivergencias = 20): ComparacaoA3b {
   const divergencias: string[] = [];
   const chave = (x: RetornoA3b): string => `${x.parede}/${x.abertura}/${x.camada}`;
-  // Fiapos: o `polygon-clipping` (exato) deixa como resto de `difference(retorno, batente)` triângulos de ~0 m² (retorno
-  // todo coberto pelo batente, com ruído de 1e-9 m); o Rust, em inteiros de 1 µm, devolve vazio e o retorno não existe.
-  // Só vale para o que está abaixo da tolerância de área (1e-6 m²): qualquer retorno maior que isso ausente no Rust é divergência.
-  const rustChaves = new Set(rust.map(chave));
+  // Fiapos: um retorno presente só de um lado com área <= 1e-6 m² (a tolerância de área). O `polygon-clipping` (exato) deixa
+  // triângulos de ~0 m² quando o batente cobre o retorno; o Rust (inteiros) devolve vazio. Maior que isso de um lado só é divergência.
+  const chavesRust = new Set(rustTodos.map(chave));
+  const chavesRef = new Set(refTodos.map(chave));
   let fiapos = 0;
-  const ref = refTodos.filter((x) => {
-    if (rustChaves.has(chave(x))) return true;
-    if (areaDaForma(x.bruto) <= TOLERANCIA_AREA_A3) {
-      fiapos++;
-      return false;
-    }
-    return true;
-  });
+  const semFiapo = (lista: RetornoA3b[], outro: Set<string>): RetornoA3b[] =>
+    lista.filter((x) => {
+      if (outro.has(chave(x))) return true;
+      if (areaDaForma(x.bruto) <= TOLERANCIA_AREA_A3) {
+        fiapos++;
+        return false;
+      }
+      return true;
+    });
+  const ref = semFiapo(refTodos, chavesRust);
+  const rust = semFiapo(rustTodos, chavesRef);
   const r: ComparacaoA3b = { divergencias, desvioMaximo: 0, retornos: ref.length, porModo: [0, 0, 0, 0], recortados: 0, estritas: 0, formas: 0, fiapos };
   if (ref.length !== rust.length) {
-    divergencias.push(`${rust.length} retornos (Rust) x ${ref.length} (TS, sem ${fiapos} fiapos de área <= 1e-6)`);
+    divergencias.push(`${rust.length} retornos (Rust) x ${ref.length} (TS), sem ${fiapos} fiapos de área <= 1e-6`);
     return r;
   }
   for (let i = 0; i < ref.length && divergencias.length < maxDivergencias; i++) {
