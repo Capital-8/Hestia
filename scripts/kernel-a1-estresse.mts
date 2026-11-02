@@ -125,8 +125,12 @@ export const MARGEM_LIMIAR = 1e-6;
 export interface CasoDeLimiar {
   /** Limiar e ponto de decisão no motor (ver `DESCRITORES_DE_LIMIAR`). */
   limiar: string;
-  /** Lado do valor nominal em que a variável de decisão cai (margem `MARGEM_LIMIAR`). */
-  lado: 'abaixo' | 'acima';
+  /**
+   * Lado do valor nominal em que a variável de decisão cai (margem `MARGEM_LIMIAR`), ou `sensibilidade`: ponto
+   * afastado do nominal, dentro da faixa que uma mutação do limiar mudaria. Existe porque em funções contínuas na
+   * fronteira (clamp, piso) a diferença entre os dois lados da margem é ~1e-7 m, abaixo da tolerância de 1 µm.
+   */
+  lado: 'abaixo' | 'acima' | 'sensibilidade';
   /** Valor nominal do limiar neste caso (já com o `tol` do projeto, quando o limiar depende dele). */
   valor: number;
   projeto: Project;
@@ -208,6 +212,10 @@ interface DescritorDeLimiar {
   monta: (x: number, tol: number) => Project;
   /** Quando o limiar depende do `tol` do projeto: repete o caso para cada um destes valores. */
   tols?: number[];
+  /** Pontos de sensibilidade (lado `sensibilidade`), além da margem. */
+  sensibilidade?: number[];
+  /** Só o caso de sensibilidade (o projeto não depende de `x`, então não há par abaixo/acima). */
+  soSensibilidade?: boolean;
 }
 
 const cos = (s: number): number => Math.sqrt(1 - s * s);
@@ -413,6 +421,9 @@ const DESCRITORES_DE_LIMIAR: DescritorDeLimiar[] = [
     // Clamp de 0,01 m no corte do ramal, ponta a (buttAgainst; juncoes.rs:448): min(t, L − 0,01). Variável = t_raw
     // da face externa do hospedeiro sobre o ramal (L = 0,3 m, ramal de 0,02 m). Nominal = L − 0,01 = 0,29.
     limiar: 'CLAMP 0,01 · corte de ramal (ponta a, t ≤ L − 0,01)',
+    // 0,2905: dentro da faixa (L−0,01; L−0,009) que a mutação para 0,009 mudaria; o par abaixo/acima não a cobre
+    // (a diferença é a margem, ~3e-7 m, abaixo de 1 µm).
+    sensibilidade: [0.2905],
     nominal: () => 0.29,
     monta: (d) => {
       const t = anguloDoRamal(d);
@@ -426,6 +437,7 @@ const DESCRITORES_DE_LIMIAR: DescritorDeLimiar[] = [
     // Clamp de 0,01 m no corte do ramal, ponta b (juncoes.rs:450): max(t, 0,01). Simétrico ao anterior (ramal
     // refletido pelo nó): t_raw = L − d, cai abaixo de 0,01 quando d > L − 0,01.
     limiar: 'CLAMP 0,01 · corte de ramal (ponta b, t ≥ 0,01)',
+    sensibilidade: [0.2905],
     nominal: () => 0.29,
     monta: (d) => {
       const t = anguloDoRamal(d);
@@ -470,6 +482,86 @@ const DESCRITORES_DE_LIMIAR: DescritorDeLimiar[] = [
     nominal: () => 1e-4,
     monta: (c) => projetoCaso('lim-corda', [{ id: 'A', a: { x: 0, y: 0 }, b: { x: c, y: 0 } }], 0.02),
   },
+  {
+    // Parceiro colinear na ponta a (endPartners/parceiros; juncoes.rs:182). Distância d = tol, extremidades na mesma
+    // reta: agrupadas, a junção colinear sai reta; separadas, a ponta fica livre. Só o estado da ponta muda.
+    limiar: 'TOL · parceiro colinear, ponta a (estado da ponta)',
+    nominal: (tol) => tol,
+    monta: (d, tol) =>
+      projetoCaso('lim-tol-colinear-a', [
+        { id: 'A', a: { x: -4, y: 0 }, b: { x: 0, y: 0 } },
+        { id: 'B', a: { x: d, y: 0 }, b: { x: 4, y: 0 } },
+      ], tol),
+    tols: TOLS_DEPENDENTES,
+  },
+  {
+    // Mesmo, na ponta b do parceiro (juncoes.rs:185).
+    limiar: 'TOL · parceiro colinear, ponta b (estado da ponta)',
+    nominal: (tol) => tol,
+    monta: (d, tol) =>
+      projetoCaso('lim-tol-colinear-b', [
+        { id: 'A', a: { x: -4, y: 0 }, b: { x: 0, y: 0 } },
+        { id: 'B', a: { x: 4, y: 0 }, b: { x: d, y: 0 } },
+      ], tol),
+    tols: TOLS_DEPENDENTES,
+  },
+  {
+    // Três extremidades: A.b e C.a no mesmo ponto (colineares); B.a a distância d deles (perpendicular). Agrupar B.a
+    // muda o nó de 2 para 3 paredes (juncoes.rs:154, agrupa_pontas).
+    limiar: 'TOL · agrupamento com terceira ponta (B a distância d de A.b e C.a)',
+    nominal: (tol) => tol,
+    monta: (d, tol) =>
+      projetoCaso('lim-tol-tres', [
+        { id: 'A', a: { x: -4, y: 0 }, b: { x: 0, y: 0 }, ja: 'miter', jb: 'miter' },
+        { id: 'C', a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, ja: 'miter' },
+        { id: 'B', a: { x: 0, y: d }, b: { x: 0, y: 4 }, ja: 'miter' },
+      ], tol),
+    tols: TOLS_DEPENDENTES,
+  },
+  {
+    // Extensão da junta de topo com piso de 0,05 (extensao_externa; juncoes.rs:544). Parede de 0,02 m, ângulo α com
+    // extensão atrás do nó = (t/2)·cot(α/2). Só vale quando a esquadria falha (cap de degraus 6·t = 0,3): ext > 0,3.
+    limiar: 'LIMITE_ESQUADRIA · piso de 0,05 na extensão da junta de topo (parede de 0,02 m)',
+    nominal: () => 0.3,
+    monta: (ext) => {
+      const alfa = 2 * Math.atan(0.01 / ext);
+      return projetoCaso('lim-extensao', [
+        { id: 'W1', a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, tipo: TIPO_FINO },
+        { id: 'W2', a: { x: 0, y: 0 }, b: { x: 4 * Math.cos(alfa), y: 4 * Math.sin(alfa) }, tipo: TIPO_FINO },
+      ], 0.02);
+    },
+    sensibilidade: [0.33],
+  },
+  {
+    // Clamp de 0,01 na linha de centro, ponta a (ate_a_linha_de_centro; juncoes.rs:525). Ramal B de 0,3 m com ponta a
+    // em (0; −0,019) (dentro do tol do nó) e sen θ = 0,06: o encontro com o eixo de A fica a 0,317 m, então o clamp
+    // L − 0,01 = 0,29 decide. Qualquer mutação do 0,01 muda o corte em ~1 mm.
+    limiar: 'CLAMP 0,01 · linha de centro, ponta a (t ≤ L − 0,01)',
+    nominal: () => 0.29,
+    monta: () => {
+      const s = 0.06;
+      const c = cos(s);
+      return projetoCaso('lim-centro-a', [
+        { id: 'A', a: { x: 0, y: 0 }, b: { x: 4, y: 0 } },
+        { id: 'B', a: { x: 0, y: -0.019 }, b: { x: 0.3 * c, y: -0.019 + 0.3 * s } },
+      ], 0.02);
+    },
+    soSensibilidade: true,
+  },
+  {
+    // Mesmo, na ponta b do ramal (max(t; 0,01)): o ramal começa a 0,3 m e o encontro passa do outro lado (t < 0,01).
+    limiar: 'CLAMP 0,01 · linha de centro, ponta b (t ≥ 0,01)',
+    nominal: () => 0.01,
+    monta: () => {
+      const s = 0.06;
+      const c = cos(s);
+      return projetoCaso('lim-centro-b', [
+        { id: 'A', a: { x: 0, y: 0 }, b: { x: 4, y: 0 } },
+        { id: 'B', a: { x: 0.3 * c, y: -0.019 + 0.3 * s }, b: { x: 0, y: -0.019 } },
+      ], 0.02);
+    },
+    soSensibilidade: true,
+  },
 ];
 
 /**
@@ -486,7 +578,6 @@ export const LIMIARES_SEM_CASO: Array<{ limiar: string; motivo: string }> = [
   { limiar: 'discriminantes −1e-10 e d < 1e-12 (lineCircle, circleCircle; quadro.rs:245-260)', motivo: 'tangência exata: os dois ramos devolvem o mesmo ponto' },
   { limiar: 'chord < 1e-6 (arcFromSagitta; geo2d.rs:120)', motivo: 'inalcançável: buildFrame já descarta cordas < 1e-4' },
   { limiar: '|tHigh − tLow| < 1e-9 (stairSpec; joinSides.ts:144)', motivo: 'tie-breaker de faixa quase vertical, como o de buttAgainst' },
-  { limiar: 'Limpeza do clamp 0,01 no corte da linha de centro (ate_a_linha_de_centro; juncoes.rs:525)', motivo: 'o encontro com a linha de centro não cai a 1 cm da ponta nos casos construídos (ver CLAMP)' },
 ];
 
 /**
@@ -499,11 +590,16 @@ export function casosDeLimiar(): CasoDeLimiar[] {
     for (const tol of d.tols ?? [0.02]) {
       const valor = d.nominal(tol);
       const nome = d.tols ? `${d.limiar} · tol=${tol}` : d.limiar;
+      if (d.soSensibilidade) {
+        casos.push({ limiar: nome, lado: 'sensibilidade', valor, projeto: d.monta(valor, tol) });
+        continue;
+      }
       const lados: Array<['abaixo' | 'acima', number]> = [
         ['abaixo', valor * (1 - MARGEM_LIMIAR)],
         ['acima', valor * (1 + MARGEM_LIMIAR)],
       ];
       for (const [lado, x] of lados) casos.push({ limiar: nome, lado, valor, projeto: d.monta(x, tol) });
+      for (const x of d.sensibilidade ?? []) casos.push({ limiar: nome, lado: 'sensibilidade', valor, projeto: d.monta(x, tol) });
     }
   }
   return casos;

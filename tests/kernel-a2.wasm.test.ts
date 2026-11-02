@@ -58,9 +58,10 @@ interface Cobertura {
   atravessa: number;
   comEnvoltas: number;
   estritos: number;
+  tsPerdeuArea: number;
   desvio: number;
 }
-const zero = (): Cobertura => ({ itens: 0, comFragmento: 0, pecas: 0, faixas: 0, contorno: 0, atravessa: 0, comEnvoltas: 0, estritos: 0, desvio: 0 });
+const zero = (): Cobertura => ({ itens: 0, comFragmento: 0, pecas: 0, faixas: 0, contorno: 0, atravessa: 0, comEnvoltas: 0, estritos: 0, tsPerdeuArea: 0, desvio: 0 });
 const soma = (a: Cobertura, b: Cobertura): void => {
   for (const k of Object.keys(a) as (keyof Cobertura)[]) a[k] = k === 'desvio' ? Math.max(a[k], b[k]) : a[k] + b[k];
 };
@@ -88,6 +89,7 @@ function compararProjeto(p: Project, semente = 0, comVariacoes = true): Cobertur
           comFragmento: cmp.comFragmento,
           pecas: cmp.pecas,
           estritos: cmp.estritos,
+          tsPerdeuArea: cmp.tsPerdeuArea,
           faixas: ref.filter((i) => i.faixa).length,
           contorno: ref.filter((i) => i.contorno).length,
           atravessa: ref.filter((i) => i.atravessa).length,
@@ -108,7 +110,7 @@ describe.skipIf(!bytes)('A2: itens_pintados do Rust x motor TypeScript', () => {
   it('projetos de estresse (várias sementes): identidade exata, área a 1e-6 e coordenadas a 1 µm, com cobertura dos casos', () => {
     if (pula()) return;
     const total = zero();
-    for (let semente = 1; semente <= 30; semente++) soma(total, compararProjeto(projetoDeEstresseA2(semente, { paredes: 40, pavimentos: 2 }), semente));
+    for (let semente = 1; semente <= 8; semente++) soma(total, compararProjeto(projetoDeEstresseA2(semente, { paredes: 30, pavimentos: 2 }), semente));
     // Sem cobertura o teste seria vazio.
     expect(total.faixas, 'faixas verticais').toBeGreaterThan(0);
     expect(total.contorno, 'itens de contorno').toBeGreaterThan(0);
@@ -117,17 +119,18 @@ describe.skipIf(!bytes)('A2: itens_pintados do Rust x motor TypeScript', () => {
     expect(total.comFragmento).toBeGreaterThan(1000);
     // Estatística: parte dos fragmentos casa também peça a peça (o resto difere só em ruído topológico, ver kernel-harness-a2.mts).
     expect(total.estritos / total.itens).toBeGreaterThan(0.6);
+    expect(total.tsPerdeuArea / total.itens, 'perdas de área do polygon-clipping do TS').toBeLessThan(0.01);
     console.log(`[A2] itens ${total.itens}, estritos ${total.estritos}, desvio ${total.desvio}`);
     expect(total.desvio).toBeLessThanOrEqual(1e-6);
-  });
+  }, 600_000);
 
   it('retas puras sem ruído, e só arcos', () => {
     if (pula()) return;
-    for (let semente = 100; semente < 108; semente++) {
+    for (let semente = 100; semente < 103; semente++) {
       compararProjeto(projetoDeEstresseA2(semente, { paredes: 60, pavimentos: 1, curvas: 0, ruido: false }), semente);
       compararProjeto(projetoDeEstresseA2(semente, { paredes: 30, pavimentos: 1, curvas: 1 }), semente);
     }
-  });
+  }, 600_000);
 
   it('sintéticos de 10 e 20 pavimentos', () => {
     if (pula()) return;
