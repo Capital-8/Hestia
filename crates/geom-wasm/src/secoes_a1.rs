@@ -104,30 +104,30 @@ impl Lote {
     }
 }
 
-fn u32s(c: Option<Coluna>) -> Result<Vec<u32>, u32> {
+pub(crate) fn u32s(c: Option<Coluna>) -> Result<Vec<u32>, u32> {
     match c {
         Some(Coluna::U32(v)) => Ok(v),
         _ => Err(INTERNO),
     }
 }
-fn f64s(c: Option<Coluna>) -> Result<Vec<f64>, u32> {
+pub(crate) fn f64s(c: Option<Coluna>) -> Result<Vec<f64>, u32> {
     match c {
         Some(Coluna::F64(v)) => Ok(v),
         _ => Err(INTERNO),
     }
 }
-fn u8s(c: Option<Coluna>) -> Result<Vec<u8>, u32> {
+pub(crate) fn u8s(c: Option<Coluna>) -> Result<Vec<u8>, u32> {
     match c {
         Some(Coluna::U8(v)) => Ok(v),
         _ => Err(INTERNO),
     }
 }
 
-fn finito(v: f64) -> bool {
+pub(crate) fn finito(v: f64) -> bool {
     v.is_finite() && v.abs() <= COORD_MAX
 }
 
-fn bool01(v: u8) -> Result<bool, u32> {
+pub(crate) fn bool01(v: u8) -> Result<bool, u32> {
     match v {
         0 => Ok(false),
         1 => Ok(true),
@@ -135,7 +135,7 @@ fn bool01(v: u8) -> Result<bool, u32> {
     }
 }
 
-fn chaves_validas(ids: &[u32]) -> Result<(), u32> {
+pub(crate) fn chaves_validas(ids: &[u32]) -> Result<(), u32> {
     if ids.contains(&ID_AUSENTE) {
         return Err(ENTRADA);
     }

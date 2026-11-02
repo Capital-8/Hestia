@@ -49,6 +49,7 @@ pub mod ops;
 // exportada e inalterada até a fatia A cobrir o mesmo uso.
 pub mod a1;
 pub mod a2;
+pub mod a3;
 pub mod abi2;
 pub mod camadas;
 pub mod cena;
@@ -64,6 +65,7 @@ pub mod indice;
 pub mod memoria;
 pub mod quadro;
 pub mod secoes_a1;
+pub mod secoes_a3;
 #[cfg(test)]
 mod teste_util;
 
