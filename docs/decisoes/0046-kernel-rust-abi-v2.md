@@ -91,6 +91,13 @@ Os argumentos de qualquer consulta viajam num `Float64Array` (inteiros são exat
 tipados válidos **até a próxima `cena_executar` ou `saida_liberar`**; o JS copia o que quiser guardar. Resultados em ordem
 determinística (a do esquema: ids crescentes / pares lexicográficos). Consulta desconhecida → `NAO_IMPLEMENTADO`.
 
+Regra exata das três consultas (texto completo no topo de `crates/geom-wasm/src/consultas.rs`): caixa da parede =
+segmento expandido por `espessura/2` por lado; cruzamento com fronteira inclusiva; `pares_proximos(tol)` expande **cada**
+caixa por `tol/2` por lado e testa cruzamento inclusivo (distância por eixo ≤ `tol`); `estatisticas_nivel` usa o
+segmento sem espessura e soma o comprimento em ordem crescente de id. Validação extra na entrada: coordenadas e espessura
+com |v| ≤ 1e12 e espessura ≥ 0, `nivel_num` ≠ `0xFFFFFFFF` nas linhas (senão `ENTRADA`); `remover` ignora ids ausentes;
+seção desconhecida → `ENTRADA`.
+
 ### 3.4 Invariantes
 
 - Mesma entrada → mesma saída, byte a byte (sem dependência de endereço, hash aleatório ou ordem de iteração de mapas).
