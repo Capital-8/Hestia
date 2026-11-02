@@ -2,11 +2,14 @@
 // roda as consultas da Fase 0 no wasm (ou no falso, no autoteste) e na referência TypeScript de força bruta,
 // compara e mede (codificação+upload, execução, leitura e total COM a travessia da fronteira).
 import { performance } from 'node:perf_hooks';
-import { totalThickness, type Project } from '@hestia/model';
+import type { Project } from '@hestia/model';
+import { montarCenaA1, referenciaA1 } from '../packages/engine/src/kernelA1.ts';
+import { compararA1 } from './kernel-harness-a1.mts';
 import { CenaV2 } from '../packages/geom/src/kernel/v2/cena.ts';
 import { gerenciadorFalso } from '../packages/geom/src/kernel/v2/falso.ts';
 import { GerenciadorKernelV2 } from '../packages/geom/src/kernel/v2/gerenciador.ts';
 import { fonteDeParedes } from '../packages/geom/src/kernel/v2/paredes.ts';
+import { fonteDeSecoes } from '../packages/geom/src/kernel/v2/quadros.ts';
 import {
   referenciaEstatisticasNivel,
   referenciaParedesNaCaixa,
@@ -36,23 +39,17 @@ export interface ResultadoHarness {
   upload: { paredes: number; codificacaoMs: number; execucaoMs: number; totalMs: number };
   linhas: LinhaDaTabela[];
   divergencias: string[];
+  /** Maior diferença absoluta em coordenadas/medidas da A1 (0 se a A1 não rodou). */
+  desvioMaximoA1: number;
 }
 
 /** Paredes de todos os pavimentos como linhas da seção `paredes` (ids internados, níveis = índice do pavimento). */
 export function paredesDoProjeto(projeto: Project): { paredes: LinhaParede[]; ignoradas: number; nomes: string[] } {
-  const indiceNivel = new Map(projeto.levels.map((l, i) => [l.id, i] as const));
+  const { secoes, nLinhas, ignoradas } = montarCenaA1(projeto);
+  const c = secoes.paredes;
   const paredes: LinhaParede[] = [];
-  let ignoradas = 0;
-  let proximoId = 1;
-  for (const el of Object.values(projeto.elements)) {
-    if (el.kind !== 'wall') continue;
-    const nivel = indiceNivel.get(el.levelId);
-    const tipo = projeto.wallTypes[el.typeId];
-    if (nivel === undefined || !tipo) {
-      ignoradas++;
-      continue;
-    }
-    paredes.push({ id: proximoId++, nivel, ax: el.a.x, ay: el.a.y, bx: el.b.x, by: el.b.y, espessura: totalThickness(tipo) });
+  for (let i = 0; i < nLinhas.paredes; i++) {
+    paredes.push({ id: c['id_num']![i]!, nivel: c['nivel_num']![i]!, ax: c['ax']![i]!, ay: c['ay']![i]!, bx: c['bx']![i]!, by: c['by']![i]!, espessura: c['espessura']![i]! });
   }
   return { paredes, ignoradas, nomes: projeto.levels.map((l) => l.name || l.id) };
 }
@@ -84,10 +81,16 @@ export interface OpcoesHarness {
   wasm?: ArrayBuffer | Uint8Array;
   /** Gerenciador pronto (testes do harness); tem precedência sobre `wasm`. */
   gerenciador?: GerenciadorKernelV2;
+  /** Compara também a sub-etapa A1 (`quadros_e_juncoes`). Padrão: sim com `wasm`, não com o falso (que não implementa geometria). */
+  a1?: boolean;
 }
 
-export async function executarHarness({ projeto, wasm, gerenciador }: OpcoesHarness): Promise<ResultadoHarness> {
+export async function executarHarness({ projeto, wasm, gerenciador, a1 }: OpcoesHarness): Promise<ResultadoHarness> {
   const { paredes, ignoradas, nomes } = paredesDoProjeto(projeto);
+  const cenaA1 = montarCenaA1(projeto);
+  const rodarA1 = a1 ?? Boolean(wasm);
+  const tolJuncao = projeto.settings?.joinTolerance ?? 0.02;
+  let desvioMaximoA1 = 0;
   const ger = gerenciador ?? (wasm ? await GerenciadorKernelV2.dosBytes(wasm) : gerenciadorFalso().ger);
   // Ciclo vazio antes da base: o Rust mantém um resíduo fixo (~544 bytes: tabela de handles + texto de erro).
   for (let i = 0; i < 2; i++) {
@@ -99,7 +102,13 @@ export async function executarHarness({ projeto, wasm, gerenciador }: OpcoesHarn
   const divergencias: string[] = [];
 
   const t0 = performance.now();
-  const cena = CenaV2.criar(ger, fonteDeParedes(() => paredes));
+  const secoesA1 = (): ReturnType<Parameters<typeof fonteDeSecoes>[0]> => ({
+    paredes: { colunas: cenaA1.secoes.paredes, n: cenaA1.nLinhas.paredes },
+    tipos_parede: { colunas: cenaA1.secoes.tipos_parede, n: cenaA1.nLinhas.tipos_parede },
+    camadas: { colunas: cenaA1.secoes.camadas, n: cenaA1.nLinhas.camadas },
+    paredes_quadro: { colunas: cenaA1.secoes.paredes_quadro, n: cenaA1.nLinhas.paredes_quadro },
+  });
+  const cena = CenaV2.criar(ger, rodarA1 ? fonteDeSecoes(secoesA1) : fonteDeParedes(() => paredes));
   const uploadTotal = performance.now() - t0;
   const upload = { paredes: paredes.length, codificacaoMs: cena.medidas.codificacaoMs, execucaoMs: cena.medidas.execucaoMs, totalMs: uploadTotal };
 
@@ -156,6 +165,16 @@ export async function executarHarness({ projeto, wasm, gerenciador }: OpcoesHarn
         if (!ok) falha(`pares_proximos tol ${tol} difere (${s['pares']!.length / 2} x ${refPares.length / 2} pares)`);
         registrar(`pares_proximos(tol ${tol})`, rm, t, ok);
       }
+      // quadros_e_juncoes (A1): quadros, estado e corte das pontas e grupos contra o motor TypeScript
+      if (rodarA1) {
+        const levelId = projeto.levels[nivel]!.id;
+        const [refA1, rm] = medir(() => referenciaA1(projeto, levelId, cenaA1));
+        const [s, t] = medir(() => cena.consultar('quadros_e_juncoes', [nivel, tolJuncao]));
+        const cmp = compararA1(refA1, s);
+        if (cmp.divergencias.length > 0) falha(`quadros_e_juncoes difere: ${cmp.divergencias.slice(0, 5).join(' | ')}`);
+        desvioMaximoA1 = Math.max(desvioMaximoA1, cmp.desvioMaximo);
+        registrar('quadros_e_juncoes', rm, t, cmp.divergencias.length === 0);
+      }
       if (passada === 1) linhas.push(...acc.values());
     }
   }
@@ -163,7 +182,7 @@ export async function executarHarness({ projeto, wasm, gerenciador }: OpcoesHarn
   cena.destruir();
   const final = ger.instancia().exports.memoria_usada();
   if (final !== inicial) divergencias.push(`vazamento: memoria_usada ${inicial} antes da cena, ${final} depois de destruir`);
-  return { modo: wasm ? 'wasm' : 'falso (autoteste)', paredes, ignoradas, upload, linhas, divergencias };
+  return { modo: wasm ? 'wasm' : 'falso (autoteste)', paredes, ignoradas, upload, linhas, divergencias, desvioMaximoA1 };
 }
 
 const f = (n: number, d = 3): string => n.toFixed(d).padStart(9);
@@ -176,5 +195,6 @@ export function formatarTabela(r: ResultadoHarness): string {
   const soma = (k: 'refMs' | 'codificacaoMs' | 'execucaoMs' | 'leituraMs' | 'totalMs'): number => r.linhas.reduce((s, l) => s + l[k], 0);
   const rodape = `${'TOTAL (consultas)'.padEnd(22)} ${''.padStart(7)} ${''.padEnd(24)} ${''.padStart(3)} ${f(soma('refMs'))} ${f(soma('codificacaoMs'))} ${f(soma('execucaoMs'))} ${f(soma('leituraMs'))} ${f(soma('totalMs'))}`;
   const up = `upload do projeto: ${r.upload.paredes} paredes, codificação+upload ${r.upload.codificacaoMs.toFixed(3)} ms, execução ${r.upload.execucaoMs.toFixed(3)} ms, total ${r.upload.totalMs.toFixed(3)} ms`;
-  return [`modo: ${r.modo}; ${r.paredes.length} paredes (${r.ignoradas} ignoradas sem tipo/nível)`, up, cab, ...corpo, rodape].join('\n');
+  const a1 = r.linhas.some((l) => l.consulta === 'quadros_e_juncoes') ? [`A1: maior desvio em coordenadas/medidas ${r.desvioMaximoA1.toExponential(2)} m (tolerância 1e-6 m); topologia por igualdade exata`] : [];
+  return [`modo: ${r.modo}; ${r.paredes.length} paredes (${r.ignoradas} ignoradas sem tipo/nível)`, up, cab, ...corpo, rodape, ...a1].join('\n');
 }

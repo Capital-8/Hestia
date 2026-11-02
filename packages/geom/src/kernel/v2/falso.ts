@@ -24,7 +24,9 @@ const ARGS_MAX = 1024;
 const coordValida = (v: number): boolean => Number.isFinite(v) && Math.abs(v) <= COORD_MAX;
 const nomeDaSecao = (id: number): NomeSecao | undefined => (Object.keys(SECOES) as NomeSecao[]).find((k) => SECOES[k].id === id);
 /** Colunas de coordenada/espessura da seção `paredes` (validadas contra `COORD_MAX`). */
-const COORDENADAS = new Set(['ax', 'ay', 'bx', 'by', 'espessura']);
+const COORDENADAS = new Set(['ax', 'ay', 'bx', 'by', 'espessura', 'ordem', 'sag', 'z0', 'topo', 'prioridade']);
+/** Maior valor aceito em colunas `u8` de enum/flag (como `secoes_a1.rs`); as demais `u8` valem 0 ou 1. */
+const MAXIMO_U8: Record<string, number> = { linha_loc: 5, funcao: 5 };
 /** Nível válido de argumento: inteiro em [0, 2^32) (`arg_nivel` em `consultas.rs`). */
 const nivelValido = (v: number): boolean => Number.isInteger(v) && v >= 0 && v <= 0xffffffff;
 
@@ -124,6 +126,7 @@ export function criarInstanciaFalsa(opcoes: OpcoesFalso = {}): InstanciaFalsa {
         const v = cols[c.nome]![i]!;
         if (c.tipo === 'f64' && !Number.isFinite(v)) return falhar(CODIGOS.ENTRADA, `${c.nome} não finito`);
         if (COORDENADAS.has(c.nome) && !coordValida(v)) return falhar(CODIGOS.ENTRADA, `${c.nome} fora de ±1e12`);
+        if (c.tipo === 'u8' && v > (MAXIMO_U8[c.nome] ?? 1)) return falhar(CODIGOS.ENTRADA, `${c.nome} fora do domínio`);
         if (c.nome === 'espessura' && v < 0) return falhar(CODIGOS.ENTRADA, 'espessura negativa');
         if (c.nome === 'nivel_num' && v === NIVEL_TODOS) return falhar(CODIGOS.ENTRADA, 'nivel_num 0xFFFFFFFF é reservado');
         l[c.nome] = v;
@@ -158,7 +161,9 @@ export function criarInstanciaFalsa(opcoes: OpcoesFalso = {}): InstanciaFalsa {
     const args = Array.from(new Float64Array(memory.buffer, ptrArgs, nArgs));
     if (args.some((a) => !Number.isFinite(a))) return falhar(CODIGOS.ENTRADA, 'argumento não finito');
     if (!nivelValido(args[0]!)) return falhar(CODIGOS.ENTRADA, 'nível fora de [0, 2^32) ou fracionário');
-    if (nome === 'pares_proximos' && args[1]! < 0) return falhar(CODIGOS.ENTRADA, 'tolerância negativa');
+    if ((nome === 'pares_proximos' || nome === 'quadros_e_juncoes') && args[1]! < 0) return falhar(CODIGOS.ENTRADA, 'tolerância negativa');
+    // O falso não implementa geometria: quadros e junções só existem no Rust (a referência é o motor TypeScript).
+    if (nome === 'quadros_e_juncoes') return falhar(CODIGOS.NAO_IMPLEMENTADO, 'quadros_e_juncoes não é implementada no falso');
     const paredes: LinhaParede[] = [...(cena.get(SECOES.paredes.id)?.values() ?? [])].map((l) => ({
       id: l.id_num!,
       nivel: l.nivel_num!,

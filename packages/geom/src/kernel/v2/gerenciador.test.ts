@@ -14,7 +14,7 @@ function relogio(): { agora: () => number; avancar: (ms: number) => void } {
 describe('GerenciadorKernelV2', () => {
   it('valida as versões na criação', () => {
     expect(() => gerenciadorFalso({ opcoesDaInstancia: () => ({ versaoAbi: 1 }) })).toThrow(ErroKernelGrave);
-    expect(() => gerenciadorFalso({ opcoesDaInstancia: () => ({ versaoEsquema: 2 }) })).toThrow(/abi2_esquema_versao=2/);
+    expect(() => gerenciadorFalso({ opcoesDaInstancia: () => ({ versaoEsquema: 1 }) })).toThrow(/abi2_esquema_versao=1/);
     try {
       GerenciadorKernelV2.criar({ criarInstancia: () => criarInstanciaFalsa({ versaoAbi: 3 }) });
       expect.unreachable();
@@ -22,7 +22,7 @@ describe('GerenciadorKernelV2', () => {
       expect((e as ErroKernelGrave).codigo).toBe(CODIGOS.VERSAO);
     }
     const { ger } = gerenciadorFalso();
-    expect(ger.estado()).toMatchObject({ ligado: true, versaoAbi: 2, versaoEsquema: 1, recriacoesTotal: 0 });
+    expect(ger.estado()).toMatchObject({ ligado: true, versaoAbi: 2, versaoEsquema: 2, recriacoesTotal: 0 });
   });
 
   it('recriar reenvia a cena pela fonte e troca a instância', () => {

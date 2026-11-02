@@ -181,6 +181,10 @@ export class CenaV2 implements ParticipanteDaInstancia {
         throw new ErroKernelGrave(CODIGOS.INTERNO, `${nome}.${s.nome}: ${len} elementos, esperado ${s.elementos}`);
       }
       if (s.elementos === '2n' && len % 2 !== 0) throw new ErroKernelGrave(CODIGOS.INTERNO, `${nome}.${s.nome}: tamanho ímpar (${len})`);
+      const multiplo = typeof s.elementos === 'string' ? /^(\d+)n$/.exec(s.elementos) : null;
+      if (multiplo && s.elementos !== '2n' && len % Number(multiplo[1]) !== 0) {
+        throw new ErroKernelGrave(CODIGOS.INTERNO, `${nome}.${s.nome}: ${len} elementos, esperado múltiplo de ${multiplo[1]}`);
+      }
       try {
         const ptr = e.saida_ptr(i); // chamar antes de ler `buffer`: a chamada pode crescer a memória
         saida[s.nome] = lerSaida(inst.memory.buffer, tipo, ptr, len);

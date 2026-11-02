@@ -192,7 +192,8 @@ function paint(items: Item[]): Map<Item, MultiPolygon> {
   return result;
 }
 
-function clusterWalls(frames: WallFrame[], ends: Map<string, WallEnds>): WallFrame[][] {
+/** Grupos de paredes por caixas sobrepostas (exportada para a referência da sub-etapa A1 do kernel Rust, decisão 0047). */
+export function clusterWalls(frames: WallFrame[], ends: Map<string, WallEnds>): WallFrame[][] {
   const boxes = frames.map((f) => {
     const e = ends.get(f.wall.id)!;
     const pts = [f.sHi, f.sLo].flatMap((s) => [
