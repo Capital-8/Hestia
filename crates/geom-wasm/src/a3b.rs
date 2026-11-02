@@ -18,7 +18,7 @@ use crate::envolvimento::{camadas_envolventes, faixa_de_profundidade, lados_do_m
 use crate::esquema::{ENTRADA, NIVEL_TODOS};
 use crate::geo2d::{perp, v, V};
 use crate::itens::{caixas_se_cruzam, Caixa4};
-use crate::ops::{diferenca, interseccao};
+use crate::ops::{diferenca_com_escala, interseccao, ESCALA_FINA};
 use crate::quadro::{ponto_em, tangente_em, Quadro};
 use crate::secoes_a3::{Abertura, TipoAbertura, FECHAMENTO_HERDA};
 use crate::{Anel, MultiPoligono};
@@ -27,6 +27,13 @@ use crate::{Anel, MultiPoligono};
 const FOLGA: f64 = 0.004;
 /// `OVERLAP` (largura do batedor/rebaixo, m).
 const BATEDOR: f64 = 0.015;
+
+/// Diferença a 1 nm (`ESCALA_FINA`), como o pintor da A2: o retorno e o recorte são peças finas (2 cm) e, a 1 µm, a
+/// diferença simétrica contra o `polygon-clipping` exato do TS chegou a 1,02e-6 m² (limite 1e-6); a 1 nm o máximo medido
+/// é 3,6e-7. É escolha de implementação; a tolerância da comparação não muda.
+fn diferenca(args: &[MultiPoligono]) -> Result<MultiPoligono, u32> {
+    diferenca_com_escala(args, ESCALA_FINA)
+}
 
 /// `ERRO_ENTRADA`/`ERRO_INTERNO` de `ops.rs` para o código do esquema.
 fn traduz(c: u32) -> u32 {
