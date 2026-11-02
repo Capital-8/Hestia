@@ -78,9 +78,9 @@ try {
   assert.equal((await state()).view, 'section', 'Esc da ferramenta não fecha o corte');
 
   // Alça de peitoril: selecionar uma janela e arrastar a base para cima.
-  const opening = await page.evaluate(() => {
+  const opening = await page.evaluate(async () => {
     const { editor, useUi } = window.__hestia;
-    const sec = editor.sectionOf('sv1');
+    const sec = await editor.sectionReady('sv1');
     const o = sec.openings.find((x) => x.kind === 'window');
     if (!o) return null;
     editor.setTool('select');

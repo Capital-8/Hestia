@@ -115,8 +115,8 @@ try {
     report.check('Selecionar em repouso usa default', (await cursor()) === 'default', await cursor());
 
     // Cursor também não vira mão ao passar sobre o desenho (o hover é só realce).
-    const g = await page.evaluate(() => {
-      const s = window.__hestia.editor.sectionOf('sv1');
+    const g = await page.evaluate(async () => {
+      const s = await window.__hestia.editor.sectionReady('sv1');
       const o = s.openings.find((x) => x.kind === 'window') ?? s.openings[0];
       return { x: (o.t0 + o.t1) / 2, y: (o.z0 + o.z1) / 2 };
     });
@@ -186,9 +186,9 @@ try {
     // Enquadra de novo depois do pan do passo anterior e lê a geometria da vista.
     await page.evaluate(() => window.__hestia.editor.zoomExtents());
     await page.waitForTimeout(150);
-    const geo = await page.evaluate(() => {
+    const geo = await page.evaluate(async () => {
       const { editor } = window.__hestia;
-      const s = editor.sectionOf('sv1');
+      const s = await editor.sectionReady('sv1');
       const win = s.openings.find((o) => o.kind === 'window');
       if (!win) return null;
       const doors = s.openings.filter((o) => o.kind === 'door');

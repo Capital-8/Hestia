@@ -120,7 +120,7 @@ try {
     const t0 = performance.now();
     editor.openSection(id);
     await raf(); await raf();
-    const s = editor.sectionOf(id);
+    const s = await editor.sectionReady(id);
     return {
       ms: performance.now() - t0,
       view: useUi.getState().view,
@@ -159,9 +159,9 @@ try {
   // à ferramenta sem botão (ver `hoverWithoutButton.movesWithSnap` no resultado).
   await page.evaluate(() => window.__hestia.editor.setTool('measure'));
   await page.waitForTimeout(120);
-  const geo = await page.evaluate((id) => {
+  const geo = await page.evaluate(async (id) => {
     const { editor } = window.__hestia;
-    return { v: editor.viewport(), length: editor.sectionOf(id)?.length ?? 24 };
+    return { v: editor.viewport(), length: (await editor.sectionReady(id))?.length ?? 24 };
   }, viewId);
   const box = await page.locator('.canvas-wrap').boundingBox();
   if (!box) throw new Error('canvas do corte sem caixa');

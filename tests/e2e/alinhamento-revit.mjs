@@ -113,8 +113,8 @@ async function openView(view) {
   await seenSelection();
 }
 
-const sectionOpenings = (id) => page.evaluate((viewId) => {
-  const s = window.__hestia.editor.sectionOf(viewId);
+const sectionOpenings = (id) => page.evaluate(async (viewId) => {
+  const s = await window.__hestia.editor.sectionReady(viewId);
   return {
     length: s ? s.length : null,
     zMin: s ? s.zMin : null,
@@ -504,8 +504,8 @@ try {
       vertice.inf ? `guides=${JSON.stringify(vertice.inf.guides)}` : 'inference()=null');
 
     // Aresta inclinada de telhado: só existe em templates com telhado. A house2 não tem; se houver, prova a guia.
-    const inclinadas = await page.evaluate(() => {
-      const s = window.__hestia.editor.sectionOf('sv2');
+    const inclinadas = await page.evaluate(async () => {
+      const s = await window.__hestia.editor.sectionReady('sv2');
       const out = [];
       const visit = (polys) => {
         for (const poly of polys ?? []) for (const ring of poly) {

@@ -356,7 +356,7 @@ try {
     await page.locator('button.leaf', { hasText: sec.name }).dblclick();
     await page.waitForTimeout(400);
     rep.check('vista de corte aberta', (await state()).view === 'section');
-    const r = await page.evaluate((id) => { const x = window.__hestia.editor.sectionOf(id); return x ? { cortes: x.cut.length, alcance: x.beyond.length } : null; }, sec.id);
+    const r = await page.evaluate(async (id) => { const x = await window.__hestia.editor.sectionReady(id); return x ? { cortes: x.cut.length, alcance: x.beyond.length } : null; }, sec.id);
     rep.check('o corte tem regiões cortadas', !!r && r.cortes > 0, JSON.stringify(r));
     await shot('corte-escada.png');
     await page.keyboard.press('Escape');

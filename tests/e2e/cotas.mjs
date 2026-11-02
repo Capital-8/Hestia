@@ -127,9 +127,9 @@ await r.step('(c) corte: cota angular entre duas arestas grava na vista, não no
   await abrirCorte();
   await page.waitForTimeout(700);
   const antesNivel = await levelDimCount();
-  const arestas = await page.evaluate(() => {
+  const arestas = await page.evaluate(async () => {
     const { editor, sectionSnapIndex } = window.__hestia;
-    const idx = sectionSnapIndex(editor.sectionOf('sv1'));
+    const idx = sectionSnapIndex(await editor.sectionReady('sv1'));
     const v = editor.viewport();
     const dentro = (p) => Math.abs(p.x - v.cx) < v.width / 2 / v.zoom * 0.9 && Math.abs(p.y - v.cy) < v.height / 2 / v.zoom * 0.9;
     const len = (s) => Math.hypot(s.b.x - s.a.x, s.b.y - s.a.y);
@@ -326,9 +326,9 @@ await r.step('(f) snap de escada no corte: o índice contém vértices da escada
     editor.openSection('sv1');
   }, { x0: stair.minX - 1, x1: stair.maxX + 1, y: yMid });
   await page.waitForTimeout(800);
-  const res = await page.evaluate((stairId) => {
+  const res = await page.evaluate(async (stairId) => {
     const { editor, sectionSnapIndex } = window.__hestia;
-    const sec = editor.sectionOf('sv1');
+    const sec = await editor.sectionReady('sv1');
     const idx = sectionSnapIndex(sec);
     const host = idx.byHost.get(stairId);
     return { rings: (sec.snapRings ?? []).filter((s) => s.hostId === stairId).length, points: host?.points.length ?? 0, vertices: host?.points.filter((p) => p.kind === 'endpoint').length ?? 0, segments: host?.segments.length ?? 0, total: idx.points.length };
