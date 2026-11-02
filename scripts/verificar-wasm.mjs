@@ -14,11 +14,16 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
+import { ARQUIVO_HASH_FONTE, calcularHashDasFontes, lerHashGravado } from './hash-fontes.mjs';
 import { fileURLToPath } from 'node:url';
 
 const raiz = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const caminhoWasm = join(raiz, 'packages', 'geom', 'assets', 'geom_wasm.wasm');
 const caminhoHash = join(raiz, 'packages', 'geom', 'assets', 'geom_wasm.sha256');
+/** Hash das fontes Rust (decisão 0046 §2.8). `FONTE_SHA256_ARQUIVO` troca o arquivo (testes). */
+const caminhoFonte = process.env.FONTE_SHA256_ARQUIVO || join(raiz, 'packages', 'geom', 'assets', ARQUIVO_HASH_FONTE);
+/** `--estrito` (CI): a ausência do arquivo do hash das fontes reprova; sem a flag vira aviso. */
+const estrito = process.argv.includes('--estrito');
 
 /** Piso de um módulo com o ABI e a geometria; teto do que faz sentido servir como asset separado. */
 const MIN_BYTES = 10 * 1024;
@@ -118,7 +123,26 @@ function conferirArtefato() {
   conferirBlob();
 }
 
+/** Recalcula o hash das fontes Rust (sem Rust instalado) e reprova se divergir do gravado. */
+function conferirFonte() {
+  const gravado = lerHashGravado(caminhoFonte);
+  if (gravado === null) {
+    const msg = `${rel(caminhoFonte)} não existe: o hash das fontes Rust ainda não foi gravado. Rode \`npm run build:wasm\`.`;
+    if (estrito) erros.push(msg);
+    else avisos.push(msg);
+    return;
+  }
+  const real = calcularHashDasFontes(raiz);
+  if (gravado.toLowerCase() !== real) {
+    erros.push(
+      `as fontes Rust mudaram desde que o .wasm foi gerado: hash gravado ${gravado.slice(0, 12)}, atual ${real.slice(0, 12)}. ` +
+        'Rode `npm run build:wasm` e commite o binário junto (conflito de binário se resolve recompilando).',
+    );
+  } else if (info) info.fonte = real;
+}
+
 conferirArtefato();
+conferirFonte();
 
 for (const aviso of avisos) console.warn(`[wasm:check] aviso: ${aviso}`);
 if (erros.length > 0) {
@@ -129,4 +153,5 @@ if (erros.length > 0) {
 
 const partes = [`[wasm:check] ok: ${rel(caminhoWasm)} — ${kb(info.tamanho)}`, `blob ${info.blob.slice(0, 12)}`];
 if (info.versaoAbi !== null) partes.push(`ABI ${info.versaoAbi}`);
+if (info.fonte) partes.push(`fontes ${info.fonte.slice(0, 12)}`);
 console.log(partes.join(', '));

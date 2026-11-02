@@ -69,3 +69,9 @@ export function ligarKernelExperimental(ligado: boolean): void {
     // Armazenamento indisponível ou cheio: nada a fazer, o padrão continua valendo ao recarregar.
   }
 }
+
+/**
+ * Fatias do kernel v2 (decisão 0046 §2.6): `?kernelFatias=A,B` / `hestia:kernel:fatias`. `?kernel=rust` e a preferência acima
+ * (`hestia:kernel`) ligam todas as fatias; o comportamento do kernel v1 não muda.
+ */
+export { kernelFatiaLigada, fatiasLigadas, type Fatia } from '@hestia/geom';

@@ -30,10 +30,10 @@ jobs:
       - run: npm ci
       - run: npm run test:perf
 
-  # Kernel geométrico experimental (Rust → WebAssembly): confere o artefato commitado e roda o portão do
-  # experimento (contrato, carregador e diferencial contra o TypeScript). NÃO precisa de Rust: o `.wasm` é
-  # gerado por `npm run build:wasm` por quem mexe na crate e commitado junto. Ainda não bloqueia o merge,
-  # como o job `perf`; ver docs/decisoes/0045.
+  # Kernel geométrico experimental (Rust → WebAssembly, decisões 0045 e 0046): compila o Rust com o toolchain
+  # fixado em rust-toolchain.toml, roda os testes nativos, compila o wasm numa pasta temporária e roda a suíte
+  # do kernel CONTRA O BINÁRIO RECÉM-COMPILADO (KERNEL_WASM_PATH). Por fim confere que o .wasm commitado não está
+  # defasado em relação às fontes (hash em geom_wasm.fonte.sha256; não precisa de Rust). Não bloqueia o merge.
   wasm:
     runs-on: ubuntu-latest
     continue-on-error: true
@@ -43,9 +43,26 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.97.1
+          targets: wasm32-unknown-unknown
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            crates/geom-wasm/target
+          key: cargo-${{ runner.os }}-1.97.1-${{ hashFiles('crates/geom-wasm/Cargo.lock') }}
       - run: npm ci
-      - run: node scripts/verificar-wasm.mjs
+      - run: cargo test --release
+        working-directory: crates/geom-wasm
+      - run: node scripts/build-wasm.mjs --saida "$RUNNER_TEMP/wasm"
       - run: npx vitest run --config vitest.wasm.config.ts
+        env:
+          KERNEL_WASM_PATH: ${{ runner.temp }}/wasm/geom_wasm.wasm
+      - run: npx vite-node scripts/kernel-harness.mts -- --sintetico 10 --wasm "$RUNNER_TEMP/wasm/geom_wasm.wasm"
+      - run: node scripts/verificar-wasm.mjs --estrito
 
   # Suíte completa (60 sementes de propriedade, ~8 min). A infra de timeout do vitest foi corrigida (docs/08 §9);
   # não bloqueia enquanto houver reprovações de geometria em aberto. Remover continue-on-error quando estiver verde.

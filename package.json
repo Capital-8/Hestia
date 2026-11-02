@@ -32,7 +32,8 @@
     "medir:gpu": "node scripts/medir-gpu-memoria.mjs",
     "build:wasm": "node scripts/build-wasm.mjs",
     "wasm:check": "node scripts/verificar-wasm.mjs",
-    "test:wasm": "vitest run --config vitest.wasm.config.ts"
+    "test:wasm": "vitest run --config vitest.wasm.config.ts",
+    "kernel:harness": "vite-node scripts/kernel-harness.mts --"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
