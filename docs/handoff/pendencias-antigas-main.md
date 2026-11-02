@@ -85,3 +85,20 @@ Em `packages/render/src/model3d/atualizarAberturas3d.test.ts` (ou arquivo própr
 
 Correção sugerida (não aplicada nesta tarefa): usar `indicesDesenhados`/`drawRange` no ramo de `Mesh` de
 `exportarVetores` (a mesma regra de `LineSegments`), ou zerar a capacidade sobrando no `finalizar` do lote.
+
+## 3) `atualizarAberturas`: porta sem caminho rápido
+
+**Não foi alterado.** O caminho rápido já atende portas no caso comum (sem término explícito de piso/laje); o teste
+`mover porta` em `packages/render/src/model3d/atualizarAberturas3d.test.ts:114` passa por ele. A recusa é específica:
+
+- `packages/render/src/model3d/scene3d.ts:470`: `if (termino && o.kind === 'door' && ...) return this.recusar(10)`.
+- Motivo: camadas de piso/laje com término de parede leem **vãos de porta que chegam ao piso**
+  (`doorRectsReaching`, `packages/engine/src/terminoBlock.ts:86`); a zona bloqueada da camada perde o retângulo da porta.
+  Janela não entra nessa leitura.
+- O caminho rápido troca apenas caixas/prismas da parede hospedeira e das esquadrias
+  (`scene3d.ts:483-508`) e mantém `entrada.lotes` de pisos/lajes (`scene3d.ts:566`). Para porta com término, os sólidos
+  de piso/laje do nível também mudam: seria preciso reconstruir `resolveFloors`/`resolveSlabs`,
+  `buildFloorSolids`/`buildSlabSolids` com a junção **completa** do nível (não a junção só das paredes alteradas, usada
+  em `scene3d.ts:476`) e refazer as arestas sólidas. Isso deixa de ser uma extensão direta do caminho de janelas e
+  reabre os mesmos riscos que a recusa 8 (`pisoOuLajeNaFaixa`, `scene3d.ts:474`) já cobre para os dois tipos.
+- Portanto: **parei** aqui, sem mudar o comportamento, conforme a regra de só estender quando for direto e seguro.
