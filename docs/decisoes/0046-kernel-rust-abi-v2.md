@@ -140,3 +140,12 @@ seguintes acrescentam suas consultas ao esquema e suas referências ao harness.
 6. ABI v1 e todos os testes atuais do kernel continuam passando. Nada muda para o usuário (kernel segue desligado por
    padrão).
 7. A fase **para** aqui para revisão do dono antes da fatia A.
+
+## 7 — Decisões confirmadas pelo dono (2026-11-02)
+
+1. **Modo sombra** entra junto com a fatia A: executa Rust e TS na mesma chamada, registra divergência além da
+   tolerância e **sempre usa o resultado do TS**. Só o harness e o diálogo "Experimentais" o ativam; nunca é o padrão.
+2. **Independência de transporte:** o núcleo Rust não depende de JS nem de `wasm-bindgen`; só a camada `abi2` é wasm.
+   Nada de servidor é construído agora; só se evita acoplar o desenho ao navegador.
+3. **`abi2_alocar(0)` devolve ponteiro válido**; `0` significa somente falha. O falso foi alinhado ao Rust.
+4. **LIMITE no upsert** quando `linhas + novas > linhas_por_secao`: já no Rust; replicado no falso.

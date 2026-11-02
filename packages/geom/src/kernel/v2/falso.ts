@@ -74,8 +74,9 @@ export function criarInstanciaFalsa(opcoes: OpcoesFalso = {}): InstanciaFalsa {
   const contagem = new Map<string, number>();
 
   const alocar = (bytes: number): number => {
-    if (bytes <= 0) return 0;
-    const tam = (bytes + 7) & ~7;
+    if (bytes < 0) return 0;
+    // `abi2_alocar(0)` devolve ponteiro válido (decisão do dono, 0046 §3.1): `0` significa só falha.
+    const tam = Math.max(8, (bytes + 7) & ~7);
     const fim = topo + tam;
     if (fim > memory.buffer.byteLength) memory.grow(Math.ceil((fim - memory.buffer.byteLength) / PAGINA));
     const ptr = topo;
@@ -137,6 +138,10 @@ export function criarInstanciaFalsa(opcoes: OpcoesFalso = {}): InstanciaFalsa {
     if (!tabela || substituir) {
       tabela = new Map();
       cena.set(secaoId, tabela);
+    }
+    if (!substituir) {
+      const novas = linhas.filter((l) => !tabela.has(l[def.chave]!)).length;
+      if (tabela.size + novas > LIMITES.linhas_por_secao) return falhar(CODIGOS.LIMITE, 'limite excedido');
     }
     for (const l of linhas) tabela.set(l[def.chave]!, l);
     return CODIGOS.OK;
