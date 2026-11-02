@@ -78,3 +78,29 @@ Regras de equivalência que a implementação fixou (e que o harness verifica):
   TypeScript responde `NAO_IMPLEMENTADO` à consulta nova.
 - Módulos Rust: `geo2d` (vetores e arcos), `quadro` (`WallFrame`), `juncoes` (`joins*`), `grupos` (`clusterWalls` e
   `endPoint`), `secoes_a1` (armazenamento e validação das seções) e `a1` (a consulta e a codificação das saídas).
+
+## 7 — A2 entregue (2026-11-02)
+
+Esquema `cena-v3.json` (`versao` 3; renomeado de `cena-v2.json`, todos os leitores atualizados). Colunas novas: `camadas`
+(`material_num`, `envolve`) e `tipos_parede` (`wrap_ends`, `n_faixas`); seções `faixas` (`WallType.strips`) e `paredes_z` (a
+cota real de `wallZRange`, calculada pelo JS: depende de pisos, lajes e telhados das fatias B e E; difere de `paredes_quadro.z0/topo`,
+que são nominais e alimentam as junções). Consulta nova `itens_pintados(nivel_num, tol_juncao, tem_corte_z, corte_z, n_contorno, ...ids)`:
+os `outlineWalls` viajam como argumentos variáveis (`argsVariaveis` no JSON; limite do ABI de 1024 argumentos) e `flatAttach`/`planOpenings`
+ficam para a A3 (o primeiro é interno do JS; o segundo só afeta `cut`). Saída por item (parede, grupo, faixa, índice, material, core, inPlan,
+outline, through, prioridade, ordem, coreT, z0, z1, espessura), o `shape` bruto e o `fragment` pintado em planta, como pilhas de anéis.
+Módulos Rust: `camadas` (`layerGeom`), `envolvimento` (`endReturns`), `itens` (`buildItems`, `layerCoreFlags`), `pintor` (`paint`) e
+`a2` (orquestração e codificação). O cache de `resolveMemo` não foi portado (só guarda resultados).
+Referência: `packages/engine/src/kernelA2.ts` extrai `buildItems` e `paint` (agora exportados); `tests/kernel-a2-referencia.test.ts`
+confere que a orquestração repetida ali entrega o mesmo `raw`/`fragment` de `resolveLevel`.
+
+Decisões de equivalência que a medição impôs (nada foi afrouxado em silêncio):
+
+- **Escala do pintor.** A 1 µm (a quantização de `ops.rs`) a área de um fragmento já diverge do `polygon-clipping` do TS até ~7e-6 m²
+  (36 de 216 itens passavam de 1e-6 na primeira semente de estresse). A A2 usa `ESCALA_FINA` = 1e9 (1 nm) via `diferenca_com_escala`,
+  mesmo algoritmo non-zero; as demais operações da ABI v1 continuam a 1 µm.
+- **Ruído topológico.** Mesmo a 1 nm o `polygon-clipping` (exato) devolve como peças separadas polígonos que se encostam por uma aresta, e
+  mantém vértices quase colineares que o Rust (inteiros) funde. O critério bloqueante do fragmento é a região: área líquida e área da
+  diferença simétrica dentro de 1e-5 + 1e-6 x área (as constantes do diferencial da 0045, `fixtures.ts`). A igualdade estrita (peças e
+  anéis a 1 µm) é medida e reportada (~84% dos itens no estresse), não bloqueia. O shape bruto é comparado sempre de forma estrita.
+- **Defeito do TS.** O `polygon-clipping` às vezes perde área em silêncio (estresse semente 100, retas, item 274: perde uma peça de
+  0,020 m²; com `differenceClipper` o TS dá o mesmo que o Rust). O harness conta esses casos à parte (`tsPerdeuArea`) e o teste limita a fração.

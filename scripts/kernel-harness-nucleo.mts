@@ -9,6 +9,8 @@ import { CenaV2 } from '../packages/geom/src/kernel/v2/cena.ts';
 import { gerenciadorFalso } from '../packages/geom/src/kernel/v2/falso.ts';
 import { GerenciadorKernelV2 } from '../packages/geom/src/kernel/v2/gerenciador.ts';
 import { fonteDeParedes } from '../packages/geom/src/kernel/v2/paredes.ts';
+import { argumentosA2, decodificarA2, referenciaA2 } from '../packages/engine/src/kernelA2.ts';
+import { compararA2 } from './kernel-harness-a2.mts';
 import { fonteDeSecoes } from '../packages/geom/src/kernel/v2/quadros.ts';
 import {
   referenciaEstatisticasNivel,
@@ -107,6 +109,8 @@ export async function executarHarness({ projeto, wasm, gerenciador, a1 }: Opcoes
     tipos_parede: { colunas: cenaA1.secoes.tipos_parede, n: cenaA1.nLinhas.tipos_parede },
     camadas: { colunas: cenaA1.secoes.camadas, n: cenaA1.nLinhas.camadas },
     paredes_quadro: { colunas: cenaA1.secoes.paredes_quadro, n: cenaA1.nLinhas.paredes_quadro },
+    faixas: { colunas: cenaA1.secoes.faixas, n: cenaA1.nLinhas.faixas },
+    paredes_z: { colunas: cenaA1.secoes.paredes_z, n: cenaA1.nLinhas.paredes_z },
   });
   const cena = CenaV2.criar(ger, rodarA1 ? fonteDeSecoes(secoesA1) : fonteDeParedes(() => paredes));
   const uploadTotal = performance.now() - t0;
@@ -174,6 +178,13 @@ export async function executarHarness({ projeto, wasm, gerenciador, a1 }: Opcoes
         if (cmp.divergencias.length > 0) falha(`quadros_e_juncoes difere: ${cmp.divergencias.slice(0, 5).join(' | ')}`);
         desvioMaximoA1 = Math.max(desvioMaximoA1, cmp.desvioMaximo);
         registrar('quadros_e_juncoes', rm, t, cmp.divergencias.length === 0);
+        // itens_pintados (A2): itens por camada e pintor, em planta, contra buildItems/paint do motor TypeScript
+        const [refA2, rm2] = medir(() => referenciaA2(projeto, levelId, cenaA1));
+        const [s2, t2] = medir(() => decodificarA2(cena.consultar('itens_pintados', argumentosA2(projeto, levelId, cenaA1))));
+        const cmp2 = compararA2(refA2, s2);
+        if (cmp2.divergencias.length > 0) falha(`itens_pintados difere: ${cmp2.divergencias.slice(0, 5).join(' | ')}`);
+        desvioMaximoA1 = Math.max(desvioMaximoA1, cmp2.desvioMaximo);
+        registrar('itens_pintados', rm2, t2, cmp2.divergencias.length === 0);
       }
       if (passada === 1) linhas.push(...acc.values());
     }

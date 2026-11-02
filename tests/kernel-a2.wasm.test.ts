@@ -127,8 +127,9 @@ describe.skipIf(!bytes)('A2: itens_pintados do Rust x motor TypeScript', () => {
   it('retas puras sem ruído, e só arcos', () => {
     if (pula()) return;
     for (let semente = 100; semente < 103; semente++) {
+      // (o caso de arcos é lento no polygon-clipping do TS: poucas sementes e paredes)
       compararProjeto(projetoDeEstresseA2(semente, { paredes: 60, pavimentos: 1, curvas: 0, ruido: false }), semente);
-      compararProjeto(projetoDeEstresseA2(semente, { paredes: 30, pavimentos: 1, curvas: 1 }), semente);
+      compararProjeto(projetoDeEstresseA2(semente, { paredes: 12, pavimentos: 1, curvas: 1 }), semente);
     }
   }, 600_000);
 

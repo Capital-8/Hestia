@@ -177,3 +177,74 @@ pub fn itens_pintados(cena: &Cena, nivel: u32, tol: f64, opcoes: &OpcoesDePlanta
         Saida::F64(cod.pontos),
     ])
 }
+
+#[cfg(test)]
+mod testes {
+    use super::*;
+    use crate::a1::testes_util::{cena_com, f64s, u32s, tipo_simples, Par};
+    use crate::consultas::executar;
+    use crate::esquema::CONSULTA_ITENS_PINTADOS as Q;
+    use crate::pintor::area_da_forma;
+
+    fn forma_de(s: &[Saida], ini: u32, n: u32) -> MultiPoligono {
+        let pol = u32s(&s[3]);
+        let an = u32s(&s[4]);
+        let pt = f64s(&s[5]);
+        let mut m = Vec::new();
+        for k in ini..ini + n {
+            let (ia, na) = (pol[2 * k as usize], pol[2 * k as usize + 1]);
+            let mut p = Vec::new();
+            for a in ia..ia + na {
+                let (ip, np) = (an[2 * a as usize], an[2 * a as usize + 1]);
+                p.push((ip..ip + np).map(|q| [pt[2 * q as usize], pt[2 * q as usize + 1]]).collect());
+            }
+            m.push(p);
+        }
+        m
+    }
+
+    #[test]
+    fn tee_a_parede_que_atravessa_vence_e_o_ramal_para_na_face() {
+        let host = Par::nova(1, (0.0, 0.0), (6.0, 0.0));
+        let ramal = Par::nova(2, (3.0, 3.0), (3.0, 0.0));
+        let mut c = cena_com(&[host, ramal], &[tipo_simples()]);
+        // paredes_z: as duas na cota 0 com 2,8 m
+        let bz = [crate::a1::testes_util::c32(&[1, 2]), crate::a1::testes_util::c64(&[0.0, 0.0]), crate::a1::testes_util::c64(&[2.8, 2.8])].concat();
+        c.definir_secao(crate::esquema::SECAO_PAREDES_Z, 2, &bz).expect("paredes_z");
+        let s = executar(&mut c, Q, &[0.0, 0.02, 0.0, 0.0, 0.0]).expect("consulta");
+        let itens = u32s(&s[0]);
+        assert_eq!(itens.len(), 2 * 9);
+        // item 0: hospedeira (atravessa = 1), item 1: ramal (atravessa = 0)
+        assert_eq!((itens[0], itens[8]), (1, 1));
+        assert_eq!((itens[9], itens[9 + 8]), (2, 0));
+        let cab = u32s(&s[2]);
+        let bruto = forma_de(&s, cab[0], cab[1]);
+        let frag = forma_de(&s, cab[2], cab[3]);
+        assert!((area_da_forma(&bruto) - 6.0 * 0.2).abs() < 1e-9);
+        assert!((area_da_forma(&frag) - 6.0 * 0.2).abs() < 1e-9, "a hospedeira não perde área");
+        // o ramal (3 m a partir de y = 3 até a face em y = 0,1) perde só o trecho dentro da hospedeira
+        let frag2 = forma_de(&s, cab[6], cab[7]);
+        assert!((area_da_forma(&frag2) - 2.9 * 0.2).abs() < 1e-6, "área do ramal {}", area_da_forma(&frag2));
+    }
+
+    #[test]
+    fn argumentos_variaveis_sao_validados() {
+        let mut c = cena_com(&[Par::nova(1, (0.0, 0.0), (4.0, 0.0))], &[tipo_simples()]);
+        let bz = [crate::a1::testes_util::c32(&[1]), crate::a1::testes_util::c64(&[0.0]), crate::a1::testes_util::c64(&[2.8])].concat();
+        c.definir_secao(crate::esquema::SECAO_PAREDES_Z, 1, &bz).expect("paredes_z");
+        assert!(executar(&mut c, Q, &[0.0, 0.02, 0.0, 0.0, 0.0]).is_ok());
+        assert_eq!(executar(&mut c, Q, &[0.0, 0.02, 0.0, 0.0]).err(), Some(ENTRADA));
+        assert_eq!(executar(&mut c, Q, &[0.0, 0.02, 2.0, 0.0, 0.0]).err(), Some(ENTRADA));
+        assert_eq!(executar(&mut c, Q, &[0.0, 0.02, 0.0, 0.0, 2.0, 1.0]).err(), Some(ENTRADA));
+        assert_eq!(executar(&mut c, Q, &[0.0, 0.02, 1.0, 5.0, 1.0, 1.0]).is_ok(), true);
+        // cota de corte acima da parede: item sem planta; contorno o pinta só entre contornos
+        let s = executar(&mut c, Q, &[0.0, 0.02, 1.0, 5.0, 1.0, 1.0]).expect("consulta");
+        let itens = u32s(&s[0]);
+        assert_eq!((itens[6], itens[7]), (0, 1), "fora do corte e de contorno");
+        let cab = u32s(&s[2]);
+        assert!(cab[3] > 0, "o contorno tem fragmento");
+        // sem paredes_z => ENTRADA
+        c.remover(crate::esquema::SECAO_PAREDES_Z, &[1]).expect("remover");
+        assert_eq!(executar(&mut c, Q, &[0.0, 0.02, 0.0, 0.0, 0.0]).err(), Some(ENTRADA));
+    }
+}
