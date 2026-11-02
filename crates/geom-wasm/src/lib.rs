@@ -45,7 +45,22 @@
 
 pub mod ops;
 
+// ABI v2 (decisão 0046): cenas em colunas, consultas e índice espacial. A ABI v1 abaixo continua
+// exportada e inalterada até a fatia A cobrir o mesmo uso.
+pub mod abi2;
+pub mod cena;
+pub mod consultas;
+pub mod esquema;
+pub mod indice;
+pub mod memoria;
+#[cfg(test)]
+mod teste_util;
+
 use std::slice;
+
+/// Alocador global contador (`memoria_usada()`); embrulha o alocador padrão.
+#[global_allocator]
+static ALOCADOR: memoria::Contador = memoria::Contador;
 
 /// Versão do ABI. O lado JS recusa um wasm cuja versão não bata.
 pub const VERSAO_ABI: u32 = 1;
