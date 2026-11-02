@@ -1,4 +1,4 @@
-//! ABI v2 do kernel (decisão 0046, seção 3). Dados descritos por `schema/cena-v1.json`.
+//! ABI v2 do kernel (decisão 0046, seção 3). Dados descritos por `schema/cena-v2.json`.
 //!
 //! ## Modelo de memória
 //!
@@ -411,7 +411,7 @@ mod testes {
     #[test]
     fn versoes() {
         assert_eq!(abi2_versao(), 2);
-        assert_eq!(abi2_esquema_versao(), 1);
+        assert_eq!(abi2_esquema_versao(), 2);
     }
 
     #[test]

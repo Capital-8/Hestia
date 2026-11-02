@@ -1,12 +1,12 @@
-//! Constantes que espelham `schema/cena-v1.json` (fonte única do contrato, decisão 0046).
+//! Constantes que espelham `schema/cena-v2.json` (fonte única do contrato, decisão 0046).
 //!
 //! O teste `contrato_confere_com_json` (no fim deste arquivo) lê o JSON e confere tudo daqui:
 //! ids de seção, ordem e tipos das colunas, ids de consulta, saídas, códigos de erro e limites.
 //! Mudou o JSON => sobe `VERSAO_ESQUEMA` e este arquivo.
 
-/// `versao` de `cena-v1.json`.
-pub const VERSAO_ESQUEMA: u32 = 1;
-/// `abi` de `cena-v1.json`.
+/// `versao` de `cena-v2.json`.
+pub const VERSAO_ESQUEMA: u32 = 2;
+/// `abi` de `cena-v2.json`.
 pub const VERSAO_ABI2: u32 = 2;
 
 /// Códigos de retorno (3.1 do 0046).
@@ -69,20 +69,71 @@ pub struct Secao {
 
 pub const SECAO_PAREDES: u32 = 1;
 
-pub const SECOES: &[Secao] = &[Secao {
-    id: SECAO_PAREDES,
-    nome: "paredes",
-    chave: "id_num",
-    colunas: &[
-        Coluna { nome: "id_num", tipo: Tipo::U32 },
-        Coluna { nome: "nivel_num", tipo: Tipo::U32 },
-        Coluna { nome: "ax", tipo: Tipo::F64 },
-        Coluna { nome: "ay", tipo: Tipo::F64 },
-        Coluna { nome: "bx", tipo: Tipo::F64 },
-        Coluna { nome: "by", tipo: Tipo::F64 },
-        Coluna { nome: "espessura", tipo: Tipo::F64 },
-    ],
-}];
+pub const SECAO_PAREDES_QUADRO: u32 = 2;
+pub const SECAO_TIPOS_PAREDE: u32 = 3;
+pub const SECAO_CAMADAS: u32 = 4;
+
+const fn col(nome: &'static str, tipo: Tipo) -> Coluna {
+    Coluna { nome, tipo }
+}
+
+pub const SECOES: &[Secao] = &[
+    Secao {
+        id: SECAO_PAREDES,
+        nome: "paredes",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("nivel_num", Tipo::U32),
+            col("ax", Tipo::F64),
+            col("ay", Tipo::F64),
+            col("bx", Tipo::F64),
+            col("by", Tipo::F64),
+            col("espessura", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_PAREDES_QUADRO,
+        nome: "paredes_quadro",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("tipo_num", Tipo::U32),
+            col("ordem", Tipo::F64),
+            col("linha_loc", Tipo::U8),
+            col("invertida", Tipo::U8),
+            col("sem_junta_a", Tipo::U8),
+            col("sem_junta_b", Tipo::U8),
+            col("junta_a_tipo", Tipo::U8),
+            col("junta_a_inverte", Tipo::U8),
+            col("junta_b_tipo", Tipo::U8),
+            col("junta_b_inverte", Tipo::U8),
+            col("sag", Tipo::F64),
+            col("z0", Tipo::F64),
+            col("topo", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_TIPOS_PAREDE,
+        nome: "tipos_parede",
+        chave: "id_num",
+        colunas: &[col("id_num", Tipo::U32), col("n_camadas", Tipo::U32)],
+    },
+    Secao {
+        id: SECAO_CAMADAS,
+        nome: "camadas",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("tipo_num", Tipo::U32),
+            col("indice", Tipo::U32),
+            col("espessura", Tipo::F64),
+            col("funcao", Tipo::U8),
+            col("tem_prioridade", Tipo::U8),
+            col("prioridade", Tipo::F64),
+        ],
+    },
+];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Elementos {
@@ -91,6 +142,10 @@ pub enum Elementos {
     N,
     /// `"2n"`
     DoisN,
+    /// `"Kn"` com `K >= 3` (K elementos por item)
+    Multiplo(u32),
+    /// `"livre"`: tamanho variável, descrito no esquema
+    Livre,
 }
 
 pub struct SaidaDef {
@@ -109,6 +164,7 @@ pub struct Consulta {
 pub const CONSULTA_ESTATISTICAS_NIVEL: u32 = 1;
 pub const CONSULTA_PAREDES_NA_CAIXA: u32 = 2;
 pub const CONSULTA_PARES_PROXIMOS: u32 = 3;
+pub const CONSULTA_QUADROS_E_JUNCOES: u32 = 4;
 
 pub const CONSULTAS: &[Consulta] = &[
     Consulta {
@@ -132,6 +188,23 @@ pub const CONSULTAS: &[Consulta] = &[
         nome: "pares_proximos",
         args: &["nivel_num", "tol"],
         saidas: &[SaidaDef { nome: "pares", tipo: Tipo::U32, elementos: Elementos::DoisN }],
+    },
+    Consulta {
+        id: CONSULTA_QUADROS_E_JUNCOES,
+        nome: "quadros_e_juncoes",
+        args: &["nivel_num", "tol_juncao"],
+        saidas: &[
+            SaidaDef { nome: "ids", tipo: Tipo::U32, elementos: Elementos::N },
+            SaidaDef { nome: "quadro", tipo: Tipo::F64, elementos: Elementos::Multiplo(17) },
+            SaidaDef { nome: "arco", tipo: Tipo::F64, elementos: Elementos::Multiplo(8) },
+            SaidaDef { nome: "estado_pontas", tipo: Tipo::U32, elementos: Elementos::Multiplo(8) },
+            SaidaDef { nome: "parceiros", tipo: Tipo::U32, elementos: Elementos::Livre },
+            SaidaDef { nome: "pontas_cab", tipo: Tipo::U32, elementos: Elementos::Multiplo(6) },
+            SaidaDef { nome: "pontas_dados", tipo: Tipo::F64, elementos: Elementos::Livre },
+            SaidaDef { nome: "cordas_cab", tipo: Tipo::U32, elementos: Elementos::DoisN },
+            SaidaDef { nome: "cordas", tipo: Tipo::F64, elementos: Elementos::Livre },
+            SaidaDef { nome: "grupos", tipo: Tipo::U32, elementos: Elementos::N },
+        ],
     },
 ];
 
@@ -172,7 +245,7 @@ mod testes {
     use super::*;
     use serde_json::Value;
 
-    const JSON: &str = include_str!("../schema/cena-v1.json");
+    const JSON: &str = include_str!("../schema/cena-v2.json");
 
     fn tipo_de(nome: &str) -> Tipo {
         match nome {
@@ -229,6 +302,10 @@ mod testes {
                     Value::Number(n) => Elementos::Fixo(n.as_u64().expect("u64") as u32),
                     Value::String(s) if s == "n" => Elementos::N,
                     Value::String(s) if s == "2n" => Elementos::DoisN,
+                    Value::String(s) if s == "livre" => Elementos::Livre,
+                    Value::String(s) if s.ends_with('n') && s[..s.len() - 1].parse::<u32>().is_ok() => {
+                        Elementos::Multiplo(s[..s.len() - 1].parse::<u32>().expect("K"))
+                    }
                     outro => panic!("elementos inesperado: {outro}"),
                 };
                 assert_eq!(el, rs.elementos, "elementos de {}.{}", rc.nome, rs.nome);
@@ -262,6 +339,7 @@ mod testes {
 
     #[test]
     fn layout_de_secao_preenche_a_multiplo_de_8() {
+        // (a seção `paredes` é a primeira e não mudou de forma na v2)
         // paredes: u32 e u32 (n*4 cada, arredondado a 8) + 5 f64
         assert_eq!(bytes_secao(SECAO_PAREDES, 0), Ok(0));
         assert_eq!(bytes_secao(SECAO_PAREDES, 1), Ok(8 + 8 + 5 * 8));

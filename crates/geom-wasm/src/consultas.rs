@@ -1,4 +1,5 @@
-//! As três consultas da ABI v2 (`schema/cena-v1.json`), sobre a seção `paredes`.
+//! As três consultas da Fase 0 da ABI v2 (`schema/cena-v2.json`), sobre a seção `paredes`. A quarta,
+//! `quadros_e_juncoes`, vive em `a1.rs`.
 //!
 //! ## Regras exatas (o harness do lado TypeScript deve reproduzi-las)
 //!
@@ -28,7 +29,8 @@
 
 use crate::cena::Cena;
 use crate::esquema::{
-    self, Tipo, CONSULTA_ESTATISTICAS_NIVEL, CONSULTA_PARES_PROXIMOS, CONSULTA_PAREDES_NA_CAIXA, ENTRADA,
+    self, Tipo, CONSULTA_ESTATISTICAS_NIVEL, CONSULTA_PARES_PROXIMOS, CONSULTA_PAREDES_NA_CAIXA, CONSULTA_QUADROS_E_JUNCOES,
+    ENTRADA,
     NAO_IMPLEMENTADO,
 };
 use crate::indice::Caixa;
@@ -113,6 +115,14 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
                 return Err(ENTRADA);
             }
             pares_proximos(cena, nivel, tol)
+        }
+        CONSULTA_QUADROS_E_JUNCOES => {
+            let nivel = arg_nivel(args[0])?;
+            let tol = arg_finito(args[1])?;
+            if tol < 0.0 {
+                return Err(ENTRADA);
+            }
+            crate::a1::quadros_e_juncoes(cena, nivel, tol)
         }
         _ => Err(NAO_IMPLEMENTADO),
     }

@@ -1,0 +1,335 @@
+{
+  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`; a seção `paredes` e as três consultas da Fase 0 não mudaram.",
+  "versao": 2,
+  "abi": 2,
+  "tipos": {
+    "u32": {
+      "bytes": 4,
+      "arrayTs": "Uint32Array",
+      "codigo": 1
+    },
+    "i32": {
+      "bytes": 4,
+      "arrayTs": "Int32Array",
+      "codigo": 2
+    },
+    "f64": {
+      "bytes": 8,
+      "arrayTs": "Float64Array",
+      "codigo": 3
+    },
+    "u8": {
+      "bytes": 1,
+      "arrayTs": "Uint8Array",
+      "codigo": 4
+    }
+  },
+  "secoes": [
+    {
+      "id": 1,
+      "nome": "paredes",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "nivel_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "ax",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ay",
+          "tipo": "f64"
+        },
+        {
+          "nome": "bx",
+          "tipo": "f64"
+        },
+        {
+          "nome": "by",
+          "tipo": "f64"
+        },
+        {
+          "nome": "espessura",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Segmento e espessura total (Fase 0). Em A1 a espessura vem do tipo (soma das camadas) e é redundante com `tipos_parede`/`camadas`; a consulta quadros_e_juncoes lê só a, b e o nível daqui."
+    },
+    {
+      "id": 2,
+      "nome": "paredes_quadro",
+      "chave": "id_num",
+      "descricao": "Complemento da seção `paredes` (mesma chave id_num; a consulta exige uma linha aqui para cada parede do nível). tipo_num: chave de `tipos_parede`. ordem: Wall.order (desempata junções e ordena os quadros do nível: ordem crescente, empate por id_num crescente = ordem estável do JS). linha_loc: 0 wallCenter, 1 coreCenter, 2 finishExterior, 3 finishInterior, 4 coreExterior, 5 coreInterior. invertida/sem_junta_a/sem_junta_b/junta_*_inverte: 0 ou 1. junta_a_*/junta_b_*: JoinConfig de joinStart/joinEnd; *_tipo: 0 butt, 1 miter. sag: flecha do arco (0 = reta). z0 e topo: cota da base e do topo nominais (wallBaseElevation e base + wallMaxHeight, calculados pelo JS; o Rust não os deriva).",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "ordem",
+          "tipo": "f64"
+        },
+        {
+          "nome": "linha_loc",
+          "tipo": "u8"
+        },
+        {
+          "nome": "invertida",
+          "tipo": "u8"
+        },
+        {
+          "nome": "sem_junta_a",
+          "tipo": "u8"
+        },
+        {
+          "nome": "sem_junta_b",
+          "tipo": "u8"
+        },
+        {
+          "nome": "junta_a_tipo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "junta_a_inverte",
+          "tipo": "u8"
+        },
+        {
+          "nome": "junta_b_tipo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "junta_b_inverte",
+          "tipo": "u8"
+        },
+        {
+          "nome": "sag",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z0",
+          "tipo": "f64"
+        },
+        {
+          "nome": "topo",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "nome": "tipos_parede",
+      "chave": "id_num",
+      "descricao": "Tipo de parede. n_camadas deve bater com as linhas de `camadas` do tipo (senão ENTRADA na consulta). Sem texto: nomes e materiais ficam no JS.",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "n_camadas",
+          "tipo": "u32"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "nome": "camadas",
+      "chave": "id_num",
+      "descricao": "Camadas dos tipos, da face externa para a interna (ordem por `indice`, que deve ser 0..n_camadas-1 sem repetição). funcao: 0 structure, 1 substrate, 2 thermal, 3 membrane, 4 finish1, 5 finish2 (prioridades padrão 1,2,3,3,4,5). tem_prioridade=1 usa `prioridade` no lugar da padrão da função (layerPriority). O núcleo (coreRange/coreSpan) é derivado: do primeiro ao último layer de função structure; sem estrutura, o tipo inteiro.",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "espessura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "funcao",
+          "tipo": "u8"
+        },
+        {
+          "nome": "tem_prioridade",
+          "tipo": "u8"
+        },
+        {
+          "nome": "prioridade",
+          "tipo": "f64"
+        }
+      ]
+    }
+  ],
+  "consultas": [
+    {
+      "id": 1,
+      "nome": "estatisticas_nivel",
+      "args": [
+        "nivel_num"
+      ],
+      "saidas": [
+        {
+          "nome": "n_paredes",
+          "tipo": "u32",
+          "elementos": 1
+        },
+        {
+          "nome": "caixa",
+          "tipo": "f64",
+          "elementos": 4,
+          "descricao": "minx, miny, maxx, maxy da união das caixas dos segmentos (sem espessura); [0,0,0,0] se não há paredes"
+        },
+        {
+          "nome": "comprimento_total",
+          "tipo": "f64",
+          "elementos": 1
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "nome": "paredes_na_caixa",
+      "args": [
+        "nivel_num",
+        "minx",
+        "miny",
+        "maxx",
+        "maxy"
+      ],
+      "saidas": [
+        {
+          "nome": "ids",
+          "tipo": "u32",
+          "elementos": "n",
+          "descricao": "id_num das paredes do nível cuja caixa (segmento + metade da espessura de cada lado) cruza a caixa pedida, em ordem crescente de id_num"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "nome": "pares_proximos",
+      "args": [
+        "nivel_num",
+        "tol"
+      ],
+      "saidas": [
+        {
+          "nome": "pares",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "pares (a, b) com a < b de paredes do nível cujas caixas (segmento + metade da espessura) expandidas por tol se cruzam, em ordem lexicográfica"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "nome": "quadros_e_juncoes",
+      "descricao": "Sub-etapa A1: quadros (WallFrame), estado de cada extremidade (joinStatus), pontas resolvidas (computeEnds) e grupos (clusterWalls) das paredes de um nível. Os quadros são os de levelFrames: paredes do nível ordenadas por (ordem, id_num), sem as de corda < 1e-4 m. Em todas as saídas, a parede `i` é a i-ésima desta ordem (ids[i]). nivel_num = 0xFFFFFFFF é ENTRADA. Parede sem linha em `paredes_quadro`, tipo inexistente ou camadas incoerentes => ENTRADA.",
+      "args": [
+        "nivel_num",
+        "tol_juncao"
+      ],
+      "argsDescricao": {
+        "tol_juncao": "tolerância de junção em metros (Project.settings.joinTolerance ?? 0.02); finita e >= 0"
+      },
+      "saidas": [
+        {
+          "nome": "ids",
+          "tipo": "u32",
+          "elementos": "n",
+          "descricao": "id_num de cada parede com quadro, na ordem dos quadros"
+        },
+        {
+          "nome": "quadro",
+          "tipo": "f64",
+          "elementos": "17n",
+          "descricao": "17 valores por parede: ax, ay, bx, by, ux, uy, nx, ny, length, sign, ext_offset, thickness, s_ext, s_int, s_hi, s_lo, s_mid (a, b, u e n do WallFrame; u e n são a tangente e a normal do INÍCIO)"
+        },
+        {
+          "nome": "arco",
+          "tipo": "f64",
+          "elementos": "8n",
+          "descricao": "8 valores por parede: tem_arco (0 ou 1), cx, cy, radius, a0, sweep, length, k. Reta: tudo 0"
+        },
+        {
+          "nome": "estado_pontas",
+          "tipo": "u32",
+          "elementos": "8n",
+          "descricao": "Por parede, extremidade a depois b (índice 2i+e), 4 valores por extremidade: tipo, id_hospedeira, ini_parceiros, n_parceiros. tipo: 0 free, 1 disallowed, 2 pair, 3 node, 4 tee. id_hospedeira (id_num) só em tee, senão 0xFFFFFFFF. ini_parceiros/n_parceiros: faixa (em parceiros, não em u32) da saída `parceiros`; 0,0 se não há"
+        },
+        {
+          "nome": "parceiros",
+          "tipo": "u32",
+          "elementos": "livre",
+          "descricao": "Pares (id_num da parede, extremidade 0=a 1=b) dos parceiros de pair/node, na ordem de joinStatus"
+        },
+        {
+          "nome": "pontas_cab",
+          "tipo": "u32",
+          "elementos": "6n",
+          "descricao": "Por parede, extremidade a depois b (índice 2i+e), 3 valores por extremidade: tipo_corte, ini, len em f64 de `pontas_dados`. tipo_corte: 0 flat, 1 miter, 2 steps, 3 plane. hi e lo do EndSpec são sempre o mesmo corte e só um vai"
+        },
+        {
+          "nome": "pontas_dados",
+          "tipo": "f64",
+          "elementos": "livre",
+          "descricao": "Dados dos cortes. flat: [t]. miter: [lado_self, lado_other], cada lado = [id_parede, ox, oy, ux, uy, nx, ny, sHi, sLo, sigma, outerToCore, coreEnd, tem_arco, cx, cy, radius, k, n_bounds, bounds...]. steps: [n_runs, runs...] cada run = [s, s1, t, t1, on, host] com NaN em s1/t1/on e -1 em host quando ausentes (host = id_num). plane: [px, py, qx, qy, n_pts, (x, y)...]"
+        },
+        {
+          "nome": "cordas_cab",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por parede: ini, n em cordas (não em f64) da saída `cordas`; as cordas que as outras paredes deixam nas faces de arco desta"
+        },
+        {
+          "nome": "cordas",
+          "tipo": "f64",
+          "elementos": "livre",
+          "descricao": "5 valores por corda: s, px, py, qx, qy"
+        },
+        {
+          "nome": "grupos",
+          "tipo": "u32",
+          "elementos": "n",
+          "descricao": "Índice do grupo (cluster) de cada parede. Grupos numerados na ordem da primeira parede de cada um; caixas de ponta e arco expandidas por CLUSTER_PAD = 0.02 m, sobreposição inclusiva, união transitiva"
+        }
+      ]
+    }
+  ],
+  "args": {
+    "$comentario": "Todos os argumentos de consulta viajam num Float64Array (inteiros são exatos em f64). nivel_num = 4294967295 (0xFFFFFFFF) significa 'todos os níveis'.",
+    "nivel_todos": 4294967295
+  },
+  "codigos": {
+    "OK": 0,
+    "VERSAO": 1,
+    "HANDLE": 2,
+    "ENTRADA": 3,
+    "NAO_IMPLEMENTADO": 4,
+    "LIMITE": 5,
+    "INTERNO": 6,
+    "$comentario": "ENTRADA, NAO_IMPLEMENTADO e LIMITE são 'leves' (só esta chamada cai para o TypeScript); VERSAO, HANDLE e INTERNO são 'graves' (descarta e recria a instância)."
+  },
+  "limites": {
+    "linhas_por_secao": 4194304,
+    "bytes_por_chamada": 268435456
+  }
+}

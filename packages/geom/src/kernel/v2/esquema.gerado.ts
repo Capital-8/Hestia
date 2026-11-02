@@ -1,7 +1,7 @@
-// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v1.json.
+// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v2.json.
 // Não edite à mão: mude o JSON e rode `node scripts/gerar-esquema-kernel.mjs`.
 
-export const ESQUEMA_VERSAO = 1;
+export const ESQUEMA_VERSAO = 2;
 export const ABI_VERSAO = 2;
 export const NIVEL_TODOS = 4294967295;
 
@@ -62,6 +62,116 @@ export const SECOES = {
         "tipo": "f64"
       }
     ]
+  },
+  "paredes_quadro": {
+    "id": 2,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "tipo_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "ordem",
+        "tipo": "f64"
+      },
+      {
+        "nome": "linha_loc",
+        "tipo": "u8"
+      },
+      {
+        "nome": "invertida",
+        "tipo": "u8"
+      },
+      {
+        "nome": "sem_junta_a",
+        "tipo": "u8"
+      },
+      {
+        "nome": "sem_junta_b",
+        "tipo": "u8"
+      },
+      {
+        "nome": "junta_a_tipo",
+        "tipo": "u8"
+      },
+      {
+        "nome": "junta_a_inverte",
+        "tipo": "u8"
+      },
+      {
+        "nome": "junta_b_tipo",
+        "tipo": "u8"
+      },
+      {
+        "nome": "junta_b_inverte",
+        "tipo": "u8"
+      },
+      {
+        "nome": "sag",
+        "tipo": "f64"
+      },
+      {
+        "nome": "z0",
+        "tipo": "f64"
+      },
+      {
+        "nome": "topo",
+        "tipo": "f64"
+      }
+    ]
+  },
+  "tipos_parede": {
+    "id": 3,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "n_camadas",
+        "tipo": "u32"
+      }
+    ]
+  },
+  "camadas": {
+    "id": 4,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "tipo_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "indice",
+        "tipo": "u32"
+      },
+      {
+        "nome": "espessura",
+        "tipo": "f64"
+      },
+      {
+        "nome": "funcao",
+        "tipo": "u8"
+      },
+      {
+        "nome": "tem_prioridade",
+        "tipo": "u8"
+      },
+      {
+        "nome": "prioridade",
+        "tipo": "f64"
+      }
+    ]
   }
 } as const;
 
@@ -117,6 +227,65 @@ export const CONSULTAS = {
         "nome": "pares",
         "tipo": "u32",
         "elementos": "2n"
+      }
+    ]
+  },
+  "quadros_e_juncoes": {
+    "id": 4,
+    "args": [
+      "nivel_num",
+      "tol_juncao"
+    ],
+    "saidas": [
+      {
+        "nome": "ids",
+        "tipo": "u32",
+        "elementos": "n"
+      },
+      {
+        "nome": "quadro",
+        "tipo": "f64",
+        "elementos": "17n"
+      },
+      {
+        "nome": "arco",
+        "tipo": "f64",
+        "elementos": "8n"
+      },
+      {
+        "nome": "estado_pontas",
+        "tipo": "u32",
+        "elementos": "8n"
+      },
+      {
+        "nome": "parceiros",
+        "tipo": "u32",
+        "elementos": "livre"
+      },
+      {
+        "nome": "pontas_cab",
+        "tipo": "u32",
+        "elementos": "6n"
+      },
+      {
+        "nome": "pontas_dados",
+        "tipo": "f64",
+        "elementos": "livre"
+      },
+      {
+        "nome": "cordas_cab",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "cordas",
+        "tipo": "f64",
+        "elementos": "livre"
+      },
+      {
+        "nome": "grupos",
+        "tipo": "u32",
+        "elementos": "n"
       }
     ]
   }
