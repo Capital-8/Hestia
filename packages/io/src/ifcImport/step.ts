@@ -29,6 +29,8 @@ export interface StepEntity {
 export interface StepFile {
   schema: string;
   entities: Map<number, StepEntity>;
+  /** Entidades agrupadas por tipo (`IFCWALL`, `IFCFACE`...): evita varrer o arquivo inteiro a cada consulta. */
+  types: Map<string, StepEntity[]>;
   /** Entidades que o tokenizador não conseguiu ler (não impedem o resto do arquivo). */
   broken: number;
 }
@@ -53,6 +55,18 @@ const PREFIX: Record<string, number> = {
 };
 
 export const siPrefix = (name: string): number => PREFIX[name] ?? 1;
+
+/**
+ * Posição do `\X0\`/`\x0\` que fecha um escape largo, a partir de `from`. Procura só nas barras invertidas (poucas
+ * por texto) em vez de copiar a string toda: no arquivo inteiro, a versão com `toUpperCase()` era quadrática.
+ */
+function findEscapeEnd(s: string, from: number): number {
+  for (let p = s.indexOf('\\', from); p >= 0; p = s.indexOf('\\', p + 1)) {
+    const c1 = s.charCodeAt(p + 1) | 32;
+    if (c1 === 120 && s.charCodeAt(p + 2) === 48 && s.charCodeAt(p + 3) === 92) return p;
+  }
+  return -1;
+}
 
 /** Converte ponto e vírgula do cabeçalho em schema legível (`IFC4`, `IFC2X3`...). */
 export function schemaOf(text: string): string {
@@ -189,7 +203,9 @@ class Reader {
     if (upper.startsWith('X2\\') || upper.startsWith('X4\\')) {
       const wide = upper.startsWith('X4\\');
       this.i += 3;
-      const end = this.s.toUpperCase().indexOf('\\X0\\', this.i);
+      // `indexOf` sem diferenciar maiúsculas: antes era `this.s.toUpperCase()`, que copiava e convertia o arquivo
+      // inteiro a cada texto acentuado (O(n) por escape; num IFC de 53 MB isso levava minutos).
+      const end = findEscapeEnd(this.s, this.i);
       const hex = this.s.slice(this.i, end < 0 ? this.s.length : end);
       this.i = end < 0 ? this.s.length : end + 4;
       const step = wide ? 8 : 4;
@@ -281,17 +297,29 @@ class Reader {
 }
 
 /** Lê o arquivo inteiro. Erro em uma entidade não derruba as outras: ela é contada em `broken`. */
-export function parseStep(text: string): StepFile {
+export function parseStep(text: string, onProgress?: (done: number, total: number) => void): StepFile {
   const schema = schemaOf(text);
   const entities = new Map<number, StepEntity>();
+  const types = new Map<string, StepEntity[]>();
+  // Um IFC grande repete o mesmo tipo centenas de milhares de vezes (`IFCCARTESIANPOINT`...): guarda uma só string.
+  const nomes = new Map<string, string>();
   const data = /\bDATA\s*;/.exec(text);
-  if (!data) return { schema, entities, broken: 0 };
-  const r = new Reader(text, data.index + data[0].length);
+  if (!data) return { schema, entities, types, broken: 0 };
+  const fim = data.index + data[0].length;
+  const r = new Reader(text, fim);
+  const total = text.length - fim;
   let broken = 0;
+  // Avisa a cada ~1 MB lido: a barra anda sem custar uma chamada por entidade.
+  const passo = 1 << 20;
+  let proximoAviso = passo;
   for (;;) {
     r.skip();
     if (text.slice(r.pos, r.pos + 6).toUpperCase() === 'ENDSEC') break;
     if (r.pos >= text.length) break;
+    if (r.pos >= proximoAviso) {
+      proximoAviso = r.pos + passo;
+      onProgress?.(r.pos - fim, total);
+    }
     if (!r.take('#')) {
       // Conteúdo inesperado: salta até o próximo `;` para não travar o arquivo.
       const next = text.indexOf(';', r.pos);
@@ -304,7 +332,7 @@ export function parseStep(text: string): StepFile {
     try {
       id = r.int();
       r.expect('=');
-      const type = r.ident();
+      let type = r.ident();
       r.expect('(');
       const args: StepValue[] = [];
       r.skip();
@@ -318,7 +346,16 @@ export function parseStep(text: string): StepFile {
         }
       }
       r.take(';');
-      if (type) entities.set(id, { id, type, args });
+      if (type) {
+        const conhecido = nomes.get(type);
+        if (conhecido === undefined) nomes.set(type, type);
+        else type = conhecido;
+        const entidade: StepEntity = { id, type, args };
+        entities.set(id, entidade);
+        const lista = types.get(type);
+        if (lista) lista.push(entidade);
+        else types.set(type, [entidade]);
+      }
     } catch {
       broken++;
       const next = text.indexOf(';', r.pos);
@@ -326,7 +363,8 @@ export function parseStep(text: string): StepFile {
       r.seek(next + 1);
     }
   }
-  return { schema, entities, broken };
+  onProgress?.(total, total);
+  return { schema, entities, types, broken };
 }
 
 export const isRef = (v: StepValue | undefined): v is { k: 'ref'; id: number } => v?.k === 'ref';

@@ -9,6 +9,7 @@ import { dockWidths } from './editor/dockLayout.ts';
 import { Dock } from './ui/Dock.tsx';
 import { FileMenu } from './ui/FileMenu.tsx';
 import { IconDefs } from './ui/Icon.tsx';
+import { IfcImportOverlay } from './ui/IfcImportOverlay.tsx';
 import { EmptyViews } from './ui/EmptyViews.tsx';
 import { OptionsBar } from './ui/OptionsBar.tsx';
 import { Ribbon } from './ui/Ribbon.tsx';
@@ -282,6 +283,7 @@ export function App(): ReactElement {
       {/* A caixa de texto tem store próprio (não entra no DialogKind): aberta pela aba Anotar/painel do Texto. */}
       <TextDialog />
       <FileMenu />
+      <IfcImportOverlay />
     </div>
   );
 }

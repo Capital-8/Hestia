@@ -1,0 +1,77 @@
+/* Barra de progresso da importação IFC (componente IfcImportOverlay). Fica acima da área de trabalho, sem bloquear
+   cliques no resto da janela: o import roda no worker e a interface continua utilizável. */
+.ifc-progress {
+  position: fixed;
+  left: 50%;
+  bottom: 46px;
+  transform: translateX(-50%);
+  z-index: 60;
+  width: min(440px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.ifc-progress-card {
+  padding: 12px 14px 10px;
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  font-family: var(--font-ui);
+}
+
+.ifc-progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.ifc-progress-head b {
+  font-weight: 600;
+}
+
+.ifc-progress-head .mono {
+  color: var(--fg-soft);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+
+.ifc-progress-bar {
+  position: relative;
+  height: 8px;
+  margin: 8px 0 7px;
+  overflow: hidden;
+  background: var(--ro);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.ifc-progress-bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: var(--accent);
+  border-radius: inherit;
+  transition: width 120ms linear;
+}
+
+.ifc-progress-stage {
+  color: var(--fg-soft);
+  font-size: 11.5px;
+}
+
+.ifc-progress-hint {
+  margin: 6px 0 0;
+  color: var(--fg-faint);
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ifc-progress-bar i {
+    transition: none;
+  }
+}

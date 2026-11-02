@@ -62,17 +62,28 @@ export function FileMenu(): ReactElement | null {
     if (!f) return;
     setResumo(null);
     setErroIfc(null);
+    const inicio = performance.now();
+    // units-ok: tamanho de arquivo em MB só para o texto da barra de status, não é medida do modelo.
+    const mb = f.size / 1048576;
+    useUi.setState({
+      status: `${pt ? 'Importando IFC' : 'Importing IFC'} · ${mb < 1 ? `${Math.max(1, Math.round(f.size / 1024))} KB` : `${Math.round(mb)} MB`}…`,
+      ifcImport: { fase: 'read', fracao: 0, feito: 0, total: f.size },
+    });
     try {
-      const { name, report } = await importIfcFile(f);
+      const { name, report } = await importIfcFile(f, {
+        onProgress: (p) => useUi.setState({ ifcImport: p }),
+      });
       const r = resumoImportacao(report, pt ? 'pt' : 'en');
-      console.info(`IFC importado: ${name}`, report);
+      // units-ok: tempo decorrido em segundos só para a mensagem de status, não é medida do modelo.
+      const segundos = ((performance.now() - inicio) / 1000).toFixed(1);
+      console.info(`IFC importado em ${segundos}s: ${name}`, report);
+      useUi.setState({ ifcImport: null, status: `IFC importado em ${segundos} s: ${name} · ${r.texto}` });
       setResumo({ nome: name, ...r });
-      useUi.setState({ status: `IFC importado: ${name} · ${r.texto}` });
     } catch (e) {
       const msg = e instanceof Error ? e.message : pt ? 'falha desconhecida' : 'unknown failure';
       console.info('Falha ao importar o IFC', e);
       setErroIfc(msg);
-      useUi.setState({ status: `${pt ? 'Não foi possível importar o IFC' : 'Could not import the IFC'}: ${msg}` });
+      useUi.setState({ ifcImport: null, status: `${pt ? 'Não foi possível importar o IFC' : 'Could not import the IFC'}: ${msg}` });
     }
   };
 

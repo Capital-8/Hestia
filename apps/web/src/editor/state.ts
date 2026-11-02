@@ -10,6 +10,7 @@ import type { RibbonTabId } from '../ui/ribbon/model.ts';
 import { loadDock, type DockLayout } from './dockLayout.ts';
 import type { TempViewVisibility } from './viewVisibility.ts';
 import type { PastePreviewState } from './pasteLevels/types.ts';
+import type { ProgressoImportacao } from './ifcImport.ts';
 
 export type ViewKind = 'plan' | '3d' | 'section' | 'sheet';
 export type ThemePref = 'system' | 'light' | 'dark';
@@ -96,6 +97,8 @@ export interface UiState {
   ribbonMin: boolean;
   /** Menu Arquivo aberto (aba Arquivo da faixa). */
   fileMenu: boolean;
+  /** Importação IFC em andamento (barra de progresso sobre a área de trabalho); null = nenhuma. */
+  ifcImport: ProgressoImportacao | null;
   /**
    * Vistas abertas na barra, na ordem das abas (sessão, não vai para o projeto). A vista ativa é sempre uma delas:
    * `view`/`levelId`/`sectionId`/`sheetId` continuam sendo a fonte da vista ativa, e esta lista é sincronizada com eles.
@@ -360,6 +363,7 @@ export const useUi = create<UiState>(() => ({
   ribbonBack: 'arquitetura',
   ribbonMin: loadRibbonMin(),
   fileMenu: false,
+  ifcImport: null,
   openViews: DEFAULT_OPEN_VIEWS.map((v) => ({ ...v })),
 }));
 

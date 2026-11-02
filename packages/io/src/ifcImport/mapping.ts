@@ -10,8 +10,9 @@ import {
   type Opening,
   type Project,
 } from '@hestia/model';
-import { bodyOf, cleanLoop, interiorPoint, prismFromMesh, rectangleAxis, segment, type Body, type Prism } from './geometry.ts';
-import { makeGeneric, minZOf } from './genericElement.ts';
+import { bodyPoints, cleanLoop, interiorPoint, prismFromMesh, rectangleAxis, segment, type Body, type Prism } from './geometry.ts';
+import { minZOf } from './genericElement.ts';
+import { addGenericObjects, bodyFor, countUnhandledProducts, isSpatialOrVoid, toGeneric } from './genericImport.ts';
 import { applyHestiaElements, applyHestiaLevels, applyHestiaProject, readHestia, withoutHestiaProperties } from './hestia.ts';
 import { materialIdOfStyle, openingType, operationOf, slabLikeType, styleOfWithMaterial, wallType } from './elementTypes.ts';
 import { IfcFile, projectName, type Pt2 } from './ifc.ts';
@@ -43,7 +44,7 @@ export interface ImportResult {
   report: ImportReport;
 }
 
-interface Ctx {
+export interface Ctx {
   f: IfcFile;
   p: Project;
   report: ImportReport;
@@ -51,6 +52,8 @@ interface Ctx {
   typeOf: Map<number, StepEntity>;
   hostOf: Map<number, number>;
   fillerOf: Map<number, number>;
+  /** Vão (`IfcOpeningElement`) por preenchimento (porta/janela): o inverso de `fillerOf`, pronto para consulta. */
+  openingOf: Map<number, number>;
   walls: Map<number, Id>;
   types: Map<string, Id>;
   approximate: Record<string, number>;
@@ -100,52 +103,6 @@ function noteGeometry(ctx: Ctx, body: Body | null): void {
   for (const motivo of body.unsupported) ctx.report.geometry[motivo] = (ctx.report.geometry[motivo] ?? 0) + 1;
 }
 
-/** Entidades que nunca viram objeto: vazios, anotações e a estrutura espacial. */
-function isSpatialOrVoid(type: string): boolean {
-  return type === 'IFCOPENINGELEMENT' || type === 'IFCANNOTATION' || type === 'IFCPROJECT' || type === 'IFCSITE' || type === 'IFCBUILDING' || type === 'IFCBUILDINGSTOREY' || type === 'IFCGRID';
-}
-
-/** Corpo do produto, lido uma vez (a inferência de níveis e o mapeamento reaproveitam). */
-function bodyFor(ctx: Ctx, e: StepEntity): Body {
-  const hit = ctx.bodies.get(e.id);
-  if (hit) return hit;
-  const body = bodyOf(ctx.f, e);
-  ctx.bodies.set(e.id, body);
-  return body;
-}
-
-/** Converte o produto em objeto genérico: é o fallback de tudo que não virou elemento nativo. */
-function toGeneric(ctx: Ctx, e: StepEntity, body: Body): boolean {
-  if (ctx.handled.has(e.id)) return false;
-  const g = makeGeneric(ctx, e, body, levelAt(ctx, minZOf(body)).id);
-  if (!g) return false;
-  ctx.p.elements[g.id] = { ...g, order: ctx.order++ };
-  ctx.handled.add(e.id);
-  ctx.report.generic[e.type] = (ctx.report.generic[e.type] ?? 0) + 1;
-  ctx.count('objetos');
-  return true;
-}
-
-/** Produtos que sobraram (sem corpo) entram no relatório em vez de sumirem calados. */
-function addGenericObjects(file: IfcFile, ctx: Ctx): void {
-  for (const e of file.step.entities.values()) {
-    if (ctx.handled.has(e.id) || isSpatialOrVoid(e.type)) continue;
-    if (!file.ref(e, 5) || file.ent(e, 6)?.type !== 'IFCPRODUCTDEFINITIONSHAPE') continue;
-    toGeneric(ctx, e, bodyFor(ctx, e));
-  }
-}
-
-/**
- * Produtos que não entraram nem como genérico (sem triângulo) entram no relatório por classe, em vez de sumirem calados.
- */
-function countUnhandledProducts(f: IfcFile, report: ImportReport, handled: Set<number>): void {
-  for (const e of f.step.entities.values()) {
-    if (handled.has(e.id) || isSpatialOrVoid(e.type)) continue;
-    if (!f.ref(e, 5) || f.ent(e, 6)?.type !== 'IFCPRODUCTDEFINITIONSHAPE') continue;
-    report.skipped[e.type] = (report.skipped[e.type] ?? 0) + 1;
-  }
-}
-
 /** Nível mais próximo abaixo de uma cota `z` (1 cm de folga). */
 function levelAt(ctx: Ctx, z: number): LevelRef {
   let best = ctx.levels[0]!;
@@ -167,8 +124,8 @@ function addWall(ctx: Ctx, e: StepEntity, body: Body): void {
     if (toGeneric(ctx, e, body)) return;
   }
   // Malha sem extrusão: mantém o caminho aproximado (hull) para não perder a parede nativa.
-  if (!prism && body.points.length) {
-    const approx = prismFromMesh(body.points);
+  if (!prism && body.tris.length) {
+    const approx = prismFromMesh(bodyPoints(body));
     const rect = approx ? rectangleAxis(approx.loops[0] ?? []) : null;
     if (approx && rect) {
       ctx.approximate.paredes = (ctx.approximate.paredes ?? 0) + 1;
@@ -209,7 +166,7 @@ function fallbackOpening(ctx: Ctx, filler: StepEntity, reason: string): void {
 function addOpening(ctx: Ctx, filler: StepEntity, kind: 'door' | 'window'): void {
   if (ctx.handled.has(filler.id)) return;
   const f = ctx.f;
-  const openingId = [...ctx.fillerOf.entries()].find(([, fill]) => fill === filler.id)?.[0];
+  const openingId = ctx.openingOf.get(filler.id);
   if (openingId == null) return fallbackOpening(ctx, filler, 'Porta/janela sem IfcRelFillsElement e sem corpo: ficou de fora.');
   const hostIfc = ctx.hostOf.get(openingId);
   const hostId = hostIfc == null ? undefined : ctx.walls.get(hostIfc);
@@ -222,7 +179,7 @@ function addOpening(ctx: Ctx, filler: StepEntity, kind: 'door' | 'window'): void
   if (!body) return fallbackOpening(ctx, filler, 'Abertura sem geometria de vão e sem corpo: ficou de fora.');
   const prism = body.prisms[0];
   const loop = prism?.loops[0] ?? [];
-  const cloud = prism ? loop.map((p) => ({ x: p.x, y: p.y, z: prism.z0 })) : body.points;
+  const cloud = prism ? loop.map((p) => ({ x: p.x, y: p.y, z: prism.z0 })) : bodyPoints(body);
   if (cloud.length < 3) return fallbackOpening(ctx, filler, 'Abertura sem pontos suficientes e sem corpo: ficou de fora.');
   const { dir, len } = segment([wall.a, wall.b]);
   let min = Infinity;
@@ -280,7 +237,7 @@ function addSlab(ctx: Ctx, e: StepEntity): void {
     if (toGeneric(ctx, e, body)) return;
     return ctx.skip(e.type);
   }
-  const prism = body.prisms[0] ?? (body.points.length ? prismFromMesh(body.points) : null);
+  const prism = body.prisms[0] ?? (body.tris.length ? prismFromMesh(bodyPoints(body)) : null);
   if (!prism) {
     if (toGeneric(ctx, e, body)) return;
     return ctx.skip(e.type);
@@ -326,7 +283,7 @@ function addRoom(ctx: Ctx, e: StepEntity): void {
   const f = ctx.f;
   const body = bodyFor(ctx, e);
   noteGeometry(ctx, body);
-  const prism = body.prisms[0] ?? (body.points.length ? prismFromMesh(body.points) : null);
+  const prism = body.prisms[0] ?? (body.tris.length ? prismFromMesh(bodyPoints(body)) : null);
   if (!prism) {
     if (toGeneric(ctx, e, body)) return;
     return ctx.skip(e.type);
@@ -410,9 +367,33 @@ function levelCandidates(ctx: Ctx): number[] {
   return zs;
 }
 
+/** Fase da importação, para a barra de progresso da interface. */
+export type IfcImportStage = 'parse' | 'relations' | 'levels' | 'walls' | 'openings' | 'slabs' | 'generic' | 'finish';
+
+/** Progresso da importação: `done` de `total` itens da fase (bytes no parsing, elementos nas demais). */
+export interface IfcImportProgress {
+  stage: IfcImportStage;
+  done: number;
+  total: number;
+}
+
+export type IfcProgressFn = (progresso: IfcImportProgress) => void;
+
+/** Aviso interno com a fase separada (o `IfcProgressFn` recebe um objeto só). */
+export type Aviso = (stage: IfcImportStage, done: number, total: number) => void;
+
+/** Aplica uma fase a cada item, avisando o progresso item a item (a barra acompanha). */
+function emLotes<T>(itens: readonly T[], stage: IfcImportStage, inicio: number, total: number, aviso: Aviso, fn: (item: T) => void): void {
+  for (let i = 0; i < itens.length; i++) {
+    fn(itens[i]!);
+    aviso(stage, inicio + i + 1, total);
+  }
+}
+
 /** Importa o texto IFC em um projeto novo (os tipos padrão do Hestia ficam como base). */
-export function importIfc(text: string, base?: Project): ImportResult {
-  const file = new IfcFile(text);
+export function importIfc(text: string, base?: Project, onProgress?: IfcProgressFn): ImportResult {
+  const aviso: Aviso = (stage, done, total) => onProgress?.({ stage, done, total });
+  const file = new IfcFile(text, (done, total) => aviso('parse', done, total));
   const p = base ? structuredClone(base) : createEmptyProject();
   p.elements = {};
   p.views = [];
@@ -431,6 +412,7 @@ export function importIfc(text: string, base?: Project): ImportResult {
     typeOf: new Map(),
     hostOf: new Map(),
     fillerOf: new Map(),
+    openingOf: new Map(),
     walls: new Map(),
     types: new Map(),
     approximate: {},
@@ -449,25 +431,35 @@ export function importIfc(text: string, base?: Project): ImportResult {
     },
   };
   if (file.broken) ctx.warn(`${file.broken} entidade(s) STEP ilegíveis foram ignoradas.`);
+  aviso('relations', 0, 1);
   const rel = readRelations(file);
   ctx.typeOf = rel.typeOf;
   ctx.hostOf = rel.hostOf;
   ctx.fillerOf = rel.fillerOf;
+  // `fillerOf` é vão → preenchimento; a abertura precisa do caminho contrário ao processar cada porta/janela.
+  for (const [opening, filler] of rel.fillerOf) ctx.openingOf.set(filler, opening);
+  aviso('relations', 1, 1);
   const zs = file.byType('IFCBUILDINGSTOREY').length ? [] : levelCandidates(ctx);
   ctx.levels = applyHestiaLevels(p, hestia.project?.levels, readLevels(file, p, report, zs));
+  aviso('levels', 1, 1);
   // Extensão Hestia: os elementos do registro entram antes do resto do arquivo e não passam pela heurística.
   ctx.order = Math.max(ctx.order, applyHestiaElements(ctx, hestia.elements) + 1);
-  for (const e of products(file, 'IFCWALL')) addWall(ctx, e, bodyFor(ctx, e));
-  for (const e of products(file, 'IFCDOOR')) addOpening(ctx, e, 'door');
-  for (const e of products(file, 'IFCWINDOW')) addOpening(ctx, e, 'window');
-  for (const e of products(file, 'IFCSLAB')) addSlab(ctx, e);
-  for (const e of products(file, 'IFCCOVERING')) addSlab(ctx, e);
-  for (const e of file.byType('IFCSPACE')) addRoom(ctx, e);
+  const paredes = products(file, 'IFCWALL');
+  emLotes(paredes, 'walls', 0, paredes.length, aviso, (e) => addWall(ctx, e, bodyFor(ctx, e)));
+  const portas = products(file, 'IFCDOOR');
+  const janelas = products(file, 'IFCWINDOW');
+  emLotes(portas, 'openings', 0, portas.length + janelas.length, aviso, (e) => addOpening(ctx, e, 'door'));
+  emLotes(janelas, 'openings', portas.length, portas.length + janelas.length, aviso, (e) => addOpening(ctx, e, 'window'));
+  const lajes = [...products(file, 'IFCSLAB'), ...products(file, 'IFCCOVERING')];
+  const ambientes = file.byType('IFCSPACE');
+  emLotes(lajes, 'slabs', 0, lajes.length + ambientes.length, aviso, (e) => addSlab(ctx, e));
+  emLotes(ambientes, 'slabs', lajes.length, lajes.length + ambientes.length, aviso, (e) => addRoom(ctx, e));
   // Com `GridsJSON`, os eixos voltam do registro do projeto; sem ele, valem os `IFCGRID` do arquivo.
   if (hestia.project?.grids === undefined) addGrids(ctx);
-  addGenericObjects(file, ctx);
+  addGenericObjects(file, ctx, aviso);
   countUnhandledProducts(file, report, ctx.handled);
   p.name = projectName(file, p);
   p.nextOrder = hestia.project?.nextOrder ?? ctx.order;
+  aviso('finish', 1, 1);
   return { project: p, report };
 }
