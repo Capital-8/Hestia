@@ -203,16 +203,22 @@ pub fn diferenca_com_escala(args: &[MultiPoligono], escala: f64) -> Result<Multi
 
 /// `intersection(a, b)`.
 pub fn interseccao(a: &MultiPoligono, b: &MultiPoligono) -> Result<MultiPoligono, u32> {
+    interseccao_com_escala(a, b, ESCALA)
+}
+
+/// `interseccao` com a escala da quantização à escolha de quem chama. A sub-etapa A3d usa [`ESCALA_FINA`] no recorte das faixas
+/// pelo perfil (a mesma razão do pintor: o `polygon-clipping` do TS não quantiza).
+pub fn interseccao_com_escala(a: &MultiPoligono, b: &MultiPoligono, escala: f64) -> Result<MultiPoligono, u32> {
     if a.is_empty() || b.is_empty() {
         return Ok(Vec::new());
     }
-    let a = preparar(a, ESCALA)?;
-    let b = preparar(b, ESCALA)?;
+    let a = preparar(a, escala)?;
+    let b = preparar(b, escala)?;
     if a.is_empty() || b.is_empty() {
         return Ok(Vec::new());
     }
     let resultado = aplicar(&a, &b, OverlayRule::Intersect)?;
-    Ok(converter(resultado, ESCALA))
+    Ok(converter(resultado, escala))
 }
 
 /// `offsetMulti(m, delta)`.

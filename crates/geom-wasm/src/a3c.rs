@@ -51,11 +51,23 @@ struct VaoDoGrupo {
     retangulo: MultiPoligono,
 }
 
-/// Faixa vertical de uma camada (`LayerBand` sem inclinação): alturas relativas à base da parede.
+/// Topo inclinado de uma faixa (`LayerBand.slope`, A3d): a altura relativa em p é h0 + (h1 - h0) * (d . (p - o) - t0) / (t1 - t0).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Inclinacao {
+    pub o: [f64; 2],
+    pub d: [f64; 2],
+    pub t0: f64,
+    pub t1: f64,
+    pub h0: f64,
+    pub h1: f64,
+}
+
+/// Faixa vertical de uma camada (`LayerBand`): alturas relativas à base da parede. `inclinacao` só existe depois do perfil superior (A3d).
 pub struct FaixaVertical {
     pub z0: f64,
     pub z1: f64,
     pub poly: MultiPoligono,
+    pub inclinacao: Option<Inclinacao>,
 }
 
 /// `ResolvedLayer` de uma camada resolvida.
@@ -190,7 +202,7 @@ fn resolver_grupo(
             let lista = &mut por_item[ii];
             match lista.last_mut() {
                 Some(prev) if (prev.z1 - rel0).abs() < EPS_Z && mesma_assinatura(&prev.poly, &poly) => prev.z1 = rel1,
-                _ => lista.push(FaixaVertical { z0: rel0, z1: rel1, poly }),
+                _ => lista.push(FaixaVertical { z0: rel0, z1: rel1, poly, inclinacao: None }),
             }
         }
     }

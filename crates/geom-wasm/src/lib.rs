@@ -52,6 +52,7 @@ pub mod a2;
 pub mod a3;
 pub mod a3b;
 pub mod a3c;
+pub mod a3d;
 pub mod abi2;
 pub mod camadas;
 pub mod cena;

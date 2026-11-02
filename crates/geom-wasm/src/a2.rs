@@ -1,6 +1,6 @@
 //! Consulta `itens_pintados` (sub-etapa A2 da fatia A, decisão 0047): itens por camada (`buildItems`) e
 //! pintor (`paint`) de cada grupo de paredes de um nível, só em planta. A codificação das saídas está em
-//! `schema/cena-v6.json`.
+//! `schema/cena-v7.json`.
 //!
 //! Este arquivo só orquestra o que `resolveLevel` faz antes de `solveCluster` (grupos, pontas livres,
 //! paredes que atravessam um T, corte da planta) e codifica o resultado; a geometria está em `camadas`,
@@ -14,7 +14,7 @@ use crate::consultas::Saida;
 use crate::esquema::{ENTRADA, NIVEL_TODOS};
 use crate::grupos::agrupar_paredes;
 use crate::itens::{construir_itens, ContextoDoItem, Item, TipoDosItens, CORTE_PADRAO};
-use crate::juncoes::{calcular_pontas, estado_da_ponta, Estado};
+use crate::juncoes::{calcular_pontas, estado_da_ponta, Corte, Estado};
 use crate::pintor::pintar;
 use crate::quadro::Quadro;
 use crate::MultiPoligono;
@@ -90,6 +90,8 @@ pub struct GrupoPintado {
 pub struct NivelPintado {
     pub quadros: Vec<Quadro>,
     pub grupos: Vec<GrupoPintado>,
+    /// Pontas (`WallEnds`, extremidades a e b) de cada quadro, na ordem de `quadros` (A3d: `membranesOf`).
+    pub pontas: Vec<[Corte; 2]>,
 }
 
 /// Orquestra `resolveLevel` até a pintura de cada grupo.
@@ -188,7 +190,7 @@ pub fn pintar_nivel(cena: &Cena, nivel: u32, tol: f64, opcoes: &OpcoesDePlanta) 
             .collect();
         saida.push(GrupoPintado { membros: grupo.clone(), itens, fragmentos });
     }
-    Ok(NivelPintado { quadros: frames, grupos: saida })
+    Ok(NivelPintado { quadros: frames, grupos: saida, pontas: res.pontas.into_iter().map(|p| p.fim).collect() })
 }
 
 /// Executa `itens_pintados(nivel_num, tol_juncao, opcoes)`.

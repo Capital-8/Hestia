@@ -1,4 +1,4 @@
-//! As três consultas da Fase 0 da ABI v2 (`schema/cena-v6.json`), sobre a seção `paredes`. A quarta,
+//! As três consultas da Fase 0 da ABI v2 (`schema/cena-v7.json`), sobre a seção `paredes`. A quarta,
 //! `quadros_e_juncoes`, vive em `a1.rs`.
 //!
 //! ## Regras exatas (o harness do lado TypeScript deve reproduzi-las)
@@ -29,7 +29,7 @@
 
 use crate::cena::Cena;
 use crate::esquema::{
-    self, Tipo, CONSULTA_ESTATISTICAS_NIVEL, CONSULTA_ABERTURAS_GEOM, CONSULTA_CLUSTER_RESOLVIDO, CONSULTA_ITENS_PINTADOS, CONSULTA_RETORNOS_GEOM, CONSULTA_PARES_PROXIMOS, CONSULTA_PAREDES_NA_CAIXA, CONSULTA_QUADROS_E_JUNCOES,
+    self, Tipo, CONSULTA_ESTATISTICAS_NIVEL, CONSULTA_ABERTURAS_GEOM, CONSULTA_CLUSTER_RESOLVIDO, CONSULTA_ITENS_PINTADOS, CONSULTA_RETORNOS_GEOM, CONSULTA_PARES_PROXIMOS, CONSULTA_PAREDES_NA_CAIXA, CONSULTA_QUADROS_E_JUNCOES, CONSULTA_RESOLVER_NIVEL,
     ENTRADA,
     NAO_IMPLEMENTADO,
 };
@@ -156,7 +156,7 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
                 crate::a2::itens_pintados(cena, nivel, tol, &opcoes)
             }
         }
-        CONSULTA_CLUSTER_RESOLVIDO => {
+        CONSULTA_CLUSTER_RESOLVIDO | CONSULTA_RESOLVER_NIVEL => {
             let nivel = arg_nivel(args[0])?;
             let tol = arg_finito(args[1])?;
             if tol < 0.0 {
@@ -194,7 +194,11 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
                 planta: crate::a2::OpcoesDePlanta { corte_z: if tem_corte { Some(corte) } else { None }, contorno },
                 aberturas_planta: if tem_aberturas { Some(aberturas_planta) } else { None },
             };
-            crate::a3c::cluster_resolvido(cena, nivel, tol, &opcoes)
+            if id == CONSULTA_RESOLVER_NIVEL {
+                crate::a3d::resolver_nivel_completo(cena, nivel, tol, &opcoes)
+            } else {
+                crate::a3c::cluster_resolvido(cena, nivel, tol, &opcoes)
+            }
         }
         CONSULTA_ABERTURAS_GEOM => crate::a3::aberturas_geom(cena, arg_nivel(args[0])?),
         _ => Err(NAO_IMPLEMENTADO),
