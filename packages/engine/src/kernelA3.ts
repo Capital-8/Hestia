@@ -2,7 +2,7 @@
  * Adaptador da sub-etapa A3a do kernel Rust (decisão 0047 §7): vãos. NÃO calcula geometria: (1) monta as seções
  * `tipos_abertura` e `aberturas` da cena v4 a partir de um `Project` e (2) EXTRAI do motor TypeScript existente
  * (`openingGeometry` de `resolve.ts` e `openingRect` de `openingCut.ts`) o que o Rust produz em `aberturas_geom`, na
- * mesma codificação plana (ver `crates/geom-wasm/schema/cena-v6.json`), para o harness e os testes compararem.
+ * mesma codificação plana (ver `crates/geom-wasm/schema/cena-v7.json`), para o harness e os testes compararem.
  *
  * O que o JS ainda decide e envia pronto: o tipo normalizado para o vão (`openingType` = `spanTypeOf`: nominalRef leaf
  * e composição) e se a instância tem override de peitoril e de altura. A largura, a altura efetiva, o vão bruto, o
@@ -144,7 +144,7 @@ export const argumentosA3 = (cena: CenaA1, levelId: Id): number[] => {
   return [nivel];
 };
 
-const numeroDe = (m: Map<Id, number>, id: Id, o: string): number => {
+export const numeroDe = (m: Map<Id, number>, id: Id, o: string): number => {
   const n = m.get(id);
   if (n === undefined) throw new Error(`${o} ${id} sem número interno`);
   return n;
@@ -356,7 +356,7 @@ export function argumentosA3c(p: Project, levelId: Id, cena: CenaA1, a3: CenaA3,
 /**
  * O que o motor TypeScript produz: `resolveLevel` com as opções de planta (cache próprio, vazio), na ordem de `resolveLevel`
  * (grupos de `clusterWalls`; em cada um, as paredes do grupo e, em cada parede, as camadas já ordenadas por `layerIndex`).
- * `ResolvedLayer.bands` com perfil de topo ou de base (parede anexada a telhado, `topProfile`) só existe na A3d: a referência recusa.
+ * Paredes com perfil de topo ou de base entram (a A3d as cobre); aqui as faixas só levam z0, z1 e a região, sem a inclinação (`referenciaA3d` a leva).
  */
 export function referenciaA3c(p: Project, levelId: Id, cena: CenaA1, opcoes: OpcoesA3c = {}): ClusterA3c {
   const r = resolveLevel(p, levelId, new Map(), opcoes);
@@ -364,7 +364,6 @@ export function referenciaA3c(p: Project, levelId: Id, cena: CenaA1, opcoes: Opc
   r.clusters.forEach((c, grupo) => {
     for (const id of c.wallIds) {
       const w = r.walls[id]!;
-      if (w.profileTop || w.profileBottom || (p.elements[id] as { topProfile?: unknown } | undefined)?.topProfile) throw new Error(`parede ${id} com perfil: fora do escopo da A3c`);
       for (const l of w.layers) {
         const faixa = l.layerIndex < 0;
         saida.camadas.push({

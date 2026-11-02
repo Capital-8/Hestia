@@ -2,8 +2,10 @@
 // (`referenciaA3a`: `openingGeometry` e `openingRect`), abertura a abertura. Identidade (ids, enums, flips) por igualdade
 // exata; todo número (coordenadas, vetores, medidas) a 1 µm; área do furo a 1e-6 m². A tolerância NÃO se afrouxa para passar.
 // O maior desvio medido é reportado (esperado ~1e-15: as mesmas contas na mesma ordem).
-import { difference, type MultiPolygon } from '@hestia/geom';
+import { difference, intersection, orientedRect, union, type MultiPolygon } from '@hestia/geom';
+import type { ProfilePoint } from '@hestia/model';
 import type { AberturaA3, CamadaA3c, ClusterA3c, FaixaA3c, RetornoA3b } from '../packages/engine/src/kernelA3.ts';
+import type { FaixaA3d, InclinacaoA3d, ResolvidoA3d } from '../packages/engine/src/kernelA3d.ts';
 import { TOL_AREA_ABS_A2, areaDaForma, canonica, compararFormas } from './kernel-harness-a2.mts';
 
 export const TOLERANCIA_COORDENADA_A3 = 1e-6;
@@ -192,7 +194,7 @@ export function compararA3b(refTodos: RetornoA3b[], rustTodos: RetornoA3b[], max
  * Guarda contra erro GROSSEIRO em região e silhueta (peça faltando ou sobrando), que vale mesmo com `regioesBloqueantes` falso. NÃO é critério de
  * equivalência: é só um piso de sanidade acima do maior desvio medido (3,7e-3 m², o entalhe que o `unionClipper` do TS preenche, ver 0047 §10).
  */
-const ERRO_GROSSEIRO_REGIAO = 1e-2;
+export const ERRO_GROSSEIRO_REGIAO = 1e-2;
 
 export type TipoDeFormaA3c = 'fragment' | 'cut' | 'faixa' | 'regiao' | 'silhueta';
 
@@ -226,11 +228,17 @@ export interface ComparacaoA3c {
   /** Regiões por material e silhuetas fora do critério da 0048 (só contadas quando `regioesBloqueantes` é falso; ver `compararA3c`). */
   regioesForaDaTolerancia: number;
   silhuetasForaDaTolerancia: number;
+  /** Regiões/silhuetas aceitas por exceção nomeada (0049). */
+  excecoesUsadas: number;
+  /** Estatística da 0049, medida SEM bloquear: regiões e silhuetas de topologia diferente, acima do limite 1e-5 + 5e-4 x área, e a maior fração desse limite. */
+  topologiaDiferente: number;
+  acimaDoLimite0049: number;
+  maxFracaoDoLimite0049: number;
 }
 
 const simetrica = (a: MultiPolygon, b: MultiPolygon): number => areaDaForma(a.length && b.length ? difference(a, b) : a) + areaDaForma(a.length && b.length ? difference(b, a) : b);
 
-interface RegiaoCmp {
+export interface RegiaoCmp {
   erro: string | null;
   sim: number;
   dArea: number;
@@ -253,7 +261,7 @@ function regiaoIgual(a: MultiPolygon, b: MultiPolygon): RegiaoCmp {
 }
 
 /** Faixas verticais: estrita (mesmo número, mesmas alturas, mesma região) e, se a fusão diferiu, por alturas elementares. */
-function faixasIguais(ref: FaixaA3c[], rust: FaixaA3c[], nota: (tipo: TipoDeFormaA3c, c: RegiaoCmp) => void): { erro: string | null; refinamento: boolean } {
+export function faixasIguais(ref: FaixaA3c[], rust: FaixaA3c[], nota: (tipo: TipoDeFormaA3c, c: RegiaoCmp) => void): { erro: string | null; refinamento: boolean } {
   const EPS = 1e-6;
   const mesmasAlturas = ref.length === rust.length && ref.every((f, i) => Math.abs(f.z0 - rust[i]!.z0) <= EPS && Math.abs(f.z1 - rust[i]!.z1) <= EPS);
   if (mesmasAlturas) {
@@ -268,7 +276,11 @@ function faixasIguais(ref: FaixaA3c[], rust: FaixaA3c[], nota: (tipo: TipoDeForm
   const zs = [...new Set([...ref, ...rust].flatMap((f) => [f.z0, f.z1]))].sort((a, b) => a - b);
   const pontos: number[] = [];
   for (const z of zs) if (pontos.length === 0 || z - pontos[pontos.length - 1]! > EPS) pontos.push(z);
-  const em = (lista: FaixaA3c[], meio: number): MultiPolygon => lista.find((f) => f.z0 <= meio && meio <= f.z1)?.poly ?? [];
+  // Faixas sobrepostas em altura (polígonos disjuntos da mesma camada) somam: a região na altura é a UNIÃO de todas que a contêm.
+  const em = (lista: FaixaA3c[], meio: number): MultiPolygon => {
+    const partes = lista.filter((f) => f.z0 <= meio && meio <= f.z1 && f.poly.length).map((f) => f.poly);
+    return partes.length ? union(...partes) : [];
+  };
   for (let i = 0; i + 1 < pontos.length; i++) {
     const meio = (pontos[i]! + pontos[i + 1]!) / 2;
     const c = regiaoIgual(em(ref, meio), em(rust, meio));
@@ -278,13 +290,52 @@ function faixasIguais(ref: FaixaA3c[], rust: FaixaA3c[], nota: (tipo: TipoDeForm
   return { erro: null, refinamento: true };
 }
 
+/** Limite de região e silhueta da decisão 0049: 1e-5 + 5e-4 x área (máximo observado no A3c: 1e-5 + 4,2e-4 x área). */
+export const COEF_REGIAO_0049 = 5e-4;
+
+/** Exceção NOMEADA da 0049 (defeito do TS, não do Rust): região do `material` (e do `grupo`, se dado) cujo desvio só tem a guarda de erro grosseiro. */
+export interface ExcecaoNomeada {
+  material: number;
+  grupo?: number;
+  motivo: string;
+}
+
+/** Estatística da 0049 de uma região/silhueta (não bloqueia; a decisão de bloqueio é de `regiao0049`). */
+function estatistica0049(r: ComparacaoA3c, a: MultiPolygon, b: MultiPolygon, c: RegiaoCmp, nomeada: boolean): void {
+  if (nomeada) return;
+  const tol = TOL_AREA_ABS_A2 + COEF_REGIAO_0049 * Math.max(areaDaForma(a), areaDaForma(b));
+  if (topologia(a) !== topologia(b)) r.topologiaDiferente++;
+  if (c.dArea > tol || c.sim > tol) r.acimaDoLimite0049++;
+  r.maxFracaoDoLimite0049 = Math.max(r.maxFracaoDoLimite0049, Math.max(c.dArea, c.sim) / tol);
+}
+
+/** Topologia de uma forma: nº de peças e de furos. */
+const topologia = (m: MultiPolygon): string => `${m.length}/${m.reduce((t, p) => t + Math.max(0, p.length - 1), 0)}`;
+
 /**
- * `regioesBloqueantes`: falso (padrão) conta as regiões por material e as silhuetas que passam do critério da 0048 em
- * `regioesForaDaTolerancia`/`silhuetasForaDaTolerancia` em vez de reprovar. Medido (estresse, sementes 1..12): união e fechamento de
- * frestas (Clipper do TS x i_overlay) divergem até 3e-4 m² em regiões de 5 a 20 m² (limite 1e-5 + 1e-6 x área); 113 de 214 regiões e 33
- * de 61 silhuetas passam do limite. Pendente de decisão do dono (0047 §10); o resto (identidade, `raw`, `fragment`, `cut`, faixas) é bloqueante.
+ * Regiões por material e silhuetas seguem a decisão 0049 (e BLOQUEIAM): topologia igual (nº de peças e de furos), diferença de área e
+ * diferença simétrica dentro de 1e-5 + 5e-4 x área e guarda de erro grosseiro de 1e-2 m². `regioesForaDaTolerancia`/
+ * `silhuetasForaDaTolerancia` continuam como ESTATÍSTICA (quantas passam do critério antigo da 0048, 1e-5 + 1e-6 x área, e ficam dentro da 0049).
+ * `excecoes`: lista de exceções nomeadas (defeito do TS), só com a guarda de erro grosseiro.
  */
-export function compararA3c(ref: ClusterA3c, rust: ClusterA3c, paredesCurvas: ReadonlySet<number> = new Set(), maxDivergencias = 20, regioesBloqueantes = false): ComparacaoA3c {
+export function compararA3c(
+  ref: ClusterA3c,
+  rust: ClusterA3c,
+  paredesCurvas: ReadonlySet<number> = new Set(),
+  maxDivergencias = 20,
+  excecoes: readonly ExcecaoNomeada[] = [],
+  comparadorDeFaixas: typeof faixasIguais = faixasIguais,
+): ComparacaoA3c {
+  /** Critério da 0049 de uma região/silhueta; `erro` nulo = aceita. */
+  const regiao0049 = (a: MultiPolygon, b: MultiPolygon, nomeada: ExcecaoNomeada | undefined): { c: RegiaoCmp; erro: string | null } => {
+    const c = regiaoIgual(a, b);
+    const tol = TOL_AREA_ABS_A2 + COEF_REGIAO_0049 * Math.max(areaDaForma(a), areaDaForma(b));
+    if (c.sim > ERRO_GROSSEIRO_REGIAO || c.dArea > ERRO_GROSSEIRO_REGIAO) return { c, erro: `erro grosseiro: diferença simétrica ${c.sim}, de área ${c.dArea} (guarda ${ERRO_GROSSEIRO_REGIAO})` };
+    if (nomeada) return { c, erro: null };
+    if (c.dArea > tol || c.sim > tol) return { c, erro: `diferença de área ${c.dArea}, simétrica ${c.sim} (limite 0049 ${tol}; fração ${(Math.max(c.dArea, c.sim) / tol).toFixed(2)}; área ${areaDaForma(a)})${topologia(a) !== topologia(b) ? ` e topologia (peças/furos) ${topologia(b)} (Rust) x ${topologia(a)} (TS)` : ''}` };
+    if (topologia(a) !== topologia(b)) return { c, erro: `topologia (peças/furos) ${topologia(b)} (Rust) x ${topologia(a)} (TS)` };
+    return { c, erro: null };
+  };
   const divergencias: string[] = [];
   const r: ComparacaoA3c = {
     divergencias,
@@ -307,6 +358,10 @@ export function compararA3c(ref: ClusterA3c, rust: ClusterA3c, paredesCurvas: Re
     maxFracaoDoLimite: 0,
     regioesForaDaTolerancia: 0,
     silhuetasForaDaTolerancia: 0,
+    excecoesUsadas: 0,
+    topologiaDiferente: 0,
+    acimaDoLimite0049: 0,
+    maxFracaoDoLimite0049: 0,
   };
   const nota = (tipo: TipoDeFormaA3c, c: RegiaoCmp): void => {
     r.formas++;
@@ -365,7 +420,7 @@ export function compararA3c(ref: ClusterA3c, rust: ClusterA3c, paredesCurvas: Re
       nota(campo, c);
     }
     if (ruim) continue;
-    const f = faixasIguais(a.faixas, b.faixas, nota);
+    const f = comparadorDeFaixas(a.faixas, b.faixas, nota);
     if (f.erro) {
       divergencias.push(`${rotulo}: ${f.erro}`);
       continue;
@@ -407,22 +462,174 @@ export function compararA3c(ref: ClusterA3c, rust: ClusterA3c, paredesCurvas: Re
       divergencias.push(`região ${i}: (grupo ${b.grupo}, material ${b.material}) (Rust) x (grupo ${a.grupo}, material ${a.material}) (TS)`);
       continue;
     }
-    const c = regiaoIgual(a.poligonos, b.poligonos);
-    if (c.erro && (regioesBloqueantes || c.sim > ERRO_GROSSEIRO_REGIAO || c.dArea > ERRO_GROSSEIRO_REGIAO)) divergencias.push(`região ${i} (grupo ${a.grupo}, material ${a.material}): ${c.erro}`);
+    const nomeada = excecoes.find((e) => e.material === a.material && (e.grupo === undefined || e.grupo === a.grupo));
+    const { c, erro } = regiao0049(a.poligonos, b.poligonos, nomeada);
+    estatistica0049(r, a.poligonos, b.poligonos, c, nomeada !== undefined);
+    if (erro) divergencias.push(`região ${i} (grupo ${a.grupo}, material ${a.material}): ${erro}`);
     else {
-      if (c.erro) r.regioesForaDaTolerancia++;
+      if (c.erro) {
+        if (nomeada && (c.dArea > TOL_AREA_ABS_A2 + COEF_REGIAO_0049 * Math.max(areaDaForma(a.poligonos), areaDaForma(b.poligonos)) || c.sim > TOL_AREA_ABS_A2 + COEF_REGIAO_0049 * Math.max(areaDaForma(a.poligonos), areaDaForma(b.poligonos)))) r.excecoesUsadas++;
+        else r.regioesForaDaTolerancia++;
+      }
       nota('regiao', c);
       r.regioes++;
     }
   }
   for (let g = 0; g < ref.silhuetas.length && divergencias.length < maxDivergencias; g++) {
-    const c = regiaoIgual(ref.silhuetas[g]!, rust.silhuetas[g]!);
-    if (c.erro && (regioesBloqueantes || c.sim > ERRO_GROSSEIRO_REGIAO || c.dArea > ERRO_GROSSEIRO_REGIAO)) divergencias.push(`silhueta do grupo ${g}: ${c.erro}`);
+    const { c, erro } = regiao0049(ref.silhuetas[g]!, rust.silhuetas[g]!, undefined);
+    estatistica0049(r, ref.silhuetas[g]!, rust.silhuetas[g]!, c, false);
+    if (erro) divergencias.push(`silhueta do grupo ${g}: ${erro}`);
     else {
       if (c.erro) r.silhuetasForaDaTolerancia++;
       nota('silhueta', c);
       r.silhuetas++;
     }
   }
+  return r;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// A3d: `resolver_nivel` (`ResolvedLevel` completo) x `resolveLevel`. Por parede: campos escalares (1e-6), perfis copiados (exatos),
+// membranas (camada e material exatos, pontos a 1 µm). Camadas, regiões e silhuetas: `compararA3c` (regiões e silhuetas sob a 0049), com
+// as faixas verticais já recortadas pelos perfis: estritas (mesmas alturas, mesma inclinação, mesma região 0048) ou, se a fusão de faixas
+// decidiu diferente, por alturas elementares (com a inclinação avaliada na altura amostrada).
+
+const igual1um = (a: number, b: number): boolean => Math.abs(a - b) <= TOLERANCIA_COORDENADA_A3;
+const pontoIgual = (a: { x: number; y: number }, b: { x: number; y: number }): boolean => igual1um(a.x, b.x) && igual1um(a.y, b.y);
+const mesmoPerfil = (a: ProfilePoint[] | undefined, b: ProfilePoint[] | undefined): boolean => (a === undefined || b === undefined ? a === b : a.length === b.length && a.every((q, i) => q.t === b[i]!.t && q.h === b[i]!.h));
+
+const mesmaInclinacao = (a: InclinacaoA3d | undefined, b: InclinacaoA3d | undefined): boolean =>
+  a === undefined || b === undefined ? a === b : pontoIgual(a.o, b.o) && pontoIgual(a.d, b.d) && igual1um(a.t0, b.t0) && igual1um(a.t1, b.t1) && igual1um(a.h0, b.h0) && igual1um(a.h1, b.h1);
+
+/** Região em planta ocupada pela lista de faixas na altura `z` (faixa inclinada: só onde o topo ainda passa de `z`). */
+function regiaoNaAltura(lista: FaixaA3d[], z: number): MultiPolygon {
+  const partes: MultiPolygon[] = [];
+  for (const f of lista) {
+    if (z < f.z0 || z > f.z1) continue;
+    const s = f.slope;
+    if (!s || s.h1 === s.h0) {
+      if (!s || z <= Math.min(s.h0, s.h1)) partes.push(f.poly);
+      continue;
+    }
+    // top(p) = h0 + (h1 - h0) * (d.(p - o) - t0) / (t1 - t0) >= z  <=>  d.(p - o) >= (ou <=) sCorte
+    const sCorte = s.t0 + ((z - s.h0) / (s.h1 - s.h0)) * (s.t1 - s.t0);
+    const cresce = (s.h1 - s.h0) / (s.t1 - s.t0) > 0;
+    const longe = 200;
+    const centro = sCorte + (cresce ? longe : -longe);
+    const lado = orientedRect(s.o.x + s.d.x * centro, s.o.y + s.d.y * centro, s.d.x, s.d.y, longe, longe);
+    const dentro = f.poly.length ? intersection(f.poly, [[lado]]) : [];
+    if (dentro.length) partes.push(dentro);
+  }
+  return partes.length ? union(...partes) : [];
+}
+
+/**
+ * Faixas de uma camada com perfis: estrita (mesmo número, mesmas alturas e inclinações, mesma região) e, se não casar, por alturas
+ * elementares (3 amostras por intervalo, com os h0/h1 das inclinações entre os pontos de corte). Sem inclinação nenhuma é o comparador da A3c.
+ */
+export function faixasIguaisA3d(ref: FaixaA3c[], rust: FaixaA3c[], nota: (tipo: TipoDeFormaA3c, c: RegiaoCmp) => void): { erro: string | null; refinamento: boolean } {
+  if (!ref.some((f) => (f as FaixaA3d).slope) && !rust.some((f) => (f as FaixaA3d).slope)) return faixasIguais(ref, rust, nota);
+  // Fiapos: faixa de área <= 1e-6 m² (o recorte pelo perfil deixa lascas de ~0 m² num lado e não no outro, como o pintor).
+  const a = (ref as FaixaA3d[]).filter((f) => areaDaForma(f.poly) > TOLERANCIA_AREA_A3);
+  const b = (rust as FaixaA3d[]).filter((f) => areaDaForma(f.poly) > TOLERANCIA_AREA_A3);
+  const EPS = 1e-6;
+  const estrita = a.length === b.length && a.every((f, i) => Math.abs(f.z0 - b[i]!.z0) <= EPS && Math.abs(f.z1 - b[i]!.z1) <= EPS && mesmaInclinacao(f.slope, b[i]!.slope));
+  if (estrita) {
+    for (let i = 0; i < a.length; i++) {
+      const c = regiaoIgual(a[i]!.poly, b[i]!.poly);
+      nota('faixa', c);
+      if (c.erro) return { erro: `faixa ${i} [${a[i]!.z0}, ${a[i]!.z1}]${a[i]!.slope ? ' inclinada' : ''}: ${c.erro}`, refinamento: false };
+    }
+    return { erro: null, refinamento: false };
+  }
+  const zs = [...new Set([...a, ...b].flatMap((f) => [f.z0, f.z1, ...(f.slope ? [f.slope.h0, f.slope.h1] : [])]))].sort((x, y) => x - y);
+  const pontos: number[] = [];
+  for (const z of zs) if (pontos.length === 0 || z - pontos[pontos.length - 1]! > EPS) pontos.push(z);
+  for (let i = 0; i + 1 < pontos.length; i++) {
+    for (const k of [0.25, 0.5, 0.75]) {
+      const z = pontos[i]! + k * (pontos[i + 1]! - pontos[i]!);
+      const c = regiaoIgual(regiaoNaAltura(a, z), regiaoNaAltura(b, z));
+      nota('faixa', c);
+      if (c.erro) return { erro: `faixas com perfil por alturas elementares: altura ${z} (${a.length} faixas TS, ${b.length} Rust): ${c.erro}`, refinamento: true };
+    }
+  }
+  return { erro: null, refinamento: true };
+}
+
+export interface ComparacaoA3d extends ComparacaoA3c {
+  paredes: number;
+  paredesComPerfilTopo: number;
+  paredesComPerfilBase: number;
+  /** Paredes com `topProfile` do modelo (aplicado sem ser copiado). */
+  paredesComPerfilDoModelo: number;
+  paredesComMembranas: number;
+  membranas: number;
+  /** Faixas com `slope` (topo inclinado) na referência. */
+  faixasInclinadas: number;
+  /** Maior desvio de coordenada nos campos escalares, perfis e membranas. */
+  desvioMaximo: number;
+}
+
+/** Compara `resolver_nivel` (`rust`) com `resolveLevel` (`ref`). `perfisDoModelo`: id_num das paredes com `topProfile` no modelo. */
+export function compararA3d(
+  ref: ResolvidoA3d,
+  rust: ResolvidoA3d,
+  paredesCurvas: ReadonlySet<number> = new Set(),
+  perfisDoModelo: ReadonlySet<number> = new Set(),
+  maxDivergencias = 20,
+  excecoes: readonly ExcecaoNomeada[] = [],
+): ComparacaoA3d {
+  const base = compararA3c(ref, rust, paredesCurvas, maxDivergencias, excecoes, faixasIguaisA3d);
+  const r: ComparacaoA3d = { ...base, paredes: 0, paredesComPerfilTopo: 0, paredesComPerfilBase: 0, paredesComPerfilDoModelo: 0, paredesComMembranas: 0, membranas: 0, faixasInclinadas: 0, desvioMaximo: 0 };
+  const divergencias = r.divergencias;
+  if (ref.paredes.length !== rust.paredes.length) {
+    divergencias.push(`${rust.paredes.length} paredes (Rust) x ${ref.paredes.length} (TS)`);
+    return r;
+  }
+  const nota = (d: number): void => {
+    r.desvioMaximo = Math.max(r.desvioMaximo, d);
+  };
+  for (let i = 0; i < ref.paredes.length && divergencias.length < maxDivergencias; i++) {
+    const a = ref.paredes[i]!;
+    const b = rust.paredes[i]!;
+    const rotulo = `parede ${i} (id ${a.id}, grupo ${a.grupo})`;
+    if (a.id !== b.id || a.grupo !== b.grupo) {
+      divergencias.push(`${rotulo}: id/grupo ${b.id}/${b.grupo} (Rust) x ${a.id}/${a.grupo} (TS)`);
+      continue;
+    }
+    let erro: string | null = null;
+    for (const c of ['a', 'b', 'u', 'n'] as const) {
+      if (!pontoIgual(a[c], b[c])) erro ??= `${c} (${b[c].x}, ${b[c].y}) (Rust) x (${a[c].x}, ${a[c].y}) (TS)`;
+      else nota(Math.max(Math.abs(a[c].x - b[c].x), Math.abs(a[c].y - b[c].y)));
+    }
+    for (const c of ['length', 'sHi', 'sLo', 'baseZ', 'height', 'nominalZ0', 'nominalZ1'] as const) {
+      if (a[c] === undefined || b[c] === undefined ? a[c] !== b[c] : !igual1um(a[c], b[c])) erro ??= `${c} ${String(b[c])} (Rust) x ${String(a[c])} (TS)`;
+      else if (a[c] !== undefined && b[c] !== undefined) nota(Math.abs(a[c] - b[c]));
+    }
+    if (!mesmoPerfil(a.profileTop, b.profileTop)) erro ??= `profileTop ${JSON.stringify(b.profileTop)} (Rust) x ${JSON.stringify(a.profileTop)} (TS)`;
+    if (!mesmoPerfil(a.profileBottom, b.profileBottom)) erro ??= `profileBottom ${JSON.stringify(b.profileBottom)} (Rust) x ${JSON.stringify(a.profileBottom)} (TS)`;
+    if (a.membranas.length !== b.membranas.length) erro ??= `${b.membranas.length} membranas (Rust) x ${a.membranas.length} (TS)`;
+    else {
+      a.membranas.forEach((m, k) => {
+        const n = b.membranas[k]!;
+        if (m.camada !== n.camada || m.material !== n.material) erro ??= `membrana ${k}: camada/material ${n.camada}/${n.material} (Rust) x ${m.camada}/${m.material} (TS)`;
+        else if (!pontoIgual(m.pts[0]!, n.pts[0]!) || !pontoIgual(m.pts[1]!, n.pts[1]!)) erro ??= `membrana ${k}: pontos ${JSON.stringify(n.pts)} (Rust) x ${JSON.stringify(m.pts)} (TS)`;
+        else nota(Math.max(...m.pts.flatMap((p, j) => [Math.abs(p.x - n.pts[j]!.x), Math.abs(p.y - n.pts[j]!.y)])));
+      });
+    }
+    if (erro) {
+      divergencias.push(`${rotulo}: ${erro}`);
+      continue;
+    }
+    r.paredes++;
+    if (a.profileTop) r.paredesComPerfilTopo++;
+    if (a.profileBottom) r.paredesComPerfilBase++;
+    if (perfisDoModelo.has(a.id)) r.paredesComPerfilDoModelo++;
+    if (a.membranas.length) {
+      r.paredesComMembranas++;
+      r.membranas += a.membranas.length;
+    }
+  }
+  for (const c of ref.camadas) for (const f of c.faixas) if (f.slope) r.faixasInclinadas++;
   return r;
 }

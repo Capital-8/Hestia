@@ -16,7 +16,7 @@ import { ErroKernelLeve } from '../packages/geom/src/kernel/v2/erros.ts';
 import { GerenciadorKernelV2 } from '../packages/geom/src/kernel/v2/gerenciador.ts';
 import { fonteDeSecoes } from '../packages/geom/src/kernel/v2/quadros.ts';
 import { areaDaForma } from '../scripts/kernel-harness-a2.mts';
-import { compararA3c, type ComparacaoA3c } from '../scripts/kernel-harness-a3.mts';
+import { compararA3c, type ComparacaoA3c, type ExcecaoNomeada } from '../scripts/kernel-harness-a3.mts';
 import { projetoDeEstresseA3c, projetoDeParedesSobrepostas, variantesDoNivel } from '../scripts/kernel-a3c-estresse.mts';
 
 const caminho = caminhoDoWasm();
@@ -107,9 +107,13 @@ const soma = (a: Cobertura, b: ComparacaoA3c | Cobertura): void => {
 
 
 /** Opções de planta de um pavimento do teste: `escolhidas` índices de `variantesDoNivel` (padrão: todas). */
+/** Exceção nomeada da 0049: semente 1, pavimento 0, material 2 (defeito do `unionClipper` do TS; o Rust está a 2e-6 m² da união exata). */
+const EXCECAO_SEMENTE_1 = (semente: number, nivel: number): ExcecaoNomeada[] => (semente === 1 && nivel === 0 ? [{ material: 2, motivo: 'defeito do TS: o unionClipper infla a região em 3,5e-3 m² junto a uma parede curva (0049)' }] : []);
+
 interface Plano {
   semente?: number;
   variantes?: (nivel: number) => number[];
+  excecoes?: (nivel: number) => ExcecaoNomeada[];
 }
 
 /** Compara todos os pavimentos do projeto nas variantes de opção de planta (ou só nas opções dadas). */
@@ -131,7 +135,7 @@ function compararProjeto(p: Project, plano: Plano = {}, opcoes?: OpcoesA3c[]): C
       for (const op of lista) {
         const ref = referenciaA3c(p, l.id, a1, op);
         const rust = decodificarA3c(cena.consultar('cluster_resolvido', argumentosA3c(p, l.id, a1, a3, op)));
-        const cmp = compararA3c(ref, rust, curvas);
+        const cmp = compararA3c(ref, rust, curvas, 20, plano.excecoes?.(nivel) ?? []);
         expect(cmp.divergencias, `${l.id} ${JSON.stringify({ cutZ: op.cutZ, contorno: op.outlineWalls?.size, planOpenings: op.planOpenings?.size })}: ${cmp.divergencias.slice(0, 3).join(' | ')}`).toEqual([]);
         soma(cov, cmp);
       }
@@ -155,7 +159,7 @@ describe.skipIf(!bytes)('A3c: cluster_resolvido do Rust x motor TypeScript', () 
     if (pula()) return;
     const total = zero();
     for (let semente = 1; semente <= 12; semente++) {
-      soma(total, compararProjeto(projetoDeEstresseA3c(semente, { paredes: 16, pavimentos: 2 }), { semente, variantes: (n) => [semente + 3 * n] }));
+      soma(total, compararProjeto(projetoDeEstresseA3c(semente, { paredes: 16, pavimentos: 2 }), { semente, variantes: (n) => [semente + 3 * n], excecoes: (n) => EXCECAO_SEMENTE_1(semente, n) }));
     }
     relata('estresse', total);
     expect(total.camadas, 'camadas comparadas').toBeGreaterThan(1000);

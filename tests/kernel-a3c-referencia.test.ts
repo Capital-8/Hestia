@@ -84,12 +84,12 @@ describe('A3c: argumentos e referência do motor TypeScript', () => {
     expect(faixasNaPlanta(baixo)).not.toBe(faixasNaPlanta(referenciaA3c(p, l.id, a1, v['corte alto, contorno'])));
   }, 60_000);
 
-  it('parede com perfil superior fica fora do escopo da A3c e a referência recusa', () => {
+  it('parede com perfil superior entra na referência (a A3d a cobre; antes a A3c a recusava)', () => {
     const p = projetoDeEstresseA3c(5, { paredes: 6, pavimentos: 1 });
     const { a1, l } = preparo(p);
     const id = [...a1.idDe.keys()][0]!;
     const w = p.elements[id] as unknown as { topProfile?: unknown };
     const q = { ...p, elements: { ...p.elements, [id]: { ...w, topProfile: [{ t: 0, z: 1 }, { t: 1, z: 2 }] } } } as Project;
-    expect(() => referenciaA3c(q, l.id, a1)).toThrow(/perfil/);
+    expect(() => referenciaA3c(q, l.id, a1)).not.toThrow();
   });
 });
