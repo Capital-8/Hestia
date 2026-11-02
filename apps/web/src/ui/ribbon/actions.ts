@@ -16,6 +16,7 @@ import { activateView } from '../../editor/viewTabActions.ts';
 import { applyDrop } from '../dockDrag.ts';
 import { gridToolOf } from '../gridUi.ts';
 import { idPerimetroEditavel } from '../perimeter/perimeterEditavel.ts';
+import { useFamilia } from '../familia/familiaStore.ts';
 import { t, type ActionId, type Txt } from './model.ts';
 
 /** Leva o painel para o outro dock (esquerdo <-> direito), pela mesma regra de soltura do arraste. */
@@ -388,11 +389,11 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     label: t('Unidades do projeto', 'Project Units'),
     icon: 'type',
     hint: t('Unidades de comprimento, área, volume, ângulo e inclinação do projeto.', 'Project units for length, area, volume, angle and slope.'),
-    shortcut: 'unidades',
-    run: openDialog('units'),
+    shortcut: 'unidades', run: openDialog('units'),
   },
   shortcutsConfig: { label: t('Atalhos de teclado…', 'Keyboard Shortcuts…'), icon: 'help', run: openDialog('shortcutsConfig') },
   shortcuts: { label: t('Lista de atalhos', 'Shortcut List'), icon: 'help', run: openDialog('shortcuts') },
+  familyEditor: { label: t('Componente', 'Component'), icon: 'component', hint: t('Abre o editor de famílias numa aba, sem fechar o projeto (protótipo de interface)', 'Opens the family editor in a tab without closing the project (interface prototype)'), run: () => useFamilia.getState().abrir() },
   schedWalls: sched(t('Tabela de paredes', 'Wall Schedule'), 'schedule'),
   schedFloors: sched(t('Tabela de pisos', 'Floor Schedule'), 'floorSchedule'),
   schedSlabs: sched(t('Tabela de lajes', 'Slab Schedule'), 'slabSchedule'),

@@ -14,6 +14,8 @@ import { OptionsBar } from './ui/OptionsBar.tsx';
 import { Ribbon } from './ui/Ribbon.tsx';
 import { StatusBar } from './ui/StatusBar.tsx';
 import { TitleBar } from './ui/TitleBar.tsx';
+import { FamilyEditor } from './ui/familia/FamilyEditor.tsx';
+import { useFamilia } from './ui/familia/familiaStore.ts';
 import { Tutorial } from './ui/Tutorial.tsx';
 import { ViewControlBar } from './ui/ViewControlBar.tsx';
 import { ViewTabs } from './ui/ViewTabs.tsx';
@@ -218,6 +220,8 @@ export function App(): ReactElement {
   const widths = dockWidths(propsOpen, browserOpen, dock);
   const theme = useUi((s) => s.theme);
   const dialog = useUi((s) => s.dialog);
+  // Com a aba de família à frente, as teclas do projeto (atalhos de ferramenta) não disparam por baixo dela.
+  const familiaAberta = useFamilia((s) => s.aberta);
   const narrow = useNarrow();
   // A caixa de texto não entra em `dialog` (DialogKind); as teclas ficam presas a ela enquanto estiver aberta.
   const caixaTextoAberta = useCaixaDeTextoAberta();
@@ -245,12 +249,12 @@ export function App(): ReactElement {
     const onKey = (e: KeyboardEvent): void => {
       const t = e.target as HTMLElement | null;
       const typing = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
-      if (dialog || caixaTextoAberta || typing) return;
+      if (dialog || familiaAberta || caixaTextoAberta || typing) return;
       if (editor.key(e)) e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [dialog, caixaTextoAberta]);
+  }, [dialog, familiaAberta, caixaTextoAberta]);
 
   useEffect(() => {
     const warn = (e: BeforeUnloadEvent): void => {
@@ -279,6 +283,7 @@ export function App(): ReactElement {
       {/* A caixa de texto tem store próprio (não entra no DialogKind): aberta pela aba Anotar/painel do Texto. */}
       <TextDialog />
       <FileMenu />
+      <FamilyEditor />
     </div>
   );
 }
