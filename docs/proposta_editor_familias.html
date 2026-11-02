@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor de famílias do Hestia</title>
+<style>
+/* Direção: a mesma pele do Hestia (Segoe UI, azul de seleção, verde da aba contextual) para o dono validar telas que parecem o app.
+   Layout: página-prancha com abas de telas; cada tela é uma janela do Hestia rolável na horizontal. */
+:root {
+  --bg:#dcdfe3; --chrome:#e6eaed; --ribbon:#f5f6f7; --ribbon2:#eaecee; --panel:#f7f9fa; --sheet:#fff;
+  --line:#ced5db; --line-strong:#b2bcc4; --fg:#1a202c; --fg-soft:#4a5568; --fg-faint:#718096;
+  --accent:#0078d4; --accent-fg:#fff; --accent-soft:#deecf9; --warn:#c25e00; --danger:#d13438; --ok:#107c41;
+  --green:#107c41; --green-soft:#dff6dd; --hover:#e1ecf6; --ic:#5b6369; --grid:#e9edf0;
+  --m-corpo:#d8b98b; --m-porta:#e9d6b4; --m-tampo:#8c6a4a; --m-fundo:#b9b2a6; --m-livre:#c9cfd6;
+  --font-ui:'Segoe UI',system-ui,-apple-system,Roboto,sans-serif; --font-mono:'Cascadia Code',Consolas,Menlo,monospace;
+  --r:3px; --shadow:0 6px 22px rgba(0,0,0,.22);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg:#141414; --chrome:#1f1f1f; --ribbon:#333; --ribbon2:#2a2a2a; --panel:#252525; --sheet:#1e1e1e;
+    --line:#383838; --line-strong:#4a4a4a; --fg:#f3f4f6; --fg-soft:#a1a1aa; --fg-faint:#8b8b94;
+    --accent:#60a5fa; --accent-fg:#0f172a; --accent-soft:#1e3a5f; --warn:#fb923c; --danger:#f87171; --ok:#4ade80;
+    --green:#4ade80; --green-soft:#173827; --hover:#3d4a5a; --ic:#c3c9cf; --grid:#2b2b2b;
+    --m-corpo:#a98a5e; --m-porta:#b9a27c; --m-tampo:#6b4f36; --m-fundo:#6d685f; --m-livre:#6f7782; --shadow:0 8px 30px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg:#141414; --chrome:#1f1f1f; --ribbon:#333; --ribbon2:#2a2a2a; --panel:#252525; --sheet:#1e1e1e;
+  --line:#383838; --line-strong:#4a4a4a; --fg:#f3f4f6; --fg-soft:#a1a1aa; --fg-faint:#8b8b94;
+  --accent:#60a5fa; --accent-fg:#0f172a; --accent-soft:#1e3a5f; --warn:#fb923c; --danger:#f87171; --ok:#4ade80;
+  --green:#4ade80; --green-soft:#173827; --hover:#3d4a5a; --ic:#c3c9cf; --grid:#2b2b2b;
+  --m-corpo:#a98a5e; --m-porta:#b9a27c; --m-tampo:#6b4f36; --m-fundo:#6d685f; --m-livre:#6f7782; --shadow:0 8px 30px rgba(0,0,0,.6);
+}
+* { box-sizing:border-box; }
+html,body { margin:0; background:var(--bg); color:var(--fg); font:13px/1.45 var(--font-ui); }
+button,input,select { font:inherit; color:inherit; }
+button { cursor:pointer; }
+a { color:var(--accent); }
+code,.mono { font-family:var(--font-mono); font-size:11.5px; }
+code { background:var(--chrome); padding:0 4px; border-radius:2px; }
+:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+
+/* ---------- página ---------- */
+.top { position:sticky; top:0; z-index:50; display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; padding:8px 16px; background:var(--chrome); border-bottom:1px solid var(--line-strong); }
+.top h1 { margin:0; font-size:14px; font-weight:600; }
+.top .tag { margin-left:auto; }
+.tabs { display:flex; flex-wrap:wrap; gap:2px; padding:6px 16px 0; background:var(--chrome); border-bottom:1px solid var(--line-strong); }
+.tabs a { text-decoration:none; color:var(--fg-soft); padding:6px 12px; border:1px solid transparent; border-bottom:0; border-radius:var(--r) var(--r) 0 0; font-size:12px; }
+.tabs a:hover { background:var(--accent-soft); color:var(--accent); }
+.tabs a[aria-current="page"] { background:var(--bg); border-color:var(--line-strong); color:var(--fg); font-weight:600; margin-bottom:-1px; }
+main { max-width:1400px; margin:0 auto; padding:16px 16px 60px; }
+.screen { display:none; }
+.screen.on { display:block; }
+.lead { color:var(--fg-soft); margin:0 0 12px; max-width:980px; }
+h2 { font-size:17px; margin:0 0 4px; text-wrap:balance; }
+h3 { font-size:13.5px; margin:16px 0 6px; }
+.tag { font-size:10px; font-weight:600; padding:1px 7px; border-radius:9px; background:var(--accent-soft); color:var(--accent); white-space:nowrap; }
+.tag.novo { background:var(--green-soft); color:var(--green); }
+.tag.w { background:#fdecc8; color:var(--warn); }
+:root[data-theme="dark"] .tag.w { background:#3b2a12; }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:12px 16px; }
+.grid { display:grid; gap:12px; }
+.g2 { grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); }
+.g3 { grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
+.scroll { overflow-x:auto; border:1px solid var(--line-strong); border-radius:6px; background:var(--chrome); }
+table.t { border-collapse:collapse; width:100%; font-size:12px; }
+table.t th, table.t td { text-align:left; padding:4px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+table.t th { background:var(--ribbon2); font-weight:600; position:sticky; top:0; }
+table.t td.n, table.t th.n { text-align:right; font-variant-numeric:tabular-nums; }
+.legend { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; margin:0 0 10px; color:var(--fg-soft); font-size:12px; }
+
+/* ---------- janela Hestia ---------- */
+.win { min-width:1180px; background:var(--sheet); display:flex; flex-direction:column; height:640px; font-size:12px; }
+.win.dlg { height:auto; min-height:420px; }
+.titlebar { display:flex; align-items:center; gap:8px; height:28px; padding:0 8px; background:var(--chrome); border-bottom:1px solid var(--line); }
+.titlebar .hbtn { width:20px; height:20px; border-radius:3px; background:var(--accent); color:var(--accent-fg); display:grid; place-items:center; font-weight:700; font-size:11px; }
+.titlebar .ttl { flex:1; text-align:center; color:var(--fg-soft); }
+.doctabs { display:flex; gap:1px; padding:3px 8px 0; background:var(--chrome); border-bottom:1px solid var(--line-strong); }
+.doctabs span { padding:3px 12px; border:1px solid var(--line); border-bottom:0; border-radius:4px 4px 0 0; background:var(--ribbon2); color:var(--fg-soft); }
+.doctabs span.on { background:var(--sheet); color:var(--fg); font-weight:600; border-color:var(--line-strong); margin-bottom:-1px; }
+.doctabs span.fam::before { content:""; display:inline-block; width:8px; height:8px; margin-right:6px; background:var(--green); border-radius:2px; }
+.ribtabs { display:flex; gap:0; padding:0 8px; background:var(--chrome); }
+.ribtabs span { padding:4px 11px; color:var(--fg-soft); border:1px solid transparent; border-bottom:0; }
+.ribtabs span.on { background:var(--ribbon); border-color:var(--line); color:var(--fg); font-weight:600; border-radius:3px 3px 0 0; }
+.ribtabs span.ctx { color:var(--green); }
+.ribtabs span.ctx.on { background:var(--green-soft); border-color:var(--green); }
+.ribbon { display:flex; gap:0; padding:4px 6px 0; background:var(--ribbon); border-top:1px solid var(--line); border-bottom:1px solid var(--line-strong); min-height:96px; overflow:hidden; }
+.ribbon.ctxbar { background:var(--green-soft); }
+.rpanel { display:flex; flex-direction:column; border-right:1px solid var(--line); padding:0 6px; }
+.rpanel .items { display:flex; gap:2px; flex:1; align-items:flex-start; }
+.rpanel .pname { text-align:center; color:var(--fg-faint); font-size:11px; padding:2px 0 3px; white-space:nowrap; }
+.rb { display:flex; flex-direction:column; align-items:center; gap:2px; width:62px; padding:3px 2px; border:1px solid transparent; border-radius:3px; background:none; text-align:center; line-height:1.15; font-size:11.5px; }
+.rb svg { width:32px; height:32px; stroke:var(--ic); fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+.rb:hover:not([disabled]) { background:var(--hover); border-color:var(--line-strong); }
+.rb.on { background:var(--accent-soft); border-color:var(--accent); }
+.rb[disabled] { opacity:.45; cursor:default; }
+.rb .car { font-size:9px; color:var(--fg-faint); }
+.rstack { display:flex; flex-direction:column; gap:1px; }
+.rs { display:flex; align-items:center; gap:5px; padding:1px 6px 1px 3px; border:1px solid transparent; border-radius:3px; background:none; font-size:11.5px; white-space:nowrap; text-align:left; }
+.rs svg { width:16px; height:16px; stroke:var(--ic); fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+.rs:hover:not([disabled]) { background:var(--hover); border-color:var(--line-strong); }
+.rs[disabled] { opacity:.45; cursor:default; }
+.body { display:flex; flex:1; min-height:0; }
+.dock { width:262px; flex:none; background:var(--panel); display:flex; flex-direction:column; border-right:1px solid var(--line-strong); min-height:0; }
+.dock.right { border-right:0; border-left:1px solid var(--line-strong); width:290px; }
+.dock .ph { display:flex; align-items:center; padding:3px 8px; background:var(--ribbon2); border-bottom:1px solid var(--line); font-weight:600; }
+.dock .ph span:last-child { margin-left:auto; color:var(--fg-faint); font-weight:400; }
+.dock .pbody { overflow:auto; flex:1; min-height:0; }
+.dock + .dock { }
+.work { flex:1; min-width:0; display:flex; flex-direction:column; background:var(--sheet); }
+.vtabs { display:flex; gap:1px; background:var(--chrome); padding:3px 6px 0; border-bottom:1px solid var(--line-strong); }
+.vtabs button { border:1px solid var(--line); border-bottom:0; background:var(--ribbon2); padding:2px 10px; border-radius:3px 3px 0 0; font-size:11.5px; color:var(--fg-soft); }
+.vtabs button.on { background:var(--sheet); color:var(--fg); font-weight:600; margin-bottom:-1px; border-color:var(--line-strong); }
+.vopts { margin-left:auto; display:flex; gap:10px; align-items:center; padding-bottom:3px; color:var(--fg-soft); }
+.vopts label { display:flex; gap:4px; align-items:center; }
+.canvas { flex:1; min-height:0; position:relative; background:var(--sheet); background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px); background-size:24px 24px; }
+.canvas svg { position:absolute; inset:0; width:100%; height:100%; }
+.vcb { display:flex; gap:12px; align-items:center; padding:2px 8px; background:var(--chrome); border-top:1px solid var(--line); color:var(--fg-soft); }
+.status { display:flex; gap:14px; align-items:center; height:22px; padding:0 8px; background:var(--chrome); border-top:1px solid var(--line-strong); color:var(--fg-soft); }
+.status .sp { flex:1; }
+.dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--ok); margin-right:4px; }
+.dot.rs { background:var(--warn); }
+
+/* árvore e campos */
+.tree { list-style:none; margin:0; padding:2px 0; }
+.tree li { padding:1px 6px 1px 18px; position:relative; white-space:nowrap; cursor:default; }
+.tree li.h { font-weight:600; padding-left:6px; background:var(--ribbon2); margin-top:3px; }
+.tree li.l2 { padding-left:32px; }
+.tree li.sel { background:var(--accent-soft); color:var(--accent); }
+.tree li:not(.h):hover { background:var(--hover); }
+.tree li .m { color:var(--fg-faint); margin-left:6px; font-size:11px; }
+.tree li .er { color:var(--danger); margin-left:6px; font-weight:600; }
+.grp { border-bottom:1px solid var(--line); }
+.grp > .gh { padding:2px 8px; background:var(--ribbon2); font-weight:600; }
+.row { display:grid; grid-template-columns:46% 1fr; gap:4px; align-items:center; padding:1px 8px; min-height:24px; }
+.row label { color:var(--fg-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.row .v { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.row.ro .v { color:var(--fg-faint); }
+input.f, select.f { width:100%; height:22px; border:1px solid var(--line-strong); background:var(--sheet); border-radius:2px; padding:0 5px; }
+input.f.mono { font-family:var(--font-mono); font-size:11.5px; }
+input.f.bad { border-color:var(--danger); background:#fdeaea; }
+:root[data-theme="dark"] input.f.bad { background:#3a1c1c; }
+.sig { color:var(--accent); font-weight:700; font-family:var(--font-mono); }
+.hint { padding:4px 8px; color:var(--fg-faint); font-size:11.5px; }
+.msg { margin:4px 8px; padding:4px 8px; border-radius:3px; background:var(--green-soft); color:var(--green); font-size:11.5px; }
+.msg.err { background:#fdeaea; color:var(--danger); }
+:root[data-theme="dark"] .msg.err { background:#3a1c1c; }
+.bt { border:1px solid var(--line-strong); background:var(--ribbon); border-radius:3px; padding:2px 10px; }
+.bt:hover { background:var(--hover); }
+.bt.pri { background:var(--accent); color:var(--accent-fg); border-color:var(--accent); }
+.slider { display:grid; grid-template-columns:70px 1fr 56px; gap:6px; align-items:center; padding:1px 8px; }
+.slider input[type=range] { width:100%; }
+.slider output { text-align:right; font-variant-numeric:tabular-nums; font-family:var(--font-mono); font-size:11.5px; }
+
+/* diálogos */
+.dback { background:rgba(0,0,0,.28); padding:26px; display:grid; place-items:start center; }
+.dwin { background:var(--panel); border:1px solid var(--line-strong); border-radius:4px; box-shadow:var(--shadow); width:100%; }
+.dwin .dt { display:flex; padding:6px 10px; background:var(--ribbon2); border-bottom:1px solid var(--line); font-weight:600; }
+.dwin .dt span:last-child { margin-left:auto; color:var(--fg-faint); }
+.dwin .db { padding:8px 10px; }
+.dwin .df { display:flex; gap:8px; justify-content:flex-end; padding:8px 10px; border-top:1px solid var(--line); }
+
+/* galeria de modelos */
+.gal { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; padding:8px; }
+.tpl { border:1px solid var(--line); background:var(--sheet); border-radius:4px; padding:6px; display:flex; flex-direction:column; gap:4px; }
+.tpl:hover { border-color:var(--accent); background:var(--hover); }
+.tpl svg { width:100%; height:78px; }
+.tpl b { font-size:12px; }
+.tpl small { color:var(--fg-faint); font-size:11px; }
+.ghd { padding:6px 10px 0; font-weight:600; color:var(--fg-soft); }
+
+.flow { display:flex; flex-wrap:wrap; gap:6px; align-items:stretch; }
+.flow > div { border:1px solid var(--line-strong); background:var(--panel); border-radius:4px; padding:6px 10px; min-width:150px; flex:1; }
+.flow > i { align-self:center; font-style:normal; color:var(--fg-faint); }
+.flow .rs-box { border-color:var(--warn); }
+.ok { color:var(--ok); font-weight:600; }
+.no { color:var(--fg-faint); }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Editor de famílias · proposta de interface</h1>
+  <span class="tag">protótipo navegável, nada gravado</span>
+  <span class="tag novo">fórmulas funcionam de verdade</span>
+</header>
+<nav class="tabs" id="tabs" aria-label="Telas"></nav>
+<main id="main">
+
+<!-- ============ EDITOR ============ -->
+<section class="screen" id="s-editor" data-title="1 · Editor">
+  <h2>Editor de família: o módulo é montado por peças e fórmulas</h2>
+  <p class="lead">Aba própria ao lado do projeto, como no Revit. Mexa nos controles de <b>Flexionar</b> (largura, altura, profundidade, chapa, fundo, portas…), troque as vistas, clique numa peça (no desenho ou na árvore) e edite uma fórmula na coluna da direita: o desenho refaz na hora. Fórmula errada fica em vermelho e não derruba a família.</p>
+  <div class="scroll"><div class="win" id="win-editor"></div></div>
+</section>
+
+<!-- ============ COLOCAR ============ -->
+<section class="screen" id="s-colocar" data-title="2 · Colocar no projeto">
+  <h2>Colocar componente no projeto</h2>
+  <p class="lead">O botão <b>Componente</b> deixa de ser esmaecido (uma linha em <code>tabsMain.ts</code>). Escolha o tipo na aba contextual verde ou no painel Propriedades; o fantasma segue o cursor e encaixa nas paredes. A largura pode ser ajustada na hora (parâmetro de instância).</p>
+  <div class="scroll"><div class="win" id="win-colocar"></div></div>
+</section>
+
+<!-- ============ PARAMETROS ============ -->
+<section class="screen" id="s-parametros" data-title="3 · Parâmetros">
+  <h2>Tabela de parâmetros</h2>
+  <p class="lead">Aqui estão todas as variáveis da família. Parâmetros de <b>tipo</b> valem para todas as instâncias do tipo; de <b>instância</b> mudam em cada móvel colocado. Os campos com <span class="sig">Σ</span> são calculados por fórmula. Os valores abaixo são os mesmos do editor.</p>
+  <div class="scroll"><div class="win dlg" id="win-parametros"></div></div>
+</section>
+
+<!-- ============ TIPOS ============ -->
+<section class="screen" id="s-tipos" data-title="4 · Tipos">
+  <h2>Tabela de tipos</h2>
+  <p class="lead">Cada linha é um tipo (Armário 60, 80, 100…). Só os parâmetros de tipo aparecem. Escolher uma linha muda o tipo corrente e o desenho do editor.</p>
+  <div class="scroll"><div class="win dlg" id="win-tipos"></div></div>
+</section>
+
+<!-- ============ PECAS ============ -->
+<section class="screen" id="s-pecas" data-title="5 · Lista de peças">
+  <h2>Lista de peças e quantitativos</h2>
+  <p class="lead">Saída de fábrica, calculada das peças resolvidas do módulo corrente. Muda sozinha quando você mexe nos parâmetros. O plano de corte entra em fase posterior; no começo a lista sai em CSV para o otimizador da marcenaria.</p>
+  <div class="scroll"><div class="win dlg" id="win-pecas"></div></div>
+</section>
+
+<!-- ============ ASSISTENTE ============ -->
+<section class="screen" id="s-assistente" data-title="6 · Novo módulo">
+  <h2>Novo: escolha um modelo de partida</h2>
+  <p class="lead">Arquivo ▸ Novo ▸ Família. Cada modelo só preenche uma família inicial (parâmetros, peças e fórmulas) que você edita à vontade. Os desenhos abaixo são esquemas de frente.</p>
+  <div class="scroll"><div class="win dlg" id="win-assistente"></div></div>
+</section>
+
+<!-- ============ COBERTURA ============ -->
+<section class="screen" id="s-cobertura" data-title="7 · Que móveis dá para fazer">
+  <h2>Quais móveis esta interface cobre</h2>
+  <p class="lead">Sem promessa vaga: para cada tipo de móvel, que ferramentas usa e quando fica pronto. “Fase” segue o ADR 0049 (F7 editor, F8 marcenaria, F9 lista de peças); itens com <span class="tag w">ampliar ADR</span> são novidades desta proposta e ainda não estão lá.</p>
+  <div class="scroll"><div id="cobertura"></div></div>
+  <h3>Mapa de reaproveitamento do que o app já tem</h3>
+  <div class="scroll"><div id="reuso"></div></div>
+</section>
+
+<!-- ============ RUST ============ -->
+<section class="screen" id="s-rust" data-title="8 · Rust e dados">
+  <h2>Como a interface conversa com o núcleo (TS hoje, Rust depois)</h2>
+  <p class="lead">A interface nunca fala com fórmulas dentro do Rust. Ela mostra e edita a <b>família</b> (texto, TS). O núcleo recebe só as <b>peças já resolvidas</b>, em números. Por isso trocar TS por Rust não muda nenhuma tela.</p>
+  <div class="flow" id="fluxo-rust"></div>
+  <h3>De onde cada painel lê</h3>
+  <div class="scroll"><div id="painel-dados"></div></div>
+  <h3>Regras que a interface respeita por causa da migração</h3>
+  <div class="card" id="regras-rust"></div>
+</section>
+
+<!-- ============ TRABALHO ============ -->
+<section class="screen" id="s-trabalho" data-title="9 · Como delegar">
+  <h2>Como o trabalho passa ao DeepSeek v4.1 flash com você como fiscal</h2>
+  <p class="lead">Resumo. O plano completo, com o modelo de ficha de tarefa e o roteiro de conferência, está em <code>docs/handoff/componentes/PLANO-DELEGACAO.md</code>.</p>
+  <div id="trabalho"></div>
+</section>
+
+</main>
+
+<script>
+/* ===================================================================
+   1. AVALIADOR DE EXPRESSÕES (o mesmo contrato do ADR 0049, §3.2)
+   gramática fechada: números, "texto", nomes (com ponto), + - * /, comparações, && || !, ?:, min max abs round floor ceil clamp
+   =================================================================== */
+function tokenize(src) {
+  const out = []; let i = 0;
+  while (i < src.length) {
+    const c = src[i];
+    if (/\s/.test(c)) { i++; continue; }
+    if (/[0-9.]/.test(c)) { let j = i; while (j < src.length && /[0-9.]/.test(src[j])) j++; out.push({ t: 'n', v: parseFloat(src.slice(i, j)) }); i = j; continue; }
+    if (c === '"') { const j = src.indexOf('"', i + 1); if (j < 0) throw new Error('texto sem fechar aspas'); out.push({ t: 's', v: src.slice(i + 1, j) }); i = j + 1; continue; }
+    if (/[A-Za-z_]/.test(c)) { let j = i; while (j < src.length && /[A-Za-z0-9_.]/.test(src[j])) j++; out.push({ t: 'id', v: src.slice(i, j) }); i = j; continue; }
+    const two = src.slice(i, i + 2);
+    if (['==', '!=', '<=', '>=', '&&', '||'].includes(two)) { out.push({ t: 'op', v: two }); i += 2; continue; }
+    if ('+-*/()<>!?:,'.includes(c)) { out.push({ t: 'op', v: c }); i++; continue; }
+    throw new Error('caractere inesperado “' + c + '”');
+  }
+  return out;
+}
+const FUNCS = { min: Math.min, max: Math.max, abs: Math.abs, floor: Math.floor, ceil: Math.ceil, round: (x, s) => (s ? Math.round(x / s) * s : Math.round(x)), clamp: (x, a, b) => Math.min(b, Math.max(a, x)) };
+function compile(src) {
+  if (src.length > 512) throw new Error('fórmula passa de 512 caracteres');
+  const tk = tokenize(src); let p = 0; let depth = 0;
+  const peek = () => tk[p]; const eat = (v) => { const t = tk[p]; if (!t || (v && t.v !== v)) throw new Error(v ? 'esperava “' + v + '”' : 'fim inesperado'); p++; return t; };
+  function ternary() { const c = or(); if (peek() && peek().v === '?') { eat('?'); const a = ternary(); eat(':'); const b = ternary(); return (e) => (c(e) ? a(e) : b(e)); } return c; }
+  function bin(next, ops) { return () => { let l = next(); while (peek() && peek().t === 'op' && ops.includes(peek().v)) { const o = eat().v; const r = next(); const L = l; l = ({ '||': (e) => L(e) || r(e), '&&': (e) => L(e) && r(e), '==': (e) => L(e) === r(e), '!=': (e) => L(e) !== r(e), '<': (e) => L(e) < r(e), '>': (e) => L(e) > r(e), '<=': (e) => L(e) <= r(e), '>=': (e) => L(e) >= r(e), '+': (e) => L(e) + r(e), '-': (e) => L(e) - r(e), '*': (e) => L(e) * r(e), '/': (e) => L(e) / r(e) })[o]; } return l; }; }
+  const mul = bin(() => unary(), ['*', '/']); const add = bin(mul, ['+', '-']); const cmp = bin(add, ['<', '>', '<=', '>=']); const eq = bin(cmp, ['==', '!=']); const and = bin(eq, ['&&']); const or = bin(and, ['||']);
+  function unary() {
+    const t = peek();
+    if (t && t.v === '-' && t.t === 'op') { eat(); const u = unary(); return (e) => -u(e); }
+    if (t && t.v === '!' && t.t === 'op') { eat(); const u = unary(); return (e) => !u(e); }
+    return primary();
+  }
+  function primary() {
+    const t = eat();
+    if (t.t === 'n') return () => t.v;
+    if (t.t === 's') return () => t.v;
+    if (t.t === 'op' && t.v === '(') { if (++depth > 32) throw new Error('parênteses demais'); const x = ternary(); eat(')'); depth--; return x; }
+    if (t.t === 'id') {
+      if (peek() && peek().v === '(') { eat('('); const f = FUNCS[t.v]; if (!f) throw new Error('função desconhecida “' + t.v + '”'); const args = []; if (peek().v !== ')') { args.push(ternary()); while (peek() && peek().v === ',') { eat(','); args.push(ternary()); } } eat(')'); return (e) => f(...args.map((a) => a(e))); }
+      return (e) => { if (!(t.v in e)) throw new Error('“' + t.v + '” não existe'); return e[t.v]; };
+    }
+    throw new Error('símbolo inesperado “' + t.v + '”');
+  }
+  const f = ternary(); if (p < tk.length) throw new Error('sobrou “' + tk[p].v + '”');
+  return f;
+}
+const q = (v) => Math.round(v * 1000) / 1000; /* arredonda a 1 µm (valores em mm), igual ao contrato com o Rust */
+
+/* ===================================================================
+   2. FAMÍLIA DE EXEMPLO: ARMÁRIO BAIXO (todas as fórmulas são editáveis)
+   =================================================================== */
+const PARAMS = [
+  { id: 'L', nome: 'Largura (L)', kind: 'length', escopo: 'instância', ctl: 'num', min: 300, max: 1200, step: 10 },
+  { id: 'A', nome: 'Altura (A)', kind: 'length', escopo: 'instância', ctl: 'num', min: 600, max: 900, step: 10 },
+  { id: 'P', nome: 'Profundidade (P)', kind: 'length', escopo: 'instância', ctl: 'num', min: 300, max: 700, step: 10 },
+  { id: 'corpo', nome: 'Chapa do corpo (mm)', kind: 'chapa', escopo: 'tipo', ctl: 'sel', opts: [15, 18, 25] },
+  { id: 'montagem', nome: 'Montagem', kind: 'enum', escopo: 'tipo', ctl: 'sel', opts: ['laterais_sobre_base', 'base_entre_laterais'] },
+  { id: 'fundo', nome: 'Fundo', kind: 'enum', escopo: 'tipo', ctl: 'sel', opts: ['sem', 'pregado', 'encaixado'] },
+  { id: 'tampo', nome: 'Tampo', kind: 'enum', escopo: 'tipo', ctl: 'sel', opts: ['sem', 'comum', 'engrossado'] },
+  { id: 'nPrat', nome: 'Prateleiras', kind: 'integer', escopo: 'tipo', ctl: 'num', min: 0, max: 6, step: 1 },
+  { id: 'nPortas', nome: 'Portas', kind: 'integer', escopo: 'tipo', ctl: 'num', min: 0, max: 2, step: 1 },
+  { id: 'rodape', nome: 'Altura do rodapé', kind: 'length', escopo: 'tipo', ctl: 'num', min: 0, max: 150, step: 10 },
+];
+const DERIVED = [
+  { id: 'esp', nome: 'Espessura do corpo', f: 'corpo' },
+  { id: 'zBase', nome: 'Cota do topo da base', f: 'rodape + esp' },
+  { id: 'tampoEsp', nome: 'Espessura do tampo', f: 'tampo == "sem" ? 0 : (tampo == "comum" ? 25 : 38)' },
+  { id: 'hCorpo', nome: 'Altura do corpo', f: 'A - tampoEsp' },
+  { id: 'fundoEsp', nome: 'Espessura do fundo', f: 'fundo == "sem" ? 0 : 6' },
+  { id: 'profL', nome: 'Profundidade da lateral', f: 'P - (fundo == "pregado" ? fundoEsp : 0)' },
+  { id: 'vao', nome: 'Vão interno útil', f: 'hCorpo - esp - zBase' },
+  { id: 'yFundo', nome: 'Face frontal do fundo (Y)', f: 'fundo == "sem" ? P : (fundo == "pregado" ? P - fundoEsp : P - fundoEsp - 15)' },
+];
+/* eixo = direção da espessura. a,b = as duas medidas no plano da chapa (ADR §3.3):
+   eixo x: a=profundidade, b=altura | eixo y: a=largura, b=altura | eixo z: a=largura, b=profundidade */
+const PARTS0 = [
+  { id: 'latE', nome: 'Lateral esquerda', papel: 'lateral', cor: 'corpo', eixo: 'x', ox: '0', oy: '0', oz: 'montagem == "laterais_sobre_base" ? zBase : rodape', a: 'profL', b: 'hCorpo - oz', t: 'esp', fita: 'frente', veio: 'altura', usin: '2 * nPrat + 4' },
+  { id: 'latD', nome: 'Lateral direita', papel: 'lateral', cor: 'corpo', eixo: 'x', ox: 'L - esp', oy: '0', oz: 'montagem == "laterais_sobre_base" ? zBase : rodape', a: 'profL', b: 'hCorpo - oz', t: 'esp', fita: 'frente', veio: 'altura', usin: '2 * nPrat + 4' },
+  { id: 'base', nome: 'Base', papel: 'base', cor: 'corpo', eixo: 'z', ox: 'montagem == "base_entre_laterais" ? esp : 0', oy: '0', oz: 'rodape', a: 'montagem == "base_entre_laterais" ? L - 2 * esp : L', b: 'profL', t: 'esp', fita: 'frente', veio: 'largura', usin: '4' },
+  { id: 'trF', nome: 'Travessa frontal', papel: 'travessa', cor: 'corpo', eixo: 'z', ox: 'esp', oy: '0', oz: 'hCorpo - esp', a: 'L - 2 * esp', b: '80', t: 'esp', fita: 'nenhuma', veio: 'largura', usin: '2' },
+  { id: 'trT', nome: 'Travessa traseira', papel: 'travessa', cor: 'corpo', eixo: 'z', ox: 'esp', oy: 'yFundo - 80', oz: 'hCorpo - esp', a: 'L - 2 * esp', b: '80', t: 'esp', fita: 'nenhuma', veio: 'largura', usin: '2' },
+  { id: 'prat', nome: 'Prateleira', papel: 'prateleira', cor: 'corpo', eixo: 'z', ox: 'esp', oy: '20', oz: 'zBase + i * (vao - esp * nPrat) / (nPrat + 1) + (i - 1) * esp', a: 'L - 2 * esp', b: 'yFundo - 20', t: 'esp', fita: 'frente', veio: 'largura', usin: '0', n: 'nPrat' },
+  { id: 'fundo', nome: 'Fundo', papel: 'fundo', cor: 'fundo', eixo: 'y', ox: 'fundo == "pregado" ? 0 : esp', oy: 'yFundo', oz: 'fundo == "pregado" ? rodape : zBase', a: 'fundo == "pregado" ? L : L - 2 * esp', b: 'hCorpo - oz', t: 'fundoEsp', fita: 'nenhuma', veio: 'livre', usin: '0', when: 'fundo != "sem"' },
+  { id: 'porta', nome: 'Porta', papel: 'porta', cor: 'porta', eixo: 'y', ox: '(i - 1) * (L / nPortas) + 2', oy: '-18', oz: 'rodape + 2', a: 'L / nPortas - 4', b: 'hCorpo - rodape - 4', t: '18', fita: '4 lados', veio: 'altura', usin: '4', n: 'nPortas', when: 'nPortas > 0' },
+  { id: 'rodap', nome: 'Rodapé', papel: 'rodape', cor: 'corpo', eixo: 'y', ox: 'esp', oy: '50', oz: '0', a: 'L - 2 * esp', b: 'rodape', t: 'esp', fita: 'topo', veio: 'largura', usin: '0', when: 'rodape > 0' },
+  { id: 'tampo', nome: 'Tampo', papel: 'tampo', cor: 'tampo', eixo: 'z', ox: '0', oy: '-20', oz: 'hCorpo', a: 'L', b: 'P + 20', t: 'tampoEsp', fita: 'frente', veio: 'largura', usin: '0', when: 'tampo != "sem"' },
+];
+const FIELDS = ['ox', 'oy', 'oz', 'a', 'b', 't', 'n', 'when'];
+const TIPOS = [
+  { id: 'A60', nome: 'Armário 60 (1 porta)', v: { L: 600, A: 720, P: 560, corpo: 18, montagem: 'laterais_sobre_base', fundo: 'encaixado', tampo: 'comum', nPrat: 1, nPortas: 1, rodape: 100 } },
+  { id: 'A80', nome: 'Armário 80 (2 portas)', v: { L: 800, A: 720, P: 560, corpo: 18, montagem: 'laterais_sobre_base', fundo: 'encaixado', tampo: 'comum', nPrat: 1, nPortas: 2, rodape: 100 } },
+  { id: 'A100', nome: 'Armário 100 (2 portas)', v: { L: 1000, A: 720, P: 560, corpo: 18, montagem: 'base_entre_laterais', fundo: 'pregado', tampo: 'engrossado', nPrat: 1, nPortas: 2, rodape: 100 } },
+  { id: 'A120', nome: 'Armário 120 aberto', v: { L: 1200, A: 720, P: 560, corpo: 25, montagem: 'laterais_sobre_base', fundo: 'sem', tampo: 'comum', nPrat: 2, nPortas: 0, rodape: 80 } },
+];
+const S = { ...TIPOS[1].v, tipo: 'A80', explodir: false, portas: true, sel: 'latE', view: '3d', detalhe: 'fino' };
+const PARTS = PARTS0.map((p) => ({ ...p }));
+const COMPILED = new Map(); /* "id.campo|texto" -> função */
+function cf(key, src) { const k = key + '|' + src; if (!COMPILED.has(k)) { try { COMPILED.set(k, { f: compile(src) }); } catch (e) { COMPILED.set(k, { err: e.message }); } } return COMPILED.get(k); }
+
+/* resolve: família + valores -> peças resolvidas (só números), exatamente o que o núcleo (TS/Rust) receberia */
+function resolver() {
+  const env = { ...S, 'corpo.esp': S.corpo }; const erros = {}; const t0 = performance.now();
+  for (const d of DERIVED) { const c = cf('d.' + d.id, d.f); if (c.err) { erros['d.' + d.id] = c.err; env[d.id] = NaN; continue; } try { env[d.id] = q(c.f(env)); } catch (e) { erros['d.' + d.id] = e.message; env[d.id] = NaN; } }
+  const out = [];
+  for (const p of PARTS) {
+    const ev = (campo, e) => { const c = cf(p.id + '.' + campo, p[campo]); if (c.err) throw new Error(c.err); return c.f(e); };
+    let when = true, n = 1;
+    try { if (p.when) when = !!ev('when', env); if (p.n) n = Math.max(0, Math.min(64, Math.floor(ev('n', env)))); } catch (e) { erros[p.id + '.when'] = e.message; continue; }
+    if (!when) continue;
+    for (let i = 1; i <= n; i++) {
+      const e2 = { ...env, i, n }; const r = {};
+      try {
+        for (const c of ['ox', 'oy', 'oz']) { r[c] = q(ev(c, e2)); e2[c] = r[c]; }
+        for (const c of ['a', 'b', 't']) { r[c] = q(ev(c, e2)); e2[c] = r[c]; }
+      } catch (e) { erros[p.id + '.' + (FIELDS.find((c) => { const cc = cf(p.id + '.' + c, p[c] || '0'); return cc.err; }) || 'a')] = e.message; continue; }
+      if (![r.a, r.b, r.t].every((x) => Number.isFinite(x) && x > 0)) { erros[p.id + '.dim'] = 'dimensão ≤ 0 (' + [r.a, r.b, r.t].join(' × ') + ')'; continue; }
+      const sx = p.eixo === 'x' ? r.t : r.a, sy = p.eixo === 'y' ? r.t : (p.eixo === 'x' ? r.a : r.b), sz = p.eixo === 'z' ? r.t : r.b;
+      let usin = 0; try { usin = Math.max(0, Math.round(cf(p.id + '.usin', p.usin).f(e2))); } catch (e) { /* ignora */ }
+      out.push({ ...p, idx: i, nome: n > 1 ? p.nome + ' ' + i : p.nome, ox: r.ox, oy: r.oy, oz: r.oz, ca: r.a, cb: r.b, ct: r.t, sx, sy, sz, usinN: usin });
+    }
+  }
+  return { pecas: out, erros, ms: performance.now() - t0, env };
+}
+
+/* ===================================================================
+   3. DESENHO (3D oblíquo, frente, lateral, planta) a partir das peças resolvidas
+   =================================================================== */
+const SVGNS = 'http://www.w3.org/2000/svg';
+const colVar = { corpo: 'var(--m-corpo)', porta: 'var(--m-porta)', tampo: 'var(--m-tampo)', fundo: 'var(--m-fundo)', livre: 'var(--m-livre)' };
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+function shift(p, ex) { if (!ex) return p; const dx = p.papel === 'lateral' ? (p.ox < 1 ? -ex : ex) : 0, dy = p.papel === 'porta' ? -ex * 1.2 : p.papel === 'fundo' ? ex : 0, dz = p.papel === 'tampo' ? ex : p.papel === 'rodape' ? -ex : 0; return { ...p, ox: p.ox + dx, oy: p.oy + dy, oz: p.oz + dz }; }
+function drawView(res, W, H) {
+  const ex = S.explodir ? 70 : 0;
+  let ps = res.pecas.map((p) => shift(p, ex)).filter((p) => (S.portas || p.papel !== 'porta'));
+  if (S.detalhe === 'grosso') ps = ps.filter((p) => ['lateral', 'base', 'tampo', 'porta'].includes(p.papel));
+  else if (S.detalhe === 'medio') ps = ps.filter((p) => p.papel !== 'travessa' && p.papel !== 'rodape');
+  const v = S.view; let polys = []; let items = [];
+  const sel = S.sel;
+  const wrapF = (p, cls) => `data-id="${p.id}" class="${cls}"`;
+  const C = Math.cos(Math.PI / 6) * 0.5, Sn = Math.sin(Math.PI / 6) * 0.5; /* profundidade a 30° pela metade */
+  const projO = (x, y, z) => [x + y * C, -(z + y * Sn)];
+  if (v === '3d') {
+    ps.sort((a, b) => (b.oy + b.sy / 2) - (a.oy + a.sy / 2) || (a.oz - b.oz));
+    for (const p of ps) {
+      const x0 = p.ox, x1 = p.ox + p.sx, y0 = p.oy, y1 = p.oy + p.sy, z0 = p.oz, z1 = p.oz + p.sz; const f = colVar[p.cor] || colVar.livre; const st = p.id === sel ? 'var(--accent)' : 'var(--line-strong)'; const sw = p.id === sel ? 2 : 0.8;
+      const pt = (a) => a.map((c) => projO(...c).join(',')).join(' ');
+      const front = [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]], top = [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], right = [[x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]];
+      items.push(`<g data-id="${p.id}" style="cursor:pointer"><polygon points="${pt(right)}" fill="${f}" stroke="${st}" stroke-width="${sw}"/><polygon points="${pt(right)}" fill="#000" fill-opacity=".2"/><polygon points="${pt(top)}" fill="${f}" stroke="${st}" stroke-width="${sw}"/><polygon points="${pt(top)}" fill="#fff" fill-opacity=".28"/><polygon points="${pt(front)}" fill="${f}" stroke="${st}" stroke-width="${sw}"/></g>`);
+      for (const c of [[x0, y0, z0], [x1, y1, z1]]) polys.push(projO(...c)); polys.push(projO(x1, y0, z1), projO(x0, y1, z0));
+    }
+  } else {
+    const map = { frente: (p) => [p.ox, p.oz, p.sx, p.sz, p.oy], lateral: (p) => [p.oy, p.oz, p.sy, p.sz, p.ox], planta: (p) => [p.ox, p.oy, p.sx, p.sy, p.oz] };
+    const key = map[v];
+    const ord = v === 'frente' ? (a, b) => key(b)[4] - key(a)[4] : v === 'lateral' ? (a, b) => key(b)[4] - key(a)[4] : (a, b) => key(a)[4] - key(b)[4];
+    ps.sort(ord);
+    for (const p of ps) {
+      const [u, w, du, dw] = key(p); const f = colVar[p.cor] || colVar.livre; const st = p.id === sel ? 'var(--accent)' : 'var(--line-strong)'; const sw = p.id === sel ? 2 : 0.8;
+      const y = v === 'planta' ? u : u; const pts = [[u, -(w)], [u + du, -(w)], [u + du, -(w + dw)], [u, -(w + dw)]]; /* y de tela cresce para baixo */
+      const pts2 = v === 'planta' ? [[u, -(w + dw)], [u + du, -(w + dw)], [u + du, -w], [u, -w]] : pts;
+      items.push(`<polygon data-id="${p.id}" style="cursor:pointer" points="${pts2.map((c) => c.join(',')).join(' ')}" fill="${f}" fill-opacity="${v === 'planta' ? 0.75 : 1}" stroke="${st}" stroke-width="${sw}"/>`);
+      pts2.forEach((c) => polys.push(c));
+    }
+  }
+  if (!polys.length) return `<svg viewBox="0 0 ${W} ${H}"><text x="20" y="30" fill="var(--danger)">sem peças válidas — veja os erros na árvore</text></svg>`;
+  const xs = polys.map((c) => c[0]), ys = polys.map((c) => c[1]); const minx = Math.min(...xs), maxx = Math.max(...xs), miny = Math.min(...ys), maxy = Math.max(...ys);
+  const pad = 70, k = Math.min((W - pad * 2) / (maxx - minx || 1), (H - pad * 2) / (maxy - miny || 1));
+  const tx = (W - (maxx - minx) * k) / 2 - minx * k, ty = (H - (maxy - miny) * k) / 2 - miny * k;
+  let dims = '';
+  const dim = (x1, y1, x2, y2, txt) => { const X1 = x1 * k + tx, Y1 = y1 * k + ty, X2 = x2 * k + tx, Y2 = y2 * k + ty; const mx = (X1 + X2) / 2, my = (Y1 + Y2) / 2; return `<g stroke="var(--fg-soft)" fill="var(--fg-soft)" stroke-width="1"><line x1="${X1}" y1="${Y1}" x2="${X2}" y2="${Y2}"/><line x1="${X1 - 4}" y1="${Y1 - 4}" x2="${X1 + 4}" y2="${Y1 + 4}"/><line x1="${X2 - 4}" y1="${Y2 - 4}" x2="${X2 + 4}" y2="${Y2 + 4}"/><text x="${mx + (x1 === x2 ? -8 : 0)}" y="${my + (x1 === x2 ? 0 : -6)}" text-anchor="${x1 === x2 ? 'end' : 'middle'}" stroke="none" font-size="11" style="font-variant-numeric:tabular-nums">${txt}</text></g>`; };
+  if (!S.explodir) {
+    if (v === 'frente') dims = dim(minx, maxy + 26 / k, maxx, maxy + 26 / k, 'L ' + res.env.L) + dim(minx - 26 / k, miny, minx - 26 / k, maxy, 'A ' + res.env.A);
+    if (v === 'planta') dims = dim(minx, maxy + 26 / k, maxx, maxy + 26 / k, 'L ' + res.env.L) + dim(maxx + 26 / k, miny, maxx + 26 / k, maxy, 'P ' + res.env.P);
+    if (v === 'lateral') dims = dim(minx, maxy + 26 / k, maxx, maxy + 26 / k, 'P ' + res.env.P) + dim(minx - 26 / k, miny, minx - 26 / k, maxy, 'A ' + res.env.A);
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" font-family="Segoe UI,system-ui,sans-serif"><g transform="translate(${tx},${ty}) scale(${k})" stroke-linejoin="round" vector-effect="non-scaling-stroke">${items.join('')}</g>${dims}<text x="10" y="${H - 8}" fill="var(--fg-faint)" font-size="11">vista: ${v} · mm · nível de detalhe: ${S.detalhe}${S.explodir ? ' · explodido' : ''}</text></svg>`;
+}
+
+/* ===================================================================
+   4. FAIXA DE OPÇÕES POR DADOS (aba → painel → item), como ribbon/model.ts
+   =================================================================== */
+const IC = {
+  painel: '<rect x="6" y="3" width="12" height="18" rx="1"/><path d="M9 7h6M9 11h6"/>', lateral: '<rect x="4" y="4" width="4" height="16"/><path d="M12 8h8M12 12h8M12 16h8" stroke-dasharray="2 2"/>', base: '<rect x="3" y="14" width="18" height="4"/><path d="M5 10h14" stroke-dasharray="2 2"/>', prateleira: '<rect x="3" y="11" width="18" height="3"/><path d="M5 5v14M19 5v14" stroke-dasharray="2 2"/>',
+  tampo: '<rect x="2" y="8" width="20" height="5"/><path d="M5 13v7M19 13v7"/>', porta: '<rect x="5" y="3" width="14" height="18"/><circle cx="16" cy="12" r="1"/>', gaveta: '<rect x="3" y="5" width="18" height="6"/><rect x="3" y="13" width="18" height="6"/><path d="M10 8h4M10 16h4"/>', bloco: '<path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M4 8l8 4 8-4M12 12v8"/>',
+  vazio: '<path d="M4 8l8-4 8 4v8l-8 4-8-4z" stroke-dasharray="3 2"/>', ferragem: '<circle cx="12" cy="12" r="3"/><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/>', furo: '<circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>', rasgo: '<rect x="3" y="9" width="18" height="6" rx="3"/>', plano: '<path d="M3 17L10 5h11l-7 12z" stroke-dasharray="3 2"/>', repetir: '<rect x="3" y="8" width="5" height="8"/><rect x="10" y="8" width="5" height="8"/><path d="M17 12h4"/>', aninhar: '<rect x="3" y="3" width="18" height="18"/><rect x="8" y="8" width="8" height="8"/>',
+  param: '<path d="M4 6h10M4 12h16M4 18h12"/><circle cx="17" cy="6" r="2"/><circle cx="8" cy="18" r="2"/>', tipos: '<rect x="3" y="4" width="18" height="16"/><path d="M3 10h18M9 4v16"/>', flex: '<path d="M3 12h18M3 12l4-4M3 12l4 4M21 12l-4-4M21 12l-4 4"/>', carregar: '<path d="M12 3v12M7 10l5 5 5-5M4 20h16"/>', cat: '<path d="M4 5h16v4H4zM4 11h16v4H4zM4 17h10v3H4z"/>', lista: '<path d="M5 6h14M5 12h14M5 18h14M3 6h.1M3 12h.1M3 18h.1"/>', cota: '<path d="M3 12h18M3 8v8M21 8v8"/>', undo: '<path d="M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3"/>',
+  valida: '<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>', roda: '<circle cx="12" cy="12" r="8"/><path d="M12 4v8l5 3"/>', csv: '<path d="M6 3h9l4 4v14H6z"/><path d="M9 13h6M9 17h6"/>', mover: '<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>', gira: '<path d="M20 12a8 8 0 11-3-6M20 4v5h-5"/>', espelho: '<path d="M12 3v18M7 7l-4 5 4 5zM17 7l4 5-4 5z"/>', parede: '<path d="M3 20V4h18v16M3 12h18"/>', comp: '<rect x="3" y="7" width="18" height="12" rx="1"/><path d="M3 11h18M12 7v12"/>', seta: '<path d="M5 3l14 9-6 1-3 6z"/>', copiar: '<rect x="8" y="8" width="12" height="12"/><path d="M4 16V4h12"/>', alinha: '<path d="M4 4v16M8 8h12M8 16h8"/>', modulos: '<rect x="3" y="8" width="6" height="10"/><rect x="9" y="8" width="6" height="10"/><rect x="15" y="8" width="6" height="10"/>',
+};
+const ico = (k) => `<svg viewBox="0 0 24 24">${IC[k] || IC.bloco}</svg>`;
+const L_ = (label, icon, o = {}) => ({ k: 'l', label, icon, ...o });
+const S_ = (label, icon, o = {}) => ({ k: 's', label, icon, ...o });
+const STK = (...items) => ({ k: 'stack', items });
+const SPL = (main, ...vars) => ({ ...main, split: vars });
+const RIB_EDITOR = {
+  tabs: ['Criar', 'Inserir', 'Modificar', 'Vista', 'Gerenciar'], on: 0,
+  panels: [
+    ['Peças de chapa', [SPL(L_('Painel', 'painel'), 'Lateral', 'Base', 'Topo / travessa', 'Prateleira', 'Divisória', 'Fundo', 'Rodapé'), L_('Tampo', 'tampo'), SPL(L_('Porta', 'porta'), 'De abrir', 'De correr', 'Basculante', 'Dobradiça dupla'), L_('Gaveta', 'gaveta')]],
+    ['Forma livre', [L_('Bloco', 'bloco'), L_('Vazio', 'vazio', { tip: 'corta os sólidos da família' }), STK(S_('Cilindro', 'bloco', { dis: 1 }), S_('Extrusão', 'bloco', { dis: 1 }), S_('Revolução', 'bloco', { dis: 1 }))]],
+    ['Ferragens', [STK(S_('Puxador', 'ferragem'), S_('Dobradiça', 'ferragem'), S_('Corrediça', 'ferragem')), STK(S_('Pé regulável', 'ferragem'), S_('Cabideiro', 'ferragem'), S_('Outra…', 'ferragem'))]],
+    ['Usinagem', [STK(S_('Furo', 'furo'), S_('Rasgo', 'rasgo'), S_('Recorte', 'rasgo'))]],
+    ['Referência', [L_('Plano de referência', 'plano'), L_('Repetir', 'repetir'), L_('Módulo aninhado', 'aninhar', { novo: 1 })]],
+    ['Propriedades', [L_('Parâmetros', 'param', { go: 'parametros' }), L_('Tipos', 'tipos', { go: 'tipos' }), L_('Categoria e hospedagem', 'cat')]],
+    ['Testar', [L_('Flexionar', 'flex'), L_('Validar', 'valida'), L_('Lista de peças', 'lista', { go: 'pecas' })]],
+    ['Editor de família', [L_('Carregar no projeto', 'carregar'), L_('Carregar e fechar', 'carregar')]],
+  ],
+};
+const RIB_ARQ = {
+  tabs: ['Arquivo', 'Arquitetura', 'Estrutura', 'Inserir', 'Anotar', 'Vista', 'Gerenciar', 'Modificar', 'Modificar | Colocar Componente'], on: 1,
+  panels: [
+    ['Selecionar', [L_('Modificar', 'seta')]],
+    ['Construir', [L_('Parede', 'parede'), L_('Porta', 'porta'), L_('Janela', 'comp'), L_('Componente', 'comp', { on: 1, novo: 1, tip: 'antes esmaecido (soon)' }), L_('Pilar', 'bloco', { dis: 1 }), L_('Telhado', 'tampo'), L_('Piso', 'base')]],
+    ['Circulação', [L_('Rampa', 'base'), L_('Escada', 'lateral')]],
+    ['Ambiente e área', [L_('Ambiente', 'cat')]],
+    ['Referência', [L_('Nível', 'cota'), L_('Grade', 'plano')]],
+  ],
+};
+const RIB_COLOCAR = {
+  tabs: ['Arquivo', 'Arquitetura', 'Estrutura', 'Inserir', 'Anotar', 'Vista', 'Gerenciar', 'Modificar', 'Modificar | Colocar Componente'], on: 8, ctx: 1,
+  panels: [
+    ['Selecionar', [L_('Modificar', 'seta')]],
+    ['Tipo', [L_('Armário 80 (2 portas)', 'comp', { w: 1, car: 1 })]],
+    ['Colocação', [STK(S_('Girar 90° (Espaço)', 'gira'), S_('Espelhar (Tab)', 'espelho'), S_('Encaixar na parede', 'parede')), L_('Em linha', 'modulos', { novo: 1, tip: 'cada clique encosta no módulo anterior' })]],
+    ['Família', [L_('Carregar família', 'carregar'), L_('Editar família', 'param', { go: 'editor' })]],
+    ['Etiqueta', [L_('Etiquetar ao inserir', 'cat')]],
+  ],
+};
+function ribHTML(R) {
+  const tabs = R.tabs.map((t, i) => `<span class="${i === R.on ? 'on' : ''} ${t.startsWith('Modificar |') ? 'ctx' : ''}">${t}</span>`).join('');
+  const panels = R.panels.map(([n, items]) => `<div class="rpanel"><div class="items">${items.map(itemHTML).join('')}</div><div class="pname">${n}</div></div>`).join('');
+  return `<div class="ribtabs">${tabs}</div><div class="ribbon ${R.ctx ? 'ctxbar' : ''}">${panels}</div>`;
+}
+function itemHTML(it) {
+  if (it.k === 'stack') return `<div class="rstack">${it.items.map(itemHTML).join('')}</div>`;
+  const go = it.go ? ` data-go="${it.go}"` : '';
+  const badge = it.novo ? '<span class="tag novo" style="font-size:9px;padding:0 4px">novo</span>' : '';
+  const title = it.tip ? ` title="${esc(it.tip)}"` : '';
+  if (it.k === 's') return `<button class="rs" ${it.dis ? 'disabled' : ''}${go}${title}>${ico(it.icon)}<span>${it.label}</span></button>`;
+  return `<button class="rb ${it.on ? 'on' : ''}" ${it.dis ? 'disabled' : ''}${go}${title} style="${it.w ? 'width:96px' : ''}">${ico(it.icon)}<span>${it.label}${it.split ? '<br><span class="car">▾ ' + it.split.length + ' formas</span>' : it.car ? ' <span class="car">▾</span>' : ''}</span>${badge}</button>`;
+}
+
+/* ===================================================================
+   5. TELAS
+   =================================================================== */
+const $ = (id) => document.getElementById(id);
+function frame(title, docs, rib, body, status) {
+  return `<div class="titlebar"><span class="hbtn">H</span><span class="ttl">${title}</span><span>—  ▢  ✕</span></div>
+  <div class="doctabs">${docs}</div>${ribHTML(rib)}<div class="body">${body}</div><div class="status">${status}</div>`;
+}
+const dk = (side, title, extra, inner) => `<div class="dock ${side}"><div class="ph"><span>${title}</span><span>${extra || ''}</span></div><div class="pbody">${inner}</div></div>`;
+const rowH = (l, v, ro) => `<div class="row ${ro ? 'ro' : ''}"><label title="${esc(l)}">${l}</label><div class="v">${v}</div></div>`;
+
+function treeEditor(res) {
+  const err = res.erros; const byPapel = {};
+  PARTS.forEach((p) => { (byPapel[p.papel] = byPapel[p.papel] || []).push(p); });
+  const li = (cls, t, id) => `<li class="${cls} ${id && id === S.sel ? 'sel' : ''}" ${id ? `data-sel="${id}"` : ''}>${t}</li>`;
+  const pecas = PARTS.map((p) => { const e = Object.keys(err).filter((k) => k.startsWith(p.id + '.')); const n = res.pecas.filter((x) => x.id === p.id).length; const off = !n && !e.length; return li('l2', `${p.nome}<span class="m">${off ? 'oculta (condição)' : '×' + n}</span>${e.length ? '<span class="er">!</span>' : ''}`, p.id); }).join('');
+  return `<ul class="tree">
+    ${li('h', '▾ Parâmetros (' + (PARAMS.length + DERIVED.length) + ')')}${li('l2', 'L · A · P · corpo · montagem · fundo…')}${li('l2', '<span class="sig">Σ</span> 8 derivados')}
+    ${li('h', '▾ Planos de referência (3)')}${li('l2', 'Esquerda · Direita · Frente')}
+    ${li('h', '▾ Peças (' + PARTS.length + ' definidas, ' + res.pecas.length + ' resolvidas)')}${pecas}
+    ${li('h', '▾ Ferragens (3)')}${li('l2', 'Dobradiça ×4 · Puxador ×2 · Pino ×8')}
+    ${li('h', '▾ Tipos (' + TIPOS.length + ')')}${TIPOS.map((t) => li('l2 ' + (t.id === S.tipo ? 'sel' : ''), t.nome)).join('')}
+  </ul>`;
+}
+function propsPeca(res) {
+  const p = PARTS.find((x) => x.id === S.sel); if (!p) return '<div class="hint">Selecione uma peça.</div>';
+  const err = (c) => res.erros[p.id + '.' + c] || '';
+  const field = (c, label) => { const c2 = cf(p.id + '.' + c, p[c] || ''); const bad = c2.err || err(c); return `<div class="row"><label>${label}</label><div><input class="f mono ${bad ? 'bad' : ''}" data-f="${c}" value="${esc(p[c] || '')}" aria-label="${label}"></div></div>${bad ? `<div class="msg err">${esc(bad)}</div>` : ''}`; };
+  const r = res.pecas.find((x) => x.id === p.id);
+  return `<div class="grp"><div class="gh">Identidade</div>${rowH('Nome', esc(p.nome))}${rowH('Papel', p.papel)}${rowH('Chapa / material', p.cor === 'corpo' ? 'corpo (' + S.corpo + ' mm)' : p.cor)}${rowH('Eixo da espessura', p.eixo.toUpperCase())}</div>
+  <div class="grp"><div class="gh"><span class="sig">Σ</span> Posição (canto mínimo)</div>${field('ox', 'X')}${field('oy', 'Y (frente → fundo)')}${field('oz', 'Z (altura)')}</div>
+  <div class="grp"><div class="gh"><span class="sig">Σ</span> Tamanho</div>${field('a', p.eixo === 'x' ? 'a · profundidade' : 'a · largura')}${field('b', p.eixo === 'z' ? 'b · profundidade' : 'b · altura')}${field('t', 'Espessura')}</div>
+  <div class="grp"><div class="gh"><span class="sig">Σ</span> Repetição e condição</div>${p.n !== undefined ? field('n', 'Repetir (n)') : rowH('Repetir', '— (uma peça)', 1)}${p.when !== undefined ? field('when', 'Existe se') : rowH('Existe se', 'sempre', 1)}</div>
+  <div class="grp"><div class="gh">Fabricação</div>${rowH('Fita de borda', p.fita)}${rowH('Veio', p.veio)}${rowH('Usinagens', p.usin + ' <span class="no">(fórmula)</span>')}${rowH('Detalhe 3D', 'grosso · médio · fino')}</div>
+  ${r ? `<div class="hint">Resolvida: ${r.ca} × ${r.cb} × ${r.ct} mm em (${r.ox}, ${r.oy}, ${r.oz}).</div>` : '<div class="hint">Esta peça não aparece com os valores atuais.</div>'}`;
+}
+function flexPanel() {
+  const sl = (id) => { const p = PARAMS.find((x) => x.id === id); return `<div class="slider"><label for="fx-${id}">${p.nome.split(' ')[0]}</label><input type="range" id="fx-${id}" data-fx="${id}" min="${p.min}" max="${p.max}" step="${p.step}" value="${S[id]}"><output id="fo-${id}">${S[id]}</output></div>`; };
+  const se = (id) => { const p = PARAMS.find((x) => x.id === id); return `<div class="row"><label for="fx-${id}">${p.nome}</label><select class="f" id="fx-${id}" data-fx="${id}">${p.opts.map((o) => `<option ${o === S[id] ? 'selected' : ''}>${o}</option>`).join('')}</select></div>`; };
+  return `<div class="grp"><div class="gh">Flexionar (testa a família)</div>${sl('L')}${sl('A')}${sl('P')}${sl('nPrat')}${sl('nPortas')}${se('corpo')}${se('montagem')}${se('fundo')}${se('tampo')}<div class="hint">Cada movimento reavalia as fórmulas e valida: peça fora da caixa, dimensão ≤ 0, ciclo.</div></div>`;
+}
+function validacao(res) {
+  const out = []; const e = res.env;
+  const bad = Object.entries(res.erros);
+  bad.forEach(([k, m]) => out.push(['err', k + ': ' + m]));
+  /* peça fora da caixa do módulo */
+  const fora = res.pecas.filter((p) => p.papel !== 'porta' && p.papel !== 'tampo' && (p.ox < -0.001 || p.ox + p.sx > e.L + 0.001 || p.oz + p.sz > e.A + 0.001));
+  fora.forEach((p) => out.push(['err', p.nome + ' sai da caixa do módulo']));
+  /* sobreposição entre peças de chapa do corpo (volume da interseção > 1e-9 m³ = 1 mm³) */
+  const ch = res.pecas.filter((p) => ['lateral', 'base', 'travessa', 'prateleira', 'fundo'].includes(p.papel));
+  let sobrep = 0;
+  for (let i = 0; i < ch.length; i++) for (let j = i + 1; j < ch.length; j++) { const a = ch[i], b = ch[j]; const ix = Math.min(a.ox + a.sx, b.ox + b.sx) - Math.max(a.ox, b.ox), iy = Math.min(a.oy + a.sy, b.oy + b.sy) - Math.max(a.oy, b.oy), iz = Math.min(a.oz + a.sz, b.oz + b.sz) - Math.max(a.oz, b.oz); if (ix > 0.01 && iy > 0.01 && iz > 0.01) { sobrep++; out.push(['err', a.nome + ' atravessa ' + b.nome + ' (' + q(ix * iy * iz) + ' mm³)']); } }
+  if (!out.length) out.push(['ok', 'Sem problemas: ' + res.pecas.length + ' peças, nenhuma fora da caixa, nenhuma atravessando outra.']);
+  return out.slice(0, 5).map(([t, m]) => `<div class="msg ${t === 'err' ? 'err' : ''}">${esc(m)}</div>`).join('') + (out.length > 5 ? `<div class="hint">+ ${out.length - 5} problemas</div>` : '');
+}
+function renderEditor() {
+  const res = resolver();
+  const vt = ['3d', 'frente', 'lateral', 'planta'].map((v) => `<button data-view="${v}" class="${S.view === v ? 'on' : ''}">${{ '3d': 'Vista 3D', frente: 'Frente', lateral: 'Lateral', planta: 'Planta' }[v]}</button>`).join('');
+  const opts = `<div class="vopts"><label><input type="checkbox" id="o-expl" ${S.explodir ? 'checked' : ''}> Explodir</label><label><input type="checkbox" id="o-port" ${S.portas ? 'checked' : ''}> Mostrar portas</label><label>Detalhe <select id="o-det" class="f" style="width:78px">${['grosso', 'medio', 'fino'].map((d) => `<option ${d === S.detalhe ? 'selected' : ''}>${d}</option>`).join('')}</select></label></div>`;
+  const work = `<div class="work"><div class="vtabs">${vt}${opts}</div><div class="canvas" id="cv-ed"></div><div class="vcb"><span>1:10</span><span>Detalhe: ${S.detalhe}</span><span>Estilo: sombreado</span><span style="margin-left:auto">Tipo: ${TIPOS.find((t) => t.id === S.tipo).nome}</span></div></div>`;
+  $('win-editor').innerHTML = frame('Hestia – [Família: Armário baixo] – Vista 3D',
+    '<span>Casa-modelo.hestia</span><span class="on fam">Família: Armário baixo</span>', RIB_EDITOR,
+    dk('', 'Navegador da família', '', treeEditor(res)) + work + dk('right', 'Propriedades', '', flexPanel() + `<div class="grp"><div class="gh">Validação</div>${validacao(res)}</div>` + propsPeca(res)),
+    `<span><span class="dot"></span>Motor: TS</span><span>Peças resolvidas: ${res.pecas.length}</span><span>${res.ms.toFixed(2)} ms</span><span>arredondado a 1 µm</span><span class="sp"></span><span>Alterações não carregadas no projeto</span>`);
+  const cv = $('cv-ed'); cv.innerHTML = drawView(res, 760, 440);
+  bindEditor();
+  renderPecas(res); renderParams(res); renderTipos();
+}
+function bindEditor() {
+  const w = $('win-editor');
+  w.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => { S.view = b.dataset.view; renderEditor(); }));
+  w.querySelectorAll('[data-sel]').forEach((b) => b.addEventListener('click', () => { S.sel = b.dataset.sel; renderEditor(); }));
+  w.querySelectorAll('svg [data-id]').forEach((b) => b.addEventListener('click', () => { S.sel = b.dataset.id; renderEditor(); }));
+  $('o-expl').addEventListener('change', (e) => { S.explodir = e.target.checked; renderEditor(); });
+  $('o-port').addEventListener('change', (e) => { S.portas = e.target.checked; renderEditor(); });
+  $('o-det').addEventListener('change', (e) => { S.detalhe = e.target.value; renderEditor(); });
+  w.querySelectorAll('[data-fx]').forEach((el) => el.addEventListener('input', () => { const id = el.dataset.fx; const v = el.tagName === 'SELECT' ? (isNaN(+el.value) ? el.value : +el.value) : +el.value; S[id] = v; const o = $('fo-' + id); if (o) o.textContent = v; rerenderLive(); }));
+  w.querySelectorAll('input[data-f]').forEach((el) => el.addEventListener('change', () => { const p = PARTS.find((x) => x.id === S.sel); p[el.dataset.f] = el.value; renderEditor(); }));
+  w.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => go(b.dataset.go)));
+}
+let raf = 0;
+function rerenderLive() { /* durante o arrasto não reconstrói os controles, só o desenho e as listas */
+  cancelAnimationFrame(raf); raf = requestAnimationFrame(() => { const res = resolver(); $('cv-ed').innerHTML = drawView(res, 760, 440); $('cv-ed').querySelectorAll('svg [data-id]').forEach((b) => b.addEventListener('click', () => { S.sel = b.dataset.id; renderEditor(); })); const st = $('win-editor').querySelector('.status'); st.innerHTML = `<span><span class="dot"></span>Motor: TS</span><span>Peças resolvidas: ${res.pecas.length}</span><span>${res.ms.toFixed(2)} ms</span><span>arredondado a 1 µm</span><span class="sp"></span><span>Alterações não carregadas no projeto</span>`; renderPecas(res); renderParams(res); });
+}
+function renderParams(res) {
+  const rows = PARAMS.map((p) => `<tr><td>${p.nome}</td><td>${p.kind}</td><td><span class="tag ${p.escopo === 'tipo' ? '' : 'novo'}">${p.escopo}</span></td><td>${p.ctl === 'sel' ? `<select class="f" data-px="${p.id}" style="width:170px">${p.opts.map((o) => `<option ${o === S[p.id] ? 'selected' : ''}>${o}</option>`).join('')}</select>` : `<input class="f" type="number" data-px="${p.id}" min="${p.min}" max="${p.max}" step="${p.step}" value="${S[p.id]}" style="width:90px">`}</td><td class="mono">${p.min !== undefined ? p.min + ' – ' + p.max : '—'}</td><td class="mono no">—</td></tr>`).join('');
+  const der = DERIVED.map((d) => `<tr><td>${d.nome}</td><td>number</td><td><span class="tag">tipo</span></td><td class="mono">${res.env[d.id]}</td><td>—</td><td class="mono"><span class="sig">Σ</span> ${esc(d.f)}</td></tr>`).join('');
+  $('win-parametros').innerHTML = `<div class="dback"><div class="dwin"><div class="dt"><span>Parâmetros da família · Armário baixo</span><span>✕</span></div><div class="db"><div class="scroll" style="max-height:430px"><table class="t"><thead><tr><th>Nome</th><th>Tipo de dado</th><th>Escopo</th><th>Valor</th><th>Faixa</th><th>Fórmula</th></tr></thead><tbody>${rows}${der}</tbody></table></div><div class="hint">Regras: no máximo 256 parâmetros e fórmulas de até 512 caracteres; ciclo entre fórmulas é recusado ao salvar; resultado arredondado a 1 µm uma vez, na saída.</div></div><div class="df"><button class="bt">Novo parâmetro…</button><button class="bt">Excluir</button><span style="flex:1"></span><button class="bt">Cancelar</button><button class="bt pri">OK</button></div></div></div>`;
+  $('win-parametros').querySelectorAll('[data-px]').forEach((el) => el.addEventListener('change', () => { const id = el.dataset.px; S[id] = el.tagName === 'SELECT' && !isNaN(+el.value) ? +el.value : (el.type === 'number' ? +el.value : el.value); renderEditor(); }));
+}
+function renderTipos() {
+  const cols = PARAMS;
+  const head = cols.map((p) => `<th>${p.nome.replace(/ \(.*/, '')}${p.escopo === 'instância' ? ' <span class="no">(padrão)</span>' : ''}</th>`).join('');
+  const rows = TIPOS.map((t) => `<tr data-tp="${t.id}" style="${t.id === S.tipo ? 'background:var(--accent-soft)' : ''}"><td><b>${t.nome}</b></td>${cols.map((p) => `<td class="n">${t.v[p.id]}</td>`).join('')}</tr>`).join('');
+  $('win-tipos').innerHTML = `<div class="dback"><div class="dwin"><div class="dt"><span>Tipos da família · Armário baixo</span><span>✕</span></div><div class="db"><div class="scroll"><table class="t"><thead><tr><th>Tipo</th>${head}</tr></thead><tbody>${rows}</tbody></table></div><div class="hint">Clique numa linha para tornar o tipo corrente. Parâmetros de instância mostram o valor padrão do tipo; cada móvel colocado pode mudá-lo.</div></div><div class="df"><button class="bt">Novo tipo</button><button class="bt">Duplicar</button><button class="bt">Excluir</button><span style="flex:1"></span><button class="bt pri">OK</button></div></div></div>`;
+  $('win-tipos').querySelectorAll('[data-tp]').forEach((tr) => tr.addEventListener('click', () => { const t = TIPOS.find((x) => x.id === tr.dataset.tp); S.tipo = t.id; Object.assign(S, t.v); renderEditor(); renderColocar(); }));
+}
+function renderPecas(res) {
+  const g = {}; let fitaM = 0, furos = 0, area = 0;
+  const rows = res.pecas.map((p, i) => {
+    const m2 = (p.ca * p.cb) / 1e6; area += m2; furos += p.usinN; g[p.ct] = (g[p.ct] || 0) + m2;
+    const per = { frente: p.papel === 'lateral' || p.papel === 'base' || p.papel === 'prateleira' || p.papel === 'tampo' ? p.ca : (p.eixo === 'z' ? p.ca : p.ca), 'topo': p.ca, '4 lados': 2 * (p.ca + p.cb) }[p.fita] || 0; fitaM += per / 1000;
+    return `<tr><td class="n">${i + 1}</td><td>${p.nome}</td><td>${p.papel}</td><td>${p.cor === 'corpo' || p.cor === 'porta' || p.cor === 'tampo' ? 'MDF' : p.cor === 'fundo' ? 'MDF fundo' : p.cor} ${p.ct} mm</td><td class="n">${p.ca}</td><td class="n">${p.cb}</td><td class="n">${p.ct}</td><td>${p.fita}</td><td>${p.veio}</td><td class="n">${p.usinN}</td><td class="n">${m2.toFixed(3)}</td></tr>`;
+  }).join('');
+  const resumo = Object.entries(g).map(([e, a]) => `${e} mm: <b>${a.toFixed(2)} m²</b>`).join(' · ');
+  $('win-pecas').innerHTML = `<div class="dback"><div class="dwin"><div class="dt"><span>Lista de peças · ${TIPOS.find((t) => t.id === S.tipo).nome} · L ${S.L} × A ${S.A} × P ${S.P}</span><span>✕</span></div><div class="db"><div class="scroll" style="max-height:380px"><table class="t"><thead><tr><th class="n">Nº</th><th>Peça</th><th>Papel</th><th>Material</th><th class="n">Comp.</th><th class="n">Larg.</th><th class="n">Esp.</th><th>Fita</th><th>Veio</th><th class="n">Usin.</th><th class="n">Área m²</th></tr></thead><tbody>${rows}</tbody></table></div><p style="margin:8px 0 0"><b>${res.pecas.length}</b> peças · área total <b>${area.toFixed(2)} m²</b> (${resumo}) · fita ≈ <b>${fitaM.toFixed(1)} m</b> · usinagens <b>${furos}</b>. <span class="no">Fita e usinagens são estimativas de exemplo neste protótipo.</span></p></div><div class="df"><button class="bt">Copiar CSV</button><button class="bt" disabled title="fase posterior">Plano de corte…</button><span style="flex:1"></span><button class="bt pri">Fechar</button></div></div></div>`;
+}
+
+/* ---- colocar ---- */
+function renderColocar() {
+  const tp = TIPOS.find((t) => t.id === S.tipo); const sc = 0.2;
+  const cab = (x, y, w, h, c) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c || 'var(--m-corpo)'}" fill-opacity=".8" stroke="var(--line-strong)"/><path d="M${x} ${y}h${w}" stroke="var(--fg-soft)" stroke-width="1.5"/>`;
+  const ghostW = tp.v.L * sc, ghostD = tp.v.P * sc;
+  const plan = `<svg viewBox="0 0 760 440" font-family="Segoe UI,system-ui,sans-serif">
+    <g stroke="var(--fg)" stroke-width="3" fill="none"><path d="M80 60H700V380H80z"/></g>
+    <g stroke="var(--fg)" stroke-width="3"><path d="M80 380H300M380 380H700" /></g>
+    <rect x="300" y="376" width="80" height="8" fill="var(--sheet)" stroke="var(--fg-soft)"/><text x="340" y="404" text-anchor="middle" font-size="10" fill="var(--fg-faint)">J-01</text>
+    ${cab(84, 64, 120, 112)}${cab(204, 64, 160, 112)}<rect x="364" y="64" width="${160}" height="112" fill="var(--m-livre)" fill-opacity=".6" stroke="var(--line-strong)"/><text x="444" y="124" text-anchor="middle" font-size="11" fill="var(--fg-soft)">cooktop (outro tipo)</text>${cab(524, 64, 172, 112)}
+    <text x="144" y="124" text-anchor="middle" font-size="10" fill="var(--fg)">A60</text><text x="284" y="124" text-anchor="middle" font-size="10" fill="var(--fg)">A80</text>
+    <g opacity=".9"><rect x="${696 - ghostD}" y="${200}" width="${ghostD}" height="${ghostW}" fill="var(--accent)" fill-opacity=".25" stroke="var(--accent)" stroke-dasharray="5 3" stroke-width="2"/><text x="${696 - ghostD / 2}" y="${200 + ghostW / 2}" text-anchor="middle" font-size="10" fill="var(--accent)" transform="rotate(-90 ${696 - ghostD / 2} ${200 + ghostW / 2})">${tp.id} · ${tp.v.L}</text></g>
+    <g fill="var(--accent)" stroke="var(--accent)" stroke-width="1"><line x1="${696 - ghostD - 10}" y1="${200}" x2="${696 - ghostD - 10}" y2="176"/><text x="${696 - ghostD - 14}" y="190" text-anchor="end" font-size="11" stroke="none">24</text><line x1="${696 - ghostD - 10}" y1="${200 + ghostW}" x2="${696 - ghostD - 10}" y2="380"/><text x="${696 - ghostD - 14}" y="${200 + ghostW + 40}" text-anchor="end" font-size="11" stroke="none">${Math.round((180 - ghostW) / sc * 0.1) * 10}</text></g>
+    <text x="14" y="430" font-size="11" fill="var(--fg-faint)">Planta · Térreo · 1:50 · cotas temporárias até as quinas das paredes (mm)</text></svg>`;
+  const types = TIPOS.map((t) => `<li class="${t.id === S.tipo ? 'sel' : ''}" data-tipo="${t.id}">${t.nome}</li>`).join('');
+  const prop = `<div class="grp"><div class="gh">Tipo</div><ul class="tree" style="border-bottom:1px solid var(--line)"><li class="h">▾ Marcenaria › Armário baixo</li>${types}</ul></div>
+  <div class="grp"><div class="gh">Instância</div>${rowH('Nível', 'Térreo')}${rowH('Largura (L)', `<input class="f" value="${tp.v.L}">`)}${rowH('Altura (A)', `<input class="f" value="${tp.v.A}">`)}${rowH('Profundidade (P)', `<input class="f" value="${tp.v.P}">`)}${rowH('Desloc. do piso', '<input class="f" value="0">')}${rowH('Rotação', '<input class="f" value="270°">')}${rowH('Marca', '<input class="f" value="M-03">')}</div>
+  <div class="grp"><div class="gh">Fabricação</div>${rowH('Chapa do corpo', tp.v.corpo + ' mm', 1)}${rowH('Fundo', tp.v.fundo, 1)}${rowH('Peças', resolverPara(tp).pecas.length + '', 1)}</div>
+  <div class="hint">Largura, altura e profundidade são de instância: mudam só este móvel. O resto vem do tipo (“Editar tipo”).</div>`;
+  const nav = `<ul class="tree"><li class="h">▾ Vistas (1)</li><li class="l2 sel">Planta de piso: Térreo</li><li class="l2">3D</li><li class="h">▾ Famílias</li><li class="l2">▸ Portas (12)</li><li class="l2">▾ Marcenaria (1)</li><li class="l2" style="padding-left:46px">▾ Armário baixo</li>${TIPOS.map((t) => `<li class="l2" style="padding-left:60px">${t.nome}</li>`).join('')}<li class="h">▾ Tabelas</li><li class="l2">Lista de peças (marcenaria)</li></ul>`;
+  $('win-colocar').innerHTML = frame('Hestia – [Casa-modelo] – Planta de piso: Térreo', '<span class="on">Casa-modelo.hestia</span>', RIB_COLOCAR,
+    dk('', 'Propriedades', '', prop) + `<div class="work"><div class="canvas">${plan}</div><div class="vcb"><span>1:50</span><span>Detalhe: médio</span><span style="margin-left:auto">Espaço: girar · Tab: lado · Esc: sair · clique: inserir e continuar</span></div></div>` + dk('right', 'Navegador de projeto', '', nav),
+    '<span>Clique para colocar “' + tp.nome + '”</span><span class="sp"></span><span><span class="dot"></span>Motor: TS</span><span>Filtro: 0</span>');
+  $('win-colocar').querySelectorAll('[data-tipo]').forEach((li) => li.addEventListener('click', () => { const t = TIPOS.find((x) => x.id === li.dataset.tipo); S.tipo = t.id; Object.assign(S, t.v); renderEditor(); renderColocar(); }));
+  $('win-colocar').querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => go(b.dataset.go)));
+}
+function resolverPara(t) { const salvo = { ...S }; Object.assign(S, t.v); const r = resolver(); Object.assign(S, salvo); return r; }
+
+/* ---- assistente ---- */
+function thumb(o) { /* esquema de frente do móvel: o = {w,h,portas,gav,prat,tampo,aereo,canto} */
+  const W = 150, H = 78, mw = Math.min(130, o.w || 90), mh = o.h || 56, x0 = (W - mw) / 2, y0 = H - mh - 8; let s = '';
+  s += `<rect x="${x0}" y="${y0}" width="${mw}" height="${mh}" fill="var(--m-corpo)" fill-opacity=".55" stroke="var(--line-strong)"/>`;
+  if (o.tampo) s += `<rect x="${x0 - 3}" y="${y0 - 4}" width="${mw + 6}" height="4" fill="var(--m-tampo)"/>`;
+  const nP = o.portas || 0; for (let i = 0; i < nP; i++) s += `<rect x="${x0 + 2 + i * (mw / nP)}" y="${y0 + 2}" width="${mw / nP - 4}" height="${mh - 4}" fill="var(--m-porta)" stroke="var(--line-strong)"/>`;
+  const nG = o.gav || 0; for (let i = 0; i < nG; i++) s += `<rect x="${x0 + 2}" y="${y0 + 2 + i * ((mh - 4) / nG)}" width="${mw - 4}" height="${(mh - 4) / nG - 2}" fill="var(--m-porta)" stroke="var(--line-strong)"/><path d="M${x0 + mw / 2 - 8} ${y0 + 2 + i * ((mh - 4) / nG) + ((mh - 4) / nG - 2) / 2}h16" stroke="var(--fg-soft)"/>`;
+  const nS = o.prat || 0; if (!nP && !nG) for (let i = 1; i <= nS; i++) s += `<path d="M${x0} ${y0 + (i * mh) / (nS + 1)}h${mw}" stroke="var(--line-strong)" stroke-width="2"/>`;
+  if (o.rail) s += `<path d="M${x0 + 4} ${y0 + 12}h${mw - 8}" stroke="var(--fg-soft)" stroke-width="2"/>`;
+  if (o.pernas) s += `<path d="M${x0 + 4} ${y0 + mh}v8M${x0 + mw - 4} ${y0 + mh}v8" stroke="var(--fg-soft)" stroke-width="3"/>`;
+  if (o.aereo) s += `<path d="M${x0 - 6} ${y0 - 10}h${mw + 12}" stroke="var(--fg-soft)" stroke-dasharray="3 2"/>`;
+  return `<svg viewBox="0 0 ${W} ${H}">${s}</svg>`;
+}
+const TPLS = [
+  ['Cozinha', [
+    ['Armário base', 'Caixaria · portas', { w: 100, h: 52, portas: 2, tampo: 1 }, 'cx'], ['Base com gavetas', 'Caixaria · gaveta', { w: 100, h: 52, gav: 3, tampo: 1 }, 'cx'], ['Base de pia', 'Caixaria · recorte no tampo', { w: 120, h: 52, portas: 2, tampo: 1 }, 'cx'], ['Base de cooktop', 'Caixaria · recorte + gavetão', { w: 100, h: 52, gav: 2, tampo: 1 }, 'cx'],
+    ['Armário aéreo', 'Caixaria · portas', { w: 100, h: 34, portas: 2, aereo: 1 }, 'cx'], ['Aéreo basculante', 'Caixaria · pistão', { w: 100, h: 28, portas: 1, aereo: 1 }, 'cx'], ['Torre de forno', 'Caixaria · nichos', { w: 52, h: 70, portas: 1, prat: 2 }, 'cx'], ['Paneleiro', 'Caixaria · gavetas altas', { w: 52, h: 70, gav: 4 }, 'cx'], ['Canto em L', 'Caixaria · contorno em L', { w: 110, h: 52, portas: 2, tampo: 1 }, 'cx2'] ]],
+  ['Dormitório e closet', [
+    ['Guarda-roupa (módulo)', 'Caixaria · portas de correr', { w: 110, h: 68, portas: 3, rail: 1 }, 'cx'], ['Cabideiro e prateleiras', 'Caixaria · aberto', { w: 100, h: 62, prat: 4, rail: 1 }, 'cx'], ['Cômoda', 'Caixaria · gavetas', { w: 100, h: 48, gav: 4, tampo: 1 }, 'cx'], ['Criado-mudo', 'Caixaria · gaveta', { w: 60, h: 40, gav: 2, tampo: 1 }, 'cx'], ['Cama com baú', 'Painéis + bloco', { w: 120, h: 30, pernas: 1 }, 'fl'], ['Painel de TV', 'Painéis · nichos', { w: 120, h: 56, prat: 3 }, 'cx'] ]],
+  ['Sala, escritório e áreas molhadas', [
+    ['Rack', 'Caixaria · nichos + portas', { w: 120, h: 34, portas: 3, tampo: 1 }, 'cx'], ['Estante', 'Caixaria · prateleiras', { w: 100, h: 70, prat: 5 }, 'cx'], ['Mesa com gaveteiro', 'Tampo + pernas + gaveteiro', { w: 110, h: 42, gav: 2, tampo: 1, pernas: 1 }, 'cx'], ['Gabinete de banheiro', 'Caixaria · recorte de cuba', { w: 90, h: 40, portas: 2, tampo: 1 }, 'cx'], ['Armário de lavanderia', 'Caixaria · portas', { w: 100, h: 60, portas: 2 }, 'cx'], ['Mesa / banco', 'Forma livre', { w: 100, h: 40, pernas: 1, tampo: 1 }, 'fl'] ]],
+  ['Para começar do zero', [
+    ['Módulo em branco', 'Caixa + 3 parâmetros (L, A, P)', { w: 90, h: 50 }, 'cx'], ['Bloco de forma livre', 'Mobília solta', { w: 90, h: 44, pernas: 1 }, 'fl'], ['Conjunto de módulos', 'Agrupa módulos aninhados', { w: 130, h: 50, portas: 3 }, 'nest'] ]],
+];
+function renderAssistente() {
+  const kind = { cx: '<span class="tag">peças de chapa</span>', cx2: '<span class="tag w">ampliar ADR</span>', fl: '<span class="tag">forma livre</span>', nest: '<span class="tag w">ampliar ADR</span>' };
+  const side = `<ul class="tree"><li class="h">Modelos</li><li class="l2 sel">Marcenaria</li><li class="l2">Mobiliário</li><li class="l2">Louças e metais</li><li class="l2">Equipamentos</li><li class="h">Meus modelos</li><li class="l2">(vazio)</li><li class="h">Arquivo</li><li class="l2">Abrir família…</li></ul>`;
+  const gal = TPLS.map(([g, it]) => `<div class="ghd">${g}</div><div class="gal">${it.map(([n, d, o, k]) => `<div class="tpl">${thumb(o)}<b>${n}</b><small>${d}</small>${kind[k]}</div>`).join('')}</div>`).join('');
+  $('win-assistente').innerHTML = `<div class="dback"><div class="dwin"><div class="dt"><span>Novo ▸ Família ▸ Escolha o modelo</span><span>✕</span></div><div class="db" style="display:grid;grid-template-columns:200px 1fr;gap:0;padding:0"><div style="border-right:1px solid var(--line)">${side}</div><div style="max-height:470px;overflow:auto">${gal}</div></div><div class="df"><span style="flex:1;color:var(--fg-faint)">O modelo só preenche parâmetros, peças e fórmulas; nada fica preso a ele.</span><button class="bt">Cancelar</button><button class="bt pri">Criar</button></div></div></div>`;
+}
+
+/* ---- cobertura / reuso / rust / trabalho ---- */
+function tabela(cab, linhas) { return `<table class="t"><thead><tr>${cab.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${linhas.map((l) => `<tr>${l.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`; }
+const OK = '<span class="ok">F8</span>';
+function renderEstaticas() {
+  $('cobertura').innerHTML = tabela(['Móvel', 'Ferramentas que usa', 'Fase', 'Observação'], [
+    ['Armário base / aéreo de cozinha', 'Painel (lateral, base, travessa, prateleira, fundo, rodapé), Tampo, Porta de abrir, Puxador, Dobradiça', OK, 'É o exemplo desta tela.'],
+    ['Base com gavetas', 'Gaveta (conjunto: frente, 2 laterais, traseira, fundo, corrediça)', OK + ' <span class="tag w">ampliar ADR</span>', 'A “Gaveta” é uma peça composta parametrizada, com folgas editáveis; hoje o ADR só tem peça simples.'],
+    ['Recorte de pia, cooktop e cuba', 'Recorte retangular ou circular no tampo (usinagem)', OK, 'Gera linha na lista de peças e entra na malha 3D.'],
+    ['Torre quente, paneleiro, nichos', 'Painel + divisória + prateleira com posições por fórmula', OK, 'Altura de nicho vem de parâmetro (ex.: forno 600).'],
+    ['Guarda-roupa e closet', 'Módulos lado a lado, Cabideiro, Porta de correr', OK + ' <span class="tag w">ampliar ADR</span>', 'Precisa de “Módulo aninhado” (família dentro de família) e de Conjunto; está no ADR só como ideia.'],
+    ['Canto em L', 'Painéis ortogonais em duas alas', OK, 'Funciona só com peças ortogonais. Contorno em L numa mesma chapa (tampo em L): v2.'],
+    ['Painel ripado e frisos', 'Painel + Repetir (n por fórmula)', OK, 'Repetição já está no ADR.'],
+    ['Mesa, banco, cama', 'Bloco (forma livre) + Painel, Pés', 'F7', 'Sem chapa; material livre.'],
+    ['Louças, eletros', 'Bloco com nível de detalhe 3D grosso/fino', 'F7 + F6', 'Aparência simples; sem curvas no começo.'],
+    ['Peças curvas (tampo arredondado, cadeira, sofá)', 'Contorno poligonal com arco, revolução, extrusão', '<span class="no">depois</span>', 'Fora do v1 do ADR. Aproximação por blocos até lá.'],
+    ['Linha de módulos (cozinha inteira)', 'Colocar em linha, Preencher o vão da parede', 'F5 + <span class="tag w">ampliar ADR</span>', 'Botão “Em linha” da aba Colocar. Ajuste automático de largura por regra: depois.'],
+  ]);
+  $('reuso').innerHTML = tabela(['Elemento da interface', 'Já existe em', 'O que muda'], [
+    ['Faixa de opções por dados (aba → painel → item, botão dividido, pilha)', 'apps/web/src/ui/ribbon/model.ts, tabsMain.ts', 'Nova aba “Editor de família” e contextual “Colocar Componente”; o botão deixa de ser <code>soon</code>.'],
+    ['Docks Propriedades e Navegador, arrastáveis', 'apps/web/src/ui/Dock.tsx, PanelHead.tsx', 'Navegador da família (árvore própria) e Propriedades da peça; mesma mecânica.'],
+    ['Campos Grupo/Linha/NumField/Check', 'apps/web/src/ui/fields.tsx', 'Campo de fórmula (ícone Σ) é o único novo.'],
+    ['Painel de colocação com opções da ferramenta', 'apps/web/src/ui/PlacementProperties.tsx', 'Entra <code>component</code> na lista; mesmo padrão.'],
+    ['Painel de propriedades de objeto', 'apps/web/src/ui/GenericProps.tsx', 'Molde do painel da instância.'],
+    ['Diálogo grande com biblioteca, lista e prévia', 'apps/web/src/ui/dialogs/openingType/DialogXL.tsx', 'Base dos diálogos de Parâmetros, Tipos e Novo módulo.'],
+    ['Projeto-areia para a prévia (ProjectStore próprio)', 'apps/web/src/ui/dialogs/openingType/previewProject.ts', 'Vira o documento da aba “Família”, com desfazer próprio.'],
+    ['Linhas de cota, atalhos, barra de controle da vista, status com motor gráfico', 'ViewControlBar.tsx, StatusBar.tsx, ExperimentosDialog.tsx', 'Status mostra “Motor: TS/Rust” e nº de peças resolvidas.'],
+  ]);
+  $('fluxo-rust').innerHTML = `<div><b>Interface (React)</b><br>mostra e edita a <i>família</i> em texto: parâmetros, fórmulas, peças<br><span class="no">sempre TS</span></div><i>→</i><div><b>Modelo (TS)</b><br>avalia fórmulas, valida, resolve tipo + instância<br><span class="no">sempre TS</span></div><i>→</i><div class="rs-box"><b>Peças resolvidas</b><br>colunas só de números (origem, eixo, a, b, espessura, contorno, furos), ids numéricos<br><span class="no">fronteira do Rust</span></div><i>→</i><div class="rs-box"><b>Núcleo geométrico puro</b><br>malha, contorno em planta, corte, picking, plano de corte<br><span class="no">TS hoje · Rust por fatia (C, D, E)</span></div><i>→</i><div><b>Desenho</b><br>three.js e SVG recebem arrays prontos<br><span class="no">sempre TS</span></div>`;
+  $('painel-dados').innerHTML = tabela(['Painel ou tela', 'Lê', 'Hoje', 'Rust (fatia)'], [
+    ['Árvore e tabela de parâmetros', 'família (texto)', 'TS', 'nunca'],
+    ['Propriedades da peça, validação do Flexionar', 'família + peças resolvidas', 'TS', 'nunca (só validação geométrica pesada, se medir)'],
+    ['Vista 3D do editor e do projeto', 'peças resolvidas → malha', 'TS (instanciado: 1 malha por assinatura)', 'C: malha com contorno, furos e rasgos'],
+    ['Planta e Frente/Lateral do editor', 'peças resolvidas → contorno e recorte', 'TS (<code>union</code> de @hestia/geom)', 'D: contorno em planta e corte'],
+    ['Seleção por clique no 3D', 'faixas de índices por id', 'TS', 'E: picking (BVH)'],
+    ['Lista de peças e CSV', 'peças resolvidas', 'TS (soma de colunas)', 'opcional, baixa prioridade'],
+    ['Plano de corte', 'lista de peças + chapas', 'fase F10, TS de referência', 'E: mesmo algoritmo determinístico, posições idênticas a 1 µm'],
+  ]);
+  $('regras-rust').innerHTML = `<ul style="margin:0;padding-left:18px;display:grid;gap:4px"><li>Toda tela lê <b>peças resolvidas</b>, nunca refaz conta de geometria no componente React.</li><li>Nenhum texto, nome ou fórmula passa para o núcleo: só números e ids.</li><li>Valores arredondados a <b>1 µm</b> uma só vez, na saída da resolução (mesma regra da 0045).</li><li>A interface não conhece o <code>resolveLevel</code>: componente em parede usa só eixo e espessura do modelo.</li><li>Status mostra qual motor atendeu (<span class="dot"></span>TS ou <span class="dot rs"></span>Rust); se o disjuntor desligar o Rust, a tela continua igual.</li><li>Nada nesta interface altera o esquema <code>cena-v*.json</code> nem o <code>.wasm</code>.</li></ul>`;
+  $('trabalho').innerHTML = `<div class="grid g2">
+  <div class="card"><h3 style="margin-top:0">Papéis</h3><p><b>Eu (orquestrador e fiscal)</b>: escrevo a ficha de cada tarefa, defino os testes que decidem se está certo, confiro o resultado e mexo no que o executor não deve decidir (contratos, nomes, esquema). Não escrevo o código extenso.</p><p><b>DeepSeek v4.1 flash (<code>opencode-go/deepseek-v4.1-flash</code>)</b>: executa uma ficha por vez, em um worktree próprio. Nunca o modelo “pro”.</p></div>
+  <div class="card"><h3 style="margin-top:0">O que garante que sai como eu faria</h3><ol style="margin:0;padding-left:18px;display:grid;gap:4px"><li><b>Ficha fechada</b>: arquivos permitidos, assinaturas exatas, o que não tocar.</li><li><b>Testes escritos por mim antes</b> (ou na própria ficha) que definem o aceite.</li><li><b>Portões automáticos</b>: <code>tsc</code>, <code>eslint</code>, <code>vitest</code> e <code>check-boundaries</code> rodados por mim, não pelo relatório dele.</li><li><b>Revisão do diff</b> contra uma lista de pontos (contrato, limites de tamanho, sem dependência nova).</li><li><b>Uma volta de correção</b> com a lista exata de falhas; se persistir, eu assumo ou subo o nível do modelo.</li></ol></div>
+  <div class="card"><h3 style="margin-top:0">Quanto vai para o flash</h3><p>Telas e componentes com especificação fechada, registro em listas, ficha de campos, testes de tabela, catálogo de famílias. <b>Fica comigo ou no modelo forte</b>: parser de fórmulas, contrato das peças resolvidas, esquema e migração, qualquer parte do núcleo que o Rust vai espelhar.</p></div>
+  <div class="card"><h3 style="margin-top:0">Ordem das fichas para esta interface</h3><ol style="margin:0;padding-left:18px;display:grid;gap:3px"><li>I0 · Dados da faixa (aba Editor de família e contextual) — simples</li><li>I1 · Navegador e Propriedades da peça (só leitura) — simples</li><li>I2 · Tabelas de parâmetros e tipos (UI + estado local) — média</li><li>I3 · Vistas do editor sobre peças resolvidas (SVG/three) — média</li><li>I4 · Flexionar + validação — média, minha revisão detalhada</li><li>I5 · Ferramenta Colocar e painéis de colocação — média</li><li>I6 · Assistente “Novo módulo” — simples</li></ol></div></div>`;
+}
+
+/* ===================================================================
+   6. NAVEGAÇÃO por hash simples (#editor, #colocar...)
+   =================================================================== */
+const SCREENS = ['editor', 'colocar', 'parametros', 'tipos', 'pecas', 'assistente', 'cobertura', 'rust', 'trabalho'];
+function go(id) { location.hash = id; }
+function show() {
+  const id = SCREENS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'editor';
+  document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('on', s.id === 's-' + id));
+  document.querySelectorAll('#tabs a').forEach((a) => a.toggleAttribute('aria-current', a.getAttribute('href') === '#' + id)); document.querySelectorAll('#tabs a').forEach((a) => { if (a.getAttribute('href') === '#' + id) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+}
+$('tabs').innerHTML = SCREENS.map((id) => `<a href="#${id}">${$('s-' + id).dataset.title}</a>`).join('');
+window.addEventListener('hashchange', show);
+renderEstaticas(); renderAssistente(); renderColocar(); renderEditor(); show();
+</script>
+</body>
+</html>
