@@ -10,11 +10,13 @@
 //
 // Sai com 0 quando está tudo certo e 1 quando alguma coisa falha; toda falha sai com uma mensagem que
 // diz o que fazer. A versão do ABI é lida quando o módulo instancia sem imports, mas é diagnóstico: não
-// reprova o artefato.
+// reprova o artefato. Se o módulo é ABI v2 (exporta `abi2_versao`), as exportações da v2 são obrigatórias
+// (`verificar-wasm-exportacoes.mjs`).
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { ARQUIVO_HASH_FONTE, calcularHashDasFontes, lerHashGravado } from './hash-fontes.mjs';
+import { conferirExportacoes } from './verificar-wasm-exportacoes.mjs';
 import { fileURLToPath } from 'node:url';
 
 const raiz = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -30,9 +32,6 @@ const MIN_BYTES = 10 * 1024;
 const MAX_BYTES = 2 * 1024 * 1024;
 /** Todo módulo wasm começa com os quatro bytes `\0asm`. */
 const MAGICO = [0x00, 0x61, 0x73, 0x6d];
-/** Exportações que o lado JS usa; faltar uma significa artefato errado, não build incompleto. */
-const EXPORTS_ESPERADOS = ['preparar_entrada', 'executar', 'saida_area', 'versao_abi'];
-
 const erros = [];
 const avisos = [];
 const rel = (p) => relative(raiz, p).split('\\').join('/');
@@ -71,16 +70,21 @@ function conferirBlob() {
   }
 }
 
-/** Lê a versão do ABI e confere as exportações, quando o módulo instancia (sem imports). Diagnóstico. */
+/**
+ * Confere as exportações (v1, ou v2 quando o módulo exporta `abi2_versao`) e lê a versão do ABI v1 quando o módulo
+ * instancia (sem imports). A leitura é diagnóstico; a falta de exportações da v2 reprova.
+ */
 function conferirAbi(bytes) {
   try {
     const modulo = new WebAssembly.Module(bytes);
+    const funcoes = WebAssembly.Module.exports(modulo)
+      .filter((e) => e.kind === 'function')
+      .map((e) => e.name);
+    const resultado = conferirExportacoes(funcoes);
+    erros.push(...resultado.erros);
+    avisos.push(...resultado.avisos);
+    if (!resultado.v1Completa) return;
     const { exports } = new WebAssembly.Instance(modulo, {});
-    const faltando = EXPORTS_ESPERADOS.filter((nome) => typeof exports[nome] !== 'function');
-    if (faltando.length) {
-      avisos.push(`o módulo não exporta ${faltando.join(', ')}; a versão do ABI não pôde ser conferida.`);
-      return;
-    }
     info.versaoAbi = exports.versao_abi();
   } catch (e) {
     avisos.push(`não consegui instanciar o módulo para ler a versão do ABI (${e instanceof Error ? e.message : String(e)}).`);

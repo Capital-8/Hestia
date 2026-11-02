@@ -6,7 +6,7 @@
  * As três consultas são a referência de força bruta de `referencia.ts`. Não é usada em produção.
  */
 import { bytesDaSecao, codigoDoTipo, definicaoDaSecao, lerSecao, type NomeSecao } from './codec.ts';
-import { ABI_VERSAO, CODIGOS, CONSULTAS, ESQUEMA_VERSAO, LIMITES, SECOES } from './esquema.gerado.ts';
+import { ABI_VERSAO, CODIGOS, CONSULTAS, ESQUEMA_VERSAO, LIMITES, NIVEL_TODOS, SECOES } from './esquema.gerado.ts';
 import {
   referenciaEstatisticasNivel,
   referenciaParesProximos,
@@ -17,6 +17,16 @@ import { GerenciadorKernelV2, type ExportsAbi2, type InstanciaAbi2 } from './ger
 
 const PAGINA = 65536;
 const CHAVE_AUSENTE = 0xffffffff;
+/** Módulo máximo de coordenada e espessura (metros), como `COORD_MAX` em `cena.rs`. */
+const COORD_MAX = 1e12;
+/** Máximo de argumentos de uma consulta, como em `cena_executar` (`abi2.rs`). Acima disso: LIMITE. */
+const ARGS_MAX = 1024;
+const coordValida = (v: number): boolean => Number.isFinite(v) && Math.abs(v) <= COORD_MAX;
+const nomeDaSecao = (id: number): NomeSecao | undefined => (Object.keys(SECOES) as NomeSecao[]).find((k) => SECOES[k].id === id);
+/** Colunas de coordenada/espessura da seção `paredes` (validadas contra `COORD_MAX`). */
+const COORDENADAS = new Set(['ax', 'ay', 'bx', 'by', 'espessura']);
+/** Nível válido de argumento: inteiro em [0, 2^32) (`arg_nivel` em `consultas.rs`). */
+const nivelValido = (v: number): boolean => Number.isInteger(v) && v >= 0 && v <= 0xffffffff;
 
 /** Efeito injetado: `'trap'` lança `WebAssembly.RuntimeError`; um número é devolvido como código de erro. */
 export type EfeitoInjetado = 'trap' | number;
@@ -100,7 +110,7 @@ export function criarInstanciaFalsa(opcoes: OpcoesFalso = {}): InstanciaFalsa {
   function aplicarSecao(h: number, secaoId: number, n: number, ptr: number, substituir: boolean): number {
     const cena = cenas.get(h);
     if (!cena) return falhar(CODIGOS.HANDLE, `handle ${h} inválido`);
-    const nome = (Object.keys(SECOES) as NomeSecao[]).find((k) => SECOES[k].id === secaoId);
+    const nome = nomeDaSecao(secaoId);
     if (!nome) return falhar(CODIGOS.ENTRADA, `seção ${secaoId} desconhecida`);
     const def = definicaoDaSecao(nome);
     if (n > LIMITES.linhas_por_secao || bytesDaSecao(def, n) > LIMITES.bytes_por_chamada) return falhar(CODIGOS.LIMITE, 'limite excedido');
@@ -112,6 +122,9 @@ export function criarInstanciaFalsa(opcoes: OpcoesFalso = {}): InstanciaFalsa {
       for (const c of def.colunas) {
         const v = cols[c.nome]![i]!;
         if (c.tipo === 'f64' && !Number.isFinite(v)) return falhar(CODIGOS.ENTRADA, `${c.nome} não finito`);
+        if (COORDENADAS.has(c.nome) && !coordValida(v)) return falhar(CODIGOS.ENTRADA, `${c.nome} fora de ±1e12`);
+        if (c.nome === 'espessura' && v < 0) return falhar(CODIGOS.ENTRADA, 'espessura negativa');
+        if (c.nome === 'nivel_num' && v === NIVEL_TODOS) return falhar(CODIGOS.ENTRADA, 'nivel_num 0xFFFFFFFF é reservado');
         l[c.nome] = v;
       }
       const k = l[def.chave]!;
@@ -133,11 +146,14 @@ export function criarInstanciaFalsa(opcoes: OpcoesFalso = {}): InstanciaFalsa {
     liberarSaidas();
     const cena = cenas.get(h);
     if (!cena) return falhar(CODIGOS.HANDLE, `handle ${h} inválido`);
+    if (nArgs > ARGS_MAX) return falhar(CODIGOS.LIMITE, 'argumentos demais');
     const nome = (Object.keys(CONSULTAS) as (keyof typeof CONSULTAS)[]).find((k) => CONSULTAS[k].id === consulta);
     if (!nome) return falhar(CODIGOS.NAO_IMPLEMENTADO, `consulta ${consulta} desconhecida`);
     if (nArgs !== CONSULTAS[nome].args.length) return falhar(CODIGOS.ENTRADA, 'número de argumentos');
     const args = Array.from(new Float64Array(memory.buffer, ptrArgs, nArgs));
     if (args.some((a) => !Number.isFinite(a))) return falhar(CODIGOS.ENTRADA, 'argumento não finito');
+    if (!nivelValido(args[0]!)) return falhar(CODIGOS.ENTRADA, 'nível fora de [0, 2^32) ou fracionário');
+    if (nome === 'pares_proximos' && args[1]! < 0) return falhar(CODIGOS.ENTRADA, 'tolerância negativa');
     const paredes: LinhaParede[] = [...(cena.get(SECOES.paredes.id)?.values() ?? [])].map((l) => ({
       id: l.id_num!,
       nivel: l.nivel_num!,
@@ -184,6 +200,8 @@ export function criarInstanciaFalsa(opcoes: OpcoesFalso = {}): InstanciaFalsa {
     cena_remover_linhas: (h, s, n, p) => {
       const cena = cenas.get(h);
       if (!cena) return falhar(CODIGOS.HANDLE, `handle ${h} inválido`);
+      if (!nomeDaSecao(s)) return falhar(CODIGOS.ENTRADA, `seção ${s} desconhecida`);
+      if (n > LIMITES.linhas_por_secao) return falhar(CODIGOS.LIMITE, 'limite excedido');
       const tabela = cena.get(s);
       for (const id of n === 0 ? [] : new Uint32Array(memory.buffer, p, n).slice()) tabela?.delete(id);
       return CODIGOS.OK;

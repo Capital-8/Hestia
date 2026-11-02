@@ -6,10 +6,12 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { caminhoDoWasm } from '../caminhoWasm.ts';
+import { codificarSecao, definicaoDaSecao } from './codec.ts';
 import { CenaV2 } from './cena.ts';
+import { criarInstanciaFalsa } from './falso.ts';
 import { ErroKernelLeve } from './erros.ts';
-import { CODIGOS, NIVEL_TODOS } from './esquema.gerado.ts';
-import { GerenciadorKernelV2 } from './gerenciador.ts';
+import { CODIGOS, CONSULTAS, NIVEL_TODOS } from './esquema.gerado.ts';
+import { criarInstanciadorDoWasm, GerenciadorKernelV2, type InstanciaAbi2 } from './gerenciador.ts';
 import { colunasDeParedes, fonteDeParedes, paredesDeTeste } from './paredes.ts';
 import {
   referenciaEstatisticasNivel,
@@ -169,5 +171,103 @@ describe.skipIf(modulo === null)('kernel v2: wasm real contra a referência', ()
     ger.recriar('teste de ponta a ponta');
     expect(iguais(cena.consultar('pares_proximos', [0, 0.05])['pares']!, antes)).toBe(true);
     cena.destruir();
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Casos-limite: o falso TypeScript e o wasm real devolvem o MESMO código de retorno. Cada cenário roda numa
+// instância nova (falso e real) e devolve o código da chamada que interessa. O código esperado vem da decisão
+// 0046 §3.3/§3.2; falso e real têm de bater com ele, sem afrouxar a comparação.
+// ---------------------------------------------------------------------------------------------
+
+type Cenario = (alvo: InstanciaAbi2) => number;
+
+const SECAO_PAREDES_DEF = definicaoDaSecao('paredes');
+const PAREDE_OK: LinhaParede = { id: 1, nivel: 0, ax: 0, ay: 0, bx: 3, by: 0, espessura: 0.2 };
+
+/** Copia bytes para a memória da instância (ponteiro de `abi2_alocar`, alinhado a 8). A view é refeita depois da alocação. */
+function escrever(alvo: InstanciaAbi2, bytes: Uint8Array): number {
+  const ptr = alvo.exports.abi2_alocar(bytes.length);
+  new Uint8Array(alvo.memory.buffer, ptr, bytes.length).set(bytes);
+  return ptr;
+}
+const ptrParedes = (alvo: InstanciaAbi2, ps: readonly LinhaParede[]): number =>
+  escrever(alvo, codificarSecao(SECAO_PAREDES_DEF, colunasDeParedes(ps), ps.length));
+const ptrF64 = (alvo: InstanciaAbi2, valores: number[]): number => escrever(alvo, new Uint8Array(new Float64Array(valores).buffer));
+const ptrU32 = (alvo: InstanciaAbi2, valores: number[]): number => escrever(alvo, new Uint8Array(new Uint32Array(valores).buffer));
+
+/** Cena nova com `ps` carregadas na seção paredes (sem checar o código: é o cenário de pré-condição). */
+function cenaCom(alvo: InstanciaAbi2, ps: readonly LinhaParede[] = [PAREDE_OK]): number {
+  const h = alvo.exports.cena_criar();
+  alvo.exports.cena_definir_secao(h, SECAO_PAREDES_DEF.id, ps.length, ptrParedes(alvo, ps));
+  return h;
+}
+const definirCom =
+  (ps: LinhaParede[]): Cenario =>
+  (alvo) =>
+    alvo.exports.cena_definir_secao(alvo.exports.cena_criar(), SECAO_PAREDES_DEF.id, ps.length, ptrParedes(alvo, ps));
+const executarCom =
+  (consulta: number, args: number[]): Cenario =>
+  (alvo) => {
+    const h = cenaCom(alvo);
+    return args.length === 0 ? alvo.exports.cena_executar(h, consulta, 0, 0) : alvo.exports.cena_executar(h, consulta, args.length, ptrF64(alvo, args));
+  };
+const destruida = (alvo: InstanciaAbi2): number => {
+  const h = cenaCom(alvo);
+  alvo.exports.cena_destruir(h);
+  return h;
+};
+const ESTATISTICAS = CONSULTAS.estatisticas_nivel.id;
+const NA_CAIXA = CONSULTAS.paredes_na_caixa.id;
+const PARES = CONSULTAS.pares_proximos.id;
+const ENTRADA = CODIGOS.ENTRADA;
+
+const CASOS: [string, Cenario, number][] = [
+  ['coordenada |x| = 1e13 em definir -> ENTRADA', definirCom([{ ...PAREDE_OK, ax: 1e13 }]), ENTRADA],
+  ['coordenada -1e13 em by (upsert) -> ENTRADA', (alvo) => {
+    const h = cenaCom(alvo);
+    return alvo.exports.cena_upsert_linhas(h, SECAO_PAREDES_DEF.id, 1, ptrParedes(alvo, [{ ...PAREDE_OK, by: -1e13 }]));
+  }, ENTRADA],
+  ['coordenada exatamente 1e12 e aceita -> OK', definirCom([{ ...PAREDE_OK, bx: 1e12 }]), CODIGOS.OK],
+  ['espessura 1e13 -> ENTRADA', definirCom([{ ...PAREDE_OK, espessura: 1e13 }]), ENTRADA],
+  ['espessura negativa -> ENTRADA', definirCom([{ ...PAREDE_OK, espessura: -0.1 }]), ENTRADA],
+  ['espessura zero e aceita -> OK', definirCom([{ ...PAREDE_OK, espessura: 0 }]), CODIGOS.OK],
+  ['nivel_num 0xFFFFFFFF numa linha -> ENTRADA', definirCom([{ ...PAREDE_OK, nivel: NIVEL_TODOS }]), ENTRADA],
+  ['id_num 0xFFFFFFFF numa linha -> ENTRADA', definirCom([{ ...PAREDE_OK, id: 0xffffffff }]), ENTRADA],
+  ['id repetido no mesmo lote -> ENTRADA', definirCom([PAREDE_OK, { ...PAREDE_OK, bx: 9 }]), ENTRADA],
+  ['coordenada NaN -> ENTRADA', definirCom([{ ...PAREDE_OK, ay: NaN }]), ENTRADA],
+  ['seção desconhecida em definir -> ENTRADA', (alvo) => alvo.exports.cena_definir_secao(cenaCom(alvo), 99, 0, 0), ENTRADA],
+  ['seção desconhecida em upsert -> ENTRADA', (alvo) => alvo.exports.cena_upsert_linhas(cenaCom(alvo), 99, 0, 0), ENTRADA],
+  ['seção desconhecida em remover -> ENTRADA', (alvo) => alvo.exports.cena_remover_linhas(cenaCom(alvo), 99, 1, ptrU32(alvo, [1])), ENTRADA],
+  ['remover id ausente -> OK', (alvo) => alvo.exports.cena_remover_linhas(cenaCom(alvo), SECAO_PAREDES_DEF.id, 1, ptrU32(alvo, [999])), CODIGOS.OK],
+  ['consulta com 0 args (esquema pede 1) -> ENTRADA', executarCom(ESTATISTICAS, []), ENTRADA],
+  ['consulta com 2 args (esquema pede 1) -> ENTRADA', executarCom(ESTATISTICAS, [0, 0]), ENTRADA],
+  ['nivel fracionário (0.5) -> ENTRADA', executarCom(ESTATISTICAS, [0.5]), ENTRADA],
+  ['nivel negativo (-1) -> ENTRADA', executarCom(ESTATISTICAS, [-1]), ENTRADA],
+  ['nivel 2^32 -> ENTRADA', executarCom(ESTATISTICAS, [4294967296]), ENTRADA],
+  ['nivel 0xFFFFFFFF (todos) e aceito -> OK', executarCom(ESTATISTICAS, [NIVEL_TODOS]), CODIGOS.OK],
+  ['argumento NaN em paredes_na_caixa -> ENTRADA', executarCom(NA_CAIXA, [0, NaN, 0, 1, 1]), ENTRADA],
+  ['tol negativo em pares_proximos -> ENTRADA', executarCom(PARES, [0, -0.5]), ENTRADA],
+  ['tol 0 em pares_proximos e aceito -> OK', executarCom(PARES, [0, 0]), CODIGOS.OK],
+  ['mais de 1024 args -> LIMITE', (alvo) => alvo.exports.cena_executar(cenaCom(alvo), ESTATISTICAS, 1025, ptrF64(alvo, new Array(1025).fill(0))), CODIGOS.LIMITE],
+  ['handle destruído em cena_destruir -> HANDLE', (alvo) => alvo.exports.cena_destruir(destruida(alvo)), CODIGOS.HANDLE],
+  ['handle destruído em definir -> HANDLE', (alvo) => alvo.exports.cena_definir_secao(destruida(alvo), SECAO_PAREDES_DEF.id, 1, ptrParedes(alvo, [PAREDE_OK])), CODIGOS.HANDLE],
+  ['handle destruído em upsert -> HANDLE', (alvo) => alvo.exports.cena_upsert_linhas(destruida(alvo), SECAO_PAREDES_DEF.id, 1, ptrParedes(alvo, [PAREDE_OK])), CODIGOS.HANDLE],
+  ['handle destruído em remover -> HANDLE', (alvo) => alvo.exports.cena_remover_linhas(destruida(alvo), SECAO_PAREDES_DEF.id, 1, ptrU32(alvo, [1])), CODIGOS.HANDLE],
+  ['handle destruído em executar -> HANDLE', (alvo) => alvo.exports.cena_executar(destruida(alvo), ESTATISTICAS, 1, ptrF64(alvo, [0])), CODIGOS.HANDLE],
+  ['consulta desconhecida -> NAO_IMPLEMENTADO', executarCom(77, []), CODIGOS.NAO_IMPLEMENTADO],
+];
+
+describe.skipIf(modulo === null)('casos-limite: falso e real devolvem o mesmo código', () => {
+  let criarReal: () => InstanciaAbi2;
+  beforeAll(async () => {
+    criarReal = await criarInstanciadorDoWasm(modulo!);
+  });
+
+  it.each(CASOS)('%s', (_nome, cenario, esperado) => {
+    const codigoFalso = cenario(criarInstanciaFalsa());
+    const codigoReal = cenario(criarReal());
+    expect(codigoReal).toBe(esperado);
+    expect(codigoFalso).toBe(codigoReal);
   });
 });
