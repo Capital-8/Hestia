@@ -5,6 +5,9 @@ BIM para arquitetura residencial, no navegador, construído do zero com GPU em p
 
 Este repositório começa pela documentação. O código nasce depois que as decisões abaixo estiverem fechadas.
 
+Site oficial: www.hestiabim.com
+Programa publicado e disponível para uso via instalação ou diretamente na web em: www.hestiabim.com/app
+
 ## Documentos
 
 | Arquivo | Conteúdo |
