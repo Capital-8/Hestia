@@ -183,3 +183,43 @@ export function casosDeLimiarA3a(): CasoDeLimiarA3a[] {
   );
   return c;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Casos de limiar da A3b: o que decide se uma camada vira retorno. Cada par cai em ramos diferentes do motor TypeScript
+// (o teste de referência prova que discrimina); o Rust tem de acompanhar os dois lados.
+
+export interface CasoDeLimiarA3b {
+  limiar: string;
+  lado: 'abaixo' | 'acima';
+  projeto: Project;
+}
+
+function projetoDeRetorno(nome: string, parede: string, tipo: Partial<OpeningType>, ajusta: (w: WallType) => WallType = (w) => w): Project {
+  const p = createEmptyProject(nome);
+  const base = Object.values(p.openingTypes)[0]!;
+  const t = { ...base, id: 'ot_caso', name: 'caso', code: 'caso', composition: undefined, nominalRef: undefined, spanGap: undefined, roughOversize: undefined, kind: 'door', width: 1, height: 2.1, sill: 0, plan: 'fixed', leaves: 0, closure: 'both', ...tipo } as OpeningType;
+  p.openingTypes[t.id] = t;
+  const w = ajusta(tiposDeParedeRetorno(Object.values(p.wallTypes)[0]!).find((x) => x.id === parede)!);
+  p.wallTypes[w.id] = w;
+  const store = new ProjectStore(p);
+  store.exec({
+    type: 'batch',
+    commands: [
+      { type: 'addWall', wall: makeWall({ id: 'W', typeId: w.id, levelId: 'lv_0', a: { x: 0, y: 0 }, b: { x: 6, y: 0 }, locationLine: 'wallCenter', flipped: false, sag: 0, height: 2.8 }) },
+      { type: 'addOpening', opening: { id: 'O', kind: t.kind, typeId: t.id, hostId: 'W', offset: 3, flipHand: false, flipFacing: false, sillOverride: null, mark: '' } },
+    ],
+  });
+  return store.project;
+}
+
+export function casosDeLimiarA3b(): CasoDeLimiarA3b[] {
+  const c: CasoDeLimiarA3b[] = [];
+  // `w.off + w.thickness >= width / 2 - 1e-3` no wt_r_both, lado interior, 1ª camada (2 cm): largura 0,042 é a igualdade (não cabe).
+  c.push({ limiar: 'camada cabe no vão: off + espessura >= largura/2 - 1e-3 (igualdade em 0,042)', lado: 'abaixo', projeto: projetoDeRetorno('cabe-igual', 'wt_r_both', { width: 0.042 }) });
+  c.push({ limiar: 'camada cabe no vão: off + espessura >= largura/2 - 1e-3 (igualdade em 0,042)', lado: 'acima', projeto: projetoDeRetorno('cabe-folga', 'wt_r_both', { width: 0.042 + 1e-6 }) });
+  // Piso de espessura da camada envolvente (`thickness < 1e-6`): a camada de 5e-7 m não é envolvente; com 2e-6 m é.
+  const fina = (esp: number): Project => projetoDeRetorno('piso-espessura', 'wt_r_assimetrico', {}, (w) => ({ ...w, layers: w.layers.map((l) => (l.thickness < 1e-5 ? { ...l, thickness: esp } : l)) }));
+  c.push({ limiar: 'wrappingLayers: espessura < 1e-6 não envolve (5e-7 x 2e-6)', lado: 'abaixo', projeto: fina(5e-7) });
+  c.push({ limiar: 'wrappingLayers: espessura < 1e-6 não envolve (5e-7 x 2e-6)', lado: 'acima', projeto: fina(2e-6) });
+  return c;
+}

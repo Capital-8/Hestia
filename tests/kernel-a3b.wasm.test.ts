@@ -19,7 +19,7 @@ import { GerenciadorKernelV2 } from '../packages/geom/src/kernel/v2/gerenciador.
 import { fonteDeSecoes } from '../packages/geom/src/kernel/v2/quadros.ts';
 import { areaDaForma } from '../scripts/kernel-harness-a2.mts';
 import { compararA3b } from '../scripts/kernel-harness-a3.mts';
-import { projetoDeEstresseA3a } from '../scripts/kernel-a3a-estresse.mts';
+import { casosDeLimiarA3b, projetoDeEstresseA3a } from '../scripts/kernel-a3a-estresse.mts';
 
 const caminho = caminhoDoWasm();
 const bytes = existsSync(caminho) ? readFileSync(caminho) : null;
@@ -63,8 +63,9 @@ interface Cobertura {
   estritas: number;
   desvio: number;
   fiapos: number;
+  fiaposRust: number;
 }
-const zero = (): Cobertura => ({ retornos: 0, porModo: [0, 0, 0, 0], recortados: 0, formas: 0, estritas: 0, desvio: 0, fiapos: 0 });
+const zero = (): Cobertura => ({ retornos: 0, porModo: [0, 0, 0, 0], recortados: 0, formas: 0, estritas: 0, desvio: 0, fiapos: 0, fiaposRust: 0 });
 const soma = (a: Cobertura, b: Cobertura): void => {
   a.retornos += b.retornos;
   b.porModo.forEach((x, i) => (a.porModo[i] = a.porModo[i]! + x));
@@ -73,6 +74,7 @@ const soma = (a: Cobertura, b: Cobertura): void => {
   a.estritas += b.estritas;
   a.desvio = Math.max(a.desvio, b.desvio);
   a.fiapos += b.fiapos;
+  a.fiaposRust += b.fiaposRust;
 };
 
 function compararProjeto(p: Project): Cobertura {
@@ -84,7 +86,7 @@ function compararProjeto(p: Project): Cobertura {
       const rust = decodificarA3b(cena.consultar('retornos_geom', argumentosA3b(p, l.id, a1)));
       const cmp = compararA3b(ref, rust);
       expect(cmp.divergencias, `${l.id}: ${cmp.divergencias.slice(0, 3).join(' | ')}`).toEqual([]);
-      soma(cov, { retornos: cmp.retornos, porModo: cmp.porModo, recortados: cmp.recortados, formas: cmp.formas, estritas: cmp.estritas, desvio: cmp.desvioMaximo, fiapos: cmp.fiapos });
+      soma(cov, { retornos: cmp.retornos, porModo: cmp.porModo, recortados: cmp.recortados, formas: cmp.formas, estritas: cmp.estritas, desvio: cmp.desvioMaximo, fiapos: cmp.fiapos, fiaposRust: cmp.fiaposRust });
     }
   } finally {
     cena.destruir();
@@ -107,6 +109,7 @@ describe.skipIf(!bytes)('A3b: retornos_geom do Rust x motor TypeScript', () => {
     console.log(`[A3b] retornos ${total.retornos} (exterior ${total.porModo[1]}, interior ${total.porModo[2]}, both ${total.porModo[3]}), recortados ${total.recortados}, formas estritas ${total.estritas}/${total.formas}, desvio ${total.desvio}, fiapos ${total.fiapos} (${((100 * total.fiapos) / (total.retornos + total.fiapos)).toFixed(1)}%)`);
     // Fiapos (retorno presente só de um lado, área <= 1e-6 m²): medido 146 de 722 retornos (20,2%) no estresse das sementes 1..12;
     // o limite 25% dá margem pequena e pega uma mudança que faça o Rust deixar de devolver retornos de verdade.
+    expect(total.fiaposRust, 'fiapos só do Rust: o Rust não inventa retornos').toBe(0);
     expect(total.fiapos / (total.retornos + total.fiapos), 'fração de fiapos').toBeLessThanOrEqual(0.25);
   }, 120_000);
 
@@ -118,6 +121,16 @@ describe.skipIf(!bytes)('A3b: retornos_geom do Rust x motor TypeScript', () => {
       arcos += compararProjeto(projetoDeEstresseA3a(semente, { paredes: 20, pavimentos: 1, curvas: 1 })).retornos;
     }
     expect(arcos, 'retornos em parede curva').toBeGreaterThan(20);
+  });
+
+  it('casos de limiar: cada lado do limiar bate com o motor TypeScript', () => {
+    if (pula()) return;
+    const casos = casosDeLimiarA3b();
+    expect(casos.length).toBeGreaterThanOrEqual(4);
+    for (const c of casos) {
+      const cov = compararProjeto(c.projeto);
+      expect(cov.fiaposRust, `${c.limiar} · ${c.lado}`).toBe(0);
+    }
   });
 
   it('sintéticos de 10 e 20 pavimentos', () => {

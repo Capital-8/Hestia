@@ -11,7 +11,7 @@ import { montarCenaA3, referenciaA3b } from '../packages/engine/src/kernelA3.ts'
 import { frameOfWall } from '../packages/engine/src/resolve.ts';
 import { insertMode, insertReturns } from '../packages/engine/src/wrap.ts';
 import { SECOES } from '../packages/geom/src/kernel/v2/esquema.gerado.ts';
-import { projetoDeEstresseA3a } from '../scripts/kernel-a3a-estresse.mts';
+import { casosDeLimiarA3b, projetoDeEstresseA3a } from '../scripts/kernel-a3a-estresse.mts';
 
 const ref = (p: Project) => {
   const a1 = montarCenaA1(p);
@@ -80,4 +80,16 @@ describe('A3b: montagem e referência do motor TypeScript', () => {
     expect(vistos.alizar.has(1)).toBe(true);
     expect(vistos.folhas.has(0)).toBe(true);
   });
+});
+
+describe('A3b: cada limiar de decisão muda a saída do motor TypeScript entre os dois lados', () => {
+  const porLimiar = new Map<string, Partial<Record<'abaixo' | 'acima', Project>>>();
+  for (const c of casosDeLimiarA3b()) porLimiar.set(c.limiar, { ...porLimiar.get(c.limiar), [c.lado]: c.projeto });
+  for (const [limiar, lados] of porLimiar) {
+    it(limiar, () => {
+      const a = ref(lados.abaixo!);
+      const b = ref(lados.acima!);
+      expect(JSON.stringify(a.map((x) => [x.camada, x.bruto]))).not.toBe(JSON.stringify(b.map((x) => [x.camada, x.bruto])));
+    });
+  }
 });

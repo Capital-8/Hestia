@@ -144,3 +144,34 @@ reescrita em TS), harness `scripts/kernel-harness-a3.mts`, testes `tests/kernel-
 Identidade exata, todo número a 1 µm e área do furo a 1e-6 m², sem exceção; o desvio medido é ~5e-16. Onze mutações do Rust (folga do furo,
 sinal da altura em `>=` e `> 1e-6`, piso da folga, piso do radicando do desvio, peitoril 0, `s_mid`, normal e tangente no início em vez do
 deslocamento, folga do furo em arco, ordem dos vértices) foram todas reprovadas pelo teste.
+
+## 9 — A3b entregue (2026-11-02)
+
+Esquema `cena-v5.json` (`versao` 5; renomeado de `cena-v4.json`, todos os leitores atualizados). Colunas novas: `tipos_parede.wrap_inserts`
+(`WallType.wrapInserts`) e, em `tipos_abertura`, `janela` (o `kind` do TIPO), `fechamento` (`closure`: 0 none, 1 exterior, 2 interior, 3 both, 4 inherit),
+`tem_alizar` (`openingCasing` ou o casing da composição: força o modo a none), `estilo_batente`, `modo_prof` (`frameDepthMode`), `prof_pedida`,
+`larg_batente` e `esp_folha`. O JS envia tudo já resolvido (padrões aplicados; `prof_pedida` vem de `openingFrameDepth` no modo fixed), o Rust não
+deriva padrões. Consulta nova `retornos_geom(nivel_num, tol_juncao, tem_corte_z, corte_z, n_contorno, ...ids)` (mesmos argumentos de `itens_pintados`):
+por (parede, abertura, camada), o retorno de `insertReturns` e o resultado de `makeReturnClipper` contra o pintado em planta do grupo, em níveis de
+índice como na A2, mais `modo` (`insertMode`) e `grupo`. A orquestração de `resolveLevel` até o pintado virou `a2::pintar_nivel`, reaproveitada pelo
+recorte (o `plan` de `solveCluster`). Módulo Rust `a3b` (`insertMode`, `insertReturns`, `insertFrameFootprint`, `vaoPoint`, `rect`/`wallBand`,
+`openingCore`, `openingFramePlacement`, `jambSection`, `makeReturnClipper`). Referência: `referenciaA3b` em `kernelA3.ts` (a orquestração de grupos
+fica em `gruposDoNivel`, extraída de `kernelA2.ts`).
+
+Escala: as booleanas de `a3b.rs` (retorno menos batente e recorte) usam `ESCALA_FINA` (1 nm), como o pintor da A2, por escolha de implementação. A
+1 µm um recorte do estresse dava diferença simétrica de 1,0207e-6 m² contra o `polygon-clipping` exato (limite 1e-6); a 1 nm o máximo medido é
+3,6e-7. A comparação NÃO foi afrouxada: 1 µm de coordenada, 1e-6 m² de área líquida e de diferença simétrica, sem a folga da 0048 (que vale só para o
+fragmento do pintor). A interseção do retângulo em parede curva continua a 1 µm.
+
+Fiapos: o `polygon-clipping` deixa triângulos de ~0 m² quando o batente cobre o retorno inteiro; o Rust devolve vazio. Um retorno presente só de um
+lado com área <= 1e-6 m² conta em `fiapos`; maior que isso de um lado só é divergência. Medido no estresse (sementes 1..12): 146 fiapos para 576
+retornos comparados (20,2%), todos do lado do TS (o Rust nunca inventa retorno: o teste exige 0 fiapos só do Rust). O teste limita a fração a 25%.
+
+Cobertura (estresse 12 sementes x 2 pavimentos): 576 retornos, exterior 40, interior 50, both 486; 152 recortados por parede vizinha; 852 de 1152 formas
+casam também peça a peça (as demais pela região); mais retas só, arcos só, sintéticos de 10 e 20 pavimentos, fixture da casa de 2 quartos, casos de
+limiar (igualdade em `off + espessura >= largura/2 - 1e-3` e piso de 1e-6 da espessura), propriedades (retorno na vizinhança do vão, recorte dentro do
+retorno e fora do pintado das outras paredes), upsert/remoção, entradas inválidas e vazamento. Dezesseis mutações dos limiares do Rust (folga de 1e-3 e
+`>=`, estilo block, alizar, GAP, OVERLAP, aduela 0,03, faixa alta e folgas da parede curva, N=16, lado do batente, limite do modo fixed, ombreira em L,
+recorte contra a própria parede, piso de 1e-6, vão livre sem batente): todas reprovadas (duas, `>=` e o piso de 1e-6, sobreviveram até se
+acrescentarem os casos de limiar e a exigência de 0 fiapos do Rust).
+

@@ -111,6 +111,8 @@ export interface ComparacaoA3b {
   formas: number;
   /** Retornos do TS de área <= 1e-6 m² que o Rust não devolve (ver `compararA3b`). */
   fiapos: number;
+  /** Dos fiapos, os que só o Rust devolve (o Rust nunca inventa retorno: esperado 0). */
+  fiaposRust: number;
 }
 
 function formaIgual(a: MultiPolygon, b: MultiPolygon): { erro: string | null; estrita: boolean; desvio: number } {
@@ -132,18 +134,20 @@ export function compararA3b(refTodos: RetornoA3b[], rustTodos: RetornoA3b[], max
   const chavesRust = new Set(rustTodos.map(chave));
   const chavesRef = new Set(refTodos.map(chave));
   let fiapos = 0;
-  const semFiapo = (lista: RetornoA3b[], outro: Set<string>): RetornoA3b[] =>
+  let fiaposRust = 0;
+  const semFiapo = (lista: RetornoA3b[], outro: Set<string>, doRust: boolean): RetornoA3b[] =>
     lista.filter((x) => {
       if (outro.has(chave(x))) return true;
       if (areaDaForma(x.bruto) <= TOLERANCIA_AREA_A3) {
         fiapos++;
+        if (doRust) fiaposRust++;
         return false;
       }
       return true;
     });
-  const ref = semFiapo(refTodos, chavesRust);
-  const rust = semFiapo(rustTodos, chavesRef);
-  const r: ComparacaoA3b = { divergencias, desvioMaximo: 0, retornos: ref.length, porModo: [0, 0, 0, 0], recortados: 0, estritas: 0, formas: 0, fiapos };
+  const ref = semFiapo(refTodos, chavesRust, false);
+  const rust = semFiapo(rustTodos, chavesRef, true);
+  const r: ComparacaoA3b = { divergencias, desvioMaximo: 0, retornos: ref.length, porModo: [0, 0, 0, 0], recortados: 0, estritas: 0, formas: 0, fiapos, fiaposRust };
   if (ref.length !== rust.length) {
     divergencias.push(`${rust.length} retornos (Rust) x ${ref.length} (TS), sem ${fiapos} fiapos de área <= 1e-6`);
     return r;
