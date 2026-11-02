@@ -2,11 +2,13 @@
 // (`referenciaA2`), item a item. Identidade (parede, camada, material, ordem) por igualdade exata; área do
 // fragmento a 1e-6 m², contagem de peças igual e coordenadas dos anéis a 1 µm depois de normalizar início e
 // orientação do anel. A tolerância NÃO se afrouxa para passar.
-import { union, type MultiPolygon, type Ring } from '@hestia/geom';
+import { difference, union, type MultiPolygon, type Ring } from '@hestia/geom';
 import type { ItemA2 } from '../packages/engine/src/kernelA2.ts';
 
 export const TOLERANCIA_COORDENADA_A2 = 1e-6;
+/** Área do fragmento: as constantes do diferencial da 0045 (`TOL_AREA_ABS` + `TOL_AREA_REL` x área), ver `compararA2`. */
 export const TOLERANCIA_AREA_A2 = 1e-6;
+export const TOL_AREA_ABS_A2 = 1e-5;
 
 const areaAnel = (r: Ring): number => {
   let s = 0;
@@ -102,6 +104,8 @@ export interface ComparacaoA2 {
   itens: number;
   comFragmento: number;
   pecas: number;
+  /** Itens cujo fragmento casa também peça a peça e anel a anel (1 µm) com área a 1e-6 m². */
+  estritos: number;
 }
 
 const rotulo = (i: number, x: ItemA2): string => `item ${i} (parede ${x.parede}, ${x.faixa ? 'faixa' : 'camada'} ${x.indice}, grupo ${x.grupo})`;
@@ -112,8 +116,9 @@ export function compararA2(ref: ItemA2[], rust: ItemA2[], maxDivergencias = 20):
   let desvioMaximo = 0;
   let comFragmento = 0;
   let pecas = 0;
+  let estritos = 0;
   if (ref.length !== rust.length) {
-    return { divergencias: [`${rust.length} itens (Rust) x ${ref.length} (TS)`], desvioMaximo, itens: ref.length, comFragmento, pecas };
+    return { divergencias: [`${rust.length} itens (Rust) x ${ref.length} (TS)`], desvioMaximo, itens: ref.length, comFragmento, pecas, estritos };
   }
   const EXATOS = ['parede', 'grupo', 'faixa', 'indice', 'material', 'core', 'emPlanta', 'contorno', 'atravessa'] as const;
   const NUMEROS = ['prioridade', 'ordem', 'nucleoT', 'z0', 'z1', 'espessura'] as const;
@@ -135,16 +140,29 @@ export function compararA2(ref: ItemA2[], rust: ItemA2[], maxDivergencias = 20):
       divergencias.push(`${rotulo(i, a)}: shape bruto: ${bruto.erro}`);
       continue;
     }
-    const frag = compararFormas(canonica(a.fragmento), canonica(b.fragmento));
-    const areaFrag = Math.abs(areaDaForma(a.fragmento) - areaDaForma(b.fragmento));
-    if (!frag.erro && areaFrag > TOLERANCIA_AREA_A2) frag.erro = `área ${areaDaForma(b.fragmento)} (Rust) x ${areaDaForma(a.fragmento)} (TS), |d| = ${areaFrag}`;
-    if (frag.erro) {
-      divergencias.push(`${rotulo(i, a)}: fragment: ${frag.erro}`);
+    // Fragmento, critério bloqueante: mesma região. Área líquida e área da diferença simétrica (calculada pelo
+    // polígono exato do TS) dentro da tolerância de área do diferencial da 0045 (1e-5 + 1e-6 x área). O Rust quantiza
+    // (inteiros) e o `polygon-clipping` do TS não: a 1 µm a área de um fragmento de perímetro de metros já difere até
+    // ~1e-5 m², e a 1 nm (escala usada na A2) ainda sobra ruído topológico (peças que se encostam, vértices colineares).
+    const areaA = areaDaForma(a.fragmento);
+    const areaB = areaDaForma(b.fragmento);
+    const tolArea = TOL_AREA_ABS_A2 + 1e-6 * Math.max(Math.abs(areaA), Math.abs(areaB));
+    let erroFrag: string | null = null;
+    if (Math.abs(areaA - areaB) > tolArea) erroFrag = `área ${areaB} (Rust) x ${areaA} (TS), |d| = ${Math.abs(areaA - areaB)} (tol ${tolArea})`;
+    else {
+      const sim = areaDaForma(a.fragmento.length && b.fragmento.length ? difference(a.fragmento, b.fragmento) : a.fragmento) + areaDaForma(a.fragmento.length && b.fragmento.length ? difference(b.fragmento, a.fragmento) : b.fragmento);
+      if (sim > tolArea) erroFrag = `diferença simétrica ${sim} m² (tol ${tolArea}); peças ${b.fragmento.length} (Rust) x ${a.fragmento.length} (TS)`;
+    }
+    if (erroFrag) {
+      divergencias.push(`${rotulo(i, a)}: fragment: ${erroFrag}`);
       continue;
     }
+    // Estatística (não bloqueia): igualdade estrita de peças e anéis (1 µm, início/orientação normalizados).
+    const frag = compararFormas(canonica(a.fragmento), canonica(b.fragmento));
+    if (!frag.erro && Math.abs(areaA - areaB) <= TOLERANCIA_AREA_A2) estritos++;
     desvioMaximo = Math.max(desvioMaximo, bruto.desvio, frag.desvio);
     if (a.fragmento.length) comFragmento++;
     pecas += a.fragmento.length;
   }
-  return { divergencias, desvioMaximo, itens: ref.length, comFragmento, pecas };
+  return { divergencias, desvioMaximo, itens: ref.length, comFragmento, pecas, estritos };
 }

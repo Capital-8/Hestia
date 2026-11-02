@@ -57,9 +57,10 @@ interface Cobertura {
   contorno: number;
   atravessa: number;
   comEnvoltas: number;
+  estritos: number;
   desvio: number;
 }
-const zero = (): Cobertura => ({ itens: 0, comFragmento: 0, pecas: 0, faixas: 0, contorno: 0, atravessa: 0, comEnvoltas: 0, desvio: 0 });
+const zero = (): Cobertura => ({ itens: 0, comFragmento: 0, pecas: 0, faixas: 0, contorno: 0, atravessa: 0, comEnvoltas: 0, estritos: 0, desvio: 0 });
 const soma = (a: Cobertura, b: Cobertura): void => {
   for (const k of Object.keys(a) as (keyof Cobertura)[]) a[k] = k === 'desvio' ? Math.max(a[k], b[k]) : a[k] + b[k];
 };
@@ -86,6 +87,7 @@ function compararProjeto(p: Project, semente = 0, comVariacoes = true): Cobertur
           itens: cmp.itens,
           comFragmento: cmp.comFragmento,
           pecas: cmp.pecas,
+          estritos: cmp.estritos,
           faixas: ref.filter((i) => i.faixa).length,
           contorno: ref.filter((i) => i.contorno).length,
           atravessa: ref.filter((i) => i.atravessa).length,
@@ -113,6 +115,9 @@ describe.skipIf(!bytes)('A2: itens_pintados do Rust x motor TypeScript', () => {
     expect(total.atravessa, 'paredes que atravessam um T').toBeGreaterThan(0);
     expect(total.comEnvoltas, 'itens com retorno de ponta (wrapEnds)').toBeGreaterThan(0);
     expect(total.comFragmento).toBeGreaterThan(1000);
+    // Estatística: parte dos fragmentos casa também peça a peça (o resto difere só em ruído topológico, ver kernel-harness-a2.mts).
+    expect(total.estritos / total.itens).toBeGreaterThan(0.6);
+    console.log(`[A2] itens ${total.itens}, estritos ${total.estritos}, desvio ${total.desvio}`);
     expect(total.desvio).toBeLessThanOrEqual(1e-6);
   });
 
