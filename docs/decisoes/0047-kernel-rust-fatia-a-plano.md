@@ -1,0 +1,50 @@
+# Decisão 0047 — Fatia A (paredes de um pavimento): plano e fronteira
+
+Rascunho de 2026-11-02, para revisão do dono antes do código. Estende a [0046](0046-kernel-rust-abi-v2.md).
+Alvo: `resolveLevel(p, levelId)` (`packages/engine/src/resolve.ts`, 485 linhas) numa chamada, com `ResolvedLevel` de volta.
+
+## 1 — Fecho de dependências (linhas de TS a portar)
+
+`resolve` 485 · `frame` 169 · `joins` 198 · `joinNode` 39 · `joinPair` 150 · `joinTypes` 91 · `joinSides` 204 ·
+`junctionIndex` 81 · `junctionPlanar` 139 · `resolveMemo` 98 · `layerGeom` 242 · `wrap` 179 · `clipReturn` 40 ·
+`openingCut` 20 · `bandFuse` 69 · `wallZ` 88 · `wallFrameZ` 15 · `geomSig` 9 ≈ **2,3 mil linhas de TS**, mais as
+funções do modelo usadas (`coreSpan`, `layerSpans`, `layerPriority`, `openingRough`, `wallsOnLevel`…). Booleanas
+(`difference`, `unionClipper`, `closeGapsSafe`) já existem em Rust (ABI v1, `ops.rs`) e passam a ser chamadas por dentro.
+
+## 2 — Fronteira com as fatias B e E (ponto que precisa de decisão)
+
+`wallZRange` lê pisos, lajes e telhados resolvidos (`attachSpans`, `roofWallProfile`), que só migram em B e E, e
+`resolveLevel` ainda pede `attachTargets` e `resolveAllRoofs`. **Proposta (recomendada):** na fatia A o JS continua
+calculando `wallZRange` por parede (função existente, **não** uma versão nova) e envia o resultado como entrada na
+seção `paredes_z` (`z0`, `altura`, perfil superior e de base como listas de pontos). O Rust porta só `stepProfile`
+e a combinação depois que B/E existirem. Assim A não depende de B nem de E, e nada é escrito duas vezes em TS.
+Alternativa: portar A+B+E juntos (maior, mais arriscado, perde o ponto de validação visual intermediário).
+
+## 3 — Esquema `cena-v2` (sobe `versao` de 1 para 2)
+
+Seções novas (todas por colunas, ids internados em `u32`): `niveis` (cota, altura), `tipos_parede`, `camadas`
+(tipo, ordem, espessura, material, função, núcleo, prioridade), `faixas` (rodapé etc.), `esquadrias_tipo`,
+`aberturas` (parede, deslocamento, tipo, flips), `paredes` ganha tipo, nível, `baseOffset`, `locationLine`, `flipped`,
+`noJoin*`, `joinStart/End`, `sag`, `topProfile` (lista à parte), `mark`. Texto (nomes, materiais) **não** entra:
+só números e ids. Consulta nova `resolver_nivel(nivel_num, opcoes)` com saídas em arrays tipados: quadros por parede,
+junções (estado/ponta), grupos (clusters), camadas com fragmentos/cortes/faixas como pilhas de anéis (`f64` + índices).
+A seção `paredes` atual muda de forma: as consultas da Fase 0 passam a ler as colunas novas, e o harness continua
+cobrindo-as.
+
+## 4 — Sub-etapas (cada uma com testes de equivalência e commit próprio; só a última pede validação visual)
+
+- **A1** Quadros (`frame`) + junções (`joins*`, `junctionIndex`) + grupos: saída comparada por parede e ponta.
+- **A2** Itens por camada (`buildItems`, `layerGeom`, `wrap`, `junctionPlanar`) e pintor (`paint`).
+- **A3** Faixas verticais, vãos, retornos e `solveCluster`; `ResolvedLevel` completo.
+- **A4** Modo sombra + interruptor por fatia no diálogo "Experimentais"; harness por pavimento nos fixtures, nos
+  sintéticos de 10 e 20 pavimentos e testes de propriedade. **Para** para validação visual do dono.
+
+Estimativa: 2,5–3,5 mil linhas de Rust, como já previsto.
+
+## 5 — Riscos conhecidos
+
+- Cache por chave de cluster (`resolveMemo`, `CACHE_LIMIT`): o Rust reproduz a chave por assinatura de anéis
+  (quantização 1 µm); a equivalência é por geometria, não pela chave.
+- Ordem de iteração e desempate do pintor (`priority`, `through`, `coreT`, `order`, `layerIndex`) precisam ser
+  idênticos; manhas do TS são reproduzidas primeiro, correções depois e separadas.
+- `VERSAO_MOTOR_GEOMETRIA` sobe se o resultado de `resolveLevel` mudar (cache IndexedDB).
