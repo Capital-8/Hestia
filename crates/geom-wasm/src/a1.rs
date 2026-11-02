@@ -299,6 +299,7 @@ pub(crate) mod testes_util {
             c32(&ts.iter().map(|t| t.1.len() as u32).collect::<Vec<_>>()),
             c8(&ts.iter().map(|_| 0u8).collect::<Vec<_>>()),
             c32(&ts.iter().map(|_| 0u32).collect::<Vec<_>>()),
+            c8(&ts.iter().map(|_| 0u8).collect::<Vec<_>>()),
         ]
         .concat()
     }

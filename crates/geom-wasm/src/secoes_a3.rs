@@ -1,4 +1,4 @@
-//! Seções da sub-etapa A3a (esquema v4): `tipos_abertura` e `aberturas`.
+//! Seções da sub-etapa A3a (esquema v4; v5 acrescenta as colunas de retorno em `tipos_abertura`): `tipos_abertura` e `aberturas`.
 //!
 //! Mesmo molde de `secoes_a1`: `BTreeMap` por chave (ordem canônica = id crescente), decodificação que valida
 //! antes de tocar a cena (atômica): tamanho, chave ausente/duplicada, valores não finitos e enums fora do domínio.
@@ -25,7 +25,30 @@ pub struct TipoAbertura {
     pub folga_h: f64,
     pub folhas: u8,
     pub plano: u8,
+    /// `OpeningType.kind` do TIPO (A3b): `true` = window.
+    pub janela: bool,
+    /// `OpeningType.closure` (A3b): 0 none, 1 exterior, 2 interior, 3 both, 4 inherit.
+    pub fechamento: u8,
+    /// `openingCasing(t)` ou casing da composição: força o fechamento efetivo a none (A3b).
+    pub tem_alizar: bool,
+    /// `openingFrameStyle` (A3b): 0 rebate, 1 simple, 2 aduela, 3 block.
+    pub estilo_batente: u8,
+    /// `frameDepthMode` (A3b): 0 wall, 1 core, 2 fixed.
+    pub modo_prof: u8,
+    /// Profundidade pedida no modo fixed (A3b).
+    pub prof_pedida: f64,
+    /// `openingFrame(t).frameWidth` (A3b).
+    pub larg_batente: f64,
+    /// `openingFrame(t).leafThickness` (A3b).
+    pub esp_folha: f64,
 }
+
+/// `closure` = inherit.
+pub const FECHAMENTO_HERDA: u8 = 4;
+/// Maior código de `estilo_batente`.
+pub const ESTILO_MAX: u8 = 3;
+/// Maior código de `modo_prof`.
+pub const MODO_PROF_MAX: u8 = 2;
 
 /// Linha de `aberturas`.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -75,18 +98,56 @@ fn decodificar(secao: u32, n_linhas: u32, bytes: &[u8]) -> Result<Lote, u32> {
             let fh = f64s(c.next())?;
             let folhas = u8s(c.next())?;
             let plano = u8s(c.next())?;
+            let janela = u8s(c.next())?;
+            let fecha = u8s(c.next())?;
+            let alizar = u8s(c.next())?;
+            let estilo = u8s(c.next())?;
+            let modo = u8s(c.next())?;
+            let pedida = f64s(c.next())?;
+            let lb = f64s(c.next())?;
+            let ef = f64s(c.next())?;
             chaves_validas(&id)?;
             let mut v = Vec::with_capacity(id.len());
             for i in 0..id.len() {
+                let g = |o: Option<&u8>| o.copied().ok_or(INTERNO);
                 let (Some(&k), Some(&l), Some(&a), Some(&p), Some(&w), Some(&h), Some(&f), Some(&pl)) =
                     (id.get(i), larg.get(i), alt.get(i), peit.get(i), fw.get(i), fh.get(i), folhas.get(i), plano.get(i))
                 else {
                     return Err(INTERNO);
                 };
-                if !(finito(l) && finito(a) && finito(p) && finito(w) && finito(h)) || f > FOLHAS_MAX || pl > PLANO_MAX {
+                let (Some(&pd), Some(&wb), Some(&ep)) = (pedida.get(i), lb.get(i), ef.get(i)) else {
+                    return Err(INTERNO);
+                };
+                let (fc, es, mp) = (g(fecha.get(i))?, g(estilo.get(i))?, g(modo.get(i))?);
+                if !(finito(l) && finito(a) && finito(p) && finito(w) && finito(h) && finito(pd) && finito(wb) && finito(ep))
+                    || f > FOLHAS_MAX
+                    || pl > PLANO_MAX
+                    || fc > FECHAMENTO_HERDA
+                    || es > ESTILO_MAX
+                    || mp > MODO_PROF_MAX
+                {
                     return Err(ENTRADA);
                 }
-                v.push((k, TipoAbertura { largura: l, altura: a, peitoril: p, folga_w: w, folga_h: h, folhas: f, plano: pl }));
+                v.push((
+                    k,
+                    TipoAbertura {
+                        largura: l,
+                        altura: a,
+                        peitoril: p,
+                        folga_w: w,
+                        folga_h: h,
+                        folhas: f,
+                        plano: pl,
+                        janela: bool01(g(janela.get(i))?)?,
+                        fechamento: fc,
+                        tem_alizar: bool01(g(alizar.get(i))?)?,
+                        estilo_batente: es,
+                        modo_prof: mp,
+                        prof_pedida: pd,
+                        larg_batente: wb,
+                        esp_folha: ep,
+                    },
+                ));
             }
             Ok(Lote::Tipos(v))
         }

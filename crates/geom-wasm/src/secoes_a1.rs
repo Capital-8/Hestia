@@ -52,6 +52,8 @@ pub struct TipoLinha {
     pub wrap_ends: u8,
     /// A2: nº de linhas de `faixas` do tipo.
     pub n_faixas: u32,
+    /// `WallType.wrapInserts` (A3b): 0 none, 1 exterior, 2 interior, 3 both.
+    pub wrap_inserts: u8,
 }
 
 /// Linha de `faixas` (A2): `WallType.strips[indice]`.
@@ -206,16 +208,17 @@ fn decodificar(secao: u32, n_linhas: u32, bytes: &[u8]) -> Result<Lote, u32> {
             let n = u32s(c.next())?;
             let wrap = u8s(c.next())?;
             let nf = u32s(c.next())?;
+            let wi = u8s(c.next())?;
             chaves_validas(&id)?;
             let mut v = Vec::with_capacity(id.len());
             for i in 0..id.len() {
-                let (Some(&k), Some(&nc), Some(&w), Some(&f)) = (id.get(i), n.get(i), wrap.get(i), nf.get(i)) else {
+                let (Some(&k), Some(&nc), Some(&w), Some(&f), Some(&wins)) = (id.get(i), n.get(i), wrap.get(i), nf.get(i), wi.get(i)) else {
                     return Err(INTERNO);
                 };
-                if w > 3 {
+                if w > 3 || wins > 3 {
                     return Err(ENTRADA);
                 }
-                v.push((k, TipoLinha { n_camadas: nc, wrap_ends: w, n_faixas: f }));
+                v.push((k, TipoLinha { n_camadas: nc, wrap_ends: w, n_faixas: f, wrap_inserts: wins }));
             }
             Ok(Lote::Tipos(v))
         }

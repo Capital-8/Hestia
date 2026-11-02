@@ -29,7 +29,7 @@
 
 use crate::cena::Cena;
 use crate::esquema::{
-    self, Tipo, CONSULTA_ESTATISTICAS_NIVEL, CONSULTA_ABERTURAS_GEOM, CONSULTA_ITENS_PINTADOS, CONSULTA_PARES_PROXIMOS, CONSULTA_PAREDES_NA_CAIXA, CONSULTA_QUADROS_E_JUNCOES,
+    self, Tipo, CONSULTA_ESTATISTICAS_NIVEL, CONSULTA_ABERTURAS_GEOM, CONSULTA_ITENS_PINTADOS, CONSULTA_RETORNOS_GEOM, CONSULTA_PARES_PROXIMOS, CONSULTA_PAREDES_NA_CAIXA, CONSULTA_QUADROS_E_JUNCOES,
     ENTRADA,
     NAO_IMPLEMENTADO,
 };
@@ -128,7 +128,7 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
             }
             crate::a1::quadros_e_juncoes(cena, nivel, tol)
         }
-        CONSULTA_ITENS_PINTADOS => {
+        CONSULTA_ITENS_PINTADOS | CONSULTA_RETORNOS_GEOM => {
             let nivel = arg_nivel(args[0])?;
             let tol = arg_finito(args[1])?;
             if tol < 0.0 {
@@ -150,7 +150,11 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
                 contorno.insert(arg_nivel(a)?);
             }
             let opcoes = crate::a2::OpcoesDePlanta { corte_z: if tem_corte { Some(corte) } else { None }, contorno };
-            crate::a2::itens_pintados(cena, nivel, tol, &opcoes)
+            if id == CONSULTA_RETORNOS_GEOM {
+                crate::a3b::retornos_geom(cena, nivel, tol, &opcoes)
+            } else {
+                crate::a2::itens_pintados(cena, nivel, tol, &opcoes)
+            }
         }
         CONSULTA_ABERTURAS_GEOM => crate::a3::aberturas_geom(cena, arg_nivel(args[0])?),
         _ => Err(NAO_IMPLEMENTADO),

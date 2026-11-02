@@ -195,6 +195,15 @@ mod testes {
             c64(&ts.iter().map(|t| t.5).collect::<Vec<_>>()),
             c8(&ts.iter().map(|t| t.6).collect::<Vec<_>>()),
             c8(&ts.iter().map(|t| t.7).collect::<Vec<_>>()),
+            // colunas da v5 (retornos): janela, fechamento, tem_alizar, estilo, modo_prof, prof_pedida, larg_batente, esp_folha
+            c8(&ts.iter().map(|_| 0u8).collect::<Vec<_>>()),
+            c8(&ts.iter().map(|_| 4u8).collect::<Vec<_>>()),
+            c8(&ts.iter().map(|_| 0u8).collect::<Vec<_>>()),
+            c8(&ts.iter().map(|_| 0u8).collect::<Vec<_>>()),
+            c8(&ts.iter().map(|_| 0u8).collect::<Vec<_>>()),
+            c64(&ts.iter().map(|_| 0.09).collect::<Vec<_>>()),
+            c64(&ts.iter().map(|_| 0.04).collect::<Vec<_>>()),
+            c64(&ts.iter().map(|_| 0.035).collect::<Vec<_>>()),
         ]
         .concat()
     }

@@ -1,6 +1,6 @@
 //! Retornos de acabamento nas pontas livres, portados de `packages/engine/src/wrap.ts` (sub-etapa A2,
 //! decisão 0047): `wrappingLayers`, `sidesOf`, `depthRange`, `ringRect` e `endReturns`. Os retornos de
-//! vão (`insertReturns`) são da A3.
+//! vão (`insertReturns`) são da A3b (`a3b.rs`).
 
 use crate::geo2d::V;
 use crate::MultiPoligono;
@@ -82,7 +82,7 @@ pub fn lados_do_modo(modo: u8) -> Vec<Lado> {
 }
 
 /// `depthRange`.
-fn faixa_de_profundidade(f: &Quadro, lado: Lado, ambos: bool) -> (f64, f64) {
+pub(crate) fn faixa_de_profundidade(f: &Quadro, lado: Lado, ambos: bool) -> (f64, f64) {
     let ext = f.s_ext;
     let int = f.s_int;
     if !ambos {

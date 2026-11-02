@@ -16,6 +16,7 @@ use crate::grupos::agrupar_paredes;
 use crate::itens::{construir_itens, ContextoDoItem, Item, TipoDosItens, CORTE_PADRAO};
 use crate::juncoes::{calcular_pontas, estado_da_ponta, Estado};
 use crate::pintor::pintar;
+use crate::quadro::Quadro;
 use crate::MultiPoligono;
 
 /// Opções de planta (`PlanResolveOptions`) que a consulta recebe.
@@ -28,18 +29,18 @@ pub struct OpcoesDePlanta {
 
 /// Saídas em construção: níveis de índice (formas -> polígonos -> anéis -> pontos).
 #[derive(Default)]
-struct Codificador {
-    itens: Vec<u32>,
-    itens_num: Vec<f64>,
-    formas_cab: Vec<u32>,
-    poligonos: Vec<u32>,
-    aneis: Vec<u32>,
-    pontos: Vec<f64>,
+pub struct Codificador {
+    pub itens: Vec<u32>,
+    pub itens_num: Vec<f64>,
+    pub formas_cab: Vec<u32>,
+    pub poligonos: Vec<u32>,
+    pub aneis: Vec<u32>,
+    pub pontos: Vec<f64>,
 }
 
 impl Codificador {
     /// Acrescenta uma forma e devolve `(ini, n)` em polígonos.
-    fn forma(&mut self, m: &MultiPoligono) -> (u32, u32) {
+    pub fn forma(&mut self, m: &MultiPoligono) -> (u32, u32) {
         let ini = (self.poligonos.len() / 2) as u32;
         for p in m {
             self.poligonos.push((self.aneis.len() / 2) as u32);
@@ -75,8 +76,24 @@ impl Codificador {
     }
 }
 
-/// Executa `itens_pintados(nivel_num, tol_juncao, opcoes)`.
-pub fn itens_pintados(cena: &Cena, nivel: u32, tol: f64, opcoes: &OpcoesDePlanta) -> Result<Vec<Saida>, u32> {
+/// Um grupo de paredes (`clusterWalls`) com os itens e o fragmento pintado de cada um (o `fragment` da saída
+/// `itens_pintados`): em planta, o pintado entre os itens em planta; de contorno, o pintado entre os de contorno.
+pub struct GrupoPintado {
+    /// Índices (em `NivelPintado::quadros`) das paredes do grupo, na ordem de `clusterWalls`.
+    pub membros: Vec<usize>,
+    pub itens: Vec<Item>,
+    /// Um por item, na ordem de `itens`. Para `em_planta` é o `plan` de `solveCluster`.
+    pub fragmentos: Vec<MultiPoligono>,
+}
+
+/// Tudo o que `resolveLevel` calcula antes de `solveCluster`, por nível (grupos, itens e pintura em planta).
+pub struct NivelPintado {
+    pub quadros: Vec<Quadro>,
+    pub grupos: Vec<GrupoPintado>,
+}
+
+/// Orquestra `resolveLevel` até a pintura de cada grupo.
+pub fn pintar_nivel(cena: &Cena, nivel: u32, tol: f64, opcoes: &OpcoesDePlanta) -> Result<NivelPintado, u32> {
     if nivel == NIVEL_TODOS {
         return Err(ENTRADA);
     }
@@ -113,8 +130,8 @@ pub fn itens_pintados(cena: &Cena, nivel: u32, tol: f64, opcoes: &OpcoesDePlanta
         );
     }
 
-    let mut cod = Codificador::default();
-    for (gi, grupo) in grupos.iter().enumerate() {
+    let mut saida: Vec<GrupoPintado> = Vec::with_capacity(grupos.len());
+    for grupo in grupos.iter() {
         // Paredes que atravessam um T: hospedeiras das extremidades `tee` do grupo.
         let mut atravessam: BTreeSet<usize> = BTreeSet::new();
         for &i in grupo {
@@ -148,24 +165,39 @@ pub fn itens_pintados(cena: &Cena, nivel: u32, tol: f64, opcoes: &OpcoesDePlanta
         let plano = pintar(&em_planta.iter().map(|&k| &itens[k]).collect::<Vec<_>>())?;
         // Paredes só de contorno (fora do corte) pintam só entre si: não cortam as paredes que o corte atravessa.
         let contorno = pintar(&de_contorno.iter().map(|&k| &itens[k]).collect::<Vec<_>>())?;
-        let vazio: MultiPoligono = Vec::new();
-        let mut do_plano = vec![None; itens.len()];
-        for (p, &k) in em_planta.iter().enumerate() {
-            do_plano[k] = plano.get(p);
+        let mut do_plano: Vec<Option<MultiPoligono>> = vec![None; itens.len()];
+        for (p, f) in plano.into_iter().enumerate() {
+            do_plano[em_planta[p]] = Some(f);
         }
-        let mut do_contorno = vec![None; itens.len()];
-        for (p, &k) in de_contorno.iter().enumerate() {
-            do_contorno[k] = contorno.get(p);
+        let mut do_contorno: Vec<Option<MultiPoligono>> = vec![None; itens.len()];
+        for (p, f) in contorno.into_iter().enumerate() {
+            do_contorno[de_contorno[p]] = Some(f);
         }
-        for (k, it) in itens.iter().enumerate() {
-            let fragmento = if it.em_planta {
-                do_plano[k].unwrap_or(&vazio)
-            } else if it.contorno {
-                do_contorno[k].unwrap_or(&vazio)
-            } else {
-                &vazio
-            };
-            cod.item(it, gi as u32, fragmento);
+        let fragmentos: Vec<MultiPoligono> = (0..itens.len())
+            .map(|k| {
+                let it = &itens[k];
+                let f = if it.em_planta {
+                    do_plano[k].take()
+                } else if it.contorno {
+                    do_contorno[k].take()
+                } else {
+                    None
+                };
+                f.unwrap_or_default()
+            })
+            .collect();
+        saida.push(GrupoPintado { membros: grupo.clone(), itens, fragmentos });
+    }
+    Ok(NivelPintado { quadros: frames, grupos: saida })
+}
+
+/// Executa `itens_pintados(nivel_num, tol_juncao, opcoes)`.
+pub fn itens_pintados(cena: &Cena, nivel: u32, tol: f64, opcoes: &OpcoesDePlanta) -> Result<Vec<Saida>, u32> {
+    let nivel_pintado = pintar_nivel(cena, nivel, tol, opcoes)?;
+    let mut cod = Codificador::default();
+    for (gi, g) in nivel_pintado.grupos.iter().enumerate() {
+        for (k, it) in g.itens.iter().enumerate() {
+            cod.item(it, gi as u32, &g.fragmentos[k]);
         }
     }
     Ok(vec![
