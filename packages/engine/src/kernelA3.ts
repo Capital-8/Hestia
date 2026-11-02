@@ -11,11 +11,11 @@
 import { openingCasing, openingFrame, openingFrameDepth, openingFrameStyle, openingType, openingsOfWall, type Id, type Opening, type OpeningFrameStyle, type PlanSymbol, type Project, type WrapMode } from '@hestia/model';
 import { makeReturnClipper } from './clipReturn.ts';
 import type { MultiPolygon } from '@hestia/geom';
-import { levelFrames, openingGeometry } from './resolve.ts';
+import { levelFrames, openingGeometry, resolveLevel, type PlanResolveOptions } from './resolve.ts';
 import { openingRect } from './openingCut.ts';
 import { compositionCasing, insertMode, insertReturns } from './wrap.ts';
 import type { CenaA1, ColunasA1 } from './kernelA1.ts';
-import { decodificarForma, gruposDoNivel, type OpcoesA2 } from './kernelA2.ts';
+import { argumentosA2, decodificarForma, gruposDoNivel, type OpcoesA2 } from './kernelA2.ts';
 
 /** `plano` da seção `tipos_abertura`: o índice do `PlanSymbol` nesta lista (a do esquema). */
 export const PLANOS: readonly PlanSymbol[] = ['swing', 'double', 'sliding', 'pivot', 'fixed', 'tilt', 'casement', 'dblact', 'pocket', 'bifold', 'accordion', 'garage', 'hinged', 'hung', 'pivotwin', 'louver'];
@@ -300,4 +300,129 @@ export function decodificarA3b(s: Record<string, ArrayLike<number>>): RetornoA3b
     });
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// A3c: `solveCluster` (faixas verticais, `cut` da planta, regiões por material e silhueta).
+
+/** Uma faixa vertical de uma camada (`LayerBand` sem inclinação): alturas relativas à base da parede. */
+export interface FaixaA3c {
+  z0: number;
+  z1: number;
+  poly: MultiPolygon;
+}
+
+/** Uma camada resolvida (`ResolvedLayer`) na codificação do esquema (ids internados). */
+export interface CamadaA3c {
+  parede: number;
+  grupo: number;
+  /** `layerIndex < 0`: faixa vertical do tipo. */
+  faixa: boolean;
+  /** Índice da camada, ou da faixa em `faixas` (o `layerIndex` do TS é `-(indice + 1)` nas faixas). */
+  indice: number;
+  material: number;
+  core: boolean;
+  prioridade: number;
+  raw: MultiPolygon;
+  fragment: MultiPolygon;
+  cut: MultiPolygon;
+  faixas: FaixaA3c[];
+}
+
+/** Região por material de um grupo. */
+export interface RegiaoA3c {
+  grupo: number;
+  material: number;
+  poligonos: MultiPolygon;
+}
+
+/** O que `cluster_resolvido` devolve: camadas na ordem de `resolveLevel`, regiões por material e uma silhueta por grupo. */
+export interface ClusterA3c {
+  camadas: CamadaA3c[];
+  regioes: RegiaoA3c[];
+  silhuetas: MultiPolygon[];
+}
+
+/** Opções de planta de `cluster_resolvido`: as da A2 e `planOpenings` (as aberturas que furam a parede na planta). */
+export type OpcoesA3c = OpcoesA2 & Pick<PlanResolveOptions, 'planOpenings'>;
+
+/** Argumentos de `cluster_resolvido`: os de `itens_pintados` (7 fixos, sem repetir os ids de contorno) mais as aberturas de planta. */
+export function argumentosA3c(p: Project, levelId: Id, cena: CenaA1, a3: CenaA3, opcoes: OpcoesA3c = {}): number[] {
+  const [nivel, tol, temCorte, corte, nContorno, ...ids] = argumentosA2(p, levelId, cena, opcoes);
+  const aberturas = opcoes.planOpenings === undefined ? [] : [...opcoes.planOpenings].flatMap((id) => (a3.aberturaDe.has(id) ? [a3.aberturaDe.get(id)!] : []));
+  return [nivel!, tol!, temCorte!, corte!, nContorno!, opcoes.planOpenings === undefined ? 0 : 1, aberturas.length, ...ids, ...aberturas];
+}
+
+/**
+ * O que o motor TypeScript produz: `resolveLevel` com as opções de planta (cache próprio, vazio), na ordem de `resolveLevel`
+ * (grupos de `clusterWalls`; em cada um, as paredes do grupo e, em cada parede, as camadas já ordenadas por `layerIndex`).
+ * `ResolvedLayer.bands` com perfil de topo ou de base (parede anexada a telhado, `topProfile`) só existe na A3d: a referência recusa.
+ */
+export function referenciaA3c(p: Project, levelId: Id, cena: CenaA1, opcoes: OpcoesA3c = {}): ClusterA3c {
+  const r = resolveLevel(p, levelId, new Map(), opcoes);
+  const saida: ClusterA3c = { camadas: [], regioes: [], silhuetas: [] };
+  r.clusters.forEach((c, grupo) => {
+    for (const id of c.wallIds) {
+      const w = r.walls[id]!;
+      if (w.profileTop || w.profileBottom || (p.elements[id] as { topProfile?: unknown } | undefined)?.topProfile) throw new Error(`parede ${id} com perfil: fora do escopo da A3c`);
+      for (const l of w.layers) {
+        const faixa = l.layerIndex < 0;
+        saida.camadas.push({
+          parede: numeroDe(cena.idDe, id, 'parede'),
+          grupo,
+          faixa,
+          indice: faixa ? -l.layerIndex - 1 : l.layerIndex,
+          material: numeroDe(cena.materialDe, l.materialId, 'material'),
+          core: l.core,
+          prioridade: l.priority,
+          raw: l.raw,
+          fragment: l.fragment,
+          cut: l.cut,
+          faixas: l.bands.map((b) => ({ z0: b.z0, z1: b.z1, poly: b.poly })),
+        });
+      }
+    }
+    for (const g of c.regions) saida.regioes.push({ grupo, material: numeroDe(cena.materialDe, g.materialId, 'material'), poligonos: g.polygons });
+    saida.silhuetas.push(c.silhouette);
+  });
+  return saida;
+}
+
+/** Decodifica as saídas de `cluster_resolvido` (arrays tipados do Rust) para o mesmo formato de `referenciaA3c`. */
+export function decodificarA3c(s: Record<string, ArrayLike<number>>): ClusterA3c {
+  const cam = s['camadas']!;
+  const prio = s['camadas_num']!;
+  const formas = s['camadas_formas']!;
+  const fz = s['faixas']!;
+  const ff = s['faixas_forma']!;
+  const reg = s['regioes']!;
+  const sil = s['silhuetas']!;
+  const pol = s['poligonos']!;
+  const an = s['aneis']!;
+  const pt = s['pontos']!;
+  const forma = (ini: number, n: number): MultiPolygon => decodificarForma(pol, an, pt, ini, n);
+  const camadas: CamadaA3c[] = [];
+  for (let i = 0; i < cam.length / 6; i++) {
+    const f = (k: number): number => formas[8 * i + k]!;
+    const faixas: FaixaA3c[] = [];
+    for (let b = f(6); b < f(6) + f(7); b++) faixas.push({ z0: fz[2 * b]!, z1: fz[2 * b + 1]!, poly: forma(ff[2 * b]!, ff[2 * b + 1]!) });
+    camadas.push({
+      parede: cam[6 * i]!,
+      grupo: cam[6 * i + 1]!,
+      faixa: cam[6 * i + 2] === 1,
+      indice: cam[6 * i + 3]!,
+      material: cam[6 * i + 4]!,
+      core: cam[6 * i + 5] === 1,
+      prioridade: prio[i]!,
+      raw: forma(f(0), f(1)),
+      fragment: forma(f(2), f(3)),
+      cut: forma(f(4), f(5)),
+      faixas,
+    });
+  }
+  const regioes: RegiaoA3c[] = [];
+  for (let i = 0; i < reg.length / 4; i++) regioes.push({ grupo: reg[4 * i]!, material: reg[4 * i + 1]!, poligonos: forma(reg[4 * i + 2]!, reg[4 * i + 3]!) });
+  const silhuetas: MultiPolygon[] = [];
+  for (let i = 0; i < sil.length / 3; i++) silhuetas.push(forma(sil[3 * i + 1]!, sil[3 * i + 2]!));
+  return { camadas, regioes, silhuetas };
 }
