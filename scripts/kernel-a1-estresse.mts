@@ -571,6 +571,16 @@ const DESCRITORES_DE_LIMIAR: DescritorDeLimiar[] = [
  */
 export const LIMIARES_SEM_CASO: Array<{ limiar: string; motivo: string }> = [
   { limiar: 'TOL_JUNCAO_PADRAO 0,02 (juncoes.rs:18)', motivo: 'constante não usada: a tolerância efetiva é o argumento `tol` da consulta' },
+  {
+    limiar: 'TOL agrupa extremidades (agrupa_pontas; juncoes.rs:154) — equivalente com duas pontas',
+    motivo:
+      'PROVA: para duas pontas com d ∈ (tol·0,9999; tol·1,0001], o caminho de canto (hospedeira_de_canto, mesmo tol) ' +
+      'casa o par do mesmo jeito que o agrupamento: com |cross| ≥ 0,035 a projeção de d sobre um dos eixos é ≤ tol ' +
+      '(se as duas passassem de tol, sen θ ≤ 0,0283 < 0,035); com |cross| < 0,035 o agrupamento colinear devolve corte ' +
+      'reto, igual ao livre. Entrada mínima (duas paredes a 90°, A.b=(0,0), B.a=(0,tol·(1+1e-6))): TS dá A.b livre e ' +
+      'B.a par com A.b pelo canto; a mutação 1,0001 e 0,9999 dá a mesma saída (125/125 nos dois lados). Três pontas: ' +
+      'o caso "TOL · agrupamento com terceira ponta" também não diferencia (sobrevive), mas não há prova geral para 3+.',
+  },
   { limiar: 'dist(O,K) < 1e-6 (planeSpecs; juncoes.rs:568)', motivo: 'corte plano degenerado (O e K coincidentes), exige canto tangente exato' },
   { limiar: 'λ em [−1e-6, 1+1e-6] (planeHit; quadro.rs:299)', motivo: 'interseção do corte plano na borda do segmento; sem efeito fora do canto curvo tangente' },
   { limiar: '|tHi − tLo| < 1e-9 (buttAgainst; juncoes.rs:471)', motivo: 'tie-breaker: exige ramal com espessura ~1e-9·tg(θ); fica no ruído de ponto flutuante' },
