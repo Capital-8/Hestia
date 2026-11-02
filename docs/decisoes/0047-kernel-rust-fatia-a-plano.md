@@ -1,6 +1,6 @@
 # Decisão 0047 — Fatia A (paredes de um pavimento): plano e fronteira
 
-Rascunho de 2026-11-02, para revisão do dono antes do código. Estende a [0046](0046-kernel-rust-abi-v2.md).
+Aceito pelo dono em 2026-11-02 (fronteira da seção 2 aprovada). Estende a [0046](0046-kernel-rust-abi-v2.md).
 Alvo: `resolveLevel(p, levelId)` (`packages/engine/src/resolve.ts`, 485 linhas) numa chamada, com `ResolvedLevel` de volta.
 
 ## 1 — Fecho de dependências (linhas de TS a portar)
