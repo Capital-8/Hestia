@@ -678,9 +678,13 @@ export class ModelScene {
       } else {
         matrizes.push(o.matrixWorld);
       }
-      const contar = indice ? indice.count : pos.count;
+      // Como nas arestas: o lote da GPU guarda capacidade sobrando depois de uma troca; só vale o `drawRange`.
+      const total = indice ? indice.count : pos.count;
+      const drawRange = o.geometry.drawRange;
+      const inicio = Math.max(0, drawRange.start);
+      const fim = Number.isFinite(drawRange.count) ? Math.min(total, inicio + drawRange.count) : total;
       for (const m of matrizes) {
-        for (let i = 0; i + 2 < contar; i += 3) {
+        for (let i = inicio; i + 2 < fim; i += 3) {
           for (let k = 0; k < 3; k++) {
             const n = indice ? indice.getX(i + k) : i + k;
             ponto(m, pos.getX(n), pos.getY(n), pos.getZ(n));

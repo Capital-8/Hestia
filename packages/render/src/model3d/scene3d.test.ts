@@ -588,3 +588,16 @@ describe('abrir vãos no 3D', () => {
     expect(pecasDe(abrir(true), 'door')).toHaveLength(pecasDe(abrir(false), 'door').length);
   });
 });
+
+describe('exportar vetores', () => {
+  it('malha respeita o drawRange: capacidade do índice além do intervalo desenhado não entra na exportação', () => {
+    // Dois triângulos indexados; só o primeiro é desenhado (a GPU guarda o resto como capacidade sobrando).
+    const ms = new ModelScene({ instanciar: false });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0], 3));
+    g.setIndex([0, 1, 2, 0, 2, 3]);
+    g.setDrawRange(0, 3);
+    modelo(ms).add(new THREE.Mesh(g, new THREE.MeshBasicMaterial()));
+    expect(ms.exportarVetores().trianglePositions).toHaveLength(9);
+  });
+});
