@@ -217,3 +217,27 @@ Não feito por causa da parada: build final do  e
 > hestia@0.1.0 wasm:check
 > node scripts/verificar-wasm.mjs (o binário commitado é o da A3b; o hash das fontes diverge até o rebuild).
 Mutações do A3c: pendentes para o fim da A (as dezoito acima foram rodadas uma vez, antes da mudança de método; ver o resultado acima).
+
+## 11 — A3d: implementada, PARADA numa medição da 0049 (2026-11-02)
+
+Esquema `cena-v7.json` (`versao` 7; renomeado de `cena-v6.json`, todos os leitores atualizados). Seção nova `perfis_z` (`parede_num`, `lista`, `indice`, `t`, `h`): uma lista de
+pontos é uma lista de linhas, então os perfis não cabem como colunas de `paredes_z` e vão numa seção à parte (decisão de esquema). `lista` 0 = topo derivado de `wallZRange`
+(`WallZ.profile`, copiado em `profileTop`), 1 = base derivada (`bottomProfile`, copiada em `profileBottom`), 2 = `Wall.topProfile` do modelo (só recorta quando não há topo derivado,
+como o default de `withProfile`; não é copiado). Consulta nova `resolver_nivel` (mesmos argumentos de `cluster_resolvido`): paredes (a, b, u, n, length, sHi, sLo, baseZ, height,
+nominalZ0, nominalZ1; os nominais são `paredes_quadro.z0/topo`), perfis copiados, membranas (`membranesOf`, só parede reta) e camadas/regiões/silhueta de `cluster_resolvido`, com
+as faixas recortadas por `withBottomProfile` e depois `withProfile` (`a3d.rs`: `recortar_pela_base`, `recortar_pelo_topo`, interseção a 1 nm) e a inclinação do topo (`slope`) em
+11 valores por faixa. Módulo `a3d.rs`; `a2::NivelPintado` guarda as pontas (`membranesOf`); `ops::interseccao_com_escala`. Referência: `referenciaA3d` (`kernelA3d.ts`), extraída de
+`resolveLevel`; a recusa de parede com perfil da `referenciaA3c` foi removida. Harness: `compararA3d` (campos escalares a 1e-6, perfis exatos, membranas, faixas estritas ou por alturas
+elementares com a inclinação avaliada na altura). Teste wasm: ~22 s (a medição completa, 65 s com o modo A3D_MEDIR).
+
+Conforme a 0049, regiões e silhuetas agora BLOQUEIAM (topologia igual, limite 1e-5 + 5e-4 × área, guarda de 1e-2 m²; exceção nomeada: semente 1, pavimento 0, material 2). Os contadores
+(`regioesForaDaTolerancia`, `silhuetasForaDaTolerancia`, `topologiaDiferente`, `acimaDoLimite0049`, `maxFracaoDoLimite0049`) ficam como estatística.
+
+**PARADA (nada foi decidido nem afrouxado):** passam do critério da 0049 fora do caso nomeado, nos testes do A3c e do A3d:
+1. Topologia: no estresse do A3d (24 comparações), 84 de 285 regiões/silhuetas (29%) têm nº de peças/furos diferente (nos dois sentidos, p. ex. 17x20, 71x64, 51x43; furos 12/7 x 12/3); no A3c idem.
+2. Uma região fora do limite, fora do caso nomeado: fixture casa-2-quartos, pavimento 0, material 6 (área 0,083 m²): diferença simétrica 6,7e-5 m² contra limite 5,2e-5 (1,30x); diferença de área 2,2e-7.
+3. Silhueta do grupo 0, semente 1, pavimento 0 (corte baixo): 1,28x o limite, consequência do mesmo defeito do TS que a exceção nomeada cobre na região (a exceção não a cobre).
+4. Defeito do TS em `clipBandsToProfile` (uma camada, estresse retas semente 101, parede 18): o `polygon-clipping` `intersection` devolve fatias de área maior que o polígono (0,0195 + 0 + 0,0375 > 0,0494 m²; o Rust soma 0,0494), então a faixa de topo do TS fica errada (0,0195 m² plana contra 0,0089 do Rust); mesmo tipo do defeito da 0048.
+Todo o resto passou: 384 paredes (30 com profileTop, 56 com profileBottom, 75 com topProfile do modelo, 53 com membranas), 2074 camadas, 6574 faixas (616 inclinadas), desvio máximo de campos 1,1e-16, 0 fiapos só do Rust.
+
+Mutações do A3d: pendentes para o fim da A. Build final do `.wasm` e `npm run wasm:check` também (o binário commitado segue o da A3b).
