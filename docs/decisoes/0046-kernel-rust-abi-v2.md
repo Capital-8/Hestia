@@ -34,8 +34,12 @@ Não migram: React, desenho do three.js, cola de editor e comandos.
    **1 µm** (coordenada) e **1e-6 m²/m³** (área/volume), nunca texto de vértices. Cada fatia exige igualdade no projeto
    real (`edificio-dwg_v2`, 11 pavimentos), em sintéticos de 10 e 20 pavimentos e em testes de propriedade. **A tolerância
    não se afrouxa para passar.**
-5. **Desempenho.** Cada fatia declara antes de começar um alvo medido **de ponta a ponta incluindo a travessia da
-   fronteira**, no Node e no navegador. Fatia que não é mais rápida que o TypeScript no cenário real não é liberada.
+5. **Desempenho (revisado em 2026-11-01 por decisão do dono).** Não há campanha de medição por fatia: o ganho é medido
+   **uma vez, ao final de toda a migração**, no Node e no navegador, contra o TypeScript reproduzido com
+   `?kernel=ts` (o TS continua disponível, então a linha de base não se perde). O harness continua imprimindo os tempos
+   de cada consulta como subproduto. **Risco assumido:** uma fatia que não ganha nada só seria percebida no fim; para
+   mitigar, o relatório de cada fatia traz os tempos que o harness já mede, sem exigir meta nem bloquear a liberação por
+   desempenho. A liberação de cada fatia continua dependendo de equivalência e da validação visual do dono (item 6).
 6. **Liberação.** Cada fatia tem chave própria (`?kernelFatias=A,B` e `localStorage hestia:kernel:fatias`);
    `?kernel=rust` liga todas as fatias existentes (compatível com a 0045). O TypeScript é o caminho padrão e o fallback
    até a fatia passar nos testes **e** na validação visual do dono no projeto real. Só então o padrão muda, em decisão
