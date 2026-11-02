@@ -102,3 +102,17 @@ Correção sugerida (não aplicada nesta tarefa): usar `indicesDesenhados`/`draw
   em `scene3d.ts:476`) e refazer as arestas sólidas. Isso deixa de ser uma extensão direta do caminho de janelas e
   reabre os mesmos riscos que a recusa 8 (`pisoOuLajeNaFaixa`, `scene3d.ts:474`) já cobre para os dois tipos.
 - Portanto: **parei** aqui, sem mudar o comportamento, conforme a regra de só estender quando for direto e seguro.
+
+## 4) Altura de parede sem caminho rápido
+
+**Não foi alterado.** O caminho rápido existente é o de esquadrias (`atualizarAberturas`); ele só substitui peças de
+parede e aberturas da parede hospedeira. Mudar a altura de uma parede:
+
+- muda `baseZ`/`height` resolvidos (`packages/engine/src/resolve.ts:397` e `wallZRange`, `packages/engine/src/wallZ.ts:60`);
+- muda as faixas de cota da junção das paredes vizinhas (`junctionLevel`, `packages/engine/src/junctionLevel.ts:111`);
+- muda a zona bloqueada de camadas de piso/laje que tocam a faixa da parede (`wallTouchesZone`,
+  `packages/engine/src/terminoBlock.ts:31`), ou seja, os sólidos de piso/laje do nível;
+- pode mudar paredes anexadas a piso/telhado (`attachTopToFloor`/`attachTopToRoof`) e o perfil de topo (`topProfile`).
+
+Isso alcança paredes, pisos, lajes e possivelmente níveis vizinhos; não é uma extensão direta do caminho de esquadrias.
+Não há um caminho rápido seguro para altura de parede, então a montagem comum permanece.
