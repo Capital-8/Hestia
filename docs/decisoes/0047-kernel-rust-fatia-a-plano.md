@@ -104,3 +104,22 @@ Decisões de equivalência que a medição impôs (nada foi afrouxado em silênc
   anéis a 1 µm) é medida e reportada (~84% dos itens no estresse), não bloqueia. O shape bruto é comparado sempre de forma estrita.
 - **Defeito do TS.** O `polygon-clipping` às vezes perde área em silêncio (estresse semente 100, retas, item 274: perde uma peça de
   0,020 m²; com `differenceClipper` o TS dá o mesmo que o Rust). O harness conta esses casos à parte (`tsPerdeuArea`) e o teste limita a fração.
+
+## 7 — A3 em quatro passos (plano de 2026-11-02)
+
+Mesmo molde da A2 (`1c882387` é o modelo): estender o esquema (sobe `versao`), Rust, referência TS extraída de `resolve.ts` (sem
+reescrever geometria em TS), harness, testes (fixtures + sintéticos + propriedade + mutação), um commit por passo. Tolerâncias: 1 µm de
+coordenada, 1e-6 m²/m³; só o fragmento do pintor segue a 0048.
+
+- **A3a — Vãos.** Seções `tipos_abertura` e `aberturas` (e `paredes_z`: `z0`, `altura`, perfis de topo e base vindos de `wallZRange`,
+  que o JS continua calculando). Consulta `aberturas_geom`: `openingGeometry` (centro, `u`, `n`, largura, altura, vão bruto, peitoril,
+  espessura, `cutHalf` em arco), `openingRect` e `furosDe`. Referência: `openingGeometry` de `resolve.ts`.
+- **A3b — Retornos.** `insertMode`/`insertReturns` (`wrap.ts`) e `clipReturn`, por parede e camada. Referência: `makeReturnClipper`.
+- **A3c — Faixas verticais e `solveCluster`.** `breakpoints`, faixas por altura (pintor por faixa, furos de vão, retornos, fusão de
+  faixas contíguas), `cut` da planta (`difference` com vãos de planta), regiões por material e silhueta (`closeGapsSafe`/`unionClipper`
+  já existem em `ops.rs`). O cache (`resolveMemo`) não é portado.
+- **A3d — `ResolvedLevel` completo.** `membranesOf`, `withProfile`/`withBottomProfile`, campos de `ResolvedWall` e `ResolvedCluster`;
+  consulta `resolver_nivel` que devolve tudo; comparação com `resolveLevel` por parede (camadas, faixas, cortes, regiões, silhueta,
+  perfis), no projeto real e nos sintéticos.
+
+A4 (modo sombra e interruptor) vem depois, e a parada para validação visual do dono é única, depois da A4.
