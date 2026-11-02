@@ -21,9 +21,9 @@ const secoes = (): SecoesDaCena => ({
   },
 });
 
-describe('esquema v5 (A1, A2, A3a e A3b) no lado TypeScript', () => {
-  it('versão 5, seções novas e as consultas quadros_e_juncoes, itens_pintados, aberturas_geom e retornos_geom no esquema', () => {
-    expect(ESQUEMA_VERSAO).toBe(5);
+describe('esquema v6 (A1, A2, A3a, A3b e A3c) no lado TypeScript', () => {
+  it('versão 6, seções novas e as consultas quadros_e_juncoes, itens_pintados, aberturas_geom, retornos_geom e cluster_resolvido no esquema', () => {
+    expect(ESQUEMA_VERSAO).toBe(6);
     expect(Object.keys(SECOES)).toEqual(['paredes', 'paredes_quadro', 'tipos_parede', 'camadas', 'faixas', 'paredes_z', 'tipos_abertura', 'aberturas']);
     expect(CONSULTAS.quadros_e_juncoes.id).toBe(4);
     expect([...CONSULTAS.quadros_e_juncoes.args]).toEqual(['nivel_num', 'tol_juncao']);
@@ -38,6 +38,10 @@ describe('esquema v5 (A1, A2, A3a e A3b) no lado TypeScript', () => {
     expect([...CONSULTAS.retornos_geom.args]).toEqual(['nivel_num', 'tol_juncao', 'tem_corte_z', 'corte_z', 'n_contorno']);
     expect(CONSULTAS.retornos_geom.argsVariaveis).toBe(true);
     expect(CONSULTAS.retornos_geom.saidas.map((s) => s.nome)).toEqual(['retornos', 'formas_cab', 'poligonos', 'aneis', 'pontos']);
+    expect(CONSULTAS.cluster_resolvido.id).toBe(8);
+    expect([...CONSULTAS.cluster_resolvido.args]).toEqual(['nivel_num', 'tol_juncao', 'tem_corte_z', 'corte_z', 'n_contorno', 'tem_aberturas_planta', 'n_aberturas_planta']);
+    expect(CONSULTAS.cluster_resolvido.argsVariaveis).toBe(true);
+    expect(CONSULTAS.cluster_resolvido.saidas.map((s) => s.nome)).toEqual(['camadas', 'camadas_num', 'camadas_formas', 'faixas', 'faixas_forma', 'regioes', 'silhuetas', 'poligonos', 'aneis', 'pontos']);
   });
 
   it('o falso aceita as oito seções e responde NAO_IMPLEMENTADO às consultas de geometria', () => {
@@ -60,6 +64,13 @@ describe('esquema v5 (A1, A2, A3a e A3b) no lado TypeScript', () => {
       }
       try {
         cena.consultar('retornos_geom', [0, 0.02, 0, 0, 0]);
+        expect.unreachable();
+      } catch (e) {
+        expect(e).toBeInstanceOf(ErroKernelLeve);
+        expect((e as ErroKernelLeve).codigo).toBe(CODIGOS.NAO_IMPLEMENTADO);
+      }
+      try {
+        cena.consultar('cluster_resolvido', [0, 0.02, 0, 0, 0, 0, 0]);
         expect.unreachable();
       } catch (e) {
         expect(e).toBeInstanceOf(ErroKernelLeve);

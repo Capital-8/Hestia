@@ -1,6 +1,6 @@
 //! Consulta `itens_pintados` (sub-etapa A2 da fatia A, decisão 0047): itens por camada (`buildItems`) e
 //! pintor (`paint`) de cada grupo de paredes de um nível, só em planta. A codificação das saídas está em
-//! `schema/cena-v5.json`.
+//! `schema/cena-v6.json`.
 //!
 //! Este arquivo só orquestra o que `resolveLevel` faz antes de `solveCluster` (grupos, pontas livres,
 //! paredes que atravessam um T, corte da planta) e codifica o resultado; a geometria está em `camadas`,

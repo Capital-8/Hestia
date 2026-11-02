@@ -1,6 +1,6 @@
 {
-  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`. v3 (sub-etapa A2): colunas novas em `camadas` (material_num, envolve) e `tipos_parede` (wrap_ends, n_faixas), seções `faixas` e `paredes_z` e a consulta `itens_pintados`; as demais seções e consultas não mudaram. v4 (sub-etapa A3a, vãos): seções `tipos_abertura` e `aberturas` e a consulta `aberturas_geom`; as demais não mudaram. Os perfis de topo e base de `wallZRange` NÃO entram em `paredes_z` nesta versão (nenhuma consulta da A3a os lê; entram na A3d, onde `withProfile`/`withBottomProfile` os consomem). v5 (sub-etapa A3b, retornos de acabamento nos vãos): `tipos_parede.wrap_inserts`; `tipos_abertura` ganha janela, fechamento, tem_alizar, estilo_batente, modo_prof, prof_pedida, larg_batente e esp_folha (tudo o que `insertMode` e `insertReturns` leem do tipo da abertura, já resolvido pelo JS); consulta `retornos_geom`; as demais seções e consultas não mudaram.",
-  "versao": 5,
+  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`. v3 (sub-etapa A2): colunas novas em `camadas` (material_num, envolve) e `tipos_parede` (wrap_ends, n_faixas), seções `faixas` e `paredes_z` e a consulta `itens_pintados`; as demais seções e consultas não mudaram. v4 (sub-etapa A3a, vãos): seções `tipos_abertura` e `aberturas` e a consulta `aberturas_geom`; as demais não mudaram. Os perfis de topo e base de `wallZRange` NÃO entram em `paredes_z` nesta versão (nenhuma consulta da A3a os lê; entram na A3d, onde `withProfile`/`withBottomProfile` os consomem). v5 (sub-etapa A3b, retornos de acabamento nos vãos): `tipos_parede.wrap_inserts`; `tipos_abertura` ganha janela, fechamento, tem_alizar, estilo_batente, modo_prof, prof_pedida, larg_batente e esp_folha (tudo o que `insertMode` e `insertReturns` leem do tipo da abertura, já resolvido pelo JS); consulta `retornos_geom`; as demais seções e consultas não mudaram. v6 (sub-etapa A3c, faixas verticais e solveCluster): nenhuma seção nova; consulta `cluster_resolvido` (a lista de aberturas que furam a planta, `planOpenings`, viaja como argumento variável).",
+  "versao": 6,
   "abi": 2,
   "tipos": {
     "u32": {
@@ -638,6 +638,91 @@
           "tipo": "u32",
           "elementos": "4n",
           "descricao": "4 valores por retorno: bruto_ini, bruto_n, recorte_ini, recorte_n: faixas (em polígonos, não em u32) da saída `poligonos` para o retorno de `insertReturns` e para o resultado de `makeReturnClipper` sobre ele"
+        },
+        {
+          "nome": "poligonos",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por polígono: ini, n em anéis (não em u32) da saída `aneis`; o primeiro anel é o externo, os demais furos"
+        },
+        {
+          "nome": "aneis",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por anel: ini, n em pontos (não em f64) da saída `pontos`"
+        },
+        {
+          "nome": "pontos",
+          "tipo": "f64",
+          "elementos": "livre",
+          "descricao": "Pares (x, y) em metros, na ordem das saídas anteriores"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "nome": "cluster_resolvido",
+      "descricao": "Sub-etapa A3c: `solveCluster` (resolve.ts) de cada grupo (cluster) de um nível, sem o cache `resolveMemo`: camadas por parede com `raw`, `fragment`, `cut` e faixas verticais (altura relativa à base da parede, já fundidas quando contíguas e de mesma assinatura), regiões por material e silhueta de cada grupo. Mesma orquestração e mesmos primeiros argumentos de `itens_pintados` (grupos, pontas livres, paredes que atravessam um T, corte da planta, paredes de contorno); `wallZRange` vem de `paredes_z` (z0 e altura) e os vãos, de `aberturas`/`tipos_abertura`; os retornos são os de `retornos_geom`. Camadas na ordem de `resolveLevel`: grupos na ordem de clusterWalls; dentro do grupo, as paredes na ordem do grupo que têm alguma camada e, em cada parede, ordenadas por layerIndex (faixas verticais do tipo, de índice negativo, primeiro; empate estável na ordem dos itens). Camada sem fragmento e sem faixas não sai; camada em planta de fragmento vazio também não (mesmo com faixas). `cut` vazio em paredes de contorno. Regiões por material na ordem em que o material aparece nos cortes; só com `cut` não vazio. Uma silhueta por grupo (vazia se não há corte). Parede sem linha em `paredes_z`, `paredes_quadro`, camadas/faixas incoerentes, tipo de parede ou de abertura inexistente => ENTRADA. nivel_num = 0xFFFFFFFF é ENTRADA. Escala das booleanas: 1 nm (`ESCALA_FINA`) no pintor, nos furos, no recorte dos retornos e no corte; 1 µm na união de regiões e silhueta e no fechamento de frestas (as do Clipper do TypeScript). Faixas verticais, `fragment` e `cut` herdam o pintor e seguem a tolerância da decisão 0048 (região); `raw` e a identidade são exatos.",
+      "args": [
+        "nivel_num",
+        "tol_juncao",
+        "tem_corte_z",
+        "corte_z",
+        "n_contorno",
+        "tem_aberturas_planta",
+        "n_aberturas_planta"
+      ],
+      "argsVariaveis": "depois dos 7 fixos vêm n_contorno valores (id_num das paredes de contorno, PlanResolveOptions.outlineWalls) e depois n_aberturas_planta valores (id_num das aberturas que furam a parede na planta, PlanResolveOptions.planOpenings)",
+      "argsDescricao": {
+        "tol_juncao": "como em quadros_e_juncoes",
+        "tem_corte_z": "1 se PlanResolveOptions.cutZ foi dado, senão 0 (o corte fica 1,20 m acima da base de cada parede)",
+        "corte_z": "cota absoluta do plano de corte (ignorada se tem_corte_z = 0, mas finita)",
+        "n_contorno": "quantas paredes de contorno vêm a seguir (inteiro >= 0)",
+        "tem_aberturas_planta": "1 se PlanResolveOptions.planOpenings foi dado (só essas furam a parede na planta; a lista pode ser vazia), 0 se foi omitido (todas furam)",
+        "n_aberturas_planta": "quantas aberturas de planta vêm depois das de contorno (inteiro >= 0; 0 se tem_aberturas_planta = 0)"
+      },
+      "saidas": [
+        {
+          "nome": "camadas",
+          "tipo": "u32",
+          "elementos": "6n",
+          "descricao": "6 valores por camada resolvida: id_num da parede, grupo (índice do grupo, como `grupos` de quadros_e_juncoes), faixa (0 camada do tipo, 1 faixa vertical do tipo), indice (da camada, ou da faixa em `faixas`; layerIndex do TS é -(indice+1) nas faixas), material_num, core"
+        },
+        {
+          "nome": "camadas_num",
+          "tipo": "f64",
+          "elementos": "n",
+          "descricao": "prioridade de cada camada resolvida"
+        },
+        {
+          "nome": "camadas_formas",
+          "tipo": "u32",
+          "elementos": "8n",
+          "descricao": "8 valores por camada resolvida: raw_ini, raw_n, fragment_ini, fragment_n, cut_ini, cut_n (faixas em polígonos da saída `poligonos`) e faixas_ini, faixas_n (faixas em `faixas`/`faixas_forma`, não em f64)"
+        },
+        {
+          "nome": "faixas",
+          "tipo": "f64",
+          "elementos": "2n",
+          "descricao": "Por faixa vertical: z0 e z1 relativos à base da parede, na ordem crescente de altura de cada camada"
+        },
+        {
+          "nome": "faixas_forma",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por faixa vertical: poligono_ini, poligono_n (faixa em polígonos da saída `poligonos`)"
+        },
+        {
+          "nome": "regioes",
+          "tipo": "u32",
+          "elementos": "4n",
+          "descricao": "4 valores por região por material: grupo, material_num, poligono_ini, poligono_n; na ordem dos grupos e, em cada grupo, na ordem em que o material aparece nos cortes"
+        },
+        {
+          "nome": "silhuetas",
+          "tipo": "u32",
+          "elementos": "3n",
+          "descricao": "3 valores por grupo, na ordem dos grupos (uma linha por grupo, vazia se não há corte): grupo, poligono_ini, poligono_n"
         },
         {
           "nome": "poligonos",

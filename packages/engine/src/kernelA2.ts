@@ -1,7 +1,7 @@
 /**
  * Adaptador da sub-etapa A2 do kernel Rust (decisão 0047). NÃO calcula geometria: EXTRAI do motor TypeScript
  * (`buildItems` e `paint` de `resolve.ts`, exportados) os itens por camada e o fragmento pintado de cada pavimento,
- * na mesma codificação plana da consulta `itens_pintados` (ver `crates/geom-wasm/schema/cena-v5.json`), e decodifica a
+ * na mesma codificação plana da consulta `itens_pintados` (ver `crates/geom-wasm/schema/cena-v6.json`), e decodifica a
  * saída do Rust para o mesmo formato, para o harness e os testes compararem. A orquestração por grupo
  * (pontas livres, paredes que atravessam um T, corte da planta) é a de `resolveLevel`; o teste
  * `kernelA2.test.ts` confere que o resultado é o que `resolveLevel` entrega.

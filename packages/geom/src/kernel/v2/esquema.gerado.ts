@@ -1,7 +1,7 @@
-// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v5.json.
+// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v6.json.
 // Não edite à mão: mude o JSON e rode `node scripts/gerar-esquema-kernel.mjs`.
 
-export const ESQUEMA_VERSAO = 5;
+export const ESQUEMA_VERSAO = 6;
 export const ABI_VERSAO = 2;
 export const NIVEL_TODOS = 4294967295;
 
@@ -576,6 +576,71 @@ export const CONSULTAS = {
         "nome": "formas_cab",
         "tipo": "u32",
         "elementos": "4n"
+      },
+      {
+        "nome": "poligonos",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "aneis",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "pontos",
+        "tipo": "f64",
+        "elementos": "livre"
+      }
+    ]
+  },
+  "cluster_resolvido": {
+    "id": 8,
+    "args": [
+      "nivel_num",
+      "tol_juncao",
+      "tem_corte_z",
+      "corte_z",
+      "n_contorno",
+      "tem_aberturas_planta",
+      "n_aberturas_planta"
+    ],
+    "argsVariaveis": true,
+    "saidas": [
+      {
+        "nome": "camadas",
+        "tipo": "u32",
+        "elementos": "6n"
+      },
+      {
+        "nome": "camadas_num",
+        "tipo": "f64",
+        "elementos": "n"
+      },
+      {
+        "nome": "camadas_formas",
+        "tipo": "u32",
+        "elementos": "8n"
+      },
+      {
+        "nome": "faixas",
+        "tipo": "f64",
+        "elementos": "2n"
+      },
+      {
+        "nome": "faixas_forma",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "regioes",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "silhuetas",
+        "tipo": "u32",
+        "elementos": "3n"
       },
       {
         "nome": "poligonos",

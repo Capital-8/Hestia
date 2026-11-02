@@ -1,12 +1,12 @@
-//! Constantes que espelham `schema/cena-v5.json` (fonte única do contrato, decisão 0046).
+//! Constantes que espelham `schema/cena-v6.json` (fonte única do contrato, decisão 0046).
 //!
 //! O teste `contrato_confere_com_json` (no fim deste arquivo) lê o JSON e confere tudo daqui:
 //! ids de seção, ordem e tipos das colunas, ids de consulta, saídas, códigos de erro e limites.
 //! Mudou o JSON => sobe `VERSAO_ESQUEMA` e este arquivo.
 
-/// `versao` de `cena-v5.json`.
-pub const VERSAO_ESQUEMA: u32 = 5;
-/// `abi` de `cena-v5.json`.
+/// `versao` de `cena-v6.json`.
+pub const VERSAO_ESQUEMA: u32 = 6;
+/// `abi` de `cena-v6.json`.
 pub const VERSAO_ABI2: u32 = 2;
 
 /// Códigos de retorno (3.1 do 0046).
@@ -238,6 +238,7 @@ pub const CONSULTA_QUADROS_E_JUNCOES: u32 = 4;
 pub const CONSULTA_ITENS_PINTADOS: u32 = 5;
 pub const CONSULTA_ABERTURAS_GEOM: u32 = 6;
 pub const CONSULTA_RETORNOS_GEOM: u32 = 7;
+pub const CONSULTA_CLUSTER_RESOLVIDO: u32 = 8;
 
 pub const CONSULTAS: &[Consulta] = &[
     Consulta {
@@ -322,6 +323,24 @@ pub const CONSULTAS: &[Consulta] = &[
             SaidaDef { nome: "pontos", tipo: Tipo::F64, elementos: Elementos::Livre },
         ],
     },
+    Consulta {
+        id: CONSULTA_CLUSTER_RESOLVIDO,
+        nome: "cluster_resolvido",
+        args: &["nivel_num", "tol_juncao", "tem_corte_z", "corte_z", "n_contorno", "tem_aberturas_planta", "n_aberturas_planta"],
+        args_variaveis: true,
+        saidas: &[
+            SaidaDef { nome: "camadas", tipo: Tipo::U32, elementos: Elementos::Multiplo(6) },
+            SaidaDef { nome: "camadas_num", tipo: Tipo::F64, elementos: Elementos::N },
+            SaidaDef { nome: "camadas_formas", tipo: Tipo::U32, elementos: Elementos::Multiplo(8) },
+            SaidaDef { nome: "faixas", tipo: Tipo::F64, elementos: Elementos::DoisN },
+            SaidaDef { nome: "faixas_forma", tipo: Tipo::U32, elementos: Elementos::DoisN },
+            SaidaDef { nome: "regioes", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "silhuetas", tipo: Tipo::U32, elementos: Elementos::Multiplo(3) },
+            SaidaDef { nome: "poligonos", tipo: Tipo::U32, elementos: Elementos::DoisN },
+            SaidaDef { nome: "aneis", tipo: Tipo::U32, elementos: Elementos::DoisN },
+            SaidaDef { nome: "pontos", tipo: Tipo::F64, elementos: Elementos::Livre },
+        ],
+    },
 ];
 
 pub fn secao(id: u32) -> Option<&'static Secao> {
@@ -361,7 +380,7 @@ mod testes {
     use super::*;
     use serde_json::Value;
 
-    const JSON: &str = include_str!("../schema/cena-v5.json");
+    const JSON: &str = include_str!("../schema/cena-v6.json");
 
     fn tipo_de(nome: &str) -> Tipo {
         match nome {
