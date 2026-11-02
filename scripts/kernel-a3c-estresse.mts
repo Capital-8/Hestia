@@ -3,7 +3,7 @@
 // `wrapEnds`) e, para cada pavimento, várias combinações das opções de planta: `cutZ` diferentes (abaixo e acima das faixas e
 // das paredes), `outlineWalls` (paredes fora do corte só como contorno) e `planOpenings` (só algumas aberturas furam a planta).
 // Nada de projeto real: só geometria sintética.
-import { ProjectStore, openingsOfWall, wallsOnLevel, type Command, type Id, type Opening, type Project } from '@hestia/model';
+import { ProjectStore, createEmptyProject, makeWall, openingsOfWall, wallsOnLevel, type Command, type Id, type Opening, type Project } from '@hestia/model';
 import type { OpcoesA3c } from '../packages/engine/src/kernelA3.ts';
 import { aleatorio } from './kernel-a1-estresse.mts';
 import { enriquecerTipos } from './kernel-a2-estresse.mts';
@@ -68,5 +68,19 @@ export function comVaosExtras(p: Project, semente: number): Project {
   }
   const store = new ProjectStore(p);
   store.exec({ type: 'batch', commands: cmds });
+  return store.project;
+}
+
+/**
+ * Duas paredes de mesma forma e alturas diferentes (2,0 e 2,8 m): no corte padrão (1,20 m) a mais nova fica toda coberta pela mais antiga em
+ * planta (`fragment` vazio), mas aparece sozinha acima de 2,0 m (faixas). `solveCluster` descarta a camada em planta de fragmento vazio, mesmo
+ * com faixas: o Rust tem de acompanhar (limiar da camada em planta sem fragmento).
+ */
+export function projetoDeParedesSobrepostas(): Project {
+  const p = createEmptyProject('sobrepostas');
+  const store = new ProjectStore(p);
+  const parede = (id: string, altura: number) =>
+    makeWall({ id, typeId: p.defaults.wallTypeId, levelId: 'lv_0', a: { x: 0, y: 0 }, b: { x: 5, y: 0 }, locationLine: 'wallCenter', flipped: false, sag: 0, height: altura });
+  store.exec({ type: 'batch', commands: [{ type: 'addWall', wall: parede('A', 2.0) }, { type: 'addWall', wall: parede('B', 2.8) }] });
   return store.project;
 }

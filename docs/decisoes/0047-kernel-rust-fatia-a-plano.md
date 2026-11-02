@@ -175,3 +175,44 @@ retorno e fora do pintado das outras paredes), upsert/remoção, entradas invál
 recorte contra a própria parede, piso de 1e-6, vão livre sem batente): todas reprovadas (duas, `>=` e o piso de 1e-6, sobreviveram até se
 acrescentarem os casos de limiar e a exigência de 0 fiapos do Rust).
 
+## 10 — A3c: implementada, PARADA numa medição (2026-11-02)
+
+Esquema `cena-v6.json` (`versao` 6; renomeado de `cena-v5.json`, todos os leitores atualizados). Nenhuma seção nova: `wallZRange` entra por `paredes_z` e a
+lista `planOpenings` viaja como argumento variável. Consulta nova `cluster_resolvido(nivel_num, tol_juncao, tem_corte_z, corte_z, n_contorno,
+tem_aberturas_planta, n_aberturas_planta, ...ids_contorno, ...ids_aberturas_planta)` (`a3c.rs`): por camada resolvida (`solveCluster`: parede, grupo,
+faixa/índice, material, core, prioridade, `raw`, `fragment`, `cut`, faixas verticais com z0/z1 relativos à base) e, por grupo, as regiões por material e a
+silhueta. `retornos_do_nivel` (a3b) e `furos_de` (a3, agora a 1 nm) são reaproveitados; `ops.rs` ganha `fechar_frestas`/`fechar_frestas_seguro` (`closeGaps`/
+`closeGapsSafe` sobre o `offset` do i_overlay; o plano dizia que já existiam, mas só `uniao` e `offset` existiam). Referência: `referenciaA3c` extrai de
+`resolveLevel` (cache próprio vazio); recusa parede com perfil (A3d). O cache de `resolveMemo` não foi portado.
+
+**Resultado bloqueante (passa):** identidade (parede, grupo, faixa, índice, material, core, prioridade) e `raw` exatos; `fragment`, `cut` e cada faixa
+vertical como região pelo critério da 0048. Estresse (12 sementes x 2 pavimentos, várias opções de planta): ~6 mil camadas, ~15 mil faixas, 0 fiapos;
+maior diferença simétrica de `fragment`/`cut`/faixa 3,7e-6 m². A fusão de faixas por `sigOf` decide diferente do TS em ~2% das camadas (as faixas então
+só casam pela partição em alturas elementares; o teste limita a 6%).
+
+**Medição que PARA a etapa:** `regions` e `silhouette` (união + `closeGapsSafe`) NÃO cabem na 0048 (1e-5 + 1e-6 x área). Estresse sementes 1..12, opções
+padrão: 113 de 214 regiões e 33 de 61 silhuetas passam do limite; diferença simétrica típica 1e-4 a 3e-4 m² em regiões de 5 a 20 m²; sim <= 1e-5 + 4,2e-4 x
+área (menos um caso); a diferença de área chega a 1,9e-6 x área. Causa isolada: a UNIÃO (Clipper-JS x i_overlay, ambos a 1 µm, arredondam as interseções de
+forma diferente) já dá 96 de 214 fora do limite sem o fechamento; o fechamento acrescenta pouco. É o mesmo fenômeno da 0048 (dois motores quantizados não
+chegam a 1e-6), só que a região é a soma de dezenas de peças. Um caso à parte (semente 1, nível 0, material 2): o `unionClipper` do TS INFLA a região em
+3,5e-3 m² (preenche um entalhe de 3 x 12 cm junto a uma parede curva; a união exata dá 2,382907, o Clipper do TS 2,389987, o Rust 2,382905): defeito do TS,
+como o do `polygon-clipping` na 0048. Nada foi afrouxado: o harness conta as regiões/silhuetas fora do limite (`regioesForaDaTolerancia`) e o teste as
+reporta sem bloqueá-las. DECISÃO PENDENTE DO DONO (nova constante para regiões, referência do TS trocada pela do Rust, ou porte fiel do Clipper).
+
+Escala: pintor, furos, corte e recorte dos retornos a 1 nm; união das regiões/silhueta e fechamento de frestas a 1 µm (as do Clipper).
+
+Cobertura (estresse, 12 sementes x 2 pavimentos, uma opção de planta por pavimento: padrão, corte baixo, corte na barra, planOpenings metade/vazio, corte alto com
+contorno, corte baixo com contorno e metade): 2066 camadas (221 em parede curva; 1280 com mais de uma faixa; 984 com  diferente do ), 5083 faixas, 99
+grupos, 269 regiões e 99 silhuetas; mais retas só, arcos só, sintéticos de 10 e 20 pavimentos, fixture da casa de 2 quartos, propriedades (faixas ascendentes e
+sem sobreposição; parede isolada coberta do chão ao topo sem lacuna; faixa dentro do bruto fora dos furos de vão; silhueta contém as regiões a menos de 5e-5 m²,
+medido 1,9e-5 no Rust e 2,6e-6 no TS), , upsert/remoção, entradas inválidas, vazamento. Teste wasm novo: ~48 s.
+
+Mutações (dezoito, em ): ativo por , altura do vão pela metade nos furos, sem quebras de vão, sem quebras de item, nunca fundir, sempre fundir, retornos em
+todas as faixas,  ignorado, sem retornos de planta no corte, contorno mantém o corte, camada em planta sem fragmento mantida, camadas sem ordenar, ativo por
+, z absoluto, furos em todas as faixas, silhueta vazia, regiões só do 1º corte: reprovadas (a da camada em planta sem fragmento só depois de acrescentar o caso
+de limiar de duas paredes sobrepostas de alturas 2,0 e 2,8 m). SOBREVIVE: regiões sem o fechamento de frestas (), porque regiões e silhuetas não são
+bloqueantes; um guarda de erro grosseiro (1e-2 m², fora da equivalência) pega peça faltando mas não o fechamento. Fecha-se com a decisão do dono.
+
+Não feito por causa da parada: build final do  e 
+> hestia@0.1.0 wasm:check
+> node scripts/verificar-wasm.mjs (o binário commitado é o da A3b; o hash das fontes diverge até o rebuild).

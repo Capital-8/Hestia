@@ -188,6 +188,12 @@ export function compararA3b(refTodos: RetornoA3b[], rustTodos: RetornoA3b[], max
 // 1e-5 + 1e-6 x área; faixas, `fragment` e `cut` herdam o pintor (1 nm) e as regiões/silhueta herdam a união e o fechamento de
 // frestas a 1 µm. A maior diferença simétrica de cada tipo de forma é reportada contra o limite estrito de 1e-6 m².
 
+/**
+ * Guarda contra erro GROSSEIRO em região e silhueta (peça faltando ou sobrando), que vale mesmo com `regioesBloqueantes` falso. NÃO é critério de
+ * equivalência: é só um piso de sanidade acima do maior desvio medido (3,7e-3 m², o entalhe que o `unionClipper` do TS preenche, ver 0047 §10).
+ */
+const ERRO_GROSSEIRO_REGIAO = 1e-2;
+
 export type TipoDeFormaA3c = 'fragment' | 'cut' | 'faixa' | 'regiao' | 'silhueta';
 
 export interface ComparacaoA3c {
@@ -402,7 +408,7 @@ export function compararA3c(ref: ClusterA3c, rust: ClusterA3c, paredesCurvas: Re
       continue;
     }
     const c = regiaoIgual(a.poligonos, b.poligonos);
-    if (c.erro && regioesBloqueantes) divergencias.push(`região ${i} (grupo ${a.grupo}, material ${a.material}): ${c.erro}`);
+    if (c.erro && (regioesBloqueantes || c.sim > ERRO_GROSSEIRO_REGIAO || c.dArea > ERRO_GROSSEIRO_REGIAO)) divergencias.push(`região ${i} (grupo ${a.grupo}, material ${a.material}): ${c.erro}`);
     else {
       if (c.erro) r.regioesForaDaTolerancia++;
       nota('regiao', c);
@@ -411,7 +417,7 @@ export function compararA3c(ref: ClusterA3c, rust: ClusterA3c, paredesCurvas: Re
   }
   for (let g = 0; g < ref.silhuetas.length && divergencias.length < maxDivergencias; g++) {
     const c = regiaoIgual(ref.silhuetas[g]!, rust.silhuetas[g]!);
-    if (c.erro && regioesBloqueantes) divergencias.push(`silhueta do grupo ${g}: ${c.erro}`);
+    if (c.erro && (regioesBloqueantes || c.sim > ERRO_GROSSEIRO_REGIAO || c.dArea > ERRO_GROSSEIRO_REGIAO)) divergencias.push(`silhueta do grupo ${g}: ${c.erro}`);
     else {
       if (c.erro) r.silhuetasForaDaTolerancia++;
       nota('silhueta', c);

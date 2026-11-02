@@ -17,7 +17,7 @@ import { GerenciadorKernelV2 } from '../packages/geom/src/kernel/v2/gerenciador.
 import { fonteDeSecoes } from '../packages/geom/src/kernel/v2/quadros.ts';
 import { areaDaForma } from '../scripts/kernel-harness-a2.mts';
 import { compararA3c, type ComparacaoA3c } from '../scripts/kernel-harness-a3.mts';
-import { projetoDeEstresseA3c, variantesDoNivel } from '../scripts/kernel-a3c-estresse.mts';
+import { projetoDeEstresseA3c, projetoDeParedesSobrepostas, variantesDoNivel } from '../scripts/kernel-a3c-estresse.mts';
 
 const caminho = caminhoDoWasm();
 const bytes = existsSync(caminho) ? readFileSync(caminho) : null;
@@ -241,7 +241,8 @@ describe.skipIf(!bytes)('A3c: cluster_resolvido do Rust x motor TypeScript', () 
           // a silhueta de cada grupo contém as regiões do grupo (a menos do ruído do fechamento de frestas: 5e-5 m², medido 1,9e-5)
           r.silhuetas.forEach((sil, g) => {
             for (const reg of r.regioes.filter((x) => x.grupo === g)) {
-              if (reg.poligonos.length === 0 || sil.length === 0) continue;
+              if (reg.poligonos.length === 0) continue;
+              expect(sil.length, `silhueta do grupo ${g} vazia com região do material ${reg.material}`).toBeGreaterThan(0);
               const fora = areaDaForma(difference(reg.poligonos, sil));
               maxFora = Math.max(maxFora, fora);
               expect(fora, `região do material ${reg.material} fora da silhueta do grupo ${g}`).toBeLessThanOrEqual(5e-5);
@@ -257,6 +258,19 @@ describe.skipIf(!bytes)('A3c: cluster_resolvido do Rust x motor TypeScript', () 
     expect(verificadas).toBeGreaterThan(200);
     expect(isoladas, 'camadas de parede isolada com faixas').toBeGreaterThan(20);
   }, 120_000);
+
+  it('limiar: camada em planta de fragmento vazio é descartada mesmo com faixas', () => {
+    if (pula()) return;
+    const p = projetoDeParedesSobrepostas();
+    const { a1 } = cenaDe(p);
+    // sensibilidade: o TS descarta as camadas da parede B (coberta pela A no corte) e ainda assim a parede B tem faixas acima de 2,0 m
+    const ref = referenciaA3c(p, p.levels[0]!.id, a1);
+    const doB = ref.camadas.filter((c) => c.parede === a1.idDe.get('B'));
+    expect(doB.length, 'o TS descarta as camadas da parede coberta').toBe(0);
+    expect(ref.camadas.filter((c) => c.parede === a1.idDe.get('A')).length).toBeGreaterThan(0);
+    const cov = compararProjeto(p, {}, [{}]);
+    expect(cov.camadas).toBeGreaterThan(0);
+  });
 
   it('planOpenings vazio: o corte é o fragmento; sem planOpenings os vãos furam a planta', () => {
     if (pula()) return;
