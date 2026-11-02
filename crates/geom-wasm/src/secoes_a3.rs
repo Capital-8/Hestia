@@ -1,4 +1,5 @@
-//! Seções da sub-etapa A3a (esquema v4; v5 acrescenta as colunas de retorno em `tipos_abertura`): `tipos_abertura` e `aberturas`.
+//! Seções da sub-etapa A3a (esquema v4; v5 acrescenta as colunas de retorno em `tipos_abertura`): `tipos_abertura` e `aberturas`;
+//! e da A3d (esquema v7): `perfis_z`.
 //!
 //! Mesmo molde de `secoes_a1`: `BTreeMap` por chave (ordem canônica = id crescente), decodificação que valida
 //! antes de tocar a cena (atômica): tamanho, chave ausente/duplicada, valores não finitos e enums fora do domínio.
@@ -6,7 +7,7 @@
 use std::collections::BTreeMap;
 
 use crate::cena::decodificar_colunas;
-use crate::esquema::{ENTRADA, INTERNO, LIMITE, LIMITE_LINHAS_POR_SECAO, SECAO_ABERTURAS, SECAO_TIPOS_ABERTURA};
+use crate::esquema::{ENTRADA, INTERNO, LIMITE, LIMITE_LINHAS_POR_SECAO, SECAO_ABERTURAS, SECAO_PERFIS_Z, SECAO_TIPOS_ABERTURA};
 use crate::secoes_a1::{bool01, chaves_validas, f64s, finito, u32s, u8s};
 
 /// Maior código de `plano` (`PlanSymbol`, ver o esquema): `louver`.
@@ -66,15 +67,30 @@ pub struct Abertura {
     pub altura: Option<f64>,
 }
 
+/// Maior código de `lista` de `perfis_z`: 0 topo derivado de `wallZRange`, 1 base derivada, 2 `Wall.topProfile` do modelo.
+pub const LISTA_MAX: u8 = 2;
+
+/// Linha de `perfis_z` (A3d): um ponto de perfil (`ProfilePoint`) de uma parede.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PontoDePerfil {
+    pub parede: u32,
+    pub lista: u8,
+    pub indice: u32,
+    pub t: f64,
+    pub h: f64,
+}
+
 #[derive(Default)]
 pub struct SecoesA3 {
     pub tipos: BTreeMap<u32, TipoAbertura>,
     pub aberturas: BTreeMap<u32, Abertura>,
+    pub perfis: BTreeMap<u32, PontoDePerfil>,
 }
 
 enum Lote {
     Tipos(Vec<(u32, TipoAbertura)>),
     Aberturas(Vec<(u32, Abertura)>),
+    Perfis(Vec<(u32, PontoDePerfil)>),
 }
 
 impl Lote {
@@ -82,6 +98,7 @@ impl Lote {
         match self {
             Lote::Tipos(v) => v.iter().map(|x| x.0).collect(),
             Lote::Aberturas(v) => v.iter().map(|x| x.0).collect(),
+            Lote::Perfis(v) => v.iter().map(|x| x.0).collect(),
         }
     }
 }
@@ -189,6 +206,26 @@ fn decodificar(secao: u32, n_linhas: u32, bytes: &[u8]) -> Result<Lote, u32> {
             }
             Ok(Lote::Aberturas(v))
         }
+        SECAO_PERFIS_Z => {
+            let id = u32s(c.next())?;
+            let parede = u32s(c.next())?;
+            let lista = u8s(c.next())?;
+            let indice = u32s(c.next())?;
+            let t = f64s(c.next())?;
+            let h = f64s(c.next())?;
+            chaves_validas(&id)?;
+            let mut v = Vec::with_capacity(id.len());
+            for i in 0..id.len() {
+                let (Some(&k), Some(&pa), Some(&l), Some(&ix), Some(&tt), Some(&hh)) = (id.get(i), parede.get(i), lista.get(i), indice.get(i), t.get(i), h.get(i)) else {
+                    return Err(INTERNO);
+                };
+                if !(finito(tt) && finito(hh)) || l > LISTA_MAX {
+                    return Err(ENTRADA);
+                }
+                v.push((k, PontoDePerfil { parede: pa, lista: l, indice: ix, t: tt, h: hh }));
+            }
+            Ok(Lote::Perfis(v))
+        }
         _ => Err(ENTRADA),
     }
 }
@@ -196,22 +233,22 @@ fn decodificar(secao: u32, n_linhas: u32, bytes: &[u8]) -> Result<Lote, u32> {
 impl SecoesA3 {
     /// `true` se a seção é uma das duas daqui.
     pub fn e_minha(secao: u32) -> bool {
-        matches!(secao, SECAO_TIPOS_ABERTURA | SECAO_ABERTURAS)
+        matches!(secao, SECAO_TIPOS_ABERTURA | SECAO_ABERTURAS | SECAO_PERFIS_Z)
     }
 
     fn tamanho(&self, secao: u32) -> usize {
-        if secao == SECAO_TIPOS_ABERTURA {
-            self.tipos.len()
-        } else {
-            self.aberturas.len()
+        match secao {
+            SECAO_TIPOS_ABERTURA => self.tipos.len(),
+            SECAO_ABERTURAS => self.aberturas.len(),
+            _ => self.perfis.len(),
         }
     }
 
     fn contem(&self, secao: u32, k: u32) -> bool {
-        if secao == SECAO_TIPOS_ABERTURA {
-            self.tipos.contains_key(&k)
-        } else {
-            self.aberturas.contains_key(&k)
+        match secao {
+            SECAO_TIPOS_ABERTURA => self.tipos.contains_key(&k),
+            SECAO_ABERTURAS => self.aberturas.contains_key(&k),
+            _ => self.perfis.contains_key(&k),
         }
     }
 
@@ -219,16 +256,17 @@ impl SecoesA3 {
         match lote {
             Lote::Tipos(v) => self.tipos.extend(v),
             Lote::Aberturas(v) => self.aberturas.extend(v),
+            Lote::Perfis(v) => self.perfis.extend(v),
         }
     }
 
     /// Substitui todas as linhas da seção (atômico).
     pub fn definir(&mut self, secao: u32, n_linhas: u32, bytes: &[u8]) -> Result<(), u32> {
         let lote = decodificar(secao, n_linhas, bytes)?;
-        if secao == SECAO_TIPOS_ABERTURA {
-            self.tipos.clear();
-        } else {
-            self.aberturas.clear();
+        match secao {
+            SECAO_TIPOS_ABERTURA => self.tipos.clear(),
+            SECAO_ABERTURAS => self.aberturas.clear(),
+            _ => self.perfis.clear(),
         }
         self.aplicar(lote);
         Ok(())
@@ -248,10 +286,16 @@ impl SecoesA3 {
     /// Remove pelas chaves (ausentes são ignoradas).
     pub fn remover(&mut self, secao: u32, ids: &[u32]) {
         for k in ids {
-            if secao == SECAO_TIPOS_ABERTURA {
-                self.tipos.remove(k);
-            } else {
-                self.aberturas.remove(k);
+            match secao {
+                SECAO_TIPOS_ABERTURA => {
+                    self.tipos.remove(k);
+                }
+                SECAO_ABERTURAS => {
+                    self.aberturas.remove(k);
+                }
+                _ => {
+                    self.perfis.remove(k);
+                }
             }
         }
     }

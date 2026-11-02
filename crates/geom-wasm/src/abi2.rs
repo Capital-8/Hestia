@@ -1,4 +1,4 @@
-//! ABI v2 do kernel (decisão 0046, seção 3). Dados descritos por `schema/cena-v6.json`.
+//! ABI v2 do kernel (decisão 0046, seção 3). Dados descritos por `schema/cena-v7.json`.
 //!
 //! ## Modelo de memória
 //!
@@ -411,7 +411,7 @@ mod testes {
     #[test]
     fn versoes() {
         assert_eq!(abi2_versao(), 2);
-        assert_eq!(abi2_esquema_versao(), 6);
+        assert_eq!(abi2_esquema_versao(), 7);
     }
 
     #[test]
@@ -490,13 +490,13 @@ mod testes {
         let h = n.criar();
         let (nl, b) = bytes_de(&[(1, 0, 0.0, 0.0, 1.0, 0.0, 0.1)]);
         assert_eq!(n.definir_secao(h, SECAO_PAREDES, nl + 1, &b), ENTRADA);
-        assert_eq!(n.definir_secao(h, 9, nl, &b), ENTRADA);
+        assert_eq!(n.definir_secao(h, 10, nl, &b), ENTRADA);
         assert_eq!(n.bytes_da_secao(h, SECAO_PAREDES, LIMITE_LINHAS_POR_SECAO + 1), Err(LIMITE));
-        assert_eq!(n.bytes_da_secao(h, 9, 1), Err(ENTRADA));
+        assert_eq!(n.bytes_da_secao(h, 10, 1), Err(ENTRADA));
         assert_eq!(n.bytes_da_secao(12345, SECAO_PAREDES, 1), Err(HANDLE));
         assert_eq!(n.bytes_da_secao(h, SECAO_PAREDES, 2), Ok(8 + 8 + 5 * 16));
-        assert_eq!(n.upsert(h, 9, nl, &b), ENTRADA);
-        assert_eq!(n.remover(h, 9, &[1]), ENTRADA);
+        assert_eq!(n.upsert(h, 10, nl, &b), ENTRADA);
+        assert_eq!(n.remover(h, 10, &[1]), ENTRADA);
         assert_eq!(INTERNO, 6);
     }
 

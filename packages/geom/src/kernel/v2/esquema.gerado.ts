@@ -1,7 +1,7 @@
-// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v6.json.
+// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v7.json.
 // Não edite à mão: mude o JSON e rode `node scripts/gerar-esquema-kernel.mjs`.
 
-export const ESQUEMA_VERSAO = 6;
+export const ESQUEMA_VERSAO = 7;
 export const ABI_VERSAO = 2;
 export const NIVEL_TODOS = 4294967295;
 
@@ -368,6 +368,36 @@ export const SECOES = {
         "tipo": "f64"
       }
     ]
+  },
+  "perfis_z": {
+    "id": 9,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "parede_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "lista",
+        "tipo": "u8"
+      },
+      {
+        "nome": "indice",
+        "tipo": "u32"
+      },
+      {
+        "nome": "t",
+        "tipo": "f64"
+      },
+      {
+        "nome": "h",
+        "tipo": "f64"
+      }
+    ]
   }
 } as const;
 
@@ -626,6 +656,96 @@ export const CONSULTAS = {
         "nome": "faixas",
         "tipo": "f64",
         "elementos": "2n"
+      },
+      {
+        "nome": "faixas_forma",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "regioes",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "silhuetas",
+        "tipo": "u32",
+        "elementos": "3n"
+      },
+      {
+        "nome": "poligonos",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "aneis",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "pontos",
+        "tipo": "f64",
+        "elementos": "livre"
+      }
+    ]
+  },
+  "resolver_nivel": {
+    "id": 9,
+    "args": [
+      "nivel_num",
+      "tol_juncao",
+      "tem_corte_z",
+      "corte_z",
+      "n_contorno",
+      "tem_aberturas_planta",
+      "n_aberturas_planta"
+    ],
+    "argsVariaveis": true,
+    "saidas": [
+      {
+        "nome": "paredes",
+        "tipo": "u32",
+        "elementos": "8n"
+      },
+      {
+        "nome": "paredes_num",
+        "tipo": "f64",
+        "elementos": "15n"
+      },
+      {
+        "nome": "perfis",
+        "tipo": "f64",
+        "elementos": "2n"
+      },
+      {
+        "nome": "membranas",
+        "tipo": "u32",
+        "elementos": "3n"
+      },
+      {
+        "nome": "membranas_pts",
+        "tipo": "f64",
+        "elementos": "4n"
+      },
+      {
+        "nome": "camadas",
+        "tipo": "u32",
+        "elementos": "6n"
+      },
+      {
+        "nome": "camadas_num",
+        "tipo": "f64",
+        "elementos": "n"
+      },
+      {
+        "nome": "camadas_formas",
+        "tipo": "u32",
+        "elementos": "8n"
+      },
+      {
+        "nome": "faixas",
+        "tipo": "f64",
+        "elementos": "11n"
       },
       {
         "nome": "faixas_forma",

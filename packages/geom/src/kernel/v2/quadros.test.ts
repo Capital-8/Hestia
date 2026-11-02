@@ -21,10 +21,10 @@ const secoes = (): SecoesDaCena => ({
   },
 });
 
-describe('esquema v6 (A1, A2, A3a, A3b e A3c) no lado TypeScript', () => {
-  it('versão 6, seções novas e as consultas quadros_e_juncoes, itens_pintados, aberturas_geom, retornos_geom e cluster_resolvido no esquema', () => {
-    expect(ESQUEMA_VERSAO).toBe(6);
-    expect(Object.keys(SECOES)).toEqual(['paredes', 'paredes_quadro', 'tipos_parede', 'camadas', 'faixas', 'paredes_z', 'tipos_abertura', 'aberturas']);
+describe('esquema v7 (A1, A2, A3a, A3b, A3c e A3d) no lado TypeScript', () => {
+  it('versão 7, seções novas e as consultas quadros_e_juncoes, itens_pintados, aberturas_geom, retornos_geom, cluster_resolvido e resolver_nivel no esquema', () => {
+    expect(ESQUEMA_VERSAO).toBe(7);
+    expect(Object.keys(SECOES)).toEqual(['paredes', 'paredes_quadro', 'tipos_parede', 'camadas', 'faixas', 'paredes_z', 'tipos_abertura', 'aberturas', 'perfis_z']);
     expect(CONSULTAS.quadros_e_juncoes.id).toBe(4);
     expect([...CONSULTAS.quadros_e_juncoes.args]).toEqual(['nivel_num', 'tol_juncao']);
     expect(CONSULTAS.quadros_e_juncoes.saidas.map((s) => s.nome)).toEqual([
@@ -42,9 +42,15 @@ describe('esquema v6 (A1, A2, A3a, A3b e A3c) no lado TypeScript', () => {
     expect([...CONSULTAS.cluster_resolvido.args]).toEqual(['nivel_num', 'tol_juncao', 'tem_corte_z', 'corte_z', 'n_contorno', 'tem_aberturas_planta', 'n_aberturas_planta']);
     expect(CONSULTAS.cluster_resolvido.argsVariaveis).toBe(true);
     expect(CONSULTAS.cluster_resolvido.saidas.map((s) => s.nome)).toEqual(['camadas', 'camadas_num', 'camadas_formas', 'faixas', 'faixas_forma', 'regioes', 'silhuetas', 'poligonos', 'aneis', 'pontos']);
+    expect(CONSULTAS.resolver_nivel.id).toBe(9);
+    expect([...CONSULTAS.resolver_nivel.args]).toEqual([...CONSULTAS.cluster_resolvido.args]);
+    expect(CONSULTAS.resolver_nivel.argsVariaveis).toBe(true);
+    expect(CONSULTAS.resolver_nivel.saidas.map((s) => s.nome)).toEqual([
+      'paredes', 'paredes_num', 'perfis', 'membranas', 'membranas_pts', 'camadas', 'camadas_num', 'camadas_formas', 'faixas', 'faixas_forma', 'regioes', 'silhuetas', 'poligonos', 'aneis', 'pontos',
+    ]);
   });
 
-  it('o falso aceita as oito seções e responde NAO_IMPLEMENTADO às consultas de geometria', () => {
+  it('o falso aceita as seções e responde NAO_IMPLEMENTADO às consultas de geometria', () => {
     const { ger } = gerenciadorFalso();
     const cena = CenaV2.criar(ger, fonteDeSecoes(secoes));
     try {
@@ -71,6 +77,13 @@ describe('esquema v6 (A1, A2, A3a, A3b e A3c) no lado TypeScript', () => {
       }
       try {
         cena.consultar('cluster_resolvido', [0, 0.02, 0, 0, 0, 0, 0]);
+        expect.unreachable();
+      } catch (e) {
+        expect(e).toBeInstanceOf(ErroKernelLeve);
+        expect((e as ErroKernelLeve).codigo).toBe(CODIGOS.NAO_IMPLEMENTADO);
+      }
+      try {
+        cena.consultar('resolver_nivel', [0, 0.02, 0, 0, 0, 0, 0]);
         expect.unreachable();
       } catch (e) {
         expect(e).toBeInstanceOf(ErroKernelLeve);

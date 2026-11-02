@@ -1,6 +1,6 @@
 {
-  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`. v3 (sub-etapa A2): colunas novas em `camadas` (material_num, envolve) e `tipos_parede` (wrap_ends, n_faixas), seções `faixas` e `paredes_z` e a consulta `itens_pintados`; as demais seções e consultas não mudaram. v4 (sub-etapa A3a, vãos): seções `tipos_abertura` e `aberturas` e a consulta `aberturas_geom`; as demais não mudaram. Os perfis de topo e base de `wallZRange` NÃO entram em `paredes_z` nesta versão (nenhuma consulta da A3a os lê; entram na A3d, onde `withProfile`/`withBottomProfile` os consomem). v5 (sub-etapa A3b, retornos de acabamento nos vãos): `tipos_parede.wrap_inserts`; `tipos_abertura` ganha janela, fechamento, tem_alizar, estilo_batente, modo_prof, prof_pedida, larg_batente e esp_folha (tudo o que `insertMode` e `insertReturns` leem do tipo da abertura, já resolvido pelo JS); consulta `retornos_geom`; as demais seções e consultas não mudaram. v6 (sub-etapa A3c, faixas verticais e solveCluster): nenhuma seção nova; consulta `cluster_resolvido` (a lista de aberturas que furam a planta, `planOpenings`, viaja como argumento variável).",
-  "versao": 6,
+  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`. v3 (sub-etapa A2): colunas novas em `camadas` (material_num, envolve) e `tipos_parede` (wrap_ends, n_faixas), seções `faixas` e `paredes_z` e a consulta `itens_pintados`; as demais seções e consultas não mudaram. v4 (sub-etapa A3a, vãos): seções `tipos_abertura` e `aberturas` e a consulta `aberturas_geom`; as demais não mudaram. Os perfis de topo e base de `wallZRange` NÃO entram em `paredes_z` nesta versão (nenhuma consulta da A3a os lê; entram na A3d, onde `withProfile`/`withBottomProfile` os consomem). v5 (sub-etapa A3b, retornos de acabamento nos vãos): `tipos_parede.wrap_inserts`; `tipos_abertura` ganha janela, fechamento, tem_alizar, estilo_batente, modo_prof, prof_pedida, larg_batente e esp_folha (tudo o que `insertMode` e `insertReturns` leem do tipo da abertura, já resolvido pelo JS); consulta `retornos_geom`; as demais seções e consultas não mudaram. v6 (sub-etapa A3c, faixas verticais e solveCluster): nenhuma seção nova; consulta `cluster_resolvido` (a lista de aberturas que furam a planta, `planOpenings`, viaja como argumento variável). v7 (sub-etapa A3d, ResolvedLevel completo): seção `perfis_z` (pontos dos perfis de topo e de base de `wallZRange`, mais o `topProfile` do modelo, que o JS calcula e envia; uma lista por parede é uma lista de linhas, por isso é uma seção à parte e não colunas de `paredes_z`) e consulta `resolver_nivel` (tudo o que `resolveLevel` devolve: campos de ResolvedWall, camadas com faixas já recortadas pelos perfis, membranas, regiões e silhueta). As demais seções e consultas não mudaram.",
+  "versao": 7,
   "abi": 2,
   "tipos": {
     "u32": {
@@ -380,6 +380,38 @@
           "tipo": "f64"
         }
       ]
+    },
+    {
+      "id": 9,
+      "nome": "perfis_z",
+      "chave": "id_num",
+      "descricao": "Pontos de perfil por parede (A3d), uma linha por ponto. parede_num: id_num da parede. lista: 0 = perfil superior derivado de `wallZRange` (`WallZ.profile`: telhado ou piso/laje do nível de topo; é o que `ResolvedWall.profileTop` copia), 1 = perfil de base derivado (`WallZ.bottomProfile`, copiado em `profileBottom`), 2 = `Wall.topProfile` do modelo (só aplica o recorte quando a lista 0 não existe da parede, como o default de `withProfile`; não é copiado para o resultado). indice: posição do ponto na lista (0..n-1 sem repetição e sem lacuna por (parede_num, lista), senão ENTRADA na consulta). t e h: ProfilePoint (t = distância ao longo de a->b; h = altura relativa à base `paredes_z.z0`). Uma lista existe quando tem ao menos uma linha. Os pontos vão como o JS os calcula (o Rust não os deriva). Perfil de parede curva (sag diferente de 0) é copiado mas nunca recorta as faixas (`withProfile`/`withBottomProfile`).",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "parede_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "lista",
+          "tipo": "u8"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "t",
+          "tipo": "f64"
+        },
+        {
+          "nome": "h",
+          "tipo": "f64"
+        }
+      ]
     }
   ],
   "consultas": [
@@ -705,6 +737,121 @@
           "tipo": "f64",
           "elementos": "2n",
           "descricao": "Por faixa vertical: z0 e z1 relativos à base da parede, na ordem crescente de altura de cada camada"
+        },
+        {
+          "nome": "faixas_forma",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por faixa vertical: poligono_ini, poligono_n (faixa em polígonos da saída `poligonos`)"
+        },
+        {
+          "nome": "regioes",
+          "tipo": "u32",
+          "elementos": "4n",
+          "descricao": "4 valores por região por material: grupo, material_num, poligono_ini, poligono_n; na ordem dos grupos e, em cada grupo, na ordem em que o material aparece nos cortes"
+        },
+        {
+          "nome": "silhuetas",
+          "tipo": "u32",
+          "elementos": "3n",
+          "descricao": "3 valores por grupo, na ordem dos grupos (uma linha por grupo, vazia se não há corte): grupo, poligono_ini, poligono_n"
+        },
+        {
+          "nome": "poligonos",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por polígono: ini, n em anéis (não em u32) da saída `aneis`; o primeiro anel é o externo, os demais furos"
+        },
+        {
+          "nome": "aneis",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por anel: ini, n em pontos (não em f64) da saída `pontos`"
+        },
+        {
+          "nome": "pontos",
+          "tipo": "f64",
+          "elementos": "livre",
+          "descricao": "Pares (x, y) em metros, na ordem das saídas anteriores"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "nome": "resolver_nivel",
+      "descricao": "Sub-etapa A3d: `resolveLevel` completo (ResolvedLevel) de um nível: tudo o que `cluster_resolvido` (A3c) devolve e mais, por parede, os campos de ResolvedWall (a, b, u, n, length, sHi, sLo, baseZ, height, nominalZ0, nominalZ1), as membranas (`membranesOf`), os perfis de topo e de base copiados (`profileTop`, `profileBottom`, de `perfis_z` listas 0 e 1) e as faixas verticais de cada camada já recortadas pelos perfis (`withBottomProfile` e depois `withProfile`; o perfil superior é o da lista 0 ou, se não existe, o `Wall.topProfile` da lista 2; só em parede reta e com ao menos 2 pontos), com a inclinação do topo (`slope`) quando o trecho do perfil é inclinado. Mesmos argumentos, mesma orquestração, mesma ordem e mesma escala de `cluster_resolvido`; a interseção das fatias do perfil com as faixas usa 1 nm (`ESCALA_FINA`), como o pintor. Paredes em `paredes`: grupos na ordem de clusterWalls e, em cada um, as paredes na ordem do grupo (a de `ResolvedCluster.wallIds`; toda parede do grupo sai, mesmo sem camadas). Ordem das camadas, regiões e silhuetas: as de `cluster_resolvido`. nivel_num = 0xFFFFFFFF é ENTRADA. Lista de perfil com índice repetido ou com lacuna => ENTRADA.",
+      "args": [
+        "nivel_num",
+        "tol_juncao",
+        "tem_corte_z",
+        "corte_z",
+        "n_contorno",
+        "tem_aberturas_planta",
+        "n_aberturas_planta"
+      ],
+      "argsVariaveis": "depois dos 7 fixos vêm n_contorno valores (id_num das paredes de contorno, PlanResolveOptions.outlineWalls) e depois n_aberturas_planta valores (id_num das aberturas que furam a parede na planta, PlanResolveOptions.planOpenings)",
+      "argsDescricao": {
+        "tol_juncao": "como em quadros_e_juncoes",
+        "tem_corte_z": "1 se PlanResolveOptions.cutZ foi dado, senão 0 (o corte fica 1,20 m acima da base de cada parede)",
+        "corte_z": "cota absoluta do plano de corte (ignorada se tem_corte_z = 0, mas finita)",
+        "n_contorno": "quantas paredes de contorno vêm a seguir (inteiro >= 0)",
+        "tem_aberturas_planta": "1 se PlanResolveOptions.planOpenings foi dado (só essas furam a parede na planta; a lista pode ser vazia), 0 se foi omitido (todas furam)",
+        "n_aberturas_planta": "quantas aberturas de planta vêm depois das de contorno (inteiro >= 0; 0 se tem_aberturas_planta = 0)"
+      },
+      "saidas": [
+        {
+          "nome": "paredes",
+          "tipo": "u32",
+          "elementos": "8n",
+          "descricao": "8 valores por parede resolvida: id_num, grupo, tem_perfil_topo, topo_ini, topo_n, tem_perfil_base, base_ini, base_n (faixas em pontos da saída `perfis`, não em f64; zeros quando a lista não existe)"
+        },
+        {
+          "nome": "paredes_num",
+          "tipo": "f64",
+          "elementos": "15n",
+          "descricao": "15 valores por parede resolvida: ax, ay, bx, by (a, b), ux, uy, nx, ny (u, n), length, s_hi, s_lo, base_z, height, nominal_z0, nominal_z1"
+        },
+        {
+          "nome": "perfis",
+          "tipo": "f64",
+          "elementos": "2n",
+          "descricao": "Pares (t, h) dos perfis copiados (`profileTop` e `profileBottom`), na ordem das paredes: topo e depois base"
+        },
+        {
+          "nome": "membranas",
+          "tipo": "u32",
+          "elementos": "3n",
+          "descricao": "3 valores por membrana (`membranesOf`; só parede reta, camadas de espessura < 1e-6): parede_num, camada (layerIndex), material_num; na ordem das paredes e, em cada uma, das camadas"
+        },
+        {
+          "nome": "membranas_pts",
+          "tipo": "f64",
+          "elementos": "4n",
+          "descricao": "4 valores por membrana: ax, ay, bx, by (os dois pontos de `pts`)"
+        },
+        {
+          "nome": "camadas",
+          "tipo": "u32",
+          "elementos": "6n",
+          "descricao": "6 valores por camada resolvida: id_num da parede, grupo (índice do grupo, como `grupos` de quadros_e_juncoes), faixa (0 camada do tipo, 1 faixa vertical do tipo), indice (da camada, ou da faixa em `faixas`; layerIndex do TS é -(indice+1) nas faixas), material_num, core"
+        },
+        {
+          "nome": "camadas_num",
+          "tipo": "f64",
+          "elementos": "n",
+          "descricao": "prioridade de cada camada resolvida"
+        },
+        {
+          "nome": "camadas_formas",
+          "tipo": "u32",
+          "elementos": "8n",
+          "descricao": "8 valores por camada resolvida: raw_ini, raw_n, fragment_ini, fragment_n, cut_ini, cut_n (faixas em polígonos da saída `poligonos`) e faixas_ini, faixas_n (faixas em `faixas`/`faixas_forma`, não em f64)"
+        },
+        {
+          "nome": "faixas",
+          "tipo": "f64",
+          "elementos": "11n",
+          "descricao": "Por faixa vertical: z0 e z1 relativos à base da parede (z1 é a maior altura quando há inclinação), tem_slope (0 ou 1) e, se 1, ox, oy, dx, dy, t0, t1, h0, h1 de `LayerBand.slope`; zeros quando tem_slope = 0. Ordem das faixas de cada camada: a de `withProfile`"
         },
         {
           "nome": "faixas_forma",

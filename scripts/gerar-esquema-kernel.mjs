@@ -1,4 +1,4 @@
-// Gera `packages/geom/src/kernel/v2/esquema.gerado.ts` a partir de `crates/geom-wasm/schema/cena-v6.json`
+// Gera `packages/geom/src/kernel/v2/esquema.gerado.ts` a partir de `crates/geom-wasm/schema/cena-v7.json`
 // (decisão 0046). O JSON mora fora dos pacotes TypeScript, por isso as constantes são geradas.
 //
 // Uso: node scripts/gerar-esquema-kernel.mjs           (regrava o arquivo)
@@ -8,7 +8,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const raiz = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-export const CAMINHO_JSON = join(raiz, 'crates', 'geom-wasm', 'schema', 'cena-v6.json');
+export const CAMINHO_JSON = join(raiz, 'crates', 'geom-wasm', 'schema', 'cena-v7.json');
 export const CAMINHO_GERADO = join(raiz, 'packages', 'geom', 'src', 'kernel', 'v2', 'esquema.gerado.ts');
 
 const normalizar = (t) => t.replace(/\r\n/g, '\n');
@@ -34,7 +34,7 @@ export function gerarTexto(esquema) {
   for (const [nome, v] of Object.entries(esquema.codigos)) if (!nome.startsWith('$')) codigos[nome] = v;
   const j = (v) => JSON.stringify(v, null, 2);
   return [
-    '// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v6.json.',
+    '// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v7.json.',
     '// Não edite à mão: mude o JSON e rode `node scripts/gerar-esquema-kernel.mjs`.',
     '',
     `export const ESQUEMA_VERSAO = ${esquema.versao};`,

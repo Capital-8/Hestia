@@ -30,7 +30,7 @@ describe('hash das fontes do kernel Rust', () => {
   it('lista as fontes esperadas do repositório, em ordem estável, incluindo o toolchain', () => {
     const lista = listarFontes(raiz);
     expect(lista).toContain('rust-toolchain.toml');
-    expect(lista).toContain('crates/geom-wasm/schema/cena-v6.json');
+    expect(lista).toContain('crates/geom-wasm/schema/cena-v7.json');
     expect(lista).toContain('crates/geom-wasm/Cargo.toml');
     expect(lista).toEqual([...lista].sort());
   });
