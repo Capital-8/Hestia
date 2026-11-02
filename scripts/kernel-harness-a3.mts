@@ -2,8 +2,9 @@
 // (`referenciaA3a`: `openingGeometry` e `openingRect`), abertura a abertura. Identidade (ids, enums, flips) por igualdade
 // exata; todo número (coordenadas, vetores, medidas) a 1 µm; área do furo a 1e-6 m². A tolerância NÃO se afrouxa para passar.
 // O maior desvio medido é reportado (esperado ~1e-15: as mesmas contas na mesma ordem).
-import type { MultiPolygon } from '@hestia/geom';
-import type { AberturaA3 } from '../packages/engine/src/kernelA3.ts';
+import { difference, type MultiPolygon } from '@hestia/geom';
+import type { AberturaA3, RetornoA3b } from '../packages/engine/src/kernelA3.ts';
+import { areaDaForma, compararFormas } from './kernel-harness-a2.mts';
 
 export const TOLERANCIA_COORDENADA_A3 = 1e-6;
 export const TOLERANCIA_AREA_A3 = 1e-6;
@@ -89,4 +90,85 @@ export function compararA3(ref: AberturaA3[], rust: AberturaA3[], maxDivergencia
     if (erro) divergencias.push(`${rotulo}: ${erro}`);
   }
   return { divergencias, desvioMaximo, aberturas: ref.length, arcos };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// A3b: retornos de acabamento (`retornos_geom`) x `insertReturns` + `makeReturnClipper` do motor TypeScript. Identidade
+// (parede, abertura, camada, grupo, modo) por igualdade exata. Cada forma (o retorno e o seu recorte) é comparada à
+// tolerância de 1 µm de coordenada e 1e-6 m² SEM folga: primeiro estrita (peças e anéis a 1 µm), e, quando as booleanas
+// divergem por ruído topológico (o `polygon-clipping` do TS é exato, o Rust quantiza a 1 µm), pela região: área líquida e
+// área da diferença simétrica, cada uma a 1e-6 m². A decisão 0048 (folga do pintor) NÃO vale aqui.
+export interface ComparacaoA3b {
+  divergencias: string[];
+  desvioMaximo: number;
+  retornos: number;
+  /** Retornos por `insertMode` efetivo (índice = modo 1..3). */
+  porModo: [number, number, number, number];
+  /** Retornos cujo recorte perdeu área (havia parede vizinha por cima). */
+  recortados: number;
+  /** Formas (retorno e recorte) que casam também peça a peça e anel a anel; o resto casa pela região. */
+  estritas: number;
+  formas: number;
+  /** Retornos do TS de área <= 1e-6 m² que o Rust não devolve (ver `compararA3b`). */
+  fiapos: number;
+}
+
+function formaIgual(a: MultiPolygon, b: MultiPolygon): { erro: string | null; estrita: boolean; desvio: number } {
+  const e = compararFormas(a, b, TOLERANCIA_COORDENADA_A3, TOLERANCIA_AREA_A3);
+  if (!e.erro) return { erro: null, estrita: true, desvio: e.desvio };
+  const aa = areaDaForma(a);
+  const ab = areaDaForma(b);
+  if (Math.abs(aa - ab) > TOLERANCIA_AREA_A3) return { erro: `área ${ab} (Rust) x ${aa} (TS), |d| = ${Math.abs(aa - ab)}`, estrita: false, desvio: 0 };
+  const sim = areaDaForma(a.length && b.length ? difference(a, b) : a) + areaDaForma(a.length && b.length ? difference(b, a) : b);
+  if (sim > TOLERANCIA_AREA_A3) return { erro: `diferença simétrica ${sim} m² (${e.erro})`, estrita: false, desvio: 0 };
+  return { erro: null, estrita: false, desvio: 0 };
+}
+
+export function compararA3b(refTodos: RetornoA3b[], rust: RetornoA3b[], maxDivergencias = 20): ComparacaoA3b {
+  const divergencias: string[] = [];
+  const chave = (x: RetornoA3b): string => `${x.parede}/${x.abertura}/${x.camada}`;
+  // Fiapos: o `polygon-clipping` (exato) deixa como resto de `difference(retorno, batente)` triângulos de ~0 m² (retorno
+  // todo coberto pelo batente, com ruído de 1e-9 m); o Rust, em inteiros de 1 µm, devolve vazio e o retorno não existe.
+  // Só vale para o que está abaixo da tolerância de área (1e-6 m²): qualquer retorno maior que isso ausente no Rust é divergência.
+  const rustChaves = new Set(rust.map(chave));
+  let fiapos = 0;
+  const ref = refTodos.filter((x) => {
+    if (rustChaves.has(chave(x))) return true;
+    if (areaDaForma(x.bruto) <= TOLERANCIA_AREA_A3) {
+      fiapos++;
+      return false;
+    }
+    return true;
+  });
+  const r: ComparacaoA3b = { divergencias, desvioMaximo: 0, retornos: ref.length, porModo: [0, 0, 0, 0], recortados: 0, estritas: 0, formas: 0, fiapos };
+  if (ref.length !== rust.length) {
+    divergencias.push(`${rust.length} retornos (Rust) x ${ref.length} (TS, sem ${fiapos} fiapos de área <= 1e-6)`);
+    return r;
+  }
+  for (let i = 0; i < ref.length && divergencias.length < maxDivergencias; i++) {
+    const a = ref[i]!;
+    const b = rust[i]!;
+    const rotulo = `retorno ${i} (parede ${a.parede}, abertura ${a.abertura}, camada ${a.camada})`;
+    const exato = (['parede', 'abertura', 'camada', 'grupo', 'modo'] as const).find((c) => a[c] !== b[c]);
+    if (exato) {
+      divergencias.push(`${rotulo}: ${exato} ${b[exato]} (Rust) x ${a[exato]} (TS)`);
+      continue;
+    }
+    let ruim = false;
+    for (const campo of ['bruto', 'recorte'] as const) {
+      const c = formaIgual(a[campo], b[campo]);
+      if (c.erro) {
+        divergencias.push(`${rotulo}: ${campo}: ${c.erro}`);
+        ruim = true;
+        break;
+      }
+      r.formas++;
+      if (c.estrita) r.estritas++;
+      r.desvioMaximo = Math.max(r.desvioMaximo, c.desvio);
+    }
+    if (ruim) continue;
+    r.porModo[a.modo as 0 | 1 | 2 | 3]++;
+    if (areaDaForma(a.bruto) - areaDaForma(a.recorte) > TOLERANCIA_AREA_A3) r.recortados++;
+  }
+  return r;
 }

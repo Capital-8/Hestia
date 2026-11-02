@@ -60,17 +60,24 @@ const numeroDe = (m: Map<Id, number>, id: Id, o: string): number => {
   return n;
 };
 
+/** Um grupo de `clusterWalls` com os itens de `buildItems` e a pintura de planta e de contorno (a de `solveCluster`: `plan`). */
+export interface GrupoA2 {
+  group: ReturnType<typeof clusterWalls>[number];
+  items: Item[];
+  plano: Map<Item, MultiPolygon>;
+  contorno: Map<Item, MultiPolygon>;
+}
+
 /**
- * O que o motor TypeScript produz para os itens de um pavimento, na ordem de `resolveLevel`: grupos de
- * `clusterWalls`, e dentro de cada um `buildItems` de cada parede. `fragmento` é o do pintor para quem está em planta
- * (pintura só entre os itens em planta do grupo) ou de contorno (só entre os de contorno).
+ * A orquestração de `resolveLevel` até a pintura (grupos de `clusterWalls`, pontas livres, paredes que atravessam um
+ * T, corte da planta), reaproveitada pela A2 (`referenciaA2`) e pela A3b (`referenciaA3b`, que roda o recorte dos
+ * retornos sobre o mesmo `plan`). O teste `kernel-a2-referencia.test.ts` confere que é o que `resolveLevel` entrega.
  */
-export function referenciaA2(p: Project, levelId: Id, cena: CenaA1, opcoes: OpcoesA2 = {}, z: Map<Id, WallZ> = zDoNivel(p, levelId, opcoes.flatAttach === true)): ItemA2[] {
+export function gruposDoNivel(p: Project, levelId: Id, cena: CenaA1, opcoes: OpcoesA2 = {}, z: Map<Id, WallZ> = zDoNivel(p, levelId, opcoes.flatAttach === true)): GrupoA2[] {
   const tol = p.settings?.joinTolerance;
   const frames = levelFrames(p, levelId).filter((f) => cena.idDe.has(f.wall.id));
   const estrutura = estruturaDasJuncoes(levelId, frames, tol);
-  const saida: ItemA2[] = [];
-  clusterWalls(frames, estrutura.ends).forEach((group, grupo) => {
+  return clusterWalls(frames, estrutura.ends).map((group) => {
     const livres = (f: (typeof group)[number]): Array<'a' | 'b'> =>
       (['a', 'b'] as const).filter((w) => {
         const k = estrutura.status(f.wall.id, w).kind;
@@ -86,8 +93,18 @@ export function referenciaA2(p: Project, levelId: Id, cena: CenaA1, opcoes: Opco
       const corte = opcoes.cutZ ?? z0 + PLAN_CUT;
       return buildItems(f, estrutura.ends.get(f.wall.id)!, livres(f), { z0, z1: z0 + height }, atravessam.has(f.wall.id), corte, opcoes.outlineWalls?.has(f.wall.id) === true);
     });
-    const plano = paint(items.filter((i) => i.inPlan));
-    const contorno = paint(items.filter((i) => i.outline));
+    return { group, items, plano: paint(items.filter((i) => i.inPlan)), contorno: paint(items.filter((i) => i.outline)) };
+  });
+}
+
+/**
+ * O que o motor TypeScript produz para os itens de um pavimento, na ordem de `resolveLevel`: grupos de
+ * `clusterWalls`, e dentro de cada um `buildItems` de cada parede. `fragmento` é o do pintor para quem está em planta
+ * (pintura só entre os itens em planta do grupo) ou de contorno (só entre os de contorno).
+ */
+export function referenciaA2(p: Project, levelId: Id, cena: CenaA1, opcoes: OpcoesA2 = {}, z: Map<Id, WallZ> = zDoNivel(p, levelId, opcoes.flatAttach === true)): ItemA2[] {
+  const saida: ItemA2[] = [];
+  gruposDoNivel(p, levelId, cena, opcoes, z).forEach(({ items, plano, contorno }, grupo) => {
     for (const it of items) {
       const faixa = it.layerIndex < 0;
       saida.push({
@@ -114,6 +131,23 @@ export function referenciaA2(p: Project, levelId: Id, cena: CenaA1, opcoes: Opco
   return saida;
 }
 
+/** Lê `n` polígonos a partir de `ini` nas saídas `poligonos`, `aneis` e `pontos` (níveis de índice; o 1º anel é o externo). */
+export function decodificarForma(poligonos: ArrayLike<number>, aneis: ArrayLike<number>, pontos: ArrayLike<number>, ini: number, n: number): MultiPolygon {
+  const m: MultiPolygon = [];
+  for (let k = ini; k < ini + n; k++) {
+    const p: MultiPolygon[number] = [];
+    const iniAnel = poligonos[2 * k]!;
+    for (let a = iniAnel; a < iniAnel + poligonos[2 * k + 1]!; a++) {
+      const iniPt = aneis[2 * a]!;
+      const anel: MultiPolygon[number][number] = [];
+      for (let q = iniPt; q < iniPt + aneis[2 * a + 1]!; q++) anel.push({ x: pontos[2 * q]!, y: pontos[2 * q + 1]! });
+      p.push(anel);
+    }
+    m.push(p);
+  }
+  return m;
+}
+
 /** Decodifica as saídas de `itens_pintados` (arrays tipados do Rust) para o mesmo formato de `referenciaA2`. */
 export function decodificarA2(s: Record<string, ArrayLike<number>>): ItemA2[] {
   const itens = s['itens']!;
@@ -122,21 +156,7 @@ export function decodificarA2(s: Record<string, ArrayLike<number>>): ItemA2[] {
   const poligonos = s['poligonos']!;
   const aneis = s['aneis']!;
   const pontos = s['pontos']!;
-  const forma = (ini: number, n: number): MultiPolygon => {
-    const m: MultiPolygon = [];
-    for (let k = ini; k < ini + n; k++) {
-      const p: MultiPolygon[number] = [];
-      const iniAnel = poligonos[2 * k]!;
-      for (let a = iniAnel; a < iniAnel + poligonos[2 * k + 1]!; a++) {
-        const iniPt = aneis[2 * a]!;
-        const anel: MultiPolygon[number][number] = [];
-        for (let q = iniPt; q < iniPt + aneis[2 * a + 1]!; q++) anel.push({ x: pontos[2 * q]!, y: pontos[2 * q + 1]! });
-        p.push(anel);
-      }
-      m.push(p);
-    }
-    return m;
-  };
+  const forma = (ini: number, n: number): MultiPolygon => decodificarForma(poligonos, aneis, pontos, ini, n);
   const out: ItemA2[] = [];
   for (let i = 0; i < itens.length / 9; i++) {
     out.push({

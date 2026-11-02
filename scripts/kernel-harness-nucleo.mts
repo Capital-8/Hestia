@@ -11,8 +11,8 @@ import { GerenciadorKernelV2 } from '../packages/geom/src/kernel/v2/gerenciador.
 import { fonteDeParedes } from '../packages/geom/src/kernel/v2/paredes.ts';
 import { argumentosA2, decodificarA2, referenciaA2 } from '../packages/engine/src/kernelA2.ts';
 import { compararA2 } from './kernel-harness-a2.mts';
-import { argumentosA3, decodificarA3a, montarCenaA3, referenciaA3a } from '../packages/engine/src/kernelA3.ts';
-import { compararA3 } from './kernel-harness-a3.mts';
+import { argumentosA3, argumentosA3b, decodificarA3a, decodificarA3b, montarCenaA3, referenciaA3a, referenciaA3b } from '../packages/engine/src/kernelA3.ts';
+import { compararA3, compararA3b } from './kernel-harness-a3.mts';
 import { fonteDeSecoes } from '../packages/geom/src/kernel/v2/quadros.ts';
 import {
   referenciaEstatisticasNivel,
@@ -197,6 +197,13 @@ export async function executarHarness({ projeto, wasm, gerenciador, a1 }: Opcoes
         if (cmp3.divergencias.length > 0) falha(`aberturas_geom difere: ${cmp3.divergencias.slice(0, 5).join(' | ')}`);
         desvioMaximoA1 = Math.max(desvioMaximoA1, cmp3.desvioMaximo);
         registrar('aberturas_geom', rm3, t3, cmp3.divergencias.length === 0);
+        // retornos_geom (A3b): retornos de acabamento nos vãos e o recorte contra as paredes vizinhas
+        const [refA3b, rm4] = medir(() => referenciaA3b(projeto, levelId, cenaA1, cenaA3));
+        const [s4, t4] = medir(() => decodificarA3b(cena.consultar('retornos_geom', argumentosA3b(projeto, levelId, cenaA1))));
+        const cmp4 = compararA3b(refA3b, s4);
+        if (cmp4.divergencias.length > 0) falha(`retornos_geom difere: ${cmp4.divergencias.slice(0, 5).join(' | ')}`);
+        desvioMaximoA1 = Math.max(desvioMaximoA1, cmp4.desvioMaximo);
+        registrar('retornos_geom', rm4, t4, cmp4.divergencias.length === 0);
       }
       if (passada === 1) linhas.push(...acc.values());
     }

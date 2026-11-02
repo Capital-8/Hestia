@@ -8,7 +8,7 @@ import { fonteDeSecoes, type SecoesDaCena } from './quadros.ts';
 /** Duas paredes em L e um tipo de uma camada, só números. */
 const secoes = (): SecoesDaCena => ({
   paredes: { n: 2, colunas: { id_num: [1, 2], nivel_num: [0, 0], ax: [0, 4], ay: [0, 0], bx: [4, 4], by: [0, 4], espessura: [0.2, 0.2] } },
-  tipos_parede: { n: 1, colunas: { id_num: [1], n_camadas: [1], wrap_ends: [0], n_faixas: [0] } },
+  tipos_parede: { n: 1, colunas: { id_num: [1], n_camadas: [1], wrap_ends: [0], n_faixas: [0], wrap_inserts: [0] } },
   camadas: { n: 1, colunas: { id_num: [1], tipo_num: [1], indice: [0], espessura: [0.2], funcao: [0], tem_prioridade: [0], prioridade: [0], material_num: [1], envolve: [0] } },
   faixas: { n: 0, colunas: { id_num: [], tipo_num: [], indice: [], lado: [], material_num: [], espessura: [], z0: [], z1: [] } },
   paredes_z: { n: 2, colunas: { id_num: [1, 2], z0: [0, 0], altura: [2.8, 2.8] } },

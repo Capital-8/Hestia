@@ -8,14 +8,24 @@
  * e composição) e se a instância tem override de peitoril e de altura. A largura, a altura efetiva, o vão bruto, o
  * centro, `u`, `n` e o `cutHalf` o Rust calcula a partir do quadro da parede.
  */
-import { openingType, openingsOfWall, type Id, type Opening, type PlanSymbol, type Project } from '@hestia/model';
+import { openingCasing, openingFrame, openingFrameDepth, openingFrameStyle, openingType, openingsOfWall, type Id, type Opening, type OpeningFrameStyle, type PlanSymbol, type Project, type WrapMode } from '@hestia/model';
+import { makeReturnClipper } from './clipReturn.ts';
 import type { MultiPolygon } from '@hestia/geom';
 import { levelFrames, openingGeometry } from './resolve.ts';
 import { openingRect } from './openingCut.ts';
+import { compositionCasing, insertMode, insertReturns } from './wrap.ts';
 import type { CenaA1, ColunasA1 } from './kernelA1.ts';
+import { decodificarForma, gruposDoNivel, type OpcoesA2 } from './kernelA2.ts';
 
 /** `plano` da seção `tipos_abertura`: o índice do `PlanSymbol` nesta lista (a do esquema). */
 export const PLANOS: readonly PlanSymbol[] = ['swing', 'double', 'sliding', 'pivot', 'fixed', 'tilt', 'casement', 'dblact', 'pocket', 'bifold', 'accordion', 'garage', 'hinged', 'hung', 'pivotwin', 'louver'];
+
+/** `estilo_batente` da seção `tipos_abertura`: o índice do `OpeningFrameStyle` nesta lista (a do esquema). */
+export const ESTILOS_BATENTE: readonly OpeningFrameStyle[] = ['rebate', 'simple', 'aduela', 'block'];
+
+/** Códigos de `WrapMode` do esquema; `inherit` (só em `closure`) vale 4. */
+const MODO: Record<WrapMode, number> = { none: 0, exterior: 1, interior: 2, both: 3 };
+export const FECHAMENTO_HERDA = 4;
 
 /** `num` de `openingExtras.ts`: o que não é número finito vale 0 (o `max(0, ...)` fica no Rust). */
 const finitoOuZero = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
@@ -62,6 +72,16 @@ export function montarCenaA3(p: Project, a1: CenaA1): CenaA3 {
       push(tipos, 'folga_h', finitoOuZero(t.roughOversize?.h));
       push(tipos, 'folhas', t.leaves);
       push(tipos, 'plano', PLANOS.indexOf(t.plan));
+      // Colunas da v5 (retornos): o que `insertMode` e `insertReturns` leem do tipo, já resolvido (o Rust não deriva padrões).
+      push(tipos, 'janela', t.kind === 'window' ? 1 : 0);
+      push(tipos, 'fechamento', t.closure === 'inherit' ? FECHAMENTO_HERDA : (MODO[t.closure] ?? 0));
+      push(tipos, 'tem_alizar', openingCasing(t) || compositionCasing(t) ? 1 : 0);
+      push(tipos, 'estilo_batente', ESTILOS_BATENTE.indexOf(openingFrameStyle(t)));
+      push(tipos, 'modo_prof', t.frameDepthMode === 'core' ? 1 : t.frameDepthMode === 'fixed' ? 2 : 0);
+      // A profundidade que `openingFrameDepth` pede no modo fixed (parede e núcleo folgados: devolve o pedido).
+      push(tipos, 'prof_pedida', openingFrameDepth({ frameDepthMode: 'fixed', frameDepth: t.frameDepth }, 1e9, 1e9).depth);
+      push(tipos, 'larg_batente', openingFrame(t, 1).frameWidth);
+      push(tipos, 'esp_folha', openingFrame(t, 1).leafThickness);
     }
     const id = aberturaDe.size + 1;
     aberturaDe.set(o.id, id);
@@ -80,7 +100,7 @@ export function montarCenaA3(p: Project, a1: CenaA1): CenaA3 {
     push(aberturas, 'tem_altura', typeof h === 'number' && Number.isFinite(h) ? 1 : 0);
     push(aberturas, 'altura', typeof h === 'number' && Number.isFinite(h) ? h : 0);
   }
-  for (const n of ['id_num', 'largura', 'altura', 'peitoril', 'folga_w', 'folga_h', 'folhas', 'plano']) tipos[n] ??= [];
+  for (const n of ['id_num', 'largura', 'altura', 'peitoril', 'folga_w', 'folga_h', 'folhas', 'plano', 'janela', 'fechamento', 'tem_alizar', 'estilo_batente', 'modo_prof', 'prof_pedida', 'larg_batente', 'esp_folha']) tipos[n] ??= [];
   for (const n of ['id_num', 'tipo_num', 'parede_num', 'kind', 'deslocamento', 'flip_mao', 'flip_frente', 'tem_peitoril', 'peitoril', 'tem_altura', 'altura']) aberturas[n] ??= [];
   return {
     secoes: { tipos_abertura: tipos, aberturas },
@@ -203,6 +223,80 @@ export function decodificarA3a(s: Record<string, ArrayLike<number>>): AberturaA3
       deslocamento: x(14),
       cutHalf: Number.isNaN(x(15)) ? undefined : x(15),
       retangulo: [[Array.from({ length: 4 }, (_, k) => ({ x: r[8 * i + 2 * k]!, y: r[8 * i + 2 * k + 1]! }))]],
+    });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// A3b: retornos de acabamento nos vãos (`insertMode`, `insertReturns`, `makeReturnClipper`).
+
+/** Um retorno de acabamento (parede, abertura, camada), na codificação do esquema. */
+export interface RetornoA3b {
+  parede: number;
+  abertura: number;
+  /** `layerIndex` da camada envolvente. */
+  camada: number;
+  grupo: number;
+  /** `insertMode` efetivo: 0 none, 1 exterior, 2 interior, 3 both. */
+  modo: number;
+  /** O retorno de `insertReturns`. */
+  bruto: MultiPolygon;
+  /** O que `makeReturnClipper` devolve sobre ele, contra o pintado em planta do grupo. */
+  recorte: MultiPolygon;
+}
+
+/** Argumentos de `retornos_geom`: os mesmos de `itens_pintados` (opções de planta incluídas). */
+export { argumentosA2 as argumentosA3b } from './kernelA2.ts';
+
+/**
+ * O que o motor TypeScript produz para os retornos de um pavimento, na ordem de `resolveLevel`: grupos de `clusterWalls`,
+ * paredes na ordem do grupo, aberturas na ordem de `openingsOfWall` e, em cada uma, a ordem de `insertReturns`. O recorte é o
+ * de `solveCluster` na planta: `makeReturnClipper(items)(r, wallId, plan)` com `plan` = pintura dos itens em planta do grupo.
+ */
+export function referenciaA3b(p: Project, levelId: Id, cena: CenaA1, a3: CenaA3, opcoes: OpcoesA2 = {}): RetornoA3b[] {
+  const saida: RetornoA3b[] = [];
+  gruposDoNivel(p, levelId, cena, opcoes).forEach(({ group, items, plano }, grupo) => {
+    const clipReturn = makeReturnClipper(items);
+    for (const f of group) {
+      for (const o of openingsOfWall(p, f.wall.id)) {
+        if (!a3.aberturaDe.has(o.id)) continue;
+        const ot = openingType(p, o);
+        const modo = insertMode(f.type, ot);
+        for (const r of insertReturns(f, o.offset, ot.width, modo, { ot, side: o.flipFacing ? -1 : 1 })) {
+          saida.push({
+            parede: numeroDe(cena.idDe, f.wall.id, 'parede'),
+            abertura: numeroDe(a3.aberturaDe, o.id, 'abertura'),
+            camada: r.layerIndex,
+            grupo,
+            modo: MODO[modo],
+            bruto: r.poly,
+            recorte: clipReturn({ poly: r.poly }, f.wall.id, plano),
+          });
+        }
+      }
+    }
+  });
+  return saida;
+}
+
+/** Decodifica as saídas de `retornos_geom` (arrays tipados do Rust) para o mesmo formato de `referenciaA3b`. */
+export function decodificarA3b(s: Record<string, ArrayLike<number>>): RetornoA3b[] {
+  const r = s['retornos']!;
+  const cab = s['formas_cab']!;
+  const pol = s['poligonos']!;
+  const an = s['aneis']!;
+  const pt = s['pontos']!;
+  const out: RetornoA3b[] = [];
+  for (let i = 0; i < r.length / 5; i++) {
+    out.push({
+      parede: r[5 * i]!,
+      abertura: r[5 * i + 1]!,
+      camada: r[5 * i + 2]!,
+      grupo: r[5 * i + 3]!,
+      modo: r[5 * i + 4]!,
+      bruto: decodificarForma(pol, an, pt, cab[4 * i]!, cab[4 * i + 1]!),
+      recorte: decodificarForma(pol, an, pt, cab[4 * i + 2]!, cab[4 * i + 3]!),
     });
   }
   return out;

@@ -95,6 +95,7 @@ export function montarCenaA1(p: Project): CenaA1 {
       push(tipos, 'n_camadas', tipo.layers.length);
       push(tipos, 'wrap_ends', WRAP[tipo.wrapEnds] ?? 0);
       push(tipos, 'n_faixas', (tipo.strips ?? []).length);
+      push(tipos, 'wrap_inserts', WRAP[tipo.wrapInserts] ?? 0);
       tipo.layers.forEach((l, i) => {
         push(camadas, 'id_num', proximaCamada++);
         push(camadas, 'tipo_num', tn!);
@@ -152,7 +153,7 @@ export function montarCenaA1(p: Project): CenaA1 {
   };
   vazio(paredes, ['id_num', 'nivel_num', 'ax', 'ay', 'bx', 'by', 'espessura']);
   vazio(quadro, ['id_num', 'tipo_num', 'ordem', 'linha_loc', 'invertida', 'sem_junta_a', 'sem_junta_b', 'junta_a_tipo', 'junta_a_inverte', 'junta_b_tipo', 'junta_b_inverte', 'sag', 'z0', 'topo']);
-  vazio(tipos, ['id_num', 'n_camadas', 'wrap_ends', 'n_faixas']);
+  vazio(tipos, ['id_num', 'n_camadas', 'wrap_ends', 'n_faixas', 'wrap_inserts']);
   vazio(camadas, ['id_num', 'tipo_num', 'indice', 'espessura', 'funcao', 'tem_prioridade', 'prioridade', 'material_num', 'envolve']);
   vazio(faixas, ['id_num', 'tipo_num', 'indice', 'lado', 'material_num', 'espessura', 'z0', 'z1']);
   vazio(paredesZ, ['id_num', 'z0', 'altura']);

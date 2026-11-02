@@ -256,7 +256,7 @@ describe.skipIf(!bytes)('A3a: aberturas_geom do Rust x motor TypeScript', () => 
       expect(() => cena.definirSecao('aberturas', { ...o, kind: o['kind']!.map(() => 2) }, a3.nLinhas.aberturas)).toThrow(ErroKernelLeve);
       expect(() => cena.definirSecao('aberturas', { ...o, deslocamento: o['deslocamento']!.map(() => Number.POSITIVE_INFINITY) }, a3.nLinhas.aberturas)).toThrow(ErroKernelLeve);
       // tipo inexistente
-      cena.definirSecao('tipos_abertura', { id_num: [], largura: [], altura: [], peitoril: [], folga_w: [], folga_h: [], folhas: [], plano: [] }, 0);
+      cena.definirSecao('tipos_abertura', Object.fromEntries(Object.keys(t).map((k) => [k, []])), 0);
       expect(() => cena.consultar('aberturas_geom', argumentosA3(a1, p.levels[0]!.id))).toThrow(ErroKernelLeve);
     } finally {
       cena.destruir();

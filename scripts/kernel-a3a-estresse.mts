@@ -4,7 +4,7 @@
 // tipos sintéticos com folga do vão (inclusive negativa, que vale 0), vão livre, vãos largos, overrides de peitoril (inclusive
 // 0) e de altura (inclusive 0 e negativo), flips e deslocamentos por toda a parede. Mais os casos de limiar da A3a.
 // Nada de projeto real: só geometria sintética.
-import { ProjectStore, createEmptyProject, makeWall, openingTypeById, type Command, type Opening, type OpeningType, type Project } from '@hestia/model';
+import { ProjectStore, compositionOfType, createEmptyProject, makeWall, openingTypeById, type Command, type Opening, type OpeningType, type Project, type WallType, type WrapMode } from '@hestia/model';
 import { aleatorio, projetoDeEstresse, type OpcoesEstresse } from './kernel-a1-estresse.mts';
 
 /** Tipos sintéticos de abertura, acrescentados ao catálogo (não passam por `upsertOpeningType`: a folga negativa é recusada lá de propósito). */
@@ -16,13 +16,54 @@ export function tiposSinteticos(base: OpeningType): OpeningType[] {
     t('ot_x_janela', { kind: 'window', width: 1.2, height: 1.2, sill: 1.0, plan: 'casement', leaves: 2, roughOversize: { w: 0.02, h: 0.02 } }),
     t('ot_x_livre', { kind: 'door', width: 2.4, height: 2.2, sill: 0, plan: 'fixed', leaves: 0 }),
     t('ot_x_larga', { kind: 'door', width: 3.2, height: 2.4, sill: 0, plan: 'garage', leaves: 1, roughOversize: { w: 0.05, h: 0.05 } }),
+    ...tiposDeRetorno(t),
     t('ot_x_folha', { kind: 'window', width: 1.0, height: 1.0, sill: 0.9, plan: 'sliding', leaves: 2, nominalRef: 'leaf', spanGap: { w: 0.1, h: 0.06 } }),
   ];
+}
+
+const FECHAMENTOS: Array<OpeningType['closure']> = ['inherit', 'none', 'exterior', 'interior', 'both'];
+const ESTILOS: Array<NonNullable<OpeningType['frameStyle']>> = ['rebate', 'simple', 'aduela', 'block'];
+
+/**
+ * Tipos de abertura da A3b: fechamento (inherit e os quatro modos) x estilo do batente (com folha), vão livre, janelas,
+ * alizar do tipo e da composição, modos de profundidade do batente, perfis largos e vãos estreitos (a camada não cabe).
+ */
+function tiposDeRetorno(t: (id: string, extra: Partial<OpeningType>) => OpeningType): OpeningType[] {
+  const out: OpeningType[] = [];
+  for (const c of FECHAMENTOS) {
+    for (const e of ESTILOS) out.push(t(`ot_r_${c}_${e}`, { kind: e === 'simple' || e === 'block' ? 'window' : 'door', width: 0.9, height: 2.1, sill: e === 'simple' || e === 'block' ? 0.9 : 0, plan: 'swing', leaves: 1, closure: c, frameStyle: e }));
+    out.push(t(`ot_r_${c}_livre`, { kind: 'door', width: 1.0, height: 2.1, sill: 0, plan: 'fixed', leaves: 0, closure: c }));
+  }
+  const comAlizar = t('ot_r_alizar', { kind: 'door', width: 0.9, height: 2.1, sill: 0, plan: 'swing', leaves: 1, closure: 'both', casing: { width: 0.08, thickness: 0.02 } });
+  out.push(comAlizar);
+  const base = t('ot_r_alizar_comp', { kind: 'door', width: 0.9, height: 2.1, sill: 0, plan: 'swing', leaves: 1, closure: 'both', casing: { width: 0.07, thickness: 0.02 } });
+  const composicao = compositionOfType(base);
+  out.push({ ...base, id: 'ot_r_alizar_comp', casing: undefined, composition: composicao });
+  out.push({ ...base, id: 'ot_r_alizar_comp_nenhum', name: 'ot_r_alizar_comp_nenhum', casing: undefined, composition: { ...composicao, casing: { ...composicao.casing!, faces: 'none' } } } as OpeningType);
+  for (const modo of ['wall', 'core', 'fixed'] as const) {
+    for (const [fd, fw, lt] of [[0.09, 0.04, 0.035], [0.5, 0.12, 0.06], [0, 0.02, 0.02]] as const) {
+      out.push(t(`ot_r_prof_${modo}_${fd}`, { kind: 'door', width: 1.2, height: 2.1, sill: 0, plan: 'swing', leaves: 1, closure: 'both', frameDepthMode: modo, frameDepth: fd, frameWidth: fw, leafThickness: lt }));
+      out.push(t(`ot_r_janela_${modo}_${fd}`, { kind: 'window', width: 1.4, height: 1.1, sill: 1, plan: 'casement', leaves: 2, closure: 'both', frameStyle: 'simple', frameDepthMode: modo, frameDepth: fd, frameWidth: fw }));
+    }
+  }
+  for (const w of [0.05, 0.07, 0.1, 0.12]) out.push(t(`ot_r_estreito_${w}`, { kind: 'door', width: w, height: 2.1, sill: 0, plan: 'fixed', leaves: 0, closure: 'both' }));
+  return out;
+}
+
+/** Tipos de parede da A3b: camadas que envolvem (inclusive uma de 5e-7 m, abaixo do piso) e os quatro `wrapInserts`. */
+export function tiposDeParedeRetorno(base: WallType): WallType[] {
+  const c = (fn: WallType['layers'][number]['function'], espessura: number, wraps: boolean): WallType['layers'][number] => ({ function: fn, materialId: 'mat_reboco', thickness: espessura, wraps });
+  const modos: WrapMode[] = ['none', 'exterior', 'interior', 'both'];
+  const out = modos.map((m) => ({ ...base, id: `wt_r_${m}`, name: `wt_r_${m}`, code: `wt_r_${m}`, wrapInserts: m, layers: [c('finish1', 0.02, true), c('substrate', 0.015, true), c('structure', 0.14, false), c('substrate', 0.02, true), c('finish2', 0.01, true)] }) as WallType);
+  out.push({ ...base, id: 'wt_r_assimetrico', name: 'wt_r_assimetrico', code: 'wt_r_assimetrico', wrapInserts: 'both', layers: [c('finish2', 0.03, true), c('finish1', 0.0000005, true), c('structure', 0.1, false), c('finish2', 0.03, true)] } as WallType);
+  return out;
 }
 
 export interface OpcoesEstresseA3a extends OpcoesEstresse {
   /** Probabilidade de uma parede ter aberturas (padrão 0,8). */
   comVaos?: number;
+  /** Troca o tipo de 70% das paredes por tipos com camadas que envolvem (A3b). Padrão: sim. */
+  comTiposDeRetorno?: boolean;
 }
 
 /** Projeto de estresse da A1 com aberturas nas paredes. */
@@ -31,7 +72,18 @@ export function projetoDeEstresseA3a(semente: number, opcoes: OpcoesEstresseA3a 
   const r = aleatorio(semente * 104729 + 7);
   const catalogo = Object.values(p0.openingTypes);
   const sinteticos = tiposSinteticos(catalogo[0]!);
-  const p: Project = { ...p0, openingTypes: { ...p0.openingTypes, ...Object.fromEntries(sinteticos.map((t) => [t.id, t] as const)) } };
+  const tiposP = tiposDeParedeRetorno(Object.values(p0.wallTypes)[0]!);
+  const trocar = opcoes.comTiposDeRetorno ?? true;
+  const sorteio = aleatorio(semente * 7919 + 3);
+  const elementos = trocar
+    ? Object.fromEntries(Object.entries(p0.elements).map(([id, e]) => [id, e.kind === 'wall' && sorteio() < 0.7 ? { ...e, typeId: tiposP[Math.floor(sorteio() * tiposP.length)]!.id } : e] as const))
+    : p0.elements;
+  const p: Project = {
+    ...p0,
+    elements: elementos,
+    wallTypes: { ...p0.wallTypes, ...Object.fromEntries(tiposP.map((w) => [w.id, w] as const)) },
+    openingTypes: { ...p0.openingTypes, ...Object.fromEntries(sinteticos.map((t) => [t.id, t] as const)) },
+  };
   const tipos = [...catalogo, ...sinteticos];
   const escolhe = <T,>(v: readonly T[]): T => v[Math.floor(r() * v.length)]!;
   const cmds: Command[] = [];
