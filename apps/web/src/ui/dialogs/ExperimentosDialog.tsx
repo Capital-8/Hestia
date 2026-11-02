@@ -11,15 +11,54 @@ import {
   ativarKernelExperimental,
   desativarKernelExperimental,
   estadoKernel,
+  fatiasLigadas,
+  FATIAS,
   medicaoOperacoes,
   type EstadoKernel,
+  type Fatia,
   type MedicaoOperacoes,
 } from '@hestia/geom';
-import { kernelExperimentalLigado, lerFlagDaUrl, ligarKernelExperimental } from '../../editor/preferenciasKernel.ts';
+import {
+  FATIAS_HABILITADAS,
+  forcaDaUrl,
+  gravarFatiasSalvas,
+  kernelExperimentalLigado,
+  lerFatiasSalvas,
+  lerFlagDaUrl,
+  lerModoSombra,
+  ligarKernelExperimental,
+} from '../../editor/preferenciasKernel.ts';
+import { useI18n } from '../../editor/i18n.ts';
 import { useUi } from '../../editor/state.ts';
 import { Dialog } from './Dialog.tsx';
 
 const fechar = (): void => useUi.setState({ dialog: null, dialogArg: null });
+
+/** Textos novos deste diálogo, no mesmo par `pt`/`en` do resto da interface. */
+const TEXTOS = {
+  pt: {
+    fatiasTitulo: 'Fatias do kernel v2 (Rust/WASM)',
+    fatiasDica:
+      'Cada fatia troca uma parte das operações geométricas pelo Rust. O padrão continua TypeScript; nenhuma fatia liga sem a sua validação.',
+    fatia: 'Fatia',
+    indisponivel: 'ainda não disponível',
+    definidoUrl: 'definido pela URL',
+    reiniciar: 'Preferência salva. Requer recarregar a página para valer.',
+    sombra: 'Modo sombra (Rust e TypeScript na mesma chamada)',
+    sombraDica: 'disponível com a A3d',
+  },
+  en: {
+    fatiasTitulo: 'Kernel v2 slices (Rust/WASM)',
+    fatiasDica:
+      'Each slice moves part of the geometry operations to Rust. The default stays TypeScript; no slice turns on without your validation.',
+    fatia: 'Slice',
+    indisponivel: 'not available yet',
+    definidoUrl: 'set by the URL',
+    reiniciar: 'Preference saved. Requires reloading the page to take effect.',
+    sombra: 'Shadow mode (Rust and TypeScript in the same call)',
+    sombraDica: 'available with A3d',
+  },
+} as const;
 
 /** Operações medidas pelo seam do `geom`, na ordem em que aparecem na tabela. */
 const OPERACOES: Array<{ chave: keyof MedicaoOperacoes['porOp']; rotulo: string }> = [
@@ -46,6 +85,22 @@ export function ExperimentosDialog(): ReactElement {
   const [aviso, setAviso] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const daUrl = lerFlagDaUrl();
+  const tf = TEXTOS[useI18n((s) => s.lang)];
+  const [salvas, setSalvas] = useState<Set<Fatia>>(lerFatiasSalvas);
+  const [avisoFatias, setAvisoFatias] = useState('');
+  const forcadaPelaUrl = forcaDaUrl() !== null;
+  // Estado efetivo (URL > localStorage das fatias > preferência geral), lido a cada desenho.
+  const efetivas = fatiasLigadas();
+  const sombra = lerModoSombra();
+
+  const alternarFatia = (fatia: Fatia, valor: boolean): void => {
+    const proxima = new Set(salvas);
+    if (valor) proxima.add(fatia);
+    else proxima.delete(fatia);
+    gravarFatiasSalvas(proxima);
+    setSalvas(proxima);
+    setAvisoFatias(tf.reiniciar);
+  };
 
   const atualizar = (): void => {
     setEstado(estadoKernel());
@@ -132,6 +187,42 @@ export function ExperimentosDialog(): ReactElement {
         </p>
       ) : null}
       {aviso ? <p role="status" style={{ margin: '4px 0 10px', color: 'var(--fg-soft)' }}>{aviso}</p> : null}
+      <div className="hint" style={{ marginBottom: 10 }}>
+        <strong>{tf.fatiasTitulo}</strong>
+        <p>{tf.fatiasDica}</p>
+        {FATIAS.map((fatia) => {
+          const habilitada = FATIAS_HABILITADAS.includes(fatia);
+          const travada = forcadaPelaUrl;
+          const desabilitada = travada || !habilitada;
+          const motivo = travada ? tf.definidoUrl : habilitada ? null : tf.indisponivel;
+          return (
+            <div className="prow" key={fatia}>
+              <label htmlFor={`kernel-fatia-${fatia}`}>
+                {tf.fatia} {fatia}
+                {motivo ? ` — ${motivo}` : ''}
+              </label>
+              <div>
+                <input
+                  id={`kernel-fatia-${fatia}`}
+                  type="checkbox"
+                  checked={efetivas.has(fatia)}
+                  disabled={desabilitada}
+                  onChange={(e) => alternarFatia(fatia, e.target.checked)}
+                />
+              </div>
+            </div>
+          );
+        })}
+        <div className="prow">
+          <label htmlFor="kernel-sombra">
+            {tf.sombra} — {tf.sombraDica}
+          </label>
+          <div>
+            <input id="kernel-sombra" type="checkbox" checked={sombra} disabled readOnly />
+          </div>
+        </div>
+        {avisoFatias ? <p role="status" style={{ margin: '4px 0 10px', color: 'var(--fg-soft)' }}>{avisoFatias}</p> : null}
+      </div>
       <div className="hint" aria-live="polite">
         <strong>Status agora</strong>
         <ul>
