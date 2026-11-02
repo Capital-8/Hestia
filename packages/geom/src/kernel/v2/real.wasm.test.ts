@@ -76,7 +76,8 @@ describe.skipIf(modulo === null)('kernel v2: wasm real contra a referência', ()
       expect(r['n_paredes']![0]).toBe(ref.nParedes);
       ref.caixa.forEach((v, i) => expect(r['caixa']![i]).toBeCloseTo(v, 9));
       expect(r['comprimento_total']![0]).toBeCloseTo(ref.comprimentoTotal, 9);
-      for (const c of [[0, 0, 50, 50], [10, 10, 12, 12], [-5, -5, 100, 100], [200, 200, 300, 300], [20, 0, 20, 50]] as const) {
+      const caixas: [number, number, number, number][] = [[0, 0, 50, 50], [10, 10, 12, 12], [-5, -5, 100, 100], [200, 200, 300, 300], [20, 0, 20, 50]];
+      for (const c of caixas) {
         expect(iguais(cena.consultar('paredes_na_caixa', [nivel, ...c])['ids']!, referenciaParedesNaCaixa(ps, nivel, ...c))).toBe(true);
       }
       for (const tol of [0, 0.05, 1]) {
