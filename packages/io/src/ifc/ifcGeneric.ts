@@ -35,7 +35,7 @@ const localPoint = (positions: readonly number[], i: number, elev: number): stri
  * `IFCTRIANGULATEDFACESET` (IFC4) da malha do genérico, com a lista de pontos em metros e cota local do nível. A malha
  * é a do modelo (mundo); `CoordIndex` são triplas 1-based. Malha vazia ou inválida devolve `null` (produto sem forma).
  */
-function faceSetOf(w: StepWriter, mesh: Generic['mesh'], elev: number): number | null {
+export function faceSetOf(w: StepWriter, mesh: Generic['mesh'], elev: number): number | null {
   const { positions, indices } = mesh;
   if (positions.length < 9 || positions.length % 3 !== 0 || !positions.every(Number.isFinite)) return null;
   const vertices = positions.length / 3;
@@ -48,7 +48,7 @@ function faceSetOf(w: StepWriter, mesh: Generic['mesh'], elev: number): number |
 }
 
 /** Representação do corpo em malha: `IFCSHAPEREPRESENTATION` `Tessellation` dentro de `IFCPRODUCTDEFINITIONSHAPE`. */
-function tessellatedShape(w: StepWriter, ctx: number, faceSet: number): number {
+export function tessellatedShape(w: StepWriter, ctx: number, faceSet: number): number {
   const rep = w.add('IFCSHAPEREPRESENTATION', [ref(ctx), "'Body'", "'Tessellation'", list([ref(faceSet)])]);
   return w.add('IFCPRODUCTDEFINITIONSHAPE', [OMIT, OMIT, list([ref(rep)])]);
 }
