@@ -7,6 +7,9 @@
  * fornecedor ou fabricante (ADR 0049 R5): o usuário os edita no catálogo do projeto.
  */
 
+import { importarCatalogoInterno, mesclarCatalogoInterno } from './catalogoArquivo.ts';
+import { validarCatalogoInterno } from './catalogoValidar.ts';
+
 export const CATALOGO_FORMATO = 'hestia-catalogo';
 export const CATALOGO_VERSAO = 1;
 export const CATALOGO_LIMITES = { chapas: 200, fitas: 100, ferragens: 500 } as const;
@@ -98,20 +101,15 @@ export interface ProblemaCatalogo {
  * Nunca lança: campo faltando vira problema.
  */
 export function validarCatalogo(c: Catalogo): ProblemaCatalogo[] {
-  void c;
-  throw new Error('não implementado: ficha E5-catalogo');
+  return validarCatalogoInterno(c, CATALOGO_LIMITES);
 }
 
 export function chapaPorId(c: Catalogo, id: string): Chapa | undefined {
-  void c;
-  void id;
-  throw new Error('não implementado: ficha E5-catalogo');
+  return Array.isArray(c.chapas) ? c.chapas.find((ch) => ch.id === id) : undefined;
 }
 
 export function fitaPorId(c: Catalogo, id: string): Fita | undefined {
-  void c;
-  void id;
-  throw new Error('não implementado: ficha E5-catalogo');
+  return Array.isArray(c.fitas) ? c.fitas.find((f) => f.id === id) : undefined;
 }
 
 /**
@@ -119,15 +117,21 @@ export function fitaPorId(c: Catalogo, id: string): Fita | undefined {
  * espessura. Com `somente` (lista de ids) filtra e mantém a ORDEM de `somente`, ignorando ids que não existem.
  */
 export function opcoesDeChapa(c: Catalogo, somente?: readonly string[]): Array<{ valor: string; rotulo: string; esp: number }> {
-  void c;
-  void somente;
-  throw new Error('não implementado: ficha E5-catalogo');
+  if (!Array.isArray(c.chapas)) return [];
+  if (somente === undefined) {
+    return c.chapas.map((ch) => ({ valor: ch.id, rotulo: ch.nome, esp: ch.espessura }));
+  }
+  const opcoes: Array<{ valor: string; rotulo: string; esp: number }> = [];
+  for (const id of somente) {
+    const ch = chapaPorId(c, id);
+    if (ch !== undefined) opcoes.push({ valor: ch.id, rotulo: ch.nome, esp: ch.espessura });
+  }
+  return opcoes;
 }
 
 /** Área da chapa bruta útil em m2: `(largura - 2·refilo) × (altura - 2·refilo)` ÷ 1e6. */
 export function areaUtilDaChapa(ch: Chapa): number {
-  void ch;
-  throw new Error('não implementado: ficha E5-catalogo');
+  return ((ch.largura - 2 * ch.refilo) * (ch.altura - 2 * ch.refilo)) / 1e6;
 }
 
 export interface ArquivoCatalogo {
@@ -137,8 +141,7 @@ export interface ArquivoCatalogo {
 }
 
 export function exportarCatalogo(c: Catalogo): ArquivoCatalogo {
-  void c;
-  throw new Error('não implementado: ficha E5-catalogo');
+  return { formato: CATALOGO_FORMATO, versao: CATALOGO_VERSAO, catalogo: structuredClone(c) };
 }
 
 /**
@@ -148,13 +151,14 @@ export function exportarCatalogo(c: Catalogo): ArquivoCatalogo {
  * (`{ tipo: 'chapa'|'fita'|'ferragem', id: string, motivo: string }`); os bons entram como cópia profunda.
  */
 export function importarCatalogo(dados: unknown): { catalogo: Catalogo; ignorados: Array<{ tipo: 'chapa' | 'fita' | 'ferragem'; id: string; motivo: string }> } {
-  void dados;
-  throw new Error('não implementado: ficha E5-catalogo');
+  return importarCatalogoInterno(dados, {
+    formato: CATALOGO_FORMATO,
+    versao: CATALOGO_VERSAO,
+    limites: CATALOGO_LIMITES,
+  });
 }
 
 /** Junta `extra` a `base`: itens de `extra` cujo id já existe em `base` são ignorados (o de `base` vence); devolve cópia profunda e os ids ignorados. */
 export function mesclarCatalogo(base: Catalogo, extra: Catalogo): { catalogo: Catalogo; ignorados: string[] } {
-  void base;
-  void extra;
-  throw new Error('não implementado: ficha E5-catalogo');
+  return mesclarCatalogoInterno(base, extra);
 }
