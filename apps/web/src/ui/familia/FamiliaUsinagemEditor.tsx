@@ -91,7 +91,7 @@ export function FamiliaUsinagemEditor({ inicial, aoSalvar, aoCancelar }: Props):
   };
 
   return (
-    <div className="fam-usin-editor" role="group" aria-label="Editar usinagem">
+    <div className="fam-usin-editor" role="dialog" aria-label="Editar usinagem">
       <div className="fam-usin-editor-titulo">Usinagem</div>
       <div className="fam-row"><label htmlFor="usin-id">Id</label>
         <input id="usin-id" className="fam-f mono" value={u.id} onChange={(e) => trocar({ id: e.target.value })} />

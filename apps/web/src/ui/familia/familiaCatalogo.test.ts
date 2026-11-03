@@ -9,13 +9,17 @@ import {
   atualizarChapa,
   atualizarChapaEm,
   atualizarFerragem,
+  atualizarFerragemEm,
   atualizarFita,
+  atualizarFitaEm,
   novoIdUnico,
   problemasDoCatalogo,
   removerChapa,
   removerChapaEm,
   removerFerragem,
+  removerFerragemEm,
   removerFita,
+  removerFitaEm,
 } from './familiaCatalogo.ts';
 
 const novo = (): Catalogo => structuredClone(CATALOGO_PADRAO);
@@ -94,6 +98,14 @@ describe('atualizarFita e atualizarFerragem', () => {
     expect(atualizarFita(c, 'fita_pvc_1', 'altura', 'alta')).toBeNull();
   });
 
+  it('atualizarFitaEm e atualizarFerragemEm editam pela posição', () => {
+    const c = novo();
+    expect(fita(atualizarFitaEm(c, 0, 'nome', 'Primeira')!, 'fita_pvc_045')?.nome).toBe('Primeira');
+    expect(atualizarFitaEm(c, 99, 'nome', 'X')).toBeNull();
+    expect(ferragem(atualizarFerragemEm(c, 0, 'nome', 'Dobradiça nova')!, 'dobradica')?.nome).toBe('Dobradiça nova');
+    expect(atualizarFerragemEm(c, 99, 'nome', 'X')).toBeNull();
+  });
+
   it('ferragem: unidade válida, código opcional e custo', () => {
     const c = novo();
     expect(ferragem(atualizarFerragem(c, 'dobradica', 'unidade', 'par')!, 'dobradica')?.unidade).toBe('par');
@@ -133,8 +145,13 @@ describe('adicionar e remover', () => {
     expect(removerChapa(c, 'mdf6').chapas).toHaveLength(c.chapas.length - 1);
     expect(removerChapa(c, 'nao_existe')).toBe(c);
     expect(removerChapaEm(c, 99)).toBe(c);
+    expect(removerChapaEm(c, 0).chapas).toHaveLength(c.chapas.length - 1);
     expect(removerFita(c, 'fita_pvc_1').fitas).toHaveLength(c.fitas.length - 1);
+    expect(removerFitaEm(c, 0).fitas).toHaveLength(c.fitas.length - 1);
+    expect(removerFitaEm(c, 99)).toBe(c);
     expect(removerFerragem(c, 'dobradica').ferragens).toHaveLength(c.ferragens.length - 1);
+    expect(removerFerragemEm(c, 0).ferragens).toHaveLength(c.ferragens.length - 1);
+    expect(removerFerragemEm(c, 99)).toBe(c);
     expect(c.chapas).toHaveLength(6);
   });
 });
