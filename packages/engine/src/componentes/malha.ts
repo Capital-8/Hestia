@@ -1,3 +1,4 @@
+import { adicionarPeca } from './malhaGeometria.ts';
 import type { PecaResolvida } from './pecas.ts';
 
 /*
@@ -36,12 +37,36 @@ export interface MalhasDasPecas {
  * Ordem: peças na ordem de entrada. Determinística. Não lança para peça com números finitos.
  */
 export function malhaDasPecas(pecas: readonly PecaResolvida[]): MalhasDasPecas {
-  void pecas;
-  throw new Error('não implementado: ficha E3-malha');
+  const solidas = malhaVazia();
+  const vazios = malhaVazia();
+  for (let indice = 0; indice < pecas.length; indice++) {
+    const peca = pecas[indice]!;
+    adicionarPeca(peca.vazio ? vazios : solidas, peca, indice);
+  }
+  return { solidas, vazios };
+}
+
+function malhaVazia(): Malha {
+  return { positions: [], normals: [], indices: [], pecaDoTriangulo: [] };
 }
 
 /** Volume (m³) de uma malha fechada pela soma de tetraedros assinados; positivo quando as normais saem para fora. */
 export function volumeDaMalha(m: Malha): number {
-  void m;
-  throw new Error('não implementado: ficha E3-malha');
+  let soma = 0;
+  for (let t = 0; t < m.indices.length; t += 3) {
+    const a = m.indices[t]!;
+    const b = m.indices[t + 1]!;
+    const c = m.indices[t + 2]!;
+    const ax = m.positions[a * 3]!;
+    const ay = m.positions[a * 3 + 1]!;
+    const az = m.positions[a * 3 + 2]!;
+    const bx = m.positions[b * 3]!;
+    const by = m.positions[b * 3 + 1]!;
+    const bz = m.positions[b * 3 + 2]!;
+    const cx = m.positions[c * 3]!;
+    const cy = m.positions[c * 3 + 1]!;
+    const cz = m.positions[c * 3 + 2]!;
+    soma += ax * (by * cz - bz * cy) + ay * (bz * cx - bx * cz) + az * (bx * cy - by * cx);
+  }
+  return soma / 6;
 }
