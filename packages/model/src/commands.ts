@@ -10,6 +10,7 @@ import {
   isRamp,
   isWall,
   isRoom,
+  isComponent,
   isGeneric,
   type Ceiling,
   type CeilingType,
@@ -76,6 +77,8 @@ import { applyAnnotationCommand, type AnnotationCommand } from './annotations.ts
 import { applySheetCommand, dropOrphanViewports, type SheetCommand } from './sheetCommands.ts';
 import { applyView3DPointCommand, type View3DPointCommand } from './view3dPoints.ts';
 import { applyGridCommand, type GridCommand } from './grid.ts';
+import { applyComponentCommand, type ComponentCommand } from './componentCommands.ts';
+import { transformComponent } from './componentes.ts';
 import { applyViewCommand } from './viewCommands.ts';
 import { applyCeilingCommand } from './ceilingCommands.ts';
 import { applyRoomCommand } from './roomCommands.ts';
@@ -137,6 +140,7 @@ export type Command =
   | SheetCommand
   | View3DPointCommand
   | GridCommand
+  | ComponentCommand
   | { type: 'deleteLevel'; id: Id }
   | { type: 'setLevelViewRange'; levelId: Id; patch: Partial<ViewRange> }
   | { type: 'setProjectGraphics'; patch: DeepPartial<ProjectGraphics> }
@@ -225,6 +229,7 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
   transformEach(p, c, isRamp, transformRamp, (r) => remintComponents(r, (prefix) => newId(prefix)));
   transformEach(p, c, isSlab, (s, t) => transformSlab(s, t, !!c.copy?.idMap));
   transformEach(p, c, isCad, (cad, t) => transformCad(cad, t, !!c.copy?.idMap));
+  transformEach(p, c, isComponent, transformComponent);
   transformEach(p, c, isFloor, (f, t) => transformFloor(f, t, !!c.copy?.idMap));
   transformEach(p, c, isCeiling, (f, t) => transformCeiling(f, t, !!c.copy?.idMap));
   transformEach(p, c, isRoom, (r, t) => ({
@@ -492,6 +497,12 @@ export function applyCommand(p: Project, c: Command): void {
     case 'removeView3DPoint':
     case 'setView3DPointOrder':
       applyView3DPointCommand(p, c);
+      break;
+    case 'addComponent':
+    case 'updateComponent':
+    case 'upsertFamily':
+    case 'deleteFamily':
+      applyComponentCommand(p, c);
       break;
     case 'addGrid':
     case 'updateGrid':
