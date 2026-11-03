@@ -1,5 +1,6 @@
 import type { Eixo } from '@hestia/model';
 import { orientarAntiHorario } from './contorno.ts';
+import { girarUsinagens } from './aninhadosUsinagem.ts';
 import type { PecaResolvida } from './pecas.ts';
 
 /*
@@ -96,5 +97,7 @@ export function girarPeca(p: PecaResolvida, graus: number, dx: number, dy: numbe
     }
     contorno = orientarAntiHorario(pts);
   }
-  return { ...p, eixo, origem, tamanho, extensao, contorno };
+  const nova = { eixo, origem, tamanho, espessura: p.espessura };
+  const usinagens = girarUsinagens(p.usinagens, p, nova, g, dx, dy);
+  return { ...p, eixo, origem, tamanho, extensao, contorno, usinagens };
 }
