@@ -56,15 +56,188 @@ export interface PlanoCorte {
   aproveitamento: number;
 }
 
+/** Tolerância para comparar medidas e sobras (mm). */
+const TOL = 1e-9;
+
+interface RetanguloLivre {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** Ordem global de criação: desempate "retângulo mais antigo". */
+  idade: number;
+}
+
+interface ChapaAberta {
+  livres: RetanguloLivre[];
+  posicoes: Posicionada[];
+  areaUsada: number;
+}
+
+interface ContadorIdade {
+  valor: number;
+}
+
+interface OrientacaoEscolhida {
+  girada: boolean;
+  sobraCurta: number;
+  sobraLonga: number;
+}
+
+interface Escolha {
+  chapa: number;
+  retangulo: number;
+  girada: boolean;
+  sobraCurta: number;
+  sobraLonga: number;
+  idade: number;
+}
+
+function novoRetangulo(x: number, y: number, w: number, h: number, contador: ContadorIdade): RetanguloLivre {
+  const retangulo: RetanguloLivre = { x, y, w, h, idade: contador.valor };
+  contador.valor += 1;
+  return retangulo;
+}
+
+function menorQue(a: number, b: number): boolean {
+  return a < b - TOL;
+}
+
+/** Compara duas orientações dentro de um mesmo retângulo: lado curto, lado longo, depois não girada. */
+function orientacaoMelhor(candidata: OrientacaoEscolhida, atual: OrientacaoEscolhida | null): boolean {
+  if (atual === null) return true;
+  if (menorQue(candidata.sobraCurta, atual.sobraCurta)) return true;
+  if (menorQue(atual.sobraCurta, candidata.sobraCurta)) return false;
+  if (menorQue(candidata.sobraLonga, atual.sobraLonga)) return true;
+  if (menorQue(atual.sobraLonga, candidata.sobraLonga)) return false;
+  if (candidata.girada !== atual.girada) return !candidata.girada;
+  return false;
+}
+
+/** Compara duas posições entre retângulos: lado curto, lado longo, não girada, retângulo mais antigo. */
+function escolhaMelhor(candidata: Escolha, atual: Escolha | null): boolean {
+  if (atual === null) return true;
+  if (menorQue(candidata.sobraCurta, atual.sobraCurta)) return true;
+  if (menorQue(atual.sobraCurta, candidata.sobraCurta)) return false;
+  if (menorQue(candidata.sobraLonga, atual.sobraLonga)) return true;
+  if (menorQue(atual.sobraLonga, candidata.sobraLonga)) return false;
+  if (candidata.girada !== atual.girada) return !candidata.girada;
+  return candidata.idade < atual.idade;
+}
+
+/** Melhor orientação que cabe em um retângulo livre de `wLivre × hLivre`, ou `null` se nenhuma cabe. */
+function melhorOrientacao(
+  peca: PecaParaCorte,
+  wLivre: number,
+  hLivre: number,
+  orientacoes: readonly boolean[],
+): OrientacaoEscolhida | null {
+  let melhor: OrientacaoEscolhida | null = null;
+  for (const girada of orientacoes) {
+    const w = girada ? peca.largura : peca.comprimento;
+    const h = girada ? peca.comprimento : peca.largura;
+    if (w > wLivre + TOL || h > hLivre + TOL) continue;
+    const sobraCurta = Math.min(wLivre - w, hLivre - h);
+    const sobraLonga = Math.max(wLivre - w, hLivre - h);
+    const candidata: OrientacaoEscolhida = { girada, sobraCurta, sobraLonga };
+    if (orientacaoMelhor(candidata, melhor)) melhor = candidata;
+  }
+  return melhor;
+}
+
+/** Procura a melhor posição nas chapas já abertas (da primeira à última, retângulos na ordem de criação). */
+function melhorPosicao(
+  peca: PecaParaCorte,
+  chapas: readonly ChapaAberta[],
+  orientacoes: readonly boolean[],
+): Escolha | null {
+  let melhor: Escolha | null = null;
+  for (let ci = 0; ci < chapas.length; ci++) {
+    const aberta = chapas[ci]!;
+    for (let ri = 0; ri < aberta.livres.length; ri++) {
+      const retangulo = aberta.livres[ri]!;
+      const orientacao = melhorOrientacao(peca, retangulo.w, retangulo.h, orientacoes);
+      if (orientacao === null) continue;
+      const candidata: Escolha = {
+        chapa: ci,
+        retangulo: ri,
+        girada: orientacao.girada,
+        sobraCurta: orientacao.sobraCurta,
+        sobraLonga: orientacao.sobraLonga,
+        idade: retangulo.idade,
+      };
+      if (escolhaMelhor(candidata, melhor)) melhor = candidata;
+    }
+  }
+  return melhor;
+}
+
+function abrirChapa(chapa: ChapaParaCorte, contador: ContadorIdade): ChapaAberta {
+  const w = chapa.largura - 2 * chapa.refilo;
+  const h = chapa.altura - 2 * chapa.refilo;
+  return {
+    livres: [novoRetangulo(chapa.refilo, chapa.refilo, w, h, contador)],
+    posicoes: [],
+    areaUsada: 0,
+  };
+}
+
+/** Coloca a peça no canto inferior esquerdo do retângulo escolhido e o divide em DIREITA e ACIMA. Devolve a área ocupada. */
+function colocarPeca(
+  chapas: ChapaAberta[],
+  escolha: Escolha,
+  indice: number,
+  peca: PecaParaCorte,
+  kerf: number,
+  contador: ContadorIdade,
+): number {
+  const aberta = chapas[escolha.chapa]!;
+  const livre = aberta.livres[escolha.retangulo]!;
+  const girada = escolha.girada;
+  const w = girada ? peca.largura : peca.comprimento;
+  const h = girada ? peca.comprimento : peca.largura;
+
+  aberta.livres.splice(escolha.retangulo, 1);
+  aberta.posicoes.push({ peca: indice, x: livre.x, y: livre.y, w, h, girada });
+  aberta.areaUsada += w * h;
+
+  const sobraW = livre.w - w - kerf;
+  if (sobraW > 0) {
+    aberta.livres.push(novoRetangulo(livre.x + w + kerf, livre.y, sobraW, h, contador));
+  }
+  const sobraH = livre.h - h - kerf;
+  if (sobraH > 0) {
+    aberta.livres.push(novoRetangulo(livre.x, livre.y + h + kerf, livre.w, sobraH, contador));
+  }
+
+  return w * h;
+}
+
+/** Índices por área decrescente, depois comprimento decrescente, depois índice crescente. */
+function ordemDeCorte(pecas: readonly PecaParaCorte[]): number[] {
+  const ordem = pecas.map((_, indice) => indice);
+  ordem.sort((a, b) => {
+    const pa = pecas[a]!;
+    const pb = pecas[b]!;
+    const areaA = pa.comprimento * pa.largura;
+    const areaB = pb.comprimento * pb.largura;
+    if (Math.abs(areaA - areaB) > TOL) return areaB - areaA;
+    if (Math.abs(pa.comprimento - pb.comprimento) > TOL) return pb.comprimento - pa.comprimento;
+    return a - b;
+  });
+  return ordem;
+}
+
 /**
  * Orientações permitidas de uma peça: sem veio na chapa (`chapa.veio` falso), ou peça com veio 'livre' ou `null`: as duas
  * (comprimento ao longo de X, e girada). Com veio na chapa: 'comprimento' só com o comprimento ao longo de X; 'largura' só girada
  * (comprimento ao longo de Y). Devolve as orientações como `girada: boolean`, a não girada primeiro.
  */
 export function orientacoesPermitidas(p: PecaParaCorte, chapa: ChapaParaCorte): boolean[] {
-  void p;
-  void chapa;
-  throw new Error('não implementado: ficha E6-corte');
+  if (!chapa.veio) return [false, true];
+  if (p.veio === 'comprimento') return [false];
+  if (p.veio === 'largura') return [true];
+  return [false, true];
 }
 
 /**
@@ -79,13 +252,64 @@ export function orientacoesPermitidas(p: PecaParaCorte, chapa: ChapaParaCorte): 
  * (primeiro DIREITA, depois ACIMA) e retângulos de largura ou altura ≤ 0 não são criados. O resultado lista as chapas na ordem de abertura e as posições na ordem de colocação.
  */
 export function planoDeCorte(pecas: readonly PecaParaCorte[], chapa: ChapaParaCorte): PlanoCorte {
-  void pecas;
-  void chapa;
-  throw new Error('não implementado: ficha E6-corte');
+  const chapas: ChapaAberta[] = [];
+  const naoCouberam: number[] = [];
+  const contador: ContadorIdade = { valor: 0 };
+  let areaPecas = 0;
+
+  for (const indice of ordemDeCorte(pecas)) {
+    const peca = pecas[indice]!;
+    const orientacoes = orientacoesPermitidas(peca, chapa);
+    let escolha = melhorPosicao(peca, chapas, orientacoes);
+
+    if (escolha === null) {
+      const wUtil = chapa.largura - 2 * chapa.refilo;
+      const hUtil = chapa.altura - 2 * chapa.refilo;
+      const orientacao = melhorOrientacao(peca, wUtil, hUtil, orientacoes);
+      if (orientacao === null) {
+        naoCouberam.push(indice);
+        continue;
+      }
+      chapas.push(abrirChapa(chapa, contador));
+      const aberta = chapas[chapas.length - 1]!;
+      escolha = {
+        chapa: chapas.length - 1,
+        retangulo: 0,
+        girada: orientacao.girada,
+        sobraCurta: orientacao.sobraCurta,
+        sobraLonga: orientacao.sobraLonga,
+        idade: aberta.livres[0]!.idade,
+      };
+    }
+
+    areaPecas += colocarPeca(chapas, escolha, indice, peca, chapa.kerf, contador);
+  }
+
+  const areaUtil = (chapa.largura - 2 * chapa.refilo) * (chapa.altura - 2 * chapa.refilo);
+  const areaChapas = chapas.length * areaUtil;
+  naoCouberam.sort((a, b) => a - b);
+
+  return {
+    chapas: chapas.map((aberta) => ({ posicoes: aberta.posicoes, areaUsada: aberta.areaUsada })),
+    naoCouberam,
+    areaPecas,
+    areaChapas,
+    aproveitamento: areaChapas > 0 ? areaPecas / areaChapas : 0,
+  };
 }
 
 /** Uma `PecaParaCorte` por UNIDADE de cada linha (`quantidade` vezes), com `id` = `<nome> #<k>` (k de 1 a quantidade), na ordem das linhas. */
 export function pecasParaCorte(linhas: readonly LinhaLista[]): PecaParaCorte[] {
-  void linhas;
-  throw new Error('não implementado: ficha E6-corte');
+  const pecas: PecaParaCorte[] = [];
+  for (const linha of linhas) {
+    for (let k = 1; k <= linha.quantidade; k++) {
+      pecas.push({
+        id: `${linha.nome} #${k}`,
+        comprimento: linha.comprimento,
+        largura: linha.largura,
+        veio: linha.veio,
+      });
+    }
+  }
+  return pecas;
 }
