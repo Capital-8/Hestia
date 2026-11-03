@@ -44,6 +44,8 @@ export function FamilyEditor(): ReactElement | null {
   const familia = useFamilia((s) => s.historico.atual);
   const vista = useFamilia((s) => s.vista);
   const explodir = useFamilia((s) => s.explodir);
+  const opacidade = useFamilia((s) => s.opacidade);
+  const corte = useFamilia((s) => s.corte);
   const portas = useFamilia((s) => s.portas);
   const detalhe = useFamilia((s) => s.detalhe);
   const sel = useFamilia((s) => s.sel);
@@ -70,15 +72,14 @@ export function FamilyEditor(): ReactElement | null {
           <div className="fam-vtabs">
             {VISTAS.map(([v, nome]) => <button key={v} className={vista === v ? 'on' : ''} onClick={() => set({ vista: v })}>{nome}</button>)}
             <div className="fam-vopts">
-              <label>Explodir <input type="range" min={0} max={1} step={0.05} value={explodir} onChange={(e) => set({ explodir: Number(e.target.value) })} style={{ width: 70 }} /></label>
               <label><input type="checkbox" checked={portas} onChange={(e) => set({ portas: e.target.checked })} /> Mostrar portas</label>
               <label>Detalhe <select className="fam-f" value={detalhe} onChange={(e) => set({ detalhe: e.target.value as DetalheFamilia })} style={{ width: 78 }}>{DETALHES.map((d) => <option key={d} value={d}>{d}</option>)}</select></label>
             </div>
           </div>
           <div className="fam-canvas">
             {vista === '3d'
-              ? <Familia3D pecas={res.pecas} sel={sel} onSel={(id) => useFamilia.getState().selecionarPeca(id)} explodir={explodir} portas={portas} detalhe={detalhe} />
-              : <FamiliaVista pecas={res.pecas} vista={vista} sel={sel} onSel={(id) => useFamilia.getState().selecionarPeca(id)} explodir={explodir} portas={portas} detalhe={detalhe} />}
+              ? <Familia3D pecas={res.pecas} sel={sel} onSel={(id) => useFamilia.getState().selecionarPeca(id)} explodir={explodir} opacidade={opacidade} corte={corte} portas={portas} detalhe={detalhe} />
+              : <FamiliaVista pecas={res.pecas} vista={vista} sel={sel} onSel={(id) => useFamilia.getState().selecionarPeca(id)} explodir={0} portas={portas} detalhe={detalhe} />}
           </div>
           <div className="fam-vcb"><span>1:10</span><span>Detalhe: {detalhe}</span><span>Estilo: sombreado</span><span style={{ marginLeft: 'auto' }}>Tipo: {tipo?.nome}</span></div>
         </div>
