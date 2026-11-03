@@ -21,8 +21,15 @@ import { CenaV2 } from '../packages/geom/src/kernel/v2/cena.ts';
 import { ErroKernelLeve } from '../packages/geom/src/kernel/v2/erros.ts';
 import { GerenciadorKernelV2 } from '../packages/geom/src/kernel/v2/gerenciador.ts';
 import { fonteDeSecoes } from '../packages/geom/src/kernel/v2/quadros.ts';
-import { compararB1, type ComparacaoB1 } from '../scripts/kernel-harness-b.mts';
+import { compararB1, type ComparacaoB1, type SemParB1 } from '../scripts/kernel-harness-b.mts';
 import { projetoComRampa, projetoDeEstresseB1 } from '../scripts/kernel-b1-estresse.mts';
+
+/**
+ * `K` da regra 3 da 0049 para pisos, lajes e camadas (limite `1e-5 + K x perímetro x 1e-6`): 1,5 x a maior razão medida (0,0481 x 1,5 = 0,0722, arredondado para 0,08) fora de exceções nas sementes 1 a 60
+ * (ver 0050, "B2: 0049 aplicada"). `B2_K` troca o valor só para MEDIR (com um K enorme nada reprova pelo limite; o K medido sai no resumo).
+ */
+const K_B2_0049 = Number(process.env['B2_K'] ?? 0.08);
+const SEMENTES = 60;
 
 /** Modo de MEDIÇÃO (B2_MEDIR=1): junta todas as divergências e imprime o resumo no fim. */
 const MEDIR = process.env['B2_MEDIR'] === '1';
@@ -96,6 +103,7 @@ interface Cobertura {
   maxSimetrica: number;
   maxK: number;
   desvioMaximo: number;
+  semPar: SemParB1;
   /** Camadas por tipo de término (do projeto) e as que, pela B1, dependem de paredes e mudaram de fato com elas. */
   porTermino: Record<string, number>;
   pedemParedes: number;
@@ -105,7 +113,7 @@ interface Cobertura {
   portas: number;
 }
 
-const zero = (): Cobertura => ({ comparacoes: 0, pisos: 0, lajes: 0, lajesInclinadas: 0, camadas: 0, membranas: 0, explicitas: 0, comProblema: 0, poligonos: 0, estritos: 0, pela0049: 0, maxSimetrica: 0, maxK: 0, desvioMaximo: 0, porTermino: {}, pedemParedes: 0, mudaramComParedes: 0, lajesComParedes: 0, portas: 0 });
+const zero = (): Cobertura => ({ comparacoes: 0, pisos: 0, lajes: 0, lajesInclinadas: 0, camadas: 0, membranas: 0, explicitas: 0, comProblema: 0, poligonos: 0, estritos: 0, pela0049: 0, maxSimetrica: 0, maxK: 0, desvioMaximo: 0, semPar: { n: 0, max: 0, acima1e4: 0, acima1e3: 0, resolvidos: 0, resolvidoMax: 0, fiapos: 0 }, porTermino: {}, pedemParedes: 0, mudaramComParedes: 0, lajesComParedes: 0, portas: 0 });
 const SOMAS = ['pisos', 'lajes', 'lajesInclinadas', 'camadas', 'membranas', 'explicitas', 'comProblema', 'poligonos', 'estritos', 'pela0049', 'pedemParedes', 'mudaramComParedes', 'lajesComParedes', 'portas'] as const;
 const soma = (a: Cobertura, b: ComparacaoB1 | Cobertura): void => {
   a.comparacoes += 'comparacoes' in b ? b.comparacoes : 1;
@@ -114,6 +122,9 @@ const soma = (a: Cobertura, b: ComparacaoB1 | Cobertura): void => {
   a.maxSimetrica = Math.max(a.maxSimetrica, b.maxSimetrica);
   a.maxK = Math.max(a.maxK, b.maxK);
   a.desvioMaximo = Math.max(a.desvioMaximo, b.desvioMaximo);
+  for (const k of ['n', 'acima1e4', 'acima1e3', 'resolvidos', 'fiapos'] as const) a.semPar[k] += b.semPar[k];
+  a.semPar.max = Math.max(a.semPar.max, b.semPar.max);
+  a.semPar.resolvidoMax = Math.max(a.semPar.resolvidoMax, b.semPar.resolvidoMax);
 };
 
 /** Tipo de término do projeto para uma camada de elemento, como o nome usado na cobertura. */
@@ -128,7 +139,7 @@ function compararProjeto(p: Project, rotulo = p.name, niveis?: readonly string[]
       if (niveis && !niveis.includes(l.id)) continue;
       const ref = referenciaB2(p, l.id, b);
       const rust = decodificarB2(cena.consultar('pisos_lajes_com_paredes', argumentosB2(p, l.id, b)));
-      const cmp = compararB1(ref, rust, {});
+      const cmp = compararB1(ref, rust, { k0049: K_B2_0049 });
       const nome = `${rotulo} ${l.id}`;
       if (cmp.maxSimetrica > maior.sim) Object.assign(maior, { sim: cmp.maxSimetrica, casoSim: nome });
       if (cmp.maxK > maior.k) Object.assign(maior, { k: cmp.maxK, casoK: nome });
@@ -167,7 +178,7 @@ function compararProjeto(p: Project, rotulo = p.name, niveis?: readonly string[]
 
 const relata = (rotulo: string, c: Cobertura): void => {
   console.log(
-    `[B2 ${rotulo}] ${c.comparacoes} comparações, pisos ${c.pisos}, lajes ${c.lajes} (inclinadas ${c.lajesInclinadas}), camadas ${c.camadas} (membranas ${c.membranas}, explícitas ${c.explicitas}), elementos com problema ${c.comProblema}, polígonos ${c.poligonos} (estritos ${c.estritos}; só pela 0049: ${c.pela0049}), camadas por término ${JSON.stringify(c.porTermino)}, camadas que dependem de paredes (B1) ${c.pedemParedes}, mudaram com as paredes ${c.mudaramComParedes} (de lajes: ${c.lajesComParedes}), portas ${c.portas}, simétrica máx. ${c.maxSimetrica} m², K máx. ${c.maxK}, desvio máx. de campos ${c.desvioMaximo}`,
+    `[B2 ${rotulo}] ${c.comparacoes} comparações, pisos ${c.pisos}, lajes ${c.lajes} (inclinadas ${c.lajesInclinadas}), camadas ${c.camadas} (membranas ${c.membranas}, explícitas ${c.explicitas}), elementos com problema ${c.comProblema}, polígonos ${c.poligonos} (estritos ${c.estritos}; só pela 0049: ${c.pela0049}), camadas por término ${JSON.stringify(c.porTermino)}, camadas que dependem de paredes (B1) ${c.pedemParedes}, mudaram com as paredes ${c.mudaramComParedes} (de lajes: ${c.lajesComParedes}), portas ${c.portas}, simétrica máx. ${c.maxSimetrica} m², K máx. ${c.maxK}, componentes sem par ${c.semPar.n} (maior ${c.semPar.max} m², acima de 1e-4: ${c.semPar.acima1e4}, acima de 1e-3: ${c.semPar.acima1e3}; resolvidos pela equivalência ${c.semPar.resolvidos}, maior ${c.semPar.resolvidoMax}), fiapos ${c.semPar.fiapos}, desvio máx. de campos ${c.desvioMaximo}`,
   );
 };
 
@@ -191,25 +202,25 @@ describe.skipIf(!bytes)('B2: pisos_lajes_com_paredes do Rust x motor TypeScript 
   const pula = (): boolean => ger === null;
 
   // Uma semente por teste: cada `it` fica bem abaixo de 30 s.
-  for (let semente = 1; semente <= 12; semente++) {
+  for (let semente = 1; semente <= SEMENTES; semente++) {
     it(`estresse, semente ${semente} (3 pavimentos com portas, paralelas, diagonais e curva, e um sem paredes)`, () => {
       if (pula()) return;
       soma(totalEstresse, compararProjeto(projetoDeEstresseB1(semente, { paredesB2: true }), `semente ${semente}`));
     });
   }
 
-  it('estresse (agregado das sementes 1..12): cobertura', () => {
+  it('estresse (agregado das sementes 1..60): cobertura', () => {
     if (pula()) return;
     const t = totalEstresse;
     relata('estresse', t);
-    expect(t.pisos, 'pisos comparados').toBeGreaterThan(300);
-    expect(t.lajes, 'lajes comparadas').toBeGreaterThan(300);
-    expect(t.lajesInclinadas, 'lajes inclinadas').toBeGreaterThan(100);
-    expect(t.portas, 'portas').toBeGreaterThan(100);
-    expect(t.pedemParedes, 'camadas que dependem de paredes').toBeGreaterThan(200);
-    expect(t.mudaramComParedes, 'camadas que mudaram com as paredes').toBeGreaterThan(100);
-    expect(t.lajesComParedes, 'camadas de laje que mudaram com as paredes').toBeGreaterThan(30);
-    for (const termino of ['auto', 'face', 'nucleo', 'passa', 'ate', 'cm']) expect(t.porTermino[termino] ?? 0, `camadas com término ${termino}`).toBeGreaterThan(30);
+    expect(t.pisos, 'pisos comparados').toBeGreaterThan(1500);
+    expect(t.lajes, 'lajes comparadas').toBeGreaterThan(1500);
+    expect(t.lajesInclinadas, 'lajes inclinadas').toBeGreaterThan(500);
+    expect(t.portas, 'portas').toBeGreaterThan(500);
+    expect(t.pedemParedes, 'camadas que dependem de paredes').toBeGreaterThan(1000);
+    expect(t.mudaramComParedes, 'camadas que mudaram com as paredes').toBeGreaterThan(500);
+    expect(t.lajesComParedes, 'camadas de laje que mudaram com as paredes').toBeGreaterThan(150);
+    for (const termino of ['auto', 'face', 'nucleo', 'passa', 'ate', 'cm']) expect(t.porTermino[termino] ?? 0, `camadas com término ${termino}`).toBeGreaterThan(150);
     expect(t.desvioMaximo, 'desvio de campos escalares').toBeLessThanOrEqual(1e-6);
   });
 
@@ -217,8 +228,7 @@ describe.skipIf(!bytes)('B2: pisos_lajes_com_paredes do Rust x motor TypeScript 
     if (pula()) return;
     let lajesQueMudam = 0;
     let pisosQueMudam = 0;
-    // sementes 22 a 24: a 21 dá, nesta configuração, um caso de topologia por pescoço de largura nanométrica (ver 0050, "B2 entregue")
-    for (let semente = 22; semente <= 24; semente++) {
+    for (let semente = 21; semente <= 23; semente++) {
       const p = projetoDeEstresseB1(semente, { paredesB2: true, pavimentos: 3, semParedes: false });
       const { cena, b } = cenaDe(p);
       try {
@@ -227,7 +237,7 @@ describe.skipIf(!bytes)('B2: pisos_lajes_com_paredes do Rust x motor TypeScript 
         const args = argumentosB2(p, meio, b);
         const ref = referenciaB2(p, meio, b);
         const rust = decodificarB2(cena.consultar('pisos_lajes_com_paredes', args));
-        const cmp = compararB1(ref, rust, {});
+        const cmp = compararB1(ref, rust, { k0049: K_B2_0049 });
         expect(cmp.divergencias, `semente ${semente}: ${cmp.divergencias.slice(0, 3).join(' | ')}`).toEqual([]);
         // sem vizinhos (seção niveis removida) o Rust deixa de ler as paredes dos outros níveis: as lajes mudam, os pisos não
         cena.remover('niveis', b.secoes.niveis['id_num']!);

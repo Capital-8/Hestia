@@ -144,4 +144,18 @@ com laje). Os primeiros são do tipo da 0049 (menos de 1 µm por vértice, topol
 Os testes de estresse usam as sementes 1 a 12 (como a B1) e o de níveis adjacentes as sementes 22 a 24 (a 21 fica de fora pelo caso de topologia): isso é escolha de amostra, registrada aqui, não folga de tolerância.
 Decisões pendentes: aplicar a 0049 (K medido 0,048, com folga de 1,5x = 0,072) à classe de diferença simétrica de décimos de micrômetro; e olhar o caso de topologia por pescoço de largura nanométrica.
 
+### B2: 0049 aplicada (decisão do dono, 2026-11-03)
+
+A varredura aberta acima foi decidida sob a 0049, sem exceção implícita. Os testes do B2 passam `k0049` ao comparador (`compararB1`): limite `1e-5 + K x perímetro x 1e-6` (regra 3), guarda grosseira de 1e-2 m² (regra 4),
+topologia só nos componentes acima do fiapo de 1e-4 m² (regra 2, componentes das duas formas canonicalizadas; sem par acima do fiapo só passa pela verificação de equivalência, como no A3d: interseção com a forma do outro lado
+dentro do limite). Campos escalares (cotas, prioridade, inclinação) seguem a 1e-6, sem a 0049.
+
+**Medição (sementes 1 a 60, 240 comparações, 13.204 polígonos, 1.680 pisos e 1.680 lajes, 9.844 camadas).** Maior diferença simétrica **1,40e-6 m²** (semente 32); maior K medido **0,0481** (semente 32), fora de exceções (não há
+exceção nomeada no B2). **K adotado = 0,08** (1,5 x 0,0481 = 0,0722, arredondado para cima). 12.914 polígonos estritos; **21 passam só pela 0049** (limite por perímetro). **Componentes sem par: 485, o maior com 2,85e-7 m²; nenhum acima
+de 1e-4 m² (nem de 1e-3 m²)**, portanto nenhum precisou da verificação de equivalência; 751 fiapos. Os 3 casos de topologia apontados antes (sementes 31 e 35, e a 21 com laje) desaparecem sob a regra 2: a diferença de contagem era de
+peças que se tocam em ponto, e a canonicalização as funde. Desvio de campos escalares: 0. A semente 21 voltou ao teste de níveis adjacentes (sementes 21 a 23).
+
+**Testes.** Estresse nas sementes 1 a 60 (uma por teste, cerca de 2 s cada), incluindo as problemáticas 19, 21, 25, 28, 31, 32 e 35; os demais testes do B2 inalterados. Para medir de novo: `B2_K=1000000 B2_MEDIR=1` (com K enorme o limite
+não reprova e o K sai no resumo `[B2 medido]`).
+
 **Mutações de B2: pendentes para o fim da B.** Suíte wasm completa e `.wasm` commitado também.
