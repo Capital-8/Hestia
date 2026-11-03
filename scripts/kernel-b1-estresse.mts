@@ -51,6 +51,12 @@ export interface OpcoesEstresseB1 {
    * 2 diagonais; 1 parede curva). Usa outro gerador de números aleatórios: os pisos e lajes das sementes existentes não mudam.
    */
   paredesB2?: boolean;
+  /**
+   * B3: as paredes ganham altura própria (algumas chegam a dois pavimentos acima e atravessam lajes e pisos de níveis NÃO adjacentes), `baseOffset`, nível de
+   * topo com `topOffset`, anexo da base e do topo a piso e laje (cota e perfil da variante da junção, sem `flatAttach`, diferentes dos do término por camada) e
+   * perfil de topo do modelo. Usa outro gerador: os pisos, as lajes e as paredes das sementes existentes não mudam.
+   */
+  anexos?: boolean;
 }
 
 const FUNCOES: Layer['function'][] = ['structure', 'substrate', 'thermal', 'membrane', 'finish1', 'finish2'];
@@ -240,6 +246,27 @@ export function projetoDeEstresseB1(semente: number, opcoes: OpcoesEstresseB1 = 
     }
   }
   store.exec({ type: 'batch', commands: cmds });
+  if (opcoes.anexos) {
+    const ra = aleatorio(semente * 7919 + 13);
+    const pick = <T,>(v: readonly T[]): T => v[Math.floor(ra() * v.length)]!;
+    const ajustes: Command[] = [];
+    for (const el of Object.values(store.project.elements)) {
+      if (el.kind !== 'wall') continue;
+      const i = niveis.indexOf(el.levelId);
+      const patch: Record<string, unknown> = {};
+      if (ra() < 0.35) patch['height'] = pick([2.4, 3.2, 3.6, 5.8] as const);
+      if (ra() < 0.3) patch['baseOffset'] = pick([-0.3, -0.1, 0.2] as const);
+      if (ra() < 0.35 && i + 1 < niveis.length) {
+        patch['topLevelId'] = niveis[i + (ra() < 0.3 && i + 2 < niveis.length ? 2 : 1)];
+        patch['topOffset'] = pick([0, -0.05, 0.1] as const);
+      }
+      if (ra() < 0.4) patch['attachBottomToFloor'] = true;
+      if (ra() < 0.4) patch['attachTopToFloor'] = true;
+      if (ra() < 0.1) patch['topProfile'] = [{ t: 0, h: 2.8 }, { t: 1.5, h: 3.4 }, { t: 3.5, h: 2.5 }];
+      if (Object.keys(patch).length) ajustes.push({ type: 'updateElements', ids: [el.id], patch } as Command);
+    }
+    store.exec({ type: 'batch', commands: ajustes });
+  }
   return store.project;
 }
 
