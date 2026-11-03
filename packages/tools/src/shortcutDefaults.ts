@@ -21,7 +21,7 @@ export const PERFIL_REVIT: ShortcutMap = {
   attachroof: 'AT', detachroof: 'DT', stair: 'ES', stairrun: 'LE', ramp: 'RA', room: 'RM', roomsep: 'RS', dimension: 'DI', angularDimension: 'DA', text: 'TX',
   move: 'MV', copy: 'CO', rotate: 'RO', mirror: 'MM', array: 'AR', offset: 'OF', parallel: 'PP', trim: 'TR', align: 'AL', joins: 'UG',
   split: 'SL', measure: 'ME', level: 'LL', section: 'CT', rehost: 'TH', atalhos: 'KS', unidades: 'UN', createSimilar: 'CS',
-  detailLine: 'DL', filledRegion: 'RP', tag: 'TG', grid: 'GR',
+  detailLine: 'DL', filledRegion: 'RP', tag: 'TG', grid: 'GR', component: 'CM',
   // Visibilidade (Revit): HH/HC/HI/IC/HR são temporários; EH/VH são permanentes na vista; RH revela; EU/VU reexibe.
   temporaryHide: 'HH', temporaryCategory: 'HC', temporaryIsolate: 'HI', isolateCategory: 'IC', resetTemporary: 'HR',
   hideInView: 'EH', hideCategoryInView: 'VH', revealHidden: 'RH', unhideInView: 'EU', unhideCategoryInView: 'VU',
@@ -38,7 +38,7 @@ export const PERFIL_SIMPLES: ShortcutMap = {
   parallel: 'G', trim: 'T', align: 'L', joins: 'N', split: 'P', measure: 'E', level: 'VL', section: 'K', rehost: 'H', stair: 'I', stairrun: 'Q', ramp: ',',
   dimension: 'Y', angularDimension: 'VD', text: 'X', room: 'Z',
   ceiling: '1', slope: '2', roofarrow: '3', roofextrusion: '4', attachroof: '5', detachroof: '6', roomsep: '7', atalhos: '8', unidades: 'VU', createSimilar: 'VS',
-  detailLine: '9', filledRegion: '0', tag: 'VT', grid: 'VG',
+  detailLine: '9', filledRegion: '0', tag: 'VT', grid: 'VG', component: 'VC',
   // Visibilidade: o perfil simples não tem H livre (H = reancorar); usa V + dígito para não conflitar.
   temporaryHide: 'V1', temporaryCategory: 'V2', temporaryIsolate: 'V3', isolateCategory: 'V4', resetTemporary: 'V5',
   hideInView: 'V6', hideCategoryInView: 'V7', revealHidden: 'V8', unhideInView: 'V9', unhideCategoryInView: 'V0',
