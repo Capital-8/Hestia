@@ -1,4 +1,4 @@
-// S0 — Sonda de capacidade de GPU real (Fase 0, docs/desempenho/plano-subagentes-2026-10-26.md §4/0.1).
+// S0 — Sonda de capacidade de GPU real (Fase 0, plano de subagentes de 2026-10-26 (documento removido; ver histórico do git) §4/0.1).
 // Responde, com dados, qual camada cada ambiente suporta:
 //   A = WebGPU (adapter + device + compute)
 //   B = WebGL2 (contexto real, não SwiftShader)
@@ -969,7 +969,7 @@ for (const alvo of alvos) {
 
 const relatorio = {
   sonda: 'S0 — capacidade de GPU real (Hestia)',
-  plano: 'docs/desempenho/plano-subagentes-2026-10-26.md (v3) §4/0.1',
+  plano: 'plano de subagentes de 2026-10-26 (documento removido; ver histórico do git) (v3) §4/0.1',
   geradoEm: agora.toISOString(),
   data: DATA,
   maquina: host,
