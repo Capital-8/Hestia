@@ -1,0 +1,78 @@
+import { FAMILIA_FORMATO, FAMILIA_VERSAO, type Familia } from '../tipos.ts';
+import { chapa, comprimento, derivado, FITA_PVC, material } from './geralApoio.ts';
+
+export const FAMILIA_MESA: Familia = {
+  formato: FAMILIA_FORMATO,
+  versao: FAMILIA_VERSAO,
+  id: 'fam_mesa',
+  nome: 'Mesa',
+  categoria: 'mobiliario',
+  descricao: 'Mesa com tampo de chapa e quatro pés maciços recuados das bordas, em medidas de jantar ou escritório.',
+  unidade: 'mm',
+  hospedagem: 'nivel',
+  origem: 'canto',
+  parametros: [
+    comprimento('L', 'Largura', 1600, 600, 2400),
+    comprimento('A', 'Altura', 740, 650, 900),
+    comprimento('P', 'Profundidade', 900, 500, 1200),
+    comprimento('espPe', 'Espessura do pé', 60, 30, 100, 5),
+    comprimento('recuoPe', 'Recuo do pé', 40, 0, 100, 5),
+    chapa('tampoChapa', 'Chapa do tampo', 'mdf25', ['mdf18', 'mdf25']),
+    material('materialPe', 'Material do pé', 'madeira_macica'),
+    derivado('espTampo', 'Espessura do tampo', 'tampoChapa.esp'),
+    derivado('alturaPe', 'Altura do pé', 'A - espTampo'),
+  ],
+  planos: [],
+  pecas: [
+    { id: 'tampo', nome: 'Tampo', papel: 'tampo', eixo: 'z', origem: ['0', '0', 'alturaPe'], tamanho: ['L', 'P'], espessura: 'espTampo', material: 'tampoChapa', fita: { n: FITA_PVC }, veio: 'a' },
+    { id: 'peEF', nome: 'Pé esquerdo frontal', papel: 'bloco', eixo: 'z', origem: ['recuoPe', 'recuoPe', '0'], tamanho: ['espPe', 'espPe'], espessura: 'alturaPe', material: 'materialPe', veio: 'a' },
+    { id: 'peET', nome: 'Pé esquerdo traseiro', papel: 'bloco', eixo: 'z', origem: ['recuoPe', 'P - recuoPe - espPe', '0'], tamanho: ['espPe', 'espPe'], espessura: 'alturaPe', material: 'materialPe', veio: 'a' },
+    { id: 'peDF', nome: 'Pé direito frontal', papel: 'bloco', eixo: 'z', origem: ['L - recuoPe - espPe', 'recuoPe', '0'], tamanho: ['espPe', 'espPe'], espessura: 'alturaPe', material: 'materialPe', veio: 'a' },
+    { id: 'peDT', nome: 'Pé direito traseiro', papel: 'bloco', eixo: 'z', origem: ['L - recuoPe - espPe', 'P - recuoPe - espPe', '0'], tamanho: ['espPe', 'espPe'], espessura: 'alturaPe', material: 'materialPe', veio: 'a' },
+  ],
+  aninhados: [],
+  ferragens: [],
+  tipos: [
+    { id: 'jantar', nome: 'Mesa de jantar (1600 × 900)', valores: { L: 1600, A: 740, P: 900 } },
+    { id: 'escritorio', nome: 'Mesa de escritório (1200 × 600)', valores: { L: 1200, A: 740, P: 600 } },
+  ],
+  tipoPadrao: 'jantar',
+};
+
+export const FAMILIA_BANCO: Familia = {
+  formato: FAMILIA_FORMATO,
+  versao: FAMILIA_VERSAO,
+  id: 'fam_banco',
+  nome: 'Banco',
+  categoria: 'mobiliario',
+  descricao: 'Banco com assento de chapa e quatro pernas maciças, em versão baixa ou alta.',
+  unidade: 'mm',
+  hospedagem: 'nivel',
+  origem: 'canto',
+  parametros: [
+    comprimento('L', 'Largura', 400, 300, 1000),
+    comprimento('A', 'Altura do assento', 450, 400, 750),
+    comprimento('P', 'Profundidade', 350, 300, 600),
+    comprimento('espPerna', 'Espessura da perna', 40, 25, 80, 5),
+    comprimento('recuoPerna', 'Recuo da perna', 25, 0, 60, 5),
+    chapa('assentoChapa', 'Chapa do assento', 'mdf25', ['mdf18', 'mdf25']),
+    material('materialPerna', 'Material da perna', 'madeira_macica'),
+    derivado('espAssento', 'Espessura do assento', 'assentoChapa.esp'),
+    derivado('alturaPerna', 'Altura da perna', 'A - espAssento'),
+  ],
+  planos: [],
+  pecas: [
+    { id: 'assento', nome: 'Assento', papel: 'tampo', eixo: 'z', origem: ['0', '0', 'alturaPerna'], tamanho: ['L', 'P'], espessura: 'espAssento', material: 'assentoChapa', fita: { n: FITA_PVC }, veio: 'a' },
+    { id: 'pernaEF', nome: 'Perna esquerda frontal', papel: 'bloco', eixo: 'z', origem: ['recuoPerna', 'recuoPerna', '0'], tamanho: ['espPerna', 'espPerna'], espessura: 'alturaPerna', material: 'materialPerna', veio: 'a' },
+    { id: 'pernaET', nome: 'Perna esquerda traseira', papel: 'bloco', eixo: 'z', origem: ['recuoPerna', 'P - recuoPerna - espPerna', '0'], tamanho: ['espPerna', 'espPerna'], espessura: 'alturaPerna', material: 'materialPerna', veio: 'a' },
+    { id: 'pernaDF', nome: 'Perna direita frontal', papel: 'bloco', eixo: 'z', origem: ['L - recuoPerna - espPerna', 'recuoPerna', '0'], tamanho: ['espPerna', 'espPerna'], espessura: 'alturaPerna', material: 'materialPerna', veio: 'a' },
+    { id: 'pernaDT', nome: 'Perna direita traseira', papel: 'bloco', eixo: 'z', origem: ['L - recuoPerna - espPerna', 'P - recuoPerna - espPerna', '0'], tamanho: ['espPerna', 'espPerna'], espessura: 'alturaPerna', material: 'materialPerna', veio: 'a' },
+  ],
+  aninhados: [],
+  ferragens: [],
+  tipos: [
+    { id: 'baixo', nome: 'Banco baixo (450)', valores: { A: 450 } },
+    { id: 'alto', nome: 'Banco alto (650)', valores: { A: 650 } },
+  ],
+  tipoPadrao: 'baixo',
+};

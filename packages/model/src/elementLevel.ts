@@ -1,7 +1,7 @@
 import { levelElevation } from './queries.ts';
 import { stairFitPatch } from './stairFit.ts';
 import { isCad, type CadDrawing } from './cad.ts';
-import { isCeiling, isFloor, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Ceiling, type Element, type Floor, type Id, type Project, type Ramp, type Roof, type Room, type Slab, type Stair, type Wall } from './types.ts';
+import { isCeiling, isComponent, isFloor, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Ceiling, type Component, type Element, type Floor, type Id, type Project, type Ramp, type Roof, type Room, type Slab, type Stair, type Wall } from './types.ts';
 
 /**
  * Como manter o elemento ao trocar de nível: `elevation` preserva a cota absoluta (compensa o deslocamento);
@@ -16,8 +16,8 @@ export interface SetElementLevel {
 }
 
 /** Elementos com nível próprio. Aberturas não têm: acompanham a parede anfitriã. */
-export const hasLevel = (e: Element | undefined): e is Wall | Floor | Slab | Ceiling | Roof | Stair | Ramp | Room | CadDrawing =>
-  isWall(e) || isFloor(e) || isSlab(e) || isCeiling(e) || isRoof(e) || isStair(e) || isRamp(e) || isRoom(e) || isCad(e);
+export const hasLevel = (e: Element | undefined): e is Wall | Floor | Slab | Ceiling | Roof | Stair | Ramp | Room | CadDrawing | Component =>
+  isWall(e) || isFloor(e) || isSlab(e) || isCeiling(e) || isRoof(e) || isStair(e) || isRamp(e) || isRoom(e) || isCad(e) || isComponent(e);
 
 /** Nível de um elemento com nível próprio; null para abertura ou id inexistente. */
 export function elementLevelId(e: Element | undefined): Id | null {
@@ -48,6 +48,7 @@ export function applyElementLevel(p: Project, c: SetElementLevel): void {
     if (isWall(e) || isStair(e) || isRamp(e)) e.baseOffset += delta;
     else if (isRoom(e)) e.heightOffset = (e.heightOffset ?? 0) + delta;
     else if (isCad(e)) e.offsetZ = (e.offsetZ ?? 0) + delta;
+    else if (isComponent(e)) e.z += delta;
     else e.heightOffset += delta;
   }
   // Escada com topo explícito cujo desnível mudou: reajusta os espelhos (decisão 0041), sem tocar no croqui fora dos espelhos.
