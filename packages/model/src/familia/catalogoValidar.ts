@@ -60,7 +60,7 @@ function validarChapa(bruto: Record<string, unknown>, id: string, problemas: Pro
     problemas.push(problema('valor', 'refilo maior que a metade da menor dimensão da chapa', ondeDe('chapa', id, 'refilo')));
   }
 
-  if (!custoValido(bruto['custoM2'])) problemas.push(problema('valor', 'custo por m² inválido', ondeDe('chapa', id, 'custoM2')));
+  if (!custoValido(bruto['custoM2'])) problemas.push(problema('valor', 'custo por m2 inválido', ondeDe('chapa', id, 'custoM2')));
 
   const cor = bruto['cor'];
   if (cor !== undefined && !corValida(cor)) problemas.push(problema('cor', 'cor inválida (use "#rrggbb")', ondeDe('chapa', id)));
