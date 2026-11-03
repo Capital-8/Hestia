@@ -30,6 +30,7 @@ import {
 } from '@hestia/model';
 import { buildFrame, normalAt, pointAt, sAtDepth, tangentAt, toLocal, type WallFrame } from './frame.ts';
 import type { EndSpec, WallEnds } from './joins.ts';
+import { despachanteDeNivel } from './resolveDespacho.ts';
 import { estruturaDasJuncoes, furosDe, pinturasDoCluster, pintarCompartilhado } from './resolveMemo.ts';
 import { endPoint, layerQuad, membranesOf, sideAt, withBottomProfile, withProfile } from './layerGeom.ts';
 import { flatEnd } from './joinSides.ts';
@@ -385,18 +386,17 @@ export type ResolveCache = Map<string, ClusterCore>;
 const sharedCache: ResolveCache = new Map();
 const CACHE_LIMIT = 400;
 
-export function frameOfWall(p: Project, wallId: Id): WallFrame | null {
-  const w = p.elements[wallId];
-  if (!w || w.kind !== 'wall') return null;
-  return buildFrame(w, wallType(p, w));
-}
+// `frameOfWall` e `levelFrames` moraram aqui; foram para `resolveFrames.ts` (limite de linhas) e seguem exportados por este módulo.
+export { frameOfWall, levelFrames } from './resolveFrames.ts';
 
-export function levelFrames(p: Project, levelId: Id): WallFrame[] {
-  const frames = wallsOnLevel(p, levelId).map((w) => buildFrame(w, wallType(p, w))).filter((f): f is WallFrame => f !== null);
-  return withWallZ(p, frames);
-}
-
+/** Com o despachante do kernel Rust instalado (`resolveDespacho.ts`), ele decide o resultado; senão é o TypeScript de sempre. */
 export function resolveLevel(p: Project, levelId: Id, cache: ResolveCache = sharedCache, opts: PlanResolveOptions = {}): ResolvedLevel {
+  const d = despachanteDeNivel();
+  return d ? d(p, levelId, opts, () => resolveLevelTs(p, levelId, cache, opts)) : resolveLevelTs(p, levelId, cache, opts);
+}
+
+/** O motor TypeScript, sem despacho (a referência do Rust e o retorno de qualquer falha do kernel). */
+export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sharedCache, opts: PlanResolveOptions = {}): ResolvedLevel {
   const walls = wallsOnLevel(p, levelId);
   const planOpenSet = opts.planOpenings;
   const planOpen = (id: Id): boolean => !planOpenSet || planOpenSet.has(id);

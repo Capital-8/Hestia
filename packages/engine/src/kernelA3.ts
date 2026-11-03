@@ -11,7 +11,7 @@
 import { openingCasing, openingFrame, openingFrameDepth, openingFrameStyle, openingType, openingsOfWall, type Id, type Opening, type OpeningFrameStyle, type PlanSymbol, type Project, type WrapMode } from '@hestia/model';
 import { makeReturnClipper } from './clipReturn.ts';
 import type { MultiPolygon } from '@hestia/geom';
-import { levelFrames, openingGeometry, resolveLevel, type PlanResolveOptions } from './resolve.ts';
+import { levelFrames, openingGeometry, resolveLevelTs, type PlanResolveOptions } from './resolve.ts';
 import { openingRect } from './openingCut.ts';
 import { compositionCasing, insertMode, insertReturns } from './wrap.ts';
 import type { CenaA1, ColunasA1 } from './kernelA1.ts';
@@ -359,7 +359,7 @@ export function argumentosA3c(p: Project, levelId: Id, cena: CenaA1, a3: CenaA3,
  * Paredes com perfil de topo ou de base entram (a A3d as cobre); aqui as faixas só levam z0, z1 e a região, sem a inclinação (`referenciaA3d` a leva).
  */
 export function referenciaA3c(p: Project, levelId: Id, cena: CenaA1, opcoes: OpcoesA3c = {}): ClusterA3c {
-  const r = resolveLevel(p, levelId, new Map(), opcoes);
+  const r = resolveLevelTs(p, levelId, new Map(), opcoes);
   const saida: ClusterA3c = { camadas: [], regioes: [], silhuetas: [] };
   r.clusters.forEach((c, grupo) => {
     for (const id of c.wallIds) {

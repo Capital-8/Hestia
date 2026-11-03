@@ -26,7 +26,7 @@ const nomeDaSecao = (id: number): NomeSecao | undefined => (Object.keys(SECOES) 
 /** Colunas de coordenada/espessura da seção `paredes` (validadas contra `COORD_MAX`). */
 const COORDENADAS = new Set(['ax', 'ay', 'bx', 'by', 'espessura', 'ordem', 'sag', 'z0', 'topo', 'prioridade']);
 /** Maior valor aceito em colunas `u8` de enum/flag (como `secoes_a1.rs`); as demais `u8` valem 0 ou 1. */
-const MAXIMO_U8: Record<string, number> = { linha_loc: 5, funcao: 5 };
+const MAXIMO_U8: Record<string, number> = { linha_loc: 5, funcao: 5, wrap_ends: 3, wrap_inserts: 3, folhas: 4, plano: 15, fechamento: 4, estilo_batente: 3, modo_prof: 2, lista: 2 };
 /** Nível válido de argumento: inteiro em [0, 2^32) (`arg_nivel` em `consultas.rs`). */
 const nivelValido = (v: number): boolean => Number.isInteger(v) && v >= 0 && v <= 0xffffffff;
 

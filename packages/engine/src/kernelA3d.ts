@@ -5,9 +5,10 @@
  */
 import type { MultiPolygon } from '@hestia/geom';
 import type { Id, ProfilePoint, Project, Wall } from '@hestia/model';
+import type { LayerBand, ResolvedCluster, ResolvedLayer, ResolvedLevel, ResolvedWall } from './types.ts';
 import { zDoNivel, type CenaA1, type ColunasA1 } from './kernelA1.ts';
 import { argumentosA3c, decodificarA3c, numeroDe, type CamadaA3c, type FaixaA3c, type OpcoesA3c, type RegiaoA3c } from './kernelA3.ts';
-import { resolveLevel } from './resolve.ts';
+import { resolveLevelTs } from './resolve.ts';
 
 // A3d: `ResolvedLevel` completo (`resolveLevel`): campos de `ResolvedWall`, membranas, perfis de topo e de base e as faixas verticais
 // recortadas pelos perfis (`withBottomProfile`, `withProfile`).
@@ -22,14 +23,14 @@ export interface CenaA3d {
  * Projeto -> seção `perfis_z`. O JS calcula `wallZRange` (`zDoNivel`, como `resolveLevel`) e envia os perfis: o topo e a base derivados
  * (`WallZ.profile`, `WallZ.bottomProfile`) e o `topProfile` do modelo (só aplicado pelo `withProfile` quando não há topo derivado).
  */
-export function montarPerfisA3d(p: Project, a1: CenaA1): CenaA3d {
+export function montarPerfisA3d(p: Project, a1: CenaA1, flatAttach = false): CenaA3d {
   const c: ColunasA1 = { id_num: [], parede_num: [], lista: [], indice: [], t: [], h: [] };
   let proximo = 1;
   const zPorNivel = new Map<Id, ReturnType<typeof zDoNivel>>();
   for (const [wallId, num] of a1.idDe) {
     const w = p.elements[wallId] as Wall;
     let zs = zPorNivel.get(w.levelId);
-    if (!zs) zPorNivel.set(w.levelId, (zs = zDoNivel(p, w.levelId)));
+    if (!zs) zPorNivel.set(w.levelId, (zs = zDoNivel(p, w.levelId, flatAttach)));
     const z = zs.get(wallId)!;
     const listas: Array<[number, ProfilePoint[] | null | undefined]> = [[0, z.profile], [1, z.bottomProfile], [2, w.topProfile]];
     for (const [lista, pts] of listas) {
@@ -103,7 +104,11 @@ export const argumentosA3d = argumentosA3c;
 
 /** O que o motor TypeScript produz: `resolveLevel` com as opções de planta (cache próprio, vazio), campo a campo. */
 export function referenciaA3d(p: Project, levelId: Id, cena: CenaA1, opcoes: OpcoesA3c = {}): ResolvidoA3d {
-  const r = resolveLevel(p, levelId, new Map(), opcoes);
+  return codificarA3d(resolveLevelTs(p, levelId, new Map(), opcoes), cena);
+}
+
+/** Um `ResolvedLevel` (o que o motor TypeScript devolveu) na codificação do esquema: o que a sombra compara com a saída do Rust. */
+export function codificarA3d(r: ResolvedLevel, cena: CenaA1): ResolvidoA3d {
   const saida: ResolvidoA3d = { paredes: [], camadas: [], regioes: [], silhuetas: [] };
   r.clusters.forEach((c, grupo) => {
     for (const id of c.wallIds) {
@@ -210,4 +215,71 @@ export function decodificarA3d(s: Record<string, ArrayLike<number>>): ResolvidoA
     return { ...c, faixas: c.faixas.map((f, k) => ({ ...f, ...(inclinacao(ini + k) ? { slope: inclinacao(ini + k)! } : {}) })) };
   });
   return { paredes, camadas, regioes: base.regioes, silhuetas: base.silhuetas };
+}
+
+/**
+ * Inverso de `codificarA3d`: a saída do Rust (`ResolvidoA3d`, ids internados) vira o `ResolvedLevel` que o resto do motor consome. Os números internos
+ * voltam aos ids pelo `CenaA1` da cena que gerou a consulta. Nenhuma geometria é calculada aqui; só reagrupa o que o Rust devolveu.
+ * Lança `Error` se a saída citar um número interno desconhecido (o despacho trata como falha leve e volta ao TypeScript).
+ */
+export function resolvidoDeA3d(r: ResolvidoA3d, levelId: Id, cena: CenaA1): ResolvedLevel {
+  const parede = new Map<number, Id>([...cena.idDe].map(([id, n]) => [n, id] as const));
+  const material = new Map<number, Id>([...cena.materialDe].map(([id, n]) => [n, id] as const));
+  const idParede = (n: number): Id => {
+    const id = parede.get(n);
+    if (id === undefined) throw new Error(`parede ${n} desconhecida na saída do Rust`);
+    return id;
+  };
+  const idMaterial = (n: number): Id => {
+    const id = material.get(n);
+    if (id === undefined) throw new Error(`material ${n} desconhecido na saída do Rust`);
+    return id;
+  };
+  const camadasDe = new Map<number, ResolvedLayer[]>();
+  for (const c of r.camadas) {
+    const bands: LayerBand[] = c.faixas.map((f) => ({ z0: f.z0, z1: f.z1, poly: f.poly, ...(f.slope ? { slope: f.slope } : {}) }));
+    const l: ResolvedLayer = { layerIndex: c.faixa ? -c.indice - 1 : c.indice, materialId: idMaterial(c.material), priority: c.prioridade, core: c.core, fragment: c.fragment, cut: c.cut, bands, raw: c.raw };
+    const lista = camadasDe.get(c.parede);
+    if (lista) lista.push(l);
+    else camadasDe.set(c.parede, [l]);
+  }
+  const out: ResolvedLevel = { levelId, walls: {}, clusters: [] };
+  const grupos = new Map<number, ResolvedCluster>();
+  const grupo = (g: number): ResolvedCluster => {
+    let c = grupos.get(g);
+    if (!c) {
+      c = { wallIds: [], regions: [], silhouette: [] };
+      grupos.set(g, c);
+    }
+    return c;
+  };
+  for (const w of r.paredes) {
+    const wallId = idParede(w.id);
+    grupo(w.grupo).wallIds.push(wallId);
+    const rw: ResolvedWall = {
+      wallId,
+      a: w.a,
+      b: w.b,
+      u: w.u,
+      n: w.n,
+      length: w.length,
+      sHi: w.sHi,
+      sLo: w.sLo,
+      baseZ: w.baseZ,
+      height: w.height,
+      ...(w.nominalZ0 === undefined || Number.isNaN(w.nominalZ0) ? {} : { nominalZ0: w.nominalZ0 }),
+      ...(w.nominalZ1 === undefined || Number.isNaN(w.nominalZ1) ? {} : { nominalZ1: w.nominalZ1 }),
+      layers: camadasDe.get(w.id) ?? [],
+      membranes: w.membranas.map((m) => ({ layerIndex: m.camada, materialId: idMaterial(m.material), pts: m.pts })),
+      ...(w.profileTop ? { profileTop: w.profileTop } : {}),
+      ...(w.profileBottom ? { profileBottom: w.profileBottom } : {}),
+    };
+    out.walls[wallId] = rw;
+  }
+  for (const g of r.regioes) grupo(g.grupo).regions.push({ materialId: idMaterial(g.material), polygons: g.poligonos });
+  r.silhuetas.forEach((s, g) => {
+    grupo(g).silhouette = s;
+  });
+  out.clusters = [...grupos.entries()].sort((x, y) => x[0] - y[0]).map(([, c]) => c);
+  return out;
 }

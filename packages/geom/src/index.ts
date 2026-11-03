@@ -24,3 +24,9 @@ export { estadoKernel, type EstadoKernel, type ImplKernel } from './kernel/contr
 // Kernel v2 (ABI v2, decisão 0046): chaves de liberação por fatia.
 export { kernelFatiaLigada, fatiasLigadas, interpretarLista, CHAVE_FATIAS, FATIAS, type Fatia } from './kernel/v2/fatias.ts';
 export { medicaoOperacoes, resetarMedicaoOperacoes, type MedicaoOperacoes } from './operacoesKernel.ts';
+// Kernel v2: instância, cena e erros (decisão 0046), usados pelo despacho da fatia A (`packages/engine/src/kernelDespacho.ts`).
+export { GerenciadorKernelV2, MAX_RECRIACOES, JANELA_RECRIACAO_MS, type EstadoGerenciador } from './kernel/v2/gerenciador.ts';
+export { CenaV2 } from './kernel/v2/cena.ts';
+export { fonteDeSecoes } from './kernel/v2/quadros.ts';
+export { ErroKernelLeve, ErroKernelGrave } from './kernel/v2/erros.ts';
+export { baixarAsset as baixarAssetDoWasm } from './kernel/carregador.ts';

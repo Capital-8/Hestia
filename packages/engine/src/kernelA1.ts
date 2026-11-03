@@ -50,8 +50,8 @@ function tipoDe(p: Project, w: Wall): WallType | undefined {
   return p.wallTypes[w.typeId] ?? p.wallTypes[p.defaults.wallTypeId];
 }
 
-/** Projeto -> seções `paredes`, `paredes_quadro`, `tipos_parede`, `camadas`, `faixas` e `paredes_z`. Ids internados na ordem do projeto. */
-export function montarCenaA1(p: Project): CenaA1 {
+/** Projeto -> seções `paredes`, `paredes_quadro`, `tipos_parede`, `camadas`, `faixas` e `paredes_z`. Ids internados na ordem do projeto. `flatAttach`: a cota de `paredes_z` é a do término por camada (`PlanResolveOptions.flatAttach`). */
+export function montarCenaA1(p: Project, flatAttach = false): CenaA1 {
   const nivelDe = new Map<Id, number>(p.levels.map((l, i) => [l.id, i] as const));
   const idDe = new Map<Id, number>();
   const tipoNum = new Map<Id, number>();
@@ -141,7 +141,7 @@ export function montarCenaA1(p: Project): CenaA1 {
     push(quadro, 'z0', z0);
     push(quadro, 'topo', z0 + wallMaxHeight(p, el));
     let zs = zPorNivel.get(el.levelId);
-    if (!zs) zPorNivel.set(el.levelId, (zs = zDoNivel(p, el.levelId)));
+    if (!zs) zPorNivel.set(el.levelId, (zs = zDoNivel(p, el.levelId, flatAttach)));
     const z = zs.get(el.id)!;
     push(paredesZ, 'id_num', id);
     push(paredesZ, 'z0', z.z0);
