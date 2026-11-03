@@ -13,7 +13,7 @@ import {
 } from '@hestia/model';
 import { Fragment, useState, type ReactElement } from 'react';
 import { agruparParametros } from './acoes.ts';
-import { Janela } from './FamiliaDialogos.tsx';
+import { Janela } from './FamiliaJanela.tsx';
 import { FamiliaOpcoes } from './FamiliaOpcoes.tsx';
 import { CampoFormula, CampoNumero, CampoPadrao, CampoTexto } from './FamiliaParametrosCampos.tsx';
 import { ROTULO_ESCOPO, ROTULO_TIPO, TIPOS_PARAMETRO, aceitaFormula, parametroNovo, temFaixa, temOpcoes } from './familiaDialogos.ts';
