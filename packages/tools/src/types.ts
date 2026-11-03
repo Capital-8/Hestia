@@ -273,6 +273,10 @@ export interface ToolOptions {
   stairRun?: StairRunToolOptions;
   /** Rampa (ferramenta `ramp`). Ausente = reta, modo comprimento e padrões do tipo. */
   ramp?: RampToolOptions;
+  /** Componente (ferramenta `component`): família escolhida na barra de opções. Ausente = nenhuma. */
+  componentFamilyId?: Id;
+  /** Tipo da família (`null` = tipo padrão da família). */
+  componentTypeId?: Id | null;
 }
 
 export interface PointerInfo {
@@ -316,6 +320,8 @@ export interface Tool {
   tab(): void;
   /** Espaço alterna uma opção secundária quando a ferramenta declara suporte. */
   space?(): void;
+  /** Tecla de atalho da ferramenta (ex.: R gira e M espelha no Componente). Devolve true se consumiu a tecla. */
+  key?(tecla: string, shift?: boolean): boolean;
   /** Esc: cancela o passo; segundo Esc sai da ferramenta. */
   cancel(): void;
   confirm(): void;

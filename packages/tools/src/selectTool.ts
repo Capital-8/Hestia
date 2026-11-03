@@ -1,11 +1,12 @@
 /* eslint-disable max-lines -- seleção reúne alças, arrastes e as etiquetas de ambiente da vista (decisão 0039). */
 import { add, boxOf, dist, dot, sub, type Vec2 } from '@hestia/geom';
-import { ceilingOutline, frameOfWall } from '@hestia/engine';
-import { angularDimensionGeometry, areaPlanOf, formatQuantity, isCeiling, isFloor, isOpening, isRamp, isRoof, isSlab, isStair, isWall, resolveViewProfile, unitsOf, type Id, type ProfileLayers, type Project, type ResolvedUnits } from '@hestia/model';
+import { ceilingOutline, frameOfWall, pegadaDoComponente } from '@hestia/engine';
+import { angularDimensionGeometry, areaPlanOf, formatQuantity, isCeiling, isComponent, isFloor, isOpening, isRamp, isRoof, isSlab, isStair, isWall, resolveViewProfile, unitsOf, type Id, type ProfileLayers, type Project, type ResolvedUnits } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 import { ToolBase } from './base.ts';
 import { ghostBands, ghostViews, moveWalls, selectedMovables, selectedOpenings, selectedViews, slideOpenings, transformViews } from './edit.ts';
-import { genericAt, idsInBox, pickAt, cadAt, cadIdsInBox } from './pick.ts';
+import { componentAt, componentIdsInBox, genericAt, idsInBox, pickAt, cadAt, cadIdsInBox } from './pick.ts';
+import { componentGhostItems } from './componentGhost.ts';
 import { floorIdsInBox, pickFloorAt, ringRemoveVertex } from './floorPick.ts';
 import { pickRoomAt, roomIdsInBox } from './roomPick.ts';
 import { pickRoomSeparatorAt } from './roomSeparatorPick.ts';
@@ -37,7 +38,7 @@ type Mode = 'idle' | 'pending' | 'window' | 'grip' | 'dragwait' | 'moving' | 'op
 /** Elemento sob o cursor: parede, abertura ou piso. */
 interface AnyHit {
   id: Id;
-  kind: 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'ramp' | 'generic' | 'roomSeparator' | 'room' | 'annotation' | 'view' | 'grid';
+  kind: 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'ramp' | 'generic' | 'component' | 'roomSeparator' | 'room' | 'annotation' | 'view' | 'grid';
 }
 
 const fmtLen = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length', m);
@@ -49,7 +50,7 @@ const soma = (p: PointerInfo): boolean => p.shift || p.ctrl;
  * Categorias de modelo: na planta de área elas só se selecionam (clique e janela). Arrasto, alças e fantasmas de mover
  * são de edição, e a planta de área é vista de análise/anotação. Anotação, vista e separador de ambiente não são modelo.
  */
-const MODELO = new Set<AnyHit['kind']>(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'ramp', 'generic', 'room', 'grid']);
+const MODELO = new Set<AnyHit['kind']>(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'ramp', 'generic', 'component', 'room', 'grid']);
 const ehModelo = (kind: AnyHit['kind']): boolean => MODELO.has(kind);
 
 export class SelectTool extends ToolBase {
@@ -219,6 +220,9 @@ export class SelectTool extends ToolBase {
     // Objeto importado (viga, pilar, mobiliário...): contorno em planta; abaixo de piso/laje/telhado e acima de ambiente.
     const gn = genericAt(pr, lv, at, mpp);
     if (gn) return { id: gn, kind: 'generic' };
+    // Componente (móvel, louça, equipamento): pegada em planta, logo depois do genérico e antes do ambiente.
+    const cp = componentAt(pr, lv, at, mpp);
+    if (cp) return { id: cp, kind: 'component' };
     // Ambiente: por último entre os elementos de planta (o piso e a parede sob o cursor ganham o clique).
     const rm = pickRoomAt(pr, lv, at);
     if (rm) return { id: rm, kind: 'room' };
@@ -429,14 +433,16 @@ export class SelectTool extends ToolBase {
         break;
       }
       case 'moving': {
-        const els = selectedMovables(pr, this.env.selection());
-        const grids = selectedGrids(pr, this.env.selection());
+        const sel = this.env.selection();
+        const els = selectedMovables(pr, sel);
+        const grids = selectedGrids(pr, sel);
+        const comps = sel.filter((id) => isComponent(pr.elements[id]));
         // Sem `ignore`: arrastar uma escada/rampa também captura os vértices dela como base e destino.
         this.moveBase ??= this.snap({ ...p, raw: this.downPt, shift: false }).point;
         const inf = this.snap(p, { from: this.moveBase });
         this.delta = sub(inf.point, this.moveBase);
         const t = { kind: 'translate' as const, d: this.delta };
-        this.items.push(...ghostBands(pr, els, t), ...ghostViews(pr, this.env.selection(), t), ...gridGhosts(pr, grids, this.delta));
+        this.items.push(...ghostBands(pr, els, t), ...ghostViews(pr, sel, t), ...gridGhosts(pr, grids, this.delta), ...componentGhostItems(pr, comps, this.delta));
         break;
       }
       case 'opening': {
@@ -497,12 +503,14 @@ export class SelectTool extends ToolBase {
         const els = selectedMovables(pr, sel);
         const views = selectedViews(pr, sel);
         const grids = selectedGrids(pr, sel);
-        if ((els.length || views.length || grids.length) && (this.delta.x || this.delta.y)) {
+        const comps = sel.filter((id) => isComponent(pr.elements[id]));
+        if ((els.length || views.length || grids.length || comps.length) && (this.delta.x || this.delta.y)) {
           // Decisão 0044: as setas também não deixam uma parede em cima de outra.
           if (els.length && refuseMoveOverlap(this.env, els, { kind: 'translate', d: this.delta })) break;
           if (els.length) moveWalls(this.env, els, this.delta, true, p.alt);
           if (views.length) transformViews(this.env, views, { kind: 'translate', d: this.delta });
           if (grids.length) this.env.transaction('Mover grade', () => moveGrids(this.env, grids, this.delta, false));
+          if (comps.length) this.moveComponents(comps, this.delta);
         }
         break;
       }
@@ -522,6 +530,7 @@ export class SelectTool extends ToolBase {
           ...rampIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...roomIdsInBox(pr, this.env.levelId(), this.downPt, p.raw),
           ...cadIdsInBox(pr, this.env.levelId(), this.downPt, p.raw),
+          ...componentIdsInBox(pr, this.env.levelId(), this.downPt, p.raw),
           ...(ly && !ly.grids ? [] : gridIdsInBox(pr, this.downPt, p.raw)),
           ...(ly && !ly.sectionMarks ? [] : sectionMarkIdsInBox(pr, this.env.levelId(), this.downPt, p.raw)),
           ...roomTagIdsInBox(pr, this.downPt, p.raw, this.planId()),
@@ -548,6 +557,18 @@ export class SelectTool extends ToolBase {
     this.reset();
   }
 
+  /** Arrasto de componente: muda só `x`/`y` da instância, num único passo de desfazer. */
+  private moveComponents(ids: readonly Id[], d: Vec2): void {
+    const pr = this.env.project();
+    this.env.transaction('Mover componente', () => {
+      for (const id of ids) {
+        const c = pr.elements[id];
+        if (!isComponent(c)) continue;
+        this.env.exec({ type: 'updateComponent', id, patch: { x: c.x + d.x, y: c.y + d.y } });
+      }
+    });
+  }
+
   /** Caixa envolvente da seleção, para zoom e dimensões. */
   selectionBox(): ReturnType<typeof boxOf> | null {
     const pr = this.env.project();
@@ -558,7 +579,9 @@ export class SelectTool extends ToolBase {
       else if (isStair(e)) pts.push(...stairEndpoints(e));
       else if (isRamp(e)) pts.push(...rampEndpoints(e));
       else if (isFloor(e) || isSlab(e) || isRoof(e)) pts.push(...e.boundary);
-      else {
+      else if (isComponent(e)) {
+        for (const poly of pegadaDoComponente(pr, e)) if (poly[0]) pts.push(...poly[0]);
+      } else {
         const v = pr.views.find((x) => x.id === id);
         if (v) {
           const p = sectionPoints(pr, v);

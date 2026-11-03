@@ -38,11 +38,12 @@ import { TagTool } from './tagTool.ts';
 import { GridTool } from './gridTool.ts';
 import { LevelTool } from './levelTool.ts';
 import { PasteTool } from './pasteTool.ts';
+import { ComponentTool } from './componentTool.ts';
 
-export type ToolId = 'select' | 'wall' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'dimension' | 'angularDimension' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste';
+export type ToolId = 'select' | 'wall' | 'component' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'dimension' | 'angularDimension' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste';
 
 export const TOOL_GROUPS: Array<{ title: string; tools: ToolId[] }> = [
-  { title: 'Construir', tools: ['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'stairrun', 'ramp', 'room'] },
+  { title: 'Construir', tools: ['wall', 'component', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'stairrun', 'ramp', 'room'] },
   { title: 'Modificar', tools: ['move', 'copy', 'rotate', 'mirror', 'array', 'offset', 'parallel', 'trim', 'align', 'joins', 'split', 'rehost', 'slope', 'attachroof', 'detachroof'] },
   { title: 'Anotar', tools: ['level', 'dimension', 'angularDimension', 'text', 'detailLine', 'filledRegion', 'tag'] },
   { title: 'Medir', tools: ['measure'] },
@@ -59,6 +60,8 @@ export function createTool(id: ToolId, env: ToolEnv, perimeterTarget: SketchTarg
       return new PerimeterTool(env, perimeterTarget);
     case 'wall':
       return new WallTool(env);
+    case 'component':
+      return new ComponentTool(env);
     case 'floor':
       return new FloorTool(env);
     case 'slab':
@@ -142,6 +145,7 @@ export const TOOL_LABEL: Record<ToolId, string> = {
   select: 'Selecionar',
   paste: 'Colar',
   wall: 'Parede',
+  component: 'Componente',
   floor: 'Piso',
   slab: 'Laje',
   ceiling: 'Forro',

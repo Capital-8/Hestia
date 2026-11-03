@@ -2,6 +2,7 @@
 import { isGeneric, unitsOf, type Element, type Id, type Project } from '@hestia/model';
 import { ToolBase } from './base.ts';
 import { pasteAlignedCommand, type ClipBuffer } from './clipboard.ts';
+import { componentGhostItems } from './componentGhost.ts';
 import { ghostBands } from './edit.ts';
 import { fmtDisplacement } from './transformTools.ts';
 import { copiesOverlap, notifyWallOverlap } from './wallOverlapGuard.ts';
@@ -68,6 +69,8 @@ function fallbackCenter(c: ClipBuffer): Vec2 | null {
     if (g.outline) for (const q of g.outline) add(q);
     else for (let i = 0; i + 1 < g.mesh.positions.length; i += 3) add({ x: g.mesh.positions[i]!, y: g.mesh.positions[i + 1]! });
   }
+  // Componente sem pegada resolvida (família ausente) ainda tem a origem como âncora.
+  for (const comp of c.components ?? []) add({ x: comp.x, y: comp.y });
   return Number.isFinite(minX) ? { x: (minX + maxX) / 2, y: (minY + maxY) / 2 } : null;
 }
 
@@ -85,6 +88,7 @@ function elementsOf(c: ClipBuffer): Element[] {
     ...(c.rooms ?? []),
     ...(c.generics ?? []),
     ...(c.cad ?? []),
+    ...(c.components ?? []),
   ];
 }
 
@@ -101,6 +105,7 @@ function idsOf(c: ClipBuffer): Id[] {
     ...(c.rooms ?? []).map((e) => e.id),
     ...(c.generics ?? []).map((e) => e.id),
     ...(c.cad ?? []).map((e) => e.id),
+    ...(c.components ?? []).map((e) => e.id),
   ];
 }
 
@@ -131,10 +136,13 @@ export class PasteTool extends ToolBase {
     const base = this.env.project();
     const elements = { ...base.elements };
     for (const e of elementsOf(clip)) elements[e.id] = e;
-    this.previewProject = { ...base, elements };
+    const families = { ...(base.componentFamilies ?? {}) };
+    for (const f of clip.componentFamilies ?? []) families[f.id] = f;
+    this.previewProject = { ...base, elements, componentFamilies: families };
     this.ids = idsOf(clip);
     const zero: Transform = { kind: 'translate', d: { x: 0, y: 0 } };
-    this.anchor = centerOf(ghostBands(this.previewProject, this.ids, zero)) ?? fallbackCenter(clip);
+    const ghosts = [...ghostBands(this.previewProject, this.ids, zero), ...this.componentGhosts(null)];
+    this.anchor = centerOf(ghosts) ?? fallbackCenter(clip);
     this.env.say(this.hint);
   }
 
@@ -159,8 +167,16 @@ export class PasteTool extends ToolBase {
     const inf = this.snap(p);
     this.delta = { x: inf.point.x - this.anchor.x, y: inf.point.y - this.anchor.y };
     const t: Transform = { kind: 'translate', d: this.delta };
-    this.items.push(...ghostBands(this.previewProject, this.ids, t));
+    this.items.push(...ghostBands(this.previewProject, this.ids, t), ...this.componentGhosts(this.delta));
     this.items.push({ kind: 'point', at: inf.point }, { kind: 'label', at: inf.point, text: fmtDisplacement(unitsOf(this.env.project()), this.delta) });
+  }
+
+  /** Fantasmas da pegada dos componentes do buffer sob o deslocamento do cursor (null = na origem). */
+  private componentGhosts(delta: Vec2 | null): PreviewItem[] {
+    const p = this.previewProject;
+    if (!p) return [];
+    const ids = (this.clip?.components ?? []).map((c) => c.id);
+    return componentGhostItems(p, ids, delta ?? { x: 0, y: 0 });
   }
 
   override click(p: PointerInfo): void {
@@ -182,7 +198,7 @@ export class PasteTool extends ToolBase {
         notifyWallOverlap(this.env, conflito);
         return;
       }
-      const ids = [...r.wallIds, ...r.openingIds, ...r.floorIds, ...r.slabIds, ...r.ceilingIds, ...r.roofIds, ...r.stairIds, ...r.rampIds, ...r.roomIds, ...r.genericIds, ...r.cadIds];
+      const ids = [...r.wallIds, ...r.openingIds, ...r.floorIds, ...r.slabIds, ...r.ceilingIds, ...r.roofIds, ...r.stairIds, ...r.rampIds, ...r.roomIds, ...r.genericIds, ...r.cadIds, ...r.componentIds];
     this.env.transaction('Colar', () => {
       this.env.exec(r.command);
       if (len(this.delta) > 1e-9) {
