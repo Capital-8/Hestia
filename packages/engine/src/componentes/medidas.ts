@@ -1,3 +1,4 @@
+import { areaContorno } from './contorno.ts';
 import type { PecaResolvida } from './pecas.ts';
 
 /*
@@ -16,21 +17,36 @@ export interface Caixa {
  * `incluirVazios: true` elas entram. Sem nenhuma peça considerada: `null`.
  */
 export function caixaEnvolvente(pecas: readonly PecaResolvida[], opcoes: { incluirVazios?: boolean } = {}): Caixa | null {
-  void pecas;
-  void opcoes;
-  throw new Error('não implementado: ficha E2-medidas');
+  const incluirVazios = opcoes.incluirVazios ?? false;
+  let caixa: Caixa | null = null;
+  for (const p of pecas) {
+    if (p.vazio && !incluirVazios) continue;
+    if (caixa === null) {
+      caixa = {
+        min: [p.origem[0], p.origem[1], p.origem[2]],
+        max: [p.origem[0] + p.extensao[0], p.origem[1] + p.extensao[1], p.origem[2] + p.extensao[2]],
+      };
+      continue;
+    }
+    for (let i = 0; i < 3; i++) {
+      const inicio = p.origem[i]!;
+      const fim = inicio + p.extensao[i]!;
+      if (inicio < caixa.min[i]!) caixa.min[i] = inicio;
+      if (fim > caixa.max[i]!) caixa.max[i] = fim;
+    }
+  }
+  return caixa;
 }
 
 /** Área da face da peça (m²): `|areaContorno|` se há contorno, senão `tamanho[0] * tamanho[1]`. */
 export function areaFace(p: PecaResolvida): number {
-  void p;
-  throw new Error('não implementado: ficha E2-medidas');
+  if (p.contorno !== null) return Math.abs(areaContorno(p.contorno));
+  return p.tamanho[0] * p.tamanho[1];
 }
 
 /** Volume da peça (m³): `areaFace * espessura`. */
 export function volumePeca(p: PecaResolvida): number {
-  void p;
-  throw new Error('não implementado: ficha E2-medidas');
+  return areaFace(p) * p.espessura;
 }
 
 export interface ResumoPecas {
@@ -46,7 +62,23 @@ export interface ResumoPecas {
   porPapel: Record<string, number>;
 }
 
+/** Chave da espessura em mm como texto limpo (sem zeros à toa). */
+function chaveEspessura(espessura: number): string {
+  return String(Math.round(espessura * 1e6) / 1e3);
+}
+
 export function resumirPecas(pecas: readonly PecaResolvida[]): ResumoPecas {
-  void pecas;
-  throw new Error('não implementado: ficha E2-medidas');
+  const resumo: ResumoPecas = { quantidade: 0, vazios: 0, volume: 0, areaPorEspessura: {}, porPapel: {} };
+  for (const p of pecas) {
+    if (p.vazio) {
+      resumo.vazios++;
+      continue;
+    }
+    resumo.quantidade++;
+    resumo.volume += volumePeca(p);
+    const chave = chaveEspessura(p.espessura);
+    resumo.areaPorEspessura[chave] = (resumo.areaPorEspessura[chave] ?? 0) + areaFace(p);
+    resumo.porPapel[p.papel] = (resumo.porPapel[p.papel] ?? 0) + 1;
+  }
+  return resumo;
 }
