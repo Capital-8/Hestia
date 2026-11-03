@@ -1,6 +1,9 @@
 import { useState, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
+import { editor } from '../../editor/controller.ts';
+import { useUi } from '../../editor/state.ts';
 import { Icon } from '../Icon.tsx';
+import { carregarNoProjeto } from './carregarNoProjeto.ts';
 import { useFamilia } from './familiaStore.ts';
 import type { DialogoFamilia } from './familiaStore.ts';
 
@@ -16,8 +19,8 @@ interface Item {
   /** Variantes (botão dividido): só entram 2 ou mais, como manda a decisão 0032. */
   variantes?: string[];
   abre?: Exclude<DialogoFamilia, null>;
-  /** Botões de desfazer/refazer: leem o histórico do editor. */
-  acao?: 'desfazer' | 'refazer';
+  /** Botões de desfazer/refazer (leem o histórico do editor) ou de carregar a família no projeto. */
+  acao?: 'desfazer' | 'refazer' | 'carregar';
   novo?: boolean;
   desligado?: boolean;
   dica?: string;
@@ -35,7 +38,7 @@ const PAINEIS: Painel[] = [
   { id: 'referencia', titulo: 'Referência', itens: [I('Plano de referência', 'plan'), I('Repetir', 'array'), I('Módulo aninhado', 'component', { novo: true, dica: 'Família dentro de família (guarda-roupa, cozinha)' })] },
   { id: 'propriedades', titulo: 'Propriedades', itens: [I('Parâmetros', 'type', { abre: 'parametros' }), I('Tipos', 'layers', { abre: 'tipos' }), I('Catálogo', 'style', { abre: 'catalogo', dica: 'Chapas, fitas de borda e ferragens' }), I('Categoria e hospedagem', 'level')] },
   { id: 'testar', titulo: 'Testar', itens: [I('Flexionar', 'fit'), I('Validar', 'select'), I('Lista de peças', 'schedule', { abre: 'pecas' })] },
-  { id: 'editor', titulo: 'Editor de família', itens: [I('Abrir e salvar', 'sheet', { abre: 'arquivo', dica: 'Abre e salva famílias em arquivo hestia-familia' }), I('Carregar no projeto', 'paste', { dica: 'Grava a família no projeto num único passo de desfazer (ainda não faz nada)' }), I('Carregar e fechar', 'paste'), I('Desfazer', 'undo', { acao: 'desfazer' }), I('Refazer', 'redo', { acao: 'refazer' })] },
+  { id: 'editor', titulo: 'Editor de família', itens: [I('Abrir e salvar', 'sheet', { abre: 'arquivo', dica: 'Abre e salva famílias em arquivo hestia-familia' }), I('Carregar no projeto', 'paste', { acao: 'carregar', dica: 'Grava a família no projeto num único passo de desfazer e abre a ferramenta Componente' }), I('Carregar e fechar', 'paste'), I('Desfazer', 'undo', { acao: 'desfazer' }), I('Refazer', 'redo', { acao: 'refazer' })] },
 ];
 
 function Menu({ ancora, itens, fechar, escolher }: { ancora: DOMRect; itens: string[]; fechar: () => void; escolher: (s: string) => void }): ReactElement {
@@ -50,7 +53,7 @@ function Menu({ ancora, itens, fechar, escolher }: { ancora: DOMRect; itens: str
   );
 }
 
-function Botao({ it, grande }: { it: Item; grande: boolean }): ReactElement {
+function Botao({ it, grande, aoCarregar }: { it: Item; grande: boolean; aoCarregar?: () => void }): ReactElement {
   const ferramenta = useFamilia((s) => s.ferramenta);
   const podeDesfazer = useFamilia((s) => s.historico.podeDesfazer);
   const podeRefazer = useFamilia((s) => s.historico.podeRefazer);
@@ -63,11 +66,12 @@ function Botao({ it, grande }: { it: Item; grande: boolean }): ReactElement {
   };
   const on = ferramenta === it.rotulo || (it.variantes?.includes(ferramenta ?? '') ?? false);
   const rotuloHistorico = it.acao === 'desfazer' ? rotuloDesfazer : it.acao === 'refazer' ? rotuloRefazer : null;
-  const dica = [it.rotulo, it.acao !== undefined ? (rotuloHistorico ?? (it.acao === 'desfazer' ? 'Nada para desfazer' : 'Nada para refazer')) : '', it.dica, it.novo ? 'Novo nesta proposta (ampliar ADR 0049)' : '', it.desligado ? 'Fora do v1' : ''].filter(Boolean).join('\n— ');
+  const dica = [it.rotulo, it.acao === 'desfazer' || it.acao === 'refazer' ? (rotuloHistorico ?? (it.acao === 'desfazer' ? 'Nada para desfazer' : 'Nada para refazer')) : '', it.dica, it.novo ? 'Novo nesta proposta (ampliar ADR 0049)' : '', it.desligado ? 'Fora do v1' : ''].filter(Boolean).join('\n— ');
   const desabilitado = it.desligado === true || (it.acao === 'desfazer' && !podeDesfazer) || (it.acao === 'refazer' && !podeRefazer);
   const click = (e: React.MouseEvent<HTMLButtonElement>): void => {
     if (it.acao === 'desfazer') { useFamilia.getState().desfazer(); return; }
     if (it.acao === 'refazer') { useFamilia.getState().refazer(); return; }
+    if (it.acao === 'carregar') { aoCarregar?.(); return; }
     if (it.variantes) setAncora(e.currentTarget.getBoundingClientRect());
     else marca(it.rotulo);
   };
@@ -85,18 +89,35 @@ function Botao({ it, grande }: { it: Item; grande: boolean }): ReactElement {
 const ABAS = ['Criar', 'Inserir', 'Modificar', 'Vista', 'Gerenciar'];
 
 export function FamiliaFaixa(): ReactElement {
+  const [mensagem, setMensagem] = useState<string | null>(null);
+  const carregar = (): void => {
+    const familia = useFamilia.getState().familia();
+    const r = carregarNoProjeto(editor.store, familia);
+    if (!r.ok) {
+      setMensagem(r.erro);
+      return;
+    }
+    setMensagem(null);
+    useUi.setState((s) => ({
+      options: { ...s.options, componentFamilyId: r.familia.id, componentTypeId: null },
+      status: `${r.familia.nome} carregada no projeto.`,
+    }));
+    useFamilia.getState().ocultar();
+    editor.setTool('component');
+  };
   return (
     <>
       <nav className="ribbon-tabs" aria-label="Abas do editor de família">
         {ABAS.map((a, i) => <button key={a} className={`rtab${i === 0 ? ' on' : ''}`} disabled={i !== 0} title={i === 0 ? undefined : 'Aba ainda sem painéis'}>{a}</button>)}
       </nav>
+      {mensagem && <div className="fam-msg erro" role="alert">{mensagem}</div>}
       <div className="ribbon" role="toolbar" aria-label="Ferramentas da família">
         {PAINEIS.map((p) => (
           <div key={p.id} className="rb-panel" role="group" aria-label={p.titulo}>
             <div className="rb-cols">
               {p.itens.map((slot, i) => Array.isArray(slot)
                 ? <div key={i} className="rb-stack">{slot.map((it) => <PequenoComRotulo key={it.rotulo} it={it} />)}</div>
-                : <Botao key={slot.rotulo} it={slot} grande />)}
+                : <Botao key={slot.rotulo} it={slot} grande aoCarregar={carregar} />)}
             </div>
             <div className="rb-title">{p.titulo}</div>
           </div>

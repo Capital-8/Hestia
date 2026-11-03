@@ -393,7 +393,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   },
   shortcutsConfig: { label: t('Atalhos de teclado…', 'Keyboard Shortcuts…'), icon: 'help', run: openDialog('shortcutsConfig') },
   shortcuts: { label: t('Lista de atalhos', 'Shortcut List'), icon: 'help', run: openDialog('shortcuts') },
-  familyEditor: { label: t('Componente', 'Component'), icon: 'component', hint: t('Abre o editor de famílias numa aba, sem fechar o projeto (protótipo de interface)', 'Opens the family editor in a tab without closing the project (interface prototype)'), run: () => useFamilia.getState().abrir() },
+  familyEditor: { label: t('Editor de famílias', 'Family Editor'), icon: 'component', hint: t('Abre o editor de famílias numa aba, sem fechar o projeto.', 'Opens the family editor in a tab without closing the project.'), run: () => useFamilia.getState().abrir() },
   schedWalls: sched(t('Tabela de paredes', 'Wall Schedule'), 'schedule'),
   schedFloors: sched(t('Tabela de pisos', 'Floor Schedule'), 'floorSchedule'),
   schedSlabs: sched(t('Tabela de lajes', 'Slab Schedule'), 'slabSchedule'),

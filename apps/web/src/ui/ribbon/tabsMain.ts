@@ -14,7 +14,8 @@ export const TAB_ARQUITETURA: RibbonTab = {
       tool('wall'),
       tool('door'),
       tool('window'),
-      act('familyEditor', 'large', t('Componente', 'Component')),
+      tool('component', 'large', { label: t('Componente', 'Component') }),
+      stack(act('familyEditor', 'small', t('Editor de famílias', 'Family Editor'))),
       soon(t('Pilar', 'Column'), 'column'),
       split(tool('roof', 'large', { label: t('Telhado', 'Roof'), icon: 'roof' }), [
         tool('roof', 'small', { label: t('Telhado por perímetro', 'Roof by Footprint') }),
