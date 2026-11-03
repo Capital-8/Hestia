@@ -1,7 +1,7 @@
 /**
  * Equivalência da sub-etapa A2 (decisão 0047) só para retas puras e só para arcos: `itens_pintados` do Rust x motor TypeScript.
- * Separado de kernel-a2.wasm.test.ts para que o caso lento do polygon-clipping do TS (arcos) não bloqueie o worker da suíte principal.
- * Roda só em `npm run test:wasm`. Mesmas sementes, paredes e tolerâncias de antes; um teste por semente e tipo de geometria.
+ * Fica fora de `npm run test:wasm`: roda só em `npm run test:wasm:pesado` (vitest.wasm.pesado.config.ts), porque as variações de
+ * retas a 60 paredes bloqueiam o worker por mais de 60 s (ver 0047 §14). Mesmas sementes, paredes e tolerâncias de antes.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { beforeAll, describe, it } from 'vitest';
