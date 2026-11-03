@@ -1,0 +1,294 @@
+/* Catálogo de marcenaria e editor de usinagens: tabelas, abas, faixa de problemas e o popover inline. */
+
+.fam-cat-abas {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.fam-cat-aba {
+  font: inherit;
+  padding: 3px 14px;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 3px 3px 0 0;
+  background: var(--ribbon);
+  color: var(--fg-soft);
+  cursor: pointer;
+}
+
+.fam-cat-aba:hover {
+  background: var(--accent-soft);
+}
+
+.fam-cat-aba.on {
+  margin-bottom: -1px;
+  background: var(--sheet);
+  color: var(--fg);
+  font-weight: 600;
+  border-color: var(--line-strong);
+}
+
+.fam-cat-aviso {
+  margin: 0 0 6px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--warn) 14%, var(--sheet));
+  color: var(--warn);
+  font-size: 11.5px;
+}
+
+.fam-cat-erro {
+  margin: 0 0 8px;
+  padding: 5px 8px;
+  border: 1px solid var(--danger);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--danger) 12%, var(--sheet));
+  color: var(--danger);
+  font-size: 11.5px;
+}
+
+.fam-cat-erro ul,
+.fam-cat-ignorados ul {
+  margin: 2px 0 0;
+  padding-left: 18px;
+}
+
+.fam-cat-sucesso {
+  margin: 0 0 8px;
+  padding: 5px 8px;
+  border: 1px solid var(--revit-green);
+  border-radius: 3px;
+  background: var(--revit-green-soft);
+  color: var(--revit-green);
+  font-size: 11.5px;
+}
+
+.fam-cat-scroll {
+  max-height: min(54vh, 460px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  background: var(--sheet);
+}
+
+.fam-cat-tabela {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+  font-size: 12px;
+}
+
+.fam-cat-tabela th,
+.fam-cat-tabela td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.fam-cat-tabela thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--ribbon);
+  font-weight: 600;
+}
+
+.fam-cat-tabela .num {
+  min-width: 74px;
+}
+
+.fam-cat-tabela .fam-dlg-input {
+  min-width: 90px;
+}
+
+.fam-cat-tabela td.num .fam-dlg-input {
+  min-width: 70px;
+}
+
+.fam-cat-cor {
+  width: 30px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  background: var(--sheet);
+  cursor: pointer;
+}
+
+.fam-cat-acoes {
+  display: flex;
+  gap: 6px;
+  padding-top: 6px;
+}
+
+.fam-cat-confirma {
+  color: var(--fg-soft);
+  font-size: 11.5px;
+}
+
+.fam-cat-import {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: var(--ribbon);
+}
+
+.fam-cat-ignorados {
+  max-height: 120px;
+  overflow: auto;
+  margin-top: 4px;
+  color: var(--fg-soft);
+  font-size: 11.5px;
+}
+
+.fam-cat-import-acoes {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+/* Editor de usinagens da peça (inline, dentro do grupo das propriedades). */
+
+.fam-usin-lista {
+  display: flex;
+  flex-direction: column;
+}
+
+.fam-usin-linha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 6px;
+  align-items: center;
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.fam-usin-info {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.fam-usin-id {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fam-usin-tipo {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fam-usin-face {
+  color: var(--fg-soft);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.fam-usin-resumo {
+  grid-column: 1 / -1;
+  color: var(--fg-faint);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fam-usin-acoes {
+  display: flex;
+  gap: 3px;
+}
+
+.fam-usin-acoes .fam-bt {
+  padding: 0 6px;
+  font-size: 11px;
+}
+
+.fam-usin-editor {
+  margin: 6px 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--ribbon);
+}
+
+.fam-usin-editor-titulo {
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.fam-usin-editor .fam-row {
+  grid-template-columns: 42% minmax(0, 1fr);
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.fam-usin-editor .fam-hint {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.fam-usin-formula {
+  min-width: 0;
+}
+
+.fam-usin-formula .fam-f {
+  min-width: 0;
+}
+
+.fam-usin-erro {
+  margin-top: 1px;
+  color: var(--danger);
+  font-size: 10.5px;
+  white-space: normal;
+}
+
+.fam-usin-passante {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  color: var(--fg-soft);
+}
+
+.fam-usin-acoes-editor {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.fam-cat-escolha {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: var(--sheet);
+}
+
+.fam-cat-escolha-lista {
+  max-height: 160px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fam-cat-escolha-item {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 1px 2px;
+  cursor: pointer;
+}
+
+.fam-cat-escolha-item:hover {
+  background: var(--accent-soft);
+}

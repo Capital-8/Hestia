@@ -1,4 +1,4 @@
-import type { Familia, Peca } from '@hestia/model';
+import type { Familia, Fita, Peca } from '@hestia/model';
 import type { ReactElement } from 'react';
 import { executarPeca } from './familiaPecaAviso.ts';
 import { useFamilia } from './familiaStore.ts';
@@ -38,7 +38,9 @@ function limparFita(p: Peca, lado: LadoFita): void {
 
 export function FamiliaFabricacao({ peca }: { peca: Peca }): ReactElement {
   const familia = useFamilia((s) => s.historico.atual);
+  const catalogo = useFamilia((s) => s.catalogo);
   const materiais = familia.parametros.filter((p) => p.tipo === 'chapa' || p.tipo === 'material');
+  const fitas = catalogo.fitas;
 
   const trocarVeio = (valor: string): void => {
     executarPeca('Alterar veio', alterar(peca.id, (p) => {
@@ -99,19 +101,43 @@ export function FamiliaFabricacao({ peca }: { peca: Peca }): ReactElement {
       )}
       <div className="fam-fita">
         {LADOS.map(({ lado, rotulo }) => (
-          <div key={lado} className="fam-fita-lado">
-            <label htmlFor={`fab-${peca.id}-fita-${lado}`}>{rotulo}</label>
-            <input
-              id={`fab-${peca.id}-fita-${lado}`}
-              className="fam-f"
-              value={peca.fita?.[lado] ?? ''}
-              placeholder="sem fita"
-              maxLength={40}
-              onChange={(e) => trocarFita(lado, e.target.value)}
-            />
-          </div>
+          <SeletorFita
+            key={lado}
+            pecaId={peca.id}
+            lado={lado}
+            rotulo={rotulo}
+            valor={peca.fita?.[lado] ?? ''}
+            fitas={fitas}
+            aoTrocar={trocarFita}
+          />
         ))}
       </div>
+    </div>
+  );
+}
+
+interface PropsSeletorFita {
+  pecaId: string;
+  lado: LadoFita;
+  rotulo: string;
+  valor: string;
+  fitas: readonly Fita[];
+  aoTrocar: (lado: LadoFita, valor: string) => void;
+}
+
+/** Select de fita por lado: “Sem fita”, as fitas do catálogo e o valor atual mesmo que tenha saído do catálogo. */
+function SeletorFita({ pecaId, lado, rotulo, valor, fitas, aoTrocar }: PropsSeletorFita): ReactElement {
+  const atual = valor === 'nenhuma' ? '' : valor;
+  const foraDoCatalogo = atual !== '' && !fitas.some((f) => f.id === atual);
+  const id = `fab-${pecaId}-fita-${lado}`;
+  return (
+    <div className="fam-fita-lado">
+      <label htmlFor={id}>{rotulo}</label>
+      <select id={id} className="fam-f" value={atual} onChange={(e) => aoTrocar(lado, e.target.value)}>
+        <option value="">Sem fita</option>
+        {foraDoCatalogo && <option value={atual}>{atual} (fora do catálogo)</option>}
+        {fitas.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+      </select>
     </div>
   );
 }
