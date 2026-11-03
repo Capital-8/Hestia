@@ -304,3 +304,19 @@ voltas graves ou recriações, é defeito do binário, não do TS: o app continu
 3 recriações em 5 min com relógio injetável), `tests/kernel-a4.wasm.test.ts` (com o binário: equivalência nos fixtures do repositório e nos sintéticos de 10 e 20 pavimentos, opções de planta e
 `flatAttach` com término "face" nos pisos e lajes, `LevelResolveCache`, edição de parede e de abertura, sementes de estresse, sombra com divergência artificial, buffer circular, sombra
 desligada), `servidor.test.ts`, `ExperimentosDialog.test.ts`, `preferenciasFatias.test.ts`. Mutações, suíte completa e build final do `.wasm` ficam para o fim da A (método do dono).
+
+## 14 — Suíte pesada do kernel (`test:wasm:pesado`) (2026-11-02)
+
+**Por que existe.** As retas puras da A2 a 60 paredes (`tests/kernel-a2-retas.pesado.test.ts`, semente 100 a 102, uma variação de planta por teste) são trabalho síncrono do
+`polygon-clipping` do TS: ~30 s por variação na semente 100 e ~70 a 110 s na semente 101, mesmo sozinhas. O RPC que o worker do vitest usa para reportar testes tem timeout fixo de
+60 s (birpc, não configurável pelo `vitest.config`). Quando a referência bloqueia o worker por mais de 60 s, o vitest registra `Timeout calling "onTaskUpdate"` como erro não tratado,
+e a suíte normal ficava com erros mesmo com todos os testes passando. A fixture não pode ser reduzida (é o caso que cobre as retas) e o engine não cede o event loop no meio da
+referência, então a saída foi tirar esses casos da suíte normal e rodá-los num config próprio.
+
+**Como rodar.**
+- `npm run test:wasm`: suíte normal (`vitest.wasm.config.ts`, pool de 4 forks). Não inclui o pesado. É o portão do CI no job `wasm`.
+- `npm run test:wasm:pesado`: só o arquivo pesado (`vitest.wasm.pesado.config.ts`, 1 fork). Leva ~13 min. No CI, job `wasm-pesado`, sem `continue-on-error`: reprova a execução se
+  algum teste falhar.
+- O config pesado tem `dangerouslyIgnoreUnhandledErrors: true`, e SÓ ele: esse erro é o `onTaskUpdate` acima. Falha de asserção continua reprovando; nenhum assert, semente,
+  fixture ou tolerância muda. Por isso a saída do pesado precisa ser lida: além de "Tests N passed", confira que não há `FAIL` na lista.
+- Os arquivos novos de teste em `tests/` terminados em `.pesado.test.ts` ficam fora da suíte padrão (`vitest.config.ts` exclui `tests/*.pesado.test.ts`).
