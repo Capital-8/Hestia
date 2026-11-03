@@ -295,11 +295,18 @@ impl<'a> Escopo<'a> {
         if extra.is_empty() {
             return Ok(referencia.clone());
         }
-        let mut args: Vec<MultiPoligono> = Vec::with_capacity(extra.len() + 1);
-        args.push(referencia.clone());
-        args.extend(extra);
-        uniao_com_escala(&args, ESCALA_FINA)
+        unir_com_pegadas(referencia, extra)
     }
+}
+
+/// `union(ref, ...pegadas)` do TS (polygon-clipping): o polígono de `ref` é o externo MENOS os furos, e a parte de um furo que passa do anel externo não
+/// conta (furo manual de elemento vinculado sobre um entalhe do circuito). Sob NonZero ela contaria como região a mais (enrolamento -1) e a pegada de uma
+/// parede não a cobriria: achado da B2 (semente 18 do estresse, 6,6e-4 m2 a menos no Rust).
+fn unir_com_pegadas(referencia: &MultiPoligono, pegadas: Vec<MultiPoligono>) -> Result<MultiPoligono, u32> {
+    let mut args: Vec<MultiPoligono> = Vec::with_capacity(pegadas.len() + 1);
+    args.push(como_o_polygon_clipping(referencia)?);
+    args.extend(pegadas);
+    uniao_com_escala(&args, ESCALA_FINA)
 }
 
 #[cfg(test)]
@@ -366,5 +373,40 @@ mod testes {
         assert!((area_da_forma(&p.zona_em(Regra::Face, 0.0).unwrap()) - 0.8).abs() < 1e-9);
         // referência vazia volta como veio
         assert!(escopo.regiao_mais(&Vec::new()).unwrap().is_empty());
+    }
+
+    /// Ponto dentro do multipolígono (par-ímpar sobre todos os anéis: externo e furos).
+    fn contem(m: &MultiPoligono, x: f64, y: f64) -> bool {
+        let mut dentro = false;
+        for poligono in m {
+            for anel in poligono {
+                let mut j = anel.len() - 1;
+                for i in 0..anel.len() {
+                    if (anel[i][1] > y) != (anel[j][1] > y) && x < (anel[j][0] - anel[i][0]) * (y - anel[i][1]) / (anel[j][1] - anel[i][1]) + anel[i][0] {
+                        dentro = !dentro;
+                    }
+                    j = i;
+                }
+            }
+        }
+        dentro
+    }
+
+    #[test]
+    fn uniao_com_a_pegada_nao_conta_a_parte_do_furo_manual_que_passa_do_circuito() {
+        // circuito 4 x 4 com um entalhe (fora do polígono) de 1 x 0,5 saindo da borda esquerda; furo manual de 1 x 1 que cobre parte do polígono e parte do entalhe
+        let externo: Anel = vec![[0.0, 0.0], [4.0, 0.0], [4.0, 4.0], [0.0, 4.0], [0.0, 2.5], [1.0, 2.5], [1.0, 2.0], [0.0, 2.0]];
+        let furo: Anel = vec![[0.5, 1.8], [1.5, 1.8], [1.5, 2.8], [0.5, 2.8]];
+        let referencia: MultiPoligono = vec![vec![externo, furo]];
+        // pegada de uma parede em x de 1,1 a 2 e y de 1,9 a 2,6: tapa só a parte do furo que está dentro do polígono (e não toca o entalhe)
+        let pegada: MultiPoligono = vec![vec![vec![[1.1, 1.9], [2.0, 1.9], [2.0, 2.6], [1.1, 2.6]]]];
+        let r = unir_com_pegadas(&referencia, vec![pegada]).expect("união");
+        assert!(contem(&r, 1.3, 2.3), "furo coberto pela pegada, dentro do polígono");
+        assert!(!contem(&r, 0.7, 2.2), "entalhe: fora do polígono, o furo não o devolve à região (sob NonZero viraria região, enrolamento -1)");
+        assert!(!contem(&r, 0.7, 2.7), "o furo fora da pegada continua furo");
+        assert!(contem(&r, 3.0, 3.0));
+        // a área é a do polígono (externo - entalhe - furo no polígono) mais a parte do furo que a pegada tapa
+        let esperado = 16.0 - 0.5 - (1.0 - 0.25) + (0.4 * 0.7);
+        assert!((area_da_forma(&r) - esperado).abs() < 1e-9, "{} x {esperado}", area_da_forma(&r));
     }
 }

@@ -17,7 +17,7 @@
 //!
 //! Escala: o corte dos furos e o limite externo usam 1 nm (`ESCALA_FINA`), como o pintor da A2 (o `polygon-clipping` do TS não quantiza;
 //! a 1 µm o contorno de um piso de alguns metros muda de área mais que 1e-6 m², ver decisões 0048 e 0050). O deslocamento `{cm}` usa o
-//! offset de 1 µm (o `offsetMulti` do TS também trabalha em inteiros de 1 µm).
+//! porte do `ClipperOffset` do TS (`ops::offset_clipper`: cantos em esquadria e quadrados abaixo de 60°, pontos arredondados a 1 µm).
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -27,7 +27,7 @@ use crate::b2::{Carregador, Escopo, Regra};
 use crate::consultas::Saida;
 use crate::esquema::{ENTRADA, NIVEL_TODOS};
 use crate::itens::marcas_de_nucleo;
-use crate::ops::{diferenca_com_escala, interseccao_com_escala, offset, ESCALA_FINA};
+use crate::ops::{diferenca_com_escala, interseccao_com_escala, offset_clipper, ESCALA_FINA};
 use crate::secoes_b::*;
 use crate::{Anel, MultiPoligono};
 
@@ -218,7 +218,7 @@ fn contornos_das_camadas(linha: &ElementoLinha, camadas: &[CamadaLinha], nucleo:
             None => Ok((ref_.clone(), true)),
         }
     };
-    let deslocada = |m: &MultiPoligono, cm: f64| -> Result<MultiPoligono, u32> { offset(m, cm / 100.0) };
+    let deslocada = |m: &MultiPoligono, cm: f64| -> Result<MultiPoligono, u32> { offset_clipper(m, cm / 100.0) };
     let mut saida: Vec<(MultiPoligono, bool)> = Vec::with_capacity(camadas.len());
     if perimetro {
         // F6 (0023 §2): a borda externa tem a face de acabamento e a do núcleo, como as paredes internas.

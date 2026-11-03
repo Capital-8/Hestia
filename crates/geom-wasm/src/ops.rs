@@ -27,7 +27,9 @@
 //!    reproduz isso. `arc_tolerance` do Clipper só afeta cantos arredondados, que não usamos.
 
 use i_overlay::core::fill_rule::FillRule;
+use i_overlay::core::overlay::{Overlay, ShapeType};
 use i_overlay::core::overlay_rule::OverlayRule;
+use i_overlay::i_float::int::point::IntPoint;
 use i_overlay::float::scale::FixedScaleFloatOverlay;
 use i_overlay::mesh::float::outline::offset::OutlineOffset;
 use i_overlay::mesh::float::style::{LineJoin, OutlineStyle};
@@ -278,6 +280,204 @@ pub fn fechar_frestas_seguro(m: &MultiPoligono, eps: f64, max_perda: f64) -> Res
     Ok(if delta >= -max_perda && delta <= 1e-3 { fechado } else { m.clone() })
 }
 
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Offset fiel ao Clipper (B2): `ClipperOffset(2, ...)` do TS com cantos em esquadria, polígonos fechados.
+//
+// O `offset` acima usa o miter do `i_overlay`, que para cantos mais agudos que 60° faz chanfro (bevel); o Clipper faz o canto
+// "quadrado" (`DoSquare`), que acrescenta área (~delta² por canto agudo: 3,3e-4 m² num canto de 49° com delta de 2 cm, medido na B2).
+// Isto NÃO é arredondamento (a diferença não encolhe com escala fina), por isso o `{cm}` das camadas de piso e laje usa este porte, ponto a ponto:
+// `AddPath` (sem pontos repetidos), `FixOrientations`, `OffsetPoint`/`DoMiter`/`DoSquare`, arredondamento de cada ponto a inteiro de 1 µm
+// (`Clipper.Round`: meio afastando do zero) e a união final pelo enrolamento POSITIVO (`pftPositive`; para delta < 0 o Clipper soma um
+// retângulo externo invertido e usa `pftNegative`, que é o mesmo conjunto: enrolamento > 0 dos caminhos deslocados).
+// O `offset` acima segue como está (a A3c o usa no fechamento de frestas).
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+/// `ClipperLib.Clipper.Round`: meio afastando do zero.
+fn arredonda_clipper(a: f64) -> f64 {
+    if a < 0.0 {
+        (a - 0.5).ceil()
+    } else {
+        (a + 0.5).floor()
+    }
+}
+
+/// `Clipper.Area` (positivo = anti-horário, y para cima) de um caminho em inteiros.
+fn area_clipper(p: &[[f64; 2]]) -> f64 {
+    let n = p.len();
+    if n < 3 {
+        return 0.0;
+    }
+    let mut a = 0.0;
+    let mut j = n - 1;
+    for i in 0..n {
+        a += (p[j][0] + p[i][0]) * (p[j][1] - p[i][1]);
+        j = i;
+    }
+    -a * 0.5
+}
+
+/// `GetUnitNormal`.
+fn normal_unitaria(a: [f64; 2], b: [f64; 2]) -> [f64; 2] {
+    if a == b {
+        return [0.0, 0.0];
+    }
+    let (dx, dy) = (b[0] - a[0], b[1] - a[1]);
+    let f = 1.0 / (dx * dx + dy * dy).sqrt();
+    [dy * f, -(dx * f)]
+}
+
+/// Os pontos deslocados do vértice `j` (anterior `k`), como `OffsetPoint` com `jtMiter` e `miterLimit = 2` (`m_miterLim = 0.5`).
+fn deslocar_vertice(src: &[[f64; 2]], normais: &[[f64; 2]], j: usize, k: usize, delta: f64, saida: &mut Vec<[f64; 2]>) {
+    let pt = src[j];
+    let (nk, nj) = (normais[k], normais[j]);
+    let mut sen = nk[0] * nj[1] - nj[0] * nk[1];
+    if (sen * delta).abs() < 1.0 {
+        let cos = nk[0] * nj[0] + nj[1] * nk[1];
+        if cos > 0.0 {
+            saida.push([arredonda_clipper(pt[0] + nk[0] * delta), arredonda_clipper(pt[1] + nk[1] * delta)]);
+            return;
+        }
+    } else if sen > 1.0 {
+        sen = 1.0;
+    } else if sen < -1.0 {
+        sen = -1.0;
+    }
+    if sen * delta < 0.0 {
+        saida.push([arredonda_clipper(pt[0] + nk[0] * delta), arredonda_clipper(pt[1] + nk[1] * delta)]);
+        saida.push(pt);
+        saida.push([arredonda_clipper(pt[0] + nj[0] * delta), arredonda_clipper(pt[1] + nj[1] * delta)]);
+        return;
+    }
+    let r = 1.0 + (nj[0] * nk[0] + nj[1] * nk[1]);
+    if r >= 0.5 {
+        // DoMiter
+        let q = delta / r;
+        saida.push([arredonda_clipper(pt[0] + (nk[0] + nj[0]) * q), arredonda_clipper(pt[1] + (nk[1] + nj[1]) * q)]);
+    } else {
+        // DoSquare
+        let dx = (sen.atan2(nk[0] * nj[0] + nk[1] * nj[1]) / 4.0).tan();
+        saida.push([arredonda_clipper(pt[0] + delta * (nk[0] - nk[1] * dx)), arredonda_clipper(pt[1] + delta * (nk[1] + nk[0] * dx))]);
+        saida.push([arredonda_clipper(pt[0] + delta * (nj[0] + nj[1] * dx)), arredonda_clipper(pt[1] + delta * (nj[1] - nj[0] * dx))]);
+    }
+}
+
+/// `ClipperOffset(2, ...)` + `AddPaths(jtMiter, etClosedPolygon)` + `Execute(delta)` do TS (`offsetMulti`), em metros.
+pub fn offset_clipper(m: &MultiPoligono, delta: f64) -> Result<MultiPoligono, u32> {
+    if !delta.is_finite() {
+        return Err(ERRO_ENTRADA);
+    }
+    if m.is_empty() {
+        return Ok(Vec::new());
+    }
+    let delta_um = delta * ESCALA;
+    if delta_um.abs() > LIMITE_ESCALADO {
+        return Err(ERRO_ENTRADA);
+    }
+    // operandPaths + AddPath: orientação normalizada, pontos a 1 µm (`Math.round`), sem repetidos consecutivos nem o último igual ao primeiro.
+    let mut caminhos: Vec<Vec<[f64; 2]>> = Vec::new();
+    for poligono in m {
+        for (i, anel) in poligono.iter().enumerate() {
+            let anti_horario = area_com_sinal(anel) > 0.0;
+            let orientado: Vec<[f64; 2]> = if anti_horario == (i == 0) { anel.clone() } else { anel.iter().rev().copied().collect() };
+            let mut q: Vec<[f64; 2]> = Vec::with_capacity(orientado.len());
+            for p in &orientado {
+                q.push([quantizar(p[0], ESCALA)?, quantizar(p[1], ESCALA)?]);
+            }
+            if q.is_empty() {
+                continue;
+            }
+            let mut alto = q.len() - 1;
+            while alto > 0 && q[0] == q[alto] {
+                alto -= 1;
+            }
+            let mut limpo: Vec<[f64; 2]> = vec![q[0]];
+            for p in q.iter().take(alto + 1).skip(1) {
+                if *limpo.last().unwrap_or(&q[0]) != *p {
+                    limpo.push(*p);
+                }
+            }
+            if limpo.len() < 3 {
+                continue;
+            }
+            caminhos.push(limpo);
+        }
+    }
+    if caminhos.is_empty() {
+        return Ok(Vec::new());
+    }
+    // FixOrientations: se o caminho do vértice mais baixo (maior Y; em empate, menor X) não é anti-horário, inverte todos.
+    let mut mais_baixo = (0usize, 0usize);
+    for (ci, c) in caminhos.iter().enumerate() {
+        let mut k = 0usize;
+        for (pi, p) in c.iter().enumerate() {
+            if p[1] > c[k][1] || (p[1] == c[k][1] && p[0] < c[k][0]) {
+                k = pi;
+            }
+        }
+        let (a, b) = (c[k], caminhos[mais_baixo.0][mais_baixo.1]);
+        if ci == 0 || a[1] > b[1] || (a[1] == b[1] && a[0] < b[0]) {
+            mais_baixo = (ci, k);
+        }
+    }
+    if area_clipper(&caminhos[mais_baixo.0]) < 0.0 {
+        for c in caminhos.iter_mut() {
+            c.reverse();
+        }
+    }
+    // DoOffset
+    let mut deslocados: Vec<Vec<[f64; 2]>> = Vec::with_capacity(caminhos.len());
+    for src in &caminhos {
+        let n = src.len();
+        let mut normais: Vec<[f64; 2]> = Vec::with_capacity(n);
+        for j in 0..n - 1 {
+            normais.push(normal_unitaria(src[j], src[j + 1]));
+        }
+        normais.push(normal_unitaria(src[n - 1], src[0]));
+        let mut saida: Vec<[f64; 2]> = Vec::with_capacity(n * 2);
+        let mut k = n - 1;
+        for j in 0..n {
+            deslocar_vertice(src, &normais, j, k, delta_um, &mut saida);
+            k = j;
+        }
+        deslocados.push(saida);
+    }
+    // Execute: união pelo enrolamento positivo, direto sobre os inteiros de 1 µm (`Overlay` do `i_overlay`, sem o adaptador de ponto flutuante: ele
+    // centra a grade na caixa dos pontos e, com a caixa de extensão ímpar, devolve coordenadas em meio micrômetro; o Clipper trabalha na grade
+    // absoluta de 1 µm). O enrolamento decide externo e furo, por isso todo caminho entra como contorno do mesmo operando.
+    let total: usize = deslocados.iter().map(|c| c.len()).sum();
+    let mut sobrepor: Overlay<i64> = Overlay::new(total);
+    let mut algum = false;
+    for c in &deslocados {
+        if c.len() < 3 {
+            continue;
+        }
+        let pontos: Vec<IntPoint<i64>> = c.iter().map(|p| IntPoint::new(p[0] as i64, p[1] as i64)).collect();
+        sobrepor.add_contour(&pontos, ShapeType::Subject);
+        algum = true;
+    }
+    if !algum {
+        return Ok(Vec::new());
+    }
+    let resultado = sobrepor.overlay(OverlayRule::Union, FillRule::Positive);
+    let mut saida: MultiPoligono = Vec::with_capacity(resultado.len());
+    for forma in resultado {
+        let mut aneis: Poligono = Vec::with_capacity(forma.len());
+        for contorno in forma {
+            let mut anel: Anel = contorno.iter().map(|p| [p.x as f64 / ESCALA, p.y as f64 / ESCALA]).collect();
+            if anel.len() > 1 && anel[0] == anel[anel.len() - 1] {
+                anel.pop();
+            }
+            if anel.len() >= 3 {
+                aneis.push(anel);
+            }
+        }
+        if !aneis.is_empty() {
+            saida.push(aneis);
+        }
+    }
+    Ok(saida)
+}
+
 #[cfg(test)]
 mod testes {
     use super::*;
@@ -515,5 +715,63 @@ mod testes {
             erro(diferenca(&[quadrado(0.0, 0.0, 10.0), invalido])),
             Some(ERRO_ENTRADA)
         );
+    }
+
+    #[test]
+    fn offset_clipper_quadrado_cresce_e_encolhe_em_esquadria() {
+        let q = quadrado(0.0, 0.0, 1.0);
+        let fora = offset_clipper(&q, 0.02).expect("offset");
+        assert_eq!(fora.len(), 1);
+        assert!((area(&fora) - 1.04 * 1.04).abs() < 1e-9, "área {}", area(&fora));
+        let dentro = offset_clipper(&q, -0.02).expect("offset");
+        assert!((area(&dentro) - 0.96 * 0.96).abs() < 1e-9, "área {}", area(&dentro));
+        // encolher além do tamanho some com a forma; vazio devolve vazio
+        assert!(offset_clipper(&q, -0.6).expect("offset").is_empty());
+        assert!(offset_clipper(&Vec::new(), 0.1).expect("offset").is_empty());
+        assert_eq!(offset_clipper(&q, f64::NAN).err(), Some(ERRO_ENTRADA));
+    }
+
+    #[test]
+    fn offset_clipper_com_furo_acompanha_o_furo() {
+        let mut q = quadrado(0.0, 0.0, 2.0);
+        q[0].push(vec![[0.8, 0.8], [0.8, 1.2], [1.2, 1.2], [1.2, 0.8]]);
+        let fora = offset_clipper(&q, 0.1).expect("offset");
+        // o externo vai a 2,2 x 2,2 e o furo (0,4 x 0,4) encolhe para 0,2 x 0,2
+        assert!((area(&fora) - (2.2 * 2.2 - 0.2 * 0.2)).abs() < 1e-9, "área {}", area(&fora));
+    }
+
+    #[test]
+    fn offset_clipper_canto_agudo_faz_quadrado_e_nao_o_miter_do_i_overlay() {
+        // triângulo isósceles de ponta 28° (mais agudo que 60°): o Clipper faz o canto quadrado no vértice agudo (turno de 152°: r = 0,117 < 0,5)
+        // e esquadria nos dois da base (76°). Área = triângulo (4) + perímetro x d + miter exato nos dois cantos da base + o quadrado do canto agudo.
+        let t: MultiPoligono = vec![vec![vec![[0.0, 0.0], [4.0, -1.0], [4.0, 1.0]]]];
+        let d: f64 = 0.05;
+        let clip = area(&offset_clipper(&t, d).expect("offset"));
+        let perimetro = 2.0 * 17f64.sqrt() + 2.0;
+        let miter_exato_agudo = d * d * (76f64.to_radians()).tan();
+        let miter_base = 2.0 * d * d * (52f64.to_radians()).tan();
+        let sem_canto_agudo = 4.0 + perimetro * d + miter_base;
+        assert!(clip > sem_canto_agudo && clip < sem_canto_agudo + miter_exato_agudo, "área {clip}: o quadrado fica entre o chanfro e o miter exato");
+        // o miter do i_overlay deixa passar mais área neste canto: as duas operações NÃO são a mesma
+        let miter_do_overlay = area(&offset(&t, d).expect("offset"));
+        assert!((miter_do_overlay - clip).abs() > 1e-4, "i_overlay {miter_do_overlay} x Clipper {clip}");
+        // canto de 90°: igual ao miter do i_overlay
+        let q = quadrado(0.0, 0.0, 1.0);
+        assert!((area(&offset_clipper(&q, 0.05).expect("a")) - area(&offset(&q, 0.05).expect("b"))).abs() < 1e-9);
+    }
+
+    #[test]
+    fn offset_clipper_fica_na_grade_absoluta_de_1_micrometro() {
+        // caixa de extensão ímpar em y (o adaptador de ponto flutuante do i_overlay centraria a grade e devolveria meio micrômetro)
+        let m: MultiPoligono = vec![vec![vec![[4.092, 4.121], [5.879, 4.121], [5.879, 6.520283], [5.726803, 6.507855], [5.266106, 6.454609], [4.807458, 6.385917], [4.351376, 6.301856], [4.092, 6.244978]]]];
+        for delta in [-0.03, 0.02] {
+            let r = offset_clipper(&m, delta).expect("offset");
+            assert!(!r.is_empty());
+            for p in r.iter().flatten().flatten() {
+                for v in p {
+                    assert!((v * 1e6 - (v * 1e6).round()).abs() < 1e-6, "coordenada {v} fora da grade de 1 µm");
+                }
+            }
+        }
     }
 }
