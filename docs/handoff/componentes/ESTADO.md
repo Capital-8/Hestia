@@ -6,7 +6,7 @@ Branch de integração local: `feat/familias-interface` (sem push). Decisões do
 ## Etapas
 | Etapa | Estado |
 |---|---|
-| E1 Fundação | contrato e avaliador prontos (orquestrador); fichas grafo, historico, validar lançadas; arquivo depende de validar |
+| E1 Fundação | **CONCLUÍDA** (2026-11-02): contrato e avaliador (orquestrador) + grafo, histórico, validação e arquivo (flash), todas aprovadas no portão |
 | E2 Peças e módulos | a fazer |
 | E3 3D real | a fazer |
 | E4 Criar na vista | a fazer |
@@ -19,10 +19,13 @@ Branch de integração local: `feat/familias-interface` (sem push). Decisões do
 ## Fichas
 | Ficha | Branch | Estado | Observação |
 |---|---|---|---|
-| E1-grafo | feat/fam-E1-grafo | lançada | |
-| E1-historico | feat/fam-E1-historico | lançada | |
-| E1-validar | feat/fam-E1-validar | lançada | teste de ciclo exige o grafo integrado |
-| E1-arquivo | — | aguarda validar | depende de `validarFamilia` |
+| E1-grafo | feat/fam-E1-grafo | aprovada e integrada | 11 testes |
+| E1-historico | feat/fam-E1-historico | aprovada e integrada | 12 testes |
+| E1-validar | feat/fam-E1-validar | aprovada e integrada | 14 testes; 8 arquivos de apoio, nenhum passa de 180 linhas |
+| E1-arquivo | feat/fam-E1-arquivo | aprovada e integrada | 10 testes |
 
 ## Ciclo de cada ficha
 `run-ficha.sh <id> <base>` → `gate.mjs` (eu rodo) → revisão do diff → aceita, devolve (1 volta) ou assume → atualiza esta tabela.
+
+## Próximo
+E2 (peças e módulos): contrato das peças resolvidas e resolução (orquestrador, em `packages/engine/src/componentes/`), depois fichas de contorno poligonal, vazios, planos de referência, aninhados e repetição.
