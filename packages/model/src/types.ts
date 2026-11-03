@@ -11,6 +11,8 @@ import type { ProjectGraphics, View3DSettings, ViewGraphics, ViewHidden } from '
 import type { SectionAnnotations } from './sectionAnnotations.ts';
 import type { Opening, OpeningLineConvention, OpeningType } from './openingTypes.ts';
 import type { ProfilePreset } from './openingComposition.ts';
+import type { Familia } from './familia/tipos.ts';
+import type { Catalogo } from './familia/catalogo.ts';
 import type { DimensionSettings } from './dimensionSettings.ts';
 import type { UnitsSettings } from './units.ts';
 import type { AreaPlan, ColorScheme, RoomCategory } from './areaPlan.ts';
@@ -19,7 +21,7 @@ import type { CadDrawing } from './cad.ts';
 import type { CopyLink } from './copyLink.ts';
 
 export type Id = string;
-export const SCHEMA_VERSION = 23;
+export const SCHEMA_VERSION = 24;
 
 export type { Stair, StairCurve, StairGenerator, StairLanding, StairRun, StairRunStyle, StairSpiralParams, StairType, StairUndersideStyle } from './stairTypes.ts';
 export type { Ramp, RampInputMode, RampNormProfile, RampNormRow, RampShape, RampType } from './rampTypes.ts';
@@ -656,7 +658,31 @@ export interface Generic {
   ifcProperties?: IfcProperty[];
 }
 
-export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | Room | Generic | CadDrawing;
+/**
+ * Instância de um componente (móvel, louça, equipamento) no projeto (ADR 0049). Aponta para uma família do projeto
+ * (`Project.componentFamilies`); a geometria sai da resolução da família, nunca é gravada aqui. Mundo = `R(rotation) · E · local + (x, y)`,
+ * com `E` espelhando o eixo X local quando `mirrored`; o local está em metros com origem no canto mínimo da família.
+ */
+export interface Component {
+  id: Id;
+  kind: 'component';
+  familyId: Id;
+  /** Tipo da família; `null` = padrão da família. */
+  typeId: Id | null;
+  levelId: Id;
+  order: number;
+  /** Posição no plano (m), deslocamento sobre o nível (m) e rotação anti-horária (rad). */
+  x: number;
+  y: number;
+  z: number;
+  rotation: number;
+  mirrored: boolean;
+  /** Valores de parâmetros desta instância (mm), sobre o tipo. */
+  values?: Record<string, number | string | boolean>;
+  mark: string;
+}
+
+export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | Room | Generic | CadDrawing | Component;
 
 export interface ProjectDefaults {
   wallTypeId: Id;
@@ -778,6 +804,10 @@ export interface Project {
   /** Tipos de rampa (Revit: Ramp Type). Mesmo papel dos demais mapas de tipos. */
   rampTypes: Record<Id, RampType>;
   openingTypes: Record<Id, OpeningType>;
+  /** Famílias de componentes do projeto (ADR 0049), por id; ausente = nenhuma. As instâncias (`Component`) apontam para elas. */
+  componentFamilies?: Record<Id, Familia>;
+  /** Catálogo de marcenaria (chapas, fitas, ferragens) do projeto; ausente = o catálogo padrão. */
+  catalog?: Catalogo;
   /** Presets de perfil das esquadrias (editáveis); a migração 19 → 20 semeia os iniciais. Ausente = os iniciais por leitura. */
   openingProfiles?: Record<Id, ProfilePreset>;
   elements: Record<Id, Element>;
@@ -831,3 +861,4 @@ export const isStair = (e: Element | undefined): e is Stair => e?.kind === 'stai
 export const isRamp = (e: Element | undefined): e is Ramp => e?.kind === 'ramp';
 export const isRoom = (e: Element | undefined): e is Room => e?.kind === 'room';
 export const isGeneric = (e: Element | undefined): e is Generic => e?.kind === 'generic';
+export const isComponent = (e: Element | undefined): e is Component => e?.kind === 'component';

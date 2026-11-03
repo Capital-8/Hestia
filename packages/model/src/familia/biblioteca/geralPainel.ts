@@ -1,0 +1,47 @@
+import { FAMILIA_FORMATO, FAMILIA_VERSAO, type Familia } from '../tipos.ts';
+import { booleano, comprimento, derivado, material } from './geralApoio.ts';
+
+export const FAMILIA_PAINEL_RIPADO: Familia = {
+  formato: FAMILIA_FORMATO,
+  versao: FAMILIA_VERSAO,
+  id: 'fam_painel_ripado',
+  nome: 'Painel ripado',
+  categoria: 'marcenaria',
+  descricao: 'Painel de ripas verticais repetidas, com moldura frontal opcional e vão ajustável entre as ripas.',
+  unidade: 'mm',
+  hospedagem: 'parede',
+  origem: 'canto',
+  parametros: [
+    comprimento('L', 'Largura', 1200, 300, 3000),
+    comprimento('A', 'Altura', 2400, 600, 3000),
+    comprimento('P', 'Profundidade', 60, 40, 120),
+    comprimento('larguraRipa', 'Largura da ripa', 60, 20, 200, 5),
+    comprimento('vaoRipa', 'Vão entre ripas', 20, 0, 100, 5),
+    comprimento('larguraMoldura', 'Largura da moldura', 50, 20, 100, 5),
+    booleano('moldura', 'Moldura', true),
+    material('material', 'Material', 'madeira'),
+    derivado('espMoldura', 'Espessura da moldura', 'moldura ? 18 : 0'),
+    derivado('altRipa', 'Altura da ripa', 'A - (moldura ? 2 * larguraMoldura : 0)'),
+    derivado('larguraUtil', 'Largura útil entre molduras', 'L - (moldura ? 2 * larguraMoldura : 0)'),
+    derivado('nRipas', 'Número de ripas', 'min(64, floor((larguraUtil + vaoRipa) / (larguraRipa + vaoRipa)))'),
+    derivado('xRipas', 'Início das ripas', 'moldura ? larguraMoldura : 0'),
+    derivado('yRipas', 'Fundo das ripas', 'moldura ? espMoldura : 0'),
+    derivado('profRipa', 'Profundidade da ripa', 'P - (moldura ? espMoldura : 0)'),
+  ],
+  planos: [],
+  pecas: [
+    { id: 'ripa', nome: 'Ripa', papel: 'painel', eixo: 'x', origem: ['xRipas + (i - 1) * (larguraRipa + vaoRipa)', 'yRipas', 'moldura ? larguraMoldura : 0'], tamanho: ['profRipa', 'altRipa'], espessura: 'larguraRipa', material: 'material', repetir: 'nRipas' },
+    { id: 'molduraInf', nome: 'Moldura inferior', papel: 'travessa', eixo: 'y', origem: ['0', '0', '0'], tamanho: ['L', 'larguraMoldura'], espessura: 'espMoldura', material: 'material', quando: 'moldura' },
+    { id: 'molduraSup', nome: 'Moldura superior', papel: 'travessa', eixo: 'y', origem: ['0', '0', 'A - larguraMoldura'], tamanho: ['L', 'larguraMoldura'], espessura: 'espMoldura', material: 'material', quando: 'moldura' },
+    { id: 'molduraEsq', nome: 'Moldura esquerda', papel: 'painel', eixo: 'y', origem: ['0', '0', 'larguraMoldura'], tamanho: ['larguraMoldura', 'A - 2 * larguraMoldura'], espessura: 'espMoldura', material: 'material', quando: 'moldura' },
+    { id: 'molduraDir', nome: 'Moldura direita', papel: 'painel', eixo: 'y', origem: ['L - larguraMoldura', '0', 'larguraMoldura'], tamanho: ['larguraMoldura', 'A - 2 * larguraMoldura'], espessura: 'espMoldura', material: 'material', quando: 'moldura' },
+  ],
+  aninhados: [],
+  ferragens: [],
+  tipos: [
+    { id: 'ripado1200', nome: 'Painel 1200', valores: { L: 1200 } },
+    { id: 'ripado1800', nome: 'Painel 1800', valores: { L: 1800 } },
+    { id: 'ripado2400', nome: 'Painel 2400', valores: { L: 2400 } },
+  ],
+  tipoPadrao: 'ripado1200',
+};

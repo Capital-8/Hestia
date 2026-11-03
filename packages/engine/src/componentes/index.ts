@@ -8,3 +8,4 @@ export * from './malha.ts';
 export * from './furacao.ts';
 export * from './listaPecas.ts';
 export * from './planoCorte.ts';
+export * from './instancia.ts';

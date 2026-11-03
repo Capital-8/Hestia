@@ -16,7 +16,7 @@ const otherLevels = (n: number): string => (n === 1 ? '1 em outro nível' : `${n
 
 /** Nível de um elemento: a parede tem o seu; a abertura herda o da parede anfitriã. */
 export function levelOfElement(p: Project, e: Element): Id | undefined {
-  if (isWall(e) || isGeneric(e) || isCad(e) || isRamp(e) || e.kind === 'floor' || e.kind === 'slab' || e.kind === 'ceiling' || e.kind === 'roof' || e.kind === 'stair' || e.kind === 'room') return e.levelId;
+  if (isWall(e) || isGeneric(e) || isCad(e) || isRamp(e) || e.kind === 'floor' || e.kind === 'slab' || e.kind === 'ceiling' || e.kind === 'roof' || e.kind === 'stair' || e.kind === 'room' || e.kind === 'component') return e.levelId;
   const host = p.elements[e.hostId];
   return isWall(host) ? host.levelId : undefined;
 }
