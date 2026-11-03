@@ -3,7 +3,7 @@ import type { PecaResolvida } from './pecas.ts';
 
 /*
  * Medidas das peças resolvidas (caixa, áreas, volumes, resumo). FICHA E2-medidas: implementar as funções abaixo. Testes em
- * `medidas.test.ts`. Puras e numéricas (metros, m², m³). Usa `areaContorno` de `./contorno.ts` (outra ficha o implementa em
+ * `medidas.test.ts`. Puras e numéricas (metros, m2, m3). Usa `areaContorno` de `./contorno.ts` (outra ficha o implementa em
  * paralelo; importe e use pelo contrato).
  */
 
@@ -38,13 +38,13 @@ export function caixaEnvolvente(pecas: readonly PecaResolvida[], opcoes: { inclu
   return caixa;
 }
 
-/** Área da face da peça (m²): `|areaContorno|` se há contorno, senão `tamanho[0] * tamanho[1]`. */
+/** Área da face da peça (m2): `|areaContorno|` se há contorno, senão `tamanho[0] * tamanho[1]`. */
 export function areaFace(p: PecaResolvida): number {
   if (p.contorno !== null) return Math.abs(areaContorno(p.contorno));
   return p.tamanho[0] * p.tamanho[1];
 }
 
-/** Volume da peça (m³): `areaFace * espessura`. */
+/** Volume da peça (m3): `areaFace * espessura`. */
 export function volumePeca(p: PecaResolvida): number {
   return areaFace(p) * p.espessura;
 }
@@ -54,9 +54,9 @@ export interface ResumoPecas {
   quantidade: number;
   /** Peças vazias (não contam em mais nada). */
   vazios: number;
-  /** Soma dos volumes das peças não vazias (m³). */
+  /** Soma dos volumes das peças não vazias (m3). */
   volume: number;
-  /** Área de face somada por espessura (m²). Chave = espessura em mm como texto sem zeros à toa: 0.018 → "18", 0.0065 → "6.5". */
+  /** Área de face somada por espessura (m2). Chave = espessura em mm como texto sem zeros à toa: 0.018 → "18", 0.0065 → "6.5". */
   areaPorEspessura: Record<string, number>;
   /** Contagem de peças não vazias por papel. */
   porPapel: Record<string, number>;

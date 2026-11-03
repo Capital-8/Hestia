@@ -2,6 +2,7 @@
 // Uso: node docs/handoff/componentes/gate.mjs --dir <worktree> --base <branch-base> --allow "a.ts,b/*.ts" --tests "arquivo.test.ts[,...]"
 // Saída: uma linha por verificação (OK/FALHA) e `PORTAO: APROVADO|REPROVADO`. Código de saída 0 só se aprovado.
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 const arg = (nome, padrao = '') => {
@@ -30,7 +31,7 @@ registra('tudo commitado', solto.length === 0, solto.join(', '));
 // 2. tipos, lint, testes da ficha, fronteiras
 const tsc = roda('npx', ['tsc', '-p', 'tsconfig.json', '--noEmit']);
 registra('tsc', tsc.status === 0, tsc.status === 0 ? '' : ultima(tsc));
-const alvos = mudados.filter((f) => /\.(ts|tsx)$/.test(f));
+const alvos = mudados.filter((f) => /\.(ts|tsx)$/.test(f) && existsSync(path.join(dir, f)));
 if (alvos.length) {
   const lint = roda('npx', ['eslint', '--max-warnings', '0', ...alvos]);
   registra('eslint (0 avisos)', lint.status === 0, lint.status === 0 ? '' : ultima(lint));

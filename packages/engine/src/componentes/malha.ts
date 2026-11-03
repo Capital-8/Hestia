@@ -50,7 +50,7 @@ function malhaVazia(): Malha {
   return { positions: [], normals: [], indices: [], pecaDoTriangulo: [] };
 }
 
-/** Volume (m³) de uma malha fechada pela soma de tetraedros assinados; positivo quando as normais saem para fora. */
+/** Volume (m3) de uma malha fechada pela soma de tetraedros assinados; positivo quando as normais saem para fora. */
 export function volumeDaMalha(m: Malha): number {
   let soma = 0;
   for (let t = 0; t < m.indices.length; t += 3) {

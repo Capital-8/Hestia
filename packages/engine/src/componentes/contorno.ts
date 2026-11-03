@@ -6,7 +6,7 @@
  */
 
 export const CONTORNO_MAX_PONTOS = 256;
-/** Área mínima (m²) para um contorno contar como tendo área. */
+/** Área mínima (m2) para um contorno contar como tendo área. */
 export const CONTORNO_AREA_MIN = 1e-9;
 
 export interface CaixaPlana { u0: number; v0: number; u1: number; v1: number }
