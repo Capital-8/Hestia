@@ -3,11 +3,13 @@ import { buildOpeningModel, computeSection, junctionLevel, resolveCeilings, leve
 import { climbWalk, openingPlanWorldPaths, ownerOf, planViewOf, risersInClimbOrder, roofFootprint, roomFullText, roomLabelAt, spiralByComponent, spiralPostRing, stairCut, type PlanView, type StairCut } from '@hestia/render';
 import {
   dxfDocOf,
+  dxfComponentEntities,
   dxfGenericEntities,
   dxfLayerStyleOf,
   dxfLayersOf,
   dxfLineRoleOf,
   DXF_LINE_WEIGHT_DEFAULT,
+  DXF_LAYER_COMPONENTE,
   DXF_LAYER_RAMP_TEXT,
   DXF_LAYER_ROOM_TEXT,
   DXF_LAYER_GENERIC,
@@ -402,17 +404,26 @@ export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true
 /** Altura (m de desenho) do texto do ambiente no DXF. */
 const ROOM_TEXT_HEIGHT_M = 0.2;
 
+/** Estilo da camada dos componentes: verde (ACI 3), linha contínua e espessura padrão. */
+const COMPONENTE_LAYER_STYLE: DxfLayerStyle = { color: 3, lineWeight: DXF_LINE_WEIGHT_DEFAULT, linetype: 'CONTINUOUS' };
+
 export { areaPlanDxf } from './dxfAreaPlan.ts';
 
 export function planDxf(p: Project, levelId: Id, showRoofProjection = true, units?: DxfUnit): string {
   const doc = dxfDocOf(p, levelId, dxfGeometryOf(p, levelId, showRoofProjection, units));
   const shown = levelGraphicsOf(p, levelId).overrides.generic.visible !== false;
   const generics = shown ? dxfGenericEntities(p, levelId) : [];
+  const componentes = shown ? dxfComponentEntities(p, levelId) : [];
+  const layers = [...doc.layers];
   // A camada dos importados entra com a cor da categoria (cinza), como as do nível.
-  const layers = generics.length > 0 && !doc.layers.some((l) => l.name === DXF_LAYER_GENERIC)
-    ? [...doc.layers, { name: DXF_LAYER_GENERIC, ...(p.dxfLayers?.[DXF_LAYER_GENERIC] ?? dxfLayerStyleOf(DXF_LAYER_GENERIC)) }]
-    : doc.layers;
-  return writeDxf2000({ ...doc, layers, entities: [...doc.entities, ...generics] });
+  if (generics.length > 0 && !layers.some((l) => l.name === DXF_LAYER_GENERIC)) {
+    layers.push({ name: DXF_LAYER_GENERIC, ...(p.dxfLayers?.[DXF_LAYER_GENERIC] ?? dxfLayerStyleOf(DXF_LAYER_GENERIC)) });
+  }
+  // A camada dos componentes entra como a dos importados, com o verde próprio da camada.
+  if (componentes.length > 0 && !layers.some((l) => l.name === DXF_LAYER_COMPONENTE)) {
+    layers.push({ name: DXF_LAYER_COMPONENTE, ...(p.dxfLayers?.[DXF_LAYER_COMPONENTE] ?? COMPONENTE_LAYER_STYLE) });
+  }
+  return writeDxf2000({ ...doc, layers, entities: [...doc.entities, ...generics, ...componentes] });
 }
 
 /** Alvo da tabela de camadas do diálogo de exportação (o que a vista atual exporta). */
@@ -435,11 +446,19 @@ export function dxfLayerTableOf(p: Project, target: DxfExportTarget): DxfLayerRo
   if (target.kind === 'plan') {
     const geo = dxfGeometryOf(p, target.levelId, target.showRoofProjection ?? true);
     const rows = dxfLayersOf(p, geo).map((name) => ({ name, style: geo.layerStyles?.[name] ?? dxfLayerStyleOf(name, geo.lineWeights?.[name]) }));
+    const visible = levelGraphicsOf(p, target.levelId).overrides.generic.visible !== false;
+    const hasInLevel = (kind: 'generic' | 'component'): boolean =>
+      Object.values(p.elements).some((e) => e.kind === kind && e.levelId === target.levelId);
     // A camada dos importados só entra no arquivo quando há `Generic` no nível e a categoria está visível.
-    const generic = levelGraphicsOf(p, target.levelId).overrides.generic.visible !== false
-      && Object.values(p.elements).some((e) => e.kind === 'generic' && e.levelId === target.levelId);
+    const generic = visible && hasInLevel('generic');
     if (generic && !rows.some((r) => r.name === DXF_LAYER_GENERIC)) {
       rows.push({ name: DXF_LAYER_GENERIC, style: p.dxfLayers?.[DXF_LAYER_GENERIC] ?? dxfLayerStyleOf(DXF_LAYER_GENERIC) });
+      rows.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    // O mesmo vale para os componentes, com o verde da camada `COMPONENTES`.
+    const componente = visible && hasInLevel('component');
+    if (componente && !rows.some((r) => r.name === DXF_LAYER_COMPONENTE)) {
+      rows.push({ name: DXF_LAYER_COMPONENTE, style: p.dxfLayers?.[DXF_LAYER_COMPONENTE] ?? COMPONENTE_LAYER_STYLE });
       rows.sort((a, b) => a.name.localeCompare(b.name));
     }
     return rows;
