@@ -52,3 +52,46 @@ Razão observada em A1+A2: 3,4/2,3 ≈ **1,48×**. Sobre 1,7 mil linhas portadas
 - O JS envia à B os circuitos fechados dos pisos/lajes vinculados (`contornos_vinculados`; `enclosed.ts` é da D) e o perfil de topo do
   telhado por parede (`paredes_telhado`; o esqueleto do telhado é da E) e os furos de escada/rampa (`furos_nivel`).
 - Em B4 o Rust passa a calcular `paredes_z`/`perfis_z` que hoje o JS envia para a A; até lá a interface da A não muda.
+
+## B1 entregue (pisos e lajes), 2026-11-03
+
+Consulta `pisos_lajes_nivel(nivel_num)` e esquema **v8** (`cena-v8.json`, renomeado de `cena-v7.json`; leitores, teste de contrato e `esquema.gerado.ts` atualizados).
+O Rust só liga por flag e o padrão continua TypeScript; o `.wasm` commitado NÃO foi refeito (fica velho até o fim da fatia B).
+
+**Esquema v8.** Seções novas (ids 10 a 18): `pisos`, `lajes` (inclinação em colunas), `tipos_piso`, `tipos_laje`, `camadas_piso`, `camadas_laje` (função, prioridade,
+término, valor do término, limite externo, material interno), `contornos_estaticos` (um vértice por linha: `boundary` e furos manuais), `contornos_vinculados` (circuitos fechados
+de acabamento e de núcleo e perímetro externo de acabamento e de núcleo, já calculados pelo JS) e `furos_nivel`. Só números e ids internados, sem texto. Consulta `pisos_lajes_nivel`:
+elementos (tipo, id, problema, inclinação), camadas (índice, material, núcleo, membrana, explícita, `precisa_paredes`, polígono) e polígonos em arrays tipados.
+
+**Decisões.**
+1. *Fronteira.* `enclosed.ts` fica com a D: o JS envia os circuitos (`roomAt(enclosedRooms)` e `outerPerimeter`) e o `problem` de `resolveBoundary`; o Rust usa o circuito do modo do elemento
+   (`resolveBoundary`) e os demais para `layerOutlines`. Os furos de escada e rampa vão **por elemento** (não por nível): `holesFor` depende da cota da face inferior do tipo do elemento e, na laje
+   inclinada, de `coverUnderside` (e do contorno resolvido); por isso `furos_nivel` leva o multipolígono já calculado de cada elemento. Escadas, rampas e `stairOpenings` não migram.
+2. *Contorno estático de `layerOutlines`.* Portados o `auto` pelo núcleo, `face`/`nucleo`/`passa`/`ate`/`{cm}` onde não leem paredes, o perímetro (acabamento e núcleo), o limite externo e o
+   corte dos furos (`cutStairOpenings`, com o atalho de caixas). **A região menos (ou mais) as paredes é da B2**: nas camadas em que o TS consulta paredes (`face` e `nucleo` fora de vinculado,
+   `passa` em vinculado, `ate`, e o `auto` de perímetro pelo núcleo fora do núcleo do elemento) o Rust devolve a região SEM paredes e marca `precisa_paredes` = 1. O teste compara essas camadas por
+   contenção no projeto com paredes (o TS tira região, ou a soma, no caso do `passa` vinculado) e **por igualdade** no mesmo projeto sem paredes.
+3. *Escala.* Corte dos furos e limite externo usam 1 nm (`ESCALA_FINA`, como o pintor da A2); `{cm}` usa o offset de 1 µm (o `offsetMulti` do TS também é em inteiros de 1 µm).
+4. *Semântica do `polygon-clipping`.* O TS descarta a parte de um furo que passa do anel externo (polígono = externo menos furos); sob NonZero ela viraria região a mais. Antes de cortar ou
+   intersectar, o Rust trata cada polígono com furos como `externo - furos` (`como_o_polygon_clipping`). Sem booleana (nenhum furo de escada na caixa) o polígono sai como entrou, como no TS.
+   Caso real: furo manual de elemento vinculado que a sala deixou para fora do circuito (achado do estresse, ver abaixo).
+5. Elementos com tipo ausente, contorno de menos de 3 pontos ou polígono todo furado não saem (como `resolveFloors` e `resolveSlabs`). Tipo com camadas que não batem com `n_camadas`, lista
+   de vértices com índice repetido ou com lacuna, anéis com lacuna: `ENTRADA` (falha leve).
+
+**Exceção nomeada (defeito do TS em entrada fora do contrato).** Furo manual de elemento vinculado que PASSA do circuito da sala, com camada `{cm}` diferente de zero: o `offsetMulti` do TS
+(Clipper) deixa pedaços soltos em volta do furo (quadrados de 5 cm); o Rust devolve o deslocamento limpo do contorno. É a única divergência do estresse com furos livres (2 camadas em 8 sementes x 2 pavimentos,
+o teste `furo manual que passa do circuito` exige que TODAS as divergências sejam desse tipo e que existam). No estresse padrão o furo manual dos vinculados cabe na sala e não há divergência.
+Segue como pendência separada de correção no TS.
+
+**Cobertura (estresse, sementes 1 a 12, cada uma com e sem paredes; `kernel-b1.wasm.test.ts`).** 96 comparações (por pavimento), **672 pisos e 672 lajes** (290 lajes inclinadas),
+**3.730 camadas** (910 membranas, 1.596 com término explícito), 352 elementos com `problem` (aberto ou fora), 122 vinculados com circuito fechado, 247 elementos de perímetro, 672 com furo de escada ou rampa,
+455 camadas que pedem paredes (comparadas por contenção; 522 iguais mesmo assim, contando as do projeto sem paredes), **4.619 polígonos**. Também: sintéticos de 10 e 20 pavimentos, a fixture
+`casa-2-quartos` com um piso e uma laje vinculados a cada ambiente e os de perímetro, rampa e escada (modos `headroom`, `full`, `none`; laje reta e inclinada), propriedades (camadas empilhadas sem lacuna,
+topo menos base igual à soma das espessuras, laje inclinada dentro das cotas, área do polígono igual à soma das partes), upsert e remoção, entradas inválidas (enum, não finito, chave reservada, papel,
+lacuna de índice, `n_camadas`), sem vazamento de memória. Cada teste wasm individual fica abaixo de 2 s.
+
+**Medições.** Sem a 0049: **4.619 de 4.619 polígonos iguais vértice a vértice (1 µm) depois da canonicalização**; maior diferença simétrica **3,07e-7 m²** (semente 9, pavimento 1), maior razão
+`max(área, simétrica) / (perímetro x 1e-6)` (K) = **0,031**; desvio máximo de campos escalares (cotas, prioridade, inclinação) **0**. A 0049 não foi aplicada (nem a K nem a limiar de fiapo). Com 1 µm de escala o
+recorte dos furos reprovaria (vértices fora da grade de 1 µm), por isso a escala de 1 nm.
+
+**Mutações de B1: pendentes para o fim da B.** Suíte wasm completa e `.wasm` commitado também.
