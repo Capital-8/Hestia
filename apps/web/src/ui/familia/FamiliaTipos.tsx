@@ -9,7 +9,7 @@ import {
 } from '@hestia/model';
 import { useState, type ReactElement } from 'react';
 import { lerEntrada, rotuloDoValor } from './acoes.ts';
-import { Janela } from './FamiliaDialogos.tsx';
+import { Janela } from './FamiliaJanela.tsx';
 import { CampoNumero, CampoTexto } from './FamiliaParametrosCampos.tsx';
 import { valorDoTipo } from './familiaDialogos.ts';
 import { useFamilia } from './familiaStore.ts';

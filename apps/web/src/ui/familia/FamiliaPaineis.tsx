@@ -2,6 +2,7 @@ import { compilar, escreverCampo, lerCampo, type CampoPeca, type PapelPeca, type
 import type { ReactElement, ReactNode } from 'react';
 import { mm } from './familiaDesenho.ts';
 import { FamiliaFabricacao } from './FamiliaFabricacao.tsx';
+import { FamiliaUsinagens } from './FamiliaUsinagens.tsx';
 import { FamiliaPecaAcoes } from './FamiliaPecaAcoes.tsx';
 import { FamiliaPecaArranjo } from './FamiliaPecaArranjo.tsx';
 import { AtalhosPeca } from './FamiliaPecaAtalhos.tsx';
@@ -153,6 +154,7 @@ export function PropriedadesFamilia(): ReactElement {
             <Campo peca={p} campo="quando" rotulo="Existe se" />
           </div>
           <FamiliaFabricacao peca={p} />
+          <FamiliaUsinagens peca={p} />
           <div className="fam-grp"><div className="fam-gh">Ações</div><FamiliaPecaArranjo peca={p} /></div>
           <div className="fam-hint">
             {r === undefined

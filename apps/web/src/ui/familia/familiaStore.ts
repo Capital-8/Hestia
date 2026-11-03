@@ -1,4 +1,4 @@
-import { FAMILIA_ARMARIO, HistoricoFamilia, type Familia, type Valor } from '@hestia/model';
+import { CATALOGO_PADRAO, FAMILIA_ARMARIO, HistoricoFamilia, type Catalogo, type Familia, type Valor } from '@hestia/model';
 import { resolverFamilia, type ResolucaoFamilia } from '@hestia/engine';
 import { create } from 'zustand';
 
@@ -8,7 +8,7 @@ import { create } from 'zustand';
  */
 export type VistaFamilia = '3d' | 'frente' | 'lateral' | 'planta';
 export type DetalheFamilia = 'grosso' | 'medio' | 'fino';
-export type DialogoFamilia = null | 'parametros' | 'tipos' | 'pecas' | 'novo';
+export type DialogoFamilia = null | 'parametros' | 'tipos' | 'pecas' | 'novo' | 'catalogo' | 'arquivo';
 export type EixoCorte = 'x' | 'y' | 'z';
 
 export interface Corte {
@@ -35,6 +35,10 @@ export interface FamiliaState {
   opacidade: number;
   corte: Corte;
   dialogo: DialogoFamilia;
+  /** Catálogo de marcenaria (chapas, fitas, ferragens) da sessão do editor; fora do histórico da família. */
+  catalogo: Catalogo;
+  /** Inclui a furação automática de cavilhas na lista de peças e no DXF. */
+  cavilhas: boolean;
   /** Última ação de ferramenta clicada na faixa (a faixa ainda não executa nada). */
   ferramenta: string | null;
   abrir: () => void;
@@ -49,6 +53,7 @@ export interface FamiliaState {
   escolherTipo: (id: string) => void;
   selecionarPeca: (id: string | null) => void;
   novaFamilia: (f: Familia) => void;
+  setCatalogo: (c: Catalogo) => void;
   set: (patch: Partial<FamiliaState>) => void;
 }
 
@@ -101,6 +106,8 @@ export const useFamilia = create<FamiliaState>((set, get) => {
     opacidade: 1,
     corte: { ativo: false, eixo: 'y', posicao: 0.3 },
     dialogo: null,
+    catalogo: structuredClone(CATALOGO_PADRAO),
+    cavilhas: false,
     ferramenta: null,
     abrir: () => set({ aberta: true }),
     ocultar: () => set({ aberta: false, dialogo: null }),
@@ -139,6 +146,7 @@ export const useFamilia = create<FamiliaState>((set, get) => {
       const estado = estadoInicial(novo.atual);
       set((s) => ({ historico: novo, versao: s.versao + 1, ...estado, sel: null }));
     },
+    setCatalogo: (c) => set({ catalogo: c }),
     set: (patch) => set(patch),
   };
 });
