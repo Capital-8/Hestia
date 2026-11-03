@@ -5,3 +5,4 @@ export * from './medidas.ts';
 export * from './colunas.ts';
 export * from './aninhados.ts';
 export * from './malha.ts';
+export * from './furacao.ts';

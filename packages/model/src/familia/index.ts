@@ -6,3 +6,4 @@ export * from './arquivo.ts';
 export * from './historico.ts';
 export { FAMILIA_ARMARIO } from './exemplos.ts';
 export * from './edicao.ts';
+export * from './catalogo.ts';

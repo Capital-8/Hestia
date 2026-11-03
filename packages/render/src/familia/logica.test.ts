@@ -4,7 +4,7 @@ import { corDaPeca, deslocamentoDeExplosao, distanciaDeEnquadramento, esferaDeEn
 
 const peca = (extra: Partial<PecaResolvida> = {}): PecaResolvida => ({
   id: 'p', nome: 'P', indice: 1, papel: 'painel', eixo: 'z', vazio: false, origem: [0, 0, 0], tamanho: [1, 1], espessura: 0.02,
-  extensao: [1, 1, 0.02], contorno: null, material: null, fita: null, veio: null, grupo: null, deAninhado: null, ...extra,
+  extensao: [1, 1, 0.02], contorno: null, material: null, fita: null, veio: null, grupo: null, deAninhado: null, chapa: null, usinagens: [], ...extra,
 });
 
 describe('corDaPeca', () => {

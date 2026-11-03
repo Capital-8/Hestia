@@ -1,4 +1,4 @@
-import { FAMILIA_ARMARIO, FAMILIA_FORMATO, FAMILIA_VERSAO, type Familia, type Peca } from '@hestia/model';
+import { FAMILIA_ARMARIO, FAMILIA_FORMATO, FAMILIA_VERSAO, type Familia, type Peca, type Usinagem } from '@hestia/model';
 import { describe, expect, it } from 'vitest';
 import type { PecaResolvida } from './pecas.ts';
 import { resolverFamilia } from './resolver.ts';
@@ -176,5 +176,70 @@ describe('contorno poligonal (depende da ficha E2-contorno)', () => {
     const r = resolverFamilia(caixa({ contorno: { tipo: 'poligono', pontos: [['0', '0'], ['L', '0']] } }));
     expect(r.pecas).toEqual([]);
     expect(r.erros.some((e) => e.onde === 'peca:p.contorno')).toBe(true);
+  });
+});
+
+describe('chapa e usinagens (E5)', () => {
+  it('peças com material de parâmetro chapa levam o id da chapa; material livre não', () => {
+    const r = resolverFamilia(FAMILIA_ARMARIO);
+    expect(por(r.pecas, 'latE')[0]!.chapa).toBe('mdf18');
+    expect(por(r.pecas, 'porta')[0]!.chapa).toBeNull();
+    expect(por(r.pecas, 'porta')[0]!.material).toBe('mat_porta');
+    expect(resolverFamilia(FAMILIA_ARMARIO, { tipoId: 'A120' }).pecas.find((p) => p.id === 'latE')!.chapa).toBe('mdf25');
+    expect(r.pecas.every((p) => Array.isArray(p.usinagens))).toBe(true);
+  });
+  const com = (usinagens: Usinagem[]): Familia => ({ ...clone(FAMILIA_ARMARIO), pecas: [{ ...clone(FAMILIA_ARMARIO).pecas.find((p) => p.id === 'latE')!, usinagens }] });
+  it('furo, rasgo e recorte viram metros; passante vira -1; repetição por quantidade com i e n', () => {
+    const f = com([
+      { id: 'f1', tipo: 'furo', face: 'a', posicao: ['50', '100'], diametro: '5', profundidade: '10' },
+      { id: 'pinos', tipo: 'furo', face: 'b', posicao: ['40 + (i - 1) * 32', '37'], diametro: '5', profundidade: 'passante', quantidade: '4' },
+      { id: 'r1', tipo: 'rasgo', face: 'a', posicao: ['10', '20'], largura: '6', comprimento: '300', profundidade: '8' },
+      { id: 'c1', tipo: 'recorte', face: 'a', posicao: ['100', '100'], largura: '100', comprimento: '200', profundidade: 'passante' },
+    ]);
+    const r = resolverFamilia(f);
+    expect(r.erros).toEqual([]);
+    const u = r.pecas[0]!.usinagens;
+    expect(u).toHaveLength(7);
+    expect(u[0]).toEqual({ id: 'f1', tipo: 'furo', face: 'a', u: 0.05, v: 0.1, diametro: 0.005, largura: 0, comprimento: 0, profundidade: 0.01 });
+    expect(u.slice(1, 5).map((x) => x.u)).toEqual([0.04, 0.072, 0.104, 0.136]);
+    expect(u.slice(1, 5).every((x) => x.profundidade === -1 && x.face === 'b')).toBe(true);
+    expect(u[5]).toEqual({ id: 'r1', tipo: 'rasgo', face: 'a', u: 0.01, v: 0.02, diametro: 0, largura: 0.006, comprimento: 0.3, profundidade: 0.008 });
+    expect(u[6]).toMatchObject({ tipo: 'recorte', largura: 0.1, comprimento: 0.2, profundidade: -1 });
+  });
+  it('quando falso pula; quantidade 0 pula; erros descartam só a usinagem, com onde', () => {
+    const f = com([
+      { id: 'a', tipo: 'furo', face: 'a', posicao: ['50', '50'], diametro: '5', profundidade: '5', quando: 'L > 5000' },
+      { id: 'b', tipo: 'furo', face: 'a', posicao: ['50', '50'], diametro: '5', profundidade: '5', quantidade: '0' },
+      { id: 'c', tipo: 'furo', face: 'a', posicao: ['50', '50'], profundidade: '5' },
+      { id: 'd', tipo: 'furo', face: 'a', posicao: ['5000', '50'], diametro: '5', profundidade: '5' },
+      { id: 'e', tipo: 'furo', face: 'a', posicao: ['50', '50'], diametro: '5', profundidade: '500' },
+      { id: 'g', tipo: 'rasgo', face: 'a', posicao: ['10', '10'], largura: '0', comprimento: '10', profundidade: '5' },
+      { id: 'h', tipo: 'furo', face: 'a', posicao: ['1 +', '50'], diametro: '5', profundidade: '5' },
+      { id: 'ok', tipo: 'furo', face: 'a', posicao: ['50', '50'], diametro: '5', profundidade: '5' },
+    ]);
+    const r = resolverFamilia(f);
+    expect(r.pecas[0]!.usinagens.map((x) => x.id)).toEqual(['ok']);
+    const ondes = r.erros.map((e) => e.onde);
+    for (const o of ['peca:latE.usinagem:c.diametro', 'peca:latE.usinagem:d.posicao', 'peca:latE.usinagem:e.profundidade', 'peca:latE.usinagem:g.largura', 'peca:latE.usinagem:h.posicao[0]']) expect(ondes, o).toContain(o);
+  });
+});
+
+describe('furo em borda (E5)', () => {
+  const com = (usinagens: Usinagem[]): Familia => ({ ...clone(FAMILIA_ARMARIO), pecas: [{ ...clone(FAMILIA_ARMARIO).pecas.find((p) => p.id === 'base')!, usinagens }] });
+  it('borda aceita furo com posição ao longo da borda e distância da face a; recusa fora, rasgo e profundidade demais', () => {
+    const ok = resolverFamilia(com([{ id: 'b1', tipo: 'furo', face: 'o', posicao: ['100', '9'], diametro: '8', profundidade: '30' }]));
+    expect(ok.erros).toEqual([]);
+    expect(ok.pecas[0]!.usinagens[0]).toMatchObject({ face: 'o', u: 0.1, v: 0.009, diametro: 0.008, profundidade: 0.03 });
+    const ruins: Array<[Usinagem, string]> = [
+      [{ id: 'x1', tipo: 'furo', face: 'n', posicao: ['100', '2'], diametro: '8', profundidade: '10' }, 'posicao'],
+      [{ id: 'x2', tipo: 'furo', face: 'l', posicao: ['5000', '9'], diametro: '8', profundidade: '10' }, 'posicao'],
+      [{ id: 'x3', tipo: 'rasgo', face: 's', posicao: ['10', '9'], largura: '5', comprimento: '50', profundidade: '5' }, 'face'],
+      [{ id: 'x4', tipo: 'furo', face: 's', posicao: ['100', '9'], diametro: '8', profundidade: '900' }, 'profundidade'],
+    ];
+    for (const [u, campo] of ruins) {
+      const r = resolverFamilia(com([u]));
+      expect(r.pecas[0]!.usinagens, u.id).toEqual([]);
+      expect(r.erros.some((e) => e.onde.startsWith(`peca:base.usinagem:${u.id}.${campo}`)), u.id).toBe(true);
+    }
   });
 });

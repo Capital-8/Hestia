@@ -7,7 +7,7 @@ import { resolverFamilia } from './resolver.ts';
 
 const base = (extra: Partial<PecaResolvida>): PecaResolvida => ({
   id: 'p', nome: 'P', indice: 1, papel: 'painel', eixo: 'z', vazio: false, origem: [0, 0, 0], tamanho: [0.5, 0.4], espessura: 0.018,
-  extensao: [0.5, 0.4, 0.018], contorno: null, material: null, fita: null, veio: null, grupo: null, deAninhado: null, ...extra,
+  extensao: [0.5, 0.4, 0.018], contorno: null, material: null, fita: null, veio: null, grupo: null, deAninhado: null, chapa: null, usinagens: [], ...extra,
 });
 const caixa = (eixo: 'x' | 'y' | 'z', o: [number, number, number] = [0.1, 0.2, 0.3]): PecaResolvida => {
   const a = 0.5; const b = 0.4; const e = 0.018;

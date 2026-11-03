@@ -1,7 +1,7 @@
-import { FAMILIA_FORMATO, FAMILIA_VERSAO, type Aninhado, type Familia, type Parametro, type Peca } from '@hestia/model';
+import { FAMILIA_FORMATO, FAMILIA_VERSAO, type Aninhado, type Familia, type Parametro, type Peca, type Usinagem } from '@hestia/model';
 import { describe, expect, it } from 'vitest';
 import { resolverFamilia } from './resolver.ts';
-import type { PecaResolvida } from './pecas.ts';
+import type { PecaResolvida, UsinagemResolvida } from './pecas.ts';
 
 const comp = (id: string, padrao: number): Parametro => ({ id, nome: id, tipo: 'comprimento', escopo: 'instancia', padrao, min: 0, max: 10000 });
 const mk = (id: string, pecas: Peca[], extra: Partial<Familia> = {}, params: Parametro[] = []): Familia => ({
@@ -185,5 +185,75 @@ describe('erros', () => {
     const a = resolve(f, filha);
     expect(JSON.stringify([f, filha])).toBe(antes);
     expect(resolve(f, filha)).toEqual(a);
+  });
+});
+
+describe('usinagens giradas junto com a peça (E5)', () => {
+  const AX = { x: { U: 1, V: 2, T: 0 }, y: { U: 0, V: 2, T: 1 }, z: { U: 0, V: 1, T: 2 } } as const;
+  /** Ponto de entrada e direção da usinagem (furo) no mundo, na convenção de `pecas.ts` e `model/tipos.ts`. */
+  function entrada(p: PecaResolvida, u: UsinagemResolvida): { pt: number[]; dir: number[] } {
+    const pt = [...p.origem]; const dir = [0, 0, 0]; const { U, V, T } = AX[p.eixo]; const [a, b] = p.tamanho;
+    if (u.face === 'a' || u.face === 'b') { pt[U]! += u.u; pt[V]! += u.v; if (u.face === 'b') { pt[T]! += p.espessura; dir[T] = -1; } else dir[T] = 1; }
+    else if (u.face === 'o' || u.face === 'l') { pt[V]! += u.u; pt[T]! += u.v; if (u.face === 'l') { pt[U]! += a; dir[U] = -1; } else dir[U] = 1; }
+    else { pt[U]! += u.u; pt[T]! += u.v; if (u.face === 'n') { pt[V]! += b; dir[V] = -1; } else dir[V] = 1; }
+    return { pt, dir };
+  }
+  const cantos = (p: PecaResolvida, u: UsinagemResolvida): string[] => {
+    const { U, V, T } = AX[p.eixo];
+    return ([[u.u, u.v], [u.u + u.comprimento, u.v], [u.u + u.comprimento, u.v + u.largura], [u.u, u.v + u.largura]] as const).map(([x, y]) => {
+      const pt = [...p.origem]; pt[U]! += x; pt[V]! += y; if (u.face === 'b') pt[T]! += p.espessura;
+      return pt.map((n) => (Math.round(n * 1e6) / 1e6).toFixed(6)).join(',');
+    }).sort();
+  };
+  const giro = (graus: number) => { const t = (graus * Math.PI) / 180; const c = Math.round(Math.cos(t)); const s = Math.round(Math.sin(t)); return (v: number[]): number[] => [v[0]! * c - v[1]! * s, v[0]! * s + v[1]! * c, v[2]!]; };
+  const furos: Usinagem[] = [
+    { id: 'fa', tipo: 'furo', face: 'a', posicao: ['100', '150'], diametro: '8', profundidade: '10' },
+    { id: 'fb', tipo: 'furo', face: 'b', posicao: ['120', '60'], diametro: '8', profundidade: 'passante' },
+    { id: 'fo', tipo: 'furo', face: 'o', posicao: ['120', '9'], diametro: '8', profundidade: '30' },
+    { id: 'fl', tipo: 'furo', face: 'l', posicao: ['200', '9'], diametro: '8', profundidade: '30' },
+    { id: 'fn', tipo: 'furo', face: 'n', posicao: ['150', '9'], diametro: '8', profundidade: '30' },
+    { id: 'fs', tipo: 'furo', face: 's', posicao: ['250', '9'], diametro: '8', profundidade: '30' },
+  ];
+  const retas: Usinagem[] = [
+    { id: 'ra', tipo: 'rasgo', face: 'a', posicao: ['20', '30'], largura: '6', comprimento: '200', profundidade: '8' },
+    { id: 'cb', tipo: 'recorte', face: 'b', posicao: ['50', '70'], largura: '100', comprimento: '150', profundidade: 'passante' },
+  ];
+  for (const eixo of ['x', 'y', 'z'] as const) {
+    for (const rot of [0, 90, 180, 270]) {
+      it(`eixo ${eixo}, ${rot}°: entrada e direção dos furos e cantos dos recortes coincidem no mundo`, () => {
+        const peca: Peca = { id: 'p', nome: 'P', papel: 'painel', eixo, origem: ['30', '40', '50'], tamanho: ['400', '500'], espessura: '18', usinagens: [...furos, ...retas] };
+        const filha = mk('caixa', [peca]);
+        const sozinha = resolverFamilia(filha).pecas[0]!;
+        expect(sozinha.usinagens).toHaveLength(8);
+        const r = resolve(pai([aninhado({ rotacao: String(rot), valores: {} })]), filha);
+        expect(r.erros).toEqual([]);
+        const nova = r.pecas[0]!;
+        expect(nova.usinagens).toHaveLength(8);
+        const R = giro(rot);
+        for (const u0 of sozinha.usinagens) {
+          const u1 = nova.usinagens.find((x) => x.id === u0.id)!;
+          expect(u1, u0.id).toBeDefined();
+          expect(u1.tipo).toBe(u0.tipo);
+          expect(u1.profundidade).toBeCloseTo(u0.profundidade, 9);
+          if (u0.tipo === 'furo') {
+            const e0 = entrada(sozinha, u0); const e1 = entrada(nova, u1);
+            const esperadoPt = R(e0.pt).map((n, k) => n + [0.1, 0.05, 0][k]!);
+            e1.pt.forEach((n, k) => expect(n, `${u0.id} pt${k}`).toBeCloseTo(esperadoPt[k]!, 6));
+            e1.dir.forEach((n, k) => expect(n, `${u0.id} dir${k}`).toBeCloseTo(R(e0.dir)[k]!, 6));
+            expect(u1.diametro).toBeCloseTo(u0.diametro, 9);
+          } else {
+            const esperado = cantos(sozinha, u0).map((s) => { const v = s.split(',').map(Number); const w = R(v); return [w[0]! + 0.1, w[1]! + 0.05, w[2]!].map((n) => (Math.round(n * 1e6) / 1e6).toFixed(6)).join(','); }).sort();
+            expect(cantos(nova, u1), u0.id).toEqual(esperado);
+            expect(u1.largura * u1.comprimento).toBeCloseTo(u0.largura * u0.comprimento, 9);
+          }
+        }
+      });
+    }
+  }
+  it('furos de aninhado repetido e sem rotação mantêm a face e só transladam', () => {
+    const peca: Peca = { id: 'p', nome: 'P', papel: 'painel', eixo: 'z', origem: ['0', '0', '0'], tamanho: ['400', '500'], espessura: '18', usinagens: [furos[0]!] };
+    const r = resolve(pai([aninhado({ repetir: '2', origem: ['(i - 1) * 500', '0', '0'], valores: {} })]), mk('caixa', [peca]));
+    expect(r.pecas.map((p) => p.usinagens[0]!.face)).toEqual(['a', 'a']);
+    expect(r.pecas.map((p) => p.usinagens[0]!.u)).toEqual([0.1, 0.1]);
   });
 });

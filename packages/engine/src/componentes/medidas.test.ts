@@ -7,7 +7,7 @@ function peca(extra: Partial<PecaResolvida> & Pick<PecaResolvida, 'origem' | 'ex
   const eixo = extra.eixo ?? 'z';
   const tamanho: [number, number] = eixo === 'x' ? [sy, sz] : eixo === 'y' ? [sx, sz] : [sx, sy];
   const espessura = eixo === 'x' ? sx : eixo === 'y' ? sy : sz;
-  return { id: 'p', nome: 'p', indice: 1, papel: 'painel', eixo, vazio: false, tamanho, espessura, contorno: null, material: null, fita: null, veio: null, grupo: null, deAninhado: null, ...extra };
+  return { id: 'p', nome: 'p', indice: 1, papel: 'painel', eixo, vazio: false, tamanho, espessura, contorno: null, material: null, fita: null, veio: null, grupo: null, deAninhado: null, chapa: null, usinagens: [], ...extra };
 }
 
 describe('caixaEnvolvente', () => {

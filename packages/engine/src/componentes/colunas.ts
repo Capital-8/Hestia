@@ -35,7 +35,22 @@ export interface ColunasPecas {
   contornoN: Uint32Array; // n
   /** Todos os contornos concatenados, pares (u, v) em m. */
   contornoDados: Float64Array;
+  /** Usinagens (FICHA E5-colunas): início, em USINAGENS (não números), das usinagens de cada peça em `usinagemTipo`/`usinagemFace`/`usinagemDados`. */
+  usinagemIni: Uint32Array; // n
+  /** Quantidade de usinagens da peça. */
+  usinagemN: Uint32Array; // n
+  /** Código do tipo, 1 por usinagem: 0 furo, 1 rasgo, 2 recorte. */
+  usinagemTipo: Uint8Array; // m
+  /** Código da face, 1 por usinagem: 0 a, 1 b, 2 n, 3 s, 4 l, 5 o (ver `FACES`). */
+  usinagemFace: Uint8Array; // m
+  /** 6 números por usinagem, nesta ordem: u, v, diametro, largura, comprimento, profundidade (m; profundidade -1 = passante). */
+  usinagemDados: Float64Array; // 6m
 }
+
+/** Tabela fixa de faces de usinagem: o código u8 é a posição aqui. */
+export const FACES = ['a', 'b', 'n', 's', 'l', 'o'] as const;
+/** Tabela fixa de tipos de usinagem: o código u8 é a posição aqui. */
+export const TIPOS_USINAGEM = ['furo', 'rasgo', 'recorte'] as const;
 
 /** Texto e metadados de cada peça, na mesma ordem das colunas. Fica no TypeScript; o Rust não vê. */
 export interface MetaPeca {
@@ -45,6 +60,9 @@ export interface MetaPeca {
   veio: PecaResolvida['veio'];
   grupo: string | null;
   deAninhado: string | null;
+  chapa: string | null;
+  /** Ids das usinagens da peça, na ordem das colunas. */
+  usinagens: string[];
 }
 
 /** Converte as peças em colunas. Peça com papel desconhecido: lança `Error('papel desconhecido: …')`. Entrada vazia: `n = 0`. */
@@ -106,6 +124,7 @@ export function paraColunas(pecas: readonly PecaResolvida[]): ColunasPecas {
 
   return {
     n, ids, idNum, indice, papel, eixo, vazio, origem, tamanho, espessura, extensao, contornoIni, contornoN, contornoDados,
+    usinagemIni: new Uint32Array(n), usinagemN: new Uint32Array(n), usinagemTipo: new Uint8Array(0), usinagemFace: new Uint8Array(0), usinagemDados: new Float64Array(0),
   };
 }
 
@@ -117,6 +136,8 @@ export function metaDasPecas(pecas: readonly PecaResolvida[]): MetaPeca[] {
     veio: p.veio,
     grupo: p.grupo,
     deAninhado: p.deAninhado,
+    chapa: p.chapa,
+    usinagens: p.usinagens.map((u) => u.id),
   }));
 }
 
@@ -144,6 +165,8 @@ export function deColunas(c: ColunasPecas, meta: readonly MetaPeca[]): PecaResol
       veio: m.veio,
       grupo: m.grupo,
       deAninhado: m.deAninhado,
+      chapa: m.chapa,
+      usinagens: [],
     });
   }
   return pecas;

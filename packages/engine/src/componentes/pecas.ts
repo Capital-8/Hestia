@@ -7,6 +7,29 @@ import type { Eixo, Familia, PapelPeca, Valor } from '@hestia/model';
  * Eixos locais: X largura, Y profundidade, Z altura. Origem = canto mínimo da caixa de cada peça.
  */
 
+/** Usinagem já resolvida (furo, rasgo ou recorte), em metros no plano da chapa (mesma convenção do `contorno`). */
+export interface UsinagemResolvida {
+  /** Id da usinagem dentro da peça (`Usinagem.id`). */
+  id: string;
+  tipo: 'furo' | 'rasgo' | 'recorte';
+  /**
+   * `a` = face da origem (w = 0); `b` = face oposta (w = espessura); `n`, `s`, `l`, `o` = bordas (norte = maior v, sul = menor v,
+   * leste = maior u, oeste = menor u; só furo). Em borda, `u` é a posição ao longo da borda e `v` a distância da face `a` na espessura.
+   */
+  face: 'a' | 'b' | 'n' | 's' | 'l' | 'o';
+  /** Centro (furo) ou canto mínimo (rasgo e recorte) no plano da chapa (m). */
+  u: number;
+  v: number;
+  /** m; 0 quando não se aplica (rasgo e recorte). */
+  diametro: number;
+  /** m; 0 no furo. */
+  largura: number;
+  /** m; 0 no furo. */
+  comprimento: number;
+  /** m; -1 = passante (fura a espessura inteira). */
+  profundidade: number;
+}
+
 export interface PecaResolvida {
   /** Id da peça na família (várias peças repetidas compartilham o id e diferem em `indice`). */
   id: string;
@@ -31,6 +54,9 @@ export interface PecaResolvida {
   fita: { n?: string; s?: string; l?: string; o?: string } | null;
   veio: 'a' | 'b' | 'livre' | null;
   grupo: string | null;
+  /** Id da chapa (valor do parâmetro `chapa` a que o `material` da peça se refere); `null` em peça de material livre. */
+  chapa: string | null;
+  usinagens: UsinagemResolvida[];
   /** Id do `Aninhado` de que a peça veio (peças da própria família: `null`). */
   deAninhado: string | null;
 }

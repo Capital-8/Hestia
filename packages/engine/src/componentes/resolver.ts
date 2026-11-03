@@ -1,7 +1,7 @@
 import { LIMITES, ordemDeAvaliacao, tentar, type Env, type Familia, type Parametro, type Peca, type Valor } from '@hestia/model';
 import { resolverAninhados } from './aninhados.ts';
 import { orientarAntiHorario, validarContorno } from './contorno.ts';
-import type { EntradaResolucao, ErroResolucao, PecaResolvida, ResolucaoFamilia } from './pecas.ts';
+import type { EntradaResolucao, ErroResolucao, PecaResolvida, ResolucaoFamilia, UsinagemResolvida } from './pecas.ts';
 
 /*
  * Resolução da família (ADR 0049 §5): família + tipo + valores → peças resolvidas, só números, em metros.
@@ -77,7 +77,68 @@ function materialDe(p: Peca, env: Env): string | null {
   return typeof v === 'string' ? v : p.material;
 }
 
-function resolverPeca(p: Peca, env: Record<string, Valor>, erros: Erros): PecaResolvida[] {
+/** Usinagens da peça (instância `e`, com `i`/`n` da peça); erro numa usinagem descarta só ela. Dimensões em m, plano `a × b` (m). */
+function resolverUsinagens(p: Peca, e: Env, espessura: number, a: number, b: number, erros: Erros): UsinagemResolvida[] {
+  const saida: UsinagemResolvida[] = [];
+  for (const u of p.usinagens ?? []) {
+    const onde = (campo: string): string => `peca:${p.id}.usinagem:${u.id}.${campo}`;
+    let n = 1;
+    if (u.quantidade !== undefined) {
+      const r = numero(u.quantidade, e, onde('quantidade'), erros);
+      if (r === null) continue;
+      n = Math.max(0, Math.min(LIMITES.repeticao, Math.floor(r)));
+    }
+    for (let k = 1; k <= n; k++) {
+      const eu: Env = u.quantidade !== undefined ? { ...e, i: k, n } : e;
+      if (u.quando !== undefined) {
+        const q = tentar(u.quando, eu);
+        if (!q.ok) { erros.push({ onde: onde('quando'), mensagem: q.erro.message }); continue; }
+        if (!(typeof q.valor === 'string' ? q.valor !== '' : Boolean(q.valor))) continue;
+      }
+      const pu = numero(u.posicao[0], eu, onde('posicao[0]'), erros);
+      const pv = numero(u.posicao[1], eu, onde('posicao[1]'), erros);
+      const opc = (src: string | undefined, campo: string): number | null | undefined => (src === undefined ? undefined : numero(src, eu, onde(campo), erros));
+      const d = opc(u.diametro, 'diametro');
+      const w = opc(u.largura, 'largura');
+      const c = opc(u.comprimento, 'comprimento');
+      let prof = -1;
+      const ehBorda = u.face === 'n' || u.face === 's' || u.face === 'l' || u.face === 'o';
+      let falhou = pu === null || pv === null || d === null || w === null || c === null;
+      if (u.profundidade !== 'passante') {
+        const r = numero(u.profundidade, eu, onde('profundidade'), erros);
+        if (r === null) falhou = true;
+        else if (!(r > 0) || (!ehBorda && metros(r) > espessura + 1e-9)) { erros.push({ onde: onde('profundidade'), mensagem: 'profundidade precisa ser maior que 0 e não passar da espessura' }); falhou = true; }
+        else prof = metros(r);
+      }
+      if (falhou) continue;
+      const U = metros(pu as number);
+      const V = metros(pv as number);
+      const dm = metros(d ?? 0);
+      const lg = metros(w ?? 0);
+      const cp = metros(c ?? 0);
+      const dentro = (x0: number, y0: number, x1: number, y1: number): boolean => x0 >= -1e-9 && y0 >= -1e-9 && x1 <= a + 1e-9 && y1 <= b + 1e-9;
+      if (ehBorda) {
+        const noV = u.face === 'n' || u.face === 's';
+        const ao = noV ? a : b;
+        const perpendicular = noV ? b : a;
+        if (u.tipo !== 'furo') { erros.push({ onde: onde('face'), mensagem: 'só furo cabe na borda' }); continue; }
+        if (!(dm > 0)) { erros.push({ onde: onde('diametro'), mensagem: 'furo precisa de diâmetro maior que 0' }); continue; }
+        if (U - dm / 2 < -1e-9 || U + dm / 2 > ao + 1e-9 || V - dm / 2 < -1e-9 || V + dm / 2 > espessura + 1e-9) { erros.push({ onde: onde('posicao'), mensagem: 'furo fora da borda' }); continue; }
+        if (prof > perpendicular + 1e-9) { erros.push({ onde: onde('profundidade'), mensagem: 'profundidade maior que a chapa' }); continue; }
+      } else if (u.tipo === 'furo') {
+        if (!(dm > 0)) { erros.push({ onde: onde('diametro'), mensagem: 'furo precisa de diâmetro maior que 0' }); continue; }
+        if (!dentro(U - dm / 2, V - dm / 2, U + dm / 2, V + dm / 2)) { erros.push({ onde: onde('posicao'), mensagem: 'furo fora da chapa' }); continue; }
+      } else {
+        if (!(lg > 0 && cp > 0)) { erros.push({ onde: onde('largura'), mensagem: `${u.tipo} precisa de largura e comprimento maiores que 0` }); continue; }
+        if (!dentro(U, V, U + cp, V + lg)) { erros.push({ onde: onde('posicao'), mensagem: `${u.tipo} fora da chapa` }); continue; }
+      }
+      saida.push({ id: u.id, tipo: u.tipo, face: u.face, u: U, v: V, diametro: dm, largura: lg, comprimento: cp, profundidade: prof });
+    }
+  }
+  return saida;
+}
+
+function resolverPeca(p: Peca, env: Record<string, Valor>, chapas: ReadonlySet<string>, erros: Erros): PecaResolvida[] {
   let n = 1;
   if (p.repetir !== undefined) {
     const r = numero(p.repetir, env, `peca:${p.id}.repetir`, erros);
@@ -127,6 +188,8 @@ function resolverPeca(p: Peca, env: Record<string, Valor>, erros: Erros): PecaRe
       extensao,
       contorno,
       material: materialDe(p, env),
+      chapa: p.material !== undefined && chapas.has(p.material) && typeof env[p.material] === 'string' ? String(env[p.material]) : null,
+      usinagens: resolverUsinagens(p, e, metros(esp), metros(a), metros(b), erros),
       fita: p.fita ? { ...p.fita } : null,
       veio: p.veio ?? null,
       grupo: p.grupo ?? null,
@@ -143,8 +206,9 @@ export function resolverFamilia(f: Familia, entrada: EntradaResolucao = {}): Res
   try {
     env = prepararEnv(f, entrada, erros);
     if (!avaliarOrdem(f, env, erros)) return { pecas: [], erros, env };
+    const chapas = new Set(f.parametros.filter((q) => q.tipo === 'chapa').map((q) => q.id));
     for (const p of f.pecas) {
-      try { pecas.push(...resolverPeca(p, env, erros)); } catch (e) { erros.push({ onde: `peca:${String((p as { id?: unknown }).id)}`, mensagem: `peça malformada: ${(e as Error).message}` }); }
+      try { pecas.push(...resolverPeca(p, env, chapas, erros)); } catch (e) { erros.push({ onde: `peca:${String((p as { id?: unknown }).id)}`, mensagem: `peça malformada: ${(e as Error).message}` }); }
     }
     if (f.aninhados.length > 0) {
       const r = resolverAninhados({ familia: f, env, entrada, resolver: resolverFamilia });

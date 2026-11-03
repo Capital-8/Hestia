@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { deColunas, EIXOS, metaDasPecas, PAPEIS, paraColunas, validarColunas, type ColunasPecas } from './colunas.ts';
+import { deColunas, EIXOS, FACES, metaDasPecas, PAPEIS, paraColunas, TIPOS_USINAGEM, validarColunas, type ColunasPecas } from './colunas.ts';
 import type { PecaResolvida } from './pecas.ts';
 
 const base = (extra: Partial<PecaResolvida>): PecaResolvida => ({
   id: 'p', nome: 'P', indice: 1, papel: 'painel', eixo: 'z', vazio: false, origem: [0, 0, 0], tamanho: [0.5, 0.4], espessura: 0.018,
-  extensao: [0.5, 0.4, 0.018], contorno: null, material: null, fita: null, veio: null, grupo: null, deAninhado: null, ...extra,
+  extensao: [0.5, 0.4, 0.018], contorno: null, material: null, fita: null, veio: null, grupo: null, deAninhado: null, chapa: null, usinagens: [], ...extra,
 });
 const amostra: PecaResolvida[] = [
   base({ id: 'latE', nome: 'Lateral esquerda', papel: 'lateral', eixo: 'x', origem: [0, 0, 0.1], tamanho: [0.56, 0.62], espessura: 0.018, extensao: [0.018, 0.56, 0.62], material: 'mdf18', fita: { n: 'fita_pvc' }, veio: 'b' }),
@@ -73,7 +73,7 @@ describe('ida e volta', () => {
   it('metaDasPecas guarda só o texto, na ordem das peças', () => {
     const m = metaDasPecas(amostra);
     expect(m).toHaveLength(5);
-    expect(m[0]).toEqual({ nome: 'Lateral esquerda', material: 'mdf18', fita: { n: 'fita_pvc' }, veio: 'b', grupo: null, deAninhado: null });
+    expect(m[0]).toEqual({ nome: 'Lateral esquerda', material: 'mdf18', fita: { n: 'fita_pvc' }, veio: 'b', grupo: null, deAninhado: null, chapa: null, usinagens: [] });
     expect(m[3]!.deAninhado).toBe('n1');
   });
   it('é cópia: mudar as colunas não muda as peças originais', () => {
@@ -114,5 +114,57 @@ describe('validarColunas', () => {
     expect(validarColunas(f)).toMatch(/contorno/);
     const g = ok(); g.espessura[0] = Number.NaN;
     expect(validarColunas(g)).toMatch(/finito|inválido/);
+  });
+});
+
+describe('usinagens em colunas (E5)', () => {
+  const us = (id: string, tipo: 'furo' | 'rasgo' | 'recorte', face: 'a' | 'b' | 'n' | 's' | 'l' | 'o', u: number, v: number, d: number, l: number, c: number, p: number) => ({ id, tipo, face, u, v, diametro: d, largura: l, comprimento: c, profundidade: p });
+  const pecas = [
+    base({ id: 'a', usinagens: [us('f1', 'furo', 'a', 0.05, 0.1, 0.005, 0, 0, 0.01), us('r1', 'rasgo', 'b', 0.01, 0.02, 0, 0.006, 0.3, -1)] }),
+    base({ id: 'b' }),
+    base({ id: 'c', usinagens: [us('c1', 'recorte', 'a', 0.1, 0.1, 0, 0.1, 0.2, -1), us('b1', 'furo', 'o', 0.1, 0.009, 0.008, 0, 0, 0.03)] }),
+  ];
+  it('tabelas fixas de face e tipo', () => {
+    expect([...FACES]).toEqual(['a', 'b', 'n', 's', 'l', 'o']);
+    expect([...TIPOS_USINAGEM]).toEqual(['furo', 'rasgo', 'recorte']);
+  });
+  it('layout: início e quantidade por peça, códigos e 6 números por usinagem', () => {
+    const c = paraColunas(pecas);
+    expect([...c.usinagemN]).toEqual([2, 0, 2]);
+    expect([...c.usinagemIni]).toEqual([0, 0, 2]);
+    expect([...c.usinagemTipo]).toEqual([0, 1, 2, 0]);
+    expect([...c.usinagemFace]).toEqual([0, 1, 0, 5]);
+    expect(c.usinagemDados).toHaveLength(24);
+    expect([...c.usinagemDados.slice(0, 6)]).toEqual([0.05, 0.1, 0.005, 0, 0, 0.01]);
+    expect([...c.usinagemDados.slice(6, 12)]).toEqual([0.01, 0.02, 0, 0.006, 0.3, -1]);
+    expect([...c.usinagemDados.slice(18, 24)]).toEqual([0.1, 0.009, 0.008, 0, 0, 0.03]);
+    expect(c.usinagemDados).toBeInstanceOf(Float64Array);
+    expect(c.usinagemTipo).toBeInstanceOf(Uint8Array);
+    expect(c.usinagemIni).toBeInstanceOf(Uint32Array);
+    expect(validarColunas(c)).toBeNull();
+  });
+  it('ida e volta com ids das usinagens no meta', () => {
+    expect(metaDasPecas(pecas).map((m) => m.usinagens)).toEqual([['f1', 'r1'], [], ['c1', 'b1']]);
+    expect(deColunas(paraColunas(pecas), metaDasPecas(pecas))).toEqual(pecas);
+  });
+  it('sem usinagens: arrays vazios e nenhuma peça com usinagem', () => {
+    const c = paraColunas([base({}), base({ id: 'z' })]);
+    expect([...c.usinagemN]).toEqual([0, 0]);
+    expect(c.usinagemDados).toHaveLength(0);
+  });
+  it('validarColunas confere os blocos de usinagem', () => {
+    const ok = (): ColunasPecas => paraColunas(pecas);
+    const a = ok(); a.usinagemN[0] = 99;
+    expect(validarColunas(a)).toMatch(/usinagem/);
+    const b = ok(); b.usinagemTipo[0] = 7;
+    expect(validarColunas(b)).toMatch(/usinagem/);
+    const c = ok(); c.usinagemFace[1] = 9;
+    expect(validarColunas(c)).toMatch(/usinagem/);
+    const d = ok(); d.usinagemDados = new Float64Array(23);
+    expect(validarColunas(d)).toMatch(/usinagem/);
+    const e = ok(); e.usinagemDados[3] = Number.NaN;
+    expect(validarColunas(e)).toMatch(/finito|inválido/);
+    const f = ok(); f.usinagemIni = new Uint32Array(2);
+    expect(validarColunas(f)).toMatch(/usinagem/);
   });
 });

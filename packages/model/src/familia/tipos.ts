@@ -83,7 +83,12 @@ export type NivelDetalhe = 'grosso' | 'medio' | 'fino';
 /** Contorno no plano da chapa, em (u, v) com origem no canto mínimo. Ausente = retângulo `tamanho[0] × tamanho[1]`. */
 export type Contorno = { tipo: 'retangulo' } | { tipo: 'poligono'; pontos: Array<[Expr, Expr]> };
 
-export type FaceUsinagem = 'a' | 'b';
+/**
+ * Onde a usinagem entra: `a` (face da origem) ou `b` (face oposta) são as faces da chapa; `n`, `s`, `l`, `o` são as BORDAS
+ * (norte = lado de maior v, sul = menor v, leste = maior u, oeste = menor u). Em borda só cabe `furo`: `posicao[0]` é a posição
+ * AO LONGO da borda e `posicao[1]` é a distância da face `a` ao longo da espessura (o furo entra perpendicular à borda).
+ */
+export type FaceUsinagem = 'a' | 'b' | 'n' | 's' | 'l' | 'o';
 export interface Usinagem {
   id: string;
   tipo: 'furo' | 'rasgo' | 'recorte';
