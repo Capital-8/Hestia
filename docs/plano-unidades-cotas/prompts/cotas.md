@@ -1,4 +1,0 @@
-SEU PAPEL: COTAS (núcleo do sistema de cotas e validação final). Arquivo de progresso: docs/plano-unidades-cotas/PROGRESSO-COTAS.md. Pasta de trabalho: ../hestia-cotas (branch plano/cotas).
-Passos, nesta ordem: D0, D1, D2, D3, D4 (código novo em arquivos novos), depois (marco M1 liberado pela UNID) D5, D6, D7, D8 (marco M5), religar o D4 em openingTool.ts (marco M4 liberado pela ESQ), D9 (marco M3 liberado pela UNID), D11, e por fim a Fase F inteira (06-validacao-final.md) quando UNID e ESQ tiverem terminado tudo.
-Arquivo principal: 04-sistema-de-cotas.md (leia inteiro antes de começar). Este é o papel mais complexo: pense antes de codar, escreva testes antes dos componentes e revise seu próprio diff adversarialmente a cada passo.
-Prioridade: entregue o marco M5 o mais cedo possível, porque a ESQ espera por ele para o D10.

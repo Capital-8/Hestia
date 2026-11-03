@@ -1,7 +1,0 @@
-# Tarefa E: conferência de decisões pendentes (leitura do código + atualização de documentos)
-docs/decisoes/0033-modo-criar-editar-perimetro.md §7 diz que o modo de perímetro NÃO grava o vínculo às paredes (origem walls-finish, Desvincular/Revincular) e que o forro "Por ambiente" (decisão 0021) não é alcançado pela faixa. Já docs/pendencias-perimetro.md §2 diz que "contorno vinculado às paredes e forro Por ambiente voltaram". Os dois documentos se contradizem.
-Faça:
-1. Investigue o código (apps/web/src/editor/perimeter*.ts, apps/web/src/ui/perimeter/*, ui/ribbon/*, packages/tools/src/perimeterCommit*.ts, sketchByPerimeter.ts, sketchPickRoom.ts, FloorTool/CeilingTool) e responda com evidência (arquivo:linha): (a) o modo cria piso/forro vinculado às paredes? (b) o forro Por ambiente é alcançável pela faixa? (c) Desvincular/Revincular estão disponíveis? Confira também os testes e os scripts tests/e2e/contorno.mjs e forro-ambiente.mjs.
-2. Corrija docs/decisoes/0033-modo-criar-editar-perimetro.md §7 para refletir a realidade, e ajuste a lista de pendências em docs/pendencias-perimetro.md (tire o que já está resolvido, mantenha o resto).
-3. Liste os modos antigos de criação (poly, rect, walls, room, paredes, perimetro) ainda presentes em FloorTool, SlabTool, CeilingTool e RoofTool, e quais testes dependem de cada um. Registre isso numa nova seção curta em docs/pendencias-perimetro.md ("Plano de remoção dos modos antigos"), sem remover nada.
-4. NÃO altere código-fonte (apenas os dois .md). Rode typecheck/lint/vitest só para confirmar que continua verde.

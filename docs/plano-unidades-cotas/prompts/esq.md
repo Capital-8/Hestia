@@ -1,4 +1,0 @@
-SEU PAPEL: ESQ (esquadrias e provedores de cota). Arquivo de progresso: docs/plano-unidades-cotas/PROGRESSO-ESQ.md. Pasta de trabalho: ../hestia-esq (branch plano/esq).
-Passos, nesta ordem: S1, S2, S3 (marco M4), S4, S5; depois C4 e C6, mas SÓ quando PROGRESSO-UNID.md (em origin/claude/fervent-newton-rfgz3y) mostrar o marco M2 liberado; depois D10.1 a D10.5, mas SÓ quando PROGRESSO-COTAS.md mostrar o marco M5 liberado.
-Arquivos das fases: 05-correcoes-e-batente.md; 03-migracao-dos-usos.md (C4, C6; respeite os arquivos reservados); 04-sistema-de-cotas.md (D10).
-Prioridade: entregue S2 e S3 (marco M4) o mais cedo possível, porque o agente COTAS espera por eles. Para S4 e S5 use o Playwright já instalado (require('playwright'), chromium.launch() sem opções) para reproduzir os defeitos no navegador.
