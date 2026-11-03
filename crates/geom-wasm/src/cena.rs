@@ -13,6 +13,7 @@ use crate::esquema::{self, Tipo, ENTRADA, ID_AUSENTE, LIMITE, LIMITE_LINHAS_POR_
 use crate::indice::{Caixa, Indice};
 use crate::secoes_a1::SecoesA1;
 use crate::secoes_a3::SecoesA3;
+use crate::secoes_b::SecoesB;
 
 /// Módulo máximo aceito para uma coordenada ou espessura (metros). Evita `inf` em somas e
 /// subtrações internas; 1e12 m é muito maior que qualquer projeto real.
@@ -311,6 +312,8 @@ pub struct Cena {
     pub(crate) a1: SecoesA1,
     /// Seções da A3a (`tipos_abertura`, `aberturas`).
     pub(crate) a3: SecoesA3,
+    /// Seções da B1 (`pisos`, `lajes`, tipos, camadas, contornos e furos).
+    pub(crate) b: SecoesB,
     /// Cache por nível (`NIVEL_TODOS` inclusive). Invalidado quando a seção muda.
     indices: BTreeMap<u32, IndiceNivel>,
 }
@@ -344,6 +347,7 @@ impl Cena {
             }
             s if SecoesA1::e_minha(s) => self.a1.definir(s, n_linhas, bytes),
             s if SecoesA3::e_minha(s) => self.a3.definir(s, n_linhas, bytes),
+            s if SecoesB::e_minha(s) => self.b.definir(s, n_linhas, bytes),
             _ => Err(ENTRADA),
         }
     }
@@ -364,6 +368,7 @@ impl Cena {
             }
             s if SecoesA1::e_minha(s) => self.a1.upsert(s, n_linhas, bytes),
             s if SecoesA3::e_minha(s) => self.a3.upsert(s, n_linhas, bytes),
+            s if SecoesB::e_minha(s) => self.b.upsert(s, n_linhas, bytes),
             _ => Err(ENTRADA),
         }
     }
@@ -383,6 +388,10 @@ impl Cena {
             }
             s if SecoesA3::e_minha(s) => {
                 self.a3.remover(s, ids);
+                Ok(())
+            }
+            s if SecoesB::e_minha(s) => {
+                self.b.remover(s, ids);
                 Ok(())
             }
             _ => Err(ENTRADA),

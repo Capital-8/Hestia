@@ -53,6 +53,7 @@ pub mod a3;
 pub mod a3b;
 pub mod a3c;
 pub mod a3d;
+pub mod b1;
 pub mod abi2;
 pub mod camadas;
 pub mod cena;
@@ -69,6 +70,7 @@ pub mod memoria;
 pub mod quadro;
 pub mod secoes_a1;
 pub mod secoes_a3;
+pub mod secoes_b;
 #[cfg(test)]
 mod teste_util;
 
