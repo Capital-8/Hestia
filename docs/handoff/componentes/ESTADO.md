@@ -1,31 +1,20 @@
-# Estado da equipe do editor de famílias
+# Estado — Componentes e editor de famílias (atualizado 2026-11-02)
 
-Atualizado em 2026-11-02 pelo orquestrador. Plano: `docs/decisoes/0049-componentes-e-editor-de-familias.md` (rascunho) e `PLANO-DELEGACAO.md`.
-Branch de integração local: `feat/familias-interface` (sem push). Decisões do dono: ordem E1→E7, ligação ao projeto só na E8; parser e contrato de peças com o orquestrador; itens "ampliar ADR" (módulo aninhado, gaveta composta, colocar em linha, canto em L, conjunto) entram no escopo.
+Worktree: `wt/componentes-adr`, branch `feat/familias-interface`. NADA foi enviado por push.
 
-## Etapas
-| Etapa | Estado |
-|---|---|
-| E1 Fundação | **CONCLUÍDA** (2026-11-02): contrato e avaliador (orquestrador) + grafo, histórico, validação e arquivo (flash), todas aprovadas no portão |
-| E2 Peças e módulos | a fazer |
-| E3 3D real | a fazer |
-| E4 Criar na vista | a fazer |
-| E5 Marcenaria | a fazer |
-| E6 Saídas | a fazer |
-| E7 Biblioteca | a fazer |
-| E8 Ligação ao projeto | a fazer |
-| E9 Rust | condicionada à fatia C |
+## Pronto e integrado (tsc, units, boundaries verdes; testes de model e engine/componentes verdes)
+- E1–E7: modelo de família, fórmulas, motor, biblioteca de 30 famílias, editor (UI), 3D, lista de peças/corte/custo/DXF,
+  usinagens (E5-ui), catálogo (E6-ui), galeria Novo/abrir/salvar/Meus modelos (E7-ui).
+- E8-motor: `engine/src/componentes/instancia.ts` (malha, pegada, caixa da instância).
+- E8 modelo do projeto: elemento `component`, SCHEMA 24, comandos.
 
-## Fichas
-| Ficha | Branch | Estado | Observação |
-|---|---|---|---|
-| E1-grafo | feat/fam-E1-grafo | aprovada e integrada | 11 testes |
-| E1-historico | feat/fam-E1-historico | aprovada e integrada | 12 testes |
-| E1-validar | feat/fam-E1-validar | aprovada e integrada | 14 testes; 8 arquivos de apoio, nenhum passa de 180 linhas |
-| E1-arquivo | feat/fam-E1-arquivo | aprovada e integrada | 10 testes |
+## Falta (ordem)
+1. E8-render: ficha `fichas/E8-render.md` (contrato em `render/src/model3d/componentSolids.ts` + teste). Lançar:
+   `bash docs/handoff/componentes/rodar-fichas.sh feat/familias-interface E8-render`
+2. E8-tools (selecionar/pick/clipboard/ComponentTool), E8-web (botão Componente, propriedades, "Carregar no projeto"), E8-io (DXF planta, IFC IfcFurniture). Fichas ainda a escrever.
+3. E9 Rust (depende da fatia C), verificação final (suíte completa, lint, build), conferência visual no navegador, relatório.
 
-## Ciclo de cada ficha
-`run-ficha.sh <id> <base>` → `gate.mjs` (eu rodo) → revisão do diff → aceita, devolve (1 volta) ou assume → atualiza esta tabela.
-
-## Próximo
-E2 (peças e módulos): contrato das peças resolvidas e resolução (orquestrador, em `packages/engine/src/componentes/`), depois fichas de contorno poligonal, vazios, planos de referência, aninhados e repetição.
+## Retomar
+`cd wt/componentes-adr`; dev: `cd apps/web && npx vite --port 5199 --host 127.0.0.1`.
+Método: flash executa ficha, eu rodo `gate.mjs` e reviso o diff antes de `git merge`.
+Avisos de eslint (OpeningFlipGrips, sectionEditTools) já existiam; não são desta feature.
