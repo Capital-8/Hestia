@@ -2,7 +2,7 @@
  * Adaptador da sub-etapa A3a do kernel Rust (decisão 0047 §7): vãos. NÃO calcula geometria: (1) monta as seções
  * `tipos_abertura` e `aberturas` da cena v4 a partir de um `Project` e (2) EXTRAI do motor TypeScript existente
  * (`openingGeometry` de `resolve.ts` e `openingRect` de `openingCut.ts`) o que o Rust produz em `aberturas_geom`, na
- * mesma codificação plana (ver `crates/geom-wasm/schema/cena-v7.json`), para o harness e os testes compararem.
+ * mesma codificação plana (ver `crates/geom-wasm/schema/cena-v8.json`), para o harness e os testes compararem.
  *
  * O que o JS ainda decide e envia pronto: o tipo normalizado para o vão (`openingType` = `spanTypeOf`: nominalRef leaf
  * e composição) e se a instância tem override de peitoril e de altura. A largura, a altura efetiva, o vão bruto, o

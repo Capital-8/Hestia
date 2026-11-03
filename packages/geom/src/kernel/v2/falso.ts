@@ -26,7 +26,7 @@ const nomeDaSecao = (id: number): NomeSecao | undefined => (Object.keys(SECOES) 
 /** Colunas de coordenada/espessura da seção `paredes` (validadas contra `COORD_MAX`). */
 const COORDENADAS = new Set(['ax', 'ay', 'bx', 'by', 'espessura', 'ordem', 'sag', 'z0', 'topo', 'prioridade']);
 /** Maior valor aceito em colunas `u8` de enum/flag (como `secoes_a1.rs`); as demais `u8` valem 0 ou 1. */
-const MAXIMO_U8: Record<string, number> = { linha_loc: 5, funcao: 5, wrap_ends: 3, wrap_inserts: 3, folhas: 4, plano: 15, fechamento: 4, estilo_batente: 3, modo_prof: 2, lista: 2 };
+const MAXIMO_U8: Record<string, number> = { linha_loc: 5, funcao: 5, wrap_ends: 3, wrap_inserts: 3, folhas: 4, plano: 15, fechamento: 4, estilo_batente: 3, modo_prof: 2, lista: 2, modo: 3, problema: 2, termino: 5, limite_externo: 2, tipo_el: 1, papel: 3 };
 /** Nível válido de argumento: inteiro em [0, 2^32) (`arg_nivel` em `consultas.rs`). */
 const nivelValido = (v: number): boolean => Number.isInteger(v) && v >= 0 && v <= 0xffffffff;
 
@@ -164,7 +164,7 @@ export function criarInstanciaFalsa(opcoes: OpcoesFalso = {}): InstanciaFalsa {
     if (!nivelValido(args[0]!)) return falhar(CODIGOS.ENTRADA, 'nível fora de [0, 2^32) ou fracionário');
     if ((nome === 'pares_proximos' || nome === 'quadros_e_juncoes') && args[1]! < 0) return falhar(CODIGOS.ENTRADA, 'tolerância negativa');
     // O falso não implementa geometria: quadros, junções, itens pintados e geometria de vãos só existem no Rust (a referência é o motor TypeScript).
-    if (nome === 'quadros_e_juncoes' || nome === 'itens_pintados' || nome === 'aberturas_geom' || nome === 'retornos_geom' || nome === 'cluster_resolvido' || nome === 'resolver_nivel') return falhar(CODIGOS.NAO_IMPLEMENTADO, `${nome} não é implementada no falso`);
+    if (nome === 'quadros_e_juncoes' || nome === 'itens_pintados' || nome === 'aberturas_geom' || nome === 'retornos_geom' || nome === 'cluster_resolvido' || nome === 'resolver_nivel' || nome === 'pisos_lajes_nivel') return falhar(CODIGOS.NAO_IMPLEMENTADO, `${nome} não é implementada no falso`);
     const paredes: LinhaParede[] = [...(cena.get(SECOES.paredes.id)?.values() ?? [])].map((l) => ({
       id: l.id_num!,
       nivel: l.nivel_num!,

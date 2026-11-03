@@ -21,10 +21,13 @@ const secoes = (): SecoesDaCena => ({
   },
 });
 
-describe('esquema v7 (A1, A2, A3a, A3b, A3c e A3d) no lado TypeScript', () => {
-  it('versão 7, seções novas e as consultas quadros_e_juncoes, itens_pintados, aberturas_geom, retornos_geom, cluster_resolvido e resolver_nivel no esquema', () => {
-    expect(ESQUEMA_VERSAO).toBe(7);
-    expect(Object.keys(SECOES)).toEqual(['paredes', 'paredes_quadro', 'tipos_parede', 'camadas', 'faixas', 'paredes_z', 'tipos_abertura', 'aberturas', 'perfis_z']);
+describe('esquema v8 (A1, A2, A3a, A3b, A3c, A3d e B1) no lado TypeScript', () => {
+  it('versão 8, seções novas e as consultas quadros_e_juncoes, itens_pintados, aberturas_geom, retornos_geom, cluster_resolvido, resolver_nivel e pisos_lajes_nivel no esquema', () => {
+    expect(ESQUEMA_VERSAO).toBe(8);
+    expect(Object.keys(SECOES)).toEqual(['paredes', 'paredes_quadro', 'tipos_parede', 'camadas', 'faixas', 'paredes_z', 'tipos_abertura', 'aberturas', 'perfis_z', 'pisos', 'lajes', 'tipos_piso', 'tipos_laje', 'camadas_piso', 'camadas_laje', 'contornos_estaticos', 'contornos_vinculados', 'furos_nivel']);
+    expect(CONSULTAS.pisos_lajes_nivel.id).toBe(10);
+    expect([...CONSULTAS.pisos_lajes_nivel.args]).toEqual(['nivel_num']);
+    expect(CONSULTAS.pisos_lajes_nivel.saidas.map((s) => s.nome)).toEqual(['elementos', 'elementos_num', 'camadas', 'camadas_num', 'poligonos', 'aneis', 'pontos']);
     expect(CONSULTAS.quadros_e_juncoes.id).toBe(4);
     expect([...CONSULTAS.quadros_e_juncoes.args]).toEqual(['nivel_num', 'tol_juncao']);
     expect(CONSULTAS.quadros_e_juncoes.saidas.map((s) => s.nome)).toEqual([
@@ -84,6 +87,13 @@ describe('esquema v7 (A1, A2, A3a, A3b, A3c e A3d) no lado TypeScript', () => {
       }
       try {
         cena.consultar('resolver_nivel', [0, 0.02, 0, 0, 0, 0, 0]);
+        expect.unreachable();
+      } catch (e) {
+        expect(e).toBeInstanceOf(ErroKernelLeve);
+        expect((e as ErroKernelLeve).codigo).toBe(CODIGOS.NAO_IMPLEMENTADO);
+      }
+      try {
+        cena.consultar('pisos_lajes_nivel', [0]);
         expect.unreachable();
       } catch (e) {
         expect(e).toBeInstanceOf(ErroKernelLeve);

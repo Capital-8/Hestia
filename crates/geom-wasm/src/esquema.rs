@@ -1,12 +1,12 @@
-//! Constantes que espelham `schema/cena-v7.json` (fonte única do contrato, decisão 0046).
+//! Constantes que espelham `schema/cena-v8.json` (fonte única do contrato, decisão 0046).
 //!
 //! O teste `contrato_confere_com_json` (no fim deste arquivo) lê o JSON e confere tudo daqui:
 //! ids de seção, ordem e tipos das colunas, ids de consulta, saídas, códigos de erro e limites.
 //! Mudou o JSON => sobe `VERSAO_ESQUEMA` e este arquivo.
 
-/// `versao` de `cena-v7.json`.
-pub const VERSAO_ESQUEMA: u32 = 7;
-/// `abi` de `cena-v7.json`.
+/// `versao` de `cena-v8.json`.
+pub const VERSAO_ESQUEMA: u32 = 8;
+/// `abi` de `cena-v8.json`.
 pub const VERSAO_ABI2: u32 = 2;
 
 /// Códigos de retorno (3.1 do 0046).
@@ -77,10 +77,70 @@ pub const SECAO_PAREDES_Z: u32 = 6;
 pub const SECAO_TIPOS_ABERTURA: u32 = 7;
 pub const SECAO_ABERTURAS: u32 = 8;
 pub const SECAO_PERFIS_Z: u32 = 9;
+pub const SECAO_PISOS: u32 = 10;
+pub const SECAO_LAJES: u32 = 11;
+pub const SECAO_TIPOS_PISO: u32 = 12;
+pub const SECAO_TIPOS_LAJE: u32 = 13;
+pub const SECAO_CAMADAS_PISO: u32 = 14;
+pub const SECAO_CAMADAS_LAJE: u32 = 15;
+pub const SECAO_CONTORNOS_ESTATICOS: u32 = 16;
+pub const SECAO_CONTORNOS_VINCULADOS: u32 = 17;
+pub const SECAO_FUROS_NIVEL: u32 = 18;
 
 const fn col(nome: &'static str, tipo: Tipo) -> Coluna {
     Coluna { nome, tipo }
 }
+
+/// Colunas de `pisos` (B1).
+const COLUNAS_PISO: &[Coluna] = &[
+    col("id_num", Tipo::U32),
+    col("nivel_num", Tipo::U32),
+    col("tipo_num", Tipo::U32),
+    col("ordem", Tipo::F64),
+    col("cota_nivel", Tipo::F64),
+    col("desloc", Tipo::F64),
+    col("modo", Tipo::U8),
+    col("vinculado", Tipo::U8),
+    col("tem_semente", Tipo::U8),
+    col("extend_nucleo", Tipo::U8),
+    col("problema", Tipo::U8),
+];
+
+/// Colunas de `lajes` (B1): as de `pisos` e a inclinação.
+const COLUNAS_LAJE: &[Coluna] = &[
+    col("id_num", Tipo::U32),
+    col("nivel_num", Tipo::U32),
+    col("tipo_num", Tipo::U32),
+    col("ordem", Tipo::F64),
+    col("cota_nivel", Tipo::F64),
+    col("desloc", Tipo::F64),
+    col("modo", Tipo::U8),
+    col("vinculado", Tipo::U8),
+    col("tem_semente", Tipo::U8),
+    col("extend_nucleo", Tipo::U8),
+    col("problema", Tipo::U8),
+    col("tem_inclinacao", Tipo::U8),
+    col("inc_ox", Tipo::F64),
+    col("inc_oy", Tipo::F64),
+    col("inc_dx", Tipo::F64),
+    col("inc_dy", Tipo::F64),
+    col("inc_percentual", Tipo::F64),
+];
+
+/// Colunas de `camadas_piso` e de `camadas_laje` (B1).
+const COLUNAS_CAMADA_B: &[Coluna] = &[
+    col("id_num", Tipo::U32),
+    col("tipo_num", Tipo::U32),
+    col("indice", Tipo::U32),
+    col("espessura", Tipo::F64),
+    col("funcao", Tipo::U8),
+    col("tem_prioridade", Tipo::U8),
+    col("prioridade", Tipo::F64),
+    col("material_num", Tipo::U32),
+    col("termino", Tipo::U8),
+    col("termino_valor", Tipo::F64),
+    col("limite_externo", Tipo::U8),
+];
 
 pub const SECOES: &[Secao] = &[
     Secao {
@@ -208,6 +268,30 @@ pub const SECOES: &[Secao] = &[
         chave: "id_num",
         colunas: &[col("id_num", Tipo::U32), col("parede_num", Tipo::U32), col("lista", Tipo::U8), col("indice", Tipo::U32), col("t", Tipo::F64), col("h", Tipo::F64)],
     },
+    Secao { id: SECAO_PISOS, nome: "pisos", chave: "id_num", colunas: COLUNAS_PISO },
+    Secao { id: SECAO_LAJES, nome: "lajes", chave: "id_num", colunas: COLUNAS_LAJE },
+    Secao { id: SECAO_TIPOS_PISO, nome: "tipos_piso", chave: "id_num", colunas: &[col("id_num", Tipo::U32), col("n_camadas", Tipo::U32)] },
+    Secao { id: SECAO_TIPOS_LAJE, nome: "tipos_laje", chave: "id_num", colunas: &[col("id_num", Tipo::U32), col("n_camadas", Tipo::U32)] },
+    Secao { id: SECAO_CAMADAS_PISO, nome: "camadas_piso", chave: "id_num", colunas: COLUNAS_CAMADA_B },
+    Secao { id: SECAO_CAMADAS_LAJE, nome: "camadas_laje", chave: "id_num", colunas: COLUNAS_CAMADA_B },
+    Secao {
+        id: SECAO_CONTORNOS_ESTATICOS,
+        nome: "contornos_estaticos",
+        chave: "id_num",
+        colunas: &[col("id_num", Tipo::U32), col("tipo_el", Tipo::U8), col("elemento_num", Tipo::U32), col("anel", Tipo::U32), col("indice", Tipo::U32), col("x", Tipo::F64), col("y", Tipo::F64)],
+    },
+    Secao {
+        id: SECAO_CONTORNOS_VINCULADOS,
+        nome: "contornos_vinculados",
+        chave: "id_num",
+        colunas: &[col("id_num", Tipo::U32), col("tipo_el", Tipo::U8), col("elemento_num", Tipo::U32), col("papel", Tipo::U8), col("anel", Tipo::U32), col("indice", Tipo::U32), col("x", Tipo::F64), col("y", Tipo::F64)],
+    },
+    Secao {
+        id: SECAO_FUROS_NIVEL,
+        nome: "furos_nivel",
+        chave: "id_num",
+        colunas: &[col("id_num", Tipo::U32), col("tipo_el", Tipo::U8), col("elemento_num", Tipo::U32), col("poligono", Tipo::U32), col("anel", Tipo::U32), col("indice", Tipo::U32), col("x", Tipo::F64), col("y", Tipo::F64)],
+    },
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -247,6 +331,7 @@ pub const CONSULTA_ABERTURAS_GEOM: u32 = 6;
 pub const CONSULTA_RETORNOS_GEOM: u32 = 7;
 pub const CONSULTA_CLUSTER_RESOLVIDO: u32 = 8;
 pub const CONSULTA_RESOLVER_NIVEL: u32 = 9;
+pub const CONSULTA_PISOS_LAJES_NIVEL: u32 = 10;
 
 pub const CONSULTAS: &[Consulta] = &[
     Consulta {
@@ -372,6 +457,21 @@ pub const CONSULTAS: &[Consulta] = &[
             SaidaDef { nome: "pontos", tipo: Tipo::F64, elementos: Elementos::Livre },
         ],
     },
+    Consulta {
+        id: CONSULTA_PISOS_LAJES_NIVEL,
+        nome: "pisos_lajes_nivel",
+        args: &["nivel_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "elementos", tipo: Tipo::U32, elementos: Elementos::Multiplo(9) },
+            SaidaDef { nome: "elementos_num", tipo: Tipo::F64, elementos: Elementos::Multiplo(7) },
+            SaidaDef { nome: "camadas", tipo: Tipo::U32, elementos: Elementos::Multiplo(8) },
+            SaidaDef { nome: "camadas_num", tipo: Tipo::F64, elementos: Elementos::Multiplo(3) },
+            SaidaDef { nome: "poligonos", tipo: Tipo::U32, elementos: Elementos::DoisN },
+            SaidaDef { nome: "aneis", tipo: Tipo::U32, elementos: Elementos::DoisN },
+            SaidaDef { nome: "pontos", tipo: Tipo::F64, elementos: Elementos::Livre },
+        ],
+    },
 ];
 
 pub fn secao(id: u32) -> Option<&'static Secao> {
@@ -411,7 +511,7 @@ mod testes {
     use super::*;
     use serde_json::Value;
 
-    const JSON: &str = include_str!("../schema/cena-v7.json");
+    const JSON: &str = include_str!("../schema/cena-v8.json");
 
     fn tipo_de(nome: &str) -> Tipo {
         match nome {

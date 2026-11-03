@@ -1,7 +1,7 @@
-// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v7.json.
+// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v8.json.
 // Não edite à mão: mude o JSON e rode `node scripts/gerar-esquema-kernel.mjs`.
 
-export const ESQUEMA_VERSAO = 7;
+export const ESQUEMA_VERSAO = 8;
 export const ABI_VERSAO = 2;
 export const NIVEL_TODOS = 4294967295;
 
@@ -398,6 +398,368 @@ export const SECOES = {
         "tipo": "f64"
       }
     ]
+  },
+  "pisos": {
+    "id": 10,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "nivel_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "tipo_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "ordem",
+        "tipo": "f64"
+      },
+      {
+        "nome": "cota_nivel",
+        "tipo": "f64"
+      },
+      {
+        "nome": "desloc",
+        "tipo": "f64"
+      },
+      {
+        "nome": "modo",
+        "tipo": "u8"
+      },
+      {
+        "nome": "vinculado",
+        "tipo": "u8"
+      },
+      {
+        "nome": "tem_semente",
+        "tipo": "u8"
+      },
+      {
+        "nome": "extend_nucleo",
+        "tipo": "u8"
+      },
+      {
+        "nome": "problema",
+        "tipo": "u8"
+      }
+    ]
+  },
+  "lajes": {
+    "id": 11,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "nivel_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "tipo_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "ordem",
+        "tipo": "f64"
+      },
+      {
+        "nome": "cota_nivel",
+        "tipo": "f64"
+      },
+      {
+        "nome": "desloc",
+        "tipo": "f64"
+      },
+      {
+        "nome": "modo",
+        "tipo": "u8"
+      },
+      {
+        "nome": "vinculado",
+        "tipo": "u8"
+      },
+      {
+        "nome": "tem_semente",
+        "tipo": "u8"
+      },
+      {
+        "nome": "extend_nucleo",
+        "tipo": "u8"
+      },
+      {
+        "nome": "problema",
+        "tipo": "u8"
+      },
+      {
+        "nome": "tem_inclinacao",
+        "tipo": "u8"
+      },
+      {
+        "nome": "inc_ox",
+        "tipo": "f64"
+      },
+      {
+        "nome": "inc_oy",
+        "tipo": "f64"
+      },
+      {
+        "nome": "inc_dx",
+        "tipo": "f64"
+      },
+      {
+        "nome": "inc_dy",
+        "tipo": "f64"
+      },
+      {
+        "nome": "inc_percentual",
+        "tipo": "f64"
+      }
+    ]
+  },
+  "tipos_piso": {
+    "id": 12,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "n_camadas",
+        "tipo": "u32"
+      }
+    ]
+  },
+  "tipos_laje": {
+    "id": 13,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "n_camadas",
+        "tipo": "u32"
+      }
+    ]
+  },
+  "camadas_piso": {
+    "id": 14,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "tipo_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "indice",
+        "tipo": "u32"
+      },
+      {
+        "nome": "espessura",
+        "tipo": "f64"
+      },
+      {
+        "nome": "funcao",
+        "tipo": "u8"
+      },
+      {
+        "nome": "tem_prioridade",
+        "tipo": "u8"
+      },
+      {
+        "nome": "prioridade",
+        "tipo": "f64"
+      },
+      {
+        "nome": "material_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "termino",
+        "tipo": "u8"
+      },
+      {
+        "nome": "termino_valor",
+        "tipo": "f64"
+      },
+      {
+        "nome": "limite_externo",
+        "tipo": "u8"
+      }
+    ]
+  },
+  "camadas_laje": {
+    "id": 15,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "tipo_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "indice",
+        "tipo": "u32"
+      },
+      {
+        "nome": "espessura",
+        "tipo": "f64"
+      },
+      {
+        "nome": "funcao",
+        "tipo": "u8"
+      },
+      {
+        "nome": "tem_prioridade",
+        "tipo": "u8"
+      },
+      {
+        "nome": "prioridade",
+        "tipo": "f64"
+      },
+      {
+        "nome": "material_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "termino",
+        "tipo": "u8"
+      },
+      {
+        "nome": "termino_valor",
+        "tipo": "f64"
+      },
+      {
+        "nome": "limite_externo",
+        "tipo": "u8"
+      }
+    ]
+  },
+  "contornos_estaticos": {
+    "id": 16,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "tipo_el",
+        "tipo": "u8"
+      },
+      {
+        "nome": "elemento_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "anel",
+        "tipo": "u32"
+      },
+      {
+        "nome": "indice",
+        "tipo": "u32"
+      },
+      {
+        "nome": "x",
+        "tipo": "f64"
+      },
+      {
+        "nome": "y",
+        "tipo": "f64"
+      }
+    ]
+  },
+  "contornos_vinculados": {
+    "id": 17,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "tipo_el",
+        "tipo": "u8"
+      },
+      {
+        "nome": "elemento_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "papel",
+        "tipo": "u8"
+      },
+      {
+        "nome": "anel",
+        "tipo": "u32"
+      },
+      {
+        "nome": "indice",
+        "tipo": "u32"
+      },
+      {
+        "nome": "x",
+        "tipo": "f64"
+      },
+      {
+        "nome": "y",
+        "tipo": "f64"
+      }
+    ]
+  },
+  "furos_nivel": {
+    "id": 18,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "tipo_el",
+        "tipo": "u8"
+      },
+      {
+        "nome": "elemento_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "poligono",
+        "tipo": "u32"
+      },
+      {
+        "nome": "anel",
+        "tipo": "u32"
+      },
+      {
+        "nome": "indice",
+        "tipo": "u32"
+      },
+      {
+        "nome": "x",
+        "tipo": "f64"
+      },
+      {
+        "nome": "y",
+        "tipo": "f64"
+      }
+    ]
   }
 } as const;
 
@@ -760,6 +1122,49 @@ export const CONSULTAS = {
       {
         "nome": "silhuetas",
         "tipo": "u32",
+        "elementos": "3n"
+      },
+      {
+        "nome": "poligonos",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "aneis",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "pontos",
+        "tipo": "f64",
+        "elementos": "livre"
+      }
+    ]
+  },
+  "pisos_lajes_nivel": {
+    "id": 10,
+    "args": [
+      "nivel_num"
+    ],
+    "saidas": [
+      {
+        "nome": "elementos",
+        "tipo": "u32",
+        "elementos": "9n"
+      },
+      {
+        "nome": "elementos_num",
+        "tipo": "f64",
+        "elementos": "7n"
+      },
+      {
+        "nome": "camadas",
+        "tipo": "u32",
+        "elementos": "8n"
+      },
+      {
+        "nome": "camadas_num",
+        "tipo": "f64",
         "elementos": "3n"
       },
       {
