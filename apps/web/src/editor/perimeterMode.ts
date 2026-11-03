@@ -18,6 +18,7 @@ import {
   type ToolOptions,
 } from '@hestia/tools';
 import type { PerimeterView } from './perimeterApi.ts';
+import type { TextLike } from './i18n.ts';
 import { COMANDO_DO_ESBOCO, COMANDO_RECUSADO, SEM_ESBOCO } from './perimeterComandos.ts';
 import { VISAO_FECHADA, alvoDaFerramenta, arestaDe, formaDaFerramenta, formaDaTela } from './perimeterView.ts';
 import { useUi } from './state.ts';
@@ -87,7 +88,7 @@ function opcoesDe(s: Sessao): CommitPerimeterOptions {
 export class PerimeterMode {
   private sessao: Sessao | null = null;
   /** Última visão montada, com o contador e a barra de status em que foi montada: repintar sem mudança devolve o mesmo objeto. */
-  private cache: { tick: number; status: string; visao: PerimeterView } | null = null;
+  private cache: { tick: number; status: TextLike; visao: PerimeterView } | null = null;
 
   constructor(private readonly porta: PerimetroPorta) {}
 
@@ -321,7 +322,7 @@ export class PerimeterMode {
     return visao;
   }
 
-  private montaVisao(status: string): PerimeterView {
+  private montaVisao(status: TextLike): PerimeterView {
     const s = this.sessao;
     if (!s) return { ...VISAO_FECHADA, status };
     const d: SketchDraft = s.tool.draft();

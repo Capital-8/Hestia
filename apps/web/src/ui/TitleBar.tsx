@@ -2,7 +2,7 @@ import { useRef, type ReactElement } from 'react';
 import { areaPlanOf, sheetOf, type Project } from '@hestia/model';
 import { editor, useProject, useProjectVersion } from '../editor/controller.ts';
 import { openProjectFile } from '../editor/fileActions.ts';
-import { useI18n } from '../editor/i18n.ts';
+import { resolveText, useI18n } from '../editor/i18n.ts';
 import { toggleFileMenu, useUi } from '../editor/state.ts';
 import type { PlanKind } from '../editor/openViews.ts';
 import { Icon } from './Icon.tsx';
@@ -61,8 +61,8 @@ export function TitleBar(): ReactElement {
   const qat: FitItem[] = [
     { key: 'open', priority: 5, node: <button className="qbtn" onClick={() => fileRef.current?.click()} title={open} aria-label={open}><Icon name="qopen" size={18} /></button> },
     { key: 'save', priority: 5, node: <button className="qbtn" onClick={() => void editor.save()} title={`${save} (Ctrl+S)`} aria-label={save}><Icon name="qsave" size={18} /></button> },
-    { key: 'undo', priority: 4, node: <>{sep}<button className="qbtn" disabled={!store.canUndo} onClick={() => editor.undo()} title={store.undoLabel ? `${undo}: ${store.undoLabel} (Ctrl+Z)` : undo} aria-label={undo}><Icon name="qundo" size={18} /></button></> },
-    { key: 'redo', priority: 4, node: <button className="qbtn" disabled={!store.canRedo} onClick={() => editor.redo()} title={store.redoLabel ? `${redo}: ${store.redoLabel} (Ctrl+Y)` : redo} aria-label={redo}><Icon name="qredo" size={18} /></button> },
+    { key: 'undo', priority: 4, node: <>{sep}<button className="qbtn" disabled={!store.canUndo} onClick={() => editor.undo()} title={store.undoLabel ? `${undo}: ${resolveText(store.undoLabel, lang)} (Ctrl+Z)` : undo} aria-label={undo}><Icon name="qundo" size={18} /></button></> },
+    { key: 'redo', priority: 4, node: <button className="qbtn" disabled={!store.canRedo} onClick={() => editor.redo()} title={store.redoLabel ? `${redo}: ${resolveText(store.redoLabel, lang)} (Ctrl+Y)` : redo} aria-label={redo}><Icon name="qredo" size={18} /></button> },
     ...QUICK.map((it, i) => ({
       key: `quick-${i}`,
       priority: i < 3 ? 2 : 1,

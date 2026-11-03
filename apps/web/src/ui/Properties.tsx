@@ -266,13 +266,13 @@ function OpeningProps({ items }: { items: Opening[] }): ReactElement {
           <>
             <Row label="Distância ao início" htmlFor="p-off"><NumField id="p-off" value={single.offset} onCommit={(v) => patch(ids, { offset: v })} quantity="length" /></Row>
             <Row label="Peitoril" htmlFor="p-sill">
-              <NumField id="p-sill" value={type ? openingSill(type, single) : 0} onCommit={(v) => patch(ids, { sillOverride: v })} quantity="length" min={0} onInvalid={() => useUi.setState({ status: 'Peitoril inválido: digite um número, como 0,90.' })} onValid={() => { if (useUi.getState().status.startsWith('Peitoril inválido')) useUi.setState({ status: 'Pronto.' }); }} />
+              <NumField id="p-sill" value={type ? openingSill(type, single) : 0} onCommit={(v) => patch(ids, { sillOverride: v })} quantity="length" min={0} onInvalid={() => useUi.setState({ status: 'Peitoril inválido: digite um número, como 0,90.' })} onValid={() => { const st = useUi.getState().status; if (typeof st === 'string' && st.startsWith('Peitoril inválido')) useUi.setState({ status: 'Pronto.' }); }} />
             </Row>
             {single.sillOverride !== null && (
               <div className="prow"><span /><button className="chiplink" onClick={() => patch(ids, { sillOverride: null })}>Usar peitoril do tipo</button></div>
             )}
             <Row label="Altura do vão" htmlFor="p-height">
-              <NumField id="p-height" value={type ? openingHeight(type, single) : 0} onCommit={(v) => patch(ids, { heightOverride: v })} quantity="length" min={0.1} onInvalid={() => useUi.setState({ status: 'Altura inválida: digite um número, como 1,20.' })} onValid={() => { if (useUi.getState().status.startsWith('Altura inválida')) useUi.setState({ status: 'Pronto.' }); }} />
+              <NumField id="p-height" value={type ? openingHeight(type, single) : 0} onCommit={(v) => patch(ids, { heightOverride: v })} quantity="length" min={0.1} onInvalid={() => useUi.setState({ status: 'Altura inválida: digite um número, como 1,20.' })} onValid={() => { const st = useUi.getState().status; if (typeof st === 'string' && st.startsWith('Altura inválida')) useUi.setState({ status: 'Pronto.' }); }} />
             </Row>
             {typeof single.heightOverride === 'number' && (
               <div className="prow"><span /><button className="chiplink" onClick={() => patch(ids, { heightOverride: null })}>Usar altura do tipo</button></div>

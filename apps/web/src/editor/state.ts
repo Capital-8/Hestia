@@ -11,6 +11,7 @@ import { loadDock, type DockLayout } from './dockLayout.ts';
 import type { TempViewVisibility } from './viewVisibility.ts';
 import type { PastePreviewState } from './pasteLevels/types.ts';
 import type { ProgressoImportacao } from './ifcImport.ts';
+import type { TextLike } from './i18n.ts';
 
 export type ViewKind = 'plan' | '3d' | 'section' | 'sheet';
 export type ThemePref = 'system' | 'light' | 'dark';
@@ -50,7 +51,7 @@ export interface UiState {
   options: ToolOptions;
   theme: ThemePref;
   gpu: Backend | 'cpu' | 'pending';
-  status: string;
+  status: TextLike;
   typed: string;
   prompt: string | null;
   dialog: DialogKind;

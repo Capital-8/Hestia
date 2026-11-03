@@ -2,7 +2,7 @@ import type { ReactElement } from 'react';
 import { formatQuantity } from '@hestia/model';
 import { useUi } from '../editor/state.ts';
 import { useAtalhos } from '../editor/shortcutConfig.ts';
-import { useI18n } from '../editor/i18n.ts';
+import { resolveText, useI18n } from '../editor/i18n.ts';
 import { usePerimeter } from '../editor/perimeter.ts';
 import { Icon } from './Icon.tsx';
 import { IssuesButton } from './IssuesButton.tsx';
@@ -26,20 +26,22 @@ const SNAP: Record<string, string> = {
 
 export function StatusBar(): ReactElement {
   const units = useUnits();
+  const lang = useI18n((s) => s.lang);
   const uiStatus = useUi((s) => s.status);
   const perim = usePerimeter();
   const status = perim.active && perim.status ? perim.status : uiStatus;
+  const statusText = resolveText(status, lang);
   const cursor = useUi((s) => s.cursor);
   const snap = useUi((s) => s.snapKind);
   const view = useUi((s) => s.view);
   const pendente = useAtalhos((s) => s.pendente);
   const nSel = useUi((s) => s.selection.length);
   const gpu = useUi((s) => s.gpu);
-  const pt = useI18n((s) => s.lang) === 'pt';
+  const pt = lang === 'pt';
   const engine = gpu === 'pending' ? '…' : gpu === 'cpu' ? 'CPU' : gpu === 'webgpu' ? 'WebGPU' : 'WebGL2';
   return (
     <footer className="statusbar" role="status">
-      <span className="msg" title={status}>{status}</span>
+      <span className="msg" title={statusText}>{statusText}</span>
       {pendente ? <span className="mono" aria-label="Sequência de atalho em andamento">{pendente}…</span> : null}
       {view === 'plan' && cursor ? <span className="mono sb-coords">x {formatQuantity(units, 'length', cursor.x)}  y {formatQuantity(units, 'length', cursor.y)}</span> : null}
       {/* Corte/elevação trabalham em (t,z): t é a distância ao longo da linha e z a cota. Não são x/y de planta. */}

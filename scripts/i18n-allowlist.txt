@@ -1,0 +1,1 @@
+# Allowlist do check-i18n: uma entrada por linha (caminho relativo, caminho:linha ou texto:trecho). Linhas com # são ignoradas.

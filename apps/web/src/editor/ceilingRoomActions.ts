@@ -17,6 +17,7 @@ export function addCeilingsAllRooms(): { count: number; message: string } {
   }
   editor.store.exec(cmd);
   const count = cmd.ceilings.length;
-  useUi.setState({ selection: cmd.ceilings.map((c) => c.id), status: `${count} ${count === 1 ? 'forro criado' : 'forros criados'} nos ambientes. Ctrl+Z desfaz.` });
-  return { count, message: useUi.getState().status };
+  const message = `${count} ${count === 1 ? 'forro criado' : 'forros criados'} nos ambientes. Ctrl+Z desfaz.`;
+  useUi.setState({ selection: cmd.ceilings.map((c) => c.id), status: message });
+  return { count, message };
 }

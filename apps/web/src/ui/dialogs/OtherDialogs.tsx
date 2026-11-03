@@ -39,7 +39,10 @@ export function LevelsDialog(): ReactElement {
             <tr key={l.id} style={l.id === destaque ? { background: 'var(--sel-bg, rgba(0,0,0,0.06))' } : undefined} data-selected={l.id === destaque ? 'true' : undefined}>
               <td><TextField value={l.name} onCommit={(v) => run(() => editor.store.exec({ type: 'upsertLevel', level: { ...l, name: v || l.name } }))} /></td>
               <td><NumField value={l.elevation} quantity="length" onCommit={(v) => run(() => {
-                if (!commitLevelElevation(l.id, v)) throw new Error(useUi.getState().status);
+                if (!commitLevelElevation(l.id, v)) {
+                  const st = useUi.getState().status;
+                  throw new Error(typeof st === 'string' ? st : st.key);
+                }
               })} /></td>
               <td><button className="btn small danger" onClick={() => run(() => editor.store.exec({ type: 'deleteLevel', id: l.id }))}>Excluir</button></td>
             </tr>
