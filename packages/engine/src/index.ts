@@ -7,6 +7,8 @@ export * from './openingLines.ts';
 export * from './openingPlan.ts';
 export * from './openingPreview.ts';
 export * from './resolve.ts';
+export * from './kernelDespacho.ts';
+export * from './resolveDespacho.ts';
 export * from './quantities.ts';
 export * from './genericQuantities.ts';
 export * from './schedule.ts';

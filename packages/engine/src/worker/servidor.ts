@@ -1,6 +1,7 @@
 import { garantirKernelExperimental } from '@hestia/geom';
 import type { Id, Project } from '@hestia/model';
 import { MemoriaPatch } from '../fluxoPatch.ts';
+import { diagnosticoLocalDoDespacho, iniciarDespachoKernel } from '../kernelDespacho.ts';
 import { executarResolucao } from './executor.ts';
 import { colherBuffers, chaveDoPedido, ehCancelamento, ERRO_PROJETO_AUSENTE, type MensagemResolucao, type PedidoResolucao, type RespostaResolucao, type TipoResolucao } from './protocolo.ts';
 
@@ -48,6 +49,8 @@ export function instalarServidor(escopo: EscopoServidor, executor: Executor = cr
     try {
       const resultado = executor(pedido.tipo, pedido.projeto.estrutura, pedido.nivel, { versao: pedido.projeto.versao, base: pedido.base ?? null });
       const resposta: RespostaResolucao = { id, resultado, erro: null };
+      const diag = diagnosticoLocalDoDespacho();
+      if (diag) resposta.kernelDiag = diag;
       escopo.postMessage(resposta, colherBuffers(resultado));
     } catch (e) {
       const resposta: RespostaResolucao = { id, resultado: null, erro: textoDoErro(e) };
@@ -79,6 +82,8 @@ export function instalarServidor(escopo: EscopoServidor, executor: Executor = cr
     // ela vem no pedido (`kernel: true`). Fire-and-forget, sem `await` no executor: o pedido atual e os seguintes usam
     // o que estiver disponível. Sem o campo (o padrão), nada acontece e o caminho é exatamente o de antes.
     if (mensagem.kernel === true) void garantirKernelExperimental().catch(() => undefined);
+    // Despacho da fatia A (0047 §12): a configuração viaja no pedido; o wasm carrega em segundo plano e, até ficar pronto, vale o TS.
+    if (mensagem.kernelV2?.fatiaA === true) void iniciarDespachoKernel(mensagem.kernelV2);
     // O projeto é fixado ao chegar o pedido (não ao executá-lo): um pedido da fila de uma versão antiga não vê a seguinte.
     const { versao, estrutura } = mensagem.projeto;
     if (estrutura) ultimo = { versao, estrutura };

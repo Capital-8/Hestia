@@ -259,3 +259,48 @@ Exceções nomeadas (só valem se verificadas automaticamente): (1) semente 1, p
 o Rust concorda com a união exata dos cortes dentro do limite da regra 3, a silhueta comparada sem o fechamento de frestas); (2) estresse retas, semente 101, parede 18,
 camada 4, recorte pelo perfil (`polygon-clipping`: as fatias da faixa de entrada somam mais que a faixa; o Rust nunca ganha área em relação à entrada, por z0, a 1e-6 m²).
 A verificação de (2) é por desigualdade (as fatias que o perfil descarta só diminuem a soma), não por igualdade. Se o TS deixar de ter o defeito, a exceção reprova como obsoleta.
+
+## 12 — A4: integração da fatia A e modo sombra (2026-11-02)
+
+A4 liga o `resolver_nivel` (A3d) ao produto, só por flag. Nenhum cálculo novo no Rust; nada liga sem flag e o padrão continua TypeScript.
+
+**O que foi integrado e onde.**
+- `packages/engine/src/kernelDespacho.ts`: `DespachoKernel`, `instalarDespachoKernel`, `iniciarDespachoKernel`, `diagnosticoDespacho`. `resolveLevel` (`resolve.ts`) consulta o
+  despachante instalado em `resolveDespacho.ts`; sem instalação, é o TypeScript de sempre (`resolveLevelTs`, que também é a referência do Rust em `referenciaA3c/A3d`).
+- Despacho (fatia A ligada, sem sombra): monta a cena do projeto em JS (`montarCenaA1/A3`, `montarPerfisA3d`, com `wallZRange` calculado no JS e enviado, como na A3d), a envia
+  ao kernel v2 (uma cena por variante de cota, com e sem `flatAttach`; `paredes_z` e `perfis_z` seguem a variante), consulta `resolver_nivel` com `cutZ`, `outlineWalls`,
+  `planOpenings` e decodifica para o mesmo `ResolvedLevel` (`resolvidoDeA3d`, o inverso de `codificarA3d`). O estado do Rust é cache: a cena é reenviada por inteiro quando o
+  projeto muda (a chave é o objeto `Project`, imutável; uma edição produz outro objeto) e o resultado do Rust fica em memo por (projeto, nível, opções), então uma edição invalida
+  tudo o que dependia dela e o `LevelResolveCache` do TS continua valendo por cima. Nível que a consulta ainda não cobre (parede sem tipo ou nível, abertura sem tipo, nível fora
+  do projeto) volta ao TS como falha leve.
+- Falhas: leve (ENTRADA, NAO_IMPLEMENTADO, LIMITE, nível não coberto) volta só aquela chamada ao TS, sem recriar. Grave (VERSAO, HANDLE, INTERNO, trap): `CenaV2` recria a instância,
+  reenvia a cena e repete uma vez; se falhar de novo, a chamada volta ao TS. Limite de 3 recriações em 5 min no gerenciador (já existia; coberto aqui por teste de despacho com
+  relógio injetável); esgotado, o kernel desliga na sessão e o despacho nem tenta mais.
+- Modo sombra (`hestia:kernel:sombra=true`, só com a fatia A ligada): roda o TS (devolvido SEMPRE) e o Rust, compara com `compararA3d` (A3d: campos a 1e-6, perfis exatos,
+  membranas, faixas, e regiões e silhuetas sob a 0049; sem exceções nomeadas), registra num buffer circular de 20 divergências (nível, parede, campo, mensagem) e conta
+  comparações e divergências. Uma comparação por (projeto, nível, opções). Desligada, não custa nada (não cria cena nem compara).
+- Comparador de produção: `scripts/kernel-harness-a2.mts` e `kernel-harness-a3.mts` viraram reexportações de `packages/engine/src/kernelComparaA2.ts`, `kernelComparaA3.ts`
+  (A3a, A3b), `kernelComparaA3c.ts` e `kernelComparaA3d.ts` (divididas por causa do limite de linhas); código de produção não importa de `scripts/`.
+- Worker: URL e `localStorage` não chegam ao worker, então o pedido leva `kernelV2: { fatiaA, sombra }` (`protocolo.ts`, `cliente.ts`, `servidor.ts`); o worker instala o despacho
+  e devolve o diagnóstico junto da resposta, e a thread principal soma os dois. `main.tsx` ativa a thread principal no tempo ocioso, como o kernel v1.
+- Diálogo "Experimentais": o interruptor do modo sombra funciona (só habilitado com a fatia A) e há o bloco "Fatia A: despacho e modo sombra" com estado do kernel, níveis entregues
+  pelo Rust, voltas ao TS (leves e graves), recriações, comparações, divergências e a última divergência (nível, parede, campo).
+- `VERSAO_MOTOR_GEOMETRIA` NÃO sobe: o resultado do TS não mudou (`resolveLevelTs` é o mesmo código). Observação: o cache de geometria em disco (`geometriaAbertura.ts`) não distingue a
+  origem; com a flag ligada ele pode guardar geometria vinda do Rust (equivalente dentro das tolerâncias 0048/0049).
+
+**Como usar na validação visual.** Compile o wasm da A (`node scripts/build-wasm.mjs`; o binário commitado fica velho até o fim da A, e com ele o despacho cai em "indisponível" e
+tudo segue no TS), abra o app com `?kernelFatias=A` (ou `?kernel=rust`, ou grave a fatia A no diálogo e recarregue) e, para comparar, `localStorage.setItem('hestia:kernel:sombra','true')`
+e recarregue (o app segue mostrando o TS e o diálogo Experimentais mostra as divergências). Sem sombra, o que aparece na planta, no 3D, nas pranchas e nos quantitativos é o resultado
+do Rust.
+
+**O que o dono deve olhar.** (1) Com `?kernelFatias=A` sem sombra: planta, cortes, 3D e quantitativos de projetos reais iguais aos do TS, em especial junções em T e em cruz, paredes curvas,
+paredes com perfil de topo ou de base, esquadrias com retornos, planta com `cutZ` e contorno de paredes de outro nível. (2) Com a sombra: contagem de divergências no diálogo; qualquer
+divergência traz nível, parede e campo. Divergências de região e silhueta com área da ordem de 3,5e-3 m² perto de parede curva são o defeito conhecido do `unionClipper` do TS (0049): no
+teste, a semente 1 do estresse de 12 paredes por pavimento também o reproduz (ver o relatório); a exceção nomeada só vale para a configuração da A3d. (3) Se o diálogo mostrar
+voltas graves ou recriações, é defeito do binário, não do TS: o app continua correto, mas o dono deve parar e avisar. (4) Tempo de edição: a cena é reenviada por inteiro a cada edição
+(sem upsert incremental); medir isso antes de liberar.
+
+**Testes.** `packages/engine/src/kernelDespacho.test.ts` (sem o binário, com o falso do ABI v2: fatia desligada sem espião chamado, falha leve, trap e HANDLE com recriação, limite de
+3 recriações em 5 min com relógio injetável), `tests/kernel-a4.wasm.test.ts` (com o binário: equivalência nos fixtures do repositório e nos sintéticos de 10 e 20 pavimentos, opções de planta e
+`flatAttach` com término "face" nos pisos e lajes, `LevelResolveCache`, edição de parede e de abertura, sementes de estresse, sombra com divergência artificial, buffer circular, sombra
+desligada), `servidor.test.ts`, `ExperimentosDialog.test.ts`, `preferenciasFatias.test.ts`. Mutações, suíte completa e build final do `.wasm` ficam para o fim da A (método do dono).

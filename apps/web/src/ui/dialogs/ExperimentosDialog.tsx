@@ -7,6 +7,7 @@
  * do estado é feita na abertura e a cada alternância — nada de polling.
  */
 import { useEffect, useState, type ReactElement } from 'react';
+import { diagnosticoDespacho, type DiagnosticoDespacho } from '@hestia/engine';
 import {
   ativarKernelExperimental,
   desativarKernelExperimental,
@@ -22,6 +23,7 @@ import {
   FATIAS_HABILITADAS,
   forcaDaUrl,
   gravarFatiasSalvas,
+  gravarModoSombra,
   kernelExperimentalLigado,
   lerFatiasSalvas,
   lerFlagDaUrl,
@@ -45,7 +47,23 @@ const TEXTOS = {
     definidoUrl: 'definido pela URL',
     reiniciar: 'Preferência salva. Requer recarregar a página para valer.',
     sombra: 'Modo sombra (Rust e TypeScript na mesma chamada)',
-    sombraDica: 'disponível com a A3d',
+    sombraDica: 'só vale com a fatia A ligada',
+    despachoTitulo: 'Fatia A: despacho e modo sombra',
+    despachoInativo: 'Despacho inativo (fatia A desligada ou wasm ainda não carregado).',
+    despachoEstado: 'Kernel v2',
+    pronto: 'pronto',
+    emFalta: 'indisponível',
+    entregues: 'Níveis entregues pelo Rust',
+    voltas: 'Voltas ao TypeScript (leves / graves)',
+    recriacoes: 'Recriações da instância',
+    comparacoes: 'Comparações do modo sombra',
+    divergencias: 'Divergências',
+    ultima: 'Última divergência',
+    nenhuma: 'nenhuma',
+    nivel: 'nível',
+    parede: 'parede',
+    campo: 'campo',
+    ultimoErro: 'Último erro',
   },
   en: {
     fatiasTitulo: 'Kernel v2 slices (Rust/WASM)',
@@ -56,7 +74,23 @@ const TEXTOS = {
     definidoUrl: 'set by the URL',
     reiniciar: 'Preference saved. Requires reloading the page to take effect.',
     sombra: 'Shadow mode (Rust and TypeScript in the same call)',
-    sombraDica: 'available with A3d',
+    sombraDica: 'only applies with slice A on',
+    despachoTitulo: 'Slice A: dispatch and shadow mode',
+    despachoInativo: 'Dispatch inactive (slice A off or wasm not loaded yet).',
+    despachoEstado: 'Kernel v2',
+    pronto: 'ready',
+    emFalta: 'unavailable',
+    entregues: 'Levels delivered by Rust',
+    voltas: 'Fallbacks to TypeScript (light / severe)',
+    recriacoes: 'Instance recreations',
+    comparacoes: 'Shadow mode comparisons',
+    divergencias: 'Divergences',
+    ultima: 'Last divergence',
+    nenhuma: 'none',
+    nivel: 'level',
+    parede: 'wall',
+    campo: 'field',
+    ultimoErro: 'Last error',
   },
 } as const;
 
@@ -91,7 +125,17 @@ export function ExperimentosDialog(): ReactElement {
   const forcadaPelaUrl = forcaDaUrl() !== null;
   // Estado efetivo (URL > localStorage das fatias > preferência geral), lido a cada desenho.
   const efetivas = fatiasLigadas();
-  const sombra = lerModoSombra();
+  const [sombraSalva, setSombraSalva] = useState(lerModoSombra);
+  const [diag, setDiag] = useState<DiagnosticoDespacho | null>(diagnosticoDespacho);
+  // O modo sombra só vale com a fatia A efetiva (a mesma regra do despacho em `configDoDespacho`).
+  const fatiaAEfetiva = efetivas.has('A');
+  const sombra = sombraSalva && fatiaAEfetiva;
+
+  const alternarSombra = (valor: boolean): void => {
+    gravarModoSombra(valor);
+    setSombraSalva(valor);
+    setAvisoFatias(tf.reiniciar);
+  };
 
   const alternarFatia = (fatia: Fatia, valor: boolean): void => {
     const proxima = new Set(salvas);
@@ -105,12 +149,14 @@ export function ExperimentosDialog(): ReactElement {
   const atualizar = (): void => {
     setEstado(estadoKernel());
     setMedicao(medicaoOperacoes());
+    setDiag(diagnosticoDespacho());
   };
 
   // Abriu o diálogo: lê o estado uma vez. Daqui em diante só atualiza em alternância ou no botão.
   useEffect(() => {
     setEstado(estadoKernel());
     setMedicao(medicaoOperacoes());
+    setDiag(diagnosticoDespacho());
   }, []);
 
   const ligar = (): void => {
@@ -218,10 +264,39 @@ export function ExperimentosDialog(): ReactElement {
             {tf.sombra} — {tf.sombraDica}
           </label>
           <div>
-            <input id="kernel-sombra" type="checkbox" checked={sombra} disabled readOnly />
+            <input id="kernel-sombra" type="checkbox" checked={sombra} disabled={!fatiaAEfetiva} onChange={(e) => alternarSombra(e.target.checked)} />
           </div>
         </div>
         {avisoFatias ? <p role="status" style={{ margin: '4px 0 10px', color: 'var(--fg-soft)' }}>{avisoFatias}</p> : null}
+        <div id="kernel-despacho" aria-live="polite">
+          <strong>{tf.despachoTitulo}</strong>
+          {diag ? (
+            <ul>
+              <li>
+                {tf.despachoEstado}: {diag.pronto ? tf.pronto : `${tf.emFalta}${diag.indisponivel ? ` (${diag.indisponivel})` : ''}`}
+              </li>
+              <li>
+                {tf.entregues}: {diag.entreguesPeloRust} · {tf.voltas}: {diag.voltasLeves} / {diag.voltasGraves} · {tf.recriacoes}: {diag.recriacoes}
+              </li>
+              <li>
+                {tf.comparacoes}: {diag.comparacoes} · {tf.divergencias}: {diag.divergencias}
+              </li>
+              <li>
+                {tf.ultima}:{' '}
+                {diag.ultimaDivergencia
+                  ? `${tf.nivel} ${diag.ultimaDivergencia.nivel}, ${tf.parede} ${diag.ultimaDivergencia.parede ?? '—'}, ${tf.campo} ${diag.ultimaDivergencia.campo} — ${diag.ultimaDivergencia.mensagem}`
+                  : tf.nenhuma}
+              </li>
+              {diag.ultimoErro ? (
+                <li>
+                  {tf.ultimoErro}: {diag.ultimoErro}
+                </li>
+              ) : null}
+            </ul>
+          ) : (
+            <p>{tf.despachoInativo}</p>
+          )}
+        </div>
       </div>
       <div className="hint" aria-live="polite">
         <strong>Status agora</strong>

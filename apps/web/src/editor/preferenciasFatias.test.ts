@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FATIAS_HABILITADAS, forcaDaUrl, gravarFatiasSalvas, lerFatiasSalvas, lerModoSombra, CHAVE_MODO_SOMBRA, type AmbienteKernel } from './preferenciasKernel.ts';
+import { configDoDespacho, gravarModoSombra, FATIAS_HABILITADAS, forcaDaUrl, gravarFatiasSalvas, lerFatiasSalvas, lerModoSombra, CHAVE_MODO_SOMBRA, type AmbienteKernel } from './preferenciasKernel.ts';
 
 /** Armazenamento em memória que registra as gravações, no lugar do `localStorage`. */
 function ambiente(busca: string | null, inicial: Record<string, string> = {}): AmbienteKernel & { dados: Record<string, string> } {
@@ -53,5 +53,23 @@ describe('preferências de fatias do kernel v2', () => {
     expect(lerModoSombra(ambiente(null))).toBe(false);
     expect(lerModoSombra(ambiente(null, { 'hestia:kernel:sombra': 'true' }))).toBe(true);
     expect(lerModoSombra(ambiente(null, { 'hestia:kernel:sombra': '1' }))).toBe(false);
+  });
+
+  it('grava e remove o modo sombra', () => {
+    const amb = ambiente(null);
+    gravarModoSombra(true, amb);
+    expect(amb.dados['hestia:kernel:sombra']).toBe('true');
+    gravarModoSombra(false, amb);
+    expect(amb.dados['hestia:kernel:sombra']).toBeUndefined();
+  });
+
+  it('configuração do despacho: nada liga sem flag; a sombra só vale com a fatia A', () => {
+    expect(configDoDespacho(ambiente(''))).toEqual({ fatiaA: false, sombra: false });
+    expect(configDoDespacho(ambiente('', { 'hestia:kernel:sombra': 'true' }))).toEqual({ fatiaA: false, sombra: false });
+    expect(configDoDespacho(ambiente('?kernelFatias=A'))).toEqual({ fatiaA: true, sombra: false });
+    expect(configDoDespacho(ambiente('?kernel=rust', { 'hestia:kernel:sombra': 'true' }))).toEqual({ fatiaA: true, sombra: true });
+    expect(configDoDespacho(ambiente('', { 'hestia:kernel:fatias': 'A', 'hestia:kernel:sombra': 'true' }))).toEqual({ fatiaA: true, sombra: true });
+    expect(configDoDespacho(ambiente('?kernel=ts', { 'hestia:kernel:fatias': 'A' }))).toEqual({ fatiaA: false, sombra: false });
+    expect(configDoDespacho(ambiente('?kernelFatias=B'))).toEqual({ fatiaA: false, sombra: false });
   });
 });

@@ -9,7 +9,7 @@
  * nesse caso o padrão é o TypeScript, exatamente como hoje.
  */
 
-import { CHAVE_FATIAS, FATIAS, interpretarLista, type Fatia } from '@hestia/geom';
+import { CHAVE_FATIAS, FATIAS, interpretarLista, kernelFatiaLigada, type Fatia } from '@hestia/geom';
 
 /** Caminho escolhido pelo usuário: o kernel experimental (`rust`) ou o TypeScript de sempre (`ts`). */
 export type FlagKernel = 'rust' | 'ts';
@@ -134,10 +134,24 @@ export function forcaDaUrl(amb: AmbienteKernel = ambienteReal()): 'kernelFatias'
   return geral === 'rust' || geral === 'ts' ? 'kernel' : null;
 }
 
-/** Chave do modo sombra (decisão 0046 §7.1). A lógica do modo sombra entra com a A3d; aqui só a preferência. */
+/** Chave do modo sombra (decisão 0046 §7.1). A lógica fica em `packages/engine/src/kernelDespacho.ts` (decisão 0047 §12). */
 export const CHAVE_MODO_SOMBRA = 'hestia:kernel:sombra';
 
 /** Modo sombra ligado? Padrão `false`; só `'true'` liga. */
 export function lerModoSombra(amb: AmbienteKernel = ambienteReal()): boolean {
   return amb.ler?.(CHAVE_MODO_SOMBRA) === 'true';
+}
+
+/** Grava o modo sombra (`'true'` liga; desligar remove a chave). Vale ao recarregar a página. */
+export function gravarModoSombra(ligado: boolean, amb: AmbienteKernel = ambienteReal()): void {
+  amb.gravar?.(CHAVE_MODO_SOMBRA, ligado ? 'true' : null);
+}
+
+/**
+ * Configuração do despacho da fatia A (decisão 0047 §12), lida do ambiente: a fatia A ligada (URL > `localStorage`) e o modo sombra, que só
+ * vale com a fatia A. Sem a fatia, nada é instalado nem baixado: o padrão continua TypeScript.
+ */
+export function configDoDespacho(amb: AmbienteKernel = ambienteReal()): { fatiaA: boolean; sombra: boolean } {
+  const fatiaA = kernelFatiaLigada('A', { busca: amb.busca ?? null, ler: amb.ler ?? (() => null) });
+  return { fatiaA, sombra: fatiaA && lerModoSombra(amb) };
 }

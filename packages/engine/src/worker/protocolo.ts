@@ -1,4 +1,5 @@
 import type { Id, Project } from '@hestia/model';
+import type { ConfigDespacho, DiagnosticoDespacho } from '../kernelDespacho.ts';
 
 /**
  * Protocolo entre a thread principal e o worker de resolução de níveis.
@@ -45,6 +46,11 @@ export interface PedidoResolucao {
    * wasm. Ausente ou `false`: nada muda no caminho de sempre.
    */
   kernel?: boolean;
+  /**
+   * Despacho da fatia A do kernel v2 (decisão 0047 §12): a URL e o `localStorage` não chegam ao worker, então a configuração viaja no
+   * pedido. Ausente: o worker não instala nada e o caminho é o de sempre.
+   */
+  kernelV2?: ConfigDespacho;
 }
 
 /** Cancelamento de um pedido pelo id (vale se o pedido ainda não começou no worker). */
@@ -60,6 +66,8 @@ export interface RespostaResolucao {
   id: number;
   resultado: unknown;
   erro: string | null;
+  /** Diagnóstico do despacho do kernel v2 neste worker (só quando instalado): a interface soma ao da thread principal. */
+  kernelDiag?: DiagnosticoDespacho;
 }
 
 /** Motivo pelo qual um pedido foi encerrado sem resultado: cancelado pelo chamador, ou substituído por um mais recente. */

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { instalarDespachoKernel, registrarDiagnosticoRemoto, removerDespachoKernel } from '@hestia/engine';
 import { ExperimentosDialog } from './ExperimentosDialog.tsx';
 
 /** Marcação de um `<input>` pelo id; o React SSR escreve `checked=""` e `disabled=""` como atributos. */
@@ -61,11 +62,66 @@ describe('Experimentais: interruptor por fatia', () => {
     }
   });
 
-  it('modo sombra aparece desabilitado, com a dica "disponível com a A3d"', () => {
-    simularAmbiente('');
+  it('modo sombra aparece desabilitado sem a fatia A, com a dica "só vale com a fatia A ligada"', () => {
+    simularAmbiente('', { 'hestia:kernel:sombra': 'true' });
     const html = renderToStaticMarkup(createElement(ExperimentosDialog));
     expect(entrada(html, 'kernel-sombra')).toContain('disabled=""');
     expect(entrada(html, 'kernel-sombra')).not.toContain('checked=""');
-    expect(html).toContain('disponível com a A3d');
+    expect(html).toContain('só vale com a fatia A ligada');
+  });
+
+  it('com a fatia A ligada o modo sombra fica habilitado e reflete hestia:kernel:sombra', () => {
+    simularAmbiente('', { 'hestia:kernel:fatias': 'A' });
+    let html = renderToStaticMarkup(createElement(ExperimentosDialog));
+    expect(entrada(html, 'kernel-sombra')).not.toContain('disabled=""');
+    expect(entrada(html, 'kernel-sombra')).not.toContain('checked=""');
+    simularAmbiente('', { 'hestia:kernel:fatias': 'A', 'hestia:kernel:sombra': 'true' });
+    html = renderToStaticMarkup(createElement(ExperimentosDialog));
+    expect(entrada(html, 'kernel-sombra')).toContain('checked=""');
+  });
+});
+
+describe('Experimentais: diagnóstico do despacho da fatia A', () => {
+  afterEach(() => {
+    removerDespachoKernel();
+    registrarDiagnosticoRemoto(null);
+  });
+
+  it('sem despachante instalado: mostra "inativo"', () => {
+    simularAmbiente('');
+    const html = renderToStaticMarkup(createElement(ExperimentosDialog));
+    expect(html).toContain('Despacho inativo');
+  });
+
+  it('com o despachante: mostra contagem de comparações e divergências', () => {
+    simularAmbiente('', { 'hestia:kernel:fatias': 'A' });
+    instalarDespachoKernel({ gerenciador: () => null, config: () => ({ fatiaA: true, sombra: true }) });
+    const html = renderToStaticMarkup(createElement(ExperimentosDialog));
+    expect(html).toContain('Comparações do modo sombra');
+    expect(html).toMatch(/Divergências[^0-9]*0/);
+    expect(html).toContain('nenhuma');
+  });
+
+  it('mostra a última divergência com nível, parede e campo (vinda do worker)', () => {
+    simularAmbiente('', { 'hestia:kernel:fatias': 'A' });
+    const divergencia = { quando: 1, nivel: 'lv_1', parede: 'w_7', campo: 'length', mensagem: 'parede 0 (id 3, grupo 0): length 5 (Rust) x 4 (TS)', nesteNivel: 1 };
+    registrarDiagnosticoRemoto({
+      config: { fatiaA: true, sombra: true },
+      instalado: true,
+      pronto: true,
+      indisponivel: null,
+      entreguesPeloRust: 0,
+      voltasLeves: 0,
+      voltasGraves: 0,
+      recriacoes: 0,
+      ultimoErro: null,
+      comparacoes: 4,
+      divergencias: 1,
+      ultimaDivergencia: divergencia,
+      registro: [divergencia],
+    });
+    const html = renderToStaticMarkup(createElement(ExperimentosDialog));
+    expect(html).toContain('nível lv_1, parede w_7, campo length');
+    expect(html).toMatch(/Comparações do modo sombra[^0-9]*4/);
   });
 });

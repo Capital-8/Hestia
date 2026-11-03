@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import { despachoInstalado, removerDespachoKernel } from '../kernelDespacho.ts';
 import { instalarServidor, type EscopoServidor } from './servidor.ts';
 import { colherBuffers, type PedidoResolucao, type RespostaResolucao } from './protocolo.ts';
 
@@ -77,5 +78,38 @@ describe('instalarServidor', () => {
     await esperar();
     expect(escopo.respostas).toEqual([]);
     expect(escopo.onmessage).toBeNull();
+  });
+});
+
+describe('instalarServidor: despacho da fatia A (kernelV2)', () => {
+  afterEach(() => removerDespachoKernel());
+
+  it('sem kernelV2 (o padrão) nada é instalado e a resposta é a de sempre, sem diagnóstico', async () => {
+    const escopo = escopoFalso();
+    instalarServidor(escopo, () => 'ok');
+    escopo.onmessage?.({ data: pedido(1, 'nivel', 'lv_0') });
+    await esperar();
+    expect(despachoInstalado()).toBe(false);
+    expect(escopo.respostas).toEqual([{ id: 1, resultado: 'ok', erro: null }]);
+    expect('kernelDiag' in escopo.respostas[0]!).toBe(false);
+  });
+
+  it('kernelV2 com a fatia desligada também não instala nada', async () => {
+    const escopo = escopoFalso();
+    instalarServidor(escopo, () => 'ok');
+    escopo.onmessage?.({ data: { ...pedido(1, 'nivel', 'lv_0'), kernelV2: { fatiaA: false, sombra: true } } });
+    await esperar();
+    expect(despachoInstalado()).toBe(false);
+  });
+
+  it('kernelV2 com a fatia A instala o despachante e a resposta leva o diagnóstico (wasm indisponível no Node: segue TS)', async () => {
+    const escopo = escopoFalso();
+    instalarServidor(escopo, () => 'ok');
+    escopo.onmessage?.({ data: { ...pedido(1, 'nivel', 'lv_0'), kernelV2: { fatiaA: true, sombra: false } } });
+    await esperar(150);
+    expect(despachoInstalado()).toBe(true);
+    const r = escopo.respostas[0]!;
+    expect(r.resultado).toBe('ok');
+    expect(r.kernelDiag).toMatchObject({ instalado: true, pronto: false, comparacoes: 0, divergencias: 0, config: { fatiaA: true, sombra: false } });
   });
 });
