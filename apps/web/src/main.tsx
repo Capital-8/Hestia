@@ -35,7 +35,7 @@ if (new URLSearchParams(location.search).has('debug')) {
     estado: estadoKernel,
     medicao: medicaoOperacoes,
   };
-  void Promise.all([import('./editor/controller.ts'), import('./editor/state.ts'), import('@hestia/engine'), import('@hestia/tools'), import('@hestia/model')]).then(([c, s, e, t, m]) => {
+  void Promise.all([import('./editor/controller.ts'), import('./editor/state.ts'), import('@hestia/engine'), import('@hestia/tools'), import('@hestia/model'), import('./ui/familia/familiaStore.ts')]).then(([c, s, e, t, m, f]) => {
     (window as unknown as { __hestia: unknown }).__hestia = {
       editor: c.editor,
       useUi: s.useUi,
@@ -49,6 +49,8 @@ if (new URLSearchParams(location.search).has('debug')) {
       quantifyLevel: e.quantifyLevel,
       sectionSnapIndex: t.sectionSnapIndex,
       model: m,
+      engine: e,
+      useFamilia: f.useFamilia,
     };
   });
 }
