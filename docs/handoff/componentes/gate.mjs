@@ -13,6 +13,7 @@ const dir = path.resolve(arg('dir', '.'));
 const base = arg('base', 'HEAD~1');
 const allow = arg('allow').split(',').map((s) => s.trim()).filter(Boolean);
 const tests = arg('tests').split(',').map((s) => s.trim()).filter(Boolean);
+const filtro = arg('filtro');
 let falhas = 0;
 
 const roda = (cmd, args) => spawnSync(cmd, args, { cwd: dir, encoding: 'utf8', shell: true, maxBuffer: 64 * 1024 * 1024 });
@@ -37,7 +38,7 @@ if (alvos.length) {
   registra('eslint (0 avisos)', lint.status === 0, lint.status === 0 ? '' : ultima(lint));
 }
 if (tests.length) {
-  const vt = roda('npx', ['vitest', 'run', '--testTimeout=120000', ...tests]);
+  const vt = roda('npx', ['vitest', 'run', '--testTimeout=120000', ...(filtro ? ['-t', JSON.stringify(filtro)] : []), ...tests]);
   registra(`vitest (${tests.length} arquivo(s))`, vt.status === 0, ultima(vt));
 }
 const fr = roda('node', ['scripts/check-boundaries.mjs']);
