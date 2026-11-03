@@ -64,6 +64,34 @@ jobs:
       - run: npx vite-node scripts/kernel-harness.mts -- --sintetico 10 --wasm "$RUNNER_TEMP/wasm/geom_wasm.wasm"
       - run: node scripts/verificar-wasm.mjs --estrito
 
+  # Suíte PESADA do kernel (retas a 60 paredes, ~13 min com 1 fork): mesmo setup do job `wasm`, mas SEM continue-on-error,
+  # porque deve reprovar a execução se algum teste falhar (ver 0047 §14 e vitest.wasm.pesado.config.ts).
+  wasm-pesado:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.97.1
+          targets: wasm32-unknown-unknown
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            crates/geom-wasm/target
+          key: cargo-${{ runner.os }}-1.97.1-${{ hashFiles('crates/geom-wasm/Cargo.lock') }}
+      - run: npm ci
+      - run: node scripts/build-wasm.mjs --saida "$RUNNER_TEMP/wasm"
+      - run: npm run test:wasm:pesado
+        env:
+          KERNEL_WASM_PATH: ${{ runner.temp }}/wasm/geom_wasm.wasm
+
   # Suíte completa (60 sementes de propriedade, ~8 min). A infra de timeout do vitest foi corrigida (docs/08 §9);
   # não bloqueia enquanto houver reprovações de geometria em aberto. Remover continue-on-error quando estiver verde.
   completo:
