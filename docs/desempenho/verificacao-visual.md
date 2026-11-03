@@ -225,6 +225,6 @@ Todas em `tests/e2e/out/verificacao-visual/` (22 PNG + `resultados.md` + `resumo
 ## 8. Ligação com o board
 
 Este documento fecha o item “Conferência visual” do handoff de inserção de 2026-10-26 (removido) §5/Passo 3 e a entrega do
-**A2** no board (`docs/desempenho/execucao-subagentes-2026-10-26.md`, §2/Squad 1). Para o gate **G1** falta o A1
+**A2** no board (execução de subagentes de 2026-10-26, removida; §2/Squad 1). Para o gate **G1** falta o A1
 (inserção/abertura) e a integração I1; o roteiro pode ser reexecutado no L1 de cada mudança visual com
 `node tests/e2e/verificacao-visual.mjs` (≈1 min) e no L2 da fase junto do `visual-regression.mjs`.

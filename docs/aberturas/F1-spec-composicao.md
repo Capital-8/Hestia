@@ -1,6 +1,6 @@
 # F1 · Especificação: composição de portas e janelas (células + perfis)
 
-Data: 2026-10-28. Base: pesquisa [R1..R5](pesquisa-f0/), [E](E-spec-modelo-unico.md), [E3](E3-spec-correcoes-v3.md), [HANDOFF](HANDOFF-ESQUADRIAS-HESTIA-2026-10-27.md) §1. Contrato de tipos: `packages/model/src/openingComposition.ts` (ainda fora de `index.ts`). Esta spec não implementa nada. Onde o código real divergiu do brief, vale o código (ver §10, Riscos).
+Data: 2026-10-28. Base: pesquisa [R1..R5](pesquisa-f0/), [E](E-spec-modelo-unico.md), [E3](E3-spec-correcoes-v3.md), HANDOFF de 2026-10-27 (removido; ver histórico do git) §1. Contrato de tipos: `packages/model/src/openingComposition.ts` (ainda fora de `index.ts`). Esta spec não implementa nada. Onde o código real divergiu do brief, vale o código (ver §10, Riscos).
 
 ## 1 · Objetivo e casos de uso
 

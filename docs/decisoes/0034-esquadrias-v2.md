@@ -17,7 +17,7 @@ Especificação técnica: [E](../aberturas/E-spec-modelo-unico.md).
 ## Estado de implementação (2026-10-26)
 
 Implementado por agentes opencode (modelo flash) em worktrees isoladas e integrado por revisão; os relatórios de cada
-tarefa estão em [relatorios-v2](../aberturas/relatorios-v2/).
+tarefa estão em relatorios-v2 (removidos; ver histórico do git).
 
 - **Modelo único** `buildOpeningModel` (`packages/engine/src/openingModel*.ts`) para as 19 famílias; planta
   (`openingPlan.ts`), linhas de abertura (`openingLines.ts`), corte e elevação (`render/section`), 3D (`openingParts.ts`),

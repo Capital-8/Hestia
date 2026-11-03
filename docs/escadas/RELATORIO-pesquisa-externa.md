@@ -1,6 +1,6 @@
 # Escadas · relatório da pesquisa externa (fonte primária)
 
-Executa o [`PROMPT-pesquisa-externa.md`](PROMPT-pesquisa-externa.md). **Data da coleta: 2026-10-20.**
+Executa o prompt de pesquisa externa (removido; ver histórico do git). **Data da coleta: 2026-10-20.**
 
 > **Desvio assumido em relação ao prompt:** o prompt pede até ~6.000 palavras; este relatório tem ~10.000. A escolha foi
 > manter as 78 linhas com citação literal, URL e versão (é insumo direto para `docs/paridade/escadas.md`), em vez de cortar
