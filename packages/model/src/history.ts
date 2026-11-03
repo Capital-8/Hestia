@@ -1,5 +1,6 @@
 import { applyPatches, enablePatches, produceWithPatches, type Patch } from 'immer';
 import { applyCommand, type Command } from './commands.ts';
+import { componentCommandLabel } from './componentCommands.ts';
 import type { Project } from './types.ts';
 
 enablePatches();
@@ -354,6 +355,11 @@ export function labelOf(c: Command): string {
       return 'Excluir ponto de vista 3D';
     case 'setView3DPointOrder':
       return 'Reordenar pontos de vista 3D';
+    case 'addComponent':
+    case 'updateComponent':
+    case 'upsertFamily':
+    case 'deleteFamily':
+      return componentCommandLabel(c);
     case 'addGrid':
       return 'Criar grade';
     case 'updateGrid':

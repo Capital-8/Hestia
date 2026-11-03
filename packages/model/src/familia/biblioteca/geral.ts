@@ -1,4 +1,14 @@
 import type { Familia } from '../tipos.ts';
+import { FAMILIA_BANCO, FAMILIA_MESA } from './geralMesaBanco.ts';
+import { FAMILIA_PAINEL_RIPADO } from './geralPainel.ts';
+import { FAMILIA_PRATELEIRA } from './geralPrateleira.ts';
+import { FAMILIA_BLOCO_LIVRE, FAMILIA_MODULO_BRANCO } from './geralSimples.ts';
 
-/* FICHA E7-geral: preencher esta lista com as famílias do grupo (ver IDS_OBRIGATORIOS em index.ts). */
-export const GERAL: Familia[] = [];
+export const GERAL: Familia[] = [
+  FAMILIA_MODULO_BRANCO,
+  FAMILIA_BLOCO_LIVRE,
+  FAMILIA_MESA,
+  FAMILIA_BANCO,
+  FAMILIA_PRATELEIRA,
+  FAMILIA_PAINEL_RIPADO,
+];

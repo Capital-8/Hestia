@@ -57,3 +57,4 @@ export * from './plan/sketch.ts';
 // Anotações (textos e cotas): desenho, caixa do texto, moldura e destaque de seleção/hover.
 export { annotationHighlightOps, annotationsOfLevel, blocoEm, drawnAnnotations, linhasDoTexto, noteOps, roomSeparatorStrokes, textBlockModel, type NoteLook, type NoteOps, type NoteTarget, type TextBlockModel } from './plan/notes.ts';
 export * from './familia/index.ts';
+export * from './model3d/componentSolids.ts';

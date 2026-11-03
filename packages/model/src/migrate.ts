@@ -261,6 +261,9 @@ const migrations: Record<number, Migration> = {
   // v22 → v23: vínculo de andar-tipo (copyLink). Arquivo antigo não tem `copyLinks`, o que significa nenhum vínculo:
   // nada a converter, a migração só avança a versão e preserva o restante do arquivo.
   22: (raw) => ({ ...raw }),
+  // v23 → v24: componentes e famílias do projeto (ADR 0049). Arquivo antigo não tem `componentFamilies` nem elementos `component`, o que
+  // significa nenhum componente: a migração só avança a versão e preserva o restante do arquivo.
+  23: (raw) => ({ ...raw }),
 };
 
 export class SchemaError extends Error {}
