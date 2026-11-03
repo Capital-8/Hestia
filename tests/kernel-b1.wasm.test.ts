@@ -207,7 +207,7 @@ describe.skipIf(!bytes)('B1: pisos_lajes_nivel do Rust x motor TypeScript', () =
     expect(cov.perimetros).toBeGreaterThanOrEqual(2);
   }, 120_000);
 
-  it('furo manual que passa do circuito do vinculado: corte e limite iguais ao TS; só o deslocamento {cm} diverge (o offset do Clipper deixa pedaços soltos)', () => {
+  it('furo manual que passa do circuito do vinculado: corte, limite e deslocamento {cm} iguais ao TS (o porte do ClipperOffset reproduz até os pedaços soltos que o offset do Clipper deixa em volta do furo)', () => {
     if (pula()) return;
     let emCm = 0;
     const outras: string[] = [];
@@ -233,8 +233,10 @@ describe.skipIf(!bytes)('B1: pisos_lajes_nivel do Rust x motor TypeScript', () =
         cena.destruir();
       }
     }
-    expect(outras.slice(0, 3), 'divergências fora do deslocamento {cm}').toEqual([]);
-    expect(emCm, 'camadas {cm} divergentes (a entrada fora do contrato é exercitada)').toBeGreaterThan(0);
+    // Antes do `offset_clipper` (B2) o offset do i_overlay limpava esses pedaços e 2 camadas {cm} divergiam (a "exceção nomeada" da B1); com o porte do
+    // ClipperOffset (cantos quadrados, pontos a 1 µm) não diverge nenhuma: a exceção era diferença de offset, não defeito do TS.
+    expect(outras.slice(0, 3), 'divergências').toEqual([]);
+    expect(emCm, 'camadas {cm} divergentes').toBe(0);
     console.log(`[B1 furo fora do circuito] camadas {cm} divergentes: ${emCm}`);
   }, 120_000);
 

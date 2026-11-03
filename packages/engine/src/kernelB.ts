@@ -1,6 +1,6 @@
 /**
- * Adaptador da sub-etapa B1 do kernel Rust (decisão 0050 §3): pisos e lajes. NÃO calcula geometria de piso nem de laje: só
- * (1) monta as seções da cena v8 a partir de um `Project` e
+ * Adaptador das sub-etapas B1 e B2 do kernel Rust (decisão 0050 §3): pisos e lajes, sem paredes (B1) e com as paredes do projeto (B2). NÃO calcula geometria de piso nem de laje: só
+ * (1) monta as seções da cena v9 a partir de um `Project` e
  * (2) EXTRAI de `resolveFloors` e `resolveSlabs` o que o Rust produz em `pisos_lajes_nivel`, na mesma codificação plana (ver
  * `crates/geom-wasm/schema/cena-v9.json`), para o harness e os testes compararem.
  *
@@ -13,6 +13,7 @@ import { isFloor, isSlab, levelElevation, type Floor, type FloorType, type Id, t
 import type { ColunasA1 } from './kernelA1.ts';
 import { decodificarForma } from './kernelA2.ts';
 import { enclosedRooms, outerPerimeter, roomAt } from './enclosed.ts';
+import { DEFAULT_JOIN_TOL } from './joins.ts';
 import { holesFor, openingsOnLevel, type LevelOpenings } from './levelOpenings.ts';
 import { resolveBoundary, type OutlineProblem } from './outlineBound.ts';
 import { resolveFloors } from './floors.ts';
@@ -27,7 +28,7 @@ const LIMITE_EXTERNO: Record<string, number> = { parede: 1, nucleo: 2 };
 /** `papel` de `contornos_vinculados`. */
 const PAPEL = { circuitoAcabamento: 0, circuitoNucleo: 1, perimetroAcabamento: 2, perimetroNucleo: 3 } as const;
 
-export const NOMES_SECOES_B1 = ['pisos', 'lajes', 'tipos_piso', 'tipos_laje', 'camadas_piso', 'camadas_laje', 'contornos_estaticos', 'contornos_vinculados', 'furos_nivel'] as const;
+export const NOMES_SECOES_B1 = ['pisos', 'lajes', 'tipos_piso', 'tipos_laje', 'camadas_piso', 'camadas_laje', 'contornos_estaticos', 'contornos_vinculados', 'furos_nivel', 'niveis'] as const;
 export type NomeSecaoB1 = (typeof NOMES_SECOES_B1)[number];
 
 export interface CenaB1 {
@@ -60,6 +61,7 @@ const COLUNAS: Record<NomeSecaoB1, readonly string[]> = {
   contornos_estaticos: ['id_num', 'tipo_el', 'elemento_num', 'anel', 'indice', 'x', 'y'],
   contornos_vinculados: ['id_num', 'tipo_el', 'elemento_num', 'papel', 'anel', 'indice', 'x', 'y'],
   furos_nivel: ['id_num', 'tipo_el', 'elemento_num', 'poligono', 'anel', 'indice', 'x', 'y'],
+  niveis: ['id_num', 'nivel_num', 'cota'],
 };
 
 /** Término da camada no esquema: o código e o valor (prioridade de `ate`, cm de `cm`). */
@@ -86,6 +88,8 @@ export function montarCenaB1(p: Project, materialDe: Map<Id, number> = new Map()
     if (n === undefined) materialDe.set(id, (n = materialDe.size + 1));
     return n;
   };
+  // Níveis (B2): a cota de cada um, para a adjacência de níveis das lajes (`adjacentLevelIds` ordena por `elevation`).
+  p.levels.forEach((l, i) => push('niveis', { id_num: i + 1, nivel_num: i, cota: l.elevation }));
   const pisoDe = new Map<Id, number>();
   const lajeDe = new Map<Id, number>();
   const tipoPisoDe = new Map<Id, number>();
@@ -237,6 +241,11 @@ export function argumentosB1(_p: Project, levelId: Id, cena: CenaB1): number[] {
   return [n];
 }
 
+/** Argumentos de `pisos_lajes_com_paredes`: o nível e a tolerância de junção do projeto (a de `resolveLevel`). */
+export function argumentosB2(p: Project, levelId: Id, cena: CenaB1): number[] {
+  return [...argumentosB1(p, levelId, cena), p.settings?.joinTolerance ?? DEFAULT_JOIN_TOL];
+}
+
 const numeroDe = (m: Map<Id, number>, id: Id, o: string): number => {
   const n = m.get(id);
   if (n === undefined) throw new Error(`${o} ${id} sem número interno`);
@@ -277,8 +286,18 @@ export function referenciaB1(p: Project, levelId: Id, cena: CenaB1): ElementoB1[
 
 const codigoDoProblema = (x: OutlineProblem | null): number => (x ? PROBLEMA[x]! : 0);
 
-/** Decodifica as saídas de `pisos_lajes_nivel` (arrays tipados do Rust) para o mesmo formato de `referenciaB1`. */
-export function decodificarB1(s: Record<string, ArrayLike<number>>): ElementoB1[] {
+/**
+ * A referência da B2: a MESMA extração (`resolveFloors` e `resolveSlabs` já aplicam `layerOutlines` e `terminoBlock` com as paredes do projeto,
+ * `wallsOfLevel` = `resolveLevel` com `flatAttach`). A diferença da B1 está no lado do Rust: sem `precisa_paredes`, toda camada se compara por igualdade.
+ */
+export const referenciaB2 = referenciaB1;
+
+/** Decodifica as saídas de `pisos_lajes_com_paredes` (7 valores por camada, sem `precisa_paredes`). */
+export const decodificarB2 = (s: Record<string, ArrayLike<number>>): ElementoB1[] => decodificarB1(s, false);
+
+/** Decodifica as saídas de `pisos_lajes_nivel` (arrays tipados do Rust) para o mesmo formato de `referenciaB1`. `comFlag`: a coluna `precisa_paredes` (B1). */
+export function decodificarB1(s: Record<string, ArrayLike<number>>, comFlag = true): ElementoB1[] {
+  const passo = comFlag ? 8 : 7;
   const el = s['elementos']!;
   const num = s['elementos_num']!;
   const cam = s['camadas']!;
@@ -291,16 +310,16 @@ export function decodificarB1(s: Record<string, ArrayLike<number>>): ElementoB1[
     const camadas: CamadaB1[] = [];
     for (let c = e(5); c < e(5) + e(6); c++) {
       camadas.push({
-        indice: cam[8 * c]!,
-        material: cam[8 * c + 1]!,
-        nucleo: cam[8 * c + 2] === 1,
-        membrana: cam[8 * c + 3] === 1,
-        explicita: cam[8 * c + 4] === 1,
-        pedeParedes: cam[8 * c + 5] === 1,
+        indice: cam[passo * c]!,
+        material: cam[passo * c + 1]!,
+        nucleo: cam[passo * c + 2] === 1,
+        membrana: cam[passo * c + 3] === 1,
+        explicita: cam[passo * c + 4] === 1,
+        ...(comFlag ? { pedeParedes: cam[passo * c + 5] === 1 } : {}),
         z0: camNum[3 * c]!,
         z1: camNum[3 * c + 1]!,
         prioridade: camNum[3 * c + 2]!,
-        poligono: forma(cam[8 * c + 6]!, cam[8 * c + 7]!),
+        poligono: forma(cam[passo * c + passo - 2]!, cam[passo * c + passo - 1]!),
       });
     }
     out.push({

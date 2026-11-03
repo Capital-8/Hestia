@@ -3,7 +3,9 @@
 // manuais e deslocamento), VINCULADOS por acabamento e por núcleo (a sala do ponto de semente; semente fora de sala dá circuito aberto), de
 // PERÍMETRO (acabamento e núcleo), com lajes inclinadas, tipos de camadas variadas (membrana de espessura zero, prioridade explícita, todos os
 // términos, limite no perímetro externo), escadas que furam as lajes e os pisos do pavimento de cima e um pavimento sem paredes (vinculado
-// `fora`). Nada de projeto real: só geometria sintética. A referência é sempre o motor TypeScript.
+// `fora`). Com `paredesB2`, as paredes que a B2 consulta ganham o que muda o término por camada: portas (soleira no piso e acima dele), paredes
+// paralelas coladas, diagonais que cruzam os contornos e uma parede curva por pavimento. Nada de projeto real: só geometria sintética. A referência
+// é sempre o motor TypeScript.
 import {
   ProjectStore,
   createEmptyProject,
@@ -44,6 +46,11 @@ export interface OpcoesEstresseB1 {
    * semente). Furo que passa do circuito é entrada fora do contrato: o `offsetMulti` do TS (Clipper) deixa pedaços soltos em volta do furo e o Rust não.
    */
   furosLivres?: boolean;
+  /**
+   * B2: paredes extras por pavimento com paredes (portas em ~45% das paredes de 4 m, com a soleira no piso e acima dele; 3 paredes paralelas coladas;
+   * 2 diagonais; 1 parede curva). Usa outro gerador de números aleatórios: os pisos e lajes das sementes existentes não mudam.
+   */
+  paredesB2?: boolean;
 }
 
 const FUNCOES: Layer['function'][] = ['structure', 'substrate', 'thermal', 'membrane', 'finish1', 'finish2'];
@@ -121,6 +128,36 @@ export function projetoDeEstresseB1(semente: number, opcoes: OpcoesEstresseB1 = 
     SEGMENTS.forEach(([[ax, ay], [bx, by]], j) => {
       cmds.push({ type: 'addWall', wall: makeWall({ id: `bw_${semente}_${levelId}_${j}`, typeId: r() < 0.7 ? 'wt_ext19' : escolhe(tiposDeParede), levelId, a: { x: ax, y: ay }, b: { x: bx, y: by } }) });
     });
+  }
+  if (opcoes.paredesB2) {
+    const rr = aleatorio(semente * 104729 + 7);
+    const pick = <T,>(v: readonly T[]): T => v[Math.floor(rr() * v.length)]!;
+    const tiposDePorta = ['ot_p80', 'ot_p90', 'ot_p160', 'ot_vao90', 'ot_pc160'] as const;
+    for (const levelId of comParedes) {
+      SEGMENTS.forEach(([[ax, ay], [bx, by]], j) => {
+        if (rr() >= 0.45 || Math.hypot(bx - ax, by - ay) < 3.9) return;
+        const sill = pick([null, null, 0, 0.02, 0.08, 0.15] as const);
+        cmds.push({ type: 'addOpening', opening: { id: `bo_${semente}_${levelId}_${j}`, kind: 'door', typeId: pick(tiposDePorta), hostId: `bw_${semente}_${levelId}_${j}`, offset: 1 + rr() * 2, flipHand: false, flipFacing: rr() < 0.5, sillOverride: sill, mark: '' } });
+      });
+      // paralelas coladas: o mesmo eixo deslocado de 10 a 40 cm, mais curto
+      for (let k = 0; k < 3; k++) {
+        const [[ax, ay], [bx, by]] = pick(SEGMENTS);
+        const d = pick([0.1, 0.15, 0.25, 0.4] as const);
+        const t0 = rr() * 0.4;
+        const t1 = 0.6 + rr() * 0.4;
+        const vert = ax === bx;
+        const a = vert ? { x: ax + d, y: ay + (by - ay) * t0 } : { x: ax + (bx - ax) * t0, y: ay + d };
+        const b = vert ? { x: bx + d, y: ay + (by - ay) * t1 } : { x: ax + (bx - ax) * t1, y: by + d };
+        cmds.push({ type: 'addWall', wall: makeWall({ id: `bp_${semente}_${levelId}_${k}`, typeId: pick(tiposDeParede), levelId, a, b }) });
+      }
+      // diagonais que atravessam os contornos dos pisos e das lajes
+      for (let k = 0; k < 2; k++) {
+        const a = { x: 1 + rr() * 4, y: 1 + rr() * 10 };
+        const b = { x: 7 + rr() * 4, y: 1 + rr() * 10 };
+        cmds.push({ type: 'addWall', wall: makeWall({ id: `bd_${semente}_${levelId}_${k}`, typeId: pick(tiposDeParede), levelId, a, b }) });
+      }
+      cmds.push({ type: 'addWall', wall: makeWall({ id: `bc_${semente}_${levelId}`, typeId: pick(tiposDeParede), levelId, a: { x: 2 + rr() * 2, y: 5 + rr() * 2 }, b: { x: 8 + rr() * 2, y: 5 + rr() * 2 }, sag: pick([-0.8, -0.4, 0.5, 0.9] as const) }) });
+    }
   }
   let n = 0;
   const heightOffset = (): number => escolhe([0, 0, 0.05, 0.12, -0.02, 0.2]);
