@@ -7,7 +7,7 @@ function peca(extra: Partial<PecaResolvida> & Pick<PecaResolvida, 'origem' | 'ex
   return {
     id: 'p', nome: 'p', indice: 1, papel: 'painel', eixo: 'z', vazio: false,
     tamanho: [sx, sy], espessura: sz, contorno: null, material: null,
-    fita: null, veio: null, grupo: null, deAninhado: null, ...extra,
+    fita: null, veio: null, grupo: null, chapa: null, usinagens: [], deAninhado: null, ...extra,
   };
 }
 

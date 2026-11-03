@@ -74,6 +74,7 @@ export const CATALOGO_PADRAO: Catalogo = {
     { id: 'fita_pvc_045', nome: 'Fita PVC 0,45 × 22', espessura: 0.45, altura: 22, custoM: 1.2 },
     { id: 'fita_pvc_1', nome: 'Fita PVC 1,0 × 22', espessura: 1, altura: 22, custoM: 2.4 },
     { id: 'fita_pvc_2', nome: 'Fita PVC 2,0 × 35', espessura: 2, altura: 35, custoM: 4.8 },
+    { id: 'fita_pvc', nome: 'Fita PVC 0,45 × 22 (padrão das famílias)', espessura: 0.45, altura: 22, custoM: 1.2 },
   ],
   ferragens: [
     { id: 'dobradica', nome: 'Dobradiça 35 mm', unidade: 'un', custo: 6 },
