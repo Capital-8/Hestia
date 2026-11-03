@@ -13,8 +13,8 @@
 
 use std::collections::BTreeMap;
 
-use crate::a2::Codificador;
-use crate::a3c::{resolver_nivel, FaixaVertical, Inclinacao, NivelResolvido, OpcoesDoCluster};
+use crate::a2::{Codificador, NivelPintado};
+use crate::a3c::{resolver_nivel, FaixaVertical, GrupoResolvido, Inclinacao, NivelResolvido, OpcoesDoCluster};
 use crate::camadas::{ponto_no_corte, Borda};
 use crate::cena::Cena;
 use crate::consultas::Saida;
@@ -214,17 +214,29 @@ pub fn recortar_pela_base(faixas: &[FaixaVertical], a: [f64; 2], u: [f64; 2], le
 
 /// Perfis de uma parede (`perfis_z`): topo e base derivados de `wallZRange`, e o `topProfile` do modelo.
 #[derive(Default, Clone)]
-struct PerfisDaParede {
-    topo: Option<Perfil>,
-    base: Option<Perfil>,
-    modelo: Option<Perfil>,
+pub(crate) struct PerfisDaParede {
+    pub(crate) topo: Option<Perfil>,
+    pub(crate) base: Option<Perfil>,
+    pub(crate) modelo: Option<Perfil>,
 }
 
-/// Agrupa `perfis_z` por parede. `ENTRADA` se o índice de uma lista repete ou deixa lacuna.
-fn perfis_por_parede(cena: &Cena) -> Result<BTreeMap<u32, PerfisDaParede>, u32> {
+/// Agrupa `perfis_z` por parede. `ENTRADA` se o índice de uma lista repete ou deixa lacuna. Na variante da junção (B3), a parede que tem linha em
+/// `paredes_z_juncao` lê os perfis de `perfis_z_juncao` (todas as listas) e não os de `perfis_z`.
+pub(crate) fn perfis_por_parede(cena: &Cena) -> Result<BTreeMap<u32, PerfisDaParede>, u32> {
     let mut listas: BTreeMap<(u32, u8), Vec<(u32, f64, f64)>> = BTreeMap::new();
+    let variante = cena.variante_juncao.get();
     for p in cena.a3.perfis.values() {
+        if variante && cena.b.paredes_z_juncao.contains_key(&p.parede) {
+            continue;
+        }
         listas.entry((p.parede, p.lista)).or_default().push((p.indice, p.t, p.h));
+    }
+    if variante {
+        for p in cena.b.perfis_juncao.values() {
+            if cena.b.paredes_z_juncao.contains_key(&p.parede) {
+                listas.entry((p.parede, p.lista)).or_default().push((p.indice, p.t, p.h));
+            }
+        }
     }
     let mut out: BTreeMap<u32, PerfisDaParede> = BTreeMap::new();
     for ((parede, lista), mut pts) in listas {
@@ -243,10 +255,41 @@ fn perfis_por_parede(cena: &Cena) -> Result<BTreeMap<u32, PerfisDaParede>, u32> 
     Ok(out)
 }
 
+/// `withBottomProfile` e depois `withProfile` sobre as faixas de cada camada de cada parede reta (`sag` = 0) com perfil de ao menos 2 pontos: o perfil
+/// superior é o da lista 0 ou, se não existe, o `topProfile` do modelo (lista 2). Usado por `resolver_nivel` e pela junção (B3).
+pub(crate) fn aplicar_perfis(cena: &Cena, pintado: &NivelPintado, grupos: &mut [GrupoResolvido], perfis: &BTreeMap<u32, PerfisDaParede>) -> Result<(), u32> {
+    for (gi, g) in pintado.grupos.iter().enumerate() {
+        for &mi in &g.membros {
+            let q = &pintado.quadros[mi];
+            let linha = cena.a1.quadros.get(&q.id).ok_or(ENTRADA)?;
+            if linha.sag != 0.0 {
+                continue;
+            }
+            let p = perfis.get(&q.id).cloned().unwrap_or_default();
+            let a = [q.a.x, q.a.y];
+            let u = [q.u.x, q.u.y];
+            let topo = p.topo.as_ref().or(p.modelo.as_ref());
+            for c in grupos[gi].camadas.iter_mut() {
+                if pintado.grupos[gi].itens[c.item].parede != q.id {
+                    continue;
+                }
+                if let Some(b) = p.base.as_ref().filter(|b| b.len() >= 2) {
+                    c.faixas = recortar_pela_base(&c.faixas, a, u, q.length, b)?;
+                }
+                if let Some(t) = topo.filter(|t| t.len() >= 2) {
+                    c.faixas = recortar_pelo_topo(&c.faixas, a, u, q.length, t)?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Executa `resolver_nivel(nivel_num, tol_juncao, opcoes)`.
 pub fn resolver_nivel_completo(cena: &Cena, nivel: u32, tol: f64, opcoes: &OpcoesDoCluster) -> Result<Vec<Saida>, u32> {
     let perfis = perfis_por_parede(cena)?;
     let NivelResolvido { pintado, mut grupos } = resolver_nivel(cena, nivel, tol, opcoes)?;
+    aplicar_perfis(cena, &pintado, &mut grupos, &perfis)?;
 
     let mut cod = Codificador::default();
     let mut paredes: Vec<u32> = Vec::new();
@@ -266,7 +309,7 @@ pub fn resolver_nivel_completo(cena: &Cena, nivel: u32, tol: f64, opcoes: &Opcoe
         // Paredes do grupo (`ResolvedCluster.wallIds`) e seus campos.
         for &mi in &g.membros {
             let q = &pintado.quadros[mi];
-            let z = cena.a1.paredes_z.get(&q.id).ok_or(ENTRADA)?;
+            let z = cena.parede_z(q.id).ok_or(ENTRADA)?;
             let linha = cena.a1.quadros.get(&q.id).ok_or(ENTRADA)?;
             let p = perfis.get(&q.id).cloned().unwrap_or_default();
             // perfis derivados copiados (`perfisDoResolvido`)
@@ -305,23 +348,6 @@ pub fn resolver_nivel_completo(cena: &Cena, nivel: u32, tol: f64, opcoes: &Opcoe
                 }
             }
 
-            // Perfis: base primeiro, depois o topo (o do `wallZRange` ou, na falta dele, o `topProfile` do modelo).
-            if linha.sag == 0.0 {
-                let a = [q.a.x, q.a.y];
-                let u = [q.u.x, q.u.y];
-                let topo = p.topo.as_ref().or(p.modelo.as_ref());
-                for c in grupos[gi].camadas.iter_mut() {
-                    if pintado.grupos[gi].itens[c.item].parede != q.id {
-                        continue;
-                    }
-                    if let Some(b) = p.base.as_ref().filter(|b| b.len() >= 2) {
-                        c.faixas = recortar_pela_base(&c.faixas, a, u, q.length, b)?;
-                    }
-                    if let Some(t) = topo.filter(|t| t.len() >= 2) {
-                        c.faixas = recortar_pelo_topo(&c.faixas, a, u, q.length, t)?;
-                    }
-                }
-            }
         }
         // Camadas, regiões e silhueta (as de `cluster_resolvido`, com a inclinação nas faixas).
         let res = &grupos[gi];

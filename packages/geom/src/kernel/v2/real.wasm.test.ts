@@ -66,7 +66,7 @@ describe.skipIf(modulo === null)('kernel v2: wasm real contra a referência', ()
   });
 
   it('versões do ABI e do esquema', () => {
-    expect(ger.estado()).toMatchObject({ ligado: true, versaoAbi: 2, versaoEsquema: 9 });
+    expect(ger.estado()).toMatchObject({ ligado: true, versaoAbi: 2, versaoEsquema: 10 });
   });
 
   it('as 3 consultas batem com a referência (aleatório, 3 níveis)', () => {

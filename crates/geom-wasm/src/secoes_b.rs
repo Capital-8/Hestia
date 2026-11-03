@@ -9,9 +9,10 @@ use std::collections::BTreeMap;
 use crate::cena::decodificar_colunas;
 use crate::esquema::{
     ENTRADA, ID_AUSENTE, INTERNO, LIMITE, LIMITE_LINHAS_POR_SECAO, SECAO_CAMADAS_LAJE, SECAO_CAMADAS_PISO, SECAO_CONTORNOS_ESTATICOS, SECAO_CONTORNOS_VINCULADOS, SECAO_FUROS_NIVEL,
-    SECAO_LAJES, SECAO_NIVEIS, SECAO_PISOS, SECAO_TIPOS_LAJE, SECAO_TIPOS_PISO,
+    SECAO_LAJES, SECAO_NIVEIS, SECAO_PAREDES_Z_JUNCAO, SECAO_PERFIS_Z_JUNCAO, SECAO_PISOS, SECAO_TIPOS_LAJE, SECAO_TIPOS_PISO,
 };
-use crate::secoes_a1::{bool01, chaves_validas, f64s, finito, u32s, u8s};
+use crate::secoes_a1::{bool01, chaves_validas, f64s, finito, u32s, u8s, ParedeZ};
+use crate::secoes_a3::{PontoDePerfil, LISTA_MAX};
 
 /// Maior código de `modo` (`outlineSource.mode`): 0 sem origem, 1 walls-finish, 2 walls-core, 3 perimeter.
 pub const MODO_MAX: u8 = 3;
@@ -109,6 +110,10 @@ pub struct SecoesB {
     pub furos: BTreeMap<u32, PontoLinha>,
     /// `niveis` (B2): chave `id_num` -> (`nivel_num`, cota).
     pub niveis: BTreeMap<u32, (u32, f64)>,
+    /// `paredes_z_juncao` (B3): a cota da parede na variante da junção (sem `flatAttach`), chave = id da parede.
+    pub paredes_z_juncao: BTreeMap<u32, ParedeZ>,
+    /// `perfis_z_juncao` (B3): os pontos de perfil dessa variante.
+    pub perfis_juncao: BTreeMap<u32, PontoDePerfil>,
 }
 
 enum Lote {
@@ -117,6 +122,8 @@ enum Lote {
     Camadas(bool, Vec<(u32, CamadaLinha)>),
     Pontos(u32, Vec<(u32, PontoLinha)>),
     Niveis(Vec<(u32, (u32, f64))>),
+    ParedesZ(Vec<(u32, ParedeZ)>),
+    Perfis(Vec<(u32, PontoDePerfil)>),
 }
 
 impl Lote {
@@ -127,6 +134,8 @@ impl Lote {
             Lote::Camadas(_, v) => v.iter().map(|x| x.0).collect(),
             Lote::Pontos(_, v) => v.iter().map(|x| x.0).collect(),
             Lote::Niveis(v) => v.iter().map(|x| x.0).collect(),
+            Lote::ParedesZ(v) => v.iter().map(|x| x.0).collect(),
+            Lote::Perfis(v) => v.iter().map(|x| x.0).collect(),
         }
     }
 }
@@ -288,6 +297,41 @@ fn decodificar(secao: u32, n_linhas: u32, bytes: &[u8]) -> Result<Lote, u32> {
             }
             Ok(Lote::Niveis(v))
         }
+        SECAO_PAREDES_Z_JUNCAO => {
+            let id = u32s(c.next())?;
+            let z0 = f64s(c.next())?;
+            let alt = f64s(c.next())?;
+            chaves_validas(&id)?;
+            let mut v = Vec::with_capacity(n);
+            for i in 0..n {
+                let (Some(&k), Some(&z), Some(&h)) = (id.get(i), z0.get(i), alt.get(i)) else { return Err(INTERNO) };
+                if !finito(z) || !finito(h) {
+                    return Err(ENTRADA);
+                }
+                v.push((k, ParedeZ { z0: z, altura: h }));
+            }
+            Ok(Lote::ParedesZ(v))
+        }
+        SECAO_PERFIS_Z_JUNCAO => {
+            let id = u32s(c.next())?;
+            let parede = u32s(c.next())?;
+            let lista = u8s(c.next())?;
+            let indice = u32s(c.next())?;
+            let t = f64s(c.next())?;
+            let h = f64s(c.next())?;
+            chaves_validas(&id)?;
+            let mut v = Vec::with_capacity(n);
+            for i in 0..n {
+                let (Some(&k), Some(&pa), Some(&l), Some(&ix), Some(&tt), Some(&hh)) = (id.get(i), parede.get(i), lista.get(i), indice.get(i), t.get(i), h.get(i)) else {
+                    return Err(INTERNO);
+                };
+                if !(finito(tt) && finito(hh)) || l > LISTA_MAX {
+                    return Err(ENTRADA);
+                }
+                v.push((k, PontoDePerfil { parede: pa, lista: l, indice: ix, t: tt, h: hh }));
+            }
+            Ok(Lote::Perfis(v))
+        }
         _ => Err(ENTRADA),
     }
 }
@@ -297,7 +341,7 @@ impl SecoesB {
     pub fn e_minha(secao: u32) -> bool {
         matches!(
             secao,
-            SECAO_PISOS | SECAO_LAJES | SECAO_TIPOS_PISO | SECAO_TIPOS_LAJE | SECAO_CAMADAS_PISO | SECAO_CAMADAS_LAJE | SECAO_CONTORNOS_ESTATICOS | SECAO_CONTORNOS_VINCULADOS | SECAO_FUROS_NIVEL | SECAO_NIVEIS
+            SECAO_PISOS | SECAO_LAJES | SECAO_TIPOS_PISO | SECAO_TIPOS_LAJE | SECAO_CAMADAS_PISO | SECAO_CAMADAS_LAJE | SECAO_CONTORNOS_ESTATICOS | SECAO_CONTORNOS_VINCULADOS | SECAO_FUROS_NIVEL | SECAO_NIVEIS | SECAO_PAREDES_Z_JUNCAO | SECAO_PERFIS_Z_JUNCAO
         )
     }
 
@@ -312,6 +356,8 @@ impl SecoesB {
             SECAO_CONTORNOS_ESTATICOS => self.estaticos.len(),
             SECAO_CONTORNOS_VINCULADOS => self.vinculados.len(),
             SECAO_NIVEIS => self.niveis.len(),
+            SECAO_PAREDES_Z_JUNCAO => self.paredes_z_juncao.len(),
+            SECAO_PERFIS_Z_JUNCAO => self.perfis_juncao.len(),
             _ => self.furos.len(),
         }
     }
@@ -327,6 +373,8 @@ impl SecoesB {
             SECAO_CONTORNOS_ESTATICOS => self.estaticos.contains_key(&k),
             SECAO_CONTORNOS_VINCULADOS => self.vinculados.contains_key(&k),
             SECAO_NIVEIS => self.niveis.contains_key(&k),
+            SECAO_PAREDES_Z_JUNCAO => self.paredes_z_juncao.contains_key(&k),
+            SECAO_PERFIS_Z_JUNCAO => self.perfis_juncao.contains_key(&k),
             _ => self.furos.contains_key(&k),
         }
     }
@@ -343,6 +391,8 @@ impl SecoesB {
             Lote::Pontos(SECAO_CONTORNOS_VINCULADOS, v) => self.vinculados.extend(v),
             Lote::Pontos(_, v) => self.furos.extend(v),
             Lote::Niveis(v) => self.niveis.extend(v),
+            Lote::ParedesZ(v) => self.paredes_z_juncao.extend(v),
+            Lote::Perfis(v) => self.perfis_juncao.extend(v),
         }
     }
 
@@ -359,6 +409,8 @@ impl SecoesB {
             SECAO_CONTORNOS_ESTATICOS => self.estaticos.clear(),
             SECAO_CONTORNOS_VINCULADOS => self.vinculados.clear(),
             SECAO_NIVEIS => self.niveis.clear(),
+            SECAO_PAREDES_Z_JUNCAO => self.paredes_z_juncao.clear(),
+            SECAO_PERFIS_Z_JUNCAO => self.perfis_juncao.clear(),
             _ => self.furos.clear(),
         }
         self.aplicar(lote);
@@ -406,6 +458,12 @@ impl SecoesB {
                 }
                 SECAO_NIVEIS => {
                     self.niveis.remove(k);
+                }
+                SECAO_PAREDES_Z_JUNCAO => {
+                    self.paredes_z_juncao.remove(k);
+                }
+                SECAO_PERFIS_Z_JUNCAO => {
+                    self.perfis_juncao.remove(k);
                 }
                 _ => {
                     self.furos.remove(k);

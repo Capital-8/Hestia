@@ -21,16 +21,21 @@ const secoes = (): SecoesDaCena => ({
   },
 });
 
-describe('esquema v9 (A1, A2, A3a, A3b, A3c, A3d, B1 e B2) no lado TypeScript', () => {
-  it('versão 9, seções novas e as consultas quadros_e_juncoes, itens_pintados, aberturas_geom, retornos_geom, cluster_resolvido, resolver_nivel, pisos_lajes_nivel e pisos_lajes_com_paredes no esquema', () => {
-    expect(ESQUEMA_VERSAO).toBe(9);
-    expect(Object.keys(SECOES)).toEqual(['paredes', 'paredes_quadro', 'tipos_parede', 'camadas', 'faixas', 'paredes_z', 'tipos_abertura', 'aberturas', 'perfis_z', 'pisos', 'lajes', 'tipos_piso', 'tipos_laje', 'camadas_piso', 'camadas_laje', 'contornos_estaticos', 'contornos_vinculados', 'furos_nivel', 'niveis']);
+describe('esquema v10 (A1, A2, A3a, A3b, A3c, A3d, B1, B2 e B3) no lado TypeScript', () => {
+  it('versão 10, seções novas e as consultas quadros_e_juncoes, itens_pintados, aberturas_geom, retornos_geom, cluster_resolvido, resolver_nivel, pisos_lajes_nivel, pisos_lajes_com_paredes e junction_nivel no esquema', () => {
+    expect(ESQUEMA_VERSAO).toBe(10);
+    expect(Object.keys(SECOES)).toEqual(['paredes', 'paredes_quadro', 'tipos_parede', 'camadas', 'faixas', 'paredes_z', 'tipos_abertura', 'aberturas', 'perfis_z', 'pisos', 'lajes', 'tipos_piso', 'tipos_laje', 'camadas_piso', 'camadas_laje', 'contornos_estaticos', 'contornos_vinculados', 'furos_nivel', 'niveis', 'paredes_z_juncao', 'perfis_z_juncao']);
     expect(CONSULTAS.pisos_lajes_nivel.id).toBe(10);
     expect([...CONSULTAS.pisos_lajes_nivel.args]).toEqual(['nivel_num']);
     expect(CONSULTAS.pisos_lajes_nivel.saidas.map((s) => s.nome)).toEqual(['elementos', 'elementos_num', 'camadas', 'camadas_num', 'poligonos', 'aneis', 'pontos']);
     expect(CONSULTAS.pisos_lajes_com_paredes.id).toBe(11);
     expect([...CONSULTAS.pisos_lajes_com_paredes.args]).toEqual(['nivel_num', 'tol_juncao']);
     expect(CONSULTAS.pisos_lajes_com_paredes.saidas.map((s) => s.nome)).toEqual(['elementos', 'elementos_num', 'camadas', 'camadas_num', 'poligonos', 'aneis', 'pontos']);
+    expect(CONSULTAS.junction_nivel.id).toBe(12);
+    expect([...CONSULTAS.junction_nivel.args]).toEqual(['nivel_num', 'tol_juncao']);
+    expect(CONSULTAS.junction_nivel.saidas.map((s) => s.nome)).toEqual(['cortadores', 'pecas', 'pecas_num', 'elementos', 'camadas', 'camadas_indice', 'paredes', 'faixas', 'faixas_camada', 'partes', 'partes_z', 'poligonos', 'aneis', 'pontos']);
+    expect(SECOES.paredes_z_juncao.id).toBe(20);
+    expect(SECOES.perfis_z_juncao.id).toBe(21);
     expect(CONSULTAS.quadros_e_juncoes.id).toBe(4);
     expect([...CONSULTAS.quadros_e_juncoes.args]).toEqual(['nivel_num', 'tol_juncao']);
     expect(CONSULTAS.quadros_e_juncoes.saidas.map((s) => s.nome)).toEqual([
@@ -97,6 +102,13 @@ describe('esquema v9 (A1, A2, A3a, A3b, A3c, A3d, B1 e B2) no lado TypeScript', 
       }
       try {
         cena.consultar('pisos_lajes_com_paredes', [0, 0.001]);
+        expect.unreachable();
+      } catch (e) {
+        expect(e).toBeInstanceOf(ErroKernelLeve);
+        expect((e as ErroKernelLeve).codigo).toBe(CODIGOS.NAO_IMPLEMENTADO);
+      }
+      try {
+        cena.consultar('junction_nivel', [0, 0.001]);
         expect.unreachable();
       } catch (e) {
         expect(e).toBeInstanceOf(ErroKernelLeve);

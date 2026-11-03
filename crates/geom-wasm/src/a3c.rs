@@ -296,7 +296,7 @@ pub fn resolver_nivel(cena: &Cena, nivel: u32, tol: f64, opcoes: &OpcoesDoCluste
         let paredes: BTreeSet<u32> = g.membros.iter().map(|&i| pintado.quadros[i].id).collect();
         let mut zr: BTreeMap<u32, FaixaZ> = BTreeMap::new();
         for &p in &paredes {
-            let z = cena.a1.paredes_z.get(&p).ok_or(ENTRADA)?;
+            let z = cena.parede_z(p).ok_or(ENTRADA)?;
             zr.insert(p, FaixaZ { z0: z.z0, z1: z.z0 + z.altura });
         }
         let vaos: Vec<VaoDoGrupo> = aberturas

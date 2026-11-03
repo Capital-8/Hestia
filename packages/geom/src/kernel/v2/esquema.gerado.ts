@@ -1,7 +1,7 @@
-// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v9.json.
+// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v10.json.
 // Não edite à mão: mude o JSON e rode `node scripts/gerar-esquema-kernel.mjs`.
 
-export const ESQUEMA_VERSAO = 9;
+export const ESQUEMA_VERSAO = 10;
 export const ABI_VERSAO = 2;
 export const NIVEL_TODOS = 4294967295;
 
@@ -778,6 +778,54 @@ export const SECOES = {
         "tipo": "f64"
       }
     ]
+  },
+  "paredes_z_juncao": {
+    "id": 20,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "z0",
+        "tipo": "f64"
+      },
+      {
+        "nome": "altura",
+        "tipo": "f64"
+      }
+    ]
+  },
+  "perfis_z_juncao": {
+    "id": 21,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "parede_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "lista",
+        "tipo": "u8"
+      },
+      {
+        "nome": "indice",
+        "tipo": "u32"
+      },
+      {
+        "nome": "t",
+        "tipo": "f64"
+      },
+      {
+        "nome": "h",
+        "tipo": "f64"
+      }
+    ]
   }
 } as const;
 
@@ -1228,6 +1276,85 @@ export const CONSULTAS = {
         "nome": "camadas_num",
         "tipo": "f64",
         "elementos": "3n"
+      },
+      {
+        "nome": "poligonos",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "aneis",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "pontos",
+        "tipo": "f64",
+        "elementos": "livre"
+      }
+    ]
+  },
+  "junction_nivel": {
+    "id": 12,
+    "args": [
+      "nivel_num",
+      "tol_juncao"
+    ],
+    "saidas": [
+      {
+        "nome": "cortadores",
+        "tipo": "u32",
+        "elementos": "3n"
+      },
+      {
+        "nome": "pecas",
+        "tipo": "u32",
+        "elementos": "11n"
+      },
+      {
+        "nome": "pecas_num",
+        "tipo": "f64",
+        "elementos": "16n"
+      },
+      {
+        "nome": "elementos",
+        "tipo": "u32",
+        "elementos": "7n"
+      },
+      {
+        "nome": "camadas",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "camadas_indice",
+        "tipo": "f64",
+        "elementos": "n"
+      },
+      {
+        "nome": "paredes",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "faixas",
+        "tipo": "u32",
+        "elementos": "3n"
+      },
+      {
+        "nome": "faixas_camada",
+        "tipo": "f64",
+        "elementos": "n"
+      },
+      {
+        "nome": "partes",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "partes_z",
+        "tipo": "f64",
+        "elementos": "2n"
       },
       {
         "nome": "poligonos",

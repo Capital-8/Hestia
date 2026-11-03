@@ -7,11 +7,12 @@
 //! Determinismo: as linhas ficam em `Vec` por coluna e a ordem canônica (id crescente) vem de um
 //! `BTreeMap<id, posição>`; nunca se itera um mapa de hash.
 
+use std::cell::Cell;
 use std::collections::BTreeMap;
 
 use crate::esquema::{self, Tipo, ENTRADA, ID_AUSENTE, LIMITE, LIMITE_LINHAS_POR_SECAO, NIVEL_TODOS, SECAO_PAREDES};
 use crate::indice::{Caixa, Indice};
-use crate::secoes_a1::SecoesA1;
+use crate::secoes_a1::{ParedeZ, SecoesA1};
 use crate::secoes_a3::SecoesA3;
 use crate::secoes_b::SecoesB;
 
@@ -316,6 +317,9 @@ pub struct Cena {
     pub(crate) b: SecoesB,
     /// Cache por nível (`NIVEL_TODOS` inclusive). Invalidado quando a seção muda.
     indices: BTreeMap<u32, IndiceNivel>,
+    /// B3: `true` enquanto a consulta `junction_nivel` resolve as paredes na variante da JUNÇÃO (`paredes_z_juncao` e `perfis_z_juncao`, sem `flatAttach`). Só a
+    /// `b3` o liga (com `VarianteDaJuncao`) e as leituras de cota e de perfil das paredes o consultam; fora dela vale sempre `paredes_z` e `perfis_z`.
+    pub(crate) variante_juncao: Cell<bool>,
 }
 
 impl Cena {
@@ -325,6 +329,16 @@ impl Cena {
 
     pub fn n_paredes(&self) -> usize {
         self.paredes.len()
+    }
+
+    /// `paredes_z` da parede `id`. Na variante da junção (B3), a parede que tem linha em `paredes_z_juncao` usa a dela.
+    pub(crate) fn parede_z(&self, id: u32) -> Option<ParedeZ> {
+        if self.variante_juncao.get() {
+            if let Some(z) = self.b.paredes_z_juncao.get(&id) {
+                return Some(*z);
+            }
+        }
+        self.a1.paredes_z.get(&id).copied()
     }
 
     fn invalidar(&mut self, tocados: &[u32]) {
