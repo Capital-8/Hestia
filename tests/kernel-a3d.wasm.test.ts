@@ -307,6 +307,30 @@ describe.skipIf(!bytes)('A3d: resolver_nivel do Rust x motor TypeScript', () => 
     }
   }, 60_000);
 
+  it('limiar: perfil com pontos a 5 µm (degrau quase vertical) mantém o trecho inclinado de 5 µm, como no TS (EPS de 1e-7)', () => {
+    if (pula()) return;
+    for (const [perfil, piso] of [
+      [[{ t: 0, h: 2 }, { t: 3, h: 2 }, { t: 3.000005, h: 1 }, { t: 6, h: 1 }], false],
+      [[{ t: 0, h: 2.5 }, { t: 2, h: 2.5 }, { t: 2.000005, h: 0.5 }, { t: 4, h: 0.5 }, { t: 4.000005, h: 2.5 }, { t: 6, h: 2.5 }], false],
+    ] as const) {
+      const p = projetoDeParedeComPerfil([...perfil], piso);
+      const cov = compararProjeto(p, {}, [{}]);
+      expect(cov.paredes).toBe(1);
+      // o comparador tolera uma faixa de 1 µm² a menos: contagem de faixas e de faixas inclinadas direto, nos dois motores
+      const { cena, a1, a3 } = cenaDe(p);
+      try {
+        const l = p.levels[0]!;
+        const ref = referenciaA3d(p, l.id, a1);
+        const rust = decodificarA3d(cena.consultar('resolver_nivel', argumentosA3d(p, l.id, a1, a3, {})));
+        const conta = (r: typeof ref): number[] => [r.camadas.reduce((t, c) => t + c.faixas.length, 0), r.camadas.reduce((t, c) => t + c.faixas.filter((x) => x.slope).length, 0)];
+        expect(conta(ref)[1], 'o TS produz o trecho inclinado de 5 µm').toBeGreaterThan(0);
+        expect(conta(rust), 'faixas e faixas inclinadas').toEqual(conta(ref));
+      } finally {
+        cena.destruir();
+      }
+    }
+  }, 60_000);
+
   it('upsert e remoção de perfis_z na cena viva seguem o projeto', () => {
     if (pula()) return;
     const p = projetoDeEstresseA3d(5, { paredes: 16, pavimentos: 1 });
