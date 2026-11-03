@@ -1,5 +1,6 @@
-import type { Familia, Valor } from '@hestia/model';
-import type { EntradaResolucao, ErroResolucao, PecaResolvida, ResolucaoFamilia } from './pecas.ts';
+import { LIMITES, tentar, type Aninhado, type Env, type Familia, type Valor } from '@hestia/model';
+import { girarPeca } from './aninhadosGeometria.ts';
+import { LIMITE_ANINHAMENTO, type EntradaResolucao, type ErroResolucao, type PecaResolvida, type ResolucaoFamilia } from './pecas.ts';
 
 /*
  * Módulos aninhados: família dentro de família (guarda-roupa de módulos, cozinha). FICHA E2-aninhados: implementar
@@ -46,6 +47,116 @@ export interface ContextoAninhados {
  * Nunca lança. Não altera `ctx`.
  */
 export function resolverAninhados(ctx: ContextoAninhados): { pecas: PecaResolvida[]; erros: ErroResolucao[] } {
-  void ctx;
-  throw new Error('não implementado: ficha E2-aninhados');
+  const pecas: PecaResolvida[] = [];
+  const erros: ErroResolucao[] = [];
+  const profundidade = ctx.entrada.profundidade ?? 0;
+  for (const a of ctx.familia.aninhados) {
+    try {
+      resolverUm(ctx, a, profundidade, pecas, erros);
+    } catch (e) {
+      erros.push({ onde: `aninhado:${a.id}`, mensagem: `aninhado malformado: ${(e as Error).message}` });
+    }
+  }
+  return { pecas, erros };
+}
+
+/** mm arredondado a 1 µm (3 casas), como em `resolver.ts`. */
+const mm3 = (v: number): number => Math.round(v * 1000) / 1000;
+/** mm → m arredondado a 1 µm (6 casas). */
+const metros = (v: number): number => Math.round(v * 1000) / 1e6;
+const round6 = (v: number): number => Math.round(v * 1e6) / 1e6;
+
+type Erros = ErroResolucao[];
+
+/** Número (mm, 3 casas) ou `null` com erro anotado. */
+function numero(src: string, env: Env, onde: string, erros: Erros): number | null {
+  const r = tentar(src, env);
+  if (!r.ok) { erros.push({ onde, mensagem: r.erro.message }); return null; }
+  if (typeof r.valor !== 'number' || !Number.isFinite(r.valor)) { erros.push({ onde, mensagem: 'a fórmula não resulta em número' }); return null; }
+  return mm3(r.valor);
+}
+
+/** `a.valores` avaliados no env do pai (mm); `null` se alguma fórmula falhar. */
+function avaliarValores(a: Aninhado, env: Env, erros: Erros, prefixo: string): Record<string, Valor> | null {
+  const valores: Record<string, Valor> = {};
+  for (const [chave, formula] of Object.entries(a.valores)) {
+    const r = tentar(formula, env);
+    if (!r.ok) { erros.push({ onde: `aninhado:${prefixo}.valores.${chave}`, mensagem: r.erro.message }); return null; }
+    valores[chave] = typeof r.valor === 'number' ? mm3(r.valor) : r.valor;
+  }
+  return valores;
+}
+
+/** `a.origem` em mm; `null` se alguma coordenada falhar. */
+function avaliarOrigem(a: Aninhado, env: Env, erros: Erros, prefixo: string): [number, number, number] | null {
+  const o = a.origem.map((s, k) => numero(s, env, `aninhado:${prefixo}.origem[${k}]`, erros));
+  if (o.includes(null)) return null;
+  return o as [number, number, number];
+}
+
+/** `a.rotacao` normalizada em 0, 90, 180 ou 270; `null` se não for número ou não for múltiplo de 90°. */
+function avaliarRotacao(a: Aninhado, env: Env, erros: Erros, prefixo: string): number | null {
+  if (a.rotacao === undefined) return 0;
+  const r = tentar(a.rotacao, env);
+  if (!r.ok) { erros.push({ onde: `aninhado:${prefixo}.rotacao`, mensagem: r.erro.message }); return null; }
+  if (typeof r.valor !== 'number' || !Number.isFinite(r.valor)) { erros.push({ onde: `aninhado:${prefixo}.rotacao`, mensagem: 'a fórmula não resulta em número' }); return null; }
+  const bruto = ((r.valor % 360) + 360) % 360;
+  const quartos = bruto / 90;
+  if (Math.abs(quartos - Math.round(quartos)) > 1e-9) {
+    erros.push({ onde: `aninhado:${prefixo}.rotacao`, mensagem: 'rotação precisa ser múltiplo de 90°' });
+    return null;
+  }
+  return (((Math.round(quartos) * 90) % 360) + 360) % 360;
+}
+
+function resolverUm(ctx: ContextoAninhados, a: Aninhado, profundidade: number, pecas: PecaResolvida[], erros: Erros): void {
+  const onde = `aninhado:${a.id}`;
+  if (a.quando !== undefined) {
+    const q = tentar(a.quando, ctx.env);
+    if (!q.ok) { erros.push({ onde: `${onde}.quando`, mensagem: q.erro.message }); return; }
+    if (!(typeof q.valor === 'string' ? q.valor !== '' : Boolean(q.valor))) return;
+  }
+  let n = 1;
+  if (a.repetir !== undefined) {
+    const r = numero(a.repetir, ctx.env, `${onde}.repetir`, erros);
+    if (r === null) return;
+    n = Math.max(0, Math.min(LIMITES.repeticao, Math.floor(r)));
+  }
+  if (profundidade >= LIMITE_ANINHAMENTO) {
+    erros.push({ onde, mensagem: `aninhamento além do limite (${LIMITE_ANINHAMENTO})` });
+    return;
+  }
+  const filha = ctx.entrada.biblioteca?.(a.familiaId);
+  if (filha === undefined) { erros.push({ onde, mensagem: `família "${a.familiaId}" não encontrada` }); return; }
+  if (filha.id === ctx.familia.id) { erros.push({ onde, mensagem: 'família aninha a si mesma' }); return; }
+  for (let i = 1; i <= n; i++) {
+    const prefixo = a.repetir !== undefined ? `${a.id}[${i}]` : a.id;
+    const env: Env = a.repetir !== undefined ? { ...ctx.env, i, n } : ctx.env;
+    const valores = avaliarValores(a, env, erros, prefixo);
+    if (valores === null) continue;
+    const origem = avaliarOrigem(a, env, erros, prefixo);
+    if (origem === null) continue;
+    const graus = avaliarRotacao(a, env, erros, prefixo);
+    if (graus === null) continue;
+    const resolucao = ctx.resolver(filha, {
+      valores,
+      ...(a.tipoId !== undefined ? { tipoId: a.tipoId } : {}),
+      biblioteca: ctx.entrada.biblioteca,
+      profundidade: profundidade + 1,
+    });
+    for (const erro of resolucao.erros) erros.push({ onde: `aninhado:${prefixo}/${erro.onde}`, mensagem: erro.mensagem });
+    const dx = metros(origem[0]);
+    const dy = metros(origem[1]);
+    const dz = metros(origem[2]);
+    for (const peca of resolucao.pecas) {
+      const girada = girarPeca(peca, graus, dx, dy);
+      pecas.push({
+        ...girada,
+        id: `${prefixo}/${peca.id}`,
+        nome: a.repetir !== undefined ? `${a.nome} ${i}: ${peca.nome}` : `${a.nome}: ${peca.nome}`,
+        origem: [girada.origem[0], girada.origem[1], round6(girada.origem[2] + dz)],
+        deAninhado: a.id,
+      });
+    }
+  }
 }
