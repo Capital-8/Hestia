@@ -34,7 +34,7 @@ function conferirChapa(bruto: Record<string, unknown>): string | null {
   if (!numeroFinito(bruto['altura'])) return 'altura inválida';
   if (typeof bruto['veio'] !== 'boolean') return 'veio inválido';
   if (!numeroFinito(bruto['refilo'])) return 'refilo inválido';
-  if (bruto['custoM2'] !== undefined && !numeroFinito(bruto['custoM2'])) return 'custo por m² inválido';
+  if (bruto['custoM2'] !== undefined && !numeroFinito(bruto['custoM2'])) return 'custo por m2 inválido';
   if (bruto['cor'] !== undefined && typeof bruto['cor'] !== 'string') return 'cor inválida';
   return null;
 }

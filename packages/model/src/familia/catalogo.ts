@@ -1,7 +1,7 @@
 /*
  * Catálogo de marcenaria: chapas, fitas de borda e ferragens (ADR 0049 §3.3, método do Promob: chapa = material + espessura).
  * FICHA E5-catalogo: implementar as funções abaixo (os dados padrão e os tipos já estão prontos). Testes em `catalogo.test.ts`.
- * Medidas em MILÍMETROS; custos em reais (R$) por m² (chapa), por m (fita) e por unidade (ferragem). Funções puras.
+ * Medidas em MILÍMETROS; custos em reais (reais) por m2 (chapa), por m (fita) e por unidade (ferragem). Funções puras.
  *
  * ATENÇÃO: os valores de `CATALOGO_PADRAO` (medidas da chapa bruta, refilo, custos, fita) são ILUSTRATIVOS e A VALIDAR com
  * fornecedor ou fabricante (ADR 0049 R5): o usuário os edita no catálogo do projeto.
@@ -29,7 +29,7 @@ export interface Chapa {
   veio: boolean;
   /** Refilo: desconto em cada lado da chapa bruta (mm). */
   refilo: number;
-  /** R$ por m². */
+  /** reais por m2. */
   custoM2?: number;
   /** Cor de tela "#rrggbb". */
   cor?: string;
@@ -41,7 +41,7 @@ export interface Fita {
   /** Espessura da fita (mm) e altura/largura (mm). */
   espessura: number;
   altura: number;
-  /** R$ por metro. */
+  /** reais por metro. */
   custoM?: number;
   cor?: string;
 }
@@ -50,7 +50,7 @@ export interface FerragemCatalogo {
   id: string;
   nome: string;
   codigo?: string;
-  /** R$ por unidade. */
+  /** reais por unidade. */
   custo?: number;
   unidade: 'un' | 'par' | 'jogo' | 'm';
 }
