@@ -1,14 +1,15 @@
 import type { PecaResolvida } from '@hestia/engine';
 import { resumirPecas } from '@hestia/engine';
 import type { ReactElement, ReactNode } from 'react';
-import { valorEfetivo } from './acoes.ts';
 import { mm } from './familiaDesenho.ts';
 import { useFamilia, useResolucao } from './familiaStore.ts';
 import { ModelosNovo } from './FamiliaModelos.tsx';
+import { DialogoParametros } from './FamiliaParametros.tsx';
+import { DialogoTipos } from './FamiliaTipos.tsx';
 
 /** Diálogos do editor de famílias: Parâmetros, Tipos, Lista de peças e Novo módulo. Mesma pele dos diálogos do app. */
 
-function Janela({ titulo, children, rodape, larga }: { titulo: string; children: ReactNode; rodape?: ReactNode; larga?: boolean }): ReactElement {
+export function Janela({ titulo, children, rodape, larga }: { titulo: string; children: ReactNode; rodape?: ReactNode; larga?: boolean }): ReactElement {
   const fechar = (): void => useFamilia.getState().set({ dialogo: null });
   return (
     <div className="fam-dback" role="presentation" onPointerDown={(e) => { if (e.target === e.currentTarget) fechar(); }}>
@@ -18,51 +19,6 @@ function Janela({ titulo, children, rodape, larga }: { titulo: string; children:
         <div className="fam-df">{rodape}<span style={{ flex: 1 }} /><button className="fam-bt pri" onClick={fechar}>OK</button></div>
       </div>
     </div>
-  );
-}
-
-function Parametros(): ReactElement {
-  const familia = useFamilia((s) => s.historico.atual);
-  const tipoId = useFamilia((s) => s.tipoId);
-  const valores = useFamilia((s) => s.valores);
-  const resolucao = useResolucao();
-  return (
-    <Janela titulo={`Parâmetros da família · ${familia.nome}`} rodape={<><button className="fam-bt" disabled title="Somente leitura nesta ficha">Novo parâmetro…</button><button className="fam-bt" disabled title="Somente leitura nesta ficha">Excluir</button></>}>
-      <div className="fam-tabela"><table>
-        <thead><tr><th>Nome</th><th>Tipo de dado</th><th>Escopo</th><th>Valor</th><th>Faixa</th><th>Fórmula</th></tr></thead>
-        <tbody>
-          {familia.parametros.map((p) => (
-            <tr key={p.id}><td>{p.nome}</td><td>{p.tipo}</td>
-              <td><span className={`fam-tag${p.escopo === 'instancia' ? ' novo' : ''}`}>{p.escopo}</span></td>
-              <td className="mono">{p.formula !== undefined ? String(resolucao.env[p.id]) : String(valorEfetivo(familia, tipoId, valores, p))}</td>
-              <td className="mono">{p.min !== undefined || p.max !== undefined ? `${p.min ?? '—'} – ${p.max ?? '—'}` : '—'}</td>
-              <td className="mono">{p.formula !== undefined ? <><span className="fam-sig">Σ</span> {p.formula}</> : '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table></div>
-      <div className="fam-hint">No máximo 256 parâmetros e fórmulas de até 512 caracteres; ciclo entre fórmulas é recusado ao salvar; o resultado é arredondado a 1 µm uma vez, na saída.</div>
-    </Janela>
-  );
-}
-
-function Tipos(): ReactElement {
-  const familia = useFamilia((s) => s.historico.atual);
-  const tipoId = useFamilia((s) => s.tipoId);
-  const escolherTipo = useFamilia((s) => s.escolherTipo);
-  return (
-    <Janela titulo={`Tipos da família · ${familia.nome}`} larga rodape={<><button className="fam-bt" disabled title="Somente leitura nesta ficha">Novo tipo</button><button className="fam-bt" disabled title="Somente leitura nesta ficha">Duplicar</button><button className="fam-bt" disabled title="Somente leitura nesta ficha">Excluir</button></>}>
-      <div className="fam-tabela"><table>
-        <thead><tr><th>Tipo</th>{familia.parametros.map((p) => <th key={p.id}>{p.nome}{p.escopo === 'instancia' && <span className="fam-mut"> (padrão)</span>}</th>)}</tr></thead>
-        <tbody>{familia.tipos.map((t) => (
-          <tr key={t.id} className={t.id === tipoId ? 'sel' : ''} onClick={() => escolherTipo(t.id)} style={{ cursor: 'pointer' }}>
-            <td><b>{t.nome}</b></td>
-            {familia.parametros.map((p) => <td key={p.id} className="n">{p.formula !== undefined ? <span className="fam-sig">Σ</span> : String(t.valores[p.id] ?? p.padrao)}</td>)}
-          </tr>
-        ))}</tbody>
-      </table></div>
-      <div className="fam-hint">Clique numa linha para tornar o tipo corrente. Parâmetros de instância mostram o valor padrão do tipo; cada móvel colocado pode mudá-lo.</div>
-    </Janela>
   );
 }
 
@@ -99,8 +55,8 @@ function ListaPecas(): ReactElement {
 
 export function FamiliaDialogos(): ReactElement | null {
   const d = useFamilia((s) => s.dialogo);
-  if (d === 'parametros') return <Parametros />;
-  if (d === 'tipos') return <Tipos />;
+  if (d === 'parametros') return <DialogoParametros />;
+  if (d === 'tipos') return <DialogoTipos />;
   if (d === 'pecas') return <ListaPecas />;
   if (d === 'novo') return <Janela titulo="Novo ▸ Família ▸ Escolha o modelo" larga rodape={<span className="fam-mut">O modelo só preenche parâmetros, peças e fórmulas; nada fica preso a ele.</span>}><ModelosNovo /></Janela>;
   return null;

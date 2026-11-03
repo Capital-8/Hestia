@@ -1,0 +1,227 @@
+/* Diálogos de Parâmetros e Tipos: tabelas editáveis, faixa de recusa e painel de opções. Usa os tokens do app. */
+
+.fam-dlg-erro {
+  margin: 0 0 8px;
+  padding: 5px 8px;
+  border: 1px solid var(--danger);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--danger) 12%, var(--sheet));
+  color: var(--danger);
+  font-size: 11.5px;
+}
+
+.fam-dlg-scroll {
+  max-height: min(62vh, 540px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  background: var(--sheet);
+}
+
+.fam-dlg-tabela {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+  font-size: 12px;
+}
+
+.fam-dlg-tabela th,
+.fam-dlg-tabela td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.fam-dlg-tabela thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--ribbon);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fam-dlg-tabela td {
+  white-space: nowrap;
+}
+
+.fam-dlg-tabela .num {
+  min-width: 70px;
+}
+
+.fam-dlg-tabela tr.sel td {
+  background: var(--accent-soft);
+}
+
+.fam-dlg-tipos tbody tr {
+  cursor: pointer;
+}
+
+.fam-dlg-grupo td {
+  background: var(--ribbon);
+  font-weight: 600;
+  padding-top: 5px;
+}
+
+.fam-dlg-nome {
+  min-width: 120px;
+}
+
+.fam-dlg-id {
+  min-width: 90px;
+}
+
+.fam-dlg-input {
+  width: 100%;
+  min-width: 0;
+  height: 22px;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--fg);
+  background: var(--sheet);
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  padding: 0 5px;
+}
+
+.fam-dlg-input.mono {
+  font-family: var(--font-mono);
+}
+
+.fam-dlg-input.bad {
+  border-color: var(--danger);
+}
+
+.fam-dlg-ro {
+  color: var(--fg-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.fam-dlg-formula {
+  min-width: 170px;
+}
+
+.fam-dlg-formula-erro {
+  margin-top: 2px;
+  color: var(--danger);
+  font-size: 10.5px;
+  white-space: normal;
+  max-width: 220px;
+}
+
+.fam-dlg-usos {
+  min-width: 42px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  cursor: help;
+}
+
+.fam-dlg-excluir {
+  padding: 1px 6px;
+}
+
+.fam-dlg-opcoes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  background: var(--ribbon);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+}
+
+.fam-dlg-opcoes-cab,
+.fam-dlg-opcoes-linha {
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) minmax(120px, 1.4fr) 80px auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.fam-dlg-opcoes-cab.sem-esp,
+.fam-dlg-opcoes-linha.sem-esp {
+  grid-template-columns: minmax(90px, 1fr) minmax(120px, 1.4fr) auto;
+}
+
+.fam-dlg-opcoes-cab {
+  color: var(--fg-soft);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.fam-dlg-opcoes-acoes {
+  display: flex;
+  padding-top: 2px;
+}
+
+.fam-dlg-novo {
+  display: grid;
+  grid-template-columns: minmax(90px, 0.8fr) minmax(120px, 1.2fr) minmax(110px, 1fr) minmax(100px, 0.9fr) auto;
+  gap: 6px;
+  align-items: end;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  background: var(--ribbon);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+}
+
+.fam-dlg-novo label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--fg-soft);
+  font-size: 10.5px;
+}
+
+.fam-dlg-novo-acoes {
+  display: flex;
+  gap: 6px;
+}
+
+.fam-dlg-estrela {
+  border: 0;
+  background: none;
+  color: var(--warn);
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+}
+
+.fam-dlg-tipo-nome {
+  min-width: 140px;
+}
+
+.fam-dlg-tipos td,
+.fam-dlg-tipos th {
+  min-width: 90px;
+}
+
+.fam-dlg-celula {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.fam-dlg-celula.herdado .fam-dlg-input,
+.fam-dlg-celula.herdado .fam-dlg-ro {
+  color: var(--fg-faint);
+}
+
+.fam-dlg-x {
+  flex: none;
+  font: inherit;
+  line-height: 1;
+  padding: 1px 4px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--ribbon);
+  color: var(--fg-soft);
+  cursor: pointer;
+}
+
+.fam-dlg-x:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
