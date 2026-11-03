@@ -243,3 +243,29 @@ describe('furo em borda (E5)', () => {
     }
   });
 });
+
+describe('ferragens resolvidas (E6)', () => {
+  it('quantidades do armário: 2 portas, 1 prateleira', () => {
+    const r = resolverFamilia(FAMILIA_ARMARIO);
+    expect(r.erros).toEqual([]);
+    expect(r.ferragens).toEqual([
+      { id: 'dobradica', nome: 'Dobradiça', codigo: null, quantidade: 8, custo: null },
+      { id: 'puxador', nome: 'Puxador', codigo: null, quantidade: 2, custo: null },
+      { id: 'pino', nome: 'Pino de prateleira', codigo: null, quantidade: 4, custo: null },
+    ]);
+    expect(resolverFamilia(FAMILIA_ARMARIO, { tipoId: 'A120' }).ferragens.map((g) => g.id)).toEqual(['pino']);
+    expect(resolverFamilia(FAMILIA_ARMARIO, { tipoId: 'A120' }).ferragens[0]!.quantidade).toBe(8);
+  });
+  it('erro de fórmula descarta só a ferragem; quantidade fracionária arredonda para baixo; custo e código passam', () => {
+    const f = clone(FAMILIA_ARMARIO);
+    f.ferragens = [
+      { id: 'a', nome: 'A', quantidade: '1 +' },
+      { id: 'b', nome: 'B', quantidade: '2.9', codigo: 'X-1', custo: 3.5 },
+      { id: 'c', nome: 'C', quantidade: '3', quando: 'nPortas > 5' },
+      { id: 'd', nome: 'D', quantidade: '-2' },
+    ];
+    const r = resolverFamilia(f);
+    expect(r.ferragens).toEqual([{ id: 'b', nome: 'B', codigo: 'X-1', quantidade: 2, custo: 3.5 }]);
+    expect(r.erros.some((e) => e.onde === 'ferragem:a.quantidade')).toBe(true);
+  });
+});

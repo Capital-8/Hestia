@@ -15,3 +15,4 @@ export { exportSheetsPdf } from './pdf/sheetsPdf.ts';
 export { buildPdf, type PdfPageSpec } from './pdf/pdfWriter.ts';
 export * from './dxfCheck.ts';
 export * from './zip.ts';
+export * from './dxfPecas.ts';

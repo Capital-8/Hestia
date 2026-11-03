@@ -61,6 +61,15 @@ export interface PecaResolvida {
   deAninhado: string | null;
 }
 
+/** Ferragem resolvida (quantidade já calculada) para a lista de peças e o custo. */
+export interface FerragemResolvida {
+  id: string;
+  nome: string;
+  codigo: string | null;
+  quantidade: number;
+  custo: number | null;
+}
+
 export interface ErroResolucao {
   /** Mesmo formato de `Problema.onde` de `validarFamilia`: `peca:x.origem[0]`, `parametro:x.formula`... */
   onde: string;
@@ -80,6 +89,8 @@ export interface EntradaResolucao {
 
 export interface ResolucaoFamilia {
   pecas: PecaResolvida[];
+  /** Ferragens com `quantidade` calculada (inteiro ≥ 0) e `quando` verdadeiro. */
+  ferragens: FerragemResolvida[];
   /** Nunca lança: tudo o que deu errado vem aqui e a peça (ou o aninhado) afetada fica de fora. */
   erros: ErroResolucao[];
   /** Valores finais de parâmetros, derivados e planos, em mm (para inspeção, validação e interface). */

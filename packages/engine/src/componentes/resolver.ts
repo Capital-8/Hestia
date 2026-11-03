@@ -1,7 +1,7 @@
 import { LIMITES, ordemDeAvaliacao, tentar, type Env, type Familia, type Parametro, type Peca, type Valor } from '@hestia/model';
 import { resolverAninhados } from './aninhados.ts';
 import { orientarAntiHorario, validarContorno } from './contorno.ts';
-import type { EntradaResolucao, ErroResolucao, PecaResolvida, ResolucaoFamilia, UsinagemResolvida } from './pecas.ts';
+import type { EntradaResolucao, ErroResolucao, FerragemResolvida, PecaResolvida, ResolucaoFamilia, UsinagemResolvida } from './pecas.ts';
 
 /*
  * Resolução da família (ADR 0049 §5): família + tipo + valores → peças resolvidas, só números, em metros.
@@ -199,17 +199,35 @@ function resolverPeca(p: Peca, env: Record<string, Valor>, chapas: ReadonlySet<s
   return saida;
 }
 
+function resolverFerragens(f: Familia, env: Env, erros: Erros): FerragemResolvida[] {
+  const saida: FerragemResolvida[] = [];
+  for (const g of f.ferragens) {
+    if (g.quando !== undefined) {
+      const q = tentar(g.quando, env);
+      if (!q.ok) { erros.push({ onde: `ferragem:${g.id}.quando`, mensagem: q.erro.message }); continue; }
+      if (!(typeof q.valor === 'string' ? q.valor !== '' : Boolean(q.valor))) continue;
+    }
+    const n = numero(g.quantidade, env, `ferragem:${g.id}.quantidade`, erros);
+    if (n === null) continue;
+    const quantidade = Math.max(0, Math.floor(n));
+    if (quantidade > 0) saida.push({ id: g.id, nome: g.nome, codigo: g.codigo ?? null, quantidade, custo: g.custo ?? null });
+  }
+  return saida;
+}
+
 export function resolverFamilia(f: Familia, entrada: EntradaResolucao = {}): ResolucaoFamilia {
   const erros: Erros = [];
   let env: Record<string, Valor> = {};
   const pecas: PecaResolvida[] = [];
+  let ferragens: FerragemResolvida[] = [];
   try {
     env = prepararEnv(f, entrada, erros);
-    if (!avaliarOrdem(f, env, erros)) return { pecas: [], erros, env };
+    if (!avaliarOrdem(f, env, erros)) return { pecas: [], ferragens: [], erros, env };
     const chapas = new Set(f.parametros.filter((q) => q.tipo === 'chapa').map((q) => q.id));
     for (const p of f.pecas) {
       try { pecas.push(...resolverPeca(p, env, chapas, erros)); } catch (e) { erros.push({ onde: `peca:${String((p as { id?: unknown }).id)}`, mensagem: `peça malformada: ${(e as Error).message}` }); }
     }
+    ferragens = resolverFerragens(f, env, erros);
     if (f.aninhados.length > 0) {
       const r = resolverAninhados({ familia: f, env, entrada, resolver: resolverFamilia });
       pecas.push(...r.pecas);
@@ -218,5 +236,5 @@ export function resolverFamilia(f: Familia, entrada: EntradaResolucao = {}): Res
   } catch (e) {
     erros.push({ onde: 'familia', mensagem: `família malformada: ${(e as Error).message}` });
   }
-  return { pecas, erros, env };
+  return { pecas, ferragens, erros, env };
 }
