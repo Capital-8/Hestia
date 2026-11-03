@@ -260,6 +260,33 @@ export function imprimir(no: No): string {
   }
 }
 
+/**
+ * Cópia do nó com o nome `de` trocado por `para` em todas as referências: `de` e também o membro `de.algo` (vira `para.algo`).
+ * Não mexe em outros nomes que apenas comecem igual (`esp2` não é `esp`).
+ */
+export function renomearReferencias(no: No, de: string, para: string): No {
+  const f = (n: No): No => renomearReferencias(n, de, para);
+  switch (no.k) {
+    case 'ref':
+      if (no.nome === de) return { k: 'ref', nome: para };
+      if (no.nome.startsWith(`${de}.`)) return { k: 'ref', nome: `${para}${no.nome.slice(de.length)}` };
+      return no;
+    case 'un': return { k: 'un', op: no.op, a: f(no.a) };
+    case 'bin': return { k: 'bin', op: no.op, a: f(no.a), b: f(no.b) };
+    case 'cond': return { k: 'cond', c: f(no.c), a: f(no.a), b: f(no.b) };
+    case 'chamada': return { k: 'chamada', f: no.f, args: no.args.map(f) };
+    default: return no;
+  }
+}
+
+/** Texto da fórmula com `de` trocado por `para` (forma canônica de `imprimir`); se a fórmula não compila devolve o texto como veio. */
+export function renomearNoTexto(src: string, de: string, para: string): string {
+  const c = compilar(src);
+  if ('erro' in c) return src;
+  if (!referencias(c.no).some((n) => n === de || n.startsWith(`${de}.`))) return src;
+  return imprimir(renomearReferencias(c.no, de, para));
+}
+
 export type ResultadoFormula = { ok: true; valor: Valor } | { ok: false; erro: ErroExpressao };
 
 const CACHE = new Map<string, { no: No } | { erro: ErroExpressao }>();
