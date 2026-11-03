@@ -59,30 +59,30 @@ fn termino_de(c: &CamadaLinha) -> Termino {
 }
 
 /// Uma camada resolvida.
-struct CamadaResolvida {
-    indice: u32,
-    material: u32,
-    z0: f64,
-    z1: f64,
-    prioridade: f64,
-    nucleo: bool,
-    membrana: bool,
-    explicita: bool,
-    precisa_paredes: bool,
-    poligono: MultiPoligono,
+pub(crate) struct CamadaResolvida {
+    pub(crate) indice: u32,
+    pub(crate) material: u32,
+    pub(crate) z0: f64,
+    pub(crate) z1: f64,
+    pub(crate) prioridade: f64,
+    pub(crate) nucleo: bool,
+    pub(crate) membrana: bool,
+    pub(crate) explicita: bool,
+    pub(crate) precisa_paredes: bool,
+    pub(crate) poligono: MultiPoligono,
 }
 
 /// Um piso ou uma laje resolvido.
-struct ElementoResolvido {
-    laje: bool,
-    id: u32,
-    tipo: u32,
-    problema: u8,
-    inclinacao: Option<Inclinacao>,
-    topo_z: f64,
-    base_z: f64,
-    poligono: MultiPoligono,
-    camadas: Vec<CamadaResolvida>,
+pub(crate) struct ElementoResolvido {
+    pub(crate) laje: bool,
+    pub(crate) id: u32,
+    pub(crate) tipo: u32,
+    pub(crate) problema: u8,
+    pub(crate) inclinacao: Option<Inclinacao>,
+    pub(crate) topo_z: f64,
+    pub(crate) base_z: f64,
+    pub(crate) poligono: MultiPoligono,
+    pub(crate) camadas: Vec<CamadaResolvida>,
 }
 
 type AneisPorPapel = BTreeMap<(u8, u32), Vec<Anel>>;
@@ -428,7 +428,7 @@ pub fn pisos_lajes_com_paredes(cena: &Cena, nivel: u32, tol: f64) -> Result<Vec<
     codificar(&calcular(cena, nivel, Some(tol))?, false)
 }
 
-fn calcular(cena: &Cena, nivel: u32, tol: Option<f64>) -> Result<Vec<ElementoResolvido>, u32> {
+pub(crate) fn calcular(cena: &Cena, nivel: u32, tol: Option<f64>) -> Result<Vec<ElementoResolvido>, u32> {
     let carregador = tol.map(|t| Carregador::novo(cena, t));
     let vizinhos = niveis_vizinhos(cena, nivel);
     let b = &cena.b;
@@ -513,7 +513,7 @@ fn codificar(resolvidos: &[ElementoResolvido], com_flag: bool) -> Result<Vec<Sai
 }
 
 #[cfg(test)]
-mod testes {
+pub(crate) mod testes {
     use super::*;
     use crate::a1::testes_util::{c32, c64, c8, f64s, u32s};
     use crate::consultas::executar;
@@ -521,32 +521,32 @@ mod testes {
     use crate::pintor::area_da_forma;
 
     /// Camada de teste: (espessura, função, término, valor do término, limite externo, prioridade).
-    type Cam = (f64, u8, u8, f64, u8, Option<f64>);
+    pub(crate) type Cam = (f64, u8, u8, f64, u8, Option<f64>);
     /// Anel de teste: (tipo_el, elemento, papel ou polígono, anel, pontos).
     type AnelT = (u8, u32, u32, u32, Vec<[f64; 2]>);
 
-    fn simples(e: f64, f: u8) -> Cam {
+    pub(crate) fn simples(e: f64, f: u8) -> Cam {
         (e, f, 0, 0.0, 0, None)
     }
 
     /// Elemento de teste (piso ou laje).
     #[derive(Clone)]
-    struct El {
-        id: u32,
-        nivel: u32,
-        tipo: u32,
-        ordem: f64,
-        cota: f64,
-        desloc: f64,
-        modo: u8,
-        vinculado: bool,
-        semente: bool,
-        nucleo: bool,
-        problema: u8,
-        inc: Option<([f64; 2], [f64; 2], f64)>,
+    pub(crate) struct El {
+        pub(crate) id: u32,
+        pub(crate) nivel: u32,
+        pub(crate) tipo: u32,
+        pub(crate) ordem: f64,
+        pub(crate) cota: f64,
+        pub(crate) desloc: f64,
+        pub(crate) modo: u8,
+        pub(crate) vinculado: bool,
+        pub(crate) semente: bool,
+        pub(crate) nucleo: bool,
+        pub(crate) problema: u8,
+        pub(crate) inc: Option<([f64; 2], [f64; 2], f64)>,
     }
 
-    fn el(id: u32) -> El {
+    pub(crate) fn el(id: u32) -> El {
         El { id, nivel: 0, tipo: 1, ordem: id as f64, cota: 3.0, desloc: 0.0, modo: 0, vinculado: false, semente: false, nucleo: false, problema: 0, inc: None }
     }
 
@@ -636,16 +636,16 @@ mod testes {
         (n, b)
     }
 
-    fn ret(x0: f64, y0: f64, x1: f64, y1: f64) -> Vec<[f64; 2]> {
+    pub(crate) fn ret(x0: f64, y0: f64, x1: f64, y1: f64) -> Vec<[f64; 2]> {
         vec![[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
     }
 
-    struct Montada {
-        cena: Cena,
+    pub(crate) struct Montada {
+        pub(crate) cena: Cena,
     }
 
     /// Cena com pisos (tipo 1 = `tp`), lajes (tipo 1 = `tl`) e os contornos pedidos.
-    fn montar(pisos: &[El], tp: &[Cam], lajes: &[El], tl: &[Cam], estaticos: &[AnelT], vinc: &[AnelT], furos: &[AnelT]) -> Montada {
+    pub(crate) fn montar(pisos: &[El], tp: &[Cam], lajes: &[El], tl: &[Cam], estaticos: &[AnelT], vinc: &[AnelT], furos: &[AnelT]) -> Montada {
         let mut c = Cena::novo();
         c.definir_secao(SECAO_PISOS, pisos.len() as u32, &bytes_el(pisos, false)).expect("pisos");
         c.definir_secao(SECAO_LAJES, lajes.len() as u32, &bytes_el(lajes, true)).expect("lajes");
@@ -668,7 +668,7 @@ mod testes {
         executar(&mut m.cena, Q, &[0.0]).expect("pisos_lajes_nivel")
     }
 
-    fn ceramico() -> Vec<Cam> {
+    pub(crate) fn ceramico() -> Vec<Cam> {
         vec![simples(0.01, 4), simples(0.02, 1), simples(0.04, 1), simples(0.12, 0)]
     }
 
@@ -985,7 +985,7 @@ mod testes {
     use crate::esquema::{CONSULTA_PISOS_LAJES_COM_PAREDES as Q2, SECAO_CAMADAS, SECAO_PAREDES, SECAO_PAREDES_QUADRO, SECAO_PAREDES_Z, SECAO_TIPOS_PAREDE};
 
     /// Acrescenta paredes (tipo simples: uma camada de estrutura de 0,2 m) com a base em `z0` e a altura dada, em `paredes_z`.
-    fn com_paredes(m: &mut Montada, ps: &[Par], z0: f64, altura: f64) {
+    pub(crate) fn com_paredes(m: &mut Montada, ps: &[Par], z0: f64, altura: f64) {
         let n = ps.len() as u32;
         m.cena.definir_secao(SECAO_PAREDES, n, &bytes_paredes(ps)).expect("paredes");
         m.cena.definir_secao(SECAO_PAREDES_QUADRO, n, &bytes_quadros(ps)).expect("quadros");
@@ -998,7 +998,7 @@ mod testes {
         m.cena.definir_secao(SECAO_PAREDES_Z, n, &bz).expect("paredes_z");
     }
 
-    fn com_niveis(m: &mut Montada, niveis: &[(u32, f64)]) {
+    pub(crate) fn com_niveis(m: &mut Montada, niveis: &[(u32, f64)]) {
         let b = [c32(&(1..=niveis.len() as u32).collect::<Vec<_>>()), c32(&niveis.iter().map(|n| n.0).collect::<Vec<_>>()), c64(&niveis.iter().map(|n| n.1).collect::<Vec<_>>())].concat();
         m.cena.definir_secao(SECAO_NIVEIS, niveis.len() as u32, &b).expect("niveis");
     }
