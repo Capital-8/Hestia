@@ -4,7 +4,7 @@
  * Roda só em `npm run test:wasm`. Identidade e `raw` exatos; o resto como região pelo critério da 0048.
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { migrateProject, type Project } from '@hestia/model';
+import { ProjectStore, createEmptyProject, makeWall, migrateProject, type Command, type Project } from '@hestia/model';
 import { difference, type MultiPolygon } from '@hestia/geom';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { montarCenaA1, zDoNivel } from '../packages/engine/src/kernelA1.ts';
@@ -162,6 +162,19 @@ function compararProjeto(p: Project, plano: Plano = {}, opcoes?: OpcoesA3c[]): C
   return cov;
 }
 
+/** Duas paredes paralelas (A e B, mesmo tipo; B é a mais antiga e vence na pintura) com `fresta` m entre as faces (negativa: B invade A); B tem altura `alturaB` (padrão 2,8 m, a mesma de A). */
+function projetoDeParedesParalelas(fresta: number, alturaB = 2.8): Project {
+  const p = createEmptyProject('paralelas');
+  const espessura = Object.values(p.wallTypes[p.defaults.wallTypeId]!.layers).reduce((t, l) => t + l.thickness, 0);
+  const store = new ProjectStore(p);
+  const w = (id: string, y: number, altura: number) =>
+    makeWall({ id, typeId: p.defaults.wallTypeId, levelId: p.levels[0]!.id, a: { x: 0, y }, b: { x: 6, y }, locationLine: 'wallCenter', flipped: false, sag: 0, height: altura });
+  // B primeiro: na pintura a mais antiga vence, então B recorta A só onde B existe (abaixo de `alturaB`)
+  const cmds: Command[] = [{ type: 'addWall', wall: w('B', espessura + fresta, alturaB) }, { type: 'addWall', wall: w('A', 0, 2.8) }];
+  store.exec({ type: 'batch', commands: cmds });
+  return store.project;
+}
+
 const relata = (rotulo: string, c: Cobertura): void => {
   console.log(
     `[A3c ${rotulo}] 0049 ${JSON.stringify(c.estat)}; ${c.comparacoes} comparações, grupos ${c.grupos}, camadas ${c.camadas} (curvas ${c.camadasCurvas}, com faixas ${c.camadasComFaixas}, várias faixas ${c.camadasComVariasFaixas}, com corte ${c.camadasComCorte}), faixas ${c.faixas} (camadas só por refinamento: ${c.faixasPorRefinamento}), regiões ${c.regioes} (fora da 0048: ${c.regioesFora}), silhuetas ${c.silhuetas} (fora: ${c.silhuetasFora}), formas estritas ${c.estritas}/${c.formas}, fiapos ${c.fiapos} (Rust ${c.fiaposRust}), máx. simétrica ${JSON.stringify(c.maxSimetrica)}`,
@@ -298,6 +311,45 @@ describe.skipIf(!bytes)('A3c: cluster_resolvido do Rust x motor TypeScript', () 
     expect(ref.camadas.filter((c) => c.parede === a1.idDe.get('A')).length).toBeGreaterThan(0);
     const cov = compararProjeto(p, {}, [{}]);
     expect(cov.camadas).toBeGreaterThan(0);
+  });
+
+  it('limiar: fresta de 10 µm entre paredes paralelas não é fechada (FRESTA_EPS de 3 µm); a de 2 µm é', () => {
+    if (pula()) return;
+    const resultados: number[] = [];
+    for (const fresta of [1e-5, 2e-6]) {
+      const p = projetoDeParedesParalelas(fresta);
+      const { cena, a1, a3 } = cenaDe(p);
+      try {
+        const l = p.levels[0]!;
+        // mesmo número de polígonos da silhueta nos dois motores (e a equivalência geral, critério 0049)
+        const ref = referenciaA3c(p, l.id, a1);
+        const rust = decodificarA3c(cena.consultar('cluster_resolvido', argumentosA3c(p, l.id, a1, a3)));
+        expect(rust.silhuetas.length).toBe(ref.silhuetas.length);
+        expect(rust.silhuetas[0]!.length, `silhueta (fresta ${fresta}): polígonos`).toBe(ref.silhuetas[0]!.length);
+        resultados.push(rust.silhuetas[0]!.length);
+        expect(compararProjeto(p, {}, [{}]).camadas).toBeGreaterThan(0);
+      } finally {
+        cena.destruir();
+      }
+    }
+    // 10 µm: duas silhuetas separadas (o fechamento só alcança frestas de até 2 x 3 µm); 2 µm: fechada em uma
+    expect(resultados).toEqual([2, 1]);
+  });
+
+  it('limiar: faixas adjacentes cujos vértices diferem de 3 µm não se fundem (assinatura a 1e-6)', () => {
+    if (pula()) return;
+    const p = projetoDeParedesParalelas(-3e-6, 1.5);
+    const { cena, a1, a3 } = cenaDe(p);
+    try {
+      const l = p.levels[0]!;
+      const ref = referenciaA3c(p, l.id, a1);
+      const rust = decodificarA3c(cena.consultar('cluster_resolvido', argumentosA3c(p, l.id, a1, a3)));
+      expect(ref.camadas.filter((c) => c.faixas.length > 1).length, 'o TS separa as faixas (vértice a 3 µm)').toBeGreaterThan(0);
+      expect(rust.camadas.map((c) => c.faixas.length)).toEqual(ref.camadas.map((c) => c.faixas.length));
+      expect(compararProjeto(p, {}, [{}]).camadas).toBeGreaterThan(0);
+    } finally {
+      cena.destruir();
+    }
   });
 
   it('planOpenings vazio: o corte é o fragmento; sem planOpenings os vãos furam a planta', () => {
