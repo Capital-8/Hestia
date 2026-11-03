@@ -1,6 +1,7 @@
 import { isFloor, type Id, type Project, type ResolvedUnits } from '@hestia/model';
 import { csvDocument, csvText } from './csv.ts';
 import { scheduleCsvCell, scheduleCsvHeader } from './scheduleCsv.ts';
+import { t, type Lang } from './i18n.ts';
 import { quantifyFloors } from './floorQuantities.ts';
 
 /** Um piso na tabela. Valores em metros (SI). */
@@ -93,34 +94,34 @@ export function sumFloorRows(rows: FloorScheduleRow[]): FloorScheduleTotals {
   );
 }
 
-const csvHeader = (u: ResolvedUnits): string[] => [
-  'Marca',
-  'Tipo',
-  'Código',
-  'Nível',
-  scheduleCsvHeader(u, 'Área', 'area'),
-  scheduleCsvHeader(u, 'Perímetro', 'length'),
-  scheduleCsvHeader(u, 'Espessura', 'smallLength'),
-  scheduleCsvHeader(u, 'Volume', 'volume'),
-  scheduleCsvHeader(u, 'Deslocamento', 'length'),
+const csvHeader = (u: ResolvedUnits, lang: Lang): string[] => [
+  t(lang, 'egs_csv_col_marca'),
+  t(lang, 'egs_csv_col_tipo'),
+  t(lang, 'egs_csv_col_codigo'),
+  t(lang, 'egs_csv_col_nivel'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_area'), 'area'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_perimetro'), 'length'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_espessura'), 'smallLength'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_volume'), 'volume'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_deslocamento'), 'length'),
 ];
 
 /** Colunas extras do fim da tabela, só quando algum piso tem corte (líquido diferente do bruto). */
 const EPS = 1e-9;
 
 /**
- * CSV com separador ';', decimal com vírgula, cabeçalho em português e BOM UTF-8 (o mesmo formato da tabela de
- * paredes). Uma linha por piso, seguida de uma linha de total. Com corte, acrescenta no fim as colunas de área líquida
- * e de volume bruto; sem corte o CSV fica igual ao de antes.
+ * CSV com separador ';', decimal do idioma (ou o do projeto), cabeçalho no idioma ativo e BOM UTF-8 (o mesmo formato da
+ * tabela de paredes). Uma linha por piso, seguida de uma linha de total. Com corte, acrescenta no fim as colunas de área
+ * líquida e de volume bruto; sem corte o CSV fica igual ao de antes.
  */
-export function floorScheduleToCsv(rows: FloorScheduleRow[], totals: FloorScheduleTotals, units: ResolvedUnits): string {
-  const n = (q: 'length' | 'smallLength' | 'area' | 'volume', v: number, d: number): string => scheduleCsvCell(units, q, v, d);
+export function floorScheduleToCsv(rows: FloorScheduleRow[], totals: FloorScheduleTotals, units: ResolvedUnits, lang: Lang = 'pt'): string {
+  const n = (q: 'length' | 'smallLength' | 'area' | 'volume', v: number, d: number): string => scheduleCsvCell(units, q, v, d, lang);
   const netAreaCut = rows.some((r) => Math.abs(r.netArea - r.area) > EPS);
   const grossCut = rows.some((r) => Math.abs(r.grossVolume - r.volume) > EPS);
   const header = [
-    ...csvHeader(units),
-    ...(netAreaCut ? [scheduleCsvHeader(units, 'Área líquida', 'area')] : []),
-    ...(grossCut ? [scheduleCsvHeader(units, 'Volume bruto', 'volume')] : []),
+    ...csvHeader(units, lang),
+    ...(netAreaCut ? [scheduleCsvHeader(units, t(lang, 'egs_csv_col_area_liquida'), 'area')] : []),
+    ...(grossCut ? [scheduleCsvHeader(units, t(lang, 'egs_csv_col_volume_bruto'), 'volume')] : []),
   ];
   const body = rows.map((r) => [
     csvText(r.mark),
@@ -136,7 +137,7 @@ export function floorScheduleToCsv(rows: FloorScheduleRow[], totals: FloorSchedu
     ...(grossCut ? [n('volume', r.grossVolume, 3)] : []),
   ]);
   const total = [
-    'Total',
+    t(lang, 'egs_csv_total'),
     '',
     '',
     '',

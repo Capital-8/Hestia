@@ -1,5 +1,6 @@
 import { sheetInnerBox, viewportBox, type Sheet } from '@hestia/model';
 import type { SheetDrawList, SheetGroup } from '@hestia/render';
+import { t, type Dict, type Lang } from '../../editor/i18n.ts';
 
 /**
  * Captura de pontos (snap de pontos) na prancha, usada ao mover uma vista: pontas e meios dos traços desenhados dentro
@@ -27,7 +28,7 @@ export type SnapPointKind =
 export interface SnapPoint {
   p: PaperPoint;
   kind: SnapPointKind;
-  /** Rótulo humano do tipo, em pt-BR. */
+  /** Rótulo humano do tipo, no idioma de `SnapPointsQuery.lang`. */
   label: string;
   /** Distância do cursor ao ponto, em mm de papel. */
   distance: number;
@@ -40,6 +41,8 @@ export interface SnapPointsQuery {
   at: PaperPoint;
   /** Tolerância em mm de papel (o chamador usa 8/zoom). */
   tol: number;
+  /** Idioma dos rótulos (ausente = português). */
+  lang?: Lang;
 }
 
 /** Passo do arredondamento usado para deduplicar pontos (mm de papel). */
@@ -58,20 +61,20 @@ const EPS = 1e-6;
 const EPS_TIE = 1e-9;
 const EPS_AXIS = 1e-6;
 
-const LABELS: Record<SnapPointKind, string> = {
-  extremidade: 'Extremidade',
-  intersecao: 'Interseção',
-  meio: 'Meio',
-  canto_moldura: 'Canto da moldura',
-  meio_moldura: 'Meio da moldura',
-  centro_moldura: 'Centro da moldura',
-  canto_folha: 'Canto da folha',
-  meio_folha: 'Meio da folha',
-  centro_folha: 'Centro da folha',
+const LABELS: Record<SnapPointKind, keyof Dict> = {
+  extremidade: 'cvs_snap_endpoint',
+  intersecao: 'cvs_snap_intersection',
+  meio: 'cvs_snap_midpoint',
+  canto_moldura: 'cvs_snap_frame_corner',
+  meio_moldura: 'cvs_snap_frame_mid',
+  centro_moldura: 'cvs_snap_frame_center',
+  canto_folha: 'cvs_snap_sheet_corner',
+  meio_folha: 'cvs_snap_sheet_mid',
+  centro_folha: 'cvs_snap_sheet_center',
 };
 
-/** Rótulo humano (pt-BR) de cada tipo de ponto. */
-export const snapLabel = (kind: SnapPointKind): string => LABELS[kind];
+/** Rótulo humano de cada tipo de ponto no idioma pedido (ausente = português). */
+export const snapLabel = (kind: SnapPointKind, lang: Lang = 'pt'): string => t(lang, LABELS[kind]);
 
 /**
  * Prioridade do empate de distância: índice menor vence. A geometria do desenho ganha da moldura (que passa por cima
@@ -101,14 +104,14 @@ const finite = (p: PaperPoint): boolean => Number.isFinite(p.x) && Number.isFini
  * Guarda o candidato se ele está na tolerância e, na mesma célula de 0,05 mm, só substitui quem tem prioridade menor.
  * A célula é pequena o bastante para os dois pontos serem o mesmo na tela.
  */
-function consider(kept: Map<string, SnapPoint>, p: PaperPoint, kind: SnapPointKind, at: PaperPoint, tol: number): void {
+function consider(kept: Map<string, SnapPoint>, p: PaperPoint, kind: SnapPointKind, at: PaperPoint, tol: number, lang: Lang): void {
   if (!finite(p)) return;
   const distance = hypot(p, at);
   if (distance > tol + EPS) return;
   const key = pointKey(p);
   const prev = kept.get(key);
   if (prev && PRIORITY[prev.kind] <= PRIORITY[kind]) return;
-  kept.set(key, { p, kind, label: LABELS[kind], distance });
+  kept.set(key, { p, kind, label: snapLabel(kind, lang), distance });
 }
 
 /** Caixa com os quatro cantos, os quatro meios de lado e o centro, separados por tipo. */
@@ -120,6 +123,7 @@ function boxPoints(
   at: PaperPoint,
   tol: number,
   kept: Map<string, SnapPoint>,
+  lang: Lang,
 ): void {
   if (!(Number.isFinite(b.x) && Number.isFinite(b.y) && Number.isFinite(b.w) && Number.isFinite(b.h))) return;
   const x0 = b.x;
@@ -128,15 +132,15 @@ function boxPoints(
   const y1 = b.y + b.h;
   const xm = (x0 + x1) / 2;
   const ym = (y0 + y1) / 2;
-  consider(kept, { x: x0, y: y0 }, corner, at, tol);
-  consider(kept, { x: x1, y: y0 }, corner, at, tol);
-  consider(kept, { x: x1, y: y1 }, corner, at, tol);
-  consider(kept, { x: x0, y: y1 }, corner, at, tol);
-  consider(kept, { x: xm, y: y0 }, mid, at, tol);
-  consider(kept, { x: x1, y: ym }, mid, at, tol);
-  consider(kept, { x: xm, y: y1 }, mid, at, tol);
-  consider(kept, { x: x0, y: ym }, mid, at, tol);
-  consider(kept, { x: xm, y: ym }, centre, at, tol);
+  consider(kept, { x: x0, y: y0 }, corner, at, tol, lang);
+  consider(kept, { x: x1, y: y0 }, corner, at, tol, lang);
+  consider(kept, { x: x1, y: y1 }, corner, at, tol, lang);
+  consider(kept, { x: x0, y: y1 }, corner, at, tol, lang);
+  consider(kept, { x: xm, y: y0 }, mid, at, tol, lang);
+  consider(kept, { x: x1, y: ym }, mid, at, tol, lang);
+  consider(kept, { x: xm, y: y1 }, mid, at, tol, lang);
+  consider(kept, { x: x0, y: ym }, mid, at, tol, lang);
+  consider(kept, { x: xm, y: ym }, centre, at, tol, lang);
 }
 
 /** Segmento vertical: x constante e o intervalo coberto em y. */
@@ -157,7 +161,7 @@ interface HSeg {
  * Pontos da construção desenhada de um grupo: pontas, meios e interseções entre verticais e horizontais. Os segmentos
  * são separados por eixo para a interseção custar só os pares possíveis, e a contagem para no limite do grupo.
  */
-function constructionPoints(group: SheetGroup, at: PaperPoint, tol: number, kept: Map<string, SnapPoint>): void {
+function constructionPoints(group: SheetGroup, at: PaperPoint, tol: number, kept: Map<string, SnapPoint>, lang: Lang): void {
   const verticals: VSeg[] = [];
   const horizontals: HSeg[] = [];
   let used = 0;
@@ -180,10 +184,10 @@ function constructionPoints(group: SheetGroup, at: PaperPoint, tol: number, kept
       const vertical = Math.abs(dx) <= EPS_AXIS && Math.abs(dy) > EPS_AXIS;
       const horizontal = Math.abs(dy) <= EPS_AXIS && Math.abs(dx) > EPS_AXIS;
       // Pontas de todo segmento, mesmo inclinado, e o meio só quando o traço é longo o bastante para ter um.
-      consider(kept, a, 'extremidade', at, tol);
-      consider(kept, b, 'extremidade', at, tol);
+      consider(kept, a, 'extremidade', at, tol, lang);
+      consider(kept, b, 'extremidade', at, tol, lang);
       if (Math.hypot(dx, dy) >= MIN_MID_SEGMENT_MM) {
-        consider(kept, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, 'meio', at, tol);
+        consider(kept, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, 'meio', at, tol, lang);
       }
       if (vertical) verticals.push({ x: a.x, y0: Math.min(a.y, b.y), y1: Math.max(a.y, b.y) });
       else if (horizontal) horizontals.push({ y: a.y, x0: Math.min(a.x, b.x), x1: Math.max(a.x, b.x) });
@@ -197,7 +201,7 @@ function constructionPoints(group: SheetGroup, at: PaperPoint, tol: number, kept
       if (Math.abs(h.y - at.y) > tol + EPS) continue;
       if (v.x < h.x0 - EPS || v.x > h.x1 + EPS) continue;
       if (h.y < v.y0 - EPS || h.y > v.y1 + EPS) continue;
-      consider(kept, { x: v.x, y: h.y }, 'intersecao', at, tol);
+      consider(kept, { x: v.x, y: h.y }, 'intersecao', at, tol, lang);
     }
   }
 }
@@ -208,6 +212,7 @@ function constructionPoints(group: SheetGroup, at: PaperPoint, tol: number, kept
  */
 export function snapPointsAt(q: SnapPointsQuery): SnapPoint[] {
   const { at, tol } = q;
+  const lang: Lang = q.lang ?? 'pt';
   if (!finite(at) || !Number.isFinite(tol) || tol < 0) return [];
   const kept = new Map<string, SnapPoint>();
   const groups = q.drawList?.groups ?? [];
@@ -215,8 +220,8 @@ export function snapPointsAt(q: SnapPointsQuery): SnapPoint[] {
   q.sheet.viewports.forEach((vp, i) => {
     // A ordem dos grupos é a das vistas; o último grupo é o mobiliário da folha (fora da captura).
     const group = i < groups.length - 1 ? groups[i] : undefined;
-    if (group) constructionPoints(group, at, tol, kept);
-    boxPoints(viewportBox(vp), 'canto_moldura', 'meio_moldura', 'centro_moldura', at, tol, kept);
+    if (group) constructionPoints(group, at, tol, kept, lang);
+    boxPoints(viewportBox(vp), 'canto_moldura', 'meio_moldura', 'centro_moldura', at, tol, kept, lang);
   });
 
   const inner = sheetInnerBox(q.sheet);
@@ -228,6 +233,7 @@ export function snapPointsAt(q: SnapPointsQuery): SnapPoint[] {
     at,
     tol,
     kept,
+    lang,
   );
 
   const out = [...kept.values()].filter((p) => p.distance <= tol + EPS);

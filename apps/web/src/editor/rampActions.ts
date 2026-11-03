@@ -1,6 +1,7 @@
 import { dist } from '@hestia/geom';
 import { optimizeRamp, rebuildPathFromSegments, regenRamp, resolveRamps, type RampRegenPatch, type RampRegenResult } from '@hestia/engine';
 import { rampBaseZ, rampTopZ, type Id, type ProjectStore, type Ramp, type StairRun } from '@hestia/model';
+import { t, useI18n } from './i18n.ts';
 
 interface Pt {
   x: number;
@@ -40,8 +41,9 @@ const RAMP_FIT_KEYS: ReadonlySet<keyof Ramp> = new Set(['topLevelId', 'topOffset
  * No modo 'slope', a mudança de altura regenera o comprimento na mesma transação (decisão 0041); no modo 'length',
  * o comprimento desenhado manda e o aviso `ramp-slope-differs` aponta a inclinação resultante.
  */
-export function patchRamps(store: ProjectStore, ids: Id[], patch: Partial<Ramp>, label = 'Editar rampa'): void {
+export function patchRamps(store: ProjectStore, ids: Id[], patch: Partial<Ramp>, label = 'edc_undo_edit_ramp'): void {
   if (ids.length === 0) return;
+  const lang = useI18n.getState().lang;
   const refit = Object.keys(patch).some((k) => RAMP_FIT_KEYS.has(k as keyof Ramp));
   store.transaction(label, () => {
     store.exec({ type: 'updateElements', ids, patch });
@@ -49,7 +51,7 @@ export function patchRamps(store: ProjectStore, ids: Id[], patch: Partial<Ramp>,
     for (const id of ids) {
       const r = store.project.elements[id];
       if (!r || r.kind !== 'ramp' || r.inputMode !== 'slope' || r.slopeTarget === null) continue;
-      const regen = regenRamp(r, store.project, {});
+      const regen = regenRamp(r, store.project, {}, lang);
       if ('error' in regen) continue;
       store.exec({
         type: 'updateElements',
@@ -67,7 +69,7 @@ export function patchRamps(store: ProjectStore, ids: Id[], patch: Partial<Ramp>,
 }
 
 /** Grava o resultado de `regenRamp` na rampa: componentes, modo, alvo, patamar e (rampa livre) o trajeto, em UMA transação. */
-export function applyRegen(store: ProjectStore, id: Id, r: RampRegenResult, label = 'Editar rampa'): void {
+export function applyRegen(store: ProjectStore, id: Id, r: RampRegenResult, label = 'edc_undo_edit_ramp'): void {
   store.transaction(label, () => {
     store.exec({
       type: 'updateElements',
@@ -89,17 +91,18 @@ export function applyRegen(store: ProjectStore, id: Id, r: RampRegenResult, labe
  * "Ajustado: ..." ou o erro.
  */
 export function adjustRamp(store: ProjectStore, id: Id): { message: string } | { error: string } {
+  const lang = useI18n.getState().lang;
   const p = store.project;
   const ramp = p.elements[id] as Ramp | undefined;
-  if (!ramp || ramp.kind !== 'ramp') return { error: 'Rampa inexistente.' };
+  if (!ramp || ramp.kind !== 'ramp') return { error: t(lang, 'edc_ramp_missing') };
   const type = p.rampTypes[ramp.typeId];
-  if (!type) return { error: 'Tipo de rampa inexistente' };
+  if (!type) return { error: t(lang, 'edc_ramp_type_missing') };
   const H = rampTopZ(p, ramp) - rampBaseZ(p, ramp);
-  if (!(H > 0)) return { error: 'O nível de topo não fica acima da base: nada a ajustar.' };
+  if (!(H > 0)) return { error: t(lang, 'edc_ramp_top_not_above') };
   const free = ramp.shape === 'free' && ramp.freePath && ramp.freePath.length >= 2 ? ramp.freePath : null;
-  const resolved = resolveRamps(p).find((r) => r.id === id);
+  const resolved = resolveRamps(p, lang).find((r) => r.id === id);
   const segments = free ? free.slice(1).map((v, i) => dist(free[i]!, v)) : resolved ? [resolved.pathLength] : [];
-  if (segments.length === 0) return { error: 'A rampa não tem geometria válida para ajustar.' };
+  if (segments.length === 0) return { error: t(lang, 'edc_ramp_no_geometry') };
   const res = optimizeRamp({
     H,
     type,
@@ -109,8 +112,8 @@ export function adjustRamp(store: ProjectStore, id: Id): { message: string } | {
     turnLanding: ramp.landingDepth,
   });
   const patch: RampRegenPatch = { mode: 'slope', slope: res.slope, ...(free ? { freePath: rebuildPathFromSegments(free, res.segments) } : {}) };
-  const r = regenRamp(ramp, p, patch);
+  const r = regenRamp(ramp, p, patch, lang);
   if ('error' in r) return { error: r.error };
-  applyRegen(store, id, r, 'Ajustar rampa');
+  applyRegen(store, id, r, 'edc_undo_adjust_ramp');
   return { message: res.note };
 }

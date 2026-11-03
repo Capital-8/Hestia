@@ -2,6 +2,7 @@ import { levelElevation } from './queries.ts';
 import { stairFitPatch } from './stairFit.ts';
 import { isCad, type CadDrawing } from './cad.ts';
 import { isCeiling, isFloor, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Ceiling, type Element, type Floor, type Id, type Project, type Ramp, type Roof, type Room, type Slab, type Stair, type Wall } from './types.ts';
+import { t, type Lang } from './i18n.ts';
 
 /**
  * Como manter o elemento ao trocar de nível: `elevation` preserva a cota absoluta (compensa o deslocamento);
@@ -31,14 +32,14 @@ export function elementLevelId(e: Element | undefined): Id | null {
  * (o topo vinculado a um nível continua no mesmo nível, com o mesmo deslocamento) e os demais ganham
  * `heightOffset += cotaAntiga − cotaNova`. Com `keep: 'offset'`, só o nível muda.
  */
-export function applyElementLevel(p: Project, c: SetElementLevel): void {
+export function applyElementLevel(p: Project, c: SetElementLevel, lang: Lang = 'pt'): void {
   const target = p.levels.find((l) => l.id === c.levelId);
-  if (!target) throw new Error(`Nível inexistente: ${c.levelId}`);
+  if (!target) throw new Error(t(lang, 'md_cmd_level_missing_id', { id: c.levelId }));
   const ids = [...new Set(c.ids)];
   for (const id of ids) {
     const e = p.elements[id];
-    if (!e) throw new Error(`Elemento inexistente: ${id}`);
-    if (!hasLevel(e)) throw new Error(`Abertura não tem nível próprio; ela acompanha a parede (${id})`);
+    if (!e) throw new Error(t(lang, 'md_cmd_element_missing_id', { id }));
+    if (!hasLevel(e)) throw new Error(t(lang, 'md_cmd_opening_no_level', { id }));
   }
   for (const id of ids) {
     const e = p.elements[id];

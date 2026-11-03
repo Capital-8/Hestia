@@ -11,6 +11,7 @@ import {
   type Project,
   type Wall,
 } from '@hestia/model';
+import { t as translate, type Lang } from './i18n.ts';
 
 const EPS = 1e-6;
 
@@ -99,7 +100,7 @@ export function hostedLossOfCommands(project: Project, commands: readonly Comman
 }
 
 /** Texto único do aviso, com a lista de marcas na ordem em que as aberturas entram na parede. */
-export function hostedLossMessage(losses: readonly HostedLoss[]): string {
+export function hostedLossMessage(losses: readonly HostedLoss[], lang: Lang = 'pt'): string {
   const list = losses.map((l) => l.label).join(', ');
-  return `Esta alteração deixa ${losses.length} elemento(s) fora da parede: ${list}. Eles serão excluídos. Continuar?`;
+  return translate(lang, 'tl_msg_hosted_loss', { n: losses.length, list });
 }

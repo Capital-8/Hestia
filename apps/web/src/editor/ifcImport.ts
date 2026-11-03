@@ -2,7 +2,7 @@ import { importIfc, type IfcImportProgress, type IfcImportStage, type ImportRepo
 import { editor } from './controller.ts';
 import { desempacotarProjetoIfc } from './ifcMalha.ts';
 import type { ResultadoWorker } from './ifcWorker.ts';
-import type { Lang } from './i18n.ts';
+import { t, useI18n, type Dict, type Lang } from './i18n.ts';
 
 /** Fase da importação vista pela janela: a leitura do arquivo mais as fases do importador. */
 export type FaseImportacao = IfcImportStage | 'read';
@@ -18,6 +18,8 @@ export interface ProgressoImportacao {
 export interface OpcoesImportacaoIfc {
   onProgress?: (progresso: ProgressoImportacao) => void;
   sinal?: AbortSignal;
+  /** Idioma dos avisos do importador; ausente = o ativo. */
+  lang?: Lang;
 }
 
 /**
@@ -28,7 +30,7 @@ export async function importIfcFile(file: File, opcoes: OpcoesImportacaoIfc = {}
   opcoes.onProgress?.({ fase: 'read', fracao: 0, feito: 0, total: file.size });
   const text = await file.text();
   opcoes.onProgress?.({ fase: 'read', fracao: FAIXAS.read[1], feito: file.size, total: file.size });
-  const { project, report } = await importIfcText(text, opcoes.onProgress);
+  const { project, report } = await importIfcText(text, opcoes.onProgress, opcoes.sinal, opcoes.lang);
   const name = nomeDoProjeto(file.name);
   editor.load(project, name);
   return { name, report };
@@ -82,7 +84,7 @@ function paraBarra(p: IfcImportProgress): ProgressoImportacao {
  * Roda o `importIfc` num worker dedicado (`ifcWorker.ts`) para o arquivo grande não congelar a interface.
  * Rejeita com `WorkerIndisponivel`, `FalhaImportacao`, `TempoEsgotado` ou `Cancelada`; `importIfcText` decide o fallback.
  */
-function importarNoWorker(text: string, onProgress?: (p: ProgressoImportacao) => void, sinal?: AbortSignal): Promise<ImportResult> {
+function importarNoWorker(text: string, onProgress?: (p: ProgressoImportacao) => void, sinal?: AbortSignal, lang: Lang = useI18n.getState().lang): Promise<ImportResult> {
   return new Promise<ImportResult>((resolve, reject) => {
     let worker: Worker;
     try {
@@ -104,12 +106,12 @@ function importarNoWorker(text: string, onProgress?: (p: ProgressoImportacao) =>
       return true;
     };
     const abortar = (): void => {
-      if (encerrar()) reject(new Cancelada('Importação cancelada.'));
+      if (encerrar()) reject(new Cancelada(t(useI18n.getState().lang, 'edc_ifc_cancelled')));
     };
 
     // Só é chamado depois desta linha (pelo estouro do tempo ou por uma resposta), então o `const` abaixo já existe.
     const timer = setTimeout(() => {
-      if (encerrar()) reject(new TempoEsgotado(`A importação IFC passou de ${LIMITE_WORKER_MS / 1000} s e foi cancelada.`));
+      if (encerrar()) reject(new TempoEsgotado(t(useI18n.getState().lang, 'edc_ifc_timeout', { n: LIMITE_WORKER_MS / 1000 })));
     }, LIMITE_WORKER_MS);
 
     if (sinal) {
@@ -133,10 +135,10 @@ function importarNoWorker(text: string, onProgress?: (p: ProgressoImportacao) =>
 
     // Script do worker que não carrega (ou worker que morre): a janela ainda pode importar na thread principal.
     worker.onerror = (evento) => {
-      if (encerrar()) reject(new WorkerIndisponivel(evento.message || 'O worker de importação IFC não carregou.'));
+      if (encerrar()) reject(new WorkerIndisponivel(evento.message || t(useI18n.getState().lang, 'edc_ifc_worker_failed')));
     };
 
-    worker.postMessage({ text });
+    worker.postMessage({ text, lang });
   });
 }
 
@@ -148,12 +150,13 @@ export async function importIfcText(
   text: string,
   onProgress?: (p: ProgressoImportacao) => void,
   sinal?: AbortSignal,
+  lang: Lang = useI18n.getState().lang,
 ): Promise<ImportResult> {
-  if (typeof Worker === 'undefined') return importIfc(text, undefined, onProgress ? (p) => onProgress(paraBarra(p)) : undefined);
+  if (typeof Worker === 'undefined') return importIfc(text, undefined, onProgress ? (p) => onProgress(paraBarra(p)) : undefined, lang);
   try {
-    return await importarNoWorker(text, onProgress, sinal);
+    return await importarNoWorker(text, onProgress, sinal, lang);
   } catch (erro) {
-    if (erro instanceof WorkerIndisponivel) return importIfc(text, undefined, onProgress ? (p) => onProgress(paraBarra(p)) : undefined);
+    if (erro instanceof WorkerIndisponivel) return importIfc(text, undefined, onProgress ? (p) => onProgress(paraBarra(p)) : undefined, lang);
     throw erro;
   }
 }
@@ -177,70 +180,45 @@ export interface ResumoImportacao {
 /** Ordem das categorias do relatório no resumo (as chaves são as que o importador usa). */
 const CATEGORIAS = ['paredes', 'portas', 'janelas', 'pisos', 'lajes', 'forros', 'ambientes', 'grades'] as const;
 
-interface Nomes {
-  readonly categorias: Readonly<Record<string, readonly [string, string]>>;
-  readonly nivel: readonly [string, string];
-  readonly nada: string;
-  readonly aproximadas: string;
-}
-
-/** Singular e plural de cada categoria; o relatório só tem estas chaves, mas chaves novas caem no próprio nome. */
-const NOMES: Record<Lang, Nomes> = {
-  pt: {
-    categorias: {
-      paredes: ['parede', 'paredes'],
-      portas: ['porta', 'portas'],
-      janelas: ['janela', 'janelas'],
-      pisos: ['piso', 'pisos'],
-      lajes: ['laje', 'lajes'],
-      forros: ['forro', 'forros'],
-      ambientes: ['ambiente', 'ambientes'],
-      grades: ['grade', 'grades'],
-    },
-    nivel: ['nível', 'níveis'],
-    nada: 'Nenhum elemento reconhecido',
-    aproximadas: 'Formas aproximadas',
-  },
-  en: {
-    categorias: {
-      paredes: ['wall', 'walls'],
-      portas: ['door', 'doors'],
-      janelas: ['window', 'windows'],
-      pisos: ['floor', 'floors'],
-      lajes: ['slab', 'slabs'],
-      forros: ['ceiling', 'ceilings'],
-      ambientes: ['room', 'rooms'],
-      grades: ['grid', 'grids'],
-    },
-    nivel: ['level', 'levels'],
-    nada: 'No recognizable elements',
-    aproximadas: 'Approximate shapes',
-  },
+/** Chaves do singular/plural de cada categoria do relatório. */
+const CATEGORIA_CHAVES: Readonly<Record<string, readonly [keyof Dict, keyof Dict]>> = {
+  paredes: ['edc_ifc_wall_one', 'edc_ifc_wall_many'],
+  portas: ['edc_ifc_door_one', 'edc_ifc_door_many'],
+  janelas: ['edc_ifc_window_one', 'edc_ifc_window_many'],
+  pisos: ['edc_ifc_floor_one', 'edc_ifc_floor_many'],
+  lajes: ['edc_ifc_slab_one', 'edc_ifc_slab_many'],
+  forros: ['edc_ifc_ceiling_one', 'edc_ifc_ceiling_many'],
+  ambientes: ['edc_ifc_room_one', 'edc_ifc_room_many'],
+  grades: ['edc_ifc_grid_one', 'edc_ifc_grid_many'],
 };
 
-const contar = (n: number, nomes: readonly [string, string]): string => `${n} ${n === 1 ? nomes[0] : nomes[1]}`;
+const nomesDe = (categoria: string, lang: Lang): readonly [string, string] => {
+  const chaves = CATEGORIA_CHAVES[categoria];
+  return chaves ? [t(lang, chaves[0]), t(lang, chaves[1])] : [categoria, categoria];
+};
+
+const contar = (n: number, nomes: readonly [string, string], lang: Lang): string => t(lang, 'edc_ifc_count', { n, name: n === 1 ? nomes[0] : nomes[1] });
 
 /** Contagens na ordem das categorias; chaves fora da lista entram depois, em ordem alfabética. */
-function partesDe(contagem: Record<string, number>, L: Nomes): string[] {
-  const conhecidas = CATEGORIAS.filter((c) => (contagem[c] ?? 0) > 0).map((c) => contar(contagem[c] ?? 0, L.categorias[c] ?? [c, c]));
+function partesDe(contagem: Record<string, number>, lang: Lang): string[] {
+  const conhecidas = CATEGORIAS.filter((c) => (contagem[c] ?? 0) > 0).map((c) => contar(contagem[c] ?? 0, nomesDe(c, lang), lang));
   const extras = Object.entries(contagem)
     .filter(([c, n]) => n > 0 && !(CATEGORIAS as readonly string[]).includes(c))
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([c, n]) => contar(n, [c, c]));
+    .map(([c, n]) => contar(n, [c, c], lang));
   return [...conhecidas, ...extras];
 }
 
 /** Resumo do relatório, sem tocar no DOM. `report.levels` já vem do importador (sempre ao menos 1). */
 export function resumoImportacao(report: ImportReport, lang: Lang = 'pt'): ResumoImportacao {
-  const L = NOMES[lang];
-  const elementos = partesDe(report.imported, L);
-  const niveis = report.levels > 0 ? contar(report.levels, L.nivel) : '';
-  const texto = [elementos.length ? elementos.join(', ') : L.nada, niveis].filter(Boolean).join(' · ');
+  const elementos = partesDe(report.imported, lang);
+  const niveis = report.levels > 0 ? contar(report.levels, [t(lang, 'edc_ifc_level_one'), t(lang, 'edc_ifc_level_many')], lang) : '';
+  const texto = [elementos.length ? elementos.join(', ') : t(lang, 'edc_ifc_none'), niveis].filter(Boolean).join(' · ');
   const ignorados = Object.entries(report.skipped)
     .filter(([, n]) => n > 0)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([classe, n]) => `${classe}: ${n}`);
-  const aproximadas = partesDe(report.approximate, L);
-  const avisos = [...(aproximadas.length ? [`${L.aproximadas}: ${aproximadas.join(', ')}`] : []), ...report.warnings];
+  const aproximadas = partesDe(report.approximate, lang);
+  const avisos = [...(aproximadas.length ? [`${t(lang, 'edc_ifc_approximate')}: ${aproximadas.join(', ')}`] : []), ...report.warnings];
   return { texto, ignorados, avisos };
 }

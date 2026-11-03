@@ -1,5 +1,6 @@
 import { boxOf, boxesOverlap, intersection, multiArea, union, type Box, type MultiPolygon } from '@hestia/geom';
 import { formatQuantity, memoSemEsquadrias, unitsOf, isWall, wallsOnLevel, type Id, type Project, type Wall } from '@hestia/model';
+import { t, type Lang } from './i18nMessages.ts';
 import { resolveLevel } from './resolve.ts';
 import { makeStairIssue, type StairIssueItem } from './stairIssues.ts';
 import { resolveStairs, type ResolvedStair } from './stairs.ts';
@@ -58,11 +59,12 @@ function calcularCorpos(p: Project, levelId: Id): WallSolid[] {
  * Avisos de invasão entre cada escada resolvida e as paredes que ela atravessa. `resolved` evita repetir `resolveStairs`
  * quando quem chama já tem a lista (é o caso de `stairIssueList`).
  */
-export function stairWallOverlapIssues(p: Project, resolved: ResolvedStair[] = resolveStairs(p)): StairIssueItem[] {
-  if (resolved.length === 0) return [];
+export function stairWallOverlapIssues(p: Project, resolved?: ResolvedStair[], lang: Lang = 'pt'): StairIssueItem[] {
+  const list = resolved ?? resolveStairs(p, lang);
+  if (list.length === 0) return [];
   const solidsByLevel = new Map<Id, WallSolid[]>(p.levels.map((l) => [l.id, wallSolids(p, l.id)] as const));
   const out: StairIssueItem[] = [];
-  for (const r of resolved) {
+  for (const r of list) {
     if (r.footprint.length === 0) continue;
     const stairBox = boxOf(r.footprint.flat(2));
     for (const solids of solidsByLevel.values()) {
@@ -75,7 +77,11 @@ export function stairWallOverlapIssues(p: Project, resolved: ResolvedStair[] = r
           r.id,
           'stair-wall-overlap',
           'warning',
-          `A escada "${r.id}" invade a parede ${label(s.wall)} em ${formatQuantity(unitsOf(p), 'area', area)} na planta; afaste a escada ou a parede.`,
+          t(lang, 'egb_issue_stair_wall_overlap', {
+            id: r.id,
+            wall: label(s.wall),
+            area: formatQuantity(unitsOf(p), 'area', area),
+          }),
         );
         issue.ids = [r.id, s.wall.id];
         out.push(issue);

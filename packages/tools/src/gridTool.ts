@@ -11,11 +11,11 @@ import type { GridMode, PointerInfo } from './types.ts';
 
 const fmt = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length', m);
 
-const HINTS: Record<GridMode, string> = {
-  line: 'Grade: clique no início e no fim do eixo, ou digite o comprimento e Enter.',
-  arc: 'Grade em arco: clique no início, no fim e num ponto do arco (ou digite a flecha).',
-  pick: 'Grade: clique numa parede para criar a grade sobre o eixo dela.',
-  multi: 'Grade multissegmento: clique nos pontos; Enter ou duplo clique termina, Esc remove o último ponto.',
+const HINT_KEYS: Record<GridMode, 'tl_hint_grid_line' | 'tl_hint_grid_arc' | 'tl_hint_grid_pick' | 'tl_hint_grid_multi'> = {
+  line: 'tl_hint_grid_line',
+  arc: 'tl_hint_grid_arc',
+  pick: 'tl_hint_grid_pick',
+  multi: 'tl_hint_grid_multi',
 };
 
 /**
@@ -25,7 +25,9 @@ const HINTS: Record<GridMode, string> = {
 export class GridTool extends ToolBase {
   readonly id = 'grid';
   readonly label = 'Grade';
-  readonly hint = HINTS.line;
+  override get hint(): string {
+    return this.currentHint();
+  }
   /** Pontos já fixados (linha: 1; arco: 1 ou 2; multi: quantos clicados). */
   private pts: Vec2[] = [];
   /** Último ponto da prévia (cursor), para a cota unificada do eixo em desenho. */
@@ -36,7 +38,7 @@ export class GridTool extends ToolBase {
   }
 
   private currentHint(): string {
-    return HINTS[this.mode()];
+    return this.t(HINT_KEYS[this.mode()]);
   }
 
   override start(): void {
@@ -60,7 +62,7 @@ export class GridTool extends ToolBase {
     if (this.mode() === 'multi' && this.pts.length > 0) {
       this.pts.pop();
       this.items = [];
-      this.env.say(this.pts.length ? 'Último ponto removido.' : this.currentHint());
+      this.env.say(this.pts.length ? this.t('tl_msg_last_point_removed') : this.currentHint());
       return;
     }
     if (this.busy()) {
@@ -84,7 +86,7 @@ export class GridTool extends ToolBase {
 
   override inputPrompt(): string | null {
     if (!this.pts.length) return null;
-    return this.mode() === 'arc' && this.pts.length === 2 ? 'Flecha do arco' : 'Comprimento';
+    return this.mode() === 'arc' && this.pts.length === 2 ? this.t('tl_inp_arc_sagitta') : this.t('tl_inp_length');
   }
 
   override move(p: PointerInfo): void {
@@ -108,7 +110,7 @@ export class GridTool extends ToolBase {
     }
     if (mode === 'arc' && this.pts.length === 2) {
       const sag = this.sagFor(at);
-      this.items.push(...gridPreviewItems({ points: this.pts, sag }), { kind: 'label', at, text: `flecha ${fmt(unitsOf(this.env.project()), Math.abs(sag))}` });
+      this.items.push(...gridPreviewItems({ points: this.pts, sag }), { kind: 'label', at, text: this.t('tl_lbl_sagitta', { d: fmt(unitsOf(this.env.project()), Math.abs(sag)) }) });
       return;
     }
     if (dist(last, at) < 1e-6) return;
@@ -154,7 +156,7 @@ export class GridTool extends ToolBase {
     if (dist(last, at) < GRID_MIN_SEGMENT) {
       // Duplo clique no multissegmento termina; nos outros modos o ponto repetido é recusado.
       if (mode === 'multi' && this.pts.length >= 2) this.commit(this.pts, 0);
-      else this.env.say(`O ponto está perto demais do anterior: afaste-o pelo menos ${formatQuantity(unitsOf(this.env.project()), 'smallLength', GRID_MIN_SEGMENT, { trim: true })}.`);
+      else this.env.say(this.t('tl_msg_point_too_close', { d: formatQuantity(unitsOf(this.env.project()), 'smallLength', GRID_MIN_SEGMENT, { trim: true }) }));
       return;
     }
     if (mode === 'line') this.commit([last, at], 0);
@@ -169,9 +171,9 @@ export class GridTool extends ToolBase {
 
   private say2(): void {
     const mode = this.mode();
-    if (mode === 'arc') this.env.say(this.pts.length === 1 ? 'Clique no fim da grade.' : 'Clique num ponto do arco, ou digite a flecha e Enter.');
-    else if (mode === 'multi') this.env.say(`${this.pts.length} ponto(s). Continue clicando; Enter ou duplo clique termina, Esc remove o último.`);
-    else this.env.say('Clique no fim da grade, ou digite o comprimento e Enter.');
+    if (mode === 'arc') this.env.say(this.t(this.pts.length === 1 ? 'tl_msg_click_grid_end' : 'tl_msg_click_arc_point'));
+    else if (mode === 'multi') this.env.say(this.t('tl_msg_points_multi', { n: this.pts.length }));
+    else this.env.say(this.t('tl_msg_click_grid_end_len'));
   }
 
   /** Flecha do arco (início, fim) que passa pelo cursor: distância à corda, com sinal, limitada à metade da corda. */
@@ -185,7 +187,7 @@ export class GridTool extends ToolBase {
     if (!this.pts.length || this.mode() === 'pick') return false;
     const v = parseQuantityText(text, unitsOf(this.env.project()), 'length');
     if (v === null) {
-      this.env.say(`Valor inválido. Digite um número em ${lengthUnitName(unitsOf(this.env.project()))}.`);
+      this.env.say(this.t('tl_msg_invalid_number', { unit: lengthUnitName(unitsOf(this.env.project()), this.uiLang()) }));
       return false;
     }
     if (this.mode() === 'arc' && this.pts.length === 2) {
@@ -195,7 +197,7 @@ export class GridTool extends ToolBase {
       return true;
     }
     if (v <= 0) {
-      this.env.say(`Digite o comprimento em ${lengthUnitName(unitsOf(this.env.project()))}, maior que zero.`);
+      this.env.say(this.t('tl_msg_type_length_positive', { unit: lengthUnitName(unitsOf(this.env.project()), this.uiLang()) }));
       return false;
     }
     const last = this.pts[this.pts.length - 1]!;
@@ -221,7 +223,7 @@ export class GridTool extends ToolBase {
   private clickPick(p: PointerInfo): void {
     const w = this.wallAt(p.raw);
     if (!w) {
-      this.env.say('Clique sobre uma parede para criar a grade no eixo dela.');
+      this.env.say(this.t('tl_msg_click_wall_grid'));
       return;
     }
     // Parede curva vira arco com a mesma flecha.
@@ -241,13 +243,13 @@ export class GridTool extends ToolBase {
       bubbleEnd: true,
     };
     try {
-      this.env.transaction('Criar grade', () => this.env.exec({ type: 'addGrid', grid }));
+      this.env.transaction(this.t('tl_undo_create_grid'), () => this.env.exec({ type: 'addGrid', grid }));
     } catch (e) {
       this.env.say(e instanceof Error ? e.message : String(e));
       return;
     }
     const mode = this.mode();
     this.reset();
-    this.env.say(`Grade ${grid.name} criada. ${HINTS[mode]}`);
+    this.env.say(this.t('tl_msg_grid_created', { name: grid.name, hint: this.t(HINT_KEYS[mode]) }));
   }
 }

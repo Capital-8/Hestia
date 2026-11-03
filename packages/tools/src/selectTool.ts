@@ -55,7 +55,9 @@ const ehModelo = (kind: AnyHit['kind']): boolean => MODELO.has(kind);
 export class SelectTool extends ToolBase {
   readonly id = 'select';
   readonly label = 'Selecionar';
-  readonly hint = 'Clique para selecionar. Arraste para janela (esq→dir contém, dir→esq cruza). Shift ou Ctrl soma à seleção.';
+  override get hint(): string {
+    return this.t('tl_hint_select');
+  }
   private mode: Mode = 'idle';
   private downPt: Vec2 = { x: 0, y: 0 };
   /** Alça pressionada (parede, piso, laje ou telhado); as alças em si estão em selectGrips.ts. */
@@ -272,13 +274,13 @@ export class SelectTool extends ToolBase {
   override inputPrompt(): string | null {
     if (this.mode !== 'idle') return null;
     if (!this.singleWall()) return null;
-    return 'Comprimento · Num nó, arrastar move todas as paredes ligadas. Alt solta só a pegada.';
+    return this.t('tl_inp_wall_length');
   }
 
   /** Enter sem valor digitado: abre o campo de cota (a mensagem indica como digitar). */
   override confirm(): void {
     if (this.mode === 'idle' && this.singleWall()) {
-      this.env.say(`Comprimento: digite o valor em ${lengthUnitName(unitsOf(this.env.project()))} (aceita expressões) e Enter.`);
+      this.env.say(this.t('tl_msg_length_prompt', { unit: lengthUnitName(unitsOf(this.env.project()), this.uiLang()) }));
       return;
     }
     super.confirm();
@@ -290,7 +292,7 @@ export class SelectTool extends ToolBase {
     if (!w) return false;
     const v = parseQuantityText(text, unitsOf(this.env.project()), 'length');
     if (v === null) {
-      this.env.say(`Valor inválido. Digite um número em ${lengthUnitName(unitsOf(this.env.project()))}.`);
+      this.env.say(this.t('tl_msg_invalid_number', { unit: lengthUnitName(unitsOf(this.env.project()), this.uiLang()) }));
       return false;
     }
     const r = resizeWallCommands(this.env.project(), this.env.levelId(), w.id, v);
@@ -319,10 +321,10 @@ export class SelectTool extends ToolBase {
     }
     const ring = ringRemoveVertex(ring0, this.focus.index);
     if (!ring) {
-      this.env.say(`${isSlab(f) ? 'Uma laje' : isRoof(f) ? 'Um telhado' : isCeiling(f) ? 'Um forro' : 'Um piso'} precisa de ao menos 3 vértices.`);
+      this.env.say(this.t(isSlab(f) ? 'tl_msg_min_vertices_slab' : isRoof(f) ? 'tl_msg_min_vertices_roof' : isCeiling(f) ? 'tl_msg_min_vertices_ceiling' : 'tl_msg_min_vertices_floor'));
       return true;
     }
-    if (isRoof(f)) commitRoofPatch(this.env, [f.id], roofRingPatch(f, ring, { kind: 'remove', vertex: this.focus.index }));
+    if (isRoof(f)) commitRoofPatch(this.env, [f.id], roofRingPatch(f, ring, { kind: 'remove', vertex: this.focus.index }), this.env.lang?.() ?? 'pt');
     else if (isCeiling(f)) commitCeilingBoundary(this.env, f.id, ring);
     else commitOutlineBoundary(this.env, f.id, ring);
     this.focus = { id: f.id, index: Math.min(this.focus.index, ring.length - 1) };

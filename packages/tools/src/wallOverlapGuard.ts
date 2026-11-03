@@ -1,6 +1,7 @@
 import { applyTransform, type Transform } from '@hestia/geom';
 import { elementLabel, isWall, wallConflict, wallOverlap, type Id, type Project, type Wall, type WallCandidate, type WallConflict } from '@hestia/model';
 import type { ToolEnv } from './types.ts';
+import { t as translate, type Lang } from './i18n.ts';
 
 /**
  * Bloqueio de parede em cima de parede (decisão 0044). O critério é o do C14 da validação (`wallOverlap`): eixos
@@ -15,8 +16,8 @@ import type { ToolEnv } from './types.ts';
 const emCm = (m: number): string => `${Math.round(m * 100)} cm`;
 
 /** Mensagem única do bloqueio: diz o motivo e que nada mudou. */
-export function wallOverlapMessage(c: WallConflict): string {
-  return `Não é possível: a parede ficaria em cima da parede ${elementLabel(c.wall)} (${emCm(c.overlap.length)} no mesmo nível). Nada foi alterado.`;
+export function wallOverlapMessage(c: WallConflict, lang: Lang = 'pt'): string {
+  return translate(lang, 'tl_msg_wall_overlap', { wall: elementLabel(c.wall), d: emCm(c.overlap.length) });
 }
 
 /**
@@ -24,7 +25,7 @@ export function wallOverlapMessage(c: WallConflict): string {
  * despercebida). Devolve true para quem recusa — as ferramentas usam `return notifyWallOverlap(...)`.
  */
 export function notifyWallOverlap(env: ToolEnv, conflict: WallConflict): boolean {
-  const message = wallOverlapMessage(conflict);
+  const message = wallOverlapMessage(conflict, env.lang?.() ?? 'pt');
   env.say(message);
   // A vista realça a parede que impede a operação em amarelo enquanto o alerta estiver aberto.
   env.alert?.(message, [conflict.wall.id]);

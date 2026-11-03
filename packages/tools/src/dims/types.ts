@@ -1,5 +1,6 @@
 import type { Vec2 } from '@hestia/geom';
 import type { Command, DimensionElementRef, Element, Id, OpeningDimRef, Project, Quantity, ResolvedDimensionSettings, WallDimRef } from '@hestia/model';
+import type { Lang } from '../i18n.ts';
 
 /** Tipo de elemento ao qual um provedor de cotas se liga (o campo `kind` do elemento). */
 export type ElementKind = Element['kind'];
@@ -81,6 +82,8 @@ export interface DimContext {
   settings: ResolvedDimensionSettings;
   /** `${providerId}:${slot}` (ou chave global do provedor) → referência escolhida na sessão. */
   overrides: Readonly<Record<string, DimRef>>;
+  /** Idioma das mensagens do provedor (ausente = português). */
+  lang?: Lang;
 }
 
 /**

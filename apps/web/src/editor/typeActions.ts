@@ -2,6 +2,7 @@ import { fitBox, type Viewport } from '@hestia/render';
 import { ProjectStore, isCad, isFloor, isGeneric, isOpening, isRamp, isRoof, isSlab, isStair, isWall, newId, openingType, wallTypeUsage, type Element, type FloorType, type Id, type Project } from '@hestia/model';
 import { rampPoints } from './rampActions.ts';
 import { stairPoints } from './stairActions.ts';
+import { t, useI18n } from './i18n.ts';
 
 /** Tipos que o navegador de projeto lista: parede, porta, janela, piso, laje, forro, telhado, escada e rampa. */
 export type TypeKind = 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'ramp';
@@ -11,8 +12,7 @@ export interface TypeChoice {
   name: string;
 }
 
-const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
-const otherLevels = (n: number): string => (n === 1 ? '1 em outro nível' : `${n} em outros níveis`);
+const lang = () => useI18n.getState().lang;
 
 /** Nível de um elemento: a parede tem o seu; a abertura herda o da parede anfitriã. */
 export function levelOfElement(p: Project, e: Element): Id | undefined {
@@ -57,12 +57,20 @@ export function splitByLevel(p: Project, ids: Id[], levelId: Id): { here: Id[]; 
  * e descreve no status quantas ficaram em outros níveis.
  */
 export function selectAllPlan(p: Project, kind: TypeKind, typeId: Id, levelId: Id, typeName: string): { ids: Id[]; status: string } {
+  const l = lang();
   const all = instancesOfType(p, kind, typeId);
-  if (all.length === 0) return { ids: [], status: `Nenhuma instância de «${typeName}» no projeto.` };
+  if (all.length === 0) return { ids: [], status: t(l, 'eds_msg_no_instances_of_type', { type: typeName }) };
   const { here, elsewhere } = splitByLevel(p, all, levelId);
-  if (here.length === 0) return { ids: [], status: `Nenhuma instância neste nível; ${otherLevels(elsewhere)}.` };
-  const extra = elsewhere > 0 ? `, ${otherLevels(elsewhere)}` : '';
-  return { ids: here, status: `${plural(here.length, 'instância', 'instâncias')} neste nível${extra}.` };
+  if (here.length === 0) {
+    return { ids: [], status: t(l, elsewhere === 1 ? 'eds_msg_no_instances_here_one' : 'eds_msg_no_instances_here_many', { n: elsewhere }) };
+  }
+  if (elsewhere === 0) {
+    return { ids: here, status: t(l, here.length === 1 ? 'eds_msg_instances_here_one' : 'eds_msg_instances_here_many', { n: here.length }) };
+  }
+  const key = here.length === 1
+    ? (elsewhere === 1 ? 'eds_msg_instances_here_other_one_one' : 'eds_msg_instances_here_other_one_many')
+    : (elsewhere === 1 ? 'eds_msg_instances_here_other_many_one' : 'eds_msg_instances_here_other_many_many');
+  return { ids: here, status: t(l, key, { n: here.length, m: elsewhere }) };
 }
 
 /** Tipos que podem substituir `typeId`: outros tipos de parede, ou de porta/janela do mesmo tipo. */
@@ -89,17 +97,17 @@ export function compatibleTypes(p: Project, kind: TypeKind, typeId: Id): TypeCho
  * dentro de uma transação: um único passo de desfazer. Devolve quantas instâncias foram trocadas.
  */
 export function replaceType(store: ProjectStore, kind: TypeKind, fromId: Id, toId: Id): number {
-  if (!compatibleTypes(store.project, kind, fromId).some((t) => t.id === toId)) throw new Error('Tipo de destino incompatível.');
+  if (!compatibleTypes(store.project, kind, fromId).some((t) => t.id === toId)) throw new Error(t(lang(), 'eds_msg_type_incompatible'));
   const ids = instancesOfType(store.project, kind, fromId);
   if (ids.length === 0) return 0;
-  store.transaction('Substituir tipo', () => {
+  store.transaction('eds_undo_replace_type', () => {
     store.exec({ type: 'updateElements', ids, patch: { typeId: toId } });
   });
   return ids.length;
 }
 
 export function replaceStatus(count: number, toName: string): string {
-  return `${plural(count, 'instância substituída', 'instâncias substituídas')} por «${toName}».`;
+  return t(lang(), count === 1 ? 'eds_msg_type_replaced_one' : 'eds_msg_type_replaced_many', { n: count, name: toName });
 }
 
 interface Pt {
@@ -198,24 +206,28 @@ export interface WhereUsedNav {
  * níveis são só contadas no status. Devolve a frase de status.
  */
 export function whereUsed(nav: WhereUsedNav, kind: TypeKind, typeId: Id, name: string, select: (ids: Id[]) => void): string {
+  const l = lang();
   const target = whereUsedTarget(nav.project, kind, typeId);
-  if (!target) return `Nenhuma instância de «${name}» no projeto.`;
+  if (!target) return t(l, 'eds_msg_no_instances_of_type', { type: name });
   // O viewport é do canvas (mesmo tamanho em todos os níveis): lê antes de trocar de nível.
   const current = nav.viewport();
   nav.selectLevel(target.levelId);
   select(target.ids);
   const box = boxOfElements(nav.project, target.ids);
   if (current && box) nav.setViewport(fitBox(current, box));
-  const levelName = nav.project.levels.find((l) => l.id === target.levelId)?.name ?? target.levelId;
-  const extra = target.elsewhere > 0 ? `, ${otherLevels(target.elsewhere)}` : '';
-  return `${plural(target.ids.length, 'instância', 'instâncias')} de «${name}» em ${levelName}${extra}.`;
+  const levelName = nav.project.levels.find((lv) => lv.id === target.levelId)?.name ?? target.levelId;
+  const key = target.ids.length === 1
+    ? (target.elsewhere === 0 ? 'eds_msg_where_used_one' : target.elsewhere === 1 ? 'eds_msg_where_used_other_one_one' : 'eds_msg_where_used_other_one_many')
+    : (target.elsewhere === 0 ? 'eds_msg_where_used_many' : target.elsewhere === 1 ? 'eds_msg_where_used_other_many_one' : 'eds_msg_where_used_other_many_many');
+  return t(l, key, { n: target.ids.length, name, level: levelName, m: target.elsewhere });
 }
 
 /** Motivo pelo qual o tipo de parede não pode ser excluído; null quando pode. */
 export function wallTypeDeleteBlock(p: Project, typeId: Id): string | null {
-  if (p.defaults.wallTypeId === typeId) return 'É o tipo padrão do projeto.';
+  const l = lang();
+  if (p.defaults.wallTypeId === typeId) return t(l, 'eds_msg_type_is_default');
   const uso = wallTypeUsage(p, typeId);
-  if (uso > 0) return `Em uso por ${plural(uso, 'parede', 'paredes')}.`;
+  if (uso > 0) return t(l, uso === 1 ? 'eds_msg_in_use_by_walls_one' : 'eds_msg_in_use_by_walls_many', { n: uso });
   return null;
 }
 
@@ -227,7 +239,7 @@ export function tryDeleteWallType(store: ProjectStore, typeId: Id): DeleteResult
     store.exec({ type: 'deleteWallType', id: typeId });
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Falha desconhecida.' };
+    return { ok: false, error: e instanceof Error ? e.message : t(lang(), 'eds_msg_unknown_failure') };
   }
 }
 
@@ -236,9 +248,10 @@ export const floorTypeUsage = (p: Project, typeId: Id): number => instancesOfTyp
 
 /** Motivo pelo qual o tipo de piso não pode ser excluído; null quando pode. */
 export function floorTypeDeleteBlock(p: Project, typeId: Id): string | null {
-  if (Object.keys(p.floorTypes).length <= 1) return 'É o único tipo de piso do projeto.';
+  const l = lang();
+  if (Object.keys(p.floorTypes).length <= 1) return t(l, 'eds_msg_last_floor_type');
   const uso = floorTypeUsage(p, typeId);
-  if (uso > 0) return `Em uso por ${plural(uso, 'piso', 'pisos')}.`;
+  if (uso > 0) return t(l, uso === 1 ? 'eds_msg_in_use_by_floors_one' : 'eds_msg_in_use_by_floors_many', { n: uso });
   return null;
 }
 
@@ -248,7 +261,7 @@ export function tryDeleteFloorType(store: ProjectStore, typeId: Id): DeleteResul
     store.exec({ type: 'deleteFloorType', id: typeId });
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Falha desconhecida.' };
+    return { ok: false, error: e instanceof Error ? e.message : t(lang(), 'eds_msg_unknown_failure') };
   }
 }
 
@@ -256,8 +269,8 @@ export function tryDeleteFloorType(store: ProjectStore, typeId: Id): DeleteResul
 export function duplicateFloorType(store: ProjectStore, typeId: Id): Id | null {
   const src = store.project.floorTypes[typeId];
   if (!src) return null;
-  const copy: FloorType = { ...structuredClone(src), id: newId('ft'), name: `${src.name} (cópia)` };
-  store.exec({ type: 'upsertFloorType', floorType: copy }, 'Duplicar tipo de piso');
+  const copy: FloorType = { ...structuredClone(src), id: newId('ft'), name: t(lang(), 'eds_def_copy_suffix', { name: src.name }) };
+  store.exec({ type: 'upsertFloorType', floorType: copy }, 'eds_undo_duplicate_floor_type');
   return copy.id;
 }
 
@@ -265,9 +278,9 @@ export function duplicateFloorType(store: ProjectStore, typeId: Id): Id | null {
 export function renameFloorType(store: ProjectStore, typeId: Id, name: string): DeleteResult {
   const clean = name.trim();
   const src = store.project.floorTypes[typeId];
-  if (!src) return { ok: false, error: 'Tipo inexistente.' };
-  if (!clean) return { ok: false, error: 'Dê um nome ao tipo.' };
-  store.exec({ type: 'upsertFloorType', floorType: { ...src, name: clean } }, 'Renomear tipo de piso');
+  if (!src) return { ok: false, error: t(lang(), 'eds_msg_type_missing') };
+  if (!clean) return { ok: false, error: t(lang(), 'eds_msg_type_needs_name') };
+  store.exec({ type: 'upsertFloorType', floorType: { ...src, name: clean } }, 'eds_undo_rename_floor_type');
   return { ok: true };
 }
 
@@ -275,11 +288,12 @@ export function renameFloorType(store: ProjectStore, typeId: Id, name: string): 
  * Validação do tipo de piso antes de salvar: ao menos uma camada, espessura maior que zero em toda camada
  * (só a membrana pode ter zero) e nome. Devolve a mensagem do primeiro problema, ou null se está pronto.
  */
-export function floorTypeError(t: Pick<FloorType, 'name' | 'layers'>): string | null {
-  if (!t.name.trim()) return 'Dê um nome ao tipo.';
-  if (t.layers.length === 0) return 'O tipo precisa de ao menos uma camada.';
-  const bad = t.layers.findIndex((l) => l.function !== 'membrane' && !(l.thickness > 0));
-  if (bad >= 0) return `Camada ${bad + 1}: a espessura precisa ser maior que zero (só membrana pode ser zero).`;
+export function floorTypeError(tipo: Pick<FloorType, 'name' | 'layers'>): string | null {
+  const l = lang();
+  if (!tipo.name.trim()) return t(l, 'eds_msg_type_needs_name');
+  if (tipo.layers.length === 0) return t(l, 'eds_msg_type_needs_layer');
+  const bad = tipo.layers.findIndex((lv) => lv.function !== 'membrane' && !(lv.thickness > 0));
+  if (bad >= 0) return t(l, 'eds_msg_layer_thickness', { n: bad + 1 });
   return null;
 }
 

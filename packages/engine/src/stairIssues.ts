@@ -1,5 +1,6 @@
 import { cross, dist, lerp, norm, sub, type Vec2 } from '@hestia/geom';
 import { stairCalcRuleOf } from '@hestia/model';
+import { numLang, t, type Lang } from './i18nMessages.ts';
 import type { ResolvedStair, ResolvedStairRiser } from './stairs.ts';
 import { DEFAULT_STAIR_NORMS, type StairNorms } from './stairNorms.ts';
 import { stairQuantities } from './stairQuantities.ts';
@@ -18,7 +19,7 @@ export interface StairIssueItem {
 /** Tolerância (m) nas comparações com faixas e com o nº de espelhos (evita 0,28 × 0,9999… virar aviso). */
 const EPS = 1e-9;
 
-const num = (n: number, digits: number): string => n.toFixed(digits).replace('.', ',');
+const numIn = (lang: Lang) => (n: number, digits: number): string => numLang(n, digits, lang);
 
 export function makeStairIssue(
   stairId: string,
@@ -103,7 +104,8 @@ function risersByRun(risers: ResolvedStairRiser[]): Array<[number, ResolvedStair
 }
 
 /** Espelho (altura real h = H ÷ N) contra o tipo e a faixa de norma. Sem espelhos ou sem altura, nada. */
-function riserChecks(rs: ResolvedStair, norms: StairNorms, out: StairIssueItem[]): void {
+function riserChecks(rs: ResolvedStair, norms: StairNorms, out: StairIssueItem[], lang: Lang): void {
+  const num = numIn(lang);
   const h = rs.riserHeight;
   if (rs.riserCount === 0 || !(h > 0)) return;
   const H = rs.topZ - rs.baseZ;
@@ -116,7 +118,7 @@ function riserChecks(rs: ResolvedStair, norms: StairNorms, out: StairIssueItem[]
           rs.id,
           'stair-risers-count',
           'warning',
-          `O nº de espelhos (${rs.riserCount}) difere do nº desejado (${desired}): adicione/remova espelhos ou ajuste a altura.`,
+          t(lang, 'egb_issue_stair_riser_count_diff', { count: rs.riserCount, desired }),
         ),
       );
     }
@@ -126,7 +128,7 @@ function riserChecks(rs: ResolvedStair, norms: StairNorms, out: StairIssueItem[]
           rs.id,
           'stair-riser-too-high',
           'error',
-          `A altura real do espelho (${num(h, 3)} m) excede a máxima do tipo (${num(max, 3)} m).`,
+          t(lang, 'egb_issue_stair_riser_over', { h: num(h, 3), max: num(max, 3) }),
         ),
       );
     }
@@ -137,7 +139,7 @@ function riserChecks(rs: ResolvedStair, norms: StairNorms, out: StairIssueItem[]
         rs.id,
         'stair-riser-range',
         'warning',
-        `A altura do espelho (${num(h, 3)} m) está fora da faixa de norma (${num(norms.riserMin, 2)} a ${num(norms.riserMax, 2)} m).`,
+        t(lang, 'egb_issue_stair_norm_riser', { h: num(h, 3), min: num(norms.riserMin, 2), max: num(norms.riserMax, 2) }),
       ),
     );
   }
@@ -156,7 +158,7 @@ const PARALLEL_SIN = 1e-3;
  * então todo espelho de todo lance tem a mesma altura por construção. Se o modelo passar a aceitar altura por lance,
  * a comparação entra aqui, por `componentIndex`.
  */
-function evenTreadCheck(rs: ResolvedStair, ci: number, risers: ResolvedStairRiser[], out: StairIssueItem[]): void {
+function evenTreadCheck(rs: ResolvedStair, ci: number, risers: ResolvedStairRiser[], out: StairIssueItem[], lang: Lang): void {
   if (risers.length < 3) return;
   const u0 = norm(sub(risers[0]!.b, risers[0]!.a));
   if (!risers.every((r) => Math.abs(cross(u0, norm(sub(r.b, r.a)))) < PARALLEL_SIN)) return;
@@ -169,7 +171,7 @@ function evenTreadCheck(rs: ResolvedStair, ci: number, risers: ResolvedStairRise
         rs.id,
         'stair-uneven',
         'warning',
-        `Degraus desiguais: o piso entre espelhos consecutivos varia ${Math.round(spread * 1000)} mm (máximo ${Math.round(TREAD_EVEN_TOL * 1000)} mm).`,
+        t(lang, 'egb_issue_stair_uneven_treads', { v: Math.round(spread * 1000), max: Math.round(TREAD_EVEN_TOL * 1000) }),
         ci,
       ),
     );
@@ -182,7 +184,8 @@ function evenTreadCheck(rs: ResolvedStair, ci: number, risers: ResolvedStairRise
  * que `winderTreadMin`. O lado interno é o lado em que as pontas dos espelhos ficam mais próximas entre si. O caracol
  * tem a sua própria regra (`stair-spiral-tread`), com os mesmos números: aqui ele é pulado.
  */
-function winderTreadCheck(rs: ResolvedStair, ci: number, risers: ResolvedStairRiser[], norms: StairNorms, out: StairIssueItem[]): void {
+function winderTreadCheck(rs: ResolvedStair, ci: number, risers: ResolvedStairRiser[], norms: StairNorms, out: StairIssueItem[], lang: Lang): void {
+  const num = numIn(lang);
   if (risers.length < 2 || rs.spiral?.componentIndex === ci) return;
   const pointAt = (inner: Vec2, outer: Vec2): Vec2 => {
     const l = dist(inner, outer);
@@ -205,7 +208,11 @@ function winderTreadCheck(rs: ResolvedStair, ci: number, risers: ResolvedStairRi
         rs.id,
         'stair-winder-tread',
         'warning',
-        `O piso do degrau do leque a ${num(norms.winderTreadAt, 2)} m da borda interna (${num(worst, 2)} m) é menor que o mínimo de ${num(norms.winderTreadMin, 2)} m.`,
+        t(lang, 'egb_issue_stair_winder_tread', {
+          at: num(norms.winderTreadAt, 2),
+          tread: num(worst, 2),
+          min: num(norms.winderTreadMin, 2),
+        }),
         ci,
       ),
     );
@@ -213,13 +220,14 @@ function winderTreadCheck(rs: ResolvedStair, ci: number, risers: ResolvedStairRi
 }
 
 /** Rótulo da relação de cálculo: "2h + p" para a regra padrão e os fatores explícitos nas demais. */
-function relationLabel(a: number, b: number): string {
-  const f = (v: number): string => (Number.isInteger(v) ? String(v) : num(v, 2));
+function relationLabel(a: number, b: number, lang: Lang): string {
+  const f = (v: number): string => (Number.isInteger(v) ? String(v) : numLang(v, 2, lang));
   return `${f(a)}h + ${b === 1 ? '' : `${f(b)}`}p`;
 }
 
 /** Lance a lance: largura, piso médio, regra de cálculo, desnível sem patamar, degraus iguais e piso do leque. */
-function runChecks(rs: ResolvedStair, norms: StairNorms, out: StairIssueItem[]): void {
+function runChecks(rs: ResolvedStair, norms: StairNorms, out: StairIssueItem[], lang: Lang): void {
+  const num = numIn(lang);
   const h = rs.riserHeight;
   const calc = stairCalcRuleOf(rs.type);
   const quant = stairQuantities(rs);
@@ -231,13 +239,13 @@ function runChecks(rs: ResolvedStair, norms: StairNorms, out: StairIssueItem[]):
           rs.id,
           'stair-width-min',
           'warning',
-          `A largura do lance (${num(width, 2)} m) é menor que a mínima do tipo (${num(rs.type.minRunWidth, 2)} m).`,
+          t(lang, 'egb_issue_stair_width', { w: num(width, 2), min: num(rs.type.minRunWidth, 2) }),
           ci,
         ),
       );
     }
-    evenTreadCheck(rs, ci, risers, out);
-    winderTreadCheck(rs, ci, risers, norms, out);
+    evenTreadCheck(rs, ci, risers, out, lang);
+    winderTreadCheck(rs, ci, risers, norms, out, lang);
     const run = quant.runs.find((q) => q.componentIndex === ci);
     if (risers.length >= 2 && run && run.treadCount > 0) {
       // Piso médio do quantitativo (área dos degraus ÷ largura × nº de degraus): o aviso e a tabela usam a mesma conta.
@@ -249,7 +257,11 @@ function runChecks(rs: ResolvedStair, norms: StairNorms, out: StairIssueItem[]):
             rs.id,
             'stair-tread-range',
             'warning',
-            `O piso médio do lance (${num(tread, 3)} m) está fora da faixa de norma (${num(norms.treadMin, 2)} a ${num(norms.treadMax, 2)} m).`,
+            t(lang, 'egb_issue_stair_tread_avg', {
+              tread: num(tread, 3),
+              min: num(norms.treadMin, 2),
+              max: num(norms.treadMax, 2),
+            }),
             ci,
           ),
         );
@@ -261,7 +273,12 @@ function runChecks(rs: ResolvedStair, norms: StairNorms, out: StairIssueItem[]):
             rs.id,
             'stair-blondel',
             'warning',
-            `A relação ${relationLabel(calc.calcRiserFactor, calc.calcTreadFactor)} (${num(relation, 3)} m) está fora da faixa de norma (${num(calc.calcMin, 2)} a ${num(calc.calcMax, 2)} m).`,
+            t(lang, 'egb_issue_stair_relation', {
+              relation: relationLabel(calc.calcRiserFactor, calc.calcTreadFactor, lang),
+              v: num(relation, 3),
+              min: num(calc.calcMin, 2),
+              max: num(calc.calcMax, 2),
+            }),
             ci,
           ),
         );
@@ -274,7 +291,7 @@ function runChecks(rs: ResolvedStair, norms: StairNorms, out: StairIssueItem[]):
           rs.id,
           'stair-landing-rise',
           'warning',
-          `O lance sobe ${num(rise, 2)} m sem patamar; o máximo entre patamares é ${num(norms.maxRiseBetweenLandings, 2)} m.`,
+          t(lang, 'egb_issue_stair_rise_between', { rise: num(rise, 2), max: num(norms.maxRiseBetweenLandings, 2) }),
           ci,
         ),
       );
@@ -283,7 +300,8 @@ function runChecks(rs: ResolvedStair, norms: StairNorms, out: StairIssueItem[]):
 }
 
 /** Menor dimensão de cada patamar. */
-function landingChecks(rs: ResolvedStair, norms: StairNorms, out: StairIssueItem[]): void {
+function landingChecks(rs: ResolvedStair, norms: StairNorms, out: StairIssueItem[], lang: Lang): void {
+  const num = numIn(lang);
   for (const st of rs.steps) {
     if (st.kind !== 'landing') continue;
     const w = minWidth(st.polygon);
@@ -293,7 +311,7 @@ function landingChecks(rs: ResolvedStair, norms: StairNorms, out: StairIssueItem
           rs.id,
           'stair-landing-length',
           'warning',
-          `O patamar tem menor dimensão de ${num(w, 2)} m, abaixo do mínimo de ${num(norms.landingMinLength, 2)} m.`,
+          t(lang, 'egb_issue_stair_landing_small', { w: num(w, 2), min: num(norms.landingMinLength, 2) }),
           st.componentIndex,
         ),
       );
@@ -302,17 +320,16 @@ function landingChecks(rs: ResolvedStair, norms: StairNorms, out: StairIssueItem
 }
 
 /** Avisos de norma (decisão 0011 §3 e §1 item 10) de uma escada resolvida. Nunca bloqueiam. */
-export function stairNormIssues(rs: ResolvedStair, norms: StairNorms = DEFAULT_STAIR_NORMS): StairIssueItem[] {
+export function stairNormIssues(rs: ResolvedStair, norms: StairNorms = DEFAULT_STAIR_NORMS, lang: Lang = 'pt'): StairIssueItem[] {
   const out: StairIssueItem[] = [];
-  riserChecks(rs, norms, out);
-  runChecks(rs, norms, out);
-  landingChecks(rs, norms, out);
+  riserChecks(rs, norms, out, lang);
+  runChecks(rs, norms, out, lang);
+  landingChecks(rs, norms, out, lang);
   return out;
 }
 
 /** Aviso fixo de todo lance de caracol (decisão 0014 §1 item 6, e): não é saída de emergência (RT 11 e IT 11 SP). */
-export const SPIRAL_EXIT_MESSAGE =
-  'Escada caracol não serve de saída de emergência (RS: RT 11 5.7.1.2; SP: só mezanino e área privativa).';
+export const SPIRAL_EXIT_MESSAGE = t('pt', 'egb_issue_stair_spiral_egress');
 
 /** Parâmetros do caracol para os avisos: varredura (rad), raios e nº de espelhos (N) do lance. */
 export interface SpiralNormInput {
@@ -338,8 +355,10 @@ export function spiralNormIssues(
   componentIndex: number,
   sp: SpiralNormInput | undefined,
   norms: StairNorms = DEFAULT_STAIR_NORMS,
+  lang: Lang = 'pt',
 ): StairIssueItem[] {
-  const out: StairIssueItem[] = [makeStairIssue(rs.id, 'stair-spiral-exit', 'warning', SPIRAL_EXIT_MESSAGE, componentIndex)];
+  const num = numIn(lang);
+  const out: StairIssueItem[] = [makeStairIssue(rs.id, 'stair-spiral-exit', 'warning', t(lang, 'egb_issue_stair_spiral_egress'), componentIndex)];
   const h = rs.riserHeight;
   if (!sp || !(h > 0) || !(sp.risers >= 2) || !(Math.abs(sp.sweep) > 0)) return out;
   const step = Math.abs(sp.sweep) / (sp.risers - 1);
@@ -352,7 +371,11 @@ export function spiralNormIssues(
         rs.id,
         'stair-spiral-tread',
         'warning',
-        `O piso a ${num(norms.spiralTreadAt, 2)} m da borda interna (${num(atTread, 2)} m) é menor que o mínimo de ${num(norms.spiralTreadMin, 2)} m.`,
+        t(lang, 'egb_issue_stair_spiral_tread', {
+          at: num(norms.spiralTreadAt, 2),
+          tread: num(atTread, 2),
+          min: num(norms.spiralTreadMin, 2),
+        }),
         componentIndex,
       ),
     );
@@ -364,7 +387,7 @@ export function spiralNormIssues(
         rs.id,
         'stair-spiral-narrow',
         'warning',
-        `O piso na borda estreita (${num(narrow, 3)} m) é menor que o mínimo de ${num(norms.spiralNarrowMin, 2)} m (informativo).`,
+        t(lang, 'egb_issue_stair_narrow_tread', { tread: num(narrow, 3), min: num(norms.spiralNarrowMin, 2) }),
         componentIndex,
       ),
     );
@@ -382,7 +405,7 @@ export function spiralNormIssues(
           rs.id,
           'stair-spiral-headroom',
           'warning',
-          `A folga entre voltas (${num(folga, 2)} m) é menor que o mínimo (${num(rs.type.minHeadroom, 2)} m): aumente o nº de espelhos por volta, o pé-direito ou a profundidade livre.`,
+          t(lang, 'egb_issue_stair_spiral_headroom', { v: num(folga, 2), min: num(rs.type.minHeadroom, 2) }),
           componentIndex,
         ),
       );

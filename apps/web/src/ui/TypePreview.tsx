@@ -1,4 +1,5 @@
 import { useId, type ReactElement } from 'react';
+import { useT } from '../editor/i18n.ts';
 import {
   ceilingTypeThickness,
   floorTypeThickness,
@@ -116,6 +117,7 @@ export function TypeThumb({ subject }: { subject: PreviewSubject }): ReactElemen
 
 /** Porta em elevação: folhas com painéis e maçaneta, sentido de correr, eixo do pivô e vão livre sem folha. */
 function DoorDrawing({ t, uid }: { t: OpeningType; uid: string }): ReactElement {
+  const { t: tr } = useT();
   const s = Math.min(92 / t.height, 150 / t.width);
   const W = t.width * s;
   const H = t.height * s;
@@ -139,7 +141,7 @@ function DoorDrawing({ t, uid }: { t: OpeningType; uid: string }): ReactElement 
     );
   });
   return (
-    <svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Prévia da porta">
+    <svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid meet" role="img" aria-label={tr('prc_aria_door_preview')}>
       <defs>
         <pattern id={hatch} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <line x1="0" y1="0" x2="0" y2="6" stroke="rgba(0,0,0,.35)" strokeWidth={1} />
@@ -154,7 +156,7 @@ function DoorDrawing({ t, uid }: { t: OpeningType; uid: string }): ReactElement 
       {t.leaves === 0 ? (
         <>
           <rect x={x0} y={y0} width={W} height={H} fill="none" stroke="#2d3748" strokeDasharray="4 3" />
-          <text x={100} y={y0 + H / 2} textAnchor="middle" fontSize={9} fill="#718096">vão livre</text>
+          <text x={100} y={y0 + H / 2} textAnchor="middle" fontSize={9} fill="#718096">{tr('prc_msg_open_void')}</text>
         </>
       ) : (
         <>
@@ -172,6 +174,7 @@ function DoorDrawing({ t, uid }: { t: OpeningType; uid: string }): ReactElement 
 
 /** Janela em elevação: vidro com degradê, folhas (maxim-ar tracejado, correr com seta) e peitoril. */
 function WindowDrawing({ t, uid }: { t: OpeningType; uid: string }): ReactElement {
+  const { t: tr } = useT();
   const s = Math.min(70 / t.height, 150 / t.width);
   const W = t.width * s;
   const H = t.height * s;
@@ -199,7 +202,7 @@ function WindowDrawing({ t, uid }: { t: OpeningType; uid: string }): ReactElemen
     );
   });
   return (
-    <svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Prévia da janela">
+    <svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid meet" role="img" aria-label={tr('prc_aria_window_preview')}>
       <defs>
         <pattern id={hatch} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <line x1="0" y1="0" x2="0" y2="6" stroke="rgba(0,0,0,.35)" strokeWidth={1} />
@@ -215,7 +218,7 @@ function WindowDrawing({ t, uid }: { t: OpeningType; uid: string }): ReactElemen
       <rect x={8} y={8} width={184} height={104} fill={`url(#${hatch})`} opacity={0.18} />
       <rect x={x0} y={y0} width={W} height={H} fill={`url(#${glass})`} />
       {t.leaves === 0 && (
-        <text x={100} y={y0 + H / 2} textAnchor="middle" fontSize={9} fill="#4a5568">vão sem esquadria</text>
+        <text x={100} y={y0 + H / 2} textAnchor="middle" fontSize={9} fill="#4a5568">{tr('prc_msg_void_no_frame')}</text>
       )}
       {leaves}
       <rect x={x0} y={y0} width={W} height={H} fill="none" stroke="#6c7782" strokeWidth={fw} />

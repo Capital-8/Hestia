@@ -37,7 +37,7 @@ export function selecionarVisiveis3D(): boolean {
   useUi.setState({
     selection: ids,
     selectedLevel: null,
-    status: ids.length ? `${ids.length} elemento(s) visível(is) selecionado(s).` : 'Nenhum elemento visível na vista 3D.',
+    status: ids.length ? { key: 'edc_3d_selected', args: { n: ids.length } } : { key: 'edc_3d_none_visible' },
   });
   return true;
 }

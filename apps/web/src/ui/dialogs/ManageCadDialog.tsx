@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import { useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
 import { cadBoxOf, cadDrawingsOf, cadLevelName, frameCad, removeCad, renameCad, selectCad, setCadVisible } from '../../editor/cadActions.ts';
+import { useT } from '../../editor/i18n.ts';
 import { Dialog } from './Dialog.tsx';
 import { TextField } from '../fields.tsx';
 
@@ -11,39 +12,40 @@ import { TextField } from '../fields.tsx';
  * repete as mesmas ações no nó "CAD importado".
  */
 export function ManageCadDialog(): ReactElement {
+  const { t } = useT();
   const p = useProject();
   const cads = cadDrawingsOf(p);
   const close = (): void => useUi.setState({ dialog: null });
   return (
     <Dialog
-      title="CAD importado"
-      sub="Desenhos DXF do projeto: visibilidade, enquadramento e exclusão"
+      title={t('dlc_cad_manager')}
+      sub={t('dlc_cad_manager_sub')}
       onClose={close}
       size="wide"
       footer={
         <>
           <span style={{ flex: 1 }} />
-          <button className="btn" onClick={close}>Fechar</button>
+          <button className="btn" onClick={close}>{t('dlc_btn_close')}</button>
           <button className="btn primary" onClick={() => useUi.setState({ dialog: 'importCad', dialogArg: null })}>
-            Importar DXF…
+            {t('dlc_import_dxf')}
           </button>
         </>
       }
     >
       {cads.length === 0 ? (
         <p role="status" style={{ margin: 0, opacity: 0.8 }}>
-          Nenhum desenho CAD importado. Use <b>Importar DXF…</b> para inserir a primeira planta de referência.
+          {t('dlc_cad_empty_pre')}<b>{t('dlc_import_dxf')}</b>{t('dlc_cad_empty_post')}
         </p>
       ) : (
         <div className="table-scroll">
         <table className="kbtable">
           <thead>
             <tr>
-              <th style={{ textAlign: 'left' }}>Nome</th>
-              <th style={{ textAlign: 'left' }}>Nível</th>
-              <th>Visível</th>
-              <th style={{ textAlign: 'left' }}>Conteúdo</th>
-              <th style={{ textAlign: 'right' }}>Ações</th>
+              <th style={{ textAlign: 'left' }}>{t('col_name')}</th>
+              <th style={{ textAlign: 'left' }}>{t('col_level')}</th>
+              <th>{t('dlc_col_visible')}</th>
+              <th style={{ textAlign: 'left' }}>{t('dlc_col_content')}</th>
+              <th style={{ textAlign: 'right' }}>{t('dlc_col_actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -62,16 +64,16 @@ export function ManageCadDialog(): ReactElement {
                   <td style={{ textAlign: 'center' }}>
                     <input
                       type="checkbox"
-                      aria-label={`Visível ${c.name}`}
+                      aria-label={t('dlc_aria_cad_visible', { name: c.name })}
                       checked={c.visible !== false}
                       onChange={(e) => setCadVisible(c, e.target.checked)}
                     />
                   </td>
                   <td style={{ whiteSpace: 'nowrap', color: 'var(--fg-soft)' }}>
-                    {c.layers.length} camada(s) · {c.paths.length} traço(s) · {c.texts.length} texto(s)
+                    {t('dlc_cad_content', { layers: c.layers.length, paths: c.paths.length, texts: c.texts.length })}
                   </td>
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    <button className="btn small" onClick={() => selectCad(c)} title="Seleciona o desenho (as Propriedades mostram o CAD)">Selecionar</button>{' '}
+                    <button className="btn small" onClick={() => selectCad(c)} title={t('dlc_tip_cad_select')}>{t('dlc_btn_select')}</button>{' '}
                     <button
                       className="btn small"
                       onClick={() => {
@@ -79,11 +81,11 @@ export function ManageCadDialog(): ReactElement {
                         frameCad(c);
                       }}
                       disabled={!box}
-                      title="Abre a planta do nível e enquadra o desenho"
+                      title={t('dlc_tip_cad_frame')}
                     >
-                      Enquadrar
+                      {t('dlc_btn_zoom_fit')}
                     </button>{' '}
-                    <button className="btn small" onClick={() => removeCad(c)} title="Exclui o desenho (Ctrl+Z desfaz)">Excluir</button>
+                    <button className="btn small" onClick={() => removeCad(c)} title={t('dlc_tip_cad_delete')}>{t('dlc_btn_delete')}</button>
                   </td>
                 </tr>
               );
@@ -94,9 +96,7 @@ export function ManageCadDialog(): ReactElement {
       )}
       {cads.length > 0 ? (
         <p style={{ margin: '10px 0 0', fontSize: 11.5, color: 'var(--fg-soft)' }}>
-          As linhas e os vértices dos desenhos visíveis entram na captura (botão <b>Snap</b> da barra de status, item
-          “CAD importado (DXF)”). Use <b>Ocultar</b> no menu de contexto ou desmarque <b>Visível</b> para tirar o desenho
-          da captura.
+          {t('dlc_cad_snap_hint')}
         </p>
       ) : null}
     </Dialog>

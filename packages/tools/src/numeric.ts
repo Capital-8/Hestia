@@ -1,4 +1,5 @@
 import { fromDisplay, parseQuantity, type LengthUnit, type Quantity, type ResolvedUnits } from '@hestia/model';
+import { t as translate, type DictKey, type Lang } from './i18n.ts';
 
 /** Interpreta medidas digitadas: "3,5", "3.50+0,15", "(2+1)*0,5". Sem eval. Devolve null se inválido. */
 export function parseNumber(text: string): number | null {
@@ -67,6 +68,15 @@ export function parseQuantityText(text: string, u: ResolvedUnits, q: Quantity): 
   return value === null ? null : fromDisplay(u, q, value);
 }
 
+const LENGTH_NAME_KEYS: Record<LengthUnit, DictKey> = {
+  m: 'tl_unit_meters',
+  cm: 'tl_unit_centimeters',
+  mm: 'tl_unit_millimeters',
+  ft: 'tl_unit_feet',
+  in: 'tl_unit_inches',
+  'ft-in': 'tl_unit_feet_inches',
+};
+
 const LENGTH_NAMES: Record<LengthUnit, string> = {
   m: 'metros',
   cm: 'centímetros',
@@ -77,6 +87,6 @@ const LENGTH_NAMES: Record<LengthUnit, string> = {
 };
 
 /** Nome por extenso da unidade de comprimento do projeto, para mensagens de erro das ferramentas. */
-export function lengthUnitName(u: ResolvedUnits): string {
-  return LENGTH_NAMES[u.length.unit];
+export function lengthUnitName(u: ResolvedUnits, lang: Lang = 'pt'): string {
+  return lang === 'en' ? translate(lang, LENGTH_NAME_KEYS[u.length.unit]) : LENGTH_NAMES[u.length.unit];
 }

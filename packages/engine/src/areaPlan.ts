@@ -1,4 +1,5 @@
 import { areaPlanOf, categoryById, type AreaPlan, type ColorScheme, type Id, type Project, type Room } from '@hestia/model';
+import { t, type Lang } from './i18nMessages.ts';
 import { resolveRooms, type ResolvedRoom } from './rooms.ts';
 
 /** Paleta de reserva quando o esquema não define cor para o grupo. */
@@ -44,7 +45,7 @@ export interface AreaLegendRow {
 }
 
 /** Linhas da legenda: agrupadas por categoria ou por nível, com quantidade, área e percentual. */
-export function areaLegendRows(p: Project, plan: AreaPlan): AreaLegendRow[] {
+export function areaLegendRows(p: Project, plan: AreaPlan, lang: Lang = 'pt'): AreaLegendRow[] {
   const scheme = schemeOf(p, plan);
   if (!scheme) return [];
   const rooms = Object.values(p.elements).filter((e): e is Room => e.kind === 'room' && e.levelId === plan.levelId);
@@ -56,7 +57,7 @@ export function areaLegendRows(p: Project, plan: AreaPlan): AreaLegendRow[] {
     if (!r || r.problem || r.duplicateOf !== undefined) continue;
     const color = schemeColor(p, plan, room, r);
     if (!color) continue;
-    const label = scheme.by === 'level' ? (p.levels.find((l) => l.id === room.levelId)?.name ?? room.levelId) : (categoryById(p, room.categoryId)?.name ?? 'Sem categoria');
+    const label = scheme.by === 'level' ? (p.levels.find((l) => l.id === room.levelId)?.name ?? room.levelId) : (categoryById(p, room.categoryId)?.name ?? t(lang, 'egb_area_no_category'));
     const id = scheme.by === 'level' ? room.levelId : (room.categoryId ?? 'none');
     const row = groups.get(id) ?? { id, label, color, count: 0, area: 0, percent: 0 };
     row.count += 1;
@@ -84,7 +85,7 @@ export interface AreaTableRow {
 }
 
 /** Linhas do quadro de áreas da planta: ambientes, subtotal do nível e total. */
-export function areaTableRows(p: Project, plan: AreaPlan): AreaTableRow[] {
+export function areaTableRows(p: Project, plan: AreaPlan, lang: Lang = 'pt'): AreaTableRow[] {
   const rooms = Object.values(p.elements).filter((e): e is Room => e.kind === 'room' && e.levelId === plan.levelId);
   const resolved = new Map(resolveRooms(p, plan.levelId).map((r) => [r.roomId, r] as const));
   const rows: AreaTableRow[] = [];
@@ -107,10 +108,10 @@ export function areaTableRows(p: Project, plan: AreaPlan): AreaTableRow[] {
       volume: r.volume,
     });
   }
-  rows.sort((a, b) => a.number.localeCompare(b.number, 'pt-BR', { numeric: true }));
+  rows.sort((a, b) => a.number.localeCompare(b.number, lang === 'en' ? 'en' : 'pt-BR', { numeric: true }));
   for (const r of rows) r.percent = total > 0 ? (r.area / total) * 100 : 0;
-  rows.push({ kind: 'subtotal', number: '', name: `Subtotal ${levelName}`, levelName, category: '', area: total, percent: total > 0 ? 100 : 0, perimeter: 0, volume: 0 });
-  rows.push({ kind: 'total', number: '', name: 'Total geral', levelName, category: '', area: total, percent: total > 0 ? 100 : 0, perimeter: 0, volume: 0 });
+  rows.push({ kind: 'subtotal', number: '', name: t(lang, 'egb_area_subtotal', { level: levelName }), levelName, category: '', area: total, percent: total > 0 ? 100 : 0, perimeter: 0, volume: 0 });
+  rows.push({ kind: 'total', number: '', name: t(lang, 'egb_area_total'), levelName, category: '', area: total, percent: total > 0 ? 100 : 0, perimeter: 0, volume: 0 });
   return rows;
 }
 
@@ -118,19 +119,19 @@ export function areaTableRows(p: Project, plan: AreaPlan): AreaTableRow[] {
 export const planById = (p: Pick<Project, 'areaPlans'>, id: Id): AreaPlan | undefined => areaPlanOf(p, id);
 
 /** Quadro geral de áreas de TODAS as plantas do projeto (usado na prancha geral). */
-export function areaTableAllRows(p: Project): AreaTableRow[] {
+export function areaTableAllRows(p: Project, lang: Lang = 'pt'): AreaTableRow[] {
   const out: AreaTableRow[] = [];
   let total = 0;
   for (const plan of p.areaPlans ?? []) {
-    const rows = areaTableRows(p, plan).filter((r) => r.kind === 'room');
+    const rows = areaTableRows(p, plan, lang).filter((r) => r.kind === 'room');
     if (rows.length === 0) continue;
     out.push(...rows);
     const sum = rows.reduce((s, r) => s + r.area, 0);
     total += sum;
     const levelName = p.levels.find((l) => l.id === plan.levelId)?.name ?? '';
-    out.push({ kind: 'subtotal', number: '', name: `Subtotal ${levelName}`, levelName, category: '', area: sum, percent: 0, perimeter: 0, volume: 0 });
+    out.push({ kind: 'subtotal', number: '', name: t(lang, 'egb_area_subtotal', { level: levelName }), levelName, category: '', area: sum, percent: 0, perimeter: 0, volume: 0 });
   }
   for (const r of out) r.percent = total > 0 ? (r.area / total) * 100 : 0;
-  out.push({ kind: 'total', number: '', name: 'Total geral', levelName: '', category: '', area: total, percent: total > 0 ? 100 : 0, perimeter: 0, volume: 0 });
+  out.push({ kind: 'total', number: '', name: t(lang, 'egb_area_total'), levelName: '', category: '', area: total, percent: total > 0 ? 100 : 0, perimeter: 0, volume: 0 });
   return out;
 }

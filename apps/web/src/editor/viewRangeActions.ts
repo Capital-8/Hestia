@@ -1,4 +1,5 @@
 import { DEFAULT_VIEW_RANGE, viewRangeOf, type Id, type ProjectStore, type ViewRange } from '@hestia/model';
+import { t, useI18n } from './i18n.ts';
 
 /** Resultado de uma edição do intervalo de vista: `error` traz a mensagem pt-BR de quem recusou (nada é gravado). */
 export interface ViewRangeEdit {
@@ -21,7 +22,7 @@ export function editViewRange(store: ProjectStore, levelId: Id, patch: Partial<V
     store.exec({ type: 'setLevelViewRange', levelId, patch });
     return { ok: true, error: null };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Intervalo de vista inválido.' };
+    return { ok: false, error: e instanceof Error ? e.message : t(useI18n.getState().lang, 'edc_view_range_invalid') };
   }
 }
 

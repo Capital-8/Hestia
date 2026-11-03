@@ -19,6 +19,7 @@ import {
   type ProfileSpec,
   type SplitNode,
 } from '@hestia/model';
+import { t, type Dict, type Lang } from '../../../../editor/i18n.ts';
 
 /** Presets do projeto (`openingProfilesOf`): semente mais o que o projeto acrescentou ou editou. */
 export type Profiles = Readonly<Record<Id, ProfilePreset>>;
@@ -43,8 +44,8 @@ export function aValidar(r: ProfileRef, perfis: Profiles, campo: ProfileField): 
 }
 
 /** Fonte curta do perfil para o painel. */
-export function fonteDaRef(r: ProfileRef, perfis: Profiles): string {
-  return presetDaRef(r, perfis)?.source ?? 'Perfil próprio do tipo (migrado)';
+export function fonteDaRef(r: ProfileRef, perfis: Profiles, lang: Lang = 'pt'): string {
+  return presetDaRef(r, perfis)?.source ?? t(lang, 'dlo_prof_source_inline');
 }
 
 /** Troca o preset: a referência passa a ser só o preset (o ajuste anterior sai). */
@@ -101,14 +102,14 @@ export function comDivisor(c: OpeningComposition, splitId: string, ref: ProfileR
 
 // ───────────────────────── Alizar ─────────────────────────
 
-/** Faces do alizar com o rótulo da interface (a ordem é a do seletor). */
-export const ALIZAR_FACES: ReadonlyArray<readonly [CasingFaces, string]> = [
-  ['both', 'Ambas as faces'],
-  ['swing', 'Lado da abertura'],
-  ['opposite', 'Lado oposto à abertura'],
-  ['exterior', 'Exterior'],
-  ['interior', 'Interior'],
-  ['none', 'Nenhuma (sem alizar)'],
+/** Faces do alizar com a chave do rótulo da interface (a ordem é a do seletor). */
+export const ALIZAR_FACES: ReadonlyArray<readonly [CasingFaces, keyof Dict]> = [
+  ['both', 'dlo_o_casing_both'],
+  ['swing', 'dlo_o_casing_swing'],
+  ['opposite', 'dlo_o_casing_opposite'],
+  ['exterior', 'dlo_o_casing_exterior'],
+  ['interior', 'dlo_o_casing_interior'],
+  ['none', 'dlo_o_casing_none'],
 ];
 
 /** Alizar ligado = há alizar e alguma face dele está habilitada. */

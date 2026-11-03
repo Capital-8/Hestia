@@ -1,6 +1,7 @@
 import { useId, useState, type KeyboardEvent, type ReactElement } from 'react';
 import type { Id, Project } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
+import { useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import {
   compatibleTypes,
@@ -35,8 +36,6 @@ interface TypeRowProps {
   onEdit: () => void;
 }
 
-const errText = (e: unknown): string => (e instanceof Error ? e.message : 'falha desconhecida');
-
 /** Motivo pelo qual o tipo não pode ser excluído (parede, piso, laje…); null quando pode ou não é excluível (porta, janela). */
 function deleteBlockOf(p: Project, kind: TypeKind, typeId: Id): string | null {
   if (kind === 'wall') return wallTypeDeleteBlock(p, typeId);
@@ -54,8 +53,10 @@ function deleteBlockOf(p: Project, kind: TypeKind, typeId: Id): string | null {
  * clique edita o tipo e o botão direito abre o menu: onde é usado, selecionar instâncias, substituir, duplicar, renomear, excluir.
  */
 export function TypeRow({ kind, typeId, name, icon, active, onUse, onEdit }: TypeRowProps): ReactElement {
+  const { t } = useT();
   const p = useProject();
   const panelId = useId();
+  const errText = (e: unknown): string => (e instanceof Error ? e.message : t('prc_err_unknown'));
   const [replacing, setReplacing] = useState(false);
   const [target, setTarget] = useState<Id>('');
   /** Depois de substituir, pergunta se o tipo antigo (que ficou sem uso) deve ser excluído. */
@@ -68,7 +69,7 @@ export function TypeRow({ kind, typeId, name, icon, active, onUse, onEdit }: Typ
   const deletable = kind === 'wall' || kind === 'floor' || kind === 'slab' || kind === 'ceiling' || kind === 'roof' || kind === 'stair' || kind === 'ramp';
   const renamable = kind === 'floor' || kind === 'slab' || kind === 'ceiling' || kind === 'roof' || kind === 'stair' || kind === 'ramp';
   const deleteBlock = deleteBlockOf(p, kind, typeId);
-  const replaceBlock = choices.length === 0 ? 'Não há outro tipo compatível.' : uses === 0 ? 'Este tipo não tem instâncias.' : null;
+  const replaceBlock = choices.length === 0 ? t('prc_msg_no_compatible_type') : uses === 0 ? t('prc_msg_type_has_no_instances') : null;
 
   const selectAll = (): void => {
     const plan = selectAllPlan(editor.project, kind, typeId, useUi.getState().levelId, name);
@@ -87,13 +88,13 @@ export function TypeRow({ kind, typeId, name, icon, active, onUse, onEdit }: Typ
       // Só pergunta se o tipo antigo pode mesmo ser excluído (o padrão do projeto não pode).
       setAskDelete(deletable && n > 0 && deleteBlockOf(editor.project, kind, typeId) === null);
     } catch (e) {
-      useUi.setState({ status: `Não foi possível substituir: ${errText(e)}` });
+      useUi.setState({ status: t('prc_msg_replace_failed', { error: errText(e) }) });
     }
   };
   const remove = (): void => {
     const r = kind === 'floor' ? tryDeleteFloorType(editor.store, typeId) : kind === 'slab' ? tryDeleteSlabType(editor.store, typeId) : kind === 'ceiling' ? tryDeleteCeilingType(editor.store, typeId) : kind === 'roof' ? tryDeleteRoofType(editor.store, typeId) : kind === 'stair' ? tryDeleteStairType(editor.store, typeId) : kind === 'ramp' ? tryDeleteRampType(editor.store, typeId) : tryDeleteWallType(editor.store, typeId);
     if (!r.ok) {
-      useUi.setState({ status: `Não foi possível excluir «${name}»: ${r.error}` });
+      useUi.setState({ status: t('prc_msg_delete_type_failed', { name, error: r.error }) });
       return;
     }
     // Se o tipo excluído era o escolhido para desenhar, volta ao padrão do projeto.
@@ -114,11 +115,11 @@ export function TypeRow({ kind, typeId, name, icon, active, onUse, onEdit }: Typ
       useUi.setState({ options: { ...ui.options, wallTypeId: editor.project.defaults.wallTypeId } });
     }
     setAskDelete(false);
-    useUi.setState({ status: `Tipo «${name}» excluído.` });
+    useUi.setState({ status: t('prc_msg_type_deleted', { name }) });
   };
   const duplicate = (): void => {
     const id = kind === 'slab' ? duplicateSlabType(editor.store, typeId) : kind === 'ceiling' ? duplicateCeilingType(editor.store, typeId) : kind === 'roof' ? duplicateRoofType(editor.store, typeId) : kind === 'stair' ? duplicateStairType(editor.store, typeId) : kind === 'ramp' ? duplicateRampType(editor.store, typeId) : duplicateFloorType(editor.store, typeId);
-    useUi.setState({ status: id ? `Tipo «${name}» duplicado. Duplo clique na cópia para editar.` : 'Não foi possível duplicar este tipo.' });
+    useUi.setState({ status: id ? t('prc_msg_type_duplicated', { name }) : t('prc_msg_duplicate_failed') });
   };
   const applyRename = (): void => {
     const r = kind === 'slab' ? renameSlabType(editor.store, typeId, newName) : kind === 'ceiling' ? renameCeilingType(editor.store, typeId, newName) : kind === 'roof' ? renameRoofType(editor.store, typeId, newName) : kind === 'stair' ? renameStairType(editor.store, typeId, newName) : kind === 'ramp' ? renameRampType(editor.store, typeId, newName) : renameFloorType(editor.store, typeId, newName);
@@ -127,7 +128,7 @@ export function TypeRow({ kind, typeId, name, icon, active, onUse, onEdit }: Typ
       return;
     }
     setRenaming(false);
-    useUi.setState({ status: `Tipo renomeado para «${newName.trim()}».` });
+    useUi.setState({ status: t('prc_msg_type_renamed', { name: newName.trim() }) });
   };
   const onRenameKey = (e: KeyboardEvent<HTMLInputElement>): void => {
     e.stopPropagation();
@@ -136,17 +137,17 @@ export function TypeRow({ kind, typeId, name, icon, active, onUse, onEdit }: Typ
   };
 
   const menu: MenuItem[] = [
-    { label: 'Propriedades de tipo…', run: onEdit },
-    { label: 'Usar ao desenhar', run: onUse },
-    { label: 'Selecionar todas as instâncias (nível atual)', run: selectAll, sep: true },
-    { label: 'Onde é usado', run: showWhereUsed, disabled: uses === 0, hint: uses === 0 ? 'Este tipo não tem instâncias.' : 'Vai ao nível com mais instâncias, enquadra e seleciona.' },
-    { label: 'Substituir por outro tipo…', run: () => setReplacing(true), disabled: replaceBlock !== null, hint: replaceBlock ?? undefined },
-    ...(renamable ? [{ label: 'Duplicar', run: duplicate, sep: true }, { label: 'Renomear', run: () => { setNewName(name); setRenaming(true); } }] : []),
-    ...(deletable ? [{ label: 'Excluir', run: remove, disabled: deleteBlock !== null, danger: true, sep: !renamable, hint: deleteBlock ? `Não é possível excluir: ${deleteBlock}` : undefined }] : []),
+    { label: t('prc_menu_type_properties'), run: onEdit },
+    { label: t('prc_menu_use_for_drawing'), run: onUse },
+    { label: t('prc_menu_select_all_instances'), run: selectAll, sep: true },
+    { label: t('prc_menu_where_used'), run: showWhereUsed, disabled: uses === 0, hint: uses === 0 ? t('prc_msg_type_has_no_instances') : t('prc_menu_where_used_hint') },
+    { label: t('prc_menu_replace_type'), run: () => setReplacing(true), disabled: replaceBlock !== null, hint: replaceBlock ?? undefined },
+    ...(renamable ? [{ label: t('prc_menu_duplicate'), run: duplicate, sep: true }, { label: t('prc_menu_rename'), run: () => { setNewName(name); setRenaming(true); } }] : []),
+    ...(deletable ? [{ label: t('prc_menu_delete'), run: remove, disabled: deleteBlock !== null, danger: true, sep: !renamable, hint: deleteBlock ? t('prc_menu_delete_blocked', { reason: deleteBlock }) : undefined }] : []),
   ];
 
   const label = renaming ? (
-    <input className="input view-rename" aria-label="Novo nome do tipo" value={newName} autoFocus onChange={(e) => setNewName(e.target.value)} onKeyDown={onRenameKey} onBlur={() => setRenaming(false)} onClick={(e) => e.stopPropagation()} />
+    <input className="input view-rename" aria-label={t('prc_aria_new_type_name')} value={newName} autoFocus onChange={(e) => setNewName(e.target.value)} onKeyDown={onRenameKey} onBlur={() => setRenaming(false)} onClick={(e) => e.stopPropagation()} />
   ) : name;
 
   const panels = (
@@ -154,23 +155,23 @@ export function TypeRow({ kind, typeId, name, icon, active, onUse, onEdit }: Typ
       {replacing ? (
         <div id={panelId} className="type-replace" onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setReplacing(false); } }}>
           <label>
-            <span>Substituir por…</span>
-            <select className="select" aria-label="Novo tipo" value={chosen} onChange={(e) => setTarget(e.target.value)}>
+            <span>{t('prc_fld_replace_with')}</span>
+            <select className="select" aria-label={t('prc_aria_new_type')} value={chosen} onChange={(e) => setTarget(e.target.value)}>
               {choices.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </label>
           <div className="type-replace-btns">
-            <button type="button" className="btn small primary" disabled={!chosen} onClick={apply}>Aplicar</button>
-            <button type="button" className="btn small" onClick={() => setReplacing(false)}>Cancelar</button>
+            <button type="button" className="btn small primary" disabled={!chosen} onClick={apply}>{t('prc_btn_apply')}</button>
+            <button type="button" className="btn small" onClick={() => setReplacing(false)}>{t('prc_btn_cancel')}</button>
           </div>
         </div>
       ) : null}
       {askDelete ? (
-        <div className="type-replace" role="group" aria-label={`Excluir o tipo ${name}`}>
-          <span>Excluir o tipo «{name}», que ficou sem uso?</span>
+        <div className="type-replace" role="group" aria-label={t('prc_aria_delete_type', { name })}>
+          <span>{t('prc_msg_delete_unused_type', { name })}</span>
           <div className="type-replace-btns">
-            <button type="button" className="btn small danger" onClick={remove}>Excluir tipo</button>
-            <button type="button" className="btn small" onClick={() => setAskDelete(false)}>Manter</button>
+            <button type="button" className="btn small danger" onClick={remove}>{t('prc_btn_delete_type')}</button>
+            <button type="button" className="btn small" onClick={() => setAskDelete(false)}>{t('prc_btn_keep')}</button>
           </div>
         </div>
       ) : null}
@@ -183,7 +184,7 @@ export function TypeRow({ kind, typeId, name, icon, active, onUse, onEdit }: Typ
       label={label}
       icon={icon}
       bold={active}
-      title={`${name} — ${uses} ${uses === 1 ? 'uso' : 'usos'} no projeto. Clique usa ao desenhar; duplo clique edita; botão direito abre o menu.`}
+      title={t('prc_tip_type_row', { name, n: uses, use: t(uses === 1 ? 'prc_use_one' : 'prc_use_many') })}
       onSelect={onUse}
       onOpen={onEdit}
       menu={menu}

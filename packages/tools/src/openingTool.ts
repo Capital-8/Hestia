@@ -45,7 +45,9 @@ interface PreviewCache {
 export class OpeningTool extends ToolBase {
   readonly id: 'door' | 'window';
   readonly label: string;
-  readonly hint: string;
+  override get hint(): string {
+    return this.t('tl_hint_opening', { label: this.t(this.id === 'door' ? 'tl_tool_door' : 'tl_tool_window') });
+  }
   private flipHand = false;
   private flipFacing = false;
   private lastSide: 1 | -1 = 1;
@@ -59,7 +61,6 @@ export class OpeningTool extends ToolBase {
     super(env);
     this.id = kind;
     this.label = kind === 'door' ? 'Porta' : 'Janela';
-    this.hint = `${this.label}: o lado do cursor define para onde abre; passe o cursor sobre uma parede e clique. Tab inverte o sentido, Espaço a dobradiça.`;
   }
 
   protected reset(): void {
@@ -108,7 +109,7 @@ export class OpeningTool extends ToolBase {
   }
 
   override inputPrompt(): string | null {
-    return this.current ? 'Distância do início da parede' : null;
+    return this.current ? this.t('tl_inp_wall_offset') : null;
   }
 
   private resolve(offset: number, wallId: string, neighbors = perpendicularNeighbors(this.env.project(), wallId, this.env.levelId())): number | null {
@@ -140,30 +141,30 @@ export class OpeningTool extends ToolBase {
     const tol = 10 * this.env.metersPerPixel();
     const h = width / 2;
     const targets: Array<{ c: number; note: string }> = [
-      { c: h + 0.01, note: 'início da parede' },
-      { c: f.length - h - 0.01, note: 'fim da parede' },
+      { c: h + 0.01, note: this.t('tl_note_wall_start') },
+      { c: f.length - h - 0.01, note: this.t('tl_note_wall_end') },
     ];
     // Centro do trecho livre entre as paredes perpendiculares vizinhas.
     for (const span of freeSpans(neighbors, f.length)) {
-      if (span.hi - span.lo >= width + 0.02) targets.push({ c: (span.lo + span.hi) / 2, note: 'centro do trecho' });
+      if (span.hi - span.lo >= width + 0.02) targets.push({ c: (span.lo + span.hi) / 2, note: this.t('tl_note_span_center') });
     }
     // Folga da quina: a borda da abertura fica a `openingClear` da face da perpendicular.
     const clear = this.env.options().openingClear ?? 0.1;
     for (const n of neighbors) {
       for (const [face, dir] of [[n.faceLo, -1], [n.faceHi, 1]] as Array<[number, 1 | -1]>) {
         const c = face + dir * (clear + h);
-        if (c > 0 && c < f.length) targets.push({ c, note: `a ${Math.round(clear * 100)} cm da parede` });
+        if (c > 0 && c < f.length) targets.push({ c, note: this.t('tl_note_clear_from_wall', { d: Math.round(clear * 100) }) });
       }
     }
     for (const o of openingsOfWall(pr, wallId)) {
       const ot = openingTypeById(pr, o.typeId);
       const ow = (ot?.width ?? 0.8) / 2;
       targets.push(
-        { c: o.offset - ow - h, note: 'encosto na abertura' },
-        { c: o.offset + ow + h, note: 'encosto na abertura' },
-        { c: o.offset - ow + h, note: 'batente alinhado' },
-        { c: o.offset + ow - h, note: 'batente alinhado' },
-        { c: o.offset, note: 'eixo alinhado' },
+        { c: o.offset - ow - h, note: this.t('tl_note_opening_butt') },
+        { c: o.offset + ow + h, note: this.t('tl_note_opening_butt') },
+        { c: o.offset - ow + h, note: this.t('tl_note_jamb_aligned') },
+        { c: o.offset + ow - h, note: this.t('tl_note_jamb_aligned') },
+        { c: o.offset, note: this.t('tl_note_axis_aligned') },
       );
     }
     let best: { c: number; note: string; d: number } | null = null;
@@ -205,15 +206,19 @@ export class OpeningTool extends ToolBase {
     this.items.push({ kind: 'highlight', ids: [host.wallId] });
     this.drawPreview(host.wallId, f, t.width, preview, flipHand, flipFacing, off !== null);
     if (off === null) {
-      this.env.say('Sem espaço livre neste ponto da parede.');
+      this.env.say(this.t('tl_msg_no_free_space'));
       return;
     }
     this.current = { wallId: host.wallId, offset: off };
-    const hinge = flipHand ? 'direita' : 'esquerda';
-    const abre = flipFacing === (this.lastSide < 0) ? 'para este lado' : 'para o lado oposto';
+    const hinge = this.t(flipHand ? 'tl_side_right' : 'tl_side_left');
+    const abre = this.t(flipFacing === (this.lastSide < 0) ? 'tl_msg_opens_this_side' : 'tl_msg_opens_other_side');
     this.env.say(
-      `${t.name}: dobradiça à ${hinge} · abre ${abre}${aligned.note ? ` · ${aligned.note}` : ''}. ` +
-        'Clique para inserir. Digite a distância ao início da parede e Enter para posição exata.',
+      this.t('tl_msg_opening_preview', {
+        type: t.name,
+        hinge,
+        side: abre,
+        note: aligned.note ? ` · ${aligned.note}` : '',
+      }),
     );
   }
 
@@ -308,7 +313,7 @@ export class OpeningTool extends ToolBase {
       mark: options.placementMark ?? '',
     };
     // A esquadria e a etiqueta ao inserir formam UM passo de desfazer: o primeiro Ctrl+Z remove a porta e o flag juntos.
-    this.env.transaction(this.id === 'door' ? 'Inserir porta' : 'Inserir janela', () => {
+    this.env.transaction(this.t(this.id === 'door' ? 'tl_undo_insert_door' : 'tl_undo_insert_window'), () => {
       this.env.exec({ type: 'addOpening', opening: o });
       // Revit "Tag on Placement": a etiqueta do tipo nasce junto com a esquadria (a opção desliga só esta ligação).
       if (options.openingTagOnPlace !== false && !this.env.project().settings.showOpeningTags) {
@@ -316,7 +321,7 @@ export class OpeningTool extends ToolBase {
       }
     });
     const pr = this.env.project();
-    this.env.say(`${openingType(pr, o).name} inserida.`);
+    this.env.say(this.t('tl_msg_opening_inserted', { type: openingType(pr, o).name }));
   }
 
   override click(p: PointerInfo): void {
@@ -330,7 +335,7 @@ export class OpeningTool extends ToolBase {
     if (v === null) return false;
     const off = this.resolve(v, this.current.wallId);
     if (off === null) {
-      this.env.say('Posição ocupada ou fora da parede.');
+      this.env.say(this.t('tl_msg_opening_position'));
       return false;
     }
     this.place(this.current.wallId, off);

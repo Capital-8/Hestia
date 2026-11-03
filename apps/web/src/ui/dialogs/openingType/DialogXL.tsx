@@ -1,4 +1,5 @@
 import { useEffect, type ReactElement, type ReactNode } from 'react';
+import { useT } from '../../../editor/i18n.ts';
 import { Icon } from '../../Icon.tsx';
 
 /**
@@ -18,6 +19,7 @@ export function DialogXL({
   children: ReactNode;
   footer?: ReactNode;
 }): ReactElement {
+  const { t } = useT();
   useEffect(() => {
     const h = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') {
@@ -35,7 +37,7 @@ export function DialogXL({
           <h2>{title}</h2>
           {sub ? <span className="sub">{sub}</span> : null}
           <span style={{ flex: 1 }} />
-          <button className="ibtn" onClick={onClose} aria-label="Fechar"><Icon name="close" size={16} /></button>
+          <button className="ibtn" onClick={onClose} aria-label={t('stt_close')}><Icon name="close" size={16} /></button>
         </div>
         <div className="dbody">{children}</div>
         {footer ? <div className="dfoot">{footer}</div> : null}

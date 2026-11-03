@@ -85,6 +85,8 @@ import { applyCopyLinkCommand } from './copyLinkCommands.ts';
 import type { CopyLink } from './copyLink.ts';
 import { applyAreaPlanCommand, dropAreaPlansOfLevel, dropRoomTags, prunePlanElementTags } from './areaPlanCommands.ts';
 import type { AreaPlan, ColorScheme, RoomCategory, RoomTag } from './areaPlan.ts';
+import type { Lang } from './i18n.ts';
+import { t } from './i18n.ts';
 
 /** Comando = dados serializáveis. A única forma de escrever no modelo (docs/01 §5). */
 export type Command =
@@ -276,8 +278,8 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
   }
 }
 
-export function applyCommand(p: Project, c: Command): void {
-  if (applyCeilingCommand(p, c) || applyRoomCommand(p, c) || applyAreaPlanCommand(p, c) || applyOutlineCommand(p, c) || applyCopyLinkCommand(p, c)) return;
+export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
+  if (applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c)) return;
   switch (c.type) {
     case 'addWall':
       p.elements[c.wall.id] = { ...c.wall, order: p.nextOrder++ };
@@ -287,7 +289,7 @@ export function applyCommand(p: Project, c: Command): void {
       break;
     case 'updateCadDrawing': {
       const e = p.elements[c.id];
-      if (!isCad(e)) throw new Error('Elemento não é CAD: ' + c.id);
+      if (!isCad(e)) throw new Error(t(lang, 'md_cmd_not_cad', { id: c.id }));
       p.elements[c.id] = { ...e, ...c.patch };
       break;
     }
@@ -296,39 +298,39 @@ export function applyCommand(p: Project, c: Command): void {
       break;
     case 'updateGeneric': {
       const e = p.elements[c.id];
-      if (!isGeneric(e)) throw new Error('Objeto importado inexistente: ' + c.id);
+      if (!isGeneric(e)) throw new Error(t(lang, 'md_cmd_generic_missing', { id: c.id }));
       p.elements[c.id] = { ...e, ...c.patch };
       break;
     }
     case 'addFloor': {
-      if (c.floor.boundary.length < 3) throw new Error('O contorno do piso precisa de ao menos 3 pontos');
-      if (!p.floorTypes[c.floor.typeId]) throw new Error('Tipo de piso inexistente');
+      if (c.floor.boundary.length < 3) throw new Error(t(lang, 'md_cmd_floor_min_points'));
+      if (!p.floorTypes[c.floor.typeId]) throw new Error(t(lang, 'md_cmd_floor_type_missing'));
       p.elements[c.floor.id] = { ...c.floor, order: p.nextOrder++ };
       break;
     }
     case 'upsertFloorType': p.floorTypes[c.floorType.id] = comTerminoValido(c.floorType); break;
     case 'deleteFloorType': {
-      if (Object.values(p.elements).some((e) => isFloor(e) && e.typeId === c.id)) throw new Error('Tipo em uso');
-      if (Object.keys(p.floorTypes).length <= 1) throw new Error('O projeto precisa de ao menos um tipo de piso');
+      if (Object.values(p.elements).some((e) => isFloor(e) && e.typeId === c.id)) throw new Error(t(lang, 'md_cmd_type_in_use'));
+      if (Object.keys(p.floorTypes).length <= 1) throw new Error(t(lang, 'md_cmd_last_floor_type'));
       delete p.floorTypes[c.id];
       break;
     }
     case 'addSlab': {
-      if (c.slab.boundary.length < 3) throw new Error('O contorno da laje precisa de ao menos 3 pontos');
-      if (!p.slabTypes[c.slab.typeId]) throw new Error('Tipo de laje inexistente');
+      if (c.slab.boundary.length < 3) throw new Error(t(lang, 'md_cmd_slab_min_points'));
+      if (!p.slabTypes[c.slab.typeId]) throw new Error(t(lang, 'md_cmd_slab_type_missing'));
       p.elements[c.slab.id] = { ...c.slab, order: p.nextOrder++ };
       break;
     }
     case 'upsertSlabType': p.slabTypes[c.slabType.id] = comTerminoValido(c.slabType); break;
     case 'deleteSlabType': {
-      if (Object.values(p.elements).some((e) => isSlab(e) && e.typeId === c.id)) throw new Error('Tipo em uso');
-      if (Object.keys(p.slabTypes).length <= 1) throw new Error('O projeto precisa de ao menos um tipo de laje');
+      if (Object.values(p.elements).some((e) => isSlab(e) && e.typeId === c.id)) throw new Error(t(lang, 'md_cmd_type_in_use'));
+      if (Object.keys(p.slabTypes).length <= 1) throw new Error(t(lang, 'md_cmd_last_slab_type'));
       delete p.slabTypes[c.id];
       break;
     }
     case 'addRoof': {
-      if (c.roof.boundary.length < 3) throw new Error('O contorno do telhado precisa de ao menos 3 pontos');
-      if (!p.roofTypes[c.roof.typeId]) throw new Error('Tipo de telhado inexistente');
+      if (c.roof.boundary.length < 3) throw new Error(t(lang, 'md_cmd_roof_min_points'));
+      if (!p.roofTypes[c.roof.typeId]) throw new Error(t(lang, 'md_cmd_roof_type_missing'));
       p.elements[c.roof.id] = { ...c.roof, order: p.nextOrder++ };
       break;
     }
@@ -336,43 +338,43 @@ export function applyCommand(p: Project, c: Command): void {
       p.roofTypes[c.roofType.id] = c.roofType;
       break;
     case 'deleteRoofType': {
-      if (Object.values(p.elements).some((e) => isRoof(e) && e.typeId === c.id)) throw new Error('Tipo em uso');
-      if (Object.keys(p.roofTypes).length <= 1) throw new Error('O projeto precisa de ao menos um tipo de telhado');
+      if (Object.values(p.elements).some((e) => isRoof(e) && e.typeId === c.id)) throw new Error(t(lang, 'md_cmd_type_in_use'));
+      if (Object.keys(p.roofTypes).length <= 1) throw new Error(t(lang, 'md_cmd_last_roof_type'));
       delete p.roofTypes[c.id];
       break;
     }
     case 'addStair': {
-      if (!p.stairTypes[c.stair.typeId]) throw new Error('Tipo de escada inexistente');
+      if (!p.stairTypes[c.stair.typeId]) throw new Error(t(lang, 'md_cmd_stair_type_missing'));
       p.elements[c.stair.id] = { ...c.stair, order: p.nextOrder++ };
       break;
     }
     case 'upsertStairType': {
-      const issue = stairTypeIssue(c.stairType);
+      const issue = stairTypeIssue(c.stairType, lang);
       if (issue) throw new Error(issue);
       p.stairTypes[c.stairType.id] = c.stairType;
       break;
     }
     case 'deleteStairType': {
-      if (Object.values(p.elements).some((e) => isStair(e) && e.typeId === c.id)) throw new Error('Tipo em uso');
-      if (Object.keys(p.stairTypes).length <= 1) throw new Error('O projeto precisa de ao menos um tipo de escada');
+      if (Object.values(p.elements).some((e) => isStair(e) && e.typeId === c.id)) throw new Error(t(lang, 'md_cmd_type_in_use'));
+      if (Object.keys(p.stairTypes).length <= 1) throw new Error(t(lang, 'md_cmd_last_stair_type'));
       delete p.stairTypes[c.id];
       break;
     }
     case 'addRamp':
-      if (!p.rampTypes[c.ramp.typeId]) throw new Error('Tipo de rampa inexistente');
+      if (!p.rampTypes[c.ramp.typeId]) throw new Error(t(lang, 'md_cmd_ramp_type_missing'));
       p.elements[c.ramp.id] = { ...c.ramp, order: p.nextOrder++ }; break;
     case 'upsertRampType': {
-      const issue = rampTypeIssue(c.rampType);
+      const issue = rampTypeIssue(c.rampType, lang);
       if (issue) throw new Error(issue);
       p.rampTypes[c.rampType.id] = c.rampType; break;
     }
     case 'deleteRampType':
-      if (Object.values(p.elements).some((e) => isRamp(e) && e.typeId === c.id)) throw new Error('Tipo em uso');
-      if (Object.keys(p.rampTypes).length <= 1) throw new Error('O projeto precisa de ao menos um tipo de rampa');
+      if (Object.values(p.elements).some((e) => isRamp(e) && e.typeId === c.id)) throw new Error(t(lang, 'md_cmd_type_in_use'));
+      if (Object.keys(p.rampTypes).length <= 1) throw new Error(t(lang, 'md_cmd_last_ramp_type'));
       delete p.rampTypes[c.id]; break;
     case 'addOpening': {
       const host = p.elements[c.opening.hostId];
-      if (!isWall(host)) throw new Error('Abertura precisa de uma parede anfitriã');
+      if (!isWall(host)) throw new Error(t(lang, 'md_cmd_opening_host_required'));
       p.elements[c.opening.id] = { ...c.opening, offset: clampOffset(p, c.opening, host) };
       break;
     }
@@ -423,7 +425,7 @@ export function applyCommand(p: Project, c: Command): void {
       applyTransformCmd(p, c);
       break;
     case 'splitWall':
-      splitWall(p, c);
+      splitWall(p, c, lang);
       for (const level of p.levels) if (level.tags?.length) level.tags = level.tags.filter((tag) => Boolean(p.elements[tag.hostId]));
       prunePlanElementTags(p);
       break;
@@ -437,8 +439,8 @@ export function applyCommand(p: Project, c: Command): void {
       p.wallTypes[c.wallType.id] = c.wallType;
       break;
     case 'deleteWallType': {
-      if (Object.values(p.elements).some((e) => isWall(e) && e.typeId === c.id)) throw new Error('Tipo em uso');
-      if (p.defaults.wallTypeId === c.id) throw new Error('Tipo padrão não pode ser excluído');
+      if (Object.values(p.elements).some((e) => isWall(e) && e.typeId === c.id)) throw new Error(t(lang, 'md_cmd_type_in_use'));
+      if (p.defaults.wallTypeId === c.id) throw new Error(t(lang, 'md_cmd_default_type_undeletable'));
       delete p.wallTypes[c.id];
       break;
     }
@@ -460,9 +462,9 @@ export function applyCommand(p: Project, c: Command): void {
       break;
     }
     case 'deleteLevel': {
-      if (p.levels.length <= 1) throw new Error('O projeto precisa de ao menos um nível');
+      if (p.levels.length <= 1) throw new Error(t(lang, 'md_cmd_last_level'));
       // Escada também conta pelo nível de topo explícito; o topo automático segue o nível acima e não prende o nível.
-      if (Object.values(p.elements).some((e) => (hasLevel(e) && e.levelId === c.id) || (isStair(e) && e.topLevelId === c.id) || (isRamp(e) && e.topLevelId === c.id))) throw new Error('Nível em uso');
+      if (Object.values(p.elements).some((e) => (hasLevel(e) && e.levelId === c.id) || (isStair(e) && e.topLevelId === c.id) || (isRamp(e) && e.topLevelId === c.id))) throw new Error(t(lang, 'md_cmd_level_in_use'));
       p.levels = p.levels.filter((l) => l.id !== c.id);
       dropAreaPlansOfLevel(p, c.id);
       dropOrphanViewports(p);
@@ -480,7 +482,7 @@ export function applyCommand(p: Project, c: Command): void {
     case 'addDetailLine': case 'updateDetailLine': case 'removeDetailLine':
     case 'addDetailRegion': case 'updateDetailRegion': case 'removeDetailRegion':
     case 'addTag': case 'updateTag': case 'removeTag':
-      applyAnnotationCommand(p, c);
+      applyAnnotationCommand(p, c, lang);
       break;
     case 'addSheet':
     case 'updateSheet':
@@ -489,13 +491,13 @@ export function applyCommand(p: Project, c: Command): void {
     case 'updateViewport':
     case 'removeViewport':
     case 'setSheetOrder':
-      applySheetCommand(p, c);
+      applySheetCommand(p, c, lang);
       break;
     case 'addView3DPoint':
     case 'updateView3DPoint':
     case 'removeView3DPoint':
     case 'setView3DPointOrder':
-      applyView3DPointCommand(p, c);
+      applyView3DPointCommand(p, c, lang);
       break;
     case 'addGrid':
     case 'updateGrid':
@@ -503,11 +505,11 @@ export function applyCommand(p: Project, c: Command): void {
     case 'addGridType':
     case 'updateGridType':
     case 'removeGridType':
-      applyGridCommand(p, c);
+      applyGridCommand(p, c, lang);
       break;
     case 'setLevelViewRange': {
       const l = p.levels.find((x) => x.id === c.levelId);
-      if (!l) throw new Error('Nível inexistente');
+      if (!l) throw new Error(t(lang, 'md_level_missing'));
       // Sem normalização silenciosa: um valor que quebra a ordem topo ≥ corte ≥ base ≥ profundidade é recusado.
       const next: ViewRange = { ...l.viewRange, ...c.patch };
       const issues = viewRangeIssues(next);
@@ -516,31 +518,31 @@ export function applyCommand(p: Project, c: Command): void {
       break;
     }
     case 'setProjectGraphics':
-      applyProjectGraphics(p, c.patch);
+      applyProjectGraphics(p, c.patch, lang);
       break;
     case 'setLevelGraphics':
-      applyLevelGraphics(p, c.levelId, c.patch);
+      applyLevelGraphics(p, c.levelId, c.patch, lang);
       break;
     case 'resetLevelGraphics':
-      resetLevelGraphics(p, c.levelId);
+      resetLevelGraphics(p, c.levelId, lang);
       break;
     case 'setView3D':
-      applyView3D(p, c.patch);
+      applyView3D(p, c.patch, lang);
       break;
     case 'resetView3D':
       resetView3D(p);
       break;
     case 'setViewHidden':
-      applyViewHidden(p, c.target, c.hidden);
+      applyViewHidden(p, c.target, c.hidden, lang);
       break;
     case 'setSectionAnnotations':
-      applySectionAnnotations(p, c.sectionId, c.annotations);
+      applySectionAnnotations(p, c.sectionId, c.annotations, lang);
       break;
     case 'setSectionLevelExtent':
-      applySectionLevelExtent(p, c.sectionId, c.levelId, c.extent);
+      applySectionLevelExtent(p, c.sectionId, c.levelId, c.extent, lang);
       break;
     case 'setSectionGraphics':
-      applySectionGraphics(p, c.patch);
+      applySectionGraphics(p, c.patch, lang);
       break;
     case 'resetSectionGraphics':
       resetSectionGraphics(p);
@@ -568,7 +570,7 @@ export function applyCommand(p: Project, c: Command): void {
       p.settings = removeDimensionFamilyFrom(p.settings, c.id);
       break;
     case 'setDefaultDimensionFamily': {
-      if (!dimensionFamiliesOf(p.settings).some((f) => f.id === c.id)) throw new Error('Família de cotas inexistente.');
+      if (!dimensionFamiliesOf(p.settings).some((f) => f.id === c.id)) throw new Error(t(lang, 'md_cmd_dim_family_missing'));
       p.settings = { ...p.settings, defaultDimensionFamilyId: c.id };
       break;
     }
@@ -584,16 +586,16 @@ export function applyCommand(p: Project, c: Command): void {
     case 'addView':
     case 'updateView':
     case 'deleteView':
-      applyViewCommand(p, c);
+      applyViewCommand(p, c, lang);
       break;
     case 'batch':
-      for (const sub of c.commands) applyCommand(p, sub);
+      for (const sub of c.commands) applyCommand(p, sub, lang);
       break;
     case 'setOpeningHost':
-      setOpeningHost(p, c);
+      setOpeningHost(p, c, lang);
       break;
     case 'setElementLevel':
-      applyElementLevel(p, c);
+      applyElementLevel(p, c, lang);
       break;
   }
 }

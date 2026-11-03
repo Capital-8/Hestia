@@ -16,6 +16,7 @@ import {
   type OpeningLeaves,
   type OpeningType,
 } from '@hestia/model';
+import { t as translate, type Dict, type Lang } from '../../editor/i18n.ts';
 
 /** Estilos de folha aceitos por categoria (o schema é fechado; o diálogo só oferece estes). */
 const LEAF_STYLES_BY_KIND: Record<'door' | 'window', readonly OpeningLeafStyle[]> = {
@@ -62,14 +63,14 @@ export function familyOptionsFor(kind: OpeningType['kind']): OpeningFamily[] {
 }
 
 /** Rótulo da contagem de folhas ("Vão livre (sem folha)", "1 folha", "2 folhas", "3 folhas"). */
-export function leavesLabel(leaves: OpeningLeaves): string {
-  if (leaves === 0) return 'Vão livre (sem folha)';
-  return `${leaves} folha${leaves > 1 ? 's' : ''}`;
+export function leavesLabel(leaves: OpeningLeaves, lang: Lang = 'pt'): string {
+  if (leaves === 0) return translate(lang, 'dlo_leaves_void');
+  return translate(lang, leaves > 1 ? 'dlo_leaves_many' : 'dlo_leaves_one', { n: leaves });
 }
 
 /** Opções de contagem de folhas aceitas pela família, com o rótulo da interface. */
-export function leavesChoicesFor(family: OpeningFamily): Array<{ value: OpeningLeaves; label: string }> {
-  return family.leaves.map((value) => ({ value, label: leavesLabel(value) }));
+export function leavesChoicesFor(family: OpeningFamily, lang: Lang = 'pt'): Array<{ value: OpeningLeaves; label: string }> {
+  return family.leaves.map((value) => ({ value, label: leavesLabel(value, lang) }));
 }
 
 /**
@@ -91,12 +92,12 @@ export function applyFamily(t: OpeningType, family: OpeningFamily): OpeningType 
 }
 
 /** Tipo novo a partir da família escolhida, com nome, medidas e campos v2 padrão coerentes com a família. */
-export function newOpeningTypeFromFamily(family: OpeningFamily): OpeningType {
+export function newOpeningTypeFromFamily(family: OpeningFamily, lang: Lang = 'pt'): OpeningType {
   const door = family.kind === 'door';
   const base: OpeningType = {
     id: newId('ot'),
     kind: family.kind,
-    name: door ? 'Nova porta' : 'Nova janela',
+    name: translate(lang, door ? 'dlo_new_door' : 'dlo_new_window'),
     code: '',
     description: '',
     width: door ? 0.8 : 1.2,
@@ -152,7 +153,10 @@ export function alternarSidelight(t: OpeningType, side: 'left' | 'right', ligado
 /** Variante da biblioteca: escreve o estilo da folha, as divisões e/ou o perfil no rascunho. */
 export interface OpeningVariant {
   id: string;
-  name: string;
+  /** Chave do nome exibido na biblioteca (quando o nome é traduzível). */
+  nameKey?: keyof Dict;
+  /** Nome já neutro ao idioma (ex.: "2 × 1"). */
+  name?: string;
   leafStyle?: OpeningLeafStyle;
   grid?: { cols: number; rows: number };
   frameStyle?: OpeningFrameStyle;
@@ -160,11 +164,11 @@ export interface OpeningVariant {
 }
 
 const DOOR_VARIANTS: readonly OpeningVariant[] = [
-  { id: 'lisa', name: 'Lisa', leafStyle: 'flush', frameMaterialId: 'mat_madeira' },
-  { id: 'painel', name: 'Painel', leafStyle: 'panel', frameMaterialId: 'mat_madeira' },
-  { id: 'vidro', name: 'Vidro', leafStyle: 'glass', frameMaterialId: 'mat_madeira' },
-  { id: 'veneziana', name: 'Veneziana', leafStyle: 'louver', frameMaterialId: 'mat_madeira' },
-  { id: 'grade', name: 'Grade', leafStyle: 'grille', frameMaterialId: 'mat_madeira' },
+  { id: 'lisa', nameKey: 'dlo_o_leaf_flush', leafStyle: 'flush', frameMaterialId: 'mat_madeira' },
+  { id: 'painel', nameKey: 'dlo_o_leaf_panel', leafStyle: 'panel', frameMaterialId: 'mat_madeira' },
+  { id: 'vidro', nameKey: 'dlo_o_leaf_glass', leafStyle: 'glass', frameMaterialId: 'mat_madeira' },
+  { id: 'veneziana', nameKey: 'dlo_o_leaf_louver', leafStyle: 'louver', frameMaterialId: 'mat_madeira' },
+  { id: 'grade', nameKey: 'dlo_o_leaf_grille', leafStyle: 'grille', frameMaterialId: 'mat_madeira' },
 ];
 
 const WINDOW_VARIANTS: readonly OpeningVariant[] = [
@@ -172,8 +176,8 @@ const WINDOW_VARIANTS: readonly OpeningVariant[] = [
   { id: '2x1', name: '2 × 1', leafStyle: 'glass', grid: { cols: 2, rows: 1 }, frameMaterialId: 'mat_aluminio' },
   { id: '2x2', name: '2 × 2', leafStyle: 'glass', grid: { cols: 2, rows: 2 }, frameMaterialId: 'mat_aluminio' },
   { id: '3x1', name: '3 × 1', leafStyle: 'glass', grid: { cols: 3, rows: 1 }, frameMaterialId: 'mat_aluminio' },
-  { id: 'veneziana', name: 'Veneziana', leafStyle: 'louver', frameMaterialId: 'mat_aluminio' },
-  { id: 'perfil-simples', name: 'Perfil simples', frameStyle: 'simple', frameMaterialId: 'mat_aluminio' },
+  { id: 'veneziana', nameKey: 'dlo_o_leaf_louver', leafStyle: 'louver', frameMaterialId: 'mat_aluminio' },
+  { id: 'perfil-simples', nameKey: 'dlo_o_variant_simple', frameStyle: 'simple', frameMaterialId: 'mat_aluminio' },
 ];
 
 /** Variantes oferecidas para a categoria (porta: estilo da folha; janela: divisões e perfil). */
@@ -219,11 +223,11 @@ export function hasAuthoredComposition(t: OpeningType): boolean {
  * bandeira, medidas...) regenera a composição derivada; a composição editada nos módulos é preservada. Composição inválida não
  * bloqueia a edição do rascunho: o erro volta para o diálogo mostrar.
  */
-export function bridgeDraft(next: OpeningType, prev: OpeningType, presets?: Record<string, ProfilePreset>): { type: OpeningType; error: string | null } {
+export function bridgeDraft(next: OpeningType, prev: OpeningType, presets?: Record<string, ProfilePreset>, lang: Lang = 'pt'): { type: OpeningType; error: string | null } {
   try {
     return { type: withBridgedComposition(next, prev, presets), error: null };
   } catch (e) {
-    return { type: next, error: e instanceof Error ? e.message : 'Composição inválida' };
+    return { type: next, error: e instanceof Error ? e.message : translate(lang, 'dlo_err_composition') };
   }
 }
 

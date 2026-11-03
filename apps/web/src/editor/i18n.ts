@@ -5,36 +5,7 @@ import { safeGet, safeSet } from './storage.ts';
 import type { ToolId } from '@hestia/tools';
 import { PT_TABELAS, EN_TABELAS } from './i18nTabelas.ts';
 import type { Lang } from './i18n/tipos.ts';
-import {
-  EN_CANVAS,
-  EN_COMMON,
-  EN_DIALOGS,
-  EN_ENGINE,
-  EN_EXPORTS,
-  EN_GEOM,
-  EN_IO,
-  EN_MODEL,
-  EN_PROPS,
-  EN_RENDER,
-  EN_SCHEDULES,
-  EN_SHELL,
-  EN_STAIR,
-  EN_TOOLS,
-  PT_CANVAS,
-  PT_COMMON,
-  PT_DIALOGS,
-  PT_ENGINE,
-  PT_EXPORTS,
-  PT_GEOM,
-  PT_IO,
-  PT_MODEL,
-  PT_PROPS,
-  PT_RENDER,
-  PT_SCHEDULES,
-  PT_SHELL,
-  PT_STAIR,
-  PT_TOOLS,
-} from './i18n/areas/index.ts';
+import { PT_ALL, EN_ALL } from './i18n/areas/index.ts';
 
 export type { Lang } from './i18n/tipos.ts';
 
@@ -77,21 +48,8 @@ export const useI18n = create<I18nState>((set, get) => ({
 /** Dicionário de traduções oficiais do Autodesk Revit (PT-BR / EN) */
 export const I18N = {
   pt: {
-    ...PT_COMMON,
-    ...PT_SHELL,
-    ...PT_PROPS,
-    ...PT_DIALOGS,
-    ...PT_STAIR,
-    ...PT_SCHEDULES,
-    ...PT_CANVAS,
-    ...PT_EXPORTS,
-    ...PT_TOOLS,
-    ...PT_MODEL,
-    ...PT_RENDER,
-    ...PT_IO,
-    ...PT_ENGINE,
-    ...PT_GEOM,
-
+    ...PT_ALL,
+    ...PT_TABELAS,
     // Abas do Ribbon
     ribbon_arch: 'Arquitetura',
     ribbon_modify: 'Modificar',
@@ -429,21 +387,8 @@ export const I18N = {
     stt_calc_post_note: 'No poste o piso vem do croqui (linha de caminhada); a fórmula só gera avisos.',
   },
   en: {
-    ...EN_COMMON,
-    ...EN_SHELL,
-    ...EN_PROPS,
-    ...EN_DIALOGS,
-    ...EN_STAIR,
-    ...EN_SCHEDULES,
-    ...EN_CANVAS,
-    ...EN_EXPORTS,
-    ...EN_TOOLS,
-    ...EN_MODEL,
-    ...EN_RENDER,
-    ...EN_IO,
-    ...EN_ENGINE,
-    ...EN_GEOM,
-
+    ...EN_ALL,
+    ...EN_TABELAS,
     // Ribbon Tabs
     ribbon_arch: 'Architecture',
     ribbon_modify: 'Modify',
@@ -823,7 +768,9 @@ export function useT(): { t: (key: keyof Dict, args?: Record<string, string | nu
 
 /** Resolve um `TextLike` para o texto do idioma ativo. */
 export function resolveText(v: TextLike, lang: Lang): string {
-  return typeof v === 'string' ? v : t(lang, v.key, v.args);
+  if (typeof v !== 'string') return t(lang, v.key, v.args);
+  // Strings que são chaves do dicionário (ex.: rótulos de desfazer gravados no histórico) traduzem no render.
+  return Object.hasOwn(I18N.pt, v) ? t(lang, v as keyof Dict) : v;
 }
 
 /** N?mero com as casas decimais e o separador do idioma ativo (PT: v?rgula; EN: ponto). */

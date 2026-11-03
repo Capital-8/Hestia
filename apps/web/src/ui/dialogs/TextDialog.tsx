@@ -2,6 +2,7 @@ import { useState, useSyncExternalStore, type ReactElement } from 'react';
 import type { Vec2 } from '@hestia/geom';
 import { newId, type AnnotationCommand, type Id, type TextNote } from '@hestia/model';
 import { levelFrameBox } from '@hestia/render';
+import { useT } from '../../editor/i18n.ts';
 import { editor } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
 import { Check, NumField, Row } from '../fields.tsx';
@@ -100,6 +101,7 @@ export function centroDaVista(
 }
 
 function FormularioCaixaTexto(): ReactElement {
+  const { t } = useT();
   const [texto, setTexto] = useState('');
   const [altura, setAltura] = useState(2.5);
   const [largura, setLargura] = useState<number | null>(null);
@@ -128,72 +130,72 @@ function FormularioCaixaTexto(): ReactElement {
       underline: sublinhado,
     });
     if (!cmd || cmd.type !== 'addText') {
-      setErro('Digite o conteúdo da caixa de texto.');
+      setErro(t('dlm_err_text_empty'));
       return;
     }
     try {
-      editor.store.exec(cmd, 'Caixa de texto');
+      editor.store.exec(cmd, t('dlm_undo_text_box'));
       useUi.setState({
         selection: [cmd.text.id],
-        status: `Caixa de texto criada ${planId ? 'na planta de área' : 'no nível ativo'}. Ctrl+Z desfaz.`,
+        status: { key: planId ? 'dlm_status_text_created_area' : 'dlm_status_text_created_level' },
       });
       fecharCaixaDeTexto();
     } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Não foi possível criar a caixa de texto.');
+      setErro(e instanceof Error ? e.message : t('dlm_err_create_text'));
     }
   };
 
   return (
     <Dialog
-      title="Caixa de texto"
-      sub="Texto com largura de quebra, moldura e alinhamento"
+      title={t('dlm_text_box')}
+      sub={t('dlm_text_box_sub')}
       onClose={fecharCaixaDeTexto}
       size="mid"
       footer={
         <>
-          <button className="btn" onClick={fecharCaixaDeTexto}>Cancelar</button>
-          <button className="btn primary" onClick={criar}>Criar texto</button>
+          <button className="btn" onClick={fecharCaixaDeTexto}>{t('dlm_btn_cancel')}</button>
+          <button className="btn primary" onClick={criar}>{t('dlm_btn_create_text')}</button>
         </>
       }
     >
-      <Row label="Conteúdo" htmlFor="txt-conteudo">
+      <Row label={t('dlm_content')} htmlFor="txt-conteudo">
         <textarea
           id="txt-conteudo"
           className="input wide"
           rows={6}
           autoFocus
           value={texto}
-          placeholder="Digite o texto. O Enter quebra a linha."
+          placeholder={t('dlm_ph_text_content')}
           style={{ resize: 'vertical', minHeight: 110, fontFamily: 'inherit', whiteSpace: 'pre-wrap' }}
           onChange={(e) => setTexto(e.target.value)}
           onKeyDown={(e) => e.stopPropagation()}
         />
       </Row>
-      <Row label="Altura" htmlFor="txt-altura">
+      <Row label={t('col_height')} htmlFor="txt-altura">
         <NumField id="txt-altura" value={altura} decimals={1} unit="mm" min={0.5} strictRange onCommit={setAltura} />
       </Row>
-      <Row label="Largura da caixa" htmlFor="txt-largura">
-        <NumField id="txt-largura" value={largura} decimals={1} unit="mm" min={0.5} strictRange placeholder="Sem quebra" onClear={() => setLargura(null)} onCommit={setLargura} />
+      <Row label={t('dlm_box_width')} htmlFor="txt-largura">
+        <NumField id="txt-largura" value={largura} decimals={1} unit="mm" min={0.5} strictRange placeholder={t('dlm_ph_no_wrap')} onClear={() => setLargura(null)} onCommit={setLargura} />
       </Row>
-      <Row label="Rotação" htmlFor="txt-rotacao">
+      <Row label={t('dlm_rotation')} htmlFor="txt-rotacao">
         <NumField id="txt-rotacao" value={rotacao} decimals={0} unit="°" onCommit={setRotacao} />
       </Row>
-      <Row label="Alinhamento" htmlFor="txt-alinhamento">
+      <Row label={t('dlm_alignment')} htmlFor="txt-alinhamento">
         <select id="txt-alinhamento" className="select" value={alinhamento} onChange={(e) => setAlinhamento(e.target.value as NonNullable<TextNote['align']>)}>
-          <option value="left">Esquerda</option>
-          <option value="center">Centro</option>
-          <option value="right">Direita</option>
+          <option value="left">{t('dlm_align_left')}</option>
+          <option value="center">{t('dlm_align_center')}</option>
+          <option value="right">{t('dlm_align_right')}</option>
         </select>
       </Row>
       <div style={{ display: 'grid', gap: 4, marginTop: 6 }}>
-        <Check id="txt-moldura" checked={moldura} onChange={setMoldura}>Desenhar moldura em volta do texto</Check>
-        <Check id="txt-negrito" checked={negrito} onChange={setNegrito}>Negrito</Check>
-        <Check id="txt-italico" checked={italico} onChange={setItalico}>Itálico</Check>
-        <Check id="txt-sublinhado" checked={sublinhado} onChange={setSublinhado}>Sublinhado</Check>
+        <Check id="txt-moldura" checked={moldura} onChange={setMoldura}>{t('dlm_draw_frame')}</Check>
+        <Check id="txt-negrito" checked={negrito} onChange={setNegrito}>{t('dlm_fmt_bold')}</Check>
+        <Check id="txt-italico" checked={italico} onChange={setItalico}>{t('dlm_fmt_italic')}</Check>
+        <Check id="txt-sublinhado" checked={sublinhado} onChange={setSublinhado}>{t('dlm_fmt_underline')}</Check>
       </div>
       {erro ? <div className="vr-error" role="alert">{erro}</div> : null}
       <p className="hint" style={{ marginTop: 10 }}>
-        A caixa nasce no centro da vista ativa. Na planta de área ela fica na vista (não vai para a planta de piso).
+        {t('dlm_text_box_hint')}
       </p>
     </Dialog>
   );

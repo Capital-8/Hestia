@@ -1,5 +1,6 @@
 import type { SketchTarget } from '@hestia/geom';
 import type { Tool, ToolEnv } from './types.ts';
+import { t as translate, TOOL_LABEL_EN, type DictKey, type Lang } from './i18n.ts';
 import { PerimeterTool } from './perimeterTool.ts';
 import { WallTool } from './wallTool.ts';
 import { OpeningTool } from './openingTool.ts';
@@ -47,6 +48,20 @@ export const TOOL_GROUPS: Array<{ title: string; tools: ToolId[] }> = [
   { title: 'Anotar', tools: ['level', 'dimension', 'angularDimension', 'text', 'detailLine', 'filledRegion', 'tag'] },
   { title: 'Medir', tools: ['measure'] },
 ];
+
+/** Chave do título de cada grupo da faixa (PT é o fallback de `TOOL_GROUPS`). */
+const GROUP_KEYS: Record<string, DictKey> = {
+  Construir: 'tl_grp_build',
+  Modificar: 'tl_grp_modify',
+  Anotar: 'tl_grp_annotate',
+  Medir: 'tl_grp_measure',
+};
+
+/** Título do grupo no idioma pedido (o título PT desconhecido volta como veio). */
+export function toolGroupTitle(title: string, lang: Lang = 'pt'): string {
+  const key = GROUP_KEYS[title];
+  return key ? translate(lang, key) : title;
+}
 
 /** Cria a ferramenta. `perimeterTarget` só vale para 'perimeter' (o elemento que o perímetro cria ou edita). */
 export function createTool(id: ToolId, env: ToolEnv, perimeterTarget: SketchTarget = 'roof'): Tool {
@@ -182,4 +197,9 @@ export const TOOL_LABEL: Record<ToolId, string> = {
   tag: 'Etiqueta',
   perimeter: 'Perímetro',
 };
+
+/** Rótulo da ferramenta no idioma pedido (PT de `TOOL_LABEL` é o fallback). */
+export function toolLabelLang(id: ToolId, lang: Lang = 'pt'): string {
+  return lang === 'en' ? (TOOL_LABEL_EN[id] ?? TOOL_LABEL[id]) : TOOL_LABEL[id];
+}
 

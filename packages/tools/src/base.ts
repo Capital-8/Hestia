@@ -6,6 +6,7 @@ import { openingSnapGeometry } from './openingSnapPoints.ts';
 import { componentSnapGeometry } from './componentSnap.ts';
 import { cadSnapIndexes } from './snapCad.ts';
 import type { Vec2 } from '@hestia/geom';
+import { t as translate, type DictKey, type Lang } from './i18n.ts';
 
 /** Implementação comum: Esc em dois passos, inferência e rótulos. */
 export abstract class ToolBase implements Tool {
@@ -17,6 +18,16 @@ export abstract class ToolBase implements Tool {
   protected raw: Vec2 = { x: 0, y: 0 };
 
   constructor(protected env: ToolEnv) {}
+
+  /** Idioma da interface (`env.lang?.() ?? 'pt'`). */
+  protected uiLang(): Lang {
+    return this.env.lang?.() ?? 'pt';
+  }
+
+  /** Texto traduzível da chave no idioma da interface. */
+  protected t(key: DictKey, args?: Record<string, string | number>): string {
+    return translate(this.uiLang(), key, args);
+  }
 
   start(): void {
     this.reset();

@@ -1,4 +1,5 @@
 import { otComposicao } from './catalogoAberturasBase.ts';
+import { openingName, type Lang } from './i18n.ts';
 import type { OpeningFamilyId } from './opening.ts';
 import { resolveLayout } from './openingCompositionLayout.ts';
 import {
@@ -83,7 +84,7 @@ const janelaC = (p: Perfis, b: Base & { height: number; sill: number }, layout: 
 
 const folhaGiro = (id: string): CellNode => folha(id, 'door_swing', 'swing', 1, GIRO);
 
-export const CATALOGO_COMPOSICOES_BR: OpeningType[] = [
+const CATALOGO_COMPOSICOES_BR_PT: OpeningType[] = [
   // Giro 90 com bandeira fixa superior (40 e 60 cm).
   portaC(MADEIRA, { id: 'ot_pband40_90', code: 'P-47', name: 'Porta de giro 90 x 210 com bandeira fixa 40', width: 0.9, leaves: 1, plan: 'swing' }, divisao(MADEIRA, 'raiz', 'rows', [resto(folhaGiro('folha')), fixo(0.4, vidro('bandeira'))])),
   portaC(MADEIRA, { id: 'ot_pband60_90', code: 'P-48', name: 'Porta de giro 90 x 210 com bandeira fixa 60', width: 0.9, leaves: 1, plan: 'swing' }, divisao(MADEIRA, 'raiz', 'rows', [resto(folhaGiro('folha')), fixo(0.6, vidro('bandeira'))])),
@@ -133,3 +134,11 @@ export const CATALOGO_COMPOSICOES_BR: OpeningType[] = [
   janelaC(PVC, { id: 'ot_jcomb_pvc_150x120', code: 'J-58', name: 'Janela combinada PVC 60 fixa + abrir 1 folha 150 x 120', width: 1.5, height: 1.2, sill: 1.0, leaves: 1, plan: 'hinged' }, divisao(PVC, 'lat', 'cols', [fixo(0.6, vidro('fixa')), resto(folha('abrir', 'window_hinged', 'hinged', 1))])),
   janelaC(MADEIRA, { id: 'ot_jalta_madeira_80x210', code: 'J-59', name: 'Janela alta madeira (fixa + abrir embaixo) 80 x 210', width: 0.8, height: 2.1, sill: 0.5, leaves: 1, plan: 'hinged' }, divisao(MADEIRA, 'raiz', 'rows', [fixo(1.0, folha('abrir', 'window_hinged', 'hinged', 1)), resto(vidro('fixa'))])),
 ];
+
+/** Catálogo de composições no idioma pedido (nomes são gerados na criação). */
+export function catalogoComposicoes(lang: Lang = 'pt'): OpeningType[] {
+  return CATALOGO_COMPOSICOES_BR_PT.map((x) => ({ ...x, name: openingName(x.name, lang) }));
+}
+
+/** Catálogo de composições em PT (compatibilidade); use `catalogoComposicoes(lang)` para o idioma ativo. */
+export const CATALOGO_COMPOSICOES_BR: OpeningType[] = catalogoComposicoes('pt');

@@ -1,17 +1,32 @@
 import { isRoof, type Id, type Project, type ResolvedUnits, type RoofShape } from '@hestia/model';
 import { csvDocument, csvText } from './csv.ts';
 import { scheduleCsvCell, scheduleCsvHeader } from './scheduleCsv.ts';
+import { t, type EngineScheduleKey, type Lang } from './i18n.ts';
 import { quantifyRoofs, type RoofQuantity } from './roofQuantities.ts';
 
-/** Rótulo da forma na tabela. */
+/** Rótulo da forma na tabela (PT, compatível com o consumidor que ainda não passa `lang`). */
 export const ROOF_SHAPE_LABEL: Record<RoofShape, string> = {
-  shed: 'Uma água',
-  gable: 'Duas águas',
-  hip: 'Quatro águas',
-  free: 'Águas livres',
-  edges: 'Por arestas',
-  extrusion: 'Por extrusão',
+  shed: t('pt', 'egs_roof_shape_shed'),
+  gable: t('pt', 'egs_roof_shape_gable'),
+  hip: t('pt', 'egs_roof_shape_hip'),
+  free: t('pt', 'egs_roof_shape_free'),
+  edges: t('pt', 'egs_roof_shape_edges'),
+  extrusion: t('pt', 'egs_roof_shape_extrusion'),
 };
+
+const ROOF_SHAPE_KEY: Record<RoofShape, EngineScheduleKey> = {
+  shed: 'egs_roof_shape_shed',
+  gable: 'egs_roof_shape_gable',
+  hip: 'egs_roof_shape_hip',
+  free: 'egs_roof_shape_free',
+  edges: 'egs_roof_shape_edges',
+  extrusion: 'egs_roof_shape_extrusion',
+};
+
+/** Rótulo da forma de telhado no idioma pedido. */
+export function roofShapeLabel(shape: RoofShape, lang: Lang = 'pt'): string {
+  return t(lang, ROOF_SHAPE_KEY[shape]);
+}
 
 /** Um telhado na tabela. Valores em metros (SI). */
 export interface RoofScheduleRow {
@@ -63,7 +78,7 @@ export interface RoofScheduleFilter {
 }
 
 /** Linha de um telhado a partir dos quantitativos dele. */
-function rowOf(p: Project, q: RoofQuantity): RoofScheduleRow {
+function rowOf(p: Project, q: RoofQuantity, lang: Lang): RoofScheduleRow {
   const e = p.elements[q.roofId];
   const t = p.roofTypes[q.typeId];
   const level = p.levels.find((l) => l.id === q.levelId);
@@ -77,7 +92,7 @@ function rowOf(p: Project, q: RoofQuantity): RoofScheduleRow {
     levelId: q.levelId,
     levelName: level?.name ?? q.levelId,
     shape: q.shape,
-    shapeLabel: ROOF_SHAPE_LABEL[q.shape],
+    shapeLabel: roofShapeLabel(q.shape, lang),
     slopePercent: slope,
     planArea: q.planArea,
     faceArea: q.faceArea,
@@ -90,8 +105,8 @@ function rowOf(p: Project, q: RoofQuantity): RoofScheduleRow {
 }
 
 /** Tabela de telhados do projeto inteiro, nível a nível (ordem de criação dentro de cada nível). */
-export function buildRoofSchedule(p: Project): RoofSchedule {
-  const rows = p.levels.flatMap((level) => quantifyRoofs(p, level.id).roofs.map((q) => rowOf(p, q)));
+export function buildRoofSchedule(p: Project, lang: Lang = 'pt'): RoofSchedule {
+  const rows = p.levels.flatMap((level) => quantifyRoofs(p, level.id).roofs.map((q) => rowOf(p, q, lang)));
   return { rows, totals: sumRoofRows(rows) };
 }
 
@@ -117,28 +132,28 @@ export function sumRoofRows(rows: RoofScheduleRow[]): RoofScheduleTotals {
   );
 }
 
-const csvHeader = (u: ResolvedUnits): string[] => [
-  'Marca',
-  'Tipo',
-  'Código',
-  'Nível',
-  'Forma',
-  scheduleCsvHeader(u, 'Inclinação', 'slope'),
-  scheduleCsvHeader(u, 'Área em planta', 'area'),
-  scheduleCsvHeader(u, 'Área real', 'area'),
-  scheduleCsvHeader(u, 'Volume', 'volume'),
-  scheduleCsvHeader(u, 'Cumeeira', 'length'),
-  scheduleCsvHeader(u, 'Beiral', 'length'),
-  scheduleCsvHeader(u, 'Empena', 'length'),
-  'Arestas com inclinação',
+const csvHeader = (u: ResolvedUnits, lang: Lang): string[] => [
+  t(lang, 'egs_csv_col_marca'),
+  t(lang, 'egs_csv_col_tipo'),
+  t(lang, 'egs_csv_col_codigo'),
+  t(lang, 'egs_csv_col_nivel'),
+  t(lang, 'egs_csv_col_forma'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_inclinacao'), 'slope'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_area_em_planta'), 'area'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_area_real'), 'area'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_volume'), 'volume'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_cumeeira'), 'length'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_beiral'), 'length'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_empena'), 'length'),
+  t(lang, 'egs_csv_col_arestas_com_inclinacao'),
 ];
 
 /**
- * CSV com separador ';', decimal com vírgula, cabeçalho em português e BOM UTF-8 (o mesmo formato das tabelas de pisos e
- * lajes). Uma linha por telhado, seguida de uma linha de total. Inclinação vazia nas águas livres.
+ * CSV com separador ';', decimal do idioma (ou o do projeto), cabeçalho no idioma ativo e BOM UTF-8 (o mesmo formato das
+ * tabelas de pisos e lajes). Uma linha por telhado, seguida de uma linha de total. Inclinação vazia nas águas livres.
  */
-export function roofScheduleToCsv(rows: RoofScheduleRow[], totals: RoofScheduleTotals, units: ResolvedUnits): string {
-  const n = (q: 'length' | 'area' | 'volume' | 'slope', v: number, d: number): string => scheduleCsvCell(units, q, v, d);
+export function roofScheduleToCsv(rows: RoofScheduleRow[], totals: RoofScheduleTotals, units: ResolvedUnits, lang: Lang = 'pt'): string {
+  const n = (q: 'length' | 'area' | 'volume' | 'slope', v: number, d: number): string => scheduleCsvCell(units, q, v, d, lang);
   const body = rows.map((r) => [
     csvText(r.mark),
     csvText(r.typeName),
@@ -155,7 +170,7 @@ export function roofScheduleToCsv(rows: RoofScheduleRow[], totals: RoofScheduleT
     r.slopedEdges === null ? '' : String(r.slopedEdges),
   ]);
   const total = [
-    'Total',
+    t(lang, 'egs_csv_total'),
     '',
     '',
     '',
@@ -169,5 +184,5 @@ export function roofScheduleToCsv(rows: RoofScheduleRow[], totals: RoofScheduleT
     n('length', totals.gableLength, 2),
     '',
   ];
-  return csvDocument([csvHeader(units), ...body, total]);
+  return csvDocument([csvHeader(units, lang), ...body, total]);
 }

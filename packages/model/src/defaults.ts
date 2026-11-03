@@ -1,15 +1,16 @@
-import { DEFAULT_ROOM_CATEGORIES } from './areaPlan.ts';
-import { DEFAULT_FLOOR_TYPES } from './floor.ts';
-import { DEFAULT_CEILING_TYPES } from './ceiling.ts';
-import { DEFAULT_SLAB_TYPES } from './slab.ts';
-import { DEFAULT_ROOF_TYPES } from './roof.ts';
-import { DEFAULT_STAIR_TYPES } from './stair.ts';
-import { DEFAULT_RAMP_TYPES } from './ramp.ts';
+import { roomCategories } from './areaPlan.ts';
+import { floorTypes } from './floor.ts';
+import { ceilingTypes } from './ceiling.ts';
+import { slabTypes } from './slab.ts';
+import { roofTypes } from './roof.ts';
+import { stairTypes } from './stair.ts';
+import { rampTypes } from './ramp.ts';
 import { makeLevel } from './level.ts';
 import { ot } from './catalogoAberturasBase.ts';
-import { CATALOGO_JANELAS_BR } from './catalogoJanelas.ts';
-import { CATALOGO_PORTAS_BR } from './catalogoPortas.ts';
-import { CATALOGO_COMPOSICOES_BR } from './catalogoComposicoes.ts';
+import { catalogoJanelas } from './catalogoJanelas.ts';
+import { catalogoPortas } from './catalogoPortas.ts';
+import { catalogoComposicoes } from './catalogoComposicoes.ts';
+import { openingName, t, type Lang } from './i18n.ts';
 import { SCHEMA_VERSION, type Layer, type Material, type OpeningType, type Project, type WallType } from './types.ts';
 
 const mat = (id: string, name: string, color: string, hatch: Material['hatch'], extra: Partial<Material> = {}): Material => ({
@@ -24,27 +25,33 @@ const mat = (id: string, name: string, color: string, hatch: Material['hatch'], 
   ...extra,
 });
 
-export const DEFAULT_MATERIALS: Material[] = [
-  mat('mat_tinta', 'Tinta branca', '#f4f1ea', 'none'),
-  mat('mat_reboco', 'Reboco', '#d9d2c5', 'dots', { cost: 38 }),
-  mat('mat_bloco14', 'Bloco cerâmico 14', '#c0693f', 'diagonal', { unit: 'm2', cost: 62 }),
-  mat('mat_bloco9', 'Bloco cerâmico 9', '#c9784c', 'diagonal', { cost: 52 }),
-  mat('mat_bloco19', 'Bloco cerâmico 19', '#b45f38', 'diagonal', { cost: 74 }),
-  mat('mat_concreto', 'Concreto', '#8f9296', 'cross', { unit: 'm3', cost: 640 }),
-  mat('mat_argamassa', 'Argamassa', '#cdbfa9', 'dots', { cost: 30 }),
-  mat('mat_ceramica', 'Revestimento cerâmico', '#e9e4da', 'none', { gloss: 0.6, cost: 85 }),
-  mat('mat_gesso', 'Placa de gesso', '#ece9e2', 'none', { cost: 44 }),
-  mat('mat_pvc', 'PVC', '#e8e6df', 'none', { gloss: 0.4, cost: 60 }),
-  mat('mat_la', 'Lã mineral', '#e5d27a', 'dots', { cost: 28 }),
-  mat('mat_perfil', 'Perfil de aço', '#9aa0a6', 'cross', { cost: 20 }),
-  mat('mat_aco', 'Aço', '#7b8189', 'solid', { gloss: 0.6, unit: 'm3' }),
-  mat('mat_madeira', 'Madeira', '#a9794a', 'diagonal', { cost: 150 }),
-  mat('mat_vidro', 'Vidro', '#a9d6e5', 'none', { gloss: 0.9, opacity: 0.35, cost: 220 }),
-  mat('mat_aluminio', 'Alumínio', '#b8bdc2', 'solid', { gloss: 0.7, unit: 'm' }),
-  mat('mat_telha_ceramica', 'Telha cerâmica', '#b5522d', 'diagonal', { cost: 85 }),
-  mat('mat_fibrocimento', 'Fibrocimento', '#9ea3a8', 'cross', { cost: 55 }),
-  mat('mat_telha_metalica', 'Telha metálica', '#8e99a3', 'solid', { gloss: 0.6, cost: 140 }),
-];
+/** Materiais padrão no idioma pedido. */
+export function materials(lang: Lang = 'pt'): Material[] {
+  return [
+    mat('mat_tinta', t(lang, 'md_mat_paint_white'), '#f4f1ea', 'none'),
+    mat('mat_reboco', t(lang, 'md_mat_plaster'), '#d9d2c5', 'dots', { cost: 38 }),
+    mat('mat_bloco14', t(lang, 'md_mat_block14'), '#c0693f', 'diagonal', { unit: 'm2', cost: 62 }),
+    mat('mat_bloco9', t(lang, 'md_mat_block9'), '#c9784c', 'diagonal', { cost: 52 }),
+    mat('mat_bloco19', t(lang, 'md_mat_block19'), '#b45f38', 'diagonal', { cost: 74 }),
+    mat('mat_concreto', t(lang, 'md_mat_concrete'), '#8f9296', 'cross', { unit: 'm3', cost: 640 }),
+    mat('mat_argamassa', t(lang, 'md_mat_mortar'), '#cdbfa9', 'dots', { cost: 30 }),
+    mat('mat_ceramica', t(lang, 'md_mat_ceramic_finish'), '#e9e4da', 'none', { gloss: 0.6, cost: 85 }),
+    mat('mat_gesso', t(lang, 'md_mat_gypsum_board'), '#ece9e2', 'none', { cost: 44 }),
+    mat('mat_pvc', t(lang, 'md_mat_pvc'), '#e8e6df', 'none', { gloss: 0.4, cost: 60 }),
+    mat('mat_la', t(lang, 'md_mat_mineral_wool'), '#e5d27a', 'dots', { cost: 28 }),
+    mat('mat_perfil', t(lang, 'md_mat_steel_profile'), '#9aa0a6', 'cross', { cost: 20 }),
+    mat('mat_aco', t(lang, 'md_mat_steel'), '#7b8189', 'solid', { gloss: 0.6, unit: 'm3' }),
+    mat('mat_madeira', t(lang, 'md_mat_wood'), '#a9794a', 'diagonal', { cost: 150 }),
+    mat('mat_vidro', t(lang, 'md_mat_glass'), '#a9d6e5', 'none', { gloss: 0.9, opacity: 0.35, cost: 220 }),
+    mat('mat_aluminio', t(lang, 'md_mat_aluminum'), '#b8bdc2', 'solid', { gloss: 0.7, unit: 'm' }),
+    mat('mat_telha_ceramica', t(lang, 'md_mat_ceramic_tile'), '#b5522d', 'diagonal', { cost: 85 }),
+    mat('mat_fibrocimento', t(lang, 'md_mat_fiber_cement'), '#9ea3a8', 'cross', { cost: 55 }),
+    mat('mat_telha_metalica', t(lang, 'md_mat_metal_tile'), '#8e99a3', 'solid', { gloss: 0.6, cost: 140 }),
+  ];
+}
+
+/** Materiais padrão em PT (compatibilidade); use `materials(lang)` para o idioma ativo. */
+export const DEFAULT_MATERIALS: Material[] = materials('pt');
 
 const L = (fn: Layer['function'], materialId: string, thickness: number, wraps = false): Layer => ({
   function: fn,
@@ -69,41 +76,47 @@ const wt = (id: string, name: string, code: string, description: string, layers:
   manufacturer: '',
 });
 
-export const DEFAULT_WALL_TYPES: WallType[] = [
-  wt('wt_alv14', 'Alvenaria 14 + reboco', 'PA-14', 'Bloco cerâmico 14 cm com reboco e pintura nas duas faces', [
-    L('finish2', 'mat_tinta', 0.002, true),
-    L('substrate', 'mat_reboco', 0.02, true),
-    L('structure', 'mat_bloco14', 0.14),
-    L('substrate', 'mat_reboco', 0.02, true),
-    L('finish2', 'mat_tinta', 0.002, true),
-  ]),
-  wt('wt_alv9', 'Alvenaria 9 (divisória)', 'PA-09', 'Bloco cerâmico 9 cm com reboco e pintura', [
-    L('finish2', 'mat_tinta', 0.002, true),
-    L('substrate', 'mat_reboco', 0.015, true),
-    L('structure', 'mat_bloco9', 0.09),
-    L('substrate', 'mat_reboco', 0.015, true),
-    L('finish2', 'mat_tinta', 0.002, true),
-  ]),
-  wt('wt_ext19', 'Externa 19 + cerâmica', 'PE-19', 'Bloco 19 cm, revestimento cerâmico externo e pintura interna', [
-    L('finish1', 'mat_ceramica', 0.01, true),
-    L('substrate', 'mat_argamassa', 0.02, true),
-    L('structure', 'mat_bloco19', 0.19),
-    L('substrate', 'mat_reboco', 0.02, true),
-    L('finish2', 'mat_tinta', 0.002, true),
-  ]),
-  wt('wt_dry', 'Drywall 7', 'DW-07', 'Placas de gesso acartonado sobre perfil de aço com lã mineral', [
-    L('finish1', 'mat_gesso', 0.0125, true),
-    L('structure', 'mat_perfil', 0.048),
-    L('finish1', 'mat_gesso', 0.0125, true),
-  ]),
-  wt('wt_conc15', 'Concreto 15', 'PC-15', 'Parede de concreto armado 15 cm com reboco', [
-    L('finish2', 'mat_tinta', 0.002, true),
-    L('substrate', 'mat_reboco', 0.015, true),
-    L('structure', 'mat_concreto', 0.15),
-    L('substrate', 'mat_reboco', 0.015, true),
-    L('finish2', 'mat_tinta', 0.002, true),
-  ]),
-];
+/** Tipos de parede padrão no idioma pedido. */
+export function wallTypes(lang: Lang = 'pt'): WallType[] {
+  return [
+    wt('wt_alv14', t(lang, 'md_wall_alv14'), 'PA-14', t(lang, 'md_wall_alv14_desc'), [
+      L('finish2', 'mat_tinta', 0.002, true),
+      L('substrate', 'mat_reboco', 0.02, true),
+      L('structure', 'mat_bloco14', 0.14),
+      L('substrate', 'mat_reboco', 0.02, true),
+      L('finish2', 'mat_tinta', 0.002, true),
+    ]),
+    wt('wt_alv9', t(lang, 'md_wall_alv9'), 'PA-09', t(lang, 'md_wall_alv9_desc'), [
+      L('finish2', 'mat_tinta', 0.002, true),
+      L('substrate', 'mat_reboco', 0.015, true),
+      L('structure', 'mat_bloco9', 0.09),
+      L('substrate', 'mat_reboco', 0.015, true),
+      L('finish2', 'mat_tinta', 0.002, true),
+    ]),
+    wt('wt_ext19', t(lang, 'md_wall_ext19'), 'PE-19', t(lang, 'md_wall_ext19_desc'), [
+      L('finish1', 'mat_ceramica', 0.01, true),
+      L('substrate', 'mat_argamassa', 0.02, true),
+      L('structure', 'mat_bloco19', 0.19),
+      L('substrate', 'mat_reboco', 0.02, true),
+      L('finish2', 'mat_tinta', 0.002, true),
+    ]),
+    wt('wt_dry', t(lang, 'md_wall_dry'), 'DW-07', t(lang, 'md_wall_dry_desc'), [
+      L('finish1', 'mat_gesso', 0.0125, true),
+      L('structure', 'mat_perfil', 0.048),
+      L('finish1', 'mat_gesso', 0.0125, true),
+    ]),
+    wt('wt_conc15', t(lang, 'md_wall_conc15'), 'PC-15', t(lang, 'md_wall_conc15_desc'), [
+      L('finish2', 'mat_tinta', 0.002, true),
+      L('substrate', 'mat_reboco', 0.015, true),
+      L('structure', 'mat_concreto', 0.15),
+      L('substrate', 'mat_reboco', 0.015, true),
+      L('finish2', 'mat_tinta', 0.002, true),
+    ]),
+  ];
+}
+
+/** Tipos de parede em PT (compatibilidade); use `wallTypes(lang)` para o idioma ativo. */
+export const DEFAULT_WALL_TYPES: WallType[] = wallTypes('pt');
 
 /**
  * Padrões da esquadria (campos opcionais do `OpeningType`). Reproduzem as espessuras que o 3D usava fixas no código,
@@ -135,7 +148,8 @@ export function openingFrame(t: OpeningType, maxDepth: number): OpeningFrame {
   };
 }
 
-export const DEFAULT_OPENING_TYPES: OpeningType[] = [
+function baseOpeningTypes(lang: Lang = 'pt'): OpeningType[] {
+  const list: OpeningType[] = [
   ot({ id: 'ot_p70', kind: 'door', name: 'Porta 70 x 210', code: 'P-01', width: 0.7, height: 2.1, sill: 0, leaves: 1, plan: 'swing' }),
   ot({ id: 'ot_p80', kind: 'door', name: 'Porta 80 x 210', code: 'P-02', width: 0.8, height: 2.1, sill: 0, leaves: 1, plan: 'swing' }),
   ot({ id: 'ot_p90', kind: 'door', name: 'Porta 90 x 210', code: 'P-03', width: 0.9, height: 2.1, sill: 0, leaves: 1, plan: 'swing' }),
@@ -160,37 +174,48 @@ export const DEFAULT_OPENING_TYPES: OpeningType[] = [
   ot({ id: 'ot_jp80', kind: 'window', name: 'Janela pivotante 80 x 120', code: 'J-09', width: 0.8, height: 1.2, sill: 1.0, leaves: 1, plan: 'pivotwin' }, 'mat_aluminio'),
   ot({ id: 'ot_jv80', kind: 'window', name: 'Janela veneziana 80 x 60', code: 'J-10', width: 0.8, height: 0.6, sill: 1.5, leaves: 1, plan: 'louver', angle3d: 45 }, 'mat_aluminio'),
   ot({ id: 'ot_jb80', kind: 'window', name: 'Janela basculante 80 x 50', code: 'J-11', width: 0.8, height: 0.5, sill: 1.7, leaves: 1, plan: 'tilt' }, 'mat_aluminio'),
-  ...CATALOGO_PORTAS_BR,
-  ...CATALOGO_JANELAS_BR,
-  ...CATALOGO_COMPOSICOES_BR,
-];
+  ];
+  return list.map((x) => ({ ...x, name: openingName(x.name, lang) }));
+}
+
+/** Tipos de abertura do projeto novo (padrão + catálogos) no idioma pedido. */
+export function openingTypeCatalog(lang: Lang = 'pt'): OpeningType[] {
+  return [...baseOpeningTypes(lang), ...catalogoPortas(lang), ...catalogoJanelas(lang), ...catalogoComposicoes(lang)];
+}
+
+/** Tipos de abertura em PT (compatibilidade); use `openingTypeCatalog(lang)` para o idioma ativo. */
+export const DEFAULT_OPENING_TYPES: OpeningType[] = openingTypeCatalog('pt');
 
 const toRecord = <T extends { id: string }>(list: T[]): Record<string, T> =>
   Object.fromEntries(list.map((x) => [x.id, x]));
 
-export function createEmptyProject(name = 'Projeto sem título'): Project {
+export function createEmptyProject(nameOrLang?: string | Lang, lang: Lang = 'pt'): Project {
+  // Aceita `createEmptyProject('en')` (idioma) e `createEmptyProject('Meu projeto')` (nome); o nome é dado do usuário.
+  const byLang = nameOrLang === 'pt' || nameOrLang === 'en';
+  const activeLang: Lang = byLang ? nameOrLang : lang;
+  const name = byLang ? undefined : nameOrLang;
   return {
     schemaVersion: SCHEMA_VERSION,
-    name,
+    name: name ?? t(activeLang, 'md_doc_untitled_project'),
     levels: [
-      makeLevel({ id: 'lv_0', name: 'Térreo', elevation: 0 }),
-      makeLevel({ id: 'lv_1', name: 'Pavimento 2', elevation: 3 }),
+      makeLevel({ id: 'lv_0', name: t(activeLang, 'md_doc_level_ground'), elevation: 0 }),
+      makeLevel({ id: 'lv_1', name: t(activeLang, 'md_doc_level_n', { n: 2 }), elevation: 3 }),
     ],
-    materials: toRecord(DEFAULT_MATERIALS),
-    wallTypes: toRecord(DEFAULT_WALL_TYPES),
-    floorTypes: toRecord(DEFAULT_FLOOR_TYPES),
-    slabTypes: toRecord(DEFAULT_SLAB_TYPES),
-    ceilingTypes: toRecord(DEFAULT_CEILING_TYPES),
-    roofTypes: toRecord(DEFAULT_ROOF_TYPES),
-    stairTypes: toRecord(DEFAULT_STAIR_TYPES),
-    rampTypes: toRecord(DEFAULT_RAMP_TYPES),
-    openingTypes: toRecord(DEFAULT_OPENING_TYPES),
+    materials: toRecord(materials(activeLang)),
+    wallTypes: toRecord(wallTypes(activeLang)),
+    floorTypes: toRecord(floorTypes(activeLang)),
+    slabTypes: toRecord(slabTypes(activeLang)),
+    ceilingTypes: toRecord(ceilingTypes(activeLang)),
+    roofTypes: toRecord(roofTypes(activeLang)),
+    stairTypes: toRecord(stairTypes(activeLang)),
+    rampTypes: toRecord(rampTypes(activeLang)),
+    openingTypes: toRecord(openingTypeCatalog(activeLang)),
     elements: {},
     nextOrder: 1,
     settings: { joinTolerance: 0.02, showTags: false, debugJoins: false, detail: 'medium' },
     views: [],
     areaPlans: [],
-    roomCategories: DEFAULT_ROOM_CATEGORIES,
+    roomCategories: roomCategories(activeLang),
     colorSchemes: [],
     defaults: { wallTypeId: 'wt_alv14', doorTypeId: 'ot_p80', windowTypeId: 'ot_j120', wallHeight: 2.8 },
   };

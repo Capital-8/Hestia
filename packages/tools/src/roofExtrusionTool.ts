@@ -14,7 +14,7 @@ export function extrusionCreatedMessage(profile: RoofProfilePoint[], u: Resolved
   return `Telhado em arco: ${profile.length - 1} trechos, flecha ${fmt(u, flecha)}. Ctrl+Z desfaz.`;
 }
 
-const HINT = 'Telhado por extrusão: clique no primeiro canto e depois no canto oposto. O eixo da extrusão é o lado maior (Tab troca).';
+
 
 /**
  * Telhado por extrusão (A9, Revit: Roof by extrusion), como modo próprio: dois cliques definem o retângulo envolvente
@@ -24,7 +24,9 @@ const HINT = 'Telhado por extrusão: clique no primeiro canto e depois no canto 
 export class RoofExtrusionTool extends ToolBase {
   readonly id = 'roofextrusion';
   readonly label = 'Telhado por extrusão';
-  readonly hint = HINT;
+  override get hint(): string {
+    return this.t('tl_hint_roof_extrusion');
+  }
   private startPt: Vec2 | null = null;
   /** Tab: `true` usa o eixo transversal (o lado menor) em vez do lado maior. */
   private axisAlt = false;
@@ -32,7 +34,7 @@ export class RoofExtrusionTool extends ToolBase {
   override start(): void {
     this.reset();
     this.axisAlt = false;
-    this.env.say(HINT);
+    this.env.say(this.t('tl_hint_roof_extrusion'));
   }
 
   protected reset(): void {
@@ -128,7 +130,7 @@ export class RoofExtrusionTool extends ToolBase {
     });
     const problem = roofProblem(p, [{ ...roof, order: p.nextOrder }]);
     if (problem) {
-      this.env.say(`Telhado não criado: ${problem}`);
+      this.env.say(this.t('tl_msg_roof_fail', { reason: problem }));
       return;
     }
     this.env.exec({ type: 'addRoof', roof });

@@ -58,9 +58,14 @@ export abstract class SelectionTool extends ToolBase {
 export class MoveTool extends SelectionTool {
   readonly id: 'move' | 'copy';
   readonly label: string;
-  readonly hint: string;
+  /** Dica do passo (o idioma é resolvido na leitura: o app troca de idioma sem recriar a ferramenta). */
+  override get hint(): string {
+    return this.t('tl_hint_move', { label: this.t(this.copy ? 'tl_tool_copy' : 'tl_tool_move') });
+  }
   /** Dica quando não há seleção: a ferramenta espera um clique numa aresta de anel. */
-  readonly edgeHint: string;
+  get edgeHint(): string {
+    return this.t(this.copy ? 'tl_hint_edge_copy' : 'tl_hint_edge_move');
+  }
   private base: Vec2 | null = null;
   /** Última posição capturada do cursor (cota do deslocamento). */
   private cursor: Vec2 | null = null;
@@ -81,10 +86,6 @@ export class MoveTool extends SelectionTool {
     super(env);
     this.id = copy ? 'copy' : 'move';
     this.label = copy ? 'Copiar' : 'Mover';
-    this.hint = `${this.label}: clique no ponto base e depois no destino, ou digite a distância.`;
-    this.edgeHint = copy
-      ? 'Copiar: selecione elementos (Selecionar) para copiar. Uma aresta sozinha ainda não pode ser copiada (nem de piso/laje, nem do croqui de escada/rampa).'
-      : 'Mover: selecione elementos (Selecionar) ou clique numa aresta de piso, laje, telhado, forro ou do croqui de escada/rampa.';
   }
 
   protected override hasSelection(): boolean {
@@ -125,7 +126,7 @@ export class MoveTool extends SelectionTool {
     return this.base !== null || this.compBase !== null;
   }
   override inputPrompt(): string | null {
-    return this.base || this.compBase ? 'Distância' : null;
+    return this.base || this.compBase ? this.t('tl_inp_distance') : null;
   }
 
   /** Sem seleção: mostra a aresta sob o cursor ou, depois do clique base, a aresta na posição de destino. */
@@ -350,7 +351,9 @@ export class MoveTool extends SelectionTool {
 export class RotateTool extends SelectionTool {
   readonly id = 'rotate';
   readonly label = 'Rotacionar';
-  readonly hint = 'Rotacionar: clique no centro, depois na direção de referência e na direção final — ou digite o ângulo em graus.';
+  override get hint(): string {
+    return this.t('tl_hint_rotate');
+  }
   private center: Vec2 | null = null;
   private ref: Vec2 | null = null;
 
@@ -363,7 +366,7 @@ export class RotateTool extends SelectionTool {
     return this.center !== null;
   }
   override inputPrompt(): string | null {
-    return this.center ? 'Ângulo (graus)' : null;
+    return this.center ? this.t('tl_inp_angle_deg') : null;
   }
 
   private angleTo(p: Vec2): number {
@@ -444,7 +447,9 @@ export class RotateTool extends SelectionTool {
 export class MirrorTool extends SelectionTool {
   readonly id = 'mirror';
   readonly label = 'Espelhar';
-  readonly hint = 'Espelhar: clique em dois pontos para definir o eixo de simetria. Tab: pegar uma parede como eixo.';
+  override get hint(): string {
+    return this.t('tl_hint_mirror');
+  }
   private p1: Vec2 | null = null;
   private pickAxis = false;
 

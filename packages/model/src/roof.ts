@@ -1,4 +1,5 @@
 import { multiArea, type Polygon, type Vec2 } from '@hestia/geom';
+import { t, type Lang } from './i18n.ts';
 import { isRoof, type Id, type Layer, type Project, type Roof, type RoofEave, type RoofType } from './types.ts';
 
 export const DEFAULT_EAVE: RoofEave = { fascia: false, fasciaHeight: 0.2, gutter: false, soffit: false };
@@ -48,19 +49,24 @@ const L = (fn: Layer['function'], materialId: string, thickness: number): Layer 
 
 const rt = (id: string, name: string, code: string, description: string, layers: Layer[], cost = 0): RoofType => ({ id, name, code, description, layers, cost });
 
-/** Tipos de telhado iniciais (camadas do topo para baixo; espessura vertical). */
-export const DEFAULT_ROOF_TYPES: RoofType[] = [
-  rt('rt_ceramica', 'Telha cerâmica sobre madeiramento', 'TL-01', 'Telha cerâmica, ripas e caibros de madeira', [
-    L('finish1', 'mat_telha_ceramica', 0.015),
-    L('substrate', 'mat_madeira', 0.03),
-    L('structure', 'mat_madeira', 0.05),
-  ], 180),
-  rt('rt_fibro', 'Telha de fibrocimento', 'TL-02', 'Telha ondulada de fibrocimento sobre terças de madeira', [
-    L('finish1', 'mat_fibrocimento', 0.008),
-    L('structure', 'mat_madeira', 0.075),
-  ], 95),
-  rt('rt_metalica', 'Telha metálica sanduíche', 'TL-03', 'Telha termoacústica com núcleo isolante sobre estrutura metálica', [
-    L('finish1', 'mat_telha_metalica', 0.05),
-    L('structure', 'mat_perfil', 0.1),
-  ], 260),
-];
+/** Tipos de telhado iniciais (camadas do topo para baixo; espessura vertical), no idioma pedido. */
+export function roofTypes(lang: Lang = 'pt'): RoofType[] {
+  return [
+    rt('rt_ceramica', t(lang, 'md_roof_ceramica'), 'TL-01', t(lang, 'md_roof_ceramica_desc'), [
+      L('finish1', 'mat_telha_ceramica', 0.015),
+      L('substrate', 'mat_madeira', 0.03),
+      L('structure', 'mat_madeira', 0.05),
+    ], 180),
+    rt('rt_fibro', t(lang, 'md_roof_fibro'), 'TL-02', t(lang, 'md_roof_fibro_desc'), [
+      L('finish1', 'mat_fibrocimento', 0.008),
+      L('structure', 'mat_madeira', 0.075),
+    ], 95),
+    rt('rt_metalica', t(lang, 'md_roof_metalica'), 'TL-03', t(lang, 'md_roof_metalica_desc'), [
+      L('finish1', 'mat_telha_metalica', 0.05),
+      L('structure', 'mat_perfil', 0.1),
+    ], 260),
+  ];
+}
+
+/** Tipos de telhado em PT (compatibilidade); use `roofTypes(lang)` para o idioma ativo. */
+export const DEFAULT_ROOF_TYPES: RoofType[] = roofTypes('pt');

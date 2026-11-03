@@ -1,5 +1,6 @@
 ﻿import { add, type Vec2 } from '@hestia/geom';
 import { stairBaseZ, stairTopZ, type Project, type Stair, type StairLanding, type StairRun } from '@hestia/model';
+import { numLang, t, type Lang } from './i18nMessages.ts';
 import { riserCountFor, treadFor, treadRuleOf } from './stairGenerators.ts';
 import { isSpiralRun } from './stairSpiral.ts';
 import { regenStairFree } from './stairFreeEdit.ts';
@@ -144,7 +145,7 @@ function ensureLandings(components: Array<StairRun | StairLanding>, H: number, N
 }
 
   // units-ok: formatação interna de diagnóstico da ficha de escada (2 casas fixas), não é texto de interface
-const fmt2 = (v: number): string => v.toFixed(2).replace('.', ',');
+const fmt2In = (lang: Lang) => (v: number): string => numLang(v, 2, lang);
 
 /** Espelho mínimo efetivo do tipo (tipos fora do esquema atual, sem `minRiser` válido, caem no padrão NBR 9050). */
 function minRiserOf(maxRiser: number, minRiser: number | undefined): number {
@@ -172,12 +173,13 @@ function minRiserOf(maxRiser: number, minRiser: number | undefined): number {
  *
  * Não mexe quando o modo é `fixed`, H ≤ 0, o tipo não tem `maxRiser`, ou não há lance para continuar.
  */
-export function refitStairToHeight(p: Project, s: Stair): StairRefitResult {
+export function refitStairToHeight(p: Project, s: Stair, lang: Lang = 'pt'): StairRefitResult {
+  const fmt2 = fmt2In(lang);
   let risers = 0;
   try {
     risers = riserCountOf(s);
   } catch {
-    return { risers: 0, added: 0, removed: 0, riserHeight: 0, tread: 0, skipped: 'error', message: 'Croqui da escada inválido: não foi possível contar os espelhos.' };
+    return { risers: 0, added: 0, removed: 0, riserHeight: 0, tread: 0, skipped: 'error', message: t(lang, 'egb_err_stair_sketch') };
   }
   const H = stairTopZ(p, s) - stairBaseZ(p, s);
   const type = p.stairTypes[s.typeId];
@@ -197,7 +199,7 @@ export function refitStairToHeight(p: Project, s: Stair): StairRefitResult {
       riserHeight: H / risers,
       tread: 0,
       skipped: 'error',
-      message: `Nenhum nº de espelhos cumpre o tipo para a altura de ${fmt2(H)} m: o espelho teria de ficar entre ${fmt2(minRiser)} e ${fmt2(type.maxRiser)} m. Ajuste a altura ou os espelhos mínimo/máximo do tipo.`,
+      message: t(lang, 'egb_err_stair_refit_none', { h: fmt2(H), min: fmt2(minRiser), max: fmt2(type.maxRiser) }),
     };
   }
   const targetN = Math.min(nMax, Math.max(nMin, risers));
@@ -208,20 +210,20 @@ export function refitStairToHeight(p: Project, s: Stair): StairRefitResult {
 
   if (s.freePath && s.freePath.length >= 2) {
     // Livre: o planejador refaz lances e patamares com o novo N; patamar novo só se o usuário o marcar (não se inventa).
-    const r = regenStairFree(s, p, { fixed: { risers: targetN, tread } });
+    const r = regenStairFree(s, p, { fixed: { risers: targetN, tread } }, lang);
     if ('error' in r) return { risers, added, removed, riserHeight, tread, skipped: 'error', message: r.error };
     const out: StairRefitResult = { components: r.components, freePath: r.freePath, manualLandings: r.manualLandings, risers: targetN, added, removed, riserHeight, tread };
     const worst = Math.max(0, ...stairFlightHeights({ ...s, components: r.components }, H));
     if (worst > MAX_FLIGHT_RISE + RISE_EPS) {
       out.landingNeeded = true;
-      out.message = `Há um lance contínuo de ${fmt2(worst)} m (acima de 3,20 m, NBR 9050) sem patamar: marque um patamar intermediário de pelo menos 1,20 m no trajeto livre.`;
+      out.message = t(lang, 'egb_err_stair_long_flight', { h: fmt2(worst) });
     }
     return out;
   }
 
   const lastRunIndex = s.components.reduce((last, c, i) => (c.kind === 'run' ? i : last), -1);
   if (lastRunIndex < 0) {
-    return { risers, added, removed, riserHeight, tread, skipped: 'unsupported-shape', message: 'A escada não tem lance para continuar.' };
+    return { risers, added, removed, riserHeight, tread, skipped: 'unsupported-shape', message: t(lang, 'egb_err_stair_no_continue') };
   }
 
   // Remoção: do fim para o início, só em lance reto seguido de patamar ou do fim da escada, deixando ≥ 2 espelhos.
@@ -245,7 +247,7 @@ export function refitStairToHeight(p: Project, s: Stair): StairRefitResult {
         riserHeight,
         tread,
         skipped: 'unsupported-shape',
-        message: `A altura diminuiu e o espelho ficaria abaixo de ${fmt2(minRiser)} m, mas não há como remover ${removed} espelho(s) (caracol/leque ou lances com menos de 3 espelhos). Ajuste o croqui manualmente.`,
+        message: t(lang, 'egb_err_stair_remove_risers', { h: fmt2(minRiser), n: removed }),
       };
     }
   }
@@ -293,7 +295,7 @@ export function refitStairToHeight(p: Project, s: Stair): StairRefitResult {
       components.push(r.run);
     }
   } catch {
-    return { risers, added, removed, riserHeight, tread, skipped: 'error', message: 'Não foi possível continuar o croqui desta escada; ajuste manualmente.' };
+    return { risers, added, removed, riserHeight, tread, skipped: 'error', message: t(lang, 'egb_err_stair_refit_manual') };
   }
 
   // NBR 9050: patamar em trecho contínuo acima de 3,20 m.
@@ -306,10 +308,10 @@ export function refitStairToHeight(p: Project, s: Stair): StairRefitResult {
     if (landingsInserted > 0) changed = true;
     if (fit.needed) {
       const worst = Math.max(0, ...flightsOf(components).map((f) => (f.risers * H) / targetN));
-      message = `Há um lance contínuo de ${fmt2(worst)} m (acima de 3,20 m, NBR 9050) sem patamar e o reajuste não consegue inserir um aqui (caracol, leque ou lance sem espaço para dividir). Acrescente um patamar intermediário de pelo menos 1,20 m.`;
+      message = t(lang, 'egb_err_stair_landing_manual', { h: fmt2(worst) });
     }
   } catch {
-    return { risers, added, removed, riserHeight, tread, skipped: 'error', message: 'Não foi possível inserir o patamar intermediário; ajuste manualmente.' };
+    return { risers, added, removed, riserHeight, tread, skipped: 'error', message: t(lang, 'egb_err_stair_landing_insert') };
   }
   const extra: Partial<StairRefitResult> = {};
   if (landingsInserted > 0) extra.landingsInserted = landingsInserted;

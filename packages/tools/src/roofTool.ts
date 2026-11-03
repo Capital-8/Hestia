@@ -8,7 +8,7 @@ import { ToolBase } from './base.ts';
 export class RoofTool extends ToolBase {
   readonly id = 'roof';
   readonly label = 'Telhado';
-  readonly hint = 'Telhado: use Criar/Editar perímetro na faixa.';
+  readonly hint = this.t('tl_hint_roof');
 
   protected reset(): void {}
 

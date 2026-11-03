@@ -1,6 +1,7 @@
 import { useRef, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactElement, type ReactNode } from 'react';
 import { setDock } from '../editor/dockActions.ts';
 import type { DockPanel } from '../editor/dockLayout.ts';
+import { useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { applyDrop } from './dockDrag.ts';
 import { startDockDrag } from './dockDragSession.ts';
@@ -21,6 +22,7 @@ export function PanelHead({ panel, name, closeLabel, extra, children }: {
   extra?: ReactNode;
   children: ReactNode;
 }): ReactElement {
+  const { t } = useT();
   /** Ouvintes do gesto em andamento (antes de virar arrasto); null quando não há gesto. */
   const gesture = useRef<(() => void) | null>(null);
 
@@ -70,14 +72,14 @@ export function PanelHead({ panel, name, closeLabel, extra, children }: {
     <div
       className="panel-head"
       tabIndex={0}
-      title="Arraste para mover o painel"
+      title={t('shc_panel_drag_hint')}
       onPointerDown={onPointerDown}
       onKeyDown={onKeyDown}
     >
       <span className="ph-title" title={name}>{children}</span>
       <span className="ph-right">
         {extra}
-        <button className="ph-x" aria-label={closeLabel} title="Fechar (reabra em Vista ▸ Interface do usuário)" onClick={close}>✕</button>
+        <button className="ph-x" aria-label={closeLabel} title={t('shc_panel_close_hint')} onClick={close}>✕</button>
       </span>
     </div>
   );

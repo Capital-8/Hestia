@@ -3,6 +3,7 @@ import { isRoof } from '@hestia/model';
 import { roofToFreePatch } from '@hestia/tools';
 import { editor, useProject } from '../editor/controller.ts';
 import { useUi } from '../editor/state.ts';
+import { useT } from '../editor/i18n.ts';
 
 /**
  * Barra da seta de inclinação: a primeira seta já converte o telhado em águas livres, então o botão é só um atalho para
@@ -11,6 +12,7 @@ import { useUi } from '../editor/state.ts';
 export function RoofArrowOptionsBar(): ReactElement | null {
   const p = useProject();
   const sel = useUi((s) => s.selection);
+  const { t } = useT();
   const el = sel.length === 1 ? p.elements[sel[0]!] : undefined;
   const roof = el && isRoof(el) ? el : null;
   if (!roof || roof.shape === 'free') return null;
@@ -20,7 +22,7 @@ export function RoofArrowOptionsBar(): ReactElement | null {
   };
   return (
     <button type="button" className="btn" id="opt-roofarrow-free" onClick={convert}>
-      Converter para águas livres
+      {t('pro_roof_arrow_free')}
     </button>
   );
 }

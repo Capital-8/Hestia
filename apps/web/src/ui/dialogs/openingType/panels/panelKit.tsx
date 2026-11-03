@@ -10,9 +10,13 @@ import {
   openingLeafStyle,
   type Material,
   type OpeningFamily,
+  type OpeningFrameStyle,
+  type OpeningHandle,
+  type OpeningLeafStyle,
   type OpeningOptionSupport,
   type OpeningType,
 } from '@hestia/model';
+import { useT, type Dict } from '../../../../editor/i18n.ts';
 import { OpeningTypeThumb } from '../OpeningTypeThumb.tsx';
 import { withOpeningField } from '../openingTypeFields.ts';
 
@@ -29,27 +33,27 @@ export interface PanelProps {
   materials: Record<string, Material>;
 }
 
-export const FIELD_LEAF = [
-  ['flush', 'Lisa'],
-  ['panel', 'Painel'],
-  ['glass', 'Vidro'],
-  ['louver', 'Veneziana'],
-  ['grille', 'Grade'],
-] as const;
+export const FIELD_LEAF: ReadonlyArray<readonly [OpeningLeafStyle, keyof Dict]> = [
+  ['flush', 'dlo_o_leaf_flush'],
+  ['panel', 'dlo_o_leaf_panel'],
+  ['glass', 'dlo_o_leaf_glass'],
+  ['louver', 'dlo_o_leaf_louver'],
+  ['grille', 'dlo_o_leaf_grille'],
+];
 
-export const FIELD_HANDLE = [
-  ['none', 'Nenhuma'],
-  ['lever', 'Alavanca'],
-  ['knob', 'Botão'],
-  ['pull', 'Puxador'],
-] as const;
+export const FIELD_HANDLE: ReadonlyArray<readonly [OpeningHandle, keyof Dict]> = [
+  ['none', 'dlo_o_handle_none'],
+  ['lever', 'dlo_o_handle_lever'],
+  ['knob', 'dlo_o_handle_knob'],
+  ['pull', 'dlo_o_handle_pull'],
+];
 
-export const FIELD_FRAME = [
-  ['rebate', 'Com rebaixo'],
-  ['simple', 'Simples'],
-  ['aduela', 'Aduela (pré-marco)'],
-  ['block', 'Bloco (sem perfil)'],
-] as const;
+export const FIELD_FRAME: ReadonlyArray<readonly [OpeningFrameStyle, keyof Dict]> = [
+  ['rebate', 'dlo_o_frame_rebate'],
+  ['simple', 'dlo_o_frame_simple'],
+  ['aduela', 'dlo_o_frame_aduela'],
+  ['block', 'dlo_o_frame_block'],
+];
 
 /**
  * Ferramentas comuns dos painéis: valores efetivos (padrão por leitura), `set` para campos simples e `setField` para os
@@ -99,19 +103,20 @@ export function Miniaturas<T extends string>({
   preview,
 }: {
   value: T;
-  options: ReadonlyArray<readonly [T, string]>;
+  options: ReadonlyArray<readonly [T, keyof Dict]>;
   onPick: (v: T) => void;
   preview: (v: T) => OpeningType;
 }): ReactElement {
+  const { t } = useT();
   return (
     <div className="op-choices">
-      {options.map(([v, label]) => (
+      {options.map(([v, labelKey]) => (
         <button
           key={v}
           type="button"
           className={`btn small op-choice${v === value ? ' on' : ''}`}
-          title={label}
-          aria-label={label}
+          title={t(labelKey)}
+          aria-label={t(labelKey)}
           aria-pressed={v === value}
           onClick={() => onPick(v)}
         >
@@ -123,10 +128,11 @@ export function Miniaturas<T extends string>({
 }
 
 /** Seletor de material (caixilho, vidro...). */
-export function MaterialSelect({ id, label, value, materials, onPick }: { id: string; label: string; value: string; materials: Record<string, Material>; onPick: (id: string) => void }): ReactElement {
+export function MaterialSelect({ id, labelKey, value, materials, onPick }: { id: string; labelKey: keyof Dict; value: string; materials: Record<string, Material>; onPick: (id: string) => void }): ReactElement {
+  const { t } = useT();
   return (
     <div className="field-row">
-      <label htmlFor={id}>{label}</label>
+      <label htmlFor={id}>{t(labelKey)}</label>
       <select id={id} className="select" value={value} onChange={(e) => onPick(e.target.value)}>
         {Object.values(materials).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
       </select>

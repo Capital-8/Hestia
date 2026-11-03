@@ -6,7 +6,9 @@ import type { PointerInfo } from './types.ts';
 export class TagTool extends ToolBase {
   readonly id = 'tag';
   readonly label = 'Etiqueta';
-  readonly hint = 'Selecione um elemento, ative Etiqueta e clique onde posicionar o rótulo.';
+  override get hint(): string {
+    return this.t('tl_hint_tag');
+  }
   protected reset(): void { this.items = []; this.inf = null; }
   protected busy(): boolean { return false; }
   override move(p: PointerInfo): void {
@@ -23,6 +25,6 @@ export class TagTool extends ToolBase {
     if (!hostId) { this.env.say('Selecione um elemento do modelo antes de posicionar a etiqueta.'); return; }
     const item = { id: newId('tag'), hostId, at: this.snap(p).point, property: this.env.options().tagProperty ?? 'type', leader: this.env.options().tagLeader !== false, orientation: this.env.options().tagOrientation ?? 'horizontal' } as const;
     if (!addSectionTag(this.env, item)) this.env.exec({ type: 'addTag', levelId: this.env.levelId(), planId: viewPlanId(this.env), item });
-    this.env.say('Etiqueta associada ao elemento. Selecione outro elemento para etiquetá-lo também.');
+    this.env.say(this.t('tl_msg_tag_done'));
   }
 }

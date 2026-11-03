@@ -5,7 +5,7 @@ import { levelAbove, levelElevation, unitsOf, validateProject, type Id, type Pro
 import { regenSpiralComponents, regenStraightComponents, spiralInfo, spiralOfStair } from '@hestia/tools';
 import { editor, useProject } from '../editor/controller.ts';
 import { goToIssue } from '../editor/goToIssue.ts';
-import { I18N, useI18n } from '../editor/i18n.ts';
+import { fmtNum, t as translate, useT, type Lang } from '../editor/i18n.ts';
 import { effectiveMinRiser, readLevelKeep, riserBandNote } from '../editor/levelActions.ts';
 import { useUi } from '../editor/state.ts';
 import { commonOf, patchStairs } from '../editor/stairActions.ts';
@@ -24,11 +24,16 @@ const DEG = Math.PI / 180;
 /** Modo dos espelhos (decisão 0041): `auto` reajusta o croqui à altura; `fixed` mantém o croqui e avisa. */
 export type RiserMode = NonNullable<Stair['riserMode']>;
 
-/** Opções do campo "Espelhos", na ordem exibida: o automático reajusta o nº de espelhos quando o real passa do máximo. */
-export const RISER_MODE_OPTIONS: ReadonlyArray<{ value: RiserMode; label: string }> = [
-  { value: 'auto', label: 'Automático (recalcula e continua)' },
-  { value: 'fixed', label: 'Fixo (mantém o desenho)' },
-];
+/** Opções do campo "Espelhos" no idioma pedido, na ordem exibida: o automático reajusta o nº de espelhos quando o real passa do máximo. */
+export function riserModeOptions(lang: Lang): ReadonlyArray<{ value: RiserMode; label: string }> {
+  return [
+    { value: 'auto', label: translate(lang, 'prb_opt_riser_auto') },
+    { value: 'fixed', label: translate(lang, 'prb_opt_riser_fixed') },
+  ];
+}
+
+/** Lista PT histórica (compatibilidade); a UI usa `riserModeOptions(lang)` para acompanhar o idioma. */
+export const RISER_MODE_OPTIONS: ReadonlyArray<{ value: RiserMode; label: string }> = riserModeOptions('pt');
 
 /** Modo dos espelhos de uma escada; ausente no projeto antigo = automático. */
 export function riserModeOf(stair: Stair): RiserMode {
@@ -36,8 +41,8 @@ export function riserModeOf(stair: Stair): RiserMode {
 }
 
 /** Avisos e erros de uma escada: os de norma e de croqui (engine) e os de referência do modelo (tipo, nível, topo). */
-function issuesOf(p: Project, id: Id): ValidationIssue[] {
-  return [...validateProject(p), ...stairValidationIssues(p)].filter((i) => i.elementId === id);
+function issuesOf(p: Project, id: Id, lang: Lang): ValidationIssue[] {
+  return [...validateProject(p), ...stairValidationIssues(p, lang)].filter((i) => i.elementId === id);
 }
 
 /** Trajeto editável de uma escada livre (2 pontos ou mais), ou null nas demais formas. */
@@ -52,7 +57,7 @@ export function freeStairPath(stair: Stair | null): Vec2[] | null {
 export function StairProperties({ stairs }: { stairs: Stair[] }): ReactElement {
   const fmt = useFormat();
   const p = useProject();
-  const t = I18N[useI18n((s) => s.lang)];
+  const { t, lang } = useT();
   const ids = stairs.map((s) => s.id);
   const typeId = commonOf(stairs, (s) => s.typeId);
   const base = commonOf(stairs, (s) => s.baseOffset);
@@ -81,8 +86,7 @@ export function StairProperties({ stairs }: { stairs: Stair[] }): ReactElement {
     if (!freePath || !single) return '';
     const runs = single.components.filter((c) => c.kind === 'run').length;
     const landings = single.components.length - runs;
-    const params: Record<string, string> = { n: String(freePath.length), r: String(runs), l: String(landings) };
-    return t.stair_free_path_info.replace(/\{(\w+)\}/g, (_, k: string) => params[k] ?? '');
+    return t('stair_free_path_info', { n: freePath.length, r: runs, l: landings });
   }, [freePath, single, t]);
   const [adjustMsg, setAdjustMsg] = useState('');
 
@@ -91,10 +95,10 @@ export function StairProperties({ stairs }: { stairs: Stair[] }): ReactElement {
     if (!single || !spiral) return;
     const r = regenSpiralComponents(p, single, spiral.part, { ...spiral.sp, ...changes });
     if ('error' in r) {
-      useUi.setState({ status: `Caracol: ${r.error}` });
+      useUi.setState({ status: t('prb_msg_spiral_error', { error: r.error }) });
       return;
     }
-    patchStairs(editor.store, [single.id], { components: r.components }, 'Editar caracol');
+    patchStairs(editor.store, [single.id], { components: r.components }, t('prb_undo_edit_spiral'));
   };
 
   // Reta gerada pela ferramenta: o nº de espelhos é editável (o piso e a altura do espelho se ajustam).
@@ -105,20 +109,20 @@ export function StairProperties({ stairs }: { stairs: Stair[] }): ReactElement {
     if (!single) return;
     const r = regenStraightComponents(single, n, p.stairTypes[single.typeId]?.minTread ?? 0, unitsOf(p));
     if ('error' in r) {
-      useUi.setState({ status: `Escada: ${r.error}` });
+      useUi.setState({ status: t('prb_msg_stair_error', { error: r.error }) });
       return;
     }
-    patchStairs(editor.store, [single.id], { components: r.components }, 'Editar nº de espelhos');
+    patchStairs(editor.store, [single.id], { components: r.components }, t('prb_undo_edit_risers'));
   };
 
   // Resolver o nível e validar o projeto custam segundos num prédio grande: saem do clique e ficam em cache por projeto.
   const quantities =
     useAdiado(p, `escada-quant|${single?.id ?? ''}`, () => {
       if (!single) return null;
-      const r = resolveStairsOnLevel(p, single.levelId).find((x) => x.id === single.id);
+      const r = resolveStairsOnLevel(p, single.levelId, lang).find((x) => x.id === single.id);
       return r ? stairQuantities(r) : null;
     }, 150) ?? null;
-  const issues = useAdiado(p, `escada-avisos|${single?.id ?? ''}`, () => (single ? issuesOf(p, single.id) : []), 150) ?? [];
+  const issues = useAdiado(p, `escada-avisos|${single?.id ?? ''}`, () => (single ? issuesOf(p, single.id, lang) : []), 150) ?? [];
 
   const patch = (targets: Id[], value: Partial<Stair>): void => patchStairs(editor.store, targets, value);
 
@@ -129,7 +133,7 @@ export function StairProperties({ stairs }: { stairs: Stair[] }): ReactElement {
       return;
     }
     const r = patchStairFree(editor.store, single.id, value);
-    if (r) useUi.setState({ status: `Escada: ${r.error}` });
+    if (r) useUi.setState({ status: t('prb_msg_stair_error', { error: r.error }) });
   };
 
   /** Nível base da escada livre pelo mesmo select do `LevelField`, regenerando o trajeto. */
@@ -143,76 +147,76 @@ export function StairProperties({ stairs }: { stairs: Stair[] }): ReactElement {
   /** Nova largura do lance da escada livre, regenerando em UM passo de desfazer. */
   const editFreeWidth = (v: number): void => {
     if (!single) return;
-    const r = regenStairFree(single, p, { width: v });
+    const r = regenStairFree(single, p, { width: v }, lang);
     if ('error' in r) {
-      useUi.setState({ status: `Escada: ${r.error}` });
+      useUi.setState({ status: t('prb_msg_stair_error', { error: r.error }) });
       return;
     }
-    applyStairFreeRegen(editor.store, single.id, r, 'Editar escada');
+    applyStairFreeRegen(editor.store, single.id, r, t('prb_undo_edit_stair'));
   };
 
   /** Botão "Ajustar": otimiza a escada livre à regra de Blondel do tipo em UMA transação "Ajustar escada". */
   const adjust = (): void => {
     if (!single) return;
     const r = adjustStairFree(editor.store, single.id);
-    setAdjustMsg('error' in r ? `Escada: ${r.error}` : r.message);
+    setAdjustMsg('error' in r ? t('prb_msg_stair_error', { error: r.error }) : r.message);
   };
 
   return (
     <>
       <TypeSelector
         triggerId="prop-stairtype"
-        label="Tipo de escada"
-        categoryLabel={`Escadas (${stairs.length})`}
+        label={t('prb_prop_type_stair')}
+        categoryLabel={t('prb_cat_stairs', { n: stairs.length })}
         options={stairOptions(p)}
         selectedId={typeId.mixed ? null : typeId.value}
         editDisabled={typeId.mixed}
         onSelect={(id) => patchHeight(ids, { typeId: id })}
         onEdit={() => useUi.setState({ dialog: 'stairType', dialogArg: typeId.value })}
       />
-      <Group title="Restrições">
+      <Group title={t('prb_pgrp_constraints')}>
         {freePath && single ? (
-          <Row label="Nível base" htmlFor="p-sbaselevel">
+          <Row label={t('ramp_levels_base')} htmlFor="p-sbaselevel">
             <select id="p-sbaselevel" className="select" value={single.levelId} onChange={(e) => changeFreeBaseLevel(e.target.value)}>
               {p.levels.map((l) => <option key={l.id} value={l.id}>{`${l.name} · ${fmt('length', l.elevation)}`}</option>)}
             </select>
           </Row>
         ) : (
-          <LevelField ids={ids} label="Nível base" />
+          <LevelField ids={ids} label={t('ramp_levels_base')} />
         )}
-        <Row label="Nível de topo" htmlFor="p-stop">
+        <Row label={t('ramp_levels_top')} htmlFor="p-stop">
           <select id="p-stop" className="select" value={top.mixed ? '' : top.value} onChange={(e) => patchHeight(ids, { topLevelId: e.target.value || null })}>
-            {top.mixed && <option value="">variados</option>}
-            <option value="">Automático (nível acima)</option>
-            {p.levels.map((l) => <option key={l.id} value={l.id}>Até {l.name}</option>)}
+            {top.mixed && <option value="">{t('prb_opt_varied')}</option>}
+            <option value="">{t('ramp_levels_auto')}</option>
+            {p.levels.map((l) => <option key={l.id} value={l.id}>{`${t('ramp_levels_until')} ${l.name}`}</option>)}
           </select>
         </Row>
-        <Row label="Desloc. da base" htmlFor="p-sbase"><NumField id="p-sbase" value={base.value} mixed={base.mixed} onCommit={(v) => patchHeight(ids, { baseOffset: v })} quantity="length" /></Row>
-        <Row label="Desloc. do topo" htmlFor="p-stopoff"><NumField id="p-stopoff" value={topOff.value} mixed={topOff.mixed} onCommit={(v) => patchHeight(ids, { topOffset: v })} quantity="length" /></Row>
-        <Row label="Espelhos" htmlFor="p-stair-riser-mode">
+        <Row label={t('ramp_levels_base_offset')} htmlFor="p-sbase"><NumField id="p-sbase" value={base.value} mixed={base.mixed} onCommit={(v) => patchHeight(ids, { baseOffset: v })} quantity="length" /></Row>
+        <Row label={t('ramp_levels_top_offset')} htmlFor="p-stopoff"><NumField id="p-stopoff" value={topOff.value} mixed={topOff.mixed} onCommit={(v) => patchHeight(ids, { topOffset: v })} quantity="length" /></Row>
+        <Row label={t('prb_fld_risers')} htmlFor="p-stair-riser-mode">
           <select
             id="p-stair-riser-mode"
             className="select"
             value={riserMode.mixed ? '' : riserMode.value}
-            onChange={(e) => e.target.value && patchStairs(editor.store, ids, { riserMode: e.target.value as RiserMode }, 'Modo dos espelhos')}
+            onChange={(e) => e.target.value && patchStairs(editor.store, ids, { riserMode: e.target.value as RiserMode }, t('prb_undo_riser_mode'))}
           >
-            {riserMode.mixed && <option value="">variados</option>}
-            {RISER_MODE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            {riserMode.mixed && <option value="">{t('prb_opt_varied')}</option>}
+            {riserModeOptions(lang).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </Row>
-        <div className="hint">Automático: recalcula o nº de degraus e o piso pela fórmula do tipo, continuando no último lance. Fixo: o croqui não muda e a escada só avisa.</div>
+        <div className="hint">{t('prb_msg_riser_mode_hint')}</div>
         {!top.mixed && top.value === '' && noLevelAbove && (
-          <Row label="Altura" htmlFor="p-sheight"><NumField id="p-sheight" value={height.value} mixed={height.mixed} min={0.1} onCommit={(v) => patchHeight(ids, { height: Math.max(0.1, v) })} quantity="length" /></Row>
+          <Row label={t('ramp_levels_height')} htmlFor="p-sheight"><NumField id="p-sheight" value={height.value} mixed={height.mixed} min={0.1} onCommit={(v) => patchHeight(ids, { height: Math.max(0.1, v) })} quantity="length" /></Row>
         )}
-        <Row label="Abertura da laje" htmlFor="p-sopenmode">
+        <Row label={t('prb_fld_slab_opening')} htmlFor="p-sopenmode">
           <select id="p-sopenmode" className="select" value={openingMode.mixed ? '' : openingMode.value} onChange={(e) => e.target.value && patch(ids, { openingMode: e.target.value as StairOpeningMode })}>
-            {openingMode.mixed && <option value="">variados</option>}
-            <option value="headroom">Pé-direito livre</option>
-            <option value="full">Contorno completo</option>
-            <option value="none">Sem abertura</option>
+            {openingMode.mixed && <option value="">{t('prb_opt_varied')}</option>}
+            <option value="headroom">{t('prb_opt_headroom')}</option>
+            <option value="full">{t('prb_opt_full_outline')}</option>
+            <option value="none">{t('prb_opt_no_opening')}</option>
           </select>
         </Row>
-        <Row label="Pé-direito livre" htmlFor="p-sopenh">
+        <Row label={t('prb_opt_headroom')} htmlFor="p-sopenh">
           <NumField
             id="p-sopenh"
             value={openingHeadroom.value}
@@ -225,33 +229,33 @@ export function StairProperties({ stairs }: { stairs: Stair[] }): ReactElement {
             onClear={() => patch(ids, { openingHeadroom: null })}
           />
         </Row>
-        <Row label="Folga lateral" htmlFor="p-sopenm"><NumField id="p-sopenm" value={openingMargin.value} mixed={openingMargin.mixed} disabled={noOpening} min={0} quantity="length" onCommit={(v) => patch(ids, { openingMargin: v })} /></Row>
-        <Row label="Furo retangular" htmlFor="p-sopenrect"><Check id="p-sopenrect" checked={openingRect.value} mixed={openingRect.mixed} disabled={noOpening} onChange={(v) => patch(ids, { openingRect: v })} /></Row>
+        <Row label={t('prb_fld_side_clearance')} htmlFor="p-sopenm"><NumField id="p-sopenm" value={openingMargin.value} mixed={openingMargin.mixed} disabled={noOpening} min={0} quantity="length" onCommit={(v) => patch(ids, { openingMargin: v })} /></Row>
+        <Row label={t('prb_fld_rectangular_opening')} htmlFor="p-sopenrect"><Check id="p-sopenrect" checked={openingRect.value} mixed={openingRect.mixed} disabled={noOpening} onChange={(v) => patch(ids, { openingRect: v })} /></Row>
       </Group>
       {freePath && single && (
-        <Group title={t.stair_free_group}>
-          <Row label={t.stair_free_group} readOnly><span className="val">{freeInfo}</span></Row>
-          <Row label={t.stair_free_width} htmlFor="p-sfreewidth">
+        <Group title={t('stair_free_group')}>
+          <Row label={t('stair_free_group')} readOnly><span className="val">{freeInfo}</span></Row>
+          <Row label={t('stair_free_width')} htmlFor="p-sfreewidth">
             <NumField id="p-sfreewidth" value={freeWidth} min={0.1} unit="m" onCommit={(v) => editFreeWidth(v)} /> {/* units-ok: largura livre da escada sempre em metros */}
           </Row>
-          <Row label={t.stair_adjust}>
-            <button id="p-sadjust" className="chiplink" title={t.stair_adjust_title} onClick={adjust}>{t.stair_adjust}</button>
+          <Row label={t('stair_adjust')}>
+            <button id="p-sadjust" className="chiplink" title={t('stair_adjust_title')} onClick={adjust}>{t('stair_adjust')}</button>
           </Row>
           {adjustMsg && <div className="hint" role="status">{adjustMsg}</div>}
         </Group>
       )}
       {spiral && spiralNums && (
-        <Group title="Caracol">
-          <Row label="Raio interno" htmlFor="p-spin">
+        <Group title={t('prb_pgrp_spiral')}>
+          <Row label={t('prb_fld_inner_radius')} htmlFor="p-spin">
             <NumField id="p-spin" value={spiral.sp.rInner} min={0.05} onCommit={(v) => editSpiral({ rInner: v })} quantity="length" />
           </Row>
-          <Row label="Raio externo" htmlFor="p-spout">
+          <Row label={t('prb_fld_outer_radius')} htmlFor="p-spout">
             <NumField id="p-spout" value={spiral.sp.rOuter} min={0.05} onCommit={(v) => editSpiral({ rOuter: v })} quantity="length" />
           </Row>
-          <Row label="Ângulo inicial" htmlFor="p-spstart">
+          <Row label={t('prb_fld_start_angle')} htmlFor="p-spstart">
             <NumField id="p-spstart" value={spiral.sp.startAngle} quantity="angle" onCommit={(v) => editSpiral({ startAngle: v })} />
           </Row>
-          <Row label="Varredura" htmlFor="p-spsweep">
+          <Row label={t('prb_fld_sweep')} htmlFor="p-spsweep">
             <NumField
               id="p-spsweep"
               value={Math.abs(spiral.sp.sweep)}
@@ -261,62 +265,63 @@ export function StairProperties({ stairs }: { stairs: Stair[] }): ReactElement {
               onCommit={(v) => editSpiral({ sweep: (spiral.sp.sweep < 0 ? -1 : 1) * v })}
             />
           </Row>
-          <Row label="Sentido"><span className="val">{spiral.sp.sweep < 0 ? 'horário' : 'anti-horário'}</span></Row>
+          <Row label={t('prb_fld_direction')}><span className="val">{spiral.sp.sweep < 0 ? t('prb_opt_clockwise') : t('prb_opt_counterclockwise')}</span></Row>
           {Math.abs(spiral.sp.sweep) > 2 * Math.PI && (
             <>
               {/* units-ok: contagem sem unidade */}
-              <Row label="Espelhos por volta"><span className="val">{String(Math.round(spiralNums.perTurn * 10) / 10).replace('.', ',')}</span></Row> {/* units-ok: contagem de espelhos, não é medida */}
-              <Row label="Folga entre voltas"><span className="val">{fmt('length', spiralNums.headroom)}</span></Row>
+              <Row label={t('prb_fld_risers_per_turn')}><span className="val">{fmtNum(Math.round(spiralNums.perTurn * 10) / 10, 1, lang)}</span></Row> {/* units-ok: contagem de espelhos, não é medida */}
+              <Row label={t('prb_fld_headroom_between_turns')}><span className="val">{fmt('length', spiralNums.headroom)}</span></Row>
             </>
           )}
         </Group>
       )}
-      <Group title="Dimensões">
+      <Group title={t('prb_pgrp_dimensions')}>
         {single && quantities ? (
           <>
             {straightRisersEditable ? (
-              <Row label="Nº de espelhos" htmlFor="p-srisers">
+              <Row label={t('prb_fld_riser_count')} htmlFor="p-srisers">
                 <NumField id="p-srisers" value={quantities.riserCount} decimals={0} min={2} onCommit={(v) => editRisers(Math.round(v))} />
               </Row>
             ) : (
-              <Row label="Nº de espelhos"><span className="val">{quantities.riserCount}</span></Row>
+              <Row label={t('prb_fld_riser_count')}><span className="val">{quantities.riserCount}</span></Row>
             )}
-            <Row label="Altura do espelho"><span className="val">{fmt('length', quantities.riserHeight)}</span></Row>
+            <Row label={t('prb_fld_riser_height')}><span className="val">{fmt('length', quantities.riserHeight)}</span></Row>
             {(() => {
               // Aviso curto de faixa (sem lógica nova: só compara o espelho resultante com [mínimo, máximo] do tipo).
               const band = type ? riserBandNote(quantities.riserHeight, type) : null;
               return band && !band.inside ? (
-                <div className="hint" style={{ color: 'var(--warn)' }}>Espelho {band.text}.</div>
+                <div className="hint" style={{ color: 'var(--warn)' }}>{t('prb_msg_riser_band', { text: band.text })}</div>
               ) : null;
             })()}
-            <Row label="Piso médio"><span className="val">{fmt('length', quantities.treadMean)}</span></Row>
-            <Row label="Largura"><span className="val">{fmt('length', quantities.width)}</span></Row>
-            <Row label="Área em planta"><span className="val">{fmt('area', quantities.planArea)}</span></Row>
-            <Row label="Volume"><span className="val">{fmt('volume', quantities.volume)}</span></Row>
+            <Row label={t('prb_fld_average_tread')}><span className="val">{fmt('length', quantities.treadMean)}</span></Row>
+            <Row label={t('prb_fld_width')}><span className="val">{fmt('length', quantities.width)}</span></Row>
+            <Row label={t('prb_fld_plan_area')}><span className="val">{fmt('area', quantities.planArea)}</span></Row>
+            <Row label={t('ramp_prop_volume')}><span className="val">{fmt('volume', quantities.volume)}</span></Row>
           </>
         ) : (
-          <div className="hint">{single ? 'Escada sem geometria válida: veja os avisos.' : 'Selecione uma escada para ver os quantitativos.'}</div>
+          <div className="hint">{single ? t('prb_msg_invalid_stair_geometry') : t('prb_msg_select_stair_quantities')}</div>
         )}
       </Group>
-      <Group title={`Avisos (${issues.length})`} open={issues.length > 0}>
+      <Group title={t('prb_pgrp_warnings', { n: issues.length })} open={issues.length > 0}>
         {issues.length === 0 ? (
-          <div className="hint">Sem avisos.</div>
+          <div className="hint">{t('prb_msg_no_warnings')}</div>
         ) : (
           issues.map((i, k) => (
             <div className="prow" key={`${i.code}-${k}`} style={{ alignItems: 'start' }}>
               <span className="lbl" style={{ color: i.severity === 'error' ? 'var(--danger, #b42318)' : undefined }}>{i.message}</span>
-              <button className="chiplink" onClick={() => goToIssue(i)}>Ir para</button>
+              <button className="chiplink" onClick={() => goToIssue(i)}>{t('prb_btn_go_to')}</button>
             </div>
           ))
         )}
       </Group>
-      <Group title="Dados de identidade" open={false}>
-        <Row label="Marca" htmlFor="p-smk"><TextField id="p-smk" value={mark.value} mixed={mark.mixed} onCommit={(v) => patch(ids, { mark: v })} /></Row>
-        <Row label="Comentários" htmlFor="p-scm"><TextField id="p-scm" value={comments.value} mixed={comments.mixed} onCommit={(v) => patch(ids, { comments: v })} /></Row>
+      <Group title={t('prb_pgrp_identity')} open={false}>
+        <Row label={t('prb_fld_mark')} htmlFor="p-smk"><TextField id="p-smk" value={mark.value} mixed={mark.mixed} onCommit={(v) => patch(ids, { mark: v })} /></Row>
+        <Row label={t('prb_fld_comments')} htmlFor="p-scm"><TextField id="p-scm" value={comments.value} mixed={comments.mixed} onCommit={(v) => patch(ids, { comments: v })} /></Row>
       </Group>
       {type && (
         <div className="hint">
-          {type.runStyle === 'monolithic' ? 'Estilo monolítico.' : type.runStyle === 'post' ? 'Estilo de poste central, sem espelho.' : 'Estilo de piso e espelho.'} Espelho {fmt('length', effectiveMinRiser(type))} a {fmt('length', type.maxRiser)}.
+          {type.runStyle === 'monolithic' ? t('prb_msg_style_monolithic') : type.runStyle === 'post' ? t('prb_msg_style_post') : t('prb_msg_style_assembled')}{' '}
+          {t('prb_msg_riser_limits', { min: fmt('length', effectiveMinRiser(type)), max: fmt('length', type.maxRiser) })}
         </div>
       )}
     </>

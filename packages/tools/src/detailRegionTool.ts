@@ -7,7 +7,9 @@ import type { PointerInfo } from './types.ts';
 export class DetailRegionTool extends ToolBase {
   readonly id = 'filledRegion';
   readonly label = 'Região preenchida';
-  readonly hint = 'Região preenchida: clique nos vértices e pressione Enter para fechar.';
+  override get hint(): string {
+    return this.t('tl_hint_filled_region');
+  }
   private points: Vec2[] = [];
   protected reset(): void { this.points = []; this.items = []; this.inf = null; }
   protected busy(): boolean { return this.points.length > 0; }

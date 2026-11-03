@@ -1,3 +1,95 @@
-/** Shard de dicionário: misc-ui. Paridade PT/EN garantida pelo tipo. */
-export const PT_MISC_UI = {} as const;
-export const EN_MISC_UI: Record<keyof typeof PT_MISC_UI, string> = {};
+/** Shard de dicionário: misc-ui (prefixo `msc_`). Paridade PT/EN garantida pelo tipo. */
+export const PT_MISC_UI = {
+  // Telhado: águas livres
+  msc_roof_planes_count: 'Águas ({n})',
+  msc_roof_planes_empty: 'Sem águas: o telhado precisa de ao menos uma. Acrescente uma água abaixo.',
+  msc_roof_plane_slope: 'Água {n} inclinação',
+  msc_roof_plane_rise: 'Água {n} subida',
+  msc_roof_plane_delete: 'Excluir água {n}',
+  msc_roof_plane_add: '+ água',
+  msc_roof_planes_overlap_hint:
+    'Cada água cobre o contorno inteiro: águas acrescentadas se sobrepõem às outras, então exclua as que não quiser.',
+  // Telhado: mansarda automática
+  msc_mansard_two_bands: 'Duas faixas por água',
+  msc_mansard_lower_slope: 'Inclinação de baixo',
+  msc_mansard_upper_slope: 'Inclinação de cima',
+  msc_mansard_lower_band_width: 'Largura da faixa de baixo',
+  // Alças de inversão da abertura
+  msc_flip_facing_tip: 'Inverter sentido (Tab)',
+  msc_flip_hand_tip: 'Inverter dobradiça (Espaço)',
+  msc_flip_facing_done: 'Sentido de abertura invertido.',
+  msc_flip_hand_done: 'Dobradiça invertida.',
+  // Contorno do forro
+  msc_ceiling_follows_room: 'Acompanha o ambiente «{name}»',
+  msc_ceiling_room_deleted: 'Ambiente apagado: mantém o último contorno',
+  msc_ceiling_room_open: 'Ambiente «{name}» não fecha: mantém o último contorno',
+  msc_ceiling_static: 'Estático (editado à mão)',
+  msc_ceiling_no_room: 'Sem ambiente (desenhado à mão)',
+  msc_no_elements: 'Sem elementos',
+  msc_ceiling_detach: 'Desvincular',
+  msc_ceiling_relink: 'Revincular ao ambiente',
+  msc_ceiling_no_room_contains: 'Nenhum ambiente contém o forro.',
+  msc_undo_detach_ceiling: 'Soltar forro do ambiente',
+  msc_undo_relink_ceiling: 'Revincular forro ao ambiente',
+  // Contorno de piso/laje
+  msc_outline_title: 'Contorno',
+  msc_outline_mode_walls_finish: 'face de acabamento',
+  msc_outline_mode_walls_core: 'núcleo',
+  msc_outline_mode_perimeter: 'perímetro externo',
+  msc_outline_linked_mode: 'Vinculado às paredes (modo: {mode})',
+  msc_outline_linked_mixed: 'Vinculado às paredes (modos variados)',
+  msc_outline_static: 'Estático (editado à mão)',
+  msc_outline_unlinked: 'Sem vínculo (desenhado por croqui)',
+  msc_outline_none: 'Sem elementos',
+  msc_outline_detach: 'Desvincular',
+  msc_outline_relink: 'Revincular às paredes',
+  msc_undo_outline_detach: 'Desvincular contorno',
+  msc_undo_outline_relink: 'Revincular contorno às paredes',
+} as const;
+
+export const EN_MISC_UI: Record<keyof typeof PT_MISC_UI, string> = {
+  // Roof: free planes
+  msc_roof_planes_count: 'Roof Planes ({n})',
+  msc_roof_planes_empty: 'No roof planes: the roof needs at least one. Add a plane below.',
+  msc_roof_plane_slope: 'Roof plane {n} slope',
+  msc_roof_plane_rise: 'Roof plane {n} rise',
+  msc_roof_plane_delete: 'Delete roof plane {n}',
+  msc_roof_plane_add: '+ plane',
+  msc_roof_planes_overlap_hint:
+    'Each plane covers the whole boundary: added planes overlap the others, so delete the ones you do not want.',
+  // Roof: automatic mansard
+  msc_mansard_two_bands: 'Two bands per plane',
+  msc_mansard_lower_slope: 'Lower slope',
+  msc_mansard_upper_slope: 'Upper slope',
+  msc_mansard_lower_band_width: 'Lower band width',
+  // Opening flip grips
+  msc_flip_facing_tip: 'Flip facing (Tab)',
+  msc_flip_hand_tip: 'Flip hinge (Space)',
+  msc_flip_facing_done: 'Opening facing flipped.',
+  msc_flip_hand_done: 'Hinge flipped.',
+  // Ceiling outline
+  msc_ceiling_follows_room: 'Follows room “{name}”',
+  msc_ceiling_room_deleted: 'Room deleted: keeps the last boundary',
+  msc_ceiling_room_open: 'Room “{name}” does not close: keeps the last boundary',
+  msc_ceiling_static: 'Static (edited by hand)',
+  msc_ceiling_no_room: 'No room (drawn by hand)',
+  msc_no_elements: 'No elements',
+  msc_ceiling_detach: 'Detach',
+  msc_ceiling_relink: 'Relink to room',
+  msc_ceiling_no_room_contains: 'No room contains the ceiling.',
+  msc_undo_detach_ceiling: 'Detach ceiling from room',
+  msc_undo_relink_ceiling: 'Relink ceiling to room',
+  msc_outline_title: 'Outline',
+  msc_outline_mode_walls_finish: 'finish face',
+  msc_outline_mode_walls_core: 'core',
+  msc_outline_mode_perimeter: 'outer perimeter',
+  msc_outline_linked_mode: 'Linked to walls (mode: {mode})',
+  msc_outline_linked_mixed: 'Linked to walls (mixed modes)',
+  msc_outline_static: 'Static (edited by hand)',
+  msc_outline_unlinked: 'Unlinked (drawn by sketch)',
+  msc_outline_none: 'No elements',
+  msc_outline_detach: 'Detach',
+  msc_outline_relink: 'Relink to walls',
+  msc_undo_outline_detach: 'Detach outline',
+  msc_undo_outline_relink: 'Relink outline to walls',
+};

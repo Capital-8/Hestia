@@ -1,6 +1,5 @@
 import type { ComponentType } from 'react';
 import { openingOptionSupport, type OpeningFamilyId, type OpeningType } from '@hestia/model';
-import type { I18N } from '../../../../editor/i18n.ts';
 import type { PanelProps } from '../panels/panelKit.tsx';
 import { CasingPanel } from './CasingPanel.tsx';
 import { GlassPanel } from './GlassPanel.tsx';
@@ -13,7 +12,7 @@ import { ProfilePanel } from './ProfilePanel.tsx';
 export interface ProfileComponent {
   id: 'profile' | 'casing' | 'glass';
   /** Chaves do rótulo em `I18N` (pt/en). */
-  labelKey: Extract<keyof typeof I18N.pt, 'oc_profile' | 'oc_casing' | 'oc_glass'>;
+  labelKey: 'oc_profile' | 'oc_casing' | 'oc_glass';
   /** Traço do ícone (viewBox 24×24). */
   icon: string;
   visible: (kind: OpeningType['kind'], family: OpeningFamilyId | null) => boolean;

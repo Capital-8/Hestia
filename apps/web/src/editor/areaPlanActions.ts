@@ -20,10 +20,11 @@ import {
 } from '@hestia/model';
 import { roomTagLines, tagBoxModel } from '@hestia/render';
 import { editor } from './controller.ts';
+import { t, useI18n } from './i18n.ts';
 import { useUi } from './state.ts';
 
 /** Nome padrão de uma planta de área de um nível. */
-export const areaPlanName = (p: Pick<Project, 'levels'>, levelId: Id): string => `Planta de área — ${p.levels.find((l) => l.id === levelId)?.name ?? levelId}`;
+export const areaPlanName = (p: Pick<Project, 'levels'>, levelId: Id): string => t(useI18n.getState().lang, 'eds_def_area_plan_name', { level: p.levels.find((l) => l.id === levelId)?.name ?? levelId });
 
 /**
  * Cópia das anotações do nível (cotas, textos, linhas/regiões de detalhe e etiquetas) com ids novos.
@@ -60,7 +61,7 @@ export const annotationCount = (a: AreaPlanAnnotations): number =>
  * Semeia as anotações da planta de área com as do nível. Usado ao abrir uma planta antiga (sem `annotations`),
  * num único passo de desfazer. Devolve quantas anotações foram copiadas.
  */
-export function seedPlanAnnotationsAction(store: ProjectStore, planId: Id, label = 'Copiar anotações do nível'): number {
+export function seedPlanAnnotationsAction(store: ProjectStore, planId: Id, label = 'eds_undo_copy_level_annotations'): number {
   const plan = areaPlanOf(store.project, planId);
   if (!plan) return 0;
   const annotations = annotationsFromLevel(store.project, plan.levelId);
@@ -132,10 +133,10 @@ export function ensureRoomTagAction(store: ProjectStore, planId: Id, roomId: Id)
  * Os campos vazios são recusados: `roomTagIssue` exige ao menos um campo. Não toca em `Room.labelPosition`.
  */
 export function updateRoomTagAction(store: ProjectStore, planId: Id, roomId: Id, patch: RoomTagPatch): RoomTag | null {
-  if (patch.fields !== undefined && patch.fields.length === 0) throw new Error('A etiqueta precisa de ao menos um campo.');
+  if (patch.fields !== undefined && patch.fields.length === 0) throw new Error(t(useI18n.getState().lang, 'eds_msg_tag_needs_field'));
   if (!areaPlanOf(store.project, planId)) return null;
   let updated: RoomTag | null = null;
-  store.transaction('Editar etiqueta da planta de área', () => {
+  store.transaction('eds_undo_edit_area_tag', () => {
     const tag = ensureRoomTagAction(store, planId, roomId);
     if (!tag) return;
     store.exec({ type: 'updateRoomTag', planId, id: tag.id, patch });
@@ -149,7 +150,7 @@ export function removeRoomTagAction(store: ProjectStore, planId: Id, roomId: Id)
   const plan = areaPlanOf(store.project, planId);
   const tag = plan?.tags.find((t) => t.roomId === roomId);
   if (!plan || !tag) return false;
-  store.exec({ type: 'removeRoomTag', planId, id: tag.id }, 'Voltar etiqueta ao padrão da planta');
+  store.exec({ type: 'removeRoomTag', planId, id: tag.id }, 'eds_undo_reset_area_tag');
   return true;
 }
 
@@ -172,7 +173,7 @@ export function missingTags(p: Project, plan: AreaPlan): RoomTag[] {
 /** Cria a planta de um nível, com etiquetas automáticas, num passo de desfazer. */
 export function createAreaPlanAction(store: ProjectStore, levelId: Id, opts: { scale?: number; name?: string; schemeId?: Id } = {}): Id {
   const p = store.project;
-  if (!p.levels.some((l) => l.id === levelId)) throw new Error('Nível inexistente');
+  if (!p.levels.some((l) => l.id === levelId)) throw new Error(t(useI18n.getState().lang, 'eds_msg_level_missing'));
   const id = newId('ap');
   const plan: AreaPlan = {
     id,
@@ -191,14 +192,14 @@ export function createAreaPlanAction(store: ProjectStore, levelId: Id, opts: { s
     tags: [],
   };
   plan.tags = [];
-  store.exec({ type: 'addAreaPlan', plan }, 'Criar planta de área');
+  store.exec({ type: 'addAreaPlan', plan }, 'eds_undo_create_area_plan');
   return id;
 }
 
 /** Cria uma planta para cada nível pedido, num só passo de desfazer. */
 export function createAreaPlansForLevels(store: ProjectStore, levelIds: readonly Id[], opts: { scale?: number; createSheet?: boolean } = {}): Id[] {
   const ids: Id[] = [];
-  store.transaction('Criar plantas de área', () => {
+  store.transaction('eds_undo_create_area_plans', () => {
     for (const levelId of levelIds) {
       if (areaPlansOfLevel(store.project, levelId).length > 0) continue;
       ids.push(createAreaPlanAction(store, levelId, { scale: opts.scale }));
@@ -216,7 +217,7 @@ export function openAreaPlan(store: ProjectStore, planId: Id): void {
   const plan = areaPlanOf(store.project, planId);
   if (!plan) return;
   editor.selectLevel(plan.levelId, 'area', plan.id);
-  if (plan.annotations === undefined) seedPlanAnnotationsAction(store, planId, 'Semear anotações da planta de área');
+  if (plan.annotations === undefined) seedPlanAnnotationsAction(store, planId, 'eds_undo_seed_area_annotations');
   useUi.setState({ selection: [], hover: null });
 }
 
@@ -226,7 +227,7 @@ export function addMissingTagsAction(store: ProjectStore, planId: Id): number {
   if (!plan) return 0;
   const tags = missingTags(store.project, plan);
   if (tags.length === 0) return 0;
-  store.transaction('Etiquetar ambientes', () => {
+  store.transaction('eds_undo_tag_rooms', () => {
     for (const tag of tags) store.exec({ type: 'addRoomTag', planId, tag });
   });
   return tags.length;
@@ -238,7 +239,7 @@ export function recenterTagsAction(store: ProjectStore, planId: Id): number {
   if (!plan) return 0;
   const rooms = Object.values(store.project.elements).filter((e): e is Room => e.kind === 'room' && e.levelId === plan.levelId && e.labelPosition !== undefined);
   if (rooms.length === 0) return 0;
-  store.transaction('Recentralizar rótulos', () => {
+  store.transaction('eds_undo_recenter_tags', () => {
     for (const room of rooms) store.exec({ type: 'setRoomLabel', id: room.id, position: null, leader: 'auto' });
   });
   return rooms.length;
@@ -246,7 +247,7 @@ export function recenterTagsAction(store: ProjectStore, planId: Id): number {
 
 /** Move o rótulo de um ambiente; a posição vale na planta de piso, na de área e em qualquer outra vista. */
 export function moveRoomLabelAction(store: ProjectStore, roomId: Id, at: { x: number; y: number }): void {
-  store.exec({ type: 'setRoomLabel', id: roomId, position: at }, 'Mover rótulo');
+  store.exec({ type: 'setRoomLabel', id: roomId, position: at }, 'eds_undo_move_tag');
 }
 
 /** Compatibilidade: move pelo id da etiqueta (encontra o ambiente dela). */
@@ -267,7 +268,7 @@ export type AreaPlanGraphicsPatch = Partial<AreaPlan['graphics']>;
 export function setPlanGraphicsAction(store: ProjectStore, planId: Id, patch: AreaPlanGraphicsPatch): void {
   const plan = areaPlanOf(store.project, planId);
   if (!plan) return;
-  store.exec({ type: 'updateAreaPlan', id: planId, patch: { graphics: { ...plan.graphics, ...patch, tagDefault: { ...plan.graphics.tagDefault, ...(patch.tagDefault ?? {}) } } } }, 'Alterar planta de área');
+  store.exec({ type: 'updateAreaPlan', id: planId, patch: { graphics: { ...plan.graphics, ...patch, tagDefault: { ...plan.graphics.tagDefault, ...(patch.tagDefault ?? {}) } } } }, 'eds_undo_edit_area_plan');
 }
 
 /** Cria (ou atualiza) o esquema de cores e liga na planta, com legenda e quadro padrão. */
@@ -275,25 +276,26 @@ export function applyColorSchemeAction(store: ProjectStore, planId: Id, by: Colo
   const p = store.project;
   const plan = areaPlanOf(p, planId);
   if (!plan) return;
+  const lang = useI18n.getState().lang;
   const scheme: ColorScheme = {
     id: `cs_${planId}`,
-    name: by === 'category' ? 'Por categoria' : by === 'level' ? 'Por nível' : 'Por faixa de área',
+    name: t(lang, by === 'category' ? 'eds_def_scheme_by_category' : by === 'level' ? 'eds_def_scheme_by_level' : 'eds_def_scheme_by_area_range'),
     by,
     ...(by === 'areaRange'
       ? {
           ranges: [
-            { min: 0, max: 5, color: '#eef2f7', label: 'até 5 m²' },
-            { min: 5, max: 12, color: '#dbe7f3', label: '5 a 12 m²' },
-            { min: 12, max: 25, color: '#f6e3c8', label: '12 a 25 m²' },
-            { min: 25, max: 1e9, color: '#e2f0dc', label: 'acima de 25 m²' },
+            { min: 0, max: 5, color: '#eef2f7', label: t(lang, 'eds_def_range_upto_5') },
+            { min: 5, max: 12, color: '#dbe7f3', label: t(lang, 'eds_def_range_5_12') },
+            { min: 12, max: 25, color: '#f6e3c8', label: t(lang, 'eds_def_range_12_25') },
+            { min: 25, max: 1e9, color: '#e2f0dc', label: t(lang, 'eds_def_range_above_25') },
           ],
         }
       : {}),
   };
   const bbox = planBounds(p, plan.levelId);
-  const legend: AreaLegend = plan.legend ?? { at: { x: bbox.maxX + 1.5, y: bbox.maxY }, title: 'Legenda de áreas', groupBy: by === 'level' ? 'level' : 'category', showCount: true, showArea: true, showPercent: true };
-  const table: AreaTable = plan.table ?? { at: { x: bbox.maxX + 1.5, y: bbox.maxY - 8 }, title: 'Quadro de áreas', columns: ['number', 'name', 'area', 'percent'], groupBy: 'level', totals: 'both' };
-  store.transaction('Aplicar esquema de cores', () => {
+  const legend: AreaLegend = plan.legend ?? { at: { x: bbox.maxX + 1.5, y: bbox.maxY }, title: t(lang, 'eds_def_area_legend'), groupBy: by === 'level' ? 'level' : 'category', showCount: true, showArea: true, showPercent: true };
+  const table: AreaTable = plan.table ?? { at: { x: bbox.maxX + 1.5, y: bbox.maxY - 8 }, title: t(lang, 'eds_def_area_table'), columns: ['number', 'name', 'area', 'percent'], groupBy: 'level', totals: 'both' };
+  store.transaction('eds_undo_apply_scheme', () => {
     store.exec({ type: 'upsertColorScheme', scheme });
     store.exec({ type: 'updateAreaPlan', id: planId, patch: { schemeId: scheme.id, graphics: { ...plan.graphics, fill: 'scheme', outline: plan.graphics.outline === 'none' ? 'thin' : plan.graphics.outline }, legend, table } });
   });
@@ -303,7 +305,7 @@ export function applyColorSchemeAction(store: ProjectStore, planId: Id, by: Colo
 export function clearColorSchemeAction(store: ProjectStore, planId: Id): void {
   const plan = areaPlanOf(store.project, planId);
   if (!plan) return;
-  store.exec({ type: 'updateAreaPlan', id: planId, patch: { schemeId: undefined, graphics: { ...plan.graphics, fill: 'none' } } }, 'Retirar esquema de cores');
+  store.exec({ type: 'updateAreaPlan', id: planId, patch: { schemeId: undefined, graphics: { ...plan.graphics, fill: 'none' } } }, 'eds_undo_clear_scheme');
 }
 
 /** Caixa de todos os ambientes do nível (para colocar legenda e quadro ao lado). */

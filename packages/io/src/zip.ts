@@ -5,6 +5,7 @@
  * download só (o navegador não deixa escrever pasta). Um ZIP sem compressão é suficiente: os DXF são texto e o ganho de
  * deflate não paga o custo de manter a implementação. Arquivos acima de 4 GB ou 65.535 entradas não são suportados (ZIP64).
  */
+import { t, type Lang } from './i18n.ts';
 
 /** Um arquivo do ZIP: caminho com `/` (pastas inclusive) e conteúdo em texto (UTF-8) ou bytes. */
 export interface ZipFile {
@@ -66,8 +67,8 @@ function concat(parts: readonly Uint8Array[]): Uint8Array {
  * Monta um ZIP com os arquivos dados, na ordem recebida. `date` (opcional) fixa a data DOS para testes e para o pacote
  * sair determinístico. Nomes em UTF-8 (flag 11 do cabeçalho) e CRC-32 por arquivo.
  */
-export function createZip(files: readonly ZipFile[], date = new Date()): Uint8Array {
-  if (files.length > 0xffff) throw new Error('ZIP com entradas demais (máximo 65.535)');
+export function createZip(files: readonly ZipFile[], date = new Date(), lang: Lang = 'pt'): Uint8Array {
+  if (files.length > 0xffff) throw new Error(t(lang, 'io_err_zip_too_many'));
   const time = dosTime(date);
   const day = dosDate(date);
   const locals: Uint8Array[] = [];

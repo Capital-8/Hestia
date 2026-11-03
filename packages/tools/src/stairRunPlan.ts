@@ -14,6 +14,7 @@ import {
 } from '@hestia/engine';
 import { DEFAULT_STAIR_CALC_RULE, type Id, type StairGenerator, type StairType } from '@hestia/model';
 import type { StairPart } from './stairSketchState.ts';
+import { fmtNumLang, t as translate, type DictKey, type Lang } from './i18n.ts';
 
 /**
  * Formas da ferramenta Escada por cliques (decisão 0011 §5; caracol, decisão 0014 §1 item 12). Os valores de reta, L, U e
@@ -32,6 +33,20 @@ export const STAIR_RUN_SHAPE_LABEL: Record<StairRunShape, string> = {
   spiral: 'Caracol',
   free: 'Livre',
 };
+
+const SHAPE_LABEL_KEYS: Record<StairRunShape, DictKey> = {
+  straight: 'tl_stt_shape_straight',
+  lshape: 'tl_stt_shape_l',
+  ushape: 'tl_stt_shape_u',
+  winder: 'tl_stt_shape_winder',
+  spiral: 'tl_stt_shape_spiral',
+  free: 'tl_stt_shape_free',
+};
+
+/** Rótulo da forma no idioma pedido. */
+export function stairRunShapeLabel(shape: StairRunShape, lang: Lang = 'pt'): string {
+  return translate(lang, SHAPE_LABEL_KEYS[shape]);
+}
 /** Rótulo da escada livre (mantido para quem importava a constante antiga). */
 export const STAIR_RUN_SHAPE_FREE_LABEL = STAIR_RUN_SHAPE_LABEL.free;
 
@@ -92,10 +107,19 @@ export function fitRunToLength(
   minTread: number,
   length: number,
   rule: TreadRule = defaultTreadRule(minTread),
+  lang: Lang = 'pt',
 ): { risers: number; tread: number } | { error: string } {
   const N = Math.max(2, riserCountFor(H, maxRiser));
   const tread = Math.min(treadFor(H / N, rule), length / (N - 1));
-  if (tread < rule.minTread - 1e-9) return { error: `O comprimento (${(length * 100).toFixed(0)} cm) é curto para ${N} espelhos: o piso ficaria abaixo do mínimo (${(rule.minTread * 100).toFixed(0)} cm).` };
+  if (tread < rule.minTread - 1e-9) {
+    return {
+      error: translate(lang, 'tl_msg_stair_too_short', {
+        c: fmtNumLang(length * 100, 0, lang),
+        n: N,
+        m: fmtNumLang(rule.minTread * 100, 0, lang),
+      }),
+    };
+  }
   return { risers: N, tread };
 }
 
@@ -113,6 +137,8 @@ export interface StairRunPlanInput {
   /** Regra de cálculo do tipo; ausente = a padrão (Blondel 0,63 − 2h, piso máximo 0,32). */
   rule?: TreadRule;
   options: StairRunToolOptions;
+  /** Idioma das mensagens do plano (ausente = português). */
+  lang?: Lang;
 }
 
 /** Plano calculado: componentes em ordem (como croqui), nº de espelhos N, altura real h e piso. */
@@ -136,8 +162,11 @@ export interface StairRunPlan {
 }
 
 /** Aviso de uma reta cujo comprimento clicado passa do que a altura pede: a escada termina antes do clique. */
-function lengthNote(length: number, N: number, tread: number): string {
-  const m = (v: number): string => v.toFixed(2).replace('.', ',');
+function lengthNote(length: number, N: number, tread: number, lang: Lang = 'pt'): string {
+  const m = (v: number): string => fmtNumLang(v, 2, lang);
+  if (lang === 'en') {
+    return `(the height asks for ${N} risers: the stair ends at ${m((N - 1) * tread)} m, before the ${m(length)} m click).`;
+  }
   return `(a altura pede ${N} espelhos: a escada termina a ${m((N - 1) * tread)} m, antes do clique de ${m(length)} m).`;
 }
 
@@ -150,33 +179,34 @@ export type StairRunPlanResult = StairRunPlan | { error: string };
  */
 export function planStairRun(i: StairRunPlanInput): StairRunPlanResult {
   const { shape, width, turn } = i.options;
-  if (shape === 'spiral') return { error: 'O caracol é planejado por planSpiralRun (3 cliques).' };
-  if (shape === 'free') return { error: 'A escada livre é planejada por planStairRunFree.' };
+  const lang = i.lang ?? 'pt';
+  if (shape === 'spiral') return { error: translate(lang, 'tl_msg_plan_spiral_only') };
+  if (shape === 'free') return { error: translate(lang, 'tl_msg_plan_free_only') };
   const landingDepth = i.options.landingDepth ?? width;
-  if (!(width > 0)) return { error: 'A largura do lance deve ser positiva.' };
-  if (shape === 'lshape' && !(landingDepth >= width)) return { error: 'O patamar da escada em L deve ter profundidade ≥ largura do lance.' };
-  if (shape === 'ushape' && !(landingDepth > 0)) return { error: 'O patamar da escada em U deve ter profundidade positiva.' };
+  if (!(width > 0)) return { error: translate(lang, 'tl_msg_width_positive') };
+  if (shape === 'lshape' && !(landingDepth >= width)) return { error: translate(lang, 'tl_msg_landing_l_depth') };
+  if (shape === 'ushape' && !(landingDepth > 0)) return { error: translate(lang, 'tl_msg_landing_u_depth') };
   let N: number;
   try {
     N = riserCountFor(i.H, i.maxRiser);
   } catch (e) {
-    return { error: e instanceof RangeError ? e.message : 'Altura ou espelho máximo inválido.' };
+    return { error: e instanceof RangeError ? e.message : translate(lang, 'tl_msg_invalid_height_riser') };
   }
-  if (N < 2) return { error: 'A altura é menor que um espelho: nada a gerar.' };
-  if (N < MIN_RISERS[shape]) return { error: `Esta forma precisa de ao menos ${MIN_RISERS[shape]} espelhos; a altura dá ${N}.` };
+  if (N < 2) return { error: translate(lang, 'tl_msg_height_below_riser') };
+  if (N < MIN_RISERS[shape]) return { error: translate(lang, 'tl_msg_shape_min_risers', { n: MIN_RISERS[shape], m: N }) };
   const rule = i.rule ?? defaultTreadRule(i.minTread);
   // Reta com comprimento (2º clique): N vem só da altura; o comprimento limita o piso (a escada termina antes do clique).
   const byLength = shape === 'straight' && i.options.length !== undefined;
   let sizedTread: number | undefined;
   if (byLength) {
-    const sized = fitRunToLength(i.H, i.maxRiser, i.minTread, i.options.length!, rule);
+    const sized = fitRunToLength(i.H, i.maxRiser, i.minTread, i.options.length!, rule, i.lang);
     if ('error' in sized) return sized;
     N = sized.risers;
     sizedTread = sized.tread;
   }
   const riserHeight = i.H / N;
   const tread = sizedTread ?? treadFor(riserHeight, rule);
-  const note = byLength && i.options.length! > (N - 1) * tread + 0.005 ? lengthNote(i.options.length!, N, tread) : undefined;
+  const note = byLength && i.options.length! > (N - 1) * tread + 0.005 ? lengthNote(i.options.length!, N, tread, i.lang) : undefined;
   const base = { start: i.start, dir: i.dir, width, tread };
   let parts: StairPart[];
   try {
@@ -189,7 +219,7 @@ export function planStairRun(i: StairRunPlanInput): StairRunPlanResult {
       parts = fromSketches(cs, shape);
     }
   } catch (e) {
-    return { error: e instanceof RangeError ? e.message : 'Não foi possível gerar a escada.' };
+    return { error: e instanceof RangeError ? e.message : translate(lang, 'tl_msg_cannot_generate_stair') };
   }
   return { parts, risers: N, riserHeight, tread, note };
 }
@@ -244,7 +274,7 @@ function fromSketches(cs: StairComponentSketch[], generatedBy: StairGenerator): 
 function mergeWinder(cs: StairComponentSketch[], generatedBy: StairGenerator): StairPart[] {
   const runs = cs.flatMap((c): StairRunSketch[] => (c.kind === 'run' ? [c.run] : []));
   const [first, fan, last] = runs;
-  if (runs.length !== 3 || !first || !fan || !last) throw new RangeError('o winder deve gerar três lances');
+  if (runs.length !== 3 || !first || !fan || !last) throw new RangeError(translate('pt', 'tl_msg_winder_three'));
   const run: StairRunSketch & { generatedBy: StairGenerator } = {
     boundaryLeft: [...first.boundaryLeft, ...fan.boundaryLeft, ...last.boundaryLeft],
     boundaryRight: [...first.boundaryRight, ...fan.boundaryRight, ...last.boundaryRight],

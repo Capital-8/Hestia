@@ -26,6 +26,6 @@ export function responderAreaMerge(ok: boolean): void {
   const pedido = atual;
   if (!pedido) return;
   atual = null;
-  useUi.setState({ dialog: null, status: ok ? 'Áreas fundidas; ambientes menores excluídos. Ctrl+Z desfaz.' : 'Operação cancelada: nada foi alterado.' });
+  useUi.setState({ dialog: null, status: { key: ok ? 'edc_areas_merged' : 'edc_operation_cancelled' } });
   pedido.resolver(ok);
 }

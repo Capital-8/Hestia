@@ -1,5 +1,6 @@
 import { formatQuantity, isWall, unitsOf, wallBaseElevation, type Project, type ValidationIssue } from '@hestia/model';
 import { resolveAllFloors } from './floors.ts';
+import { t, type Lang } from './i18nMessages.ts';
 import { resolveAllRoofs } from './roofs.ts';
 import { roofAxisReport } from './roofWall.ts';
 import { resolveAllSlabs } from './slabs.ts';
@@ -16,7 +17,7 @@ const UNCOVERED_TOL = 1e-3;
  * do telhado num ponto do eixo coberto (atravessa o telhado). Parede curva entra pela face inferior amostrada ao longo do
  * arco (≤ 0,25 m); fica na altura normal, sem topo ajustado. O motor calcula; a interface junta.
  */
-export function roofWallIssues(p: Project): ValidationIssue[] {
+export function roofWallIssues(p: Project, lang: Lang = 'pt'): ValidationIssue[] {
   const roofs = resolveAllRoofs(p);
   const floors = resolveAllFloors(p);
   const slabs = resolveAllSlabs(p);
@@ -32,8 +33,8 @@ export function roofWallIssues(p: Project): ValidationIssue[] {
         severity: 'warning',
         code: 'wall-roof-uncovered',
         message: whole
-          ? `Parede "${e.id}" está anexada ao telhado, mas o eixo não está sob telhado nenhum; o topo fica na altura normal.`
-          : `Parede "${e.id}" está anexada ao telhado, mas ${formatQuantity(unitsOf(p), 'length', rep.uncovered)} do eixo estão fora dele; esse trecho fica na altura normal.`,
+          ? t(lang, 'egb_issue_wall_roof_none', { id: e.id })
+          : t(lang, 'egb_issue_wall_roof_partial', { id: e.id, length: formatQuantity(unitsOf(p), 'length', rep.uncovered) }),
         elementId: e.id,
       });
     } else if (rep.minBottom !== null) {
@@ -43,7 +44,7 @@ export function roofWallIssues(p: Project): ValidationIssue[] {
         out.push({
           severity: 'warning',
           code: 'wall-roof-pierce',
-          message: `Parede "${e.id}" passa ${formatQuantity(unitsOf(p), 'length', top - rep.minBottom)} da face inferior do telhado; ative o topo ajustado ao telhado ou baixe a parede.`,
+          message: t(lang, 'egb_issue_wall_roof_over', { id: e.id, length: formatQuantity(unitsOf(p), 'length', top - rep.minBottom) }),
           elementId: e.id,
         });
       }

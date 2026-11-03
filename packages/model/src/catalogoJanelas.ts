@@ -1,4 +1,5 @@
 import { ot } from './catalogoAberturasBase.ts';
+import { openingName, type Lang } from './i18n.ts';
 import type { OpeningLeaves, OpeningType, PlanSymbol } from './openingTypes.ts';
 
 /**
@@ -23,7 +24,7 @@ const janela = (
   extra: Extra = {},
 ): OpeningType => ot({ id, kind: 'window', name, code, width, height, sill, leaves, plan, ...extra }, 'mat_aluminio');
 
-export const CATALOGO_JANELAS_BR: OpeningType[] = [
+const CATALOGO_JANELAS_BR_PT: OpeningType[] = [
   // Correr: 2, 3 e 4 folhas (símbolo sliding).
   janela('ot_jc2_120x100', 'J-12', 'Janela de correr 2 folhas 120 x 100', 1.2, 1.0, 1.1, 2, 'sliding'),
   janela('ot_jc2_150x120', 'J-13', 'Janela de correr 2 folhas 150 x 120', 1.5, 1.2, 1.1, 2, 'sliding'),
@@ -74,3 +75,11 @@ export const CATALOGO_JANELAS_BR: OpeningType[] = [
   // Banheiro: maxim-ar com peitoril alto.
   janela('ot_jbanh_100x50', 'J-50', 'Janela de banheiro (peitoril alto) 100 x 50', 1.0, 0.5, 1.8, 1, 'casement'),
 ];
+
+/** Catálogo de janelas no idioma pedido (nomes são gerados na criação). */
+export function catalogoJanelas(lang: Lang = 'pt'): OpeningType[] {
+  return CATALOGO_JANELAS_BR_PT.map((x) => ({ ...x, name: openingName(x.name, lang) }));
+}
+
+/** Catálogo de janelas em PT (compatibilidade); use `catalogoJanelas(lang)` para o idioma ativo. */
+export const CATALOGO_JANELAS_BR: OpeningType[] = catalogoJanelas('pt');

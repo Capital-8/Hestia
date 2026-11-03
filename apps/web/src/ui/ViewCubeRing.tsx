@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
-import { ringGeometry, type CompassKey } from './viewcube-ring.ts';
+import { useT } from '../editor/i18n.ts';
+import { compassLetter, ringGeometry, type CompassKey } from './viewcube-ring.ts';
 
 interface ViewCubeRingProps {
   azimuth: number;
@@ -11,11 +12,12 @@ interface ViewCubeRingProps {
 }
 
 /**
- * Anel de bússola (N, L, S, O) deitado no chão, em volta do cubo. Duas camadas: a de trás, sob o cubo (sombra e faixa
- * inteira), e a da frente, sobre ele (parte da faixa do lado da câmera e todas as letras). Não recebe o ponteiro: o
- * palco resolve o clique pela geometria (`ringHit`).
+ * Anel de bússola (N, L, S, O em pt-BR; N, E, S, W em EN) deitado no chão, em volta do cubo. Duas camadas: a de trás,
+ * sob o cubo (sombra e faixa inteira), e a da frente, sobre ele (parte da faixa do lado da câmera e todas as letras).
+ * Não recebe o ponteiro: o palco resolve o clique pela geometria (`ringHit`).
  */
 export function ViewCubeRing({ azimuth, elevation, hover, layer }: ViewCubeRingProps): ReactElement {
+  const { lang } = useT();
   const g = ringGeometry(azimuth, elevation);
   if (layer === 'back') {
     return (
@@ -37,7 +39,7 @@ export function ViewCubeRing({ azimuth, elevation, hover, layer }: ViewCubeRingP
           x={0}
           y={0}
         >
-          {l.key}
+          {compassLetter(l.key, lang)}
         </text>
       ))}
     </svg>

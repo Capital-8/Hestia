@@ -29,7 +29,9 @@ export function nextSectionName(views: SectionView[]): string {
 export class SectionTool extends ToolBase {
   readonly id = 'section';
   readonly label = 'Corte';
-  readonly hint = 'Corte: clique no início da linha de corte. Esc cancela.';
+  override get hint(): string {
+    return this.t('tl_hint_section');
+  }
   private first: Vec2 | null = null;
 
   protected reset(): void {
@@ -86,6 +88,6 @@ export class SectionTool extends ToolBase {
     // Primeiro volta à seleção (que, na vista de corte, levaria à planta) e só então abre a vista criada.
     this.env.done();
     this.env.openView?.(view.id);
-    this.env.say(`${view.name} criado e aberto. Para voltar à planta, use a aba da planta.`);
+    this.env.say(this.t('tl_msg_section_created', { view: view.name }));
   }
 }

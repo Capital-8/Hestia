@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { editor } from './controller.ts';
+import { resolveText } from './i18n.ts';
 import { setPolarIncrement, useUi } from './state.ts';
 
 const tecla = (key: string): KeyboardEvent => ({ key, ctrlKey: false, metaKey: false, shiftKey: false, altKey: false } as KeyboardEvent);
@@ -9,7 +10,7 @@ describe('F8 — modo ortogonal global', () => {
     useUi.setState({ view: 'plan', planKind: 'floor', options: { ...useUi.getState().options, orthoLock: false, angleMode: { ortho: false, polar: false, polarIncrementDeg: 15 } } });
     expect(editor.key(tecla('F8'))).toBe(true);
     expect(useUi.getState().options.orthoLock).toBe(true);
-    expect(useUi.getState().status).toContain('F8');
+    expect(resolveText(useUi.getState().status, 'pt')).toContain('F8');
     expect(editor.key(tecla('F8'))).toBe(true);
     expect(useUi.getState().options.orthoLock).toBe(false);
   });
@@ -18,7 +19,7 @@ describe('F8 — modo ortogonal global', () => {
     useUi.setState({ view: 'plan', planKind: 'floor', options: { ...useUi.getState().options, orthoLock: false, angleMode: { ortho: false, polar: false, polarIncrementDeg: 30 } } });
     expect(editor.key(tecla('F10'))).toBe(true);
     expect(useUi.getState().options.angleMode?.polar).toBe(true);
-    expect(useUi.getState().status).toContain('F10');
+    expect(resolveText(useUi.getState().status, 'pt')).toContain('F10');
     expect(editor.key(tecla('F8'))).toBe(true);
     expect(useUi.getState().options.angleMode).toMatchObject({ ortho: true, polar: true, polarIncrementDeg: 30 });
   });
@@ -28,6 +29,6 @@ describe('F8 — modo ortogonal global', () => {
     expect(useUi.getState().options.angleMode?.polarIncrementDeg).toBe(22.2);
     setPolarIncrement(0);
     expect(useUi.getState().options.angleMode?.polarIncrementDeg).toBe(22.2);
-    expect(useUi.getState().status).toContain('incremento polar');
+    expect(resolveText(useUi.getState().status, 'pt')).toContain('incremento polar');
   });
 });

@@ -1,4 +1,5 @@
 import type { Project } from '@hestia/model';
+import type { Lang } from '../i18n.ts';
 import {
   enumOf,
   listOf,
@@ -84,8 +85,9 @@ export class IfcFile {
   constructor(
     readonly source: string,
     onParseProgress?: (done: number, total: number) => void,
+    lang: Lang = 'pt',
   ) {
-    this.step = parseStep(source, onParseProgress);
+    this.step = parseStep(source, onParseProgress, lang);
     this.units = readUnits(this);
   }
 

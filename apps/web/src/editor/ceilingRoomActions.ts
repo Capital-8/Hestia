@@ -1,5 +1,6 @@
 import { ceilingsForAllRooms } from '@hestia/tools';
 import { editor } from './controller.ts';
+import { t, useI18n } from './i18n.ts';
 import { useUi } from './state.ts';
 
 /**
@@ -8,16 +9,18 @@ import { useUi } from './state.ts';
  * (0 = nada a fazer) e a mensagem para a barra de status.
  */
 export function addCeilingsAllRooms(): { count: number; message: string } {
+  const lang = useI18n.getState().lang;
   const ui = useUi.getState();
   const cmd = ceilingsForAllRooms(editor.project, ui.levelId, ui.options.ceilingTypeId);
   if (!cmd) {
-    const message = 'Nenhum ambiente de circuito fechado sem forro neste nível (ou o projeto não tem tipo de forro).';
-    useUi.setState({ status: message });
+    const message = t(lang, 'edc_no_room_needs_ceiling');
+    useUi.setState({ status: { key: 'edc_no_room_needs_ceiling' } });
     return { count: 0, message };
   }
   editor.store.exec(cmd);
   const count = cmd.ceilings.length;
-  const message = `${count} ${count === 1 ? 'forro criado' : 'forros criados'} nos ambientes. Ctrl+Z desfaz.`;
-  useUi.setState({ selection: cmd.ceilings.map((c) => c.id), status: message });
+  const key = count === 1 ? 'edc_ceilings_created_one' : 'edc_ceilings_created_many';
+  const message = t(lang, key, { n: count });
+  useUi.setState({ selection: cmd.ceilings.map((c) => c.id), status: { key, args: { n: count } } });
   return { count, message };
 }

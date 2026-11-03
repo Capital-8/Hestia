@@ -1,4 +1,5 @@
 import type { Vec2 } from '@hestia/geom';
+import { t, type Lang } from './i18n.ts';
 import type { Id } from './types.ts';
 
 /** Segmento do croqui: reta (sag = 0) ou arco por flecha, mesma convenção das paredes (arcFromSagitta). */
@@ -147,23 +148,28 @@ export interface StairCalcPreset {
  * Predefinições de norma: NBR 9050 (2R + T entre 0,63 e 0,65 m), NBR 9077 (entre 0,63 e 0,64 m) e IBC.
  * O IBC é uma aproximação do "Stair Calculator" do Revit: 2R + T entre 0,60 e 0,65 m, alvo 0,63 m.
  */
-export const STAIR_CALC_PRESETS: readonly StairCalcPreset[] = [
-  {
-    id: 'nbr9050',
-    label: 'NBR 9050 (2R + T de 63 a 65 cm)',
-    rule: { ...DEFAULT_STAIR_CALC_RULE },
-  },
-  {
-    id: 'nbr9077',
-    label: 'NBR 9077 (2R + T de 63 a 64 cm)',
-    rule: { ...DEFAULT_STAIR_CALC_RULE, calcMax: 0.64 },
-  },
-  {
-    id: 'ibc',
-    label: 'IBC (2R + T de 60 a 65 cm, aproximação do Revit)',
-    rule: { ...DEFAULT_STAIR_CALC_RULE, calcMin: 0.6 },
-  },
-];
+export function stairCalcPresets(lang: Lang = 'pt'): readonly StairCalcPreset[] {
+  return [
+    {
+      id: 'nbr9050',
+      label: t(lang, 'md_stt_preset_nbr9050'),
+      rule: { ...DEFAULT_STAIR_CALC_RULE },
+    },
+    {
+      id: 'nbr9077',
+      label: t(lang, 'md_stt_preset_nbr9077'),
+      rule: { ...DEFAULT_STAIR_CALC_RULE, calcMax: 0.64 },
+    },
+    {
+      id: 'ibc',
+      label: t(lang, 'md_stt_preset_ibc'),
+      rule: { ...DEFAULT_STAIR_CALC_RULE, calcMin: 0.6 },
+    },
+  ];
+}
+
+/** Predefinições em PT (compatibilidade); use `stairCalcPresets(lang)` para o idioma ativo. */
+export const STAIR_CALC_PRESETS: readonly StairCalcPreset[] = stairCalcPresets('pt');
 
 /** Regra de cálculo do tipo de escada (com os seis campos já preenchidos). */
 export function stairCalcRuleOf(t: Pick<StairType, keyof StairCalcRule>): StairCalcRule {

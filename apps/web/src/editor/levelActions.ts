@@ -9,6 +9,7 @@ import {
   type LevelMoveDecision,
   type LevelMovePlan,
 } from './levelMovePlan.ts';
+import { t, useI18n } from './i18n.ts';
 
 // Tipos e funções do plano/resumo movidos para levelMovePlan.ts; reexportados aqui para os chamadores atuais.
 export {
@@ -25,7 +26,10 @@ export {
 /** Preferência da tela (não do projeto): como manter a cota ao trocar de nível. Padrão: manter a cota. */
 export const LEVEL_KEEP_KEY = 'hestia.levelKeep';
 
-export const LEVEL_KEEP_LABEL: Record<LevelKeep, string> = { elevation: 'Manter a cota', offset: 'Levar o deslocamento' };
+export const LEVEL_KEEP_LABEL: Record<LevelKeep, string> = {
+  get elevation() { return t(useI18n.getState().lang, 'eds_level_keep_elevation'); },
+  get offset() { return t(useI18n.getState().lang, 'eds_level_keep_offset'); },
+};
 
 export function readLevelKeep(): LevelKeep {
   try {
@@ -64,22 +68,29 @@ export function levelBearingIds(p: Project, ids: Id[]): Id[] {
  */
 export function moveToLevel(store: ProjectStore, ids: Id[], levelId: Id, keep: LevelKeep, activeLevelId: Id): LevelMove {
   const p = store.project;
+  const lang = useI18n.getState().lang;
   const target = p.levels.find((l) => l.id === levelId);
-  if (!target) return { ok: false, moved: 0, message: 'Nível inexistente.' };
+  if (!target) return { ok: false, moved: 0, message: t(lang, 'eds_msg_level_missing') };
   const unique = [...new Set(ids)];
   const targets = levelBearingIds(p, unique);
   const skippedOpenings = unique.length > targets.length;
-  if (targets.length === 0) return { ok: false, moved: 0, message: 'Nada a mover: selecione paredes, pisos, lajes ou telhados.' };
+  if (targets.length === 0) return { ok: false, moved: 0, message: t(lang, 'eds_msg_nothing_to_move') };
   const moved = targets.filter((id) => elementLevelId(p.elements[id]) !== levelId).length;
-  if (moved === 0) return { ok: true, moved: 0, message: `Já ${targets.length === 1 ? 'está' : 'estão'} em ${target.name}.` };
+  if (moved === 0) {
+    return {
+      ok: true,
+      moved: 0,
+      message: t(lang, targets.length === 1 ? 'eds_msg_already_on_level_one' : 'eds_msg_already_on_level_many', { level: target.name }),
+    };
+  }
   try {
-    store.transaction('Mudar de nível', () => {
+    store.transaction('eds_undo_change_level', () => {
       store.exec({ type: 'setElementLevel', ids: targets, levelId, keep });
       // A troca de nível muda a altura entre níveis: recalcula os degraus das escadas afetadas (decisão 0041).
       for (const id of targets) {
         const e = store.project.elements[id];
         if (!isStair(e)) continue;
-        const fit = refitStairToHeight(store.project, e);
+        const fit = refitStairToHeight(store.project, e, lang);
         if (fit.components) {
           store.exec({
             type: 'updateElements',
@@ -94,12 +105,12 @@ export function moveToLevel(store: ProjectStore, ids: Id[], levelId: Id, keep: L
       }
     });
   } catch (e) {
-    return { ok: false, moved: 0, message: e instanceof Error ? e.message : 'Falha ao mudar de nível.' };
+    return { ok: false, moved: 0, message: e instanceof Error ? e.message : t(lang, 'eds_msg_move_failed') };
   }
-  const noun = moved === 1 ? 'elemento movido' : 'elementos movidos';
-  const off = levelId !== activeLevelId ? ', fora do nível da vista' : '';
-  const openings = skippedOpenings ? ' Aberturas acompanham a parede.' : '';
-  return { ok: true, moved, message: `${moved} ${noun} para ${target.name}${off}.${openings} Ctrl+Z desfaz.` };
+  const key = moved === 1
+    ? (skippedOpenings ? (levelId !== activeLevelId ? 'eds_msg_moved_out_open_one' : 'eds_msg_moved_open_one') : (levelId !== activeLevelId ? 'eds_msg_moved_out_one' : 'eds_msg_moved_one'))
+    : (skippedOpenings ? (levelId !== activeLevelId ? 'eds_msg_moved_out_open_many' : 'eds_msg_moved_open_many') : (levelId !== activeLevelId ? 'eds_msg_moved_out_many' : 'eds_msg_moved_many'));
+  return { ok: true, moved, message: t(lang, key, { n: moved, level: target.name }) };
 }
 
 export interface MoveLevelResult {
@@ -127,17 +138,18 @@ export interface MoveLevelResult {
  * que colidem, que continuam com o aviso de invasão.
  */
 export function applyLevelMove(store: ProjectStore, plan: LevelMovePlan, decision: LevelMoveDecision): MoveLevelResult {
+  const lang = useI18n.getState().lang;
   if (decision === 'cancel') {
-    return { ok: true, adjusted: 0, invalid: plan.invalid, added: 0, deleted: 0, cancelled: true, message: 'Mudança cancelada. Nada foi alterado.' };
+    return { ok: true, adjusted: 0, invalid: plan.invalid, added: 0, deleted: 0, cancelled: true, message: t(lang, 'eds_msg_level_move_cancelled') };
   }
   const p0 = store.project;
   const level = p0.levels.find((l) => l.id === plan.levelId);
-  if (!level) return { ok: false, adjusted: 0, invalid: 0, added: 0, deleted: 0, message: 'Nível inexistente.' };
+  if (!level) return { ok: false, adjusted: 0, invalid: 0, added: 0, deleted: 0, message: t(lang, 'eds_msg_level_missing') };
   let adjusted = 0;
   let deleted = 0;
   let added = 0;
   let removed = 0;
-  store.transaction(decision === 'delete' ? 'Mover nível e excluir' : 'Mover nível', () => {
+  store.transaction(decision === 'delete' ? 'eds_undo_move_level_delete' : 'eds_undo_move_level', () => {
     pinAutoTops(store);
     store.exec({ type: 'upsertLevel', level: { ...level, elevation: plan.elevation } });
     for (const s of plan.stairs) {
@@ -188,11 +200,11 @@ export function applyLevelMove(store: ProjectStore, plan: LevelMovePlan, decisio
     return isStair(e) ? invalidStair(p1, e) : isRamp(e) ? invalidRamp(p1, e) : false;
   }).length;
   const parts: string[] = [];
-  if (removed > 0) parts.push(`${removed} ${removed === 1 ? 'degrau removido' : 'degraus removidos'} do fim`);
-  if (added > 0) parts.push(`${added} ${added === 1 ? 'degrau acrescentado' : 'degraus acrescentados'} no último lance`);
-  if (adjusted > 0) parts.push(`${adjusted} ${adjusted === 1 ? 'escada/rampa reajustada' : 'escadas/rampas reajustadas'}`);
-  if (deleted > 0) parts.push(`${deleted} ${deleted === 1 ? 'excluída' : 'excluídas'}`);
-  if (invalid > 0) parts.push(`${invalid} ${invalid === 1 ? 'ficou' : 'ficaram'} sem altura válida (veja os avisos)`);
+  if (removed > 0) parts.push(t(lang, removed === 1 ? 'eds_msg_parts_removed_one' : 'eds_msg_parts_removed_many', { n: removed }));
+  if (added > 0) parts.push(t(lang, added === 1 ? 'eds_msg_parts_added_one' : 'eds_msg_parts_added_many', { n: added }));
+  if (adjusted > 0) parts.push(t(lang, adjusted === 1 ? 'eds_msg_parts_adjusted_one' : 'eds_msg_parts_adjusted_many', { n: adjusted }));
+  if (deleted > 0) parts.push(t(lang, deleted === 1 ? 'eds_msg_parts_deleted_one' : 'eds_msg_parts_deleted_many', { n: deleted }));
+  if (invalid > 0) parts.push(t(lang, invalid === 1 ? 'eds_msg_parts_invalid_one' : 'eds_msg_parts_invalid_many', { n: invalid }));
   // Escadas em que N não mudou (ou de espelho fixo): explica o porquê, com o espelho e a faixa do tipo.
   const notes = plan.stairs
     .filter((s) => !(s.status === 'conflict' && decision === 'delete') && (s.fixed || s.to === s.from))
@@ -205,7 +217,9 @@ export function applyLevelMove(store: ProjectStore, plan: LevelMovePlan, decisio
     added,
     removed,
     deleted,
-    message: parts.length > 0 ? `${plan.levelName}: ${parts.join('; ')}.${tail} Ctrl+Z desfaz.` : `${plan.levelName} movido.${tail} Ctrl+Z desfaz.`,
+    message: parts.length > 0
+      ? t(lang, 'eds_msg_level_moved_parts', { level: plan.levelName, parts: parts.join('; '), tail })
+      : t(lang, 'eds_msg_level_moved', { level: plan.levelName, tail }),
   };
 }
 
@@ -225,15 +239,18 @@ export interface MoveLevelOptions {
 export function moveLevel(store: ProjectStore, levelId: Id, elevation: number, keepOrOptions: boolean | MoveLevelOptions = false): MoveLevelResult {
   const options: MoveLevelOptions = typeof keepOrOptions === 'boolean' ? { keepHeights: keepOrOptions } : keepOrOptions;
   const p0 = store.project;
+  const lang = useI18n.getState().lang;
   const level = p0.levels.find((l) => l.id === levelId);
-  if (!level) return { ok: false, adjusted: 0, invalid: 0, added: 0, deleted: 0, message: 'Nível inexistente.' };
-  if (!Number.isFinite(elevation)) return { ok: false, adjusted: 0, invalid: 0, added: 0, deleted: 0, message: 'Elevação inválida.' };
-  if (elevation === level.elevation) return { ok: true, adjusted: 0, invalid: 0, added: 0, deleted: 0, message: `Nada a mover: ${level.name} já está nesta cota.` };
+  if (!level) return { ok: false, adjusted: 0, invalid: 0, added: 0, deleted: 0, message: t(lang, 'eds_msg_level_missing') };
+  if (!Number.isFinite(elevation)) return { ok: false, adjusted: 0, invalid: 0, added: 0, deleted: 0, message: t(lang, 'eds_msg_invalid_elevation') };
+  if (elevation === level.elevation) {
+    return { ok: true, adjusted: 0, invalid: 0, added: 0, deleted: 0, message: t(lang, 'eds_msg_level_already_at_elevation', { level: level.name }) };
+  }
 
   if (options.keepHeights) {
     const delta = elevation - level.elevation;
     const affected = affectedByLevel(p0, levelId);
-    store.transaction('Mover nível', () => {
+    store.transaction('eds_undo_move_level', () => {
       pinAutoTops(store);
       for (const e of affected) {
         const cur = store.project.elements[e.id];
@@ -245,7 +262,7 @@ export function moveLevel(store: ProjectStore, levelId: Id, elevation: number, k
       }
       store.exec({ type: 'upsertLevel', level: { ...level, elevation } });
     });
-    return { ok: true, adjusted: 0, invalid: 0, added: 0, deleted: 0, message: `${level.name} movido; cotas de base/topo preservadas. Ctrl+Z desfaz.` };
+    return { ok: true, adjusted: 0, invalid: 0, added: 0, deleted: 0, message: t(lang, 'eds_msg_level_moved_keep_heights', { level: level.name }) };
   }
 
   const plan = planLevelMove(store, levelId, elevation);
@@ -253,8 +270,8 @@ export function moveLevel(store: ProjectStore, levelId: Id, elevation: number, k
   if (options.decision === 'cancel') return applyLevelMove(store, plan, 'cancel');
   // Conflito (parede, forma, sem altura) OU reajuste que muda N, insere patamar ou deixa patamar faltando: resumo + confirmação.
   if ((plan.conflicts > 0 || plan.confirmations > 0) && !options.decision) {
-    const quais = plan.conflicts === 1 ? '1 escada/rampa não cabe' : `${plan.conflicts} escadas/rampas não cabem`;
-    const mudam = plan.confirmations === 1 ? '1 escada muda o nº de degraus ou o patamar' : `${plan.confirmations} escadas mudam o nº de degraus ou o patamar`;
+    const quais = plan.conflicts === 1 ? t(lang, 'eds_msg_conflict_fit_one') : t(lang, 'eds_msg_conflict_fit_many', { n: plan.conflicts });
+    const mudam = plan.confirmations === 1 ? t(lang, 'eds_msg_conflict_change_one') : t(lang, 'eds_msg_conflict_change_many', { n: plan.confirmations });
     return {
       ok: true,
       adjusted: 0,
@@ -265,8 +282,8 @@ export function moveLevel(store: ProjectStore, levelId: Id, elevation: number, k
       plan,
       message:
         plan.conflicts > 0
-          ? `${plan.levelName}: ${quais} no nível novo. Escolha aplicar, cancelar ou excluir.`
-          : `${plan.levelName}: ${mudam}. Confira o resumo e escolha aplicar ou cancelar.`,
+          ? t(lang, 'eds_msg_level_move_decision', { level: plan.levelName, conflict: quais })
+          : t(lang, 'eds_msg_level_move_confirm', { level: plan.levelName, conflict: mudam }),
     };
   }
   return applyLevelMove(store, plan, options.decision ?? 'add');
@@ -289,8 +306,9 @@ export function applyLevelElevation(store: ProjectStore, levelId: Id, elevation:
   try {
     const r = moveLevel(store, levelId, elevation);
     if (r.needsDecision) return { ok: true, message: r.message, conflictArg: JSON.stringify({ levelId, elevation }) };
-    return { ok: r.ok, message: r.ok ? r.message : `Não foi possível mover o nível: ${r.message}` };
+    return { ok: r.ok, message: r.ok ? r.message : t(useI18n.getState().lang, 'eds_msg_level_move_failed', { error: r.message }) };
   } catch (err) {
-    return { ok: false, message: `Não foi possível mover o nível: ${err instanceof Error ? err.message : 'erro inesperado'}.` };
+    const lang = useI18n.getState().lang;
+    return { ok: false, message: `${t(lang, 'eds_msg_level_move_failed', { error: err instanceof Error ? err.message : t(lang, 'eds_msg_unexpected_error') })}.` };
   }
 }

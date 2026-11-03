@@ -84,6 +84,11 @@ function* percorrer(dir) {
 }
 
 function coletarStrings(expr, fonte, saida) {
+  // Não coleta o argumento de chamadas de tradução: `t('chave')` não é texto visível.
+  if (ts.isCallExpression(expr)) {
+    const calado = expr.expression.getText(fonte);
+    if (/(?:^|\.)(?:t|translate|toolLabel|nomeComandoLang)$/.test(calado)) return;
+  }
   if (ts.isStringLiteral(expr) || ts.isNoSubstitutionTemplateLiteral(expr)) {
     saida.push({ texto: expr.text, pos: expr.getStart(fonte) });
     return;

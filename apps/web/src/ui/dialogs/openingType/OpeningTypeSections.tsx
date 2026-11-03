@@ -1,6 +1,6 @@
 import { useState, type ReactElement } from 'react';
 import { openingOptionSupport, type Material, type OpeningFamily, type OpeningType } from '@hestia/model';
-import { I18N, useI18n } from '../../../editor/i18n.ts';
+import { useT } from '../../../editor/i18n.ts';
 import { OPENING_COMPONENTS, componentToShow, rememberComponent, visibleComponents, type OpeningComponentId } from './components.ts';
 
 interface OpeningTypeSectionsProps {
@@ -19,7 +19,7 @@ interface OpeningTypeSectionsProps {
  * à direita, o painel do componente escolhido. O que cada painel mostra vem de `openingOptionSupport(família)`.
  */
 export function OpeningTypeSections({ d, onChange, family, leaves, materials, active, onActive }: OpeningTypeSectionsProps): ReactElement {
-  const t = I18N[useI18n((s) => s.lang)];
+  const { t } = useT();
   const [interno, setInterno] = useState<OpeningComponentId | undefined>(undefined);
   const visiveis = visibleComponents(d.kind, family?.id ?? null);
   const atual = componentToShow(d.kind, family?.id ?? null, active ?? interno);
@@ -34,13 +34,13 @@ export function OpeningTypeSections({ d, onChange, family, leaves, materials, ac
     <div className="op-comps">
       <select
         className="select op-nav-select"
-        aria-label={t.oc_list}
+        aria-label={t('oc_list')}
         value={atual}
         onChange={(e) => pick(e.target.value as OpeningComponentId)}
       >
-        {visiveis.map((c) => <option key={c.id} value={c.id}>{t[c.labelKey]}</option>)}
+        {visiveis.map((c) => <option key={c.id} value={c.id}>{t(c.labelKey)}</option>)}
       </select>
-      <nav className="op-nav" aria-label={t.oc_list}>
+      <nav className="op-nav" aria-label={t('oc_list')}>
         {visiveis.map((c) => (
           <button
             key={c.id}
@@ -51,12 +51,12 @@ export function OpeningTypeSections({ d, onChange, family, leaves, materials, ac
             onClick={() => pick(c.id)}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={c.icon} /></svg>
-            <span className="op-nav-name">{t[c.labelKey]}</span>
+            <span className="op-nav-name">{t(c.labelKey)}</span>
           </button>
         ))}
       </nav>
-      <section className="op-panel" aria-label={t[comp.labelKey]}>
-        <h3 className="op-panel-title">{t[comp.labelKey]}</h3>
+      <section className="op-panel" aria-label={t(comp.labelKey)}>
+        <h3 className="op-panel-title">{t(comp.labelKey)}</h3>
         <Panel d={d} onChange={onChange} family={family} support={openingOptionSupport(family?.id)} leaves={leaves} materials={materials} />
       </section>
     </div>

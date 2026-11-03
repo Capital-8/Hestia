@@ -20,7 +20,9 @@ const fmtM = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length'
 export class ParallelTool extends ToolBase {
   readonly id = 'parallel';
   readonly label = 'Parede paralela';
-  readonly hint = 'Parede paralela: clique na parede de base e depois do lado desejado, ou digite a distância e Enter. Tab inverte o lado. A distância é medida face a face (padrão) ou entre eixos, conforme a barra de opções. Escada/rampa: use Editar croqui.';
+  override get hint(): string {
+    return this.t('tl_hint_parallel');
+  }
   private base: Id | null = null;
   private frame: WallFrame | null = null;
   private side: 1 | -1 = 1;
@@ -42,7 +44,7 @@ export class ParallelTool extends ToolBase {
   }
 
   override inputPrompt(): string | null {
-    return this.base ? 'Distância' : null;
+    return this.base ? this.t('tl_inp_distance') : null;
   }
 
   private byFace(): boolean {
@@ -51,13 +53,13 @@ export class ParallelTool extends ToolBase {
 
   /** Nome do modo de medida mostrado nas mensagens: o usuário vê antes do clique qual convenção vale. */
   private modo(): string {
-    return this.byFace() ? 'face a face' : 'entre eixos';
+    return this.t(this.byFace() ? 'tl_measure_face' : 'tl_measure_axis');
   }
 
   /** Ao ativar a ferramenta, a barra de status já diz o modo (padrão: face a face). */
   override start(): void {
     this.reset();
-    this.env.say(`Parede paralela (${this.modo()}): clique na parede de base e depois do lado desejado, ou digite a distância e Enter. Tab inverte o lado.`);
+    this.env.say(this.t('tl_msg_parallel_start', { mode: this.modo() }));
   }
 
   /** Parede sob o cursor (dentro da faixa da parede, ou a até um pixel da faixa). Mais próxima do eixo vence. */
@@ -141,7 +143,7 @@ export class ParallelTool extends ToolBase {
     const pr = this.env.project();
     this.items.push({ kind: 'highlight', ids: [this.base!] });
     if (d <= 1e-6) {
-      this.env.say('Afaste o cursor para o lado desejado da parede.');
+      this.env.say(this.t('tl_msg_move_cursor_side'));
       return;
     }
     const plan = this.plan(this.shiftOf(d));
@@ -152,7 +154,7 @@ export class ParallelTool extends ToolBase {
       this.items.push(...ghostBands(pr, [this.base!], { kind: 'translate', d: plan.d }));
     }
     this.items.push({ kind: 'label', at, text: fmtM(unitsOf(this.env.project()), d) });
-    this.env.say(`Clique para criar a parede paralela a ${fmtM(unitsOf(this.env.project()), d)} (${this.modo()}${this.flip ? ', do lado oposto ao cursor' : ''}), ou digite a distância e Enter.`);
+    this.env.say(this.t('tl_msg_parallel_preview', { d: fmtM(unitsOf(this.env.project()), d), mode: this.modo(), flip: this.flip ? this.t('tl_msg_opposite_side') : '' }));
   }
 
   override click(p: PointerInfo): void {
@@ -166,7 +168,7 @@ export class ParallelTool extends ToolBase {
       this.base = hit.id;
       this.frame = hit.f;
       this.side = this.sideAt(toLocal(hit.f, p.raw).s);
-      this.env.say(`Base escolhida. Medida ${this.modo()}: clique a distância desejada, ou digite-a e Enter.`);
+      this.env.say(this.t('tl_msg_base_chosen', { mode: this.modo() }));
       this.move(p);
       return;
     }
@@ -174,7 +176,7 @@ export class ParallelTool extends ToolBase {
     this.side = this.sideAt(toLocal(this.frame!, inf.point).s);
     const d = this.measure(inf.point);
     if (d <= 1e-6) {
-      this.env.say('O ponto precisa ficar do lado de fora da parede de base.');
+      this.env.say(this.t('tl_msg_outside_base'));
       return;
     }
     this.create(d);
@@ -184,11 +186,11 @@ export class ParallelTool extends ToolBase {
     if (!this.base) return false;
     const v = parseQuantityText(text, unitsOf(this.env.project()), 'length');
     if (v === null) {
-      this.env.say(`Valor inválido. Digite um número em ${lengthUnitName(unitsOf(this.env.project()))}.`);
+      this.env.say(this.t('tl_msg_invalid_number', { unit: lengthUnitName(unitsOf(this.env.project()), this.uiLang()) }));
       return false;
     }
     if (v <= 0) {
-      this.env.say(`Valor inválido. Digite a distância em ${lengthUnitName(unitsOf(this.env.project()))}.`);
+      this.env.say(this.t('tl_msg_type_distance_unit', { unit: lengthUnitName(unitsOf(this.env.project()), this.uiLang()) }));
       return false;
     }
     this.create(v);
@@ -199,7 +201,7 @@ export class ParallelTool extends ToolBase {
   override tab(): void {
     if (!this.base) return;
     this.flip = !this.flip;
-    this.env.say('Lado invertido: a nova parede fica do outro lado.');
+    this.env.say(this.t('tl_msg_side_flipped'));
     if (this.last) this.move(this.last);
   }
 
@@ -208,13 +210,13 @@ export class ParallelTool extends ToolBase {
     const id = this.base!;
     const plan = this.plan(this.shiftOf(d));
     let criada = false;
-    this.env.transaction('Parede paralela', () => {
+    this.env.transaction(this.t('tl_undo_parallel_wall'), () => {
       const [nid] = copyWalls(this.env, [id], { kind: 'translate', d: plan.arc ? v2(0, 0) : plan.d });
       if (nid) criada = true;
       if (plan.arc && nid) this.env.exec({ type: 'updateElements', ids: [nid], patch: { a: plan.arc.a, b: plan.arc.b, sag: plan.arc.sag } });
     });
     this.reset();
     // Bloqueio da decisão 0044: a mensagem já foi dita; não anuncia uma parede que não nasceu.
-    if (criada) this.env.say(`Parede paralela criada a ${fmtM(unitsOf(this.env.project()), d)} (${this.byFace() ? 'face a face' : 'entre eixos'}). Ctrl+Z desfaz.`);
+    if (criada) this.env.say(this.t('tl_msg_parallel_created', { d: fmtM(unitsOf(this.env.project()), d), mode: this.modo() }));
   }
 }

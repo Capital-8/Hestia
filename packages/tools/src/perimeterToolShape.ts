@@ -14,9 +14,12 @@ import {
   rotatedRectangleShape,
   type ShapeKind,
   type ShapeKindId,
+  shapeInputLabel,
+  shapeLabel,
 } from './sketchShapes.ts';
 import { segLines } from './perimeterToolPick.ts';
 import type { PreviewItem } from './types.ts';
+import { t as translate, type Lang } from './i18n.ts';
 
 /** Forma em andamento: a forma, o índice da próxima entrada que pede valor e os valores dados até agora. */
 export interface ShapeStep {
@@ -44,11 +47,17 @@ export function anchorOf(step: ShapeStep | null): Vec2 | null {
 }
 
 /** Texto da barra para o passo: o que a ferramenta espera agora. */
-export function promptOf(step: ShapeStep): string {
+export function promptOf(step: ShapeStep, lang: Lang = 'pt'): string {
   const input = stepsOf(step.shape)[step.idx];
   if (!input) return '';
-  const low = input.label.toLowerCase();
-  return input.kind === 'point' || input.kind === 'segment' ? `clique em ${low}` : `digite ${low}`;
+  const label = shapeInputLabel(input.label, lang);
+  const low = label.toLowerCase();
+  return translate(lang, input.kind === 'point' || input.kind === 'segment' ? 'tl_prompt_click' : 'tl_prompt_type', { label: low });
+}
+
+/** Rótulo da forma no idioma pedido. */
+export function shapeName(shape: ShapeKind, lang: Lang = 'pt'): string {
+  return shapeLabel(shape, lang);
 }
 
 /**

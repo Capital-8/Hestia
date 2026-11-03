@@ -1,7 +1,8 @@
 import { isCeiling, isFloor, isRamp, isRoof, isSlab, isStair, type Id, type Layer, type Roof, type StairType } from '@hestia/model';
-import { gid, materialOf, storeyOf, type IfcCtx, type IfcStorey } from './ifcCtx.ts';
+import { gid, langOf, materialOf, storeyOf, type IfcCtx, type IfcStorey } from './ifcCtx.ts';
 import { localPlacement, normalizePolygon, prismsShape, ringArea, ringChainDirection, ringChainStep } from './ifcSolids.ts';
 import { en, int, list, num, OMIT, ref, stepString } from './ifcStep.ts';
+import { t } from '../i18n.ts';
 import type { IfcFlightGeo, IfcGeometry, IfcPoint, IfcPrism, IfcRampGeo, IfcRing } from './ifcTypes.ts';
 
 /**
@@ -53,7 +54,7 @@ interface PlateSpec {
 }
 
 /** Nome do material do projeto (mesmo rótulo de `materialOf`). */
-const materialName = (c: IfcCtx, materialId: Id): string => c.p.materials[materialId]?.name ?? 'Material não definido';
+const materialName = (c: IfcCtx, materialId: Id): string => c.p.materials[materialId]?.name ?? t(langOf(c), 'io_ifc_material_undefined');
 
 /** Espessura vertical do prisma (m), usada quando o tipo não informa camadas. */
 const prismThickness = (pr: IfcPrism): number => Math.abs(pr.top.c - pr.bottom.c);
@@ -87,12 +88,12 @@ function addVoids(c: IfcCtx, st: IfcStorey, host: number, spec: PlateSpec): void
     const holes = normalizePolygon(pr.polygon).slice(1);
     holes.forEach((hole, holeIndex) => {
       const n = `${prismIndex + 1}.${holeIndex + 1}`;
-      const shape = prismsShape(c.w, c.ctx, [{ polygon: [hole], top: pr.top, bottom: pr.bottom }], st.elev);
+      const shape = prismsShape(c.w, c.ctx, [{ polygon: [hole], top: pr.top, bottom: pr.bottom }], st.elev, langOf(c));
       const place = localPlacement(c.w, st.place, [0, 0, 0]);
       const voidId = c.w.add('IFCOPENINGELEMENT', [
         gid(`void:${spec.key}:${n}`),
         OMIT,
-        stepString(`${spec.name} - furo ${holeIndex + 1}`),
+        stepString(t(langOf(c), 'io_ifc_name_hole', { name: spec.name, n: holeIndex + 1 })),
         OMIT,
         OMIT,
         ref(place),
@@ -111,7 +112,7 @@ function addVoids(c: IfcCtx, st: IfcStorey, host: number, spec: PlateSpec): void
  */
 function plateEntity(c: IfcCtx, st: IfcStorey, spec: PlateSpec): number | null {
   if (spec.prisms.length === 0) return null;
-  const shape = prismsShape(c.w, c.ctx, spec.prisms, st.elev);
+  const shape = prismsShape(c.w, c.ctx, spec.prisms, st.elev, langOf(c));
   const place = localPlacement(c.w, st.place, [0, 0, 0]);
   const id = c.w.add(spec.entity, [gid(spec.key), OMIT, stepString(spec.name), OMIT, OMIT, ref(place), ref(shape), OMIT, en(spec.kind)]);
   if (spec.elementId) c.products?.set(spec.elementId, id);
@@ -128,14 +129,14 @@ export function addPlates(c: IfcCtx, geo: IfcGeometry): void {
     const st = isFloor(el) ? storeyOf(c, el.levelId) : undefined;
     if (!isFloor(el) || !st) continue;
     const type = c.p.floorTypes[el.typeId];
-    plateEntity(c, st, { key: `floor:${f.floorId}`, elementId: f.floorId, name: type?.name ?? 'Piso', prisms: f.prisms, kind: 'FLOOR', entity: 'IFCSLAB', layers: type?.layers ?? [] });
+    plateEntity(c, st, { key: `floor:${f.floorId}`, elementId: f.floorId, name: type?.name ?? t(langOf(c), 'io_ifc_default_floor'), prisms: f.prisms, kind: 'FLOOR', entity: 'IFCSLAB', layers: type?.layers ?? [] });
   }
   for (const s of geo.slabs) {
     const el = c.p.elements[s.slabId];
     const st = isSlab(el) ? storeyOf(c, el.levelId) : undefined;
     if (!isSlab(el) || !st) continue;
     const type = c.p.slabTypes[el.typeId];
-    const name = type?.name ?? 'Laje';
+    const name = type?.name ?? t(langOf(c), 'io_ifc_default_slab');
     plateEntity(c, st, { key: `slab:${s.slabId}`, elementId: s.slabId, name, prisms: s.prisms, kind: slabKindOf(name), entity: 'IFCSLAB', layers: type?.layers ?? [] });
   }
   for (const ce of (geo as GeometryWithCeilings).ceilings ?? []) {
@@ -145,7 +146,7 @@ export function addPlates(c: IfcCtx, geo: IfcGeometry): void {
     const st = isCeiling(el) ? storeyOf(c, el.levelId) : undefined;
     if (!isCeiling(el) || !st) continue;
     const type = c.p.ceilingTypes[el.typeId];
-    plateEntity(c, st, { key: `ceiling:${ceilingId}`, elementId: ceilingId, name: type?.name ?? 'Forro', prisms: ce.prisms, kind: 'CEILING', entity: 'IFCCOVERING', layers: type?.layers ?? [] });
+    plateEntity(c, st, { key: `ceiling:${ceilingId}`, elementId: ceilingId, name: type?.name ?? t(langOf(c), 'io_ifc_default_ceiling'), prisms: ce.prisms, kind: 'CEILING', entity: 'IFCCOVERING', layers: type?.layers ?? [] });
   }
 }
 
@@ -161,7 +162,7 @@ export function addRoofs(c: IfcCtx, geo: IfcGeometry): void {
     const st = isRoof(el) ? storeyOf(c, el.levelId) : undefined;
     if (!isRoof(el) || !st) continue;
     const type = c.p.roofTypes[el.typeId];
-    const name = type?.name ?? 'Telhado';
+    const name = type?.name ?? t(langOf(c), 'io_ifc_default_roof');
     const place = localPlacement(c.w, st.place, [0, 0, 0]);
     const roof = c.w.add('IFCROOF', [gid(`roof:${r.roofId}`), OMIT, stepString(name), OMIT, OMIT, ref(place), OMIT, OMIT, en(roofKindOf(el.shape))]);
     c.products?.set(r.roofId, roof);
@@ -170,7 +171,7 @@ export function addRoofs(c: IfcCtx, geo: IfcGeometry): void {
       .map((pr, i) =>
         plateEntity(c, st, {
           key: `roofslab:${r.roofId}:${i}`,
-          name: `${name} - água ${i + 1}`,
+          name: t(langOf(c), 'io_ifc_name_roof_face', { name, n: i + 1 }),
           prisms: [pr],
           kind: 'ROOF',
           entity: 'IFCSLAB',
@@ -260,7 +261,7 @@ export function addStairs(c: IfcCtx, geo: IfcGeometry): void {
     const st = isStair(el) ? storeyOf(c, el.levelId) : undefined;
     if (!isStair(el) || !st) continue;
     const type = c.p.stairTypes[el.typeId];
-    const name = type?.name ?? 'Escada';
+    const name = type?.name ?? t(langOf(c), 'io_ifc_default_stair');
     const place = localPlacement(c.w, st.place, [0, 0, 0]);
     const stair = c.w.add('IFCSTAIR', [gid(`stair:${s.stairId}`), OMIT, stepString(name), OMIT, OMIT, ref(place), OMIT, OMIT, en(stairKindOf(s))]);
     c.products?.set(s.stairId, stair);
@@ -268,12 +269,12 @@ export function addStairs(c: IfcCtx, geo: IfcGeometry): void {
     const flightMaterial = type?.materialId || (c.p.materials['mat_concreto'] ? 'mat_concreto' : '');
     const flights = s.flights.map((f) => {
       const fPlace = localPlacement(c.w, st.place, [0, 0, 0]);
-      const shape = prismsShape(c.w, c.ctx, f.pieces, st.elev);
+      const shape = prismsShape(c.w, c.ctx, f.pieces, st.elev, langOf(c));
       const treadLength = flightTreadLength(f);
       const flight = c.w.add('IFCSTAIRFLIGHT', [
         gid(`flight:${s.stairId}:${f.componentIndex}`),
         OMIT,
-        stepString(`${name} - lance ${f.componentIndex}`),
+        stepString(t(langOf(c), 'io_ifc_name_flight', { name, n: f.componentIndex })),
         OMIT,
         OMIT,
         ref(fPlace),
@@ -293,7 +294,7 @@ export function addStairs(c: IfcCtx, geo: IfcGeometry): void {
     s.landings.forEach((pr, i) => {
       plateEntity(c, st, {
         key: `landing:${s.stairId}:${i}`,
-        name: `${name} - patamar ${i + 1}`,
+        name: t(langOf(c), 'io_ifc_name_landing', { name, n: i + 1 }),
         prisms: [pr],
         kind: 'LANDING',
         entity: 'IFCSLAB',
@@ -321,17 +322,17 @@ export function addRamps(c: IfcCtx, geo: IfcGeometry): void {
     const el = c.p.elements[r.rampId];
     const st = isRamp(el) ? storeyOf(c, el.levelId) : undefined;
     if (!isRamp(el) || !st) continue;
-    const name = c.p.rampTypes[el.typeId]?.name ?? 'Rampa';
+    const name = c.p.rampTypes[el.typeId]?.name ?? t(langOf(c), 'io_ifc_default_ramp');
     const place = localPlacement(c.w, st.place, [0, 0, 0]);
     const ramp = c.w.add('IFCRAMP', [gid(`ramp:${r.rampId}`), OMIT, stepString(name), OMIT, OMIT, ref(place), OMIT, OMIT, en(rampKindOf(r.shape, r.flights.length))]);
     st.contained.push(ramp);
     const flights = r.flights.map((f) => {
       const fPlace = localPlacement(c.w, st.place, [0, 0, 0]);
-      const shape = prismsShape(c.w, c.ctx, [f.prism], st.elev);
+      const shape = prismsShape(c.w, c.ctx, [f.prism], st.elev, langOf(c));
       return c.w.add('IFCRAMPFLIGHT', [
         gid(`rampflight:${r.rampId}:${f.componentIndex}`),
         OMIT,
-        stepString(`${name} - lance ${f.componentIndex}`),
+        stepString(t(langOf(c), 'io_ifc_name_flight', { name, n: f.componentIndex })),
         OMIT,
         OMIT,
         ref(fPlace),
@@ -344,7 +345,7 @@ export function addRamps(c: IfcCtx, geo: IfcGeometry): void {
     r.landings.forEach((pr, i) => {
       plateEntity(c, st, {
         key: `landing:${r.rampId}:${i}`,
-        name: `${name} - patamar ${i + 1}`,
+        name: t(langOf(c), 'io_ifc_name_landing', { name, n: i + 1 }),
         prisms: [pr],
         kind: 'LANDING',
         entity: 'IFCSLAB',

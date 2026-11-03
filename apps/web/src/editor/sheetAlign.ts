@@ -1,4 +1,8 @@
 import { sheetInnerBox, sheetOf, viewportBox, type Command, type Id, type ProjectStore, type SheetBox, type SheetViewport } from '@hestia/model';
+import { t, useI18n } from './i18n.ts';
+
+/** Tradução imediata no idioma ativo (as recusas voltam como texto para a barra de status). */
+const tr = (key: Parameters<typeof t>[1]): string => t(useI18n.getState().lang, key);
 
 /**
  * Alinhamento e distribuição de vistas na prancha (Revit/ArchiCAD: *Align*). As contas ficam em funções puras para o
@@ -111,37 +115,37 @@ const toCommand = (sheetId: Id, placement: AlignPlacement): Command => ({ type: 
 /** Alinha as vistas pedidas num único comando com desfazer. Devolve a recusa em pt-BR, ou null se gravou. */
 export function alignViewportsAction(store: ProjectStore, sheetId: Id, ids: Id[], mode: AlignMode): string | null {
   const s = sheetOf(store.project, sheetId);
-  if (!s) return 'Prancha inexistente';
+  if (!s) return tr('edc_sheet_missing');
   const viewports = selectedViewports(s.viewports, ids);
-  if (viewports.length < 2) return 'Selecione ao menos duas vistas da prancha.';
+  if (viewports.length < 2) return tr('edc_select_two_views');
   const plan = planAlign(
     viewports.map((v) => ({ id: v.id, box: viewportBox(v) })),
     mode,
     sheetInnerBox(s),
   );
   try {
-    store.exec({ type: 'batch', commands: plan.map((p) => toCommand(sheetId, p)) }, 'Alinhar vistas da prancha');
+    store.exec({ type: 'batch', commands: plan.map((p) => toCommand(sheetId, p)) }, 'edc_undo_align_views');
     return null;
   } catch (e) {
-    return e instanceof Error ? e.message : 'Não foi possível alinhar as vistas.';
+    return e instanceof Error ? e.message : tr('edc_align_views_failed');
   }
 }
 
-/** Distribui as vistas pedidas num único comando com desfazer. Devolve a recusa em pt-BR, ou null se gravou. */
+/** Distribui as vistas pedidas num único comando com desfazer. Devolve a recusa, ou null se gravou. */
 export function distributeViewportsAction(store: ProjectStore, sheetId: Id, ids: Id[], axis: 'h' | 'v'): string | null {
   const s = sheetOf(store.project, sheetId);
-  if (!s) return 'Prancha inexistente';
+  if (!s) return tr('edc_sheet_missing');
   const viewports = selectedViewports(s.viewports, ids);
-  if (viewports.length < 2) return 'Selecione ao menos duas vistas da prancha.';
+  if (viewports.length < 2) return tr('edc_select_two_views');
   const plan = planDistribute(
     viewports.map((v) => ({ id: v.id, box: viewportBox(v) })),
     axis,
     sheetInnerBox(s),
   );
   try {
-    store.exec({ type: 'batch', commands: plan.map((p) => toCommand(sheetId, p)) }, 'Distribuir vistas da prancha');
+    store.exec({ type: 'batch', commands: plan.map((p) => toCommand(sheetId, p)) }, 'edc_undo_distribute_views');
     return null;
   } catch (e) {
-    return e instanceof Error ? e.message : 'Não foi possível distribuir as vistas.';
+    return e instanceof Error ? e.message : tr('edc_distribute_views_failed');
   }
 }

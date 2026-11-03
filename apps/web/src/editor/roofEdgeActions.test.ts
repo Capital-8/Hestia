@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ProjectStore, createEmptyProject, makeRoof, type Roof } from '@hestia/model';
 import { applyRoofPatch } from './roofEdgeActions.ts';
+import { resolveText } from './i18n.ts';
 import { useUi } from './state.ts';
 
 const rect = [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 6 }, { x: 0, y: 6 }];
@@ -25,7 +26,7 @@ describe('alteração de telhado pelas Propriedades (applyRoofPatch)', () => {
   it('desligar a última aresta que define inclinação aplica: o telhado vira plano, como no Revit', () => {
     const { store, roof } = storeWithRoof();
     expect(applyRoofPatch(store, ['t1'], { edgeSlopes: [null, null, null, null] })).toBe(true);
-    expect(useUi.getState().status).not.toMatch(/Alteração não aplicada/);
+    expect(resolveText(useUi.getState().status, 'pt')).not.toMatch(/Alteração não aplicada/);
     expect(roof().edgeSlopes).toEqual([null, null, null, null]);
   });
 

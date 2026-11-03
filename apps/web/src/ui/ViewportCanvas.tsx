@@ -4,6 +4,7 @@ import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanSce
 import { formatQuantity, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
 import { useShallow } from 'zustand/react/shallow';
 import { editor } from '../editor/controller.ts';
+import { useT } from '../editor/i18n.ts';
 import { transfer } from '../editor/transfer.ts';
 import { consumirManterCameraDaPrevia, guardarCamera, limparPreviaPreparada, montarPrevia, previaPreparada, restaurarCamera, type CameraDaPrevia } from '../editor/pastePreview.ts';
 import { visibilityOf } from '../editor/viewVisibility.ts';
@@ -84,6 +85,7 @@ export interface ViewportCanvasProps {
 
 /** Desenha o plano (GPU ou CPU) e o 3D, e traduz o ponteiro em chamadas ao editor. */
 export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): ReactElement {
+  const { t, lang } = useT();
   const host = useRef<HTMLDivElement>(null);
   const labelLayer = useRef<PlanLabelsHandle>(null);
   const gpuRef = useRef<{ gpu: GpuContext; canvas: HTMLCanvasElement } | null>(null);
@@ -169,6 +171,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     const c = criarControladorGpu({
       host: el,
       preferencia,
+      lang,
       aoLimpar: limpar,
       aoStatus: (status) => useUi.setState({ status }),
       aoMontar: ({ gpu, canvas }) => {
@@ -200,7 +203,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       fantasmas.current?.dispose();
       fantasmas.current = null;
     };
-  }, []);
+  }, [lang]);
 
   const safeRender = (g: { gpu: GpuContext }, scene: Parameters<GpuContext['render']>[0], camera: Parameters<GpuContext['render']>[1]): void => {
     try { g.gpu.render(scene, camera); } catch { controlador.current?.falhouRender(); }
@@ -373,7 +376,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       pf.reset(); quadroRef.current?.invalidar();
       // Lista BASE do corte: muda só com projeto/vista/tema/seleção/hover/gráficos/anotações/extensões. Fica em `secDl`
       // e só é reenviada quando a referência muda — prévia, inferência e alças vão para as camadas vivas, abaixo.
-      const built = buildSectionFrame(v, dark, vis.hidden, vis.revealed);
+      const built = buildSectionFrame(v, dark, vis.hidden, vis.revealed, lang);
       if (!built && secVazia.current?.bg !== theme.bg) secVazia.current = { bg: theme.bg, dl: { background: theme.bg, fills: [], strokes: [], labels: [] } };
       const baseDl = built ?? secVazia.current!.dl;
       // Camada viva (t,z): prévia das ferramentas, alças da abertura selecionada e a inferência (marcador/guias/tooltip).
@@ -413,8 +416,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
           const a = atOf(sill);
           const b = atOf(head);
           liveStrokes.push({ pts: [a, b], closed: false, widthPx: 1, color: theme.select, alpha: 0.8, dash: [3, 2] });
-          liveLabels.push({ at: { x: a.x, y: a.y }, text: `Peitoril ${formatQuantity(unitsOf(p), 'length', values.sill)}`, dx: 6, dy: -8, tone: 'info' });
-          liveLabels.push({ at: { x: b.x, y: b.y }, text: `Altura ${formatQuantity(unitsOf(p), 'length', values.height)}`, dx: 6, dy: -8, tone: 'info' });
+          liveLabels.push({ at: { x: a.x, y: a.y }, text: t('cvv_preview_sill', { value: formatQuantity(unitsOf(p), 'length', values.sill, { lang }) }), dx: 6, dy: -8, tone: 'info' });
+          liveLabels.push({ at: { x: b.x, y: b.y }, text: t('cvv_preview_height', { value: formatQuantity(unitsOf(p), 'length', values.height, { lang }) }), dx: 6, dy: -8, tone: 'info' });
         }
       }
       const dimDrag = sectionDimDrag.current;
@@ -490,7 +493,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     const gridOn = st.showGrid || (st.options.snap?.enabled !== false && !!st.options.snap?.grid);
     const areaPlan = st.planKind === 'area' && st.areaPlanId ? (p.areaPlans ?? []).find((x) => x.id === st.areaPlanId) : undefined;
     const visKey = `${[...vis.hidden].sort().join(',')}|${[...vis.revealed].sort().join(',')}`;
-    const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showUnderlay, st.underlayLevel, st.showRoofProjection, gridOn, st.gridStep, st.planKind, areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey].join('|'), atualizar: () => planFrameUpdateOf({ project: p, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(p, { levelId: st.levelId }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: editor.activeTool.preview(), inference: editor.activeTool.inference(), resolve: quadro.resolver, sketch, hidden: vis.hidden, revealed: vis.revealed }) });
+    const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showUnderlay, st.underlayLevel, st.showRoofProjection, gridOn, st.gridStep, st.planKind, areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey].join('|'), atualizar: () => { const estado = { project: p, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(p, { levelId: st.levelId }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: editor.activeTool.preview(), inference: editor.activeTool.inference(), resolve: quadro.resolver, sketch, hidden: vis.hidden, revealed: vis.revealed, lang }; return planFrameUpdateOf(estado); } });
     if (g) {
       g.gpu.setSize(w, h, dpr);
       plan.current.setViewport(v);
@@ -500,7 +503,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     // Alinha a camada HTML de texto no mesmo requestAnimationFrame do canvas da planta.
     // Isso evita o atraso de um render React entre a câmera e o texto da cota durante pan/zoom.
     labelLayer.current?.syncView(v);
-  }, [size, ready, dark, sketch, rascunhoDaPrevia, iniciarMontagem3d]);
+  }, [size, ready, dark, sketch, rascunhoDaPrevia, iniciarMontagem3d, t, lang]);
 
   // Um quadro do rAF: o trabalho de CPU é medido do começo ao fim do desenho; com `?perf=1`, os contadores agrupam
   // draw calls/upload/rebuilds entre estes dois pontos. Sem perf, os métodos são no-op.
@@ -949,8 +952,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       const cmd = v && sid ? sectionDimensionGripCommand(editor.project, sid, grip, screenToWorld(v, s)) : null;
       if (cmd) {
         editor.applyCommand(cmd);
-        const msg = grip.kind === 'noteText' ? 'Texto movido' : grip.kind === 'text' ? 'Texto da cota movido' : 'Afastamento da cota atualizado';
-        useUi.setState({ status: `${msg}. Ctrl+Z desfaz.` });
+        const msg = grip.kind === 'noteText' ? t('cvv_note_moved') : grip.kind === 'text' ? t('cvv_dim_text_moved') : t('cvv_dim_offset_updated');
+        useUi.setState({ status: { key: 'cvv_undo_hint', args: { msg } } });
       }
       useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
       drag.current = { mode: 'none', start: s, last: s, moved: false, pick: false };
@@ -966,8 +969,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
         const cmd = sectionHandleCommand(editor.project, dragHandle.handle, z);
         if (cmd) {
           editor.applyCommand(cmd);
-          const labels: Record<SectionHandle['kind'], string> = { sill: 'Peitoril atualizado', head: 'Altura atualizada', 'jamb-a': 'Lado atualizado', 'jamb-b': 'Lado atualizado' };
-          useUi.setState({ status: `${labels[dragHandle.handle.kind]}. Ctrl+Z desfaz.` });
+          const kindKey = dragHandle.handle.kind === 'sill' ? 'cvv_sill_updated' : dragHandle.handle.kind === 'head' ? 'cvv_head_updated' : 'cvv_side_updated';
+          useUi.setState({ status: { key: 'cvv_undo_hint', args: { msg: t(kindKey) } } });
         }
       }
       useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
@@ -1025,7 +1028,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
           // Clique no vazio cancela/sai para a ferramenta de seleção
           editor.activeTool.cancel();
           clickSelect3d(null, false);
-          useUi.setState({ status: 'Modo de seleção ativado.' });
+          useUi.setState({ status: { key: 'cvv_select_mode' } });
         }
       } else {
         // Um elemento sob o cursor tem prioridade: a anotação do nível (texto/bolha) não pode bloquear parede/telhado.

@@ -1,4 +1,5 @@
 import { multiArea, type Polygon, type Vec2 } from '@hestia/geom';
+import { t, type Lang } from './i18n.ts';
 import { isCeiling, type Ceiling, type CeilingType, type Id, type Layer, type Project } from './types.ts';
 
 type CeilingInput = { id: Id; typeId: Id; levelId: Id; boundary: Vec2[] } & Partial<Omit<Ceiling, 'order' | 'kind'>>;
@@ -34,17 +35,22 @@ const L = (fn: Layer['function'], materialId: string, thickness: number): Layer 
 
 const ct = (id: string, name: string, code: string, description: string, layers: Layer[], cost = 0): CeilingType => ({ id, name, code, description, layers, cost });
 
-/** Tipos de forro iniciais (camadas do topo para baixo: estrutura acima, acabamento visível embaixo). */
-export const DEFAULT_CEILING_TYPES: CeilingType[] = [
-  { ...ct('ct_gesso', 'Forro de gesso 12,5 mm', 'FR-01', 'Placa de gesso 12,5 mm sobre perfis de aço', [
-    L('structure', 'mat_perfil', 0.03),
-    L('finish1', 'mat_gesso', 0.0125),
-  ], 70), hatch: 'gesso' },
-  ct('ct_pvc', 'Forro de PVC', 'FR-02', 'Forro de PVC em réguas sobre travessas de madeira', [
-    L('structure', 'mat_madeira', 0.02),
-    L('finish1', 'mat_pvc', 0.01),
-  ], 95),
-  ct('ct_laje', 'Laje aparente', 'FR-03', 'Face inferior da laje de concreto, com pintura', [
-    L('finish1', 'mat_tinta', 0.003),
-  ], 25),
-];
+/** Tipos de forro iniciais (camadas do topo para baixo: estrutura acima, acabamento visível embaixo), no idioma pedido. */
+export function ceilingTypes(lang: Lang = 'pt'): CeilingType[] {
+  return [
+    { ...ct('ct_gesso', t(lang, 'md_ceiling_gesso'), 'FR-01', t(lang, 'md_ceiling_gesso_desc'), [
+      L('structure', 'mat_perfil', 0.03),
+      L('finish1', 'mat_gesso', 0.0125),
+    ], 70), hatch: 'gesso' },
+    ct('ct_pvc', t(lang, 'md_ceiling_pvc'), 'FR-02', t(lang, 'md_ceiling_pvc_desc'), [
+      L('structure', 'mat_madeira', 0.02),
+      L('finish1', 'mat_pvc', 0.01),
+    ], 95),
+    ct('ct_laje', t(lang, 'md_ceiling_laje'), 'FR-03', t(lang, 'md_ceiling_laje_desc'), [
+      L('finish1', 'mat_tinta', 0.003),
+    ], 25),
+  ];
+}
+
+/** Tipos de forro em PT (compatibilidade); use `ceilingTypes(lang)` para o idioma ativo. */
+export const DEFAULT_CEILING_TYPES: CeilingType[] = ceilingTypes('pt');

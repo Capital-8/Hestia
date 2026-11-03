@@ -7,6 +7,8 @@ import { makeSlab } from './slab.ts';
 import { makeStair } from './stair.ts';
 import type { Id, Opening, OpeningType, PlanSymbol, SectionRole, SectionView, StairRun } from './types.ts';
 import { makeWall } from './wall.ts';
+import { openingName, t, type Lang } from './i18n.ts';
+import { sectionRoleLabels } from './sectionView.ts';
 
 /**
  * Casa de alto padrão, 2 pavimentos (docs/projetos/casa-alto-padrao/B-projeto-planta.md, v2, com as alterações do
@@ -298,7 +300,8 @@ function escada(): Command {
 const CAIXA = { minX: -0.121, minY: -0.121, maxX: 11.871, maxY: 14.121 };
 const AFASTAMENTO = 3;
 
-function elevacoes(): SectionView[] {
+function elevacoes(lang: Lang = 'pt'): SectionView[] {
+  const labels = sectionRoleLabels(lang);
   const corners: Vec2[] = [
     { x: CAIXA.minX, y: CAIXA.minY },
     { x: CAIXA.maxX, y: CAIXA.minY },
@@ -310,13 +313,13 @@ function elevacoes(): SectionView[] {
   const w = CAIXA.maxX - CAIXA.minX;
   const h = CAIXA.maxY - CAIXA.minY;
   // Observador olha para `look`; a linha a→b tem a normal à esquerda apontando para `look`.
-  const LOOKS: Array<{ nome: string; id: Id; role: SectionRole; look: Vec2 }> = [
-    { nome: 'Norte', id: 'V-norte', role: 'north', look: { x: 0, y: -1 } },
-    { nome: 'Sul', id: 'V-sul', role: 'south', look: { x: 0, y: 1 } },
-    { nome: 'Leste', id: 'V-leste', role: 'east', look: { x: -1, y: 0 } },
-    { nome: 'Oeste', id: 'V-oeste', role: 'west', look: { x: 1, y: 0 } },
+  const LOOKS: Array<{ id: Id; role: SectionRole; look: Vec2 }> = [
+    { id: 'V-norte', role: 'north', look: { x: 0, y: -1 } },
+    { id: 'V-sul', role: 'south', look: { x: 0, y: 1 } },
+    { id: 'V-leste', role: 'east', look: { x: -1, y: 0 } },
+    { id: 'V-oeste', role: 'west', look: { x: 1, y: 0 } },
   ];
-  return LOOKS.map(({ nome, id, role, look: u }): SectionView => {
+  return LOOKS.map(({ id, role, look: u }): SectionView => {
     const d: Vec2 = { x: u.y, y: -u.x };
     const back = Math.min(...corners.map((c) => c.x * u.x + c.y * u.y));
     const shift = back - AFASTAMENTO - (cx * u.x + cy * u.y);
@@ -325,7 +328,7 @@ function elevacoes(): SectionView[] {
     const depth = Math.abs(u.x) * w + Math.abs(u.y) * h + 2 * AFASTAMENTO;
     return {
       id,
-      name: nome,
+      name: labels[role],
       kind: 'elevation',
       role,
       a: { x: p.x - (d.x * along) / 2, y: p.y - (d.y * along) / 2 },
@@ -343,15 +346,16 @@ const CORTES: SectionView[] = [
 ];
 
 /** Monta a casa de alto padrão (2 pavimentos) como uma lista de comandos, no mesmo estilo de `house2`. */
-export function casaAltoPadrao(cmds: Command[]): void {
-  for (const t of OPENING_TYPES) cmds.push({ type: 'upsertOpeningType', openingType: t });
+export function casaAltoPadrao(cmds: Command[], lang: Lang = 'pt'): void {
+  for (const t of OPENING_TYPES) cmds.push({ type: 'upsertOpeningType', openingType: { ...t, name: openingName(t.name, lang) } });
   for (const c of PAREDES) cmds.push(c);
   for (const c of aberturas(ABERTURAS_TERREO)) cmds.push(c);
   for (const c of aberturas(ABERTURAS_PAV2)) cmds.push(c);
   for (const c of PISOS) cmds.push(c);
   cmds.push(LAJE_PAV2);
-  cmds.push({ type: 'upsertLevel', level: makeLevel({ id: COBERTURA, name: 'Cobertura', elevation: 5.8 }) });
+  cmds.push({ type: 'upsertLevel', level: makeLevel({ id: COBERTURA, name: t(lang, 'md_doc_level_roof'), elevation: 5.8 }) });
   cmds.push(TELHADO);
   cmds.push(escada());
-  for (const v of [...CORTES, ...elevacoes()]) cmds.push({ type: 'addView', view: v });
+  for (const v of CORTES) cmds.push({ type: 'addView', view: { ...v, name: t(lang, 'md_section_name', { code: v.name.slice(-2) }) } });
+  for (const v of elevacoes(lang)) cmds.push({ type: 'addView', view: v });
 }

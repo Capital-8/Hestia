@@ -1,4 +1,5 @@
 import type { Vec2 } from '@hestia/geom';
+import { t, type Lang } from './i18n.ts';
 import type { DetailLine, DetailRegion, Dimension, ElementTag, TextNote, Id, Project } from './types.ts';
 import type { ViewHidden } from './graphics.ts';
 
@@ -151,16 +152,22 @@ export const DEFAULT_AREA_GRAPHICS: AreaPlanGraphics = {
   tagDefault: { leader: 'straight', fields: DEFAULT_TAG_FIELDS, orientation: 'horizontal' },
 };
 
-export const DEFAULT_ROOM_CATEGORIES: RoomCategory[] = [
-  { id: 'rc_sala', name: 'Sala', code: 'SL', color: '#dbe7f3', hatch: 'diagonal' },
-  { id: 'rc_cozinha', name: 'Cozinha', code: 'CZ', color: '#f6e3c8', hatch: 'cross' },
-  { id: 'rc_quarto', name: 'Quarto', code: 'QT', color: '#e2f0dc', hatch: 'dots' },
-  { id: 'rc_banho', name: 'Banho', code: 'BH', color: '#e6e1f4', hatch: 'solid' },
-  { id: 'rc_circulacao', name: 'Circulação', code: 'CR', color: '#f3e7cf', hatch: 'diagonal' },
-  { id: 'rc_servico', name: 'Serviço', code: 'SV', color: '#e8eef2', hatch: 'cross' },
-  { id: 'rc_garagem', name: 'Garagem', code: 'GR', color: '#e4e4e4', hatch: 'solid' },
-  { id: 'rc_varanda', name: 'Varanda', code: 'VR', color: '#e7f1e4', hatch: 'dots' },
-];
+/** Categorias de ambiente padrão no idioma pedido. */
+export function roomCategories(lang: Lang = 'pt'): RoomCategory[] {
+  return [
+    { id: 'rc_sala', name: t(lang, 'md_room_sala'), code: 'SL', color: '#dbe7f3', hatch: 'diagonal' },
+    { id: 'rc_cozinha', name: t(lang, 'md_room_cozinha'), code: 'CZ', color: '#f6e3c8', hatch: 'cross' },
+    { id: 'rc_quarto', name: t(lang, 'md_room_quarto'), code: 'QT', color: '#e2f0dc', hatch: 'dots' },
+    { id: 'rc_banho', name: t(lang, 'md_room_banho'), code: 'BH', color: '#e6e1f4', hatch: 'solid' },
+    { id: 'rc_circulacao', name: t(lang, 'md_room_circulacao'), code: 'CR', color: '#f3e7cf', hatch: 'diagonal' },
+    { id: 'rc_servico', name: t(lang, 'md_room_servico'), code: 'SV', color: '#e8eef2', hatch: 'cross' },
+    { id: 'rc_garagem', name: t(lang, 'md_room_garagem'), code: 'GR', color: '#e4e4e4', hatch: 'solid' },
+    { id: 'rc_varanda', name: t(lang, 'md_room_varanda'), code: 'VR', color: '#e7f1e4', hatch: 'dots' },
+  ];
+}
+
+/** Categorias em PT (compatibilidade); use `roomCategories(lang)` para o idioma ativo. */
+export const DEFAULT_ROOM_CATEGORIES: RoomCategory[] = roomCategories('pt');
 
 export const categoryById = (p: Pick<Project, 'roomCategories'>, id: Id | undefined): RoomCategory | undefined =>
   id ? (p.roomCategories ?? DEFAULT_ROOM_CATEGORIES).find((c) => c.id === id) : undefined;

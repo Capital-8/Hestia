@@ -9,6 +9,7 @@ import { areaPlanProfile, buildPlanGeometry, drawnAnnotations, levelBox, LIGHT, 
 import { angularDimensionGeometry, areaPlanOf, DIM_TEXT_MM, dimensionGeometry, dimensionPoints, dimensionText, unitsOf, type AreaPlan, type DxfLayerLineType, type DxfLayerStyle, type Id, type Project } from '@hestia/model';
 import { dxfDocOf, DXF_LINE_WEIGHT_DEFAULT, writeDxf2000, type DxfDoc, type DxfDocEntity, type DxfDocLayer, type DxfLevelGeometry, type DxfUnit } from '@hestia/io';
 import { dxfGeometryOf } from './dxfExport.ts';
+import { useI18n, type Lang } from './i18n.ts';
 
 /** Camada de um traço da planta de área: referência, chamada ou contorno. */
 const areaLayerOf = (color: string, pts: number): string => (color === '#4b5563' ? 'AMBIENTES_REFERENCIA' : color === '#111827' && pts === 2 ? 'AMBIENTES_CHAMADA' : 'AMBIENTES');
@@ -105,7 +106,7 @@ function areaAnnotationEntities(p: Project, plan: AreaPlan, ops: PlanOps): DxfDo
   return out;
 }
 /** DXF da planta de área, com as camadas AMBIENTES, AMBIENTES_REFERENCIA, AMBIENTES_CHAMADA e AMBIENTES_TEXTO. */
-export function areaPlanDxf(p: Project, planId: Id, units?: DxfUnit): string {
+export function areaPlanDxf(p: Project, planId: Id, units?: DxfUnit, lang: Lang = useI18n.getState().lang): string {
   const plan = areaPlanOf(p, planId);
   if (!plan) throw new Error('Planta de área inexistente');
   const box = levelBox(p, plan.levelId) ?? { minX: 0, minY: 0, maxX: 10, maxY: 10 };
@@ -164,6 +165,7 @@ export function areaPlanDxf(p: Project, planId: Id, units?: DxfUnit): string {
     preview: [],
     inference: null,
     showGrid: false,
+    lang,
   }), zoom);
   // Cotas/textos/detalhes de `plan.annotations`: o render da área pode já desenhá-los; o que faltar entra aqui.
   const areaEntities = [...opsDocOf(p, ops, zoom).entities, ...areaAnnotationEntities(p, plan, ops)];

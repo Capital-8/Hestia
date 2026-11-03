@@ -2,6 +2,7 @@ import type { SketchDraft, Vec2 } from '@hestia/geom';
 import { SELECT_PX, boxSelection, hitSeg } from './perimeterToolPick.ts';
 import { selectSegsMode, type SelectionMode } from './perimeterSession.ts';
 import type { PointerInfo } from './types.ts';
+import { t as translate, type Lang } from './i18n.ts';
 
 /** Retângulo de seleção em arraste: `window` (da esquerda para a direita) pega só as linhas inteiras. */
 export interface SelectionBox {
@@ -23,6 +24,8 @@ export interface SelectHost {
   /** Troca só a seleção, sem passo de desfazer. */
   replace(next: SketchDraft): void;
   say(msg: string): void;
+  /** Idioma da interface (ausente = português). */
+  lang?(): Lang;
 }
 
 /**
@@ -70,8 +73,9 @@ export class BoxSelection {
     const ids = boxSelection(d.segs, b.a, p.raw);
     const next = selectSegsMode(d, ids, selectionModeOf(p));
     this.h.replace(next);
-    if (ids.length === 0) this.h.say(selectionModeOf(p) === 'replace' ? 'Janela vazia: seleção limpa.' : 'Janela vazia: seleção mantida.');
-    else this.h.say(`${ids.length} linha(s) na janela; ${next.selected.length} selecionada(s).`);
+    const lang = this.h.lang?.() ?? 'pt';
+    if (ids.length === 0) this.h.say(translate(lang, selectionModeOf(p) === 'replace' ? 'tl_msg_window_empty_cleared' : 'tl_msg_window_empty_kept'));
+    else this.h.say(translate(lang, 'tl_msg_window_count', { n: ids.length, selected: next.selected.length }));
     return true;
   }
 }

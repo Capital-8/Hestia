@@ -7,6 +7,7 @@ import {
   spanTypeOf,
   type OpeningType,
 } from '@hestia/model';
+import { t as tr, type Lang } from './i18nMessages.ts';
 
 /**
  * Verificações do tipo de abertura mostradas no diálogo (faixa "Verificações"). São avisos de projeto, não regras do
@@ -66,33 +67,38 @@ export function openingVentilationArea(raw: OpeningType): number {
  * Lista de verificações do tipo, na ordem: largura livre (NBR 9050), altura livre, ventilação (janela), profundidade
  * do batente contra o núcleo da parede e presença de verga. `coreThickness` é a espessura do núcleo (DEC-1).
  */
-export function openingChecks(raw: OpeningType, coreThickness: number, units = defaultUnits()): OpeningCheck[] {
+export function openingChecks(raw: OpeningType, coreThickness: number, units = defaultUnits(), lang: Lang = 'pt'): OpeningCheck[] {
   const t = spanTypeOf(raw); // as larguras e alturas abaixo são do VÃO (com `nominalRef` 'leaf' a folha ganha a folga)
   const out: OpeningCheck[] = [];
   const freeW = openingClearWidth(t);
   out.push(
     freeW >= 0.8
-      ? { level: 'ok', text: `Largura livre ${formatQuantity(units, 'length', freeW)} atende à NBR 9050 (mínimo ${formatQuantity(units, 'length', 0.8)}).` }
-      : { level: 'warn', text: `Largura livre ${formatQuantity(units, 'length', freeW)} abaixo de ${formatQuantity(units, 'length', 0.8)} (NBR 9050, acessibilidade).` },
+      ? { level: 'ok', text: tr(lang, 'egb_issue_opening_width_ok', { w: formatQuantity(units, 'length', freeW), min: formatQuantity(units, 'length', 0.8) }) }
+      : { level: 'warn', text: tr(lang, 'egb_issue_opening_width_low', { w: formatQuantity(units, 'length', freeW), min: formatQuantity(units, 'length', 0.8) }) },
   );
 
   const freeH = openingClearHeight(t);
   out.push(
     freeH >= 2.1
-      ? { level: 'ok', text: `Altura livre ${formatQuantity(units, 'length', freeH)} atende ao mínimo de ${formatQuantity(units, 'length', 2.1)}.` }
-      : { level: 'warn', text: `Altura livre ${formatQuantity(units, 'length', freeH)} abaixo de ${formatQuantity(units, 'length', 2.1)}.` },
+      ? { level: 'ok', text: tr(lang, 'egb_issue_opening_height_ok', { h: formatQuantity(units, 'length', freeH), min: formatQuantity(units, 'length', 2.1) }) }
+      : { level: 'warn', text: tr(lang, 'egb_issue_opening_height_low', { h: formatQuantity(units, 'length', freeH), min: formatQuantity(units, 'length', 2.1) }) },
   );
 
   const factor = ventilationFactor(t);
   if (factor !== null) {
     const area = openingVentilationArea(t);
     if (factor === 0) {
-      const nome = openingFamilyOf(t)?.id === 'window_void' ? 'Vão livre de janela' : 'Janela fixa';
-      out.push({ level: 'warn', text: `${nome} não conta como ventilação (área útil ${formatQuantity(units, 'area', 0)}).` });
+      const nome = tr(lang, openingFamilyOf(t)?.id === 'window_void' ? 'egb_opening_window_void' : 'egb_opening_fixed_window');
+      out.push({ level: 'warn', text: tr(lang, 'egb_issue_no_ventilation', { name: nome, area: formatQuantity(units, 'area', 0) }) });
     } else {
       out.push({
         level: 'ok',
-        text: `Área útil de ventilação ${formatQuantity(units, 'area', area)} (${pct(factor)} de ${formatQuantity(units, 'length', t.width)} × ${formatQuantity(units, 'length', t.height)}).`,
+        text: tr(lang, 'egb_issue_ventilation_area', {
+          area: formatQuantity(units, 'area', area),
+          pct: pct(factor),
+          w: formatQuantity(units, 'length', t.width),
+          h: formatQuantity(units, 'length', t.height),
+        }),
       });
     }
   }
@@ -101,14 +107,14 @@ export function openingChecks(raw: OpeningType, coreThickness: number, units = d
   const depth = t.frameDepth ?? OPENING_FRAME_DEFAULTS.frameDepth;
   out.push(
     depth <= core
-      ? { level: 'ok', text: `Profundidade do batente ${formatQuantity(units, 'length', depth)} cabe no núcleo de ${formatQuantity(units, 'length', core)}.` }
-      : { level: 'warn', text: `Profundidade do batente ${formatQuantity(units, 'length', depth)} maior que o núcleo de ${formatQuantity(units, 'length', core)}.` },
+      ? { level: 'ok', text: tr(lang, 'egb_issue_jamb_depth_ok', { depth: formatQuantity(units, 'length', depth), core: formatQuantity(units, 'length', core) }) }
+      : { level: 'warn', text: tr(lang, 'egb_issue_jamb_depth_over', { depth: formatQuantity(units, 'length', depth), core: formatQuantity(units, 'length', core) }) },
   );
 
   out.push(
     openingLintel(t)
-      ? { level: 'ok', text: 'Verga presente.' }
-      : { level: 'warn', text: 'Verga ausente: o vão fica sem peça de concreto sobre a abertura.' },
+      ? { level: 'ok', text: tr(lang, 'egb_issue_lintel_ok') }
+      : { level: 'warn', text: tr(lang, 'egb_issue_lintel_missing') },
   );
 
   return out;

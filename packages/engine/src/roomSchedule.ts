@@ -1,6 +1,7 @@
 import type { Id, Project, ResolvedUnits } from '@hestia/model';
 import { csvDocument, csvText } from './csv.ts';
 import { scheduleCsvCell, scheduleCsvHeader } from './scheduleCsv.ts';
+import { t, type Lang } from './i18n.ts';
 import { resolveRooms } from './rooms.ts';
 
 /** Um ambiente na tabela. Valores em metros (SI). */
@@ -107,32 +108,32 @@ export function roomLevelTotals(rows: RoomScheduleRow[]): RoomLevelTotals[] {
   return out;
 }
 
-const csvHeader = (u: ResolvedUnits): string[] => [
-  'Número',
-  'Nome',
-  'Nível',
-  scheduleCsvHeader(u, 'Área', 'area'),
-  scheduleCsvHeader(u, 'Perímetro', 'length'),
-  scheduleCsvHeader(u, 'Pé-direito', 'length'),
-  scheduleCsvHeader(u, 'Volume', 'volume'),
-  'Piso',
-  'Parede',
-  'Forro',
+const csvHeader = (u: ResolvedUnits, lang: Lang): string[] => [
+  t(lang, 'egs_csv_col_numero'),
+  t(lang, 'egs_csv_col_nome'),
+  t(lang, 'egs_csv_col_nivel'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_area'), 'area'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_perimetro'), 'length'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_pe_direito'), 'length'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_volume'), 'volume'),
+  t(lang, 'egs_csv_col_piso'),
+  t(lang, 'egs_csv_col_parede'),
+  t(lang, 'egs_csv_col_forro'),
 ];
 
 /**
- * CSV com separador ';', decimal com vírgula, cabeçalho em português e BOM UTF-8 (o mesmo formato das tabelas de pisos
- * e lajes). Uma linha por ambiente, uma linha de subtotal por nível e uma linha de total geral.
+ * CSV com separador ';', decimal do idioma (ou o do projeto), cabeçalho no idioma ativo e BOM UTF-8 (o mesmo formato das
+ * tabelas de pisos e lajes). Uma linha por ambiente, uma linha de subtotal por nível e uma linha de total geral.
  */
-export function roomScheduleToCsv(rows: RoomScheduleRow[], totals: RoomScheduleTotals, units: ResolvedUnits): string {
-  const n = (q: 'length' | 'area' | 'volume', v: number, d: number): string => scheduleCsvCell(units, q, v, d);
-  const lines: string[][] = [csvHeader(units)];
+export function roomScheduleToCsv(rows: RoomScheduleRow[], totals: RoomScheduleTotals, units: ResolvedUnits, lang: Lang = 'pt'): string {
+  const n = (q: 'length' | 'area' | 'volume', v: number, d: number): string => scheduleCsvCell(units, q, v, d, lang);
+  const lines: string[][] = [csvHeader(units, lang)];
   let levelId: Id | null = null;
   let levelName = '';
   let acc = { area: 0, perimeter: 0, volume: 0 };
   const flush = (): void => {
     if (levelId === null) return;
-    lines.push(['', '', `Subtotal ${levelName}`, n('area', acc.area, 2), n('length', acc.perimeter, 2), '', n('volume', acc.volume, 3), '', '', '']);
+    lines.push(['', '', t(lang, 'egs_room_subtotal', { level: levelName }), n('area', acc.area, 2), n('length', acc.perimeter, 2), '', n('volume', acc.volume, 3), '', '', '']);
   };
   for (const r of rows) {
     if (levelId !== null && r.levelId !== levelId) {
@@ -158,6 +159,6 @@ export function roomScheduleToCsv(rows: RoomScheduleRow[], totals: RoomScheduleT
     ]);
   }
   flush();
-  lines.push(['Total', '', '', n('area', totals.area, 2), n('length', totals.perimeter, 2), '', n('volume', totals.volume, 3), '', '', '']);
+  lines.push([t(lang, 'egs_csv_total'), '', '', n('area', totals.area, 2), n('length', totals.perimeter, 2), '', n('volume', totals.volume, 3), '', '', '']);
   return csvDocument(lines);
 }

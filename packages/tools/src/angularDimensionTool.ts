@@ -57,7 +57,9 @@ function intersection(a: Vec2, da: Vec2, b: Vec2, db: Vec2): Vec2 | null {
 export class AngularDimensionTool extends ToolBase {
   readonly id = 'angularDimension';
   readonly label = 'Cota angular';
-  readonly hint = 'Cota angular: clique na primeira referência, depois na segunda. Mova o cursor para escolher o lado (interno = menor, externo = volta >180°) e o raio do arco; clique para criar. Tab alterna a referência.';
+  override get hint(): string {
+    return this.t('tl_hint_angdim');
+  }
   private refA: AlignFeature | null = null;
   private refB: AlignFeature | null = null;
   private hover: AlignFeature[] = [];
@@ -83,7 +85,7 @@ export class AngularDimensionTool extends ToolBase {
   private candidates(at: Vec2): AlignFeature[] {
     // Corte/elevação: as referências são as arestas da vista (t, z); a planta não entra.
     const sec = this.env.section?.();
-    if (sec) return sectionRefFeatures(sec, at, this.env.metersPerPixel(), this.env.hiddenInView?.());
+    if (sec) return sectionRefFeatures(sec, at, this.env.metersPerPixel(), this.env.hiddenInView?.(), this.uiLang());
     return alignFeaturesAt({
       project: this.env.project(),
       levelId: this.env.levelId(),
@@ -213,11 +215,11 @@ export class AngularDimensionTool extends ToolBase {
 
   private refreshItems(): void {
     const items: PreviewItem[] = [];
-    if (this.refA) items.push(...this.featureItems(this.refA, 'Referência 1: '));
-    if (this.refB) items.push(...this.featureItems(this.refB, 'Referência 2: '));
+    if (this.refA) items.push(...this.featureItems(this.refA, this.t('tl_label_ref1')));
+    if (this.refB) items.push(...this.featureItems(this.refB, this.t('tl_label_ref2')));
     if (!this.refB) {
       const cand = this.current();
-      if (cand) items.push(...this.featureItems(cand, this.refA ? 'Referência 2: ' : 'Referência 1: ', true));
+      if (cand) items.push(...this.featureItems(cand, this.t(this.refA ? 'tl_label_ref2' : 'tl_label_ref1'), true));
     }
     if (this.previewDim?.angular) {
       const geom = angularDimensionGeometry(this.previewDim);
@@ -250,14 +252,14 @@ export class AngularDimensionTool extends ToolBase {
     }
     this.hoverIndex = (this.hoverIndex + 1) % this.hover.length;
     this.refreshItems();
-    this.env.say(`${this.current()!.label}. Clique para usar como referência; Tab troca a feição.`);
+    this.env.say(`${this.current()!.label}. ${this.t('tl_msg_click_reference_tab')}`);
   }
 
   override click(p: PointerInfo): void {
     this.raw = p.raw;
     if (this.placing) {
       const g = this.geometry();
-      if (!g || !this.previewDim?.angular) { this.env.say('As referências não formam um ângulo.'); return; }
+      if (!g || !this.previewDim?.angular) { this.env.say(this.t('tl_msg_angdim_no_angle')); return; }
       const radius = this.radiusAt(g, p.raw);
       const angular = this.angularData(g, radius, p.raw);
       const o = this.env.options();
@@ -273,7 +275,7 @@ export class AngularDimensionTool extends ToolBase {
       };
       // No corte/elevação a cota vai para a vista (mesma gravação da cota linear), nunca para o nível.
       if (this.env.section?.()) {
-        if (!addSectionDimension(this.env, dimension)) { this.env.say('Não foi possível gravar a cota na vista de corte.'); return; }
+        if (!addSectionDimension(this.env, dimension)) { this.env.say(this.t('tl_msg_dim_section_save_fail')); return; }
       } else {
         this.env.exec({ type: 'addDimension', levelId: this.env.levelId(), planId: viewPlanId(this.env), dimension });
       }
@@ -284,29 +286,29 @@ export class AngularDimensionTool extends ToolBase {
     this.updateHover(p.raw);
     const cand = this.current();
     if (!cand) {
-      this.env.say('Clique sobre uma face, eixo ou núcleo de parede.');
+      this.env.say(this.t('tl_msg_click_face_axis_core'));
       return;
     }
     if (!this.refA) {
       this.refA = cand;
-      this.env.say(`Referência 1: ${cand.label}. Clique na segunda referência (Tab troca a feição).`);
+      this.env.say(this.t('tl_msg_ref1_chosen', { ref: cand.label }));
       this.refreshItems();
       return;
     }
     if (cand.key === this.refA.key) {
-      this.env.say('Escolha uma segunda referência diferente da primeira.');
+      this.env.say(this.t('tl_msg_second_ref_diff'));
       return;
     }
     const trial = this.pairGeometry(this.refA, cand);
     if (!trial) {
-      this.env.say('As duas referências são paralelas: escolha linhas que se cruzam.');
+      this.env.say(this.t('tl_msg_angdim_parallel'));
       return;
     }
     this.refB = cand;
     this.placing = true;
     this.makePreview(p.raw);
     this.refreshItems();
-    this.env.say('Mova o cursor para o lado do ângulo e para o raio do arco; clique para criar a cota.');
+    this.env.say(this.t('tl_msg_angdim_place'));
   }
 
   override confirm(): void {

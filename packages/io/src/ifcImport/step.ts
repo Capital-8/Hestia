@@ -20,6 +20,8 @@ export type StepValue =
   | { k: 'list'; items: StepValue[] }
   | { k: 'type'; name: string; arg: StepValue };
 
+import { t, type Lang } from '../i18n.ts';
+
 export interface StepEntity {
   id: number;
   type: string;
@@ -76,7 +78,7 @@ export function schemaOf(text: string): string {
 
 class Reader {
   private i: number;
-  constructor(private readonly s: string, start = 0) {
+  constructor(private readonly s: string, start = 0, private readonly lang: Lang = 'pt') {
     this.i = start;
   }
 
@@ -130,7 +132,7 @@ class Reader {
   }
 
   expect(ch: string): void {
-    if (!this.take(ch)) throw new Error(`esperava "${ch}" em ${this.i}`);
+    if (!this.take(ch)) throw new Error(t(this.lang, 'io_err_step_expected', { ch, i: this.i }));
   }
 
   /** Inteiro sem sinal (id de entidade, índice). */
@@ -145,7 +147,7 @@ class Reader {
       any = true;
       this.i++;
     }
-    if (!any) throw new Error(`esperava número em ${this.i}`);
+    if (!any) throw new Error(t(this.lang, 'io_err_step_number', { i: this.i }));
     return v;
   }
 
@@ -168,7 +170,7 @@ class Reader {
       break;
     }
     const v = Number(this.s.slice(start, this.i));
-    if (!Number.isFinite(v)) throw new Error(`número inválido em ${start}`);
+    if (!Number.isFinite(v)) throw new Error(t(this.lang, 'io_err_step_bad_number', { start }));
     return v;
   }
 
@@ -177,7 +179,7 @@ class Reader {
     this.expect("'");
     let out = '';
     for (;;) {
-      if (this.i >= this.s.length) throw new Error('texto STEP sem fim');
+      if (this.i >= this.s.length) throw new Error(t(this.lang, 'io_err_step_unterminated'));
       const c = this.s[this.i] ?? '';
       this.i++;
       if (c === "'") {
@@ -284,7 +286,7 @@ class Reader {
     const isNum = (c >= 48 && c <= 57) || c === 45 || c === 43 || c === 46;
     if (isNum) return { k: 'num', v: this.real() };
     const name = this.ident();
-    if (!name) throw new Error(`parâmetro desconhecido em ${this.i}`);
+    if (!name) throw new Error(t(this.lang, 'io_err_step_param', { i: this.i }));
     this.skip();
     if (this.code() === 40) {
       this.i++;
@@ -297,7 +299,7 @@ class Reader {
 }
 
 /** Lê o arquivo inteiro. Erro em uma entidade não derruba as outras: ela é contada em `broken`. */
-export function parseStep(text: string, onProgress?: (done: number, total: number) => void): StepFile {
+export function parseStep(text: string, onProgress?: (done: number, total: number) => void, lang: Lang = 'pt'): StepFile {
   const schema = schemaOf(text);
   const entities = new Map<number, StepEntity>();
   const types = new Map<string, StepEntity[]>();
@@ -306,7 +308,7 @@ export function parseStep(text: string, onProgress?: (done: number, total: numbe
   const data = /\bDATA\s*;/.exec(text);
   if (!data) return { schema, entities, types, broken: 0 };
   const fim = data.index + data[0].length;
-  const r = new Reader(text, fim);
+  const r = new Reader(text, fim, lang);
   const total = text.length - fim;
   let broken = 0;
   // Avisa a cada ~1 MB lido: a barra anda sem custar uma chamada por entidade.

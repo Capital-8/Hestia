@@ -15,7 +15,9 @@ import type { PointerInfo } from './types.ts';
 export class SlopeTool extends ToolBase {
   readonly id = 'slope';
   readonly label = 'Inclinação';
-  readonly hint = 'Inclinação: selecione uma laje. Clique na origem do caimento e depois na direção. Enter aplica o percentual da barra.';
+  override get hint(): string {
+    return this.t('tl_hint_slab_slope');
+  }
   private origin: Vec2 | null = null;
   private dirPt: Vec2 | null = null;
 
@@ -90,7 +92,7 @@ export class SlopeTool extends ToolBase {
   }
 
   override inputPrompt(): string | null {
-    return this.dirPt ? 'Percentual (%)' : null;
+    return this.dirPt ? this.t('tl_inp_percent') : null;
   }
 
   override type(text: string): boolean {
@@ -127,7 +129,7 @@ export class SlopeTool extends ToolBase {
     }
     this.env.exec({ type: 'updateElements', ids: [s.id], patch: { slope } });
     this.reset();
-    this.env.say(`Inclinação de ${fmtPercent(unitsOf(this.env.project()), percent)} definida. Ctrl+Z desfaz.`);
+    this.env.say(this.t('tl_msg_slope_set', { pct: fmtPercent(unitsOf(this.env.project()), percent) }));
     return true;
   }
 }

@@ -1,1 +1,8 @@
-# Allowlist do check-i18n: uma entrada por linha (caminho relativo, caminho:linha ou texto:trecho). Linhas com # são ignoradas.
+# Allowlist do check-i18n (uma entrada por linha).
+# Formatos aceitos:
+#   caminho/relativo/arquivo.tsx        -> ignora o arquivo inteiro
+#   caminho/arquivo.tsx:123             -> ignora a linha
+#   texto:Português                     -> ignora qualquer ocorrência que contenha o texto
+# Nomes de idioma aparecem no próprio idioma por decisão de produto.
+texto:Português
+texto:English

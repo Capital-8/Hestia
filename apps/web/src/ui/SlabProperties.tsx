@@ -3,6 +3,7 @@ import { quantifySlabs, slabRiseAt } from '@hestia/engine';
 import { FUNCTION_LABEL, slabArea, slabTypeThickness, type Id, type Project, type Slab } from '@hestia/model';
 import { ringPerimeter } from '@hestia/tools';
 import { editor, useProject } from '../editor/controller.ts';
+import { toolLabel, useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { Group, NumField, Row, TextField } from './fields.tsx';
 import { useFormat } from './useUnits.ts';
@@ -24,8 +25,8 @@ function patch(ids: Id[], p: Partial<Slab>): void {
 }
 
 /** Troca só o percentual, mantendo a origem e a direção de cada laje com inclinação. Um passo de desfazer. */
-function setPercent(slabs: Slab[], percent: number): void {
-  editor.store.transaction('Alterar inclinação', () => {
+function setPercent(slabs: Slab[], percent: number, label: string): void {
+  editor.store.transaction(label, () => {
     for (const s of slabs) if (s.slope) editor.store.exec({ type: 'updateElements', ids: [s.id], patch: { slope: { ...s.slope, percent } } });
   });
 }
@@ -51,6 +52,7 @@ export const topVariation = (s: Slab): number => {
 
 /** Propriedades de uma ou mais lajes selecionadas (tipo, deslocamento, inclinação, marca, áreas e camadas). */
 export function SlabProperties({ slabs }: { slabs: Slab[] }): ReactElement {
+  const { t, lang } = useT();
   const fmt = useFormat();
   const p = useProject();
   const ids = slabs.map((s) => s.id);
@@ -75,40 +77,40 @@ export function SlabProperties({ slabs }: { slabs: Slab[] }): ReactElement {
     <>
       <TypeSelector
         triggerId="prop-slabtype"
-        label="Tipo de laje"
-        categoryLabel={`Lajes (${slabs.length})`}
+        label={t('prd_prop_type_slab')}
+        categoryLabel={t('prd_cat_slabs', { n: slabs.length })}
         options={slabOptions(p)}
         selectedId={typeId.mixed ? null : typeId.value}
         editDisabled={typeId.mixed}
         onSelect={(id) => patch(ids, { typeId: id })}
         onEdit={() => useUi.setState({ dialog: 'slabType', dialogArg: typeId.value })}
       />
-      <Group title="Restrições">
+      <Group title={t('prd_pgrp_constraints')}>
         <LevelField ids={ids} />
-        <Row label="Desloc. do topo" htmlFor="p-soff">
+        <Row label={t('prd_fld_top_offset')} htmlFor="p-soff">
           <NumField id="p-soff" value={offset.value} mixed={offset.mixed} onCommit={(v) => patch(ids, { heightOffset: v })} quantity="length" />
         </Row>
       </Group>
-      <Group title="Inclinação">
-        <Row label="Caimento" htmlFor="p-slope">
-          <NumField id="p-slope" value={(percent.value ?? 0) / 100} mixed={percent.mixed} disabled={!hasSlope} onCommit={(v) => setPercent(slabs, v * 100)} quantity="slope" />
+      <Group title={t('prd_pgrp_slope')}>
+        <Row label={t('prd_fld_slope_percent')} htmlFor="p-slope">
+          <NumField id="p-slope" value={(percent.value ?? 0) / 100} mixed={percent.mixed} disabled={!hasSlope} onCommit={(v) => setPercent(slabs, v * 100, t('prd_undo_change_slope'))} quantity="slope" />
         </Row>
         {single?.slope ? (
           <>
-            <Row label="Variação do topo"><span className="val">{fmt('smallLength', topVariation(single))}</span></Row>
+            <Row label={t('prd_fld_top_variation')}><span className="val">{fmt('smallLength', topVariation(single))}</span></Row>
             <div className="row">
-              <button className="btn small danger" onClick={() => patch(ids, { slope: null })}>Remover inclinação</button>
+              <button className="btn small danger" onClick={() => patch(ids, { slope: null })}>{t('prd_btn_remove_slope')}</button>
             </div>
           </>
         ) : (
-          <div className="hint">{hasSlope ? 'Selecione uma laje para ver a variação do topo.' : 'Sem inclinação. Use Inclinação na faixa Arquitetura e clique na planta.'}</div>
+          <div className="hint">{hasSlope ? t('prd_msg_select_one_slab_variation') : t('prd_msg_no_slope_hint', { slope: toolLabel('slope', lang) })}</div>
         )}
       </Group>
       <OutlineGroup elements={slabs} />
-      <Group title="Construção" open={false}>
+      <Group title={t('prd_pgrp_construction')} open={false}>
         {type ? (
           <>
-            <Row label="Espessura total" readOnly fromType><span className="val">{fmt('smallLength', slabTypeThickness(type))}</span></Row>
+            <Row label={t('prd_fld_total_thickness')} readOnly fromType><span className="val">{fmt('smallLength', slabTypeThickness(type))}</span></Row>
             {type.layers.map((l, i) => (
               <div className="prow ro" key={i}>
                 <span className="lbl" title={FUNCTION_LABEL[l.function]}>{FUNCTION_LABEL[l.function]}</span>
@@ -117,28 +119,28 @@ export function SlabProperties({ slabs }: { slabs: Slab[] }): ReactElement {
             ))}
           </>
         ) : (
-          <div className="hint">Selecione lajes do mesmo tipo para ver as camadas.</div>
+          <div className="hint">{t('prd_msg_select_slabs_layers')}</div>
         )}
       </Group>
-      <Group title="Dimensões">
+      <Group title={t('prd_pgrp_dimensions')}>
         {single ? (
           <>
-            <Row label="Área em planta"><span className="val">{fmt('area', planOf(single))}</span></Row>
-            <Row label="Área real"><span className="val">{fmt('area', realArea(single, planOf(single)))}</span></Row>
-            <Row label="Perímetro"><span className="val">{fmt('length', ringPerimeter(single.boundary))}</span></Row>
-            <Row label="Furos"><span className="val">{single.holes.length}</span></Row>
+            <Row label={t('prd_fld_plan_area')}><span className="val">{fmt('area', planOf(single))}</span></Row>
+            <Row label={t('prd_fld_real_area')}><span className="val">{fmt('area', realArea(single, planOf(single)))}</span></Row>
+            <Row label={t('prd_fld_perimeter')}><span className="val">{fmt('length', ringPerimeter(single.boundary))}</span></Row>
+            <Row label={t('prd_fld_holes')}><span className="val">{single.holes.length}</span></Row>
           </>
         ) : (
           <>
-            <Row label="Área em planta"><span className="val">{fmt('area', planArea)}</span></Row>
-            <Row label="Área real"><span className="val">{fmt('area', trueArea)}</span></Row>
-            <Row label="Perímetro total"><span className="val">{fmt('length', perimeter)}</span></Row>
+            <Row label={t('prd_fld_plan_area')}><span className="val">{fmt('area', planArea)}</span></Row>
+            <Row label={t('prd_fld_real_area')}><span className="val">{fmt('area', trueArea)}</span></Row>
+            <Row label={t('prd_fld_perimeter_total')}><span className="val">{fmt('length', perimeter)}</span></Row>
           </>
         )}
       </Group>
-      <Group title="Dados de identidade" open={false}>
-        <Row label="Marca" htmlFor="p-smark"><TextField id="p-smark" value={mark.value} mixed={mark.mixed} onCommit={(v) => patch(ids, { mark: v })} /></Row>
-        <Row label="Comentários" htmlFor="p-scomm"><TextField id="p-scomm" value={comments.value} mixed={comments.mixed} onCommit={(v) => patch(ids, { comments: v })} /></Row>
+      <Group title={t('prd_pgrp_identity')} open={false}>
+        <Row label={t('prd_fld_mark')} htmlFor="p-smark"><TextField id="p-smark" value={mark.value} mixed={mark.mixed} onCommit={(v) => patch(ids, { mark: v })} /></Row>
+        <Row label={t('prd_fld_comments')} htmlFor="p-scomm"><TextField id="p-scomm" value={comments.value} mixed={comments.mixed} onCommit={(v) => patch(ids, { comments: v })} /></Row>
       </Group>
     </>
   );

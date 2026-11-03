@@ -12,11 +12,13 @@ import { SlabSectionPreview } from './SlabSectionPreview.tsx';
 import { LayerAdvanced } from './LayerAdvanced.tsx';
 import { MaterialsDialog } from './MaterialsDialog.tsx';
 import { useUnits } from '../useUnits.ts';
+import { useT } from '../../editor/i18n.ts';
 
 const FUNCTIONS = Object.keys(FUNCTION_LABEL) as LayerFunction[];
 /** Editor de tipo de forro: camadas do topo para baixo (editor de camadas adaptado do tipo de piso). */
 export function CeilingTypeDialog({ typeId }: { typeId: string }): ReactElement | null {
   const units = useUnits();
+  const { t } = useT();
   const p = useProject();
   const src = p.ceilingTypes[typeId];
   const [draft, setDraft] = useState<CeilingType | null>(src ? structuredClone(src) : null);
@@ -71,7 +73,7 @@ export function CeilingTypeDialog({ typeId }: { typeId: string }): ReactElement 
   const del = (): void => {
     const r = tryDeleteCeilingType(editor.store, draft.id);
     if (!r.ok) {
-      useUi.setState({ status: `Não foi possível excluir: ${r.error}` });
+      useUi.setState({ status: { key: 'dlt_err_delete_with_reason', args: { error: r.error } } });
       return;
     }
     const ui = useUi.getState();
@@ -83,33 +85,33 @@ export function CeilingTypeDialog({ typeId }: { typeId: string }): ReactElement 
   return (
     <>
       <Dialog
-        title="Propriedades do tipo de forro"
-        sub={`Forro · usada em ${usage} ${usage === 1 ? 'forro' : 'forros'}`}
+        title={t('dlt_ceiling_title')}
+        sub={t(usage === 1 ? 'dlt_ceiling_sub_one' : 'dlt_ceiling_sub_many', { n: usage })}
         onClose={close}
         size="mid"
         footer={
           <>
-            <button className="btn danger" disabled={blocked !== null} title={blocked ?? 'Excluir tipo'} onClick={del}>Excluir</button>
+            <button className="btn danger" disabled={blocked !== null} title={blocked ?? t('dlt_tt_delete_type')} onClick={del}>{t('stt_delete')}</button>
             <span style={{ flex: 1 }} />
-            <button className="btn" onClick={close}>Cancelar</button>
-            <button className="btn" onClick={apply} disabled={error !== null}>Aplicar</button>
-            <button className="btn primary" onClick={ok} disabled={error !== null} title={error ?? undefined}>OK</button>
+            <button className="btn" onClick={close}>{t('stt_cancel')}</button>
+            <button className="btn" onClick={apply} disabled={error !== null}>{t('stt_apply')}</button>
+            <button className="btn primary" onClick={ok} disabled={error !== null} title={error ?? undefined}>{t('stt_ok')}</button>
           </>
         }
       >
         <TypeDialogHeader family={FAMILY.ceiling} types={Object.values(p.ceilingTypes)} currentId={draft.id} nameFieldId="lt-name" onDuplicate={duplicate} />
         <div className="field-row">
-          <label htmlFor="lt-name">Nome do tipo</label>
+          <label htmlFor="lt-name">{t('stt_f_name')}</label>
           <TextField id="lt-name" value={draft.name} onCommit={(v) => setDraft({ ...draft, name: v })} />
         </div>
         <div className="split">
           <div style={{ minWidth: 0 }}>
             <table className="layers layers-cards cols-5">
               <thead>
-                <tr><th>#</th><th>Função</th><th>Material</th><th>Esp. (cm)</th><th /></tr>
+                <tr><th>#</th><th>{t('dlt_col_function')}</th><th>{t('dlt_col_material')}</th><th>{t('dlt_col_thickness_cm')}</th><th /></tr>
               </thead>
               <tbody>
-                <tr><td colSpan={5} style={{ color: 'var(--fg-faint)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Topo da forro</td></tr>
+                <tr><td colSpan={5} style={{ color: 'var(--fg-faint)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('dlt_ceiling_top')}</td></tr>
                 {draft.layers.map((l, i) => {
                   const m = p.materials[l.materialId];
                   return (
@@ -117,12 +119,12 @@ export function CeilingTypeDialog({ typeId }: { typeId: string }): ReactElement 
                       <tr>
                         <td className="mono">{i + 1}</td>
                         <td>
-                          <select className="select" aria-label={`Função da camada ${i + 1}`} value={l.function} onChange={(e) => setLayer(i, { function: e.target.value as LayerFunction })}>
+                          <select className="select" aria-label={t('dlt_a11y_layer_function', { n: i + 1 })} value={l.function} onChange={(e) => setLayer(i, { function: e.target.value as LayerFunction })}>
                             {FUNCTIONS.map((f) => <option key={f} value={f}>{FUNCTION_LABEL[f]}</option>)}
                           </select>
                         </td>
                         <td>
-                          <button className="btn small" style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => setPick(i)} title="Escolher material">
+                          <button className="btn small" style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => setPick(i)} title={t('dlt_tt_pick_material')}>
                             <span className="swatch" style={{ background: m?.color }} />
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m?.name ?? '—'}</span>
                           </button>
@@ -130,10 +132,10 @@ export function CeilingTypeDialog({ typeId }: { typeId: string }): ReactElement 
                         <td><NumField value={l.thickness} quantity="smallLength" min={l.function === 'membrane' ? 0 : 0.001} onCommit={(v) => setLayer(i, { thickness: v })} /></td>
                         <td>
                           <span className="iconrow">
-                            <button id={`lt-layer-${i}-more`} className={`ibtn more${adv === i ? ' open' : ''}${l.priority !== undefined ? ' changed' : ''}`} aria-expanded={adv === i} aria-controls={adv === i ? `lt-layer-${i}-adv` : undefined} aria-label={`Opções avançadas da camada ${i + 1}`} title="Mais" onClick={() => setAdv(adv === i ? null : i)}><Icon name="chevron" size={14} /></button>
-                            <button className="ibtn" onClick={() => move(i, -1)} aria-label="Subir camada" disabled={i === 0}><Icon name="up" size={14} /></button>
-                            <button className="ibtn" onClick={() => move(i, 1)} aria-label="Descer camada" disabled={i === draft.layers.length - 1}><Icon name="down" size={14} /></button>
-                            <button className="ibtn" onClick={() => remove(i)} aria-label="Remover camada" disabled={draft.layers.length <= 1}><Icon name="close" size={14} /></button>
+                            <button id={`lt-layer-${i}-more`} className={`ibtn more${adv === i ? ' open' : ''}${l.priority !== undefined ? ' changed' : ''}`} aria-expanded={adv === i} aria-controls={adv === i ? `lt-layer-${i}-adv` : undefined} aria-label={t('dlt_a11y_layer_options', { n: i + 1 })} title={t('dlt_btn_more')} onClick={() => setAdv(adv === i ? null : i)}><Icon name="chevron" size={14} /></button>
+                            <button className="ibtn" onClick={() => move(i, -1)} aria-label={t('dlt_a11y_move_up')} disabled={i === 0}><Icon name="up" size={14} /></button>
+                            <button className="ibtn" onClick={() => move(i, 1)} aria-label={t('dlt_a11y_move_down')} disabled={i === draft.layers.length - 1}><Icon name="down" size={14} /></button>
+                            <button className="ibtn" onClick={() => remove(i)} aria-label={t('dlt_a11y_remove_layer')} disabled={draft.layers.length <= 1}><Icon name="close" size={14} /></button>
                           </span>
                         </td>
                       </tr>
@@ -147,21 +149,21 @@ export function CeilingTypeDialog({ typeId }: { typeId: string }): ReactElement 
                     </Fragment>
                   );
                 })}
-                <tr><td colSpan={5} style={{ color: 'var(--fg-faint)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Face inferior</td></tr>
+                <tr><td colSpan={5} style={{ color: 'var(--fg-faint)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('dlt_col_face')}</td></tr>
               </tbody>
             </table>
-            <div className="total"><span>Espessura total</span><strong>{formatQuantity(units, 'smallLength', ceilingTypeThickness(draft))}</strong></div>
-            <button className="btn small" onClick={insert}>+ Inserir camada</button>
+            <div className="total"><span>{t('dlt_total_thickness')}</span><strong>{formatQuantity(units, 'smallLength', ceilingTypeThickness(draft))}</strong></div>
+            <button className="btn small" onClick={insert}>{t('dlt_add_layer')}</button>
             {error && <p className="hint" role="alert" style={{ color: 'var(--danger, #b42318)', marginTop: 8 }}>{error}</p>}
           </div>
           <div>
             <SlabSectionPreview type={draft} materials={p.materials} />
-            <p className="hint" style={{ padding: '8px 2px' }}>A primeira camada é a de cima. O topo da forro fica na cota do nível mais o deslocamento da instância. A inclinação é definida na planta.</p>
+            <p className="hint" style={{ padding: '8px 2px' }}>{t('dlt_ceiling_help')}</p>
           </div>
         </div>
-        <div className="field-row"><label htmlFor="lt-code">Código</label><TextField id="lt-code" value={draft.code} onCommit={(v) => setDraft({ ...draft, code: v })} /></div>
-        <div className="field-row"><label htmlFor="lt-desc">Descrição</label><TextField id="lt-desc" value={draft.description} onCommit={(v) => setDraft({ ...draft, description: v })} /></div>
-        <div className="field-row"><label htmlFor="lt-cost" title="Custo informativo do tipo por área">Custo por área</label><NumField id="lt-cost" value={draft.cost} quantity="currency" min={0} onCommit={(v) => setDraft({ ...draft, cost: v })} /></div>
+        <div className="field-row"><label htmlFor="lt-code">{t('dlt_col_code')}</label><TextField id="lt-code" value={draft.code} onCommit={(v) => setDraft({ ...draft, code: v })} /></div>
+        <div className="field-row"><label htmlFor="lt-desc">{t('stt_f_description')}</label><TextField id="lt-desc" value={draft.description} onCommit={(v) => setDraft({ ...draft, description: v })} /></div>
+        <div className="field-row"><label htmlFor="lt-cost" title={t('dlt_tt_cost_per_area')}>{t('dlt_cost_per_area')}</label><NumField id="lt-cost" value={draft.cost} quantity="currency" min={0} onCommit={(v) => setDraft({ ...draft, cost: v })} /></div>
       </Dialog>
       {pick !== null && picked && (
         <MaterialsDialog

@@ -56,7 +56,7 @@ export function commitRingEdit(env: ToolEnv, ref: RingRef, ring: Vec2[]): boolea
     commitCeilingBoundary(env, ref.elementId, ring);
     return true;
   }
-  if (isRoof(e)) return commitRoofPatch(env, [ref.elementId], roofRingPatch(e, ring, null));
+  if (isRoof(e)) return commitRoofPatch(env, [ref.elementId], roofRingPatch(e, ring, null), env.lang?.() ?? 'pt');
   return false;
 }
 

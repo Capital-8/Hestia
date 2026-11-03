@@ -13,6 +13,7 @@ import { selectedSlabs } from './slabPick.ts';
 import { selectedRoofs } from './roofPick.ts';
 import { selectedRooms } from './roomPick.ts';
 import type { PreviewItem, ToolEnv } from './types.ts';
+import { langOf, t as translate } from './i18n.ts';
 
 /** Paredes dentro da seleção (aberturas selecionadas acompanham o anfitrião). */
 export const selectedWalls = (p: Project, ids: Id[]): Id[] => ids.filter((id) => isWall(p.elements[id]));
@@ -42,7 +43,7 @@ export function transformViews(env: ToolEnv, ids: Id[], t: Transform, copy = fal
   const cmds = viewTransformCommands(env.project(), ids, t, copy);
   if (!cmds.length) return [];
   const created = cmds.flatMap((c) => (c.type === 'addView' ? [c.view.id] : []));
-  env.transaction(copy ? 'Copiar vista' : 'Mover vista', () => {
+  env.transaction(translate(langOf(env), copy ? 'tl_undo_copy_view' : 'tl_undo_move_view'), () => {
     for (const c of cmds) env.exec(c);
   });
   return created;
@@ -176,15 +177,15 @@ export function transformWalls(env: ToolEnv, wallIds: Id[], t: Transform, label:
   const plan = follow ? planWallFollowers(p, env.levelId(), wallIds, t, invert) : null;
   const commands: Command[] = [{ type: 'transform', ids: wallIds, transform: t }, ...(plan ? followerCommands(plan) : [])];
   const result = execWithHostedLoss(env, label, commands);
-  if (plan?.released.size) env.say(`${label}: uma parede ligada ficaria com comprimento zero; a ponta foi solta em vez de esticá-la.`);
-  else if (result.status === 'cancelled') env.say('Nada foi alterado.');
-  else if (result.status === 'pending') env.say('Confirme o diálogo para aplicar.');
+  if (plan?.released.size) env.say(translate(langOf(env), 'tl_msg_wall_zero_released', { label }));
+  else if (result.status === 'cancelled') env.say(translate(langOf(env), 'tl_msg_nothing_changed'));
+  else if (result.status === 'pending') env.say(translate(langOf(env), 'tl_msg_confirm_dialog'));
 }
 
 /** Desliza aberturas ao longo da parede anfitriã. */
 export function slideOpenings(env: ToolEnv, openingIds: Id[], d: Vec2): void {
   const p = env.project();
-  env.transaction('Mover abertura', () => {
+  env.transaction(translate(langOf(env), 'tl_undo_move_opening'), () => {
     for (const id of openingIds) {
       const o = p.elements[id];
       if (!isOpening(o)) continue;

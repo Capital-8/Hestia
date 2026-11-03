@@ -1,0 +1,80 @@
+arquivo,linha,texto,tipo,severidade,chave,en,nota
+apps/web/src/ui/browser/Views.tsx,239,Tabela de ambientes,JSX label,P1,sched_title_room,Room Schedule,"árvore que abre os quadros não importa useI18n; o diálogo abre em EN e a lista fica em PT"
+apps/web/src/ui/browser/Views.tsx,240,Tabela de escadas,JSX label,P1,sched_title_stair,Stair Schedule,mesmo array `rows` (238-248) todo em PT
+apps/web/src/ui/browser/Views.tsx,241,Tabela de rampas,JSX label,P1,sched_title_ramp,Ramp Schedule,idem
+apps/web/src/ui/browser/Views.tsx,242,Tabela de forros,JSX label,P1,sched_title_ceiling,Ceiling Schedule,idem
+apps/web/src/ui/browser/Views.tsx,243,Tabela de lajes,JSX label,P1,sched_title_slab,Slab Schedule,idem
+apps/web/src/ui/browser/Views.tsx,244,Tabela de paredes,JSX label,P1,sched_title_wall,Wall Schedule,"idem; dialog interno é `schedule`"
+apps/web/src/ui/browser/Views.tsx,245,Tabela de pisos,JSX label,P1,sched_title_floor,Floor Schedule,idem
+apps/web/src/ui/browser/Views.tsx,246,Tabela de portas e janelas,JSX label,P1,sched_title_opening,Door and Window Schedule,idem
+apps/web/src/ui/browser/Views.tsx,247,Tabela de telhados,JSX label,P1,sched_title_roof,Roof Schedule,idem
+apps/web/src/ui/browser/Views.tsx,250,Tabelas/Quantidades (todas),JSX label,P1,schedules,Schedules / Quantities,"a chave já existe em i18n.ts:115 com outro texto; aqui está fixo e diverge do dicionário"
+apps/web/src/ui/browser/Views.tsx,253,${r.n} elemento${r.n === 1 ? '' : 's'}. Duplo clique abre.,template de texto,P1,browser_sched_count,{n} element(s). Double-click to open.,"pluralização por sufixo ""s"" e frase PT no title do nó"
+apps/web/src/ui/browser/Views.tsx,253,Abrir,menu de contexto,P2,btn_open,Open,"chave já existe (i18n.ts:122); compartilhado com outras árvores"
+apps/web/src/ui/dialogs/Dialog.tsx,93,Fechar,atributo aria-label,P1,stt_close,Close,"botão ✕ de todos os 9 quadros; não existe `btn_close` genérico — `stt_close` (i18n.ts:291) é o texto idêntico disponível"
+apps/web/src/editor/saveText.ts,11,Salvo como ${filename}.,status/toast,P1,export_saved,Saved as {file}.,"mensagem exibida no rodapé da tabela e na barra de status; linhas 12, 13, 16 e 18 também são PT fixo"
+apps/web/src/ui/dialogs/WallScheduleDialog.tsx,84,'projeto',nome de arquivo,P2,csv_default_project,project,"fallback do nome; linha 85 monta `${base}-paredes.csv` (sufixo PT)"
+apps/web/src/ui/dialogs/FloorScheduleDialog.tsx,81,'projeto',nome de arquivo,P2,csv_default_project,project,linha 82: `${base}-pisos.csv`
+apps/web/src/ui/dialogs/SlabScheduleDialog.tsx,85,'projeto',nome de arquivo,P2,csv_default_project,project,linha 86: `${base}-lajes.csv`
+apps/web/src/ui/dialogs/CeilingScheduleDialog.tsx,83,'projeto',nome de arquivo,P2,csv_default_project,project,linha 84: `${base}-forros.csv`
+apps/web/src/ui/dialogs/RoofScheduleDialog.tsx,92,'projeto',nome de arquivo,P2,csv_default_project,project,linha 93: `${base}-telhados.csv`
+apps/web/src/ui/dialogs/StairScheduleDialog.tsx,84,'projeto',nome de arquivo,P2,csv_default_project,project,linha 85: `${base}-escadas.csv`
+apps/web/src/ui/dialogs/RampScheduleDialog.tsx,85,'projeto',nome de arquivo,P2,csv_default_project,project,linha 86: `${base}-rampas.csv`
+apps/web/src/ui/dialogs/RoomScheduleDialog.tsx,77,'projeto',nome de arquivo,P2,csv_default_project,project,linha 78: `${base}-ambientes.csv`
+apps/web/src/ui/dialogs/OpeningScheduleDialog.tsx,91,'projeto',nome de arquivo,P2,csv_default_project,project,linha 92: `${base}-portas-e-janelas.csv`
+apps/web/src/ui/dialogs/WallScheduleDialog.tsx,93,${visible.length} ${t.sched_of} ${schedule.rows.length} ${t.sched_noun_wall},pluralização,P2,sched_sub_count,{shown} of {total} walls,"usa sempre o plural: com 1 linha sai ""1 de 1 paredes"" / ""1 of 1 walls"""
+apps/web/src/ui/dialogs/FloorScheduleDialog.tsx,90,${visible.length} ${t.sched_of} ${schedule.rows.length} ${t.sched_noun_floor},pluralização,P2,sched_sub_count,{shown} of {total} floors,mesmo padrão
+apps/web/src/ui/dialogs/SlabScheduleDialog.tsx,94,${visible.length} ${t.sched_of} ${schedule.rows.length} ${t.sched_noun_slab},pluralização,P2,sched_sub_count,{shown} of {total} slabs,mesmo padrão
+apps/web/src/ui/dialogs/CeilingScheduleDialog.tsx,92,${visible.length} ${t.sched_of} ${schedule.rows.length} ${t.sched_noun_ceiling},pluralização,P2,sched_sub_count,{shown} of {total} ceilings,mesmo padrão
+apps/web/src/ui/dialogs/RoofScheduleDialog.tsx,101,${visible.length} ${t.sched_of} ${schedule.rows.length} ${t.sched_noun_roof},pluralização,P2,sched_sub_count,{shown} of {total} roofs,mesmo padrão
+apps/web/src/ui/dialogs/StairScheduleDialog.tsx,93,${visible.length} ${t.sched_of} ${schedule.rows.length} ${t.sched_noun_stair},pluralização,P2,sched_sub_count,{shown} of {total} stairs,mesmo padrão
+apps/web/src/ui/dialogs/RampScheduleDialog.tsx,94,${visible.length} ${t.sched_of} ${schedule.rows.length} ${t.sched_noun_ramp},pluralização,P2,sched_sub_count,{shown} of {total} ramps,mesmo padrão
+apps/web/src/ui/dialogs/RoomScheduleDialog.tsx,86,${visible.length} ${t.sched_of} ${schedule.rows.length} ${t.sched_noun_room},pluralização,P2,sched_sub_count,{shown} of {total} rooms,mesmo padrão
+apps/web/src/ui/dialogs/OpeningScheduleDialog.tsx,100,${visible.length} ${t.sched_of} ${schedule.rows.length} ${t.sched_noun_opening},pluralização,P2,sched_sub_count,{shown} of {total} types,mesmo padrão
+apps/web/src/ui/dialogs/WallScheduleDialog.tsx,46,"localeCompare(String(y), 'pt-BR', { numeric: true })",ordenação/locale,P2,—,—,"ordem alfabética de marcas/tipos/níveis fixa em pt-BR; o sort de tipos em :68 repete"
+apps/web/src/ui/dialogs/FloorScheduleDialog.tsx,43,"localeCompare(String(y), 'pt-BR', { numeric: true })",ordenação/locale,P2,—,—,sort de tipos em :65 repete
+apps/web/src/ui/dialogs/SlabScheduleDialog.tsx,47,"localeCompare(String(y), 'pt-BR', { numeric: true })",ordenação/locale,P2,—,—,sort de tipos em :69 repete
+apps/web/src/ui/dialogs/CeilingScheduleDialog.tsx,45,"localeCompare(String(y), 'pt-BR', { numeric: true })",ordenação/locale,P2,—,—,sort de tipos em :67 repete
+apps/web/src/ui/dialogs/RoofScheduleDialog.tsx,47,"localeCompare(String(y ?? ''), 'pt-BR', { numeric: true })",ordenação/locale,P2,—,—,sort de tipos em :76 repete
+apps/web/src/ui/dialogs/StairScheduleDialog.tsx,45,"localeCompare(String(y ?? ''), 'pt-BR', { numeric: true })",ordenação/locale,P2,—,—,sort de tipos em :68 repete
+apps/web/src/ui/dialogs/RampScheduleDialog.tsx,45,"localeCompare(String(y ?? ''), 'pt-BR', { numeric: true })",ordenação/locale,P2,—,—,sort de tipos em :69 repete
+apps/web/src/ui/dialogs/RoomScheduleDialog.tsx,45,"localeCompare(String(y), 'pt-BR', { numeric: true })",ordenação/locale,P2,—,—,mesmo padrão
+apps/web/src/ui/dialogs/OpeningScheduleDialog.tsx,55,"localeCompare(String(y ?? ''), 'pt-BR', { numeric: true })",ordenação/locale,P2,—,—,"mesmo padrão; o engine também ordena com pt-BR em openingSchedule.ts:210-212"
+packages/engine/src/schedule.ts,118,Marca,cabeçalho CSV,P1,col_mark,Mark,"array csvHeader (118-129) inteiro em PT; ""Área de vãos"" (:125) diverge de col_openings_area (""Vãos"")"
+packages/engine/src/floorSchedule.ts,97,Marca,cabeçalho CSV,P1,col_mark,Mark,csvHeader (96-106) inteiro em PT
+packages/engine/src/slabSchedule.ts,94,Marca,cabeçalho CSV,P1,col_mark,Mark,"csvHeader (93-105) em PT; ordem do CSV põe Inclinação depois de Volume, diferente da tabela"
+packages/engine/src/ceilingSchedule.ts,90,Marca,cabeçalho CSV,P1,col_mark,Mark,csvHeader (89-101) inteiro em PT
+packages/engine/src/openingSchedule.ts,296,Código,cabeçalho CSV,P1,col_code,Code,csvHeader (295-317) inteiro em PT
+packages/engine/src/openingSchedule.ts,332,r.kind === 'door' ? 'Porta' : 'Janela',célula CSV,P1,sched_kind_door,Door,"a coluna Categoria do CSV sai sempre PT; na tela ela é traduzida em OpeningScheduleDialog.tsx:144"
+packages/engine/src/openingSchedule.ts,319,Composição,cabeçalho CSV,P2,col_composition,Composition,coluna extra do CSV sem chave em i18nTabelas
+packages/engine/src/openingSchedule.ts,110,"${o.flipHand ? 'dobradiça invertida' : 'dobradiça padrão'}, abre à ${o.flipFacing ? 'direita' : 'esquerda'} de a→b",valor de célula,P1,sched_sense_*,"inverted hinge, opens left/right of a→b",coluna Sentido: frase inteira gerada em PT no engine e exibida na tabela em EN
+packages/engine/src/openingSchedule.ts,119,maçaneta a ${...},valor de célula,P1,sched_hw_handle,handle at {h},"coluna Ferragens: linhas 121 ""dobradiça/dobradiças"", 122 ""folga inferior"" e 124 ""soleira"" também são PT; valores usam formatQuantity (decimal do projeto)"
+packages/engine/src/openingSchedule.ts,190,janela ${...} módulos (${...}),valor de célula,P2,sched_composition,window {n} modules (...),"compositionSummary (185-202) monta ""porta + 2 laterais + bandeira superior"" em PT; vai só para o CSV, mas sem chave"
+packages/engine/src/roofSchedule.ts,121,Marca,cabeçalho CSV,P1,col_mark,Mark,csvHeader (120-134) inteiro em PT
+packages/engine/src/roofSchedule.ts,147,r.shapeLabel,célula CSV,P1,roof_shape_*,Shed,"shapeLabel vem de ROOF_SHAPE_LABEL (PT); na tela RoofScheduleDialog.tsx:66 traduz, no CSV não"
+packages/engine/src/roofSchedule.ts,132,Empena,cabeçalho CSV,P2,col_gable,Gable,"linha 133 ""Arestas com inclinação"" (col_sloped_edges) também não tem chave; nenhuma das duas colunas existe na tabela do diálogo"
+packages/engine/src/stairSchedule.ts,99,Marca,cabeçalho CSV,P1,col_mark,Mark,csvHeader (98-110) inteiro em PT
+packages/engine/src/rampSchedule.ts,96,Marca,cabeçalho CSV,P1,col_mark,Mark,CSV_HEADER (96-109) inteiro em PT
+packages/engine/src/rampSchedule.ts,104,Desnível (m),cabeçalho CSV,P2,col_rise,Rise (m),"unidade fixa ""(m)"" em 104-106 e ""m²""/""m³"" em 107-108; rampScheduleToCsv nem recebe units"
+packages/engine/src/roomSchedule.ts,111,Número,cabeçalho CSV,P1,col_number,Number,csvHeader (110-121) inteiro em PT
+packages/engine/src/csv.ts,9,"cells.join(';')",formatação,P2,—,—,"separador "";"" e decimal "","" (linha 14) fixos: CSV em EN continua no formato pt-BR"
+packages/engine/src/roofSchedule.ts,7,Uma água,constante de módulo,P2,roof_shape_*,Shed,"ROOF_SHAPE_LABEL (7-14) é constante PT usada no CSV e na ordenação; não há versão EN"
+apps/web/src/editor/i18nTabelas.ts,86,Camadas (cm),unidade fixa,P2,col_layers,Layers,"a coluna não passa por scheduleHeader; o ""(cm)"" fixo mente em projeto imperial/mm; EN em :226 repete"
+apps/web/src/editor/i18nTabelas.ts,103,Desnível (m),unidade fixa,P2,col_rise,Rise,"EN em :243; usado só na Rampa, que não converte unidades — o símbolo deve vir do formatador"
+apps/web/src/editor/i18nTabelas.ts,104,Comprimento (m),unidade fixa,P2,col_path_length,Length,"EN em :244; mesma unidade fixa"
+apps/web/src/editor/i18nTabelas.ts,105,Altura do espelho (m),unidade fixa,P2,col_riser_height,Riser height,"EN em :245; na Escada recebe scheduleHeader e vira ""(m) (m)"" — tirar ""(m)"" da chave"
+apps/web/src/editor/i18nTabelas.ts,106,Piso médio (m),unidade fixa,P2,col_tread,Average tread,"EN em :246; mesmo problema de unidade duplicada"
+apps/web/src/editor/i18nTabelas.ts,25,tipos,dicionário (chave),P2,sched_noun_opening,types,"serve ao subtítulo (linhas = tipos) e ao rodapé (instâncias): com 12 portas o rodapé diz ""12 tipos"""
+apps/web/src/editor/i18n.ts,115,Tabelas / Quantitativos,chave não usada,P2,schedules,Schedules / Quantities,"nenhum componente usa t.schedules; Views.tsx:250 tem ""Tabelas/Quantidades (todas)"" fixo"
+apps/web/src/ui/dialogs/StairScheduleDialog.tsx,30,labelKey: 'col_riser_height',coluna da tabela,P1,col_riser_height,Riser height,"label já traz ""(m)"" e scheduleHeader (:129) acrescenta "" (m)"" → cabeçalho ""Altura do espelho (m) (m)"""
+apps/web/src/ui/dialogs/StairScheduleDialog.tsx,31,labelKey: 'col_tread',coluna da tabela,P1,col_tread,Average tread,"mesmo defeito → ""Piso médio (m) (m)"""
+apps/web/src/ui/dialogs/RampScheduleDialog.tsx,25,"labelKey: 'col_slope', decimals: 2",coluna da tabela,P2,col_slope,Slope,"sem `quantity`: cabeçalho fica ""Inclinação"" sem (%) embora o valor seja percentual (:54)"
+apps/web/src/ui/dialogs/RampScheduleDialog.tsx,29,"labelKey: 'col_plan_area', decimals: 2",coluna da tabela,P1,col_plan_area,Plan area,"COLS (18-31) não têm `quantity` e o diálogo não usa useUnits: valores SI crus, sem conversão nem símbolo; único quadro assim"
+apps/web/src/ui/dialogs/RampScheduleDialog.tsx,86,"rampScheduleToCsv(visible, totals)",exportação CSV,P1,—,—,"não passa units; o CSV sai sempre em m/m²/m³"
+apps/web/src/ui/dialogs/RampScheduleDialog.tsx,152,m²,unidade fixa,P2,—,—,"rodapé hardcoded; ignora unidades do projeto"
+apps/web/src/ui/dialogs/RampScheduleDialog.tsx,153,m³,unidade fixa,P2,—,—,idem
+apps/web/src/ui/dialogs/RampScheduleDialog.tsx,40,"toLocaleString(lang === 'en' ? 'en-US' : 'pt-BR', ...)",formatação de número,P2,—,—,"Rampa segue o idioma; os outros 8 quadros seguem units.decimalSymbol (vírgula por padrão) → em EN coexistem 1.23 e 1,23"
+apps/web/src/ui/dialogs/RoofScheduleDialog.tsx,47,String(y ?? '').localeCompare(...),ordenação/locale,P2,—,—,"coluna Forma ordena por `shapeLabel`, que é o rótulo PT do engine, mesmo com a célula exibida em EN"
+apps/web/src/ui/dialogs/RoofScheduleDialog.tsx,30,labelKey: 'col_shape',coluna da tabela,P2,col_gable,Gable,"tabela tem 11 colunas; o CSV exporta 13 (Empena e Arestas com inclinação) — paridade tabela/CSV quebrada"
+apps/web/src/ui/dialogs/RoomScheduleDialog.tsx,107,"t.sched_empty_room.replace(' (Z)', sufixoAtalho('room'))",template de texto,P2,sched_empty_room,There are no rooms...,"depende do literal "" (Z)"" dentro da tradução; quebra se o texto mudar"
+apps/web/src/ui/dialogs/WallScheduleDialog.tsx,64,useState(''),status/toast,P2,—,—,msg guarda a frase já gerada: depois de trocar de idioma o status antigo continua em PT (vale para os 9 quadros)

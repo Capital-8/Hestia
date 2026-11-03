@@ -1,6 +1,7 @@
 import type { Vec2 } from '@hestia/geom';
-import { OPENING_DIM_REF_LABELS, WALL_DIM_REF_LABELS, dimensionGeometry, isWallDimRef, type Command, type FormatOptions, type OpeningDimRef, type Quantity, type WallDimRef } from '@hestia/model';
+import { dimensionGeometry, isWallDimRef, openingDimRefLabels, wallDimRefLabels, type Command, type FormatOptions, type OpeningDimRef, type Quantity, type WallDimRef } from '@hestia/model';
 import { dimElementRefLabel, type DimEnd, type DimRef, type TempDim } from '@hestia/tools';
+import { t, type Lang } from '../../editor/i18n.ts';
 
 /** Formata uma grandeza em SI na unidade do projeto (o mesmo `useFormat()` do overlay). */
 export type DimFormatter = (q: Quantity, si: number, o?: FormatOptions) => string;
@@ -43,8 +44,8 @@ export function nextRef(options: ReadonlyArray<DimRef>, current: DimRef): DimRef
 }
 
 /** Nome por extenso da referência, para a dica da alça. */
-export function refLabel(ref: DimRef): string {
-  return isWallDimRef(ref) ? WALL_DIM_REF_LABELS[ref as WallDimRef] : OPENING_DIM_REF_LABELS[ref as OpeningDimRef];
+export function refLabel(ref: DimRef, lang: Lang = 'pt'): string {
+  return isWallDimRef(ref) ? wallDimRefLabels(lang)[ref as WallDimRef] : openingDimRefLabels(lang)[ref as OpeningDimRef];
 }
 
 /**
@@ -76,7 +77,7 @@ export function dimText(dim: TempDim, format: DimFormatter): string {
   return `${main} · ${format(dim.secondary.quantity, dim.secondary.value, { trim: true })}`;
 }
 
-export function gripOf(dim: TempDim, end: DimEnd, toScreen: (p: Vec2) => Vec2): GripView {
+export function gripOf(dim: TempDim, end: DimEnd, toScreen: (p: Vec2) => Vec2, lang: Lang = 'pt'): GripView {
   const alt = end.alt;
   if (alt) {
     const n = alt.options.length;
@@ -87,7 +88,7 @@ export function gripOf(dim: TempDim, end: DimEnd, toScreen: (p: Vec2) => Vec2): 
       at: toScreen(end.at),
       onAlternate: () => alt.apply(next),
       pickable: true,
-      title: `Referência: ${dimElementRefLabel(alt.options[alt.current]!)} (clique para alternar; Shift+clique para escolher outro elemento)`,
+      title: t(lang, 'cvv_dim_grip_alt', { label: dimElementRefLabel(alt.options[alt.current]!, lang) }),
     };
   }
   return {
@@ -96,12 +97,12 @@ export function gripOf(dim: TempDim, end: DimEnd, toScreen: (p: Vec2) => Vec2): 
     at: toScreen(end.at),
     current: end.current,
     next: nextRef(end.options, end.current),
-    title: `Referência: ${refLabel(end.current)} (clique para alternar)`,
+    title: t(lang, 'cvv_dim_grip', { label: refLabel(end.current, lang) }),
   };
 }
 
 /** Geometria de tela de uma cota dinâmica; `invalidKey` destaca em vermelho a cota recusada. */
-export function viewOfDim(dim: TempDim, toScreen: (p: Vec2) => Vec2, metersPerPixel: number, invalidKey: string | null): DimView {
+export function viewOfDim(dim: TempDim, toScreen: (p: Vec2) => Vec2, metersPerPixel: number, invalidKey: string | null, lang: Lang = 'pt'): DimView {
   const g = dimensionGeometry(dim.a, dim.b, dim.offset, metersPerPixel * PX_PER_MM);
   const seg = ([a, b]: [Vec2, Vec2]): [Vec2, Vec2] => [toScreen(a), toScreen(b)];
   return {
@@ -114,6 +115,6 @@ export function viewOfDim(dim: TempDim, toScreen: (p: Vec2) => Vec2, metersPerPi
     editable: dimAcionavel(dim),
     invalid: dim.tone === 'invalid' || invalidKey === dim.key,
     // Ponta com uma só referência não tem o que alternar: sem alça (ela só cobriria as alças de vértice do elemento).
-    grips: dim.ends.filter((e) => e.options.length >= 2 || (e.alt?.options.length ?? 0) >= 2).map((e) => gripOf(dim, e, toScreen)),
+    grips: dim.ends.filter((e) => e.options.length >= 2 || (e.alt?.options.length ?? 0) >= 2).map((e) => gripOf(dim, e, toScreen, lang)),
   };
 }

@@ -2,12 +2,15 @@ import type { Vec2 } from '@hestia/geom';
 import { ceilingOutline } from '@hestia/engine';
 import { followsRoom, isCeiling, isFloor, isSlab, type Id } from '@hestia/model';
 import type { ToolEnv } from './types.ts';
+import { t as translate, type Lang } from './i18n.ts';
 
 /** Mensagem da barra de status quando a edição de um contorno travado nas paredes é recusada (decisão 0031, Revit: linha travada). */
-export const OUTLINE_LOCKED_MSG = 'Contorno travado nas paredes. Use Desvincular nas propriedades para editar.';
+export const outlineLockedMsg = (lang: Lang = 'pt'): string => translate(lang, 'tl_msg_outline_locked');
+export const OUTLINE_LOCKED_MSG = outlineLockedMsg();
 
 /** Mensagem da barra de status quando a edição de um forro que acompanha o ambiente o solta (decisão 0023 §13, P-5). */
-export const CEILING_DETACHED_MSG = 'O forro deixou de acompanhar o ambiente (solto). Use Revincular ao ambiente nas propriedades.';
+export const ceilingDetachedMsg = (lang: Lang = 'pt'): string => translate(lang, 'tl_msg_ceiling_detached');
+export const CEILING_DETACHED_MSG = ceilingDetachedMsg();
 
 /**
  * Grava um contorno editado de piso ou laje. Contorno vinculado às paredes fica TRAVADO (decisão 0031, Revit: a aresta

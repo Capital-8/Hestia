@@ -1,4 +1,5 @@
 import { importIfc, type IfcImportProgress, type ImportReport } from '@hestia/io';
+import type { Lang } from './i18n.ts';
 import { empacotarProjetoIfc, type ProjetoIfcEmpacotado } from './ifcMalha.ts';
 
 /**
@@ -14,6 +15,7 @@ import { empacotarProjetoIfc, type ProjetoIfcEmpacotado } from './ifcMalha.ts';
 /** O que a janela manda: o texto do arquivo já lido do disco. */
 interface Pedido {
   text: string;
+  lang?: Lang;
 }
 
 /** Andamento da importação: a janela usa para a barra, sem esperar o fim. */
@@ -48,7 +50,7 @@ escopo.onmessage = (evento) => {
         escopo.postMessage({ progress });
       }
     };
-    const { project, report } = importIfc(evento.data.text, undefined, progresso);
+    const { project, report } = importIfc(evento.data.text, undefined, progresso, evento.data.lang ?? 'pt');
     const empacotado = empacotarProjetoIfc(project);
     escopo.postMessage({ result: { ...empacotado, report } }, [empacotado.posicoes.buffer, empacotado.indices.buffer]);
   } catch (erro) {

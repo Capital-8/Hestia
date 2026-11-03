@@ -23,10 +23,11 @@ import { addGrids } from './ifcGrids.ts';
 import { addQuantities } from './ifcQuantities.ts';
 import { addSpaces } from './ifcSpaces.ts';
 import { addItemStyles, addStyles } from './ifcStyles.ts';
-import { gid, materialOf, optStr, storeyOf, type IfcCtx, type IfcStorey } from './ifcCtx.ts';
+import { gid, langOf, materialOf, optStr, storeyOf, type IfcCtx, type IfcStorey } from './ifcCtx.ts';
 import { axis3, bodyShape, direction, extrudeSolid, localPlacement, rectOf } from './ifcSolids.ts';
 import { en, list, num, OMIT, ref, StepWriter, stepString } from './ifcStep.ts';
 import type { IfcGeometry, IfcOpeningGeo, IfcOpeningPartGeo, IfcPoint, IfcPolygon, IfcWallGeo } from './ifcTypes.ts';
+import { t, type Lang } from '../i18n.ts';
 
 const EPS = 1e-9;
 
@@ -34,6 +35,8 @@ const EPS = 1e-9;
 export interface IfcExportOptions {
   /** Data e hora do cabeçalho STEP (ISO 8601). Padrão: 1970-01-01T00:00:00. */
   timestamp?: string;
+  /** Idioma dos nomes padrão gravados no arquivo; padrão `'pt'` (comportamento anterior). */
+  lang?: Lang;
 }
 
 /** Retângulo `width` × `thickness` centrado na origem do sistema local (x ao longo do eixo do vão, y na espessura). */
@@ -57,7 +60,7 @@ function layerSetOf(c: IfcCtx, type: WallType): number | null {
   const layers = type.layers.filter((l) => l.thickness > 0);
   if (layers.length === 0) return null;
   const layerIds = layers.map((l) => {
-    const name = c.p.materials[l.materialId]?.name ?? 'Material não definido';
+    const name = c.p.materials[l.materialId]?.name ?? t(langOf(c), 'io_ifc_material_undefined');
     return ref(c.w.add('IFCMATERIALLAYER', [ref(materialOf(c, l.materialId)), num(l.thickness), OMIT, stepString(name), OMIT, OMIT, OMIT]));
   });
   const set = c.w.add('IFCMATERIALLAYERSET', [list(layerIds), stepString(type.name), OMIT]);
@@ -167,7 +170,7 @@ function addWalls(c: IfcCtx, walls: readonly IfcWallGeo[]): void {
     const st = storeyOf(c, wall.levelId);
     if (!st || g.footprints.length === 0) continue;
     const type = c.p.wallTypes[wall.typeId];
-    const name = stepString(type?.name ?? 'Parede');
+    const name = stepString(type?.name ?? t(langOf(c), 'io_ifc_default_wall'));
     const solids = wallSolids(c, st, wall, g);
     if (solids.length === 0) continue;
     const shape = bodyShape(c.w, c.ctx, 'SweptSolid', solids);
@@ -435,6 +438,7 @@ function registerTypeMaterials(c: IfcCtx): void {
 export { externalWalls } from './ifcExterior.ts';
 
 export function exportIfc(p: Project, geo: IfcGeometry, opts: IfcExportOptions = {}): string {
+  const lang = opts.lang ?? 'pt';
   const w = new StepWriter();
   const lengthUnit = w.add('IFCSIUNIT', ['*', en('LENGTHUNIT'), OMIT, en('METRE')]);
   const areaUnit = w.add('IFCSIUNIT', ['*', en('AREAUNIT'), OMIT, en('SQUARE_METRE')]);
@@ -454,6 +458,7 @@ export function exportIfc(p: Project, geo: IfcGeometry, opts: IfcExportOptions =
     p,
     w,
     ctx: context,
+    lang,
     storeys: new Map(),
     materials: new Map(),
     walls: new Map(),

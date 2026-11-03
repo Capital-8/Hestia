@@ -1,5 +1,6 @@
 import { useMemo, type ReactElement } from 'react';
 import type { OpeningType } from '@hestia/model';
+import { useT } from '../../../editor/i18n.ts';
 import { previewMiniatureSvg } from './previewViews.ts';
 
 /** Miniatura da elevação pelo mesmo caminho da prévia (projeto mínimo + seção), com cache por assinatura do tipo. */
@@ -12,7 +13,8 @@ export function OpeningTypeThumb({
   width?: number;
   height?: number;
 }): ReactElement {
-  const svg = useMemo(() => previewMiniatureSvg(type, width, height), [type, width, height]);
+  const { lang } = useT();
+  const svg = useMemo(() => previewMiniatureSvg(type, width, height, lang), [type, width, height, lang]);
   return (
     <span
       aria-hidden="true"

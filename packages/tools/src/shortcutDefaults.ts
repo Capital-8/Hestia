@@ -1,4 +1,5 @@
-import { TOOL_LABEL, type ToolId } from './registry.ts';
+import { TOOL_LABEL, toolLabelLang, type ToolId } from './registry.ts';
+import { t as translate, type Lang } from './i18n.ts';
 
 /**
  * Atalhos padrão, em dados. Um comando é uma ferramenta do registro ou a tela de atalhos (`atalhos`).
@@ -50,6 +51,11 @@ export const PERFIL_PADRAO: ShortcutProfile = 'revit';
 
 export const PERFIL_NOMES: Record<ShortcutProfile, string> = { revit: 'Revit (duas letras)', simples: 'Simples (uma tecla)' };
 
+/** Nome do perfil de atalhos no idioma pedido. */
+export function perfilNome(profile: ShortcutProfile, lang: Lang = 'pt'): string {
+  return translate(lang, profile === 'revit' ? 'tl_profile_revit' : 'tl_profile_simple');
+}
+
 /** Todos os comandos que podem ter atalho (exceto Selecionar, que não tem tecla). */
 export const COMANDOS_COM_ATALHO: ShortcutCommand[] = [
   // Colar é um modo transitório (Ctrl+V ou o botão Colar), não uma ferramenta da faixa: não recebe sequência de letras.
@@ -61,20 +67,25 @@ export const COMANDOS_COM_ATALHO: ShortcutCommand[] = [
   'hideInView', 'hideCategoryInView', 'revealHidden', 'unhideInView', 'unhideCategoryInView',
 ];
 
-/** Nome de exibição de um comando (rótulo da ferramenta, ou o da tela de atalhos). */
+/** Nome de exibição de um comando (rótulo da ferramenta, ou o da tela de atalhos), em português. */
 export function nomeComando(cmd: ShortcutCommand): string {
-  if (cmd === 'atalhos') return 'Atalhos de teclado';
-  if (cmd === 'unidades') return 'Unidades do projeto';
-  if (cmd === 'createSimilar') return 'Criar semelhante';
-  if (cmd === 'temporaryHide') return 'Ocultar temporariamente (elemento)';
-  if (cmd === 'temporaryCategory') return 'Ocultar temporariamente (categoria)';
-  if (cmd === 'temporaryIsolate') return 'Isolar temporariamente (elemento)';
-  if (cmd === 'isolateCategory') return 'Isolar temporariamente (categoria)';
-  if (cmd === 'resetTemporary') return 'Restaurar hide/isolate temporário';
-  if (cmd === 'hideInView') return 'Ocultar na vista (elemento)';
-  if (cmd === 'hideCategoryInView') return 'Ocultar na vista (categoria)';
-  if (cmd === 'revealHidden') return 'Revelar elementos ocultos';
-  if (cmd === 'unhideInView') return 'Reexibir na vista (elemento)';
-  if (cmd === 'unhideCategoryInView') return 'Reexibir na vista (categoria)';
-  return TOOL_LABEL[cmd];
+  return nomeComandoLang(cmd, 'pt');
+}
+
+/** Nome de exibição de um comando no idioma pedido (não altera `nomeComando`, que segue em PT). */
+export function nomeComandoLang(cmd: ShortcutCommand, lang: Lang): string {
+  if (cmd === 'atalhos') return translate(lang, 'tl_cmd_atalhos');
+  if (cmd === 'unidades') return translate(lang, 'tl_cmd_unidades');
+  if (cmd === 'createSimilar') return translate(lang, 'tl_cmd_create_similar');
+  if (cmd === 'temporaryHide') return translate(lang, 'tl_cmd_temporary_hide');
+  if (cmd === 'temporaryCategory') return translate(lang, 'tl_cmd_temporary_category');
+  if (cmd === 'temporaryIsolate') return translate(lang, 'tl_cmd_temporary_isolate');
+  if (cmd === 'isolateCategory') return translate(lang, 'tl_cmd_isolate_category');
+  if (cmd === 'resetTemporary') return translate(lang, 'tl_cmd_reset_temporary');
+  if (cmd === 'hideInView') return translate(lang, 'tl_cmd_hide_in_view');
+  if (cmd === 'hideCategoryInView') return translate(lang, 'tl_cmd_hide_category_in_view');
+  if (cmd === 'revealHidden') return translate(lang, 'tl_cmd_reveal_hidden');
+  if (cmd === 'unhideInView') return translate(lang, 'tl_cmd_unhide_in_view');
+  if (cmd === 'unhideCategoryInView') return translate(lang, 'tl_cmd_unhide_category_in_view');
+  return toolLabelLang(cmd, lang);
 }

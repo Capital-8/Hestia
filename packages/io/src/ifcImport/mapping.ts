@@ -20,6 +20,7 @@ import { readLevels, type LevelRef } from './levels.ts';
 import { propertiesOf } from './psets.ts';
 import { readRelations } from './relations.ts';
 import type { StepEntity } from './step.ts';
+import { t, type Lang } from '../i18n.ts';
 
 /** O que a importação trouxe. Sempre preenchido, mesmo quando o arquivo é ruim. */
 export interface ImportReport {
@@ -49,6 +50,7 @@ export interface Ctx {
   p: Project;
   report: ImportReport;
   levels: LevelRef[];
+  lang: Lang;
   typeOf: Map<number, StepEntity>;
   hostOf: Map<number, number>;
   fillerOf: Map<number, number>;
@@ -134,7 +136,7 @@ function addWall(ctx: Ctx, e: StepEntity, body: Body): void {
     }
   }
   if (toGeneric(ctx, e, body)) return;
-  ctx.skip('parede-forma-livre');
+  ctx.skip(t(ctx.lang, 'io_ifc_skip_free_wall'));
 }
 
 function placeWall(ctx: Ctx, e: StepEntity, prism: Prism, rect: { a: Pt2; b: Pt2; thickness: number }): void {
@@ -167,20 +169,20 @@ function addOpening(ctx: Ctx, filler: StepEntity, kind: 'door' | 'window'): void
   if (ctx.handled.has(filler.id)) return;
   const f = ctx.f;
   const openingId = ctx.openingOf.get(filler.id);
-  if (openingId == null) return fallbackOpening(ctx, filler, 'Porta/janela sem IfcRelFillsElement e sem corpo: ficou de fora.');
+  if (openingId == null) return fallbackOpening(ctx, filler, t(ctx.lang, 'io_ifc_warn_opening_no_fill'));
   const hostIfc = ctx.hostOf.get(openingId);
   const hostId = hostIfc == null ? undefined : ctx.walls.get(hostIfc);
-  if (!hostId) return fallbackOpening(ctx, filler, 'Abertura sem parede hospedeira importada e sem corpo: ficou de fora.');
+  if (!hostId) return fallbackOpening(ctx, filler, t(ctx.lang, 'io_ifc_warn_opening_no_host'));
   const wall = ctx.p.elements[hostId];
-  if (!wall || wall.kind !== 'wall') return fallbackOpening(ctx, filler, 'Abertura sem parede hospedeira importada e sem corpo: ficou de fora.');
+  if (!wall || wall.kind !== 'wall') return fallbackOpening(ctx, filler, t(ctx.lang, 'io_ifc_warn_opening_no_host'));
   const opening = f.entity(openingId);
   const body = opening ? bodyFor(ctx, opening) : null;
   noteGeometry(ctx, body);
-  if (!body) return fallbackOpening(ctx, filler, 'Abertura sem geometria de vão e sem corpo: ficou de fora.');
+  if (!body) return fallbackOpening(ctx, filler, t(ctx.lang, 'io_ifc_warn_opening_no_void'));
   const prism = body.prisms[0];
   const loop = prism?.loops[0] ?? [];
   const cloud = prism ? loop.map((p) => ({ x: p.x, y: p.y, z: prism.z0 })) : bodyPoints(body);
-  if (cloud.length < 3) return fallbackOpening(ctx, filler, 'Abertura sem pontos suficientes e sem corpo: ficou de fora.');
+  if (cloud.length < 3) return fallbackOpening(ctx, filler, t(ctx.lang, 'io_ifc_warn_opening_few_points'));
   const { dir, len } = segment([wall.a, wall.b]);
   let min = Infinity;
   let max = -Infinity;
@@ -300,7 +302,7 @@ function addRoom(ctx: Ctx, e: StepEntity): void {
   const room = makeRoom({
     id,
     levelId: level.id,
-    name: f.text(e, 2).trim() || 'Ambiente',
+    name: f.text(e, 2).trim() || t(ctx.lang, 'io_ifc_default_room'),
     number: f.text(e, 7).trim(),
     point,
     ...psetOf(ctx, e),
@@ -391,9 +393,9 @@ function emLotes<T>(itens: readonly T[], stage: IfcImportStage, inicio: number, 
 }
 
 /** Importa o texto IFC em um projeto novo (os tipos padrão do Hestia ficam como base). */
-export function importIfc(text: string, base?: Project, onProgress?: IfcProgressFn): ImportResult {
+export function importIfc(text: string, base?: Project, onProgress?: IfcProgressFn, lang: Lang = 'pt'): ImportResult {
   const aviso: Aviso = (stage, done, total) => onProgress?.({ stage, done, total });
-  const file = new IfcFile(text, (done, total) => aviso('parse', done, total));
+  const file = new IfcFile(text, (done, total) => aviso('parse', done, total), lang);
   const p = base ? structuredClone(base) : createEmptyProject();
   p.elements = {};
   p.views = [];
@@ -409,6 +411,7 @@ export function importIfc(text: string, base?: Project, onProgress?: IfcProgress
     p,
     report,
     levels: [],
+    lang,
     typeOf: new Map(),
     hostOf: new Map(),
     fillerOf: new Map(),
@@ -430,7 +433,7 @@ export function importIfc(text: string, base?: Project, onProgress?: IfcProgress
       report.imported[kind] = (report.imported[kind] ?? 0) + 1;
     },
   };
-  if (file.broken) ctx.warn(`${file.broken} entidade(s) STEP ilegíveis foram ignoradas.`);
+  if (file.broken) ctx.warn(t(lang, 'io_ifc_warn_broken', { n: file.broken }));
   aviso('relations', 0, 1);
   const rel = readRelations(file);
   ctx.typeOf = rel.typeOf;
@@ -440,7 +443,7 @@ export function importIfc(text: string, base?: Project, onProgress?: IfcProgress
   for (const [opening, filler] of rel.fillerOf) ctx.openingOf.set(filler, opening);
   aviso('relations', 1, 1);
   const zs = file.byType('IFCBUILDINGSTOREY').length ? [] : levelCandidates(ctx);
-  ctx.levels = applyHestiaLevels(p, hestia.project?.levels, readLevels(file, p, report, zs));
+  ctx.levels = applyHestiaLevels(p, hestia.project?.levels, readLevels(file, p, report, zs, lang));
   aviso('levels', 1, 1);
   // Extensão Hestia: os elementos do registro entram antes do resto do arquivo e não passam pela heurística.
   ctx.order = Math.max(ctx.order, applyHestiaElements(ctx, hestia.elements) + 1);

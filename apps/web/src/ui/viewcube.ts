@@ -1,4 +1,5 @@
 import { POLE_ELEVATION, cameraBasis } from '@hestia/render';
+import { t, type Dict, type Lang } from '../editor/i18n.ts';
 
 /**
  * Lógica do ViewCube (cubo de navegação da vista 3D), sem DOM. Convenção dos eixos do app: x leste, y norte, z para
@@ -17,30 +18,30 @@ export interface CubeZone {
   sign: Sign3;
   /** Rótulo visível (só nas faces). */
   label: string;
-  /** Nome da vista em pt-BR (aria-label e title). */
+  /** Nome da vista no idioma ativo (aria-label e title). */
   name: string;
 }
 
 /** Ordem das faces no cubo. */
 export const CUBE_FACES: readonly Face[] = ['top', 'bottom', 'front', 'back', 'right', 'left'];
 
-/** Adjetivo de cada face no nome da vista ("Vista superior", "Vista frontal"…). Os rótulos visíveis ficam em `FACE_LABEL`. */
-const FACE_NAME: Record<Face, string> = {
-  top: 'superior',
-  bottom: 'inferior',
-  front: 'frontal',
-  back: 'posterior',
-  right: 'direita',
-  left: 'esquerda',
+/** Adjetivo de cada face no nome da vista ("Vista superior", "Vista frontal"…). Os rótulos visíveis ficam em `FACE_LABEL_KEY`. */
+const FACE_NAME_KEY: Record<Face, keyof Dict> = {
+  top: 'cvn_vc_name_top',
+  bottom: 'cvn_vc_name_bottom',
+  front: 'cvn_vc_name_front',
+  back: 'cvn_vc_name_back',
+  right: 'cvn_vc_name_right',
+  left: 'cvn_vc_name_left',
 };
-/** Rótulos visíveis das faces, iguais aos do Revit em pt-BR. Para trocar o texto, mude só aqui. */
-const FACE_LABEL: Record<Face, string> = {
-  top: 'SUPERIOR',
-  bottom: 'INFERIOR',
-  front: 'FRONTAL',
-  back: 'POSTERIOR',
-  right: 'DIREITA',
-  left: 'ESQUERDA',
+/** Rótulos visíveis das faces, iguais aos do Revit. Para trocar o texto, mude o dicionário. */
+const FACE_LABEL_KEY: Record<Face, keyof Dict> = {
+  top: 'cvn_vc_face_top',
+  bottom: 'cvn_vc_face_bottom',
+  front: 'cvn_vc_face_front',
+  back: 'cvn_vc_face_back',
+  right: 'cvn_vc_face_right',
+  left: 'cvn_vc_face_left',
 };
 
 /** Vetor de três componentes a partir de uma função do índice do eixo. */
@@ -63,39 +64,63 @@ export function zoneId(sign: Sign3): string {
     .join('-');
 }
 
-function zoneOf(sign: Sign3): CubeZone {
+function zoneOf(sign: Sign3, lang: Lang): CubeZone {
   const parts = [2, 1, 0].filter((a) => sign[a] !== 0).map((a) => faceOf(a, sign[a]!));
   const kind: ZoneKind = parts.length === 1 ? 'face' : parts.length === 2 ? 'edge' : 'corner';
-  const names = parts.map((f) => FACE_NAME[f]);
-  const joined = names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
+  const names = parts.map((f) => t(lang, FACE_NAME_KEY[f]));
+  const joined = names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')}${t(lang, 'cvn_vc_join_and')}${names[names.length - 1]}`;
   const face = kind === 'face' ? (parts[0] as Face) : null;
   return {
     id: zoneId(sign),
     kind,
     sign,
-    label: face ? FACE_LABEL[face] : '',
-    name: `Vista ${joined}`,
+    label: face ? t(lang, FACE_LABEL_KEY[face]) : '',
+    name: t(lang, 'cvn_vc_view_name', { joined }),
   };
 }
 
-/** As 26 zonas clicáveis: 6 faces, 12 arestas e 8 cantos. */
-export const CUBE_ZONES: readonly CubeZone[] = (() => {
+/** As 26 zonas clicáveis no idioma pedido: 6 faces, 12 arestas e 8 cantos. */
+function buildZones(lang: Lang): readonly CubeZone[] {
   const out: CubeZone[] = [];
   for (const z of [-1, 0, 1])
     for (const y of [-1, 0, 1])
       for (const x of [-1, 0, 1]) {
         if (x === 0 && y === 0 && z === 0) continue;
-        out.push(zoneOf([x, y, z]));
+        out.push(zoneOf([x, y, z], lang));
       }
   const rank: Record<ZoneKind, number> = { face: 0, edge: 1, corner: 2 };
   return out.sort((a, b) => rank[a.kind] - rank[b.kind]);
-})();
+}
 
-const ZONE_BY_ID = new Map(CUBE_ZONES.map((z) => [z.id, z]));
+const ZONES_BY_LANG = new Map<Lang, readonly CubeZone[]>();
 
-/** Zona de id dado (lança se não existir: o id vem sempre de `zoneId`). */
-export function zoneById(id: string): CubeZone {
-  const z = ZONE_BY_ID.get(id);
+/** As 26 zonas clicáveis no idioma pedido (pt é o padrão e o fallback dos testes). */
+export function cubeZones(lang: Lang = 'pt'): readonly CubeZone[] {
+  let zonas = ZONES_BY_LANG.get(lang);
+  if (!zonas) {
+    zonas = buildZones(lang);
+    ZONES_BY_LANG.set(lang, zonas);
+  }
+  return zonas;
+}
+
+/** Zonas em pt-BR (compatibilidade e testes). Componentes devem usar `cubeZones(lang)`. */
+export const CUBE_ZONES: readonly CubeZone[] = cubeZones('pt');
+
+const MAPS_BY_LANG = new Map<Lang, Map<string, CubeZone>>();
+
+function zoneMap(lang: Lang): Map<string, CubeZone> {
+  let mapa = MAPS_BY_LANG.get(lang);
+  if (!mapa) {
+    mapa = new Map(cubeZones(lang).map((z) => [z.id, z]));
+    MAPS_BY_LANG.set(lang, mapa);
+  }
+  return mapa;
+}
+
+/** Zona de id dado no idioma pedido (lança se não existir: o id vem sempre de `zoneId`). */
+export function zoneById(id: string, lang: Lang = 'pt'): CubeZone {
+  const z = zoneMap(lang).get(id);
   if (!z) throw new Error(`zona desconhecida: ${id}`);
   return z;
 }
@@ -186,10 +211,10 @@ export function zoneAtPoint(azimuth: number, elevation: number, x: number, y: nu
 }
 
 /** Células 3×3 de cada face, cada uma com a zona que ela representa. A mesma aresta aparece em duas faces. */
-export function faceCells(face: Face): { row: number; col: number; zone: CubeZone }[] {
+export function faceCells(face: Face, lang: Lang = 'pt'): { row: number; col: number; zone: CubeZone }[] {
   const out: { row: number; col: number; zone: CubeZone }[] = [];
   for (let row = 0; row < 3; row++)
-    for (let col = 0; col < 3; col++) out.push({ row, col, zone: zoneById(zoneId(cellSign(face, row, col))) });
+    for (let col = 0; col < 3; col++) out.push({ row, col, zone: zoneById(zoneId(cellSign(face, row, col)), lang) });
   return out;
 }
 

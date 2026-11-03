@@ -1,11 +1,13 @@
 import { sheetOf, type Id, type Project } from '@hestia/model';
 import { openAreaPlan } from './areaPlanActions.ts';
 import { editor } from './controller.ts';
+import { t, useI18n } from './i18n.ts';
 import { activeViewOf, addView, closeView, levelToRelease, planKindOf, removeView, type OpenView } from './openViews.ts';
 import { useUi } from './state.ts';
 
 /** Rótulo e ícone de uma aba; null quando a vista não existe mais no projeto (nível, corte ou prancha excluídos). */
 export function tabOf(p: Project, v: OpenView): { icon: 'plan' | 'roof' | 'cube' | 'section' | 'elevation'; label: string } | null {
+  const lang = useI18n.getState().lang;
   switch (v.kind) {
     case 'plan': {
       const l = p.levels.find((x) => x.id === v.levelId);
@@ -15,10 +17,10 @@ export function tabOf(p: Project, v: OpenView): { icon: 'plan' | 'roof' | 'cube'
         return ap ? { icon: 'plan', label: ap.name } : null;
       }
       // A aba de cobertura leva o nome do tipo, para não confundir com a planta de piso do mesmo nível.
-      return planKindOf(v) === 'roof' ? { icon: 'roof', label: `Planta de cobertura: ${l.name}` } : { icon: 'plan', label: l.name };
+      return planKindOf(v) === 'roof' ? { icon: 'roof', label: t(lang, 'eds_tab_roof_plan', { name: l.name }) } : { icon: 'plan', label: l.name };
     }
     case '3d':
-      return { icon: 'cube', label: 'Modelo 3D' };
+      return { icon: 'cube', label: t(lang, 'eds_tab_3d_model') };
     case 'section': {
       const sv = p.views.find((x) => x.id === v.viewId);
       return sv ? { icon: sv.kind === 'section' ? 'section' : 'elevation', label: sv.name } : null;

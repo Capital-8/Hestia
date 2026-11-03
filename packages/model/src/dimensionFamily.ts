@@ -1,4 +1,5 @@
 import { DEFAULT_DIMENSION_STYLE, dimensionStyleOf } from './dimensionStyle.ts';
+import { t, type Lang } from './i18n.ts';
 import type { DimReadConvention, DimTextFit, DimensionStyle } from './dimensionContract.ts';
 import type { Dimension, Id, ProjectSettings } from './types.ts';
 
@@ -18,24 +19,38 @@ export interface DimensionFamily extends DimensionStyle {
 
 /** Id da família implícita: o estilo do projeto de antes das famílias (não é gravado em `dimensionFamilies`). */
 export const DIM_FAMILY_PADRAO: Id = 'fam_padrao';
-/** Nome da família implícita. */
-export const DIM_FAMILY_PADRAO_NAME = 'Padrão';
+/** Nome da família implícita no idioma pedido. */
+export function dimFamilyDefaultName(lang: Lang = 'pt'): string {
+  return t(lang, 'md_dim_family_default');
+}
+/** Nome da família implícita em PT (compatibilidade). */
+export const DIM_FAMILY_PADRAO_NAME = dimFamilyDefaultName('pt');
 /** Limite de tamanho do nome da família. */
 export const DIM_FAMILY_NAME_MAX = 40;
 
-/** Convenções de leitura oferecidas na interface, na ordem. */
-export const DIM_READ_CONVENTION_OPTIONS: ReadonlyArray<{ value: DimReadConvention; label: string }> = [
-  { value: 'aligned', label: 'Acompanha a cota (legível por baixo)' },
-  { value: 'upright', label: 'Acompanha a cota (nunca de cabeça para baixo)' },
-  { value: 'horizontal', label: 'Sempre horizontal' },
-];
+/** Convenções de leitura oferecidas na interface, na ordem, no idioma pedido. */
+export function dimReadConventionOptions(lang: Lang = 'pt'): ReadonlyArray<{ value: DimReadConvention; label: string }> {
+  return [
+    { value: 'aligned', label: t(lang, 'md_dim_read_aligned') },
+    { value: 'upright', label: t(lang, 'md_dim_read_upright') },
+    { value: 'horizontal', label: t(lang, 'md_dim_read_horizontal') },
+  ];
+}
 
-/** Comportamento do valor quando não cabe no trecho, na ordem da interface. */
-export const DIM_TEXT_FIT_OPTIONS: ReadonlyArray<{ value: DimTextFit; label: string }> = [
-  { value: 'leader', label: 'Afastar com linha de chamada' },
-  { value: 'inside', label: 'Manter dentro do trecho' },
-  { value: 'outside', label: 'Sempre fora, com linha de chamada' },
-];
+/** Comportamento do valor quando não cabe no trecho, na ordem da interface, no idioma pedido. */
+export function dimTextFitOptions(lang: Lang = 'pt'): ReadonlyArray<{ value: DimTextFit; label: string }> {
+  return [
+    { value: 'leader', label: t(lang, 'md_dim_fit_leader') },
+    { value: 'inside', label: t(lang, 'md_dim_fit_inside') },
+    { value: 'outside', label: t(lang, 'md_dim_fit_outside') },
+  ];
+}
+
+/** Convenções em PT (compatibilidade); use `dimReadConventionOptions(lang)` para o idioma ativo. */
+export const DIM_READ_CONVENTION_OPTIONS: ReadonlyArray<{ value: DimReadConvention; label: string }> = dimReadConventionOptions('pt');
+
+/** Ajuste de texto em PT (compatibilidade); use `dimTextFitOptions(lang)` para o idioma ativo. */
+export const DIM_TEXT_FIT_OPTIONS: ReadonlyArray<{ value: DimTextFit; label: string }> = dimTextFitOptions('pt');
 
 const isReadConvention = (v: unknown): v is DimReadConvention => DIM_READ_CONVENTION_OPTIONS.some((o) => o.value === v);
 const isTextFit = (v: unknown): v is DimTextFit => DIM_TEXT_FIT_OPTIONS.some((o) => o.value === v);
@@ -53,14 +68,14 @@ export function dimensionFamilyStyle(family: Partial<DimensionFamily>): Dimensio
  * Famílias do projeto já resolvidas. Sem nenhuma gravada, devolve a família implícita `Padrão` com o estilo global do
  * projeto — é o que o diálogo mostra e o que a criação usa por padrão.
  */
-export function dimensionFamiliesOf(settings: Partial<ProjectSettings> | undefined): DimensionFamily[] {
+export function dimensionFamiliesOf(settings: Partial<ProjectSettings> | undefined, lang: Lang = 'pt'): DimensionFamily[] {
   const saved = settings?.dimensionFamilies;
   if (Array.isArray(saved) && saved.length > 0) {
     return saved
       .filter((f): f is DimensionFamily => !!f && typeof f.id === 'string' && f.id !== '' && typeof f.name === 'string')
       .map((f) => ({ id: f.id, name: f.name, ...dimensionFamilyStyle(f) }));
   }
-  return [{ id: DIM_FAMILY_PADRAO, name: DIM_FAMILY_PADRAO_NAME, ...dimensionStyleOf(settings) }];
+  return [{ id: DIM_FAMILY_PADRAO, name: dimFamilyDefaultName(lang), ...dimensionStyleOf(settings) }];
 }
 
 /** Id da família padrão: a escolhida no projeto, senão a família implícita. */
@@ -95,15 +110,20 @@ export function dimensionStyleFor(settings: Partial<ProjectSettings> | undefined
 }
 
 /** Família nova (rascunho) a partir de outra família ou do padrão do projeto; nome único garantido pelo chamador. */
-export function dimensionFamilyDraft(settings: Partial<ProjectSettings> | undefined, base?: Partial<DimensionFamily>): DimensionFamily {
+export function dimensionFamilyDraft(settings: Partial<ProjectSettings> | undefined, base?: Partial<DimensionFamily>, lang: Lang = 'pt'): DimensionFamily {
   const style = base ? dimensionFamilyStyle(base) : dimensionStyleOf(settings);
-  const list = dimensionFamiliesOf(settings);
-  let name = base?.name ? `${base.name} (cópia)` : 'Nova família';
+  const list = dimensionFamiliesOf(settings, lang);
+  const locale = lang === 'en' ? 'en' : 'pt-BR';
+  let name = base?.name
+    ? t(lang, 'md_dim_family_copy', { name: base.name })
+    : t(lang, 'md_dim_family_new');
   let n = 1;
-  const taken = new Set(list.map((f) => f.name.toLocaleLowerCase('pt-BR')));
-  while (taken.has(name.toLocaleLowerCase('pt-BR'))) {
+  const taken = new Set(list.map((f) => f.name.toLocaleLowerCase(locale)));
+  while (taken.has(name.toLocaleLowerCase(locale))) {
     n += 1;
-    name = base?.name ? `${base.name} (cópia ${n})` : `Nova família ${n}`;
+    name = base?.name
+      ? t(lang, 'md_dim_family_copy_n', { name: base.name, n })
+      : t(lang, 'md_dim_family_new_n', { n });
   }
   return { id: `fam_${Math.random().toString(36).slice(2, 10)}`, name, ...style };
 }
@@ -112,35 +132,36 @@ export function dimensionFamilyDraft(settings: Partial<ProjectSettings> | undefi
  * Motivo de recusa de uma família, ou null. `others` são as demais famílias do projeto (nome único, sem diferenciar
  * maiúsculas). Medidas em mm de papel com faixas plausíveis: um valor absurdo é recusado em vez de virar desenho torto.
  */
-export function dimensionFamilyIssue(family: Partial<DimensionFamily>, others: readonly DimensionFamily[] = []): string | null {
+export function dimensionFamilyIssue(family: Partial<DimensionFamily>, others: readonly DimensionFamily[] = [], lang: Lang = 'pt'): string | null {
   const name = typeof family.name === 'string' ? family.name.trim() : '';
-  if (!name) return 'A família de cotas precisa de nome.';
-  if (name.length > DIM_FAMILY_NAME_MAX) return `O nome da família deve ter até ${DIM_FAMILY_NAME_MAX} caracteres.`;
-  if (others.some((o) => o.id !== family.id && o.name.trim().toLocaleLowerCase('pt-BR') === name.toLocaleLowerCase('pt-BR'))) {
-    return 'Já existe uma família de cotas com esse nome.';
+  const locale = lang === 'en' ? 'en' : 'pt-BR';
+  if (!name) return t(lang, 'md_dim_name_required');
+  if (name.length > DIM_FAMILY_NAME_MAX) return t(lang, 'md_dim_name_max', { n: DIM_FAMILY_NAME_MAX });
+  if (others.some((o) => o.id !== family.id && o.name.trim().toLocaleLowerCase(locale) === name.toLocaleLowerCase(locale))) {
+    return t(lang, 'md_dim_name_duplicate');
   }
   const nums: Array<[keyof DimensionStyle, string, number, number]> = [
-    ['tickSize', 'tamanho do marcador', 0.5, 10],
-    ['textHeight', 'altura do texto', 0.5, 15],
-    ['extensionGap', 'folga da linha de extensão', 0, 10],
-    ['extensionOvershoot', 'ultrapassagem da linha de extensão', 0, 10],
-    ['textGap', 'folga do texto', 0, 10],
-    ['stackSpacing', 'espaçamento entre cotas empilhadas', 1, 50],
+    ['tickSize', t(lang, 'md_dim_tick_size'), 0.5, 10],
+    ['textHeight', t(lang, 'md_dim_text_height'), 0.5, 15],
+    ['extensionGap', t(lang, 'md_dim_extension_gap'), 0, 10],
+    ['extensionOvershoot', t(lang, 'md_dim_extension_overshoot'), 0, 10],
+    ['textGap', t(lang, 'md_dim_text_gap'), 0, 10],
+    ['stackSpacing', t(lang, 'md_dim_stack_spacing'), 1, 50],
   ];
   for (const [key, label, min, max] of nums) {
     const v = family[key];
-    if (!finite(v)) return `Informe o ${label} em mm.`;
-    if (v < min || v > max) return `O ${label} deve ficar entre ${min} e ${max} mm.`;
+    if (!finite(v)) return t(lang, 'md_dim_value_mm', { label });
+    if (v < min || v > max) return t(lang, 'md_dim_value_range', { label, min, max });
   }
-  if (typeof family.font !== 'string' || family.font.trim() === '') return 'Informe a fonte do texto da cota.';
-  if (family.tick !== undefined && !['slash', 'arrow', 'dot', 'arrow-open', 'arrow-filled'].includes(family.tick)) return 'Marcador de cota desconhecido.';
-  if (family.textPlacement !== undefined && family.textPlacement !== 'above' && family.textPlacement !== 'centered') return 'Posição do texto da cota desconhecida.';
-  if (family.readConvention !== undefined && !isReadConvention(family.readConvention)) return 'Convenção de leitura desconhecida.';
-  if (family.textFit !== undefined && !isTextFit(family.textFit)) return 'Comportamento do texto fora do trecho desconhecido.';
-  if (family.unit !== undefined && !['project', 'm', 'cm', 'mm'].includes(family.unit)) return 'Unidade da cota desconhecida.';
-  if (family.precision !== undefined && ![0, 1, 2, 3].includes(family.precision)) return 'Precisão da cota fora de 0 a 3.';
-  if (typeof family.prefix === 'string' && family.prefix.length > 12) return 'O prefixo da cota deve ter até 12 caracteres.';
-  if (typeof family.suffix === 'string' && family.suffix.length > 12) return 'O sufixo da cota deve ter até 12 caracteres.';
+  if (typeof family.font !== 'string' || family.font.trim() === '') return t(lang, 'md_dim_font_required');
+  if (family.tick !== undefined && !['slash', 'arrow', 'dot', 'arrow-open', 'arrow-filled'].includes(family.tick)) return t(lang, 'md_dim_tick_unknown');
+  if (family.textPlacement !== undefined && family.textPlacement !== 'above' && family.textPlacement !== 'centered') return t(lang, 'md_dim_placement_unknown');
+  if (family.readConvention !== undefined && !isReadConvention(family.readConvention)) return t(lang, 'md_dim_read_unknown');
+  if (family.textFit !== undefined && !isTextFit(family.textFit)) return t(lang, 'md_dim_fit_unknown');
+  if (family.unit !== undefined && !['project', 'm', 'cm', 'mm'].includes(family.unit)) return t(lang, 'md_dim_unit_unknown');
+  if (family.precision !== undefined && ![0, 1, 2, 3].includes(family.precision)) return t(lang, 'md_dim_precision_range');
+  if (typeof family.prefix === 'string' && family.prefix.length > 12) return t(lang, 'md_dim_prefix_max');
+  if (typeof family.suffix === 'string' && family.suffix.length > 12) return t(lang, 'md_dim_suffix_max');
   return null;
 }
 

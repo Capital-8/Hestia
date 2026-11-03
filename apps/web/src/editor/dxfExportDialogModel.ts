@@ -1,19 +1,20 @@
 import { unitsOf, type Id, type Project } from '@hestia/model';
 import type { DxfUnit } from '@hestia/io';
 import type { DxfBatchGroup, DxfBatchTarget } from './dxfBatch.types.ts';
+import { t as tr, useI18n, type Lang } from './i18n.ts';
 
 /**
  * Lógica pura do diálogo de exportação em lote (fase 4): unidade padrão, agrupamento da lista, alvo ativo e seleção
  * inicial. Fica fora do componente para ser testável sem React e para o diálogo só cuidar da tela.
  */
 
-/** Unidades que o DXF entende, na ordem do seletor (o `$INSUNITS` de cada uma está em `DXF_UNITS`). */
+/** Unidades que o DXF entende, na ordem do seletor (o `$INSUNITS` de cada uma está em `DXF_UNITS`). O rótulo segue o idioma ativo. */
 export const DXF_UNIT_OPTIONS: ReadonlyArray<{ value: DxfUnit; label: string }> = [
-  { value: 'mm', label: 'Milímetros (mm)' },
-  { value: 'cm', label: 'Centímetros (cm)' },
-  { value: 'm', label: 'Metros (m)' },
-  { value: 'ft', label: 'Pés (ft)' },
-  { value: 'in', label: 'Polegadas (in)' },
+  { value: 'mm', get label() { return tr(useI18n.getState().lang, 'io_dxf_unit_mm'); } },
+  { value: 'cm', get label() { return tr(useI18n.getState().lang, 'io_dxf_unit_cm'); } },
+  { value: 'm', get label() { return tr(useI18n.getState().lang, 'io_dxf_unit_m'); } },
+  { value: 'ft', get label() { return tr(useI18n.getState().lang, 'io_dxf_unit_ft'); } },
+  { value: 'in', get label() { return tr(useI18n.getState().lang, 'io_dxf_unit_in'); } },
 ];
 
 /** Unidade de saída padrão: a do desenho (unidade de comprimento do projeto). `ft-in` não tem `$INSUNITS` próprio e cai em ft. */
@@ -29,18 +30,18 @@ export interface DxfGroupRow {
   targets: DxfBatchTarget[];
 }
 
-const GROUP_LABEL: Record<DxfBatchGroup, string> = {
-  plantas: 'Plantas de piso',
-  areas: 'Plantas de área',
-  cortes: 'Cortes e elevações',
-  pranchas: 'Pranchas',
+const GROUP_LABEL: Record<DxfBatchGroup, 'io_dxf_group_plans' | 'io_dxf_group_areas' | 'io_dxf_group_sections' | 'io_dxf_group_sheets'> = {
+  plantas: 'io_dxf_group_plans',
+  areas: 'io_dxf_group_areas',
+  cortes: 'io_dxf_group_sections',
+  pranchas: 'io_dxf_group_sheets',
 };
 
 const GROUP_ORDER: readonly DxfBatchGroup[] = ['plantas', 'areas', 'cortes', 'pranchas'];
 
 /** Agrupa os alvos para a lista, mantendo a ordem dos grupos e a ordem de `targets` dentro de cada um. */
-export function dxfGroupRows(targets: readonly DxfBatchTarget[]): DxfGroupRow[] {
-  return GROUP_ORDER.map((group) => ({ group, label: GROUP_LABEL[group], targets: targets.filter((t) => t.group === group) })).filter((row) => row.targets.length > 0);
+export function dxfGroupRows(targets: readonly DxfBatchTarget[], lang: Lang = useI18n.getState().lang): DxfGroupRow[] {
+  return GROUP_ORDER.map((group) => ({ group, label: tr(lang, GROUP_LABEL[group]), targets: targets.filter((t) => t.group === group) })).filter((row) => row.targets.length > 0);
 }
 
 /** Estado do "marcar todos" de um grupo: todos, nenhum ou alguns. */

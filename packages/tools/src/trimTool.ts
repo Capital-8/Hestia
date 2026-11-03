@@ -114,7 +114,9 @@ function sameComponentEdge(a: ComponentEdgePick['ref'], b: ComponentEdgePick['re
 export class TrimTool extends ToolBase {
   readonly id = 'trim';
   readonly label = 'Aparar/Estender';
-  readonly hint = 'Aparar/Estender: clique na parede de referência e depois na parede a estender, no lado que deve ficar. Arestas de piso/laje/telhado/forro ou do croqui de escada/rampa: duas arestas, como no canto.';
+  override get hint(): string {
+    return this.t('tl_hint_trim');
+  }
   private first: TrimPick | null = null;
   /** Primeira aresta de anel escolhida, com o ponto do clique sobre ela. */
   private firstEdge: { ref: EdgeRef; at: Vec2 } | null = null;
@@ -145,8 +147,8 @@ export class TrimTool extends ToolBase {
 
   /** Texto do passo atual, por modo. */
   private prompt(): string {
-    if (this.firstComp) return 'Aparar/Estender: agora clique na segunda aresta do croqui.';
-    if (this.firstEdge) return 'Aparar/Estender: agora clique na segunda aresta.';
+    if (this.firstComp) return this.t('tl_msg_trim_prompt_sketch');
+    if (this.firstEdge) return this.t('tl_msg_trim_prompt_edge');
     const mode = this.mode();
     if (mode === 'unico') {
       return this.first
@@ -155,12 +157,12 @@ export class TrimTool extends ToolBase {
     }
     if (mode === 'canto') {
       return this.first
-        ? 'Aparar/Estender ao canto: clique na parte que deseja manter da segunda parede.'
+        ? this.t('tl_msg_trim_prompt_keep')
         : 'Aparar/Estender ao canto: clique na parte que deseja manter da primeira parede.';
     }
     if (this.group.length) return `${this.group.length} parede(s) para aparar. Clique na parede de referência (sem Shift).`;
-    if (this.first) return 'Aparar/Estender ao canto: clique na parte que deseja manter da segunda parede.';
-    return 'Aparar/Estender: Shift+clique acumula paredes a aparar; o clique sem Shift na referência aplica a todas.';
+    if (this.first) return this.t('tl_msg_trim_prompt_keep');
+    return this.t('tl_msg_trim_prompt_multi');
   }
 
   /** Esc volta um passo: grupo, depois primeira parede/aresta; sem passo, sai da ferramenta. */
@@ -301,7 +303,7 @@ export class TrimTool extends ToolBase {
       patches.push({ id: g.id, patch: mine });
     }
     if (!patches.length) {
-      this.env.say('Nenhuma parede da lista pode ser aparada a essa referência (sem interseção ou arco fora de alcance).');
+      this.env.say(this.t('tl_msg_trim_none'));
       this.reset();
       return;
     }
@@ -371,7 +373,7 @@ export class TrimTool extends ToolBase {
   /** Segunda aresta do croqui: a primeira é aparada até a reta da segunda; a parte clicada fica. */
   private clickComponentEdge(pick: ComponentEdgePick, p: PointerInfo): void {
     if (p.shift) {
-      this.env.say('Shift+clique (várias) vale só para paredes.');
+      this.env.say(this.t('tl_msg_trim_shift_walls'));
       return;
     }
     if (this.first || this.firstEdge || this.group.length) {
@@ -406,7 +408,7 @@ export class TrimTool extends ToolBase {
    */
   private clickEdge(pick: EdgePick, p: PointerInfo, pr: Project): void {
     if (p.shift) {
-      this.env.say('Shift+clique (várias) vale só para paredes.');
+      this.env.say(this.t('tl_msg_trim_shift_walls'));
       return;
     }
     if (this.first || this.group.length) {
@@ -431,7 +433,7 @@ export class TrimTool extends ToolBase {
     const i = first.ref.index;
     const corner = ringOps.intersectEdgeLine(ring, i, pick.a, pick.b);
     if (!corner) {
-      this.env.say('Arestas paralelas: não há canto.');
+      this.env.say(this.t('tl_msg_trim_parallel'));
       this.reset();
       return;
     }

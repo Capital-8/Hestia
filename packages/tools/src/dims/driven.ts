@@ -18,6 +18,7 @@ import {
 import { occupiedRanges } from '../infer.ts';
 import { overlapsPerpendicular, perpendicularNeighbors } from '../openingPlacement.ts';
 import { followingEnds, MIN_WALL_LENGTH } from '../pick.ts';
+import { t as translate, type Lang } from '../i18n.ts';
 import { translateWallsJoined } from '../wallFollow.ts';
 
 /**
@@ -87,17 +88,17 @@ const projectOnLine = (p: Vec2, origin: Vec2, u: Vec2): Vec2 => add(origin, mul(
  * Resolve só o que a cota dirigida precisa: qual elemento e o ponto atual da ponta. Pontos de faces/bordas/arestas
  * usam o ponto guardado da cota reprojetado na feição (não precisa de coordenada fina de face).
  */
-function featureInfo(p: Project, ref: LooseRef, fallback: Vec2): EndInfo | { error: string } {
+function featureInfo(p: Project, ref: LooseRef, fallback: Vec2, lang: Lang = 'pt'): EndInfo | { error: string } {
   if (ref.elementId === undefined) {
     // Referência antiga: parede + ponta (+ eixo opcional).
     const w = ref.wallId ? p.elements[ref.wallId] : undefined;
-    if (!isWall(w) || !ref.end) return { error: 'Um elemento associado à cota foi removido.' };
+    if (!isWall(w) || !ref.end) return { error: translate(lang, 'tl_msg_dim_element_removed') };
     const pt = ref.end === 'a' ? w.a : w.b;
     const point = ref.axis === 'x' ? { x: pt.x, y: fallback.y } : ref.axis === 'y' ? { x: fallback.x, y: pt.y } : { ...pt };
     return { point, mover: { t: 'wallEnd', w, end: ref.end }, elementId: w.id };
   }
   const el = p.elements[ref.elementId];
-  if (!el) return { error: 'Um elemento associado à cota foi removido.' };
+  if (!el) return { error: translate(lang, 'tl_msg_dim_element_removed') };
   const f = ref.feature ?? '';
   if (isWall(el)) {
     if (f === 'wall-axis-a' || f === 'wall-axis-b') {
@@ -133,18 +134,18 @@ function featureInfo(p: Project, ref: LooseRef, fallback: Vec2): EndInfo | { err
   return { point: { ...fallback }, mover: { t: 'other', el }, elementId: el.id };
 }
 
-function endOf(p: Project, dim: Dimension, which: 'a' | 'b'): EndInfo | { error: string } {
+function endOf(p: Project, dim: Dimension, which: 'a' | 'b', lang: Lang = 'pt'): EndInfo | { error: string } {
   const ref = (dim.refs as { a?: LooseRef; b?: LooseRef } | undefined)?.[which];
   const fallback = dim[which];
   if (!ref) return { point: { ...fallback }, mover: null };
-  return featureInfo(p, ref, fallback);
+  return featureInfo(p, ref, fallback, lang);
 }
 
 /** Pontas medidas (modo horizontal/vertical aplicado) e a direção unitária a→b. */
-function measure(p: Project, dim: Dimension): { a: EndInfo; b: EndInfo; value: number; dir: Vec2 } | { error: string } {
-  const a = endOf(p, dim, 'a');
+function measure(p: Project, dim: Dimension, lang: Lang = 'pt'): { a: EndInfo; b: EndInfo; value: number; dir: Vec2 } | { error: string } {
+  const a = endOf(p, dim, 'a', lang);
   if ('error' in a) return a;
-  const b = endOf(p, dim, 'b');
+  const b = endOf(p, dim, 'b', lang);
   if ('error' in b) return b;
   const pa = a.point;
   let pb = b.point;
@@ -163,7 +164,7 @@ function openingLabel(p: Project, o: Opening): string {
 }
 
 /** Mesma validação da cota temporária de esquadria (providers/opening.ts). */
-function openingConflict(p: Project, o: Opening, frame: WallFrame, offset: number): string | null {
+function openingConflict(p: Project, o: Opening, frame: WallFrame, offset: number, lang: Lang = 'pt'): string | null {
   const ext = openingExtents(p, o, frame, o.flipFacing ? -1 : 1);
   const half = ext.frame;
   if (offset - half < END_GAP - EPS || offset + half > frame.length - END_GAP + EPS) return `${capital(openingLabel(p, o))} sairia da parede.`;
@@ -176,28 +177,28 @@ function openingConflict(p: Project, o: Opening, frame: WallFrame, offset: numbe
   for (const [a, b] of busy) {
     if (lo < b - EPS && hi > a + EPS) {
       const other = others.find((x) => Math.abs(x.offset - (a + b) / 2) < 1e-4);
-      return other ? `Sobrepõe ${openingLabel(p, other)}.` : 'Sobrepõe outra esquadria.';
+      return other ? translate(lang, 'tl_msg_dim_opening_overlap', { opening: openingLabel(p, other) }) : translate(lang, 'tl_msg_dim_opening_overlap_other');
     }
   }
   const host = p.elements[o.hostId];
-  if (isWall(host) && overlapsPerpendicular(perpendicularNeighbors(p, o.hostId, host.levelId), offset, half * 2)) return 'Atravessa a parede perpendicular.';
+  if (isWall(host) && overlapsPerpendicular(perpendicularNeighbors(p, o.hostId, host.levelId), offset, half * 2)) return translate(lang, 'tl_msg_dim_cross_wall');
   return null;
 }
 
 type Moved = { commands: Command[] } | { error: string };
 
-function moveOpening(p: Project, o: Opening, m: Vec2, dir: Vec2): Moved {
+function moveOpening(p: Project, o: Opening, m: Vec2, dir: Vec2, lang: Lang = 'pt'): Moved {
   const fr = frameOfWall(p, o.hostId);
   if (!fr) return { error: 'A parede hospedeira da esquadria não existe.' };
   if (fr.arc) return { error: 'Cota dirigida de esquadria em parede curva ainda não é suportada.' };
   if (Math.abs(dir.x * fr.u.y - dir.y * fr.u.x) > PAR_TOL) return { error: 'A cota não é paralela à parede da esquadria: não dá para movê-la por ela.' };
   const offset = o.offset + dot(m, fr.u);
-  const why = openingConflict(p, o, fr, offset);
+  const why = openingConflict(p, o, fr, offset, lang);
   return why ? { error: why } : { commands: [{ type: 'updateElements', ids: [o.id], patch: { offset } }] };
 }
 
-function stretchWallEnd(p: Project, w: Wall, end: 'a' | 'b', m: Vec2): Moved {
-  if (w.sag !== 0) return { error: 'Alterar o comprimento por cota ainda não é suportado em parede curva.' };
+function stretchWallEnd(p: Project, w: Wall, end: 'a' | 'b', m: Vec2, lang: Lang = 'pt'): Moved {
+  if (w.sag !== 0) return { error: translate(lang, 'tl_msg_dim_arc_wall') };
   const far = end === 'a' ? w.b : w.a;
   const pt = w[end];
   const u = norm(sub(pt, far));
@@ -210,19 +211,19 @@ function stretchWallEnd(p: Project, w: Wall, end: 'a' | 'b', m: Vec2): Moved {
   return { commands };
 }
 
-function moveWall(p: Project, mv: Extract<Mover, { t: 'wallEnd' | 'wallFace' }>, m: Vec2, dir: Vec2): Moved {
+function moveWall(p: Project, mv: Extract<Mover, { t: 'wallEnd' | 'wallFace' }>, m: Vec2, dir: Vec2, lang: Lang = 'pt'): Moved {
   const w = mv.w;
   if (len(sub(w.b, w.a)) < 1e-9) return { error: 'A parede não tem direção definida.' };
   const axis = norm(sub(w.b, w.a));
-  if (mv.t === 'wallEnd' && Math.abs(dir.x * axis.y - dir.y * axis.x) < PAR_TOL) return stretchWallEnd(p, w, mv.end, m);
+  if (mv.t === 'wallEnd' && Math.abs(dir.x * axis.y - dir.y * axis.x) < PAR_TOL) return stretchWallEnd(p, w, mv.end, m, lang);
   if (mv.t === 'wallFace' && Math.abs(dot(dir, axis)) > PAR_TOL) return { error: 'A cota entre faces precisa ser perpendicular à parede.' };
   if (w.sag !== 0) return { error: 'Mover parede curva por cota ainda não é suportado.' };
   return { commands: translateWallsJoined(p, w.levelId, [w.id], m).commands };
 }
 
-function moveBoundary(mv: Extract<Mover, { t: 'vertex' | 'edge' }>, m: Vec2): Moved {
+function moveBoundary(mv: Extract<Mover, { t: 'vertex' | 'edge' }>, m: Vec2, lang: Lang = 'pt'): Moved {
   const el = mv.el;
-  if (el.outlineSource?.linked) return { error: 'O contorno está ligado às paredes: edite as paredes (ou desfaça o vínculo) em vez da cota.' };
+  if (el.outlineSource?.linked) return { error: translate(lang, 'tl_msg_dim_linked_outline') };
   const n = el.boundary.length;
   const idx = mv.t === 'vertex' ? [mv.index] : [mv.index, (mv.index + 1) % n];
   if (mv.t === 'edge') {
@@ -236,13 +237,13 @@ function moveBoundary(mv: Extract<Mover, { t: 'vertex' | 'edge' }>, m: Vec2): Mo
   return { commands: [{ type: 'updateElements', ids: [el.id], patch: { boundary } as never }] };
 }
 
-function moveMover(p: Project, mv: Mover, m: Vec2, dir: Vec2): Moved {
+function moveMover(p: Project, mv: Mover, m: Vec2, dir: Vec2, lang: Lang = 'pt'): Moved {
   switch (mv.t) {
-    case 'opening': return moveOpening(p, mv.o, m, dir);
+    case 'opening': return moveOpening(p, mv.o, m, dir, lang);
     case 'wallEnd':
-    case 'wallFace': return moveWall(p, mv, m, dir);
+    case 'wallFace': return moveWall(p, mv, m, dir, lang);
     case 'vertex':
-    case 'edge': return moveBoundary(mv, m);
+    case 'edge': return moveBoundary(mv, m, lang);
     default: return { error: `A cota dirigida ainda não move este tipo de elemento (${mv.el.kind}).` };
   }
 }
@@ -251,11 +252,11 @@ function moveMover(p: Project, mv: Mover, m: Vec2, dir: Vec2): Moved {
  * Comandos que dão à cota permanente `dim` o valor `novoValor` (m) movendo os elementos associados.
  * `fixed` indica a ponta que não se move; ver regras no topo do arquivo.
  */
-export function drivenEditCommands(project: Project, dim: Dimension, novoValor: number, fixed?: 'a' | 'b'): DrivenEdit {
-  if (dim.angular) return fail('Cota angular: editar o valor para mover elementos ainda não é suportado.');
+export function drivenEditCommands(project: Project, dim: Dimension, novoValor: number, fixed?: 'a' | 'b', lang: Lang = 'pt'): DrivenEdit {
+  if (dim.angular) return fail(translate(lang, 'tl_msg_dim_angular_edit'));
   if (dim.locked) return fail('Cota travada: destrave a cota para mudar o valor e mover os elementos.');
   if (!Number.isFinite(novoValor) || !(novoValor > 0)) return fail('Medida inválida: digite uma distância maior que zero.');
-  const ms = measure(project, dim);
+  const ms = measure(project, dim, lang);
   if ('error' in ms) return fail(ms.error);
   if (!ms.a.mover && !ms.b.mover) return fail('A cota não está associada a elementos: edite os pontos da cota livre.');
 
@@ -273,7 +274,7 @@ export function drivenEditCommands(project: Project, dim: Dimension, novoValor: 
   const delta = novoValor - ms.value;
   if (Math.abs(delta) < 1e-9) return { ok: true, commands: [] };
   const m = mul(moving === 'b' ? ms.dir : mul(ms.dir, -1), delta);
-  const r = moveMover(project, mv, m, ms.dir);
+  const r = moveMover(project, mv, m, ms.dir, lang);
   if ('error' in r) return fail(r.error);
 
   // Simula numa cópia e confere que a cota passou a valer o pedido.
@@ -283,8 +284,8 @@ export function drivenEditCommands(project: Project, dim: Dimension, novoValor: 
   } catch (e) {
     return fail(`Não foi possível aplicar a edição: ${(e as Error).message}`);
   }
-  const after = measure(sim, dim);
+  const after = measure(sim, dim, lang);
   if ('error' in after) return fail(after.error);
-  if (Math.abs(after.value - novoValor) > CHECK_TOL) return fail('O resultado não daria a medida pedida (limite de parede, junção ou geometria).');
+  if (Math.abs(after.value - novoValor) > CHECK_TOL) return fail(translate(lang, 'tl_msg_dim_result_mismatch'));
   return { ok: true, commands: [{ type: 'batch', commands: r.commands } satisfies Command] };
 }

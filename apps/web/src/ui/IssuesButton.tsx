@@ -1,11 +1,13 @@
 import { useEffect, useId, useRef, useState, type ReactElement } from 'react';
 import type { ValidationIssue } from '@hestia/model';
 import { goToIssue } from '../editor/goToIssue.ts';
+import { useT } from '../editor/i18n.ts';
 import { groupIssues, summarize, worstSeverity } from '../editor/issuesView.ts';
 import { useIssues } from '../editor/useIssues.ts';
 
 /** Botão de avisos da barra de status, com popover de lista agrupada por severidade. */
 export function IssuesButton(): ReactElement {
+  const { t } = useT();
   const issues = useIssues();
   const [open, setOpen] = useState(false);
   const anchor = useRef<HTMLDivElement>(null);
@@ -46,7 +48,7 @@ export function IssuesButton(): ReactElement {
     (first ?? pop.current)?.focus();
   }, [showPop]);
 
-  if (!summary) return <span className="issues-ok">✓ Modelo sem avisos</span>;
+  if (!summary) return <span className="issues-ok">{t('shc_issues_none')}</span>;
 
   const choose = (issue: ValidationIssue): void => {
     goToIssue(issue);
@@ -65,7 +67,7 @@ export function IssuesButton(): ReactElement {
         aria-expanded={showPop}
         aria-controls={showPop ? popId : undefined}
         onClick={() => setOpen((o) => !o)}
-        title="Ver avisos de validação do modelo"
+        title={t('shc_issues_tip')}
       >
         <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 3.5 2.5 20h19L12 3.5Z" />
@@ -74,7 +76,7 @@ export function IssuesButton(): ReactElement {
         <span>{summary}</span>
       </button>
       {showPop && (
-        <div id={popId} ref={pop} role="dialog" aria-label="Avisos de validação" className="issues-pop" tabIndex={-1}>
+        <div id={popId} ref={pop} role="dialog" aria-label={t('shc_issues_title')} className="issues-pop" tabIndex={-1}>
           {groups.map((g) => (
             <section key={g.severity} className={`issues-group ${g.severity}`}>
               <h3>{g.title} ({g.items.length})</h3>
@@ -83,8 +85,8 @@ export function IssuesButton(): ReactElement {
                   <li key={`${issue.code}-${issue.elementId ?? ''}-${i}`} className="issues-item">
                     <span className="issues-msg">{issue.message}</span>
                     {issue.elementId && (
-                      <button type="button" className="chiplink" onClick={() => choose(issue)} aria-label={`Ir para o elemento: ${issue.message}`}>
-                        Ir para
+                      <button type="button" className="chiplink" onClick={() => choose(issue)} aria-label={t('shc_issues_goto_aria', { msg: issue.message })}>
+                        {t('shc_issues_goto')}
                       </button>
                     )}
                   </li>

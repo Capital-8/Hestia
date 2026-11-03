@@ -24,3 +24,4 @@ export { exportSheetsPdf } from './pdf/sheetsPdf.ts';
 export { buildPdf, type PdfPageSpec } from './pdf/pdfWriter.ts';
 export * from './dxfCheck.ts';
 export * from './zip.ts';
+export { PT_IO_PACKAGE, EN_IO_PACKAGE, dxfLayerName, dxfLayerCanonical } from './i18n.ts';

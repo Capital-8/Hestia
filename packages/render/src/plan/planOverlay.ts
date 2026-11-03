@@ -283,7 +283,7 @@ export function buildPlanLiveOverlay(input: PlanInput): PlanOps {
   if (input.inference) {
     out.strokes.push(...guideStrokes(input.inference.guides, theme));
     out.strokes.push(...snapMarker(input.inference, theme));
-    const tip = snapTooltipLabel(input.inference, p);
+    const tip = snapTooltipLabel(input.inference, p, input.lang);
     if (tip) out.labels.push(tip);
   }
   if (input.tagGhost) {
@@ -351,7 +351,7 @@ export function buildPlanOverlay(input: PlanInput): PlanOps {
   if (input.inference) {
     out.strokes.push(...guideStrokes(input.inference.guides, theme));
     out.strokes.push(...snapMarker(input.inference, theme));
-    const tip = snapTooltipLabel(input.inference, p);
+    const tip = snapTooltipLabel(input.inference, p, input.lang);
     if (tip) out.labels.push(tip);
   }
   return out;

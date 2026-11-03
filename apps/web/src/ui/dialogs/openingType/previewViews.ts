@@ -1,6 +1,7 @@
 import { buildOpeningModel, computeSection, frameOfWall, openingGeometry, resolveLevel, type OpeningGeometry, type OpeningModel, type SectionLine, type SectionResult } from '@hestia/engine';
 import { buildPlanDrawList, buildSectionDrawList, DARK, LIGHT, sectionBox, type PlanDrawList, type PlanTheme } from '@hestia/render';
 import { openingAngle2d, openingDetail2d, type Opening, type OpeningLineConvention, type OpeningType, type Project } from '@hestia/model';
+import { t, type Lang } from '../../../editor/i18n.ts';
 import { drawListToSvg, expandDrawBox, type DrawBox } from './drawListToSvg.ts';
 import { previewOpening, previewProject, previewWall } from './previewProject.ts';
 
@@ -16,6 +17,8 @@ export interface PreviewViewOptions {
   height?: number;
   /** Convenção do V do projeto; ausente usa o padrão por leitura (`latch`/`toward`). */
   openingLine?: OpeningLineConvention;
+  /** Idioma dos títulos desenhados/aria (default `pt`). */
+  lang?: Lang;
 }
 
 export interface PreviewDraw {
@@ -90,7 +93,7 @@ function planType(type: OpeningType, angle: number | undefined): OpeningType {
  * vista. O enquadramento é o vão com 0,5 m de margem.
  */
 export function previewPlanDrawList(type: OpeningType, options: PreviewViewOptions = {}): { drawList: PlanDrawList; box: DrawBox } {
-  const base = previewProject(type, options.flipHand ?? false, options.flipFacing ?? false);
+  const base = previewProject(type, options.flipHand ?? false, options.flipFacing ?? false, options.lang ?? 'pt');
   const p = withType(withSettings(base, options), planType(type, options.angle));
   const levelId = p.levels[0]!.id;
   const wall = previewWall(p);
@@ -151,7 +154,7 @@ interface SectionPreviewScene {
 
 /** Cena da seção da prévia: o projeto mínimo, o resultado do motor e a lista de desenho do render. */
 function sectionScene(type: OpeningType, cut: boolean, options: PreviewViewOptions): SectionPreviewScene {
-  const project = withSettings(previewProject(type, options.flipHand ?? false, options.flipFacing ?? false), options);
+  const project = withSettings(previewProject(type, options.flipHand ?? false, options.flipFacing ?? false, options.lang ?? 'pt'), options);
   const section = computeSection(project, cut ? crossLine(project) : elevationLine(project));
   const dark = options.dark ?? false;
   const drawList = buildSectionDrawList({
@@ -223,6 +226,7 @@ function sillBox(section: SectionResult, kind: OpeningType['kind']): DrawBox | n
  * e dois detalhes ampliados, "Cabeça" e "Soleira". Cada quadro tem o seu enquadramento e o seu SVG.
  */
 export function previewSectionFrames(type: OpeningType, options: PreviewViewOptions = {}): PreviewSectionFrame[] {
+  const lang = options.lang ?? 'pt';
   const scene = sectionScene(type, true, options);
   const full = sectionViewBox(scene.section, true, MARGIN_SECTION);
   const head = headBox(scene.section) ?? full;
@@ -234,7 +238,7 @@ export function previewSectionFrames(type: OpeningType, options: PreviewViewOpti
     box,
     svg: svgOf(scene.drawList, box, options, title),
   });
-  return [frame('full', 'Corte', full), frame('head', 'Cabeça', head), frame('sill', 'Soleira', sill)];
+  return [frame('full', t(lang, 'dlo_sec_full'), full), frame('head', t(lang, 'dlo_sec_head'), head), frame('sill', t(lang, 'dlo_sec_sill'), sill)];
 }
 
 function svgOf(drawList: PlanDrawList, box: DrawBox, options: PreviewViewOptions, title: string): string {
@@ -243,17 +247,17 @@ function svgOf(drawList: PlanDrawList, box: DrawBox, options: PreviewViewOptions
 
 export function previewPlanSvg(type: OpeningType, options: PreviewViewOptions = {}): string {
   const { drawList, box } = previewPlanDrawList(type, options);
-  return svgOf(drawList, box, options, 'Planta da esquadria');
+  return svgOf(drawList, box, options, t(options.lang ?? 'pt', 'dlo_prev_title_plan'));
 }
 
 export function previewElevationSvg(type: OpeningType, options: PreviewViewOptions = {}): string {
   const { drawList, box } = previewElevationDrawList(type, options);
-  return svgOf(drawList, box, options, 'Elevação da esquadria');
+  return svgOf(drawList, box, options, t(options.lang ?? 'pt', 'dlo_prev_title_elevation'));
 }
 
 export function previewSectionSvg(type: OpeningType, options: PreviewViewOptions = {}): string {
   const { drawList, box } = previewSectionDrawList(type, options);
-  return svgOf(drawList, box, options, 'Corte da esquadria');
+  return svgOf(drawList, box, options, t(options.lang ?? 'pt', 'dlo_prev_title_section'));
 }
 
 /**
@@ -275,11 +279,11 @@ const miniCache = new Map<string, string>();
 const MINI_CACHE_MAX = 96;
 
 /** Miniatura (elevação) gerada pelo mesmo caminho da prévia grande, com cache por assinatura visual do tipo. */
-export function previewMiniatureSvg(type: OpeningType, width = 96, height = 64): string {
-  const key = `${previewTypeSignature(type)}|${width}x${height}`;
+export function previewMiniatureSvg(type: OpeningType, width = 96, height = 64, lang: Lang = 'pt'): string {
+  const key = `${previewTypeSignature(type)}|${width}x${height}|${lang}`;
   const hit = miniCache.get(key);
   if (hit !== undefined) return hit;
-  const svg = previewElevationSvg(type, { width, height });
+  const svg = previewElevationSvg(type, { width, height, lang });
   if (miniCache.size >= MINI_CACHE_MAX) miniCache.delete(miniCache.keys().next().value as string);
   miniCache.set(key, svg);
   return svg;

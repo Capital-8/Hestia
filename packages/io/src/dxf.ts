@@ -2,6 +2,7 @@ import { DXF_LINE_WEIGHTS, DXF_LINE_WEIGHT_DEFAULT, type DxfLayerStyle, type Gra
 import { DXF_LAYER_COTAS, DXF_LAYER_DETALHE, DXF_LAYER_ETIQUETAS, DXF_LAYER_TEXTOS, dxfTextEntity, type DxfNoteText, type DxfNotes } from './dxfNotes.ts';
 import { writeDxf2000, type DxfDoc, type DxfDocEntity, type DxfDocLayer, type DxfLineType, type DxfUnit } from './dxfDoc.ts';
 import { DXF_LAYER_GENERIC } from './dxfGeneric.ts';
+import { dxfLayerCanonical, dxfLayerName, dxfLayerPrefix, t, type Lang } from './i18n.ts';
 
 /** Ponto em metros: x para a direita, y para cima (planta). */
 export interface DxfPoint {
@@ -216,23 +217,23 @@ function layerSafe(text: string): string {
 }
 
 /** Camada DXF de um material: `PAREDE_` + nome em maiúsculas, sem acentos nem símbolos. */
-export function dxfLayerOfMaterial(name: string): string {
-  return `PAREDE_${layerSafe(name) || 'SEM_NOME'}`;
+export function dxfLayerOfMaterial(name: string, lang: Lang = 'pt'): string {
+  return `${dxfLayerPrefix('material', lang)}${layerSafe(name) || t(lang, 'io_dxf_layer_unnamed')}`;
 }
 
 /** Camada DXF de um tipo de piso: `PISO_` + código sem acentos nem símbolos (PS-01 vira PISO_PS_01). */
-export function dxfLayerOfFloor(typeCode: string): string {
-  return `PISO_${layerSafe(typeCode) || 'SEM_CODIGO'}`;
+export function dxfLayerOfFloor(typeCode: string, lang: Lang = 'pt'): string {
+  return `${dxfLayerPrefix('floor', lang)}${layerSafe(typeCode) || t(lang, 'io_dxf_layer_no_code')}`;
 }
 
 /** Camada DXF de um tipo de laje: `LAJE_` + código sem acentos nem símbolos (LJ-12 vira LAJE_LJ_12). */
-export function dxfLayerOfSlab(typeCode: string): string {
-  return `LAJE_${layerSafe(typeCode) || 'SEM_CODIGO'}`;
+export function dxfLayerOfSlab(typeCode: string, lang: Lang = 'pt'): string {
+  return `${dxfLayerPrefix('slab', lang)}${layerSafe(typeCode) || t(lang, 'io_dxf_layer_no_code')}`;
 }
 
 /** Camada DXF do contorno de um tipo de telhado: `TELHADO_` + código (TL-01 vira TELHADO_TL_01). */
-export function dxfLayerOfRoof(typeCode: string): string {
-  return `TELHADO_${layerSafe(typeCode) || 'SEM_CODIGO'}`;
+export function dxfLayerOfRoof(typeCode: string, lang: Lang = 'pt'): string {
+  return `${dxfLayerPrefix('roof', lang)}${layerSafe(typeCode) || t(lang, 'io_dxf_layer_no_code')}`;
 }
 
 const EPS = 1e-9;
@@ -381,12 +382,13 @@ const FIXED_LINE_ROLE = new Map<string, DxfLineRole>([
 
 /** Papel de uma camada pelo nome. `undefined` = sem categoria (sai com -3). `PAREDE_<material>` é corte de parede. */
 export function dxfLineRoleOf(layer: string): DxfLineRole | undefined {
-  const fixed = FIXED_LINE_ROLE.get(layer);
+  const canonical = dxfLayerCanonical(layer);
+  const fixed = FIXED_LINE_ROLE.get(canonical);
   if (fixed !== undefined) return fixed;
-  if (layer.startsWith('PAREDE_')) return cut('wall');
-  if (layer.startsWith('PISO_')) return cut('floor');
-  if (layer.startsWith('LAJE_')) return cut('slab');
-  if (layer.startsWith('TELHADO_')) return cut('roof');
+  if (canonical.startsWith('PAREDE_')) return cut('wall');
+  if (canonical.startsWith('PISO_')) return cut('floor');
+  if (canonical.startsWith('LAJE_')) return cut('slab');
+  if (canonical.startsWith('TELHADO_')) return cut('roof');
   return undefined;
 }
 
@@ -479,8 +481,10 @@ function layerNamesOf(shapes: Shape[], lines: Line[], texts: DxfNoteText[]): str
 }
 
 /** Nomes das camadas que `exportDxf` põe na tabela LAYER para esta geometria (a base de `lineWeights`). */
-export function dxfLayersOf(project: Project, geo: DxfLevelGeometry): string[] {
-  return [...new Set([...layerNamesOf(shapesOf(project, geo), linesOf(geo), textsOf(geo)), ...(geo.extraLayers ?? [])])].sort();
+export function dxfLayersOf(project: Project, geo: DxfLevelGeometry, lang: Lang = 'pt'): string[] {
+  return [...new Set([...layerNamesOf(shapesOf(project, geo), linesOf(geo), textsOf(geo)), ...(geo.extraLayers ?? [])])]
+    .map((name) => dxfLayerName(name, lang))
+    .sort();
 }
 
 /**
@@ -491,19 +495,19 @@ export function dxfLayersOf(project: Project, geo: DxfLevelGeometry): string[] {
  * anel é uma POLYLINE fechada (flag 1). Cada camada leva a cor e o tipo de linha do papel dela e a largura de linha de
  * `geo.lineWeights` em centésimos de mm (código 370). Textos fora do ASCII saem como \U+XXXX (`dxfEscapeText`).
  */
-export function dxfDocOf(project: Project, levelId: Id, geo: DxfLevelGeometry): DxfDoc {
-  if (!project.levels.some((l) => l.id === levelId)) throw new Error(`Nível ausente: ${levelId}`);
+export function dxfDocOf(project: Project, levelId: Id, geo: DxfLevelGeometry, lang: Lang = 'pt'): DxfDoc {
+  if (!project.levels.some((l) => l.id === levelId)) throw new Error(t(lang, 'io_err_dxf_level_missing', { id: levelId }));
   const shapes = shapesOf(project, geo);
   const lines = linesOf(geo);
   const texts = textsOf(geo);
   const layers: DxfDocLayer[] = [...new Set([...layerNamesOf(shapes, lines, texts), ...(geo.extraLayers ?? [])])].sort().map((name) => {
     const style = geo.layerStyles?.[name] ?? dxfLayerStyleOf(name, geo.lineWeights?.[name] ?? DXF_LINE_WEIGHT_DEFAULT);
-    return { name, color: style.color, linetype: style.linetype, lineWeight: style.lineWeight };
+    return { name: dxfLayerName(name, lang), color: style.color, linetype: style.linetype, lineWeight: style.lineWeight };
   });
   const entities: DxfDocEntity[] = [
-    ...shapes.map((s): DxfDocEntity => ({ kind: 'polyline', layer: s.layer, points: s.pts, closed: s.closed !== false, ...(s.dashed === true ? { dashed: true } : {}) })),
-    ...lines.map((l): DxfDocEntity => ({ kind: 'line', layer: l.layer, a: l.a, b: l.b })),
-    ...texts.map((t) => dxfTextEntity(t)),
+    ...shapes.map((s): DxfDocEntity => ({ kind: 'polyline', layer: dxfLayerName(s.layer, lang), points: s.pts, closed: s.closed !== false, ...(s.dashed === true ? { dashed: true } : {}) })),
+    ...lines.map((l): DxfDocEntity => ({ kind: 'line', layer: dxfLayerName(l.layer, lang), a: l.a, b: l.b })),
+    ...texts.map((t) => dxfTextEntity({ ...t, layer: dxfLayerName(t.layer, lang) })),
   ];
   const all = [...shapes.flatMap((s) => s.pts), ...lines.flatMap((l) => [l.a, l.b]), ...texts.map((t) => t.at)];
   const lo = all.reduce((m, p) => ({ x: Math.min(m.x, p.x), y: Math.min(m.y, p.y) }), { x: 0, y: 0 });
@@ -515,6 +519,6 @@ export function dxfDocOf(project: Project, levelId: Id, geo: DxfLevelGeometry): 
  * Planta de um nível em DXF R2000 (AC1015), o `writeDxf2000` do documento de `dxfDocOf`. O R12 antigo não guardava a
  * espessura de linha por camada; o AC1015 guarda (370) e abre do AutoCAD 2000 ao 2025.
  */
-export function exportDxf(project: Project, levelId: Id, geo: DxfLevelGeometry): string {
-  return writeDxf2000(dxfDocOf(project, levelId, geo));
+export function exportDxf(project: Project, levelId: Id, geo: DxfLevelGeometry, lang: Lang = 'pt'): string {
+  return writeDxf2000(dxfDocOf(project, levelId, geo, lang));
 }

@@ -4,6 +4,7 @@ import { DIM_MIN_LENGTH } from './dimension.ts';
 import { newId } from './ids.ts';
 import { type Dimension, type DetailLine, type DetailRegion, type ElementTag, type Id, type Level, type Project, type RoomSeparator, type SectionView, type TextNote } from './types.ts';
 import { cleanSectionAnnotations, sectionAnnotationsOf, type SectionAnnotations } from './sectionAnnotations.ts';
+import { t as translate, type Lang } from './i18n.ts';
 
 /**
  * Onde a anotação mora: sempre no nível e, quando `planId`/`sectionId` existe, na vista (planta de área ou corte/elevação).
@@ -45,39 +46,39 @@ export type AnnotationCommand =
 const finite = (v: Vec2): boolean => Number.isFinite(v.x) && Number.isFinite(v.y);
 
 /** Motivo de recusa de uma cota, ou null. */
-export function dimensionIssue(d: Dimension): string | null {
+export function dimensionIssue(d: Dimension, lang: Lang = 'pt'): string | null {
   if (d.angular) {
     const a = d.angular;
-    if (!a.refA || !a.refB) return 'A cota angular precisa de duas referências.';
-    if (!finite(a.center) || !finite(a.from) || !finite(a.to)) return 'A geometria da cota angular precisa de pontos finitos.';
-    if (!(Number.isFinite(a.radius) && a.radius > 0)) return 'O raio da cota angular deve ser maior que zero.';
+    if (!a.refA || !a.refB) return translate(lang, 'md_cmd_angdim_refs');
+    if (!finite(a.center) || !finite(a.from) || !finite(a.to)) return translate(lang, 'md_cmd_angdim_geometry');
+    if (!(Number.isFinite(a.radius) && a.radius > 0)) return translate(lang, 'md_cmd_angdim_radius');
     const twoPi = Math.PI * 2;
-    if (!(Number.isFinite(a.value) && a.value >= 0 && a.value <= twoPi + 1e-9)) return 'O ângulo da cota angular deve estar em radianos entre 0 e 2π.';
+    if (!(Number.isFinite(a.value) && a.value >= 0 && a.value <= twoPi + 1e-9)) return translate(lang, 'md_cmd_angdim_angle_2pi');
     if (a.side === 'reflex') {
-      if (!(a.value > Math.PI + 1e-9 && a.value <= twoPi + 1e-9)) return 'A volta da cota angular deve medir mais de 180° e no máximo 360°.';
+      if (!(a.value > Math.PI + 1e-9 && a.value <= twoPi + 1e-9)) return translate(lang, 'md_cmd_angdim_reflex');
     } else if (a.value > Math.PI + 1e-9) {
-      return 'O ângulo da cota angular deve estar em radianos entre 0 e π.';
+      return translate(lang, 'md_cmd_angdim_angle_pi');
     }
-    if (d.textHeight !== undefined && !(Number.isFinite(d.textHeight) && d.textHeight > 0)) return 'A altura do texto da cota deve ser maior que zero.';
+    if (d.textHeight !== undefined && !(Number.isFinite(d.textHeight) && d.textHeight > 0)) return translate(lang, 'md_cmd_dim_text_height');
     return null;
   }
-  if (!finite(d.a) || !finite(d.b)) return 'As coordenadas da cota devem ser números finitos.';
-  if (!Number.isFinite(d.offset)) return 'O deslocamento da cota deve ser um número finito.';
-  if (d.textAt && !finite(d.textAt)) return 'A posição do texto da cota deve ser finita.';
-  if (d.textHeight !== undefined && !(Number.isFinite(d.textHeight) && d.textHeight > 0)) return 'A altura do texto da cota deve ser maior que zero.';
-  if (d.precision !== undefined && ![0, 1, 2, 3].includes(d.precision)) return 'A precisão da cota deve ter entre zero e três casas decimais.';
-  if (len(sub(d.b, d.a)) < DIM_MIN_LENGTH) return 'A cota precisa de dois pontos distintos.';
+  if (!finite(d.a) || !finite(d.b)) return translate(lang, 'md_cmd_dim_coords');
+  if (!Number.isFinite(d.offset)) return translate(lang, 'md_cmd_dim_offset');
+  if (d.textAt && !finite(d.textAt)) return translate(lang, 'md_cmd_dim_text_position');
+  if (d.textHeight !== undefined && !(Number.isFinite(d.textHeight) && d.textHeight > 0)) return translate(lang, 'md_cmd_dim_text_height');
+  if (d.precision !== undefined && ![0, 1, 2, 3].includes(d.precision)) return translate(lang, 'md_cmd_dim_precision');
+  if (len(sub(d.b, d.a)) < DIM_MIN_LENGTH) return translate(lang, 'md_cmd_dim_two_points');
   return null;
 }
 
 /** Motivo de recusa de um texto, ou null. */
-export function textIssue(t: TextNote): string | null {
-  if (!finite(t.at)) return 'A posição do texto deve ser um ponto finito.';
-  if (t.text.trim() === '') return 'O texto não pode ser vazio.';
-  if (!(Number.isFinite(t.height) && t.height > 0)) return 'A altura do texto deve ser maior que zero.';
-  if (!Number.isFinite(t.rotation)) return 'A rotação do texto deve ser um número finito.';
-  if (t.width !== undefined && !(Number.isFinite(t.width) && t.width > 0)) return 'A largura do texto deve ser maior que zero.';
-  if (t.leader && (t.leader.length < 2 || t.leader.some((p) => !finite(p)))) return 'A chamada precisa de dois pontos válidos.';
+export function textIssue(note: TextNote, lang: Lang = 'pt'): string | null {
+  if (!finite(note.at)) return translate(lang, 'md_cmd_text_position');
+  if (note.text.trim() === '') return translate(lang, 'md_cmd_text_empty');
+  if (!(Number.isFinite(note.height) && note.height > 0)) return translate(lang, 'md_cmd_text_height');
+  if (!Number.isFinite(note.rotation)) return translate(lang, 'md_cmd_text_rotation');
+  if (note.width !== undefined && !(Number.isFinite(note.width) && note.width > 0)) return translate(lang, 'md_cmd_text_width');
+  if (note.leader && (note.leader.length < 2 || note.leader.some((p) => !finite(p)))) return translate(lang, 'md_cmd_text_leader');
   return null;
 }
 
@@ -88,9 +89,9 @@ export const levelDimensions = (p: Pick<Project, 'levels'>, levelId: Id): Dimens
 export const ROOM_SEPARATOR_MIN_LENGTH = 0.05;
 
 /** Motivo de recusa de uma linha de separação, ou null. Pontos distintos e não muito próximos. */
-export function roomSeparatorIssue(r: RoomSeparator): string | null {
-  if (!finite(r.a) || !finite(r.b)) return 'As coordenadas da linha de separação devem ser números finitos.';
-  if (len(sub(r.b, r.a)) < ROOM_SEPARATOR_MIN_LENGTH) return 'A linha de separação precisa de dois pontos distintos.';
+export function roomSeparatorIssue(r: RoomSeparator, lang: Lang = 'pt'): string | null {
+  if (!finite(r.a) || !finite(r.b)) return translate(lang, 'md_cmd_separator_coords');
+  if (len(sub(r.b, r.a)) < ROOM_SEPARATOR_MIN_LENGTH) return translate(lang, 'md_cmd_separator_two_points');
   return null;
 }
 
@@ -138,17 +139,17 @@ const planScope = (plan: AreaPlan): AnnotationScope => {
 };
 
 /** Planta de área da vista: precisa existir e ser do mesmo nível da anotação. */
-function viewPlan(p: Project, planId: Id, levelId: Id): AreaPlan {
+function viewPlan(p: Project, planId: Id, levelId: Id, lang: Lang): AreaPlan {
   const plan = areaPlanOf(p, planId);
-  if (!plan) throw new Error('Planta de área inexistente');
-  if (plan.levelId !== levelId) throw new Error('A planta de área não pertence ao nível da anotação');
+  if (!plan) throw new Error(translate(lang, 'md_area_plan_missing'));
+  if (plan.levelId !== levelId) throw new Error(translate(lang, 'md_cmd_plan_level_mismatch'));
   return plan;
 }
 
 /** Vista de corte/elevação dona da anotação: precisa existir no projeto. */
-function viewSection(p: Project, sectionId: Id): SectionView {
+function viewSection(p: Project, sectionId: Id, lang: Lang): SectionView {
   const view = p.views.find((v) => v.id === sectionId);
-  if (!view) throw new Error('Vista de corte/elevação inexistente');
+  if (!view) throw new Error(translate(lang, 'md_cmd_section_view_missing'));
   return view;
 }
 
@@ -170,118 +171,118 @@ const sectionScope = (view: SectionView): AnnotationScope => {
 };
 
 /** Aplica um comando de anotação sobre o rascunho do projeto. Lança Error em texto pt-BR se recusar. */
-export function applyAnnotationCommand(p: Project, c: AnnotationCommand): void {
+export function applyAnnotationCommand(p: Project, c: AnnotationCommand, lang: Lang = 'pt'): void {
   const level = p.levels.find((l) => l.id === c.levelId);
-  if (!level) throw new Error('Nível inexistente');
+  if (!level) throw new Error(translate(lang, 'md_level_missing'));
   const scope = 'sectionId' in c && c.sectionId
-    ? sectionScope(viewSection(p, c.sectionId))
+    ? sectionScope(viewSection(p, c.sectionId, lang))
     : 'planId' in c && c.planId
-      ? planScope(viewPlan(p, c.planId, c.levelId))
+      ? planScope(viewPlan(p, c.planId, c.levelId, lang))
       : levelScope(level);
   switch (c.type) {
     case 'addDimension': {
-      const issue = dimensionIssue(c.dimension);
+      const issue = dimensionIssue(c.dimension, lang);
       if (issue) throw new Error(issue);
       scope.dimensions.set([...scope.dimensions.get(), c.dimension]);
       break;
     }
     case 'updateDimension': {
       const old = scope.dimensions.get().find((d) => d.id === c.id);
-      if (!old) throw new Error('Cota inexistente');
+      if (!old) throw new Error(translate(lang, 'md_cmd_dim_missing'));
       const next: Dimension = { ...old, ...c.patch, id: old.id };
-      const issue = dimensionIssue(next);
+      const issue = dimensionIssue(next, lang);
       if (issue) throw new Error(issue);
       scope.dimensions.set(scope.dimensions.get().map((d) => (d.id === c.id ? next : d)));
       break;
     }
     case 'removeDimension':
-      if (!scope.dimensions.get().some((d) => d.id === c.id)) throw new Error('Cota inexistente');
+      if (!scope.dimensions.get().some((d) => d.id === c.id)) throw new Error(translate(lang, 'md_cmd_dim_missing'));
       scope.dimensions.set(scope.dimensions.get().filter((d) => d.id !== c.id));
       break;
     case 'addText': {
-      const issue = textIssue(c.text);
+      const issue = textIssue(c.text, lang);
       if (issue) throw new Error(issue);
       scope.texts.set([...scope.texts.get(), c.text]);
       break;
     }
     case 'updateText': {
       const old = scope.texts.get().find((t) => t.id === c.id);
-      if (!old) throw new Error('Texto inexistente');
+      if (!old) throw new Error(translate(lang, 'md_cmd_text_missing'));
       const next: TextNote = { ...old, ...c.patch, id: old.id };
-      const issue = textIssue(next);
+      const issue = textIssue(next, lang);
       if (issue) throw new Error(issue);
       scope.texts.set(scope.texts.get().map((t) => (t.id === c.id ? next : t)));
       break;
     }
     case 'removeText':
-      if (!scope.texts.get().some((t) => t.id === c.id)) throw new Error('Texto inexistente');
+      if (!scope.texts.get().some((t) => t.id === c.id)) throw new Error(translate(lang, 'md_cmd_text_missing'));
       scope.texts.set(scope.texts.get().filter((t) => t.id !== c.id));
       break;
     case 'addRoomSeparator': {
-      const issue = roomSeparatorIssue(c.separator);
+      const issue = roomSeparatorIssue(c.separator, lang);
       if (issue) throw new Error(issue);
       level.roomSeparators = [...(level.roomSeparators ?? []), c.separator];
       break;
     }
     case 'removeRoomSeparator':
-      if (!level.roomSeparators?.some((r) => r.id === c.id)) throw new Error('Linha de separação inexistente');
+      if (!level.roomSeparators?.some((r) => r.id === c.id)) throw new Error(translate(lang, 'md_cmd_separator_missing'));
       level.roomSeparators = level.roomSeparators.filter((r) => r.id !== c.id);
       break;
     case 'updateRoomSeparator': {
       const old = level.roomSeparators?.find((r) => r.id === c.id);
-      if (!old) throw new Error('Linha de separação inexistente');
+      if (!old) throw new Error(translate(lang, 'md_cmd_separator_missing'));
       const next: RoomSeparator = { ...old, ...c.patch, id: old.id };
-      const issue = roomSeparatorIssue(next);
+      const issue = roomSeparatorIssue(next, lang);
       if (issue) throw new Error(issue);
       level.roomSeparators = level.roomSeparators!.map((r) => (r.id === c.id ? next : r));
       break;
     }
     case 'addDetailLine':
-      if (!finite(c.item.a) || !finite(c.item.b) || len(sub(c.item.b, c.item.a)) < ROOM_SEPARATOR_MIN_LENGTH) throw new Error('A linha de detalhe precisa de dois pontos distintos.');
+      if (!finite(c.item.a) || !finite(c.item.b) || len(sub(c.item.b, c.item.a)) < ROOM_SEPARATOR_MIN_LENGTH) throw new Error(translate(lang, 'md_cmd_detail_line_two_points'));
       scope.detailLines.set([...scope.detailLines.get(), c.item]);
       break;
     case 'updateDetailLine': {
       const old = scope.detailLines.get().find((x) => x.id === c.id);
-      if (!old) throw new Error('Linha de detalhe inexistente');
+      if (!old) throw new Error(translate(lang, 'md_cmd_detail_line_missing'));
       const next = { ...old, ...c.patch, id: old.id };
-      if (!finite(next.a) || !finite(next.b) || len(sub(next.b, next.a)) < ROOM_SEPARATOR_MIN_LENGTH) throw new Error('A linha de detalhe precisa de dois pontos distintos.');
+      if (!finite(next.a) || !finite(next.b) || len(sub(next.b, next.a)) < ROOM_SEPARATOR_MIN_LENGTH) throw new Error(translate(lang, 'md_cmd_detail_line_two_points'));
       scope.detailLines.set(scope.detailLines.get().map((x) => x.id === c.id ? next : x));
       break;
     }
     case 'removeDetailLine':
-      if (!scope.detailLines.get().some((x) => x.id === c.id)) throw new Error('Linha de detalhe inexistente');
+      if (!scope.detailLines.get().some((x) => x.id === c.id)) throw new Error(translate(lang, 'md_cmd_detail_line_missing'));
       scope.detailLines.set(scope.detailLines.get().filter((x) => x.id !== c.id));
       break;
     case 'addDetailRegion':
-      if (c.item.boundary.length < 3 || c.item.boundary.some((p) => !finite(p))) throw new Error('A região precisa de pelo menos três pontos válidos.');
+      if (c.item.boundary.length < 3 || c.item.boundary.some((p) => !finite(p))) throw new Error(translate(lang, 'md_cmd_detail_region_invalid'));
       scope.detailRegions.set([...scope.detailRegions.get(), c.item]);
       break;
     case 'updateDetailRegion': {
       const old = scope.detailRegions.get().find((x) => x.id === c.id);
-      if (!old) throw new Error('Região de detalhe inexistente');
+      if (!old) throw new Error(translate(lang, 'md_cmd_detail_region_missing'));
       const next = { ...old, ...c.patch, id: old.id };
-      if (next.boundary.length < 3 || next.boundary.some((p) => !finite(p))) throw new Error('A região precisa de pelo menos três pontos válidos.');
+      if (next.boundary.length < 3 || next.boundary.some((p) => !finite(p))) throw new Error(translate(lang, 'md_cmd_detail_region_invalid'));
       scope.detailRegions.set(scope.detailRegions.get().map((x) => x.id === c.id ? next : x));
       break;
     }
     case 'removeDetailRegion':
-      if (!scope.detailRegions.get().some((x) => x.id === c.id)) throw new Error('Região de detalhe inexistente');
+      if (!scope.detailRegions.get().some((x) => x.id === c.id)) throw new Error(translate(lang, 'md_cmd_detail_region_missing'));
       scope.detailRegions.set(scope.detailRegions.get().filter((x) => x.id !== c.id));
       break;
     case 'addTag':
-      if (!finite(c.item.at) || !p.elements[c.item.hostId]) throw new Error('A etiqueta precisa estar ligada a um elemento existente.');
+      if (!finite(c.item.at) || !p.elements[c.item.hostId]) throw new Error(translate(lang, 'md_cmd_tag_host_invalid'));
       scope.tags.set([...scope.tags.get(), c.item]);
       break;
     case 'updateTag': {
       const old = scope.tags.get().find((x) => x.id === c.id);
-      if (!old) throw new Error('Etiqueta inexistente');
+      if (!old) throw new Error(translate(lang, 'md_cmd_tag_missing'));
       const next = { ...old, ...c.patch, id: old.id };
-      if (!finite(next.at) || !p.elements[next.hostId]) throw new Error('A etiqueta precisa estar ligada a um elemento existente.');
+      if (!finite(next.at) || !p.elements[next.hostId]) throw new Error(translate(lang, 'md_cmd_tag_host_invalid'));
       scope.tags.set(scope.tags.get().map((x) => x.id === c.id ? next : x));
       break;
     }
     case 'removeTag':
-      if (!scope.tags.get().some((x) => x.id === c.id)) throw new Error('Etiqueta inexistente');
+      if (!scope.tags.get().some((x) => x.id === c.id)) throw new Error(translate(lang, 'md_cmd_tag_missing'));
       scope.tags.set(scope.tags.get().filter((x) => x.id !== c.id));
       break;
   }

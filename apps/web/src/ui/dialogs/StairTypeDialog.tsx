@@ -131,7 +131,7 @@ export function StairTypeDialog({ typeId }: { typeId: string }): ReactElement | 
     const r = saveStairType(editor.store, saved);
     if (!r.ok) {
       // O modelo recusou (regras mais estritas que as do modal): o diálogo continua aberto com o rascunho.
-      setSaveError(`Não foi possível salvar: ${r.error}`);
+      setSaveError(fill(t.dlt_stair_err_save, { error: r.error }));
       return false;
     }
     setSaveError(null);
@@ -173,10 +173,10 @@ export function StairTypeDialog({ typeId }: { typeId: string }): ReactElement | 
     if (!cur) return;
     // Parte do rascunho atual (com as alterações não salvas), não do tipo salvo.
     if (validateStairType(cur, materialIds).some((i) => i.severity === 'error')) {
-      useUi.setState({ status: 'Corrija os erros do tipo antes de duplicar.' });
+      useUi.setState({ status: { key: 'dlt_stair_err_fix_duplicate' } });
       return;
     }
-    const copy = duplicateDraft(finalizeForSave(cur));
+    const copy = duplicateDraft(finalizeForSave(cur), undefined, lang);
     editor.store.exec({ type: 'upsertStairType', stairType: copy }, 'Duplicar tipo de escada');
     useUi.setState({ dialogArg: copy.id });
   };
@@ -189,7 +189,7 @@ export function StairTypeDialog({ typeId }: { typeId: string }): ReactElement | 
     if (!draftRef.current) return;
     const r = tryDeleteStairType(editor.store, draftRef.current.id);
     if (!r.ok) {
-      useUi.setState({ status: `Não foi possível excluir: ${r.error}` });
+      useUi.setState({ status: { key: 'dlt_err_delete_with_reason', args: { error: r.error } } });
       return;
     }
     const ui = useUi.getState();

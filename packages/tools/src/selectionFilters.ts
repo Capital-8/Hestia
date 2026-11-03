@@ -1,4 +1,5 @@
 import { isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Id, type Project } from '@hestia/model';
+import { t as translate, type Lang } from './i18n.ts';
 
 /** Categorias de filtro: paredes, portas, janelas, pisos, lajes, telhados, escadas, rampas e ambientes ('rooms', categoria 'room'). */
 export type ElementCategory = 'walls' | 'doors' | 'windows' | 'floors' | 'slabs' | 'roofs' | 'stairs' | 'ramps' | 'rooms';
@@ -42,13 +43,13 @@ export function idsOfCategory(p: Project, levelId: Id, category: ElementCategory
  * Tipo dos elementos selecionados. Devolve erro em texto se a seleção está vazia ou mistura tipos.
  * Ids que não são paredes, aberturas nem pisos são ignorados.
  */
-export function selectedTypeId(p: Project, ids: Id[]): { typeId: Id } | { error: string } {
+export function selectedTypeId(p: Project, ids: Id[], lang: Lang = 'pt'): { typeId: Id } | { error: string } {
   const types = new Set<Id>();
   for (const id of ids) {
     const e = p.elements[id];
     if (isWall(e) || isOpening(e) || isFloor(e) || isSlab(e) || isRoof(e) || isStair(e) || isRamp(e)) types.add(e.typeId);
   }
-  if (types.size === 0) return { error: 'Selecione uma parede, abertura ou piso primeiro.' };
-  if (types.size > 1) return { error: 'A seleção tem mais de um tipo. Selecione elementos de um só tipo.' };
+  if (types.size === 0) return { error: translate(lang, 'tl_msg_filter_select_first') };
+  if (types.size > 1) return { error: translate(lang, 'tl_msg_filter_mixed') };
   return { typeId: [...types][0]! };
 }

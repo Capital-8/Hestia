@@ -1,4 +1,5 @@
-import { DEFAULT_DIMENSION_STYLE, DIM_READ_CONVENTION_OPTIONS, DIM_TEXT_FIT_OPTIONS, dimensionStyleOf, type DimensionStyle, type DimTick } from '@hestia/model';
+import { DEFAULT_DIMENSION_STYLE, dimensionStyleOf, type DimensionStyle, type DimTick } from '@hestia/model';
+import { fmtNum, t as translate, type Dict, type Lang } from '../../editor/i18n.ts';
 
 /** Rascunho do estilo global de cotas (todos os campos, já resolvidos contra o padrão). */
 export type StyleDraft = DimensionStyle;
@@ -24,36 +25,44 @@ export const STYLE_LIMITS: Readonly<Record<StyleNumKey, { min: number; max: numb
 export const STYLE_TEXT_MAX = 12;
 export const STYLE_FONT_MAX = 120;
 
-export const DIM_TICK_OPTIONS: ReadonlyArray<{ value: DimTick; label: string }> = [
-  { value: 'slash', label: 'Traço (45°)' },
-  { value: 'arrow-filled', label: 'Seta cheia' },
-  { value: 'arrow-open', label: 'Seta aberta' },
-  { value: 'dot', label: 'Ponto' },
+export const DIM_TICK_OPTIONS: ReadonlyArray<{ value: DimTick; label: keyof Dict }> = [
+  { value: 'slash', label: 'dlt_dim_tick_slash' },
+  { value: 'arrow-filled', label: 'dlt_dim_tick_arrow_filled' },
+  { value: 'arrow-open', label: 'dlt_dim_tick_arrow_open' },
+  { value: 'dot', label: 'dlt_dim_tick_dot' },
 ];
 
-export const TEXT_PLACEMENT_OPTIONS: ReadonlyArray<{ value: DimensionStyle['textPlacement']; label: string }> = [
-  { value: 'above', label: 'Acima da linha' },
-  { value: 'centered', label: 'Centrado (interrompe a linha)' },
+export const TEXT_PLACEMENT_OPTIONS: ReadonlyArray<{ value: DimensionStyle['textPlacement']; label: keyof Dict }> = [
+  { value: 'above', label: 'dlt_dim_text_above' },
+  { value: 'centered', label: 'dlt_dim_text_centered' },
 ];
 
 /** Convenções de leitura do valor (Revit: Read Convention). */
-export const READ_CONVENTION_OPTIONS: ReadonlyArray<{ value: DimensionStyle['readConvention']; label: string }> = DIM_READ_CONVENTION_OPTIONS;
-
-/** Comportamento do valor quando não cabe no trecho. */
-export const TEXT_FIT_OPTIONS: ReadonlyArray<{ value: DimensionStyle['textFit']; label: string }> = DIM_TEXT_FIT_OPTIONS;
-
-export const UNIT_OPTIONS: ReadonlyArray<{ value: DimensionStyle['unit']; label: string }> = [
-  { value: 'project', label: 'Unidade do projeto' },
-  { value: 'm', label: 'Metros (m)' },
-  { value: 'cm', label: 'Centímetros (cm)' },
-  { value: 'mm', label: 'Milímetros (mm)' },
+export const READ_CONVENTION_OPTIONS: ReadonlyArray<{ value: DimensionStyle['readConvention']; label: keyof Dict }> = [
+  { value: 'aligned', label: 'dlt_dim_read_aligned' },
+  { value: 'upright', label: 'dlt_dim_read_upright' },
+  { value: 'horizontal', label: 'dlt_dim_read_horizontal' },
 ];
 
-export const PRECISION_OPTIONS: ReadonlyArray<{ value: DimensionStyle['precision']; label: string }> = [
-  { value: 0, label: '0 casas' },
-  { value: 1, label: '1 casa' },
-  { value: 2, label: '2 casas' },
-  { value: 3, label: '3 casas' },
+/** Comportamento do valor quando não cabe no trecho. */
+export const TEXT_FIT_OPTIONS: ReadonlyArray<{ value: DimensionStyle['textFit']; label: keyof Dict }> = [
+  { value: 'leader', label: 'dlt_dim_fit_leader' },
+  { value: 'inside', label: 'dlt_dim_fit_inside' },
+  { value: 'outside', label: 'dlt_dim_fit_outside' },
+];
+
+export const UNIT_OPTIONS: ReadonlyArray<{ value: DimensionStyle['unit']; label: keyof Dict }> = [
+  { value: 'project', label: 'dlt_dim_unit_project' },
+  { value: 'm', label: 'dlt_dim_unit_m' },
+  { value: 'cm', label: 'dlt_dim_unit_cm' },
+  { value: 'mm', label: 'dlt_dim_unit_mm' },
+];
+
+export const PRECISION_OPTIONS: ReadonlyArray<{ value: DimensionStyle['precision']; label: keyof Dict }> = [
+  { value: 0, label: 'dlt_dim_precision_0' },
+  { value: 1, label: 'dlt_dim_precision_1' },
+  { value: 2, label: 'dlt_dim_precision_2' },
+  { value: 3, label: 'dlt_dim_precision_3' },
 ];
 
 /** Famílias de fonte oferecidas; uma fonte gravada fora da lista entra como opção extra (ver `fontOptions`). */
@@ -85,42 +94,42 @@ export function parseDecimal(raw: string): number {
   return Number(t);
 }
 
-/** Número para exibir no campo, com vírgula decimal. */
-export function formatDecimal(n: number): string {
+/** Número para exibir no campo, com o separador decimal do idioma ativo. */
+export function formatDecimal(n: number, lang: Lang = 'pt'): string {
+  if (!Number.isFinite(n)) return '';
   // units-ok: campo numérico de parâmetros do estilo (mm de papel, casas decimais), não é medida do modelo
-  return Number.isFinite(n) ? String(n).replace('.', ',') : '';
+  return n.toLocaleString(lang === 'en' ? 'en-US' : 'pt-BR', { maximumFractionDigits: 12, useGrouping: false });
 }
 
 /** Valor de cota de exemplo formatado como o estilo manda (precisão, prefixo e sufixo). */
-export function formatDimValue(value: number, style: Pick<DimensionStyle, 'precision' | 'prefix' | 'suffix'>): string {
-  // units-ok: prévia do formato do estilo de cota (precisão/prefixo/sufixo próprios, não é medida do modelo)
-  return `${style.prefix}${value.toFixed(style.precision).replace('.', ',')}${style.suffix}`;
+export function formatDimValue(value: number, style: Pick<DimensionStyle, 'precision' | 'prefix' | 'suffix'>, lang: Lang = 'pt'): string {
+  return `${style.prefix}${fmtNum(value, style.precision, lang)}${style.suffix}`;
 }
 
-function numError(key: StyleNumKey, n: number): string | undefined {
+function numError(key: StyleNumKey, n: number, lang: Lang): string | undefined {
   const { min, max } = STYLE_LIMITS[key];
-  if (!Number.isFinite(n)) return 'Digite um número';
-  if (n < min || n > max) return `Entre ${formatDecimal(min)} e ${formatDecimal(max)}`;
+  if (!Number.isFinite(n)) return translate(lang, 'dlt_dim_err_number');
+  if (n < min || n > max) return translate(lang, 'dlt_dim_err_between', { min: formatDecimal(min, lang), max: formatDecimal(max, lang) });
   return undefined;
 }
 
 /** Validação do rascunho: só devolve os campos com erro. Vazio = pode aplicar. */
-export function validateStyleDraft(d: StyleDraft): StyleErrors {
+export function validateStyleDraft(d: StyleDraft, lang: Lang = 'pt'): StyleErrors {
   const e: StyleErrors = {};
   for (const k of Object.keys(STYLE_LIMITS) as StyleNumKey[]) {
-    const err = numError(k, d[k]);
+    const err = numError(k, d[k], lang);
     if (err) e[k] = err;
   }
-  if (!DIM_TICK_OPTIONS.some((o) => o.value === d.tick)) e.tick = 'Marcador desconhecido';
-  if (!TEXT_PLACEMENT_OPTIONS.some((o) => o.value === d.textPlacement)) e.textPlacement = 'Posição desconhecida';
-  if (!READ_CONVENTION_OPTIONS.some((o) => o.value === d.readConvention)) e.readConvention = 'Convenção desconhecida';
-  if (!TEXT_FIT_OPTIONS.some((o) => o.value === d.textFit)) e.textFit = 'Comportamento desconhecido';
-  if (!UNIT_OPTIONS.some((o) => o.value === d.unit)) e.unit = 'Unidade desconhecida';
-  if (!PRECISION_OPTIONS.some((o) => o.value === d.precision)) e.precision = 'Precisão fora de 0 a 3';
-  if (d.font.trim() === '') e.font = 'Informe a fonte';
-  else if (d.font.length > STYLE_FONT_MAX) e.font = `Até ${STYLE_FONT_MAX} caracteres`;
-  if (d.prefix.length > STYLE_TEXT_MAX) e.prefix = `Até ${STYLE_TEXT_MAX} caracteres`;
-  if (d.suffix.length > STYLE_TEXT_MAX) e.suffix = `Até ${STYLE_TEXT_MAX} caracteres`;
+  if (!DIM_TICK_OPTIONS.some((o) => o.value === d.tick)) e.tick = translate(lang, 'dlt_dim_err_tick');
+  if (!TEXT_PLACEMENT_OPTIONS.some((o) => o.value === d.textPlacement)) e.textPlacement = translate(lang, 'dlt_dim_err_position');
+  if (!READ_CONVENTION_OPTIONS.some((o) => o.value === d.readConvention)) e.readConvention = translate(lang, 'dlt_dim_err_convention');
+  if (!TEXT_FIT_OPTIONS.some((o) => o.value === d.textFit)) e.textFit = translate(lang, 'dlt_dim_err_behavior');
+  if (!UNIT_OPTIONS.some((o) => o.value === d.unit)) e.unit = translate(lang, 'dlt_dim_err_unit');
+  if (!PRECISION_OPTIONS.some((o) => o.value === d.precision)) e.precision = translate(lang, 'dlt_dim_err_precision');
+  if (d.font.trim() === '') e.font = translate(lang, 'dlt_dim_err_font');
+  else if (d.font.length > STYLE_FONT_MAX) e.font = translate(lang, 'dlt_dim_err_max_chars', { n: STYLE_FONT_MAX });
+  if (d.prefix.length > STYLE_TEXT_MAX) e.prefix = translate(lang, 'dlt_dim_err_max_chars', { n: STYLE_TEXT_MAX });
+  if (d.suffix.length > STYLE_TEXT_MAX) e.suffix = translate(lang, 'dlt_dim_err_max_chars', { n: STYLE_TEXT_MAX });
   return e;
 }
 
