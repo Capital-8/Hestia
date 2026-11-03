@@ -1,64 +1,172 @@
+import { FAMILIA_ARMARIO, HistoricoFamilia, type Familia, type Valor } from '@hestia/model';
+import { resolverFamilia, type ResolucaoFamilia } from '@hestia/engine';
 import { create } from 'zustand';
-import type { Valor } from './expressao.ts';
-import { PECAS_INICIAIS, TIPOS, type CampoFormula, type Peca, type Valores } from './familiaModelo.ts';
-import { resolverFamilia, type Resolucao } from './resolver.ts';
 
 /**
- * Estado do editor de famílias (protótipo de interface). Fica FORA do projeto: abrir ou ocultar a aba não mexe no
- * projeto aberto, e a família em edição sobrevive a voltar ao projeto (como a aba de família do Revit). Nada é gravado.
+ * Estado do editor de famílias. Fica FORA do projeto: abrir ou ocultar a aba não mexe no projeto aberto, e a família em
+ * edição sobrevive a voltar ao projeto (como a aba de família do Revit). Nada é gravado.
  */
 export type VistaFamilia = '3d' | 'frente' | 'lateral' | 'planta';
 export type DetalheFamilia = 'grosso' | 'medio' | 'fino';
 export type DialogoFamilia = null | 'parametros' | 'tipos' | 'pecas' | 'novo';
+export type EixoCorte = 'x' | 'y' | 'z';
+
+export interface Corte {
+  ativo: boolean;
+  eixo: EixoCorte;
+  posicao: number;
+}
 
 export interface FamiliaState {
   /** Aba da família à frente do projeto. */
   aberta: boolean;
-  tipoId: string;
-  valores: Valores;
-  pecas: Peca[];
-  sel: string;
+  historico: HistoricoFamilia<Familia>;
+  /** Sobe a cada mudança do histórico (inclusive desfazer, refazer e nova família). */
+  versao: number;
+  tipoId: string | null;
+  /** Valores do Flexionar: fora do histórico, um por parâmetro. */
+  valores: Record<string, Valor>;
+  sel: string | null;
   vista: VistaFamilia;
-  explodir: boolean;
+  /** 0..1. */
+  explodir: number;
   portas: boolean;
   detalhe: DetalheFamilia;
+  opacidade: number;
+  corte: Corte;
   dialogo: DialogoFamilia;
   /** Última ação de ferramenta clicada na faixa (a faixa ainda não executa nada). */
   ferramenta: string | null;
   abrir: () => void;
   ocultar: () => void;
-  set: (patch: Partial<FamiliaState>) => void;
+  familia: () => Familia;
+  executar: (rotulo: string, receita: (rascunho: Familia) => string | null) => string | null;
+  agrupar: (rotulo: string, fn: () => void) => void;
+  desfazer: () => boolean;
+  refazer: () => boolean;
   setValor: (id: string, v: Valor) => void;
-  setFormula: (pecaId: string, campo: CampoFormula, texto: string) => void;
+  limparValor: (id: string) => void;
   escolherTipo: (id: string) => void;
+  selecionarPeca: (id: string | null) => void;
+  novaFamilia: (f: Familia) => void;
+  set: (patch: Partial<FamiliaState>) => void;
 }
 
-const tipoInicial = TIPOS[1]!;
+/** Exceção interna: a receita recusou a edição e devolveu o motivo. */
+class Recusa extends Error {
+  readonly motivo: string;
 
-export const useFamilia = create<FamiliaState>((set) => ({
-  aberta: false,
-  tipoId: tipoInicial.id,
-  valores: { ...tipoInicial.v },
-  pecas: PECAS_INICIAIS.map((p) => ({ ...p })),
-  sel: 'latE',
-  vista: '3d',
-  explodir: false,
-  portas: true,
-  detalhe: 'fino',
-  dialogo: null,
-  ferramenta: null,
-  abrir: () => set({ aberta: true }),
-  ocultar: () => set({ aberta: false, dialogo: null }),
-  set: (patch) => set(patch),
-  setValor: (id, v) => set((s) => ({ valores: { ...s.valores, [id]: v } })),
-  setFormula: (pecaId, campo, texto) => set((s) => ({ pecas: s.pecas.map((p) => (p.id === pecaId ? { ...p, [campo]: texto } : p)) })),
-  escolherTipo: (id) => set((s) => {
-    const t = TIPOS.find((x) => x.id === id);
-    return t ? { tipoId: id, valores: { ...s.valores, ...t.v } } : s;
-  }),
-}));
+  constructor(motivo: string) {
+    super(motivo);
+    this.motivo = motivo;
+  }
+}
 
-/** Resolução da família corrente (memoizada por valores e fórmulas pelo chamador). */
-export function resolverCorrente(s: Pick<FamiliaState, 'valores' | 'pecas'>): Resolucao {
-  return resolverFamilia(s.valores, s.pecas);
+const estadoInicial = (f: Familia): { tipoId: string | null; valores: Record<string, Valor> } => ({
+  tipoId: f.tipoPadrao ?? f.tipos[0]?.id ?? null,
+  valores: {},
+});
+
+const inicial = structuredClone(FAMILIA_ARMARIO);
+const historicoInicial = new HistoricoFamilia<Familia>(inicial);
+
+export const useFamilia = create<FamiliaState>((set, get) => {
+  let cancelarAssinatura: (() => void) | null = null;
+
+  const ligar = (h: HistoricoFamilia<Familia>): void => {
+    cancelarAssinatura?.();
+    cancelarAssinatura = h.assinar(() => {
+      set((s) => ({
+        historico: h,
+        versao: s.versao + 1,
+        sel: s.sel !== null && h.atual.pecas.some((p) => p.id === s.sel) ? s.sel : null,
+      }));
+    });
+  };
+
+  const { tipoId, valores } = estadoInicial(inicial);
+  ligar(historicoInicial);
+
+  return {
+    aberta: false,
+    historico: historicoInicial,
+    versao: 0,
+    tipoId,
+    valores,
+    sel: null,
+    vista: '3d',
+    explodir: 0,
+    portas: true,
+    detalhe: 'fino',
+    opacidade: 1,
+    corte: { ativo: false, eixo: 'y', posicao: 0.3 },
+    dialogo: null,
+    ferramenta: null,
+    abrir: () => set({ aberta: true }),
+    ocultar: () => set({ aberta: false, dialogo: null }),
+    familia: () => get().historico.atual,
+    executar: (rotulo, receita) => {
+      try {
+        get().historico.exec(rotulo, (rascunho) => {
+          const motivo = receita(rascunho as unknown as Familia);
+          if (motivo !== null) throw new Recusa(motivo);
+        });
+        return null;
+      } catch (erro) {
+        if (erro instanceof Recusa) return erro.motivo;
+        throw erro;
+      }
+    },
+    agrupar: (rotulo, fn) => {
+      get().historico.agrupar(rotulo, fn);
+    },
+    desfazer: () => get().historico.desfazer(),
+    refazer: () => get().historico.refazer(),
+    setValor: (id, v) => set((s) => ({ valores: { ...s.valores, [id]: v } })),
+    limparValor: (id) => set((s) => {
+      const valores = { ...s.valores };
+      delete valores[id];
+      return { valores };
+    }),
+    escolherTipo: (id) => {
+      if (!get().historico.atual.tipos.some((t) => t.id === id)) return;
+      set({ tipoId: id, valores: {} });
+    },
+    selecionarPeca: (id) => set({ sel: id }),
+    novaFamilia: (f) => {
+      const novo = new HistoricoFamilia<Familia>(structuredClone(f));
+      ligar(novo);
+      const estado = estadoInicial(novo.atual);
+      set((s) => ({ historico: novo, versao: s.versao + 1, ...estado, sel: null }));
+    },
+    set: (patch) => set(patch),
+  };
+});
+
+interface CacheResolucao {
+  versao: number;
+  tipoId: string | null;
+  valores: Record<string, Valor>;
+  resolucao: ResolucaoFamilia;
+}
+
+let cache: CacheResolucao | null = null;
+
+/** Resolução da família corrente, memoizada por (versão, tipo e valores): a mesma referência enquanto nada mudar. */
+export function resolucaoCorrente(): ResolucaoFamilia {
+  const s = useFamilia.getState();
+  if (cache !== null && cache.versao === s.versao && cache.tipoId === s.tipoId && cache.valores === s.valores) {
+    return cache.resolucao;
+  }
+  const resolucao = resolverFamilia(s.historico.atual, { tipoId: s.tipoId ?? undefined, valores: s.valores });
+  cache = { versao: s.versao, tipoId: s.tipoId, valores: s.valores, resolucao };
+  return resolucao;
+}
+
+/** Assina versão, tipo e valores e devolve a resolução memoizada do estado corrente. */
+export function useResolucao(): ResolucaoFamilia {
+  useFamilia((s) => s.versao);
+  useFamilia((s) => s.tipoId);
+  useFamilia((s) => s.valores);
+  return resolucaoCorrente();
 }

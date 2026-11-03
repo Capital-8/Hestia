@@ -1,7 +1,9 @@
+import type { PecaResolvida } from '@hestia/engine';
+import { resumirPecas } from '@hestia/engine';
 import type { ReactElement, ReactNode } from 'react';
-import { DERIVADOS, PARAMS, TIPOS } from './familiaModelo.ts';
-import { useFamilia } from './familiaStore.ts';
-import { quantitativos, type Resolucao } from './resolver.ts';
+import { valorEfetivo } from './acoes.ts';
+import { mm } from './familiaDesenho.ts';
+import { useFamilia, useResolucao } from './familiaStore.ts';
 import { ModelosNovo } from './FamiliaModelos.tsx';
 
 /** Diálogos do editor de famílias: Parâmetros, Tipos, Lista de peças e Novo módulo. Mesma pele dos diálogos do app. */
@@ -19,23 +21,23 @@ function Janela({ titulo, children, rodape, larga }: { titulo: string; children:
   );
 }
 
-function Parametros({ res }: { res: Resolucao }): ReactElement {
+function Parametros(): ReactElement {
+  const familia = useFamilia((s) => s.historico.atual);
+  const tipoId = useFamilia((s) => s.tipoId);
   const valores = useFamilia((s) => s.valores);
-  const setValor = useFamilia((s) => s.setValor);
+  const resolucao = useResolucao();
   return (
-    <Janela titulo="Parâmetros da família · Armário baixo" rodape={<><button className="fam-bt">Novo parâmetro…</button><button className="fam-bt">Excluir</button></>}>
+    <Janela titulo={`Parâmetros da família · ${familia.nome}`} rodape={<><button className="fam-bt" disabled title="Somente leitura nesta ficha">Novo parâmetro…</button><button className="fam-bt" disabled title="Somente leitura nesta ficha">Excluir</button></>}>
       <div className="fam-tabela"><table>
         <thead><tr><th>Nome</th><th>Tipo de dado</th><th>Escopo</th><th>Valor</th><th>Faixa</th><th>Fórmula</th></tr></thead>
         <tbody>
-          {PARAMS.map((p) => (
-            <tr key={p.id}><td>{p.nome}</td><td>{p.tipo}</td><td><span className={`fam-tag${p.escopo === 'instância' ? ' novo' : ''}`}>{p.escopo}</span></td>
-              <td>{p.ctl === 'sel'
-                ? <select className="fam-f" aria-label={p.nome} value={String(valores[p.id])} onChange={(e) => setValor(p.id, typeof p.opts?.[0] === 'number' ? Number(e.target.value) : e.target.value)}>{p.opts?.map((o) => <option key={o} value={o}>{o}</option>)}</select>
-                : <input className="fam-f" type="number" aria-label={p.nome} min={p.min} max={p.max} step={p.step} value={Number(valores[p.id])} onChange={(e) => setValor(p.id, Number(e.target.value))} style={{ width: 90 }} />}</td>
-              <td className="mono">{p.min !== undefined ? `${p.min} – ${p.max}` : '—'}</td><td className="mono">—</td></tr>
-          ))}
-          {DERIVADOS.map((d) => (
-            <tr key={d.id}><td>{d.nome}</td><td>número</td><td><span className="fam-tag">tipo</span></td><td className="mono">{String(res.env[d.id])}</td><td>—</td><td className="mono"><span className="fam-sig">Σ</span> {d.f}</td></tr>
+          {familia.parametros.map((p) => (
+            <tr key={p.id}><td>{p.nome}</td><td>{p.tipo}</td>
+              <td><span className={`fam-tag${p.escopo === 'instancia' ? ' novo' : ''}`}>{p.escopo}</span></td>
+              <td className="mono">{p.formula !== undefined ? String(resolucao.env[p.id]) : String(valorEfetivo(familia, tipoId, valores, p))}</td>
+              <td className="mono">{p.min !== undefined || p.max !== undefined ? `${p.min ?? '—'} – ${p.max ?? '—'}` : '—'}</td>
+              <td className="mono">{p.formula !== undefined ? <><span className="fam-sig">Σ</span> {p.formula}</> : '—'}</td>
+            </tr>
           ))}
         </tbody>
       </table></div>
@@ -45,14 +47,18 @@ function Parametros({ res }: { res: Resolucao }): ReactElement {
 }
 
 function Tipos(): ReactElement {
+  const familia = useFamilia((s) => s.historico.atual);
   const tipoId = useFamilia((s) => s.tipoId);
-  const escolher = useFamilia((s) => s.escolherTipo);
+  const escolherTipo = useFamilia((s) => s.escolherTipo);
   return (
-    <Janela titulo="Tipos da família · Armário baixo" larga rodape={<><button className="fam-bt">Novo tipo</button><button className="fam-bt">Duplicar</button><button className="fam-bt">Excluir</button></>}>
+    <Janela titulo={`Tipos da família · ${familia.nome}`} larga rodape={<><button className="fam-bt" disabled title="Somente leitura nesta ficha">Novo tipo</button><button className="fam-bt" disabled title="Somente leitura nesta ficha">Duplicar</button><button className="fam-bt" disabled title="Somente leitura nesta ficha">Excluir</button></>}>
       <div className="fam-tabela"><table>
-        <thead><tr><th>Tipo</th>{PARAMS.map((p) => <th key={p.id}>{p.nome.replace(/ \(.*/, '')}{p.escopo === 'instância' && <span className="fam-mut"> (padrão)</span>}</th>)}</tr></thead>
-        <tbody>{TIPOS.map((t) => (
-          <tr key={t.id} className={t.id === tipoId ? 'sel' : ''} onClick={() => escolher(t.id)} style={{ cursor: 'pointer' }}><td><b>{t.nome}</b></td>{PARAMS.map((p) => <td key={p.id} className="n">{String(t.v[p.id])}</td>)}</tr>
+        <thead><tr><th>Tipo</th>{familia.parametros.map((p) => <th key={p.id}>{p.nome}{p.escopo === 'instancia' && <span className="fam-mut"> (padrão)</span>}</th>)}</tr></thead>
+        <tbody>{familia.tipos.map((t) => (
+          <tr key={t.id} className={t.id === tipoId ? 'sel' : ''} onClick={() => escolherTipo(t.id)} style={{ cursor: 'pointer' }}>
+            <td><b>{t.nome}</b></td>
+            {familia.parametros.map((p) => <td key={p.id} className="n">{p.formula !== undefined ? <span className="fam-sig">Σ</span> : String(t.valores[p.id] ?? p.padrao)}</td>)}
+          </tr>
         ))}</tbody>
       </table></div>
       <div className="fam-hint">Clique numa linha para tornar o tipo corrente. Parâmetros de instância mostram o valor padrão do tipo; cada móvel colocado pode mudá-lo.</div>
@@ -60,34 +66,42 @@ function Tipos(): ReactElement {
   );
 }
 
-function ListaPecas({ res }: { res: Resolucao }): ReactElement {
+function textoFita(fita: PecaResolvida['fita']): string {
+  if (fita === null) return '—';
+  const lados = Object.entries(fita).filter(([, v]) => v !== undefined && v !== 'nenhuma').map(([k]) => k);
+  return lados.length > 0 ? lados.join(' ') : '—';
+}
+
+function ListaPecas(): ReactElement {
+  const familia = useFamilia((s) => s.historico.atual);
   const tipoId = useFamilia((s) => s.tipoId);
-  const tipo = TIPOS.find((t) => t.id === tipoId);
-  const v = useFamilia((s) => s.valores);
-  const qt = quantitativos(res.pecas);
-  // units-ok: áreas em m² de exemplo do protótipo (a lista real formata pelas unidades do projeto)
-  const resumo = Object.entries(qt.porEspessura).map(([e, a]) => `${e} mm: ${a.toFixed(2)} m²`).join(' · ');
+  const resolucao = useResolucao();
+  const tipo = familia.tipos.find((t) => t.id === tipoId);
+  const resumo = resumirPecas(resolucao.pecas);
+  const area = Object.values(resumo.areaPorEspessura).reduce((s, a) => s + a, 0);
+  // units-ok: resumo de exemplo do protótipo (a lista real formata pelas unidades do projeto)
+  const porEspessura = Object.entries(resumo.areaPorEspessura).map(([e, a]) => `${e} mm: ${a.toFixed(2)} m²`).join(' · ');
   return (
-    <Janela titulo={`Lista de peças · ${tipo?.nome ?? ''} · L ${String(v.L)} × A ${String(v.A)} × P ${String(v.P)}`} larga rodape={<><button className="fam-bt">Copiar CSV</button><button className="fam-bt" disabled title="Fase posterior (F10)">Plano de corte…</button></>}>
+    <Janela titulo={`Lista de peças · ${tipo?.nome ?? ''} · L ${String(resolucao.env.L)} × A ${String(resolucao.env.A)} × P ${String(resolucao.env.P)}`} larga rodape={<><button className="fam-bt">Copiar CSV</button><button className="fam-bt" disabled title="Fase posterior (F10)">Plano de corte…</button></>}>
       <div className="fam-tabela"><table>
         {/* units-ok: cabeçalho de exemplo do protótipo */}
-        <thead><tr><th className="n">Nº</th><th>Peça</th><th>Papel</th><th>Material</th><th className="n">Comp.</th><th className="n">Larg.</th><th className="n">Esp.</th><th>Fita</th><th>Veio</th><th className="n">Usin.</th><th className="n">Área m²</th></tr></thead>
-        <tbody>{res.pecas.map((p, i) => (
-          // units-ok: idem
-          <tr key={`${p.id}${i}`}><td className="n">{i + 1}</td><td>{p.nome}</td><td>{p.papel}</td><td>{p.cor === 'fundo' ? 'MDF fundo' : 'MDF'} {p.ct} mm</td><td className="n">{p.ca}</td><td className="n">{p.cb}</td><td className="n">{p.ct}</td><td>{p.fita}</td><td>{p.veio}</td><td className="n">{p.usinagens}</td><td className="n">{((p.ca * p.cb) / 1e6).toFixed(3)}</td></tr>
+        <thead><tr><th className="n">Nº</th><th>Peça</th><th>Papel</th><th>Material</th><th className="n">Comp.</th><th className="n">Larg.</th><th className="n">Esp.</th><th>Fita</th><th>Veio</th><th className="n">Área m²</th></tr></thead>
+        <tbody>{resolucao.pecas.map((p, i) => (
+          // units-ok: medidas em mm e área em m² do protótipo
+          <tr key={`${p.id}${i}`}><td className="n">{i + 1}</td><td>{p.nome}</td><td>{p.papel}</td><td>{p.material ?? '—'}</td><td className="n">{mm(p.tamanho[0])}</td><td className="n">{mm(p.tamanho[1])}</td><td className="n">{mm(p.espessura)}</td><td>{textoFita(p.fita)}</td><td>{p.veio ?? '—'}</td><td className="n">{(p.tamanho[0] * p.tamanho[1]).toFixed(3)}</td></tr>
         ))}</tbody>
       </table></div>
-      {/* units-ok: idem */}
-      <p className="fam-resumo"><b>{res.pecas.length}</b> peças · área <b>{qt.areaM2.toFixed(2)} m²</b> ({resumo}) · fita ≈ <b>{qt.fitaM.toFixed(1)} m</b> · usinagens <b>{qt.usinagens}</b>. <span className="fam-mut">Fita e usinagens são estimativas de exemplo neste protótipo.</span></p>
+      {/* units-ok: resumo em m²/m³ de exemplo do protótipo */}
+      <p className="fam-resumo"><b>{resumo.quantidade}</b> peças · área <b>{area.toFixed(2)} m²</b> ({porEspessura}) · volume <b>{resumo.volume.toFixed(3)} m³</b> · vazios <b>{resumo.vazios}</b>.</p>
     </Janela>
   );
 }
 
-export function FamiliaDialogos({ res }: { res: Resolucao }): ReactElement | null {
+export function FamiliaDialogos(): ReactElement | null {
   const d = useFamilia((s) => s.dialogo);
-  if (d === 'parametros') return <Parametros res={res} />;
+  if (d === 'parametros') return <Parametros />;
   if (d === 'tipos') return <Tipos />;
-  if (d === 'pecas') return <ListaPecas res={res} />;
+  if (d === 'pecas') return <ListaPecas />;
   if (d === 'novo') return <Janela titulo="Novo ▸ Família ▸ Escolha o modelo" larga rodape={<span className="fam-mut">O modelo só preenche parâmetros, peças e fórmulas; nada fica preso a ele.</span>}><ModelosNovo /></Janela>;
   return null;
 }

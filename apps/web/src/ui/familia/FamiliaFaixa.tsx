@@ -16,6 +16,8 @@ interface Item {
   /** Variantes (botão dividido): só entram 2 ou mais, como manda a decisão 0032. */
   variantes?: string[];
   abre?: Exclude<DialogoFamilia, null>;
+  /** Botões de desfazer/refazer: leem o histórico do editor. */
+  acao?: 'desfazer' | 'refazer';
   novo?: boolean;
   desligado?: boolean;
   dica?: string;
@@ -33,7 +35,7 @@ const PAINEIS: Painel[] = [
   { id: 'referencia', titulo: 'Referência', itens: [I('Plano de referência', 'plan'), I('Repetir', 'array'), I('Módulo aninhado', 'component', { novo: true, dica: 'Família dentro de família (guarda-roupa, cozinha)' })] },
   { id: 'propriedades', titulo: 'Propriedades', itens: [I('Parâmetros', 'type', { abre: 'parametros' }), I('Tipos', 'layers', { abre: 'tipos' }), I('Categoria e hospedagem', 'level')] },
   { id: 'testar', titulo: 'Testar', itens: [I('Flexionar', 'fit'), I('Validar', 'select'), I('Lista de peças', 'schedule', { abre: 'pecas' })] },
-  { id: 'editor', titulo: 'Editor de família', itens: [I('Carregar no projeto', 'paste', { dica: 'Grava a família no projeto num único passo de desfazer (ainda não faz nada)' }), I('Carregar e fechar', 'paste')] },
+  { id: 'editor', titulo: 'Editor de família', itens: [I('Carregar no projeto', 'paste', { dica: 'Grava a família no projeto num único passo de desfazer (ainda não faz nada)' }), I('Carregar e fechar', 'paste'), I('Desfazer', 'undo', { acao: 'desfazer' }), I('Refazer', 'redo', { acao: 'refazer' })] },
 ];
 
 function Menu({ ancora, itens, fechar, escolher }: { ancora: DOMRect; itens: string[]; fechar: () => void; escolher: (s: string) => void }): ReactElement {
@@ -50,20 +52,28 @@ function Menu({ ancora, itens, fechar, escolher }: { ancora: DOMRect; itens: str
 
 function Botao({ it, grande }: { it: Item; grande: boolean }): ReactElement {
   const ferramenta = useFamilia((s) => s.ferramenta);
+  const podeDesfazer = useFamilia((s) => s.historico.podeDesfazer);
+  const podeRefazer = useFamilia((s) => s.historico.podeRefazer);
+  const rotuloDesfazer = useFamilia((s) => s.historico.rotuloDesfazer);
+  const rotuloRefazer = useFamilia((s) => s.historico.rotuloRefazer);
   const [ancora, setAncora] = useState<DOMRect | null>(null);
   const marca = (nome: string): void => {
     if (it.abre) useFamilia.getState().set({ dialogo: it.abre });
     else useFamilia.getState().set({ ferramenta: nome });
   };
   const on = ferramenta === it.rotulo || (it.variantes?.includes(ferramenta ?? '') ?? false);
-  const dica = [it.rotulo, it.dica, it.novo ? 'Novo nesta proposta (ampliar ADR 0049)' : '', it.desligado ? 'Fora do v1' : ''].filter(Boolean).join('\n— ');
+  const rotuloHistorico = it.acao === 'desfazer' ? rotuloDesfazer : it.acao === 'refazer' ? rotuloRefazer : null;
+  const dica = [it.rotulo, it.acao !== undefined ? (rotuloHistorico ?? (it.acao === 'desfazer' ? 'Nada para desfazer' : 'Nada para refazer')) : '', it.dica, it.novo ? 'Novo nesta proposta (ampliar ADR 0049)' : '', it.desligado ? 'Fora do v1' : ''].filter(Boolean).join('\n— ');
+  const desabilitado = it.desligado === true || (it.acao === 'desfazer' && !podeDesfazer) || (it.acao === 'refazer' && !podeRefazer);
   const click = (e: React.MouseEvent<HTMLButtonElement>): void => {
+    if (it.acao === 'desfazer') { useFamilia.getState().desfazer(); return; }
+    if (it.acao === 'refazer') { useFamilia.getState().refazer(); return; }
     if (it.variantes) setAncora(e.currentTarget.getBoundingClientRect());
     else marca(it.rotulo);
   };
   return (
     <>
-      <button className={`rb-btn ${grande ? 'rb-large' : 'rb-small rb-iconly'}${on ? ' on' : ''}${it.desligado ? ' soon' : ''}`} title={dica} aria-label={it.rotulo} aria-pressed={on || undefined} disabled={it.desligado} onClick={click}>
+      <button className={`rb-btn ${grande ? 'rb-large' : 'rb-small rb-iconly'}${on ? ' on' : ''}${it.desligado ? ' soon' : ''}`} title={dica} aria-label={it.rotulo} aria-pressed={on || undefined} disabled={desabilitado} onClick={click}>
         <Icon name={it.icone} size={grande ? 28 : 16} />
         {grande && <span className="rb-lbl">{it.rotulo}{it.variantes ? ' ▾' : ''}{it.novo ? <em className="fam-novo">novo</em> : null}</span>}
       </button>
