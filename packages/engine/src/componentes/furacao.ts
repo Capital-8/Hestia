@@ -28,10 +28,69 @@ export interface Contato {
  * de uma toca a face da outra (`|max_i − min_j| ≤ tol` ou `|max_j − min_i| ≤ tol`) e a sobreposição nos outros dois eixos é MAIOR
  * que `tol` nos dois. Cada par encosta em no máximo um eixo; se mais de um satisfizer, vale o primeiro na ordem x, y, z.
  */
+const EIXOS: readonly EixoMundo[] = ['x', 'y', 'z'];
+const INDICE_EIXO: Record<EixoMundo, number> = { x: 0, y: 1, z: 2 };
+
+/** Os dois eixos do plano de uma peça cuja espessura está em `eixo`, em ordem x < y < z (U, V). */
+const PLANO_DO_EIXO: Record<EixoMundo, readonly [EixoMundo, EixoMundo]> = {
+  x: ['y', 'z'],
+  y: ['x', 'z'],
+  z: ['x', 'y'],
+};
+
+const PAPEIS_SEM_CAVILHA: readonly PecaResolvida['papel'][] = ['porta', 'frente_gaveta', 'fundo'];
+
+/** Faixa [mín, máx] (m) de uma peça em um eixo do mundo. */
+function faixaDaPeca(peca: PecaResolvida, eixo: EixoMundo): [number, number] {
+  const i = INDICE_EIXO[eixo];
+  const inicio = peca.origem[i]!;
+  return [inicio, inicio + peca.extensao[i]!];
+}
+
+/** Sobreposição [mín, máx] de duas faixas; pode ser vazia (`máx < mín`). */
+function sobreposicao(a0: number, a1: number, b0: number, b1: number): [number, number] {
+  return [Math.max(a0, b0), Math.min(a1, b1)];
+}
+
+function comprimento(faixa: readonly [number, number]): number {
+  return faixa[1] - faixa[0];
+}
+
 export function detectarContatos(pecas: readonly PecaResolvida[], tol = 1e-6): Contato[] {
-  void pecas;
-  void tol;
-  throw new Error('não implementado: ficha E5-furacao');
+  const contatos: Contato[] = [];
+  for (let i = 0; i < pecas.length; i += 1) {
+    const pi = pecas[i]!;
+    if (pi.vazio) continue;
+    for (let j = i + 1; j < pecas.length; j += 1) {
+      const pj = pecas[j]!;
+      if (pj.vazio) continue;
+      for (const eixo of EIXOS) {
+        const [minI, maxI] = faixaDaPeca(pi, eixo);
+        const [minJ, maxJ] = faixaDaPeca(pj, eixo);
+        let baixo: number;
+        let cima: number;
+        let plano: number;
+        if (Math.abs(maxI - minJ) <= tol) {
+          baixo = i;
+          cima = j;
+          plano = maxI;
+        } else if (Math.abs(maxJ - minI) <= tol) {
+          baixo = j;
+          cima = i;
+          plano = maxJ;
+        } else {
+          continue;
+        }
+        const eixos = PLANO_DO_EIXO[eixo];
+        const faixa1 = sobreposicao(...faixaDaPeca(pi, eixos[0]), ...faixaDaPeca(pj, eixos[0]));
+        const faixa2 = sobreposicao(...faixaDaPeca(pi, eixos[1]), ...faixaDaPeca(pj, eixos[1]));
+        if (comprimento(faixa1) <= tol || comprimento(faixa2) <= tol) continue;
+        contatos.push({ baixo, cima, eixo, plano, eixos: [eixos[0], eixos[1]], faixa1, faixa2 });
+        break;
+      }
+    }
+  }
+  return contatos;
 }
 
 export interface RegraCavilha {
@@ -54,6 +113,32 @@ export interface FuracaoGerada {
   /** Índice da peça na lista de entrada. */
   peca: number;
   usinagem: UsinagemResolvida;
+}
+
+/** Posições (m) dos furos ao longo da borda, de `s0` a `s0 + L`. */
+function posicoesDosFuros(s0: number, L: number, regra: RegraCavilha): number[] {
+  const util = L - 2 * regra.margem;
+  let n = Math.max(regra.minimoPorContato, Math.ceil(util / regra.espacamentoMax) + 1);
+  if (n >= 2 && util / (n - 1) < 2 * regra.diametro) {
+    n = Math.floor(util / (2 * regra.diametro)) + 1;
+  }
+  if (n <= 1) return [s0 + L / 2];
+  const passo = util / (n - 1);
+  return Array.from({ length: n }, (_, k) => s0 + regra.margem + k * passo);
+}
+
+/** Furo na face da peça que recebe (F): coordenadas (u, v) no plano da F. */
+function usinagemNaFace(id: string, face: 'a' | 'b', u: number, v: number, regra: RegraCavilha, profundidade: number): UsinagemResolvida {
+  return { id, tipo: 'furo', face, u, v, diametro: regra.diametro, largura: 0, comprimento: 0, profundidade };
+}
+
+/** Furo na borda da peça que encosta (E). */
+function usinagemNaBorda(id: string, face: 'n' | 's' | 'l' | 'o', u: number, v: number, regra: RegraCavilha, profundidade: number): UsinagemResolvida {
+  return { id, tipo: 'furo', face, u, v, diametro: regra.diametro, largura: 0, comprimento: 0, profundidade };
+}
+
+function recebeCavilha(peca: PecaResolvida): boolean {
+  return !PAPEIS_SEM_CAVILHA.includes(peca.papel);
 }
 
 /**
@@ -79,15 +164,59 @@ export interface FuracaoGerada {
  * Não altera `pecas`. Determinística.
  */
 export function gerarCavilhas(pecas: readonly PecaResolvida[], regra: RegraCavilha = REGRA_CAVILHA_PADRAO, tol = 1e-6): FuracaoGerada[] {
-  void pecas;
-  void regra;
-  void tol;
-  throw new Error('não implementado: ficha E5-furacao');
+  const geradas: FuracaoGerada[] = [];
+  for (const contato of detectarContatos(pecas, tol)) {
+    const pBaixo = pecas[contato.baixo]!;
+    const pCima = pecas[contato.cima]!;
+    if (!recebeCavilha(pBaixo) || !recebeCavilha(pCima)) continue;
+    const baixoEhFace = pBaixo.eixo === contato.eixo;
+    const cimaEhFace = pCima.eixo === contato.eixo;
+    if (baixoEhFace === cimaEhFace) continue;
+    const iFace = baixoEhFace ? contato.baixo : contato.cima;
+    const iBorda = baixoEhFace ? contato.cima : contato.baixo;
+    const face = pecas[iFace]!;
+    const borda = pecas[iBorda]!;
+    const eixoEspessura = contato.eixos.find((eixo) => eixo === borda.eixo);
+    if (eixoEspessura === undefined) continue;
+    const eixoAoLongo = contato.eixos[0] === eixoEspessura ? contato.eixos[1] : contato.eixos[0];
+    const faixaEspessura = contato.eixos[0] === eixoEspessura ? contato.faixa1 : contato.faixa2;
+    const faixaAoLongo = contato.eixos[0] === eixoAoLongo ? contato.faixa1 : contato.faixa2;
+    if (comprimento(faixaEspessura) < regra.diametro) continue;
+    const [s0, s1] = faixaAoLongo;
+    const L = s1 - s0;
+    if (L < 2 * regra.margem) continue;
+    const cT = (faixaEspessura[0] + faixaEspessura[1]) / 2;
+    const profundidadeFace = Math.min(regra.profundidadeFace, face.espessura - 0.004);
+    const profundidadeBorda = Math.min(regra.profundidadeBorda, borda.extensao[INDICE_EIXO[contato.eixo]]! - 0.004);
+    if (profundidadeFace <= 0.004 || profundidadeBorda <= 0.004) continue;
+    const [uFace, vFace] = PLANO_DO_EIXO[face.eixo];
+    const faceDaFace: 'a' | 'b' = iFace === contato.cima ? 'a' : 'b';
+    const [uBorda] = PLANO_DO_EIXO[borda.eixo];
+    const faceDaBorda: 'n' | 's' | 'l' | 'o' = contato.eixo === uBorda
+      ? (iBorda === contato.cima ? 'o' : 'l')
+      : (iBorda === contato.cima ? 's' : 'n');
+    const iAoLongo = INDICE_EIXO[eixoAoLongo];
+    const iEspessura = INDICE_EIXO[eixoEspessura];
+    const posicoes = posicoesDosFuros(s0, L, regra);
+    for (let k = 0; k < posicoes.length; k += 1) {
+      const s = posicoes[k]!;
+      const id = `cav${contato.baixo}-${contato.cima}-${k}`;
+      const uFaceFinal = (uFace === eixoAoLongo ? s : cT) - face.origem[INDICE_EIXO[uFace]]!;
+      const vFaceFinal = (vFace === eixoAoLongo ? s : cT) - face.origem[INDICE_EIXO[vFace]]!;
+      geradas.push({ peca: iFace, usinagem: usinagemNaFace(id, faceDaFace, uFaceFinal, vFaceFinal, regra, profundidadeFace) });
+      const uBordaFinal = s - borda.origem[iAoLongo]!;
+      const vBordaFinal = cT - borda.origem[iEspessura]!;
+      geradas.push({ peca: iBorda, usinagem: usinagemNaBorda(id, faceDaBorda, uBordaFinal, vBordaFinal, regra, profundidadeBorda) });
+    }
+  }
+  return geradas;
 }
 
 /** Cópia das peças com as usinagens geradas acrescentadas ao fim da lista de cada peça, na ordem de geração. Não altera a entrada. */
 export function aplicarFuracao(pecas: readonly PecaResolvida[], gerada: readonly FuracaoGerada[]): PecaResolvida[] {
-  void pecas;
-  void gerada;
-  throw new Error('não implementado: ficha E5-furacao');
+  const resultado = pecas.map((peca) => ({ ...peca, usinagens: [...peca.usinagens] }));
+  for (const furo of gerada) {
+    resultado[furo.peca]?.usinagens.push({ ...furo.usinagem });
+  }
+  return resultado;
 }
