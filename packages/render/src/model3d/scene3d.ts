@@ -16,6 +16,7 @@ import { BITS_PROFUNDIDADE, diagnosticarOrigem, diagnosticarProfundidade, type D
 import { buildEaveSolids } from './eaveSolids.ts';
 import { buildStairSolids } from './stairSolids.ts';
 import { buildGenericSolids } from './genericSolids.ts';
+import { buildComponentSolids, MATERIAIS_DE_COMPONENTE } from './componentSolids.ts';
 import { buildCadLines } from './cad3d.ts';
 import { buildLevels, disposeLevels, layoutLevels } from './levels3d.ts';
 import { LEVEL_LINE_OFFSET, levelProjectBox } from './levelsData.ts';
@@ -675,6 +676,7 @@ export class ModelScene {
     const escadasNivel = shown('stair') ? escadas.filter((s) => s.levelId === lv.levelId && !oculto(s.id)) : [];
     const rampasNivel = shown('stair') ? rampas.filter((r) => r.levelId === lv.levelId && !oculto(r.id)) : [];
     const genericos = shown('generic') ? buildGenericSolids(pGen, lv.levelId) : [];
+    const componentes = shown('generic') ? buildComponentSolids(pGen, lv.levelId) : [];
     const batches: SolidBatch[] = [
       ...paredes.batches,
       ...buildFloorSolids(floors, juncao),
@@ -685,6 +687,7 @@ export class ModelScene {
       ...buildStairSolids(escadasNivel, (s) => stairArrivalTop(p, s).top),
       ...buildRampSolids(rampasNivel),
       ...genericos,
+      ...componentes,
     ];
     // Reveal: o modelo normal continua desenhado; os elementos revelados ganham só as arestas azuis (sem preenchimento).
     // As paredes em caixas usam as arestas da união das caixas; o resto usa as arestas dos sólidos, no mesmo ângulo.
@@ -719,8 +722,9 @@ export class ModelScene {
       const revRampas = rampasNivel.filter((r) => revelado(r.id));
       if (revRampas.length) arestasDe(buildRampSolids(revRampas));
       if (shown('generic')) arestasDe(buildGenericSolids(this.soRevelados ?? p, lv.levelId));
+      if (shown('generic')) arestasDe(buildComponentSolids(this.soRevelados ?? p, lv.levelId));
     }
-    const materialOf = (id: Id): Material | undefined => p.materials[id] ?? eave.materials[id];
+    const materialOf = (id: Id): Material | undefined => p.materials[id] ?? eave.materials[id] ?? MATERIAIS_DE_COMPONENTE[id];
     // Caminho de referência (`instanciar: false`): cada nível tem as suas malhas. Caminho padrão: os sólidos vão para os
     // lotes globais por categoria/material (o gestor de GPU os junta e atualiza por faixa).
     const lotes: SolidBatch[] = [];

@@ -1,6 +1,6 @@
 import { add, boxOf, mul, norm, perp, pointInMulti, ringArea, sub, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
-import { buildOpeningModel, cutLevelByJunction, frameOfWall, openingGeometry, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedRoom, type ResolvedSlab } from '@hestia/engine';
-import { openingTypeById, dimensionStyleOf, angularDimensionGeometry, dimensionPoints, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, wallsOnLevel, type AreaPlan, type DetailLevel, type Id, type Material, type Project } from '@hestia/model';
+import { buildOpeningModel, cutLevelByJunction, frameOfWall, openingGeometry, pegadaDoComponente, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedRoom, type ResolvedSlab } from '@hestia/engine';
+import { openingTypeById, dimensionStyleOf, angularDimensionGeometry, dimensionPoints, isComponent, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, wallsOnLevel, type AreaPlan, type DetailLevel, type Id, type Material, type Project } from '@hestia/model';
 import { resolveRooms, resolveAngularDimension } from '@hestia/engine';
 import { areaPlanLegendOps, areaPlanRoomOps, areaPlanTableOps, areaPlanTagOps } from './areaPlan.ts';
 import { aberturasDaParede, escadasDoNivel, juncaoDoNivel, paredesDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
@@ -486,12 +486,11 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   // Etiquetas de portas e janelas (Tag on Placement): desligadas por padrão, ligadas ao inserir.
   if (profile.tags && p.settings.showOpeningTags) labels.push(...openingTagLabels(p, input.levelId, paint.annotation, scale, hidden));
   if (!areaPlan && p.settings.debugJoins) labels.push(...joinDebugLabels(p, input.levelId));
-
-  // Objetos importados (viga, pilar, mobiliário...): na v1 só o contorno aproximado em planta, tracejado e fino.
+  // Objetos importados (viga, pilar, mobiliário...) e componentes (móveis), em planta: contorno/pegada fino.
   if (profile.generic && paint.generic.visible) {
     for (const e of Object.values(p.elements)) {
-      if (!isGeneric(e) || e.levelId !== input.levelId || !e.outline?.length || hidden?.has(e.id)) continue;
-      strokes.push({ pts: e.outline, closed: true, widthPx: 1, color: theme.inkSoft, alpha: 0.8, dash: [5, 3] });
+      if (isGeneric(e) && e.levelId === input.levelId && !hidden?.has(e.id) && e.outline?.length) strokes.push({ pts: e.outline, closed: true, widthPx: 1, color: theme.inkSoft, alpha: 0.8, dash: [5, 3] });
+      else if (isComponent(e) && e.levelId === input.levelId && !hidden?.has(e.id)) for (const poly of pegadaDoComponente(p, e)) for (const ring of poly) strokes.push({ pts: ring, closed: true, widthPx: 1, color: theme.inkSoft, alpha: 1 });
     }
     // CAD importado (fase 5): os traços e textos do desenho, finos e na cor de cada camada/entidade.
     const cad = cadPlanOps(semElementosOcultos(p, hidden), input.levelId, theme, style.scale);

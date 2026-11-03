@@ -1,6 +1,6 @@
 import { orientedRect, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
-import { frameOfWall, openingGeometry, resolveAngularDimension, resolveCeilings, wallEndCorners, type ResolvedLevel } from '@hestia/engine';
-import { dimensionStyleOf, angularDimensionGeometry, dimensionGeometry, dimensionPoints, dimensionText, DIM_TEXT_MM, isCad, isGeneric, isOpening, isWall, levelRoomSeparators, unitsOf, type Id, type Project } from '@hestia/model';
+import { frameOfWall, openingGeometry, pegadaDoComponente, resolveAngularDimension, resolveCeilings, wallEndCorners, type ResolvedLevel } from '@hestia/engine';
+import { dimensionStyleOf, angularDimensionGeometry, dimensionGeometry, dimensionPoints, dimensionText, DIM_TEXT_MM, isCad, isComponent, isGeneric, isOpening, isWall, levelRoomSeparators, unitsOf, type Id, type Project } from '@hestia/model';
 import { floorSelectionOps } from './floors.ts';
 import { ALCA_PX, quadradoEm } from './marcadores.ts';
 import { slabSelectionOps } from './slabs.ts';
@@ -218,6 +218,11 @@ export function buildPlanSelectionOverlay(input: PlanInput): PlanOps {
     out.fills.push(...elementHighlight(p, geo, selection, theme.select, 0.26, view));
     for (const id of selection) {
       const e = p.elements[id];
+      // Componentes: contorno da pegada, como o genérico, um pouco mais grosso que o desenho normal.
+      if (isComponent(e) && !hidden?.has(id)) {
+        for (const ring of pegadaDoComponente(p, e).flat()) out.strokes.push({ pts: ring, closed: true, widthPx: 2, color: theme.select, alpha: 1 });
+        continue;
+      }
       if (!isWall(e) || hidden?.has(id)) continue;
       for (const ring of ringsOf(wallUnion(geo, id, view?.outlineWalls.has(id) === true))) out.strokes.push({ pts: ring, closed: true, widthPx: 2, color: theme.select, alpha: 1 });
       // Alças nas pontas do eixo e nos cantos visíveis (a ponta que se vê): é lá que o arrasto pega a parede.
@@ -328,6 +333,11 @@ export function buildPlanOverlay(input: PlanInput): PlanOps {
     out.fills.push(...elementHighlight(p, geo, selection, theme.select, 0.26, view));
     for (const id of selection) {
       const e = p.elements[id];
+      // Componentes: contorno da pegada, como o genérico, um pouco mais grosso que o desenho normal.
+      if (isComponent(e) && !hidden?.has(id)) {
+        for (const ring of pegadaDoComponente(p, e).flat()) out.strokes.push({ pts: ring, closed: true, widthPx: 2, color: theme.select, alpha: 1 });
+        continue;
+      }
       if (!isWall(e) || hidden?.has(id)) continue;
       for (const ring of ringsOf(wallUnion(geo, id, view?.outlineWalls.has(id) === true))) out.strokes.push({ pts: ring, closed: true, widthPx: 2, color: theme.select, alpha: 1 });
       if (!alcasDeModelo) continue;
