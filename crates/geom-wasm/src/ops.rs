@@ -148,12 +148,18 @@ fn aplicar(a: &Formas, b: &Formas, regra: OverlayRule) -> Result<Formas, u32> {
 
 /// `union(...)` e `unionClipper(...)`.
 pub fn uniao(args: &[MultiPoligono]) -> Result<MultiPoligono, u32> {
+    uniao_com_escala(args, ESCALA)
+}
+
+/// `uniao` com a escala da quantização à escolha de quem chama. A sub-etapa B2 usa [`ESCALA_FINA`] nas zonas bloqueadas das paredes (a mesma
+/// razão do corte dos furos da B1: o `polygon-clipping` do TS não quantiza).
+pub fn uniao_com_escala(args: &[MultiPoligono], escala: f64) -> Result<MultiPoligono, u32> {
     if args.is_empty() {
         return Ok(Vec::new());
     }
     let mut todas: Formas = Vec::new();
     for m in args {
-        todas.extend(preparar(m, ESCALA)?);
+        todas.extend(preparar(m, escala)?);
     }
     if todas.is_empty() {
         return Ok(Vec::new());
@@ -162,7 +168,7 @@ pub fn uniao(args: &[MultiPoligono]) -> Result<MultiPoligono, u32> {
     // depender da ordem (equivale ao `unionClipper` do TS).
     let vazio: Formas = Vec::new();
     let resultado = aplicar(&todas, &vazio, OverlayRule::Union)?;
-    Ok(converter(resultado, ESCALA))
+    Ok(converter(resultado, escala))
 }
 
 /// `difference(a, ...bs)` e `differenceClipper(a, ...bs)`.

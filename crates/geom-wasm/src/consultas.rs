@@ -29,7 +29,7 @@
 
 use crate::cena::Cena;
 use crate::esquema::{
-    self, Tipo, CONSULTA_ESTATISTICAS_NIVEL, CONSULTA_ABERTURAS_GEOM, CONSULTA_CLUSTER_RESOLVIDO, CONSULTA_ITENS_PINTADOS, CONSULTA_RETORNOS_GEOM, CONSULTA_PARES_PROXIMOS, CONSULTA_PAREDES_NA_CAIXA, CONSULTA_QUADROS_E_JUNCOES, CONSULTA_PISOS_LAJES_NIVEL, CONSULTA_RESOLVER_NIVEL,
+    self, Tipo, CONSULTA_ESTATISTICAS_NIVEL, CONSULTA_ABERTURAS_GEOM, CONSULTA_CLUSTER_RESOLVIDO, CONSULTA_ITENS_PINTADOS, CONSULTA_RETORNOS_GEOM, CONSULTA_PARES_PROXIMOS, CONSULTA_PAREDES_NA_CAIXA, CONSULTA_QUADROS_E_JUNCOES, CONSULTA_PISOS_LAJES_COM_PAREDES, CONSULTA_PISOS_LAJES_NIVEL, CONSULTA_RESOLVER_NIVEL,
     ENTRADA,
     NAO_IMPLEMENTADO,
 };
@@ -202,6 +202,14 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
         }
         CONSULTA_ABERTURAS_GEOM => crate::a3::aberturas_geom(cena, arg_nivel(args[0])?),
         CONSULTA_PISOS_LAJES_NIVEL => crate::b1::pisos_lajes_nivel(cena, arg_nivel(args[0])?),
+        CONSULTA_PISOS_LAJES_COM_PAREDES => {
+            let nivel = arg_nivel(args[0])?;
+            let tol = arg_finito(args[1])?;
+            if tol < 0.0 {
+                return Err(ENTRADA);
+            }
+            crate::b1::pisos_lajes_com_paredes(cena, nivel, tol)
+        }
         _ => Err(NAO_IMPLEMENTADO),
     }
 }

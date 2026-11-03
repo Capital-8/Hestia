@@ -23,6 +23,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::a2::Codificador;
 use crate::cena::Cena;
+use crate::b2::{Carregador, Escopo, Regra};
 use crate::consultas::Saida;
 use crate::esquema::{ENTRADA, NIVEL_TODOS};
 use crate::itens::marcas_de_nucleo;
@@ -41,7 +42,8 @@ enum Termino {
     Face,
     Nucleo,
     Passa,
-    Ate,
+    /// `{ ate: { prioridade } }`.
+    Ate(f64),
     Cm(f64),
 }
 
@@ -50,7 +52,7 @@ fn termino_de(c: &CamadaLinha) -> Termino {
         TERMINO_FACE => Termino::Face,
         TERMINO_NUCLEO => Termino::Nucleo,
         TERMINO_PASSA => Termino::Passa,
-        TERMINO_ATE => Termino::Ate,
+        TERMINO_ATE => Termino::Ate(c.termino_valor),
         TERMINO_CM => Termino::Cm(c.termino_valor),
         _ => Termino::Auto,
     }
@@ -144,7 +146,7 @@ fn caixas_se_tocam(a: &[f64; 4], b: &[f64; 4]) -> bool {
 /// Interpretação do `polygon-clipping` do TS (que corta e intersecta os contornos): um polígono é o anel externo MENOS os furos, e a parte de um
 /// furo que passa do anel externo é descartada. Sob `NonZero` (a regra do `i_overlay`) essa parte viraria uma região a mais; aqui cada polígono com
 /// furos vira `externo - furos` antes da booleana. Furo manual de elemento vinculado que a sala deixou para fora do circuito é o caso real.
-fn como_o_polygon_clipping(m: &MultiPoligono) -> Result<MultiPoligono, u32> {
+pub fn como_o_polygon_clipping(m: &MultiPoligono) -> Result<MultiPoligono, u32> {
     if m.iter().all(|p| p.len() < 2) {
         return Ok(m.clone());
     }
@@ -182,7 +184,7 @@ fn com_furos_manuais(sala: &[Anel], manuais: &[Anel]) -> MultiPoligono {
 }
 
 /// Contorno de cada camada (`layerOutlines` sem paredes): `(região, precisa_paredes)`.
-fn contornos_das_camadas(linha: &ElementoLinha, camadas: &[CamadaLinha], nucleo: &[bool], base: &MultiPoligono, manuais: &[Anel], vinc: &AneisPorPapel) -> Result<Vec<(MultiPoligono, bool)>, u32> {
+fn contornos_das_camadas(linha: &ElementoLinha, camadas: &[CamadaLinha], nucleo: &[bool], base: &MultiPoligono, manuais: &[Anel], vinc: &AneisPorPapel, escopo: Option<&Escopo>) -> Result<Vec<(MultiPoligono, bool)>, u32> {
     let perimetro = linha.modo == MODO_PERIMETRO;
     let origem = linha.modo != MODO_SEM_ORIGEM;
     let vinculado = origem && linha.vinculado && !perimetro && linha.tem_semente;
@@ -202,6 +204,20 @@ fn contornos_das_camadas(linha: &ElementoLinha, camadas: &[CamadaLinha], nucleo:
             None => Ok(m),
         }
     };
+    // Região da camada `i` menos a zona das paredes (`regionMinusWalls`). Sem escopo (B1) fica a região SEM paredes e a camada pede as paredes.
+    let menos = |ref_: &MultiPoligono, regra: Regra, i: usize| -> Result<(MultiPoligono, bool), u32> {
+        match escopo {
+            Some(e) => Ok((e.regiao_menos(ref_, regra, i)?, false)),
+            None => Ok((ref_.clone(), true)),
+        }
+    };
+    // Região da camada mais a pegada das paredes (`regionPlusWalls`, o `passa` de elemento vinculado).
+    let mais = |ref_: &MultiPoligono| -> Result<(MultiPoligono, bool), u32> {
+        match escopo {
+            Some(e) => Ok((e.regiao_mais(ref_)?, false)),
+            None => Ok((ref_.clone(), true)),
+        }
+    };
     let deslocada = |m: &MultiPoligono, cm: f64| -> Result<MultiPoligono, u32> { offset(m, cm / 100.0) };
     let mut saida: Vec<(MultiPoligono, bool)> = Vec::with_capacity(camadas.len());
     if perimetro {
@@ -214,13 +230,13 @@ fn contornos_das_camadas(linha: &ElementoLinha, camadas: &[CamadaLinha], nucleo:
             })
         };
         let Some(acabamento) = borda(PAPEL_PERIMETRO_ACABAMENTO) else { return Ok(fallback()) };
-        let precisa_nucleo = termino.iter().any(|t| matches!(t, Termino::Nucleo | Termino::Passa | Termino::Ate));
+        let precisa_nucleo = termino.iter().any(|t| matches!(t, Termino::Nucleo | Termino::Passa | Termino::Ate(_)));
         let nucleo_poly = if precisa_nucleo { borda(PAPEL_PERIMETRO_NUCLEO) } else { None };
         let referencia = nucleo_poly.clone().unwrap_or_else(|| acabamento.clone());
         for (i, t) in termino.iter().enumerate() {
             let (m, precisa) = match *t {
                 Termino::Passa => (base.clone(), false),
-                Termino::Ate => (referencia.clone(), true),
+                Termino::Ate(prioridade) => menos(&referencia, Regra::Ate(prioridade), i)?,
                 Termino::Cm(cm) => (if cm == 0.0 { acabamento.clone() } else { deslocada(&acabamento, cm)? }, false),
                 Termino::Nucleo => (nucleo_poly.clone().unwrap_or_else(|| acabamento.clone()), false),
                 Termino::Face => (acabamento.clone(), false),
@@ -230,7 +246,7 @@ fn contornos_das_camadas(linha: &ElementoLinha, camadas: &[CamadaLinha], nucleo:
                     } else if nucleo[i] {
                         (base.clone(), false)
                     } else {
-                        (base.clone(), true)
+                        menos(base, Regra::Face, i)?
                     }
                 }
             };
@@ -241,7 +257,7 @@ fn contornos_das_camadas(linha: &ElementoLinha, camadas: &[CamadaLinha], nucleo:
     let circuito = |papel: u8| -> Option<MultiPoligono> { vinc.get(&(papel, 0)).filter(|r| !r.is_empty()).map(|r| com_furos_manuais(r, manuais)) };
     let acabamento = if !vinculado || linha.modo == MODO_PAREDES_ACABAMENTO { Some(base.clone()) } else { circuito(PAPEL_CIRCUITO_ACABAMENTO) };
     let Some(acabamento) = acabamento else { return Ok(fallback()) };
-    let precisa_nucleo = vinculado && termino.iter().enumerate().any(|(i, t)| matches!(t, Termino::Nucleo | Termino::Passa | Termino::Ate) || (*t == Termino::Auto && nucleo[i]));
+    let precisa_nucleo = vinculado && termino.iter().enumerate().any(|(i, t)| matches!(t, Termino::Nucleo | Termino::Passa | Termino::Ate(_)) || (*t == Termino::Auto && nucleo[i]));
     let nucleo_poly: Option<MultiPoligono> = if !vinculado || linha.modo == MODO_PAREDES_NUCLEO {
         Some(base.clone())
     } else if precisa_nucleo {
@@ -257,24 +273,24 @@ fn contornos_das_camadas(linha: &ElementoLinha, camadas: &[CamadaLinha], nucleo:
                 if vinculado {
                     (acabamento.clone(), false)
                 } else {
-                    (base.clone(), true)
+                    menos(base, Regra::Face, i)?
                 }
             }
             Termino::Nucleo => {
                 if vinculado {
                     (referencia.clone(), false)
                 } else {
-                    (base.clone(), true)
+                    menos(base, Regra::Nucleo, i)?
                 }
             }
             Termino::Passa => {
                 if vinculado {
-                    (referencia.clone(), true)
+                    mais(&referencia)?
                 } else {
                     (base.clone(), false)
                 }
             }
-            Termino::Ate => (referencia.clone(), true),
+            Termino::Ate(prioridade) => menos(&referencia, Regra::Ate(prioridade), i)?,
             Termino::Auto => match (&nucleo_poly, nucleo[i]) {
                 (Some(n), true) => (n.clone(), false),
                 _ => (acabamento.clone(), false),
@@ -309,7 +325,8 @@ fn contorno_vinculado(linha: &ElementoLinha, vinc: &AneisPorPapel) -> Option<Vec
 }
 
 /// `resolveFloors`/`resolveSlabs` de UM elemento. `None` quando o TS o pula (contorno com menos de 3 pontos, polígono todo furado).
-fn resolver_elemento(laje: bool, id: u32, linha: &ElementoLinha, camadas: &[CamadaLinha], estatico: &[Anel], vinc: &AneisPorPapel, furos: &MultiPoligono) -> Result<Option<ElementoResolvido>, u32> {
+/// `paredes`: o carregador de paredes e os níveis cujas paredes contam (B2); `None` é a B1 (região sem paredes, `precisa_paredes`).
+fn resolver_elemento(laje: bool, id: u32, linha: &ElementoLinha, camadas: &[CamadaLinha], estatico: &[Anel], vinc: &AneisPorPapel, furos: &MultiPoligono, paredes: Option<(&Carregador, &[u32])>) -> Result<Option<ElementoResolvido>, u32> {
     let mut contorno: Anel = estatico.first().cloned().unwrap_or_default();
     let manuais: Vec<Anel> = estatico.iter().skip(1).cloned().collect();
     let mut furos_do_contorno = manuais.clone();
@@ -345,7 +362,8 @@ fn resolver_elemento(laje: bool, id: u32, linha: &ElementoLinha, camadas: &[Cama
     if poligono.is_empty() {
         return Ok(None);
     }
-    let contornos = contornos_das_camadas(linha, camadas, &nucleo, &base, &manuais, vinc)?;
+    let escopo = paredes.map(|(c, niveis)| Escopo::novo(c, niveis.to_vec(), limites.clone()));
+    let contornos = contornos_das_camadas(linha, camadas, &nucleo, &base, &manuais, vinc, escopo.as_ref())?;
     let mut feitos: Vec<(MultiPoligono, MultiPoligono)> = Vec::new();
     let mut saida: Vec<CamadaResolvida> = Vec::with_capacity(camadas.len());
     for (i, l) in camadas.iter().enumerate() {
@@ -377,11 +395,42 @@ fn resolver_elemento(laje: bool, id: u32, linha: &ElementoLinha, camadas: &[Cama
     Ok(Some(ElementoResolvido { laje, id, tipo: linha.tipo, problema, inclinacao: linha.inclinacao, topo_z, base_z, poligono, camadas: saida }))
 }
 
-/// Pisos e depois lajes do nível, cada grupo em ordem crescente de `ordem` (empate por `id_num`).
+/// `adjacentLevelIds`: o nível anterior e o seguinte na lista ORDENADA por cota (ordenação estável: o empate fica na ordem de `nivel_num`).
+/// Nível que a seção `niveis` não traz não tem vizinhos.
+fn niveis_vizinhos(cena: &Cena, nivel: u32) -> Vec<u32> {
+    let mut v: Vec<(f64, u32)> = cena.b.niveis.values().map(|&(n, cota)| (cota, n)).collect();
+    v.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal).then(a.1.cmp(&b.1)));
+    let Some(i) = v.iter().position(|x| x.1 == nivel) else { return Vec::new() };
+    let mut r = Vec::new();
+    if i > 0 {
+        r.push(v[i - 1].1);
+    }
+    if let Some(x) = v.get(i + 1) {
+        r.push(x.1);
+    }
+    r
+}
+
+/// Pisos e depois lajes do nível, cada grupo em ordem crescente de `ordem` (empate por `id_num`). Sem paredes (B1): a camada que as consulta sai com
+/// `precisa_paredes`.
 pub fn pisos_lajes_nivel(cena: &Cena, nivel: u32) -> Result<Vec<Saida>, u32> {
     if nivel == NIVEL_TODOS {
         return Err(ENTRADA);
     }
+    codificar(&calcular(cena, nivel, None)?, true)
+}
+
+/// Pisos e lajes do nível COM as paredes do projeto (B2): `tol` é a tolerância de junção de `resolver_nivel`. Sem `precisa_paredes`.
+pub fn pisos_lajes_com_paredes(cena: &Cena, nivel: u32, tol: f64) -> Result<Vec<Saida>, u32> {
+    if nivel == NIVEL_TODOS {
+        return Err(ENTRADA);
+    }
+    codificar(&calcular(cena, nivel, Some(tol))?, false)
+}
+
+fn calcular(cena: &Cena, nivel: u32, tol: Option<f64>) -> Result<Vec<ElementoResolvido>, u32> {
+    let carregador = tol.map(|t| Carregador::novo(cena, t));
+    let vizinhos = niveis_vizinhos(cena, nivel);
     let b = &cena.b;
     let ordenados = |m: &BTreeMap<u32, ElementoLinha>| -> Vec<(u32, ElementoLinha)> {
         let mut v: Vec<(u32, ElementoLinha)> = m.iter().filter(|(_, l)| l.nivel == nivel).map(|(k, l)| (*k, *l)).collect();
@@ -418,17 +467,25 @@ pub fn pisos_lajes_nivel(cena: &Cena, nivel: u32) -> Result<Vec<Saida>, u32> {
                     multi.push(aneis);
                 }
             }
-            if let Some(r) = resolver_elemento(laje, *id, linha, &camadas, &est, &vinc, &multi)? {
+            // Piso: as paredes do próprio nível; laje: também as do nível de baixo e do de cima (teto entre pavimentos).
+            let niveis: Vec<u32> = if laje { std::iter::once(nivel).chain(vizinhos.iter().copied()).collect() } else { vec![nivel] };
+            if let Some(r) = resolver_elemento(laje, *id, linha, &camadas, &est, &vinc, &multi, carregador.as_ref().map(|c| (c, niveis.as_slice())))? {
                 resolvidos.push(r);
             }
         }
     }
+    Ok(resolvidos)
+}
+
+/// Codifica o resultado. `com_flag`: a coluna `precisa_paredes` (B1, 8 por camada); sem ela são 7 por camada (B2).
+fn codificar(resolvidos: &[ElementoResolvido], com_flag: bool) -> Result<Vec<Saida>, u32> {
+    let passo = if com_flag { 8 } else { 7 };
     let mut cod = Codificador::default();
     let (mut elementos, mut elementos_num, mut camadas_u, mut camadas_num) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
-    for r in &resolvidos {
+    for r in resolvidos {
         let (pi, pn) = cod.forma(&r.poligono);
         let inc = r.inclinacao;
-        elementos.extend([r.laje as u32, r.id, r.tipo, r.problema as u32, inc.is_some() as u32, (camadas_u.len() / 8) as u32, r.camadas.len() as u32, pi, pn]);
+        elementos.extend([r.laje as u32, r.id, r.tipo, r.problema as u32, inc.is_some() as u32, (camadas_u.len() / passo) as u32, r.camadas.len() as u32, pi, pn]);
         match inc {
             Some(s) => elementos_num.extend([r.topo_z, r.base_z, s.origem[0], s.origem[1], s.direcao[0], s.direcao[1], s.percentual]),
             None => elementos_num.extend([r.topo_z, r.base_z, 0.0, 0.0, 0.0, 0.0, 0.0]),
@@ -436,7 +493,11 @@ pub fn pisos_lajes_nivel(cena: &Cena, nivel: u32) -> Result<Vec<Saida>, u32> {
         for c in &r.camadas {
             // A camada com o contorno do elemento aponta para o mesmo polígono da saída (como `memoCut` reaproveita o objeto).
             let (ci, cn) = if c.poligono == r.poligono { (pi, pn) } else { cod.forma(&c.poligono) };
-            camadas_u.extend([c.indice, c.material, c.nucleo as u32, c.membrana as u32, c.explicita as u32, c.precisa_paredes as u32, ci, cn]);
+            camadas_u.extend([c.indice, c.material, c.nucleo as u32, c.membrana as u32, c.explicita as u32]);
+            if com_flag {
+                camadas_u.push(c.precisa_paredes as u32);
+            }
+            camadas_u.extend([ci, cn]);
             camadas_num.extend([c.z0, c.z1, c.prioridade]);
         }
     }
@@ -456,7 +517,7 @@ mod testes {
     use super::*;
     use crate::a1::testes_util::{c32, c64, c8, f64s, u32s};
     use crate::consultas::executar;
-    use crate::esquema::{CONSULTA_PISOS_LAJES_NIVEL as Q, SECAO_CAMADAS_LAJE, SECAO_CAMADAS_PISO, SECAO_CONTORNOS_ESTATICOS, SECAO_CONTORNOS_VINCULADOS, SECAO_FUROS_NIVEL, SECAO_LAJES, SECAO_PISOS, SECAO_TIPOS_LAJE, SECAO_TIPOS_PISO};
+    use crate::esquema::{SECAO_NIVEIS, CONSULTA_PISOS_LAJES_NIVEL as Q, SECAO_CAMADAS_LAJE, SECAO_CAMADAS_PISO, SECAO_CONTORNOS_ESTATICOS, SECAO_CONTORNOS_VINCULADOS, SECAO_FUROS_NIVEL, SECAO_LAJES, SECAO_PISOS, SECAO_TIPOS_LAJE, SECAO_TIPOS_PISO};
     use crate::pintor::area_da_forma;
 
     /// Camada de teste: (espessura, função, término, valor do término, limite externo, prioridade).
@@ -916,5 +977,158 @@ mod testes {
         assert_eq!(um, consulta(&mut m));
         let s1 = executar(&mut m.cena, Q, &[1.0]).expect("nível 1");
         assert_eq!(u32s(&s1[0]).chunks(9).map(|c| c[1]).collect::<Vec<_>>(), [2]);
+    }
+
+    // ---- B2: pisos e lajes COM as paredes do projeto ----
+
+    use crate::a1::testes_util::{bytes_camadas as camadas_de_parede, bytes_paredes, bytes_quadros, bytes_tipos as tipos_de_parede, tipo_simples, Par};
+    use crate::esquema::{CONSULTA_PISOS_LAJES_COM_PAREDES as Q2, SECAO_CAMADAS, SECAO_PAREDES, SECAO_PAREDES_QUADRO, SECAO_PAREDES_Z, SECAO_TIPOS_PAREDE};
+
+    /// Acrescenta paredes (tipo simples: uma camada de estrutura de 0,2 m) com a base em `z0` e a altura dada, em `paredes_z`.
+    fn com_paredes(m: &mut Montada, ps: &[Par], z0: f64, altura: f64) {
+        let n = ps.len() as u32;
+        m.cena.definir_secao(SECAO_PAREDES, n, &bytes_paredes(ps)).expect("paredes");
+        m.cena.definir_secao(SECAO_PAREDES_QUADRO, n, &bytes_quadros(ps)).expect("quadros");
+        let ts = [tipo_simples()];
+        m.cena.definir_secao(SECAO_TIPOS_PAREDE, 1, &tipos_de_parede(&ts)).expect("tipos");
+        let (nc, bc) = camadas_de_parede(&ts);
+        m.cena.definir_secao(SECAO_CAMADAS, nc, &bc).expect("camadas");
+        let ids: Vec<u32> = ps.iter().map(|p| p.id).collect();
+        let bz = [c32(&ids), c64(&ids.iter().map(|_| z0).collect::<Vec<_>>()), c64(&ids.iter().map(|_| altura).collect::<Vec<_>>())].concat();
+        m.cena.definir_secao(SECAO_PAREDES_Z, n, &bz).expect("paredes_z");
+    }
+
+    fn com_niveis(m: &mut Montada, niveis: &[(u32, f64)]) {
+        let b = [c32(&(1..=niveis.len() as u32).collect::<Vec<_>>()), c32(&niveis.iter().map(|n| n.0).collect::<Vec<_>>()), c64(&niveis.iter().map(|n| n.1).collect::<Vec<_>>())].concat();
+        m.cena.definir_secao(SECAO_NIVEIS, niveis.len() as u32, &b).expect("niveis");
+    }
+
+    fn consulta2(m: &mut Montada, nivel: f64) -> Vec<Saida> {
+        executar(&mut m.cena, Q2, &[nivel, 0.02]).expect("pisos_lajes_com_paredes")
+    }
+
+    /// Áreas das camadas (7 colunas por camada: o polígono é a 6ª e a 7ª).
+    fn areas_das_camadas(s: &[Saida]) -> Vec<f64> {
+        u32s(&s[2]).chunks(7).map(|c| area_da_saida(s, c[5], c[6])).collect()
+    }
+
+    /// Piso 6 x 4 com a cota do nível em 0 e uma parede de 0,2 m em x = 3 que atravessa o contorno.
+    fn piso_com_parede(termino: u8, valor: f64) -> Montada {
+        let mut p = el(1);
+        p.cota = 0.0;
+        let tipo = vec![(0.02, 4, termino, valor, 0, None), (0.12, 0, 0, 0.0, 0, None)];
+        let mut m = montar(&[p], &tipo, &[], &[], &[(0, 1, 0, 0, ret(0.0, 0.0, 6.0, 4.0))], &[], &[]);
+        com_paredes(&mut m, &[Par::nova(1, (3.0, -1.0), (3.0, 5.0))], 0.0, 2.8);
+        m
+    }
+
+    #[test]
+    fn face_nucleo_e_ate_tiram_a_zona_da_parede_e_passa_e_auto_nao() {
+        // a parede tem uma camada de estrutura (prioridade 1, núcleo): face, núcleo e ate 1 bloqueiam 0,2 x 4 = 0,8 m2
+        for (termino, valor, esperado) in [(TERMINO_FACE, 0.0, 23.2), (TERMINO_NUCLEO, 0.0, 23.2), (TERMINO_ATE, 1.0, 23.2), (TERMINO_ATE, 0.0, 24.0), (TERMINO_PASSA, 0.0, 24.0), (TERMINO_AUTO, 0.0, 24.0)] {
+            let mut m = piso_com_parede(termino, valor);
+            let s = consulta2(&mut m, 0.0);
+            let a = areas_das_camadas(&s);
+            assert!((a[0] - esperado).abs() < 1e-9, "término {termino} valor {valor}: {} em vez de {esperado}", a[0]);
+            assert!((a[1] - 24.0).abs() < 1e-9, "a camada automática fica inteira");
+            assert_eq!(u32s(&s[2]).len(), 2 * 7, "sete colunas por camada, sem precisa_paredes");
+            // o polígono do elemento nunca é recortado pela parede
+            let u = u32s(&s[0]);
+            assert!((area_da_saida(&s, u[7], u[8]) - 24.0).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn a_consulta_da_b1_continua_marcando_precisa_paredes() {
+        let mut m = piso_com_parede(TERMINO_FACE, 0.0);
+        let s = consulta(&mut m);
+        let cam = u32s(&s[2]);
+        assert_eq!(cam.chunks(8).map(|c| c[5]).collect::<Vec<_>>(), [1, 0]);
+        assert!((area_da_saida(&s, cam[6], cam[7]) - 24.0).abs() < 1e-9, "sem paredes a região é inteira");
+    }
+
+    #[test]
+    fn parede_fora_da_faixa_de_cota_da_camada_nao_bloqueia() {
+        // parede de 1 m a 3 m: longe da camada (cota -0,02 a 0), nominal 1..3 não toca com a folga de 1 mm
+        let mut m = piso_com_parede(TERMINO_FACE, 0.0);
+        com_paredes(&mut m, &[Par { z0: 1.0, topo: 3.0, ..Par::nova(1, (3.0, -1.0), (3.0, 5.0)) }], 1.0, 2.0);
+        assert!((areas_das_camadas(&consulta2(&mut m, 0.0))[0] - 24.0).abs() < 1e-9);
+        // a 0,5 mm da camada ainda toca (Z_TOL de 1 mm)
+        com_paredes(&mut m, &[Par { z0: 0.0005, topo: 2.8, ..Par::nova(1, (3.0, -1.0), (3.0, 5.0)) }], 0.0005, 2.8);
+        assert!((areas_das_camadas(&consulta2(&mut m, 0.0))[0] - 23.2).abs() < 1e-9);
+        // a 2 mm não toca
+        com_paredes(&mut m, &[Par { z0: 0.002, topo: 2.8, ..Par::nova(1, (3.0, -1.0), (3.0, 5.0)) }], 0.002, 2.8);
+        assert!((areas_das_camadas(&consulta2(&mut m, 0.0))[0] - 24.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn laje_tambem_le_as_paredes_dos_niveis_vizinhos() {
+        // laje no nível 1 (cota 3), camada de 0,3 m com término face: z de 2,7 a 3,0; a parede do nível 0 vai de 0 a 2,8
+        let mut l = el(1);
+        l.nivel = 1;
+        let tipo = vec![(0.3, 0, TERMINO_FACE, 0.0, 0, None)];
+        let mut m = montar(&[], &[], &[l], &tipo, &[(1, 1, 0, 0, ret(0.0, 0.0, 6.0, 4.0))], &[], &[]);
+        com_paredes(&mut m, &[Par::nova(1, (3.0, -1.0), (3.0, 5.0))], 0.0, 2.8);
+        // sem a seção niveis: sem vizinhos, a parede do nível 0 não conta
+        assert!((areas_das_camadas(&consulta2(&mut m, 1.0))[0] - 24.0).abs() < 1e-9);
+        com_niveis(&mut m, &[(0, 0.0), (1, 3.0)]);
+        assert!((areas_das_camadas(&consulta2(&mut m, 1.0))[0] - 23.2).abs() < 1e-9, "nível de baixo");
+        // o piso do nível 1 NÃO lê o nível de baixo
+        let mut p = el(1);
+        p.nivel = 1;
+        let mut m2 = montar(&[p], &[(0.3, 0, TERMINO_FACE, 0.0, 0, None)], &[], &[], &[(0, 1, 0, 0, ret(0.0, 0.0, 6.0, 4.0))], &[], &[]);
+        com_paredes(&mut m2, &[Par::nova(1, (3.0, -1.0), (3.0, 5.0))], 0.0, 2.8);
+        com_niveis(&mut m2, &[(0, 0.0), (1, 3.0)]);
+        assert!((areas_das_camadas(&consulta2(&mut m2, 1.0))[0] - 24.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn vizinhos_pela_ordem_de_cota_com_empate_pela_ordem_de_nivel() {
+        let mut m = montar(&[], &[], &[], &[], &[], &[], &[]);
+        // níveis 0..3 com cotas 6, 0, 3, 3: ordenados: 1 (0), 2 (3), 3 (3), 0 (6)
+        com_niveis(&mut m, &[(0, 6.0), (1, 0.0), (2, 3.0), (3, 3.0)]);
+        assert_eq!(niveis_vizinhos(&m.cena, 1), [2]);
+        assert_eq!(niveis_vizinhos(&m.cena, 2), [1, 3]);
+        assert_eq!(niveis_vizinhos(&m.cena, 3), [2, 0]);
+        assert_eq!(niveis_vizinhos(&m.cena, 0), [3]);
+        assert!(niveis_vizinhos(&m.cena, 9).is_empty());
+    }
+
+    #[test]
+    fn as_paredes_so_sao_pedidas_quando_uma_camada_as_consulta() {
+        // sem as seções da fatia A na cena, um nível sem paredes resolve (o término face nada tira) e uma camada automática nem as consulta
+        let mut p = el(1);
+        p.cota = 0.0;
+        let mut m = montar(&[p], &[(0.1, 0, TERMINO_FACE, 0.0, 0, None)], &[], &[], &[(0, 1, 0, 0, ret(0.0, 0.0, 2.0, 2.0))], &[], &[]);
+        assert!((areas_das_camadas(&consulta2(&mut m, 0.0))[0] - 4.0).abs() < 1e-9);
+        let mut p = el(1);
+        p.cota = 0.0;
+        let mut m = montar(&[p], &[(0.1, 0, TERMINO_AUTO, 0.0, 0, None)], &[], &[], &[(0, 1, 0, 0, ret(0.0, 0.0, 2.0, 2.0))], &[], &[]);
+        assert!((areas_das_camadas(&consulta2(&mut m, 0.0))[0] - 4.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn argumentos_da_consulta_com_paredes() {
+        let mut m = piso_com_parede(TERMINO_FACE, 0.0);
+        assert_eq!(executar(&mut m.cena, Q2, &[0.0]).err(), Some(ENTRADA), "faltou a tolerância");
+        assert_eq!(executar(&mut m.cena, Q2, &[0.0, -1.0]).err(), Some(ENTRADA), "tolerância negativa");
+        assert_eq!(executar(&mut m.cena, Q2, &[0.0, f64::NAN]).err(), Some(ENTRADA), "tolerância NaN");
+        assert_eq!(executar(&mut m.cena, Q2, &[0.5, 0.02]).err(), Some(ENTRADA), "nível fracionário");
+        assert_eq!(executar(&mut m.cena, Q2, &[NIVEL_TODOS as f64, 0.02]).err(), Some(ENTRADA), "todos os níveis");
+    }
+
+    #[test]
+    fn secao_niveis_valida_upserta_e_remove() {
+        let mut m = montar(&[], &[], &[], &[], &[], &[], &[]);
+        let b = |ns: &[(u32, u32, f64)]| [c32(&ns.iter().map(|n| n.0).collect::<Vec<_>>()), c32(&ns.iter().map(|n| n.1).collect::<Vec<_>>()), c64(&ns.iter().map(|n| n.2).collect::<Vec<_>>())].concat();
+        assert_eq!(m.cena.definir_secao(SECAO_NIVEIS, 1, &b(&[(1, 0, f64::NAN)])).err(), Some(ENTRADA), "cota NaN");
+        assert_eq!(m.cena.definir_secao(SECAO_NIVEIS, 1, &b(&[(1, u32::MAX, 0.0)])).err(), Some(ENTRADA), "nível reservado");
+        assert_eq!(m.cena.definir_secao(SECAO_NIVEIS, 2, &b(&[(1, 0, 0.0), (1, 1, 3.0)])).err(), Some(ENTRADA), "chave duplicada");
+        m.cena.definir_secao(SECAO_NIVEIS, 2, &b(&[(1, 0, 0.0), (2, 1, 3.0)])).expect("niveis");
+        assert_eq!(niveis_vizinhos(&m.cena, 0), [1]);
+        m.cena.upsert(SECAO_NIVEIS, 1, &b(&[(3, 2, 1.5)])).expect("upsert");
+        assert_eq!(niveis_vizinhos(&m.cena, 0), [2], "o novo nível entra entre os dois");
+        m.cena.remover(SECAO_NIVEIS, &[3]).expect("remover");
+        assert_eq!(niveis_vizinhos(&m.cena, 0), [1]);
     }
 }

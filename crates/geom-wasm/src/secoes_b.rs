@@ -1,5 +1,5 @@
-//! Seções da sub-etapa B1 (esquema v8): `pisos`, `lajes`, `tipos_piso`, `tipos_laje`, `camadas_piso`, `camadas_laje`,
-//! `contornos_estaticos`, `contornos_vinculados` e `furos_nivel`.
+//! Seções das sub-etapas B1 e B2 (esquema v9): `pisos`, `lajes`, `tipos_piso`, `tipos_laje`, `camadas_piso`, `camadas_laje`,
+//! `contornos_estaticos`, `contornos_vinculados`, `furos_nivel` e `niveis`.
 //!
 //! Mesmo molde de `secoes_a3`: `BTreeMap` por chave (ordem canônica = id crescente), decodificação que valida antes de
 //! tocar a cena (atômica): tamanho, chave ausente/duplicada, valores não finitos e enums fora do domínio.
@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use crate::cena::decodificar_colunas;
 use crate::esquema::{
     ENTRADA, ID_AUSENTE, INTERNO, LIMITE, LIMITE_LINHAS_POR_SECAO, SECAO_CAMADAS_LAJE, SECAO_CAMADAS_PISO, SECAO_CONTORNOS_ESTATICOS, SECAO_CONTORNOS_VINCULADOS, SECAO_FUROS_NIVEL,
-    SECAO_LAJES, SECAO_PISOS, SECAO_TIPOS_LAJE, SECAO_TIPOS_PISO,
+    SECAO_LAJES, SECAO_NIVEIS, SECAO_PISOS, SECAO_TIPOS_LAJE, SECAO_TIPOS_PISO,
 };
 use crate::secoes_a1::{bool01, chaves_validas, f64s, finito, u32s, u8s};
 
@@ -107,6 +107,8 @@ pub struct SecoesB {
     pub estaticos: BTreeMap<u32, PontoLinha>,
     pub vinculados: BTreeMap<u32, PontoLinha>,
     pub furos: BTreeMap<u32, PontoLinha>,
+    /// `niveis` (B2): chave `id_num` -> (`nivel_num`, cota).
+    pub niveis: BTreeMap<u32, (u32, f64)>,
 }
 
 enum Lote {
@@ -114,6 +116,7 @@ enum Lote {
     Tipos(bool, Vec<(u32, u32)>),
     Camadas(bool, Vec<(u32, CamadaLinha)>),
     Pontos(u32, Vec<(u32, PontoLinha)>),
+    Niveis(Vec<(u32, (u32, f64))>),
 }
 
 impl Lote {
@@ -123,6 +126,7 @@ impl Lote {
             Lote::Tipos(_, v) => v.iter().map(|x| x.0).collect(),
             Lote::Camadas(_, v) => v.iter().map(|x| x.0).collect(),
             Lote::Pontos(_, v) => v.iter().map(|x| x.0).collect(),
+            Lote::Niveis(v) => v.iter().map(|x| x.0).collect(),
         }
     }
 }
@@ -269,6 +273,21 @@ fn decodificar(secao: u32, n_linhas: u32, bytes: &[u8]) -> Result<Lote, u32> {
             }
             Ok(Lote::Pontos(secao, v))
         }
+        SECAO_NIVEIS => {
+            let id = u32s(c.next())?;
+            let nivel = u32s(c.next())?;
+            let cota = f64s(c.next())?;
+            chaves_validas(&id)?;
+            let mut v = Vec::with_capacity(n);
+            for i in 0..n {
+                let (Some(&k), Some(&nv), Some(&ct)) = (id.get(i), nivel.get(i), cota.get(i)) else { return Err(INTERNO) };
+                if nv == ID_AUSENTE || !finito(ct) {
+                    return Err(ENTRADA);
+                }
+                v.push((k, (nv, ct)));
+            }
+            Ok(Lote::Niveis(v))
+        }
         _ => Err(ENTRADA),
     }
 }
@@ -278,7 +297,7 @@ impl SecoesB {
     pub fn e_minha(secao: u32) -> bool {
         matches!(
             secao,
-            SECAO_PISOS | SECAO_LAJES | SECAO_TIPOS_PISO | SECAO_TIPOS_LAJE | SECAO_CAMADAS_PISO | SECAO_CAMADAS_LAJE | SECAO_CONTORNOS_ESTATICOS | SECAO_CONTORNOS_VINCULADOS | SECAO_FUROS_NIVEL
+            SECAO_PISOS | SECAO_LAJES | SECAO_TIPOS_PISO | SECAO_TIPOS_LAJE | SECAO_CAMADAS_PISO | SECAO_CAMADAS_LAJE | SECAO_CONTORNOS_ESTATICOS | SECAO_CONTORNOS_VINCULADOS | SECAO_FUROS_NIVEL | SECAO_NIVEIS
         )
     }
 
@@ -292,6 +311,7 @@ impl SecoesB {
             SECAO_CAMADAS_LAJE => self.camadas_laje.len(),
             SECAO_CONTORNOS_ESTATICOS => self.estaticos.len(),
             SECAO_CONTORNOS_VINCULADOS => self.vinculados.len(),
+            SECAO_NIVEIS => self.niveis.len(),
             _ => self.furos.len(),
         }
     }
@@ -306,6 +326,7 @@ impl SecoesB {
             SECAO_CAMADAS_LAJE => self.camadas_laje.contains_key(&k),
             SECAO_CONTORNOS_ESTATICOS => self.estaticos.contains_key(&k),
             SECAO_CONTORNOS_VINCULADOS => self.vinculados.contains_key(&k),
+            SECAO_NIVEIS => self.niveis.contains_key(&k),
             _ => self.furos.contains_key(&k),
         }
     }
@@ -321,6 +342,7 @@ impl SecoesB {
             Lote::Pontos(SECAO_CONTORNOS_ESTATICOS, v) => self.estaticos.extend(v),
             Lote::Pontos(SECAO_CONTORNOS_VINCULADOS, v) => self.vinculados.extend(v),
             Lote::Pontos(_, v) => self.furos.extend(v),
+            Lote::Niveis(v) => self.niveis.extend(v),
         }
     }
 
@@ -336,6 +358,7 @@ impl SecoesB {
             SECAO_CAMADAS_LAJE => self.camadas_laje.clear(),
             SECAO_CONTORNOS_ESTATICOS => self.estaticos.clear(),
             SECAO_CONTORNOS_VINCULADOS => self.vinculados.clear(),
+            SECAO_NIVEIS => self.niveis.clear(),
             _ => self.furos.clear(),
         }
         self.aplicar(lote);
@@ -380,6 +403,9 @@ impl SecoesB {
                 }
                 SECAO_CONTORNOS_VINCULADOS => {
                     self.vinculados.remove(k);
+                }
+                SECAO_NIVEIS => {
+                    self.niveis.remove(k);
                 }
                 _ => {
                     self.furos.remove(k);
