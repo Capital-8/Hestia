@@ -4,6 +4,7 @@ import { joinStatus, levelFrames, quantifyLevel, viewRangeWarnings } from '@hest
 import {
   FUNCTION_LABEL,
   isCad,
+  isComponent,
   isFloor,
   isGeneric,
   isOpening,
@@ -53,6 +54,7 @@ import { RoomProperties } from './RoomProperties.tsx';
 import { AreaProfileGroups, activeAreaPlan } from './AreaPlanProperties.tsx';
 import { GenericProps, selectionLabel } from './GenericProps.tsx';
 import { CadProps } from './CadProps.tsx';
+import { ComponentProperties } from './ComponentProperties.tsx';
 import { GridProperties } from './GridProperties.tsx';
 import { gradeDaSelecao } from './gridUi.ts';
 import { LabelScroll } from './LabelScroll.tsx';
@@ -415,17 +417,19 @@ export function Properties(): ReactElement {
   const stairs = els.filter(isStair);
   const ramps = els.filter(isRamp);
   const rooms = els.filter(isRoom), generics = els.filter(isGeneric), cads = els.filter(isCad);
+  const components = els.filter(isComponent);
   // Grade é do projeto, não elemento: a seleção dela é um id que não está em `elements`.
   const grade = gradeDaSelecao(p, sel);
-  const count = walls.length + ops.length + floors.length + slabs.length + ceilings.length + roofs.length + stairs.length + ramps.length + rooms.length + generics.length + cads.length;
-  const kinds = [walls, ops, floors, slabs, ceilings, roofs, stairs, ramps, rooms, generics, cads].filter((g) => g.length > 0).length;
+  const count = walls.length + ops.length + floors.length + slabs.length + ceilings.length + roofs.length + stairs.length + ramps.length + rooms.length + generics.length + cads.length + components.length;
+  const kinds = [walls, ops, floors, slabs, ceilings, roofs, stairs, ramps, rooms, generics, cads, components].filter((g) => g.length > 0).length;
+  const labelComponentes = components.length > 0 && components.length === count ? (components.length > 1 ? 'Componentes' : 'Componente') : null;
   const tool = useUi((s) => s.tool);
   const placing = count === 0 && hasPlacementProperties(tool);
   const perim = usePerimeter();
   // Nível selecionado no 3D: só ocupa o painel quando não há elementos na seleção nem ferramenta em colocação.
   const selectedLevel = useUi((s) => s.selectedLevel);
   const nivelSelecionado = count === 0 && !placing ? p.levels.find((l) => l.id === selectedLevel) : undefined;
-  const panelLabel = perim.active ? PERIMETER_TITLE[perim.target] : placing ? `Colocar ${TOOL_LABEL[tool]}` : nivelSelecionado ? `Nível ${nivelSelecionado.name}` : selectionLabel({ walls: walls.length, ops: ops.length, floors: floors.length, slabs: slabs.length, ceilings: ceilings.length, roofs: roofs.length, stairs: stairs.length, ramps: ramps.length, rooms: rooms.length, generics: generics.length, cads: cads.length, grade, view });
+  const panelLabel = perim.active ? PERIMETER_TITLE[perim.target] : placing ? `Colocar ${TOOL_LABEL[tool]}` : nivelSelecionado ? `Nível ${nivelSelecionado.name}` : labelComponentes ?? selectionLabel({ walls: walls.length, ops: ops.length, floors: floors.length, slabs: slabs.length, ceilings: ceilings.length, roofs: roofs.length, stairs: stairs.length, ramps: ramps.length, rooms: rooms.length, generics: generics.length, cads: cads.length, grade, view });
   return (
     <aside className="side" aria-label="Propriedades">
       <PanelHead panel="props" name="Propriedades" closeLabel="Fechar as propriedades" extra={<span style={{ color: 'var(--fg-faint)', fontWeight: 400 }}>{panelLabel}</span>}>
@@ -444,12 +448,13 @@ export function Properties(): ReactElement {
           : kinds === 1 && rooms.length > 0 ? <RoomProperties rooms={rooms} />
           : kinds === 1 && generics.length > 0 ? <GenericProps items={generics} />
           : kinds === 1 && cads.length > 0 ? <CadProps items={cads} />
+          : kinds === 1 && components.length > 0 ? <ComponentProperties ids={components.map((c) => c.id)} />
           : grade ? <GridProperties grid={grade} />
           : note ? <AnnotationProps dim={note.dim} text={note.text} line={note.line} region={note.region} tag={note.tag} planId={planId} />
           : view ? <SectionViewProps view={view} />
           : nivelSelecionado ? <LevelProps />
           : count > 0 ? (
-          <div className="hint">Seleção mista de elementos. Selecione apenas um tipo de elemento (parede, abertura, piso, laje, telhado, escada, rampa ou ambiente) para editar propriedades.</div>
+          <div className="hint">Seleção mista de elementos. Selecione apenas um tipo de elemento (parede, abertura, piso, laje, telhado, escada, rampa, ambiente ou componente) para editar propriedades.</div>
         ) : (
           <>
             {isToolTypeKind(tool) && <ToolTypeProps tool={tool} />}
