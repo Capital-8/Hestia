@@ -22,16 +22,10 @@ sobreviventes (3 fechados por testes de limiar, 1 equivalente com prova; 0047 §
 (fontes `b385ff3a9615`).
 
 ## Pendente (nesta ordem)
-1. **Terminar o config pesado dos testes wasm** (trabalho EM ANDAMENTO, não commitado, em `wt/rust-faseA`: `vitest.wasm.pesado.config.ts`,
-   `tests/kernel-wasm.setup.ts`, `tests/kernel-a2-retas.pesado.test.ts`, mudanças em `.github/workflows/ci.yml`, `package.json`,
-   `vitest.config.ts`, `vitest.wasm.config.ts`, `docs/decisoes/0047-...`). Objetivo: a suíte `npx vitest run --config vitest.wasm.config.ts`
-   fechar com 0 erros (o job `wasm` do CI falha só pelo `Timeout calling "onTaskUpdate"`, RPC fixo de 60 s do vitest quando a referência
-   TS bloqueia o worker; todos os testes passam, 315/315). Casos de retas puras a 60 paredes (semente 101) vão para
-   `npm run test:wasm:pesado` e um job `wasm-pesado` do CI, com `dangerouslyIgnoreUnhandledErrors` só nesse config. Conferir `git status`,
-   terminar, rodar as duas suítes e commitar com `git add` por caminho.
-2. **Trazer os testes de limiar do A3c/A3d** da branch `claude/a-mutacoes` (commits `d88e6538`, `7b16c73e`, `4fbaac06`) com
-   `git cherry-pick`; pode haver conflito com a divisão por semente dos testes a3c/a3d (resolver mantendo as duas coisas).
-3. Conferir o CI do PR #5 (`gh pr checks 5`), todos verdes (`check`, `completo`, `perf` já estavam; `wasm` deve passar depois do item 1).
+1. ~~Config pesado dos testes wasm~~ FEITO (0047 §14): `npm run test:wasm` (normal, 300 testes, 0 erros) e `npm run test:wasm:pesado`
+   (retas puras de 60 paredes; 1 aviso de RPC `onTaskUpdate` documentado) com job `wasm-pesado` no CI.
+2. ~~Testes de limiar do A3c/A3d~~ FEITO (cherry-pick de `claude/a-mutacoes`; 0047 §13).
+3. Conferir o CI do PR #5 depois do push (`gh pr checks 5`): `wasm` e `wasm-pesado` devem passar.
 4. **Harness no projeto real** (só na máquina do dono; arquivo `edificio-dwg_v2.hestia.json` na raiz de `Hestia`, nunca commitar):
    `npx vite-node scripts/kernel-harness.mts -- <arquivo> --wasm packages/geom/assets/geom_wasm.wasm` e a versão A3 em
    `scripts/kernel-harness-nucleo.mts`. Em 2026-11-02 o harness A1/A2 deu 0 divergências nas 1278 paredes (11 pavimentos). Conferir paredes
