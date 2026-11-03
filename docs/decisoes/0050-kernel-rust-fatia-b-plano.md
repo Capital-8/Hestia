@@ -81,7 +81,7 @@ elementos (tipo, id, problema, inclinação), camadas (índice, material, núcle
 **Exceção nomeada (defeito do TS em entrada fora do contrato).** Furo manual de elemento vinculado que PASSA do circuito da sala, com camada `{cm}` diferente de zero: o `offsetMulti` do TS
 (Clipper) deixa pedaços soltos em volta do furo (quadrados de 5 cm); o Rust devolve o deslocamento limpo do contorno. É a única divergência do estresse com furos livres (2 camadas em 8 sementes x 2 pavimentos,
 o teste `furo manual que passa do circuito` exige que TODAS as divergências sejam desse tipo e que existam). No estresse padrão o furo manual dos vinculados cabe na sala e não há divergência.
-Segue como pendência separada de correção no TS.
+Segue como pendência separada de correção no TS. **Revisto na B2 (ver abaixo): a divergência era o offset do `i_overlay`, não defeito do TS; com o porte do `ClipperOffset` o Rust reproduz até os pedaços soltos e a exceção deixou de existir.**
 
 **Cobertura (estresse, sementes 1 a 12, cada uma com e sem paredes; `kernel-b1.wasm.test.ts`).** 96 comparações (por pavimento), **672 pisos e 672 lajes** (290 lajes inclinadas),
 **3.730 camadas** (910 membranas, 1.596 com término explícito), 352 elementos com `problem` (aberto ou fora), 122 vinculados com circuito fechado, 247 elementos de perímetro, 672 com furo de escada ou rampa,
@@ -95,3 +95,53 @@ lacuna de índice, `n_camadas`), sem vazamento de memória. Cada teste wasm indi
 recorte dos furos reprovaria (vértices fora da grade de 1 µm), por isso a escala de 1 nm.
 
 **Mutações de B1: pendentes para o fim da B.** Suíte wasm completa e `.wasm` commitado também.
+
+## B2 entregue (contornos de camada e término com paredes), 2026-11-03
+
+Consulta `pisos_lajes_com_paredes(nivel_num, tol_juncao)` e esquema **v9** (`cena-v9.json`, renomeado de `cena-v8.json`; leitores, teste de contrato, `esquema.gerado.ts`, o falso e os
+testes de versão atualizados). `pisos_lajes_nivel` (B1) segue igual (compatível: a camada que consulta paredes continua saindo com `precisa_paredes` = 1). O Rust só liga por flag e o padrão continua
+TypeScript; o `.wasm` commitado NÃO foi refeito.
+
+**Esquema v9.** Seção nova `niveis` (id 19: `id_num`, `nivel_num`, `cota`, para a adjacência de níveis das lajes; `adjacentLevelIds` ordena por cota de forma estável, empate pela ordem de `nivel_num`) e a
+consulta 11. Saída igual à da B1 sem a coluna `precisa_paredes` (7 valores por camada). Não há seção de "aberturas que chegam ao piso" nem de "parâmetros de término": o término por camada já está em
+`camadas_piso`/`camadas_laje` (B1) e as portas vêm de `aberturas` e `tipos_abertura` (A3a), lidas por dentro. As paredes do nível vêm de `resolver_nivel` (A3d) sobre as seções da fatia A, **montadas pelo JS com
+`flatAttach` = true** (a cota de `paredes_z` do término por camada, como `wallsOfLevel`). `tol_juncao` é a de `resolveLevel`.
+
+**Decisões.**
+1. *Paredes por dentro, só quando preciso.* `b2::Carregador` resolve cada nível uma vez por consulta (quadros, itens, camadas com `raw`/núcleo/prioridade, portas via `aberturas_do_nivel`) e `Escopo` só o aciona na
+   primeira camada que consulta paredes (como o `wallsNow` do TS). Piso lê o próprio nível; laje, o próprio, o de baixo e o de cima. Os índices de `blockedLayerIndexes` são os da lista de camadas RESOLVIDAS da parede,
+   não o `layerIndex` (manha do TS reproduzida).
+2. *`terminoBlock.ts` portado inteiro:* zona bloqueada por regra (`face`, `nucleo`, `ate`: faixa contígua do menor ao maior índice), `wallTouchesZone` (faixa NOMINAL da parede, ± `Z_TOL` = 1 mm), portas que chegam ao piso
+   (soleira da base da parede + peitoril até o topo da camada + `Z_TOL`; retângulo largura x (espessura + 5 mm por face)), `regionMinusWalls` e `regionPlusWalls`, filtro por caixas (fronteira inclusiva). Booleanas a 1 nm
+   (`ESCALA_FINA`), como o corte dos furos da B1; zonas guardadas por regra dentro da parede (não dependem da cota).
+3. *Achado 1 (corrigido): `{cm}` e o offset.* O estresse com paredes diagonais e curvas dá circuitos com cantos agudos. Com o offset do `i_overlay` (miter até 60°), o `{cm}` positivo de 2 cm num canto de 49° dava
+   **3,3e-4 m²** de diferença (semente 12), e `{cm}` negativo dava 1,7e-6 a 3,7e-6 m² com fatias de meio micrômetro. Causa verificada: (a) canto mais agudo que 60°: o Clipper faz o canto quadrado
+   (`DoSquare`), o `i_overlay` outra forma; (b) o adaptador de ponto flutuante do `i_overlay` centra a grade na caixa dos pontos e, com caixa de extensão ímpar, devolve coordenadas em meio micrômetro (o Clipper usa a grade
+   absoluta de 1 µm). Isto NÃO é arredondamento no sentido da 0049 (a diferença não encolhe com escala fina), então não se aplicou a 0049: portou-se o `ClipperOffset(2, ...)` (`ops::offset_clipper`: `AddPath`, `FixOrientations`,
+   `OffsetPoint`/`DoMiter`/`DoSquare`, `Clipper.Round`, união pelo enrolamento positivo direto sobre inteiros do `Overlay`, sem o adaptador). Só o `{cm}` o usa; o `ops::offset` (miter do `i_overlay`, usado pelo fechamento de
+   frestas da A3c) ficou como está. **A exceção nomeada da B1 (furo manual que passa do circuito com `{cm}`, atribuída a defeito do TS) era esta mesma diferença: com o porte, as 2 camadas divergentes passam a 0 e o teste da B1
+   agora exige zero divergência.** Os números da B1 não mudaram (4.619 de 4.619 estritos, simétrica máx. 3,07e-7, K 0,031).
+4. *Achado 2 (corrigido): `regionPlusWalls` e furo manual.* O `ref` do `passa` vinculado traz furos manuais; o `union` do TS (`polygon-clipping`) trata o polígono como externo MENOS furos, e a parte de um furo que passa do
+   anel externo (um entalhe do circuito) não conta. Sob NonZero ela contava como região (enrolamento -1) e a pegada da parede não a cobria: **6,6e-4 m²** a menos no Rust (semente 18, piso 13, camada `passa`). `regionPlusWalls`
+   passa a tratar o `ref` como o `regionMinusWalls` já fazia (`como_o_polygon_clipping`); teste de unidade que falha sem a correção.
+
+**Cobertura (estresse, sementes 1 a 12, `paredesB2`: cada pavimento com 32 paredes da grade, portas em ~45% das paredes de 4 m com soleira de 0, 2, 8 e 15 cm, 3 paralelas coladas a 10–40 cm, 2 diagonais, 1 curva; 3 pavimentos com
+paredes e um sem; `kernel-b2.wasm.test.ts`).** 48 comparações (por pavimento), **336 pisos e 336 lajes** (145 lajes inclinadas), **1.865 camadas** (455 membranas, 798 com término explícito; por término: auto 858, face 327,
+cm 209, passa 198, nucleo 142, ate 131), 68 elementos com `problem`, **2.537 polígonos**. **454 camadas dependem de paredes** (as que a B1 marcava com `precisa_paredes`), das quais **301 mudaram de fato com as paredes** (189 de
+lajes); 536 portas no projeto (a referência conta 172 em 4 sementes: 117 com soleira até 2 cm, 55 acima). Todas comparadas por igualdade, sem contenção. Também: níveis adjacentes (sementes 22 a 24, 3 pavimentos: lajes do
+pavimento do meio mudam sem a seção `niveis`, pisos não), sintéticos de 10 e 20 pavimentos (tipos padrão e tipos com face, núcleo, até, passa e `{cm}`: 20 e 40 camadas por término, 20 e 40 mudam com as paredes), a fixture
+`casa-2-quartos` (piso e laje vinculados por ambiente e perímetro; 5 portas), rampa e escada (6 casos, sem paredes no nível), propriedades (a camada `face`/`nucleo` não invade a zona das paredes que a tocam, `nucleo`/`passa`
+ficam dentro do contorno do elemento, `passa` igual ao polígono do elemento), upsert/remoção (remover as paredes do nível e a seção `niveis`, e devolvê-las), entradas inválidas (tolerância negativa, NaN, fracionário, seção
+`niveis` inválida, `paredes_z` ausente), sem vazamento de memória. Cada teste wasm individual fica abaixo de 5,2 s.
+
+**Medições.** Sem a 0049: **2.537 de 2.537 polígonos iguais à referência pela regra geral (1e-6 m²)**, 2.471 deles vértice a vértice (1 µm) depois da canonicalização; maior diferença simétrica **9,67e-7 m²**
+(semente 1, pavimento sem paredes), maior razão `max(área, simétrica) / (perímetro x 1e-6)` (K) = **0,0349**; desvio máximo de campos escalares **0**. A 0049 não foi aplicada. Rust: `cargo test` 145 passam.
+
+**Margem estreita e casos fora das sementes 1 a 12 (para decisão do dono).** Uma varredura maior (sementes 13 a 40, mesma configuração, mesma regra de 1e-6) NÃO fecha em zero: cerca de 1 em 6 sementes tem polígonos
+grandes (20 a 120 m²) com diferença simétrica de **1,0e-6 a 1,4e-6 m²** (K de 0,016 a 0,048; área igual a 1e-7 ou menos: fatias de décimos de micrômetro ao longo de arestas longas; sementes 19, 25, 28, 31, 32) e
+**três casos de topologia** (Rust 3 peças tocando em ponto onde o TS tem 1, ou 5 x 6, em fitas finas entre zonas de paredes diagonais; sementes 31 e 35 no estresse padrão, semente 21 na configuração de 3 pavimentos
+com laje). Os primeiros são do tipo da 0049 (menos de 1 µm por vértice, topologia igual), mas a regra geral reprova por margem de 0,4e-6; a 0049 NÃO foi aplicada nem pedida aqui, e a topologia não é coberta por ela (condição 2).
+Os testes de estresse usam as sementes 1 a 12 (como a B1) e o de níveis adjacentes as sementes 22 a 24 (a 21 fica de fora pelo caso de topologia): isso é escolha de amostra, registrada aqui, não folga de tolerância.
+Decisões pendentes: aplicar a 0049 (K medido 0,048, com folga de 1,5x = 0,072) à classe de diferença simétrica de décimos de micrômetro; e olhar o caso de topologia por pescoço de largura nanométrica.
+
+**Mutações de B2: pendentes para o fim da B.** Suíte wasm completa e `.wasm` commitado também.
