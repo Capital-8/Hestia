@@ -116,15 +116,29 @@ fn arred_assinatura(v: f64) -> f64 {
     arredonda_js(v * 1e6) / 1e6
 }
 
-/// `sigOf(a) === sigOf(b)`: mesma forma com os vértices arredondados a 1e-6 m (mesma ordem de polígonos, anéis e pontos).
-fn mesma_assinatura(a: &MultiPoligono, b: &MultiPoligono) -> bool {
-    a.len() == b.len()
-        && a.iter().zip(b).all(|(pa, pb)| {
-            pa.len() == pb.len()
-                && pa.iter().zip(pb).all(|(ra, rb)| {
-                    ra.len() == rb.len() && ra.iter().zip(rb).all(|(p, q)| arred_assinatura(p[0]) == arred_assinatura(q[0]) && arred_assinatura(p[1]) == arred_assinatura(q[1]))
+/// Forma canônica para a assinatura: cada anel começa no menor ponto arredondado (x, depois y) e os polígonos saem ordenados pelo primeiro ponto. O
+/// `polygon-clipping` do TS devolve a mesma geometria sempre na mesma ordem; o `i_overlay` roda o início do anel conforme o conjunto de entrada, e isso fazia
+/// duas faixas contíguas da mesma região não se fundirem (B3: a parede cortada pelo perfil ganhava uma faixa a mais, plana, onde o TS tem uma inclinada).
+fn forma_canonica(m: &MultiPoligono) -> Vec<Vec<Vec<(f64, f64)>>> {
+    let mut polis: Vec<Vec<Vec<(f64, f64)>>> = m
+        .iter()
+        .map(|p| {
+            p.iter()
+                .map(|r| {
+                    let pts: Vec<(f64, f64)> = r.iter().map(|q| (arred_assinatura(q[0]), arred_assinatura(q[1]))).collect();
+                    let ini = (0..pts.len()).min_by(|&i, &j| pts[i].partial_cmp(&pts[j]).unwrap_or(std::cmp::Ordering::Equal)).unwrap_or(0);
+                    pts.iter().cycle().skip(ini).take(pts.len()).copied().collect()
                 })
+                .collect()
         })
+        .collect();
+    polis.sort_by(|a, b| a.first().and_then(|r| r.first()).partial_cmp(&b.first().and_then(|r| r.first())).unwrap_or(std::cmp::Ordering::Equal));
+    polis
+}
+
+/// `sigOf(a) === sigOf(b)`: mesma forma com os vértices arredondados a 1e-6 m (anéis e polígonos na ordem canônica).
+fn mesma_assinatura(a: &MultiPoligono, b: &MultiPoligono) -> bool {
+    forma_canonica(a) == forma_canonica(b)
 }
 
 /// `solveCluster(items, opens, zr, returns, planOpen)`.
