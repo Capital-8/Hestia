@@ -162,9 +162,9 @@ export function criarInstanciaFalsa(opcoes: OpcoesFalso = {}): InstanciaFalsa {
     const args = Array.from(new Float64Array(memory.buffer, ptrArgs, nArgs));
     if (args.some((a) => !Number.isFinite(a))) return falhar(CODIGOS.ENTRADA, 'argumento não finito');
     if (!nivelValido(args[0]!)) return falhar(CODIGOS.ENTRADA, 'nível fora de [0, 2^32) ou fracionário');
-    if ((nome === 'pares_proximos' || nome === 'quadros_e_juncoes') && args[1]! < 0) return falhar(CODIGOS.ENTRADA, 'tolerância negativa');
+    if ((nome === 'pares_proximos' || nome === 'quadros_e_juncoes' || nome === 'pisos_lajes_com_paredes') && args[1]! < 0) return falhar(CODIGOS.ENTRADA, 'tolerância negativa');
     // O falso não implementa geometria: quadros, junções, itens pintados e geometria de vãos só existem no Rust (a referência é o motor TypeScript).
-    if (nome === 'quadros_e_juncoes' || nome === 'itens_pintados' || nome === 'aberturas_geom' || nome === 'retornos_geom' || nome === 'cluster_resolvido' || nome === 'resolver_nivel' || nome === 'pisos_lajes_nivel') return falhar(CODIGOS.NAO_IMPLEMENTADO, `${nome} não é implementada no falso`);
+    if (nome === 'quadros_e_juncoes' || nome === 'itens_pintados' || nome === 'aberturas_geom' || nome === 'retornos_geom' || nome === 'cluster_resolvido' || nome === 'resolver_nivel' || nome === 'pisos_lajes_nivel' || nome === 'pisos_lajes_com_paredes') return falhar(CODIGOS.NAO_IMPLEMENTADO, `${nome} não é implementada no falso`);
     const paredes: LinhaParede[] = [...(cena.get(SECOES.paredes.id)?.values() ?? [])].map((l) => ({
       id: l.id_num!,
       nivel: l.nivel_num!,

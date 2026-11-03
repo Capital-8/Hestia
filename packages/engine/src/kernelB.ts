@@ -2,7 +2,7 @@
  * Adaptador da sub-etapa B1 do kernel Rust (decisão 0050 §3): pisos e lajes. NÃO calcula geometria de piso nem de laje: só
  * (1) monta as seções da cena v8 a partir de um `Project` e
  * (2) EXTRAI de `resolveFloors` e `resolveSlabs` o que o Rust produz em `pisos_lajes_nivel`, na mesma codificação plana (ver
- * `crates/geom-wasm/schema/cena-v8.json`), para o harness e os testes compararem.
+ * `crates/geom-wasm/schema/cena-v9.json`), para o harness e os testes compararem.
  *
  * O que o JS decide e envia pronto (fronteira da decisão 0050 §2): os circuitos fechados dos elementos vinculados e o perímetro externo
  * (`enclosedRooms`/`roomAt`/`outerPerimeter` são da fatia D), o `problem` de `resolveBoundary` e os furos de escada e rampa por elemento

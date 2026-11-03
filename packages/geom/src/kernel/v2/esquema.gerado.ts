@@ -1,7 +1,7 @@
-// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v8.json.
+// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v9.json.
 // Não edite à mão: mude o JSON e rode `node scripts/gerar-esquema-kernel.mjs`.
 
-export const ESQUEMA_VERSAO = 8;
+export const ESQUEMA_VERSAO = 9;
 export const ABI_VERSAO = 2;
 export const NIVEL_TODOS = 4294967295;
 
@@ -760,6 +760,24 @@ export const SECOES = {
         "tipo": "f64"
       }
     ]
+  },
+  "niveis": {
+    "id": 19,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "nivel_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "cota",
+        "tipo": "f64"
+      }
+    ]
   }
 } as const;
 
@@ -1161,6 +1179,50 @@ export const CONSULTAS = {
         "nome": "camadas",
         "tipo": "u32",
         "elementos": "8n"
+      },
+      {
+        "nome": "camadas_num",
+        "tipo": "f64",
+        "elementos": "3n"
+      },
+      {
+        "nome": "poligonos",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "aneis",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "pontos",
+        "tipo": "f64",
+        "elementos": "livre"
+      }
+    ]
+  },
+  "pisos_lajes_com_paredes": {
+    "id": 11,
+    "args": [
+      "nivel_num",
+      "tol_juncao"
+    ],
+    "saidas": [
+      {
+        "nome": "elementos",
+        "tipo": "u32",
+        "elementos": "9n"
+      },
+      {
+        "nome": "elementos_num",
+        "tipo": "f64",
+        "elementos": "7n"
+      },
+      {
+        "nome": "camadas",
+        "tipo": "u32",
+        "elementos": "7n"
       },
       {
         "nome": "camadas_num",
