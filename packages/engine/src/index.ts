@@ -92,3 +92,4 @@ export * from './resolveLevels.ts';
 export * from './wallPlanes.ts';
 export * from './openingExtents.ts';
 export * from './angularDimension.ts';
+export * from './componentes/index.ts';
