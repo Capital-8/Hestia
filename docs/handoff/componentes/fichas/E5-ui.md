@@ -1,0 +1,29 @@
+# Ficha E5-ui — Catálogo de marcenaria, usinagens e fitas no editor
+
+Base: branch `feat/familias-interface` (E1 a E6 integradas).   Modelo: opencode-go/deepseek-v4.1-flash
+
+## Contexto
+O editor ainda não permite cadastrar chapas, fitas e ferragens, nem editar as usinagens (furos, rasgos, recortes e furos de borda) das peças, nem escolher a fita por lado de uma lista. O motor já está pronto: `@hestia/model` tem `Catalogo`, `CATALOGO_PADRAO`, `validarCatalogo`, `opcoesDeChapa`, `exportarCatalogo`, `importarCatalogo`, `mesclarCatalogo`; `Peca.usinagens` (tipo `Usinagem`, com `face` a, b, n, s, l, o) e `Peca.fita`. O store (`familiaStore.ts`) já tem `catalogo` e `setCatalogo`. Leia antes: `FamiliaCatalogo.tsx` e `FamiliaUsinagens.tsx` (versões provisórias), `FamiliaJanela.tsx`, `FamiliaTipos.tsx` e `FamiliaParametros.tsx` (estilo de tabelas editáveis e mensagens), `FamiliaFabricacao.tsx`, `FamiliaOpcoes.tsx`, `familiaStore.ts`, `packages/model/src/familia/tipos.ts` (comentário de `FaceUsinagem` e `Usinagem`) e `catalogo.ts`.
+
+## Faça
+1. **`FamiliaCatalogo.tsx`** (reescreva): diálogo largo com 3 abas, Chapas, Fitas, Ferragens; cada uma é uma tabela editável (campos de texto e número, um por coluna do tipo: chapa = id, nome, material, espessura, largura, altura, veio (check), refilo, custo por m2, cor (campo de cor); fita = id, nome, espessura, altura, custo por metro; ferragem = id, nome, código, unidade (select), custo). Botões por linha "Excluir" e por aba "Nova chapa/fita/ferragem" (id automático único, valores padrão razoáveis). Toda alteração chama `setCatalogo(...)` com cópia nova; uma faixa vermelha (`role="alert"`) lista até 5 problemas de `validarCatalogo` (e some quando não há). Rodapé: "Restaurar padrão" (volta a `CATALOGO_PADRAO`, com confirmação inline), "Importar…" (campo de arquivo `.json`; usa `importarCatalogo`; mostra os `ignorados` com o motivo; pergunta "Mesclar" (`mesclarCatalogo`, o atual vence) ou "Substituir"), "Exportar…" (baixa `catalogo-hestia.json` com `exportarCatalogo` + `JSON.stringify(…, null, 2)`). Aviso fixo: "Valores de exemplo: confirme medidas e custos com seu fornecedor."
+2. **`FamiliaUsinagens.tsx`** (reescreva): para a peça selecionada, lista as usinagens (id, tipo, face, resumo) com botão "Nova usinagem" e, por linha, "Editar" e "Excluir". O editor da usinagem (popover inline, componente novo) tem: id (único na peça), tipo (furo, rasgo, recorte), face (a, b, e para furo também n, s, l, o, com rótulos: Face A, Face B, Borda norte, sul, leste, oeste), posição em duas fórmulas (rótulos mudam: furo em face = centro (u, v); em borda = "ao longo da borda" e "distância da face A"; rasgo e recorte = canto mínimo), diâmetro (furo) ou largura e comprimento (rasgo e recorte) em fórmulas, profundidade (fórmula, ou caixa "passante"), quantidade (fórmula opcional; avisa que `i` e `n` ficam disponíveis) e "existe se" (fórmula opcional). Campos de fórmula que não compilam (`compilar` de `@hestia/model`) ficam com borda vermelha e a mensagem. Salvar edita o rascunho por `useFamilia.getState().executar('Editar usinagem', (f) => …)` mexendo em `f.pecas.find(...).usinagens` (recusa id repetido, rasgo/recorte em borda, furo sem diâmetro, texto vazio nos obrigatórios devolvendo o motivo); cada ação é UM passo de desfazer. Borda só aceita furo (o select de tipo trava).
+3. **`FamiliaFabricacao.tsx`**: troque os 4 campos de texto da fita por `select`s com "Sem fita" e as fitas do `catalogo` do store (mantendo o valor atual mesmo que não esteja no catálogo, marcado "(fora do catálogo)").
+4. **`FamiliaOpcoes.tsx`**: no editor de opções de parâmetro `chapa`, um botão "Do catálogo…" que abre uma lista de chapas do `catalogo` com caixas de marcar (as já presentes marcadas) e, ao confirmar, substitui as opções por `opcoesDeChapa(catalogo, escolhidas)` mantendo a ordem do catálogo; não deixe ficar sem a opção que é o valor padrão do parâmetro (recuse com mensagem).
+5. Lógica pura em NOVOS `familiaCatalogo.ts` e `familiaUsinagem.ts` (com `familiaCatalogo.test.ts` e `familiaUsinagem.test.ts`): por exemplo `novoIdUnico(prefixo, existentes)`, `atualizarChapa(catalogo, id, campo, texto)` (converte e valida o texto em número ou texto conforme o campo; devolve novo catálogo ou `null`), `usinagemPadrao(tipo, face)`, `validarUsinagem(peca, usinagem, idOriginal?)` (devolve o motivo ou `null`), `rotulosDaFace(tipo, face)`. Teste cada um com casos exatos.
+6. Medidas formatadas precisam de `// units-ok: <motivo>` (portão `node scripts/check-units.mjs`). Estilos em NOVO `familiaCatalogo.css`. Nenhum arquivo passa de 420 linhas (divida em `FamiliaCatalogoChapas.tsx`, `FamiliaCatalogoFitas.tsx`, `FamiliaCatalogoFerragens.tsx`, `FamiliaUsinagemEditor.tsx`…).
+
+## Arquivos permitidos
+`apps/web/src/ui/familia/FamiliaCatalogo.tsx`, `FamiliaUsinagens.tsx`, `FamiliaFabricacao.tsx`, `FamiliaOpcoes.tsx` e novos `apps/web/src/ui/familia/FamiliaCatalogo*.tsx`, `FamiliaUsinagem*.tsx`, `familiaCatalogo*.ts`, `familiaCatalogo*.test.ts`, `familiaUsinagem*.ts`, `familiaUsinagem*.test.ts`, `familiaCatalogo*.css`.
+
+## Proibido
+Os demais arquivos de `apps/web/src/ui/familia/` (outras fichas trabalham neles: `FamiliaLista.tsx`, `FamiliaNovo.tsx`, `FamiliaArquivo.tsx`, `familiaStore.ts`, `FamiliaPaineis.tsx`, `familia.css`), `packages/**`, `crates/**`, `docs/**`.
+
+## Aceite (o orquestrador roda)
+`tsc`, `eslint --max-warnings 0` nos arquivos, `npx vitest run apps/web/src/ui/familia`, `node scripts/check-units.mjs`, `check-boundaries`; depois o orquestrador abre o editor e confere: editar uma chapa no catálogo, importar e exportar; criar um furo de pino na lateral do armário e ver na lista/validação; fita por select; opções de chapa do catálogo; Ctrl+Z desfaz.
+
+## Critério de parada
+Se faltar algo em `@hestia/model`, PARE e relate qual; não altere `packages/`.
+
+## Entrega
+Commits pequenos (`feat(familia): …`) e o relatório pedido nas regras.
