@@ -1,4 +1,25 @@
-import type { Familia, Parametro, Peca, Valor } from './tipos.ts';
+import { renomearNoTexto } from './expressao.ts';
+import { adicionarParametro, excluirParametro } from './edicaoParametros.ts';
+import {
+  idReservado,
+  idValido,
+  idsOcupados,
+  lista,
+  percorrerFamilia,
+  usosDoNomeEm,
+} from './edicaoApoio.ts';
+import {
+  LIMITES,
+  PARAMETROS_PADRAO,
+  type Familia,
+  type Parametro,
+  type Peca,
+  type Tipo,
+} from './tipos.ts';
+
+export { adicionarParametro, excluirParametro };
+export { adicionarPeca, arranjoLinear, duplicarPeca, espelharPecaEmX, excluirPeca, moverPecaNaLista } from './edicaoPecas.ts';
+export { adicionarTipo, definirValorDeTipo, duplicarTipo, excluirTipo } from './edicaoTipos.ts';
 
 /*
  * Operações de EDIÇÃO da família (ADR 0049 §4.2). FICHA E4-edicao: implementar todas as funções abaixo. Testes em
@@ -14,9 +35,38 @@ export const CAMPOS_PECA: readonly CampoPeca[] = ['origem0', 'origem1', 'origem2
 
 /** Texto do campo de fórmula da peça; `undefined` para `repetir`/`quando` ausentes. */
 export function lerCampo(p: Peca, c: CampoPeca): string | undefined {
-  void p;
-  void c;
-  throw new Error('não implementado: ficha E4-edicao');
+  if (!p || typeof p !== 'object') return undefined;
+  switch (c) {
+    case 'origem0': return Array.isArray(p.origem) ? p.origem[0] : undefined;
+    case 'origem1': return Array.isArray(p.origem) ? p.origem[1] : undefined;
+    case 'origem2': return Array.isArray(p.origem) ? p.origem[2] : undefined;
+    case 'tamanho0': return Array.isArray(p.tamanho) ? p.tamanho[0] : undefined;
+    case 'tamanho1': return Array.isArray(p.tamanho) ? p.tamanho[1] : undefined;
+    case 'espessura': return p.espessura;
+    case 'repetir': return p.repetir;
+    case 'quando': return p.quando;
+  }
+}
+
+function aplicarCampo(p: Peca, c: CampoPeca, texto: string): string | null {
+  switch (c) {
+    case 'origem0':
+    case 'origem1':
+    case 'origem2': {
+      if (!Array.isArray(p.origem)) return 'a peça não tem origem';
+      p.origem[Number(c.slice(-1))] = texto;
+      return null;
+    }
+    case 'tamanho0':
+    case 'tamanho1': {
+      if (!Array.isArray(p.tamanho)) return 'a peça não tem tamanho';
+      p.tamanho[Number(c.slice(-1))] = texto;
+      return null;
+    }
+    case 'espessura': p.espessura = texto; return null;
+    case 'repetir': p.repetir = texto; return null;
+    case 'quando': p.quando = texto; return null;
+  }
 }
 
 /**
@@ -24,11 +74,19 @@ export function lerCampo(p: Peca, c: CampoPeca): string | undefined {
  * ("campo obrigatório"). A fórmula NÃO precisa compilar (o editor mostra o erro em vermelho), só não pode passar de LIMITES.formula.
  */
 export function escreverCampo(f: Familia, pecaId: string, c: CampoPeca, texto: string): string | null {
-  void f;
-  void pecaId;
-  void c;
-  void texto;
-  throw new Error('não implementado: ficha E4-edicao');
+  const peca = lista<Peca>(f.pecas).find((p) => p?.id === pecaId);
+  if (peca === undefined) return `peça “${pecaId}” não existe`;
+
+  const limpo = texto.trim();
+  if (limpo === '') {
+    if (c === 'repetir' || c === 'quando') {
+      delete peca[c];
+      return null;
+    }
+    return 'campo obrigatório: informe uma fórmula';
+  }
+  if (limpo.length > LIMITES.formula) return `a fórmula passa de ${LIMITES.formula} caracteres`;
+  return aplicarCampo(peca, c, limpo);
 }
 
 /**
@@ -38,9 +96,7 @@ export function escreverCampo(f: Familia, pecaId: string, c: CampoPeca, texto: s
  * Sem repetição, na ordem em que aparecem (parâmetros, planos, peças, aninhados, ferragens, tipos). Não conta o próprio parâmetro.
  */
 export function usosDoNome(f: Familia, nome: string): string[] {
-  void f;
-  void nome;
-  throw new Error('não implementado: ficha E4-edicao');
+  return usosDoNomeEm(f, nome);
 }
 
 /**
@@ -49,84 +105,36 @@ export function usosDoNome(f: Familia, nome: string): string[] {
  * Erros: id novo inválido/reservado/repetido, `velho` inexistente, `velho` é L, A ou P.
  */
 export function renomearParametro(f: Familia, velho: string, novo: string): string | null {
-  void f;
-  void velho;
-  void novo;
-  throw new Error('não implementado: ficha E4-edicao');
-}
+  if (!idValido(novo)) return `id inválido: “${novo}”`;
+  if (idReservado(novo)) return `id reservado: “${novo}”`;
+  if ((PARAMETROS_PADRAO as readonly string[]).includes(velho)) return `“${velho}” não pode ser renomeado`;
+  if (!idsOcupados(f).has(velho)) return `“${velho}” não existe`;
+  if (idsOcupados(f).has(novo)) return `id repetido: “${novo}”`;
 
-/** Acrescenta o parâmetro ao fim. Erros: id inválido/reservado/repetido, limite de LIMITES.parametros, `padrao` de tipo errado para o `tipo`. */
-export function adicionarParametro(f: Familia, p: Parametro): string | null {
-  void f;
-  void p;
-  throw new Error('não implementado: ficha E4-edicao');
-}
+  const parametro = lista<Parametro>(f.parametros).find((p) => p?.id === velho);
+  const plano = lista(f.planos).find((p) => p?.id === velho);
+  if (parametro !== undefined) parametro.id = novo;
+  else if (plano !== undefined) plano.id = novo;
 
-/**
- * Remove o parâmetro. Recusa se houver uso FORA de `tipo.valores` (filtre de `usosDoNome` os lugares que começam com `tipo:`): o motivo
- * lista até 3 lugares ("em uso: peca:base.origem[0], …"). Recusa também L, A e P. Remove a chave dele em todos os `tipo.valores`.
- */
-export function excluirParametro(f: Familia, id: string): string | null {
-  void f;
-  void id;
-  throw new Error('não implementado: ficha E4-edicao');
-}
+  percorrerFamilia(f, {
+    formula: (_onde, texto, gravar) => {
+      const trocado = renomearNoTexto(texto, velho, novo);
+      if (trocado !== texto) gravar(trocado);
+    },
+  });
 
-/** Acrescenta a peça ao fim. Erros: id inválido/repetido, limite de LIMITES.pecas. */
-export function adicionarPeca(f: Familia, p: Peca): string | null {
-  void f;
-  void p;
-  throw new Error('não implementado: ficha E4-edicao');
-}
+  for (const t of lista<Tipo>(f.tipos)) {
+    const valores = t?.valores;
+    if (valores === undefined || !Object.prototype.hasOwnProperty.call(valores, velho)) continue;
+    valores[novo] = valores[velho]!;
+    delete valores[velho];
+  }
 
-export function excluirPeca(f: Familia, id: string): string | null {
-  void f;
-  void id;
-  throw new Error('não implementado: ficha E4-edicao');
-}
+  for (const p of lista<Peca>(f.pecas)) {
+    if (p?.material === velho) p.material = novo;
+  }
 
-/**
- * Duplica a peça logo depois da original, com id novo (`<id>_2`, `<id>_3`… o primeiro livre) e nome `<nome> (cópia)`, copiando
- * tudo (cópia profunda). Devolve o erro; o id novo fica em `f.pecas[índice+1].id`.
- */
-export function duplicarPeca(f: Familia, id: string): string | null {
-  void f;
-  void id;
-  throw new Error('não implementado: ficha E4-edicao');
-}
-
-/** Move a peça `delta` posições na lista (limitado às pontas; delta 0 não muda nada). Erro: peça inexistente. */
-export function moverPecaNaLista(f: Familia, id: string, delta: number): string | null {
-  void f;
-  void id;
-  void delta;
-  throw new Error('não implementado: ficha E4-edicao');
-}
-
-/**
- * Cria uma cópia ESPELHADA em X (em torno do plano central da família, x = L / 2) logo depois da original: id `<id>_esp` (primeiro
- * livre com sufixo numérico se já existir), nome `<nome> (espelhada)`. Nova origem X = `L - (<origem0>) - (<extensão X>)` onde a
- * extensão X é: eixo x → `espessura`; eixo y ou z → `tamanho0`. Demais campos copiados. Se a peça tem `contorno` poligonal em eixo
- * y ou z, devolve o erro "espelhar peça com contorno poligonal ainda não é suportado" e não altera nada.
- */
-export function espelharPecaEmX(f: Familia, id: string): string | null {
-  void f;
-  void id;
-  throw new Error('não implementado: ficha E4-edicao');
-}
-
-/**
- * Arranjo linear: faz a peça se repetir `n` vezes com `passo` entre cópias ao longo de `eixo` ('x' | 'y' | 'z'): `repetir = n`
- * e a origem naquele eixo vira `(<origem atual>) + (i - 1) * (<passo>)`. Se a peça já tinha `repetir`, recusa ("a peça já se
- * repete"). `n` e `passo` são fórmulas e precisam compilar; `n` não pode usar `i`/`n`.
- */
-export function arranjoLinear(f: Familia, id: string, eixo: 'x' | 'y' | 'z', n: string, passo: string): string | null {
-  void f;
-  void id;
-  void eixo;
-  void n;
-  void passo;
-  throw new Error('não implementado: ficha E4-edicao');
+  return null;
 }
 
 /**
@@ -138,44 +146,29 @@ export function arranjoLinear(f: Familia, id: string, eixo: 'x' | 'y' | 'z', n: 
  * parâmetro"), id inválido/reservado/repetido, limite de parâmetros. Em erro nada muda.
  */
 export function promoverParaParametro(f: Familia, pecaId: string, campo: CampoPeca, novoId: string, nome: string): string | null {
-  void f;
-  void pecaId;
-  void campo;
-  void novoId;
-  void nome;
-  throw new Error('não implementado: ficha E4-edicao');
-}
+  const peca = lista<Peca>(f.pecas).find((p) => p?.id === pecaId);
+  if (peca === undefined) return `peça “${pecaId}” não existe`;
+  if (campo === 'repetir' || campo === 'quando') return 'só medidas podem virar parâmetro';
+  if (!CAMPOS_PECA.includes(campo)) return `campo desconhecido: “${String(campo)}”`;
 
-/** Cria o tipo `nome` (id = nome normalizado: minúsculas sem acento, `[^a-z0-9]+` → `_`, sem `_` nas pontas, único com sufixo `_2`…) com `valores` vazios. Erros: nome vazio, limite de LIMITES.tipos. */
-export function adicionarTipo(f: Familia, nome: string): string | null {
-  void f;
-  void nome;
-  throw new Error('não implementado: ficha E4-edicao');
-}
+  const texto = lerCampo(peca, campo);
+  if (texto === undefined) return 'o campo está vazio';
+  const limpo = texto.trim();
+  if (limpo === '') return 'o campo está vazio';
 
-/** Duplica o tipo (valores copiados) logo depois, com nome `<nome> (cópia)` e id único. */
-export function duplicarTipo(f: Familia, id: string): string | null {
-  void f;
-  void id;
-  throw new Error('não implementado: ficha E4-edicao');
-}
+  const numero = /^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(limpo) && Number.isFinite(Number(limpo)) ? Number(limpo) : undefined;
+  const parametro: Parametro = numero !== undefined
+    ? { id: novoId, nome, tipo: 'comprimento', escopo: 'tipo', padrao: numero, min: 0, max: 10000, passo: 1 }
+    : { id: novoId, nome, tipo: 'numero', escopo: 'tipo', padrao: 0, formula: texto, grupo: 'Derivados' };
 
-/** Remove o tipo (pode ser o único); se era o `tipoPadrao`, `tipoPadrao` passa a ser o primeiro tipo restante (ou a chave some se não restar nenhum). */
-export function excluirTipo(f: Familia, id: string): string | null {
-  void f;
-  void id;
-  throw new Error('não implementado: ficha E4-edicao');
-}
+  const erro = adicionarParametro(f, parametro);
+  if (erro !== null) return erro;
 
-/**
- * Define o valor de um parâmetro num tipo; `valor` indefinido REMOVE a chave (volta ao padrão). Erros: tipo/parâmetro inexistente,
- * parâmetro com fórmula, valor de tipo errado para o parâmetro (mesmas regras do `padrao`), valor fora das opções (enum/chapa),
- * fora de [min, max] para números.
- */
-export function definirValorDeTipo(f: Familia, tipoId: string, paramId: string, valor: Valor | undefined): string | null {
-  void f;
-  void tipoId;
-  void paramId;
-  void valor;
-  throw new Error('não implementado: ficha E4-edicao');
+  const erroCampo = aplicarCampo(peca, campo, novoId);
+  if (erroCampo !== null) {
+    f.parametros.pop();
+    return erroCampo;
+  }
+
+  return null;
 }
