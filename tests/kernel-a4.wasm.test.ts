@@ -79,35 +79,52 @@ describe.skipIf(!bytes)('A4: despacho de resolveLevel para o Rust', () => {
     expect(diag.voltasLeves + diag.voltasGraves).toBe(0);
   }, 120_000);
 
-  it('opções de planta (cutZ, outlineWalls, planOpenings) e flatAttach chegam à consulta', () => {
-    if (pula()) return;
-    const d = instalar(DESPACHO);
-    // término "face" nas camadas de piso e laje: com ele flatAttach muda o que as paredes anexadas enxergam (attachTargets)
+  // término "face" nas camadas de piso e laje: com ele flatAttach muda o que as paredes anexadas enxergam (attachTargets)
+  const projetoDasOpcoes = (): Project => {
     const store = new ProjectStore(projetoDeEstresseA3d(5, { paredes: 16, pavimentos: 2, base: 1 }));
     for (const t of Object.values(store.project.floorTypes)) store.exec({ type: 'upsertFloorType', floorType: { ...t, layers: t.layers.map((l) => ({ ...l, termino: 'face' as const })) } });
     for (const t of Object.values(store.project.slabTypes)) store.exec({ type: 'upsertSlabType', slabType: { ...t, layers: t.layers.map((l) => ({ ...l, termino: 'face' as const })) } });
-    const p = store.project;
-    let flatDiferente = 0;
-    let n = 0;
-    p.levels.forEach((l, nivel) => {
+    return store.project;
+  };
+  const NIVEIS_DAS_OPCOES = projetoDasOpcoes().levels.length;
+
+  // Um pavimento por teste (cada `it` bem abaixo de 30 s); o diagnóstico é do próprio teste (uma instalação por teste).
+  for (let nivel = 0; nivel < NIVEIS_DAS_OPCOES; nivel++) {
+    it(`opções de planta (cutZ, outlineWalls, planOpenings) e flatAttach chegam à consulta, pavimento ${nivel}`, () => {
+      if (pula()) return;
+      const p = projetoDasOpcoes();
+      const l = p.levels[nivel]!;
       const z = [...zDoNivel(p, l.id).values()];
       const zBase = Math.min(...z.map((x) => x.z0));
       const zTopo = Math.max(...z.map((x) => x.z0 + x.height));
-      for (const v of variantesDoNivel(p, l.id, 5, zBase, zTopo)) {
+      // Variantes calculadas antes de instalar o despacho: a geração delas não deve contar como entrega do Rust.
+      const variantes = [...variantesDoNivel(p, l.id, 5, zBase, zTopo)];
+      const d = instalar(DESPACHO);
+      let n = 0;
+      for (const v of variantes) {
         expect(divergenciasDe(p, l.id, v.opcoes, excecaoSemente1(5, nivel)), `${l.id} ${v.nome}`).toEqual([]);
         n++;
       }
       // flatAttach muda a cota das paredes anexadas: o Rust recebe paredes_z e perfis_z da variante "plana" (outra cena)
       expect(divergenciasDe(p, l.id, { flatAttach: true }, excecaoSemente1(5, nivel)), `${l.id} flatAttach`).toEqual([]);
+      n++;
+      const diag = d.diagnostico();
+      expect(diag.entreguesPeloRust).toBe(n);
+      expect(diag.voltasLeves + diag.voltasGraves).toBe(0);
+    }, 120_000);
+  }
+
+  it('flatAttach muda a cota em algum pavimento (o teste exercita a variante)', () => {
+    if (pula()) return;
+    const p = projetoDasOpcoes();
+    let flatDiferente = 0;
+    for (const l of p.levels) {
       const normal = resolveLevelTs(p, l.id, new Map());
       const plano = resolveLevelTs(p, l.id, new Map(), { flatAttach: true });
       if (JSON.stringify(normal) !== JSON.stringify(plano)) flatDiferente++;
-    });
+    }
     expect(flatDiferente, 'níveis em que flatAttach muda a cota (o teste exercita a variante)').toBeGreaterThan(0);
-    const diag = d.diagnostico();
-    expect(diag.entreguesPeloRust).toBe(n + p.levels.length);
-    expect(diag.voltasLeves + diag.voltasGraves).toBe(0);
-  }, 120_000);
+  });
 
   it('o cache de níveis do TS (LevelResolveCache) segue valendo com o resultado do Rust', () => {
     if (pula()) return;
@@ -162,20 +179,19 @@ describe.skipIf(!bytes)('A4: despacho de resolveLevel para o Rust', () => {
     expect(d.diagnostico().voltasLeves + d.diagnostico().voltasGraves).toBe(0);
   }, 120_000);
 
-  it('propriedade nos sintéticos de estresse (várias sementes, 2 pavimentos): equivalente ao TS', () => {
-    if (pula()) return;
-    const d = instalar(DESPACHO);
-    let niveis = 0;
-    for (const semente of [1, 2, 3, 4, 6, 8]) {
+  // Uma semente por teste (cada `it` bem abaixo de 30 s); o diagnóstico é do próprio teste.
+  for (const semente of [1, 2, 3, 4, 6, 8]) {
+    it(`propriedade nos sintéticos de estresse, semente ${semente} (2 pavimentos): equivalente ao TS`, () => {
+      if (pula()) return;
+      const d = instalar(DESPACHO);
       const p = projetoDeEstresseA3d(semente, { paredes: 16, pavimentos: 2 });
       p.levels.forEach((l, nivel) => {
         expect(divergenciasDe(p, l.id, {}, excecaoSemente1(semente, nivel)), `semente ${semente} pavimento ${nivel}`).toEqual([]);
-        niveis++;
       });
-    }
-    expect(d.diagnostico().entreguesPeloRust).toBe(niveis);
-    expect(d.diagnostico().voltasLeves + d.diagnostico().voltasGraves).toBe(0);
-  }, 180_000);
+      expect(d.diagnostico().entreguesPeloRust).toBe(p.levels.length);
+      expect(d.diagnostico().voltasLeves + d.diagnostico().voltasGraves).toBe(0);
+    }, 60_000);
+  }
 
   it('parede isolada com topProfile e base anexada ao piso', () => {
     if (pula()) return;

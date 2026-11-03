@@ -43,7 +43,7 @@ describe('referência da A2 x resolveLevel', () => {
       total += conferir(p, { cutZ: 2.0 });
     }
     expect(total).toBeGreaterThan(200);
-  });
+  }, 60_000);
 
   it('projeto vazio não tem itens', () => {
     expect(conferir(createEmptyProject('vazio'), {})).toBe(0);

@@ -194,15 +194,23 @@ const relata = (rotulo: string, c: Cobertura): void => {
   );
 };
 
+/** Acumulador do estresse: um teste por semente soma aqui; o teste agregado (no fim) confere o total. Ordem sequencial dentro do arquivo. */
+const totalEstresse = zero();
+
 describe.skipIf(!bytes)('A3d: resolver_nivel do Rust x motor TypeScript', () => {
   const pula = (): boolean => ger === null;
 
-  it('estresse (sementes 1..12, 2 pavimentos, perfis de topo e base, arcos, vãos, retornos): paredes, membranas, perfis, camadas e faixas', () => {
+  // Uma semente por teste: cada `it` fica bem abaixo de 30 s (um teste síncrono longo estoura o RPC do worker do vitest).
+  for (let semente = 1; semente <= 12; semente++) {
+    it(`estresse, semente ${semente} (2 pavimentos, perfis de topo e base, arcos, vãos, retornos): paredes, membranas, perfis, camadas e faixas`, () => {
+      if (pula()) return;
+      soma(totalEstresse, compararProjeto(projetoDeEstresseA3d(semente, { paredes: 16, pavimentos: 2 }), { semente, variantes: (n) => [semente + 3 * n], excecoes: (n) => EXCECAO_SEMENTE_1(semente, n) }));
+    });
+  }
+
+  it('estresse (agregado das sementes 1..12): paredes, membranas, perfis, camadas e faixas', () => {
     if (pula()) return;
-    const total = zero();
-    for (let semente = 1; semente <= 12; semente++) {
-      soma(total, compararProjeto(projetoDeEstresseA3d(semente, { paredes: 16, pavimentos: 2 }), { semente, variantes: (n) => [semente + 3 * n], excecoes: (n) => EXCECAO_SEMENTE_1(semente, n) }));
-    }
+    const total = totalEstresse;
     relata('estresse', total);
     expect(total.paredes, 'paredes comparadas').toBeGreaterThan(300);
     expect(total.paredesComPerfilTopo, 'paredes com profileTop').toBeGreaterThan(10);
