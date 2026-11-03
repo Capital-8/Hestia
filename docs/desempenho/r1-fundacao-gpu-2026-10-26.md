@@ -5,7 +5,7 @@
 - **Worktree:** `...\.local\share\opencode\worktree\8fed4c\gpu-r1-foundation`
 - **Ramo:** `gpu/r1-foundation` (commit local; sem push)
 - **Base:** `50536a8` (S1 + S2 integrados)
-- **Plano:** `plano-subagentes-2026-10-26.md` (v3) §4/Fase 2.1/2.2 e brief R1
+- **Plano:** plano de subagentes de 2026-10-26 (documento removido) (v3) §4/Fase 2.1/2.2 e brief R1
 - **Fora do escopo (por brief):** culling/LOD/sombras/precisão (R2), picking/realce GPU (R3), clipping (R4), planta (R5), `apps/web/src`, `packages/engine`, `packages/model`.
 
 ## 1. Resultado

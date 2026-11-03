@@ -5,7 +5,7 @@
 - **Worktree:** `<usuario-local>\.local\share\opencode\worktree\8fed4c\gpu-s2-stress`
 - **Ramo:** `gpu/s2-stress` (commit local; sem push)
 - **Base:** `181469f` (`docs(perimetro): estado atual e pendências para continuar localmente`)
-- **Plano:** `docs/desempenho/plano-subagentes-2026-10-26.md` (v3), itens 0.3/0.4 e brief S2
+- **Plano:** plano de subagentes de 2026-10-26 (documento removido) (v3), itens 0.3/0.4 e brief S2
 - **Natureza:** validação exploratória, **não é a medição oficial M0**. Duas repetições por cenário (`PERF_RUNS=2`)
   no quadro estável, mais o primeiro quadro depois da montagem registrado à parte.
 

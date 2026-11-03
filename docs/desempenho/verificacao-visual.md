@@ -4,7 +4,7 @@
 - **Agente:** A2 — Squad 1 (Estabilização)
 - **Ramo:** `gpu/a2-visual` (worktree `gpu-a2-visual`, sem push)
 - **Base:** `181469f`
-- **Origem:** `HANDOFF-INSERCAO-2026-10-26.md` §5/Passo 3 (“Conferência visual”); `docs/desempenho/plano-subagentes-2026-10-26.md` §4/Fase 1.2
+- **Origem:** handoff de inserção de 2026-10-26 (removido) §5/Passo 3 (“Conferência visual”); plano de subagentes de 2026-10-26 (documento removido) §4/Fase 1.2
 - **Escopo:** só teste e documentação. Nenhum arquivo de `apps/web/src`, `packages/*/src`, baseline antiga de
   `tests/e2e/baseline*` ou `scripts/perf-baselines` foi alterado.
 - **Resultado:** **44 PASS · 1 FAIL · 0 PENDENTE** em 6 itens — o FAIL é um defeito real do produto
@@ -224,7 +224,7 @@ Todas em `tests/e2e/out/verificacao-visual/` (22 PNG + `resultados.md` + `resumo
 
 ## 8. Ligação com o board
 
-Este documento fecha o item “Conferência visual” do `HANDOFF-INSERCAO-2026-10-26.md` §5/Passo 3 e a entrega do
+Este documento fecha o item “Conferência visual” do handoff de inserção de 2026-10-26 (removido) §5/Passo 3 e a entrega do
 **A2** no board (`docs/desempenho/execucao-subagentes-2026-10-26.md`, §2/Squad 1). Para o gate **G1** falta o A1
 (inserção/abertura) e a integração I1; o roteiro pode ser reexecutado no L1 de cada mudança visual com
 `node tests/e2e/verificacao-visual.mjs` (≈1 min) e no L2 da fase junto do `visual-regression.mjs`.

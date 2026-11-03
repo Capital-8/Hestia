@@ -4,7 +4,7 @@
 - **Máquina:** `DESKTOP-BHIESE4` · Windows 10.0.19045 (x64) · Xeon E5-2620 v3 (12 threads) · 15,8 GB RAM
 - **GPU:** AMD Radeon RX 580 2048SP (Polaris 20, `PCI\VEN_1002&DEV_6FDF`), driver AMD **31.0.21925.1001** (2026-05-19), **8 GB VRAM**
 - **Navegadores:** Chrome **155.0.8059.86** · Edge **156.0.4314.42** · WebView2 Runtime **155.0.4283.62** (instalado, não testado)
-- **Plano:** `docs/desempenho/plano-subagentes-2026-10-26.md` (v3) §4/0.1 · brief S0
+- **Plano:** plano de subagentes de 2026-10-26 (documento removido) (v3) §4/0.1 · brief S0
 - **Script:** `tests/e2e/gpu-probe.mjs` · **Dados brutos:** `scripts/perf-baselines/gpu-capacidade-2026-10-26*.json`
 - **Nada foi alterado no app:** default continua WebGL2 (decisão 0003), WebGPU só com `?gpu=webgpu`.
 
