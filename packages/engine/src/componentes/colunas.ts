@@ -1,5 +1,5 @@
 import type { PapelPeca } from '@hestia/model';
-import type { PecaResolvida } from './pecas.ts';
+import type { PecaResolvida, UsinagemResolvida } from './pecas.ts';
 
 /*
  * Peças resolvidas EM COLUNAS: a forma em que o núcleo Rust as recebe (ADR 0049 §5.1; mesmo princípio da 0046 §2.1: um
@@ -82,6 +82,9 @@ export function paraColunas(pecas: readonly PecaResolvida[]): ColunasPecas {
   const contornoIni = new Uint32Array(n);
   const contornoN = new Uint32Array(n);
   let totalContorno = 0;
+  const usinagemIni = new Uint32Array(n);
+  const usinagemN = new Uint32Array(n);
+  let totalUsinagem = 0;
 
   for (let i = 0; i < n; i++) {
     const p = pecas[i]!;
@@ -111,6 +114,12 @@ export function paraColunas(pecas: readonly PecaResolvida[]): ColunasPecas {
       contornoN[i] = contorno.length / 2;
       totalContorno += contorno.length;
     }
+
+    if (p.usinagens.length > 0) {
+      usinagemIni[i] = totalUsinagem;
+      usinagemN[i] = p.usinagens.length;
+      totalUsinagem += p.usinagens.length;
+    }
   }
 
   const contornoDados = new Float64Array(totalContorno);
@@ -122,10 +131,56 @@ export function paraColunas(pecas: readonly PecaResolvida[]): ColunasPecas {
     cursor += contorno.length;
   }
 
+  const usinagemTipo = new Uint8Array(totalUsinagem);
+  const usinagemFace = new Uint8Array(totalUsinagem);
+  const usinagemDados = new Float64Array(6 * totalUsinagem);
+  let cursorUsinagem = 0;
+  for (let i = 0; i < n; i++) {
+    for (const u of pecas[i]!.usinagens) {
+      const codigoTipo = TIPOS_USINAGEM.indexOf(u.tipo);
+      if (codigoTipo < 0) throw new Error(`tipo de usinagem desconhecido: ${u.tipo}`);
+      const codigoFace = FACES.indexOf(u.face);
+      if (codigoFace < 0) throw new Error(`face de usinagem desconhecida: ${u.face}`);
+      usinagemTipo[cursorUsinagem] = codigoTipo;
+      usinagemFace[cursorUsinagem] = codigoFace;
+      const base = 6 * cursorUsinagem;
+      usinagemDados[base] = u.u;
+      usinagemDados[base + 1] = u.v;
+      usinagemDados[base + 2] = u.diametro;
+      usinagemDados[base + 3] = u.largura;
+      usinagemDados[base + 4] = u.comprimento;
+      usinagemDados[base + 5] = u.profundidade;
+      cursorUsinagem++;
+    }
+  }
+
   return {
     n, ids, idNum, indice, papel, eixo, vazio, origem, tamanho, espessura, extensao, contornoIni, contornoN, contornoDados,
-    usinagemIni: new Uint32Array(n), usinagemN: new Uint32Array(n), usinagemTipo: new Uint8Array(0), usinagemFace: new Uint8Array(0), usinagemDados: new Float64Array(0),
+    usinagemIni, usinagemN, usinagemTipo, usinagemFace, usinagemDados,
   };
+}
+
+/** Reconstrói as usinagens de uma peça a partir das colunas e dos ids guardados no meta. */
+function usinagensDaPeca(c: ColunasPecas, meta: MetaPeca, i: number): UsinagemResolvida[] {
+  const inicio = c.usinagemIni[i]!;
+  const quantidade = c.usinagemN[i]!;
+  const usinagens: UsinagemResolvida[] = [];
+  for (let j = 0; j < quantidade; j++) {
+    const k = inicio + j;
+    const d = 6 * k;
+    usinagens.push({
+      id: meta.usinagens[j]!,
+      tipo: TIPOS_USINAGEM[c.usinagemTipo[k]!]!,
+      face: FACES[c.usinagemFace[k]!]!,
+      u: c.usinagemDados[d]!,
+      v: c.usinagemDados[d + 1]!,
+      diametro: c.usinagemDados[d + 2]!,
+      largura: c.usinagemDados[d + 3]!,
+      comprimento: c.usinagemDados[d + 4]!,
+      profundidade: c.usinagemDados[d + 5]!,
+    });
+  }
+  return usinagens;
 }
 
 export function metaDasPecas(pecas: readonly PecaResolvida[]): MetaPeca[] {
@@ -166,7 +221,7 @@ export function deColunas(c: ColunasPecas, meta: readonly MetaPeca[]): PecaResol
       grupo: m.grupo,
       deAninhado: m.deAninhado,
       chapa: m.chapa,
-      usinagens: [],
+      usinagens: usinagensDaPeca(c, m, i),
     });
   }
   return pecas;
@@ -206,12 +261,41 @@ export function validarColunas(c: ColunasPecas): string | null {
     if (c.contornoIni[i]! + 2 * c.contornoN[i]! > c.contornoDados.length) return `contorno[${i}] fora do bloco de dados`;
   }
 
+  const tamanhosPorPecaUsinagem: Array<[string, number, number]> = [
+    ['usinagemIni', c.usinagemIni.length, n],
+    ['usinagemN', c.usinagemN.length, n],
+  ];
+  for (const [nome, obtido, esperado] of tamanhosPorPecaUsinagem) {
+    if (obtido !== esperado) return `${nome} com tamanho ${obtido}; esperado ${esperado}`;
+  }
+
+  let totalUsinagem = 0;
+  for (let i = 0; i < n; i++) totalUsinagem += c.usinagemN[i]!;
+
+  const tamanhosPorUsinagem: Array<[string, number, number]> = [
+    ['usinagemTipo', c.usinagemTipo.length, totalUsinagem],
+    ['usinagemFace', c.usinagemFace.length, totalUsinagem],
+    ['usinagemDados', c.usinagemDados.length, 6 * totalUsinagem],
+  ];
+  for (const [nome, obtido, esperado] of tamanhosPorUsinagem) {
+    if (obtido !== esperado) return `${nome} com tamanho ${obtido}; esperado ${esperado}`;
+  }
+
+  for (let i = 0; i < n; i++) {
+    if (c.usinagemIni[i]! + c.usinagemN[i]! > totalUsinagem) return `usinagem[${i}] fora do bloco de usinagens`;
+  }
+  for (let k = 0; k < totalUsinagem; k++) {
+    if (c.usinagemTipo[k]! >= TIPOS_USINAGEM.length) return `usinagemTipo[${k}] com código fora da tabela`;
+    if (c.usinagemFace[k]! >= FACES.length) return `usinagemFace[${k}] com código fora da tabela`;
+  }
+
   const blocos: Array<[string, Float64Array]> = [
     ['origem', c.origem],
     ['tamanho', c.tamanho],
     ['espessura', c.espessura],
     ['extensao', c.extensao],
     ['contornoDados', c.contornoDados],
+    ['usinagemDados', c.usinagemDados],
   ];
   for (const [nome, bloco] of blocos) {
     if (temValorNaoFinito(bloco)) return `${nome} com valor não finito`;
