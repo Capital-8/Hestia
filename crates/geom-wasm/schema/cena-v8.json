@@ -681,7 +681,7 @@
       "id": 16,
       "nome": "contornos_estaticos",
       "chave": "id_num",
-      "descricao": "Contorno gravado do piso ou da laje (B1), uma linha por vértice. tipo_el: 0 piso, 1 laje; elemento_num: id_num do elemento. anel 0 = boundary; anel k >= 1 = o furo manual k-1 de holes. indice: posição do vértice no anel (0..n-1 sem repetição e sem lacuna por (elemento, anel), senão ENTRADA na consulta). Elemento sem anel 0 com 3 pontos ou mais é ignorado (como boundary.length < 3), salvo se o contorno vinculado o substitui.",
+      "descricao": "Contorno gravado do piso ou da laje (B1), uma linha por vértice. tipo_el: 0 piso, 1 laje; elemento_num: id_num do elemento. anel 0 = boundary; anel k >= 1 = o furo manual k-1 de holes. indice: posição do vértice no anel (0..n-1 sem repetição e sem lacuna por (elemento, anel), senão ENTRADA na consulta). A numeração dos anéis de um elemento começa em 0 e não tem lacuna (senão ENTRADA na consulta). Elemento sem linhas, ou com anel 0 de menos de 3 pontos, é ignorado (como boundary.length < 3), salvo se o contorno vinculado o substitui. Os furos manuais que passam do contorno entram como o polygon-clipping do TS os trata: só vale a parte dentro dele.",
       "colunas": [
         {
           "nome": "id_num",

@@ -141,12 +141,33 @@ fn caixas_se_tocam(a: &[f64; 4], b: &[f64; 4]) -> bool {
     a[0] <= b[2] && a[2] >= b[0] && a[1] <= b[3] && a[3] >= b[1]
 }
 
+/// Interpretação do `polygon-clipping` do TS (que corta e intersecta os contornos): um polígono é o anel externo MENOS os furos, e a parte de um
+/// furo que passa do anel externo é descartada. Sob `NonZero` (a regra do `i_overlay`) essa parte viraria uma região a mais; aqui cada polígono com
+/// furos vira `externo - furos` antes da booleana. Furo manual de elemento vinculado que a sala deixou para fora do circuito é o caso real.
+fn como_o_polygon_clipping(m: &MultiPoligono) -> Result<MultiPoligono, u32> {
+    if m.iter().all(|p| p.len() < 2) {
+        return Ok(m.clone());
+    }
+    let mut saida: MultiPoligono = Vec::with_capacity(m.len());
+    for p in m {
+        let Some(externo) = p.first() else { continue };
+        if p.len() < 2 {
+            saida.push(p.clone());
+            continue;
+        }
+        let mut args: Vec<MultiPoligono> = vec![vec![vec![externo.clone()]]];
+        args.extend(p.iter().skip(1).map(|h| vec![vec![h.clone()]]));
+        saida.extend(diferenca_com_escala(&args, ESCALA_FINA)?);
+    }
+    Ok(saida)
+}
+
 /// `cutStairOpenings(polygon, openings)`: sem furos, ou com a caixa dos furos longe da do contorno, devolve o próprio contorno.
 fn cortar_furos(m: &MultiPoligono, furos: &MultiPoligono) -> Result<MultiPoligono, u32> {
     if furos.is_empty() || !caixas_se_tocam(&caixa_total(m), &caixa_total(furos)) {
         return Ok(m.clone());
     }
-    diferenca_com_escala(&[m.clone(), furos.clone()], ESCALA_FINA)
+    diferenca_com_escala(&[como_o_polygon_clipping(m)?, furos.clone()], ESCALA_FINA)
 }
 
 /// `[[room[0], ...holes, ...room.slice(1)]]` (`withHoles`).
@@ -177,7 +198,7 @@ fn contornos_das_camadas(linha: &ElementoLinha, camadas: &[CamadaLinha], nucleo:
             _ => return Ok(m),
         };
         match anel_do_perimetro(papel) {
-            Some(anel) => interseccao_com_escala(&m, &vec![vec![anel.clone()]], ESCALA_FINA),
+            Some(anel) => interseccao_com_escala(&como_o_polygon_clipping(&m)?, &vec![vec![anel.clone()]], ESCALA_FINA),
             None => Ok(m),
         }
     };
@@ -674,6 +695,28 @@ mod testes {
         let tudo = vec![(0u8, 1u32, 0u32, 0u32, ret(-1.0, -1.0, 9.0, 9.0))];
         let mut m = montar(&[el(1)], &ceramico(), &[], &[], &est, &[], &tudo);
         assert!(consulta(&mut m)[0].is_empty());
+    }
+
+    #[test]
+    fn furo_manual_que_passa_do_contorno_nao_vira_regiao_a_mais() {
+        // contorno 0..2 x 0..2 com um furo manual de 1 x 1 que passa da borda direita (x de 1,5 a 2,5): o TS (polygon-clipping) descarta o que
+        // passa do contorno; sob NonZero a parte de fora (0,5 x 1) viraria uma região a mais
+        let est = vec![(0u8, 1u32, 0u32, 0u32, ret(0.0, 0.0, 2.0, 2.0)), (0u8, 1u32, 0u32, 1u32, ret(1.5, 0.5, 2.5, 1.5))];
+        let longe = vec![(0u8, 1u32, 0u32, 0u32, ret(20.0, 20.0, 21.0, 21.0))];
+        // com furo de escada na caixa do contorno (uma booleana acontece)
+        let perto = vec![(0u8, 1u32, 0u32, 0u32, ret(0.2, 0.2, 0.4, 0.4))];
+        let mut m = montar(&[el(1)], &ceramico(), &[], &[], &est, &[], &perto);
+        let s = consulta(&mut m);
+        let u = u32s(&s[0]);
+        assert_eq!(u[8], 1, "uma só peça");
+        assert!((area_da_saida(&s, u[7], u[8]) - (4.0 - 0.5 - 0.04)).abs() < 1e-9, "área = contorno - (furo dentro) - furo de escada");
+        // sem booleana nenhuma o TS devolve o polígono como veio (com o furo que passa) e o Rust também
+        let mut m = montar(&[el(1)], &ceramico(), &[], &[], &est, &[], &longe);
+        let s = consulta(&mut m);
+        let u = u32s(&s[0]);
+        assert_eq!(u[8], 1);
+        assert_eq!(u32s(&s[1]).len(), 0);
+        assert!((area_da_saida(&s, u[7], u[8]) - (4.0 - 1.0)).abs() < 1e-9, "sem booleana: área do polígono cru");
     }
 
     #[test]
