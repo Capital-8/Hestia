@@ -305,6 +305,15 @@ voltas graves ou recriações, é defeito do binário, não do TS: o app continu
 `flatAttach` com término "face" nos pisos e lajes, `LevelResolveCache`, edição de parede e de abertura, sementes de estresse, sombra com divergência artificial, buffer circular, sombra
 desligada), `servidor.test.ts`, `ExperimentosDialog.test.ts`, `preferenciasFatias.test.ts`. Mutações, suíte completa e build final do `.wasm` ficam para o fim da A (método do dono).
 
+## 13 — Mutações sobreviventes da A3c/A3d (2026-11-02)
+
+Quatro mutações sobreviveram à rodada de mutação de `a3c.rs` e `a3d.rs`. Três foram fechadas com casos de limiar (cada um passa sem a mutação e reprova com ela); a quarta é equivalente.
+
+- `FRESTA_EPS` 3e-6 -> 3e-5 (`a3c.rs`): `tests/kernel-a3c.wasm.test.ts`, "limiar: fresta de 10 µm entre paredes paralelas...". Duas paredes paralelas com 10 µm entre as faces: a silhueta tem 2 polígonos no TS e no Rust (com 2 µm, 1). Com a mutação o Rust fecha a fresta (1 polígono) e o teste reprova.
+- Arredondamento da assinatura `v * 1e6` -> `v * 1e5` (`a3c.rs`, `arred_assinatura`): mesmo arquivo, "limiar: faixas adjacentes cujos vértices diferem de 3 µm...". A parede mais antiga (B, 1,5 m) invade 3 µm a face da A: a camada externa da A tem 2 faixas no TS e no Rust. Com a mutação o Rust funde as faixas (contagens `[1,1,1,1,1,1,...]` contra `[1,1,1,1,1,2,...]`).
+- `EPS` 1e-7 -> 1e-5 (`a3d.rs`): `tests/kernel-a3d.wasm.test.ts`, "limiar: perfil com pontos a 5 µm...". Perfis com degrau quase vertical de 5 µm: o TS e o Rust geram o trecho inclinado (15 faixas, 5 inclinadas, no primeiro perfil); com a mutação o Rust descarta o trecho (10 faixas, 0 inclinadas). O comparador tolera a falta (cerca de 1e-6 m²), por isso o teste conta as faixas direto.
+- `altura_no_perfil`: `b.1` -> `a.1` no degrau (`b.0 - a.0 < EPS_MODELO`, `a3d.rs`): EQUIVALENTE, sem teste. O ramo só decide para `t` em `[a.0, b.0)` com `0 < b.0 - a.0 < 1e-9` (com `b.0 - a.0 = 0` o intervalo é vazio; com `a.0 > b.0` também). As únicas chamadas são `trechos` (`t = ta` e `t = tb - 1e-10`) e `recortar_pela_base` (`t = (ta + tb)/2`), todas sobre `ts`/`cortes`, a lista ordenada e sem repetições exatas que contém `lo`, `hi` e todos os `t` do perfil (`lo <= t <= hi` para todo ponto, então não há limitação por `min`/`max`). Cada trecho `[ta, tb]` examinado tem `tb - ta >= EPS = 1e-7` (os menores são descartados antes da chamada). (a) `t = ta`: se `a.0 <= ta < b.0`, como `b.0` está em `ts` e `b.0 > ta`, `tb <= b.0`, logo `tb - ta <= b.0 - a.0 < 1e-9 < EPS`, contradição. (b) `t = tb - 1e-10`: se `a.0 <= t < b.0`, então `a.0 < tb` e, como `a.0` está em `ts`, `a.0 <= ta`; então `ta < b.0` e `tb <= b.0`, de novo `tb - ta < 1e-9`. (c) ponto médio: `a.0 <= (ta+tb)/2 < b.0` dá `a.0 <= ta` (`a.0` em `cortes` e menor que `tb`) e `tb <= b.0`, mesma contradição. Nenhuma entrada válida chega ao ramo, então a mutação não muda a saída.
+
 ## 14 — Suíte pesada do kernel (`test:wasm:pesado`) (2026-11-02)
 
 **Por que existe.** As retas puras da A2 a 60 paredes (`tests/kernel-a2-retas.pesado.test.ts`, semente 100 a 102, uma variação de planta por teste) são trabalho síncrono do
