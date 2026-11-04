@@ -187,3 +187,15 @@ describe('migração', () => {
     expect(p.componentGroups).toBeUndefined();
   });
 });
+
+describe('copiar componente de um conjunto', () => {
+  it('a cópia nasce solta e o conjunto original não muda', () => {
+    const p = crer(comComponentes());
+    const copiado = applyCommand(p, { type: 'transform', ids: ['c1'], transform: { kind: 'translate', d: { x: 2, y: 0 } }, copy: { idMap: { c1: 'c1b' } } } as Command);
+    const copia = copiado.elements['c1b'];
+    expect(copia?.kind === 'component' && copia.groupId).toBeUndefined();
+    const original = copiado.elements['c1'];
+    expect(original?.kind === 'component' && original.groupId).toBe('g1');
+    expect(copiado.componentGroups?.['g1']?.membros).toEqual(['c1', 'c2', 'c3']);
+  });
+});
