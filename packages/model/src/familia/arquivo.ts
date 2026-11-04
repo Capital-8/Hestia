@@ -50,6 +50,8 @@ const CAMPOS_FAMILIA = [
   'pecas',
   'aninhados',
   'ferragens',
+  'conectores',
+  'escolhas',
   'tipos',
   'tipoPadrao',
 ] as const;

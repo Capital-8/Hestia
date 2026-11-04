@@ -19,7 +19,7 @@ import { validarFamilia, type CodigoProblema } from './validar.ts';
  * Ficha ESC-modelo: validação (`validarEncaixe.ts`) e edição (`edicaoEncaixe.ts`) de conectores e escolhas.
  */
 
-const nova = (): Familia => structuredClone(FAMILIA_ARMARIO);
+const nova = (): Familia => { const f = structuredClone(FAMILIA_ARMARIO); delete f.conectores; delete f.escolhas; return f; };
 const peca = (f: Familia, id: string): Peca => f.pecas.find((p) => p.id === id)!;
 const achar = (f: Familia, codigo: CodigoProblema, onde?: string): number =>
   validarFamilia(f).filter((p) => p.codigo === codigo && (onde === undefined || p.onde === onde)).length;

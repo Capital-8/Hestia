@@ -92,3 +92,18 @@ describe('lerArquivo', () => {
     expect(() => lerArquivo(' '.repeat(ARQUIVO_MAX_CARACTERES + 1))).toThrow(/Arquivo inválido/);
   });
 });
+
+describe('conectores e escolhas atravessam o arquivo (regressão da onda 0)', () => {
+  it('exportar e importar preservam conectores e escolhas', async () => {
+    const { exportarFamilias, importarFamilias } = await import('./arquivo.ts');
+    const { FAMILIA_ARMARIO } = await import('./exemplos.ts');
+    const f = structuredClone(FAMILIA_ARMARIO);
+    f.conectores = [{ id: 'cesq', nome: 'Lateral esquerda', lado: 'esquerda', etiqueta: 'base', aceita: ['base'] }];
+    const porta = f.pecas.find((q) => q.id === 'porta')!;
+    porta.grupo = 'portas';
+    f.escolhas = [{ id: 'e1', nome: 'Porta', parametro: 'nPortas', zona: 'portas' }];
+    const lido = importarFamilias(JSON.parse(JSON.stringify(exportarFamilias([f]))));
+    expect(lido.familias[0]?.conectores).toEqual(f.conectores);
+    expect(lido.familias[0]?.escolhas).toEqual(f.escolhas);
+  });
+});
