@@ -17,3 +17,9 @@ Worktree: `wt/componentes-adr`, branch `feat/familias-interface`. NADA foi envia
 `cd wt/componentes-adr`; dev: `cd apps/web && npx vite --port 5199 --host 127.0.0.1`.
 Método: flash executa ficha, eu rodo `gate.mjs` e reviso o diff antes de `git merge`.
 Avisos de eslint (OpeningFlipGrips, sectionEditTools) já existiam; não são desta feature.
+
+## Atualização de 2026-11-03 (noite)
+- E8 inteira integrada (render, tools, web-a, web-b, io). Servidor de teste: `cd apps/web && npx vite --port 5199 --host 127.0.0.1`.
+- QA com 4 testadores flash (app e motor): `docs/handoff/componentes/QA-2026-11-03.md`. Defeitos graves corrigidos por mim; pendências na ficha `fichas/CORR-1.md` (lançada no flash: `rodar-fichas.sh feat/familias-interface CORR-1`; se o executor travar, reler o worktree `wt/fam-CORR-1`, rodar `gate.mjs` e integrar).
+- Testadores: `wt/qa/` (fora do repositório): `ajuda.mjs`, `REGRAS-QA.md`, `fichas/Q1..Q4`. Rodar com `opencode run ... --dir wt` (o opencode recusa ler fora do diretório de trabalho).
+- Próximo passo grande: `PLANO-MODELAGEM-FLUIDA.md` (conectores, filas, encaixe, arrastar no 3D, escolhas internas). Começa na F1, depois de integrar a CORR-1.
