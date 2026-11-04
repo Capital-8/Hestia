@@ -16,5 +16,6 @@ export * from './encaixeVizinho.ts';
 export * from './encaixeColisao.ts';
 export * from './encaixeFila.ts';
 export * from './encaixeArrasto.ts';
+export * from './encaixeGrupo.ts';
 export * from './encaixeProjeto.ts';
 export * from './montarFila.ts';
