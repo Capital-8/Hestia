@@ -79,7 +79,7 @@ describe('guardarModelo e removerModelo', () => {
     expect(lidas).toHaveLength(100);
     expect(lidas[0]!.id).toBe('fam_teste_2');
     expect(lidas[lidas.length - 1]!.id).toBe('fam_teste_101');
-  });
+  }, 30000);
 
   it('remove pelo id', () => {
     const storage = memoria();

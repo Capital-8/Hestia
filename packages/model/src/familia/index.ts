@@ -8,3 +8,4 @@ export { FAMILIA_ARMARIO } from './exemplos.ts';
 export * from './edicao.ts';
 export * from './catalogo.ts';
 export * from './biblioteca/index.ts';
+export { clonarSeguro, dependenciasDaFamilia } from './dependencias.ts';

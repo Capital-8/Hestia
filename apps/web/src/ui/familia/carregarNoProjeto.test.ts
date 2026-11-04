@@ -24,3 +24,20 @@ describe('carregar a família no projeto', () => {
     expect(store.canUndo).toBe(false);
   });
 });
+
+describe('carregar traz os módulos aninhados da biblioteca', () => {
+  it('a cômoda leva a gaveta junto, num único passo de desfazer, e resolve sem erros', async () => {
+    const { BIBLIOTECA_BASE } = await import('@hestia/model');
+    const { resolverComponente } = await import('@hestia/engine');
+    const comoda = BIBLIOTECA_BASE.find((f) => f.id === 'fam_comoda')!;
+    const store = new ProjectStore(createEmptyProject('teste'));
+    const r = carregarNoProjeto(store, structuredClone(comoda));
+    expect(r.ok).toBe(true);
+    expect(store.project.componentFamilies?.['fam_gaveta']).toBeDefined();
+    const c = { id: 'c1', kind: 'component' as const, familyId: 'fam_comoda', typeId: null, levelId: 'lv_0', order: 0, x: 0, y: 0, z: 0, rotation: 0, mirrored: false, mark: '' };
+    expect(resolverComponente(store.project, c).erros).toEqual([]);
+    store.undo();
+    expect(store.project.componentFamilies?.['fam_comoda']).toBeUndefined();
+    expect(store.project.componentFamilies?.['fam_gaveta']).toBeUndefined();
+  });
+});

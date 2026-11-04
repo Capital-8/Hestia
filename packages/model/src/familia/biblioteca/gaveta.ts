@@ -22,9 +22,9 @@ export const FAMILIA_GAVETA: Familia = {
   hospedagem: 'nivel',
   origem: 'canto',
   parametros: [
-    comp('L', 'Largura da frente', 600, 250, 1200, 10),
+    comp('L', 'Largura da frente', 600, 250, 1500, 10),
     comp('A', 'Altura da frente', 150, 80, 400, 10),
-    comp('P', 'Profundidade da caixa', 500, 250, 600, 10),
+    comp('P', 'Profundidade da caixa', 500, 250, 700, 10),
     { id: 'corpo', nome: 'Chapa da caixa', tipo: 'chapa', escopo: 'tipo', padrao: 'mdf15', grupo: 'Material', opcoes: [{ valor: 'mdf15', rotulo: 'MDF 15 mm', esp: 15 }, { valor: 'mdf18', rotulo: 'MDF 18 mm', esp: 18 }] },
     derivado('esp', 'Espessura da caixa', 'corpo.esp'),
     derivado('folga', 'Folga lateral da corrediça', '13'),

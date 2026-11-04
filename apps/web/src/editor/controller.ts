@@ -36,7 +36,7 @@ import { pedirAlerta } from './alertaPrompt.ts';
 import { fitBox, levelFrameBox, panBy, planViewOf, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
 import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
 import { defaultOpenViews, type PlanKind } from './openViews.ts';
-import { casador } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
+import { casador, useAtalhos } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
 import { elevationCommand, type PlanBox } from './elevations.ts';
 import { deleteSelectionIn } from './deleteIds.ts';
 import { deleteSectionAnnotationsIn, sectionAnnotationIdsIn } from './sectionHandles.ts';
@@ -637,12 +637,14 @@ export class Editor {
       useUi.setState({ typed: ui.typed + k });
       return true;
     }
-    if (k === ' ' && (this.tool.id === 'door' || this.tool.id === 'window')) {
+    if (k === ' ' && (this.tool.id === 'door' || this.tool.id === 'window' || this.tool.id === 'component')) {
       this.tool.space?.(); this.bump();
       return true;
     }
     // Atalho por sequência (ex.: WA). Alt não dispara; digitação ativa ou ferramenta de texto (freeText, sem ponto) não deixa letras virarem atalho.
     if (e.altKey || ui.typed || this.tool.freeText) return false;
+    // Teclas próprias da ferramenta (Componente: R gira, Shift+R gira ao contrário, M espelha), sem sequência de atalho em andamento.
+    if (this.tool.key && !mod && useAtalhos.getState().pendente === '' && this.tool.key(k, e.shiftKey)) { this.bump(); return true; }
     const r = casador.tecla(k);
     if (!r.tratada) return false;
     if (r.comando === 'atalhos' || r.comando === 'unidades') useUi.setState({ dialog: r.comando === 'atalhos' ? 'shortcutsConfig' : 'units', dialogArg: null });

@@ -132,3 +132,19 @@ describe('pegadaDoComponente e caixaDoComponente', () => {
     expect(caixaDoComponente(p, comp(p))).toBeNull();
   });
 });
+
+describe('faixa dos parâmetros (regressão do QA)', () => {
+  it('valor de instância fora de min/max é limitado e acusado, sem NaN', async () => {
+    const { FAMILIA_ARMARIO } = await import('@hestia/model');
+    const { resolverFamilia } = await import('./resolver.ts');
+    const fam = structuredClone(FAMILIA_ARMARIO);
+    const L = fam.parametros.find((p) => p.id === 'L')!;
+    L.min = 200; L.max = 1200;
+    const r = resolverFamilia(fam, { valores: { L: 5000 } });
+    expect(r.env['L']).toBe(1200);
+    expect(r.erros.some((e) => e.onde === 'parametro:L' && e.mensagem.includes('fora da faixa'))).toBe(true);
+    const ok = resolverFamilia(fam, { valores: { L: 800 } });
+    expect(ok.env['L']).toBe(800);
+    expect(ok.erros.filter((e) => e.onde === 'parametro:L')).toEqual([]);
+  });
+});

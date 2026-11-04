@@ -1,3 +1,4 @@
+import { clonarSeguro } from './dependencias.ts';
 import { compilar, referencias } from './expressao.ts';
 import { idLivre, nomeBase, lista } from './edicaoApoio.ts';
 import { LIMITES, type Familia, type Peca } from './tipos.ts';
@@ -38,7 +39,7 @@ export function duplicarPeca(f: Familia, id: string): string | null {
   if (indice < 0) return `peça “${id}” não existe`;
 
   const original = f.pecas[indice]!;
-  const copia = structuredClone(original);
+  const copia = clonarSeguro(original);
   copia.id = idLivre(original.id, f.pecas.map((p) => p.id));
   copia.nome = `${original.nome} (cópia)`;
   f.pecas.splice(indice + 1, 0, copia);
@@ -80,7 +81,7 @@ export function espelharPecaEmX(f: Familia, id: string): string | null {
   const extensao = original.eixo === 'x' ? original.espessura : (Array.isArray(original.tamanho) ? original.tamanho[0] : undefined);
   if (typeof extensao !== 'string') return 'a peça não tem a medida para espelhar';
 
-  const copia = structuredClone(original);
+  const copia = clonarSeguro(original);
   copia.id = idLivre(`${original.id}_esp`, f.pecas.map((p) => p.id));
   copia.nome = `${original.nome} (espelhada)`;
   copia.origem = [`L - (${origem[0]}) - (${extensao})`, origem[1], origem[2]];

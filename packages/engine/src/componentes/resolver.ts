@@ -22,7 +22,11 @@ function valorInicial(p: Parametro, tipo: Familia['tipos'][number] | undefined, 
     case 'comprimento': case 'numero': case 'inteiro': {
       const n = typeof bruto === 'number' ? bruto : Number(bruto);
       if (!Number.isFinite(n)) { erros.push({ onde: `parametro:${p.id}`, mensagem: 'valor não numérico; usado o padrão' }); return Number(p.padrao) || 0; }
-      return p.tipo === 'inteiro' ? Math.round(n) : mm3(n);
+      const v = p.tipo === 'inteiro' ? Math.round(n) : mm3(n);
+      // Faixa do parâmetro (min/max, em mm): fora dela o valor é recusado com aviso e fica o limite mais próximo.
+      const limitado = Math.min(p.max ?? Infinity, Math.max(p.min ?? -Infinity, v));
+      if (limitado !== v) erros.push({ onde: `parametro:${p.id}`, mensagem: `valor ${v} fora da faixa ${p.min ?? '−∞'} a ${p.max ?? '∞'}; usado ${limitado}` });
+      return limitado;
     }
     case 'booleano': return typeof bruto === 'boolean' ? bruto : bruto === 'true' || bruto === 1;
     default: return bruto;

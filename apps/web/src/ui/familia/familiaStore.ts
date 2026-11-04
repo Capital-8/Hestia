@@ -1,4 +1,4 @@
-import { CATALOGO_PADRAO, FAMILIA_ARMARIO, HistoricoFamilia, type Catalogo, type Familia, type Valor } from '@hestia/model';
+import { CATALOGO_PADRAO, FAMILIA_ARMARIO, HistoricoFamilia, familiaDaBiblioteca, type Catalogo, type Familia, type Valor } from '@hestia/model';
 import { resolverFamilia, type ResolucaoFamilia } from '@hestia/engine';
 import { create } from 'zustand';
 
@@ -166,7 +166,7 @@ export function resolucaoCorrente(): ResolucaoFamilia {
   if (cache !== null && cache.versao === s.versao && cache.tipoId === s.tipoId && cache.valores === s.valores) {
     return cache.resolucao;
   }
-  const resolucao = resolverFamilia(s.historico.atual, { tipoId: s.tipoId ?? undefined, valores: s.valores });
+  const resolucao = resolverFamilia(s.historico.atual, { tipoId: s.tipoId ?? undefined, valores: s.valores, biblioteca: familiaDaBiblioteca });
   cache = { versao: s.versao, tipoId: s.tipoId, valores: s.valores, resolucao };
   return resolucao;
 }

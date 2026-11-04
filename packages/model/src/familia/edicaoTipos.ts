@@ -1,3 +1,4 @@
+import { clonarSeguro } from './dependencias.ts';
 import { idLivre, lista } from './edicaoApoio.ts';
 import { LIMITES, type Familia, type Parametro, type Tipo, type Valor } from './tipos.ts';
 import { valorCompativel } from './validarValores.ts';
@@ -38,7 +39,7 @@ export function duplicarTipo(f: Familia, id: string): string | null {
   if (indice < 0) return `tipo “${id}” não existe`;
 
   const original = f.tipos[indice]!;
-  const copia = structuredClone(original);
+  const copia = clonarSeguro(original);
   copia.id = idLivre(original.id, f.tipos.map((t) => t.id));
   copia.nome = `${original.nome} (cópia)`;
   f.tipos.splice(indice + 1, 0, copia);

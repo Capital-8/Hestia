@@ -3,6 +3,7 @@ import { BIBLIOTECA_BASE, type Familia, type Id, type Project, type ProjectStore
 import type { ToolOptions } from '@hestia/tools';
 import { editor, useProject } from '../editor/controller.ts';
 import { useUi } from '../editor/state.ts';
+import { faltantes } from './familia/carregarNoProjeto.ts';
 
 /*
  * Barra da ferramenta Componente: a família (do projeto ou da biblioteca, que é carregada ao escolher) e o tipo da
@@ -54,7 +55,12 @@ export interface EscolhaAplicada {
 export function aplicarEscolhaDeFamilia(store: ProjectStore, id: Id): EscolhaAplicada | null {
   const escolha = resolverEscolhaDeFamilia(store.project, id);
   if (!escolha) return null;
-  if (escolha.carregar) store.exec({ type: 'upsertFamily', family: structuredClone(escolha.familia) }, 'Carregar família');
+  if (escolha.carregar) {
+    store.transaction('Carregar família', () => {
+      for (const dep of faltantes(store, escolha.familia)) store.exec({ type: 'upsertFamily', family: structuredClone(dep) });
+      store.exec({ type: 'upsertFamily', family: structuredClone(escolha.familia) });
+    });
+  }
   return { familia: escolha.familia, opcoes: { componentFamilyId: escolha.familia.id, componentTypeId: null } };
 }
 
