@@ -4,6 +4,7 @@ import { FAMILIA_COMODA } from './dormitorioComoda.ts';
 import { FAMILIA_CRIADO_MUDO } from './dormitorioCriadoMudo.ts';
 import { FAMILIA_GUARDA_ROUPA_CONJUNTO, FAMILIA_GUARDA_ROUPA_MODULO } from './dormitorioGuardaRoupa.ts';
 import { FAMILIA_PAINEL_TV } from './dormitorioPainelTv.ts';
+import { comEscolhas } from './escolhas.ts';
 
 /*
  * Grupo DORMITÓRIO da biblioteca base (FICHA E7-dormitorio): guarda-roupa (módulo e conjunto), cômoda, criado-mudo, cama com
@@ -16,4 +17,4 @@ export const DORMITORIO: Familia[] = [
   FAMILIA_CRIADO_MUDO,
   FAMILIA_CAMA_BAU,
   FAMILIA_PAINEL_TV,
-];
+].map(comEscolhas);

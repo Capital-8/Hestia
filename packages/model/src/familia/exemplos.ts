@@ -1,5 +1,6 @@
 import { FAMILIA_FORMATO, FAMILIA_VERSAO, type Familia, type Parametro, type Peca } from './tipos.ts';
 import { conectoresDe } from './biblioteca/conectores.ts';
+import { comEscolhas } from './biblioteca/escolhas.ts';
 
 /*
  * Família de exemplo (armário baixo de marcenaria) usada pelos testes e pela interface. Os nomes de parâmetros, papéis e
@@ -47,7 +48,7 @@ const PECAS: Peca[] = [
   { id: 'tampo', nome: 'Tampo', papel: 'tampo', eixo: 'z', origem: ['0', '-20', 'hCorpo'], tamanho: ['L', 'P + 20'], espessura: 'tampoEsp', material: 'mat_tampo', fita: { n: FITA }, veio: 'a', quando: 'tampo != "sem"' },
 ];
 
-export const FAMILIA_ARMARIO: Familia = {
+export const FAMILIA_ARMARIO: Familia = comEscolhas({
   formato: FAMILIA_FORMATO,
   versao: FAMILIA_VERSAO,
   id: 'fam_armario_baixo',
@@ -78,4 +79,4 @@ export const FAMILIA_ARMARIO: Familia = {
     { id: 'A120', nome: 'Armário 120 aberto', valores: { L: 1200, corpo: 'mdf25', fundo: 'sem', nPrat: 2, nPortas: 0, rodape: 80 } },
   ],
   tipoPadrao: 'A80',
-};
+});

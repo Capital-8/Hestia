@@ -1,4 +1,5 @@
 import { FAMILIA_FORMATO, FAMILIA_VERSAO, type Familia, type OpcaoParametro, type Parametro } from '../tipos.ts';
+import { comEscolhas } from './escolhas.ts';
 
 /*
  * Apoio das famílias do grupo sala/áreas (ficha E7-salaAreas). Só construtores pequenos para os parâmetros e o cabeçalho
@@ -42,7 +43,7 @@ export const chapaCorpo = (padrao = 'mdf18'): Parametro => ({
 export function criarFamilia(
   dados: Omit<Familia, 'formato' | 'versao' | 'unidade' | 'categoria' | 'hospedagem' | 'origem'>,
 ): Familia {
-  return {
+  return comEscolhas({
     formato: FAMILIA_FORMATO,
     versao: FAMILIA_VERSAO,
     unidade: 'mm',
@@ -50,5 +51,5 @@ export function criarFamilia(
     hospedagem: 'nivel',
     origem: 'canto',
     ...dados,
-  };
+  });
 }
