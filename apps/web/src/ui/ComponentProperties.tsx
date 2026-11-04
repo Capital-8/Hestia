@@ -6,6 +6,7 @@ import { useUi } from '../editor/state.ts';
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
 import { ACTIONS } from './ribbon/actions.ts';
 import { useFormat } from './useUnits.ts';
+import { ComponentPropEscolhas } from './ComponentPropEscolhas.tsx';
 import {
   aplicarPatchDeComponente,
   aplicarValorDeParametro,
@@ -293,6 +294,7 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
           )}
         </Group>
       )}
+      {familia && <ComponentPropEscolhas familia={familia} components={components} />}
       <Group title="Posição">
         <Row label="X" htmlFor="p-comp-x">
           <NumField id="p-comp-x" value={x.misto ? null : x.valor} mixed={x.misto} quantity="length" onCommit={(v) => alterar({ x: v }, 'Mover componente')} />
