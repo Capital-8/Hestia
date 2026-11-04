@@ -3,6 +3,7 @@ import {
   corposDoNivel,
   facesDasParedes,
   posarArrastado,
+  posarGrupoRigido,
   type CaixaLocal,
   type Corpo,
   type EntradaArrasto,
@@ -105,25 +106,7 @@ export class Arrasto3D {
       { alvo: { id: this.lider, pose: desejada, caixa: this.caixa }, outros, faces },
       { semEncaixe: opcoes.semEncaixe },
     );
-    const final = resultado.pose;
-    const dTheta = final.rotation - inicialDoLider.rotation;
-    const cos = Math.cos(dTheta);
-    const sin = Math.sin(dTheta);
-    const poses = new Map<Id, PoseNoPlano>();
-    for (const id of this.ids) {
-      const inicial = this.iniciais.get(id)!;
-      if (id === this.lider) {
-        poses.set(id, { x: final.x, y: final.y, rotation: final.rotation });
-        continue;
-      }
-      const lx = inicial.x - inicialDoLider.x;
-      const ly = inicial.y - inicialDoLider.y;
-      poses.set(id, {
-        x: final.x + lx * cos - ly * sin,
-        y: final.y + lx * sin + ly * cos,
-        rotation: inicial.rotation + dTheta,
-      });
-    }
+    const poses = posarGrupoRigido({ lider: this.lider, iniciais: this.iniciais, poseFinalDoLider: resultado.pose });
     return {
       poses,
       ...(resultado.parede !== undefined ? { parede: resultado.parede } : {}),
