@@ -46,6 +46,23 @@ Achados da integração (não vistos pelos testes das fichas): arquivo da famíl
 | T-F3-core (cego) | 1 | QW | NÃO | — | QW terminou sem escrever; DSF travou 25 min; DS entregou. |
 | Q5 (QA de interface) | 2 | QW | inconclusivo | — | Os roteiros do testador deram timeout nos cliques do ribbon (seletores); não é achado de produto. QA de interface com QW não é confiável. |
 
+## Ondas 3 e 4 (2026-11-04, noite)
+| Ficha | Nível | Modelo | 1ª | Eu | Nota |
+|---|---|---|---|---|---|
+| F3-menu | 2 | QW | sim | 0 | |
+| F3-biblioteca | 3 | DS | sim* | 0 | *Snapshot reescrito pelos testes (só fim de linha): restaurei. Soltar verificado no navegador (planta e 3D). |
+| F5-fila-motor | 3 | DS | sim | 0 | Cego (DS): 23 verdes, 4 ambiguidades. |
+| F5-fila-ui | 3 | DS | sim* | 2 | *Rodou sem `node_modules` no worktree (gates dele não valiam; refiz com junção). Conflitos de ribbon ao integrar (resolvi). Defeito de produto achado no navegador: o botão caía sob a alça `dock-split` (z-index): subi `.fam-dback` para 40. "Montar fila" não aparecia com a parede selecionada: pus na aba contextual. |
+| CORR-3 | 2 | QW | sim | 0 | |
+| ANIN-modelo | 2 | DS | sim | 0 | 9 testes cobrindo as recusas. |
+| ANIN-ui | 2 | QW | sim* | 1 | *Sem `node_modules`; esqueceu de commitar `familiaStore.ts` (a mudança era boa); selo "novo" ficou na faixa (tirei). Verificado no navegador: criar aninhado de `fam_gaveta`, sem erros. |
+| FERR-biblioteca | 2 | DS | NÃO→sim | 1 | 1ª tentativa parou no critério (minha premissa errada: hoje 4 dobradiças por porta, não 2; atualizei o teste antigo). 2ª: aprovada. |
+| F6-lateral | 3 | DS | sim | 0 | |
+| F3-planta | 3 | DS | sim | 0 | Verificado no navegador: encaixe e Alt na planta. |
+| Q6/Q6b (QA de interface) | 2 | QW/DS | parcial | — | Q6 (QW) só fez o roteiro 1; Q6b (DS) fez 26 OK e achou 2 defeitos reais (etiqueta de conector vazia; aninhado sem interface). |
+
+Lições: (1) executores no worktree novo podem ficar sem `node_modules` (a `npm ci` do `run-ficha.sh` falha em silêncio quando muitos sobem juntos): o relatório de "verde" deles NÃO vale, o portão do orquestrador vale. (2) QA de interface é onde mais aparecem defeitos que os testes não pegam (z-index, aba contextual, seletor de aba): rodar roteiro no navegador depois de cada ficha de interface. (3) Ficha de interface precisa dizer em QUE ABA o botão aparece, incluindo a aba contextual da seleção.
+
 Padrão: **QW falha em fichas que exigem varrer muitos arquivos ou escrever um arquivo grande sem exemplo** (terminou lendo). DSF travou uma vez. MMF falhou 2 de 3. DS entregou todas.
 
 Observação de modelos: MiMo grátis falhou 2 de 3 vezes em escrever testes (terminou sem entregar); manter só em tarefas triviais e sempre com verificação de existência do arquivo. Qwen e DeepSeek pagos aprovados de primeira em todas.
