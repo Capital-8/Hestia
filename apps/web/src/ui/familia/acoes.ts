@@ -115,3 +115,44 @@ export function lerEntrada(p: Parametro, texto: string): Valor | null {
       return texto.trim();
   }
 }
+
+/** Número em mm com vírgula decimal, sem depender das unidades do projeto (a faixa da família é sempre em mm). */
+function milimetros(n: number): string {
+  return String(n).replace(/\./g, ',');
+}
+
+function faixaDoParametro(p: Parametro): string | null {
+  const unidade = p.tipo === 'comprimento' ? ' mm' : '';
+  if (p.min !== undefined && p.max !== undefined) return `${milimetros(p.min)} a ${milimetros(p.max)}${unidade}`;
+  if (p.min !== undefined) return `mínimo ${milimetros(p.min)}${unidade}`;
+  if (p.max !== undefined) return `máximo ${milimetros(p.max)}${unidade}`;
+  return null;
+}
+
+/**
+ * Motivo em português pelo qual `texto` não vira valor do parâmetro, ou `null` quando serve. Usa a mesma regra de
+ * `lerEntrada`, mas explica a recusa (texto, vazio, negativo, zero ou fora da faixa) para mostrar no próprio campo.
+ */
+export function motivoDaEntrada(p: Parametro, texto: string): string | null {
+  if (p.tipo === 'comprimento' || p.tipo === 'numero' || p.tipo === 'inteiro') {
+    const limpo = texto.trim().replace(',', '.');
+    if (limpo === '') return 'Informe um valor.';
+    const n = Number(limpo);
+    if (!Number.isFinite(n)) return 'Valor inválido.';
+    if (n < 0) return 'O valor não pode ser negativo.';
+    if (n === 0 && (p.min === undefined || p.min > 0)) return 'O valor precisa ser maior que zero.';
+    if (p.tipo === 'inteiro' && !Number.isInteger(n)) return 'Use um número inteiro.';
+    const faixa = faixaDoParametro(p);
+    if ((p.min !== undefined && n < p.min) || (p.max !== undefined && n > p.max)) {
+      return faixa === null ? 'Valor fora da faixa.' : `Fora da faixa: ${faixa}`;
+    }
+    return null;
+  }
+  if (p.tipo === 'enum' || p.tipo === 'chapa') {
+    const limpo = texto.trim();
+    if (limpo === '') return 'Escolha uma opção.';
+    const existe = (p.opcoes ?? []).some((o) => (typeof o.valor === 'number' ? String(o.valor) === limpo : o.valor === limpo));
+    return existe ? null : 'Escolha uma opção válida.';
+  }
+  return null;
+}
