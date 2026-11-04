@@ -1,5 +1,5 @@
 /**
- * B3 sem wasm: as seções da variante da junção (esquema v10), os argumentos e a decodificação de `junction_nivel` e a referência (`referenciaB3`, a extração de
+ * B3 sem wasm: as seções da variante da junção (esquema v11), os argumentos e a decodificação de `junction_nivel` e a referência (`referenciaB3`, a extração de
  * `levelCutterSet` e `junctionLevel`). Prova que (1) as seções seguem o esquema, (2) o estresse da B3 exercita o que o Rust precisa acompanhar (peças externas,
  * níveis não adjacentes, laje inclinada fora da junção, variante da junção diferente da do término) e (3) as duas implementações de `adjacentLevelIds` são equivalentes.
  * (4) o comparador `compararB3` das faixas de parede: compara o RESULTADO FINAL da camada por altura (regra `wallLayerBandsAfterJunction`) — reprova diferença
@@ -10,15 +10,15 @@ import type { MultiPolygon } from '@hestia/geom';
 import type { Level, Project } from '@hestia/model';
 import { montarCenaA1 } from '../packages/engine/src/kernelA1.ts';
 import { montarCenaB1 } from '../packages/engine/src/kernelB.ts';
-import { argumentosB3, decodificarB3, montarCenaB3, referenciaB3, type JuncaoB3, type PecaB3, type ParteB3 } from '../packages/engine/src/kernelB3.ts';
+import { argumentosB3, decodificarB3, montarCenaB3, montarFaixasB3, referenciaB3, type JuncaoB3, type PecaB3, type ParteB3 } from '../packages/engine/src/kernelB3.ts';
 import { compararB3 } from '../packages/engine/src/kernelComparaB3.ts';
-import { adjacentLevelIds as vizinhosDaJuncao } from '../packages/engine/src/junctionNet.ts';
+import { adjacentLevelIds as vizinhosDaJuncao, wallBandPieces } from '../packages/engine/src/junctionNet.ts';
 import { adjacentLevelIds as vizinhosDoTermino } from '../packages/engine/src/terminoBlock.ts';
 import { CONSULTAS, SECOES } from '../packages/geom/src/kernel/v2/esquema.gerado.ts';
 import { projetoDeEstresseB1 } from '../scripts/kernel-b1-estresse.mts';
 
 describe('B3: seções, argumentos e referência do motor TypeScript', () => {
-  it('as seções da variante seguem o esquema v10 e a consulta tem nível e tolerância', () => {
+  it('as seções da variante seguem o esquema v11 e a consulta tem nível e tolerância', () => {
     const p = projetoDeEstresseB1(2, { paredesB2: true, anexos: true });
     const a1 = montarCenaA1(p, true);
     const b3 = montarCenaB3(p, a1);
@@ -194,4 +194,46 @@ describe('B3: comparador de faixas de parede pelo RESULTADO FINAL por altura (se
     expect(cmp.regioes).toBeGreaterThan(0);
     expect(cmp.divergencias).toEqual([]);
   });
+});
+
+describe('B3 saída 3: faixas de parede da junção vindas do TypeScript (esquema v11)', () => {
+  it('faixas_juncao e pontos_faixas_juncao seguem o esquema e reproduzem wallBandPieces, na mesma ordem, com a cota da base e a região', () => {
+    const p = projetoDeEstresseB1(2, { paredesB2: true, anexos: true });
+    const a1 = montarCenaA1(p, true);
+    const fx = montarFaixasB3(p, a1);
+    expect(SECOES.faixas_juncao.id).toBe(22);
+    expect(SECOES.pontos_faixas_juncao.id).toBe(23);
+    expect(Object.keys(fx.faixas)).toEqual(SECOES.faixas_juncao.colunas.map((c) => c.nome));
+    expect(Object.keys(fx.pontos)).toEqual(SECOES.pontos_faixas_juncao.colunas.map((c) => c.nome));
+    const pecas = p.levels.flatMap((l) => wallBandPieces(p, l.id));
+    expect(pecas.length).toBeGreaterThan(0);
+    expect(fx.nLinhas.faixas).toBe(pecas.length);
+    const pontosPorFaixa = new Map<number, number>();
+    for (const f of fx.pontos['faixa_num'] ?? []) pontosPorFaixa.set(f, (pontosPorFaixa.get(f) ?? 0) + 1);
+    pecas.forEach((w, k) => {
+      const col = (nome: string): number => fx.faixas[nome]![k]!;
+      expect(col('parede_num')).toBe(a1.idDe.get(w.wallId));
+      expect(col('camada')).toBe(w.layerIndex);
+      expect(col('banda')).toBe(w.bandIndex);
+      expect(col('inclinada')).toBe(w.piece.flat ? 0 : 1);
+      const vertices = w.piece.poly.reduce((s, pol) => s + pol.reduce((t, anel) => t + anel.length, 0), 0);
+      expect(pontosPorFaixa.get(k + 1) ?? 0).toBe(vertices);
+      const v = w.piece.poly[0]?.[0]?.[0];
+      if (v) {
+        const [baixo, topo] = w.piece.span(v);
+        expect(baixo).toBeCloseTo(col('base_z') + col('z0'), 9);
+        if (w.piece.flat) expect(topo).toBeCloseTo(col('base_z') + col('z1'), 9);
+      }
+    });
+  }, 120_000);
+
+  it('o nivel_num de cada faixa é o da seção niveis (nivelDe), e a contagem de linhas bate com as colunas', () => {
+    const p = projetoDeEstresseB1(2, { paredesB2: true, anexos: true });
+    const a1 = montarCenaA1(p, true);
+    const fx = montarFaixasB3(p, a1);
+    const numeros = new Set(p.levels.map((l) => a1.nivelDe.get(l.id)));
+    expect(fx.faixas['nivel_num']!.every((n) => numeros.has(n))).toBe(true);
+    expect(fx.faixas['id_num']!.length).toBe(fx.nLinhas.faixas);
+    expect(fx.pontos['id_num']!.length).toBe(fx.nLinhas.pontos);
+  }, 120_000);
 });

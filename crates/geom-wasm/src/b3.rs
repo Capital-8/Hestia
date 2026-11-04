@@ -696,10 +696,10 @@ fn codificar(c: &Cortadores, j: &Juncao) -> Result<Vec<Saida>, u32> {
 #[cfg(test)]
 mod testes {
     use super::*;
-    use crate::a1::testes_util::{bytes_camadas as camadas_de_parede, bytes_paredes, bytes_quadros, bytes_tipos as tipos_de_parede, c32, c64, f64s, tipo_simples, u32s, Par};
+    use crate::a1::testes_util::{bytes_camadas as camadas_de_parede, bytes_paredes, bytes_quadros, bytes_tipos as tipos_de_parede, c32, c64, c8, f64s, tipo_simples, u32s, Par};
     use crate::b1::testes::{com_niveis, el, montar, simples, Cam, Montada};
     use crate::consultas::executar;
-    use crate::esquema::{CONSULTA_JUNCTION_NIVEL as Q, SECAO_CAMADAS, SECAO_PAREDES, SECAO_PAREDES_QUADRO, SECAO_PAREDES_Z, SECAO_PAREDES_Z_JUNCAO, SECAO_TIPOS_PAREDE};
+    use crate::esquema::{CONSULTA_JUNCTION_NIVEL as Q, SECAO_CAMADAS, SECAO_FAIXAS_JUNCAO, SECAO_PAREDES, SECAO_PAREDES_QUADRO, SECAO_PAREDES_Z, SECAO_PAREDES_Z_JUNCAO, SECAO_PONTOS_FAIXAS_JUNCAO, SECAO_TIPOS_PAREDE};
 
     fn ret(x0: f64, y0: f64, x1: f64, y1: f64) -> MultiPoligono {
         vec![vec![vec![[x0, y0], [x1, y0], [x1, y1], [x0, y1]]]]
@@ -911,6 +911,119 @@ mod testes {
         // remover a variante devolve o resultado original
         m.cena.remover(SECAO_PAREDES_Z_JUNCAO, &[1]).expect("remover");
         assert_eq!(consulta(&mut m, 0.0), sem);
+    }
+
+    /// Bytes de `faixas_juncao` e `pontos_faixas_juncao` para faixas planas da parede (camada 0, prioridade 1 = `PRIORIDADE_DA_FUNCAO` da estrutura, base 0): `linhas` é
+    /// (nível, parede, z0, z1, região). `nucleo` e `inclinada` vão como estão (para os testes de erro); a inclinação, quando há, é o plano
+    /// `h = z1 * (x - o_x)` com `t0`/`t1` dados.
+    fn bytes_faixas(linhas: &[(u32, u32, f64, f64, MultiPoligono)], nucleo: u8, inclinada: u8, t1: f64) -> [(u32, Vec<u8>); 2] {
+        let n = linhas.len();
+        let ids: Vec<u32> = (1..=n as u32).collect();
+        let nivel: Vec<u32> = linhas.iter().map(|l| l.0).collect();
+        let parede: Vec<u32> = linhas.iter().map(|l| l.1).collect();
+        let z0: Vec<f64> = linhas.iter().map(|l| l.2).collect();
+        let z1: Vec<f64> = linhas.iter().map(|l| l.3).collect();
+        let zeros = vec![0.0f64; n];
+        let faixas = [
+            c32(&ids),
+            c32(&nivel),
+            c32(&parede),
+            c32(&vec![0u32; n]),
+            c32(&vec![0u32; n]),
+            c64(&vec![1.0f64; n]),
+            c8(&vec![nucleo; n]),
+            c64(&zeros),
+            c64(&z0),
+            c64(&z1),
+            c8(&vec![inclinada; n]),
+            c64(&zeros),
+            c64(&zeros),
+            c64(&vec![1.0f64; n]),
+            c64(&zeros),
+            c64(&zeros),
+            c64(&vec![t1; n]),
+            c64(&zeros),
+            c64(&vec![1.0f64; n]),
+        ]
+        .concat();
+        let (mut pid, mut faixa, mut poli, mut anel, mut ind, mut x, mut y) = (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
+        let mut k = 0u32;
+        for (f, l) in linhas.iter().enumerate() {
+            for (pi, p) in l.4.iter().enumerate() {
+                for (ai, a) in p.iter().enumerate() {
+                    for (ii, q) in a.iter().enumerate() {
+                        k += 1;
+                        pid.push(k);
+                        faixa.push(f as u32 + 1);
+                        poli.push(pi as u32);
+                        anel.push(ai as u32);
+                        ind.push(ii as u32);
+                        x.push(q[0]);
+                        y.push(q[1]);
+                    }
+                }
+            }
+        }
+        let pontos = [c32(&pid), c32(&faixa), c32(&poli), c32(&anel), c32(&ind), c64(&x), c64(&y)].concat();
+        [(n as u32, faixas), (k, pontos)]
+    }
+
+    /// Define as duas seções de faixas na cena (uma carga completa, como o adaptador TypeScript manda).
+    fn com_faixas(m: &mut Montada, linhas: &[(u32, u32, f64, f64, MultiPoligono)]) {
+        for (secao, (n, bytes)) in [(SECAO_FAIXAS_JUNCAO, bytes_faixas(linhas, 1, 0, 1.0)[0].clone()), (SECAO_PONTOS_FAIXAS_JUNCAO, bytes_faixas(linhas, 1, 0, 1.0)[1].clone())] {
+            m.cena.definir_secao(secao, n, &bytes).expect("faixas_juncao");
+        }
+    }
+
+    #[test]
+    fn faixas_juncao_definem_a_particao_da_parede_no_lugar_do_calculo_do_rust() {
+        // a parede 1 (x de 2,9 a 3,1; de y = -1 a 5; de 0 a 2,8 m) como o TS a devolveria no fixture: uma faixa só, de 0 a 2,8 m
+        let mut m = cena_de_dois_niveis();
+        com_faixas(&mut m, &[(0, 1, 0.0, 2.8, ret(2.9, -1.0, 3.1, 5.0))]);
+        let s = consulta(&mut m, 0.0);
+        assert_eq!(u32s(&s[6]), [1, 1, 0, 1], "a laje de cima corta a faixa");
+        assert!((volume_da_faixa(&s, 0) - (0.2 * 6.0 * 2.8 - 0.2 * 4.0 * 0.15)).abs() < 1e-9);
+        // a seção manda: uma faixa de 0 a 2,0 m não chega à laje (2,65 m), mesmo com a parede de 2,8 m no cálculo do Rust
+        let mut m2 = cena_de_dois_niveis();
+        com_faixas(&mut m2, &[(0, 1, 0.0, 2.0, ret(2.9, -1.0, 3.1, 5.0))]);
+        let s2 = consulta(&mut m2, 0.0);
+        assert_eq!(u32s(&s2[6]), [1, 0, 0, 1], "sem corte: a faixa define a partição");
+        assert!((volume_da_faixa(&s2, 0) - 0.2 * 6.0 * 2.0).abs() < 1e-9);
+        // a faixa com o nível de outro pavimento não entra no cortador deste nível
+        let s3 = consulta(&mut m, 1.0);
+        assert!(u32s(&s3[1]).chunks(11).any(|c| c[1] == 0 && c[5] == 1), "a faixa de nível 0 vira cortador externo no nível 1");
+    }
+
+    #[test]
+    fn faixas_juncao_vazia_nao_gera_parede_e_a_remocao_devolve_o_calculo() {
+        let mut m = cena_de_dois_niveis();
+        let sem = consulta(&mut m, 0.0);
+        com_faixas(&mut m, &[]);
+        let vazia = consulta(&mut m, 0.0);
+        assert_eq!(u32s(&vazia[0]).chunks(3).last().map(|c| c[1]), Some(0), "cortador de parede do nível sem peças");
+        assert!(u32s(&vazia[6]).is_empty(), "sem faixas, a parede não aparece na junção");
+        assert_ne!(vazia, sem);
+        // a carga (mesmo vazia) manda até a cena ser refeita: a remoção das linhas não devolve o cálculo do Rust
+        m.cena.remover(SECAO_FAIXAS_JUNCAO, &[1]).expect("remover");
+        assert_eq!(consulta(&mut m, 0.0), vazia);
+    }
+
+    #[test]
+    fn faixas_juncao_com_valores_fora_do_contrato_viram_entrada() {
+        let linhas = [(0u32, 1u32, 0.0, 2.8, ret(2.9, -1.0, 3.1, 5.0))];
+        let mut m = cena_de_dois_niveis();
+        let [(n, f), (np, p)] = bytes_faixas(&linhas, 2, 0, 1.0);
+        assert_eq!(m.cena.definir_secao(SECAO_FAIXAS_JUNCAO, n, &f), Err(ENTRADA), "núcleo fora de 0/1");
+        let [(n, f), _] = bytes_faixas(&linhas, 1, 1, 0.0);
+        assert_eq!(m.cena.definir_secao(SECAO_FAIXAS_JUNCAO, n, &f), Err(ENTRADA), "topo inclinado com t0 = t1");
+        let [(n, f), (_, _)] = bytes_faixas(&linhas, 1, 0, 1.0);
+        m.cena.definir_secao(SECAO_FAIXAS_JUNCAO, n, &f).expect("faixas válidas");
+        let mut pontos_ruins = p.clone();
+        // 5 colunas u32 (20 bytes por vértice) e depois x: o primeiro x começa em 20 * k
+        let x_ini = 20 * (p.len() / 36);
+        pontos_ruins[x_ini..x_ini + 8].copy_from_slice(&f64::NAN.to_le_bytes());
+        assert_eq!(m.cena.definir_secao(SECAO_PONTOS_FAIXAS_JUNCAO, np, &pontos_ruins), Err(ENTRADA), "vértice não finito");
+        assert_eq!(m.cena.definir_secao(SECAO_PONTOS_FAIXAS_JUNCAO, np, &p[..p.len() - 1]), Err(ENTRADA), "coluna curta");
     }
 
     #[test]
