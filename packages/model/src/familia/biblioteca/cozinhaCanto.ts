@@ -1,4 +1,5 @@
 import type { Familia, Tipo } from '../tipos.ts';
+import { conectoresDe } from './conectores.ts';
 import { chapaCorpo, comprimento, derivado, familia, FITA } from './cozinhaComum.ts';
 
 /*
@@ -84,6 +85,7 @@ export const FAMILIA_CANTO_L: Familia = familia({
     { id: 'dobradica', nome: 'Dobradiça', quantidade: '8' },
     { id: 'puxador', nome: 'Puxador', quantidade: '4' },
   ],
+  conectores: conectoresDe('base'),
   tipos: TIPOS_CANTO,
   tipoPadrao: 'L90',
 });

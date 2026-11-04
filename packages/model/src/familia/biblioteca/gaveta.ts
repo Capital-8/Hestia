@@ -1,4 +1,5 @@
 import { FAMILIA_FORMATO, FAMILIA_VERSAO, type Familia, type Parametro } from '../tipos.ts';
+import { conectoresDe } from './conectores.ts';
 
 /*
  * Gaveta: módulo reutilizável (caixa de chapa com frente, 2 laterais, traseira e fundo), usado como família aninhada em bases, cômodas
@@ -45,6 +46,7 @@ export const FAMILIA_GAVETA: Familia = {
     { id: 'corredica', nome: 'Corrediça telescópica', quantidade: '1' },
     { id: 'puxador', nome: 'Puxador', quantidade: '1' },
   ],
+  conectores: conectoresDe('peca', false),
   tipos: [
     { id: 'baixa', nome: 'Gaveta baixa (150)', valores: { A: 150 } },
     { id: 'alta', nome: 'Gaveta alta (250)', valores: { A: 250 } },

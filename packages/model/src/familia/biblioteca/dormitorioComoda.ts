@@ -1,4 +1,5 @@
 import { FAMILIA_FORMATO, FAMILIA_VERSAO, type Familia, type Parametro } from '../tipos.ts';
+import { conectoresDe } from './conectores.ts';
 import { chapaCorpo, comprimento, derivado, FITA, FUNDO_ESP } from './dormitorioApoio.ts';
 
 /*
@@ -67,6 +68,7 @@ export const FAMILIA_COMODA: Familia = {
     { id: 'puxador', nome: 'Puxador', quantidade: '4' },
     { id: 'pe', nome: 'Pé regulável', quantidade: '4' },
   ],
+  conectores: conectoresDe('movel'),
   tipos: [
     { id: 'c900', nome: 'Cômoda 0,90 m', valores: { L: 900 } },
     { id: 'c1000', nome: 'Cômoda 1,00 m', valores: { L: 1000 } },

@@ -1,4 +1,5 @@
 import { FAMILIA_FORMATO, FAMILIA_VERSAO, type Familia, type Parametro } from '../tipos.ts';
+import { conectoresDe } from './conectores.ts';
 import { chapaCorpo, comprimento, derivado, FITA } from './dormitorioApoio.ts';
 
 /*
@@ -65,6 +66,7 @@ export const FAMILIA_PAINEL_TV: Familia = {
     { id: 'minifix', nome: 'Parafuso minifix', quantidade: '12' },
     { id: 'pino', nome: 'Pino de prateleira', quantidade: '12' },
   ],
+  conectores: conectoresDe('painel'),
   tipos: [
     { id: 'tv1800', nome: 'Painel 1,80 m', valores: { L: 1800 } },
     { id: 'tv2000', nome: 'Painel 2,00 m', valores: { L: 2000 } },

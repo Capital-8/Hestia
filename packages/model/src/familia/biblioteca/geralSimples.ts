@@ -1,4 +1,5 @@
 import { FAMILIA_FORMATO, FAMILIA_VERSAO, type Familia } from '../tipos.ts';
+import { conectoresDe } from './conectores.ts';
 import { chapa, comprimento, derivado, FITA_PVC, material } from './geralApoio.ts';
 
 export const FAMILIA_MODULO_BRANCO: Familia = {
@@ -31,6 +32,7 @@ export const FAMILIA_MODULO_BRANCO: Familia = {
     { id: 'cavilha', nome: 'Cavilha', quantidade: '8' },
     { id: 'minifix', nome: 'Parafuso minifix', quantidade: '4' },
   ],
+  conectores: conectoresDe('modulo'),
   tipos: [
     { id: 'M600', nome: 'Módulo 600', valores: { L: 600, A: 600, P: 400 } },
     { id: 'M800', nome: 'Módulo 800', valores: { L: 800, A: 720, P: 400 } },
@@ -61,6 +63,7 @@ export const FAMILIA_BLOCO_LIVRE: Familia = {
   ],
   aninhados: [],
   ferragens: [],
+  conectores: conectoresDe('modulo'),
   tipos: [
     { id: 'bloco500', nome: 'Bloco 500', valores: { L: 500, A: 450, P: 500 } },
     { id: 'bloco800', nome: 'Bloco 800', valores: { L: 800, A: 750, P: 600 } },

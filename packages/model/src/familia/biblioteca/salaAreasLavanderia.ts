@@ -1,4 +1,5 @@
 import type { Peca } from '../tipos.ts';
+import { conectoresDe } from './conectores.ts';
 import { chapaCorpo, comprimento, criarFamilia, derivado } from './salaAreasComum.ts';
 
 /*
@@ -57,6 +58,7 @@ export const FAMILIA_ARMARIO_LAVANDERIA = criarFamilia({
     { id: 'puxador', nome: 'Puxador', quantidade: '2' },
     { id: 'pino', nome: 'Pino de prateleira', quantidade: '4 * nPrat' },
   ],
+  conectores: conectoresDe('base'),
   tipos: [
     { id: 'lav60', nome: 'Lavanderia 60', valores: { L: 600 } },
     { id: 'lav80', nome: 'Lavanderia 80', valores: { L: 800 } },

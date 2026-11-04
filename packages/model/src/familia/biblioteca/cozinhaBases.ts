@@ -1,4 +1,5 @@
 import type { Aninhado, Familia, Ferragem, Peca, Tipo } from '../tipos.ts';
+import { conectoresDe } from './conectores.ts';
 import { chapaCorpo, comprimento, derivado, enumerado, familia, FITA, inteiro } from './cozinhaComum.ts';
 
 /*
@@ -74,6 +75,7 @@ export const FAMILIA_BASE_GAVETAS: Familia = familia({
   pecas: PECAS_BASE,
   aninhados: GAVETAS,
   ferragens: FERRAGENS_GAVETAS,
+  conectores: conectoresDe('base'),
   tipos: TIPOS_GAVETAS,
   tipoPadrao: 'G80',
 });
@@ -147,6 +149,7 @@ export const FAMILIA_BASE_PIA: Familia = familia({
     { id: 'dobradica', nome: 'Dobradiça', quantidade: '2 * nPortas', quando: 'nPortas > 0' },
     { id: 'puxador', nome: 'Puxador', quantidade: 'nPortas', quando: 'nPortas > 0' },
   ],
+  conectores: conectoresDe('base'),
   tipos: TIPOS_PIA,
   tipoPadrao: 'P100',
 });
@@ -220,6 +223,7 @@ export const FAMILIA_BASE_COOKTOP: Familia = familia({
     { id: 'corredica', nome: 'Corrediça telescópica', quantidade: '1' },
     { id: 'puxador', nome: 'Puxador', quantidade: '1' },
   ],
+  conectores: conectoresDe('base'),
   tipos: TIPOS_COOKTOP,
   tipoPadrao: 'C60',
 });

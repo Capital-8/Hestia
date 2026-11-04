@@ -1,4 +1,5 @@
 import type { Peca } from '../tipos.ts';
+import { conectoresDe } from './conectores.ts';
 import { chapaCorpo, comprimento, criarFamilia, derivado, inteiro } from './salaAreasComum.ts';
 
 /*
@@ -41,6 +42,7 @@ export const FAMILIA_ESTANTE = criarFamilia({
     { id: 'pino', nome: 'Pino de prateleira', quantidade: '4 * nPrat' },
     { id: 'cavilha', nome: 'Cavilha', quantidade: '8' },
   ],
+  conectores: conectoresDe('torre'),
   tipos: [
     { id: 'estante_600', nome: 'Estante 600', valores: { L: 600, A: 1200 } },
     { id: 'estante_800', nome: 'Estante 800', valores: { L: 800, A: 1800 } },

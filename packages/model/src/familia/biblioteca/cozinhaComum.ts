@@ -3,6 +3,7 @@ import {
   FAMILIA_VERSAO,
   type Aninhado,
   type CategoriaFamilia,
+  type Conector,
   type Familia,
   type Ferragem,
   type Hospedagem,
@@ -67,6 +68,7 @@ interface DadosFamilia {
   tipoPadrao: string;
   aninhados?: Aninhado[];
   ferragens?: Ferragem[];
+  conectores?: Conector[];
   planos?: PlanoReferencia[];
   categoria?: CategoriaFamilia;
   hospedagem?: Hospedagem;
@@ -89,6 +91,7 @@ export const familia = (dados: DadosFamilia): Familia => ({
   pecas: dados.pecas,
   aninhados: dados.aninhados ?? [],
   ferragens: dados.ferragens ?? [],
+  conectores: dados.conectores,
   tipos: dados.tipos,
   tipoPadrao: dados.tipoPadrao,
 });

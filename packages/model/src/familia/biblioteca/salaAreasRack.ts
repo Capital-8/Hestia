@@ -1,4 +1,5 @@
 import type { Peca } from '../tipos.ts';
+import { conectoresDe } from './conectores.ts';
 import { chapaCorpo, comprimento, criarFamilia, derivado } from './salaAreasComum.ts';
 
 /*
@@ -52,6 +53,7 @@ export const FAMILIA_RACK = criarFamilia({
     { id: 'puxador', nome: 'Puxador', quantidade: '2' },
     { id: 'pe', nome: 'Pé regulável', quantidade: '4' },
   ],
+  conectores: conectoresDe('movel'),
   tipos: [
     { id: 'rack140', nome: 'Rack 1400', valores: { L: 1400 } },
     { id: 'rack180', nome: 'Rack 1800', valores: { L: 1800 } },

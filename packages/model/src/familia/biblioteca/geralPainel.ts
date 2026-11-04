@@ -1,4 +1,5 @@
 import { FAMILIA_FORMATO, FAMILIA_VERSAO, type Familia } from '../tipos.ts';
+import { conectoresDe } from './conectores.ts';
 import { booleano, comprimento, derivado, material } from './geralApoio.ts';
 
 export const FAMILIA_PAINEL_RIPADO: Familia = {
@@ -38,6 +39,7 @@ export const FAMILIA_PAINEL_RIPADO: Familia = {
   ],
   aninhados: [],
   ferragens: [],
+  conectores: conectoresDe('painel'),
   tipos: [
     { id: 'ripado1200', nome: 'Painel 1200', valores: { L: 1200 } },
     { id: 'ripado1800', nome: 'Painel 1800', valores: { L: 1800 } },
