@@ -583,11 +583,24 @@ export class SelectTool extends ToolBase {
     this.reset();
   }
 
-  /** Arrasto de componente: muda só `x`/`y` da instância, num único passo de desfazer. */
+  /**
+   * Arrasto de componente: os conjuntos cujos membros estão INTEIROS na seleção andam por `moveComponentGroup` (a
+   * linha vai junto); os componentes soltos, por `updateComponent`. Tudo num único passo de desfazer.
+   */
   private moveComponents(ids: readonly Id[], d: Vec2): void {
     const pr = this.env.project();
+    const alvo = new Set(ids);
+    const grupos = Object.values(pr.componentGroups ?? {}).filter(
+      (g) => g.membros.length > 0 && g.membros.every((id) => alvo.has(id)),
+    );
+    const nosGrupos = new Set(grupos.flatMap((g) => g.membros));
+    const soltos = ids.filter((id) => {
+      const c = pr.elements[id];
+      return isComponent(c) && c.groupId === undefined && !nosGrupos.has(id);
+    });
     this.env.transaction('Mover componente', () => {
-      for (const id of ids) {
+      for (const grupo of grupos) this.env.exec({ type: 'moveComponentGroup', id: grupo.id, dx: d.x, dy: d.y });
+      for (const id of soltos) {
         const c = pr.elements[id];
         if (!isComponent(c)) continue;
         this.env.exec({ type: 'updateComponent', id, patch: { x: c.x + d.x, y: c.y + d.y } });
