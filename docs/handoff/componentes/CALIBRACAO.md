@@ -33,4 +33,19 @@ Regra de promoção: um modelo que passa de primeira em 3 fichas seguidas do mes
 
 Achados da integração (não vistos pelos testes das fichas): arquivo da família descartava `conectores`/`escolhas` (corrigido em `arquivo.ts`); cópia de componente de conjunto herdava `groupId` (corrigido em `commands.ts`).
 
+## Onda 1 e 2 (2026-11-04, tarde)
+| Ficha | Nível | Modelo | 1ª | Eu | Nota |
+|---|---|---|---|---|---|
+| CONECT-biblioteca | 1 | DSF | sim | 1 | Passou no portão, mas o arquivo da família descartava `conectores` (achado pelo teste "salva e abre sem perda"; corrigi `arquivo.ts`). |
+| F3-core | 3 | DS | sim | 0 | Cego (DS): 22 verdes. |
+| PAINEL-encaixe | 2 | QW | sim | 0 | |
+| CONJ-ui | 3 | DS | sim | 1 | Borda: componente de conjunto parcial não andava; corrigi e testei. `actions.ts` reformatado para caber em 420 linhas. |
+| F3-arrasto3d | 3 | DS | sim | 0 | Verificado no navegador (`wt/qa/arrasto3d.mjs`, `encaixe3d.mjs`): clique, arrasto, desfazer, Esc, órbita e encaixe na parede. Alt só vale se segurado durante o arrasto. |
+| ESC-props | 2 | QW | sim | 0 | |
+| ESC-biblioteca | 1-2 | QW | NÃO | — | Terminou sem escrever nada. Relançar com DS. |
+| T-F3-core (cego) | 1 | QW | NÃO | — | QW terminou sem escrever; DSF travou 25 min; DS entregou. |
+| Q5 (QA de interface) | 2 | QW | inconclusivo | — | Os roteiros do testador deram timeout nos cliques do ribbon (seletores); não é achado de produto. QA de interface com QW não é confiável. |
+
+Padrão: **QW falha em fichas que exigem varrer muitos arquivos ou escrever um arquivo grande sem exemplo** (terminou lendo). DSF travou uma vez. MMF falhou 2 de 3. DS entregou todas.
+
 Observação de modelos: MiMo grátis falhou 2 de 3 vezes em escrever testes (terminou sem entregar); manter só em tarefas triviais e sempre com verificação de existência do arquivo. Qwen e DeepSeek pagos aprovados de primeira em todas.
