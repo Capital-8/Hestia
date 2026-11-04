@@ -1,4 +1,4 @@
-import { LIMITES, editarConector, type Conector, type Escolha, type Familia, type LadoConector, type Parametro, type TipoParametro } from '@hestia/model';
+import { LIMITES, compilar, editarConector, referencias, type Conector, type Escolha, type Familia, type LadoConector, type Parametro, type TipoParametro } from '@hestia/model';
 
 /*
  * Helpers puros do diálogo de Encaixe (conectores e escolhas), sem React: rótulos dos lados, geração de id, conversão
@@ -103,17 +103,50 @@ export function escolhaNova(id: string, nome: string, parametro: string, zona: s
 }
 
 /**
- * Grava a fórmula `folga` do conector (mm): texto vai por `editarConector`; texto vazio REMOVE o campo (a operação do
- * modelo não apaga campos), e nada acima de `LIMITES.formula` caracteres é aceito.
+ * Motivo pelo qual a fórmula de `folga` não pode ser gravada, em português; `null` quando está certa. Texto vazio (ou só
+ * brancos) é válido: significa REMOVER a folga. Além de compilar, a fórmula só pode referenciar parâmetros existentes
+ * (com o mesmo tratamento `x.esp` das outras fórmulas: `x.esp` só vale quando `x` é parâmetro `chapa`).
+ */
+export function validarFolga(texto: string, parametros: readonly Parametro[]): string | null {
+  const limpo = texto.trim();
+  if (limpo === '') return null;
+  if (limpo.length > LIMITES.formula) return `a fórmula passa de ${LIMITES.formula} caracteres`;
+
+  const compilada = compilar(limpo);
+  if ('erro' in compilada) return compilada.erro.message;
+
+  const nomes = new Set<string>();
+  const chapas = new Set<string>();
+  for (const p of parametros) {
+    if (!p || typeof p.id !== 'string') continue;
+    nomes.add(p.id);
+    if (p.tipo === 'chapa') chapas.add(p.id);
+  }
+
+  for (const nome of referencias(compilada.no)) {
+    const partes = nome.split('.');
+    const base = partes[0] ?? '';
+    const soNome = partes.length === 1 && nomes.has(base);
+    const membro = partes.length === 2 && partes[1] === 'esp' && chapas.has(base);
+    if (!soNome && !membro) return `“${nome}” não existe`;
+  }
+  return null;
+}
+
+/**
+ * Grava a fórmula `folga` do conector (mm): valida com `validarFolga` antes de mexer (fórmula inválida ou parâmetro
+ * inexistente é recusada e nada muda); texto vai por `editarConector`; texto vazio REMOVE o campo (a operação do modelo
+ * não apaga campos).
  */
 export function escreverFolga(f: Familia, id: string, texto: string): string | null {
   const limpo = texto.trim();
-  if (limpo !== '') {
-    if (limpo.length > LIMITES.formula) return `a fórmula passa de ${LIMITES.formula} caracteres`;
-    return editarConector(f, id, { folga: limpo });
+  if (limpo === '') {
+    const alvo = (Array.isArray(f.conectores) ? f.conectores : []).find((c) => c?.id === id);
+    if (alvo === undefined) return `conector “${id}” não existe`;
+    delete alvo.folga;
+    return null;
   }
-  const alvo = (Array.isArray(f.conectores) ? f.conectores : []).find((c) => c?.id === id);
-  if (alvo === undefined) return `conector “${id}” não existe`;
-  delete alvo.folga;
-  return null;
+  const motivo = validarFolga(limpo, f.parametros);
+  if (motivo !== null) return motivo;
+  return editarConector(f, id, { folga: limpo });
 }

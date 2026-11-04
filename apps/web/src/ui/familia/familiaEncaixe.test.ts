@@ -26,6 +26,7 @@ import {
   proximoIdConector,
   proximoIdEscolha,
   textoDeAceita,
+  validarFolga,
   zonasDaFamilia,
 } from './familiaEncaixe.ts';
 
@@ -178,6 +179,54 @@ describe('escreverFolga', () => {
     const antes = JSON.stringify(f.conectores);
     expect(escreverFolga(f, 'c', 'x'.repeat(513))).toMatch('512');
     expect(JSON.stringify(f.conectores)).toBe(antes);
+  });
+
+  it('não grava fórmula inválida nem parâmetro inexistente, mas mantém o que era válido', () => {
+    const f = nova();
+    expect(adicionarConector(f, conectorNovo('c', 'C', 'direita'))).toBeNull();
+    expect(escreverFolga(f, 'c', '(')).not.toBeNull();
+    expect(f.conectores![0]!.folga).toBeUndefined();
+    expect(escreverFolga(f, 'c', 'ZZZ / 2')).not.toBeNull();
+    expect(f.conectores![0]!.folga).toBeUndefined();
+    expect(escreverFolga(f, 'c', 'L / 2')).toBeNull();
+    expect(f.conectores![0]!.folga).toBe('L / 2');
+    expect(escreverFolga(f, 'c', '')).toBeNull();
+    expect('folga' in f.conectores![0]!).toBe(false);
+  });
+});
+
+describe('validarFolga', () => {
+  it('vazio é válido (remover a folga), mesmo só com espaços', () => {
+    const f = nova();
+    expect(validarFolga('', f.parametros)).toBeNull();
+    expect(validarFolga('   ', f.parametros)).toBeNull();
+  });
+
+  it('fórmula válida que só usa parâmetros existentes é aceita', () => {
+    const f = nova();
+    expect(validarFolga('L / 2', f.parametros)).toBeNull();
+    expect(validarFolga('corpo.esp + 1', f.parametros)).toBeNull();
+  });
+
+  it('sintaxe inválida devolve o motivo da compilacao', () => {
+    const f = nova();
+    expect(validarFolga('(', f.parametros)).not.toBeNull();
+  });
+
+  it('texto enorme é recusado pelo limite', () => {
+    const f = nova();
+    expect(validarFolga('x'.repeat(10_000), f.parametros)).toMatch('512');
+  });
+
+  it('parâmetro inexistente é recusado apontando o nome', () => {
+    const f = nova();
+    expect(validarFolga('ZZZ / 2', f.parametros)).toMatch('ZZZ');
+    expect(validarFolga('L + nao_existe', f.parametros)).toMatch('nao_existe');
+  });
+
+  it('membro .esp só vale em parâmetro chapa', () => {
+    const f = nova();
+    expect(validarFolga('L.esp', f.parametros)).toMatch('L.esp');
   });
 });
 
