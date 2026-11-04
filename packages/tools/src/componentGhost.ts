@@ -29,3 +29,20 @@ export function componentGhostItems(p: Project, ids: readonly Id[], delta: Vec2 
   }
   return out;
 }
+
+/**
+ * Fantasmas da pegada dos componentes com as poses finais do arrasto (posição E rotação), sem deslocamento simples: a pegada é
+ * recalculada na pose de destino para o encaixe girado aparecer na prévia.
+ */
+export function componentGhostItemsNasPoses(
+  p: Project,
+  poses: ReadonlyMap<Id, { x: number; y: number; rotation: number }>,
+): PreviewItem[] {
+  const out: PreviewItem[] = [];
+  for (const [id, pose] of poses) {
+    const c = p.elements[id];
+    if (!isComponent(c)) continue;
+    out.push(...pegadaPreviewItems(p, { ...c, x: pose.x, y: pose.y, rotation: pose.rotation }));
+  }
+  return out;
+}

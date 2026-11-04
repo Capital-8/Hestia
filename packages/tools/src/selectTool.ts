@@ -6,7 +6,8 @@ import { resolveAngularDimension } from '@hestia/engine';
 import { ToolBase } from './base.ts';
 import { ghostBands, ghostViews, moveWalls, selectedMovables, selectedOpenings, selectedViews, slideOpenings, transformViews } from './edit.ts';
 import { componentAt, componentIdsInBox, genericAt, idsInBox, pickAt, cadAt, cadIdsInBox } from './pick.ts';
-import { componentGhostItems } from './componentGhost.ts';
+import { componentGhostItemsNasPoses } from './componentGhost.ts';
+import { ArrastoComponentes, textoStatusArrastoComponentes, type ResultadoArrastoComponentes } from './componentDrag.ts';
 import { floorIdsInBox, pickFloorAt, ringRemoveVertex } from './floorPick.ts';
 import { pickRoomAt, roomIdsInBox } from './roomPick.ts';
 import { pickRoomSeparatorAt } from './roomSeparatorPick.ts';
@@ -102,6 +103,12 @@ export class SelectTool extends ToolBase {
   private tagAt: Vec2 | null = null;
   /** Cache do projeto sem os elementos que o perfil da vista oculta (planta de área). */
   private viewCache: { pr: Project; key: string; view: Project } | null = null;
+  /** Arrasto de componentes da seleção, com o encaixe na parede/vizinho (criado no início do arrasto). */
+  private compArrasto: ArrastoComponentes | null = null;
+  /** Última prévia do arrasto de componentes: é ela que o `up` aplica. */
+  private compPoses: ResultadoArrastoComponentes | null = null;
+  /** Componente sob o cursor no `down`: o líder do movimento rígido. */
+  private compLider: Id | null = null;
 
   /** Camadas do perfil da planta de área aberta (null na planta de piso: tudo visível). */
   private layers(): ProfileLayers | null {
@@ -183,6 +190,9 @@ export class SelectTool extends ToolBase {
     this.textAt = null;
     this.tagGrip = null;
     this.tagAt = null;
+    this.compArrasto = null;
+    this.compPoses = null;
+    this.compLider = null;
   }
 
   protected busy(): boolean {
@@ -364,6 +374,7 @@ export class SelectTool extends ToolBase {
     const planId = this.planId();
     const somenteLeitura = this.somenteLeitura;
     const hit = this.hitAt(p.raw);
+    this.compLider = hit?.kind === 'component' ? hit.id : null;
     // Na planta de área a alça de modelo não pega o clique (não existe alça desenhada); a do separador de ambiente,
     // que é anotação, continua. As alças de cota/texto são testadas logo abaixo, depois deste bloco.
     const hold = somenteLeitura
@@ -463,7 +474,12 @@ export class SelectTool extends ToolBase {
         const inf = this.snap(p, { from: this.moveBase });
         this.delta = sub(inf.point, this.moveBase);
         const t = { kind: 'translate' as const, d: this.delta };
-        this.items.push(...ghostBands(pr, els, t), ...ghostViews(pr, sel, t), ...gridGhosts(pr, grids, this.delta), ...componentGhostItems(pr, comps, this.delta));
+        this.items.push(...ghostBands(pr, els, t), ...ghostViews(pr, sel, t), ...gridGhosts(pr, grids, this.delta));
+        if (comps.length) {
+          const resultado = this.calcularArrastoComponentes(pr, comps, p.alt);
+          this.items.push(...componentGhostItemsNasPoses(pr, resultado.poses));
+          this.env.say(textoStatusArrastoComponentes(pr, resultado));
+        }
         break;
       }
       case 'opening': {
@@ -531,7 +547,7 @@ export class SelectTool extends ToolBase {
           if (els.length) moveWalls(this.env, els, this.delta, true, p.alt);
           if (views.length) transformViews(this.env, views, { kind: 'translate', d: this.delta });
           if (grids.length) this.env.transaction('Mover grade', () => moveGrids(this.env, grids, this.delta, false));
-          if (comps.length) this.moveComponents(comps, this.delta);
+          if (comps.length && this.compPoses && this.compArrasto) this.compArrasto.aplicar(this.env, this.compPoses.poses);
         }
         break;
       }
@@ -584,28 +600,19 @@ export class SelectTool extends ToolBase {
   }
 
   /**
-   * Arrasto de componente: os conjuntos cujos membros estão INTEIROS na seleção andam por `moveComponentGroup` (a
-   * linha vai junto); os componentes soltos, por `updateComponent`. Tudo num único passo de desfazer.
+   * Passo do arrasto de componentes: o líder é o componente sob o cursor (ou o primeiro da seleção) e os demais acompanham por
+   * movimento rígido. O encaixe e o entorno são resolvidos uma única vez por gesto (`ArrastoComponentes`).
    */
-  private moveComponents(ids: readonly Id[], d: Vec2): void {
-    const pr = this.env.project();
-    const alvo = new Set(ids);
-    const grupos = Object.values(pr.componentGroups ?? {}).filter(
-      (g) => g.membros.length > 0 && g.membros.every((id) => alvo.has(id)),
-    );
-    const nosGrupos = new Set(grupos.flatMap((g) => g.membros));
-    const soltos = ids.filter((id) => {
-      const c = pr.elements[id];
-      return isComponent(c) && !nosGrupos.has(id);
-    });
-    this.env.transaction('Mover componente', () => {
-      for (const grupo of grupos) this.env.exec({ type: 'moveComponentGroup', id: grupo.id, dx: d.x, dy: d.y });
-      for (const id of soltos) {
-        const c = pr.elements[id];
-        if (!isComponent(c)) continue;
-        this.env.exec({ type: 'updateComponent', id, patch: { x: c.x + d.x, y: c.y + d.y } });
-      }
-    });
+  private calcularArrastoComponentes(pr: Project, comps: readonly Id[], alt: boolean): ResultadoArrastoComponentes {
+    if (this.compArrasto === null) {
+      const lider = this.compLider && comps.includes(this.compLider) ? this.compLider : comps[0]!;
+      const ids = [lider, ...comps.filter((id) => id !== lider)];
+      const c = pr.elements[lider];
+      this.compArrasto = new ArrastoComponentes(pr, isComponent(c) ? c.levelId : this.env.levelId(), ids, lider);
+    }
+    const resultado = this.compArrasto.mover(this.delta, alt);
+    this.compPoses = resultado;
+    return resultado;
   }
 
   /** Caixa envolvente da seleção, para zoom e dimensões. */
