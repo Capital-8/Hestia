@@ -10,6 +10,7 @@ import {
   pecaVisivel,
   type NivelDetalhe3d,
 } from './logica.ts';
+import { marcadoresDaPeca, marcadoresVisiveis } from './usinagensMarcadores.ts';
 
 /*
  * Visualizador 3D da família (three.js). FICHA E3-visual. Não tem teste de unidade (precisa de WebGL): o
@@ -29,7 +30,7 @@ export interface CortePlano {
   posicao: number;
 }
 
-/** Uma peça na cena: malha, material próprio (opacidade/seleção), geometria e arestas de realce. */
+/** Uma peça na cena: malha, material próprio (opacidade/seleção), geometria e arestas de realce e marcadores de usinagem. */
 interface PecaNaCena {
   peca: PecaResolvida;
   mesh: THREE.Mesh;
@@ -37,6 +38,7 @@ interface PecaNaCena {
   geometria: THREE.BufferGeometry;
   arestas: THREE.LineSegments;
   materialArestas: THREE.LineBasicMaterial;
+  marcadores: THREE.Mesh[];
 }
 
 /** Extrai de uma malha combinada só os triângulos da peça `indice`, para uma geometria própria por peça. */
@@ -67,6 +69,9 @@ const DIRECOES_DE_VISTA: Readonly<Record<'iso' | 'frente' | 'lateral' | 'planta'
   planta: new THREE.Vector3(0, 0, 1),
 };
 
+/** Eixo Y unitário: o disco do marcador (cilindro do three) aponta para ele e é girado para a normal da face. */
+const EIXO_Y = new THREE.Vector3(0, 1, 0);
+
 export class VisualizadorFamilia {
   private readonly canvas: HTMLCanvasElement;
   private readonly materiais: Readonly<Record<string, string>>;
@@ -76,6 +81,17 @@ export class VisualizadorFamilia {
   private readonly controles: OrbitControls;
   private readonly raiz = new THREE.Group();
   private readonly raycaster = new THREE.Raycaster();
+  private readonly geoDisco = new THREE.CylinderGeometry(1, 1, 1, 24);
+  private readonly geoCaixa = new THREE.BoxGeometry(1, 1, 1);
+  private readonly matMarcador = new THREE.MeshBasicMaterial({
+    color: 0x222222,
+    transparent: true,
+    opacity: 0.85,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  });
   private readonly ouvintes = new Set<(indice: number | null) => void>();
   private readonly indiceDoObjeto = new WeakMap<THREE.Object3D, number>();
   private visuais: PecaNaCena[] = [];
@@ -139,8 +155,10 @@ export class VisualizadorFamilia {
       const arestas = new THREE.LineSegments(new THREE.EdgesGeometry(geometria), materialArestas);
       arestas.visible = false;
       mesh.add(arestas);
+      const marcadores = this.montarMarcadores(peca);
+      for (const marcador of marcadores) mesh.add(marcador);
       this.raiz.add(mesh);
-      this.visuais.push({ peca, mesh, material, geometria, arestas, materialArestas });
+      this.visuais.push({ peca, mesh, material, geometria, arestas, materialArestas, marcadores });
     });
     this.selecionada = selecionadaAnterior !== null && selecionadaAnterior < this.visuais.length ? selecionadaAnterior : null;
     this.aplicarSelecao();
@@ -252,9 +270,29 @@ export class VisualizadorFamilia {
     this.controles.removeEventListener('change', this.aoMudarControles);
     this.controles.dispose();
     this.limparPecas();
+    this.geoDisco.dispose();
+    this.geoCaixa.dispose();
+    this.matMarcador.dispose();
     this.ouvintes.clear();
     this.cena.clear();
     this.renderer.dispose();
+  }
+
+  /** Constrói os meshes-filho dos marcadores de usinagem da peça (geometrias e material compartilhados; `limparPecas` não libera os compartilhados). */
+  private montarMarcadores(peca: PecaResolvida): THREE.Mesh[] {
+    const criados: THREE.Mesh[] = [];
+    for (const m of marcadoresDaPeca(peca)) {
+      const mesh = new THREE.Mesh(m.forma === 'disco' ? this.geoDisco : this.geoCaixa, this.matMarcador);
+      mesh.position.fromArray(m.centro);
+      if (m.forma === 'disco') {
+        mesh.quaternion.setFromUnitVectors(EIXO_Y, new THREE.Vector3(m.normal[0], m.normal[1], m.normal[2]));
+        mesh.scale.set(m.raio, m.altura, m.raio);
+      } else {
+        mesh.scale.set(m.dimensoes[0], m.dimensoes[1], m.dimensoes[2]);
+      }
+      criados.push(mesh);
+    }
+    return criados;
   }
 
   /** Material da peça: cor de `corDaPeca`, chapado; vazias translúcidas e sem escrever profundidade. */
@@ -286,13 +324,14 @@ export class VisualizadorFamilia {
     this.pecas = [];
   }
 
-  /** Liga/desliga as arestas azuis e o brilho conforme a peça selecionada. */
+  /** Liga/desliga as arestas azuis e o brilho conforme a peça selecionada; marcadores somem no detalhe grosso (menos na selecionada). */
   private aplicarSelecao(): void {
     this.visuais.forEach((visual, indice) => {
       const ativa = indice === this.selecionada;
       visual.arestas.visible = ativa && visual.mesh.visible;
       visual.material.emissive.setHex(ativa ? 0x0e2a4a : 0x000000);
       visual.material.emissiveIntensity = ativa ? 0.5 : 0;
+      for (const marcador of visual.marcadores) marcador.visible = marcadoresVisiveis(this.detalhe, ativa);
     });
   }
 
