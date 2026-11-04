@@ -2,9 +2,13 @@
 //! nível, com `winsOver`, `zOverlaps` e `resolveJunction` (`junctionPlanar.ts`).
 //!
 //! Cortadores: os pisos, as lajes e as faixas de parede do próprio nível (sempre) mais os de OUTROS níveis que tocam a faixa de cota do nível, marcados
-//! `external` (só cortam, e só parede x piso/laje). Pisos e lajes vêm de `b1::calcular` com as paredes (B2) de cada nível; as faixas de parede, de
-//! `resolver_nivel` (A3d) sobre a variante da JUNÇÃO (`paredes_z_juncao` e `perfis_z_juncao`: `resolveLevel` padrão, sem `flatAttach`). Os caches do TS
-//! (`WeakMap`, LRU, assinatura `r6`) não migram: cada consulta recalcula.
+//! `external` (só cortam, e só parede x piso/laje). Pisos e lajes vêm de `b1::calcular` com as paredes (B2) de cada nível.
+//!
+//! Faixas de parede (saída 3 da 0050, esquema v11): quando a seção `faixas_juncao` está definida, a partição vertical e a região de cada faixa vêm
+//! do TypeScript (`pecas_das_faixas_juntadas`), já resolvidas depois do perfil superior e do de base; o Rust só executa os recortes. Sem a seção
+//! (cena antiga, testes de unidade), as faixas saem do cálculo próprio de `resolver_nivel` (A3d) sobre a variante da JUNÇÃO (`paredes_z_juncao` e
+//! `perfis_z_juncao`), que tem os pontos de quebra próprios e não reproduz a partição do TS (defeito conhecido, 0050). Os caches do TS (`WeakMap`,
+//! LRU, assinatura `r6`) não migram: cada consulta recalcula.
 //!
 //! Junção: as peças com `meta` (laje inclinada e membrana ficam de fora) entram em `resolveJunction`; a camada perde, em cada faixa de cota, a região comum com
 //! as que a vencem. `cut` = alguma camada perdeu volume (1e-9 m³); `region` = união das partes (só com `cut`). Peça externa só corta: não sai.
@@ -13,7 +17,7 @@
 //! `overlapVolume` (quantitativos, que precisam do `earcut` do TS para laje inclinada); a consulta devolve as partes de cada camada, de onde o volume sai.
 
 use std::cell::Cell;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use crate::a2::{Codificador, OpcoesDePlanta};
 use crate::a3c::{resolver_nivel, Inclinacao as InclinacaoDaFaixa, NivelResolvido, OpcoesDoCluster};
@@ -361,8 +365,57 @@ fn cortadores_do_nivel(cena: &Cena, nivel: u32, tol: f64) -> Result<Cortadores, 
             out.pisos.push(c);
         }
     }
-    out.paredes.push(Cortador { tipo: Tipo::Parede, pecas: pecas_das_paredes(cena, nivel, tol)? });
+    let pecas = if cena.b.faixas_juncao_definidas() { pecas_das_faixas_juntadas(cena, nivel) } else { pecas_das_paredes(cena, nivel, tol)? };
+    out.paredes.push(Cortador { tipo: Tipo::Parede, pecas });
     Ok(out)
+}
+
+/// Faixas de parede do nível vindas de `faixas_juncao` (saída 3 da 0050): a partição (z0, z1, topo) e a região de cada faixa como o TypeScript
+/// as resolveu depois do perfil superior e do de base, na ordem da seção. Não há pontos de quebra nem perfil a recalcular aqui: a peça sai como
+/// está, e só os recortes de piso e laje (`juncao_do_nivel`) são executados.
+fn pecas_das_faixas_juntadas(cena: &Cena, nivel: u32) -> Vec<PecaSolida> {
+    // Vértices de cada faixa por (polígono, anel), na ordem do índice do vértice no anel.
+    let mut por_faixa: HashMap<u32, BTreeMap<(u32, u32), Vec<(u32, [f64; 2])>>> = HashMap::new();
+    for p in cena.b.pontos_faixas.values() {
+        por_faixa.entry(p.faixa).or_default().entry((p.poligono, p.anel)).or_default().push((p.indice, [p.x, p.y]));
+    }
+    for aneis in por_faixa.values_mut() {
+        for pts in aneis.values_mut() {
+            pts.sort_by_key(|q| q.0);
+        }
+    }
+    cena.b
+        .faixas_juncao
+        .iter()
+        .filter(|(_, f)| f.nivel == nivel)
+        .map(|(id, f)| {
+            let mut poly: MultiPoligono = Vec::new();
+            if let Some(aneis) = por_faixa.get(id) {
+                let mut atual: Option<u32> = None;
+                for ((pol, _), pts) in aneis {
+                    if atual != Some(*pol) {
+                        poly.push(Vec::new());
+                        atual = Some(*pol);
+                    }
+                    if let Some(corrente) = poly.last_mut() {
+                        corrente.push(pts.iter().map(|q| q.1).collect());
+                    }
+                }
+            }
+            PecaSolida {
+                poly,
+                span: Span::Faixa { base_z: f.base_z, z0: f.z0, z1: f.z1, inclinacao: f.inclinacao },
+                plana: f.inclinacao.is_none(),
+                meta: Some(MetaDaPeca {
+                    juncao: MetaDeJuncao { tipo: Tipo::Parede, prioridade: f.prioridade, nucleo: f.nucleo, explicita: false },
+                    dono: (Tipo::Parede, f.parede),
+                    camada: i64::from(f.camada),
+                    banda: Some(f.banda),
+                }),
+                externa: false,
+            }
+        })
+        .collect()
 }
 
 /// Os `nivel_num` da seção `niveis`, em ordem crescente (a ordem de `p.levels`).
