@@ -360,6 +360,10 @@ export function labelOf(c: Command): string {
     case 'updateComponent':
     case 'upsertFamily':
     case 'deleteFamily':
+    case 'upsertComponentGroup':
+    case 'deleteComponentGroup':
+    case 'moveComponentGroup':
+    case 'rotateComponentGroup':
       return componentCommandLabel(c);
     case 'addGrid':
       return 'Criar grade';

@@ -34,11 +34,12 @@ export function familiaDoComponente(p: Pick<Project, 'componentFamilies'>, c: Pi
 }
 
 /** Motivo (em português) pelo qual a instância não pode entrar no projeto, ou `null`. */
-export function componentIssue(p: Project, c: Pick<Component, 'familyId' | 'typeId' | 'levelId' | 'x' | 'y' | 'z' | 'rotation'>): string | null {
+export function componentIssue(p: Project, c: Pick<Component, 'familyId' | 'typeId' | 'levelId' | 'x' | 'y' | 'z' | 'rotation' | 'groupId'>): string | null {
   const fam = p.componentFamilies?.[c.familyId];
   if (!fam) return 'Família do componente não existe no projeto.';
   if (c.typeId !== null && !fam.tipos.some((t) => t.id === c.typeId)) return 'Tipo do componente não existe na família.';
   if (!p.levels.some((l) => l.id === c.levelId)) return 'Nível do componente não existe.';
+  if (c.groupId !== undefined && !p.componentGroups?.[c.groupId]) return 'Conjunto do componente não existe no projeto.';
   if (![c.x, c.y, c.z, c.rotation].every((n) => Number.isFinite(n))) return 'Posição ou rotação do componente inválida.';
   return null;
 }
@@ -52,4 +53,13 @@ export function familyIssue(f: Familia): string | null {
 /** Instâncias do projeto que usam a família. */
 export function componentesDaFamilia(p: Project, familyId: Id): Component[] {
   return Object.values(p.elements).filter((e): e is Component => e.kind === 'component' && e.familyId === familyId);
+}
+
+/** Componentes do conjunto, na ordem de `membros`; ids que já não são componentes ficam de fora. */
+export function componentesDoGrupo(p: Pick<Project, 'componentGroups' | 'elements'>, id: Id): Component[] {
+  const grupo = p.componentGroups?.[id];
+  if (!grupo) return [];
+  return grupo.membros
+    .map((membro) => p.elements[membro])
+    .filter((e): e is Component => e?.kind === 'component');
 }
