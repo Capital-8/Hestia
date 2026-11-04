@@ -2,6 +2,7 @@ import { pecasParaCorte, planoDeCorte, type LinhaLista, type PecaParaCorte } fro
 import { chapaPorId, type Catalogo } from '@hestia/model';
 import { useState, type ReactElement } from 'react';
 import { CampoNumero } from './FamiliaParametrosCampos.tsx';
+import { pecasForaDoPlano } from './familiaCorte.ts';
 import {
   chapasPresentes,
   geometriaDaChapa,
@@ -9,6 +10,7 @@ import {
   textoMm,
   textoPercentual,
 } from './familiaLista.ts';
+import './familiaCorte.css';
 
 /** Aba Plano de corte: escolha da chapa, serra e desenho de cada chapa com as peças posicionadas. */
 
@@ -35,20 +37,38 @@ export function FamiliaListaCorte({ linhas, catalogo }: PropsCorte): ReactElemen
   const chapa = chapaPorId(catalogo, escolhida.id) ?? escolhida;
   const doPlano = linhasDaChapa(linhas, chapa.id);
   const pecas = pecasParaCorte(doPlano);
-  const plano = planoDeCorte(pecas, {
+  const chapaParaCorte = {
     largura: chapa.largura,
     altura: chapa.altura,
     refilo: chapa.refilo,
     veio: chapa.veio,
     kerf: serra,
-  });
+  };
+  const plano = planoDeCorte(pecas, chapaParaCorte);
   const geometria = geometriaDaChapa(plano, chapa);
+  const foraDoPlano = pecasForaDoPlano(pecas, plano.naoCouberam, chapaParaCorte);
   const fora = linhas
     .filter((linha) => linha.chapa !== chapa.id)
     .reduce((soma, linha) => soma + linha.quantidade, 0);
 
   return (
     <div className="fam-lista-aba-conteudo">
+      {foraDoPlano.length > 0 && (
+        <section className="fam-lista-nao-coube" role="alert" aria-label="Peças que não couberam">
+          <div className="fam-lista-nao-coube-titulo">Não couberam {foraDoPlano.length} peça(s) nesta chapa</div>
+          <ul>
+            {foraDoPlano.map((item, indice) => (
+              <li key={`${item.nome}-${indice}`}>
+                <span className="fam-lista-nao-coube-nome">{item.nome}</span>
+                <span className="fam-lista-nao-coube-medida">{item.medida}</span>
+                <span className="fam-lista-nao-coube-motivo">{item.motivo}</span>
+                <span className="fam-lista-nao-coube-dica">{item.dica}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <div className="fam-lista-barra">
         <label>
           Chapa
@@ -116,13 +136,6 @@ export function FamiliaListaCorte({ linhas, catalogo }: PropsCorte): ReactElemen
           </div>
         ))}
       </div>
-
-      {geometria.naoCouberam.length > 0 && (
-        <div className="fam-lista-fora">
-          <b>Não couberam:</b>{' '}
-          {geometria.naoCouberam.map((indice) => pecas[indice]?.id ?? `Peça ${indice + 1}`).join(', ')}
-        </div>
-      )}
     </div>
   );
 }

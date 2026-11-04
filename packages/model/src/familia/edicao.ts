@@ -1,5 +1,6 @@
 import { renomearNoTexto } from './expressao.ts';
 import { adicionarParametro, excluirParametro } from './edicaoParametros.ts';
+import { propagarRenomeEmEncaixes } from './edicaoEncaixe.ts';
 import {
   idReservado,
   idValido,
@@ -20,6 +21,7 @@ import {
 export { adicionarParametro, excluirParametro };
 export { adicionarPeca, arranjoLinear, duplicarPeca, espelharPecaEmX, excluirPeca, moverPecaNaLista } from './edicaoPecas.ts';
 export { adicionarTipo, definirValorDeTipo, duplicarTipo, excluirTipo } from './edicaoTipos.ts';
+export { adicionarConector, editarConector, excluirConector, adicionarEscolha, editarEscolha, excluirEscolha } from './edicaoEncaixe.ts';
 
 /*
  * Operações de EDIÇÃO da família (ADR 0049 §4.2). FICHA E4-edicao: implementar todas as funções abaixo. Testes em
@@ -101,7 +103,8 @@ export function usosDoNome(f: Familia, nome: string): string[] {
 
 /**
  * Renomeia um parâmetro ou plano: troca o id e reescreve TODAS as fórmulas que o usam (inclusive `velho.esp` → `novo.esp`), as
- * chaves de `tipo.valores`, `peca.material` e `tipoPadrao` não (é id de tipo). `L`, `A` e `P` não podem ser renomeados.
+ * chaves de `tipo.valores`, `peca.material` e `tipoPadrao` não (é id de tipo) — e também `escolhas[].parametro` e a `folga`
+ * dos conectores. `L`, `A` e `P` não podem ser renomeados.
  * Erros: id novo inválido/reservado/repetido, `velho` inexistente, `velho` é L, A ou P.
  */
 export function renomearParametro(f: Familia, velho: string, novo: string): string | null {
@@ -122,6 +125,8 @@ export function renomearParametro(f: Familia, velho: string, novo: string): stri
       if (trocado !== texto) gravar(trocado);
     },
   });
+
+  propagarRenomeEmEncaixes(f, velho, novo);
 
   for (const t of lista<Tipo>(f.tipos)) {
     const valores = t?.valores;
