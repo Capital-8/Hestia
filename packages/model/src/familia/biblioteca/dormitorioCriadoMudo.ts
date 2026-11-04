@@ -1,4 +1,5 @@
 import { FAMILIA_FORMATO, FAMILIA_VERSAO, type Familia, type Parametro } from '../tipos.ts';
+import { conectoresDe } from './conectores.ts';
 import { chapaCorpo, comprimento, derivado, FITA, FUNDO_ESP } from './dormitorioApoio.ts';
 
 /*
@@ -84,6 +85,7 @@ export const FAMILIA_CRIADO_MUDO: Familia = {
     { id: 'puxador', nome: 'Puxador', quantidade: '1' },
     { id: 'pe', nome: 'Pé regulável', quantidade: '4' },
   ],
+  conectores: conectoresDe('movel'),
   tipos: [
     { id: 'cm450', nome: 'Criado-mudo 45 cm', valores: { L: 450, A: 450, P: 380 } },
     { id: 'cm500', nome: 'Criado-mudo 50 cm', valores: { L: 500, A: 500, P: 400 } },

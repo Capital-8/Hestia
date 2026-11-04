@@ -1,4 +1,5 @@
 import { FAMILIA_FORMATO, FAMILIA_VERSAO, type Familia, type Parametro } from '../tipos.ts';
+import { conectoresDe } from './conectores.ts';
 import { booleano, chapaCorpo, comprimento, derivado, FITA, FUNDO_ESP, inteiro } from './dormitorioApoio.ts';
 
 /*
@@ -61,6 +62,7 @@ export const FAMILIA_GUARDA_ROUPA_MODULO: Familia = {
     { id: 'puxador', nome: 'Puxador', quantidade: 'nPortas' },
     { id: 'pino', nome: 'Pino de prateleira', quantidade: '4' },
   ],
+  conectores: conectoresDe('torre'),
   tipos: [
     { id: 'gr450', nome: 'Módulo 45 (1 porta)', valores: { L: 450, nPortas: 1 } },
     { id: 'gr600', nome: 'Módulo 60 (1 porta)', valores: { L: 600, nPortas: 1 } },
@@ -116,6 +118,7 @@ export const FAMILIA_GUARDA_ROUPA_CONJUNTO: Familia = {
     },
   ],
   ferragens: [],
+  conectores: conectoresDe('torre'),
   tipos: [
     { id: 'gc2', nome: 'Conjunto de 2 módulos', valores: { nModulos: 2, larguraModulo: 900, L: 1800 } },
     { id: 'gc3', nome: 'Conjunto de 3 módulos estreitos', valores: { nModulos: 3, larguraModulo: 600, L: 1800 } },

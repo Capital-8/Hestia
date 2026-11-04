@@ -1,4 +1,5 @@
 import type { Peca } from '../tipos.ts';
+import { conectoresDe } from './conectores.ts';
 import { chapaCorpo, comprimento, criarFamilia, derivado } from './salaAreasComum.ts';
 
 /*
@@ -58,6 +59,7 @@ export const FAMILIA_MESA_GAVETEIRO = criarFamilia({
     { id: 'puxador', nome: 'Puxador', quantidade: '3' },
     { id: 'minifix', nome: 'Parafuso minifix', quantidade: '8' },
   ],
+  conectores: conectoresDe('movel'),
   tipos: [
     { id: 'mesa1200', nome: 'Mesa 1200', valores: { L: 1200 } },
     { id: 'mesa1400', nome: 'Mesa 1400', valores: { L: 1400 } },

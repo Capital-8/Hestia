@@ -1,4 +1,5 @@
 import { FAMILIA_FORMATO, FAMILIA_VERSAO, type Familia, type Parametro } from '../tipos.ts';
+import { conectoresDe } from './conectores.ts';
 import { chapaCorpo, comprimento, derivado, FITA } from './dormitorioApoio.ts';
 
 /*
@@ -48,6 +49,7 @@ export const FAMILIA_CAMA_BAU: Familia = {
     { id: 'minifix', nome: 'Parafuso minifix', quantidade: '8' },
     { id: 'cavilha', nome: 'Cavilha 8 × 30', quantidade: '8' },
   ],
+  conectores: conectoresDe('movel'),
   tipos: [
     { id: 'solteiro', nome: 'Solteiro (880 × 1880)', valores: { L: 880, P: 1880 } },
     { id: 'casal', nome: 'Casal (1380 × 1880)', valores: { L: 1380, P: 1880 } },

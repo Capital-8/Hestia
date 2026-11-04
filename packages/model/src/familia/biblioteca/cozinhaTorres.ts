@@ -1,5 +1,6 @@
 import type { Familia, Peca, Tipo } from '../tipos.ts';
 import { PECAS_BASE } from './cozinhaBases.ts';
+import { conectoresDe } from './conectores.ts';
 import { chapaCorpo, comprimento, derivado, enumerado, familia, FITA } from './cozinhaComum.ts';
 
 /*
@@ -57,6 +58,7 @@ export const FAMILIA_TORRE_FORNO: Familia = familia({
     { id: 'dobradica', nome: 'Dobradiça', quantidade: '4' },
     { id: 'puxador', nome: 'Puxador', quantidade: '2' },
   ],
+  conectores: conectoresDe('torre'),
   tipos: TIPOS_TORRE_FORNO,
   tipoPadrao: 'T60',
 });
@@ -104,6 +106,7 @@ export const FAMILIA_PANELEIRO: Familia = familia({
     { id: 'corredica', nome: 'Corrediça telescópica', quantidade: '4' },
     { id: 'puxador', nome: 'Puxador', quantidade: '4' },
   ],
+  conectores: conectoresDe('torre'),
   tipos: TIPOS_PANELEIRO,
   tipoPadrao: 'PL40',
 });

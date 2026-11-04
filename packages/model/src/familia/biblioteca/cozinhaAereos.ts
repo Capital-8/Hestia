@@ -1,4 +1,5 @@
 import type { Familia, Peca, Tipo } from '../tipos.ts';
+import { conectoresDe } from './conectores.ts';
 import { chapaCorpo, comprimento, derivado, familia, FITA, inteiro } from './cozinhaComum.ts';
 
 /*
@@ -76,6 +77,7 @@ export const FAMILIA_AEREO: Familia = familia({
     { id: 'puxador', nome: 'Puxador', quantidade: 'nPortas', quando: 'nPortas > 0' },
     { id: 'pino', nome: 'Pino de prateleira', quantidade: '4 * nPrat', quando: 'nPrat > 0' },
   ],
+  conectores: conectoresDe('aereo'),
   tipos: TIPOS_AEREO,
   tipoPadrao: 'A60',
 });
@@ -124,6 +126,7 @@ export const FAMILIA_AEREO_BASCULANTE: Familia = familia({
     { id: 'dobradica', nome: 'Dobradiça', quantidade: '2' },
     { id: 'puxador', nome: 'Puxador', quantidade: '1' },
   ],
+  conectores: conectoresDe('aereo'),
   tipos: TIPOS_BASCULANTE,
   tipoPadrao: 'B80',
 });

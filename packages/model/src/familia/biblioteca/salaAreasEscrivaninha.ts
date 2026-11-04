@@ -1,4 +1,5 @@
 import type { Peca } from '../tipos.ts';
+import { conectoresDe } from './conectores.ts';
 import { chapaCorpo, comprimento, criarFamilia, derivado } from './salaAreasComum.ts';
 
 /*
@@ -36,6 +37,7 @@ export const FAMILIA_ESCRIVANINHA = criarFamilia({
     { id: 'minifix', nome: 'Parafuso minifix', quantidade: '8' },
     { id: 'cavilha', nome: 'Cavilha', quantidade: '8' },
   ],
+  conectores: conectoresDe('movel'),
   tipos: [
     { id: 'esc1000', nome: 'Escrivaninha 1000', valores: { L: 1000 } },
     { id: 'esc1200', nome: 'Escrivaninha 1200', valores: { L: 1200 } },

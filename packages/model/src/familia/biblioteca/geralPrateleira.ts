@@ -1,4 +1,5 @@
 import { FAMILIA_FORMATO, FAMILIA_VERSAO, type Familia } from '../tipos.ts';
+import { conectoresDe } from './conectores.ts';
 import { chapa, comprimento, derivado, FITA_PVC } from './geralApoio.ts';
 
 export const FAMILIA_PRATELEIRA: Familia = {
@@ -26,6 +27,7 @@ export const FAMILIA_PRATELEIRA: Familia = {
   ],
   aninhados: [],
   ferragens: [],
+  conectores: conectoresDe('painel'),
   tipos: [
     { id: 'prat600', nome: 'Prateleira 600', valores: { L: 600 } },
     { id: 'prat800', nome: 'Prateleira 800', valores: { L: 800 } },

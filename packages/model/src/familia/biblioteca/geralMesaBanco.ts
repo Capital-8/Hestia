@@ -1,4 +1,5 @@
 import { FAMILIA_FORMATO, FAMILIA_VERSAO, type Familia } from '../tipos.ts';
+import { conectoresDe } from './conectores.ts';
 import { chapa, comprimento, derivado, FITA_PVC, material } from './geralApoio.ts';
 
 export const FAMILIA_MESA: Familia = {
@@ -32,6 +33,7 @@ export const FAMILIA_MESA: Familia = {
   ],
   aninhados: [],
   ferragens: [],
+  conectores: conectoresDe('movel'),
   tipos: [
     { id: 'jantar', nome: 'Mesa de jantar (1600 × 900)', valores: { L: 1600, A: 740, P: 900 } },
     { id: 'escritorio', nome: 'Mesa de escritório (1200 × 600)', valores: { L: 1200, A: 740, P: 600 } },
@@ -70,6 +72,7 @@ export const FAMILIA_BANCO: Familia = {
   ],
   aninhados: [],
   ferragens: [],
+  conectores: conectoresDe('movel'),
   tipos: [
     { id: 'baixo', nome: 'Banco baixo (450)', valores: { A: 450 } },
     { id: 'alto', nome: 'Banco alto (650)', valores: { A: 650 } },

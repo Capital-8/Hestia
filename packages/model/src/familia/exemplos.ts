@@ -1,4 +1,5 @@
 import { FAMILIA_FORMATO, FAMILIA_VERSAO, type Familia, type Parametro, type Peca } from './tipos.ts';
+import { conectoresDe } from './biblioteca/conectores.ts';
 
 /*
  * Família de exemplo (armário baixo de marcenaria) usada pelos testes e pela interface. Os nomes de parâmetros, papéis e
@@ -69,6 +70,7 @@ export const FAMILIA_ARMARIO: Familia = {
     { id: 'puxador', nome: 'Puxador', quantidade: 'nPortas', quando: 'nPortas > 0' },
     { id: 'pino', nome: 'Pino de prateleira', quantidade: '4 * nPrat', quando: 'nPrat > 0' },
   ],
+  conectores: conectoresDe('base'),
   tipos: [
     { id: 'A60', nome: 'Armário 60 (1 porta)', valores: { L: 600, nPortas: 1 } },
     { id: 'A80', nome: 'Armário 80 (2 portas)', valores: { L: 800, nPortas: 2 } },
