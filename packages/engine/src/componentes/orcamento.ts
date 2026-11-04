@@ -1,7 +1,9 @@
 import { CATALOGO_PADRAO, isComponent, type Catalogo, type Component, type Id, type Project } from '@hestia/model';
 import type { CustoEstimado, LinhaLista, ResumoLista } from './listaPecas.ts';
 import { custoEstimado, listaDePecas, resumirLista } from './listaPecas.ts';
+import { areaFace } from './medidas.ts';
 import { resolverComponente } from './instancia.ts';
+import { lateraisCompartilhadas } from './orcamentoLaterais.ts';
 import type { FerragemResolvida, PecaResolvida } from './pecas.ts';
 
 /*
@@ -33,18 +35,40 @@ export interface OrcamentoFerragem {
   quantidade: number;
 }
 
+/** Quanto o projeto economizou ao descontar as laterais compartilhadas dos conjuntos. */
+export interface EconomiaLaterais {
+  /** Quantidade de peças descontadas (uma por par de módulos encostados). */
+  laterais: number;
+  /** Área (m2) das laterais descontadas. */
+  areaChapaM2: number;
+}
+
 export interface OrcamentoProjeto {
   /** Móveis agrupados, por nome, depois família, depois tipo (`null` vem primeiro). */
   moveis: OrcamentoMovel[];
-  /** Todas as peças consolidadas (mesmo agrupamento de `listaDePecas`, quantidades somadas entre móveis). */
+  /** Todas as peças consolidadas (mesmo agrupamento de `listaDePecas`, quantidades somadas entre móveis), menos as laterais compartilhadas. */
   linhas: LinhaLista[];
   resumo: ResumoLista;
-  /** Soma dos custos dos móveis (sem re-arredondar: `total` é exatamente a soma de `moveis[].custo`). */
+  /** Soma dos custos dos móveis; com laterais descontadas, recalculado a partir das linhas descontadas. */
   custo: CustoEstimado;
   /** Ferragens somadas por id, por nome e depois id. */
   ferragens: OrcamentoFerragem[];
   /** Componentes com erro de resolução: `"<id do componente>: <mensagens>"`, na ordem dos componentes. */
   avisos: string[];
+  /**
+   * Laterais compartilhadas descontadas da lista (zeros quando nenhum conjunto usa a regra).
+   * Opcional no tipo para não quebrar quem monta um orçamento à mão; `orcamentoDoProjeto` SEMPRE devolve o campo.
+   */
+  economia?: EconomiaLaterais;
+}
+
+/** Resultado de `orcamentoDoProjeto`: o orçamento sempre traz a economia de laterais. */
+export type OrcamentoCalculado = OrcamentoProjeto & { economia: EconomiaLaterais };
+
+/** Peça resolvida com o componente de onde veio, para casar os descontos de lateral. */
+interface PecaDoComponente {
+  componenteId: Id;
+  peca: PecaResolvida;
 }
 
 export interface OpcoesOrcamento {
@@ -98,14 +122,29 @@ function compararGrupos(a: Grupo, b: Grupo): number {
   return a.nome.localeCompare(b.nome) || cmpTexto(a.familiaId, b.familiaId) || cmpTexto(a.tipoId ?? '', b.tipoId ?? '');
 }
 
+/** Índice da primeira peça ainda não removida do componente e com o id pedido, ou `null`. */
+function acharPeca(
+  pecas: readonly PecaDoComponente[],
+  removidas: ReadonlySet<number>,
+  componenteId: Id,
+  pecaId: string,
+): number | null {
+  for (let i = 0; i < pecas.length; i++) {
+    if (removidas.has(i)) continue;
+    const item = pecas[i]!;
+    if (item.componenteId === componenteId && item.peca.id === pecaId) return i;
+  }
+  return null;
+}
+
 /**
  * Orçamento do projeto: resolve cada componente (do `nivel` dado ou de todos), agrupa móveis iguais e consolida as peças.
  * Sem componentes: tudo vazio e `avisos` vazio. Determinístico (ordens de `moveis` e `ferragens`: nome, depois id).
  */
-export function orcamentoDoProjeto(p: Project, opcoes: OpcoesOrcamento = {}): OrcamentoProjeto {
+export function orcamentoDoProjeto(p: Project, opcoes: OpcoesOrcamento = {}): OrcamentoCalculado {
   const catalogo = opcoes.catalogo ?? p.catalog ?? CATALOGO_PADRAO;
   const grupos = new Map<string, Grupo>();
-  const pecas: PecaResolvida[] = [];
+  const pecas: PecaDoComponente[] = [];
   const avisos: string[] = [];
   for (const c of componentesDoProjeto(p, opcoes.nivel)) {
     const res = resolverComponente(p, c);
@@ -131,7 +170,7 @@ export function orcamentoDoProjeto(p: Project, opcoes: OpcoesOrcamento = {}): Or
     }
     grupo.ids.push(c.id);
     grupo.quantidade += 1;
-    pecas.push(...res.pecas);
+    for (const peca of res.pecas) pecas.push({ componenteId: c.id, peca });
   }
   const gruposOrdenados = [...grupos.values()].sort(compararGrupos);
   const moveis: OrcamentoMovel[] = gruposOrdenados.map((g) => ({
@@ -145,24 +184,37 @@ export function orcamentoDoProjeto(p: Project, opcoes: OpcoesOrcamento = {}): Or
   }));
   const custo: CustoEstimado = { chapas: 0, fitas: 0, ferragens: 0, total: 0 };
   const porId = new Map<Id, OrcamentoFerragem>();
+  const ferragensConsolidadas: FerragemResolvida[] = [];
   for (const g of gruposOrdenados) {
     custo.chapas += g.custoUnit.chapas * g.quantidade;
     custo.fitas += g.custoUnit.fitas * g.quantidade;
     custo.ferragens += g.custoUnit.ferragens * g.quantidade;
     custo.total += g.custoUnit.total * g.quantidade;
     for (const f of g.ferragensUnit) {
+      const quantidade = f.quantidade * g.quantidade;
+      ferragensConsolidadas.push({ ...f, quantidade });
       const existente = porId.get(f.id);
-      if (existente === undefined) porId.set(f.id, { id: f.id, nome: f.nome, quantidade: f.quantidade * g.quantidade });
-      else existente.quantidade += f.quantidade * g.quantidade;
+      if (existente === undefined) porId.set(f.id, { id: f.id, nome: f.nome, quantidade });
+      else existente.quantidade += quantidade;
     }
   }
-  const linhas = listaDePecas(pecas);
+  const removidas = new Set<number>();
+  let areaDescontada = 0;
+  for (const lateral of lateraisCompartilhadas(p)) {
+    const indice = acharPeca(pecas, removidas, lateral.descontadoDe, lateral.peca);
+    if (indice === null) continue;
+    removidas.add(indice);
+    areaDescontada += areaFace(pecas[indice]!.peca);
+  }
+  const linhas = listaDePecas(pecas.filter((_, indice) => !removidas.has(indice)).map((item) => item.peca));
+  const resumo = resumirLista(linhas);
   return {
     moveis,
     linhas,
-    resumo: resumirLista(linhas),
-    custo,
+    resumo,
+    custo: removidas.size > 0 ? custoEstimado(resumo, catalogo, ferragensConsolidadas) : custo,
     ferragens: [...porId.values()].sort((a, b) => a.nome.localeCompare(b.nome) || cmpTexto(a.id, b.id)),
     avisos,
+    economia: { laterais: removidas.size, areaChapaM2: areaDescontada },
   };
 }
