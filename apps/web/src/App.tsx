@@ -15,6 +15,7 @@ import { Ribbon } from './ui/Ribbon.tsx';
 import { StatusBar } from './ui/StatusBar.tsx';
 import { TitleBar } from './ui/TitleBar.tsx';
 import { FamilyEditor } from './ui/familia/FamilyEditor.tsx';
+import { OrcamentoProjeto } from './ui/OrcamentoProjeto.tsx';
 import { useFamilia } from './ui/familia/familiaStore.ts';
 import { Tutorial } from './ui/Tutorial.tsx';
 import { ViewControlBar } from './ui/ViewControlBar.tsx';
@@ -284,6 +285,7 @@ export function App(): ReactElement {
       <TextDialog />
       <FileMenu />
       <FamilyEditor />
+      <OrcamentoProjeto />
     </div>
   );
 }

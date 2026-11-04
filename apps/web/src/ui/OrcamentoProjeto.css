@@ -1,0 +1,7 @@
+/* Janela "Orçamento do projeto": acrescenta às classes do editor de famílias (fam-*) que ela reaproveita. */
+
+.orc-movel-nome { font-weight: 600; }
+
+.orc-avisos { display: flex; flex-direction: column; gap: 2px; }
+.orc-avisos ul { margin: 2px 0 0; padding-left: 18px; }
+.orc-avisos li { padding: 1px 0; overflow-wrap: anywhere; }
