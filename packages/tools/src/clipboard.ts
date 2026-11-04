@@ -1,4 +1,4 @@
-import { isCad, isCeiling, isComponent, isFloor, isGeneric, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, newId, type CadDrawing, type Ceiling, type Command, type Component, type Element, type Familia, type Floor, type Generic, type Id, type Opening, type Project, type Ramp, type Room, type Roof, type Slab, type Stair, type Wall } from '@hestia/model';
+import { isCad, isCeiling, isComponent, isFloor, isGeneric, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, newId, type CadDrawing, type Ceiling, type Command, type Component, type ComponentGroup, type Element, type Familia, type Floor, type Generic, type Id, type Opening, type Project, type Ramp, type Room, type Roof, type Slab, type Stair, type Wall } from '@hestia/model';
 import { pasteAlignedToLevelsCommand } from './pasteLevels/command.ts';
 import type { PasteIds } from './pasteLevels/types.ts';
 
@@ -31,6 +31,11 @@ export interface ClipBuffer {
    * junto por `upsertFamily`, antes das instâncias.
    */
   componentFamilies?: Familia[];
+  /**
+   * Conjuntos cujos membros foram copiados por inteiro (ausente em buffers antigos = nenhum). Conjunto copiado em
+   * parte não entra: os componentes colam soltos.
+   */
+  groups?: ComponentGroup[];
 }
 
 /** Gerador de identificadores; injetável para teste. */
@@ -77,7 +82,12 @@ export function clipboardFrom(p: Project, ids: Id[]): ClipBuffer | null {
     .map((id) => p.componentFamilies?.[id])
     .filter((f): f is Familia => f !== undefined)
     .map((f) => structuredClone(f));
-  return { walls, openings, floors, slabs, ceilings, roofs, stairs, ramps, rooms, generics, cad, components, componentFamilies };
+  // Só o conjunto copiado INTEIRO viaja; um conjunto pela metade cola os componentes soltos.
+  const copiados = new Set(components.map((c) => c.id));
+  const groups = Object.values(p.componentGroups ?? {})
+    .filter((g) => g.membros.length > 0 && g.membros.every((id) => copiados.has(id)))
+    .map((g) => structuredClone(g));
+  return { walls, openings, floors, slabs, ceilings, roofs, stairs, ramps, rooms, generics, cad, components, componentFamilies, groups };
 }
 
 /** Elemento que `clipboardFrom` leva por si só: parede, piso, laje, forro, telhado, escada, rampa, ambiente, genérico, CAD ou componente. */
@@ -153,10 +163,13 @@ export function pasteComponentsCommand(
     present.add(family.id);
   }
   const componentIds: Id[] = [];
+  /** De cada instância copiada para a instância nova: os conjuntos remapeiam os membros por ele. */
+  const novosIds = new Map<Id, Id>();
   for (const c of list) {
     if (!present.has(c.familyId)) continue;
     const id = mint('cm');
     componentIds.push(id);
+    novosIds.set(c.id, id);
     commands.push({
       type: 'addComponent',
       component: {
@@ -176,6 +189,31 @@ export function pasteComponentsCommand(
     });
   }
   if (componentIds.length === 0) return null;
+  // Conjunto copiado inteiro vira um conjunto novo no destino, com os ids novos; a linha acompanha o colar.
+  for (const grupo of clip.groups ?? []) {
+    const membros: Id[] = [];
+    let completo = true;
+    for (const id of grupo.membros) {
+      const novo = novosIds.get(id);
+      if (novo === undefined) {
+        completo = false;
+        break;
+      }
+      membros.push(novo);
+    }
+    if (!completo) continue;
+    commands.push({
+      type: 'upsertComponentGroup',
+      group: {
+        id: mint('g'),
+        nome: `${grupo.nome} (cópia)`,
+        levelId,
+        membros,
+        ...(grupo.linha ? { linha: structuredClone(grupo.linha) } : {}),
+        ...(grupo.regras ? { regras: structuredClone(grupo.regras) } : {}),
+      },
+    });
+  }
   return { command: { type: 'batch', commands }, componentIds };
 }
 
