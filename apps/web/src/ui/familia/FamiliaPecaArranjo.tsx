@@ -1,14 +1,22 @@
 import { arranjoLinear, type Eixo, type Peca } from '@hestia/model';
 import { useState, type ReactElement } from 'react';
 import { executarPeca } from './familiaPecaAviso.ts';
+import { FamiliaPecaContorno } from './FamiliaPecaContorno.tsx';
+import { FamiliaPecaVazio } from './FamiliaPecaVazio.tsx';
 import { PopoverPeca } from './FamiliaPecaPopover.tsx';
 
-/** Grupo "Ações" da peça: arranjo linear (n cópias com passo) sobre um eixo, via `arranjoLinear` do modelo. */
+/**
+ * Grupo "Ações" da peça: arranjo linear (n cópias com passo) sobre um eixo, via `arranjoLinear` do modelo. Como esta é a
+ * única peça do painel de propriedades coberta pela ficha, também monta aqui os grupos novos "Sólido" (vazio) e
+ * "Contorno poligonal" — `FamiliaPaineis.tsx` não estava na lista de arquivos permitidos.
+ */
 
 export function FamiliaPecaArranjo({ peca }: { peca: Peca }): ReactElement {
   const [ancora, setAncora] = useState<DOMRect | null>(null);
   return (
     <>
+      <div className="fam-grp"><div className="fam-gh">Sólido</div><FamiliaPecaVazio peca={peca} /></div>
+      <div className="fam-grp"><div className="fam-gh">Contorno poligonal</div><FamiliaPecaContorno peca={peca} /></div>
       <div className="fam-row acao">
         <span className="fam-acao-rotulo">Repetição</span>
         <button type="button" className="fam-bt" onClick={(e) => setAncora(e.currentTarget.getBoundingClientRect())}>Arranjo linear…</button>
