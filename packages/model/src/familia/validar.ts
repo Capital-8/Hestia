@@ -1,6 +1,7 @@
 import { ordemDeAvaliacao } from './grafo.ts';
 import type { Familia } from './tipos.ts';
 import { validarDuplicados, validarIds, validarLimites, validarObrigatorios } from './validarEstrutura.ts';
+import { validarEncaixe } from './validarEncaixe.ts';
 import { validarFormulas } from './validarFormulas.ts';
 import { validarParametros } from './validarParametros.ts';
 import { validarReferencias } from './validarReferencias.ts';
@@ -72,6 +73,7 @@ export function validarFamilia(f: Familia): Problema[] {
     ...validarFormulas(f),
     ...validarReferencias(f),
     ...validarCiclo(f),
+    ...validarEncaixe(f),
   ];
 }
 
