@@ -11,10 +11,10 @@ WT="$PAI/fam-$ID"
 LOGS="$PAI/logs-fichas"; mkdir -p "$LOGS"
 FICHA="$RAIZ/docs/handoff/componentes/fichas/$ID.md"
 [ -f "$FICHA" ] || { echo "ficha não existe: $FICHA"; exit 1; }
-if [ ! -d "$WT" ]; then git -C "$RAIZ" worktree add "$WT" -b "feat/fam-$ID" "$BASE"; fi
+if [ ! -d "$WT" ]; then git -C "$RAIZ" worktree add "$WT" -b "feat/fam-$ID" "$BASE"; else git -C "$WT" merge --no-edit "$BASE" >/dev/null 2>&1 || true; fi
 (cd "$WT" && [ -d node_modules ] || npm ci --no-audit --no-fund >/dev/null 2>&1)
 cp "$FICHA" "$WT/.ficha.md"  # fora do controle de versão (ver .git/info/exclude do worktree)
 echo ".ficha.md" >> "$(git -C "$WT" rev-parse --git-path info/exclude)"
 cd "$WT"
-opencode run "Execute a ficha anexa (.ficha.md) seguindo as regras anexas. Trabalhe só neste diretório. Termine com tudo commitado e o relatório pedido."   -m opencode-go/deepseek-v4.1-flash --dir "$WT"   -f docs/handoff/regras-gerais.md -f docs/handoff/componentes/REGRAS-FLASH.md -f .ficha.md   > "$LOGS/$ID.log" 2>&1
-echo "executor terminou: $ID (log em $LOGS/$ID.log)"
+opencode run "Execute a ficha anexa (.ficha.md) seguindo as regras anexas. Trabalhe só neste diretório. Termine com tudo commitado e o relatório pedido."   -m "${MODELO:-opencode-go/deepseek-v4.1-flash}" --dir "$WT"   -f docs/handoff/regras-gerais.md -f docs/handoff/componentes/REGRAS-FLASH.md -f .ficha.md   > "$LOGS/$ID.log" 2>&1
+echo "modelo: ${MODELO:-opencode-go/deepseek-v4.1-flash}" >> "$LOGS/$ID.modelo"; echo "executor terminou: $ID (log em $LOGS/$ID.log)"
