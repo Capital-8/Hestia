@@ -1,6 +1,6 @@
 {
-  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`. v3 (sub-etapa A2): colunas novas em `camadas` (material_num, envolve) e `tipos_parede` (wrap_ends, n_faixas), seções `faixas` e `paredes_z` e a consulta `itens_pintados`; as demais seções e consultas não mudaram. v4 (sub-etapa A3a, vãos): seções `tipos_abertura` e `aberturas` e a consulta `aberturas_geom`; as demais não mudaram. Os perfis de topo e base de `wallZRange` NÃO entram em `paredes_z` nesta versão (nenhuma consulta da A3a os lê; entram na A3d, onde `withProfile`/`withBottomProfile` os consomem). v5 (sub-etapa A3b, retornos de acabamento nos vãos): `tipos_parede.wrap_inserts`; `tipos_abertura` ganha janela, fechamento, tem_alizar, estilo_batente, modo_prof, prof_pedida, larg_batente e esp_folha (tudo o que `insertMode` e `insertReturns` leem do tipo da abertura, já resolvido pelo JS); consulta `retornos_geom`; as demais seções e consultas não mudaram. v6 (sub-etapa A3c, faixas verticais e solveCluster): nenhuma seção nova; consulta `cluster_resolvido` (a lista de aberturas que furam a planta, `planOpenings`, viaja como argumento variável). v7 (sub-etapa A3d, ResolvedLevel completo): seção `perfis_z` (pontos dos perfis de topo e de base de `wallZRange`, mais o `topProfile` do modelo, que o JS calcula e envia; uma lista por parede é uma lista de linhas, por isso é uma seção à parte e não colunas de `paredes_z`) e consulta `resolver_nivel` (tudo o que `resolveLevel` devolve: campos de ResolvedWall, camadas com faixas já recortadas pelos perfis, membranas, regiões e silhueta). As demais seções e consultas não mudaram. v8 (sub-etapa B1 da fatia B, decisão 0050): seções pisos, lajes, tipos_piso, tipos_laje, camadas_piso, camadas_laje, contornos_estaticos, contornos_vinculados e furos_nivel e a consulta pisos_lajes_nivel (resolveFloors e resolveSlabs; os circuitos dos vinculados e os furos de escada e rampa chegam do JS já calculados; os términos que dependem de paredes ficam para a B2). As demais seções e consultas não mudaram. v9 (sub-etapa B2 da fatia B, decisão 0050): seção `niveis` (cota de cada nível, para a adjacência de níveis acima e abaixo que as lajes usam) e consulta `pisos_lajes_com_paredes` (resolveFloors e resolveSlabs COM as paredes do projeto: o Rust aplica regionMinusWalls e regionPlusWalls com as paredes resolvidas do nível, por dentro, sem precisa_paredes; a consulta pisos_lajes_nivel da B1 segue igual). As demais seções e consultas não mudaram. v10 (sub-etapa B3 da fatia B, decisão 0050): seções `paredes_z_juncao` e `perfis_z_juncao` (a cota e os perfis das paredes na variante da JUNÇÃO, sem flatAttach: a junção usa `resolveLevel(p, nivel)` padrão para as faixas de parede, enquanto o término por camada de piso e laje usa `flatAttach`) e a consulta `junction_nivel` (levelCutterSet e junctionLevel: cortadores por nível e junção resolvida de camadas de piso, laje e faixas de parede). As demais seções e consultas não mudaram.",
-  "versao": 10,
+  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`. v3 (sub-etapa A2): colunas novas em `camadas` (material_num, envolve) e `tipos_parede` (wrap_ends, n_faixas), seções `faixas` e `paredes_z` e a consulta `itens_pintados`; as demais seções e consultas não mudaram. v4 (sub-etapa A3a, vãos): seções `tipos_abertura` e `aberturas` e a consulta `aberturas_geom`; as demais não mudaram. Os perfis de topo e base de `wallZRange` NÃO entram em `paredes_z` nesta versão (nenhuma consulta da A3a os lê; entram na A3d, onde `withProfile`/`withBottomProfile` os consomem). v5 (sub-etapa A3b, retornos de acabamento nos vãos): `tipos_parede.wrap_inserts`; `tipos_abertura` ganha janela, fechamento, tem_alizar, estilo_batente, modo_prof, prof_pedida, larg_batente e esp_folha (tudo o que `insertMode` e `insertReturns` leem do tipo da abertura, já resolvido pelo JS); consulta `retornos_geom`; as demais seções e consultas não mudaram. v6 (sub-etapa A3c, faixas verticais e solveCluster): nenhuma seção nova; consulta `cluster_resolvido` (a lista de aberturas que furam a planta, `planOpenings`, viaja como argumento variável). v7 (sub-etapa A3d, ResolvedLevel completo): seção `perfis_z` (pontos dos perfis de topo e de base de `wallZRange`, mais o `topProfile` do modelo, que o JS calcula e envia; uma lista por parede é uma lista de linhas, por isso é uma seção à parte e não colunas de `paredes_z`) e consulta `resolver_nivel` (tudo o que `resolveLevel` devolve: campos de ResolvedWall, camadas com faixas já recortadas pelos perfis, membranas, regiões e silhueta). As demais seções e consultas não mudaram. v8 (sub-etapa B1 da fatia B, decisão 0050): seções pisos, lajes, tipos_piso, tipos_laje, camadas_piso, camadas_laje, contornos_estaticos, contornos_vinculados e furos_nivel e a consulta pisos_lajes_nivel (resolveFloors e resolveSlabs; os circuitos dos vinculados e os furos de escada e rampa chegam do JS já calculados; os términos que dependem de paredes ficam para a B2). As demais seções e consultas não mudaram. v9 (sub-etapa B2 da fatia B, decisão 0050): seção `niveis` (cota de cada nível, para a adjacência de níveis acima e abaixo que as lajes usam) e consulta `pisos_lajes_com_paredes` (resolveFloors e resolveSlabs COM as paredes do projeto: o Rust aplica regionMinusWalls e regionPlusWalls com as paredes resolvidas do nível, por dentro, sem precisa_paredes; a consulta pisos_lajes_nivel da B1 segue igual). As demais seções e consultas não mudaram. v10 (sub-etapa B3 da fatia B, decisão 0050): seções `paredes_z_juncao` e `perfis_z_juncao` (a cota e os perfis das paredes na variante da JUNÇÃO, sem flatAttach: a junção usa `resolveLevel(p, nivel)` padrão para as faixas de parede, enquanto o término por camada de piso e laje usa `flatAttach`) e a consulta `junction_nivel` (levelCutterSet e junctionLevel: cortadores por nível e junção resolvida de camadas de piso, laje e faixas de parede). As demais seções e consultas não mudaram. v11 (sub-etapa B3, saída 3 da 0050): seções `faixas_juncao` (22) e `pontos_faixas_juncao` (23), a partição vertical das faixas de parede já resolvida pelo JS (`resolveLevel` padrão, DEPOIS do perfil superior e do perfil de base: as faixas que `wallLayerBandsAfterJunction` devolve), com a região de cada faixa; o Rust da consulta `junction_nivel` usa essas faixas no lugar de recalcular os pontos de quebra quando a seção `faixas_juncao` está definida, e só executa os recortes de piso e laje. Sem a seção, vale o cálculo anterior (`paredes_z_juncao`, `perfis_z_juncao`). As demais seções e consultas não mudaram.",
+  "versao": 11,
   "abi": 2,
   "tipos": {
     "u32": {
@@ -864,6 +864,126 @@
           "tipo": "f64"
         }
       ]
+    },
+    {
+      "id": 22,
+      "nome": "faixas_juncao",
+      "chave": "id_num",
+      "descricao": "Faixas verticais de parede da junção (B3, saída 3 da 0050): uma linha por faixa, na ordem em que o TypeScript as devolve (paredes na ordem de `Object.values(resolveLevel(p, nivel).walls)`, camadas na ordem de `layers` e faixas na ordem de `bands`, já recortadas pelo perfil superior e pelo de base). nivel_num: nível da parede (o mesmo de `niveis`). parede_num: id_num da parede em `paredes`. camada: layerIndex; banda: índice da faixa dentro da camada (chave `camada/banda` da junção). prioridade e nucleo: da camada. base_z: cota absoluta da base da parede (rw.baseZ); z0 e z1: alturas RELATIVAS à base (como LayerBand). inclinada 0: topo plano em z1; inclinada 1: topo `h0 + (h1 - h0) * ((d . (p - o)) - t0) / (t1 - t0)` com o=(o_x, o_y), d=(d_x, d_y); os campos de inclinação valem 0 quando inclinada = 0. A região da faixa vem em `pontos_faixas_juncao`. Uma parede sem linha aqui não tem faixa na junção; a seção definida (mesmo vazia) manda sobre o cálculo anterior.",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "nivel_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "parede_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "camada",
+          "tipo": "u32"
+        },
+        {
+          "nome": "banda",
+          "tipo": "u32"
+        },
+        {
+          "nome": "prioridade",
+          "tipo": "f64"
+        },
+        {
+          "nome": "nucleo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "base_z",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z0",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z1",
+          "tipo": "f64"
+        },
+        {
+          "nome": "inclinada",
+          "tipo": "u8"
+        },
+        {
+          "nome": "o_x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "o_y",
+          "tipo": "f64"
+        },
+        {
+          "nome": "d_x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "d_y",
+          "tipo": "f64"
+        },
+        {
+          "nome": "t0",
+          "tipo": "f64"
+        },
+        {
+          "nome": "t1",
+          "tipo": "f64"
+        },
+        {
+          "nome": "h0",
+          "tipo": "f64"
+        },
+        {
+          "nome": "h1",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "nome": "pontos_faixas_juncao",
+      "chave": "id_num",
+      "descricao": "Região de cada faixa de `faixas_juncao`, uma linha por vértice (B3, saída 3): faixa_num é o id_num da faixa; poligono, o índice do polígono dentro da faixa (0 em diante, na ordem do MultiPolygon); anel, o índice do anel (0 = contorno, k >= 1 = furo, na ordem do polígono); indice, a posição do vértice no anel. Os anéis são guardados como o TypeScript os tem (fechados ou não, sem reordenar). Uma faixa sem linha aqui tem região vazia.",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "faixa_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "poligono",
+          "tipo": "u32"
+        },
+        {
+          "nome": "anel",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "y",
+          "tipo": "f64"
+        }
+      ]
     }
   ],
   "consultas": [
@@ -1451,7 +1571,7 @@
     {
       "id": 12,
       "nome": "junction_nivel",
-      "descricao": "Sub-etapa B3: `levelCutterSet` (junctionNet.ts) e `junctionLevel` (junctionLevel.ts) de um nível. Cortadores: os pisos, as lajes e as faixas de parede do próprio nível (sempre) mais os de OUTROS níveis (seção `niveis`, na ordem de nivel_num) que tocam a faixa de cota do nível (peças `external`: só cortam, e só parede x piso/laje); ordem: pisos, lajes e paredes, o próprio nível primeiro e depois cada outro nível. Pisos e lajes vêm de `pisos_lajes_com_paredes` (B2) de cada nível; as faixas de parede, de `resolver_nivel` (A3d) sobre a variante da JUNÇÃO (`paredes_z_juncao`, `perfis_z_juncao`, sem flatAttach). O cortador do próprio nível para paredes é sempre um só (mesmo sem peças); os de outros níveis só saem com peças. Junção: `resolveJunction` sobre as peças com `meta` (laje inclinada fica fora; membrana, de espessura zero, também), com `winsOver` (núcleo, prioridade, tipo, explícita), `zOverlaps` e as partes por camada (a camada perde a região das que a vencem, por faixa de cota). `cut` = alguma camada perdeu volume (tolerância 1e-9 m³); `region` = união das partes (só com `cut`). Peças externas não saem na junção. Paredes: só faixas planas entram nas faixas de junção. As booleanas usam 1 nm (ESCALA_FINA). Nível sem a seção `niveis` não tem vizinhos. tol_juncao >= 0 (a de `resolver_nivel`). nivel_num = 0xFFFFFFFF = ENTRADA.",
+      "descricao": "Sub-etapa B3: `levelCutterSet` (junctionNet.ts) e `junctionLevel` (junctionLevel.ts) de um nível. Cortadores: os pisos, as lajes e as faixas de parede do próprio nível (sempre) mais os de OUTROS níveis (seção `niveis`, na ordem de nivel_num) que tocam a faixa de cota do nível (peças `external`: só cortam, e só parede x piso/laje); ordem: pisos, lajes e paredes, o próprio nível primeiro e depois cada outro nível. Pisos e lajes vêm de `pisos_lajes_com_paredes` (B2) de cada nível; as faixas de parede, de `resolver_nivel` (A3d) sobre a variante da JUNÇÃO (`paredes_z_juncao`, `perfis_z_juncao`, sem flatAttach). O cortador do próprio nível para paredes é sempre um só (mesmo sem peças); os de outros níveis só saem com peças. Junção: `resolveJunction` sobre as peças com `meta` (laje inclinada fica fora; membrana, de espessura zero, também), com `winsOver` (núcleo, prioridade, tipo, explícita), `zOverlaps` e as partes por camada (a camada perde a região das que a vencem, por faixa de cota). `cut` = alguma camada perdeu volume (tolerância 1e-9 m³); `region` = união das partes (só com `cut`). Peças externas não saem na junção. Paredes: só faixas planas entram nas faixas de junção. As booleanas usam 1 nm (ESCALA_FINA). Nível sem a seção `niveis` não tem vizinhos. tol_juncao >= 0 (a de `resolver_nivel`). nivel_num = 0xFFFFFFFF = ENTRADA. Na v11, as faixas de parede vêm de `faixas_juncao` e `pontos_faixas_juncao` quando a seção `faixas_juncao` está definida (a partição e a região já resolvidas pelo TS); sem ela, o cálculo anterior.",
       "args": [
         "nivel_num",
         "tol_juncao"
