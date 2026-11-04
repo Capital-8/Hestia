@@ -17,7 +17,7 @@ export const TAB_ARQUITETURA: RibbonTab = {
       tool('component', 'large', { label: t('Componente', 'Component') }),
       act('componentLibrary', 'large', t('Biblioteca', 'Library')),
       stack(act('groupComponents', 'small', t('Agrupar', 'Group')), act('ungroupComponents', 'small', t('Desagrupar', 'Ungroup'))),
-      stack(act('familyEditor', 'small', t('Editor de famílias', 'Family Editor')), act('componentBudget', 'small', t('Orçamento', 'Budget'))),
+      stack(act('familyEditor', 'small', t('Editor de famílias', 'Family Editor')), act('componentBudget', 'small', t('Orçamento', 'Budget')), act('componentRun', 'small', t('Fila', 'Run'))),
       soon(t('Pilar', 'Column'), 'column'),
       split(tool('roof', 'large', { label: t('Telhado', 'Roof'), icon: 'roof' }), [
         tool('roof', 'small', { label: t('Telhado por perímetro', 'Roof by Footprint') }),

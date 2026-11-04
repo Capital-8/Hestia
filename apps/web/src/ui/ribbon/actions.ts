@@ -19,6 +19,7 @@ import { gridToolOf } from '../gridUi.ts';
 import { idPerimetroEditavel } from '../perimeter/perimeterEditavel.ts';
 import { useFamilia } from '../familia/familiaStore.ts';
 import { usePaletaMoveis } from '../PaletaMoveis.tsx';
+import { useMontarFila } from '../MontarFila.tsx';
 import { useOrcamento } from '../OrcamentoProjeto.tsx';
 import { t, type ActionId, type Txt } from './model.ts';
 
@@ -384,17 +385,13 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   levels: { label: t('Gerenciar níveis', 'Manage Levels'), icon: 'level', hint: t('Cria e edita os níveis do projeto.', 'Create and edit project levels.'), run: openDialog('levels') },
   levelTool: { label: t('Nível (LL)', 'Level (LL)'), icon: 'level', hint: t('Cria um nível no corte ou elevação: clique no início e no fim da linha horizontal.', 'Creates a level in a section or elevation.'), run: () => editor.setTool('level') },
   lineWeights: { label: t('Espessuras de linha', 'Line Weights'), icon: 'detail', hint: t('Pesos de linha por escala, por categoria e limites de detalhe.', 'Line weights by scale and category.'), run: openDialog('lineWeights') },
-  units: {
-    label: t('Unidades do projeto', 'Project Units'),
-    icon: 'type',
-    hint: t('Unidades de comprimento, área, volume, ângulo e inclinação do projeto.', 'Project units for length, area, volume, angle and slope.'),
-    shortcut: 'unidades', run: openDialog('units'),
-  },
+  units: { label: t('Unidades do projeto', 'Project Units'), icon: 'type', hint: t('Unidades de comprimento, área, volume, ângulo e inclinação do projeto.', 'Project units for length, area, volume, angle and slope.'), shortcut: 'unidades', run: openDialog('units') },
   shortcutsConfig: { label: t('Atalhos de teclado…', 'Keyboard Shortcuts…'), icon: 'help', run: openDialog('shortcutsConfig') },
   shortcuts: { label: t('Lista de atalhos', 'Shortcut List'), icon: 'help', run: openDialog('shortcuts') },
   familyEditor: { label: t('Editor de famílias', 'Family Editor'), icon: 'component', hint: t('Abre o editor de famílias numa aba, sem fechar o projeto.', 'Opens the family editor in a tab without closing the project.'), run: () => useFamilia.getState().abrir() },
   componentLibrary: { label: t('Biblioteca', 'Library'), icon: 'component', hint: t('Paleta de móveis: arraste para a planta ou o 3D, ou clique para usar a ferramenta Componente.', 'Furniture palette: drag into plan or 3D, or click to use the Component tool.'), run: () => usePaletaMoveis.getState().alternar(), pressed: () => usePaletaMoveis.getState().aberta },
   componentBudget: { label: t('Orçamento do projeto', 'Project Budget'), icon: 'component', hint: t('Soma peças, ferragens e custo de todos os componentes do projeto.', 'Sums parts, hardware and cost of every component in the project.'), run: () => useOrcamento.getState().abrir() },
+  componentRun: { label: t('Montar fila', 'Build Run'), icon: 'component', hint: t('Monta uma fila de módulos contra a face de uma parede reta selecionada.', 'Builds a run of modules against the face of a selected straight wall.'), run: () => useMontarFila.getState().abrir() },
   schedWalls: sched(t('Tabela de paredes', 'Wall Schedule'), 'schedule'),
   schedFloors: sched(t('Tabela de pisos', 'Floor Schedule'), 'floorSchedule'),
   schedSlabs: sched(t('Tabela de lajes', 'Slab Schedule'), 'slabSchedule'),
