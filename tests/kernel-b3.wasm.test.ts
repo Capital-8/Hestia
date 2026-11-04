@@ -32,9 +32,6 @@ import { projetoDeEstresseB1 } from '../scripts/kernel-b1-estresse.mts';
  */
 const K_B3_0049 = Number(process.env['B3_K'] ?? 0.14);
 const SEMENTES = Number(process.env['B3_SEMENTES'] ?? 5);
-/** `B3_FAIXAS=1` compara as faixas de parede da junção (estrito); sem ela vale a pendência de partição registrada em 0050. */
-const FAIXAS = process.env['B3_FAIXAS'] === '1';
-let pendentesFaixas = 0;
 
 /** Modo de MEDIÇÃO (B3_MEDIR=1): junta todas as divergências e imprime o resumo no fim. */
 const MEDIR = process.env['B3_MEDIR'] === '1';
@@ -43,7 +40,6 @@ const maior = { sim: 0, k: 0, casoSim: '', casoK: '' };
 const memo = new Map<string, { p: Project; cena: CenaV2; a1: ReturnType<typeof montarCenaA1>; b: ReturnType<typeof montarCenaB1>; b3: ReturnType<typeof montarCenaB3> }>();
 afterAll(() => {
   for (const m of memo.values()) m.cena.destruir();
-  console.log(`[B3 faixas de parede da junção pendentes (partição das faixas, ver 0050): ${pendentesFaixas}]`);
   console.log(`[B3 medido] maior simétrica ${maior.sim} m² (${maior.casoSim}); maior K ${maior.k} (${maior.casoK})`);
   if (MEDIR) console.log(['[B3 medição] ' + medidas.length + ' divergências', ...medidas.map((m) => m.slice(0, 700))].join('\n'));
 });
@@ -144,9 +140,8 @@ function compararProjeto(p: Project, rotulo = p.name, niveis?: readonly string[]
       if (niveis && !niveis.includes(l.id)) continue;
       const ref = referenciaB3(p, l.id, b, a1);
       const rust = decodificarB3(cena.consultar('junction_nivel', argumentosB3(p, l.id, b)));
-      const cmp = compararB3(ref, rust, { k0049: K_B3_0049, faixasDeParede: FAIXAS });
+      const cmp = compararB3(ref, rust, { k0049: K_B3_0049 });
       const nome = `${rotulo} ${l.id}`;
-      pendentesFaixas += cmp.pendentes.length;
       if (cmp.maxSimetrica > maior.sim) Object.assign(maior, { sim: cmp.maxSimetrica, casoSim: nome });
       if (cmp.maxK > maior.k) Object.assign(maior, { k: cmp.maxK, casoK: nome });
       if (MEDIR) medidas.push(...cmp.divergencias.map((d) => `${nome}: ${d}`));
@@ -267,7 +262,7 @@ describe.skipIf(!bytes)('B3: junction_nivel do Rust x levelCutterSet e junctionL
       const args = argumentosB3(p, l.id, base.b);
       const rust = decodificarB3(base.cena.consultar('junction_nivel', args));
       expect(comparavelB3(decodificarB3(todas.cena.consultar('junction_nivel', args)))).toEqual(comparavelB3(rust));
-      expect(compararB3(referenciaB3(p, l.id, base.b, base.a1), rust, { k0049: K_B3_0049, faixasDeParede: FAIXAS }).divergencias).toEqual([]);
+      expect(compararB3(referenciaB3(p, l.id, base.b, base.a1), rust, { k0049: K_B3_0049 }).divergencias).toEqual([]);
       if (nivel === 0) expect(todas.b3.comVariante).toBeGreaterThan(base.b3.comVariante);
     }, 90_000);
   }

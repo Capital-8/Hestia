@@ -7,7 +7,7 @@ import { intersection, orientedRect, union, type MultiPolygon, type Vec2 } from 
 import { areaDaForma } from './kernelComparaA2.ts';
 import { poligonoIgualB1, TOLERANCIA_B1 } from './kernelComparaB.ts';
 import { LIMIAR_FIAPO } from './kernelComparaA3c.ts';
-import type { JuncaoB3, ParteB3, PecaB3 } from './kernelB3.ts';
+import type { JuncaoB3, ParedeJuncaoB3, ParteB3, PecaB3 } from './kernelB3.ts';
 
 /**
  * Item inteiro de área abaixo do fiapo de arredondamento (0049, regra 2): a peça, a parte ou a faixa cujo polígono é só um fiapo. Existe de um lado e não do
@@ -26,12 +26,6 @@ export interface OpcoesCompararB3 {
   /** `K` da 0049 (limite `1e-5 + K x perímetro x 1e-6`); sem valor, só vale a tolerância geral (1e-6 m²). */ // units-ok: diagnóstico do kernel (tolerância em metros quadrados), não é texto de interface
   k0049?: number;
   maxDivergencias?: number;
-  /**
-   * Comparar as faixas de parede da junção (`faixas`, `corte` das paredes). Falso: as divergências vão para `pendentes`, sem reprovar. Motivo (0050, "B3
-   * entregue"): a partição das faixas verticais não é canônica (fusão do TS por `sigOf` sobre a saída do `polygon-clipping` x A3c do Rust) e a junção só
-   * guarda as faixas PLANAS, então uma faixa que o TS recorta como inclinada pode sair plana, em duas, no Rust.
-   */
-  faixasDeParede?: boolean;
 }
 
 export interface SemParB3 {
@@ -69,8 +63,6 @@ export interface ComparacaoB3 {
   semPar: SemParB3;
   /** Itens-fiapo sem par (0049, regra 2 estendida aos itens: ver `FiapoB3`). */
   fiapo: FiapoB3;
-  /** Divergências das faixas de parede da junção quando `faixasDeParede` é falso. */
-  pendentes: string[];
 }
 
 export const comparacaoB3Vazia = (): ComparacaoB3 => ({
@@ -98,7 +90,6 @@ export const comparacaoB3Vazia = (): ComparacaoB3 => ({
   desvioMaximo: 0,
   semPar: { n: 0, max: 0, acima1e4: 0, acima1e3: 0, resolvidos: 0, fiapos: 0 },
   fiapo: { pecas: 0, partes: 0, faixas: 0, maiorArea: 0 },
-  pendentes: [],
 });
 
 /**
@@ -191,7 +182,7 @@ function alturasElementares(pecas: readonly PecaB3[]): number[] {
 }
 
 
-/** Compara a saída do Rust (`rust`) com a referência (`ref`): cortadores, peças, elementos, camadas, partes, paredes e faixas. */
+/** Compara a saída do Rust (`rust`) com a referência (`ref`): cortadores, peças, elementos, camadas, partes, paredes e o resultado final das faixas de parede por altura (sempre bloqueante). */
 export function compararB3(ref: JuncaoB3, rust: JuncaoB3, opcoes: OpcoesCompararB3 = {}): ComparacaoB3 {
   const max = opcoes.maxDivergencias ?? 20;
   const r = comparacaoB3Vazia();
@@ -359,54 +350,94 @@ export function compararB3(ref: JuncaoB3, rust: JuncaoB3, opcoes: OpcoesComparar
     });
   }
 
-  const pendentes = opcoes.faixasDeParede === false;
-  const falhaGeral = falha;
-  const pend = (m: string): void => {
-    if (!pendentes) falhaGeral(m);
-    else if (r.pendentes.length < max) r.pendentes.push(m);
+  /**
+   * Faixas de parede da junção: compara o RESULTADO FINAL da camada de parede por altura elementar, SEMPRE bloqueante. Comparar faixa a faixa (ou só a
+   * região das partes) não tem sentido aqui: a partição vertical não é canônica (fusão do TS por `sigOf` sobre a saída do `polygon-clipping` x A3c do
+   * Rust) e a junção só guarda as faixas PLANAS, então o TS pode recortar um bloco plano que o Rust representa como faixas inclinadas que cobrem a
+   * mesma região (diagnóstico da pendência de 0050, "B3 entregue"). Regra (a mesma de `wallLayerBandsAfterJunction` em `junctionLevel.ts`): cada faixa
+   * da camada sai com as PARTES da junção quando ela as tem (parede cortada e faixa plana com entrada na junção) ou com a FAIXA INTEIRA quando não.
+   * Em cada altura elementar (união dos pontos de quebra verticais dos DOIS lados: cotas das faixas próprias, dos vértices com `span`, e das partes) a
+   * região final dos dois lados se compara por diferença simétrica a 1e-6 m², com a 0049 só quando é arredondamento (K medido). A flag `corte` não é
+   * comparada isolada: vale a geometria final (um `corte` que não muda a região não reprova, uma mudança de região sem `corte` reprova).
+   */
+  const propriasPorParede = (j: JuncaoB3): Map<number, Map<number, PecaB3[]>> => {
+    const m = new Map<number, Map<number, PecaB3[]>>();
+    for (const c of j.cortadores) {
+      if (c.tipo !== 0) continue;
+      for (const p of c.pecas) {
+        if (p.externa || !p.meta) continue;
+        const camadas = m.get(p.meta.dono) ?? new Map<number, PecaB3[]>();
+        camadas.set(p.meta.camada, [...(camadas.get(p.meta.camada) ?? []), p]);
+        m.set(p.meta.dono, camadas);
+      }
+    }
+    return m;
   };
-  const poligonoP = (rotulo: string, x: MultiPolygon, y: MultiPolygon): void => {
-    if (!pendentes) return poligono(rotulo, x, y);
-    const c = poligonoIgualB1(x, y, opcoes.k0049);
-    if (c.erro && r.pendentes.length < max) r.pendentes.push(`${rotulo}: ${c.erro}`);
+  const propA = propriasPorParede(ref);
+  const propB = propriasPorParede(rust);
+  /** Partes guardadas pela junção por `(camada, banda)`, como `wallBandCut`: nada quando a parede não foi cortada. */
+  const partesPorBanda = (w: ParedeJuncaoB3): Map<number, Map<number, ParteB3[]>> => {
+    const m = new Map<number, Map<number, ParteB3[]>>();
+    if (w.corte) for (const f of w.faixas) m.set(f.camada, new Map([...(m.get(f.camada) ?? []), [f.banda, f.partes] as const]));
+    return m;
+  };
+  /** Região final da camada na altura `z`: partes quando a faixa as tem, senão a faixa inteira (topo inclinado por `regiaoNaAltura`). */
+  const regiaoFinalDaCamada = (bandas: readonly PecaB3[], fp: Map<number, ParteB3[]> | undefined, z: number): MultiPolygon => {
+    const partes: MultiPolygon[] = [];
+    for (const p of bandas) {
+      const banda = p.meta?.banda;
+      const ps = banda === undefined || banda === null ? undefined : fp?.get(banda);
+      if (ps) {
+        for (const x of ps) if (x.z0 <= z && z <= x.z1 && x.poligono.length) partes.push(x.poligono);
+        continue;
+      }
+      const ra = regiaoNaAltura([p], z);
+      if (ra.length) partes.push(ra);
+    }
+    return partes.length ? union(...partes) : [];
   };
   if (ref.paredes.length !== rust.paredes.length) {
-    pend(`${rust.paredes.length} paredes na junção (Rust) x ${ref.paredes.length} (TS)`);
+    falha(`${rust.paredes.length} paredes na junção (Rust) x ${ref.paredes.length} (TS)`);
   } else {
     ref.paredes.forEach((a, i) => {
       const b = rust.paredes[i]!;
       const nome = `parede ${i} (${a.parede})`;
       r.paredes++;
       if (a.corte) r.paredesCortadas++;
-      if (a.parede !== b.parede) return pend(`${nome}: identidade ${b.parede} (Rust)`);
-      if (a.corte !== b.corte) pend(`${nome}: corte ${b.corte} (Rust) x ${a.corte} (TS)`);
-      // as faixas de uma camada de parede se comparam pela região das partes em alturas elementares (a partição em faixas não é canônica: ver `paredesDoCortador`)
-      const camadas = (fx: typeof a.faixas): Map<number, ParteB3[]> => {
-        const m = new Map<number, ParteB3[]>();
-        for (const f of fx) m.set(f.camada, [...(m.get(f.camada) ?? []), ...f.partes]);
-        return m;
-      };
-      const ca = camadas(a.faixas);
-      const cb = camadas(b.faixas);
-      if ([...ca.keys()].join('|') !== [...cb.keys()].join('|')) return pend(`${nome}: camadas com faixa ${[...cb.keys()].join(',')} (Rust) x ${[...ca.keys()].join(',')} (TS)`);
-      for (const [camada, pa] of ca) {
-        const pb = cb.get(camada)!;
+      if (a.parede !== b.parede) return falha(`${nome}: identidade ${b.parede} (Rust)`);
+      const ca = propA.get(a.parede);
+      const cb = propB.get(b.parede);
+      if (!ca || !cb) return falha(`${nome}: parede ${ca ? 'com' : 'SEM'} faixas próprias no cortador (TS) x ${cb ? 'com' : 'SEM'} (Rust)`);
+      const ka = [...ca.keys()];
+      const kb = [...cb.keys()];
+      if (ka.join('|') !== kb.join('|')) return falha(`${nome}: camadas de parede ${kb.join(',')} (Rust) x ${ka.join(',')} (TS)`);
+      const fpA = partesPorBanda(a);
+      const fpB = partesPorBanda(b);
+      for (const camada of ka) {
         r.faixas++;
-        const zs = [...new Set([...pa, ...pb].flatMap((x) => [x.z0, x.z1]))].sort((x, y) => x - y);
+        const bandasA = ca.get(camada)!.filter((x) => areaDaForma(x.poligono) > 1e-6);
+        const bandasB = cb.get(camada)!.filter((x) => areaDaForma(x.poligono) > 1e-6);
+        const pa = fpA.get(camada);
+        const pb = fpB.get(camada);
+        const zs: number[] = [];
+        for (const [bandas, ps] of [[bandasA, pa], [bandasB, pb]] as const) {
+          for (const p of bandas) {
+            if (p.faixa) zs.push(p.faixa[0], p.faixa[1]);
+            for (const poly of p.poligono) for (const anel of poly) for (const v of anel) zs.push(...p.span(v));
+          }
+          for (const lista of ps ? [...ps.values()] : []) for (const x of lista) zs.push(x.z0, x.z1);
+        }
+        zs.sort((x, y) => x - y);
         const pontos: number[] = [];
         for (const z of zs) if (pontos.length === 0 || z - pontos[pontos.length - 1]! > 1e-6) pontos.push(z);
-        const regiao = (ps: ParteB3[], z: number): MultiPolygon => {
-          const h = ps.filter((x) => x.z0 <= z && z <= x.z1).map((x) => x.poligono);
-          return h.length ? union(...h) : [];
-        };
-        for (let i = 0; i + 1 < pontos.length; i++) {
-          for (const k of [0.25, 0.5, 0.75]) {
-            const z = pontos[i]! + k * (pontos[i + 1]! - pontos[i]!);
-            const ra = regiao(pa, z);
-            const rb = regiao(pb, z);
+        for (let k = 0; k + 1 < pontos.length; k++) {
+          for (const q of [0.25, 0.5, 0.75]) {
+            const z = pontos[k]! + q * (pontos[k + 1]! - pontos[k]!);
+            const ra = regiaoFinalDaCamada(bandasA, pa, z);
+            const rb = regiaoFinalDaCamada(bandasB, pb, z);
             if (ra.length === 0 && rb.length === 0) continue;
-            r.partes++;
-            poligonoP(`${nome}, camada ${camada}, altura ${z}: partes`, ra, rb);
+            r.regioes++;
+            poligono(`${nome}, camada ${camada}, altura ${z}: região final da camada`, ra, rb);
           }
         }
       }
