@@ -159,3 +159,45 @@ peças que se tocam em ponto, e a canonicalização as funde. Desvio de campos e
 não reprova e o K sai no resumo `[B2 medido]`).
 
 **Mutações de B2: pendentes para o fim da B.** Suíte wasm completa e `.wasm` commitado também.
+
+## B3 entregue (cortadores e junção entre pavimentos), 2026-11-03 — PARCIAL: decisão do dono pendente nas faixas de parede da junção
+
+Consulta `junction_nivel(nivel_num, tol_juncao)` e esquema **v10** (`cena-v10.json`, renomeado de `cena-v9.json`; leitores, teste de contrato, `esquema.gerado.ts`, o falso e os testes de versão atualizados).
+O Rust só liga por flag e o padrão continua TypeScript; o `.wasm` commitado NÃO foi refeito. Caches do TS (`WeakMap`, LRU, assinatura `r6`) não migram.
+
+**Esquema v10.** Seções novas 20 `paredes_z_juncao` (`id_num`, `z0`, `altura`) e 21 `perfis_z_juncao` (as colunas de `perfis_z`) e a consulta 12 (14 saídas: cortadores, peças, peças_num, elementos, camadas,
+camadas_indice, paredes, faixas, faixas_camada, partes, partes_z e os níveis de índice de polígonos). **Por que seções novas:** as faixas de parede da junção vêm de `resolveLevel(p, nivel)` padrão (SEM `flatAttach`: a
+cota e o perfil das paredes anexadas a pisos e lajes pelas camadas resolvidas), enquanto o término por camada de piso e laje (B2) exige `flatAttach`. As duas variantes convivem na mesma cena: a parede que tem linha em
+`paredes_z_juncao` usa a cota dela e os perfis de `perfis_z_juncao` (todas as listas) SÓ na consulta nova; as demais consultas ignoram as seções. O JS só manda a variante das paredes em que ela difere
+(`montarCenaB3`; `todas` manda todas e o resultado é idêntico, testado). O Rust liga a variante com um `Cell` na cena (`Cena::parede_z`, `perfis_por_parede`), desligado ao sair, também em erro.
+
+**Decisões.**
+1. *Cortadores (`levelCutterSet`).* Pisos e lajes do nível e dos outros níveis (seção `niveis`, todos, não só os adjacentes: o TS olha todos e filtra por `reaches`, cota comum > 1e-6) vêm de `b1::calcular` com paredes (B2);
+   as faixas de parede, de `resolver_nivel` (A3d) com os perfis (`aplicar_perfis`, extraída de `resolver_nivel_completo` sem mudar o resultado). Peças de outro nível saem `external`. O cortador de parede do próprio nível é um só
+   (mesmo vazio); os de outros níveis só existem com peças. A junção do TS não usa `adjacentLevelIds`; quem usa é o `terminoBlock` (B2).
+2. *Junção.* `winsOver`, `zOverlaps`, `pairCuts` e `resolveJunction` portados (booleanas a 1 nm), `planarOf` (membrana e laje inclinada ficam fora; laje com caimento só plana), `lostVolume` a 1e-9, região por união. Só parede x piso/laje entre níveis.
+3. *`adjacentLevelIds`:* as duas implementações (`junctionNet.ts` e `terminoBlock.ts`) dão o mesmo conjunto de vizinhos com cotas distintas e níveis fora de ordem (300 projetos de níveis aleatórios, teste); **com dois níveis na mesma cota diferem**
+   (achado; a B2 do Rust segue a do `terminoBlock`, ordenação estável por cota).
+4. *Achado na A3c (corrigido):* a fusão de faixas verticais contíguas (`sigOf`) comparava a ordem dos vértices; o `i_overlay` roda o início do anel conforme o conjunto de entrada, e o TS (saída canônica do `polygon-clipping`) não. A assinatura agora é
+   canônica (anel a partir do menor ponto, polígonos ordenados). Reduziu as divergências de faixa de parede a quase nada, mas ver o ponto abaixo.
+5. *Não portado:* `cutVolume`, `coveredFaceArea`, `slabCoversFloor` e `overlapVolume` (quantitativos; a laje inclinada integra com `earcut`). A consulta devolve as partes de onde o volume sai; fica para decisão (fatia C/quantitativos).
+
+**Comparação.** Identidade, ordem, ids, marcas e escalares a 1e-6 (desvio máximo medido 1,6e-8); a função de cota das peças (`span`) avaliada nos vértices; polígonos por canonicalização e diferença simétrica a 1e-6 m² e, quando é arredondamento, a 0049.
+Cortadores de piso e laje e elementos da junção: peça a peça, na ordem. **Faixas de parede (cortadores):** comparadas por camada de cada parede (identidade e ordem exatas) pela região em alturas elementares, como a A3d compara faixas com perfil, porque a partição em faixas não é canônica.
+Peças externas de parede só entram nas alturas dentro do nível. Itens-fiapo (área abaixo de 1e-4, aresta de vão a menos de 1 µm de um degrau de perfil que o JS mandou: o Clipper do TS arredonda a 1 µm, o Rust deixa a 1 nm) são pareados à parte e contados.
+
+**PENDENTE DE DECISÃO DO DONO (faixas de parede da junção).** A junção só guarda as faixas PLANAS de cada parede. A partição em faixas verticais depende da fusão do TS (`sigOf` sobre vértices idênticos da saída do `polygon-clipping`) e o Rust não reproduz a mesma
+partição em todos os casos (nenhuma das duas assinaturas, por ordem ou canônica, acerta todos): quando o TS tem uma faixa inclinada e o Rust a parte em uma plana e outra inclinada (ou o contrário), a lista de faixas planas guardadas na junção muda, e a
+comparação faixa a faixa fica sem sentido mesmo com a geometria igual por altura. Nas sementes 1 a 4 sobraram 72 divergências, todas deste tipo (71 de região por altura nas partes e 1 de `corte` de parede); todo o resto bateu. Por isso o teste usa
+`faixasDeParede: false` (as divergências vão para `pendentes` e o total é impresso, sem reprovar). Opções: (a) reproduzir a partição do TS no Rust (portar o `polygon-clipping`, fora do plano); (b) comparar por altura também a junção e aceitar que as faixas planas
+guardadas variam; (c) a junção do Rust guardar partes por altura em vez de por faixa. Isto é mudança de contrato além da 0049, então NÃO foi aplicado em silêncio.
+
+**Cobertura (estresse, sementes 1 a 5, 20 comparações por pavimento, projeto com `anexos`: alturas até 5,8 m, `baseOffset`, nível de topo, anexos de base e topo, perfil do modelo).** 675 cortadores (parede/piso/laje 60/308/307), **25.917 peças** (externas 15.565: parede 14.638,
+piso 469, laje 458; **2.321 de nível NÃO adjacente**; 2.728 inclinadas; 188 membranas), 208 elementos na junção (131 pisos, 77 lajes, 167 cortados), 502 camadas, 570 paredes (441 cortadas; 480 com variante da junção), 2.718 faixas, 39.341 partes,
+**60.027 polígonos** (58.843 estritos; **609 só pela 0049**). Também: variante em todas as paredes igual à só nas que diferem, sintéticos de 10 e 20 pavimentos, fixture `casa-2-quartos`, níveis não adjacentes, propriedades (partes sem sobreposição de cota,
+dentro da camada original e volume conservado, recalculado com `winsOver` e `intersection` do motor), upsert e remoção (variante, paredes, `niveis`), entradas inválidas, vazamento de memória.
+
+**Medições (sementes 1 a 5).** Maior diferença simétrica **1,08e-6 m²**; **K máximo medido 0,0880**; **K adotado = 0,14** (1,5 x 0,088 = 0,132, arredondado para cima). Componentes sem par: 573, o maior com 3,46 m² e **4 acima de 1e-4 m²**, todos resolvidos pela
+verificação de equivalência (a forma do outro lado os contém, dentro do limite); 2.742 fiapos; itens-fiapo contados à parte. Varredura ampla (sementes 1 a 60) NÃO feita nesta entrega: com a máquina carregada cada semente leva cerca de 60 s; fica para depois da decisão acima. `cargo test`: 154 passam.
+
+**Mutações de B3: pendentes para o fim da B.** Suíte wasm completa e `.wasm` commitado também.

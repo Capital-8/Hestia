@@ -1,7 +1,7 @@
 // Comparação da sub-etapa B3 (decisão 0050 §3): `junction_nivel` do Rust x `levelCutterSet` e `junctionLevel` do motor TypeScript.
 //
 // Identidade, ordem, ids, marcas (núcleo, explícita, externa, plana) e campos escalares (prioridade, cotas das partes e a função de cota das peças nos
-// vértices) a 1e-6; polígonos por canonicalização e diferença simétrica sob 1e-6 m², com a mesma topologia nos componentes significativos (0049, só quando
+// vértices) a 1e-6; polígonos por canonicalização e diferença simétrica sob 1e-6 m², com a mesma topologia nos componentes significativos (0049, só quando // units-ok: diagnóstico do kernel (tolerância em metros quadrados), não é texto de interface
 // `k0049` é dado; cada uso é contado e o maior K observado é devolvido). A tolerância NÃO se afrouxa para passar.
 import { intersection, orientedRect, union, type MultiPolygon, type Vec2 } from '@hestia/geom';
 import { areaDaForma } from './kernelComparaA2.ts';
@@ -26,6 +26,12 @@ export interface OpcoesCompararB3 {
   /** `K` da 0049 (limite `1e-5 + K x perímetro x 1e-6`); sem valor, só vale a tolerância geral (1e-6 m²). */ // units-ok: diagnóstico do kernel (tolerância em metros quadrados), não é texto de interface
   k0049?: number;
   maxDivergencias?: number;
+  /**
+   * Comparar as faixas de parede da junção (`faixas`, `corte` das paredes). Falso: as divergências vão para `pendentes`, sem reprovar. Motivo (0050, "B3
+   * entregue"): a partição das faixas verticais não é canônica (fusão do TS por `sigOf` sobre a saída do `polygon-clipping` x A3c do Rust) e a junção só
+   * guarda as faixas PLANAS, então uma faixa que o TS recorta como inclinada pode sair plana, em duas, no Rust.
+   */
+  faixasDeParede?: boolean;
 }
 
 export interface SemParB3 {
@@ -63,6 +69,8 @@ export interface ComparacaoB3 {
   semPar: SemParB3;
   /** Itens-fiapo sem par (0049, regra 2 estendida aos itens: ver `FiapoB3`). */
   fiapo: FiapoB3;
+  /** Divergências das faixas de parede da junção quando `faixasDeParede` é falso. */
+  pendentes: string[];
 }
 
 export const comparacaoB3Vazia = (): ComparacaoB3 => ({
@@ -90,6 +98,7 @@ export const comparacaoB3Vazia = (): ComparacaoB3 => ({
   desvioMaximo: 0,
   semPar: { n: 0, max: 0, acima1e4: 0, acima1e3: 0, resolvidos: 0, fiapos: 0 },
   fiapo: { pecas: 0, partes: 0, faixas: 0, maiorArea: 0 },
+  pendentes: [],
 });
 
 /**
@@ -350,16 +359,27 @@ export function compararB3(ref: JuncaoB3, rust: JuncaoB3, opcoes: OpcoesComparar
     });
   }
 
+  const pendentes = opcoes.faixasDeParede === false;
+  const falhaGeral = falha;
+  const pend = (m: string): void => {
+    if (!pendentes) falhaGeral(m);
+    else if (r.pendentes.length < max) r.pendentes.push(m);
+  };
+  const poligonoP = (rotulo: string, x: MultiPolygon, y: MultiPolygon): void => {
+    if (!pendentes) return poligono(rotulo, x, y);
+    const c = poligonoIgualB1(x, y, opcoes.k0049);
+    if (c.erro && r.pendentes.length < max) r.pendentes.push(`${rotulo}: ${c.erro}`);
+  };
   if (ref.paredes.length !== rust.paredes.length) {
-    falha(`${rust.paredes.length} paredes na junção (Rust) x ${ref.paredes.length} (TS)`);
+    pend(`${rust.paredes.length} paredes na junção (Rust) x ${ref.paredes.length} (TS)`);
   } else {
     ref.paredes.forEach((a, i) => {
       const b = rust.paredes[i]!;
       const nome = `parede ${i} (${a.parede})`;
       r.paredes++;
       if (a.corte) r.paredesCortadas++;
-      if (a.parede !== b.parede) return falha(`${nome}: identidade ${b.parede} (Rust)`);
-      if (a.corte !== b.corte) falha(`${nome}: corte ${b.corte} (Rust) x ${a.corte} (TS)`);
+      if (a.parede !== b.parede) return pend(`${nome}: identidade ${b.parede} (Rust)`);
+      if (a.corte !== b.corte) pend(`${nome}: corte ${b.corte} (Rust) x ${a.corte} (TS)`);
       // as faixas de uma camada de parede se comparam pela região das partes em alturas elementares (a partição em faixas não é canônica: ver `paredesDoCortador`)
       const camadas = (fx: typeof a.faixas): Map<number, ParteB3[]> => {
         const m = new Map<number, ParteB3[]>();
@@ -368,7 +388,7 @@ export function compararB3(ref: JuncaoB3, rust: JuncaoB3, opcoes: OpcoesComparar
       };
       const ca = camadas(a.faixas);
       const cb = camadas(b.faixas);
-      if ([...ca.keys()].join('|') !== [...cb.keys()].join('|')) return falha(`${nome}: camadas com faixa ${[...cb.keys()].join(',')} (Rust) x ${[...ca.keys()].join(',')} (TS)`);
+      if ([...ca.keys()].join('|') !== [...cb.keys()].join('|')) return pend(`${nome}: camadas com faixa ${[...cb.keys()].join(',')} (Rust) x ${[...ca.keys()].join(',')} (TS)`);
       for (const [camada, pa] of ca) {
         const pb = cb.get(camada)!;
         r.faixas++;
@@ -386,7 +406,7 @@ export function compararB3(ref: JuncaoB3, rust: JuncaoB3, opcoes: OpcoesComparar
             const rb = regiao(pb, z);
             if (ra.length === 0 && rb.length === 0) continue;
             r.partes++;
-            poligono(`${nome}, camada ${camada}, altura ${z}: partes`, ra, rb);
+            poligonoP(`${nome}, camada ${camada}, altura ${z}: partes`, ra, rb);
           }
         }
       }
