@@ -165,3 +165,15 @@ describe('nível', () => {
     expect((p.elements.c1 as Component).z).toBeCloseTo(0.2 - 3, 9);
   });
 });
+
+describe('salvar zera o aviso de alterações não salvas (regressão do QA)', () => {
+  it('markSaved deixa dirty falso e uma edição seguinte o torna verdadeiro', () => {
+    const store = new ProjectStore(createEmptyProject('teste'));
+    store.exec({ type: 'upsertFamily', family: structuredClone(FAMILIA_ARMARIO) });
+    expect(store.dirty).toBe(true);
+    store.markSaved();
+    expect(store.dirty).toBe(false);
+    store.exec({ type: 'deleteFamily', id: FAMILIA_ARMARIO.id });
+    expect(store.dirty).toBe(true);
+  });
+});

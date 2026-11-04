@@ -59,8 +59,9 @@ export class ProjectStore {
   }
 
   markSaved(): void {
-    this.savedVersion = this.version;
+    // Avisa os ouvintes primeiro (o `emit` sobe a versão) e só então grava a versão salva; ao contrário, o projeto salvo continuaria "sujo".
     this.emit();
+    this.savedVersion = this.version;
   }
 
   subscribe(l: Listener): () => void {
