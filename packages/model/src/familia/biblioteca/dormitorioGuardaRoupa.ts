@@ -58,7 +58,7 @@ export const FAMILIA_GUARDA_ROUPA_MODULO: Familia = {
   ],
   aninhados: [],
   ferragens: [
-    { id: 'dobradica', nome: 'Dobradiça', quantidade: '4 * nPortas' },
+    { id: 'dobradica', nome: 'Dobradiça', quantidade: '(A <= 900 ? 2 : A <= 1600 ? 3 : A <= 2200 ? 4 : 5) * nPortas' },
     { id: 'puxador', nome: 'Puxador', quantidade: 'nPortas' },
     { id: 'pino', nome: 'Pino de prateleira', quantidade: '4' },
   ],

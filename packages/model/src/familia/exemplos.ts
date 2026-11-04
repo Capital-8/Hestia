@@ -67,7 +67,7 @@ export const FAMILIA_ARMARIO: Familia = comEscolhas({
   pecas: PECAS,
   aninhados: [],
   ferragens: [
-    { id: 'dobradica', nome: 'Dobradiça', quantidade: '4 * nPortas', quando: 'nPortas > 0' },
+    { id: 'dobradica', nome: 'Dobradiça', quantidade: '(hCorpo - rodape - 4 <= 900 ? 2 : hCorpo - rodape - 4 <= 1600 ? 3 : hCorpo - rodape - 4 <= 2200 ? 4 : 5) * nPortas', quando: 'nPortas > 0' },
     { id: 'puxador', nome: 'Puxador', quantidade: 'nPortas', quando: 'nPortas > 0' },
     { id: 'pino', nome: 'Pino de prateleira', quantidade: '4 * nPrat', quando: 'nPrat > 0' },
   ],

@@ -146,7 +146,7 @@ export const FAMILIA_BASE_PIA: Familia = familia({
   parametros: [...PARAMETROS_PIA, ...DERIVADOS_PIA],
   pecas: PECAS_PIA,
   ferragens: [
-    { id: 'dobradica', nome: 'Dobradiça', quantidade: '2 * nPortas', quando: 'nPortas > 0' },
+    { id: 'dobradica', nome: 'Dobradiça', quantidade: '(hCorpo - rodape - 4 <= 900 ? 2 : hCorpo - rodape - 4 <= 1600 ? 3 : hCorpo - rodape - 4 <= 2200 ? 4 : 5) * nPortas', quando: 'nPortas > 0' },
     { id: 'puxador', nome: 'Puxador', quantidade: 'nPortas', quando: 'nPortas > 0' },
   ],
   conectores: conectoresDe('base'),

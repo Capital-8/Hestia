@@ -49,7 +49,7 @@ export const FAMILIA_RACK = criarFamilia({
   pecas: PECAS,
   aninhados: [],
   ferragens: [
-    { id: 'dobradica', nome: 'Dobradiça', quantidade: '4' },
+    { id: 'dobradica', nome: 'Dobradiça', quantidade: '(hNicho <= 900 ? 2 : hNicho <= 1600 ? 3 : hNicho <= 2200 ? 4 : 5) * 2' },
     { id: 'puxador', nome: 'Puxador', quantidade: '2' },
     { id: 'pe', nome: 'Pé regulável', quantidade: '4' },
   ],
