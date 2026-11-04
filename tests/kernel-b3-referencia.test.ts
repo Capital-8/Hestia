@@ -2,12 +2,16 @@
  * B3 sem wasm: as seções da variante da junção (esquema v10), os argumentos e a decodificação de `junction_nivel` e a referência (`referenciaB3`, a extração de
  * `levelCutterSet` e `junctionLevel`). Prova que (1) as seções seguem o esquema, (2) o estresse da B3 exercita o que o Rust precisa acompanhar (peças externas,
  * níveis não adjacentes, laje inclinada fora da junção, variante da junção diferente da do término) e (3) as duas implementações de `adjacentLevelIds` são equivalentes.
+ * (4) o comparador `compararB3` das faixas de parede: compara o RESULTADO FINAL da camada por altura (regra `wallLayerBandsAfterJunction`) — reprova diferença
+ * real de geometria, aceita partição diferente com geometria igual e não reprova `corte` isolado — sempre bloqueante, sem opção.
  */
 import { describe, expect, it } from 'vitest';
+import type { MultiPolygon } from '@hestia/geom';
 import type { Level, Project } from '@hestia/model';
 import { montarCenaA1 } from '../packages/engine/src/kernelA1.ts';
 import { montarCenaB1 } from '../packages/engine/src/kernelB.ts';
-import { argumentosB3, decodificarB3, montarCenaB3, referenciaB3 } from '../packages/engine/src/kernelB3.ts';
+import { argumentosB3, decodificarB3, montarCenaB3, referenciaB3, type JuncaoB3, type PecaB3, type ParteB3 } from '../packages/engine/src/kernelB3.ts';
+import { compararB3 } from '../packages/engine/src/kernelComparaB3.ts';
 import { adjacentLevelIds as vizinhosDaJuncao } from '../packages/engine/src/junctionNet.ts';
 import { adjacentLevelIds as vizinhosDoTermino } from '../packages/engine/src/terminoBlock.ts';
 import { CONSULTAS, SECOES } from '../packages/geom/src/kernel/v2/esquema.gerado.ts';
@@ -139,5 +143,55 @@ describe('B3: seções, argumentos e referência do motor TypeScript', () => {
     // laje com caimento de 3% na direção +x: a cota sobe 3 cm por metro
     expect(p.span({ x: 1, y: 0 })[0]).toBeCloseTo(2.65 + 0.03, 12);
     expect(p.poligono[0]![0]).toHaveLength(4);
+  });
+});
+
+/** Junção artificial de uma parede só (paredes_z em cotas absolutas, sem piso/laje): basta ao comparador de faixas. */
+const retangulo = (largura: number, altura: number): MultiPolygon => [[[{ x: 0, y: 0 }, { x: largura, y: 0 }, { x: largura, y: altura }, { x: 0, y: altura }]]];
+const faixaDeParede = (banda: number, z0: number, z1: number, poly: MultiPolygon): PecaB3 => ({
+  meta: { tipo: 0, prioridade: 1, nucleo: false, explicita: false, dono: 1, camada: 0, banda },
+  externa: false,
+  plana: true,
+  poligono: poly,
+  span: () => [z0, z1] as const,
+  faixa: [z0, z1],
+});
+const parteDe = (poly: MultiPolygon, z0: number, z1: number): ParteB3 => ({ poligono: poly, z0, z1 });
+const juncaoDeParede = (bandas: PecaB3[], corte: boolean, faixas: JuncaoB3['paredes'][number]['faixas']): JuncaoB3 => ({
+  cortadores: [{ tipo: 0, pecas: bandas }],
+  elementos: [],
+  paredes: [{ parede: 1, corte, faixas }],
+});
+
+describe('B3: comparador de faixas de parede pelo RESULTADO FINAL por altura (sempre bloqueante)', () => {
+  const r1 = retangulo(1, 1);
+
+  it('reprova duas junções cuja região final da camada difere em 0,05 m² (mesma partição de faixas)', () => {
+    const ref = juncaoDeParede([faixaDeParede(0, 0, 2, r1)], true, [{ camada: 0, banda: 0, partes: [parteDe(r1, 0, 2)] }]);
+    const rust = juncaoDeParede([faixaDeParede(0, 0, 2, r1)], true, [{ camada: 0, banda: 0, partes: [parteDe(retangulo(1, 1.05), 0, 2)] }]);
+    const cmp = compararB3(ref, rust);
+    expect(cmp.paredes).toBe(1);
+    expect(cmp.regioes).toBeGreaterThan(0);
+    expect(cmp.maxSimetrica).toBeCloseTo(0.05, 10);
+    expect(cmp.divergencias.length).toBeGreaterThan(0);
+    expect(cmp.divergencias.some((d) => d.includes('região final da camada'))).toBe(true);
+  });
+
+  it('não reprova partições diferentes com a mesma geometria final (uma faixa em partes x duas faixas)', () => {
+    // TS: uma faixa [0,2] recortada pela junção em duas partes; Rust: duas faixas [0,1] e [1,2] com uma parte cada: região final igual altura a altura
+    const ref = juncaoDeParede([faixaDeParede(0, 0, 2, r1)], true, [{ camada: 0, banda: 0, partes: [parteDe(r1, 0, 1), parteDe(r1, 1, 2)] }]);
+    const rust = juncaoDeParede([faixaDeParede(0, 0, 1, r1), faixaDeParede(1, 1, 2, r1)], true, [{ camada: 0, banda: 0, partes: [parteDe(r1, 0, 1)] }, { camada: 0, banda: 1, partes: [parteDe(r1, 1, 2)] }]);
+    const cmp = compararB3(ref, rust);
+    expect(cmp.paredes).toBe(1);
+    expect(cmp.regioes).toBeGreaterThanOrEqual(6);
+    expect(cmp.divergencias).toEqual([]);
+  });
+
+  it('não reprova `corte` isolado quando a geometria final é a mesma (o caso de limiar lostVolume da semente 4)', () => {
+    const ref = juncaoDeParede([faixaDeParede(0, 0, 2, r1)], true, [{ camada: 0, banda: 0, partes: [parteDe(r1, 0, 2)] }]);
+    const rust = juncaoDeParede([faixaDeParede(0, 0, 2, r1)], false, []);
+    const cmp = compararB3(ref, rust);
+    expect(cmp.regioes).toBeGreaterThan(0);
+    expect(cmp.divergencias).toEqual([]);
   });
 });
