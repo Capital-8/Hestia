@@ -258,7 +258,9 @@ describe.skipIf(!bytes)('B5: modo sombra da fatia B', () => {
     expect(junctionLevel(p, l)).toBe(ts);
     const diag = d.diagnostico();
     expect(diag.divergencias).toBe(1);
-    expect(diag.ultimaDivergencia).toMatchObject({ fatia: 'B', nivel: l, campo: 'corte' });
+    // O comparador da junção (T1) não compara a flag `corte` isolada: vale o resultado final da camada de parede por altura. Inverter `corte` muda a
+    // região final (as partes da junção passam a valer ou deixam de valer) e é por isso que a divergência é registrada com este campo.
+    expect(diag.ultimaDivergencia).toMatchObject({ fatia: 'B', nivel: l, campo: 'região final da camada' });
     expect(diag.ultimaDivergencia!.parede).not.toBeNull();
   }, 90_000);
 
