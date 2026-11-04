@@ -46,6 +46,27 @@ const fmtLen = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'lengt
 /** Shift ou Ctrl (Cmd no Mac): o clique e a janela somam à seleção (Ctrl alterna quem já está selecionado). */
 const soma = (p: PointerInfo): boolean => p.shift || p.ctrl;
 
+/** Ids do conjunto do componente (o próprio id quando está solto). */
+function membrosDoConjunto(p: Project, id: Id): Id[] {
+  const e = p.elements[id];
+  if (!isComponent(e) || e.groupId === undefined) return [id];
+  return p.componentGroups?.[e.groupId]?.membros ?? [id];
+}
+
+/** Expande ids para os conjuntos inteiros tocados, sem repetir e mantendo a ordem de entrada. */
+function expandirConjuntos(p: Project, ids: readonly Id[]): Id[] {
+  const out: Id[] = [];
+  const vistos = new Set<Id>();
+  for (const id of ids) {
+    for (const membro of membrosDoConjunto(p, id)) {
+      if (vistos.has(membro)) continue;
+      vistos.add(membro);
+      out.push(membro);
+    }
+  }
+  return out;
+}
+
 /**
  * Categorias de modelo: na planta de área elas só se selecionam (clique e janela). Arrasto, alças e fantasmas de mover
  * são de edição, e a planta de área é vista de análise/anotação. Anotação, vista e separador de ambiente não são modelo.
@@ -537,7 +558,8 @@ export class SelectTool extends ToolBase {
           ...annotationIdsInBox(pr, this.env.levelId(), this.downPt, p.raw, this.env.metersPerPixel(), this.planId()),
         ];
         const cur = this.env.selection();
-        this.env.setSelection(soma(p) ? [...new Set([...cur, ...ids])] : ids);
+        const escolhidos = expandirConjuntos(pr, ids);
+        this.env.setSelection(soma(p) ? [...new Set([...cur, ...escolhidos])] : escolhidos);
         break;
       }
       default:
@@ -548,10 +570,14 @@ export class SelectTool extends ToolBase {
       const cur = this.env.selection();
       if (!hit) {
         if (!soma(p)) this.env.setSelection([]);
-      } else if (soma(p)) {
-        this.env.setSelection(cur.includes(hit.id) ? cur.filter((x) => x !== hit.id) : [...cur, hit.id]);
       } else {
-        this.env.setSelection([hit.id]);
+        const membros = membrosDoConjunto(pr, hit.id);
+        if (soma(p)) {
+          const todos = membros.every((id) => cur.includes(id));
+          this.env.setSelection(todos ? cur.filter((x) => !membros.includes(x)) : [...cur, ...membros.filter((id) => !cur.includes(id))]);
+        } else {
+          this.env.setSelection(membros);
+        }
       }
     }
     this.reset();
