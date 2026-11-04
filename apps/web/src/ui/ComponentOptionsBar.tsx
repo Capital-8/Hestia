@@ -69,6 +69,9 @@ export function tiposDaFamilia(familia: Familia | null): Tipo[] {
   return familia?.tipos ?? [];
 }
 
+/** Texto que a ferramenta mostra quando é ativada antes de a barra escolher a família inicial. */
+const AVISO_SEM_FAMILIA = 'Escolha uma família de componente.';
+
 export function ComponentOptionsBar(): ReactElement {
   const p = useProject();
   const o = useUi((s) => s.options);
@@ -77,12 +80,19 @@ export function ComponentOptionsBar(): ReactElement {
   const atual = familiaEscolhida(p, o.componentFamilyId) ?? familiaInicial(p);
   const tipos = tiposDaFamilia(atual);
   const tipoAtual = o.componentTypeId && tipos.some((tp) => tp.id === o.componentTypeId) ? o.componentTypeId : '';
+  const aplicarEscolha = (opcoes: EscolhaAplicada['opcoes']): void => {
+    useUi.setState((s) => ({
+      options: { ...s.options, ...opcoes },
+      // A ferramenta já avisou que faltava família antes de a barra montar; a família acabou de entrar, então o aviso não vale mais.
+      ...(s.status === AVISO_SEM_FAMILIA ? { status: '' } : {}),
+    }));
+  };
   const set = (patch: Partial<ToolOptions>): void => {
     useUi.setState((s) => ({ options: { ...s.options, ...patch } }));
   };
   const escolher = (id: Id): void => {
     const r = aplicarEscolhaDeFamilia(editor.store, id);
-    if (r) useUi.setState((s) => ({ options: { ...s.options, ...r.opcoes } }));
+    if (r) aplicarEscolha(r.opcoes);
   };
   useEffect(() => {
     const id = o.componentFamilyId;
@@ -90,7 +100,7 @@ export function ComponentOptionsBar(): ReactElement {
     const alvo = (id ? familiaEscolhida(p, id) : null) ?? familiaInicial(p);
     if (!alvo) return;
     const r = aplicarEscolhaDeFamilia(editor.store, alvo.id);
-    if (r) useUi.setState((s) => ({ options: { ...s.options, ...r.opcoes } }));
+    if (r) aplicarEscolha(r.opcoes);
   }, [p, o.componentFamilyId]);
   return (
     <>
