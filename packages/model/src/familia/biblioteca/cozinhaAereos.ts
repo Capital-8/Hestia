@@ -73,7 +73,7 @@ export const FAMILIA_AEREO: Familia = familia({
   ],
   pecas: PECAS_CAIXA(true),
   ferragens: [
-    { id: 'dobradica', nome: 'Dobradiça', quantidade: '2 * nPortas', quando: 'nPortas > 0' },
+    { id: 'dobradica', nome: 'Dobradiça', quantidade: '(A - 4 <= 900 ? 2 : A - 4 <= 1600 ? 3 : A - 4 <= 2200 ? 4 : 5) * nPortas', quando: 'nPortas > 0' },
     { id: 'puxador', nome: 'Puxador', quantidade: 'nPortas', quando: 'nPortas > 0' },
     { id: 'pino', nome: 'Pino de prateleira', quantidade: '4 * nPrat', quando: 'nPrat > 0' },
   ],

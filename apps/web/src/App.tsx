@@ -17,6 +17,7 @@ import { TitleBar } from './ui/TitleBar.tsx';
 import { FamilyEditor } from './ui/familia/FamilyEditor.tsx';
 import { OrcamentoProjeto } from './ui/OrcamentoProjeto.tsx';
 import { PaletaMoveis } from './ui/PaletaMoveis.tsx';
+import { MontarFila } from './ui/MontarFila.tsx';
 import { useFamilia } from './ui/familia/familiaStore.ts';
 import { Tutorial } from './ui/Tutorial.tsx';
 import { ViewControlBar } from './ui/ViewControlBar.tsx';
@@ -288,6 +289,7 @@ export function App(): ReactElement {
       <FamilyEditor />
       <OrcamentoProjeto />
       <PaletaMoveis />
+      <MontarFila />
     </div>
   );
 }

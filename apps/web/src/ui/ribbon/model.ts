@@ -23,7 +23,7 @@ export type ActionId =
   | 'stairSketch' | 'stairTypes' | 'rampTypes' | 'schedRamps' | 'propsSide' | 'browserSide' | 'resetDock' | 'tagAll' | 'wallTags' | 'editPerimeter'
   | 'copySelection' | 'cutSelection' | 'pasteAligned' | 'pasteAlignedLevels' | 'syncLinked' | 'unlinkLinked' | 'createSimilar'
   | 'groupComponents' | 'ungroupComponents'
-  | 'addViewSheet' | 'publishSheets' | 'sheetsPerLevel' | 'familyEditor' | 'componentBudget' | 'componentLibrary';
+  | 'addViewSheet' | 'publishSheets' | 'sheetsPerLevel' | 'familyEditor' | 'componentBudget' | 'componentLibrary' | 'componentRun';
 
 export type RibbonItem =
   /** Ferramenta do editor: o clique chama `editor.setTool`; mostra o atalho no tooltip. */

@@ -62,7 +62,7 @@ export const FAMILIA_GABINETE_BANHEIRO = criarFamilia({
   pecas: PECAS,
   aninhados: [],
   ferragens: [
-    { id: 'dobradica', nome: 'Dobradiça', quantidade: '4' },
+    { id: 'dobradica', nome: 'Dobradiça', quantidade: '(hPorta <= 900 ? 2 : hPorta <= 1600 ? 3 : hPorta <= 2200 ? 4 : 5) * 2' },
     { id: 'puxador', nome: 'Puxador', quantidade: '2' },
   ],
   conectores: conectoresDe('base'),

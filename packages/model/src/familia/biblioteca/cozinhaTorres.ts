@@ -55,7 +55,7 @@ export const FAMILIA_TORRE_FORNO: Familia = familia({
   ],
   pecas: PECAS_TORRE_FORNO,
   ferragens: [
-    { id: 'dobradica', nome: 'Dobradiça', quantidade: '4' },
+    { id: 'dobradica', nome: 'Dobradiça', quantidade: '(hBaixo - 4 <= 900 ? 2 : hBaixo - 4 <= 1600 ? 3 : hBaixo - 4 <= 2200 ? 4 : 5) + (hCima - esp - 2 <= 900 ? 2 : hCima - esp - 2 <= 1600 ? 3 : hCima - esp - 2 <= 2200 ? 4 : 5)' },
     { id: 'puxador', nome: 'Puxador', quantidade: '2' },
   ],
   conectores: conectoresDe('torre'),

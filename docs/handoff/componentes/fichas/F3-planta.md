@@ -1,0 +1,25 @@
+# Ficha F3-planta — arrasto do componente na PLANTA com o mesmo encaixe do 3D (e uma só lógica de movimento rígido)
+
+Base: `feat/familias-interface`.   Nível 3
+
+## Contexto
+No 3D o arrasto do móvel já encaixa na parede e nos vizinhos (`apps/web/src/editor/arrasto3d.ts`, classe `Arrasto3D`; o líder é posado por `posarArrastado` e os demais membros de um conjunto acompanham por movimento rígido). Na PLANTA, o arrasto (`packages/tools/src/selectTool.ts`: `moveComponents`, fantasmas em `componentGhost.ts`) move só por deslocamento puro, sem encaixe. Esta ficha (1) extrai a conta do movimento rígido para uma função PURA do motor, usada pelos dois, e (2) liga o encaixe ao arrasto da planta, com Alt desligando. Leia: `arrasto3d.ts` e `arrasto3d.test.ts` (o comportamento deve continuar IDÊNTICO), `selectTool.ts` (trechos de componente: `moveComponents`, o fantasma, o `down`/`drag`/`up` do arrasto), `packages/tools/src/componentGhost.ts`, `packages/engine/src/componentes/{encaixeArrasto.ts, encaixeProjeto.ts, encaixeTipos.ts}`, os testes `componentSelect.test.ts` e `componentGroupMove.test.ts` em `packages/tools/src`.
+
+## Faça
+1. **Função pura do motor** (arquivo novo `packages/engine/src/componentes/encaixeGrupo.ts`, exportado em `index.ts`): `posarGrupoRigido(entrada: { lider: string; iniciais: ReadonlyMap<string, Pose>; poseFinalDoLider: Pose }): Map<string, { x: number; y: number; rotation: number }>`: o líder recebe a pose final; cada outro membro mantém a posição relativa ao líder inicial, girada por `Δθ = final.rotation − iniciais[lider].rotation` em torno da pose inicial do líder, e a rotação inicial + Δθ (exatamente a conta que `Arrasto3D.mover` faz hoje, linhas 109–126). Testes em `encaixeGrupo.test.ts` (NOVO), à mão (tolerância 1e-9): sem giro só translada; giro de π/2 leva o vizinho em (+1,0) do líder para (0,+1) do líder final; só o líder; líder ausente em `iniciais` lança erro.
+2. **3D usa a função**: troque, em `Arrasto3D.mover`, o laço dos membros por `posarGrupoRigido`. NENHUM teste de `arrasto3d.test.ts` pode mudar nem falhar.
+3. **Planta**: em `selectTool.ts`, durante o arrasto de componentes (inclusive conjuntos), o líder é o componente sob o cursor no `down` (ou o primeiro da seleção se não houver); a pose desejada do líder é a inicial + deslocamento do ponteiro (como hoje); chame `posarArrastado` (entorno: `corposDoNivel` sem os que se movem, `facesDasParedes`, lidos UMA vez no início do arrasto) e depois `posarGrupoRigido` para os demais; `p.alt` (a flag `alt` do `PointerInfo`) pressionado = `semEncaixe`. O fantasma (`componentGhostItems`) e o comando final usam as poses encaixadas (posição E rotação): aplique com `updateComponent { x, y, rotation }` por componente, em UMA transação (um passo de desfazer); conjuntos inteiros continuam usando `moveComponentGroup` SOMENTE quando não houve giro (Δθ = 0); com giro, `rotateComponentGroup` em torno da posição inicial do líder seguido de `moveComponentGroup` do resto do deslocamento (ou `updateComponent` por membro, o que for mais simples: desde que a `linha` do conjunto continue coerente: se usar `updateComponent` por membro com giro, remova a `linha` do conjunto pelo comando de conjunto `upsertComponentGroup` sem `linha`). A barra de status mostra "Encaixado na parede", "Colado em <marca>" ou "Colide com <marca>" como o 3D faz (`env.say`).
+4. **Testes** (em `packages/tools/src/componentEncaixePlanta.test.ts` NOVO, no estilo de `componentSelect.test.ts`): arrastar um móvel até perto de uma parede (use `makeWall` e o `testEnv`) gira π e encosta o fundo na face (y da pose = espessura/2 + profundidade do móvel); com `alt: true` no `PointerInfo` não encaixa; arrastar longe de tudo é só deslocamento; um desfazer volta pose e rotação; conjunto de 3 move e gira rígido junto com um único desfazer e a `linha` coerente; arrasto sem componentes não muda nada; os testes existentes de arrasto (`componentSelect.test.ts`, `componentGroupMove.test.ts`) continuam verdes sem alteração.
+5. Gates: `npx tsc -p tsconfig.json --noEmit`, `npx eslint --max-warnings 0` nos arquivos tocados, `node scripts/check-boundaries.mjs`, `node scripts/check-units.mjs`, `npx vitest run packages/tools packages/engine/src/componentes apps/web/src/editor` sem regressão. Nada acima de 420 linhas (o `selectTool.ts` já é grande: extraia o novo código do arrasto para `componentDrag.ts` NOVO e deixe só a ligação no `selectTool.ts`); textos em português; sem `any`/`eslint-disable`.
+
+## Arquivos permitidos
+`packages/engine/src/componentes/{encaixeGrupo.ts, encaixeGrupo.test.ts, index.ts}`, `packages/tools/src/{selectTool.ts, componentDrag.ts, componentGhost.ts, componentEncaixePlanta.test.ts}`, `apps/web/src/editor/arrasto3d.ts`.
+
+## Proibido
+`packages/model/**`, `packages/render/**`, `crates/**`, `docs/**`, qualquer teste existente (nenhum pode ser alterado), snapshots.
+
+## Critério de parada
+Se algum teste existente de arrasto falhar com a mudança: PARE e relate qual.
+
+## Entrega
+Commits pequenos (`feat(componentes): …`) e o relatório pedido nas regras.
