@@ -8,7 +8,7 @@ import { create } from 'zustand';
  */
 export type VistaFamilia = '3d' | 'frente' | 'lateral' | 'planta';
 export type DetalheFamilia = 'grosso' | 'medio' | 'fino';
-export type DialogoFamilia = null | 'parametros' | 'tipos' | 'pecas' | 'novo' | 'catalogo' | 'arquivo';
+export type DialogoFamilia = null | 'parametros' | 'tipos' | 'pecas' | 'novo' | 'catalogo' | 'arquivo' | 'encaixe';
 export type EixoCorte = 'x' | 'y' | 'z';
 
 export interface Corte {
