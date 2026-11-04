@@ -26,6 +26,33 @@ type Caixa = NonNullable<ReturnType<typeof caixaDoComponente>>;
 
 const numeroOuNulo = (v: Valor | undefined): number | null => (typeof v === 'number' ? v : null);
 
+/** Milímetros com vírgula decimal: a faixa da família é sempre em mm, mesmo quando o campo exibe outra unidade. */
+const milimetros = (n: number): string => String(n).replace(/\./g, ',');
+
+interface Limites {
+  /** Faixa em mm, para o texto e o aviso. */
+  min?: number;
+  max?: number;
+  /** Texto curto exibido ao lado do campo, ex.: `mín 300 · máx 1200 mm`. */
+  rotulo: string;
+  /** Faixa para o aviso de recusa, ex.: `300 a 1200 mm`. */
+  faixa: string;
+}
+
+/** Limites do parâmetro em mm, ou null quando ele não tem mín. nem máx. */
+const limitesDe = (param: Parametro): Limites | null => {
+  if (param.min === undefined && param.max === undefined) return null;
+  const partes: string[] = [];
+  if (param.min !== undefined) partes.push(`mín ${milimetros(param.min)}`);
+  if (param.max !== undefined) partes.push(`máx ${milimetros(param.max)}`);
+  const faixa = param.min !== undefined && param.max !== undefined
+    ? `${milimetros(param.min)} a ${milimetros(param.max)} mm`
+    : param.min !== undefined
+      ? `mínimo ${milimetros(param.min)} mm`
+      : `máximo ${milimetros(param.max!)} mm`;
+  return { min: param.min, max: param.max, rotulo: `${partes.join(' · ')} mm`, faixa };
+};
+
 /**
  * Propriedades de um ou vários componentes colocados (ADR 0049): família e tipo, parâmetros de INSTÂNCIA (mm),
  * posição/rotação/espelho/marca e os resultados da resolução. A edição de parâmetro é recusada quando a resolução
@@ -64,6 +91,15 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
     });
   };
 
+  const definirMensagem = (paramId: string, mensagem: string | null): void => {
+    setMensagens((atuais) => {
+      const proximas = { ...atuais };
+      if (mensagem === null) delete proximas[paramId];
+      else proximas[paramId] = mensagem;
+      return proximas;
+    });
+  };
+
   const temSobreposicao = (paramId: string): boolean => components.some((c) => c.values?.[paramId] !== undefined);
 
   const campoDoParametro = (param: Parametro): ReactElement => {
@@ -71,6 +107,11 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
     const numero = numeroOuNulo(efetivo.valor);
     const id = `p-comp-${param.id}`;
     const erro = mensagens[param.id];
+    const limites = limitesDe(param);
+    const aviso = (motivo: 'invalido' | 'fora'): string =>
+      motivo === 'fora' && limites !== null ? `Fora da faixa: ${limites.faixa}` : 'Valor inválido';
+    const recusar = (motivo: 'invalido' | 'fora'): void => definirMensagem(param.id, aviso(motivo));
+    const aceitar = (): void => definirMensagem(param.id, null);
     let entrada: ReactElement;
     switch (param.tipo) {
       case 'comprimento':
@@ -80,15 +121,49 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
             value={numero === null ? null : milimetrosParaMetros(numero)}
             mixed={efetivo.misto}
             quantity="length"
+            min={limites?.min === undefined ? undefined : limites.min / 1000}
+            max={limites?.max === undefined ? undefined : limites.max / 1000}
+            strictRange={limites !== null}
+            title={limites?.rotulo}
+            onInvalid={(_, motivo) => recusar(motivo)}
+            onValid={aceitar}
             onCommit={(v) => gravarParametro(param, metrosParaMilimetros(v))}
           />
         );
         break;
       case 'inteiro':
-        entrada = <NumField id={id} value={numero} mixed={efetivo.misto} decimals={0} onCommit={(v) => gravarParametro(param, Math.round(v))} />;
+        entrada = (
+          <NumField
+            id={id}
+            value={numero}
+            mixed={efetivo.misto}
+            decimals={0}
+            min={limites?.min}
+            max={limites?.max}
+            strictRange={limites !== null}
+            title={limites?.rotulo}
+            onInvalid={(_, motivo) => recusar(motivo)}
+            onValid={aceitar}
+            onCommit={(v) => gravarParametro(param, Math.round(v))}
+          />
+        );
         break;
       case 'numero':
-        entrada = <NumField id={id} value={numero} mixed={efetivo.misto} decimals={3} onCommit={(v) => gravarParametro(param, v)} />;
+        entrada = (
+          <NumField
+            id={id}
+            value={numero}
+            mixed={efetivo.misto}
+            decimals={3}
+            min={limites?.min}
+            max={limites?.max}
+            strictRange={limites !== null}
+            title={limites?.rotulo}
+            onInvalid={(_, motivo) => recusar(motivo)}
+            onValid={aceitar}
+            onCommit={(v) => gravarParametro(param, v)}
+          />
+        );
         break;
       case 'booleano':
         entrada = <Check id={id} checked={efetivo.valor === true} mixed={efetivo.misto} onChange={(v) => gravarParametro(param, v)} />;
@@ -117,7 +192,10 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
     }
     return (
       <div key={param.id}>
-        <Row label={param.nome} htmlFor={id}>{entrada}</Row>
+        <Row label={param.nome} htmlFor={id}>
+          {entrada}
+          {limites !== null && <span className="hint" title={`Faixa aceita: ${limites.faixa}`}> {limites.rotulo}</span>}
+        </Row>
         {erro && <div className="hint" role="alert" style={{ color: 'var(--danger, #b42318)' }}>{erro}</div>}
         {temSobreposicao(param.id) && (
           <div className="prow">
