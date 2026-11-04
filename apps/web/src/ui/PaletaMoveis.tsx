@@ -104,6 +104,8 @@ export function PaletaMoveis(): ReactElement | null {
 
   const iniciarJanela = (e: RPointerEvent<HTMLDivElement>): void => {
     if (e.button !== 0) return;
+    // Botões da barra de título (fechar) recebem o clique: sem isto a captura do ponteiro para arrastar a janela o engole.
+    if ((e.target as HTMLElement).closest('button')) return;
     arrasteJanela.current = { dx: e.clientX - posicao.x, dy: e.clientY - posicao.y };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
