@@ -264,6 +264,8 @@ const migrations: Record<number, Migration> = {
   // v23 → v24: componentes e famílias do projeto (ADR 0049). Arquivo antigo não tem `componentFamilies` nem elementos `component`, o que
   // significa nenhum componente: a migração só avança a versão e preserva o restante do arquivo.
   23: (raw) => ({ ...raw }),
+  // v24 → v25: conjuntos e filas de componentes (`componentGroups`, `Component.groupId`). Arquivo antigo não tem nenhum: só avança a versão.
+  24: (raw) => ({ ...raw }),
 };
 
 export class SchemaError extends Error {}

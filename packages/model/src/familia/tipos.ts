@@ -166,6 +166,36 @@ export interface Tipo {
   valores: Record<string, Valor>;
 }
 
+// ───────────────────────── conectores e escolhas (modelagem fluida, F1/F4) ─────────────────────────
+
+/** Face do móvel (sistema local: x = largura, y = profundidade com a FRENTE em y = 0 e o fundo em y = P, z = altura). */
+export type LadoConector = 'esquerda' | 'direita' | 'frente' | 'fundo' | 'base' | 'topo';
+
+/** Ponto de encaixe do módulo: onde ele se une a outro, a uma parede ou a uma bancada. Só dados; o encaixe é calculado no motor. */
+export interface Conector {
+  id: string;
+  nome: string;
+  lado: LadoConector;
+  /** Papel do módulo nessa união: `base`, `aereo`, `torre`, `tampo`, `painel`... (texto livre, comparado com `aceita`). */
+  etiqueta: string;
+  /** Etiquetas de conectores do OUTRO lado com que este se une; vazio ou ausente = qualquer. */
+  aceita?: string[];
+  /** Folga (mm, fórmula) deixada entre as faces unidas. */
+  folga?: Expr;
+}
+
+/**
+ * Escolha interna do módulo (porta lisa, vidro, gaveta alta, nicho): o usuário clica na zona e escolhe a opção.
+ * `parametro` é o id de um parâmetro `enum`, `booleano` ou `inteiro` da família; as opções vêm do próprio parâmetro.
+ * `zona` é o `grupo` das peças onde se clica (`Peca.grupo`).
+ */
+export interface Escolha {
+  id: string;
+  nome: string;
+  parametro: string;
+  zona: string;
+}
+
 export interface Familia {
   formato: typeof FAMILIA_FORMATO;
   versao: number;
@@ -181,6 +211,10 @@ export interface Familia {
   pecas: Peca[];
   aninhados: Aninhado[];
   ferragens: Ferragem[];
+  /** Pontos de encaixe do módulo (F1); ausente = o módulo usa só a caixa. */
+  conectores?: Conector[];
+  /** Escolhas internas por clique (F4); ausente = nenhuma. */
+  escolhas?: Escolha[];
   tipos: Tipo[];
   tipoPadrao?: string;
 }

@@ -25,10 +25,10 @@ const mundo = (c: Component, local: [number, number]): [number, number] => {
 
 describe('esquema e migração', () => {
   it('o esquema subiu para 24 e arquivo da versão 23 abre igual', () => {
-    expect(SCHEMA_VERSION).toBe(24);
+    expect(SCHEMA_VERSION).toBe(25);
     const antigo = JSON.parse(JSON.stringify({ ...createEmptyProject('antigo'), schemaVersion: 23 }));
     const p = migrateProject(antigo);
-    expect(p.schemaVersion).toBe(24);
+    expect(p.schemaVersion).toBe(25);
     expect(p.name).toBe('antigo');
     expect(p.componentFamilies).toBeUndefined();
   });

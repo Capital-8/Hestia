@@ -21,7 +21,7 @@ import type { CadDrawing } from './cad.ts';
 import type { CopyLink } from './copyLink.ts';
 
 export type Id = string;
-export const SCHEMA_VERSION = 24;
+export const SCHEMA_VERSION = 25;
 
 export type { Stair, StairCurve, StairGenerator, StairLanding, StairRun, StairRunStyle, StairSpiralParams, StairType, StairUndersideStyle } from './stairTypes.ts';
 export type { Ramp, RampInputMode, RampNormProfile, RampNormRow, RampShape, RampType } from './rampTypes.ts';
@@ -680,6 +680,26 @@ export interface Component {
   /** Valores de parâmetros desta instância (mm), sobre o tipo. */
   values?: Record<string, number | string | boolean>;
   mark: string;
+  /** Conjunto ou fila a que o componente pertence (`Project.componentGroups`); ausente = solto. Um componente está em no máximo um. */
+  groupId?: Id;
+}
+
+/** União entre módulos de um conjunto: o que o encaixe faz nas faces em contato. */
+export type RegraUniao = 'lateral-compartilhada' | 'alinhar-topo' | 'alinhar-frente';
+
+/**
+ * Conjunto de componentes que se movem, giram e copiam juntos (Promob: módulos unidos). Com `linha` é uma FILA: os módulos ficam
+ * lado a lado ao longo da linha-base no plano, na ordem de `membros`, de `linha.a` para `linha.b` (metros).
+ * Fica em `Project.componentGroups`, fora de `elements`; os membros guardam o `groupId`.
+ */
+export interface ComponentGroup {
+  id: Id;
+  nome: string;
+  levelId: Id;
+  /** Ids dos componentes, na ordem ao longo da fila (conjunto livre: ordem de inclusão). */
+  membros: Id[];
+  linha?: { a: Vec2; b: Vec2; /** Parede de apoio, quando a fila foi montada contra uma. */ paredeId?: Id | null };
+  regras?: RegraUniao[];
 }
 
 export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | Room | Generic | CadDrawing | Component;
@@ -806,6 +826,8 @@ export interface Project {
   openingTypes: Record<Id, OpeningType>;
   /** Famílias de componentes do projeto (ADR 0049), por id; ausente = nenhuma. As instâncias (`Component`) apontam para elas. */
   componentFamilies?: Record<Id, Familia>;
+  /** Conjuntos e filas de componentes (modelagem fluida), por id; ausente = nenhum. */
+  componentGroups?: Record<Id, ComponentGroup>;
   /** Catálogo de marcenaria (chapas, fitas, ferragens) do projeto; ausente = o catálogo padrão. */
   catalog?: Catalogo;
   /** Presets de perfil das esquadrias (editáveis); a migração 19 → 20 semeia os iniciais. Ausente = os iniciais por leitura. */
