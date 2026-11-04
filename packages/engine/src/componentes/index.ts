@@ -14,3 +14,5 @@ export * from './encaixeParede.ts';
 export * from './encaixeVizinho.ts';
 export * from './encaixeColisao.ts';
 export * from './encaixeFila.ts';
+export * from './encaixeArrasto.ts';
+export * from './encaixeProjeto.ts';

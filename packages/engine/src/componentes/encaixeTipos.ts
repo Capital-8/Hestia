@@ -98,3 +98,28 @@ export interface PosicaoNaFila {
   largura: number;
   pose: Pose;
 }
+
+/** Entrada de `posarArrastado`: o móvel na pose DESEJADA pelo cursor (antes do encaixe) e o entorno. */
+export interface EntradaArrasto {
+  alvo: Corpo;
+  /** Os demais móveis do nível (fora o próprio e os do mesmo conjunto que se movem junto). */
+  outros: readonly Corpo[];
+  faces: readonly FaceDeParede[];
+}
+
+/** Opções do arrasto. `semEncaixe` (Alt) devolve a pose desejada sem tentar encaixar. */
+export interface OpcoesArrasto {
+  semEncaixe?: boolean;
+  distanciaParede?: number;
+  distanciaVizinho?: number;
+}
+
+export interface ResultadoArrasto {
+  pose: Pose;
+  /** Índice da face de parede em que encaixou, se encaixou. */
+  parede?: number;
+  /** Id do vizinho a que colou, se colou. */
+  vizinho?: string;
+  colisoes: Colisoes;
+  guias: Guia[];
+}
