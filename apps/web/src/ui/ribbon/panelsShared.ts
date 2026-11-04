@@ -44,4 +44,4 @@ export const P_SELECTION_EXTRA: RibbonPanel = panel(
   stack(act('syncLinked', 'small'), act('unlinkLinked', 'small')),
 );
 
-export const P_CREATE: RibbonPanel = panel('criar', t('Criar', 'Create'), act('createSimilar'), act('groupComponents', 'large', t('Criar grupo', 'Create Group')), act('ungroupComponents', 'large', t('Desagrupar', 'Ungroup')));
+export const P_CREATE: RibbonPanel = panel('criar', t('Criar', 'Create'), act('createSimilar'), act('groupComponents', 'large', t('Criar grupo', 'Create Group')), act('ungroupComponents', 'large', t('Desagrupar', 'Ungroup')), act('componentRun', 'large', t('Montar fila', 'Build Run')));

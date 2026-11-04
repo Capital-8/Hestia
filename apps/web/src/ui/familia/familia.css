@@ -71,7 +71,7 @@
 .fam-tag.novo { background: var(--revit-green-soft); color: var(--revit-green); }
 .fam-tag.aviso { background: color-mix(in srgb, var(--warn) 18%, var(--sheet)); color: var(--warn); }
 
-.fam-dback { position: absolute; inset: 0; z-index: 5; display: grid; place-items: start center; padding: 26px; background: rgba(0, 0, 0, 0.28); overflow: auto; }
+.fam-dback { position: absolute; inset: 0; z-index: 40; display: grid; place-items: start center; padding: 26px; background: rgba(0, 0, 0, 0.28); overflow: auto; }
 .fam-dwin { width: min(820px, 100%); background: var(--panel); border: 1px solid var(--line-strong); border-radius: 4px; box-shadow: var(--shadow); }
 .fam-dwin.larga { width: min(1080px, 100%); }
 .fam-dt { display: flex; padding: 6px 10px; background: var(--ribbon); border-bottom: 1px solid var(--line); font-weight: 600; }
