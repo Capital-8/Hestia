@@ -14,6 +14,7 @@ import {
   type PlanoReferencia,
   type Tipo,
 } from '../tipos.ts';
+import { comEscolhas } from './escolhas.ts';
 
 /*
  * Apoio das famílias de cozinha (ficha E7-cozinha). Só construtores de parâmetros e o preenchimento dos campos comuns do
@@ -76,7 +77,7 @@ interface DadosFamilia {
 }
 
 /** Família de cozinha com os campos fixos do contrato já preenchidos. */
-export const familia = (dados: DadosFamilia): Familia => ({
+export const familia = (dados: DadosFamilia): Familia => comEscolhas({
   formato: FAMILIA_FORMATO,
   versao: FAMILIA_VERSAO,
   id: dados.id,
