@@ -1,5 +1,6 @@
-import { copyLinkOf, isCeiling, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Element, type Id, type Project, type Ramp } from '@hestia/model';
-import type { PerimeterModifyKind, ShortcutCommand, ToolOptions } from '@hestia/tools';
+import { copyLinkOf, isCeiling, isComponent, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Element, type Id, type Project, type Ramp } from '@hestia/model';
+import { agruparSelecao, desagruparSelecao } from '@hestia/tools';
+import type { PerimeterModifyKind, ShortcutCommand, ToolEnv, ToolOptions } from '@hestia/tools';
 import { tagAllNotTagged } from '../../editor/tagActions.ts';
 import { addMissingTagsAction } from '../../editor/areaPlanActions.ts';
 import { editor } from '../../editor/controller.ts';
@@ -116,16 +117,23 @@ function thinTarget(): { levelId: Id } | 'section' {
 
 const sched = (label: Txt, dialog: DialogKind): ActionDef => ({ label, icon: 'schedule', run: openDialog(dialog) });
 
+/** Ambiente mínimo das ações de conjunto: elas leem a seleção e gravam comandos de componente. */
+const envDeConjunto = (): ToolEnv => ({
+  project: () => editor.project, levelId: () => useUi.getState().levelId, selection: () => useUi.getState().selection,
+  setSelection: (ids) => useUi.setState({ selection: ids }), exec: (c) => editor.store.exec(c),
+  transaction: (label, fn, session) => editor.store.transaction(label, fn, session),
+  metersPerPixel: () => 1, gridStep: () => useUi.getState().gridStep, say: (m) => useUi.setState({ status: m }),
+  done: () => editor.setTool('select'), options: () => useUi.getState().options,
+});
+
 export const ACTIONS: Record<ActionId, ActionDef> = {
   cotasAuto: {
-    label: t('Cotas automáticas', 'Auto Dimensions'),
-    icon: 'cotasAuto',
+    label: t('Cotas automáticas', 'Auto Dimensions'), icon: 'cotasAuto',
     hint: t('Cotas automáticas do nível ativo: escolha o que cotar, por onde medir e em quais lados.', 'Automatic dimensions for the active level.'),
     run: openDialog('cotasAuto'),
   },
   typeProps: {
-    label: t('Propriedades de tipo', 'Type Properties'),
-    icon: 'type',
+    label: t('Propriedades de tipo', 'Type Properties'), icon: 'type',
     hint: t('Abre o tipo do elemento selecionado (ou o que a ferramenta ativa vai criar).', 'Opens the type of the selected element or of the active tool.'),
     run: () => {
       const d = typeDialogFor(ctxNow());
@@ -136,15 +144,13 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   properties: { label: t('Propriedades', 'Properties'), icon: 'props', hint: t('Mostra ou oculta a paleta de propriedades.', 'Show or hide the Properties palette.'), run: () => useUi.setState((s) => ({ propsOpen: !s.propsOpen })), pressed: (c) => c.propsOpen },
   browser: { label: t('Navegador de projeto', 'Project Browser'), icon: 'levels', hint: t('Mostra ou oculta o navegador de projeto.', 'Show or hide the Project Browser.'), run: () => useUi.setState((s) => ({ browserOpen: !s.browserOpen })), pressed: (c) => c.browserOpen },
   propsSide: {
-    label: t('Propriedades à direita', 'Properties on the Right'),
-    icon: 'props',
+    label: t('Propriedades à direita', 'Properties on the Right'), icon: 'props',
     hint: t('Alterna o lado das propriedades entre a esquerda (padrão do Revit) e a direita.', 'Switch the Properties palette between the left and right sides.'),
     run: () => flipSide('props'),
     pressed: (c) => c.sides.props === 'right',
   },
   tagAll: {
-    label: t('Etiquetar todos', 'Tag All'),
-    icon: 'tag',
+    label: t('Etiquetar todos', 'Tag All'), icon: 'tag',
     hint: t('Etiqueta todos os elementos sem etiqueta desta vista.', 'Tag every untagged element in this view.'),
     run: () => {
       // Na planta de área, "Etiquetar todos" completa as etiquetas de AMBIENTE (Room Tag) da vista.
@@ -158,42 +164,36 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     },
   },
   wallTags: {
-    label: t('Códigos de parede', 'Wall Type Codes'),
-    icon: 'tag',
+    label: t('Códigos de parede', 'Wall Type Codes'), icon: 'tag',
     hint: t('Mostra ou oculta as etiquetas de elementos na vista.', 'Show or hide element labels in the view.'),
     run: () => editor.store.exec({ type: 'setSettings', patch: { showTags: !editor.project.settings.showTags } }, 'Alternar etiquetas do modelo'),
     pressed: (c) => c.p.settings.showTags,
   },
   browserSide: {
-    label: t('Navegador à direita', 'Project Browser on the Right'),
-    icon: 'levels',
+    label: t('Navegador à direita', 'Project Browser on the Right'), icon: 'levels',
     hint: t('Alterna o lado do navegador de projeto entre a esquerda (padrão do Revit) e a direita.', 'Switch the Project Browser between the left and right sides.'),
     run: () => flipSide('browser'),
     pressed: (c) => c.sides.browser === 'right',
   },
   resetDock: {
-    label: t('Restaurar disposição dos painéis', 'Reset Panel Layout'),
-    icon: 'levels',
+    label: t('Restaurar disposição dos painéis', 'Reset Panel Layout'), icon: 'levels',
     hint: t('Volta Propriedades e Navegador ao padrão: à esquerda, com as propriedades em cima.', 'Put Properties and Project Browser back in the default layout.'),
     run: () => resetDock(),
   },
   sameType: {
-    label: t('Mesmo tipo', 'Same Type'),
-    icon: 'sametype',
+    label: t('Mesmo tipo', 'Same Type'), icon: 'sametype',
     hint: t('Seleciona todas as instâncias do tipo do elemento selecionado.', 'Select all instances of the type.'),
     run: () => { editor.selectAllOfSelectedType(); },
     disabled: noSel,
   },
   sameName: {
-    label: t('Mesmo nome', 'Same Name'),
-    icon: 'samename',
+    label: t('Mesmo nome', 'Same Name'), icon: 'samename',
     hint: t('Seleciona todos os ambientes do nível com o mesmo nome (hoje só ambientes).', 'Select all rooms with the same name.'),
     run: () => { editor.selectAllOfSelectedName(); },
     disabled: (c) => (c.selection.some((id) => isRoom(c.p.elements[id])) ? false : t('Selecione um ambiente primeiro.', 'Select a room first.')),
   },
   createSimilar: {
-    label: t('Criar semelhante', 'Create Similar'),
-    icon: 'copy',
+    label: t('Criar semelhante', 'Create Similar'), icon: 'copy',
     hint: t('Ativa a ferramenta do elemento selecionado, já com o tipo dele.', 'Starts the tool of the selected element with its type.'),
     shortcut: 'createSimilar',
     run: () => { startCreateSimilar(editor.project, (id) => editor.setTool(id)); },
@@ -201,9 +201,20 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
       ? false
       : t('Selecione um elemento de um só tipo (parede, porta, janela, piso, laje, forro ou telhado).', 'Select one element of a single type (wall, door, window, floor, slab, ceiling or roof).')),
   },
+  groupComponents: {
+    label: t('Agrupar', 'Group'), icon: 'layers',
+    hint: t('Cria um conjunto com os componentes selecionados: eles passam a ser selecionados, movidos e copiados juntos.', 'Creates a group from the selected components: they are selected, moved and copied together.'),
+    run: () => { agruparSelecao(envDeConjunto()); },
+    disabled: (c) => (c.selection.some((id) => isComponent(c.p.elements[id])) ? false : t('Selecione componentes para agrupar.', 'Select components to group.')),
+  },
+  ungroupComponents: {
+    label: t('Desagrupar', 'Ungroup'), icon: 'isolate',
+    hint: t('Desfaz o conjunto dos componentes selecionados; eles continuam no projeto, soltos.', 'Ungroups the selected components; they stay in the project, loose.'),
+    run: () => { desagruparSelecao(envDeConjunto()); },
+    disabled: (c) => (c.selection.some((id) => { const e = c.p.elements[id]; return isComponent(e) && e.groupId !== undefined; }) ? false : t('Selecione componentes de um conjunto.', 'Select components in a group.')),
+  },
   moveLevel: {
-    label: t('Nível…', 'Level…'),
-    icon: 'layers',
+    label: t('Nível…', 'Level…'), icon: 'layers',
     hint: t('Move a seleção para outro nível.', 'Move the selection to another level.'),
     run: () => useUi.setState({ dialog: 'moveLevel', dialogArg: null }),
     disabled: noSel,

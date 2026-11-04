@@ -22,6 +22,7 @@ export type ActionId =
   | 'schedWalls' | 'schedFloors' | 'schedSlabs' | 'schedCeilings' | 'schedRoofs' | 'schedStairs' | 'schedRooms' | 'schedOpenings'
   | 'stairSketch' | 'stairTypes' | 'rampTypes' | 'schedRamps' | 'propsSide' | 'browserSide' | 'resetDock' | 'tagAll' | 'wallTags' | 'editPerimeter'
   | 'copySelection' | 'cutSelection' | 'pasteAligned' | 'pasteAlignedLevels' | 'syncLinked' | 'unlinkLinked' | 'createSimilar'
+  | 'groupComponents' | 'ungroupComponents'
   | 'addViewSheet' | 'publishSheets' | 'sheetsPerLevel' | 'familyEditor' | 'componentBudget';
 
 export type RibbonItem =

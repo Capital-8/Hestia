@@ -4,6 +4,7 @@ import { type Id, type Parametro, type Valor } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
 import { useUi } from '../editor/state.ts';
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
+import { ACTIONS } from './ribbon/actions.ts';
 import { useFormat } from './useUnits.ts';
 import {
   aplicarPatchDeComponente,
@@ -64,6 +65,12 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
   const [mensagens, setMensagens] = useState<Record<string, string>>({});
   const components = useMemo(() => componentesDaSelecao(p, ids), [p, ids]);
   const resolucoes = new Map(components.map((c) => [c.id, resolverComponente(p, c)] as const));
+  const conjunto = useMemo(() => {
+    const idsUnicos = new Set(components.map((c) => c.groupId));
+    if (idsUnicos.size !== 1) return null;
+    const id = [...idsUnicos][0];
+    return id === undefined ? null : p.componentGroups?.[id] ?? null;
+  }, [components, p.componentGroups]);
 
   if (components.length === 0) return null;
 
@@ -244,6 +251,19 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
     <>
       <Group title="Componente">
         <Row label="Família" readOnly><span className="val">{nomeDaFamilia}</span></Row>
+        {conjunto && (
+          <Row label="Conjunto">
+            <span className="val">{conjunto.nome}</span>{' '}
+            <button
+              type="button"
+              className="chiplink"
+              title="Desfaz o conjunto e deixa os componentes soltos"
+              onClick={() => { ACTIONS.ungroupComponents.run(); }}
+            >
+              Desagrupar
+            </button>
+          </Row>
+        )}
         {familia ? (
           <Row label="Tipo" htmlFor="p-comp-type">
             <select
