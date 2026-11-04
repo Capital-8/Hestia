@@ -77,7 +77,7 @@ import { applyAnnotationCommand, type AnnotationCommand } from './annotations.ts
 import { applySheetCommand, dropOrphanViewports, type SheetCommand } from './sheetCommands.ts';
 import { applyView3DPointCommand, type View3DPointCommand } from './view3dPoints.ts';
 import { applyGridCommand, type GridCommand } from './grid.ts';
-import { applyComponentCommand, type ComponentCommand } from './componentCommands.ts';
+import { ajustarLinhasDeGrupos, applyComponentCommand, removerMembrosExcluidos, type ComponentCommand } from './componentCommands.ts';
 import { transformComponent } from './componentes.ts';
 import { applyViewCommand } from './viewCommands.ts';
 import { applyCeilingCommand } from './ceilingCommands.ts';
@@ -190,6 +190,7 @@ function removeIds(p: Project, ids: Id[]): void {
   const doomed = new Set(ids);
   for (const e of Object.values(p.elements)) if (isOpening(e) && doomed.has(e.hostId)) doomed.add(e.id);
   for (const id of doomed) delete p.elements[id];
+  removerMembrosExcluidos(p, doomed);
 }
 /**
  * Ids novos dos componentes do croqui na cópia, com os mesmos prefixos do Copiar/Colar (escada 'r'/'p', rampa 'rc').
@@ -224,6 +225,7 @@ function transformEach<E extends Element>(
 
 function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }>): void {
   const idMap = c.copy?.idMap;
+  if (!idMap) ajustarLinhasDeGrupos(p, c.ids, c.transform);
   transformEach(p, c, isRoof, transformRoof);
   transformEach(p, c, isStair, transformStair, (s) => remintComponents(s, (prefix) => newId(prefix)));
   transformEach(p, c, isRamp, transformRamp, (r) => remintComponents(r, (prefix) => newId(prefix)));
@@ -502,6 +504,10 @@ export function applyCommand(p: Project, c: Command): void {
     case 'updateComponent':
     case 'upsertFamily':
     case 'deleteFamily':
+    case 'upsertComponentGroup':
+    case 'deleteComponentGroup':
+    case 'moveComponentGroup':
+    case 'rotateComponentGroup':
       applyComponentCommand(p, c);
       break;
     case 'addGrid':
