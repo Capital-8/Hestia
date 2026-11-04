@@ -357,7 +357,7 @@ export function compararB3(ref: JuncaoB3, rust: JuncaoB3, opcoes: OpcoesComparar
    * mesma região (diagnóstico da pendência de 0050, "B3 entregue"). Regra (a mesma de `wallLayerBandsAfterJunction` em `junctionLevel.ts`): cada faixa
    * da camada sai com as PARTES da junção quando ela as tem (parede cortada e faixa plana com entrada na junção) ou com a FAIXA INTEIRA quando não.
    * Em cada altura elementar (união dos pontos de quebra verticais dos DOIS lados: cotas das faixas próprias, dos vértices com `span`, e das partes) a
-   * região final dos dois lados se compara por diferença simétrica a 1e-6 m², com a 0049 só quando é arredondamento (K medido). A flag `corte` não é
+   * região final dos dois lados se compara por diferença simétrica a 1e-6 em metros quadrados, com a 0049 só quando é arredondamento (K medido). A flag `corte` não é
    * comparada isolada: vale a geometria final (um `corte` que não muda a região não reprova, uma mudança de região sem `corte` reprova).
    */
   const propriasPorParede = (j: JuncaoB3): Map<number, Map<number, PecaB3[]>> => {
