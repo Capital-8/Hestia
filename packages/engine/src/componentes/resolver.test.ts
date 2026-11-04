@@ -249,7 +249,8 @@ describe('ferragens resolvidas (E6)', () => {
     const r = resolverFamilia(FAMILIA_ARMARIO);
     expect(r.erros).toEqual([]);
     expect(r.ferragens).toEqual([
-      { id: 'dobradica', nome: 'Dobradiça', codigo: null, quantidade: 8, custo: null },
+      // Regra de marcenaria por altura da porta (até 900 mm: 2 por porta): A80, 2 portas de 0,72 m = 4 (era 4 por porta, 8).
+      { id: 'dobradica', nome: 'Dobradiça', codigo: null, quantidade: 4, custo: null },
       { id: 'puxador', nome: 'Puxador', codigo: null, quantidade: 2, custo: null },
       { id: 'pino', nome: 'Pino de prateleira', codigo: null, quantidade: 4, custo: null },
     ]);
