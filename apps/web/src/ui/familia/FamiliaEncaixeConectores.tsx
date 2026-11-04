@@ -1,7 +1,7 @@
 import { adicionarConector, editarConector, excluirConector, type Conector, type Familia, type LadoConector } from '@hestia/model';
 import { useState, type ReactElement } from 'react';
 import { CampoFormula, CampoTexto } from './FamiliaParametrosCampos.tsx';
-import { LADOS_CONECTOR, ROTULO_LADO, aceitaDoTexto, conectorNovo, escreverFolga, proximoIdConector, textoDeAceita } from './familiaEncaixe.ts';
+import { LADOS_CONECTOR, ROTULO_LADO, aceitaDoTexto, conectorPadrao, escreverFolga, motivoEtiqueta, proximoIdConector, textoDeAceita } from './familiaEncaixe.ts';
 import { useFamilia } from './familiaStore.ts';
 import { executarPeca } from './familiaPecaAviso.ts';
 
@@ -24,7 +24,7 @@ export function AbaConectores({ familia, registrar }: PropsAbaConectores): React
   const adicionar = (): void => {
     const atual = useFamilia.getState().familia();
     const id = proximoIdConector(atual);
-    registrar(executarPeca('Novo conector', (f) => adicionarConector(f, conectorNovo(id, 'Novo conector', 'direita'))));
+    registrar(executarPeca('Novo conector', (f) => adicionarConector(f, conectorPadrao(id))));
   };
 
   return (
@@ -70,8 +70,9 @@ function LinhaConector({ conector, registrar }: PropsLinhaConector): ReactElemen
   };
 
   const gravarEtiqueta = (texto: string): Resultado => {
+    const motivo = motivoEtiqueta(texto);
+    if (motivo !== null) return motivo;
     const etiqueta = texto.trim();
-    if (etiqueta === '') return 'A etiqueta não pode ficar vazia';
     if (etiqueta === conector.etiqueta) return true;
     return gravar(`Editar etiqueta de ${conector.id}`, { etiqueta });
   };

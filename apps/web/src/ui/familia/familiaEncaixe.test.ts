@@ -19,7 +19,9 @@ import {
   aceitaDoTexto,
   escolhaNova,
   conectorNovo,
+  conectorPadrao,
   escreverFolga,
+  motivoEtiqueta,
   motivoNovoEscolha,
   opcoesDeParametro,
   parametrosParaEscolha,
@@ -299,5 +301,27 @@ describe('operações pelo HistoricoFamilia (desfazer/refazer)', () => {
     expect(h.atual.escolhas![0]!.nome).toBe('Fundo');
     expect(h.refazer()).toBe(true);
     expect(h.atual.escolhas).toHaveLength(0);
+  });
+});
+
+describe('conectorPadrao (botão “+ Conector”)', () => {
+  it('nasce com lado esquerda, etiqueta “base” e aceita vazio, com o id pedido', () => {
+    expect(conectorPadrao('c9')).toEqual({ id: 'c9', nome: 'Novo conector', lado: 'esquerda', etiqueta: 'base', aceita: [] });
+  });
+
+  it('o modelo aceita o padrão (etiqueta não vazia reimporta) e o id seguinte não repete', () => {
+    const f = nova();
+    expect(adicionarConector(f, conectorPadrao(proximoIdConector(f)))).toBeNull();
+    expect(f.conectores![0]!.etiqueta).toBe('base');
+    expect(proximoIdConector(f)).toBe('conector_2');
+  });
+
+  it('etiqueta vazia na célula é recusada com motivo (a linha volta ao valor anterior); com texto, vale', () => {
+    const f = nova();
+    expect(adicionarConector(f, conectorPadrao('c1'))).toBeNull();
+    expect(motivoEtiqueta('')).toMatch('etiqueta');
+    expect(motivoEtiqueta('   ')).toMatch('vazia');
+    expect(motivoEtiqueta(' base ')).toBeNull();
+    expect(f.conectores![0]!.etiqueta).toBe('base');
   });
 });

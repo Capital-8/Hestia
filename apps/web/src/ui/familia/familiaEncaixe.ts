@@ -98,6 +98,19 @@ export function conectorNovo(id: string, nome: string, lado: LadoConector): Cone
   return { id, nome, lado, etiqueta: '' };
 }
 
+/**
+ * Conector criado pelo botão "+ Conector": lado `esquerda`, etiqueta `base` e `aceita` vazio ("qualquer").
+ * A etiqueta nunca nasce vazia — o arquivo da família exige um texto não vazio e reimportaria com erro.
+ */
+export function conectorPadrao(id: string): Conector {
+  return { id, nome: 'Novo conector', lado: 'esquerda', etiqueta: 'base', aceita: [] };
+}
+
+/** Motivo pelo qual a etiqueta digitada na célula não pode ser gravada (o arquivo da família exige texto não vazio); `null` quando vale. */
+export function motivoEtiqueta(texto: string): string | null {
+  return texto.trim() === '' ? 'A etiqueta não pode ficar vazia' : null;
+}
+
 export function escolhaNova(id: string, nome: string, parametro: string, zona: string): Escolha {
   return { id, nome, parametro, zona };
 }
