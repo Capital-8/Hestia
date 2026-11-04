@@ -1,7 +1,7 @@
-// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v10.json.
+// ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v11.json.
 // Não edite à mão: mude o JSON e rode `node scripts/gerar-esquema-kernel.mjs`.
 
-export const ESQUEMA_VERSAO = 10;
+export const ESQUEMA_VERSAO = 11;
 export const ABI_VERSAO = 2;
 export const NIVEL_TODOS = 4294967295;
 
@@ -823,6 +823,122 @@ export const SECOES = {
       },
       {
         "nome": "h",
+        "tipo": "f64"
+      }
+    ]
+  },
+  "faixas_juncao": {
+    "id": 22,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "nivel_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "parede_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "camada",
+        "tipo": "u32"
+      },
+      {
+        "nome": "banda",
+        "tipo": "u32"
+      },
+      {
+        "nome": "prioridade",
+        "tipo": "f64"
+      },
+      {
+        "nome": "nucleo",
+        "tipo": "u8"
+      },
+      {
+        "nome": "base_z",
+        "tipo": "f64"
+      },
+      {
+        "nome": "z0",
+        "tipo": "f64"
+      },
+      {
+        "nome": "z1",
+        "tipo": "f64"
+      },
+      {
+        "nome": "inclinada",
+        "tipo": "u8"
+      },
+      {
+        "nome": "o_x",
+        "tipo": "f64"
+      },
+      {
+        "nome": "o_y",
+        "tipo": "f64"
+      },
+      {
+        "nome": "d_x",
+        "tipo": "f64"
+      },
+      {
+        "nome": "d_y",
+        "tipo": "f64"
+      },
+      {
+        "nome": "t0",
+        "tipo": "f64"
+      },
+      {
+        "nome": "t1",
+        "tipo": "f64"
+      },
+      {
+        "nome": "h0",
+        "tipo": "f64"
+      },
+      {
+        "nome": "h1",
+        "tipo": "f64"
+      }
+    ]
+  },
+  "pontos_faixas_juncao": {
+    "id": 23,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "faixa_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "poligono",
+        "tipo": "u32"
+      },
+      {
+        "nome": "anel",
+        "tipo": "u32"
+      },
+      {
+        "nome": "indice",
+        "tipo": "u32"
+      },
+      {
+        "nome": "x",
+        "tipo": "f64"
+      },
+      {
+        "nome": "y",
         "tipo": "f64"
       }
     ]

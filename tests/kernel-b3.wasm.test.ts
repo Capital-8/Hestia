@@ -37,14 +37,15 @@ const SEMENTES = Number(process.env['B3_SEMENTES'] ?? 5);
 const MEDIR = process.env['B3_MEDIR'] === '1';
 const medidas: string[] = [];
 /**
- * Casos com o DEFEITO CONHECIDO da junção (0050, "B3 entregue" e "B3 encerrada sem a junção"): em parede com faixas inclinadas cruzada por piso ou laje o Rust
+ * Lista de casos com DEFEITO CONHECIDO da junção: VAZIA desde a saída 3 da 0050 (as faixas de parede vêm do TypeScript, e o Rust só recorta). O mecanismo
+ * `it.fails` fica para o próximo defeito. Histórico (0050, "B3 encerrada sem a junção"): em parede com faixas inclinadas cruzada por piso ou laje o Rust
  * deixa de recortar faixas que o TypeScript recorta (de 0,04 a 0,65 m² na camada de parede). A partição vertical do TS depende da ordem textual dos anéis do
  * `polygon-clipping`, que o `i_overlay` não reproduz; três correções locais no Rust foram tentadas e cada uma consertou um caso e quebrou outros.
  * `it.fails` EXIGE que o caso continue reprovando: se um deles passar o teste reprova e esta lista deve ser atualizada (o defeito foi corrigido). Nada foi
  * afrouxado: o comparador segue bloqueante e a junção NÃO é despachada ao Rust. Em modo de medição (B3_MEDIR=1) o comparador não lança e a lista não vale.
  * Chaves: `estresse:<semente>:<pavimento>` e `naoAdjacente:<semente>:<pavimento>`.
  */
-const DEFEITO_CONHECIDO = new Set(['estresse:1:2', 'estresse:2:0', 'estresse:5:1', 'naoAdjacente:43:0', 'naoAdjacente:43:1']);
+const DEFEITO_CONHECIDO = new Set<string>(); // vazia desde a saída 3 da 0050 (faixas de parede vindas do TypeScript): nenhum caso falha por defeito conhecido.
 const itB3 = (chave: string) => (!MEDIR && DEFEITO_CONHECIDO.has(chave) ? it.fails : it);
 const maior = { sim: 0, k: 0, casoSim: '', casoK: '' };
 const memo = new Map<string, { p: Project; cena: CenaV2; a1: ReturnType<typeof montarCenaA1>; b: ReturnType<typeof montarCenaB1>; b3: ReturnType<typeof montarCenaB3> }>();
@@ -105,6 +106,8 @@ const cenaDe = (p: Project, opcoes: { todas?: boolean } = {}) => {
       niveis: { colunas: sb.niveis, n: nb.niveis },
       paredes_z_juncao: { colunas: b3.secoes.paredes_z_juncao, n: b3.nLinhas.paredes_z_juncao },
       perfis_z_juncao: { colunas: b3.secoes.perfis_z_juncao, n: b3.nLinhas.perfis_z_juncao },
+      faixas_juncao: { colunas: b3.secoes.faixas_juncao, n: b3.nLinhas.faixas_juncao },
+      pontos_faixas_juncao: { colunas: b3.secoes.pontos_faixas_juncao, n: b3.nLinhas.pontos_faixas_juncao },
     })),
   );
   return { cena, a1, b, b3 };

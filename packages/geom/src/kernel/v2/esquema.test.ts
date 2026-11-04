@@ -6,7 +6,7 @@ import { ABI_VERSAO, CODIGOS, CONSULTAS, ESQUEMA_VERSAO, LIMITES, NIVEL_TODOS, S
 const json = JSON.parse(readFileSync(CAMINHO_JSON, 'utf8'));
 const lf = (t: string): string => t.replace(/\r\n/g, '\n');
 
-describe('esquema gerado (cena-v10.json)', () => {
+describe('esquema gerado (cena-v11.json)', () => {
   it('esquema.gerado.ts não está defasado em relação ao JSON (rode scripts/gerar-esquema-kernel.mjs)', () => {
     expect(lf(readFileSync(CAMINHO_GERADO, 'utf8'))).toBe(gerarTexto(json));
   });
