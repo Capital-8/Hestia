@@ -1,5 +1,8 @@
-import { compilar, escreverCampo, lerCampo, type CampoPeca, type PapelPeca, type Peca } from '@hestia/model';
+import { excluirAninhado } from '@hestia/model/src/familia/edicaoAninhados.ts';
+import { BIBLIOTECA_BASE, compilar, escreverCampo, lerCampo, type CampoPeca, type PapelPeca, type Peca } from '@hestia/model';
 import type { ReactElement, ReactNode } from 'react';
+import { useProject } from '../../editor/controller.ts';
+import { familiasParaAninhar, nomeDaFamilia } from './familiaAninhado.ts';
 import { mm } from './familiaDesenho.ts';
 import { FamiliaFabricacao } from './FamiliaFabricacao.tsx';
 import { FamiliaUsinagens } from './FamiliaUsinagens.tsx';
@@ -27,7 +30,10 @@ export function NavegadorFamilia(): ReactElement {
   const familia = useFamilia((s) => s.historico.atual);
   const tipoId = useFamilia((s) => s.tipoId);
   const escolherTipo = useFamilia((s) => s.escolherTipo);
+  const projeto = useProject();
   const res = useResolucao();
+  const aninhados = Array.isArray(familia.aninhados) ? familia.aninhados : [];
+  const familiasVisiveis = familiasParaAninhar(BIBLIOTECA_BASE, Object.values(projeto.componentFamilies ?? {}), familia.id);
   const derivados = familia.parametros.filter((p) => p.formula !== undefined).length;
   const nomes = familia.parametros.slice(0, 6).map((p) => p.id).join(' · ');
   return (
@@ -50,6 +56,31 @@ export function NavegadorFamilia(): ReactElement {
           </Li>
         );
       })}
+      <Li cls="h">▾ Módulos aninhados ({aninhados.length})</Li>
+      {aninhados.length === 0 && (
+        <Li cls="l2"><span className="fam-mut">nenhum — use “Módulo aninhado” na faixa</span></Li>
+      )}
+      {aninhados.map((a) => (
+        <li
+          key={a.id}
+          className="l2 fam-anin-li"
+          title="Editar módulo aninhado"
+          onClick={() => useFamilia.getState().set({ aninhadoEmEdicao: a.id, dialogo: 'aninhado' })}
+        >
+          <span>{a.nome}</span>
+          <span className="fam-mut">{nomeDaFamilia(familiasVisiveis, a.familiaId)}</span>
+          <button
+            className="fam-anin-excluir"
+            title="Excluir módulo aninhado (desfazer recupera)"
+            onClick={(e) => {
+              e.stopPropagation();
+              executarPeca('Excluir módulo aninhado', (f) => excluirAninhado(f, a.id));
+            }}
+          >
+            Excluir
+          </button>
+        </li>
+      ))}
       <Li cls="h">▾ Ferragens ({familia.ferragens.length})</Li>
       {familia.ferragens.map((f) => <Li key={f.id} cls="l2">{f.nome}<span className="fam-mut">{f.quantidade}</span></Li>)}
       <Li cls="h">▾ Tipos ({familia.tipos.length})</Li>

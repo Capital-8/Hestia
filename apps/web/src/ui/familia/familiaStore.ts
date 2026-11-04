@@ -8,7 +8,7 @@ import { create } from 'zustand';
  */
 export type VistaFamilia = '3d' | 'frente' | 'lateral' | 'planta';
 export type DetalheFamilia = 'grosso' | 'medio' | 'fino';
-export type DialogoFamilia = null | 'parametros' | 'tipos' | 'pecas' | 'novo' | 'catalogo' | 'arquivo' | 'encaixe';
+export type DialogoFamilia = null | 'parametros' | 'tipos' | 'pecas' | 'novo' | 'catalogo' | 'arquivo' | 'encaixe' | 'aninhado';
 export type EixoCorte = 'x' | 'y' | 'z';
 
 export interface Corte {
@@ -35,6 +35,8 @@ export interface FamiliaState {
   opacidade: number;
   corte: Corte;
   dialogo: DialogoFamilia;
+  /** Id do módulo aninhado aberto no diálogo; `null` = criação de um novo. */
+  aninhadoEmEdicao: string | null;
   /** Catálogo de marcenaria (chapas, fitas, ferragens) da sessão do editor; fora do histórico da família. */
   catalogo: Catalogo;
   /** Inclui a furação automática de cavilhas na lista de peças e no DXF. */
@@ -106,11 +108,12 @@ export const useFamilia = create<FamiliaState>((set, get) => {
     opacidade: 1,
     corte: { ativo: false, eixo: 'y', posicao: 0.3 },
     dialogo: null,
+    aninhadoEmEdicao: null,
     catalogo: structuredClone(CATALOGO_PADRAO),
     cavilhas: false,
     ferramenta: null,
     abrir: () => set({ aberta: true }),
-    ocultar: () => set({ aberta: false, dialogo: null }),
+    ocultar: () => set({ aberta: false, dialogo: null, aninhadoEmEdicao: null }),
     familia: () => get().historico.atual,
     executar: (rotulo, receita) => {
       try {
@@ -144,10 +147,18 @@ export const useFamilia = create<FamiliaState>((set, get) => {
       const novo = new HistoricoFamilia<Familia>(structuredClone(f));
       ligar(novo);
       const estado = estadoInicial(novo.atual);
-      set((s) => ({ historico: novo, versao: s.versao + 1, ...estado, sel: null }));
+      set((s) => ({ historico: novo, versao: s.versao + 1, ...estado, sel: null, aninhadoEmEdicao: null }));
     },
     setCatalogo: (c) => set({ catalogo: c }),
-    set: (patch) => set(patch),
+    set: (patch) => {
+      // O item "Módulo aninhado" da faixa não é uma ferramenta: em vez de só troca-la na barra de status,
+      // abre o diálogo do módulo aninhado (a faixa em si não é editável nesta ficha).
+      if (patch.ferramenta === 'Módulo aninhado') {
+        set({ ...patch, ferramenta: null, dialogo: 'aninhado', aninhadoEmEdicao: null });
+        return;
+      }
+      set(patch);
+    },
   };
 });
 

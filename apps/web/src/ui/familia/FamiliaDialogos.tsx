@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { useFamilia } from './familiaStore.ts';
+import { FamiliaAninhado } from './FamiliaAninhado.tsx';
 import { FamiliaArquivo } from './FamiliaArquivo.tsx';
 import { FamiliaCatalogo } from './FamiliaCatalogo.tsx';
 import { FamiliaLista } from './FamiliaLista.tsx';
@@ -11,9 +12,11 @@ import { DialogoTipos } from './FamiliaTipos.tsx';
 /** Roteia o diálogo aberto do editor de famílias (cada um vive no seu arquivo). */
 export function FamiliaDialogos(): ReactElement | null {
   const d = useFamilia((s) => s.dialogo);
+  const aninhadoSel = useFamilia((s) => s.aninhadoEmEdicao);
   if (d === 'parametros') return <DialogoParametros />;
   if (d === 'tipos') return <DialogoTipos />;
   if (d === 'encaixe') return <DialogoEncaixe />;
+  if (d === 'aninhado') return <FamiliaAninhado key={aninhadoSel ?? 'novo'} />;
   if (d === 'pecas') return <FamiliaLista />;
   if (d === 'catalogo') return <FamiliaCatalogo />;
   if (d === 'novo') return <FamiliaNovo />;
