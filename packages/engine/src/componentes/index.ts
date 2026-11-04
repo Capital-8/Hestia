@@ -9,6 +9,7 @@ export * from './furacao.ts';
 export * from './listaPecas.ts';
 export * from './planoCorte.ts';
 export * from './instancia.ts';
+export * from './orcamento.ts';
 export * from './encaixeTipos.ts';
 export * from './encaixeParede.ts';
 export * from './encaixeVizinho.ts';
