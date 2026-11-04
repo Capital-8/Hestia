@@ -15,6 +15,7 @@ export const TAB_ARQUITETURA: RibbonTab = {
       tool('door'),
       tool('window'),
       tool('component', 'large', { label: t('Componente', 'Component') }),
+      act('componentLibrary', 'large', t('Biblioteca', 'Library')),
       stack(act('groupComponents', 'small', t('Agrupar', 'Group')), act('ungroupComponents', 'small', t('Desagrupar', 'Ungroup'))),
       stack(act('familyEditor', 'small', t('Editor de famílias', 'Family Editor')), act('componentBudget', 'small', t('Orçamento', 'Budget'))),
       soon(t('Pilar', 'Column'), 'column'),
