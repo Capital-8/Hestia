@@ -15,8 +15,8 @@ import { zDoNivel } from './kernelA1.ts';
 import type { CenaB1 } from './kernelB.ts';
 import { argumentosB2 } from './kernelB.ts';
 import { bandTopAt } from './profile.ts';
-import { bandKey, junctionLevel } from './junctionLevel.ts';
-import { levelCutterSet, spanRange, type CutterSolid, type SolidPiece } from './junctionNet.ts';
+import { bandKey, junctionLevelTs, type JunctionLevel } from './junctionLevel.ts';
+import { levelCutterSet, spanRange, type CutterSolid, type LevelCutters, type SolidPiece } from './junctionNet.ts';
 import { slabRiseAt } from './slabs.ts';
 import { decodificarForma } from './kernelA2.ts';
 import type { LayerBand } from './types.ts';
@@ -134,7 +134,10 @@ const numero = (m: Map<Id, number>, id: Id, o: string): number => {
 };
 
 /** O que o motor TypeScript produz: `levelCutterSet` (cortadores) e `junctionLevel` (junção) do nível, campo a campo. Não passa por cache do Rust. */
-export function referenciaB3(p: Project, levelId: Id, cena: CenaB1, a1: CenaA1): JuncaoB3 {
+export const referenciaB3 = (p: Project, levelId: Id, cena: CenaB1, a1: CenaA1): JuncaoB3 => referenciaB3De(levelCutterSet(p, levelId), junctionLevelTs(p, levelId), cena, a1);
+
+/** A mesma extração a partir dos cortadores e da junção já calculados pelo TypeScript (o modo sombra reaproveita o que acabou de calcular). */
+export function referenciaB3De(set: LevelCutters, jl: JunctionLevel, cena: CenaB1, a1: CenaA1): JuncaoB3 {
   const dono = (tipo: string, id: Id): number => numero(tipo === 'wall' ? a1.idDe : tipo === 'floor' ? cena.pisoDe : cena.lajeDe, id, tipo);
   const peca = (sp: SolidPiece): PecaB3 => ({
     meta: sp.meta
@@ -146,9 +149,7 @@ export function referenciaB3(p: Project, levelId: Id, cena: CenaB1, a1: CenaA1):
     span: sp.span,
     faixa: spanRange(sp),
   });
-  const set = levelCutterSet(p, levelId);
   const cortadores: CortadorB3[] = [...set.floors, ...set.slabs, ...set.walls].map((c: CutterSolid) => ({ tipo: TIPO_B3[c.kind], pecas: c.pieces.map(peca) }));
-  const jl = junctionLevel(p, levelId);
   const partes = (ps: ReadonlyArray<{ poly: MultiPolygon; z0: number; z1: number }>): ParteB3[] => ps.map((x) => ({ poligono: x.poly, z0: x.z0, z1: x.z1 }));
   const elementos: ElementoJuncaoB3[] = [...jl.elements].map(([id, e]) => {
     const tipo = cena.pisoDe.has(id) ? TIPO_B3.floor : TIPO_B3.slab;

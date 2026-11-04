@@ -27,11 +27,11 @@ if (kernelExperimentalLigado()) {
   else setTimeout(ativar, 2500);
 }
 
-// Fatia A do kernel v2 (0047 §12): `?kernelFatias=A`, `?kernel=rust` ou `hestia:kernel:fatias`. `resolveLevel` passa a pedir o nível ao Rust
+// Fatias A e B do kernel v2 (0047 §12; B: pisos, lajes e junção, 0050): `?kernelFatias=A,B`, `?kernel=rust` ou `hestia:kernel:fatias`. `resolveLevel` passa a pedir o nível ao Rust
 // (ou, no modo sombra, compara e devolve o TS). Mesma ativação adiada: até o wasm ficar pronto, e se ele falhar, vale o TypeScript. Sem a
 // fatia ligada, nada é instalado nem baixado.
 const despacho = configDoDespacho();
-if (despacho.fatiaA) {
+if (despacho.fatiaA || despacho.fatiaB) {
   const ativar = (): void => void iniciarDespachoKernel(despacho);
   const g = globalThis as { requestIdleCallback?: (cb: () => void, opcoes?: { timeout: number }) => number };
   if (typeof g.requestIdleCallback === 'function') g.requestIdleCallback(ativar, { timeout: 4000 });

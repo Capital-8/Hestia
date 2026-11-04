@@ -16,8 +16,8 @@ function ambiente(busca: string | null, inicial: Record<string, string> = {}): A
 }
 
 describe('preferências de fatias do kernel v2', () => {
-  it('só a fatia A está habilitada para o interruptor', () => {
-    expect([...FATIAS_HABILITADAS]).toEqual(['A']);
+  it('só as fatias A e B estão habilitadas para o interruptor', () => {
+    expect([...FATIAS_HABILITADAS]).toEqual(['A', 'B']);
   });
 
   it('lê a lista salva na chave hestia:kernel:fatias, no formato de fatias.ts', () => {
@@ -63,13 +63,17 @@ describe('preferências de fatias do kernel v2', () => {
     expect(amb.dados['hestia:kernel:sombra']).toBeUndefined();
   });
 
-  it('configuração do despacho: nada liga sem flag; a sombra só vale com a fatia A', () => {
-    expect(configDoDespacho(ambiente(''))).toEqual({ fatiaA: false, sombra: false });
-    expect(configDoDespacho(ambiente('', { 'hestia:kernel:sombra': 'true' }))).toEqual({ fatiaA: false, sombra: false });
-    expect(configDoDespacho(ambiente('?kernelFatias=A'))).toEqual({ fatiaA: true, sombra: false });
-    expect(configDoDespacho(ambiente('?kernel=rust', { 'hestia:kernel:sombra': 'true' }))).toEqual({ fatiaA: true, sombra: true });
-    expect(configDoDespacho(ambiente('', { 'hestia:kernel:fatias': 'A', 'hestia:kernel:sombra': 'true' }))).toEqual({ fatiaA: true, sombra: true });
-    expect(configDoDespacho(ambiente('?kernel=ts', { 'hestia:kernel:fatias': 'A' }))).toEqual({ fatiaA: false, sombra: false });
-    expect(configDoDespacho(ambiente('?kernelFatias=B'))).toEqual({ fatiaA: false, sombra: false });
+  it('configuração do despacho: nada liga sem flag; a sombra vale com ao menos uma fatia (A ou B) ligada', () => {
+    expect(configDoDespacho(ambiente(''))).toEqual({ fatiaA: false, fatiaB: false, sombra: false });
+    expect(configDoDespacho(ambiente('', { 'hestia:kernel:sombra': 'true' }))).toEqual({ fatiaA: false, fatiaB: false, sombra: false });
+    expect(configDoDespacho(ambiente('?kernelFatias=A'))).toEqual({ fatiaA: true, fatiaB: false, sombra: false });
+    expect(configDoDespacho(ambiente('?kernelFatias=B'))).toEqual({ fatiaA: false, fatiaB: true, sombra: false });
+    expect(configDoDespacho(ambiente('?kernelFatias=A,B'))).toEqual({ fatiaA: true, fatiaB: true, sombra: false });
+    expect(configDoDespacho(ambiente('?kernelFatias=B', { 'hestia:kernel:sombra': 'true' }))).toEqual({ fatiaA: false, fatiaB: true, sombra: true });
+    expect(configDoDespacho(ambiente('?kernel=rust', { 'hestia:kernel:sombra': 'true' }))).toEqual({ fatiaA: true, fatiaB: true, sombra: true });
+    expect(configDoDespacho(ambiente('', { 'hestia:kernel:fatias': 'A,B', 'hestia:kernel:sombra': 'true' }))).toEqual({ fatiaA: true, fatiaB: true, sombra: true });
+    expect(configDoDespacho(ambiente('', { 'hestia:kernel:fatias': 'B' }))).toEqual({ fatiaA: false, fatiaB: true, sombra: false });
+    expect(configDoDespacho(ambiente('?kernel=ts', { 'hestia:kernel:fatias': 'A,B' }))).toEqual({ fatiaA: false, fatiaB: false, sombra: false });
+    expect(configDoDespacho(ambiente('?kernelFatias=C'))).toEqual({ fatiaA: false, fatiaB: false, sombra: false });
   });
 });

@@ -5,6 +5,7 @@ import { layerCoreFlags } from './junctionPlanar.ts';
 import { resolveBoundary, type OutlineProblem } from './outlineBound.ts';
 import { cutStairOpenings } from './stairOpenings.ts';
 import { holesFor, openingsOnLevel } from './levelOpenings.ts';
+import { despachanteDePisos } from './resolveDespacho.ts';
 
 /** Camada resolvida do piso: o mesmo polígono em planta, entre as cotas absolutas z0 e z1. */
 export interface ResolvedFloorLayer {
@@ -70,6 +71,13 @@ export const resolveAllFloors = (p: Project, opts: FloorResolveOptions = {}): Re
  * 3 pontos são ignorados: a validação do modelo é quem avisa.
  */
 export function resolveFloors(p: Project, levelId: Id, opts: FloorResolveOptions = {}): ResolvedFloor[] {
+  // Fatia B do kernel Rust (0050, B5): só a chamada padrão é despachada; `layers: false` (a cena de paredes) fica sempre no TypeScript.
+  const d = despachanteDePisos();
+  return d && Object.keys(opts).length === 0 ? d(p, levelId, () => resolveFloorsTs(p, levelId, opts)) : resolveFloorsTs(p, levelId, opts);
+}
+
+/** O motor TypeScript dos pisos, sem despacho (a referência do Rust e o retorno de qualquer falha do kernel). */
+export function resolveFloorsTs(p: Project, levelId: Id, opts: FloorResolveOptions = {}): ResolvedFloor[] {
   const openings = openingsOnLevel(p, levelId);
   const out: ResolvedFloor[] = [];
   for (const f of floorsOnLevel(p, levelId)) {

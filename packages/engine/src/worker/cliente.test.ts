@@ -3,7 +3,7 @@ import type { Project } from '@hestia/model';
 import { ClienteResolucao, type WorkerLike } from './cliente.ts';
 import { executarResolucao } from './executor.ts';
 import { projetoComPavimentos } from './fixturePavimentos.ts';
-import { ResolucaoCancelada, type TipoResolucao } from './protocolo.ts';
+import { ResolucaoCancelada, type PedidoResolucao, type TipoResolucao } from './protocolo.ts';
 import { criarWorkerSimulado } from './workerSimulado.ts';
 
 const TIPOS: TipoResolucao[] = ['nivel', 'pisos', 'lajes', 'telhados', 'ambientes'];
@@ -154,5 +154,38 @@ describe('ClienteResolucao: worker que não responde', () => {
     expect(cliente.pendentesAbertos).toBe(1);
     cliente.cancelar(1);
     await expect(pendente).rejects.toMatchObject({ motivo: 'cancelado' });
+  });
+});
+
+describe('ClienteResolucao: kernel v2 das fatias A e B', () => {
+  /** Worker que só guarda as mensagens: o pedido fica pendente e é cancelado no fim do teste. */
+  function workerQueGuarda(mensagens: PedidoResolucao[]): WorkerLike {
+    return {
+      postMessage: (m: unknown) => {
+        mensagens.push(structuredClone(m) as PedidoResolucao);
+      },
+      terminate: () => undefined,
+      onmessage: null,
+      onerror: null,
+    };
+  }
+
+  it('com a fatia B ligada o pedido leva kernelV2 com a configuração da B', async () => {
+    const mensagens: PedidoResolucao[] = [];
+    const config = { fatiaA: false, fatiaB: true, sombra: false } as const;
+    const cliente = new ClienteResolucao({ usarWorker: true, criarWorker: () => workerQueGuarda(mensagens), kernelV2: () => config });
+    const pendente = cliente.resolver('pisos', 'pav_0', projetoComPavimentos(1), 1);
+    expect(mensagens[0]?.kernelV2).toEqual(config);
+    cliente.cancelar(1);
+    await expect(pendente).rejects.toBeInstanceOf(ResolucaoCancelada);
+  });
+
+  it('sem fatia ligada o pedido não leva kernelV2 (o worker não instala nada)', async () => {
+    const mensagens: PedidoResolucao[] = [];
+    const cliente = new ClienteResolucao({ usarWorker: true, criarWorker: () => workerQueGuarda(mensagens), kernelV2: () => ({ fatiaA: false, fatiaB: false, sombra: true }) });
+    const pendente = cliente.resolver('pisos', 'pav_0', projetoComPavimentos(1), 1);
+    expect(mensagens[0]?.kernelV2).toBeUndefined();
+    cliente.cancelar(1);
+    await expect(pendente).rejects.toBeInstanceOf(ResolucaoCancelada);
   });
 });

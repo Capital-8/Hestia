@@ -105,7 +105,7 @@ function ambienteReal(): AmbienteKernel {
 }
 
 /** Fatias que o interruptor do diálogo "Experimentais" libera. As demais aparecem desabilitadas. */
-export const FATIAS_HABILITADAS: readonly Fatia[] = ['A'];
+export const FATIAS_HABILITADAS: readonly Fatia[] = ['A', 'B'];
 
 /** Lista de fatias gravada pelo diálogo (`hestia:kernel:fatias`); vazia quando não há. */
 export function lerFatiasSalvas(amb: AmbienteKernel = ambienteReal()): Set<Fatia> {
@@ -148,10 +148,13 @@ export function gravarModoSombra(ligado: boolean, amb: AmbienteKernel = ambiente
 }
 
 /**
- * Configuração do despacho da fatia A (decisão 0047 §12), lida do ambiente: a fatia A ligada (URL > `localStorage`) e o modo sombra, que só
- * vale com a fatia A. Sem a fatia, nada é instalado nem baixado: o padrão continua TypeScript.
+ * Configuração do despacho das fatias A e B (decisões 0047 §12 e 0050, B5), lida do ambiente: cada fatia ligada (URL > `localStorage`) e o modo
+ * sombra, que só vale com ao menos uma fatia ligada (e vale para cada fatia ligada). Sem fatia, nada é instalado nem baixado: o padrão continua
+ * TypeScript.
  */
-export function configDoDespacho(amb: AmbienteKernel = ambienteReal()): { fatiaA: boolean; sombra: boolean } {
-  const fatiaA = kernelFatiaLigada('A', { busca: amb.busca ?? null, ler: amb.ler ?? (() => null) });
-  return { fatiaA, sombra: fatiaA && lerModoSombra(amb) };
+export function configDoDespacho(amb: AmbienteKernel = ambienteReal()): { fatiaA: boolean; fatiaB: boolean; sombra: boolean } {
+  const ambFatias = { busca: amb.busca ?? null, ler: amb.ler ?? (() => null) };
+  const fatiaA = kernelFatiaLigada('A', ambFatias);
+  const fatiaB = kernelFatiaLigada('B', ambFatias);
+  return { fatiaA, fatiaB, sombra: (fatiaA || fatiaB) && lerModoSombra(amb) };
 }
