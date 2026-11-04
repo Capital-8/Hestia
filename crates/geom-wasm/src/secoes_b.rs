@@ -147,8 +147,6 @@ pub struct SecoesB {
     pub faixas_juncao: BTreeMap<u32, FaixaJuntadaLinha>,
     /// `pontos_faixas_juncao`: a região de cada faixa, um vértice por linha.
     pub pontos_faixas: BTreeMap<u32, PontoDeFaixa>,
-    /// `true` depois de uma carga (mesmo vazia) de `faixas_juncao`: então as faixas de parede da junção vêm dela, e não do cálculo do Rust.
-    pub faixas_definidas: bool,
 }
 
 enum Lote {
@@ -399,7 +397,7 @@ fn decodificar(secao: u32, n_linhas: u32, bytes: &[u8]) -> Result<Lote, u32> {
                     s[j] = ao(col, i)?;
                 }
                 let finitos = [pr, bz, a0, a1].iter().chain(s.iter()).all(|&x| finito(x));
-                if nu > 1 || inc > 1 || !finitos {
+                if nu > 1 || inc > 1 || !finitos || !(a1 > a0) {
                     return Err(ENTRADA);
                 }
                 if inc == 1 && s[5] == s[4] {
@@ -440,9 +438,9 @@ fn ao<T: Copy>(v: &[T], i: usize) -> Result<T, u32> {
 }
 
 impl SecoesB {
-    /// `true` se a carga de `faixas_juncao` foi feita (mesmo vazia): a junção usa essas faixas, não o cálculo do Rust.
+    /// `true` se há faixas de `faixas_juncao`: então a junção usa essas faixas, não o cálculo do Rust. Sem linhas (seção vazia ou removida), vale o cálculo anterior.
     pub fn faixas_juncao_definidas(&self) -> bool {
-        self.faixas_definidas
+        !self.faixas_juncao.is_empty()
     }
 
     /// `true` se a seção é uma das daqui.
@@ -525,10 +523,7 @@ impl SecoesB {
             SECAO_NIVEIS => self.niveis.clear(),
             SECAO_PAREDES_Z_JUNCAO => self.paredes_z_juncao.clear(),
             SECAO_PERFIS_Z_JUNCAO => self.perfis_juncao.clear(),
-            SECAO_FAIXAS_JUNCAO => {
-                self.faixas_juncao.clear();
-                self.faixas_definidas = true;
-            }
+            SECAO_FAIXAS_JUNCAO => self.faixas_juncao.clear(),
             SECAO_PONTOS_FAIXAS_JUNCAO => self.pontos_faixas.clear(),
             _ => self.furos.clear(),
         }
@@ -542,9 +537,6 @@ impl SecoesB {
         let novas = lote.chaves().into_iter().filter(|&k| !self.contem(secao, k)).count();
         if self.tamanho(secao).saturating_add(novas) > LIMITE_LINHAS_POR_SECAO as usize {
             return Err(LIMITE);
-        }
-        if secao == SECAO_FAIXAS_JUNCAO {
-            self.faixas_definidas = true;
         }
         self.aplicar(lote);
         Ok(())

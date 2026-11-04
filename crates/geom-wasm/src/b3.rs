@@ -365,57 +365,62 @@ fn cortadores_do_nivel(cena: &Cena, nivel: u32, tol: f64) -> Result<Cortadores, 
             out.pisos.push(c);
         }
     }
-    let pecas = if cena.b.faixas_juncao_definidas() { pecas_das_faixas_juntadas(cena, nivel) } else { pecas_das_paredes(cena, nivel, tol)? };
+    let pecas = if cena.b.faixas_juncao_definidas() { pecas_das_faixas_juntadas(cena, nivel)? } else { pecas_das_paredes(cena, nivel, tol)? };
     out.paredes.push(Cortador { tipo: Tipo::Parede, pecas });
     Ok(out)
 }
 
 /// Faixas de parede do nível vindas de `faixas_juncao` (saída 3 da 0050): a partição (z0, z1, topo) e a região de cada faixa como o TypeScript
 /// as resolveu depois do perfil superior e do de base, na ordem da seção. Não há pontos de quebra nem perfil a recalcular aqui: a peça sai como
-/// está, e só os recortes de piso e laje (`juncao_do_nivel`) são executados.
-fn pecas_das_faixas_juntadas(cena: &Cena, nivel: u32) -> Vec<PecaSolida> {
-    // Vértices de cada faixa por (polígono, anel), na ordem do índice do vértice no anel.
-    let mut por_faixa: HashMap<u32, BTreeMap<(u32, u32), Vec<(u32, [f64; 2])>>> = HashMap::new();
+/// está, e só os recortes de piso e laje (`juncao_do_nivel`) são executados. Recusa (ENTRADA) faixa de parede inexistente, vértice de faixa que não
+/// existe, polígono, anel ou índice com lacuna ou repetição, e vértice de região vazia.
+fn pecas_das_faixas_juntadas(cena: &Cena, nivel: u32) -> Result<Vec<PecaSolida>, u32> {
+    // Vértices de cada faixa: polígono -> anel -> (índice, ponto). Sem repetir índice e sem lacuna (0..n-1), em todos os níveis.
+    let mut por_faixa: HashMap<u32, BTreeMap<u32, BTreeMap<u32, BTreeMap<u32, [f64; 2]>>>> = HashMap::new();
     for p in cena.b.pontos_faixas.values() {
-        por_faixa.entry(p.faixa).or_default().entry((p.poligono, p.anel)).or_default().push((p.indice, [p.x, p.y]));
-    }
-    for aneis in por_faixa.values_mut() {
-        for pts in aneis.values_mut() {
-            pts.sort_by_key(|q| q.0);
+        if !cena.b.faixas_juncao.contains_key(&p.faixa) {
+            return Err(ENTRADA);
+        }
+        let anel = por_faixa.entry(p.faixa).or_default().entry(p.poligono).or_default().entry(p.anel).or_default();
+        if anel.insert(p.indice, [p.x, p.y]).is_some() {
+            return Err(ENTRADA);
         }
     }
-    cena.b
-        .faixas_juncao
-        .iter()
-        .filter(|(_, f)| f.nivel == nivel)
-        .map(|(id, f)| {
-            let mut poly: MultiPoligono = Vec::new();
-            if let Some(aneis) = por_faixa.get(id) {
-                let mut atual: Option<u32> = None;
-                for ((pol, _), pts) in aneis {
-                    if atual != Some(*pol) {
-                        poly.push(Vec::new());
-                        atual = Some(*pol);
-                    }
-                    if let Some(corrente) = poly.last_mut() {
-                        corrente.push(pts.iter().map(|q| q.1).collect());
-                    }
+    let mut pecas: Vec<PecaSolida> = Vec::new();
+    for (id, f) in cena.b.faixas_juncao.iter().filter(|(_, f)| f.nivel == nivel) {
+        if cena.paredes.obter(f.parede).is_none() {
+            return Err(ENTRADA);
+        }
+        let mut poly: MultiPoligono = Vec::new();
+        if let Some(poligonos) = por_faixa.get(id) {
+            for (k, (pol, aneis)) in poligonos.iter().enumerate() {
+                if *pol != k as u32 {
+                    return Err(ENTRADA);
                 }
+                let mut forma = Vec::new();
+                for (j, (anel, pts)) in aneis.iter().enumerate() {
+                    if *anel != j as u32 || pts.is_empty() || pts.keys().enumerate().any(|(i, ix)| *ix != i as u32) {
+                        return Err(ENTRADA);
+                    }
+                    forma.push(pts.values().copied().collect::<Vec<[f64; 2]>>());
+                }
+                poly.push(forma);
             }
-            PecaSolida {
-                poly,
-                span: Span::Faixa { base_z: f.base_z, z0: f.z0, z1: f.z1, inclinacao: f.inclinacao },
-                plana: f.inclinacao.is_none(),
-                meta: Some(MetaDaPeca {
-                    juncao: MetaDeJuncao { tipo: Tipo::Parede, prioridade: f.prioridade, nucleo: f.nucleo, explicita: false },
-                    dono: (Tipo::Parede, f.parede),
-                    camada: i64::from(f.camada),
-                    banda: Some(f.banda),
-                }),
-                externa: false,
-            }
-        })
-        .collect()
+        }
+        pecas.push(PecaSolida {
+            poly,
+            span: Span::Faixa { base_z: f.base_z, z0: f.z0, z1: f.z1, inclinacao: f.inclinacao },
+            plana: f.inclinacao.is_none(),
+            meta: Some(MetaDaPeca {
+                juncao: MetaDeJuncao { tipo: Tipo::Parede, prioridade: f.prioridade, nucleo: f.nucleo, explicita: false },
+                dono: (Tipo::Parede, f.parede),
+                camada: i64::from(f.camada),
+                banda: Some(f.banda),
+            }),
+            externa: false,
+        });
+    }
+    Ok(pecas)
 }
 
 /// Os `nivel_num` da seção `niveis`, em ordem crescente (a ordem de `p.levels`).
@@ -995,17 +1000,35 @@ mod testes {
     }
 
     #[test]
-    fn faixas_juncao_vazia_nao_gera_parede_e_a_remocao_devolve_o_calculo() {
+    fn faixas_juncao_vazia_ou_removida_vale_o_calculo_anterior() {
         let mut m = cena_de_dois_niveis();
         let sem = consulta(&mut m, 0.0);
         com_faixas(&mut m, &[]);
-        let vazia = consulta(&mut m, 0.0);
-        assert_eq!(u32s(&vazia[0]).chunks(3).last().map(|c| c[1]), Some(0), "cortador de parede do nível sem peças");
-        assert!(u32s(&vazia[6]).is_empty(), "sem faixas, a parede não aparece na junção");
-        assert_ne!(vazia, sem);
-        // a carga (mesmo vazia) manda até a cena ser refeita: a remoção das linhas não devolve o cálculo do Rust
-        m.cena.remover(SECAO_FAIXAS_JUNCAO, &[1]).expect("remover");
-        assert_eq!(consulta(&mut m, 0.0), vazia);
+        assert_eq!(consulta(&mut m, 0.0), sem, "sem linhas a seção não manda: vale o cálculo anterior");
+        com_faixas(&mut m, &[(0, 1, 0.0, 2.0, ret(2.9, -1.0, 3.1, 5.0))]);
+        assert_ne!(consulta(&mut m, 0.0), sem, "com a faixa, a seção manda");
+        m.cena.remover(SECAO_FAIXAS_JUNCAO, &[1]).expect("remover faixa");
+        m.cena.remover(SECAO_PONTOS_FAIXAS_JUNCAO, &[1, 2, 3, 4]).expect("remover pontos");
+        assert_eq!(consulta(&mut m, 0.0), sem, "removidas as linhas, volta ao cálculo anterior");
+    }
+
+    #[test]
+    fn faixas_juncao_inconsistentes_viram_entrada_na_consulta() {
+        let linhas = [(0u32, 1u32, 0.0, 2.0, ret(2.9, -1.0, 3.1, 5.0))];
+        // parede que não existe na cena
+        let mut m = cena_de_dois_niveis();
+        com_faixas(&mut m, &[(0, 99, 0.0, 2.0, ret(2.9, -1.0, 3.1, 5.0))]);
+        assert_eq!(executar(&mut m.cena, Q, &[0.0, 0.02]).err(), Some(ENTRADA), "parede inexistente");
+        // lacuna de índice: o vértice de índice 1 some (ids dos pontos são 1..4, na ordem do anel)
+        let mut m = cena_de_dois_niveis();
+        com_faixas(&mut m, &linhas);
+        m.cena.remover(SECAO_PONTOS_FAIXAS_JUNCAO, &[2]).expect("remover vértice");
+        assert_eq!(executar(&mut m.cena, Q, &[0.0, 0.02]).err(), Some(ENTRADA), "lacuna de índice");
+        // faixa órfã: os vértices da faixa 1 ficam sem faixa; a faixa 2 mantém a seção no modo novo
+        let mut m = cena_de_dois_niveis();
+        com_faixas(&mut m, &[linhas[0].clone(), (0, 1, 0.0, 1.0, ret(2.9, -1.0, 3.1, 5.0))]);
+        m.cena.remover(SECAO_FAIXAS_JUNCAO, &[1]).expect("remover faixa");
+        assert_eq!(executar(&mut m.cena, Q, &[0.0, 0.02]).err(), Some(ENTRADA), "vértice de faixa inexistente");
     }
 
     #[test]
