@@ -30,6 +30,7 @@ import { QuadroPlanta } from './quadroPlanta.ts';
 import { medirQuadro, useContarCommitPerf, usePerfDaUrl } from '../debug/perf/index.ts';
 import { eventosDeSolta, gestosComShift, passouDoLimiar } from './planGestos.ts';
 import { cliqueAdiadoInicial, decidirCliqueAdiado, type EstadoCliqueAdiado } from './cliqueAdiado.ts';
+import { armarArrastoNoPonto, cancelarArrasto3d, cancelarArrastoComEsc, moverArrastoNoPonto, type ArrastoComponente3D } from './viewport/arrastoComponente3d.ts';
 
 interface Pt {
   x: number;
@@ -438,7 +439,9 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   const pointers = useRef(new Map<number, Pt>());
   /** `pick`: o ponteiro foi o botão esquerdo sem Espaço, então um clique sem arrasto na vista 3D escolhe um elemento (Shift pode ser pan). */
   /** `shiftPending`: Shift com ferramenta de desenho na planta; sem arrasto é clique com shift (trava ortogonal), com arrasto vira pan. */
-  const drag = useRef<{ mode: 'tool' | 'pan' | 'orbit' | 'marquee' | 'none'; start: Pt; last: Pt; moved: boolean; pick: boolean; shiftPending?: boolean }>({ mode: 'none', start: { x: 0, y: 0 }, last: { x: 0, y: 0 }, moved: false, pick: false });
+  const drag = useRef<{ mode: 'tool' | 'pan' | 'orbit' | 'marquee' | 'componente' | 'none'; start: Pt; last: Pt; moved: boolean; pick: boolean; shiftPending?: boolean }>({ mode: 'none', start: { x: 0, y: 0 }, last: { x: 0, y: 0 }, moved: false, pick: false });
+  /** Arrasto de componente armado no `down` da vista 3D (F3-arrasto3d). */
+  const arrastoComp = useRef<ArrastoComponente3D | null>(null);
   /** Retângulo da caixa de seleção do corte (DOM, atualizado sem re-render enquanto o botão está preso). */
   const caixaRef = useRef<HTMLDivElement>(null);
   const mostrarCaixa = (a: Pt, b: Pt): void => {
@@ -479,6 +482,14 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   useEffect(() => {
     const down = (e: KeyboardEvent): void => {
       if (e.code === 'Space') spaceDown.current = true;
+      // Esc durante o arrasto de componente desfaz a sessão antes de qualquer atalho da planta/3D.
+      const encerrar = (): void => {
+        arrastoComp.current = null;
+        const p = drag.current.last;
+        drag.current = { mode: 'none', start: p, last: p, moved: false, pick: false };
+        useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
+      };
+      if (cancelarArrastoComEsc(e, arrastoComp.current, encerrar)) return;
       if (e.key === 'Escape' && sectionDimDrag.current) { sectionDimDrag.current = null; useUi.setState((st) => ({ previewTick: st.previewTick + 1 })); }
     };
     const up = (e: KeyboardEvent): void => {
@@ -644,6 +655,17 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
           return;
         }
       }
+      // Pressionar sobre um componente arma o arrasto no plano do piso; antes do limiar, soltar ainda é o clique de sempre.
+      if (e.button === 0 && !spaceDown.current && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey && !emPrevia) {
+        const hit = elementAt3d(s);
+        const armado = hit && armarArrastoNoPonto(editor.project, hit.id, model.current.orbit.camera, s, host.current!.getBoundingClientRect(), useUi.getState().selection);
+        if (armado) {
+          arrastoComp.current = armado;
+          drag.current = { mode: 'componente', start: s, last: s, moved: false, pick: true };
+          if (useUi.getState().hover) useUi.setState({ hover: null });
+          return;
+        }
+      }
       const mode = isOrbitReq ? 'orbit' : isPanReq ? 'pan' : (e.button === 0 ? 'orbit' : 'none');
       drag.current = { mode, start: s, last: s, moved: false, pick: e.button === 0 && !spaceDown.current && !e.altKey && !emPrevia };
       // Ao pressionar, o realce some: enquanto arrasta, o cursor orbita e não destaca.
@@ -730,6 +752,13 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     }
     const d = drag.current;
     if (view === '3d') {
+      if (d.mode === 'componente') {
+        if (!d.moved && passouDoLimiar(Math.hypot(s.x - d.start.x, s.y - d.start.y))) d.moved = true;
+        if (d.moved) moverArrastoNoPonto(arrastoComp.current, model.current.orbit.camera, s, host.current!.getBoundingClientRect(), e.altKey);
+        d.last = s;
+        useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
+        return;
+      }
       if (d.mode === 'orbit') model.current.orbit.orbit(s.x - d.last.x, s.y - d.last.y);
       else if (d.mode === 'pan') model.current.orbit.pan(s.x - d.last.x, s.y - d.last.y);
       if (d.mode !== 'none') {
@@ -937,6 +966,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     }
     // Arrasto que começou sobre o seletor de escala deixa o foco no <select>, e aí Delete e os atalhos são ignorados: solta o foco.
     if (d.moved && document.activeElement?.tagName === 'SELECT') (document.activeElement as HTMLElement).blur();
+    arrastoComp.current = null;
     drag.current = { mode: 'none', start: s, last: s, moved: false, pick: false };
     // O cursor é derivado do ref de arraste; sem este quadro ele ficaria em `grabbing` ao soltar o pan.
     useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
@@ -955,6 +985,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     if (sectionDimDrag.current) { sectionDimDrag.current = null; useUi.setState((st) => ({ previewTick: st.previewTick + 1 })); }
     const d = drag.current;
     if (d.mode === 'marquee') ocultarCaixa();
+    if (d.mode === 'componente') { cancelarArrasto3d(arrastoComp.current); arrastoComp.current = null; }
     if (d.mode === 'tool' && !downAdiado.current && !d.shiftPending) editor.activeTool.cancel?.();
     cancelarDownAdiado();
     drag.current = { mode: 'none', start: fim, last: fim, moved: false, pick: false };
@@ -1001,8 +1032,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   const cursorCss = cursorForView({
     view: ui.view,
     tool: ui.tool,
-    // A caixa usa a seta (Selecionar), como a planta; só pan/orbit pedem a mão.
-    drag: drag.current.mode === 'marquee' ? 'none' : drag.current.mode,
+    // A caixa usa a seta (Selecionar), como a planta; só pan/orbit (e o arrasto de componente já pegado) pedem a mão.
+    drag: drag.current.mode === 'marquee' ? 'none' : drag.current.mode === 'componente' ? (drag.current.moved ? 'pan' : 'none') : drag.current.mode,
     moved: drag.current.moved,
     handle: handleAxis,
   });
