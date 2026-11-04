@@ -17,6 +17,7 @@ import { applyDrop } from '../dockDrag.ts';
 import { gridToolOf } from '../gridUi.ts';
 import { idPerimetroEditavel } from '../perimeter/perimeterEditavel.ts';
 import { useFamilia } from '../familia/familiaStore.ts';
+import { useOrcamento } from '../OrcamentoProjeto.tsx';
 import { t, type ActionId, type Txt } from './model.ts';
 
 /** Leva o painel para o outro dock (esquerdo <-> direito), pela mesma regra de soltura do arraste. */
@@ -132,20 +133,8 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     },
     disabled: (c) => (typeDialogFor(c) ? false : t('Selecione um elemento com tipo, ou ative uma ferramenta de criação.', 'Select an element with a type.')),
   },
-  properties: {
-    label: t('Propriedades', 'Properties'),
-    icon: 'props',
-    hint: t('Mostra ou oculta a paleta de propriedades.', 'Show or hide the Properties palette.'),
-    run: () => useUi.setState((s) => ({ propsOpen: !s.propsOpen })),
-    pressed: (c) => c.propsOpen,
-  },
-  browser: {
-    label: t('Navegador de projeto', 'Project Browser'),
-    icon: 'levels',
-    hint: t('Mostra ou oculta o navegador de projeto.', 'Show or hide the Project Browser.'),
-    run: () => useUi.setState((s) => ({ browserOpen: !s.browserOpen })),
-    pressed: (c) => c.browserOpen,
-  },
+  properties: { label: t('Propriedades', 'Properties'), icon: 'props', hint: t('Mostra ou oculta a paleta de propriedades.', 'Show or hide the Properties palette.'), run: () => useUi.setState((s) => ({ propsOpen: !s.propsOpen })), pressed: (c) => c.propsOpen },
+  browser: { label: t('Navegador de projeto', 'Project Browser'), icon: 'levels', hint: t('Mostra ou oculta o navegador de projeto.', 'Show or hide the Project Browser.'), run: () => useUi.setState((s) => ({ browserOpen: !s.browserOpen })), pressed: (c) => c.browserOpen },
   propsSide: {
     label: t('Propriedades à direita', 'Properties on the Right'),
     icon: 'props',
@@ -394,6 +383,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   shortcutsConfig: { label: t('Atalhos de teclado…', 'Keyboard Shortcuts…'), icon: 'help', run: openDialog('shortcutsConfig') },
   shortcuts: { label: t('Lista de atalhos', 'Shortcut List'), icon: 'help', run: openDialog('shortcuts') },
   familyEditor: { label: t('Editor de famílias', 'Family Editor'), icon: 'component', hint: t('Abre o editor de famílias numa aba, sem fechar o projeto.', 'Opens the family editor in a tab without closing the project.'), run: () => useFamilia.getState().abrir() },
+  componentBudget: { label: t('Orçamento do projeto', 'Project Budget'), icon: 'component', hint: t('Soma peças, ferragens e custo de todos os componentes do projeto.', 'Sums parts, hardware and cost of every component in the project.'), run: () => useOrcamento.getState().abrir() },
   schedWalls: sched(t('Tabela de paredes', 'Wall Schedule'), 'schedule'),
   schedFloors: sched(t('Tabela de pisos', 'Floor Schedule'), 'floorSchedule'),
   schedSlabs: sched(t('Tabela de lajes', 'Slab Schedule'), 'slabSchedule'),
