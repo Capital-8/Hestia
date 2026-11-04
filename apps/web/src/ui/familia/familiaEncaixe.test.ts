@@ -29,7 +29,14 @@ import {
   zonasDaFamilia,
 } from './familiaEncaixe.ts';
 
-const nova = (): Familia => structuredClone(FAMILIA_ARMARIO);
+const nova = (): Familia => {
+  // Base sem conectores, escolhas e zonas: a biblioteca já os traz, mas estes testes partem de uma família limpa.
+  const f = structuredClone(FAMILIA_ARMARIO);
+  delete f.conectores;
+  delete f.escolhas;
+  for (const p of f.pecas) delete p.grupo;
+  return f;
+};
 const peca = (f: Familia, id: string): Peca => f.pecas.find((p) => p.id === id)!;
 const param = (f: Familia, id: string): Parametro => f.parametros.find((p) => p.id === id)!;
 

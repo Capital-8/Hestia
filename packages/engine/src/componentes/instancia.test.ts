@@ -35,7 +35,7 @@ describe('resolverComponente', () => {
     const p = projeto();
     const c = comp(p);
     const antes = resolverComponente(p, c);
-    const outra = aplicarCopia(p, { type: 'upsertFamily', family: { ...structuredClone(FAMILIA_ARMARIO), pecas: FAMILIA_ARMARIO.pecas.filter((x) => x.id !== 'tampo') } });
+    const outra = aplicarCopia(p, { type: 'upsertFamily', family: { ...structuredClone(FAMILIA_ARMARIO), pecas: FAMILIA_ARMARIO.pecas.filter((x) => x.id !== 'tampo'), escolhas: [] } });
     const depois = resolverComponente(outra, c);
     expect(depois).not.toBe(antes);
     expect(depois.pecas.some((x) => x.id === 'tampo')).toBe(false);

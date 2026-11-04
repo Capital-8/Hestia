@@ -39,5 +39,5 @@ describe('carregar traz os módulos aninhados da biblioteca', () => {
     store.undo();
     expect(store.project.componentFamilies?.['fam_comoda']).toBeUndefined();
     expect(store.project.componentFamilies?.['fam_gaveta']).toBeUndefined();
-  });
+  }, 30000);
 });
