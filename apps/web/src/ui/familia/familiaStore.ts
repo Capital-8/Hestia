@@ -1,5 +1,6 @@
 import { CATALOGO_PADRAO, FAMILIA_ARMARIO, HistoricoFamilia, familiaDaBiblioteca, type Catalogo, type Familia, type Valor } from '@hestia/model';
 import { resolverFamilia, type ResolucaoFamilia } from '@hestia/engine';
+import { editor } from '../../editor/controller.ts';
 import { create } from 'zustand';
 
 /**
@@ -166,19 +167,27 @@ interface CacheResolucao {
   versao: number;
   tipoId: string | null;
   valores: Record<string, Valor>;
+  /** Versão do projeto: famílias de fora (aninhados) podem mudar com o projeto, não com o histórico da família. */
+  projetoVersao: number;
   resolucao: ResolucaoFamilia;
 }
 
 let cache: CacheResolucao | null = null;
 
-/** Resolução da família corrente, memoizada por (versão, tipo e valores): a mesma referência enquanto nada mudar. */
+/** Biblioteca para a resolução: famílias do projeto aberto primeiro, depois a biblioteca base (um aninhado pode apontar para qualquer uma). */
+function familiaParaResolucao(id: string): Familia | undefined {
+  return editor.store.project.componentFamilies?.[id] ?? familiaDaBiblioteca(id);
+}
+
+/** Resolução da família corrente, memoizada por (versão, tipo, valores e projeto): a mesma referência enquanto nada mudar. */
 export function resolucaoCorrente(): ResolucaoFamilia {
   const s = useFamilia.getState();
-  if (cache !== null && cache.versao === s.versao && cache.tipoId === s.tipoId && cache.valores === s.valores) {
+  const projetoVersao = editor.store.version;
+  if (cache !== null && cache.versao === s.versao && cache.tipoId === s.tipoId && cache.valores === s.valores && cache.projetoVersao === projetoVersao) {
     return cache.resolucao;
   }
-  const resolucao = resolverFamilia(s.historico.atual, { tipoId: s.tipoId ?? undefined, valores: s.valores, biblioteca: familiaDaBiblioteca });
-  cache = { versao: s.versao, tipoId: s.tipoId, valores: s.valores, resolucao };
+  const resolucao = resolverFamilia(s.historico.atual, { tipoId: s.tipoId ?? undefined, valores: s.valores, biblioteca: familiaParaResolucao });
+  cache = { versao: s.versao, tipoId: s.tipoId, valores: s.valores, projetoVersao, resolucao };
   return resolucao;
 }
 
