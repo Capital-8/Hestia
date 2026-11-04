@@ -1,5 +1,11 @@
 /**
- * Despacho da fatia A do kernel Rust e modo sombra (decisão 0047 §12, passo A4).
+ * Despacho das fatias A e B do kernel Rust e modo sombra (decisão 0047 §12, passo A4; fatia B: decisão 0050, passo B5).
+ *
+ * Fatia B: `resolveFloors` e `resolveSlabs` (chamadas padrão, sem opções) consultam `pisos_lajes_com_paredes`; o resultado volta nos mesmos tipos do
+ * TypeScript (`kernelDespachoB.ts`). `levelCutterSet`, as chamadas com `layers: false` e `junctionLevel` seguem no TypeScript: o `junction_nivel` do
+ * Rust (B3) ainda diverge do TS fora da 0049 nos projetos com paredes anexadas (0050, B5), então não é entregue em produção; no modo sombra ele é
+ * comparado e o TS é devolvido. Durante a montagem da cena da B o despacho da B fica fechado (o TS atende): montar a cena lê pisos e lajes, e
+ * despachá-los de dentro dela seria um ciclo.
  *
  * `resolveLevel` (resolve.ts) consulta o despachante instalado aqui. Com a fatia A ligada e SEM modo sombra, o nível sai da consulta
  * `resolver_nivel` do Rust (a cena do projeto é montada e atualizada a partir do projeto em JS, que é a fonte da verdade; o estado do
@@ -12,34 +18,36 @@
  */
 import { CenaV2, ErroKernelGrave, GerenciadorKernelV2, baixarAssetDoWasm, fonteDeSecoes } from '@hestia/geom';
 import { wallsOnLevel, openingsOfWall, type Id, type Project } from '@hestia/model';
-import { montarCenaA1, type CenaA1 } from './kernelA1.ts';
-import { montarCenaA3, type CenaA3, type OpcoesA3c } from './kernelA3.ts';
-import { argumentosA3d, codificarA3d, decodificarA3d, montarPerfisA3d, resolvidoDeA3d, type CenaA3d, type ResolvidoA3d } from './kernelA3d.ts';
+import { montarCenaA1 } from './kernelA1.ts';
+import { DespachoB, type ContextoB, type DivergenciaB } from './kernelDespachoB.ts';
+import { chaveDasOpcoes, interpretarMensagem, LIMITE_MENSAGEM, NaoCoberto, secoesDe, textoDoErro, type EntradaCena } from './kernelDespachoA.ts';
+import { CONFIG_PADRAO, type ConfigDespacho } from './kernelDespachoConfig.ts';
+export { CONFIG_PADRAO, K_0049_FATIA_B, type ConfigDespacho } from './kernelDespachoConfig.ts';
+import type { ElementoB1 } from './kernelB.ts';
+import type { JuncaoB3 } from './kernelB3.ts';
+import type { ResolvedFloor } from './floors.ts';
+import type { ResolvedSlab } from './slabs.ts';
+import type { JunctionLevel } from './junctionLevel.ts';
+import { montarCenaA3, type OpcoesA3c } from './kernelA3.ts';
+import { argumentosA3d, codificarA3d, decodificarA3d, montarPerfisA3d, resolvidoDeA3d, type ResolvidoA3d } from './kernelA3d.ts';
 import { compararA3d } from './kernelComparaA3d.ts';
 import type { PlanResolveOptions } from './resolve.ts';
-import { definirDespachanteDeNivel } from './resolveDespacho.ts';
+import { definirDespachanteDeNivel, definirDespachantesDaFatiaB } from './resolveDespacho.ts';
 import type { ResolvedLevel } from './types.ts';
-
-/** Quais partes do despacho estão ligadas. Vem do ambiente (URL e `localStorage`) na thread principal e viaja no pedido ao worker. */
-export interface ConfigDespacho {
-  /** Fatia A ligada (`kernelFatiaLigada('A')`). */
-  fatiaA: boolean;
-  /** Modo sombra (`hestia:kernel:sombra`); só vale com a fatia A ligada. */
-  sombra: boolean;
-}
-
-export const CONFIG_PADRAO: ConfigDespacho = { fatiaA: false, sombra: false };
 
 /** Quantas divergências o registro circular guarda. */
 export const LIMITE_REGISTRO = 20;
-const LIMITE_MENSAGEM = 400;
 
 /** Uma divergência do modo sombra: o nível, a parede (id do projeto, quando a mensagem a cita) e o campo. */
 export interface DivergenciaRegistrada {
   /** `Date.now()` do registro. */
   quando: number;
   nivel: Id;
+  /** Fatia que registrou (ausente: A). */
+  fatia?: 'A' | 'B';
   parede: Id | null;
+  /** Piso ou laje da divergência (só na fatia B, quando a mensagem o identifica). */
+  elemento?: Id | null;
   campo: string;
   mensagem: string;
   /** Quantas divergências a comparação inteira desse nível teve (a mensagem é a primeira). */
@@ -56,6 +64,8 @@ export interface DiagnosticoDespacho {
   indisponivel: string | null;
   /** Níveis entregues pelo Rust (modo sem sombra). */
   entreguesPeloRust: number;
+  /** Consultas da fatia B entregues pelo Rust (pisos e lajes de um nível contam uma vez; a junção ainda não é despachada). */
+  entreguesB: number;
   /** Chamadas que voltaram ao TS por falha leve ou por nível não coberto (sem recriar a instância). */
   voltasLeves: number;
   /** Chamadas que voltaram ao TS por falha grave (a instância já foi recriada e a chamada repetida pela cena). */
@@ -85,41 +95,8 @@ export interface OpcoesDespacho {
    * Nunca é usado em produção.
    */
   intervencaoDeTeste?: (r: ResolvidoA3d) => ResolvidoA3d;
-}
-
-type Secoes = ReturnType<Parameters<typeof fonteDeSecoes>[0]>;
-
-/** Uma cena viva no kernel, para uma variante de cota (`flatAttach` ou não). */
-interface EntradaCena {
-  ger: GerenciadorKernelV2;
-  cena: CenaV2 | null;
-  fonte: ReturnType<typeof fonteDeSecoes>;
-  secoes: Secoes;
-  a1: CenaA1;
-  a3: CenaA3;
-  /** O projeto cujas seções estão no Rust; `null` quando o envio falhou no meio (a próxima chamada reenvia tudo). */
-  projeto: Project | null;
-}
-
-/** Nível ou abertura que a cena não contém (parede sem tipo, abertura sem tipo): a consulta não cobre, vale o TS. */
-class NaoCoberto extends Error {}
-
-const textoDoErro = (e: unknown): string => (e instanceof Error ? e.message : String(e)).replace(/\s+/g, ' ').trim().slice(0, LIMITE_MENSAGEM);
-
-/** A chave das opções de planta de uma consulta (mudam o resultado, então entram no memo). */
-function chaveDasOpcoes(levelId: Id, o: PlanResolveOptions): string {
-  const lista = (s: ReadonlySet<Id> | undefined): string => (s ? [...s].sort().join(',') : '*');
-  return `${o.flatAttach === true ? 1 : 0}|${levelId}|${o.cutZ ?? '-'}|${lista(o.outlineWalls)}|${o.planOpenings ? lista(o.planOpenings) : '*'}`;
-}
-
-/** Id do projeto (parede) citado por uma mensagem do comparador, e o campo. */
-function interpretarMensagem(m: string, a1: CenaA1): { parede: Id | null; campo: string } {
-  const doNumero = new Map<number, Id>([...a1.idDe].map(([id, n]) => [n, id] as const));
-  const achado = /parede (\d+)\b(?!\s*\()/.exec(m) ?? /\(id (\d+)/.exec(m) ?? /\(grupo \d+, parede (\d+)/.exec(m);
-  const parede = achado ? (doNumero.get(Number(achado[1])) ?? null) : null;
-  const depois = m.includes('): ') ? m.slice(m.indexOf('): ') + 3) : m.includes(': ') ? m.slice(m.indexOf(': ') + 2) : m;
-  const campo = /^([A-Za-zÀ-ú_]+(?: [a-zà-ú]+)?)/.exec(depois)?.[1] ?? depois.slice(0, 30);
-  return { parede, campo: campo.trim() };
+  /** Gancho de TESTE da fatia B: altera a saída decodificada de `pisos_lajes_com_paredes` e de `junction_nivel` (divergência artificial). */
+  intervencaoDeTesteB?: { pisosELajes?: (el: ElementoB1[]) => ElementoB1[]; juncao?: (j: JuncaoB3) => JuncaoB3 };
 }
 
 export class DespachoKernel {
@@ -128,6 +105,7 @@ export class DespachoKernel {
   private readonly comparados = new WeakMap<Project, Set<string>>();
   private readonly agora: () => number;
   private entreguesPeloRust = 0;
+  private entreguesB = 0;
   private voltasLeves = 0;
   private voltasGraves = 0;
   private ultimoErro: string | null = null;
@@ -135,8 +113,48 @@ export class DespachoKernel {
   private divergencias = 0;
   private readonly registro: DivergenciaRegistrada[] = [];
 
+  private readonly b: DespachoB;
+
   constructor(private readonly opcoes: OpcoesDespacho) {
     this.agora = opcoes.agora ?? (() => Date.now());
+    const contexto: ContextoB = {
+      gerenciador: () => this.opcoes.gerenciador(),
+      fatiaLigada: () => this.opcoes.config().fatiaB,
+      sombra: () => this.opcoes.config().sombra,
+      agora: this.agora,
+      ...(opcoes.intervencaoDeTesteB ? { intervencao: opcoes.intervencaoDeTesteB } : {}),
+      registrar: (d: DivergenciaB) => this.registrar(d),
+      contar: (campo) => {
+        if (campo === 'entreguesB') this.entreguesB++;
+        else if (campo === 'voltasLeves') this.voltasLeves++;
+        else if (campo === 'voltasGraves') this.voltasGraves++;
+        else if (campo === 'comparacoes') this.comparacoes++;
+        else this.divergencias++;
+      },
+      erro: (mensagem) => {
+        this.ultimoErro = mensagem;
+      },
+      aoGrave: () => {
+        for (const x of this.cenas.values()) x.projeto = null;
+      },
+      limiteRegistro: LIMITE_REGISTRO,
+    };
+    this.b = new DespachoB(contexto);
+  }
+
+  /** O despachante de `resolveFloors` (fatia B). */
+  resolverPisos(p: Project, levelId: Id, ts: () => ResolvedFloor[]): ResolvedFloor[] {
+    return this.b.resolverPisos(p, levelId, ts);
+  }
+
+  /** O despachante de `resolveSlabs` (fatia B). */
+  resolverLajes(p: Project, levelId: Id, ts: () => ResolvedSlab[]): ResolvedSlab[] {
+    return this.b.resolverLajes(p, levelId, ts);
+  }
+
+  /** O despachante de `junctionLevel` (fatia B): só o modo sombra consulta a B3. */
+  resolverJuncao(p: Project, levelId: Id, ts: () => JunctionLevel): JunctionLevel {
+    return this.b.resolverJuncao(p, levelId, ts);
   }
 
   /** O despachante de `resolveLevel`. */
@@ -158,6 +176,7 @@ export class DespachoKernel {
       pronto: !!ger && ger.ligado,
       indisponivel,
       entreguesPeloRust: this.entreguesPeloRust,
+      entreguesB: this.entreguesB,
       voltasLeves: this.voltasLeves,
       voltasGraves: this.voltasGraves,
       recriacoes: estado?.recriacoesTotal ?? 0,
@@ -173,6 +192,7 @@ export class DespachoKernel {
   encerrar(): void {
     for (const e of this.cenas.values()) e.cena?.destruir();
     this.cenas.clear();
+    this.b.encerrar();
   }
 
   // --- caminhos ---------------------------------------------------------------------------------------------------------------
@@ -291,22 +311,6 @@ export class DespachoKernel {
   }
 }
 
-function secoesDe(a1: CenaA1, a3: CenaA3, perfis: CenaA3d): Secoes {
-  const s = a1.secoes;
-  const n = a1.nLinhas;
-  return {
-    paredes: { colunas: s.paredes, n: n.paredes },
-    tipos_parede: { colunas: s.tipos_parede, n: n.tipos_parede },
-    camadas: { colunas: s.camadas, n: n.camadas },
-    faixas: { colunas: s.faixas, n: n.faixas },
-    paredes_quadro: { colunas: s.paredes_quadro, n: n.paredes_quadro },
-    paredes_z: { colunas: s.paredes_z, n: n.paredes_z },
-    tipos_abertura: { colunas: a3.secoes.tipos_abertura, n: a3.nLinhas.tipos_abertura },
-    aberturas: { colunas: a3.secoes.aberturas, n: a3.nLinhas.aberturas },
-    perfis_z: { colunas: perfis.colunas, n: perfis.n },
-  };
-}
-
 // --- instalação e carregamento ---------------------------------------------------------------------------------------------------
 
 let despacho: DespachoKernel | null = null;
@@ -322,6 +326,11 @@ export function instalarDespachoKernel(opcoes: OpcoesDespacho): DespachoKernel {
   const d = new DespachoKernel(opcoes);
   despacho = d;
   definirDespachanteDeNivel((p, levelId, opts, ts) => d.resolver(p, levelId, opts, ts));
+  definirDespachantesDaFatiaB({
+    pisos: (p, levelId, ts) => d.resolverPisos(p, levelId, ts),
+    lajes: (p, levelId, ts) => d.resolverLajes(p, levelId, ts),
+    juncao: (p, levelId, ts) => d.resolverJuncao(p, levelId, ts),
+  });
   return d;
 }
 
@@ -330,6 +339,7 @@ export function removerDespachoKernel(): void {
   despacho?.encerrar();
   despacho = null;
   definirDespachanteDeNivel(null);
+  definirDespachantesDaFatiaB(null);
   configAtual = CONFIG_PADRAO;
   gerenciadorAtual = null;
   motivoIndisponivel = null;
@@ -362,11 +372,12 @@ export function diagnosticoDespacho(): DiagnosticoDespacho | null {
   if (!remoto) return local;
   const registro = [...local.registro, ...remoto.registro].sort((a, b) => a.quando - b.quando).slice(-LIMITE_REGISTRO);
   return {
-    config: local.config.fatiaA ? local.config : remoto.config,
+    config: local.config.fatiaA || local.config.fatiaB ? local.config : remoto.config,
     instalado: true,
     pronto: local.pronto || remoto.pronto,
     indisponivel: local.pronto || remoto.pronto ? null : (local.indisponivel ?? remoto.indisponivel),
     entreguesPeloRust: local.entreguesPeloRust + remoto.entreguesPeloRust,
+    entreguesB: local.entreguesB + (remoto.entreguesB ?? 0),
     voltasLeves: local.voltasLeves + remoto.voltasLeves,
     voltasGraves: local.voltasGraves + remoto.voltasGraves,
     recriacoes: local.recriacoes + remoto.recriacoes,
@@ -384,11 +395,12 @@ export type CarregadorDeBytes = () => Promise<ArrayBuffer | Uint8Array>;
 /**
  * Liga (ou desliga) o despacho conforme a configuração. Idempotente: o primeiro pedido com a fatia A ligada instala o despachante e
  * carrega o wasm em segundo plano (nunca bloqueia nem lança); enquanto não fica pronto, e se o carregamento falhar (binário sem o
- * ABI v2, por exemplo), `resolveLevel` segue no TypeScript. Sem a fatia A, nada é instalado nem baixado.
+ * ABI v2, por exemplo), `resolveLevel` segue no TypeScript. Sem fatia ligada (A ou B), nada é instalado nem baixado.
  */
 export function iniciarDespachoKernel(config: ConfigDespacho, carregar: CarregadorDeBytes = baixarAssetDoWasm): Promise<void> {
-  configAtual = { fatiaA: config.fatiaA, sombra: config.fatiaA && config.sombra };
-  if (!configAtual.fatiaA) return carregando ?? Promise.resolve();
+  const alguma = config.fatiaA || config.fatiaB;
+  configAtual = { fatiaA: config.fatiaA, fatiaB: config.fatiaB, sombra: alguma && config.sombra };
+  if (!alguma) return carregando ?? Promise.resolve();
   if (!despacho) {
     instalarDespachoKernel({ gerenciador: () => gerenciadorAtual, config: () => configAtual, motivoIndisponivel: () => motivoIndisponivel });
   }

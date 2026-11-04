@@ -12,7 +12,7 @@ import { resolveLevel, resolveLevelTs } from './resolve.ts';
 
 afterEach(() => removerDespachoKernel());
 
-const LIGADA: ConfigDespacho = { fatiaA: true, sombra: false };
+const LIGADA: ConfigDespacho = { fatiaA: true, fatiaB: false, sombra: false };
 const projeto = syntheticProject(2);
 const nivel = projeto.levels[0]!.id;
 
@@ -20,7 +20,7 @@ describe('despacho: fatia desligada', () => {
   it('o Rust nem é consultado (nem o gerenciador): o resultado é o do TS', () => {
     const { ger } = gerenciadorFalso();
     const espiao = vi.fn(() => ger);
-    const d = instalarDespachoKernel({ gerenciador: espiao, config: () => ({ fatiaA: false, sombra: true }) });
+    const d = instalarDespachoKernel({ gerenciador: espiao, config: () => ({ fatiaA: false, fatiaB: false, sombra: true }) });
     const r = resolveLevel(projeto, nivel, new Map());
     expect(espiao).not.toHaveBeenCalled();
     expect(r).toEqual(resolveLevelTs(projeto, nivel, new Map()));

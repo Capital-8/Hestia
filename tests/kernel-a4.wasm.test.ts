@@ -34,8 +34,8 @@ beforeAll(async () => {
 afterEach(() => removerDespachoKernel());
 afterAll(() => removerDespachoKernel());
 
-const DESPACHO: ConfigDespacho = { fatiaA: true, sombra: false };
-const SOMBRA: ConfigDespacho = { fatiaA: true, sombra: true };
+const DESPACHO: ConfigDespacho = { fatiaA: true, fatiaB: false, sombra: false };
+const SOMBRA: ConfigDespacho = { fatiaA: true, fatiaB: false, sombra: true };
 
 const instalar = (config: ConfigDespacho, intervencaoDeTeste?: Parameters<typeof instalarDespachoKernel>[0]['intervencaoDeTeste']): DespachoKernel =>
   instalarDespachoKernel({ gerenciador: () => ger, config: () => config, ...(intervencaoDeTeste ? { intervencaoDeTeste } : {}) });
@@ -257,7 +257,7 @@ describe.skipIf(!bytes)('A4: modo sombra', () => {
   it('sombra desligada não custa nada: nem cena no Rust, nem comparação', () => {
     if (pula()) return;
     const antes = ger!.instancia().exports.memoria_usada();
-    const d = instalar({ fatiaA: false, sombra: true }); // a sombra só vale com a fatia A
+    const d = instalar({ fatiaA: false, fatiaB: false, sombra: true }); // a sombra só vale com a fatia A
     const p = projetoDeEstresseA3d(4, { paredes: 12, pavimentos: 1 });
     resolveLevel(p, p.levels[0]!.id, new Map());
     const diag = d.diagnostico();

@@ -7,6 +7,7 @@ import { adjacentLevelIds } from './terminoBlock.ts';
 import type { FloorResolveOptions } from './floors.ts';
 import { coverUnderside, cutStairOpenings } from './stairOpenings.ts';
 import { holesFor, openingsOnLevel } from './levelOpenings.ts';
+import { despachanteDeLajes } from './resolveDespacho.ts';
 
 /** Cota da face superior da inclinação: definida no modelo (a validação também a usa). */
 export { slabRiseAt } from '@hestia/model';
@@ -49,6 +50,13 @@ export interface ResolvedSlab {
  * derivado (`resolveBoundary`): circuito aberto mantém o último contorno e devolve `problem`.
  */
 export function resolveSlabs(p: Project, levelId: Id, opts: FloorResolveOptions = {}): ResolvedSlab[] {
+  // Fatia B do kernel Rust (0050, B5): só a chamada padrão é despachada.
+  const d = despachanteDeLajes();
+  return d && Object.keys(opts).length === 0 ? d(p, levelId, () => resolveSlabsTs(p, levelId, opts)) : resolveSlabsTs(p, levelId, opts);
+}
+
+/** O motor TypeScript das lajes, sem despacho (a referência do Rust e o retorno de qualquer falha do kernel). */
+export function resolveSlabsTs(p: Project, levelId: Id, opts: FloorResolveOptions = {}): ResolvedSlab[] {
   if (Object.keys(opts).length > 0) return calcularLajes(p, levelId, opts);
   // Lajes não leem janelas (só portas, no término explícito): editar uma janela devolve o resultado guardado (mesmas fontes, por identidade).
   const fontes = fontesSemEsquadrias(p, true);

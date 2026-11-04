@@ -47,7 +47,7 @@ export interface PedidoResolucao {
    */
   kernel?: boolean;
   /**
-   * Despacho da fatia A do kernel v2 (decisão 0047 §12): a URL e o `localStorage` não chegam ao worker, então a configuração viaja no
+   * Despacho das fatias A e B do kernel v2 (decisões 0047 §12 e 0050): a URL e o `localStorage` não chegam ao worker, então a configuração viaja no
    * pedido. Ausente: o worker não instala nada e o caminho é o de sempre.
    */
   kernelV2?: ConfigDespacho;

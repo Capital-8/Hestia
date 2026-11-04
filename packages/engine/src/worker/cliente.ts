@@ -165,7 +165,7 @@ export class ClienteResolucao {
       const mensagem: PedidoResolucao = { id: p.id, tipo: p.tipo, nivel: p.nivel, projeto: repetido ? { versao: p.versao } : { versao: p.versao, estrutura: p.projeto }, base: p.base };
       if (this.kernelExperimentalLigado()) mensagem.kernel = true;
       const v2 = typeof this.opcoes.kernelV2 === 'function' ? this.opcoes.kernelV2() : this.opcoes.kernelV2;
-      if (v2?.fatiaA === true) mensagem.kernelV2 = v2;
+      if (v2?.fatiaA === true || v2?.fatiaB === true) mensagem.kernelV2 = v2;
       try {
         this.worker.postMessage(mensagem);
         if (!repetido) this.enviado = { projeto: p.projeto, versao: p.versao };

@@ -47,13 +47,15 @@ const TEXTOS = {
     definidoUrl: 'definido pela URL',
     reiniciar: 'Preferência salva. Requer recarregar a página para valer.',
     sombra: 'Modo sombra (Rust e TypeScript na mesma chamada)',
-    sombraDica: 'só vale com a fatia A ligada',
-    despachoTitulo: 'Fatia A: despacho e modo sombra',
-    despachoInativo: 'Despacho inativo (fatia A desligada ou wasm ainda não carregado).',
+    sombraDica: 'só vale com a fatia A ou B ligada',
+    despachoTitulo: 'Fatias A e B: despacho e modo sombra',
+    despachoInativo: 'Despacho inativo (fatias A e B desligadas ou wasm ainda não carregado).',
     despachoEstado: 'Kernel v2',
     pronto: 'pronto',
     emFalta: 'indisponível',
     entregues: 'Níveis entregues pelo Rust',
+    entreguesB: 'Consultas da fatia B entregues (pisos e lajes; a junção segue no TypeScript)',
+    elemento: 'elemento',
     voltas: 'Voltas ao TypeScript (leves / graves)',
     recriacoes: 'Recriações da instância',
     comparacoes: 'Comparações do modo sombra',
@@ -74,13 +76,15 @@ const TEXTOS = {
     definidoUrl: 'set by the URL',
     reiniciar: 'Preference saved. Requires reloading the page to take effect.',
     sombra: 'Shadow mode (Rust and TypeScript in the same call)',
-    sombraDica: 'only applies with slice A on',
-    despachoTitulo: 'Slice A: dispatch and shadow mode',
-    despachoInativo: 'Dispatch inactive (slice A off or wasm not loaded yet).',
+    sombraDica: 'only applies with slice A or B on',
+    despachoTitulo: 'Slices A and B: dispatch and shadow mode',
+    despachoInativo: 'Dispatch inactive (slices A and B off or wasm not loaded yet).',
     despachoEstado: 'Kernel v2',
     pronto: 'ready',
     emFalta: 'unavailable',
     entregues: 'Levels delivered by Rust',
+    entreguesB: 'Slice B queries delivered (floors and slabs; junction stays in TypeScript)',
+    elemento: 'element',
     voltas: 'Fallbacks to TypeScript (light / severe)',
     recriacoes: 'Instance recreations',
     comparacoes: 'Shadow mode comparisons',
@@ -127,8 +131,8 @@ export function ExperimentosDialog(): ReactElement {
   const efetivas = fatiasLigadas();
   const [sombraSalva, setSombraSalva] = useState(lerModoSombra);
   const [diag, setDiag] = useState<DiagnosticoDespacho | null>(diagnosticoDespacho);
-  // O modo sombra só vale com a fatia A efetiva (a mesma regra do despacho em `configDoDespacho`).
-  const fatiaAEfetiva = efetivas.has('A');
+  // O modo sombra só vale com a fatia A ou B efetiva (a mesma regra do despacho em `configDoDespacho`).
+  const fatiaAEfetiva = efetivas.has('A') || efetivas.has('B');
   const sombra = sombraSalva && fatiaAEfetiva;
 
   const alternarSombra = (valor: boolean): void => {
@@ -276,7 +280,7 @@ export function ExperimentosDialog(): ReactElement {
                 {tf.despachoEstado}: {diag.pronto ? tf.pronto : `${tf.emFalta}${diag.indisponivel ? ` (${diag.indisponivel})` : ''}`}
               </li>
               <li>
-                {tf.entregues}: {diag.entreguesPeloRust} · {tf.voltas}: {diag.voltasLeves} / {diag.voltasGraves} · {tf.recriacoes}: {diag.recriacoes}
+                {tf.entregues}: {diag.entreguesPeloRust} · {tf.entreguesB}: {diag.entreguesB} · {tf.voltas}: {diag.voltasLeves} / {diag.voltasGraves} · {tf.recriacoes}: {diag.recriacoes}
               </li>
               <li>
                 {tf.comparacoes}: {diag.comparacoes} · {tf.divergencias}: {diag.divergencias}
@@ -284,7 +288,7 @@ export function ExperimentosDialog(): ReactElement {
               <li>
                 {tf.ultima}:{' '}
                 {diag.ultimaDivergencia
-                  ? `${tf.nivel} ${diag.ultimaDivergencia.nivel}, ${tf.parede} ${diag.ultimaDivergencia.parede ?? '—'}, ${tf.campo} ${diag.ultimaDivergencia.campo} — ${diag.ultimaDivergencia.mensagem}`
+                  ? `${tf.nivel} ${diag.ultimaDivergencia.nivel}, ${diag.ultimaDivergencia.fatia === 'B' && diag.ultimaDivergencia.elemento ? `${tf.elemento} ${diag.ultimaDivergencia.elemento}` : `${tf.parede} ${diag.ultimaDivergencia.parede ?? '—'}`}, ${tf.campo} ${diag.ultimaDivergencia.campo} — ${diag.ultimaDivergencia.mensagem}`
                   : tf.nenhuma}
               </li>
               {diag.ultimoErro ? (

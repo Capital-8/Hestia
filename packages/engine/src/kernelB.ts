@@ -16,8 +16,8 @@ import { enclosedRooms, outerPerimeter, roomAt } from './enclosed.ts';
 import { DEFAULT_JOIN_TOL } from './joins.ts';
 import { holesFor, openingsOnLevel, type LevelOpenings } from './levelOpenings.ts';
 import { resolveBoundary, type OutlineProblem } from './outlineBound.ts';
-import { resolveFloors } from './floors.ts';
-import { resolveSlabs } from './slabs.ts';
+import { resolveFloorsTs, type ResolvedFloor } from './floors.ts';
+import { resolveSlabsTs, type ResolvedSlab } from './slabs.ts';
 import { coverUnderside } from './stairOpenings.ts';
 
 const FUNCAO: Record<string, number> = { structure: 0, substrate: 1, thermal: 2, membrane: 3, finish1: 4, finish2: 5 };
@@ -253,9 +253,12 @@ const numeroDe = (m: Map<Id, number>, id: Id, o: string): number => {
 };
 
 /** O que o motor TypeScript produz: `resolveFloors` e `resolveSlabs` do nível (pisos e depois lajes), campo a campo. */
-export function referenciaB1(p: Project, levelId: Id, cena: CenaB1): ElementoB1[] {
+export const referenciaB1 = (p: Project, levelId: Id, cena: CenaB1): ElementoB1[] => referenciaDeResultados(resolveFloorsTs(p, levelId), resolveSlabsTs(p, levelId), cena);
+
+/** A mesma extração a partir de pisos e lajes já resolvidos pelo TypeScript (o modo sombra reaproveita o que acabou de calcular). */
+export function referenciaDeResultados(pisos: readonly ResolvedFloor[], lajes: readonly ResolvedSlab[], cena: CenaB1): ElementoB1[] {
   const out: ElementoB1[] = [];
-  for (const f of resolveFloors(p, levelId)) {
+  for (const f of pisos) {
     out.push({
       laje: false,
       id: numeroDe(cena.pisoDe, f.floorId, 'piso'),
@@ -268,7 +271,7 @@ export function referenciaB1(p: Project, levelId: Id, cena: CenaB1): ElementoB1[
       camadas: f.layers.map((l) => ({ indice: l.layerIndex, material: numeroDe(cena.materialDe, l.materialId, 'material'), z0: l.z0, z1: l.z1, prioridade: l.priority, nucleo: l.core, membrana: l.membrane, explicita: l.explicit, poligono: l.polygon })),
     });
   }
-  for (const s of resolveSlabs(p, levelId)) {
+  for (const s of lajes) {
     out.push({
       laje: true,
       id: numeroDe(cena.lajeDe, s.slabId, 'laje'),

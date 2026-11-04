@@ -81,7 +81,7 @@ describe('instalarServidor', () => {
   });
 });
 
-describe('instalarServidor: despacho da fatia A (kernelV2)', () => {
+describe('instalarServidor: despacho das fatias A e B (kernelV2)', () => {
   afterEach(() => removerDespachoKernel());
 
   it('sem kernelV2 (o padrão) nada é instalado e a resposta é a de sempre, sem diagnóstico', async () => {
@@ -97,7 +97,7 @@ describe('instalarServidor: despacho da fatia A (kernelV2)', () => {
   it('kernelV2 com a fatia desligada também não instala nada', async () => {
     const escopo = escopoFalso();
     instalarServidor(escopo, () => 'ok');
-    escopo.onmessage?.({ data: { ...pedido(1, 'nivel', 'lv_0'), kernelV2: { fatiaA: false, sombra: true } } });
+    escopo.onmessage?.({ data: { ...pedido(1, 'nivel', 'lv_0'), kernelV2: { fatiaA: false, fatiaB: false, sombra: true } } });
     await esperar();
     expect(despachoInstalado()).toBe(false);
   });
@@ -105,11 +105,22 @@ describe('instalarServidor: despacho da fatia A (kernelV2)', () => {
   it('kernelV2 com a fatia A instala o despachante e a resposta leva o diagnóstico (wasm indisponível no Node: segue TS)', async () => {
     const escopo = escopoFalso();
     instalarServidor(escopo, () => 'ok');
-    escopo.onmessage?.({ data: { ...pedido(1, 'nivel', 'lv_0'), kernelV2: { fatiaA: true, sombra: false } } });
+    escopo.onmessage?.({ data: { ...pedido(1, 'nivel', 'lv_0'), kernelV2: { fatiaA: true, fatiaB: false, sombra: false } } });
     await esperar(150);
     expect(despachoInstalado()).toBe(true);
     const r = escopo.respostas[0]!;
     expect(r.resultado).toBe('ok');
-    expect(r.kernelDiag).toMatchObject({ instalado: true, pronto: false, comparacoes: 0, divergencias: 0, config: { fatiaA: true, sombra: false } });
+    expect(r.kernelDiag).toMatchObject({ instalado: true, pronto: false, comparacoes: 0, divergencias: 0, config: { fatiaA: true, fatiaB: false, sombra: false } });
+  });
+
+  it('kernelV2 só com a fatia B também instala o despachante e o diagnóstico leva a configuração da B', async () => {
+    const escopo = escopoFalso();
+    instalarServidor(escopo, () => 'ok');
+    escopo.onmessage?.({ data: { ...pedido(1, 'pisos', 'lv_0'), kernelV2: { fatiaA: false, fatiaB: true, sombra: false } } });
+    await esperar(150);
+    expect(despachoInstalado()).toBe(true);
+    const r = escopo.respostas[0]!;
+    expect(r.resultado).toBe('ok');
+    expect(r.kernelDiag).toMatchObject({ instalado: true, pronto: false, entreguesB: 0, config: { fatiaA: false, fatiaB: true, sombra: false } });
   });
 });

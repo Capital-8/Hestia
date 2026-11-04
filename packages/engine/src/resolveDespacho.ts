@@ -1,5 +1,8 @@
 import type { Id, Project } from '@hestia/model';
 import type { PlanResolveOptions } from './resolve.ts';
+import type { ResolvedFloor } from './floors.ts';
+import type { JunctionLevel } from './junctionLevel.ts';
+import type { ResolvedSlab } from './slabs.ts';
 import type { ResolvedLevel } from './types.ts';
 
 /**
@@ -18,3 +21,27 @@ export function definirDespachanteDeNivel(d: DespachanteDeNivel | null): void {
 
 /** O despachante instalado, ou `null` (o padrão). */
 export const despachanteDeNivel = (): DespachanteDeNivel | null => despachante;
+
+/**
+ * Despachantes da fatia B (decisão 0050, B5): pisos, lajes e junção de um nível. Só valem para a chamada com as opções padrão (`resolveFloors(p, nivel)`,
+ * sem `layers: false`, que é o caminho de quem monta a cena e não pode depender dela). A junção (B3) é consultada só no modo sombra enquanto o
+ * `junction_nivel` do Rust divergir do TS (0050, B5). Sem instalação (o padrão), as funções são só o TypeScript.
+ */
+export type DespachanteDePisos = (p: Project, levelId: Id, ts: () => ResolvedFloor[]) => ResolvedFloor[];
+export type DespachanteDeLajes = (p: Project, levelId: Id, ts: () => ResolvedSlab[]) => ResolvedSlab[];
+export type DespachanteDeJuncao = (p: Project, levelId: Id, ts: () => JunctionLevel) => JunctionLevel;
+
+let dePisos: DespachanteDePisos | null = null;
+let deLajes: DespachanteDeLajes | null = null;
+let deJuncao: DespachanteDeJuncao | null = null;
+
+/** Instala (ou, com `null`, remove) os despachantes da fatia B. */
+export function definirDespachantesDaFatiaB(d: { pisos: DespachanteDePisos; lajes: DespachanteDeLajes; juncao: DespachanteDeJuncao } | null): void {
+  dePisos = d?.pisos ?? null;
+  deLajes = d?.lajes ?? null;
+  deJuncao = d?.juncao ?? null;
+}
+
+export const despachanteDePisos = (): DespachanteDePisos | null => dePisos;
+export const despachanteDeLajes = (): DespachanteDeLajes | null => deLajes;
+export const despachanteDeJuncao = (): DespachanteDeJuncao | null => deJuncao;

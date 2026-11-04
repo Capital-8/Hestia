@@ -82,8 +82,8 @@ export function instalarServidor(escopo: EscopoServidor, executor: Executor = cr
     // ela vem no pedido (`kernel: true`). Fire-and-forget, sem `await` no executor: o pedido atual e os seguintes usam
     // o que estiver disponível. Sem o campo (o padrão), nada acontece e o caminho é exatamente o de antes.
     if (mensagem.kernel === true) void garantirKernelExperimental().catch(() => undefined);
-    // Despacho da fatia A (0047 §12): a configuração viaja no pedido; o wasm carrega em segundo plano e, até ficar pronto, vale o TS.
-    if (mensagem.kernelV2?.fatiaA === true) void iniciarDespachoKernel(mensagem.kernelV2);
+    // Despacho das fatias A e B (0047 §12, 0050): a configuração viaja no pedido; o wasm carrega em segundo plano e, até ficar pronto, vale o TS.
+    if (mensagem.kernelV2?.fatiaA === true || mensagem.kernelV2?.fatiaB === true) void iniciarDespachoKernel(mensagem.kernelV2);
     // O projeto é fixado ao chegar o pedido (não ao executá-lo): um pedido da fila de uma versão antiga não vê a seguinte.
     const { versao, estrutura } = mensagem.projeto;
     if (estrutura) ultimo = { versao, estrutura };

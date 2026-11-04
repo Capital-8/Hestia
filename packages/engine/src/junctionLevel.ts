@@ -3,6 +3,7 @@ import type { Id, Project } from '@hestia/model';
 import type { LayerBand, ResolvedLayer, ResolvedWall } from './types.ts';
 import { bandPiece, levelCutterSet, type LevelCutters, type SolidPiece } from './junctionNet.ts';
 import { resolveJunction, type PlanarPiece, type ResolvedPrism } from './junctionPlanar.ts';
+import { despachanteDeJuncao } from './resolveDespacho.ts';
 
 /**
  * Junção resolvida de um nível (decisão 0023 §3 e §10, P7b e P7c). Uma função única para planta, corte, 3D e
@@ -109,6 +110,13 @@ const lostVolume = (t: PlanarPiece, parts: readonly ResolvedPrism[]): boolean =>
  * porque a faixa inclinada não se recorta por aproximação plana (quantitativos já integram).
  */
 export function junctionLevel(p: Project, levelId: Id): JunctionLevel {
+  // Fatia B do kernel Rust (0050, B5): o despachante devolve a junção do Rust, no mesmo tipo, ou cai neste TypeScript.
+  const d = despachanteDeJuncao();
+  return d ? d(p, levelId, () => junctionLevelTs(p, levelId)) : junctionLevelTs(p, levelId);
+}
+
+/** O motor TypeScript da junção, sem despacho (a referência do Rust e o retorno de qualquer falha do kernel). */
+export function junctionLevelTs(p: Project, levelId: Id): JunctionLevel {
   const exact = projectLevelCache.get(p)?.get(levelId);
   if (exact) return exact;
   const remember = (value: JunctionLevel): JunctionLevel => {
