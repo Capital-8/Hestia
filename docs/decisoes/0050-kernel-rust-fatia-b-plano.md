@@ -208,3 +208,61 @@ Casos mínimos em `tests/kernel-b2-limiares.wasm.test.ts`, sempre contra a extra
 - **#2 `MARGEM_DA_PORTA` (b2.rs:31, 0,005 -> 0).** Parede perpendicular entra no vão de uma porta e termina a 4 mm e a 20 mm além da face da parede anfitriã, com piso de camadas `face`, `nucleo` e `ate`; o retângulo do vão (espessura + 5 mm por face) decide se o fim da parede é recortado. Sem a margem, o Rust recorta **6,3e-3 m² a mais** (camada 0) e o teste reprova; com ela, Rust = TS nos dois casos.
 - **#3 `wallTouchesZone` (b2.rs:85, `<=` -> `<`).** Parede com `nominal_z0` EXATAMENTE `z1 + 1e-3` (o `z1` do TS é conferido no próprio teste), e 1 ulp acima e abaixo. No exato o TS toca e recorta; o mutante não toca: **0,968 m²** de diferença (erro grosseiro da 0049). Acima, nenhum dos dois recorta; abaixo, os dois recortam.
 - **#10 orientação do `offset_clipper` (ops.rs:381, `anti_horario == (i == 0)` -> `!=`). EQUIVALENTE.** Normalizar cada anel para externo anti-horário/furo horário (`==`) ou para o inverso (`!=`) inverte a orientação de TODOS os caminhos. O `FixOrientations` (ops.rs:422) escolhe o caminho do vértice mais baixo (maior Y, empate por menor X) e, se a área dele é negativa, inverte todos. O vértice mais baixo é sempre de um contorno externo: o furo é interior ao seu externo e não alcança o Y máximo global (premissa: furos estritamente interiores, como os que o motor envia). No alvo normal esse caminho é anti-horário (área > 0: não inverte); no mutante ele fica horário (área < 0: inverte todos), devolvendo exatamente a orientação normal antes do `DoOffset`. Verificação: teste unitário temporário em `ops.rs` (não commitado) com dois polígonos, furos e anéis nas duas orientações de entrada, deltas +0,02, -0,02, -0,3 e +0,1 — geometria final igual (diferença < 1e-12 m² por lado) com e sem a mutação; e o wasm mutante passa os limiares e as sementes 19, 25, 31, 32 e 35 do estresse com os mesmos números do binário sem mutação (maior simétrica 1,40e-6 m², K 0,0481).
+## B5 entregue (integração da fatia B, modo sombra e validação) — 2026-11-03
+
+A fatia B liga por flag (`?kernelFatias=A,B`, `?kernel=rust` ou `hestia:kernel:fatias`), como a A. O padrão continua TypeScript e nada liga sem
+flag. Nesta entrega, **pisos e lajes são despachados para o Rust; a junção (B3) NÃO é despachada**: o `junction_nivel` do Rust ainda diverge da
+referência TypeScript fora da 0049 nos projetos com paredes anexadas (número abaixo). A junção segue no TypeScript em produção e é comparada só
+no modo sombra, que devolve sempre o TS. Nenhum cálculo novo no Rust; crates, esquema e `.wasm` versionado não mudaram; `VERSAO_MOTOR_GEOMETRIA`
+NÃO sobe (o resultado do TS é o mesmo).
+
+**O que foi integrado e onde.**
+- Flag e UI: `apps/web/src/editor/preferenciasKernel.ts` (`FATIAS_HABILITADAS = ['A','B']`, `configDoDespacho` devolve `{ fatiaA, fatiaB, sombra }`,
+  com a sombra valendo por fatia ligada), `apps/web/src/main.tsx` (ativa o despacho com A ou B), `ExperimentosDialog.tsx` (textos pt/en, B
+  habilitada, interruptor travado quando a URL força, "Requer recarregar", diagnóstico da B) e testes vizinhos.
+- Despacho de pisos e lajes: `floors.ts` e `slabs.ts` dividiram `resolveFloors`/`resolveSlabs` em `resolveFloorsTs`/`resolveSlabsTs` (o mesmo
+  motor de antes, agora também a referência do Rust) e um despachante fino que só age na chamada padrão (sem opções). `resolveDespacho.ts` ganhou
+  os ganchos da B; `kernelDespacho.ts` delega a uma classe `DespachoB` (`kernelDespachoB.ts`), que monta a cena (`sincronizarB`), consulta
+  `pisos_lajes_com_paredes` e converte a saída para os MESMOS tipos do TS (`converterPisosELajes`). O memo é por projeto e nível (o `Project` é
+  imutável: uma edição invalida tudo). Chamadas com `layers: false` (a cena de paredes) e `levelCutterSet` seguem no TS.
+- Falhas: leve (ENTRADA, NAO_IMPLEMENTADO, LIMITE, projeto que a cena não cobre, falha de conversão) volta só aquela chamada ao TS, sem recriar;
+  grave (VERSAO, HANDLE, INTERNO, trap) é recriada e repetida pela `CenaV2`, com o limite já existente de 3 recriações em 5 min no gerenciador.
+- Modo sombra da B (`hestia:kernel:sombra=true`, por fatia ligada): roda TS e Rust, compara pisos e lajes com `compararB1` e a junção com
+  `compararB3` (0049, `K = 0,08`, o adotado na B2/B3), registra no mesmo buffer circular de 20 do diálogo (nível, elemento ou parede, campo,
+  mensagem) e devolve SEMPRE o resultado do TS. Uma comparação por (projeto, nível, tipo).
+- Worker: `PedidoResolucao.kernelV2` leva `fatiaA`/`fatiaB`/`sombra` (`protocolo.ts`, `cliente.ts`) e o worker instala o despacho se qualquer
+  fatia estiver ligada (`servidor.ts`); o diagnóstico (`entreguesB` incluso) volta em `RespostaResolucao.kernelDiag` e a thread principal soma.
+- Testes: `packages/engine/src/kernelDespachoB.test.ts` (sem binário, falso do ABI v2: flag desligada, leve sem recriar, grave recriando,
+  limite 3/5 min com relógio injetável, junção sempre no TS) e `tests/kernel-b5.wasm.test.ts` (binário real: fixture `casa-2-quartos`, sintéticos
+  de 10 e 20 pavimentos, sementes 1 a 6 do estresse da B, memo, edição, sombra com divergência artificial, buffer circular e sombra desligada).
+  `servidor.test.ts`/`cliente.test.ts` cobrem o pedido e o diagnóstico da B; `preferenciasFatias.test.ts`/`ExperimentosDialog.test.ts` cobrem a flag.
+
+**Bloqueio da junção (B3): divergência fora da 0049.** Reproduzido no próprio teste da B3 (`tests/kernel-b3.wasm.test.ts`) com o wasm atual
+(`scripts/build-wasm.mjs`, fontes no commit `50b59b40`): as sementes 1, 10, 11 e 12 falham. Semente 1, `lv_1`, parede 22, camada 2: partes com
+diferença simétrica **0,35416666500000815 m²** (guarda 0,01; K medido 70519,9), sem relação com arredondamento; semente 12, `lv_0`, parede 22:
+**0,31500000000001194 m²**; semente 11, `lv_1`, cortador 41: **0,10125007950240317 m²**; semente 10, `lv_0`, cortador 25: item sem par acima do
+fiapo. Como o TypeScript é a referência e despachar essa saída mudaria o resultado em produção, a B3 não entra no despacho até ser corrigida; o
+modo sombra da B já mostra os casos (nível, parede/elemento, campo). Para reexecutar:
+`KERNEL_WASM_PATH=./tmp-b5/wasm/geom_wasm.wasm npx vitest run --config vitest.wasm.config.ts tests/kernel-b3.wasm.test.ts -t "estresse, semente 1"`.
+
+**Como validar na interface.** Compile o wasm (`node scripts/build-wasm.mjs`; o binário versionado fica velho até o fim da B e, com ele, o
+despacho cai em "indisponível" e tudo segue no TS), abra o app com `?kernelFatias=A,B` (ou `?kernel=rust`, ou grave A e B no diálogo e recarregue).
+Para comparar, `localStorage.setItem('hestia:kernel:sombra','true')` e recarregue: o app segue mostrando o TS e o diálogo Experimentais mostra
+comparações, divergências (nível, elemento/parede, campo) e as consultas entregues da B. Sem sombra, planta, cortes, 3D e quantitativos usam os
+pisos e as lajes do Rust; a junção continua no TS.
+O que olhar: (1) com `?kernelFatias=A,B` sem sombra, pisos e lajes (camadas, membranas, furos de escada, vinculados, lajes inclinadas) iguais
+aos do TS em projetos reais; (2) na sombra, a contagem de divergências de pisos e lajes deve ficar em 0 nos casos da B2; divergências de junção
+são o bloqueio da B3 acima e trazem nível, parede/elemento e campo; (3) voltas graves ou recriações indicam defeito do binário, não do TS (o app
+continua correto, mas avise); (4) tempo de edição: a cena é reenviada por inteiro a cada edição (sem upsert incremental).
+
+**Resultados literais desta entrega.**
+- `npx tsc -p tsconfig.json --noEmit`: sem saída (sucesso).
+- `npx eslint` nos arquivos tocados e testes novos/vizinhos: sem saída (sucesso).
+- Testes unitários (despacho A/B, worker, flag, diálogo): 6 arquivos, **67 testes passaram**.
+- `KERNEL_WASM_PATH=./tmp-b5/wasm/geom_wasm.wasm npx vitest run --config vitest.wasm.config.ts tests/kernel-b5.wasm.test.ts`:
+  **17 testes passaram** em 73,96 s; o maior teste individual foi a semente 2 do estresse, **8,45 s** (abaixo de 30 s).
+- Wasm temporário usado: `sha256 10a05de610baa6f9d779f0b4488980b4ee70388ed48c990ab7358a9635984a4e` (não commitado).
+- Commit do código deste passo: `0b9b4e8c` (a documentação vem no commit seguinte).
+- A fatia B entrega, por nível, **1 consulta** (`pisos_lajes_com_paredes`, que devolve pisos e lajes); a junção não é consultada em produção.
+
+===FIM===
