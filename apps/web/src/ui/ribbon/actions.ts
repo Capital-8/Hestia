@@ -6,7 +6,7 @@ import { addMissingTagsAction } from '../../editor/areaPlanActions.ts';
 import { editor } from '../../editor/controller.ts';
 import { createSimilarTarget, startCreateSimilar } from '../../editor/createSimilar.ts';
 import { resetDock, setDock } from '../../editor/dockActions.ts';
-import type { DockLayout, DockPanel, DockSide } from '../../editor/dockLayout.ts';
+import type { DockLayout, DockPanel } from '../../editor/dockLayout.ts';
 import { editThinLines, thinLinesOn } from '../../editor/graphicsActions.ts';
 import { perimeterActions } from '../../editor/perimeter.ts';
 import { addSheetAction } from '../../editor/sheetActions.ts';
@@ -18,16 +18,15 @@ import { applyDrop } from '../dockDrag.ts';
 import { gridToolOf } from '../gridUi.ts';
 import { idPerimetroEditavel } from '../perimeter/perimeterEditavel.ts';
 import { useFamilia } from '../familia/familiaStore.ts';
+import { usePaletaMoveis } from '../PaletaMoveis.tsx';
 import { useOrcamento } from '../OrcamentoProjeto.tsx';
 import { t, type ActionId, type Txt } from './model.ts';
 
 /** Leva o painel para o outro dock (esquerdo <-> direito), pela mesma regra de soltura do arraste. */
 function flipSide(panel: DockPanel): void {
   const d = useUi.getState().dock;
-  const to: DockSide = d.sides[panel] === 'left' ? 'right' : 'left';
-  setDock(applyDrop(d, panel, to));
+  setDock(applyDrop(d, panel, d.sides[panel] === 'left' ? 'right' : 'left'));
 }
-
 /** Estado que a faixa lê para decidir "pressionado" e "desabilitado". */
 export interface RibbonCtx {
   tool: UiState['tool'];
@@ -394,6 +393,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   shortcutsConfig: { label: t('Atalhos de teclado…', 'Keyboard Shortcuts…'), icon: 'help', run: openDialog('shortcutsConfig') },
   shortcuts: { label: t('Lista de atalhos', 'Shortcut List'), icon: 'help', run: openDialog('shortcuts') },
   familyEditor: { label: t('Editor de famílias', 'Family Editor'), icon: 'component', hint: t('Abre o editor de famílias numa aba, sem fechar o projeto.', 'Opens the family editor in a tab without closing the project.'), run: () => useFamilia.getState().abrir() },
+  componentLibrary: { label: t('Biblioteca', 'Library'), icon: 'component', hint: t('Paleta de móveis: arraste para a planta ou o 3D, ou clique para usar a ferramenta Componente.', 'Furniture palette: drag into plan or 3D, or click to use the Component tool.'), run: () => usePaletaMoveis.getState().alternar(), pressed: () => usePaletaMoveis.getState().aberta },
   componentBudget: { label: t('Orçamento do projeto', 'Project Budget'), icon: 'component', hint: t('Soma peças, ferragens e custo de todos os componentes do projeto.', 'Sums parts, hardware and cost of every component in the project.'), run: () => useOrcamento.getState().abrir() },
   schedWalls: sched(t('Tabela de paredes', 'Wall Schedule'), 'schedule'),
   schedFloors: sched(t('Tabela de pisos', 'Floor Schedule'), 'floorSchedule'),

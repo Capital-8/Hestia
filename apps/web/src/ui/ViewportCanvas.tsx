@@ -1,5 +1,5 @@
 ﻿/* eslint-disable max-lines -- a vista reúne planta, 3D, corte e o editor da cota; extrair depois. */
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as RDragEvent, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
 import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport } from '@hestia/render';
 import { formatQuantity, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
 import { useShallow } from 'zustand/react/shallow';
@@ -31,6 +31,7 @@ import { medirQuadro, useContarCommitPerf, usePerfDaUrl } from '../debug/perf/in
 import { eventosDeSolta, gestosComShift, passouDoLimiar } from './planGestos.ts';
 import { cliqueAdiadoInicial, decidirCliqueAdiado, type EstadoCliqueAdiado } from './cliqueAdiado.ts';
 import { armarArrastoNoPonto, cancelarArrasto3d, cancelarArrastoComEsc, moverArrastoNoPonto, type ArrastoComponente3D } from './viewport/arrastoComponente3d.ts';
+import { idDaFamiliaArrastada, prepararArrastoDeFamilia, soltarDaPaleta } from '../editor/soltarFamilia.ts';
 
 interface Pt {
   x: number;
@@ -1025,6 +1026,15 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   /** Saiu do canvas: o realce do 3D e o do corte somem (o da planta não é tocado). */
   const onLeave = (): void => { if (['3d', 'section'].includes(useUi.getState().view) && useUi.getState().hover) useUi.setState({ hover: null }); };
 
+  /** Solta a família no ponto do mundo da vista ativa; fora da planta/3D o ponto é nulo e nada acontece. */
+  const onDrop = (e: RDragEvent<HTMLDivElement>): void => {
+    const familiaId = idDaFamiliaArrastada(e.dataTransfer);
+    if (!familiaId) return;
+    e.preventDefault();
+    const st = useUi.getState();
+    soltarDaPaleta({ familiaId, view: st.view, pontoLocal: local(e), tamanho: host.current!.getBoundingClientRect(), camera: model.current.orbit.camera, viewport: editor.viewport(), projeto: editor.project, store: editor.store, levelId: st.levelId });
+  };
+
   // Uma única política para as três vistas (cursor.ts): Selecionar é sempre a seta, a mão só existe durante pan/orbit,
   // alças do corte pedem o eixo e as ferramentas de desenho usam texto/mover/mira.
   const handleKind = sectionHandleDrag.current?.handle.kind;
@@ -1047,6 +1057,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       onPointerUp={onUp}
       onPointerCancel={onCancel}
       onPointerLeave={onLeave}
+      onDragOver={prepararArrastoDeFamilia}
+      onDrop={onDrop}
       onContextMenu={(e) => e.preventDefault()}
     >
       <PlanLabels ref={labelLayer} labels={ui.view !== '3d' && labelView ? labels : NO_LABELS} v={labelView} />
