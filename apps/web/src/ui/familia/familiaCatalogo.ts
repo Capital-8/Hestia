@@ -1,4 +1,4 @@
-import { validarCatalogo, type Catalogo, type Chapa, type FerragemCatalogo, type Fita } from '@hestia/model';
+import { validarCatalogo, type Catalogo, type Chapa, type FerragemCatalogo, type Fita, type ProblemaCatalogo } from '@hestia/model';
 
 /*
  * Apoio puro do catálogo de marcenaria do editor (sem React): ids automáticos, leitura de campo por coluna e receitas
@@ -51,15 +51,42 @@ function comFerragens(c: Catalogo, ferragens: FerragemCatalogo[]): Catalogo {
   return { ...c, ferragens };
 }
 
-/** Edita a chapa da posição `indice`. Devolve catálogo novo, ou `null` se o texto não serve (o campo volta ao valor anterior). */
-export function atualizarChapaEm(catalogo: Catalogo, indice: number, campo: CampoChapa, texto: string): Catalogo | null {
+/** Resultado de uma edição: o catálogo novo ou o motivo pelo qual o valor anterior permanece. */
+export type ResultadoEdicaoCatalogo = { ok: true; catalogo: Catalogo } | { ok: false; motivo: string };
+
+/** Identidade de um problema de validação, para comparar antes e depois de uma edição. */
+function chaveDoProblema(p: ProblemaCatalogo): string {
+  return `${p.codigo}\u0000${p.onde}\u0000${p.mensagem}`;
+}
+
+/**
+ * Só recusa problemas NOVOS: um catálogo que já veio com id repetido (por importação, por exemplo) continua editável nos
+ * outros campos, mas a edição que cria a repetição ou um valor inválido é barrada.
+ */
+function conferirEdicao(antes: Catalogo, depois: Catalogo): ResultadoEdicaoCatalogo {
+  const vistos = new Set(validarCatalogo(antes).map(chaveDoProblema));
+  const novo = validarCatalogo(depois).find((p) => !vistos.has(chaveDoProblema(p)));
+  return novo === undefined ? { ok: true, catalogo: depois } : { ok: false, motivo: novo.mensagem };
+}
+
+/** Custo informado precisa ser positivo (o padrão do modelo aceita zero; a interface recusa, como pediu o QA). */
+function custoPositivo(texto: string): ResultadoEdicaoCatalogo | null {
+  const limpo = texto.trim();
+  if (limpo === '') return null;
+  const n = lerNumero(texto);
+  if (n === null) return { ok: false, motivo: 'Valor inválido.' };
+  return n > 0 ? null : { ok: false, motivo: 'O custo precisa ser maior que zero.' };
+}
+
+/** Edita a chapa da posição `indice`. Devolve catálogo novo ou o motivo da recusa (o campo volta ao valor anterior). */
+export function editarChapaEm(catalogo: Catalogo, indice: number, campo: CampoChapa, texto: string): ResultadoEdicaoCatalogo {
   const chapa = catalogo.chapas[indice];
-  if (chapa === undefined) return null;
+  if (chapa === undefined) return { ok: false, motivo: 'esta chapa não existe' };
   const nova: Chapa = { ...chapa };
   switch (campo) {
     case 'id': {
       const id = texto.trim();
-      if (id === '') return null;
+      if (id === '') return { ok: false, motivo: 'Informe o id.' };
       nova.id = id;
       break;
     }
@@ -79,7 +106,7 @@ export function atualizarChapaEm(catalogo: Catalogo, indice: number, campo: Camp
       const v = texto.trim().toLowerCase();
       if (v === 'true' || v === '1') nova.veio = true;
       else if (v === 'false' || v === '0' || v === '') nova.veio = false;
-      else return null;
+      else return { ok: false, motivo: 'Use true ou false.' };
       break;
     }
     case 'espessura':
@@ -87,44 +114,52 @@ export function atualizarChapaEm(catalogo: Catalogo, indice: number, campo: Camp
     case 'altura':
     case 'refilo': {
       const n = lerNumero(texto);
-      if (n === null) return null;
+      if (n === null) return { ok: false, motivo: 'Valor inválido.' };
       nova[campo] = n;
       break;
     }
     case 'custoM2': {
+      const recusa = custoPositivo(texto);
+      if (recusa !== null) return recusa;
       const n = lerNumero(texto);
-      if (n === null) {
-        if (texto.trim() === '') {
-          delete nova.custoM2;
-          break;
-        }
-        return null;
-      }
-      nova.custoM2 = n;
+      if (n === null) delete nova.custoM2;
+      else nova.custoM2 = n;
       break;
     }
   }
   const chapas = catalogo.chapas.slice();
   chapas[indice] = nova;
-  return comChapas(catalogo, chapas);
+  return conferirEdicao(catalogo, comChapas(catalogo, chapas));
+}
+
+/** Edita a chapa de id `id`; o resultado também indica o motivo quando ela não existe ou o texto não serve. */
+export function editarChapa(catalogo: Catalogo, id: string, campo: CampoChapa, texto: string): ResultadoEdicaoCatalogo {
+  const indice = catalogo.chapas.findIndex((c) => c.id === id);
+  if (indice < 0) return { ok: false, motivo: 'esta chapa não existe' };
+  return editarChapaEm(catalogo, indice, campo, texto);
+}
+
+/** Edita a chapa da posição `indice`; `null` quando a edição é recusada (o campo volta ao valor anterior). */
+export function atualizarChapaEm(catalogo: Catalogo, indice: number, campo: CampoChapa, texto: string): Catalogo | null {
+  const r = editarChapaEm(catalogo, indice, campo, texto);
+  return r.ok ? r.catalogo : null;
 }
 
 /** Edita a chapa de id `id`; `null` se ela não existe ou o texto não serve. */
 export function atualizarChapa(catalogo: Catalogo, id: string, campo: CampoChapa, texto: string): Catalogo | null {
-  const indice = catalogo.chapas.findIndex((c) => c.id === id);
-  if (indice < 0) return null;
-  return atualizarChapaEm(catalogo, indice, campo, texto);
+  const r = editarChapa(catalogo, id, campo, texto);
+  return r.ok ? r.catalogo : null;
 }
 
-/** Edita a fita da posição `indice`; `null` se o texto não serve. */
-export function atualizarFitaEm(catalogo: Catalogo, indice: number, campo: CampoFita, texto: string): Catalogo | null {
+/** Edita a fita da posição `indice`; devolve catálogo novo ou o motivo da recusa. */
+export function editarFitaEm(catalogo: Catalogo, indice: number, campo: CampoFita, texto: string): ResultadoEdicaoCatalogo {
   const fita = catalogo.fitas[indice];
-  if (fita === undefined) return null;
+  if (fita === undefined) return { ok: false, motivo: 'esta fita não existe' };
   const nova: Fita = { ...fita };
   switch (campo) {
     case 'id': {
       const id = texto.trim();
-      if (id === '') return null;
+      if (id === '') return { ok: false, motivo: 'Informe o id.' };
       nova.id = id;
       break;
     }
@@ -140,44 +175,52 @@ export function atualizarFitaEm(catalogo: Catalogo, indice: number, campo: Campo
     case 'espessura':
     case 'altura': {
       const n = lerNumero(texto);
-      if (n === null) return null;
+      if (n === null) return { ok: false, motivo: 'Valor inválido.' };
       nova[campo] = n;
       break;
     }
     case 'custoM': {
+      const recusa = custoPositivo(texto);
+      if (recusa !== null) return recusa;
       const n = lerNumero(texto);
-      if (n === null) {
-        if (texto.trim() === '') {
-          delete nova.custoM;
-          break;
-        }
-        return null;
-      }
-      nova.custoM = n;
+      if (n === null) delete nova.custoM;
+      else nova.custoM = n;
       break;
     }
   }
   const fitas = catalogo.fitas.slice();
   fitas[indice] = nova;
-  return comFitas(catalogo, fitas);
+  return conferirEdicao(catalogo, comFitas(catalogo, fitas));
+}
+
+/** Edita a fita de id `id`; o resultado também indica o motivo quando ela não existe ou o texto não serve. */
+export function editarFita(catalogo: Catalogo, id: string, campo: CampoFita, texto: string): ResultadoEdicaoCatalogo {
+  const indice = catalogo.fitas.findIndex((f) => f.id === id);
+  if (indice < 0) return { ok: false, motivo: 'esta fita não existe' };
+  return editarFitaEm(catalogo, indice, campo, texto);
+}
+
+/** Edita a fita da posição `indice`; `null` quando a edição é recusada. */
+export function atualizarFitaEm(catalogo: Catalogo, indice: number, campo: CampoFita, texto: string): Catalogo | null {
+  const r = editarFitaEm(catalogo, indice, campo, texto);
+  return r.ok ? r.catalogo : null;
 }
 
 /** Edita a fita de id `id`; `null` se ela não existe ou o texto não serve. */
 export function atualizarFita(catalogo: Catalogo, id: string, campo: CampoFita, texto: string): Catalogo | null {
-  const indice = catalogo.fitas.findIndex((f) => f.id === id);
-  if (indice < 0) return null;
-  return atualizarFitaEm(catalogo, indice, campo, texto);
+  const r = editarFita(catalogo, id, campo, texto);
+  return r.ok ? r.catalogo : null;
 }
 
-/** Edita a ferragem da posição `indice`; `null` se o texto não serve (inclusive unidade desconhecida). */
-export function atualizarFerragemEm(catalogo: Catalogo, indice: number, campo: CampoFerragem, texto: string): Catalogo | null {
+/** Edita a ferragem da posição `indice`; devolve catálogo novo ou o motivo da recusa. */
+export function editarFerragemEm(catalogo: Catalogo, indice: number, campo: CampoFerragem, texto: string): ResultadoEdicaoCatalogo {
   const ferragem = catalogo.ferragens[indice];
-  if (ferragem === undefined) return null;
+  if (ferragem === undefined) return { ok: false, motivo: 'esta ferragem não existe' };
   const nova: FerragemCatalogo = { ...ferragem };
   switch (campo) {
     case 'id': {
       const id = texto.trim();
-      if (id === '') return null;
+      if (id === '') return { ok: false, motivo: 'Informe o id.' };
       nova.id = id;
       break;
     }
@@ -192,33 +235,41 @@ export function atualizarFerragemEm(catalogo: Catalogo, indice: number, campo: C
     }
     case 'unidade': {
       const unidade = texto.trim() as FerragemCatalogo['unidade'];
-      if (!UNIDADES_FERRAGEM.includes(unidade)) return null;
+      if (!UNIDADES_FERRAGEM.includes(unidade)) return { ok: false, motivo: 'Escolha uma unidade válida.' };
       nova.unidade = unidade;
       break;
     }
     case 'custo': {
+      const recusa = custoPositivo(texto);
+      if (recusa !== null) return recusa;
       const n = lerNumero(texto);
-      if (n === null) {
-        if (texto.trim() === '') {
-          delete nova.custo;
-          break;
-        }
-        return null;
-      }
-      nova.custo = n;
+      if (n === null) delete nova.custo;
+      else nova.custo = n;
       break;
     }
   }
   const ferragens = catalogo.ferragens.slice();
   ferragens[indice] = nova;
-  return comFerragens(catalogo, ferragens);
+  return conferirEdicao(catalogo, comFerragens(catalogo, ferragens));
+}
+
+/** Edita a ferragem de id `id`; o resultado também indica o motivo quando ela não existe ou o texto não serve. */
+export function editarFerragem(catalogo: Catalogo, id: string, campo: CampoFerragem, texto: string): ResultadoEdicaoCatalogo {
+  const indice = catalogo.ferragens.findIndex((f) => f.id === id);
+  if (indice < 0) return { ok: false, motivo: 'esta ferragem não existe' };
+  return editarFerragemEm(catalogo, indice, campo, texto);
+}
+
+/** Edita a ferragem da posição `indice`; `null` quando a edição é recusada. */
+export function atualizarFerragemEm(catalogo: Catalogo, indice: number, campo: CampoFerragem, texto: string): Catalogo | null {
+  const r = editarFerragemEm(catalogo, indice, campo, texto);
+  return r.ok ? r.catalogo : null;
 }
 
 /** Edita a ferragem de id `id`; `null` se ela não existe ou o texto não serve. */
 export function atualizarFerragem(catalogo: Catalogo, id: string, campo: CampoFerragem, texto: string): Catalogo | null {
-  const indice = catalogo.ferragens.findIndex((f) => f.id === id);
-  if (indice < 0) return null;
-  return atualizarFerragemEm(catalogo, indice, campo, texto);
+  const r = editarFerragem(catalogo, id, campo, texto);
+  return r.ok ? r.catalogo : null;
 }
 
 /** Acrescenta uma chapa com id automático e valores iniciais razoáveis. */

@@ -1,7 +1,7 @@
 import type { Catalogo } from '@hestia/model';
 import type { ReactElement } from 'react';
 import { CampoNumero, CampoTexto } from './FamiliaParametrosCampos.tsx';
-import { adicionarFita, atualizarFitaEm, removerFitaEm, type CampoFita } from './familiaCatalogo.ts';
+import { adicionarFita, editarFitaEm, removerFitaEm, type CampoFita } from './familiaCatalogo.ts';
 
 /** Aba Fitas do catálogo: tabela editável com espessura, altura e custo por metro. */
 
@@ -11,25 +11,25 @@ interface Props {
 }
 
 export function FamiliaCatalogoFitas({ catalogo, aoMudar }: Props): ReactElement {
-  const gravarTexto = (indice: number, campo: CampoFita) => (texto: string): boolean => {
-    const novo = atualizarFitaEm(catalogo, indice, campo, texto);
-    if (novo === null) return false;
-    aoMudar(novo);
+  const gravarTexto = (indice: number, campo: CampoFita) => (texto: string): boolean | string => {
+    const r = editarFitaEm(catalogo, indice, campo, texto);
+    if (!r.ok) return r.motivo;
+    aoMudar(r.catalogo);
     return true;
   };
 
-  const gravarNumero = (indice: number, campo: CampoFita) => (n: number | undefined): boolean => {
-    if (n === undefined) return false;
-    const novo = atualizarFitaEm(catalogo, indice, campo, String(n));
-    if (novo === null) return false;
-    aoMudar(novo);
+  const gravarNumero = (indice: number, campo: CampoFita) => (n: number | undefined): boolean | string => {
+    if (n === undefined) return 'Informe um valor.';
+    const r = editarFitaEm(catalogo, indice, campo, String(n));
+    if (!r.ok) return r.motivo;
+    aoMudar(r.catalogo);
     return true;
   };
 
-  const gravarCusto = (indice: number) => (n: number | undefined): boolean => {
-    const novo = atualizarFitaEm(catalogo, indice, 'custoM', n === undefined ? '' : String(n));
-    if (novo === null) return false;
-    aoMudar(novo);
+  const gravarCusto = (indice: number) => (n: number | undefined): boolean | string => {
+    const r = editarFitaEm(catalogo, indice, 'custoM', n === undefined ? '' : String(n));
+    if (!r.ok) return r.motivo;
+    aoMudar(r.catalogo);
     return true;
   };
 
