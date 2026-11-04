@@ -596,7 +596,7 @@ export class SelectTool extends ToolBase {
     const nosGrupos = new Set(grupos.flatMap((g) => g.membros));
     const soltos = ids.filter((id) => {
       const c = pr.elements[id];
-      return isComponent(c) && c.groupId === undefined && !nosGrupos.has(id);
+      return isComponent(c) && !nosGrupos.has(id);
     });
     this.env.transaction('Mover componente', () => {
       for (const grupo of grupos) this.env.exec({ type: 'moveComponentGroup', id: grupo.id, dx: d.x, dy: d.y });

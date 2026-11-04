@@ -72,3 +72,23 @@ describe('mover conjunto', () => {
     expect(componente(ctx, 'c4')).toMatchObject({ x: 10, y: 2 });
   });
 });
+
+describe('mover componente de conjunto que não está inteiro na seleção', () => {
+  it('o componente selecionado sozinho (conjunto parcial) também anda', async () => {
+    const { FAMILIA_ARMARIO } = await import('@hestia/model');
+    const { makeEnv, P, tool } = await import('./testEnv.ts');
+    const ctx = makeEnv();
+    ctx.store.exec({ type: 'upsertFamily', family: structuredClone(FAMILIA_ARMARIO) });
+    const comp = (id: string, x: number) => ({ id, kind: 'component' as const, familyId: FAMILIA_ARMARIO.id, typeId: 'A80', levelId: 'lv_0', x, y: 2, z: 0, rotation: 0, mirrored: false, mark: id });
+    ctx.store.exec({ type: 'addComponent', component: comp('c1', 1) });
+    ctx.store.exec({ type: 'addComponent', component: comp('c2', 3) });
+    ctx.store.exec({ type: 'upsertComponentGroup', group: { id: 'g1', nome: 'Conjunto 1', levelId: 'lv_0', membros: ['c1', 'c2'] } });
+    ctx.env.setSelection(['c1']);
+    const t = tool('select', ctx.env);
+    t.down?.(P(1.4, 2.2));
+    t.drag?.(P(2.4, 2.2));
+    t.up?.(P(2.4, 2.2));
+    const c1 = ctx.store.project.elements['c1'];
+    expect(c1?.kind === 'component' && c1.x).toBeCloseTo(2, 9);
+  });
+});
