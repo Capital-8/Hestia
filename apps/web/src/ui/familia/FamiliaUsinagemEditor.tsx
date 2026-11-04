@@ -15,7 +15,8 @@ import './familiaCatalogo.css';
 
 interface Props {
   inicial: Usinagem;
-  aoSalvar: (usinagem: Usinagem) => boolean;
+  /** Devolve o motivo da recusa (o editor continua aberto) ou `null` quando salvou. */
+  aoSalvar: (usinagem: Usinagem) => string | null;
   aoCancelar: () => void;
 }
 
@@ -49,14 +50,19 @@ function CampoFormulaUsinagem({ id, valor, aoMudar, ariaLabel, obrigatoria = fal
 
 export function FamiliaUsinagemEditor({ inicial, aoSalvar, aoCancelar }: Props): ReactElement {
   const [u, setU] = useState<Usinagem>(() => structuredClone(inicial));
+  const [erro, setErro] = useState<string | null>(null);
   const [rotuloU, rotuloV] = rotulosDaFace(u.tipo, u.face);
   const passante = u.profundidade === 'passante';
   const profundidade = passante ? '' : u.profundidade;
   const tipoTravado = ehBorda(u.face);
 
-  const trocar = (patch: Partial<Usinagem>): void => setU((atual) => ({ ...atual, ...patch }));
+  const trocar = (patch: Partial<Usinagem>): void => {
+    setErro(null);
+    setU((atual) => ({ ...atual, ...patch }));
+  };
 
   const mudarPosicao = (indice: 0 | 1, valor: string): void => {
+    setErro(null);
     setU((atual) => {
       const posicao: [string, string] = [atual.posicao[0] ?? '', atual.posicao[1] ?? ''];
       posicao[indice] = valor;
@@ -64,7 +70,13 @@ export function FamiliaUsinagemEditor({ inicial, aoSalvar, aoCancelar }: Props):
     });
   };
 
+  const salvar = (): void => {
+    const motivo = aoSalvar(u);
+    setErro(motivo);
+  };
+
   const trocarTipo = (tipo: TipoUsinagem): void => {
+    setErro(null);
     setU((atual) => {
       if (tipo === 'furo') {
         return { ...atual, tipo, diametro: atual.diametro ?? '8', largura: undefined, comprimento: undefined };
@@ -75,6 +87,7 @@ export function FamiliaUsinagemEditor({ inicial, aoSalvar, aoCancelar }: Props):
   };
 
   const trocarFace = (face: FaceUsinagem): void => {
+    setErro(null);
     setU((atual) => {
       if (ehBorda(face)) {
         return { ...atual, face, tipo: 'furo', diametro: atual.diametro ?? '8', largura: undefined, comprimento: undefined };
@@ -84,6 +97,7 @@ export function FamiliaUsinagemEditor({ inicial, aoSalvar, aoCancelar }: Props):
   };
 
   const alternarPassante = (valor: boolean): void => {
+    setErro(null);
     setU((atual) => ({
       ...atual,
       profundidade: valor ? 'passante' : (atual.profundidade === 'passante' ? '10' : atual.profundidade),
@@ -152,9 +166,10 @@ export function FamiliaUsinagemEditor({ inicial, aoSalvar, aoCancelar }: Props):
         <CampoFormulaUsinagem id="usin-quando" valor={u.quando ?? ''} aoMudar={(texto) => trocar({ quando: texto.trim() === '' ? undefined : texto })} ariaLabel="Condição de existência da usinagem" />
       </div>
       <div className="fam-usin-acoes-editor">
-        <button className="fam-bt pri" onClick={() => aoSalvar(u)}>Salvar</button>
+        <button className="fam-bt pri" onClick={salvar}>Salvar</button>
         <button className="fam-bt" onClick={aoCancelar}>Cancelar</button>
       </div>
+      {erro !== null && <div className="fam-usin-erro" role="alert">{erro}</div>}
       <div className="fam-hint">A borda aceita só furo. Cada alteração salva vira um passo de desfazer.</div>
     </div>
   );

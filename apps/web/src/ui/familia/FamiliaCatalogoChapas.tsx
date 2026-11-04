@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { CampoNumero, CampoTexto } from './FamiliaParametrosCampos.tsx';
 import {
   adicionarChapa,
-  atualizarChapaEm,
+  editarChapaEm,
   removerChapaEm,
   type CampoChapa,
 } from './familiaCatalogo.ts';
@@ -22,36 +22,36 @@ function corValida(cor: string | undefined): string {
 }
 
 export function FamiliaCatalogoChapas({ catalogo, aoMudar }: Props): ReactElement {
-  const gravarTexto = (indice: number, campo: CampoChapa) => (texto: string): boolean => {
-    const novo = atualizarChapaEm(catalogo, indice, campo, texto);
-    if (novo === null) return false;
-    aoMudar(novo);
+  const gravarTexto = (indice: number, campo: CampoChapa) => (texto: string): boolean | string => {
+    const r = editarChapaEm(catalogo, indice, campo, texto);
+    if (!r.ok) return r.motivo;
+    aoMudar(r.catalogo);
     return true;
   };
 
-  const gravarNumero = (indice: number, campo: CampoChapa) => (n: number | undefined): boolean => {
-    if (n === undefined) return false;
-    const novo = atualizarChapaEm(catalogo, indice, campo, String(n));
-    if (novo === null) return false;
-    aoMudar(novo);
+  const gravarNumero = (indice: number, campo: CampoChapa) => (n: number | undefined): boolean | string => {
+    if (n === undefined) return 'Informe um valor.';
+    const r = editarChapaEm(catalogo, indice, campo, String(n));
+    if (!r.ok) return r.motivo;
+    aoMudar(r.catalogo);
     return true;
   };
 
-  const gravarCusto = (indice: number) => (n: number | undefined): boolean => {
-    const novo = atualizarChapaEm(catalogo, indice, 'custoM2', n === undefined ? '' : String(n));
-    if (novo === null) return false;
-    aoMudar(novo);
+  const gravarCusto = (indice: number) => (n: number | undefined): boolean | string => {
+    const r = editarChapaEm(catalogo, indice, 'custoM2', n === undefined ? '' : String(n));
+    if (!r.ok) return r.motivo;
+    aoMudar(r.catalogo);
     return true;
   };
 
   const alternarVeio = (indice: number, valor: boolean): void => {
-    const novo = atualizarChapaEm(catalogo, indice, 'veio', String(valor));
-    if (novo !== null) aoMudar(novo);
+    const r = editarChapaEm(catalogo, indice, 'veio', String(valor));
+    if (r.ok) aoMudar(r.catalogo);
   };
 
   const trocarCor = (indice: number, valor: string): void => {
-    const novo = atualizarChapaEm(catalogo, indice, 'cor', valor);
-    if (novo !== null) aoMudar(novo);
+    const r = editarChapaEm(catalogo, indice, 'cor', valor);
+    if (r.ok) aoMudar(r.catalogo);
   };
 
   return (

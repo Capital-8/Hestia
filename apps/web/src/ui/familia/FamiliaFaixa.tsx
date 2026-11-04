@@ -100,10 +100,11 @@ export function FamiliaFaixa(): ReactElement {
     setMensagem(null);
     useUi.setState((s) => ({
       options: { ...s.options, componentFamilyId: r.familia.id, componentTypeId: null },
-      status: `${r.familia.nome} carregada no projeto.`,
     }));
     useFamilia.getState().ocultar();
     editor.setTool('component');
+    // Depois de ativar a ferramenta: o `start` dela escreve o texto de ajuda, e o sucesso precisa ficar visível.
+    useUi.setState({ status: `${r.familia.nome} carregada no projeto.` });
   };
   return (
     <>

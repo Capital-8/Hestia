@@ -49,7 +49,7 @@ interface NumProps {
   /** Campo vazio confirmado: o valor volta a "nenhum" (null). Sem ele, campo vazio não grava nada. */
   onClear?: () => void;
   /** Texto que não é número, ou valor fora de min/max com `strictRange`: avisa, em vez de corrigir em silêncio. */
-  onInvalid?: (texto: string) => void;
+  onInvalid?: (texto: string, motivo: 'invalido' | 'fora') => void;
   /** Texto novo aceito (mesmo que o valor não mude): serve para limpar um aviso antigo. */
   onValid?: () => void;
   /** Com `strictRange`, valor fora de min/max é recusado (volta o último valor válido) em vez de ser limitado. */
@@ -58,10 +58,12 @@ interface NumProps {
   invalid?: boolean;
   /** Id da mensagem de erro ligada ao campo (`aria-describedby`). */
   describedBy?: string;
+  /** Dica do campo (por exemplo, a faixa aceita). */
+  title?: string;
 }
 
 /** Campo numérico que aceita expressões (`3,50+0,15`); confirma com Enter ou ao sair. */
-export function NumField({ id, value, onCommit, decimals = 2, suffix, quantity, unit, scale = 1, min, max, disabled, mixed, width, readOnly, placeholder, onClear, onInvalid, onValid, strictRange, invalid, describedBy }: NumProps): ReactElement {
+export function NumField({ id, value, onCommit, decimals = 2, suffix, quantity, unit, scale = 1, min, max, disabled, mixed, width, readOnly, placeholder, onClear, onInvalid, onValid, strictRange, invalid, describedBy, title }: NumProps): ReactElement {
   const units = useUnits();
   const ref = useRef<HTMLInputElement>(null);
   const show = (v: number | null): string =>
@@ -86,13 +88,13 @@ export function NumField({ id, value, onCommit, decimals = 2, suffix, quantity, 
     const n = parseNumber(text);
     const lido = quantity ? parseQuantityField(units, quantity, text) : n === null ? null : unit ? n / scale : n;
     if (lido === null) {
-      onInvalid?.(text);
+      onInvalid?.(text, 'invalido');
       setText(show(value));
       return;
     }
     const si = lido;
     if (strictRange && ((min !== undefined && si < min) || (max !== undefined && si > max))) {
-      onInvalid?.(text);
+      onInvalid?.(text, 'fora');
       setText(show(value));
       return;
     }
@@ -100,8 +102,8 @@ export function NumField({ id, value, onCommit, decimals = 2, suffix, quantity, 
     if (min !== undefined) v = Math.max(min, v);
     if (max !== undefined) v = Math.min(max, v);
     if (value === null || Math.abs(v - value) > 1e-9 || mixed) onCommit(v);
-    // Texto diferente do exibido: é um valor digitado de novo (o texto restaurado após um aviso não conta).
-    if (text !== show(value)) onValid?.();
+    // Texto válido sempre limpa o aviso anterior (inclusive ao sair do campo sem mudar o valor).
+    onValid?.();
     setText(show(v));
   };
   const bump = (dir: 1 | -1): void => {
@@ -137,6 +139,7 @@ export function NumField({ id, value, onCommit, decimals = 2, suffix, quantity, 
         className={`input num${readOnly ? ' ro' : ''}${mixed ? ' mixed' : ''}`}
         style={width ? { width } : undefined}
         value={text}
+        title={title}
         placeholder={mixed ? 'variados' : placeholder ?? ''}
         disabled={disabled}
         readOnly={readOnly}

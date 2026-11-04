@@ -139,7 +139,10 @@ function LinhaTipo({ tipo, colunas, corrente, ehPadrao, registrar, onEscolher }:
           className="fam-dlg-estrela"
           aria-label={ehPadrao ? 'Tipo padrão da família' : 'Tornar tipo padrão'}
           title={ehPadrao ? 'Tipo padrão da família' : 'Tornar tipo padrão'}
-          onClick={definirPadrao}
+          onClick={(e) => {
+            e.stopPropagation();
+            definirPadrao();
+          }}
         >
           {ehPadrao ? '★' : '☆'}
         </button>

@@ -5,7 +5,7 @@ import {
   ROTULO_UNIDADE,
   UNIDADES_FERRAGEM,
   adicionarFerragem,
-  atualizarFerragemEm,
+  editarFerragemEm,
   removerFerragemEm,
   type CampoFerragem,
 } from './familiaCatalogo.ts';
@@ -18,22 +18,22 @@ interface Props {
 }
 
 export function FamiliaCatalogoFerragens({ catalogo, aoMudar }: Props): ReactElement {
-  const gravarTexto = (indice: number, campo: CampoFerragem) => (texto: string): boolean => {
-    const novo = atualizarFerragemEm(catalogo, indice, campo, texto);
-    if (novo === null) return false;
-    aoMudar(novo);
+  const gravarTexto = (indice: number, campo: CampoFerragem) => (texto: string): boolean | string => {
+    const r = editarFerragemEm(catalogo, indice, campo, texto);
+    if (!r.ok) return r.motivo;
+    aoMudar(r.catalogo);
     return true;
   };
 
   const gravarUnidade = (indice: number, unidade: FerragemCatalogo['unidade']): void => {
-    const novo = atualizarFerragemEm(catalogo, indice, 'unidade', unidade);
-    if (novo !== null) aoMudar(novo);
+    const r = editarFerragemEm(catalogo, indice, 'unidade', unidade);
+    if (r.ok) aoMudar(r.catalogo);
   };
 
-  const gravarCusto = (indice: number) => (n: number | undefined): boolean => {
-    const novo = atualizarFerragemEm(catalogo, indice, 'custo', n === undefined ? '' : String(n));
-    if (novo === null) return false;
-    aoMudar(novo);
+  const gravarCusto = (indice: number) => (n: number | undefined): boolean | string => {
+    const r = editarFerragemEm(catalogo, indice, 'custo', n === undefined ? '' : String(n));
+    if (!r.ok) return r.motivo;
+    aoMudar(r.catalogo);
     return true;
   };
 

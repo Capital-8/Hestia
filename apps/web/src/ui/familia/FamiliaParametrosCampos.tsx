@@ -1,16 +1,20 @@
 import { compilar, type Parametro, type Valor } from '@hestia/model';
 import { useEffect, useState, type ReactElement } from 'react';
-import { lerEntrada, rotuloDoValor } from './acoes.ts';
+import { lerEntrada, motivoDaEntrada, rotuloDoValor } from './acoes.ts';
 import { lerNumeroOpcional } from './familiaDialogos.ts';
 
 /*
  * Campos reutilizáveis das tabelas editáveis. Texto e número gravam ao sair do campo (um passo de desfazer por edição);
- * o valor canônico volta para o campo quando o dono recusa a mudança. A fórmula é validada enquanto se digita.
+ * o valor canônico volta para o campo quando o dono recusa a mudança, com o motivo em aviso inline. A fórmula é validada
+ * enquanto se digita.
  */
+
+/** `true` gravou; um texto explica a recusa; `false` recusou sem motivo (o campo só volta ao valor anterior). */
+type Resultado = boolean | string;
 
 interface PropsCampoTexto {
   valor: string;
-  aoGravar: (texto: string) => boolean;
+  aoGravar: (texto: string) => Resultado;
   ariaLabel: string;
   classe?: string;
   titulo?: string;
@@ -19,28 +23,39 @@ interface PropsCampoTexto {
 
 export function CampoTexto({ valor, aoGravar, ariaLabel, classe = '', titulo, desabilitado = false }: PropsCampoTexto): ReactElement {
   const [texto, setTexto] = useState(valor);
+  const [erro, setErro] = useState<string | null>(null);
   useEffect(() => { setTexto(valor); }, [valor]);
   const gravar = (): void => {
     if (texto === valor) return;
-    if (!aoGravar(texto)) setTexto(valor);
+    const r = aoGravar(texto);
+    if (r === true) {
+      setErro(null);
+      return;
+    }
+    setErro(typeof r === 'string' ? r : null);
+    setTexto(valor);
   };
   return (
-    <input
-      className={`fam-dlg-input ${classe}`.trim()}
-      value={texto}
-      aria-label={ariaLabel}
-      title={titulo}
-      disabled={desabilitado}
-      onChange={(e) => setTexto(e.target.value)}
-      onBlur={gravar}
-      onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-    />
+    <div className="fam-campo">
+      <input
+        className={`fam-dlg-input ${classe}${erro !== null ? ' bad' : ''}`.trim()}
+        value={texto}
+        aria-label={ariaLabel}
+        title={titulo}
+        disabled={desabilitado}
+        aria-invalid={erro !== null ? true : undefined}
+        onChange={(e) => setTexto(e.target.value)}
+        onBlur={gravar}
+        onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+      />
+      {erro !== null && <div className="fam-campo-erro" role="alert">{erro}</div>}
+    </div>
   );
 }
 
 interface PropsCampoNumero {
   valor: number | undefined;
-  aoGravar: (valor: number | undefined) => boolean;
+  aoGravar: (valor: number | undefined) => Resultado;
   ariaLabel: string;
   classe?: string;
   titulo?: string;
@@ -48,31 +63,47 @@ interface PropsCampoNumero {
 
 export function CampoNumero({ valor, aoGravar, ariaLabel, classe = '', titulo }: PropsCampoNumero): ReactElement {
   const [texto, setTexto] = useState(valor === undefined ? '' : String(valor));
+  const [erro, setErro] = useState<string | null>(null);
   useEffect(() => { setTexto(valor === undefined ? '' : String(valor)); }, [valor]);
   const resetar = (): void => setTexto(valor === undefined ? '' : String(valor));
   const gravar = (): void => {
     if (texto.trim() === '') {
-      if (valor !== undefined && !aoGravar(undefined)) resetar();
+      if (valor === undefined) return;
+      const r = aoGravar(undefined);
+      if (r === true) setErro(null);
+      else setErro(typeof r === 'string' ? r : null);
+      resetar();
       return;
     }
     const n = lerNumeroOpcional(texto);
     if (n === undefined || n === null) {
+      setErro('Valor inválido.');
       resetar();
       return;
     }
-    if (!aoGravar(n)) resetar();
+    const r = aoGravar(n);
+    if (r === true) {
+      setErro(null);
+      return;
+    }
+    setErro(typeof r === 'string' ? r : null);
+    resetar();
   };
   return (
-    <input
-      className={`fam-dlg-input ${classe}`.trim()}
-      value={texto}
-      aria-label={ariaLabel}
-      title={titulo}
-      inputMode="decimal"
-      onChange={(e) => setTexto(e.target.value)}
-      onBlur={gravar}
-      onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-    />
+    <div className="fam-campo">
+      <input
+        className={`fam-dlg-input ${classe}${erro !== null ? ' bad' : ''}`.trim()}
+        value={texto}
+        aria-label={ariaLabel}
+        title={titulo}
+        inputMode="decimal"
+        aria-invalid={erro !== null ? true : undefined}
+        onChange={(e) => setTexto(e.target.value)}
+        onBlur={gravar}
+        onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+      />
+      {erro !== null && <div className="fam-campo-erro" role="alert">{erro}</div>}
+    </div>
   );
 }
 
@@ -152,9 +183,12 @@ export function CampoPadrao({ param, env, aoGravar }: PropsCampoPadrao): ReactEl
       valor={typeof param.padrao === 'number' ? param.padrao : undefined}
       ariaLabel={aria}
       aoGravar={(n) => {
-        if (n === undefined) return false;
+        if (n === undefined) return 'Informe um valor.';
+        const motivo = motivoDaEntrada(param, String(n));
+        if (motivo !== null) return motivo;
         const v = lerEntrada(param, String(n));
-        return v !== null && aoGravar(v);
+        if (v === null) return 'Valor inválido.';
+        return aoGravar(v) ? true : 'Valor não aceito.';
       }}
     />
   );

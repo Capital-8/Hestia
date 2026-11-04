@@ -109,6 +109,20 @@
   max-width: 220px;
 }
 
+.fam-campo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.fam-campo-erro {
+  margin-top: 2px;
+  color: var(--danger);
+  font-size: 10.5px;
+  white-space: normal;
+  max-width: 220px;
+}
+
 .fam-dlg-usos {
   min-width: 42px;
   text-align: right;
