@@ -5,6 +5,7 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 D = os.path.join(AQUI, 'fichas')
 
 ALVOS = {
+    'filamotor': ('montarFila', 'montarFila e larguraDoModulo'),
     'core': ('encaixeArrasto', 'posarArrastado, facesDasParedes, corposDoNivel e caixaLocalDoComponente'),
     'parede': ('encaixeParede', 'encaixarNaParede'),
     'vizinho': ('encaixeVizinho', 'encaixarNoVizinho e guiasDeAlinhamento'),
@@ -13,7 +14,7 @@ ALVOS = {
 }
 
 for chave, (arquivo, funcoes) in ALVOS.items():
-    nome_ficha = 'F3-core' if chave == 'core' else f'F2-{chave}'
+    nome_ficha = {'core': 'F3-core', 'filamotor': 'F5-fila-motor'}.get(chave, f'F2-{chave}')
     origem = open(os.path.join(D, nome_ficha + '.md'), encoding='utf-8').read()
     # Só a parte de especificação: do "## Contexto" até "## Arquivos permitidos" (inclui os casos numéricos).
     inicio = origem.index('## Contexto')
@@ -42,6 +43,6 @@ for chave, (arquivo, funcoes) in ALVOS.items():
         '## Critério de parada\nContradição na especificação: PARE e relate.\n\n'
         '## Entrega\nUm commit (`test(componentes): testes cegos de ' + funcoes + '`) e o relatório pedido nas regras, mais a lista de ambiguidades.\n'
     )
-    with open(os.path.join(D, f'T-F3-core.md' if chave == 'core' else f'T-F2-{chave}.md'), 'w', encoding='utf-8') as arq:
+    with open(os.path.join(D, f'T-{nome_ficha}.md'), 'w', encoding='utf-8') as arq:
         arq.write(corpo)
 print('fichas cegas geradas')
