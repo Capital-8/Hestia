@@ -5,6 +5,7 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 D = os.path.join(AQUI, 'fichas')
 
 ALVOS = {
+    'core': ('encaixeArrasto', 'posarArrastado, facesDasParedes, corposDoNivel e caixaLocalDoComponente'),
     'parede': ('encaixeParede', 'encaixarNaParede'),
     'vizinho': ('encaixeVizinho', 'encaixarNoVizinho e guiasDeAlinhamento'),
     'colisao': ('encaixeColisao', 'colisoes e retanguloNoMundo'),
@@ -12,13 +13,14 @@ ALVOS = {
 }
 
 for chave, (arquivo, funcoes) in ALVOS.items():
-    origem = open(os.path.join(D, f'F2-{chave}.md'), encoding='utf-8').read()
+    nome_ficha = 'F3-core' if chave == 'core' else f'F2-{chave}'
+    origem = open(os.path.join(D, nome_ficha + '.md'), encoding='utf-8').read()
     # Só a parte de especificação: do "## Contexto" até "## Arquivos permitidos" (inclui os casos numéricos).
     inicio = origem.index('## Contexto')
     fim = origem.index('## Arquivos permitidos')
     spec = origem[inicio:fim]
     corpo = (
-        f'# Ficha T-F2-{chave} — testes CEGOS de `{funcoes}`\n\n'
+        f'# Ficha T-{nome_ficha} — testes CEGOS de `{funcoes}`\n\n'
         'Base: `feat/familias-interface`.   Modelo: definido pelo orquestrador\n\n'
         '## O que você faz\n'
         f'Outro executor está implementando `{funcoes}` em `packages/engine/src/componentes/{arquivo}.ts` e escrevendo os testes dele. '
@@ -40,6 +42,6 @@ for chave, (arquivo, funcoes) in ALVOS.items():
         '## Critério de parada\nContradição na especificação: PARE e relate.\n\n'
         '## Entrega\nUm commit (`test(componentes): testes cegos de ' + funcoes + '`) e o relatório pedido nas regras, mais a lista de ambiguidades.\n'
     )
-    with open(os.path.join(D, f'T-F2-{chave}.md'), 'w', encoding='utf-8') as arq:
+    with open(os.path.join(D, f'T-F3-core.md' if chave == 'core' else f'T-F2-{chave}.md'), 'w', encoding='utf-8') as arq:
         arq.write(corpo)
 print('fichas cegas geradas')
