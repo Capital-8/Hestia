@@ -20,12 +20,38 @@ export function adicionarPeca(f: Familia, p: Peca): string | null {
   return null;
 }
 
+/** Conjunto de zonas (grupos não vazios) atualmente preenchidas por alguma peça. */
+function zonasPreenchidas(f: Familia): Set<string> {
+  const zonas = new Set<string>();
+  for (const peca of lista<Peca>(f.pecas)) {
+    const grupo = peca?.grupo;
+    if (typeof grupo === 'string' && grupo !== '') zonas.add(grupo);
+  }
+  return zonas;
+}
+
+/**
+ * Remove as escolhas cuja zona ficou sem nenhuma peça (órfãs por causa da operação): as que apontavam para uma zona
+ * preenchida `antes` e que já não está `agora`. Escolhas já órfãs antes da operação ficam intactas. Compara pelos
+ * conjuntos, não pela lista, porque a peça pode mudar de grupo.
+ */
+function podarEscolhasOrfas(f: Familia, zonasAntes: ReadonlySet<string>): void {
+  if (!Array.isArray(f.escolhas)) return;
+  const agora = zonasPreenchidas(f);
+  for (let i = f.escolhas.length - 1; i >= 0; i--) {
+    const zona = f.escolhas[i]?.zona;
+    if (typeof zona === 'string' && zonasAntes.has(zona) && !agora.has(zona)) f.escolhas.splice(i, 1);
+  }
+}
+
 export function excluirPeca(f: Familia, id: string): string | null {
   if (!Array.isArray(f.pecas)) return 'a família não tem lista de peças';
   const indice = f.pecas.findIndex((p) => p?.id === id);
   if (indice < 0) return `peça “${id}” não existe`;
 
+  const zonasAntes = zonasPreenchidas(f);
   f.pecas.splice(indice, 1);
+  podarEscolhasOrfas(f, zonasAntes);
   return null;
 }
 
