@@ -36,6 +36,16 @@ const SEMENTES = Number(process.env['B3_SEMENTES'] ?? 5);
 /** Modo de MEDIÇÃO (B3_MEDIR=1): junta todas as divergências e imprime o resumo no fim. */
 const MEDIR = process.env['B3_MEDIR'] === '1';
 const medidas: string[] = [];
+/**
+ * Casos com o DEFEITO CONHECIDO da junção (0050, "B3 entregue" e "B3 encerrada sem a junção"): em parede com faixas inclinadas cruzada por piso ou laje o Rust
+ * deixa de recortar faixas que o TypeScript recorta (de 0,04 a 0,65 m² na camada de parede). A partição vertical do TS depende da ordem textual dos anéis do
+ * `polygon-clipping`, que o `i_overlay` não reproduz; três correções locais no Rust foram tentadas e cada uma consertou um caso e quebrou outros.
+ * `it.fails` EXIGE que o caso continue reprovando: se um deles passar o teste reprova e esta lista deve ser atualizada (o defeito foi corrigido). Nada foi
+ * afrouxado: o comparador segue bloqueante e a junção NÃO é despachada ao Rust. Em modo de medição (B3_MEDIR=1) o comparador não lança e a lista não vale.
+ * Chaves: `estresse:<semente>:<pavimento>` e `naoAdjacente:<semente>:<pavimento>`.
+ */
+const DEFEITO_CONHECIDO = new Set(['estresse:1:2', 'estresse:2:0', 'estresse:5:1', 'naoAdjacente:43:0', 'naoAdjacente:43:1']);
+const itB3 = (chave: string) => (!MEDIR && DEFEITO_CONHECIDO.has(chave) ? it.fails : it);
 const maior = { sim: 0, k: 0, casoSim: '', casoK: '' };
 const memo = new Map<string, { p: Project; cena: CenaV2; a1: ReturnType<typeof montarCenaA1>; b: ReturnType<typeof montarCenaB1>; b3: ReturnType<typeof montarCenaB3> }>();
 afterAll(() => {
@@ -210,7 +220,7 @@ describe.skipIf(!bytes)('B3: junction_nivel do Rust x levelCutterSet e junctionL
         }
       });
       for (let nivel = 0; nivel < 4; nivel++) {
-        it(`estresse, semente ${semente}, pavimento ${nivel} (paredes com anexos atravessando pisos e lajes, portas, paralelas, diagonais e curva)`, () => {
+        itB3(`estresse:${semente}:${nivel}`)(`estresse, semente ${semente}, pavimento ${nivel} (paredes com anexos atravessando pisos e lajes, portas, paralelas, diagonais e curva)`, () => {
           if (pula()) return;
           const p = memo.get(rotulo)?.p ?? projetoDeEstresseB1(semente, { paredesB2: true, anexos: true });
           soma(totalEstresse, compararProjeto(p, rotulo, [p.levels[nivel]!.id]));
@@ -318,7 +328,7 @@ describe.skipIf(!bytes)('B3: junction_nivel do Rust x levelCutterSet e junctionL
         }
       });
       for (const indice of [0, 1]) {
-        it(`parede de dois pavimentos de altura atravessa a laje do segundo pavimento acima, pavimento ${indice}`, () => {
+        itB3(`naoAdjacente:${semente}:${indice}`)(`parede de dois pavimentos de altura atravessa a laje do segundo pavimento acima, pavimento ${indice}`, () => {
           if (pula()) return;
           const p = memo.get(rotulo)?.p ?? projetoDeEstresseB1(semente, { paredesB2: true, anexos: true, pavimentos: 4, semParedes: false });
           const cov = compararProjeto(p, rotulo, [p.levels[indice]!.id]);

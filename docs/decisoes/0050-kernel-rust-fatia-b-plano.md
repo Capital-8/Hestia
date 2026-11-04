@@ -265,4 +265,29 @@ continua correto, mas avise); (4) tempo de edição: a cena é reenviada por int
 - Commit do código deste passo: `0b9b4e8c` (a documentação vem no commit seguinte).
 - A fatia B entrega, por nível, **1 consulta** (`pisos_lajes_com_paredes`, que devolve pisos e lajes); a junção não é consultada em produção.
 
-===FIM===
+## B3 encerrada sem a junção despachada (2026-11-04)
+
+Decisão do dono (2026-11-03, item 2 do plano com modelos baratos): se o conserto da junção falhasse duas vezes, a fatia B fecha sem ela. Falhou: três correções locais no Rust, feitas por um agente com a hipótese
+confirmada, reprovaram outros casos de estresse (cada uma passou o caso mínimo e quebrou outros, de 0,019 a 0,594 m²), e o Rust foi revertido ao estado anterior sem commit.
+
+**Estado entregue.** `junction_nivel` (B3) existe no Rust e no `.wasm`, bate com o TypeScript em cortadores, peças (inclusive de níveis não adjacentes), partes dos elementos, escalares e propriedades (volume conservado),
+e bate nos 11 pavimentos do edifício real, inclusive no modo estrito. **Não é despachada**: em produção a junção continua sendo calculada pelo TypeScript; no modo sombra ela é comparada.
+
+**Comparador.** O comparador das faixas de parede (`kernelComparaB3.ts`) agora compara o RESULTADO FINAL da camada de parede por altura elementar e é sempre bloqueante (a opção `faixasDeParede` foi removida). Ele detecta o
+defeito real e não acusa partições diferentes com a mesma geometria final (testes unitários dos dois casos em `tests/kernel-b3-referencia.test.ts`).
+
+**Defeito conhecido (5 testes marcados `it.fails`).** Em parede com faixas inclinadas (topo anexado ou com perfil de topo) cruzada por piso ou laje, o Rust deixa de recortar faixas que o TypeScript recorta, de 0,04 a 0,65 m²
+na camada de parede: semente 1 pavimento 2 (paredes 88 e 90), semente 2 pavimento 0 (parede 24), semente 5 pavimento 1 (parede 64, 0,395 m²) e, com níveis não adjacentes, semente 43 pavimentos 0 e 1 (paredes 26 e 64). Os 37 testes restantes do B3 passam.
+`it.fails` exige que esses casos continuem reprovando; se um passar, o teste reprova e a lista `DEFEITO_CONHECIDO` deve ser atualizada. Nada foi afrouxado.
+
+**Causa confirmada.** A partição vertical das faixas no TypeScript depende da ordem textual dos anéis que o `polygon-clipping` devolve (a fusão por `sigOf` compara texto); o `i_overlay` do Rust não reproduz essa ordem e
+a forma canônica funde faixas que o TS mantém separadas (e, na parede 54, o inverso). A junção só guarda faixas planas, então o bloco plano que o TS recorta deixa de existir no Rust. Heurísticas locais corrigem um caso e
+quebram outro. Não é arredondamento (0049) nem erro isolado do Rust: é um comportamento do TS que depende da biblioteca de recorte.
+
+**Saídas (decisão de projeto, não feita; recomendação: a 3).**
+1. Portar a ordem e a partição do `polygon-clipping` para o Rust: fiel ao TS, mas trabalho grande e carrega o comportamento dele.
+2. Fazer a junção recortar também as faixas inclinadas por altura (muda o contrato): geometricamente mais limpo, mas passa a divergir do TS em outros casos (parede 54: o TS não recorta).
+3. O JS passa ao Rust a partição vertical já resolvida pelo TS (como já faz com `wallZRange` e os perfis) e o Rust só executa os recortes. Mantém o TS como referência e é a mais curta.
+
+**Mutações de B3:** não feitas nesta entrega, porque a junção não é despachada; entram quando ela for. A ferramenta `scripts/mutar-rust.mjs` (retomável, com restauração garantida) fica pronta para isso.
+
