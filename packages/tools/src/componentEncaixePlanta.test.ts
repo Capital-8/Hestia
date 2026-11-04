@@ -9,6 +9,8 @@ import {
   wallType,
   type Component,
 } from '@hestia/model';
+import { componentGhostItemsNasPoses } from './componentGhost.ts';
+import { textoStatusArrastoComponentes } from './componentDrag.ts';
 import { makeEnv, P, tool } from './testEnv.ts';
 
 const comp = (id: string, x: number, y: number): Omit<Component, 'order'> => ({
@@ -146,6 +148,29 @@ describe('encaixe do componente no arrasto da planta', () => {
     expect(componente(ctx, 'c2')).toMatchObject({ x: 2, y: 1, rotation: 0 });
     expect(componente(ctx, 'c3')).toMatchObject({ x: 3, y: 1, rotation: 0 });
     expect(ctx.store.project.componentGroups?.g1?.linha?.a).toEqual({ x: 1, y: 1 });
+  });
+
+  it('o status do arrasto mostra a parede, o vizinho pela marca e a colisão', () => {
+    const ctx = ctxBase();
+    ctx.store.exec({ type: 'addComponent', component: { ...comp('c1', 1, 1), mark: 'M-01' } });
+    const pr = ctx.store.project;
+    expect(textoStatusArrastoComponentes(pr, { parede: 0, colisoes: [] })).toBe('Encaixado na parede');
+    expect(textoStatusArrastoComponentes(pr, { vizinho: 'c1', colisoes: [] })).toBe('Colado em M-01');
+    expect(textoStatusArrastoComponentes(pr, { colisoes: ['c1'] })).toBe('Colide com M-01');
+    expect(textoStatusArrastoComponentes(pr, { colisoes: [] })).toBe('');
+  });
+
+  it('o fantasma usa a rotação encaixada, não só o deslocamento', () => {
+    const ctx = ctxBase();
+    ctx.store.exec({ type: 'addComponent', component: comp('c1', 1, 1) });
+    const itens = componentGhostItemsNasPoses(ctx.store.project, new Map([['c1', { x: 1, y: 1, rotation: Math.PI / 2 }]]));
+    const pontos = itens.flatMap((i) => (i.kind === 'polygon' ? i.ring : []));
+    const xs = pontos.map((p) => p.x);
+    const ys = pontos.map((p) => p.y);
+    const largura = Math.max(...xs) - Math.min(...xs);
+    const altura = Math.max(...ys) - Math.min(...ys);
+    // O A80 é mais largo que profundo; girado 90°, a profundidade vira a largura.
+    expect(largura).toBeLessThan(altura);
   });
 
   it('arrasto sem componentes não muda o projeto', () => {
