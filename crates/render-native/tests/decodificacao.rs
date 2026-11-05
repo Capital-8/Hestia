@@ -25,6 +25,8 @@ fn cena_teste() -> Cena {
         transmissao: 0.0,
         ior: 1.5,
         emissivo: [0.0, 0.0, 0.0],
+        tipo: 0,
+        escala: 1.0,
     };
     Cena::nova(PartesCena {
         posicoes: vec![

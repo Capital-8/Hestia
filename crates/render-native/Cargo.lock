@@ -733,7 +733,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "render-native"
+name = "render-engine"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
@@ -741,6 +741,14 @@ dependencies = [
  "pollster",
  "render-core",
  "wgpu",
+]
+
+[[package]]
+name = "render-native"
+version = "0.1.0"
+dependencies = [
+ "render-core",
+ "render-engine",
 ]
 
 [[package]]

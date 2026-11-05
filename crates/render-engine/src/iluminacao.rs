@@ -9,15 +9,9 @@ use crate::erro::ErroRender;
 use crate::matrizes::{colunas_f32, matriz_vp_wgpu, ortografica_wgpu};
 use crate::uniformes::Uniformes;
 
-/// Monta o bloco de uniformes a partir da câmera, do Sol e do fundo do HSTR.
-pub fn montar_uniformes(
-    cena: &Cena,
-    camera: &render_core::camera::Camera,
-    largura: u32,
-    altura: u32,
-    raio: f64,
-    exposicao: f64,
-) -> Uniformes {
+/// Parte dos uniformes que só depende da cena (Sol, céu e chão). A câmera, a exposição e a
+/// resolução entram depois, em `aplicar_camera`, a cada região renderizada.
+pub fn uniformes_fixos(cena: &Cena) -> Uniformes {
     let direcao_sol = cena.sol.direcao().normalizado();
     let direcao_sol = if direcao_sol.comprimento() < 1.0e-9 {
         Vec3::novo(0.0, 0.0, 1.0)
@@ -33,14 +27,9 @@ pub fn montar_uniformes(
     let ceu = fundo_linear.map(|v| (v.max(0.0) as f32).min(4.0));
 
     Uniformes {
-        view_proj: colunas_f32(&matriz_vp_wgpu(&camera.view, &camera.projecao)),
+        view_proj: [[0.0; 4]; 4],
         luz_vp: [[0.0; 4]; 4],
-        camera: [
-            camera.posicao.x as f32,
-            camera.posicao.y as f32,
-            camera.posicao.z as f32,
-            1.0,
-        ],
+        camera: [0.0; 4],
         sol: [
             direcao_sol.x as f32,
             direcao_sol.y as f32,
@@ -55,19 +44,39 @@ pub fn montar_uniformes(
             CHAO_AMBIENTE[2] as f32,
             1.0,
         ],
-        parametros: [
-            exposicao as f32,
-            0.55,
-            1.0 / LADO_SOMBRA as f32,
-            raio as f32,
-        ],
-        resolucao: [
-            largura as f32,
-            altura as f32,
-            1.0 / largura as f32,
-            1.0 / altura as f32,
-        ],
+        parametros: [0.0; 4],
+        resolucao: [0.0; 4],
     }
+}
+
+/// Preenche os campos de câmera, exposição e resolução sobre os uniformes fixos da cena.
+pub fn aplicar_camera(
+    uniformes: &mut Uniformes,
+    camera: &render_core::camera::Camera,
+    largura: u32,
+    altura: u32,
+    raio: f64,
+    exposicao: f64,
+) {
+    uniformes.view_proj = colunas_f32(&matriz_vp_wgpu(&camera.view, &camera.projecao));
+    uniformes.camera = [
+        camera.posicao.x as f32,
+        camera.posicao.y as f32,
+        camera.posicao.z as f32,
+        1.0,
+    ];
+    uniformes.parametros = [
+        exposicao as f32,
+        0.55,
+        1.0 / LADO_SOMBRA as f32,
+        raio as f32,
+    ];
+    uniformes.resolucao = [
+        largura as f32,
+        altura as f32,
+        1.0 / largura as f32,
+        1.0 / altura as f32,
+    ];
 }
 
 /// Câmera ortográfica do Sol, dimensionada pela esfera envolvente da cena.

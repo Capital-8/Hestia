@@ -99,6 +99,8 @@ fn materiais() -> Vec<Material> {
         transmissao: 0.0,
         ior: 1.5,
         emissivo: [0.0, 0.0, 0.0],
+        tipo: 0,
+        escala: 1.0,
     };
     vec![
         m([0.10, 0.26, 0.09], 0.95, 0.0), // grama

@@ -1,0 +1,27 @@
+[package]
+name = "render-engine"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "MIT"
+description = "Núcleo de renderização GPU do Hestia (wgpu): pipelines, shaders, buffers e leitura de pixels. Sem HTTP e sem leitura de arquivo."
+
+[lib]
+name = "render_engine"
+path = "src/lib.rs"
+
+[dependencies]
+# O formato HSTR, a câmera e a validação de cena continuam no núcleo compartilhado.
+render-core = { path = "../render-core" }
+# GPU nativa: DX12, Vulkan e Metal (sem nenhum caminho de CPU).
+wgpu = "30"
+pollster = "1"
+bytemuck = { version = "1.25", features = ["derive"] }
+png = "0.17"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

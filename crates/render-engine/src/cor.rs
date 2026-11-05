@@ -24,9 +24,40 @@ pub fn fundo_tonemapeado(cor_linear: [f64; 3], exposicao: f64) -> [f64; 3] {
     cor_linear.map(|canal| srgb_canal(aces_canal(canal * exposicao)))
 }
 
+/// Fresnel de Schlick escalar, `F0 + (1 - F0)(1 - cos)^5`, com `cos` limitado a `[0, 1]`.
+/// Espelho de `schlick_escalar` em `shader.wgsl` (passe de vidro, F0 = 0,04 para ior 1,5).
+pub fn schlick_escalar(cos_theta: f64, f0: f64) -> f64 {
+    let x = (1.0 - cos_theta).clamp(0.0, 1.0);
+    f0 + (1.0 - f0) * x.powi(5)
+}
+
 #[cfg(test)]
 mod testes {
     use super::*;
+
+    #[test]
+    fn schlick_incidencia_normal_e_f0_e_rasante_e_um() {
+        // Vidro (ior 1,5): F0 = ((n - 1) / (n + 1))^2 = 0,04.
+        assert!((schlick_escalar(1.0, 0.04) - 0.04).abs() < 1.0e-12);
+        assert!((schlick_escalar(0.0, 0.04) - 1.0).abs() < 1.0e-12);
+        // Cosseno fora de [0, 1] é limitado: nada de F fora de [F0, 1].
+        assert!((schlick_escalar(1.5, 0.04) - 0.04).abs() < 1.0e-12);
+        assert!((schlick_escalar(-0.5, 0.04) - 1.0).abs() < 1.0e-12);
+        // Meia incidência: 0,04 + 0,96 * 0,5^5 = 0,07.
+        assert!((schlick_escalar(0.5, 0.04) - 0.07).abs() < 1.0e-12);
+    }
+
+    #[test]
+    fn schlick_cresce_quando_o_angulo_abre() {
+        let mut anterior = schlick_escalar(1.0, 0.04);
+        for i in 1..=100 {
+            let cos = 1.0 - f64::from(i) / 100.0;
+            let f = schlick_escalar(cos, 0.04);
+            assert!(f >= anterior - 1.0e-12, "F caiu em cos = {cos}");
+            assert!((0.04..=1.0).contains(&f));
+            anterior = f;
+        }
+    }
 
     #[test]
     fn preto_continua_preto_e_branco_quase_um() {

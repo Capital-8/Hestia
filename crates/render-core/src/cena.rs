@@ -1,14 +1,15 @@
 //! Cena neutra do render offline: triângulos, materiais, lotes, sol, fundo e câmera.
 //!
-//! # Formato binário `HSTR` versão 1
+//! # Formato binário `HSTR` versão 2 (escrita) e 1 (leitura)
 //!
 //! Tudo é **little-endian**; `f32` é IEEE-754 de 32 bits. O JS monta os bytes na ordem abaixo
-//! (`packages/render/src/offline/cena.ts` é a referência dos tipos):
+//! (`packages/render/src/offline/cena.ts` é a referência dos tipos). A versão 1 continua aceita
+//! na leitura; a versão 2 acrescenta, no fim de cada material, o tipo de superfície e a escala.
 //!
 //! ```text
 //! cabeçalho fixo — 32 bytes
 //!   0   "HSTR"                      4 bytes
-//!   4   versão                      u32 = 1
+//!   4   versão                      u32 = 2 (1 também é aceita na leitura)
 //!   8   n_vertices                  u32
 //!   12  n_indices                   u32 (múltiplo de 3)
 //!   16  n_normais                   u32 (0 ou n_vertices)
@@ -19,16 +20,26 @@
 //! posições        n_vertices * 3 f32        (x, y, z em metros, Z para cima)
 //! índices         n_indices  * u32
 //! normais         n_vertices * 3 f32        (só se flags & 1)
-//! materiais       n_materiais * 11 f32      (ver `Material`)
+//! materiais       n_materiais * bloco       (ver abaixo; v1 = 44 bytes, v2 = 52 bytes)
 //! lotes           n_batches * 3 u32         (início, quantidade de índices, material)
 //! sol             3 f32                     (azimute em graus, elevação em graus, intensidade)
 //! fundo           3 f32                     (só se flags & 2; cor linear)
 //! câmera          37 f32                    (view 16, projeção 16, posição 3, perto, longe)
 //! ```
 //!
-//! `Material` ocupa 11 `f32` nesta ordem: cor base (3), rugosidade, metálico, opacidade,
-//! transmissão, IOR, emissivo (3). Valores fora da faixa, `NaN`/infinito, índice fora dos arrays
-//! ou lote que não cabe nos índices tornam a cena inválida (código 1), nunca um panic.
+//! Bloco de material, na ordem:
+//!
+//! ```text
+//! v1 (44 bytes): 11 f32
+//!   cor base (3), rugosidade, metálico, opacidade, transmissão, IOR, emissivo (3)
+//! v2 (52 bytes): 11 f32 da v1, depois
+//!   tipo    u32   0 liso, 1 reboco, 2 madeira, 3 telha, 4 piso, 5 metal, 6 vidro, 7 tijolo
+//!   escala  f32   coordenada de padrão = posição / escala (metros por repetição), > 0
+//! ```
+//!
+//! Na leitura da v1, todo material vira `tipo = 0` e `escala = 1.0`. Valores fora da faixa,
+//! `NaN`/infinito, tipo > 7, escala não positiva, índice fora dos arrays ou lote que não cabe
+//! nos índices tornam a cena inválida (código 1), nunca um panic.
 
 use crate::bvh::{AcertoGeometrico, Bvh};
 use crate::camera::Camera;
@@ -37,7 +48,16 @@ use crate::leitor::{escrever_f32, escrever_u32, Leitor};
 use crate::vetor::{Aabb, Vec3};
 
 pub const MAGIA_CENA: [u8; 4] = *b"HSTR";
-pub const VERSAO_CENA: u32 = 1;
+/// Versão gravada por `codificar`.
+pub const VERSAO_CENA: u32 = 2;
+/// Versão legada, ainda aceita na leitura.
+pub const VERSAO_CENA_V1: u32 = 1;
+/// Bytes de um material na v1 (11 f32).
+pub const TAMANHO_MATERIAL_V1: usize = 11 * 4;
+/// Bytes de um material na v2 (11 f32 + tipo u32 + escala f32).
+pub const TAMANHO_MATERIAL_V2: usize = TAMANHO_MATERIAL_V1 + 4 + 4;
+/// Maior valor válido de `Material::tipo`.
+pub const TIPO_MATERIAL_MAXIMO: u8 = 7;
 
 /// Limites defensivos: o wasm é single-thread e uma cena absurda não pode derrubar a aba.
 const MAX_VERTICES: u32 = 2_000_000;
@@ -56,6 +76,12 @@ pub struct Material {
     pub ior: f64,
     /// Emissivo linear; sem textura nesta fase, mas já transportado pelo contrato.
     pub emissivo: [f64; 3],
+    /// Superfície procedural: 0 liso, 1 reboco, 2 madeira, 3 telha, 4 piso, 5 metal, 6 vidro,
+    /// 7 tijolo. Na v1 lida como 0.
+    pub tipo: u8,
+    /// Metros por repetição do padrão (coordenada = posição / escala). Finita e > 0; 1.0 mantém
+    /// as dimensões do padrão. Na v1 lida como 1.0.
+    pub escala: f64,
 }
 
 impl Material {
@@ -69,6 +95,8 @@ impl Material {
             transmissao: 0.0,
             ior: 1.5,
             emissivo: [0.0, 0.0, 0.0],
+            tipo: 0,
+            escala: 1.0,
         }
     }
 
@@ -91,6 +119,9 @@ impl Material {
             .all(|v| v.is_finite() && *v >= 0.0 && *v <= 100.0);
         cor_ok
             && emissivo_ok
+            && self.tipo <= TIPO_MATERIAL_MAXIMO
+            && self.escala.is_finite()
+            && self.escala > 0.0
             && (0.0..=1.0).contains(&self.rugosidade)
             && (0.0..=1.0).contains(&self.metalico)
             && (0.0..=1.0).contains(&self.opacidade)
@@ -401,6 +432,8 @@ impl Cena {
             for valor in material.emissivo {
                 escrever_f32(&mut saida, valor);
             }
+            escrever_u32(&mut saida, u32::from(material.tipo));
+            escrever_f32(&mut saida, material.escala);
         }
         for lote in &self.lotes {
             escrever_u32(&mut saida, lote.inicio_indices);
@@ -436,9 +469,15 @@ impl Cena {
             return Err(Erro::CenaInvalida);
         }
         let versao = leitor.u32().ok_or(Erro::CenaInvalida)?;
-        if versao != VERSAO_CENA {
+        if versao != VERSAO_CENA && versao != VERSAO_CENA_V1 {
             return Err(Erro::CenaInvalida);
         }
+        let tem_extras_material = versao == VERSAO_CENA;
+        let tamanho_material = if tem_extras_material {
+            TAMANHO_MATERIAL_V2
+        } else {
+            TAMANHO_MATERIAL_V1
+        };
         let n_vertices = leitor.u32().ok_or(Erro::CenaInvalida)?;
         let n_indices = leitor.u32().ok_or(Erro::CenaInvalida)?;
         let n_normais = leitor.u32().ok_or(Erro::CenaInvalida)?;
@@ -471,7 +510,7 @@ impl Cena {
             .checked_mul(12)
             .and_then(|v| v.checked_add((n_indices as usize).checked_mul(4)?))
             .and_then(|v| v.checked_add((n_normais as usize).checked_mul(12)?))
-            .and_then(|v| v.checked_add((n_materiais as usize).checked_mul(11 * 4)?))
+            .and_then(|v| v.checked_add((n_materiais as usize).checked_mul(tamanho_material)?))
             .and_then(|v| v.checked_add((n_batches as usize).checked_mul(12)?))
             .and_then(|v| v.checked_add(12))
             .and_then(|v| {
@@ -514,6 +553,18 @@ impl Cena {
                     leitor.f32().ok_or(Erro::CenaInvalida)?,
                     leitor.f32().ok_or(Erro::CenaInvalida)?,
                 ],
+                // Campos da v2 vêm depois do bloco da v1; na v1 valem os padrões.
+                tipo: if tem_extras_material {
+                    u8::try_from(leitor.u32().ok_or(Erro::CenaInvalida)?)
+                        .map_err(|_| Erro::CenaInvalida)?
+                } else {
+                    0
+                },
+                escala: if tem_extras_material {
+                    leitor.f32().ok_or(Erro::CenaInvalida)?
+                } else {
+                    1.0
+                },
             });
         }
         let mut lotes = Vec::with_capacity(n_batches as usize);
@@ -659,6 +710,8 @@ mod testes {
                 transmissao: 0.0,
                 ior: 1.5,
                 emissivo: [0.0, 0.0, 0.0],
+                tipo: 0,
+                escala: 1.0,
             },
             Material {
                 cor_base: [0.75, 0.22, 0.18],
@@ -668,6 +721,8 @@ mod testes {
                 transmissao: 0.0,
                 ior: 1.5,
                 emissivo: [0.0, 0.0, 0.0],
+                tipo: 0,
+                escala: 1.0,
             },
         ];
         let lotes = vec![
@@ -781,5 +836,152 @@ mod testes {
         assert!(cena.fundo.is_none());
         let lida = Cena::decodificar(&cena.codificar()).expect("decodifica");
         assert!(lida.fundo.is_none());
+    }
+
+    /// Cena de teste com tipos e escalas variados nos materiais.
+    fn cena_com_tipos() -> Cena {
+        let base = cena_teste();
+        let mut partes = PartesCena {
+            posicoes: base.posicoes.clone(),
+            indices: base.indices.clone(),
+            normais: base.normais.clone(),
+            materiais: base.materiais.clone(),
+            lotes: base.lotes.clone(),
+            sol: base.sol,
+            fundo: base.fundo,
+            camera: base.camera,
+        };
+        partes.materiais[0].tipo = 1;
+        partes.materiais[0].escala = 2.5;
+        partes.materiais[1].tipo = 7;
+        partes.materiais[1].escala = 0.5;
+        Cena::nova(partes).expect("cena com tipos")
+    }
+
+    #[test]
+    fn roundtrip_v2_preserva_tipo_e_escala() {
+        let cena = cena_com_tipos();
+        let bytes = cena.codificar();
+        assert_eq!(&bytes[4..8], &2u32.to_le_bytes(), "escrita usa a versão 2");
+        let lida = Cena::decodificar(&bytes).expect("decodifica v2");
+        assert_eq!(lida.materiais.len(), 2);
+        assert_eq!(lida.materiais[0].tipo, 1);
+        assert_eq!(lida.materiais[0].escala, 2.5);
+        assert_eq!(lida.materiais[1].tipo, 7);
+        assert_eq!(lida.materiais[1].escala, 0.5);
+        for (a, b) in lida.materiais[0].cor_base.iter().zip(cena.materiais[0].cor_base) {
+            assert!((a - b).abs() < 1.0e-6, "cor preservada em f32");
+        }
+        assert_eq!(lida.codificar(), bytes, "segundo round-trip é idêntico");
+    }
+
+    /// Bytes da versão 1 escritos à mão a partir do layout antigo (sem tipo nem escala).
+    fn bytes_v1_manuais(cena: &Cena) -> Vec<u8> {
+        let mut saida = Vec::new();
+        saida.extend_from_slice(&MAGIA_CENA);
+        escrever_u32(&mut saida, VERSAO_CENA_V1);
+        escrever_u32(&mut saida, (cena.posicoes.len() / 3) as u32);
+        escrever_u32(&mut saida, cena.indices.len() as u32);
+        escrever_u32(&mut saida, 0);
+        escrever_u32(&mut saida, cena.materiais.len() as u32);
+        escrever_u32(&mut saida, cena.lotes.len() as u32);
+        escrever_u32(&mut saida, 0);
+        for &valor in &cena.posicoes {
+            escrever_f32(&mut saida, valor);
+        }
+        for &indice in &cena.indices {
+            escrever_u32(&mut saida, indice);
+        }
+        for m in &cena.materiais {
+            for valor in m.cor_base {
+                escrever_f32(&mut saida, valor);
+            }
+            for valor in [m.rugosidade, m.metalico, m.opacidade, m.transmissao, m.ior] {
+                escrever_f32(&mut saida, valor);
+            }
+            for valor in m.emissivo {
+                escrever_f32(&mut saida, valor);
+            }
+        }
+        for lote in &cena.lotes {
+            escrever_u32(&mut saida, lote.inicio_indices);
+            escrever_u32(&mut saida, lote.quantidade_indices);
+            escrever_u32(&mut saida, lote.material);
+        }
+        for valor in [cena.sol.azimute, cena.sol.elevacao, cena.sol.intensidade] {
+            escrever_f32(&mut saida, valor);
+        }
+        for valor in cena.camera.view.iter().chain(cena.camera.projecao.iter()) {
+            escrever_f32(&mut saida, *valor);
+        }
+        for valor in cena.camera.posicao.para_array() {
+            escrever_f32(&mut saida, valor);
+        }
+        escrever_f32(&mut saida, cena.camera.perto);
+        escrever_f32(&mut saida, cena.camera.longe);
+        saida
+    }
+
+    #[test]
+    fn le_v1_gerada_pelo_codigo_antigo_com_tipo_zero_e_escala_um() {
+        let cena = cena_com_tipos();
+        let bytes = bytes_v1_manuais(&cena);
+        assert_eq!(&bytes[4..8], &1u32.to_le_bytes());
+        let lida = Cena::decodificar(&bytes).expect("decodifica v1");
+        assert_eq!(lida.materiais.len(), 2);
+        for m in &lida.materiais {
+            assert_eq!(m.tipo, 0);
+            assert_eq!(m.escala, 1.0);
+        }
+        assert_eq!(lida.indices, cena.indices);
+        assert_eq!(lida.lotes, cena.lotes);
+        for (a, b) in lida.materiais[1].cor_base.iter().zip(cena.materiais[1].cor_base) {
+            assert!((a - b).abs() < 1.0e-6, "cor preservada em f32");
+        }
+        assert!((lida.materiais[1].rugosidade - cena.materiais[1].rugosidade).abs() < 1.0e-6);
+    }
+
+    #[test]
+    fn material_com_escala_invalida_e_recusado() {
+        for escala in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            let mut cena = cena_teste();
+            cena.materiais[0].escala = escala;
+            assert!(!cena.materiais[0].valido(), "escala {escala} não é válida");
+            let bytes = cena.codificar();
+            assert_eq!(
+                Cena::decodificar(&bytes).err(),
+                Some(Erro::CenaInvalida),
+                "escala {escala} deve ser recusada na leitura"
+            );
+        }
+    }
+
+    #[test]
+    fn tipo_fora_da_faixa_e_recusado() {
+        let mut cena = cena_teste();
+        cena.materiais[0].tipo = 8;
+        assert!(!cena.materiais[0].valido());
+        assert_eq!(
+            Cena::decodificar(&cena.codificar()).err(),
+            Some(Erro::CenaInvalida)
+        );
+    }
+
+    #[test]
+    fn tamanho_do_bloco_de_material_e_documentado() {
+        assert_eq!(TAMANHO_MATERIAL_V1, 44);
+        assert_eq!(TAMANHO_MATERIAL_V2, 52);
+        let cena = cena_com_tipos();
+        let bytes = cena.codificar();
+        let esperado = 32
+            + cena.posicoes.len() * 4
+            + cena.indices.len() * 4
+            + cena.materiais.len() * TAMANHO_MATERIAL_V2
+            + cena.lotes.len() * 12
+            + 12
+            + 37 * 4;
+        assert_eq!(bytes.len(), esperado);
+        assert_eq!(Material::padrao().tipo, 0);
+        assert_eq!(Material::padrao().escala, 1.0);
     }
 }

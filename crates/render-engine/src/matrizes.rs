@@ -22,6 +22,12 @@ pub fn matriz_vp_wgpu(view: &Mat4, projecao: &Mat4) -> Mat4 {
     multiplicar(&correcao_profundidade(projecao), view)
 }
 
+/// Projeção sozinha no recorte `0..1` do wgpu (`C * P`), para o SSAO, que reconstrói posições
+/// de visão e projeta amostras de volta para a tela.
+pub fn projecao_wgpu(projecao: &Mat4) -> Mat4 {
+    correcao_profundidade(projecao)
+}
+
 /// Ortográfica de mão direita com profundidade em `0..1`, coluna maior.
 ///
 /// Usada só pelo mapa de sombra: a câmera do snapshot continua intocada.
