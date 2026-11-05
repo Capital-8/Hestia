@@ -395,7 +395,11 @@ describe.skipIf(!bytes)('B3: junction_nivel do Rust x levelCutterSet e junctionL
               const m = (q: PecaB3) => ({ kind: (['wall', 'floor', 'slab'] as const)[q.meta!.tipo]!, priority: q.meta!.prioridade, core: q.meta!.nucleo, ...(q.meta!.explicita ? { explicit: true } : {}) });
               return winsOver(m(pc), m(origem.pc)) === true;
             });
-            const cotas = [...new Set([origem.z[0], origem.z[1], ...vencedoras.flatMap((w) => [w.z[0], w.z[1]])].filter((z) => z >= origem.z[0] && z <= origem.z[1]))].sort((u, v) => u - v);
+            // As alturas de corte das vencedoras vão à grade EPS_Z (1e-6) e são presas ao intervalo bruto da origem, como `resolveJunction` (junctionPlanar.ts,
+            // `grade`); os extremos da origem seguem brutos. Z_EPS é o mesmo valor de junctionPlanar.ts (não é a tolerância de comparação, que segue 1e-6).
+            const Z_EPS = 1e-6;
+            const grade = (z: number): number => Math.min(origem.z[1], Math.max(origem.z[0], Math.round(z / Z_EPS) * Z_EPS));
+            const cotas = [...new Set([origem.z[0], origem.z[1], ...vencedoras.flatMap((w) => [grade(w.z[0]), grade(w.z[1])])].filter((z) => z >= origem.z[0] && z <= origem.z[1]))].sort((u, v) => u - v);
             for (let k = 0; k + 1 < cotas.length; k++) {
               const dz = cotas[k + 1]! - cotas[k]!;
               if (dz <= 1e-6) continue;
