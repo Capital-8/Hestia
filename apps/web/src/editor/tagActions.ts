@@ -30,10 +30,11 @@ export function tagAllNotTagged(): number {
   const items: ElementTag[] = Object.values(p.elements)
     .filter((e) => levelOf(p, e) === levelId && !existing.has(e.id))
     .map((e) => ({ id: newId('tag'), hostId: e.id, at: center(p, e), property, orientation, leader: false }));
-  if (!items.length) { useUi.setState({ status: 'Todos os elementos desta vista já têm etiqueta.' }); return 0; }
-  editor.store.transaction('Etiquetar elementos sem etiqueta', () => {
+  if (!items.length) { useUi.setState({ status: { key: 'edc_all_tagged' } }); return 0; }
+  editor.store.transaction('edc_undo_tag_all', () => {
     for (const item of items) editor.store.exec({ type: 'addTag', levelId, item });
   });
-  useUi.setState({ status: `${items.length} etiqueta${items.length === 1 ? '' : 's'} criada${items.length === 1 ? '' : 's'}.` });
+  const key = items.length === 1 ? 'edc_tags_created_one' : 'edc_tags_created_many';
+  useUi.setState({ status: { key, args: { n: items.length } } });
   return items.length;
 }

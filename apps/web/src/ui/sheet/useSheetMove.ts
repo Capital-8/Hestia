@@ -4,11 +4,12 @@ import { viewportBox } from '@hestia/model';
 import type { SheetDrawList } from '@hestia/render';
 import { editor } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
+import { fmtNum, useT, type Lang, type TextLike } from '../../editor/i18n.ts';
 import { commitMove } from './sheetCommit.ts';
 import { hitBox, type PaperBox, type PaperPoint } from './sheetSelection.ts';
 import { nearestPoint, snapPointsAt, type SnapPoint } from './sheetSnapPoints.ts';
 
-const say = (status: string): void => useUi.setState({ status });
+const say = (status: TextLike): void => useUi.setState({ status });
 
 /** Fase do Mover: escolher a vista, marcar o ponto base ou o destino (como o Mover do modelo). */
 export type SheetMovePhase = 'pick' | 'base' | 'dest';
@@ -36,10 +37,10 @@ export interface SheetMoveApi {
   overlay: SheetMoveOverlay | null;
 }
 
-const fmtText = (d: { x: number; y: number }): string => {
+const fmtText = (d: { x: number; y: number }, lang: Lang): string => {
   const dist = Math.hypot(d.x, d.y);
   const angle = (Math.atan2(d.y, d.x) * 180) / Math.PI;
-  return `${dist.toFixed(1).replace('.', ',')} mm · ${angle.toFixed(0)}°`; // units-ok: prévia de distância/ângulo do Mover da prancha
+  return `${fmtNum(dist, 1, lang)} mm · ${fmtNum(angle, 0, lang)}°`; // units-ok: prévia de distância/ângulo do Mover da prancha
 };
 
 /**
@@ -56,6 +57,7 @@ export function useSheetMove(args: {
   setSelection: (ids: string[]) => void;
 }): SheetMoveApi {
   const { sheet, sheetId, drawList, zoom, selection, setSelection } = args;
+  const { t, lang } = useT();
   const on = useUi((s) => s.sheetMove);
   const [ids, setIds] = useState<string[]>([]);
   const [phase, setPhase] = useState<SheetMovePhase>('pick');
@@ -77,19 +79,15 @@ export function useSheetMove(args: {
     const sel = selection.filter((id) => sheet?.viewports.some((v) => v.id === id));
     setIds(sel);
     setPhase(sel.length ? 'base' : 'pick');
-    say(
-      sel.length
-        ? 'Mover: clique no ponto base e depois no destino (ou digite a distância). Esc cancela.'
-        : 'Mover: clique numa vista (moldura ou desenho) para escolher, depois no ponto base e no destino.',
-    );
+    say({ key: sel.length ? 'cvs_move_start_base' : 'cvs_move_start_pick' });
     // `selection` de propósito: só interessa no instante em que a ferramenta liga.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [on]);
 
   const tol = 8 / Math.max(1e-9, zoom);
   const pointsAt = useCallback(
-    (pt: PaperPoint): SnapPoint[] => (sheet && drawList ? snapPointsAt({ drawList, sheet, at: pt, tol }) : []),
-    [sheet, drawList, tol],
+    (pt: PaperPoint): SnapPoint[] => (sheet && drawList ? snapPointsAt({ drawList, sheet, at: pt, tol, lang }) : []),
+    [sheet, drawList, tol, lang],
   );
 
   const resolve = useCallback(
@@ -120,7 +118,7 @@ export function useSheetMove(args: {
         boxes[id] = { ...viewportBox(vp), x: vp.at.x + delta.x, y: vp.at.y + delta.y };
       }
       if (Object.keys(boxes).length === 0) {
-        say('As vistas selecionadas estão travadas.');
+        say({ key: 'cvs_all_locked' });
         return;
       }
       const err = commitMove(editor.store, sheetId, sheet, Object.keys(boxes), boxes);
@@ -136,12 +134,12 @@ export function useSheetMove(args: {
             return !v || Math.abs(v.at.x - want.x) > 0.01 || Math.abs(v.at.y - want.y) > 0.01;
           })
         : false;
-      say(`Movido ${fmtText(delta)}${partial ? ' (encostou no limite da folha)' : ''}.`);
+      say({ key: partial ? 'cvs_move_done_partial' : 'cvs_move_done', args: { dist: fmtText(delta, lang) } });
       setBase(null);
       setBuffer('');
       useUi.setState({ sheetMove: false });
     },
-    [sheet, sheetId, ids],
+    [sheet, sheetId, ids, lang],
   );
 
   const click = useCallback(
@@ -150,13 +148,13 @@ export function useSheetMove(args: {
       if (phase === 'pick') {
         const id = hitBox(sheet.viewports.map((v) => ({ id: v.id, box: viewportBox(v) })), pt, 0);
         if (!id) {
-          say('Mover: clique sobre a moldura ou o desenho de uma vista.');
+          say({ key: 'cvs_move_pick' });
           return;
         }
         setIds([id]);
         setSelection([id]);
         setPhase('base');
-        say('Mover: clique no ponto base (ponto do desenho ou da moldura).');
+        say({ key: 'cvs_move_base' });
         return;
       }
       if (phase === 'base') {
@@ -165,7 +163,7 @@ export function useSheetMove(args: {
         setCursor(r.p);
         setSnap(r.snap);
         setPhase('dest');
-        say('Mover: clique no destino — ou digite a distância em mm e Enter. Esc cancela o ponto base.');
+        say({ key: 'cvs_move_dest' });
         return;
       }
       if (!base) return;
@@ -180,13 +178,13 @@ export function useSheetMove(args: {
   const escape = useCallback((): void => {
     if (buffer) {
       setBuffer('');
-      say('Distância cancelada. Clique no destino ou digite outra distância.');
+      say({ key: 'cvs_move_dist_cancel' });
       return;
     }
     if (phase === 'dest') {
       setBase(null);
       setPhase('base');
-      say('Ponto base cancelado. Clique no ponto base.');
+      say({ key: 'cvs_move_base_cancel' });
       return;
     }
     useUi.setState({ sheetMove: false });
@@ -197,7 +195,7 @@ export function useSheetMove(args: {
     if (!base || !buffer) return;
     const value = Number(buffer.replace(/\./g, '').replace(',', '.'));
     if (!(Number.isFinite(value) && value > 0)) {
-      say('Distância inválida. Digite um número em mm.');
+      say({ key: 'cvs_move_dist_invalid' });
       return;
     }
     const dir = cursor ? { x: cursor.x - base.x, y: cursor.y - base.y } : { x: 1, y: 0 };
@@ -213,7 +211,7 @@ export function useSheetMove(args: {
       const next = buffer + ch;
       if (next.length > 12) return true;
       setBuffer(next);
-      say(`Distância: ${next} mm — Enter aplica, Esc cancela.`);
+      say({ key: 'cvs_move_dist', args: { value: next } });
       return true;
     },
     [on, phase, base, buffer],
@@ -223,7 +221,7 @@ export function useSheetMove(args: {
     if (!on || phase !== 'dest' || buffer === '') return false;
     const next = buffer.slice(0, -1);
     setBuffer(next);
-    say(next ? `Distância: ${next} mm — Enter aplica, Esc cancela.` : 'Clique no destino ou digite a distância.');
+    say(next ? { key: 'cvs_move_dist', args: { value: next } } : { key: 'cvs_move_dest_hint' });
     return true;
   }, [on, phase, buffer]);
 
@@ -236,7 +234,7 @@ export function useSheetMove(args: {
       ghosts = (sheet?.viewports ?? [])
         .filter((v) => ids.includes(v.id))
         .map((v) => ({ id: v.id, box: { ...viewportBox(v), x: v.at.x + delta.x, y: v.at.y + delta.y } }));
-      text = buffer ? `Distância: ${buffer} mm` : fmtText(delta);
+      text = buffer ? t('cvs_move_dist_short', { value: buffer }) : fmtText(delta, lang);
     }
     return { ghosts, base, snap, text, phase };
   })();

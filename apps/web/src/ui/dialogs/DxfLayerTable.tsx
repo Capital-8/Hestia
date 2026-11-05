@@ -1,23 +1,24 @@
 import { useMemo, type ReactElement } from 'react';
 import { DXF_LINE_WEIGHTS, DXF_LINE_WEIGHT_DEFAULT, dxfLineWeightLabel, type DxfLayerStyle } from '@hestia/model';
+import { useT, type Dict } from '../../editor/i18n.ts';
 import type { DxfLayerRow } from '../../editor/dxfExport.ts';
 
 /** Cores ACI oferecidas na tabela (as do AutoCAD clássico); um valor gravado fora delas vira uma opção a mais. */
-const COLORS: Array<[number, string]> = [
-  [1, 'Vermelho'],
-  [2, 'Amarelo'],
-  [3, 'Verde'],
-  [4, 'Ciano'],
-  [5, 'Azul'],
-  [6, 'Magenta'],
-  [7, 'Branco/preto'],
-  [8, 'Cinza escuro'],
-  [9, 'Cinza claro'],
+const COLOR_KEYS: ReadonlyArray<[number, keyof Dict]> = [
+  [1, 'dlc_dxf_color_red'],
+  [2, 'dlc_dxf_color_yellow'],
+  [3, 'dlc_dxf_color_green'],
+  [4, 'dlc_dxf_color_cyan'],
+  [5, 'dlc_dxf_color_blue'],
+  [6, 'dlc_dxf_color_magenta'],
+  [7, 'dlc_dxf_color_white'],
+  [8, 'dlc_dxf_color_darkgray'],
+  [9, 'dlc_dxf_color_lightgray'],
 ];
 
-const LINETYPES: Array<[DxfLayerStyle['linetype'], string]> = [
-  ['CONTINUOUS', 'Contínua'],
-  ['DASHED', 'Tracejada'],
+const LINETYPE_KEYS: ReadonlyArray<[DxfLayerStyle['linetype'], keyof Dict]> = [
+  ['CONTINUOUS', 'dlc_dxf_linetype_continuous'],
+  ['DASHED', 'dlc_dxf_linetype_dashed'],
 ];
 
 interface Props {
@@ -30,15 +31,18 @@ interface Props {
  * apresentação pura: quem chama guarda a edição no projeto (comando `setDxfLayerStyle`).
  */
 export function DxfLayerTable({ rows, onStyle }: Props): ReactElement {
+  const { t, lang } = useT();
   const options = useMemo(() => [DXF_LINE_WEIGHT_DEFAULT, ...DXF_LINE_WEIGHTS], []);
+  const colors = useMemo(() => COLOR_KEYS.map(([c, key]) => [c, t(key)] as [number, string]), [t]);
+  const linetypes = useMemo(() => LINETYPE_KEYS.map(([value, key]) => [value, t(key)] as [DxfLayerStyle['linetype'], string]), [t]);
   return (
-    <table className="layers" aria-label="Camadas do DXF">
+    <table className="layers" aria-label={t('dlc_aria_dxf_layers')}>
       <thead>
         <tr>
-          <th>Camada</th>
-          <th>Cor</th>
-          <th>Tipo de linha</th>
-          <th>Espessura</th>
+          <th>{t('dlc_col_layer')}</th>
+          <th>{t('dlc_col_color')}</th>
+          <th>{t('dlc_col_linetype')}</th>
+          <th>{t('col_thickness')}</th>
         </tr>
       </thead>
       <tbody>
@@ -46,20 +50,20 @@ export function DxfLayerTable({ rows, onStyle }: Props): ReactElement {
           <tr key={name}>
             <td style={{ fontFamily: 'monospace' }}>{name}</td>
             <td>
-              <select aria-label={`Cor da camada ${name}`} value={style.color} onChange={(e) => onStyle(name, { color: Number(e.target.value) })}>
-                {(COLORS.some(([c]) => c === style.color) ? COLORS : [...COLORS, [style.color, `ACI ${style.color}`] as [number, string]]).map(([c, label]) => (
+              <select aria-label={t('dlc_aria_dxf_layer_color', { name })} value={style.color} onChange={(e) => onStyle(name, { color: Number(e.target.value) })}>
+                {(colors.some(([c]) => c === style.color) ? colors : [...colors, [style.color, `ACI ${style.color}`] as [number, string]]).map(([c, label]) => (
                   <option key={c} value={c}>{c} · {label}</option>
                 ))}
               </select>
             </td>
             <td>
-              <select aria-label={`Tipo de linha da camada ${name}`} value={style.linetype} onChange={(e) => onStyle(name, { linetype: e.target.value as DxfLayerStyle['linetype'] })}>
-                {LINETYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              <select aria-label={t('dlc_aria_dxf_layer_linetype', { name })} value={style.linetype} onChange={(e) => onStyle(name, { linetype: e.target.value as DxfLayerStyle['linetype'] })}>
+                {linetypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </td>
             <td>
-              <select aria-label={`Espessura da camada ${name}`} value={style.lineWeight} onChange={(e) => onStyle(name, { lineWeight: Number(e.target.value) })}>
-                {options.map((w) => <option key={w} value={w}>{dxfLineWeightLabel(w)}</option>)}
+              <select aria-label={t('dlc_aria_dxf_layer_weight', { name })} value={style.lineWeight} onChange={(e) => onStyle(name, { lineWeight: Number(e.target.value) })}>
+                {options.map((w) => <option key={w} value={w}>{dxfLineWeightLabel(w, lang)}</option>)}
               </select>
             </td>
           </tr>

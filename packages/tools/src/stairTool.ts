@@ -29,7 +29,7 @@ import { activeTone, buildItems, hintText, warningText } from './stairView.ts';
 import { connectedLineAt, draftAngleItemsForConnection, draftAngleItemsForPrevious } from './anglePreview.ts';
 import { DEFAULT_SNAP, type PointerInfo, type PreviewItem, type Tool } from './types.ts';
 
-const HINT = 'Escada: desenhe o limite esquerdo; Enter passa ao direito e outro Enter vai a Espelhos. Esc cancela a cadeia; outro Esc descarta o croqui.';
+
 
 /**
  * Mensagem de Concluir (Enter nos espelhos faz o mesmo): com espelhos faltando, diz a conta e como completar. Concluir
@@ -74,7 +74,9 @@ interface PickHit {
 export class StairTool extends ToolBase {
   readonly id = 'stair';
   readonly label = 'Escada por croqui';
-  readonly hint = HINT;
+  override get hint(): string {
+    return this.t('tl_hint_stair_sketch');
+  }
   private st: DrawState = { submode: 'limites', phase: 'left', parts: [], stroke: emptyStroke('line'), pick: false };
   /** Croqui ao entrar na edição (Esc descarta o que foi feito desde então). */
   private original: StairPart[] = [];
@@ -258,7 +260,7 @@ export class StairTool extends ToolBase {
 
   override inputPrompt(): string | null {
     if (this.st.pick) return null;
-    return this.st.submode !== 'concluir' && this.st.stroke.prim === 'line' && this.st.stroke.last !== null ? 'Comprimento' : null;
+    return this.st.submode !== 'concluir' && this.st.stroke.prim === 'line' && this.st.stroke.last !== null ? this.t('tl_inp_length') : null;
   }
 
   /** Enter: fecha o limite, a caminhada ou o patamar; em Concluir, grava. Nos espelhos (sem traçado), Enter é Concluir. */
@@ -393,7 +395,7 @@ export class StairTool extends ToolBase {
     const result = offsetChain(picked.curves, leftSide(lines[idx]!.curve, raw) * off, picked.closed);
     const what = picked.curves.length > 1 ? `${picked.curves.length} segmentos (corrente)` : '1 segmento';
     const shift = off > 0 ? ` · ${formatQuantity(unitsOf(this.env.project()), 'length', off)}` : '';
-    return { sources: picked.curves, result, label: result ? `${what}${shift}` : 'deslocamento impossível' };
+    return { sources: picked.curves, result, label: result ? `${what}${shift}` : this.t('tl_msg_offset_impossible') };
   }
 
   /** Prévia de "Pegar linhas": a linha que seria pega em destaque, e o que entraria no croqui (tracejado, no tom do sub-modo). */

@@ -3,7 +3,7 @@ import { formatQuantity, type Quantity, type ResolvedUnits } from '@hestia/model
 import { buildOpeningSchedule, filterOpeningRows, openingScheduleToCsv, sumOpeningRows, type OpeningScheduleRow } from '@hestia/engine';
 import { useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
-import { useI18n, I18N } from '../../editor/i18n.ts';
+import { cmpTexto, resolveText, t as translate, useI18n, I18N, type Lang, type TextLike } from '../../editor/i18n.ts';
 import { saveText } from '../../editor/saveText.ts';
 import { Icon } from '../Icon.tsx';
 import { Dialog } from './Dialog.tsx';
@@ -49,10 +49,10 @@ interface Sort {
   dir: 1 | -1;
 }
 
-const compare = (a: OpeningScheduleRow, b: OpeningScheduleRow, s: Sort): number => {
+const compare = (a: OpeningScheduleRow, b: OpeningScheduleRow, s: Sort, lang: Lang): number => {
   const x = a[s.key];
   const y = b[s.key];
-  const r = typeof x === 'number' && typeof y === 'number' ? x - y : String(x ?? '').localeCompare(String(y ?? ''), 'pt-BR', { numeric: true });
+  const r = typeof x === 'number' && typeof y === 'number' ? x - y : cmpTexto(String(x ?? ''), String(y ?? ''), lang);
   return r * s.dir;
 };
 
@@ -68,17 +68,18 @@ const cellValue = (r: OpeningScheduleRow, c: Col, kindText: (k: string) => strin
 /** Tabela de portas e janelas com ordenação, filtro por categoria, totais e exportação CSV (padrão da tabela de escadas). */
 export function OpeningScheduleDialog(): ReactElement {
   const p = useProject();
-  const t = I18N[useI18n((s) => s.lang)];
+  const lang = useI18n((s) => s.lang);
+  const t = I18N[lang];
   const units = useUnits();
   const schedule = useMemo(() => buildOpeningSchedule(p), [p]);
   const [kind, setKind] = useState<'' | 'door' | 'window'>('');
   const [sort, setSort] = useState<Sort | null>(null);
-  const [msg, setMsg] = useState('');
+  const [msg, setMsg] = useState<TextLike>('');
 
   const visible = useMemo(() => {
     const list = filterOpeningRows(schedule.rows, { kind: kind || undefined });
-    return sort ? [...list].sort((a, b) => compare(a, b, sort)) : list;
-  }, [schedule, kind, sort]);
+    return sort ? [...list].sort((a, b) => compare(a, b, sort, lang)) : list;
+  }, [schedule, kind, sort, lang]);
 
   const totals = useMemo(() => sumOpeningRows(visible), [visible]);
 
@@ -88,8 +89,9 @@ export function OpeningScheduleDialog(): ReactElement {
   const close = (): void => useUi.setState({ dialog: null, dialogArg: null });
 
   const exportCsv = async (): Promise<void> => {
-    const base = p.name.trim() || 'projeto';
-    const status = await saveText(`${base}-portas-e-janelas.csv`, openingScheduleToCsv(visible, totals, units));
+    const base = p.name.trim() || t.scx_csv_default_project;
+    // i18n: passar `lang` e os nomes de categoria quando o engine aceitar (cabeçalho, células e separador decimal do CSV).
+    const status = await saveText(`${base}-${t.scx_csv_file_opening}.csv`, openingScheduleToCsv(visible, totals, units, lang));
     setMsg(status);
     useUi.setState({ status });
   };
@@ -97,11 +99,11 @@ export function OpeningScheduleDialog(): ReactElement {
   return (
     <Dialog
       title={t.sched_title_opening}
-      sub={`${visible.length} ${t.sched_of} ${schedule.rows.length} ${t.sched_noun_opening}`}
+      sub={translate(lang, schedule.rows.length === 1 ? 'scx_sub_opening_one' : 'scx_sub_opening_many', { shown: visible.length, total: schedule.rows.length })}
       onClose={close}
       footer={
         <>
-          <span className="wsched-msg" role="status">{msg}</span>
+          <span className="wsched-msg" role="status">{resolveText(msg, lang)}</span>
           <button className="btn primary" onClick={() => void exportCsv()} disabled={visible.length === 0} title={t.sched_export_tip}>
             {t.sched_export_csv}
           </button>
@@ -150,7 +152,7 @@ export function OpeningScheduleDialog(): ReactElement {
             </table>
           </div>
           <div className="total">
-            <span>{totals.count} {totals.count === 1 ? t.sched_noun_opening_one : t.sched_noun_opening}</span>
+            <span>{totals.count} {t[totals.count === 1 ? 'scx_total_opening_one' : 'scx_total_opening_many']}</span>
             <span>{t.sched_total_doors} {totals.doorCount}</span>
             <span>{t.sched_total_windows} {totals.windowCount}</span>
             <span>{t.sched_total_total_area} {formatQuantity(units, 'area', totals.totalArea, { decimals: 2 })}</span>

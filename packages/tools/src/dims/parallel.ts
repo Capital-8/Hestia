@@ -1,4 +1,5 @@
 import { add, dot, len, mul, norm, perp, sub, type Vec2 } from '@hestia/geom';
+import { t, type Lang } from '../i18n.ts';
 
 /**
  * Mecanismo único das cotas "ao vizinho paralelo mais próximo" (paredes, grades, linhas, contornos): o elemento tem
@@ -97,7 +98,9 @@ export function nearestParallelGaps(hostPlane: (side: 1 | -1) => number, center:
 }
 
 /** Erro padrão de uma distância que não é positiva. */
-export const NON_POSITIVE_MSG = 'Digite uma distância maior que zero.';
+export const NON_POSITIVE_MSG = t('pt', 'tl_msg_non_positive');
+/** Aviso de medida não positiva no idioma pedido. */
+export const nonPositiveMsg = (lang: Lang = 'pt'): string => t(lang, 'tl_msg_non_positive');
 
 /**
  * Deslocamento (mundo) que leva a medida do vão de `gap.distance` para `value`: afastar do vizinho aumenta a

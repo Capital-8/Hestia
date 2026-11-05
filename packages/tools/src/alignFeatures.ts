@@ -11,6 +11,7 @@ import {
   type Vec2,
 } from '@hestia/geom';
 import { ceilingOutline, frameOfWall, normalAt, pointAt, tangentAt, toLocal, type WallFrame } from '@hestia/engine';
+import { t as translate, type Lang } from './i18n.ts';
 import {
   areaPlanOf,
   coreSpan,
@@ -101,6 +102,8 @@ export interface AlignQuery {
   planId?: Id;
   /** Esboço do perímetro em edição (opcional): as linhas entram como feições alinháveis. */
   draft?: SketchDraft;
+  /** Idioma dos rótulos das feições (ausente = português). */
+  lang?: Lang;
 }
 
 const TOL_PX = 8;
@@ -230,10 +233,18 @@ function openingFeatures(p: Project, f: WallFrame, at: Vec2, mpp: number): Align
   return out;
 }
 
-const ringLabel = (kind: string): string => (kind === 'floor' ? 'piso' : kind === 'slab' ? 'laje' : kind === 'roof' ? 'telhado' : 'forro');
+const RING_LABEL_KEY = {
+  floor: 'tl_af_floor',
+  slab: 'tl_af_slab',
+  roof: 'tl_af_roof',
+  ceiling: 'tl_af_ceiling',
+} as const;
+
+const ringLabel = (kind: string, lang: Lang = 'pt'): string =>
+  translate(lang, RING_LABEL_KEY[kind as keyof typeof RING_LABEL_KEY] ?? 'tl_af_floor');
 
 /** Arestas dos anéis de piso, laje, telhado e forro sob o cursor (contorno e furos). */
-function ringFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, hidden?: ReadonlySet<Id>): AlignFeature[] {
+function ringFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, hidden?: ReadonlySet<Id>, lang: Lang = 'pt'): AlignFeature[] {
   const tol = TOL_PX * mpp;
   const out: AlignFeature[] = [];
   for (const e of Object.values(p.elements)) {
@@ -252,8 +263,8 @@ function ringFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, hidden?: R
         if (degenerate(a, b)) continue;
         const d = segmentDistance(at, a, b);
         if (d > tol) continue;
-        const nome = ringLabel(e.kind);
-        const label = hole === null ? `aresta do ${nome}` : `aresta do furo do ${nome}`;
+        const nome = ringLabel(e.kind, lang);
+        const label = hole === null ? translate(lang, 'tl_msg_af_edge', { type: nome }) : translate(lang, 'tl_msg_af_hole_edge', { type: nome });
         const ref: EdgeRef = { elementId: e.id, hole, index: i };
         out.push(
           feature(
@@ -278,18 +289,18 @@ const partKeysOf = (isLanding: boolean): ComponentPartKey[] =>
   isLanding ? ['boundary'] : ['boundaryLeft', 'boundaryRight', 'risers', 'path'];
 
 /** Rótulo da feição conforme o campo da curva: limites, espelhos, caminhada ou contorno de patamar. */
-function componentLabel(c: PlanComponent, key: ComponentPartKey): string {
-  const nome = c.kind === 'stair' ? 'escada' : 'rampa';
+function componentLabel(c: PlanComponent, key: ComponentPartKey, lang: Lang = 'pt'): string {
+  const nome = c.kind === 'stair' ? translate(lang, 'tl_kind_stair') : translate(lang, 'tl_kind_ramp');
   switch (key) {
     case 'boundary':
-      return 'contorno do patamar';
+      return translate(lang, 'tl_msg_af_component_landing');
     case 'boundaryLeft':
     case 'boundaryRight':
-      return `limite da ${nome}`;
+      return translate(lang, 'tl_msg_af_component_boundary', { type: nome });
     case 'risers':
-      return `espelho da ${nome}`;
+      return translate(lang, 'tl_msg_af_component_riser', { type: nome });
     case 'path':
-      return 'caminhada';
+      return translate(lang, 'tl_stt_sub_walk');
   }
 }
 
@@ -298,7 +309,7 @@ function componentLabel(c: PlanComponent, key: ComponentPartKey): string {
  * patamar). Inclui a que nasce no nível, a que chega nele e a que o atravessa, via `planComponentsInLevel`.
  * Arcos entram com a curva inteira em `curve` e a tangente no ponto mais próximo do cursor em `line`.
  */
-function componentFeatures(c: PlanComponent, at: Vec2, tol: number): AlignFeature[] {
+function componentFeatures(c: PlanComponent, at: Vec2, tol: number, lang: Lang = 'pt'): AlignFeature[] {
   const out: AlignFeature[] = [];
   const kind: AlignKind = c.kind === 'stair' ? 'arestaEscada' : 'arestaRampa';
   const move: AlignMove = { policy: 'transladar', target: c.kind === 'stair' ? 'escada' : 'rampa', id: c.id };
@@ -330,7 +341,7 @@ function componentFeatures(c: PlanComponent, at: Vec2, tol: number): AlignFeatur
           feature(
             `${c.id}:${partIndex}:${key}:${index}`,
             kind,
-            componentLabel(c, key),
+            componentLabel(c, key, lang),
             c.id,
             l,
             move,
@@ -346,12 +357,12 @@ function componentFeatures(c: PlanComponent, at: Vec2, tol: number): AlignFeatur
 }
 
 /** Arestas de escadas e rampas visíveis no nível (limites, espelhos, caminhada e patamares). */
-function stairRampFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, hidden?: ReadonlySet<Id>): AlignFeature[] {
+function stairRampFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, hidden?: ReadonlySet<Id>, lang: Lang = 'pt'): AlignFeature[] {
   const tol = TOL_PX * mpp;
   const out: AlignFeature[] = [];
   for (const c of planComponentsInLevel(p, levelId)) {
     if (hidden?.has(c.id)) continue;
-    out.push(...componentFeatures(c, at, tol));
+    out.push(...componentFeatures(c, at, tol, lang));
   }
   return out;
 }
@@ -427,8 +438,8 @@ export function alignFeaturesAt(q: AlignQuery): AlignFeature[] {
     out.push(...wallFeatures(frame, q.at, q.metersPerPixel, prefer));
     out.push(...openingFeatures(q.project, frame, q.at, q.metersPerPixel));
   }
-  out.push(...ringFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden));
-  out.push(...stairRampFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden));
+  out.push(...ringFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
+  out.push(...stairRampFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
   if (q.referenceOnly) out.push(...referenceLineFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.planId));
   out.push(...draftFeatures(q.draft, q.at, q.metersPerPixel));
   return out.sort((a, b) => a.distance - b.distance);

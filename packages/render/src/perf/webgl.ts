@@ -1,5 +1,6 @@
 import type { ContadoresPerf, EstadoTimerGpu } from './contadores.ts';
 import { triangulosDeDesenho } from './contadores.ts';
+import { t, type Lang } from '../i18n.ts';
 
 /** Extensão `EXT_disjoint_timer_query_webgl2` (as constantes são as únicas que faltam no lib.dom). */
 interface ExtTimerWebgl2 {
@@ -26,7 +27,7 @@ type Original = (...args: unknown[]) => unknown;
  * `iniciarQuadro`/`encerrarQuadro` (no laço de desenho) é que fecham a janela. Importante: métodos são sombreados na
  * própria instância do contexto (não no protótipo), então dois canvases não se contaminam.
  */
-export function instrumentarWebGl2(gl: WebGL2RenderingContext, contadores: ContadoresPerf): InstrumentacaoGl {
+export function instrumentarWebGl2(gl: WebGL2RenderingContext, contadores: ContadoresPerf, lang: Lang = 'pt'): InstrumentacaoGl {
   const alvo = gl as unknown as Record<string, unknown>;
   const desfazer: Array<() => void> = [];
   let desenhou = false;
@@ -87,7 +88,7 @@ export function instrumentarWebGl2(gl: WebGL2RenderingContext, contadores: Conta
 
   return new InstrumentacaoGlWebgl2(gl, contadores, ext, desfazer, () => desenhou, () => {
     desenhou = false;
-  });
+  }, lang);
 }
 
 /** Timer de GPU com `EXT_disjoint_timer_query_webgl2` (uma query em voo, resultado lido alguns quadros depois). */
@@ -103,13 +104,14 @@ class InstrumentacaoGlWebgl2 implements InstrumentacaoGl {
     private readonly desfazer: Array<() => void>,
     private readonly desenhou: () => boolean,
     private readonly zerarDesenho: () => void,
+    lang: Lang = 'pt',
   ) {
     if (this.ext) {
       this.timer = 'disponivel';
       this.contadores.marcarTimerGpu('disponivel');
     } else {
       this.timer = 'indisponivel';
-      this.contadores.marcarTimerGpu('indisponivel', 'WebGL2: EXT_disjoint_timer_query_webgl2 indisponível neste navegador/GPU');
+      this.contadores.marcarTimerGpu('indisponivel', t(lang, 'rn_gpu_ext_unavailable'));
     }
   }
 

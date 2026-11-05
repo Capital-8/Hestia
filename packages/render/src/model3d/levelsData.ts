@@ -1,4 +1,4 @@
-import type { Id, Project } from '@hestia/model';
+import { unitsOf, type Id, type Project } from '@hestia/model';
 import { levelBox } from '../plan/build.ts';
 
 /**
@@ -54,11 +54,11 @@ export const LEVEL_LINE_OFFSET = 6;
 export const LEVEL_HEAD_GAP = 0.9;
 export const LEVEL_HEAD_RADIUS = 0.6;
 
-/** Cota com sinal e duas casas, vírgula decimal (`+0,00`, `-1,20`). */
-export function levelElevationLabel(elevation: number): string {
+/** Cota com sinal e duas casas, no separador do projeto (`+0,00`, `-1,20`). */
+export function levelElevationLabel(elevation: number, decimalSymbol: ',' | '.' = ','): string {
   const abs = Math.abs(elevation);
   // units-ok: rótulo de cota do nível no 3D (m)
-  const casas = abs.toFixed(2).replace('.', ',');
+  const casas = decimalSymbol === ',' ? abs.toFixed(2).replace('.', ',') : abs.toFixed(2);
   return `${elevation < 0 ? '-' : '+'}${casas}`;
 }
 
@@ -91,7 +91,7 @@ export function levelDataOf(p: Project, offset = LEVEL_LINE_OFFSET): LevelDatum[
       levelId: l.id,
       name: l.name,
       elevation: l.elevation,
-      text: `${l.name} ${levelElevationLabel(l.elevation)}`,
+      text: `${l.name} ${levelElevationLabel(l.elevation, unitsOf(p).decimalSymbol)}`,
       ...(below === undefined ? {} : { deltaBelow: l.elevation - below.elevation }),
       ...(above === undefined ? {} : { deltaAbove: above.elevation - l.elevation }),
       line: { a: { x: box.minX, y: box.minY, z }, b: { x: box.maxX, y: box.minY, z } },

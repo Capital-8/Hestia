@@ -3,7 +3,7 @@ import type { DimensionStyle, OpeningDimRef, WallDimRef } from '@hestia/model';
 import { editor } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
 import { Dialog } from './Dialog.tsx';
-import { OPENING_OPTIONS, WALL_OPTIONS, applyDraft, defaultDraft, draftFromProject, type DimensionDraft } from './dimensionSettingsModel.ts';
+import { applyDraft, defaultDraft, draftFromProject, openingOptions, wallOptions, type DimensionDraft } from './dimensionSettingsModel.ts';
 import {
   DIM_TICK_OPTIONS,
   PRECISION_OPTIONS,
@@ -23,6 +23,7 @@ import {
   type StyleNumKey,
 } from './dimensionStyleModel.ts';
 import { DimensionStylePreview } from './dimensionStylePreview.tsx';
+import { useT, type Dict } from '../../editor/i18n.ts';
 
 const close = (): void => useUi.setState({ dialog: null, dialogArg: null });
 
@@ -38,13 +39,14 @@ export interface DimensionSettingsDialogProps {
  * das cotas (marcador, texto, linhas de extensão, formato). OK aplica as duas; Esc cancela.
  */
 export function DimensionSettingsDialog({ onApplyStyle }: DimensionSettingsDialogProps = {}): ReactElement {
+  const { t, lang } = useT();
   const [tab, setTab] = useState<Tab>('refs');
   const [draft, setDraft] = useState<DimensionDraft>(() => draftFromProject(editor.project));
   const [current] = useState<StyleDraft>(() => styleDraftFromProject(editor.project));
   const [style, setStyle] = useState<StyleDraft>(() => styleDraftFromProject(editor.project));
   /** Texto digitado nos campos numéricos (vírgula ou ponto), para não reformatar enquanto o usuário digita. */
   const [texts, setTexts] = useState<Partial<Record<StyleNumKey, string>>>({});
-  const styleErrors = validateStyleDraft(style);
+  const styleErrors = validateStyleDraft(style, lang);
 
   const confirmar = (): void => {
     if (hasStyleErrors(styleErrors)) {
@@ -83,7 +85,7 @@ export function DimensionSettingsDialog({ onApplyStyle }: DimensionSettingsDialo
           className="input"
           type="text"
           inputMode="decimal"
-          value={texts[key] ?? formatDecimal(style[key])}
+          value={texts[key] ?? formatDecimal(style[key], lang)}
           onChange={(e) => setNum(key, e.target.value)}
         />
         {styleErrors[key] ? <span className="error">{styleErrors[key]}</span> : null}
@@ -110,7 +112,7 @@ export function DimensionSettingsDialog({ onApplyStyle }: DimensionSettingsDialo
   const selectRow = <K extends keyof DimensionStyle>(
     key: K,
     label: string,
-    options: ReadonlyArray<{ value: DimensionStyle[K]; label: string }>,
+    options: ReadonlyArray<{ value: DimensionStyle[K]; label: keyof Dict }>,
   ): ReactElement => (
     <div className="prow" key={String(key)}>
       <label htmlFor={`dst-${String(key)}`}>{label}</label>
@@ -124,7 +126,7 @@ export function DimensionSettingsDialog({ onApplyStyle }: DimensionSettingsDialo
             if (picked) setStyle({ ...style, [key]: picked.value });
           }}
         >
-          {options.map((o) => <option key={String(o.value)} value={String(o.value)}>{o.label}</option>)}
+          {options.map((o) => <option key={String(o.value)} value={String(o.value)}>{t(o.label)}</option>)}
         </select>
       </div>
     </div>
@@ -132,7 +134,7 @@ export function DimensionSettingsDialog({ onApplyStyle }: DimensionSettingsDialo
 
   const fontRow = (): ReactElement => (
     <div className="prow" key="font-select">
-      <label htmlFor="dst-font-select">Fonte</label>
+      <label htmlFor="dst-font-select">{t('dlt_fld_font')}</label>
       <div>
         <select id="dst-font-select" className="select" value={style.font} onChange={(e) => setStyle({ ...style, font: e.target.value })}>
           {fontOptions(style.font).map((f) => <option key={f} value={f}>{f}</option>)}
@@ -149,54 +151,54 @@ export function DimensionSettingsDialog({ onApplyStyle }: DimensionSettingsDialo
 
   return (
     <Dialog
-      title="Cotas do projeto"
+      title={t('dlt_dim_settings_title')}
       sub={tab === 'refs'
-        ? 'Referências das cotas dinâmicas que aparecem ao colocar e ao selecionar'
-        : 'Estilo global das cotas: marcador, texto, linhas de extensão e formato'}
+        ? t('dlt_dim_settings_sub_refs')
+        : t('dlt_dim_settings_sub_style')}
       size={tab === 'style' ? 'wide' : 'mid'}
       onClose={close}
       onSubmit={confirmar}
       footer={
         <>
           {tab === 'refs'
-            ? <button className="btn" onClick={() => setDraft(defaultDraft())}>Restaurar padrões</button>
-            : <button className="btn" onClick={restaurarEstilo}>Restaurar padrão</button>}
-          {tab === 'style' ? <button className="btn" title="Aparência nomeada das cotas (a família Padrão é este estilo global)" onClick={() => useUi.setState({ dialog: 'dimensionFamilies' })}>Famílias de cotas…</button> : null}
+            ? <button className="btn" onClick={() => setDraft(defaultDraft())}>{t('dlt_restore_defaults')}</button>
+            : <button className="btn" onClick={restaurarEstilo}>{t('dlt_restore_default')}</button>}
+          {tab === 'style' ? <button className="btn" title={t('dlt_tt_dim_families')} onClick={() => useUi.setState({ dialog: 'dimensionFamilies' })}>{t('dlt_dim_families_button')}</button> : null}
           <span style={{ flex: 1 }} />
-          <button className="btn" onClick={close}>Cancelar</button>
-          <button className="btn primary" onClick={confirmar}>OK</button>
+          <button className="btn" onClick={close}>{t('stt_cancel')}</button>
+          <button className="btn primary" onClick={confirmar}>{t('stt_ok')}</button>
         </>
       }
     >
       <div role="tablist" style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-        {tabBtn('refs', 'Referências')}
-        {tabBtn('style', 'Estilo das cotas')}
+        {tabBtn('refs', t('dlt_tab_refs'))}
+        {tabBtn('style', t('dlt_tab_style'))}
       </div>
       <div onKeyDown={enterAplica}>
         {tab === 'refs' ? (
           <>
             <div className="prow">
-              <label htmlFor="dim-wall">Referência de paredes</label>
+              <label htmlFor="dim-wall">{t('dlt_fld_wall_ref')}</label>
               <div>
                 <select id="dim-wall" className="select" autoFocus value={draft.wallRef} onChange={(e) => setDraft({ ...draft, wallRef: e.target.value as WallDimRef })}>
-                  {WALL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  {wallOptions(lang).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
             </div>
             <div className="prow">
-              <label htmlFor="dim-opening">Referência de portas e janelas</label>
+              <label htmlFor="dim-opening">{t('dlt_fld_opening_ref')}</label>
               <div>
                 <select id="dim-opening" className="select" value={draft.openingRef} onChange={(e) => setDraft({ ...draft, openingRef: e.target.value as OpeningDimRef })}>
-                  {OPENING_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  {openingOptions(lang).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
             </div>
             <div className="prow">
-              <label htmlFor="dim-place">Mostrar ao colocar</label>
+              <label htmlFor="dim-place">{t('dlt_fld_show_placement')}</label>
               <input id="dim-place" type="checkbox" checked={draft.showOnPlacement} onChange={(e) => setDraft({ ...draft, showOnPlacement: e.target.checked })} />
             </div>
             <div className="prow">
-              <label htmlFor="dim-select">Mostrar ao selecionar</label>
+              <label htmlFor="dim-select">{t('dlt_fld_show_selection')}</label>
               <input id="dim-select" type="checkbox" checked={draft.showOnSelection} onChange={(e) => setDraft({ ...draft, showOnSelection: e.target.checked })} />
             </div>
           </>
@@ -204,18 +206,18 @@ export function DimensionSettingsDialog({ onApplyStyle }: DimensionSettingsDialo
           <>
             <DimensionStylePreview style={style} />
             <div style={{ height: 10 }} />
-            {selectRow('tick', 'Marcador', DIM_TICK_OPTIONS)}
-            {numRow('tickSize', 'Tamanho do marcador (mm)')}
-            {numRow('textHeight', 'Altura do texto (mm)')}
+            {selectRow('tick', t('dlt_fld_tick_mark'), DIM_TICK_OPTIONS)}
+            {numRow('tickSize', t('dlt_fld_tick_size_mm'))}
+            {numRow('textHeight', t('dlt_fld_text_height_mm'))}
             {fontRow()}
-            {numRow('extensionGap', 'Folga da linha de extensão (mm)')}
-            {numRow('extensionOvershoot', 'Ultrapassagem da linha de extensão (mm)')}
-            {numRow('textGap', 'Folga do texto até a linha (mm)')}
-            {selectRow('textPlacement', 'Posição do texto', TEXT_PLACEMENT_OPTIONS)}
-            {selectRow('readConvention', 'Leitura do valor', READ_CONVENTION_OPTIONS)}
-            {selectRow('textFit', 'Quando o valor não cabe', TEXT_FIT_OPTIONS)}
+            {numRow('extensionGap', t('dlt_fld_ext_gap_mm'))}
+            {numRow('extensionOvershoot', t('dlt_fld_ext_overshoot_mm'))}
+            {numRow('textGap', t('dlt_fld_text_gap_mm'))}
+            {selectRow('textPlacement', t('dlt_fld_text_position'), TEXT_PLACEMENT_OPTIONS)}
+            {selectRow('readConvention', t('dlt_fld_read_convention'), READ_CONVENTION_OPTIONS)}
+            {selectRow('textFit', t('dlt_fld_text_fit'), TEXT_FIT_OPTIONS)}
             <div className="prow">
-              <label htmlFor="dst-leaderWhenNoFit">Linha de chamada quando não cabe</label>
+              <label htmlFor="dst-leaderWhenNoFit">{t('dlt_fld_leader_no_fit')}</label>
               <input
                 id="dst-leaderWhenNoFit"
                 type="checkbox"
@@ -223,11 +225,11 @@ export function DimensionSettingsDialog({ onApplyStyle }: DimensionSettingsDialo
                 onChange={(e) => setStyle({ ...style, leaderWhenNoFit: e.target.checked })}
               />
             </div>
-            {numRow('stackSpacing', 'Espaçamento entre cotas empilhadas (mm)')}
-            {selectRow('unit', 'Unidade', UNIT_OPTIONS)}
-            {selectRow('precision', 'Precisão', PRECISION_OPTIONS)}
-            {textRow('prefix', 'Prefixo')}
-            {textRow('suffix', 'Sufixo')}
+            {numRow('stackSpacing', t('dlt_fld_stack_spacing_mm'))}
+            {selectRow('unit', t('dlt_fld_unit_measure'), UNIT_OPTIONS)}
+            {selectRow('precision', t('dlt_fld_precision'), PRECISION_OPTIONS)}
+            {textRow('prefix', t('dlt_fld_prefix'))}
+            {textRow('suffix', t('dlt_fld_suffix'))}
           </>
         )}
       </div>

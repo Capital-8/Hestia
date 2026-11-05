@@ -6,15 +6,16 @@ import {
 } from '@hestia/model';
 import { editor } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
+import { useT } from '../../editor/i18n.ts';
 import { useUnits } from '../useUnits.ts';
 import { Dialog } from './Dialog.tsx';
 import {
   QUANTITY_KEYS,
-  QUANTITY_LABELS,
-  UNIT_LABELS,
   applyDraft,
   draftFrom,
   exampleLines,
+  quantityLabels,
+  unitLabels,
   validateDraft,
   type QuantityKey,
   type UnitsDraft,
@@ -28,7 +29,10 @@ function rotuloFracao(d: number): string {
 }
 
 export function UnitsDialog(): ReactElement {
+  const { t, lang } = useT();
   const units = useUnits();
+  const labels = quantityLabels(lang);
+  const unidades = unitLabels(lang);
   const [draft, setDraft] = useState<UnitsDraft>(() => draftFrom(units));
   const [erro, setErro] = useState('');
   const mudar = (q: QuantityKey, patch: Record<string, unknown>): void =>
@@ -38,7 +42,7 @@ export function UnitsDialog(): ReactElement {
     setErro('');
   };
   const confirmar = (): void => {
-    const problema = validateDraft(draft);
+    const problema = validateDraft(draft, lang);
     if (problema) {
       setErro(problema);
       return;
@@ -48,15 +52,15 @@ export function UnitsDialog(): ReactElement {
   };
   return (
     <Dialog
-      title="Unidades do projeto"
-      sub="Medidas do modelo continuam em metros; isto muda o que você lê e digita"
+      title={t('dlc_units_title')}
+      sub={t('dlc_units_sub')}
       size="mid"
       onClose={close}
       footer={
         <>
-          <button className="btn" onClick={restaurar}>Restaurar padrões</button>
+          <button className="btn" onClick={restaurar}>{t('dlc_units_restore')}</button>
           <span style={{ flex: 1 }} />
-          <button className="btn" onClick={close}>Cancelar</button>
+          <button className="btn" onClick={close}>{t('dlc_btn_cancel')}</button>
           <button className="btn primary" onClick={confirmar}>OK</button>
         </>
       }
@@ -64,10 +68,10 @@ export function UnitsDialog(): ReactElement {
       <table className="layers units">
         <thead>
           <tr>
-            <th>Grandeza</th>
-            <th>Unidade</th>
-            <th>Casas decimais</th>
-            <th>Suprimir zeros</th>
+            <th>{t('dlc_units_quantity')}</th>
+            <th>{t('dlc_unit')}</th>
+            <th>{t('dlc_units_decimals')}</th>
+            <th>{t('dlc_units_suppress_zeros')}</th>
           </tr>
         </thead>
         <tbody>
@@ -76,18 +80,18 @@ export function UnitsDialog(): ReactElement {
             const opcoes = quantityUnits(q) as readonly QuantityUnit[];
             return (
               <tr key={q}>
-                <td>{QUANTITY_LABELS[q]}</td>
+                <td>{labels[q]}</td>
                 <td>
                   <select
                     id={`un-${q}`}
                     className="select"
-                    aria-label={`${QUANTITY_LABELS[q]}: unidade`}
+                    aria-label={t('dlc_aria_units_unit', { label: labels[q] })}
                     autoFocus={q === 'length'}
                     value={f.unit}
                     onChange={(e) => mudar(q, { unit: e.target.value })}
                   >
                     {opcoes.map((u) => (
-                      <option key={u} value={u}>{UNIT_LABELS[u]}</option>
+                      <option key={u} value={u}>{unidades[u]}</option>
                     ))}
                   </select>
                 </td>
@@ -95,7 +99,7 @@ export function UnitsDialog(): ReactElement {
                   {f.unit === 'ft-in' ? (
                     <select
                       className="select"
-                      aria-label={`${QUANTITY_LABELS[q]}: fração`}
+                      aria-label={t('dlc_aria_units_fraction', { label: labels[q] })}
                       value={f.denominator}
                       onChange={(e) => mudar(q, { denominator: Number(e.target.value) })}
                     >
@@ -104,7 +108,7 @@ export function UnitsDialog(): ReactElement {
                   ) : (
                     <select
                       className="select"
-                      aria-label={`${QUANTITY_LABELS[q]}: casas decimais`}
+                      aria-label={t('dlc_aria_units_decimals', { label: labels[q] })}
                       value={f.decimals}
                       onChange={(e) => mudar(q, { decimals: Number(e.target.value) })}
                     >
@@ -115,7 +119,7 @@ export function UnitsDialog(): ReactElement {
                 <td>
                   <input
                     type="checkbox"
-                    aria-label={`${QUANTITY_LABELS[q]}: suprimir zeros`}
+                    aria-label={t('dlc_aria_units_suppress', { label: labels[q] })}
                     checked={f.suppressZeros}
                     onChange={(e) => mudar(q, { suppressZeros: e.target.checked })}
                   />
@@ -126,27 +130,27 @@ export function UnitsDialog(): ReactElement {
         </tbody>
       </table>
       <div className="prow">
-        <label htmlFor="un-decimal">Símbolo decimal</label>
+        <label htmlFor="un-decimal">{t('dlc_units_decimal_symbol')}</label>
         <div>
           <select
             id="un-decimal"
             className="select"
-            aria-label="Símbolo decimal"
+            aria-label={t('dlc_units_decimal_symbol')}
             value={draft.decimalSymbol}
             onChange={(e) => setDraft((d) => ({ ...d, decimalSymbol: e.target.value === '.' ? '.' : ',' }))}
           >
-            <option value=",">Vírgula</option>
-            <option value=".">Ponto</option>
+            <option value=",">{t('dlc_units_comma')}</option>
+            <option value=".">{t('dlc_units_period')}</option>
           </select>
         </div>
       </div>
       <div className="prow">
-        <label htmlFor="un-currency">Símbolo de moeda</label>
+        <label htmlFor="un-currency">{t('dlc_units_currency')}</label>
         <div>
           <input
             id="un-currency"
             className="input"
-            aria-label="Símbolo de moeda"
+            aria-label={t('dlc_units_currency')}
             maxLength={4}
             value={draft.currency}
             onChange={(e) => setDraft((d) => ({ ...d, currency: e.target.value }))}
@@ -154,9 +158,9 @@ export function UnitsDialog(): ReactElement {
         </div>
       </div>
       <div className="hint" aria-live="polite">
-        <strong>Exemplo ao vivo</strong>
+        <strong>{t('dlc_units_live')}</strong>
         <ul>
-          {exampleLines(draft).map((l) => (
+          {exampleLines(draft, lang).map((l) => (
             <li key={l.q}><span>{l.label}:</span> {l.text}</li>
           ))}
         </ul>

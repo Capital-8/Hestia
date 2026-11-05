@@ -3,9 +3,10 @@ import { GRAPHICS_CATEGORIES, graphicsOf, type GraphicsCategory, type ProjectGra
 import { editor, useProject } from '../../editor/controller.ts';
 import { editProjectGraphics, restoreProjectGraphicsDefault, type ProjectGraphicsPatch } from '../../editor/graphicsActions.ts';
 import { useUi } from '../../editor/state.ts';
-import { CATEGORY_LABEL, WEIGHTS } from '../graphicsLabels.ts';
+import { categoryLabel, WEIGHTS } from '../graphicsLabels.ts';
 import { NumField } from '../fields.tsx';
 import { Dialog } from './Dialog.tsx';
+import { useT } from '../../editor/i18n.ts';
 
 const SCALE_COLUMNS = ['1:50', '1:100', '1:200'] as const;
 
@@ -14,6 +15,7 @@ const SCALE_COLUMNS = ['1:50', '1:100', '1:200'] as const;
  * pesos de corte e projeção por categoria e limites de detalhe (fino até 1:__, médio até 1:__). Cada edição é um comando.
  */
 export function LineWeightsDialog(): ReactElement {
+  const { t, lang } = useT();
   const p = useProject();
   const g = graphicsOf(p);
   const [error, setError] = useState<string | null>(null);
@@ -29,23 +31,23 @@ export function LineWeightsDialog(): ReactElement {
   const setDetail = (key: keyof ProjectGraphics['detailByScale'], scale: number): void => run({ detailByScale: { [key]: scale } });
   return (
     <Dialog
-      title="Pesos de linha"
-      sub="Projeto · padrão do Revit, com a escolha do Hestia por categoria"
+      title={t('dlt_lw_title')}
+      sub={t('dlt_lw_sub')}
       onClose={close}
       size="mid"
       footer={
         <>
-          <button className="btn" onClick={() => setError(restoreProjectGraphicsDefault(editor.store).error)}>Restaurar padrão</button>
+          <button className="btn" onClick={() => setError(restoreProjectGraphicsDefault(editor.store).error)}>{t('dlt_restore_default')}</button>
           <span style={{ flex: 1 }} />
-          <button className="btn primary" onClick={close}>Fechar</button>
+          <button className="btn primary" onClick={close}>{t('stt_close')}</button>
         </>
       }
     >
-      <h3 style={{ fontSize: 12, margin: '4px 0 6px' }}>Largura da linha por peso (mm de papel)</h3>
-      <table className="layers" aria-label="Tabela de pesos de linha">
+      <h3 style={{ fontSize: 12, margin: '4px 0 6px' }}>{t('dlt_lw_section_width')}</h3>
+      <table className="layers" aria-label={t('dlt_a11y_lw_table')}>
         <thead>
           <tr>
-            <th>Peso</th>
+            <th>{t('dlt_col_weight')}</th>
             {SCALE_COLUMNS.map((s) => <th key={s}>{s}</th>)}
           </tr>
         </thead>
@@ -63,25 +65,25 @@ export function LineWeightsDialog(): ReactElement {
         </tbody>
       </table>
 
-      <h3 style={{ fontSize: 12, margin: '12px 0 6px' }}>Peso por categoria (1 a 16)</h3>
-      <table className="layers" aria-label="Pesos de corte e projeção por categoria">
+      <h3 style={{ fontSize: 12, margin: '12px 0 6px' }}>{t('dlt_lw_section_category')}</h3>
+      <table className="layers" aria-label={t('dlt_a11y_lw_categories')}>
         <thead>
           <tr>
-            <th>Categoria</th>
-            <th>Corte</th>
-            <th>Projeção</th>
+            <th>{t('dlt_col_category')}</th>
+            <th>{t('dlt_col_cut')}</th>
+            <th>{t('dlt_col_projection')}</th>
           </tr>
         </thead>
         <tbody>
           {GRAPHICS_CATEGORIES.map((c) => (
             <tr key={c}>
-              <td>{CATEGORY_LABEL[c]}</td>
+              <td>{categoryLabel(c, lang)}</td>
               {(['cutWeight', 'projectionWeight'] as const).map((key) => (
                 <td key={key}>
                   <select
                     id={`lwc-${c}-${key}`}
                     className="select"
-                    aria-label={`${key === 'cutWeight' ? 'Corte' : 'Projeção'} de ${CATEGORY_LABEL[c]}`}
+                    aria-label={key === 'cutWeight' ? t('dlt_a11y_cut_weight_of', { category: categoryLabel(c, lang) }) : t('dlt_a11y_projection_weight_of', { category: categoryLabel(c, lang) })}
                     value={g.categories[c][key]}
                     onChange={(e) => setCategory(c, key, Number(e.target.value))}
                   >
@@ -94,16 +96,16 @@ export function LineWeightsDialog(): ReactElement {
         </tbody>
       </table>
 
-      <h3 style={{ fontSize: 12, margin: '12px 0 6px' }}>Nível de detalhe por escala</h3>
+      <h3 style={{ fontSize: 12, margin: '12px 0 6px' }}>{t('dlt_lw_section_detail')}</h3>
       <div className="field-row">
-        <label htmlFor="lw-fine">Fino até a escala 1:</label>
+        <label htmlFor="lw-fine">{t('dlt_lw_fine')}</label>
         <NumField id="lw-fine" value={g.detailByScale.fineMax} decimals={0} min={1} width={72} onCommit={(v) => setDetail('fineMax', v)} />
       </div>
       <div className="field-row">
-        <label htmlFor="lw-medium">Médio até a escala 1:</label>
+        <label htmlFor="lw-medium">{t('dlt_lw_medium')}</label>
         <NumField id="lw-medium" value={g.detailByScale.mediumMax} decimals={0} min={1} width={72} onCommit={(v) => setDetail('mediumMax', v)} />
       </div>
-      <p className="hint">Acima do médio, o detalhe é grosso. Os valores são escalas (denominadores): 50 = 1:50.</p>
+      <p className="hint">{t('dlt_lw_help')}</p>
       {error && <p className="error" role="alert">{error}</p>}
     </Dialog>
   );

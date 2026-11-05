@@ -1,16 +1,18 @@
 import { newId, type Id, type Project, type ProjectStore, type CeilingType } from '@hestia/model';
+import { t, useI18n } from './i18n.ts';
 import { floorTypeError, instancesOfType, type DeleteResult } from './typeActions.ts';
 
-const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+/** Tradução imediata no idioma ativo (as mensagens voltam como texto para os diálogos). */
+const tr = (key: Parameters<typeof t>[1], args?: Record<string, string | number>): string => t(useI18n.getState().lang, key, args);
 
 /** Forros que usam o tipo (em todos os níveis). */
 export const ceilingTypeUsage = (p: Project, typeId: Id): number => instancesOfType(p, 'ceiling', typeId).length;
 
 /** Motivo pelo qual o tipo de forro não pode ser excluído (em uso ou único); null quando pode. */
 export function ceilingTypeDeleteBlock(p: Project, typeId: Id): string | null {
-  if (Object.keys(p.ceilingTypes).length <= 1) return 'É o único tipo de forro do projeto.';
+  if (Object.keys(p.ceilingTypes).length <= 1) return tr('edc_type_only_one', { type: tr('edc_type_ceiling') });
   const uso = ceilingTypeUsage(p, typeId);
-  if (uso > 0) return `Em uso por ${plural(uso, 'forro', 'forros')}.`;
+  if (uso > 0) return tr('edc_type_in_use', { list: tr(uso === 1 ? 'edc_count_ceiling_one' : 'edc_count_ceiling_many', { n: uso }) });
   return null;
 }
 
@@ -20,7 +22,7 @@ export function tryDeleteCeilingType(store: ProjectStore, typeId: Id): DeleteRes
     store.exec({ type: 'deleteCeilingType', id: typeId });
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Falha desconhecida.' };
+    return { ok: false, error: e instanceof Error ? e.message : tr('edc_type_delete_failed') };
   }
 }
 
@@ -28,8 +30,8 @@ export function tryDeleteCeilingType(store: ProjectStore, typeId: Id): DeleteRes
 export function duplicateCeilingType(store: ProjectStore, typeId: Id): Id | null {
   const src = store.project.ceilingTypes[typeId];
   if (!src) return null;
-  const copy: CeilingType = { ...structuredClone(src), id: newId('ls'), name: `${src.name} (cópia)` };
-  store.exec({ type: 'upsertCeilingType', ceilingType: copy }, 'Duplicar tipo de forro');
+  const copy: CeilingType = { ...structuredClone(src), id: newId('ls'), name: tr('edc_type_copy_suffix', { name: src.name }) };
+  store.exec({ type: 'upsertCeilingType', ceilingType: copy }, 'edc_undo_duplicate_ceiling');
   return copy.id;
 }
 
@@ -37,9 +39,9 @@ export function duplicateCeilingType(store: ProjectStore, typeId: Id): Id | null
 export function renameCeilingType(store: ProjectStore, typeId: Id, name: string): DeleteResult {
   const clean = name.trim();
   const src = store.project.ceilingTypes[typeId];
-  if (!src) return { ok: false, error: 'Tipo inexistente.' };
-  if (!clean) return { ok: false, error: 'Dê um nome ao tipo.' };
-  store.exec({ type: 'upsertCeilingType', ceilingType: { ...src, name: clean } }, 'Renomear tipo de forro');
+  if (!src) return { ok: false, error: tr('edc_type_missing') };
+  if (!clean) return { ok: false, error: tr('edc_type_needs_name') };
+  store.exec({ type: 'upsertCeilingType', ceilingType: { ...src, name: clean } }, 'edc_undo_rename_ceiling');
   return { ok: true };
 }
 

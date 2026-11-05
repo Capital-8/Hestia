@@ -23,6 +23,7 @@ import {
 import { exportIfc, type IfcGeometry, type IfcOpeningPartGeo, type IfcPlane, type IfcPolygon, type IfcPrism, type IfcRampGeo, type IfcStairGeo } from '@hestia/io';
 import { isOpening, isRamp, openingSill, openingType, wallBaseElevation, wallHeight, type Id, type Opening, type OpeningType, type Project, type Wall } from '@hestia/model';
 import { saveText } from './saveText.ts';
+import { useI18n, type Lang } from './i18n.ts';
 
 /** Cota constante (sem inclinação). */
 const flatPlane = (z: number): IfcPlane => ({ a: 0, b: 0, c: z });
@@ -224,13 +225,13 @@ export function ifcGeometryOf(p: Project): IfcGeometry {
   return { walls, openings: openingsOf(p), floors, slabs, ceilings, roofs, stairs, ramps };
 }
 
-/** Texto IFC4 (STEP) do projeto inteiro, com a data atual no cabeçalho. */
-export function projectIfc(p: Project, now: Date = new Date()): string {
-  return exportIfc(p, ifcGeometryOf(p), { timestamp: now.toISOString().slice(0, 19) });
+/** Texto IFC4 (STEP) do projeto inteiro, com a data atual no cabeçalho e os nomes padrão no idioma ativo. */
+export function projectIfc(p: Project, now: Date = new Date(), lang: Lang = useI18n.getState().lang): string {
+  return exportIfc(p, ifcGeometryOf(p), { timestamp: now.toISOString().slice(0, 19), lang });
 }
 
 /** Entrega o `.ifc` pelo mesmo caminho do DXF (`saveText`) e devolve a frase de status. */
-export function saveProjectIfc(p: Project): Promise<string> {
-  const base = p.name.trim() || 'projeto';
-  return saveText(`${base}.ifc`, projectIfc(p));
+export function saveProjectIfc(p: Project, lang: Lang = useI18n.getState().lang): Promise<string> {
+  const base = p.name.trim() || (lang === 'en' ? 'project' : 'projeto');
+  return saveText(`${base}.ifc`, projectIfc(p, new Date(), lang));
 }

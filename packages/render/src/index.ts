@@ -1,5 +1,7 @@
 export * from './viewport.ts';
 export * from './gpu.ts';
+// Textos do pacote (prefixo `rn_`): o idioma chega por parâmetro `lang` nas entradas públicas.
+export * from './i18n.ts';
 // Instrumentação de desempenho (Fase 0.2): contadores, instância do app e interceções de contexto.
 export * from './perf/index.ts';
 export * from './plan/types.ts';

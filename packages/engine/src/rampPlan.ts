@@ -7,6 +7,7 @@ import {
   type StairComponentSketch,
 } from './stairGenerators.ts';
 import type { StairCurve, StairLandingSketch, StairRunSketch } from './stairSketch.ts';
+import { t, type Lang } from './i18nMessages.ts';
 
 /** Entrada do planejamento puro da rampa (sem projeto, sem níveis). */
 export interface RampPlanInput {
@@ -28,6 +29,8 @@ export interface RampPlanInput {
   length?: number;
   /** Modo 'slope': inclinação alvo (fração); ausente = type.defaultSlope. */
   slope?: number;
+  /** Idioma das mensagens de erro (padrão `'pt'`). */
+  lang?: Lang;
 }
 
 export interface RampPlan {
@@ -88,18 +91,19 @@ export const tagRuns = (parts: StairComponentSketch[], shape: RampShape): StairC
 
 /** Planeja uma rampa reta, em L ou em U; devolve `{ error }` com entrada inválida. */
 export function planRamp(i: RampPlanInput): RampPlanResult {
-  if (!(i.width > 0)) return { error: 'A largura da rampa deve ser positiva.' };
-  if (!(i.H > 0)) return { error: 'O desnível deve ser positivo: nada a gerar.' };
+  const lang = i.lang ?? 'pt';
+  if (!(i.width > 0)) return { error: t(lang, 'egb_err_ramp_width') };
+  if (!(i.H > 0)) return { error: t(lang, 'egb_err_ramp_rise') };
   const d = len(i.dir) > 1e-12 ? norm(i.dir) : null;
-  if (!d) return { error: 'A direção de subida deve ser diferente de zero.' };
+  if (!d) return { error: t(lang, 'egb_err_ramp_dir') };
   const n = perp(d);
   const at = (u: number, v: number): Vec2 => add(i.start, add(mul(d, u), mul(n, v)));
 
   const straight = i.shape === 'straight';
   const P = i.type.landingMinLength;
   const D = i.landingDepth ?? Math.max(i.width, i.type.landingMinLength);
-  if (!straight && D <= 0) return { error: 'O comprimento é curto demais para o patamar de giro.' };
-  if (i.shape === 'lshape' && D < i.width) return { error: 'O patamar da rampa em L deve ter profundidade ≥ largura do lance.' };
+  if (!straight && D <= 0) return { error: t(lang, 'egb_err_length_short') };
+  if (i.shape === 'lshape' && D < i.width) return { error: t(lang, 'egb_err_l_landing') };
 
   let flights: number;
   let totalL: number;
@@ -108,7 +112,7 @@ export function planRamp(i: RampPlanInput): RampPlanResult {
   const target = i.slope ?? i.type.defaultSlope;
 
   if (i.mode === 'slope') {
-    if (!(target > 0)) return { error: 'A inclinação deve ser maior que zero.' };
+    if (!(target > 0)) return { error: t(lang, 'egb_err_slope_positive') };
     if (straight) {
       const maxRise = maxRiseFor(i.type, target);
       flights = maxRise ? flightsFor(i.H, maxRise) : 1;
@@ -122,7 +126,7 @@ export function planRamp(i: RampPlanInput): RampPlanResult {
     slope = target;
   } else {
     const total = i.length;
-    if (total === undefined || !(total > 0)) return { error: 'O comprimento deve ser positivo.' };
+    if (total === undefined || !(total > 0)) return { error: t(lang, 'egb_err_length_positive') };
     if (straight) {
       flights = 1;
       totalL = total;
@@ -151,7 +155,7 @@ export function planRamp(i: RampPlanInput): RampPlanResult {
       landingDepth = P;
     } else {
       totalL = total - D;
-      if (!(totalL > 0)) return { error: 'O comprimento é curto demais para o patamar de giro.' };
+      if (!(totalL > 0)) return { error: t(lang, 'egb_err_length_short') };
       flights = 2;
       slope = i.H / totalL;
       landingDepth = D;

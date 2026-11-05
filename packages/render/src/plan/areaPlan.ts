@@ -5,6 +5,7 @@ import { categoryById, unitsOf, type AreaPlan, type Id, type Project, type Room,
 import { fmtArea, type FloorOps } from './floors.ts';
 import type { PlanPaint } from './style.ts';
 import type { PlanTheme } from './types.ts';
+import { t, type Lang } from '../i18n.ts';
 
 /** Medidas de papel (mm) da etiqueta e das linhas de referência. */
 const NAME_MM = 3.5;
@@ -27,7 +28,8 @@ const LABEL_GAP_MM = 1.0;
 
 const empty = (): FloorOps => ({ fills: [], strokes: [], labels: [] });
 const mm = (v: number, scale: number): number => (v * scale) / 1000;
-const fmt = (v: number, d = 2): string => v.toFixed(d).replace('.', ',');
+/** Número com casas fixas e o separador decimal do projeto (`1,23` no PT, `1.23` no EN). */
+const fmt = (v: number, d: number, decimalSymbol: ',' | '.'): string => (decimalSymbol === ',' ? v.toFixed(d).replace('.', ',') : v.toFixed(d));
 
 /** Ponto de referência do ambiente: override do modelo ou o centroide/polo do polígono resolvido. */
 export function referenceAt(room: Room, resolved: ResolvedRoom): Vec2 {
@@ -45,6 +47,7 @@ export function referenceSegments(room: Room, resolved: ResolvedRoom): Array<{ a
 export function roomTagLines(p: Project, room: Room, r: ResolvedRoom, tag: RoomTag): string[] {
   const head: string[] = [];
   const tail: string[] = [];
+  const dec = unitsOf(p).decimalSymbol;
   for (const f of tag.fields) {
     switch (f) {
       case 'name':
@@ -65,10 +68,10 @@ export function roomTagLines(p: Project, room: Room, r: ResolvedRoom, tag: RoomT
         tail.push(p.levels.find((l) => l.id === room.levelId)?.name ?? '');
         break;
       case 'perimeter':
-        tail.push(`${fmt(r.perimeter)} m`);
+        tail.push(`${fmt(r.perimeter, 2, dec)} m`);
         break;
       case 'volume':
-        tail.push(`${fmt(r.volume, 3)} m³`);
+        tail.push(`${fmt(r.volume, 3, dec)} m³`);
         break;
       case 'custom':
         if (tag.custom) head.push(tag.custom);
@@ -370,6 +373,7 @@ export function areaPlanLegendOps(p: Project, plan: AreaPlan, scale: number, the
   out.fills.push({ polygons: [[[{ x: x0, y: y0 }, { x: x0 + w, y: y0 }, { x: x0 + w, y: y1 }, { x: x0, y: y1 }]]], color: mask, alpha: 0.94 });
   out.strokes.push({ pts: [{ x: x0, y: y0 }, { x: x0 + w, y: y0 }, { x: x0 + w, y: y1 }, { x: x0, y: y1 }], closed: true, widthPx: 1, papel: { mm: 0.13, escala: scale }, color: border, alpha: 1 });
   out.labels.push({ at: { x: x0 + mm(2, scale), y: y1 - rowH * 0.5 }, text: legend.title, center: false, bold: true, color: ink, papel: { escala: scale, fontMm: 2.8 } });
+  const dec = unitsOf(p).decimalSymbol;
   rows.forEach((row, i) => {
     const y = y1 - rowH * (i + 1.5);
     const sw = mm(4, scale);
@@ -377,9 +381,9 @@ export function areaPlanLegendOps(p: Project, plan: AreaPlan, scale: number, the
     out.strokes.push({ pts: [{ x: x0 + mm(2, scale), y: y - sw / 2 }, { x: x0 + mm(2, scale) + sw, y: y - sw / 2 }, { x: x0 + mm(2, scale) + sw, y: y + sw / 2 }, { x: x0 + mm(2, scale), y: y + sw / 2 }], closed: true, widthPx: 1, papel: { mm: 0.1, escala: scale }, color: border, alpha: 1 });
     out.labels.push({ at: { x: x0 + mm(8, scale), y }, text: row.label, center: false, color: ink, papel: { escala: scale, fontMm: 2.1 } });
     const parts: string[] = [];
-    if (legend.showArea) parts.push(fmt(row.area));
+    if (legend.showArea) parts.push(fmt(row.area, 2, dec));
     if (legend.showCount) parts.push(`${row.count}`);
-    if (legend.showPercent) parts.push(`${fmt(row.percent, 1)}%`);
+    if (legend.showPercent) parts.push(`${fmt(row.percent, 1, dec)}%`);
     if (parts.length) out.labels.push({ at: { x: x0 + w - mm(2, scale), y }, text: parts.join(' · '), center: false, align: 'right', color: ink, papel: { escala: scale, fontMm: 2.0 } });
   });
   out.labels.push({ at: { x: x0 + mm(2, scale), y: y0 + rowH * 0.55 }, text: schemeOf(p, plan)?.name ?? '', center: false, color: ink, papel: { escala: scale, fontMm: 1.8 } });
@@ -388,14 +392,14 @@ export function areaPlanLegendOps(p: Project, plan: AreaPlan, scale: number, the
 }
 
 /** Quadro de áreas da planta (número, nome, nível, categoria, área, %, perímetro, volume). */
-export function areaPlanTableOps(p: Project, plan: AreaPlan, scale: number, dark = false): FloorOps {
+export function areaPlanTableOps(p: Project, plan: AreaPlan, scale: number, dark = false, lang: Lang = 'pt'): FloorOps {
   const out = empty();
   const ink = dark ? '#f3f4f6' : '#111827';
   const mask = dark ? '#111827' : '#ffffff';
   const border = dark ? '#4b5563' : '#6b7280';
   const table = plan.table;
   if (!table) return out;
-  const rows = areaTableRows(p, plan);
+  const rows = areaTableRows(p, plan, lang);
   const w = mm(TABLE_W_MM, scale);
   const rowH = mm(TABLE_ROW_MM, scale);
   const headerH = mm(6, scale);
@@ -417,14 +421,23 @@ export function areaPlanTableOps(p: Project, plan: AreaPlan, scale: number, dark
     out.labels.push({ at: { x, y }, text, center: false, bold, align, color: ink, papel: { escala: scale, fontMm: TABLE_FONT_MM } });
   };
   cols.forEach((c, i) => {
-    const label = c === 'number' ? 'Nº' : c === 'name' ? 'AMBIENTE' : c === 'level' ? 'NÍVEL' : c === 'category' ? 'CATEGORIA' : c === 'area' ? 'ÁREA' : c === 'percent' ? '%' : c === 'perimeter' ? 'PERÍM.' : 'VOLUME';
+    const label =
+      c === 'number' ? t(lang, 'rn_col_no')
+      : c === 'name' ? t(lang, 'rn_col_room')
+      : c === 'level' ? t(lang, 'rn_col_level')
+      : c === 'category' ? t(lang, 'rn_col_category')
+      : c === 'area' ? t(lang, 'rn_col_area')
+      : c === 'percent' ? t(lang, 'rn_col_percent')
+      : c === 'perimeter' ? t(lang, 'rn_col_perimeter')
+      : t(lang, 'rn_col_volume');
     cell(i, y1 - headerH * 0.55, label, true, c === 'area' || c === 'percent' || c === 'perimeter' || c === 'volume' ? 'right' : 'left');
   });
+  const dec = unitsOf(p).decimalSymbol;
   rows.forEach((r, i) => {
     const y = y1 - headerH - rowH * (i + 0.5);
     const bold = r.kind !== 'room';
     cols.forEach((c, j) => {
-      const text = c === 'number' ? r.number : c === 'name' ? r.name : c === 'level' ? r.levelName : c === 'category' ? r.category : c === 'area' ? fmt(r.area) : c === 'percent' ? `${fmt(r.percent, 1)}%` : c === 'perimeter' ? fmt(r.perimeter) : fmt(r.volume, 3);
+      const text = c === 'number' ? r.number : c === 'name' ? r.name : c === 'level' ? r.levelName : c === 'category' ? r.category : c === 'area' ? fmt(r.area, 2, dec) : c === 'percent' ? `${fmt(r.percent, 1, dec)}%` : c === 'perimeter' ? fmt(r.perimeter, 2, dec) : fmt(r.volume, 3, dec);
       cell(j, y, text, bold, c === 'area' || c === 'percent' || c === 'perimeter' || c === 'volume' ? 'right' : 'left');
     });
     if (r.kind !== 'room') line([{ x: x0, y: y1 - headerH - rowH * i }, { x: x0 + w, y: y1 - headerH - rowH * i }]);
@@ -433,7 +446,7 @@ export function areaPlanTableOps(p: Project, plan: AreaPlan, scale: number, dark
 }
 
 /** Todas as operações da planta de área: ambientes, referências, etiquetas, legenda e quadro. */
-export function areaPlanOps(p: Project, plan: AreaPlan, theme: PlanTheme, dark: boolean, scale: number, hidden: ReadonlySet<Id> | undefined, paint: PlanPaint, resolved: readonly ResolvedRoom[], withFurniture = false): FloorOps {
+export function areaPlanOps(p: Project, plan: AreaPlan, theme: PlanTheme, dark: boolean, scale: number, hidden: ReadonlySet<Id> | undefined, paint: PlanPaint, resolved: readonly ResolvedRoom[], withFurniture = false, lang: Lang = 'pt'): FloorOps {
   const out = empty();
   const rooms = areaPlanRoomOps(p, plan, theme, dark, scale, hidden, paint, resolved);
   out.fills.push(...rooms.fills);
@@ -447,7 +460,7 @@ export function areaPlanOps(p: Project, plan: AreaPlan, theme: PlanTheme, dark: 
     out.fills.push(...legend.fills);
     out.strokes.push(...legend.strokes);
     out.labels.push(...legend.labels);
-    const table = areaPlanTableOps(p, plan, scale);
+    const table = areaPlanTableOps(p, plan, scale, false, lang);
     out.fills.push(...table.fills);
     out.strokes.push(...table.strokes);
     out.labels.push(...table.labels);

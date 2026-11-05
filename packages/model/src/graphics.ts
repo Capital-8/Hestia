@@ -1,3 +1,4 @@
+import { t, type Lang } from './i18n.ts';
 import type { DetailLevel, Id, Project } from './types.ts';
 
 /**
@@ -8,19 +9,24 @@ import type { DetailLevel, Id, Project } from './types.ts';
 /** Categorias com estilo gráfico próprio (Revit: Object Styles; ArchiCAD: regras de substituição). */
 export type GraphicsCategory = 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'roof' | 'stair' | 'room' | 'annotation' | 'generic';
 export const GRAPHICS_CATEGORIES: readonly GraphicsCategory[] = ['wall', 'door', 'window', 'floor', 'slab', 'roof', 'stair', 'room', 'annotation', 'generic'];
-/** Nome da categoria nas mensagens de validação (pt-BR). */
-export const GRAPHICS_CATEGORY_LABELS: Record<GraphicsCategory, string> = {
-  wall: 'parede',
-  door: 'porta',
-  window: 'janela',
-  floor: 'piso',
-  slab: 'laje',
-  roof: 'telhado',
-  stair: 'escada e rampa',
-  room: 'ambiente',
-  annotation: 'anotação',
-  generic: 'objeto importado',
-};
+/** Nome da categoria nas mensagens de validação, no idioma pedido. */
+export function graphicsCategoryLabels(lang: Lang = 'pt'): Record<GraphicsCategory, string> {
+  return {
+    wall: t(lang, 'md_cat_wall'),
+    door: t(lang, 'md_cat_door'),
+    window: t(lang, 'md_cat_window'),
+    floor: t(lang, 'md_cat_floor'),
+    slab: t(lang, 'md_cat_slab'),
+    roof: t(lang, 'md_cat_roof'),
+    stair: t(lang, 'md_cat_stair'),
+    room: t(lang, 'md_cat_room'),
+    annotation: t(lang, 'md_cat_annotation'),
+    generic: t(lang, 'md_cat_generic'),
+  };
+}
+
+/** Nome da categoria nas mensagens de validação em PT (compatibilidade). */
+export const GRAPHICS_CATEGORY_LABELS: Record<GraphicsCategory, string> = graphicsCategoryLabels('pt');
 
 /**
  * Ocultação permanente de uma vista (Revit: Hide in View). Guarda elementos e categorias ocultos só naquela vista;
@@ -31,15 +37,15 @@ export interface ViewHidden {
   categories?: GraphicsCategory[];
 }
 
-/** Problemas de um `ViewHidden` (comandos e validação), em pt-BR. */
-export function viewHiddenIssues(h: ViewHidden | undefined): string[] {
+/** Problemas de um `ViewHidden` (comandos e validação), no idioma pedido. */
+export function viewHiddenIssues(h: ViewHidden | undefined, lang: Lang = 'pt'): string[] {
   if (h === undefined) return [];
   const out: string[] = [];
   if (h.elements !== undefined && (!Array.isArray(h.elements) || h.elements.some((id) => typeof id !== 'string' || id === ''))) {
-    out.push('Os elementos ocultos devem ser uma lista de ids válidos.');
+    out.push(t(lang, 'md_gfx_hidden_elements'));
   }
   if (h.categories !== undefined && (!Array.isArray(h.categories) || h.categories.some((c) => !GRAPHICS_CATEGORIES.includes(c)))) {
-    out.push('As categorias ocultas devem ser categorias gráficas válidas.');
+    out.push(t(lang, 'md_gfx_hidden_categories'));
   }
   return out;
 }
@@ -266,75 +272,76 @@ export function view3dOf(p: Pick<Project, 'view3d'>): View3DSettings {
   return { ...DEFAULT_VIEW_3D, ...(g ?? {}), overrides: mergeOverrides(g?.overrides) };
 }
 
-const WEIGHT_RULE = 'deve ser um número inteiro de 1 a 16.';
-const PARTIAL_MSG = 'A exibição parcial deve ser entire, noFinishes ou coreOnly.';
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 const DETAIL_OPTIONS: readonly string[] = ['byScale', 'coarse', 'medium', 'fine'];
 const isWeight = (x: unknown): boolean => typeof x === 'number' && Number.isInteger(x) && x >= 1 && x <= 16;
 const isShare = (x: unknown): boolean => typeof x === 'number' && x >= 0 && x <= 1;
 const isHex = (x: unknown): boolean => typeof x === 'string' && HEX_COLOR.test(x);
 
-function projectIssues(g: ProjectGraphics): string[] {
+function projectIssues(g: ProjectGraphics, lang: Lang): string[] {
   const out: string[] = [];
   const table: unknown = g.lineWeights;
-  if (!Array.isArray(table) || table.length !== 16) out.push('A tabela de pesos de linha deve ter 16 linhas (pesos 1 a 16).');
+  if (!Array.isArray(table) || table.length !== 16) out.push(t(lang, 'md_gfx_table_rows'));
   else
     table.forEach((row: unknown, i: number) => {
       const n = i + 1;
-      if (!Array.isArray(row) || row.length !== 3) out.push(`Peso ${n} da tabela de pesos deve ter 3 colunas (1:50, 1:100 e 1:200).`);
+      if (!Array.isArray(row) || row.length !== 3) out.push(t(lang, 'md_gfx_weight_columns', { n }));
       else if (row.some((mm: unknown) => !(typeof mm === 'number' && Number.isFinite(mm) && mm > 0)))
-        out.push(`Peso ${n} da tabela de pesos: a espessura deve ser um número maior que zero, em mm de papel.`);
+        out.push(t(lang, 'md_gfx_weight_thickness', { n }));
     });
   for (const c of GRAPHICS_CATEGORIES) {
     const s = g.categories?.[c];
-    const n = GRAPHICS_CATEGORY_LABELS[c];
-    if (!isWeight(s?.cutWeight)) out.push(`Peso de corte de "${n}" ${WEIGHT_RULE}`);
-    if (!isWeight(s?.projectionWeight)) out.push(`Peso de projeção de "${n}" ${WEIGHT_RULE}`);
+    const n = graphicsCategoryLabels(lang)[c];
+    const rule = t(lang, 'md_gfx_weight_rule');
+    if (!isWeight(s?.cutWeight)) out.push(t(lang, 'md_gfx_cut_weight', { name: n, rule }));
+    if (!isWeight(s?.projectionWeight)) out.push(t(lang, 'md_gfx_projection_weight', { name: n, rule }));
   }
   const { fineMax, mediumMax } = g.detailByScale;
-  if (!Number.isFinite(fineMax) || !Number.isFinite(mediumMax)) out.push('Os limites de detalhe devem ser números finitos.');
-  else if (!(fineMax > 0) || fineMax > mediumMax) out.push('O limite do detalhe fino deve ser maior que zero e não maior que o do médio.');
+  if (!Number.isFinite(fineMax) || !Number.isFinite(mediumMax)) out.push(t(lang, 'md_gfx_detail_finite'));
+  else if (!(fineMax > 0) || fineMax > mediumMax) out.push(t(lang, 'md_gfx_detail_limits'));
   return out;
 }
 
-function overrideIssues(o: Record<GraphicsCategory, CategoryOverride>): string[] {
+function overrideIssues(o: Record<GraphicsCategory, CategoryOverride>, lang: Lang): string[] {
   const out: string[] = [];
+  const labels = graphicsCategoryLabels(lang);
+  const rule = t(lang, 'md_gfx_weight_rule');
   for (const c of GRAPHICS_CATEGORIES) {
     const v: Partial<CategoryOverride> = o?.[c] ?? {};
-    const n = GRAPHICS_CATEGORY_LABELS[c];
-    if (typeof v.visible !== 'boolean') out.push(`Visibilidade de "${n}" deve ser sim ou não.`);
-    if (!isShare(v.transparency)) out.push(`Transparência de "${n}" deve ser um número de 0 a 1.`);
-    if (typeof v.halftone !== 'boolean') out.push(`Meio-tom de "${n}" deve ser sim ou não.`);
-    if (v.cutWeight !== undefined && !isWeight(v.cutWeight)) out.push(`Peso de corte de "${n}" ${WEIGHT_RULE}`);
-    if (v.projectionWeight !== undefined && !isWeight(v.projectionWeight)) out.push(`Peso de projeção de "${n}" ${WEIGHT_RULE}`);
-    if (v.color !== undefined && !isHex(v.color)) out.push(`Cor de "${n}" deve estar no formato #rrggbb.`);
+    const n = labels[c];
+    if (typeof v.visible !== 'boolean') out.push(t(lang, 'md_gfx_visible', { name: n }));
+    if (!isShare(v.transparency)) out.push(t(lang, 'md_gfx_transparency', { name: n }));
+    if (typeof v.halftone !== 'boolean') out.push(t(lang, 'md_gfx_halftone', { name: n }));
+    if (v.cutWeight !== undefined && !isWeight(v.cutWeight)) out.push(t(lang, 'md_gfx_cut_weight', { name: n, rule }));
+    if (v.projectionWeight !== undefined && !isWeight(v.projectionWeight)) out.push(t(lang, 'md_gfx_projection_weight', { name: n, rule }));
+    if (v.color !== undefined && !isHex(v.color)) out.push(t(lang, 'md_gfx_color', { name: n }));
   }
   return out;
 }
 
-function viewIssues(g: ViewGraphics): string[] {
+function viewIssues(g: ViewGraphics, lang: Lang): string[] {
   const out: string[] = [];
-  if (!Number.isInteger(g.scale) || g.scale < 1 || g.scale > 5000) out.push('A escala deve ser um denominador inteiro de 1 a 5000 (100 = 1:100).');
-  if (!DETAIL_OPTIONS.includes(g.detail)) out.push('O detalhe deve ser "byScale", "coarse", "medium" ou "fine".');
-  if (!PLAN_VISUAL_STYLES.includes(g.style)) out.push('O estilo visual da planta deve ser wireframe, hiddenLine ou shaded.');
-  if (!PARTIAL_STRUCTURES.includes(g.partialStructure)) out.push(PARTIAL_MSG);
-  if (g.thinLines !== undefined && typeof g.thinLines !== 'boolean') out.push('Linhas finas deve ser sim ou não.');
-  return [...out, ...overrideIssues(g.overrides)];
+  if (!Number.isInteger(g.scale) || g.scale < 1 || g.scale > 5000) out.push(t(lang, 'md_gfx_scale'));
+  if (!DETAIL_OPTIONS.includes(g.detail)) out.push(t(lang, 'md_gfx_detail_option'));
+  if (!PLAN_VISUAL_STYLES.includes(g.style)) out.push(t(lang, 'md_gfx_plan_style'));
+  if (!PARTIAL_STRUCTURES.includes(g.partialStructure)) out.push(t(lang, 'md_gfx_partial'));
+  if (g.thinLines !== undefined && typeof g.thinLines !== 'boolean') out.push(t(lang, 'md_gfx_thin_lines'));
+  return [...out, ...overrideIssues(g.overrides, lang)];
 }
 
-function view3dIssues(g: View3DSettings): string[] {
+function view3dIssues(g: View3DSettings, lang: Lang): string[] {
   const out: string[] = [];
-  if (!VISUAL_STYLES.includes(g.style)) out.push('O estilo visual da vista 3D deve ser wireframe, hiddenLine, shaded, consistentColors ou realistic.');
-  if (!PARTIAL_STRUCTURES.includes(g.partialStructure)) out.push(PARTIAL_MSG);
-  out.push(...overrideIssues(g.overrides));
-  if (typeof g.shadows !== 'boolean') out.push('Sombras devem ser sim ou não.');
-  if (typeof g.edges !== 'boolean') out.push('Arestas devem ser sim ou não.');
-  if (!Number.isFinite(g.sunAzimuth)) out.push('O azimute do sol deve ser um número finito, em graus.');
-  if (!(Number.isFinite(g.sunElevation) && g.sunElevation >= 0 && g.sunElevation <= 90)) out.push('A elevação do sol deve estar entre 0 e 90 graus.');
-  if (g.background !== null && !isHex(g.background)) out.push('A cor de fundo deve estar no formato #rrggbb, ou ser null para o padrão do tema.');
-  if (g.openOpenings !== undefined && typeof g.openOpenings !== 'boolean') out.push('Abrir vãos no 3D deve ser sim ou não.');
-  if (g.showLevels !== undefined && typeof g.showLevels !== 'boolean') out.push('Mostrar níveis de referência no 3D deve ser sim ou não.');
-  out.push(...viewHiddenIssues(g.hidden));
+  if (!VISUAL_STYLES.includes(g.style)) out.push(t(lang, 'md_gfx_3d_style'));
+  if (!PARTIAL_STRUCTURES.includes(g.partialStructure)) out.push(t(lang, 'md_gfx_partial'));
+  out.push(...overrideIssues(g.overrides, lang));
+  if (typeof g.shadows !== 'boolean') out.push(t(lang, 'md_gfx_shadows'));
+  if (typeof g.edges !== 'boolean') out.push(t(lang, 'md_gfx_edges'));
+  if (!Number.isFinite(g.sunAzimuth)) out.push(t(lang, 'md_gfx_sun_azimuth'));
+  if (!(Number.isFinite(g.sunElevation) && g.sunElevation >= 0 && g.sunElevation <= 90)) out.push(t(lang, 'md_gfx_sun_elevation'));
+  if (g.background !== null && !isHex(g.background)) out.push(t(lang, 'md_gfx_background'));
+  if (g.openOpenings !== undefined && typeof g.openOpenings !== 'boolean') out.push(t(lang, 'md_gfx_open_openings'));
+  if (g.showLevels !== undefined && typeof g.showLevels !== 'boolean') out.push(t(lang, 'md_gfx_show_levels'));
+  out.push(...viewHiddenIssues(g.hidden, lang));
   return out;
 }
 
@@ -342,10 +349,10 @@ function view3dIssues(g: View3DSettings): string[] {
  * Problemas de um gráfico já com os padrões aplicados (use os getters). Sem prefixo de nível: quem chama acrescenta o contexto.
  * Projeto e 3D são reconhecidos pelos campos `lineWeights` e `sunElevation`; o resto é a planta de um nível.
  */
-export function graphicsIssues(g: ProjectGraphics | ViewGraphics | View3DSettings): string[] {
-  if ('lineWeights' in g) return projectIssues(g);
-  if ('sunElevation' in g) return view3dIssues(g);
-  return viewIssues(g);
+export function graphicsIssues(g: ProjectGraphics | ViewGraphics | View3DSettings, lang: Lang = 'pt'): string[] {
+  if ('lineWeights' in g) return projectIssues(g, lang);
+  if ('sunElevation' in g) return view3dIssues(g, lang);
+  return viewIssues(g, lang);
 }
 
 function sameData(a: unknown, b: unknown): boolean {

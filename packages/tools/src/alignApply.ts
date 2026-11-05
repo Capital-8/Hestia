@@ -6,6 +6,7 @@ import { transformWalls } from './edit.ts';
 import { commitRingEdit } from './ringTarget.ts';
 import { execWithHostedLoss } from './hostedGuard.ts';
 import type { ToolEnv } from './types.ts';
+import { langOf, t as translate } from './i18n.ts';
 
 /** Ganchos para quem tem um esboço aberto (perímetro): aplica a linha alinhada no rascunho. */
 export interface AlignApplyHooks {
@@ -65,7 +66,7 @@ export function applyAlign(env: ToolEnv, sol: AlignSolution, hooks: AlignApplyHo
 
   if (sol.kind === 'esboco') {
     if (hooks.esboco) return hooks.esboco(sol);
-    env.say('Linha do esboço: use o comando Alinhar do perímetro.');
+    env.say(translate(langOf(env), 'tl_msg_sketch_line_perimeter_tool'));
     return false;
   }
 

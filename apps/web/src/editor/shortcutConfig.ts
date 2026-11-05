@@ -1,6 +1,10 @@
 import { create } from 'zustand';
-import { COMANDOS_COM_ATALHO, PERFIL_PADRAO, SHORTCUT_PROFILES, nomeComando, type ShortcutCommand, type ShortcutMap, type ShortcutProfile } from '@hestia/tools';
+import { COMANDOS_COM_ATALHO, PERFIL_PADRAO, SHORTCUT_PROFILES, nomeComandoLang, type ShortcutCommand, type ShortcutMap, type ShortcutProfile } from '@hestia/tools';
+import { t, useI18n, type Lang } from './i18n.ts';
 import { CasadorSequencia, conflitoNoMapa, conflitosDe, normalizaSequencia, type ConflitoAtalho } from './shortcuts.ts';
+
+/** Idioma ativo no momento da mensagem (fora do React). */
+const langAtual = (): Lang => useI18n.getState().lang;
 
 const CHAVE = 'hestia.atalhos.v1';
 const FORMATO = 'hestia-atalhos';
@@ -102,21 +106,25 @@ export type ResultadoAtalho = { ok: true; mensagem: string } | { ok: false; erro
 
 /** Atribui uma sequência a um comando. Recusa sequência inválida ou em conflito, dizendo quem já a usa. */
 export function atribuirAtalho(cmd: ShortcutCommand, raw: string): ResultadoAtalho {
+  const lang = langAtual();
   const seq = normalizaSequencia(raw);
-  if (!seq) return { ok: false, erro: 'Use de 1 a 4 letras ou números, sem espaços.' };
+  if (!seq) return { ok: false, erro: t(lang, 'edc_shortcut_invalid_seq') };
   const { perfil, mapa } = useAtalhos.getState();
   const novo: ShortcutMap = { ...mapa, [cmd]: seq };
   const conflitos = conflitosDe(mapa, cmd, seq);
   if (conflitos.length) {
     // Lista até três conflitos; o resto vira "…e mais N".
-    const cita = (c: ConflitoAtalho): string => `${nomeComando(c.comando)}${c.motivo === 'prefixo' ? ` (começa igual a "${c.sequencia}")` : ''}`;
+    const cita = (c: ConflitoAtalho): string => c.motivo === 'prefixo'
+      ? t(lang, 'edc_shortcut_conflict_item_prefix', { command: nomeComandoLang(c.comando, lang), seq: c.sequencia })
+      : nomeComandoLang(c.comando, lang);
     const tres = conflitos.slice(0, 3).map(cita);
     const resto = conflitos.length - tres.length;
-    const lista = tres.length === 1 ? tres[0] : `${tres.slice(0, -1).join(', ')} e ${tres[tres.length - 1]}`;
-    return { ok: false, erro: `"${seq}" já é usada por ${lista}${resto > 0 ? ` …e mais ${resto}` : ''}. Escolha outra.` };
+    const lista = tres.length === 1 ? tres[0]! : t(lang, 'edc_shortcut_list_pair', { first: tres.slice(0, -1).join(', '), last: tres[tres.length - 1]! });
+    const chave = resto > 0 ? 'edc_shortcut_conflict_more' : 'edc_shortcut_conflict';
+    return { ok: false, erro: t(lang, chave, { seq, list: lista, n: resto }) };
   }
   aplica(perfil, alteracoesDe(perfil, novo));
-  return { ok: true, mensagem: `${nomeComando(cmd)}: atalho ${seq}.` };
+  return { ok: true, mensagem: t(lang, 'edc_shortcut_assigned', { command: nomeComandoLang(cmd, lang), seq }) };
 }
 
 /** Tira o atalho de um comando (ele passa a não ter tecla). */
@@ -158,23 +166,31 @@ export function exportaAtalhos(): string {
  * `null` tira o atalho. Recusa arquivo malformado, comando desconhecido ou sequência em conflito.
  */
 export function importaAtalhos(texto: string): ResultadoAtalho {
+  const lang = langAtual();
   let dado: { formato?: unknown; versao?: unknown; perfil?: unknown; comandos?: unknown };
   try {
     dado = JSON.parse(texto) as typeof dado;
   } catch {
-    return { ok: false, erro: 'O arquivo não é um JSON válido.' };
+    return { ok: false, erro: t(lang, 'edc_json_invalid') };
   }
-  if (dado.formato !== FORMATO || dado.versao !== 1) return { ok: false, erro: 'Arquivo que não é de atalhos do Hestia (formato ou versão diferentes).' };
+  if (dado.formato !== FORMATO || dado.versao !== 1) return { ok: false, erro: t(lang, 'edc_shortcut_wrong_file') };
   const perfil = dado.perfil ?? useAtalhos.getState().perfil;
-  if (!ehPerfil(perfil)) return { ok: false, erro: 'Perfil desconhecido no arquivo.' };
+  if (!ehPerfil(perfil)) return { ok: false, erro: t(lang, 'edc_shortcut_unknown_profile') };
   const mapa = mapaDeComandos(perfil, dado.comandos);
-  if (!mapa) return { ok: false, erro: 'Comandos inválidos: cada comando precisa existir e ter uma sequência de letras e números, ou null.' };
+  if (!mapa) return { ok: false, erro: t(lang, 'edc_shortcut_invalid_commands') };
   const conflito = conflitoNoMapa(mapa);
   if (conflito) {
-    return { ok: false, erro: `Conflito no arquivo: ${nomeComando(conflito.a)} e ${nomeComando(conflito.b)} usam "${conflito.sequencia}". Nada foi importado.` };
+    return {
+      ok: false,
+      erro: t(lang, 'edc_shortcut_file_conflict', {
+        a: nomeComandoLang(conflito.a, lang),
+        b: nomeComandoLang(conflito.b, lang),
+        seq: conflito.sequencia,
+      }),
+    };
   }
   aplica(perfil, alteracoesDe(perfil, mapa));
-  return { ok: true, mensagem: 'Atalhos importados.' };
+  return { ok: true, mensagem: t(lang, 'edc_shortcuts_imported') };
 }
 
 /** Sequência atual de um comando (a da configuração, qualquer perfil). Null se o comando não tem tecla. */

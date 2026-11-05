@@ -10,20 +10,18 @@ import { DEFAULT_RAMP_OPTIONS, type RampToolOptions } from './rampOptions.ts';
 import { RampLiveSession, type LiveEvent, type RampLiveConfig } from './rampLiveSession.ts';
 import { rampPartsPreview } from './rampPreview.ts';
 import type { PointerInfo, PreviewItem } from './types.ts';
+import { fmtNumLang, type Lang } from './i18n.ts';
 
-const START_HINT = 'Rampa: clique no centro da borda de início. Esc cancela.';
-const FREE_START_HINT = 'Rampa livre: clique o ponto inicial. Esc cancela.';
-const DIRECTION_HINT = 'Rampa: clique para dar a direção e o comprimento, ou digite o ângulo em graus (0 = eixo X). Esc cancela o ponto.';
 /** Distância mínima (m) entre o ponto inicial e o cursor para definir a direção. */
 const MIN_DIRECTION = 0.01;
 /** Tolerância (m) para a nota do modo 'slope' comparar o clique com o comprimento necessário. */
 const CLICK_EPS = 0.005;
 
-/** Metros com vírgula e duas casas (9,6 → "9,60"). */
-const mText = (m: number): string => m.toFixed(2).replace('.', ',');
+/** Metros com duas casas no separador do idioma (9,6 → "9,60"). */
+const mText = (m: number, lang: Lang): string => fmtNumLang(m, 2, lang);
 
 /** "1 lance" / "4 lances". */
-const flightsText = (n: number): string => `${n} ${n === 1 ? 'lance' : 'lances'}`;
+const flightsText = (n: number, lang: Lang): string => (lang === 'en' ? `${n} ${n === 1 ? 'flight' : 'flights'}` : `${n} ${n === 1 ? 'lance' : 'lances'}`);
 
 /**
  * Rampa reta, em L ou em U, criada pronta por cliques. O 1º clique é o centro da borda de início; o movimento mostra a
@@ -35,7 +33,9 @@ const flightsText = (n: number): string => `${n} ${n === 1 ? 'lance' : 'lances'}
 export class RampTool extends ToolBase {
   readonly id = 'ramp';
   readonly label = 'Rampa';
-  readonly hint = START_HINT;
+  override get hint(): string {
+    return this.t('tl_hint_ramp');
+  }
   private origin: Vec2 | null = null;
   /** Sessão do desenho livre (forma 'free'); criada na primeira necessidade. */
   private session: RampLiveSession | null = null;
@@ -63,12 +63,12 @@ export class RampTool extends ToolBase {
 
   override start(): void {
     this.reset();
-    this.env.say(this.free ? FREE_START_HINT : START_HINT);
+    this.env.say(this.free ? this.t('tl_hint_ramp_free') : this.t('tl_hint_ramp'));
   }
 
   override inputPrompt(): string | null {
-    if (this.free) return this.session?.state === 'ORIGIN' || this.session?.state === 'DRAWING' ? 'Comprimento (m)' : null;
-    return this.origin !== null ? 'Ângulo (°)' : null;
+    if (this.free) return this.session?.state === 'ORIGIN' || this.session?.state === 'DRAWING' ? this.t('tl_inp_length_m') : null;
+    return this.origin !== null ? this.t('tl_inp_angle') : null;
   }
 
   /** Enter: no desenho livre conclui (com aviso se falta desnível); nos demais, o padrão da base. */
@@ -85,7 +85,7 @@ export class RampTool extends ToolBase {
     if (this.free && this.busy()) {
       this.reset();
       this.items = [];
-      this.env.say(FREE_START_HINT);
+      this.env.say(this.t('tl_hint_ramp_free'));
       return;
     }
     super.cancel();
@@ -125,7 +125,7 @@ export class RampTool extends ToolBase {
       if (cfg.mode === 'slope') this.setOptions({ slope: slopeAntes });
       this.liveSession()?.load(pts);
       this.items = novo?.move(pts[pts.length - 1]!, 0) ?? [];
-      this.env.say('Não foi possível ajustar: o trajeto ajustado fica curto demais ou faz retorno agudo.');
+      this.env.say(this.t('tl_msg_adjust_fail'));
       return true;
     }
     this.items = novo.move(novo.points[novo.points.length - 1]!, 0);
@@ -160,7 +160,7 @@ export class RampTool extends ToolBase {
       this.items = [{ kind: 'point', at: this.origin }];
       return;
     }
-    this.env.say(DIRECTION_HINT);
+    this.env.say(this.t('tl_hint_ramp_dir'));
     const label: PreviewItem = {
       kind: 'label',
       at: inf.point,
@@ -176,20 +176,20 @@ export class RampTool extends ToolBase {
    * passou). Modo 'length': a inclinação que resulta do comprimento e se fica dentro da norma.
    */
   private labelText(plan: RampPlan, clickLength: number): string {
-    const base = `${flightsText(plan.flights)} · ${mText(plan.pathLength)} m`;
+    const base = `${flightsText(plan.flights, this.uiLang())} · ${mText(plan.pathLength, this.uiLang())} m`;
     const lv = this.live;
     if (!lv) return `${formatRampSlope(plan.slope)} · ${base}`;
     if (lv.mode === 'slope') {
       const r = liveRemaining({ H: lv.H, mode: 'slope', type: lv.type, ...(lv.slope !== undefined ? { slope: lv.slope } : {}), pathLength: clickLength });
       if (r.mode !== 'slope') return base;
       const falta = r.status === 'falta' ? r.falta : r.status === 'passou' ? -r.excess : 0;
-      return `${rotuloInclinacao(r.slope, falta)} · ${base}`;
+      return `${rotuloInclinacao(r.slope, falta, this.uiLang())} · ${base}`;
     }
     const landings = plan.pathLength - plan.flightLengths.reduce((a, b) => a + b, 0);
     const r = liveRemaining({ H: lv.H, mode: 'length', type: lv.type, ...(lv.slope !== undefined ? { slope: lv.slope } : {}), pathLength: plan.pathLength, landingsLength: landings });
     if (r.mode !== 'length') return base;
     const max = lv.slope ?? rampMaxSlope(lv.type) ?? null;
-    return `${formatRampSlope(plan.slope)} · ${base} · ${textoResultaInclinacao(r.slope, max, r.faltaLength)}`;
+    return `${formatRampSlope(plan.slope)} · ${base} · ${textoResultaInclinacao(r.slope, max, r.faltaLength, this.uiLang())}`;
   }
 
   override click(p: PointerInfo): void {
@@ -200,12 +200,12 @@ export class RampTool extends ToolBase {
     const inf = this.snap(p, { from: this.origin ?? undefined });
     if (this.origin === null) {
       this.origin = inf.point;
-      this.env.say(DIRECTION_HINT);
+      this.env.say(this.t('tl_hint_ramp_dir'));
       return;
     }
     const dir = sub(inf.point, this.origin);
     if (len(dir) < MIN_DIRECTION) {
-      this.env.say('Afaste o cursor do ponto inicial para dar a direção.');
+      this.env.say(this.t('tl_msg_move_cursor_direction'));
       return;
     }
     this.create(dir, len(dir));
@@ -216,7 +216,7 @@ export class RampTool extends ToolBase {
     if (this.origin === null) return false;
     const v = parseNumber(text);
     if (v === null) {
-      this.env.say('Valor inválido. Digite o ângulo em graus.');
+      this.env.say(this.t('tl_msg_invalid_angle'));
       return false;
     }
     const a = (v * Math.PI) / 180;
@@ -233,15 +233,15 @@ export class RampTool extends ToolBase {
     const o = this.opts;
     const typeId = rampTypeId(p, o.typeId);
     const type = typeId ? p.rampTypes[typeId] : undefined;
-    if (!typeId || !type) return { error: 'O projeto não tem tipo de rampa.' };
+    if (!typeId || !type) return { error: this.t('tl_msg_no_ramp_type') };
     const draft = draftRamp(p, o, this.env.levelId());
-    if (!draft) return { error: 'O projeto não tem tipo de rampa.' };
+    if (!draft) return { error: this.t('tl_msg_no_ramp_type') };
     const H = rampRise(p, draft);
     if (!(H > 0)) {
       return {
         error: rampTopLevel(p, draft)
-          ? 'O nível de topo não fica acima da base: nada a gerar.'
-          : 'Sem nível de topo: escolha o nível de cima na barra de colocação (ou informe uma altura positiva).',
+          ? this.t('tl_msg_top_not_above')
+          : this.t('tl_msg_no_top_level'),
       };
     }
     const width = o.width ?? type.defaultWidth;
@@ -264,13 +264,13 @@ export class RampTool extends ToolBase {
     if ('error' in plan) return plan;
     let note: string | undefined;
     if (noClick) {
-      note = `Sem clique de comprimento: usada a inclinação ${formatRampSlope(plan.slope)}.`;
+      note = this.t('tl_msg_no_length_click', { slope: formatRampSlope(plan.slope) });
     } else if (mode === 'slope') {
       const pct = formatRampPercent(plan.slope);
       if (clickLength > plan.pathLength + CLICK_EPS) {
-        note = `A inclinação de ${pct} pede ${mText(plan.pathLength)} m: a rampa termina antes do clique de ${mText(clickLength)} m.`;
+        note = this.t('tl_msg_slope_ends_before', { pct, d: mText(plan.pathLength, this.uiLang()), c: mText(clickLength, this.uiLang()) });
       } else if (clickLength < plan.pathLength - CLICK_EPS) {
-        note = `A inclinação de ${pct} pede ${mText(plan.pathLength)} m: a rampa passa do clique de ${mText(clickLength)} m.`;
+        note = this.t('tl_msg_slope_passes', { pct, d: mText(plan.pathLength, this.uiLang()), c: mText(clickLength, this.uiLang()) });
       }
     }
     return note ? { ...plan, note } : plan;
@@ -293,12 +293,12 @@ export class RampTool extends ToolBase {
     const typeId = rampTypeId(p, o.typeId);
     const type = typeId ? p.rampTypes[typeId] : undefined;
     if (!typeId || !type) {
-      this.env.say('O projeto não tem tipo de rampa.');
+      this.env.say(this.t('tl_msg_no_ramp_type'));
       return false;
     }
     const slopeTarget = inputMode === 'slope' ? (o.slope ?? type.defaultSlope) : null;
     const out: { r?: RampCommandResult } = {};
-    this.env.transaction('Criar rampa', () => {
+    this.env.transaction(this.t('tl_undo_create_ramp'), () => {
       out.r = createRampFromPlan(this.env, plan, {
         typeId,
         levelId: this.env.levelId(),
@@ -317,13 +317,20 @@ export class RampTool extends ToolBase {
     });
     const r = out.r;
     if (!r || 'error' in r) {
-      this.env.say(`Não é possível criar a rampa: ${r?.error ?? 'falha ao gravar.'}`);
+      this.env.say(this.t('tl_msg_ramp_fail', { error: r?.error ?? this.t('tl_msg_save_failed') }));
       return false;
     }
     const aviso = rampIssuesOf(this.env.project(), r.id).find((i) => i.severity === 'warning');
     const nota = plan.note ? ` ${plan.note}` : '';
     const avisoText = aviso ? ` Aviso: ${aviso.message}` : '';
-    this.env.say(`Rampa criada: ${flightsText(plan.flights)}, inclinação ${formatRampSlope(plan.slope)}, ${mText(plan.pathLength)} m.${nota}${avisoText} Ctrl+Z desfaz.`);
+    const lang = this.uiLang();
+    this.env.say(this.t('tl_msg_ramp_created', {
+      flights: flightsText(plan.flights, lang),
+      slope: formatRampSlope(plan.slope),
+      length: mText(plan.pathLength, lang),
+      note: nota,
+      warning: avisoText,
+    }));
     this.reset();
     this.items = [];
     return true;
@@ -338,13 +345,13 @@ export class RampTool extends ToolBase {
     const typeId = rampTypeId(p, o.typeId);
     const type = typeId ? p.rampTypes[typeId] : undefined;
     const draft = draftRamp(p, o, this.env.levelId());
-    if (!typeId || !type || !draft) return { error: 'O projeto não tem tipo de rampa.' };
+    if (!typeId || !type || !draft) return { error: this.t('tl_msg_no_ramp_type') };
     const H = rampRise(p, draft);
     if (!(H > 0)) {
       return {
         error: rampTopLevel(p, draft)
-          ? 'O nível de topo não fica acima da base: nada a gerar.'
-          : 'Sem nível de topo: escolha o nível de cima na barra de colocação (ou informe uma altura positiva).',
+          ? this.t('tl_msg_top_not_above')
+          : this.t('tl_msg_no_top_level'),
       };
     }
     return {
@@ -354,6 +361,7 @@ export class RampTool extends ToolBase {
       ...(o.mode === 'slope' ? { slope: o.slope ?? type.defaultSlope } : o.slope !== undefined ? { slope: o.slope } : {}),
       width: o.width ?? type.defaultWidth,
       ...(o.landingDepth !== undefined ? { landingDepth: o.landingDepth } : {}),
+      lang: this.uiLang(),
     };
   }
 
@@ -396,7 +404,7 @@ export class RampTool extends ToolBase {
     if (!s) return false;
     const v = parseNumber(text);
     if (v === null) {
-      this.env.say('Valor inválido. Digite o comprimento em metros.');
+      this.env.say(this.t('tl_msg_invalid_length_m'));
       return false;
     }
     const ev = s.typeLength(v);
@@ -414,7 +422,7 @@ export class RampTool extends ToolBase {
     }
     if (ev.kind === 'added') {
       this.items = s.move(at ?? s.points[s.points.length - 1]!, 0);
-      this.env.say(ev.message ? `${ev.message} Enter ou clique conclui; Backspace volta.` : s.hint());
+      this.env.say(ev.message ? `${ev.message}${this.t('tl_msg_enter_or_click')}` : s.hint());
       return;
     }
     this.createFree(ev.path);
@@ -438,7 +446,7 @@ export class RampTool extends ToolBase {
       const s = this.session;
       s?.load(path);
       this.items = s ? s.move(path[path.length - 1]!, 0) : [];
-      this.env.say(`Não é possível criar a rampa: ${plan.error} Backspace volta um ponto.`);
+      this.env.say(this.t('tl_msg_ramp_create_fail_back', { error: plan.error }));
       return;
     }
     this.items = [];

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ProjectStore, cameraDaVista3D, createEmptyProject, emptyTitleBlock, projectView3DPoints, view3DPointOf, type Sheet, type SheetView3DCamera } from '@hestia/model';
 import { OrbitCamera } from '@hestia/render';
 import { editor } from './controller.ts';
+import { resolveText } from './i18n.ts';
 import { DEFAULT_OPTIONS, useUi } from './state.ts';
 import { consumirCameraPendente, registrarOrbita3D, temVista3DAoVivo } from './vista3dAoVivo.ts';
 import { atualizarPonto3DAction, excluirPonto3DAction, irParaPonto3DAction, renomearPonto3DAction, salvarPonto3DAction } from './view3dPointActions.ts';
@@ -52,7 +53,7 @@ describe('salvar ponto de vista 3D', () => {
     const ponto = 'id' in r ? view3DPointOf(s.project, r.id) : undefined;
     expect(ponto?.name).toBe('Vista 3D');
     expect(ponto?.camera).toEqual(CAM());
-    expect(s.undoLabel).toBe('Salvar ponto de vista 3D');
+    expect(resolveText(s.undoLabel!, 'pt')).toBe('Salvar ponto de vista 3D');
 
     const outro = salvarPonto3DAction(s);
     expect('id' in outro && view3DPointOf(s.project, outro.id)?.name).toBe('Vista 3D 2');
@@ -115,7 +116,7 @@ describe('renomear ponto de vista 3D', () => {
     const id = 'id' in r ? r.id : '';
     expect(renomearPonto3DAction(s, id, '  Perspectiva sudoeste  ')).toBeNull();
     expect(view3DPointOf(s.project, id)?.name).toBe('Perspectiva sudoeste');
-    expect(s.undoLabel).toBe('Renomear ponto de vista 3D');
+    expect(resolveText(s.undoLabel!, 'pt')).toBe('Renomear ponto de vista 3D');
     s.undo();
     expect(view3DPointOf(s.project, id)?.name).toBe('Vista 3D');
 

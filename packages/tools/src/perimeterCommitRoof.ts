@@ -7,6 +7,7 @@ import type { EditFlags, FinishEdge } from './perimeterSession.ts';
 import { axisOr, keepOrder, newError, pickTypeId, refuse, withElement } from './perimeterCommitShared.ts';
 import { arcCuspProblem, collapseSketchArcs, eaveFromFootprint, footprintOf, footprintSag, hasRoofArcs, sampleSagRing } from './perimeterRoofArcs.ts';
 import type { CommitPerimeterOptions, CommitPerimeterResult } from './perimeterCommitTypes.ts';
+import { t as translate, type Lang } from './i18n.ts';
 
 /** Telhado com forma por arestas: as únicas que o perímetro sabe ler e regravar. Livre e extrusão têm ferramenta própria. */
 const isEdgeRoof = (r: Roof): boolean => r.shape !== 'free' && r.shape !== 'extrusion';
@@ -52,11 +53,11 @@ interface RoofFields {
 }
 
 /** Traduz o resultado do esboço (lados na ordem do anel) em campos do telhado. Recusa balanço ou inclinação inválidos. */
-function fieldsOf(outer: Vec2[], holes: Vec2[][], edges: FinishEdge[], segs: SketchSeg[]): RoofFields | string {
+function fieldsOf(outer: Vec2[], holes: Vec2[][], edges: FinishEdge[], segs: SketchSeg[], lang: Lang): RoofFields | string {
   const overhangsAll = edges.map((e) => e.overhang);
-  if (overhangsAll.some((v) => !Number.isFinite(v) || v < 0)) return 'Balanço inválido: use zero ou um valor positivo.';
+  if (overhangsAll.some((v) => !Number.isFinite(v) || v < 0)) return translate(lang, 'tl_msg_invalid_overhang');
   for (const e of edges) {
-    const err = e.definesSlope ? roofSlopeError(e.slopePct) : null;
+    const err = e.definesSlope ? roofSlopeError(e.slopePct, lang) : null;
     if (err) return err;
   }
   // Arcos amostrados do esboço voltam a ser uma aresta lógica com flecha (vértices só nos cantos).
@@ -64,7 +65,7 @@ function fieldsOf(outer: Vec2[], holes: Vec2[][], edges: FinishEdge[], segs: Ske
   const ring = logical ? logical.outer : outer;
   const es = logical ? logical.groups.map((g) => edges[g[0]!]!) : edges;
   const overhangs = es.map((e) => e.overhang);
-  const cusp = logical ? arcCuspProblem(ring, logical.sag, overhangs) : null;
+  const cusp = logical ? arcCuspProblem(ring, logical.sag, overhangs, lang) : null;
   if (cusp) return cusp;
   const eave = logical ? eaveFromFootprint(ring, logical.sag, overhangs) : { boundary: eaveOutlinePerEdge(ring, overhangs), edgeSag: undefined };
   const out: RoofFields = {
@@ -90,18 +91,19 @@ export function commitRoof(
   edges: FinishEdge[],
   opts: CommitPerimeterOptions,
   segs: SketchSeg[] = [],
+  lang: Lang = 'pt',
 ): CommitPerimeterResult {
-  const f = fieldsOf(outer, holes, edges, segs);
+  const f = fieldsOf(outer, holes, edges, segs, lang);
   if (typeof f === 'string') return refuse(f);
-  return s.editing ? editRoof(p, s.editing, f, opts) : createRoof(p, f, s.slopeDefault, opts);
+  return s.editing ? editRoof(p, s.editing, f, opts, lang) : createRoof(p, f, s.slopeDefault, opts, lang);
 }
 
-function createRoof(p: Project, f: RoofFields, slopeDefault: number, opts: CommitPerimeterOptions): CommitPerimeterResult {
+function createRoof(p: Project, f: RoofFields, slopeDefault: number, opts: CommitPerimeterOptions, lang: Lang): CommitPerimeterResult {
   const levelId = opts.levelId;
-  if (!levelId) return refuse('Nível não informado.');
-  if (!p.levels.some((l) => l.id === levelId)) return refuse('O nível não existe no projeto.');
+  if (!levelId) return refuse(translate(lang, 'tl_msg_no_level'));
+  if (!p.levels.some((l) => l.id === levelId)) return refuse(translate(lang, 'tl_msg_level_missing'));
   const typeId = pickTypeId(p.roofTypes, opts.typeId);
-  if (!typeId) return refuse('O projeto não tem tipo de telhado.');
+  if (!typeId) return refuse(translate(lang, 'tl_msg_no_roof_type'));
   const id = newId('t');
   const roof = makeRoof({
     id,
@@ -118,15 +120,18 @@ function createRoof(p: Project, f: RoofFields, slopeDefault: number, opts: Commi
   const candidate: Roof = { ...roof, order: p.nextOrder };
   const after = withElement(p, candidate);
   const problem = roofProblem(p, [candidate]) ?? newError(p, after, id, validateProject);
-  if (problem) return refuse(`Não foi possível criar o telhado: ${problem}`);
+  if (problem) return refuse(translate(lang, 'tl_msg_roof_create_fail', { problem }));
   const n = waterCount(roof);
-  return { ok: true, id, commands: [{ type: 'addRoof', roof }], message: n === 0 ? 'Telhado plano criado: nenhuma aresta define inclinação.' : `Telhado criado: ${n} ${n === 1 ? 'água' : 'águas'}.` };
+  const message = n === 0
+    ? translate(lang, 'tl_msg_roof_flat_created')
+    : translate(lang, 'tl_msg_roof_created', { n, water: translate(lang, n === 1 ? 'tl_water_one' : 'tl_water_many') });
+  return { ok: true, id, commands: [{ type: 'addRoof', roof }], message };
 }
 
-function editRoof(p: Project, id: string, f: RoofFields, opts: CommitPerimeterOptions): CommitPerimeterResult {
+function editRoof(p: Project, id: string, f: RoofFields, opts: CommitPerimeterOptions, lang: Lang): CommitPerimeterResult {
   const el = p.elements[id];
-  if (!el || !isRoof(el)) return refuse('Telhado não encontrado.');
-  if (!isEdgeRoof(el)) return refuse('Este telhado não tem forma por arestas: edite-o pela própria ferramenta.');
+  if (!el || !isRoof(el)) return refuse(translate(lang, 'tl_msg_roof_not_found'));
+  if (!isEdgeRoof(el)) return refuse(translate(lang, 'tl_msg_roof_not_edges'));
   const patch: Partial<Roof> = { ...f, holes: keepOrder(el.holes, f.holes) };
   // Sem arco no esboço, a flecha antiga sai do telhado (o campo some ao gravar).
   if (!f.edgeSag) patch.edgeSag = undefined;
@@ -137,7 +142,7 @@ function editRoof(p: Project, id: string, f: RoofFields, opts: CommitPerimeterOp
   const next: Roof = { ...el, ...patch };
   const after = withElement(p, next);
   const problem = roofProblem(p, [next]) ?? newError(p, after, id, validateProject);
-  if (problem) return refuse(`Alteração não aplicada: ${problem}`);
+  if (problem) return refuse(translate(lang, 'tl_msg_change_not_applied', { problem }));
   const n = waterCount(next);
-  return { ok: true, id, commands: [{ type: 'updateElements', ids: [id], patch }], message: `Telhado atualizado: ${n} ${n === 1 ? 'água' : 'águas'}.` };
+  return { ok: true, id, commands: [{ type: 'updateElements', ids: [id], patch }], message: translate(lang, 'tl_msg_roof_updated', { n, water: translate(lang, n === 1 ? 'tl_water_one' : 'tl_water_many') }) };
 }

@@ -1,11 +1,14 @@
 import { useMemo, useState, type ReactElement, type ReactNode } from 'react';
+import { formatQuantity, type Quantity, type ResolvedUnits } from '@hestia/model';
 import { buildRampSchedule, filterRampRows, rampScheduleToCsv, sumRampRows, type RampScheduleRow } from '@hestia/engine';
 import { useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
-import { useI18n, I18N } from '../../editor/i18n.ts';
+import { cmpTexto, resolveText, t as translate, useI18n, I18N, type Lang, type TextLike } from '../../editor/i18n.ts';
 import { saveText } from '../../editor/saveText.ts';
 import { Icon } from '../Icon.tsx';
 import { Dialog } from './Dialog.tsx';
+import { scheduleCell, scheduleHeader } from './scheduleUnits.ts';
+import { useUnits } from '../useUnits.ts';
 
 interface Col {
   key: keyof RampScheduleRow;
@@ -13,6 +16,8 @@ interface Col {
   labelKey: keyof typeof I18N.pt;
   /** Presente nas colunas numéricas: casas decimais e alinhamento à direita. */
   decimals?: number;
+  /** Grandeza da coluna: converte o valor SI para a unidade do projeto. */
+  quantity?: Quantity;
 }
 
 const COLS: Col[] = [
@@ -22,12 +27,13 @@ const COLS: Col[] = [
   { key: 'baseLevelName', labelKey: 'col_base_level' },
   { key: 'topLevelName', labelKey: 'col_top_level' },
   { key: 'flightCount', labelKey: 'col_flights', decimals: 0 },
-  { key: 'slope', labelKey: 'col_slope', decimals: 2 },
-  { key: 'rise', labelKey: 'col_rise', decimals: 2 },
-  { key: 'pathLength', labelKey: 'col_path_length', decimals: 2 },
-  { key: 'width', labelKey: 'col_width', decimals: 2 },
-  { key: 'planArea', labelKey: 'col_plan_area', decimals: 2 },
-  { key: 'volume', labelKey: 'col_volume', decimals: 3 },
+  // Inclinação guardada em fração; o formatador mostra em %.
+  { key: 'slope', labelKey: 'col_slope', decimals: 2, quantity: 'slope' },
+  { key: 'rise', labelKey: 'scx_col_rise', decimals: 2, quantity: 'length' },
+  { key: 'pathLength', labelKey: 'scx_col_path_length', decimals: 2, quantity: 'length' },
+  { key: 'width', labelKey: 'col_width', decimals: 2, quantity: 'length' },
+  { key: 'planArea', labelKey: 'col_plan_area', decimals: 2, quantity: 'area' },
+  { key: 'volume', labelKey: 'col_volume', decimals: 3, quantity: 'volume' },
 ];
 
 interface Sort {
@@ -35,44 +41,41 @@ interface Sort {
   dir: 1 | -1;
 }
 
-/** Números seguem o idioma ativo (vírgula decimal em PT, ponto em EN). */
-const fmt = (v: number, decimals: number): string =>
-  v.toLocaleString(useI18n.getState().lang === 'en' ? 'en-US' : 'pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-
-const compare = (a: RampScheduleRow, b: RampScheduleRow, s: Sort): number => {
+const compare = (a: RampScheduleRow, b: RampScheduleRow, s: Sort, lang: Lang): number => {
   const x = a[s.key];
   const y = b[s.key];
-  const r = typeof x === 'number' && typeof y === 'number' ? x - y : String(x ?? '').localeCompare(String(y ?? ''), 'pt-BR', { numeric: true });
+  const r = typeof x === 'number' && typeof y === 'number' ? x - y : cmpTexto(String(x ?? ''), String(y ?? ''), lang);
   return r * s.dir;
 };
 
-const cellValue = (r: RampScheduleRow, c: Col): ReactNode => {
+const cellValue = (r: RampScheduleRow, c: Col, units: ResolvedUnits): ReactNode => {
   const v = r[c.key];
   if (v === null || v === undefined || v === '') return '—';
   if (typeof v !== 'number') return v;
-  // A inclinação é guardada em fração; a tabela mostra em %.
-  return fmt(c.key === 'slope' ? v * 100 : v, c.decimals ?? 2);
+  return c.quantity ? scheduleCell(units, c.quantity, v, c.decimals) : String(v);
 };
 
 /** Tabela de rampas com ordenação, filtros por tipo e nível de base, totais e exportação CSV (padrão da tabela de escadas). */
 export function RampScheduleDialog(): ReactElement {
   const p = useProject();
-  const t = I18N[useI18n((s) => s.lang)];
+  const lang = useI18n((s) => s.lang);
+  const t = I18N[lang];
+  const units = useUnits();
   const schedule = useMemo(() => buildRampSchedule(p), [p]);
   const [levelId, setLevelId] = useState('');
   const [typeId, setTypeId] = useState('');
   const [sort, setSort] = useState<Sort | null>(null);
-  const [msg, setMsg] = useState('');
+  const [msg, setMsg] = useState<TextLike>('');
 
   const types = useMemo(() => {
     const byId = new Map(schedule.rows.map((r) => [r.typeId, r.typeName] as const));
-    return [...byId].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
-  }, [schedule]);
+    return [...byId].map(([id, name]) => ({ id, name })).sort((a, b) => cmpTexto(a.name, b.name, lang));
+  }, [schedule, lang]);
 
   const visible = useMemo(() => {
     const list = filterRampRows(schedule.rows, { levelId: levelId || undefined, typeId: typeId || undefined });
-    return sort ? [...list].sort((a, b) => compare(a, b, sort)) : list;
-  }, [schedule, levelId, typeId, sort]);
+    return sort ? [...list].sort((a, b) => compare(a, b, sort, lang)) : list;
+  }, [schedule, levelId, typeId, sort, lang]);
 
   const totals = useMemo(() => sumRampRows(visible), [visible]);
 
@@ -82,8 +85,9 @@ export function RampScheduleDialog(): ReactElement {
   const close = (): void => useUi.setState({ dialog: null, dialogArg: null });
 
   const exportCsv = async (): Promise<void> => {
-    const base = p.name.trim() || 'projeto';
-    const status = await saveText(`${base}-rampas.csv`, rampScheduleToCsv(visible, totals));
+    const base = p.name.trim() || t.scx_csv_default_project;
+    // i18n: passar `units` e `lang` quando o engine aceitar (unidades, cabeçalho e separador decimal do CSV).
+    const status = await saveText(`${base}-${t.scx_csv_file_ramp}.csv`, rampScheduleToCsv(visible, totals, units, lang));
     setMsg(status);
     useUi.setState({ status });
   };
@@ -91,11 +95,11 @@ export function RampScheduleDialog(): ReactElement {
   return (
     <Dialog
       title={t.sched_title_ramp}
-      sub={`${visible.length} ${t.sched_of} ${schedule.rows.length} ${t.sched_noun_ramp}`}
+      sub={translate(lang, schedule.rows.length === 1 ? 'scx_sub_ramp_one' : 'scx_sub_ramp_many', { shown: visible.length, total: schedule.rows.length })}
       onClose={close}
       footer={
         <>
-          <span className="wsched-msg" role="status">{msg}</span>
+          <span className="wsched-msg" role="status">{resolveText(msg, lang)}</span>
           <button className="btn primary" onClick={() => void exportCsv()} disabled={visible.length === 0} title={t.sched_export_tip}>
             {t.sched_export_csv}
           </button>
@@ -127,7 +131,7 @@ export function RampScheduleDialog(): ReactElement {
                   {COLS.map((c) => (
                     <th key={c.key} className={c.decimals !== undefined ? 'num' : undefined} aria-sort={sort?.key === c.key ? (sort.dir === 1 ? 'ascending' : 'descending') : undefined}>
                       <button type="button" className="sortbtn" onClick={() => toggleSort(c.key)} title={t.sched_sort_col}>
-                        {t[c.labelKey]}
+                        {c.quantity ? scheduleHeader(units, t[c.labelKey], c.quantity) : t[c.labelKey]}
                         {sort?.key === c.key ? <Icon name={sort.dir === 1 ? 'up' : 'down'} size={11} /> : null}
                       </button>
                     </th>
@@ -139,7 +143,7 @@ export function RampScheduleDialog(): ReactElement {
                   <tr key={r.rampId}>
                     {COLS.map((c) => (
                       <td key={c.key} className={c.decimals !== undefined ? 'num' : undefined}>
-                        {cellValue(r, c)}
+                        {cellValue(r, c, units)}
                       </td>
                     ))}
                   </tr>
@@ -149,8 +153,8 @@ export function RampScheduleDialog(): ReactElement {
           </div>
           <div className="total">
             <span>{totals.count} {totals.count === 1 ? t.sched_noun_ramp_one : t.sched_noun_ramp}</span>
-            <span>{t.sched_total_plan_area} {fmt(totals.planArea, 2)} m²</span>
-            <span>{t.sched_total_volume} {fmt(totals.volume, 3)} m³</span>
+            <span>{t.sched_total_plan_area} {formatQuantity(units, 'area', totals.planArea, { decimals: 2 })}</span>
+            <span>{t.sched_total_volume} {formatQuantity(units, 'volume', totals.volume, { decimals: 3 })}</span>
           </div>
         </>
       )}

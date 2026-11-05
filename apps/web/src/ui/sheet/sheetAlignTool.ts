@@ -9,6 +9,7 @@ import {
 } from '@hestia/model';
 import { levelBox, type SheetDrawList, type SheetGroup, type SheetPoint } from '@hestia/render';
 import { alignFeaturesAt, type AlignKind, type AlignPrefer } from '@hestia/tools';
+import { t, type Lang } from '../../editor/i18n.ts';
 
 /**
  * Alinhar nas pranchas: as mesmas feições do Alinhar do modelo (`alignFeaturesAt`), levadas para o papel, mais a moldura
@@ -57,6 +58,8 @@ export interface SheetAlignQuery {
   zoom: number;
   /** Padrão 'faces' (a mesma opção "Preferir" do Alinhar do modelo). */
   prefer?: AlignPrefer;
+  /** Idioma dos rótulos das feições (ausente = português). */
+  lang?: Lang;
 }
 
 /** Tolerância de captura em pixels de tela, como no Alinhar do modelo. */
@@ -126,7 +129,7 @@ function segmentDistance(p: PaperPoint, a: PaperPoint, b: PaperPoint): number {
 }
 
 /** Moldura da vista: as três verticais e as três horizontais da caixa, quando o cursor está na faixa em volta dela. */
-function frameFeatures(vp: SheetViewport, at: PaperPoint, tol: number): SheetAlignFeature[] {
+function frameFeatures(vp: SheetViewport, at: PaperPoint, tol: number, lang: Lang): SheetAlignFeature[] {
   const x0 = vp.at.x;
   const y0 = vp.at.y;
   const x1 = x0 + vp.size.w;
@@ -151,7 +154,7 @@ function frameFeatures(vp: SheetViewport, at: PaperPoint, tol: number): SheetAli
     out.push(
       feature(
         `${vp.id}:moldura:v:${c.slot}`,
-        'moldura da vista',
+        t(lang, 'cvs_feat_frame'),
         'moldura',
         { p: { x: c.x, y: ym }, d: { x: 0, y: 1 } },
         owner,
@@ -164,7 +167,7 @@ function frameFeatures(vp: SheetViewport, at: PaperPoint, tol: number): SheetAli
     out.push(
       feature(
         `${vp.id}:moldura:h:${r.slot}`,
-        'moldura da vista',
+        t(lang, 'cvs_feat_frame'),
         'moldura',
         { p: { x: xm, y: r.y }, d: { x: 1, y: 0 } },
         owner,
@@ -183,6 +186,7 @@ function modelFeatures(
   at: PaperPoint,
   zoom: number,
   prefer: AlignPrefer,
+  lang: Lang,
 ): SheetAlignFeature[] {
   let levelId: Id;
   if (vp.view.kind === 'plan') {
@@ -204,6 +208,7 @@ function modelFeatures(
     at: world,
     metersPerPixel: vp.scale / (1000 * zoom),
     prefer,
+    lang,
   });
   return features.map((f): SheetAlignFeature => {
     const seg = f.seg ? { a: toPaper(m, f.seg.a), b: toPaper(m, f.seg.b) } : undefined;
@@ -231,6 +236,7 @@ function drawingFeatures(
   group: SheetGroup | undefined,
   at: PaperPoint,
   tol: number,
+  lang: Lang,
 ): SheetAlignFeature[] {
   if (!group) return [];
   const minV = MIN_TRACE_FRACTION * vp.size.h;
@@ -249,7 +255,7 @@ function drawingFeatures(
     const p = axis === 'v' ? { x: coord, y: (a.y + b.y) / 2 } : { x: (a.x + b.x) / 2, y: coord };
     const d = axis === 'v' ? { x: 0, y: 1 } : { x: 1, y: 0 };
     kept.set(key, {
-      feature: feature(key, 'linha do desenho', 'linhaEsboco', { p, d }, owner, distance, { a: { x: a.x, y: a.y }, b: { x: b.x, y: b.y } }),
+      feature: feature(key, t(lang, 'cvs_feat_line'), 'linhaEsboco', { p, d }, owner, distance, { a: { x: a.x, y: a.y }, b: { x: b.x, y: b.y } }),
       length,
     });
   };
@@ -278,21 +284,23 @@ function drawingFeatures(
 }
 
 /** Bordas e centro da área de desenho da folha (mm de papel). */
-function sheetFeatures(sheet: Sheet, at: PaperPoint): SheetAlignFeature[] {
+function sheetFeatures(sheet: Sheet, at: PaperPoint, lang: Lang): SheetAlignFeature[] {
   const inner = sheetInnerBox(sheet);
   const xm = (inner.x0 + inner.x1) / 2;
   const ym = (inner.y0 + inner.y1) / 2;
   const owner: SheetAlignFeature['owner'] = { type: 'sheet' };
   const out: SheetAlignFeature[] = [];
+  const edge = t(lang, 'cvs_feat_sheet_edge');
+  const centre = t(lang, 'cvs_feat_sheet_center');
   const columns: Array<{ slot: string; x: number; label: string }> = [
-    { slot: 'borda0', x: inner.x0, label: 'borda da folha' },
-    { slot: 'centro', x: xm, label: 'centro da folha' },
-    { slot: 'borda1', x: inner.x1, label: 'borda da folha' },
+    { slot: 'borda0', x: inner.x0, label: edge },
+    { slot: 'centro', x: xm, label: centre },
+    { slot: 'borda1', x: inner.x1, label: edge },
   ];
   const rows: Array<{ slot: string; y: number; label: string }> = [
-    { slot: 'borda0', y: inner.y0, label: 'borda da folha' },
-    { slot: 'centro', y: ym, label: 'centro da folha' },
-    { slot: 'borda1', y: inner.y1, label: 'borda da folha' },
+    { slot: 'borda0', y: inner.y0, label: edge },
+    { slot: 'centro', y: ym, label: centre },
+    { slot: 'borda1', y: inner.y1, label: edge },
   ];
   for (const c of columns) {
     out.push(
@@ -333,18 +341,19 @@ const rank = (f: SheetAlignFeature): number => (f.kind === 'moldura' ? 1 : f.kin
 export function sheetAlignFeatures(q: SheetAlignQuery): SheetAlignFeature[] {
   if (!(q.zoom > 0)) return [];
   const prefer = q.prefer ?? 'faces';
+  const lang: Lang = q.lang ?? 'pt';
   const tol = TOL_PX / q.zoom;
   const out: SheetAlignFeature[] = [];
   q.sheet.viewports.forEach((vp, i) => {
     // A ordem dos grupos é a das vistas; o último grupo é o mobiliário da folha (fora da captura das vistas).
     const group = i < q.drawList.groups.length - 1 ? q.drawList.groups[i] : undefined;
-    out.push(...frameFeatures(vp, q.at, tol));
-    out.push(...modelFeatures(q.project, vp, q.at, q.zoom, prefer));
+    out.push(...frameFeatures(vp, q.at, tol, lang));
+    out.push(...modelFeatures(q.project, vp, q.at, q.zoom, prefer, lang));
     if (vp.view.kind === 'section' || vp.view.kind === 'areaTable' || vp.view.kind === '3d') {
-      out.push(...drawingFeatures(vp, group, q.at, tol));
+      out.push(...drawingFeatures(vp, group, q.at, tol, lang));
     }
   });
-  out.push(...sheetFeatures(q.sheet, q.at));
+  out.push(...sheetFeatures(q.sheet, q.at, lang));
   // A distância do modelo vem com atalhos (uma abertura "dentro" do vão vale 0,001 m em qualquer ponto): recalcula no
   // papel e descarta o que está longe do cursor, para a moldura não perder para uma feição que está a metros de distância.
   return out

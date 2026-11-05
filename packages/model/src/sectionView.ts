@@ -1,6 +1,7 @@
 import { add, applyTransform, dist, mul, norm, perp, sub, type Transform, type Vec2 } from '@hestia/geom';
 import type { Command } from './commands.ts';
 import { newId } from './ids.ts';
+import { t, type Lang } from './i18n.ts';
 import { sectionLevelExtentIssue } from './sectionLevelExtents.ts';
 import {
   isWall,
@@ -248,13 +249,13 @@ export function viewRemovals(p: Pick<Project, 'views'>, ids: Id[]): Array<Extrac
 }
 
 /** Nome livre para uma cópia ("Corte A cópia", "Corte A cópia 2"...). */
-export function copyViewName(views: SectionView[], base: string): string {
+export function copyViewName(views: SectionView[], base: string, lang: Lang = 'pt'): string {
   const used = new Set(views.map((v) => v.name));
   const root = base.slice(0, 70);
-  const first = `${root} cópia`;
+  const first = t(lang, 'md_doc_view_copy', { base: root });
   if (!used.has(first)) return first;
   for (let i = 2; ; i++) {
-    const name = `${first} ${i}`;
+    const name = t(lang, 'md_doc_view_copy_n', { base: root, n: i });
     if (!used.has(name)) return name;
   }
 }
@@ -282,10 +283,15 @@ export function viewTransformCommands(p: Pick<Project, 'views' | 'elements'>, id
   return out;
 }
 
-/** Papel de cada direção de elevação, para nomes e mensagens. */
-export const SECTION_ROLE_LABEL: Record<SectionRole, string> = {
-  north: 'Norte',
-  south: 'Sul',
-  east: 'Leste',
-  west: 'Oeste',
-};
+/** Papel de cada direção de elevação, para nomes e mensagens, no idioma pedido. */
+export function sectionRoleLabels(lang: Lang = 'pt'): Record<SectionRole, string> {
+  return {
+    north: t(lang, 'md_role_north'),
+    south: t(lang, 'md_role_south'),
+    east: t(lang, 'md_role_east'),
+    west: t(lang, 'md_role_west'),
+  };
+}
+
+/** Papel de cada direção em PT (compatibilidade). */
+export const SECTION_ROLE_LABEL: Record<SectionRole, string> = sectionRoleLabels('pt');

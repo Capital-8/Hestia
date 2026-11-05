@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { useUi } from '../../editor/state.ts';
+import { useT } from '../../editor/i18n.ts';
 
 interface TypeDialogHeaderProps {
   /** Família do tipo editado (só leitura). */
@@ -20,6 +21,7 @@ interface TypeDialogHeaderProps {
  * com "Duplicar…" e "Renomear…". Fica no topo de todos os diálogos de tipo.
  */
 export function TypeDialogHeader({ family, types, currentId, nameFieldId, onDuplicate, onSelect }: TypeDialogHeaderProps): ReactElement {
+  const { t } = useT();
   const rename = (): void => {
     const el = document.getElementById(nameFieldId);
     if (el instanceof HTMLInputElement) {
@@ -29,18 +31,18 @@ export function TypeDialogHeader({ family, types, currentId, nameFieldId, onDupl
   };
   return (
     <div className="tdlg-bar type-head">
-      <label>Família:</label>
+      <label>{t('dlt_fld_family')}</label>
       <div className="in" title={family}>{family}</div>
       <span />
-      <label htmlFor="tdlg-type-pick">Tipo:</label>
+      <label htmlFor="tdlg-type-pick">{t('dlt_fld_type')}</label>
       <select id="tdlg-type-pick" className="select" value={currentId} onChange={(e) => (onSelect ? onSelect(e.target.value) : useUi.setState({ dialogArg: e.target.value }))}>
-        {types.map((t) => (
-          <option key={t.id} value={t.id}>{t.name}</option>
+        {types.map((tp) => (
+          <option key={tp.id} value={tp.id}>{tp.name}</option>
         ))}
       </select>
       <div className="btns">
-        <button type="button" className="btn small" onClick={onDuplicate}>Duplicar…</button>
-        <button type="button" className="btn small" onClick={rename}>Renomear…</button>
+        <button type="button" className="btn small" onClick={onDuplicate}>{t('dlt_btn_duplicate')}</button>
+        <button type="button" className="btn small" onClick={rename}>{t('dlt_btn_rename')}</button>
       </div>
     </div>
   );

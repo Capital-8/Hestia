@@ -8,7 +8,9 @@ import { ToolBase } from './base.ts';
 export class SlabTool extends ToolBase {
   readonly id = 'slab';
   readonly label = 'Laje';
-  readonly hint = 'Laje: crie o contorno pelo modo Criar/Editar perímetro.';
+  override get hint(): string {
+    return this.t('tl_hint_slab');
+  }
 
   protected reset(): void {
     // Sem estado próprio: nada a limpar.

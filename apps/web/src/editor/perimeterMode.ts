@@ -18,6 +18,7 @@ import {
   type ToolOptions,
 } from '@hestia/tools';
 import type { PerimeterView } from './perimeterApi.ts';
+import { resolveText, useI18n, type TextLike } from './i18n.ts';
 import { COMANDO_DO_ESBOCO, COMANDO_RECUSADO, SEM_ESBOCO } from './perimeterComandos.ts';
 import { VISAO_FECHADA, alvoDaFerramenta, arestaDe, formaDaFerramenta, formaDaTela } from './perimeterView.ts';
 import { useUi } from './state.ts';
@@ -46,9 +47,9 @@ interface Sessao {
   opts: PerimeterBarOptions;
 }
 
-const ABERTO_FERRAMENTA = 'Perímetro em edição: use Concluir ou Cancelar antes de trocar de ferramenta.';
-const ABERTO_VISTA = 'Perímetro em edição: use Concluir ou Cancelar antes de mudar de vista ou de nível.';
-const JA_ABERTO = 'Já há um perímetro em edição: use Concluir ou Cancelar.';
+const ABERTO_FERRAMENTA: TextLike = { key: 'edc_perim_open_tool' };
+const ABERTO_VISTA: TextLike = { key: 'edc_perim_open_view' };
+const JA_ABERTO: TextLike = { key: 'edc_perim_already_open' };
 
 /**
  * Tipo, opções da barra e padrão de cada alvo, lidos das opções de ferramenta atuais: o modo começa com o que o usuário
@@ -87,7 +88,7 @@ function opcoesDe(s: Sessao): CommitPerimeterOptions {
 export class PerimeterMode {
   private sessao: Sessao | null = null;
   /** Última visão montada, com o contador e a barra de status em que foi montada: repintar sem mudança devolve o mesmo objeto. */
-  private cache: { tick: number; status: string; visao: PerimeterView } | null = null;
+  private cache: { tick: number; status: TextLike; visao: PerimeterView } | null = null;
 
   constructor(private readonly porta: PerimetroPorta) {}
 
@@ -120,7 +121,7 @@ export class PerimeterMode {
     const d = draftFromElement(p, id);
     const opts = perimeterOptionsOf(p, id);
     if (!el || !d || !opts || !('levelId' in el)) {
-      this.dizer('Este elemento não tem perímetro editável.');
+      this.dizer({ key: 'edc_perim_not_editable' });
       return;
     }
     // Piso ou laje vinculado às paredes: o contorno é travado (decisão 0031). Recusa já na abertura, com o caminho.
@@ -141,13 +142,13 @@ export class PerimeterMode {
   finish(): void {
     const s = this.sessao;
     if (!s) return;
-    const r = commitPerimeter(this.porta.projeto(), s.tool.draft(), opcoesDe(s));
+    const r = commitPerimeter(this.porta.projeto(), s.tool.draft(), opcoesDe(s), useI18n.getState().lang);
     if (!r.ok) {
       this.dizer(r.message);
       return;
     }
     const env = this.porta.env();
-    env.transaction(s.editing ? 'Editar perímetro' : 'Criar perímetro', () => {
+    env.transaction(s.editing ? 'edc_perim_undo_edit' : 'edc_perim_undo_create', () => {
       for (const c of r.commands) env.exec(c);
     });
     this.fechar();
@@ -164,7 +165,7 @@ export class PerimeterMode {
     if (!s) return;
     this.fechar();
     if (s.editing) useUi.setState({ selection: s.selecaoAnterior ?? [] });
-    this.dizer(s.editing ? 'Edição do perímetro cancelada. O elemento não mudou.' : 'Perímetro descartado.');
+    this.dizer(s.editing ? { key: 'edc_perim_cancelled' } : { key: 'edc_perim_discarded' });
   }
 
   /** Forma da galeria. Escolher uma forma desliga o comando de Modificar ligado. */
@@ -185,7 +186,7 @@ export class PerimeterMode {
     const alvo = k === null || k === s.tool.modifyKind() ? null : k;
     if (alvo === null) {
       this.voltaSelecao(s);
-      this.dizer('Comando desligado: clique numa linha para selecionar.');
+      this.dizer({ key: 'edc_perim_command_off' });
       return;
     }
     s.tool.setShape(null);
@@ -233,8 +234,8 @@ export class PerimeterMode {
     const s = this.sessao;
     if (!s) return false;
     const ok = refazer ? s.tool.redoDraft() : s.tool.undoDraft();
-    if (ok) this.dizer(refazer ? 'Refeito no rascunho do perímetro.' : 'Desfeito no rascunho do perímetro.');
-    else this.dizer(refazer ? 'Nada a refazer no perímetro.' : 'Nada a desfazer no perímetro.');
+    if (ok) this.dizer(refazer ? { key: 'edc_perim_redo_draft' } : { key: 'edc_perim_undo_draft' });
+    else this.dizer(refazer ? { key: 'edc_perim_nothing_redo' } : { key: 'edc_perim_nothing_undo' });
     return true;
   }
 
@@ -248,11 +249,11 @@ export class PerimeterMode {
     if (!s) return false;
     const d = s.tool.draft();
     if (d.segs.length === 0) {
-      this.dizer('Não há linhas no esboço para selecionar.');
+      this.dizer({ key: 'edc_perim_no_lines' });
       return true;
     }
     s.tool.draftHistory.replace({ ...d, selected: d.segs.map((x) => x.id) });
-    this.dizer(`${d.segs.length} linha(s) selecionada(s).`);
+    this.dizer({ key: 'edc_perim_lines_selected', args: { n: d.segs.length } });
     return true;
   }
 
@@ -275,8 +276,8 @@ export class PerimeterMode {
     if (!s) return;
     const d = s.tool.draft();
     const id = d.selected[0];
-    if (s.target !== 'roof') this.dizer('Só o telhado tem inclinação e balanço por aresta.');
-    else if (id === undefined) this.dizer('Selecione uma aresta para mudar a inclinação ou o balanço.');
+    if (s.target !== 'roof') this.dizer({ key: 'edc_perim_roof_only' });
+    else if (id === undefined) this.dizer({ key: 'edc_perim_select_edge' });
     else s.tool.loadDraft(setSegSlope(d, id, patch));
     this.porta.atualizar();
   }
@@ -321,7 +322,7 @@ export class PerimeterMode {
     return visao;
   }
 
-  private montaVisao(status: string): PerimeterView {
+  private montaVisao(status: TextLike): PerimeterView {
     const s = this.sessao;
     if (!s) return { ...VISAO_FECHADA, status };
     const d: SketchDraft = s.tool.draft();
@@ -380,8 +381,8 @@ export class PerimeterMode {
   }
 
   /** Mostra uma mensagem na barra de status e avisa a interface. */
-  private dizer(msg: string): void {
-    this.porta.env().say(msg);
+  private dizer(msg: TextLike): void {
+    this.porta.env().say(resolveText(msg, useI18n.getState().lang));
     this.porta.atualizar();
   }
 

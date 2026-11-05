@@ -1,5 +1,5 @@
 ﻿/**
- * Plano e resumo da troca de cota de um nível: tipos do plano, verificação de conflitos e resumo em pt-BR.
+ * Plano e resumo da troca de cota de um nível: tipos do plano, verificação de conflitos e resumo no idioma ativo.
  * Extraído de levelActions.ts para respeitar o limite de linhas; não importa levelActions.ts (sem import circular).
  */
 import { refitStairToHeight, regenRamp, riserCountOf, stairWallOverlapIssues, treadFor, treadRuleOf } from '@hestia/engine';
@@ -20,6 +20,7 @@ import {
   type StairLanding,
   type StairRun,
 } from '@hestia/model';
+import { t, useI18n, type Lang } from './i18n.ts';
 
 /**
  * Fixa o nível de topo automático (`topLevelId: null` → `levelAbove`) no nível que é o topo AGORA.
@@ -31,7 +32,7 @@ export function pinAutoTops(store: ProjectStore): number {
   const list = Object.values(p.elements).filter((e) => isStair(e) || isRamp(e)).filter((e) => e.topLevelId === null);
   if (list.length === 0) return 0;
   let n = 0;
-  store.transaction('Fixar topo das escadas e rampas', () => {
+  store.transaction('edc_undo_pin_stair_tops', () => {
     for (const e of list) {
       const above = levelAbove(p, e.levelId);
       if (!above) continue;
@@ -136,14 +137,14 @@ export function effectiveMinRiser(type: Pick<StairType, 'maxRiser'> & { minRiser
   return minRiser !== undefined && minRiser > 0 && minRiser < maxRiser ? minRiser : maxRiser > 0.16 ? 0.16 : maxRiser / 2;
 }
 
-/** Onde o espelho cai em relação à faixa do tipo (texto curto em pt-BR), ou null se não há faixa. */
-export function riserBandNote(riser: number, type: Pick<StairType, 'maxRiser'> & { minRiser?: number }): { inside: boolean; text: string } | null {
+/** Onde o espelho cai em relação à faixa do tipo (texto curto no idioma ativo), ou null se não há faixa. */
+export function riserBandNote(riser: number, type: Pick<StairType, 'maxRiser'> & { minRiser?: number }, lang: Lang = useI18n.getState().lang): { inside: boolean; text: string } | null {
   if (!(riser > 0) || !(type.maxRiser > 0)) return null;
   const min = effectiveMinRiser(type);
   const band = `${f2(min)}–${f2(type.maxRiser)}`;
-  if (riser > type.maxRiser + 5e-4) return { inside: false, text: `${f3(riser - type.maxRiser)} m acima do máximo (${band} m)` };
-  if (riser < min - 5e-4) return { inside: false, text: `${f3(min - riser)} m abaixo do mínimo (${band} m)` };
-  return { inside: true, text: `dentro de ${band}` };
+  if (riser > type.maxRiser + 5e-4) return { inside: false, text: t(lang, 'edc_riser_above_max', { d: f3(riser - type.maxRiser), band }) };
+  if (riser < min - 5e-4) return { inside: false, text: t(lang, 'edc_riser_below_min', { d: f3(min - riser), band }) };
+  return { inside: true, text: t(lang, 'edc_riser_within', { band }) };
 }
 
 type StairSummaryInput = Pick<
@@ -152,18 +153,36 @@ type StairSummaryInput = Pick<
 >;
 
 /** Resumo de uma linha da escada reajustada: N, espelho, piso, encurta/alonga e patamar. */
-function stairSummary(x: StairSummaryInput, type: StairType | undefined): string {
-  const band = type ? riserBandNote(x.riserHeight, type) : null;
+function stairSummary(x: StairSummaryInput, type: StairType | undefined, lang: Lang): string {
+  const band = type ? riserBandNote(x.riserHeight, type, lang) : null;
   if (x.fixed) {
-    return `Escada de espelho fixo mantida: N ${x.from}, espelho ${f3(x.riserHeight)} m${band ? (band.inside ? ` (${band.text})` : `, ${band.text}`) : ''}.`;
+    return t(lang, 'edc_stair_summary_fixed', {
+      n: x.from,
+      riser: f3(x.riserHeight),
+      band: band ? (band.inside ? ` (${band.text})` : `, ${band.text}`) : '',
+    });
   }
-  const patamar = x.landingsInserted ? 'patamar inserido (NBR 9050)' : x.landingNeeded ? 'falta patamar (NBR 9050)' : '';
+  const patamar = x.landingsInserted
+    ? t(lang, 'edc_stair_landing_inserted')
+    : x.landingNeeded
+      ? t(lang, 'edc_stair_landing_needed')
+      : '';
   if (x.to === x.from) {
-    return `N mantido em ${x.from}; espelho ${f3(x.fromRiserHeight)} → ${f3(x.riserHeight)} m${band ? ` (${band.text})` : ''}${patamar ? ` · ${patamar}` : ''}`;
+    return t(lang, 'edc_stair_summary_same', {
+      n: x.from,
+      from: f3(x.fromRiserHeight),
+      to: f3(x.riserHeight),
+      band: band ? ` (${band.text})` : '',
+      landing: patamar ? ` · ${patamar}` : '',
+    });
   }
-  const parts = [`N ${x.from} → ${x.to}`, `espelho ${f3(x.fromRiserHeight)} → ${f3(x.riserHeight)} m`, `piso ${f2(x.fromTread)} → ${f2(x.tread)} m`];
-  if (x.removed > 0) parts.push(`encurta ${f2(x.removed * x.tread)} m`);
-  else if (x.added > 0) parts.push(`alonga ${f2(x.added * x.tread)} m`);
+  const parts = [
+    t(lang, 'edc_stair_summary_risers', { from: x.from, to: x.to }),
+    t(lang, 'edc_stair_summary_riser', { from: f3(x.fromRiserHeight), to: f3(x.riserHeight) }),
+    t(lang, 'edc_stair_summary_tread', { from: f2(x.fromTread), to: f2(x.tread) }),
+  ];
+  if (x.removed > 0) parts.push(t(lang, 'edc_stair_summary_shorter', { d: f2(x.removed * x.tread) }));
+  else if (x.added > 0) parts.push(t(lang, 'edc_stair_summary_longer', { d: f2(x.added * x.tread) }));
   if (patamar) parts.push(patamar);
   return parts.join(' · ');
 }
@@ -179,9 +198,9 @@ function probeWithLevel(store: ProjectStore, levelId: Id, elevation: number): Pr
 }
 
 /** A extensão proposta invade uma parede? (mesma regra do aviso `stair-wall-overlap`). */
-function proposedWallReason(p: Project, s: Stair, components: Array<StairRun | StairLanding>): string | null {
+function proposedWallReason(p: Project, s: Stair, components: Array<StairRun | StairLanding>, lang: Lang): string | null {
   const candidate: Project = { ...p, elements: { ...p.elements, [s.id]: { ...s, components } } };
-  const issue = stairWallOverlapIssues(candidate).find((i) => i.stairId === s.id);
+  const issue = stairWallOverlapIssues(candidate, undefined, lang).find((i) => i.stairId === s.id);
   return issue ? issue.message : null;
 }
 
@@ -192,12 +211,13 @@ function proposedWallReason(p: Project, s: Stair, components: Array<StairRun | S
  * a escada fica sem altura. A tela usa isso para perguntar antes de aplicar.
  */
 export function planLevelMove(store: ProjectStore, levelId: Id, elevation: number): LevelMovePlan | { error: string } {
+  const lang = useI18n.getState().lang;
   const p0 = store.project;
   const level = p0.levels.find((l) => l.id === levelId);
-  if (!level) return { error: 'Nível inexistente.' };
-  if (!Number.isFinite(elevation)) return { error: 'Elevação inválida.' };
+  if (!level) return { error: t(lang, 'edc_level_missing') };
+  if (!Number.isFinite(elevation)) return { error: t(lang, 'edc_invalid_elevation') };
   const p1 = probeWithLevel(store, levelId, elevation);
-  if (!p1) return { error: 'Nível inexistente.' };
+  if (!p1) return { error: t(lang, 'edc_level_missing') };
   const affected = affectedByLevel(p0, levelId);
   // Estado "antes" (topo automático fixado, cota antiga): dá o espelho/piso de partida.
   const pBefore = probeWithLevel(store, levelId, level.elevation) ?? p0;
@@ -212,7 +232,7 @@ export function planLevelMove(store: ProjectStore, levelId: Id, elevation: numbe
       let fit: ReturnType<typeof refitStairToHeight>;
       try {
         from = riserCountOf(e);
-        fit = refitStairToHeight(p1, s1);
+        fit = refitStairToHeight(p1, s1, lang);
       } catch (err) {
         // Componente malformado: o erro vira conflito com motivo (a tela pergunta) em vez de derrubar a edição da cota.
         stairs.push({
@@ -227,9 +247,9 @@ export function planLevelMove(store: ProjectStore, levelId: Id, elevation: numbe
           fromRiserHeight: 0,
           fromTread: 0,
           needsConfirm: false,
-          summary: 'Não foi possível recalcular a escada.',
+          summary: t(lang, 'edc_stair_recalc_failed'),
           status: 'conflict',
-          reason: `Não foi possível recalcular a escada (${err instanceof Error ? err.message : 'erro desconhecido'}).`,
+          reason: t(lang, 'edc_stair_recalc_failed_reason', { error: err instanceof Error ? err.message : t(lang, 'edc_unknown_error') }),
         });
         continue;
       }
@@ -237,12 +257,12 @@ export function planLevelMove(store: ProjectStore, levelId: Id, elevation: numbe
       let reason: string | undefined;
       if (invalidStair(p1, s1)) {
         status = 'conflict';
-        reason = 'A escada fica sem altura válida (topo no mesmo nível ou abaixo).';
+        reason = t(lang, 'edc_stair_invalid_height');
       } else if (!fit.components && fit.skipped !== 'fixed' && fit.skipped !== 'no-change') {
         status = 'conflict';
-        reason = fit.message ?? 'Não foi possível continuar a escada.';
+        reason = fit.message ?? t(lang, 'edc_stair_cannot_continue');
       } else if (fit.components) {
-        const wall = proposedWallReason(p1, s1, fit.components);
+        const wall = proposedWallReason(p1, s1, fit.components, lang);
         if (wall) {
           status = 'conflict';
           reason = wall;
@@ -274,7 +294,7 @@ export function planLevelMove(store: ProjectStore, levelId: Id, elevation: numbe
         label: labelOf(e),
         ...base,
         needsConfirm,
-        summary: stairSummary(base, type),
+        summary: stairSummary(base, type, lang),
         ...(fit.landingNeeded && fit.message ? { warning: fit.message } : {}),
         status,
         ...(reason ? { reason } : {}),
@@ -286,7 +306,7 @@ export function planLevelMove(store: ProjectStore, levelId: Id, elevation: numbe
       const r1 = p1.elements[e.id];
       if (!isRamp(r1)) continue;
       if (invalidRamp(p1, r1)) {
-        ramps.push({ id: e.id, label: labelOf(e), status: 'conflict', reason: 'A rampa fica sem altura válida (topo no mesmo nível ou abaixo).' });
+        ramps.push({ id: e.id, label: labelOf(e), status: 'conflict', reason: t(lang, 'edc_ramp_invalid_height') });
         continue;
       }
       if (r1.inputMode !== 'slope' || r1.slopeTarget === null) {
@@ -295,9 +315,9 @@ export function planLevelMove(store: ProjectStore, levelId: Id, elevation: numbe
       }
       let regen: ReturnType<typeof regenRamp>;
       try {
-        regen = regenRamp(r1, p1, {});
+        regen = regenRamp(r1, p1, {}, lang);
       } catch (err) {
-        ramps.push({ id: e.id, label: labelOf(e), status: 'conflict', reason: `Não foi possível recalcular a rampa (${err instanceof Error ? err.message : 'erro desconhecido'}).` });
+        ramps.push({ id: e.id, label: labelOf(e), status: 'conflict', reason: t(lang, 'edc_ramp_recalc_failed_reason', { error: err instanceof Error ? err.message : t(lang, 'edc_unknown_error') }) });
         continue;
       }
       if ('error' in regen) {

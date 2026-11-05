@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ProjectStore, createEmptyProject, makeWall } from '@hestia/model';
 import { editor } from './controller.ts';
+import { resolveText } from './i18n.ts';
 import { casador, trocarPerfil } from './shortcutConfig.ts';
 import { useUi } from './state.ts';
 
@@ -26,10 +27,10 @@ describe('atalhos de visibilidade no 3D e no corte', () => {
   it('HH oculta temporariamente e HR restaura no 3D', () => {
     atalho('H', 'H');
     expect(useUi.getState().viewTemp['3d']?.hidden?.elements).toEqual(['A']);
-    expect(useUi.getState().status).toContain('Oculto temporariamente');
+    expect(resolveText(useUi.getState().status, 'pt')).toContain('Oculto temporariamente');
     atalho('H', 'R');
     expect(useUi.getState().viewTemp['3d']?.hidden).toBeUndefined();
-    expect(useUi.getState().status).toContain('restaurado');
+    expect(resolveText(useUi.getState().status, 'pt')).toContain('restaurado');
   });
 
   it('EH oculta na vista 3D e EU reexibe; RH liga o Reveal', () => {

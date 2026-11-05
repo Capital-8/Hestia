@@ -1,4 +1,5 @@
 import type { Id } from './types.ts';
+import { decimalSymbolFor, t, type Lang } from './i18n.ts';
 import { DEFAULT_STAIR_OPENING_MARGIN } from './stair.ts';
 import type { Ramp, RampNormRow, RampType } from './rampTypes.ts';
 
@@ -49,63 +50,68 @@ export function makeRamp(r: RampInput): Omit<Ramp, 'order'> {
   };
 }
 
-/** Tipos de rampa iniciais. */
-export const DEFAULT_RAMP_TYPES: RampType[] = [
-  {
-    id: 'rmt_nbr9050',
-    name: 'Rampa de concreto (NBR 9050)',
-    code: 'RP-01',
-    description: 'Rampa monolítica de concreto, face lisa, limites da NBR 9050 (a conferir)',
-    materialId: 'mat_concreto',
-    structuralDepth: 0.15,
-    landingThickness: 0.15,
-    defaultWidth: 1.5,
-    minWidth: 1.2,
-    defaultSlope: 1 / 12,
-    landingMinLength: 1.2,
-    minHeadroom: 2.1,
-    normProfile: 'nbr9050',
-    normChecked: false,
-    normTable: DEFAULT_RAMP_NORM_NBR9050.map((row) => ({ ...row })),
-    cost: 0,
-  },
-  {
-    id: 'rmt_ada',
-    name: 'Rampa de concreto (ADA)',
-    code: 'RP-02',
-    description: 'Rampa monolítica de concreto, limites do ADA (1:12, 30 in por lance)',
-    materialId: 'mat_concreto',
-    structuralDepth: 0.15,
-    landingThickness: 0.15,
-    defaultWidth: 1.2,
-    minWidth: 0.915,
-    defaultSlope: 1 / 12,
-    landingMinLength: 1.525,
-    minHeadroom: 2.1,
-    normProfile: 'ada',
-    normChecked: true,
-    normTable: DEFAULT_RAMP_NORM_ADA.map((row) => ({ ...row })),
-    cost: 0,
-  },
-];
+/** Tipos de rampa iniciais no idioma pedido. */
+export function rampTypes(lang: Lang = 'pt'): RampType[] {
+  return [
+    {
+      id: 'rmt_nbr9050',
+      name: t(lang, 'md_ramp_nbr9050'),
+      code: 'RP-01',
+      description: t(lang, 'md_ramp_nbr9050_desc'),
+      materialId: 'mat_concreto',
+      structuralDepth: 0.15,
+      landingThickness: 0.15,
+      defaultWidth: 1.5,
+      minWidth: 1.2,
+      defaultSlope: 1 / 12,
+      landingMinLength: 1.2,
+      minHeadroom: 2.1,
+      normProfile: 'nbr9050',
+      normChecked: false,
+      normTable: DEFAULT_RAMP_NORM_NBR9050.map((row) => ({ ...row })),
+      cost: 0,
+    },
+    {
+      id: 'rmt_ada',
+      name: t(lang, 'md_ramp_ada'),
+      code: 'RP-02',
+      description: t(lang, 'md_ramp_ada_desc'),
+      materialId: 'mat_concreto',
+      structuralDepth: 0.15,
+      landingThickness: 0.15,
+      defaultWidth: 1.2,
+      minWidth: 0.915,
+      defaultSlope: 1 / 12,
+      landingMinLength: 1.525,
+      minHeadroom: 2.1,
+      normProfile: 'ada',
+      normChecked: true,
+      normTable: DEFAULT_RAMP_NORM_ADA.map((row) => ({ ...row })),
+      cost: 0,
+    },
+  ];
+}
+
+/** Tipos de rampa em PT (compatibilidade); use `rampTypes(lang)` para o idioma ativo. */
+export const DEFAULT_RAMP_TYPES: RampType[] = rampTypes('pt');
 
 /** 1ª mensagem de erro do tipo de rampa, ou null. */
-export function rampTypeIssue(t: RampType): string | null {
-  if (!(t.defaultSlope > 0)) return 'A inclinação padrão deve ser maior que zero.';
-  if (!(t.structuralDepth > 0)) return 'A espessura estrutural deve ser maior que zero.';
-  if (!(t.landingThickness > 0)) return 'A espessura do patamar deve ser maior que zero.';
-  if (!(t.defaultWidth > 0)) return 'A largura padrão deve ser maior que zero.';
-  if (!(t.minWidth > 0)) return 'A largura mínima deve ser maior que zero.';
-  if (!(t.landingMinLength > 0)) return 'O comprimento mínimo do patamar deve ser maior que zero.';
-  if (!(t.minHeadroom > 0)) return 'O pé-direito livre mínimo deve ser maior que zero.';
+export function rampTypeIssue(tipo: RampType, lang: Lang = 'pt'): string | null {
+  if (!(tipo.defaultSlope > 0)) return t(lang, 'md_ramp_slope_positive');
+  if (!(tipo.structuralDepth > 0)) return t(lang, 'md_ramp_structural_positive');
+  if (!(tipo.landingThickness > 0)) return t(lang, 'md_ramp_landing_positive');
+  if (!(tipo.defaultWidth > 0)) return t(lang, 'md_ramp_width_positive');
+  if (!(tipo.minWidth > 0)) return t(lang, 'md_ramp_min_width_positive');
+  if (!(tipo.landingMinLength > 0)) return t(lang, 'md_ramp_landing_min_positive');
+  if (!(tipo.minHeadroom > 0)) return t(lang, 'md_ramp_headroom_positive');
   let prev = -Infinity;
-  for (const row of t.normTable) {
+  for (const row of tipo.normTable) {
     if (!(row.maxSlope > 0) || !(row.maxRise > 0) || row.maxSlope < prev) {
-      return 'A tabela de norma deve estar em ordem crescente de inclinação, com valores positivos.';
+      return t(lang, 'md_ramp_norm_order');
     }
     prev = row.maxSlope;
     if (row.maxFlights !== null && (!Number.isInteger(row.maxFlights) || row.maxFlights < 1)) {
-      return 'O máximo de lances deve ser vazio ou um inteiro positivo.';
+      return t(lang, 'md_ramp_max_flights');
     }
   }
   return null;
@@ -123,19 +129,21 @@ export function rampNormRowFor(t: Pick<RampType, 'normTable'>, slope: number): R
   return null;
 }
 
-/** Percentual com 2 casas e vírgula: `formatRampPercent(1/12)` = `8,33 %`. */
-export function formatRampPercent(slope: number): string {
-  return `${(slope * 100).toFixed(2).replace('.', ',')} %`;
+/** Percentual com 2 casas e o símbolo decimal do idioma: `formatRampPercent(1/12)` = `8,33 %`. */
+export function formatRampPercent(slope: number, langOrSymbol: Lang | ',' | '.' = 'pt'): string {
+  const symbol = langOrSymbol === ',' || langOrSymbol === '.' ? langOrSymbol : decimalSymbolFor(langOrSymbol);
+  return `${(slope * 100).toFixed(2).replace('.', symbol)} %`;
 }
 
 /**
  * Razão `1:X` com 1 casa, sem `,0` no fim: `formatRampRatio(1/12)` = `1:12`; `formatRampRatio(0.075)` = `1:13,3`.
  * Inclinação <= 0 → `—`.
  */
-export function formatRampRatio(slope: number): string {
+export function formatRampRatio(slope: number, langOrSymbol: Lang | ',' | '.' = 'pt'): string {
   if (!(slope > 0)) return '—';
-  const r = (1 / slope).toFixed(1).replace('.', ',');
-  return `1:${r.replace(/,0$/, '')}`;
+  const symbol = langOrSymbol === ',' || langOrSymbol === '.' ? langOrSymbol : decimalSymbolFor(langOrSymbol);
+  const r = (1 / slope).toFixed(1).replace('.', symbol);
+  return `1:${r.replace(new RegExp(`\\${symbol}0$`), '')}`;
 }
 
 /** Texto da inclinação em % e em `1:X`: `formatRampSlope(1/12)` = `8,33 % (1:12)`. */

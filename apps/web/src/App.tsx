@@ -3,12 +3,14 @@ import { editor } from './editor/controller.ts';
 import { transfer } from './editor/transfer.ts';
 import { useProjetoDerivado } from './editor/projetoDerivado.ts';
 import { useUi } from './editor/state.ts';
+import { useI18n } from './editor/i18n.ts';
 import { atalhoAtual } from './editor/shortcutConfig.ts';
 import { tabOf } from './editor/viewTabActions.ts';
 import { dockWidths } from './editor/dockLayout.ts';
 import { Dock } from './ui/Dock.tsx';
 import { FileMenu } from './ui/FileMenu.tsx';
 import { IconDefs } from './ui/Icon.tsx';
+import { IfcImportOverlay } from './ui/IfcImportOverlay.tsx';
 import { EmptyViews } from './ui/EmptyViews.tsx';
 import { OptionsBar } from './ui/OptionsBar.tsx';
 import { Ribbon } from './ui/Ribbon.tsx';
@@ -221,7 +223,10 @@ export function App(): ReactElement {
   const widths = dockWidths(propsOpen, browserOpen, dock);
   const theme = useUi((s) => s.theme);
   const dialog = useUi((s) => s.dialog);
+  const lang = useI18n((s) => s.lang);
   const narrow = useNarrow();
+  // A restauração do projeto só acontece na montagem; a dica de status acompanha o idioma.
+  const initialized = useRef(false);
   // A caixa de texto não entra em `dialog` (DialogKind); as teclas ficam presas a ela enquanto estiver aberta.
   const caixaTextoAberta = useCaixaDeTextoAberta();
 
@@ -238,11 +243,18 @@ export function App(): ReactElement {
   }, [theme]);
 
   useEffect(() => {
-    if (!editor.restoreAutosave()) editor.newProject('house2');
+    if (!initialized.current) {
+      initialized.current = true;
+      if (!editor.restoreAutosave()) editor.newProject('house2');
+    }
     // A dica usa a sequência atual da parede (depende do perfil e da personalização); sem tecla, não cita letra.
+    // Ao trocar o idioma a mensagem é montada de novo no idioma ativo, sem reabrir o projeto.
     const parede = atalhoAtual('wall');
-    useUi.setState({ status: parede ? `Pronto. Pressione ${parede} para desenhar paredes, ou selecione para editar.` : 'Pronto. Escolha uma ferramenta, ou selecione para editar.' });
-  }, []);
+    const status = lang === 'en'
+      ? parede ? `Ready. Press ${parede} to draw walls, or select to edit.` : 'Ready. Pick a tool, or select to edit.'
+      : parede ? `Pronto. Pressione ${parede} para desenhar paredes, ou selecione para editar.` : 'Pronto. Escolha uma ferramenta, ou selecione para editar.';
+    useUi.setState({ status });
+  }, [lang]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -282,6 +294,7 @@ export function App(): ReactElement {
       {/* A caixa de texto tem store próprio (não entra no DialogKind): aberta pela aba Anotar/painel do Texto. */}
       <TextDialog />
       <FileMenu />
+      <IfcImportOverlay />
     </div>
   );
 }

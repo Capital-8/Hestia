@@ -1,4 +1,6 @@
+/* eslint-disable max-lines */
 import { formatRampSlope, rampNormRowFor, type RampType } from '@hestia/model';
+import { fmtNum, t } from '../../editor/i18n.ts';
 import {
   CHAR_W,
   LINE_H,
@@ -41,31 +43,52 @@ export interface RampDrawingText {
   up: string;
   land: string;
   capSection: string;
+  capSectionOne: string;
   capPlan: string;
 }
 
 export const RAMP_DRAWING_TEXT: Record<'pt' | 'en', RampDrawingText> = {
   pt: {
-    run: 'c = {v} m', total: 'L = {v} m', landing: 'Patamar ≥ {v} m', rise: 'h = {v} m',
-    riseMax: 'h = {v} m\nmáx. {m} m ✓', riseMaxUnchecked: 'h = {v} m\nmáx. {m} m ✓\na conferir',
-    thick: 'e = {v} cm\n⟂ (vertical\n{m} cm)', headroom: 'Pé-direito\nlivre mín.\n{v} m',
-    flight1: 'Lance 1', flight2: 'Lance 2', overLimit: 'Inclinação acima da norma\n(máx. {v})',
-    slope: 'i = h ÷ c = {v}', width: 'Largura {v} m', up: 'Sobe', land: 'Patamar',
-    capSection: 'Escala vertical ×{k} (esquemático). Lance 1: h {h1} m, c {c1} m. Lance 2: h {h2} m, c {c2} m. Níveis: {levels}.',
-    capPlan: 'Planta esquemática em U; o giro e o número de lances dependem da rampa criada.',
+    run: t('pt', 'dls_ramp_dwg_run'),
+    total: t('pt', 'dls_ramp_dwg_total'),
+    landing: t('pt', 'dls_ramp_dwg_landing'),
+    rise: t('pt', 'dls_ramp_dwg_rise'),
+    riseMax: t('pt', 'dls_ramp_dwg_rise_max'),
+    riseMaxUnchecked: t('pt', 'dls_ramp_dwg_rise_max_unchecked'),
+    thick: t('pt', 'dls_ramp_dwg_thick'),
+    headroom: t('pt', 'dls_ramp_dwg_headroom'),
+    flight1: t('pt', 'dls_ramp_dwg_flight1'),
+    flight2: t('pt', 'dls_ramp_dwg_flight2'),
+    overLimit: t('pt', 'dls_ramp_dwg_over_limit'),
+    slope: t('pt', 'dls_ramp_dwg_slope'),
+    width: t('pt', 'dls_ramp_dwg_width'),
+    up: t('pt', 'dls_ramp_dwg_up'),
+    land: t('pt', 'dls_ramp_dwg_land'),
+    capSection: t('pt', 'dls_ramp_dwg_cap_section'),
+    capSectionOne: t('pt', 'dls_ramp_dwg_cap_section_one'),
+    capPlan: t('pt', 'dls_ramp_dwg_cap_plan'),
   },
   en: {
-    run: 'c = {v} m', total: 'L = {v} m', landing: 'Landing ≥ {v} m', rise: 'h = {v} m',
-    riseMax: 'h = {v} m\nmax. {m} m ✓', riseMaxUnchecked: 'h = {v} m\nmax. {m} m ✓\nto be checked',
-    thick: 'e = {v} cm\n⟂ (vertical\n{m} cm)', headroom: 'Headroom\nmin. free\n{v} m',
-    flight1: 'Flight 1', flight2: 'Flight 2', overLimit: 'Slope above code\n(max. {v})',
-    slope: 'i = h ÷ c = {v}', width: 'Width {v} m', up: 'Up', land: 'Landing',
-    capSection: 'Vertical scale ×{k} (schematic). Flight 1: h {h1} m, c {c1} m. Flight 2: h {h2} m, c {c2} m. Levels: {levels}.',
-    capPlan: 'Schematic U-shaped plan; the turn and the number of flights depend on the ramp created.',
+    run: t('en', 'dls_ramp_dwg_run'),
+    total: t('en', 'dls_ramp_dwg_total'),
+    landing: t('en', 'dls_ramp_dwg_landing'),
+    rise: t('en', 'dls_ramp_dwg_rise'),
+    riseMax: t('en', 'dls_ramp_dwg_rise_max'),
+    riseMaxUnchecked: t('en', 'dls_ramp_dwg_rise_max_unchecked'),
+    thick: t('en', 'dls_ramp_dwg_thick'),
+    headroom: t('en', 'dls_ramp_dwg_headroom'),
+    flight1: t('en', 'dls_ramp_dwg_flight1'),
+    flight2: t('en', 'dls_ramp_dwg_flight2'),
+    overLimit: t('en', 'dls_ramp_dwg_over_limit'),
+    slope: t('en', 'dls_ramp_dwg_slope'),
+    width: t('en', 'dls_ramp_dwg_width'),
+    up: t('en', 'dls_ramp_dwg_up'),
+    land: t('en', 'dls_ramp_dwg_land'),
+    capSection: t('en', 'dls_ramp_dwg_cap_section'),
+    capSectionOne: t('en', 'dls_ramp_dwg_cap_section_one'),
+    capPlan: t('en', 'dls_ramp_dwg_cap_plan'),
   },
 };
-
-const defaultFmt = (n: number, decimals: number): string => n.toFixed(decimals).replace('.', ','); // units-ok: texto técnico do desenho do corte da rampa
 
 const fill = (text: string, values: Record<string, string>): string => text.replace(/\{(\w+)\}/g, (_, k: string) => values[k] ?? '');
 
@@ -141,7 +164,7 @@ interface RampNumbers {
 
 function computeNumbers(type: RampType, params: RampDrawingParams): RampNumbers {
   const s = params.slope ?? type.defaultSlope;
-  if (!(s > 0) || !Number.isFinite(s)) throw new RangeError('a inclinação deve ser positiva');
+  if (!(s > 0) || !Number.isFinite(s)) throw new RangeError(t(params.lang ?? 'pt', 'dls_ramp_err_slope'));
   const row = rampNormRowFor(type, s);
   const hasTable = type.normTable.length > 0;
   const overLimit = hasTable && row === null;
@@ -190,20 +213,23 @@ function computeNumbers(type: RampType, params: RampDrawingParams): RampNumbers 
 
 function createSectionBuilder(type: RampType, params: RampDrawingParams, num: RampNumbers): (em: number) => Drawing {
   const lang = params.lang ?? 'pt';
-  const fmt = params.fmt ?? defaultFmt;
+  const fmt = params.fmt ?? ((n: number, dec: number): string => fmtNum(n, dec, lang));
   const t = RAMP_DRAWING_TEXT[lang];
   const { s, nFl, r1, c1, c2, P, Ltot, tv, vExag, tvY, ltY, m, Y, overLimit, maxRise } = num;
   const slopeText = lang === 'en' ? formatRampSlope(s).replace(/,/g, '.') : formatRampSlope(s);
 
   const levelsValues = (nFl === 2 ? [0, r1, r1 + num.r2] : [0, r1]).map((v) => `+${fmt(v, 2)}`);
-  const capFor = (h2: string, c2s: string): string =>
+  const caption =
     nFl === 2
-      ? fill(t.capSection, { k: String(vExag), h1: fmt(r1, 2), c1: fmt(c1, 2), h2, c2: c2s, levels: levelsValues.join(', ') })
-      : fill(t.capSection, { k: String(vExag), h1: fmt(r1, 2), c1: fmt(c1, 2), h2: '0', c2: '0', levels: levelsValues.join(', ') }).replace(
-          lang === 'en' ? ' Flight 2: h 0 m, c 0 m.' : ' Lance 2: h 0 m, c 0 m.',
-          '',
-        );
-  const caption = capFor(fmt(num.r2, 2), fmt(c2, 2));
+      ? fill(t.capSection, {
+          k: String(vExag),
+          h1: fmt(r1, 2),
+          c1: fmt(c1, 2),
+          h2: fmt(num.r2, 2),
+          c2: fmt(c2, 2),
+          levels: levelsValues.join(', '),
+        })
+      : fill(t.capSectionOne, { k: String(vExag), h1: fmt(r1, 2), c1: fmt(c1, 2), levels: levelsValues.join(', ') });
 
   return (em: number): Drawing => {
     const bodies: PolygonPrim[] = [];
@@ -340,7 +366,7 @@ function createSectionBuilder(type: RampType, params: RampDrawingParams, num: Ra
 
 function createPlanBuilder(type: RampType, params: RampDrawingParams, num: RampNumbers): (em: number) => Drawing {
   const lang = params.lang ?? 'pt';
-  const fmt = params.fmt ?? defaultFmt;
+  const fmt = params.fmt ?? ((n: number, dec: number): string => fmtNum(n, dec, lang));
   const t = RAMP_DRAWING_TEXT[lang];
   const { c1, c2, P, nFl } = num;
   const w = type.defaultWidth;

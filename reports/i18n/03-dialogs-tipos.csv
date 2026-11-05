@@ -1,0 +1,230 @@
+arquivo,linha,texto,tipo,severidade,chave,en,nota
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,18,"Não envolver / Dos dois lados / Só lado externo / Só lado interno",constante de módulo,P1,wall_wrap_options,No wrap / Both sides / Exterior side only / Interior side only,"WRAP_OPTIONS fora do i18n; 4 rótulos de enum"
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,75,"(cópia)",nome padrão gerado,P1,dlg_duplicate_suffix,"(copy)","Sufixo do nome ao duplicar; idem stairTypeForm.ts:161"
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,84,"Não foi possível excluir.",mensagem gerada,P1,err_delete_generic,Could not delete.,Status da barra
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,93,"Propriedades do tipo",título de diálogo,P0,type_title_wall,Type Properties,Título compartilhado por todos os diálogos de camada
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,94,"Parede · usado em {n} paredes",subtítulo,P0,type_sub_wall,"Wall · used in {n} walls","Pluralização manual inline"
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,98,"Há paredes usando este tipo / Excluir tipo",atributo title,P1,wall_in_use,Wall types in use / Delete type,
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,100,"Cancelar / Aplicar / OK",botão,P1,dlg_cancel_apply_ok,Cancel / Apply / OK,"3 botões do rodapé"
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,102,"Corrija as faixas inválidas",atributo title,P1,wall_fix_strips,Fix invalid strips,Tooltip de OK desabilitado
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,108,"Nome do tipo",rótulo de campo,P1,fld_type_name,Type Name,
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,112,"Estrutura / Faixas / Gráficos / Identidade",aba,P1,wall_tabs,Structure / Strips / Graphics / Identity,"4 abas"
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,123,"Função / Material / Esp. (cm) / Envolve",cabeçalho de tabela,P1,col_function_material_thickness_wraps,Function / Material / Thickness (cm) / Wraps,"Também linhas 203"
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,126,"Face externa / Face interna",texto em tabela,P2,wall_faces,Exterior Face / Interior Face,"Linhas 126 e 169"
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,136,"Função da camada {n}",aria-label,P2,a11y_layer_function,Layer {n} function,
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,139,"Prioridade de junção efetiva / Mais / Opções avançadas da camada {n}",atributo title,P2,a11y_layer_priority,Effective join priority / More / Layer {n} advanced options,"Linhas 139, 152, 176"
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,143,"Escolher material",atributo title,P2,tt_pick_material,Pick material,
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,149,"Camada {n} envolve / Subir camada / Descer camada / Remover camada",aria-label,P2,a11y_layer_actions,"Layer {n} wraps / Move layer up / Move layer down / Remove layer","Linhas 149, 153-155"
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,173,"Espessura total",rótulo,P1,wall_total_thickness,Total Thickness,
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,174,"+ Inserir camada",botão,P1,wall_add_layer,+ Insert Layer,
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,176,"Retorno nos vãos / Retorno nas pontas",rótulo de campo,P1,wall_wrap_inserts_ends,Wrap at Inserts / Wrap at Ends,"Linhas 176 e 182; com tooltips"
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,190,"O núcleo (faixa azul) vai da primeira à última camada de estrutura e define as linhas de localização ""do núcleo"". Na junção, a camada de menor número de prioridade atravessa as demais.",texto de ajuda,P2,wall_core_help,"The core (blue band) runs from the first to the last structural layer and defines the core location lines. At joins, the layer with the lowest priority number passes through the others.",
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,201,"A hachura de corte e as cores vêm do material de cada camada. Edite no navegador de materiais.",texto de ajuda,P2,wall_graphics_help,Cut hatch and colors come from each layer material. Edit them in the material browser.,
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,217,"Abrir navegador de materiais…",botão/atalho,P2,open_material_browser,Open Material Browser…,
+apps/web/src/ui/dialogs/WallTypeDialog.tsx,222,"Código / Descrição",rótulo de campo,P1,fld_code_description,Code / Description,"Linhas 222-223"
+apps/web/src/ui/dialogs/FloorTypeDialog.tsx,77,"Não foi possível excluir: {erro}",mensagem gerada,P1,err_delete_with_reason,Could not delete: {error},Erro do modelo concatenado
+apps/web/src/ui/dialogs/FloorTypeDialog.tsx,89,"Propriedades do tipo de piso",título de diálogo,P0,type_title_floor,Floor Type Properties,
+apps/web/src/ui/dialogs/FloorTypeDialog.tsx,90,"Piso · usado em {n} pisos",subtítulo,P0,type_sub_floor,"Floor · used in {n} floors",
+apps/web/src/ui/dialogs/FloorTypeDialog.tsx,95,"Excluir tipo",atributo title,P1,dlg_delete_type,Delete type,
+apps/web/src/ui/dialogs/FloorTypeDialog.tsx,97,"Cancelar / Aplicar / OK",botão,P1,dlg_cancel_apply_ok,Cancel / Apply / OK,
+apps/web/src/ui/dialogs/FloorTypeDialog.tsx,105,"Nome do tipo",rótulo de campo,P1,fld_type_name,Type Name,
+apps/web/src/ui/dialogs/FloorTypeDialog.tsx,112,"Função / Material / Esp. (cm)",cabeçalho de tabela,P1,col_function_material_thickness,Function / Material / Thickness (cm),
+apps/web/src/ui/dialogs/FloorTypeDialog.tsx,115,"Topo do piso / Face inferior",texto em tabela,P2,floor_faces,Top of Floor / Bottom Face,"Linhas 115 e 157"
+apps/web/src/ui/dialogs/FloorTypeDialog.tsx,160,"Espessura total",rótulo,P1,floor_total_thickness,Total Thickness,
+apps/web/src/ui/dialogs/FloorTypeDialog.tsx,162,"Há camadas de funções diferentes com a mesma prioridade: elas não se cortam e deixam linha de fronteira.",aviso,P2,layers_tied_priority,There are layers with different functions at the same priority: they do not cut and leave a boundary line.,
+apps/web/src/ui/dialogs/FloorTypeDialog.tsx,163,"+ Inserir camada",botão,P1,floor_add_layer,+ Insert Layer,
+apps/web/src/ui/dialogs/FloorTypeDialog.tsx,168,"A primeira camada é o acabamento de cima. O topo do piso fica na cota do nível mais o deslocamento da instância.",texto de ajuda,P2,floor_help,The first layer is the top finish. The top of the floor sits at the level elevation plus the instance offset.,
+apps/web/src/ui/dialogs/SlabTypeDialog.tsx,77,"Não foi possível excluir: {erro}",mensagem gerada,P1,err_delete_with_reason,Could not delete: {error},
+apps/web/src/ui/dialogs/SlabTypeDialog.tsx,89,"Propriedades do tipo de laje",título de diálogo,P0,type_title_slab,Slab Type Properties,
+apps/web/src/ui/dialogs/SlabTypeDialog.tsx,90,"Laje · usada em {n} lajes",subtítulo,P0,type_sub_slab,"Slab · used in {n} slabs",
+apps/web/src/ui/dialogs/SlabTypeDialog.tsx,95,"Excluir tipo",atributo title,P1,dlg_delete_type,Delete type,
+apps/web/src/ui/dialogs/SlabTypeDialog.tsx,97,"Cancelar / Aplicar / OK",botão,P1,dlg_cancel_apply_ok,Cancel / Apply / OK,
+apps/web/src/ui/dialogs/SlabTypeDialog.tsx,105,"Nome do tipo",rótulo de campo,P1,fld_type_name,Type Name,
+apps/web/src/ui/dialogs/SlabTypeDialog.tsx,112,"Função / Material / Esp. (cm)",cabeçalho de tabela,P1,col_function_material_thickness,Function / Material / Thickness (cm),
+apps/web/src/ui/dialogs/SlabTypeDialog.tsx,115,"Topo da laje / Face inferior",texto em tabela,P2,slab_faces,Top of Slab / Bottom Face,"Linhas 115 e 157"
+apps/web/src/ui/dialogs/SlabTypeDialog.tsx,160,"Espessura total",rótulo,P1,slab_total_thickness,Total Thickness,
+apps/web/src/ui/dialogs/SlabTypeDialog.tsx,162,"Há camadas de funções diferentes com a mesma prioridade: elas não se cortam e deixam linha de fronteira.",aviso,P2,layers_tied_priority,There are layers with different functions at the same priority: they do not cut and leave a boundary line.,
+apps/web/src/ui/dialogs/SlabTypeDialog.tsx,163,"+ Inserir camada",botão,P1,slab_add_layer,+ Insert Layer,
+apps/web/src/ui/dialogs/SlabTypeDialog.tsx,168,"A primeira camada é a de cima. O topo da laje fica na cota do nível mais o deslocamento da instância. A inclinação é definida na planta.",texto de ajuda,P2,slab_help,The first layer is the top one. The top of the slab sits at the level elevation plus the instance offset. Slope is defined in plan.,
+apps/web/src/ui/dialogs/CeilingTypeDialog.tsx,74,"Não foi possível excluir: {erro}",mensagem gerada,P1,err_delete_with_reason,Could not delete: {error},
+apps/web/src/ui/dialogs/CeilingTypeDialog.tsx,86,"Propriedades do tipo de forro",título de diálogo,P0,type_title_ceiling,Ceiling Type Properties,
+apps/web/src/ui/dialogs/CeilingTypeDialog.tsx,87,"Forro · usada em {n} forros",subtítulo,P0,type_sub_ceiling,"Ceiling · used in {n} ceilings","Concordância errada no PT (forro é masculino)"
+apps/web/src/ui/dialogs/CeilingTypeDialog.tsx,92,"Excluir tipo",atributo title,P1,dlg_delete_type,Delete type,
+apps/web/src/ui/dialogs/CeilingTypeDialog.tsx,94,"Cancelar / Aplicar / OK",botão,P1,dlg_cancel_apply_ok,Cancel / Apply / OK,
+apps/web/src/ui/dialogs/CeilingTypeDialog.tsx,102,"Nome do tipo",rótulo de campo,P1,fld_type_name,Type Name,
+apps/web/src/ui/dialogs/CeilingTypeDialog.tsx,109,"Função / Material / Esp. (cm)",cabeçalho de tabela,P1,col_function_material_thickness,Function / Material / Thickness (cm),
+apps/web/src/ui/dialogs/CeilingTypeDialog.tsx,112,"Topo da forro / Face inferior",texto em tabela,P2,ceiling_faces,Top of Ceiling / Bottom Face,"Erro de concordância ""Topo da forro""; linhas 112 e 150"
+apps/web/src/ui/dialogs/CeilingTypeDialog.tsx,153,"Espessura total",rótulo,P1,ceiling_total_thickness,Total Thickness,
+apps/web/src/ui/dialogs/CeilingTypeDialog.tsx,154,"+ Inserir camada",botão,P1,ceiling_add_layer,+ Insert Layer,
+apps/web/src/ui/dialogs/CeilingTypeDialog.tsx,159,"A primeira camada é a de cima. O topo da forro fica na cota do nível mais o deslocamento da instância. A inclinação é definida na planta.",texto de ajuda,P2,ceiling_help,The first layer is the top one. The top of the ceiling sits at the level elevation plus the instance offset. Slope is defined in plan.,"Repete o erro ""Topo da forro"""
+apps/web/src/ui/dialogs/RoofTypeDialog.tsx,74,"Não foi possível excluir: {erro}",mensagem gerada,P1,err_delete_with_reason,Could not delete: {error},
+apps/web/src/ui/dialogs/RoofTypeDialog.tsx,86,"Propriedades do tipo de telhado",título de diálogo,P0,type_title_roof,Roof Type Properties,
+apps/web/src/ui/dialogs/RoofTypeDialog.tsx,87,"Telhado · usado em {n} telhados",subtítulo,P0,type_sub_roof,"Roof · used in {n} roofs",
+apps/web/src/ui/dialogs/RoofTypeDialog.tsx,92,"Excluir tipo",atributo title,P1,dlg_delete_type,Delete type,
+apps/web/src/ui/dialogs/RoofTypeDialog.tsx,94,"Cancelar / Aplicar / OK",botão,P1,dlg_cancel_apply_ok,Cancel / Apply / OK,
+apps/web/src/ui/dialogs/RoofTypeDialog.tsx,102,"Nome do tipo",rótulo de campo,P1,fld_type_name,Type Name,
+apps/web/src/ui/dialogs/RoofTypeDialog.tsx,109,"Função / Material / Esp. (cm)",cabeçalho de tabela,P1,col_function_material_thickness,Function / Material / Thickness (cm),
+apps/web/src/ui/dialogs/RoofTypeDialog.tsx,112,"Topo do telhado / Face inferior",texto em tabela,P2,roof_faces,Top of Roof / Bottom Face,"Linhas 112 e 150"
+apps/web/src/ui/dialogs/RoofTypeDialog.tsx,153,"Espessura total",rótulo,P1,roof_total_thickness,Total Thickness,
+apps/web/src/ui/dialogs/RoofTypeDialog.tsx,154,"+ Inserir camada",botão,P1,roof_add_layer,+ Insert Layer,
+apps/web/src/ui/dialogs/RoofTypeDialog.tsx,159,"A primeira camada é a de cima. O topo do telhado fica na cota do beiral (nível mais o deslocamento da instância). A forma e a inclinação são definidas no próprio telhado.",texto de ajuda,P2,roof_help,The first layer is the top one. The roof top sits at the eave elevation (level plus instance offset). Shape and slope are defined on the roof itself.,
+apps/web/src/ui/dialogs/GridTypeDialog.tsx,17,"Tinta do tema",rótulo de caixa,P1,grid_theme_ink,Theme ink,
+apps/web/src/ui/dialogs/GridTypeDialog.tsx,44,"Operação recusada.",mensagem gerada,P1,err_operation_refused,Operation refused.,
+apps/web/src/ui/dialogs/GridTypeDialog.tsx,85,"Editar tipo de grade",título de diálogo,P0,type_title_grid,Edit Grid Type,
+apps/web/src/ui/dialogs/GridTypeDialog.tsx,86,"Grade · bolhas e traços em mm de papel",subtítulo,P0,type_sub_grid,"Grid · bubbles and lines in paper mm","NumField usa smallLength (cm) — unidade do subtítulo não bate com o campo"
+apps/web/src/ui/dialogs/GridTypeDialog.tsx,91,"Excluir / Duplicar / Cancelar / Aplicar / OK",botão,P1,dlg_crud_buttons,Delete / Duplicate / Cancel / Apply / OK,"Linhas 91-96"
+apps/web/src/ui/dialogs/GridTypeDialog.tsx,101,"Nome do tipo / Segmento central / Espessura / Traço",rótulo de campo,P1,grid_fields,Type Name / Center Segment / Weight / Pattern,"Linhas 101-108"
+apps/web/src/ui/dialogs/GridTypeDialog.tsx,113,"Cor / Comprimento das pontas / Espessura do centro / Traço do centro / Cor do centro / Diâmetro da bolha / Altura do texto",rótulo de campo,P1,grid_more_fields,Color / End Length / Center Weight / Center Pattern / Center Color / Bubble Diameter / Text Height,"Linhas 113-127"
+apps/web/src/ui/dialogs/StairTypeDialog.tsx,134,"Não foi possível salvar: {erro}",mensagem gerada,P1,stt_err_save,Could not save: {error},"Nova chave; erro do modelo em PT"
+apps/web/src/ui/dialogs/StairTypeDialog.tsx,176,"Corrija os erros do tipo antes de duplicar.",mensagem gerada,P1,stt_err_fix_before_duplicate,Fix the type errors before duplicating.,
+apps/web/src/ui/dialogs/StairTypeDialog.tsx,192,"Não foi possível excluir: {erro}",mensagem gerada,P1,stt_err_delete,Could not delete: {error},
+apps/web/src/ui/dialogs/RampTypeDialog.tsx,21,"Personalizado",constante de módulo,P1,ramp_profile_custom,Custom,"PROFILE_LABEL calculado uma vez; não acompanha o idioma"
+apps/web/src/ui/dialogs/RampTypeDialog.tsx,63,"Não foi possível excluir: {erro}",mensagem gerada,P1,err_delete_with_reason,Could not delete: {error},
+apps/web/src/ui/dialogs/RampTypeDialog.tsx,90,"Propriedades · Tipo de rampa",título de diálogo,P0,ramp_type_props,Ramp Type Properties,"Mistura ""Propriedades"" fixo com chave ramp_type_title"
+apps/web/src/ui/dialogs/RampTypeDialog.tsx,91,"Rampa · usada em {n} rampas",subtítulo,P0,type_sub_ramp,"Ramp · used in {n} ramps",
+apps/web/src/ui/dialogs/RampTypeDialog.tsx,96,"Excluir tipo",atributo title,P1,dlg_delete_type,Delete type,
+apps/web/src/ui/dialogs/RampTypeDialog.tsx,98,"Cancelar / Aplicar / OK",botão,P1,dlg_cancel_apply_ok,Cancel / Apply / OK,
+apps/web/src/ui/dialogs/RampTypeDialog.tsx,104,"Escada",nome de família,P1,family_ramp,Ramp,"FAMILY.stair usado no diálogo de rampa: mostra ""Escada"""
+apps/web/src/ui/dialogs/RampTypeDialog.tsx,106,"Nome do tipo / Código / Descrição / Custo (R$) / Espessura estrutural / Espessura do patamar / Largura padrão / Largura mínima / Comprimento mínimo do patamar / Pé-direito livre mínimo / Inclinação padrão / Material",rótulo de campo,P1,ramp_fields,Type Name / Code / Description / Cost (BRL) / Structural Thickness / Landing Thickness / Default Width / Minimum Width / Minimum Landing Length / Minimum Headroom / Default Slope / Material,"Linhas 106-122; moeda BRL fixa"
+apps/web/src/ui/dialogs/RampTypeDialog.tsx,131,"A inclinação do lance é resultado do desnível e do comprimento; o valor padrão é usado quando a rampa é criada no modo inclinação.",texto de ajuda,P2,ramp_help,Flight slope results from rise and length; the default value is used when the ramp is created in slope mode.,
+apps/web/src/ui/dialogs/RampTypeDialog.tsx,138,"Perfil de norma / Inclinação até / Desnível máx. por lance / Máx. de lances",rótulo de campo,P1,ramp_norm_fields,Norm Profile / Slope Up To / Max. Rise per Flight / Max. Flights,"Linhas 138, 156-158"
+apps/web/src/ui/dialogs/RampTypeDialog.tsx,172,"sem limite",placeholder,P1,ramp_no_limit,no limit,
+apps/web/src/ui/dialogs/RampTypeDialog.tsx,177,"Remover linha {n}",aria-label,P2,a11y_remove_row,Remove row {n},
+apps/web/src/ui/dialogs/RampTypeDialog.tsx,183,"Adicionar linha / Remover linha",botão,P1,ramp_add_remove_row,Add row / Remove row,
+apps/web/src/ui/dialogs/RampTypeDialog.tsx,186,"Valores de referência de fonte secundária; confira a norma vigente antes de usar.",texto de ajuda,P2,ramp_norm_footnote,Reference values from a secondary source; check the current code before use.,
+apps/web/src/ui/dialogs/TypeDialogHeader.tsx,32,"Família:",rótulo,P1,fld_family,Family:,
+apps/web/src/ui/dialogs/TypeDialogHeader.tsx,35,"Tipo:",rótulo,P1,fld_type,Type:,
+apps/web/src/ui/dialogs/TypeDialogHeader.tsx,42,"Duplicar… / Renomear…",botão,P1,dlg_duplicate_rename,Duplicate… / Rename…,
+apps/web/src/ui/dialogs/TypeParams.tsx,21,"{rótulo} informado",aria-label,P2,a11y_value_informed,{label} specified,
+apps/web/src/ui/dialogs/TypeParams.tsx,25,"não informado",texto,P1,value_not_set,not set,
+apps/web/src/ui/dialogs/TypeParams.tsx,36,"Desempenho e custo",legenda,P1,type_params_legend,Performance and Cost,
+apps/web/src/ui/dialogs/TypeParams.tsx,38,"Custo",rótulo de campo,P1,fld_cost,Cost,Tooltip com texto longo em PT
+apps/web/src/ui/dialogs/TypeParams.tsx,42,"Transmitância U / Isolamento Rw / Resistência ao fogo / Fabricante",rótulo de campo,P1,type_params_fields,U-Factor / Rw Rating / Fire Resistance / Manufacturer,"Linhas 42-46"
+apps/web/src/ui/dialogs/TypeParams.tsx,47,"Sistema ou fabricante de referência",placeholder,P2,type_params_manufacturer_ph,Reference system or manufacturer,
+apps/web/src/ui/dialogs/FloorSectionPreview.tsx,36,"Seção do piso",aria-label,P2,a11y_floor_section,Floor section,
+apps/web/src/ui/dialogs/FloorSectionPreview.tsx,46,"TOPO DO PISO / FACE INFERIOR",texto em SVG,P2,svg_floor_top_bottom,TOP OF FLOOR / BOTTOM FACE,"Linhas 46-47"
+apps/web/src/ui/dialogs/FloorSectionPreview.tsx,72,"núcleo",texto em SVG,P2,svg_core,core,
+apps/web/src/ui/dialogs/SlabSectionPreview.tsx,36,"Seção da laje",aria-label,P2,a11y_slab_section,Slab section,
+apps/web/src/ui/dialogs/SlabSectionPreview.tsx,46,"TOPO DA LAJE / FACE INFERIOR",texto em SVG,P2,svg_slab_top_bottom,TOP OF SLAB / BOTTOM FACE,"Linhas 46-47"
+apps/web/src/ui/dialogs/SlabSectionPreview.tsx,72,"núcleo",texto em SVG,P2,svg_core,core,
+apps/web/src/ui/dialogs/RoofSectionPreview.tsx,33,"Seção do telhado",aria-label,P2,a11y_roof_section,Roof section,
+apps/web/src/ui/dialogs/RoofSectionPreview.tsx,43,"TOPO DO TELHADO / FACE INFERIOR",texto em SVG,P2,svg_roof_top_bottom,TOP OF ROOF / BOTTOM FACE,"Linhas 43-44"
+apps/web/src/ui/dialogs/SectionPreview.tsx,28,"Seção da parede",aria-label,P2,a11y_wall_section,Wall section,
+apps/web/src/ui/dialogs/SectionPreview.tsx,38,"EXTERIOR / INTERIOR",texto em SVG,P2,svg_wall_faces,EXTERIOR / INTERIOR,"Linhas 38-39"
+apps/web/src/ui/dialogs/SectionPreview.tsx,62,"núcleo",texto em SVG,P2,svg_core,core,
+apps/web/src/ui/dialogs/ProfilePreview.tsx,33,"Elevação do topo da parede: altura máxima {h}",aria-label,P2,a11y_wall_profile,Wall top elevation: maximum height {h},
+apps/web/src/ui/dialogs/ProfilePreview.tsx,43,"topo máx. {h}",texto em SVG,P2,svg_top_max,top max. {h},
+apps/web/src/ui/dialogs/ProfileDialog.tsx,37,"Perfil superior",título de diálogo,P1,profile_title,Top Profile,
+apps/web/src/ui/dialogs/ProfileDialog.tsx,38,"Comprimento {L} · altura reta {H}",subtítulo,P1,profile_sub,Length {L} · straight height {H},
+apps/web/src/ui/dialogs/ProfileDialog.tsx,44,"Cancelar / OK",botão,P1,dlg_cancel_ok,Cancel / OK,
+apps/web/src/ui/dialogs/ProfileDialog.tsx,49,"Predefinições de perfil",aria-label,P1,prof_presets,Profile presets,
+apps/web/src/ui/dialogs/ProfileDialog.tsx,50,"Inclinado / Empena (duas águas) / Degrau / Remover perfil",botão,P1,prof_preset_buttons,Sloped / Gable (two slopes) / Step / Remove profile,"Linhas 50-53"
+apps/web/src/ui/dialogs/ProfileDialog.tsx,59,"Posição t / Altura h",cabeçalho de tabela,P1,col_position_height,Position t / Height h,
+apps/web/src/ui/dialogs/ProfileDialog.tsx,68,"Excluir ponto {n} / O perfil precisa de ao menos 2 pontos / Excluir ponto",aria-label,P2,a11y_delete_point,Delete point {n} / The profile needs at least 2 points / Delete point,
+apps/web/src/ui/dialogs/ProfileDialog.tsx,77,"+ ponto",botão,P1,profile_add_point,+ point,
+apps/web/src/ui/dialogs/ProfileDialog.tsx,80,"Topo reto. Editar a tabela cria o perfil.",texto de ajuda,P2,profile_straight_hint,Straight top. Editing the table creates the profile.,
+apps/web/src/ui/dialogs/ProfileDialog.tsx,85,"Altura máxima / Altura média / Comprimento",rótulo,P1,profile_stats,Maximum height / Average height / Length,"Linhas 85-87"
+apps/web/src/ui/dialogs/RoofProfileDialog.tsx,55,"Seção do telhado: altura máxima {h}",aria-label,P2,a11y_roof_section_max,Roof section: maximum height {h},
+apps/web/src/ui/dialogs/RoofProfileDialog.tsx,65,"altura máx. {h}",texto em SVG,P2,svg_roof_max,height max. {h},
+apps/web/src/ui/dialogs/RoofProfileDialog.tsx,105,"Perfil do telhado",título de diálogo,P1,roof_profile_title,Roof Profile,
+apps/web/src/ui/dialogs/RoofProfileDialog.tsx,106,"Largura {L} na transversal",subtítulo,P1,roof_profile_sub,Cross-section width {L},
+apps/web/src/ui/dialogs/RoofProfileDialog.tsx,112,"Cancelar / OK",botão,P1,dlg_cancel_ok,Cancel / OK,
+apps/web/src/ui/dialogs/RoofProfileDialog.tsx,117,"Predefinições de perfil",aria-label,P1,prof_presets,Profile presets,
+apps/web/src/ui/dialogs/RoofProfileDialog.tsx,118,"Arco / Mansarda / Dente de serra / Borboleta / Uma água / Duas águas",botão,P1,roof_preset_buttons,Arch / Mansard / Sawtooth / Butterfly / Shed / Gable,"Linhas 118-123"
+apps/web/src/ui/dialogs/RoofProfileDialog.tsx,126,"Altura / Dentes",rótulo de campo,P1,roof_profile_h_dents,Height / Teeth,
+apps/web/src/ui/dialogs/RoofProfileDialog.tsx,135,"Posição t / Altura z",cabeçalho de tabela,P1,col_position_height_tz,Position t / Height z,
+apps/web/src/ui/dialogs/RoofProfileDialog.tsx,144,"Excluir ponto {n} / O perfil precisa de ao menos 2 pontos / Excluir ponto",aria-label,P2,a11y_delete_point,Delete point {n} / The profile needs at least 2 points / Delete point,
+apps/web/src/ui/dialogs/RoofProfileDialog.tsx,153,"+ ponto",botão,P1,profile_add_point,+ point,
+apps/web/src/ui/dialogs/RoofProfileDialog.tsx,156,"t é medido a partir da borda do contorno, na transversal; z é a altura acima do beiral.",texto de ajuda,P2,roof_profile_hint,t is measured from the boundary edge across the section; z is the height above the eave.,
+apps/web/src/ui/dialogs/RoofProfileDialog.tsx,161,"Altura máxima / Trechos / Largura",rótulo,P1,roof_profile_stats,Maximum height / Segments / Width,
+apps/web/src/ui/dialogs/profilePresets.ts,53,"as posições devem estar entre 0 e o comprimento da parede",mensagem gerada,P1,profile_range_error,positions must be between 0 and the wall length,Retornada por profileRangeError e exibida em ProfileDialog.tsx:79
+apps/web/src/ui/dialogs/stairTypeForm.ts,161,"(cópia)",nome padrão gerado,P1,dlg_duplicate_suffix,"(copy)","Sufixo do nome duplicado; idem WallTypeDialog.tsx:75"
+apps/web/src/ui/dialogs/DimensionFamiliesDialog.tsx,34,"Padrão",nome padrão,P1,dim_family_default,Default,Nome da família implícita
+apps/web/src/ui/dialogs/DimensionFamiliesDialog.tsx,38,"toLocaleLowerCase('pt-BR')",formatação,P2,locale_lower,toLocaleLowerCase(lang),Colisão de nomes sempre em pt-BR; linhas 38 e 42
+apps/web/src/ui/dialogs/DimensionFamiliesDialog.tsx,39,"(cópia) / Nova família",nome padrão gerado,P1,dim_family_copy_new,"(copy) / New family","Linhas 39 e 42"
+apps/web/src/ui/dialogs/DimensionFamiliesDialog.tsx,72,"Família: {erro}",mensagem gerada,P1,dim_family_error,Family: {error},Erro de dimensionFamilyIssue (PT no modelo)
+apps/web/src/ui/dialogs/DimensionFamiliesDialog.tsx,75,"Famílias de cotas",rótulo de undo,P2,dim_families_undo,Dimension families,Rótulo do passo de desfazer
+apps/web/src/ui/dialogs/DimensionFamiliesDialog.tsx,118,"Famílias de cotas",título de diálogo,P1,dim_families_title,Dimension Families,
+apps/web/src/ui/dialogs/DimensionFamiliesDialog.tsx,119,"Aparência nomeada das cotas: marcador, texto, leitura e formato. A família escolhida na barra é a da cota nova.",subtítulo,P1,dim_families_sub,"Named dimension appearance: tick mark, text, reading and format. The family chosen in the bar is used for new dimensions.",
+apps/web/src/ui/dialogs/DimensionFamiliesDialog.tsx,125,"Duplicar / Nova / Excluir / Cancelar / OK",botão,P1,dlg_list_crud,Duplicate / New / Delete / Cancel / OK,"Linhas 125-134"
+apps/web/src/ui/dialogs/DimensionFamiliesDialog.tsx,127,"A família Padrão é o estilo do projeto e não pode ser excluída / Excluir a família",atributo title,P1,dim_family_delete_tip,The Default family is the project style and cannot be deleted / Delete family,
+apps/web/src/ui/dialogs/DimensionFamiliesDialog.tsx,139,"Famílias de cotas",aria-label,P2,a11y_dim_families,Dimension families,
+apps/web/src/ui/dialogs/DimensionFamiliesDialog.tsx,149,"(sem nome) / padrão",texto,P2,dim_family_unnamed_default,"(unnamed) / default","Linhas 149-150"
+apps/web/src/ui/dialogs/DimensionFamiliesDialog.tsx,158,"Nome / Padrão do projeto / Usar esta família nas cotas novas",rótulo de campo,P1,dim_family_name_default,Name / Project Default / Use this family for new dimensions,"Linhas 158-162"
+apps/web/src/ui/dialogs/DimensionFamiliesDialog.tsx,164,"A família Padrão é o estilo global do projeto (Cotas do projeto › Estilo das cotas). / Família nomeada: mudar aqui não afeta as outras.",texto de ajuda,P2,dim_family_help,The Default family is the global project style (Project Dimensions › Dimension Style). / Named family: changes here do not affect the others.,
+apps/web/src/ui/dialogs/DimensionFamiliesDialog.tsx,165,"Marcador / Tamanho do marcador / Posição do texto / Leitura do valor / Folga do texto até a linha / Altura do texto / Fonte / Folga da linha de extensão / Ultrapassagem da linha de extensão / Espaçamento entre cotas empilhadas / Quando o valor não cabe / Unidade / Precisão / Prefixo / Sufixo",rótulo de campo,P1,dim_family_fields,"Tick Mark / Tick Mark Size / Text Position / Read Convention / Text Gap to Line / Text Height / Font / Extension Line Gap / Extension Line Overshoot / Stacked Dimension Spacing / When Value Does Not Fit / Unit / Precision / Prefix / Suffix","Linhas 165-185"
+apps/web/src/ui/dialogs/DimensionSettingsDialog.tsx,152,"Cotas do projeto",título de diálogo,P1,dim_settings_title,Project Dimensions,
+apps/web/src/ui/dialogs/DimensionSettingsDialog.tsx,153,"Referências das cotas dinâmicas que aparecem ao colocar e ao selecionar / Estilo global das cotas: marcador, texto, linhas de extensão e formato",subtítulo,P1,dim_settings_sub,"References for temporary dimensions shown on placement and selection / Global dimension style: tick mark, text, extension lines and format",
+apps/web/src/ui/dialogs/DimensionSettingsDialog.tsx,162,"Restaurar padrões / Restaurar padrão",botão,P1,restore_defaults,Restore Defaults / Restore Default,"Linhas 162-163"
+apps/web/src/ui/dialogs/DimensionSettingsDialog.tsx,164,"Famílias de cotas…",botão,P1,dim_families_title,Dimension Families…,
+apps/web/src/ui/dialogs/DimensionSettingsDialog.tsx,166,"Cancelar / OK",botão,P1,dlg_cancel_ok,Cancel / OK,
+apps/web/src/ui/dialogs/DimensionSettingsDialog.tsx,172,"Referências / Estilo das cotas",aba,P1,dim_tabs,References / Dimension Style,
+apps/web/src/ui/dialogs/DimensionSettingsDialog.tsx,179,"Referência de paredes / Referência de portas e janelas / Mostrar ao colocar / Mostrar ao selecionar",rótulo de campo,P1,dim_ref_fields,Wall Reference / Door and Window Reference / Show on Placement / Show on Selection,"Linhas 179-199"
+apps/web/src/ui/dialogs/DimensionSettingsDialog.tsx,207,"Marcador / Tamanho do marcador (mm) / Altura do texto (mm) / Fonte / Folga da linha de extensão (mm) / Ultrapassagem da linha de extensão (mm) / Folga do texto até a linha (mm) / Posição do texto / Leitura do valor / Quando o valor não cabe / Linha de chamada quando não cabe / Espaçamento entre cotas empilhadas (mm) / Unidade / Precisão / Prefixo / Sufixo",rótulo de campo,P1,dim_style_fields,"Tick Mark / Tick Mark Size (mm) / Text Height (mm) / Font / Extension Line Gap (mm) / Extension Line Overshoot (mm) / Text Gap to Line (mm) / Text Position / Read Convention / When Value Does Not Fit / Leader Line When It Does Not Fit / Stacked Dimension Spacing (mm) / Unit / Precision / Prefix / Suffix","Linhas 207-230"
+apps/web/src/ui/dialogs/dimensionStyleModel.ts,28,"Traço (45°) / Seta cheia / Seta aberta / Ponto",rótulo de opção,P1,dim_tick_options,"Slash (45°) / Filled Arrow / Open Arrow / Dot","DIM_TICK_OPTIONS; linhas 28-31"
+apps/web/src/ui/dialogs/dimensionStyleModel.ts,35,"Acima da linha / Centrado (interrompe a linha)",rótulo de opção,P1,dim_text_placement,Above Line / Centered (interrupts line),
+apps/web/src/ui/dialogs/dimensionStyleModel.ts,46,"Unidade do projeto / Metros (m) / Centímetros (cm) / Milímetros (mm)",rótulo de opção,P2,dim_unit_options,Project Units / Meters (m) / Centimeters (cm) / Millimeters (mm),
+apps/web/src/ui/dialogs/dimensionStyleModel.ts,53,"0 casas / 1 casa / 2 casas / 3 casas",rótulo de opção,P2,dim_precision_options,0 places / 1 place / 2 places / 3 places,
+apps/web/src/ui/dialogs/dimensionStyleModel.ts,102,"Digite um número / Entre {min} e {max}",mensagem de validação,P1,dim_err_number,Enter a number / Between {min} and {max},"Linhas 102-103"
+apps/web/src/ui/dialogs/dimensionStyleModel.ts,114,"Marcador desconhecido / Posição desconhecida / Convenção desconhecida / Comportamento desconhecido / Unidade desconhecida / Precisão fora de 0 a 3 / Informe a fonte / Até {n} caracteres",mensagem de validação,P1,dim_err_enum,Unknown tick mark / Unknown position / Unknown convention / Unknown behavior / Unknown unit / Precision out of 0-3 / Enter the font / Up to {n} characters,"Linhas 114-123"
+apps/web/src/ui/dialogs/dimensionStyleModel.ts,89,"replace('.', ',')",formatação,P2,locale_decimal_sep,"lang === 'en' ? '.' : ','","formatDecimal e formatDimValue fixam vírgula; linhas 89, 91 e 97"
+apps/web/src/ui/dialogs/dimensionStylePreview.tsx,46,"Prévia: cota de {valor}",aria-label,P2,a11y_dim_preview,Preview: dimension of {value},
+apps/web/src/ui/dialogs/LineWeightsDialog.tsx,32,"Pesos de linha",título de diálogo,P1,lw_title,Line Weights,
+apps/web/src/ui/dialogs/LineWeightsDialog.tsx,33,"Projeto · padrão do Revit, com a escolha do Hestia por categoria",subtítulo,P1,lw_sub,"Project · Revit default, with Hestia's choice per category",
+apps/web/src/ui/dialogs/LineWeightsDialog.tsx,38,"Restaurar padrão / Fechar",botão,P1,restore_default_close,Restore Default / Close,
+apps/web/src/ui/dialogs/LineWeightsDialog.tsx,44,"Largura da linha por peso (mm de papel) / Peso por categoria (1 a 16) / Nível de detalhe por escala",título de seção,P1,lw_sections,Line Width by Weight (paper mm) / Weight by Category (1 to 16) / Detail Level by Scale,"Linhas 44, 66 e 97"
+apps/web/src/ui/dialogs/LineWeightsDialog.tsx,45,"Tabela de pesos de linha / Pesos de corte e projeção por categoria",aria-label,P2,a11y_lw_tables,Line weights table / Cut and projection weights by category,"Linhas 45 e 67"
+apps/web/src/ui/dialogs/LineWeightsDialog.tsx,48,"Peso / Categoria / Corte / Projeção",cabeçalho de tabela,P1,col_weight_category_cut_projection,Weight / Category / Cut / Projection,"Linhas 48, 70-72"
+apps/web/src/ui/dialogs/LineWeightsDialog.tsx,84,"Corte de {categoria} / Projeção de {categoria}",aria-label,P2,a11y_cut_projection,Cut of {category} / Projection of {category},
+apps/web/src/ui/dialogs/LineWeightsDialog.tsx,99,"Fino até a escala 1: / Médio até a escala 1:",rótulo de campo,P1,lw_detail_limits,Fine up to scale 1: / Medium up to scale 1:,"Linhas 99 e 103"
+apps/web/src/ui/dialogs/LineWeightsDialog.tsx,106,"Acima do médio, o detalhe é grosso. Os valores são escalas (denominadores): 50 = 1:50.",texto de ajuda,P2,lw_help,Above medium the detail is coarse. Values are scale denominators: 50 = 1:50.,
+apps/web/src/ui/dialogs/MaterialsDialog.tsx,8,"Sem hachura / Diagonal / Cruzada / Pontos / Sólida",constante de módulo,P1,hatch_options,None / Diagonal / Cross / Dots / Solid,"HATCHES fora do i18n; usado na aba Gráficos"
+apps/web/src/ui/dialogs/MaterialsDialog.tsx,19,"localeCompare(..., 'pt-BR')",formatação,P2,locale_compare,"localeCompare(name, lang)",Ordenação fixa em pt-BR
+apps/web/src/ui/dialogs/MaterialsDialog.tsx,38,"(cópia)",nome padrão gerado,P1,dlg_duplicate_suffix,"(copy)",
+apps/web/src/ui/dialogs/MaterialsDialog.tsx,39,"Novo material",nome padrão gerado,P1,mat_new_default,New Material,
+apps/web/src/ui/dialogs/MaterialsDialog.tsx,46,"Navegador de materiais",título de diálogo,P1,mat_browser_title,Material Browser,
+apps/web/src/ui/dialogs/MaterialsDialog.tsx,47,"{n} materiais",subtítulo,P1,mat_count,{n} materials,
+apps/web/src/ui/dialogs/MaterialsDialog.tsx,54,"Usar este material / Cancelar / Fechar",botão,P1,mat_use_cancel_close,Use This Material / Cancel / Close,"Linhas 54 e 56"
+apps/web/src/ui/dialogs/MaterialsDialog.tsx,62,"Buscar material",placeholder,P1,mat_search,Search material,"Também aria-label"
+apps/web/src/ui/dialogs/MaterialsDialog.tsx,72,"+ Novo / Duplicar",botão,P1,dlg_new_duplicate,+ New / Duplicate,
+apps/web/src/ui/dialogs/MaterialsDialog.tsx,78,"Nome / Aparência / Gráficos / Físico",rótulo e aba,P1,mat_fields,Name / Appearance / Graphics / Physical,"Linhas 78-79"
+apps/web/src/ui/dialogs/MaterialsDialog.tsx,82,"Cor / Brilho / Opacidade / Hachura de corte / Custo / Unidade",rótulo de campo,P1,mat_appearance_fields,Color / Gloss / Opacity / Cut Hatch / Cost / Unit,"Linhas 82-99"
+apps/web/src/ui/dialogs/MaterialsDialog.tsx,110,"Usado em {n} lugares. Alterar o material muda todos os tipos que o usam.",texto de ajuda,P1,mat_usage,Used in {n} places. Changing the material changes every type that uses it.,
+apps/web/src/ui/dialogs/RoomCategoriesDialog.tsx,18,"Nova categoria",nome padrão gerado,P1,rc_new_default,New Category,
+apps/web/src/ui/dialogs/RoomCategoriesDialog.tsx,24,"Não foi possível excluir a categoria.",mensagem gerada,P1,rc_err_delete,Could not delete the category.,
+apps/web/src/ui/dialogs/RoomCategoriesDialog.tsx,29,"Categorias de ambiente",título de diálogo,P1,rc_title,Room Categories,
+apps/web/src/ui/dialogs/RoomCategoriesDialog.tsx,30,"Nome, código, cor e hachura; a cor entra na planta de área quando o esquema é Por categoria",subtítulo,P1,rc_sub,"Name, code, color and hatch; the color appears in the area plan when the scheme is By Category",
+apps/web/src/ui/dialogs/RoomCategoriesDialog.tsx,33,"Nova categoria / Fechar",botão,P1,rc_new_close,New Category / Close,
+apps/web/src/ui/dialogs/RoomCategoriesDialog.tsx,37,"Cor / Nome / Código / Hachura",cabeçalho de tabela,P1,col_color_name_code_hatch,Color / Name / Code / Hatch,
+apps/web/src/ui/dialogs/RoomCategoriesDialog.tsx,42,"Cor de {nome} / Nome de {nome} / Código de {nome} / Hachura de {nome}",aria-label,P2,a11y_rc_fields,Color of {name} / Name of {name} / Code of {name} / Hatch of {name},"Linhas 42-46"
+apps/web/src/ui/dialogs/RoomCategoriesDialog.tsx,47,"Sem hachura / Diagonal / Cruzada / Pontilhada / Cheia",rótulo de opção,P1,rc_hatch_options,None / Diagonal / Cross / Dotted / Solid,
+apps/web/src/ui/dialogs/RoomCategoriesDialog.tsx,50,"Excluir",botão,P1,dlg_delete,Delete,Tooltip "Excluir categoria"
+apps/web/src/ui/dialogs/RoomCategoriesDialog.tsx,55,"Excluir uma categoria em uso é recusado. A cor da categoria também aparece na legenda e no IFC.",texto de ajuda,P2,rc_help,Deleting a category in use is refused. The category color also appears in the legend and in IFC.,
+apps/web/src/ui/dialogs/GraphicsVisibilityDialog.tsx,20,"do projeto / Definir / Do projeto",texto e botão,P1,vis_project_value,from project / Set / From project,"Linhas 20, 21 e 28"
+apps/web/src/ui/dialogs/GraphicsVisibilityDialog.tsx,27,"Cor de {categoria} / Definir cor de {categoria}",aria-label,P2,a11y_vis_color,Color of {category} / Set color of {category},"Linhas 21 e 27"
+apps/web/src/ui/dialogs/GraphicsVisibilityDialog.tsx,56,"Visibilidade e gráficos",título de diálogo,P1,vis_title,Visibility and Graphics,
+apps/web/src/ui/dialogs/GraphicsVisibilityDialog.tsx,57,"Modelo 3D / Corte/elevação / Planta · {nível}",subtítulo,P1,vis_sub,3D View / Section/Elevation / Plan · {level},
+apps/web/src/ui/dialogs/GraphicsVisibilityDialog.tsx,60,"Fechar",botão,P1,dlg_close,Close,
+apps/web/src/ui/dialogs/GraphicsVisibilityDialog.tsx,62,"Visibilidade e gráficos por categoria",aria-label,P2,a11y_vis_table,Visibility and graphics by category,
+apps/web/src/ui/dialogs/GraphicsVisibilityDialog.tsx,65,"Categoria / Visível / Transparência / Meio-tom / Peso de corte / Peso de projeção / Cor",cabeçalho de tabela,P1,col_vis_headers,Category / Visible / Transparency / Halftone / Cut Weight / Projection Weight / Color,
+apps/web/src/ui/dialogs/GraphicsVisibilityDialog.tsx,82,"Peso de corte de {categoria} / Peso de projeção de {categoria}",aria-label,P2,a11y_vis_weight,Cut weight of {category} / Projection weight of {category},
+apps/web/src/ui/dialogs/GraphicsVisibilityDialog.tsx,86,"Do projeto ({valor})",rótulo de opção,P1,vis_project_value,From project ({value}),
+apps/web/src/ui/dialogs/GraphicsVisibilityDialog.tsx,112,"Transparência: 0% opaco, 100% invisível. Meio-tom clareia a categoria. Vazio (Do projeto) usa o peso e a cor do projeto.",texto de ajuda,P2,vis_help,"Transparency: 0% opaque, 100% invisible. Halftone lightens the category. Empty (From project) uses the project weight and color.",
+apps/web/src/ui/dialogs/StripsTab.tsx,8,"Externo / Interno",constante de módulo,P1,strip_sides,Exterior / Interior,
+apps/web/src/ui/dialogs/StripsTab.tsx,11,"Rodapé 10 cm / Barra de azulejo 1,50 m / Friso externo",nome de preset,P1,strip_presets,Baseboard 10 cm / Tile band 1.50 m / Exterior band,"PRESETS e nomes padrão (Rodapé, Barra de azulejo, Friso); linhas 11-13"
+apps/web/src/ui/dialogs/StripsTab.tsx,18,"a altura final deve ser maior que a inicial. / a espessura deve ser maior que zero.",mensagem de validação,P1,strip_err,ending height must be greater than the starting height. / thickness must be greater than zero.,"Linhas 18-19"
+apps/web/src/ui/dialogs/StripsTab.tsx,36,"Faixa",nome padrão gerado,P1,strip_new_default,Strip,
+apps/web/src/ui/dialogs/StripsTab.tsx,40,"Faixas ficam fora da espessura da parede, entre as alturas indicadas. O rodapé só aparece em planta se atravessar o plano de corte (1,20 m); no 3D e nos quantitativos sempre aparece.",texto de ajuda,P2,strip_help,Strips sit outside the wall thickness between the given heights. The baseboard appears in plan only if it crosses the cut plane (1.20 m); in 3D and quantities it always appears.,
+apps/web/src/ui/dialogs/StripsTab.tsx,42,"Presets de faixa",aria-label,P2,a11y_strip_presets,Strip presets,
+apps/web/src/ui/dialogs/StripsTab.tsx,50,"Nome / Lado / Material / Espessura (cm) / Altura inicial (cm) / Altura final (cm)",cabeçalho de tabela,P1,col_strip_headers,Name / Side / Material / Thickness (cm) / Start Height (cm) / End Height (cm),
+apps/web/src/ui/dialogs/StripsTab.tsx,54,"Nenhuma faixa neste tipo.",texto de estado vazio,P1,strip_empty,No strips in this type.,
+apps/web/src/ui/dialogs/StripsTab.tsx,64,"Lado da faixa {n} / Remover faixa {n}",aria-label,P2,a11y_strip_side,Strip {n} side / Remove strip {n},"Linhas 64 e 79"
+apps/web/src/ui/dialogs/StripsTab.tsx,84,"Faixa {n}: {erro}",mensagem de validação,P1,strip_row_error,Strip {n}: {error},
+apps/web/src/ui/dialogs/StripsTab.tsx,94,"+ Adicionar faixa",botão,P1,strip_add,+ Add Strip,
+apps/web/src/ui/dialogs/coreHint.ts,12,"Sem camadas: não há núcleo. / Sem camada Estrutura: o núcleo é o elemento inteiro. / Núcleo: camadas {a} a {b}, de {x} a {y} {unidade} da {face}.",mensagem gerada,P2,core_hint_text,"No layers: there is no core. / No Structure layer: the whole element is the core. / Core: layers {a} to {b}, from {x} to {y} {unit} from the {face}.","Linhas 12, 14 e 20; exibido em FloorTypeDialog.tsx:161 e SlabTypeDialog.tsx:161"
+apps/web/src/ui/typeFamilies.ts,5,"Parede básica / Piso / Laje / Forro / Telhado / Escada",nome de família,P1,family_names,Basic Wall / Floor / Slab / Ceiling / Roof / Stair,"FAMILY avaliada uma vez; exibida por TypeDialogHeader.tsx:33"
+packages/model/src/priority.ts,17,"Estrutura / Substrato / Isolamento / Membrana / Acabamento 1 / Acabamento 2",rótulo de opção,P1,layer_function_labels,Structure / Substrate / Insulation / Membrane / Finish 1 / Finish 2,"FUNCTION_LABEL usado nas opções de camada de todos os TypeDialog"
+apps/web/src/ui/graphicsLabels.ts,5,"Parede / Porta / Janela / Piso / Laje / Telhado / Escada / Ambiente / Anotação / Objeto importado",rótulo de categoria,P1,category_labels,Walls / Doors / Windows / Floors / Slabs / Roofs / Stairs / Rooms / Annotation / Imported Object,"CATEGORY_LABEL usado em LineWeightsDialog e GraphicsVisibilityDialog"
+packages/model/src/dimensionFamily.ts,28,"Acompanha a cota (legível por baixo) / Acompanha a cota (nunca de cabeça para baixo) / Sempre horizontal",rótulo de opção,P1,dim_read_conventions,"Aligned (readable from below) / Aligned (never upside down) / Always horizontal","DIM_READ_CONVENTION_OPTIONS; linhas 28-30 e 35-37 (text fit)"
+apps/web/src/ui/gridUi.ts,13,"Contínuo (linha inteira) / Nenhum (só as pontas) / Personalizado (centro próprio) / Contínuo / Tracejado / Traço-ponto",rótulo de opção,P1,grid_segment_pattern,Continuous (full line) / None (ends only) / Custom (own center) / Solid / Dashed / Dash-dot,"SEGMENT_LABEL (13) e PATTERN_LABEL (19); exibidos em GridTypeDialog.tsx:104,110"
+apps/web/src/ui/gridUi.ts,39,"(cópia)",nome padrão gerado,P1,dlg_duplicate_suffix,"(copy)",Sufixo ao duplicar tipo de grade

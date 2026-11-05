@@ -50,7 +50,7 @@ export function selectCad(d: CadDrawing): void {
 export function frameCad(d: CadDrawing): void {
   const box = cadBoxOf(d);
   if (!box) {
-    useUi.setState({ status: 'O desenho CAD não tem geometria para enquadrar.' });
+    useUi.setState({ status: { key: 'edc_cad_no_geometry' } });
     return;
   }
   editor.zoomToBox(box);
@@ -58,18 +58,18 @@ export function frameCad(d: CadDrawing): void {
 
 /** Mostra/oculta o desenho nas plantas e no 3D (comando do projeto, com desfazer). */
 export function setCadVisible(d: CadDrawing, visible: boolean): void {
-  editor.store.exec({ type: 'updateCadDrawing', id: d.id, patch: { visible } }, visible ? 'Mostrar CAD' : 'Ocultar CAD');
+  editor.store.exec({ type: 'updateCadDrawing', id: d.id, patch: { visible } }, visible ? 'edc_cad_show' : 'edc_cad_hide');
 }
 
 /** Renomeia o desenho; nome vazio mantém o atual. */
 export function renameCad(d: CadDrawing, name: string): void {
   const n = name.trim();
   if (n === '' || n === d.name) return;
-  editor.store.exec({ type: 'updateCadDrawing', id: d.id, patch: { name: n } }, 'Renomear CAD');
+  editor.store.exec({ type: 'updateCadDrawing', id: d.id, patch: { name: n } }, 'edc_cad_rename');
 }
 
 /** Exclui o desenho do projeto (um passo de desfazer). */
 export function removeCad(d: CadDrawing): void {
-  editor.store.exec({ type: 'deleteElements', ids: [d.id] }, 'Excluir CAD');
-  useUi.setState({ selection: [], status: `CAD excluído: ${d.name}` });
+  editor.store.exec({ type: 'deleteElements', ids: [d.id] }, 'edc_cad_delete');
+  useUi.setState({ selection: [], status: { key: 'edc_cad_deleted', args: { name: d.name } } });
 }

@@ -2,6 +2,7 @@ import { mid, type Vec2 } from '@hestia/geom';
 import { formatQuantity, makeLevel, newId, unitsOf, type Level, type ResolvedUnits } from '@hestia/model';
 import { ToolBase } from './base.ts';
 import type { PointerInfo } from './types.ts';
+import { t as translate, type Lang } from './i18n.ts';
 
 /** Tolerância (m) para o segundo clique continuar na cota do primeiro: abaixo disso a linha é horizontal. */
 export const LEVEL_Z_TOLERANCE = 0.01;
@@ -19,10 +20,10 @@ function signedElevation(u: ResolvedUnits, z: number): string {
 }
 
 /** Próximo nome livre "Nível 1", "Nível 2"… (não repete um nome já usado, mesmo que fora da sequência). */
-export function nextLevelName(levels: readonly Pick<Level, 'name'>[]): string {
+export function nextLevelName(levels: readonly Pick<Level, 'name'>[], lang: Lang = 'pt'): string {
   const used = new Set(levels.map((l) => l.name));
   for (let n = 1; ; n++) {
-    const name = `Nível ${n}`;
+    const name = translate(lang, 'tl_level_name', { n });
     if (!used.has(name)) return name;
   }
 }
@@ -37,7 +38,9 @@ export function nextLevelName(levels: readonly Pick<Level, 'name'>[]): string {
 export class LevelTool extends ToolBase {
   readonly id = 'level';
   readonly label = 'Nível';
-  readonly hint = 'Nível: clique no início da linha do nível. O fim fica na mesma cota. Esc cancela.';
+  override get hint(): string {
+    return this.t('tl_hint_level');
+  }
   private head: Vec2 | null = null;
 
   protected reset(): void {
@@ -57,7 +60,7 @@ export class LevelTool extends ToolBase {
   override start(): void {
     this.reset();
     if (!this.section()) {
-      this.env.say('Nível só funciona em corte/elevação. Abra um corte ou uma elevação.');
+      this.env.say(this.t('tl_msg_level_section_only'));
       return;
     }
     this.env.say(this.hint);
@@ -90,7 +93,7 @@ export class LevelTool extends ToolBase {
     if (!this.head) {
       const at = { x: p.raw.x, y: this.snapZ(p.raw.y) };
       this.items.push({ kind: 'point', at });
-      this.items.push({ kind: 'label', at, text: `${nextLevelName(this.env.project().levels)} ${signedElevation(u, at.y)}` });
+      this.items.push({ kind: 'label', at, text: `${nextLevelName(this.env.project().levels, this.uiLang())} ${signedElevation(u, at.y)}` });
       return;
     }
     const a = this.head;
@@ -101,7 +104,7 @@ export class LevelTool extends ToolBase {
       this.items.push({
         kind: 'label',
         at: mid(a, b),
-        text: horizontal ? `${nextLevelName(this.env.project().levels)} ${signedElevation(u, a.y)}` : 'O nível é horizontal',
+        text: horizontal ? `${nextLevelName(this.env.project().levels, this.uiLang())} ${signedElevation(u, a.y)}` : this.t('tl_msg_level_is_horizontal'),
       });
     } else {
       this.items.push({ kind: 'point', at: b });
@@ -112,31 +115,31 @@ export class LevelTool extends ToolBase {
     this.raw = p.raw;
     const section = this.section();
     if (!section) {
-      this.env.say('Nível só funciona em corte/elevação. Abra um corte ou uma elevação.');
+      this.env.say(this.t('tl_msg_level_section_only'));
       return;
     }
     if (!this.head) {
       this.head = { x: p.raw.x, y: this.snapZ(p.raw.y) };
-      this.env.say('Clique no fim da linha do nível, na mesma cota do início. Esc cancela.');
+      this.env.say(this.t('tl_msg_level_click_end'));
       return;
     }
     const a = this.head;
     const z = p.raw.y;
     if (Math.abs(z - a.y) > this.zTolerance()) {
       // Mantém o primeiro ponto: o usuário pode corrigir só a cota do segundo clique.
-      this.env.say('A linha do nível é horizontal: clique no fim na mesma cota do início.');
+      this.env.say(this.t('tl_msg_level_horizontal'));
       return;
     }
     if (Math.abs(p.raw.x - a.x) < LEVEL_MIN_EXTENT) {
-      this.env.say('A linha do nível está curta demais: clique mais longe do início.');
+      this.env.say(this.t('tl_msg_level_short'));
       return;
     }
 
     const u = unitsOf(this.env.project());
-    const level = makeLevel({ id: newId('lv'), name: nextLevelName(this.env.project().levels), elevation: z });
+    const level = makeLevel({ id: newId('lv'), name: nextLevelName(this.env.project().levels, this.uiLang()), elevation: z });
     const extent = { a: a.x, b: p.raw.x };
     try {
-      this.env.transaction('Criar/editar nível', () => {
+      this.env.transaction(this.t('tl_undo_create_level'), () => {
         this.env.exec({ type: 'upsertLevel', level });
         this.env.exec({ type: 'setSectionLevelExtent', sectionId: section.id, levelId: level.id, extent });
       });
@@ -145,6 +148,6 @@ export class LevelTool extends ToolBase {
       return;
     }
     this.reset();
-    this.env.say(`Nível ${level.name} criado em ${signedElevation(u, level.elevation)}. Clique no início do próximo nível.`);
+    this.env.say(this.t('tl_msg_level_created', { name: level.name, elevation: signedElevation(u, level.elevation) }));
   }
 }

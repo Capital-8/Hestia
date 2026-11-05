@@ -3,6 +3,7 @@ import { resolveRoofs, roofProfileError } from '@hestia/engine';
 import { formatQuantity, isRoof, mansardProblems, unitsOf, type Id, type Project, type ResolvedUnits, type Roof } from '@hestia/model';
 import { hasRoofArcs, roofEaveArcsProblem } from './perimeterRoofArcs.ts';
 import { eaveProblem } from './roofGeom.ts';
+import { t, type Lang } from './i18n.ts';
 import type { ToolEnv } from './types.ts';
 
 /** Chaves que mudam a geometria das águas. Só uma alteração delas é conferida pelo motor. */
@@ -118,10 +119,10 @@ export function roofPatchProblem(p: Project, ids: Id[], patch: Partial<Roof>): s
 }
 
 /** Aplica a alteração de telhados pelo ambiente da ferramenta, se o motor ainda gerar águas; senão não aplica e avisa. */
-export function commitRoofPatch(env: Pick<ToolEnv, 'project' | 'exec' | 'say'>, ids: Id[], patch: Partial<Roof>): boolean {
+export function commitRoofPatch(env: Pick<ToolEnv, 'project' | 'exec' | 'say'>, ids: Id[], patch: Partial<Roof>, lang: Lang = 'pt'): boolean {
   const problem = roofPatchProblem(env.project(), ids, patch);
   if (problem) {
-    env.say(`Alteração não aplicada: ${problem}`);
+    env.say(t(lang, 'tl_msg_roof_change_failed', { problem }));
     return false;
   }
   env.exec({ type: 'updateElements', ids, patch });

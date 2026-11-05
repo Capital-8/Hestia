@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { formatQuantity, coreRange, layerSpans, totalThickness, type Material, type WallType } from '@hestia/model';
+import { useT } from '../../editor/i18n.ts';
 import { useUnits } from '../useUnits.ts';
 
 const HATCH_BG: Record<string, string> = {};
@@ -14,6 +15,7 @@ function mixHex(a: string, b: string, t: number): string {
 
 /** Seção da parede desenhada ao vivo, na mesma convenção da planta (exterior à esquerda). */
 export function SectionPreview({ type, materials }: { type: WallType; materials: Record<string, Material> }): ReactElement {
+  const { t } = useT();
   const units = useUnits();
   const W = 340;
   const H = 150;
@@ -25,7 +27,7 @@ export function SectionPreview({ type, materials }: { type: WallType; materials:
   const top = 30;
   const bot = H - 38;
   return (
-    <svg className="section-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Seção da parede">
+    <svg className="section-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t('dls_a11y_wall_section')}>
       <defs>
         {(['diagonal', 'cross', 'dots'] as const).map((h) => (
           <pattern key={h} id={`h-${h}`} width="6" height="6" patternUnits="userSpaceOnUse">
@@ -35,8 +37,8 @@ export function SectionPreview({ type, materials }: { type: WallType; materials:
           </pattern>
         ))}
       </defs>
-      <text x={pad} y={14} fontSize="10" fill="var(--fg-faint)" fontFamily="var(--font-ui)">EXTERIOR</text>
-      <text x={W - pad} y={14} fontSize="10" textAnchor="end" fill="var(--fg-faint)" fontFamily="var(--font-ui)">INTERIOR</text>
+      <text x={pad} y={14} fontSize="10" fill="var(--fg-faint)" fontFamily="var(--font-ui)">{t('dls_svg_exterior')}</text>
+      <text x={W - pad} y={14} fontSize="10" textAnchor="end" fill="var(--fg-faint)" fontFamily="var(--font-ui)">{t('dls_svg_interior')}</text>
       {spans.map((sp) => {
         const m = materials[sp.layer.materialId];
         const x = pad + sp.from * k;
@@ -59,7 +61,7 @@ export function SectionPreview({ type, materials }: { type: WallType; materials:
       {spans[core.first] && spans[core.last] && (
         <g stroke="var(--accent)" strokeWidth="1.2" fill="none">
           <path d={`M${pad + spans[core.first]!.from * k} ${top - 6}V${top - 12}H${pad + spans[core.last]!.to * k}V${top - 6}`} />
-          <text x={pad + ((spans[core.first]!.from + spans[core.last]!.to) / 2) * k} y={top - 15} fontSize="9" textAnchor="middle" fill="var(--accent)" stroke="none" fontFamily="var(--font-ui)">núcleo</text>
+          <text x={pad + ((spans[core.first]!.from + spans[core.last]!.to) / 2) * k} y={top - 15} fontSize="9" textAnchor="middle" fill="var(--accent)" stroke="none" fontFamily="var(--font-ui)">{t('dls_svg_core')}</text>
         </g>
       )}
       <g stroke="var(--fg-soft)" strokeWidth="0.8" fill="none">

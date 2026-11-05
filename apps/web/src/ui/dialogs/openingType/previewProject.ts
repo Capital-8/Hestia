@@ -7,6 +7,7 @@ import {
   type Project,
   type Wall,
 } from '@hestia/model';
+import { t, type Lang } from '../../../editor/i18n.ts';
 
 /** Ids fixos do projeto mínimo de prévia (um nível, uma parede reta e a abertura no centro). */
 export const PREVIEW_LEVEL_ID = 'lv_0';
@@ -37,16 +38,17 @@ export function previewWallHeight(type: Pick<OpeningType, 'height' | 'sill'>): n
  * `largura + 1,2` e altura `altura + peitoril + 0,5`, com a abertura hospedada no centro. Todos os campos v2 do
  * rascunho são preservados; o peitoril de janela vem do tipo. `flipHand` e `flipFacing` são da instância de prévia.
  */
-export function previewProject(type: OpeningType, flipHand = false, flipFacing = false): Project {
-  const base = createEmptyProject('Prévia do tipo');
+export function previewProject(type: OpeningType, flipHand = false, flipFacing = false, lang: Lang = 'pt'): Project {
+  const docName = t(lang, 'dlo_preview_doc_name');
+  const base = createEmptyProject(docName);
   const level = base.levels[0]!;
   const wallLength = previewWallLength(type);
   const wallHeight = previewWallHeight(type);
   // O catálogo já nasce com o rascunho; a instância é sempre a mesma abertura de prévia.
   const initial: Project = {
     ...base,
-    name: 'Prévia do tipo',
-    levels: [{ ...level, id: PREVIEW_LEVEL_ID, name: 'Prévia', elevation: 0 }],
+    name: docName,
+    levels: [{ ...level, id: PREVIEW_LEVEL_ID, name: t(lang, 'dlo_preview_level_name'), elevation: 0 }],
     openingTypes: { ...base.openingTypes, [type.id]: { ...type } },
     elements: {},
     views: [],

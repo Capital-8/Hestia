@@ -2,6 +2,7 @@ import { useEffect, type ReactElement } from 'react';
 import { isWall, type Wall } from '@hestia/model';
 import { editor, useProject, useProjectVersion } from '../editor/controller.ts';
 import { markTutorialSeen, tutorialSeen } from '../editor/storage.ts';
+import { useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { sufixoAtalho } from '../editor/shortcutConfig.ts';
 
@@ -31,6 +32,7 @@ export function temCircuito(paredes: Wall[]): boolean {
 }
 
 export function Tutorial(): ReactElement | null {
+  const { t } = useT();
   // Fechado uma vez (Dispensar ou Concluir, ou quando os 5 passos se cumprem), não volta nos próximos projetos em branco (localStorage, ver markTutorialSeen).
   const on = useUi((s) => s.tutorial) && !tutorialSeen();
   const seen3d = useUi((s) => s.seen3d);
@@ -41,11 +43,11 @@ export function Tutorial(): ReactElement | null {
   const els = Object.values(p.elements);
   const walls = els.filter(isWall);
   const steps: Array<[string, boolean]> = [
-    [`Desenhe um circuito de paredes${sufixoAtalho('wall')} — clique nos pontos e feche no primeiro`, temCircuito(walls)],
-    [`Insira uma porta${sufixoAtalho('door')} e uma janela${sufixoAtalho('window')} sobre as paredes`, els.some((e) => e.kind === 'door') && els.some((e) => e.kind === 'window')],
-    ['Selecione uma parede e troque o tipo nas Propriedades', walls.some((w) => w.typeId !== p.defaults.wallTypeId)],
-    ['Abra o Modelo 3D no navegador de projeto', seen3d || view === '3d'],
-    ['Salve o projeto (Ctrl+S)', !editor.store.dirty && els.length > 0],
+    [t('shc_tut_step_walls', { w: sufixoAtalho('wall') }), temCircuito(walls)],
+    [t('shc_tut_step_openings', { d: sufixoAtalho('door'), n: sufixoAtalho('window') }), els.some((e) => e.kind === 'door') && els.some((e) => e.kind === 'window')],
+    [t('shc_tut_step_type'), walls.some((w) => w.typeId !== p.defaults.wallTypeId)],
+    [t('shc_tut_step_3d'), seen3d || view === '3d'],
+    [t('shc_tut_step_save'), !editor.store.dirty && els.length > 0],
   ];
   const now = steps.findIndex(([, d]) => !d);
   const feito = now === -1;
@@ -61,15 +63,15 @@ export function Tutorial(): ReactElement | null {
     useUi.setState({ tutorial: false });
   };
   return (
-    <div className="tutorial" role="region" aria-label="Primeiros passos">
-      <span className="step-count">{`Passo ${now + 1} de ${steps.length}`}</span>
+    <div className="tutorial" role="region" aria-label={t('shc_tut_title')}>
+      <span className="step-count">{t('shc_tut_progress', { n: now + 1, total: steps.length })}</span>
       <span className="step-text">{steps[now]![0]}</span>
       <span className="dots" aria-hidden="true">
         {steps.map(([, d], i) => (
           <span key={i} className={`pip${d ? ' done' : i === now ? ' now' : ''}`} />
         ))}
       </span>
-      <button className="btn small" onClick={close}>Dispensar</button>
+      <button className="btn small" onClick={close}>{t('shc_tut_dismiss')}</button>
     </div>
   );
 }

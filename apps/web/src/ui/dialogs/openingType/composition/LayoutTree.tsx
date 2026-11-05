@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { dividerWidth, type CellSize, type CompositionNode, type OpeningComposition, type ResolvedUnits } from '@hestia/model';
+import { useT } from '../../../../editor/i18n.ts';
 import { useUnits } from '../../../useUnits.ts';
 import { medidasCelulas, metrosTexto, ROTULO_CONTEUDO } from './compositionControls.ts';
 
@@ -25,11 +26,12 @@ interface NodoProps extends Omit<Props, 'c'> {
 }
 
 function Nodo({ node, size, eixo, selected, onSelect, medidas, units }: NodoProps): ReactElement {
+  const { t } = useT();
   if (node.kind === 'split') {
-    const titulo = node.axis === 'cols' ? 'Colunas' : 'Linhas';
+    const titulo = t(node.axis === 'cols' ? 'dlo_tree_axis_cols' : 'dlo_tree_axis_rows');
     return (
       <li>
-        <span className="hint">{titulo} · divisor {metrosTexto(units, dividerWidth(node))}</span>
+        <span className="hint">{t('dlo_tree_split', { axis: titulo, measure: metrosTexto(units, dividerWidth(node)) })}</span>
         <ul className="op-tree">
           {node.children.map((ch) => (
             <Nodo key={ch.node.id} node={ch.node} size={ch.size} eixo={node.axis} selected={selected} onSelect={onSelect} medidas={medidas} units={units} />
@@ -47,12 +49,12 @@ function Nodo({ node, size, eixo, selected, onSelect, medidas, units }: NodoProp
   } else {
     medida = size?.mode === 'fixed' ? `${metrosTexto(units, size.value)}` : '';
   }
-  const preenche = size?.mode === 'fill' ? ' (preenche)' : '';
+  const preenche = size?.mode === 'fill' ? t('dlo_tree_fill') : '';
   const ativo = selected === node.id;
   return (
     <li>
       <button type="button" className={`btn small${ativo ? ' on' : ''}`} aria-pressed={ativo} onClick={() => onSelect(node.id)}>
-        {ROTULO_CONTEUDO[node.content.kind]} {medida}
+        {t(ROTULO_CONTEUDO[node.content.kind])} {medida}
         {preenche}
       </button>
     </li>

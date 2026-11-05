@@ -3,6 +3,7 @@
  * modelo em estado, chama estas funções e devolve `selected`/`link` ao integrador pelos callbacks.
  */
 import type { Id } from '@hestia/model';
+import { cmpTexto, t, useI18n, type Lang } from '../../editor/i18n.ts';
 
 /** Nível como o diálogo precisa: id, nome e elevação em metros (SI). */
 export interface PasteLevelsLevel {
@@ -47,10 +48,10 @@ export interface PasteLevelsGroup {
   levels: PasteLevelsLevel[];
 }
 
-const GROUP_TITLES: Record<PasteLevelsGroupKey, string> = {
-  above: 'Acima',
-  current: 'Atual',
-  below: 'Abaixo',
+const GROUP_TITLE_KEYS: Record<PasteLevelsGroupKey, 'dlm_grp_above' | 'dlm_grp_current' | 'dlm_grp_below'> = {
+  above: 'dlm_grp_above',
+  current: 'dlm_grp_current',
+  below: 'dlm_grp_below',
 };
 
 /** Nome comparado sem acentos e sem caixa: a busca e a ordem não dependem de "Térreo" vs "TERREO". */
@@ -71,8 +72,8 @@ function elementsOf(count: number): number {
  * Modelo inicial: níveis ordenados por elevação, seleção sem ids inexistentes, duplicados ou do nível de origem.
  * Não mexe nos arrays recebidos.
  */
-export function createPasteLevelsModel(input: PasteLevelsInput): PasteLevelsModel {
-  const levels = [...input.levels].sort((a, b) => a.elevation - b.elevation || a.name.localeCompare(b.name, 'pt-BR'));
+export function createPasteLevelsModel(input: PasteLevelsInput, lang: Lang = useI18n.getState().lang): PasteLevelsModel {
+  const levels = [...input.levels].sort((a, b) => a.elevation - b.elevation || cmpTexto(a.name, b.name, lang));
   const known = new Set(levels.map((l) => l.id));
   const origins = new Set(input.originLevelIds.filter((id) => known.has(id)));
   const wanted = new Set(input.initialSelected);
@@ -169,7 +170,7 @@ export function search(levels: readonly PasteLevelsLevel[], term: string): Paste
  * Lista agrupada em Acima / Atual / Abaixo pela elevação da origem (a mais baixa, quando há mais de uma). Grupos
  * vazios são omitidos. Sem origem, todos ficam em "Atual".
  */
-export function groupLevels(m: PasteLevelsModel): PasteLevelsGroup[] {
+export function groupLevels(m: PasteLevelsModel, lang: Lang = useI18n.getState().lang): PasteLevelsGroup[] {
   const reference = originElevation(m);
   const buckets: Record<PasteLevelsGroupKey, PasteLevelsLevel[]> = { above: [], current: [], below: [] };
   for (const level of m.levels) {
@@ -178,23 +179,28 @@ export function groupLevels(m: PasteLevelsModel): PasteLevelsGroup[] {
     else buckets.below.push(level);
   }
   const keys: PasteLevelsGroupKey[] = ['above', 'current', 'below'];
-  return keys.filter((key) => buckets[key].length > 0).map((key) => ({ key, title: GROUP_TITLES[key], levels: buckets[key] }));
+  return keys.filter((key) => buckets[key].length > 0).map((key) => ({ key, title: t(lang, GROUP_TITLE_KEYS[key]), levels: buckets[key] }));
 }
 
 /** Resumo do rodapé: níveis marcados e total de cópias (elementos × níveis). */
-export function summary(m: PasteLevelsModel): string {
+export function summary(m: PasteLevelsModel, lang: Lang = useI18n.getState().lang): string {
   const levels = m.selected.length;
   const copies = levels * m.elementCount;
-  return `${levels} ${levels === 1 ? 'nível' : 'níveis'} • ${copies} ${copies === 1 ? 'cópia' : 'cópias'}`;
+  return t(lang, 'dlm_summary', {
+    levels,
+    copies,
+    levelWord: t(lang, levels === 1 ? 'dlm_level_one' : 'dlm_level_many'),
+    copyWord: t(lang, copies === 1 ? 'dlm_copy_one' : 'dlm_copy_many'),
+  });
 }
 
 /** Problema que impede colar/pré-visualizar, ou `null` quando está tudo certo. */
-export function validate(m: PasteLevelsModel): string | null {
-  if (m.levels.length === 0) return 'O projeto não tem níveis.';
-  if (m.selected.length === 0) return 'Selecione ao menos um nível.';
+export function validate(m: PasteLevelsModel, lang: Lang = useI18n.getState().lang): string | null {
+  if (m.levels.length === 0) return t(lang, 'dlm_err_no_levels');
+  if (m.selected.length === 0) return t(lang, 'dlm_err_select_one_level');
   const known = new Set(m.levels.map((l) => l.id));
   const missing = m.selected.find((id) => !known.has(id));
-  if (missing !== undefined) return `Nível inexistente: ${missing}.`;
-  if (m.selected.some((id) => m.originLevelIds.includes(id))) return 'O nível de origem não pode receber a cópia.';
+  if (missing !== undefined) return t(lang, 'dlm_err_level_missing', { id: missing });
+  if (m.selected.some((id) => m.originLevelIds.includes(id))) return t(lang, 'dlm_err_origin_level');
   return null;
 }

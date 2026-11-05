@@ -1,14 +1,15 @@
 import { useState, type ReactElement } from 'react';
 import { terminoOf, type Layer } from '@hestia/model';
+import { useT } from '../../editor/i18n.ts';
 import {
-  LIMITE_EXTERNO_AJUDA,
-  LIMITE_EXTERNO_OPCOES,
-  TERMINO_AJUDA,
-  TERMINO_OPCOES,
   formDoLimiteExterno,
   formDoTermino,
+  limiteExternoAjuda,
   limiteExternoDoForm,
+  limiteExternoOpcoes,
+  terminoAjuda,
   terminoDoForm,
+  terminoOpcoes,
   type LimiteExternoKind,
   type TerminoKind,
 } from './terminoForm.ts';
@@ -22,6 +23,11 @@ interface LayerTerminoProps {
 
 /** Linha "Término nas paredes" da seção avançada da camada de piso ou de laje (decisão 0023 §2, P8; decisão 0025). */
 export function LayerTermino({ id, layer, onChange }: LayerTerminoProps): ReactElement {
+  const { t, lang } = useT();
+  const opcoes = terminoOpcoes(lang);
+  const ajudas = terminoAjuda(lang);
+  const limiteOpcoes = limiteExternoOpcoes(lang);
+  const limiteAjudas = limiteExternoAjuda(lang);
   const shown = formDoTermino(terminoOf(layer));
   const shownLimite = formDoLimiteExterno(layer.limiteExterno);
   const [kind, setKind] = useState<TerminoKind>(shown.kind);
@@ -49,7 +55,7 @@ export function LayerTermino({ id, layer, onChange }: LayerTerminoProps): ReactE
   };
 
   const apply = (k: TerminoKind, text: string): void => {
-    const r = terminoDoForm(k, text);
+    const r = terminoDoForm(k, text, lang);
     if ('erro' in r) {
       setErro(r.erro);
       return;
@@ -65,7 +71,7 @@ export function LayerTermino({ id, layer, onChange }: LayerTerminoProps): ReactE
   return (
     <div className="adv-panel">
       <div className="adv-row">
-        <label htmlFor={`${id}-termino`}>Término nas paredes</label>
+        <label htmlFor={`${id}-termino`}>{t('dlc_layer_wall_termination')}</label>
         <span className="adv-ctl">
           <select
             id={`${id}-termino`}
@@ -80,7 +86,7 @@ export function LayerTermino({ id, layer, onChange }: LayerTerminoProps): ReactE
               apply(k, text);
             }}
           >
-            {TERMINO_OPCOES.map((o) => (
+            {opcoes.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
@@ -89,7 +95,7 @@ export function LayerTermino({ id, layer, onChange }: LayerTerminoProps): ReactE
               id={`${id}-termino-cm`}
               className="input num"
               inputMode={kind === 'cm' ? 'decimal' : 'numeric'}
-              aria-label={kind === 'cm' ? 'Deslocamento em centímetros' : 'Prioridade da parede, de 1 a 9'}
+              aria-label={kind === 'cm' ? t('dlc_aria_layer_term_offset') : t('dlc_aria_layer_term_priority')}
               aria-invalid={erro !== null}
               aria-describedby={`${id}-termino-help`}
               value={cmText}
@@ -103,9 +109,9 @@ export function LayerTermino({ id, layer, onChange }: LayerTerminoProps): ReactE
           )}
         </span>
       </div>
-      <p id={`${id}-termino-help`} className="adv-help">{erro ?? TERMINO_AJUDA[kind]}</p>
+      <p id={`${id}-termino-help`} className="adv-help">{erro ?? ajudas[kind]}</p>
       <div className="adv-row">
-        <label htmlFor={`${id}-limite`}>Limite no perímetro</label>
+        <label htmlFor={`${id}-limite`}>{t('dlc_layer_perimeter_limit')}</label>
         <span className="adv-ctl">
           <select
             id={`${id}-limite`}
@@ -113,13 +119,13 @@ export function LayerTermino({ id, layer, onChange }: LayerTerminoProps): ReactE
             value={limite}
             onChange={(e) => applyLimite(e.target.value as LimiteExternoKind)}
           >
-            {LIMITE_EXTERNO_OPCOES.map((o) => (
+            {limiteOpcoes.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
         </span>
       </div>
-      <p id={`${id}-limite-help`} className="adv-help">{LIMITE_EXTERNO_AJUDA[limite]}</p>
+      <p id={`${id}-limite-help`} className="adv-help">{limiteAjudas[limite]}</p>
     </div>
   );
 }

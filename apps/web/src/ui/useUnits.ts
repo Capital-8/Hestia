@@ -1,6 +1,7 @@
 import { useCallback, useSyncExternalStore } from 'react';
 import { formatQuantity, unitsOf, type FormatOptions, type Quantity, type ResolvedUnits } from '@hestia/model';
 import { editor } from '../editor/controller.ts';
+import { useI18n } from '../editor/i18n.ts';
 
 const subscribe = (cb: () => void): (() => void) => editor.store.subscribe(cb);
 const snapshot = (): ResolvedUnits => unitsOf(editor.project);
@@ -21,5 +22,6 @@ export function currentUnits(): ResolvedUnits {
 /** Função estável de formatação na unidade configurada (muda quando as unidades mudam). */
 export function useFormat(): (q: Quantity, si: number, o?: FormatOptions) => string {
   const units = useUnits();
-  return useCallback((q: Quantity, si: number, o?: FormatOptions) => formatQuantity(units, q, si, o), [units]);
+  const lang = useI18n((s) => s.lang);
+  return useCallback((q: Quantity, si: number, o?: FormatOptions) => formatQuantity(units, q, si, { ...o, lang }), [units, lang]);
 }

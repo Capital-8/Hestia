@@ -4,6 +4,7 @@ import { FUNCTION_LABEL, roofTypeThickness, type Id, type Roof, type RoofShape }
 import { defaultExtrusionProfile } from '@hestia/engine';
 import { roofPresetOf, roofShapePatch, roofSlopeError, roofSlopeFromDegField, percentToDeg, roofToFreePatch } from '@hestia/tools';
 import { editor, useProject } from '../editor/controller.ts';
+import { useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { applyRoofPatch } from '../editor/roofEdgeActions.ts';
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
@@ -48,6 +49,7 @@ const SHAPE_OPTIONS: RoofShape[] = ['shed', 'gable', 'hip', 'edges', 'free', 'ex
  * editam em "Editar perímetro"; o contorno, pelas alças na planta.
  */
 export function RoofProperties({ roofs }: { roofs: Roof[] }): ReactElement {
+  const { t } = useT();
   const fmt = useFormat();
   const p = useProject();
   const ids = roofs.map((r) => r.id);
@@ -91,7 +93,7 @@ export function RoofProperties({ roofs }: { roofs: Roof[] }): ReactElement {
   };
 
   const setShape = (v: RoofShape): void => {
-    editor.store.transaction('Forma do telhado', () => {
+    editor.store.transaction(t('prd_undo_change_roof_shape'), () => {
       for (const r of roofs) {
         // Por extrusão: começa com o perfil padrão (arco de 1 m) se o telhado ainda não tem um; a água é conferida pelo motor.
         // Águas livres preserva as águas atuais (quatro águas viram quatro planos); a conversão simples perderia as cotas.
@@ -106,7 +108,7 @@ export function RoofProperties({ roofs }: { roofs: Roof[] }): ReactElement {
 
   /** Acabamentos do beiral: cada telhado guarda o seu, então a alteração vai telhado a telhado numa transação. */
   const setEave = (change: Partial<Roof['eave']>): void => {
-    editor.store.transaction('Acabamento do beiral', () => {
+    editor.store.transaction(t('prd_undo_change_eave'), () => {
       for (const r of roofs) editor.store.exec({ type: 'updateElements', ids: [r.id], patch: { eave: { ...r.eave, ...change } } });
     });
   };
@@ -115,89 +117,89 @@ export function RoofProperties({ roofs }: { roofs: Roof[] }): ReactElement {
     <>
       <TypeSelector
         triggerId="prop-rooftype"
-        label="Tipo de telhado"
-        categoryLabel={`Telhados (${roofs.length})`}
+        label={t('prd_prop_type_roof')}
+        categoryLabel={t('prd_cat_roofs', { n: roofs.length })}
         options={roofOptions(p)}
         selectedId={typeId.mixed ? null : typeId.value}
         editDisabled={typeId.mixed}
         onSelect={(id) => patch(ids, { typeId: id })}
         onEdit={() => useUi.setState({ dialog: 'roofType', dialogArg: typeId.value })}
       />
-      <Group title="Restrições">
+      <Group title={t('prd_pgrp_constraints')}>
         <LevelField ids={ids} />
-        <Row label="Cota do beiral" htmlFor="p-roff">
+        <Row label={t('prd_fld_eave_elevation')} htmlFor="p-roff">
           <NumField id="p-roff" value={offset.value} mixed={offset.mixed} onCommit={(v) => patch(ids, { heightOffset: v })} quantity="length" />
         </Row>
       </Group>
-      <Group title="Forma">
-        <Row label="Forma" htmlFor="p-rshape">
+      <Group title={t('prd_pgrp_form')}>
+        <Row label={t('prd_fld_form')} htmlFor="p-rshape">
           {/* Telhado por arestas que reproduz uma predefinição (duas águas, etc.) mostra essa forma, como a barra. */}
-          <select id="p-rshape" className="select" value={shape.mixed ? '' : single?.shape === 'edges' ? (roofPresetOf(single) ?? 'edges') : shape.value} onChange={(e) => e.target.value && setShape(e.target.value as RoofShape)} aria-label="Forma do telhado">
-            {shape.mixed && <option value="">variadas</option>}
+          <select id="p-rshape" className="select" value={shape.mixed ? '' : single?.shape === 'edges' ? (roofPresetOf(single) ?? 'edges') : shape.value} onChange={(e) => e.target.value && setShape(e.target.value as RoofShape)} aria-label={t('prd_aria_roof_shape')}>
+            {shape.mixed && <option value="">{t('prd_opt_varied_fem')}</option>}
             {SHAPE_OPTIONS.map((s) => (
               <option key={s} value={s}>{ROOF_SHAPE_LABEL[s]}</option>
             ))}
           </select>
         </Row>
-        <Row label="Inclinação" htmlFor="p-rslope">
+        <Row label={t('prd_fld_inclination')} htmlFor="p-rslope">
           <NumField id="p-rslope" value={slope.value / 100} mixed={slope.mixed} onCommit={(v) => setSlope(v * 100)} quantity="slope" min={0.001} max={2} />
         </Row>
-        <Row label="Inclinação" htmlFor="p-rdeg">
+        <Row label={t('prd_fld_inclination')} htmlFor="p-rdeg">
           <NumField id="p-rdeg" value={(percentToDeg(slope.value) * Math.PI) / 180} mixed={slope.mixed} quantity="angle" min={(0.1 * Math.PI) / 180} max={(63.4 * Math.PI) / 180} onCommit={(v) => setSlope(roofSlopeFromDegField((v * 180) / Math.PI, percentToDeg(slope.value), slope.value))} />
         </Row>
         {hasRidge && single ? (
           <>
-            <Row label={single.shape === 'shed' ? 'Subida' : 'Cumeeira'} htmlFor="p-rdir">
+            <Row label={single.shape === 'shed' ? t('prd_fld_rise') : t('prd_fld_ridge')} htmlFor="p-rdir">
               <NumField id="p-rdir" value={(axisDeg(single) * Math.PI) / 180} quantity="angle" onCommit={(v) => patch(ids, { dir: { x: Math.cos(v), y: Math.sin(v) } })} />
             </Row>
             <div className="row">
-              <button className="btn small" onClick={() => patch(ids, { dir: rotatedDir(single, 90) })}>Rotacionar 90°</button>
+              <button className="btn small" onClick={() => patch(ids, { dir: rotatedDir(single, 90) })}>{t('prd_btn_rotate_90')}</button>
             </div>
           </>
         ) : (
           <div className="hint">
-            {freeRoof ? 'Águas livres: cada água tem inclinação e subida próprias (lista abaixo).'
-              : single?.shape === 'edges' && roofPresetOf(single) === 'gable' ? 'Duas águas: a inclinação vale para as arestas paralelas à cumeeira. Para editar uma aresta, use Editar perímetro.'
-              : single?.shape === 'edges' && roofPresetOf(single) === 'hip' ? 'Quatro águas: a inclinação vale para todas as arestas do contorno. Para editar uma aresta, use Editar perímetro.'
-              : single?.shape === 'edges' ? 'Por arestas: inclinação só nas arestas que a definem. Para editar uma aresta, use Editar perímetro.'
-              : single?.shape === 'extrusion' ? 'Telhado por extrusão: o perfil (altura por transversal) se edita pelo botão abaixo.'
-              : single ? 'Forma de uma água, duas águas ou quatro águas: troque por Por arestas para editar cada aresta.'
-              : 'Selecione um telhado para editar a direção da cumeeira.'}
+            {freeRoof ? t('prd_msg_free_roof_planes')
+              : single?.shape === 'edges' && roofPresetOf(single) === 'gable' ? t('prd_msg_gable_edges')
+              : single?.shape === 'edges' && roofPresetOf(single) === 'hip' ? t('prd_msg_hip_edges')
+              : single?.shape === 'edges' ? t('prd_msg_edges_slope')
+              : single?.shape === 'extrusion' ? t('prd_msg_extrusion_roof')
+              : single ? t('prd_msg_preset_roof_edges')
+              : t('prd_msg_select_roof_ridge')}
           </div>
         )}
         {single?.shape === 'extrusion' && <RoofProfileRow key={single.id} roof={single} />}
-        <div className="hint">O balanço do beiral se define por aresta, em Editar perímetro. O contorno se ajusta pelas alças.</div>
+        <div className="hint">{t('prd_msg_eave_by_edge')}</div>
       </Group>
       {freeRoof && <RoofPlanesSection roof={freeRoof} />}
       {single && <RoofMansardSection roof={single} />}
-      <Group title="Beiral e acabamentos">
-        <Row label="Unir telhados" htmlFor="p-rjoin">
-          <Check id="p-rjoin" checked={joinOthers.value} mixed={joinOthers.mixed} onChange={(v) => patch(ids, { joinOthers: v })}>Unir telhados que se sobrepõem</Check>
+      <Group title={t('prd_pgrp_eave_finishes')}>
+        <Row label={t('prd_fld_join_roofs')} htmlFor="p-rjoin">
+          <Check id="p-rjoin" checked={joinOthers.value} mixed={joinOthers.mixed} onChange={(v) => patch(ids, { joinOthers: v })}>{t('prd_opt_join_roofs')}</Check>
         </Row>
-        <Row label="Corte do caibro" htmlFor="p-rcut">
-          <select id="p-rcut" className="select" value={rafterCut.mixed ? '' : rafterCut.value} onChange={(e) => e.target.value && patch(ids, { rafterCut: e.target.value as Roof['rafterCut'] })} aria-label="Corte do caibro">
-            {rafterCut.mixed && <option value="">variados</option>}
-            <option value="plumb">Prumo</option>
-            <option value="square">Esquadro</option>
+        <Row label={t('prd_fld_rafter_cut')} htmlFor="p-rcut">
+          <select id="p-rcut" className="select" value={rafterCut.mixed ? '' : rafterCut.value} onChange={(e) => e.target.value && patch(ids, { rafterCut: e.target.value as Roof['rafterCut'] })} aria-label={t('prd_aria_rafter_cut')}>
+            {rafterCut.mixed && <option value="">{t('prd_opt_varied')}</option>}
+            <option value="plumb">{t('prd_opt_plumb')}</option>
+            <option value="square">{t('prd_opt_square')}</option>
           </select>
         </Row>
-        <Row label="Testeira" htmlFor="p-rfascia">
-          <Check id="p-rfascia" checked={fascia.value} mixed={fascia.mixed} onChange={(v) => setEave({ fascia: v })}>Testeira</Check>
+        <Row label={t('prd_fld_fascia')} htmlFor="p-rfascia">
+          <Check id="p-rfascia" checked={fascia.value} mixed={fascia.mixed} onChange={(v) => setEave({ fascia: v })}>{t('prd_fld_fascia')}</Check>
         </Row>
-        <Row label="Altura da testeira" htmlFor="p-rfh">
+        <Row label={t('prd_fld_fascia_height')} htmlFor="p-rfh">
           <NumField id="p-rfh" value={fasciaHeight.value} mixed={fasciaHeight.mixed} quantity="length" min={0} onCommit={(v) => setEave({ fasciaHeight: v })} />
         </Row>
-        <Row label="Calha" htmlFor="p-rgutter">
-          <Check id="p-rgutter" checked={gutter.value} mixed={gutter.mixed} onChange={(v) => setEave({ gutter: v })}>Calha</Check>
+        <Row label={t('prd_fld_gutter')} htmlFor="p-rgutter">
+          <Check id="p-rgutter" checked={gutter.value} mixed={gutter.mixed} onChange={(v) => setEave({ gutter: v })}>{t('prd_fld_gutter')}</Check>
         </Row>
-        <Row label="Forro de beiral" htmlFor="p-rsoffit">
-          <Check id="p-rsoffit" checked={soffit.value} mixed={soffit.mixed} onChange={(v) => setEave({ soffit: v })}>Forro de beiral</Check>
+        <Row label={t('prd_fld_soffit')} htmlFor="p-rsoffit">
+          <Check id="p-rsoffit" checked={soffit.value} mixed={soffit.mixed} onChange={(v) => setEave({ soffit: v })}>{t('prd_fld_soffit')}</Check>
         </Row>
       </Group>
-      <Group title="Construção" open={false}>
+      <Group title={t('prd_pgrp_construction')} open={false}>
         {type ? (
           <>
-            <Row label="Espessura total" readOnly fromType><span className="val">{fmt('smallLength', roofTypeThickness(type))}</span></Row>
+            <Row label={t('prd_fld_total_thickness')} readOnly fromType><span className="val">{fmt('smallLength', roofTypeThickness(type))}</span></Row>
             {type.layers.map((l, i) => (
               <div className="prow ro" key={i}>
                 <span className="lbl" title={FUNCTION_LABEL[l.function]}>{FUNCTION_LABEL[l.function]}</span>
@@ -206,21 +208,21 @@ export function RoofProperties({ roofs }: { roofs: Roof[] }): ReactElement {
             ))}
           </>
         ) : (
-          <div className="hint">Selecione telhados do mesmo tipo para ver as camadas.</div>
+          <div className="hint">{t('prd_msg_select_roofs_layers')}</div>
         )}
       </Group>
-      <Group title="Quantitativos" open={false}>
-        <Row label="Área em planta"><span className="val">{fmt('area', planArea)}</span></Row>
-        <Row label="Área real"><span className="val">{resolved ? fmt('area', realArea) : '—'}</span></Row>
-        <Row label="Águas"><span className="val">{planes || '—'}</span></Row>
-        <Row label="Beiral"><span className="val">{fmt('length', eaveLength)}</span></Row>
-        <Row label="Cumeeira"><span className="val">{fmt('length', ridgeLength)}</span></Row>
-        <Row label="Espigão"><span className="val">{fmt('length', hipLength)}</span></Row>
-        <Row label="Rincão"><span className="val">{fmt('length', valleyLength)}</span></Row>
+      <Group title={t('prd_pgrp_quantities')} open={false}>
+        <Row label={t('prd_fld_plan_area')}><span className="val">{fmt('area', planArea)}</span></Row>
+        <Row label={t('prd_fld_real_area')}><span className="val">{resolved ? fmt('area', realArea) : '—'}</span></Row>
+        <Row label={t('prd_fld_roof_planes')}><span className="val">{planes || '—'}</span></Row>
+        <Row label={t('prd_fld_eave')}><span className="val">{fmt('length', eaveLength)}</span></Row>
+        <Row label={t('prd_fld_ridge')}><span className="val">{fmt('length', ridgeLength)}</span></Row>
+        <Row label={t('prd_fld_hip')}><span className="val">{fmt('length', hipLength)}</span></Row>
+        <Row label={t('prd_fld_valley')}><span className="val">{fmt('length', valleyLength)}</span></Row>
       </Group>
-      <Group title="Dados de identidade" open={false}>
-        <Row label="Marca" htmlFor="p-rmark"><TextField id="p-rmark" value={mark.value} mixed={mark.mixed} onCommit={(v) => patch(ids, { mark: v })} /></Row>
-        <Row label="Comentários" htmlFor="p-rcomm"><TextField id="p-rcomm" value={comments.value} mixed={comments.mixed} onCommit={(v) => patch(ids, { comments: v })} /></Row>
+      <Group title={t('prd_pgrp_identity')} open={false}>
+        <Row label={t('prd_fld_mark')} htmlFor="p-rmark"><TextField id="p-rmark" value={mark.value} mixed={mark.mixed} onCommit={(v) => patch(ids, { mark: v })} /></Row>
+        <Row label={t('prd_fld_comments')} htmlFor="p-rcomm"><TextField id="p-rcomm" value={comments.value} mixed={comments.mixed} onCommit={(v) => patch(ids, { comments: v })} /></Row>
       </Group>
     </>
   );

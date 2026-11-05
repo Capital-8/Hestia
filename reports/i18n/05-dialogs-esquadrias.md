@@ -1,0 +1,292 @@
+# 05 — Diálogo "Propriedades do tipo" de esquadria (porta/janela)
+- Escopo: `apps/web/src/ui/dialogs/openingType/**` (exceto `*.test.*`), `apps/web/src/ui/dialogs/openingTypeForm.ts`, `apps/web/src/ui/edicaoDeEsquadrias.ts`
+- Arquivos analisados: 42 (40 da pasta + os 2 módulos)
+- Ocorrências: 229 (P0: 17, P1: 195, P2: 17) em 32 arquivos
+
+## Resumo executivo
+Este diálogo tem i18n de fachada: **só a lista lateral de componentes troca de idioma**. `OpeningTypeSections.tsx` monta `t = I18N[lang]` e traduz as chaves `oc_*`; nenhum dos outros 41 arquivos da área importa `useI18n` (os únicos que citam `I18N` são `components.ts` e `profileComponents.ts`, e só para **tipar** `labelKey`). Em EN o diálogo mostra um menu lateral traduzido (Overview, Frame, Leaf…) convivendo com título, subtítulo, botões, todos os rótulos de campo, todas as opções de select, todos os hints, os aria/title, as abas da prévia e a faixa de verificações em PT.
+A tradução "para" exatamente na fronteira `OpeningTypeSections` → `panels/*` e `composition/*`, e também em `OpeningTypeHeader`, `OpeningTypeLibrary*`, `OpeningTypePreview`, `DialogXL` e nos módulos de controle (`openingTypeControls.ts`, `openingTypeForm.ts`, `previewViews.ts`).
+Três classes de problema escapam do JSX puro: (a) rótulos guardados em constantes de módulo (`FIELD_*`, `GLASS_KINDS`, `TABS`, `ACOES_*`, `ALIZAR_FACES`, variantes), que não aceitam hook e precisam virar chaves; (b) textos de domínio que chegam prontos de `packages/model`/`packages/engine` (nome de família, verificações NBR, erros de ferragem/composição, motivos de importação) e continuam PT mesmo com o diálogo traduzido; (c) nomes padrão gerados ("Nova porta", "(cópia)", "Prévia do tipo", nome do arquivo exportado).
+Não existe chave de chrome compartilhada (`btn_cancel`/`btn_apply`/`btn_close`): o diálogo irmão de escada resolveu isso com `stt_cancel`/`stt_apply`/`stt_ok`/`stt_close`, que aqui podem ser reaproveitadas.
+
+## Causas-raiz
+1. **Dicionário usado num único componente.** `apps/web/src/ui/dialogs/openingType/OpeningTypeSections.tsx:22` é o único `useI18n` da área; as 6 ocorrências traduzidas estão em `:37, :41, :43, :54, :58, :59` (`t.oc_list`, `t[c.labelKey]`). Os painéis recebidos em `:60` (`<Panel .../>`) não recebem `t` nem idioma — daí a quebra total ao entrar em `panels/*`.
+2. **Rótulos em constantes de módulo.** `panels/panelKit.tsx:32-52` (`FIELD_LEAF`, `FIELD_HANDLE`, `FIELD_FRAME`), `openingTypeControls.ts:34-38` (`THRESHOLD_KINDS`) e `:69-79` (`GLASS_KINDS`), `composition/compositionControls.ts:40-52` (`ROTULO_CONTEUDO`, `ACOES_PORTA/JANELA`), `composition/profileControls.ts:105-112` (`ALIZAR_FACES`), `OpeningTypePreview.tsx:11-17` (`TABS`), `openingTypeForm.ts:162-177` (`DOOR_VARIANTS`/`WINDOW_VARIANTS`). Todos são avaliados uma vez, no import; traduzi-los exige trocar o par `[valor, rótulo]` por chave e resolver com `t` no render (é também o caso de stale i18n do item 9 do briefing).
+3. **Texto de domínio em PT vindo de fora.** Nome de família (`packages/model/src/opening.ts:154-172`, ex. "Porta de giro"), verificações da faixa direita (`packages/engine/src/openingChecks.ts:75-111`), erros/avisos de ferragem (`packages/model/src/openingHardware.ts:102-125`), erros de composição (`packages/model/src/openingCompositionRules.ts:85-131`) e motivos de importação (`packages/model/src/openingTypeLibrary.ts:168-253`) são renderizados por `OpeningTypePreview.tsx:195`, `panels/hardwareRows.tsx:36-37`, `composition/CasingPanel.tsx:51`, `composition/GlassPanel.tsx:88`, `OpeningTypeLibraryActions.tsx:120`. Traduzir só a UI deixa metade do diálogo em PT.
+4. **Nomes padrão e nomes de arquivo gerados.** `openingTypeForm.ts:99` ("Nova porta"/"Nova janela"), `OpeningTypeDialog.tsx:120` (" (cópia)"), `OpeningTypeLibraryActions.tsx:16` ("tipos-esquadrias…json"), `previewProject.ts:41,48,49` ("Prévia do tipo"/"Prévia").
+5. **Chrome sem chave comum.** `OpeningTypeDialog.tsx:159,164-167` e `DialogXL.tsx:38` escrevem título, botões e "Fechar" à mão, embora `i18n.ts:276-278,291` já tenha `stt_cancel`/`stt_apply`/`stt_ok`/`stt_close`.
+6. **Plural montado com parênteses.** `OpeningTypeLibraryActions.tsx:26-27`, `OpeningTypeLibrary.tsx:66` e `openingTypeForm.ts:67` geram "tipo(s)", "folha(s)", "pulado(s)" — em EN precisa de `{one}`/`{other}`.
+7. **Ternários/Listas inline PT** (dívida de padronização, funcionam): `OpeningTypeDialog.tsx:160` (`Porta`/`Janela`), `OpeningTypeHeader.tsx:68-69`, `OpeningTypeLibrary.tsx:45-46`, `OpeningTypePreview.tsx:185-186`, `composition/ProfilePanel.tsx:120` (montante/travessa), `previewViews.ts:237`.
+
+## Inventário
+| # | Arquivo:linha | Texto atual | Tipo | Sev. | Chave proposta | EN proposto | Nota |
+|---|---|---|---|---|---|---|---|
+| 1 | apps/web/src/ui/dialogs/openingType/OpeningTypeDialog.tsx:109 | `Erro` | mensagem | P1 | ot_err_generic | Error | fallback do catch; a mensagem real vem do modelo (PT) |
+| 2 | apps/web/src/ui/dialogs/openingType/OpeningTypeDialog.tsx:114 | `Editar tipo de abertura` | comando (undo) | P2 | ot_cmd_edit | Edit opening type | idem linha 117; aparece no histórico de Desfazer |
+| 3 | apps/web/src/ui/dialogs/openingType/OpeningTypeDialog.tsx:120 | `(cópia)` | nome padrão | P1 | ot_copy_suffix | (copy) | sufixo do nome gerado ao duplicar; nome padrão precisa localizar |
+| 4 | apps/web/src/ui/dialogs/openingType/OpeningTypeDialog.tsx:121 | `Duplicar tipo` | comando (undo) | P2 | ot_cmd_duplicate | Duplicate type | mesmo texto de LibraryActions:52 |
+| 5 | apps/web/src/ui/dialogs/openingType/OpeningTypeDialog.tsx:130 | `Novo tipo de abertura` | comando (undo) | P2 | ot_cmd_new | New opening type |  |
+| 6 | apps/web/src/ui/dialogs/openingType/OpeningTypeDialog.tsx:153 | `Remover tipo dos favoritos` | comando (undo) | P2 | ot_cmd_unfavorite | Remove type from favorites | ternário com a linha 154 |
+| 7 | apps/web/src/ui/dialogs/openingType/OpeningTypeDialog.tsx:154 | `Favoritar tipo de abertura` | comando (undo) | P2 | ot_cmd_favorite | Add type to favorites | ternário oposto ao da linha 153 |
+| 8 | apps/web/src/ui/dialogs/openingType/OpeningTypeDialog.tsx:159 | `Propriedades do tipo` | título do diálogo | P0 | ot_title | Type Properties | `<DialogXL title>`: h2 e aria-label do role=dialog |
+| 9 | apps/web/src/ui/dialogs/openingType/OpeningTypeDialog.tsx:160 | `Porta` | subtítulo | P0 | ot_kind_door | Door | ternário `d.kind === 'door' ? ... : 'Janela'` |
+| 10 | apps/web/src/ui/dialogs/openingType/OpeningTypeDialog.tsx:160 | `Janela` | subtítulo | P0 | ot_kind_window | Window | ramo EN do mesmo ternário |
+| 11 | apps/web/src/ui/dialogs/openingType/OpeningTypeDialog.tsx:160 | `usado em {n}` | subtítulo | P0 | ot_sub_used | used {n}× | concatenado na linha; precisa de plural (ver stt_sub_one/many) |
+| 12 | apps/web/src/ui/dialogs/openingType/OpeningTypeDialog.tsx:164 | `+ Novo tipo` | botão | P0 | ot_btn_new | + New Type |  |
+| 13 | apps/web/src/ui/dialogs/openingType/OpeningTypeDialog.tsx:166 | `Cancelar` | botão | P0 | stt_cancel | Cancel | chave JÁ EXISTE em i18n.ts (diálogo de escada); reaproveitar |
+| 14 | apps/web/src/ui/dialogs/openingType/OpeningTypeDialog.tsx:167 | `Aplicar` | botão | P0 | stt_apply | Apply | chave JÁ EXISTE em i18n.ts; reaproveitar |
+| 15 | apps/web/src/ui/dialogs/openingType/OpeningTypeHeader.tsx:48 | `Família:` | rótulo | P0 | ot_f_family | Family: | `<label htmlFor="op-family">` |
+| 16 | apps/web/src/ui/dialogs/openingType/OpeningTypeHeader.tsx:50 | `Outros` | options | P1 | ot_family_other | Other | opção quando familyId é null |
+| 17 | apps/web/src/ui/dialogs/openingType/OpeningTypeHeader.tsx:56 | `Tipo:` | rótulo | P0 | ot_f_type | Type: |  |
+| 18 | apps/web/src/ui/dialogs/openingType/OpeningTypeHeader.tsx:63 | `Duplicar…` | botão | P1 | ot_btn_duplicate | Duplicate… |  |
+| 19 | apps/web/src/ui/dialogs/openingType/OpeningTypeHeader.tsx:64 | `Renomear…` | botão | P1 | ot_btn_rename | Rename… | foca o campo Nome do painel Visão geral |
+| 20 | apps/web/src/ui/dialogs/openingType/OpeningTypeHeader.tsx:68 | `Remover tipo dos favoritos` | aria-label | P1 | ot_aria_unfavorite | Remove type from favorites | ternário com "Adicionar tipo aos favoritos" |
+| 21 | apps/web/src/ui/dialogs/openingType/OpeningTypeHeader.tsx:69 | `Remover dos favoritos (desfazível)` | title | P1 | ot_tip_unfavorite | Remove from favorites (undoable) | ternário com "Adicionar aos favoritos (desfazível)" |
+| 22 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibrary.tsx:39 | `Biblioteca de tipos` | aria-label | P1 | ot_lib_aria | Type library | `<aside aria-label>` |
+| 23 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibrary.tsx:41 | `Biblioteca` | rótulo | P1 | ot_lib_title | Library | cabeçalho da coluna |
+| 24 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibrary.tsx:45 | `Recolher biblioteca` | aria-label+title | P1 | ot_lib_collapse | Collapse library | ternário "Expandir biblioteca" na mesma linha e no title da 46 |
+| 25 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibrary.tsx:55 | `Famílias` | rótulo | P1 | families | Families | chave JÁ EXISTE em i18n.ts:117; reaproveitar |
+| 26 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibrary.tsx:56 | `Famílias` | aria-label | P1 | families | Families | mesma chave `families` |
+| 27 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibrary.tsx:66 | `{n} tipo(s) no projeto` | title | P2 | ot_lib_count | {n} type(s) in project | tooltip do contador; plural manual |
+| 28 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibrary.tsx:70 | `Variantes` | rótulo | P1 | ot_lib_variants | Variants |  |
+| 29 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibraryActions.tsx:16 | `tipos-esquadrias.hestia-tipos.json` | nome de arquivo | P2 | ot_export_filename | opening-types.hestia-types.json | nome do arquivo exportado muda com o idioma |
+| 30 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibraryActions.tsx:21 | `Falha desconhecida` | mensagem | P1 | ot_err_unknown | Unknown error | fallback de `falha(e)` |
+| 31 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibraryActions.tsx:25 | `O arquivo não traz tipos de esquadria.` | mensagem | P1 | ot_msg_import_empty | The file contains no opening types. | vai para a barra de status e para o painel |
+| 32 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibraryActions.tsx:26 | `, {n} pulado(s)` | mensagem | P1 | ot_msg_import_skipped | , {n} skipped | plural manual |
+| 33 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibraryActions.tsx:27 | `{n} tipo(s) importado(s){pulados}.` | mensagem | P1 | ot_msg_import_done | {n} type(s) imported{skipped}. | montada em `resumoDaImportacao` |
+| 34 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibraryActions.tsx:52 | `Duplicar tipo de abertura` | comando (undo) | P2 | ot_cmd_duplicate | Duplicate opening type | mesma chave de Dialog:121 |
+| 35 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibraryActions.tsx:55 | `Tipo duplicado: {nome}.` | mensagem | P1 | ot_msg_duplicated | Type duplicated: {name}. |  |
+| 36 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibraryActions.tsx:78 | `O arquivo não é um JSON válido.` | erro | P1 | ot_err_json | The file is not valid JSON. |  |
+| 37 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibraryActions.tsx:83 | `Importar tipos de esquadria` | comando (undo) | P2 | ot_cmd_import | Import opening types |  |
+| 38 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibraryActions.tsx:94 | `Tipo` | rótulo | P2 | col_type | Type | chave JÁ EXISTE em i18nTabelas.ts:75; reaproveitar |
+| 39 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibraryActions.tsx:96 | `Duplicar` | botão | P1 | ot_btn_duplicate_short | Duplicate |  |
+| 40 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibraryActions.tsx:97 | `Exportar…` | botão | P1 | ot_btn_export | Export… |  |
+| 41 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibraryActions.tsx:100 | `Exportar favoritos ({n})` | botão | P1 | ot_btn_export_favorites | Export favorites ({n}) |  |
+| 42 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibraryActions.tsx:103 | `Importar…` | botão | P1 | ot_btn_import | Import… |  |
+| 43 | apps/web/src/ui/dialogs/openingType/OpeningTypeLibraryActions.tsx:117 | `Tipos pulados na importação` | aria-label | P1 | ot_aria_skipped | Types skipped during import | lista de motivos vem do modelo em PT |
+| 44 | apps/web/src/ui/dialogs/openingType/OpeningTypePreview.tsx:12 | `Planta \| Elevação \| Corte \| 3D linhas \| 3D sombreado` | options | P0 | ot_prev_tabs | Floor Plan \| Elevation \| Section \| 3D lines \| 3D shaded | constante TABS de módulo (linhas 12-16); precisa virar chaves dentro do componente |
+| 45 | apps/web/src/ui/dialogs/openingType/OpeningTypePreview.tsx:126 | `Pré-visualização do tipo` | aria-label | P1 | ot_prev_aria | Type preview | `<aside aria-label>` |
+| 46 | apps/web/src/ui/dialogs/openingType/OpeningTypePreview.tsx:127 | `Vistas da prévia` | aria-label | P1 | ot_prev_tabs_aria | Preview views | role=tablist |
+| 47 | apps/web/src/ui/dialogs/openingType/OpeningTypePreview.tsx:142 | `Prévia` | aria-label | P2 | ot_prev_fallback | Preview | fallback do aria-label do tabpanel |
+| 48 | apps/web/src/ui/dialogs/openingType/OpeningTypePreview.tsx:145 | `3D indisponível neste navegador` | mensagem | P1 | ot_prev_no3d | 3D unavailable in this browser | WebGL ausente |
+| 49 | apps/web/src/ui/dialogs/openingType/OpeningTypePreview.tsx:175 | `Prévia indisponível` | mensagem | P1 | ot_prev_unavailable | Preview unavailable | falha ao gerar o SVG |
+| 50 | apps/web/src/ui/dialogs/openingType/OpeningTypePreview.tsx:179 | `Inverter dobradiça` | botão | P0 | ot_prev_flip_hand | Flip hinge | aria-pressed |
+| 51 | apps/web/src/ui/dialogs/openingType/OpeningTypePreview.tsx:180 | `Inverter sentido` | botão | P0 | ot_prev_flip_facing | Flip facing | aria-pressed |
+| 52 | apps/web/src/ui/dialogs/openingType/OpeningTypePreview.tsx:181 | `Ângulo` | rótulo | P1 | ot_prev_angle | Angle | NumField de ângulo |
+| 53 | apps/web/src/ui/dialogs/openingType/OpeningTypePreview.tsx:185 | `Dobradiça: direita\|esquerda` | estado (prévia) | P1 | ot_prev_hinge_state | Hinge: right\|left | ternário inline |
+| 54 | apps/web/src/ui/dialogs/openingType/OpeningTypePreview.tsx:186 | `Sentido: oposto\|padrão` | estado (prévia) | P1 | ot_prev_facing_state | Facing: opposite\|standard | ternário inline |
+| 55 | apps/web/src/ui/dialogs/openingType/OpeningTypePreview.tsx:188 | `Verificações` | aria-label | P1 | ot_checks_aria | Checks |  |
+| 56 | apps/web/src/ui/dialogs/openingType/OpeningTypePreview.tsx:189 | `Verificações` | rótulo | P0 | ot_checks_title | Checks | faixa de verificações |
+| 57 | apps/web/src/ui/dialogs/openingType/OpeningTypePreview.tsx:190 | `Sem verificações.` | hint | P1 | ot_checks_empty | No checks. |  |
+| 58 | apps/web/src/ui/dialogs/openingType/DialogXL.tsx:38 | `Fechar` | aria-label | P1 | stt_close | Close | chave JÁ EXISTE em i18n.ts; reaproveitar |
+| 59 | apps/web/src/ui/dialogs/openingType/panels/panelKit.tsx:33 | `Lisa` | options | P1 | ot_o_leaf_flush | Flush | FIELD_LEAF; usado no select e no aria-label das miniaturas |
+| 60 | apps/web/src/ui/dialogs/openingType/panels/panelKit.tsx:34 | `Painel` | options | P1 | ot_o_leaf_panel | Panelled | FIELD_LEAF |
+| 61 | apps/web/src/ui/dialogs/openingType/panels/panelKit.tsx:35 | `Vidro` | options | P1 | ot_o_leaf_glass | Glazed | FIELD_LEAF |
+| 62 | apps/web/src/ui/dialogs/openingType/panels/panelKit.tsx:36 | `Veneziana` | options | P1 | ot_o_leaf_louver | Louvered | FIELD_LEAF |
+| 63 | apps/web/src/ui/dialogs/openingType/panels/panelKit.tsx:37 | `Grade` | options | P1 | ot_o_leaf_grille | Grille | FIELD_LEAF |
+| 64 | apps/web/src/ui/dialogs/openingType/panels/panelKit.tsx:41 | `Nenhuma` | options | P1 | ot_o_handle_none | None | FIELD_HANDLE |
+| 65 | apps/web/src/ui/dialogs/openingType/panels/panelKit.tsx:42 | `Alavanca` | options | P1 | ot_o_handle_lever | Lever | FIELD_HANDLE |
+| 66 | apps/web/src/ui/dialogs/openingType/panels/panelKit.tsx:43 | `Botão` | options | P1 | ot_o_handle_knob | Knob | FIELD_HANDLE |
+| 67 | apps/web/src/ui/dialogs/openingType/panels/panelKit.tsx:44 | `Puxador` | options | P1 | ot_o_handle_pull | Pull | FIELD_HANDLE |
+| 68 | apps/web/src/ui/dialogs/openingType/panels/panelKit.tsx:48 | `Com rebaixo` | options | P1 | ot_o_frame_rebate | Rebated | FIELD_FRAME |
+| 69 | apps/web/src/ui/dialogs/openingType/panels/panelKit.tsx:49 | `Simples` | options | P1 | ot_o_frame_simple | Simple | FIELD_FRAME |
+| 70 | apps/web/src/ui/dialogs/openingType/panels/panelKit.tsx:50 | `Aduela (pré-marco)` | options | P1 | ot_o_frame_aduela | Subframe (buck) | FIELD_FRAME |
+| 71 | apps/web/src/ui/dialogs/openingType/panels/panelKit.tsx:51 | `Bloco (sem perfil)` | options | P1 | ot_o_frame_block | Block (no profile) | FIELD_FRAME |
+| 72 | apps/web/src/ui/dialogs/openingType/panels/sharedRows.tsx:12 | `Este tipo usa módulos: bandeira superior e laterais se editam no componente “Módulos”.` | hint | P1 | ot_h_edit_in_modules | This type uses modules: transom and sidelights are edited in the “Modules” component. | aparece na bandeira e nas laterais |
+| 73 | apps/web/src/ui/dialogs/openingType/panels/sharedRows.tsx:18 | `Bandeira superior` | label+title | P1 | ot_f_transom | Transom | title da linha: "Vidro fixo acima da folha" (ot_f_transom_tip) |
+| 74 | apps/web/src/ui/dialogs/openingType/panels/sharedRows.tsx:20 | `Bandeira: altura` | rótulo | P1 | ot_f_transom_height | Transom: height |  |
+| 75 | apps/web/src/ui/dialogs/openingType/panels/sharedRows.tsx:26 | `Bandeira esquerda` | label+title | P1 | ot_f_sidelight_left | Left sidelight | title: "Vidro fixo à esquerda da folha" |
+| 76 | apps/web/src/ui/dialogs/openingType/panels/sharedRows.tsx:27 | `Bandeira direita` | label+title | P1 | ot_f_sidelight_right | Right sidelight | title: "Vidro fixo à direita da folha" |
+| 77 | apps/web/src/ui/dialogs/openingType/panels/sharedRows.tsx:29 | `Bandeira: largura` | rótulo | P1 | ot_f_sidelight_width | Sidelight: width |  |
+| 78 | apps/web/src/ui/dialogs/openingType/panels/sharedRows.tsx:43 | `Ângulo 2D` | rótulo | P1 | ot_f_angle2d | 2D angle |  |
+| 79 | apps/web/src/ui/dialogs/openingType/panels/sharedRows.tsx:44 | `Ângulo 3D` | rótulo | P1 | ot_f_angle3d | 3D angle |  |
+| 80 | apps/web/src/ui/dialogs/openingType/panels/sharedRows.tsx:56 | `Alizar` | label+title | P1 | ot_f_casing | Casing | title: "Alizar em volta do vão, nas duas faces da parede" |
+| 81 | apps/web/src/ui/dialogs/openingType/panels/sharedRows.tsx:59 | `Alizar: largura` | rótulo | P1 | ot_f_casing_width | Casing: width |  |
+| 82 | apps/web/src/ui/dialogs/openingType/panels/sharedRows.tsx:60 | `Alizar: espessura` | rótulo | P1 | ot_f_casing_thickness | Casing: thickness |  |
+| 83 | apps/web/src/ui/dialogs/openingType/panels/sharedRows.tsx:92 | `Retorno do acabamento` | label+title | P1 | ot_f_closure | Wall closure | title longo com a regra do "Seguir" (linha 92) |
+| 84 | apps/web/src/ui/dialogs/openingType/panels/sharedRows.tsx:99 | `Seguir o tipo de parede \| Com retorno \| Sem retorno` | options | P1 | ot_o_closure | Follow wall type \| With closure \| Without closure | select do retorno por lado (linhas 99-101) |
+| 85 | apps/web/src/ui/dialogs/openingType/panels/OverviewPanel.tsx:17 | `Nome` | rótulo | P0 | col_name | Name | chave JÁ EXISTE em i18nTabelas.ts:125; reaproveitar |
+| 86 | apps/web/src/ui/dialogs/openingType/panels/OverviewPanel.tsx:18 | `Largura` | rótulo | P0 | col_width | Width | chave JÁ EXISTE (i18nTabelas.ts:81) |
+| 87 | apps/web/src/ui/dialogs/openingType/panels/OverviewPanel.tsx:19 | `Altura` | rótulo | P0 | col_height | Height | chave JÁ EXISTE (i18nTabelas.ts:80) |
+| 88 | apps/web/src/ui/dialogs/openingType/panels/OverviewPanel.tsx:20 | `Peitoril` | rótulo | P0 | ot_f_sill | Sill height |  |
+| 89 | apps/web/src/ui/dialogs/openingType/panels/OverviewPanel.tsx:24 | `Referência do tamanho` | label+title | P1 | ot_f_nominal_ref | Size reference | title: "A que a largura e a altura se referem..." |
+| 90 | apps/web/src/ui/dialogs/openingType/panels/OverviewPanel.tsx:26 | `Vão \| Folha` | options | P1 | ot_o_nominal_ref | Opening \| Leaf | opções do select de referência (linhas 26-27) |
+| 91 | apps/web/src/ui/dialogs/openingType/panels/OverviewPanel.tsx:30 | `No Brasil, 80×210 é a folha; o vão na parede é maior.` | hint | P1 | ot_h_nominal_br | In Brazil, 80×210 is the leaf; the wall opening is larger. |  |
+| 92 | apps/web/src/ui/dialogs/openingType/panels/OverviewPanel.tsx:35 | `Folga do vão: largura` | label+title | P1 | ot_f_gap_width | Opening gap: width | title cita NBR 15930-2 (8 cm) |
+| 93 | apps/web/src/ui/dialogs/openingType/panels/OverviewPanel.tsx:36 | `Folga do vão: altura` | label+title | P1 | ot_f_gap_height | Opening gap: height | title cita NBR 15930-2 (5 cm) |
+| 94 | apps/web/src/ui/dialogs/openingType/panels/OverviewPanel.tsx:37 | `Vão derivado` | label+title | P1 | ot_f_span_derived | Derived opening | mostra cmTexto × cmTexto |
+| 95 | apps/web/src/ui/dialogs/openingType/panels/OverviewPanel.tsx:38 | `Folha` | label+title | P1 | ot_f_leaf_size | Leaf | mostra a folha nominal |
+| 96 | apps/web/src/ui/dialogs/openingType/panels/FramePanel.tsx:8 | `Espessura acabada da parede \| Espessura do núcleo \| Valor fixo` | options | P1 | ot_o_frame_depth_mode | Finished wall thickness \| Core thickness \| Fixed value | MODOS (linhas 8-10) |
+| 97 | apps/web/src/ui/dialogs/openingType/panels/FramePanel.tsx:20 | `Estilo do batente` | rótulo | P1 | ot_f_frame_style | Frame style |  |
+| 98 | apps/web/src/ui/dialogs/openingType/panels/FramePanel.tsx:25 | `Largura do perfil` | label+title | P1 | ot_f_frame_width | Profile width | title: "Largura do perfil visto de frente..." |
+| 99 | apps/web/src/ui/dialogs/openingType/panels/FramePanel.tsx:27 | `Profundidade do batente` | label+title | P1 | ot_f_frame_depth | Frame depth | mesmo rótulo do campo numérico da linha 38 |
+| 100 | apps/web/src/ui/dialogs/openingType/panels/FramePanel.tsx:38 | `Profundidade do batente` | label+title | P1 | ot_f_frame_depth | Frame depth | modo "Valor fixo"; title diferente da linha 27 |
+| 101 | apps/web/src/ui/dialogs/openingType/panels/FramePanel.tsx:41 | `Recuo do batente` | label+title | P1 | ot_f_frame_reveal | Frame reveal | title cita ArchiCAD Reveal |
+| 102 | apps/web/src/ui/dialogs/openingType/panels/FramePanel.tsx:43 | `Material do caixilho` | rótulo | P1 | ot_f_frame_material | Frame material | `MaterialSelect label` |
+| 103 | apps/web/src/ui/dialogs/openingType/panels/LeafPanel.tsx:18 | `Estilo da folha` | rótulo | P1 | ot_f_leaf_style | Leaf style |  |
+| 104 | apps/web/src/ui/dialogs/openingType/panels/LeafPanel.tsx:28 | `Folhas` | rótulo | P1 | ot_f_leaves | Leaves | rótulo das opções vem de leavesLabel (PT) |
+| 105 | apps/web/src/ui/dialogs/openingType/panels/LeafPanel.tsx:36 | `Espessura da folha` | rótulo | P1 | ot_f_leaf_thickness | Leaf thickness | duplicado em GlazingPanel:14 |
+| 106 | apps/web/src/ui/dialogs/openingType/panels/LeafPanel.tsx:37 | `Material da folha` | rótulo | P1 | ot_f_leaf_material | Leaf material |  |
+| 107 | apps/web/src/ui/dialogs/openingType/panels/LeafPanel.tsx:42 | `Material do vidro` | rótulo | P1 | ot_f_glass_material | Glass material |  |
+| 108 | apps/web/src/ui/dialogs/openingType/panels/LeafPanel.tsx:44 | `Tipo de vidro` | rótulo | P1 | ot_f_glass_kind | Glass type |  |
+| 109 | apps/web/src/ui/dialogs/openingType/panels/LeafPanel.tsx:49 | `Espessura do vidro` | rótulo | P1 | ot_f_glass_thickness | Glass thickness |  |
+| 110 | apps/web/src/ui/dialogs/openingType/panels/LeafPanel.tsx:55 | `Maçaneta` | rótulo | P1 | ot_f_handle | Handle |  |
+| 111 | apps/web/src/ui/dialogs/openingType/panels/SashesPanel.tsx:15 | `Tipo de abertura` | label+title | P1 | ot_f_opening_type | Opening type | mostra family?.name ?? "Outros"; title aponta o seletor Família |
+| 112 | apps/web/src/ui/dialogs/openingType/panels/SashesPanel.tsx:18 | `Folhas` | rótulo | P1 | ot_f_leaves | Leaves | repetido de LeafPanel:28 |
+| 113 | apps/web/src/ui/dialogs/openingType/panels/SashesPanel.tsx:28 | `Eixo do basculante` | label+title | P1 | ot_f_tilt_axis | Tilt axis | title: "Altura do eixo horizontal da basculante..." |
+| 114 | apps/web/src/ui/dialogs/openingType/panels/SashesPanel.tsx:35 | `Central \| Excêntrico` | options | P1 | ot_o_tilt_axis | Center \| Eccentric | opções do select (linhas 35-36) |
+| 115 | apps/web/src/ui/dialogs/openingType/panels/SashesPanel.tsx:40 | `Eixo: altura` | rótulo | P1 | ot_f_tilt_axis_height | Axis: height | percentual |
+| 116 | apps/web/src/ui/dialogs/openingType/panels/SashesPanel.tsx:46 | `Divisões: colunas` | rótulo | P1 | ot_f_grid_cols | Divisions: columns |  |
+| 117 | apps/web/src/ui/dialogs/openingType/panels/SashesPanel.tsx:47 | `Divisões: linhas` | rótulo | P1 | ot_f_grid_rows | Divisions: rows |  |
+| 118 | apps/web/src/ui/dialogs/openingType/panels/GlazingPanel.tsx:14 | `Espessura da folha` | rótulo | P1 | ot_f_leaf_thickness | Leaf thickness | repetido de LeafPanel:36 |
+| 119 | apps/web/src/ui/dialogs/openingType/panels/GlazingPanel.tsx:15 | `Material da folha` | rótulo | P1 | ot_f_leaf_material | Leaf material |  |
+| 120 | apps/web/src/ui/dialogs/openingType/panels/GlazingPanel.tsx:20 | `Material do vidro` | rótulo | P1 | ot_f_glass_material | Glass material |  |
+| 121 | apps/web/src/ui/dialogs/openingType/panels/GlazingPanel.tsx:22 | `Tipo de vidro` | rótulo | P1 | ot_f_glass_kind | Glass type |  |
+| 122 | apps/web/src/ui/dialogs/openingType/panels/GlazingPanel.tsx:27 | `Espessura do vidro` | rótulo | P1 | ot_f_glass_thickness | Glass thickness |  |
+| 123 | apps/web/src/ui/dialogs/openingType/panels/hardwareRows.tsx:20 | `Folga inferior` | label+title | P1 | ot_f_leaf_undercut | Bottom clearance | title cita NBR 15930-2 (0,7/1,7/2,7 cm) |
+| 124 | apps/web/src/ui/dialogs/openingType/panels/hardwareRows.tsx:27 | `Maçaneta: altura` | label+title | P1 | ot_f_handle_height | Handle: height | title cita NBR 9050 |
+| 125 | apps/web/src/ui/dialogs/openingType/panels/hardwareRows.tsx:31 | `Maçaneta: recuo` | label+title | P1 | ot_f_handle_inset | Handle: inset |  |
+| 126 | apps/web/src/ui/dialogs/openingType/panels/hardwareRows.tsx:47 | `Dobradiças` | label+title | P1 | ot_f_hinges | Hinges | title: "Peças de dobradiça no batente e na folha" |
+| 127 | apps/web/src/ui/dialogs/openingType/panels/OuterPanel.tsx:21 | `Soleira` | label+title | P1 | ot_f_threshold | Threshold | title: "Soleira/limiar da porta: uma peça só para os dois lados" |
+| 128 | apps/web/src/ui/dialogs/openingType/panels/OuterPanel.tsx:27 | `Soleira: altura` | rótulo | P1 | ot_f_threshold_height | Threshold: height |  |
+| 129 | apps/web/src/ui/dialogs/openingType/panels/OuterPanel.tsx:33 | `Soleira saliente` | label+title | P1 | ot_f_sill_board | Sill board | title: "Peitoril saliente, só de janela..." |
+| 130 | apps/web/src/ui/dialogs/openingType/panels/OuterPanel.tsx:36 | `Soleira: projeção` | rótulo | P1 | ot_f_sill_projection | Sill: projection |  |
+| 131 | apps/web/src/ui/dialogs/openingType/panels/OuterPanel.tsx:37 | `Soleira: espessura` | rótulo | P1 | ot_f_sill_thickness | Sill: thickness |  |
+| 132 | apps/web/src/ui/dialogs/openingType/panels/InnerPanel.tsx:11 | `A soleira vale para os dois lados (veja Lado externo)` | hint | P1 | ot_h_threshold_both_sides | The threshold applies to both sides (see Exterior side) |  |
+| 133 | apps/web/src/ui/dialogs/openingType/panels/WallPanel.tsx:15 | `Fechamento do vão` | label+title | P1 | ot_f_opening_closure | Opening closure | title: "Substitui o retorno de acabamento definido no tipo de parede" |
+| 134 | apps/web/src/ui/dialogs/openingType/panels/WallPanel.tsx:17 | `Seguir o tipo de parede \| Sem retorno \| Retorno dos dois lados \| Só lado externo \| Só lado interno` | options | P1 | ot_o_closure_full | Follow wall type \| No closure \| Closure on both sides \| Exterior side only \| Interior side only | select do fechamento (linhas 17-21) |
+| 135 | apps/web/src/ui/dialogs/openingType/panels/WallPanel.tsx:24 | `Folga: largura` | label+title | P1 | ot_f_rough_width | Gap: width | title: vão bruto (furo na parede) |
+| 136 | apps/web/src/ui/dialogs/openingType/panels/WallPanel.tsx:25 | `Folga: altura` | label+title | P1 | ot_f_rough_height | Gap: height |  |
+| 137 | apps/web/src/ui/dialogs/openingType/panels/WallPanel.tsx:28 | `Verga` | label+title | P1 | ot_f_lintel | Lintel | title: "Verga: peça de concreto sobre o vão" |
+| 138 | apps/web/src/ui/dialogs/openingType/panels/WallPanel.tsx:31 | `Verga: transpasse` | rótulo | P1 | ot_f_lintel_over | Lintel: extension |  |
+| 139 | apps/web/src/ui/dialogs/openingType/panels/WallPanel.tsx:32 | `Verga: altura` | rótulo | P1 | ot_f_lintel_height | Lintel: height |  |
+| 140 | apps/web/src/ui/dialogs/openingType/panels/WallPanel.tsx:39 | `Contraverga` | label+title | P1 | ot_f_sill_beam | Sill beam | title: "Contraverga: peça de concreto sob o vão" |
+| 141 | apps/web/src/ui/dialogs/openingType/panels/WallPanel.tsx:42 | `Contrav.: transpasse` | rótulo | P1 | ot_f_sill_beam_over | Sill beam: extension | abreviação PT "Contrav." |
+| 142 | apps/web/src/ui/dialogs/openingType/panels/WallPanel.tsx:43 | `Contrav.: altura` | rótulo | P1 | ot_f_sill_beam_height | Sill beam: height | abreviação PT "Contrav." |
+| 143 | apps/web/src/ui/dialogs/openingType/panels/PlanPanel.tsx:12 | `Exibição em planta` | rótulo | P1 | ot_f_plan_display | Plan display |  |
+| 144 | apps/web/src/ui/dialogs/openingType/panels/PlanPanel.tsx:14 | `Simbólica \| Projetada` | options | P1 | ot_o_plan_display | Symbolic \| Projected | opções (linhas 14-15) |
+| 145 | apps/web/src/ui/dialogs/openingType/panels/PlanPanel.tsx:21 | `Folha em planta` | label+title | P1 | ot_f_leaf_plan | Leaf in plan | title: "Folha desenhada na planta..." |
+| 146 | apps/web/src/ui/dialogs/openingType/panels/PlanPanel.tsx:23 | `Só a aberta \| Só a fechada \| As duas` | options | P1 | ot_o_leaf_plan | Open only \| Closed only \| Both | opções (linhas 23-25) |
+| 147 | apps/web/src/ui/dialogs/openingType/panels/PlanPanel.tsx:28 | `Mostrar arco` | label+title | P1 | ot_f_show_swing | Show swing arc | title: "Arco do fecho desenhado na planta" |
+| 148 | apps/web/src/ui/dialogs/openingType/panels/PlanPanel.tsx:30 | `Estilo do arco` | rótulo | P1 | ot_f_swing_style | Arc style |  |
+| 149 | apps/web/src/ui/dialogs/openingType/panels/PlanPanel.tsx:32 | `Arco \| Tracejado \| Linha` | options | P1 | ot_o_swing_style | Arc \| Dashed \| Line | opções (linhas 32-34) |
+| 150 | apps/web/src/ui/dialogs/openingType/panels/PlanPanel.tsx:40 | `Detalhe 2D` | rótulo | P1 | ot_f_detail2d | 2D detail |  |
+| 151 | apps/web/src/ui/dialogs/openingType/panels/PlanPanel.tsx:42 | `Sensível à escala \| 1:50 (baixo) \| 1:100 (médio) \| 1:200 (alto) \| Desligado` | options | P1 | ot_o_detail2d | Scale sensitive \| 1:50 (low) \| 1:100 (medium) \| 1:200 (high) \| Off | opções (linhas 42-46); contém palavras PT |
+| 152 | apps/web/src/ui/dialogs/openingType/panels/PlanPanel.tsx:50 | `Detalhe 3D` | rótulo | P1 | ot_f_detail3d | 3D detail |  |
+| 153 | apps/web/src/ui/dialogs/openingType/panels/PlanPanel.tsx:52 | `Por vista \| Esquemático \| Simplificado \| Completo \| Desligado` | options | P1 | ot_o_detail3d | By view \| Schematic \| Simplified \| Complete \| Off | opções (linhas 52-56) |
+| 154 | apps/web/src/ui/dialogs/openingType/panels/DataPanel.tsx:14 | `Código` | rótulo | P1 | col_code | Code | chave JÁ EXISTE (i18nTabelas.ts:76) |
+| 155 | apps/web/src/ui/dialogs/openingType/panels/DataPanel.tsx:15 | `Descrição` | rótulo | P1 | ot_f_description | Description |  |
+| 156 | apps/web/src/ui/dialogs/openingType/panels/DataPanel.tsx:16 | `Fabricante` | rótulo | P1 | ot_f_manufacturer | Manufacturer |  |
+| 157 | apps/web/src/ui/dialogs/openingType/panels/DataPanel.tsx:18 | `Resistência ao fogo` | rótulo | P1 | ot_f_fire_rating | Fire rating | só em porta |
+| 158 | apps/web/src/ui/dialogs/openingType/panels/DataPanel.tsx:25 | `Fator solar` | rótulo | P1 | ot_f_solar_factor | Solar factor | só em janela |
+| 159 | apps/web/src/ui/dialogs/openingType/panels/DataPanel.tsx:28 | `Custo` | rótulo | P1 | ot_f_cost | Cost |  |
+| 160 | apps/web/src/ui/dialogs/openingType/composition/CompositionPanel.tsx:27 | `Vão total {a} × {b} · folha nominal {c} × {d}` | hint | P1 | ot_comp_summary | Total opening {a} × {b} · nominal leaf {c} × {d} | medidas por metrosTexto |
+| 161 | apps/web/src/ui/dialogs/openingType/composition/CompositionPanel.tsx:36 | `Remover módulo` | botão | P1 | ot_comp_remove_module | Remove module |  |
+| 162 | apps/web/src/ui/dialogs/openingType/composition/CasingPanel.tsx:22 | `Faces` | label+title | P1 | ot_f_casing_faces | Faces | title: "Faces da parede com alizar..." |
+| 163 | apps/web/src/ui/dialogs/openingType/composition/CasingPanel.tsx:28 | `Largura` | label+title | P1 | col_width | Width | reaproveitar col_width |
+| 164 | apps/web/src/ui/dialogs/openingType/composition/CasingPanel.tsx:32 | `Espessura` | label+title | P1 | col_thickness | Thickness | reaproveitar col_thickness (i18nTabelas.ts:78) |
+| 165 | apps/web/src/ui/dialogs/openingType/composition/CasingPanel.tsx:36 | `Recuo` | label+title | P1 | ot_f_casing_setback | Setback | title: "Recuo da aresta interna do alizar..." |
+| 166 | apps/web/src/ui/dialogs/openingType/composition/CasingPanel.tsx:42 | `Retorno do acabamento` | label+title | P1 | ot_f_closure | Wall closure | select desabilitado com alizar ligado |
+| 167 | apps/web/src/ui/dialogs/openingType/composition/CasingPanel.tsx:44 | `Sem retorno` | options | P1 | ot_o_closure_off | No closure | opção única do select desabilitado |
+| 168 | apps/web/src/ui/dialogs/openingType/composition/CasingPanel.tsx:47 | `Com alizar não há retorno do acabamento. Escolha faces: Nenhuma para voltar ao retorno.` | hint | P1 | ot_h_casing_no_closure | With casing there is no wall closure. Choose faces: None to return to the closure. |  |
+| 169 | apps/web/src/ui/dialogs/openingType/composition/CasingPanel.tsx:50 | `O alizar contorna o conjunto; sem alizar nos divisores internos.` | hint | P1 | ot_h_casing_outline | The casing surrounds the assembly; no casing on inner dividers. |  |
+| 170 | apps/web/src/ui/dialogs/openingType/composition/GlassPanel.tsx:34 | `Esta composição não tem célula de vidro.` | hint | P1 | ot_glass_no_cell | This composition has no glass cell. |  |
+| 171 | apps/web/src/ui/dialogs/openingType/composition/GlassPanel.tsx:47 | `Célula de vidro` | rótulo | P1 | ot_glass_cell | Glass cell |  |
+| 172 | apps/web/src/ui/dialogs/openingType/composition/GlassPanel.tsx:49 | `Vidro {i}` | options | P2 | ot_glass_cell_n | Glass {i} | numeração das células de vidro |
+| 173 | apps/web/src/ui/dialogs/openingType/composition/GlassPanel.tsx:54 | `Tipo de vidro` | rótulo | P1 | ot_f_glass_kind | Glass type |  |
+| 174 | apps/web/src/ui/dialogs/openingType/composition/GlassPanel.tsx:60 | `Espessura do vidro` | rótulo | P1 | ot_f_glass_thickness | Glass thickness |  |
+| 175 | apps/web/src/ui/dialogs/openingType/composition/GlassPanel.tsx:64 | `Montagem` | label+title | P1 | ot_glass_mounting | Mounting | title: "Com rebaixo: o vidro entra no perfil..." |
+| 176 | apps/web/src/ui/dialogs/openingType/composition/GlassPanel.tsx:66 | `Com rebaixo no perfil \| Sem perfil (frameless)` | options | P1 | ot_o_glass_mounting | Rebated in profile \| Frameless | opções (linhas 66-67) |
+| 177 | apps/web/src/ui/dialogs/openingType/composition/GlassPanel.tsx:70 | `Rebaixo do perfil (batente)` | rótulo | P1 | ot_glass_rebate_title | Profile rebate (frame) | `<h4 class="op-subtitle">` |
+| 178 | apps/web/src/ui/dialogs/openingType/composition/GlassPanel.tsx:72 | `Profundidade do rebaixo` | label+title | P1 | ot_glass_rebate_depth | Rebate depth | marca "a validar" ao lado |
+| 179 | apps/web/src/ui/dialogs/openingType/composition/GlassPanel.tsx:76 | `Folga do rebaixo` | label+title | P1 | ot_glass_rebate_clearance | Rebate clearance |  |
+| 180 | apps/web/src/ui/dialogs/openingType/composition/GlassPanel.tsx:80 | `Baguete` | label+title | P1 | ot_glass_bead | Bead | title: largura visível do baguete |
+| 181 | apps/web/src/ui/dialogs/openingType/composition/GlassPanel.tsx:84 | `Folga do vidro sem perfil` | label+title | P1 | ot_glass_frameless_clearance | Frameless glass clearance | campo desabilitado (padrão do modelo) |
+| 182 | apps/web/src/ui/dialogs/openingType/composition/GlassPanel.tsx:87 | `Rebaixo, folga e baguete são a validar (R2 não confirma). A folga sem perfil é o padrão do modelo.` | hint | P1 | ot_h_glass_to_validate | Rebate, clearance and bead are to be validated (R2 does not confirm). The frameless clearance is the model default. |  |
+| 183 | apps/web/src/ui/dialogs/openingType/composition/ProfilePanel.tsx:23 | `Madeira \| Alumínio \| PVC \| Vidro` | dado de catálogo | P1 | ot_prof_material | Wood \| Aluminum \| PVC \| Glass | mapa MATERIAIS (linha 23) |
+| 184 | apps/web/src/ui/dialogs/openingType/composition/ProfilePanel.tsx:24 | `Retângulo \| Retângulo com rebaixo \| L \| T \| Com câmaras \| Sem perfil` | dado de catálogo | P1 | ot_prof_section | Rectangle \| Rectangle with rebate \| L \| T \| Chambered \| No profile | mapa SECOES (linhas 24-31) |
+| 185 | apps/web/src/ui/dialogs/openingType/composition/ProfilePanel.tsx:41 | ` a validar` | rótulo | P1 | ot_to_validate |  to be validated | marca `Validar` ao lado dos campos |
+| 186 | apps/web/src/ui/dialogs/openingType/composition/ProfilePanel.tsx:64 | `Perfil do {título} (presets do projeto)` | title | P2 | ot_prof_tip | Profile of the {title} (project presets) | montado com toLowerCase do título |
+| 187 | apps/web/src/ui/dialogs/openingType/composition/ProfilePanel.tsx:71 | `Padrão do divisor` | options | P1 | ot_prof_divider_default | Divider default |  |
+| 188 | apps/web/src/ui/dialogs/openingType/composition/ProfilePanel.tsx:72 | `Perfil próprio do tipo` | options | P1 | ot_prof_inline | Type-specific profile |  |
+| 189 | apps/web/src/ui/dialogs/openingType/composition/ProfilePanel.tsx:77 | `Divisor no padrão: largura {w}, material do batente.` | hint | P1 | ot_h_divider_default | Divider at default: width {w}, frame material. |  |
+| 190 | apps/web/src/ui/dialogs/openingType/composition/ProfilePanel.tsx:81 | `Largura visível` | label+title | P1 | ot_prof_visible_width | Visible width | title: "Largura visível na face da parede (o J do motor)" |
+| 191 | apps/web/src/ui/dialogs/openingType/composition/ProfilePanel.tsx:85 | `Profundidade` | label+title | P1 | ot_prof_depth | Depth | title: válido só com profundidade fixa |
+| 192 | apps/web/src/ui/dialogs/openingType/composition/ProfilePanel.tsx:89 | `Batedor` | label+title | P1 | ot_prof_stop | Stop | title: "Batedor: lábio que encosta na folha..." |
+| 193 | apps/web/src/ui/dialogs/openingType/composition/ProfilePanel.tsx:93 | `Material e seção` | rótulo | P1 | ot_prof_material_section | Material and section |  |
+| 194 | apps/web/src/ui/dialogs/openingType/composition/ProfilePanel.tsx:99 | `Fonte: {fonte}` | rótulo | P1 | ot_prof_source | Source: {source} | fonte pode ser "Perfil próprio do tipo (migrado)" (PT) |
+| 195 | apps/web/src/ui/dialogs/openingType/composition/ProfilePanel.tsx:115 | `Batente` | rótulo | P1 | oc_frame | Frame | título do bloco; `oc_frame` já existe |
+| 196 | apps/web/src/ui/dialogs/openingType/composition/ProfilePanel.tsx:120 | `Divisor {i} (montante\|travessa)` | rótulo | P1 | ot_prof_divider | Divider {i} (mullion\|transom) | montante/travessa em ternário |
+| 197 | apps/web/src/ui/dialogs/openingType/composition/LayoutTree.tsx:29 | `Colunas \| Linhas` | rótulo | P1 | ot_tree_axis | Columns \| Rows | título da divisão |
+| 198 | apps/web/src/ui/dialogs/openingType/composition/LayoutTree.tsx:32 | `divisor {medida}` | rótulo | P2 | ot_tree_divider | divider {measure} |  |
+| 199 | apps/web/src/ui/dialogs/openingType/composition/LayoutTree.tsx:50 | ` (preenche)` | rótulo | P2 | ot_tree_fill |  (fills) | sufixo da célula |
+| 200 | apps/web/src/ui/dialogs/openingType/composition/CellEditor.tsx:17 | `Folha \| Vidro fixo \| Painel cego \| Veneziana` | options | P1 | ot_o_cell_type | Leaf \| Fixed glass \| Blind panel \| Louver | TIPOS (linhas 17-20) |
+| 201 | apps/web/src/ui/dialogs/openingType/composition/CellEditor.tsx:40 | `Conteúdo` | rótulo | P1 | ot_cell_content | Content |  |
+| 202 | apps/web/src/ui/dialogs/openingType/composition/CellEditor.tsx:48 | `Medida` | rótulo | P1 | ot_cell_size | Size |  |
+| 203 | apps/web/src/ui/dialogs/openingType/composition/CellEditor.tsx:50 | `Luz fixa \| Preenche` | options | P1 | ot_o_cell_size | Fixed size \| Fills | opções (linhas 50-51) |
+| 204 | apps/web/src/ui/dialogs/openingType/composition/CellEditor.tsx:56 | `Luz` | rótulo | P1 | ot_cell_width | Width |  |
+| 205 | apps/web/src/ui/dialogs/openingType/composition/CellEditor.tsx:65 | `Tipo de vidro` | rótulo | P1 | ot_f_glass_kind | Glass type |  |
+| 206 | apps/web/src/ui/dialogs/openingType/composition/CellEditor.tsx:78 | `Espessura do painel` | rótulo | P1 | ot_cell_panel_thickness | Panel thickness |  |
+| 207 | apps/web/src/ui/dialogs/openingType/composition/CellEditor.tsx:91 | `Tipo de abertura` | rótulo | P1 | ot_f_opening_type | Opening type | família da folha da célula |
+| 208 | apps/web/src/ui/dialogs/openingType/composition/CellEditor.tsx:103 | `Espelhar a dobradiça desta célula` | rótulo | P1 | ot_cell_mirror | Mirror this cell's hinge | checkbox |
+| 209 | apps/web/src/ui/dialogs/openingType/composition/compositionControls.ts:40 | `Folha \| Vidro fixo \| Painel \| Veneziana` | constante de módulo | P1 | ot_o_content_label | Leaf \| Fixed glass \| Panel \| Louver | ROTULO_CONTEUDO: usado na árvore de módulos; precisa virar chave |
+| 210 | apps/web/src/ui/dialogs/openingType/composition/compositionControls.ts:44 | `Bandeira superior \| Lateral esquerda \| Lateral direita \| Painel fixo lateral` | constante de módulo | P1 | ot_o_action_door | Transom \| Left sidelight \| Right sidelight \| Fixed side panel | ACOES_PORTA (linhas 44-47) |
+| 211 | apps/web/src/ui/dialogs/openingType/composition/compositionControls.ts:50 | `Dividir em duas colunas \| Empilhar bandeira` | constante de módulo | P1 | ot_o_action_window | Split into two columns \| Stack transom | ACOES_JANELA (linhas 50-51) |
+| 212 | apps/web/src/ui/dialogs/openingType/composition/profileControls.ts:47 | `Perfil próprio do tipo (migrado)` | mensagem | P1 | ot_prof_source_inline | Type-specific profile (migrated) | fallback de `fonteDaRef`, aparece em "Fonte:" |
+| 213 | apps/web/src/ui/dialogs/openingType/composition/profileControls.ts:106 | `Ambas as faces \| Lado da abertura \| Lado oposto à abertura \| Exterior \| Interior \| Nenhuma (sem alizar)` | constante de módulo | P1 | ot_o_alizar_faces | Both faces \| Hinge side \| Opposite hinge side \| Exterior \| Interior \| None (no casing) | ALIZAR_FACES (linhas 106-111) |
+| 214 | apps/web/src/ui/dialogs/openingType/openingTypeControls.ts:35 | `Nenhuma \| Plana \| Degrau` | constante de módulo | P1 | ot_o_threshold_kind | None \| Flat \| Step | THRESHOLD_KINDS (linhas 35-37) |
+| 215 | apps/web/src/ui/dialogs/openingType/openingTypeControls.ts:70 | `Liso/cristal \| Canelado \| Fumê \| Verde \| Bronze \| Jateado/fosco \| Aramado \| Laminado \| Temperado` | constante de módulo | P1 | ot_o_glass_kind | Clear \| Ribbed \| Smoke \| Green \| Bronze \| Frosted \| Wired \| Laminated \| Tempered | GLASS_KINDS (linhas 70-78); usada em 4 painéis |
+| 216 | apps/web/src/ui/dialogs/openingTypeForm.ts:66 | `Vão livre (sem folha)` | rótulo | P1 | ot_leaves_void | Free opening (no leaf) | rótulo do select Folhas |
+| 217 | apps/web/src/ui/dialogs/openingTypeForm.ts:67 | `{n} folha(s)` | rótulo | P1 | ot_leaves_n | {n} leaf/leaves | plural montado com `leaves > 1 ? 's' : ''` |
+| 218 | apps/web/src/ui/dialogs/openingTypeForm.ts:99 | `Nova porta \| Nova janela` | nome padrão | P1 | ot_new_type_name | New door \| New window | nome do tipo criado por "+ Novo tipo" (mesma linha 99) |
+| 219 | apps/web/src/ui/dialogs/openingTypeForm.ts:163 | `Lisa \| Painel \| Vidro \| Veneziana \| Grade` | constante de módulo | P1 | ot_o_variant_door | Flush \| Panelled \| Glazed \| Louvered \| Grille | nomes das variantes de porta (linhas 163-167) |
+| 220 | apps/web/src/ui/dialogs/openingTypeForm.ts:175 | `Veneziana` | constante de módulo | P1 | ot_o_variant_louver | Louvered | variante de janela |
+| 221 | apps/web/src/ui/dialogs/openingTypeForm.ts:176 | `Perfil simples` | constante de módulo | P1 | ot_o_variant_simple | Simple profile | variante de janela |
+| 222 | apps/web/src/ui/dialogs/openingTypeForm.ts:226 | `Composição inválida` | mensagem | P1 | ot_err_composition | Invalid composition | fallback de `bridgeDraft` |
+| 223 | apps/web/src/ui/dialogs/openingType/previewViews.ts:237 | `Corte \| Cabeça \| Soleira` | texto desenhado (figcaption) | P1 | ot_sec_frames | Section \| Head \| Sill | títulos dos três quadros do corte (linha 237) |
+| 224 | apps/web/src/ui/dialogs/openingType/previewViews.ts:246 | `Planta da esquadria` | texto SVG (title/aria) | P1 | ot_prev_title_plan | Opening floor plan | vai para `<title>` e aria-label do SVG |
+| 225 | apps/web/src/ui/dialogs/openingType/previewViews.ts:251 | `Elevação da esquadria` | texto SVG (title/aria) | P1 | ot_prev_title_elevation | Opening elevation |  |
+| 226 | apps/web/src/ui/dialogs/openingType/previewViews.ts:256 | `Corte da esquadria` | texto SVG (title/aria) | P1 | ot_prev_title_section | Opening section |  |
+| 227 | apps/web/src/ui/dialogs/openingType/Preview3D.tsx:55 | `Prévia 3D em linhas \| Prévia 3D sombreada` | aria-label | P1 | ot_prev_3d_aria | 3D preview in lines \| Shaded 3D preview | aria-label do canvas WebGL |
+| 228 | apps/web/src/ui/dialogs/openingType/previewProject.ts:41 | `Prévia do tipo` | nome padrão | P2 | ot_preview_doc_name | Type preview | nome do projeto mínimo da prévia; idem linha 48 |
+| 229 | apps/web/src/ui/dialogs/openingType/previewProject.ts:49 | `Prévia` | nome padrão | P2 | ot_preview_level_name | Preview | nome do nível do projeto de prévia |
+
+## Mistura PT/EN no mesmo arquivo
+- `OpeningTypeSections.tsx`: menu, `aria-label` e título da seção vêm de `t.oc_*` (EN correto) e o `<Panel>` logo abaixo volta 100% ao PT.
+- `OpeningTypeDialog.tsx`: título/subtítulo/botões em PT e a lista de componentes em EN (filho).
+- `OpeningTypeHeader.tsx`: "Família:", "Tipo:", "Duplicar…", "Renomear…" em PT com as opções de família em PT do modelo.
+- `OpeningTypePreview.tsx`: abas e controles em PT; o `<title>`/`aria-label` do SVG também (linha 246-256 de `previewViews.ts`).
+- `composition/ProfilePanel.tsx`: o menu diz "Frame profiles" (EN) e o painel diz "Batente", "a validar", "Madeira" (PT).
+- `panels/DataPanel.tsx`: "Rw (dB)" e "U (W/m²K)" (unidades técnicas, corretas) ao lado de "Resistência ao fogo", "Fator solar", "Custo".
+- Testes: todos renderizam com `lang` padrão `pt`, então o dicionário EN nunca é exercitado nesta área.
+
+## Riscos / testes que quebram
+- `apps/web/src/ui/dialogs/openingType/OpeningTypeDialog.test.ts:34,36,40,41,42,43` (título, "Biblioteca", "Verificações", "Inverter dobradiça", "+ Novo tipo", "Aplicar").
+- `OpeningTypeDialog.test.ts:50,123-125` esperam frases PT vindas do **engine** ("Largura livre 80,0 cm", "Altura livre 2,05 m", "Verga ausente").
+- `OpeningTypeDialog.test.ts:65-66,69,89-93` (rótulos `oc_*` em PT e "Resistência ao fogo").
+- `OpeningTypeDialog.test.ts:116-127,146-149` (abas da prévia, "3D indisponível neste navegador", "Verga ausente", "Inverter sentido").
+- `OpeningTypeDialog.test.ts:167-172` (cabeçalho: "Família:", "Tipo:", "Duplicar…", "Renomear…", "Porta de giro").
+- `apps/web/src/ui/dialogs/openingType/composition/CompositionPanel.test.ts:36-41,46-48,55` ("Bandeira superior", "Painel fixo lateral", "Dividir em duas colunas", "Vão total", "Folha").
+- `apps/web/src/ui/dialogs/openingType/composition/profilePanels.test.ts:43-45,52-53,71,83-84,91` ("Madeira batente 5×9", "a validar", "Com alizar não há retorno…", "Profundidade do rebaixo", "Esta composição não tem célula de vidro.").
+- `apps/web/src/ui/dialogs/openingType/composition/profileControls.test.ts:126` e `profilePanels.test.ts:53` esperam o texto PT do **modelo** ("Dimensões nominais devem ser positivas").
+- `apps/web/src/ui/dialogs/openingType/openingTypeControls.test.ts:230-231` verifica o formato "88,0 cm × 215,0 cm" (separador decimal de `formatQuantity`) e `:70-85` só checa ids (não quebra).
+- `packages/engine/src/openingChecks.test.ts` também verifica as frases das verificações em PT (indireto, via `openingChecks`).
+- Ao trocar rótulos por `t.*`, `OpeningTypeDialog.test.ts` precisa fixar `localStorage['hestia.lang']='pt'` (ou `useI18n.setState`) antes de renderizar.
+
+## Dependências fora da área (não entram no CSV)
+Texto que aparece dentro deste diálogo mas é produzido fora dos arquivos da área — provável sobreposição com a área de `packages/model`/`packages/engine`:
+- `packages/model/src/opening.ts:154-172` — nomes das 19 famílias (opções do seletor Família e legenda "Porta de giro").
+- `packages/engine/src/openingChecks.ts:75-111` — frases de largura livre, altura livre, ventilação, profundidade do batente e verga (variantes ok/warn), exibidas em `OpeningTypePreview.tsx:195`.
+- `packages/model/src/openingHardware.ts:102-125` — 6 mensagens de erro/aviso de ferragem.
+- `packages/model/src/openingCompositionRules.ts:85-131` — 4 erros de composição.
+- `packages/model/src/openingTypeLibrary.ts:168-253` — motivos de importação ("id ausente", "largura deve ser maior que zero", …).
+- `packages/model/src/opening.ts:211-216` — "Combinação inválida: …" ao salvar o tipo.
+- `packages/model/src/openingProfiles.ts` — `OPENING_PROFILE_PRESETS[].name` (ex. "Madeira batente 5×9") exibido no painel Perfis.
+
+## Já correto
+- `apps/web/src/ui/dialogs/openingType/OpeningTypeSections.tsx` — 100% via `t[..]` (o painel filho é que não é).
+- `apps/web/src/ui/dialogs/openingType/components.ts`, `composition/index.ts`, `composition/profileComponents.ts` — só metadados (`labelKey`), sem texto de UI.
+- `apps/web/src/ui/dialogs/openingType/openingTypeFields.ts` — sem strings.
+- `apps/web/src/ui/edicaoDeEsquadrias.ts` — sem strings (retorna ids).
+- `apps/web/src/ui/dialogs/openingType/OpeningTypeThumb.tsx`, `drawListToSvg.ts`, `previewCamera.ts`, `previewScene.ts` — sem texto de UI (SVG sem `<text>`).
+- `apps/web/src/ui/dialogs/openingType/DialogXL.tsx` — 1 ocorrência ("Fechar"), que já tem chave (`stt_close`).

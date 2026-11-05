@@ -6,9 +6,13 @@ import { execWithHostedLoss } from './hostedGuard.ts';
 import { COMPONENT_EDGE_MSG, componentUnderCursor } from './componentTarget.ts';
 import { pickAt } from './pick.ts';
 import type { PointerInfo } from './types.ts';
+import { t as translate, type Lang } from './i18n.ts';
 
 const ORDER: JoinKind[] = ['butt', 'miter'];
 const LABEL: Record<JoinKind, string> = { butt: 'Encosto', miter: 'Esquadria' };
+
+/** Rótulo do tipo de junção no idioma da interface. */
+const joinLabel = (kind: JoinKind, lang: Lang): string => translate(lang, kind === 'butt' ? 'tl_join_butt' : 'tl_join_miter');
 
 /**
  * Ponto de junção sob o cursor. `pair` tem tipo e dominância (clique alterna, Tab inverte). `tee`, `node` e
@@ -22,7 +26,9 @@ type Node =
 export class JoinTool extends ToolBase {
   readonly id = 'joins';
   readonly label = 'Junção';
-  readonly hint = 'Junção: clique num canto de duas paredes para alternar Encosto e Esquadria (Tab inverte a dominância). Em T ou nó, clique para não unir a ponta. Escada/rampa: use Editar croqui.';
+  override get hint(): string {
+    return this.t('tl_hint_join');
+  }
   private node: Node | null = null;
 
   protected reset(): void {
@@ -100,7 +106,7 @@ export class JoinTool extends ToolBase {
     if (!this.node || this.node.status !== 'pair') return;
     this.env.exec({ type: 'setJoin', ends: this.node.ends, config: { kind, flip } });
     this.node = { ...this.node, kind, flip };
-    this.env.say(`Junção: ${LABEL[kind]}${flip ? ', ordem invertida' : ''}.`);
+    this.env.say(this.t('tl_msg_join', { type: joinLabel(kind, this.uiLang()), reversed: flip ? this.t('tl_msg_join_reversed') : '' }));
   }
 
   /** Liga ou desliga "não unir" na ponta clicada (T e nó: limpa a junção dessa ponta; "não unida": religa). */
@@ -168,7 +174,7 @@ export class JoinTool extends ToolBase {
     const near = ends.reduce((best, e) => (dist(e, at) < dist(best, at) ? e : best));
     const reach = 2 * totalThickness(pr.wallTypes[host.typeId] ?? { layers: [] });
     if (dist(near, at) > reach) {
-      this.env.say('Não vira canto: a ponta está longe da extremidade da outra parede (no meio do vão).');
+      this.env.say(this.t('tl_msg_join_far'));
       return;
     }
     const result = execWithHostedLoss(this.env, 'Transformar T em canto', [{ type: 'setWallEnds', id: wall.id, [n.clicked.end]: near }]);

@@ -1,5 +1,6 @@
 import type { Vec2 } from '@hestia/geom';
 import type { Id, Project } from './types.ts';
+import { t as translate, type Lang } from './i18n.ts';
 
 /**
  * Pranchas (decisão 0022): folha de papel com moldura, carimbo e vistas (planta, corte ou 3D) em escala. Tudo em mm de
@@ -161,25 +162,25 @@ export const emptyTitleBlock = (): TitleBlock => ({ project: '', client: '', aut
 const finite = (v: Vec2): boolean => Number.isFinite(v.x) && Number.isFinite(v.y);
 
 /** Motivo de recusa de uma prancha (tamanho, orientação, margem), ou null. */
-export function sheetIssue(s: Sheet): string | null {
-  if (!SHEET_SIZES.includes(s.size)) return 'Tamanho de folha desconhecido.';
-  if (!SHEET_ORIENTATIONS.includes(s.orientation)) return 'Orientação de folha desconhecida.';
+export function sheetIssue(s: Sheet, lang: Lang = 'pt'): string | null {
+  if (!SHEET_SIZES.includes(s.size)) return translate(lang, 'md_cmd_sheet_size_unknown');
+  if (!SHEET_ORIENTATIONS.includes(s.orientation)) return translate(lang, 'md_cmd_sheet_orientation_unknown');
   const d = sheetDimsMm(s);
-  if (!(Number.isFinite(s.margin) && s.margin >= 0 && s.margin * 2 < Math.min(d.w, d.h))) return 'A margem deve ser um número não negativo e menor que a folha.';
+  if (!(Number.isFinite(s.margin) && s.margin >= 0 && s.margin * 2 < Math.min(d.w, d.h))) return translate(lang, 'md_cmd_sheet_margin_invalid');
   return null;
 }
 
 /** Motivo de recusa de uma vista na prancha, ou null. Vista fora da área de desenho da folha é recusada. */
-export function viewportIssue(s: Pick<Sheet, 'size' | 'orientation' | 'margin'>, v: SheetViewport): string | null {
-  if (!finite(v.at)) return 'A posição da vista deve ser um ponto finito.';
-  if (!(Number.isFinite(v.size.w) && Number.isFinite(v.size.h) && v.size.w > 0 && v.size.h > 0)) return 'A vista precisa de largura e altura maiores que zero.';
-  if (!(Number.isFinite(v.scale) && v.scale > 0)) return 'A escala deve ser maior que zero.';
-  if (v.offset !== undefined && !finite(v.offset)) return 'O deslocamento da vista deve ser um ponto finito.';
-  if (v.anchor !== undefined && !finite(v.anchor)) return 'A âncora da vista deve ser um ponto finito.';
-  if (v.label?.sizeMm !== undefined && !(Number.isFinite(v.label.sizeMm) && v.label.sizeMm > 0)) return 'O tamanho da legenda deve ser maior que zero.';
+export function viewportIssue(s: Pick<Sheet, 'size' | 'orientation' | 'margin'>, v: SheetViewport, lang: Lang = 'pt'): string | null {
+  if (!finite(v.at)) return translate(lang, 'md_cmd_viewport_position');
+  if (!(Number.isFinite(v.size.w) && Number.isFinite(v.size.h) && v.size.w > 0 && v.size.h > 0)) return translate(lang, 'md_cmd_viewport_size');
+  if (!(Number.isFinite(v.scale) && v.scale > 0)) return translate(lang, 'md_cmd_viewport_scale');
+  if (v.offset !== undefined && !finite(v.offset)) return translate(lang, 'md_cmd_viewport_offset');
+  if (v.anchor !== undefined && !finite(v.anchor)) return translate(lang, 'md_cmd_viewport_anchor');
+  if (v.label?.sizeMm !== undefined && !(Number.isFinite(v.label.sizeMm) && v.label.sizeMm > 0)) return translate(lang, 'md_cmd_viewport_label_size');
   const box = sheetInnerBox(s);
   const eps = 1e-6;
-  if (v.at.x < box.x0 - eps || v.at.y < box.y0 - eps || v.at.x + v.size.w > box.x1 + eps || v.at.y + v.size.h > box.y1 + eps) return 'A vista sai da folha.';
+  if (v.at.x < box.x0 - eps || v.at.y < box.y0 - eps || v.at.x + v.size.w > box.x1 + eps || v.at.y + v.size.h > box.y1 + eps) return translate(lang, 'md_cmd_viewport_outside');
   return null;
 }
 

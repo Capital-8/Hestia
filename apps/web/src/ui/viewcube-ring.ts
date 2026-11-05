@@ -1,4 +1,5 @@
 import { cameraBasis } from '@hestia/render';
+import { t, type Dict, type Lang } from '../editor/i18n.ts';
 import { CUBE_HALF_PX } from './viewcube.ts';
 
 /**
@@ -11,18 +12,48 @@ export type CompassKey = 'N' | 'L' | 'S' | 'O';
 
 export interface CompassLetter {
   key: CompassKey;
-  /** Direção em pt-BR (usada no título da zona). */
+  /** Direção no idioma ativo (usada no título da zona). */
   name: string;
   /** Ângulo da letra no chão (= azimute da vista dela). */
   angle: number;
 }
 
+/** `key` é o identificador estável (L = leste, O = oeste); a letra desenhada vem de `compassLetter`. */
 export const COMPASS: readonly CompassLetter[] = [
   { key: 'N', name: 'norte', angle: Math.PI / 2 },
   { key: 'L', name: 'leste', angle: 0 },
   { key: 'S', name: 'sul', angle: -Math.PI / 2 },
   { key: 'O', name: 'oeste', angle: Math.PI },
 ];
+
+const COMPASS_NAME_KEY: Record<CompassKey, keyof Dict> = {
+  N: 'cvn_vc_compass_north',
+  L: 'cvn_vc_compass_east',
+  S: 'cvn_vc_compass_south',
+  O: 'cvn_vc_compass_west',
+};
+
+const COMPASS_LETTER_KEY: Record<CompassKey, keyof Dict> = {
+  N: 'cvn_vc_compass_letter_north',
+  L: 'cvn_vc_compass_letter_east',
+  S: 'cvn_vc_compass_letter_south',
+  O: 'cvn_vc_compass_letter_west',
+};
+
+/** Nome da direção no idioma pedido ("norte" / "north"). */
+export function compassName(key: CompassKey, lang: Lang = 'pt'): string {
+  return t(lang, COMPASS_NAME_KEY[key]);
+}
+
+/** Letra desenhada no anel no idioma pedido (PT: N/L/S/O; EN: N/E/S/W). */
+export function compassLetter(key: CompassKey, lang: Lang = 'pt'): string {
+  return t(lang, COMPASS_LETTER_KEY[key]);
+}
+
+/** Bússola com os nomes traduzidos (mesmos ângulos e identificadores de `COMPASS`). */
+export function compassFor(lang: Lang = 'pt'): readonly CompassLetter[] {
+  return COMPASS.map((c) => ({ ...c, name: compassName(c.key, lang) }));
+}
 
 /**
  * Geometria do anel em meios-lados do cubo (cubo de lado 2, centrado na origem). O anel fica no plano da face de baixo

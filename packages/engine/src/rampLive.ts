@@ -1,5 +1,6 @@
 import { add, dist, mul, norm, sub, type Vec2 } from '@hestia/geom';
 import { rampMaxSlope, rampNormRowFor, type RampType } from '@hestia/model';
+import { numLang, t, type Lang } from './i18nMessages.ts';
 import { flightsFor, maxRiseFor } from './rampPlan.ts';
 
 /**
@@ -189,6 +190,8 @@ export interface OptimizeInput {
   slope?: number;
   /** Profundidade do patamar de giro (m); padrão = patamar mínimo do tipo. */
   turnLanding?: number;
+  /** Idioma das mensagens do resumo (padrão `'pt'`). */
+  lang?: Lang;
 }
 
 export interface OptimizeCandidate {
@@ -208,14 +211,14 @@ export interface OptimizeCandidate {
 export interface OptimizeResult extends OptimizeCandidate {
   /** Trechos ajustados (último esticado ou truncado a partir do fim; nunca some o 1º). */
   segments: number[];
-  /** Resumo em pt-BR. */
+  /** Resumo no idioma pedido (`lang`). */
   note: string;
 }
 
 const SEG_MIN = 0.01;
 
-function fmt(n: number, d = 2): string {
-  return n.toFixed(d).replace('.', ',');
+function fmtIn(lang: Lang) {
+  return (n: number, d = 2): string => numLang(n, d, lang);
 }
 
 /** Candidato à inclinação `s` fixa. */
@@ -232,6 +235,8 @@ function landingsLength(n: number, turns: number, D: number, P: number): number 
 
 function build(i: OptimizeInput, s: number, n: number, lf: number, drawn: number, turns: number, D: number): OptimizeCandidate {
   const { H, type } = i;
+  const lang = i.lang ?? 'pt';
+  const fmt = fmtIn(lang);
   const P = type.landingMinLength;
   const pathLength = lf + landingsLength(n, turns, D, P);
   const messages: string[] = [];
@@ -240,17 +245,17 @@ function build(i: OptimizeInput, s: number, n: number, lf: number, drawn: number
     const smax = rampMaxSlope(type)!;
     if (s > smax + 1e-6) {
       violation += s - smax;
-      messages.push(`Inclinação ${fmt(s * 100)} % acima do máximo de ${fmt(smax * 100)} %.`);
+      messages.push(t(lang, 'egb_live_ramp_slope', { slope: fmt(s * 100), max: fmt(smax * 100) }));
     }
     const row = rampNormRowFor(type, s);
     const mr = maxRiseFor(type, s);
     if (mr && H / n > mr + 1e-9) {
       violation += H / n - mr;
-      messages.push(`Cada lance vence ${fmt(H / n)} m: acima do máximo de ${fmt(mr)} m.`);
+      messages.push(t(lang, 'egb_live_ramp_rise', { h: fmt(H / n), max: fmt(mr) }));
     }
     if (row && row.maxFlights !== null && n > row.maxFlights) {
       violation += n - row.maxFlights;
-      messages.push(`${n} lances: acima do máximo de ${row.maxFlights}.`);
+      messages.push(t(lang, 'egb_live_ramp_flights', { n, max: row.maxFlights }));
     }
   }
   return { slope: s, flights: n, flightLength: lf / n, pathLength, delta: pathLength - drawn, violation, messages };
@@ -327,10 +332,13 @@ export function optimizeRamp(i: OptimizeInput): OptimizeResult {
   const segments = adjustSegments(i.segments, best.delta);
   const mudou = Math.abs(best.delta) > 1e-9;
   const sinal = best.delta >= 0 ? '+' : '-';
+  const lang = i.lang ?? 'pt';
+  const fmt = fmtIn(lang);
+  const flight = t(lang, best.flights === 1 ? 'egb_live_flight_one' : 'egb_live_flight_many');
   const note =
-    `Ajustado: ${fmt(best.slope * 100)} %, ${best.flights} ${best.flights === 1 ? 'lance' : 'lances'}` +
-    (mudou ? `, ${sinal}${fmt(Math.abs(best.delta), 1)} m no último trecho.` : '.') +
-    (best.violation > 0 ? ` Sem opção dentro da norma: ${best.messages.join(' ')}` : '');
+    t(lang, 'egb_live_ramp_adjusted', { slope: fmt(best.slope * 100), n: best.flights, flight }) +
+    (mudou ? t(lang, 'egb_live_ramp_last_segment', { sign: sinal, d: fmt(Math.abs(best.delta), 1) }) : t(lang, 'egb_live_ramp_kept')) +
+    (best.violation > 0 ? t(lang, 'egb_live_no_option', { message: best.messages.join(' ') }) : '');
   return { ...best, segments, note };
 }
 

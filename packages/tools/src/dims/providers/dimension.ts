@@ -1,6 +1,7 @@
 import { areaPlanOf, areaPlansOfLevel, dimRefAt, dimRefCandidates, dimensionPoints, dimensionValue, isElementRef, isOpening, levelDimensions, planAnnotationsOf, type Command, type Dimension, type DimensionElementRef, type Id, type Project } from '@hestia/model';
 import type { DimContext, DimEditResult, DimEnd, DimProvider, TempDim } from '../types.ts';
 import { drivenEditCommands } from '../driven.ts';
+import { t as translate, type Lang } from '../../i18n.ts';
 
 /** Onde a cota mora: no nível (planta de piso) ou numa planta de área (`planId`). */
 export interface CotaVista {
@@ -29,32 +30,33 @@ export function vistaDaCota(p: Project, levelId: Id, dimId: Id): CotaVista | nul
  * de `at` (dentro de `tol`, em metros) passa a ser a ponta `slot`. Recusa se não houver feição ali ou se a outra
  * ponta já usa a mesma feição. Pura: devolve os comandos (um único `updateDimension`).
  */
-export function pickRefCommands(project: Project, levelId: Id, dimId: Id, slot: 'a' | 'b', at: { x: number; y: number }, tol: number): { commands: Command[] } | { error: string } {
+export function pickRefCommands(project: Project, levelId: Id, dimId: Id, slot: 'a' | 'b', at: { x: number; y: number }, tol: number, lang: Lang = 'pt'): { commands: Command[] } | { error: string } {
   const vista = vistaDaCota(project, levelId, dimId);
   const d = vista ? dimsDaVista(project, vista).find((x) => x.id === dimId) : undefined;
-  if (!vista || !d) return { error: 'Cota não encontrada neste nível.' };
+  if (!vista || !d) return { error: translate(lang, 'tl_msg_dim_not_found') };
   const hit = dimRefAt(project, levelId, at, tol);
-  if (!hit || !isElementRef(hit.ref)) return { error: 'Nenhuma parede, porta, janela ou feição perto do clique.' };
+  if (!hit || !isElementRef(hit.ref)) return { error: translate(lang, 'tl_msg_no_feature_near') };
   const outra = d.refs?.[slot === 'a' ? 'b' : 'a'];
   if (isElementRef(outra) && outra.elementId === hit.ref.elementId && outra.feature === hit.ref.feature && (outra.index ?? 0) === (hit.ref.index ?? 0)) {
-    return { error: 'A outra ponta já usa esta feição.' };
+    return { error: translate(lang, 'tl_msg_other_end_same') };
   }
   return { commands: [{ type: 'updateDimension', ...vista, id: dimId, patch: { refs: { ...(d.refs ?? {}), [slot]: hit.ref } } }] };
 }
 
 /** Nome da feição para a alça de troca de referência (lido pelo usuário, em português). */
-export function dimElementRefLabel(r: DimensionElementRef): string {
+export function dimElementRefLabel(r: DimensionElementRef, lang: Lang = 'pt'): string {
   const n = (r.index ?? 0) + 1;
+  const end = translate(lang, r.index === 1 ? 'tl_dimref_face_end' : 'tl_dimref_face_start');
   switch (r.feature) {
-    case 'wall-axis-a': return 'Eixo (início)';
-    case 'wall-axis-b': return 'Eixo (fim)';
-    case 'wall-face-lo': return `Face 1 (${r.index === 1 ? 'fim' : 'início'})`;
-    case 'wall-face-hi': return `Face 2 (${r.index === 1 ? 'fim' : 'início'})`;
-    case 'opening-edge-a': return 'Borda inicial da esquadria';
-    case 'opening-edge-b': return 'Borda final da esquadria';
-    case 'opening-center': return 'Centro da esquadria';
-    case 'vertex': return `Vértice ${n}`;
-    case 'edge': return `Aresta ${n}`;
+    case 'wall-axis-a': return translate(lang, 'tl_dimref_axis_start');
+    case 'wall-axis-b': return translate(lang, 'tl_dimref_axis_end');
+    case 'wall-face-lo': return translate(lang, 'tl_dimref_face1', { end });
+    case 'wall-face-hi': return translate(lang, 'tl_dimref_face2', { end });
+    case 'opening-edge-a': return translate(lang, 'tl_dimref_opening_edge_start');
+    case 'opening-edge-b': return translate(lang, 'tl_dimref_opening_edge_end');
+    case 'opening-center': return translate(lang, 'tl_dimref_opening_center');
+    case 'vertex': return translate(lang, 'tl_dimref_vertex', { n });
+    case 'edge': return translate(lang, 'tl_dimref_edge', { n });
   }
 }
 

@@ -4,6 +4,7 @@ import { isRamp, type Id, type Project } from '@hestia/model';
 import type { GripHold } from './selectGrips.ts';
 import { componentsPreview } from './stairPreview.ts';
 import type { PreviewItem, ToolEnv } from './types.ts';
+import { langOf, t as translate } from './i18n.ts';
 
 /** Alça de uma rampa livre selecionada: um vértice do `freePath`. */
 export interface RampGrip {
@@ -50,17 +51,17 @@ export function rampHold(env: ToolEnv, g: RampGrip): GripHold {
       if (!isRamp(r) || !r.freePath || dist(point, g.at) < 1e-9) return;
       const res = regenRamp(r, p, { freePath: r.freePath.map((v, i) => (i === g.index ? point : v)) });
       if ('error' in res) {
-        env.say(`Não é possível mover o vértice: ${res.error}`);
+        env.say(translate(langOf(env), 'tl_msg_move_vertex_fail', { error: res.error }));
         return;
       }
-      env.transaction('Mover vértice da rampa', () =>
+      env.transaction(translate(langOf(env), 'tl_undo_move_ramp_vertex'), () =>
         env.exec({
           type: 'updateElements',
           ids: [g.rampId],
           patch: { components: res.components, freePath: res.freePath, inputMode: res.inputMode, slopeTarget: res.slopeTarget, landingDepth: res.landingDepth },
         }),
       );
-      env.say('Vértice movido. Ctrl+Z desfaz.');
+      env.say(translate(langOf(env), 'tl_msg_vertex_moved'));
     },
   };
 }

@@ -10,6 +10,8 @@ import type { RibbonTabId } from '../ui/ribbon/model.ts';
 import { loadDock, type DockLayout } from './dockLayout.ts';
 import type { TempViewVisibility } from './viewVisibility.ts';
 import type { PastePreviewState } from './pasteLevels/types.ts';
+import type { ProgressoImportacao } from './ifcImport.ts';
+import { fmtNum, useI18n, type TextLike } from './i18n.ts';
 
 export type ViewKind = 'plan' | '3d' | 'section' | 'sheet';
 export type ThemePref = 'system' | 'light' | 'dark';
@@ -49,7 +51,7 @@ export interface UiState {
   options: ToolOptions;
   theme: ThemePref;
   gpu: Backend | 'cpu' | 'pending';
-  status: string;
+  status: TextLike;
   typed: string;
   prompt: string | null;
   dialog: DialogKind;
@@ -96,6 +98,8 @@ export interface UiState {
   ribbonMin: boolean;
   /** Menu Arquivo aberto (aba Arquivo da faixa). */
   fileMenu: boolean;
+  /** Importação IFC em andamento (barra de progresso sobre a área de trabalho); null = nenhuma. */
+  ifcImport: ProgressoImportacao | null;
   /**
    * Vistas abertas na barra, na ordem das abas (sessão, não vai para o projeto). A vista ativa é sempre uma delas:
    * `view`/`levelId`/`sectionId`/`sheetId` continuam sendo a fonte da vista ativa, e esta lista é sincronizada com eles.
@@ -187,7 +191,7 @@ export function toggleOrtho(): boolean {
   const next = !am.ortho;
   useUi.setState({
     options: { ...s.options, orthoLock: next, angleMode: { ...am, ortho: next } },
-    status: next ? 'Orto ativado (F8): apenas 0°/90°.' : 'Orto desativado (F8).',
+    status: { key: next ? 'eds_ortho_on' : 'eds_ortho_off' },
   });
   return next;
 }
@@ -197,9 +201,12 @@ export function togglePolar(): boolean {
   const s = useUi.getState();
   const am = s.options.angleMode ?? { ortho: s.options.orthoLock, polar: false, polarIncrementDeg: 15 };
   const next = !am.polar;
+  const lang = useI18n.getState().lang;
   useUi.setState({
     options: { ...s.options, angleMode: { ...am, polar: next } },
-    status: next ? `Polar ativado (F10): múltiplos de ${am.polarIncrementDeg}°.` : 'Polar desativado (F10).',
+    status: next
+      ? { key: 'eds_polar_on', args: { deg: fmtNum(am.polarIncrementDeg, Number.isInteger(am.polarIncrementDeg) ? 0 : 1, lang) } }
+      : { key: 'eds_polar_off' },
   });
   return next;
 }
@@ -207,12 +214,16 @@ export function togglePolar(): boolean {
 /** Incremento polar personalizado em graus (15, 22,5, 30, 45...); valores fora de 0–180 são recusados. */
 export function setPolarIncrement(deg: number): void {
   if (!Number.isFinite(deg) || deg <= 0 || deg > 180) {
-    useUi.setState({ status: 'O incremento polar deve estar entre 0,1° e 180°.' });
+    useUi.setState({ status: { key: 'eds_polar_increment_error' } });
     return;
   }
   const s = useUi.getState();
   const am = s.options.angleMode ?? { ortho: s.options.orthoLock, polar: false, polarIncrementDeg: 15 };
-  useUi.setState({ options: { ...s.options, angleMode: { ...am, polarIncrementDeg: deg } }, status: `Incremento polar: ${deg}°.` });
+  const lang = useI18n.getState().lang;
+  useUi.setState({
+    options: { ...s.options, angleMode: { ...am, polarIncrementDeg: deg } },
+    status: { key: 'eds_polar_increment', args: { deg: fmtNum(deg, Number.isInteger(deg) ? 0 : 1, lang) } },
+  });
 }
 
 /**
@@ -331,7 +342,7 @@ export const useUi = create<UiState>(() => ({
   options: DEFAULT_OPTIONS,
   theme: DEFAULT_THEME,
   gpu: 'pending',
-  status: 'Pronto.',
+  status: { key: 'eds_ready' },
   typed: '',
   prompt: null,
   dialog: null,
@@ -360,6 +371,7 @@ export const useUi = create<UiState>(() => ({
   ribbonBack: 'arquitetura',
   ribbonMin: loadRibbonMin(),
   fileMenu: false,
+  ifcImport: null,
   openViews: DEFAULT_OPEN_VIEWS.map((v) => ({ ...v })),
 }));
 

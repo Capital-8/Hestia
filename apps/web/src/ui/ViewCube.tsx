@@ -1,5 +1,6 @@
-import { useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
+import { useMemo, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
 import { HOME_VIEW, type ModelScene } from '@hestia/render';
+import { useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import {
   CUBE_FACES,
@@ -10,9 +11,10 @@ import {
   turnAzimuth,
   viewForZone,
   zoneAtPoint,
+  zoneById,
   type CubeZone,
 } from './viewcube.ts';
-import { ringHit, type CompassLetter } from './viewcube-ring.ts';
+import { compassName, ringHit, type CompassLetter } from './viewcube-ring.ts';
 import { ViewCubeRing } from './ViewCubeRing.tsx';
 
 /** Distância (px) a partir da qual um toque no cubo vira arrasto (órbita) e não clique. */
@@ -27,18 +29,18 @@ interface ViewCubeProps {
   model: ModelScene;
 }
 
-/** Células de cada face, calculadas uma vez. */
-const FACES = CUBE_FACES.map((face) => ({ face, cells: faceCells(face) }));
-
 /**
  * ViewCube: cubo em CSS 3D sobre a vista 3D, com as 26 zonas (6 faces, 12 arestas, 8 cantos) e um anel de bússola
- * (N, L, S, O) no chão. Gira com a câmera. O palco resolve o ponteiro pela geometria (`zoneAtPoint` para o cubo,
- * `ringHit` para o anel), e não pelo teste de acerto do navegador, que falha em costuras de faces giradas. Arrastar
- * sobre o cubo orbita; sobre o anel, gira só o azimute. Clicar numa zona anima até a vista dela; clicar numa letra
- * leva ao azimute dela. As células são botões para o teclado (Tab e Enter). Não cria um renderizador WebGL.
+ * (N, L, S, O em pt-BR; N, E, S, W em EN) no chão. Gira com a câmera. O palco resolve o ponteiro pela geometria
+ * (`zoneAtPoint` para o cubo, `ringHit` para o anel), e não pelo teste de acerto do navegador, que falha em costuras de
+ * faces giradas. Arrastar sobre o cubo orbita; sobre o anel, gira só o azimute. Clicar numa zona anima até a vista dela;
+ * clicar numa letra leva ao azimute dela. As células são botões para o teclado (Tab e Enter). Não cria renderizador WebGL.
  */
 export function ViewCube({ model }: ViewCubeProps): ReactElement {
+  const { t, lang } = useT();
   const orbit = model.orbit;
+  /** Células de cada face no idioma ativo (as 54 entradas são triviais de recalcular na troca). */
+  const faces = useMemo(() => CUBE_FACES.map((face) => ({ face, cells: faceCells(face, lang) })), [lang]);
   // Lê a câmera a cada redesenho (arrasto, animação e Início mudam o contador de desenho).
   useUi((s) => s.previewTick);
   const [hover, setHover] = useState<CubeZone | null>(null);
@@ -125,15 +127,15 @@ export function ViewCube({ model }: ViewCubeProps): ReactElement {
 
   const cubeStyle = { transform: cubeMatrix(orbit.azimuth, orbit.elevation), '--vc-half': `${CUBE_HALF_PX}px` } as CSSProperties;
   const stageTitle = hover
-    ? hover.name
+    ? zoneById(hover.id, lang).name
     : ringHover
-      ? `Vista para o ${ringHover.name}`
-      : 'Clique numa zona ou letra para ir à vista; arraste para girar a vista';
+      ? t('cvn_vc_view_to_dir', { name: compassName(ringHover.key, lang) })
+      : t('cvn_vc_hint');
 
   return (
     // O contêiner não recebe o ponteiro (CSS): só o palco e os botões são interativos. O vão transparente em volta do
     // cubo/anel deixa o clique chegar ao canvas (órbita, seleção e pan), em vez de sumir no contêiner.
-    <div className="viewcube" role="group" aria-label="Controle da vista 3D">
+    <div className="viewcube" role="group" aria-label={t('cvn_vc_group')}>
       <div
         className="vc-stage"
         title={stageTitle}
@@ -146,7 +148,7 @@ export function ViewCube({ model }: ViewCubeProps): ReactElement {
       >
         <ViewCubeRing azimuth={orbit.azimuth} elevation={orbit.elevation} hover={ringHover?.key ?? null} layer="back" />
         <div className="vc-cube" style={cubeStyle}>
-          {FACES.map(({ face, cells }) => (
+          {faces.map(({ face, cells }) => (
             <div key={face} className={`vc-face vc-face--${face}`} style={{ transform: FACE_TRANSFORM[face] }}>
               {cells.map(({ row, col, zone }) => (
                 <button
@@ -169,16 +171,16 @@ export function ViewCube({ model }: ViewCubeProps): ReactElement {
         <ViewCubeRing azimuth={orbit.azimuth} elevation={orbit.elevation} hover={ringHover?.key ?? null} layer="front" />
       </div>
       <div className="vc-tools" onPointerDown={conterSeEsquerdo}>
-        <button type="button" className="vc-btn" aria-label="Girar a vista 90° para a esquerda" title="Girar 90° para a esquerda" onClick={turn(1)}>
+        <button type="button" className="vc-btn" aria-label={t('cvn_vc_rotate_left')} title={t('cvn_vc_rotate_left_title')} onClick={turn(1)}>
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
-        <button type="button" className="vc-btn vc-btn--home" aria-label="Início: vista padrão e enquadrar o modelo" title="Início: vista padrão e enquadrar" onClick={home}>
+        <button type="button" className="vc-btn vc-btn--home" aria-label={t('cvn_vc_home_aria')} title={t('cvn_vc_home_title')} onClick={home}>
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 7.5 8 3l5.5 4.5M4 6.8V13h8V6.8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" /></svg>
         </button>
-        <button type="button" className="vc-btn vc-btn--wide" aria-pressed={orbit.ortho} aria-label={orbit.ortho ? 'Projeção ortogonal: alternar para perspectiva' : 'Projeção em perspectiva: alternar para ortogonal'} title="Alternar entre perspectiva e ortogonal" onClick={toggleOrtho}>
-          {orbit.ortho ? 'Ortogonal' : 'Perspectiva'}
+        <button type="button" className="vc-btn vc-btn--wide" aria-pressed={orbit.ortho} aria-label={orbit.ortho ? t('cvn_vc_ortho_on') : t('cvn_vc_persp_on')} title={t('cvn_vc_toggle_ortho')} onClick={toggleOrtho}>
+          {orbit.ortho ? t('cvn_vc_ortho') : t('cvn_vc_persp')}
         </button>
-        <button type="button" className="vc-btn" aria-label="Girar a vista 90° para a direita" title="Girar 90° para a direita" onClick={turn(-1)}>
+        <button type="button" className="vc-btn" aria-label={t('cvn_vc_rotate_right')} title={t('cvn_vc_rotate_right_title')} onClick={turn(-1)}>
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
       </div>

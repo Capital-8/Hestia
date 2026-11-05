@@ -14,6 +14,7 @@ import {
   type ViewGraphics,
 } from './graphics.ts';
 import type { Id, Project } from './types.ts';
+import { t, type Lang } from './i18n.ts';
 
 /**
  * Comandos de gráficos (decisão 0015). Cada um mescla o patch no valor efetivo atual e grava o objeto COMPLETO;
@@ -57,32 +58,32 @@ function refuse(issues: string[]): void {
   if (issues.length > 0) throw new Error(issues.join(' '));
 }
 
-function levelOf(p: Project, levelId: Id) {
+function levelOf(p: Project, levelId: Id, lang: Lang) {
   const l = p.levels.find((x) => x.id === levelId);
-  if (!l) throw new Error('Nível inexistente');
+  if (!l) throw new Error(t(lang, 'md_level_missing'));
   return l;
 }
 
-export function applyProjectGraphics(p: Project, patch: DeepPartial<ProjectGraphics>): void {
+export function applyProjectGraphics(p: Project, patch: DeepPartial<ProjectGraphics>, lang: Lang = 'pt'): void {
   const next = mergeProject(copy(graphicsOf(p)), copy(patch));
-  refuse(graphicsIssues(next));
+  refuse(graphicsIssues(next, lang));
   p.graphics = next;
 }
 
-export function applyLevelGraphics(p: Project, levelId: Id, patch: DeepPartial<ViewGraphics>): void {
-  const l = levelOf(p, levelId);
+export function applyLevelGraphics(p: Project, levelId: Id, patch: DeepPartial<ViewGraphics>, lang: Lang = 'pt'): void {
+  const l = levelOf(p, levelId, lang);
   const next = mergeLevel(copy(levelGraphicsOf(p, levelId)), copy(patch));
-  refuse(graphicsIssues(next));
+  refuse(graphicsIssues(next, lang));
   l.graphics = next;
 }
 
-export function resetLevelGraphics(p: Project, levelId: Id): void {
-  delete levelOf(p, levelId).graphics;
+export function resetLevelGraphics(p: Project, levelId: Id, lang: Lang = 'pt'): void {
+  delete levelOf(p, levelId, lang).graphics;
 }
 
-export function applyView3D(p: Project, patch: DeepPartial<View3DSettings>): void {
+export function applyView3D(p: Project, patch: DeepPartial<View3DSettings>, lang: Lang = 'pt'): void {
   const next = mergeView3D(copy(view3dOf(p)), copy(patch));
-  refuse(graphicsIssues(next));
+  refuse(graphicsIssues(next, lang));
   p.view3d = next;
 }
 
@@ -90,9 +91,9 @@ export function resetView3D(p: Project): void {
   delete p.view3d;
 }
 
-export function applySectionGraphics(p: Project, patch: DeepPartial<ViewGraphics>): void {
+export function applySectionGraphics(p: Project, patch: DeepPartial<ViewGraphics>, lang: Lang = 'pt'): void {
   const next = mergeLevel(copy(sectionGraphicsOf(p)), copy(patch));
-  refuse(graphicsIssues(next));
+  refuse(graphicsIssues(next, lang));
   p.sectionGraphics = next;
 }
 

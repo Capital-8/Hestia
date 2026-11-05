@@ -2,6 +2,7 @@ import { newSheetId, newViewportId, areaPlanOf, projectSheets, sectionPoints, sh
 import { buildSheetDrawList, levelBox, sectionBox, STAMP_W, stampHeightOf, type SheetDrawList } from '@hestia/render';
 import { computeSection } from '@hestia/engine';
 import { exportSheetsPdf } from '@hestia/io';
+import { fmtDate, t, useI18n, type Lang } from './i18n.ts';
 
 /**
  * Ações sobre pranchas (decisão 0022): cada uma é um comando com desfazer. O que é função pura (número, posição, cópia)
@@ -24,14 +25,15 @@ export function nextSheetNumber(p: Pick<Project, 'sheets'>): string {
 
 /** Prancha nova, A3 deitada, com o carimbo preenchido com o nome do projeto e a data de hoje. */
 export function newSheet(p: Pick<Project, 'sheets' | 'name'>, today = new Date()): Sheet {
+  const lang = useI18n.getState().lang;
   return {
     id: newSheetId(),
     number: nextSheetNumber(p),
-    name: 'Nova prancha',
+    name: t(lang, 'cvs_new_sheet'),
     size: 'A3',
     orientation: 'landscape',
     margin: 10,
-    titleBlock: { project: p.name, client: '', author: '', date: today.toLocaleDateString('pt-BR'), revision: '0' },
+    titleBlock: { project: p.name, client: '', author: '', date: fmtDate(lang, today), revision: '0' },
     viewports: [],
   };
 }
@@ -80,13 +82,14 @@ export function freeSpot(s: Pick<Sheet, 'size' | 'orientation' | 'margin' | 'vie
 
 /** Comando que duplica a prancha com ids novos (vistas inclusas) e número seguinte. Prancha inexistente: null. */
 export function duplicateSheetCommand(p: Pick<Project, 'sheets'>, id: Id): Command | null {
+  const lang = useI18n.getState().lang;
   const src = sheetOf(p, id);
   if (!src) return null;
   const copy: Sheet = {
     ...src,
     id: newSheetId(),
     number: nextSheetNumber(p),
-    name: `${src.name} (cópia)`,
+    name: `${src.name}${t(lang, 'cvs_copy_suffix')}`,
     titleBlock: { ...src.titleBlock },
     viewports: src.viewports.map((v) => ({ ...v, id: newViewportId(), at: { ...v.at }, size: { ...v.size }, ...(v.anchor ? { anchor: { ...v.anchor } } : {}) })),
   };
@@ -95,7 +98,7 @@ export function duplicateSheetCommand(p: Pick<Project, 'sheets'>, id: Id): Comma
 
 export const addSheetAction = (store: ProjectStore): Id => {
   const s = newSheet(store.project);
-  store.exec({ type: 'addSheet', sheet: s }, 'Criar prancha');
+  store.exec({ type: 'addSheet', sheet: s }, t(useI18n.getState().lang, 'cvs_undo_create_sheet'));
   return s.id;
 };
 
@@ -109,11 +112,12 @@ export function areaPlanSheetSize(p: Project, planId: Id, scale: number): { w: n
 
 /**
  * Adiciona uma vista (planta, planta de área, corte ou 3D) na escala dada, no primeiro lugar livre. Para planta de
- * área, o tamanho sai do conteúdo do nível e a escala desce se não couber na folha. Erro em pt-BR se recusar.
+ * área, o tamanho sai do conteúdo do nível e a escala desce se não couber na folha. Erro no idioma ativo se recusar.
  */
 export function addViewAction(store: ProjectStore, sheetId: Id, view: SheetViewSource, scale: number): Id {
+  const lang = useI18n.getState().lang;
   const s = sheetOf(store.project, sheetId);
-  if (!s) throw new Error('Prancha inexistente');
+  if (!s) throw new Error(t(lang, 'cvs_sheet_missing_err'));
   const inner = sheetInnerBox(s);
   let vpScale = scale;
   let size = view.kind === 'areaPlan' ? areaPlanSheetSize(store.project, view.planId, vpScale) : defaultViewSize(s, view);
@@ -124,25 +128,26 @@ export function addViewAction(store: ProjectStore, sheetId: Id, view: SheetViewS
   }
   const at = freeSpot(s, size);
   const vp: SheetViewport = { id: newViewportId(), view, at, size, scale: vpScale };
-  store.exec({ type: 'addViewport', sheetId, viewport: vp }, 'Adicionar vista à prancha');
+  store.exec({ type: 'addViewport', sheetId, viewport: vp }, t(lang, 'cvs_undo_add_view'));
   return vp.id;
 }
 
 /** Move uma vista; a posição é limitada à área de desenho antes de gravar. Devolve a recusa, ou null se gravou. */
 export function moveViewportAction(store: ProjectStore, sheetId: Id, vpId: Id, at: { x: number; y: number }): string | null {
+  const lang = useI18n.getState().lang;
   const s = sheetOf(store.project, sheetId);
   const vp = s?.viewports.find((v) => v.id === vpId);
-  if (!s || !vp) return 'Vista inexistente';
-  if (vp.locked === true) return 'A vista está travada. Destrave-a para mover.';
+  if (!s || !vp) return t(lang, 'cvs_view_missing');
+  if (vp.locked === true) return t(lang, 'cvs_locked_move');
   const next = clampedAt(s, vp.size, at);
   const patch: Partial<Omit<SheetViewport, 'id'>> = { at: next };
   // A âncora acompanha a vista: o desenho continua no mesmo ponto relativo à caixa.
   if (vp.anchor) patch.anchor = { x: vp.anchor.x + (next.x - vp.at.x), y: vp.anchor.y + (next.y - vp.at.y) };
   try {
-    store.exec({ type: 'updateViewport', sheetId, id: vpId, patch }, 'Mover vista da prancha');
+    store.exec({ type: 'updateViewport', sheetId, id: vpId, patch }, t(lang, 'cvs_undo_move_one'));
     return null;
   } catch (e) {
-    return e instanceof Error ? e.message : 'Não foi possível mover a vista.';
+    return e instanceof Error ? e.message : t(lang, 'cvs_failed_move_view');
   }
 }
 
@@ -194,10 +199,11 @@ function centredBox(s: Sheet, vp: SheetViewport, size: { w: number; h: number })
  * mover o desenho. Um passo de desfazer por gesto. Devolve a recusa, ou null.
  */
 export function resizeViewportAction(store: ProjectStore, sheetId: Id, vpId: Id, rect: { x: number; y: number; w: number; h: number }): string | null {
+  const lang = useI18n.getState().lang;
   const s = sheetOf(store.project, sheetId);
   const vp = s?.viewports.find((v) => v.id === vpId);
-  if (!s || !vp) return 'Vista inexistente';
-  if (vp.locked === true) return 'A vista está travada. Destrave-a para redimensionar.';
+  if (!s || !vp) return t(lang, 'cvs_view_missing');
+  if (vp.locked === true) return t(lang, 'cvs_locked_resize');
   const box = sheetInnerBox(s);
   const w = Math.max(5, Math.min(rect.w, box.x1 - box.x0));
   const h = Math.max(5, Math.min(rect.h, box.y1 - box.y0));
@@ -207,10 +213,10 @@ export function resizeViewportAction(store: ProjectStore, sheetId: Id, vpId: Id,
     const patch: Partial<Omit<SheetViewport, 'id'>> = { at, size: { w, h } };
     // Sem âncora (arquivo antigo), fixa a posição atual do conteúdo: o primeiro redimensionamento já não pula.
     if (!vp.anchor) patch.anchor = viewportAnchor(vp);
-    store.exec({ type: 'updateViewport', sheetId, id: vpId, patch }, 'Redimensionar vista da prancha');
+    store.exec({ type: 'updateViewport', sheetId, id: vpId, patch }, t(lang, 'cvs_undo_resize_view'));
     return null;
   } catch (e) {
-    return e instanceof Error ? e.message : 'Não foi possível redimensionar a vista.';
+    return e instanceof Error ? e.message : t(lang, 'cvs_failed_resize_view');
   }
 }
 
@@ -219,21 +225,22 @@ export function resizeViewportAction(store: ProjectStore, sheetId: Id, vpId: Id,
  * comportamento esperado ao trocar 1:100 por 1:50 (ArchiCAD). Sem ele, a moldura fica e o desenho é recortado (Revit).
  */
 export function setViewportScaleAction(store: ProjectStore, sheetId: Id, vpId: Id, scale: number, fitFrame = true): string | null {
+  const lang = useI18n.getState().lang;
   const s = sheetOf(store.project, sheetId);
   const vp = s?.viewports.find((v) => v.id === vpId);
-  if (!s || !vp) return 'Vista inexistente';
-  if (!(Number.isFinite(scale) && scale > 0)) return 'A escala deve ser maior que zero.';
-  if (vp.locked === true) return 'A vista está travada. Destrave-a para trocar a escala.';
+  if (!s || !vp) return t(lang, 'cvs_view_missing');
+  if (!(Number.isFinite(scale) && scale > 0)) return t(lang, 'cvs_scale_positive');
+  if (vp.locked === true) return t(lang, 'cvs_locked_scale');
   const patch: Partial<Omit<SheetViewport, 'id'>> = { scale };
   if (fitFrame) {
     const size = fitSizeMm(store.project, vp.view, scale);
     if (size) Object.assign(patch, centredBox(s, vp, size));
   }
   try {
-    store.exec({ type: 'updateViewport', sheetId, id: vpId, patch }, 'Alterar escala da vista');
+    store.exec({ type: 'updateViewport', sheetId, id: vpId, patch }, t(lang, 'cvs_undo_change_scale'));
     return null;
   } catch (e) {
-    return e instanceof Error ? e.message : 'Não foi possível alterar a escala.';
+    return e instanceof Error ? e.message : t(lang, 'cvs_failed_change_scale');
   }
 }
 
@@ -242,33 +249,35 @@ export function setViewportScaleAction(store: ProjectStore, sheetId: Id, vpId: I
  * enquadramento padrão (decisão 0040). Só vale para vista 3D. Devolve a recusa, ou null quando gravou.
  */
 export function setViewportView3DPointAction(store: ProjectStore, sheetId: Id, vpId: Id, pointId: Id | null): string | null {
+  const lang = useI18n.getState().lang;
   const s = sheetOf(store.project, sheetId);
   const vp = s?.viewports.find((v) => v.id === vpId);
-  if (!s || !vp) return 'Vista inexistente';
-  if (vp.view.kind !== '3d') return 'Só uma vista 3D tem ponto de vista.';
+  if (!s || !vp) return t(lang, 'cvs_view_missing');
+  if (vp.view.kind !== '3d') return t(lang, 'cvs_3d_point_only');
   const view: SheetViewSource = pointId ? { kind: '3d', pointId } : { kind: '3d' };
   try {
-    store.exec({ type: 'updateViewport', sheetId, id: vpId, patch: { view } }, 'Trocar ponto de vista 3D');
+    store.exec({ type: 'updateViewport', sheetId, id: vpId, patch: { view } }, t(lang, 'cvs_undo_change_3d_point'));
     return null;
   } catch (e) {
-    return e instanceof Error ? e.message : 'Não foi possível trocar o ponto de vista.';
+    return e instanceof Error ? e.message : t(lang, 'cvs_failed_change_point');
   }
 }
 
 /** Ajusta a moldura ao conteúdo na escala atual, mantendo o centro (Revit: *Size Crop* > Fit). */
 export function fitViewportAction(store: ProjectStore, sheetId: Id, vpId: Id, padMm = 8): string | null {
+  const lang = useI18n.getState().lang;
   const s = sheetOf(store.project, sheetId);
   const vp = s?.viewports.find((v) => v.id === vpId);
-  if (!s || !vp) return 'Vista inexistente';
+  if (!s || !vp) return t(lang, 'cvs_view_missing');
   const size = fitSizeMm(store.project, vp.view, vp.scale, padMm);
-  if (!size) return 'Esta vista não tem modelo para enquadrar.';
-  if (vp.locked === true) return 'A vista está travada. Destrave-a para ajustar a moldura.';
+  if (!size) return t(lang, 'cvs_view_no_model');
+  if (vp.locked === true) return t(lang, 'cvs_locked_frame');
   const next = centredBox(s, vp, size);
   try {
-    store.exec({ type: 'updateViewport', sheetId, id: vpId, patch: { at: next.at, size: next.size, anchor: next.anchor } }, 'Ajustar moldura ao conteúdo');
+    store.exec({ type: 'updateViewport', sheetId, id: vpId, patch: { at: next.at, size: next.size, anchor: next.anchor } }, t(lang, 'cvs_undo_fit_frame'));
     return null;
   } catch (e) {
-    return e instanceof Error ? e.message : 'Não foi possível ajustar a moldura.';
+    return e instanceof Error ? e.message : t(lang, 'cvs_failed_fit_frame');
   }
 }
 
@@ -277,33 +286,38 @@ export function fitViewportAction(store: ProjectStore, sheetId: Id, vpId: Id, pa
  * artificial do `offset` antigo (o desenho pode sair de vista e voltar).
  */
 export function moveViewportContentAction(store: ProjectStore, sheetId: Id, vpId: Id, offset: { x: number; y: number }): string | null {
+  const lang = useI18n.getState().lang;
   const s = sheetOf(store.project, sheetId);
   const vp = s?.viewports.find((v) => v.id === vpId);
-  if (!s || !vp) return 'Vista inexistente';
-  if (vp.locked === true) return 'A vista está travada. Destrave-a para mover o conteúdo.';
-  if (!(Number.isFinite(offset.x) && Number.isFinite(offset.y))) return 'O deslocamento do conteúdo deve ser um ponto finito.';
+  if (!s || !vp) return t(lang, 'cvs_view_missing');
+  if (vp.locked === true) return t(lang, 'cvs_locked_content');
+  if (!(Number.isFinite(offset.x) && Number.isFinite(offset.y))) return t(lang, 'cvs_offset_finite');
   const base = viewportAnchor(vp);
   try {
     store.exec(
       { type: 'updateViewport', sheetId, id: vpId, patch: { anchor: { x: base.x + offset.x, y: base.y + offset.y }, offset: undefined } },
-      'Mover conteúdo da vista',
+      t(lang, 'cvs_undo_move_content'),
     );
     return null;
   } catch (e) {
-    return e instanceof Error ? e.message : 'Não foi possível mover o conteúdo da vista.';
+    return e instanceof Error ? e.message : t(lang, 'cvs_failed_move_content');
   }
 }
 
 /** Trava/destrava a vista (Revit: *Pin*): travada, ela não se move, não se redimensiona e não troca de escala. */
 export function toggleViewportLockAction(store: ProjectStore, sheetId: Id, vpId: Id): string | null {
+  const lang = useI18n.getState().lang;
   const s = sheetOf(store.project, sheetId);
   const vp = s?.viewports.find((v) => v.id === vpId);
-  if (!s || !vp) return 'Vista inexistente';
+  if (!s || !vp) return t(lang, 'cvs_view_missing');
   try {
-    store.exec({ type: 'updateViewport', sheetId, id: vpId, patch: { locked: vp.locked !== true } }, vp.locked === true ? 'Destravar vista' : 'Travar vista');
+    store.exec(
+      { type: 'updateViewport', sheetId, id: vpId, patch: { locked: vp.locked !== true } },
+      t(lang, vp.locked === true ? 'cvs_undo_unlock_view' : 'cvs_undo_lock_view'),
+    );
     return null;
   } catch (e) {
-    return e instanceof Error ? e.message : 'Não foi possível travar a vista.';
+    return e instanceof Error ? e.message : t(lang, 'cvs_failed_lock_view');
   }
 }
 
@@ -313,13 +327,15 @@ export function sheetProblem(s: Sheet): string | null {
 }
 
 /** Desenho de todas as pranchas, na ordem da lista (o que o PDF imprime). */
-export function sheetDrawLists(p: Project): SheetDrawList[] {
-  return projectSheets(p).map((s) => buildSheetDrawList(p, s.id)).filter((d): d is SheetDrawList => d !== null);
+export function sheetDrawLists(p: Project, lang: Lang = useI18n.getState().lang): SheetDrawList[] {
+  return projectSheets(p)
+    .map((s) => buildSheetDrawList(p, s.id, lang))
+    .filter((d): d is SheetDrawList => d !== null);
 }
 
 /** PDF com uma página por prancha. Sem pranchas: null (nada a exportar). */
-export function sheetsPdfOf(p: Project): Uint8Array | null {
-  const lists = sheetDrawLists(p);
+export function sheetsPdfOf(p: Project, lang: Lang = useI18n.getState().lang): Uint8Array | null {
+  const lists = sheetDrawLists(p, lang);
   if (lists.length === 0) return null;
   return exportSheetsPdf(lists, p.name);
 }
@@ -331,7 +347,7 @@ export function sheetsPdfOf(p: Project): Uint8Array | null {
 export function pranchaDaPlantaAtual(store: ProjectStore, levelId: Id): Id {
   // Um único passo de desfazer: prancha e vista somem juntas (com Ctrl+Z não sobra prancha vazia).
   let id = '';
-  store.transaction('Criar prancha com a planta', () => {
+  store.transaction(t(useI18n.getState().lang, 'cvs_undo_create_sheet_plan'), () => {
     id = addSheetAction(store);
     addViewAction(store, id, { kind: 'plan', levelId }, 100);
   });
@@ -345,8 +361,9 @@ export function pranchaDaPlantaAtual(store: ProjectStore, levelId: Id): Id {
  * `updateSheet` valida a folha nova com as vistas já dentro). Devolve a recusa, ou null quando gravou.
  */
 export function changeSheetAction(store: ProjectStore, sheetId: Id, patch: Partial<Pick<Sheet, 'size' | 'orientation' | 'margin'>>): string | null {
+  const lang = useI18n.getState().lang;
   const s = sheetOf(store.project, sheetId);
-  if (!s) return 'Prancha inexistente';
+  if (!s) return t(lang, 'cvs_sheet_missing_err');
   const next: Sheet = { ...s, ...patch };
   const dims = sheetDimsMm(next);
   const m = next.margin;
@@ -366,9 +383,9 @@ export function changeSheetAction(store: ProjectStore, sheetId: Id, patch: Parti
     cmds.push({ type: 'updateViewport', sheetId, id: v.id, patch });
   }
   try {
-    store.exec({ type: 'batch', commands: [...cmds, { type: 'updateSheet', id: sheetId, patch }] }, 'Alterar folha da prancha');
+    store.exec({ type: 'batch', commands: [...cmds, { type: 'updateSheet', id: sheetId, patch }] }, t(lang, 'cvs_undo_change_sheet'));
     return null;
   } catch (e) {
-    return e instanceof Error ? e.message : 'Não foi possível alterar a folha.';
+    return e instanceof Error ? e.message : t(lang, 'cvs_failed_change_sheet');
   }
 }

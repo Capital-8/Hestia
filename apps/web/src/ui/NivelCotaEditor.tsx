@@ -3,6 +3,7 @@ import type { DimensionHit } from '@hestia/render';
 import type { Project } from '@hestia/model';
 import { editor, useProjectVersion } from '../editor/controller.ts';
 import { commitLevelElevation } from '../editor/commitLevelElevation.ts';
+import { fmtNum, useT } from '../editor/i18n.ts';
 import { useUi, type ViewKind } from '../editor/state.ts';
 
 /** Contexto em que a cota foi aberta: a vista, o nível ativo e o documento. */
@@ -56,6 +57,7 @@ export interface NivelCotaEditorHandle {
  * `fecharSeAberto` no `pointerdown`). Trocar de vista, de nível ou de projeto cancela a edição sem aplicar.
  */
 export const NivelCotaEditor = forwardRef<NivelCotaEditorHandle>(function NivelCotaEditor(_props, ref): ReactElement | null {
+  const { lang } = useT();
   const [edicao, setEdicao] = useState<Edicao | null>(null);
   const edicaoRef = useRef<Edicao | null>(null);
   edicaoRef.current = edicao;
@@ -106,7 +108,7 @@ export const NivelCotaEditor = forwardRef<NivelCotaEditorHandle>(function NivelC
         left: ((hit.ndc.x + 1) / 2) * rect.width,
         top: ((1 - hit.ndc.y) / 2) * rect.height,
         // units-ok: valor da cota no editor 3D (m)
-        value: hit.value.toFixed(2).replace('.', ','),
+        value: fmtNum(hit.value, 2, lang),
         levelId: hit.levelId,
         neighborId: hit.neighborId,
         side: hit.side,

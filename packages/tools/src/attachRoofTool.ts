@@ -4,6 +4,7 @@ import { ToolBase } from './base.ts';
 import { pickAt } from './pick.ts';
 import { pickRoofAt } from './roofPick.ts';
 import type { PointerInfo } from './types.ts';
+import { t as translate, type Lang } from './i18n.ts';
 
 /** Trecho do eixo fora do telhado menor que isto (m) não é avisado (mesma folga do C2). */
 const UNCOVERED_TOL = 1e-3;
@@ -41,17 +42,14 @@ function roofUnder(p: Project, levelId: Id, info: PointerInfo, mpp: number): Id 
  * Aviso de cobertura de `w` pelo telhado `roofId` (mesma regra do C2, `roofWallIssues`), ou null quando o eixo está todo
  * sob o telhado. Parede curva não acompanha telhado (o perfil é só de parede reta).
  */
-export function roofCoverNote(p: Project, w: Wall, roofId: Id): string | null {
-  if (w.sag !== 0) return `"${w.id}" é curva e não acompanha o telhado`;
+export function roofCoverNote(p: Project, w: Wall, roofId: Id, lang: Lang = 'pt'): string | null {
+  if (w.sag !== 0) return translate(lang, 'tl_msg_roof_curve', { id: w.id });
   const rs = resolveAllRoofs(p).filter((r) => r.roofId === roofId);
   const rep = roofAxisReport({ ...w, attachTopRoofId: roofId }, rs);
   if (!rep || rep.uncovered <= UNCOVERED_TOL) return null;
-  if (rep.uncovered >= rep.length - UNCOVERED_TOL) return `"${w.id}" está fora deste telhado; o topo fica na altura normal`;
-  return `"${w.id}" tem ${fmt(unitsOf(p), rep.uncovered)} m do eixo fora do telhado`;
+  if (rep.uncovered >= rep.length - UNCOVERED_TOL) return translate(lang, 'tl_msg_roof_outside', { id: w.id });
+  return translate(lang, 'tl_msg_roof_uncovered', { id: w.id, d: fmt(unitsOf(p), rep.uncovered) });
 }
-
-const WALLS_HINT = 'Anexar topo: clique nas paredes (ou selecione-as antes) e depois Enter. Esc sai.';
-const ROOF_HINT = 'Selecione o telhado: o topo das paredes escolhidas segue a face inferior dele. Enter volta às paredes.';
 
 type Stage = 'walls' | 'roof';
 
@@ -64,7 +62,9 @@ type Stage = 'walls' | 'roof';
 export class AttachRoofTool extends ToolBase {
   readonly id = 'attachroof';
   readonly label = 'Anexar topo';
-  readonly hint = WALLS_HINT;
+  override get hint(): string {
+    return this.t('tl_hint_attach_roof');
+  }
   readonly pick3d = true;
   private stage: Stage = 'walls';
   private walls: Id[] = [];
@@ -87,21 +87,21 @@ export class AttachRoofTool extends ToolBase {
     if (sel.length) {
       this.walls = sel;
       this.toRoof();
-    } else this.env.say(WALLS_HINT);
+    } else this.env.say(this.t('tl_hint_attach_roof'));
   }
 
   private toRoof(): void {
     if (!this.walls.length) {
-      this.env.say('Escolha ao menos uma parede antes do telhado.');
+      this.env.say(this.t('tl_msg_pick_wall_first'));
       return;
     }
     this.stage = 'roof';
-    this.env.say(`${this.walls.length} parede(s) escolhida(s). ${ROOF_HINT}`);
+    this.env.say(this.t('tl_msg_walls_chosen', { n: this.walls.length, hint: this.t('tl_hint_attach_roof_pick') }));
   }
 
   private toWalls(): void {
     this.stage = 'walls';
-    this.env.say(WALLS_HINT);
+    this.env.say(this.t('tl_hint_attach_roof'));
   }
 
   override move(p: PointerInfo): void {
@@ -123,11 +123,11 @@ export class AttachRoofTool extends ToolBase {
       const w = wallUnder(pr, levelId, p, mpp);
       if (!w) {
         const onRoof = !!p.hit3d && isRoof(pr.elements[p.hit3d]);
-        this.env.say(onRoof ? 'Isso é um telhado: clique nas paredes e depois Enter escolhe o telhado.' : 'Clique numa parede (ou selecione-a antes) e depois Enter.');
+        this.env.say(this.t(onRoof ? 'tl_msg_that_is_roof' : 'tl_msg_click_wall_then_enter'));
         return;
       }
       this.walls = this.walls.includes(w) ? this.walls.filter((id) => id !== w) : [...this.walls, w];
-      this.env.say(this.walls.length ? `${this.walls.length} parede(s) escolhida(s). Enter escolhe o telhado.` : WALLS_HINT);
+      this.env.say(this.walls.length ? this.t('tl_msg_walls_chosen_enter', { n: this.walls.length }) : this.t('tl_hint_attach_roof'));
       return;
     }
     const roof = roofUnder(pr, levelId, p, mpp);
@@ -137,10 +137,10 @@ export class AttachRoofTool extends ToolBase {
       if (w) {
         this.walls = [w];
         this.env.setSelection([w]);
-        this.env.say('Parede alterada. Selecione o telhado para anexar topo.');
+        this.env.say(this.t('tl_msg_wall_changed'));
         return;
       }
-      this.env.say('Clique sobre um telhado do nível atual. Enter volta às paredes.');
+      this.env.say(this.t('tl_msg_attach_pick_roof'));
       return;
     }
     this.apply(roof);
@@ -161,19 +161,19 @@ export class AttachRoofTool extends ToolBase {
     const ids = this.walls.filter((id) => isWall(pr.elements[id]));
     if (!ids.length) {
       this.toWalls();
-      this.env.say('As paredes escolhidas não existem mais. Escolha outras.');
+      this.env.say(this.t('tl_msg_walls_gone'));
       return;
     }
     const notes = ids.flatMap((id) => {
       const w = pr.elements[id];
-      const note = isWall(w) ? roofCoverNote(pr, w, roofId) : null;
+      const note = isWall(w) ? roofCoverNote(pr, w, roofId, this.uiLang()) : null;
       return note ? [note] : [];
     });
     this.env.exec({ type: 'updateElements', ids, patch: { attachTopToRoof: true, attachTopRoofId: roofId } });
     this.reset();
-    const done = `Topo anexado a ${ids.length} parede(s).`;
-    const more = notes.length > 1 ? ` (e mais ${notes.length - 1})` : '';
-    this.env.say(notes.length ? `${done} Aviso: ${notes[0]}${more}. Ctrl+Z desfaz.` : `${done} Ctrl+Z desfaz.`);
+    const done = this.t('tl_msg_top_attached', { n: ids.length });
+    const more = notes.length > 1 ? this.t('tl_msg_and_more', { n: notes.length - 1 }) : '';
+    this.env.say(notes.length ? `${done}${this.t('tl_msg_warning_note', { msg: `${notes[0]}${more}` })}.${this.t('tl_msg_ctrl_z_undo')}` : `${done}${this.t('tl_msg_ctrl_z_undo')}`);
     this.env.done();
   }
 }
@@ -185,7 +185,9 @@ export class AttachRoofTool extends ToolBase {
 export class DetachRoofTool extends ToolBase {
   readonly id = 'detachroof';
   readonly label = 'Desanexar topo';
-  readonly hint = 'Desanexar topo: selecione as paredes e aperte Enter, ou clique numa parede anexada. Esc sai.';
+  override get hint(): string {
+    return this.t('tl_hint_detach_roof');
+  }
   readonly pick3d = true;
 
   protected reset(): void {
@@ -213,14 +215,14 @@ export class DetachRoofTool extends ToolBase {
   override confirm(): void {
     const sel = this.selectedWalls();
     if (sel.length) this.detach(sel);
-    else this.env.say('Selecione as paredes antes de Enter, ou clique numa parede anexada.');
+    else this.env.say(this.t('tl_msg_select_walls_enter'));
   }
 
   override click(p: PointerInfo): void {
     this.raw = p.raw;
     const w = wallUnder(this.env.project(), this.env.levelId(), p, this.env.metersPerPixel());
     if (!w) {
-      this.env.say('Clique numa parede anexada ao telhado.');
+      this.env.say(this.t('tl_msg_click_attached_wall'));
       return;
     }
     this.detach([w]);
@@ -234,10 +236,10 @@ export class DetachRoofTool extends ToolBase {
       return isWall(w) && w.attachTopToRoof === true;
     });
     if (!attached.length) {
-      this.env.say('Nenhuma parede escolhida está anexada ao telhado.');
+      this.env.say(this.t('tl_msg_attach_none'));
       return;
     }
     this.env.exec({ type: 'updateElements', ids: attached, patch: { attachTopToRoof: false, attachTopRoofId: undefined } });
-    this.env.say(`Topo desanexado de ${attached.length} parede(s). Ctrl+Z desfaz.`);
+    this.env.say(this.t('tl_msg_top_detached', { n: attached.length }));
   }
 }

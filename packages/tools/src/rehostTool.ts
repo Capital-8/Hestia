@@ -14,7 +14,9 @@ const DEFAULT_WIDTH = 0.8;
 export class RehostTool extends ToolBase {
   readonly id = 'rehost';
   readonly label = 'Trocar anfitriã';
-  readonly hint = 'Trocar anfitriã: clique na abertura a mover (ou selecione-a antes) e depois na nova parede.';
+  override get hint(): string {
+    return this.t('tl_hint_rehost');
+  }
   private openingId: Id | null = null;
 
   protected reset(): void {
@@ -90,7 +92,7 @@ export class RehostTool extends ToolBase {
     const width = openingTypeById(pr, opening.typeId)?.width ?? DEFAULT_WIDTH;
     const len = wallLength(w);
     if (len < width) {
-      this.env.say('A abertura não cabe nesta parede.');
+      this.env.say(this.t('tl_msg_rehost_no_fit'));
       return;
     }
     // Posição mais próxima do clique, com o vão inteiro dentro da parede.

@@ -13,6 +13,7 @@ import { resolverRotulos, resolverZoom } from './zoomOps.ts';
 import { dimPlanOps } from './dim.ts';
 import { sketchOps, type SketchSelectionBox } from './sketch.ts';
 import type { FillOp, LabelOp, PlanDrawList, PlanOps, PlanTheme, StrokeOp } from './types.ts';
+import type { Lang } from '../i18n.ts';
 import { contadores } from '../perf/registro.ts';
 
 /** Esboço do perímetro em edição (só na planta): o rascunho, a validação dele, a linha sob o cursor e a caixa de seleção. */
@@ -62,6 +63,8 @@ export interface PlanViewState {
   areaPlan?: import('@hestia/model').AreaPlan;
   /** Rótulo em arraste (fantasma). */
   tagGhost?: { roomId: Id; at: Vec2 };
+  /** Idioma dos textos fixos da planta (repassado ao `PlanInput`). Padrão `'pt'`. */
+  lang?: Lang;
 }
 
 /** Resolução vazia do nível atual: a planta normal não a lê (ver `planFrameUpdateOf`). */
@@ -75,6 +78,7 @@ export function resolucaoVazia(levelId: Id): ResolvedLevel {
  */
 export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
   const { project: p, levelId, v, theme, dark } = s;
+  const lang = s.lang ?? 'pt';
   const rp = s.roofPlanMode === true;
   const geoSel = planGeometrySelection(p, levelId, s.selection, s.areaPlan);
   // A planta normal não usa a resolução do nível atual: `planViewOf` refaz a geometria com o corte (ver `planContext`).
@@ -85,7 +89,7 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
   // A planta de área usa as MESMAS sobreposições da planta de piso. Ela bloqueia as ferramentas de modelo
   // (`AREA_PLAN_TOOLS`), mas o `select` ainda move o elemento selecionado; por isso mantém destaque, alças e fantasmas
   // iguais aos do piso. Se o select virar somente leitura, suprimir as alças de modelo aqui.
-  const base = { project: p, levelId, viewport: v, theme, dark, showGrid: s.showGrid, thinLines: s.thinLines, showRoofProjection: s.showRoofProjection, roofPlanMode: rp, areaPlan: s.areaPlan, tagGhost: s.tagGhost, hidden: s.hidden, revealed: s.revealed };
+  const base = { project: p, levelId, viewport: v, theme, dark, showGrid: s.showGrid, thinLines: s.thinLines, showRoofProjection: s.showRoofProjection, roofPlanMode: rp, areaPlan: s.areaPlan, tagGhost: s.tagGhost, hidden: s.hidden, revealed: s.revealed, lang };
   const visKey = s.hidden?.size || s.revealed?.size ? `${[...(s.hidden ?? [])].sort().join(',')}|${[...(s.revealed ?? [])].sort().join(',')}` : '';
   // Uma resolução por atualização, mesmo com as camadas de sobreposição sendo refeitas na mesma passagem.
   let resolvida: ResolvedLevel | null = null;
@@ -97,12 +101,12 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
     theme,
     gpu: s.gpu,
     showGrid: s.showGrid,
-    geometryKey: `${s.version}|${levelId}|${modo}|${dark}|${s.showUnderlay}|${s.underlayLevel ?? ''}|${s.showRoofProjection}|${s.sketch ? 'dim' : ''}|${geoSel.join(',')}|${s.tagGhost?.roomId ?? ''}|${areaKey}|${visKey}`,
+    geometryKey: `${s.version}|${levelId}|${modo}|${dark}|${lang}|${s.showUnderlay}|${s.underlayLevel ?? ''}|${s.showRoofProjection}|${s.sketch ? 'dim' : ''}|${geoSel.join(',')}|${s.tagGhost?.roomId ?? ''}|${areaKey}|${visKey}`,
     // Três chaves de sobreposição: a seleção, o alvo do cursor e a camada viva (prévia, guias e captura). Cursor e
     // pré-visualização não refazem os destaques da seleção, e o hover não refaz a geometria do nível.
-    overlayKey: `${s.version}|${levelId}|${modo}|${dark}|${s.selection.join(',')}|${areaKey}|${visKey}`,
-    hoverKey: `${s.version}|${levelId}|${modo}|${dark}|${s.selection.join(',')}|${s.hover ?? ''}|${s.aviso ?? ''}|${areaKey}|${visKey}`,
-    liveKey: `${JSON.stringify(s.preview)}|${JSON.stringify(s.inference)}|${sketchKey(s.sketch, v.zoom)}|${JSON.stringify(s.tagGhost ?? null)}|${areaKey}`,
+    overlayKey: `${s.version}|${levelId}|${modo}|${dark}|${lang}|${s.selection.join(',')}|${areaKey}|${visKey}`,
+    hoverKey: `${s.version}|${levelId}|${modo}|${dark}|${lang}|${s.selection.join(',')}|${s.hover ?? ''}|${s.aviso ?? ''}|${areaKey}|${visKey}`,
+    liveKey: `${JSON.stringify(s.preview)}|${JSON.stringify(s.inference)}|${sketchKey(s.sketch, v.zoom)}|${JSON.stringify(s.tagGhost ?? null)}|${areaKey}|${lang}`,
     // Só a geometria lê o nível de baixo: as referências são resolvidas apenas quando ela é refeita.
     geometry: () => {
       // A planta de área tem a sua própria opção de subpavimento; a planta de piso usa a opção global da vista.

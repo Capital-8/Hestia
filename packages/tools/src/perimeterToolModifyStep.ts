@@ -35,6 +35,8 @@ export interface ModHost {
   /** Projeto e nível: o Alinhar também usa faces e arestas de fora do esboço como referência. Ausentes = só esboço. */
   project?(): Project;
   levelId?(): Id;
+  /** Idioma da interface (ausente = português). */
+  lang?(): 'pt' | 'en';
 }
 
 /** Comandos que agem sobre a seleção: o primeiro estágio escolhe as linhas (Enter confirma). */

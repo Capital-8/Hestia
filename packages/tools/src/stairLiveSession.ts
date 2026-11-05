@@ -20,6 +20,7 @@ import {
   type TurnRecuo,
 } from '@hestia/engine';
 import { estadoDoRestante, rotuloEscadaLivre } from './stairLiveMessages.ts';
+import { fmtNumLang, t as translate, type Lang } from './i18n.ts';
 import type { PreviewItem } from './types.ts';
 
 /**
@@ -45,6 +46,8 @@ export interface StairLiveConfig {
   fixed?: StairFixed;
   /** Normas; ausente = `DEFAULT_STAIR_NORMS` do motor. */
   norms?: StairNorms;
+  /** Idioma das mensagens ao vivo (ausente = português). */
+  lang?: Lang;
 }
 
 /** O que um clique, Enter ou comprimento digitado produziu. */
@@ -60,8 +63,6 @@ export const STAIR_LIVE_MAX_VERTICES = 40;
 const MIN_SEGMENT = 0.01;
 /** Clique a menos que isso (m) do último vértice conclui (faz o papel do duplo clique). */
 const REPEAT_CLICK = 0.05;
-
-const num = (n: number, d = 2): string => Math.abs(n).toFixed(d).replace('.', ','); // units-ok: mensagens ao vivo da escada usam a unidade já resolvida
 
 const emptyLayout = (): StairSegmentLayout => ({ pieces: [], risers: 0, length: 0, leftover1: false });
 
@@ -136,6 +137,11 @@ export class StairLiveSession {
   constructor(cfg: StairLiveConfig) {
     this.cfg = cfg;
     this.applyConfig();
+  }
+
+  /** Idioma das mensagens ao vivo (ausente = português). */
+  private lang(): Lang {
+    return this.cfg.lang ?? 'pt';
   }
 
   // ---- configuração ------------------------------------------------------------------------------------------
@@ -213,13 +219,13 @@ export class StairLiveSession {
   hint(): string {
     switch (this.state) {
       case 'IDLE':
-        return 'Escada livre: clique o ponto inicial (centro do 1º espelho). Esc cancela.';
+        return translate(this.cfg.lang ?? 'pt', 'tl_hint_stair_live_idle');
       case 'ORIGIN':
-        return 'Escada livre: clique o próximo ponto (ou digite o comprimento). Enter conclui, Backspace volta, Esc descarta.';
+        return translate(this.cfg.lang ?? 'pt', 'tl_hint_stair_live_origin');
       case 'DRAWING':
-        return 'Escada livre: clique o próximo ponto (ou digite o comprimento). Enter ou clique no último ponto conclui, A ajusta, Backspace volta, Esc descarta.';
+        return translate(this.cfg.lang ?? 'pt', 'tl_hint_stair_live_drawing');
       case 'REACHED':
-        return 'Nível de topo alcançado. Enter ou clique conclui; A ajusta; Backspace volta.';
+        return translate(this.cfg.lang ?? 'pt', 'tl_hint_stair_live_reached');
     }
   }
 
@@ -245,18 +251,18 @@ export class StairLiveSession {
       this.warned = avisado;
       return this.finish();
     }
-    if (d < MIN_SEGMENT) return { kind: 'ignored', message: 'Afaste o cursor do último ponto.' };
+    if (d < MIN_SEGMENT) return { kind: 'ignored', message: translate(this.lang(), 'tl_msg_move_cursor_last') };
     if (this.pts.length >= STAIR_LIVE_MAX_VERTICES) {
-      return { kind: 'ignored', message: `Máximo de ${STAIR_LIVE_MAX_VERTICES} pontos. Enter conclui.` };
+      return { kind: 'ignored', message: translate(this.lang(), 'tl_msg_max_points', { n: STAIR_LIVE_MAX_VERTICES }) };
     }
     const ev = this.evaluate(c);
-    if (!ev) return { kind: 'ignored', message: 'Clique o ponto inicial.' };
+    if (!ev) return { kind: 'ignored', message: translate(this.lang(), 'tl_msg_click_start') };
     if (!ev.ok) return { kind: 'ignored', message: ev.message };
-    if (ev.short) return { kind: 'ignored', message: 'Afaste o cursor: o trecho é curto demais depois do patamar de giro.' };
+    if (ev.short) return { kind: 'ignored', message: translate(this.lang(), 'tl_msg_segment_short_after_landing') };
     this.append(ev);
     const state = this.state;
     return state === 'REACHED'
-      ? { kind: 'added', state, message: ev.truncated ? 'Nível de topo alcançado: o trecho foi encurtado no ponto em que a escada fecha.' : 'Nível de topo alcançado.' }
+      ? { kind: 'added', state, message: translate(this.lang(), ev.truncated ? 'tl_msg_top_reached_truncated' : 'tl_msg_top_reached_cap') }
       : { kind: 'added', state };
   }
 
@@ -276,7 +282,7 @@ export class StairLiveSession {
     const reachedSeg = this.segs[this.segs.length - 1];
     if (this.reached && reachedSeg) {
       const v = this.pts[this.pts.length - 1]!;
-      this.items = [...this.frozen, ...reachedSeg.items, { kind: 'point', at: v }, { kind: 'label', at: v, text: 'Nível de topo alcançado' }];
+      this.items = [...this.frozen, ...reachedSeg.items, { kind: 'point', at: v }, { kind: 'label', at: v, text: translate(this.lang(), 'tl_msg_top_reached_cap') }];
       return this.items;
     }
     const ev = this.evaluate(p);
@@ -326,13 +332,13 @@ export class StairLiveSession {
    * Devolve o trajeto e volta a IDLE.
    */
   finish(): StairLiveEvent {
-    if (this.pts.length < 2) return { kind: 'ignored', message: 'Clique ao menos um segundo ponto para criar a escada.' };
+    if (this.pts.length < 2) return { kind: 'ignored', message: translate(this.lang(), 'tl_msg_click_second_stair') };
     const falta = this.faltaConfirmada;
     if (falta > 0 && !this.warned) {
       this.warned = true;
       const m = this.par ? falta * this.par.tread : 0;
-      const texto = falta === 1 ? 'Falta 1 espelho' : `Faltam ${falta} espelhos`;
-      return { kind: 'warn', message: `${texto}: Enter de novo estende o último trecho em ${num(m)} m e cria; A ajusta.` };
+      const texto = translate(this.lang(), falta === 1 ? 'tl_msg_missing_one_cap' : 'tl_msg_missing_many_cap', { n: falta });
+      return { kind: 'warn', message: translate(this.lang(), 'tl_msg_missing_warn_stair', { state: texto, d: fmtNumLang(m, 2, this.lang()) }) };
     }
     const path = this.pts.slice();
     this.cancel();
@@ -378,12 +384,12 @@ export class StairLiveSession {
 
   /** Comprimento digitado (m) do próximo trecho, na direção do cursor. */
   typeLength(m: number): StairLiveEvent {
-    if (this.pts.length === 0) return { kind: 'ignored', message: 'Clique primeiro o ponto inicial.' };
-    if (!(m >= MIN_SEGMENT)) return { kind: 'ignored', message: 'Comprimento inválido.' };
+    if (this.pts.length === 0) return { kind: 'ignored', message: translate(this.lang(), 'tl_msg_click_start_first') };
+    if (!(m >= MIN_SEGMENT)) return { kind: 'ignored', message: translate(this.lang(), 'tl_msg_invalid_length') };
     const v = this.pts[this.pts.length - 1]!;
     const d = this.cursor ? sub(this.cursor, v) : null;
     const l = d ? len(d) : 0;
-    if (!d || l < MIN_SEGMENT) return { kind: 'ignored', message: 'Mova o cursor para dar a direção e digite o comprimento.' };
+    if (!d || l < MIN_SEGMENT) return { kind: 'ignored', message: translate(this.lang(), 'tl_msg_move_cursor_then_length') };
     return this.click(add(v, mul(d, m / l)));
   }
 
@@ -394,7 +400,7 @@ export class StairLiveSession {
    * clique substitui o último ponto) e a avaliação recomeça do ponto anterior. Nada de plano completo nem booleanas.
    */
   private evaluate(c: Vec2): Eval | null {
-    if (this.err || !this.par) return { ok: false, message: this.err ?? 'Tipo de escada inválido.' };
+    if (this.err || !this.par) return { ok: false, message: this.err ?? translate(this.lang(), 'tl_msg_invalid_stair_type') };
     const p = this.par;
     const T = p.tread;
     for (;;) {
@@ -412,7 +418,7 @@ export class StairLiveSession {
       let prevLay: StairSegmentLayout | null = null;
       if (prev && L >= MIN_SEGMENT) {
         const th = Math.acos(Math.max(-1, Math.min(1, dot(prev.dir, dir))));
-        if (th > FREE_MAX_TURN_ANGLE) return { ok: false, message: 'Retorno agudo demais: use dois giros menores.' };
+        if (th > FREE_MAX_TURN_ANGLE) return { ok: false, message: translate(this.lang(), 'tl_msg_sharp_turn') };
         if (th < FREE_COLLINEAR_ANGLE) {
           // Vértice quase colinear: dissolve e reavalia a partir do ponto anterior (o clique o substitui).
           this.pts.pop();
@@ -422,11 +428,11 @@ export class StairLiveSession {
         }
         const tin = turnRecuo(th, this.cfg.width, this.D);
         const pf = fitSegment(prev.len, T, prev.turnIn, tin);
-        if (pf.kind === 'short') return { ok: false, message: 'O trecho anterior é curto demais para o patamar de giro.' };
+        if (pf.kind === 'short') return { ok: false, message: translate(this.lang(), 'tl_msg_prev_segment_short') };
         const need = p.risers - prev.risersBefore;
         const pl = pf.kind === 'run' ? layoutStairSegment(pf.span, p, need, true) : emptyLayout();
         if (prev.risersBefore === 0 && pl.risers === 0 && this.segs.length === 1) {
-          return { ok: false, message: 'O 1º trecho é curto demais para um lance (mínimo 2 espelhos).' };
+          return { ok: false, message: translate(this.lang(), 'tl_msg_first_segment_short') };
         }
         bIn = tin.tPref;
         risersBefore = prev.risersBefore + pl.risers;
@@ -452,7 +458,7 @@ export class StairLiveSession {
 
   private labelFor(r: StairRemaining | null): string {
     if (!r || !this.par) return '';
-    return rotuloEscadaLivre(this.par.risers, this.par.riserHeight, this.par.tread, estadoDoRestante(r));
+    return rotuloEscadaLivre(this.par.risers, this.par.riserHeight, this.par.tread, estadoDoRestante(r, this.cfg.lang), this.cfg.lang);
   }
 
   // ---- cache -------------------------------------------------------------------------------------------------

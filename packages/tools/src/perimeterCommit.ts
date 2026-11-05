@@ -3,8 +3,9 @@ import { followsRoom, isCeiling, isFloor, isRoof, isSlab, type Id, type Project 
 import { editDraft, finish, SKETCH_DEFAULTS } from './perimeterSession.ts';
 import { areaSides, commitArea } from './perimeterCommitArea.ts';
 import { commitRoof, roofSides } from './perimeterCommitRoof.ts';
-import { refuse, withDefaults } from './perimeterCommitShared.ts';
+import { refuse as refuseBase, withDefaults } from './perimeterCommitShared.ts';
 import type { CommitPerimeterOptions, CommitPerimeterResult, PerimeterBarOptions } from './perimeterCommitTypes.ts';
+import { t as translate, type Lang } from './i18n.ts';
 
 export type { CommitPerimeterOptions, CommitPerimeterResult, PerimeterBarOptions } from './perimeterCommitTypes.ts';
 export { OUTLINE_LOCKED_MSG } from './outlineEdit.ts';
@@ -77,19 +78,19 @@ export function draftFromElement(project: Project, elementId: Id): SketchDraft |
  * pediram). Telhado: as arestas viram `edgeSlopes`/`edgeOverhangs`, e o motor precisa gerar águas; senão recusa e não
  * gera comando. Piso, laje e forro: contorno e furos, com o furo dentro do contorno. Recusa devolve o motivo em `message`.
  */
-export function commitPerimeter(project: Project, draft: SketchDraft, opts: CommitPerimeterOptions = {}): CommitPerimeterResult {
+export function commitPerimeter(project: Project, draft: SketchDraft, opts: CommitPerimeterOptions = {}, lang: Lang = 'pt'): CommitPerimeterResult {
   const d = withDefaults(draft, opts);
   const r = finish(d);
   if (!r.ok) {
     const first = r.issues[0];
-    return { ok: false, message: `Perímetro não concluído: ${first?.message ?? 'esboço vazio.'}`, issues: r.issues };
+    return { ok: false, message: translate(lang, 'tl_msg_perimeter_incomplete', { reason: first?.message ?? translate(lang, 'tl_msg_empty_sketch') }), issues: r.issues };
   }
   if (d.editing) {
     const el = project.elements[d.editing];
-    if (!el || el.kind !== d.target) return refuse('Elemento em edição não encontrado.');
+    if (!el || el.kind !== d.target) return refuseBase(translate(lang, 'tl_msg_editing_not_found'));
   }
   if (d.target === 'roof') {
-    return commitRoof(project, { editing: d.editing, slopeDefault: d.defaults.slopePct }, r.outer, r.holes, r.edges, opts, d.segs);
+    return commitRoof(project, { editing: d.editing, slopeDefault: d.defaults.slopePct }, r.outer, r.holes, r.edges, opts, d.segs, lang);
   }
-  return commitArea(project, { target: d.target, editing: d.editing }, r.outer, r.holes, opts);
+  return commitArea(project, { target: d.target, editing: d.editing }, r.outer, r.holes, opts, lang);
 }

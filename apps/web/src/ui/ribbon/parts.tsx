@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 
 import { createPortal } from 'react-dom';
 import { areaPlanToolAllowed, editor } from '../../editor/controller.ts';
 import { useAtalhos } from '../../editor/shortcutConfig.ts';
-import { toolLabel, type Lang } from '../../editor/i18n.ts';
+import { t, toolLabel, type Lang } from '../../editor/i18n.ts';
 import { useUi, type ViewKind } from '../../editor/state.ts';
 import { Icon } from '../Icon.tsx';
 import { ACTIONS, type RibbonCtx } from './actions.ts';
@@ -22,12 +22,6 @@ interface Face {
   disabled: boolean;
   onClick: () => void;
 }
-
-const SOON_PT = 'ainda não disponível';
-const SOON_EN = 'not available yet';
-/** Motivo no tooltip do que não age sobre a prancha (decisão 0039). */
-const SEM_PRANCHA_PT = 'não se aplica à prancha';
-const SEM_PRANCHA_EN = 'not available for sheets';
 
 /**
  * Resolve rótulo, ícone, tooltip, estado e clique de um item folha (ferramenta, ação, opção ou "em breve"). Com o modo de
@@ -58,9 +52,7 @@ function faceBase(item: RibbonItem, ctx: RibbonCtx, lang: Lang, view: ViewKind, 
       // Planta de área: só anotação (o controlador também recusa, inclusive por atalho).
       const blocked = ctx.planKind === 'area' && view !== '3d' && !areaPlanToolAllowed(item.tool);
       const disabled = blocked || toolDisabledOnSheet(view, item.tool);
-      const why = blocked
-        ? (lang === 'pt' ? 'Na planta de área, use as ferramentas de anotação.' : 'In an area plan, use the annotation tools.')
-        : (lang === 'pt' ? SEM_PRANCHA_PT : SEM_PRANCHA_EN);
+      const why = t(lang, blocked ? 'shr_area_plan_hint' : 'shr_not_for_sheets');
       return {
         icon: item.icon ?? item.tool, label,
         title: disabled ? `${titulo} — ${why}` : titulo,
@@ -107,7 +99,7 @@ function faceBase(item: RibbonItem, ctx: RibbonCtx, lang: Lang, view: ViewKind, 
     }
     case 'soon': {
       const label = txt(item.label, lang);
-      return { icon: item.icon ?? 'soon', label, title: `${label}\n— ${lang === 'pt' ? SOON_PT : SOON_EN}`, on: false, soon: true, disabled: true, onClick: () => undefined };
+      return { icon: item.icon ?? 'soon', label, title: `${label}\n— ${t(lang, 'shr_soon_unavailable')}`, on: false, soon: true, disabled: true, onClick: () => undefined };
     }
     case 'split':
     case 'stack':
@@ -157,7 +149,7 @@ function MenuEntry({ item, ctx, lang, close }: { item: RibbonItem; ctx: RibbonCt
     <button role="menuitem" className={cls('rb-menuitem', f.on && 'on', f.soon && 'soon')} title={f.title} disabled={f.disabled} onClick={() => { close(); f.onClick(); }}>
       <Icon name={f.icon} size={20} />
       <span>{f.label}</span>
-      {f.soon && <em>{lang === 'pt' ? 'a criar' : 'soon'}</em>}
+      {f.soon && <em>{t(lang, 'shr_soon_tag')}</em>}
     </button>
   );
 }

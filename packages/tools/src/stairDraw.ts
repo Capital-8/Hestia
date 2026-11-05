@@ -4,6 +4,7 @@ import type { StairCurve } from '@hestia/model';
 import { copyCurve, lastRun, partsFromComponents, componentsFromParts, type RunDraft, type StairPart, type StairSubmode } from './stairSketchState.ts';
 import { CONNECT_TOL, chainEnd, emptyStroke, strokeClick, strokeUndo, type Stroke, type StrokeEvent } from './stairStroke.ts';
 import { reverseCurve } from './stairPickLines.ts';
+import { t as translate, type Lang } from './i18n.ts';
 
 /** Estado do desenho: sub-modo, lado do limite, componentes do croqui, o traçado em curso e se "Pegar linhas" está ligado. */
 export interface DrawState {
@@ -140,11 +141,11 @@ export function snapToBoundary(run: RunDraft | null, q: Vec2): Vec2 {
 }
 
 /** Espelho: dois cliques (ou três, com arco) por espelho; cada um sai direto, sem cadeia. */
-function riserPoint(st: DrawState, q: Vec2): string | undefined {
+function riserPoint(st: DrawState, q: Vec2, lang: Lang = 'pt'): string | undefined {
   const run = lastRun(st.parts);
   if (!run || run.boundaryLeft.length === 0 || run.boundaryRight.length === 0) {
     st.stroke = emptyStroke(st.stroke.prim);
-    return 'Desenhe os limites antes dos espelhos.';
+    return translate(lang, 'tl_msg_draw_limits_first');
   }
   const ev = step(st, snapToBoundary(run, q), false);
   if (ev.kind === 'reject') return ev.message;
@@ -221,13 +222,13 @@ export function writeRun(st: DrawState): RunDraft {
  * em curso (Enter fecha, como sempre); espelhos saem direto, um por curva. Não valida o croqui: quem aponta erro é
  * `analyzeDraft` (validateRunSketch). Só recusa o que não tem onde entrar (sub-modo errado, espelho sem limites).
  */
-export function pickInto(st: DrawState, curves: StairCurve[]): { op: PickOp; msg: string } | { error: string } {
+export function pickInto(st: DrawState, curves: StairCurve[], lang: Lang = 'pt'): { op: PickOp; msg: string } | { error: string } {
   const n = curves.length;
   if (st.submode === 'espelhos') {
     const run = lastRun(st.parts);
     if (!run || run.boundaryLeft.length === 0 || run.boundaryRight.length === 0) {
       st.stroke = emptyStroke(st.stroke.prim);
-      return { error: 'Desenhe os limites antes dos espelhos.' };
+      return { error: translate(lang, 'tl_msg_draw_limits_first') };
     }
     run.risers.push(...curves);
     st.stroke = emptyStroke(st.stroke.prim);

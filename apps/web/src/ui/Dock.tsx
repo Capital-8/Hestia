@@ -1,6 +1,7 @@
 import { Fragment, useRef, type PointerEvent as ReactPointerEvent, type ReactElement } from 'react';
 import { setDock } from '../editor/dockActions.ts';
 import { dockPanels, saveDock, type DockSide } from '../editor/dockLayout.ts';
+import { useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { Browser } from './Browser.tsx';
 import { Properties } from './Properties.tsx';
@@ -30,6 +31,7 @@ function drag(e: ReactPointerEvent, move: (dx: number, dy: number) => void): voi
  * vertical muda a largura do dock; quando há dois painéis, uma horizontal muda a altura do de cima.
  */
 export function Dock({ side }: { side: DockSide }): ReactElement {
+  const { t } = useT();
   const propsOpen = useUi((s) => s.propsOpen);
   const browserOpen = useUi((s) => s.browserOpen);
   const dock = useUi((s) => s.dock);
@@ -55,7 +57,7 @@ export function Dock({ side }: { side: DockSide }): ReactElement {
       {panels.map((p, i) => (
         <Fragment key={p}>
           {both && i === 1 && (
-            <div className="dock-split h" role="separator" aria-orientation="horizontal" aria-label="Altura dos painéis" tabIndex={0} onPointerDown={resizeSplit}
+            <div className="dock-split h" role="separator" aria-orientation="horizontal" aria-label={t('shc_dock_resize_height')} tabIndex={0} onPointerDown={resizeSplit}
               onKeyDown={(e) => { if (e.key === 'ArrowUp') setDock({ split: dock.split - 0.03 }); if (e.key === 'ArrowDown') setDock({ split: dock.split + 0.03 }); }} />
           )}
           <div className="dock-pane" data-dock-panel={p} style={{ flex: both ? `${i === 0 ? dock.split : 1 - dock.split} 1 0` : 1 }}>
@@ -63,7 +65,7 @@ export function Dock({ side }: { side: DockSide }): ReactElement {
           </div>
         </Fragment>
       ))}
-      <div className={`dock-split v ${side}`} role="separator" aria-orientation="vertical" aria-label="Largura do painel" tabIndex={0} onPointerDown={resizeWidth}
+      <div className={`dock-split v ${side}`} role="separator" aria-orientation="vertical" aria-label={t('shc_dock_resize_width')} tabIndex={0} onPointerDown={resizeWidth}
         onKeyDown={(e) => { const d = e.key === 'ArrowLeft' ? -16 : e.key === 'ArrowRight' ? 16 : 0; if (d) setDock(side === 'left' ? { leftW: w + d } : { rightW: w - d }); }} />
     </div>
   );

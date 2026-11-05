@@ -11,7 +11,7 @@ export function proximoNivelAcima(p: Project, levelId: Id): Id | null {
 
 /** Liga ou desliga a base anexada ao piso ou laje do nível (uma passagem de desfazer). */
 export function setBaseNoPiso(store: ProjectStore, ids: Id[], on: boolean): void {
-  store.exec({ type: 'updateElements', ids, patch: { attachBottomToFloor: on } }, on ? 'Anexar base ao piso' : 'Desanexar base do piso');
+  store.exec({ type: 'updateElements', ids, patch: { attachBottomToFloor: on } }, on ? 'edc_undo_attach_base' : 'edc_undo_detach_base');
 }
 
 /**
@@ -20,7 +20,7 @@ export function setBaseNoPiso(store: ProjectStore, ids: Id[], on: boolean): void
  */
 export function setTopoNoPiso(store: ProjectStore, ids: Id[], on: boolean): Id[] {
   const semNivel: Id[] = [];
-  store.transaction(on ? 'Anexar topo ao piso' : 'Desanexar topo do piso', () => {
+  store.transaction(on ? 'edc_undo_attach_top' : 'edc_undo_detach_top', () => {
     for (const id of ids) {
       const w = store.project.elements[id];
       if (!isWall(w)) continue;
@@ -41,5 +41,5 @@ export function setTopoNoPiso(store: ProjectStore, ids: Id[], on: boolean): Id[]
 
 /** Aviso de barra de status para o topo que não pôde ser ligado (parede no nível mais alto, sem nível de topo). */
 export function avisoSemNivelAcima(ids: Id[]): void {
-  useUi.setState({ status: `Topo não anexado: ${ids.length === 1 ? 'a parede está' : 'algumas paredes estão'} no nível mais alto e não há nível acima.` });
+  useUi.setState({ status: { key: ids.length === 1 ? 'edc_top_not_attached_one' : 'edc_top_not_attached_many' } });
 }

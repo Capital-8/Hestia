@@ -4,15 +4,16 @@ import type { CadUnit } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
 import { importCadFile } from '../../editor/cadImport.ts';
 import { useUi } from '../../editor/state.ts';
+import { useT, type Dict } from '../../editor/i18n.ts';
 import { Dialog } from './Dialog.tsx';
 
-/** Unidades do DXF, com o rótulo do seletor. */
-const UNITS: ReadonlyArray<{ value: CadUnit; label: string }> = [
-  { value: 'mm', label: 'Milímetros (mm)' },
-  { value: 'cm', label: 'Centímetros (cm)' },
-  { value: 'm', label: 'Metros (m)' },
-  { value: 'ft', label: 'Pés (ft)' },
-  { value: 'in', label: 'Polegadas (in)' },
+/** Unidades do DXF, com a chave do rótulo do seletor. */
+const UNITS: ReadonlyArray<{ value: CadUnit; labelKey: keyof Dict }> = [
+  { value: 'mm', labelKey: 'dlc_unit_mm' },
+  { value: 'cm', labelKey: 'dlc_unit_cm' },
+  { value: 'm', labelKey: 'dlc_unit_m' },
+  { value: 'ft', labelKey: 'dlc_unit_ft' },
+  { value: 'in', labelKey: 'dlc_unit_in' },
 ];
 
 /** Número digitado; vírgula vira ponto; vazio/inválido cai no padrão. */
@@ -29,6 +30,7 @@ const semExtensao = (name: string): string => name.replace(/\.dxf$/i, '');
  * a unidade padrão é a detectada no `$INSUNITS`, e o usuário pode trocar.
  */
 export function ImportCadDialog(): ReactElement {
+  const { t, lang } = useT();
   const p = useProject();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<DxfImportResult | null>(null);
@@ -48,11 +50,11 @@ export function ImportCadDialog(): ReactElement {
     setError(null);
     setPreview(null);
     try {
-      const r = parseDxfText(await f.text(), semExtensao(f.name));
+      const r = parseDxfText(await f.text(), semExtensao(f.name), lang);
       setPreview(r);
       setUnit(r.unit);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Não foi possível ler o DXF.');
+      setError(e instanceof Error ? e.message : t('dlc_err_cad_read'));
     }
   };
 
@@ -68,11 +70,11 @@ export function ImportCadDialog(): ReactElement {
         rotation: num(rotation, 0),
         scale: num(scale, 1),
         name: semExtensao(file.name),
-      });
-      editor.store.exec({ type: 'addCadDrawing', cad }, 'Inserir CAD');
-      useUi.setState({ dialog: null, status: `CAD importado: ${cad.name}` });
+      }, lang);
+      editor.store.exec({ type: 'addCadDrawing', cad }, t('dlc_undo_insert_cad'));
+      useUi.setState({ dialog: null, status: { key: 'dlc_status_cad_imported', args: { name: cad.name } } });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Não foi possível importar o DXF.');
+      setError(e instanceof Error ? e.message : t('dlc_err_cad_import'));
     } finally {
       setBusy(false);
     }
@@ -80,26 +82,26 @@ export function ImportCadDialog(): ReactElement {
 
   return (
     <Dialog
-      title="Importar CAD (DXF)"
-      sub="O desenho entra como um objeto só, com as camadas do arquivo"
+      title={t('dlc_import_cad')}
+      sub={t('dlc_import_cad_sub')}
       onClose={close}
       size="mid"
       footer={
         <>
           <span style={{ flex: 1 }} />
-          <button className="btn" onClick={close}>Cancelar</button>
+          <button className="btn" onClick={close}>{t('dlc_btn_cancel')}</button>
           <button className="btn primary" onClick={() => void doImport()} disabled={!file || busy}>
-            {busy ? 'Importando…' : 'Importar'}
+            {busy ? t('dlc_importing') : t('dlc_btn_import')}
           </button>
         </>
       }
     >
       <label className="fm-field" style={{ display: 'block', marginBottom: 10 }}>
-        Arquivo DXF
+        {t('dlc_cad_file')}
         <input
           type="file"
           accept=".dxf"
-          aria-label="Arquivo DXF"
+          aria-label={t('dlc_cad_file')}
           onChange={(e) => void choose(e.target.files?.[0])}
           style={{ marginLeft: 8 }}
         />
@@ -107,12 +109,12 @@ export function ImportCadDialog(): ReactElement {
 
       {preview ? (
         <p role="status" style={{ margin: '0 0 10px', opacity: 0.8 }}>
-          <b>{preview.name}</b> — {preview.layers.length} camada(s), {preview.paths.length} traço(s), {preview.texts.length} texto(s).
-          Unidade detectada: <b>{preview.unit}</b>.
+          <b>{preview.name}</b> — {t('dlc_cad_preview', { layers: preview.layers.length, paths: preview.paths.length, texts: preview.texts.length })}
+          {' '}{t('dlc_cad_detected_unit')} <b>{preview.unit}</b>.
           {preview.warnings.length > 0 && (
             <>
               <br />
-              Avisos: {preview.warnings.slice(0, 4).join(' · ')}
+              {t('dlc_cad_warnings')} {preview.warnings.slice(0, 4).join(' · ')}
               {preview.warnings.length > 4 ? ` · +${preview.warnings.length - 4}` : ''}
             </>
           )}
@@ -120,26 +122,26 @@ export function ImportCadDialog(): ReactElement {
       ) : null}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 10px', alignItems: 'center' }}>
-        <label htmlFor="cad-level">Nível</label>
+        <label htmlFor="cad-level">{t('col_level')}</label>
         <select id="cad-level" value={levelId} onChange={(e) => setLevelId(e.target.value)}>
           {p.levels.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
         </select>
 
-        <label htmlFor="cad-unit">Unidade</label>
+        <label htmlFor="cad-unit">{t('dlc_unit')}</label>
         <select id="cad-unit" value={unit} onChange={(e) => setUnit(e.target.value as CadUnit)}>
-          {UNITS.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
+          {UNITS.map((u) => <option key={u.value} value={u.value}>{t(u.labelKey)}</option>)}
         </select>
 
-        <label htmlFor="cad-x">Inserção X, Y (m)</label>
+        <label htmlFor="cad-x">{t('dlc_cad_insert_xy')}</label>
         <span style={{ display: 'flex', gap: 6 }}>
           <input id="cad-x" className="input" value={x} onChange={(e) => setX(e.target.value)} style={{ width: 90 }} />
-          <input aria-label="Inserção Y" className="input" value={y} onChange={(e) => setY(e.target.value)} style={{ width: 90 }} />
+          <input aria-label={t('dlc_aria_cad_insert_y')} className="input" value={y} onChange={(e) => setY(e.target.value)} style={{ width: 90 }} />
         </span>
 
-        <label htmlFor="cad-rot">Rotação (°)</label>
+        <label htmlFor="cad-rot">{t('dlc_rotation')}</label>
         <input id="cad-rot" className="input" value={rotation} onChange={(e) => setRotation(e.target.value)} style={{ width: 90 }} />
 
-        <label htmlFor="cad-scale">Escala</label>
+        <label htmlFor="cad-scale">{t('scale')}</label>
         <input id="cad-scale" className="input" value={scale} onChange={(e) => setScale(e.target.value)} style={{ width: 90 }} />
       </div>
 

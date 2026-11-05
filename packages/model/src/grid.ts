@@ -2,6 +2,7 @@ import { len, sub, type Vec2 } from '@hestia/geom';
 import type { Id, Project } from './types.ts';
 import { defaultUnits, unitsOf, type ResolvedUnits } from './units.ts';
 import { formatQuantity } from './unitsFormat.ts';
+import { t as translate, type Lang } from './i18n.ts';
 
 /**
  * Grades de eixos (Revit: Grid). Pertencem ao projeto, não a um nível: aparecem na planta de todos os níveis, com bolha
@@ -148,30 +149,30 @@ function successorLetters(s: string): string {
 const finite = (v: Vec2): boolean => Number.isFinite(v.x) && Number.isFinite(v.y);
 
 /** Motivo de recusa de uma grade, ou null. `units` formata o trecho mínimo na unidade do projeto. */
-export function gridIssue(g: Omit<Grid, 'order'>, units: ResolvedUnits = defaultUnits()): string | null {
-  if (g.name.trim() === '') return 'A grade precisa de um nome.';
-  if (g.points.length < 2) return 'A grade precisa de pelo menos dois pontos.';
-  if (g.points.some((q) => !finite(q))) return 'Os pontos da grade devem ser números finitos.';
+export function gridIssue(g: Omit<Grid, 'order'>, units: ResolvedUnits = defaultUnits(), lang: Lang = 'pt'): string | null {
+  if (g.name.trim() === '') return translate(lang, 'md_cmd_grid_name_required');
+  if (g.points.length < 2) return translate(lang, 'md_cmd_grid_min_points');
+  if (g.points.some((q) => !finite(q))) return translate(lang, 'md_cmd_grid_points_finite');
   for (let i = 1; i < g.points.length; i++) {
     if (len(sub(g.points[i]!, g.points[i - 1]!)) < GRID_MIN_SEGMENT) {
-      return `Cada trecho da grade precisa ter pelo menos ${formatQuantity(units, 'smallLength', GRID_MIN_SEGMENT, { trim: true })}.`;
+      return translate(lang, 'md_cmd_grid_min_segment', { d: formatQuantity(units, 'smallLength', GRID_MIN_SEGMENT, { trim: true }) });
     }
   }
-  if (!Number.isFinite(g.sag)) return 'A flecha do arco deve ser um número finito.';
-  if (g.sag !== 0 && g.points.length !== 2) return 'Só uma grade de dois pontos pode ser um arco.';
+  if (!Number.isFinite(g.sag)) return translate(lang, 'md_cmd_grid_sag_finite');
+  if (g.sag !== 0 && g.points.length !== 2) return translate(lang, 'md_cmd_grid_arc_two_points');
   if (g.sag !== 0) {
     const chord = len(sub(g.points[1]!, g.points[0]!));
-    if (Math.abs(g.sag) > chord / 2 + 1e-9) return 'A flecha do arco não pode passar de metade da corda.';
+    if (Math.abs(g.sag) > chord / 2 + 1e-9) return translate(lang, 'md_cmd_grid_sag_half');
   }
   return null;
 }
 
 /** Motivo de recusa de um tipo de grade, ou null. */
-export function gridTypeIssue(t: GridType): string | null {
-  if (t.name.trim() === '') return 'O tipo de grade precisa de um nome.';
+export function gridTypeIssue(t: GridType, lang: Lang = 'pt'): string | null {
+  if (t.name.trim() === '') return translate(lang, 'md_cmd_grid_type_name');
   const pos = (n: number): boolean => Number.isFinite(n) && n > 0;
-  if (![t.weightMm, t.centerWeightMm, t.bubbleDiameterMm, t.bubbleTextMm].every(pos)) return 'Espessuras, diâmetro e texto da bolha devem ser maiores que zero.';
-  if (!(Number.isFinite(t.endLengthMm) && t.endLengthMm >= 0)) return 'O comprimento das pontas não pode ser negativo.';
+  if (![t.weightMm, t.centerWeightMm, t.bubbleDiameterMm, t.bubbleTextMm].every(pos)) return translate(lang, 'md_cmd_grid_type_positive');
+  if (!(Number.isFinite(t.endLengthMm) && t.endLengthMm >= 0)) return translate(lang, 'md_cmd_grid_type_end_length');
   return null;
 }
 
@@ -180,51 +181,51 @@ const refuse = (issue: string | null): void => {
 };
 
 /** Aplica um comando de grade sobre o rascunho do projeto. Lança Error em texto pt-BR se recusar. */
-export function applyGridCommand(p: Project, c: GridCommand): void {
+export function applyGridCommand(p: Project, c: GridCommand, lang: Lang = 'pt'): void {
   switch (c.type) {
     case 'addGrid': {
-      refuse(gridIssue(c.grid, unitsOf(p)));
-      if (!gridTypeOf(p, c.grid.typeId)) throw new Error('Tipo de grade inexistente');
-      if (gridOf(p, c.grid.id)) throw new Error('Grade já existe');
-      if (projectGrids(p).some((g) => g.name === c.grid.name)) throw new Error(`Já existe uma grade chamada "${c.grid.name}".`);
+      refuse(gridIssue(c.grid, unitsOf(p), lang));
+      if (!gridTypeOf(p, c.grid.typeId)) throw new Error(translate(lang, 'md_cmd_grid_type_missing'));
+      if (gridOf(p, c.grid.id)) throw new Error(translate(lang, 'md_cmd_grid_exists'));
+      if (projectGrids(p).some((g) => g.name === c.grid.name)) throw new Error(translate(lang, 'md_cmd_grid_name_exists', { name: c.grid.name }));
       p.grids = [...projectGrids(p), { ...c.grid, order: p.nextOrder }];
       p.nextOrder += 1;
       break;
     }
     case 'updateGrid': {
       const old = gridOf(p, c.id);
-      if (!old) throw new Error('Grade inexistente');
+      if (!old) throw new Error(translate(lang, 'md_cmd_grid_missing'));
       const next: Grid = { ...old, ...c.patch, id: old.id, order: old.order };
-      refuse(gridIssue(next, unitsOf(p)));
-      if (!gridTypeOf(p, next.typeId)) throw new Error('Tipo de grade inexistente');
-      if (projectGrids(p).some((g) => g.id !== old.id && g.name === next.name)) throw new Error(`Já existe uma grade chamada "${next.name}".`);
+      refuse(gridIssue(next, unitsOf(p), lang));
+      if (!gridTypeOf(p, next.typeId)) throw new Error(translate(lang, 'md_cmd_grid_type_missing'));
+      if (projectGrids(p).some((g) => g.id !== old.id && g.name === next.name)) throw new Error(translate(lang, 'md_cmd_grid_name_exists', { name: next.name }));
       p.grids = projectGrids(p).map((g) => (g.id === c.id ? next : g));
       break;
     }
     case 'removeGrid': {
-      if (!gridOf(p, c.id)) throw new Error('Grade inexistente');
+      if (!gridOf(p, c.id)) throw new Error(translate(lang, 'md_cmd_grid_missing'));
       p.grids = projectGrids(p).filter((g) => g.id !== c.id);
       break;
     }
     case 'addGridType': {
-      refuse(gridTypeIssue(c.gridType));
-      if (gridTypeOf(p, c.gridType.id)) throw new Error('Tipo de grade já existe');
+      refuse(gridTypeIssue(c.gridType, lang));
+      if (gridTypeOf(p, c.gridType.id)) throw new Error(translate(lang, 'md_cmd_grid_type_exists'));
       p.gridTypes = { ...(p.gridTypes ?? {}), [c.gridType.id]: c.gridType };
       break;
     }
     case 'updateGridType': {
       const old = gridTypeOf(p, c.id);
-      if (!old) throw new Error('Tipo de grade inexistente');
+      if (!old) throw new Error(translate(lang, 'md_cmd_grid_type_missing'));
       const next: GridType = { ...old, ...c.patch, id: old.id };
-      refuse(gridTypeIssue(next));
+      refuse(gridTypeIssue(next, lang));
       p.gridTypes = { ...(p.gridTypes ?? {}), [c.id]: next };
       break;
     }
     case 'removeGridType': {
-      if (!gridTypeOf(p, c.id)) throw new Error('Tipo de grade inexistente');
-      if (projectGrids(p).some((g) => g.typeId === c.id)) throw new Error('Há grades usando este tipo.');
-      if (projectGridTypes(p).length <= 1) throw new Error('O projeto precisa de pelo menos um tipo de grade.');
-      if (DEFAULT_GRID_TYPES.some((t) => t.id === c.id)) throw new Error('Os tipos padrão não podem ser removidos.');
+      if (!gridTypeOf(p, c.id)) throw new Error(translate(lang, 'md_cmd_grid_type_missing'));
+      if (projectGrids(p).some((g) => g.typeId === c.id)) throw new Error(translate(lang, 'md_cmd_grid_type_in_use'));
+      if (projectGridTypes(p).length <= 1) throw new Error(translate(lang, 'md_cmd_last_grid_type'));
+      if (DEFAULT_GRID_TYPES.some((t) => t.id === c.id)) throw new Error(translate(lang, 'md_cmd_grid_type_default'));
       const { [c.id]: _gone, ...rest } = p.gridTypes ?? {};
       p.gridTypes = rest;
       break;

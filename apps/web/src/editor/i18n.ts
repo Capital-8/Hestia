@@ -1,10 +1,13 @@
 /* eslint-disable max-lines */
+import { useMemo } from 'react';
 import { create } from 'zustand';
 import { safeGet, safeSet } from './storage.ts';
 import type { ToolId } from '@hestia/tools';
 import { PT_TABELAS, EN_TABELAS } from './i18nTabelas.ts';
+import type { Lang } from './i18n/tipos.ts';
+import { PT_ALL, EN_ALL } from './i18n/areas/index.ts';
 
-export type Lang = 'pt' | 'en';
+export type { Lang } from './i18n/tipos.ts';
 
 const LANG_KEY = 'hestia.lang';
 
@@ -14,15 +17,30 @@ interface I18nState {
   toggleLang: () => void;
 }
 
+/** Idioma salvo no navegador; qualquer valor fora de `pt`/`en` cai em `pt`. */
+function readLang(): Lang {
+  return safeGet(LANG_KEY) === 'en' ? 'en' : 'pt';
+}
+
+/** Mantém `<html lang>` igual ao idioma ativo (fora do navegador não faz nada). */
+export function syncDocumentLang(lang: Lang): void {
+  if (typeof document !== 'undefined') document.documentElement.lang = lang === 'en' ? 'en' : 'pt-BR';
+}
+
+const INITIAL_LANG = readLang();
+syncDocumentLang(INITIAL_LANG);
+
 export const useI18n = create<I18nState>((set, get) => ({
-  lang: (safeGet(LANG_KEY) as Lang) || 'pt',
+  lang: INITIAL_LANG,
   setLang: (lang: Lang) => {
     safeSet(LANG_KEY, lang);
+    syncDocumentLang(lang);
     set({ lang });
   },
   toggleLang: () => {
     const next = get().lang === 'pt' ? 'en' : 'pt';
     safeSet(LANG_KEY, next);
+    syncDocumentLang(next);
     set({ lang: next });
   },
 }));
@@ -30,6 +48,8 @@ export const useI18n = create<I18nState>((set, get) => ({
 /** Dicionário de traduções oficiais do Autodesk Revit (PT-BR / EN) */
 export const I18N = {
   pt: {
+    ...PT_ALL,
+    ...PT_TABELAS,
     // Abas do Ribbon
     ribbon_arch: 'Arquitetura',
     ribbon_modify: 'Modificar',
@@ -367,6 +387,8 @@ export const I18N = {
     stt_calc_post_note: 'No poste o piso vem do croqui (linha de caminhada); a fórmula só gera avisos.',
   },
   en: {
+    ...EN_ALL,
+    ...EN_TABELAS,
     // Ribbon Tabs
     ribbon_arch: 'Architecture',
     ribbon_modify: 'Modify',
@@ -706,15 +728,72 @@ export const I18N = {
   },
 } as const;
 
+/** Dicionário derivado do PT: toda chave do dicionário é uma string. */
+export type Dict = { readonly [K in keyof typeof I18N.pt]: string };
+
+/** Paridade PT/EN garantida em tempo de compilação (o teste de runtime é o cinto de segurança). */
+type SameKeys<A, B> = keyof A extends keyof B ? (keyof B extends keyof A ? true : false) : false;
+type Assert<T extends true> = T;
+export type _I18nParity = Assert<SameKeys<typeof I18N.pt, typeof I18N.en>>;
+
+/** Mensagem traduzível: a chave é resolvida no idioma ativo com os argumentos. */
+export interface Msg {
+  key: keyof Dict;
+  args?: Record<string, string | number>;
+}
+
+/** Texto de UI: literal (dados e nomes do documento) ou mensagem do dicionário. */
+export type TextLike = string | Msg;
+
+/** Troca `{nome}` pelos argumentos; argumento ausente mantém o marcador. */
+function fill(text: string, args: Record<string, string | number>): string {
+  return text.replace(/\{(\w+)\}/g, (marcador, nome: string) => {
+    const valor = args[nome];
+    return valor === undefined ? marcador : String(valor);
+  });
+}
+
+/** Traduz uma chave no idioma pedido: EN ausente cai em PT e, por último, na própria chave. */
+export function t(lang: Lang, key: keyof Dict, args?: Record<string, string | number>): string {
+  const dict = I18N[lang] as Partial<Record<keyof Dict, string>>;
+  const texto = dict[key] ?? I18N.pt[key] ?? String(key);
+  return args ? fill(texto, args) : texto;
+}
+
+/** Hook de tradução: assina o idioma e devolve `t` já preso a ele. */
+export function useT(): { t: (key: keyof Dict, args?: Record<string, string | number>) => string; lang: Lang } {
+  const lang = useI18n((s) => s.lang);
+  return useMemo(() => ({ t: (key: keyof Dict, args?: Record<string, string | number>) => t(lang, key, args), lang }), [lang]);
+}
+
+/** Resolve um `TextLike` para o texto do idioma ativo. */
+export function resolveText(v: TextLike, lang: Lang): string {
+  if (typeof v !== 'string') return t(lang, v.key, v.args);
+  // Strings que são chaves do dicionário (ex.: rótulos de desfazer gravados no histórico) traduzem no render.
+  return Object.hasOwn(I18N.pt, v) ? t(lang, v as keyof Dict) : v;
+}
+
 /** N?mero com as casas decimais e o separador do idioma ativo (PT: v?rgula; EN: ponto). */
 export function fmtNum(v: number, dec: number, lang: Lang): string {
   return v.toLocaleString(lang === 'en' ? 'en-US' : 'pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
-/** Retorna a etiqueta traduzida da ferramenta para o idioma ativo */
+/** Data no formato do idioma ativo (padrão: hoje). */
+export function fmtDate(lang: Lang, date: Date | number = new Date()): string {
+  const d = typeof date === 'number' ? new Date(date) : date;
+  return d.toLocaleDateString(lang === 'en' ? 'en-US' : 'pt-BR');
+}
+
+/** Compara dois textos na collation do idioma ativo (numérica por padrão). */
+export function cmpTexto(a: string, b: string, lang: Lang, opts?: Intl.CollatorOptions): number {
+  return a.localeCompare(b, lang === 'en' ? 'en' : 'pt-BR', { numeric: true, ...opts });
+}
+
+/** Retorna a etiqueta traduzida da ferramenta para o idioma ativo (EN ausente cai em PT antes do id cru). */
 export function toolLabel(toolId: ToolId, lang: Lang): string {
-  const key = `tool_${toolId}` as keyof typeof I18N.pt;
-  return I18N[lang][key] || toolId;
+  const key = `tool_${toolId}` as keyof Dict;
+  const dict = I18N[lang] as Partial<Record<keyof Dict, string>>;
+  return dict[key] ?? I18N.pt[key] ?? toolId;
 }
 
 /** Nome de um comando de atalho no idioma ativo: o mesmo rótulo da ferramenta na faixa (toolLabel). 'atalhos' é a tela de atalhos. */

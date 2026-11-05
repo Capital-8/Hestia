@@ -2,6 +2,7 @@ import { arcFromSagitta, arcSample, asMulti, boxOf, closeGapsSafe, dist, interse
 import { levelFrames, wallFacesCached } from '@hestia/engine';
 import { newId, wallsOnLevel, type Wall } from '@hestia/model';
 import { circleIndexOf, makeSeg, sameDirection, visibleIn, type Circle, type SketchCtx } from './sketchPickFaceGeom.ts';
+import { t as translate } from './i18n.ts';
 
 /** Resultado do contorno pela caixa: linhas do anel externo (fechado) e avisos para a barra de status. */
 export interface PerimeterResult {
@@ -123,23 +124,24 @@ function ringToSegs(ring0: Ring, circles: Circle[]): SketchSeg[] {
 export function perimeterFromBox(ctx: SketchCtx, boxMin: Vec2, boxMax: Vec2): PerimeterResult {
   const p = ctx.project();
   const levelId = ctx.levelId();
+  const lang = ctx.lang?.() ?? 'pt';
   const vis = visibleIn(ctx);
   const box = boxOf([boxMin, boxMax]);
   const walls = wallsOnLevel(p, levelId).filter((w) => vis(w.id) && axisTouchesBox(w, box));
-  if (walls.length === 0) return { segs: [], warnings: ['Nenhuma parede na caixa.'] };
+  if (walls.length === 0) return { segs: [], warnings: [translate(lang, 'tl_msg_no_wall_in_box')] };
 
   const ids = new Set(walls.map((w) => w.id));
   const outlines = wallFacesCached(p, levelId).filter((w) => ids.has(w.wallId));
   const shape = closeGapsSafe(union(...outlines.map((w) => asMulti(w.outline))));
-  if (shape.length === 0) return { segs: [], warnings: ['As paredes da caixa não têm geometria.'] };
+  if (shape.length === 0) return { segs: [], warnings: [translate(lang, 'tl_msg_box_walls_no_geom')] };
 
   const warnings: string[] = [];
   const area = (poly: (typeof shape)[number]): number => Math.abs(ringArea(poly[0]!));
   const best = shape.reduce((a, b) => (area(b) > area(a) ? b : a));
-  if (shape.length > 1) warnings.push(`${shape.length} contornos separados na caixa: usei o maior.`);
-  if (!shape.some((poly) => poly.length > 1)) warnings.push('Contorno aberto: as paredes da caixa não fecham um circuito.');
+  if (shape.length > 1) warnings.push(translate(lang, 'tl_msg_box_multi_loops', { n: shape.length }));
+  if (!shape.some((poly) => poly.length > 1)) warnings.push(translate(lang, 'tl_msg_box_open_loop'));
 
   const segs = ringToSegs(best[0]!, exteriorCircles(ctx, walls));
-  if (segs.length === 0) warnings.push('O contorno não tem área: menos de 3 pontos.');
+  if (segs.length === 0) warnings.push(translate(lang, 'tl_msg_box_no_area'));
   return { segs, warnings };
 }

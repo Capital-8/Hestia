@@ -2,7 +2,7 @@
 import type { Opening, Project } from '@hestia/model';
 import { openingHasHinge } from '@hestia/tools';
 import { editor } from '../editor/controller.ts';
-import { useI18n } from '../editor/i18n.ts';
+import { t, useI18n, type Lang } from '../editor/i18n.ts';
 import { perimeterActions, usePerimeter } from '../editor/perimeter.ts';
 import { useUi, setRibbonMin } from '../editor/state.ts';
 import { Icon } from './Icon.tsx';
@@ -22,27 +22,27 @@ import './perimeter/perimeter.css';
  * etiquetas das esquadrias na planta. Usa os mesmos comandos da paleta de propriedades (`updateElements`/`setSettings`).
  * Botões só de ícone (o rótulo fica no tooltip e no aria-label), em coluna.
  */
-function OpeningActions({ opening, p }: { opening: Opening; p: Project }): ReactElement {
+function OpeningActions({ opening, p, lang }: { opening: Opening; p: Project; lang: Lang }): ReactElement {
   const type = p.openingTypes[opening.typeId];
   const hinge = !!type && openingHasHinge(type);
   const tags = p.settings.showOpeningTags === true;
   const set = (patch: Partial<Opening>): void => editor.store.exec({ type: 'updateElements', ids: [opening.id], patch });
   return (
-    <div className="rb-panel" role="group" aria-label="Abertura">
+    <div className="rb-panel" role="group" aria-label={t(lang, 'shr_open_panel')}>
       <div className="rb-cols">
         <div className="rb-stack">
-          <button className="rb-btn rb-small rb-iconly" title="Inverter sentido (Tab)" aria-label="Inverter sentido" onClick={() => set({ flipFacing: !opening.flipFacing })}>
+          <button className="rb-btn rb-small rb-iconly" title={t(lang, 'shr_open_flip_facing')} aria-label={t(lang, 'shr_open_flip_facing_aria')} onClick={() => set({ flipFacing: !opening.flipFacing })}>
             <Icon name="rehost" size={16} />
           </button>
-          <button className="rb-btn rb-small rb-iconly" title="Inverter dobradiça (Espaço)" aria-label="Inverter dobradiça" disabled={!hinge} onClick={() => set({ flipHand: !opening.flipHand })}>
+          <button className="rb-btn rb-small rb-iconly" title={t(lang, 'shr_open_flip_hand')} aria-label={t(lang, 'shr_open_flip_hand_aria')} disabled={!hinge} onClick={() => set({ flipHand: !opening.flipHand })}>
             <Icon name="door" size={16} />
           </button>
-          <button className={`rb-btn rb-small rb-iconly${tags ? ' on' : ''}`} title="Etiquetas de portas e janelas" aria-label="Etiquetas de portas e janelas" aria-pressed={tags} onClick={() => editor.store.exec({ type: 'setSettings', patch: { showOpeningTags: !tags } })}>
+          <button className={`rb-btn rb-small rb-iconly${tags ? ' on' : ''}`} title={t(lang, 'shr_open_tags')} aria-label={t(lang, 'shr_open_tags')} aria-pressed={tags} onClick={() => editor.store.exec({ type: 'setSettings', patch: { showOpeningTags: !tags } })}>
             <Icon name="tag" size={16} />
           </button>
         </div>
       </div>
-      <div className="rb-title">Abertura</div>
+      <div className="rb-title">{t(lang, 'shr_open_panel')}</div>
     </div>
   );
 }
@@ -115,7 +115,7 @@ export function Ribbon(): ReactElement {
       const items: FitItem[] = active?.panels.map((panel) => ({ key: panel.id, priority: prioridadeDoPainel(panel.id), node: <PanelView panel={panel} ctx={ctx} lang={lang} /> })) ?? [];
       // Com uma porta/janela selecionada, a aba contextual ganha os controles de inversão e o alternador de etiquetas.
       const only = activeId === 'ctx' && ctx.selection.length === 1 ? ctx.p.elements[ctx.selection[0]!] : undefined;
-      if (only && (only.kind === 'door' || only.kind === 'window')) items.push({ key: 'abertura', priority: 2, node: <OpeningActions opening={only} p={ctx.p} /> });
+      if (only && (only.kind === 'door' || only.kind === 'window')) items.push({ key: 'abertura', priority: 2, node: <OpeningActions opening={only} p={ctx.p} lang={lang} /> });
       return items;
     }
     return pTab.slots.map((slot) => slot.kind === 'panel'
@@ -153,15 +153,15 @@ export function Ribbon(): ReactElement {
 
   return (
     <>
-      <nav className="ribbon-tabs" aria-label={lang === 'pt' ? 'Abas da faixa de ferramentas' : 'Ribbon tabs'}>
+      <nav className="ribbon-tabs" aria-label={t(lang, 'shr_tabs_aria')}>
         <button className="rtab file" onClick={() => useUi.setState({ fileMenu: true })} aria-haspopup="dialog">
-          {lang === 'pt' ? 'Arquivo' : 'File'}
+          {t(lang, 'shr_file_tab')}
         </button>
         <FitRow
           className="rtabs-fit"
-          ariaLabel={lang === 'pt' ? 'Abas' : 'Tabs'}
+          ariaLabel={t(lang, 'shr_tabs')}
           items={tabItems}
-          moreLabel={lang === 'pt' ? 'Mais abas' : 'More tabs'}
+          moreLabel={t(lang, 'shr_more_tabs')}
           moreContent="»"
           popClass="tabs"
         />
@@ -173,8 +173,8 @@ export function Ribbon(): ReactElement {
         <button
           className={`rtab-min${ribbonMin ? ' min' : ''}`}
           onClick={() => setRibbonMin(!ribbonMin)}
-          title={ribbonMin ? (lang === 'pt' ? 'Expandir a faixa' : 'Expand ribbon') : lang === 'pt' ? 'Recolher a faixa' : 'Minimize ribbon'}
-          aria-label={ribbonMin ? (lang === 'pt' ? 'Expandir a faixa' : 'Expand ribbon') : lang === 'pt' ? 'Recolher a faixa' : 'Minimize ribbon'}
+          title={t(lang, ribbonMin ? 'shr_expand_ribbon' : 'shr_minimize_ribbon')}
+          aria-label={t(lang, ribbonMin ? 'shr_expand_ribbon' : 'shr_minimize_ribbon')}
           aria-expanded={!ribbonMin}
         >
           {ribbonMin ? '▴' : '▾'}
@@ -184,9 +184,9 @@ export function Ribbon(): ReactElement {
         <FitRow
           className={`ribbon${activeId === 'ctx' ? ' ctx' : ''}`}
           role="toolbar"
-          ariaLabel={lang === 'pt' ? 'Ferramentas' : 'Tools'}
+          ariaLabel={t(lang, 'shr_toolbar_aria')}
           items={panelItems()}
-          moreLabel={lang === 'pt' ? 'Mais painéis' : 'More panels'}
+          moreLabel={t(lang, 'shr_more_panels')}
           moreContent={PANELS_MORE}
           popClass="panels"
         />

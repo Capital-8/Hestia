@@ -2,6 +2,7 @@ import type { CeilingType, FloorType, Id, OpeningType, Project, SlabType, WallTy
 import type { IfcFile } from './ifc.ts';
 import { styleOf, type IfcStyle } from './psets.ts';
 import type { StepEntity } from './step.ts';
+import { t as tr, type Lang } from '../i18n.ts';
 
 /** Nome curto e estável para compor ids de tipo. */
 export const slug = (s: string): string => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
@@ -12,6 +13,8 @@ export interface TypeCtx {
   p: Project;
   typeOf: Map<number, StepEntity>;
   types: Map<string, Id>;
+  /** Idioma dos nomes padrão criados na importação; ausente = `'pt'`. */
+  lang?: Lang;
 }
 
 /**
@@ -23,10 +26,10 @@ export function wallType(ctx: TypeCtx, name: string, thickness: number, material
   const key = `wall|${name}|${mm}|${materialId ?? ''}`;
   const hit = ctx.types.get(key);
   if (hit) return hit;
-  const id = `iwt_${slug(name) || 'parede'}_${mm}${materialId ? `_${materialId}` : ''}`;
+  const id = `iwt_${slug(name) || tr(ctx.lang ?? 'pt', 'io_ifc_slug_wall')}_${mm}${materialId ? `_${materialId}` : ''}`;
   const type: WallType = {
     id,
-    name: name || `Parede ${mm} mm`,
+    name: name || tr(ctx.lang ?? 'pt', 'io_ifc_default_wall_type', { mm }),
     description: '',
     code: '',
     layers: [{ function: 'structure', materialId: materialId ?? 'mat_bloco14', thickness, wraps: true }],
@@ -50,16 +53,16 @@ export function slabLikeType(ctx: TypeCtx, kind: 'floor' | 'slab' | 'ceiling', n
   const key = `${kind}|${name}|${mm}|${materialId ?? ''}`;
   const hit = ctx.types.get(key);
   if (hit) return hit;
-  const id = `i${kind === 'floor' ? 'ft' : kind === 'slab' ? 'st' : 'ct'}_${slug(name) || 'tipo'}_${mm}${materialId ? `_${materialId}` : ''}`;
+  const id = `i${kind === 'floor' ? 'ft' : kind === 'slab' ? 'st' : 'ct'}_${slug(name) || tr(ctx.lang ?? 'pt', 'io_ifc_slug_type')}_${mm}${materialId ? `_${materialId}` : ''}`;
   const layers = [{ function: 'structure' as const, materialId: materialId ?? 'mat_concreto', thickness, wraps: false }];
   if (kind === 'floor') {
-    const t: FloorType = { id, name: name || `Piso ${mm} mm`, code: '', description: '', layers, cost: 0 };
+    const t: FloorType = { id, name: name || tr(ctx.lang ?? 'pt', 'io_ifc_default_floor_type', { mm }), code: '', description: '', layers, cost: 0 };
     ctx.p.floorTypes[id] = t;
   } else if (kind === 'slab') {
-    const t: SlabType = { id, name: name || `Laje ${mm} mm`, code: '', description: '', layers, cost: 0 };
+    const t: SlabType = { id, name: name || tr(ctx.lang ?? 'pt', 'io_ifc_default_slab_type', { mm }), code: '', description: '', layers, cost: 0 };
     ctx.p.slabTypes[id] = t;
   } else {
-    const t: CeilingType = { id, name: name || `Forro ${mm} mm`, code: '', description: '', layers, cost: 0 };
+    const t: CeilingType = { id, name: name || tr(ctx.lang ?? 'pt', 'io_ifc_default_ceiling_type', { mm }), code: '', description: '', layers, cost: 0 };
     ctx.p.ceilingTypes[id] = t;
   }
   ctx.types.set(key, id);
@@ -84,7 +87,7 @@ export function openingType(
 ): Id {
   const f = ctx.f;
   const declared = ctx.typeOf.get(filler.id);
-  const name = f.text(declared, 2).trim() || f.text(filler, 2).trim() || (kind === 'door' ? 'Porta' : 'Janela');
+  const name = f.text(declared, 2).trim() || f.text(filler, 2).trim() || tr(ctx.lang ?? 'pt', kind === 'door' ? 'io_ifc_default_door' : 'io_ifc_default_window');
   const op = operationOf(declared) || operationOf(filler);
   const mm = `${Math.round(w * 1000)}x${Math.round(h * 1000)}`;
   const key = `open|${kind}|${name}|${mm}`;

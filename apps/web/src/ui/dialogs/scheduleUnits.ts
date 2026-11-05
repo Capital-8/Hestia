@@ -7,5 +7,7 @@ export function scheduleCell(units: ResolvedUnits, q: Quantity, si: number, deci
 
 /** Rótulo da coluna com o símbolo da unidade do projeto entre parênteses. */
 export function scheduleHeader(units: ResolvedUnits, label: string, q: Quantity): string {
-  return `${label} (${unitSymbol(units, q)})`;
+  const symbol = unitSymbol(units, q);
+  // O rótulo pode já trazer o símbolo (chaves antigas com "(m)"): não duplica.
+  return label.includes(`(${symbol})`) ? label : `${label} (${symbol})`;
 }

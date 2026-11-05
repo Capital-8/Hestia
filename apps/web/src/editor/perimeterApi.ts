@@ -3,6 +3,7 @@ import type { SketchDraft, SketchResult, SketchTarget, Vec2 } from '@hestia/geom
 import type { PerimeterModifyKind } from '@hestia/tools';
 import type { PerimeterOptions } from '../ui/perimeter/PerimeterOptionsBar.tsx';
 import type { PerimeterLineKind, PerimeterShape } from '../ui/perimeter/PerimeterRibbonPanels.tsx';
+import type { TextLike } from './i18n.ts';
 
 /**
  * Contrato entre a lógica do modo de perímetro (estado + controller) e a tela (faixa, canvas, barra de opções,
@@ -31,7 +32,7 @@ export interface PerimeterView {
   /** Aresta selecionada (primeira de `draft.selected`), para o grupo de propriedades. */
   selectedEdge: { id: string; index: number; total: number; length: number; definesSlope: boolean; slopePct: number; overhang: number } | null;
   /** Mensagem atual da barra de status (dica, aviso ou erro de conclusão). */
-  status: string;
+  status: TextLike;
 }
 
 export interface PerimeterActions {

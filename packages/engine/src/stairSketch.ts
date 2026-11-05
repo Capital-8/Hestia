@@ -13,6 +13,7 @@ import {
   type Ring,
   type Vec2,
 } from '@hestia/geom';
+import type { Lang } from './i18nMessages.ts';
 import {
   between,
   chainBroken,
@@ -63,6 +64,8 @@ export interface StairRunStepsOptions {
   sweep?: number;
   /** Pula a validação quadrática de pares de espelhos: só para fatias geradas por construção (rampa). */
   skipPairCheck?: boolean;
+  /** Idioma das mensagens de erro (padrão `'pt'`). */
+  lang?: Lang;
 }
 
 export interface StairRunStepsResult {
@@ -78,7 +81,7 @@ export interface StairRunStepsResult {
 /** Degraus e espelhos do lance (decisão 0011 §4). Com erro de validação, devolve listas vazias e os erros. */
 export function stairRunSteps(run: StairRunSketch, opts: StairRunStepsOptions): StairRunStepsResult {
   const P = prepareRun(run);
-  const issues = validatePrepared(run, P, opts.sweep ?? spiralSweepOf(run), opts.skipPairCheck === true);
+  const issues = validatePrepared(run, P, opts.sweep ?? spiralSweepOf(run), opts.skipPairCheck === true, opts.lang ?? 'pt');
   if (issues.some((i) => i.severity === 'error')) return { treads: [], risers: [], footprint: [], issues };
   const walk = walkOf(P, run, true);
   const ordered = walk.order.map((i) => P.risers[i]!);
@@ -158,13 +161,13 @@ function treadRing(P: Prepared, A: RiserGeom, B: RiserGeom, bA: Bounds, bB: Boun
 }
 
 /** Contorno do patamar: laço fechado de retas e arcos, `stair-landing-open` se não fechar. */
-export function stairLandingPolygon(l: StairLandingSketch): { polygon: Ring | null; issues: StairSketchIssue[] } {
+export function stairLandingPolygon(l: StairLandingSketch, lang: Lang = 'pt'): { polygon: Ring | null; issues: StairSketchIssue[] } {
   const cs = l.boundary;
   const pts = sampleChain(cs);
   const closed = cs.length > 0 && !chainBroken(cs) && dist(cs[cs.length - 1]!.b, cs[0]!.a) <= CHAIN_TOL;
   if (pts.length >= 2 && dist(pts[0]!, pts[pts.length - 1]!) <= CHAIN_TOL) pts.pop();
   if (closed && pts.length >= 3 && Math.abs(ringArea(pts)) > 1e-9) return { polygon: pts, issues: [] };
-  return { polygon: null, issues: [sketchIssue('stair-landing-open')] };
+  return { polygon: null, issues: [sketchIssue('stair-landing-open', undefined, undefined, lang)] };
 }
 
 /**
