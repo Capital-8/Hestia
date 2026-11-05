@@ -3,10 +3,26 @@
 BIM para arquitetura residencial, no navegador, construído do zero com GPU em primeiro lugar
 (WebGPU, com queda para WebGL2/CPU) e núcleo geométrico separado da interface.
 
-Este repositório começa pela documentação. O código nasce depois que as decisões abaixo estiverem fechadas.
+*BIM for residential architecture, in the browser, built from scratch with GPU-first rendering
+(WebGPU, falling back to WebGL2/CPU) and a geometry core separate from the interface.*
 
-Site oficial: www.hestiabim.com
-Programa publicado e disponível para uso via instalação ou diretamente na web em: www.hestiabim.com/app
+## Baixar e usar · Download and use
+
+| | |
+|---|---|
+| **Instalador para Windows** · *Windows installer* | [**Baixar a última versão · Download the latest release**](https://github.com/engdennylsonsantos-cloud/Hestia/releases/latest) (arquivo `Hestia_x.y.z_x64-setup.exe`) |
+| **Direto no navegador** · *In the browser* | [www.hestiabim.com/app](https://www.hestiabim.com/app/) |
+| **Site oficial** · *Website* | [www.hestiabim.com](https://www.hestiabim.com) |
+| **Todas as versões** · *All versions* | [Releases](https://github.com/engdennylsonsantos-cloud/Hestia/releases) |
+
+- **Atualização automática.** O programa instalado verifica novas versões ao abrir e pergunta se você quer atualizar;
+  não é preciso baixar o instalador de novo. *The installed app checks for new versions on start and asks before updating.*
+- **Aviso do Windows.** O instalador ainda não tem certificado de código, então o Windows pode mostrar
+  "O Windows protegeu o computador" na primeira instalação: *Mais informações → Executar assim mesmo*.
+  *Windows may show a SmartScreen warning on first install because the installer is not code-signed yet.*
+- **Idiomas · Languages.** Interface em português e inglês (menu *Arquivo → Idioma*).
+- **Arquivos.** Importa e exporta IFC, exporta DXF e PDF.
+- Como gerar uma versão nova: [docs/desktop.md](docs/desktop.md).
 
 ## Documentos
 
