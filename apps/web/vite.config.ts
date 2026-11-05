@@ -17,6 +17,8 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 
 const ARQUIVO_WASM = fileURLToPath(new URL('../../packages/geom/assets/geom_wasm.wasm', import.meta.url));
 const ROTA = '/geom_wasm.wasm';
+/** Versão da raiz (a mesma que o workflow da release confere contra a tag). */
+const VERSAO_APP = (JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as { version: string }).version;
 
 function servirWasmNoDev() {
   return {
@@ -40,6 +42,9 @@ function servirWasmNoDev() {
 }
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(VERSAO_APP),
+  },
   plugins: [react(), viteSingleFile(), servirWasmNoDev()],
   build: { target: 'es2022', chunkSizeWarningLimit: 4000, cssCodeSplit: false },
 });

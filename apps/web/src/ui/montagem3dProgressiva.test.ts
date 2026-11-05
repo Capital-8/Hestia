@@ -758,3 +758,74 @@ describe('criarFonteNiveisWorker', () => {
     fonte.encerrar();
   });
 });
+
+// ---- REPRODUÇÃO (temporária): colar parede+porta e depois excluir porta, cena de verdade (paredes do nível) ----
+import { createEmptyProject as _cep, makeWall as _mw, makeLevel as _ml, wallsOnLevel as _wol, type Opening as _Op } from '@hestia/model';
+import { resolveLevel as _rl } from '@hestia/engine';
+import { clipboardFrom as _cf, pasteAlignedToLevelsCommand as _pa } from '@hestia/tools';
+
+describe('REPRO montagem 3D após colar', () => {
+  it('nível colado mostra as paredes; excluir porta não muda o resultado', () => {
+    const store = new ProjectStore({ ..._cep(), levels: [] });
+    for (const [id, elevation] of [['lv_0', 0], ['lv_1', 3]] as const) store.exec({ type: 'upsertLevel', level: _ml({ id, name: id, elevation }) });
+    store.exec({ type: 'addWall', wall: _mw({ id: 'w1', typeId: 'wt_alv14', levelId: 'lv_0', a: { x: 0, y: 0 }, b: { x: 4, y: 0 } }) });
+    store.exec({ type: 'addWall', wall: _mw({ id: 'w2', typeId: 'wt_alv14', levelId: 'lv_0', a: { x: 4, y: 0 }, b: { x: 4, y: 3 } }) });
+    const op0: _Op = { id: 'd1', kind: 'door', typeId: 'ot_p80', hostId: 'w1', offset: 1, flipHand: false, flipFacing: false, sillOverride: null, mark: '' };
+    store.exec({ type: 'addOpening', opening: op0 });
+    store.exec({ type: 'addOpening', opening: { ...op0, id: 'j1', kind: 'window', typeId: 'ot_j120', offset: 3 } });
+
+    const fila = filaManual();
+    const cenaLog: Record<string, string[]> = {};
+    const cena: CenaMontagem = {
+      update(_p, niveis) {
+        for (const n of niveis) cenaLog[(n as unknown as { levelId: Id }).levelId] = Object.keys((n as unknown as { walls: object }).walls).sort();
+      },
+    };
+    const m = new Montagem3dProgressiva({ cena, fonte: { resolver: (id) => _rl(store.project, id) }, aoAtualizar: () => undefined, aoConcluir: () => undefined, agendar: fila.agendar });
+    m.iniciar(store.project, OPT, 'lv_0');
+    fila.rodar();
+
+    const clip = _cf(store.project, ['w1', 'w2', 'd1', 'j1'])!;
+    store.exec(_pa(store.project, clip, ['lv_1'])!.command);
+    m.atualizar(store.project, OPT, 'lv_0');
+    fila.rodar();
+    const esperado = _rl(store.project, 'lv_1');
+    console.log('APOS COLAR cena lv_1 =', JSON.stringify(cenaLog['lv_1']), 'resolvido =', JSON.stringify(Object.keys(esperado.walls).sort()));
+    expect(cenaLog['lv_1']).toEqual(Object.keys(esperado.walls).sort());
+
+    store.exec({ type: 'deleteElements', ids: ['d1'] } as never);
+    m.atualizar(store.project, OPT, 'lv_0');
+    fila.rodar();
+    const esperado2 = _rl(store.project, 'lv_1');
+    console.log('APOS EXCLUIR PORTA cena lv_1 =', JSON.stringify(cenaLog['lv_1']), 'resolvido =', JSON.stringify(Object.keys(esperado2.walls).sort()));
+    expect(cenaLog['lv_1']).toEqual(Object.keys(esperado2.walls).sort());
+    void _wol;
+  });
+});
+
+describe('REPRO 4 níveis copiar todo o térreo e colar nos outros', () => {
+  it('cada nível colado recebe as paredes resolvidas', () => {
+    const store = new ProjectStore({ ..._cep(), levels: [] });
+    for (const [id, elevation] of [['lv_0', 0], ['lv_1', 3], ['lv_2', 6], ['lv_3', 9]] as const) store.exec({ type: 'upsertLevel', level: _ml({ id, name: id, elevation }) });
+    const ws = [['w1', [0, 0], [4, 0]], ['w2', [4, 0], [4, 3]], ['w3', [4, 3], [0, 3]], ['w4', [0, 3], [0, 0]]] as const;
+    for (const [id, a, b] of ws) store.exec({ type: 'addWall', wall: _mw({ id, typeId: 'wt_alv14', levelId: 'lv_0', a: { x: a[0], y: a[1] }, b: { x: b[0], y: b[1] } }) });
+    store.exec({ type: 'addOpening', opening: { id: 'd1', kind: 'door', typeId: 'ot_p80', hostId: 'w1', offset: 1, flipHand: false, flipFacing: false, sillOverride: null, mark: '' } });
+    store.exec({ type: 'addOpening', opening: { id: 'j1', kind: 'window', typeId: 'ot_j120', hostId: 'w3', offset: 1, flipHand: false, flipFacing: false, sillOverride: null, mark: '' } });
+    const ids = Object.values(store.project.elements).filter((e) => (e as { levelId?: string }).levelId === 'lv_0' || (e.kind === 'door' || e.kind === 'window')).map((e) => e.id);
+    const fila = filaManual();
+    const log: Record<string, string[]> = {};
+    const cena: CenaMontagem = { update(_p, niveis) { for (const n of niveis) log[(n as unknown as { levelId: Id }).levelId] = Object.keys((n as unknown as { walls: object }).walls).sort(); } };
+    const m = new Montagem3dProgressiva({ cena, fonte: { resolver: (id) => _rl(store.project, id) }, aoAtualizar: () => undefined, aoConcluir: () => undefined, agendar: fila.agendar });
+    m.iniciar(store.project, OPT, 'lv_0');
+    fila.rodar();
+    const clip = _cf(store.project, ids)!;
+    store.exec(_pa(store.project, clip, ['lv_1', 'lv_2', 'lv_3'])!.command);
+    m.atualizar(store.project, OPT, 'lv_0');
+    fila.rodar();
+    for (const l of ['lv_1', 'lv_2', 'lv_3']) {
+      const esp = Object.keys(_rl(store.project, l).walls).sort();
+      console.log('REPRO4', l, 'cena', log[l]?.length, 'resolvido', esp.length);
+      expect(log[l]).toEqual(esp);
+    }
+  });
+});

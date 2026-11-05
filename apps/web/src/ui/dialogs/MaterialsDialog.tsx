@@ -26,7 +26,7 @@ export function MaterialsDialog({ pickFor, onPick, onClose }: { pickFor?: string
   const list = useMemo(() => Object.values(p.materials).filter((m) => m.name.toLowerCase().includes(q.toLowerCase())).sort((a, b) => cmpTexto(a.name, b.name, lang)), [p.materials, q, lang]);
   const used = draft ? materialUsage(p, draft.id) : 0;
   const commit = (next: Material | undefined = draft): void => {
-    if (next && JSON.stringify(next) !== JSON.stringify(p.materials[next.id])) editor.store.exec({ type: 'upsertMaterial', material: next }, 'Editar material');
+    if (next && JSON.stringify(next) !== JSON.stringify(p.materials[next.id])) editor.store.exec({ type: 'upsertMaterial', material: next }, 'undo_edit_material');
   };
   const change = (patch: Partial<Material>, now = false): void => {
     if (!draft) return;
@@ -44,7 +44,7 @@ export function MaterialsDialog({ pickFor, onPick, onClose }: { pickFor?: string
     const m: Material = from
       ? { ...from, id: newId('mat'), name: `${from.name} ${t('dlt_duplicate_suffix')}` }
       : { id: newId('mat'), name: t('dlt_mat_new'), color: '#b9a98f', hatch: 'none', gloss: 0.2, opacity: 1, cost: 0, unit: 'm2' };
-    editor.store.exec({ type: 'upsertMaterial', material: m }, 'Novo material');
+    editor.store.exec({ type: 'upsertMaterial', material: m }, 'dlt_mat_new');
     setSel(m.id);
   };
   const tabBtn = (t: typeof tab, label: string): ReactElement => <button className={`dtab${tab === t ? ' on' : ''}`} onClick={() => setTab(t)}>{label}</button>;

@@ -5,7 +5,7 @@
 
 import { t } from './i18n.ts';
 
-export type MenuLang = 'pt' | 'en';
+export type MenuLang = 'pt' | 'en' | 'es' | 'de' | 'fr' | 'it' | 'pl';
 export type MenuView = 'plan' | '3d' | 'section';
 
 /** Comando recente ou último comando: id da ferramenta e o rótulo já traduzido. */

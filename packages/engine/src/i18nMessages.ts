@@ -11,7 +11,7 @@
  * valores de dados do usuário (nome/ marca do elemento, nível) entram como argumento.
  */
 
-export type Lang = 'pt' | 'en';
+export type Lang = 'pt' | 'en' | 'es' | 'de' | 'fr' | 'it' | 'pl';
 
 const PT = {
   // ---- quadro de áreas / legenda ---------------------------------------------------------------------------

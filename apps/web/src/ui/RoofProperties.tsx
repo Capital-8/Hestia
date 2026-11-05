@@ -1,6 +1,6 @@
 import { useMemo, type ReactElement } from 'react';
 import { quantifyRoofs, ROOF_SHAPE_LABEL } from '@hestia/engine';
-import { FUNCTION_LABEL, roofTypeThickness, type Id, type Roof, type RoofShape } from '@hestia/model';
+import { functionLabels, roofTypeThickness, type Id, type Roof, type RoofShape } from '@hestia/model';
 import { defaultExtrusionProfile } from '@hestia/engine';
 import { roofPresetOf, roofShapePatch, roofSlopeError, roofSlopeFromDegField, percentToDeg, roofToFreePatch } from '@hestia/tools';
 import { editor, useProject } from '../editor/controller.ts';
@@ -49,7 +49,8 @@ const SHAPE_OPTIONS: RoofShape[] = ['shed', 'gable', 'hip', 'edges', 'free', 'ex
  * editam em "Editar perímetro"; o contorno, pelas alças na planta.
  */
 export function RoofProperties({ roofs }: { roofs: Roof[] }): ReactElement {
-  const { t } = useT();
+  const { t, lang } = useT();
+  const fnLabels = functionLabels(lang);
   const fmt = useFormat();
   const p = useProject();
   const ids = roofs.map((r) => r.id);
@@ -202,7 +203,7 @@ export function RoofProperties({ roofs }: { roofs: Roof[] }): ReactElement {
             <Row label={t('prd_fld_total_thickness')} readOnly fromType><span className="val">{fmt('smallLength', roofTypeThickness(type))}</span></Row>
             {type.layers.map((l, i) => (
               <div className="prow ro" key={i}>
-                <span className="lbl" title={FUNCTION_LABEL[l.function]}>{FUNCTION_LABEL[l.function]}</span>
+                <span className="lbl" title={fnLabels[l.function]}>{fnLabels[l.function]}</span>
                 <span className="val soft" title={p.materials[l.materialId]?.name}>{fmt('smallLength', l.thickness)}</span>
               </div>
             ))}

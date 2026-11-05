@@ -1,6 +1,6 @@
 import { useMemo, type ReactElement } from 'react';
 import { quantifyFloors } from '@hestia/engine';
-import { FUNCTION_LABEL, floorArea, floorTypeThickness, type Floor, type Id, type Project } from '@hestia/model';
+import { functionLabels, floorArea, floorTypeThickness, type Floor, type Id, type Project } from '@hestia/model';
 import { ringPerimeter } from '@hestia/tools';
 import { editor, useProject } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
@@ -32,7 +32,8 @@ function resolvedAreas(p: Project, floors: Floor[]): Map<Id, number> {
 
 /** Propriedades de um ou mais pisos selecionados (tipo, deslocamento, marca, área e perímetro). */
 export function FloorProperties({ floors }: { floors: Floor[] }): ReactElement {
-  const { t } = useT();
+  const { t, lang } = useT();
+  const fnLabels = functionLabels(lang);
   const fmt = useFormat();
   const p = useProject();
   const ids = floors.map((f) => f.id);
@@ -75,7 +76,7 @@ export function FloorProperties({ floors }: { floors: Floor[] }): ReactElement {
             <Row label={t('prd_fld_total_thickness')} readOnly fromType><span className="val">{fmt('smallLength', floorTypeThickness(type))}</span></Row>
             {type.layers.map((l, i) => (
               <div className="prow ro" key={i}>
-                <span className="lbl" title={FUNCTION_LABEL[l.function]}>{FUNCTION_LABEL[l.function]}</span>
+                <span className="lbl" title={fnLabels[l.function]}>{fnLabels[l.function]}</span>
                 <span className="val soft" title={p.materials[l.materialId]?.name}>{fmt('smallLength', l.thickness)}</span>
               </div>
             ))}

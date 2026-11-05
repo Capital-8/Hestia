@@ -1,14 +1,14 @@
 import type { ReactElement } from 'react';
 import type { ArrayAnchor, ArrayKind } from '@hestia/tools';
 import { useUi } from '../editor/state.ts';
-import { I18N, useI18n } from '../editor/i18n.ts';
+import { dictOf, useI18n } from '../editor/i18n.ts';
 import { NumField } from './fields.tsx';
 
 /** Opções da ferramenta Matriz: tipo (linear ou radial), número de itens, "Mover para" e ângulo total (radial). */
 export function ArrayOptionsBar(): ReactElement {
   const o = useUi((s) => s.options);
   const lang = useI18n((s) => s.lang);
-  const t = I18N[lang];
+  const t = dictOf(lang);
   const set = (patch: Partial<typeof o>): void => useUi.setState({ options: { ...useUi.getState().options, ...patch } });
   /** Trocar o tipo ou "Mover para" reinicia o passo em andamento (a ferramenta descarta base/centro); a barra de status volta à dica do primeiro passo. */
   const setPasso = (patch: Partial<typeof o>): void => {

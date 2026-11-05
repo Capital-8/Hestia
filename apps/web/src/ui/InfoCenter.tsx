@@ -78,6 +78,7 @@ export function InfoCenter(): ReactElement {
           <button role="menuitem" className="rb-menuitem" onClick={() => help('shortcutsConfig')}>{t('shc_ic_shortcuts')}</button>
           <button role="menuitem" className="rb-menuitem" onClick={() => help('shortcuts')}>{t('shc_ic_shortcut_list')}</button>
           <button role="menuitem" className="rb-menuitem" onClick={() => { setHelpOpen(false); useUi.setState({ tutorial: true }); }}>{t('shc_tutorial')}</button>
+          <button role="menuitem" className="rb-menuitem" onClick={() => { setHelpOpen(false); useUi.setState({ dialog: 'about', dialogArg: null }); }}>{t('shc_file_about')}</button>
         </div>
       )}
     </div>

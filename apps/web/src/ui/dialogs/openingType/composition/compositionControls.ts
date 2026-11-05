@@ -6,6 +6,7 @@ import {
   formatQuantity,
   nominalCellOf,
   openingCompositionOf,
+  openingFamilies,
   resolveLayout,
   type CellContent,
   type CellNode,
@@ -18,7 +19,7 @@ import {
   type ResolvedUnits,
   type SplitNode,
 } from '@hestia/model';
-import type { Dict } from '../../../../editor/i18n.ts';
+import type { Dict, Lang } from '../../../../editor/i18n.ts';
 
 /*
  * Operações puras sobre a composição de um tipo (spec F1 §1 e §2). Cada função devolve um tipo NOVO; nada roda o motor.
@@ -90,7 +91,7 @@ export function conteudoFolha(family: OpeningFamilyId): LeafContent {
 }
 
 /** Famílias de uma folha só que valem para o tipo (porta ou janela); o vão livre fica de fora. */
-export const familiasDoTipo = (kind: OpeningType['kind']) => OPENING_FAMILIES.filter((f) => f.kind === kind && f.leaves.includes(1) && f.id !== 'door_void');
+export const familiasDoTipo = (kind: OpeningType['kind'], lang: Lang = 'pt') => openingFamilies(kind, lang).filter((f) => f.kind === kind && f.leaves.includes(1) && f.id !== 'door_void');
 
 /** Troca a família da folha, mantendo as opções e a espelhagem; o símbolo de planta segue a família. */
 export function comFamilia(content: LeafContent, family: OpeningFamilyId): LeafContent {

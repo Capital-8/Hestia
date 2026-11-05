@@ -1,16 +1,20 @@
-import { useEffect, useLayoutEffect, useRef, type ReactElement } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react';
 import { editor } from './editor/controller.ts';
 import { transfer } from './editor/transfer.ts';
 import { useProjetoDerivado } from './editor/projetoDerivado.ts';
 import { useUi } from './editor/state.ts';
 import { useI18n } from './editor/i18n.ts';
 import { atalhoAtual } from './editor/shortcutConfig.ts';
+import { guardarSessao, lerSessao, limparSessao } from './editor/sessao.ts';
 import { tabOf } from './editor/viewTabActions.ts';
+import type { OpenView, PlanKind } from './editor/openViews.ts';
 import { dockWidths } from './editor/dockLayout.ts';
 import { Dock } from './ui/Dock.tsx';
 import { FileMenu } from './ui/FileMenu.tsx';
 import { IconDefs } from './ui/Icon.tsx';
 import { IfcImportOverlay } from './ui/IfcImportOverlay.tsx';
+import { HomeScreen } from './ui/home/HomeScreen.tsx';
+import { TelaDeAbertura } from './ui/home/TelaDeAbertura.tsx';
 import { EmptyViews } from './ui/EmptyViews.tsx';
 import { OptionsBar } from './ui/OptionsBar.tsx';
 import { Ribbon } from './ui/Ribbon.tsx';
@@ -60,11 +64,16 @@ import { DxfExportDialog } from './ui/dialogs/DxfExportDialog.tsx';
 import { ImportCadDialog } from './ui/dialogs/ImportCadDialog.tsx';
 import { ManageCadDialog } from './ui/dialogs/ManageCadDialog.tsx';
 import { ExperimentosDialog } from './ui/dialogs/ExperimentosDialog.tsx';
+import { SobreDialog } from './ui/dialogs/SobreDialog.tsx';
+import { AvisoAtualizacaoDialog } from './ui/dialogs/AvisoAtualizacaoDialog.tsx';
+import { verificarAvisoAoAbrir } from './editor/atualizacao/auto.ts';
+import { definirAtualizacaoPendente } from './editor/atualizacao/ponte.ts';
 import { MoveLevelDialog } from './ui/MoveLevel.tsx';
 import { LevelMoveConflictDialog } from './ui/LevelMoveConflictDialog.tsx';
 import { GridTypeDialog } from './ui/dialogs/GridTypeDialog.tsx';
 import { TextDialog, useCaixaDeTextoAberta } from './ui/dialogs/TextDialog.tsx';
 import { SelectLevelsDialog } from './ui/dialogs/SelectLevelsDialog.tsx';
+import { SalvarSemPastaDialog } from './ui/dialogs/SalvarSemPastaDialog.tsx';
 
 /**
  * Host do diálogo "Selecionar níveis": lê o projeto e o buffer da área de transferência fora do switch de diálogos
@@ -178,6 +187,10 @@ function Dialogs(): ReactElement | null {
       return <ManageCadDialog />;
     case 'experimentos':
       return <ExperimentosDialog />;
+    case 'about':
+      return <SobreDialog />;
+    case 'updatePrompt':
+      return <AvisoAtualizacaoDialog />;
     case 'moveLevel':
       return <MoveLevelDialog onClose={() => useUi.setState({ dialog: null })} />;
     case 'levelMoveConflict':
@@ -186,6 +199,8 @@ function Dialogs(): ReactElement | null {
       return <AutoCotaDialog />;
     case 'selectLevels':
       return <SelectLevelsHost />;
+    case 'salvarSemPasta':
+      return <SalvarSemPastaDialog />;
     default:
       return null;
   }
@@ -223,10 +238,20 @@ export function App(): ReactElement {
   const widths = dockWidths(propsOpen, browserOpen, dock);
   const theme = useUi((s) => s.theme);
   const dialog = useUi((s) => s.dialog);
+  const tela = useUi((s) => s.tela);
+  // Estado da vista: é o que a sessão da aba devolve depois de um F5 (projeto + vista + aba + nível).
+  const vista = useUi((s) => s.view);
+  const nivelAtivo = useUi((s) => s.levelId);
+  const planKind = useUi((s) => s.planKind);
+  const areaPlanId = useUi((s) => s.areaPlanId);
+  const sectionId = useUi((s) => s.sectionId);
+  const abas = useUi((s) => s.openViews);
   const lang = useI18n((s) => s.lang);
   const narrow = useNarrow();
   // A restauração do projeto só acontece na montagem; a dica de status acompanha o idioma.
   const initialized = useRef(false);
+  // Sessão da aba (F5): enquanto a retomada não termina, fica na tela neutra — nunca na Home.
+  const [restaurando, setRestaurando] = useState(() => lerSessao() !== null);
   // A caixa de texto não entra em `dialog` (DialogKind); as teclas ficam presas a ela enquanto estiver aberta.
   const caixaTextoAberta = useCaixaDeTextoAberta();
 
@@ -242,11 +267,55 @@ export function App(): ReactElement {
     } else root.setAttribute('data-theme', theme);
   }, [theme]);
 
+  // Retomada: só existe sessão quando a página foi recarregada (F5). Abrir a aba ou o programa de novo cai na tela de
+  // projetos, que é onde o usuário escolhe o que abrir.
   useEffect(() => {
-    if (!initialized.current) {
-      initialized.current = true;
-      if (!editor.restoreAutosave()) editor.newProject('house2');
+    if (initialized.current) return;
+    initialized.current = true;
+    const sessao = lerSessao();
+    if (!sessao) {
+      setRestaurando(false);
+      return;
     }
+    void (async () => {
+      try {
+        const abriu = sessao.pasta ? (await editor.abrirDaBiblioteca(sessao.pasta)).ok : editor.restoreAutosave();
+        if (!abriu) {
+          // Projeto sumiu ou subiu no autosave: a tela de projetos resolve (com o card de recuperar, se houver).
+          limparSessao();
+          return;
+        }
+        useUi.setState({
+          tela: 'editor',
+          view: sessao.view,
+          levelId: sessao.levelId,
+          planKind: sessao.planKind as PlanKind,
+          areaPlanId: sessao.areaPlanId,
+          sectionId: sessao.sectionId,
+          ...(sessao.openViews.length ? { openViews: sessao.openViews as OpenView[] } : {}),
+        });
+      } finally {
+        // Sucesso ou falha: a tela neutra sai; quem manda daqui em diante é o estado (`editor` ou `home`).
+        setRestaurando(false);
+      }
+    })();
+  }, []);
+
+  // Guarda a sessão a cada mudança de vista/projeto: é o que o F5 reabre.
+  useEffect(() => {
+    if (tela !== 'editor') return;
+    guardarSessao({ pasta: editor.pastaNaBiblioteca, view: vista, levelId: nivelAtivo, planKind, areaPlanId, sectionId, openViews: abas });
+  }, [tela, vista, nivelAtivo, planKind, areaPlanId, sectionId, abas]);
+
+  // Voltar de propósito para a tela de projetos encerra a sessão da aba: F5 ali continua na tela de projetos. Durante
+  // a retomada o estado ainda é `home`, mas a sessão está sendo usada — não pode ser apagada agora.
+  useEffect(() => {
+    if (tela === 'home' && !restaurando) limparSessao();
+  }, [tela, restaurando]);
+
+  useEffect(() => {
+    // A tela inicial de projetos é quem decide o que abrir (continuar o não salvo, um projeto da pasta ou um modelo).
+    // Antes, o programa abria direto no último projeto do autosave.
     // A dica usa a sequência atual da parede (depende do perfil e da personalização); sem tecla, não cita letra.
     // Ao trocar o idioma a mensagem é montada de novo no idioma ativo, sem reabrir o projeto.
     const parede = atalhoAtual('wall');
@@ -260,7 +329,8 @@ export function App(): ReactElement {
     const onKey = (e: KeyboardEvent): void => {
       const t = e.target as HTMLElement | null;
       const typing = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
-      if (dialog || caixaTextoAberta || typing) return;
+      // Na tela de projetos não há documento aberto: nenhum atalho do editor vale ali.
+      if (useUi.getState().tela === 'home' || dialog || caixaTextoAberta || typing) return;
       if (editor.key(e)) e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
@@ -274,6 +344,23 @@ export function App(): ReactElement {
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, []);
+
+  // Aviso automático de versão nova (só desktop). A verificação manual do "Sobre" não depende disto.
+  useEffect(() => {
+    void verificarAvisoAoAbrir()
+      .then((info) => {
+        if (!info || useUi.getState().dialog !== null) return;
+        definirAtualizacaoPendente(info);
+        useUi.setState({ dialog: 'updatePrompt', dialogArg: null });
+      })
+      .catch(() => undefined);
+  }, []);
+
+  // Retomada em curso (F5 com projeto aberto): tela neutra, nunca a Home "piscando" antes do editor.
+  if (restaurando) return <TelaDeAbertura />;
+
+  // Tela inicial de projetos: o editor (faixa, palco, docks) só monta depois que um projeto é aberto ou criado.
+  if (tela === 'home') return <HomeScreen />;
 
   return (
     <div className="app">

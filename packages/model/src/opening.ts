@@ -187,8 +187,8 @@ export function openingFamilies(kind: OpeningType['kind'], lang: Lang = 'pt'): O
  * Família de um tipo de abertura, ou null quando a combinação (símbolo × folhas) não existe. O vão livre tem 0 folhas:
  * na porta o símbolo é o arco e na janela é a fixa, porque sem folha o desenho é só a soleira tracejada.
  */
-export function openingFamilyOf(t: Pick<OpeningType, 'kind' | 'plan' | 'leaves'>): OpeningFamily | null {
-  const families = openingFamilies(t.kind);
+export function openingFamilyOf(t: Pick<OpeningType, 'kind' | 'plan' | 'leaves'>, lang: Lang = 'pt'): OpeningFamily | null {
+  const families = openingFamilies(t.kind, lang);
   const exact = families.find((f) => f.plan === t.plan && f.leaves.includes(t.leaves));
   if (exact) return exact;
   // Porta de duas folhas: o arquivo antigo guarda `double` e o editor pode gravar `swing` com 2 folhas. Os dois são a

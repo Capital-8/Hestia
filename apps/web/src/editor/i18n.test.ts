@@ -51,7 +51,7 @@ describe('nome de comando de atalho (diálogos de atalhos)', () => {
 
   it('a tela de atalhos tem nome nos dois idiomas', () => {
     expect(nomeComandoLang('atalhos', 'pt')).toBe('Atalhos de teclado');
-    expect(nomeComandoLang('atalhos', 'en')).toBe('Keyboard shortcuts');
+    expect(nomeComandoLang('atalhos', 'en')).toBe('Keyboard Shortcuts');
   });
 
   it('o diálogo de unidades tem nome nos dois idiomas', () => {

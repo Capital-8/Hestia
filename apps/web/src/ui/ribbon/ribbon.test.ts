@@ -20,6 +20,12 @@ describe('faixa guiada por dados', () => {
     expect(TABS.map((tb) => txt(tb.label, 'pt'))).toEqual(['Arquitetura', 'Estrutura', 'Aço', 'Pré-moldado', 'Sistemas', 'Inserir', 'Anotar', 'Analisar', 'Massa e terreno', 'Colaborar', 'Vista', 'Gerenciar', 'Suplementos', 'Modificar']);
   });
 
+  it('título contextual composto também traduz (não cai em inglês)', () => {
+    expect(txt({ pt: 'Modificar | Paredes', en: 'Modify | Walls' }, 'es')).toBe('Modificar | Muros');
+    expect(txt({ pt: 'Modificar | Colocar Parede', en: 'Modify | Place Wall' }, 'de')).toBe('Ändern | Platzieren Wand');
+    expect(txt({ pt: 'Modificar | Editar perímetro do telhado', en: 'Modify | Edit Roof Perimeter' }, 'fr')).toBe('Modifier | Modifier le périmètre du toit');
+  });
+
   it('toda ferramenta e ação citada existe', () => {
     for (const it of leaves(allPanels().flatMap((p) => p.items))) {
       if (it.kind === 'tool') expect(TOOL_LABEL[it.tool], it.tool).toBeTruthy();

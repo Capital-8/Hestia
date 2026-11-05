@@ -3,45 +3,53 @@ import { useMemo } from 'react';
 import { create } from 'zustand';
 import { safeGet, safeSet } from './storage.ts';
 import type { ToolId } from '@hestia/tools';
-import { PT_TABELAS, EN_TABELAS } from './i18nTabelas.ts';
+import { PT_TABELAS, EN_TABELAS, ES_TABELAS, DE_TABELAS, FR_TABELAS, IT_TABELAS, PL_TABELAS } from './i18nTabelas.ts';
+import { ES_BASE_CORE_1, DE_BASE_CORE_1, FR_BASE_CORE_1, IT_BASE_CORE_1, PL_BASE_CORE_1 } from './i18n/areas/base-core-1.ts';
+import { ES_BASE_CORE_2, DE_BASE_CORE_2, FR_BASE_CORE_2, IT_BASE_CORE_2, PL_BASE_CORE_2 } from './i18n/areas/base-core-2.ts';
+import { ES_BASE_CORE_3, DE_BASE_CORE_3, FR_BASE_CORE_3, IT_BASE_CORE_3, PL_BASE_CORE_3 } from './i18n/areas/base-core-3.ts';
 import type { Lang } from './i18n/tipos.ts';
 import { PT_ALL, EN_ALL } from './i18n/areas/index.ts';
+import { ES_ALL } from './i18n/langs/es/index.ts';
+import { DE_ALL } from './i18n/langs/de/index.ts';
+import { FR_ALL } from './i18n/langs/fr/index.ts';
+import { IT_ALL } from './i18n/langs/it/index.ts';
+import { PL_ALL } from './i18n/langs/pl/index.ts';
 
 export type { Lang } from './i18n/tipos.ts';
 
 const LANG_KEY = 'hestia.lang';
 
+/** Idiomas válidos, na ordem exibida no seletor. */
+const VALID_LANGS: readonly Lang[] = ['pt', 'en', 'es', 'de', 'fr', 'it', 'pl'];
+
+/** Tag BCP-47 de cada idioma, usada em `Intl.*` e em `<html lang>`. */
+const BCP47: Record<Lang, string> = { pt: 'pt-BR', en: 'en-US', es: 'es-ES', de: 'de-DE', fr: 'fr-FR', it: 'it-IT', pl: 'pl-PL' };
+
 interface I18nState {
   lang: Lang;
   setLang: (lang: Lang) => void;
-  toggleLang: () => void;
 }
 
-/** Idioma salvo no navegador; qualquer valor fora de `pt`/`en` cai em `pt`. */
+/** Idioma salvo no navegador; qualquer valor fora da lista válida cai em `pt`. */
 function readLang(): Lang {
-  return safeGet(LANG_KEY) === 'en' ? 'en' : 'pt';
+  const saved = safeGet(LANG_KEY);
+  return (VALID_LANGS as readonly string[]).includes(saved ?? '') ? (saved as Lang) : 'pt';
 }
 
 /** Mantém `<html lang>` igual ao idioma ativo (fora do navegador não faz nada). */
 export function syncDocumentLang(lang: Lang): void {
-  if (typeof document !== 'undefined') document.documentElement.lang = lang === 'en' ? 'en' : 'pt-BR';
+  if (typeof document !== 'undefined') document.documentElement.lang = lang === 'pt' ? 'pt-BR' : lang;
 }
 
 const INITIAL_LANG = readLang();
 syncDocumentLang(INITIAL_LANG);
 
-export const useI18n = create<I18nState>((set, get) => ({
+export const useI18n = create<I18nState>((set) => ({
   lang: INITIAL_LANG,
   setLang: (lang: Lang) => {
     safeSet(LANG_KEY, lang);
     syncDocumentLang(lang);
     set({ lang });
-  },
-  toggleLang: () => {
-    const next = get().lang === 'pt' ? 'en' : 'pt';
-    safeSet(LANG_KEY, next);
-    syncDocumentLang(next);
-    set({ lang: next });
   },
 }));
 
@@ -726,6 +734,13 @@ export const I18N = {
     stt_calc_help_blondel: 'The Blondel formula and the calculation with the calculator height are in the card on the right.',
     stt_calc_post_note: 'For the post style the tread comes from the sketch (walking line); the formula only generates warnings.',
   },
+  // Idiomas em preenchimento: cada chave do PT/EN precisa ganhar tradução aqui.
+  // A ausência faz `_I18nParityEs/De/Fr/It/Pl` abaixo falhar no typecheck de propósito — é o checklist de tradução.
+  es: { ...ES_ALL, ...ES_TABELAS, ...ES_BASE_CORE_1, ...ES_BASE_CORE_2, ...ES_BASE_CORE_3 },
+  de: { ...DE_ALL, ...DE_TABELAS, ...DE_BASE_CORE_1, ...DE_BASE_CORE_2, ...DE_BASE_CORE_3 },
+  fr: { ...FR_ALL, ...FR_TABELAS, ...FR_BASE_CORE_1, ...FR_BASE_CORE_2, ...FR_BASE_CORE_3 },
+  it: { ...IT_ALL, ...IT_TABELAS, ...IT_BASE_CORE_1, ...IT_BASE_CORE_2, ...IT_BASE_CORE_3 },
+  pl: { ...PL_ALL, ...PL_TABELAS, ...PL_BASE_CORE_1, ...PL_BASE_CORE_2, ...PL_BASE_CORE_3 },
 } as const;
 
 /** Dicionário derivado do PT: toda chave do dicionário é uma string. */
@@ -735,6 +750,12 @@ export type Dict = { readonly [K in keyof typeof I18N.pt]: string };
 type SameKeys<A, B> = keyof A extends keyof B ? (keyof B extends keyof A ? true : false) : false;
 type Assert<T extends true> = T;
 export type _I18nParity = Assert<SameKeys<typeof I18N.pt, typeof I18N.en>>;
+// Checklist de tradução: fica vermelho até cada idioma ganhar as mesmas chaves do PT.
+export type _I18nParityEs = Assert<SameKeys<typeof I18N.pt, typeof I18N.es>>;
+export type _I18nParityDe = Assert<SameKeys<typeof I18N.pt, typeof I18N.de>>;
+export type _I18nParityFr = Assert<SameKeys<typeof I18N.pt, typeof I18N.fr>>;
+export type _I18nParityIt = Assert<SameKeys<typeof I18N.pt, typeof I18N.it>>;
+export type _I18nParityPl = Assert<SameKeys<typeof I18N.pt, typeof I18N.pl>>;
 
 /** Mensagem traduzível: a chave é resolvida no idioma ativo com os argumentos. */
 export interface Msg {
@@ -753,11 +774,27 @@ function fill(text: string, args: Record<string, string | number>): string {
   });
 }
 
-/** Traduz uma chave no idioma pedido: EN ausente cai em PT e, por último, na própria chave. */
+/**
+ * Traduz uma chave no idioma pedido: idioma ausente cai em EN, depois PT e, por último, na própria chave.
+ * O fallback EN é o que mantém a interface utilizável enquanto es/de/fr/it/pl ainda não estão completos.
+ */
 export function t(lang: Lang, key: keyof Dict, args?: Record<string, string | number>): string {
   const dict = I18N[lang] as Partial<Record<keyof Dict, string>>;
-  const texto = dict[key] ?? I18N.pt[key] ?? String(key);
+  const texto = dict[key] ?? I18N.en[key] ?? I18N.pt[key] ?? String(key);
   return args ? fill(texto, args) : texto;
+}
+
+/** Cache dos dicionários completos já montados (um por idioma). */
+const DICT_CACHE = new Map<Lang, Dict>();
+
+/** Dicionário completo do idioma com fallback EN→PT; use quando o consumidor precisa do objeto, não de `t`. */
+export function dictOf(lang: Lang): Dict {
+  let dict = DICT_CACHE.get(lang);
+  if (!dict) {
+    dict = { ...I18N.pt, ...I18N.en, ...(I18N[lang] as Partial<Dict>) } as Dict;
+    DICT_CACHE.set(lang, dict);
+  }
+  return dict;
 }
 
 /** Hook de tradução: assina o idioma e devolve `t` já preso a ele. */
@@ -773,34 +810,34 @@ export function resolveText(v: TextLike, lang: Lang): string {
   return Object.hasOwn(I18N.pt, v) ? t(lang, v as keyof Dict) : v;
 }
 
-/** N?mero com as casas decimais e o separador do idioma ativo (PT: v?rgula; EN: ponto). */
+/** Número com as casas decimais e o separador do idioma ativo (BCP-47 por idioma). */
 export function fmtNum(v: number, dec: number, lang: Lang): string {
-  return v.toLocaleString(lang === 'en' ? 'en-US' : 'pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  return v.toLocaleString(BCP47[lang], { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
 /** Data no formato do idioma ativo (padrão: hoje). */
 export function fmtDate(lang: Lang, date: Date | number = new Date()): string {
   const d = typeof date === 'number' ? new Date(date) : date;
-  return d.toLocaleDateString(lang === 'en' ? 'en-US' : 'pt-BR');
+  return d.toLocaleDateString(BCP47[lang]);
 }
 
 /** Compara dois textos na collation do idioma ativo (numérica por padrão). */
 export function cmpTexto(a: string, b: string, lang: Lang, opts?: Intl.CollatorOptions): number {
-  return a.localeCompare(b, lang === 'en' ? 'en' : 'pt-BR', { numeric: true, ...opts });
+  return a.localeCompare(b, BCP47[lang], { numeric: true, ...opts });
 }
 
-/** Retorna a etiqueta traduzida da ferramenta para o idioma ativo (EN ausente cai em PT antes do id cru). */
+/** Retorna a etiqueta traduzida da ferramenta para o idioma ativo (ausente cai em EN, PT e, por fim, no id cru). */
 export function toolLabel(toolId: ToolId, lang: Lang): string {
   const key = `tool_${toolId}` as keyof Dict;
   const dict = I18N[lang] as Partial<Record<keyof Dict, string>>;
-  return dict[key] ?? I18N.pt[key] ?? toolId;
+  return dict[key] ?? I18N.en[key] ?? I18N.pt[key] ?? toolId;
 }
 
 /** Nome de um comando de atalho no idioma ativo: o mesmo rótulo da ferramenta na faixa (toolLabel). 'atalhos' é a tela de atalhos. */
 export function nomeComandoLang(cmd: string, lang: Lang): string {
-  if (cmd === 'atalhos') return lang === 'pt' ? 'Atalhos de teclado' : 'Keyboard shortcuts';
-  if (cmd === 'unidades') return lang === 'pt' ? 'Unidades do projeto' : 'Project Units';
-  if (cmd === 'createSimilar') return lang === 'pt' ? 'Criar semelhante' : 'Create Similar';
+  if (cmd === 'atalhos') return t(lang, 'dlm_keyboard_shortcuts');
+  if (cmd === 'unidades') return t(lang, 'dlc_units_title');
+  if (cmd === 'createSimilar') return t(lang, 'edc_ctx_create_similar');
   const vis: Record<string, [string, string]> = {
     temporaryHide: ['Ocultar temporariamente (elemento)', 'Temporary Hide (Element)'],
     temporaryCategory: ['Ocultar temporariamente (categoria)', 'Temporary Hide (Category)'],

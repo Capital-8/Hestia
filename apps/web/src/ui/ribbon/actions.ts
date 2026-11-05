@@ -102,10 +102,16 @@ function typeDialogFor(c: RibbonCtx): { dialog: DialogKind; arg: string } | null
 const planOrSection = (c: RibbonCtx): boolean => c.view === 'plan' || c.view === 'section';
 const noSel = (c: RibbonCtx): Txt | false => (c.selection.length === 0 ? t('Selecione elementos primeiro.', 'Select elements first.') : false);
 /** Copiar/Recortar só valem para o que o buffer leva; forro, anotação, grade e id inexistente ficam de fora. */
-const naoTransferivel = (verbo: 'Copiar' | 'Recortar'): Txt => t(
-  `${verbo} só vale para paredes, pisos, lajes, telhados, escadas, rampas, ambientes e aberturas hospedadas (com a parede selecionada).`,
-  `${verbo === 'Copiar' ? 'Copy' : 'Cut'} only works for walls, floors, slabs, roofs, stairs, ramps, rooms and hosted openings (with the host wall selected).`,
-);
+const naoTransferivel = (verbo: 'Copiar' | 'Recortar'): Txt =>
+  verbo === 'Copiar'
+    ? t(
+        'Copiar só vale para paredes, pisos, lajes, telhados, escadas, rampas, ambientes e aberturas hospedadas (com a parede selecionada).',
+        'Copy only works for walls, floors, slabs, roofs, stairs, ramps, rooms and hosted openings (with the host wall selected).',
+      )
+    : t(
+        'Recortar só vale para paredes, pisos, lajes, telhados, escadas, rampas, ambientes e aberturas hospedadas (com a parede selecionada).',
+        'Cut only works for walls, floors, slabs, roofs, stairs, ramps, rooms and hosted openings (with the host wall selected).',
+      );
 const stairsIn = (c: RibbonCtx): Array<{ typeId: Id }> => c.selection.map((id) => c.p.elements[id]).filter(isStair);
 const rampsIn = (c: RibbonCtx): Ramp[] => c.selection.map((id) => c.p.elements[id]).filter(isRamp);
 

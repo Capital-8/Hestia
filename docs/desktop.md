@@ -27,10 +27,30 @@ e escolha a tag existente no seletor. A execução manual só funciona com uma t
 
 Ao abrir, o app consulta em segundo plano
 `https://github.com/engdennylsonsantos-cloud/Hestia/releases/latest/download/latest.json`.
-Se houver versão mais nova, pergunta "Atualizar agora?" (Atualizar / Depois).
-Ao aceitar, baixa o instalador, confere a assinatura com a chave pública embutida
-no app, instala em modo passivo e reinicia. Se a rede falhar ou a verificação não passar,
-o erro vai só para o log e o app abre normalmente, sem aviso.
+Se houver versão mais nova, aparece um aviso recusável com três opções:
+
+- **Atualizar** — baixa o instalador, confere a assinatura com a chave pública embutida
+  no app, instala em modo passivo e reinicia;
+- **Agora não** — adia o aviso só nesta sessão;
+- **Não perguntar novamente** — grava a preferência e a versão recusada no
+  `localStorage` (chaves `hestia.atualizacao.*`). Uma versão **maior** que a recusada
+  volta a avisar uma vez; versões iguais ou menores ficam em silêncio.
+
+A preferência pode ser religada no diálogo **Arquivo ▸ Sobre o Hestia** (também no
+ícone **?** da barra de título). A verificação manual do Sobre funciona sempre, mesmo
+com o aviso automático desligado. Se a rede falhar ou a verificação não passar, o erro
+vai só para o log e o app abre normalmente, sem aviso.
+
+A versão exibida vem do `package.json` da raiz, injetada no bundle pelo Vite. As notas
+da versão em execução ficam em `apps/web/src/editor/atualizacao/auto.ts`; as notas de
+uma versão nova vêm do campo `notes` do `latest.json`.
+
+### Notas da release
+
+O workflow usa o arquivo `docs/releases/vX.Y.Z.md` como corpo da release quando ele
+existe (é esse corpo que o `tauri-action` grava no `notes` do `latest.json`). Sem o
+arquivo, usa um texto padrão. Crie o arquivo com as notas da versão antes de empurrar
+a tag.
 
 ## Chave de assinatura
 

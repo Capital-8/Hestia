@@ -1,5 +1,5 @@
 import { Fragment, useState, type ReactElement } from 'react';
-import { formatQuantity, FUNCTION_LABEL, ceilingTypeThickness, type Layer, type LayerFunction, type CeilingType } from '@hestia/model';
+import { formatQuantity, functionLabels, FUNCTION_LABEL, ceilingTypeThickness, type Layer, type LayerFunction, type CeilingType } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
 import { duplicateCeilingType, ceilingTypeDeleteBlock, ceilingTypeError, ceilingTypeUsage, tryDeleteCeilingType } from '../../editor/ceilingTypeActions.ts';
@@ -18,7 +18,8 @@ const FUNCTIONS = Object.keys(FUNCTION_LABEL) as LayerFunction[];
 /** Editor de tipo de forro: camadas do topo para baixo (editor de camadas adaptado do tipo de piso). */
 export function CeilingTypeDialog({ typeId }: { typeId: string }): ReactElement | null {
   const units = useUnits();
-  const { t } = useT();
+  const { t, lang } = useT();
+  const fnLabels = functionLabels(lang);
   const p = useProject();
   const src = p.ceilingTypes[typeId];
   const [draft, setDraft] = useState<CeilingType | null>(src ? structuredClone(src) : null);
@@ -59,11 +60,11 @@ export function CeilingTypeDialog({ typeId }: { typeId: string }): ReactElement 
   /** Grava como o OK, mas o diálogo segue aberto com o rascunho. */
   const apply = (): void => {
     if (error) return;
-    editor.store.exec({ type: 'upsertCeilingType', ceilingType: draft }, 'Editar tipo de forro');
+    editor.store.exec({ type: 'upsertCeilingType', ceilingType: draft }, 'undo_edit_ceiling_type');
   };
   const ok = (): void => {
     if (error) return;
-    editor.store.exec({ type: 'upsertCeilingType', ceilingType: draft }, 'Editar tipo de forro');
+    editor.store.exec({ type: 'upsertCeilingType', ceilingType: draft }, 'undo_edit_ceiling_type');
     close();
   };
   const duplicate = (): void => {
@@ -120,7 +121,7 @@ export function CeilingTypeDialog({ typeId }: { typeId: string }): ReactElement 
                         <td className="mono">{i + 1}</td>
                         <td>
                           <select className="select" aria-label={t('dlt_a11y_layer_function', { n: i + 1 })} value={l.function} onChange={(e) => setLayer(i, { function: e.target.value as LayerFunction })}>
-                            {FUNCTIONS.map((f) => <option key={f} value={f}>{FUNCTION_LABEL[f]}</option>)}
+                            {FUNCTIONS.map((f) => <option key={f} value={f}>{fnLabels[f]}</option>)}
                           </select>
                         </td>
                         <td>

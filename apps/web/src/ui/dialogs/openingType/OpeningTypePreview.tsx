@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import * as THREE from 'three';
 import type { OpeningCheck } from '@hestia/engine';
 import type { OpeningLineConvention, OpeningType } from '@hestia/model';
-import { useT, type Dict } from '../../../editor/i18n.ts';
+import { useT, type Dict, type Lang } from '../../../editor/i18n.ts';
 import { NumField } from '../../fields.tsx';
 import { Preview3D } from './Preview3D.tsx';
 import { previewElevationSvg, previewPlanSvg, previewSectionFrames } from './previewViews.ts';
@@ -47,7 +47,7 @@ function previewSvg(
   flipFacing: boolean,
   angle: number,
   openingLine: OpeningLineConvention | undefined,
-  lang: 'pt' | 'en',
+  lang: Lang,
 ): string {
   try {
     if (tab === 'plan') return previewPlanSvg(d, { flipHand, flipFacing, angle, openingLine, width: PREVIEW_W, height: PREVIEW_H, lang });

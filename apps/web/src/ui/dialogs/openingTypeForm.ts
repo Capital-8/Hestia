@@ -58,8 +58,8 @@ export function defaultAngle3dFor(family: OpeningFamily): number {
 }
 
 /** Famílias oferecidas ao tipo (portas ou janelas), na ordem da interface. */
-export function familyOptionsFor(kind: OpeningType['kind']): OpeningFamily[] {
-  return openingFamilies(kind);
+export function familyOptionsFor(kind: OpeningType['kind'], lang: Lang = 'pt'): OpeningFamily[] {
+  return openingFamilies(kind, lang);
 }
 
 /** Rótulo da contagem de folhas ("Vão livre (sem folha)", "1 folha", "2 folhas", "3 folhas"). */

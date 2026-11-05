@@ -1,6 +1,6 @@
 import type { ReactElement, ReactNode } from 'react';
 import type { StairType } from '@hestia/model';
-import { fmtNum, I18N, useI18n } from '../../editor/i18n.ts';
+import { dictOf, fmtNum, useI18n } from '../../editor/i18n.ts';
 import { NumField } from '../fields.tsx';
 import { computeStairCalc } from './stairTypeCalc.ts';
 
@@ -9,7 +9,7 @@ const fill = (s: string, params: Record<string, string>): string => s.replace(/\
 /** Calculadora ao vivo do tipo de escada: altura simulada (não gravada), resultados e indicador com ícone e texto. */
 export function StairCalculatorPanel({ type, heightCm, onHeight }: { type: StairType; heightCm: number; onHeight: (v: number) => void }): ReactElement {
   const lang = useI18n((s) => s.lang);
-  const t = I18N[lang];
+  const t = dictOf(lang);
   const calc = computeStairCalc(type, heightCm / 100);
   const post = type.runStyle === 'post';
   const cm = (v: number, dec = 1): string => `${fmtNum(v * 100, dec, lang)} cm`;

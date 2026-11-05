@@ -32,5 +32,5 @@ export const FAMILY: Record<FamilyKind, string> = {
 
 /** Família de uma abertura (Porta de giro, Janela de correr…); tipo sem família válida cai em "Outros". */
 export function openingFamilyName(tp: Pick<OpeningType, 'kind' | 'plan' | 'leaves'>, lang: Lang = useI18n.getState().lang): string {
-  return openingFamilyOf(tp)?.name ?? t(lang, 'prc_fam_other');
+  return openingFamilyOf(tp, lang)?.name ?? t(lang, 'prc_fam_other');
 }

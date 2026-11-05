@@ -8,7 +8,7 @@ import {
   type RampType,
 } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
-import { useI18n, I18N } from '../../editor/i18n.ts';
+import { useI18n, dictOf } from '../../editor/i18n.ts';
 import { useUi } from '../../editor/state.ts';
 import { duplicateRampType, rampTypeDeleteBlock, rampTypeError, tryDeleteRampType } from '../../editor/rampTypeActions.ts';
 import { Check, NumField, TextField } from '../fields.tsx';
@@ -32,7 +32,7 @@ const fill = (s: string, params: Record<string, string>): string => s.replace(/\
  */
 export function RampTypeDialog({ typeId }: { typeId: string }): ReactElement | null {
   const p = useProject();
-  const t = I18N[useI18n((s) => s.lang)];
+  const t = dictOf(useI18n((s) => s.lang));
   const profileLabel = (k: RampNormProfile): string => (k === 'custom' ? t.dlt_ramp_profile_custom : k === 'ada' ? 'ADA' : 'NBR 9050');
   const src = p.rampTypes[typeId];
   const [draft, setDraft] = useState<RampType | null>(src ? structuredClone(src) : null);
@@ -49,11 +49,11 @@ export function RampTypeDialog({ typeId }: { typeId: string }): ReactElement | n
   /** Grava como o OK, mas o diálogo segue aberto com o rascunho. */
   const apply = (): void => {
     if (error) return;
-    editor.store.exec({ type: 'upsertRampType', rampType: draft }, 'Editar tipo de rampa');
+    editor.store.exec({ type: 'upsertRampType', rampType: draft }, 'undo_edit_ramp_type');
   };
   const ok = (): void => {
     if (error) return;
-    editor.store.exec({ type: 'upsertRampType', rampType: draft }, 'Editar tipo de rampa');
+    editor.store.exec({ type: 'upsertRampType', rampType: draft }, 'undo_edit_ramp_type');
     close();
   };
   const duplicate = (): void => {

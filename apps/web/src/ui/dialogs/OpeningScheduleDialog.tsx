@@ -3,7 +3,7 @@ import { formatQuantity, type Quantity, type ResolvedUnits } from '@hestia/model
 import { buildOpeningSchedule, filterOpeningRows, openingScheduleToCsv, sumOpeningRows, type OpeningScheduleRow } from '@hestia/engine';
 import { useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
-import { cmpTexto, resolveText, t as translate, useI18n, I18N, type Lang, type TextLike } from '../../editor/i18n.ts';
+import { cmpTexto, resolveText, t as translate, useI18n, dictOf, I18N, type Lang, type TextLike } from '../../editor/i18n.ts';
 import { saveText } from '../../editor/saveText.ts';
 import { Icon } from '../Icon.tsx';
 import { Dialog } from './Dialog.tsx';
@@ -69,7 +69,7 @@ const cellValue = (r: OpeningScheduleRow, c: Col, kindText: (k: string) => strin
 export function OpeningScheduleDialog(): ReactElement {
   const p = useProject();
   const lang = useI18n((s) => s.lang);
-  const t = I18N[lang];
+  const t = dictOf(lang);
   const units = useUnits();
   const schedule = useMemo(() => buildOpeningSchedule(p), [p]);
   const [kind, setKind] = useState<'' | 'door' | 'window'>('');

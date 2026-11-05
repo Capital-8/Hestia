@@ -50,7 +50,7 @@ export function GridTypeDialog({ typeId }: { typeId: string }): ReactElement | n
     if (issue) return false;
     try {
       const { id, ...patch } = draft;
-      editor.store.exec({ type: 'updateGridType', id, patch }, 'Editar tipo de grade');
+      editor.store.exec({ type: 'updateGridType', id, patch }, 'dlt_grid_title');
       setErro(null);
       return true;
     } catch (e) {
@@ -62,9 +62,9 @@ export function GridTypeDialog({ typeId }: { typeId: string }): ReactElement | n
     if (aplicar()) close();
   };
   const duplicar = (): void => {
-    const copia = copiaDoTipo(draft);
+    const copia = copiaDoTipo(draft, t('dlt_duplicate_suffix'));
     try {
-      editor.store.exec({ type: 'addGridType', gridType: copia }, 'Duplicar tipo de grade');
+      editor.store.exec({ type: 'addGridType', gridType: copia }, 'undo_duplicate_grid_type');
       useUi.setState({ dialogArg: copia.id });
     } catch (e) {
       falha(e);
@@ -72,7 +72,7 @@ export function GridTypeDialog({ typeId }: { typeId: string }): ReactElement | n
   };
   const excluir = (): void => {
     try {
-      editor.store.exec({ type: 'removeGridType', id: draft.id }, 'Excluir tipo de grade');
+      editor.store.exec({ type: 'removeGridType', id: draft.id }, 'undo_delete_grid_type');
       const ui = useUi.getState();
       if (ui.options.grid?.typeId === draft.id) {
         const restante = projectGridTypes(editor.project).find((t) => t.id !== draft.id);
@@ -104,13 +104,13 @@ export function GridTypeDialog({ typeId }: { typeId: string }): ReactElement | n
       <Row label={t('stt_f_name')} htmlFor="gt-name"><TextField id="gt-name" value={draft.name} onCommit={(v) => set({ name: v.trim() })} /></Row>
       <Row label={t('dlt_fld_center_segment')} htmlFor="gt-seg">
         <select id="gt-seg" className="select" value={draft.centerSegment} onChange={(e) => set({ centerSegment: e.target.value as GridCenterSegment })}>
-          {SEGMENTS.map((s) => <option key={s} value={s}>{SEGMENT_LABEL[s]}</option>)}
+          {SEGMENTS.map((s) => <option key={s} value={s}>{t(SEGMENT_LABEL[s])}</option>)}
         </select>
       </Row>
       <Row label={t('dlt_fld_weight')} htmlFor="gt-weight"><NumField id="gt-weight" value={draft.weightMm / 1000} quantity="smallLength" onCommit={(v) => set({ weightMm: v * 1000 })} /></Row>
       <Row label={t('dlt_fld_pattern')} htmlFor="gt-pattern">
         <select id="gt-pattern" className="select" value={draft.pattern} onChange={(e) => set({ pattern: e.target.value as GridLinePattern })}>
-          {PATTERNS.map((s) => <option key={s} value={s}>{PATTERN_LABEL[s]}</option>)}
+          {PATTERNS.map((s) => <option key={s} value={s}>{t(PATTERN_LABEL[s])}</option>)}
         </select>
       </Row>
       <CorField id="gt-color" label={t('dlt_fld_color')} cor={draft.color} onChange={(c) => set({ color: c })} />
@@ -120,7 +120,7 @@ export function GridTypeDialog({ typeId }: { typeId: string }): ReactElement | n
           <Row label={t('dlt_fld_center_weight')} htmlFor="gt-cweight"><NumField id="gt-cweight" value={draft.centerWeightMm / 1000} quantity="smallLength" onCommit={(v) => set({ centerWeightMm: v * 1000 })} /></Row>
           <Row label={t('dlt_fld_center_pattern')} htmlFor="gt-cpattern">
             <select id="gt-cpattern" className="select" value={draft.centerPattern} onChange={(e) => set({ centerPattern: e.target.value as GridLinePattern })}>
-              {PATTERNS.map((s) => <option key={s} value={s}>{PATTERN_LABEL[s]}</option>)}
+              {PATTERNS.map((s) => <option key={s} value={s}>{t(PATTERN_LABEL[s])}</option>)}
             </select>
           </Row>
           <CorField id="gt-ccolor" label={t('dlt_fld_center_color')} cor={draft.centerColor} onChange={(c) => set({ centerColor: c })} />

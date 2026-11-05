@@ -1,12 +1,24 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { editor, useProject } from '../editor/controller.ts';
 import { exportIfc, exportPdf, nextTheme } from '../editor/fileActions.ts';
-import { useI18n, useT } from '../editor/i18n.ts';
+import { useI18n, useT, type Lang } from '../editor/i18n.ts';
 import { importIfcFile, resumoImportacao, type ResumoImportacao } from '../editor/ifcImport.ts';
 import { useUi } from '../editor/state.ts';
 import { openPublish } from './dialogs/PublishDialog.tsx';
+import { carregarBiblioteca, useBiblioteca } from '../editor/biblioteca/aoVivo.ts';
 
-type Section = 'export' | 'info' | 'options';
+type Section = 'export' | 'info' | 'options' | 'abrir';
+
+/** Idiomas no seletor do menu Arquivo, com o nome nativo de cada um. */
+const LANG_OPTIONS: ReadonlyArray<readonly [Lang, string]> = [
+  ['pt', 'Português'],
+  ['en', 'English'],
+  ['es', 'Español'],
+  ['de', 'Deutsch'],
+  ['fr', 'Français'],
+  ['it', 'Italiano'],
+  ['pl', 'Polski'],
+];
 
 /**
  * Menu Arquivo (aba azul da faixa e botão "R" da barra de título): Novo, Abrir, Importar IFC, Salvar, Exportar,
@@ -24,6 +36,18 @@ export function FileMenu(): ReactElement | null {
   const [resumo, setResumo] = useState<(ResumoImportacao & { nome: string }) | null>(null);
   const [erroIfc, setErroIfc] = useState<string | null>(null);
   const close = (): void => useUi.setState({ fileMenu: false });
+  // Recentes = os projetos da pasta, do mais novo para o mais antigo; os 5 primeiros cabem na faixa.
+  const biblioteca = useBiblioteca();
+  const recentes = (biblioteca?.projetos ?? []).slice(0, 5);
+  const abrirRecente = async (pasta: string): Promise<void> => {
+    close();
+    const r = await editor.abrirDaBiblioteca(pasta);
+    if (r.ok) useUi.setState({ tela: 'editor', fileMenu: false });
+  };
+
+  useEffect(() => {
+    if (open) void carregarBiblioteca();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -92,10 +116,12 @@ export function FileMenu(): ReactElement | null {
         <input ref={ifcRef} id="file-ifc" type="file" accept=".ifc" hidden onChange={(e) => { void importarIfc(e.target.files?.[0]); e.target.value = ''; }} />
         <nav className="fm-list">
           {item(t('btn_new'), () => go(() => useUi.setState({ dialog: 'start' })))}
-          {item(t('btn_open'), () => go(() => document.getElementById('file-open')?.click()))}
+          {item(t('btn_open'), () => setSection('abrir'), { on: section === 'abrir', arrow: true })}
           {item(t('shc_file_import_ifc'), () => ifcRef.current?.click(), { title: t('shc_file_import_ifc_tip') })}
           {item(t('shc_file_import_cad'), () => go(() => useUi.setState({ dialog: 'importCad' })), { title: t('shc_file_import_cad_tip') })}
           {item(t('btn_save'), () => go(() => void editor.save()), { title: 'Ctrl+S' })}
+          {item(t('bib_save_as'), () => go(() => void editor.salvarComo()))}
+          {item(t('bib_back_home'), () => go(() => useUi.setState({ tela: 'home' })))}
           <hr />
           {item(t('shc_file_export'), () => setSection('export'), { on: section === 'export', arrow: true })}
           {item(t('shc_file_project_info'), () => setSection('info'), { on: section === 'info', arrow: true })}
@@ -113,6 +139,31 @@ export function FileMenu(): ReactElement | null {
             </div>
           )}
           {erroIfc && <p className="fm-hint" role="status">{t('shc_file_import_failed', { msg: erroIfc })}</p>}
+          {section === 'abrir' && (
+            <>
+              <h3>{t('bib_open_title')}</h3>
+              {recentes.length === 0 ? (
+                <p className="fm-hint">{biblioteca ? t('bib_recent_empty') : t('bib_unsupported')}</p>
+              ) : (
+                <div className="fm-abrir">
+                  {recentes.map((p) => (
+                    <button key={p.pasta} className="fm-abrir-card" title={p.nome} onClick={() => go(() => void abrirRecente(p.pasta))}>
+                      <span className="fm-abrir-thumb">
+                        {p.miniatura ? <img src={p.miniatura} alt="" /> : <span className="fm-recent-none" />}
+                      </span>
+                      <span className="fm-abrir-nome">{p.nome}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="fm-cards" style={{ marginTop: 10 }}>
+                {card(t('bib_choose_file'), t('bib_open_sub'), async () => {
+                  close();
+                  document.getElementById('file-open')?.click();
+                })}
+              </div>
+            </>
+          )}
           {section === 'export' && (
             <>
               <h3>{t('shc_file_export')}</h3>
@@ -145,10 +196,16 @@ export function FileMenu(): ReactElement | null {
               <h3>{t('shc_file_options')}</h3>
               <div className="fm-row">
                 <span>{t('shc_file_language')}</span>
-                <span className="seg">
-                  <button className={lang === 'pt' ? 'on' : ''} onClick={() => setLang('pt')}>Português</button>
-                  <button className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>English</button>
-                </span>
+                <select
+                  className="select fm-lang"
+                  aria-label={t('shc_file_language')}
+                  value={lang}
+                  onChange={(e) => setLang(e.target.value as Lang)}
+                >
+                  {LANG_OPTIONS.map(([code, nome]) => (
+                    <option key={code} value={code}>{nome}</option>
+                  ))}
+                </select>
               </div>
               <div className="fm-row">
                 <span>{t('tip_theme')}</span>
@@ -162,6 +219,12 @@ export function FileMenu(): ReactElement | null {
                 <span>{t('shc_file_experiments')}</span>
                 <button className="btn" onClick={() => go(() => useUi.setState({ dialog: 'experimentos', dialogArg: null }))}>
                   {t('shc_file_geometry_kernel')}
+                </button>
+              </div>
+              <div className="fm-row">
+                <span>{t('shc_file_about')}</span>
+                <button className="btn" onClick={() => go(() => useUi.setState({ dialog: 'about', dialogArg: null }))}>
+                  {t('shc_file_about_open')}
                 </button>
               </div>
             </>

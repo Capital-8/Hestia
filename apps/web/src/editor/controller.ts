@@ -34,7 +34,7 @@ import { consumirManterCameraDaPrevia, guardarOrigemDoColar, limparOrigemDoColar
 import { startCreateSimilar } from './createSimilar.ts';
 import { desfazerOuRefazer } from './historyStatus.ts';
 import { keptFloorType } from './typeActions.ts'; import { keptSlabType } from './slabTypeActions.ts'; import { PerimeterMode } from './perimeterMode.ts';
-import { AUTOSAVE_KEY, safeGet, safeSet } from './storage.ts';
+import { AUTOSAVE_KEY, AUTOSAVE_SALVO_KEY, safeGet, safeSet } from './storage.ts';
 import { t, useI18n } from './i18n.ts';
 import { pedirConfirmacaoHostedLoss } from './hostedLossPrompt.ts';
 import { pedirAlerta } from './alertaPrompt.ts';
@@ -48,6 +48,9 @@ import { deleteSectionAnnotationsIn, sectionAnnotationIdsIn } from './sectionHan
 import { hideSelectedCategoryInView, hideSelectionInView, resetAllTemporary, resetTemporaryHidden, temporaryHideSelection, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideSelectedCategoryInView, unhideSelectionInView, visibilityOf } from './viewVisibility.ts';
 import { deleteViewAction, renameViewAction, updateViewAction } from './sectionViewActions.ts';
 import { entregarArquivo } from './entregarArquivo.ts';
+import { bibliotecaDoAmbiente, type Biblioteca } from './biblioteca/biblioteca.ts';
+import { publicarBiblioteca } from './biblioteca/aoVivo.ts';
+import { capturarMiniatura3d } from './miniatura.ts';
 import { safeFilename } from './nomeArquivo.ts';
 import { FluxoEdicao } from './fluxoEdicao.ts';
 import { hiddenCreationWarning } from './profileWarning.ts';
@@ -407,6 +410,17 @@ export class Editor {
 
   /** Resolução do nível já pronta em segundo plano (ou do cache de geometria), sem calcular. Para a montagem da 3D. */
   resolucaoPronta(levelId: Id): ResolvedLevel | null { return this.fluxo.nivelPronto(levelId); }
+
+  /** Sobe a cada carga de projeto (novo ou aberto): quem guarda estado derivado do projeto anterior o descarta. */
+  geracaoDoProjeto = 0;
+
+  /** Pasta do projeto aberto na biblioteca. `null`: arquivo avulso, projeto novo ou ambiente sem pastas. */
+  private pastaDaBiblioteca: string | null = null;
+
+  /** Pasta do projeto na biblioteca (a tela inicial e o título mostram isto), ou `null`. */
+  get pastaNaBiblioteca(): string | null {
+    return this.pastaDaBiblioteca;
+  }
 
   /** Libera os caches de um nível (viewport da planta e resolução). Chamado ao fechar uma aba de planta. */
   releaseLevel(levelId: Id): void {
@@ -1107,7 +1121,12 @@ export class Editor {
     this.limparArrasteRotulo();
     this.limparVisibilidadeBuffer();
     resetAllTemporary();
+    this.geracaoDoProjeto++;
+    // Projeto avulso ou recém-carregado: o vínculo com uma pasta da biblioteca só volta quando ele é aberto/salvo lá.
+    this.pastaDaBiblioteca = null;
     this.perimetro.encerrar(); this.store.load(p);
+    // Todo projeto aberto fica no autosave desde o primeiro instante: é o que o F5 reabre quando ele não está numa pasta.
+    safeSet(AUTOSAVE_KEY, JSON.stringify(p, null, 1));
     this.fileName = name;
     this.levels.clear(); const iniciais = this.fluxo.abrir(p, this.store.version);
     if (restaurado) for (const [id, valor] of restaurado.semeados) this.fluxo.resolucao.semear(id, valor);
@@ -1131,16 +1150,39 @@ export class Editor {
   }
 
   /**
-   * Salva o projeto. Dentro de um artefato do claude.ai o download direto é bloqueado, então usa a
-   * capacidade `downloads` (o viewer confirma). Fora dele, baixa o arquivo; em último caso copia o JSON.
+   * Salva o projeto **na pasta de projetos**, atualizando o `projeto.hestia.json` dele — nunca baixando arquivo.
+   *
+   * Sem pasta escolhida (primeira vez, ou permissão pendente), abre o diálogo que explica o motivo e deixa o usuário
+   * escolher a pasta ou baixar só este projeto. Download direto só existe onde o ambiente não tem acesso a pastas
+   * (navegadores sem File System Access API, artefato do claude.ai) — aí o comportamento antigo continua.
    */
   async save(): Promise<void> {
+    const biblioteca = bibliotecaDoAmbiente();
+    if (!biblioteca) {
+      await this.baixarProjeto();
+      return;
+    }
+    if (!biblioteca.pronta) {
+      useUi.setState({ dialog: 'salvarSemPasta', dialogArg: null });
+      return;
+    }
+    await this.salvarNaBiblioteca(biblioteca, this.pastaDaBiblioteca);
+  }
+
+  /** Baixa o projeto como `.hestia.json` (o caminho de quem não tem pasta, ou a escolha do diálogo de salvar). */
+  async baixarProjeto(): Promise<void> {
+    await this.baixarArquivo();
+  }
+
+  /** Caminho de quem não tem pasta (navegador sem acesso a arquivos): baixa o `.hestia.json`. */
+  private async baixarArquivo(): Promise<void> {
     const text = JSON.stringify(this.project, null, 1);
     const name = safeFilename(`${this.project.name.trim() || 'projeto'}.hestia.json`);
     safeSet(AUTOSAVE_KEY, text);
     const entrega = await entregarArquivo({ nome: name, conteudo: text });
     if (entrega === 'salvo') {
       this.store.markSaved();
+      safeSet(AUTOSAVE_SALVO_KEY, text);
       useUi.setState({ status: { key: 'eds_msg_saved_as', args: { name } } });
       return;
     }
@@ -1150,6 +1192,7 @@ export class Editor {
     }
     const downloaded = entrega === 'baixado';
     this.store.markSaved();
+    safeSet(AUTOSAVE_SALVO_KEY, text);
     try {
       await navigator.clipboard.writeText(text);
       useUi.setState({ status: downloaded ? { key: 'eds_msg_file_generated_copied', args: { name } } : { key: 'eds_msg_json_copied' } });
@@ -1158,9 +1201,85 @@ export class Editor {
     }
   }
 
+  /**
+   * "Salvar como" na biblioteca: cria uma pasta nova com o nome do projeto (com sufixo se repetir) e passa a salvar nela.
+   * Sem acesso a pastas no ambiente, cai no salvamento por arquivo.
+   */
+  async salvarComo(): Promise<boolean> {
+    const biblioteca = bibliotecaDoAmbiente();
+    if (!biblioteca) {
+      await this.baixarArquivo();
+      return false;
+    }
+    if (!biblioteca.pronta) {
+      // Mesmo diálogo do Ctrl+S: primeiro explica por que precisa da pasta.
+      useUi.setState({ dialog: 'salvarSemPasta', dialogArg: null });
+      return false;
+    }
+    await this.salvarNaBiblioteca(biblioteca, null);
+    return true;
+  }
+
+  /** Abre um projeto da pasta da biblioteca e passa a salvá-lo nela. */
+  async abrirDaBiblioteca(pasta: string): Promise<{ ok: true } | { ok: false; error: string }> {
+    const biblioteca = bibliotecaDoAmbiente();
+    if (!biblioteca?.pronta) return { ok: false, error: t(useI18n.getState().lang, 'bib_save_no_folder') };
+    try {
+      const { texto } = await biblioteca.abrirProjeto(pasta);
+      this.load(migrateProject(JSON.parse(texto)), pasta);
+      // O documento lido É o último salvo: o autosave fica igual (sem oferecer "recuperar" à toa) e o F5 volta nele.
+      safeSet(AUTOSAVE_KEY, texto);
+      safeSet(AUTOSAVE_SALVO_KEY, texto);
+      this.pastaDaBiblioteca = pasta;
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : t(useI18n.getState().lang, 'bib_open_error') };
+    }
+  }
+
+  /**
+   * Grava na pasta do projeto (ou numa nova, quando `pasta` é `null`) com a miniatura da vista 3D dentro do documento.
+   * A miniatura é refeita a cada salvamento; se a GPU não deixar desenhar, o projeto é salvo sem ela.
+   */
+  private async salvarNaBiblioteca(biblioteca: Biblioteca, pasta: string | null): Promise<void> {
+    const lang = useI18n.getState().lang;
+    const miniatura = capturarMiniatura3d();
+    const documento: Project = miniatura ? { ...this.project, thumbnail: miniatura } : this.project;
+    const conteudo = JSON.stringify(documento, null, 1);
+    safeSet(AUTOSAVE_KEY, conteudo);
+    try {
+      const { projeto } = await biblioteca.salvar({ pasta, nome: this.project.name.trim() || t(lang, 'bib_untitled'), conteudo, miniatura });
+      this.pastaDaBiblioteca = projeto.pasta;
+      // A tela inicial e o menu Arquivo mostram a mesma lista: publica a entrada nova.
+      publicarBiblioteca(biblioteca.estado);
+      safeSet(AUTOSAVE_SALVO_KEY, conteudo);
+      this.store.markSaved();
+      useUi.setState({ status: { key: pasta === null ? 'bib_saved_new' : 'bib_saved', args: { name: projeto.pasta } } });
+    } catch {
+      useUi.setState({ status: { key: 'bib_save_error' } });
+    }
+  }
+
   private scheduleAutosave(): void {
     if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
     this.autosaveTimer = setTimeout(() => safeSet(AUTOSAVE_KEY, JSON.stringify(this.project, null, 1)), 800);
+  }
+
+  /**
+   * Há trabalho NÃO salvo guardado no autosave? (a tela inicial só oferece "recuperar" neste caso)
+   *
+   * Compara o autosave com a cópia do último documento salvo: depois de um Ctrl+S eles são iguais e não há o que
+   * recuperar. Projeto vazio (só níveis padrão) também não conta.
+   */
+  temProjetoNaoSalvo(): boolean {
+    const raw = safeGet(AUTOSAVE_KEY);
+    if (!raw || raw === safeGet(AUTOSAVE_SALVO_KEY)) return false;
+    try {
+      const p = JSON.parse(raw) as { nextOrder?: unknown };
+      return typeof p.nextOrder === 'number' && p.nextOrder > 1;
+    } catch {
+      return false;
+    }
   }
 
   restoreAutosave(): boolean {

@@ -1,5 +1,5 @@
 import { Fragment, useState, type ReactElement } from 'react';
-import { formatQuantity, FUNCTION_LABEL, roofTypeThickness, type Layer, type LayerFunction, type RoofType } from '@hestia/model';
+import { formatQuantity, functionLabels, FUNCTION_LABEL, roofTypeThickness, type Layer, type LayerFunction, type RoofType } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
 import { duplicateRoofType, roofTypeDeleteBlock, roofTypeError, roofTypeUsage, tryDeleteRoofType } from '../../editor/roofTypeActions.ts';
@@ -18,7 +18,8 @@ const FUNCTIONS = Object.keys(FUNCTION_LABEL) as LayerFunction[];
 /** Editor de tipo de telhado: camadas do topo para baixo (mesmo editor de camadas da laje; espessura vertical). */
 export function RoofTypeDialog({ typeId }: { typeId: string }): ReactElement | null {
   const units = useUnits();
-  const { t } = useT();
+  const { t, lang } = useT();
+  const fnLabels = functionLabels(lang);
   const p = useProject();
   const src = p.roofTypes[typeId];
   const [draft, setDraft] = useState<RoofType | null>(src ? structuredClone(src) : null);
@@ -59,11 +60,11 @@ export function RoofTypeDialog({ typeId }: { typeId: string }): ReactElement | n
   /** Grava como o OK, mas o diálogo segue aberto com o rascunho. */
   const apply = (): void => {
     if (error) return;
-    editor.store.exec({ type: 'upsertRoofType', roofType: draft }, 'Editar tipo de telhado');
+    editor.store.exec({ type: 'upsertRoofType', roofType: draft }, 'undo_edit_roof_type');
   };
   const ok = (): void => {
     if (error) return;
-    editor.store.exec({ type: 'upsertRoofType', roofType: draft }, 'Editar tipo de telhado');
+    editor.store.exec({ type: 'upsertRoofType', roofType: draft }, 'undo_edit_roof_type');
     close();
   };
   const duplicate = (): void => {
@@ -120,7 +121,7 @@ export function RoofTypeDialog({ typeId }: { typeId: string }): ReactElement | n
                         <td className="mono">{i + 1}</td>
                         <td>
                           <select className="select" aria-label={t('dlt_a11y_layer_function', { n: i + 1 })} value={l.function} onChange={(e) => setLayer(i, { function: e.target.value as LayerFunction })}>
-                            {FUNCTIONS.map((f) => <option key={f} value={f}>{FUNCTION_LABEL[f]}</option>)}
+                            {FUNCTIONS.map((f) => <option key={f} value={f}>{fnLabels[f]}</option>)}
                           </select>
                         </td>
                         <td>

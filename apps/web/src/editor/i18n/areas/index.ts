@@ -1,4 +1,5 @@
 /* Gerado por reports/i18n/unificar-areas.mjs — não editar à mão. */
+import { PT_BIBLIOTECA, EN_BIBLIOTECA } from './biblioteca.ts';
 import { PT_CANVAS_NAV, EN_CANVAS_NAV } from './canvas-nav.ts';
 import { PT_CANVAS_SHEET, EN_CANVAS_SHEET } from './canvas-sheet.ts';
 import { PT_CANVAS_VIEWPORT, EN_CANVAS_VIEWPORT } from './canvas-viewport.ts';
@@ -40,6 +41,7 @@ import { PT_STAIR, EN_STAIR } from './stair.ts';
 import { PT_TOOLS, EN_TOOLS } from './tools.ts';
 
 export const PT_ALL = {
+  ...PT_BIBLIOTECA,
   ...PT_CANVAS,
   ...PT_CANVAS_NAV,
   ...PT_CANVAS_SHEET,
@@ -82,6 +84,7 @@ export const PT_ALL = {
 } as const;
 
 export const EN_ALL: Record<keyof typeof PT_ALL, string> = {
+  ...EN_BIBLIOTECA,
   ...EN_CANVAS,
   ...EN_CANVAS_NAV,
   ...EN_CANVAS_SHEET,

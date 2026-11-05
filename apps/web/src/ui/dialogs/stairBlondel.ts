@@ -1,4 +1,5 @@
 import type { StairType } from '@hestia/model';
+import type { Lang } from '../../editor/i18n.ts';
 import { computeStairCalc } from './stairTypeCalc.ts';
 
 /** Campos do tipo que entram na conta ao vivo do cartão de Blondel. */
@@ -28,13 +29,13 @@ export interface BlondelLive {
 export const round01cm = (m: number): number => Math.round(m * 1000) / 1000;
 
 /** Fator da fórmula como texto: inteiros sem casas, senão até 2 casas sem zeros à direita. */
-function factorText(v: number, lang: 'pt' | 'en'): string {
+function factorText(v: number, lang: Lang): string {
   const s = Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/0+$/, '').replace(/\.$/, ''); // units-ok: valores da fórmula de Blondel no cartão técnico
   return lang === 'en' ? s : s.replace('.', ','); // units-ok: separador decimal do cartão de Blondel
 }
 
 /** Fórmula do tipo com os fatores simplificados: a=2/b=1 ⇒ "2·R + T"; pt usa vírgula decimal. */
-export function formulaText(a: number, b: number, lang: 'pt' | 'en'): string {
+export function formulaText(a: number, b: number, lang: Lang): string {
   const term = (f: number, sym: 'R' | 'T'): string => {
     const s = factorText(f, lang);
     return s === '1' ? sym : `${s}·${sym}`;

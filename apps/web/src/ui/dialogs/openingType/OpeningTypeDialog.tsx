@@ -17,7 +17,7 @@ import {
 import { openingChecks } from '@hestia/engine';
 import { editor, useProject } from '../../../editor/controller.ts';
 import { useUi } from '../../../editor/state.ts';
-import { useT } from '../../../editor/i18n.ts';
+import { useT, type Lang } from '../../../editor/i18n.ts';
 import { openingFamilyName } from '../../typeFamilies.ts';
 import {
   applyFamily,
@@ -56,11 +56,11 @@ function coreThicknessFor(p: Project, typeId: Id): number {
 }
 
 /** Contagem de tipos do projeto por família da categoria. */
-function familyCounts(p: Project, kind: OpeningType['kind']): Record<string, number> {
+function familyCounts(p: Project, kind: OpeningType['kind'], lang: Lang): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const t of Object.values(p.openingTypes)) {
     if (t.kind !== kind) continue;
-    const id = openingFamilyOf(t)?.id;
+    const id = openingFamilyOf(t, lang)?.id;
     if (id) counts[id] = (counts[id] ?? 0) + 1;
   }
   return counts;
@@ -93,12 +93,12 @@ export function OpeningTypeDialog({ typeId }: { typeId: string }): ReactElement 
   }
   if (!d) return null;
   const used = Object.values(p.elements).filter((e) => (e.kind === 'door' || e.kind === 'window') && e.typeId === d.id).length;
-  const families = familyOptionsFor(d.kind);
-  const family = openingFamilyOf(d);
+  const families = familyOptionsFor(d.kind, lang);
+  const family = openingFamilyOf(d, lang);
   // Folhas aceitas pela família escolhida; sem família válida (dado fora do contrato) mostra só a contagem atual.
   const leaves = family ? leavesChoicesFor(family, lang) : [{ value: d.leaves, label: leavesLabel(d.leaves, lang) }];
   const favorite = openingFavorites(p).includes(d.id);
-  const counts = familyCounts(p, d.kind);
+  const counts = familyCounts(p, d.kind, lang);
   const variants = openingVariants(d.kind);
   const checks = openingChecks(d, coreThicknessFor(p, d.id), unitsOf(p));
   /** Grava pelo comando; a mensagem de erro do modelo aparece no diálogo, que continua aberto. */

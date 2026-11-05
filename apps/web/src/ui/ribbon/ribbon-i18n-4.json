@@ -1,0 +1,714 @@
+[
+  {
+    "pt": "Carregar como grupo",
+    "es": "Cargar como grupo",
+    "de": "Als Gruppe laden",
+    "fr": "Charger comme groupe",
+    "it": "Carica come gruppo",
+    "pl": "Załaduj jako grupę"
+  },
+  {
+    "pt": "Estrutura",
+    "es": "Estructura",
+    "de": "Tragwerk",
+    "fr": "Structure",
+    "it": "Struttura",
+    "pl": "Konstrukcja"
+  },
+  {
+    "pt": "Conexão",
+    "es": "Conexión",
+    "de": "Verbindung",
+    "fr": "Connexion",
+    "it": "Connessione",
+    "pl": "Połączenie"
+  },
+  {
+    "pt": "Viga",
+    "es": "Viga",
+    "de": "Träger",
+    "fr": "Poutre",
+    "it": "Trave",
+    "pl": "Belka"
+  },
+  {
+    "pt": "Contraventamento",
+    "es": "Arriostramiento",
+    "de": "Aussteifung",
+    "fr": "Contreventement",
+    "it": "Controvento",
+    "pl": "Stężenie"
+  },
+  {
+    "pt": "Sistema de vigas",
+    "es": "Sistema de vigas",
+    "de": "Trägersystem",
+    "fr": "Système de poutres",
+    "it": "Sistema di travi",
+    "pl": "System belek"
+  },
+  {
+    "pt": "Treliça",
+    "es": "Cercha",
+    "de": "Fachwerk",
+    "fr": "Ferme",
+    "it": "Capriata",
+    "pl": "Kratownica"
+  },
+  {
+    "pt": "Emenda",
+    "es": "Empalme",
+    "de": "Stoß",
+    "fr": "Raccord",
+    "it": "Giunzione",
+    "pl": "Styk"
+  },
+  {
+    "pt": "Fundação",
+    "es": "Cimentación",
+    "de": "Fundament",
+    "fr": "Fondation",
+    "it": "Fondazione",
+    "pl": "Fundament"
+  },
+  {
+    "pt": "Isolada",
+    "es": "Aislada",
+    "de": "Einzeln",
+    "fr": "Isolée",
+    "it": "Isolata",
+    "pl": "Izolowany"
+  },
+  {
+    "pt": "Laje",
+    "es": "Losa",
+    "de": "Decke",
+    "fr": "Dalle",
+    "it": "Soletta",
+    "pl": "Strop"
+  },
+  {
+    "pt": "Reforço",
+    "es": "Refuerzo",
+    "de": "Verstärkung",
+    "fr": "Renfort",
+    "it": "Rinforzo",
+    "pl": "Wzmocnienie"
+  },
+  {
+    "pt": "Armadura",
+    "es": "Armadura",
+    "de": "Bewehrung",
+    "fr": "Armature",
+    "it": "Armatura",
+    "pl": "Zbrojenie"
+  },
+  {
+    "pt": "Cobrimento",
+    "es": "Recubrimiento",
+    "de": "Betondeckung",
+    "fr": "Enrobage",
+    "it": "Copriferro",
+    "pl": "Otulina"
+  },
+  {
+    "pt": "Área",
+    "es": "Área",
+    "de": "Fläche",
+    "fr": "Surface",
+    "it": "Area",
+    "pl": "Powierzchnia"
+  },
+  {
+    "pt": "Malha",
+    "es": "Malla",
+    "de": "Matte",
+    "fr": "Treillis",
+    "it": "Rete",
+    "pl": "Siatka"
+  },
+  {
+    "pt": "Modelo analítico",
+    "es": "Modelo analítico",
+    "de": "Analysemodell",
+    "fr": "Modèle analytique",
+    "it": "Modello analitico",
+    "pl": "Model analityczny"
+  },
+  {
+    "pt": "Cargas",
+    "es": "Cargas",
+    "de": "Lasten",
+    "fr": "Charges",
+    "it": "Carichi",
+    "pl": "Obciążenia"
+  },
+  {
+    "pt": "Condições de contorno",
+    "es": "Condiciones de contorno",
+    "de": "Randbedingungen",
+    "fr": "Conditions aux limites",
+    "it": "Condizioni al contorno",
+    "pl": "Warunki brzegowe"
+  },
+  {
+    "pt": "Nível",
+    "es": "Nivel",
+    "de": "Ebene",
+    "fr": "Niveau",
+    "it": "Livello",
+    "pl": "Poziom"
+  },
+  {
+    "pt": "Aço",
+    "es": "Acero",
+    "de": "Stahl",
+    "fr": "Acier",
+    "it": "Acciaio",
+    "pl": "Stal"
+  },
+  {
+    "pt": "Conexões",
+    "es": "Conexiones",
+    "de": "Verbindungen",
+    "fr": "Connexions",
+    "it": "Connessioni",
+    "pl": "Połączenia"
+  },
+  {
+    "pt": "Chapa",
+    "es": "Placa",
+    "de": "Blech",
+    "fr": "Tôle",
+    "it": "Lamiera",
+    "pl": "Blacha"
+  },
+  {
+    "pt": "Ancoragem",
+    "es": "Anclaje",
+    "de": "Verankerung",
+    "fr": "Ancrage",
+    "it": "Ancoraggio",
+    "pl": "Zakotwienie"
+  },
+  {
+    "pt": "Elementos de aço",
+    "es": "Elementos de acero",
+    "de": "Stahlelemente",
+    "fr": "Éléments en acier",
+    "it": "Elementi in acciaio",
+    "pl": "Elementy stalowe"
+  },
+  {
+    "pt": "Parafuso",
+    "es": "Perno",
+    "de": "Bolzen",
+    "fr": "Boulon",
+    "it": "Bullone",
+    "pl": "Śruba"
+  },
+  {
+    "pt": "Solda",
+    "es": "Soldadura",
+    "de": "Schweißnaht",
+    "fr": "Soudure",
+    "it": "Saldatura",
+    "pl": "Spoina"
+  },
+  {
+    "pt": "Pino",
+    "es": "Espárrago",
+    "de": "Kopfbolzen",
+    "fr": "Goujon",
+    "it": "Prigioniero",
+    "pl": "Kołek"
+  },
+  {
+    "pt": "Entalhe",
+    "es": "Entalladura",
+    "de": "Ausklinkung",
+    "fr": "Échancrure",
+    "it": "Intaglio",
+    "pl": "Podcięcie"
+  },
+  {
+    "pt": "Corte",
+    "es": "Corte",
+    "de": "Schnitt",
+    "fr": "Coupe",
+    "it": "Taglio",
+    "pl": "Cięcie"
+  },
+  {
+    "pt": "Chanfro",
+    "es": "Chaflán",
+    "de": "Fase",
+    "fr": "Chanfrein",
+    "it": "Smusso",
+    "pl": "Fazowanie"
+  },
+  {
+    "pt": "Pré-moldado",
+    "es": "Prefabricado",
+    "de": "Fertigteil",
+    "fr": "Préfabriqué",
+    "it": "Prefabbricato",
+    "pl": "Prefabrykat"
+  },
+  {
+    "pt": "Peças",
+    "es": "Piezas",
+    "de": "Teile",
+    "fr": "Pièces",
+    "it": "Parti",
+    "pl": "Części"
+  },
+  {
+    "pt": "Painel",
+    "es": "Panel",
+    "de": "Paneel",
+    "fr": "Panneau",
+    "it": "Pannello",
+    "pl": "Panel"
+  },
+  {
+    "pt": "Divisão",
+    "es": "Dividir",
+    "de": "Teilen",
+    "fr": "Diviser",
+    "it": "Dividi",
+    "pl": "Podziel"
+  },
+  {
+    "pt": "Dividir peça",
+    "es": "Dividir pieza",
+    "de": "Teil teilen",
+    "fr": "Diviser la pièce",
+    "it": "Dividi parte",
+    "pl": "Podziel część"
+  },
+  {
+    "pt": "Juntas",
+    "es": "Juntas",
+    "de": "Fugen",
+    "fr": "Joints",
+    "it": "Giunti",
+    "pl": "Złącza"
+  },
+  {
+    "pt": "Sistemas",
+    "es": "Sistemas",
+    "de": "Systeme",
+    "fr": "Systèmes",
+    "it": "Sistemi",
+    "pl": "Systemy"
+  },
+  {
+    "pt": "HVAC",
+    "es": "HVAC",
+    "de": "HVAC",
+    "fr": "HVAC",
+    "it": "HVAC",
+    "pl": "HVAC"
+  },
+  {
+    "pt": "Duto",
+    "es": "Conducto",
+    "de": "Kanal",
+    "fr": "Gaine",
+    "it": "Condotto",
+    "pl": "Przewód"
+  },
+  {
+    "pt": "Tubo flexível",
+    "es": "Conducto flexible",
+    "de": "Flexibler Kanal",
+    "fr": "Gaine flexible",
+    "it": "Condotto flessibile",
+    "pl": "Przewód elastyczny"
+  },
+  {
+    "pt": "Difusor",
+    "es": "Boca de aire",
+    "de": "Luftauslass",
+    "fr": "Bouche d'air",
+    "it": "Bocchetta d'aria",
+    "pl": "Nawiewnik"
+  },
+  {
+    "pt": "Mecânico",
+    "es": "Mecánica",
+    "de": "Mechanik",
+    "fr": "Mécanique",
+    "it": "Meccanica",
+    "pl": "Mechanika"
+  },
+  {
+    "pt": "Equipamento",
+    "es": "Equipo",
+    "de": "Gerät",
+    "fr": "Équipement",
+    "it": "Apparecchiatura",
+    "pl": "Wyposażenie"
+  },
+  {
+    "pt": "Hidráulica e tubulação",
+    "es": "Fontanería y tuberías",
+    "de": "Sanitär und Rohrleitungen",
+    "fr": "Plomberie et tuyauterie",
+    "it": "Idraulica e tubazioni",
+    "pl": "Hydraulika i instalacje rurowe"
+  },
+  {
+    "pt": "Tubo",
+    "es": "Tubería",
+    "de": "Rohr",
+    "fr": "Tuyau",
+    "it": "Tubo",
+    "pl": "Rura"
+  },
+  {
+    "pt": "Aparelho sanitário",
+    "es": "Aparato sanitario",
+    "de": "Sanitärarmatur",
+    "fr": "Appareil sanitaire",
+    "it": "Apparecchio sanitario",
+    "pl": "Urządzenie sanitarne"
+  },
+  {
+    "pt": "Elétrico",
+    "es": "Eléctrico",
+    "de": "Elektrotechnik",
+    "fr": "Électricité",
+    "it": "Elettrico",
+    "pl": "Elektryka"
+  },
+  {
+    "pt": "Eletroduto",
+    "es": "Tubería eléctrica",
+    "de": "Leerrohr",
+    "fr": "Conduit",
+    "it": "Tubazione",
+    "pl": "Rura osłonowa"
+  },
+  {
+    "pt": "Bandeja",
+    "es": "Bandeja portacables",
+    "de": "Kabeltrasse",
+    "fr": "Chemin de câbles",
+    "it": "Passerella portacavi",
+    "pl": "Koryto kablowe"
+  },
+  {
+    "pt": "Luminária",
+    "es": "Iluminación",
+    "de": "Beleuchtung",
+    "fr": "Éclairage",
+    "it": "Illuminazione",
+    "pl": "Oświetlenie"
+  },
+  {
+    "pt": "Analisar",
+    "es": "Analizar",
+    "de": "Analysieren",
+    "fr": "Analyser",
+    "it": "Analizza",
+    "pl": "Analizuj"
+  },
+  {
+    "pt": "Espaços e zonas",
+    "es": "Espacios y zonas",
+    "de": "Räume und Zonen",
+    "fr": "Espaces et zones",
+    "it": "Spazi e zone",
+    "pl": "Przestrzenie i strefy"
+  },
+  {
+    "pt": "Espaço",
+    "es": "Espacio",
+    "de": "Raum",
+    "fr": "Espace",
+    "it": "Spazio",
+    "pl": "Przestrzeń"
+  },
+  {
+    "pt": "Zona",
+    "es": "Zona",
+    "de": "Zone",
+    "fr": "Zone",
+    "it": "Zona",
+    "pl": "Strefa"
+  },
+  {
+    "pt": "Relatórios e tabelas",
+    "es": "Informes y tablas",
+    "de": "Berichte und Listen",
+    "fr": "Rapports et nomenclatures",
+    "it": "Report e abachi",
+    "pl": "Raporty i zestawienia"
+  },
+  {
+    "pt": "Relatório de carga",
+    "es": "Informe de cargas",
+    "de": "Lastbericht",
+    "fr": "Rapport de charges",
+    "it": "Report dei carichi",
+    "pl": "Raport obciążeń"
+  },
+  {
+    "pt": "Tabela de carga",
+    "es": "Tabla de cargas",
+    "de": "Lastliste",
+    "fr": "Nomenclature des charges",
+    "it": "Abaco dei carichi",
+    "pl": "Zestawienie obciążeń"
+  },
+  {
+    "pt": "Energia",
+    "es": "Energía",
+    "de": "Energie",
+    "fr": "Énergie",
+    "it": "Energia",
+    "pl": "Energia"
+  },
+  {
+    "pt": "Otimização de energia",
+    "es": "Optimización energética",
+    "de": "Energieoptimierung",
+    "fr": "Optimisation énergétique",
+    "it": "Ottimizzazione energetica",
+    "pl": "Optymalizacja energetyczna"
+  },
+  {
+    "pt": "Verificação",
+    "es": "Comprobación",
+    "de": "Prüfung",
+    "fr": "Vérification",
+    "it": "Verifica",
+    "pl": "Sprawdzenie"
+  },
+  {
+    "pt": "Verificar sistemas",
+    "es": "Comprobar sistemas",
+    "de": "Systeme prüfen",
+    "fr": "Vérifier les systèmes",
+    "it": "Verifica sistemi",
+    "pl": "Sprawdź systemy"
+  },
+  {
+    "pt": "Massa e terreno",
+    "es": "Masa y emplazamiento",
+    "de": "Massen und Gelände",
+    "fr": "Volumes et site",
+    "it": "Volumetria e sito",
+    "pl": "Bryły i teren"
+  },
+  {
+    "pt": "Modelo de massa",
+    "es": "Masa conceptual",
+    "de": "Konzeptmasse",
+    "fr": "Masse conceptuelle",
+    "it": "Massa concettuale",
+    "pl": "Bryła koncepcyjna"
+  },
+  {
+    "pt": "Mostrar massa",
+    "es": "Mostrar masa",
+    "de": "Masse anzeigen",
+    "fr": "Afficher la masse",
+    "it": "Mostra massa",
+    "pl": "Pokaż bryłę"
+  },
+  {
+    "pt": "Massa no local",
+    "es": "Masa in situ",
+    "de": "Masse vor Ort",
+    "fr": "Masse sur place",
+    "it": "Massa sul posto",
+    "pl": "Bryła w miejscu"
+  },
+  {
+    "pt": "Colocar massa",
+    "es": "Colocar masa",
+    "de": "Masse platzieren",
+    "fr": "Placer la masse",
+    "it": "Posiziona massa",
+    "pl": "Umieść bryłę"
+  },
+  {
+    "pt": "Modelo por massa",
+    "es": "Modelo por cara",
+    "de": "Modellierung nach Fläche",
+    "fr": "Modèle par face",
+    "it": "Modello per faccia",
+    "pl": "Model według powierzchni"
+  },
+  {
+    "pt": "Parede por face",
+    "es": "Muro por cara",
+    "de": "Wand über Fläche",
+    "fr": "Mur par face",
+    "it": "Parete per faccia",
+    "pl": "Ściana po powierzchni"
+  },
+  {
+    "pt": "Forro por face",
+    "es": "Techo por cara",
+    "de": "Decke über Fläche",
+    "fr": "Plafond par face",
+    "it": "Soffitto per faccia",
+    "pl": "Sufit po powierzchni"
+  },
+  {
+    "pt": "Terreno",
+    "es": "Emplazamiento",
+    "de": "Gelände",
+    "fr": "Site",
+    "it": "Sito",
+    "pl": "Teren"
+  },
+  {
+    "pt": "Subdivisão",
+    "es": "Subregión",
+    "de": "Teilbereich",
+    "fr": "Sous-région",
+    "it": "Sottoregione",
+    "pl": "Podregion"
+  },
+  {
+    "pt": "Plataforma",
+    "es": "Plataforma de edificio",
+    "de": "Gebäudeplatte",
+    "fr": "Plate-forme de bâtiment",
+    "it": "Piattaforma edificio",
+    "pl": "Platforma budynku"
+  },
+  {
+    "pt": "Componente de terreno",
+    "es": "Componente de emplazamiento",
+    "de": "Geländekomponente",
+    "fr": "Composant de site",
+    "it": "Componente del sito",
+    "pl": "Komponent terenu"
+  },
+  {
+    "pt": "Linhas de propriedade",
+    "es": "Líneas de propiedad",
+    "de": "Grundstücksgrenzen",
+    "fr": "Limites de propriété",
+    "it": "Linee di proprietà",
+    "pl": "Linie własności"
+  },
+  {
+    "pt": "Colaborar",
+    "es": "Colaborar",
+    "de": "Zusammenarbeiten",
+    "fr": "Collaborer",
+    "it": "Collabora",
+    "pl": "Współpracuj"
+  },
+  {
+    "pt": "Comunicar",
+    "es": "Comunicar",
+    "de": "Kommunizieren",
+    "fr": "Communiquer",
+    "it": "Comunica",
+    "pl": "Komunikuj"
+  },
+  {
+    "pt": "Gerenciar colaboração",
+    "es": "Gestionar colaboración",
+    "de": "Zusammenarbeit verwalten",
+    "fr": "Gérer la collaboration",
+    "it": "Gestisci collaborazione",
+    "pl": "Zarządzaj współpracą"
+  },
+  {
+    "pt": "Conjuntos de trabalho",
+    "es": "Conjuntos de trabajo",
+    "de": "Arbeitssätze",
+    "fr": "Sous-projets",
+    "it": "Set di lavoro",
+    "pl": "Zestawy robocze"
+  },
+  {
+    "pt": "Opções de design",
+    "es": "Opciones de diseño",
+    "de": "Entwurfsoptionen",
+    "fr": "Options de conception",
+    "it": "Opzioni di progetto",
+    "pl": "Opcje projektu"
+  },
+  {
+    "pt": "Coordenar",
+    "es": "Coordinar",
+    "de": "Koordinieren",
+    "fr": "Coordonner",
+    "it": "Coordina",
+    "pl": "Koordynuj"
+  },
+  {
+    "pt": "Copiar/monitorar",
+    "es": "Copiar/Supervisar",
+    "de": "Kopieren/Überwachen",
+    "fr": "Copier/Surveiller",
+    "it": "Copia/Monitora",
+    "pl": "Kopiuj/Monitoruj"
+  },
+  {
+    "pt": "Verificar interferências",
+    "es": "Comprobar interferencias",
+    "de": "Kollisionen prüfen",
+    "fr": "Vérifier les interférences",
+    "it": "Verifica interferenze",
+    "pl": "Sprawdź kolizje"
+  },
+  {
+    "pt": "Suplementos",
+    "es": "Complementos",
+    "de": "Zusatzmodule",
+    "fr": "Compléments",
+    "it": "Componenti aggiuntivi",
+    "pl": "Dodatki"
+  },
+  {
+    "pt": "Ferramentas externas",
+    "es": "Herramientas externas",
+    "de": "Externe Werkzeuge",
+    "fr": "Outils externes",
+    "it": "Strumenti esterni",
+    "pl": "Narzędzia zewnętrzne"
+  },
+  {
+    "pt": "Modificar",
+    "es": "Modificar",
+    "de": "Ändern",
+    "fr": "Modifier",
+    "it": "Modifica",
+    "pl": "Modyfikuj"
+  },
+  {
+    "pt": "Colocar",
+    "es": "Colocar",
+    "de": "Platzieren",
+    "fr": "Placer",
+    "it": "Posiziona",
+    "pl": "Umieść"
+  },
+  {
+    "pt": "Copiar só vale para paredes, pisos, lajes, telhados, escadas, rampas, ambientes e aberturas hospedadas (com a parede selecionada).",
+    "es": "Copiar solo funciona con muros, suelos, losas, tejados, escaleras, rampas, ambientes y huecos hospedados (con el muro anfitrión seleccionado).",
+    "de": "Kopieren funktioniert nur für Wände, Böden, Decken, Dächer, Treppen, Rampen, Räume und gehostete Öffnungen (mit ausgewählter Wand).",
+    "fr": "Copier ne fonctionne que pour les murs, sols, dalles, toits, escaliers, rampes, pièces et ouvertures hébergées (avec le mur hôte sélectionné).",
+    "it": "Copia vale solo per muri, pavimenti, solai, tetti, scale, rampe, ambienti e aperture ospitate (con il muro ospite selezionato).",
+    "pl": "Kopiowanie działa tylko dla ścian, podłóg, stropów, dachów, schodów, ramp, pomieszczeń i osadzonych otworów (z wybraną ścianą)."
+  },
+  {
+    "pt": "Recortar só vale para paredes, pisos, lajes, telhados, escadas, rampas, ambientes e aberturas hospedadas (com a parede selecionada).",
+    "es": "Cortar solo funciona con muros, suelos, losas, tejados, escaleras, rampas, ambientes y huecos hospedados (con el muro anfitrión seleccionado).",
+    "de": "Ausschneiden funktioniert nur für Wände, Böden, Decken, Dächer, Treppen, Rampen, Räume und gehostete Öffnungen (mit ausgewählter Wand).",
+    "fr": "Couper ne fonctionne que pour les murs, sols, dalles, toits, escaliers, rampes, pièces et ouvertures hébergées (avec le mur hôte sélectionné).",
+    "it": "Taglia vale solo per muri, pavimenti, solai, tetti, scale, rampe, ambienti e aperture ospitate (con il muro ospite selezionato).",
+    "pl": "Wycinanie działa tylko dla ścian, podłóg, stropów, dachów, schodów, ramp, pomieszczeń i osadzonych otworów (z wybraną ścianą)."
+  }
+]

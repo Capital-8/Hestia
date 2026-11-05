@@ -15,7 +15,7 @@ import {
   type EstadoKernel,
   type MedicaoOperacoes,
 } from '@hestia/geom';
-import { fmtNum, useT, type Dict } from '../../editor/i18n.ts';
+import { fmtNum, useT, type Dict, type Lang } from '../../editor/i18n.ts';
 import { kernelExperimentalLigado, lerFlagDaUrl, ligarKernelExperimental } from '../../editor/preferenciasKernel.ts';
 import { useUi } from '../../editor/state.ts';
 import { Dialog } from './Dialog.tsx';
@@ -34,7 +34,7 @@ const OPERACOES: Array<{ chave: keyof MedicaoOperacoes['porOp']; rotulo: keyof D
 
 /** Milissegundos com precisão suficiente para comparar as operações sem poluir a tela. */
   // units-ok: milissegundos de medição de desempenho, unidade fixa de diagnóstico
-const ms = (valor: number, lang: 'pt' | 'en'): string => `${fmtNum(valor, 1, lang)} ms`;
+const ms = (valor: number, lang: Lang): string => `${fmtNum(valor, 1, lang)} ms`;
 
 export function ExperimentosDialog(): ReactElement {
   const { t, lang } = useT();

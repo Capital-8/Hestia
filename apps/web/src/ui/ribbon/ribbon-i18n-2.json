@@ -1,0 +1,682 @@
+[
+  {
+    "pt": "Unidades de comprimento, área, volume, ângulo e inclinação do projeto.",
+    "es": "Unidades de longitud, área, volumen, ángulo y pendiente del proyecto.",
+    "de": "Projekteinheiten für Länge, Fläche, Volumen, Winkel und Neigung.",
+    "fr": "Unités du projet pour longueur, surface, volume, angle et pente.",
+    "it": "Unità del progetto per lunghezza, area, volume, angolo e pendenza.",
+    "pl": "Jednostki projektu dla długości, powierzchni, objętości, kąta i nachylenia."
+  },
+  {
+    "pt": "Atalhos de teclado…",
+    "es": "Atajos de teclado…",
+    "de": "Tastenkürzel…",
+    "fr": "Raccourcis clavier…",
+    "it": "Scorciatoie da tastiera…",
+    "pl": "Skróty klawiaturowe…"
+  },
+  {
+    "pt": "Lista de atalhos",
+    "es": "Lista de atajos",
+    "de": "Tastenkürzelliste",
+    "fr": "Liste des raccourcis",
+    "it": "Elenco scorciatoie",
+    "pl": "Lista skrótów"
+  },
+  {
+    "pt": "Tabela de paredes",
+    "es": "Tabla de planificación de muros",
+    "de": "Wandliste",
+    "fr": "Nomenclature des murs",
+    "it": "Abaco dei muri",
+    "pl": "Zestawienie ścian"
+  },
+  {
+    "pt": "Tabela de pisos",
+    "es": "Tabla de planificación de suelos",
+    "de": "Bodenliste",
+    "fr": "Nomenclature des sols",
+    "it": "Abaco dei pavimenti",
+    "pl": "Zestawienie podłóg"
+  },
+  {
+    "pt": "Tabela de lajes",
+    "es": "Tabla de planificación de losas",
+    "de": "Deckenliste",
+    "fr": "Nomenclature des dalles",
+    "it": "Abaco dei solai",
+    "pl": "Zestawienie stropów"
+  },
+  {
+    "pt": "Tabela de forros",
+    "es": "Tabla de planificación de techos",
+    "de": "Unterdeckenliste",
+    "fr": "Nomenclature des plafonds",
+    "it": "Abaco dei controsoffitti",
+    "pl": "Zestawienie sufitów"
+  },
+  {
+    "pt": "Tabela de telhados",
+    "es": "Tabla de planificación de cubiertas",
+    "de": "Dachliste",
+    "fr": "Nomenclature des toits",
+    "it": "Abaco dei tetti",
+    "pl": "Zestawienie dachów"
+  },
+  {
+    "pt": "Tabela de escadas",
+    "es": "Tabla de planificación de escaleras",
+    "de": "Treppenliste",
+    "fr": "Nomenclature des escaliers",
+    "it": "Abaco delle scale",
+    "pl": "Zestawienie schodów"
+  },
+  {
+    "pt": "Tabela de rampas",
+    "es": "Tabla de planificación de rampas",
+    "de": "Rampenliste",
+    "fr": "Nomenclature des rampes",
+    "it": "Abaco delle rampe",
+    "pl": "Zestawienie ramp"
+  },
+  {
+    "pt": "Tabela de ambientes",
+    "es": "Tabla de planificación de habitaciones",
+    "de": "Raumliste",
+    "fr": "Nomenclature des pièces",
+    "it": "Abaco dei locali",
+    "pl": "Zestawienie pomieszczeń"
+  },
+  {
+    "pt": "Tabela de portas e janelas",
+    "es": "Tabla de planificación de puertas y ventanas",
+    "de": "Tür- und Fensterliste",
+    "fr": "Nomenclature des portes et fenêtres",
+    "it": "Abaco di porte e finestre",
+    "pl": "Zestawienie drzwi i okien"
+  },
+  {
+    "pt": "Editar croqui",
+    "es": "Editar boceto",
+    "de": "Skizze bearbeiten",
+    "fr": "Modifier l'esquisse",
+    "it": "Modifica schizzo",
+    "pl": "Edytuj szkic"
+  },
+  {
+    "pt": "Edita o croqui da escada selecionada.",
+    "es": "Edita el boceto de la escalera seleccionada.",
+    "de": "Bearbeitet die Skizze der ausgewählten Treppe.",
+    "fr": "Modifie l'esquisse de l'escalier sélectionné.",
+    "it": "Modifica lo schizzo della scala selezionata.",
+    "pl": "Edytuje szkic wybranych schodów."
+  },
+  {
+    "pt": "Selecione uma única escada.",
+    "es": "Seleccione una única escalera.",
+    "de": "Wählen Sie eine einzelne Treppe aus.",
+    "fr": "Sélectionnez un seul escalier.",
+    "it": "Seleziona una singola scala.",
+    "pl": "Wybierz pojedyncze schody."
+  },
+  {
+    "pt": "Tipos de escada",
+    "es": "Tipos de escalera",
+    "de": "Treppentypen",
+    "fr": "Types d'escalier",
+    "it": "Tipi di scala",
+    "pl": "Typy schodów"
+  },
+  {
+    "pt": "Selecione uma escada.",
+    "es": "Seleccione una escalera.",
+    "de": "Wählen Sie eine Treppe aus.",
+    "fr": "Sélectionnez un escalier.",
+    "it": "Seleziona una scala.",
+    "pl": "Wybierz schody."
+  },
+  {
+    "pt": "Tipos de rampa",
+    "es": "Tipos de rampa",
+    "de": "Rampentypen",
+    "fr": "Types de rampe",
+    "it": "Tipi di rampa",
+    "pl": "Typy ramp"
+  },
+  {
+    "pt": "Selecione uma rampa.",
+    "es": "Seleccione una rampa.",
+    "de": "Wählen Sie eine Rampe aus.",
+    "fr": "Sélectionnez une rampe.",
+    "it": "Seleziona una rampa.",
+    "pl": "Wybierz rampę."
+  },
+  {
+    "pt": "Desenhar",
+    "es": "Dibujar",
+    "de": "Zeichnen",
+    "fr": "Dessiner",
+    "it": "Disegna",
+    "pl": "Rysuj"
+  },
+  {
+    "pt": "Linha",
+    "es": "Línea",
+    "de": "Linie",
+    "fr": "Ligne",
+    "it": "Linea",
+    "pl": "Linia"
+  },
+  {
+    "pt": "Arco (3 pontos)",
+    "es": "Arco (3 puntos)",
+    "de": "Bogen (3 Punkte)",
+    "fr": "Arc (3 points)",
+    "it": "Arco (3 punti)",
+    "pl": "Łuk (3 punkty)"
+  },
+  {
+    "pt": "Retângulo",
+    "es": "Rectángulo",
+    "de": "Rechteck",
+    "fr": "Rectangle",
+    "it": "Rettangolo",
+    "pl": "Prostokąt"
+  },
+  {
+    "pt": "Perímetro",
+    "es": "Perímetro",
+    "de": "Umfang",
+    "fr": "Périmètre",
+    "it": "Perimetro",
+    "pl": "Obwód"
+  },
+  {
+    "pt": "Paredes",
+    "es": "Muros",
+    "de": "Wände",
+    "fr": "Murs",
+    "it": "Muri",
+    "pl": "Ściany"
+  },
+  {
+    "pt": "Modificar parede",
+    "es": "Modificar muro",
+    "de": "Wand bearbeiten",
+    "fr": "Modifier le mur",
+    "it": "Modifica muro",
+    "pl": "Modyfikuj ścianę"
+  },
+  {
+    "pt": "Editar perfil",
+    "es": "Editar perfil",
+    "de": "Profil bearbeiten",
+    "fr": "Modifier le profil",
+    "it": "Modifica profilo",
+    "pl": "Edytuj profil"
+  },
+  {
+    "pt": "Portas",
+    "es": "Puertas",
+    "de": "Türen",
+    "fr": "Portes",
+    "it": "Porte",
+    "pl": "Drzwi"
+  },
+  {
+    "pt": "Hospedeiro",
+    "es": "Anfitrión",
+    "de": "Wirt",
+    "fr": "Hôte",
+    "it": "Ospite",
+    "pl": "Gospodarz"
+  },
+  {
+    "pt": "Janelas",
+    "es": "Ventanas",
+    "de": "Fenster",
+    "fr": "Fenêtres",
+    "it": "Finestre",
+    "pl": "Okna"
+  },
+  {
+    "pt": "Pisos",
+    "es": "Suelos",
+    "de": "Böden",
+    "fr": "Sols",
+    "it": "Pavimenti",
+    "pl": "Podłogi"
+  },
+  {
+    "pt": "Lajes",
+    "es": "Losas",
+    "de": "Decken",
+    "fr": "Dalles",
+    "it": "Solai",
+    "pl": "Stropy"
+  },
+  {
+    "pt": "Editar forma",
+    "es": "Editar forma",
+    "de": "Form bearbeiten",
+    "fr": "Modifier la forme",
+    "it": "Modifica forma",
+    "pl": "Edytuj kształt"
+  },
+  {
+    "pt": "Forros",
+    "es": "Techos",
+    "de": "Unterdecken",
+    "fr": "Plafonds",
+    "it": "Controsoffitti",
+    "pl": "Sufity"
+  },
+  {
+    "pt": "Telhados",
+    "es": "Cubiertas",
+    "de": "Dächer",
+    "fr": "Toits",
+    "it": "Tetti",
+    "pl": "Dachy"
+  },
+  {
+    "pt": "Modificar telhado",
+    "es": "Modificar cubierta",
+    "de": "Dach bearbeiten",
+    "fr": "Modifier le toit",
+    "it": "Modifica tetto",
+    "pl": "Modyfikuj dach"
+  },
+  {
+    "pt": "Escadas",
+    "es": "Escaleras",
+    "de": "Treppen",
+    "fr": "Escaliers",
+    "it": "Scale",
+    "pl": "Schody"
+  },
+  {
+    "pt": "Escada",
+    "es": "Escalera",
+    "de": "Treppe",
+    "fr": "Escalier",
+    "it": "Scala",
+    "pl": "Schody"
+  },
+  {
+    "pt": "Rampas",
+    "es": "Rampas",
+    "de": "Rampen",
+    "fr": "Rampes",
+    "it": "Rampe",
+    "pl": "Rampy"
+  },
+  {
+    "pt": "Rampa",
+    "es": "Rampa",
+    "de": "Rampe",
+    "fr": "Rampe",
+    "it": "Rampa",
+    "pl": "Rampa"
+  },
+  {
+    "pt": "Ambientes",
+    "es": "Habitaciones",
+    "de": "Räume",
+    "fr": "Pièces",
+    "it": "Locali",
+    "pl": "Pomieszczenia"
+  },
+  {
+    "pt": "Ambiente",
+    "es": "Habitación",
+    "de": "Raum",
+    "fr": "Pièce",
+    "it": "Locale",
+    "pl": "Pomieszczenie"
+  },
+  {
+    "pt": "Modificar | Seleção múltipla",
+    "es": "Modificar | Selección múltiple",
+    "de": "Ändern | Mehrfachauswahl",
+    "fr": "Modifier | Sélection multiple",
+    "it": "Modifica | Selezione multipla",
+    "pl": "Modyfikuj | Wybór wielokrotny"
+  },
+  {
+    "pt": "Modificar | Elementos",
+    "es": "Modificar | Elementos",
+    "de": "Ändern | Elemente",
+    "fr": "Modifier | Éléments",
+    "it": "Modifica | Elementi",
+    "pl": "Modyfikuj | Elementy"
+  },
+  {
+    "pt": "Modificar | Colar alinhado",
+    "es": "Modificar | Pegar alineado",
+    "de": "Ändern | Ausgerichtet einfügen",
+    "fr": "Modifier | Coller aligné",
+    "it": "Modifica | Incolla allineato",
+    "pl": "Modyfikuj | Wklej wyrównane"
+  },
+  {
+    "pt": "Editar perímetro do telhado",
+    "es": "Editar contorno de la cubierta",
+    "de": "Dachumriss bearbeiten",
+    "fr": "Modifier le périmètre du toit",
+    "it": "Modifica perimetro del tetto",
+    "pl": "Edytuj obwód dachu"
+  },
+  {
+    "pt": "Editar perímetro do piso",
+    "es": "Editar contorno del suelo",
+    "de": "Bodenumriss bearbeiten",
+    "fr": "Modifier le périmètre du sol",
+    "it": "Modifica perimetro del pavimento",
+    "pl": "Edytuj obwód podłogi"
+  },
+  {
+    "pt": "Editar perímetro da laje",
+    "es": "Editar contorno de la losa",
+    "de": "Deckenumriss bearbeiten",
+    "fr": "Modifier le périmètre de la dalle",
+    "it": "Modifica perimetro del solaio",
+    "pl": "Edytuj obwód stropu"
+  },
+  {
+    "pt": "Editar perímetro do forro",
+    "es": "Editar contorno del techo",
+    "de": "Unterdeckenumriss bearbeiten",
+    "fr": "Modifier le périmètre du plafond",
+    "it": "Modifica perimetro del controsoffitto",
+    "pl": "Edytuj obwód sufitu"
+  },
+  {
+    "pt": "Selecionar",
+    "es": "Seleccionar",
+    "de": "Auswählen",
+    "fr": "Sélectionner",
+    "it": "Seleziona",
+    "pl": "Wybierz"
+  },
+  {
+    "pt": "Modificar",
+    "es": "Modificar",
+    "de": "Ändern",
+    "fr": "Modifier",
+    "it": "Modifica",
+    "pl": "Modyfikuj"
+  },
+  {
+    "pt": "Escala",
+    "es": "Escala",
+    "de": "Maßstab",
+    "fr": "Échelle",
+    "it": "Scala",
+    "pl": "Skala"
+  },
+  {
+    "pt": "Fixar",
+    "es": "Fijar",
+    "de": "Fixieren",
+    "fr": "Épingler",
+    "it": "Fissa",
+    "pl": "Przypnij"
+  },
+  {
+    "pt": "Desafixar",
+    "es": "Desfijar",
+    "de": "Fixierung aufheben",
+    "fr": "Désépingler",
+    "it": "Sblocca",
+    "pl": "Odepnij"
+  },
+  {
+    "pt": "Medir",
+    "es": "Medir",
+    "de": "Messen",
+    "fr": "Mesurer",
+    "it": "Misura",
+    "pl": "Zmierz"
+  },
+  {
+    "pt": "Cota alinhada",
+    "es": "Cota alineada",
+    "de": "Ausgerichtetes Maß",
+    "fr": "Cote alignée",
+    "it": "Quota allineata",
+    "pl": "Wymiar wyrównany"
+  },
+  {
+    "pt": "Área de transferência",
+    "es": "Portapapeles",
+    "de": "Zwischenablage",
+    "fr": "Presse-papiers",
+    "it": "Appunti",
+    "pl": "Schowek"
+  },
+  {
+    "pt": "Corresp. tipo",
+    "es": "Igualar tipo",
+    "de": "Typ übernehmen",
+    "fr": "Correspondance de type",
+    "it": "Corrispondenza tipo",
+    "pl": "Dopasuj typ"
+  },
+  {
+    "pt": "Geometria",
+    "es": "Geometría",
+    "de": "Geometrie",
+    "fr": "Géométrie",
+    "it": "Geometria",
+    "pl": "Geometria"
+  },
+  {
+    "pt": "Cortar",
+    "es": "Recortar",
+    "de": "Ausklinken",
+    "fr": "Échancrer",
+    "it": "Intaccare",
+    "pl": "Podciąć"
+  },
+  {
+    "pt": "Cortar geometria",
+    "es": "Cortar geometría",
+    "de": "Geometrie schneiden",
+    "fr": "Couper la géométrie",
+    "it": "Taglia geometria",
+    "pl": "Przytnij geometrię"
+  },
+  {
+    "pt": "Entalhar",
+    "es": "Entallar",
+    "de": "Einkerben",
+    "fr": "Entailler",
+    "it": "Intagliare",
+    "pl": "Naciąć"
+  },
+  {
+    "pt": "Vista",
+    "es": "Vista",
+    "de": "Ansicht",
+    "fr": "Vue",
+    "it": "Vista",
+    "pl": "Widok"
+  },
+  {
+    "pt": "Ocultar em vista",
+    "es": "Ocultar en vista",
+    "de": "In Ansicht ausblenden",
+    "fr": "Masquer dans la vue",
+    "it": "Nascondi in vista",
+    "pl": "Ukryj w widoku"
+  },
+  {
+    "pt": "Substituir gráficos",
+    "es": "Sustituir gráficos",
+    "de": "Grafik überschreiben",
+    "fr": "Remplacer les graphismes",
+    "it": "Sostituisci grafica",
+    "pl": "Zastąp grafikę"
+  },
+  {
+    "pt": "Seleção e nível",
+    "es": "Selección y nivel",
+    "de": "Auswahl und Ebene",
+    "fr": "Sélection et niveau",
+    "it": "Selezione e livello",
+    "pl": "Wybór i poziom"
+  },
+  {
+    "pt": "Criar",
+    "es": "Crear",
+    "de": "Erstellen",
+    "fr": "Créer",
+    "it": "Crea",
+    "pl": "Utwórz"
+  },
+  {
+    "pt": "Criar grupo",
+    "es": "Crear grupo",
+    "de": "Gruppe erstellen",
+    "fr": "Créer un groupe",
+    "it": "Crea gruppo",
+    "pl": "Utwórz grupę"
+  },
+  {
+    "pt": "Arquitetura",
+    "es": "Arquitectura",
+    "de": "Architektur",
+    "fr": "Architecture",
+    "it": "Architettura",
+    "pl": "Architektura"
+  },
+  {
+    "pt": "Construir",
+    "es": "Construir",
+    "de": "Konstruieren",
+    "fr": "Construire",
+    "it": "Costruisci",
+    "pl": "Buduj"
+  },
+  {
+    "pt": "Componente",
+    "es": "Componente",
+    "de": "Bauteil",
+    "fr": "Composant",
+    "it": "Componente",
+    "pl": "Komponent"
+  },
+  {
+    "pt": "Pilar",
+    "es": "Pilar",
+    "de": "Stütze",
+    "fr": "Poteau",
+    "it": "Pilastro",
+    "pl": "Słup"
+  },
+  {
+    "pt": "Telhado",
+    "es": "Cubierta",
+    "de": "Dach",
+    "fr": "Toit",
+    "it": "Tetto",
+    "pl": "Dach"
+  },
+  {
+    "pt": "Telhado por perímetro",
+    "es": "Cubierta por contorno",
+    "de": "Dach aus Umriss",
+    "fr": "Toit par tracé",
+    "it": "Tetto da profilo",
+    "pl": "Dach z obrysu"
+  },
+  {
+    "pt": "Telhado por face",
+    "es": "Cubierta por cara",
+    "de": "Dach aus Fläche",
+    "fr": "Toit par face",
+    "it": "Tetto da faccia",
+    "pl": "Dach z powierzchni"
+  },
+  {
+    "pt": "Piso",
+    "es": "Suelo",
+    "de": "Boden",
+    "fr": "Sol",
+    "it": "Pavimento",
+    "pl": "Podłoga"
+  },
+  {
+    "pt": "Piso: Arquitetônico",
+    "es": "Suelo: Arquitectónico",
+    "de": "Boden: Architektonisch",
+    "fr": "Sol : Architectural",
+    "it": "Pavimento: Architettonico",
+    "pl": "Podłoga: Architektoniczna"
+  },
+  {
+    "pt": "Piso: Estrutural (Laje)",
+    "es": "Suelo: Estructural (Losa)",
+    "de": "Boden: Tragend (Decke)",
+    "fr": "Sol : Structurel (Dalle)",
+    "it": "Pavimento: Strutturale (Solaio)",
+    "pl": "Podłoga: Konstrukcyjna (Strop)"
+  },
+  {
+    "pt": "Piso por face",
+    "es": "Suelo por cara",
+    "de": "Boden aus Fläche",
+    "fr": "Sol par face",
+    "it": "Pavimento da faccia",
+    "pl": "Podłoga z powierzchni"
+  },
+  {
+    "pt": "Sistema de fachada cortina",
+    "es": "Sistema de muro cortina",
+    "de": "Vorhangfassadensystem",
+    "fr": "Mur-rideau",
+    "it": "Sistema facciata continua",
+    "pl": "System ściany kurtynowej"
+  },
+  {
+    "pt": "Grade de fachada cortina",
+    "es": "Retícula de muro cortina",
+    "de": "Vorhangfassadenraster",
+    "fr": "Grille de mur-rideau",
+    "it": "Griglia facciata continua",
+    "pl": "Siatka ściany kurtynowej"
+  },
+  {
+    "pt": "Montante",
+    "es": "Montante",
+    "de": "Pfosten",
+    "fr": "Montant",
+    "it": "Montante",
+    "pl": "Słupek"
+  },
+  {
+    "pt": "Circulação",
+    "es": "Circulación",
+    "de": "Zirkulation",
+    "fr": "Circulation",
+    "it": "Circolazione",
+    "pl": "Cyrkulacja"
+  },
+  {
+    "pt": "Guarda-corpo",
+    "es": "Barandilla",
+    "de": "Geländer",
+    "fr": "Garde-corps",
+    "it": "Parapetto",
+    "pl": "Balustrada"
+  },
+  {
+    "pt": "Escada por lances",
+    "es": "Escalera por tramos",
+    "de": "Treppe nach Läufen",
+    "fr": "Escalier par volées",
+    "it": "Scala per rampe",
+    "pl": "Schody z biegami"
+  }
+]
