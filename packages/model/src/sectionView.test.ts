@@ -41,20 +41,27 @@ describe('inverter o sentido do corte', () => {
   });
 });
 
-describe('rótulo da marca fica fora da seta', () => {
-  it('o rótulo da ponta fica além da ponta da seta, sem sobrepor a seta (padrão)', () => {
+describe('bolha centrada na linha, com a bandeira de direção tangente a ela', () => {
+  it('a linha passa pelo centro da bolha e o vértice da bandeira fica além do círculo', () => {
     const g = sectionMarkGeometry({ x: 0, y: 0 }, { x: 10, y: 0 }, 'section', 'Corte A', 0.1);
-    const ends = g.labels.filter((l) => Math.abs(l.at.x) < 3);
-    expect(ends.length).toBeGreaterThan(0);
-    const tipDist = Math.abs(g.arrows[0]![1]!.y);
-    // Meia altura do texto (2,5 mm de papel, escala 1:100): o centro do rótulo deve ficar além da ponta mais essa meia altura.
-    for (const l of g.labels) expect(Math.abs(l.at.y)).toBeGreaterThanOrEqual(tipDist + 0.125 - 1e-9);
+    expect(g.bubbles.length).toBeGreaterThan(0);
+    for (const bub of g.bubbles) expect(bub.at.y).toBeCloseTo(0);
+    for (const tri of g.arrows) expect(tri[1]!.y).toBeGreaterThan(g.bubbles[0]!.r);
   });
 
-  it('um deslocamento vertical menor que a seta não aproxima o rótulo da seta', () => {
-    const g = sectionMarkGeometry({ x: 0, y: 0 }, { x: 10, y: 0 }, 'section', 'Corte A', 0.1, { labelOffsetMm: { x: 2, y: 0.2 } });
-    const tipDist = Math.abs(g.arrows[0]![1]!.y);
-    for (const l of g.labels) expect(Math.abs(l.at.y)).toBeGreaterThanOrEqual(tipDist + 0.125 - 1e-9);
+  it('o traço da linha começa na borda da bolha, sem passar por dentro dela', () => {
+    const g = sectionMarkGeometry({ x: 0, y: 0 }, { x: 10, y: 0 }, 'section', 'A', 0.1);
+    const r = g.bubbles[0]!.r;
+    const diameter = (s: [{ x: number }, { x: number }]): boolean => Math.abs(Math.abs(s[1].x - s[0].x) - 2 * r) < 1e-9;
+    const traco = g.segments.filter((s) => !diameter(s));
+    expect(traco.length).toBeGreaterThan(0);
+    for (const [p, q] of traco) expect(Math.min(p.x, q.x)).toBeGreaterThanOrEqual(r - 1e-9);
+  });
+
+  it('aumentar o deslocamento vertical afasta a bolha da linha', () => {
+    const perto = sectionMarkGeometry({ x: 0, y: 0 }, { x: 10, y: 0 }, 'section', 'Corte A', 0.1);
+    const longe = sectionMarkGeometry({ x: 0, y: 0 }, { x: 10, y: 0 }, 'section', 'Corte A', 0.1, { labelOffsetMm: { x: 0, y: 5 } });
+    expect(Math.abs(longe.bubbles[0]!.at.y)).toBeGreaterThan(Math.abs(perto.bubbles[0]!.at.y));
   });
 });
 
@@ -93,26 +100,46 @@ describe('vistas de corte e elevação: identidade e geometria', () => {
     expect(sectionTitleOf(view())).toBe('Corte A');
   });
 
-  it('desenha a marca em mm de papel, com setas, traço-ponto e rótulo nas pontas', () => {
-    const g = sectionMarkGeometry({ x: 0, y: 0 }, { x: 4, y: 0 }, 'section', 'Corte A', 0.1);
+  it('desenha a marca em mm de papel: linha, bandeira de direção e bolha com número em cima / prancha embaixo', () => {
+    const g = sectionMarkGeometry({ x: 0, y: 0 }, { x: 4, y: 0 }, 'section', 'A', 0.1, undefined, false, 'A101');
     expect(g.segments.length).toBeGreaterThan(4);
     expect(g.arrows).toHaveLength(2);
     expect(g.arrows[0]![1]!.x).toBeCloseTo(0);
-    expect(g.arrows[0]![1]!.y).toBeCloseTo(0.3);
-    expect(g.labels.map((l) => l.text)).toEqual(['Corte A', 'Corte A']);
-    // Rótulo além da ponta da seta: 3 mm de seta + 1,25 mm de meia altura + 0,5 mm de folga = 4,75 mm de papel.
-    expect(g.labels[0]!.at.y).toBeCloseTo(0.475);
+    const r = g.bubbles[0]!.r;
+    // Triângulo de 90° com a base no diâmetro da bolha e lados tangentes: vértice a r·√2 acima do centro.
+    expect(g.arrows[0]![1]!.y).toBeCloseTo(r * Math.SQRT2);
+    // Base do triângulo = diâmetro horizontal da bolha, estendido r·√2 para cada lado do centro.
+    expect(g.arrows[0]![0]!.y).toBeCloseTo(0);
+    expect(Math.abs(g.arrows[0]![0]!.x - g.arrows[0]![2]!.x)).toBeCloseTo(2 * r * Math.SQRT2);
+    // Os lados tangenciam o círculo: distância do centro à reta do lado = raio.
+    const [p0, p1] = [g.arrows[0]![0]!, g.arrows[0]![1]!];
+    const c = g.bubbles[0]!.at;
+    const dist = Math.abs((p1.x - p0.x) * (p0.y - c.y) - (p0.x - c.x) * (p1.y - p0.y)) / Math.hypot(p1.x - p0.x, p1.y - p0.y);
+    expect(dist).toBeCloseTo(r);
+    expect(g.labels.map((l) => l.text)).toEqual(['A101', 'A', 'A101', 'A']);
+    expect(g.bubbles).toHaveLength(2);
+    // Centro da bolha: em cima da linha (a divisória é a própria linha de corte).
+    expect(g.bubbles[0]!.at.y).toBeCloseTo(0);
+  });
+
+  it('a bolha cresce para caber um nome longo, em vez de vazar o texto para fora dela', () => {
+    const curto = sectionMarkGeometry({ x: 0, y: 0 }, { x: 4, y: 0 }, 'section', 'A', 0.1);
+    const longo = sectionMarkGeometry({ x: 0, y: 0 }, { x: 4, y: 0 }, 'section', 'Corte A', 0.1);
+    expect(curto.bubbles[0]!.r).toBeCloseTo(0.35);
+    expect(longo.bubbles[0]!.r).toBeGreaterThan(curto.bubbles[0]!.r);
   });
 
   it('respeita visibilidade, setas, rótulo e posição no meio', () => {
-    expect(sectionMarkGeometry({ x: 0, y: 0 }, { x: 4, y: 0 }, 'section', 'A', 0.1, { visible: false })).toEqual({ segments: [], arrows: [], labels: [] });
+    expect(sectionMarkGeometry({ x: 0, y: 0 }, { x: 4, y: 0 }, 'section', 'A', 0.1, { visible: false })).toEqual({ segments: [], arrows: [], flags: [], labels: [], bubbles: [] });
     const semSeta = sectionMarkGeometry({ x: 0, y: 0 }, { x: 4, y: 0 }, 'section', 'A', 0.1, { showArrow: false, showLabel: false });
     expect(semSeta.arrows).toHaveLength(0);
     expect(semSeta.labels).toHaveLength(0);
+    expect(semSeta.bubbles).toHaveLength(0);
     const meio = sectionMarkGeometry({ x: 0, y: 0 }, { x: 4, y: 0 }, 'section', 'A', 0.1, { placement: 'middle' });
     expect(meio.arrows).toHaveLength(0);
-    expect(meio.labels).toHaveLength(1);
-    expect(meio.labels[0]!.at.x).toBeCloseTo(2);
+    // Sem seta, a bolha ganha os dois rótulos (número e "-" de prancha) no meio da linha.
+    expect(meio.labels).toHaveLength(2);
+    for (const l of meio.labels) expect(l.at.x).toBeCloseTo(2);
   });
 
   it('copia com nome novo, sem papel de elevação e sem referências; mover também solta as referências', () => {

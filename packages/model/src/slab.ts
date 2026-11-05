@@ -1,4 +1,5 @@
 import { multiArea, type Polygon, type Vec2 } from '@hestia/geom';
+import { t, type Lang } from './i18n.ts';
 import { isSlab, type Id, type Layer, type Project, type Slab, type SlabSlope, type SlabType } from './types.ts';
 
 type SlabInput = { id: Id; typeId: Id; levelId: Id; boundary: Vec2[] } & Partial<Omit<Slab, 'order' | 'kind'>>;
@@ -34,20 +35,25 @@ const LT = (fn: Layer['function'], materialId: string, thickness: number, termin
 
 const st = (id: string, name: string, code: string, description: string, layers: Layer[], cost = 0): SlabType => ({ id, name, code, description, layers, cost });
 
-/** Tipos de laje iniciais (camadas do topo para baixo). */
-export const DEFAULT_SLAB_TYPES: SlabType[] = [
-  st('ls_mac12', 'Laje maciça 12', 'LJ-12', 'Laje maciça de concreto armado, 12 cm', [L('structure', 'mat_concreto', 0.12)], 190),
-  st('ls_mac15', 'Laje maciça 15', 'LJ-15', 'Laje maciça de concreto armado, 15 cm, com regularização', [
-    L('substrate', 'mat_argamassa', 0.02),
-    L('structure', 'mat_concreto', 0.15),
-  ], 240),
-  st('ls_cobertura', 'Laje de cobertura 10', 'LJ-10C', 'Laje de cobertura com impermeabilização e proteção mecânica', [
-    L('finish1', 'mat_argamassa', 0.03),
-    L('membrane', 'mat_argamassa', 0),
-    L('structure', 'mat_concreto', 0.1),
-  ], 210),
-  st('ls_unica', 'Laje única (obra inteira)', 'LJ-UN', 'Regularização até a face das paredes; a estrutura de concreto passa por baixo delas. Para uma laje que cobre a obra inteira', [
-    LT('substrate', 'mat_argamassa', 0.03, 'face'),
-    LT('structure', 'mat_concreto', 0.12, 'passa'),
-  ], 230),
-];
+/** Tipos de laje iniciais (camadas do topo para baixo), no idioma pedido. */
+export function slabTypes(lang: Lang = 'pt'): SlabType[] {
+  return [
+    st('ls_mac12', t(lang, 'md_slab_mac12'), 'LJ-12', t(lang, 'md_slab_mac12_desc'), [L('structure', 'mat_concreto', 0.12)], 190),
+    st('ls_mac15', t(lang, 'md_slab_mac15'), 'LJ-15', t(lang, 'md_slab_mac15_desc'), [
+      L('substrate', 'mat_argamassa', 0.02),
+      L('structure', 'mat_concreto', 0.15),
+    ], 240),
+    st('ls_cobertura', t(lang, 'md_slab_cobertura'), 'LJ-10C', t(lang, 'md_slab_cobertura_desc'), [
+      L('finish1', 'mat_argamassa', 0.03),
+      L('membrane', 'mat_argamassa', 0),
+      L('structure', 'mat_concreto', 0.1),
+    ], 210),
+    st('ls_unica', t(lang, 'md_slab_unica'), 'LJ-UN', t(lang, 'md_slab_unica_desc'), [
+      LT('substrate', 'mat_argamassa', 0.03, 'face'),
+      LT('structure', 'mat_concreto', 0.12, 'passa'),
+    ], 230),
+  ];
+}
+
+/** Tipos de laje em PT (compatibilidade); use `slabTypes(lang)` para o idioma ativo. */
+export const DEFAULT_SLAB_TYPES: SlabType[] = slabTypes('pt');

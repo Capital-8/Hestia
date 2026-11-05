@@ -53,7 +53,7 @@ export function roofSagHold(env: ToolEnv, g: RoofSagGrip): GripHold {
         return;
       }
       const next = sagsWith(env, g, s);
-      if (next) commitRoofPatch(env, [g.roofId], { edgeSag: next.sags });
+      if (next) commitRoofPatch(env, [g.roofId], { edgeSag: next.sags }, env.lang?.() ?? 'pt');
     },
   };
 }

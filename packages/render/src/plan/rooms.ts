@@ -7,6 +7,7 @@ import { belowFloorOps, fmtArea, labelPoint, type FloorOps } from './floors.ts';
 import { ambientesDoNivel } from './resolucao.ts';
 import { surfaceColor, type PlanPaint } from './style.ts';
 import type { PlanTheme } from './types.ts';
+import { t, type Lang } from '../i18n.ts';
 
 /** Cor padrão do ambiente (sem cor própria): cinza-azulado claro, mais escuro no tema escuro. */
 const ROOM_DEFAULT = '#b8c4d4';
@@ -20,17 +21,17 @@ const empty = (): FloorOps => ({ fills: [], strokes: [], labels: [] });
  * Nome do ambiente para a planta de piso (decisão 0037): só o nome. Número e área ficam para a planta de área,
  * que tem campos configuráveis (`RoomTag`). Sem nome, cai em "Ambiente N" (ou "Ambiente").
  */
-export function roomNameText(r: ResolvedRoom): string {
-  return r.name || (r.number ? `Ambiente ${r.number}` : 'Ambiente');
+export function roomNameText(r: ResolvedRoom, lang: Lang = 'pt'): string {
+  return r.name || (r.number ? t(lang, 'rn_room_default_name_numbered', { number: r.number }) : t(lang, 'rn_room_default_name'));
 }
 
 /**
  * Rótulo completo para o DXF da planta de piso: `Sala (101) · 12,34 m2` (nome, número entre parênteses quando há e
  * área com 2 casas). Na tela a planta de piso mostra só o nome (decisão 0037); o desenho técnico leva tudo.
  */
-export function roomFullText(r: ResolvedRoom, u: ResolvedUnits): string {
+export function roomFullText(r: ResolvedRoom, u: ResolvedUnits, lang: Lang = 'pt'): string {
   const num = r.number ? ` (${r.number})` : '';
-  return `${roomNameText(r)}${num} · ${fmtArea(u, r.area, 2)}`;
+  return `${roomNameText(r, lang)}${num} · ${fmtArea(u, r.area, 2)}`;
 }
 
 /** Ponto da etiqueta: o centro do maior trecho interno do polígono (vale também para contornos em L). */
@@ -51,6 +52,7 @@ export function roomOps(
   hidden: ReadonlySet<Id> | undefined,
   paint: PlanPaint,
   hideLabelRoomId?: Id,
+  lang: Lang = 'pt',
 ): FloorOps {
   const out = empty();
   const fillBase = dark ? theme.bg : '#ffffff';
@@ -61,7 +63,7 @@ export function roomOps(
     if (r.roomId === hideLabelRoomId) continue;
     const room = p.elements[r.roomId];
     const at = room?.kind === 'room' && room.labelPosition ? room.labelPosition : roomLabelAt(r);
-    if (at) out.labels.push({ at, text: roomNameText(r), ...(room?.kind === 'room' && room.labelRotation ? { rotation: room.labelRotation } : {}), papel: { escala: scale, fontMm: ROOM_TEXT_MM }, tone: 'info' });
+    if (at) out.labels.push({ at, text: roomNameText(r, lang), ...(room?.kind === 'room' && room.labelRotation ? { rotation: room.labelRotation } : {}), papel: { escala: scale, fontMm: ROOM_TEXT_MM }, tone: 'info' });
     // Rótulo fora do ambiente: chamada reta até o ponto de referência (o rótulo é compartilhado por todas as vistas).
     if (room?.kind === 'room' && room.labelPosition && r.polygon && !pointInPolygon(room.labelPosition, r.polygon)) {
       const anchor = room.referencePoint ?? roomLabelAt(r);

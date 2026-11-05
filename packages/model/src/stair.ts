@@ -1,3 +1,4 @@
+import { t, type Lang } from './i18n.ts';
 import { DEFAULT_STAIR_CALC_RULE, type StairCalcRule } from './stairTypes.ts';
 import type { Id, Stair, StairRunStyle, StairType } from './types.ts';
 
@@ -53,62 +54,68 @@ const COMMON = {
  * Tipos de escada iniciais. Estilo monolítico usa a profundidade estrutural; o montado usa piso e espelho; o poste usa
  * degraus em balanço (sem espelho) presos ao poste central. As escadas caracol usam a regra do caracol em `stairChecks`.
  */
-export const DEFAULT_STAIR_TYPES: StairType[] = [
-  {
-    ...COMMON,
-    id: 'stt_monolitica',
-    name: 'Escada monolítica concreto',
-    code: 'ES-01',
-    description: 'Lance monolítico de concreto armado com patamares de concreto',
-    runStyle: 'monolithic',
-    undersideStyle: 'smooth',
-    structuralDepth: 0.2,
-    treadThickness: 0,
-    riserThickness: 0,
-    materialId: 'mat_concreto',
-  },
-  {
-    ...COMMON,
-    id: 'stt_piso_espelho',
-    name: 'Escada de piso e espelho',
-    code: 'ES-02',
-    description: 'Lance de degraus de madeira (piso e espelho) sobre estrutura',
-    runStyle: 'assembled',
-    undersideStyle: 'smooth',
-    structuralDepth: 0,
-    treadThickness: 0.03,
-    riserThickness: 0.02,
-    materialId: 'mat_madeira',
-  },
-  {
-    ...COMMON,
-    id: 'stt_caracol_monolitica',
-    name: 'Escada caracol monolítica',
-    code: 'ES-03',
-    description: 'Caracol monolítico de concreto armado, com face inferior lisa',
-    runStyle: 'monolithic',
-    undersideStyle: 'smooth',
-    structuralDepth: 0.15,
-    minRunWidth: 0.8,
-    treadThickness: 0,
-    riserThickness: 0,
-    materialId: 'mat_concreto',
-  },
-  {
-    ...COMMON,
-    id: 'stt_caracol_poste',
-    name: 'Escada caracol com poste central',
-    code: 'ES-04',
-    description: 'Caracol de degraus de aço em balanço presos a poste central de aço, sem espelho',
-    runStyle: 'post',
-    undersideStyle: 'smooth',
-    structuralDepth: 0,
-    minRunWidth: 0.6,
-    treadThickness: 0.05,
-    riserThickness: 0,
-    materialId: 'mat_aco',
-  },
-];
+/** Tipos de escada iniciais no idioma pedido. */
+export function stairTypes(lang: Lang = 'pt'): StairType[] {
+  return [
+    {
+      ...COMMON,
+      id: 'stt_monolitica',
+      name: t(lang, 'md_stair_monolitica'),
+      code: 'ES-01',
+      description: t(lang, 'md_stair_monolitica_desc'),
+      runStyle: 'monolithic',
+      undersideStyle: 'smooth',
+      structuralDepth: 0.2,
+      treadThickness: 0,
+      riserThickness: 0,
+      materialId: 'mat_concreto',
+    },
+    {
+      ...COMMON,
+      id: 'stt_piso_espelho',
+      name: t(lang, 'md_stair_piso_espelho'),
+      code: 'ES-02',
+      description: t(lang, 'md_stair_piso_espelho_desc'),
+      runStyle: 'assembled',
+      undersideStyle: 'smooth',
+      structuralDepth: 0,
+      treadThickness: 0.03,
+      riserThickness: 0.02,
+      materialId: 'mat_madeira',
+    },
+    {
+      ...COMMON,
+      id: 'stt_caracol_monolitica',
+      name: t(lang, 'md_stair_caracol_monolitica'),
+      code: 'ES-03',
+      description: t(lang, 'md_stair_caracol_monolitica_desc'),
+      runStyle: 'monolithic',
+      undersideStyle: 'smooth',
+      structuralDepth: 0.15,
+      minRunWidth: 0.8,
+      treadThickness: 0,
+      riserThickness: 0,
+      materialId: 'mat_concreto',
+    },
+    {
+      ...COMMON,
+      id: 'stt_caracol_poste',
+      name: t(lang, 'md_stair_caracol_poste'),
+      code: 'ES-04',
+      description: t(lang, 'md_stair_caracol_poste_desc'),
+      runStyle: 'post',
+      undersideStyle: 'smooth',
+      structuralDepth: 0,
+      minRunWidth: 0.6,
+      treadThickness: 0.05,
+      riserThickness: 0,
+      materialId: 'mat_aco',
+    },
+  ];
+}
+
+/** Tipos de escada em PT (compatibilidade); use `stairTypes(lang)` para o idioma ativo. */
+export const DEFAULT_STAIR_TYPES: StairType[] = stairTypes('pt');
 
 /** Entrada da validação do tipo: os campos de regra são opcionais para aceitar chamadas antigas. */
 export type StairTypeIssueInput = Pick<StairType, 'runStyle' | 'treadThickness' | 'treadOverlap'> &
@@ -119,26 +126,26 @@ export type StairTypeIssueInput = Pick<StairType, 'runStyle' | 'treadThickness' 
  * estilo poste, espessura do degrau positiva e sobreposição menor que ela; e a regra de cálculo (fatores > 0,
  * calcMin ≤ calcTarget ≤ calcMax e maxTread ≥ minTread). Devolve a 1ª mensagem, ou null.
  */
-export function stairTypeIssue(t: StairTypeIssueInput): string | null {
-  if (!STAIR_RUN_STYLES.includes(t.runStyle)) return 'Estilo de escada desconhecido.';
-  if (!(t.treadOverlap >= 0)) return 'A sobreposição dos degraus não pode ser negativa.';
-  if (t.runStyle === 'post') {
-    if (!(t.treadThickness > 0)) return 'Escada com poste central: a espessura do degrau precisa ser maior que zero.';
-    if (!(t.treadOverlap < t.treadThickness)) return 'A sobreposição dos degraus precisa ser menor que a espessura do degrau.';
+export function stairTypeIssue(tipo: StairTypeIssueInput, lang: Lang = 'pt'): string | null {
+  if (!STAIR_RUN_STYLES.includes(tipo.runStyle)) return t(lang, 'md_stair_style_unknown');
+  if (!(tipo.treadOverlap >= 0)) return t(lang, 'md_stair_overlap_negative');
+  if (tipo.runStyle === 'post') {
+    if (!(tipo.treadThickness > 0)) return t(lang, 'md_stair_post_thickness');
+    if (!(tipo.treadOverlap < tipo.treadThickness)) return t(lang, 'md_stair_overlap_thickness');
   }
-  if (t.calcRiserFactor !== undefined && !(t.calcRiserFactor > 0)) return 'O fator do espelho na regra de cálculo precisa ser maior que zero.';
-  if (t.calcTreadFactor !== undefined && !(t.calcTreadFactor > 0)) return 'O fator do piso na regra de cálculo precisa ser maior que zero.';
-  if (t.calcMin !== undefined && t.calcTarget !== undefined && t.calcMax !== undefined) {
-    if (!(t.calcMin <= t.calcTarget && t.calcTarget <= t.calcMax)) {
-      return 'O alvo da regra de cálculo precisa ficar entre o mínimo e o máximo da faixa.';
+  if (tipo.calcRiserFactor !== undefined && !(tipo.calcRiserFactor > 0)) return t(lang, 'md_stair_riser_factor');
+  if (tipo.calcTreadFactor !== undefined && !(tipo.calcTreadFactor > 0)) return t(lang, 'md_stair_tread_factor');
+  if (tipo.calcMin !== undefined && tipo.calcTarget !== undefined && tipo.calcMax !== undefined) {
+    if (!(tipo.calcMin <= tipo.calcTarget && tipo.calcTarget <= tipo.calcMax)) {
+      return t(lang, 'md_stair_target_range');
     }
   }
-  if (t.minRiser !== undefined && !(t.minRiser > 0)) return 'O espelho mínimo precisa ser maior que zero.';
-  if (t.minRiser !== undefined && t.maxRiser !== undefined && !(t.minRiser < t.maxRiser)) {
-    return 'O espelho mínimo precisa ser menor que o espelho máximo.';
+  if (tipo.minRiser !== undefined && !(tipo.minRiser > 0)) return t(lang, 'md_stair_min_riser_positive');
+  if (tipo.minRiser !== undefined && tipo.maxRiser !== undefined && !(tipo.minRiser < tipo.maxRiser)) {
+    return t(lang, 'md_stair_min_riser_max');
   }
-  if (t.maxTread !== undefined && t.minTread !== undefined && !(t.maxTread >= t.minTread)) {
-    return 'O piso máximo precisa ser maior ou igual ao piso mínimo.';
+  if (tipo.maxTread !== undefined && tipo.minTread !== undefined && !(tipo.maxTread >= tipo.minTread)) {
+    return t(lang, 'md_stair_max_tread');
   }
   return null;
 }

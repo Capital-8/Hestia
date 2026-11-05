@@ -1,6 +1,7 @@
 import { dist, intersection, lerp, multiArea, type MultiPolygon, type Vec2 } from '@hestia/geom';
 import { isStair, type Id, type Project, type Stair, type ValidationIssue } from '@hestia/model';
 import { resolveFloors } from './floors.ts';
+import { numLang, t, type Lang } from './i18nMessages.ts';
 import { makeStairIssue, type StairIssueItem } from './stairIssues.ts';
 import { MAX_FLIGHT_RISE, stairFlightHeights } from './stairRefit.ts';
 import { resolveStairs, type ResolvedStair } from './stairs.ts';
@@ -17,7 +18,7 @@ import { stairWallOverlapIssues } from './stairWallOverlap.ts';
 const EPS = 1e-9;
 const EPS_AREA = 1e-6;
 
-const num = (n: number, digits: number): string => n.toFixed(digits).replace('.', ',');
+const numIn = (lang: Lang) => (n: number, digits: number): string => numLang(n, digits, lang);
 
 /** Elemento do nível de topo: contorno resolvido (já com os furos das escadas) e cota da face inferior em cada ponto. */
 export interface TopCover {
@@ -40,7 +41,8 @@ export function topCovers(p: Project, levelId: Id): TopCover[] {
  * do modo (`openingHeadroom`, ou o mínimo do tipo): o que sobra tem folga maior, então sem aviso. Com `openingHeadroom`
  * abaixo do mínimo do tipo, os degraus entre os dois valores ficam sob a laje e avisam.
  */
-export function stairHeadroomIssue(rs: ResolvedStair, covers: TopCover[]): StairIssueItem | null {
+export function stairHeadroomIssue(rs: ResolvedStair, covers: TopCover[], lang: Lang = 'pt'): StairIssueItem | null {
+  const num = numIn(lang);
   let worst: { h: number; ci: number } | null = null;
   for (const st of rs.steps) {
     for (const c of covers) {
@@ -59,7 +61,7 @@ export function stairHeadroomIssue(rs: ResolvedStair, covers: TopCover[]): Stair
     rs.id,
     'stair-headroom',
     'warning',
-    `Folga de cabeça de ${num(worst.h, 2)} m menor que a mínima do tipo (${num(rs.type.minHeadroom, 2)} m) sob a laje.`,
+    t(lang, 'egb_issue_stair_headroom', { h: num(worst.h, 2), min: num(rs.type.minHeadroom, 2) }),
     worst.ci,
   );
 }
@@ -93,7 +95,7 @@ function walkLineTread(risers: ResolvedStair['risers']): number | null {
  * Espelhos desiguais entre lances (`stair-riser-uneven`): a altura de todo espelho (z1 − z0) é H ÷ N por construção, mas
  * a escada livre/composta pode vir a ter altura por lance; o aviso confere a variação (> 5 mm) entre os lances.
  */
-export function stairRiserEvennessIssue(rs: ResolvedStair): StairIssueItem | null {
+export function stairRiserEvennessIssue(rs: ResolvedStair, lang: Lang = 'pt'): StairIssueItem | null {
   const byRun = new Map<number, number>();
   for (const r of rs.risers) {
     const h = r.z1 - r.z0;
@@ -108,7 +110,7 @@ export function stairRiserEvennessIssue(rs: ResolvedStair): StairIssueItem | nul
     rs.id,
     'stair-riser-uneven',
     'warning',
-    `Espelhos desiguais entre lances: a altura varia ${Math.round(spread * 1000)} mm (máximo ${Math.round(RISER_EVEN_TOL * 1000)} mm).`,
+    t(lang, 'egb_issue_stair_uneven_risers', { v: Math.round(spread * 1000), max: Math.round(RISER_EVEN_TOL * 1000) }),
   );
 }
 
@@ -124,7 +126,8 @@ export function stairRiserEvennessIssue(rs: ResolvedStair): StairIssueItem | nul
  * - `stair-riser-uneven`: ver `stairRiserEvennessIssue`.
  * O patamar com menos de 1,20 m já é `stair-landing-length`; o espelho acima do máximo, `stair-riser-too-high`.
  */
-export function stairRuleIssues(s: Stair, rs: ResolvedStair): StairIssueItem[] {
+export function stairRuleIssues(s: Stair, rs: ResolvedStair, lang: Lang = 'pt'): StairIssueItem[] {
+  const num = numIn(lang);
   const out: StairIssueItem[] = [];
   const h = rs.riserHeight;
   if (rs.riserCount === 0 || !(h > 0)) return out;
@@ -133,7 +136,7 @@ export function stairRuleIssues(s: Stair, rs: ResolvedStair): StairIssueItem[] {
   const has = (code: string, ci?: number): boolean => rs.issues.some((i) => i.code === code && (ci === undefined || i.componentIndex === ci));
 
   if (minRiser > 0 && h < minRiser - EPS && !has('stair-riser-range')) {
-    out.push(makeStairIssue(rs.id, 'stair-riser-below-min', 'warning', `Espelho de ${num(h, 3)} m abaixo do mínimo de ${num(minRiser, 3)} m do tipo (NBR 9050).`));
+    out.push(makeStairIssue(rs.id, 'stair-riser-below-min', 'warning', t(lang, 'egb_issue_stair_riser_low', { h: num(h, 3), min: num(minRiser, 3) })));
   }
   if (minRiser > 0 && maxRiser > minRiser) {
     const nMin = Math.ceil(H / maxRiser - EPS);
@@ -144,7 +147,7 @@ export function stairRuleIssues(s: Stair, rs: ResolvedStair): StairIssueItem[] {
           rs.id,
           'stair-riser-range-impossible',
           'warning',
-          `Nenhum nº de espelhos dá altura entre ${num(minRiser, 3)} e ${num(maxRiser, 3)} m para o desnível de ${num(H, 3)} m: ajuste a altura ou a faixa de espelho do tipo.`,
+          t(lang, 'egb_issue_stair_no_riser_count', { min: num(minRiser, 3), max: num(maxRiser, 3), h: num(H, 3) }),
         ),
       );
     }
@@ -154,7 +157,7 @@ export function stairRuleIssues(s: Stair, rs: ResolvedStair): StairIssueItem[] {
           rs.id,
           'stair-riser-fixed',
           'warning',
-          `Espelho de ${num(h, 3)} m fora da faixa do tipo (${num(minRiser, 3)} a ${num(maxRiser, 3)} m) com o modo de espelho fixo: o reajuste automático não corrige; mude para o modo automático.`,
+          t(lang, 'egb_issue_stair_riser_fixed', { h: num(h, 3), min: num(minRiser, 3), max: num(maxRiser, 3) }),
         ),
       );
     }
@@ -162,15 +165,15 @@ export function stairRuleIssues(s: Stair, rs: ResolvedStair): StairIssueItem[] {
 
   const runIdx = [...new Set(rs.risers.map((r) => r.componentIndex))].sort((a, b) => a - b);
   for (const ci of runIdx) {
-    const t = walkLineTread(rs.risers.filter((r) => r.componentIndex === ci));
-    if (t === null || has('stair-tread-range', ci)) continue;
-    if (t < minTread - EPS || t > maxTread + EPS) {
+    const tread = walkLineTread(rs.risers.filter((r) => r.componentIndex === ci));
+    if (tread === null || has('stair-tread-range', ci)) continue;
+    if (tread < minTread - EPS || tread > maxTread + EPS) {
       out.push(
         makeStairIssue(
           rs.id,
           'stair-tread-type-range',
           'warning',
-          `Piso de ${num(t, 3)} m na linha de caminhada fora da faixa do tipo (${num(minTread, 2)} a ${num(maxTread, 2)} m) (NBR 9050).`,
+          t(lang, 'egb_issue_stair_tread_range', { tread: num(tread, 3), min: num(minTread, 2), max: num(maxTread, 2) }),
           ci,
         ),
       );
@@ -202,21 +205,21 @@ export function stairRuleIssues(s: Stair, rs: ResolvedStair): StairIssueItem[] {
         rs.id,
         'stair-flight-rise',
         'warning',
-        `Trecho contínuo sobe ${num(fh, 2)} m sem patamar; a NBR 9050 limita a ${num(MAX_FLIGHT_RISE, 2)} m entre patamares.`,
+        t(lang, 'egb_issue_stair_flight_rise', { rise: num(fh, 2), max: num(MAX_FLIGHT_RISE, 2) }),
         ci,
       ),
     );
   });
 
-  const uneven = stairRiserEvennessIssue(rs);
+  const uneven = stairRiserEvennessIssue(rs, lang);
   if (uneven) out.push(uneven);
   return out;
 }
 
 /** Todos os avisos e erros das escadas: os de `resolveStairs`, `stair-headroom` e `stair-wall-overlap`. */
-export function stairIssueList(p: Project): StairIssueItem[] {
+export function stairIssueList(p: Project, lang: Lang = 'pt'): StairIssueItem[] {
   const covers = new Map<Id, TopCover[]>();
-  const resolved = resolveStairs(p);
+  const resolved = resolveStairs(p, lang);
   const out = resolved.flatMap((r) => {
     const list = [...r.issues];
     if (r.topLevelId) {
@@ -225,14 +228,14 @@ export function stairIssueList(p: Project): StairIssueItem[] {
         coversOnLevel = topCovers(p, r.topLevelId);
         covers.set(r.topLevelId, coversOnLevel);
       }
-      const h = stairHeadroomIssue(r, coversOnLevel);
+      const h = stairHeadroomIssue(r, coversOnLevel, lang);
       if (h) list.push(h);
     }
     const el = p.elements[r.id];
-    if (isStair(el)) list.push(...stairRuleIssues(el, r));
+    if (isStair(el)) list.push(...stairRuleIssues(el, r, lang));
     return list;
   });
-  out.push(...stairWallOverlapIssues(p, resolved));
+  out.push(...stairWallOverlapIssues(p, resolved, lang));
   return out;
 }
 
@@ -241,18 +244,18 @@ export function stairIssueList(p: Project): StairIssueItem[] {
  * usa isto para não resolver todas as escadas do projeto só para achar o aviso da nova. A invasão de parede é conferida só
  * contra esta escada; as paredes continuam vindo do projeto inteiro, como na lista.
  */
-export function stairIssuesOf(p: Project, id: Id): StairIssueItem[] {
+export function stairIssuesOf(p: Project, id: Id, lang: Lang = 'pt'): StairIssueItem[] {
   const e = p.elements[id];
   if (!isStair(e)) return [];
-  const [r] = resolveStairs({ ...p, elements: { [id]: e } });
+  const [r] = resolveStairs({ ...p, elements: { [id]: e } }, lang);
   if (!r) return [];
   const list = [...r.issues];
   if (r.topLevelId) {
-    const h = stairHeadroomIssue(r, topCovers(p, r.topLevelId));
+    const h = stairHeadroomIssue(r, topCovers(p, r.topLevelId), lang);
     if (h) list.push(h);
   }
-  list.push(...stairRuleIssues(e, r));
-  list.push(...stairWallOverlapIssues(p, [r]));
+  list.push(...stairRuleIssues(e, r, lang));
+  list.push(...stairWallOverlapIssues(p, [r], lang));
   return list;
 }
 
@@ -260,8 +263,8 @@ export function stairIssuesOf(p: Project, id: Id): StairIssueItem[] {
 export type StairValidationIssue = ValidationIssue & { ids?: string[] };
 
 /** Os mesmos avisos no formato do painel (`ValidationIssue`, com `elementId` = id da escada e `ids` da relação). */
-export function stairValidationIssues(p: Project): StairValidationIssue[] {
-  return stairIssueList(p).map((i) => ({
+export function stairValidationIssues(p: Project, lang: Lang = 'pt'): StairValidationIssue[] {
+  return stairIssueList(p, lang).map((i) => ({
     severity: i.severity,
     code: i.code,
     message: i.message,

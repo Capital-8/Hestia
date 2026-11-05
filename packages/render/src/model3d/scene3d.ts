@@ -61,6 +61,12 @@ export interface Scene3DOptions {
   hidden?: ReadonlySet<Id>;
   /** Elementos que o modo Reveal mostra com borda azul. */
   revealed?: ReadonlySet<Id>;
+  /**
+   * Níveis cuja resolução ainda é a anterior à edição (a montagem os mantém na tela enquanto o novo não chega). Eles
+   * entram na cena, mas **não** no cache de malha: a chave do nível vem do projeto atual, e a malha foi montada com
+   * outro conteúdo — guardada, ela seria devolvida para sempre quando o nível correto chegasse (ver `montagem3dProgressiva`).
+   */
+  provisorios?: ReadonlySet<Id>;
 }
 
 /** Ângulo (graus) acima do qual uma aresta da malha é desenhada. */
@@ -342,7 +348,10 @@ export class ModelScene {
     let rampas: Rampas | null = null;
     for (const lv of levels) {
       const chave = chaves.get(lv.levelId) ?? `sem-chave:${++this.sequencia}`;
-      const reuso = this.cache.buscar(lv.levelId, chave);
+      // Nível provisório (resolução da versão anterior): a chave é do projeto atual, então a malha dele NÃO pode ir
+      // para o cache — quando o nível correto chegar, a chave seria a mesma e o cache devolveria esta malha.
+      const provisorio = opt.provisorios?.has(lv.levelId) === true;
+      const reuso = provisorio ? undefined : this.cache.buscar(lv.levelId, chave);
       if (reuso) {
         for (const k of reuso.mats) this.mats.used.add(k);
         atuais.push(reuso);
@@ -351,8 +360,10 @@ export class ModelScene {
       escadas ??= resolveStairs(p);
       rampas ??= resolveRamps(p);
       const nova = this.montarNivel(p, lv, chave, escadas, rampas);
-      const velha = this.cache.guardar(nova);
-      if (velha) sobras.push(velha);
+      if (!provisorio) {
+        const velha = this.cache.guardar(nova);
+        if (velha) sobras.push(velha);
+      }
       atuais.push(nova);
     }
     const expulsas = this.cache.enforcar();

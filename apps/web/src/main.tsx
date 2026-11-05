@@ -9,8 +9,10 @@ import './contextmenu.css';
 import { installAppShell } from './editor/appShell.ts';
 import { configDoDespacho, kernelExperimentalLigado } from './editor/preferenciasKernel.ts';
 import { installRecentCommands } from './editor/recentCommands.ts';
+import { instalarConsentimentoAnalytics } from './consentimento.ts';
 import { App } from './App.tsx';
 
+instalarConsentimentoAnalytics();
 installAppShell();
 installRecentCommands();
 
@@ -57,6 +59,8 @@ if (new URLSearchParams(location.search).has('debug')) {
       resolveFloors: e.resolveFloors,
       resolveStairs: e.resolveStairs,
       stairArrivalTop: e.stairArrivalTop,
+      // Miniatura da biblioteca (o e2e confere que ela sai com o modelo, salvando fora da aba 3D).
+      miniatura: () => import('./editor/miniatura.ts').then((m) => m.capturarMiniatura3d()),
       resolveLevel: e.resolveLevel,
       junctionLevel: e.junctionLevel,
       cutLevelByJunction: e.cutLevelByJunction,

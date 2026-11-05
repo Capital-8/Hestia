@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ProjectStore, createEmptyProject, defaultStairTypeId, isOpening, makeLevel, makeRoom, makeStair, makeWall, stairsOnLevel, wallsOnLevel, type StairLanding, type StairRun, type Wall } from '@hestia/model';
 import { Transfer } from './transfer.ts';
+import { resolveText } from './i18n.ts';
 import { useUi } from './state.ts';
 
 function setup() {
@@ -62,7 +63,7 @@ describe('transferência do editor (copiar, colar alinhado, mesmo tipo)', () => 
     s.exec({ type: 'addRoom', room: makeRoom({ id: 'r3', levelId: 'lv_0', name: 'Cozinha', number: '3', point: { x: 5, y: 1 } }) });
     useUi.setState({ selection: ['A'], levelId: 'lv_0' });
     expect(new Transfer().sameName(s.project, 'lv_0')).toBe(0);
-    expect(useUi.getState().status).toMatch(/Selecione um ambiente primeiro/);
+    expect(resolveText(useUi.getState().status, 'pt')).toMatch(/Selecione um ambiente primeiro/);
     useUi.setState({ selection: ['r1'], levelId: 'lv_0' });
     expect(new Transfer().sameName(s.project, 'lv_0')).toBe(2);
     expect([...useUi.getState().selection].sort()).toEqual(['r1', 'r2']);
@@ -99,7 +100,7 @@ describe('copiar e colar escada (controlador web)', () => {
     const { run, landing } = stairSetup(s);
     const t = new Transfer();
     expect(t.copy(s.project, ['st_1'])).toBe(true);
-    expect(useUi.getState().status).toMatch(/1 escada\(s\) copiado/);
+    expect(resolveText(useUi.getState().status, 'pt')).toMatch(/1 escada copiado\(s\)/);
     expect(t.paste(s, 'lv_1')).toBe(true);
 
     const [orig] = stairsOnLevel(s.project, 'lv_0');
@@ -123,7 +124,7 @@ describe('copiar e colar escada (controlador web)', () => {
     expect(orig!.levelId).toBe('lv_0');
     expect(orig!.components.map((c) => c.id)).toEqual(['r_1', 'p_1']);
     expect(useUi.getState().selection).toEqual([copy!.id]);
-    expect(useUi.getState().status).toMatch(/1 escada\(s\) colado\(s\)/);
+    expect(resolveText(useUi.getState().status, 'pt')).toMatch(/1 escada colado\(s\)/);
   });
 
   it('desfazer a colagem tira a escada do nível de destino', () => {
@@ -168,7 +169,7 @@ describe('colar alinhado em vários níveis (transferência)', () => {
     expect(portasNoNivel('lv_1')).toBe(1);
     expect(portasNoNivel('lv_2')).toBe(1);
     expect(useUi.getState().selection).toHaveLength(4);
-    expect(useUi.getState().status).toMatch(/4 elemento\(s\) colado\(s\) em 2 nível\(is\)/);
+    expect(resolveText(useUi.getState().status, 'pt')).toMatch(/4 elemento\(s\) colado\(s\) em 2 nível\(is\)/);
 
     s.undo();
     expect(wallsOnLevel(s.project, 'lv_2')).toHaveLength(0);

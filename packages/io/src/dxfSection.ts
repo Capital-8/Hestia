@@ -3,6 +3,7 @@ import type { DxfPoint, DxfPolygons } from './dxf.ts';
 import { DXF_CATEGORY_COLORS, DXF_LINE_WEIGHT_DEFAULT } from './dxf.ts';
 import { writeDxf2000, type DxfDoc, type DxfDocEntity, type DxfDocLayer, type DxfUnit } from './dxfDoc.ts';
 import { DXF_LAYER_COTAS, DXF_LAYER_DETALHE, DXF_LAYER_ETIQUETAS, DXF_LAYER_TEXTOS, dxfTextEntity, type DxfNotes } from './dxfNotes.ts';
+import { dxfLayerCanonical, dxfLayerName, t, type Lang } from './i18n.ts';
 
 /**
  * DXF do corte e da elevação (decisão 0015 §2.7). O desenho é (t, z), com z para cima; o peso da categoria na escala da
@@ -67,18 +68,19 @@ export const DXF_SECTION_LAYER_SILHOUETTE = 'CORTE_CONTORNO';
 export const DXF_SECTION_LAYER_LEVELS = 'CORTE_NIVEIS';
 
 /** Camada de uma categoria no corte (`view = 'cut'`) ou na projeção (`view = 'projection'`). */
-export function dxfSectionLayerOf(category: GraphicsCategory, view: 'cut' | 'projection' = 'cut'): string {
-  const base = CATEGORY_LAYER[category];
-  return view === 'projection' ? `${base}_PROJECAO` : base;
+export function dxfSectionLayerOf(category: GraphicsCategory, view: 'cut' | 'projection' = 'cut', lang: Lang = 'pt'): string {
+  const base = dxfLayerName(CATEGORY_LAYER[category], lang);
+  return view === 'projection' ? `${base}${t(lang, 'io_dxf_layer_section_projection_suffix')}` : base;
 }
 
 /** Categoria e papel de uma camada do corte/elevação; `annotation` para os níveis e as anotações; `undefined` para a camada 0. */
 export function dxfSectionLineRoleOf(layer: string): DxfSectionRole | 'annotation' | undefined {
-  if (layer === DXF_SECTION_LAYER_LEVELS || NOTE_LAYERS.includes(layer)) return 'annotation';
-  if (layer === DXF_SECTION_LAYER_SILHOUETTE) return { category: 'wall', view: 'cut' };
+  const canonical = dxfLayerCanonical(layer);
+  if (canonical === DXF_SECTION_LAYER_LEVELS || NOTE_LAYERS.includes(canonical)) return 'annotation';
+  if (canonical === DXF_SECTION_LAYER_SILHOUETTE) return { category: 'wall', view: 'cut' };
   for (const category of Object.keys(CATEGORY_LAYER) as GraphicsCategory[]) {
-    if (layer === CATEGORY_LAYER[category]) return { category, view: 'cut' };
-    if (layer === `${CATEGORY_LAYER[category]}_PROJECAO`) return { category, view: 'projection' };
+    if (canonical === CATEGORY_LAYER[category]) return { category, view: 'cut' };
+    if (canonical === `${CATEGORY_LAYER[category]}_PROJECAO`) return { category, view: 'projection' };
   }
   return undefined;
 }
@@ -126,8 +128,8 @@ function shapesOf(geo: DxfSectionGeometry): Shape[] {
 }
 
 /** Nomes das camadas que `exportSectionDxf` põe na tabela (a base de `lineWeights`). */
-export function dxfSectionLayersOf(geo: DxfSectionGeometry): string[] {
-  return [...new Set(['0', ...shapesOf(geo).map((s) => s.layer), ...noteLayersOf(geo.notes)])].sort();
+export function dxfSectionLayersOf(geo: DxfSectionGeometry, lang: Lang = 'pt'): string[] {
+  return [...new Set(['0', ...shapesOf(geo).map((s) => s.layer), ...noteLayersOf(geo.notes)])].map((name) => dxfLayerName(name, lang)).sort();
 }
 
 /** Estilo padrão de uma camada do corte: cor da categoria (cinza na projeção), contínua e a espessura pedida. */
@@ -143,20 +145,20 @@ export function dxfSectionLayerStyleOf(layer: string, lineWeight = DXF_LINE_WEIG
  * camada leva a largura de linha de `geo.lineWeights` (código 370, o que o R12 não guardava) e o estilo de `layerStyles`,
  * ou o padrão de `dxfSectionLayerStyleOf`.
  */
-export function sectionDxfDocOf(geo: DxfSectionGeometry): DxfDoc {
+export function sectionDxfDocOf(geo: DxfSectionGeometry, lang: Lang = 'pt'): DxfDoc {
   const shapes = shapesOf(geo);
   const notes = geo.notes;
-  const noteLines = (notes?.lines ?? []).map(([a, b]): DxfDocEntity => ({ kind: 'line', layer: DXF_LAYER_COTAS, a, b }));
-  const noteLeaders = (notes?.otherLines ?? []).map((l): DxfDocEntity => ({ kind: 'line', layer: l.layer, a: l.a, b: l.b }));
-  const noteRegions = (notes?.regions ?? []).filter((r) => r.length >= 3).map((r): DxfDocEntity => ({ kind: 'polyline', layer: DXF_LAYER_DETALHE, points: r, closed: true }));
-  const noteTexts = (notes?.texts ?? []).map((t) => dxfTextEntity(t));
+  const noteLines = (notes?.lines ?? []).map(([a, b]): DxfDocEntity => ({ kind: 'line', layer: dxfLayerName(DXF_LAYER_COTAS, lang), a, b }));
+  const noteLeaders = (notes?.otherLines ?? []).map((l): DxfDocEntity => ({ kind: 'line', layer: dxfLayerName(l.layer, lang), a: l.a, b: l.b }));
+  const noteRegions = (notes?.regions ?? []).filter((r) => r.length >= 3).map((r): DxfDocEntity => ({ kind: 'polyline', layer: dxfLayerName(DXF_LAYER_DETALHE, lang), points: r, closed: true }));
+  const noteTexts = (notes?.texts ?? []).map((text) => dxfTextEntity({ ...text, layer: dxfLayerName(text.layer, lang) }));
   const layerNames = [...new Set(['0', ...shapes.map((s) => s.layer), ...noteLayersOf(notes)])].sort();
   const layers: DxfDocLayer[] = layerNames.map((name) => {
     const style = geo.layerStyles?.[name] ?? dxfSectionLayerStyleOf(name, geo.lineWeights?.[name] ?? DXF_LINE_WEIGHT_DEFAULT);
-    return { name, color: style.color, linetype: style.linetype, lineWeight: style.lineWeight };
+    return { name: dxfLayerName(name, lang), color: style.color, linetype: style.linetype, lineWeight: style.lineWeight };
   });
   const entities: DxfDocEntity[] = [
-    ...shapes.map((s): DxfDocEntity => ({ kind: 'polyline', layer: s.layer, points: s.pts, closed: true })),
+    ...shapes.map((s): DxfDocEntity => ({ kind: 'polyline', layer: dxfLayerName(s.layer, lang), points: s.pts, closed: true })),
     ...noteRegions,
     ...noteLines,
     ...noteLeaders,
@@ -178,7 +180,7 @@ export function sectionDxfDocOf(geo: DxfSectionGeometry): DxfDoc {
  * Corte ou elevação em DXF R2000 (AC1015): o `writeDxf2000` do documento de `sectionDxfDocOf`. Só a existência da vista é
  * conferida aqui (o io não conhece o motor): quem monta a geometria é o app.
  */
-export function exportSectionDxf(project: Project, viewId: Id, geo: DxfSectionGeometry): string {
-  if (!project.views.some((v) => v.id === viewId)) throw new Error(`Vista ausente: ${viewId}`);
-  return writeDxf2000(sectionDxfDocOf(geo));
+export function exportSectionDxf(project: Project, viewId: Id, geo: DxfSectionGeometry, lang: Lang = 'pt'): string {
+  if (!project.views.some((v) => v.id === viewId)) throw new Error(t(lang, 'io_err_dxf_view_missing', { id: viewId }));
+  return writeDxf2000(sectionDxfDocOf(geo, lang));
 }

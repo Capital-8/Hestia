@@ -1,8 +1,9 @@
 import type { ReactElement } from 'react';
-import { ceilingArea, ceilingTypeThickness, FUNCTION_LABEL, type Ceiling, type Id, type Project } from '@hestia/model';
+import { ceilingArea, ceilingTypeThickness, functionLabels, type Ceiling, type Id, type Project } from '@hestia/model';
 import { ceilingOutline } from '@hestia/engine';
 import { ringPerimeter } from '@hestia/tools';
 import { editor, useProject } from '../editor/controller.ts';
+import { useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { CeilingOutlineGroup } from './CeilingOutlineGroup.tsx';
 import { Group, NumField, Row, TextField } from './fields.tsx';
@@ -31,6 +32,8 @@ function roomLabel(p: Project, c: Ceiling): string {
 
 /** Propriedades de um ou mais forros selecionados (tipo, cota do topo, ambiente, construção, dimensões e marca). */
 export function CeilingProperties({ ceilings }: { ceilings: Ceiling[] }): ReactElement {
+  const { t, lang } = useT();
+  const fnLabels = functionLabels(lang);
   const fmt = useFormat();
   const p = useProject();
   const ids = ceilings.map((c) => c.id);
@@ -49,55 +52,55 @@ export function CeilingProperties({ ceilings }: { ceilings: Ceiling[] }): ReactE
     <>
       <TypeSelector
         triggerId="prop-ceilingtype"
-        label="Tipo de forro"
-        categoryLabel={`Forros (${ceilings.length})`}
+        label={t('prd_prop_type_ceiling')}
+        categoryLabel={t('prd_cat_ceilings', { n: ceilings.length })}
         options={ceilingOptions(p)}
         selectedId={typeId.mixed ? null : typeId.value}
         editDisabled={typeId.mixed}
         onSelect={(id) => patch(ids, { typeId: id })}
         onEdit={() => useUi.setState({ dialog: 'ceilingType', dialogArg: typeId.value })}
       />
-      <Group title="Restrições">
+      <Group title={t('prd_pgrp_constraints')}>
         <LevelField ids={ids} />
-        <Row label="Cota do topo" htmlFor="p-ctop">
+        <Row label={t('prd_fld_top_elevation')} htmlFor="p-ctop">
           <NumField id="p-ctop" value={offset.value} mixed={offset.mixed} onCommit={(v) => patch(ids, { heightOffset: v })} quantity="length" />
         </Row>
-        {single ? <Row label="Face inferior"><span className="val">{fmt('length', single.heightOffset - (p.ceilingTypes[single.typeId] ? ceilingTypeThickness(p.ceilingTypes[single.typeId]!) : 0))}</span></Row> : null}
+        {single ? <Row label={t('prd_fld_bottom_face')}><span className="val">{fmt('length', single.heightOffset - (p.ceilingTypes[single.typeId] ? ceilingTypeThickness(p.ceilingTypes[single.typeId]!) : 0))}</span></Row> : null}
       </Group>
       <CeilingOutlineGroup ceilings={ceilings} />
-      <Group title="Construção" open={false}>
+      <Group title={t('prd_pgrp_construction')} open={false}>
         {type ? (
           <>
-            <Row label="Espessura total" readOnly fromType><span className="val">{fmt('smallLength', ceilingTypeThickness(type))}</span></Row>
+            <Row label={t('prd_fld_total_thickness')} readOnly fromType><span className="val">{fmt('smallLength', ceilingTypeThickness(type))}</span></Row>
             {type.layers.map((l, i) => (
               <div className="prow ro" key={i}>
-                <span className="lbl" title={FUNCTION_LABEL[l.function]}>{FUNCTION_LABEL[l.function]}</span>
+                <span className="lbl" title={fnLabels[l.function]}>{fnLabels[l.function]}</span>
                 <span className="val soft" title={p.materials[l.materialId]?.name}>{fmt('smallLength', l.thickness)}</span>
               </div>
             ))}
           </>
         ) : (
-          <div className="hint">Selecione forros do mesmo tipo para ver as camadas.</div>
+          <div className="hint">{t('prd_msg_select_ceilings_layers')}</div>
         )}
       </Group>
-      <Group title="Dimensões">
+      <Group title={t('prd_pgrp_dimensions')}>
         {single ? (
           <>
-            <Row label="Área"><span className="val">{fmt('area', ceilingArea(eff(single)))}</span></Row>
-            <Row label="Perímetro"><span className="val">{fmt('length', ringPerimeter(eff(single).boundary))}</span></Row>
-            <Row label="Furos"><span className="val">{eff(single).holes.length}</span></Row>
-            {roomLabel(p, single) ? <Row label="Ambiente"><span className="val">{roomLabel(p, single)}</span></Row> : null}
+            <Row label={t('prd_fld_area')}><span className="val">{fmt('area', ceilingArea(eff(single)))}</span></Row>
+            <Row label={t('prd_fld_perimeter')}><span className="val">{fmt('length', ringPerimeter(eff(single).boundary))}</span></Row>
+            <Row label={t('prd_fld_holes')}><span className="val">{eff(single).holes.length}</span></Row>
+            {roomLabel(p, single) ? <Row label={t('tool_room')}><span className="val">{roomLabel(p, single)}</span></Row> : null}
           </>
         ) : (
           <>
-            <Row label="Área total"><span className="val">{fmt('area', area)}</span></Row>
-            <Row label="Perímetro total"><span className="val">{fmt('length', perimeter)}</span></Row>
+            <Row label={t('prd_fld_area_total')}><span className="val">{fmt('area', area)}</span></Row>
+            <Row label={t('prd_fld_perimeter_total')}><span className="val">{fmt('length', perimeter)}</span></Row>
           </>
         )}
       </Group>
-      <Group title="Dados de identidade" open={false}>
-        <Row label="Marca" htmlFor="p-cmark"><TextField id="p-cmark" value={mark.value} mixed={mark.mixed} onCommit={(v) => patch(ids, { mark: v })} /></Row>
-        <Row label="Comentários" htmlFor="p-ccomm"><TextField id="p-ccomm" value={comments.value} mixed={comments.mixed} onCommit={(v) => patch(ids, { comments: v })} /></Row>
+      <Group title={t('prd_pgrp_identity')} open={false}>
+        <Row label={t('prd_fld_mark')} htmlFor="p-cmark"><TextField id="p-cmark" value={mark.value} mixed={mark.mixed} onCommit={(v) => patch(ids, { mark: v })} /></Row>
+        <Row label={t('prd_fld_comments')} htmlFor="p-ccomm"><TextField id="p-ccomm" value={comments.value} mixed={comments.mixed} onCommit={(v) => patch(ids, { comments: v })} /></Row>
       </Group>
     </>
   );

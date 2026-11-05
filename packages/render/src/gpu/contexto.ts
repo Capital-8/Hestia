@@ -11,6 +11,7 @@ import {
   registrarTentativaRestauracao,
   restaurarContexto,
 } from './backend.ts';
+import { t, type Lang } from '../i18n.ts';
 
 export type Backend = 'webgpu' | 'webgl2' | 'none';
 
@@ -136,7 +137,7 @@ export interface TentativaWebGpu {
   motivo: string | null;
 }
 
-export async function tryWebGpu(canvas: HTMLCanvasElement): Promise<TentativaWebGpu> {
+export async function tryWebGpu(canvas: HTMLCanvasElement, lang: Lang = 'pt'): Promise<TentativaWebGpu> {
   const nav = navigator as Navigator & NavigatorGpu;
   if (!nav.gpu) return { gpu: null, motivo: 'navigator.gpu ausente' };
   let criado: Awaited<ReturnType<typeof criarDispositivo>>;
@@ -155,7 +156,7 @@ export async function tryWebGpu(canvas: HTMLCanvasElement): Promise<TentativaWeb
     await r.init();
   } catch (e) {
     device.destroy?.();
-    return { gpu: null, motivo: `WebGPURenderer indisponível: ${mensagem(e)}` };
+    return { gpu: null, motivo: t(lang, 'rn_gpu_webgpu_unavailable', { message: mensagem(e) }) };
   }
   if (!r.backend?.isWebGPUBackend) {
     try {
@@ -168,7 +169,7 @@ export async function tryWebGpu(canvas: HTMLCanvasElement): Promise<TentativaWeb
   }
   const ctx = wrap(r, 'webgpu');
   recursos.set(ctx, { device });
-  if (contadores.ativo && !timer) contadores.marcarTimerGpu('indisponivel', 'WebGPU: timestamp-query indisponível');
+  if (contadores.ativo && !timer) contadores.marcarTimerGpu('indisponivel', t(lang, 'rn_gpu_timestamp_unavailable'));
   // Substitui o handler padrão do three (que grita no console) pelo caminho de recuperação do app.
   r.onDeviceLost = (info) => {
     const motivo = info?.message ? `dispositivo WebGPU perdido: ${info.message}` : 'dispositivo WebGPU perdido';
@@ -176,7 +177,7 @@ export async function tryWebGpu(canvas: HTMLCanvasElement): Promise<TentativaWeb
     notificarPerda(ctx, motivo);
   };
   if (contadores.ativo) {
-    const instr = instrumentarWebGpu(device, contadores);
+    const instr = instrumentarWebGpu(device, contadores, lang);
     if (instr) wgpuInstr.set(ctx, instr);
     if (timer) {
       // Timer configurado: fica indisponível só até a primeira amostra, sem inventar motivo (não há nota falsa).
@@ -189,10 +190,10 @@ export async function tryWebGpu(canvas: HTMLCanvasElement): Promise<TentativaWeb
 }
 
 /** Instrumentação do contexto WebGL2 do three: draw calls, triângulos, uploads e timer de GPU (se ativa). */
-function instrumentarContextoGl(r: THREE.WebGLRenderer): InstrumentacaoGl | null {
+function instrumentarContextoGl(r: THREE.WebGLRenderer, lang: Lang): InstrumentacaoGl | null {
   try {
     const gl = r.getContext() as WebGL2RenderingContext | null;
-    return gl ? instrumentarWebGl2(gl, contadores) : null;
+    return gl ? instrumentarWebGl2(gl, contadores, lang) : null;
   } catch {
     return null;
   }
@@ -269,10 +270,10 @@ function instalarRestauracao(ctx: GpuContext, r: THREE.WebGLRenderer): void {
   );
 }
 
-export function wrap(r: THREE.WebGLRenderer, backend: Backend): GpuContext {
+export function wrap(r: THREE.WebGLRenderer, backend: Backend, lang: Lang = 'pt'): GpuContext {
   contadores.definirBackend(backend);
   definirBackendGpu(backend);
-  const glInstr = backend === 'webgl2' && contadores.ativo ? instrumentarContextoGl(r) : null;
+  const glInstr = backend === 'webgl2' && contadores.ativo ? instrumentarContextoGl(r, lang) : null;
   if (glInstr) definirTimerGpu(glInstr.timer);
   const ctx: GpuContext = {
     backend,

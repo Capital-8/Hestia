@@ -1,6 +1,7 @@
 import { add, arcFromSagitta, arcPointAt, arcTangentAt, cross, dist, equal, intersectCircleLine, intersectCircles, len, mul, norm, ringArea, sub, type SketchSeg, type Vec2 } from '@hestia/geom';
 import type { Roof } from '@hestia/model';
 import { eaveProblem } from './roofGeom.ts';
+import { t as translate, type Lang } from './i18n.ts';
 
 /** Flecha menor que isto (m) é reta: o ajuste de arcos também não enxerga abaulamento abaixo de ~3 mm. */
 const MIN_SAG = 1e-3;
@@ -202,7 +203,7 @@ export function roofEaveArcsProblem(r: Roof): string | null {
  * Cúspide: uma aresta chega e a seguinte sai pelo mesmo caminho (normais opostas na ponta); com balanço, a esquadria do
  * beiral não existe. Confere o anel com as flechas dadas (pegada). Null quando não há cúspide.
  */
-export function arcCuspProblem(ring: Vec2[], sag: number[], overhangs: number[]): string | null {
+export function arcCuspProblem(ring: Vec2[], sag: number[], overhangs: number[], lang: Lang = 'pt'): string | null {
   const ends = arcEndNormals(ring, sag);
   const n = ends.length;
   for (let j = 0; j < n; j++) {
@@ -210,7 +211,7 @@ export function arcCuspProblem(ring: Vec2[], sag: number[], overhangs: number[])
     const b = ends[j]!.start;
     const d = Math.max(overhangs[j] ?? 0, overhangs[(j - 1 + n) % n] ?? 0);
     if (d > 1e-9 && a.x * b.x + a.y * b.y < -0.999) {
-      return 'o balanço não cabe num canto agudo da planta (a esquadria do beiral dispara); reduza o balanço ou aumente o ângulo';
+      return translate(lang, 'tl_msg_slope_arc_cusp');
     }
   }
   return null;

@@ -10,6 +10,7 @@ import {
   type OpeningGlassKind,
 } from '@hestia/model';
 import { NumField } from '../../../fields.tsx';
+import { useT } from '../../../../editor/i18n.ts';
 import { GLASS_KINDS } from '../openingTypeControls.ts';
 import type { PanelProps } from '../panels/panelKit.tsx';
 import { aValidar, ajustarRebaixo, comBatente, comVidro, vidros } from './profileControls.ts';
@@ -20,6 +21,7 @@ import { Validar, useOpeningProfiles } from './ProfilePanel.tsx';
  * sem perfil (frameless) a folga é a do modelo, sem campo no contrato.
  */
 export function GlassPanel({ d, onChange }: PanelProps): ReactElement {
+  const { t } = useT();
   const perfis = useOpeningProfiles();
   const c: OpeningComposition = openingCompositionOf(d);
   const grava = (next: OpeningComposition): void => onChange({ ...d, composition: next });
@@ -31,7 +33,7 @@ export function GlassPanel({ d, onChange }: PanelProps): ReactElement {
   if (!cel || !vidro) {
     return (
       <>
-        <p className="hint">Esta composição não tem célula de vidro.</p>
+        <p className="hint">{t('dlo_glass_no_cell')}</p>
         {erro ? <p className="error" role="alert">{erro}</p> : null}
       </>
     );
@@ -44,47 +46,47 @@ export function GlassPanel({ d, onChange }: PanelProps): ReactElement {
     <>
       {celulas.length > 1 ? (
         <div className="field-row">
-          <label htmlFor="op-gl-cell">Célula de vidro</label>
+          <label htmlFor="op-gl-cell">{t('dlo_glass_cell')}</label>
           <select id="op-gl-cell" className="select" value={cel.id} onChange={(e) => setEscolhida(e.target.value)}>
-            {celulas.map((x, i) => <option key={x.id} value={x.id}>Vidro {i + 1}</option>)}
+            {celulas.map((x, i) => <option key={x.id} value={x.id}>{t('dlo_glass_cell_n', { i: i + 1 })}</option>)}
           </select>
         </div>
       ) : null}
       <div className="field-row">
-        <label htmlFor="op-gl-kind">Tipo de vidro</label>
+        <label htmlFor="op-gl-kind">{t('dlo_f_glass_kind')}</label>
         <select id="op-gl-kind" className="select" value={vidro.kind} onChange={(e) => grava(comVidro(c, cel.id, { kind: e.target.value as OpeningGlassKind }))}>
-          {GLASS_KINDS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+          {GLASS_KINDS.map(([v, labelKey]) => <option key={v} value={v}>{t(labelKey)}</option>)}
         </select>
       </div>
       <div className="field-row">
-        <label htmlFor="op-gl-t">Espessura do vidro</label>
+        <label htmlFor="op-gl-t">{t('dlo_f_glass_thickness')}</label>
         <NumField id="op-gl-t" value={vidro.thickness} quantity="smallLength" min={0.001} onCommit={(v) => grava(comVidro(c, cel.id, { thickness: v }))} />
       </div>
       <div className="field-row">
-        <label htmlFor="op-gl-mount" title="Com rebaixo: o vidro entra no perfil do batente. Sem perfil: vidro temperado colado por folga">Montagem</label>
+        <label htmlFor="op-gl-mount" title={t('dlo_glass_mounting_tip')}>{t('dlo_glass_mounting')}</label>
         <select id="op-gl-mount" className="select" value={vidro.mounting} onChange={(e) => grava(comVidro(c, cel.id, { mounting: e.target.value as GlassSpec['mounting'] }))}>
-          <option value="rebate">Com rebaixo no perfil</option>
-          <option value="frameless">Sem perfil (frameless)</option>
+          <option value="rebate">{t('dlo_o_glass_rebate')}</option>
+          <option value="frameless">{t('dlo_o_glass_frameless')}</option>
         </select>
       </div>
-      <h4 className="op-subtitle">Rebaixo do perfil (batente)</h4>
+      <h4 className="op-subtitle">{t('dlo_glass_rebate_title')}</h4>
       <div className="field-row">
-        <label htmlFor="op-gl-rd" title="Quanto do vidro entra no perfil, no plano da folha">Profundidade do rebaixo<Validar on={aValidar(batente, perfis, 'glassRebate')} /></label>
+        <label htmlFor="op-gl-rd" title={t('dlo_glass_rebate_depth_tip')}>{t('dlo_glass_rebate_depth')}<Validar on={aValidar(batente, perfis, 'glassRebate')} /></label>
         <NumField id="op-gl-rd" value={rebaixo.depth} quantity="smallLength" min={0} disabled={semPerfil} onCommit={(v) => comRebaixo({ depth: v })} />
       </div>
       <div className="field-row">
-        <label htmlFor="op-gl-rc" title="Folga entre o vidro e o fundo do rebaixo">Folga do rebaixo<Validar on={aValidar(batente, perfis, 'glassRebate')} /></label>
+        <label htmlFor="op-gl-rc" title={t('dlo_glass_rebate_clearance_tip')}>{t('dlo_glass_rebate_clearance')}<Validar on={aValidar(batente, perfis, 'glassRebate')} /></label>
         <NumField id="op-gl-rc" value={rebaixo.clearance} quantity="smallLength" min={0} disabled={semPerfil} onCommit={(v) => comRebaixo({ clearance: v })} />
       </div>
       <div className="field-row">
-        <label htmlFor="op-gl-bead" title="Largura visível do baguete (peça de fixação); 0 = sem baguete">Baguete<Validar on={aValidar(batente, perfis, 'glassRebate')} /></label>
+        <label htmlFor="op-gl-bead" title={t('dlo_glass_bead_tip')}>{t('dlo_glass_bead')}<Validar on={aValidar(batente, perfis, 'glassRebate')} /></label>
         <NumField id="op-gl-bead" value={rebaixo.bead} quantity="smallLength" min={0} disabled={semPerfil} onCommit={(v) => comRebaixo({ bead: v })} />
       </div>
       <div className="field-row">
-        <label htmlFor="op-gl-free" title="Folga do vidro temperado sem perfil ao redor e à ferragem de canto">Folga do vidro sem perfil</label>
+        <label htmlFor="op-gl-free" title={t('dlo_glass_frameless_clearance_tip')}>{t('dlo_glass_frameless_clearance')}</label>
         <NumField id="op-gl-free" value={FRAMELESS_CLEARANCE_DEFAULT} quantity="smallLength" disabled onCommit={() => undefined} />
       </div>
-      <p className="hint">Rebaixo, folga e baguete são a validar (R2 não confirma). A folga sem perfil é o padrão do modelo.</p>
+      <p className="hint">{t('dlo_h_glass_to_validate')}</p>
       {erro ? <p className="error" role="alert">{erro}</p> : null}
     </>
   );

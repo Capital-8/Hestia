@@ -3,7 +3,7 @@ import { buildRoofSchedule, filterRoofRows, roofScheduleToCsv, ROOF_SHAPE_LABEL,
 import { formatQuantity, type Quantity, type ResolvedUnits, type RoofShape } from '@hestia/model';
 import { useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
-import { useI18n, I18N } from '../../editor/i18n.ts';
+import { cmpTexto, resolveText, t as translate, useI18n, dictOf, I18N, type Lang, type TextLike } from '../../editor/i18n.ts';
 import { saveText } from '../../editor/saveText.ts';
 import { Icon } from '../Icon.tsx';
 import { Dialog } from './Dialog.tsx';
@@ -41,10 +41,10 @@ interface Sort {
   dir: 1 | -1;
 }
 
-const compare = (a: RoofScheduleRow, b: RoofScheduleRow, s: Sort): number => {
-  const x = a[s.key];
-  const y = b[s.key];
-  const r = typeof x === 'number' && typeof y === 'number' ? x - y : String(x ?? '').localeCompare(String(y ?? ''), 'pt-BR', { numeric: true });
+const compare = (a: RoofScheduleRow, b: RoofScheduleRow, s: Sort, lang: Lang, label?: (r: RoofScheduleRow) => string): number => {
+  const x = label ? label(a) : a[s.key];
+  const y = label ? label(b) : b[s.key];
+  const r = typeof x === 'number' && typeof y === 'number' ? x - y : cmpTexto(String(x ?? ''), String(y ?? ''), lang);
   return r * s.dir;
 };
 
@@ -60,7 +60,8 @@ const SHAPES = Object.keys(ROOF_SHAPE_LABEL) as RoofShape[];
 /** Tabela de telhados com ordenação, filtros por nível, tipo e forma, totais e exportação CSV (padrão da tabela de lajes). */
 export function RoofScheduleDialog(): ReactElement {
   const p = useProject();
-  const t = I18N[useI18n((s) => s.lang)];
+  const lang = useI18n((s) => s.lang);
+  const t = dictOf(lang);
   const units = useUnits();
   /** Nome da forma no idioma ativo (o rótulo do engine é só PT). */
   const shapeName = (s: RoofShape): string => t[`roof_shape_${s}` as keyof typeof I18N.pt];
@@ -69,17 +70,20 @@ export function RoofScheduleDialog(): ReactElement {
   const [typeId, setTypeId] = useState('');
   const [shape, setShape] = useState<RoofShape | ''>('');
   const [sort, setSort] = useState<Sort | null>(null);
-  const [msg, setMsg] = useState('');
+  const [msg, setMsg] = useState<TextLike>('');
 
   const types = useMemo(() => {
     const byId = new Map(schedule.rows.map((r) => [r.typeId, r.typeName] as const));
-    return [...byId].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
-  }, [schedule]);
+    return [...byId].map(([id, name]) => ({ id, name })).sort((a, b) => cmpTexto(a.name, b.name, lang));
+  }, [schedule, lang]);
 
   const visible = useMemo(() => {
     const list = filterRoofRows(schedule.rows, { levelId: levelId || undefined, typeId: typeId || undefined, shape: shape || undefined });
-    return sort ? [...list].sort((a, b) => compare(a, b, sort)) : list;
-  }, [schedule, levelId, typeId, shape, sort]);
+    // A coluna Forma guarda o rótulo PT no engine: ordena pelo nome já traduzido.
+    const shapeOf = dictOf(lang);
+    const sortLabel = sort?.key === 'shapeLabel' ? (r: RoofScheduleRow) => shapeOf[`roof_shape_${r.shape}` as keyof typeof I18N.pt] : undefined;
+    return sort ? [...list].sort((a, b) => compare(a, b, sort, lang, sortLabel)) : list;
+  }, [schedule, levelId, typeId, shape, sort, lang]);
 
   const totals = useMemo(() => sumRoofRows(visible), [visible]);
 
@@ -89,8 +93,9 @@ export function RoofScheduleDialog(): ReactElement {
   const close = (): void => useUi.setState({ dialog: null, dialogArg: null });
 
   const exportCsv = async (): Promise<void> => {
-    const base = p.name.trim() || 'projeto';
-    const status = await saveText(`${base}-telhados.csv`, roofScheduleToCsv(visible, totals, units));
+    const base = p.name.trim() || t.scx_csv_default_project;
+    // i18n: passar `lang` e o nome da forma quando o engine aceitar (cabeçalho, célula e separador decimal do CSV).
+    const status = await saveText(`${base}-${t.scx_csv_file_roof}.csv`, roofScheduleToCsv(visible, totals, units, lang));
     setMsg(status);
     useUi.setState({ status });
   };
@@ -98,11 +103,11 @@ export function RoofScheduleDialog(): ReactElement {
   return (
     <Dialog
       title={t.sched_title_roof}
-      sub={`${visible.length} ${t.sched_of} ${schedule.rows.length} ${t.sched_noun_roof}`}
+      sub={translate(lang, schedule.rows.length === 1 ? 'scx_sub_roof_one' : 'scx_sub_roof_many', { shown: visible.length, total: schedule.rows.length })}
       onClose={close}
       footer={
         <>
-          <span className="wsched-msg" role="status">{msg}</span>
+          <span className="wsched-msg" role="status">{resolveText(msg, lang)}</span>
           <button className="btn primary" onClick={() => void exportCsv()} disabled={visible.length === 0} title={t.sched_export_tip}>
             {t.sched_export_csv}
           </button>

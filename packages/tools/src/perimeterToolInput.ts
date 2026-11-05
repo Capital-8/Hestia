@@ -2,9 +2,10 @@ import { dist, mid, type SketchDraft, type SketchSeg, type Vec2 } from '@hestia/
 import { parseQuantityText } from './numeric.ts';
 import type { ResolvedUnits } from '@hestia/model';
 import { selectSegsMode, setSegSlope, effectiveSeg } from './perimeterSession.ts';
-import { ROOM_HINT, SELECT_PX, hasSeg, hitSeg, segLines, triangleHit } from './perimeterToolPick.ts';
+import { SELECT_PX, hasSeg, hitSeg, segLines, triangleHit, roomHint } from './perimeterToolPick.ts';
+import { t as translate, type Lang } from './i18n.ts';
 import { perimeterFromBox } from './sketchByPerimeter.ts';
-import { kindOf, promptOf } from './perimeterToolShape.ts';
+import { kindOf, promptOf, shapeName } from './perimeterToolShape.ts';
 import { faceAt } from './sketchPickFace.ts';
 import { selectionModeOf } from './perimeterToolSelect.ts';
 import type { PointerInfo, PreviewItem, ToolEnv } from './types.ts';
@@ -30,20 +31,20 @@ export function parseDelta(text: string, u: ResolvedUnits): Vec2 | null {
 }
 
 /** Prévia da face sob o cursor: realce, rótulo e aviso para a barra de status. */
-export function facePreview(env: ToolEnv, at: Vec2, cycle: number): { items: PreviewItem[]; msg: string } {
+export function facePreview(env: ToolEnv, at: Vec2, cycle: number, lang: Lang = 'pt'): { items: PreviewItem[]; msg: string } {
   const pick = faceAt(env, at, PICK_PX * env.metersPerPixel(), cycle);
-  if (!pick) return { items: [], msg: 'Aponte para uma face, eixo ou borda do nível.' };
+  if (!pick) return { items: [], msg: translate(lang, 'tl_msg_point_face_axis_edge') };
   return {
     items: [...segLines(pick.seg, { halo: true }), { kind: 'label', at: mid(pick.seg.a, pick.seg.b), text: pick.label }],
-    msg: `${pick.label}. Clique adiciona; Tab alterna.`,
+    msg: translate(lang, 'tl_msg_face_preview', { label: pick.label }),
   };
 }
 
 /** Linha da face sob o cursor, ou o motivo de não servir (sem face, ou já está no esboço). */
-export function facePick(env: ToolEnv, at: Vec2, cycle: number, d: SketchDraft): { seg: SketchSeg; label: string } | { msg: string } {
+export function facePick(env: ToolEnv, at: Vec2, cycle: number, d: SketchDraft, lang: Lang = 'pt'): { seg: SketchSeg; label: string } | { msg: string } {
   const pick = faceAt(env, at, PICK_PX * env.metersPerPixel(), cycle);
-  if (!pick) return { msg: 'Nada aqui: aponte para uma face, eixo ou borda.' };
-  if (hasSeg(d.segs, pick.seg)) return { msg: 'Essa linha já está no esboço.' };
+  if (!pick) return { msg: translate(lang, 'tl_msg_nothing_face') };
+  if (hasSeg(d.segs, pick.seg)) return { msg: translate(lang, 'tl_msg_line_in_sketch') };
   return { seg: pick.seg, label: pick.label };
 }
 
@@ -51,36 +52,36 @@ export function facePick(env: ToolEnv, at: Vec2, cycle: number, d: SketchDraft):
  * Clique no modo de seleção. Linha de limite: seleciona a linha sob o cursor (Shift soma, Ctrl subtrai), e `geom` é false. Inclinação:
  * liga ou desliga o `definesSlope` da aresta do triângulo, e `geom` é true (muda a geometria do passo).
  */
-export function selectClick(d: SketchDraft, p: PointerInfo, slope: boolean, mpp: number, selectHint: string): { next: SketchDraft; geom: boolean; msg: string } {
+export function selectClick(d: SketchDraft, p: PointerInfo, slope: boolean, mpp: number, selectHint: string, lang: Lang = 'pt'): { next: SketchDraft; geom: boolean; msg: string } {
   if (slope) {
     const id = triangleHit(d, p.raw, mpp);
-    if (!id) return { next: d, geom: false, msg: 'Clique no triângulo de uma aresta do contorno.' };
+    if (!id) return { next: d, geom: false, msg: translate(lang, 'tl_msg_click_slope_triangle') };
     const on = effectiveSeg(d, d.segs.find((s) => s.id === id)!).definesSlope;
-    return { next: setSegSlope(d, id, { definesSlope: !on }), geom: true, msg: on ? 'Aresta sem inclinação definida.' : 'Aresta define a inclinação.' };
+    return { next: setSegSlope(d, id, { definesSlope: !on }), geom: true, msg: translate(lang, on ? 'tl_msg_edge_no_slope' : 'tl_msg_edge_slope') };
   }
   const id = hitSeg(d.segs, p.raw, SELECT_PX * mpp);
   const mode = id === null && !p.shift ? 'replace' : selectionModeOf(p);
   const next = selectSegsMode(d, id ? [id] : [], mode);
   const n = next.selected.length;
-  return { next, geom: false, msg: n > 0 ? `${n} linha(s) selecionada(s). Delete remove; Shift soma, Ctrl subtrai.` : selectHint };
+  return { next, geom: false, msg: n > 0 ? translate(lang, 'tl_msg_lines_selected_delete', { n }) : selectHint };
 }
 
 /** Contorno pelas paredes da caixa de `a` a `b`, ou null se a caixa é um clique. `segs` vazio = nada pego (aviso em `msg`). */
-export function boxPick(env: ToolEnv, a: Vec2, b: Vec2): { segs: SketchSeg[]; msg: string } | null {
+export function boxPick(env: ToolEnv, a: Vec2, b: Vec2, lang: Lang = 'pt'): { segs: SketchSeg[]; msg: string } | null {
   if (dist(a, b) < BOX_MIN_PX * env.metersPerPixel()) return null;
   const r = perimeterFromBox(env, a, b);
-  if (r.segs.length === 0) return { segs: [], msg: r.warnings.join(' ') || 'Nenhuma parede nesta caixa.' };
-  return { segs: r.segs, msg: [...r.warnings, `Contorno pela caixa: ${r.segs.length} linha(s) adicionadas.`].join(' ') };
+  if (r.segs.length === 0) return { segs: [], msg: r.warnings.join(' ') || translate(lang, 'tl_msg_no_walls_box') };
+  return { segs: r.segs, msg: [...r.warnings, translate(lang, 'tl_msg_box_outline_added', { n: r.segs.length })].join(' ') };
 }
 
-const PICK_HINT = 'Linha numa face: passe sobre uma face, eixo ou borda do nível. Tab alterna; clique adiciona.';
-const BOX_HINT = 'Contorno pela caixa: arraste uma caixa sobre as paredes e solte.';
+const PICK_HINT = (lang: Lang): string => translate(lang, 'tl_hint_perim_pick');
+const BOX_HINT = (lang: Lang): string => translate(lang, 'tl_hint_perim_box');
 
 /** Dica da barra de status ao escolher uma forma da galeria (ou uma das capturas). */
-export function shapeHintOf(kind: string): string {
-  if (kind === 'pickFace') return PICK_HINT;
-  if (kind === 'byPerimeter') return BOX_HINT;
-  if (kind === 'pickRoom') return ROOM_HINT;
+export function shapeHintOf(kind: string, lang: Lang = 'pt'): string {
+  if (kind === 'pickFace') return PICK_HINT(lang);
+  if (kind === 'byPerimeter') return BOX_HINT(lang);
+  if (kind === 'pickRoom') return roomHint(lang);
   const k = kindOf(kind as Parameters<typeof kindOf>[0]);
-  return `${k.label}: ${promptOf({ shape: k, idx: 0, vals: {} })}.`;
+  return translate(lang, 'tl_msg_shape_prompt', { shape: shapeName(k, lang), prompt: promptOf({ shape: k, idx: 0, vals: {} }, lang) });
 }

@@ -2,6 +2,7 @@ import type { ReactElement, RefObject } from 'react';
 import type { Id } from '@hestia/model';
 import type { Backend, ModelScene } from '@hestia/render';
 import { editor } from '../editor/controller.ts';
+import { useT } from '../editor/i18n.ts';
 import type { ViewKind } from '../editor/state.ts';
 import { SectionBadge } from './SectionCanvas.tsx';
 import { ViewCube } from './ViewCube.tsx';
@@ -23,6 +24,7 @@ export function ViewportOverlays({
   selection: Id[];
   ui: { view: ViewKind; gpu: Backend | 'cpu' | 'pending'; prompt: string | null; typed: string };
 }): ReactElement {
+  const { t } = useT();
   const only = selection.length === 1 ? editor.project.elements[selection[0]!] : undefined;
   const selectedOpeningId = only && (only.kind === 'door' || only.kind === 'window') ? only.id : null;
   const center = (): { x: number; y: number } => {
@@ -34,10 +36,10 @@ export function ViewportOverlays({
       {ui.view === 'plan' && selectedOpeningId ? <OpeningFlipGrips openingId={selectedOpeningId} /> : null}
       {ui.view === 'plan' ? <TempDimsOverlay /> : null}
       {ui.view === 'plan' || ui.view === 'section' ? <DimValueEditor /> : null}
-      {ui.gpu === 'cpu' && <div className="cpu-note">Sem GPU: planta em modo CPU. O 3D fica indisponível.</div>}
+      {ui.gpu === 'cpu' && <div className="cpu-note">{t('cvv_cpu_note')}</div>}
       {ui.gpu === 'cpu' && ui.view === '3d' && (
         <div className="hint" style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'var(--sheet)' }}>
-          Este navegador não oferece WebGL nem WebGPU. Use a planta.
+          {t('cvv_no_webgl')}
         </div>
       )}
       <NavBar model={model} center={center} />
@@ -48,7 +50,7 @@ export function ViewportOverlays({
         <div className="typebox" role="status">
           <span className="cap">{ui.prompt}</span>
           <span className="buf" aria-live="polite">{ui.typed}</span>
-          <span className="cap">Enter confirma</span>
+          <span className="cap">{t('cvv_enter_confirms')}</span>
         </div>
       ) : null}
     </>

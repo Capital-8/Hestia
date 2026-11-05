@@ -1,28 +1,29 @@
 import { useEffect, useId, useRef, useState, type ReactElement } from 'react';
 import { DEFAULT_SNAP, type SnapOptions } from '@hestia/tools';
+import { useT, type Dict } from '../editor/i18n.ts';
 import { setSnap, useUi } from '../editor/state.ts';
 import { Check } from './fields.tsx';
 
 interface SnapItemDef {
   key: keyof SnapOptions;
-  label: string;
+  label: keyof Dict;
   symbol: string;
   shortcut?: string;
-  hint: string;
+  hint: keyof Dict;
 }
 
 /** Capturas do popover, inspiradas no AutoCAD e Revit. */
 const ITEMS: SnapItemDef[] = [
-  { key: 'endpoint', label: 'Extremidade', symbol: '□', hint: 'Pontas de paredes e vértices' },
-  { key: 'midpoint', label: 'Ponto Médio', symbol: '△', hint: 'Centro das paredes e arestas' },
-  { key: 'axis', label: 'Eixos de Parede', symbol: '┼', hint: 'Pé sobre o eixo da parede (hospeda portas e janelas)' },
-  { key: 'intersections', label: 'Interseção', symbol: '✕', hint: 'Cruzamento de eixos e quinas' },
-  { key: 'perpendicular', label: 'Perpendicular', symbol: '⟂', hint: 'Ângulo reto a partir do ponto anterior' },
-  { key: 'alignment', label: 'Rastreamento Dinâmico', symbol: '☩', shortcut: 'F11', hint: 'Linhas-guia pontilhadas de alinhamento com outros pontos' },
-  { key: 'faces', label: 'Faces de Parede', symbol: '⚏', hint: 'Cantos e arestas das faces de acabamento' },
-  { key: 'core', label: 'Faces do Núcleo', symbol: '◇', hint: 'Cantos e arestas da alvenaria estrutural' },
-  { key: 'cad', label: 'CAD importado (DXF)', symbol: '⠿', hint: 'Vértices, meios, pontos e cruzamentos das linhas do desenho importado' },
-  { key: 'grid', label: 'Pela grade', symbol: '⊞', hint: 'Captura nos pontos da grade visível (intervalo em Propriedades da vista; automático pelo zoom)' },
+  { key: 'endpoint', label: 'shc_snap_endpoint', symbol: '□', hint: 'shc_snap_endpoint_hint' },
+  { key: 'midpoint', label: 'shc_snap_midpoint', symbol: '△', hint: 'shc_snap_midpoint_hint' },
+  { key: 'axis', label: 'shc_snap_axis', symbol: '┼', hint: 'shc_snap_axis_hint' },
+  { key: 'intersections', label: 'shc_snap_intersection', symbol: '✕', hint: 'shc_snap_intersection_hint' },
+  { key: 'perpendicular', label: 'shc_snap_perpendicular', symbol: '⟂', hint: 'shc_snap_perpendicular_hint' },
+  { key: 'alignment', label: 'shc_snap_dynamic_tracking', symbol: '☩', shortcut: 'F11', hint: 'shc_snap_alignment_hint' },
+  { key: 'faces', label: 'shc_snap_faces', symbol: '⚏', hint: 'shc_snap_faces_hint' },
+  { key: 'core', label: 'shc_snap_core_faces', symbol: '◇', hint: 'shc_snap_core_faces_hint' },
+  { key: 'cad', label: 'shc_snap_cad', symbol: '⠿', hint: 'shc_snap_cad_hint' },
+  { key: 'grid', label: 'shc_snap_by_grid', symbol: '⊞', hint: 'shc_snap_grid_hint' },
 ];
 
 const ALL_ON: SnapOptions = {
@@ -55,6 +56,7 @@ const ALL_OFF: SnapOptions = {
 
 /** Botão Snap da barra de status com checklist de capturas (AutoCAD Object Snap / Revit Snaps). */
 export function SnapButton(): ReactElement {
+  const { t } = useT();
   const snap = useUi((s) => s.options.snap) ?? DEFAULT_SNAP;
   const isEnabled = snap.enabled !== false;
   const [open, setOpen] = useState(false);
@@ -100,7 +102,7 @@ export function SnapButton(): ReactElement {
         aria-expanded={open}
         aria-controls={open ? popId : undefined}
         onClick={() => setOpen((o) => !o)}
-        title="Capturas de desenho (F3): extremidades, meios, interseções, alinhamento e CAD importado"
+        title={t('shc_snap_btn_tip')}
       >
         <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="3" />
@@ -115,22 +117,22 @@ export function SnapButton(): ReactElement {
       </button>
 
       {open && (
-        <div id={popId} ref={pop} role="dialog" aria-label="Capturas de desenho" className="snap-pop" tabIndex={-1}>
+        <div id={popId} ref={pop} role="dialog" aria-label={t('shc_snap_pop_title')} className="snap-pop" tabIndex={-1}>
           <div className="snap-master-row">
             <div className="snap-master-info">
-              <strong>Capturas de Objeto (Snaps)</strong>
-              <span className="snap-master-hint">Atalho mestre: <code>F3</code></span>
+              <strong>{t('shc_snap_master_title')}</strong>
+              <span className="snap-master-hint">{t('shc_snap_master_hint')} <code>F3</code></span>
             </div>
             <button
               type="button"
               className={`btn small ${isEnabled ? 'primary' : ''}`}
               onClick={() => setSnap({ enabled: !isEnabled })}
             >
-              {isEnabled ? 'LIGADO' : 'DESLIGADO'}
+              {t(isEnabled ? 'shc_snap_on' : 'shc_snap_off')}
             </button>
           </div>
 
-          <div role="group" aria-label="Checklist de capturas">
+          <div role="group" aria-label={t('shc_snap_checklist_aria')}>
             {ITEMS.map((i) => {
               const val = snap[i.key] !== false;
               return (
@@ -142,20 +144,20 @@ export function SnapButton(): ReactElement {
                   >
                     <span className="snap-item-label">
                       <span className="snap-sym">{i.symbol}</span>
-                      <span>{i.label}</span>
+                      <span>{t(i.label)}</span>
                       {i.shortcut && <span className="snap-shortcut">{i.shortcut}</span>}
                     </span>
                   </Check>
-                  <span className="snap-desc">{i.hint}</span>
+                  <span className="snap-desc">{t(i.hint)}</span>
                 </div>
               );
             })}
           </div>
 
           <div className="snap-actions">
-            <button type="button" className="btn small" onClick={() => setSnap(ALL_ON)}>Tudo</button>
-            <button type="button" className="btn small" onClick={() => setSnap(DEFAULT_SNAP)}>Padrão</button>
-            <button type="button" className="btn small" onClick={() => setSnap(ALL_OFF)}>Nenhum</button>
+            <button type="button" className="btn small" onClick={() => setSnap(ALL_ON)}>{t('shc_snap_all')}</button>
+            <button type="button" className="btn small" onClick={() => setSnap(DEFAULT_SNAP)}>{t('shc_snap_default')}</button>
+            <button type="button" className="btn small" onClick={() => setSnap(ALL_OFF)}>{t('shc_snap_none')}</button>
           </div>
         </div>
       )}

@@ -27,6 +27,27 @@ export function registrarCena3D(c: { scene: Object3D; camera: Camera } | null): 
   cena3d = c;
 }
 
+/** A cena e a câmera da vista 3D, para desenhar a miniatura do projeto (fora do quadro da tela). */
+export function lerCena3D(): { scene: Object3D; camera: Camera } | null {
+  return cena3d;
+}
+
+/**
+ * Prepara a cena para a miniatura: garante que os níveis do projeto estão MONTADOS na cena, mesmo quando a aba aberta
+ * é a planta (o 3D só monta na primeira vez que aparece). O `ViewportCanvas` registra isto; devolve false quando não há
+ * como montar (vista 3D ainda não criada).
+ */
+let prepararCena: (() => boolean) | null = null;
+
+export function registrarPreparoCena3D(f: (() => boolean) | null): void {
+  prepararCena = f;
+}
+
+/** Monta o que faltar na cena 3D (síncrono) e diz se há geometria pronta para a miniatura. */
+export function prepararCena3D(): boolean {
+  return prepararCena ? prepararCena() : false;
+}
+
 /**
  * Ctrl+A na vista 3D: seleciona os elementos visíveis no quadro (cruzamento com o retângulo inteiro da tela). Devolve
  * false quando a vista 3D não está viva, e nada muda.
@@ -37,7 +58,7 @@ export function selecionarVisiveis3D(): boolean {
   useUi.setState({
     selection: ids,
     selectedLevel: null,
-    status: ids.length ? `${ids.length} elemento(s) visível(is) selecionado(s).` : 'Nenhum elemento visível na vista 3D.',
+    status: ids.length ? { key: 'edc_3d_selected', args: { n: ids.length } } : { key: 'edc_3d_none_visible' },
   });
   return true;
 }

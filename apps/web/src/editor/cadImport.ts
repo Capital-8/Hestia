@@ -1,6 +1,7 @@
 import type { Vec2 } from '@hestia/geom';
 import { newId, type CadDrawing, type CadUnit, type Id } from '@hestia/model';
 import { METROS_POR_UNIDADE, parseDxfText } from '@hestia/io';
+import { useI18n, type Lang } from './i18n.ts';
 
 /**
  * Importação de DXF pela interface: o `parseDxfText` do `@hestia/io` lê o arquivo (geometria em metros) e aqui a unidade
@@ -33,9 +34,9 @@ function nomeDoDesenho(nome: string): string {
  * unidade declarada reescala o desenho pelo fator entre a unidade pedida e a detectada no `$INSUNITS` (o `unit` guardado é
  * a unidade do arquivo, e a reexportação com ela devolve as mesmas coordenadas).
  */
-export async function importCadFile(file: File, options: CadImportOptions): Promise<Omit<CadDrawing, 'order'>> {
+export async function importCadFile(file: File, options: CadImportOptions, lang: Lang = useI18n.getState().lang): Promise<Omit<CadDrawing, 'order'>> {
   const nome = options.name ?? nomeDoDesenho(file.name);
-  const dxf = parseDxfText(await file.text(), nome);
+  const dxf = parseDxfText(await file.text(), nome, lang);
   const unit = options.unit ?? dxf.unit;
   const fator = METROS_POR_UNIDADE[unit] / dxf.unitScale;
   const escala = (options.scale ?? 1) * fator;

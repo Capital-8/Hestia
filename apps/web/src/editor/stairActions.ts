@@ -1,6 +1,7 @@
 import { missingText, type StairStatus } from '@hestia/tools';
 import { refitStairToHeight } from '@hestia/engine';
 import type { Id, Project, ProjectStore, Stair, StairRun } from '@hestia/model';
+import { useI18n } from './i18n.ts';
 
 interface Pt {
   x: number;
@@ -41,8 +42,9 @@ const FIT_KEYS: ReadonlySet<keyof Stair> = new Set(['topLevelId', 'topOffset', '
  * na mesma transação pela fórmula do tipo (`refitStairToHeight`, decisão 0041): os lances esticam/encolhem para o piso
  * calculado e o nº de espelhos é mantido.
  */
-export function patchStairs(store: ProjectStore, ids: Id[], patch: Partial<Stair>, label = 'Editar escada'): void {
+export function patchStairs(store: ProjectStore, ids: Id[], patch: Partial<Stair>, label = 'edc_undo_edit_stair'): void {
   if (ids.length === 0) return;
+  const lang = useI18n.getState().lang;
   const refit = Object.keys(patch).some((k) => FIT_KEYS.has(k as keyof Stair));
   store.transaction(label, () => {
     store.exec({ type: 'updateElements', ids, patch });
@@ -50,7 +52,7 @@ export function patchStairs(store: ProjectStore, ids: Id[], patch: Partial<Stair
     for (const id of ids) {
       const s = store.project.elements[id];
       if (!s || s.kind !== 'stair') continue;
-      const fit = refitStairToHeight(store.project, s);
+      const fit = refitStairToHeight(store.project, s, lang);
       if (!fit.components) continue;
       store.exec({
         type: 'updateElements',

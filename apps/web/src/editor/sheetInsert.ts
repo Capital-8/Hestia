@@ -17,6 +17,7 @@ import {
   type SheetViewSource,
 } from '@hestia/model';
 import { levelBox, sectionBox, STAMP_H, STAMP_W } from '@hestia/render';
+import { t, useI18n } from './i18n.ts';
 import { defaultViewSize, freeSpot, newSheet, SCALE_OPTIONS } from './sheetActions.ts';
 
 /**
@@ -105,11 +106,12 @@ const overlaps = (a: Rect, b: Rect): boolean => a.x < b.x + b.w && b.x < a.x + a
 /**
  * Insere várias vistas na prancha num único passo de desfazer, cada uma no primeiro lugar livre com 10 mm de
  * afastamento (da esquerda para a direita, de baixo para cima). Sem escala, escolhe a maior que cabe. Se alguma não
- * couber, lança erro em pt-BR antes de gravar qualquer coisa.
+ * couber, lança erro no idioma ativo antes de gravar qualquer coisa.
  */
 export function addViewsAction(store: ProjectStore, sheetId: Id, reqs: InsertRequest[]): Id[] {
+  const lang = useI18n.getState().lang;
   const sheet = sheetOf(store.project, sheetId);
-  if (!sheet) throw new Error('Prancha inexistente');
+  if (!sheet) throw new Error(t(lang, 'cvs_sheet_missing_err'));
   const inner = sheetInnerBox(sheet);
   const innerSize = { w: inner.x1 - inner.x0, h: inner.y1 - inner.y0 };
   const stamp: Rect = { x: inner.x1 - STAMP_W, y: inner.y0, w: STAMP_W, h: STAMP_H };
@@ -120,10 +122,10 @@ export function addViewsAction(store: ProjectStore, sheetId: Id, reqs: InsertReq
     const sourceIssue = viewSourceIssue(store.project, req.view);
     if (sourceIssue) throw new Error(sourceIssue);
     const scale = req.scale ?? autoScaleForView(store.project, req.view, innerSize);
-    if (!(Number.isFinite(scale) && scale > 0)) throw new Error('A escala deve ser maior que zero.');
+    if (!(Number.isFinite(scale) && scale > 0)) throw new Error(t(lang, 'cvs_scale_positive'));
     const size = contentSizeMm(store.project, req.view, scale);
     if (!(size.w <= innerSize.w + 1e-6 && size.h <= innerSize.h + 1e-6)) {
-      throw new Error(`A vista ${i + 1} não cabe na área de desenho da prancha.`);
+      throw new Error(t(lang, 'cvs_view_does_not_fit', { n: i + 1 }));
     }
     // As vistas já planejadas entram como obstáculos crescidos: é o que garante os 10 mm entre elas.
     const obstacles = [...sheet.viewports, ...planned].map((v) => ({
@@ -140,13 +142,13 @@ export function addViewsAction(store: ProjectStore, sheetId: Id, reqs: InsertReq
       at.y + size.h <= inner.y1 + 1e-6 &&
       !overlaps(rect, stamp) &&
       !obstacles.some((o) => overlaps(rect, { x: o.at.x, y: o.at.y, w: o.size.w, h: o.size.h }));
-    if (!fits) throw new Error(`A vista ${i + 1} não cabe na área de desenho da prancha.`);
+    if (!fits) throw new Error(t(lang, 'cvs_view_does_not_fit', { n: i + 1 }));
     planned.push({ id: newViewportId(), view: req.view, at, size, scale });
   }
 
-  store.transaction('Adicionar vistas à prancha', () => {
+  store.transaction(t(lang, 'cvs_undo_add_views'), () => {
     for (const viewport of planned) {
-      store.exec({ type: 'addViewport', sheetId, viewport }, 'Adicionar vista à prancha');
+      store.exec({ type: 'addViewport', sheetId, viewport }, t(lang, 'cvs_undo_add_view'));
     }
   });
   return planned.map((v) => v.id);
@@ -158,12 +160,13 @@ export function addViewsAction(store: ProjectStore, sheetId: Id, reqs: InsertReq
  * `Planta — <nível>`, número automático e carimbo preenchido por `newSheet`. Tudo num único passo de desfazer.
  */
 export function sheetsPerLevelAction(store: ProjectStore, scale = 100): Id[] {
-  if (!(Number.isFinite(scale) && scale > 0)) throw new Error('A escala deve ser maior que zero.');
+  const lang = useI18n.getState().lang;
+  if (!(Number.isFinite(scale) && scale > 0)) throw new Error(t(lang, 'cvs_scale_positive'));
   const levels = [...store.project.levels];
   const ids: Id[] = [];
-  store.transaction('Criar pranchas dos níveis', () => {
+  store.transaction(t(lang, 'cvs_undo_create_level_sheets'), () => {
     for (const level of levels) {
-      const sheet: Sheet = { ...newSheet(store.project), name: `Planta — ${level.name}` };
+      const sheet: Sheet = { ...newSheet(store.project), name: t(lang, 'cvs_plan_sheet_name', { level: level.name }) };
       const inner = sheetInnerBox(sheet);
       const view: SheetViewSource = { kind: 'plan', levelId: level.id };
       const want = contentSizeMm(store.project, view, scale);
@@ -175,8 +178,8 @@ export function sheetsPerLevelAction(store: ProjectStore, scale = 100): Id[] {
       const viewport: SheetViewport = { id: newViewportId(), view, at, size, scale };
       const issue = viewportIssue(sheet, viewport);
       if (issue) throw new Error(issue);
-      store.exec({ type: 'addSheet', sheet }, 'Criar prancha');
-      store.exec({ type: 'addViewport', sheetId: sheet.id, viewport }, 'Adicionar vista à prancha');
+      store.exec({ type: 'addSheet', sheet }, t(lang, 'cvs_undo_create_sheet'));
+      store.exec({ type: 'addViewport', sheetId: sheet.id, viewport }, t(lang, 'cvs_undo_add_view'));
       ids.push(sheet.id);
     }
   });
@@ -229,13 +232,14 @@ export function dragPlacement(p: Project, sheet: Sheet, view: SheetViewSource, c
 
 /** Grava a vista arrastada na posição já ajustada (encaixe/clamp feitos por quem chama): um passo de desfazer. */
 export function addViewportAtAction(store: ProjectStore, sheetId: Id, view: SheetViewSource, placement: DragPlacement): Id {
+  const lang = useI18n.getState().lang;
   const sheet = sheetOf(store.project, sheetId);
-  if (!sheet) throw new Error('Prancha inexistente');
+  if (!sheet) throw new Error(t(lang, 'cvs_sheet_missing_err'));
   const issue = viewSourceIssue(store.project, view);
   if (issue) throw new Error(issue);
   const viewport: SheetViewport = { id: newViewportId(), view, at: placement.at, size: placement.size, scale: placement.scale };
   const invalid = viewportIssue(sheet, viewport);
   if (invalid) throw new Error(invalid);
-  store.exec({ type: 'addViewport', sheetId, viewport }, 'Adicionar vista à prancha');
+  store.exec({ type: 'addViewport', sheetId, viewport }, t(lang, 'cvs_undo_add_view'));
   return viewport.id;
 }

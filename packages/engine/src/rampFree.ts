@@ -4,6 +4,7 @@ import { layoutSegment, layoutUntilRise, LIVE_RISE_TOL, type LayoutPiece } from 
 import { inlineLanding, maxRiseFor, planRamp, tagRuns, type RampPlan, type RampPlanResult } from './rampPlan.ts';
 import { generateStraightRun, type StairComponentSketch } from './stairGenerators.ts';
 import { FREE_COLLINEAR_ANGLE, FREE_MAX_TURN_ANGLE, findSelfOverlap, turnLandingSketch } from './freePathGeom.ts';
+import { numLang, t, type Lang } from './i18nMessages.ts';
 
 export { FREE_COLLINEAR_ANGLE, FREE_MAX_TURN_ANGLE } from './freePathGeom.ts';
 
@@ -22,6 +23,8 @@ export interface RampFreeOptions {
   landingDepth?: number;
   /** Índices (do trajeto original) de vértices que viram patamar mesmo se colineares. */
   manualLandings?: number[];
+  /** Idioma das mensagens (padrão `'pt'`). */
+  lang?: Lang;
 }
 
 interface Seg {
@@ -56,9 +59,10 @@ interface Turn {
  * patamar (trecho curto demais, retorno agudo): nunca gera polígono autointerceptante.
  */
 export function planRampFree(path: Vec2[], H: number, type: RampType, o: RampFreeOptions): RampPlanResult {
+  const lang = o.lang ?? 'pt';
   const w = o.width;
-  if (!(w > 0)) return { error: 'A largura da rampa deve ser positiva.' };
-  if (!(H > 0)) return { error: 'O desnível deve ser positivo: nada a gerar.' };
+  if (!(w > 0)) return { error: t(lang, 'egb_err_ramp_width') };
+  if (!(H > 0)) return { error: t(lang, 'egb_err_ramp_rise') };
 
   // Limpa vértices repetidos, guardando o índice original (para os patamares manuais).
   const pts: Vec2[] = [];
@@ -69,9 +73,9 @@ export function planRampFree(path: Vec2[], H: number, type: RampType, o: RampFre
       orig.push(i);
     }
   });
-  if (pts.length < 2) return { error: 'O trajeto precisa de ao menos dois pontos distintos.' };
+  if (pts.length < 2) return { error: t(lang, 'egb_err_path_points') };
   const target = o.slope ?? type.defaultSlope;
-  if (o.mode === 'slope' && !(target > 0)) return { error: 'A inclinação deve ser maior que zero.' };
+  if (o.mode === 'slope' && !(target > 0)) return { error: t(lang, 'egb_err_slope_positive') };
 
   // Um trecho: igual à rampa reta.
   if (pts.length === 2) {
@@ -87,6 +91,7 @@ export function planRampFree(path: Vec2[], H: number, type: RampType, o: RampFre
       mode: o.mode,
       length: o.mode === 'length' ? total : undefined,
       slope: o.mode === 'slope' ? target : undefined,
+      lang,
     });
   }
 
@@ -110,7 +115,7 @@ export function planRampFree(path: Vec2[], H: number, type: RampType, o: RampFre
     const sgn = cr >= 0 ? 1 : -1;
     const on = theta >= FREE_COLLINEAR_ANGLE || manual.has(orig[k + 1]!);
     if (theta > FREE_MAX_TURN_ANGLE) {
-      return { error: `Retorno agudo demais no vértice ${k + 2}: use dois giros menores.` };
+      return { error: t(lang, 'egb_err_sharp_turn', { n: k + 2 }) };
     }
     const tMin = (w / 2) * Math.tan(theta / 2);
     const tPref = Math.max((D * D) / (2 * w), tMin);
@@ -125,7 +130,7 @@ export function planRampFree(path: Vec2[], H: number, type: RampType, o: RampFre
       const need = (ta?.t ?? 0) + (tb?.t ?? 0) + MIN_FLIGHT;
       if (need <= segs[k]!.len + 1e-9) continue;
       const floor = (ta?.tMin ?? 0) + (tb?.tMin ?? 0) + MIN_FLIGHT;
-      if (floor > segs[k]!.len + 1e-9) return { error: `O trecho ${k + 1} é curto demais para o patamar de giro.` };
+      if (floor > segs[k]!.len + 1e-9) return { error: t(lang, 'egb_err_segment_short', { n: k + 1 }) };
       const slack = segs[k]!.len - floor;
       const wantExtra = (ta ? ta.t - ta.tMin : 0) + (tb ? tb.t - tb.tMin : 0);
       const f = wantExtra > 0 ? Math.min(1, slack / wantExtra) : 0;
@@ -238,10 +243,10 @@ export function planRampFree(path: Vec2[], H: number, type: RampType, o: RampFre
     }
   });
 
-  if (flightLengths.length === 0) return { error: 'O trajeto é curto demais para gerar um lance.' };
+  if (flightLengths.length === 0) return { error: t(lang, 'egb_err_path_short_flight') };
   // Só na criação/regeneração (a prévia da sessão não passa por aqui): trechos não adjacentes não podem se sobrepor.
   const clash = findSelfOverlap(parts, segOf);
-  if (clash) return { error: `O trajeto se sobrepõe ao trecho ${segOf[clash.a]! + 1}: afaste o ponto.` };
+  if (clash) return { error: t(lang, 'egb_err_path_overlap', { n: segOf[clash.a]! + 1 }) };
   const sumL = flightLengths.reduce((x, y) => x + y, 0);
   const sumR = rawRises.reduce((x, y) => x + y, 0);
   // Soma das elevações = H exatamente (distribui o resíduo proporcionalmente ao comprimento).
@@ -249,8 +254,8 @@ export function planRampFree(path: Vec2[], H: number, type: RampType, o: RampFre
   const slope = H / sumL;
 
   const notes: string[] = [];
-  if (extended > 1e-6) notes.push(`Trajeto estendido em ${extended.toFixed(2).replace('.', ',')} m para vencer o desnível.`);
-  if (truncated) notes.push('Trajeto encurtado: o desnível fecha antes do último ponto.');
+  if (extended > 1e-6) notes.push(t(lang, 'egb_note_path_extended', { d: numLang(extended, 2, lang) }));
+  if (truncated) notes.push(t(lang, 'egb_note_path_shortened'));
   const plan: RampPlan = {
     parts: tagRuns(parts, 'straight'),
     flights: flightLengths.length,

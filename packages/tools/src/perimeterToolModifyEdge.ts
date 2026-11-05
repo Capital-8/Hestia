@@ -4,34 +4,35 @@ import { alignSegToLine, deleteSegs, extendToBoundary, splitAt, splitBetween, tr
 import type { PerimeterModifyKind } from './perimeterModifyKind.ts';
 import { clearData, ghost, halo, lineAt, segById, type ModHost, type Step } from './perimeterToolModifyStep.ts';
 import type { PointerInfo, PreviewItem } from './types.ts';
+import { t as translate, type DictKey, type Lang } from './i18n.ts';
+
+const lg = (h: ModHost): Lang => h.lang?.() ?? 'pt';
 
 /** Mensagem quando a operação de aparar/estender não tem resultado, por modo. */
-const TRIM_FAIL = [
-  'Essas linhas não formam canto dentro do alcance.',
-  'O limite não cruza essa linha por dentro.',
-  'O limite não está à frente da ponta dessa linha.',
+const TRIM_FAIL: DictKey[] = [
+  'tl_msg_trim_fail_corner',
+  'tl_msg_trim_fail_boundary',
+  'tl_msg_trim_fail_front',
 ];
 
 /** Dica do comando de linha (aparar/estender, dividir, alinhar, excluir), conforme o modo e o estágio. */
-export function edgeHint(kind: PerimeterModifyKind, st: Step): string {
-  if (kind === 'delete') return 'Excluir: clique na linha para tirá-la (Delete remove a seleção).';
+export function edgeHint(kind: PerimeterModifyKind, st: Step, lang: Lang = 'pt'): string {
+  if (kind === 'delete') return translate(lang, 'tl_hint_edge_delete');
   if (kind === 'align') {
     return st.stage === 0
-      ? 'Alinhar: clique na referência (linha do esboço, face, eixo, ombreira ou aresta do projeto).'
-      : 'Alinhar: clique na linha do esboço a alinhar.';
+      ? translate(lang, 'tl_hint_edge_align_ref')
+      : translate(lang, 'tl_hint_edge_align_line');
   }
   if (kind === 'split') {
-    if (st.mode === 0) return 'Dividir: clique no ponto da linha. Tab: dividir com espaço.';
-    return st.stage === 0 ? 'Dividir com espaço: clique o primeiro ponto do trecho. Tab: dividir.' : 'Dividir com espaço: clique o segundo ponto, na mesma linha.';
+    if (st.mode === 0) return translate(lang, 'tl_hint_edge_split');
+    return translate(lang, st.stage === 0 ? 'tl_hint_edge_split_gap_first' : 'tl_hint_edge_split_gap_second');
   }
   if (kind !== 'trim') return '';
   if (st.mode === 0) {
-    return st.stage === 0
-      ? 'Aparar/Estender ao canto: clique na primeira linha. Tab: próximo modo.'
-      : 'Canto: clique na segunda linha; cada linha fica do lado clicado.';
+    return translate(lang, st.stage === 0 ? 'tl_hint_edge_trim_corner_first' : 'tl_hint_edge_trim_corner_second');
   }
-  const what = st.mode === 1 ? 'Aparar até limite' : 'Estender até limite';
-  return st.stage === 0 ? `${what}: clique no limite. Tab: próximo modo.` : `${what}: clique na linha a ajustar. Esc troca o limite.`;
+  const what = translate(lang, st.mode === 1 ? 'tl_hint_edge_limit_trim' : 'tl_hint_edge_limit_extend');
+  return translate(lang, st.stage === 0 ? 'tl_hint_edge_limit_first' : 'tl_hint_edge_limit_second', { what });
 }
 
 /** Resultado de aparar/estender para a linha `id` clicada em `pick`, conforme o modo. */
@@ -46,41 +47,41 @@ function trimClick(h: ModHost, st: Step, id: string, pick: Vec2): void {
     st.ids = [id];
     st.pts = st.mode === 0 ? [pick] : [];
     st.stage = 1;
-    return h.say(edgeHint('trim', st));
+    return h.say(edgeHint('trim', st, lg(h)));
   }
-  if (id === st.ids[0]) return h.say('Escolha outra linha.');
+  if (id === st.ids[0]) return h.say(translate(lg(h), 'tl_msg_choose_other_line'));
   const next = trimResult(h.draft(), st, id, pick);
-  if (!next) return h.say(TRIM_FAIL[st.mode]!);
+  if (!next) return h.say(translate(lg(h), TRIM_FAIL[st.mode]!));
   h.commit(next);
   if (st.mode === 0) {
     clearData('trim', st);
-    return h.say('Canto formado. Clique nas próximas duas linhas.');
+    return h.say(translate(lg(h), 'tl_msg_corner_done'));
   }
   // Até limite: o limite continua escolhido para a próxima linha.
   st.pts = [];
-  h.say('Aparada. Clique na próxima linha, ou Esc troca o limite.');
+  h.say(translate(lg(h), 'tl_msg_trimmed'));
 }
 
 function splitClick(h: ModHost, st: Step, id: string, pick: Vec2): void {
   const d = h.draft();
   if (st.mode === 0) {
     const next = splitAt(d, id, pick);
-    if (!next) return h.say('Clique no meio da linha: nas pontas não há o que dividir.');
+    if (!next) return h.say(translate(lg(h), 'tl_msg_split_mid'));
     h.commit(next);
-    return h.say('Linha dividida. Clique noutra linha, ou Tab: dividir com espaço.');
+    return h.say(translate(lg(h), 'tl_msg_line_split'));
   }
   if (st.stage === 0) {
     st.ids = [id];
     st.pts = [pick];
     st.stage = 1;
-    return h.say(edgeHint('split', st));
+    return h.say(edgeHint('split', st, lg(h)));
   }
-  if (id !== st.ids[0]) return h.say('Os dois pontos devem estar na mesma linha.');
+  if (id !== st.ids[0]) return h.say(translate(lg(h), 'tl_msg_split_same_line'));
   const next = splitBetween(d, id, st.pts[0]!, pick);
-  if (!next) return h.say('Trecho pequeno demais, ou restaria nada da linha (use Excluir).');
+  if (!next) return h.say(translate(lg(h), 'tl_msg_split_too_small'));
   h.commit(next);
   clearData('split', st);
-  h.say(`Trecho removido. ${edgeHint('split', st)}`);
+  h.say(translate(lg(h), 'tl_msg_segment_removed', { hint: edgeHint('split', st, lg(h)) }));
 }
 
 /** Referência fora do esboço (face, eixo, ombreira, aresta) sob o cursor, se houver projeto no host. */
@@ -113,29 +114,29 @@ function alignClick(h: ModHost, st: Step, id: string | null, p: PointerInfo): vo
       st.ids = [id];
       st.pts = [];
       st.stage = 1;
-      return h.say(edgeHint('align', st));
+      return h.say(edgeHint('align', st, lg(h)));
     }
     const ref = referenceFeature(h, p.raw);
-    if (!ref) return h.say('Clique numa linha do esboço ou numa face/aresta de referência.');
+    if (!ref) return h.say(translate(lg(h), 'tl_msg_click_sketch_or_ref'));
     st.ids = [];
     st.pts = [ref.line.p, add(ref.line.p, mul(ref.line.d, 1))];
     st.stage = 1;
-    return h.say(`Referência: ${ref.label}. ${edgeHint('align', st)}`);
+    return h.say(translate(lg(h), 'tl_msg_ref_hint', { ref: ref.label, hint: edgeHint('align', st, lg(h)) }));
   }
-  if (!id) return h.say('Alinhar: clique numa linha do esboço para mover.');
-  if (id === st.ids[0]) return h.say('Escolha outra linha: a referência já está alinhada a si mesma.');
+  if (!id) return h.say(translate(lg(h), 'tl_msg_align_click_line'));
+  if (id === st.ids[0]) return h.say(translate(lg(h), 'tl_msg_align_same_line'));
   const next = alignNext(h.draft(), st, id);
-  if (!next) return h.say('Só retas se alinham, e a linha não pode colapsar.');
+  if (!next) return h.say(translate(lg(h), 'tl_msg_align_straight_only'));
   h.commit(next);
   clearData('align', st);
-  h.say('Linha alinhada. Clique na próxima referência.');
+  h.say(translate(lg(h), 'tl_msg_line_aligned'));
 }
 
 function deleteClick(h: ModHost, id: string): void {
   const next = deleteSegs(h.draft(), [id]);
-  if (!next) return h.say('Nada a excluir ali.');
+  if (!next) return h.say(translate(lg(h), 'tl_msg_nothing_delete'));
   h.commit(next);
-  h.say('Linha excluída. Clique noutra linha, ou Esc sai do comando.');
+  h.say(translate(lg(h), 'tl_msg_line_deleted'));
 }
 
 /**
@@ -145,7 +146,7 @@ function deleteClick(h: ModHost, id: string): void {
 export function edgeClick(h: ModHost, kind: PerimeterModifyKind, st: Step, p: PointerInfo, at: Vec2 = p.raw): void {
   const id = lineAt(h.draft(), p.raw, h.mpp());
   if (kind === 'align') return alignClick(h, st, id, p);
-  if (!id) return h.say('Clique numa linha do esboço.');
+  if (!id) return h.say(translate(lg(h), 'tl_msg_click_sketch_line'));
   if (kind === 'trim') return trimClick(h, st, id, at);
   if (kind === 'split') return splitClick(h, st, id, at);
   deleteClick(h, id);

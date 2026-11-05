@@ -1,3 +1,5 @@
+import { decimalSymbolFor, type Lang } from './i18n.ts';
+
 /** Texto com ";", aspas ou quebra de linha vai entre aspas; texto que começa com =, +, -, @ ganha apóstrofo (evita fórmula no Excel). */
 export const csvText = (s: string): string => {
   const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
@@ -9,6 +11,9 @@ export function csvDocument(lines: string[][]): string {
   return `\uFEFF${lines.map((cells) => cells.join(';')).join('\r\n')}\r\n`;
 }
 
-/** Número decimal com vírgula (CSV pt-BR); não finito vira célula vazia. */
-export const formatDecimal = (v: number, decimals = 2): string =>
-  Number.isFinite(v) ? v.toFixed(decimals).replace('.', ',') : '';
+/** Número decimal com o separador do idioma; não finito vira célula vazia. */
+export const formatDecimal = (v: number, decimals = 2, lang: Lang = 'pt'): string => {
+  if (!Number.isFinite(v)) return '';
+  const text = v.toFixed(decimals); // units-ok: formatador CSV; o separador vem do idioma
+  return decimalSymbolFor(lang) === ',' ? text.replace('.', ',') : text; // units-ok: formatador CSV; o separador vem do idioma
+};

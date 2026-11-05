@@ -3,6 +3,7 @@ import { projectView3DPoints, sheetDimsMm, sheetInnerBox, sheetOf, viewportBox, 
 import { buildSheetDrawList } from '@hestia/render';
 import { editor, useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
+import { useT, type TextLike } from '../../editor/i18n.ts';
 import { alignViewportsAction, distributeViewportsAction, type AlignMode } from '../../editor/sheetAlign.ts';
 import { fitViewportAction, moveViewportContentAction, resizeViewportAction, setViewportScaleAction, setViewportView3DPointAction, toggleViewportLockAction } from '../../editor/sheetActions.ts';
 import { SheetCanvas } from './SheetCanvas.tsx';
@@ -19,8 +20,8 @@ import { useSheetDrop } from './useSheetDrop.ts';
 import { useSheetKeys } from './useSheetKeys.ts';
 import { useSheetMove } from './useSheetMove.ts';
 
-const say = (status: string): void => useUi.setState({ status });
-const refused = (e: unknown): string => (e instanceof Error ? e.message : 'Operação recusada.');
+const say = (status: TextLike): void => useUi.setState({ status });
+const refused = (e: unknown): TextLike => (e instanceof Error ? e.message : { key: 'cvs_refused' });
 
 /**
  * Palco da prancha (decisões 0022 e 0039): câmera própria (zoom no cursor e pan), seleção com alças para redimensionar
@@ -29,6 +30,7 @@ const refused = (e: unknown): string => (e instanceof Error ? e.message : 'Opera
  */
 export function SheetStage({ sheetId }: { sheetId: string }): ReactElement {
   const p = useProject();
+  const { t, lang } = useT();
   const sheet = sheetOf(p, sheetId);
   const boxRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -47,7 +49,7 @@ export function SheetStage({ sheetId }: { sheetId: string }): ReactElement {
   const [snap, setSnap] = useState(true);
   const [fitScale, setFitScale] = useState(true);
 
-  const list = useMemo(() => buildSheetDrawList(p, sheetId), [p, sheetId]);
+  const list = useMemo(() => buildSheetDrawList(p, sheetId, lang), [p, sheetId, lang]);
   const paper = useMemo(() => (sheet ? sheetDimsMm(sheet) : { w: 420, h: 297 }), [sheet]);
   const { view, camera, setCamera, fit, zoomStep, actualSize, zoomTo, paperAt } = useSheetCamera(sheetId, paper, boxRef);
 
@@ -131,7 +133,7 @@ export function SheetStage({ sheetId }: { sheetId: string }): ReactElement {
       const hd = hitHandle(viewportBox(single), pt, tol);
       if (hd) {
         if (single.locked === true) {
-          say('A vista está travada. Use Travar na barra para destravar.');
+          say({ key: 'cvs_locked_hint' });
           return;
         }
         svgRef.current?.setPointerCapture(e.pointerId);
@@ -156,7 +158,7 @@ export function SheetStage({ sheetId }: { sheetId: string }): ReactElement {
     if (!sel.includes(id)) setSel([id]);
     if (vp.locked === true) {
       setSel([id]);
-      say('Vista travada. Use Travar na barra para destravar.');
+      say({ key: 'cvs_locked_hint_short' });
       return;
     }
     if (e.altKey) {
@@ -219,13 +221,13 @@ export function SheetStage({ sheetId }: { sheetId: string }): ReactElement {
         return;
       }
       const err = commitMove(editor.store, sheetId, sheet!, g.ids, movedBoxes(g));
-      say(err ?? (g.ids.length > 1 ? 'Vistas movidas.' : 'Vista movida.'));
+      say(err ?? { key: g.ids.length > 1 ? 'cvs_moved_many' : 'cvs_moved_one' });
       return;
     }
     if (g.kind === 'resize') {
       if (Math.abs(g.box.w - g.start.w) < 1e-6 && Math.abs(g.box.h - g.start.h) < 1e-6 && Math.abs(g.box.x - g.start.x) < 1e-6 && Math.abs(g.box.y - g.start.y) < 1e-6) return;
       const err = resizeViewportAction(editor.store, sheetId, g.id, g.box);
-      say(err ?? `Vista redimensionada: ${Math.round(g.box.w)} × ${Math.round(g.box.h)} mm.`);
+      say(err ?? { key: 'cvs_resized', args: { w: Math.round(g.box.w), h: Math.round(g.box.h) } });
       return;
     }
     if (g.kind !== 'content') return;
@@ -284,7 +286,7 @@ export function SheetStage({ sheetId }: { sheetId: string }): ReactElement {
         if (err) say(err);
         else {
           setSel([]);
-          say(sel.length > 1 ? 'Vistas removidas.' : 'Vista removida.');
+          say({ key: sel.length > 1 ? 'cvs_removed_many' : 'cvs_removed_one' });
         }
       },
       onNudge: (dx: number, dy: number) => {
@@ -306,7 +308,7 @@ export function SheetStage({ sheetId }: { sheetId: string }): ReactElement {
   );
   useSheetKeys(keyActions, space);
 
-  if (!sheet || !list) return <p className="tree-empty">Prancha inexistente.</p>;
+  if (!sheet || !list) return <p className="tree-empty">{t('cvs_sheet_missing')}</p>;
 
   const patchSelected = (patch: Partial<Omit<SheetViewport, 'id'>>, label: string): void => {
     if (!single) return;
@@ -319,11 +321,11 @@ export function SheetStage({ sheetId }: { sheetId: string }): ReactElement {
 
   const onAlignSelection = (mode: AlignMode): void => {
     const err = alignViewportsAction(editor.store, sheetId, sel, mode);
-    say(err ?? 'Vistas alinhadas.');
+    say(err ?? { key: 'cvs_aligned' });
   };
   const onDistribute = (axis: 'h' | 'v'): void => {
     const err = distributeViewportsAction(editor.store, sheetId, sel, axis);
-    say(err ?? 'Vistas distribuídas.');
+    say(err ?? { key: 'cvs_distributed' });
   };
 
   const cursor = align.on || move.on
@@ -389,11 +391,11 @@ export function SheetStage({ sheetId }: { sheetId: string }): ReactElement {
         />
         {sheet.viewports.length === 0 ? (
           <div className="sheet-empty">
-            <p>Folha vazia.</p>
+            <p>{t('cvs_empty')}</p>
             <button className="btn small primary" onClick={() => useUi.setState({ dialog: 'addView', dialogArg: sheetId })}>
-              Adicionar vista
+              {t('cvs_add_view')}
             </button>
-            <p className="val soft">Arraste uma vista do Navegador para cá · roda do mouse para zoom · botão do meio para pan</p>
+            <p className="val soft">{t('cvs_empty_hint')}</p>
           </div>
         ) : null}
       </div>
@@ -419,20 +421,20 @@ export function SheetStage({ sheetId }: { sheetId: string }): ReactElement {
         onScale={(s) => {
           if (!single) return;
           const err = setViewportScaleAction(editor.store, sheetId, single.id, s, fitScale);
-          say(err ?? `Escala alterada para 1:${s}.`);
+          say(err ?? { key: 'cvs_scale_changed', args: { scale: s } });
         }}
-        onToggleClip={() => patchSelected({ clip: single?.clip === false ? true : false }, 'Recortar vista na prancha')}
-        onToggleFrame={() => patchSelected({ frame: single?.frame === false ? true : false }, 'Moldura da vista')}
-        onToggleLabel={() => patchSelected({ label: { ...single?.label, show: single?.label?.show === false } }, 'Legenda da vista')}
+        onToggleClip={() => patchSelected({ clip: single?.clip === false ? true : false }, t('cvs_undo_crop'))}
+        onToggleFrame={() => patchSelected({ frame: single?.frame === false ? true : false }, t('cvs_undo_frame'))}
+        onToggleLabel={() => patchSelected({ label: { ...single?.label, show: single?.label?.show === false } }, t('cvs_undo_label'))}
         onToggleLock={() => {
           if (!single) return;
           const err = toggleViewportLockAction(editor.store, sheetId, single.id);
-          say(err ?? (single.locked === true ? 'Vista destravada.' : 'Vista travada.'));
+          say(err ?? { key: single.locked === true ? 'cvs_unlocked' : 'cvs_locked' });
         }}
         onFitFrame={() => {
           if (!single) return;
           const err = fitViewportAction(editor.store, sheetId, single.id);
-          say(err ?? 'Moldura ajustada ao desenho.');
+          say(err ?? { key: 'cvs_frame_fitted' });
         }}
         onAlign={onAlignSelection}
         onDistribute={onDistribute}

@@ -1,5 +1,6 @@
 import { intersection } from '@hestia/geom';
 import { formatRampPercent, formatRampRatio, isRamp, rampMaxSlope, rampNormRowFor, type Id, type Project, type ValidationIssue } from '@hestia/model';
+import { numLang, t, type Lang } from './i18nMessages.ts';
 import { resolveRamps, type ResolvedRamp } from './ramps.ts';
 import { topCovers, type TopCover } from './stairChecks.ts';
 
@@ -17,9 +18,9 @@ export interface RampIssueItem {
 const EPS = 1e-6;
 const AREA_EPS = 1e-6;
 
-const num = (n: number): string => n.toFixed(2).replace('.', ',');
-const pct = (s: number): string => formatRampPercent(s);
-const ratio = (s: number): string => formatRampRatio(s);
+const numIn = (lang: Lang) => (n: number): string => numLang(n, 2, lang);
+const pctIn = (lang: Lang) => (s: number): string => formatRampPercent(s, lang);
+const ratioIn = (lang: Lang) => (s: number): string => formatRampRatio(s, lang);
 
 export function makeRampIssue(
   rampId: string,
@@ -43,16 +44,19 @@ const rowFor = (rr: ResolvedRamp) => {
 };
 
 /** Avisos de norma de uma rampa resolvida. Todos são avisos; nunca bloqueiam. */
-export function rampNormIssues(rr: ResolvedRamp): RampIssueItem[] {
+export function rampNormIssues(rr: ResolvedRamp, lang: Lang = 'pt'): RampIssueItem[] {
+  const num = numIn(lang);
+  const pct = pctIn(lang);
+  const ratio = ratioIn(lang);
   const out: RampIssueItem[] = [];
-  const suffix = rr.type.normChecked ? '' : ' (norma a conferir)';
+  const suffix = rr.type.normChecked ? '' : t(lang, 'egb_ramp_norm_check');
   const push = (code: string, message: string, componentIndex?: number): void =>
     void out.push(makeRampIssue(rr.id, code, 'warning', `${message}${suffix}`, componentIndex));
   const table = rr.type.normTable;
 
   if (table.length > 0 && rampNormRowFor(rr.type, rr.slope) === null) {
     const max = rampMaxSlope(rr.type) ?? table[table.length - 1]!.maxSlope;
-    push('ramp-slope-over-norm', `A inclinação de ${pct(rr.slope)} (${ratio(rr.slope)}) passa do máximo do tipo (${pct(max)} / ${ratio(max)}).`);
+    push('ramp-slope-over-norm', t(lang, 'egb_issue_ramp_slope_over', { slope: pct(rr.slope), ratio: ratio(rr.slope), max: pct(max), maxRatio: ratio(max) }));
   }
 
   const row = rowFor(rr);
@@ -60,23 +64,23 @@ export function rampNormIssues(rr: ResolvedRamp): RampIssueItem[] {
     rr.flights.forEach((f, i) => {
       const rise = f.z1 - f.z0;
       if (rise > row.maxRise + EPS) {
-        push('ramp-flight-rise-over-norm', `O lance ${i + 1} vence ${num(rise)} m; para ${pct(rr.slope)} o máximo por lance é ${num(row.maxRise)} m.`, f.componentIndex);
+        push('ramp-flight-rise-over-norm', t(lang, 'egb_issue_ramp_flight_rise', { n: i + 1, rise: num(rise), slope: pct(rr.slope), max: num(row.maxRise) }), f.componentIndex);
       }
     });
     if (row.maxFlights !== null && rr.flights.length > row.maxFlights) {
-      push('ramp-flights-over-norm', `A rampa tem ${rr.flights.length} lances; para ${pct(rr.slope)} o máximo é ${row.maxFlights}.`);
+      push('ramp-flights-over-norm', t(lang, 'egb_issue_ramp_flights', { n: rr.flights.length, slope: pct(rr.slope), max: row.maxFlights }));
     }
   }
 
   rr.landings.forEach((l, i) => {
     if (l.minDim < rr.type.landingMinLength - EPS) {
-      push('ramp-landing-short', `O patamar ${i + 1} mede ${num(l.minDim)} m; o mínimo do tipo é ${num(rr.type.landingMinLength)} m.`, l.componentIndex);
+      push('ramp-landing-short', t(lang, 'egb_issue_ramp_landing', { n: i + 1, length: num(l.minDim), min: num(rr.type.landingMinLength) }), l.componentIndex);
     }
   });
 
   rr.flights.forEach((f, i) => {
     if (f.width < rr.type.minWidth - EPS) {
-      push('ramp-width-min', `O lance ${i + 1} tem ${num(f.width)} m de largura; o mínimo do tipo é ${num(rr.type.minWidth)} m.`, f.componentIndex);
+      push('ramp-width-min', t(lang, 'egb_issue_ramp_width', { n: i + 1, w: num(f.width), min: num(rr.type.minWidth) }), f.componentIndex);
     }
   });
 
@@ -109,22 +113,22 @@ function worstHeadroom(rr: ResolvedRamp, covers: TopCover[]): { h: number; ci: n
 }
 
 /** Aviso de folga de cabeça sob a laje (mesma conta de `stairHeadroomIssue`, pelas fatias da rampa). */
-export function rampHeadroomIssue(rr: ResolvedRamp, covers: TopCover[]): RampIssueItem | null {
+export function rampHeadroomIssue(rr: ResolvedRamp, covers: TopCover[], lang: Lang = 'pt'): RampIssueItem | null {
   const worst = worstHeadroom(rr, covers);
   if (!worst || worst.h >= rr.type.minHeadroom - 1e-9) return null;
   return makeRampIssue(
     rr.id,
     'ramp-headroom',
     'warning',
-    `Folga de cabeça de ${num(worst.h)} m menor que a mínima do tipo (${num(rr.type.minHeadroom)} m) sob a laje.`,
+    t(lang, 'egb_issue_ramp_headroom', { h: numIn(lang)(worst.h), min: numIn(lang)(rr.type.minHeadroom) }),
     worst.ci,
   );
 }
 
 /** Todos os avisos e erros das rampas: os de `resolveRamps` mais o `ramp-headroom`. */
-export function rampIssueList(p: Project): RampIssueItem[] {
+export function rampIssueList(p: Project, lang: Lang = 'pt'): RampIssueItem[] {
   const covers = new Map<string, TopCover[]>();
-  return resolveRamps(p).flatMap((rr) => {
+  return resolveRamps(p, lang).flatMap((rr) => {
     const list = [...rr.issues];
     if (rr.topLevelId) {
       let onLevel = covers.get(rr.topLevelId);
@@ -132,7 +136,7 @@ export function rampIssueList(p: Project): RampIssueItem[] {
         onLevel = topCovers(p, rr.topLevelId);
         covers.set(rr.topLevelId, onLevel);
       }
-      const h = rampHeadroomIssue(rr, onLevel);
+      const h = rampHeadroomIssue(rr, onLevel, lang);
       if (h) list.push(h);
     }
     return list;
@@ -144,14 +148,14 @@ export function rampIssueList(p: Project): RampIssueItem[] {
  * usa isto para não resolver todas as rampas do projeto só para achar o aviso da nova. O projeto de um elemento basta para
  * resolver a rampa (ela lê o próprio elemento e os níveis); a folga de cabeça usa as lajes e pisos do nível de topo, como na lista.
  */
-export function rampIssuesOf(p: Project, id: Id): RampIssueItem[] {
+export function rampIssuesOf(p: Project, id: Id, lang: Lang = 'pt'): RampIssueItem[] {
   const e = p.elements[id];
   if (!isRamp(e)) return [];
-  const [rr] = resolveRamps({ ...p, elements: { [id]: e } });
+  const [rr] = resolveRamps({ ...p, elements: { [id]: e } }, lang);
   if (!rr) return [];
   const list = [...rr.issues];
   if (rr.topLevelId) {
-    const h = rampHeadroomIssue(rr, topCovers(p, rr.topLevelId));
+    const h = rampHeadroomIssue(rr, topCovers(p, rr.topLevelId), lang);
     if (h) list.push(h);
   }
   return list;
@@ -161,8 +165,8 @@ export function rampIssuesOf(p: Project, id: Id): RampIssueItem[] {
 export type RampValidationIssue = ValidationIssue & { ids?: string[] };
 
 /** Os mesmos avisos no formato do painel (`ValidationIssue`, com `elementId` = id da rampa). */
-export function rampValidationIssues(p: Project): RampValidationIssue[] {
-  return rampIssueList(p).map((i) => ({
+export function rampValidationIssues(p: Project, lang: Lang = 'pt'): RampValidationIssue[] {
+  return rampIssueList(p, lang).map((i) => ({
     severity: i.severity,
     code: i.code,
     message: i.message,

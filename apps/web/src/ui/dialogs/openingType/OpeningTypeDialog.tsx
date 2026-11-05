@@ -17,6 +17,7 @@ import {
 import { openingChecks } from '@hestia/engine';
 import { editor, useProject } from '../../../editor/controller.ts';
 import { useUi } from '../../../editor/state.ts';
+import { useT, type Lang } from '../../../editor/i18n.ts';
 import { openingFamilyName } from '../../typeFamilies.ts';
 import {
   applyFamily,
@@ -55,11 +56,11 @@ function coreThicknessFor(p: Project, typeId: Id): number {
 }
 
 /** Contagem de tipos do projeto por família da categoria. */
-function familyCounts(p: Project, kind: OpeningType['kind']): Record<string, number> {
+function familyCounts(p: Project, kind: OpeningType['kind'], lang: Lang): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const t of Object.values(p.openingTypes)) {
     if (t.kind !== kind) continue;
-    const id = openingFamilyOf(t)?.id;
+    const id = openingFamilyOf(t, lang)?.id;
     if (id) counts[id] = (counts[id] ?? 0) + 1;
   }
   return counts;
@@ -71,6 +72,7 @@ function familyCounts(p: Project, kind: OpeningType['kind']): Record<string, num
  */
 export function OpeningTypeDialog({ typeId }: { typeId: string }): ReactElement | null {
   const p = useProject();
+  const { t, lang } = useT();
   const src = p.openingTypes[typeId];
   const [d, setD] = useState<OpeningType | null>(src ? { ...src } : null);
   const [err, setErr] = useState('');
@@ -91,12 +93,12 @@ export function OpeningTypeDialog({ typeId }: { typeId: string }): ReactElement 
   }
   if (!d) return null;
   const used = Object.values(p.elements).filter((e) => (e.kind === 'door' || e.kind === 'window') && e.typeId === d.id).length;
-  const families = familyOptionsFor(d.kind);
-  const family = openingFamilyOf(d);
+  const families = familyOptionsFor(d.kind, lang);
+  const family = openingFamilyOf(d, lang);
   // Folhas aceitas pela família escolhida; sem família válida (dado fora do contrato) mostra só a contagem atual.
-  const leaves = family ? leavesChoicesFor(family) : [{ value: d.leaves, label: leavesLabel(d.leaves) }];
+  const leaves = family ? leavesChoicesFor(family, lang) : [{ value: d.leaves, label: leavesLabel(d.leaves, lang) }];
   const favorite = openingFavorites(p).includes(d.id);
-  const counts = familyCounts(p, d.kind);
+  const counts = familyCounts(p, d.kind, lang);
   const variants = openingVariants(d.kind);
   const checks = openingChecks(d, coreThicknessFor(p, d.id), unitsOf(p));
   /** Grava pelo comando; a mensagem de erro do modelo aparece no diálogo, que continua aberto. */
@@ -106,19 +108,19 @@ export function OpeningTypeDialog({ typeId }: { typeId: string }): ReactElement 
       setErr('');
       return true;
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Erro');
+      setErr(e instanceof Error ? e.message : t('dlo_err_generic'));
       return false;
     }
   };
   const apply = (): void => {
-    run(() => editor.store.exec({ type: 'upsertOpeningType', openingType: d }, 'Editar tipo de abertura'));
+    run(() => editor.store.exec({ type: 'upsertOpeningType', openingType: d }, t('dlo_cmd_edit')));
   };
   const ok = (): void => {
-    if (run(() => editor.store.exec({ type: 'upsertOpeningType', openingType: d }, 'Editar tipo de abertura'))) close();
+    if (run(() => editor.store.exec({ type: 'upsertOpeningType', openingType: d }, t('dlo_cmd_edit')))) close();
   };
   const dup = (): void => {
-    const copy = { ...d, id: newId('ot'), name: `${d.name} (cópia)` };
-    if (!run(() => editor.store.exec({ type: 'upsertOpeningType', openingType: copy }, 'Duplicar tipo'))) return;
+    const copy = { ...d, id: newId('ot'), name: `${d.name} ${t('dlo_copy_suffix')}` };
+    if (!run(() => editor.store.exec({ type: 'upsertOpeningType', openingType: copy }, t('dlo_cmd_duplicate')))) return;
     useUi.setState({ dialogArg: copy.id });
     setD(copy);
   };
@@ -126,8 +128,8 @@ export function OpeningTypeDialog({ typeId }: { typeId: string }): ReactElement 
   const create = (): void => {
     const fam = family ?? families[0];
     if (!fam) return;
-    const created = newOpeningTypeFromFamily(fam);
-    if (!run(() => editor.store.exec({ type: 'upsertOpeningType', openingType: created }, 'Novo tipo de abertura'))) return;
+    const created = newOpeningTypeFromFamily(fam, lang);
+    if (!run(() => editor.store.exec({ type: 'upsertOpeningType', openingType: created }, t('dlo_cmd_new')))) return;
     useUi.setState({ dialogArg: created.id });
     setD(created);
   };
@@ -136,7 +138,7 @@ export function OpeningTypeDialog({ typeId }: { typeId: string }): ReactElement 
    * derivada, e a editada nos módulos é preservada. Sem isso o modelo e a prévia seguiam a composição velha.
    */
   const change = (next: OpeningType): void => {
-    const r = bridgeDraft(next, d, openingProfilesOf(p));
+    const r = bridgeDraft(next, d, openingProfilesOf(p), lang);
     setD(r.type);
     setErr(r.error ?? '');
   };
@@ -150,22 +152,22 @@ export function OpeningTypeDialog({ typeId }: { typeId: string }): ReactElement 
     run(() =>
       editor.store.exec(
         { type: 'toggleOpeningFavorite', id: d.id },
-        favorite ? 'Remover tipo dos favoritos' : 'Favoritar tipo de abertura',
+        favorite ? t('dlo_cmd_unfavorite') : t('dlo_cmd_favorite'),
       ),
     );
   };
   return (
     <DialogXL
-      title="Propriedades do tipo"
-      sub={`${d.kind === 'door' ? 'Porta' : 'Janela'} · ${openingFamilyName(d)} · usado em ${used}`}
+      title={t('dlo_title')}
+      sub={`${t(d.kind === 'door' ? 'dlo_kind_door' : 'dlo_kind_window')} · ${openingFamilyName(d)} · ${t('dlo_sub_used', { n: used })}`}
       onClose={close}
       footer={
         <>
-          <button className="btn" onClick={create}>+ Novo tipo</button>
+          <button className="btn" onClick={create}>{t('dlo_btn_new')}</button>
           <span style={{ flex: 1 }} />
-          <button className="btn" onClick={close}>Cancelar</button>
-          <button className="btn" onClick={apply}>Aplicar</button>
-          <button className="btn primary" onClick={ok}>OK</button>
+          <button className="btn" onClick={close}>{t('stt_cancel')}</button>
+          <button className="btn" onClick={apply}>{t('stt_apply')}</button>
+          <button className="btn primary" onClick={ok}>{t('stt_ok')}</button>
         </>
       }
     >

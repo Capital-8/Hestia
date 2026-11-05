@@ -4,6 +4,7 @@ import { frameOfWall, type SectionOpening, type SectionOrigin, type SectionResul
 import { formatQuantity, isOpening, isWall, levelElevation, openingHeight, openingSill, openingType, unitsOf, wallBaseElevation, wallLength, wallTopElevation, type Command, type Id, type Opening, type Project } from '@hestia/model';
 import { ToolBase } from './base.ts';
 import type { Guide, Inference, PointerInfo, PreviewItem, SectionToolContext, SnapKind, ToolEnv } from './types.ts';
+import { t as translate, type DictKey, type Lang } from './i18n.ts';
 
 /** Direção da linha do corte ativo em planta. */
 function sectionDirection(env: ToolEnv): Vec2 | null {
@@ -61,7 +62,9 @@ function moveSectionAnnotations(env: ToolEnv, selection: readonly string[], dt: 
 export class SectionMoveTool extends ToolBase {
   readonly id = 'move';
   readonly label = 'Mover';
-  readonly hint = 'Mover no corte: arraste a seleção. Horizontal move a parede/abertura; vertical altera o peitoril da janela. Anotações também se movem.';
+  override get hint(): string {
+    return this.t('tl_hint_move_section');
+  }
   private startPoint: Vec2 | null = null;
 
   protected reset(): void { this.startPoint = null; this.items = []; this.inf = null; }
@@ -110,7 +113,7 @@ export class SectionMoveTool extends ToolBase {
     }
     commands.push(...notes);
     if (!commands.length) {
-      this.env.say(wallIds.length ? 'Movimento vertical de parede ainda não disponível; use as cotas/propriedades.' : 'Selecione uma parede, abertura ou anotação para mover.');
+      this.env.say(wallIds.length ? this.t('tl_msg_section_move_vertical') : 'Selecione uma parede, abertura ou anotação para mover.');
       return;
     }
     this.env.transaction('Mover no corte', () => { for (const c of commands) this.env.exec(c); });
@@ -137,6 +140,43 @@ const SNAP_KIND_LABEL: Partial<Record<SnapKind, string>> = {
   grid: 'grade',
   ortho: 'ortogonal',
   polar: 'polar',
+};
+
+const SNAP_KIND_KEYS: Partial<Record<SnapKind, DictKey>> = {
+  endpoint: 'tl_snap_endpoint',
+  midpoint: 'tl_snap_midpoint',
+  intersection: 'tl_snap_intersection',
+  face: 'tl_snap_face',
+  core: 'tl_snap_core',
+  nearest: 'tl_snap_nearest',
+  alignment: 'tl_snap_alignment',
+  perpendicular: 'tl_snap_perpendicular',
+  center: 'tl_snap_center',
+  tangent: 'tl_snap_tangent',
+  grid: 'tl_snap_grid',
+  ortho: 'tl_snap_ortho',
+  polar: 'tl_snap_polar',
+};
+
+/** Nome curto da captura no idioma pedido. */
+const snapKindLabel = (kind: SnapKind | undefined, lang: Lang = 'pt'): string | undefined => {
+  if (!kind) return undefined;
+  const key = SNAP_KIND_KEYS[kind];
+  return key ? translate(lang, key) : SNAP_KIND_LABEL[kind];
+};
+
+const FEATURE_KEYS: Record<string, DictKey> = {
+  topo: 'tl_sec_top',
+  peitoril: 'tl_sec_sill',
+  'ombreira esquerda': 'tl_sec_left_jamb',
+  'ombreira direita': 'tl_sec_right_jamb',
+  centro: 'tl_sec_center',
+};
+
+/** Rótulo da feição da esquadria no idioma pedido (rótulo PT desconhecido volta como veio). */
+const featureLabel = (label: string, lang: Lang = 'pt'): string => {
+  const key = FEATURE_KEYS[label];
+  return key ? translate(lang, key) : label;
 };
 
 /** Cota no idioma/unidades do projeto, com sinal explícito. */
@@ -326,7 +366,9 @@ function sameLine(a: Guide, b: Guide): boolean {
 export class SectionAlignTool extends ToolBase {
   readonly id = 'align';
   readonly label = 'Alinhar';
-  readonly hint = 'Alinhar no corte: clique na referência (topo, peitoril, ombreira ou centro) e depois no alvo. Não precisa selecionar.';
+  override get hint(): string {
+    return this.t('tl_hint_align_section');
+  }
   private ref: AlignRef | null = null;
 
   protected reset(): void { this.ref = null; this.items = []; this.inf = null; }
@@ -396,10 +438,15 @@ export class SectionAlignTool extends ToolBase {
     this.ref = { hostId: pick.hostId, elementKind: pick.kind, feature: line.feature, label: line.label, axis, z: axis === 'h' ? line.value : at.y, t: axis === 'v' ? line.value : at.x, value: line.value, point: at, line: { a: line.a, b: line.b }, guide: guideOf(result, axis, line), snap: inf.kind !== 'none' ? inf.kind : 'nearest' };
     this.items = [];
     const el = p0.elements[pick.hostId];
-    const alvo = pick.kind === 'opening' ? (isOpening(el) && el.kind === 'door' ? 'da porta' : 'da janela') : pick.kind === 'wall' ? 'da parede' : 'do elemento';
+    const alvo = pick.kind === 'opening' ? (isOpening(el) && el.kind === 'door' ? this.t('tl_sec_of_door') : this.t('tl_sec_of_window')) : pick.kind === 'wall' ? this.t('tl_sec_of_wall') : this.t('tl_sec_of_element');
     const valor = axis === 'v' ? formatQuantity(unitsOf(p0), 'length', this.ref.t) : cotaText(this.env, this.ref.z);
-    const captura = SNAP_KIND_LABEL[this.ref.snap];
-    this.env.say(`Referência no ${line.label} ${alvo} em ${valor}${captura ? ` (${captura})` : ''}. Clique no alvo para alinhar.`);
+    const captura = snapKindLabel(this.ref.snap, this.uiLang());
+    this.env.say(this.t('tl_sec_ref_status', {
+      label: featureLabel(line.label, this.uiLang()),
+      target: alvo,
+      value: valor,
+      snap: captura ? this.t('tl_sec_snap', { snap: captura }) : '',
+    }));
   }
 
   private ghost(target: AlignTarget): { a: Vec2; b: Vec2 } | null {
@@ -420,7 +467,7 @@ export class SectionAlignTool extends ToolBase {
     }
     if (target.kind === 'opening') this.applyOpening(ref, target);
     else if (target.kind === 'wall') this.applyWall(ref, target);
-    else this.env.say('O alvo não é uma janela, porta ou parede; nada foi alterado.');
+    else this.env.say(this.t('tl_msg_align_target_invalid'));
   }
 
   private applyOpening(ref: AlignRef, target: AlignTarget): void {
@@ -492,7 +539,7 @@ export class SectionAlignTool extends ToolBase {
       if (target.feature === 'top') {
         if (wall.topLevelId || wall.topProfile || wall.attachTopToFloor || wall.attachTopToRoof) { this.env.say('O topo da parede está preso a nível/perfil/telhado; não é seguro alinhar. Nada foi alterado.'); return; }
         const height = round3(ref.z - wallBaseElevation(p0, wall));
-        if (height < 0.01) { this.env.say('A referência fica baixa demais para o topo da parede; nada foi alterado.'); return; }
+        if (height < 0.01) { this.env.say(this.t('tl_msg_ref_below_top')); return; }
         this.commit({ type: 'updateElements', ids: [wall.id], patch: { height } }, `Topo da parede alinhado em ${cotaText(this.env, ref.z)}`);
         return;
       }
@@ -519,7 +566,7 @@ export class SectionAlignTool extends ToolBase {
       return;
     }
 
-    this.env.say('A aresta da parede é inclinada; alinhar não é seguro. Nada foi alterado.');
+    this.env.say(this.t('tl_msg_edge_sloped'));
   }
 
   /** Um comando, uma transação: o alinhamento inteiro é um único passo de desfazer. */

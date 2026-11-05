@@ -8,7 +8,7 @@ import {
   type RampType,
 } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
-import { useI18n, I18N } from '../../editor/i18n.ts';
+import { useI18n, dictOf } from '../../editor/i18n.ts';
 import { useUi } from '../../editor/state.ts';
 import { duplicateRampType, rampTypeDeleteBlock, rampTypeError, tryDeleteRampType } from '../../editor/rampTypeActions.ts';
 import { Check, NumField, TextField } from '../fields.tsx';
@@ -18,7 +18,9 @@ import { TypeDialogHeader } from './TypeDialogHeader.tsx';
 import { FAMILY } from '../typeFamilies.ts';
 import { RampSectionPreview } from './RampSectionPreview.tsx';
 
-const PROFILE_LABEL: Record<RampNormProfile, string> = { custom: 'Personalizado', nbr9050: 'NBR 9050', ada: 'ADA' };
+const PROFILES: ReadonlyArray<RampNormProfile> = ['custom', 'nbr9050', 'ada'];
+
+const fill = (s: string, params: Record<string, string>): string => s.replace(/\{(\w+)\}/g, (_, k: string) => params[k] ?? '');
 
 /**
  * Editor de tipo de rampa: identificação, dimensões, material e a tabela de norma editável (que nasce "a conferir" e
@@ -30,7 +32,8 @@ const PROFILE_LABEL: Record<RampNormProfile, string> = { custom: 'Personalizado'
  */
 export function RampTypeDialog({ typeId }: { typeId: string }): ReactElement | null {
   const p = useProject();
-  const t = I18N[useI18n((s) => s.lang)];
+  const t = dictOf(useI18n((s) => s.lang));
+  const profileLabel = (k: RampNormProfile): string => (k === 'custom' ? t.dlt_ramp_profile_custom : k === 'ada' ? 'ADA' : 'NBR 9050');
   const src = p.rampTypes[typeId];
   const [draft, setDraft] = useState<RampType | null>(src ? structuredClone(src) : null);
   const [current, setCurrent] = useState(typeId);
@@ -46,11 +49,11 @@ export function RampTypeDialog({ typeId }: { typeId: string }): ReactElement | n
   /** Grava como o OK, mas o diálogo segue aberto com o rascunho. */
   const apply = (): void => {
     if (error) return;
-    editor.store.exec({ type: 'upsertRampType', rampType: draft }, 'Editar tipo de rampa');
+    editor.store.exec({ type: 'upsertRampType', rampType: draft }, 'undo_edit_ramp_type');
   };
   const ok = (): void => {
     if (error) return;
-    editor.store.exec({ type: 'upsertRampType', rampType: draft }, 'Editar tipo de rampa');
+    editor.store.exec({ type: 'upsertRampType', rampType: draft }, 'undo_edit_ramp_type');
     close();
   };
   const duplicate = (): void => {
@@ -60,7 +63,7 @@ export function RampTypeDialog({ typeId }: { typeId: string }): ReactElement | n
   const del = (): void => {
     const r = tryDeleteRampType(editor.store, draft.id);
     if (!r.ok) {
-      useUi.setState({ status: `Não foi possível excluir: ${r.error}` });
+      useUi.setState({ status: { key: 'dlt_err_delete_with_reason', args: { error: r.error } } });
       return;
     }
     const ui = useUi.getState();
@@ -87,39 +90,39 @@ export function RampTypeDialog({ typeId }: { typeId: string }): ReactElement | n
   };
   return (
     <Dialog
-      title={`Propriedades · ${t.ramp_type_title}`}
-      sub={`Rampa · usada em ${usage} ${usage === 1 ? 'rampa' : 'rampas'}`}
+      title={t.dlt_ramp_title}
+      sub={fill(t[usage === 1 ? 'dlt_ramp_sub_one' : 'dlt_ramp_sub_many'], { n: String(usage) })}
       onClose={close}
       size="wide"
       footer={
         <>
-          <button className="btn danger" disabled={blocked !== null} title={blocked ?? 'Excluir tipo'} onClick={del}>Excluir</button>
+          <button className="btn danger" disabled={blocked !== null} title={blocked ?? t.stt_delete_type_tip} onClick={del}>{t.stt_delete}</button>
           <span style={{ flex: 1 }} />
-          <button className="btn" onClick={close}>Cancelar</button>
-          <button className="btn" onClick={apply} disabled={error !== null}>Aplicar</button>
-          <button className="btn primary" onClick={ok} disabled={error !== null} title={error ?? undefined}>OK</button>
+          <button className="btn" onClick={close}>{t.stt_cancel}</button>
+          <button className="btn" onClick={apply} disabled={error !== null}>{t.stt_apply}</button>
+          <button className="btn primary" onClick={ok} disabled={error !== null} title={error ?? undefined}>{t.stt_ok}</button>
         </>
       }
     >
       <TypeDialogHeader family={FAMILY.stair} types={Object.values(p.rampTypes)} currentId={draft.id} nameFieldId="rt-name" onDuplicate={duplicate} />
       <div className="field-row">
-        <label htmlFor="rt-name">Nome do tipo</label>
+        <label htmlFor="rt-name">{t.stt_f_name}</label>
         <TextField id="rt-name" value={draft.name} onCommit={(v) => set({ name: v })} />
       </div>
       <div className="rtt-grid">
         <div className="rtt-main">
-          <div className="field-row"><label htmlFor="rt-code">Código</label><TextField id="rt-code" value={draft.code} onCommit={(v) => set({ code: v })} /></div>
-          <div className="field-row"><label htmlFor="rt-desc">Descrição</label><TextField id="rt-desc" value={draft.description} onCommit={(v) => set({ description: v })} /></div>
-          <div className="field-row"><label htmlFor="rt-cost" title="Custo informativo do tipo (R$)">Custo (R$)</label><NumField id="rt-cost" value={draft.cost} decimals={2} min={0} onCommit={(v) => set({ cost: v })} /></div>
-          <div className="field-row"><label htmlFor="rt-depth">Espessura estrutural</label><NumField id="rt-depth" value={draft.structuralDepth} scale={100} unit="cm" decimals={1} min={0.01} onCommit={(v) => set({ structuralDepth: v })} /></div>
-          <div className="field-row"><label htmlFor="rt-landth">Espessura do patamar</label><NumField id="rt-landth" value={draft.landingThickness} scale={100} unit="cm" decimals={1} min={0.01} onCommit={(v) => set({ landingThickness: v })} /></div>
-          <div className="field-row"><label htmlFor="rt-width">Largura padrão</label><NumField id="rt-width" value={draft.defaultWidth} unit="m" decimals={2} min={0.01} onCommit={(v) => set({ defaultWidth: v })} /></div>
-          <div className="field-row"><label htmlFor="rt-minwidth">Largura mínima</label><NumField id="rt-minwidth" value={draft.minWidth} unit="m" decimals={2} min={0.01} onCommit={(v) => set({ minWidth: v })} /></div>
-          <div className="field-row"><label htmlFor="rt-landsize">Comprimento mínimo do patamar</label><NumField id="rt-landsize" value={draft.landingMinLength} unit="m" decimals={2} min={0.01} onCommit={(v) => set({ landingMinLength: v })} /></div>
-          <div className="field-row"><label htmlFor="rt-head">Pé-direito livre mínimo</label><NumField id="rt-head" value={draft.minHeadroom} unit="m" decimals={2} min={0.01} onCommit={(v) => set({ minHeadroom: v })} /></div>
-          <div className="field-row"><label htmlFor="rt-slope">Inclinação padrão</label><NumField id="rt-slope" value={draft.defaultSlope} scale={100} unit="%" decimals={2} min={0.1} onCommit={(v) => set({ defaultSlope: v })} /></div>
+          <div className="field-row"><label htmlFor="rt-code">{t.dlt_col_code}</label><TextField id="rt-code" value={draft.code} onCommit={(v) => set({ code: v })} /></div>
+          <div className="field-row"><label htmlFor="rt-desc">{t.stt_f_description}</label><TextField id="rt-desc" value={draft.description} onCommit={(v) => set({ description: v })} /></div>
+          <div className="field-row"><label htmlFor="rt-cost" title={t.dlt_ramp_tt_cost}>{t.dlt_ramp_cost}</label><NumField id="rt-cost" value={draft.cost} decimals={2} min={0} onCommit={(v) => set({ cost: v })} /></div>
+          <div className="field-row"><label htmlFor="rt-depth">{t.dlt_ramp_structural_depth}</label><NumField id="rt-depth" value={draft.structuralDepth} scale={100} unit="cm" decimals={1} min={0.01} onCommit={(v) => set({ structuralDepth: v })} /></div>
+          <div className="field-row"><label htmlFor="rt-landth">{t.stt_f_landingThickness}</label><NumField id="rt-landth" value={draft.landingThickness} scale={100} unit="cm" decimals={1} min={0.01} onCommit={(v) => set({ landingThickness: v })} /></div>
+          <div className="field-row"><label htmlFor="rt-width">{t.dlt_ramp_default_width}</label><NumField id="rt-width" value={draft.defaultWidth} unit="m" decimals={2} min={0.01} onCommit={(v) => set({ defaultWidth: v })} /></div>
+          <div className="field-row"><label htmlFor="rt-minwidth">{t.dlt_ramp_min_width}</label><NumField id="rt-minwidth" value={draft.minWidth} unit="m" decimals={2} min={0.01} onCommit={(v) => set({ minWidth: v })} /></div>
+          <div className="field-row"><label htmlFor="rt-landsize">{t.dlt_ramp_landing_min}</label><NumField id="rt-landsize" value={draft.landingMinLength} unit="m" decimals={2} min={0.01} onCommit={(v) => set({ landingMinLength: v })} /></div>
+          <div className="field-row"><label htmlFor="rt-head">{t.stt_f_minHeadroom}</label><NumField id="rt-head" value={draft.minHeadroom} unit="m" decimals={2} min={0.01} onCommit={(v) => set({ minHeadroom: v })} /></div>
+          <div className="field-row"><label htmlFor="rt-slope">{t.dlt_ramp_default_slope}</label><NumField id="rt-slope" value={draft.defaultSlope} scale={100} unit="%" decimals={2} min={0.1} onCommit={(v) => set({ defaultSlope: v })} /></div>
           <div className="field-row">
-            <label htmlFor="rt-mat">Material</label>
+            <label htmlFor="rt-mat">{t.stt_f_materialId}</label>
             <select id="rt-mat" className="select" value={draft.materialId} onChange={(e) => set({ materialId: e.target.value })}>
               {Object.values(p.materials).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
@@ -129,15 +132,15 @@ export function RampTypeDialog({ typeId }: { typeId: string }): ReactElement | n
         <div className="rtt-side">
           <RampSectionPreview type={draft} />
           <p className="hint" style={{ padding: '0 2px' }}>
-            A inclinação do lance é resultado do desnível e do comprimento; o valor padrão é usado quando a rampa é criada no modo inclinação.
+            {t.dlt_ramp_help}
           </p>
         </div>
       </div>
       <div className="rtt-norm">
         <div className="field-row">
-          <label htmlFor="rt-profile">Perfil de norma</label>
+          <label htmlFor="rt-profile">{t.dlt_ramp_norm_profile}</label>
           <select id="rt-profile" className="select" value={draft.normProfile} onChange={(e) => setProfile(e.target.value as RampNormProfile)}>
-            {(Object.keys(PROFILE_LABEL) as RampNormProfile[]).map((k) => <option key={k} value={k}>{PROFILE_LABEL[k]}</option>)}
+            {PROFILES.map((k) => <option key={k} value={k}>{profileLabel(k)}</option>)}
           </select>
           <Check id="rt-normchecked" checked={draft.normChecked} onChange={(v) => set({ normChecked: v })}>{t.ramp_norm_verified}</Check>
           {!draft.normChecked && (
@@ -153,9 +156,9 @@ export function RampTypeDialog({ typeId }: { typeId: string }): ReactElement | n
         <table className="layers">
           <thead>
             <tr>
-              <th>Inclinação até</th>
-              <th>Desnível máx. por lance</th>
-              <th>Máx. de lances</th>
+              <th>{t.dlt_ramp_norm_slope}</th>
+              <th>{t.dlt_ramp_norm_rise}</th>
+              <th>{t.dlt_ramp_norm_flights}</th>
               <th />
             </tr>
           </thead>
@@ -169,21 +172,21 @@ export function RampTypeDialog({ typeId }: { typeId: string }): ReactElement | n
                     value={row.maxFlights}
                     decimals={0}
                     min={1}
-                    placeholder="sem limite"
+                    placeholder={t.dlt_ramp_no_limit}
                     onCommit={(v) => setRow(i, { maxFlights: Math.round(v) })}
                     onClear={() => setRow(i, { maxFlights: null })}
                   />
                 </td>
-                <td><button type="button" className="ibtn" aria-label={`Remover linha ${i + 1}`} onClick={() => removeRow(i)}><Icon name="close" size={14} /></button></td>
+                <td><button type="button" className="ibtn" aria-label={fill(t.dlt_a11y_remove_row, { n: String(i + 1) })} onClick={() => removeRow(i)}><Icon name="close" size={14} /></button></td>
               </tr>
             ))}
           </tbody>
           </table>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button type="button" className="btn small" onClick={addRow}>Adicionar linha</button>
-          <button type="button" className="btn small" onClick={() => removeRow(draft.normTable.length - 1)} disabled={draft.normTable.length === 0}>Remover linha</button>
+          <button type="button" className="btn small" onClick={addRow}>{t.dlt_ramp_add_row}</button>
+          <button type="button" className="btn small" onClick={() => removeRow(draft.normTable.length - 1)} disabled={draft.normTable.length === 0}>{t.dlt_ramp_remove_row}</button>
         </div>
-        <p className="hint" style={{ marginTop: 8 }}>Valores de referência de fonte secundária; confira a norma vigente antes de usar.</p>
+        <p className="hint" style={{ marginTop: 8 }}>{t.dlt_ramp_norm_footnote}</p>
       </div>
     </Dialog>
   );

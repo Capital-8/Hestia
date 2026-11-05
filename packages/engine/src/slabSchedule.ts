@@ -1,6 +1,7 @@
 import { isSlab, type Id, type Project, type ResolvedUnits } from '@hestia/model';
 import { csvDocument, csvText } from './csv.ts';
 import { scheduleCsvCell, scheduleCsvHeader } from './scheduleCsv.ts';
+import { t, type Lang } from './i18n.ts';
 import { quantifySlabs } from './slabQuantities.ts';
 
 /** Uma laje na tabela. Valores em metros (SI). */
@@ -90,26 +91,26 @@ export function sumSlabRows(rows: SlabScheduleRow[]): SlabScheduleTotals {
   );
 }
 
-const csvHeader = (u: ResolvedUnits): string[] => [
-  'Marca',
-  'Tipo',
-  'Código',
-  'Nível',
-  scheduleCsvHeader(u, 'Área em planta', 'area'),
-  scheduleCsvHeader(u, 'Área real', 'area'),
-  scheduleCsvHeader(u, 'Perímetro', 'length'),
-  scheduleCsvHeader(u, 'Espessura', 'smallLength'),
-  scheduleCsvHeader(u, 'Volume', 'volume'),
-  scheduleCsvHeader(u, 'Inclinação', 'slope'),
-  scheduleCsvHeader(u, 'Deslocamento', 'length'),
+const csvHeader = (u: ResolvedUnits, lang: Lang): string[] => [
+  t(lang, 'egs_csv_col_marca'),
+  t(lang, 'egs_csv_col_tipo'),
+  t(lang, 'egs_csv_col_codigo'),
+  t(lang, 'egs_csv_col_nivel'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_area_em_planta'), 'area'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_area_real'), 'area'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_perimetro'), 'length'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_espessura'), 'smallLength'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_volume'), 'volume'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_inclinacao'), 'slope'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_deslocamento'), 'length'),
 ];
 
 /**
- * CSV com separador ';', decimal com vírgula, cabeçalho em português e BOM UTF-8 (o mesmo formato da tabela de pisos).
- * Uma linha por laje, seguida de uma linha de total.
+ * CSV com separador ';', decimal do idioma (ou o do projeto), cabeçalho no idioma ativo e BOM UTF-8 (o mesmo formato da
+ * tabela de pisos). Uma linha por laje, seguida de uma linha de total.
  */
-export function slabScheduleToCsv(rows: SlabScheduleRow[], totals: SlabScheduleTotals, units: ResolvedUnits): string {
-  const n = (q: 'length' | 'smallLength' | 'area' | 'volume' | 'slope', v: number, d: number): string => scheduleCsvCell(units, q, v, d);
+export function slabScheduleToCsv(rows: SlabScheduleRow[], totals: SlabScheduleTotals, units: ResolvedUnits, lang: Lang = 'pt'): string {
+  const n = (q: 'length' | 'smallLength' | 'area' | 'volume' | 'slope', v: number, d: number): string => scheduleCsvCell(units, q, v, d, lang);
   const body = rows.map((r) => [
     csvText(r.mark),
     csvText(r.typeName),
@@ -123,6 +124,6 @@ export function slabScheduleToCsv(rows: SlabScheduleRow[], totals: SlabScheduleT
     n('slope', r.slopePercent / 100, 2),
     n('length', r.heightOffset, 3),
   ]);
-  const total = ['Total', '', '', '', n('area', totals.planArea, 2), n('area', totals.faceArea, 2), n('length', totals.perimeter, 2), '', n('volume', totals.volume, 3), '', ''];
-  return csvDocument([csvHeader(units), ...body, total]);
+  const total = [t(lang, 'egs_csv_total'), '', '', '', n('area', totals.planArea, 2), n('area', totals.faceArea, 2), n('length', totals.perimeter, 2), '', n('volume', totals.volume, 3), '', ''];
+  return csvDocument([csvHeader(units, lang), ...body, total]);
 }

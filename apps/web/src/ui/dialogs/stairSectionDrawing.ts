@@ -1,4 +1,5 @@
 import type { StairType } from '@hestia/model';
+import { fmtNum, t, type Lang } from '../../editor/i18n.ts';
 import {
   CHAR_W,
   LINE_H,
@@ -21,7 +22,7 @@ export interface StairDrawingParams {
   riser: number;
   tread: number;
   steps?: number;
-  lang?: 'pt' | 'en';
+  lang?: Lang;
   fmt?: (n: number, decimals: number) => string;
 }
 
@@ -43,38 +44,36 @@ export interface StairDrawingText {
 
 export const STAIR_DRAWING_TEXT: Record<'pt' | 'en', StairDrawingText> = {
   pt: {
-    riser: 'Espelho\n{v} cm',
-    tread: 'Piso {v} cm',
-    nosing: 'Nariz {v} cm',
-    theta: 'θ = {v}°',
-    floor: 'Piso\ninferior',
-    headroom: 'Pé-direito\nlivre mín.\n{v} m',
-    thick: 'Espessura\nestrutural\n{v} cm ⟂\nà rampa',
-    treadThick: 'Piso\n(espessura)\n{v} cm',
-    riserThick: 'Espelho\n(espessura)\n{v} cm',
-    overlap: 'Sobreposição\n{v} cm',
-    capMono: 'Corte esquemático de {n} degraus. Cotas em cm.',
-    capAssembled: 'Pisos e espelhos montados sobre estrutura (estrutura não detalhada).',
-    capPost: 'Degraus em balanço presos ao poste central, desenvolvidos ao longo da linha de caminhada.',
+    riser: t('pt', 'dls_stair_dwg_riser'),
+    tread: t('pt', 'dls_stair_dwg_tread'),
+    nosing: t('pt', 'dls_stair_dwg_nosing'),
+    theta: t('pt', 'dls_stair_dwg_theta'),
+    floor: t('pt', 'dls_stair_dwg_floor'),
+    headroom: t('pt', 'dls_stair_dwg_headroom'),
+    thick: t('pt', 'dls_stair_dwg_thick'),
+    treadThick: t('pt', 'dls_stair_dwg_tread_thick'),
+    riserThick: t('pt', 'dls_stair_dwg_riser_thick'),
+    overlap: t('pt', 'dls_stair_dwg_overlap'),
+    capMono: t('pt', 'dls_stair_dwg_cap_mono'),
+    capAssembled: t('pt', 'dls_stair_dwg_cap_assembled'),
+    capPost: t('pt', 'dls_stair_dwg_cap_post'),
   },
   en: {
-    riser: 'Riser\n{v} cm',
-    tread: 'Tread {v} cm',
-    nosing: 'Nosing {v} cm',
-    theta: 'θ = {v}°',
-    floor: 'Lower\nfloor',
-    headroom: 'Headroom\nfree min.\n{v} m',
-    thick: 'Structural\nthickness\n{v} cm ⟂\nto slope',
-    treadThick: 'Tread\n(thickness)\n{v} cm',
-    riserThick: 'Riser\n(thickness)\n{v} cm',
-    overlap: 'Overlap\n{v} cm',
-    capMono: 'Schematic section of {n} steps. Dimensions in cm.',
-    capAssembled: 'Treads and risers assembled over a structure (structure not detailed).',
-    capPost: 'Cantilevered treads fixed to the central post, developed along the walking line.',
+    riser: t('en', 'dls_stair_dwg_riser'),
+    tread: t('en', 'dls_stair_dwg_tread'),
+    nosing: t('en', 'dls_stair_dwg_nosing'),
+    theta: t('en', 'dls_stair_dwg_theta'),
+    floor: t('en', 'dls_stair_dwg_floor'),
+    headroom: t('en', 'dls_stair_dwg_headroom'),
+    thick: t('en', 'dls_stair_dwg_thick'),
+    treadThick: t('en', 'dls_stair_dwg_tread_thick'),
+    riserThick: t('en', 'dls_stair_dwg_riser_thick'),
+    overlap: t('en', 'dls_stair_dwg_overlap'),
+    capMono: t('en', 'dls_stair_dwg_cap_mono'),
+    capAssembled: t('en', 'dls_stair_dwg_cap_assembled'),
+    capPost: t('en', 'dls_stair_dwg_cap_post'),
   },
 };
-
-const defaultFmt = (n: number, decimals: number): string => n.toFixed(decimals).replace('.', ','); // units-ok: texto técnico do desenho do corte da escada
 
 const fill = (text: string, values: Record<string, string>): string => text.replace(/\{(\w+)\}/g, (_, k: string) => values[k] ?? '');
 
@@ -147,8 +146,8 @@ function boundsOfDrawing(prims: Prim[], em: number): Rect {
 function createBuilder(type: StairType, params: StairDrawingParams, R: number, T: number): (em: number) => Drawing {
   const n = Math.max(1, Math.floor(params.steps ?? 3));
   const lang = params.lang ?? 'pt';
-  const fmt = params.fmt ?? defaultFmt;
-  const t = STAIR_DRAWING_TEXT[lang];
+  const fmt = params.fmt ?? ((n: number, dec: number): string => fmtNum(n, dec, lang));
+  const t = STAIR_DRAWING_TEXT[lang === 'pt' ? 'pt' : 'en'];
   const d = Math.max(type.structuralDepth, 0);
   const H = Math.hypot(T, R);
   const cosTheta = T / H;
@@ -378,7 +377,7 @@ export function buildStairSectionDrawing(type: StairType, params: StairDrawingPa
   const R = params.riser;
   const T = params.tread;
   if (!(R > 0) || !(T > 0) || !Number.isFinite(R) || !Number.isFinite(T)) {
-    throw new RangeError('riser e tread devem ser positivos');
+    throw new RangeError(t(params.lang ?? 'pt', 'dls_stair_err_riser_tread'));
   }
   const build = createBuilder(type, params, R, T);
   const n = Math.max(1, Math.floor(params.steps ?? 3));

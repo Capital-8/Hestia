@@ -9,6 +9,7 @@ import {
   type OpeningDimRef,
   type WallDimRef,
 } from '@hestia/model';
+import { useT } from '../../editor/i18n.ts';
 import { editor } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
 import { Check, NumField, Row } from '../fields.tsx';
@@ -16,6 +17,7 @@ import { Dialog } from './Dialog.tsx';
 
 /** Critérios das cotas automáticas, no modelo do ArquiFácil: o que cotar, por onde medir e em quais lados. */
 export function AutoCotaDialog(): ReactElement {
+  const { t } = useT();
   const [geral, setGeral] = useState(true);
   const [geometria, setGeometria] = useState(true);
   const [paredes, setParedes] = useState(true);
@@ -46,61 +48,60 @@ export function AutoCotaDialog(): ReactElement {
   };
   return (
     <Dialog
-      title="Cotas automáticas"
-      sub="Escolha o que cotar e por onde medir"
+      title={t('dlm_autocota')}
+      sub={t('dlm_autocota_sub')}
       onClose={close}
       size="narrow"
       footer={
         <>
-          <button className="btn" onClick={close}>Cancelar</button>
-          <button className="btn primary" onClick={gerar}>Gerar cotas</button>
+          <button className="btn" onClick={close}>{t('dlm_btn_cancel')}</button>
+          <button className="btn primary" onClick={gerar}>{t('dlm_autocota_generate')}</button>
         </>
       }
     >
-      <h3 style={{ fontSize: 12, margin: '4px 0 6px' }}>O que cotar</h3>
+      <h3 style={{ fontSize: 12, margin: '4px 0 6px' }}>{t('dlm_autocota_what')}</h3>
       <div style={{ display: 'grid', gap: 4, marginBottom: 10 }}>
-        <Check id="ac-geral" checked={geral} onChange={setGeral}>Total do lado (cotagem geral)</Check>
-        <Check id="ac-geometria" checked={geometria} onChange={setGeometria}>Contorno exterior (degraus da fachada)</Check>
-        <Check id="ac-paredes" checked={paredes} onChange={setParedes}>Paredes e estruturas (espessuras e vãos)</Check>
-        <Check id="ac-aberturas" checked={aberturas} onChange={setAberturas}>Aberturas (portas e janelas)</Check>
+        <Check id="ac-geral" checked={geral} onChange={setGeral}>{t('dlm_autocota_total')}</Check>
+        <Check id="ac-geometria" checked={geometria} onChange={setGeometria}>{t('dlm_autocota_outline')}</Check>
+        <Check id="ac-paredes" checked={paredes} onChange={setParedes}>{t('dlm_autocota_walls')}</Check>
+        <Check id="ac-aberturas" checked={aberturas} onChange={setAberturas}>{t('dlm_autocota_openings')}</Check>
       </div>
 
-      <Row label="Aberturas por" htmlFor="ac-modo">
+      <Row label={t('dlm_autocota_by')} htmlFor="ac-modo">
         <select id="ac-modo" className="select" value={modo} onChange={(e) => setModo(e.target.value as OpeningDimRef)} disabled={!aberturas}>
           {OPENING_DIM_REFS.map((r) => <option key={r} value={r}>{OPENING_DIM_REF_LABELS[r]}</option>)}
         </select>
       </Row>
 
-      <h3 style={{ fontSize: 12, margin: '12px 0 6px' }}>Referência da parede</h3>
-      <Row label="Medir pelas" htmlFor="ac-referencia">
+      <h3 style={{ fontSize: 12, margin: '12px 0 6px' }}>{t('dlm_autocota_wallref')}</h3>
+      <Row label={t('dlm_autocota_measure_by')} htmlFor="ac-referencia">
         <select id="ac-referencia" className="select" value={referencia} onChange={(e) => setReferencia(e.target.value as WallDimRef)}>
           {WALL_DIM_REFS.map((r) => <option key={r} value={r}>{WALL_DIM_REF_LABELS[r]}</option>)}
         </select>
       </Row>
 
-      <h3 style={{ fontSize: 12, margin: '12px 0 6px' }}>Lados e afastamento</h3>
-      <Row label="Cotar" htmlFor="ac-lados">
+      <h3 style={{ fontSize: 12, margin: '12px 0 6px' }}>{t('dlm_autocota_sides')}</h3>
+      <Row label={t('dlm_autocota_dimension')} htmlFor="ac-lados">
         <select id="ac-lados" className="select" value={lados} onChange={(e) => setLados(e.target.value as 'todos' | LadoCota)}>
-          <option value="todos">Os quatro lados</option>
-          <option value="sul">Só o lado sul</option>
-          <option value="norte">Só o lado norte</option>
-          <option value="oeste">Só o lado oeste</option>
-          <option value="leste">Só o lado leste</option>
+          <option value="todos">{t('dlm_autocota_side_all')}</option>
+          <option value="sul">{t('dlm_autocota_side_south')}</option>
+          <option value="norte">{t('dlm_autocota_side_north')}</option>
+          <option value="oeste">{t('dlm_autocota_side_west')}</option>
+          <option value="leste">{t('dlm_autocota_side_east')}</option>
         </select>
       </Row>
-      <Row label="Afastamento inicial" htmlFor="ac-offset">
+      <Row label={t('dlm_autocota_offset')} htmlFor="ac-offset">
         <NumField id="ac-offset" value={offset} min={0.1} quantity="length" onCommit={setOffset} />
       </Row>
-      <Row label="Entre camadas" htmlFor="ac-espaco">
+      <Row label={t('dlm_autocota_spacing')} htmlFor="ac-espaco">
         <NumField id="ac-espaco" value={espacamento} min={0.1} quantity="length" onCommit={setEspacamento} />
       </Row>
       <div style={{ marginTop: 6 }}>
-        <Check id="ac-externas" checked={somenteExternas} onChange={setSomenteExternas}>Apenas o contorno externo (ignorar divisórias internas)</Check>
+        <Check id="ac-externas" checked={somenteExternas} onChange={setSomenteExternas}>{t('dlm_autocota_exterior')}</Check>
       </div>
 
       <p className="hint" style={{ marginTop: 10 }}>
-        Um lado só é cotado quando tem parede paralela a ele: sem parede vertical não nascem cotas verticais. As aberturas
-        entram apenas no lado da parede que as hospeda.
+        {t('dlm_autocota_hint')}
       </p>
     </Dialog>
   );

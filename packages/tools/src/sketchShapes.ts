@@ -1,5 +1,6 @@
 import { EPS, add, angleOf, dist, len, mul, norm, perp, sub, dot, type SketchSeg, type Vec2 } from '@hestia/geom';
 import { arcPieces, defaultSketchId, type SketchIdFn } from './sketchShapesArc.ts';
+import { t as translate, type DictKey, type Lang } from './i18n.ts';
 
 export { arcCenterEnds, arcThreePoints, arcTangent, filletShape, defaultSketchId, type FilletResult, type SketchIdFn } from './sketchShapesArc.ts';
 
@@ -193,3 +194,53 @@ export const SHAPE_KINDS: readonly ShapeKind[] = [
     ],
   },
 ];
+
+const SHAPE_LABEL_KEYS: Record<ShapeKindId, DictKey> = {
+  line: 'tl_shape_line',
+  rectangle: 'tl_shape_rectangle',
+  rotatedRectangle: 'tl_shape_rot_rect',
+  inscribedPolygon: 'tl_shape_inscribed_poly',
+  circumscribedPolygon: 'tl_shape_circum_poly',
+  circle: 'tl_shape_circle',
+  arcThreePoints: 'tl_shape_arc_3p',
+  arcCenterEnds: 'tl_shape_arc_ce',
+  arcTangent: 'tl_shape_arc_tan',
+  fillet: 'tl_shape_fillet',
+  ellipse: 'tl_shape_ellipse',
+};
+
+const SHAPE_INPUT_KEYS: Record<string, DictKey> = {
+  Início: 'tl_shape_in_start',
+  Fim: 'tl_shape_in_end',
+  'Primeiro canto': 'tl_shape_in_first_corner',
+  'Canto oposto': 'tl_shape_in_opposite_corner',
+  'Início da base': 'tl_shape_in_base_start',
+  'Fim da base': 'tl_shape_in_base_end',
+  'Ponto da largura': 'tl_shape_in_width_point',
+  Centro: 'tl_shape_in_center',
+  Vértice: 'tl_shape_in_vertex',
+  Lados: 'tl_shape_in_sides',
+  'Meio de uma aresta': 'tl_shape_in_edge_mid',
+  'Ponto do raio': 'tl_shape_in_radius_point',
+  'Ponto no arco': 'tl_shape_in_on_arc',
+  'Anti-horário': 'tl_shape_in_ccw',
+  'Ponto na tangente': 'tl_shape_in_tangent_point',
+  'Primeira linha': 'tl_shape_in_first_line',
+  'Segunda linha': 'tl_shape_in_second_line',
+  Raio: 'tl_shape_in_radius',
+  'Semieixo X': 'tl_shape_in_semiaxis_x',
+  'Semieixo Y': 'tl_shape_in_semiaxis_y',
+  Rotação: 'tl_shape_in_rotation',
+};
+
+/** Rótulo da forma no idioma pedido (o rótulo PT de `SHAPE_KINDS` é o fallback). */
+export function shapeLabel(shape: ShapeKind, lang: Lang = 'pt'): string {
+  const key = SHAPE_LABEL_KEYS[shape.id];
+  return key && lang === 'en' ? translate(lang, key) : shape.label;
+}
+
+/** Rótulo de uma entrada da forma no idioma pedido (o rótulo PT é o fallback). */
+export function shapeInputLabel(label: string, lang: Lang = 'pt'): string {
+  const key = SHAPE_INPUT_KEYS[label];
+  return key && lang === 'en' ? translate(lang, key) : label;
+}

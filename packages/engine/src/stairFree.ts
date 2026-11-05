@@ -1,6 +1,7 @@
 import { add, dist, dot, mul, norm, perp, sub, type Vec2 } from '@hestia/geom';
 import { stairCalcRuleOf, type StairType } from '@hestia/model';
 import { FREE_COLLINEAR_ANGLE, FREE_MAX_TURN_ANGLE, compactRing, findSelfOverlap, turnLandingRing, turnTMin } from './freePathGeom.ts';
+import { numLang, t, type Lang } from './i18nMessages.ts';
 import { inlineLanding } from './rampPlan.ts';
 import { generateStraightRun, treadFor, treadRuleOf, type StairComponentSketch } from './stairGenerators.ts';
 import {
@@ -27,6 +28,8 @@ export interface StairFreeOptions {
   fixed?: StairFixed;
   /** Padrão DEFAULT_STAIR_NORMS. */
   norms?: StairNorms;
+  /** Idioma das mensagens (padrão `'pt'`). */
+  lang?: Lang;
 }
 
 export interface StairFreePlan {
@@ -111,7 +114,7 @@ interface Turn {
 }
 
 const angleBetween = (dA: Vec2, dB: Vec2): number => Math.acos(Math.max(-1, Math.min(1, dot(dA, dB))));
-const pt2 = (v: number): string => v.toFixed(2).replace('.', ','); // units-ok: coordenadas do desenho técnico da escada livre
+const pt2In = (lang: Lang) => (v: number): string => numLang(v, 2, lang); // units-ok: coordenadas do desenho técnico da escada livre
 
 /** Anel do patamar de giro: compactado; giro (quase) nulo vira o retângulo de 4 pontos. */
 function turnRing(t: Turn, width: number, tIn: number, tOut: number): Vec2[] {
@@ -140,10 +143,12 @@ export function planStairFree(path: Vec2[], H: number, type: StairType, o: Stair
 }
 
 function plan(path: Vec2[], H: number, type: StairType, o: StairFreeOptions): StairFreePlanResult {
+  const lang = o.lang ?? 'pt';
+  const pt2 = pt2In(lang);
   const w = o.width;
-  if (!(w > 0)) return { error: 'A largura do lance deve ser positiva.' };
-  if (!(H > 0)) return { error: 'A altura deve ser positiva: nada a gerar.' };
-  const params = stairLiveParams(H, type, { fixed: o.fixed, width: w, norms: o.norms ?? DEFAULT_STAIR_NORMS });
+  if (!(w > 0)) return { error: t(lang, 'egb_err_stair_width') };
+  if (!(H > 0)) return { error: t(lang, 'egb_err_stair_height') };
+  const params = stairLiveParams(H, type, { fixed: o.fixed, width: w, norms: o.norms ?? DEFAULT_STAIR_NORMS, lang });
   if ('error' in params) return params;
   const T = params.tread;
   const N = params.risers;
@@ -159,7 +164,7 @@ function plan(path: Vec2[], H: number, type: StairType, o: StairFreeOptions): St
       orig.push(i);
     }
   });
-  if (pts.length < 2) return { error: 'O trajeto precisa de ao menos dois pontos distintos.' };
+  if (pts.length < 2) return { error: t(lang, 'egb_err_path_points') };
 
   // Dissolve vértices quase colineares que não são patamar manual (a escada não tem patamar ali).
   for (let again = true; again; ) {
@@ -185,7 +190,7 @@ function plan(path: Vec2[], H: number, type: StairType, o: StairFreeOptions): St
     const dA = segs[k]!.d;
     const dB = segs[k + 1]!.d;
     const theta = angleBetween(dA, dB);
-    if (theta > FREE_MAX_TURN_ANGLE) return { error: `Retorno agudo demais no vértice ${orig[k + 1]! + 1}: use dois giros menores.` };
+    if (theta > FREE_MAX_TURN_ANGLE) return { error: t(lang, 'egb_err_sharp_turn', { n: orig[k + 1]! + 1 }) };
     turns.push({ v: pts[k + 1]!, dA, dB, theta, recuo: turnRecuo(theta, w, D) });
   }
 
@@ -203,12 +208,12 @@ function plan(path: Vec2[], H: number, type: StairType, o: StairFreeOptions): St
   const lastUsed = dist1.closedAt ?? last;
   for (let k = 0; k <= lastUsed; k++) {
     if (fits[k]!.kind === 'short') {
-      return { error: k === 0 ? 'O 1º trecho é curto demais para um lance (mínimo 2 espelhos).' : `O trecho ${k + 1} é curto demais para o patamar de giro.` };
+      return { error: k === 0 ? t(lang, 'egb_err_first_segment_short') : t(lang, 'egb_err_segment_short', { n: k + 1 }) };
     }
   }
   const poucos = (j: number): { error: string } => {
     const v = orig[j + 1]! + 1;
-    return { error: `Poucos espelhos (${N}) para o patamar de giro no vértice ${v}: alongue o trecho ${v - 1} ou use uma escada reta.` };
+    return { error: t(lang, 'egb_err_few_risers', { risers: N, vertex: v, segment: v - 1 }) };
   };
   for (let k = 0; k <= lastUsed && dist1.missing > 0; k++) if (dist1.layouts[k]!.leftover1) return poucos(k);
 
@@ -267,11 +272,11 @@ function plan(path: Vec2[], H: number, type: StairType, o: StairFreeOptions): St
       push(landingOfRing(turnRing(turns[k]!, w, tIn, fits[k + 1]!.bIn)), k);
     }
   }
-  if (placedRisers !== N || runs === 0) return { error: 'Não foi possível distribuir os espelhos no trajeto.' };
+  if (placedRisers !== N || runs === 0) return { error: t(lang, 'egb_err_distribute_risers') };
 
   // Só na criação/regeneração: trechos não adjacentes não podem se sobrepor.
   const clash = findSelfOverlap(parts, segOf);
-  if (clash) return { error: `O trajeto se sobrepõe ao trecho ${segOf[clash.a]! + 1}: afaste o ponto.` };
+  if (clash) return { error: t(lang, 'egb_err_path_overlap', { n: segOf[clash.a]! + 1 }) };
 
   // Trajeto normalizado: o último vértice vira o centro do último espelho; o resto depois do fechamento cai.
   const lastSeg = segs[lastUsed]!;
@@ -282,9 +287,9 @@ function plan(path: Vec2[], H: number, type: StairType, o: StairFreeOptions): St
   const truncated = lastUsed < last;
 
   let note: string | undefined;
-  if (extended > 1e-6) note = `Trajeto estendido em ${pt2(extended)} m para completar ${N} espelhos.`;
-  else if (truncated) note = `Trajeto encurtado: a escada fecha no espelho ${N}, antes do último ponto.`;
-  else if (slack > 0.005) note = `A escada termina ${pt2(slack)} m antes do último ponto.`;
+  if (extended > 1e-6) note = t(lang, 'egb_note_path_extended_stair', { d: pt2(extended), risers: N });
+  else if (truncated) note = t(lang, 'egb_note_path_shortened_stair', { risers: N });
+  else if (slack > 0.005) note = t(lang, 'egb_note_stair_ends_early', { d: pt2(slack) });
 
   const result: StairFreePlan = {
     parts,
@@ -310,6 +315,8 @@ export interface OptimizeStairInput {
   landingDepth?: number;
   manualLandings?: number[];
   norms?: StairNorms;
+  /** Idioma das mensagens (padrão `'pt'`). */
+  lang?: Lang;
 }
 export interface OptimizeStairResult {
   /** N e T escolhidos. */
@@ -339,7 +346,7 @@ interface Cand {
   plan: StairFreePlan;
 }
 
-const cmNum = (m: number): string => (m * 100 + 1e-5).toFixed(1).replace('.', ','); // units-ok: cotas em cm do desenho técnico da escada livre
+const cmNumIn = (lang: Lang) => (m: number): string => numLang(m * 100 + 1e-5, 1, lang); // units-ok: cotas em cm do desenho técnico da escada livre
 
 /**
  * "Ajustar": escolhe N, h e piso (T) para o trajeto caber na regra Blondel do tipo. Testa N = Nmin … Nmin + 4 e, para
@@ -355,9 +362,12 @@ export function optimizeStair(i: OptimizeStairInput): OptimizeStairResult | { er
 }
 
 function optimize(i: OptimizeStairInput): OptimizeStairResult | { error: string } {
+  const lang = i.lang ?? 'pt';
+  const pt2 = pt2In(lang);
+  const cmNum = cmNumIn(lang);
   const { path, H, type, width } = i;
   const norms = i.norms ?? DEFAULT_STAIR_NORMS;
-  const base = stairLiveParams(H, type, { width, norms });
+  const base = stairLiveParams(H, type, { width, norms, lang });
   if ('error' in base) return base;
   const Nmin = base.risers;
   const rule = treadRuleOf(type);
@@ -373,6 +383,7 @@ function optimize(i: OptimizeStairInput): OptimizeStairResult | { error: string 
       manualLandings: i.manualLandings,
       norms,
       fixed: { risers: N, tread: T },
+      lang,
     });
     if ('error' in r) return r;
     const h = H / N;
@@ -382,11 +393,14 @@ function optimize(i: OptimizeStairInput): OptimizeStairResult | { error: string 
       return v;
     };
     const violation =
-      add1(Math.max(0, h - type.maxRiser), `espelho de ${cmNum(h)} cm acima do máximo do tipo (${cmNum(type.maxRiser)} cm).`) +
-      add1(Math.max(0, norms.riserMin - h), `espelho de ${cmNum(h)} cm abaixo do mínimo da norma (${cmNum(norms.riserMin)} cm).`) +
-      add1(Math.max(0, h - norms.riserMax), `espelho de ${cmNum(h)} cm acima do máximo da norma (${cmNum(norms.riserMax)} cm).`) +
-      add1(dist1(a * h + b * T, calc.calcMin, calc.calcMax), `a regra de Blondel (${cmNum(a * h + b * T)} cm) fica fora de ${cmNum(calc.calcMin)} a ${cmNum(calc.calcMax)} cm.`) +
-      add1(dist1(T, type.minTread, calc.maxTread), `piso de ${cmNum(T)} cm fora de ${cmNum(type.minTread)} a ${cmNum(calc.maxTread)} cm.`);
+      add1(Math.max(0, h - type.maxRiser), t(lang, 'egb_live_stair_riser_over', { h: cmNum(h), max: cmNum(type.maxRiser) })) +
+      add1(Math.max(0, norms.riserMin - h), t(lang, 'egb_live_stair_riser_below', { h: cmNum(h), min: cmNum(norms.riserMin) })) +
+      add1(Math.max(0, h - norms.riserMax), t(lang, 'egb_live_stair_riser_above', { h: cmNum(h), max: cmNum(norms.riserMax) })) +
+      add1(
+        dist1(a * h + b * T, calc.calcMin, calc.calcMax),
+        t(lang, 'egb_live_stair_blondel', { v: cmNum(a * h + b * T), min: cmNum(calc.calcMin), max: cmNum(calc.calcMax) }),
+      ) +
+      add1(dist1(T, type.minTread, calc.maxTread), t(lang, 'egb_live_stair_tread', { tread: cmNum(T), min: cmNum(type.minTread), max: cmNum(calc.maxTread) }));
     return { N, T, T0, Nmin, gap: r.extended - r.slack, violation, messages: msgs, plan: r };
   };
 
@@ -437,12 +451,22 @@ function optimize(i: OptimizeStairInput): OptimizeStairResult | { error: string 
     }
     for (const c of all) if (!best || better(c, best)) best = c;
   }
-  if (!best) return { error: nminError || 'Não foi possível ajustar o trajeto.' };
+  if (!best) return { error: nminError || t(lang, 'egb_err_adjust_path') };
 
   const gap = best.gap;
-  const trecho = Math.abs(gap) < 0.005 ? 'trajeto mantido' : gap > 0 ? `trajeto estendido em ${pt2(gap)} m` : `trajeto encurtado em ${pt2(-gap)} m`;
-  let note = `Ajustado: ${best.N} espelhos de ${cmNum(H / best.N)} cm, piso ${cmNum(best.T)} cm, ${trecho}.`;
-  if (best.violation > 1e-9) note += ` Sem opção dentro da norma: ${best.messages.join(' ')}`;
+  const trecho =
+    Math.abs(gap) < 0.005
+      ? t(lang, 'egb_live_path_kept')
+      : gap > 0
+        ? t(lang, 'egb_live_path_extended', { d: pt2(gap) })
+        : t(lang, 'egb_live_path_shortened', { d: pt2(-gap) });
+  let note = t(lang, 'egb_live_stair_adjusted', {
+    risers: best.N,
+    h: cmNum(H / best.N),
+    tread: cmNum(best.T),
+    segment: trecho,
+  });
+  if (best.violation > 1e-9) note += t(lang, 'egb_live_no_option', { message: best.messages.join(' ') });
   return {
     fixed: { risers: best.N, tread: best.T },
     riserHeight: H / best.N,

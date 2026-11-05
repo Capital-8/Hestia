@@ -8,6 +8,7 @@ import { riserPoints, risersInClimbOrder } from '../stairRisers.ts';
 import { tracoEm } from './marcadores.ts';
 import { defaultPaint, espessuraDeCorte, espessuraDeProjecao, surfaceColor, type PlanPaint } from './style.ts';
 import type { Espessura, PapelRotulo, PlanTheme, StrokeOp } from './types.ts';
+import { t, type Lang } from '../i18n.ts';
 
 /**
  * Cota de corte padrão, em m acima da base do lance (1,20 m, como o corte padrão do intervalo de vista). A planta usa a
@@ -333,6 +334,7 @@ export function stairFills(
   view?: StairView,
   paint: PlanPaint = defaultPaint('stair', v.zoom),
   scale = 100,
+  lang: Lang = 'pt',
 ): FloorOps {
   const out = empty();
   const corte = espessuraDeCorte(paint);
@@ -394,7 +396,7 @@ export function stairFills(
     out.strokes.push(...climbArrow(walk, theme.ink, corte));
     if (walk.length >= 2) {
       const u = norm(sub(walk[1]!, walk[0]!));
-      out.labels.push({ at: walk[0]!, text: 'SOBE', papel: { ...beside(u, STAIR_SOBE_OFFSET_MM, scale), fontMm: STAIR_TEXT_MM } });
+      out.labels.push({ at: walk[0]!, text: t(lang, 'rn_stair_up'), papel: { ...beside(u, STAIR_SOBE_OFFSET_MM, scale), fontMm: STAIR_TEXT_MM } });
     }
     const cut = stairCutBase(s, risers, cutZ);
     if (cut) out.strokes.push(cutSymbol(cut, theme.ink, corte));

@@ -4,6 +4,7 @@ import { ceilingOutline } from '@hestia/engine';
 import { formatQuantity, isCeiling, isFloor, isRoof, isSlab, isWall, levelRoomSeparators, roomSeparatorIssue, unitsOf, type Command, type Id, type Project } from '@hestia/model';
 import type { InferContext } from './infer.ts';
 import { followingEnds, gripAt, MIN_WALL_LENGTH, type Grip } from './pick.ts';
+import { langOf, t as translate } from './i18n.ts';
 import { floorGripAt, ringInsertAfter, ringMoveVertex } from './floorPick.ts';
 import { slabGripAt } from './slabPick.ts';
 import { edgeGripPoint, roofGripAt } from './roofPick.ts';
@@ -89,7 +90,7 @@ const ROOF_OWNER: RingOwner = {
   },
   commit: (env, id, ring, insertEdge) => {
     const r = env.project().elements[id];
-    if (isRoof(r)) commitRoofPatch(env, [id], roofRingPatch(r, ring, insertEdge === null ? null : { kind: 'insert', edge: insertEdge }));
+    if (isRoof(r)) commitRoofPatch(env, [id], roofRingPatch(r, ring, insertEdge === null ? null : { kind: 'insert', edge: insertEdge }), env.lang?.() ?? 'pt');
   },
 };
 
@@ -156,7 +157,7 @@ function wallHold(env: ToolEnv, g: Grip): GripHold {
       // Comprimento zero: a parede (ou uma vizinha que acompanha) cairia sobre a outra ponta e sumiria do motor.
       const other = g.end === 'a' ? wall.b : wall.a;
       if (dist(pt, other) < MIN_WALL_LENGTH) {
-        env.say('Parede com comprimento zero não existe: a ponta não pode encostar na outra. Use Excluir ou Juntar.');
+        env.say(translate(langOf(env), 'tl_msg_wall_zero_grip'));
         return;
       }
       for (const c of follow) {

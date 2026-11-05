@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TOOL_LABEL } from '@hestia/tools';
-import { I18N, nomeComandoLang, toolLabel } from './i18n.ts';
+import { I18N, cmpTexto, fmtDate, nomeComandoLang, resolveText, t, toolLabel, type Dict } from './i18n.ts';
 
 describe('rótulos de ferramenta', () => {
   // TOOL_LABEL é Record<ToolId, string>: suas chaves são todos os ToolIds do registro.
@@ -51,7 +51,7 @@ describe('nome de comando de atalho (diálogos de atalhos)', () => {
 
   it('a tela de atalhos tem nome nos dois idiomas', () => {
     expect(nomeComandoLang('atalhos', 'pt')).toBe('Atalhos de teclado');
-    expect(nomeComandoLang('atalhos', 'en')).toBe('Keyboard shortcuts');
+    expect(nomeComandoLang('atalhos', 'en')).toBe('Keyboard Shortcuts');
   });
 
   it('o diálogo de unidades tem nome nos dois idiomas', () => {
@@ -71,5 +71,61 @@ describe('nome de comando de atalho (diálogos de atalhos)', () => {
     }
     expect(I18N.pt.ramp_shape_free).toBe('Livre');
     expect(I18N.en.ramp_shape_free).toBe('Free');
+  });
+});
+
+describe('t() e helpers de idioma', () => {
+  it('traduz a mesma chave em PT e EN', () => {
+    expect(t('pt', 'tool_wall')).toBe('Parede');
+    expect(t('en', 'tool_wall')).toBe('Wall');
+    expect(t('pt', 'stt_close')).toBe('Fechar');
+    expect(t('en', 'stt_close')).toBe('Close');
+  });
+
+  it('interpola {nome} com os argumentos', () => {
+    expect(t('pt', 'stt_sub_many', { n: 3 })).toBe('Escada · usada em 3 escadas');
+    expect(t('en', 'stt_sub_many', { n: 3 })).toBe('Stair · used by 3 stairs');
+  });
+
+  it('mantém o marcador quando falta o argumento', () => {
+    expect(t('pt', 'stt_sub_many')).toContain('{n}');
+  });
+
+  it('cai em PT quando o EN não tem a chave e, por último, na própria chave', () => {
+    const en = I18N.en as unknown as Record<string, string | undefined>;
+    const salvo = en.tool_wall;
+    delete en.tool_wall;
+    try {
+      expect(t('en', 'tool_wall')).toBe('Parede');
+    } finally {
+      en.tool_wall = salvo!;
+    }
+    expect(t('en', 'chave_que_nao_existe' as keyof Dict)).toBe('chave_que_nao_existe');
+  });
+
+  it('resolveText aceita texto literal e mensagem do dicionário', () => {
+    expect(resolveText('Pavimento 1', 'en')).toBe('Pavimento 1');
+    expect(resolveText({ key: 'tool_wall' }, 'en')).toBe('Wall');
+    expect(resolveText({ key: 'stt_sub_many', args: { n: 2 } }, 'pt')).toBe('Escada · usada em 2 escadas');
+  });
+
+  it('fmtDate usa o formato do idioma ativo', () => {
+    const d = new Date(2021, 0, 2);
+    expect(fmtDate('pt', d)).toBe(d.toLocaleDateString('pt-BR'));
+    expect(fmtDate('en', d)).toBe(d.toLocaleDateString('en-US'));
+  });
+
+  it('cmpTexto ordena na collation do idioma (numérica por padrão)', () => {
+    expect(cmpTexto('a', 'b', 'pt')).toBeLessThan(0);
+    expect(cmpTexto('b', 'a', 'en')).toBeGreaterThan(0);
+    expect(cmpTexto('2', '10', 'pt')).toBeLessThan(0);
+    expect(cmpTexto('ênfase', 'fase', 'pt')).toBeLessThan(0);
+  });
+
+  it('Dict tem paridade entre PT e EN (chaves e valores string)', () => {
+    const pt = Object.keys(I18N.pt) as Array<keyof Dict>;
+    const en = Object.keys(I18N.en) as Array<keyof Dict>;
+    expect([...en].sort()).toEqual([...pt].sort());
+    for (const k of pt) expect(typeof I18N.en[k]).toBe('string');
   });
 });

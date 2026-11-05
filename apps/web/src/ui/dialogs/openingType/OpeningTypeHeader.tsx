@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import type { OpeningFamily } from '@hestia/model';
+import { useT } from '../../../editor/i18n.ts';
 
 interface OpeningTypeHeaderProps {
   families: readonly OpeningFamily[];
@@ -30,6 +31,7 @@ export function OpeningTypeHeader({
   onFavorite,
   onBeforeRename,
 }: OpeningTypeHeaderProps): ReactElement {
+  const { t } = useT();
   const focusName = (): void => {
     const el = document.getElementById(nameFieldId);
     if (el instanceof HTMLInputElement) {
@@ -45,28 +47,28 @@ export function OpeningTypeHeader({
   };
   return (
     <div className="tdlg-bar op-head">
-      <label htmlFor="op-family">Família:</label>
+      <label htmlFor="op-family">{t('dlo_f_family')}</label>
       <select id="op-family" className="select" value={familyId ?? ''} onChange={(e) => onFamily(e.target.value)}>
-        {familyId === null ? <option value="">Outros</option> : null}
+        {familyId === null ? <option value="">{t('dlo_family_other')}</option> : null}
         {families.map((f) => (
           <option key={f.id} value={f.id}>{f.name}</option>
         ))}
       </select>
       <span />
-      <label htmlFor="op-type">Tipo:</label>
+      <label htmlFor="op-type">{t('dlo_f_type')}</label>
       <select id="op-type" className="select" value={currentId} onChange={(e) => onType(e.target.value)}>
-        {types.map((t) => (
-          <option key={t.id} value={t.id}>{t.name}</option>
+        {types.map((type) => (
+          <option key={type.id} value={type.id}>{type.name}</option>
         ))}
       </select>
       <div className="btns">
-        <button type="button" className="btn small" onClick={onDuplicate}>Duplicar…</button>
-        <button type="button" className="btn small" onClick={rename}>Renomear…</button>
+        <button type="button" className="btn small" onClick={onDuplicate}>{t('dlo_btn_duplicate')}</button>
+        <button type="button" className="btn small" onClick={rename}>{t('dlo_btn_rename')}</button>
         <button
           type="button"
           className="btn small op-star"
-          aria-label={favorite ? 'Remover tipo dos favoritos' : 'Adicionar tipo aos favoritos'}
-          title={favorite ? 'Remover dos favoritos (desfazível)' : 'Adicionar aos favoritos (desfazível)'}
+          aria-label={favorite ? t('dlo_cmd_unfavorite') : t('dlo_aria_favorite')}
+          title={favorite ? t('dlo_tip_unfavorite') : t('dlo_tip_favorite')}
           onClick={onFavorite}
         >
           {favorite ? '★' : '☆'}

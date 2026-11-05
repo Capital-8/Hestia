@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState, type DragEvent } from 'react';
 import { sheetOf, type Sheet } from '@hestia/model';
 import { editor } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
+import type { TextLike } from '../../editor/i18n.ts';
 import { addViewportAtAction, dragPlacement, type DragPlacement } from '../../editor/sheetInsert.ts';
 import { draggedSheetView, endSheetDrag, SHEET_VIEW_MIME } from '../../editor/sheetDrag.ts';
 import { snapMove, type SnapGuide } from './sheetSnap.ts';
 import { clampBoxToInner, type InnerBox, type PaperPoint } from './sheetSelection.ts';
 
-const say = (status: string): void => useUi.setState({ status });
+const say = (status: TextLike): void => useUi.setState({ status });
 
 export interface SheetDropPreview {
   box: { x: number; y: number; w: number; h: number };
@@ -97,15 +98,18 @@ export function useSheetDrop(args: {
       if (!src) return;
       const placement = planned?.placement ?? dragPlacement(editor.project, sheet, src.view, paperAt(e));
       if (!placement) {
-        say('A vista não cabe na área de desenho desta prancha.');
+        say({ key: 'cvs_drop_too_big' });
         return;
       }
       try {
         const id = addViewportAtAction(editor.store, sheetId, src.view, placement);
         onAdded(id);
-        say(`${src.label} adicionada à prancha · 1:${placement.scale}${placement.adjusted ? ' (reescalada para caber)' : ''}.`);
+        say({
+          key: placement.adjusted ? 'cvs_drop_done_adjusted' : 'cvs_drop_done',
+          args: { label: src.label, scale: placement.scale },
+        });
       } catch (err) {
-        say(err instanceof Error ? err.message : 'Não foi possível inserir a vista.');
+        say(err instanceof Error ? err.message : { key: 'cvs_drop_failed' });
       }
     },
     [sheet, drop, paperAt, sheetId, onAdded],

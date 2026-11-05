@@ -2,19 +2,18 @@ import { useMemo, type ReactElement } from 'react';
 import { genericQuantities } from '@hestia/engine';
 import type { Generic } from '@hestia/model';
 import { useProject } from '../editor/controller.ts';
+import { fmtNum, t, useI18n, useT, type Lang } from '../editor/i18n.ts';
 import { Group, Row } from './fields.tsx';
-
-const fmt = (n: number, d = 2): string => n.toFixed(d).replace('.', ',');
 
 /** Máximo de propriedades IFC listadas por objeto; o resto vira um aviso "+N". */
 const MAX_PROPS = 30;
 
 /** Valor comum aos selecionados, ou `null` quando nenhum tem valor (ou `variados` quando divergem). */
-function commonText(values: Array<string | undefined>): string | null {
+function commonText(values: Array<string | undefined>, lang: Lang): string | null {
   const present = values.filter((v): v is string => !!v);
   if (present.length === 0) return null;
   const unique = new Set(present);
-  return unique.size === 1 ? [...unique][0]! : 'variados';
+  return unique.size === 1 ? [...unique][0]! : t(lang, 'prc_opt_varied');
 }
 
 /** Chave de um vértice pela posição: a malha importada duplica os vértices por triângulo, então o índice não serve. */
@@ -47,7 +46,7 @@ export function isOpenMesh(mesh: Generic['mesh']): boolean {
 }
 
 /** Valor de uma propriedade IFC para exibição (booleano vira Sim/Não; texto e número saem como vieram). */
-const propText = (v: string | number | boolean): string => (typeof v === 'boolean' ? (v ? 'Sim' : 'Não') : String(v));
+const propText = (v: string | number | boolean, lang: Lang): string => (typeof v === 'boolean' ? (v ? t(lang, 'prc_val_yes') : t(lang, 'prc_val_no')) : String(v));
 
 /** Contagens da seleção atual; o painel de Propriedades usa para o rótulo do cabeçalho. */
 export interface SelectionLabelInput {
@@ -70,21 +69,21 @@ export interface SelectionLabelInput {
 const plural = (n: number, one: string, many: string): string => `${n} ${n > 1 ? many : one}`;
 
 /** Rótulo do cabeçalho da paleta: o grupo selecionado, com singular e plural. */
-export function selectionLabel(c: SelectionLabelInput): string {
-  if (c.grade) return `Grade ${c.grade.name}`;
-  if (c.walls) return plural(c.walls, 'parede', 'paredes');
-  if (c.ops) return plural(c.ops, 'abertura', 'aberturas');
-  if (c.floors) return plural(c.floors, 'piso', 'pisos');
-  if (c.slabs) return plural(c.slabs, 'laje', 'lajes');
-  if (c.ceilings) return plural(c.ceilings, 'forro', 'forros');
-  if (c.roofs) return plural(c.roofs, 'telhado', 'telhados');
-  if (c.stairs) return plural(c.stairs, 'escada', 'escadas');
-  if (c.ramps) return plural(c.ramps, 'rampa', 'rampas');
-  if (c.rooms) return plural(c.rooms, 'ambiente', 'ambientes');
-  if (c.cads) return plural(c.cads, 'desenho CAD', 'desenhos CAD');
-  if (c.generics) return plural(c.generics, 'objeto', 'objetos');
-  if (c.view) return `${c.view.kind === 'elevation' ? 'Elevação' : 'Corte'} ${c.view.name}`;
-  return 'Vista';
+export function selectionLabel(c: SelectionLabelInput, lang: Lang = useI18n.getState().lang): string {
+  if (c.grade) return t(lang, 'prc_sel_grade', { name: c.grade.name });
+  if (c.walls) return plural(c.walls, t(lang, 'prc_sel_wall_one'), t(lang, 'prc_sel_wall_many'));
+  if (c.ops) return plural(c.ops, t(lang, 'prc_sel_opening_one'), t(lang, 'prc_sel_opening_many'));
+  if (c.floors) return plural(c.floors, t(lang, 'prc_sel_floor_one'), t(lang, 'prc_sel_floor_many'));
+  if (c.slabs) return plural(c.slabs, t(lang, 'prc_sel_slab_one'), t(lang, 'prc_sel_slab_many'));
+  if (c.ceilings) return plural(c.ceilings, t(lang, 'prc_sel_ceiling_one'), t(lang, 'prc_sel_ceiling_many'));
+  if (c.roofs) return plural(c.roofs, t(lang, 'prc_sel_roof_one'), t(lang, 'prc_sel_roof_many'));
+  if (c.stairs) return plural(c.stairs, t(lang, 'prc_sel_stair_one'), t(lang, 'prc_sel_stair_many'));
+  if (c.ramps) return plural(c.ramps, t(lang, 'prc_sel_ramp_one'), t(lang, 'prc_sel_ramp_many'));
+  if (c.rooms) return plural(c.rooms, t(lang, 'prc_sel_room_one'), t(lang, 'prc_sel_room_many'));
+  if (c.cads) return plural(c.cads, t(lang, 'prc_sel_cad_one'), t(lang, 'prc_sel_cad_many'));
+  if (c.generics) return plural(c.generics, t(lang, 'prc_sel_generic_one'), t(lang, 'prc_sel_generic_many'));
+  if (c.view) return `${c.view.kind === 'elevation' ? t(lang, 'prc_sel_view_elevation') : t(lang, 'prc_sel_view_section')} ${c.view.name}`;
+  return t(lang, 'prc_sel_view');
 }
 
 /**
@@ -92,18 +91,19 @@ export function selectionLabel(c: SelectionLabelInput): string {
  * de cada selecionado. Somente leitura — não há edição de viga, pilar ou mobiliário importado na v1.
  */
 export function GenericProps({ items }: { items: Generic[] }): ReactElement {
+  const { t, lang } = useT();
   const p = useProject();
   const quantities = useMemo(() => new Map(genericQuantities(p).map((q) => [q.id, q])), [p]);
   const levelName = (levelId: string): string => p.levels.find((l) => l.id === levelId)?.name ?? levelId;
-  const sourceClass = commonText(items.map((g) => g.sourceClass)) ?? '';
-  const predefinedType = commonText(items.map((g) => g.predefinedType));
-  const objectType = commonText(items.map((g) => g.objectType));
+  const sourceClass = commonText(items.map((g) => g.sourceClass), lang) ?? '';
+  const predefinedType = commonText(items.map((g) => g.predefinedType), lang);
+  const objectType = commonText(items.map((g) => g.objectType), lang);
   return (
     <>
-      <Group title="Objeto importado">
-        <Row label="Classe IFC" readOnly><span className="val">{sourceClass}</span></Row>
-        {predefinedType && <Row label="Tipo predefinido" readOnly><span className="val soft">{predefinedType}</span></Row>}
-        {objectType && <Row label="Tipo de objeto" readOnly><span className="val soft">{objectType}</span></Row>}
+      <Group title={t('prc_pgrp_imported')} stateKey="imported">
+        <Row label={t('prc_fld_ifc_class')} readOnly><span className="val">{sourceClass}</span></Row>
+        {predefinedType && <Row label={t('prc_fld_predefined_type')} readOnly><span className="val soft">{predefinedType}</span></Row>}
+        {objectType && <Row label={t('prc_fld_object_type')} readOnly><span className="val soft">{objectType}</span></Row>}
       </Group>
       {items.map((g) => {
         const q = quantities.get(g.id);
@@ -112,19 +112,19 @@ export function GenericProps({ items }: { items: Generic[] }): ReactElement {
         const shown = props.slice(0, MAX_PROPS);
         return (
           <Group key={g.id} title={g.name}>
-            <Row label="Nível" readOnly><span className="val">{levelName(g.levelId)}</span></Row>
-            <Row label="Triângulos" readOnly><span className="val">{q?.triangles ?? 0}</span></Row>
-            <Row label={open ? 'Volume indicativo' : 'Volume'} readOnly><span className="val">{fmt(q?.volume ?? 0)} m³</span></Row>
-            <Row label="Área" readOnly><span className="val">{fmt(q?.area ?? 0)} m²</span></Row>
+            <Row label={t('prc_fld_level')} readOnly><span className="val">{levelName(g.levelId)}</span></Row>
+            <Row label={t('prc_fld_triangles')} readOnly><span className="val">{q?.triangles ?? 0}</span></Row>
+            <Row label={open ? t('prc_fld_indicative_volume') : t('prc_fld_volume')} readOnly><span className="val">{fmtNum(q?.volume ?? 0, 2, lang)} m³</span></Row>
+            <Row label={t('prc_fld_area')} readOnly><span className="val">{fmtNum(q?.area ?? 0, 2, lang)} m²</span></Row>
             {shown.map((prop, i) => {
-              const text = propText(prop.value);
+              const text = propText(prop.value, lang);
               return (
                 <Row key={`${prop.name}-${i}`} label={prop.name} readOnly>
                   <span className="val" title={text}>{text}</span>
                 </Row>
               );
             })}
-            {props.length > MAX_PROPS && <div className="hint">+{props.length - MAX_PROPS} propriedades IFC não exibidas</div>}
+            {props.length > MAX_PROPS && <div className="hint">{t('prc_msg_ifc_props_hidden', { n: props.length - MAX_PROPS })}</div>}
           </Group>
         );
       })}

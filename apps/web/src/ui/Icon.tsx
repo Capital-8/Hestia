@@ -55,7 +55,16 @@ const R: Record<string, string> = {
   // Documentação e vista
   tag: p('s2', 'M3 6H17L28 17L17 28L3 17Z') + '<circle class="ic-ac" cx="10" cy="13" r="1.5"/>',
   cotasAuto: p('ln', 'M4 4V18M14 4V18M28 4V18M4 14H28') + p('ac', 'M2 16L6 12M12 16L16 12M26 16L30 12') + p('s2', 'M4 21H28V29H4Z') + p('fa', 'M21 3L22 6L25 7L22 8L21 11L20 8L17 7L20 6Z'),
-  section: p('s3', 'M2 17L8 11V23Z') + p('s3', 'M30 17L24 11V23Z') + p('ln ic-ds', 'M8 17H24') + p('ac', 'M16 17V9') + p('fa', 'M16 3L12 9H20Z'),
+  // Corte: a MARCA DE PLANTA de um lado só — triângulo completo (base 2·r·√2, vértice a r·√2) com a bolha inscrita,
+  // preenchido SÓ na parte do triângulo que fica fora da bolha, como as bandeiras de `sectionMarkGeometry`. A base do
+  // triângulo aparece apenas de fora da bolha (dentro dela seria a divisória, que fazia o círculo parecer cortado).
+  // Bolha grande: centro (16, 19), r = 9 — ocupa o quadro como os outros ícones. Pontos dos gomos gerados pelo
+  // próprio resolvedor, normalizados por r.
+  section:
+    '<path fill="var(--ic-ink)" d="M28.73 19L22.36 12.64L22.96 13.29L23.48 14L23.94 14.76L24.32 15.56L24.61 16.39L24.83 17.24L24.96 18.12L25 19ZM3.27 19L9.64 12.64L9.04 13.29L8.52 14L8.06 14.76L7.68 15.56L7.39 16.39L7.17 17.24L7.04 18.12L7 19ZM16 6.27L9.64 12.64L11 11.52L12.56 10.68L14.24 10.17L16 10L17.76 10.17L19.44 10.68L21 11.52L22.36 12.64Z"/>' +
+    p('ln2', 'M3.27 19L16 6.27L28.73 19') +
+    p('ln2', 'M3.27 19H7M25 19H28.73') +
+    p('ln2', 'M7 19A9 9 0 1 1 25 19A9 9 0 1 1 7 19Z'),
   plan: p('s1', 'M4 4H28V28H4Z') + p('ln2', 'M16 4V16H28M4 21H12') + p('ac', 'M12 21A6 6 0 0 1 18 27'),
   fit: p('ln2', 'M4 11V4H11M21 4H28V11M28 21V28H21M11 28H4V21') + p('s1', 'M11 11H21V21H11Z'),
   grid: p('ln', 'M10 9V29M22 9V29M9 15H29M9 23H29') + '<circle class="ic-s1" cx="10" cy="6" r="3"/><circle class="ic-s1" cx="22" cy="6" r="3"/><circle class="ic-s1" cx="6" cy="15" r="3"/><circle class="ic-s1" cx="6" cy="23" r="3"/>',

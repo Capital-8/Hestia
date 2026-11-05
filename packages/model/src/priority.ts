@@ -1,3 +1,4 @@
+import { t, type Lang } from './i18n.ts';
 import type { Layer, LayerFunction } from './types.ts';
 
 /**
@@ -14,14 +15,20 @@ export const FUNCTION_PRIORITY: Record<LayerFunction, number> = {
   finish2: 5,
 };
 
-export const FUNCTION_LABEL: Record<LayerFunction, string> = {
-  structure: 'Estrutura',
-  substrate: 'Substrato',
-  thermal: 'Isolamento',
-  membrane: 'Membrana',
-  finish1: 'Acabamento 1',
-  finish2: 'Acabamento 2',
-};
+/** Rótulos das funções de camada no idioma pedido. */
+export function functionLabels(lang: Lang = 'pt'): Record<LayerFunction, string> {
+  return {
+    structure: t(lang, 'md_layer_structure'),
+    substrate: t(lang, 'md_layer_substrate'),
+    thermal: t(lang, 'md_layer_thermal'),
+    membrane: t(lang, 'md_layer_membrane'),
+    finish1: t(lang, 'md_layer_finish1'),
+    finish2: t(lang, 'md_layer_finish2'),
+  };
+}
+
+/** Rótulos em PT (compatibilidade); use `functionLabels(lang)` para o idioma ativo. */
+export const FUNCTION_LABEL: Record<LayerFunction, string> = functionLabels('pt');
 
 /** Prioridade efetiva da camada: `priority` quando definido, senão a da função. Vale para parede, piso e laje. */
 export const layerPriority = (l: Layer): number => l.priority ?? FUNCTION_PRIORITY[l.function];

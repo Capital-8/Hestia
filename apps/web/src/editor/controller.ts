@@ -34,8 +34,8 @@ import { consumirManterCameraDaPrevia, guardarOrigemDoColar, limparOrigemDoColar
 import { startCreateSimilar } from './createSimilar.ts';
 import { desfazerOuRefazer } from './historyStatus.ts';
 import { keptFloorType } from './typeActions.ts'; import { keptSlabType } from './slabTypeActions.ts'; import { PerimeterMode } from './perimeterMode.ts';
-import { AUTOSAVE_KEY, safeGet, safeSet } from './storage.ts';
-import { useI18n } from './i18n.ts';
+import { AUTOSAVE_KEY, AUTOSAVE_SALVO_KEY, safeGet, safeSet } from './storage.ts';
+import { t, useI18n } from './i18n.ts';
 import { pedirConfirmacaoHostedLoss } from './hostedLossPrompt.ts';
 import { pedirAlerta } from './alertaPrompt.ts';
 import { fitBox, levelFrameBox, panBy, planViewOf, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
@@ -48,6 +48,9 @@ import { deleteSectionAnnotationsIn, sectionAnnotationIdsIn } from './sectionHan
 import { hideSelectedCategoryInView, hideSelectionInView, resetAllTemporary, resetTemporaryHidden, temporaryHideSelection, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideSelectedCategoryInView, unhideSelectionInView, visibilityOf } from './viewVisibility.ts';
 import { deleteViewAction, renameViewAction, updateViewAction } from './sectionViewActions.ts';
 import { entregarArquivo } from './entregarArquivo.ts';
+import { bibliotecaDoAmbiente, type Biblioteca } from './biblioteca/biblioteca.ts';
+import { publicarBiblioteca } from './biblioteca/aoVivo.ts';
+import { capturarMiniatura3d } from './miniatura.ts';
 import { safeFilename } from './nomeArquivo.ts';
 import { FluxoEdicao } from './fluxoEdicao.ts';
 import { hiddenCreationWarning } from './profileWarning.ts';
@@ -124,7 +127,7 @@ const VIS_SEQUENCES: Record<string, ShortcutCommand> = {
 const SECTION_TOOLS = new Set<ToolId>(['select', 'measure', 'level', 'dimension', 'angularDimension', 'text', 'detailLine', 'filledRegion', 'tag', 'align', 'move']);
 
 export class Editor {
-  readonly store = new ProjectStore(createEmptyProject());
+  readonly store = new ProjectStore(createEmptyProject(useI18n.getState().lang));
   /** Arraste de rótulo de ambiente em andamento (mundo); vale na planta de piso e na de área. */
   private tagDrag: { planId: Id | null; roomId: Id; offset: Vec2; at: Vec2; moved: boolean } | null = null;
   private suppressNextClick = false;
@@ -408,6 +411,17 @@ export class Editor {
   /** Resolução do nível já pronta em segundo plano (ou do cache de geometria), sem calcular. Para a montagem da 3D. */
   resolucaoPronta(levelId: Id): ResolvedLevel | null { return this.fluxo.nivelPronto(levelId); }
 
+  /** Sobe a cada carga de projeto (novo ou aberto): quem guarda estado derivado do projeto anterior o descarta. */
+  geracaoDoProjeto = 0;
+
+  /** Pasta do projeto aberto na biblioteca. `null`: arquivo avulso, projeto novo ou ambiente sem pastas. */
+  private pastaDaBiblioteca: string | null = null;
+
+  /** Pasta do projeto na biblioteca (a tela inicial e o título mostram isto), ou `null`. */
+  get pastaNaBiblioteca(): string | null {
+    return this.pastaDaBiblioteca;
+  }
+
   /** Libera os caches de um nível (viewport da planta e resolução). Chamado ao fechar uma aba de planta. */
   releaseLevel(levelId: Id): void {
     this.viewports.delete(levelId);
@@ -422,10 +436,10 @@ export class Editor {
 
   /** Grava a feição clicada como nova referência da ponta da cota (ver `pickRefCommands`). */
   private escolherReferenciaCota(pick: { dimId: string; slot: 'a' | 'b' }, info: PointerInfo): void {
-    const r = pickRefCommands(this.project, useUi.getState().levelId, pick.dimId, pick.slot, info.raw, this.env.metersPerPixel() * 12);
+    const r = pickRefCommands(this.project, useUi.getState().levelId, pick.dimId, pick.slot, info.raw, this.env.metersPerPixel() * 12, useI18n.getState().lang);
     if ('error' in r) { useUi.setState({ status: r.error }); return; }
-    const applied = this.applyCommands('Trocar referência da cota', r.commands);
-    useUi.setState({ dimRefPick: null, status: applied.status === 'cancelled' ? '' : 'Referência da cota trocada.' });
+    const applied = this.applyCommands('eds_undo_dim_ref', r.commands);
+    useUi.setState({ dimRefPick: null, status: applied.status === 'cancelled' ? '' : { key: 'eds_msg_dim_ref_changed' } });
   }
 
   /** Zera a sequência de visibilidade em andamento (troca de vista/projeto). */
@@ -462,9 +476,10 @@ export class Editor {
       this.visTimer = setTimeout(() => {
         this.visTimer = undefined;
         this.visBuf = '';
-        if (useUi.getState().status === `Atalho: ${tentativa}…`) useUi.setState({ status: '' });
+        const atual = useUi.getState().status;
+        if (typeof atual !== 'string' && atual.key === 'eds_msg_shortcut_buffer' && atual.args?.seq === tentativa) useUi.setState({ status: '' });
       }, 2000);
-      useUi.setState({ status: `Atalho: ${tentativa}…` });
+      useUi.setState({ status: { key: 'eds_msg_shortcut_buffer', args: { seq: tentativa } } });
       return true;
     }
     this.limparVisibilidadeBuffer();
@@ -514,14 +529,14 @@ export class Editor {
     const st = useUi.getState();
     // A planta de área é de anotação: ferramentas de modelo não entram nela (nem por atalho, nem ao voltar de um corte).
     if (st.planKind === 'area' && st.view !== '3d' && !areaPlanToolAllowed(id)) {
-      useUi.setState({ status: 'Na planta de área ficam disponíveis só as ferramentas de anotação (medir, cota, texto, etiqueta e detalhe).' });
+      useUi.setState({ status: { key: 'eds_msg_area_tools_only' } });
       return;
     }
     if (this.perimetro.intercepta(id)) return;
     // No corte/elevação só entram as ferramentas de leitura e anotação. As de desenho de planta não devem expulsar
     // o usuário da vista: apenas explicam por que não estão disponíveis ali.
     if (st.view === 'section' && !SECTION_TOOLS.has(id)) {
-      useUi.setState({ status: 'Esta ferramenta é da planta. No corte use Medir, Cota, Texto, Detalhe, Alinhar ou Mover.' });
+      useUi.setState({ status: { key: 'eds_msg_section_tools_only' } });
       return;
     }
     if (clearSelectionForTool(id)) useUi.setState({ selection: [] });
@@ -555,7 +570,7 @@ export class Editor {
         const hit = anotacao || etiqueta ? null : labelHit(this.project, ui.levelId, scale, planId, info.raw);
         if (hit) {
           this.tagDrag = { planId, roomId: hit.roomId, offset: { x: hit.at.x - info.raw.x, y: hit.at.y - info.raw.y }, at: hit.at, moved: false };
-          useUi.setState({ status: 'Arraste o rótulo e solte para posicionar. A chamada liga ao sair do ambiente.' });
+          useUi.setState({ status: { key: 'eds_msg_room_tag_drag_hint' } });
           return;
         }
       }
@@ -569,9 +584,9 @@ export class Editor {
         const d = this.tagDrag;
         this.tagDrag = null;
         if (d.moved) {
-          this.store.exec({ type: 'setRoomLabel', id: d.roomId, position: d.at }, 'Mover rótulo');
+          this.store.exec({ type: 'setRoomLabel', id: d.roomId, position: d.at }, 'eds_undo_move_tag');
           this.suppressNextClick = true;
-          useUi.setState({ tagDrag: null, status: 'Rótulo reposicionado em todas as vistas. Ctrl+Z desfaz.' });
+          useUi.setState({ tagDrag: null, status: { key: 'eds_msg_room_tag_moved' } });
         } else {
           // Clique sem arrastar: seleciona o ambiente para configurar o rótulo no painel.
           this.suppressNextClick = true;
@@ -645,7 +660,7 @@ export class Editor {
     if (k === 'F3') {
       const cur = (useUi.getState().options.snap ?? DEFAULT_SNAP).enabled !== false;
       setSnap({ enabled: !cur });
-      useUi.setState({ status: !cur ? 'Capturas ativadas (F3)' : 'Capturas desativadas (F3)' });
+      useUi.setState({ status: !cur ? { key: 'eds_msg_captures_on' } : { key: 'eds_msg_captures_off' } });
       return true;
     }
     if (k === 'F8') {
@@ -659,7 +674,7 @@ export class Editor {
     if (k === 'F11') {
       const cur = (useUi.getState().options.snap ?? DEFAULT_SNAP).alignment;
       setSnap({ alignment: !cur });
-      useUi.setState({ status: !cur ? 'Rastreamento de alinhamento ativado (F11)' : 'Rastreamento de alinhamento desativado (F11)' });
+      useUi.setState({ status: !cur ? { key: 'eds_msg_alignment_on' } : { key: 'eds_msg_alignment_off' } });
       return true;
     }
     // 3D e corte não trocam de ferramenta: só os atalhos de visibilidade atravessam o `key3d` (HH/HR/RH/EH...).
@@ -802,11 +817,11 @@ export class Editor {
   generateElevations(): void {
     const box = levelFrameBox(this.project, useUi.getState().levelId);
     if (!box) {
-      useUi.setState({ status: 'Não há paredes neste nível para gerar elevações.' });
+      useUi.setState({ status: { key: 'eds_msg_no_walls_for_elevations' } });
       return;
     }
-    this.store.exec(elevationCommand(this.project.views, box, newId), 'Gerar elevações');
-    useUi.setState({ status: 'Elevações Norte, Sul, Leste e Oeste geradas. Ctrl+Z desfaz.' });
+    this.store.exec(elevationCommand(this.project.views, box, newId), 'eds_undo_elevations');
+    useUi.setState({ status: { key: 'eds_msg_elevations_created' } });
   }
 
   deleteSelection(): void {
@@ -830,12 +845,12 @@ export class Editor {
   cutSelection(): boolean {
     const ids = useUi.getState().selection;
     if (!this.canCutSelection(ids)) {
-      useUi.setState({ status: 'Recortar só vale para paredes, pisos, lajes, telhados, escadas, rampas, ambientes e aberturas hospedadas (com a parede selecionada).' });
+      useUi.setState({ status: { key: 'eds_msg_cut_not_allowed' } });
       return false;
     }
     if (!transfer.copy(this.project, ids)) return false;
     this.deleteSelection();
-    useUi.setState({ status: 'Recortado(s). Ctrl+V cola seguindo o cursor.' });
+    useUi.setState({ status: { key: 'eds_msg_cut_done' } });
     return true;
   }
 
@@ -843,7 +858,7 @@ export class Editor {
   pasteAligned(): boolean {
     const clip = transfer.clipBuffer();
     if (!clip) {
-      useUi.setState({ status: 'Nada copiado. Use Copiar ou Ctrl+C.' });
+      useUi.setState({ status: { key: 'eds_msg_nothing_copied' } });
       return false;
     }
     setPasteClip(clip);
@@ -854,7 +869,7 @@ export class Editor {
   /** Abre o diálogo "Selecionar níveis" do Colar alinhado aos níveis selecionados. */
   openPasteLevelsDialog(): boolean {
     if (!transfer.hasClip()) {
-      useUi.setState({ status: 'Nada copiado. Use Copiar ou Ctrl+C.' });
+      useUi.setState({ status: { key: 'eds_msg_nothing_copied' } });
       return false;
     }
     // Pré-aquece o 3D atrás do diálogo: quando o usuário clicar em "Pré-visualizar", a cena já está montada.
@@ -898,12 +913,12 @@ export class Editor {
   previewPasteLevels(levelIds: Id[], link: boolean): boolean {
     const clip = transfer.clipBuffer();
     if (!clip) {
-      useUi.setState({ status: 'Nada copiado. Use Copiar ou Ctrl+C.' });
+      useUi.setState({ status: { key: 'eds_msg_nothing_copied' } });
       return false;
     }
     const niveis = [...new Set(levelIds)];
     if (niveis.length === 0 || niveis.length !== levelIds.length || !niveis.every((id) => this.project.levels.some((l) => l.id === id))) {
-      useUi.setState({ status: 'Escolha ao menos um nível de destino válido.' });
+      useUi.setState({ status: { key: 'eds_msg_paste_levels_invalid' } });
       return false;
     }
     // Limpa um sinal de confirmação que tenha sobrado de uma prévia anterior.
@@ -915,7 +930,7 @@ export class Editor {
     performance.mark('colar-preparar-fim');
     performance.measure('colar-preparar', 'colar-preparar-inicio', 'colar-preparar-fim');
     if (!pronta) {
-      useUi.setState({ status: 'Não há o que colar nos níveis escolhidos.' });
+      useUi.setState({ status: { key: 'eds_msg_paste_levels_empty' } });
       return false;
     }
     // A vista de origem é a de quando o diálogo abriu (o 3D atrás dele é só pré-aquecimento).
@@ -936,7 +951,9 @@ export class Editor {
     useUi.setState({
       pastePreview: preview,
       selection: [],
-      status: `Prévia de ${preview.count} cópia(s) em ${niveis.length} nível(is). V cola; X cancela.`,
+      status: preview.count === 1
+        ? { key: niveis.length === 1 ? 'eds_msg_paste_preview_one_one' : 'eds_msg_paste_preview_one_many', args: { m: niveis.length } }
+        : { key: niveis.length === 1 ? 'eds_msg_paste_preview_many_one' : 'eds_msg_paste_preview_many_many', args: { n: preview.count, m: niveis.length } },
     });
     performance.mark('colar-vista-fim');
     performance.measure('colar-vista', 'colar-vista-inicio', 'colar-vista-fim');
@@ -976,7 +993,7 @@ export class Editor {
       planKind: preview.originPlanKind ?? 'floor',
       areaPlanId: preview.originAreaPlanId ?? null,
     });
-    useUi.setState({ status: 'Colar alinhado cancelado.' });
+    useUi.setState({ status: { key: 'eds_msg_paste_cancelled' } });
   }
 
   /** Cola direto, sem prévia (caminho do botão "Colar" do diálogo). */
@@ -1003,16 +1020,16 @@ export class Editor {
   syncLinkedSelection(): boolean {
     const found = this.linkedSelection();
     if (!found) {
-      useUi.setState({ status: 'Selecione um elemento de andar-tipo (cópia vinculada) para sincronizar.' });
+      useUi.setState({ status: { key: 'eds_msg_copy_link_select_sync' } });
       return false;
     }
     const command = syncWholeLinkCommand(this.project, found.linkId, found.fromId);
     if (!command) {
-      useUi.setState({ status: 'Não há outras cópias vinculadas para sincronizar.' });
+      useUi.setState({ status: { key: 'eds_msg_copy_link_none_sync' } });
       return false;
     }
-    this.store.exec(command, 'Sincronizar cópias vinculadas');
-    useUi.setState({ status: 'Andar-tipo sincronizado. Ctrl+Z desfaz.' });
+    this.store.exec(command, 'eds_undo_sync_links');
+    useUi.setState({ status: { key: 'eds_msg_copy_link_synced' } });
     return true;
   }
 
@@ -1020,11 +1037,11 @@ export class Editor {
   unlinkLinkedSelection(): boolean {
     const found = this.linkedSelection();
     if (!found) {
-      useUi.setState({ status: 'Selecione um elemento de andar-tipo (cópia vinculada) para desvincular.' });
+      useUi.setState({ status: { key: 'eds_msg_copy_link_select_unlink' } });
       return false;
     }
-    this.store.exec({ type: 'deleteCopyLink', id: found.linkId }, 'Desvincular cópias');
-    useUi.setState({ status: 'Cópias desvinculadas: continuam no projeto, mas não sincronizam mais. Ctrl+Z desfaz.' });
+    this.store.exec({ type: 'deleteCopyLink', id: found.linkId }, 'eds_undo_unlink_copies');
+    useUi.setState({ status: { key: 'eds_msg_copy_links_unlinked' } });
     return true;
   }
 
@@ -1059,13 +1076,18 @@ export class Editor {
     const cotas = cotasAutomaticas(this.store.project, levelId, opts);
     // Na planta de área, as cotas são anotações da vista (`plan.annotations`): entram com `planId`, não no nível.
     // Todas as cotas geradas entram num só passo de desfazer (Ctrl+Z desfaz o lote inteiro).
-    this.store.transaction('Cotas automáticas', () => {
+    this.store.transaction('eds_undo_auto_dimensions', () => {
       for (const dimension of cotas) this.store.exec({ type: 'addDimension', levelId, ...(plan ? { planId: plan.id } : {}), dimension });
     });
     useUi.setState({
       status: cotas.length > 0
-        ? `${cotas.length} cotas automáticas criadas ${plan ? 'na planta de área' : 'no nível'}. Ctrl+Z desfaz.`
-        : 'Nenhuma cota gerada: confira as camadas escolhidas e os lados com parede paralela.',
+        ? {
+            key: plan
+              ? (cotas.length === 1 ? 'eds_msg_auto_dimensions_created_area_one' : 'eds_msg_auto_dimensions_created_area_many')
+              : (cotas.length === 1 ? 'eds_msg_auto_dimensions_created_one' : 'eds_msg_auto_dimensions_created_many'),
+            args: { n: cotas.length },
+          }
+        : { key: 'eds_msg_auto_dimensions_none' },
     });
   }
 
@@ -1085,7 +1107,7 @@ export class Editor {
 
   // ---------- arquivo ----------
   newProject(id: TemplateId): void {
-    this.load(buildTemplate(id), 'projeto.hestia.json');
+    this.load(buildTemplate(id, useI18n.getState().lang), 'projeto.hestia.json');
   }
 
   /** Apaga o cache persistente de geometria (níveis resolvidos). Falha silenciosa. */
@@ -1099,7 +1121,12 @@ export class Editor {
     this.limparArrasteRotulo();
     this.limparVisibilidadeBuffer();
     resetAllTemporary();
+    this.geracaoDoProjeto++;
+    // Projeto avulso ou recém-carregado: o vínculo com uma pasta da biblioteca só volta quando ele é aberto/salvo lá.
+    this.pastaDaBiblioteca = null;
     this.perimetro.encerrar(); this.store.load(p);
+    // Todo projeto aberto fica no autosave desde o primeiro instante: é o que o F5 reabre quando ele não está numa pasta.
+    safeSet(AUTOSAVE_KEY, JSON.stringify(p, null, 1));
     this.fileName = name;
     this.levels.clear(); const iniciais = this.fluxo.abrir(p, this.store.version);
     if (restaurado) for (const [id, valor] of restaurado.semeados) this.fluxo.resolucao.semear(id, valor);
@@ -1118,41 +1145,141 @@ export class Editor {
       this.load(migrateProject(JSON.parse(text)), name);
       return { ok: true };
     } catch (e) {
-      return { ok: false, error: e instanceof Error ? e.message : 'Arquivo inválido' };
+      return { ok: false, error: e instanceof Error ? e.message : t(useI18n.getState().lang, 'eds_msg_file_invalid') };
     }
   }
 
   /**
-   * Salva o projeto. Dentro de um artefato do claude.ai o download direto é bloqueado, então usa a
-   * capacidade `downloads` (o viewer confirma). Fora dele, baixa o arquivo; em último caso copia o JSON.
+   * Salva o projeto **na pasta de projetos**, atualizando o `projeto.hestia.json` dele — nunca baixando arquivo.
+   *
+   * Sem pasta escolhida (primeira vez, ou permissão pendente), abre o diálogo que explica o motivo e deixa o usuário
+   * escolher a pasta ou baixar só este projeto. Download direto só existe onde o ambiente não tem acesso a pastas
+   * (navegadores sem File System Access API, artefato do claude.ai) — aí o comportamento antigo continua.
    */
   async save(): Promise<void> {
+    const biblioteca = bibliotecaDoAmbiente();
+    if (!biblioteca) {
+      await this.baixarProjeto();
+      return;
+    }
+    if (!biblioteca.pronta) {
+      useUi.setState({ dialog: 'salvarSemPasta', dialogArg: null });
+      return;
+    }
+    await this.salvarNaBiblioteca(biblioteca, this.pastaDaBiblioteca);
+  }
+
+  /** Baixa o projeto como `.hestia.json` (o caminho de quem não tem pasta, ou a escolha do diálogo de salvar). */
+  async baixarProjeto(): Promise<void> {
+    await this.baixarArquivo();
+  }
+
+  /** Caminho de quem não tem pasta (navegador sem acesso a arquivos): baixa o `.hestia.json`. */
+  private async baixarArquivo(): Promise<void> {
     const text = JSON.stringify(this.project, null, 1);
     const name = safeFilename(`${this.project.name.trim() || 'projeto'}.hestia.json`);
     safeSet(AUTOSAVE_KEY, text);
     const entrega = await entregarArquivo({ nome: name, conteudo: text });
     if (entrega === 'salvo') {
       this.store.markSaved();
-      useUi.setState({ status: `Salvo como ${name}.` });
+      safeSet(AUTOSAVE_SALVO_KEY, text);
+      useUi.setState({ status: { key: 'eds_msg_saved_as', args: { name } } });
       return;
     }
     if (entrega === 'cancelado') {
-      useUi.setState({ status: 'Salvamento cancelado. O projeto continua guardado neste navegador.' });
+      useUi.setState({ status: { key: 'eds_msg_save_cancelled' } });
       return;
     }
     const downloaded = entrega === 'baixado';
     this.store.markSaved();
+    safeSet(AUTOSAVE_SALVO_KEY, text);
     try {
       await navigator.clipboard.writeText(text);
-      useUi.setState({ status: downloaded ? `Arquivo ${name} gerado e JSON copiado.` : 'JSON do projeto copiado para a área de transferência.' });
+      useUi.setState({ status: downloaded ? { key: 'eds_msg_file_generated_copied', args: { name } } : { key: 'eds_msg_json_copied' } });
     } catch {
-      useUi.setState({ status: downloaded ? `Arquivo ${name} gerado.` : 'Não foi possível baixar. O projeto está guardado neste navegador.' });
+      useUi.setState({ status: downloaded ? { key: 'eds_msg_file_generated', args: { name } } : { key: 'eds_msg_download_failed' } });
+    }
+  }
+
+  /**
+   * "Salvar como" na biblioteca: cria uma pasta nova com o nome do projeto (com sufixo se repetir) e passa a salvar nela.
+   * Sem acesso a pastas no ambiente, cai no salvamento por arquivo.
+   */
+  async salvarComo(): Promise<boolean> {
+    const biblioteca = bibliotecaDoAmbiente();
+    if (!biblioteca) {
+      await this.baixarArquivo();
+      return false;
+    }
+    if (!biblioteca.pronta) {
+      // Mesmo diálogo do Ctrl+S: primeiro explica por que precisa da pasta.
+      useUi.setState({ dialog: 'salvarSemPasta', dialogArg: null });
+      return false;
+    }
+    await this.salvarNaBiblioteca(biblioteca, null);
+    return true;
+  }
+
+  /** Abre um projeto da pasta da biblioteca e passa a salvá-lo nela. */
+  async abrirDaBiblioteca(pasta: string): Promise<{ ok: true } | { ok: false; error: string }> {
+    const biblioteca = bibliotecaDoAmbiente();
+    if (!biblioteca?.pronta) return { ok: false, error: t(useI18n.getState().lang, 'bib_save_no_folder') };
+    try {
+      const { texto } = await biblioteca.abrirProjeto(pasta);
+      this.load(migrateProject(JSON.parse(texto)), pasta);
+      // O documento lido É o último salvo: o autosave fica igual (sem oferecer "recuperar" à toa) e o F5 volta nele.
+      safeSet(AUTOSAVE_KEY, texto);
+      safeSet(AUTOSAVE_SALVO_KEY, texto);
+      this.pastaDaBiblioteca = pasta;
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : t(useI18n.getState().lang, 'bib_open_error') };
+    }
+  }
+
+  /**
+   * Grava na pasta do projeto (ou numa nova, quando `pasta` é `null`) com a miniatura da vista 3D dentro do documento.
+   * A miniatura é refeita a cada salvamento; se a GPU não deixar desenhar, o projeto é salvo sem ela.
+   */
+  private async salvarNaBiblioteca(biblioteca: Biblioteca, pasta: string | null): Promise<void> {
+    const lang = useI18n.getState().lang;
+    const miniatura = capturarMiniatura3d();
+    const documento: Project = miniatura ? { ...this.project, thumbnail: miniatura } : this.project;
+    const conteudo = JSON.stringify(documento, null, 1);
+    safeSet(AUTOSAVE_KEY, conteudo);
+    try {
+      const { projeto } = await biblioteca.salvar({ pasta, nome: this.project.name.trim() || t(lang, 'bib_untitled'), conteudo, miniatura });
+      this.pastaDaBiblioteca = projeto.pasta;
+      // A tela inicial e o menu Arquivo mostram a mesma lista: publica a entrada nova.
+      publicarBiblioteca(biblioteca.estado);
+      safeSet(AUTOSAVE_SALVO_KEY, conteudo);
+      this.store.markSaved();
+      useUi.setState({ status: { key: pasta === null ? 'bib_saved_new' : 'bib_saved', args: { name: projeto.pasta } } });
+    } catch {
+      useUi.setState({ status: { key: 'bib_save_error' } });
     }
   }
 
   private scheduleAutosave(): void {
     if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
     this.autosaveTimer = setTimeout(() => safeSet(AUTOSAVE_KEY, JSON.stringify(this.project, null, 1)), 800);
+  }
+
+  /**
+   * Há trabalho NÃO salvo guardado no autosave? (a tela inicial só oferece "recuperar" neste caso)
+   *
+   * Compara o autosave com a cópia do último documento salvo: depois de um Ctrl+S eles são iguais e não há o que
+   * recuperar. Projeto vazio (só níveis padrão) também não conta.
+   */
+  temProjetoNaoSalvo(): boolean {
+    const raw = safeGet(AUTOSAVE_KEY);
+    if (!raw || raw === safeGet(AUTOSAVE_SALVO_KEY)) return false;
+    try {
+      const p = JSON.parse(raw) as { nextOrder?: unknown };
+      return typeof p.nextOrder === 'number' && p.nextOrder > 1;
+    } catch {
+      return false;
+    }
   }
 
   restoreAutosave(): boolean {

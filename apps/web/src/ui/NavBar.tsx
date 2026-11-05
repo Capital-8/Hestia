@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { editor } from '../editor/controller.ts';
-import { useI18n } from '../editor/i18n.ts';
+import { useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { Icon } from './Icon.tsx';
 
@@ -16,7 +16,7 @@ interface Camera3d {
  */
 export function NavBar({ model, center }: { model: Camera3d; center: () => { x: number; y: number } }): ReactElement {
   const view = useUi((s) => s.view);
-  const pt = useI18n((s) => s.lang) === 'pt';
+  const { t } = useT();
   const zoom = (dir: 1 | -1): void => (view === '3d' ? model.orbit.zoom(-dir * 240) : editor.zoomWheel(center(), -dir * 240));
   const fit = (): void => {
     if (view === '3d') {
@@ -25,11 +25,11 @@ export function NavBar({ model, center }: { model: Camera3d; center: () => { x: 
     } else editor.zoomExtents();
   };
   return (
-    <div className={`navbar${view === '3d' ? ' below-cube' : ''}`} role="toolbar" aria-label={pt ? 'Barra de navegação' : 'Navigation bar'}>
-      <button disabled className="soon" title={`${pt ? 'Roda de navegação' : 'Steering Wheel'}\n— ${pt ? 'ainda não disponível' : 'not available yet'}`} aria-label={pt ? 'Roda de navegação' : 'Steering Wheel'}><Icon name="nav" size={16} /></button>
-      <button title={pt ? 'Aproximar' : 'Zoom In'} aria-label={pt ? 'Aproximar' : 'Zoom In'} onClick={() => zoom(1)}><Icon name="zoom" size={16} /></button>
-      <button title={pt ? 'Afastar' : 'Zoom Out'} aria-label={pt ? 'Afastar' : 'Zoom Out'} onClick={() => zoom(-1)}><span className="navminus">−</span></button>
-      <button title={pt ? 'Enquadrar tudo' : 'Zoom to Fit'} aria-label={pt ? 'Enquadrar tudo' : 'Zoom to Fit'} onClick={fit}><Icon name="fit" size={16} /></button>
+    <div className={`navbar${view === '3d' ? ' below-cube' : ''}`} role="toolbar" aria-label={t('shc_nav_aria')}>
+      <button disabled className="soon" title={`${t('shc_nav_steering')}\n— ${t('shc_nav_not_available')}`} aria-label={t('shc_nav_steering')}><Icon name="nav" size={16} /></button>
+      <button title={t('shc_nav_zoom_in')} aria-label={t('shc_nav_zoom_in')} onClick={() => zoom(1)}><Icon name="zoom" size={16} /></button>
+      <button title={t('shc_nav_zoom_out')} aria-label={t('shc_nav_zoom_out')} onClick={() => zoom(-1)}><span className="navminus">−</span></button>
+      <button title={t('shc_nav_fit')} aria-label={t('shc_nav_fit')} onClick={fit}><Icon name="fit" size={16} /></button>
     </div>
   );
 }

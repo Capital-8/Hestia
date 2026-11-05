@@ -4,6 +4,7 @@ import { DEFAULT_JOIN } from './wall.ts';
 import { splitProfile } from './profile.ts';
 import { isOpening, isWall, type Opening, type Project, type Wall } from './types.ts';
 import { openingTypeById } from './openingNominal.ts';
+import { t, type Lang } from './i18n.ts';
 
 const EPS = 1e-9;
 /** Largura usada quando o tipo de abertura não existe (mesmo padrão de clampOffset). */
@@ -18,10 +19,10 @@ const DEFAULT_WIDTH = 0.8;
  * as que não cabem no novo comprimento, ou caem no intervalo removido, são apagadas.
  * Tudo ocorre dentro de um único `produce`: se a validação falhar, o projeto não muda.
  */
-export function splitWall(p: Project, c: Extract<Command, { type: 'splitWall' }>): void {
+export function splitWall(p: Project, c: Extract<Command, { type: 'splitWall' }>, lang: Lang = 'pt'): void {
   const w = p.elements[c.id];
-  if (!isWall(w)) throw new Error('Parede não encontrada');
-  if (p.elements[c.newId]) throw new Error('Identificador da nova parede já existe');
+  if (!isWall(w)) throw new Error(t(lang, 'md_cmd_wall_missing'));
+  if (p.elements[c.newId]) throw new Error(t(lang, 'md_cmd_wall_id_exists'));
 
   const gap = c.gap ?? 0;
   const arc = arcFromSagitta(w.a, w.b, w.sag);
@@ -29,7 +30,7 @@ export function splitWall(p: Project, c: Extract<Command, { type: 'splitWall' }>
   const lo = c.t - gap / 2;
   const hi = c.t + gap / 2;
   // Negações escritas como comparações positivas: NaN também é rejeitado.
-  if (!(gap >= 0 && lo > EPS && hi < L - EPS)) throw new Error('Ponto de corte inválido para esta parede');
+  if (!(gap >= 0 && lo > EPS && hi < L - EPS)) throw new Error(t(lang, 'md_cmd_cut_invalid'));
 
   const a = { x: w.a.x, y: w.a.y };
   const b = { x: w.b.x, y: w.b.y };
@@ -47,7 +48,7 @@ export function splitWall(p: Project, c: Extract<Command, { type: 'splitWall' }>
     }
     const off = o.offset - hi;
     if (o.offset >= hi && off - half >= -EPS && off + half <= newLen + EPS) {
-      moveOpening(p, o, c.newId, off, c.idMap?.[o.id] ?? o.id);
+      moveOpening(p, o, c.newId, off, c.idMap?.[o.id] ?? o.id, lang);
     } else {
       delete p.elements[o.id];
     }
@@ -86,8 +87,8 @@ function subArcSag(arc: Arc, t0: number, t1: number): number {
   return sagFromThreePoints(p0, pm, p1);
 }
 
-function moveOpening(p: Project, o: Opening, hostId: string, offset: number, newOpeningId: string): void {
-  if (newOpeningId !== o.id && p.elements[newOpeningId]) throw new Error('Identificador de abertura já existe');
+function moveOpening(p: Project, o: Opening, hostId: string, offset: number, newOpeningId: string, lang: Lang): void {
+  if (newOpeningId !== o.id && p.elements[newOpeningId]) throw new Error(t(lang, 'md_cmd_opening_id_exists'));
   delete p.elements[o.id];
   p.elements[newOpeningId] = { ...o, id: newOpeningId, hostId, offset };
 }

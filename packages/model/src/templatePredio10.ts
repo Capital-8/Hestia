@@ -4,6 +4,7 @@ import { makeFloor } from './floor.ts';
 import { makeSlab } from './slab.ts';
 import { makeStair } from './stair.ts';
 import { makeWall } from './wall.ts';
+import { t, type Lang } from './i18n.ts';
 import type { FloorType, Id, Level, SectionView, SlabType } from './types.ts';
 
 /**
@@ -36,38 +37,39 @@ const CIRC = 1.2;
 const lv = (i: number): Id => `lv_${i}`;
 const elev = (i: number): number => i * H;
 
-const NIVEL: Level[] = Array.from({ length: N }, (_, i) => ({
-  id: lv(i),
-  name: i === 0 ? 'Térreo' : `Pavimento ${i + 1}`,
-  elevation: elev(i),
-  viewRange: { top: 2.3, cut: 1.2, bottom: 0, depth: 0, direction: 'down' },
-}));
+const niveis = (lang: Lang): Level[] =>
+  Array.from({ length: N }, (_, i) => ({
+    id: lv(i),
+    name: i === 0 ? t(lang, 'md_doc_level_ground') : t(lang, 'md_doc_level_n', { n: i + 1 }),
+    elevation: elev(i),
+    viewRange: { top: 2.3, cut: 1.2, bottom: 0, depth: 0, direction: 'down' },
+  }));
 
-const LAJE: SlabType = {
+const lajeType = (lang: Lang): SlabType => ({
   id: 'pd_laje',
-  name: 'Laje maciça 19 (prédio)',
+  name: t(lang, 'md_tpl_pd_slab'),
   code: 'PD-LJ',
-  description: 'Regularização e forro param na face interna do núcleo; a estrutura para na face externa do núcleo.',
+  description: t(lang, 'md_tpl_pd_slab_desc'),
   cost: 240,
   layers: [
     { function: 'substrate', materialId: 'mat_argamassa', thickness: 0.02, wraps: false, termino: 'nucleo' },
     { function: 'structure', materialId: 'mat_concreto', thickness: 0.15, wraps: false, limiteExterno: 'nucleo' },
     { function: 'substrate', materialId: 'mat_tinta', thickness: 0.02, wraps: false, termino: 'nucleo' },
   ],
-};
+});
 
-const PISO: FloorType = {
+const pisoType = (lang: Lang): FloorType => ({
   id: 'pd_piso',
-  name: 'Piso cerâmico (prédio)',
+  name: t(lang, 'md_tpl_pd_floor'),
   code: 'PD-PS',
-  description: 'Cerâmica e contrapiso param na face interna do núcleo; a estrutura para na face externa do núcleo.',
+  description: t(lang, 'md_tpl_pd_floor_desc'),
   cost: 160,
   layers: [
     { function: 'finish1', materialId: 'mat_ceramica', thickness: 0.01, wraps: false, termino: 'nucleo' },
     { function: 'substrate', materialId: 'mat_argamassa', thickness: 0.04, wraps: false, termino: 'nucleo' },
     { function: 'structure', materialId: 'mat_concreto', thickness: 0.10, wraps: false, limiteExterno: 'nucleo' },
   ],
-};
+});
 
 type Topo = Partial<{ topLevelId: Id | null; topOffset: number }>;
 
@@ -155,9 +157,9 @@ function unidadeCompacta(cmds: Command[], i: number, nivel: Id, topo: Topo, pre:
   cmds.push(vao(`PD${i}-EXT-${lado}`, 'ot_j120', len * 0.75, 'window', `PD${i}-${pre}-jS`));
 }
 
-const CORTES: SectionView[] = [
-  { id: 'PD-AA', name: 'Corte AA (prédio)', kind: 'section', a: { x: 10, y: -2 }, b: { x: 10, y: D + 2 }, depth: D + 4 },
-  { id: 'PD-BB', name: 'Corte BB (prédio)', kind: 'section', a: { x: -2, y: 6.5 }, b: { x: W + 2, y: 6.5 }, depth: W + 4 },
+const cortes = (lang: Lang): SectionView[] => [
+  { id: 'PD-AA', name: t(lang, 'md_tpl_pd_section_aa'), kind: 'section', a: { x: 10, y: -2 }, b: { x: 10, y: D + 2 }, depth: D + 4 },
+  { id: 'PD-BB', name: t(lang, 'md_tpl_pd_section_bb'), kind: 'section', a: { x: -2, y: 6.5 }, b: { x: W + 2, y: 6.5 }, depth: W + 4 },
 ];
 
 /** Escada de dois lances dentro do núcleo: um lance reto de 2,40 m de largura útil por 2,80 m de altura. */
@@ -188,10 +190,10 @@ function escada(cmds: Command[], nivel: Id, topo: Topo): void {
 }
 
 /** Monta o prédio de 10 pavimentos como uma lista de comandos, no mesmo estilo de `house2` e `casaAltoPadrao`. */
-export function predio10(cmds: Command[]): void {
-  for (const l of NIVEL) cmds.push({ type: 'upsertLevel', level: l });
-  cmds.push({ type: 'upsertSlabType', slabType: LAJE });
-  cmds.push({ type: 'upsertFloorType', floorType: PISO });
+export function predio10(cmds: Command[], lang: Lang = 'pt'): void {
+  for (const l of niveis(lang)) cmds.push({ type: 'upsertLevel', level: l });
+  cmds.push({ type: 'upsertSlabType', slabType: lajeType(lang) });
+  cmds.push({ type: 'upsertFloorType', floorType: pisoType(lang) });
 
   for (let i = 0; i < N; i++) {
     const nivel = lv(i);
@@ -218,5 +220,5 @@ export function predio10(cmds: Command[]): void {
   }
   cmds.push({ type: 'addSlab', slab: makeSlab({ id: 'PD-COB', typeId: 'pd_laje', levelId: lv(N - 1), heightOffset: H, boundary: rect(-EXT, -EXT, W + EXT, D + EXT) }) });
 
-  for (const v of CORTES) cmds.push({ type: 'addView', view: v });
+  for (const v of cortes(lang)) cmds.push({ type: 'addView', view: v });
 }

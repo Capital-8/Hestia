@@ -1,5 +1,6 @@
 import type { Id, Project } from '@hestia/model';
 import { ifcGuid } from './ifcGuid.ts';
+import { t, type Lang } from '../i18n.ts';
 import { OMIT, stepString, type StepWriter } from './ifcStep.ts';
 
 /** Pavimento IFC: id da entidade IFCBUILDINGSTOREY, sua colocação, cota do nível e os elementos contidos nele. */
@@ -15,6 +16,8 @@ export interface IfcCtx {
   p: Project;
   w: StepWriter;
   ctx: number;
+  /** Idioma dos nomes padrão gravados no arquivo; ausente = `'pt'`. */
+  lang?: Lang;
   storeys: Map<Id, IfcStorey>;
   materials: Map<Id, number>;
   walls: Map<Id, number>;
@@ -42,11 +45,14 @@ export interface IfcCtx {
 /** Pavimento do nível, ou `undefined` quando o nível não existe no projeto (o elemento não sai). */
 export const storeyOf = (c: IfcCtx, levelId: Id): IfcStorey | undefined => c.storeys.get(levelId);
 
+/** Idioma da exportação (contextos antigos sem `lang` continuam em PT). */
+export const langOf = (c: IfcCtx): Lang => c.lang ?? 'pt';
+
 /** IFCMATERIAL do material do projeto, criado uma vez. Material ausente vira "Material não definido". */
 export function materialOf(c: IfcCtx, materialId: Id): number {
   const known = c.materials.get(materialId);
   if (known !== undefined) return known;
-  const name = c.p.materials[materialId]?.name ?? 'Material não definido';
+  const name = c.p.materials[materialId]?.name ?? t(langOf(c), 'io_ifc_material_undefined');
   const id = c.w.add('IFCMATERIAL', [stepString(name), OMIT, OMIT]);
   c.materials.set(materialId, id);
   return id;

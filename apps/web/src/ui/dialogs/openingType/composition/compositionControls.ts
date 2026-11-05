@@ -6,6 +6,7 @@ import {
   formatQuantity,
   nominalCellOf,
   openingCompositionOf,
+  openingFamilies,
   resolveLayout,
   type CellContent,
   type CellNode,
@@ -18,6 +19,7 @@ import {
   type ResolvedUnits,
   type SplitNode,
 } from '@hestia/model';
+import type { Dict, Lang } from '../../../../editor/i18n.ts';
 
 /*
  * Operações puras sobre a composição de um tipo (spec F1 §1 e §2). Cada função devolve um tipo NOVO; nada roda o motor.
@@ -36,19 +38,19 @@ export type Acao = 'bandeira' | 'esquerda' | 'direita' | 'painel' | 'duasColunas
 
 type Filho = SplitNode['children'][number];
 
-/** Rótulos de conteúdo para a lista de módulos. */
-export const ROTULO_CONTEUDO: Readonly<Record<TipoConteudo, string>> = { leaf: 'Folha', glass: 'Vidro fixo', panel: 'Painel', louver: 'Veneziana' };
+/** Rótulos de conteúdo para a lista de módulos (chaves do dicionário). */
+export const ROTULO_CONTEUDO: Readonly<Record<TipoConteudo, keyof Dict>> = { leaf: 'dlo_o_content_leaf', glass: 'dlo_o_content_glass', panel: 'dlo_o_content_panel', louver: 'dlo_o_content_louver' };
 
 /** Ações rápidas por tipo de abertura (spec F6: porta e janela têm conjuntos diferentes). */
-export const ACOES_PORTA: ReadonlyArray<readonly [Acao, string]> = [
-  ['bandeira', 'Bandeira superior'],
-  ['esquerda', 'Lateral esquerda'],
-  ['direita', 'Lateral direita'],
-  ['painel', 'Painel fixo lateral'],
+export const ACOES_PORTA: ReadonlyArray<readonly [Acao, keyof Dict]> = [
+  ['bandeira', 'dlo_action_transom'],
+  ['esquerda', 'dlo_action_left'],
+  ['direita', 'dlo_action_right'],
+  ['painel', 'dlo_action_side_panel'],
 ];
-export const ACOES_JANELA: ReadonlyArray<readonly [Acao, string]> = [
-  ['duasColunas', 'Dividir em duas colunas'],
-  ['bandeira', 'Empilhar bandeira'],
+export const ACOES_JANELA: ReadonlyArray<readonly [Acao, keyof Dict]> = [
+  ['duasColunas', 'dlo_action_split_two'],
+  ['bandeira', 'dlo_action_stack_transom'],
 ];
 
 /** Comprimento nas unidades do projeto, com duas casas (ex.: "0,88 m"). */
@@ -89,7 +91,7 @@ export function conteudoFolha(family: OpeningFamilyId): LeafContent {
 }
 
 /** Famílias de uma folha só que valem para o tipo (porta ou janela); o vão livre fica de fora. */
-export const familiasDoTipo = (kind: OpeningType['kind']) => OPENING_FAMILIES.filter((f) => f.kind === kind && f.leaves.includes(1) && f.id !== 'door_void');
+export const familiasDoTipo = (kind: OpeningType['kind'], lang: Lang = 'pt') => openingFamilies(kind, lang).filter((f) => f.kind === kind && f.leaves.includes(1) && f.id !== 'door_void');
 
 /** Troca a família da folha, mantendo as opções e a espelhagem; o símbolo de planta segue a família. */
 export function comFamilia(content: LeafContent, family: OpeningFamilyId): LeafContent {

@@ -1,6 +1,7 @@
 import { add, applyTransform, dist, mul, norm, perp, sub, type Transform, type Vec2 } from '@hestia/geom';
 import type { Command } from './commands.ts';
 import { newId } from './ids.ts';
+import { t, type Lang } from './i18n.ts';
 import { sectionLevelExtentIssue } from './sectionLevelExtents.ts';
 import {
   isWall,
@@ -19,10 +20,13 @@ export const SECTION_MIN_LENGTH = 0.001;
 /** Medidas padrão da marca, em mm de papel. */
 export const SECTION_ARROW_MM = 3;
 export const SECTION_TEXT_MM = 2.5;
-export const SECTION_LABEL_OFFSET_MM = { x: 2, y: 1.5 } as const;
+export const SECTION_LABEL_OFFSET_MM = { x: 0, y: 0 } as const;
 /** Traço-ponto e tracejado da marca, em mm de papel. */
 export const SECTION_DASH_DOT_MM = [4, 1, 0.3, 1] as const;
 export const SECTION_DASHED_MM = [3, 1.5] as const;
+/** Folga do diâmetro da bolha do rótulo (mm de papel) além da altura do texto. */
+const SECTION_BUBBLE_PAD_MM = 4.5;
+const FLAG_ARC_STEPS = 8;
 const MAX_SEGMENTS = 2000;
 const MAX_NAME = 80;
 const MAX_TEXT = 120;
@@ -135,12 +139,22 @@ export interface SectionMarkLabel {
   rotation: number;
 }
 
+export interface SectionMarkBubble {
+  at: Vec2;
+  /** Raio da bolha, em metros. */
+  r: number;
+}
+
 export interface SectionMarkGeometry {
   /** Traços da linha e da haste das setas, em metros. */
   segments: Array<[Vec2, Vec2]>;
-  /** Triângulos das setas, em metros (o primeiro ponto é a base de um lado, o segundo a ponta). */
+  /** Triângulos das setas, em metros (o primeiro ponto é a base de um lado, o segundo a ponta): contorno e seleção. */
   arrows: Vec2[][];
+  /** Polígonos a preencher das setas, em metros: com bolha, o triângulo menos o círculo (duas asas e a ponta). */
+  flags: Vec2[][];
   labels: SectionMarkLabel[];
+  /** Bolha por trás de cada rótulo (convenção de marca de corte/elevação), em metros. */
+  bubbles: SectionMarkBubble[];
 }
 
 /** Traço-ponto ao longo de a→b. `null` quando o padrão não cabe no limite (a linha sai contínua). */
@@ -189,8 +203,9 @@ export function sectionMarkGeometry(
   mPerMm: number,
   mark?: SectionMarkStyle,
   dashed = false,
+  sheetLabel?: string,
 ): SectionMarkGeometry {
-  const out: SectionMarkGeometry = { segments: [], arrows: [], labels: [] };
+  const out: SectionMarkGeometry = { segments: [], arrows: [], flags: [], labels: [], bubbles: [] };
   if (mark?.visible === false) return out;
   const length = dist(a, b);
   if (length < 1e-9) return out;
@@ -198,38 +213,69 @@ export function sectionMarkGeometry(
   const n = perp(u);
   const look = sectionMarkLookOf(kind, mark, dashed);
 
-  if (look.lineStyle === 'continuous') out.segments.push([a, b]);
+  const ends = look.placement === 'start' ? [a] : look.placement === 'end' ? [b] : look.placement === 'middle' ? [] : [a, b];
+  const text = clean(label);
+  const bubbleShown = look.showLabel && text !== '';
+
+  // Bolha (convenção de corte/elevação): raio mínimo acompanha a altura do texto, mas cresce para caber o texto
+  // inteiro quando o nome não é um código curto (letra ou número).
+  const sheetText = clean(sheetLabel) || '-';
+  const splitMm = look.textMm * 0.55;
+  const minBubbleRMm = (look.textMm + SECTION_BUBBLE_PAD_MM) / 2;
+  // Cada linha de texto (número do corte e da prancha) fica deslocada do centro: o canto mais afastado dela tem de caber.
+  const lineFitRMm = (s: string): number => Math.hypot((s.length * look.textMm * 0.58) / 2, splitMm + look.textMm / 2) + 0.5;
+  const bubbleRMm = Math.max(minBubbleRMm, lineFitRMm(text), lineFitRMm(sheetText));
+
+  // A linha de corte entra na bolha e passa pelo centro dela (a divisória da bolha é a própria linha): o traço da
+  // marca começa na borda de cada bolha de ponta.
+  const trimA = bubbleShown && ends.includes(a) ? bubbleRMm * mPerMm : 0;
+  const trimB = bubbleShown && ends.includes(b) ? bubbleRMm * mPerMm : 0;
+  const lineA = trimA + trimB < length ? add(a, mul(u, trimA)) : a;
+  const lineB = trimA + trimB < length ? sub(b, mul(u, trimB)) : b;
+  const lineLen = dist(lineA, lineB);
+  if (look.lineStyle === 'continuous') out.segments.push([lineA, lineB]);
   else {
     const pattern = look.lineStyle === 'dashed' ? SECTION_DASHED_MM : SECTION_DASH_DOT_MM;
-    const segs = dashSegments(a, u, length, pattern, mPerMm) ?? [[a, b] as [Vec2, Vec2]];
+    const segs = dashSegments(lineA, u, lineLen, pattern, mPerMm) ?? [[lineA, lineB] as [Vec2, Vec2]];
     out.segments.push(...segs);
   }
 
-  const ends = look.placement === 'start' ? [a] : look.placement === 'end' ? [b] : look.placement === 'middle' ? [] : [a, b];
-  if (look.showArrow) {
-    for (const e of ends) {
-      const arrow = look.arrowMm * mPerMm;
-      const half = arrow * 0.32;
-      const stem = add(e, mul(n, arrow * 0.55));
-      const tip = add(e, mul(n, arrow));
-      out.segments.push([e, stem]);
-      out.arrows.push([add(stem, mul(u, half)), tip, sub(stem, mul(u, half))]);
-    }
-  }
+  const markers: Array<{ at: Vec2; arrow: boolean }> = look.placement === 'middle'
+    ? [{ at: mul(add(a, b), 0.5), arrow: false }]
+    : ends.map((e) => ({ at: e, arrow: look.showArrow }));
 
-  const text = clean(label);
-  if (look.showLabel && text !== '') {
-    const anchors = look.placement === 'middle'
-      ? [{ at: mul(add(a, b), 0.5), side: 0 }]
-      : ends.map((e) => ({ at: e, side: e === a ? -1 : 1 }));
-    // Com seta nas pontas, o rótulo (centrado) fica além da ponta: seta + meia altura do texto + uma folga de 0,5 mm.
-    const folgaMm = 0.5;
-    const clearMm = look.showArrow && look.placement !== 'middle' ? look.arrowMm + look.textMm / 2 + folgaMm : 0;
-    const dyMm = Math.max(look.labelOffsetMm.y, clearMm);
-    for (const { at, side } of anchors) {
-      const base = add(at, mul(n, dyMm * mPerMm));
-      const pos = add(base, mul(u, side * look.labelOffsetMm.x * mPerMm));
-      out.labels.push({ at: pos, text, rotation: textRotation(u) });
+  for (const { at: e, arrow } of markers) {
+    if (bubbleShown) {
+      const center = add(e, mul(n, look.labelOffsetMm.y * mPerMm));
+      out.bubbles.push({ at: center, r: bubbleRMm * mPerMm });
+      // Divisória da bolha: número do corte em cima, número da prancha embaixo ("-" se não publicada).
+      out.segments.push([sub(center, mul(u, bubbleRMm * mPerMm)), add(center, mul(u, bubbleRMm * mPerMm))]);
+      out.labels.push({ at: add(center, mul(n, -splitMm * mPerMm)), text: sheetText, rotation: textRotation(u) });
+      out.labels.push({ at: add(center, mul(n, splitMm * mPerMm)), text, rotation: textRotation(u) });
+      if (arrow) {
+        // Bandeira de direção: triângulo de 90° no vértice cuja base é o diâmetro da bolha (sobra para fora dos dois
+        // lados) e cujos outros dois lados tangenciam o círculo. Só o que fica fora do círculo é preenchido.
+        const r = bubbleRMm * mPerMm;
+        const w = r * Math.SQRT2;
+        const pt = (x: number, y: number): Vec2 => add(center, add(mul(u, x), mul(n, y)));
+        const arc = (from: number, to: number): Vec2[] =>
+          Array.from({ length: FLAG_ARC_STEPS + 1 }, (_, i) => {
+            const ang = from + ((to - from) * i) / FLAG_ARC_STEPS;
+            return pt(r * Math.cos(ang), r * Math.sin(ang));
+          });
+        const q = Math.PI / 4;
+        out.arrows.push([pt(w, 0), pt(0, w), pt(-w, 0)]);
+        out.flags.push([pt(w, 0), ...arc(q, 0)], [pt(-w, 0), ...arc(3 * q, Math.PI)], [pt(0, w), ...arc(3 * q, q)]);
+      }
+    } else if (arrow) {
+      const arrowLen = look.arrowMm * mPerMm;
+      const half = arrowLen * 0.32;
+      const stem = add(e, mul(n, arrowLen * 0.55));
+      const tip = add(e, mul(n, arrowLen));
+      const tri = [add(stem, mul(u, half)), tip, sub(stem, mul(u, half))];
+      out.segments.push([e, stem]);
+      out.arrows.push(tri);
+      out.flags.push(tri);
     }
   }
   return out;
@@ -248,13 +294,13 @@ export function viewRemovals(p: Pick<Project, 'views'>, ids: Id[]): Array<Extrac
 }
 
 /** Nome livre para uma cópia ("Corte A cópia", "Corte A cópia 2"...). */
-export function copyViewName(views: SectionView[], base: string): string {
+export function copyViewName(views: SectionView[], base: string, lang: Lang = 'pt'): string {
   const used = new Set(views.map((v) => v.name));
   const root = base.slice(0, 70);
-  const first = `${root} cópia`;
+  const first = t(lang, 'md_doc_view_copy', { base: root });
   if (!used.has(first)) return first;
   for (let i = 2; ; i++) {
-    const name = `${first} ${i}`;
+    const name = t(lang, 'md_doc_view_copy_n', { base: root, n: i });
     if (!used.has(name)) return name;
   }
 }
@@ -282,10 +328,15 @@ export function viewTransformCommands(p: Pick<Project, 'views' | 'elements'>, id
   return out;
 }
 
-/** Papel de cada direção de elevação, para nomes e mensagens. */
-export const SECTION_ROLE_LABEL: Record<SectionRole, string> = {
-  north: 'Norte',
-  south: 'Sul',
-  east: 'Leste',
-  west: 'Oeste',
-};
+/** Papel de cada direção de elevação, para nomes e mensagens, no idioma pedido. */
+export function sectionRoleLabels(lang: Lang = 'pt'): Record<SectionRole, string> {
+  return {
+    north: t(lang, 'md_role_north'),
+    south: t(lang, 'md_role_south'),
+    east: t(lang, 'md_role_east'),
+    west: t(lang, 'md_role_west'),
+  };
+}
+
+/** Papel de cada direção em PT (compatibilidade). */
+export const SECTION_ROLE_LABEL: Record<SectionRole, string> = sectionRoleLabels('pt');

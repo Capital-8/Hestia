@@ -1,3 +1,4 @@
+import { t, type Lang } from './i18n.ts';
 import type { Project } from './types.ts';
 
 /**
@@ -36,19 +37,31 @@ export interface ResolvedDimensionSettings {
 export const WALL_DIM_REFS: readonly WallDimRef[] = ['axis', 'finish', 'coreCenter', 'coreFace'];
 export const OPENING_DIM_REFS: readonly OpeningDimRef[] = ['center', 'clear', 'frame', 'casing'];
 
-export const WALL_DIM_REF_LABELS: Readonly<Record<WallDimRef, string>> = {
-  axis: 'Eixo',
-  finish: 'Face acabada',
-  coreCenter: 'Eixo do núcleo',
-  coreFace: 'Face do núcleo',
-};
+/** Rótulos da referência de parede no idioma pedido. */
+export function wallDimRefLabels(lang: Lang = 'pt'): Readonly<Record<WallDimRef, string>> {
+  return {
+    axis: t(lang, 'md_dimref_axis'),
+    finish: t(lang, 'md_dimref_finish'),
+    coreCenter: t(lang, 'md_dimref_core_center'),
+    coreFace: t(lang, 'md_dimref_core_face'),
+  };
+}
 
-export const OPENING_DIM_REF_LABELS: Readonly<Record<OpeningDimRef, string>> = {
-  center: 'Centro',
-  clear: 'Vão livre',
-  frame: 'Vão externo do batente',
-  casing: 'Com alizar',
-};
+/** Rótulos da referência de abertura no idioma pedido. */
+export function openingDimRefLabels(lang: Lang = 'pt'): Readonly<Record<OpeningDimRef, string>> {
+  return {
+    center: t(lang, 'md_dimref_center'),
+    clear: t(lang, 'md_dimref_clear'),
+    frame: t(lang, 'md_dimref_frame'),
+    casing: t(lang, 'md_dimref_casing'),
+  };
+}
+
+/** Rótulos em PT (compatibilidade); use `wallDimRefLabels(lang)` para o idioma ativo. */
+export const WALL_DIM_REF_LABELS: Readonly<Record<WallDimRef, string>> = wallDimRefLabels('pt');
+
+/** Rótulos em PT (compatibilidade); use `openingDimRefLabels(lang)` para o idioma ativo. */
+export const OPENING_DIM_REF_LABELS: Readonly<Record<OpeningDimRef, string>> = openingDimRefLabels('pt');
 
 export const isWallDimRef = (v: unknown): v is WallDimRef => WALL_DIM_REFS.includes(v as WallDimRef);
 export const isOpeningDimRef = (v: unknown): v is OpeningDimRef => OPENING_DIM_REFS.includes(v as OpeningDimRef);

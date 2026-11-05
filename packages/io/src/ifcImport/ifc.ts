@@ -1,4 +1,5 @@
 import type { Project } from '@hestia/model';
+import type { Lang } from '../i18n.ts';
 import {
   enumOf,
   listOf,
@@ -81,8 +82,12 @@ export class IfcFile {
   readonly step: StepFile;
   readonly units: Units;
 
-  constructor(readonly source: string) {
-    this.step = parseStep(source);
+  constructor(
+    readonly source: string,
+    onParseProgress?: (done: number, total: number) => void,
+    lang: Lang = 'pt',
+  ) {
+    this.step = parseStep(source, onParseProgress, lang);
     this.units = readUnits(this);
   }
 
@@ -133,16 +138,14 @@ export class IfcFile {
   }
 
   byType(name: string): StepEntity[] {
-    const out: StepEntity[] = [];
-    for (const e of this.step.entities.values()) if (e.type === name) out.push(e);
-    return out;
+    return this.step.types.get(name) ?? [];
   }
 
-  /** Entidades cujo tipo começa pelo prefixo (ex.: `IFCWALL` pega as três variantes). */
+  /** Entidades cujo tipo começa pelo prefixo (ex.: `IFCWALL` pega as três variantes), na ordem do arquivo. */
   byPrefix(prefix: string): StepEntity[] {
     const out: StepEntity[] = [];
-    for (const e of this.step.entities.values()) if (e.type.startsWith(prefix)) out.push(e);
-    return out;
+    for (const [type, list] of this.step.types) if (type.startsWith(prefix)) out.push(...list);
+    return out.length > 1 ? out.sort((a, b) => a.id - b.id) : out;
   }
 
   point(v: StepValue | undefined): Pt3 | null {

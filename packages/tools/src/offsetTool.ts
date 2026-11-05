@@ -18,7 +18,9 @@ const fmtM = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length'
 export class OffsetTool extends ToolBase {
   readonly id = 'offset';
   readonly label = 'Deslocar';
-  readonly hint = 'Deslocar: passe sobre uma parede, aresta de piso/laje/telhado/forro ou aresta do croqui de escada/rampa e clique para o lado desejado. A distância está na barra de opções.';
+  override get hint(): string {
+    return this.t('tl_hint_offset');
+  }
 
   protected reset(): void {
     this.items = [];
@@ -117,7 +119,7 @@ export class OffsetTool extends ToolBase {
     const compEdge = componentEdgeAt(this.env, p.raw);
     if (compEdge) {
       if (this.env.options().offsetCopy) {
-        this.env.say('Deslocar aresta com cópia: não permitido. A cópia sobreporia a linha ou deixaria o croqui aberto (como no Revit).');
+        this.env.say(this.t('tl_msg_offset_edge_copy'));
         return;
       }
       const off = this.componentOffset(compEdge, p.raw);
@@ -136,7 +138,7 @@ export class OffsetTool extends ToolBase {
     const edge = edgeAtCursor(this.env, p.raw);
     if (edge) {
       if (this.env.options().offsetCopy) {
-        this.env.say('Deslocar aresta com cópia: não permitido. A cópia sobreporia a linha ou deixaria o croqui aberto (como no Revit).');
+        this.env.say(this.t('tl_msg_offset_edge_copy'));
         return;
       }
       const off = this.edgeOffset(edge, p.raw);

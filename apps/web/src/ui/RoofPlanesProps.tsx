@@ -3,6 +3,7 @@ import { applyRoofPatch } from '../editor/roofEdgeActions.ts';
 import { editor } from '../editor/controller.ts';
 import { lowestVertex, roofSlopeError } from '@hestia/tools';
 import type { Roof, RoofPlaneDef } from '@hestia/model';
+import { useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { Group, NumField, Row } from './fields.tsx';
 
@@ -22,6 +23,7 @@ function planeWith(r: Roof, pl: RoofPlaneDef, patch: { percent?: number; deg?: n
  * Cada água cobre o contorno inteiro; a seta de inclinação da barra de ferramentas acrescenta águas por dois cliques.
  */
 export function RoofPlanesSection({ roof }: { roof: Roof }): ReactElement {
+  const { t } = useT();
   const set = (planes: RoofPlaneDef[]): void => void applyRoofPatch(editor.store, [roof.id], { planes });
   const setPlane = (i: number, patch: { percent?: number; deg?: number }): void => {
     if (patch.percent !== undefined) {
@@ -35,27 +37,27 @@ export function RoofPlanesSection({ roof }: { roof: Roof }): ReactElement {
     set([...roof.planes, { polygon: roof.boundary, origin: lowestVertex(roof.boundary, up), up, percent: roof.slopePercent, z0: 0 }]);
   };
   return (
-    <Group title={`Águas (${roof.planes.length})`}>
-      {roof.planes.length === 0 && <div className="hint">Sem águas: o telhado precisa de ao menos uma. Acrescente uma água abaixo.</div>}
+    <Group title={t('msc_roof_planes_count', { n: roof.planes.length })}>
+      {roof.planes.length === 0 && <div className="hint">{t('msc_roof_planes_empty')}</div>}
       {roof.planes.map((pl, i) => (
         <div key={i}>
-          <Row label={`Água ${i + 1} inclinação`} htmlFor={`p-pl${i}`}>
+          <Row label={t('msc_roof_plane_slope', { n: i + 1 })} htmlFor={`p-pl${i}`}>
             <NumField id={`p-pl${i}`} value={pl.percent / 100} quantity="slope" min={0.001} max={2} onCommit={(v) => setPlane(i, { percent: v * 100 })} />
           </Row>
-          <Row label={`Água ${i + 1} subida`} htmlFor={`p-pld${i}`}>
+          <Row label={t('msc_roof_plane_rise', { n: i + 1 })} htmlFor={`p-pld${i}`}>
             <NumField id={`p-pld${i}`} value={(upDeg(pl) * Math.PI) / 180} quantity="angle" onCommit={(v) => setPlane(i, { deg: (v * 180) / Math.PI })} />
           </Row>
           <div className="row">
-            <button className="btn small" aria-label={`Excluir água ${i + 1}`} onClick={() => set(roof.planes.filter((_, k) => k !== i))}>
-              Excluir água {i + 1}
+            <button className="btn small" aria-label={t('msc_roof_plane_delete', { n: i + 1 })} onClick={() => set(roof.planes.filter((_, k) => k !== i))}>
+              {t('msc_roof_plane_delete', { n: i + 1 })}
             </button>
           </div>
         </div>
       ))}
       <div className="row">
-        <button className="btn small" onClick={addPlane}>+ água</button>
+        <button className="btn small" onClick={addPlane}>{t('msc_roof_plane_add')}</button>
       </div>
-      <div className="hint">Cada água cobre o contorno inteiro: águas acrescentadas se sobrepõem às outras, então exclua as que não quiser.</div>
+      <div className="hint">{t('msc_roof_planes_overlap_hint')}</div>
     </Group>
   );
 }

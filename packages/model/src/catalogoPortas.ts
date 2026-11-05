@@ -1,4 +1,5 @@
 import { ot } from './catalogoAberturasBase.ts';
+import { openingName, type Lang } from './i18n.ts';
 import type { OpeningType } from './openingTypes.ts';
 
 /**
@@ -43,7 +44,7 @@ const giro = (cm: number, code: string): OpeningType =>
 /** Giro de duas folhas (símbolo `double`). A largura é o conjunto das duas folhas. */
 const giroDupla = (b: Base, extra: Extra = {}): OpeningType => porta(b, { handle: 'lever', leafStyle: 'panel', ...extra });
 
-export const CATALOGO_PORTAS_BR: OpeningType[] = [
+const CATALOGO_PORTAS_BR_PT: OpeningType[] = [
   giro(60, 'P-12'),
   giro(70, 'P-13'),
   giro(80, 'P-14'),
@@ -95,3 +96,11 @@ export const CATALOGO_PORTAS_BR: OpeningType[] = [
   ot({ id: 'ot_pbasc250', kind: 'door', name: 'Portão de garagem basculante 250 x 210', code: 'P-45', width: 2.5, height: 2.1, sill: 0, leaves: 1, plan: 'garage' }, 'mat_aco'),
   ot({ id: 'ot_penrol280', kind: 'door', name: 'Portão de enrolar 280 x 225', code: 'P-46', width: 2.8, height: 2.25, sill: 0, leaves: 1, plan: 'garage' }, 'mat_aco'),
 ];
+
+/** Catálogo de portas no idioma pedido (nomes são gerados na criação). */
+export function catalogoPortas(lang: Lang = 'pt'): OpeningType[] {
+  return CATALOGO_PORTAS_BR_PT.map((x) => ({ ...x, name: openingName(x.name, lang) }));
+}
+
+/** Catálogo de portas em PT (compatibilidade); use `catalogoPortas(lang)` para o idioma ativo. */
+export const CATALOGO_PORTAS_BR: OpeningType[] = catalogoPortas('pt');

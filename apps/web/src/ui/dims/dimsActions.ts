@@ -1,5 +1,6 @@
 import { formatQuantity, type Command, type ResolvedUnits } from '@hestia/model';
 import { parseQuantityText, type TempDim } from '@hestia/tools';
+import { t, type Lang } from '../../editor/i18n.ts';
 
 export type DimEditOutcome = { kind: 'done'; commands: Command[]; note?: string } | { kind: 'error'; message: string };
 
@@ -10,14 +11,14 @@ export const INVALID_FLASH_MS = 4000;
  * Resolve o texto digitado numa cota: lê na unidade do projeto e pede ao provedor os comandos. Função pura: quem chama
  * executa os comandos (um passo de desfazer) ou mostra a mensagem.
  */
-export function resolveDimEdit(dim: TempDim, text: string, units: ResolvedUnits): DimEditOutcome {
-  if (!dim.edit) return { kind: 'error', message: 'Esta cota é só de leitura.' };
+export function resolveDimEdit(dim: TempDim, text: string, units: ResolvedUnits, lang: Lang = 'pt'): DimEditOutcome {
+  if (!dim.edit) return { kind: 'error', message: t(lang, 'cvv_dim_readonly') };
   const q = dim.quantity ?? 'length';
   const si = parseQuantityText(text, units, q);
   if (si === null) {
-    const exemplo = formatQuantity(units, q, q === 'angle' ? Math.PI / 4 : 1.2, { trim: true });
-    const nome = q === 'angle' ? 'um ângulo' : 'uma distância';
-    return { kind: 'error', message: `Medida inválida: digite ${nome}, como ${exemplo}.` };
+    const exemplo = formatQuantity(units, q, q === 'angle' ? Math.PI / 4 : 1.2, { trim: true, lang });
+    const nome = t(lang, q === 'angle' ? 'cvv_dim_a_angle' : 'cvv_dim_a_distance');
+    return { kind: 'error', message: t(lang, 'cvv_dim_invalid_measure', { noun: nome, example: exemplo }) };
   }
   const r = dim.edit(si);
   if ('error' in r) return { kind: 'error', message: r.error };

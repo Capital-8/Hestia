@@ -1,4 +1,5 @@
 import type { Id, OpeningLeaves, OpeningType, PlanSymbol, Project } from './types.ts';
+import { t, type Lang } from './i18n.ts';
 import { OPENING_SPAN_GAP_MAX } from './openingNominal.ts';
 import { acabamentoIssue, openingCasing, type OpeningAcabamento } from './openingExtras.ts';
 import { openingHardwareIssue, openingHardwareWarning } from './openingHardware.ts';
@@ -150,39 +151,44 @@ export interface OpeningFamily {
  * símbolo (as folhas se deslocam em faces opostas); a janela de correr aceita ainda três, que o símbolo desenha em
  * faixas paralelas.
  */
-export const OPENING_FAMILIES: readonly OpeningFamily[] = [
-  { id: 'door_swing', kind: 'door', plan: 'swing', leaves: [1], name: 'Porta de giro' },
-  { id: 'door_double', kind: 'door', plan: 'double', leaves: [2], name: 'Porta dupla' },
-  { id: 'door_sliding', kind: 'door', plan: 'sliding', leaves: [2, 1], name: 'Porta de correr' },
-  { id: 'door_pivot', kind: 'door', plan: 'pivot', leaves: [1], name: 'Porta pivotante' },
-  { id: 'door_dblact', kind: 'door', plan: 'dblact', leaves: [1, 2], name: 'Porta vai-e-vem' },
-  { id: 'door_pocket', kind: 'door', plan: 'pocket', leaves: [1], name: 'Porta de embutir' },
-  { id: 'door_bifold', kind: 'door', plan: 'bifold', leaves: [2, 4], name: 'Porta dobrável' },
-  { id: 'door_accordion', kind: 'door', plan: 'accordion', leaves: [1], name: 'Porta sanfonada' },
-  { id: 'door_garage', kind: 'door', plan: 'garage', leaves: [1], name: 'Portão seccionado' },
-  { id: 'door_void', kind: 'door', plan: 'swing', leaves: [0], name: 'Vão livre' },
-  { id: 'window_fixed', kind: 'window', plan: 'fixed', leaves: [1], name: 'Janela fixa' },
-  { id: 'window_hinged', kind: 'window', plan: 'hinged', leaves: [1, 2], name: 'Janela de abrir' },
-  { id: 'window_tilt', kind: 'window', plan: 'tilt', leaves: [1], name: 'Janela basculante' },
-  { id: 'window_casement', kind: 'window', plan: 'casement', leaves: [1], name: 'Janela maxim-ar' },
-  { id: 'window_sliding', kind: 'window', plan: 'sliding', leaves: [2, 3, 4], name: 'Janela de correr' },
-  { id: 'window_hung', kind: 'window', plan: 'hung', leaves: [2], name: 'Janela guilhotina' },
-  { id: 'window_pivot', kind: 'window', plan: 'pivotwin', leaves: [1], name: 'Janela pivotante' },
-  { id: 'window_louver', kind: 'window', plan: 'louver', leaves: [1], name: 'Janela veneziana' },
-  { id: 'window_void', kind: 'window', plan: 'fixed', leaves: [0], name: 'Vão livre' },
-];
+export function openingFamilyList(lang: Lang = 'pt'): readonly OpeningFamily[] {
+  return [
+    { id: 'door_swing', kind: 'door', plan: 'swing', leaves: [1], name: t(lang, 'md_of_door_swing') },
+    { id: 'door_double', kind: 'door', plan: 'double', leaves: [2], name: t(lang, 'md_of_door_double') },
+    { id: 'door_sliding', kind: 'door', plan: 'sliding', leaves: [2, 1], name: t(lang, 'md_of_door_sliding') },
+    { id: 'door_pivot', kind: 'door', plan: 'pivot', leaves: [1], name: t(lang, 'md_of_door_pivot') },
+    { id: 'door_dblact', kind: 'door', plan: 'dblact', leaves: [1, 2], name: t(lang, 'md_of_door_dblact') },
+    { id: 'door_pocket', kind: 'door', plan: 'pocket', leaves: [1], name: t(lang, 'md_of_door_pocket') },
+    { id: 'door_bifold', kind: 'door', plan: 'bifold', leaves: [2, 4], name: t(lang, 'md_of_door_bifold') },
+    { id: 'door_accordion', kind: 'door', plan: 'accordion', leaves: [1], name: t(lang, 'md_of_door_accordion') },
+    { id: 'door_garage', kind: 'door', plan: 'garage', leaves: [1], name: t(lang, 'md_of_door_garage') },
+    { id: 'door_void', kind: 'door', plan: 'swing', leaves: [0], name: t(lang, 'md_of_door_void') },
+    { id: 'window_fixed', kind: 'window', plan: 'fixed', leaves: [1], name: t(lang, 'md_of_window_fixed') },
+    { id: 'window_hinged', kind: 'window', plan: 'hinged', leaves: [1, 2], name: t(lang, 'md_of_window_hinged') },
+    { id: 'window_tilt', kind: 'window', plan: 'tilt', leaves: [1], name: t(lang, 'md_of_window_tilt') },
+    { id: 'window_casement', kind: 'window', plan: 'casement', leaves: [1], name: t(lang, 'md_of_window_casement') },
+    { id: 'window_sliding', kind: 'window', plan: 'sliding', leaves: [2, 3, 4], name: t(lang, 'md_of_window_sliding') },
+    { id: 'window_hung', kind: 'window', plan: 'hung', leaves: [2], name: t(lang, 'md_of_window_hung') },
+    { id: 'window_pivot', kind: 'window', plan: 'pivotwin', leaves: [1], name: t(lang, 'md_of_window_pivot') },
+    { id: 'window_louver', kind: 'window', plan: 'louver', leaves: [1], name: t(lang, 'md_of_window_louver') },
+    { id: 'window_void', kind: 'window', plan: 'fixed', leaves: [0], name: t(lang, 'md_of_window_void') },
+  ];
+}
 
-/** Famílias de porta ou de janela, na ordem da interface. */
-export function openingFamilies(kind: OpeningType['kind']): OpeningFamily[] {
-  return OPENING_FAMILIES.filter((f) => f.kind === kind);
+/** Famílias em PT (compatibilidade); use `openingFamilyList(lang)` para o idioma ativo. */
+export const OPENING_FAMILIES: readonly OpeningFamily[] = openingFamilyList('pt');
+
+/** Famílias de porta ou de janela, na ordem da interface, no idioma pedido. */
+export function openingFamilies(kind: OpeningType['kind'], lang: Lang = 'pt'): OpeningFamily[] {
+  return openingFamilyList(lang).filter((f) => f.kind === kind);
 }
 
 /**
  * Família de um tipo de abertura, ou null quando a combinação (símbolo × folhas) não existe. O vão livre tem 0 folhas:
  * na porta o símbolo é o arco e na janela é a fixa, porque sem folha o desenho é só a soleira tracejada.
  */
-export function openingFamilyOf(t: Pick<OpeningType, 'kind' | 'plan' | 'leaves'>): OpeningFamily | null {
-  const families = openingFamilies(t.kind);
+export function openingFamilyOf(t: Pick<OpeningType, 'kind' | 'plan' | 'leaves'>, lang: Lang = 'pt'): OpeningFamily | null {
+  const families = openingFamilies(t.kind, lang);
   const exact = families.find((f) => f.plan === t.plan && f.leaves.includes(t.leaves));
   if (exact) return exact;
   // Porta de duas folhas: o arquivo antigo guarda `double` e o editor pode gravar `swing` com 2 folhas. Os dois são a

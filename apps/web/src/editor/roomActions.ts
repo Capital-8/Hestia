@@ -1,5 +1,6 @@
 import { roomsForEnclosedCircuits } from '@hestia/tools';
 import { editor } from './controller.ts';
+import { t, useI18n } from './i18n.ts';
 import { useUi } from './state.ts';
 
 /**
@@ -7,19 +8,21 @@ import { useUi } from './state.ts';
  * os novos selecionados. Devolve a quantidade criada (0 = nada a fazer) e a mensagem para a barra de status.
  */
 export function addRoomsAllCircuits(): { count: number; message: string } {
+  const lang = useI18n.getState().lang;
   const p = editor.project;
   const levelId = useUi.getState().levelId;
   const rooms = roomsForEnclosedCircuits(p, levelId);
   if (rooms.length === 0) {
-    const message = 'Todos os circuitos fechados já têm ambiente (ou não há circuito fechado neste nível).';
-    useUi.setState({ status: message });
+    const message = t(lang, 'edc_all_circuits_have_rooms');
+    useUi.setState({ status: { key: 'edc_all_circuits_have_rooms' } });
     return { count: 0, message };
   }
-  editor.store.transaction('Ambientes em todos os circuitos', () => {
+  editor.store.transaction('edc_undo_rooms_all_circuits', () => {
     for (const room of rooms) editor.store.exec({ type: 'addRoom', room });
   });
   useUi.setState({ selection: rooms.map((r) => r.id) });
-  const message = `${rooms.length} ${rooms.length === 1 ? 'ambiente criado' : 'ambientes criados'} em circuitos fechados. Ctrl+Z desfaz.`;
-  useUi.setState({ status: message });
+  const key = rooms.length === 1 ? 'edc_rooms_created_one' : 'edc_rooms_created_many';
+  const message = t(lang, key, { n: rooms.length });
+  useUi.setState({ status: { key, args: { n: rooms.length } } });
   return { count: rooms.length, message };
 }

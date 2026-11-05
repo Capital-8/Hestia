@@ -1,4 +1,6 @@
 import type { ToolId, ToolOptions } from '@hestia/tools';
+import type { Lang } from '../../editor/i18n.ts';
+import { ribbonTxt } from './i18n-extra.ts';
 
 /**
  * Modelo da faixa de ferramentas (padrão Revit): abas → painéis → itens. A faixa inteira vem destes dados; os
@@ -62,4 +64,24 @@ export const stack = (...items: RibbonItem[]): RibbonItem => ({ kind: 'stack', i
 export const option = (label: Txt, icon: string, test: (o: ToolOptions) => boolean, patch: Partial<ToolOptions>, restart?: ToolId): RibbonItem => ({ kind: 'option', label, icon, size: 'small', test, patch, ...(restart ? { restart } : {}) });
 export const panel = (id: string, title: Txt, ...items: RibbonItem[]): RibbonPanel => ({ id, title, items });
 
-export const txt = (x: Txt, lang: 'pt' | 'en'): string => (typeof x === 'string' ? x : x[lang]);
+export const txt = (x: Txt, lang: Lang): string => {
+  if (typeof x === 'string') return x;
+  if (lang === 'pt') return x.pt;
+  if (lang === 'en') return x.en;
+  const direto = ribbonTxt(x.pt, lang);
+  if (direto) return direto;
+  // Títulos contextuais montados em runtime ("Modificar | Colocar Parede"): traduz as partes.
+  const partes = x.pt.split(' | ');
+  if (partes.length > 1) {
+    const prefixo = partes[0]!;
+    const sufixo = partes.slice(1).join(' | ');
+    const p = ribbonTxt(prefixo, lang) ?? prefixo;
+    const composto = /^(Colocar) (.+)$/.exec(sufixo);
+    const s = ribbonTxt(sufixo, lang)
+      ?? (composto
+        ? `${ribbonTxt(composto[1]!, lang) ?? composto[1]!} ${ribbonTxt(composto[2]!, lang) ?? composto[2]!}`
+        : sufixo);
+    return `${p} | ${s}`;
+  }
+  return x.en;
+};

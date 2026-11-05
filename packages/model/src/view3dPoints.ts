@@ -1,4 +1,5 @@
 import { newId } from './ids.ts';
+import { t, type Lang } from './i18n.ts';
 import { projectSheets, sheetView3DCameraIssue, type SheetView3DCamera, type SheetViewSource } from './sheet.ts';
 import type { Id, Project } from './types.ts';
 
@@ -21,10 +22,14 @@ export function view3DPointOf(p: Pick<Project, 'view3dPoints'>, id: Id): View3DP
 }
 
 /** Nome padrão de um ponto novo: "Vista 3D" ou "Vista 3D 2", "Vista 3D 3"… */
-export function defaultView3DPointName(p: Pick<Project, 'view3dPoints'>): string {
+export function defaultView3DPointName(p: Pick<Project, 'view3dPoints'>, lang: Lang = 'pt'): string {
   const nomes = new Set(projectView3DPoints(p).map((x) => x.name));
-  if (!nomes.has('Vista 3D')) return 'Vista 3D';
-  for (let n = 2; ; n++) if (!nomes.has(`Vista 3D ${n}`)) return `Vista 3D ${n}`;
+  const first = t(lang, 'md_doc_view3d');
+  if (!nomes.has(first)) return first;
+  for (let n = 2; ; n++) {
+    const name = t(lang, 'md_doc_view3d_n', { n });
+    if (!nomes.has(name)) return name;
+  }
 }
 
 /** Ponto novo a partir de uma câmera (clona o alvo: nada de compartilhar objeto com a tela). */
@@ -60,28 +65,28 @@ export type View3DPointCommand =
   | { type: 'removeView3DPoint'; id: Id }
   | { type: 'setView3DPointOrder'; ids: Id[] };
 
-/** Recusa em pt-BR se o nome for vazio (o ponto precisa aparecer na lista e na prancha). */
-function nomeIssue(name: string): string | null {
-  return name.trim() === '' ? 'O nome do ponto de vista não pode ficar vazio.' : null;
+/** Recusa se o nome for vazio (o ponto precisa aparecer na lista e na prancha). */
+function nomeIssue(name: string, lang: Lang): string | null {
+  return name.trim() === '' ? t(lang, 'md_v3d_name_required') : null;
 }
 
-/** Aplica um comando do catálogo sobre o rascunho do projeto. Lança Error em pt-BR se recusar. */
-export function applyView3DPointCommand(p: Project, c: View3DPointCommand): void {
+/** Aplica um comando do catálogo sobre o rascunho do projeto. Lança Error no idioma pedido se recusar. */
+export function applyView3DPointCommand(p: Project, c: View3DPointCommand, lang: Lang = 'pt'): void {
   switch (c.type) {
     case 'addView3DPoint': {
-      const nome = nomeIssue(c.point.name);
+      const nome = nomeIssue(c.point.name, lang);
       if (nome) throw new Error(nome);
       const camera = sheetView3DCameraIssue(c.point.camera);
       if (camera) throw new Error(camera);
-      if (projectView3DPoints(p).some((x) => x.id === c.point.id)) throw new Error('Ponto de vista 3D já existe');
+      if (projectView3DPoints(p).some((x) => x.id === c.point.id)) throw new Error(t(lang, 'md_v3d_exists'));
       p.view3dPoints = [...projectView3DPoints(p), { ...c.point, name: c.point.name.trim(), camera: { ...c.point.camera, target: { ...c.point.camera.target } } }];
       break;
     }
     case 'updateView3DPoint': {
       const atual = view3DPointOf(p, c.id);
-      if (!atual) throw new Error('Ponto de vista 3D inexistente');
+      if (!atual) throw new Error(t(lang, 'md_v3d_not_found'));
       if (c.patch.name !== undefined) {
-        const nome = nomeIssue(c.patch.name);
+        const nome = nomeIssue(c.patch.name, lang);
         if (nome) throw new Error(nome);
       }
       if (c.patch.camera) {
@@ -101,7 +106,7 @@ export function applyView3DPointCommand(p: Project, c: View3DPointCommand): void
     }
     case 'removeView3DPoint': {
       const alvo = view3DPointOf(p, c.id);
-      if (!alvo) throw new Error('Ponto de vista 3D inexistente');
+      if (!alvo) throw new Error(t(lang, 'md_v3d_not_found'));
       // Antes de sair do catálogo, a câmera vira cópia embutida nas vistas: a prancha continua com o mesmo desenho.
       if (p.sheets) {
         p.sheets = p.sheets.map((s) => ({
@@ -118,10 +123,10 @@ export function applyView3DPointCommand(p: Project, c: View3DPointCommand): void
     }
     case 'setView3DPointOrder': {
       const atuais = projectView3DPoints(p);
-      if (c.ids.length !== atuais.length || new Set(c.ids).size !== atuais.length) throw new Error('A ordem dos pontos de vista 3D está incompleta.');
+      if (c.ids.length !== atuais.length || new Set(c.ids).size !== atuais.length) throw new Error(t(lang, 'md_v3d_order_incomplete'));
       const porId = new Map(atuais.map((x) => [x.id, x]));
       const proximos = c.ids.map((id) => porId.get(id));
-      if (proximos.some((x) => x === undefined)) throw new Error('A ordem dos pontos de vista 3D cita um ponto inexistente.');
+      if (proximos.some((x) => x === undefined)) throw new Error(t(lang, 'md_v3d_order_unknown'));
       p.view3dPoints = proximos as View3DPoint[];
       break;
     }

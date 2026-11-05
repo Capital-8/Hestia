@@ -1,5 +1,6 @@
 import { defaultView3DPointName, makeView3DPoint, view3DPointOf, type Id, type ProjectStore, type SheetView3DCamera } from '@hestia/model';
 import { editor } from './controller.ts';
+import { t, useI18n, type Dict } from './i18n.ts';
 import { camera3DAtual, pedirCamera3D } from './vista3dAoVivo.ts';
 
 /**
@@ -7,28 +8,32 @@ import { camera3DAtual, pedirCamera3D } from './vista3dAoVivo.ts';
  * ao 3D num ponto. Cada escrita é um comando com desfazer; a tela só chama (o teste roda com `ProjectStore` real).
  */
 
-/** Recusa em pt-BR de uma ação, ou null quando gravou. */
+/** Recusa de uma ação, ou null quando gravou. */
 export type Recusa = string | null;
 
+/** Mensagem no idioma ativo (as recusas voltam como texto pronto para a barra de status). */
+const msg = (key: keyof Dict): string => t(useI18n.getState().lang, key);
+
 /** Motivo padrão de falha, para nunca devolver um erro vazio à barra de status. */
-const falha = (e: unknown, padrao: string): string => (e instanceof Error ? e.message : padrao);
+const falha = (e: unknown, chave: keyof Dict): string => (e instanceof Error ? e.message : msg(chave));
 
 /** Recado comum quando não há órbita viva de onde ler a câmera. */
-const SEM_VISTA_3D = 'A vista 3D não está aberta. Abra o Modelo 3D para usar a câmera atual.';
+const semVista3D = (): string => msg('edc_3d_view_closed');
 
 /**
- * Salva a câmera da vista 3D viva como um ponto novo. Sem nome, usa o próximo "Vista 3D"/"Vista 3D 2"…; devolve o id
- * criado, ou a recusa em pt-BR (vista 3D fechada, nome vazio, câmera inválida).
+ * Salva a câmera da vista 3D viva como um ponto novo. Sem nome, usa o próximo "Vista 3D"/"Vista 3D 2"…
+ * (no idioma ativo); devolve o id criado, ou a recusa (vista 3D fechada, nome vazio, câmera inválida).
  */
 export function salvarPonto3DAction(store: ProjectStore, nome?: string): { id: Id } | { erro: string } {
   const camera = camera3DAtual();
-  if (!camera) return { erro: SEM_VISTA_3D };
+  if (!camera) return { erro: semVista3D() };
+  const lang = useI18n.getState().lang;
   try {
-    const ponto = makeView3DPoint(camera, nome ?? defaultView3DPointName(store.project));
-    store.exec({ type: 'addView3DPoint', point: ponto }, 'Salvar ponto de vista 3D');
+    const ponto = makeView3DPoint(camera, nome ?? defaultView3DPointName(store.project, lang));
+    store.exec({ type: 'addView3DPoint', point: ponto }, 'edc_undo_save_point', lang);
     return { id: ponto.id };
   } catch (e) {
-    return { erro: falha(e, 'Não foi possível salvar o ponto de vista 3D.') };
+    return { erro: falha(e, 'edc_save_point_failed') };
   }
 }
 
@@ -37,25 +42,25 @@ export function salvarPonto3DAction(store: ProjectStore, nome?: string): { id: I
  * guardam só o `pointId`. Devolve a recusa, ou null quando gravou.
  */
 export function atualizarPonto3DAction(store: ProjectStore, id: Id): Recusa {
-  if (!view3DPointOf(store.project, id)) return 'Ponto de vista 3D inexistente.';
+  if (!view3DPointOf(store.project, id)) return msg('edc_point_missing');
   const camera = camera3DAtual();
-  if (!camera) return SEM_VISTA_3D;
+  if (!camera) return semVista3D();
   try {
-    store.exec({ type: 'updateView3DPoint', id, patch: { camera } }, 'Atualizar ponto de vista 3D');
+    store.exec({ type: 'updateView3DPoint', id, patch: { camera } }, 'edc_undo_update_point', useI18n.getState().lang);
     return null;
   } catch (e) {
-    return falha(e, 'Não foi possível atualizar o ponto de vista 3D.');
+    return falha(e, 'edc_update_point_failed');
   }
 }
 
 /** Troca o nome do ponto (o modelo recusa nome vazio). Devolve a recusa, ou null quando gravou. */
 export function renomearPonto3DAction(store: ProjectStore, id: Id, nome: string): Recusa {
-  if (!view3DPointOf(store.project, id)) return 'Ponto de vista 3D inexistente.';
+  if (!view3DPointOf(store.project, id)) return msg('edc_point_missing');
   try {
-    store.exec({ type: 'updateView3DPoint', id, patch: { name: nome } }, 'Renomear ponto de vista 3D');
+    store.exec({ type: 'updateView3DPoint', id, patch: { name: nome } }, 'edc_undo_rename_point', useI18n.getState().lang);
     return null;
   } catch (e) {
-    return falha(e, 'Não foi possível renomear o ponto de vista 3D.');
+    return falha(e, 'edc_rename_point_failed');
   }
 }
 
@@ -64,12 +69,12 @@ export function renomearPonto3DAction(store: ProjectStore, id: Id, nome: string)
  * prancha fica em branco. Devolve a recusa, ou null quando gravou.
  */
 export function excluirPonto3DAction(store: ProjectStore, id: Id): Recusa {
-  if (!view3DPointOf(store.project, id)) return 'Ponto de vista 3D inexistente.';
+  if (!view3DPointOf(store.project, id)) return msg('edc_point_missing');
   try {
-    store.exec({ type: 'removeView3DPoint', id }, 'Excluir ponto de vista 3D');
+    store.exec({ type: 'removeView3DPoint', id }, 'edc_undo_delete_point', useI18n.getState().lang);
     return null;
   } catch (e) {
-    return falha(e, 'Não foi possível excluir o ponto de vista 3D.');
+    return falha(e, 'edc_delete_point_failed');
   }
 }
 
@@ -85,7 +90,7 @@ export function cameraDoPonto3D(store: Pick<ProjectStore, 'project'>, id: Id): S
  */
 export function irParaPonto3DAction(id: Id, store: Pick<ProjectStore, 'project'> = editor.store): Recusa {
   const camera = cameraDoPonto3D(store, id);
-  if (!camera) return 'Ponto de vista 3D inexistente.';
+  if (!camera) return msg('edc_point_missing');
   pedirCamera3D(camera);
   return null;
 }

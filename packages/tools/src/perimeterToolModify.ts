@@ -1,7 +1,7 @@
 import type { Vec2 } from '@hestia/geom';
 import { unitsOf } from '@hestia/model';
 import { parseNumber, parseQuantityText } from './numeric.ts';
-import { PERIMETER_MODIFY_LABEL, type PerimeterModifyKind } from './perimeterModifyKind.ts';
+import { perimeterModifyLabel, type PerimeterModifyKind } from './perimeterModifyKind.ts';
 import { deleteSegs } from './perimeterModify.ts';
 import { selectSegsMode } from './perimeterSession.ts';
 import { chainIds } from './perimeterToolModifyChain.ts';
@@ -15,11 +15,13 @@ import {
   transformHint,
   transformPreview,
   transformPrompt,
+  transformPromptKind,
   transformTab,
   transformType,
 } from './perimeterToolModifyMove.ts';
 import { EDGE, SOURCED, clearData, freshStep, halo, hasData, lineAt, type ModHost, type Step } from './perimeterToolModifyStep.ts';
 import type { PointerInfo, PreviewItem } from './types.ts';
+import { t as translate, type DictKey } from './i18n.ts';
 
 /** O clique captura ponto (snap) em todos os estágios de ponto, como o esboço; só o teste de linha usa o cursor cru. */
 function snapsAt(kind: PerimeterModifyKind, st: Step): boolean {
@@ -30,13 +32,13 @@ function snapsAt(kind: PerimeterModifyKind, st: Step): boolean {
 }
 
 /** Verbo da etapa de escolher o alvo, por comando (a barra de status diz o próximo passo). */
-const TARGET_VERB: Partial<Record<PerimeterModifyKind, string>> = {
-  offset: 'deslocar',
-  move: 'mover',
-  copy: 'copiar',
-  rotate: 'rotacionar',
-  mirror: 'espelhar',
-  array: 'repetir',
+const TARGET_VERB: Partial<Record<PerimeterModifyKind, DictKey>> = {
+  offset: 'tl_verb_offset',
+  move: 'tl_verb_move',
+  copy: 'tl_verb_copy',
+  rotate: 'tl_verb_rotate',
+  mirror: 'tl_verb_mirror',
+  array: 'tl_verb_array',
 };
 
 /**
@@ -57,6 +59,14 @@ export class ModifyFlow {
   private pickChain = false;
 
   constructor(private readonly h: ModHost) {}
+
+  private lang() {
+    return this.h.lang?.() ?? 'pt';
+  }
+
+  private say(key: DictKey, args?: Record<string, string | number>): void {
+    this.h.say(translate(this.lang(), key, args));
+  }
 
   kind(): PerimeterModifyKind | null {
     return this.cmd;
@@ -86,12 +96,12 @@ export class ModifyFlow {
       const next = deleteSegs(d, d.selected);
       if (next) this.h.commit(next);
       this.h.replace(selectSegsMode(this.h.draft(), [], 'replace'));
-      this.h.say(`${d.selected.length} linha(s) excluída(s). Clique numa linha para excluir outra, ou Esc sai.`);
+      this.say('tl_msg_lines_deleted', { n: d.selected.length });
       return;
     }
     if (!SOURCED.has(kind) || this.st.stage !== 0) return;
     this.st.stage = 1;
-    this.h.say(`${PERIMETER_MODIFY_LABEL[kind]}. ${transformHint(kind, this.st, unitsOf(this.h.project?.()))}`);
+    this.h.say(`${perimeterModifyLabel(kind, this.lang())}. ${transformHint(kind, this.st, unitsOf(this.h.project?.()), this.lang())}`);
   }
 
   /**
@@ -106,7 +116,7 @@ export class ModifyFlow {
     if (kind === 'delete' && d.selected.length > 0) {
       const next = deleteSegs(d, d.selected);
       if (next) this.h.commit(next);
-      this.h.say(`${d.selected.length} linha(s) excluída(s). Clique numa linha para excluir outra, ou Esc sai.`);
+      this.say('tl_msg_lines_deleted', { n: d.selected.length });
       return;
     }
     const copy = kind === 'offset' ? o.offsetCopy : kind === 'rotate' ? o.rotateCopy : kind === 'mirror' ? o.mirrorCopy : false;
@@ -154,16 +164,16 @@ export class ModifyFlow {
   /** Valor digitado: distância, ângulo, quantidade. Sem entrada numérica no estágio, devolve false. */
   type(text: string): boolean {
     const kind = this.cmd;
-    if (!kind || this.needsSource() || transformPrompt(kind, this.st) === null) return false;
+    if (!kind || this.needsSource() || transformPrompt(kind, this.st, this.lang()) === null) return false;
     // Mover/Copiar no destino: aceita também o deslocamento digitado "dx,dy" (ou "dx;dy"), em metros.
     if ((kind === 'move' || kind === 'copy') && this.st.stage === 2) {
       const delta = parseDelta(text, unitsOf(this.h.project?.()));
       if (delta) return transformDelta(this.h, kind, this.st, delta);
     }
-    const prompt = transformPrompt(kind, this.st);
-    const q = prompt === 'Ângulo (graus)' ? 'angle' : prompt && prompt !== 'Quantidade' ? 'length' : null;
+    const promptKind = transformPromptKind(kind, this.st);
+    const q = promptKind === 'angle' ? 'angle' : promptKind === 'length' || promptKind === 'offset' ? 'length' : null;
     const lido = q ? parseQuantityText(text, unitsOf(this.h.project?.()), q) : parseNumber(text);
-    if (lido === null) return this.refuse('Valor inválido. Digite um número.');
+    if (lido === null) return this.refuse(translate(this.lang(), 'tl_msg_invalid_number_plain'));
     const v = q === 'angle' ? (lido * 180) / Math.PI : lido;
     return transformType(this.h, kind, this.st, v, this.raw);
   }
@@ -182,7 +192,7 @@ export class ModifyFlow {
       clearData(kind, this.st);
       return this.h.say(this.hint());
     }
-    if (!transformTab(this.h, kind, this.st)) this.h.say('Tab não alterna nesta etapa.');
+    if (!transformTab(this.h, kind, this.st)) this.say('tl_msg_tab_no_step');
   }
 
   /** Esc: cancela o passo (true = não há passo, o comando deve sair). */
@@ -206,7 +216,7 @@ export class ModifyFlow {
     }
     if (SOURCED.has(kind) && this.st.stage === 0 && d.selected.length > 0) {
       this.h.replace(selectSegsMode(d, [], 'replace'));
-      this.h.say('Seleção limpa. Esc de novo desliga o comando.');
+      this.say('tl_msg_selection_cleared');
       return false;
     }
     return true;
@@ -217,7 +227,7 @@ export class ModifyFlow {
     const kind = this.cmd;
     if (!kind) return;
     if (SOURCED.has(kind) && this.needsSource()) {
-      if (this.h.draft().selected.length === 0) return this.h.say('Selecione ao menos uma linha antes de confirmar.');
+      if (this.h.draft().selected.length === 0) return this.say('tl_msg_select_line_first');
       this.st.stage = 1;
       return this.h.say(this.hint());
     }
@@ -227,7 +237,7 @@ export class ModifyFlow {
   /** Rótulo do campo numérico do estágio, ou null. */
   prompt(): string | null {
     if (!this.cmd || this.needsSource()) return null;
-    return transformPrompt(this.cmd, this.st);
+    return transformPrompt(this.cmd, this.st, this.lang());
   }
 
   preview(): PreviewItem[] {
@@ -271,13 +281,13 @@ export class ModifyFlow {
     const mode = selectionModeOf(p);
     const next = selectSegsMode(d, ids, mode);
     this.h.replace(next);
-    if (next.selected.length === 0) return this.h.say('Nenhuma linha escolhida.');
+    if (next.selected.length === 0) return this.say('tl_msg_no_line_chosen');
     if (mode !== 'replace') {
-      this.h.say(`${next.selected.length} linha(s) escolhida(s). Clique mais (Shift soma, Ctrl subtrai); Enter confirma.`);
+      this.say('tl_msg_lines_chosen', { n: next.selected.length });
       return;
     }
     this.st.stage = 1;
-    this.h.say(`${PERIMETER_MODIFY_LABEL[kind]}. ${transformHint(kind, this.st, unitsOf(this.h.project?.()))}`);
+    this.h.say(`${perimeterModifyLabel(kind, this.lang())}. ${transformHint(kind, this.st, unitsOf(this.h.project?.()), this.lang())}`);
   }
 
   /**
@@ -290,22 +300,23 @@ export class ModifyFlow {
     if (!id) return;
     const next = selectSegsMode(d, [id], 'add');
     this.h.replace(next);
-    this.h.say(`${next.selected.length} linha(s) na origem. ${transformHint('offset', this.st, unitsOf(this.h.project?.()))}`);
+    this.say('tl_msg_lines_source', { n: next.selected.length, hint: transformHint('offset', this.st, unitsOf(this.h.project?.()), this.lang()) });
   }
 
   /** Dica da etapa de escolher o alvo, com o estado do Tab (só a linha ou o laço conectado). */
   private targetHint(kind: PerimeterModifyKind): string {
-    const label = PERIMETER_MODIFY_LABEL[kind];
-    if (this.pickChain) return `${label}: clique no laço conectado (linhas ligadas pelas pontas). Agora: laço conectado (Tab: só a linha).`;
-    const verb = TARGET_VERB[kind] ?? 'modificar';
-    return `${label}: clique na linha a ${verb}. Agora: só a linha (Tab: laço conectado).`;
+    const lang = this.lang();
+    const label = perimeterModifyLabel(kind, lang);
+    if (this.pickChain) return translate(lang, 'tl_msg_target_chain', { label });
+    const verbKey = TARGET_VERB[kind] ?? 'tl_verb_modify';
+    return translate(lang, 'tl_msg_target_line', { label, verb: translate(lang, verbKey) });
   }
 
   private hint(): string {
     const kind = this.cmd!;
     if (this.needsSource()) return this.targetHint(kind);
-    if (EDGE.has(kind)) return edgeHint(kind, this.st);
-    return transformHint(kind, this.st, unitsOf(this.h.project?.()));
+    if (EDGE.has(kind)) return edgeHint(kind, this.st, this.lang());
+    return transformHint(kind, this.st, unitsOf(this.h.project?.()), this.lang());
   }
 
   private refuse(msg: string): false {

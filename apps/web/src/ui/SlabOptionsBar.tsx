@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { useProject } from '../editor/controller.ts';
 import { useUi } from '../editor/state.ts';
+import { useT } from '../editor/i18n.ts';
 import { NumField } from './fields.tsx';
 
 /**
@@ -11,10 +12,11 @@ import { NumField } from './fields.tsx';
 export function SlabOptionsBar({ tool }: { tool: 'slab' | 'slope' }): ReactElement {
   const p = useProject();
   const o = useUi((s) => s.options);
+  const { t } = useT();
   const set = (patch: Partial<typeof o>): void => useUi.setState({ options: { ...useUi.getState().options, ...patch } });
   const slope = (
     <label>
-      Inclinação
+      {t('pro_slope')}
       <NumField id="opt-slope" value={o.slabSlopePercent / 100} onCommit={(v) => set({ slabSlopePercent: v * 100 })} quantity="slope" />
     </label>
   );
@@ -22,22 +24,22 @@ export function SlabOptionsBar({ tool }: { tool: 'slab' | 'slope' }): ReactEleme
     return (
       <>
         {slope}
-        <span className="hint">Clique na origem e na direção do caimento. Enter aplica o percentual.</span>
+        <span className="hint">{t('pro_slope_hint')}</span>
       </>
     );
   }
   return (
     <>
       <label>
-        Tipo
+        {t('pro_type')}
         <select id="opt-slabtype" className="select" value={o.slabTypeId} onChange={(e) => set({ slabTypeId: e.target.value })}>
-          {Object.values(p.slabTypes).map((t) => (
-            <option key={t.id} value={t.id}>{t.name}</option>
+          {Object.values(p.slabTypes).map((tp) => (
+            <option key={tp.id} value={tp.id}>{tp.name}</option>
           ))}
         </select>
       </label>
       <label>
-        Deslocamento do topo
+        {t('pro_top_offset')}
         <NumField id="opt-slaboffset" value={o.slabOffset} onCommit={(v) => set({ slabOffset: v })} quantity="length" />
       </label>
     </>

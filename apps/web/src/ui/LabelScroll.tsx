@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactElement, type ReactNode } from 'react';
+import { useT } from '../editor/i18n.ts';
 import { safeGet, safeSet } from '../editor/storage.ts';
 
 /** Fração da largura para a coluna de rótulos da paleta (como o Revit, a divisória rótulo|valor se arrasta). */
@@ -18,6 +19,7 @@ function load(): number {
  * (sticky) e cobre a altura visível; `--lbl` é lido por `.prow` para dividir rótulo e valor.
  */
 export function LabelScroll({ children }: { children: ReactNode }): ReactElement {
+  const { t } = useT();
   const [pct, setPct] = useState(load);
   const [h, setH] = useState(0);
   const box = useRef<HTMLDivElement>(null);
@@ -55,7 +57,7 @@ export function LabelScroll({ children }: { children: ReactNode }): ReactElement
   return (
     <div ref={box} className="panel-scroll" style={{ '--lbl': `${pct}%` } as React.CSSProperties}>
       <div className="lbl-split-wrap">
-        <div className="lbl-split" style={{ height: h }} role="separator" aria-orientation="vertical" aria-label="Largura da coluna de rótulos" title="Arraste para ajustar" onPointerDown={start} onDoubleClick={() => { setPct(DEFAULT); safeSet(KEY, String(DEFAULT)); }} />
+        <div className="lbl-split" style={{ height: h }} role="separator" aria-orientation="vertical" aria-label={t('shc_label_width')} title={t('shc_label_drag')} onPointerDown={start} onDoubleClick={() => { setPct(DEFAULT); safeSet(KEY, String(DEFAULT)); }} />
       </div>
       {children}
     </div>

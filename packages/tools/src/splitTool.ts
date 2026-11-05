@@ -44,7 +44,9 @@ const fmt = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length',
 export class SplitTool extends ToolBase {
   readonly id = 'split';
   readonly label = 'Dividir';
-  readonly hint = 'Dividir: clique na parede (ponto de corte) ou numa aresta (insere vértice), inclusive do croqui de escada/rampa. Piso ou laje: dois cliques dividem. Digite a distância e Enter para medida exata. Tab: com intervalo.';
+  override get hint(): string {
+    return this.t('tl_hint_split');
+  }
   private hoverId: Id | null = null;
   private gapStart: Cut | null = null;
   private slabStart: SlabStart | null = null;
@@ -71,7 +73,7 @@ export class SplitTool extends ToolBase {
   }
 
   override inputPrompt(): string | null {
-    return this.hoverId && !this.withGap ? 'Distância do início do trecho' : null;
+    return this.hoverId && !this.withGap ? this.t('tl_inp_seg_offset') : null;
   }
 
   /** Parede sob o cursor; uma abertura conta como a parede que a hospeda. */
@@ -175,7 +177,7 @@ export class SplitTool extends ToolBase {
     const compEdge = componentEdgeAt(this.env, p.raw);
     if (compEdge) {
       if (this.withGap) {
-        this.env.say('Com intervalo vale só para paredes.');
+        this.env.say(this.t('tl_msg_gap_walls_only'));
         return;
       }
       const r = splitComponentEdgeCommand(this.env, compEdge.ref, p.raw);
@@ -254,7 +256,7 @@ export class SplitTool extends ToolBase {
     if (!ring || !e) return;
     const next = ringOps.insertVertex(ring, pick.ref.index, pick.at);
     if (isRoof(e) && pick.ref.hole === null) {
-      if (commitRoofPatch(this.env, [e.id], roofRingPatch(e, next, { kind: 'insert', edge: pick.ref.index }))) this.env.say('Vértice inserido na aresta do telhado.');
+      if (commitRoofPatch(this.env, [e.id], roofRingPatch(e, next, { kind: 'insert', edge: pick.ref.index }), this.env.lang?.() ?? 'pt')) this.env.say('Vértice inserido na aresta do telhado.');
       this.reset();
       return;
     }
@@ -323,7 +325,9 @@ export class SplitTool extends ToolBase {
       this.env.say(e instanceof Error ? e.message : 'Não foi possível dividir a parede.');
       return false;
     }
-    this.env.say(gap > 0 ? `Parede dividida, com intervalo de ${fmt(unitsOf(this.env.project()), gap)}.` : `Parede dividida a ${fmt(unitsOf(this.env.project()), t)} do início do trecho.`);
+    this.env.say(gap > 0
+      ? this.t('tl_msg_wall_split_gap', { d: fmt(unitsOf(this.env.project()), gap) })
+      : this.t('tl_msg_wall_split', { d: fmt(unitsOf(this.env.project()), t) }));
     return true;
   }
 }

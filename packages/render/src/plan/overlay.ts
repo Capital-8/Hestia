@@ -4,6 +4,7 @@ import type { Guide, Inference, PreviewItem, PreviewTone } from '@hestia/tools';
 import { sectionMarkOps } from './sectionMarks.ts';
 import type { FillOp, LabelOp, PlanTheme, StrokeOp } from './types.ts';
 import { cantosDoQuadrado, tracoEm } from './marcadores.ts';
+import { t, type DictKey, type Lang } from '../i18n.ts';
 
 export interface Overlay {
   fills: FillOp[];
@@ -56,29 +57,35 @@ export function snapMarker(inf: Inference, theme: PlanTheme): StrokeOp[] {
   }
 }
 
-const SNAP_TOOLTIPS: Record<string, string> = {
-  endpoint: 'Extremidade',
-  face: 'Canto da face',
-  core: 'Face do núcleo',
-  midpoint: 'Ponto médio',
-  intersection: 'Interseção',
-  perpendicular: 'Perpendicular',
-  nearest: 'Na parede',
-  alignment: 'Alinhamento',
-  ortho: 'Ortogonal',
-  polar: 'Polar',
-  center: 'Centro do arco',
-  tangent: 'Tangente ao arco',
+/** Chave do tooltip de captura por tipo de inferência. */
+const SNAP_TOOLTIP_KEYS: Record<string, DictKey> = {
+  endpoint: 'rn_snap_endpoint',
+  face: 'rn_snap_face',
+  core: 'rn_snap_core',
+  midpoint: 'rn_snap_midpoint',
+  intersection: 'rn_snap_intersection',
+  perpendicular: 'rn_snap_perpendicular',
+  nearest: 'rn_snap_nearest',
+  alignment: 'rn_snap_alignment',
+  ortho: 'rn_snap_ortho',
+  polar: 'rn_snap_polar',
+  center: 'rn_snap_center',
+  tangent: 'rn_snap_tangent',
 };
 
+/** Nome do hospedeiro no tooltip: `parede 04` (PT) / `wall 04` (EN). */
+const hostName = (mark: string | undefined, lang: Lang): string =>
+  mark ? t(lang, 'rn_snap_host_wall_mark', { mark }) : t(lang, 'rn_snap_host_wall');
+
 /** Rótulo flutuante junto ao cursor com a captura ativa (AutoCAD / Revit Snap Tooltip). */
-export function snapTooltipLabel(inf: Inference, p?: Project): LabelOp | null {
+export function snapTooltipLabel(inf: Inference, p?: Project, lang: Lang = 'pt'): LabelOp | null {
   if (inf.kind === 'none' || inf.kind === 'grid') return null;
-  const base = SNAP_TOOLTIPS[inf.kind];
-  if (!base) return null;
+  const key = SNAP_TOOLTIP_KEYS[inf.kind];
+  if (!key) return null;
+  const base = t(lang, key);
   // Nome da parede de origem, quando a captura é de uma parede (S-tooltip): ajuda a saber qual elemento foi capturado.
   const host = inf.hostId && p ? p.elements[inf.hostId] : undefined;
-  const name = host && host.kind === 'wall' ? (host.mark ? `parede ${host.mark}` : 'parede') : null;
+  const name = host && host.kind === 'wall' ? hostName(host.mark, lang) : null;
   const text = name ? `${base} · ${name}` : base;
   return {
     at: inf.point,

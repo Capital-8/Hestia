@@ -8,7 +8,7 @@ import { useUi } from './state.ts';
 export function goToIssue(issue: ValidationIssue): void {
   const t = issueTarget(editor.project, issue);
   if (!t) {
-    useUi.setState({ status: 'Este elemento não existe mais.' });
+    useUi.setState({ status: { key: 'edc_element_gone' } });
     return;
   }
   const ui = useUi.getState();

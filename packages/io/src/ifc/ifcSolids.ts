@@ -1,5 +1,6 @@
 import { OMIT, en, list, num, ref, StepWriter } from './ifcStep.ts';
 import type { IfcPlane, IfcPoint, IfcPolygon, IfcPrism, IfcRing } from './ifcTypes.ts';
+import { t, type Lang } from '../i18n.ts';
 
 const EPS = 1e-9;
 
@@ -163,9 +164,9 @@ const lift = (ring: IfcRing, pl: IfcPlane): P3[] => ring.map((p) => ({ x: p.x, y
  * anti-horário e furos horários, pela regra da mão direita: as normais saem do sólido. Topo e fundo são as faces
  * com furos; cada aresta de anel vira um quadrilátero vertical (ou inclinado, se o topo é inclinado).
  */
-export function brepSolid(w: StepWriter, polygon: IfcPolygon, top: IfcPlane, bottom: IfcPlane): number {
+export function brepSolid(w: StepWriter, polygon: IfcPolygon, top: IfcPlane, bottom: IfcPlane, lang: Lang = 'pt'): number {
   const poly = normalizePolygon(polygon);
-  if (poly.length === 0) throw new Error('Sólido IFC sem área');
+  if (poly.length === 0) throw new Error(t(lang, 'io_err_ifc_solid_area'));
   const rings = poly;
   const faces: number[] = [];
   // Topo: normal para cima (contorno anti-horário). Fundo: laços invertidos, normal para baixo.
@@ -196,14 +197,14 @@ const isFlatPrism = (pr: IfcPrism): boolean => [pr.top, pr.bottom].every((pl) =>
  * IFCPRODUCTDEFINITIONSHAPE). Todos de cota constante: extrusões (`SweptSolid`); senão, malhas de faces planas
  * (`Brep`) para todos. Prismas sem área ou sem espessura saem. `elev` é a cota do nível do dono (geometria em cota local).
  */
-export function prismsShape(w: StepWriter, ctx: number, prisms: readonly IfcPrism[], elev: number): number {
+export function prismsShape(w: StepWriter, ctx: number, prisms: readonly IfcPrism[], elev: number, lang: Lang = 'pt'): number {
   // Sem área, ou extrusão de altura não positiva, o prisma não entra.
   const valid = prisms.filter((pr) => normalizePolygon(pr.polygon).length > 0 && (!isFlatPrism(pr) || pr.top.c > pr.bottom.c));
   const flat = valid.every(isFlatPrism);
   const items = valid.map((pr) => {
     const top = localPlane(pr.top, elev);
     const bottom = localPlane(pr.bottom, elev);
-    return flat ? extrudeSolid(w, pr.polygon, bottom.c, top.c - bottom.c) : brepSolid(w, pr.polygon, top, bottom);
+    return flat ? extrudeSolid(w, pr.polygon, bottom.c, top.c - bottom.c) : brepSolid(w, pr.polygon, top, bottom, lang);
   });
   return bodyShape(w, ctx, flat ? 'SweptSolid' : 'Brep', items);
 }

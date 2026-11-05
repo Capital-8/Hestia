@@ -1,4 +1,5 @@
 import { profileHeightAt, type ProfilePoint } from '@hestia/model';
+import { t as translate, type Lang } from '../../editor/i18n.ts';
 
 /** Topo reto: a mesma altura nas duas extremidades. É o ponto de partida da tabela quando não há perfil. */
 export const straightProfile = (length: number, height: number): ProfilePoint[] => [
@@ -48,7 +49,7 @@ export function insertPoint(pts: ProfilePoint[], length: number): ProfilePoint[]
 }
 
 /** Posições fora de [0, L] (o erro de ordem e de altura fica em `profileError`). */
-export function profileRangeError(pts: ProfilePoint[], length: number): string | null {
+export function profileRangeError(pts: ProfilePoint[], length: number, lang: Lang = 'pt'): string | null {
   const EPS = 1e-9;
-  return pts.some((q) => q.t < -EPS || q.t > length + EPS) ? 'as posições devem estar entre 0 e o comprimento da parede' : null;
+  return pts.some((q) => q.t < -EPS || q.t > length + EPS) ? translate(lang, 'dlt_profile_range_error') : null;
 }

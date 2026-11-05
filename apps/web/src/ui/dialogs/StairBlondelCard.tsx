@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import type { StairType } from '@hestia/model';
-import { fmtNum, I18N, useI18n } from '../../editor/i18n.ts';
+import { dictOf, fmtNum, useI18n } from '../../editor/i18n.ts';
 import { blondelLive, formulaText } from './stairBlondel.ts';
 
 const fill = (s: string, params: Record<string, string>): string => s.replace(/\{(\w+)\}/g, (_, k: string) => params[k] ?? '');
@@ -11,7 +11,7 @@ const fill = (s: string, params: Record<string, string>): string => s.replace(/\
  */
 export function StairBlondelCard({ type, heightCm }: { type: StairType; heightCm: number }): ReactElement {
   const lang = useI18n((s) => s.lang);
-  const t = I18N[lang];
+  const t = dictOf(lang);
   const live = blondelLive(type, heightCm / 100);
   const a = type.calcRiserFactor;
   const b = type.calcTreadFactor;

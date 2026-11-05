@@ -11,8 +11,10 @@ export const TEXT_DEFAULT_HEIGHT_MM = 2.5;
  */
 export class TextTool extends ToolBase {
   readonly id = 'text';
-  readonly label = 'Texto';
-  readonly hint = 'Texto: clique no ponto onde o texto fica, digite o texto e Enter.';
+  readonly label = this.t('tl_inp_text');
+  override get hint(): string {
+    return this.t('tl_hint_text');
+  }
   /** O campo aceita letras e espaços (não só números): a interface envia cada tecla digitável. */
   readonly freeText = true;
   private points: Array<{ x: number; y: number }> = [];
@@ -28,7 +30,7 @@ export class TextTool extends ToolBase {
   }
 
   override inputPrompt(): string | null {
-    return this.points.length ? 'Texto' : null;
+    return this.points.length ? this.t('tl_inp_text') : null;
   }
 
   override move(p: PointerInfo): void {
@@ -58,7 +60,7 @@ export class TextTool extends ToolBase {
     if (!this.points.length) return false;
     const t = text.trim();
     if (t === '') {
-      this.env.say('O texto não pode ser vazio.');
+      this.env.say(this.t('tl_msg_text_empty'));
       return false;
     }
     const options = this.env.options();

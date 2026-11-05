@@ -20,9 +20,9 @@ describe('marcas de corte/elevação no DXF', () => {
     const marks = sectionMarksDxfOf(p, 100);
     expect(marks.lines.length).toBeGreaterThan(4);
     expect(marks.lines.every((l) => l.layer === DXF_LAYER_CORTES)).toBe(true);
-    expect(marks.texts).toHaveLength(2);
-    expect(marks.texts[0]!.text).toBe('A');
-    expect(marks.texts[0]!.height).toBeCloseTo(0.25);
+    expect(marks.texts).toHaveLength(4);
+    expect(marks.texts.map((t) => t.text)).toEqual(['-', 'A', '-', 'A']);
+    expect(marks.texts[1]!.height).toBeCloseTo(0.25);
   });
 
   it('elevação usa ELEVACOES e o texto configurado; marca oculta não sai', () => {

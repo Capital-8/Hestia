@@ -8,7 +8,9 @@ import { ToolBase } from './base.ts';
 export class CeilingTool extends ToolBase {
   readonly id = 'ceiling';
   readonly label = 'Forro';
-  readonly hint = 'Forro: crie o contorno pelo modo Criar/Editar perímetro.';
+  override get hint(): string {
+    return this.t('tl_hint_ceiling');
+  }
 
   protected reset(): void {
     // Sem estado próprio: nada a limpar.

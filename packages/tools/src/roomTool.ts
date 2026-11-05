@@ -23,7 +23,9 @@ const DUPLO_CLIQUE_MS = 600;
 export class RoomTool extends ToolBase {
   readonly id = 'room';
   readonly label = 'Ambiente';
-  readonly hint = 'Ambiente: aponte para um circuito fechado de paredes e clique dentro dele.';
+  override get hint(): string {
+    return this.t('tl_hint_room');
+  }
   /** Último clique que criou ambiente (ponto e instante), para reconhecer o duplo clique. */
   private ultimo: { at: Vec2; quando: number } | null = null;
 
@@ -72,7 +74,11 @@ export class RoomTool extends ToolBase {
     };
     this.env.exec({ type: 'addRoom', room });
     this.env.setSelection([room.id]);
-    this.env.say(`Ambiente ${room.number} criado: ${fmtArea(unitsOf(this.env.project()), polygonArea(polygon))}.${repeated ? ' Este circuito já tinha ambiente (aviso de duplicado).' : ''} Ctrl+Z desfaz.`);
+    this.env.say(this.t('tl_msg_room_created', {
+      number: room.number,
+      area: fmtArea(unitsOf(this.env.project()), polygonArea(polygon)),
+      warning: repeated ? this.t('tl_msg_room_repeated') : '',
+    }));
     this.items = [];
   }
 
@@ -90,6 +96,6 @@ export class RoomTool extends ToolBase {
     const n = nextRoomNumber(this.env.project(), this.env.levelId());
     const label = interiorPoint(region.polygon) ?? at;
     this.items.push({ kind: 'label', at: label, text: `Ambiente ${n} · ${fmtArea(unitsOf(this.env.project()), polygonArea(region.polygon))}` });
-    this.env.say('Clique para criar o ambiente nesta área.');
+    this.env.say(this.t('tl_msg_room_click'));
   }
 }

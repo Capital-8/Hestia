@@ -13,7 +13,9 @@ const fmt = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length',
 export class RoomSeparatorTool extends ToolBase {
   readonly id = 'roomsep';
   readonly label = 'Linha de separação';
-  readonly hint = 'Linha de separação: clique no ponto inicial e depois no ponto final.';
+  override get hint(): string {
+    return this.t('tl_hint_room_sep');
+  }
   private a: Vec2 | null = null;
 
   protected reset(): void {
@@ -42,7 +44,7 @@ export class RoomSeparatorTool extends ToolBase {
     const inf = this.snap(p);
     if (!this.a) {
       this.a = inf.point;
-      this.env.say('Clique no ponto final da linha de separação.');
+      this.env.say(this.t('tl_msg_roomsep_end'));
       return;
     }
     const a = this.a;

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
-import { useI18n } from '../editor/i18n.ts';
+import { useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { Icon } from './Icon.tsx';
 import { searchCommands } from './ribbon/commandSearch.ts';
@@ -10,8 +10,7 @@ import { useRibbonCtx } from './ribbon/useCtx.ts';
  * Digitar o nome de um comando mostra onde ele está; Enter ou clique executa.
  */
 export function InfoCenter(): ReactElement {
-  const lang = useI18n((s) => s.lang);
-  const pt = lang === 'pt';
+  const { t, lang } = useT();
   const ctx = useRibbonCtx();
   const [q, setQ] = useState('');
   const [helpOpen, setHelpOpen] = useState(false);
@@ -46,8 +45,8 @@ export function InfoCenter(): ReactElement {
           ref={input}
           className="ic-input"
           value={q}
-          placeholder={pt ? 'Pesquisar comando' : 'Search commands'}
-          aria-label={pt ? 'Pesquisar comando' : 'Search commands'}
+          placeholder={t('shc_ic_search')}
+          aria-label={t('shc_ic_search')}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => {
             e.stopPropagation();
@@ -59,7 +58,7 @@ export function InfoCenter(): ReactElement {
         {q.trim() !== '' && (
           <div className="ic-results" role="listbox">
             {found.length === 0 ? (
-              <div className="ic-none">{pt ? 'Nenhum comando encontrado.' : 'No commands found.'}</div>
+              <div className="ic-none">{t('shc_ic_none')}</div>
             ) : (
               found.map((c, i) => (
                 <button key={c.id} role="option" aria-selected={i === 0} className="ic-hit" onClick={() => run(i)}>
@@ -71,14 +70,15 @@ export function InfoCenter(): ReactElement {
           </div>
         )}
       </div>
-      <button className="qbtn" aria-haspopup="menu" aria-expanded={helpOpen} title={pt ? 'Ajuda' : 'Help'} aria-label={pt ? 'Ajuda' : 'Help'} onClick={() => setHelpOpen((v) => !v)}>
+      <button className="qbtn" aria-haspopup="menu" aria-expanded={helpOpen} title={t('shc_ic_help')} aria-label={t('shc_ic_help')} onClick={() => setHelpOpen((v) => !v)}>
         <Icon name="qhelp" size={18} />
       </button>
       {helpOpen && (
         <div className="ic-help" role="menu">
-          <button role="menuitem" className="rb-menuitem" onClick={() => help('shortcutsConfig')}>{pt ? 'Atalhos de teclado…' : 'Keyboard Shortcuts…'}</button>
-          <button role="menuitem" className="rb-menuitem" onClick={() => help('shortcuts')}>{pt ? 'Lista de atalhos' : 'Shortcut List'}</button>
-          <button role="menuitem" className="rb-menuitem" onClick={() => { setHelpOpen(false); useUi.setState({ tutorial: true }); }}>Tutorial</button>
+          <button role="menuitem" className="rb-menuitem" onClick={() => help('shortcutsConfig')}>{t('shc_ic_shortcuts')}</button>
+          <button role="menuitem" className="rb-menuitem" onClick={() => help('shortcuts')}>{t('shc_ic_shortcut_list')}</button>
+          <button role="menuitem" className="rb-menuitem" onClick={() => { setHelpOpen(false); useUi.setState({ tutorial: true }); }}>{t('shc_tutorial')}</button>
+          <button role="menuitem" className="rb-menuitem" onClick={() => { setHelpOpen(false); useUi.setState({ dialog: 'about', dialogArg: null }); }}>{t('shc_file_about')}</button>
         </div>
       )}
     </div>

@@ -1,4 +1,5 @@
 import { formatQuantity, isRoof, unitsOf, type Project, type Roof, type ValidationIssue } from '@hestia/model';
+import { t, type Lang } from './i18nMessages.ts';
 import { resolveAllRoofs } from './roofs.ts';
 
 /** Nome do telhado no aviso: a marca quando existe, com o id entre parênteses (como o validador do modelo). */
@@ -9,7 +10,7 @@ const label = (r: Roof): string => (r.mark ? `"${r.mark}" (${r.id})` : `"${r.id}
  * encosta em beiral. O telhado continua criado e desenhado; o aviso aponta o telhado para o painel de avisos ("Ir para").
  * Vem do motor (depende da geometria resolvida), como `roofWallIssues`.
  */
-export function roofSurfaceIssues(p: Project): ValidationIssue[] {
+export function roofSurfaceIssues(p: Project, lang: Lang = 'pt'): ValidationIssue[] {
   const units = unitsOf(p);
   const out: ValidationIssue[] = [];
   for (const res of resolveAllRoofs(p)) {
@@ -20,12 +21,12 @@ export function roofSurfaceIssues(p: Project): ValidationIssue[] {
     const worst = Math.max(...steps.map((s) => s.dz));
     const where =
       steps.length === 1
-        ? `um degrau de ${formatQuantity(units, 'smallLength', worst)} no canto reentrante`
-        : `degraus de até ${formatQuantity(units, 'smallLength', worst)} em ${steps.length} cantos reentrantes`;
+        ? t(lang, 'egb_issue_roof_step_one', { v: formatQuantity(units, 'smallLength', worst) })
+        : t(lang, 'egb_issue_roof_step_many', { v: formatQuantity(units, 'smallLength', worst), n: steps.length });
     out.push({
       severity: 'warning',
       code: 'roof-surface-step',
-      message: `Telhado ${label(roof)}: a superfície tem ${where} (empena encostando em beiral); ajuste a inclinação das arestas vizinhas ou use outra forma.`,
+      message: t(lang, 'egb_issue_roof_surface_step', { roof: label(roof), where }),
       elementId: roof.id,
     });
   }

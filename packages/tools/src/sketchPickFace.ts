@@ -2,6 +2,7 @@ import { arcLocal, arcPointAt, sagFromThreePoints, type SketchSeg, type Vec2 } f
 import { levelFrames, wallFacesCached, type WallFaces, type WallFrame } from '@hestia/engine';
 import { ceilingsOnLevel, floorsOnLevel, isWall, newId, slabsOnLevel, type Id, type Wall } from '@hestia/model';
 import { makeSeg, onCircle, segDistance, visibleIn, type SketchCtx } from './sketchPickFaceGeom.ts';
+import { t as translate } from './i18n.ts';
 
 export type { SketchCtx } from './sketchPickFaceGeom.ts';
 
@@ -78,6 +79,7 @@ function hostsOf(ctx: SketchCtx): Host[] {
 export function faceCandidates(ctx: SketchCtx, pt: Vec2, tol: number): SketchPick[] {
   const p = ctx.project();
   const levelId = ctx.levelId();
+  const lang = ctx.lang?.() ?? 'pt';
   const vis = visibleIn(ctx);
   const faces = new Map(wallFacesCached(p, levelId).map((w) => [w.wallId, w] as const));
   const scored: Scored[] = [];
@@ -91,15 +93,15 @@ export function faceCandidates(ctx: SketchCtx, pt: Vec2, tol: number): SketchPic
     const wf = faces.get(w.id);
     for (const side of ['ext', 'int'] as const) {
       const seg = wf ? wallFaceSeg(f, wf, side) : null;
-      if (seg) push({ kind: 'face', hostId: w.id, seg, which: side, label: `Face ${side === 'ext' ? 'externa' : 'interna'} da ${wallName(w)}` });
+      if (seg) push({ kind: 'face', hostId: w.id, seg, which: side, label: translate(lang, side === 'ext' ? 'tl_msg_pick_face_ext' : 'tl_msg_pick_face_int', { wall: wallName(w) }) });
     }
-    push({ kind: 'axis', hostId: w.id, seg: makeSeg('sk', w.a, w.b, w.sag), which: 'axis', label: `Eixo da ${wallName(w)}${w.sag ? ' (arco)' : ''}` });
+    push({ kind: 'axis', hostId: w.id, seg: makeSeg('sk', w.a, w.b, w.sag), which: 'axis', label: translate(lang, 'tl_msg_pick_axis', { wall: wallName(w), arc: w.sag ? translate(lang, 'tl_msg_pick_axis_arc') : '' }) });
   }
   for (const h of hostsOf(ctx)) {
     if (!vis(h.id)) continue;
     h.rings.forEach((ring, r) => {
-      const borda = r === 0 ? 'contorno' : 'furo';
-      ring.forEach((_, i) => push({ kind: 'edge', hostId: h.id, seg: edgeSeg(ring, i), which: { ring: r, edge: i }, label: `Borda do ${borda} do ${h.name}` }));
+      const borda = r === 0 ? translate(lang, 'tl_pick_outline') : translate(lang, 'tl_pick_hole');
+      ring.forEach((_, i) => push({ kind: 'edge', hostId: h.id, seg: edgeSeg(ring, i), which: { ring: r, edge: i }, label: translate(lang, 'tl_msg_pick_border', { border: borda, element: h.name }) }));
     });
   }
   return scored

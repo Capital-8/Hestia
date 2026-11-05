@@ -44,10 +44,8 @@ const CARACTERE_EM = 0.6;
 const ALTURA_EM = 1.25;
 /** Respiro do texto em volta, em mm de papel (caixa de colisão). */
 const RESPIRO_MM = 0.4;
-/** Respiro da linha interrompida (cota 'centered'), em mm de papel. */
-const QUEBRA_MM = 0.8;
-/** Folga da máscara (fundo/halo) do texto, em mm de papel. */
-const MASCARA_MM = 0.45;
+/** Folga da interrupção da linha de cota em volta do texto, em mm de papel. */
+export const MASCARA_MM = 0.45;
 /** Número de pistas (alturas) tentadas antes de deslocar lateralmente. */
 const PISTAS = 4;
 
@@ -126,19 +124,44 @@ function toLocal(b: TextBox, p: Vec2): Vec2 {
   return { x: dx * c - dy * s, y: dx * s + dy * c };
 }
 
-/** O segmento p–q cruza o retângulo (Liang–Barsky no referencial do texto)? */
-function segmentHitsBox(p: Vec2, q: Vec2, b: TextBox): boolean {
+/**
+ * Intervalo `[t0, t1]` de `p + t·(q−p)`, com `t` em [0,1], que fica DENTRO do retângulo orientado do texto (Liang–Barsky
+ * no referencial do texto). `null` quando o segmento não toca a caixa.
+ */
+function clipIntervalBox(p: Vec2, q: Vec2, b: TextBox): [number, number] | null {
   const a = toLocal(b, p);
   const e = toLocal(b, q);
-  let t0 = 0; let t1 = 1;
   const d = sub(e, a);
+  let t0 = 0;
+  let t1 = 1;
   const clip = (pp: number, qq: number): boolean => {
     if (pp === 0) return qq >= 0;
     const t = qq / pp;
     if (pp < 0) { if (t > t1) return false; if (t > t0) t0 = t; } else { if (t < t0) return false; if (t < t1) t1 = t; }
     return true;
   };
-  return clip(-d.x, a.x + b.hw) && clip(d.x, b.hw - a.x) && clip(-d.y, a.y + b.hh) && clip(d.y, b.hh - a.y) && t0 <= t1;
+  return clip(-d.x, a.x + b.hw) && clip(d.x, b.hw - a.x) && clip(-d.y, a.y + b.hh) && clip(d.y, b.hh - a.y) && t0 <= t1 ? [t0, t1] : null;
+}
+
+/** O segmento p–q cruza o retângulo (Liang–Barsky no referencial do texto)? */
+function segmentHitsBox(p: Vec2, q: Vec2, b: TextBox): boolean {
+  return clipIntervalBox(p, q, b) !== null;
+}
+
+/**
+ * Partes do segmento p–q que ficam FORA da caixa do texto: o segmento inteiro quando não a toca, dois trechos quando a
+ * caixa está no meio, um trecho quando ela cobre uma das pontas e nenhum quando a cobre por inteiro.
+ */
+function segmentosForaDaCaixa(p: Vec2, q: Vec2, b: TextBox): Array<[Vec2, Vec2]> {
+  const iv = clipIntervalBox(p, q, b);
+  if (!iv) return [[p, q]];
+  const [t0, t1] = iv;
+  const d = sub(q, p);
+  const em = (t: number): Vec2 => add(p, mul(d, t));
+  const out: Array<[Vec2, Vec2]> = [];
+  if (t0 > 1e-9) out.push([p, em(t0)]);
+  if (t1 < 1 - 1e-9) out.push([em(t1), q]);
+  return out;
 }
 
 /**
@@ -253,7 +276,7 @@ function baseLayout(item: DimItem, ctx: DimLayoutCtx, mPerMm: number): DimLayout
   };
   const base = dimensionGeometry(item.a, item.b, d.offset, mPerMm, textMm, undefined, geomOpts);
   const g = d.textAt ? dimensionGeometry(item.a, item.b, d.offset, mPerMm, textMm, d.textAt, geomOpts) : base;
-  const nominal = w + (centered ? 2 * QUEBRA_MM * mPerMm : 0) <= g.length;
+  const nominal = w + (centered ? 2 * MASCARA_MM * mPerMm : 0) <= g.length;
   let fits = nominal;
   if (ctx.v) {
     const medida = valorCabeNoTrecho(item.text, g.length, textMm, ctx.scale, ctx.v.zoom);
@@ -269,8 +292,6 @@ export interface DimLook {
   /** Peso de papel da linha fina (linha de cota, chamadas, extensão) e do marcador. */
   fina: Espessura;
   marcador: Espessura;
-  /** Cor do fundo/halo do texto. */
-  paper: string;
   /** Multiplicador de espessura (destaque de hover/seleção). */
   fator?: number;
   /** Texto em negrito (destaque). */
@@ -312,16 +333,13 @@ export function drawDimension(l: DimLayout, scale: number, look: DimLook): DimOp
     const [ta, tb] = g.line;
     const u = norm(sub(tb, ta));
     const tick = style.tick;
-    // Linha de cota: o marcador de 45° ultrapassa o corte da linha; o texto centrado a interrompe.
+    // Linha de cota: o marcador de 45° ultrapassa a linha. O traço é interrompido onde passa por baixo do valor (com a
+    // folga de papel de `MASCARA_MM`); quando o texto está acima/ao lado da linha, ela sai inteira.
     const sobra = tick === 'slash' ? style.tickSize * 0.35 * mPerMm : 0;
     const p0 = sub(ta, mul(u, sobra));
     const p1 = add(tb, mul(u, sobra));
-    const cortada = l.fits && style.textPlacement === 'centered' && !l.moved && !l.item.d.textAt && l.item.text !== '';
-    if (cortada) {
-      const meio = l.w / 2 + QUEBRA_MM * mPerMm;
-      const mid = mul(add(ta, tb), 0.5);
-      out.strokes.push(st([p0, sub(mid, mul(u, meio))]), st([add(mid, mul(u, meio)), p1]));
-    } else out.strokes.push(st([p0, p1]));
+    const caixa = grow(l.box, MASCARA_MM * mPerMm);
+    for (const [a, b] of segmentosForaDaCaixa(p0, p1, caixa)) out.strokes.push(st([a, b]));
     if (tick === 'slash') for (const t of g.ticks) out.strokes.push(st([...t], mk));
     else {
       markerOps(tick, ta, u, style.tickSize, mPerMm, look, mk, out);
@@ -330,7 +348,19 @@ export function drawDimension(l: DimLayout, scale: number, look: DimLook): DimOp
     if (l.leader) out.strokes.push(st([...l.leader]));
   } else if (l.ang) {
     const g = l.ang;
-    out.strokes.push(st(g.arc));
+    // Arco: os subtrechos que passam por baixo do valor são omitidos e os vizinhos contíguos voltam a formar uma polilinha
+    // (sem interrupção, o desenho é o mesmo arco único de antes).
+    const caixa = grow(l.box, MASCARA_MM * mPerMm);
+    const partes: Vec2[][] = [];
+    for (let i = 1; i < g.arc.length; i++) {
+      for (const [p, q] of segmentosForaDaCaixa(g.arc[i - 1]!, g.arc[i]!, caixa)) {
+        const ultima = partes[partes.length - 1];
+        const fim = ultima?.[ultima.length - 1];
+        if (fim && Math.abs(fim.x - p.x) < 1e-12 && Math.abs(fim.y - p.y) < 1e-12) ultima!.push(q);
+        else partes.push([p, q]);
+      }
+    }
+    for (const pts of partes) out.strokes.push(st(pts));
     for (const seg of g.extensions) out.strokes.push(st([...seg]));
     if (style.tick === 'slash') for (const t of g.ticks) out.strokes.push(st([...t], mk));
     else if (g.arc.length >= 2) {
@@ -343,10 +373,6 @@ export function drawDimension(l: DimLayout, scale: number, look: DimLook): DimOp
     const label: LabelOp = { ...noteLabel(l.textAt, l.item.text, l.textMm, scale, l.rotation), color: look.color };
     if (look.bold) label.bold = true;
     if (style.font) label.fontFamily = style.font;
-    // Fundo (halo) fino do papel: o valor se lê por cima de hachuras e linhas.
-    label.maskBoundary = boxCorners({ ...l.box, c: l.textAt }, MASCARA_MM * mPerMm);
-    label.maskColor = look.paper;
-    label.maskBorderColor = 'none';
     out.labels.push(label);
   }
   return out;

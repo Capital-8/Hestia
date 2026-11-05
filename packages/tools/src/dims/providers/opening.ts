@@ -19,6 +19,7 @@ import { matchDimRef, tempRefs } from '../permanent.ts';
 import { hostTargets, type HostTarget } from '../refs.ts';
 import { neighborOpeningTargets } from './openingNeighbors.ts';
 import type { DimContext, DimEditResult, DimEnd, DimProvider, TempDim } from '../types.ts';
+import { t as translate, type Lang } from '../../i18n.ts';
 
 /** Esquadria a cotar: a já colocada (com `id`) ou a prévia da colocação (sem `id`, cotas só de leitura). */
 export interface OpeningDimSubject {
@@ -63,9 +64,9 @@ function asOpening(p: Project, s: OpeningDimSubject): Opening | null {
   return { id: s.id ?? 'preview', kind: t.kind, typeId: s.typeId, hostId: s.hostId, offset: s.offset, flipHand: s.flipHand ?? false, flipFacing: s.flipFacing, sillOverride: null, mark: '' };
 }
 
-function labelOf(p: Project, o: Opening): string {
+function labelOf(p: Project, o: Opening, lang: Lang): string {
   const t = openingTypeById(p, o.typeId);
-  return `${o.kind === 'door' ? 'a porta' : 'a janela'} ${o.mark || t?.code || ''}`.trim();
+  return `${translate(lang, o.kind === 'door' ? 'tl_label_door' : 'tl_label_window')} ${o.mark || t?.code || ''}`.trim();
 }
 
 const capital = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
@@ -74,7 +75,7 @@ const capital = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 function conflict(ctx: DimContext, s: OpeningDimSubject, opening: Opening, frame: WallFrame, ext: OpeningExtents, offset: number): string | null {
   const p = ctx.project;
   const half = ext.frame;
-  if (offset - half < END_GAP - EPS || offset + half > frame.length - END_GAP + EPS) return `${capital(labelOf(p, opening))} sairia da parede.`;
+  if (offset - half < END_GAP - EPS || offset + half > frame.length - END_GAP + EPS) return translate(ctx.lang ?? 'pt', 'tl_msg_opening_out_of_wall', { opening: capital(labelOf(p, opening, ctx.lang ?? 'pt')) });
   const lo = offset - half;
   const hi = offset + half;
   const t = openingTypeById(p, s.typeId);
@@ -85,10 +86,10 @@ function conflict(ctx: DimContext, s: OpeningDimSubject, opening: Opening, frame
     const [a, b] = busy[i]!;
     if (lo < b - EPS && hi > a + EPS) {
       const other = others.find((o) => Math.abs(o.offset - (a + b) / 2) < 1e-4);
-      return other ? `Sobrepõe ${labelOf(p, other)}.` : 'Sobrepõe outra esquadria.';
+      return other ? translate(ctx.lang ?? 'pt', 'tl_msg_overlaps', { opening: labelOf(p, other, ctx.lang ?? 'pt') }) : translate(ctx.lang ?? 'pt', 'tl_msg_dim_opening_overlap_other');
     }
   }
-  if (overlapsPerpendicular(perpendicularNeighbors(p, s.hostId, ctx.levelId), offset, half * 2)) return 'Atravessa a parede perpendicular.';
+  if (overlapsPerpendicular(perpendicularNeighbors(p, s.hostId, ctx.levelId), offset, half * 2)) return translate(ctx.lang ?? 'pt', 'tl_msg_dim_cross_wall');
   return null;
 }
 
@@ -114,7 +115,7 @@ function buildDim(c: SideCtx, side: 'left' | 'right', target: HostTarget, wallRe
   const selfEnd: DimEnd = { at: selfPt, slot: side === 'left' ? 'openLeft' : 'openRight', kind: 'opening', current: selfRef, options: OPENING_DIM_REFS };
   const edit = subject.id
     ? (v: number): DimEditResult => {
-        if (!Number.isFinite(v) || v < 0) return { error: 'Medida inválida: digite uma distância maior ou igual a zero.' };
+        if (!Number.isFinite(v) || v < 0) return { error: translate(c.ctx.lang ?? 'pt', 'tl_msg_invalid_measure') };
         const offset = side === 'left' ? target.t + v + edge : target.t - v - edge;
         const why = conflict(c.ctx, subject, c.opening, frame, ext, offset);
         return why ? { error: why } : { commands: [{ type: 'updateElements', ids: [subject.id!], patch: { offset } }] };

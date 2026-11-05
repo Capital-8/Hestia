@@ -2,18 +2,19 @@ import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import * as THREE from 'three';
 import type { OpeningCheck } from '@hestia/engine';
 import type { OpeningLineConvention, OpeningType } from '@hestia/model';
+import { useT, type Dict, type Lang } from '../../../editor/i18n.ts';
 import { NumField } from '../../fields.tsx';
 import { Preview3D } from './Preview3D.tsx';
 import { previewElevationSvg, previewPlanSvg, previewSectionFrames } from './previewViews.ts';
 
 export type PreviewTab = 'plan' | 'elevation' | 'section' | 'lines3d' | 'shaded3d';
 
-const TABS: ReadonlyArray<{ id: PreviewTab; label: string }> = [
-  { id: 'plan', label: 'Planta' },
-  { id: 'elevation', label: 'Elevação' },
-  { id: 'section', label: 'Corte' },
-  { id: 'lines3d', label: '3D linhas' },
-  { id: 'shaded3d', label: '3D sombreado' },
+const TABS: ReadonlyArray<readonly [PreviewTab, keyof Dict]> = [
+  ['plan', 'dlo_tab_plan'],
+  ['elevation', 'dlo_tab_elevation'],
+  ['section', 'dlo_tab_section'],
+  ['lines3d', 'dlo_tab_lines3d'],
+  ['shaded3d', 'dlo_tab_shaded3d'],
 ];
 
 interface OpeningTypePreviewProps {
@@ -46,10 +47,11 @@ function previewSvg(
   flipFacing: boolean,
   angle: number,
   openingLine: OpeningLineConvention | undefined,
+  lang: Lang,
 ): string {
   try {
-    if (tab === 'plan') return previewPlanSvg(d, { flipHand, flipFacing, angle, openingLine, width: PREVIEW_W, height: PREVIEW_H });
-    return previewElevationSvg(d, { flipHand, flipFacing, openingLine, width: PREVIEW_W, height: PREVIEW_H });
+    if (tab === 'plan') return previewPlanSvg(d, { flipHand, flipFacing, angle, openingLine, width: PREVIEW_W, height: PREVIEW_H, lang });
+    return previewElevationSvg(d, { flipHand, flipFacing, openingLine, width: PREVIEW_W, height: PREVIEW_H, lang });
   } catch {
     return '';
   }
@@ -72,6 +74,7 @@ export function OpeningTypePreview({
   checks,
   openingLine,
 }: OpeningTypePreviewProps): ReactElement {
+  const { t, lang } = useT();
   // O renderizador WebGL é único para o diálogo: nasce com a prévia (o diálogo aberto) e é descartado ao fechar.
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const [renderer, setRenderer] = useState<THREE.WebGLRenderer | null>(null);
@@ -104,8 +107,8 @@ export function OpeningTypePreview({
   const is3d = tab === 'lines3d' || tab === 'shaded3d';
   const noWebgl = webglFailed || typeof document === 'undefined';
   const svg = useMemo(
-    () => (is3d || tab === 'section' ? '' : previewSvg(tab, debounced, flipHand, flipFacing, angle, openingLine)),
-    [debounced, tab, is3d, flipHand, flipFacing, angle, openingLine],
+    () => (is3d || tab === 'section' ? '' : previewSvg(tab, debounced, flipHand, flipFacing, angle, openingLine, lang)),
+    [debounced, tab, is3d, flipHand, flipFacing, angle, openingLine, lang],
   );
   // O corte vira três quadros (inteiro + cabeça + soleira), todos pelo pipeline de seção do projeto.
   const sectionFrames = useMemo(() => {
@@ -117,32 +120,33 @@ export function OpeningTypePreview({
         openingLine,
         width: PREVIEW_W,
         height: PREVIEW_H,
+        lang,
       });
     } catch {
       return null;
     }
-  }, [debounced, tab, flipHand, flipFacing, openingLine]);
+  }, [debounced, tab, flipHand, flipFacing, openingLine, lang]);
   return (
-    <aside className="op-preview" aria-label="Pré-visualização do tipo">
-      <div className="op-tabs" role="tablist" aria-label="Vistas da prévia">
-        {TABS.map((t) => (
+    <aside className="op-preview" aria-label={t('dlo_prev_aria')}>
+      <div className="op-tabs" role="tablist" aria-label={t('dlo_prev_tabs_aria')}>
+        {TABS.map(([id, labelKey]) => (
           <button
-            key={t.id}
+            key={id}
             type="button"
             role="tab"
-            className={`op-tab${t.id === tab ? ' on' : ''}`}
-            aria-selected={t.id === tab}
-            title={t.label}
-            onClick={() => onTab(t.id)}
+            className={`op-tab${id === tab ? ' on' : ''}`}
+            aria-selected={id === tab}
+            title={t(labelKey)}
+            onClick={() => onTab(id)}
           >
-            {t.label}
+            {t(labelKey)}
           </button>
         ))}
       </div>
-      <div className="op-pv-box" role="tabpanel" aria-label={TABS.find((t) => t.id === tab)?.label ?? 'Prévia'}>
+      <div className="op-pv-box" role="tabpanel" aria-label={TABS.find(([id]) => id === tab) ? t(TABS.find(([id]) => id === tab)![1]) : t('dlo_prev_fallback')}>
         {is3d ? (
           noWebgl ? (
-            <div className="op-pv-soon">3D indisponível neste navegador</div>
+            <div className="op-pv-soon">{t('dlo_prev_no3d')}</div>
           ) : (
             <Preview3D
               renderer={renderer}
@@ -172,22 +176,22 @@ export function OpeningTypePreview({
         ) : svg ? (
           <div style={{ width: '100%', height: '100%', minHeight: 0 }} dangerouslySetInnerHTML={{ __html: svg }} />
         ) : (
-          <div className="op-pv-soon">Prévia indisponível</div>
+          <div className="op-pv-soon">{t('dlo_prev_unavailable')}</div>
         )}
       </div>
       <div className="op-pv-actions">
-        <button type="button" className="btn small" aria-pressed={flipHand} onClick={onFlipHand}>Inverter dobradiça</button>
-        <button type="button" className="btn small" aria-pressed={flipFacing} onClick={onFlipFacing}>Inverter sentido</button>
-        <label htmlFor="op-pv-angle">Ângulo</label>
+        <button type="button" className="btn small" aria-pressed={flipHand} onClick={onFlipHand}>{t('dlo_prev_flip_hand')}</button>
+        <button type="button" className="btn small" aria-pressed={flipFacing} onClick={onFlipFacing}>{t('dlo_prev_flip_facing')}</button>
+        <label htmlFor="op-pv-angle">{t('dlo_prev_angle')}</label>
         <NumField id="op-pv-angle" value={(angle * Math.PI) / 180} quantity="angle" onCommit={(v) => onAngle((v * 180) / Math.PI)} />
       </div>
       <div className="op-pv-state">
-        <span>Dobradiça: {flipHand ? 'direita' : 'esquerda'}</span>
-        <span>Sentido: {flipFacing ? 'oposto' : 'padrão'}</span>
+        <span>{t('dlo_prev_hinge_state', { side: t(flipHand ? 'dlo_prev_right' : 'dlo_prev_left') })}</span>
+        <span>{t('dlo_prev_facing_state', { facing: t(flipFacing ? 'dlo_prev_opposite' : 'dlo_prev_standard') })}</span>
       </div>
-      <div className="op-checks" aria-label="Verificações">
-        <div className="op-checks-title">Verificações</div>
-        {checks.length === 0 ? <p className="hint">Sem verificações.</p> : (
+      <div className="op-checks" aria-label={t('dlo_checks_aria')}>
+        <div className="op-checks-title">{t('dlo_checks_title')}</div>
+        {checks.length === 0 ? <p className="hint">{t('dlo_checks_empty')}</p> : (
           <ul>
             {checks.map((c, i) => (
               <li key={`${c.level}-${i}`} className={c.level}>

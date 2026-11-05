@@ -17,6 +17,7 @@ import { add, dist, len, sub } from '@hestia/geom';
 import { levelRoomSeparators, roomCeilingHeight, roomsOnLevel, type Id, type Project, type ValidationIssue } from '@hestia/model';
 import { wallFaces } from './faces.ts';
 import { noteCircuitRecalc, wallsSignature } from './enclosed.ts';
+import { t, type Lang } from './i18nMessages.ts';
 import { levelFrames } from './resolve.ts';
 
 /** Por que o ponto do ambiente não está num circuito fechado. */
@@ -238,17 +239,17 @@ export function resolveRooms(p: Project, levelId: Id): ResolvedRoom[] {
 export const resolveAllRooms = (p: Project): ResolvedRoom[] => p.levels.flatMap((l) => resolveRooms(p, l.id));
 
 /** Avisos de geometria dos ambientes: ponto fora de circuito (fora/aberto) e ambiente duplicado no mesmo circuito. */
-export function roomValidationIssues(p: Project): ValidationIssue[] {
+export function roomValidationIssues(p: Project, lang: Lang = 'pt'): ValidationIssue[] {
   const out: ValidationIssue[] = [];
   for (const r of resolveAllRooms(p)) {
     const name = r.number ? `"${r.number}"` : `"${r.name || r.roomId}"`;
     if (r.problem === 'fora') {
-      out.push({ severity: 'error', code: 'room-point-outside', message: `Ambiente ${name} não está dentro de nenhum circuito fechado de paredes.`, elementId: r.roomId });
+      out.push({ severity: 'error', code: 'room-point-outside', message: t(lang, 'egb_issue_room_outside', { name }), elementId: r.roomId });
     } else if (r.problem === 'aberto') {
-      out.push({ severity: 'error', code: 'room-point-open', message: `Ambiente ${name} está num circuito aberto (há um vão entre as paredes).`, elementId: r.roomId });
+      out.push({ severity: 'error', code: 'room-point-open', message: t(lang, 'egb_issue_room_open', { name }), elementId: r.roomId });
     }
     if (r.duplicateOf !== undefined) {
-      out.push({ severity: 'warning', code: 'room-duplicate', message: `Ambiente ${name} está no mesmo circuito do ambiente "${r.duplicateOf}".`, elementId: r.roomId });
+      out.push({ severity: 'warning', code: 'room-duplicate', message: t(lang, 'egb_issue_room_duplicate', { name, other: r.duplicateOf }), elementId: r.roomId });
     }
   }
   return out;

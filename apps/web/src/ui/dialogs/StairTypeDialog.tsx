@@ -4,7 +4,7 @@ import { editor, useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
 import { keptStairType } from '../../editor/stairActions.ts';
 import { saveStairType, stairTypeDeleteBlock, tryDeleteStairType } from '../../editor/stairTypeActions.ts';
-import { I18N, useI18n } from '../../editor/i18n.ts';
+import { dictOf, useI18n } from '../../editor/i18n.ts';
 import { safeGet, safeSet } from '../../editor/storage.ts';
 import { TextField } from '../fields.tsx';
 import { Dialog } from './Dialog.tsx';
@@ -65,7 +65,7 @@ export function StairTypeDialog({ typeId }: { typeId: string }): ReactElement | 
   const p = useProject();
   const selection = useUi((s) => s.selection);
   const lang = useI18n((s) => s.lang);
-  const t = I18N[lang];
+  const t = dictOf(lang);
   const src = p.stairTypes[typeId];
   const base = src ? normalize(structuredClone(src)) : null;
   const [draft, setDraftState] = useState<StairType | null>(() => (src ? normalize(structuredClone(src)) : null));
@@ -131,7 +131,7 @@ export function StairTypeDialog({ typeId }: { typeId: string }): ReactElement | 
     const r = saveStairType(editor.store, saved);
     if (!r.ok) {
       // O modelo recusou (regras mais estritas que as do modal): o diálogo continua aberto com o rascunho.
-      setSaveError(`Não foi possível salvar: ${r.error}`);
+      setSaveError(fill(t.dlt_stair_err_save, { error: r.error }));
       return false;
     }
     setSaveError(null);
@@ -173,11 +173,11 @@ export function StairTypeDialog({ typeId }: { typeId: string }): ReactElement | 
     if (!cur) return;
     // Parte do rascunho atual (com as alterações não salvas), não do tipo salvo.
     if (validateStairType(cur, materialIds).some((i) => i.severity === 'error')) {
-      useUi.setState({ status: 'Corrija os erros do tipo antes de duplicar.' });
+      useUi.setState({ status: { key: 'dlt_stair_err_fix_duplicate' } });
       return;
     }
-    const copy = duplicateDraft(finalizeForSave(cur));
-    editor.store.exec({ type: 'upsertStairType', stairType: copy }, 'Duplicar tipo de escada');
+    const copy = duplicateDraft(finalizeForSave(cur), undefined, lang);
+    editor.store.exec({ type: 'upsertStairType', stairType: copy }, 'edc_undo_duplicate_stair');
     useUi.setState({ dialogArg: copy.id });
   };
   const selectType = (id: string): void => {
@@ -189,7 +189,7 @@ export function StairTypeDialog({ typeId }: { typeId: string }): ReactElement | 
     if (!draftRef.current) return;
     const r = tryDeleteStairType(editor.store, draftRef.current.id);
     if (!r.ok) {
-      useUi.setState({ status: `Não foi possível excluir: ${r.error}` });
+      useUi.setState({ status: { key: 'dlt_err_delete_with_reason', args: { error: r.error } } });
       return;
     }
     const ui = useUi.getState();

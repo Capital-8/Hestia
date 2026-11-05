@@ -1,6 +1,7 @@
 import { dist } from '@hestia/geom';
 import type { Vec2 } from '@hestia/geom';
 import { newId, stairBaseZ, stairTopZ, type Project, type Stair, type StairLanding, type StairRun } from '@hestia/model';
+import { t, type Lang } from './i18nMessages.ts';
 import { planStairFree, type StairFreePlan } from './stairFree.ts';
 import type { StairFixed } from './stairLive.ts';
 import type { StairComponentSketch } from './stairGenerators.ts';
@@ -60,17 +61,17 @@ function toComponent(sketch: StairComponentSketch, prev: StairRun | StairLanding
  * par (N, T) medido enquanto a altura do espelho couber no máximo do tipo (D6); `fixed: 'auto'` volta aos padrões.
  * Quem grava faz `updateElements` com componentes, trajeto e patamares manuais em UMA transação.
  */
-export function regenStairFree(stair: Stair, p: Project, patch: StairFreePatch): StairFreeResult | { error: string } {
+export function regenStairFree(stair: Stair, p: Project, patch: StairFreePatch, lang: Lang = 'pt'): StairFreeResult | { error: string } {
   const path = patch.freePath ?? stair.freePath;
-  if (!path || path.length < 2) return { error: 'A escada não tem trajeto livre para regenerar.' };
+  if (!path || path.length < 2) return { error: t(lang, 'egb_err_stair_no_path') };
   const type = p.stairTypes[stair.typeId];
-  if (!type) return { error: 'Tipo de escada inexistente' };
+  if (!type) return { error: t(lang, 'egb_err_stair_type') };
   const H = stairTopZ(p, stair) - stairBaseZ(p, stair);
-  if (!(H > 0)) return { error: 'O nível de topo não fica acima da base: nada a gerar.' };
+  if (!(H > 0)) return { error: t(lang, 'egb_err_stair_top_level') };
 
   const measured = measureFreeStair(stair);
   const width = patch.width ?? measured?.width;
-  if (!width) return { error: 'A escada não tem um lance válido para regenerar.' };
+  if (!width) return { error: t(lang, 'egb_err_stair_no_flight') };
 
   let fixed: StairFixed | undefined;
   if (patch.fixed === 'auto') fixed = undefined;
@@ -82,6 +83,7 @@ export function regenStairFree(stair: Stair, p: Project, patch: StairFreePatch):
     landingDepth: patch.landingDepth ?? width,
     manualLandings: patch.manualLandings ?? stair.manualLandings,
     fixed,
+    lang,
   });
   if ('error' in plan) return { error: plan.error };
 

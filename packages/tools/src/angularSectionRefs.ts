@@ -3,6 +3,7 @@ import type { Id } from '@hestia/model';
 import type { AlignFeature } from './alignFeatures.ts';
 import { sectionSnapIndex } from './sectionSnapIndex.ts';
 import type { SectionToolContext } from './types.ts';
+import { t as translate, type Lang } from './i18n.ts';
 
 /**
  * Referências da cota angular no corte/elevação. As retas vêm do índice de captura da vista (arestas e trilhas já em
@@ -13,7 +14,7 @@ import type { SectionToolContext } from './types.ts';
  */
 
 const TOL_PX = 8;
-const AXIS_LABEL = { h: 'horizontal', v: 'vertical', d: 'inclinada' } as const;
+const AXIS_KEYS = { h: 'tl_axis_horizontal', v: 'tl_axis_vertical', d: 'tl_axis_inclined' } as const;
 
 /** Feição de corte: a chave começa com `sec:` e a reta vem das pontas da aresta (`seg`). */
 export const isSectionRef = (f: AlignFeature): boolean => f.key.startsWith('sec:');
@@ -25,7 +26,7 @@ const pt = (p: Vec2): string => `${r6(p.x)},${r6(p.y)}`;
  * Arestas da vista sob o cursor, da mais próxima para a mais distante. Só lê o índice (`sectionSnapIndex`); sem
  * resultado de corte devolve lista vazia. Elementos ocultos na vista não são referência.
  */
-export function sectionRefFeatures(sec: SectionToolContext, at: Vec2, mpp: number, hidden?: ReadonlySet<Id>): AlignFeature[] {
+export function sectionRefFeatures(sec: SectionToolContext, at: Vec2, mpp: number, hidden?: ReadonlySet<Id>, lang: Lang = 'pt'): AlignFeature[] {
   let index;
   try {
     index = sectionSnapIndex(sec.result());
@@ -49,7 +50,7 @@ export function sectionRefFeatures(sec: SectionToolContext, at: Vec2, mpp: numbe
       key,
       line: { p: anchor, d: norm(sub(track.b, track.a)) },
       kind: 'arestaAnel',
-      label: `Aresta ${AXIS_LABEL[track.axis]}`,
+      label: translate(lang, 'tl_msg_angular_edge', { axis: translate(lang, AXIS_KEYS[track.axis]) }),
       ownerId: track.hostId ?? 'section',
       move: { policy: 'nenhum' },
       seg: { a: { x: track.a.x, y: track.a.y }, b: { x: track.b.x, y: track.b.y } },

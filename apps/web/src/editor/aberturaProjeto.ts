@@ -4,6 +4,7 @@ import { aquecerPlanta } from './aquecerPlanta.ts';
 import { usuarioEmGesto } from './atividadeUsuario.ts';
 import { editor } from './controller.ts';
 import { restaurarDoCache } from './geometriaAbertura.ts';
+import { t, useI18n } from './i18n.ts';
 import { iniciarPreparo3d } from '../ui/preparo3d.ts';
 import { PreparoProjeto, type TarefaPreparo } from './preparoProjeto.ts';
 import { useUi } from './state.ts';
@@ -203,6 +204,6 @@ export async function abrirProjetoPorFases(texto: string, nome: string): Promise
     return { ok: true, medidas };
   } catch (e) {
     publicarProgressoAbertura(null);
-    return { ok: false, error: e instanceof Error ? e.message : 'Arquivo inválido' };
+    return { ok: false, error: e instanceof Error ? e.message : t(useI18n.getState().lang, 'edc_file_invalid') };
   }
 }

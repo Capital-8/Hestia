@@ -1,7 +1,7 @@
 {
   "name": "hestia",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.1",
   "type": "module",
   "workspaces": [
     "packages/*",
@@ -23,6 +23,9 @@
     "build:artifact": "npm run build && node scripts/make-artifact.mjs",
     "parity": "node scripts/check-parity.mjs --report",
     "test:rapido": "vitest run --exclude \"**/property.test.ts\" --exclude \"**/*perf.test.ts\"",
+    "test:i18n": "node scripts/test-i18n-runtime.mjs",
+    "audit:i18n": "node scripts/audit-i18n-hardcoded.mjs",
+    "check:ribbon-i18n": "node scripts/check-ribbon-i18n.mjs",
     "test:rapido:esquadria": "node scripts/test-esquadria.mjs",
     "test:completo": "node scripts/completo.mjs",
     "visual:juntas": "vite-node scripts/visual-juntas.mts && node scripts/visual-juntas.shot.mjs",

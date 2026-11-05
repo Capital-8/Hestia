@@ -1,0 +1,263 @@
+/* Tela inicial de projetos: lista de cards com a miniatura 3D de cada projeto. */
+
+.home {
+  position: fixed;
+  inset: 0;
+  overflow: auto;
+  padding: 28px 32px 48px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  box-sizing: border-box;
+}
+
+.home-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 18px;
+}
+
+.home-brand {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r);
+  background: var(--accent);
+  color: var(--accent-fg);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 20px;
+  flex: none;
+}
+
+.home-titles {
+  min-width: 0;
+  flex: 1;
+}
+
+.home-titles h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.home-titles p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--fg-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-head-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.home-note {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel);
+  color: var(--fg-soft);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.home-note-warn {
+  border-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 8%, var(--panel));
+  color: var(--fg);
+}
+
+.home-note-error {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, var(--panel));
+  color: var(--fg);
+}
+
+.home-hint {
+  border-style: dashed;
+  background: transparent;
+}
+
+.home-recover {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 12px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--accent);
+  border-radius: var(--r);
+  background: var(--accent-soft);
+  color: var(--fg);
+  cursor: pointer;
+  font: inherit;
+}
+
+.home-recover b {
+  display: block;
+  font-size: 14px;
+}
+
+.home-recover span {
+  font-size: 12px;
+  color: var(--fg-soft);
+}
+
+.home-templates {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 14px 0 18px;
+}
+
+.home-template {
+  text-align: left;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--sheet);
+  color: var(--fg);
+  cursor: pointer;
+  font: inherit;
+  display: grid;
+  gap: 4px;
+}
+
+.home-template:hover {
+  border-color: var(--accent);
+}
+
+.home-template b {
+  font-size: 13px;
+}
+
+.home-template span {
+  font-size: 12px;
+  color: var(--fg-soft);
+}
+
+.home-template em {
+  font-size: 11px;
+  color: var(--fg-faint);
+  font-style: normal;
+}
+
+.home-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0 14px;
+}
+
+.home-search {
+  flex: 1;
+  max-width: 360px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--sheet);
+  color: var(--fg);
+  font: inherit;
+}
+
+.home-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.home-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--sheet);
+  color: var(--fg);
+  cursor: pointer;
+  font: inherit;
+  overflow: hidden;
+}
+
+.home-card:hover,
+.home-card:focus-visible {
+  border-color: var(--accent);
+  box-shadow: var(--shadow);
+}
+
+.home-thumb {
+  display: block;
+  aspect-ratio: 3 / 2;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.home-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-thumb-none {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--fg-faint);
+  font-size: 12px;
+}
+
+.home-card b {
+  display: block;
+  padding: 10px 12px 2px;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-date {
+  display: block;
+  padding: 0 12px 10px;
+  font-size: 11px;
+  color: var(--fg-faint);
+}
+
+.home-forget {
+  flex: none;
+}
+
+/* Tela neutra da retomada (F5 com projeto aberto): evita a Home aparecer por um quadro antes do editor. */
+.home-abrindo {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  color: var(--fg-faint);
+  font-family: var(--font-ui);
+}
+
+.home-abrindo-texto {
+  font-size: 13px;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel);
+}

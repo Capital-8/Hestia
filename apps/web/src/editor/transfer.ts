@@ -1,5 +1,6 @@
 import type { Id, Project, ProjectStore } from '@hestia/model';
 import { clipboardFrom, copyableIds as copyableIdsOf, idsOfType, pasteAlignedCommand, pasteAlignedToLevelsCommand, sameNameRoomIds, selectedTypeId, type ClipBuffer, type PasteIds, type PasteLevelsResult } from '@hestia/tools';
+import { t, useI18n, type Dict, type Lang } from './i18n.ts';
 import { useUi } from './state.ts';
 
 /** Ordem canônica de exibição/seleção das categorias coladas (a mesma do motor). */
@@ -36,20 +37,30 @@ interface Counts {
   cad: number;
 }
 
-/** "2 parede(s), 1 piso, 1 laje e 1 escada": frase do status para o que foi copiado ou colado. */
-function describe(c: Counts): string {
+/** Chaves do singular/plural de cada categoria na frase de cópia. */
+const COUNT_KEYS: Record<keyof Counts, readonly [keyof Dict, keyof Dict]> = {
+  walls: ['edc_count_wall_one', 'edc_count_wall_many'],
+  floors: ['edc_count_floor_one', 'edc_count_floor_many'],
+  slabs: ['edc_count_slab_one', 'edc_count_slab_many'],
+  ceilings: ['edc_count_ceiling_one', 'edc_count_ceiling_many'],
+  roofs: ['edc_count_roof_one', 'edc_count_roof_many'],
+  stairs: ['edc_count_stair_one', 'edc_count_stair_many'],
+  ramps: ['edc_count_ramp_one', 'edc_count_ramp_many'],
+  rooms: ['edc_count_room_one', 'edc_count_room_many'],
+  generics: ['edc_count_generic_one', 'edc_count_generic_many'],
+  cad: ['edc_count_cad_one', 'edc_count_cad_many'],
+};
+
+/** "2 paredes, 1 piso, 1 laje e 1 escada": frase do status para o que foi copiado ou colado. */
+function describe(c: Counts, lang: Lang): string {
   const parts: string[] = [];
-  if (c.walls) parts.push(`${c.walls} parede(s)`);
-  if (c.floors) parts.push(`${c.floors} piso(s)`);
-  if (c.slabs) parts.push(`${c.slabs} laje(s)`);
-  if (c.ceilings) parts.push(`${c.ceilings} forro(s)`);
-  if (c.roofs) parts.push(`${c.roofs} telhado(s)`);
-  if (c.stairs) parts.push(`${c.stairs} escada(s)`);
-  if (c.ramps) parts.push(`${c.ramps} rampa(s)`);
-  if (c.rooms) parts.push(`${c.rooms} ambiente(s)`);
-  if (c.generics) parts.push(`${c.generics} objeto(s) importado(s)`);
-  if (c.cad) parts.push(`${c.cad} desenho(s) CAD`);
-  return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} e ${parts[parts.length - 1]}` : (parts[0] ?? '');
+  for (const [categoria, chaves] of Object.entries(COUNT_KEYS) as Array<[keyof Counts, readonly [keyof Dict, keyof Dict]]>) {
+    const n = c[categoria];
+    if (!n) continue;
+    parts.push(t(lang, n === 1 ? chaves[0] : chaves[1], { n }));
+  }
+  if (parts.length > 1) return t(lang, 'edc_list_and', { list: parts.slice(0, -1).join(', '), last: parts[parts.length - 1]! });
+  return parts[0] ?? '';
 }
 
 /** Ids de nível de origem distintos do buffer (aberturas não têm nível próprio). */
@@ -129,28 +140,30 @@ export class Transfer {
 
   /** Copia a seleção e as aberturas nas paredes. Sem nada copiável, mantém o que já estava copiado. */
   copy(p: Project, ids: Id[]): boolean {
+    const lang = useI18n.getState().lang;
     const next = clipboardFrom(p, ids);
     if (!next) {
-      useUi.setState({ status: 'Selecione paredes, pisos, lajes, forros, telhados, escadas, rampas, ambientes, objetos importados ou CAD para copiar.' });
+      useUi.setState({ status: { key: 'edc_copy_nothing_copyable' } });
       return false;
     }
     this.clip = next;
-    useUi.setState({ status: `${describe(counts(next))} copiado(s). Ctrl+V cola seguindo o cursor.` });
+    useUi.setState({ status: { key: 'edc_copied', args: { description: describe(counts(next), lang) } } });
     return true;
   }
 
   /** Cola o copiado no nível, nas mesmas coordenadas, em um único passo de desfazer, e seleciona o resultado. */
   paste(store: ProjectStore, levelId: Id): boolean {
+    const lang = useI18n.getState().lang;
     if (!this.clip) {
-      useUi.setState({ status: 'Nada copiado. Selecione elementos e use Ctrl+C.' });
+      useUi.setState({ status: { key: 'edc_clipboard_empty_cut' } });
       return false;
     }
     const r = pasteAlignedCommand(store.project, this.clip, levelId);
     if (!r) {
-      useUi.setState({ status: 'Não há o que colar neste nível.' });
+      useUi.setState({ status: { key: 'edc_paste_nothing_here' } });
       return false;
     }
-    store.exec(r.command, 'Colar alinhado');
+    store.exec(r.command, 'edc_undo_paste_aligned');
     const pasted: Counts = {
       walls: r.wallIds.length,
       floors: r.floorIds.length,
@@ -164,7 +177,7 @@ export class Transfer {
       cad: r.cadIds.length,
     };
     const ids = [...r.wallIds, ...r.openingIds, ...r.floorIds, ...r.slabIds, ...r.ceilingIds, ...r.roofIds, ...r.stairIds, ...r.rampIds, ...r.roomIds, ...r.genericIds, ...r.cadIds];
-    useUi.setState({ selection: ids, status: `${describe(pasted)} colado(s) no mesmo lugar. Ctrl+Z desfaz.` });
+    useUi.setState({ selection: ids, status: { key: 'edc_pasted_in_place', args: { description: describe(pasted, lang) } } });
     return true;
   }
 
@@ -180,12 +193,12 @@ export class Transfer {
    */
   pasteToLevels(store: ProjectStore, levelIds: Id[], link: boolean): PasteLevelsResult | null {
     if (!this.clip) {
-      useUi.setState({ status: 'Nada copiado. Selecione elementos e use Copiar.' });
+      useUi.setState({ status: { key: 'edc_clipboard_empty' } });
       return null;
     }
     const r = pasteAlignedToLevelsCommand(store.project, this.clip, levelIds, { link });
     if (!r) {
-      useUi.setState({ status: 'Não há o que colar nos níveis escolhidos.' });
+      useUi.setState({ status: { key: 'edc_paste_levels_empty' } });
       return null;
     }
     this.applyResult(store, r, levelIds);
@@ -194,7 +207,7 @@ export class Transfer {
 
   /** Executa o lote, seleciona os ids criados e escreve o status com a contagem de avisos. */
   private applyResult(store: ProjectStore, r: PasteLevelsResult, levelIds: Id[]): void {
-    store.exec(r.command, 'Colar alinhado aos níveis selecionados');
+    store.exec(r.command, 'edc_undo_paste_aligned_levels');
     const ids = levelIds.flatMap((levelId) => {
       const ofLevel = r.byLevel[levelId];
       return ofLevel ? idsOfPaste(ofLevel) : [];
@@ -202,27 +215,29 @@ export class Transfer {
     const avisos = warningCount(r);
     useUi.setState({
       selection: ids,
-      status: `${ids.length} elemento(s) colado(s) em ${levelIds.length} nível(is).${avisos ? ` ${avisos} aviso(s).` : ''} Ctrl+Z desfaz.`,
+      status: avisos
+        ? { key: 'edc_pasted_levels_warnings', args: { n: ids.length, m: levelIds.length, w: avisos } }
+        : { key: 'edc_pasted_levels', args: { n: ids.length, m: levelIds.length } },
     });
   }
 
   /** Seleciona os elementos do nível com o tipo dado. Devolve quantos. */
   ofType(p: Project, levelId: Id, typeId: Id): number {
     const ids = idsOfType(p, levelId, typeId);
-    useUi.setState({ selection: ids, status: ids.length ? `${ids.length} elemento(s) do mesmo tipo selecionado(s).` : 'Nenhum elemento deste tipo neste nível.' });
+    useUi.setState({ selection: ids, status: ids.length ? { key: 'edc_same_type_selected', args: { n: ids.length } } : { key: 'edc_same_type_none' } });
     return ids.length;
   }
 
   /** "Mesmo nome" (ambientes): seleciona todos os ambientes do nível com o nome dos ambientes selecionados. Devolve quantos. */
   sameName(p: Project, levelId: Id): number {
     const ids = sameNameRoomIds(p, levelId, useUi.getState().selection);
-    useUi.setState({ selection: ids, status: ids.length ? `${ids.length} ambiente(s) com o mesmo nome selecionado(s).` : 'Selecione um ambiente primeiro: Mesmo nome seleciona os ambientes do nível com o mesmo nome (só ambientes).' });
+    useUi.setState({ selection: ids, status: ids.length ? { key: 'edc_same_name_selected', args: { n: ids.length } } : { key: 'edc_same_name_hint' } });
     return ids.length;
   }
 
   /** "Mesmo tipo": seleciona todos do tipo da seleção atual (que precisa ser de um só tipo). */
   sameType(p: Project, levelId: Id): number {
-    const r = selectedTypeId(p, useUi.getState().selection);
+    const r = selectedTypeId(p, useUi.getState().selection, useI18n.getState().lang);
     if ('error' in r) {
       useUi.setState({ status: r.error });
       return 0;

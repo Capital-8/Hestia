@@ -19,6 +19,7 @@ import type { RampPlan } from '@hestia/engine';
 import type { ToolEnv } from './types.ts';
 import { componentsFromParts } from './stairSketchState.ts';
 import type { RampToolOptions } from './rampOptions.ts';
+import { langOf, t as translate } from './i18n.ts';
 
 /** Tipo de rampa válido: o pedido se existir no projeto, senão o padrão, senão o primeiro. */
 export function rampTypeId(p: Project, want?: Id): Id | null {
@@ -121,7 +122,7 @@ export function updateRampComponents(
 ): { ok: true } | { error: string } {
   const ramp = env.project().elements[rampId];
   if (!isRamp(ramp)) return { error: 'Rampa não encontrada.' };
-  if (ramp.shape === 'free' || ramp.freePath) return { error: 'A rampa livre não permite editar o croqui pelos componentes.' };
+  if (ramp.shape === 'free' || ramp.freePath) return { error: translate(langOf(env), 'tl_msg_ramp_free_no_edit') };
   if (components.length === 0) return { error: 'O croqui da rampa precisa de pelo menos um componente.' };
   for (const c of components) {
     const curves = c.kind === 'landing' ? c.boundary : [...c.boundaryLeft, ...c.boundaryRight, ...c.risers, ...c.path];

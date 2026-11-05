@@ -1,6 +1,7 @@
 import type { Id, Project } from '@hestia/model';
 import { buildSheetDrawList, type SheetPath, type SheetPoint, type SheetRect, type SheetText } from '@hestia/render';
 import { writeDxf2000, type DxfDoc, type DxfDocEntity, type DxfDocLayer, type DxfPoint, type DxfUnit } from '@hestia/io';
+import { t as tr, useI18n, type Lang } from './i18n.ts';
 
 /**
  * DXF R2000 de uma prancha "como plotada" (modo do Revit): UM arquivo por prancha, com as vistas na posição e na escala
@@ -217,9 +218,14 @@ function textEntity(t: SheetText, clip: SheetRect | null): DxfDocEntity | null {
  * DXF R2000 de uma prancha, "como plotada": um arquivo com as vistas na posição e escala do papel. Prancha inexistente
  * lança Error em pt-BR. Os preenchimentos (`fills`) não saem (o escritor não tem HATCH/SOLID).
  */
-export function sheetDxf(p: Project, sheetId: Id, options: { units: DxfUnit }): string {
-  const list = buildSheetDrawList(p, sheetId);
-  if (!list) throw new Error('Prancha inexistente: ' + sheetId);
+export function sheetDxf(p: Project, sheetId: Id, options: { units: DxfUnit; lang?: Lang }): string {
+  const lang = options.lang ?? useI18n.getState().lang;
+  const list = buildSheetDrawList(p, sheetId, lang);
+  if (!list) throw new Error(tr(lang, 'io_dxf_sheet_missing', { id: sheetId }));
+  const layerMap = new Map<string, string>([
+    [LAYER, tr(lang, 'io_dxf_layer_sheet')],
+    [LAYER_TEXTO, tr(lang, 'io_dxf_layer_sheet_text')],
+  ]);
   const entities: DxfDocEntity[] = [];
   for (const group of list.groups) {
     for (const path of group.paths) entities.push(...pathEntities(path, group.clip));
@@ -229,8 +235,8 @@ export function sheetDxf(p: Project, sheetId: Id, options: { units: DxfUnit }): 
     }
   }
   const doc: DxfDoc = {
-    layers: LAYERS,
-    entities,
+    layers: LAYERS.map((layer) => ({ ...layer, name: layerMap.get(layer.name) ?? layer.name })),
+    entities: entities.map((entity) => ({ ...entity, layer: layerMap.get(entity.layer) ?? entity.layer })),
     extMin: { x: 0, y: 0 },
     extMax: { x: list.widthMm / 1000, y: list.heightMm / 1000 },
     units: options.units,

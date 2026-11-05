@@ -1,6 +1,6 @@
 import type { ReactElement, ReactNode } from 'react';
 import { levelAbove, levelElevation, type Id, type Project } from '@hestia/model';
-import { I18N, fmtNum, useI18n, type Lang } from '../editor/i18n.ts';
+import { dictOf, fmtNum, useI18n, type Lang } from '../editor/i18n.ts';
 import { NumField } from './fields.tsx';
 
 /** Altura padrão da rampa quando não há nível acima (mesmo valor de `makeRamp`). */
@@ -31,7 +31,7 @@ export function rampRiseFromLevels(p: Project, levelId: Id, v: RampLevelsValue):
 
 /** Texto da barra com o desnível e a vírgula decimal do idioma (PT: "Desnível: 1,50 m"; EN: "Rise: 1.50 m"). */
 export function rampRiseText(rise: number, lang: Lang): string {
-  return `${I18N[lang].ramp_prop_rise}: ${fmtNum(rise, 2, lang)} m`;
+  return `${dictOf(lang).ramp_prop_rise}: ${fmtNum(rise, 2, lang)} m`;
 }
 
 export interface RampLevelsFieldsProps {
@@ -50,8 +50,8 @@ export interface RampLevelsFieldsProps {
  * "Até Nível" para o topo (ou automático, o nível acima); deslocamentos; e a altura quando não há nível acima.
  */
 export function RampLevelsFields({ project: p, levelId, idPrefix, value, onChange, Field }: RampLevelsFieldsProps): ReactElement {
-  const t = I18N[useI18n((s) => s.lang)];
-  const baseName = p.levels.find((l) => l.id === levelId)?.name ?? 'Nível ativo';
+  const t = dictOf(useI18n((s) => s.lang));
+  const baseName = p.levels.find((l) => l.id === levelId)?.name ?? t.pra_msg_active_level;
   const noLevelAbove = levelAbove(p, levelId) === null;
   return (
     <>

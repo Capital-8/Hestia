@@ -3,6 +3,8 @@
  * escala; o que o usuário mudar no diálogo de exportação fica em `Project.dxfLayers`, por nome de camada. Ausente = padrão.
  */
 
+import { decimalSymbolFor, t, type Lang } from './i18n.ts';
+
 /** Tipos de linha que o escritor R2000 grava na tabela LTYPE. */
 export type DxfLayerLineType = 'CONTINUOUS' | 'DASHED';
 
@@ -22,9 +24,9 @@ export const DXF_LINE_WEIGHTS: readonly number[] = [0, 5, 9, 13, 15, 18, 20, 25,
 export const DXF_LINE_WEIGHT_DEFAULT = -3;
 
 /** Rótulo de uma espessura em centésimos de mm (`50` vira `0,50 mm`; `-3` vira `Padrão`). */
-export function dxfLineWeightLabel(centi: number): string {
-  if (centi === DXF_LINE_WEIGHT_DEFAULT) return 'Padrão';
+export function dxfLineWeightLabel(centi: number, lang: Lang = 'pt'): string {
+  if (centi === DXF_LINE_WEIGHT_DEFAULT) return t(lang, 'md_fmt_default');
   const reais = Math.floor(centi / 100);
   const centavos = String(Math.abs(centi % 100)).padStart(2, '0');
-  return `${reais},${centavos} mm`;
+  return `${reais}${decimalSymbolFor(lang)}${centavos} mm`;
 }

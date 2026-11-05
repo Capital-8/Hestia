@@ -1,8 +1,9 @@
-import { useState, type ReactElement } from 'react';
-import { DEFAULT_DISJOIN, TOOL_LABEL } from '@hestia/tools';
+import { useRef, useState, type ReactElement } from 'react';
+import { DEFAULT_DISJOIN } from '@hestia/tools';
 import { addRoomsAllCircuits } from '../editor/roomActions.ts';
 import { editor, useProject } from '../editor/controller.ts';
 import { useUi } from '../editor/state.ts';
+import { type Dict, type Lang, t, toolLabel, useT } from '../editor/i18n.ts';
 import { perimeterActions, usePerimeter } from '../editor/perimeter.ts';
 import { PerimeterOptionsBar } from './perimeter/PerimeterOptionsBar.tsx';
 import { Check, NumField } from './fields.tsx';
@@ -19,14 +20,20 @@ import { ArrayOptionsBar } from './ArrayOptionsBar.tsx';
 import { GridOptionsBar } from './GridOptionsBar.tsx';
 import { formatQuantity, openingFamilies, openingFamilyOf, DIM_FAMILY_PADRAO, defaultDimensionFamilyIdOf, dimensionFamiliesOf, type LocationLine } from '@hestia/model';
 
-export const LOCATION_LABEL: Record<LocationLine, string> = {
-  wallCenter: 'Eixo da parede',
-  coreCenter: 'Eixo do núcleo',
-  finishExterior: 'Face externa do acabamento',
-  finishInterior: 'Face interna do acabamento',
-  coreExterior: 'Face externa do núcleo',
-  coreInterior: 'Face interna do núcleo',
+/** Chave do dicionário de cada linha de localização da parede. */
+const LOCATION_KEY: Record<LocationLine, keyof Dict> = {
+  wallCenter: 'pro_loc_wall_center',
+  coreCenter: 'pro_loc_core_center',
+  finishExterior: 'pro_loc_finish_exterior',
+  finishInterior: 'pro_loc_finish_interior',
+  coreExterior: 'pro_loc_core_exterior',
+  coreInterior: 'pro_loc_core_interior',
 };
+
+/** Rótulo traduzido da linha de localização. */
+export function locationLabel(line: LocationLine, lang: Lang): string {
+  return t(lang, LOCATION_KEY[line]);
+}
 
 /**
  * Opções da ferramenta Cota: **família** (a aparência nomeada, criada no diálogo "Famílias de cotas") + direção e
@@ -36,33 +43,34 @@ export const LOCATION_LABEL: Record<LocationLine, string> = {
 function DimensionOptions(): ReactElement {
   const p = useProject();
   const o = useUi((s) => s.options);
+  const { t } = useT();
   const set = (patch: Partial<typeof o>): void => useUi.setState({ options: { ...useUi.getState().options, ...patch } });
   const familias = dimensionFamiliesOf(p.settings);
   const familia = o.dimensionFamilyId ?? defaultDimensionFamilyIdOf(p.settings);
   return (
     <>
-      <label>Família
+      <label>{t('pro_dim_family')}
         <select
           id="opt-dimfamily"
           className="select"
           value={familia}
-          title="Aparência da cota: marcador, texto, folgas e formato. Edite em Famílias de cotas…"
+          title={t('pro_dim_family_title')}
           onChange={(e) => set({ dimensionFamilyId: e.target.value === DIM_FAMILY_PADRAO ? null : e.target.value })}
         >
           {familias.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
         </select>
       </label>
-      <label>Direção
+      <label>{t('pro_dim_direction')}
         <select className="select" value={o.dimensionMode ?? 'auto'} onChange={(e) => set({ dimensionMode: e.target.value as 'auto' | 'aligned' | 'horizontal' | 'vertical' })}>
-          <option value="auto">Automática (pela referência)</option>
-          <option value="aligned">Alinhada</option>
-          <option value="horizontal">Horizontal</option>
-          <option value="vertical">Vertical</option>
+          <option value="auto">{t('pro_dim_dir_auto')}</option>
+          <option value="aligned">{t('pro_dim_dir_aligned')}</option>
+          <option value="horizontal">{t('pro_dim_dir_horizontal')}</option>
+          <option value="vertical">{t('pro_dim_dir_vertical')}</option>
         </select>
       </label>
-      <label>Sequência<select className="select" value={o.dimensionString ?? 'single'} onChange={(e) => set({ dimensionString: e.target.value as 'single' | 'continuous' | 'baseline' })}><option value="single">Individual</option><option value="continuous">Contínua</option><option value="baseline">A partir de uma base</option></select></label>
+      <label>{t('pro_dim_string')}<select className="select" value={o.dimensionString ?? 'single'} onChange={(e) => set({ dimensionString: e.target.value as 'single' | 'continuous' | 'baseline' })}><option value="single">{t('pro_dim_string_single')}</option><option value="continuous">{t('pro_dim_string_continuous')}</option><option value="baseline">{t('pro_dim_string_baseline')}</option></select></label>
       {o.dimensionMode === 'aligned' || o.dimensionMode === 'horizontal' || o.dimensionMode === 'vertical' ? null : (
-        <span style={{ color: 'var(--fg-soft)' }}>A direção vem dos pontos medidos</span>
+        <span style={{ color: 'var(--fg-soft)' }}>{t('pro_dim_dir_hint')}</span>
       )}
     </>
   );
@@ -71,45 +79,46 @@ function DimensionOptions(): ReactElement {
 /** Tipo Selector do Revit: agrupa os tipos por família e filtra por nome ou código. */
 function OpeningTypePicker({ kind, value, onChange }: { kind: 'door' | 'window'; value: string; onChange: (id: string) => void }): ReactElement {
   const p = useProject();
+  const { t, lang } = useT();
   const [q, setQ] = useState('');
-  const types = Object.values(p.openingTypes).filter((t) => t.kind === kind);
+  const types = Object.values(p.openingTypes).filter((tp) => tp.kind === kind);
   const needle = q.trim().toLowerCase();
-  const shown = needle ? types.filter((t) => t.name.toLowerCase().includes(needle) || (t.code ?? '').toLowerCase().includes(needle)) : types;
+  const shown = needle ? types.filter((tp) => tp.name.toLowerCase().includes(needle) || (tp.code ?? '').toLowerCase().includes(needle)) : types;
   // Favoritos no topo (ArchiCAD: Favorites); os demais ficam agrupados por família.
   const favorites = p.settings.favoriteOpeningTypes ?? [];
   const favSet = new Set(favorites);
-  const favoriteItems = shown.filter((t) => favSet.has(t.id));
-  const rest = shown.filter((t) => !favSet.has(t.id));
+  const favoriteItems = shown.filter((tp) => favSet.has(tp.id));
+  const rest = shown.filter((tp) => !favSet.has(tp.id));
   // Um grupo por família (ordem da interface); tipos sem família (dado fora do contrato) caem em "Outros".
-  const groups = openingFamilies(kind)
-    .map((f) => ({ family: f, items: rest.filter((t) => openingFamilyOf(t)?.id === f.id) }))
+  const groups = openingFamilies(kind, lang)
+    .map((f) => ({ family: f, items: rest.filter((tp) => openingFamilyOf(tp, lang)?.id === f.id) }))
     .filter((g) => g.items.length);
-  const orphans = rest.filter((t) => !openingFamilyOf(t));
-  const visible = new Set(shown.map((t) => t.id));
+  const orphans = rest.filter((tp) => !openingFamilyOf(tp, lang));
+  const visible = new Set(shown.map((tp) => tp.id));
   const current = p.openingTypes[value];
   return (
     <>
       <label>
-        Buscar
-        <input id="opt-opensearch" className="input" style={{ width: 120 }} value={q} placeholder="nome ou código" aria-label="Buscar tipo de abertura" onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />
+        {t('pro_search')}
+        <input id="opt-opensearch" className="input" style={{ width: 120 }} value={q} placeholder={t('pro_search_ph')} aria-label={t('pro_search_aria')} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />
       </label>
       <label>
-        Tipo
+        {t('pro_type')}
         <select id="opt-opentype" className="select" value={value} onChange={(e) => onChange(e.target.value)}>
           {current && !visible.has(value) ? <option value={value}>{current.name}</option> : null}
           {favoriteItems.length ? (
-            <optgroup label="★ Favoritos">
-              {favoriteItems.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            <optgroup label={t('pro_favorites')}>
+              {favoriteItems.map((tp) => <option key={tp.id} value={tp.id}>{tp.name}</option>)}
             </optgroup>
           ) : null}
           {groups.map((g) => (
             <optgroup key={g.family.id} label={g.family.name}>
-              {g.items.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {g.items.map((tp) => <option key={tp.id} value={tp.id}>{tp.name}</option>)}
             </optgroup>
           ))}
           {orphans.length ? (
-            <optgroup label="Outros">
-              {orphans.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            <optgroup label={t('pro_others')}>
+              {orphans.map((tp) => <option key={tp.id} value={tp.id}>{tp.name}</option>)}
             </optgroup>
           ) : null}
         </select>
@@ -117,9 +126,9 @@ function OpeningTypePicker({ kind, value, onChange }: { kind: 'door' | 'window';
       <button
         type="button"
         className="btn small"
-        aria-label={favSet.has(value) ? 'Remover tipo dos favoritos' : 'Adicionar tipo aos favoritos'}
-        title={favSet.has(value) ? 'Remover dos favoritos (desfazível)' : 'Adicionar aos favoritos (desfazível)'}
-        onClick={() => editor.store.exec({ type: 'toggleOpeningFavorite', id: value }, favSet.has(value) ? 'Remover tipo dos favoritos' : 'Favoritar tipo de abertura')}
+        aria-label={favSet.has(value) ? t('pro_fav_remove') : t('pro_fav_add')}
+        title={favSet.has(value) ? t('pro_fav_remove_title') : t('pro_fav_add_title')}
+        onClick={() => editor.store.exec({ type: 'toggleOpeningFavorite', id: value }, favSet.has(value) ? t('pro_fav_remove') : t('pro_fav_add_cmd'))}
       >
         {favSet.has(value) ? '★' : '☆'}
       </button>
@@ -134,86 +143,89 @@ export function OptionsBar(): ReactElement {
   const o = useUi((s) => s.options);
   const units = useUnits();
   const sel = useUi((s) => s.selection);
+  const { t, lang } = useT();
+  // O aviso de distância inválida é identificado por flag, não pelo texto (que muda com o idioma).
+  const invalidDistance = useRef(false);
   const areaPlan = useUi((s) => s.view === 'plan' && s.planKind === 'area' && !!s.areaPlanId);
   const set = (patch: Partial<typeof o>): void => useUi.setState({ options: { ...o, ...patch } });
   if (perim.active) return <PerimeterOptionsBar target={perim.target} modify={perim.modify} options={perim.options} onChange={perimeterActions.setOptions} />;
   // A paleta Propriedades é a fonte de configuração antes da colocação; a barra superior fica como indicação da ferramenta.
   if (['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'stairrun', 'roof', 'roofextrusion'].includes(tool)) {
-    return <div className="optbar" role="group" aria-label="Opções da ferramenta"><span className="tool-name">{TOOL_LABEL[tool]}</span><span style={{ color: 'var(--fg-soft)' }}>Configurações em Propriedades</span></div>;
+    return <div className="optbar" role="group" aria-label={t('pro_tool_options')}><span className="tool-name">{toolLabel(tool, lang)}</span><span style={{ color: 'var(--fg-soft)' }}>{t('pro_settings_in_props')}</span></div>;
   }
   return (
-    <div className="optbar" role="group" aria-label="Opções da ferramenta">
-      <span className="tool-name">{TOOL_LABEL[tool]}</span>
-      {areaPlan && <span style={{ color: 'var(--fg-soft)' }}>Planta de área — anotação</span>}
-      {areaPlan && <button className="btn small" onClick={() => useUi.setState({ dialog: 'cotasAuto' })} title="Cotas automáticas da planta de área ativa">Cotas automáticas…</button>}
+    <div className="optbar" role="group" aria-label={t('pro_tool_options')}>
+      <span className="tool-name">{toolLabel(tool, lang)}</span>
+      {areaPlan && <span style={{ color: 'var(--fg-soft)' }}>{t('pro_area_plan_note')}</span>}
+      {areaPlan && <button className="btn small" onClick={() => useUi.setState({ dialog: 'cotasAuto' })} title={t('pro_auto_dim_title')}>{t('pro_auto_dim_btn')}</button>}
       {tool === 'wall' && (
         <>
           <label>
-            Tipo
+            {t('pro_type')}
             <select id="opt-walltype" className="select" value={o.wallTypeId} onChange={(e) => set({ wallTypeId: e.target.value })}>
-              {Object.values(p.wallTypes).map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
+              {Object.values(p.wallTypes).map((tp) => (
+                <option key={tp.id} value={tp.id}>{tp.name}</option>
               ))}
             </select>
           </label>
           <label>
-            Forma
+            {t('pro_shape')}
             <select id="opt-shape" className="select" value={o.wallShape} onChange={(e) => set({ wallShape: e.target.value as 'line' | 'arc' | 'rect' })}>
-              <option value="line">Reta</option>
-              <option value="arc">Arco (3 pontos)</option>
-              <option value="rect">Retângulo (2 cantos)</option>
+              <option value="line">{t('pro_shape_line')}</option>
+              <option value="arc">{t('pro_shape_arc3')}</option>
+              <option value="rect">{t('pro_shape_rect')}</option>
             </select>
           </label>
           <label>
-            Linha de localização
+            {t('pro_location_line')}
             <select id="opt-loc" className="select" value={o.locationLine} onChange={(e) => set({ locationLine: e.target.value as LocationLine })}>
-              {(Object.keys(LOCATION_LABEL) as LocationLine[]).map((k) => (
-                <option key={k} value={k}>{LOCATION_LABEL[k]}</option>
+              {(Object.keys(LOCATION_KEY) as LocationLine[]).map((k) => (
+                <option key={k} value={k}>{locationLabel(k, lang)}</option>
               ))}
             </select>
           </label>
           <label>
-            Altura
+            {t('pro_height')}
             <NumField id="opt-height" value={o.wallHeight} onCommit={(v) => set({ wallHeight: v })} quantity="length" min={0.1} />
           </label>
-          <Check id="opt-chain" checked={o.chain} onChange={(v) => set({ chain: v })}>Encadear</Check>
+          <Check id="opt-chain" checked={o.chain} onChange={(v) => set({ chain: v })}>{t('pro_chain')}</Check>
         </>
       )}
       {tool === 'room' && (
-        <button id="opt-roomall" className="btn small" onClick={() => addRoomsAllCircuits()} title="Cria um ambiente em cada circuito fechado que ainda não tem um; um só Ctrl+Z desfaz tudo">
-          Ambientes em todos os circuitos fechados
+        <button id="opt-roomall" className="btn small" onClick={() => addRoomsAllCircuits()} title={t('pro_rooms_all_title')}>
+          {t('pro_rooms_all')}
         </button>
       )}
       {tool === 'dimension' && <DimensionOptions />}
       {tool === 'text' && (
         <>
-          <label>Altura<NumField id="opt-textheight" value={(o.textHeight ?? 2.5) / 1000} quantity="smallLength" min={0.0005} onCommit={(v) => set({ textHeight: v * 1000 })} /></label>
-          <label>Largura<NumField id="opt-textwidth" value={(o.textWidth ?? 60) / 1000} quantity="smallLength" min={0.005} onCommit={(v) => set({ textWidth: v * 1000 })} /></label>
-          <label>Chamada<select className="select" value={o.textLeader ?? 'none'} onChange={(e) => set({ textLeader: e.target.value as 'none' | 'straight' | 'elbow' })}><option value="none">Sem líder</option><option value="straight">Reta</option><option value="elbow">Com dobra</option></select></label>
+          <label>{t('pro_height')}<NumField id="opt-textheight" value={(o.textHeight ?? 2.5) / 1000} quantity="smallLength" min={0.0005} onCommit={(v) => set({ textHeight: v * 1000 })} /></label>
+          <label>{t('pro_width')}<NumField id="opt-textwidth" value={(o.textWidth ?? 60) / 1000} quantity="smallLength" min={0.005} onCommit={(v) => set({ textWidth: v * 1000 })} /></label>
+          <label>{t('pro_leader')}<select className="select" value={o.textLeader ?? 'none'} onChange={(e) => set({ textLeader: e.target.value as 'none' | 'straight' | 'elbow' })}><option value="none">{t('pro_leader_none')}</option><option value="straight">{t('pro_shape_line')}</option><option value="elbow">{t('pro_leader_elbow')}</option></select></label>
         </>
       )}
-      {tool === 'filledRegion' && <Check id="opt-region-mask" checked={o.regionMask === true} onChange={(v) => set({ regionMask: v })}>Mascarar elementos atrás</Check>}
-      {tool === 'filledRegion' && <label>Cor<input className="input" type="color" value={o.regionColor ?? '#f5d782'} onChange={(e) => set({ regionColor: e.target.value })} /></label>}
-      {tool === 'detailLine' && <label>Traço<select className="select" value={o.detailLineStyle ?? 'solid'} onChange={(e) => set({ detailLineStyle: e.target.value as 'solid' | 'dashed' | 'dotted' })}><option value="solid">Contínuo</option><option value="dashed">Tracejado</option><option value="dotted">Pontilhado</option></select></label>}
+      {tool === 'filledRegion' && <Check id="opt-region-mask" checked={o.regionMask === true} onChange={(v) => set({ regionMask: v })}>{t('pro_region_mask')}</Check>}
+      {tool === 'filledRegion' && <label>{t('pro_color')}<input className="input" type="color" value={o.regionColor ?? '#f5d782'} onChange={(e) => set({ regionColor: e.target.value })} /></label>}
+      {tool === 'detailLine' && <label>{t('pro_line_style')}<select className="select" value={o.detailLineStyle ?? 'solid'} onChange={(e) => set({ detailLineStyle: e.target.value as 'solid' | 'dashed' | 'dotted' })}><option value="solid">{t('pro_line_solid')}</option><option value="dashed">{t('pro_line_dashed')}</option><option value="dotted">{t('pro_line_dotted')}</option></select></label>}
       {tool === 'tag' && (
         <>
-          <label>Informação<select className="select" value={o.tagProperty ?? 'type'} onChange={(e) => set({ tagProperty: e.target.value as NonNullable<typeof o.tagProperty> })}><option value="type">Tipo</option><option value="name">Nome</option><option value="mark">Marca</option><option value="level">Nível</option><option value="width">Largura</option><option value="height">Altura</option></select></label>
-          <label>Orientação<select className="select" value={o.tagOrientation ?? 'horizontal'} onChange={(e) => set({ tagOrientation: e.target.value as 'horizontal' | 'vertical' })}><option value="horizontal">Horizontal</option><option value="vertical">Vertical</option></select></label>
-          <Check id="opt-tag-leader" checked={o.tagLeader !== false} onChange={(v) => set({ tagLeader: v })}>Líder</Check>
+          <label>{t('pro_tag_info')}<select className="select" value={o.tagProperty ?? 'type'} onChange={(e) => set({ tagProperty: e.target.value as NonNullable<typeof o.tagProperty> })}><option value="type">{t('pro_type')}</option><option value="name">{t('pro_name')}</option><option value="mark">{t('pro_mark')}</option><option value="level">{t('pro_level')}</option><option value="width">{t('pro_width')}</option><option value="height">{t('pro_height')}</option></select></label>
+          <label>{t('pro_orientation')}<select className="select" value={o.tagOrientation ?? 'horizontal'} onChange={(e) => set({ tagOrientation: e.target.value as 'horizontal' | 'vertical' })}><option value="horizontal">{t('pro_horizontal')}</option><option value="vertical">{t('pro_vertical')}</option></select></label>
+          <Check id="opt-tag-leader" checked={o.tagLeader !== false} onChange={(v) => set({ tagLeader: v })}>{t('pro_leader_label')}</Check>
         </>
       )}
       {tool === 'floor' && (
         <>
           <label>
-            Tipo
+            {t('pro_type')}
             <select id="opt-floortype" className="select" value={o.floorTypeId} onChange={(e) => set({ floorTypeId: e.target.value })}>
-              {Object.values(p.floorTypes).map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
+              {Object.values(p.floorTypes).map((tp) => (
+                <option key={tp.id} value={tp.id}>{tp.name}</option>
               ))}
             </select>
           </label>
           <label>
-            Deslocamento do topo
+            {t('pro_top_offset')}
             <NumField id="opt-flooroffset" value={o.floorOffset} onCommit={(v) => set({ floorOffset: v })} quantity="length" />
           </label>
         </>
@@ -234,7 +246,7 @@ export function OptionsBar(): ReactElement {
       )}
       {tool === 'trim' && (
         <label>
-          Modo
+          {t('pro_mode')}
           <select
             id="opt-trimmode"
             className="select"
@@ -245,22 +257,22 @@ export function OptionsBar(): ReactElement {
               editor.setTool('trim');
             }}
           >
-            <option value="canto">Ao canto</option>
-            <option value="unico">Um elemento</option>
-            <option value="varios">Vários</option>
+            <option value="canto">{t('pro_trim_corner')}</option>
+            <option value="unico">{t('pro_trim_single')}</option>
+            <option value="varios">{t('pro_trim_multi')}</option>
           </select>
         </label>
       )}
       {tool === 'move' && <DisjoinCheck id="opt-mdisjoin" checked={o.moveDisjoin ?? DEFAULT_DISJOIN.move} onChange={(v) => set({ moveDisjoin: v })} />}
       {tool === 'rotate' && (
         <>
-          <Check id="opt-rcopy" checked={o.rotateCopy} onChange={(v) => set({ rotateCopy: v })}>Copiar</Check>
+          <Check id="opt-rcopy" checked={o.rotateCopy} onChange={(v) => set({ rotateCopy: v })}>{t('tool_copy')}</Check>
           <DisjoinCheck id="opt-rdisjoin" checked={o.rotateDisjoin ?? DEFAULT_DISJOIN.rotate} onChange={(v) => set({ rotateDisjoin: v })} />
         </>
       )}
       {tool === 'mirror' && (
         <>
-          <Check id="opt-mcopy" checked={o.mirrorCopy} onChange={(v) => set({ mirrorCopy: v })}>Copiar</Check>
+          <Check id="opt-mcopy" checked={o.mirrorCopy} onChange={(v) => set({ mirrorCopy: v })}>{t('tool_copy')}</Check>
           <DisjoinCheck id="opt-mirrordisjoin" checked={o.mirrorDisjoin ?? DEFAULT_DISJOIN.mirror} onChange={(v) => set({ mirrorDisjoin: v })} />
         </>
       )}
@@ -268,23 +280,23 @@ export function OptionsBar(): ReactElement {
       {tool === 'grid' && <GridOptionsBar />}
       {tool === 'align' && (
         <label>
-          Preferir
+          {t('pro_align_prefer')}
           <select
             id="opt-alignprefer"
             className="select"
             value={o.alignPrefer ?? 'faces'}
             onChange={(e) => set({ alignPrefer: e.target.value as NonNullable<typeof o.alignPrefer> })}
           >
-            <option value="faces">Faces da parede</option>
-            <option value="eixos">Eixos da parede</option>
-            <option value="nucleo">Face do núcleo</option>
+            <option value="faces">{t('pro_align_faces')}</option>
+            <option value="eixos">{t('pro_align_axes')}</option>
+            <option value="nucleo">{t('pro_align_core')}</option>
           </select>
         </label>
       )}
       {tool === 'offset' && (
         <>
           <label>
-            Distância
+            {t('pro_distance')}
             <NumField
               id="opt-offset"
               value={o.offsetDistance}
@@ -292,27 +304,34 @@ export function OptionsBar(): ReactElement {
               quantity="length"
               min={0.01}
               strictRange
-              onInvalid={(texto) => useUi.setState({ status: `Distância inválida (${texto.trim() || 'vazia'}): digite uma distância válida, maior que zero. Mantida: ${formatQuantity(units, 'length', o.offsetDistance)}.` })}
-              onValid={() => { if (useUi.getState().status.startsWith('Distância inválida')) useUi.setState({ status: 'Pronto.' }); }}
+              onInvalid={(texto) => {
+                invalidDistance.current = true;
+                useUi.setState({ status: { key: 'pro_invalid_distance', args: { text: texto.trim() || t('pro_distance_empty'), kept: formatQuantity(units, 'length', o.offsetDistance) } } });
+              }}
+              onValid={() => {
+                if (!invalidDistance.current) return;
+                invalidDistance.current = false;
+                useUi.setState({ status: { key: 'pro_status_ready' } });
+              }}
             />
           </label>
-          <Check id="opt-ocopy" checked={o.offsetCopy} onChange={(v) => set({ offsetCopy: v })}>Copiar</Check>
+          <Check id="opt-ocopy" checked={o.offsetCopy} onChange={(v) => set({ offsetCopy: v })}>{t('tool_copy')}</Check>
         </>
       )}
       {tool === 'parallel' && (
         <label>
-          Medir distância
+          {t('pro_measure_distance')}
           <select id="opt-offsetfrom" className="select" value={o.offsetFrom ?? 'face'} onChange={(e) => set({ offsetFrom: e.target.value as 'axis' | 'face' })}>
-            <option value="face">Face a face (padrão)</option>
-            <option value="axis">Entre eixos</option>
+            <option value="face">{t('pro_offset_face')}</option>
+            <option value="axis">{t('pro_offset_axis')}</option>
           </select>
         </label>
       )}
       {tool === 'select' && (
         <>
-          <span style={{ color: 'var(--fg-soft)' }}>{sel.length ? `${sel.length} selecionado${sel.length > 1 ? 's' : ''}` : 'Nada selecionado'}</span>
+          <span style={{ color: 'var(--fg-soft)' }}>{sel.length ? t(sel.length > 1 ? 'pro_selected_many' : 'pro_selected_one', { n: sel.length }) : t('pro_nothing_selected')}</span>
           {sel.length > 0 && (
-            <button className="btn small danger" onClick={() => editor.deleteSelection()}>Excluir (Del)</button>
+            <button className="btn small danger" onClick={() => editor.deleteSelection()}>{t('pro_delete')}</button>
           )}
         </>
       )}

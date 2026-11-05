@@ -1,4 +1,5 @@
 import { isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Id, type Project, type ValidationIssue, type ValidationSeverity } from '@hestia/model';
+import { t, useI18n } from './i18n.ts';
 import { rampBox, rampPoints } from './rampActions.ts';
 import { stairBox, stairPoints } from './stairActions.ts';
 
@@ -19,25 +20,31 @@ export interface IssueTarget {
   box?: { minX: number; minY: number; maxX: number; maxY: number };
 }
 
-const TITLE: Record<ValidationSeverity, string> = { error: 'Erros', warning: 'Avisos', info: 'Informações' };
+const TITLE: Record<ValidationSeverity, 'edc_issues_errors' | 'edc_issues_warnings' | 'edc_issues_info'> = {
+  error: 'edc_issues_errors',
+  warning: 'edc_issues_warnings',
+  info: 'edc_issues_info',
+};
 
 /** Agrupa por severidade, erros primeiro. Grupos vazios não aparecem; a ordem original é mantida dentro de cada grupo. */
 export function groupIssues(issues: readonly ValidationIssue[]): IssueGroup[] {
+  const lang = useI18n.getState().lang;
   const order: ValidationSeverity[] = ['error', 'warning', 'info'];
   return order
-    .map((severity) => ({ severity, title: TITLE[severity], items: issues.filter((i) => i.severity === severity) }))
+    .map((severity) => ({ severity, title: t(lang, TITLE[severity]), items: issues.filter((i) => i.severity === severity) }))
     .filter((g) => g.items.length > 0);
 }
 
 /** Resumo para o botão da barra de status, ex.: "2 erros · 3 avisos". Vazio quando não há problemas. */
 export function summarize(issues: readonly ValidationIssue[]): string {
+  const lang = useI18n.getState().lang;
   const errors = issues.filter((i) => i.severity === 'error').length;
   const warnings = issues.filter((i) => i.severity === 'warning').length;
   const infos = issues.filter((i) => i.severity === 'info').length;
   const parts: string[] = [];
-  if (errors > 0) parts.push(errors === 1 ? '1 erro' : `${errors} erros`);
-  if (warnings > 0) parts.push(warnings === 1 ? '1 aviso' : `${warnings} avisos`);
-  if (infos > 0) parts.push(infos === 1 ? '1 informação' : `${infos} informações`);
+  if (errors > 0) parts.push(errors === 1 ? t(lang, 'edc_issues_error_one') : t(lang, 'edc_issues_error_many', { n: errors }));
+  if (warnings > 0) parts.push(warnings === 1 ? t(lang, 'edc_issues_warning_one') : t(lang, 'edc_issues_warning_many', { n: warnings }));
+  if (infos > 0) parts.push(infos === 1 ? t(lang, 'edc_issues_info_one') : t(lang, 'edc_issues_info_many', { n: infos }));
   return parts.join(' · ');
 }
 

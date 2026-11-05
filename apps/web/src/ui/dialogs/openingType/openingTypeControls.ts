@@ -1,4 +1,5 @@
 import { HARDWARE_DEFAULTS, OPENING_SPAN_GAP_DEFAULTS, formatQuantity, openingSpanGap, type OpeningGlassKind, type OpeningType, type ResolvedUnits } from '@hestia/model';
+import type { Dict } from '../../../editor/i18n.ts';
 import { withOpeningField } from './openingTypeFields.ts';
 
 /** Metros com 0,1 mm (a digitação em cm não deixa resto de ponto flutuante fora do padrão). */
@@ -31,11 +32,11 @@ export function setRevealDepth(t: OpeningType, depth: number): OpeningType {
 
 /** Soleira: sem peça, plana (2 cm) ou degrau (3 cm). O schema não guarda o tipo; a espessura é o que o distingue. */
 export type OpeningThresholdKind = 'none' | 'flat' | 'step';
-export const THRESHOLD_KINDS = [
-  ['none', 'Nenhuma'],
-  ['flat', 'Plana'],
-  ['step', 'Degrau'],
-] as const;
+export const THRESHOLD_KINDS: ReadonlyArray<readonly [OpeningThresholdKind, keyof Dict]> = [
+  ['none', 'dlo_o_threshold_none'],
+  ['flat', 'dlo_o_threshold_flat'],
+  ['step', 'dlo_o_threshold_step'],
+];
 export const THRESHOLD_THICKNESS = { flat: 0.02, step: 0.03 } as const;
 
 /** Tipo da soleira lido da espessura: degrau a partir de 3 cm; abaixo disso, plana. */
@@ -66,16 +67,16 @@ export function setTiltAxis(t: OpeningType, axis: number): OpeningType {
 }
 
 /** Tipos de vidro do schema (`OpeningGlassKind`), com o rótulo da interface. */
-export const GLASS_KINDS: ReadonlyArray<readonly [OpeningGlassKind, string]> = [
-  ['clear', 'Liso/cristal'],
-  ['ribbed', 'Canelado'],
-  ['smoke', 'Fumê'],
-  ['green', 'Verde'],
-  ['bronze', 'Bronze'],
-  ['frosted', 'Jateado/fosco'],
-  ['wired', 'Aramado'],
-  ['laminated', 'Laminado'],
-  ['tempered', 'Temperado'],
+export const GLASS_KINDS: ReadonlyArray<readonly [OpeningGlassKind, keyof Dict]> = [
+  ['clear', 'dlo_o_glass_clear'],
+  ['ribbed', 'dlo_o_glass_ribbed'],
+  ['smoke', 'dlo_o_glass_smoke'],
+  ['green', 'dlo_o_glass_green'],
+  ['bronze', 'dlo_o_glass_bronze'],
+  ['frosted', 'dlo_o_glass_frosted'],
+  ['wired', 'dlo_o_glass_wired'],
+  ['laminated', 'dlo_o_glass_laminated'],
+  ['tempered', 'dlo_o_glass_tempered'],
 ];
 
 /** Tipo de vidro: 'clear' (liso) é o padrão por leitura e tira o campo. */

@@ -1,4 +1,5 @@
 import { useMemo, type ReactElement } from 'react';
+import { useT } from '../editor/i18n.ts';
 import { editor } from '../editor/controller.ts';
 import { applyLevelMove, planLevelMove, type LevelMoveDecision } from '../editor/levelActions.ts';
 import { useUi } from '../editor/state.ts';
@@ -13,6 +14,7 @@ import { useFormat } from './useUnits.ts';
  * - Excluir a escada: aplica a cota e remove os elementos em conflito, num único Ctrl+Z.
  */
 export function LevelMoveConflictDialog({ onClose }: { onClose: () => void }): ReactElement {
+  const { t } = useT();
   const fmt = useFormat();
   const arg = useUi((s) => s.dialogArg);
   const target = useMemo(() => {
@@ -42,55 +44,55 @@ export function LevelMoveConflictDialog({ onClose }: { onClose: () => void }): R
 
   if (!plan || 'error' in plan) {
     return (
-      <Dialog title="Nível" onClose={onClose} size="narrow" footer={<button className="btn primary" onClick={onClose}>Fechar</button>}>
-        <p className="error" role="alert">{plan && 'error' in plan ? plan.error : 'Não foi possível planejar a mudança de nível.'}</p>
+      <Dialog title={t('col_level')} onClose={onClose} size="narrow" footer={<button className="btn primary" onClick={onClose}>{t('dlm_btn_close')}</button>}>
+        <p className="error" role="alert">{plan && 'error' in plan ? plan.error : t('dlm_err_plan_level')}</p>
       </Dialog>
     );
   }
 
   return (
     <Dialog
-      title={conflicts > 0 ? 'Escada/rampa não cabe no nível novo' : 'Confirmar o reajuste da escada'}
+      title={conflicts > 0 ? t('dlm_lmc_conflict_title') : t('dlm_lmc_adjust_title')}
       sub={`${plan.levelName} → ${fmt('length', plan.elevation)}`}
       onClose={() => decide('cancel')}
       size="wide"
       footer={
         <>
-          <button className="btn" onClick={() => decide('cancel')}>Cancelar a mudança</button>
+          <button className="btn" onClick={() => decide('cancel')}>{t('dlm_lmc_cancel')}</button>
           <span style={{ flex: 1 }} />
           {conflicts > 0 && (
             <button
               className="btn danger"
               onClick={() => {
                 const quais = plan.stairs.filter((s) => s.status === 'conflict').map((s) => s.label).join(', ');
-                if (quais && window.confirm(`Excluir ${quais}? A cota do nível será aplicada e a exclusão entra no mesmo Ctrl+Z.`)) decide('delete');
+                if (quais && window.confirm(t('dlm_lmc_delete_confirm', { names: quais }))) decide('delete');
               }}
             >
-              Excluir o elemento
+              {t('dlm_lmc_delete')}
             </button>
           )}
-          <button className="btn primary" disabled={!canAdd} onClick={() => decide('add')} title={canAdd ? 'Aplica a cota e o reajuste mostrado no resumo (degraus acrescentados no último lance ou removidos do fim)' : 'Esta escada não pode ser reajustada automaticamente'}>
-            Aplicar
+          <button className="btn primary" disabled={!canAdd} onClick={() => decide('add')} title={canAdd ? t('dlm_lmc_apply_tip') : t('dlm_lmc_apply_tip_disabled')}>
+            {t('dlm_btn_apply')}
           </button>
         </>
       }
     >
       <p>
         {conflicts > 0
-          ? `${conflicts === 1 ? 'Um elemento não cabe' : `${conflicts} elementos não cabem`} na altura nova sem sair da faixa de espelho do tipo ou sem invadir o que está em volta. `
-          : 'O reajuste muda o nº de degraus ou o patamar de uma escada. '}
-        A cota do nível <strong>ainda não foi alterada</strong>.
+          ? `${conflicts === 1 ? t('dlm_lmc_conflict_one') : t('dlm_lmc_conflict_many', { n: conflicts })}${t('dlm_lmc_conflict_tail')}`
+          : t('dlm_lmc_adjust_lead')}
+        {t('dlm_lmc_level_before')} <strong>{t('dlm_lmc_not_changed')}</strong>{t('dlm_lmc_period')}
       </p>
       {plan.stairs.length > 0 && (
         <table className="layers">
-          <thead><tr><th>Escada</th><th>Resumo</th><th>Situação</th></tr></thead>
+          <thead><tr><th>{t('dlm_col_stair')}</th><th>{t('dlm_col_summary')}</th><th>{t('dlm_col_status')}</th></tr></thead>
           <tbody>
             {plan.stairs.map((s) => (
               <tr key={s.id}>
                 <td>{s.label}</td>
                 <td>{s.summary}</td>
                 <td style={s.status === 'conflict' ? { color: 'var(--danger, #b42318)' } : undefined}>
-                  {s.status === 'conflict' ? s.reason ?? 'Não cabe' : s.warning ?? (s.needsConfirm ? 'Confirmar' : 'Ok')}
+                  {s.status === 'conflict' ? s.reason ?? t('dlm_status_no_fit') : s.warning ?? (s.needsConfirm ? t('dlm_status_confirm') : t('dlm_status_ok'))}
                 </td>
               </tr>
             ))}
@@ -99,21 +101,19 @@ export function LevelMoveConflictDialog({ onClose }: { onClose: () => void }): R
       )}
       {plan.ramps.length > 0 && (
         <table className="layers" style={{ marginTop: 8 }}>
-          <thead><tr><th>Rampa</th><th>Situação</th></tr></thead>
+          <thead><tr><th>{t('dlm_col_ramp')}</th><th>{t('dlm_col_status')}</th></tr></thead>
           <tbody>
             {plan.ramps.map((r) => (
               <tr key={r.id}>
                 <td>{r.label}</td>
-                <td style={r.status === 'conflict' ? { color: 'var(--danger, #b42318)' } : undefined}>{r.status === 'conflict' ? r.reason ?? 'Não cabe' : 'Ok'}</td>
+                <td style={r.status === 'conflict' ? { color: 'var(--danger, #b42318)' } : undefined}>{r.status === 'conflict' ? r.reason ?? t('dlm_status_no_fit') : t('dlm_status_ok')}</td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
       <p className="hint">
-        “Aplicar” recalcula o nº de degraus e o piso pela fórmula do tipo (acrescenta degraus no último lance ou remove do fim; insere
-        patamar quando o lance passa de 3,20 m); se a extensão invadir uma parede, o aviso de invasão continua. “Cancelar” mantém tudo
-        como está. “Excluir” remove só os elementos em conflito.
+        {t('dlm_lmc_hint')}
       </p>
     </Dialog>
   );

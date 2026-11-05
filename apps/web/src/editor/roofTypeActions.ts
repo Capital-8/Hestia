@@ -1,16 +1,18 @@
 import { newId, type Id, type Project, type ProjectStore, type RoofType } from '@hestia/model';
+import { t, useI18n } from './i18n.ts';
 import { floorTypeError, instancesOfType, type DeleteResult } from './typeActions.ts';
 
-const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+/** Tradução imediata no idioma ativo (as mensagens voltam como texto para os diálogos). */
+const tr = (key: Parameters<typeof t>[1], args?: Record<string, string | number>): string => t(useI18n.getState().lang, key, args);
 
 /** Telhados que usam o tipo (em todos os níveis). */
 export const roofTypeUsage = (p: Project, typeId: Id): number => instancesOfType(p, 'roof', typeId).length;
 
 /** Motivo pelo qual o tipo de telhado não pode ser excluído (em uso ou único); null quando pode. */
 export function roofTypeDeleteBlock(p: Project, typeId: Id): string | null {
-  if (Object.keys(p.roofTypes).length <= 1) return 'É o único tipo de telhado do projeto.';
+  if (Object.keys(p.roofTypes).length <= 1) return tr('edc_type_only_one', { type: tr('edc_type_roof') });
   const uso = roofTypeUsage(p, typeId);
-  if (uso > 0) return `Em uso por ${plural(uso, 'telhado', 'telhados')}.`;
+  if (uso > 0) return tr('edc_type_in_use', { list: tr(uso === 1 ? 'edc_count_roof_one' : 'edc_count_roof_many', { n: uso }) });
   return null;
 }
 
@@ -20,7 +22,7 @@ export function tryDeleteRoofType(store: ProjectStore, typeId: Id): DeleteResult
     store.exec({ type: 'deleteRoofType', id: typeId });
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Falha desconhecida.' };
+    return { ok: false, error: e instanceof Error ? e.message : tr('edc_type_delete_failed') };
   }
 }
 
@@ -28,8 +30,8 @@ export function tryDeleteRoofType(store: ProjectStore, typeId: Id): DeleteResult
 export function duplicateRoofType(store: ProjectStore, typeId: Id): Id | null {
   const src = store.project.roofTypes[typeId];
   if (!src) return null;
-  const copy: RoofType = { ...structuredClone(src), id: newId('rt'), name: `${src.name} (cópia)` };
-  store.exec({ type: 'upsertRoofType', roofType: copy }, 'Duplicar tipo de telhado');
+  const copy: RoofType = { ...structuredClone(src), id: newId('rt'), name: tr('edc_type_copy_suffix', { name: src.name }) };
+  store.exec({ type: 'upsertRoofType', roofType: copy }, 'edc_undo_duplicate_roof');
   return copy.id;
 }
 
@@ -37,9 +39,9 @@ export function duplicateRoofType(store: ProjectStore, typeId: Id): Id | null {
 export function renameRoofType(store: ProjectStore, typeId: Id, name: string): DeleteResult {
   const clean = name.trim();
   const src = store.project.roofTypes[typeId];
-  if (!src) return { ok: false, error: 'Tipo inexistente.' };
-  if (!clean) return { ok: false, error: 'Dê um nome ao tipo.' };
-  store.exec({ type: 'upsertRoofType', roofType: { ...src, name: clean } }, 'Renomear tipo de telhado');
+  if (!src) return { ok: false, error: tr('edc_type_missing') };
+  if (!clean) return { ok: false, error: tr('edc_type_needs_name') };
+  store.exec({ type: 'upsertRoofType', roofType: { ...src, name: clean } }, 'edc_undo_rename_roof');
   return { ok: true };
 }
 

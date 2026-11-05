@@ -14,14 +14,17 @@ import {
   type StairSketchIssue,
 } from './stairSketchGeom.ts';
 import { dist, type Vec2 } from '@hestia/geom';
+import { numLang, t, type Lang } from './i18nMessages.ts';
 import { spiralSweepOf } from './stairSpiral.ts';
 
 /**
  * Opções do croqui. `sweep`: varredura (rad, com sinal) de um caracol, que separa os espelhos por volta (`turnsOf`). Sem
  * ela, vale a do metadado `spiral` do lance, se houver (decisão 0014 §1 item 2); croqui livre não tem varredura.
+ * `lang`: idioma das mensagens de erro (padrão `'pt'`).
  */
 export interface RunSketchOptions {
   sweep?: number;
+  lang?: Lang;
 }
 
 /**
@@ -30,20 +33,20 @@ export interface RunSketchOptions {
  * se comparam em planta (decisão 0014 §1 item 3).
  */
 export function validateRunSketch(run: StairRunSketch, opts: RunSketchOptions = {}): StairSketchIssue[] {
-  return validatePrepared(run, prepareRun(run), opts.sweep ?? spiralSweepOf(run));
+  return validatePrepared(run, prepareRun(run), opts.sweep ?? spiralSweepOf(run), false, opts.lang ?? 'pt');
 }
 
-export function validatePrepared(run: StairRunSketch, P: Prepared, sweep?: number, skipPairs = false): StairSketchIssue[] {
+export function validatePrepared(run: StairRunSketch, P: Prepared, sweep?: number, skipPairs = false, lang: Lang = 'pt'): StairSketchIssue[] {
   const out: StairSketchIssue[] = [];
-  if (chainBroken(run.boundaryLeft)) out.push(sketchIssue('stair-boundary-gap'));
-  if (chainBroken(run.boundaryRight)) out.push(sketchIssue('stair-boundary-gap'));
+  if (chainBroken(run.boundaryLeft)) out.push(sketchIssue('stair-boundary-gap', undefined, undefined, lang));
+  if (chainBroken(run.boundaryRight)) out.push(sketchIssue('stair-boundary-gap', undefined, undefined, lang));
   if (P.L.pts.length > 0 && P.R.pts.length > 0 && polyDist(P.L.pts, P.R.pts) <= TOUCH_TOL) {
-    out.push(sketchIssue('stair-boundaries-touch'));
+    out.push(sketchIssue('stair-boundaries-touch', undefined, undefined, lang));
   }
-  checkRisers(P, out);
+  checkRisers(P, out, lang);
   // `skipPairs`: pula a checagem O(n²) de pares (fatias de rampa: geradas por construção, uniformes e ordenadas).
-  if (!skipPairs) checkRiserPairs(P, out, sweep !== undefined ? turnsOf(run, P, sweep) : undefined);
-  if (run.path.length > 0) checkPath(run, P, out);
+  if (!skipPairs) checkRiserPairs(P, out, sweep !== undefined ? turnsOf(run, P, sweep) : undefined, lang);
+  if (run.path.length > 0) checkPath(run, P, out, lang);
   return out;
 }
 
@@ -62,39 +65,40 @@ export function turnsOf(run: StairRunSketch, P: Prepared, sweep: number): Map<nu
   return turn;
 }
 
-function checkRisers(P: Prepared, out: StairSketchIssue[]): void {
+function checkRisers(P: Prepared, out: StairSketchIssue[], lang: Lang): void {
   for (const g of P.risers) {
     if (g.onBoundary) {
-      out.push(sketchIssue('stair-riser-on-boundary', g.index));
+      out.push(sketchIssue('stair-riser-on-boundary', g.index, undefined, lang));
       continue;
     }
     const nL = g.hitsL.length;
     const nR = g.hitsR.length;
-    if (nL > 1 || nR > 1) out.push(sketchIssue('stair-riser-boundary-multi', g.index));
-    else if (nL === 0 || nR === 0) out.push(notSpanning(P, g, nL === 0 ? 'esquerdo' : 'direito'));
+    if (nL > 1 || nR > 1) out.push(sketchIssue('stair-riser-boundary-multi', g.index, undefined, lang));
+    else if (nL === 0 || nR === 0) out.push(notSpanning(P, g, nL === 0 ? 'esquerdo' : 'direito', lang));
   }
 }
-
-/** Distância (cm, com vírgula) de um número de metros. */
-const cmText = (m: number): string => (m * 100).toFixed(1).replace('.', ',');
 
 /**
  * Espelho que não liga os limites: diz qual espelho (nº no croqui), qual limite falta e por quanto (a menor distância das
  * pontas do espelho até o limite). Se os dois faltam, o do lado que falta mais.
  */
-function notSpanning(P: Prepared, g: RiserGeom, side: 'esquerdo' | 'direito'): StairSketchIssue {
+function notSpanning(P: Prepared, g: RiserGeom, side: 'esquerdo' | 'direito', lang: Lang): StairSketchIssue {
   const boundary = side === 'esquerdo' ? P.L : P.R;
   const ends = [g.full.pts[0]!, g.full.pts[g.full.pts.length - 1]!];
   const gap = Math.min(...ends.map((e) => polyDist([e], boundary.pts)));
-  const text = `Espelho nº ${g.index + 1}: deve ligar o limite esquerdo ao direito, mas não chega ao limite ${side} (falta ${cmText(gap)} cm).`;
-  return sketchIssue('stair-riser-not-spanning', g.index, text);
+  const text = t(lang, 'egb_stair_sketch_riser_gap', {
+    n: g.index + 1,
+    side: t(lang, side === 'esquerdo' ? 'egb_stair_sketch_side_left' : 'egb_stair_sketch_side_right'),
+    gap: numLang(gap * 100, 1, lang),
+  });
+  return sketchIssue('stair-riser-not-spanning', g.index, text, lang);
 }
 
 /**
  * Pares de espelhos que ligam os dois limites: mesma posição, ou que se tocam/cruzam depois de aparados. Com `turn`
  * (caracol), só se comparam espelhos da mesma volta.
  */
-function checkRiserPairs(P: Prepared, out: StairSketchIssue[], turn?: Map<number, number>): void {
+function checkRiserPairs(P: Prepared, out: StairSketchIssue[], turn: Map<number, number> | undefined, lang: Lang): void {
   const spanning = P.risers.filter((g) => g.spans && g.trimmed);
   for (let i = 0; i < spanning.length; i++) {
     for (let j = i + 1; j < spanning.length; j++) {
@@ -106,21 +110,21 @@ function checkRiserPairs(P: Prepared, out: StairSketchIssue[], turn?: Map<number
       const sameA = dist(A[0]!, B[0]!) <= TOUCH_TOL;
       const sameB = dist(A[A.length - 1]!, B[B.length - 1]!) <= TOUCH_TOL;
       // Os dois espelhos pelo nº no croqui e a distância entre eles (em cm), para o usuário achar os dois.
-      const pair = `Espelhos nº ${ga.index + 1} e nº ${gb.index + 1}`;
-      const d = polyDist(A, B);
+      const pair = t(lang, 'egb_stair_sketch_pair', { a: ga.index + 1, b: gb.index + 1 });
+      const d = numLang(polyDist(A, B) * 100, 1, lang);
       if (sameA && sameB) {
-        out.push(sketchIssue('stair-riser-same-location', ga.index, `${pair} ocupam a mesma posição (distância ${cmText(d)} cm).`));
-      } else if (d <= TOUCH_TOL) {
-        out.push(sketchIssue('stair-riser-crossing', ga.index, `${pair} se cruzam ou se tocam: não são permitidos (distância ${cmText(d)} cm).`));
+        out.push(sketchIssue('stair-riser-same-location', ga.index, t(lang, 'egb_stair_sketch_same_pos', { pair, d }), lang));
+      } else if (polyDist(A, B) <= TOUCH_TOL) {
+        out.push(sketchIssue('stair-riser-crossing', ga.index, t(lang, 'egb_stair_sketch_cross', { pair, d }), lang));
       }
     }
   }
 }
 
-function checkPath(run: StairRunSketch, P: Prepared, out: StairSketchIssue[]): void {
+function checkPath(run: StairRunSketch, P: Prepared, out: StairSketchIssue[], lang: Lang): void {
   const path = makePoly(sampleChain(run.path));
   if (path.pts.length < 2) {
-    out.push(sketchIssue('stair-path-ends'));
+    out.push(sketchIssue('stair-path-ends', undefined, undefined, lang));
     return;
   }
   // Primeiro e último espelho pela ordem dos limites (a caminhada ainda não define a ordem aqui).
@@ -131,9 +135,9 @@ function checkPath(run: StairRunSketch, P: Prepared, out: StairSketchIssue[]): v
   const start: Vec2 = path.pts[0]!;
   const end: Vec2 = path.pts[path.pts.length - 1]!;
   if (polyDist([start], first.geom.pts) > PATH_TOL || polyDist([end], last.geom.pts) > PATH_TOL) {
-    out.push(sketchIssue('stair-path-ends'));
+    out.push(sketchIssue('stair-path-ends', undefined, undefined, lang));
   }
   for (const g of P.risers) {
-    if (polyDist(path.pts, g.geom.pts) > PATH_TOL) out.push(sketchIssue('stair-path-misses-riser', g.index));
+    if (polyDist(path.pts, g.geom.pts) > PATH_TOL) out.push(sketchIssue('stair-path-misses-riser', g.index, undefined, lang));
   }
 }

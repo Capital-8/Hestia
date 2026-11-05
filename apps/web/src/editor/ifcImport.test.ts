@@ -29,6 +29,21 @@ describe('importação IFC fora da thread principal', () => {
   it('mantém o nome do projeto como x.hestia.json', () => {
     expect(nomeDoProjeto('x.ifc')).toBe('x.hestia.json');
   });
+
+  it('informa o andamento de cada fase, em ordem crescente', async () => {
+    const eventos: string[] = [];
+    const fracoes: number[] = [];
+    await importIfcText(paredeJanela, (p) => {
+      eventos.push(p.fase);
+      fracoes.push(p.fracao);
+      expect(p.fracao).toBeGreaterThanOrEqual(0);
+      expect(p.fracao).toBeLessThanOrEqual(1);
+    });
+    expect(eventos[0]).toBe('parse');
+    expect(eventos[eventos.length - 1]).toBe('finish');
+    expect(eventos).toEqual(expect.arrayContaining(['parse', 'relations', 'levels', 'finish']));
+    expect(fracoes).toEqual([...fracoes].sort((a, b) => a - b));
+  });
 });
 
 describe('resumo da importação IFC', () => {

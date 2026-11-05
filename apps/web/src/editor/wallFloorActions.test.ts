@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ProjectStore, createEmptyProject, makeWall, type Wall } from '@hestia/model';
 import { avisoSemNivelAcima, proximoNivelAcima, setBaseNoPiso, setTopoNoPiso } from './wallFloorActions.ts';
+import { resolveText } from './i18n.ts';
 import { useUi } from './state.ts';
 
 /** Projeto com uma parede no térreo (lv_0) e o pavimento 2 (lv_1) acima. */
@@ -52,6 +53,6 @@ describe('P9 · controles de anexo da parede nas Propriedades', () => {
 
   it('topo sem nível acima: a barra de status diz o motivo', () => {
     avisoSemNivelAcima(['w1']);
-    expect(useUi.getState().status).toContain('nível mais alto');
+    expect(resolveText(useUi.getState().status, 'pt')).toContain('nível mais alto');
   });
 });

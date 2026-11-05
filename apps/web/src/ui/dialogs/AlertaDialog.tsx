@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { useT } from '../../editor/i18n.ts';
 import { alertaPendente, fecharAlerta } from '../../editor/alertaPrompt.ts';
 import { Dialog } from './Dialog.tsx';
 
@@ -7,11 +8,12 @@ import { Dialog } from './Dialog.tsx';
  * o OK só confirma que a pessoa leu o motivo — por isso um botão só.
  */
 export function AlertaDialog(): ReactElement | null {
+  const { t } = useT();
   const mensagem = alertaPendente();
   if (!mensagem) return null;
   return (
     <Dialog
-      title="Aviso"
+      title={t('dlm_warning')}
       size="narrow"
       onClose={fecharAlerta}
       footer={

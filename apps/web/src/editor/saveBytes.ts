@@ -1,5 +1,6 @@
 import { entregarArquivo } from './entregarArquivo.ts';
 import { safeFilename } from './nomeArquivo.ts';
+import { t, useI18n } from './i18n.ts';
 
 /**
  * Entrega um arquivo binário (o ZIP do lote de DXF) e devolve a frase de status, como `saveText`.
@@ -7,10 +8,11 @@ import { safeFilename } from './nomeArquivo.ts';
  * transferência.
  */
 export async function saveBytes(nomeOriginal: string, bytes: Uint8Array): Promise<string> {
+  const lang = useI18n.getState().lang;
   const filename = safeFilename(nomeOriginal);
   const entrega = await entregarArquivo({ nome: filename, conteudo: bytes });
-  if (entrega === 'salvo') return `Salvo como ${filename}.`;
-  if (entrega === 'cancelado') return 'Exportação cancelada. Nenhum arquivo foi salvo.';
-  if (entrega === 'baixado') return `Arquivo ${filename} gerado.`;
-  return 'Não foi possível exportar o arquivo.';
+  if (entrega === 'salvo') return t(lang, 'io_saved_as', { name: filename });
+  if (entrega === 'cancelado') return t(lang, 'io_export_cancelled');
+  if (entrega === 'baixado') return t(lang, 'io_file_generated', { name: filename });
+  return t(lang, 'io_export_failed');
 }

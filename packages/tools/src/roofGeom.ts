@@ -1,5 +1,6 @@
 import { asMulti, closestOnSegment, cross, dist, dot, intersectSegments, len, norm, offsetMulti, perp, pointInRing, ringArea, sub, type Ring, type Vec2 } from '@hestia/geom';
 import { wallMaxHeight, wallsOnLevel, type Id, type Project, type RoofShape } from '@hestia/model';
+import { t as translate, type Lang } from './i18n.ts';
 
 /** Maior inclinação aceita para telhado, em % (200 % = 63,4°). Acima disso o telhado vira parede. */
 export const ROOF_SLOPE_LIMIT = 200;
@@ -20,10 +21,10 @@ export function roofSlopeFromDegField(typedDeg: number, currentDeg: number, curr
 }
 
 /** Erro da inclinação de telhado (não finita, não positiva ou acima do limite), ou null quando é aceita. */
-export function roofSlopeError(percent: number): string | null {
-  if (!Number.isFinite(percent)) return 'Inclinação inválida: digite um número.';
-  if (percent <= 0) return 'Inclinação do telhado precisa ser maior que zero.';
-  if (percent > ROOF_SLOPE_LIMIT) return `Inclinação acima de ${ROOF_SLOPE_LIMIT} %: confira o valor.`;
+export function roofSlopeError(percent: number, lang: Lang = 'pt'): string | null {
+  if (!Number.isFinite(percent)) return translate(lang, 'tl_msg_slope_invalid');
+  if (percent <= 0) return translate(lang, 'tl_msg_slope_positive');
+  if (percent > ROOF_SLOPE_LIMIT) return translate(lang, 'tl_msg_slope_above_limit', { limit: ROOF_SLOPE_LIMIT });
   return null;
 }
 

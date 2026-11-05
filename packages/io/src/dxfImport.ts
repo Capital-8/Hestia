@@ -1,6 +1,7 @@
 /* eslint-disable max-lines -- o parser é um leitor sequencial de seções/entidades; dividir por seção duplicaria o estado */
 import type { CadLayer, CadPath, CadText, CadUnit } from '@hestia/model';
 import type { DxfPoint } from './dxf.ts';
+import { t, type Lang } from './i18n.ts';
 
 /**
  * Importador de DXF (fase 5): lê o arquivo de outro programa e devolve as camadas, os traços e os textos para virarem um
@@ -32,12 +33,12 @@ export const METROS_POR_UNIDADE: Record<CadUnit, number> = { mm: 0.001, cm: 0.01
 const UNIDADE_POR_INSUNITS: Record<number, CadUnit> = { 1: 'in', 2: 'ft', 4: 'mm', 5: 'cm', 6: 'm' };
 
 /** Entidades conhecidas que a v1 não representa: viram um aviso por tipo (o parse continua). */
-const NAO_SUPORTADAS: Record<string, string> = {
-  HATCH: 'HATCH ignorado (preenchimento não suportado)',
-  DIMENSION: 'DIMENSION ignorada (cotas não são importadas)',
-  SPLINE: 'SPLINE ignorada (curva não suportada)',
-  ELLIPSE: 'ELLIPSE ignorada (curva não suportada)',
-  SOLID: 'SOLID ignorado (preenchimento não suportado)',
+const NAO_SUPORTADAS: Record<string, 'io_dxf_skip_hatch' | 'io_dxf_skip_dimension' | 'io_dxf_skip_spline' | 'io_dxf_skip_ellipse' | 'io_dxf_skip_solid'> = {
+  HATCH: 'io_dxf_skip_hatch',
+  DIMENSION: 'io_dxf_skip_dimension',
+  SPLINE: 'io_dxf_skip_spline',
+  ELLIPSE: 'io_dxf_skip_ellipse',
+  SOLID: 'io_dxf_skip_solid',
 };
 
 /** Entidades de estrutura, consumidas pelo laço principal sem aviso (não desenham sozinhas). */
@@ -87,6 +88,7 @@ interface Coletor {
   warnings: string[];
   /** Assuntos já avisados: um aviso por tipo, não por entidade. */
   avisados: Set<string>;
+  lang: Lang;
 }
 
 /** Contexto da expansão: os blocos do arquivo e o limite de aninhamento. */
@@ -118,14 +120,14 @@ interface Polilinha {
  * POLYLINE/VERTEX/SEQEND, ARC, CIRCLE, TEXT, MTEXT e INSERT (blocos expandidos, sem atributos). `name` vira o nome do
  * desenho; ausente = "CAD".
  */
-export function parseDxfText(text: string, name = 'CAD'): DxfImportResult {
+export function parseDxfText(text: string, name = 'CAD', lang: Lang = 'pt'): DxfImportResult {
   const secoes = separarSecoes(lerPares(text));
   const warnings: string[] = [];
-  const cabecalho = lerCabecalho(secoes.get('HEADER') ?? [], warnings);
+  const cabecalho = lerCabecalho(secoes.get('HEADER') ?? [], warnings, lang);
   const layers = lerCamadas(secoes.get('TABLES') ?? []);
   const blocos = new Map<string, Bloco>();
   for (const bloco of lerBlocos(secoes.get('BLOCKS') ?? [])) blocos.set(bloco.nome.toUpperCase(), bloco);
-  const coletor: Coletor = { paths: [], texts: [], warnings, avisados: new Set() };
+  const coletor: Coletor = { paths: [], texts: [], warnings, avisados: new Set(), lang };
   expandir(registros(secoes.get('ENTITIES') ?? []), IDENTIDADE, 0, null, coletor, { blocos, profundidadeMaxima: PROFUNDIDADE_MAXIMA });
 
   // A geometria do parser é sempre em metros: a unidade do arquivo vale em toda coordenada, altura e raio.
@@ -281,11 +283,11 @@ function avisar(coletor: Coletor, chave: string, texto: string): void {
 /** Extrusão fora do plano XY: a geometria é projetada em planta, com um aviso. */
 function verificarOcs(registro: Registro, coletor: Coletor): void {
   const ocs = numero(registro, 210);
-  if (ocs !== undefined && Math.abs(ocs) > 1e-9) avisar(coletor, 'OCS', 'entidade com OCS fora do plano XY projetada em planta');
+  if (ocs !== undefined && Math.abs(ocs) > 1e-9) avisar(coletor, 'OCS', t(coletor.lang, 'io_dxf_ocs_projected'));
 }
 
 /** Lê o `$INSUNITS` e o `$EXTMIN`/`$EXTMAX` do HEADER. */
-function lerCabecalho(pares: Par[], warnings: string[]): Cabecalho {
+function lerCabecalho(pares: Par[], warnings: string[], lang: Lang): Cabecalho {
   const variaveis = new Map<string, Par[]>();
   let atual: string | null = null;
   for (const [codigo, valor] of pares) {
@@ -302,7 +304,7 @@ function lerCabecalho(pares: Par[], warnings: string[]): Cabecalho {
   let unit: CadUnit = 'm';
   const unidade = Number.isFinite(codigo) ? UNIDADE_POR_INSUNITS[codigo] : undefined;
   if (unidade !== undefined) unit = unidade;
-  else if (codigo !== 0) warnings.push(`$INSUNITS ${bruto ?? '?'} não reconhecido; assumindo metros`);
+  else if (codigo !== 0) warnings.push(t(lang, 'io_dxf_units_unknown', { raw: bruto ?? '?' }));
   const extMin = pontoDosPares(variaveis.get('$EXTMIN'), 10, 20);
   const extMax = pontoDosPares(variaveis.get('$EXTMAX'), 10, 20);
   return {
@@ -457,7 +459,7 @@ function expandir(
           bulge = true;
         }
       }
-      if (bulge) avisar(out, 'BULGE', 'arco de polilinha (bulge) aproximado por segmento reto');
+      if (bulge) avisar(out, 'BULGE', t(out.lang, 'io_dxf_bulge_approx'));
       if (pts.length < 2) continue;
       const cor = corDe(registro);
       out.paths.push({
@@ -474,10 +476,10 @@ function expandir(
       const polilinha = lerPolilinha(regs, i);
       i = polilinha.fim;
       if (polilinha.malha) {
-        avisar(out, 'POLYLINE_MALHA', 'POLYLINE de malha ignorada (não suportada)');
+        avisar(out, 'POLYLINE_MALHA', t(out.lang, 'io_dxf_skip_mesh'));
         continue;
       }
-      if (polilinha.tresD) avisar(out, 'POLYLINE_3D', 'POLYLINE 3D achatada em planta (z ignorado)');
+      if (polilinha.tresD) avisar(out, 'POLYLINE_3D', t(out.lang, 'io_dxf_3d_flattened'));
       if (polilinha.vertices.length < 2) continue;
       const cor = corDe(registro);
       out.paths.push({
@@ -494,7 +496,7 @@ function expandir(
       const centro = ponto(registro, 10, 20) ?? { x: 0, y: 0 };
       const raio = numero(registro, 40) ?? 0;
       if (!(raio > 0)) {
-        avisar(out, `${tipo}_SEM_RAIO`, `${tipo} sem raio válido ignorado`);
+        avisar(out, `${tipo}_SEM_RAIO`, t(out.lang, 'io_dxf_skip_radius', { type: tipo }));
         continue;
       }
       const cor = corDe(registro);
@@ -557,11 +559,11 @@ function expandir(
       const nome = (campo(registro, 2) ?? '').trim();
       const bloco = ctx.blocos.get(nome.toUpperCase());
       if (bloco === undefined) {
-        avisar(out, `BLOCO_${nome.toUpperCase()}`, `bloco "${nome}" não encontrado; INSERT ignorado`);
+        avisar(out, `BLOCO_${nome.toUpperCase()}`, t(out.lang, 'io_dxf_block_missing', { name: nome }));
         continue;
       }
       if (profundidade >= ctx.profundidadeMaxima) {
-        avisar(out, 'PROFUNDIDADE', `bloco "${nome}" aninhado além de ${ctx.profundidadeMaxima} níveis; INSERT ignorado`);
+        avisar(out, 'PROFUNDIDADE', t(out.lang, 'io_dxf_block_depth', { name: nome, n: ctx.profundidadeMaxima }));
         continue;
       }
       const posicao = ponto(registro, 10, 20) ?? { x: 0, y: 0 };
@@ -590,8 +592,8 @@ function expandir(
     if (ESTRUTURAIS.has(tipo)) continue;
 
     const aviso = NAO_SUPORTADAS[tipo];
-    if (aviso !== undefined) avisar(out, tipo, aviso);
-    else avisar(out, `TIPO_${tipo}`, `entidade ${tipo} ignorada (não suportada)`);
+    if (aviso !== undefined) avisar(out, tipo, t(out.lang, aviso));
+    else avisar(out, `TIPO_${tipo}`, t(out.lang, 'io_dxf_skip_entity', { type: tipo }));
   }
 }
 

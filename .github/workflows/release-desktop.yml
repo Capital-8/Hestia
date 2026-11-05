@@ -1,0 +1,94 @@
+name: release-desktop
+
+# Gera o instalador Windows do Hestia (Tauri) e publica no GitHub Releases.
+# Como publicar: veja docs/desktop.md.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Instalar Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+
+      - name: Instalar toolchain Rust (stable, MSVC)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Instalar dependências da raiz
+        run: npm ci
+
+      - name: Gerar o app web (apps/web/dist)
+        run: npm run build
+
+      - name: Instalar dependências do desktop
+        working-directory: desktop
+        run: npm ci
+
+      - name: Conferir que a tag e as versões batem
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::A execução precisa ser de uma tag vX.Y.Z (ref atual: '$REF_NAME'). Em execução manual, escolha a tag no seletor de branch/tag."
+            exit 1
+          fi
+          tag_versao="${REF_NAME#v}"
+          versao_tauri=$(node -p "require('./desktop/src-tauri/tauri.conf.json').version")
+          versao_raiz=$(node -p "require('./package.json').version")
+          echo "tag: $tag_versao | desktop/src-tauri/tauri.conf.json: $versao_tauri | package.json (raiz): $versao_raiz"
+          if [[ "$tag_versao" != "$versao_tauri" || "$tag_versao" != "$versao_raiz" ]]; then
+            echo "::error::Versões diferentes: tag=$tag_versao, tauri.conf.json=$versao_tauri, package.json=$versao_raiz. Suba a versão nos dois arquivos antes de criar a tag."
+            exit 1
+          fi
+
+      - name: Preparar notas da versão
+        id: notas
+        shell: bash
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          arquivo="docs/releases/${REF_NAME}.md"
+          if [[ -f "$arquivo" ]]; then
+            {
+              echo "body<<FIM_DAS_NOTAS"
+              cat "$arquivo"
+              echo "FIM_DAS_NOTAS"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "body=Instalador para Windows. Notas desta versão ainda não foram escritas." >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Empacotar e publicar
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: Hestia ${{ github.ref_name }}
+          releaseBody: ${{ steps.notas.outputs.body }}
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true

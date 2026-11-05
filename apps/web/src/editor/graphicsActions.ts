@@ -1,4 +1,5 @@
 import { DEFAULT_CATEGORY_STYLES, DEFAULT_LINE_WEIGHTS, DEFAULT_PROJECT_GRAPHICS, graphicsOf, levelGraphicsOf, sectionGraphicsOf, view3dOf, type Command, type Id, type Project, type ProjectStore, type View3DSettings } from '@hestia/model';
+import { t, useI18n } from './i18n.ts';
 
 /** Resultado de uma edição de gráficos: `error` traz a mensagem pt-BR de quem recusou (nada é gravado). */
 export interface GraphicsEdit {
@@ -14,7 +15,7 @@ export type ProjectGraphicsPatch = Extract<Command, { type: 'setProjectGraphics'
 
 const OK: GraphicsEdit = { ok: true, error: null };
 
-const failed = (e: unknown): GraphicsEdit => ({ ok: false, error: e instanceof Error ? e.message : 'Gráficos inválidos.' });
+const failed = (e: unknown): GraphicsEdit => ({ ok: false, error: e instanceof Error ? e.message : t(useI18n.getState().lang, 'eds_msg_graphics_invalid') });
 
 /**
  * Verdadeiro quando cada valor do patch já é o efetivo na vista (valores com padrão aplicado). Usado para não chamar o
@@ -27,11 +28,11 @@ export function alreadyApplied(patch: unknown, current: unknown): boolean {
 }
 
 /** Aplica os gráficos de uma planta (um nível). O comando valida; a mensagem dele vira o erro. */
-export function editLevelGraphics(store: ProjectStore, levelId: Id, patch: LevelGraphicsPatch, label = 'Alterar gráficos da vista'): GraphicsEdit {
+export function editLevelGraphics(store: ProjectStore, levelId: Id, patch: LevelGraphicsPatch, label = 'eds_undo_change_view_graphics'): GraphicsEdit {
   try {
     const exists = store.project.levels.some((l) => l.id === levelId);
     if (exists && alreadyApplied(patch, levelGraphicsOf(store.project, levelId))) return OK;
-    store.exec({ type: 'setLevelGraphics', levelId, patch }, label);
+    store.exec({ type: 'setLevelGraphics', levelId, patch }, label, useI18n.getState().lang);
     return OK;
   } catch (e) {
     return failed(e);
@@ -39,10 +40,10 @@ export function editLevelGraphics(store: ProjectStore, levelId: Id, patch: Level
 }
 
 /** Aplica os gráficos da vista 3D (também sombras, arestas, sol e fundo). */
-export function editView3D(store: ProjectStore, patch: View3DPatch, label = 'Alterar gráficos do 3D'): GraphicsEdit {
+export function editView3D(store: ProjectStore, patch: View3DPatch, label = 'eds_undo_change_3d_graphics'): GraphicsEdit {
   try {
     if (alreadyApplied(patch, view3dOf(store.project))) return OK;
-    store.exec({ type: 'setView3D', patch }, label);
+    store.exec({ type: 'setView3D', patch }, label, useI18n.getState().lang);
     return OK;
   } catch (e) {
     return failed(e);
@@ -50,10 +51,10 @@ export function editView3D(store: ProjectStore, patch: View3DPatch, label = 'Alt
 }
 
 /** Aplica a tabela de pesos, os pesos por categoria e os limites de detalhe do projeto. */
-export function editProjectGraphics(store: ProjectStore, patch: ProjectGraphicsPatch, label = 'Alterar pesos de linha'): GraphicsEdit {
+export function editProjectGraphics(store: ProjectStore, patch: ProjectGraphicsPatch, label = 'eds_undo_change_line_weights'): GraphicsEdit {
   try {
     if (alreadyApplied(patch, graphicsOf(store.project))) return OK;
-    store.exec({ type: 'setProjectGraphics', patch }, label);
+    store.exec({ type: 'setProjectGraphics', patch }, label, useI18n.getState().lang);
     return OK;
   } catch (e) {
     return failed(e);
@@ -65,7 +66,7 @@ export function restoreLevelGraphicsDefault(store: ProjectStore, levelId: Id): G
   try {
     const lv = store.project.levels.find((l) => l.id === levelId);
     if (lv && !lv.graphics) return OK;
-    store.exec({ type: 'resetLevelGraphics', levelId }, 'Restaurar gráficos da vista');
+    store.exec({ type: 'resetLevelGraphics', levelId }, 'eds_undo_restore_view_graphics', useI18n.getState().lang);
     return OK;
   } catch (e) {
     return failed(e);
@@ -76,7 +77,7 @@ export function restoreLevelGraphicsDefault(store: ProjectStore, levelId: Id): G
 export function restoreView3DDefault(store: ProjectStore): GraphicsEdit {
   try {
     if (!store.project.view3d) return OK;
-    store.exec({ type: 'resetView3D' }, 'Restaurar gráficos do 3D');
+    store.exec({ type: 'resetView3D' }, 'eds_undo_restore_3d_graphics', useI18n.getState().lang);
     return OK;
   } catch (e) {
     return failed(e);
@@ -84,10 +85,10 @@ export function restoreView3DDefault(store: ProjectStore): GraphicsEdit {
 }
 
 /** Aplica os gráficos do corte/elevação (um único conjunto para todas as vistas de corte). */
-export function editSectionGraphics(store: ProjectStore, patch: SectionGraphicsPatch, label = 'Alterar gráficos do corte'): GraphicsEdit {
+export function editSectionGraphics(store: ProjectStore, patch: SectionGraphicsPatch, label = 'eds_undo_change_section_graphics'): GraphicsEdit {
   try {
     if (alreadyApplied(patch, sectionGraphicsOf(store.project))) return OK;
-    store.exec({ type: 'setSectionGraphics', patch }, label);
+    store.exec({ type: 'setSectionGraphics', patch }, label, useI18n.getState().lang);
     return OK;
   } catch (e) {
     return failed(e);
@@ -98,7 +99,7 @@ export function editSectionGraphics(store: ProjectStore, patch: SectionGraphicsP
 export function restoreSectionGraphicsDefault(store: ProjectStore): GraphicsEdit {
   try {
     if (!store.project.sectionGraphics) return OK;
-    store.exec({ type: 'resetSectionGraphics' }, 'Restaurar gráficos do corte');
+    store.exec({ type: 'resetSectionGraphics' }, 'eds_undo_restore_section_graphics', useI18n.getState().lang);
     return OK;
   } catch (e) {
     return failed(e);
@@ -114,7 +115,7 @@ export function restoreProjectGraphicsDefault(store: ProjectStore): GraphicsEdit
       categories: structuredClone(DEFAULT_CATEGORY_STYLES),
       detailByScale: { ...DEFAULT_PROJECT_GRAPHICS.detailByScale },
     },
-    'Restaurar pesos de linha',
+    'eds_undo_restore_line_weights',
   );
 }
 
@@ -134,6 +135,6 @@ export function showLevelsOn(v3: Pick<View3DSettings, 'showLevels'> | undefined 
 /** Liga ou desliga as linhas finas (só na tela, a plotagem não muda) da vista. Grava no projeto, em um passo de desfazer. */
 export function editThinLines(store: ProjectStore, target: ThinLinesTarget, on: boolean): GraphicsEdit {
   return target === 'section'
-    ? editSectionGraphics(store, { thinLines: on }, 'Alternar linhas finas do corte')
-    : editLevelGraphics(store, target.levelId, { thinLines: on }, 'Alternar linhas finas da planta');
+    ? editSectionGraphics(store, { thinLines: on }, 'eds_undo_toggle_section_thin_lines')
+    : editLevelGraphics(store, target.levelId, { thinLines: on }, 'eds_undo_toggle_plan_thin_lines');
 }

@@ -2,6 +2,7 @@ import { memo, type PointerEvent as ReactPointerEvent, type ReactElement, type R
 import type { SheetDrawList, SheetGroup } from '@hestia/render';
 import type { Sheet } from '@hestia/model';
 import { viewportOffset } from '@hestia/model';
+import { useT } from '../../editor/i18n.ts';
 import type { SheetCamera, SheetSize } from './sheetCamera.ts';
 import { HANDLES, handlePoint, type HandleId, type PaperBox } from './sheetSelection.ts';
 import type { SnapGuide } from './sheetSnap.ts';
@@ -181,6 +182,7 @@ function AlignLineView({ f, H, W, zoom, color, prefix, solid = false }: { f: She
  */
 export function SheetCanvas(props: SheetCanvasProps): ReactElement {
   const { list, sheet, camera, view, selection, preview, contentPreview, dropPreview, align, move, resizingHandle, guides, showGrid, hovered, cursor, svgRef } = props;
+  const { t } = useT();
   const W = list.widthMm;
   const H = list.heightMm;
   const vb = { x: camera.cx - view.w / (2 * camera.zoom), y: H - camera.cy - view.h / (2 * camera.zoom), w: view.w / camera.zoom, h: view.h / camera.zoom };
@@ -225,7 +227,11 @@ export function SheetCanvas(props: SheetCanvasProps): ReactElement {
       onPointerLeave={props.onPointerLeave}
       onDoubleClick={props.onDoubleClick}
       role="application"
-      aria-label={`Folha ${sheet.size} ${sheet.orientation === 'landscape' ? 'deitada' : 'em pé'}, ${sheet.viewports.length} vistas`}
+      aria-label={t('cvs_canvas_aria', {
+        size: sheet.size,
+        orientation: t(sheet.orientation === 'landscape' ? 'cvs_landscape' : 'cvs_portrait'),
+        n: sheet.viewports.length,
+      })}
     >
       {/* Sombra e papel */}
       <rect x={2} y={2} width={W} height={H} fill="rgba(0,0,0,.22)" />
@@ -312,12 +318,12 @@ export function SheetCanvas(props: SheetCanvasProps): ReactElement {
       {/* Ferramenta Alinhar: referência, candidata, fila e fantasma do alvo */}
       {align ? (
         <g pointerEvents="none">
-          {align.ref ? <AlignLineView f={align.ref} H={H} W={W} zoom={camera.zoom} color="#1d6fe0" prefix="Referência: " solid /> : null}
+          {align.ref ? <AlignLineView f={align.ref} H={H} W={W} zoom={camera.zoom} color="#1d6fe0" prefix={t('cvs_ref_prefix')} solid /> : null}
           {align.queue.map((f) => (
-            <AlignLineView key={`q-${f.key}`} f={f} H={H} W={W} zoom={camera.zoom} color="#d98a00" prefix="Alinhar: " />
+            <AlignLineView key={`q-${f.key}`} f={f} H={H} W={W} zoom={camera.zoom} color="#d98a00" prefix={t('cvs_align_prefix')} />
           ))}
           {align.candidate ? (
-            <AlignLineView f={align.candidate} H={H} W={W} zoom={camera.zoom} color={align.ref ? '#1d6fe0' : '#7a828c'} prefix={align.ref ? 'Mover: ' : 'Referência: '} />
+            <AlignLineView f={align.candidate} H={H} W={W} zoom={camera.zoom} color={align.ref ? '#1d6fe0' : '#7a828c'} prefix={align.ref ? t('cvs_move_prefix') : t('cvs_ref_prefix')} />
           ) : null}
           {align.ghost ? (
             <>
@@ -341,7 +347,7 @@ export function SheetCanvas(props: SheetCanvasProps): ReactElement {
                 paintOrder="stroke"
                 fontFamily="Helvetica, Arial, sans-serif"
               >
-                {`Δ ${Math.round(Math.hypot(align.ghost.delta.x, align.ghost.delta.y) * 10) / 10} mm`}
+                {t('cvs_delta', { value: Math.round(Math.hypot(align.ghost.delta.x, align.ghost.delta.y) * 10) / 10 })}
               </text>
             </>
           ) : null}
@@ -371,7 +377,7 @@ export function SheetCanvas(props: SheetCanvasProps): ReactElement {
             paintOrder="stroke"
             fontFamily="Helvetica, Arial, sans-serif"
           >
-            {`${dropPreview.label} · 1:${dropPreview.scale}${dropPreview.adjusted ? ' · ajustada para caber' : ''}`}
+            {t(dropPreview.adjusted ? 'cvs_drop_preview_adjusted' : 'cvs_drop_preview', { label: dropPreview.label, scale: dropPreview.scale })}
           </text>
         </g>
       ) : null}

@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { formatQuantity, coreRange, slabTypeThickness, type Material, type SlabType } from '@hestia/model';
+import { useT } from '../../editor/i18n.ts';
 import { useUnits } from '../useUnits.ts';
 
 function mixHex(a: string, b: string, t: number): string {
@@ -14,6 +15,7 @@ function mixHex(a: string, b: string, t: number): string {
  * na mesma convenção de cor e hachura do tipo de parede.
  */
 export function SlabSectionPreview({ type, materials }: { type: SlabType; materials: Record<string, Material> }): ReactElement {
+  const { t } = useT();
   const units = useUnits();
   const W = 340;
   const H = 230;
@@ -33,7 +35,7 @@ export function SlabSectionPreview({ type, materials }: { type: SlabType; materi
   const primeira = bands[core.first];
   const ultima = bands[core.last];
   return (
-    <svg className="section-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Seção da laje">
+    <svg className="section-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t('dls_a11y_slab_section')}>
       <defs>
         {(['diagonal', 'cross', 'dots'] as const).map((h) => (
           <pattern key={h} id={`lh-${h}`} width="6" height="6" patternUnits="userSpaceOnUse">
@@ -43,8 +45,8 @@ export function SlabSectionPreview({ type, materials }: { type: SlabType; materi
           </pattern>
         ))}
       </defs>
-      <text x={22} y={14} fontSize="10" fill="var(--fg-faint)" fontFamily="var(--font-ui)">TOPO DA LAJE</text>
-      <text x={22} y={H - 8} fontSize="10" fill="var(--fg-faint)" fontFamily="var(--font-ui)">FACE INFERIOR</text>
+      <text x={22} y={14} fontSize="10" fill="var(--fg-faint)" fontFamily="var(--font-ui)">{t('dls_svg_slab_top')}</text>
+      <text x={22} y={H - 8} fontSize="10" fill="var(--fg-faint)" fontFamily="var(--font-ui)">{t('dls_svg_bottom_face')}</text>
       {bands.map((b) => {
         const m = materials[b.layer.materialId];
         const fill = mixHex(m?.color ?? '#999999', '#ffffff', 0.55);
@@ -69,7 +71,7 @@ export function SlabSectionPreview({ type, materials }: { type: SlabType; materi
       {primeira && ultima && (
         <g stroke="var(--accent)" strokeWidth="1.2" fill="none">
           <path d={`M14 ${primeira.y}H8V${ultima.y + ultima.h}H14`} />
-          <text x={7} y={(primeira.y + ultima.y + ultima.h) / 2} fontSize="9" textAnchor="middle" fill="var(--accent)" stroke="none" fontFamily="var(--font-ui)" transform={`rotate(-90 7 ${(primeira.y + ultima.y + ultima.h) / 2})`}>núcleo</text>
+          <text x={7} y={(primeira.y + ultima.y + ultima.h) / 2} fontSize="9" textAnchor="middle" fill="var(--accent)" stroke="none" fontFamily="var(--font-ui)" transform={`rotate(-90 7 ${(primeira.y + ultima.y + ultima.h) / 2})`}>{t('dls_svg_core')}</text>
         </g>
       )}
       <g stroke="var(--fg-soft)" strokeWidth="0.8" fill="none">

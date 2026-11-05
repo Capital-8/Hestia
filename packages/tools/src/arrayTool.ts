@@ -5,6 +5,7 @@ import { fmtM, SelectionTool } from './transformTools.ts';
 import { parseQuantityText } from './numeric.ts';
 import { arraySet, commitRadial, fmtXY, itensSobrepostos, linearStep, radialAngles, radialGhosts, rotations } from './arrayRadial.ts';
 import { refuseCopiesOverlap } from './wallOverlapGuard.ts';
+import type { Lang } from './i18n.ts';
 import type { PointerInfo } from './types.ts';
 
 /**
@@ -41,7 +42,7 @@ const TEXTOS = {
 } as const;
 
 /** Dica do primeiro passo de cada tipo (a barra de status usa a mesma ao trocar o tipo). */
-export const arrayHint = (radial: boolean, lang: 'pt' | 'en' = 'pt'): string => (radial ? TEXTOS[lang].hintRadial : TEXTOS[lang].hintLinear);
+export const arrayHint = (radial: boolean, lang: Lang = 'pt'): string => (radial ? TEXTOS[lang === 'pt' ? 'pt' : 'en'].hintRadial : TEXTOS[lang === 'pt' ? 'pt' : 'en'].hintLinear);
 
 /** Porta ou janela sozinha não se copia: ela depende da parede hospedeira (D3). */
 export const AVISO_HOSPEDEIRA = TEXTOS.pt.hospedeira;
@@ -72,8 +73,12 @@ export class ArrayTool extends SelectionTool {
   /** Tipo e "Mover para" em uso quando o passo começou: se a barra mudar, o passo recomeça (D1/D2). */
   private stepMode = '';
 
-  private lang(): 'pt' | 'en' {
+  private lang(): Lang {
     return this.env.lang?.() ?? 'pt';
+  }
+  /** Textos no idioma ativo, com fallback EN enquanto os novos idiomas não têm tradução. */
+  private textos() {
+    return TEXTOS[this.lang() === 'pt' ? 'pt' : 'en'];
   }
   private radial(): boolean {
     return this.env.options().arrayKind === 'radial';
@@ -112,14 +117,14 @@ export class ArrayTool extends SelectionTool {
   override inputPrompt(): string | null {
     this.checkStep();
     if (!this.base) return null;
-    const t = TEXTOS[this.lang()];
+    const t = this.textos();
     if (this.radial()) return t.anguloGraus;
     return this.anchor() === 'last' ? t.distanciaTotal : t.espacamento;
   }
 
   override start(): void {
     super.start();
-    if (this.soAberturas()) this.env.say(TEXTOS[this.lang()].hospedeira);
+    if (this.soAberturas()) this.env.say(this.textos().hospedeira);
     else if (this.hasSelection()) this.env.say(this.hintNow());
   }
 
@@ -167,7 +172,7 @@ export class ArrayTool extends SelectionTool {
   private moveRadial(p: PointerInfo): void {
     const inf = this.snap(p, { from: this.base ?? undefined });
     if (!this.base) {
-      this.items.push({ kind: 'point', at: inf.point }, { kind: 'label', at: inf.point, text: TEXTOS[this.lang()].centroRadial });
+      this.items.push({ kind: 'point', at: inf.point }, { kind: 'label', at: inf.point, text: this.textos().centroRadial });
       return;
     }
     this.items.push({ kind: 'point', at: this.base }, { kind: 'line', a: this.base, b: inf.point, dashed: true });
@@ -177,7 +182,7 @@ export class ArrayTool extends SelectionTool {
   }
 
   private commit(d: Vec2): void {
-    if (this.soAberturas()) return this.env.say(TEXTOS[this.lang()].hospedeira);
+    if (this.soAberturas()) return this.env.say(this.textos().hospedeira);
     const n = this.count();
     const step = linearStep(d, n, this.anchor());
     if (len(step) < 1e-6) return;
@@ -201,7 +206,7 @@ export class ArrayTool extends SelectionTool {
   private applyRadial(angleDeg: number): void {
     const center = this.base;
     if (!center) return;
-    const t = TEXTOS[this.lang()];
+    const t = this.textos();
     if (Math.abs(angleDeg) < 1e-6) return this.env.say(t.anguloZero);
     if (this.soAberturas()) return this.env.say(t.hospedeira);
     const n = this.count();
@@ -226,7 +231,7 @@ export class ArrayTool extends SelectionTool {
     if (this.radial()) {
       if (!this.base) {
         this.startStep(inf.point);
-        this.env.say(TEXTOS[this.lang()].centroDefinido(fmtXY(unitsOf(this.env.project()), inf.point)));
+        this.env.say(this.textos().centroDefinido(fmtXY(unitsOf(this.env.project()), inf.point)));
         return;
       }
       this.applyRadial(this.angleDeg());

@@ -1,5 +1,6 @@
 import type { Command } from './commands.ts';
 import { createEmptyProject } from './defaults.ts';
+import { t, type Lang } from './i18n.ts';
 import { ProjectStore } from './history.ts';
 import type { Opening, Project, Wall } from './types.ts';
 import { DEFAULT_JOIN, makeWall } from './wall.ts';
@@ -9,23 +10,29 @@ import { predio10 } from './templatePredio10.ts';
 
 export type TemplateId = 'blank' | 'house2' | 'studio' | 'house-premium' | 'predio10' | 'esquadrias';
 
-export const TEMPLATES: Array<{ id: TemplateId; name: string; description: string; area: string }> = [
-  { id: 'blank', name: 'Em branco', description: 'Dois níveis e os tipos de parede padrão.', area: '—' },
-  {
-    id: 'esquadrias',
-    name: 'Mostruário de esquadrias',
-    description: 'Um nível com todos os tipos do catálogo: portas na parede de baixo e janelas na paralela acima.',
-    area: '—',
-  },
-  // units-ok: área descritiva do modelo de exemplo (não é medida do projeto)
-  { id: 'house2', name: 'Casa térrea, 2 quartos', description: 'Sala e cozinha integradas, banheiro e dois quartos.', area: '70 m²' },
-  // units-ok: área descritiva do modelo de exemplo (não é medida do projeto)
-  { id: 'house-premium', name: 'Casa de alto padrão, 2 pavimentos', description: 'Garagem, sala em L, cozinha, varanda gourmet, três suítes e home office.', area: '330 m²' },
-  // units-ok: área descritiva do modelo de exemplo (não é medida do projeto)
-  { id: 'predio10', name: 'Prédio, 10 pavimentos', description: 'Núcleo de circulação central e quatro unidades por andar; lajes e pisos param no núcleo.', area: '1.900 m²' },
-  // units-ok: área descritiva do modelo de exemplo (não é medida do projeto)
-  { id: 'studio', name: 'Quitinete', description: 'Ambiente único com banheiro, para testar rápido.', area: '27 m²' },
-];
+/** Modelos oferecidos no diálogo de projeto novo, no idioma pedido. */
+export function templates(lang: Lang = 'pt'): Array<{ id: TemplateId; name: string; description: string; area: string }> {
+  return [
+    { id: 'blank', name: t(lang, 'md_tpl_blank'), description: t(lang, 'md_tpl_blank_desc'), area: '—' },
+    {
+      id: 'esquadrias',
+      name: t(lang, 'md_tpl_openings'),
+      description: t(lang, 'md_tpl_openings_desc'),
+      area: '—',
+    },
+    // units-ok: área descritiva do modelo de exemplo (não é medida do projeto)
+    { id: 'house2', name: t(lang, 'md_tpl_house2'), description: t(lang, 'md_tpl_house2_desc'), area: '70 m²' },
+    // units-ok: área descritiva do modelo de exemplo (não é medida do projeto)
+    { id: 'house-premium', name: t(lang, 'md_tpl_house_premium'), description: t(lang, 'md_tpl_house_premium_desc'), area: '330 m²' },
+    // units-ok: área descritiva do modelo de exemplo (não é medida do projeto)
+    { id: 'predio10', name: t(lang, 'md_tpl_building10'), description: t(lang, 'md_tpl_building10_desc'), area: '1.900 m²' },
+    // units-ok: área descritiva do modelo de exemplo (não é medida do projeto)
+    { id: 'studio', name: t(lang, 'md_tpl_studio'), description: t(lang, 'md_tpl_studio_desc'), area: '27 m²' },
+  ];
+}
+
+/** Modelos em PT (compatibilidade); use `templates(lang)` para o idioma ativo. */
+export const TEMPLATES: Array<{ id: TemplateId; name: string; description: string; area: string }> = templates('pt');
 
 let seq = 0;
 const wall = (a: [number, number], b: [number, number], typeId: string, id?: string): Omit<Wall, 'order'> =>
@@ -119,13 +126,14 @@ function studio(cmds: Command[]): void {
   for (const o of os) cmds.push({ type: 'addOpening', opening: o });
 }
 
-export function buildTemplate(id: TemplateId): Project {
-  const store = new ProjectStore(createEmptyProject(id === 'blank' ? 'Projeto sem título' : TEMPLATES.find((t) => t.id === id)!.name));
+export function buildTemplate(id: TemplateId, lang: Lang = 'pt'): Project {
+  const name = id === 'blank' ? undefined : templates(lang).find((t) => t.id === id)!.name;
+  const store = new ProjectStore(createEmptyProject(name, lang));
   const cmds: Command[] = [];
   if (id === 'house2') house2(cmds);
   if (id === 'studio') studio(cmds);
-  if (id === 'house-premium') casaAltoPadrao(cmds);
-  if (id === 'predio10') predio10(cmds);
+  if (id === 'house-premium') casaAltoPadrao(cmds, lang);
+  if (id === 'predio10') predio10(cmds, lang);
   if (id === 'esquadrias') esquadrias(cmds);
   for (const c of cmds) store.exec(c);
   const p = store.project;

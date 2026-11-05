@@ -17,6 +17,12 @@ export function safeSet(k: string, v: string): void {
 
 /** Chave do autosave (projeto em andamento, restaurado ao abrir o app). */
 export const AUTOSAVE_KEY = 'hestia.autosave.v1';
+/**
+ * Cópia do último documento que foi SALVO (pasta da biblioteca ou arquivo entregue). Comparar com o autosave é o que
+ * diz se há trabalho não salvo de verdade: depois de um Ctrl+S os dois são idênticos e a tela inicial não oferece
+ * "recuperar".
+ */
+export const AUTOSAVE_SALVO_KEY = 'hestia.autosave.salvo.v1';
 const TUTORIAL_KEY = 'hestia.tutorial.v1';
 
 /** Existe um autosave guardado neste navegador. */
