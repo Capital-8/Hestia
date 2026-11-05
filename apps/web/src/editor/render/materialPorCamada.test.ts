@@ -20,11 +20,11 @@ const semTexturas = (cena: RenderSceneSnapshot): RenderSceneSnapshot => ({
   materials: cena.materials.map(({ mapas: _mapas, ...material }) => material),
 });
 
-/** Exporta o template de alto padrão com os dois rebocos com rugosidade 0,37 (diferente do padrão do modelo: 0,85 e 0,90). */
+/** Exporta o template de alto padrão com os rebocos (acabamento e substrato externos, reboco interno) com rugosidade 0,37 (diferente do padrão do modelo: 0,85 e 0,90). */
 function templateComRebocoPersonalizado(): Project {
   const base = buildTemplate('house-premium');
   const materials = { ...base.materials };
-  for (const id of ['mat-reboco-externo', 'mat-reboco-interno']) {
+  for (const id of ['mat_ceramica', 'mat_argamassa', 'mat_reboco']) {
     materials[id] = { ...materials[id]!, roughness: 0.37 };
   }
   return { ...base, materials, view3d: { ...view3dOf(base), style: 'realistic', shadows: true, edges: true } };

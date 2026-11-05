@@ -1,19 +1,46 @@
 import { describe, expect, it } from 'vitest';
-import { buildTemplate, isRoof, isWall, materialRoughness, materialTransmission, validarMaterialPbr, type Project } from './index.ts';
+import {
+  buildTemplate,
+  DEFAULT_FLOOR_TYPES,
+  DEFAULT_MATERIALS,
+  DEFAULT_WALL_TYPES,
+  isRoof,
+  isWall,
+  materialRoughness,
+  materialTransmission,
+  validarMaterialPbr,
+  type Project,
+} from './index.ts';
 
 const projeto = (): Project => buildTemplate('house-premium');
 
+/** Material original do padrão (cor, hachura): a planta sai igual se a camada usar o mesmo id e a mesma aparência. */
+const original = (id: string) => DEFAULT_MATERIALS.find((m) => m.id === id)!;
+
 describe('casa de alto padrão: materiais físicos (T3)', () => {
-  it('paredes externas: as camadas do lado externo (antes da estrutura) são reboco externo (preset reboco, escala 2,0 m, rugosidade 0,85)', () => {
+  it('a planta: as camadas das paredes do template são as do padrão (mesmo material, espessura e função)', () => {
+    const p = projeto();
+    for (const id of ['wt_ext19', 'wt_alv14', 'wt_alv9']) {
+      expect(p.wallTypes[id]!.layers).toEqual(DEFAULT_WALL_TYPES.find((t) => t.id === id)!.layers);
+    }
+    expect(p.materials['mat-reboco-externo']).toBeUndefined();
+    expect(p.materials['mat-reboco-interno']).toBeUndefined();
+  });
+
+  it('paredes externas: o acabamento externo (mat_ceramica) e o substrato (mat_argamassa) são originais, com preset reboco, escala 2,0 m e rugosidade 0,85', () => {
     const p = projeto();
     const externas = Object.values(p.elements).filter(isWall).filter((w) => w.typeId === 'wt_ext19');
     expect(externas.length).toBeGreaterThan(0);
     const camadas = p.wallTypes['wt_ext19']!.layers;
     const fora = camadas.slice(0, camadas.findIndex((l) => l.function === 'structure'));
-    expect(fora.map((l) => l.function)).toEqual(['finish1', 'substrate']);
+    expect(fora.map((l) => [l.function, l.materialId])).toEqual([
+      ['finish1', 'mat_ceramica'],
+      ['substrate', 'mat_argamassa'],
+    ]);
     for (const l of fora) {
       const m = p.materials[l.materialId]!;
-      expect(l.materialId).toBe('mat-reboco-externo');
+      expect(m.color).toBe(original(l.materialId).color);
+      expect(m.hatch).toBe(original(l.materialId).hatch);
       expect(m.texture?.preset).toBe('reboco');
       expect(m.mapping?.scale).toBe(2);
       expect(materialRoughness(m)).toBeCloseTo(0.85, 9);
@@ -26,14 +53,24 @@ describe('casa de alto padrão: materiais físicos (T3)', () => {
     expect(camadas.find((l) => l.function === 'finish2')!.materialId).toBe('mat_tinta');
   });
 
-  it('paredes internas: o reboco das duas faces é o reboco interno (preset reboco, rugosidade 0,9, escala 2,0 m)', () => {
+  it('a camada interna do reboco de wt_ext19 é mat_reboco original (preset reboco, rugosidade 0,9)', () => {
+    const camadas = projeto().wallTypes['wt_ext19']!.layers;
+    const interna = camadas[3]!;
+    expect(interna.materialId).toBe('mat_reboco');
+    expect(projeto().materials['mat_reboco']!.texture?.preset).toBe('reboco');
+    expect(materialRoughness(projeto().materials['mat_reboco']!)).toBeCloseTo(0.9, 9);
+  });
+
+  it('paredes internas: o reboco das duas faces é mat_reboco original (preset reboco, rugosidade 0,9, escala 2,0 m)', () => {
     const p = projeto();
     for (const tipo of ['wt_alv14', 'wt_alv9']) {
       const reboco = p.wallTypes[tipo]!.layers.filter((l) => l.function === 'substrate');
       expect(reboco).toHaveLength(2);
       for (const l of reboco) {
         const m = p.materials[l.materialId]!;
-        expect(l.materialId).toBe('mat-reboco-interno');
+        expect(l.materialId).toBe('mat_reboco');
+        expect(m.color).toBe(original('mat_reboco').color);
+        expect(m.hatch).toBe(original('mat_reboco').hatch);
         expect(m.texture?.preset).toBe('reboco');
         expect(m.mapping?.scale).toBe(2);
         expect(materialRoughness(m)).toBeCloseTo(0.9, 9);
@@ -74,7 +111,13 @@ describe('casa de alto padrão: materiais físicos (T3)', () => {
       expect(materialRoughness(m)).toBeCloseTo(0.6, 9);
       expect(m.mapping?.scale).toBe(1);
     }
-    const piso = p.materials[p.floorTypes['ft_ceram']!.layers.find((l) => l.function === 'finish1')!.materialId]!;
+    const acabamentoPiso = p.floorTypes['ft_ceram']!.layers.find((l) => l.function === 'finish1')!;
+    // Piso próprio (mat_ceramica é o reboco externo): mesma cor e hachura do original, sem preset reboco.
+    expect(acabamentoPiso.materialId).toBe('mat-piso-ceramico');
+    expect(p.floorTypes['ft_ceram']!.layers.filter((l) => l.function !== 'finish1')).toEqual(DEFAULT_FLOOR_TYPES.find((t) => t.id === 'ft_ceram')!.layers.filter((l) => l.function !== 'finish1'));
+    const piso = p.materials[acabamentoPiso.materialId]!;
+    expect(piso.color).toBe(original('mat_ceramica').color);
+    expect(piso.hatch).toBe(original('mat_ceramica').hatch);
     expect(piso.texture?.preset).toBe('piso');
     expect(materialRoughness(piso)).toBeCloseTo(0.4, 9);
     expect(piso.mapping?.scale).toBe(0.6);
