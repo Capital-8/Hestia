@@ -1,12 +1,12 @@
 import { DEFAULT_DIMENSION_STYLE, angularDimensionData, angularDimensionGeometry, type Dimension, type DimensionStyle } from '@hestia/model';
 import type { Vec2 } from '@hestia/geom';
 import { describe, expect, it } from 'vitest';
-import { boxCorners, dimensionLaneOffsetMm, drawDimension, layoutDimensions, type DimItem, type DimLook } from './dimDraw.ts';
+import { MASCARA_MM, boxCorners, dimensionLaneOffsetMm, drawDimension, layoutDimensions, type DimItem, type DimLook } from './dimDraw.ts';
 import { annotationHighlightOps } from './notes.ts';
 import { ProjectStore, createEmptyProject } from '@hestia/model';
 
 const SCALE = 100;
-const LOOK: DimLook = { color: '#000', fina: { widthPx: 1 }, marcador: { widthPx: 2 }, paper: '#fff' };
+const LOOK: DimLook = { color: '#000', fina: { widthPx: 1 }, marcador: { widthPx: 2 } };
 const item = (id: string, x0: number, x1: number, offset = 0.6, text = `${(x1 - x0).toFixed(2).replace('.', ',')} m`): DimItem => ({
   d: { id, a: { x: x0, y: 0 }, b: { x: x1, y: 0 }, offset },
   a: { x: x0, y: 0 }, b: { x: x1, y: 0 }, text,
@@ -162,8 +162,6 @@ describe('cotas: hover e seleção', () => {
   });
 });
 
-/** Folga do intervalo em volta do texto, em mm de papel (a mesma do desenho). */
-const FOLGA_MM = 0.45;
 const mPerMm = SCALE / 1000;
 /** Traços colineares com a linha de cota `y` (horizontal). */
 const linhasEm = (ops: ReturnType<typeof drawDimension>, y: number) => ops.strokes.filter((s) => s.pts.length === 2 && s.pts[0]!.y === y && s.pts[1]!.y === y);
@@ -193,7 +191,7 @@ describe('cotas: texto CAD sem caixa e linha interrompida', () => {
     const [esq, dir] = segs[0]!.pts[0]!.x < segs[1]!.pts[0]!.x ? [segs[0]!, segs[1]!] : [segs[1]!, segs[0]!];
     const fimEsq = Math.max(...esq.pts.map((p) => p.x));
     const iniDir = Math.min(...dir.pts.map((p) => p.x));
-    const folga = FOLGA_MM * mPerMm;
+    const folga = MASCARA_MM * mPerMm;
     expect(fimEsq).toBeCloseTo(l!.box.c.x - l!.box.hw - folga, 9);
     expect(iniDir).toBeCloseTo(l!.box.c.x + l!.box.hw + folga, 9);
     // Nenhum traço passa por baixo do número.
@@ -224,7 +222,7 @@ describe('cotas: texto CAD sem caixa e linha interrompida', () => {
     const verticais = drawDimension(l!, SCALE, LOOK).strokes.filter((s) => s.pts.length === 2 && s.pts[0]!.x === xLinha && s.pts[1]!.x === xLinha);
     expect(verticais).toHaveLength(2);
     const ys = verticais.map((s) => s.pts.map((p) => p.y).sort((a, b) => a - b)).sort((a, b) => a[0]! - b[0]!);
-    expect(ys[1]![0]! - ys[0]![1]!).toBeCloseTo(l!.w + 2 * FOLGA_MM * mPerMm, 9);
+    expect(ys[1]![0]! - ys[0]![1]!).toBeCloseTo(l!.w + 2 * MASCARA_MM * mPerMm, 9);
   });
 
   it('texto sobre o arco: o arco é interrompido em volta do número; fora dele fica inteiro', () => {
@@ -233,16 +231,19 @@ describe('cotas: texto CAD sem caixa e linha interrompida', () => {
     const ang = angularDimensionGeometry(d)!;
     const meio = ang.arc[Math.floor(ang.arc.length / 2)]!;
     /** Subsegmentos do arco (o desenho pode mandar o arco inteiro num traço ou em vários, quando há intervalo). */
-    const subArco = (ops: ReturnType<typeof drawDimension>): Array<[Vec2, Vec2]> => ops.strokes
-      .filter((s) => s.widthPx === 1 && s.pts.every((p) => Math.abs(Math.hypot(p.x, p.y) - 2) < 1e-9))
+    const arcos = (ops: ReturnType<typeof drawDimension>) => ops.strokes.filter((s) => s.widthPx === 1);
+    const subArco = (ops: ReturnType<typeof drawDimension>): Array<[Vec2, Vec2]> => arcos(ops)
       .flatMap((s) => s.pts.slice(1).map((p, i) => [s.pts[i]!, p] as [Vec2, Vec2]));
-    const semTexto = layoutDimensions([{ d, a: d.a, b: d.b, text: '90°', ang }], { scale: SCALE })[0]!;
+    const fora = { x: meio.x * 2, y: meio.y * 2 };
+    const semTexto = layoutDimensions([{ d, a: d.a, b: d.b, text: '90°', ang: { ...ang, textAt: fora } }], { scale: SCALE })[0]!;
     const comTexto = layoutDimensions([{ d, a: d.a, b: d.b, text: '90°', ang: { ...ang, textAt: meio } }], { scale: SCALE })[0]!;
-    const sem = subArco(drawDimension(semTexto, SCALE, LOOK));
-    const com = subArco(drawDimension(comTexto, SCALE, LOOK));
-    expect(sem).toHaveLength(ang.arc.length - 1);
-    expect(com.length).toBeGreaterThan(sem.length);
-    // O centro do arco (onde está o número) não é coberto por traço nenhum.
-    for (const [a, b] of com) expect(distanciaSegmento(meio, a, b)).toBeGreaterThan(0.05);
+    const sem = arcos(drawDimension(semTexto, SCALE, LOOK));
+    const com = arcos(drawDimension(comTexto, SCALE, LOOK));
+    // Fora do arco: um traço único com todos os vértices do arco.
+    expect(sem).toHaveLength(1);
+    expect(sem[0]!.pts).toHaveLength(ang.arc.length);
+    // Sobre o arco: o traço é partido em mais de um trecho e nenhum cobre o centro (onde está o número).
+    expect(com.length).toBeGreaterThan(1);
+    for (const [a, b] of subArco(drawDimension(comTexto, SCALE, LOOK))) expect(distanciaSegmento(meio, a, b)).toBeGreaterThan(0.05);
   });
 });
