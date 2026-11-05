@@ -17,11 +17,8 @@ path = "src/main.rs"
 [dependencies]
 # O formato HSTR, a câmera e a validação de cena continuam no núcleo compartilhado.
 render-core = { path = "../render-core" }
-# GPU nativa: DX12, Vulkan e Metal (sem nenhum caminho de CPU).
-wgpu = "30"
-pollster = "1"
-bytemuck = { version = "1.25", features = ["derive"] }
-png = "0.17"
+# Toda a renderização GPU mora em render-engine; aqui só fica o CLI e a reexportação.
+render-engine = { path = "../render-engine" }
 
 [profile.release]
 opt-level = 3

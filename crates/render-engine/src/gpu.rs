@@ -6,6 +6,7 @@
 
 use std::sync::Arc;
 
+use crate::constantes::{FORMATO_COR, FORMATO_PROFUNDIDADE};
 use crate::erro::ErroRender;
 
 /// Dispositivo, fila e informações do adaptador escolhido.
@@ -15,6 +16,13 @@ pub struct Gpu {
     pub backend: wgpu::Backend,
     pub adaptador: String,
     pub tipo: wgpu::DeviceType,
+    /// `true` se o adaptador aceita 4 amostras (MSAA x4) para a cor e a profundidade do passe
+    /// principal. `false` também quando o adaptador não foi consultado (`com_device`).
+    pub suporta_msaa4: bool,
+    /// `true` se a cor final aceita ser lida por `textureLoad` e receber cópia (passe de vidro,
+    /// que refrata a cor opaca da região). `com_device` assume `true`: o WebGPU exige esses usos
+    /// para `rgba8unorm`.
+    pub suporta_copia_tela: bool,
 }
 
 /// Cria a instância e escolhe o melhor adaptador disponível.
@@ -60,11 +68,26 @@ pub fn iniciar() -> Result<Gpu, ErroRender> {
         eprintln!("render-native: erro de validação da GPU: {erro}");
     }));
 
+    // MSAA x4 precisa de suporte explícito do adaptador, para a cor e para a profundidade.
+    let suporta_msaa4 = [FORMATO_COR, FORMATO_PROFUNDIDADE].into_iter().all(|formato| {
+        adaptador
+            .get_texture_format_features(formato)
+            .flags
+            .contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4)
+    });
+
+    let suporta_copia_tela = adaptador
+        .get_texture_format_features(FORMATO_COR)
+        .allowed_usages
+        .contains(wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST);
+
     Ok(Gpu {
         device,
         queue,
         backend: info.backend,
         adaptador: info.name,
         tipo: info.device_type,
+        suporta_msaa4,
+        suporta_copia_tela,
     })
 }

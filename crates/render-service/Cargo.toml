@@ -12,7 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 render-core = { path = "../render-core" }
-render-native = { path = "../render-native" }
+render-engine = { path = "../render-engine" }
 tiny_http = "0.12"
 serde_json = "1"
 

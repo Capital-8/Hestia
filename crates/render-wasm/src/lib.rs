@@ -35,13 +35,13 @@
 //!
 //! `0` ok · `1` cena inválida · `2` trabalho inválido · `3` erro interno · `4` cancelado.
 //!
-//! ## Formato da cena (`HSTR` versão 1)
+//! ## Formato da cena (`HSTR` versão 2 na escrita; versões 1 e 2 na leitura)
 //!
 //! Cabeçalho de 32 bytes, tudo little-endian:
 //!
 //! ```text
 //!   0  "HSTR"             4 bytes
-//!   4  versão             u32 = 1
+//!   4  versão             u32 = 2 (1 também é aceita; sem tipo/escala, valem 0 e 1.0)
 //!   8  n_vertices         u32
 //!   12 n_indices          u32 (múltiplo de 3)
 //!   16 n_normais          u32 (0 ou n_vertices)
@@ -55,7 +55,8 @@
 //! opacidade, transmissão, IOR, emissivo 3), lotes (`3 u32`: início, quantidade de índices,
 //! material), sol (`3 f32`: azimute em graus, elevação em graus, intensidade), fundo (`3 f32`, se
 //! houver) e câmera (`37 f32`: view 16, projeção 16, posição 3, perto, longe). Matrizes em coluna
-//! maior, metros, Z para cima.
+//! maior, metros, Z para cima. Na versão 2 cada material ganha, no fim do seu bloco, `tipo` (`u32`,
+//! 0..=7) e `escala` (`f32`, > 0): bloco de 52 bytes em vez de 44.
 //!
 //! ## Formato do trabalho (`HSWK` versão 1)
 //!
@@ -326,6 +327,8 @@ mod testes {
             transmissao: 0.0,
             ior: 1.5,
             emissivo: [0.0, 0.0, 0.0],
+            tipo: 0,
+            escala: 1.0,
         }];
         let lotes = vec![Lote {
             inicio_indices: 0,

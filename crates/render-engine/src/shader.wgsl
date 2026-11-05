@@ -1,0 +1,754 @@
+// PBR direto do render-native: Cook-Torrance/GGX, sol direcional com mapa de sombra
+// (PCSS: penumbra física), ambiente por céu analítico com irradiância SH9 (ver ceu.rs), tone mapping ACES e
+// codificação sRGB.
+//
+// Convenções:metros, Z para cima, normais de face; a conversão do recorte WebGL para
+// profundidade 0..1 já vem pronta em `view_proj`.
+
+const PI: f32 = 3.141592653589793;
+
+struct Uniformes {
+  view_proj: mat4x4<f32>,
+  luz_vp: mat4x4<f32>,
+  camera: vec4<f32>,
+  sol: vec4<f32>,
+  sol_cor: vec4<f32>,
+  ceu: vec4<f32>,
+  chao: vec4<f32>,
+  parametros: vec4<f32>,
+  resolucao: vec4<f32>,
+};
+
+@group(0) @binding(0) var<uniform> u: Uniformes;
+@group(0) @binding(1) var sombra: texture_depth_2d;
+@group(0) @binding(2) var comparador: sampler_comparison;
+// Irradiância SH9 do céu já convoluída (E_lm = A_l · L_lm), w livre. Calculada em ceu.rs.
+@group(0) @binding(3) var<uniform> sh: array<vec4<f32>, 9>;
+// Oclusão ambiente da região (R8, 1 = sem oclusão), já desfocada. Só o passe principal lê.
+@group(0) @binding(4) var oclusao_ambiente: texture_2d<f32>;
+// Uniforme extra dos passes de oclusão (pré-passe, SSAO e desfoque). Espelha ssao.rs.
+@group(0) @binding(5) var<uniform> camera_extra: CameraExtra;
+// Pré-passe: normal de visão em xyz e profundidade linear em metros em w (0 sem geometria).
+@group(0) @binding(6) var gbuffer: texture_2d<f32>;
+// Oclusão bruta do SSAO, antes do desfoque (só o desfoque lê).
+@group(0) @binding(7) var oclusao_bruta: texture_2d<f32>;
+// Cópia da cor opaca já resolvida da região (sRGB codificado, como a final). Só o passe de vidro
+// lê; é a "cor de tela" que a refração desloca. Ver motor.rs (passe de vidro).
+@group(0) @binding(8) var cor_tela: texture_2d<f32>;
+
+// Mesmo valor de constantes.rs (AMOSTRAS_AO). O teste de sincronia lê esta linha.
+const AMOSTRAS_AO: u32 = 16u;
+
+struct CameraExtra {
+  projecao: mat4x4<f32>,
+  projecao_inversa: mat4x4<f32>,
+  visao: mat4x4<f32>,
+  imagem: vec4<f32>,
+  alvo: vec4<f32>,
+  gbuffer_origem: vec4<f32>,
+  ao_origem: vec4<f32>,
+  // (raio em metros, margem em pixels, viés em metros, reservado).
+  ssao: vec4<f32>,
+  kernel: array<vec4<f32>, AMOSTRAS_AO>,
+};
+
+// Céu analítico: mesmos valores de src/ceu.rs (manter sincronizado).
+const CEU_HORIZONTE: vec3<f32> = vec3<f32>(0.488, 0.616, 0.80);
+const CEU_ZENITE: vec3<f32> = vec3<f32>(0.20, 0.40, 0.82);
+const CEU_CHAO: vec3<f32> = vec3<f32>(0.18, 0.16, 0.13);
+const COS_DISCO_SOLAR: f32 = 0.9945219;
+const FATOR_DISCO_SOLAR: f32 = 2.0;
+
+struct Entrada {
+  @location(0) posicao: vec3<f32>,
+  @location(1) normal: vec3<f32>,
+  @location(2) cor: vec3<f32>,
+  @location(3) rugosidade: f32,
+  @location(4) metalico: f32,
+  @location(5) emissivo: vec3<f32>,
+  // Superfície procedural: tipo (0 liso ... 7 tijolo) e escala (metros por repetição).
+  @location(6) tipo: f32,
+  @location(7) escala: f32,
+  // Opacidade do material: 1 opaco. Abaixo de 1 (ou tipo 6), o triângulo vai ao passe de vidro.
+  @location(8) opacidade: f32,
+};
+
+struct SaidaSombra {
+  @builtin(position) clip: vec4<f32>,
+};
+
+struct Saida {
+  @builtin(position) clip: vec4<f32>,
+  @location(0) mundo: vec3<f32>,
+  @location(1) normal: vec3<f32>,
+  @location(2) cor: vec3<f32>,
+  @location(3) rugosidade: f32,
+  @location(4) metalico: f32,
+  @location(5) emissivo: vec3<f32>,
+  @location(6) tipo: f32,
+  @location(7) escala: f32,
+  @location(8) opacidade: f32,
+};
+
+@vertex
+fn vs_sombra(e: Entrada) -> SaidaSombra {
+  var s: SaidaSombra;
+  s.clip = u.luz_vp * vec4<f32>(e.posicao, 1.0);
+  return s;
+}
+
+@vertex
+fn vs_principal(e: Entrada) -> Saida {
+  var s: Saida;
+  s.clip = u.view_proj * vec4<f32>(e.posicao, 1.0);
+  s.mundo = e.posicao;
+  s.normal = e.normal;
+  s.cor = e.cor;
+  s.rugosidade = e.rugosidade;
+  s.metalico = e.metalico;
+  s.emissivo = e.emissivo;
+  s.tipo = e.tipo;
+  s.escala = e.escala;
+  s.opacidade = e.opacidade;
+  return s;
+}
+
+// GGX / Trowbridge-Reitz.
+fn distribuicao_ggx(ndh: f32, alfa: f32) -> f32 {
+  let a2 = alfa * alfa;
+  let denominador = ndh * ndh * (a2 - 1.0) + 1.0;
+  return a2 / max(PI * denominador * denominador, 1.0e-7);
+}
+
+// Geometria de Smith com aproximação de Schlick-GGX.
+fn geometria_smith(ndv: f32, ndl: f32, alfa: f32) -> f32 {
+  let k = (alfa + 1.0) * (alfa + 1.0) / 8.0;
+  let gv = ndv / max(ndv * (1.0 - k) + k, 1.0e-7);
+  let gl = ndl / max(ndl * (1.0 - k) + k, 1.0e-7);
+  return gv * gl;
+}
+
+fn fresnel_schlick(vdh: f32, f0: vec3<f32>) -> vec3<f32> {
+  let base = pow(1.0 - vdh, 5.0);
+  return f0 + (vec3<f32>(1.0) - f0) * base;
+}
+
+fn aces(x: vec3<f32>) -> vec3<f32> {
+  let a = 2.51;
+  let b = 0.03;
+  let c = 2.43;
+  let d = 0.59;
+  let e = 0.14;
+  let numerador = x * (a * x + b);
+  let denominador = x * (c * x + d) + e;
+  return clamp(numerador / denominador, vec3<f32>(0.0), vec3<f32>(1.0));
+}
+
+fn linear_para_srgb(c: vec3<f32>) -> vec3<f32> {
+  let baixo = c * 12.92;
+  let alto = 1.055 * pow(max(c, vec3<f32>(0.0)), vec3<f32>(1.0 / 2.4)) - 0.055;
+  return select(alto, baixo, c <= vec3<f32>(0.0031308));
+}
+
+// Radiância do céu analítico numa direção unitária (mesma função de ceu.rs::radiancia).
+fn radiancia_ceu(dir: vec3<f32>) -> vec3<f32> {
+  var cor: vec3<f32>;
+  if (dir.z >= 0.0) {
+    cor = mix(CEU_HORIZONTE, CEU_ZENITE, pow(clamp(dir.z, 0.0, 1.0), 0.6));
+  } else {
+    let s = clamp(-dir.z / 0.25, 0.0, 1.0);
+    cor = mix(CEU_HORIZONTE, CEU_CHAO, s * s * (3.0 - 2.0 * s));
+  }
+  let sol_dir = normalize(u.sol.xyz);
+  let intensidade = u.sol.w;
+  if (intensidade > 0.0 && sol_dir.z > 0.0 && dot(dir, sol_dir) >= COS_DISCO_SOLAR) {
+    cor = cor + vec3<f32>(intensidade * FATOR_DISCO_SOLAR);
+  }
+  return cor;
+}
+
+// Irradiância difusa do céu em n: soma dos 9 termos de SH com as bases reais. Os coeficientes
+// de `sh` já levam A0 = π, A1 = 2π/3 e A2 = π/4; as constantes c1..c5 de Ramamoorthi & Hanrahan
+// são esses produtos com Y_lm (c4 = A0·Y00, c2 = A1·Y1/2, c1 = A2·Y22, c3 = A2·3·Y20, c5 = A2·Y20).
+fn irradiancia_sh(n: vec3<f32>) -> vec3<f32> {
+  let x = n.x;
+  let y = n.y;
+  let z = n.z;
+  let e = sh[0].xyz * 0.282095
+    + sh[1].xyz * (0.488603 * y)
+    + sh[2].xyz * (0.488603 * z)
+    + sh[3].xyz * (0.488603 * x)
+    + sh[4].xyz * (1.092548 * x * y)
+    + sh[5].xyz * (1.092548 * y * z)
+    + sh[6].xyz * (0.315392 * (3.0 * z * z - 1.0))
+    + sh[7].xyz * (1.092548 * x * z)
+    + sh[8].xyz * (0.546274 * (x * x - y * y));
+  return max(e, vec3<f32>(0.0));
+}
+
+// Sombra PCSS (Fernando, 2005) do Sol: busca de bloqueadores, penumbra proporcional à distância
+// bloqueador-receptor e PCF com disco de Vogel. Constantes e conversão de profundidade espelhadas
+// em src/sombra.rs (o teste de sincronia lê TAMANHO_LUZ_SOL deste arquivo).
+// Devolve 1.0 fora do mapa e quando não há bloqueador.
+const TAMANHO_LUZ_SOL: f32 = 0.02;
+const AMOSTRAS_BLOQUEIO: i32 = 16;
+const AMOSTRAS_PCF: i32 = 32;
+const PENUMBRA_MIN_TEXEL: f32 = 1.0;
+const PENUMBRA_MAX_TEXEL: f32 = 12.0;
+const BUSCA_MAX_TEXEL: f32 = 24.0;
+const ANGULO_OURO: f32 = 2.399963229728653;
+
+// Ponto i de n num disco unitário (espiral de Vogel: distribuição quase uniforme e determinística).
+fn disco(i: i32, n: i32) -> vec2<f32> {
+  let r = sqrt((f32(i) + 0.5) / f32(n));
+  let t = f32(i) * ANGULO_OURO;
+  return vec2<f32>(cos(t), sin(t)) * r;
+}
+
+// Profundidade NDC do mapa de sombra para distância em metros a partir do olho da luz
+// (ortográfica de iluminacao.rs: perto = raio * 0.5, longe = raio * 3.5, profundidade linear).
+fn distancia_luz(z_ndc: f32, raio: f32) -> f32 {
+  return z_ndc * (3.0 * raio) + 0.5 * raio;
+}
+
+fn fator_sombra(mundo: vec3<f32>, normal: vec3<f32>, ndl: f32) -> f32 {
+  let deslocamento = normal * (0.015 + 0.05 * (1.0 - ndl));
+  let posicao = u.luz_vp * vec4<f32>(mundo + deslocamento, 1.0);
+  if (posicao.w <= 0.0) {
+    return 1.0;
+  }
+  let ndc = posicao.xyz / posicao.w;
+  let uv = vec2<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
+  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || ndc.z > 1.0) {
+    return 1.0;
+  }
+
+  // Viés constante + dependente do ângulo (o mesmo do PCF 3x3, para não criar acne).
+  let referencia = ndc.z - (0.0008 + 0.0015 * (1.0 - ndl));
+  let texel = u.parametros.z;
+  let raio = u.parametros.w;
+  // A ortográfica cobre 2 * raio * 1.05 metros em uma unidade de uv.
+  let metros_por_texel = 2.0 * raio * 1.05 * texel;
+  let d_receptor = distancia_luz(ndc.z, raio);
+  let dimensao = vec2<i32>(textureDimensions(sombra));
+  let centro = uv * vec2<f32>(dimensao);
+
+  // 1. Busca de bloqueadores: raio da busca proporcional ao tamanho da luz e à distância do
+  // receptor ao plano próximo.
+  let busca_texel = clamp(
+    TAMANHO_LUZ_SOL * (d_receptor - 0.5 * raio) / metros_por_texel,
+    1.0,
+    BUSCA_MAX_TEXEL
+  );
+  var soma_bloqueio = 0.0;
+  var bloqueadores = 0.0;
+  for (var i = 0; i < AMOSTRAS_BLOQUEIO; i = i + 1) {
+    let coord = vec2<i32>(floor(centro + disco(i, AMOSTRAS_BLOQUEIO) * busca_texel));
+    let z = textureLoad(sombra, clamp(coord, vec2<i32>(0), dimensao - vec2<i32>(1)), 0);
+    if (z < referencia) {
+      soma_bloqueio = soma_bloqueio + z;
+      bloqueadores = bloqueadores + 1.0;
+    }
+  }
+  if (bloqueadores < 0.5) {
+    return 1.0;
+  }
+  let d_bloqueador = distancia_luz(soma_bloqueio / bloqueadores, raio);
+
+  // 2. Penumbra: largura física (metros) = (d_receptor - d_bloqueador) * tamanho angular da luz.
+  // Para luz direcional a divisão por d_bloqueador de Fernando sai, porque a luz está no infinito.
+  let penumbra_m = max(d_receptor - d_bloqueador, 0.0) * TAMANHO_LUZ_SOL;
+  let penumbra_texel = clamp(penumbra_m / metros_por_texel, PENUMBRA_MIN_TEXEL, PENUMBRA_MAX_TEXEL);
+
+  // 3. PCF com disco de raio = penumbra. textureSampleCompareLevel não usa derivadas, então
+  // pode ficar depois de desvios que dependem da posição.
+  var soma = 0.0;
+  for (var i = 0; i < AMOSTRAS_PCF; i = i + 1) {
+    let desloc = disco(i, AMOSTRAS_PCF) * penumbra_texel * texel;
+    soma = soma + textureSampleCompareLevel(sombra, comparador, uv + desloc, referencia);
+  }
+  return soma / f32(AMOSTRAS_PCF);
+}
+
+// ---- Superfícies procedurais (sem textura e sem UV) ----
+// Tipos, como `Material::tipo` em render-core/src/cena.rs: 0 liso (não passa por aqui), 1 reboco,
+// 2 madeira, 3 telha, 4 piso, 5 metal, 6 vidro (passe próprio, fs_vidro), 7 tijolo.
+// Triplanar: cada eixo amostra o padrão no plano perpendicular; os pesos são |normal|^4 normalizados.
+// Coordenada de padrão = posição / escala (metros por repetição). As dimensões abaixo valem para
+// escala 1.0. Ruído: value noise 3D com hash inteiro (determinístico, sem textura amostrada).
+const ESCALA_MINIMA: f32 = 0.001;
+const EXPOENTE_TRIPLANAR: f32 = 4.0;
+const ARGAMASSA: vec3<f32> = vec3<f32>(0.55, 0.53, 0.50);
+const TELHA_FILEIRA: f32 = 0.34;
+const TELHA_LARGURA: f32 = 0.42;
+const TIJOLO_ALTURA: f32 = 0.065;
+const TIJOLO_COMPRIMENTO: f32 = 0.21;
+const PISO_PLACA: f32 = 0.6;
+// Passo das diferenças finitas do relevo, como fração da escala (o relevo escala junto).
+const PASSO_RELEVO: f32 = 0.002;
+// Sementes que separam as projeções X, Y e Z do mesmo ruído.
+const SEMENTE_EIXO_Y: f32 = 11.0;
+const SEMENTE_EIXO_Z: f32 = 23.0;
+
+struct Superficie {
+  cor: vec3<f32>,
+  rugosidade: f32,
+  // Relevo em metros no padrão de escala 1.0 (0 quando o tipo não tem relevo).
+  altura: f32,
+};
+
+// Hash inteiro de três coordenadas inteiras, em [0, 1). Determinístico e sem sin/fract de float.
+fn hash3(x: i32, y: i32, z: i32) -> f32 {
+  var h: u32 = bitcast<u32>(x) * 0x8da6b343u;
+  h = (h ^ bitcast<u32>(y)) * 0xd8163841u;
+  h = (h ^ bitcast<u32>(z)) * 0xcb1ab31fu;
+  h = h ^ (h >> 15u);
+  h = h * 0x2c1b3c6du;
+  h = h ^ (h >> 12u);
+  return f32(h & 0x00ffffffu) / 16777216.0;
+}
+
+// Value noise 3D em [0, 1] (interpolação suave cúbica entre os 8 vértices da célula).
+fn ruido3(p: vec3<f32>) -> f32 {
+  let i = floor(p);
+  let f = p - i;
+  let s = f * f * (3.0 - 2.0 * f);
+  let x = i32(i.x);
+  let y = i32(i.y);
+  let z = i32(i.z);
+  let a = mix(
+    mix(hash3(x, y, z), hash3(x + 1, y, z), s.x),
+    mix(hash3(x, y + 1, z), hash3(x + 1, y + 1, z), s.x),
+    s.y
+  );
+  let b = mix(
+    mix(hash3(x, y, z + 1), hash3(x + 1, y, z + 1), s.x),
+    mix(hash3(x, y + 1, z + 1), hash3(x + 1, y + 1, z + 1), s.x),
+    s.y
+  );
+  return mix(a, b, s.z);
+}
+
+// Fractal de 4 oitavas (ganho 0,5, frequência x2,03), normalizado para [0, 1].
+fn fbm4(p: vec3<f32>) -> f32 {
+  var soma = 0.0;
+  var amplitude = 0.5;
+  var q = p;
+  for (var i = 0; i < 4; i = i + 1) {
+    soma = soma + amplitude * ruido3(q);
+    q = q * 2.03 + vec3<f32>(17.1, 9.3, 4.7);
+    amplitude = amplitude * 0.5;
+  }
+  return soma / 0.9375;
+}
+
+// Padrão de um plano. `uv` está em metros (escala 1.0); `base` é a cor linear do material.
+fn padrao_2d(tipo: i32, uv: vec2<f32>, semente: f32, base: vec3<f32>) -> Superficie {
+  var s: Superficie;
+  s.cor = base;
+  s.rugosidade = 0.5;
+  s.altura = 0.0;
+  if (tipo == 1) {
+    // Reboco: fbm de 4 oitavas, albedo ±6%, rugosidade alta, relevo de até 6 mm.
+    let n = fbm4(vec3<f32>(uv * 6.0, semente));
+    s.cor = base * (1.0 + (n - 0.5) * 0.12);
+    s.rugosidade = 0.85 + (n - 0.5) * 0.1;
+    s.altura = (n - 0.5) * 0.006;
+  } else if (tipo == 2) {
+    // Madeira: veios por seno de (x + ruído * k), faixas mais escuras onde o seno passa do limiar.
+    let r = ruido3(vec3<f32>(uv.x * 1.5, uv.y * 0.4, semente));
+    let veio = sin(2.0 * PI * (uv.x * 20.0 + r * 4.0)) * 0.5 + 0.5;
+    let faixa = smoothstep(0.6, 0.95, veio);
+    s.cor = base * mix(1.0, 0.62, faixa) * (1.0 + (r - 0.5) * 0.1);
+    s.rugosidade = 0.5;
+  } else if (tipo == 3) {
+    // Telha: fileiras de 0,34 m, cada fileira deslocada meia telha, perfil arredondado e juntas
+    // escuras. O deslocamento alterna pela paridade da fileira.
+    let v = uv.y / TELHA_FILEIRA;
+    let linha = floor(v);
+    let fv = v - linha;
+    var deslocamento = 0.0;
+    if ((i32(linha) & 1) == 1) {
+      deslocamento = 0.5;
+    }
+    let u = uv.x / TELHA_LARGURA + deslocamento;
+    let fu = u - floor(u);
+    let dist_fileira = min(fv, 1.0 - fv) * TELHA_FILEIRA;
+    let dist_telha = min(fu, 1.0 - fu) * TELHA_LARGURA;
+    let junta = 1.0 - smoothstep(0.0, 0.012, min(dist_fileira, dist_telha));
+    let variacao = (hash3(i32(linha), i32(floor(u)), 7) - 0.5) * 0.08;
+    s.cor = base * (1.0 - 0.45 * junta) * (1.0 + variacao);
+    s.rugosidade = 0.7;
+    s.altura = 0.03 * sin(PI * fv) - 0.01 * junta;
+  } else if (tipo == 4) {
+    // Piso: grade de 0,6 m, juntas 45% mais escuras e variação leve por placa.
+    let w = uv / PISO_PLACA;
+    let placa = floor(w);
+    let f = w - placa;
+    let distancia = min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y)) * PISO_PLACA;
+    let junta = 1.0 - smoothstep(0.002, 0.004, distancia);
+    let variacao = (hash3(i32(placa.x), i32(placa.y), 5) - 0.5) * 0.06;
+    s.cor = base * (1.0 + variacao) * (1.0 - 0.45 * junta);
+    s.rugosidade = mix(0.35, 0.6, junta);
+  } else if (tipo == 5) {
+    // Metal: variação de albedo de ±3% e rugosidade baixa.
+    let n = ruido3(vec3<f32>(uv * 12.0, semente));
+    s.cor = base * (1.0 + (n - 0.5) * 0.06);
+    s.rugosidade = 0.22 + (n - 0.5) * 0.05;
+  } else if (tipo == 7) {
+    // Tijolo: fileiras de 0,065 m, tijolos de 0,21 m com meia junta alternada, argamassa clara
+    // nas juntas (4 a 6 mm de meia largura) e junta 2 mm recuada no relevo.
+    let linha = floor(uv.y / TIJOLO_ALTURA);
+    let fv = uv.y - linha * TIJOLO_ALTURA;
+    var deslocamento = 0.0;
+    if ((i32(linha) & 1) == 1) {
+      deslocamento = TIJOLO_COMPRIMENTO * 0.5;
+    }
+    let u = uv.x + deslocamento;
+    let indice = floor(u / TIJOLO_COMPRIMENTO);
+    let fu = u - indice * TIJOLO_COMPRIMENTO;
+    let borda = min(min(fv, TIJOLO_ALTURA - fv), min(fu, TIJOLO_COMPRIMENTO - fu));
+    let junta = 1.0 - smoothstep(0.004, 0.006, borda);
+    let variacao = (hash3(i32(linha), i32(indice), 3) - 0.5) * 0.12;
+    s.cor = mix(base * (1.0 + variacao), ARGAMASSA, junta);
+    s.rugosidade = mix(0.75, 0.95, junta);
+    s.altura = -0.002 * junta;
+  }
+  return s;
+}
+
+// Pesos triplanares: |normal|^4 normalizado, para o padrão vir do plano mais alinhado à face.
+fn pesos_triplanares(normal: vec3<f32>) -> vec3<f32> {
+  let a = pow(abs(normal), vec3<f32>(EXPOENTE_TRIPLANAR));
+  return a / max(a.x + a.y + a.z, 1.0e-6);
+}
+
+// Superfície do material no ponto do mundo, misturando as três projeções pelos pesos.
+fn superficie_triplanar(tipo: i32, mundo: vec3<f32>, normal: vec3<f32>, base: vec3<f32>, escala: f32) -> Superficie {
+  let w = pesos_triplanares(normal);
+  let q = mundo / escala;
+  let px = padrao_2d(tipo, q.yz, 0.0, base);
+  let py = padrao_2d(tipo, vec2<f32>(q.x, q.z), SEMENTE_EIXO_Y, base);
+  let pz = padrao_2d(tipo, q.xy, SEMENTE_EIXO_Z, base);
+  var s: Superficie;
+  s.cor = px.cor * w.x + py.cor * w.y + pz.cor * w.z;
+  s.rugosidade = px.rugosidade * w.x + py.rugosidade * w.y + pz.rugosidade * w.z;
+  s.altura = px.altura * w.x + py.altura * w.y + pz.altura * w.z;
+  return s;
+}
+
+// Normal perturbada pelo gradiente numérico do relevo (diferenças finitas nos três eixos).
+// O relevo em metros é altura * escala; o gradiente sai adimensional e independe da escala.
+fn normal_com_relevo(tipo: i32, mundo: vec3<f32>, normal: vec3<f32>, base: vec3<f32>, escala: f32) -> vec3<f32> {
+  let passo = PASSO_RELEVO * escala;
+  let h0 = superficie_triplanar(tipo, mundo, normal, base, escala).altura * escala;
+  let hx = superficie_triplanar(tipo, mundo + vec3<f32>(passo, 0.0, 0.0), normal, base, escala).altura * escala;
+  let hy = superficie_triplanar(tipo, mundo + vec3<f32>(0.0, passo, 0.0), normal, base, escala).altura * escala;
+  let hz = superficie_triplanar(tipo, mundo + vec3<f32>(0.0, 0.0, passo), normal, base, escala).altura * escala;
+  let gradiente = vec3<f32>(hx - h0, hy - h0, hz - h0) / passo;
+  let tangente = gradiente - normal * dot(gradiente, normal);
+  return normalize(normal - tangente);
+}
+
+@fragment
+fn fs_principal(e: Saida) -> @location(0) vec4<f32> {
+  let visao = normalize(u.camera.xyz - e.mundo);
+
+  var normal = e.normal;
+  if (length(normal) < 1.0e-6) {
+    normal = vec3<f32>(0.0, 0.0, 1.0);
+  }
+  normal = normalize(normal);
+  // Malhas de arquitetura podem ter enrolamento inconsistente; sombrear os dois lados
+  // evita paredes pretas sem exigir culling.
+  if (dot(normal, visao) < 0.0) {
+    normal = -normal;
+  }
+
+  // Superfície procedural (tipo 1 a 5 e 7): albedo, rugosidade e, nos tipos com relevo, a normal.
+  // Liso (0) e vidro (6) mantêm a cor e a rugosidade do material, como antes.
+  let tipo = i32(floor(e.tipo + 0.5));
+  let cor_material = max(e.cor, vec3<f32>(0.0));
+  var base = cor_material;
+  var rugosidade = clamp(e.rugosidade, 0.04, 1.0);
+  if (tipo != 0 && tipo != 6) {
+    let escala = max(e.escala, ESCALA_MINIMA);
+    let sup = superficie_triplanar(tipo, e.mundo, normal, cor_material, escala);
+    base = sup.cor;
+    rugosidade = clamp(sup.rugosidade, 0.04, 1.0);
+    if (tipo == 1 || tipo == 3 || tipo == 7) {
+      normal = normal_com_relevo(tipo, e.mundo, normal, cor_material, escala);
+    }
+  }
+
+  let luz = normalize(u.sol.xyz);
+  let intensidade = u.sol.w;
+  let ndl = max(dot(normal, luz), 0.0);
+  let ndv = max(dot(normal, visao), 1.0e-4);
+  let alfa = rugosidade * rugosidade;
+  let metalico = clamp(e.metalico, 0.0, 1.0);
+  let f0 = mix(vec3<f32>(0.04), base, vec3<f32>(metalico));
+
+  let meio = normalize(visao + luz);
+  let ndh = max(dot(normal, meio), 0.0);
+  let vdh = max(dot(visao, meio), 1.0e-4);
+  let d = distribuicao_ggx(ndh, alfa);
+  let g = geometria_smith(ndv, ndl, alfa);
+  let f = fresnel_schlick(vdh, f0);
+  let especular = (d * g * f) / max(4.0 * ndv * ndl, 1.0e-4);
+
+  let sombra = fator_sombra(e.mundo, normal, ndl);
+  let kd = (vec3<f32>(1.0) - f) * (1.0 - metalico);
+  let direto = (kd * base / PI + especular) * u.sol_cor.rgb * intensidade * ndl * sombra;
+
+  // Ambiente por iluminação baseada em céu: irradiância SH9 para o difuso (E/π é a radiância
+  // difusa de Lambert); no especular, a radiância refletida do céu misturada com a irradiância
+  // pela rugosidade. A força (u.parametros.y, 0.55) é a mesma escala de compatibilidade.
+  let irradiancia = irradiancia_sh(normal) / PI;
+  let difuso_ambiente = irradiancia * base * (1.0 - metalico) * u.parametros.y;
+  let radiancia_refletida = radiancia_ceu(reflect(-visao, normal));
+  let refletido = mix(radiancia_refletida, irradiancia, rugosidade);
+  let especular_ambiente = refletido * f0 * (0.1 + 0.4 * (1.0 - rugosidade)) * u.parametros.y;
+
+  // Oclusão ambiente (SSAO) só no termo ambiente: a luz direta do Sol e a emissão ficam intactas.
+  // O pixel da região é o próprio índice da textura de oclusão, que tem o tamanho da região.
+  let oclusao = textureLoad(oclusao_ambiente, vec2<i32>(e.clip.xy), 0).r;
+  let ambiente = (difuso_ambiente + especular_ambiente) * oclusao;
+  let cor = direto + ambiente + e.emissivo;
+  let tonemapeado = aces(cor * u.parametros.x);
+  return vec4<f32>(linear_para_srgb(tonemapeado), 1.0);
+}
+
+// ---- Vidro (passe próprio, depois do opaco) ----
+// Vidro = tipo 6 ou opacidade < 1. O passe opaco não desenha esses triângulos; este passe lê a cor
+// opaca da janela (cor_tela, copiada antes; a janela é a região mais a margem da refração) e mistura:
+//   saída = fundo_refratado * tint * (1 - opacidade) * (1 - F) + reflexo_do_céu * F + especular_do_Sol
+// F é o Fresnel de Schlick com F0 = 0,04 (dielétrico, ior 1,5). A refração desloca o pixel de tela
+// por normal_de_visão.xy * FRACAO_REFRACAO * altura da imagem inteira, então o deslocamento é o
+// mesmo em todos os tiles: a janela tem margem de pelo menos o deslocamento máximo (motor.rs),
+// e a leitura só é limitada pelas bordas da imagem, como na imagem inteira.
+// Sem SSAO e sem sombra própria no vidro (é transparente; ver motor.rs). O reflexo é tonemapeado
+// sozinho, porque o fundo já vem tonemapeado da cópia.
+const F0_VIDRO: f32 = 0.04;
+// Deslocamento máximo da refração, em fração da altura da imagem (0,02 de 360 px é ~7 px).
+const FRACAO_REFRACAO: f32 = 0.02;
+
+// Fresnel de Schlick escalar: F0 + (1 - F0)(1 - cos)^5. Espelhado em cor.rs::schlick_escalar.
+fn schlick_escalar(cos_theta: f32, f0: f32) -> f32 {
+  let x = clamp(1.0 - cos_theta, 0.0, 1.0);
+  return f0 + (1.0 - f0) * x * x * x * x * x;
+}
+
+// sRGB para linear (curva exata), canal a canal.
+fn linear_de_srgb(c: vec3<f32>) -> vec3<f32> {
+  let baixo = c / 12.92;
+  let alto = pow((c + vec3<f32>(0.055)) / 1.055, vec3<f32>(2.4));
+  return select(alto, baixo, c <= vec3<f32>(0.04045));
+}
+
+@fragment
+fn fs_vidro(e: Saida) -> @location(0) vec4<f32> {
+  let visao = normalize(u.camera.xyz - e.mundo);
+  var normal = e.normal;
+  if (length(normal) < 1.0e-6) {
+    normal = vec3<f32>(0.0, 0.0, 1.0);
+  }
+  normal = normalize(normal);
+  if (dot(normal, visao) < 0.0) {
+    normal = -normal;
+  }
+
+  // Refração: deslocamento de UV de tela pela normal de visão, limitado à cópia da região.
+  let normal_visao = (camera_extra.visao * vec4<f32>(normal, 0.0)).xyz;
+  let deslocamento = normal_visao.xy * FRACAO_REFRACAO * u.resolucao.y;
+  let dimensao = vec2<i32>(textureDimensions(cor_tela));
+  let pixel = vec2<i32>(floor(e.clip.xy + deslocamento));
+  let fundo = linear_de_srgb(
+    textureLoad(cor_tela, clamp(pixel, vec2<i32>(0), dimensao - vec2<i32>(1)), 0).rgb
+  );
+
+  // Transmissão = 1 - opacidade; a cor base do material é o tint absorvido.
+  let transmissao = 1.0 - clamp(e.opacidade, 0.0, 1.0);
+  let tint = max(e.cor, vec3<f32>(0.0));
+
+  // Fresnel do céu: reflexo pela direção refletida e brilho do Sol com GGX de rugosidade baixa.
+  let ndv = max(dot(normal, visao), 1.0e-4);
+  let fresnel = schlick_escalar(ndv, F0_VIDRO);
+  let luz = normalize(u.sol.xyz);
+  let intensidade = u.sol.w;
+  let ndl = max(dot(normal, luz), 0.0);
+  let rugosidade = clamp(e.rugosidade, 0.04, 1.0);
+  let alfa = rugosidade * rugosidade;
+  let meio = normalize(visao + luz);
+  let ndh = max(dot(normal, meio), 0.0);
+  let vdh = max(dot(visao, meio), 1.0e-4);
+  let d = distribuicao_ggx(ndh, alfa);
+  let g = geometria_smith(ndv, ndl, alfa);
+  let f_sol = fresnel_schlick(vdh, vec3<f32>(F0_VIDRO)).x;
+  let especular_sol = (d * g * f_sol) / max(4.0 * ndv * ndl, 1.0e-4) * u.sol_cor.rgb * intensidade * ndl;
+  let refletido = radiancia_ceu(reflect(-visao, normal)) * fresnel + especular_sol + e.emissivo;
+
+  let transmitido = fundo * tint * transmissao * (1.0 - fresnel);
+  let cor = transmitido + aces(refletido * u.parametros.x);
+  return vec4<f32>(linear_para_srgb(clamp(cor, vec3<f32>(0.0), vec3<f32>(1.0))), 1.0);
+}
+
+// ---- Oclusão ambiente em espaço de tela (SSAO) ----
+// Pré-passe (fs_normais, com vs_principal) -> SSAO (fs_ssao) -> desfoque (fs_desfoque).
+// Os três usam a janela da região com margem; as coordenadas globais são alvo.xy + pixel do passe,
+// e cada textura tem a sua origem em gbuffer_origem / ao_origem. Ver ssao.rs.
+
+// Triângulo que cobre a tela inteira (sem buffer de vértices).
+@vertex
+fn vs_tela_cheia(@builtin(vertex_index) indice: u32) -> @builtin(position) vec4<f32> {
+  let x = f32((indice << 1u) & 2u);
+  let y = f32(indice & 2u);
+  return vec4<f32>(x * 2.0 - 1.0, 1.0 - y * 2.0, 0.0, 1.0);
+}
+
+// Normal de visão (virada para a câmera) e profundidade linear em metros.
+@fragment
+fn fs_normais(e: Saida) -> @location(0) vec4<f32> {
+  var normal = e.normal;
+  if (length(normal) < 1.0e-6) {
+    normal = vec3<f32>(0.0, 0.0, 1.0);
+  }
+  let normal_visao = normalize((camera_extra.visao * vec4<f32>(normalize(normal), 0.0)).xyz);
+  let posicao = (camera_extra.visao * vec4<f32>(e.mundo, 1.0)).xyz;
+  var n = normal_visao;
+  if (dot(n, -posicao) < 0.0) {
+    n = -n;
+  }
+  return vec4<f32>(n, -posicao.z);
+}
+
+// Posição de visão de um pixel global com profundidade linear conhecida: a inversa da projeção
+// dá um ponto do raio do pixel, e a escala leva esse raio até a profundidade dada.
+fn posicao_de_visao(g: vec2<f32>, profundidade: f32) -> vec3<f32> {
+  let largura = camera_extra.imagem.x;
+  let altura = camera_extra.imagem.y;
+  let ndc = vec2<f32>((g.x + 0.5) / largura * 2.0 - 1.0, 1.0 - (g.y + 0.5) / altura * 2.0);
+  let ponto = camera_extra.projecao_inversa * vec4<f32>(ndc, 0.5, 1.0);
+  let direcao = ponto.xyz / ponto.w;
+  return direcao * (profundidade / -direcao.z);
+}
+
+// Ruído de Bayer 4x4 em [0, 1), indexado pelo pixel global: repete a cada 4 pixels e é igual
+// em todos os tiles.
+fn ruido_bayer(g: vec2<i32>) -> f32 {
+  var bayer = array<f32, 16>(
+    0.0, 8.0, 2.0, 10.0,
+    12.0, 4.0, 14.0, 6.0,
+    3.0, 11.0, 1.0, 9.0,
+    15.0, 7.0, 13.0, 5.0
+  );
+  let indice = (g.y & 3) * 4 + (g.x & 3);
+  return bayer[indice] / 16.0;
+}
+
+// Oclusão de 1 canal: 1 - média de amostras ocluídas, com range check. Pixels sem geometria
+// (w = 0) e pixels fora da textura do pré-passe ficam sem oclusão.
+@fragment
+fn fs_ssao(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
+  let g = vec2<i32>(camera_extra.alvo.xy) + vec2<i32>(pos.xy);
+  let origem = vec2<i32>(camera_extra.gbuffer_origem.xy);
+  let dim = vec2<i32>(textureDimensions(gbuffer));
+  let local = g - origem;
+  if (local.x < 0 || local.y < 0 || local.x >= dim.x || local.y >= dim.y) {
+    return vec4<f32>(1.0, 0.0, 0.0, 1.0);
+  }
+  let central = textureLoad(gbuffer, local, 0);
+  if (central.w <= 0.0) {
+    return vec4<f32>(1.0, 0.0, 0.0, 1.0);
+  }
+
+  let n = normalize(central.xyz);
+  let p = posicao_de_visao(vec2<f32>(g), central.w);
+  let raio = camera_extra.ssao.x;
+  let margem = i32(camera_extra.ssao.y);
+  let vies = camera_extra.ssao.z;
+
+  // Base tangente: o vetor aleatório (rotacionado por Bayer) é projetado no plano da superfície.
+  let angulo = ruido_bayer(g) * 6.283185307;
+  var t = vec3<f32>(cos(angulo), sin(angulo), 0.0);
+  t = t - n * dot(t, n);
+  if (dot(t, t) < 1.0e-8) {
+    t = cross(n, vec3<f32>(0.0, 1.0, 0.0));
+    if (dot(t, t) < 1.0e-8) {
+      t = cross(n, vec3<f32>(1.0, 0.0, 0.0));
+    }
+  }
+  t = normalize(t);
+  let b = cross(n, t);
+
+  var ocluidas = 0.0;
+  for (var i = 0u; i < AMOSTRAS_AO; i = i + 1u) {
+    let k = camera_extra.kernel[i].xyz;
+    let amostra = p + (t * k.x + b * k.y + n * k.z) * raio;
+    let clip = camera_extra.projecao * vec4<f32>(amostra, 1.0);
+    if (clip.w <= 1.0e-6) {
+      continue;
+    }
+    let ndc = clip.xy / clip.w;
+    let largura = camera_extra.imagem.x;
+    let altura = camera_extra.imagem.y;
+    let s = vec2<i32>(floor(vec2<f32>((ndc.x * 0.5 + 0.5) * largura, (0.5 - ndc.y * 0.5) * altura)));
+    // Alcance limitado pela margem: fora dela a amostra não tem dados de forma igual em todos os tiles.
+    let desvio = abs(s - g);
+    if (max(desvio.x, desvio.y) > margem) {
+      continue;
+    }
+    let local_s = s - origem;
+    if (local_s.x < 0 || local_s.y < 0 || local_s.x >= dim.x || local_s.y >= dim.y) {
+      continue;
+    }
+    let cena = textureLoad(gbuffer, local_s, 0);
+    if (cena.w <= 0.0) {
+      continue;
+    }
+    // Oclusor: a superfície visível nesse pixel está à frente da amostra (profundidade menor).
+    let profundidade_amostra = -amostra.z;
+    let faixa = smoothstep(0.0, 1.0, raio / max(abs(central.w - cena.w), 1.0e-4));
+    if (profundidade_amostra > cena.w + vies) {
+      ocluidas = ocluidas + faixa;
+    }
+  }
+  let ao = 1.0 - ocluidas / f32(AMOSTRAS_AO);
+  return vec4<f32>(ao, 0.0, 0.0, 1.0);
+}
+
+// Desfoque bilateral 4x4 sobre a oclusão bruta: pesos gaussianos pela diferença de profundidade,
+// para não misturar oclusão de uma parede com a de um objeto à frente ou atrás dela.
+@fragment
+fn fs_desfoque(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
+  let g = vec2<i32>(camera_extra.alvo.xy) + vec2<i32>(pos.xy);
+  let origem_g = vec2<i32>(camera_extra.gbuffer_origem.xy);
+  let origem_ao = vec2<i32>(camera_extra.ao_origem.xy);
+  let dim_g = vec2<i32>(textureDimensions(gbuffer));
+  let dim_ao = vec2<i32>(textureDimensions(oclusao_bruta));
+  let local_g = g - origem_g;
+  let local_ao = g - origem_ao;
+  let prof_central = textureLoad(gbuffer, clamp(local_g, vec2<i32>(0), dim_g - vec2<i32>(1)), 0).w;
+  if (prof_central <= 0.0) {
+    return vec4<f32>(1.0, 0.0, 0.0, 1.0);
+  }
+  let tolerancia = 0.02 + 0.03 * prof_central;
+
+  var soma = 0.0;
+  var peso_total = 0.0;
+  for (var dy = -2; dy < 2; dy = dy + 1) {
+    for (var dx = -2; dx < 2; dx = dx + 1) {
+      let d = vec2<i32>(dx, dy);
+      let prof = textureLoad(gbuffer, clamp(local_g + d, vec2<i32>(0), dim_g - vec2<i32>(1)), 0).w;
+      if (prof <= 0.0) {
+        continue;
+      }
+      let ao = textureLoad(oclusao_bruta, clamp(local_ao + d, vec2<i32>(0), dim_ao - vec2<i32>(1)), 0).r;
+      let dz = (prof - prof_central) / tolerancia;
+      let peso = exp(-dz * dz);
+      soma = soma + peso * ao;
+      peso_total = peso_total + peso;
+    }
+  }
+  return vec4<f32>(soma / max(peso_total, 1.0e-6), 0.0, 0.0, 1.0);
+}

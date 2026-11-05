@@ -1,16 +1,25 @@
 //! Serviço local do renderizador GPU nativo do Hestia.
 //!
-//! O navegador envia o snapshot HSTR e recebe PNG/MP4. O render roda em `render-native`
-//! (Rust/wgpu), nunca no path tracer de CPU do WASM.
+//! O navegador envia o snapshot HSTR e recebe PNG. O render roda em `render-engine` (Rust/wgpu).
+//! Um único `Motor` é criado na inicialização e reusado por cenas, renders síncronos e jobs.
+//! Sem adaptador GPU o processo continua de pé: `/health` informa `gpu_disponivel: false` e as
+//! rotas de render respondem 503 com a mensagem. Não existe fallback de CPU.
 //!
 //! Rotas:
-//! - `GET  /health`              → JSON do serviço
-//! - `POST /render?largura&altura` → PNG (síncrono, imagem final)
-//! - `POST /jobs?largura&altura`  → `{id}`; render progressivo em background
-//! - `GET  /jobs/{id}`            → JSON do andamento
-//! - `GET  /jobs/{id}/preview`    → último PNG parcial
-//! - `GET  /jobs/{id}/result`     → PNG final
-//! - `DELETE /jobs/{id}`          → cancela (cooperativo entre passes)
+//! - `GET  /health`                     → JSON do serviço e da GPU
+//! - `POST /render?largura&altura`      → PNG (síncrono, imagem final)
+//! - `POST /scenes`                     → `{id}`; carrega a cena na GPU uma vez
+//! - `POST /scenes/{id}/frame?...`      → PNG de um quadro (câmera no corpo)
+//! - `DELETE /scenes/{id}`              → descarta a cena
+//! - `POST /jobs?largura&altura`        → `{id}`; render por tiles em background
+//! - `GET  /jobs/{id}`                  → JSON do andamento (fase, fracao, tiles)
+//! - `GET  /jobs/{id}/tile/{i}`         → PNG do tile `i`, se já concluído
+//! - `GET  /jobs/{id}/preview`          → prévia PNG (320 px de largura)
+//! - `GET  /jobs/{id}/result`           → PNG final
+//! - `DELETE /jobs/{id}`                → cancela (cooperativo entre tiles)
+//!
+//! Fases de um job, em ordem: `decodificando`, `previa`, `tiles`, `montando`, `concluido`.
+//! Também: `cancelado` e `erro`. A imagem final só é publicada na fase `concluido`.
 
 use std::collections::HashMap;
 use std::io::Read;
@@ -20,17 +29,35 @@ use std::thread;
 
 use render_core::camera::Camera;
 use render_core::Cena;
+use render_engine::{png_saida, CenaGpu, Motor, Retangulo};
 use serde_json::json;
 use tiny_http::{Header, Method, Request, Response, Server};
 
 const PORTA: u16 = 19787;
 const MAX_CORPO: usize = 256 * 1024 * 1024;
+/// Lado dos tiles do render final (contrato do render-engine).
+const LADO_TILE: u32 = 256;
+/// Largura da prévia em pixels; a altura segue a proporção da imagem.
+const LARGURA_PREVIA: u32 = 320;
+
+/// Tile já renderizado. Guardamos o PNG (para `/tile/{i}`) e o RGBA (para montar a imagem final).
+/// O RGBA é liberado logo após a fase `montando`. Para 4K, o RGBA de todos os tiles soma cerca de
+/// 33 MB; aceito pelo brief. Não decodificamos o PNG de volta para evitar uma dependência extra.
+struct TileConcluido {
+    indice: usize,
+    regiao: Retangulo,
+    png: Vec<u8>,
+    rgba: Vec<u8>,
+}
 
 #[derive(Default)]
 struct EstadoJob {
     fase: String,
-    fracao: f32,
+    fracao: f64,
     preview: Option<Vec<u8>>,
+    tiles_total: usize,
+    /// Em ordem de conclusão; `indice` é a posição na ordem espiral.
+    tiles: Vec<TileConcluido>,
     resultado: Option<Vec<u8>>,
     erro: Option<String>,
     cancelado: bool,
@@ -39,14 +66,34 @@ struct EstadoJob {
 type Job = Arc<Mutex<EstadoJob>>;
 
 struct Servico {
+    /// Motor persistente, criado uma vez. `None` quando não há adaptador GPU.
+    motor: Option<Arc<Motor>>,
+    /// Motivo da falha ao criar o motor (presente só quando `motor` é `None`).
+    erro_gpu: Option<String>,
     jobs: Mutex<HashMap<String, Job>>,
-    /** Cenas carregadas para vídeo: a BVH é decodificada uma vez por sequência. */
-    cenas: Mutex<HashMap<String, Arc<Cena>>>,
+    /// Cenas já carregadas na GPU, por id.
+    cenas: Mutex<HashMap<String, Arc<CenaGpu>>>,
     sequencia: AtomicU64,
 }
 
+/// Desfecho de um job que não falhou.
+enum Fim {
+    Concluido,
+    Cancelado,
+}
+
 fn main() {
+    let (motor, erro_gpu) = match Motor::nativo() {
+        Ok(m) => (Some(Arc::new(m)), None),
+        Err(e) => {
+            let mensagem = e.to_string();
+            eprintln!("render-service: GPU indisponível: {mensagem}");
+            (None, Some(mensagem))
+        }
+    };
     let servico = Arc::new(Servico {
+        motor,
+        erro_gpu,
         jobs: Mutex::new(HashMap::new()),
         cenas: Mutex::new(HashMap::new()),
         sequencia: AtomicU64::new(1),
@@ -60,6 +107,9 @@ fn main() {
         }
     };
     println!("render-service: http://{endereco}");
+    if let Some(motor) = &servico.motor {
+        println!("render-service: GPU {:?} {}", motor.backend(), motor.adaptador());
+    }
 
     for requisicao in servidor.incoming_requests() {
         let estado = Arc::clone(&servico);
@@ -88,6 +138,9 @@ fn atender(mut req: Request, servico: Arc<Servico>) -> Result<(), String> {
                 "versao": env!("CARGO_PKG_VERSION"),
                 "backend": "wgpu",
                 "gpu": "nativo",
+                "gpu_disponivel": servico.motor.is_some(),
+                "erro_gpu": servico.erro_gpu,
+                "adaptador": servico.motor.as_ref().map(|m| m.adaptador().to_string()),
             })
             .to_string();
             responder(req, 200, "application/json", corpo.into_bytes())
@@ -95,37 +148,74 @@ fn atender(mut req: Request, servico: Arc<Servico>) -> Result<(), String> {
         (Method::Post, "/render") => {
             let (largura, altura) = dimensoes(consulta);
             let exposicao = fator_exposicao(consulta);
-            let bytes = ler_corpo(&mut req)?;
-            let png = render_sincrono(&bytes, largura, altura, exposicao)?;
-            responder(req, 200, "image/png", png)
+            let bytes = match ler_corpo(&mut req) {
+                Ok(b) => b,
+                Err(e) => return erro_json(req, 400, &e),
+            };
+            let Some(motor) = servico.motor.clone() else {
+                return sem_gpu(req, &servico);
+            };
+            let cena = match decodificar_cena(&bytes) {
+                Ok(c) => c,
+                Err(e) => return erro_json(req, 400, &e),
+            };
+            match render_sincrono(&motor, &cena, largura, altura, exposicao) {
+                Ok(png) => responder(req, 200, "image/png", png),
+                Err(e) => erro_json(req, 500, &e),
+            }
         }
         (Method::Post, "/jobs") => {
             let (largura, altura) = dimensoes(consulta);
             let exposicao = fator_exposicao(consulta);
-            let bytes = ler_corpo(&mut req)?;
-            let id = format!(
-                "job-{}",
-                servico.sequencia.fetch_add(1, Ordering::Relaxed)
-            );
+            let bytes = match ler_corpo(&mut req) {
+                Ok(b) => b,
+                Err(e) => return erro_json(req, 400, &e),
+            };
+            let Some(motor) = servico.motor.clone() else {
+                return sem_gpu(req, &servico);
+            };
+            // Cena inválida recusada já aqui: sem id, sem job e sem thread.
+            let cena = match decodificar_cena(&bytes) {
+                Ok(c) => c,
+                Err(e) => return erro_json(req, 400, &e),
+            };
+            let id = format!("job-{}", servico.sequencia.fetch_add(1, Ordering::Relaxed));
             let job: Job = Arc::new(Mutex::new(EstadoJob {
                 fase: "preparando".into(),
                 ..EstadoJob::default()
             }));
-            servico.jobs.lock().map_err(|e| e.to_string())?.insert(id.clone(), Arc::clone(&job));
+            servico
+                .jobs
+                .lock()
+                .map_err(|e| e.to_string())?
+                .insert(id.clone(), Arc::clone(&job));
             let id_thread = id.clone();
-            thread::spawn(move || executar_job(id_thread, bytes, largura, altura, exposicao, job));
+            thread::spawn(move || executar_job(id_thread, cena, largura, altura, exposicao, job, motor));
             let corpo = json!({ "id": id }).to_string();
             responder(req, 200, "application/json", corpo.into_bytes())
         }
         (Method::Post, "/scenes") => {
-            let bytes = ler_corpo(&mut req)?;
-            let cena = Cena::decodificar(&bytes).map_err(|e| format!("cena inválida: {e}"))?;
+            let bytes = match ler_corpo(&mut req) {
+                Ok(b) => b,
+                Err(e) => return erro_json(req, 400, &e),
+            };
+            let Some(motor) = servico.motor.clone() else {
+                return sem_gpu(req, &servico);
+            };
+            let cena = match Cena::decodificar(&bytes) {
+                Ok(c) => c,
+                Err(e) => return erro_json(req, 400, &format!("cena inválida: {e}")),
+            };
+            let cena_gpu = match motor.carregar_cena(&cena) {
+                Ok(c) => c,
+                Err(e) => return erro_json(req, 500, &format!("carga na GPU falhou: {e}")),
+            };
             let id = format!("cena-{}", servico.sequencia.fetch_add(1, Ordering::Relaxed));
             servico
                 .cenas
                 .lock()
                 .map_err(|e| e.to_string())?
-                .insert(id.clone(), Arc::new(cena));
+                .insert(id.clone(), Arc::new(cena_gpu));
             responder(req, 200, "application/json", json!({ "id": id }).to_string().into_bytes())
         }
         (Method::Post, rota) if rota.starts_with("/scenes/") => {
@@ -142,12 +232,25 @@ fn atender(mut req: Request, servico: Arc<Servico>) -> Result<(), String> {
             };
             let (largura, altura) = dimensoes(consulta);
             let exposicao = fator_exposicao(consulta);
-            let bytes = ler_corpo(&mut req)?;
-            let camera = Camera::de_quadro(&bytes).map_err(|e| format!("câmera inválida: {e}"))?;
-            let png = render_native::renderizar_com_camera(&cena, &camera, largura, altura, exposicao)
-                .and_then(|img| render_native::png_saida::codificar(&img.rgba, img.largura, img.altura))
-                .map_err(|e| format!("render GPU falhou: {e}"))?;
-            responder(req, 200, "image/png", png)
+            let bytes = match ler_corpo(&mut req) {
+                Ok(b) => b,
+                Err(e) => return erro_json(req, 400, &e),
+            };
+            let Some(motor) = servico.motor.clone() else {
+                return sem_gpu(req, &servico);
+            };
+            let camera = match Camera::de_quadro(&bytes) {
+                Ok(c) => c,
+                Err(e) => return erro_json(req, 400, &format!("câmera inválida: {e}")),
+            };
+            let regiao = Retangulo { x: 0, y: 0, w: largura, h: altura };
+            let png = motor
+                .renderizar_regiao(&cena, &camera, largura, altura, regiao, exposicao)
+                .and_then(|rgba| png_saida::codificar(&rgba, largura, altura));
+            match png {
+                Ok(png) => responder(req, 200, "image/png", png),
+                Err(e) => erro_json(req, 500, &format!("render GPU falhou: {e}")),
+            }
         }
         (Method::Delete, rota) if rota.starts_with("/scenes/") => {
             let id = &rota["/scenes/".len()..];
@@ -168,7 +271,10 @@ fn atender(mut req: Request, servico: Arc<Servico>) -> Result<(), String> {
                 "" => status_json(req, &job),
                 "preview" => imagem_do_job(req, &job, false),
                 "result" => imagem_do_job(req, &job, true),
-                _ => responder(req, 404, "text/plain", b"rota".to_vec()),
+                _ => match parte.strip_prefix("tile/").and_then(|n| n.parse::<usize>().ok()) {
+                    Some(indice) => tile_do_job(req, &job, indice),
+                    None => responder(req, 404, "text/plain", b"rota".to_vec()),
+                },
             }
         }
         (Method::Delete, rota) if rota.starts_with("/jobs/") => {
@@ -220,6 +326,13 @@ fn fator_exposicao(consulta: &str) -> f64 {
     1.0
 }
 
+/// Dimensões da prévia: largura fixa de 320 px, altura proporcional e no mínimo 1.
+fn dimensoes_previa(largura: u32, altura: u32) -> (u32, u32) {
+    let arredondado = u64::from(altura) * u64::from(LARGURA_PREVIA) + u64::from(largura) / 2;
+    let ph = (arredondado / u64::from(largura)).max(1) as u32;
+    (LARGURA_PREVIA, ph)
+}
+
 fn ler_corpo(req: &mut Request) -> Result<Vec<u8>, String> {
     let mut bytes = Vec::new();
     req.as_reader()
@@ -235,86 +348,236 @@ fn ler_corpo(req: &mut Request) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
-fn render_sincrono(bytes: &[u8], largura: u32, altura: u32, exposicao: f64) -> Result<Vec<u8>, String> {
-    let cena = render_core::Cena::decodificar(bytes).map_err(|e| format!("cena inválida: {e}"))?;
-    let imagem = render_native::renderizar_com_exposicao(&cena, largura, altura, exposicao)
-        .map_err(|e| format!("render GPU falhou: {e}"))?;
-    render_native::png_saida::codificar(&imagem.rgba, imagem.largura, imagem.altura)
-        .map_err(|e| format!("PNG falhou: {e}"))
+/// Resposta 503 quando não há GPU. A mensagem é a que `Motor::nativo()` devolveu na inicialização.
+fn sem_gpu(req: Request, servico: &Servico) -> Result<(), String> {
+    let mensagem = servico
+        .erro_gpu
+        .clone()
+        .unwrap_or_else(|| "GPU indisponível".into());
+    let corpo = json!({ "erro": mensagem, "gpu_disponivel": false }).to_string();
+    responder(req, 503, "application/json", corpo.into_bytes())
 }
 
-fn executar_job(id: String, bytes: Vec<u8>, largura: u32, altura: u32, exposicao: f64, job: Job) {
-    let atualizar = |fase: &str, fracao: f32| {
+fn erro_json(req: Request, status: u16, mensagem: &str) -> Result<(), String> {
+    let corpo = json!({ "erro": mensagem }).to_string();
+    responder(req, status, "application/json", corpo.into_bytes())
+}
+
+/// Decodifica o HSTR da requisição. Erro vira 400 no handler (cena inválida, não falha de GPU).
+fn decodificar_cena(bytes: &[u8]) -> Result<Cena, String> {
+    Cena::decodificar(bytes).map_err(|e| format!("cena inválida: {e}"))
+}
+
+/// Render síncrono da imagem inteira com o motor persistente, a partir de uma cena já decodificada.
+/// Carrega a cena só para esta chamada (a cena de vídeo usa `POST /scenes`).
+fn render_sincrono(
+    motor: &Motor,
+    cena: &Cena,
+    largura: u32,
+    altura: u32,
+    exposicao: f64,
+) -> Result<Vec<u8>, String> {
+    let cena_gpu = motor
+        .carregar_cena(cena)
+        .map_err(|e| format!("render GPU falhou: {e}"))?;
+    let regiao = Retangulo { x: 0, y: 0, w: largura, h: altura };
+    let rgba = motor
+        .renderizar_regiao(&cena_gpu, &cena.camera, largura, altura, regiao, exposicao)
+        .map_err(|e| format!("render GPU falhou: {e}"))?;
+    png_saida::codificar(&rgba, largura, altura).map_err(|e| format!("PNG falhou: {e}"))
+}
+
+fn atualizar(job: &Job, fase: &str, fracao: f64) {
+    if let Ok(mut estado) = job.lock() {
+        estado.fase = fase.to_string();
+        estado.fracao = fracao;
+    }
+}
+
+/// Se o job foi cancelado, marca a fase `cancelado` e devolve `true`.
+fn cancelar_se_preciso(job: &Job) -> bool {
+    let cancelado = job.lock().map(|e| e.cancelado).unwrap_or(true);
+    if cancelado {
         if let Ok(mut estado) = job.lock() {
-            estado.fase = fase.to_string();
-            estado.fracao = fracao;
+            estado.fase = "cancelado".into();
         }
-    };
-    atualizar("decodificando", 0.02);
-    let cena = match render_core::Cena::decodificar(&bytes) {
-        Ok(c) => c,
+    }
+    cancelado
+}
+
+fn executar_job(
+    id: String,
+    cena: Cena,
+    largura: u32,
+    altura: u32,
+    exposicao: f64,
+    job: Job,
+    motor: Arc<Motor>,
+) {
+    match rodar_job(&job, &motor, &cena, largura, altura, exposicao) {
+        Ok(Fim::Concluido) => println!("render-service: job {id} concluído"),
+        Ok(Fim::Cancelado) => println!("render-service: job {id} cancelado"),
         Err(e) => {
+            eprintln!("render-service: job {id} falhou: {e}");
             if let Ok(mut estado) = job.lock() {
-                estado.erro = Some(format!("cena inválida: {e}"));
+                estado.erro = Some(e);
                 estado.fase = "erro".into();
             }
-            return;
         }
+    }
+}
+
+/// Fases: decodificando, previa, tiles, montando, concluido. Qualquer `Err` vira fase `erro`
+/// em `executar_job`. A imagem final só entra em `resultado` no fim da fase `montando`.
+/// A cena já chega decodificada (o handler recusa cena inválida antes de criar o job).
+fn rodar_job(
+    job: &Job,
+    motor: &Motor,
+    cena: &Cena,
+    largura: u32,
+    altura: u32,
+    exposicao: f64,
+) -> Result<Fim, String> {
+    // Fase mantida para o contrato de `GET /jobs/{id}`; a decodificação já ocorreu antes do job.
+    atualizar(job, "decodificando", 0.02);
+    let cena_gpu = motor
+        .carregar_cena(cena)
+        .map_err(|e| format!("carga na GPU falhou: {e}"))?;
+    if cancelar_se_preciso(job) {
+        return Ok(Fim::Cancelado);
+    }
+
+    // Prévia: uma passada da imagem inteira em 320 px de largura. Não conta como tile.
+    let (pw, ph) = dimensoes_previa(largura, altura);
+    atualizar(job, "previa", 0.05);
+    let regiao_previa = Retangulo { x: 0, y: 0, w: pw, h: ph };
+    let rgba_previa = motor
+        .renderizar_regiao(&cena_gpu, &cena.camera, pw, ph, regiao_previa, exposicao)
+        .map_err(|e| format!("render da prévia falhou: {e}"))?;
+    let png_previa =
+        png_saida::codificar(&rgba_previa, pw, ph).map_err(|e| format!("PNG da prévia falhou: {e}"))?;
+    if let Ok(mut estado) = job.lock() {
+        estado.preview = Some(png_previa);
+    }
+
+    // Tiles: ordem espiral; cada um renderizado como recorte da imagem inteira, sem costura.
+    let tiles = render_engine::ordenar_tiles_espiral(largura, altura, LADO_TILE)
+        .map_err(|e| format!("tiles inválidos: {e}"))?;
+    let total = tiles.len();
+    if let Ok(mut estado) = job.lock() {
+        estado.tiles_total = total;
+    }
+    atualizar(job, "tiles", 0.0);
+    for (indice, regiao) in tiles.iter().copied().enumerate() {
+        if cancelar_se_preciso(job) {
+            return Ok(Fim::Cancelado);
+        }
+        let rgba = motor
+            .renderizar_regiao(&cena_gpu, &cena.camera, largura, altura, regiao, exposicao)
+            .map_err(|e| format!("render do tile {indice} falhou: {e}"))?;
+        let png = png_saida::codificar(&rgba, regiao.w, regiao.h)
+            .map_err(|e| format!("PNG do tile {indice} falhou: {e}"))?;
+        let mut estado = job.lock().map_err(|e| e.to_string())?;
+        estado.tiles.push(TileConcluido { indice, regiao, png, rgba });
+        estado.fracao = estado.tiles.len() as f64 / total as f64;
+    }
+
+    if cancelar_se_preciso(job) {
+        return Ok(Fim::Cancelado);
+    }
+    atualizar(job, "montando", 1.0);
+    let rgba_final = {
+        let estado = job.lock().map_err(|e| e.to_string())?;
+        let partes: Vec<(Retangulo, &[u8])> = estado
+            .tiles
+            .iter()
+            .map(|t| (t.regiao, t.rgba.as_slice()))
+            .collect();
+        montar_imagem(largura, altura, &partes)?
     };
+    let png_final =
+        png_saida::codificar(&rgba_final, largura, altura).map_err(|e| format!("PNG final falhou: {e}"))?;
+    drop(rgba_final);
 
-    let mut passos = Vec::new();
-    for (w, h) in [(480.min(largura), 270.min(altura)), (960.min(largura), 540.min(altura)), (largura, altura)] {
-        if w == 0 || h == 0 || passos.contains(&(w, h)) { continue; }
-        passos.push((w, h));
+    let mut estado = job.lock().map_err(|e| e.to_string())?;
+    for tile in estado.tiles.iter_mut() {
+        tile.rgba = Vec::new();
     }
+    estado.resultado = Some(png_final);
+    estado.fase = "concluido".into();
+    estado.fracao = 1.0;
+    Ok(Fim::Concluido)
+}
 
-    for (indice, (w, h)) in passos.iter().enumerate() {
-        let cancelado = job.lock().map(|e| e.cancelado).unwrap_or(true);
-        if cancelado {
-            if let Ok(mut estado) = job.lock() {
-                estado.fase = "cancelado".into();
-            }
-            return;
+/// Recompõe a imagem `largura x altura` (RGBA8 sem padding) a partir dos tiles. Não renderiza:
+/// só copia cada região. Erro se um tile sair da imagem, tiver tamanho errado ou se os tiles não
+/// cobrirem todos os pixels.
+fn montar_imagem(largura: u32, altura: u32, tiles: &[(Retangulo, &[u8])]) -> Result<Vec<u8>, String> {
+    let (l, a) = (largura as usize, altura as usize);
+    let mut imagem = vec![0u8; l * a * 4];
+    let mut area = 0usize;
+    for (regiao, rgba) in tiles {
+        let (x, y) = (regiao.x as usize, regiao.y as usize);
+        let (w, h) = (regiao.w as usize, regiao.h as usize);
+        if w == 0 || h == 0 || x + w > l || y + h > a {
+            return Err(format!("tile {regiao:?} fora da imagem {largura}x{altura}"));
         }
-        let ultimo = indice + 1 == passos.len();
-        atualizar(if ultimo { "renderizando final" } else { "prévia" }, 0.05 + 0.9 * (indice as f32 / passos.len() as f32));
-        match render_native::renderizar_com_exposicao(&cena, *w, *h, exposicao)
-            .and_then(|img| render_native::png_saida::codificar(&img.rgba, img.largura, img.altura))
-        {
-            Ok(png) => {
-                if let Ok(mut estado) = job.lock() {
-                    estado.preview = Some(png.clone());
-                    if ultimo {
-                        estado.resultado = Some(png);
-                        estado.fase = "concluído".into();
-                        estado.fracao = 1.0;
-                    }
-                }
-            }
-            Err(e) => {
-                if let Ok(mut estado) = job.lock() {
-                    estado.erro = Some(format!("render GPU falhou: {e}"));
-                    estado.fase = "erro".into();
-                }
-                return;
-            }
+        if rgba.len() != w * h * 4 {
+            return Err(format!(
+                "tile {regiao:?} com {} bytes; esperado {}",
+                rgba.len(),
+                w * h * 4
+            ));
         }
+        for linha in 0..h {
+            let origem = linha * w * 4;
+            let destino = ((y + linha) * l + x) * 4;
+            imagem[destino..destino + w * 4].copy_from_slice(&rgba[origem..origem + w * 4]);
+        }
+        area += w * h;
     }
-    println!("render-service: job {id} concluído");
+    if area != l * a {
+        return Err(format!("tiles cobrem {area} de {} pixels", l * a));
+    }
+    Ok(imagem)
 }
 
 fn status_json(req: Request, job: &Job) -> Result<(), String> {
     let estado = job.lock().map_err(|e| e.to_string())?;
-    let corpo = json!({
+    let mut corpo = json!({
         "fase": estado.fase,
         "fracao": estado.fracao,
         "pronto": estado.resultado.is_some(),
         "cancelado": estado.cancelado,
         "erro": estado.erro,
-    })
-    .to_string();
+    });
+    if matches!(estado.fase.as_str(), "tiles" | "montando" | "concluido") {
+        let concluidos: Vec<_> = estado
+            .tiles
+            .iter()
+            .map(|t| json!({ "i": t.indice, "x": t.regiao.x, "y": t.regiao.y, "w": t.regiao.w, "h": t.regiao.h }))
+            .collect();
+        corpo["tiles"] = json!({ "total": estado.tiles_total, "concluidos": concluidos });
+    }
+    let texto = corpo.to_string();
     drop(estado);
-    responder(req, 200, "application/json", corpo.into_bytes())
+    responder(req, 200, "application/json", texto.into_bytes())
+}
+
+fn tile_do_job(req: Request, job: &Job, indice: usize) -> Result<(), String> {
+    let png = {
+        let estado = job.lock().map_err(|e| e.to_string())?;
+        let achado = estado
+            .tiles
+            .iter()
+            .find(|t| t.indice == indice)
+            .map(|t| t.png.clone());
+        achado
+    };
+    match png {
+        Some(png) => responder(req, 200, "image/png", png),
+        None => erro_json(req, 404, "tile inexistente ou ainda não concluído"),
+    }
 }
 
 fn imagem_do_job(req: Request, job: &Job, final_: bool) -> Result<(), String> {
@@ -345,4 +608,72 @@ fn responder(req: Request, status: u16, tipo: &str, corpo: Vec<u8>) -> Result<()
         }
     }
     req.respond(resposta).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod testes {
+    use super::*;
+    use render_engine::ordenar_tiles_espiral;
+
+    /// Imagem sintética com cor única por pixel (sem repetição dentro de 5x3).
+    fn imagem_sintetica(largura: u32, altura: u32) -> Vec<u8> {
+        (0..altura)
+            .flat_map(move |y| {
+                (0..largura).flat_map(move |x| [x as u8, y as u8, (x * 31 + y * 17) as u8, 255])
+            })
+            .collect()
+    }
+
+    /// Recorta a região `t` da imagem (RGBA, sem padding), como faria um render por tile.
+    fn recortar(imagem: &[u8], largura: u32, t: Retangulo) -> Vec<u8> {
+        let mut saida = Vec::with_capacity((t.w * t.h * 4) as usize);
+        for linha in t.y..t.y + t.h {
+            let inicio = ((linha * largura + t.x) * 4) as usize;
+            saida.extend_from_slice(&imagem[inicio..inicio + (t.w * 4) as usize]);
+        }
+        saida
+    }
+
+    #[test]
+    fn montagem_reproduz_imagem_original() {
+        let (largura, altura) = (5u32, 3u32);
+        let original = imagem_sintetica(largura, altura);
+        let tiles = ordenar_tiles_espiral(largura, altura, 2).unwrap();
+        assert_eq!(tiles.len(), 6);
+        let partes: Vec<(Retangulo, Vec<u8>)> = tiles
+            .iter()
+            .map(|&t| (t, recortar(&original, largura, t)))
+            .collect();
+        let refs: Vec<(Retangulo, &[u8])> = partes.iter().map(|(t, rgba)| (*t, rgba.as_slice())).collect();
+        let montada = montar_imagem(largura, altura, &refs).unwrap();
+        assert_eq!(montada, original);
+    }
+
+    #[test]
+    fn montagem_recusa_tile_faltando() {
+        let (largura, altura) = (5u32, 3u32);
+        let original = imagem_sintetica(largura, altura);
+        let tiles = ordenar_tiles_espiral(largura, altura, 2).unwrap();
+        let refs: Vec<(Retangulo, Vec<u8>)> = tiles[..tiles.len() - 1]
+            .iter()
+            .map(|&t| (t, recortar(&original, largura, t)))
+            .collect();
+        let refs: Vec<(Retangulo, &[u8])> = refs.iter().map(|(t, rgba)| (*t, rgba.as_slice())).collect();
+        assert!(montar_imagem(largura, altura, &refs).is_err());
+    }
+
+    #[test]
+    fn bytes_invalidos_viram_erro_de_cena() {
+        match decodificar_cena(b"lixo") {
+            Ok(_) => panic!("bytes inválidos não podem decodificar"),
+            Err(erro) => assert!(erro.starts_with("cena inválida: "), "mensagem inesperada: {erro}"),
+        }
+    }
+
+    #[test]
+    fn previa_mantem_proporcao_com_minimo_de_uma_linha() {
+        assert_eq!(dimensoes_previa(640, 360), (320, 180));
+        assert_eq!(dimensoes_previa(1920, 1080), (320, 180));
+        assert_eq!(dimensoes_previa(10_000, 1), (320, 1));
+    }
 }

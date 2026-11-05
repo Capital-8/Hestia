@@ -763,7 +763,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "render-native"
+name = "render-engine"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
@@ -778,7 +778,7 @@ name = "render-service"
 version = "0.1.0"
 dependencies = [
  "render-core",
- "render-native",
+ "render-engine",
  "serde_json",
  "tiny_http",
 ]

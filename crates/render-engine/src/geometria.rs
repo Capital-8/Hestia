@@ -11,7 +11,14 @@ use render_core::vetor::Vec3;
 
 use crate::erro::ErroRender;
 
-/// Vértice enviado ao vertex buffer (56 bytes, sem texturas nesta versão).
+/// Tipo de superfície do vidro (`Material::tipo`).
+pub const TIPO_VIDRO: u8 = 6;
+
+/// Vértice enviado ao vertex buffer (68 bytes, sem UV nem texturas: o padrão é procedural no shader).
+///
+/// `tipo_material` é o `u8` do material como `f32` (0 liso, 1 reboco, ..., 7 tijolo) e `escala`
+/// é a escala do padrão em metros por repetição. Os dois são atributos por vértice (locations 6 e 7).
+/// `opacidade` (location 8) é a do material: abaixo de 1 o triângulo é vidro (ver `e_vidro`).
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
 pub struct Vertice {
@@ -21,6 +28,15 @@ pub struct Vertice {
     pub rugosidade: f32,
     pub metalico: f32,
     pub emissivo: [f32; 3],
+    pub tipo_material: f32,
+    pub escala: f32,
+    pub opacidade: f32,
+}
+
+/// Vidro: tipo 6 ou material com opacidade abaixo de 1. Esses triângulos saem do passe opaco e
+/// são desenhados depois, com a cor opaca da região como fundo.
+pub fn e_vidro(material: &Material) -> bool {
+    material.tipo == TIPO_VIDRO || material.opacidade < 1.0
 }
 
 /// Caixa alinhada aos eixos da geometria já expandida.
@@ -64,8 +80,11 @@ impl Caixa {
 
 /// Geometria pronta para a GPU e sua caixa envolvente.
 pub struct Malha {
+    /// Vértices opacos primeiro (`vertices[..opacos]`), depois os de vidro, na ordem da cena.
     pub vertices: Vec<Vertice>,
     pub caixa: Caixa,
+    /// Quantidade de vértices opacos no início de `vertices`.
+    pub opacos: usize,
 }
 
 fn posicao(cena: &Cena, indice: u32) -> Result<Vec3, ErroRender> {
@@ -117,7 +136,8 @@ pub fn expandir(cena: &Cena) -> Result<Malha, ErroRender> {
     }
     let materiais = materiais_por_triangulo(cena)?;
     let n_triangulos = cena.indices.len() / 3;
-    let mut vertices = Vec::with_capacity(n_triangulos * 3);
+    let mut opacos = Vec::with_capacity(n_triangulos * 3);
+    let mut vidro = Vec::new();
     let mut caixa = Caixa::vazia();
 
     for (triangulo, indices) in cena.indices.chunks_exact(3).enumerate() {
@@ -130,24 +150,37 @@ pub fn expandir(cena: &Cena) -> Result<Malha, ErroRender> {
         let emissivo = material.emissivo.map(|v| v as f32);
         let rugosidade = material.rugosidade as f32;
         let metalico = material.metalico as f32;
+        let tipo_material = f32::from(material.tipo);
+        let escala = material.escala as f32;
+        let opacidade = material.opacidade as f32;
+        let destino = if e_vidro(material) { &mut vidro } else { &mut opacos };
 
         for ponto in [a, b, c] {
             caixa.expandir(ponto);
-            vertices.push(Vertice {
+            destino.push(Vertice {
                 posicao: [ponto.x as f32, ponto.y as f32, ponto.z as f32],
                 normal: [normal.x as f32, normal.y as f32, normal.z as f32],
                 cor,
                 rugosidade,
                 metalico,
                 emissivo,
+                tipo_material,
+                escala,
+                opacidade,
             });
         }
     }
 
-    if vertices.is_empty() || !caixa.minimo.iter().all(|v| v.is_finite()) {
+    if opacos.len() + vidro.len() == 0 || !caixa.minimo.iter().all(|v| v.is_finite()) {
         return Err(ErroRender::Cena("a cena não gerou geometria finita".into()));
     }
-    Ok(Malha { vertices, caixa })
+    let n_opacos = opacos.len();
+    opacos.extend(vidro);
+    Ok(Malha {
+        vertices: opacos,
+        caixa,
+        opacos: n_opacos,
+    })
 }
 
 #[cfg(test)]
@@ -175,6 +208,8 @@ mod testes {
             transmissao: 0.0,
             ior: 1.5,
             emissivo: [0.0, 0.0, 0.0],
+            tipo: 0,
+            escala: 1.0,
         };
         Cena::nova(PartesCena {
             posicoes: vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
@@ -191,6 +226,54 @@ mod testes {
             camera,
         })
         .expect("cena")
+    }
+
+    #[test]
+    fn vertice_tem_68_bytes() {
+        // 64 bytes até a escala, mais a opacidade (location 8) do passe de vidro.
+        assert_eq!(std::mem::size_of::<Vertice>(), 68);
+    }
+
+    #[test]
+    fn vidro_vai_depois_dos_opacos() {
+        let mut cena = cena_um_triangulo();
+        // Triângulo 0 opaco; triângulo 1 com tipo de vidro (6) e opacidade 0,25.
+        cena.indices = vec![0, 1, 2, 0, 2, 1];
+        cena.lotes = vec![
+            Lote { inicio_indices: 0, quantidade_indices: 3, material: 0 },
+            Lote { inicio_indices: 3, quantidade_indices: 3, material: 1 },
+        ];
+        let mut vidro = cena.materiais[0];
+        vidro.tipo = TIPO_VIDRO;
+        vidro.opacidade = 0.25;
+        cena.materiais.push(vidro);
+        let malha = expandir(&cena).expect("expande");
+        assert_eq!(malha.opacos, 3);
+        assert!(malha.vertices[..3].iter().all(|v| v.opacidade == 1.0));
+        assert!(malha.vertices[3..].iter().all(|v| v.opacidade == 0.25 && v.tipo_material == 6.0));
+    }
+
+    #[test]
+    fn material_com_opacidade_menor_que_um_e_vidro() {
+        let mut m = cena_um_triangulo().materiais[0];
+        assert!(!e_vidro(&m));
+        m.opacidade = 0.5;
+        assert!(e_vidro(&m));
+        m.opacidade = 1.0;
+        m.tipo = TIPO_VIDRO;
+        assert!(e_vidro(&m));
+    }
+
+    #[test]
+    fn expande_preenche_tipo_e_escala_do_material() {
+        let mut cena = cena_um_triangulo();
+        cena.materiais[0].tipo = 3;
+        cena.materiais[0].escala = 0.5;
+        let malha = expandir(&cena).expect("expande");
+        for v in &malha.vertices {
+            assert_eq!(v.tipo_material, 3.0);
+            assert_eq!(v.escala, 0.5);
+        }
     }
 
     #[test]

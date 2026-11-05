@@ -1,20 +1,14 @@
 //! Núcleo do CLI `render-native`.
 //!
-//! Lê HSTR v1 pelo `render-core`, expande a cena em triângulos com material e renderiza
-//! em GPU nativa (wgpu/DX12/Vulkan/Metal). Não existe caminho de CPU.
+//! A implementação mora em `render-engine`. Aqui só se reexporta a API antiga para que
+//! quem já usa `render_native::...` continue compilando.
 
-pub mod constantes;
-pub mod cor;
-pub mod erro;
-pub mod geometria;
-pub mod gpu;
-pub mod iluminacao;
-pub mod leitura;
-pub mod matrizes;
-pub mod pipeline;
-pub mod png_saida;
-pub mod renderizador;
-pub mod uniformes;
+pub use render_engine::{
+    constantes, cor, erro, geometria, gpu, iluminacao, leitura, matrizes, pipeline, png_saida,
+    renderizador, uniformes,
+};
 
-pub use erro::ErroRender;
-pub use renderizador::{renderizar, renderizar_com_camera, renderizar_com_exposicao, ImagemRenderizada};
+pub use render_engine::erro::ErroRender;
+pub use render_engine::renderizador::{
+    renderizar, renderizar_com_camera, renderizar_com_exposicao, ImagemRenderizada,
+};
