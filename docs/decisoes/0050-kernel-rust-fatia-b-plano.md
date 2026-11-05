@@ -291,3 +291,48 @@ quebram outro. Não é arredondamento (0049) nem erro isolado do Rust: é um com
 
 **Mutações de B3:** não feitas nesta entrega, porque a junção não é despachada; entram quando ela for. A ferramenta `scripts/mutar-rust.mjs` (retomável, com restauração garantida) fica pronta para isso.
 
+## B3 saída 3 aplicada (2026-11-04): contrato v11, faixas de parede do TypeScript
+
+**Causa confirmada.** A partição vertical das faixas de parede sai de `resolveLevel` e dos perfis (`clipBandsToProfile`, depois `clipBandsToBottom`). No TypeScript, a fusão de faixas contíguas compara o texto da forma (`sigOf`), e a ordem dos anéis do `polygon-clipping` decide se duas faixas se fundem. O `i_overlay` do Rust não reproduz essa ordem: a faixa plana que o TS recorta no bloco de cota 2,36 a 2,48 m ficava dentro de uma faixa inclinada no Rust, e não era recortada. Por isso o caso mínimo (semente 2, nível 0, parede 24, camada 2) tinha 0,4125 m² de diferença. Três heurísticas locais no Rust tinham sido refutadas (ver a seção anterior); esta entrega não repete essa abordagem.
+
+**Desenho (saída 3).** O JavaScript passa ao Rust a partição que o TypeScript já resolveu, por contrato, sem reimplementar nada: `montarFaixasB3` (`kernelB3.ts`) lê `resolveLevelTs` e envia, para cada nível e parede, as faixas de cada camada na ordem de `wallBandPieces`, depois dos perfis, com a cota da base e a região de cada faixa. O Rust, quando a seção `faixas_juncao` tem linhas, monta as peças de parede dessa seção e só executa os recortes de piso e laje (`juncao_do_nivel`, sem mudança). Sem linhas, vale o cálculo anterior (`resolver_nivel` sobre a variante da junção).
+
+**Esquema v11** (`crates/geom-wasm/schema/cena-v11.json`, sobe de v10; seções aditivas, as demais não mudaram):
+- `faixas_juncao` (id 22): uma linha por faixa: `id_num`, `nivel_num`, `parede_num`, `camada`, `banda`, `prioridade`, `nucleo`, `base_z`, `z0`, `z1` (relativos à base), `inclinada` e os oito campos do topo inclinado (`o_x`, `o_y`, `d_x`, `d_y`, `t0`, `t1`, `h0`, `h1`).
+- `pontos_faixas_juncao` (id 23): a região de cada faixa, um vértice por linha (`faixa_num`, `poligono`, `anel`, `indice`, `x`, `y`).
+
+**Regra de presença.** A seção manda quando tem linhas. Seção vazia ou removida devolve o cálculo anterior. (Uma versão anterior, com a carga marcando a cena mesmo vazia, foi corrigida: remover as linhas esvaziava a junção em vez de voltar ao caminho antigo.)
+
+**Validação.** Na carga, valores não finitos, `z0 >= z1`, colunas de tamanhos diferentes e topo com `nucleo`/`inclinada` fora de 0/1 viram `ENTRADA`. Na consulta, parede inexistente, vértice de faixa inexistente (órfão), lacuna ou repetição de polígono, anel ou índice viram `ENTRADA` (falha leve, sem panic).
+
+**Adaptador e testes.** `kernelDespachoB.ts` e a harness mandam as duas seções junto com as da variante. `quadros.ts` lista as seções novas (sem isso elas não seriam enviadas). A harness de estresse (`kernel-b3.wasm.test.ts`) teve `DEFEITO_CONHECIDO` esvaziada. Dois testes da harness (upsert e remoção; entradas inválidas) passaram a rodar as asserções antigas numa cena sem `faixas_juncao`, onde o caminho antigo ainda vale, e acrescentaram as asserções equivalentes do mecanismo novo. Nenhuma asserção antiga foi removida ou afrouxada.
+
+**Riscos.**
+1. O caminho antigo (cena sem `faixas_juncao`) mantém o defeito. Em produção o adaptador sempre manda a seção (`sincronizarB`), então o defeito não é exercitado ali; ainda assim é um caminho com defeito conhecido, a remover quando o caminho antigo sair.
+2. Payload maior: a carga manda a região de cada faixa de parede, antes calculada no Rust. Não medido.
+3. As seções `paredes_z_juncao` e `perfis_z_juncao` passam a valer só no caminho antigo.
+4. O binário versionado `packages/geom/assets/geom_wasm.wasm` continua v10 até ser regenerado; testes que carregam o binário padrão falham até lá.
+
+**Resultados (2026-11-04, wasm de `tmp-s3/wasm2`, commit `ac09af62` e anteriores).**
+
+Aceite, saída literal das linhas de resumo:
+- (a) `kernel-b3.wasm.test.ts`, 5 sementes: `Tests  43 passed (43)`. `DEFEITO_CONHECIDO` vazia. Maior diferença simétrica 5,27e-6 m² (semente 43 nível 1), dentro da 0049 (K 0,062 medido, adotado 0,14).
+- (a) com `B3_SEMENTES=8`: **reprovou**. `Tests  1 failed | 54 passed (55)`. Falha: semente 7, pavimento 3 (nível `lv_x3`), piso 23: corte `false` no Rust e `true` no TypeScript, e região de 0 polígonos no Rust contra 1 no TypeScript. Essa semente nunca tinha sido validada antes (só 1 a 5 e 41 a 43). Não sei se a divergência já existia antes desta entrega; não rodei o commit base para comparar. A causa não foi investigada. Não afrouxei nada.
+- (b) `kernel-b3-referencia.test.ts`: `Tests  10 passed (10)`.
+- (c) wasm de regressão (a3c, a3d, b1, b2, b5, b1-limiares, b2-limiares): `Test Files  7 passed (7)`, `Tests  161 passed (161)`.
+- (c) `cargo test` em `crates/geom-wasm`: `test result: ok. 158 passed; 0 failed`.
+- (d) `npx tsc -p tsconfig.json --noEmit`: exit 0, sem saída.
+- (e) `npx eslint` nos arquivos tocados: exit 0, 0 erros; único aviso é de arquivo fora do lint (`scripts/gerar-esquema-kernel.mjs`).
+- (f) `npx vitest run` (suíte rápida, sem wasm): `Test Files  855 passed (855)`, `Tests  9293 passed | 1 todo (9294)`.
+
+Defeito corrigido nos casos que o motivaram: os cinco casos da antiga `DEFEITO_CONHECIDO` (semente 1 pavimento 2, semente 2 pavimento 0, semente 5 pavimento 1, níveis não adjacentes 43 pavimentos 0 e 1) passam com a lista vazia. O caso mínimo da semente 2 caiu de 0,4125 m² para 9,36e-7 m².
+
+Ajuste de contrato (feito depois do primeiro aceite): a seção `faixas_juncao` passou a valer só quando tem linhas. Antes, uma carga vazia ou depois da remoção das linhas esvaziava a junção, em vez de devolver o cálculo anterior. Os dois testes da harness que falharam (upsert e remoção; entradas inválidas) rodam agora as asserções antigas numa cena sem a seção, onde o caminho anterior ainda vale, e acrescentam as equivalentes do mecanismo novo. Nenhuma asserção antiga foi removida nem afrouxada.
+
+**Riscos.**
+1. O caminho antigo (cena sem `faixas_juncao`) mantém o defeito. Em produção o adaptador sempre manda a seção (`sincronizarB`), então não é exercitado ali.
+2. Payload maior: a carga manda a região de cada faixa de parede, antes calculada no Rust. Não medido.
+3. As seções `paredes_z_juncao` e `perfis_z_juncao` passam a valer só no caminho antigo.
+4. O binário versionado `packages/geom/assets/geom_wasm.wasm` continua v10 até ser regenerado; testes que carregam o binário padrão falham até lá.
+5. Semente 7 (acima): reprovação aberta, a investigar antes de promover a saída 3.
+
