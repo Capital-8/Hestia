@@ -55,7 +55,7 @@ const R: Record<string, string> = {
   // Documentação e vista
   tag: p('s2', 'M3 6H17L28 17L17 28L3 17Z') + '<circle class="ic-ac" cx="10" cy="13" r="1.5"/>',
   cotasAuto: p('ln', 'M4 4V18M14 4V18M28 4V18M4 14H28') + p('ac', 'M2 16L6 12M12 16L16 12M26 16L30 12') + p('s2', 'M4 21H28V29H4Z') + p('fa', 'M21 3L22 6L25 7L22 8L21 11L20 8L17 7L20 6Z'),
-  section: p('s3', 'M2 17L8 11V23Z') + p('s3', 'M30 17L24 11V23Z') + p('ln ic-ds', 'M8 17H24') + p('ac', 'M16 17V9') + p('fa', 'M16 3L12 9H20Z'),
+  section: p('ln', 'M8 16H24') + p('ln', 'M10 12L6 16L10 20') + p('ln', 'M22 12L26 16L22 20') + '<circle cx="10" cy="8" r="1.6" fill="var(--ic-ink)"/><circle cx="22" cy="24" r="1.6" fill="var(--ic-ink)"/>',
   plan: p('s1', 'M4 4H28V28H4Z') + p('ln2', 'M16 4V16H28M4 21H12') + p('ac', 'M12 21A6 6 0 0 1 18 27'),
   fit: p('ln2', 'M4 11V4H11M21 4H28V11M28 21V28H21M11 28H4V21') + p('s1', 'M11 11H21V21H11Z'),
   grid: p('ln', 'M10 9V29M22 9V29M9 15H29M9 23H29') + '<circle class="ic-s1" cx="10" cy="6" r="3"/><circle class="ic-s1" cx="22" cy="6" r="3"/><circle class="ic-s1" cx="6" cy="15" r="3"/><circle class="ic-s1" cx="6" cy="23" r="3"/>',

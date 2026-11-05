@@ -8,12 +8,10 @@ describe('marcas de corte na planta', () => {
   it('a seta de cada ponta aponta para a esquerda de a→b (lado de visão do corte)', () => {
     // a→b ao longo de +x: a esquerda é +y. As pontas da seta devem ficar em y > 0.
     const m = sectionMarkOps({ a: { x: 0, y: 0 }, b: { x: 4, y: 0 } }, LIGHT);
-    const tips = m.fills.map((f) => f.polygons[0]![0]!);
-    expect(tips).toHaveLength(2);
-    for (const ring of tips) {
-      const tip = ring[1]!;
-      expect(tip.y).toBeGreaterThan(0);
-    }
+    const pts = m.fills.flatMap((f) => f.polygons[0]![0]!);
+    expect(m.fills.length).toBeGreaterThanOrEqual(2);
+    for (const p of pts) expect(p.y).toBeGreaterThanOrEqual(0);
+    expect(Math.max(...pts.map((p) => p.y))).toBeGreaterThan(0);
   });
 
   it('traço-ponto vira segmentos curtos, sem cobrir a linha inteira', () => {
@@ -24,9 +22,11 @@ describe('marcas de corte na planta', () => {
     expect(covered).toBeLessThan(4);
   });
 
-  it('o nome aparece nas duas pontas quando a marca é de projeto, e não na pré-visualização', () => {
-    const placed = sectionMarkOps({ a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, label: 'Corte A' }, LIGHT);
-    expect(placed.labels.map((l) => l.text)).toEqual(['Corte A', 'Corte A']);
+  it('o nome e a prancha aparecem nas duas pontas quando a marca é de projeto, e não na pré-visualização', () => {
+    const placed = sectionMarkOps({ a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, label: 'Corte A', sheetLabel: 'A101' }, LIGHT);
+    expect(placed.labels.map((l) => l.text)).toEqual(['A101', 'Corte A', 'A101', 'Corte A']);
+    const semPrancha = sectionMarkOps({ a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, label: 'Corte A' }, LIGHT);
+    expect(semPrancha.labels.map((l) => l.text)).toEqual(['-', 'Corte A', '-', 'Corte A']);
     const preview = sectionMarkOps({ a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, label: 'Corte A', dashed: true }, LIGHT);
     expect(preview.labels).toHaveLength(0);
   });

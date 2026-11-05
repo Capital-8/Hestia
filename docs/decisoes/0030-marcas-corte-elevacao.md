@@ -31,9 +31,18 @@ id/nome duplicado, referência de parede que sumiu (aviso) e viewport órfão.
 ## 3. Marca em papel
 
 A geometria da marca é calculada em **mm de papel** (`sectionMarkGeometry`): seta padrão de 3 mm, texto de 2,5 mm,
-traço-ponto `[4, 1, 0,3, 1]` mm e deslocamento do rótulo `{x: 2, y: 1,5}` mm. Por isso a marca tem o mesmo tamanho
+traço-ponto `[4, 1, 0,3, 1]` mm e deslocamento do rótulo `{x: 0, y: 0}` mm. Por isso a marca tem o mesmo tamanho
 relativo na tela, na prancha e no DXF. O corte usa traço-ponto; a elevação usa linha contínua. Visibilidade, cor e peso
 seguem a categoria `annotation`.
+
+Cada ponta ganha uma **bolha** (círculo) centrada na própria ponta da linha, seguindo a convenção usual de marca de
+corte/elevação: a linha de corte passa pelo centro da bolha e a divide ao meio (o traço da marca começa na borda dela).
+A bandeira de direção é um triângulo de 90° cuja **base é o diâmetro da bolha** (sobra para fora dos dois lados) e cujos
+outros dois lados **tangenciam o círculo** e se encontram no vértice, do lado de visão; só o que fica fora do círculo é
+preenchido (duas asas e a ponta). O raio mínimo acompanha a altura do texto (`textMm + 4,5 mm`) e cresce para caber os
+dois textos: o número do corte em cima e o número da prancha onde ele está publicado embaixo (`-` quando a vista ainda
+não está em nenhuma prancha, via `sectionSheetNumberOf`). `labelOffsetMm.y` (padrão 0) afasta a bolha da linha;
+`labelOffsetMm.x` não tem mais efeito nesse desenho.
 
 ## 4. Seleção, propriedades e transformações
 

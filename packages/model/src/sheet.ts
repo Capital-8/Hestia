@@ -238,3 +238,16 @@ export const projectSheets = (p: Pick<Project, 'sheets'>): Sheet[] => p.sheets ?
 export function sheetOf(p: Pick<Project, 'sheets'>, id: Id): Sheet | undefined {
   return projectSheets(p).find((s) => s.id === id);
 }
+
+/**
+ * Número da prancha que mostra a vista de corte/elevação `viewId` (primeiro viewport achado), ou `undefined` se a
+ * vista ainda não está em nenhuma prancha. Usado na marca de corte em planta (número do corte sobre número da prancha).
+ */
+export function sectionSheetNumberOf(p: Pick<Project, 'sheets'>, viewId: Id): string | undefined {
+  for (const sheet of projectSheets(p)) {
+    for (const vp of sheet.viewports) {
+      if (vp.view.kind === 'section' && vp.view.sectionId === viewId) return sheet.number;
+    }
+  }
+  return undefined;
+}

@@ -1,5 +1,5 @@
 import { dot, len, sub, type Vec2 } from '@hestia/geom';
-import { levelGraphicsOf, sectionLabelOf, sectionMarkGeometry, sectionPoints, type Id, type Project } from '@hestia/model';
+import { levelGraphicsOf, sectionLabelOf, sectionMarkGeometry, sectionPoints, sectionSheetNumberOf, type Id, type Project } from '@hestia/model';
 
 /** Distância de `p` ao segmento a–b. */
 function distToSegment(p: Vec2, a: Vec2, b: Vec2): number {
@@ -58,7 +58,7 @@ export function sectionMarkAt(p: Project, levelId: Id, at: Vec2, mpp: number): I
   for (const view of p.views) {
     if (view.mark?.visible === false) continue;
     const pts = sectionPoints(p, view);
-    const geo = sectionMarkGeometry(pts.a, pts.b, view.kind, sectionLabelOf(view), mPerMm, view.mark);
+    const geo = sectionMarkGeometry(pts.a, pts.b, view.kind, sectionLabelOf(view), mPerMm, view.mark, false, sectionSheetNumberOf(p, view.id));
     for (const [a, b] of geo.segments) consider(view.id, distToSegment(at, a, b));
     for (const ring of geo.arrows) {
       if (ring.length < 3) continue;
