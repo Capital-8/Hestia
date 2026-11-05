@@ -101,6 +101,7 @@ fn materiais() -> Vec<Material> {
         emissivo: [0.0, 0.0, 0.0],
         tipo: 0,
         escala: 1.0,
+        texturas: [None; 4],
     };
     vec![
         m([0.10, 0.26, 0.09], 0.95, 0.0), // grama
@@ -238,6 +239,7 @@ fn main() {
         indices,
         normais: Vec::new(),
         materiais: materiais(),
+        texturas: Vec::new(),
         lotes,
         sol: Sol {
             azimute: 135.0,

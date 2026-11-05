@@ -35,7 +35,7 @@ pub mod tracer;
 pub mod vetor;
 
 pub use camera::Camera;
-pub use cena::{Cena, Lote, Material, PartesCena, Sol};
+pub use cena::{Cena, Lote, Material, PartesCena, Sol, Textura};
 pub use erro::Erro;
 pub use trabalho::Trabalho;
 pub use tracer::{renderizar_bloco, renderizar_imagem, renderizar_png, Bloco};

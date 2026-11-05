@@ -36,6 +36,29 @@ struct Uniformes {
 // lê; é a "cor de tela" que a refração desloca. Ver motor.rs (passe de vidro).
 @group(0) @binding(8) var cor_tela: texture_2d<f32>;
 
+// ---- Texturas de material (grupo 1, só o passe principal; ver pipeline.rs e motor.rs) ----
+// Um binding por slot (WGSL sem binding array exige um nome por textura): 16 slots, com a 1x1
+// branca nos vazios. O `switch` escolhe o slot de cada fragmento. A amostragem usa gradientes
+// explícitos (textureSampleGrad), que não exigem fluxo uniforme, então o slot pode variar por pixel.
+const SEM_TEXTURA: u32 = 0xffffffffu;
+@group(1) @binding(0) var amostrador_textura: sampler;
+@group(1) @binding(1) var textura_0: texture_2d<f32>;
+@group(1) @binding(2) var textura_1: texture_2d<f32>;
+@group(1) @binding(3) var textura_2: texture_2d<f32>;
+@group(1) @binding(4) var textura_3: texture_2d<f32>;
+@group(1) @binding(5) var textura_4: texture_2d<f32>;
+@group(1) @binding(6) var textura_5: texture_2d<f32>;
+@group(1) @binding(7) var textura_6: texture_2d<f32>;
+@group(1) @binding(8) var textura_7: texture_2d<f32>;
+@group(1) @binding(9) var textura_8: texture_2d<f32>;
+@group(1) @binding(10) var textura_9: texture_2d<f32>;
+@group(1) @binding(11) var textura_10: texture_2d<f32>;
+@group(1) @binding(12) var textura_11: texture_2d<f32>;
+@group(1) @binding(13) var textura_12: texture_2d<f32>;
+@group(1) @binding(14) var textura_13: texture_2d<f32>;
+@group(1) @binding(15) var textura_14: texture_2d<f32>;
+@group(1) @binding(16) var textura_15: texture_2d<f32>;
+
 // Mesmo valor de constantes.rs (AMOSTRAS_AO). O teste de sincronia lê esta linha.
 const AMOSTRAS_AO: u32 = 16u;
 
@@ -71,6 +94,8 @@ struct Entrada {
   @location(7) escala: f32,
   // Opacidade do material: 1 opaco. Abaixo de 1 (ou tipo 6), o triângulo vai ao passe de vidro.
   @location(8) opacidade: f32,
+  // Índices de textura do material: albedo, normal, rugosidade, metálico (SEM_TEXTURA = nenhum).
+  @location(9) texturas: vec4<u32>,
 };
 
 struct SaidaSombra {
@@ -88,6 +113,8 @@ struct Saida {
   @location(6) tipo: f32,
   @location(7) escala: f32,
   @location(8) opacidade: f32,
+  // Inteiro: interpolação plana (o material é o mesmo em todo o triângulo).
+  @location(9) @interpolate(flat) texturas: vec4<u32>,
 };
 
 @vertex
@@ -110,6 +137,7 @@ fn vs_principal(e: Entrada) -> Saida {
   s.tipo = e.tipo;
   s.escala = e.escala;
   s.opacidade = e.opacidade;
+  s.texturas = e.texturas;
   return s;
 }
 
@@ -450,6 +478,115 @@ fn normal_com_relevo(tipo: i32, mundo: vec3<f32>, normal: vec3<f32>, base: vec3<
   return normalize(normal - tangente);
 }
 
+// Amostra o slot `indice` com os gradientes dados. Slot fora de 0..15 devolve branco (não ocorre
+// com os índices validados pelo núcleo).
+fn amostrar_slot(indice: u32, uv: vec2<f32>, dx: vec2<f32>, dy: vec2<f32>) -> vec4<f32> {
+  switch indice {
+    case 0u: { return textureSampleGrad(textura_0, amostrador_textura, uv, dx, dy); }
+    case 1u: { return textureSampleGrad(textura_1, amostrador_textura, uv, dx, dy); }
+    case 2u: { return textureSampleGrad(textura_2, amostrador_textura, uv, dx, dy); }
+    case 3u: { return textureSampleGrad(textura_3, amostrador_textura, uv, dx, dy); }
+    case 4u: { return textureSampleGrad(textura_4, amostrador_textura, uv, dx, dy); }
+    case 5u: { return textureSampleGrad(textura_5, amostrador_textura, uv, dx, dy); }
+    case 6u: { return textureSampleGrad(textura_6, amostrador_textura, uv, dx, dy); }
+    case 7u: { return textureSampleGrad(textura_7, amostrador_textura, uv, dx, dy); }
+    case 8u: { return textureSampleGrad(textura_8, amostrador_textura, uv, dx, dy); }
+    case 9u: { return textureSampleGrad(textura_9, amostrador_textura, uv, dx, dy); }
+    case 10u: { return textureSampleGrad(textura_10, amostrador_textura, uv, dx, dy); }
+    case 11u: { return textureSampleGrad(textura_11, amostrador_textura, uv, dx, dy); }
+    case 12u: { return textureSampleGrad(textura_12, amostrador_textura, uv, dx, dy); }
+    case 13u: { return textureSampleGrad(textura_13, amostrador_textura, uv, dx, dy); }
+    case 14u: { return textureSampleGrad(textura_14, amostrador_textura, uv, dx, dy); }
+    case 15u: { return textureSampleGrad(textura_15, amostrador_textura, uv, dx, dy); }
+    default: { return vec4<f32>(1.0); }
+  }
+}
+
+// Coordenadas triplanares de textura: uv de cada eixo (X, Y, Z), derivadas por pixel e o sinal da
+// normal em cada eixo (orienta a projeção para a face). Mesma escala do padrão procedural: uma
+// repetição da textura a cada `escala` metros. Em V, o topo da imagem aponta para +Z (paredes) ou
+// para +Y (planos horizontais), então a normal de mapa em convenção OpenGL fica de pé.
+struct Triplanar {
+  uv: array<vec2<f32>, 3>,
+  dx: array<vec2<f32>, 3>,
+  dy: array<vec2<f32>, 3>,
+  sinal: vec3<f32>,
+};
+
+// Chamada no topo de fs_principal, antes de qualquer ramo por material: dpdx/dpdy exigem fluxo
+// uniforme, e aqui o fluxo ainda é uniforme.
+fn triplanar_de(mundo: vec3<f32>, normal: vec3<f32>, escala: f32) -> Triplanar {
+  let q = mundo / escala;
+  let sx = select(-1.0, 1.0, normal.x >= 0.0);
+  let sy = select(-1.0, 1.0, normal.y >= 0.0);
+  let sz = select(-1.0, 1.0, normal.z >= 0.0);
+  let uv_x = vec2<f32>(sx * q.y, -q.z);
+  let uv_y = vec2<f32>(-sy * q.x, -q.z);
+  let uv_z = vec2<f32>(sz * q.x, -q.y);
+  var t: Triplanar;
+  t.uv = array<vec2<f32>, 3>(uv_x, uv_y, uv_z);
+  t.dx = array<vec2<f32>, 3>(dpdx(uv_x), dpdx(uv_y), dpdx(uv_z));
+  t.dy = array<vec2<f32>, 3>(dpdy(uv_x), dpdy(uv_y), dpdy(uv_z));
+  t.sinal = vec3<f32>(sx, sy, sz);
+  return t;
+}
+
+struct AmostrasEixos {
+  x: vec4<f32>,
+  y: vec4<f32>,
+  z: vec4<f32>,
+};
+
+// Uma textura amostrada nos três eixos.
+fn amostrar_eixos(indice: u32, t: Triplanar) -> AmostrasEixos {
+  var r: AmostrasEixos;
+  r.x = amostrar_slot(indice, t.uv[0], t.dx[0], t.dy[0]);
+  r.y = amostrar_slot(indice, t.uv[1], t.dx[1], t.dy[1]);
+  r.z = amostrar_slot(indice, t.uv[2], t.dx[2], t.dy[2]);
+  return r;
+}
+
+// Whiteout (Golus) num eixo: `t` é a normal do mapa em espaço tangente (xy no plano, z ao longo da
+// face) e `nf` é a normal base nesse referencial (tangente, binormal, eixo). Soma os xy e multiplica
+// o z, então a inclinação da face base é mantida.
+fn whiteout(t: vec3<f32>, nf: vec3<f32>, tangente: vec3<f32>, binormal: vec3<f32>, eixo: vec3<f32>) -> vec3<f32> {
+  let c = normalize(vec3<f32>(t.xy + nf.xy, nf.z * t.z));
+  return tangente * c.x + binormal * c.y + eixo * c.z;
+}
+
+// Normal de mapa para o mundo, com a orientação de tangente de triplanar_de: eixo X (T = sx*Y,
+// B = Z), eixo Y (T = -sy*X, B = Z) e eixo Z (T = sz*X, B = Y). Os pesos são os triplanares |n|^4.
+fn normal_de_mapa(mapa: AmostrasEixos, t: Triplanar, normal: vec3<f32>, peso: vec3<f32>) -> vec3<f32> {
+  let sx = t.sinal.x;
+  let sy = t.sinal.y;
+  let sz = t.sinal.z;
+  let tx = mapa.x.rgb * 2.0 - vec3<f32>(1.0);
+  let ty = mapa.y.rgb * 2.0 - vec3<f32>(1.0);
+  let tz = mapa.z.rgb * 2.0 - vec3<f32>(1.0);
+  let wx = whiteout(
+    tx,
+    vec3<f32>(sx * normal.y, normal.z, sx * normal.x),
+    vec3<f32>(0.0, sx, 0.0),
+    vec3<f32>(0.0, 0.0, 1.0),
+    vec3<f32>(sx, 0.0, 0.0)
+  );
+  let wy = whiteout(
+    ty,
+    vec3<f32>(-sy * normal.x, normal.z, sy * normal.y),
+    vec3<f32>(-sy, 0.0, 0.0),
+    vec3<f32>(0.0, 0.0, 1.0),
+    vec3<f32>(0.0, sy, 0.0)
+  );
+  let wz = whiteout(
+    tz,
+    vec3<f32>(sz * normal.x, normal.y, sz * normal.z),
+    vec3<f32>(sz, 0.0, 0.0),
+    vec3<f32>(0.0, 1.0, 0.0),
+    vec3<f32>(0.0, 0.0, sz)
+  );
+  return normalize(wx * peso.x + wy * peso.y + wz * peso.z);
+}
+
 @fragment
 fn fs_principal(e: Saida) -> @location(0) vec4<f32> {
   let visao = normalize(u.camera.xyz - e.mundo);
@@ -465,20 +602,50 @@ fn fs_principal(e: Saida) -> @location(0) vec4<f32> {
     normal = -normal;
   }
 
+  // Coordenadas triplanares e derivadas de textura, antes de qualquer ramo por material: dpdx e
+  // dpdy precisam de fluxo uniforme, e aqui ele ainda é uniforme (não há return antes).
+  let escala = max(e.escala, ESCALA_MINIMA);
+  let tri = triplanar_de(e.mundo, normal, escala);
+  let peso = pesos_triplanares(normal);
+  let tex = e.texturas;
+
   // Superfície procedural (tipo 1 a 5 e 7): albedo, rugosidade e, nos tipos com relevo, a normal.
-  // Liso (0) e vidro (6) mantêm a cor e a rugosidade do material, como antes.
+  // Liso (0) e vidro (6) mantêm a cor e a rugosidade do material, como antes. Com textura, o
+  // procedural continua calculado (a rugosidade dele vale quando não há mapa de rugosidade), e a
+  // relevo procedural só entra quando não há mapa de normal.
   let tipo = i32(floor(e.tipo + 0.5));
   let cor_material = max(e.cor, vec3<f32>(0.0));
   var base = cor_material;
   var rugosidade = clamp(e.rugosidade, 0.04, 1.0);
+  var metalico = clamp(e.metalico, 0.0, 1.0);
   if (tipo != 0 && tipo != 6) {
-    let escala = max(e.escala, ESCALA_MINIMA);
     let sup = superficie_triplanar(tipo, e.mundo, normal, cor_material, escala);
     base = sup.cor;
     rugosidade = clamp(sup.rugosidade, 0.04, 1.0);
-    if (tipo == 1 || tipo == 3 || tipo == 7) {
+    if ((tipo == 1 || tipo == 3 || tipo == 7) && tex.y == SEM_TEXTURA) {
       normal = normal_com_relevo(tipo, e.mundo, normal, cor_material, escala);
     }
+  }
+  // Albedo de textura substitui a cor procedural. A amostra é sRGB codificada: decodifica por canal
+  // antes de misturar, como a cor linear do material.
+  if (tex.x != SEM_TEXTURA) {
+    let a = amostrar_eixos(tex.x, tri);
+    base = linear_de_srgb(a.x.rgb) * peso.x
+      + linear_de_srgb(a.y.rgb) * peso.y
+      + linear_de_srgb(a.z.rgb) * peso.z;
+  }
+  // Mapa de normal: whiteout triplanar sobre a normal base (o relevo procedural já não entra aqui).
+  if (tex.y != SEM_TEXTURA) {
+    normal = normal_de_mapa(amostrar_eixos(tex.y, tri), tri, normal, peso);
+  }
+  // Rugosidade e metálico vêm do canal R da textura, quando o material tem o mapa.
+  if (tex.z != SEM_TEXTURA) {
+    let r = amostrar_eixos(tex.z, tri);
+    rugosidade = clamp(r.x.r * peso.x + r.y.r * peso.y + r.z.r * peso.z, 0.04, 1.0);
+  }
+  if (tex.w != SEM_TEXTURA) {
+    let m = amostrar_eixos(tex.w, tri);
+    metalico = clamp(m.x.r * peso.x + m.y.r * peso.y + m.z.r * peso.z, 0.0, 1.0);
   }
 
   let luz = normalize(u.sol.xyz);
@@ -486,7 +653,6 @@ fn fs_principal(e: Saida) -> @location(0) vec4<f32> {
   let ndl = max(dot(normal, luz), 0.0);
   let ndv = max(dot(normal, visao), 1.0e-4);
   let alfa = rugosidade * rugosidade;
-  let metalico = clamp(e.metalico, 0.0, 1.0);
   let f0 = mix(vec3<f32>(0.04), base, vec3<f32>(metalico));
 
   let meio = normalize(visao + luz);

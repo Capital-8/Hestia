@@ -6,12 +6,14 @@ use std::mem::size_of;
 
 use wgpu::util::DeviceExt;
 
-use crate::constantes::{FORMATO_COR, FORMATO_NORMAIS, FORMATO_OCLUSAO, FORMATO_PROFUNDIDADE};
+use crate::constantes::{
+    FORMATO_COR, FORMATO_NORMAIS, FORMATO_OCLUSAO, FORMATO_PROFUNDIDADE, TEXTURAS_POR_CENA,
+};
 use crate::erro::ErroRender;
 use crate::geometria::Vertice;
 use crate::gpu::Gpu;
 
-const ATRIBUTOS: [wgpu::VertexAttribute; 9] = wgpu::vertex_attr_array![
+const ATRIBUTOS: [wgpu::VertexAttribute; 10] = wgpu::vertex_attr_array![
     0 => Float32x3, // posição
     1 => Float32x3, // normal de face
     2 => Float32x3, // cor base linear
@@ -20,15 +22,19 @@ const ATRIBUTOS: [wgpu::VertexAttribute; 9] = wgpu::vertex_attr_array![
     5 => Float32x3, // emissivo
     6 => Float32,   // tipo de superfície procedural (u8 como f32)
     7 => Float32,   // escala do padrão (metros por repetição)
-    8 => Float32    // opacidade do material (abaixo de 1: passe de vidro)
+    8 => Float32,   // opacidade do material (abaixo de 1: passe de vidro)
+    9 => Uint32x4   // índices de textura: albedo, normal, rugosidade, metálico (0xFFFFFFFF = nenhum)
 ];
 
 /// Layouts de bind group usados pelas pipelines.
 pub struct Layouts {
     /// Só o uniforme (passe de sombra).
     pub uniforme: wgpu::BindGroupLayout,
-    /// Uniforme, mapa de sombra, comparador, harmônicos do céu e oclusão (passe principal).
+    /// Uniforme, mapa de sombra, comparador, harmônicos do céu e oclusão (passe principal, grupo 0).
     pub principal: wgpu::BindGroupLayout,
+    /// Texturas de material (passe principal, grupo 1): sampler no binding 0 e uma textura por slot
+    /// nos bindings 1 a `TEXTURAS_POR_CENA`. Slot sem textura usa uma 1x1 branca (ver motor.rs).
+    pub texturas: wgpu::BindGroupLayout,
     /// Pré-passe de normais: uniforme (0) e uniforme extra da oclusão (5).
     pub pre: wgpu::BindGroupLayout,
     /// SSAO: uniforme extra (5) e pré-passe de normais e profundidade (6).
@@ -149,6 +155,28 @@ pub fn criar_layouts(device: &wgpu::Device) -> Layouts {
         ],
     });
 
+    // Grupo 1 das texturas: o sampler no binding 0 e as texturas nos bindings 1..=16, um por slot
+    // (WGSL não tem array de texturas sem a feature de binding array, então cada slot é um binding).
+    let mut entradas_texturas = vec![wgpu::BindGroupLayoutEntry {
+        binding: 0,
+        visibility: wgpu::ShaderStages::FRAGMENT,
+        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+        count: None,
+    }];
+    for slot in 0..TEXTURAS_POR_CENA as u32 {
+        entradas_texturas.push(wgpu::BindGroupLayoutEntry {
+            binding: 1 + slot,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Texture {
+                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                view_dimension: wgpu::TextureViewDimension::D2,
+                multisampled: false,
+            },
+            count: None,
+        });
+    }
+    let texturas = criar_layout(device, "texturas de material", &entradas_texturas);
+
     let pre = criar_layout(
         device,
         "pré-passe de normais",
@@ -187,6 +215,7 @@ pub fn criar_layouts(device: &wgpu::Device) -> Layouts {
     Layouts {
         uniforme,
         principal,
+        texturas,
         pre,
         ssao,
         desfoque,
@@ -250,7 +279,7 @@ pub fn criar_pipelines(gpu: &Gpu, layouts: &Layouts, amostras: u32) -> Pipelines
     });
     let layout_principal = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("layout principal"),
-        bind_group_layouts: &[Some(&layouts.principal)],
+        bind_group_layouts: &[Some(&layouts.principal), Some(&layouts.texturas)],
         immediate_size: 0,
     });
     let layout_pre = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {

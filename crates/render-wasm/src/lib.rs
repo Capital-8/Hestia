@@ -329,6 +329,7 @@ mod testes {
             emissivo: [0.0, 0.0, 0.0],
             tipo: 0,
             escala: 1.0,
+            texturas: [None; 4],
         }];
         let lotes = vec![Lote {
             inicio_indices: 0,
@@ -350,6 +351,7 @@ mod testes {
             indices,
             normais: Vec::new(),
             materiais,
+            texturas: Vec::new(),
             lotes,
             sol: Sol::padrao(),
             fundo: None,

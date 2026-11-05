@@ -27,6 +27,7 @@ fn cena_teste() -> Cena {
         emissivo: [0.0, 0.0, 0.0],
         tipo: 0,
         escala: 1.0,
+        texturas: [None; 4],
     };
     Cena::nova(PartesCena {
         posicoes: vec![
@@ -35,6 +36,7 @@ fn cena_teste() -> Cena {
         indices: vec![0, 1, 2, 0, 2, 3],
         normais: Vec::new(),
         materiais: vec![material],
+        texturas: Vec::new(),
         lotes: vec![Lote {
             inicio_indices: 0,
             quantidade_indices: 6,

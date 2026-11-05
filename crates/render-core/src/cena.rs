@@ -1,15 +1,17 @@
 //! Cena neutra do render offline: triângulos, materiais, lotes, sol, fundo e câmera.
 //!
-//! # Formato binário `HSTR` versão 2 (escrita) e 1 (leitura)
+//! # Formato binário `HSTR` versão 3 (escrita com texturas), 2 (sem texturas) e 1 (leitura)
 //!
 //! Tudo é **little-endian**; `f32` é IEEE-754 de 32 bits. O JS monta os bytes na ordem abaixo
-//! (`packages/render/src/offline/cena.ts` é a referência dos tipos). A versão 1 continua aceita
-//! na leitura; a versão 2 acrescenta, no fim de cada material, o tipo de superfície e a escala.
+//! (`apps/web/src/editor/render/wasmClient.ts` é a referência dos bytes). A versão 1 continua aceita
+//! na leitura; a versão 2 acrescenta, no fim de cada material, o tipo de superfície e a escala; a
+//! versão 3 acrescenta os índices de textura por material e a seção de texturas. `codificar` grava
+//! a v3 só quando a cena tem textura; sem textura grava a v2, como antes.
 //!
 //! ```text
 //! cabeçalho fixo — 32 bytes
 //!   0   "HSTR"                      4 bytes
-//!   4   versão                      u32 = 2 (1 também é aceita na leitura)
+//!   4   versão                      u32 = 3 com texturas, 2 sem (1, 2 e 3 são aceitas na leitura)
 //!   8   n_vertices                  u32
 //!   12  n_indices                   u32 (múltiplo de 3)
 //!   16  n_normais                   u32 (0 ou n_vertices)
@@ -20,7 +22,8 @@
 //! posições        n_vertices * 3 f32        (x, y, z em metros, Z para cima)
 //! índices         n_indices  * u32
 //! normais         n_vertices * 3 f32        (só se flags & 1)
-//! materiais       n_materiais * bloco       (ver abaixo; v1 = 44 bytes, v2 = 52 bytes)
+//! materiais       n_materiais * bloco       (ver abaixo; v1 = 44 bytes, v2 = 52, v3 = 68)
+//! texturas        só na v3: seção abaixo (quantidade 0 quando não há textura)
 //! lotes           n_batches * 3 u32         (início, quantidade de índices, material)
 //! sol             3 f32                     (azimute em graus, elevação em graus, intensidade)
 //! fundo           3 f32                     (só se flags & 2; cor linear)
@@ -35,11 +38,31 @@
 //! v2 (52 bytes): 11 f32 da v1, depois
 //!   tipo    u32   0 liso, 1 reboco, 2 madeira, 3 telha, 4 piso, 5 metal, 6 vidro, 7 tijolo
 //!   escala  f32   coordenada de padrão = posição / escala (metros por repetição), > 0
+//! v3 (68 bytes): o bloco da v2, depois 4 u32 de índice de textura, nesta ordem: albedo, normal,
+//!   rugosidade, metálico. 0xFFFFFFFF = sem textura. Materiais v1 e v2 leem os quatro como
+//!   0xFFFFFFFF.
 //! ```
 //!
-//! Na leitura da v1, todo material vira `tipo = 0` e `escala = 1.0`. Valores fora da faixa,
-//! `NaN`/infinito, tipo > 7, escala não positiva, índice fora dos arrays ou lote que não cabe
-//! nos índices tornam a cena inválida (código 1), nunca um panic.
+//! Seção de texturas (só na v3), logo depois dos materiais e antes dos lotes:
+//!
+//! ```text
+//! u32   quantidade de texturas (0 a 64)
+//! por textura, nesta ordem:
+//!   u32   largura (1 a 8192)
+//!   u32   altura  (1 a 8192)
+//!   u32   níveis de mip N (de 1 até o máximo da cadeia completa de largura x altura)
+//!   N níveis RGBA8 em sequência, nível 0 primeiro; cada nível tem metade do lado (mínimo 1),
+//!   linhas de cima para baixo, sem padding e sem compressão
+//! ```
+//!
+//! A seção inteira (cabeçalhos incluídos) fica limitada a 1 GB. Na leitura, a seção é conferida
+//! contra o tamanho do buffer antes de cada cópia. Índice de textura fora da lista, textura fora
+//! dos limites ou número de níveis errado tornam a cena inválida (código 1), sem fallback. As
+//! texturas são RGBA8 e o nível 0 é a própria imagem; a amostragem é feita pelo renderizador.
+//!
+//! Na leitura da v1, todo material vira `tipo = 0`, `escala = 1.0` e sem textura. Valores fora da
+//! faixa, `NaN`/infinito, tipo > 7, escala não positiva, índice fora dos arrays ou lote que não
+//! cabe nos índices tornam a cena inválida (código 1), nunca um panic.
 
 use crate::bvh::{AcertoGeometrico, Bvh};
 use crate::camera::Camera;
@@ -48,14 +71,26 @@ use crate::leitor::{escrever_f32, escrever_u32, Leitor};
 use crate::vetor::{Aabb, Vec3};
 
 pub const MAGIA_CENA: [u8; 4] = *b"HSTR";
-/// Versão gravada por `codificar`.
-pub const VERSAO_CENA: u32 = 2;
+/// Versão gravada por `codificar` quando a cena tem textura (sem textura, grava `VERSAO_CENA_V2`).
+pub const VERSAO_CENA: u32 = 3;
+/// Versão gravada por `codificar` sem textura: o layout da v2, sem seção de texturas.
+pub const VERSAO_CENA_V2: u32 = 2;
 /// Versão legada, ainda aceita na leitura.
 pub const VERSAO_CENA_V1: u32 = 1;
 /// Bytes de um material na v1 (11 f32).
 pub const TAMANHO_MATERIAL_V1: usize = 11 * 4;
 /// Bytes de um material na v2 (11 f32 + tipo u32 + escala f32).
 pub const TAMANHO_MATERIAL_V2: usize = TAMANHO_MATERIAL_V1 + 4 + 4;
+/// Bytes de um material na v3 (os 52 da v2 + 4 u32 de índice de textura).
+pub const TAMANHO_MATERIAL_V3: usize = TAMANHO_MATERIAL_V2 + 4 * 4;
+/// Índice de textura de um canal sem textura (0xFFFFFFFF no formato).
+pub const SEM_TEXTURA: u32 = u32::MAX;
+/// Quantidade máxima de texturas numa cena (limite do formato).
+pub const MAX_TEXTURAS: u32 = 64;
+/// Maior largura ou altura de uma textura, em texels.
+pub const LADO_TEXTURA_MAXIMO: u32 = 8192;
+/// Tamanho máximo da seção de texturas, cabeçalhos incluídos (1 GB).
+pub const TAMANHO_SECAO_TEXTURAS_MAXIMO: usize = 1 << 30;
 /// Maior valor válido de `Material::tipo`.
 pub const TIPO_MATERIAL_MAXIMO: u8 = 7;
 
@@ -82,6 +117,47 @@ pub struct Material {
     /// Metros por repetição do padrão (coordenada = posição / escala). Finita e > 0; 1.0 mantém
     /// as dimensões do padrão. Na v1 lida como 1.0.
     pub escala: f64,
+    /// Índices na lista de texturas da cena, na ordem: albedo, normal, rugosidade, metálico.
+    /// `None` = sem textura naquele canal. Na v1 e na v2 são todos `None`. Índice fora da lista de
+    /// texturas torna a cena inválida (ver `Cena::nova`).
+    pub texturas: [Option<u32>; 4],
+}
+
+/// Textura RGBA8 com cadeia de mips. `niveis[0]` é a imagem; cada nível seguinte tem metade da
+/// largura e da altura (mínimo 1). Linhas de cima para baixo, sem padding.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Textura {
+    pub largura: u32,
+    pub altura: u32,
+    pub niveis: Vec<Vec<u8>>,
+}
+
+impl Textura {
+    /// Níveis da cadeia completa de mips, até 1x1.
+    pub fn niveis_completos(largura: u32, altura: u32) -> u32 {
+        32 - largura.max(altura).max(1).leading_zeros()
+    }
+
+    /// Largura e altura do nível `nivel` (mínimo 1 em cada eixo).
+    pub fn dimensoes_do_nivel(largura: u32, altura: u32, nivel: u32) -> (u32, u32) {
+        ((largura >> nivel).max(1), (altura >> nivel).max(1))
+    }
+
+    /// `true` se as dimensões, o número de níveis e o tamanho de cada nível estão nos limites.
+    pub fn valida(&self) -> bool {
+        let lado_ok = |v: u32| (1..=LADO_TEXTURA_MAXIMO).contains(&v);
+        if !lado_ok(self.largura) || !lado_ok(self.altura) {
+            return false;
+        }
+        let niveis = self.niveis.len();
+        if niveis == 0 || niveis > Self::niveis_completos(self.largura, self.altura) as usize {
+            return false;
+        }
+        self.niveis.iter().enumerate().all(|(nivel, pixels)| {
+            let (w, h) = Self::dimensoes_do_nivel(self.largura, self.altura, nivel as u32);
+            pixels.len() == w as usize * h as usize * 4
+        })
+    }
 }
 
 impl Material {
@@ -97,6 +173,7 @@ impl Material {
             emissivo: [0.0, 0.0, 0.0],
             tipo: 0,
             escala: 1.0,
+            texturas: [None; 4],
         }
     }
 
@@ -226,6 +303,7 @@ pub struct PartesCena {
     pub indices: Vec<u32>,
     pub normais: Vec<f64>,
     pub materiais: Vec<Material>,
+    pub texturas: Vec<Textura>,
     pub lotes: Vec<Lote>,
     pub sol: Sol,
     pub fundo: Option<[f64; 3]>,
@@ -237,6 +315,8 @@ pub struct Cena {
     pub indices: Vec<u32>,
     pub normais: Vec<f64>,
     pub materiais: Vec<Material>,
+    /// Texturas RGBA8 referenciadas pelos índices de `Material::texturas`. Vazia sem textura.
+    pub texturas: Vec<Textura>,
     pub lotes: Vec<Lote>,
     pub sol: Sol,
     pub fundo: Option<[f64; 3]>,
@@ -252,6 +332,7 @@ impl Cena {
             indices,
             normais,
             mut materiais,
+            texturas,
             lotes,
             sol,
             fundo,
@@ -281,6 +362,17 @@ impl Cena {
             materiais.push(Material::padrao());
         }
         if !materiais.iter().all(|m| m.valido()) {
+            return Err(Erro::CenaInvalida);
+        }
+        if texturas.len() > MAX_TEXTURAS as usize || !texturas.iter().all(Textura::valida) {
+            return Err(Erro::CenaInvalida);
+        }
+        // Índice de textura fora da lista é recusado, nunca ignorado em silêncio.
+        let indice_valido = |i: u32| (i as usize) < texturas.len();
+        if !materiais
+            .iter()
+            .all(|m| m.texturas.iter().flatten().all(|&i| indice_valido(i)))
+        {
             return Err(Erro::CenaInvalida);
         }
         for lote in &lotes {
@@ -314,6 +406,7 @@ impl Cena {
             indices,
             normais,
             materiais,
+            texturas,
             lotes,
             sol,
             fundo,
@@ -395,8 +488,14 @@ impl Cena {
     /// Serializa no formato `HSTR` v1 (usado nos testes e por ferramentas nativas).
     pub fn codificar(&self) -> Vec<u8> {
         let mut saida = Vec::with_capacity(32 + self.posicoes.len() * 4 + self.indices.len() * 4);
+        // Com textura (ou com índice de textura, que a leitura recusaria sem seção): v3. Senão v2.
+        let com_texturas = !self.texturas.is_empty()
+            || self
+                .materiais
+                .iter()
+                .any(|m| m.texturas.iter().any(Option::is_some));
         saida.extend_from_slice(&MAGIA_CENA);
-        escrever_u32(&mut saida, VERSAO_CENA);
+        escrever_u32(&mut saida, if com_texturas { VERSAO_CENA } else { VERSAO_CENA_V2 });
         escrever_u32(&mut saida, (self.posicoes.len() / 3) as u32);
         escrever_u32(&mut saida, self.indices.len() as u32);
         escrever_u32(&mut saida, (self.normais.len() / 3) as u32);
@@ -434,6 +533,22 @@ impl Cena {
             }
             escrever_u32(&mut saida, u32::from(material.tipo));
             escrever_f32(&mut saida, material.escala);
+            if com_texturas {
+                for canal in material.texturas {
+                    escrever_u32(&mut saida, canal.unwrap_or(SEM_TEXTURA));
+                }
+            }
+        }
+        if com_texturas {
+            escrever_u32(&mut saida, self.texturas.len() as u32);
+            for textura in &self.texturas {
+                escrever_u32(&mut saida, textura.largura);
+                escrever_u32(&mut saida, textura.altura);
+                escrever_u32(&mut saida, textura.niveis.len() as u32);
+                for nivel in &textura.niveis {
+                    saida.extend_from_slice(nivel);
+                }
+            }
         }
         for lote in &self.lotes {
             escrever_u32(&mut saida, lote.inicio_indices);
@@ -469,11 +584,15 @@ impl Cena {
             return Err(Erro::CenaInvalida);
         }
         let versao = leitor.u32().ok_or(Erro::CenaInvalida)?;
-        if versao != VERSAO_CENA && versao != VERSAO_CENA_V1 {
+        if versao != VERSAO_CENA && versao != VERSAO_CENA_V2 && versao != VERSAO_CENA_V1 {
             return Err(Erro::CenaInvalida);
         }
-        let tem_extras_material = versao == VERSAO_CENA;
-        let tamanho_material = if tem_extras_material {
+        // v2 e v3 trazem tipo e escala; só a v3 traz os índices de textura e a seção de texturas.
+        let tem_extras_material = versao >= VERSAO_CENA_V2;
+        let tem_texturas = versao == VERSAO_CENA;
+        let tamanho_material = if tem_texturas {
+            TAMANHO_MATERIAL_V3
+        } else if tem_extras_material {
             TAMANHO_MATERIAL_V2
         } else {
             TAMANHO_MATERIAL_V1
@@ -513,6 +632,8 @@ impl Cena {
             .and_then(|v| v.checked_add((n_materiais as usize).checked_mul(tamanho_material)?))
             .and_then(|v| v.checked_add((n_batches as usize).checked_mul(12)?))
             .and_then(|v| v.checked_add(12))
+            // Quantidade de texturas (v3). O restante da seção é conferido texture a texture.
+            .and_then(|v| v.checked_add(if tem_texturas { 4 } else { 0 }))
             .and_then(|v| {
                 let fundo = if tem_fundo { 12 } else { 0 };
                 v.checked_add(fundo)
@@ -565,8 +686,24 @@ impl Cena {
                 } else {
                     1.0
                 },
+                texturas: if tem_texturas {
+                    let mut canais = [None; 4];
+                    for canal in canais.iter_mut() {
+                        let valor = leitor.u32().ok_or(Erro::CenaInvalida)?;
+                        *canal = (valor != SEM_TEXTURA).then_some(valor);
+                    }
+                    canais
+                } else {
+                    [None; 4]
+                },
             });
         }
+        // Seção de texturas (v3): logo depois dos materiais e antes dos lotes.
+        let texturas = if tem_texturas {
+            ler_secao_texturas(&mut leitor)?
+        } else {
+            Vec::new()
+        };
         let mut lotes = Vec::with_capacity(n_batches as usize);
         for _ in 0..n_batches {
             lotes.push(Lote {
@@ -607,12 +744,57 @@ impl Cena {
             indices,
             normais,
             materiais,
+            texturas,
             lotes,
             sol,
             fundo,
             camera,
         })
     }
+}
+
+/// Lê a seção de texturas da v3. Os limites vêm antes de cada cópia: quantidade, dimensões, número
+/// de níveis e o tamanho total (1 GB com cabeçalhos). Cada nível é copiado só se o buffer tiver os
+/// bytes, então um cabeçalho com dimensões grandes não aloca além do arquivo.
+fn ler_secao_texturas(leitor: &mut Leitor<'_>) -> Result<Vec<Textura>, Erro> {
+    let quantidade = leitor.u32().ok_or(Erro::CenaInvalida)?;
+    if quantidade > MAX_TEXTURAS {
+        return Err(Erro::CenaInvalida);
+    }
+    // A quantidade (4 bytes) já conta na seção.
+    let mut total = 4usize;
+    let mut texturas = Vec::with_capacity(quantidade as usize);
+    for _ in 0..quantidade {
+        let largura = leitor.u32().ok_or(Erro::CenaInvalida)?;
+        let altura = leitor.u32().ok_or(Erro::CenaInvalida)?;
+        let niveis = leitor.u32().ok_or(Erro::CenaInvalida)?;
+        let lado_ok = |v: u32| (1..=LADO_TEXTURA_MAXIMO).contains(&v);
+        if !lado_ok(largura) || !lado_ok(altura) {
+            return Err(Erro::CenaInvalida);
+        }
+        if niveis == 0 || niveis > Textura::niveis_completos(largura, altura) {
+            return Err(Erro::CenaInvalida);
+        }
+        // Cabeçalho da textura: largura, altura e número de níveis.
+        total = total.checked_add(12).ok_or(Erro::CenaInvalida)?;
+        let mut lista = Vec::with_capacity(niveis as usize);
+        for nivel in 0..niveis {
+            let (w, h) = Textura::dimensoes_do_nivel(largura, altura, nivel);
+            let tamanho = w as usize * h as usize * 4;
+            total = total
+                .checked_add(tamanho)
+                .filter(|&t| t <= TAMANHO_SECAO_TEXTURAS_MAXIMO)
+                .ok_or(Erro::CenaInvalida)?;
+            let pixels = leitor.bytes(tamanho).ok_or(Erro::CenaInvalida)?;
+            lista.push(pixels.to_vec());
+        }
+        texturas.push(Textura {
+            largura,
+            altura,
+            niveis: lista,
+        });
+    }
+    Ok(texturas)
 }
 
 fn montar_triangulos(
@@ -712,6 +894,7 @@ mod testes {
                 emissivo: [0.0, 0.0, 0.0],
                 tipo: 0,
                 escala: 1.0,
+                texturas: [None; 4],
             },
             Material {
                 cor_base: [0.75, 0.22, 0.18],
@@ -723,6 +906,7 @@ mod testes {
                 emissivo: [0.0, 0.0, 0.0],
                 tipo: 0,
                 escala: 1.0,
+                texturas: [None; 4],
             },
         ];
         let lotes = vec![
@@ -752,6 +936,7 @@ mod testes {
             indices,
             normais: Vec::new(),
             materiais,
+            texturas: Vec::new(),
             lotes,
             sol: Sol::padrao(),
             fundo: None,
@@ -810,6 +995,7 @@ mod testes {
             indices: lida.indices,
             normais: lida.normais,
             materiais: lida.materiais,
+            texturas: lida.texturas,
             lotes: lida.lotes,
             sol: lida.sol,
             fundo: lida.fundo,
@@ -846,6 +1032,7 @@ mod testes {
             indices: base.indices.clone(),
             normais: base.normais.clone(),
             materiais: base.materiais.clone(),
+            texturas: Vec::new(),
             lotes: base.lotes.clone(),
             sol: base.sol,
             fundo: base.fundo,

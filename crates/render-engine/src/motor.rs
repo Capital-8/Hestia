@@ -7,13 +7,14 @@
 
 use std::mem::size_of;
 
-use render_core::cena::Cena;
+use render_core::cena::{Cena, Textura};
 use wgpu::util::DeviceExt;
 
 use crate::ceu;
 use crate::constantes::{
-    CEU_PADRAO, FORMATO_COR, FORMATO_NORMAIS, FORMATO_OCLUSAO, FORMATO_PROFUNDIDADE,
-    FRACAO_REFRACAO, LADO_SOMBRA, MARGEM_AO_PX, MARGEM_DESFOQUE_PX,
+    ANISOTROPIA_TEXTURAS, CEU_PADRAO, FORMATO_COR, FORMATO_NORMAIS, FORMATO_OCLUSAO,
+    FORMATO_PROFUNDIDADE, FORMATO_TEXTURA_MATERIAL, FRACAO_REFRACAO, LADO_SOMBRA, MARGEM_AO_PX,
+    MARGEM_DESFOQUE_PX, TEXTURAS_POR_CENA,
 };
 use crate::cor;
 use crate::erro::ErroRender;
@@ -55,11 +56,16 @@ pub struct Motor {
     layouts: Layouts,
     pipelines: Pipelines,
     comparador: wgpu::Sampler,
+    /// Sampler das texturas de material (grupo 1, binding 0): mip linear e anisotropia 8 quando o
+    /// adaptador aceita, senão 1.
+    amostrador_textura: wgpu::Sampler,
+    /// Textura 1x1 branca nos slots que a cena não usa (todos os bindings do grupo 1 precisam existir).
+    textura_vazia: wgpu::Texture,
     /// Amostras por pixel do passe principal: 1 (sem MSAA) ou 4 (MSAA x4, com resolve).
     amostras: u32,
 }
 
-/// Cena já enviada à GPU: malha, uniformes fixos e mapa de sombra (independe da câmera).
+/// Cena já enviada à GPU: malha, uniformes fixos, mapa de sombra e texturas de material.
 pub struct CenaGpu {
     vertex_buffer: wgpu::Buffer,
     /// Vértices totais (opacos e vidro). Pré-passe e sombra desenham todos.
@@ -75,6 +81,57 @@ pub struct CenaGpu {
     sh_ceu: wgpu::Buffer,
     _sombra: wgpu::Texture,
     sombra_view: wgpu::TextureView,
+    /// Texturas de material da cena (mantidas vivas enquanto o grupo 1 existir).
+    _texturas: Vec<wgpu::Texture>,
+    /// Grupo 1 do passe principal: sampler e uma textura por slot (ver pipeline.rs).
+    grupo_texturas: wgpu::BindGroup,
+}
+
+/// Envia uma textura de material à GPU com todos os seus níveis de mip (um `write_texture` por
+/// nível, sem padding: o `bytes_per_row` é a largura do nível vezes 4).
+fn criar_textura_material(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    textura: &Textura,
+) -> wgpu::Texture {
+    let textura_gpu = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("textura de material"),
+        size: wgpu::Extent3d {
+            width: textura.largura,
+            height: textura.altura,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: textura.niveis.len() as u32,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: FORMATO_TEXTURA_MATERIAL,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        view_formats: &[],
+    });
+    for (nivel, pixels) in textura.niveis.iter().enumerate() {
+        let (largura, altura) =
+            Textura::dimensoes_do_nivel(textura.largura, textura.altura, nivel as u32);
+        queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &textura_gpu,
+                mip_level: nivel as u32,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            pixels,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(largura * 4),
+                rows_per_image: Some(altura),
+            },
+            wgpu::Extent3d {
+                width: largura,
+                height: altura,
+                depth_or_array_layers: 1,
+            },
+        );
+    }
+    textura_gpu
 }
 
 impl CenaGpu {
@@ -177,6 +234,8 @@ impl Motor {
                 suporta_msaa4: false,
                 // Sem consulta ao adaptador: o WebGPU exige cópia e leitura para rgba8unorm.
                 suporta_copia_tela: true,
+                // Sem consulta ao adaptador: anisotropia 1, como o caminho sem suporte.
+                suporta_anisotropia: false,
             },
             1,
         )
@@ -196,11 +255,38 @@ impl Motor {
             compare: Some(wgpu::CompareFunction::LessEqual),
             ..Default::default()
         });
+        // Anisotropia só com o suporte do adaptador: sem ele o sampler fica com 1 (sem erro).
+        let amostrador_textura = gpu.device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("amostrador das texturas de material"),
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            address_mode_w: wgpu::AddressMode::Repeat,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::MipmapFilterMode::Linear,
+            anisotropy_clamp: if gpu.suporta_anisotropia {
+                ANISOTROPIA_TEXTURAS
+            } else {
+                1
+            },
+            ..Default::default()
+        });
+        let textura_vazia = criar_textura_material(
+            &gpu.device,
+            &gpu.queue,
+            &Textura {
+                largura: 1,
+                altura: 1,
+                niveis: vec![vec![255, 255, 255, 255]],
+            },
+        );
         Motor {
             gpu,
             layouts,
             pipelines,
             comparador,
+            amostrador_textura,
+            textura_vazia,
             amostras,
         }
     }
@@ -222,6 +308,23 @@ impl Motor {
 
     /// Envia a malha da cena à GPU e gera o mapa de sombra, uma vez. Reuse o `CenaGpu`.
     pub fn carregar_cena(&self, cena: &Cena) -> Result<CenaGpu, ErroRender> {
+        // Limite explícito antes de qualquer alocação: o grupo 1 tem TEXTURAS_POR_CENA slots.
+        if cena.texturas.len() > TEXTURAS_POR_CENA {
+            return Err(ErroRender::Gpu(format!(
+                "cena com {} texturas; o limite desta etapa é {TEXTURAS_POR_CENA} por cena",
+                cena.texturas.len()
+            )));
+        }
+        let limite_lado = self.gpu.device.limits().max_texture_dimension_2d;
+        if cena
+            .texturas
+            .iter()
+            .any(|t| t.largura.max(t.altura) > limite_lado)
+        {
+            return Err(ErroRender::Gpu(format!(
+                "textura de material maior que o limite de {limite_lado} texels da GPU"
+            )));
+        }
         let malha = expandir_malha(cena)?;
         let device = &self.gpu.device;
         let tamanho_vertices = malha.vertices.len() as u64 * size_of::<Vertice>() as u64;
@@ -300,6 +403,36 @@ impl Motor {
         }
         self.gpu.queue.submit(Some(codificador.finish()));
 
+        // Texturas de material: uma `wgpu::Texture` por textura da cena, e o grupo 1 com o sampler
+        // e um slot por binding. Slot sem textura recebe a 1x1 branca.
+        let texturas: Vec<wgpu::Texture> = cena
+            .texturas
+            .iter()
+            .map(|textura| criar_textura_material(device, &self.gpu.queue, textura))
+            .collect();
+        let vistas: Vec<wgpu::TextureView> = texturas
+            .iter()
+            .map(|textura| textura.create_view(&wgpu::TextureViewDescriptor::default()))
+            .collect();
+        let vista_vazia = self
+            .textura_vazia
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let mut entradas = vec![wgpu::BindGroupEntry {
+            binding: 0,
+            resource: wgpu::BindingResource::Sampler(&self.amostrador_textura),
+        }];
+        for slot in 0..TEXTURAS_POR_CENA {
+            entradas.push(wgpu::BindGroupEntry {
+                binding: 1 + slot as u32,
+                resource: wgpu::BindingResource::TextureView(vistas.get(slot).unwrap_or(&vista_vazia)),
+            });
+        }
+        let grupo_texturas = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("texturas de material"),
+            layout: &self.layouts.texturas,
+            entries: &entradas,
+        });
+
         Ok(CenaGpu {
             vertex_buffer,
             n_vertices: malha.vertices.len() as u32,
@@ -311,6 +444,8 @@ impl Motor {
             sh_ceu,
             _sombra: sombra,
             sombra_view,
+            _texturas: texturas,
+            grupo_texturas,
         })
     }
 
@@ -715,6 +850,7 @@ impl Motor {
             );
             passe.set_pipeline(&self.pipelines.principal);
             passe.set_bind_group(0, &grupo_principal, &[]);
+            passe.set_bind_group(1, &cena.grupo_texturas, &[]);
             passe.set_vertex_buffer(0, cena.vertex_buffer.slice(..));
             // Só o opaco: o vidro sai deste passe e é desenhado no passe de vidro abaixo.
             passe.draw(0..cena.opacos, 0..1);

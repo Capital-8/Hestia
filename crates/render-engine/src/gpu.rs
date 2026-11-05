@@ -23,6 +23,9 @@ pub struct Gpu {
     /// que refrata a cor opaca da região). `com_device` assume `true`: o WebGPU exige esses usos
     /// para `rgba8unorm`.
     pub suporta_copia_tela: bool,
+    /// `true` se o adaptador aceita amostragem anisotrópica (`ANISOTROPIC_FILTERING` nas capacidades
+    /// downlevel). Sem ele, o sampler das texturas de material usa anisotropia 1.
+    pub suporta_anisotropia: bool,
 }
 
 /// Cria a instância e escolhe o melhor adaptador disponível.
@@ -81,6 +84,11 @@ pub fn iniciar() -> Result<Gpu, ErroRender> {
         .allowed_usages
         .contains(wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST);
 
+    let suporta_anisotropia = adaptador
+        .get_downlevel_capabilities()
+        .flags
+        .contains(wgpu::DownlevelFlags::ANISOTROPIC_FILTERING);
+
     Ok(Gpu {
         device,
         queue,
@@ -89,5 +97,6 @@ pub fn iniciar() -> Result<Gpu, ErroRender> {
         tipo: info.device_type,
         suporta_msaa4,
         suporta_copia_tela,
+        suporta_anisotropia,
     })
 }

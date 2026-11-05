@@ -6,7 +6,7 @@
 //! suaves e mantém a leitura de arquitetura nítida, que é o objetivo desta primeira versão.
 
 use bytemuck::{Pod, Zeroable};
-use render_core::cena::{Cena, Material};
+use render_core::cena::{Cena, Material, SEM_TEXTURA};
 use render_core::vetor::Vec3;
 
 use crate::erro::ErroRender;
@@ -14,11 +14,14 @@ use crate::erro::ErroRender;
 /// Tipo de superfície do vidro (`Material::tipo`).
 pub const TIPO_VIDRO: u8 = 6;
 
-/// Vértice enviado ao vertex buffer (68 bytes, sem UV nem texturas: o padrão é procedural no shader).
+/// Vértice enviado ao vertex buffer (84 bytes). Os padrões procedurais não usam UV; as texturas de
+/// material usam a projeção triplanar do shader, também sem UV de malha.
 ///
 /// `tipo_material` é o `u8` do material como `f32` (0 liso, 1 reboco, ..., 7 tijolo) e `escala`
 /// é a escala do padrão em metros por repetição. Os dois são atributos por vértice (locations 6 e 7).
 /// `opacidade` (location 8) é a do material: abaixo de 1 o triângulo é vidro (ver `e_vidro`).
+/// `texturas` (location 9, `Uint32x4`) são os índices de textura do material: albedo, normal,
+/// rugosidade e metálico, com `SEM_TEXTURA` (0xFFFFFFFF) onde o canal não tem textura.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
 pub struct Vertice {
@@ -31,6 +34,7 @@ pub struct Vertice {
     pub tipo_material: f32,
     pub escala: f32,
     pub opacidade: f32,
+    pub texturas: [u32; 4],
 }
 
 /// Vidro: tipo 6 ou material com opacidade abaixo de 1. Esses triângulos saem do passe opaco e
@@ -153,6 +157,7 @@ pub fn expandir(cena: &Cena) -> Result<Malha, ErroRender> {
         let tipo_material = f32::from(material.tipo);
         let escala = material.escala as f32;
         let opacidade = material.opacidade as f32;
+        let texturas = material.texturas.map(|canal| canal.unwrap_or(SEM_TEXTURA));
         let destino = if e_vidro(material) { &mut vidro } else { &mut opacos };
 
         for ponto in [a, b, c] {
@@ -167,6 +172,7 @@ pub fn expandir(cena: &Cena) -> Result<Malha, ErroRender> {
                 tipo_material,
                 escala,
                 opacidade,
+                texturas,
             });
         }
     }
@@ -210,12 +216,14 @@ mod testes {
             emissivo: [0.0, 0.0, 0.0],
             tipo: 0,
             escala: 1.0,
+            texturas: [None; 4],
         };
         Cena::nova(PartesCena {
             posicoes: vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
             indices: vec![0, 1, 2],
             normais: Vec::new(),
             materiais: vec![material],
+            texturas: Vec::new(),
             lotes: vec![Lote {
                 inicio_indices: 0,
                 quantidade_indices: 3,
@@ -229,9 +237,20 @@ mod testes {
     }
 
     #[test]
-    fn vertice_tem_68_bytes() {
-        // 64 bytes até a escala, mais a opacidade (location 8) do passe de vidro.
-        assert_eq!(std::mem::size_of::<Vertice>(), 68);
+    fn vertice_tem_84_bytes() {
+        // 68 bytes até a opacidade (location 8) do passe de vidro, mais os 4 índices de textura
+        // (location 9, Uint32x4).
+        assert_eq!(std::mem::size_of::<Vertice>(), 84);
+    }
+
+    #[test]
+    fn expande_indices_de_textura_com_sentinela() {
+        let mut cena = cena_um_triangulo();
+        cena.materiais[0].texturas = [Some(2), None, Some(0), None];
+        let malha = expandir(&cena).expect("expande");
+        for v in &malha.vertices {
+            assert_eq!(v.texturas, [2, SEM_TEXTURA, 0, SEM_TEXTURA]);
+        }
     }
 
     #[test]

@@ -7,7 +7,7 @@
 use std::io::Cursor;
 use std::path::PathBuf;
 
-use render_core::Cena;
+use render_core::{Cena, Textura};
 use render_engine::{Motor, Retangulo};
 
 const LARGURA: u32 = 640;
@@ -221,4 +221,44 @@ fn verificar_tiles_com_vidro(amostras: u32, tolerancia: u8) {
         dentro <= tolerancia,
         "tiles com vidro ({amostras} amostras): diferença na janela {dentro} > {tolerancia}"
     );
+}
+
+/// Textura de albedo para a prova: xadrez vermelho e azul de 8x8 texels, só com o nível 0 de mip.
+fn textura_xadrez() -> Textura {
+    let mut pixels = Vec::with_capacity(8 * 8 * 4);
+    for y in 0..8u32 {
+        for x in 0..8u32 {
+            let cor = if (x + y) % 2 == 0 { [255, 0, 0, 255] } else { [0, 0, 255, 255] };
+            pixels.extend_from_slice(&cor);
+        }
+    }
+    Textura {
+        largura: 8,
+        altura: 8,
+        niveis: vec![pixels],
+    }
+}
+
+#[test]
+fn textura_de_albedo_muda_a_imagem() {
+    // Chaminé (material 5, tijolo) com albedo de xadrez: o caminho com textura tem que aparecer na
+    // imagem. Sem a textura a cena fica igual à da fixture (ver os outros testes).
+    let sem = Cena::decodificar(&ler_fixture("cena-materiais.hstr")).expect("fixture v2");
+    let mut com = Cena::decodificar(&ler_fixture("cena-materiais.hstr")).expect("fixture v2");
+    com.texturas.push(textura_xadrez());
+    com.materiais[5].texturas[0] = Some(0);
+    let motor = Motor::nativo().expect("GPU nativa necessária para este teste");
+    let diferenca = maior_diferenca(&renderizar(&sem, &motor), &renderizar(&com, &motor));
+    eprintln!("[texturas] albedo de xadrez na chaminé: diferença máxima = {diferenca}");
+    assert!(diferenca > 40, "a textura de albedo não alterou a imagem (diferença {diferenca})");
+}
+
+#[test]
+fn textura_alem_do_limite_da_gpu_e_recusada() {
+    // O núcleo aceita até 64 texturas, mas o grupo 1 da GPU tem 16 slots: a recusa é explícita.
+    let mut cena = Cena::decodificar(&ler_fixture("cena-materiais.hstr")).expect("fixture v2");
+    cena.texturas = (0..17).map(|_| textura_xadrez()).collect();
+    let motor = Motor::nativo().expect("GPU nativa necessária para este teste");
+    let erro = motor.carregar_cena(&cena).err().expect("17 texturas devem ser recusadas");
+    assert!(erro.to_string().contains("17 texturas"), "mensagem: {erro}");
 }
