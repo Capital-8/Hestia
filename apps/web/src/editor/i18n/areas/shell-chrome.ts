@@ -206,6 +206,8 @@ export const PT_SHELL_CHROME = {
   shc_file_graphics_engine: 'Motor gráfico',
   shc_file_experiments: 'Experimentais',
   shc_file_geometry_kernel: 'Kernel geométrico (Rust/WASM)…',
+  shc_file_about: 'Sobre o Hestia',
+  shc_file_about_open: 'Ver versão e notas…',
 } as const;
 
 export const EN_SHELL_CHROME: Record<keyof typeof PT_SHELL_CHROME, string> = {
@@ -415,4 +417,6 @@ export const EN_SHELL_CHROME: Record<keyof typeof PT_SHELL_CHROME, string> = {
   shc_file_graphics_engine: 'Graphics engine',
   shc_file_experiments: 'Experiments',
   shc_file_geometry_kernel: 'Geometry kernel (Rust/WASM)…',
+  shc_file_about: 'About Hestia',
+  shc_file_about_open: 'View version and notes…',
 };

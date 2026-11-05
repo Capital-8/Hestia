@@ -1,48 +1,36 @@
 //! Casca desktop do Hestia: abre a janela com o app web já gerado em
-//! `apps/web/dist` e verifica atualizações pelo GitHub Releases.
+//! `apps/web/dist`. A interface web decide quando verificar/instalar atualizações;
+//! aqui ficam só os comandos que falam com o `tauri_plugin_updater`.
 
 use tauri::AppHandle;
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri_plugin_updater::UpdaterExt;
 
-#[derive(Clone, Copy)]
-enum Idioma {
-    Portugues,
-    Ingles,
+/// Consulta o updater e devolve a versão nova com as notas (`notes` do latest.json).
+/// `null` significa que já estamos na versão mais recente.
+#[tauri::command]
+async fn verificar_atualizacao(app: AppHandle) -> Result<Option<serde_json::Value>, String> {
+    let atualizador = app
+        .updater()
+        .map_err(|e| format!("atualizador indisponível: {e}"))?;
+
+    let Some(atualizacao) = atualizador
+        .check()
+        .await
+        .map_err(|e| format!("falha ao verificar atualização: {e}"))?
+    else {
+        return Ok(None);
+    };
+
+    Ok(Some(serde_json::json!({
+        "versao": atualizacao.version,
+        "notas": atualizacao.body,
+    })))
 }
 
-/// Idioma do sistema. Português é o padrão; inglês só quando o sistema é inglês.
-fn idioma_do_sistema() -> Idioma {
-    match sys_locale::get_locale() {
-        Some(locale) if locale.to_ascii_lowercase().starts_with("en") => Idioma::Ingles,
-        _ => Idioma::Portugues,
-    }
-}
-
-fn pergunta_de_atualizacao(idioma: Idioma, versao: &str) -> String {
-    match idioma {
-        Idioma::Portugues => format!("Há uma nova versão do Hestia ({versao}). Atualizar agora?"),
-        Idioma::Ingles => format!("A new version of Hestia ({versao}) is available. Update now?"),
-    }
-}
-
-fn rotulos_dos_botoes(idioma: Idioma) -> (String, String) {
-    match idioma {
-        Idioma::Portugues => ("Atualizar".to_string(), "Depois".to_string()),
-        Idioma::Ingles => ("Update".to_string(), "Later".to_string()),
-    }
-}
-
-/// Verificação de atualização em segundo plano. Qualquer falha (sem rede,
-/// assinatura inválida, endpoint fora do ar) vira uma linha no log de erros
-/// e o app segue normalmente, sem diálogo.
-async fn verificar_atualizacao(app: AppHandle) {
-    if let Err(erro) = verificar_e_instalar(app).await {
-        eprintln!("[atualizador] {erro}");
-    }
-}
-
-async fn verificar_e_instalar(app: AppHandle) -> Result<(), String> {
+/// Baixa, confere a assinatura, instala e reinicia. O app web chama isto apenas
+/// depois da confirmação do usuário no diálogo "Sobre" ou no aviso de abertura.
+#[tauri::command]
+async fn instalar_atualizacao(app: AppHandle) -> Result<(), String> {
     let atualizador = app
         .updater()
         .map_err(|e| format!("atualizador indisponível: {e}"))?;
@@ -54,26 +42,6 @@ async fn verificar_e_instalar(app: AppHandle) -> Result<(), String> {
     else {
         return Ok(());
     };
-
-    let idioma = idioma_do_sistema();
-    let versao = atualizacao.version.clone();
-    let (atualizar, depois) = rotulos_dos_botoes(idioma);
-    let pergunta = pergunta_de_atualizacao(idioma, &versao);
-
-    let dialogo = app
-        .dialog()
-        .message(pergunta)
-        .title("Hestia")
-        .buttons(MessageDialogButtons::OkCancelCustom(atualizar, depois));
-
-    // O diálogo bloqueia a thread até a resposta: roda fora do runtime assíncrono.
-    let aceitou = tauri::async_runtime::spawn_blocking(move || dialogo.blocking_show())
-        .await
-        .map_err(|e| format!("diálogo de atualização falhou: {e}"))?;
-
-    if !aceitou {
-        return Ok(());
-    }
 
     atualizacao
         .download_and_install(|_bytes, _total| {}, || {})
@@ -91,12 +59,10 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
-        .setup(|app| {
-            let handle = app.handle().clone();
-            // Não bloqueia a abertura da janela.
-            tauri::async_runtime::spawn(verificar_atualizacao(handle));
-            Ok(())
-        })
+        .invoke_handler(tauri::generate_handler![
+            verificar_atualizacao,
+            instalar_atualizacao
+        ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o Hestia");
 }

@@ -60,6 +60,10 @@ import { DxfExportDialog } from './ui/dialogs/DxfExportDialog.tsx';
 import { ImportCadDialog } from './ui/dialogs/ImportCadDialog.tsx';
 import { ManageCadDialog } from './ui/dialogs/ManageCadDialog.tsx';
 import { ExperimentosDialog } from './ui/dialogs/ExperimentosDialog.tsx';
+import { SobreDialog } from './ui/dialogs/SobreDialog.tsx';
+import { AvisoAtualizacaoDialog } from './ui/dialogs/AvisoAtualizacaoDialog.tsx';
+import { verificarAvisoAoAbrir } from './editor/atualizacao/auto.ts';
+import { definirAtualizacaoPendente } from './editor/atualizacao/ponte.ts';
 import { MoveLevelDialog } from './ui/MoveLevel.tsx';
 import { LevelMoveConflictDialog } from './ui/LevelMoveConflictDialog.tsx';
 import { GridTypeDialog } from './ui/dialogs/GridTypeDialog.tsx';
@@ -178,6 +182,10 @@ function Dialogs(): ReactElement | null {
       return <ManageCadDialog />;
     case 'experimentos':
       return <ExperimentosDialog />;
+    case 'about':
+      return <SobreDialog />;
+    case 'updatePrompt':
+      return <AvisoAtualizacaoDialog />;
     case 'moveLevel':
       return <MoveLevelDialog onClose={() => useUi.setState({ dialog: null })} />;
     case 'levelMoveConflict':
@@ -273,6 +281,17 @@ export function App(): ReactElement {
     };
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
+  }, []);
+
+  // Aviso automático de versão nova (só desktop). A verificação manual do "Sobre" não depende disto.
+  useEffect(() => {
+    void verificarAvisoAoAbrir()
+      .then((info) => {
+        if (!info || useUi.getState().dialog !== null) return;
+        definirAtualizacaoPendente(info);
+        useUi.setState({ dialog: 'updatePrompt', dialogArg: null });
+      })
+      .catch(() => undefined);
   }, []);
 
   return (

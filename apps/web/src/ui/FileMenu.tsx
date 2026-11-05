@@ -164,6 +164,12 @@ export function FileMenu(): ReactElement | null {
                   {t('shc_file_geometry_kernel')}
                 </button>
               </div>
+              <div className="fm-row">
+                <span>{t('shc_file_about')}</span>
+                <button className="btn" onClick={() => go(() => useUi.setState({ dialog: 'about', dialogArg: null }))}>
+                  {t('shc_file_about_open')}
+                </button>
+              </div>
             </>
           )}
         </div>
