@@ -8,8 +8,10 @@ import './contextmenu.css';
 import { installAppShell } from './editor/appShell.ts';
 import { kernelExperimentalLigado } from './editor/preferenciasKernel.ts';
 import { installRecentCommands } from './editor/recentCommands.ts';
+import { instalarConsentimentoAnalytics } from './consentimento.ts';
 import { App } from './App.tsx';
 
+instalarConsentimentoAnalytics();
 installAppShell();
 installRecentCommands();
 
