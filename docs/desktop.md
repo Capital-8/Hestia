@@ -48,3 +48,15 @@ O instalador não tem certificado de assinatura de código do Windows. Por isso 
 pode exibir "O Windows protegeu o computador". Para continuar: "Mais informações" e
 "Executar assim mesmo". A assinatura usada na atualização automática é a do Tauri
 (chave descrita acima), não um certificado do Windows.
+
+## Política de conteúdo (CSP)
+
+Definida em `desktop/src-tauri/tauri.conf.json` (`app.security`). Além do mínimo pedido
+(`wasm-unsafe-eval`, `blob:` em workers e imagens, `https:` em conexões), foram necessários
+dois ajustes, comprovados no teste da janela:
+
+- `style-src` aceita `https://fonts.googleapis.com` e `font-src` aceita `https://fonts.gstatic.com`,
+  porque o `index.html` carrega as fontes IBM Plex do Google Fonts.
+- `dangerousDisableAssetCspModification: ["style-src"]`: sem isso, o Tauri acrescenta um nonce
+  ao `style-src`, o que faz o navegador ignorar o `'unsafe-inline'` e bloqueia os estilos
+  inline do app. A proteção continua valendo: só estilos de `'self'`, `'unsafe-inline'` e do Google Fonts.
