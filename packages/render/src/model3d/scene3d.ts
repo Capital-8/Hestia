@@ -30,7 +30,7 @@ import { Materiais3D } from './materiais3d.ts';
 import { CacheMalhas, bytesDeNivel, disposeNivel, type EntradaNivel, type PickSource } from './cacheMalhas3d.ts';
 import { chavesDeNivel } from './chaveNivel3d.ts';
 import { caixaDaSelecao } from './selecao3d.ts';
-import { tipoProceduralDoElemento } from './tipoMaterial.ts';
+import { materialDaOrigem, origemDoMaterial, renderMaterialDaMalha, renderMaterialDoModelo } from './materialRender.ts';
 import type { RenderBatch, RenderMaterial, RenderSceneSnapshot } from '../offline/cena.ts';
 
 /** O mínimo do renderer que o gancho de quadro da cena lê (o three chama `scene.onBeforeRender` com o renderer real). */
@@ -291,7 +291,8 @@ export class ModelScene {
       const mesh = new THREE.Mesh(geo, this.mats.face(m, cat));
       mesh.castShadow = this.frame.shadows;
       mesh.receiveShadow = this.frame.shadows;
-      mesh.userData = { kind: cat, ranges };
+      // A origem do material (id e, se não for do projeto, o próprio material) vai para a exportação de render.
+      mesh.userData = { kind: cat, ranges, ...origemDoMaterial(m, this.projeto) };
       parent.add(mesh);
     } else this.picks.push({ geo, owner: parent, kind: cat, ranges });
     if (edges) parent.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, EDGE_ANGLE), this.mats.edge()));
@@ -804,32 +805,18 @@ export class ModelScene {
     const v = new THREE.Vector3();
     const mtx = new THREE.Matrix4();
 
-    // Um material three.js pode ser compartilhado por elementos de tipos diferentes, então a chave é (material, tipo, escala):
-    // dois elementos com o mesmo material e tipos distintos viram entradas distintas. O tipo vem do elemento de origem da
-    // malha (`userData.kind`, a categoria), nunca da cor; ver `tipoMaterial.ts`.
-    const materialDe = (mat: THREE.Material | THREE.Material[] | undefined, kind: string | undefined): number => {
-      const escolhido = Array.isArray(mat) ? mat[0] : mat;
-      const { tipo, escala } = tipoProceduralDoElemento(kind);
-      const chave = `${escolhido?.uuid ?? 'sem-material'}|${tipo}|${escala}`;
+    // Material de render por CONTEÚDO: a chave é o JSON das propriedades do material de render, então dois triângulos com
+    // as mesmas propriedades (mesmo material de modelo, ou mesmo fallback) dividem a entrada. A fonte primária é o MATERIAL
+    // DE MODELO da malha (a camada, a esquadria ou o beiral; ver `materialRender.ts`). Só sem ele vale a categoria do
+    // elemento (`userData.kind`), como fallback documentado em `tipoMaterial.ts`.
+    const materialDe = (o: THREE.Mesh, kind: string | undefined): number => {
+      const modelo = materialDaOrigem(o.userData, this.projeto);
+      const rm = modelo ? renderMaterialDoModelo(modelo) : renderMaterialDaMalha(o.material, kind);
+      const chave = JSON.stringify(rm);
       const existente = porMaterial.get(chave);
       if (existente !== undefined) return existente;
-      const m = escolhido as (THREE.MeshStandardMaterial & { color?: THREE.Color; opacity?: number }) | undefined;
-      const cor = m?.color ?? new THREE.Color(0x999999);
-      const opacity = typeof m?.opacity === 'number' ? Math.max(0, Math.min(1, m.opacity)) : 1;
-      const roughness = typeof m?.roughness === 'number' ? Math.max(0, Math.min(1, m.roughness)) : 0.8;
-      const metallic = typeof m?.metalness === 'number' ? Math.max(0, Math.min(1, m.metalness)) : 0;
       const indice = materiais.length;
-      materiais.push({
-        baseColor: [cor.r, cor.g, cor.b],
-        roughness,
-        metallic,
-        opacity,
-        transmission: Math.max(0, 1 - opacity),
-        ior: 1.5,
-        emissive: [0, 0, 0],
-        tipo,
-        escala,
-      });
+      materiais.push(rm);
       porMaterial.set(chave, indice);
       return indice;
     };
@@ -841,7 +828,7 @@ export class ModelScene {
       if (!pos || pos.count === 0) return;
       const indice = geometria.index;
       const contar = indice ? indice.count : pos.count;
-      const material = materialDe(o.material, typeof o.userData.kind === 'string' ? o.userData.kind : undefined);
+      const material = materialDe(o, typeof o.userData.kind === 'string' ? o.userData.kind : undefined);
       const matrizes: THREE.Matrix4[] = [];
       if (o instanceof THREE.InstancedMesh) {
         for (let i = 0; i < o.count; i++) {

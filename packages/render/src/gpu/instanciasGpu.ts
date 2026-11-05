@@ -158,7 +158,7 @@ export class InstanciasGpu {
     malha.visible = this.total > 0;
     malha.castShadow = sombras;
     malha.receiveShadow = sombras;
-    malha.userData = { kind: this.categoria, semPick: true };
+    malha.userData = { kind: this.categoria, semPick: true, materialId: this.materialId };
     this.atualizarCaixa(malha);
     if (this.completo) malha.instanceMatrix.clearUpdateRanges();
     malha.instanceMatrix.needsUpdate = true;
@@ -192,7 +192,7 @@ export class InstanciasGpu {
     this.cap = cap;
     nova.count = this.total;
     nova.matrixAutoUpdate = false;
-    nova.userData = { kind: this.categoria, semPick: true };
+    nova.userData = { kind: this.categoria, semPick: true, materialId: this.materialId };
     antiga?.dispose();
     this.malhaAtual = nova;
     return true;
@@ -209,7 +209,7 @@ export class InstanciasGpu {
     this.cap = total;
     nova.count = total;
     nova.matrixAutoUpdate = false;
-    nova.userData = { kind: this.categoria, semPick: true };
+    nova.userData = { kind: this.categoria, semPick: true, materialId: this.materialId };
     antiga?.dispose();
     this.malhaAtual = nova;
   }

@@ -2,8 +2,9 @@
  * Tipo procedural do material no renderizador Rust (`HSTR` v2, ver `crates/render-core/src/cena.rs`):
  * 0 liso, 1 reboco, 2 madeira, 3 telha, 4 piso, 5 metal, 6 vidro, 7 tijolo.
  *
- * A classificação vem do ELEMENTO de origem da malha (a categoria em `userData.kind`), nunca da cor do material.
- * A escala é a metragem de uma repetição do padrão; por enquanto é 1.0 em todas as regras.
+ * FALLBACK. A fonte primária do tipo é o material de CAMADA da malha (ver `materialRender.ts`): este módulo só vale quando a
+ * malha não tem material de modelo (ex.: elemento sem camada). A classificação vem da CATEGORIA do elemento de origem
+ * (`userData.kind`), nunca da cor do material. A escala é a metragem de uma repetição do padrão; no fallback é 1.0.
  */
 
 export interface TipoProcedural {
@@ -13,14 +14,15 @@ export interface TipoProcedural {
   escala: number;
 }
 
-const LISO = 0;
-const REBOCO = 1;
-const MADEIRA = 2;
-const TELHA = 3;
-const PISO = 4;
-const METAL = 5;
-const VIDRO = 6;
-const TIJOLO = 7;
+/** Códigos do tipo procedural (ver a lista acima). Exportados para o mapeamento por preset (`materialRender.ts`). */
+export const LISO = 0;
+export const REBOCO = 1;
+export const MADEIRA = 2;
+export const TELHA = 3;
+export const PISO = 4;
+export const METAL = 5;
+export const VIDRO = 6;
+export const TIJOLO = 7;
 
 /** Regras na ordem de precedência: a primeira que casa com o nome do elemento vence. */
 const REGRAS: ReadonlyArray<readonly [readonly string[], number]> = [

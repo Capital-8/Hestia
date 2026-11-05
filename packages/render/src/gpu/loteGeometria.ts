@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { GraphicsCategory } from '@hestia/model';
+import type { GraphicsCategory, Id, Material } from '@hestia/model';
 import type { ElementRange, SolidBatch } from '../model3d/solids.ts';
 import type { OrcamentoVram } from './orcamento.ts';
 
@@ -98,18 +98,28 @@ export class LoteGeometriaGpu {
   private versao = 0;
   private chaveOrcamento: string;
 
+  /**
+   * `materialExtra` é o material de modelo quando ele não está no projeto (beirais). O `userData` da malha leva o
+   * `materialId` (e o material extra, se houver) para a exportação de render (ver `materialRender.ts`).
+   */
   constructor(
     readonly chave: string,
     readonly categoria: GraphicsCategory,
     readonly materialId: string,
     material: THREE.Material,
     private readonly orcamento: OrcamentoVram,
+    private readonly materialExtra?: Material,
   ) {
     this.chaveOrcamento = `lote:${chave}`;
     this.geometria = this.criarGeometria();
     this.malha = new THREE.Mesh(this.geometria, material);
     this.malha.matrixAutoUpdate = false;
-    this.malha.userData = { kind: categoria };
+    this.malha.userData = { kind: categoria, ...this.origem() };
+  }
+
+  /** Origem do material do grupo, para o `userData` da malha (o id é o do lote: parede, piso, esquadria, ...). */
+  private origem(): { materialId: Id; material?: Material } {
+    return this.materialExtra ? { materialId: this.materialId, material: this.materialExtra } : { materialId: this.materialId };
   }
 
   /** Nível já aplicado neste lote. */
@@ -236,7 +246,7 @@ export class LoteGeometriaGpu {
     for (const s of this.segmentos.values()) {
       for (const r of s.dados.ids) faixas.push({ id: r.id, start: s.inicioI + r.start, count: r.count });
     }
-    this.malha.userData = { kind: this.categoria, ranges: faixas };
+    this.malha.userData = { kind: this.categoria, ranges: faixas, ...this.origem() };
     this.geometria.setDrawRange(0, this.nI);
     this.malha.visible = this.nI > 0;
     this.atualizarCaixa();

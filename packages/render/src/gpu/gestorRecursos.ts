@@ -177,6 +177,7 @@ export class GestorRecursosGpu {
           dados.materialId,
           this.op.material(dados.categoria, dados.materialId, dados.extras),
           this.orcamento,
+          dados.extras,
         );
         grupo = { lote, materialId: dados.materialId, ...(dados.extras ? { extras: dados.extras } : {}) };
         this.lotes.set(chave, grupo);
