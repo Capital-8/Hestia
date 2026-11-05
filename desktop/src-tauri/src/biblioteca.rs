@@ -90,8 +90,9 @@ fn raiz_guardada(app: &AppHandle) -> Option<PathBuf> {
 /// Escolhe a pasta raiz dos projetos (seletor do sistema) e lembra a escolha.
 #[tauri::command]
 pub async fn biblioteca_escolher_raiz(app: AppHandle) -> Result<Option<String>, String> {
+    let app_dialogo = app.clone();
     let escolhida =
-        tauri::async_runtime::spawn_blocking(move || app.dialog().file().blocking_pick_folder())
+        tauri::async_runtime::spawn_blocking(move || app_dialogo.dialog().file().blocking_pick_folder())
             .await
             .map_err(|e| format!("seletor de pastas falhou: {e}"))?;
     let Some(arquivo) = escolhida else {
