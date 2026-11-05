@@ -58,18 +58,26 @@ const PA09 = 'wt_alv9';
  * Materiais físicos do render (T3). Só o preset da textura entra aqui; os caminhos das texturas da pasta pbr ficam para a
  * etapa F3 (leitura de textura de imagem). Superfícies que já têm material próprio no padrão recebem o PBR com
  * `updateMaterialPbr`. O reboco externo e o interno são materiais novos, porque o padrão usa `mat_reboco` nas duas faces.
+ *
+ * Regra de cor e hachura (regressão da planta, 2026-11-05): cada material novo herda `color` e `hatch` do material que a
+ * superfície usava antes. O reboco interno herda de `mat_reboco` (#d9d2c5, pontilhado): a planta das paredes internas
+ * sai igual. O reboco externo herda de `mat_argamassa` (#cdbfa9, pontilhado), a camada de maior espessura da fachada. Como
+ * o teste de template exige o mesmo material na camada de acabamento (antes `mat_ceramica`, #e9e4da, sem hachura) e na
+ * argamassa, o motor une as duas num só preenchimento: a fachada externa da planta NÃO sai idêntica (resíduo conhecido,
+ * ver ouroZoom: os casos premium). Vidro mantém cor e hachura. O PBR não altera a planta (testado); a textura só entra
+ * no 3D.
  */
 const pbr = (id: Id, patch: MaterialPbrPatch): Command => ({ type: 'updateMaterialPbr', id, patch });
 
 const MATERIAIS_PBR: Command[] = [
-  // Reboco externo (fachadas) e interno (paredes internas, um tom mais claro). Os dois têm o mesmo preset e escala 2,0 m.
+  // Reboco externo (fachadas, herda argamassa) e interno (paredes internas, herda mat_reboco). Os dois: preset reboco, escala 2,0 m.
   {
     type: 'upsertMaterial',
-    material: { id: 'mat-reboco-externo', name: 'Reboco externo', color: '#d9d2c5', hatch: 'dots', gloss: 0.15, opacity: 1, cost: 38, unit: 'm2' },
+    material: { id: 'mat-reboco-externo', name: 'Reboco externo', color: '#cdbfa9', hatch: 'dots', gloss: 0.15, opacity: 1, cost: 38, unit: 'm2' },
   },
   {
     type: 'upsertMaterial',
-    material: { id: 'mat-reboco-interno', name: 'Reboco interno', color: '#e6e0d4', hatch: 'dots', gloss: 0.1, opacity: 1, cost: 38, unit: 'm2' },
+    material: { id: 'mat-reboco-interno', name: 'Reboco interno', color: '#d9d2c5', hatch: 'dots', gloss: 0.1, opacity: 1, cost: 38, unit: 'm2' },
   },
   // Vidro: a opacidade é campo do material (não do PBR), então o registro inteiro é regravado. Cor azul-acinzentada clara mantida.
   { type: 'upsertMaterial', material: { id: 'mat_vidro', name: 'Vidro', color: '#a9d6e5', hatch: 'none', gloss: 0.9, opacity: 0.3, cost: 220, unit: 'm2' } },
