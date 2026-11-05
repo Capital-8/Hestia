@@ -31,6 +31,7 @@ import { criarMontagemVista3d, type Montagem3dProgressiva } from './montagem3dPr
 import { QuadroPlanta } from './quadroPlanta.ts';
 import { medirQuadro, useContarCommitPerf, usePerfDaUrl } from '../debug/perf/index.ts';
 import { eventosDeSolta, gestosComShift, passouDoLimiar } from './planGestos.ts';
+import { deltaZoom, deslocamentoDoPontoMedio, deveAproximarNoCursor, fatorAproximacaoCursor, moverAlvoParaPonto, zoomDoPinch } from './navegacao3d.ts';
 import { Progresso3D } from './Progresso3D.tsx';
 import { ProgressoAbertura } from './ProgressoAbertura.tsx';
 import { registrarPreparo3d } from './preparo3d.ts';
@@ -840,8 +841,9 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
         editor.zoomWheel(mid, -(d - gesture.current.dist) * 2.4);
       } else {
         marcarInteracao();
-        model.current.orbit.zoom(-(d - gesture.current.dist) * 3);
-        model.current.orbit.pan(mid.x - gesture.current.mid.x, mid.y - gesture.current.mid.y);
+        model.current.orbit.zoom(zoomDoPinch(gesture.current.dist, d));
+        const desl = deslocamentoDoPontoMedio(gesture.current.mid, mid);
+        model.current.orbit.pan(desl.dx, desl.dy);
         useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
       }
       gesture.current = { dist: d, mid };
@@ -1098,21 +1100,21 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       marcarInteracao();
       // Zoom para o ponto sob o cursor: ao aproximar, o target deriva em direção ao ponto 3D sob o cursor.
       // Isso faz a órbita subsequente girar ao redor do que o usuário estava inspecionando (comportamento Revit/Blender).
-      if (e.deltaY < 0) {
+      if (deveAproximarNoCursor(e.deltaY)) {
         const s = local(e);
         const r = host.current!.getBoundingClientRect();
         const ndc = { x: (s.x / r.width) * 2 - 1, y: 1 - (s.y / r.height) * 2 };
         const hit = pickModelPoint(model.current.scene, model.current.orbit.camera, ndc, pickGpu.current ?? undefined);
         if (hit) {
           // Quanto mais rola o scroll, mais o target se move em direção ao ponto sob o cursor.
-          // Factor pequeno: movimento suave e sem saltos; acumula com vários scrolls.
-          const factor = Math.min(0.12, Math.abs(e.deltaY) * 0.001);
+          // Factor pequeno: movimento suave e sem saltos; acumula com vários scrolls (navegacao3d.ts).
           const orb = model.current.orbit;
-          orb.target.x += (hit.x - orb.target.x) * factor;
-          orb.target.y += (hit.y - orb.target.y) * factor;
+          const alvo = moverAlvoParaPonto(orb.target, hit, fatorAproximacaoCursor(e.deltaY));
+          orb.target.x = alvo.x;
+          orb.target.y = alvo.y;
         }
       }
-      model.current.orbit.zoom(e.deltaY);
+      model.current.orbit.zoom(deltaZoom(e.deltaY));
       useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
     } else editor.zoomWheel(local(e), e.deltaY);
   };
