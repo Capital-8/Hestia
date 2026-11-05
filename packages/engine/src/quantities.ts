@@ -62,7 +62,10 @@ export function quantifyLevel(p: Project, r: ResolvedLevel): Quantities {
     let grossTotal = 0;
     for (const l of rw.layers) {
       const grossVol = l.bands.reduce((s, b) => s + bandVolume(b), 0);
-      const vol = l.bands.reduce((s, b) => s + Math.max(0, bandVolume(b) - cutVolume(bandPiece(rw, b, { priority: l.priority, core: l.core }), 'wall', cutters)), 0);
+      // Líquido da camada: o corte soma por faixa, e o zero (sem volume negativo) vale uma vez por camada. Com o clamp por faixa,
+      // a partição em faixas (que muda entre motores) alterava o resultado: uma faixa fina com corte maior que o bruto criava volume.
+      const cortado = l.bands.reduce((s, b) => s + cutVolume(bandPiece(rw, b, { priority: l.priority, core: l.core }), 'wall', cutters), 0);
+      const vol = Math.max(0, grossVol - cortado);
       total += vol;
       grossTotal += grossVol;
       layers.push({ wallId: rw.wallId, layerIndex: l.layerIndex, materialId: l.materialId, planArea: multiArea(l.cut), volume: vol, grossVolume: grossVol });
