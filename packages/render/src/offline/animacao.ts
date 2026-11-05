@@ -90,10 +90,6 @@ const cloneCamera = (c: SheetView3DCamera): SheetView3DCamera => ({
 });
 
 const clamp = (n: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, n));
-const smoothstep = (t: number): number => {
-  const x = clamp(t, 0, 1);
-  return x * x * (3 - 2 * x);
-};
 
 /** Normaliza um ângulo para [0, 2π). */
 const wrapAngle = (a: number): number => ((a % TAU) + TAU) % TAU;
@@ -103,6 +99,45 @@ export function lerpAngle(a: number, b: number, t: number): number {
   let delta = wrapAngle(b - a);
   if (delta > Math.PI) delta -= TAU;
   return wrapAngle(a + delta * t);
+}
+
+/** Interpolação linear entre (ta, pa) e (tb, pb); com tempos coincidentes devolve pb. */
+function lerpPonto(t: number, ta: number, tb: number, pa: number, pb: number): number {
+  const d = tb - ta;
+  if (Math.abs(d) < 1e-12) return pb;
+  return ((tb - t) * pa + (t - ta) * pb) / d;
+}
+
+/**
+ * Catmull-Rom com tempos não uniformes (Barry–Goldman). Avaliada no trecho [t1, t2], passa
+ * exatamente por p1 em t1 e por p2 em t2, com tangentes vindas dos vizinhos p0 e p3.
+ */
+function catmullRom(
+  t: number,
+  t0: number, t1: number, t2: number, t3: number,
+  p0: number, p1: number, p2: number, p3: number,
+): number {
+  const a1 = lerpPonto(t, t0, t1, p0, p1);
+  const a2 = lerpPonto(t, t1, t2, p1, p2);
+  const a3 = lerpPonto(t, t2, t3, p2, p3);
+  const b1 = lerpPonto(t, t0, t2, a1, a2);
+  const b2 = lerpPonto(t, t1, t3, a2, a3);
+  return lerpPonto(t, t1, t2, b1, b2);
+}
+
+/**
+ * Azimutes dos keyframes desdobrados: cada passo entre keyframes consecutivos usa o arco mais curto
+ * (delta em (-π, π]) e o resultado é acumulado, para que a curva não dê a volta inteira à toa.
+ * A redução módulo 2π só acontece no retorno da amostragem.
+ */
+function azimutesDesdobrados(kfs: CameraKeyframe[]): number[] {
+  const out: number[] = [kfs[0]!.camera.azimuth];
+  for (let i = 1; i < kfs.length; i++) {
+    let delta = wrapAngle(kfs[i]!.camera.azimuth - kfs[i - 1]!.camera.azimuth);
+    if (delta > Math.PI) delta -= TAU;
+    out.push(out[i - 1]! + delta);
+  }
+  return out;
 }
 
 let sequencia = 0;
@@ -172,11 +207,57 @@ function cameraDeReferencia(seq: AnimationSequence): SheetView3DCamera {
 }
 
 /**
- * Amostra a câmera no tempo `t` (segundos). Turntable gira em torno do alvo; keyframes interpolam
- * alvo/distância/elevação/azimute; solar usa a câmera fixa.
+ * Amostra a câmera no tempo `t` (segundos). Prioridade: se há keyframes, eles mandam em qualquer
+ * modo (interpolação Catmull-Rom que passa por cada keyframe). Sem keyframes, turntable gira em
+ * torno do alvo e, na falta dele, a câmera solar/de referência fica fixa.
+ *
+ * Nota: o campo `easing` dos keyframes não é usado pela interpolação de câmera nesta fase; o
+ * campo continua no modelo de dados.
  */
 export function sampleCamera(seq: AnimationSequence, t: number): SheetView3DCamera {
   const duracao = Number.isFinite(seq.duration) && seq.duration > 0 ? seq.duration : 1;
+
+  if (seq.keyframes.length > 0) {
+    const kfs = [...seq.keyframes].sort((a, b) => a.t - b.t);
+    if (kfs.length === 1) return cloneCamera(kfs[0]!.camera);
+    if (t <= kfs[0]!.t) return cloneCamera(kfs[0]!.camera);
+    const ultimo = kfs[kfs.length - 1]!;
+    if (t >= ultimo.t) return cloneCamera(ultimo.camera);
+    let i = 0;
+    while (i < kfs.length - 1 && t > kfs[i + 1]!.t) i++;
+    const b = kfs[i + 1]!;
+    if (b.t - kfs[i]!.t < 1e-9) return cloneCamera(b.camera);
+
+    // Vizinhos fantasmas nas pontas: repetem o primeiro/último ponto, com tempo espelhado.
+    const n = kfs.length;
+    const ts = kfs.map((k) => k.t);
+    const tempo = (j: number): number => (j < 0
+      ? 2 * ts[0]! - ts[1]!
+      : j >= n ? 2 * ts[n - 1]! - ts[n - 2]! : ts[j]!);
+    const canal = (vals: number[]) => (j: number): number => vals[clamp(j, 0, n - 1)]!;
+    const az = azimutesDesdobrados(kfs);
+    const amostra = (vals: number[]): number => {
+      const v = canal(vals);
+      return catmullRom(
+        t,
+        tempo(i - 1), tempo(i), tempo(i + 1), tempo(i + 2),
+        v(i - 1), v(i), v(i + 1), v(i + 2),
+      );
+    };
+    const elevs = kfs.map((k) => k.camera.elevation);
+    const dists = kfs.map((k) => k.camera.distance);
+    const tx = kfs.map((k) => k.camera.target.x);
+    const ty = kfs.map((k) => k.camera.target.y);
+    const tz = kfs.map((k) => k.camera.target.z);
+    return {
+      azimuth: wrapAngle(amostra(az)),
+      elevation: amostra(elevs),
+      distance: Math.max(0.01, amostra(dists)),
+      target: { x: amostra(tx), y: amostra(ty), z: amostra(tz) },
+      ortho: kfs[i]!.camera.ortho,
+    };
+  }
+
   if (seq.mode === 'turntable' && seq.turntable) {
     const tt = seq.turntable;
     const u = clamp(t / duracao, 0, 1);
@@ -187,32 +268,6 @@ export function sampleCamera(seq: AnimationSequence, t: number): SheetView3DCame
       distance: Math.max(0.01, tt.distance),
       target: { ...tt.target },
       ortho: tt.ortho === true,
-    };
-  }
-
-  if (seq.mode === 'keyframes' && seq.keyframes.length > 0) {
-    const kfs = [...seq.keyframes].sort((a, b) => a.t - b.t);
-    if (kfs.length === 1) return cloneCamera(kfs[0]!.camera);
-    if (t <= kfs[0]!.t) return cloneCamera(kfs[0]!.camera);
-    const ultimo = kfs[kfs.length - 1]!;
-    if (t >= ultimo.t) return cloneCamera(ultimo.camera);
-    let i = 0;
-    while (i < kfs.length - 1 && t > kfs[i + 1]!.t) i++;
-    const a = kfs[i]!;
-    const b = kfs[i + 1]!;
-    const span = Math.max(1e-9, b.t - a.t);
-    const bruto = clamp((t - a.t) / span, 0, 1);
-    const k = (b.easing ?? a.easing) === 'smooth' ? smoothstep(bruto) : bruto;
-    return {
-      azimuth: lerpAngle(a.camera.azimuth, b.camera.azimuth, k),
-      elevation: a.camera.elevation + (b.camera.elevation - a.camera.elevation) * k,
-      distance: Math.max(0.01, a.camera.distance + (b.camera.distance - a.camera.distance) * k),
-      target: {
-        x: a.camera.target.x + (b.camera.target.x - a.camera.target.x) * k,
-        y: a.camera.target.y + (b.camera.target.y - a.camera.target.y) * k,
-        z: a.camera.target.z + (b.camera.target.z - a.camera.target.z) * k,
-      },
-      ortho: a.camera.ortho,
     };
   }
 
