@@ -574,3 +574,18 @@ suiteReal('renderizador Rust real', () => {
     expect(Array.from(primeiro)).toEqual(Array.from(segundo));
   });
 });
+
+describe('HSTR v3: os quatro índices de textura de cada material', () => {
+  it('albedo, normal, rugosidade e metálico saem nos quatro u32 do material, na ordem do layout', () => {
+    const base = cenaComTextura();
+    const textura = base.texturas![0]!;
+    const cena = {
+      ...base,
+      texturas: [textura, textura, textura, textura],
+      materials: [{ ...base.materials[0]!, mapas: { albedo: 3, normal: 1, roughness: 2, metallic: 0 } }],
+    };
+    const view = new DataView(codificarCena(cena).buffer);
+    const indices = 32 + 36 + 12 + 52;
+    expect([0, 1, 2, 3].map((canal) => view.getUint32(indices + canal * 4, true))).toEqual([3, 1, 2, 0]);
+  });
+});

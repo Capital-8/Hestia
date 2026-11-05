@@ -8,6 +8,7 @@ import { entregarArquivo } from '../../editor/entregarArquivo.ts';
 import { canvasAtivo, comModoApresentacao } from '../../editor/render/captureRegistry.ts';
 import { renderizarImagemRust } from '../../editor/render/rustStillRenderer.ts';
 import { codificarCena, criarClienteWasm, type ClienteRenderWasm } from '../../editor/render/wasmClient.ts';
+import { comTexturasCarregadas } from '../../editor/render/texturasCena.ts';
 import { renderizarNativo, saudeRenderNativo } from '../../editor/render/nativeClient.ts';
 import { cameraPreviewAtual } from '../../editor/render/previewCamera.ts';
 import { camera3DAtual } from '../../editor/vista3dAoVivo.ts';
@@ -337,6 +338,14 @@ export function RenderImageDialog(): ReactElement {
   // Fechar o diálogo no meio de um render GPU cancela o job no serviço (não fica órfão).
   const { cancelar: cancelarSessao } = session;
   useEffect(() => () => cancelarSessao(), [cancelarSessao]);
+  // O GPU espera o carregamento das texturas: se o diálogo fechar nesse intervalo, não inicia um job sem dono.
+  const montadoRef = useRef(true);
+  useEffect(() => {
+    montadoRef.current = true;
+    return () => {
+      montadoRef.current = false;
+    };
+  }, []);
   // O mesmo vale para o Final (Rust/WASM): fechar o modal no meio do render o aborta.
   useEffect(() => () => controladorLegadoRef.current?.abort(), []);
 
@@ -351,8 +360,9 @@ export function RenderImageDialog(): ReactElement {
       let cancelado = false;
       const largura = Math.max(1, Math.min(640, Math.round(base.largura)));
       const altura = Math.max(1, Math.round((largura * base.altura) / base.largura));
-      const hstr = codificarCena(snapshotFinal);
-      void renderizarNativo(hstr, { largura, altura, exposicao })
+      // As texturas dos presets são carregadas antes de codificar (falha vira erro da prévia, não cena sem textura).
+      void comTexturasCarregadas(snapshotFinal)
+        .then((cena) => renderizarNativo(codificarCena(cena), { largura, altura, exposicao }))
         .then(async (blob) => {
           const bitmap = await createImageBitmap(blob);
           if (cancelado) { bitmap.close(); return; }
@@ -390,13 +400,19 @@ export function RenderImageDialog(): ReactElement {
           setPreviaFalhou(true);
           return;
         }
+        // Uma vez para todos os passos: as texturas dos presets entram na cena antes de ir ao wasm.
+        const cenaComTexturas = await comTexturasCarregadas(snapshotFinal).catch(() => null);
+        if (!cenaComTexturas) {
+          if (!cancelado) setPreviaFalhou(true);
+          return;
+        }
         for (const passo of passos) {
           if (cancelado) return;
           const largura = Math.max(1, passo.largura);
           const altura = Math.max(1, Math.round((largura * base.altura) / base.largura));
           try {
             const render = await renderizarImagemRust({
-              cena: snapshotFinal,
+              cena: cenaComTexturas,
               largura,
               altura,
               spp: passo.spp,
@@ -468,7 +484,7 @@ export function RenderImageDialog(): ReactElement {
   };
 
   /** GPU nativo: o job roda na sessão (hook); o resultado aparece no modal e só então "Baixar". */
-  const iniciarGpu = (): void => {
+  const iniciarGpu = async (): Promise<void> => {
     if (!base || !alvo || problema || !snapshotFinal || !cameraFinal) return;
     if (gpuDisponivel !== true) {
       setErro(MENSAGEM_SERVICO_GPU_INDISPONIVEL);
@@ -476,11 +492,12 @@ export function RenderImageDialog(): ReactElement {
     }
     let hstr: Uint8Array;
     try {
-      hstr = codificarCena(snapshotFinal);
+      hstr = codificarCena(await comTexturasCarregadas(snapshotFinal));
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Não foi possível preparar a cena para a GPU.');
       return;
     }
+    if (!montadoRef.current) return;
     setErro('');
     alvoSaidaRef.current = { ...alvo };
     void session.iniciar({ hstr, largura: alvo.largura, altura: alvo.altura, exposicao });
@@ -509,7 +526,7 @@ export function RenderImageDialog(): ReactElement {
       let blob: Blob;
       if (qualidade === 'final' && cameraFinal) {
         // Render final: snapshot da mesma cena 3D + path tracer Rust/WASM.
-        const snapshot = snapshotFinal ?? cenaDoProjeto(p, cameraFinal, alvo.largura / alvo.altura);
+        const snapshot = await comTexturasCarregadas(snapshotFinal ?? cenaDoProjeto(p, cameraFinal, alvo.largura / alvo.altura));
         clienteFinal.current ??= criarClienteWasm();
         const cliente = await clienteFinal.current;
         const controlador = new AbortController();
@@ -620,12 +637,12 @@ export function RenderImageDialog(): ReactElement {
   /** Ação "Renderizar": GPU pela sessão; Rascunho e Final pelo caminho antigo. */
   const acaoRenderizar = (): void => {
     if (!podeRenderizarAgora) return;
-    if (qualidade === 'gpu') iniciarGpu();
+    if (qualidade === 'gpu') void iniciarGpu();
     else void renderizarLegado();
   };
   const reiniciarGpu = (): void => {
     session.reiniciar();
-    iniciarGpu();
+    void iniciarGpu();
   };
 
   const sub = base

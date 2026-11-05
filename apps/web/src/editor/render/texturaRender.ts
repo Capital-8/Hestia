@@ -7,12 +7,34 @@
  * A média é feita sobre os valores sRGB do arquivo (sem conversão para linear), como o resto da cadeia de texturas.
  */
 import type { RenderTextura } from '@hestia/render';
-import { dimensoesDoNivelMip, niveisDeMip } from './texturasCena.ts';
 
 /** Lado maior máximo da textura carregada, em pixels. Acima disso a imagem é reduzida antes de gerar os mips. */
 export const LADO_MAXIMO_TEXTURA = 1024;
 /** Pasta publicada da biblioteca de texturas do render (`apps/web/public/texturas-render/`). */
 export const BASE_TEXTURAS_RENDER = '/texturas-render/';
+
+/**
+ * Geometria da cadeia de mips (puras). Ficam aqui, e não em `texturasCena.ts`, para que `texturasCena.ts` possa importar
+ * o carregador sem ciclo de módulos. `texturasCena.ts` as usa na validação do HSTR v3.
+ */
+
+/** Dimensões (largura, altura) do nível `nivel` da cadeia de mips: metade a cada nível, mínimo 1. */
+export function dimensoesDoNivelMip(largura: number, altura: number, nivel: number): [number, number] {
+  const divisor = 2 ** nivel;
+  return [Math.max(1, Math.floor(largura / divisor)), Math.max(1, Math.floor(altura / divisor))];
+}
+
+/** Número de níveis de uma cadeia completa, até o 1×1. */
+export function niveisDeMip(largura: number, altura: number): number {
+  let niveis = 1;
+  let [l, a] = [largura, altura];
+  while (l > 1 || a > 1) {
+    l = Math.max(1, Math.floor(l / 2));
+    a = Math.max(1, Math.floor(a / 2));
+    niveis++;
+  }
+  return niveis;
+}
 
 /** URL de um arquivo da biblioteca, a partir do caminho relativo que o modelo guarda (ver `arquivosDoPreset`). */
 export function urlDaTextura(caminhoRelativo: string): string {

@@ -31,8 +31,14 @@ export interface RenderMaterialMapas {
 /**
  * Textura de imagem RGBA8 sRGB sem compressão. `mips[0]` é o nível 0 (largura × altura); cada nível seguinte tem metade
  * da largura e da altura, com mínimo 1 (ver `gerarMips` em `apps/web/src/editor/render/texturaRender.ts`).
+ *
+ * No snapshot exportado (`exportarCenaDeRender`), cada textura entra como PENDENTE: `caminho` é o arquivo da biblioteca
+ * (`texturas-render/`), com `largura` e `altura` 0 e `mips` vazio. O carregamento dos pixels é uma etapa separada
+ * (`carregarTexturasDoSnapshot`, no navegador); `codificarCena` recusa textura pendente.
  */
 export interface RenderTextura {
+  /** Caminho relativo à biblioteca de texturas (chave única na lista do snapshot). Ausente em texturas montadas à mão. */
+  caminho?: string;
   largura: number;
   altura: number;
   mips: Uint8Array[];

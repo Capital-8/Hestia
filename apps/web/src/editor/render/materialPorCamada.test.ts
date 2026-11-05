@@ -5,10 +5,20 @@
 import { describe, expect, it } from 'vitest';
 import { buildTemplate, view3dOf, type Project } from '@hestia/model';
 import { resolveLevel } from '@hestia/engine';
-import { ModelScene } from '@hestia/render';
+import { ModelScene, type RenderSceneSnapshot } from '@hestia/render';
 import { codificarCena } from './wasmClient.ts';
 
 const TAMANHO_MATERIAL = 52;
+
+/**
+ * Este teste mede o layout v2 (sem texturas). O template tem presets, então o snapshot traz texturas pendentes, que
+ * precisam de pixels (ver `carregarTexturasDoSnapshot`); aqui elas saem, e a cadeia de texturas tem teste próprio.
+ */
+const semTexturas = (cena: RenderSceneSnapshot): RenderSceneSnapshot => ({
+  ...cena,
+  texturas: undefined,
+  materials: cena.materials.map(({ mapas: _mapas, ...material }) => material),
+});
 
 /** Exporta o template de alto padrão com os dois rebocos com rugosidade 0,37 (diferente do padrão do modelo: 0,85 e 0,90). */
 function templateComRebocoPersonalizado(): Project {
@@ -26,7 +36,7 @@ describe('F2: material de camada no HSTR v2', () => {
     const cena = new ModelScene();
     try {
       cena.update(p, p.levels.map((l) => resolveLevel(p, l.id)), { dark: false, edges: true, shadows: true });
-      const bytes = codificarCena(cena.exportarCenaDeRender({ aspect: 16 / 9 }));
+      const bytes = codificarCena(semTexturas(cena.exportarCenaDeRender({ aspect: 16 / 9 })));
       const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
       expect(String.fromCharCode(...bytes.subarray(0, 4))).toBe('HSTR');
       expect(view.getUint32(4, true)).toBe(2);
@@ -57,7 +67,7 @@ describe('F2: material de camada no HSTR v2', () => {
     const cena = new ModelScene();
     try {
       cena.update(p, p.levels.map((l) => resolveLevel(p, l.id)), { dark: false, edges: true, shadows: true });
-      const bytes = codificarCena(cena.exportarCenaDeRender({ aspect: 16 / 9 }));
+      const bytes = codificarCena(semTexturas(cena.exportarCenaDeRender({ aspect: 16 / 9 })));
       const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
       const nVertices = view.getUint32(8, true);
       const nIndices = view.getUint32(12, true);

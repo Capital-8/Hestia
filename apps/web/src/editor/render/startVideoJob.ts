@@ -12,6 +12,7 @@ import { saveBytes } from '../saveBytes.ts';
 import { RustFrameSource } from './rustFrameSource.ts';
 import { quadroDaCamera } from './rustStillRenderer.ts';
 import { codificarCena, codificarCamera } from './wasmClient.ts';
+import { comTexturasCarregadas } from './texturasCena.ts';
 import { criarCenaNativa, removerCenaNativa, renderizarFrameNativo } from './nativeClient.ts';
 import { encodeVideoWebCodecs } from './videoEncoderWebCodecs.ts';
 
@@ -71,7 +72,7 @@ async function startFinalVideo(seq: AnimationSequence, opts: VideoJobOptions): P
   job.definirCancelar(() => controlador.abort());
   let fonte: RustFrameSource | null = null;
   try {
-    const cena = snapshotDaSequencia(seq);
+    const cena = await comTexturasCarregadas(snapshotDaSequencia(seq));
     fonte = new RustFrameSource({ cena, spp: 1, seed: Date.now() >>> 0 });
     fonte.definirSinal(controlador.signal);
     await fonte.prepare(seq);
@@ -135,7 +136,7 @@ async function startGpuVideo(seq: AnimationSequence, opts: VideoJobOptions): Pro
   job.definirCancelar(() => controlador.abort());
   let cenaId: string | null = null;
   try {
-    const hstr = codificarCena(snapshotDaSequencia(seq));
+    const hstr = codificarCena(await comTexturasCarregadas(snapshotDaSequencia(seq)));
     cenaId = await criarCenaNativa(hstr);
     const largura = seq.resolution.w;
     const altura = seq.resolution.h;

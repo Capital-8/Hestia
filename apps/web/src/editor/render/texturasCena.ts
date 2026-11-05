@@ -1,33 +1,17 @@
 /**
  * Seção de texturas do `HSTR` v3 (ver `codificarCena` em `wasmClient.ts`): tamanho e validação das texturas e os
- * índices de textura de cada material. Também a geometria da cadeia de mips, que o carregador do navegador usa.
+ * índices de textura de cada material. Também o carregamento das texturas PENDENTES do snapshot
+ * (`carregarTexturasDoSnapshot`, no navegador). A geometria da cadeia de mips fica em `texturaRender.ts`.
  */
-import type { RenderMaterialMapas, RenderTextura } from '@hestia/render';
+import type { RenderMaterialMapas, RenderSceneSnapshot, RenderTextura } from '@hestia/render';
 import { CODIGO_RENDER, ErroRenderWasm } from './erroRender.ts';
+import { carregarTexturaRgba, dimensoesDoNivelMip, gerarMips, niveisDeMip, urlDaTextura } from './texturaRender.ts';
 
 /** Índice de textura de um canal sem textura (`0xFFFFFFFF` no HSTR). */
 export const SEM_TEXTURA = 0xffffffff;
 export const MAX_TEXTURAS = 64;
 export const MAX_LADO_TEXTURA = 8192;
 const MAX_SECAO_TEXTURAS = 1024 * 1024 * 1024;
-
-/** Dimensões (largura, altura) do nível `nivel` da cadeia de mips: metade a cada nível, mínimo 1. */
-export function dimensoesDoNivelMip(largura: number, altura: number, nivel: number): [number, number] {
-  const divisor = 2 ** nivel;
-  return [Math.max(1, Math.floor(largura / divisor)), Math.max(1, Math.floor(altura / divisor))];
-}
-
-/** Número de níveis de uma cadeia completa, até o 1×1. */
-export function niveisDeMip(largura: number, altura: number): number {
-  let niveis = 1;
-  let [l, a] = [largura, altura];
-  while (l > 1 || a > 1) {
-    l = Math.max(1, Math.floor(l / 2));
-    a = Math.max(1, Math.floor(a / 2));
-    niveis++;
-  }
-  return niveis;
-}
 
 /**
  * Confere as texturas antes de reservar memória e devolve o tamanho da seção (quantidade + texturas).
@@ -40,6 +24,13 @@ export function tamanhoDasTexturas(texturas: RenderTextura[]): number {
   let tamanho = 4;
   texturas.forEach((textura, i) => {
     const { largura, altura, mips } = textura;
+    if (mips.length === 0) {
+      const arquivo = textura.caminho ? ` (${textura.caminho})` : '';
+      throw new ErroRenderWasm(
+        CODIGO_RENDER.cenaInvalida,
+        `textura ${i}${arquivo} não foi carregada; carregue os pixels com carregarTexturasDoSnapshot antes de codificar`,
+      );
+    }
     if (
       !Number.isInteger(largura) || !Number.isInteger(altura) ||
       largura < 1 || largura > MAX_LADO_TEXTURA || altura < 1 || altura > MAX_LADO_TEXTURA
@@ -87,4 +78,32 @@ export function indicesDeTextura(mapas: RenderMaterialMapas | undefined, nTextur
     }
     return indice;
   });
+}
+
+/**
+ * Carrega os pixels de cada textura PENDENTE da lista do snapshot (`caminho` da biblioteca), na ordem dos índices: cada
+ * arquivo vira RGBA8 com o lado maior em no máximo 1024 px e a cadeia de mips. Só roda no navegador (`fetch`,
+ * `createImageBitmap`). Falha de uma textura lança erro com o caminho: nunca troca por branco em silêncio.
+ * Devolve a lista na mesma ordem, pronta para `codificarCena` (ver `comTexturasCarregadas`).
+ */
+export async function carregarTexturasDoSnapshot(snapshot: RenderSceneSnapshot): Promise<RenderTextura[]> {
+  const carregadas: RenderTextura[] = [];
+  for (const [i, textura] of (snapshot.texturas ?? []).entries()) {
+    const caminho = textura.caminho;
+    if (!caminho) throw new Error(`textura ${i} da cena não tem caminho na biblioteca de texturas`);
+    try {
+      const { largura, altura, rgba } = await carregarTexturaRgba(urlDaTextura(caminho));
+      carregadas.push({ caminho, largura, altura, mips: gerarMips(rgba, largura, altura) });
+    } catch (e) {
+      const motivo = e instanceof Error ? e.message : 'falha desconhecida';
+      throw new Error(`não foi possível carregar a textura ${caminho}: ${motivo}`);
+    }
+  }
+  return carregadas;
+}
+
+/** Cópia do snapshot com os pixels das texturas carregados (ver `carregarTexturasDoSnapshot`). Sem texturas, a mesma cena. */
+export async function comTexturasCarregadas(snapshot: RenderSceneSnapshot): Promise<RenderSceneSnapshot> {
+  if (!snapshot.texturas || snapshot.texturas.length === 0) return snapshot;
+  return { ...snapshot, texturas: await carregarTexturasDoSnapshot(snapshot) };
 }

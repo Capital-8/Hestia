@@ -12,7 +12,8 @@ import {
   type MaterialTexturePreset,
   type Project,
 } from '@hestia/model';
-import type { RenderMaterial } from '../offline/cena.ts';
+import type { RenderMaterial, RenderMaterialMapas, RenderTextura } from '../offline/cena.ts';
+import { arquivosDoPreset } from '../offline/texturasPreset.ts';
 import { LISO, MADEIRA, METAL, PISO, REBOCO, TELHA, TIJOLO, VIDRO, tipoProceduralDoElemento } from './tipoMaterial.ts';
 
 /**
@@ -74,6 +75,54 @@ export function renderMaterialDoModelo(m: Material): RenderMaterial {
     tipo: tipoDoPreset(m),
     escala: Number.isFinite(escala) && escala > 0 ? escala : 1,
   };
+}
+
+/**
+ * Lista ÚNICA de texturas de um snapshot: uma entrada por caminho de arquivo, na ordem da primeira aparição. Cada entrada
+ * entra PENDENTE (sem pixels; ver `RenderTextura`); o carregamento fica para o navegador. O índice devolvido por
+ * `indiceDe` é o que vai em `RenderMaterial.mapas`, e o mesmo arquivo usado por dois materiais compartilha o índice.
+ */
+export class ListaDeTexturas {
+  /** Entradas na ordem dos índices; é o que vai para `RenderSceneSnapshot.texturas`. */
+  readonly texturas: RenderTextura[] = [];
+  private readonly porCaminho = new Map<string, number>();
+
+  /** Índice do arquivo na lista; cria a entrada pendente na primeira vez. */
+  indiceDe(caminho: string): number {
+    const existente = this.porCaminho.get(caminho);
+    if (existente !== undefined) return existente;
+    const indice = this.texturas.length;
+    this.texturas.push({ caminho, largura: 0, altura: 0, mips: [] });
+    this.porCaminho.set(caminho, indice);
+    return indice;
+  }
+}
+
+/**
+ * Texturas que um material de modelo usa, como índices da `lista`. Decidido pelo PRESET (`materialTexture(m).preset`, via
+ * `arquivosDoPreset`): albedo, normal e rugosidade; metálico só no preset de metal. Sem preset (ou `nenhum`), devolve `{}`.
+ */
+export function mapasDoMaterial(material: Material, lista: ListaDeTexturas): RenderMaterialMapas {
+  const arquivos = arquivosDoPreset(materialTexture(material)?.preset);
+  if (!arquivos) return {};
+  const mapas: RenderMaterialMapas = {
+    albedo: lista.indiceDe(arquivos.albedo),
+    normal: lista.indiceDe(arquivos.normal),
+    roughness: lista.indiceDe(arquivos.roughness),
+  };
+  if (arquivos.metallic !== undefined) mapas.metallic = lista.indiceDe(arquivos.metallic);
+  return mapas;
+}
+
+/**
+ * Material de render de um material de modelo com as texturas do preset: `renderMaterialDoModelo` mais `mapas` (só quando o
+ * material usa alguma textura; sem preset, o resultado é idêntico ao de `renderMaterialDoModelo`).
+ */
+export function renderMaterialComTexturas(m: Material, lista: ListaDeTexturas): RenderMaterial {
+  const rm = renderMaterialDoModelo(m);
+  const mapas = mapasDoMaterial(m, lista);
+  if (Object.keys(mapas).length > 0) rm.mapas = mapas;
+  return rm;
 }
 
 /**

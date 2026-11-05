@@ -30,7 +30,7 @@ import { Materiais3D } from './materiais3d.ts';
 import { CacheMalhas, bytesDeNivel, disposeNivel, type EntradaNivel, type PickSource } from './cacheMalhas3d.ts';
 import { chavesDeNivel } from './chaveNivel3d.ts';
 import { caixaDaSelecao } from './selecao3d.ts';
-import { materialDaOrigem, origemDoMaterial, renderMaterialDaMalha, renderMaterialDoModelo } from './materialRender.ts';
+import { ListaDeTexturas, materialDaOrigem, origemDoMaterial, renderMaterialComTexturas, renderMaterialDaMalha } from './materialRender.ts';
 import type { RenderBatch, RenderMaterial, RenderSceneSnapshot } from '../offline/cena.ts';
 
 /** O mínimo do renderer que o gancho de quadro da cena lê (o three chama `scene.onBeforeRender` com o renderer real). */
@@ -802,6 +802,8 @@ export class ModelScene {
     const materiais: RenderMaterial[] = [];
     const lotes: RenderBatch[] = [];
     const porMaterial = new Map<string, number>();
+    // Lista única de texturas da cena: cada arquivo de preset entra uma vez (ver `materialRender.ts`).
+    const texturas = new ListaDeTexturas();
     const v = new THREE.Vector3();
     const mtx = new THREE.Matrix4();
 
@@ -811,7 +813,7 @@ export class ModelScene {
     // elemento (`userData.kind`), como fallback documentado em `tipoMaterial.ts`.
     const materialDe = (o: THREE.Mesh, kind: string | undefined): number => {
       const modelo = materialDaOrigem(o.userData, this.projeto);
-      const rm = modelo ? renderMaterialDoModelo(modelo) : renderMaterialDaMalha(o.material, kind);
+      const rm = modelo ? renderMaterialComTexturas(modelo, texturas) : renderMaterialDaMalha(o.material, kind);
       const chave = JSON.stringify(rm);
       const existente = porMaterial.get(chave);
       if (existente !== undefined) return existente;
@@ -893,6 +895,8 @@ export class ModelScene {
       batches: lotes,
       sun: { azimuth: this.frame.view.sunAzimuth, elevation: this.frame.view.sunElevation, intensity: 1 },
       background: [bg.r, bg.g, bg.b],
+      // Sem nenhum preset de textura na cena, o campo fica ausente: o snapshot é o de antes (HSTR v2).
+      ...(texturas.texturas.length > 0 ? { texturas: texturas.texturas } : {}),
       camera: {
         view: Float32Array.from(camera.matrixWorldInverse.elements),
         projection: Float32Array.from(camera.projectionMatrix.elements),

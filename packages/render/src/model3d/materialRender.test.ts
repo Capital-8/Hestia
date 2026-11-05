@@ -4,7 +4,7 @@ import { buildTemplate, createEmptyProject, makeWall, view3dOf, type Material, t
 import { resolveLevel } from '@hestia/engine';
 import type { RenderSceneSnapshot } from '../offline/cena.ts';
 import { ModelScene } from './scene3d.ts';
-import { materialDaOrigem, renderMaterialDaMalha, renderMaterialDoModelo, tipoDoPreset } from './materialRender.ts';
+import { ListaDeTexturas, mapasDoMaterial, materialDaOrigem, renderMaterialDaMalha, renderMaterialDoModelo, tipoDoPreset } from './materialRender.ts';
 import { tipoProceduralDoElemento } from './tipoMaterial.ts';
 
 /** Material de modelo mínimo, para os testes de conversão. */
@@ -232,6 +232,87 @@ describe('cache de materiais de render', () => {
     try {
       const chaves = snap.materials.map((m) => JSON.stringify(m));
       expect(new Set(chaves).size).toBe(chaves.length);
+    } finally {
+      cena.dispose();
+    }
+  });
+});
+
+describe('mapasDoMaterial: texturas do preset como índices da lista única', () => {
+  it('material sem preset (e preset "nenhum") não usa textura: {}', () => {
+    const lista = new ListaDeTexturas();
+    expect(mapasDoMaterial(material(), lista)).toEqual({});
+    expect(mapasDoMaterial(material({ texture: { preset: 'nenhum' } }), lista)).toEqual({});
+    expect(lista.texturas).toEqual([]);
+  });
+
+  it('preset tijolo: albedo, normal e rugosidade (sem metálico), com os arquivos da biblioteca', () => {
+    const lista = new ListaDeTexturas();
+    const mapas = mapasDoMaterial(material({ texture: { preset: 'tijolo' } }), lista);
+    expect(Object.keys(mapas).sort()).toEqual(['albedo', 'normal', 'roughness']);
+    expect(mapas).toEqual({ albedo: 0, normal: 1, roughness: 2 });
+    expect(lista.texturas.map((t) => t.caminho)).toEqual([
+      'tijolo_vermelho_albedo.jpg',
+      'tijolo_vermelho_normal.jpg',
+      'tijolo_vermelho_roughness.jpg',
+    ]);
+  });
+
+  it('preset metal inclui o metálico', () => {
+    const lista = new ListaDeTexturas();
+    const mapas = mapasDoMaterial(material({ texture: { preset: 'metal' } }), lista);
+    expect(Object.keys(mapas).sort()).toEqual(['albedo', 'metallic', 'normal', 'roughness']);
+    expect(lista.texturas.map((t) => t.caminho)).toContain('metal_chapa_metalness.jpg');
+  });
+
+  it('dois materiais com o mesmo preset compartilham os mesmos índices (sem duplicar o arquivo)', () => {
+    const lista = new ListaDeTexturas();
+    const a = mapasDoMaterial(material({ id: 'a', texture: { preset: 'reboco' } }), lista);
+    const b = mapasDoMaterial(material({ id: 'b', texture: { preset: 'reboco' } }), lista);
+    expect(b).toEqual(a);
+    expect(lista.texturas).toHaveLength(3);
+    expect(new Set(lista.texturas.map((t) => t.caminho)).size).toBe(lista.texturas.length);
+  });
+
+  it('a entrada da lista nasce pendente: sem pixels, com o caminho', () => {
+    const lista = new ListaDeTexturas();
+    mapasDoMaterial(material({ texture: { preset: 'madeira' } }), lista);
+    expect(lista.texturas[0]).toEqual({ caminho: 'madeira_tabua_albedo.jpg', largura: 0, altura: 0, mips: [] });
+  });
+});
+
+describe('exportação: mapas de textura por material de camada', () => {
+  it('o template de alto padrão: reboco, madeira, telha, piso, concreto e metal têm mapas; o vidro não tem', () => {
+    const { snap, cena } = exportar(buildTemplate('house-premium'));
+    try {
+      const texturas = snap.texturas ?? [];
+      const caminhos = texturas.map((t) => t.caminho);
+      // Cada arquivo aparece uma vez na lista.
+      expect(new Set(caminhos).size).toBe(caminhos.length);
+      // Pelo menos um material de cada preset do template aponta para o albedo do arquivo certo.
+      const albedoDe = (base: string) => snap.materials.some((m) => m.mapas?.albedo !== undefined && caminhos[m.mapas.albedo] === `${base}_albedo.jpg`);
+      for (const base of ['reboco_estuque', 'madeira_tabua', 'telha_argila', 'piso_ceramico', 'concreto_parede']) {
+        expect(albedoDe(base), base).toBe(true);
+      }
+      // Reboco: albedo, normal e rugosidade; todo material com preset tem os três.
+      const comMapas = snap.materials.filter((m) => m.mapas !== undefined);
+      expect(comMapas.length).toBeGreaterThan(0);
+      expect(comMapas.every((m) => m.mapas!.albedo !== undefined && m.mapas!.normal !== undefined && m.mapas!.roughness !== undefined)).toBe(true);
+      // Vidro e chão neutro: sem textura.
+      const vidros = snap.materials.filter((m) => m.tipo === 6);
+      expect(vidros.length).toBeGreaterThan(0);
+      expect(vidros.every((m) => m.mapas === undefined)).toBe(true);
+      expect(snap.materials[snap.materials.length - 1]!.mapas).toBeUndefined();
+    } finally {
+      cena.dispose();
+    }
+  });
+
+  it('sem nenhum material com preset (paredes sem preset), o snapshot não tem texturas nem mapas', () => {
+    const { snap, cena } = exportar(paredes(2));
+    try {
+      expect(snap.texturas).toBeUndefined();
+      expect(snap.materials.every((m) => !('mapas' in m))).toBe(true);
     } finally {
       cena.dispose();
     }
