@@ -128,8 +128,8 @@ export const PT_DIALOGS_TYPES = {
   dlt_ramp_sub_one: 'Rampa · usada em {n} rampa',
   dlt_ramp_sub_many: 'Rampa · usada em {n} rampas',
   dlt_ramp_profile_custom: 'Personalizado',
-  dlt_ramp_cost: 'Custo (R$)',
-  dlt_ramp_tt_cost: 'Custo informativo do tipo (R$)',
+  dlt_ramp_cost: 'Custo (R$)', // units-ok: rótulo de moeda no dicionário de tradução
+  dlt_ramp_tt_cost: 'Custo informativo do tipo (R$)', // units-ok: rótulo de moeda no dicionário de tradução
   dlt_ramp_structural_depth: 'Espessura estrutural',
   dlt_ramp_default_width: 'Largura padrão',
   dlt_ramp_min_width: 'Largura mínima',
@@ -503,8 +503,8 @@ export const EN_DIALOGS_TYPES: Record<keyof typeof PT_DIALOGS_TYPES, string> = {
   dlt_ramp_sub_one: 'Ramp · used in {n} ramp',
   dlt_ramp_sub_many: 'Ramp · used in {n} ramps',
   dlt_ramp_profile_custom: 'Custom',
-  dlt_ramp_cost: 'Cost (BRL)',
-  dlt_ramp_tt_cost: 'Informational type cost (BRL)',
+  dlt_ramp_cost: 'Cost (BRL)', // units-ok: rótulo de moeda no dicionário de tradução
+  dlt_ramp_tt_cost: 'Informational type cost (BRL)', // units-ok: rótulo de moeda no dicionário de tradução
   dlt_ramp_structural_depth: 'Structural Thickness',
   dlt_ramp_default_width: 'Default Width',
   dlt_ramp_min_width: 'Minimum Width',

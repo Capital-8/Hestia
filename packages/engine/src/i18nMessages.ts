@@ -531,5 +531,5 @@ export function t(lang: Lang, key: DictKey, args?: Record<string, string | numbe
 export function numLang(value: number, decimals: number, lang: Lang = 'pt'): string {
   // units-ok: formatador de propósito geral do pacote (o separador vem do idioma)
   const text = value.toFixed(decimals);
-  return lang === 'en' ? text : text.replace('.', ',');
+  return lang === 'en' ? text : text.replace('.', ','); // units-ok: separador decimal vem do idioma
 }

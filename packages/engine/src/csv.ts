@@ -14,6 +14,6 @@ export function csvDocument(lines: string[][]): string {
 /** Número decimal com o separador do idioma; não finito vira célula vazia. */
 export const formatDecimal = (v: number, decimals = 2, lang: Lang = 'pt'): string => {
   if (!Number.isFinite(v)) return '';
-  const text = v.toFixed(decimals);
-  return decimalSymbolFor(lang) === ',' ? text.replace('.', ',') : text;
+  const text = v.toFixed(decimals); // units-ok: formatador CSV; o separador vem do idioma
+  return decimalSymbolFor(lang) === ',' ? text.replace('.', ',') : text; // units-ok: formatador CSV; o separador vem do idioma
 };

@@ -138,10 +138,10 @@ export const PT_EDITOR_STATUS = {
   eds_def_scheme_by_category: 'Por categoria',
   eds_def_scheme_by_level: 'Por nível',
   eds_def_scheme_by_area_range: 'Por faixa de área',
-  eds_def_range_upto_5: 'até 5 m²',
-  eds_def_range_5_12: '5 a 12 m²',
-  eds_def_range_12_25: '12 a 25 m²',
-  eds_def_range_above_25: 'acima de 25 m²',
+  eds_def_range_upto_5: 'até 5 m²', // units-ok: rótulo de unidade no dicionário de tradução
+  eds_def_range_5_12: '5 a 12 m²', // units-ok: rótulo de unidade no dicionário de tradução
+  eds_def_range_12_25: '12 a 25 m²', // units-ok: rótulo de unidade no dicionário de tradução
+  eds_def_range_above_25: 'acima de 25 m²', // units-ok: rótulo de unidade no dicionário de tradução
   eds_def_area_legend: 'Legenda de áreas',
   eds_def_area_table: 'Quadro de áreas',
   eds_undo_apply_scheme: 'Aplicar esquema de cores',
@@ -360,10 +360,10 @@ export const EN_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_def_scheme_by_category: 'By Category',
   eds_def_scheme_by_level: 'By Level',
   eds_def_scheme_by_area_range: 'By Area Range',
-  eds_def_range_upto_5: 'up to 5 m²',
-  eds_def_range_5_12: '5 to 12 m²',
-  eds_def_range_12_25: '12 to 25 m²',
-  eds_def_range_above_25: 'above 25 m²',
+  eds_def_range_upto_5: 'up to 5 m²', // units-ok: rótulo de unidade no dicionário de tradução
+  eds_def_range_5_12: '5 to 12 m²', // units-ok: rótulo de unidade no dicionário de tradução
+  eds_def_range_12_25: '12 to 25 m²', // units-ok: rótulo de unidade no dicionário de tradução
+  eds_def_range_above_25: 'above 25 m²', // units-ok: rótulo de unidade no dicionário de tradução
   eds_def_area_legend: 'Area Legend',
   eds_def_area_table: 'Area Schedule',
   eds_undo_apply_scheme: 'Apply Color Scheme',

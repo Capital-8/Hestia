@@ -224,7 +224,7 @@ export const PT_EDITOR_CONTEXT = {
 
   // Fusão de áreas (areaMerge.ts, areaMergePrompt.ts)
   edc_area_room_fallback: 'Ambiente',
-  edc_area_m2: '{area} m²',
+  edc_area_m2: '{area} m²', // units-ok: rótulo de unidade no dicionário de tradução
   edc_area_merge_intro: 'Ao remover esta parede/separador, os ambientes abaixo vão se fundir:',
   edc_area_merge_keep: '• Fica: {room} ({area}).',
   edc_area_merge_remove: '• Sai: {room} ({area}).',
@@ -573,7 +573,7 @@ export const EN_EDITOR_CONTEXT: Record<keyof typeof PT_EDITOR_CONTEXT, string> =
 
   // Area merge
   edc_area_room_fallback: 'Room',
-  edc_area_m2: '{area} m²',
+  edc_area_m2: '{area} m²', // units-ok: rótulo de unidade no dicionário de tradução
   edc_area_merge_intro: 'Removing this wall/separator will merge the rooms below:',
   edc_area_merge_keep: '• Keeps: {room} ({area}).',
   edc_area_merge_remove: '• Removes: {room} ({area}).',

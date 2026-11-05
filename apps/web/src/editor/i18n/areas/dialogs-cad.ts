@@ -179,10 +179,10 @@ export const PT_DIALOGS_CAD = {
   dlc_unit_name_ft: 'Pés',
   dlc_unit_name_in: 'Polegadas',
   dlc_unit_name_ft_in: 'Pés e polegadas',
-  dlc_unit_name_m2: 'm²',
-  dlc_unit_name_cm2: 'cm²',
+  dlc_unit_name_m2: 'm²', // units-ok: rótulo de unidade no dicionário de tradução
+  dlc_unit_name_cm2: 'cm²', // units-ok: rótulo de unidade no dicionário de tradução
   dlc_unit_name_ft2: 'ft²',
-  dlc_unit_name_m3: 'm³',
+  dlc_unit_name_m3: 'm³', // units-ok: rótulo de unidade no dicionário de tradução
   dlc_unit_name_l: 'Litros',
   dlc_unit_name_ft3: 'ft³',
   dlc_unit_name_deg: 'Graus',
@@ -476,10 +476,10 @@ export const EN_DIALOGS_CAD: Record<keyof typeof PT_DIALOGS_CAD, string> = {
   dlc_unit_name_ft: 'Feet',
   dlc_unit_name_in: 'Inches',
   dlc_unit_name_ft_in: 'Feet and inches',
-  dlc_unit_name_m2: 'm²',
-  dlc_unit_name_cm2: 'cm²',
+  dlc_unit_name_m2: 'm²', // units-ok: rótulo de unidade no dicionário de tradução
+  dlc_unit_name_cm2: 'cm²', // units-ok: rótulo de unidade no dicionário de tradução
   dlc_unit_name_ft2: 'ft²',
-  dlc_unit_name_m3: 'm³',
+  dlc_unit_name_m3: 'm³', // units-ok: rótulo de unidade no dicionário de tradução
   dlc_unit_name_l: 'Liters',
   dlc_unit_name_ft3: 'ft³',
   dlc_unit_name_deg: 'Degrees',
