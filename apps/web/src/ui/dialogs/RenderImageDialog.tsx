@@ -1,22 +1,14 @@
 /* eslint-disable max-lines -- o diálogo reúne prévia progressiva, resolução e entrega; dividir depois. */
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { newId, view3dOf, type Project, type SheetView3DCamera } from '@hestia/model';
 import { resolveLevel } from '@hestia/engine';
 import { ModelScene } from '@hestia/render';
 import { useProject } from '../../editor/controller.ts';
 import { entregarArquivo } from '../../editor/entregarArquivo.ts';
-import { canvasAtivo } from '../../editor/render/captureRegistry.ts';
+import { canvasAtivo, comModoApresentacao } from '../../editor/render/captureRegistry.ts';
 import { renderizarImagemRust } from '../../editor/render/rustStillRenderer.ts';
 import { codificarCena, criarClienteWasm, type ClienteRenderWasm } from '../../editor/render/wasmClient.ts';
-import {
-  cancelarJobNativo,
-  criarJobNativo,
-  previewJobNativo,
-  resultadoJobNativo,
-  saudeRenderNativo,
-  statusJobNativo,
-} from '../../editor/render/nativeClient.ts';
-import { renderizarNativo } from '../../editor/render/nativeClient.ts';
+import { renderizarNativo, saudeRenderNativo } from '../../editor/render/nativeClient.ts';
 import { cameraPreviewAtual } from '../../editor/render/previewCamera.ts';
 import { camera3DAtual } from '../../editor/vista3dAoVivo.ts';
 import {
@@ -32,10 +24,25 @@ import {
   type ModoResolucaoImagem,
 } from '../../editor/render/captureView.ts';
 import { saveRender } from '../../editor/renderGallery.ts';
-import { useRenderJob } from '../../editor/renderProgress.ts';
 import { useUi } from '../../editor/state.ts';
 import { NumField } from '../fields.tsx';
 import { Dialog } from './Dialog.tsx';
+import { useRenderSession } from './useRenderSession.ts';
+import { RenderTilesGrade } from './RenderTilesGrade.tsx';
+import { podeBaixar } from './renderSessao.ts';
+import {
+  MENSAGEM_RASCUNHO_SO_3D,
+  MENSAGEM_SERVICO_GPU_INDISPONIVEL,
+  barraProgresso,
+  modoVistaDaCaptura,
+  motivoGpuIndisponivel,
+  nomeArquivoRender,
+  podeClicarRenderizar,
+  podeRascunhoDaVista,
+  rotuloDoBotaoPrincipal,
+  rotuloDoResultado,
+  type QualidadeRender,
+} from './renderDialogoLogica.ts';
 import './renderImage.css';
 
 /** Tamanho inicial do “personalizado”: 2× a vista, sem passar dos limites de lado/pixels. */
@@ -75,6 +82,100 @@ function cenaDoProjeto(p: Project, camera: SheetView3DCamera, aspect: number) {
   }
 }
 
+const MENSAGEM_VISTA_3D_NAO_PRONTA = 'A vista 3D ainda não está pronta para o rascunho. Aguarde o modelo aparecer e tente de novo.';
+
+/**
+ * Roda `desenhar` sobre o canvas da vista ativa. Na vista 3D, a cena roda em modo apresentação (sem
+ * grade, níveis, chão nem realces) e volta ao normal logo depois; sem cena 3D pronta, lança erro.
+ */
+function naVistaDoRascunho(desenhar: () => void, apresentacao: boolean): void {
+  if (!apresentacao) {
+    desenhar();
+    return;
+  }
+  if (!comModoApresentacao(desenhar)) throw new Error(MENSAGEM_VISTA_3D_NAO_PRONTA);
+}
+
+/**
+ * PNG do Rascunho. A cópia do canvas acontece dentro de `naVistaDoRascunho` (síncrona), então sai
+ * com a cena em modo apresentação quando a vista é 3D.
+ */
+function capturarRascunho(dim: DimensoesImagem, apresentacao: boolean): Promise<Blob> {
+  const saida: { promessa?: Promise<Blob> } = {};
+  try {
+    naVistaDoRascunho(() => { saida.promessa = capturarVista(dim); }, apresentacao);
+  } catch (e) {
+    return Promise.reject(e);
+  }
+  return saida.promessa ?? Promise.reject(new Error(MENSAGEM_VISTA_3D_NAO_PRONTA));
+}
+
+/** Resultado do Rascunho/Final, guardado no modal até "Baixar" ou "Renderizar de novo". */
+interface ResultadoLegado {
+  /** Qualidade escolhida quando o render começou (o resultado só aparece com ela selecionada). */
+  modo: 'rascunho' | 'final';
+  /** Qualidade que de fato gerou a imagem (o Final cai para rascunho se o Rust falhar). */
+  saida: 'rascunho' | 'final';
+  blob: Blob;
+  nome: string;
+}
+
+/** Progresso do caminho Rascunho/Final, mostrado no próprio modal (não na barra global). */
+interface ProgressoLegado {
+  titulo: string;
+  rodape: string;
+  /** Nulo = sem progresso real (barra indeterminada). */
+  fracao: number | null;
+  /** Só o render final aborta de verdade; a captura do Rascunho é rápida e não tem cancelamento. */
+  cancelavel: boolean;
+}
+
+/** Bloco de progresso do modal: o mesmo para o GPU nativo e para Rascunho/Final. */
+function BlocoProgresso({
+  titulo,
+  detalhe,
+  fracao,
+  rodape,
+  onCancelar,
+  grade,
+}: {
+  titulo: string;
+  detalhe?: string;
+  fracao: number | null;
+  rodape: string;
+  onCancelar?: () => void;
+  /** Grade de tiles reais do GPU; ausente quando o serviço não reporta tiles. */
+  grade?: ReactNode;
+}): ReactElement {
+  const barra = barraProgresso(fracao);
+  return (
+    <div className="ri-progresso" role="status" aria-live="polite">
+      <div className="ri-progresso-topo">
+        <b>{titulo}</b>
+        {detalhe ? <span className="mono">{detalhe}</span> : null}
+      </div>
+      {grade}
+      {barra.indeterminada ? (
+        <div className="ri-barra indeterminada" aria-label="Preparando">
+          <i />
+        </div>
+      ) : (
+        <div className="ri-barra" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={barra.percentual}>
+          <i style={{ width: `${barra.percentual}%` }} />
+        </div>
+      )}
+      <div className="ri-progresso-rodape">
+        <span>{rodape}</span>
+        {onCancelar ? (
+          <button className="btn small" onClick={onCancelar}>
+            Cancelar
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Diálogo "Renderizar imagem" (T5): mostra a prévia do canvas ativo, deixa escolher o nome e a
  * resolução e salva um PNG. A captura em si fica em `captureView.ts`; aqui só há estado de tela,
@@ -110,6 +211,17 @@ export function RenderImageDialog(): ReactElement {
   const [erro, setErro] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const [previaFalhou, setPreviaFalhou] = useState(false);
+  const [progressoLegado, setProgressoLegado] = useState<ProgressoLegado | null>(null);
+  const [legadoCancelado, setLegadoCancelado] = useState(false);
+  const [resultadoLegado, setResultadoLegado] = useState<ResultadoLegado | null>(null);
+  const controladorLegadoRef = useRef<AbortController | null>(null);
+  // O rascunho só é limpo na vista 3D (cena em modo apresentação); planta, corte e prancha são recusados.
+  const rascunhoPermitido = podeRascunhoDaVista(modoVistaDaCaptura(vista));
+  const apresentacao3d = vista === '3d';
+  const session = useRenderSession();
+  /** Dimensões e nome do último render GPU (usados ao concluir: galeria e "Baixar"). */
+  const alvoSaidaRef = useRef<DimensoesImagem | null>(null);
+  const nomeSaidaRef = useRef<string>('');
   const cameraFinal = camera3DAtual() ?? cameraPreviewAtual();
   // Com uma câmera 3D disponível, abrir já no render final: a prévia é o path tracer de verdade e
   // não depende do buffer do canvas da tela (que pode vir vazio em alguns navegadores).
@@ -158,13 +270,75 @@ export function RenderImageDialog(): ReactElement {
       return null;
     }
   }, [qualidade, cameraFinal, alvo, p]);
-  const podeSalvar = !!base && !!alvo && !problema && !ocupado && (
-    qualidade === 'rascunho'
-      ? !!fonte
-      : qualidade === 'gpu'
-        ? gpuDisponivel === true && !!snapshotFinal
-        : !!cameraFinal
-  );
+  const estadoGpu = session.estado;
+  const progressoGpu = estadoGpu.tipo === 'renderizando' ? estadoGpu : null;
+  const fracaoGpu = session.fracao;
+  // Sem tiles reais (total 0) não há percentual: a barra fica indeterminada, nunca 0% inventado.
+  const progressoIndeterminado = progressoGpu !== null && (fracaoGpu === null || progressoGpu.total === 0);
+  const travada = ocupado || estadoGpu.tipo === 'renderizando';
+  const gpuConcluida = estadoGpu.tipo === 'concluido' && estadoGpu.imagem !== null ? estadoGpu.imagem : null;
+  const mostrarResultadoGpu = qualidade === 'gpu' && estadoGpu.tipo === 'concluido';
+  const podeRenderizarAgora = podeClicarRenderizar({
+    qualidade,
+    estado: estadoGpu,
+    ocupadoLegado: ocupado,
+    alvoValido: !!base && !!alvo && !problema,
+    servicoDisponivel: gpuDisponivel === true,
+    temCamera: !!cameraFinal,
+    temSnapshot: !!snapshotFinal,
+    // Rascunho só vale na vista 3D (ver `podeRascunhoDaVista`); fora dela o botão fica parado com o aviso.
+    temFonte: !!fonte && rascunhoPermitido,
+  });
+  const rotuloPrincipal = rotuloDoBotaoPrincipal(estadoGpu, ocupado);
+
+  // Imagem do render GPU para o modal: a URL vive só enquanto o resultado está na tela.
+  const urlRender = useMemo(() => (gpuConcluida ? URL.createObjectURL(gpuConcluida) : null), [gpuConcluida]);
+  useEffect(() => () => {
+    if (urlRender) URL.revokeObjectURL(urlRender);
+  }, [urlRender]);
+  // Ao concluir, o PNG entra na galeria (o render já foi produzido, com ou sem download).
+  useEffect(() => {
+    if (!gpuConcluida) return;
+    const nome = nomeArquivoRender(new Date());
+    nomeSaidaRef.current = nome;
+    const dims = alvoSaidaRef.current;
+    if (!dims) return;
+    void saveRender(
+      {
+        id: newId('img'),
+        projectName: p.name.trim() || 'projeto',
+        kind: 'image',
+        name: nome.replace(/\.png$/i, ''),
+        createdAt: Date.now(),
+        width: dims.largura,
+        height: dims.altura,
+        mime: 'image/png',
+      },
+      gpuConcluida,
+    ).catch((e: unknown) => console.warn('Imagem: não foi possível registrar o PNG na galeria', e));
+  }, [gpuConcluida, p.name]);
+
+  // Imagem do Rascunho/Final no modal (mesma regra da GPU: a URL vive só enquanto ela está na tela).
+  const urlLegado = useMemo(() => (resultadoLegado ? URL.createObjectURL(resultadoLegado.blob) : null), [resultadoLegado]);
+  useEffect(() => () => {
+    if (urlLegado) URL.revokeObjectURL(urlLegado);
+  }, [urlLegado]);
+  const mostrarResultadoLegado = resultadoLegado !== null && resultadoLegado.modo === qualidade && urlLegado !== null;
+  const mostrarResultadoGpuOuLegado = mostrarResultadoGpu || mostrarResultadoLegado;
+  const urlResultado = mostrarResultadoGpu ? urlRender : mostrarResultadoLegado ? urlLegado : null;
+  const saidaExibida: QualidadeRender | null = mostrarResultadoGpu
+    ? 'gpu'
+    : mostrarResultadoLegado && resultadoLegado
+      ? resultadoLegado.saida
+      : null;
+  const rotuloResultado = saidaExibida ? rotuloDoResultado(saidaExibida, true) : null;
+  const rascunhoRecusado = qualidade === 'rascunho' && !rascunhoPermitido;
+
+  // Fechar o diálogo no meio de um render GPU cancela o job no serviço (não fica órfão).
+  const { cancelar: cancelarSessao } = session;
+  useEffect(() => () => cancelarSessao(), [cancelarSessao]);
+  // O mesmo vale para o Final (Rust/WASM): fechar o modal no meio do render o aborta.
+  useEffect(() => () => controladorLegadoRef.current?.abort(), []);
 
   // Prévia: diminui a captura para caber no diálogo. A prévia usa a mesma rota da imagem final
   // (`desenharCaptura`), então o enquadramento é o da vista ativa.
@@ -178,7 +352,7 @@ export function RenderImageDialog(): ReactElement {
       const largura = Math.max(1, Math.min(640, Math.round(base.largura)));
       const altura = Math.max(1, Math.round((largura * base.altura) / base.largura));
       const hstr = codificarCena(snapshotFinal);
-      void renderizarNativo(hstr, { largura, altura, spp: 1, exposicao })
+      void renderizarNativo(hstr, { largura, altura, exposicao })
         .then(async (blob) => {
           const bitmap = await createImageBitmap(blob);
           if (cancelado) { bitmap.close(); return; }
@@ -242,10 +416,12 @@ export function RenderImageDialog(): ReactElement {
           } catch {
             if (cancelado) return;
             if (passo === passos[0]) {
-              // Se o wasm falhar, a prévia ainda mostra a vista atual (sem fingir que é o final).
-              if (fonte) {
+              // Se o wasm falhar, a prévia mostra o rascunho da vista 3D (sem grade), nunca a planta com helpers.
+              if (fonte && rascunhoPermitido) {
                 const escala = Math.min(1, 640 / base.largura, 360 / base.altura);
-                try { desenharCaptura(canvas, fonte, Math.round(base.largura * escala), Math.round(base.altura * escala)); } catch { /* sem canvas */ }
+                const l = Math.round(base.largura * escala);
+                const a = Math.round(base.altura * escala);
+                try { naVistaDoRascunho(() => desenharCaptura(canvas, fonte, l, a), apresentacao3d); } catch { /* sem canvas */ }
               }
               setPreviaFalhou(true);
             }
@@ -256,17 +432,18 @@ export function RenderImageDialog(): ReactElement {
       return () => { cancelado = true; };
     }
 
-    if (!fonte) return;
+    // Rascunho recusado (planta, corte, prancha): não há prévia; o aviso explica e o botão fica parado.
+    if (!fonte || !rascunhoPermitido) return;
     const escala = Math.min(1, 640 / base.largura, 360 / base.altura);
     const largura = Math.max(1, Math.round(base.largura * escala));
     const altura = Math.max(1, Math.round(base.altura * escala));
     try {
-      desenharCaptura(canvas, fonte, largura, altura);
+      naVistaDoRascunho(() => desenharCaptura(canvas, fonte, largura, altura), apresentacao3d);
       setPreviaFalhou(false);
     } catch {
       setPreviaFalhou(true);
     }
-  }, [fonte, base, qualidade, snapshotFinal, cameraFinal, exposicao, gpuDisponivel]);
+  }, [fonte, base, qualidade, snapshotFinal, cameraFinal, exposicao, gpuDisponivel, rascunhoPermitido, apresentacao3d]);
 
   // Em “largura/altura”, o campo que não foi editado acompanha o outro enquanto a proporção estiver travada.
   const mudarLargura = (v: number): void => {
@@ -290,99 +467,54 @@ export function RenderImageDialog(): ReactElement {
     }));
   };
 
-  const salvar = async (): Promise<void> => {
+  /** GPU nativo: o job roda na sessão (hook); o resultado aparece no modal e só então "Baixar". */
+  const iniciarGpu = (): void => {
+    if (!base || !alvo || problema || !snapshotFinal || !cameraFinal) return;
+    if (gpuDisponivel !== true) {
+      setErro(MENSAGEM_SERVICO_GPU_INDISPONIVEL);
+      return;
+    }
+    let hstr: Uint8Array;
+    try {
+      hstr = codificarCena(snapshotFinal);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não foi possível preparar a cena para a GPU.');
+      return;
+    }
+    setErro('');
+    alvoSaidaRef.current = { ...alvo };
+    void session.iniciar({ hstr, largura: alvo.largura, altura: alvo.altura, exposicao });
+  };
+
+  /** Rascunho e Final (Rust/WASM): ainda fora da sessão; mantêm a captura e a entrega antigas. */
+  const renderizarLegado = async (): Promise<void> => {
     if (!base || !alvo || problema || ocupado) return;
     if (qualidade === 'rascunho' && !fonte) return;
+    if (qualidade === 'rascunho' && !rascunhoPermitido) {
+      setErro(MENSAGEM_RASCUNHO_SO_3D);
+      return;
+    }
     if (qualidade === 'final' && !cameraFinal) {
       setErro('Abra a vista 3D (ou o estúdio de animação) para renderizar a imagem final.');
       return;
     }
-    if (qualidade === 'gpu' && (!cameraFinal || !snapshotFinal || gpuDisponivel !== true)) {
-      setErro('O serviço GPU nativo não está disponível. Inicie o `render-service` e tente de novo.');
-      return;
-    }
     setOcupado(true);
     setErro('');
+    setLegadoCancelado(false);
+    setResultadoLegado(null);
+    let cancelado = false;
+    // A saída pode cair para rascunho se o Final falhar; o título do resultado acompanha isso.
+    let saida: 'rascunho' | 'final' = qualidade === 'final' ? 'final' : 'rascunho';
     try {
-      // Captura na resolução final (v1: up-scale do viewport; o render final Rust entra depois).
       let blob: Blob;
-      if (qualidade === 'gpu' && snapshotFinal) {
-        // Render final profissional: serviço Rust/wgpu local. O job devolve prévias
-        // parciais; a UI acompanha o mesmo arquivo ficando melhor.
-        const hstr = codificarCena(snapshotFinal);
-        const controlador = new AbortController();
-        const jobId = await criarJobNativo(hstr, {
-          largura: alvo.largura,
-          altura: alvo.altura,
-          spp: amostras,
-          exposicao,
-          sinal: controlador.signal,
-        });
-        useRenderJob.getState().iniciar({
-          kind: 'image',
-          phase: 'preparing',
-          frame: 0,
-          total: 100,
-          etaMs: null,
-          message: 'Iniciando o render GPU nativo',
-        });
-        useRenderJob.getState().definirCancelar(() => {
-          controlador.abort();
-          void cancelarJobNativo(jobId);
-        });
-        try {
-          let ultimoPreview = 0;
-          for (;;) {
-            if (controlador.signal.aborted) throw new Error('Render cancelado.');
-            const status = await statusJobNativo(jobId, controlador.signal);
-            if (!status) throw new Error('O serviço de render nativo parou de responder.');
-            if (status.erro) throw new Error(status.erro);
-            useRenderJob.getState().atualizar({
-              phase: status.pronto ? 'saving' : 'rendering',
-              frame: Math.round(status.fracao * 100),
-              total: 100,
-              etaMs: null,
-              message: status.fase || 'Renderizando na GPU',
-            });
-            if (status.pronto) {
-              const resultado = await resultadoJobNativo(jobId, controlador.signal);
-              if (!resultado) throw new Error('O render GPU terminou sem imagem.');
-              blob = resultado;
-              break;
-            }
-            if (Date.now() - ultimoPreview > 250) {
-              ultimoPreview = Date.now();
-              const parcial = await previewJobNativo(jobId, controlador.signal);
-              const canvas = previaRef.current;
-              if (parcial && canvas) {
-                const bitmap = await createImageBitmap(parcial);
-                canvas.width = bitmap.width;
-                canvas.height = bitmap.height;
-                canvas.getContext('2d')?.drawImage(bitmap, 0, 0);
-                bitmap.close();
-              }
-            }
-            await new Promise((resolver) => setTimeout(resolver, 180));
-          }
-        } finally {
-          useRenderJob.getState().definirCancelar(null);
-          useRenderJob.getState().finalizar();
-        }
-      } else if (qualidade === 'final' && cameraFinal) {
+      if (qualidade === 'final' && cameraFinal) {
         // Render final: snapshot da mesma cena 3D + path tracer Rust/WASM.
         const snapshot = snapshotFinal ?? cenaDoProjeto(p, cameraFinal, alvo.largura / alvo.altura);
         clienteFinal.current ??= criarClienteWasm();
         const cliente = await clienteFinal.current;
         const controlador = new AbortController();
-        useRenderJob.getState().iniciar({
-          kind: 'image',
-          phase: 'preparing',
-          frame: 0,
-          total: 100,
-          etaMs: null,
-          message: 'Preparando o render final',
-        });
-        useRenderJob.getState().definirCancelar(() => controlador.abort());
+        controladorLegadoRef.current = controlador;
+        setProgressoLegado({ titulo: 'Renderizando', rodape: 'Preparando o render final', fracao: null, cancelavel: true });
         try {
           const render = await renderizarImagemRust({
             cena: snapshot,
@@ -395,34 +527,36 @@ export function RenderImageDialog(): ReactElement {
             cliente,
             sinal: controlador.signal,
             aoProgredir: (p) => {
-              useRenderJob.getState().atualizar({
-                phase: 'rendering',
-                frame: Math.round(p.fracao * 100),
-                total: 100,
-                etaMs: null,
-                message: 'Renderizando a imagem final',
-              });
+              setProgressoLegado({ titulo: 'Renderizando', rodape: 'Renderizando a imagem final', fracao: p.fracao, cancelavel: true });
             },
           });
           blob = render.png;
         } catch (e) {
-          if (controlador.signal.aborted) throw e;
-          if (fonte) {
-            // O Rust é opcional: se a cena não passar, entrega o rascunho em vez de uma tela preta.
-            blob = await capturarVista({ largura: alvo.largura, altura: alvo.altura });
-            setErro(`O render final falhou (${e instanceof Error ? e.message : 'erro desconhecido'}). Gerei o rascunho da vista.`);
+          if (controlador.signal.aborted) {
+            cancelado = true;
+            throw e;
+          }
+          if (fonte && rascunhoPermitido) {
+            // O Rust é opcional: se a cena não passar, entrega o rascunho da vista 3D (sem grade) em vez de uma tela preta.
+            blob = await capturarRascunho({ largura: alvo.largura, altura: alvo.altura }, apresentacao3d);
+            saida = 'rascunho';
+            setErro(`O render final falhou (${e instanceof Error ? e.message : 'erro desconhecido'}). Mostro o rascunho da vista 3D.`);
           } else {
             throw e;
           }
         } finally {
-          useRenderJob.getState().definirCancelar(null);
-          useRenderJob.getState().finalizar();
+          controladorLegadoRef.current = null;
+          setProgressoLegado(null);
         }
       } else {
-        // Rascunho: amplia o canvas da vista ativa (rápido; sem detalhe novo).
-        blob = await capturarVista({ largura: alvo.largura, altura: alvo.altura });
+        // Rascunho: amplia o canvas da vista 3D em modo apresentação (sem grade, níveis nem chão). Rápido, sem luz nova.
+        setProgressoLegado({ titulo: 'Capturando a vista…', rodape: '', fracao: null, cancelavel: false });
+        try {
+          blob = await capturarRascunho({ largura: alvo.largura, altura: alvo.altura }, apresentacao3d);
+        } finally {
+          setProgressoLegado(null);
+        }
       }
-      const bytes = new Uint8Array(await blob.arrayBuffer());
       const arquivoFinal = nomeArquivoPng(nome);
       const thumb = previaRef.current ? criarMiniaturaDataUrl(previaRef.current, 180) : null;
 
@@ -446,9 +580,29 @@ export function RenderImageDialog(): ReactElement {
         console.warn('Imagem: não foi possível registrar o PNG na galeria', e);
       }
 
-      const entrega = await entregarArquivo({ nome: arquivoFinal, conteudo: bytes });
+      // A imagem fica no modal, com "Baixar" e "Renderizar de novo". Nada é entregue ao navegador aqui.
+      setResultadoLegado({ modo: qualidade === 'final' ? 'final' : 'rascunho', saida, blob, nome: arquivoFinal });
+      useUi.setState({ status: `Imagem ${arquivoFinal} pronta (também na galeria).` });
+    } catch (e) {
+      if (cancelado) {
+        setLegadoCancelado(true);
+        return;
+      }
+      setErro(e instanceof Error ? e.message : 'Não foi possível gerar o PNG da vista ativa.');
+    } finally {
+      setOcupado(false);
+    }
+  };
+  const cancelarLegado = (): void => controladorLegadoRef.current?.abort();
+
+  /** "Baixar" do Rascunho/Final: só entrega o PNG que já está no modal; nunca começa um render. */
+  const baixarLegado = async (): Promise<void> => {
+    if (!resultadoLegado) return;
+    try {
+      const bytes = new Uint8Array(await resultadoLegado.blob.arrayBuffer());
+      const entrega = await entregarArquivo({ nome: resultadoLegado.nome, conteudo: bytes });
       if (entrega === 'falhou') {
-        setErro('O PNG foi gerado e ficou na galeria, mas não foi possível entregá-lo ao navegador.');
+        setErro('Não foi possível entregar o PNG ao navegador. A imagem continua na galeria.');
         useUi.setState({ status: 'Não foi possível entregar o PNG.' });
         return;
       }
@@ -456,19 +610,28 @@ export function RenderImageDialog(): ReactElement {
         status:
           entrega === 'cancelado'
             ? 'Salvamento cancelado. A imagem ficou na galeria.'
-            : `Imagem ${arquivoFinal} salva.`,
+            : `Imagem ${resultadoLegado.nome} salva.`,
       });
-      close();
     } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Não foi possível gerar o PNG da vista ativa.');
-    } finally {
-      setOcupado(false);
+      setErro(e instanceof Error ? e.message : 'Não foi possível baixar o PNG.');
     }
+  };
+
+  /** Ação "Renderizar": GPU pela sessão; Rascunho e Final pelo caminho antigo. */
+  const acaoRenderizar = (): void => {
+    if (!podeRenderizarAgora) return;
+    if (qualidade === 'gpu') iniciarGpu();
+    else void renderizarLegado();
+  };
+  const reiniciarGpu = (): void => {
+    session.reiniciar();
+    iniciarGpu();
   };
 
   const sub = base
     ? `${rotuloDaVista(vista)} · ${base.largura}×${base.altura} px`
     : 'Captura da vista ativa';
+  const gpuIndisponivelMotivo = qualidade === 'gpu' && gpuDisponivel === false ? motivoGpuIndisponivel(false) : null;
 
   return (
     <Dialog
@@ -477,20 +640,44 @@ export function RenderImageDialog(): ReactElement {
       onClose={close}
       size="wide"
       onSubmit={() => {
-        if (podeSalvar) void salvar();
+        if (!mostrarResultadoGpuOuLegado && podeRenderizarAgora) acaoRenderizar();
       }}
       footer={
         <>
-          <button className="btn" onClick={close} disabled={ocupado}>
+          <button className="btn" onClick={close} disabled={travada}>
             Fechar
           </button>
-          <button
-            className="btn primary"
-            disabled={!podeSalvar}
-            onClick={() => void salvar()}
-          >
-            {ocupado ? 'Gerando PNG…' : 'Salvar PNG'}
-          </button>
+          {mostrarResultadoGpuOuLegado ? (
+            <>
+              <button
+                className="btn"
+                disabled={!podeRenderizarAgora}
+                onClick={mostrarResultadoLegado ? () => void renderizarLegado() : reiniciarGpu}
+              >
+                Renderizar de novo
+              </button>
+              {/* Baixar só com a imagem pronta no modal; nunca inicia um render. */}
+              <button
+                className="btn primary"
+                disabled={mostrarResultadoLegado ? false : !podeBaixar(estadoGpu)}
+                onClick={
+                  mostrarResultadoLegado
+                    ? () => void baixarLegado()
+                    : () => session.baixar(nomeSaidaRef.current || nomeArquivoRender(new Date()))
+                }
+              >
+                Baixar
+              </button>
+            </>
+          ) : qualidade === 'gpu' && estadoGpu.tipo === 'erro' ? (
+            <button className="btn primary" disabled={!podeRenderizarAgora} onClick={reiniciarGpu}>
+              Tentar de novo
+            </button>
+          ) : (
+            <button className="btn primary" disabled={!podeRenderizarAgora} onClick={acaoRenderizar}>
+              {rotuloPrincipal}
+            </button>
+          )}
         </>
       }
     >
@@ -520,10 +707,16 @@ export function RenderImageDialog(): ReactElement {
         <div className="ri-grid">
           <div className="ri-previa" style={base ? { aspectRatio: `${base.largura} / ${base.altura}` } : undefined}>
             {base ? (
-              <canvas ref={previaRef} aria-label="Prévia da captura" />
+              <canvas ref={previaRef} aria-label="Prévia da captura" hidden={urlResultado !== null || rascunhoRecusado} />
             ) : (
               <span className="ri-previa-vazio">Sem prévia</span>
             )}
+            {base && rascunhoRecusado && urlResultado === null ? (
+              <span className="ri-previa-vazio">Rascunho indisponível nesta vista</span>
+            ) : null}
+            {urlResultado !== null ? (
+              <img className="ri-resultado" src={urlResultado} alt={rotuloResultado ?? 'Imagem renderizada'} />
+            ) : null}
           </div>
 
           <div className="ri-col">
@@ -534,6 +727,7 @@ export function RenderImageDialog(): ReactElement {
                   type="button"
                   className={`ri-op${qualidade === 'rascunho' ? ' on' : ''}`}
                   aria-pressed={qualidade === 'rascunho'}
+                  disabled={travada}
                   onClick={() => { escolhaManual.current = true; setQualidade('rascunho'); }}
                 >
                   Rascunho
@@ -542,7 +736,7 @@ export function RenderImageDialog(): ReactElement {
                   type="button"
                   className={`ri-op${qualidade === 'final' ? ' on' : ''}`}
                   aria-pressed={qualidade === 'final'}
-                  disabled={!cameraFinal}
+                  disabled={!cameraFinal || travada}
                   title={cameraFinal ? 'Path tracer Rust/WASM no navegador' : 'Abra a vista 3D ou o estúdio de animação para o render final'}
                   onClick={() => { escolhaManual.current = true; setQualidade('final'); }}
                 >
@@ -552,7 +746,7 @@ export function RenderImageDialog(): ReactElement {
                   type="button"
                   className={`ri-op${qualidade === 'gpu' ? ' on' : ''}`}
                   aria-pressed={qualidade === 'gpu'}
-                  disabled={gpuDisponivel !== true || !cameraFinal}
+                  disabled={gpuDisponivel !== true || !cameraFinal || travada}
                   title={gpuDisponivel === true ? 'Render GPU nativo Rust/wgpu com mapa de sombra e PBR' : 'Inicie o render-service local para usar a GPU nativa'}
                   onClick={() => { escolhaManual.current = true; setQualidade('gpu'); }}
                 >
@@ -561,10 +755,10 @@ export function RenderImageDialog(): ReactElement {
               </div>
               <p className="ri-dica">
                 {qualidade === 'gpu'
-                  ? 'Render final na GPU nativa (Rust/wgpu), com prévias parciais no mesmo quadro.'
+                  ? 'Render final na GPU nativa (Rust/wgpu). O progresso aparece aqui, no diálogo.'
                   : qualidade === 'final'
                     ? 'Render final em Rust/WASM no navegador; mais lento que a GPU nativa.'
-                    : 'Rascunho: amplia o desenho da tela, sem recalcular a luz.'}
+                    : 'Rascunho: captura a vista 3D em modo apresentação (sem grade nem níveis), sem recalcular a luz.'}
               </p>
               {qualidade === 'final' ? (
                 <label className="ri-campo">
@@ -675,12 +869,65 @@ export function RenderImageDialog(): ReactElement {
               <p className="ri-dica">
                 {qualidade === 'final'
                   ? 'O render final usa o mesmo path tracer Rust/WASM do estúdio; a prévia refina em etapas.'
-                  : 'A captura rápida amplia o desenho da tela, sem recalcular a luz.'}
+                  : 'A captura rápida copia a vista 3D em modo apresentação, sem recalcular a luz.'}
               </p>
             </section>
           </div>
         </div>
 
+        {rotuloResultado ? (
+          <div className="ri-aviso" role="status">
+            {rotuloResultado}
+          </div>
+        ) : null}
+        {progressoGpu ? (
+          <BlocoProgresso
+            titulo="Renderizando"
+            // Com a grade, a contagem fica sob ela (legenda); sem tiles, a contagem segue no topo.
+            detalhe={progressoGpu.total > 0 && !session.tiles ? `${progressoGpu.concluidos} de ${progressoGpu.total} tiles` : undefined}
+            fracao={progressoIndeterminado ? null : (fracaoGpu ?? 0)}
+            rodape={progressoIndeterminado ? 'Preparando…' : ''}
+            onCancelar={() => session.cancelar()}
+            grade={
+              session.tiles ? (
+                <RenderTilesGrade tiles={session.tiles} concluidosServico={progressoGpu.concluidos} />
+              ) : undefined
+            }
+          />
+        ) : null}
+        {progressoLegado ? (
+          <BlocoProgresso
+            titulo={progressoLegado.titulo}
+            fracao={progressoLegado.fracao}
+            rodape={progressoLegado.rodape}
+            onCancelar={progressoLegado.cancelavel ? cancelarLegado : undefined}
+          />
+        ) : null}
+        {legadoCancelado ? (
+          <div className="ri-aviso" role="status">
+            Render cancelado.
+          </div>
+        ) : null}
+        {gpuIndisponivelMotivo ? (
+          <div className="ri-aviso ri-erro" role="alert">
+            {gpuIndisponivelMotivo}
+          </div>
+        ) : null}
+        {qualidade === 'gpu' && estadoGpu.tipo === 'erro' ? (
+          <div className="ri-aviso ri-erro" role="alert">
+            {estadoGpu.mensagem}
+          </div>
+        ) : null}
+        {qualidade === 'gpu' && estadoGpu.tipo === 'cancelado' ? (
+          <div className="ri-aviso" role="status">
+            Render cancelado.
+          </div>
+        ) : null}
+        {rascunhoRecusado && base ? (
+          <div className="ri-aviso ri-erro" role="alert">
+            {MENSAGEM_RASCUNHO_SO_3D}
+          </div>
+        ) : null}
         {problema ? (
           <div className="ri-aviso ri-erro" role="alert">
             {problema}

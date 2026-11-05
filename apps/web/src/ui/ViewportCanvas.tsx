@@ -16,7 +16,7 @@ import { dimensionFormatStyle, dimensionGeometry, dimensionStyleFor, dimensionTe
 import { sectionDimensionPoints, type SectionDimensionGrip } from '@hestia/render';
 import { clickSelect3d, useUi } from '../editor/state.ts';
 import { consumirCameraPendente, registrarCena3D, registrarOrbita3D } from '../editor/vista3dAoVivo.ts';
-import { limparCanvasAtivo, registrarCanvasAtivo } from '../editor/render/captureRegistry.ts';
+import { limparCanvasAtivo, limparPreparoApresentacao, registrarCanvasAtivo, registrarPreparoApresentacao } from '../editor/render/captureRegistry.ts';
 import { thinLinesOn } from '../editor/graphicsActions.ts';
 import { buildSectionFrame } from './SectionCanvas.tsx';
 import { cursorForView } from './cursor.ts';
@@ -118,10 +118,27 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     registrarOrbita3D(m.orbit);
     registrarCena3D({ scene: m.scene, camera: m.orbit.camera });
     registrarCanvasAtivo(canvasOwner, () => gpuRef.current?.canvas ?? cpuRef.current);
+    // Rascunho da imagem: a mesma cena 3D deste viewport em modo apresentação, desenhada e restaurada
+    // na mesma tarefa (o canvas tem `preserveDrawingBuffer`, então a cópia síncrona lê este quadro).
+    registrarPreparoApresentacao(canvasOwner, (fazer) => {
+      const g = gpuRef.current;
+      if (!g) return false;
+      m.modoApresentacao(true);
+      try {
+        g.gpu.render(m.scene, m.orbit.camera);
+        fazer();
+      } finally {
+        m.modoApresentacao(false);
+        // Sem quadro de volta, o próximo quadro da vista (rAF) refaz o desenho normal.
+        try { g.gpu.render(m.scene, m.orbit.camera); } catch { /* ver comentário acima */ }
+      }
+      return true;
+    });
     return () => {
       registrarOrbita3D(null);
       registrarCena3D(null);
       limparCanvasAtivo(canvasOwner);
+      limparPreparoApresentacao(canvasOwner);
     };
   }, [canvasOwner]);
   const [size, setSize] = useState({ w: 0, h: 0 });

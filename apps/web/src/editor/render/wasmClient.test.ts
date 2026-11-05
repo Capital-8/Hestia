@@ -68,12 +68,12 @@ describe('formato HSTR/HSWK', () => {
   it('serializa a cena com cabeçalho e seções na ordem do Rust', () => {
     const cena = cenaExemplo();
     const bytes = codificarCena(cena);
-    // 32 do cabeçalho + 3 vértices + 3 índices + 1 material + 1 lote + sol + fundo + câmera.
-    expect(bytes.length).toBe(32 + 36 + 12 + 44 + 12 + 12 + 12 + 148);
+    // 32 do cabeçalho + 3 vértices + 3 índices + 1 material (52 bytes na v2) + 1 lote + sol + fundo + câmera.
+    expect(bytes.length).toBe(32 + 36 + 12 + 52 + 12 + 12 + 12 + 148);
     expect(lerTexto(bytes, 0, 4)).toBe('HSTR');
 
     const view = new DataView(bytes.buffer);
-    expect(view.getUint32(4, true)).toBe(1); // versão
+    expect(view.getUint32(4, true)).toBe(2); // versão
     expect(view.getUint32(8, true)).toBe(3); // vértices
     expect(view.getUint32(12, true)).toBe(3); // índices
     expect(view.getUint32(16, true)).toBe(0); // sem normais
@@ -84,9 +84,9 @@ describe('formato HSTR/HSWK', () => {
     expect(view.getFloat32(32, true)).toBeCloseTo(-2, 6);
     expect(view.getUint32(32 + 36, true)).toBe(0); // primeiro índice
     expect(view.getFloat32(32 + 36 + 12, true)).toBeCloseTo(0.6, 6); // cor base
-    expect(view.getUint32(32 + 36 + 12 + 44, true)).toBe(0); // início do lote
-    expect(view.getFloat32(32 + 36 + 12 + 44 + 12, true)).toBe(135); // azimute
-    expect(view.getFloat32(32 + 36 + 12 + 44 + 12 + 12, true)).toBeCloseTo(0.8, 5); // fundo
+    expect(view.getUint32(32 + 36 + 12 + 52, true)).toBe(0); // início do lote
+    expect(view.getFloat32(32 + 36 + 12 + 52 + 12, true)).toBe(135); // azimute
+    expect(view.getFloat32(32 + 36 + 12 + 52 + 12 + 12, true)).toBeCloseTo(0.8, 5); // fundo
     expect(view.getFloat32(bytes.length - 1 * 4, true)).toBeCloseTo(cena.camera.far, 3);
   });
 
@@ -96,7 +96,7 @@ describe('formato HSTR/HSWK', () => {
     const view = new DataView(bytes.buffer);
     expect(view.getUint32(16, true)).toBe(3);
     expect(view.getUint32(28, true)).toBe(1);
-    expect(bytes.length).toBe(32 + 36 + 12 + 36 + 44 + 12 + 12 + 148);
+    expect(bytes.length).toBe(32 + 36 + 12 + 36 + 52 + 12 + 12 + 148);
   });
 
   it('recusa cena fora do contrato antes de tocar no wasm', () => {
@@ -143,6 +143,104 @@ describe('formato HSTR/HSWK', () => {
     expect(fatorExposicao(0)).toBe(1);
     expect(fatorExposicao(1)).toBe(2);
     expect(fatorExposicao(-2)).toBe(0.25);
+  });
+});
+
+/** Fixture commitável gerado pelo encoder (ver o cabeçalho de `cenaTiposV2`): lido também pelo Rust. */
+const FIXTURE_TIPOS_V2 = fileURLToPath(new URL('./fixtures/cena-tipos-v2.hstr', import.meta.url));
+
+/**
+ * Três triângulos, um por material: tipo 1 (reboco) com escala 2.5, tipo 3 (telha) e tipo 6 (vidro).
+ * O fixture `fixtures/cena-tipos-v2.hstr` é exatamente `codificarCena` desta cena; o teste abaixo confere os dois.
+ */
+function cenaTiposV2(): RenderSceneSnapshot {
+  const base = cenaExemplo().materials[0]!;
+  return {
+    version: 1,
+    positions: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0, 0, 3, 0, 0, 2, 1, 0, 4, 0, 0, 5, 0, 0, 4, 1, 0]),
+    indices: new Uint32Array([0, 1, 2, 3, 4, 5, 6, 7, 8]),
+    materials: [
+      { ...base, tipo: 1, escala: 2.5 },
+      { ...base, tipo: 3 },
+      { ...base, tipo: 6 },
+    ],
+    batches: [
+      { indexStart: 0, indexCount: 3, material: 0 },
+      { indexStart: 3, indexCount: 3, material: 1 },
+      { indexStart: 6, indexCount: 3, material: 2 },
+    ],
+    sun: { azimuth: 135, elevation: 45, intensity: 3 },
+    background: [0.8, 0.85, 0.9],
+    camera: quadroDaCamera(CAMERA, 1),
+  };
+}
+
+describe('HSTR v2: tipo e escala por material', () => {
+  it('escreve versão 2 e tamanho exato com 52 bytes por material', () => {
+    const bytes = codificarCena(cenaTiposV2());
+    // 32 + 9 vértices × 12 + 9 índices × 4 + 3 materiais × 52 + 3 lotes × 12 + sol 12 + fundo 12 + câmera 148.
+    expect(bytes.length).toBe(32 + 9 * 12 + 9 * 4 + 3 * 52 + 3 * 12 + 12 + 12 + 148);
+    const view = new DataView(bytes.buffer);
+    expect(view.getUint32(4, true)).toBe(2);
+    expect(view.getUint32(20, true)).toBe(3);
+  });
+
+  it('põe tipo (u32) e escala (f32) logo após os 44 bytes de cada material', () => {
+    const bytes = codificarCena(cenaTiposV2());
+    const view = new DataView(bytes.buffer);
+    const material0 = 32 + 9 * 12 + 9 * 4; // 176: início do primeiro material
+    expect(view.getFloat32(material0, true)).toBeCloseTo(0.6, 6); // cor base (os 44 bytes antigos seguem iguais)
+    expect(view.getUint32(material0 + 44, true)).toBe(1);
+    expect(view.getFloat32(material0 + 48, true)).toBe(2.5);
+    const material2 = material0 + 2 * 52;
+    expect(view.getUint32(material2 + 44, true)).toBe(6);
+    expect(view.getFloat32(material2 + 48, true)).toBe(1);
+    // A seção seguinte (lotes) começa logo após o último material de 52 bytes.
+    expect(view.getUint32(material0 + 3 * 52, true)).toBe(0);
+    expect(view.getUint32(material0 + 3 * 52 + 4, true)).toBe(3);
+  });
+
+  it('limita tipo a inteiro 0..7 e troca escala inválida por 1.0; material sem campos vira liso', () => {
+    const base = cenaExemplo().materials[0]!;
+    const materiais = [
+      { ...base, tipo: 9, escala: 0 },
+      { ...base, tipo: -3, escala: Number.NaN },
+      { ...base, tipo: 2.4, escala: 2.5 },
+      { ...base, tipo: Number.NaN, escala: Number.POSITIVE_INFINITY },
+      { ...base, tipo: 6, escala: -1 },
+      base,
+    ];
+    const cena = {
+      ...cenaExemplo(),
+      materials: materiais,
+      batches: materiais.map((_, i) => ({ indexStart: 0, indexCount: 3, material: i })),
+    };
+    const view = new DataView(codificarCena(cena).buffer);
+    const inicio = 32 + 36 + 12; // primeiro material (um triângulo)
+    const tipos = materiais.map((_, i) => view.getUint32(inicio + i * 52 + 44, true));
+    const escalas = materiais.map((_, i) => view.getFloat32(inicio + i * 52 + 48, true));
+    expect(tipos).toEqual([7, 0, 2, 0, 6, 0]);
+    expect(escalas).toEqual([1, 1, 2.5, 1, 1, 1]);
+  });
+
+  it('o fixture cena-tipos-v2.hstr é o encoder desta cena e tem o layout v2 nos offsets certos', () => {
+    const arquivo = new Uint8Array(readFileSync(FIXTURE_TIPOS_V2));
+    expect(Array.from(arquivo)).toEqual(Array.from(codificarCena(cenaTiposV2())));
+    expect(arquivo.length).toBe(540);
+    expect(lerTexto(arquivo, 0, 4)).toBe('HSTR');
+    const view = new DataView(arquivo.buffer);
+    expect(view.getUint32(4, true)).toBe(2); // versão
+    expect(view.getUint32(8, true)).toBe(9); // vértices
+    expect(view.getUint32(12, true)).toBe(9); // índices
+    expect(view.getUint32(16, true)).toBe(0); // sem normais
+    expect(view.getUint32(20, true)).toBe(3); // materiais
+    expect(view.getUint32(24, true)).toBe(3); // lotes
+    expect(view.getUint32(28, true)).toBe(2); // bit de fundo
+    const material0 = 176;
+    expect(view.getUint32(material0 + 44, true)).toBe(1); // tipo do material 0
+    expect(view.getFloat32(material0 + 48, true)).toBe(2.5); // escala do material 0
+    expect(view.getUint32(material0 + 52 + 44, true)).toBe(3); // tipo do material 1
+    expect(view.getUint32(material0 + 104 + 44, true)).toBe(6); // tipo do material 2
   });
 });
 

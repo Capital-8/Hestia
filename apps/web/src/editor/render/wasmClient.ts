@@ -1,7 +1,7 @@
 ﻿/**
  * Cliente do renderizador Rust/WASM (T8).
  *
- * Layout binário congelado em `crates/render-wasm/src/lib.rs` (cena `HSTR` v1) e em
+ * Layout binário congelado em `crates/render-wasm/src/lib.rs` (cena `HSTR` v2; lê v1 e v2) e em
  * `crates/render-core/src/trabalho.rs` (trabalho `HSWK` v1). Este arquivo é o único do TypeScript
  * que conhece esses bytes e os códigos da ABI (0 ok · 1 cena · 2 trabalho · 3 interno · 4 cancelado).
  *
@@ -14,10 +14,14 @@ import type { RenderMaterial, RenderSceneSnapshot } from '@hestia/render';
 /** Versão do ABI aceita (`VERSAO_ABI` em `crates/render-wasm/src/lib.rs`). */
 export const VERSAO_ABI_RENDER = 1;
 
-const VERSAO_CENA = 1;
+/** Versão escrita da cena: 2 acrescenta tipo procedural e escala a cada material (52 bytes). */
+const VERSAO_CENA = 2;
 const VERSAO_TRABALHO = 1;
 const FORMATO_RGBA8_SRGB = 0;
 const CABECALHO_CENA = 32;
+/** Material na v2: 11 f32 (44 bytes) + tipo u32 + escala f32. */
+const TAMANHO_MATERIAL_CENA = 52;
+const TIPO_MATERIAL_MAXIMO = 7;
 const MAX_VERTICES = 4_000_000;
 const MAX_INDICES = 12_000_000;
 const MAX_MATERIAIS = 100_000;
@@ -116,6 +120,12 @@ const MATERIAL_PADRAO: RenderMaterial = {
 const finito = (valor: number, padrao: number): number => (Number.isFinite(valor) ? valor : padrao);
 const limitar = (valor: number, minimo: number, maximo: number, padrao: number): number =>
   Math.min(maximo, Math.max(minimo, finito(valor, padrao)));
+/** Tipo procedural inteiro em 0..7 (ausente ou inválido = liso, 0). */
+const tipoDoMaterial = (tipo: number | undefined): number =>
+  Math.round(limitar(tipo ?? 0, 0, TIPO_MATERIAL_MAXIMO, 0));
+/** Escala finita e positiva (ausente, zero, negativa ou não finita = 1.0); teto de 1e6 m por repetição. */
+const escalaDoMaterial = (escala: number | undefined): number =>
+  escala !== undefined && Number.isFinite(escala) && escala > 0 ? Math.min(escala, 1_000_000) : 1;
 /** Expoente de exposição em paradas (EV) para o multiplicador do Rust. */
 export function fatorExposicao(paradas: number): number {
   return Math.pow(2, limitar(paradas, -10, 10, 0));
@@ -186,10 +196,11 @@ function validarCena(cena: RenderSceneSnapshot): void {
   }
 }
 /**
- * Serializa `RenderSceneSnapshot` no formato `HSTR` v1.
+ * Serializa `RenderSceneSnapshot` no formato `HSTR` v2 (material de 52 bytes: 11 f32, tipo u32, escala f32).
  *
  * Materiais/sol/fundo são limitados à faixa aceita pelo Rust: o exportador já deveria mandar tudo
- * certo, mas um arredondamento não pode reprovar a cena inteira.
+ * certo, mas um arredondamento não pode reprovar a cena inteira. Tipo fora de 0..7 ou não inteiro
+ * vira o limite/arredondado; escala ausente, não finita ou não positiva vira 1.0.
  */
 export function codificarCena(cena: RenderSceneSnapshot): Uint8Array {
   validarCena(cena);
@@ -201,7 +212,7 @@ export function codificarCena(cena: RenderSceneSnapshot): Uint8Array {
   const nVertices = posicoes.length / 3;
   const nNormais = normais ? nVertices : 0;
   const tamanho = CABECALHO_CENA + posicoes.length * 4 + indices.length * 4 + nNormais * 12
-    + materiais.length * 44 + cena.batches.length * 12 + 12 + (fundo ? 12 : 0) + 148;
+    + materiais.length * TAMANHO_MATERIAL_CENA + cena.batches.length * 12 + 12 + (fundo ? 12 : 0) + 148;
   const escritor = new Escritor(tamanho);
   escritor.magia('HSTR');
   escritor.u32(VERSAO_CENA);
@@ -222,6 +233,8 @@ export function codificarCena(cena: RenderSceneSnapshot): Uint8Array {
     escritor.f32(limitar(material.transmission, 0, 1, 0));
     escritor.f32(limitar(material.ior, 0.1, 10, 1.5));
     for (let i = 0; i < 3; i++) escritor.f32(limitar(material.emissive[i] as number, 0, 100, 0));
+    escritor.u32(tipoDoMaterial(material.tipo));
+    escritor.f32(escalaDoMaterial(material.escala));
   }
   for (const lote of cena.batches) {
     escritor.u32(lote.indexStart);

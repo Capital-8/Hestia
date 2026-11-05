@@ -12,6 +12,10 @@ export interface RenderMaterial {
   transmission: number;
   ior: number;
   emissive: [number, number, number];
+  /** Tipo procedural 0..7 (0 liso, 1 reboco, 2 madeira, 3 telha, 4 piso, 5 metal, 6 vidro, 7 tijolo). Ausente = 0. */
+  tipo?: number;
+  /** Metros por repetição do padrão procedural, finito > 0. Ausente = 1.0. */
+  escala?: number;
 }
 
 export interface RenderBatch {
