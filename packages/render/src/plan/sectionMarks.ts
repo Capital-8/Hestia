@@ -3,6 +3,7 @@ import {
   sectionLabelOf,
   sectionMarkGeometry,
   sectionPoints,
+  sectionSheetNumberOf,
   SECTION_TEXT_MM,
   type Id,
   type Project,
@@ -16,6 +17,8 @@ export interface MarkSpec {
   a: Vec2;
   b: Vec2;
   label?: string;
+  /** Número da prancha onde a vista está publicada; ausente = "-" dentro da bolha. */
+  sheetLabel?: string;
   dashed?: boolean;
   elevation?: boolean;
   /** Aparência configurada na vista; ausente = padrão. */
@@ -42,6 +45,13 @@ export interface MarkLook {
 
 const EMPTY: MarkOps = { fills: [], strokes: [], labels: [] };
 
+const BOLHA_LADOS = 32;
+const circulo = (c: Vec2, r: number): Vec2[] =>
+  Array.from({ length: BOLHA_LADOS }, (_, i) => {
+    const a = (i * 2 * Math.PI) / BOLHA_LADOS;
+    return { x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r };
+  });
+
 /**
  * Linha de corte/elevação em planta: traço-ponto (corte) ou contínua (elevação), com seta curta em cada extremidade
  * apontando para o lado de visão (esquerda de a→b) e o rótulo nas pontas. A geometria nasce em mm de papel
@@ -52,13 +62,14 @@ export function sectionMarkOps(m: MarkSpec, theme: PlanTheme, look?: Partial<Mar
   const scale = look?.scale ?? 100;
   const mPerMm = scale / 1000;
   const label = m.dashed ? undefined : m.label;
-  const g = sectionMarkGeometry(m.a, m.b, m.elevation ? 'elevation' : 'section', label, mPerMm, m.mark, m.dashed);
+  const g = sectionMarkGeometry(m.a, m.b, m.elevation ? 'elevation' : 'section', label, mPerMm, m.mark, m.dashed, m.dashed ? undefined : m.sheetLabel);
   const color = m.dashed ? theme.accent : m.selected ? look?.selectColor ?? theme.select : look?.color ?? theme.ink;
   const espessura: Espessura = look?.espessura ?? { widthPx: m.dashed ? 1.5 : m.elevation ? 1 : 1.2 };
   const fontMm = look?.fontMm ?? SECTION_TEXT_MM;
   const out: MarkOps = { fills: [], strokes: [], labels: [] };
   for (const [a, b] of g.segments) out.strokes.push({ pts: [a, b], closed: false, ...espessura, color, alpha: m.dashed ? 0.95 : 1 });
-  for (const ring of g.arrows) out.fills.push({ polygons: [[ring]], color, alpha: 1 });
+  for (const ring of g.flags) out.fills.push({ polygons: [[ring]], color, alpha: 1 });
+  for (const bub of g.bubbles) out.strokes.push({ pts: circulo(bub.at, bub.r), closed: true, ...espessura, color, alpha: m.dashed ? 0.95 : 1 });
   for (const l of g.labels) out.labels.push({ at: l.at, text: l.text, papel: { escala: scale, fontMm }, rotation: l.rotation, center: true, tone: m.elevation ? 'info' : 'accent' });
   return out;
 }
@@ -68,7 +79,7 @@ export function sectionMarkOps(m: MarkSpec, theme: PlanTheme, look?: Partial<Mar
  * cor e espessura; a vista selecionada sai na cor de seleção.
  */
 export function sectionMarksOf(
-  p: Pick<Project, 'views' | 'elements'>,
+  p: Pick<Project, 'views' | 'elements' | 'sheets'>,
   theme: PlanTheme,
   paint: PlanPaint,
   scale: number,
@@ -80,7 +91,7 @@ export function sectionMarksOf(
     if (view.mark?.visible === false) continue;
     const pts = sectionPoints(p, view);
     const m = sectionMarkOps(
-      { a: pts.a, b: pts.b, label: sectionLabelOf(view), elevation: view.kind === 'elevation', mark: view.mark, selected: selection.includes(view.id) },
+      { a: pts.a, b: pts.b, label: sectionLabelOf(view), sheetLabel: sectionSheetNumberOf(p, view.id), elevation: view.kind === 'elevation', mark: view.mark, selected: selection.includes(view.id) },
       theme,
       {
         color: paint.color ?? theme.ink,
