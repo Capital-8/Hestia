@@ -87,7 +87,7 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
   // A planta de área usa as MESMAS sobreposições da planta de piso. Ela bloqueia as ferramentas de modelo
   // (`AREA_PLAN_TOOLS`), mas o `select` ainda move o elemento selecionado; por isso mantém destaque, alças e fantasmas
   // iguais aos do piso. Se o select virar somente leitura, suprimir as alças de modelo aqui.
-  const base = { project: p, levelId, viewport: v, theme, dark, showGrid: s.showGrid, thinLines: s.thinLines, showRoofProjection: s.showRoofProjection, roofPlanMode: rp, areaPlan: s.areaPlan, tagGhost: s.tagGhost, hidden: s.hidden, revealed: s.revealed, renderCameraSelecionada: s.renderCameraSelecionada ?? null };
+  const base = { project: p, levelId, viewport: v, theme, dark, showGrid: s.showGrid, thinLines: s.thinLines, showRoofProjection: s.showRoofProjection, roofPlanMode: rp, areaPlan: s.areaPlan, tagGhost: s.tagGhost, hidden: s.hidden, revealed: s.revealed, ...(s.renderCameraSelecionada != null ? { renderCameraSelecionada: s.renderCameraSelecionada } : {}) };
   const visKey = s.hidden?.size || s.revealed?.size ? `${[...(s.hidden ?? [])].sort().join(',')}|${[...(s.revealed ?? [])].sort().join(',')}` : '';
   // Uma resolução por atualização, mesmo com as camadas de sobreposição sendo refeitas na mesma passagem.
   let resolvida: ResolvedLevel | null = null;
@@ -102,7 +102,8 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
     geometryKey: `${s.version}|${levelId}|${modo}|${dark}|${s.showUnderlay}|${s.underlayLevel ?? ''}|${s.showRoofProjection}|${s.sketch ? 'dim' : ''}|${geoSel.join(',')}|${s.tagGhost?.roomId ?? ''}|${areaKey}|${visKey}`,
     // Três chaves de sobreposição: a seleção, o alvo do cursor e a camada viva (prévia, guias e captura). Cursor e
     // pré-visualização não refazem os destaques da seleção, e o hover não refaz a geometria do nível.
-    overlayKey: `${s.version}|${levelId}|${modo}|${dark}|${s.selection.join(',')}|${areaKey}|${visKey}|${s.renderCameraSelecionada ?? ''}`,
+    // A câmera de render selecionada só entra na chave quando há uma: sem câmera, a chave é a de antes da H13.
+    overlayKey: `${s.version}|${levelId}|${modo}|${dark}|${s.selection.join(',')}|${areaKey}|${visKey}${s.renderCameraSelecionada != null ? `|${s.renderCameraSelecionada}` : ''}`,
     hoverKey: `${s.version}|${levelId}|${modo}|${dark}|${s.selection.join(',')}|${s.hover ?? ''}|${s.aviso ?? ''}|${areaKey}|${visKey}`,
     liveKey: `${JSON.stringify(s.preview)}|${JSON.stringify(s.inference)}|${sketchKey(s.sketch, v.zoom)}|${JSON.stringify(s.tagGhost ?? null)}|${areaKey}`,
     // Só a geometria lê o nível de baixo: as referências são resolvidas apenas quando ela é refeita.
