@@ -24,6 +24,7 @@ use crate::a3c::{resolver_nivel, Inclinacao as InclinacaoDaFaixa, NivelResolvido
 use crate::a3d::{aplicar_perfis, perfis_por_parede};
 use crate::b1::calcular;
 use crate::cena::Cena;
+use crate::geo2d::arredonda_js;
 use crate::consultas::Saida;
 use crate::esquema::{ENTRADA, NIVEL_TODOS};
 use crate::ops::{diferenca_com_escala, uniao_com_escala, ESCALA_FINA};
@@ -166,10 +167,12 @@ pub fn resolver_juncao(pecas: &[PecaPlana]) -> Result<Vec<Vec<Prisma>>, u32> {
             saida.push(vec![Prisma { poly: t.poly.clone(), z0: t.z0, z1: t.z1 }]);
             continue;
         }
-        let mut cortes: Vec<f64> = vec![t.z0, t.z1];
+        // Mesma grade de EPS_Z das alturas de parede (a3c.rs): alturas quase iguais não criam fatias minúsculas.
+        let grade = |z: f64| arredonda_js(z / Z_EPS) * Z_EPS;
+        let mut cortes: Vec<f64> = vec![grade(t.z0), grade(t.z1)];
         for w in &vencedoras {
-            cortes.push(w.z0);
-            cortes.push(w.z1);
+            cortes.push(grade(w.z0));
+            cortes.push(grade(w.z1));
         }
         // `new Set(cortes.filter(...).map(clamp)).sort`: duplicatas exatas saem; a ordem é crescente.
         let mut limites: Vec<f64> = cortes.into_iter().filter(|&z| z >= t.z0 - Z_EPS && z <= t.z1 + Z_EPS).map(|z| t.z1.min(t.z0.max(z))).collect();
