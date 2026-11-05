@@ -3,7 +3,7 @@ import { formatQuantity, type Quantity, type ResolvedUnits } from '@hestia/model
 import { buildWallSchedule, scheduleToCsv, sumWallRows, type WallScheduleRow } from '@hestia/engine';
 import { useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
-import { cmpTexto, resolveText, t as translate, useI18n, I18N, type Lang, type TextLike } from '../../editor/i18n.ts';
+import { cmpTexto, resolveText, t as translate, useI18n, dictOf, I18N, type Lang, type TextLike } from '../../editor/i18n.ts';
 import { saveText } from '../../editor/saveText.ts';
 import { Icon } from '../Icon.tsx';
 import { Dialog } from './Dialog.tsx';
@@ -56,7 +56,7 @@ const cellValue = (r: WallScheduleRow, c: Col, units: ResolvedUnits): ReactNode 
 export function WallScheduleDialog(): ReactElement {
   const p = useProject();
   const lang = useI18n((s) => s.lang);
-  const t = I18N[lang];
+  const t = dictOf(lang);
   const units = useUnits();
   const schedule = useMemo(() => buildWallSchedule(p), [p]);
   const [levelId, setLevelId] = useState('');

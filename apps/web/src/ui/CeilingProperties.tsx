@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { ceilingArea, ceilingTypeThickness, FUNCTION_LABEL, type Ceiling, type Id, type Project } from '@hestia/model';
+import { ceilingArea, ceilingTypeThickness, functionLabels, type Ceiling, type Id, type Project } from '@hestia/model';
 import { ceilingOutline } from '@hestia/engine';
 import { ringPerimeter } from '@hestia/tools';
 import { editor, useProject } from '../editor/controller.ts';
@@ -32,7 +32,8 @@ function roomLabel(p: Project, c: Ceiling): string {
 
 /** Propriedades de um ou mais forros selecionados (tipo, cota do topo, ambiente, construção, dimensões e marca). */
 export function CeilingProperties({ ceilings }: { ceilings: Ceiling[] }): ReactElement {
-  const { t } = useT();
+  const { t, lang } = useT();
+  const fnLabels = functionLabels(lang);
   const fmt = useFormat();
   const p = useProject();
   const ids = ceilings.map((c) => c.id);
@@ -73,7 +74,7 @@ export function CeilingProperties({ ceilings }: { ceilings: Ceiling[] }): ReactE
             <Row label={t('prd_fld_total_thickness')} readOnly fromType><span className="val">{fmt('smallLength', ceilingTypeThickness(type))}</span></Row>
             {type.layers.map((l, i) => (
               <div className="prow ro" key={i}>
-                <span className="lbl" title={FUNCTION_LABEL[l.function]}>{FUNCTION_LABEL[l.function]}</span>
+                <span className="lbl" title={fnLabels[l.function]}>{fnLabels[l.function]}</span>
                 <span className="val soft" title={p.materials[l.materialId]?.name}>{fmt('smallLength', l.thickness)}</span>
               </div>
             ))}

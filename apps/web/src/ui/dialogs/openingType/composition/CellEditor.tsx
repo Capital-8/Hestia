@@ -87,7 +87,7 @@ export function CellEditor({ d, onChange, cellId }: Props): ReactElement | null 
 
 /** Folha: tipo de abertura (família) e espelhamento da dobradiça. As demais opções de folha ficam no painel Folha do tipo. */
 function LeafRows({ d, onChange, cellId, content }: { d: OpeningType; onChange: (next: OpeningType) => void; cellId: string; content: LeafContent }): ReactElement {
-  const { t } = useT();
+  const { t, lang } = useT();
   return (
     <>
       <div className="field-row">
@@ -98,7 +98,7 @@ function LeafRows({ d, onChange, cellId, content }: { d: OpeningType; onChange: 
           value={content.family}
           onChange={(e) => onChange(defineConteudo(d, cellId, comFamilia(content, e.target.value as OpeningFamilyId)))}
         >
-          {familiasDoTipo(d.kind).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+          {familiasDoTipo(d.kind, lang).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
         </select>
       </div>
       <label className="check" htmlFor="cel-espelho">

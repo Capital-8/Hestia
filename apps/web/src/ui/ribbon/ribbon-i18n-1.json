@@ -1,0 +1,682 @@
+[
+  {
+    "pt": "Selecione elementos primeiro.",
+    "es": "Seleccione elementos primero.",
+    "de": "Wählen Sie zuerst Elemente aus.",
+    "fr": "Sélectionnez d'abord des éléments.",
+    "it": "Seleziona prima gli elementi.",
+    "pl": "Najpierw wybierz elementy."
+  },
+  {
+    "pt": "Cotas automáticas",
+    "es": "Cotas automáticas",
+    "de": "Automatische Bemaßung",
+    "fr": "Cotes automatiques",
+    "it": "Quote automatiche",
+    "pl": "Wymiary automatyczne"
+  },
+  {
+    "pt": "Cotas automáticas do nível ativo: escolha o que cotar, por onde medir e em quais lados.",
+    "es": "Cotas automáticas del nivel activo: elija qué acotar, desde dónde medir y en qué lados.",
+    "de": "Automatische Bemaßung der aktiven Ebene: Wählen Sie, was bemaßt wird, woran gemessen wird und auf welchen Seiten.",
+    "fr": "Cotes automatiques du niveau actif : choisissez quoi coter, depuis où mesurer et sur quels côtés.",
+    "it": "Quote automatiche del livello attivo: scegli cosa quotare, da dove misurare e su quali lati.",
+    "pl": "Wymiary automatyczne aktywnego poziomu: wybierz, co wymiarować, od czego mierzyć i po których stronach."
+  },
+  {
+    "pt": "Famílias de cotas",
+    "es": "Tipos de cotas",
+    "de": "Bemaßungstypen",
+    "fr": "Types de cotes",
+    "it": "Tipi di quota",
+    "pl": "Typy wymiarów"
+  },
+  {
+    "pt": "Aparência nomeada das cotas (marcador, texto, leitura e formato); a família padrão é a da cota nova.",
+    "es": "Aspecto con nombre de las cotas (marcador, texto, convención de lectura y formato); el tipo predeterminado es el de la cota nueva.",
+    "de": "Benannte Darstellung der Bemaßung (Markierung, Text, Leserichtung und Format); der Standardtyp gilt für neue Bemaßungen.",
+    "fr": "Aspect nommé des cotes (repère, texte, sens de lecture et format) ; le type par défaut est celui des nouvelles cotes.",
+    "it": "Aspetto con nome delle quote (contrassegno, testo, convenzione di lettura e formato); il tipo predefinito è quello delle nuove quote.",
+    "pl": "Nazwany wygląd wymiarów (znacznik, tekst, kierunek odczytu i format); typ domyślny dotyczy nowych wymiarów."
+  },
+  {
+    "pt": "Propriedades de tipo",
+    "es": "Propiedades de tipo",
+    "de": "Typeneigenschaften",
+    "fr": "Propriétés du type",
+    "it": "Proprietà del tipo",
+    "pl": "Właściwości typu"
+  },
+  {
+    "pt": "Abre o tipo do elemento selecionado (ou o que a ferramenta ativa vai criar).",
+    "es": "Abre el tipo del elemento seleccionado (o el que creará la herramienta activa).",
+    "de": "Öffnet den Typ des ausgewählten Elements (oder den, den das aktive Werkzeug erstellt).",
+    "fr": "Ouvre le type de l'élément sélectionné (ou celui que créera l'outil actif).",
+    "it": "Apre il tipo dell'elemento selezionato (o quello che creerà lo strumento attivo).",
+    "pl": "Otwiera typ wybranego elementu (lub ten, który utworzy aktywne narzędzie)."
+  },
+  {
+    "pt": "Selecione um elemento com tipo, ou ative uma ferramenta de criação.",
+    "es": "Seleccione un elemento con tipo o active una herramienta de creación.",
+    "de": "Wählen Sie ein Element mit Typ aus oder aktivieren Sie ein Erstellungswerkzeug.",
+    "fr": "Sélectionnez un élément avec un type ou activez un outil de création.",
+    "it": "Seleziona un elemento con un tipo o attiva uno strumento di creazione.",
+    "pl": "Wybierz element z typem lub aktywuj narzędzie tworzenia."
+  },
+  {
+    "pt": "Propriedades",
+    "es": "Propiedades",
+    "de": "Eigenschaften",
+    "fr": "Propriétés",
+    "it": "Proprietà",
+    "pl": "Właściwości"
+  },
+  {
+    "pt": "Mostra ou oculta a paleta de propriedades.",
+    "es": "Muestra u oculta la paleta de propiedades.",
+    "de": "Blendet die Eigenschaftenpalette ein oder aus.",
+    "fr": "Affiche ou masque la palette Propriétés.",
+    "it": "Mostra o nasconde la tavolozza Proprietà.",
+    "pl": "Pokazuje lub ukrywa paletę właściwości."
+  },
+  {
+    "pt": "Navegador de projeto",
+    "es": "Navegador de proyectos",
+    "de": "Projektbrowser",
+    "fr": "Navigateur de projet",
+    "it": "Browser di progetto",
+    "pl": "Przeglądarka projektu"
+  },
+  {
+    "pt": "Mostra ou oculta o navegador de projeto.",
+    "es": "Muestra u oculta el navegador de proyectos.",
+    "de": "Blendet den Projektbrowser ein oder aus.",
+    "fr": "Affiche ou masque le Navigateur de projet.",
+    "it": "Mostra o nasconde il Browser di progetto.",
+    "pl": "Pokazuje lub ukrywa przeglądarkę projektu."
+  },
+  {
+    "pt": "Propriedades à direita",
+    "es": "Propiedades a la derecha",
+    "de": "Eigenschaften rechts",
+    "fr": "Propriétés à droite",
+    "it": "Proprietà a destra",
+    "pl": "Właściwości po prawej"
+  },
+  {
+    "pt": "Alterna o lado das propriedades entre a esquerda (padrão do Revit) e a direita.",
+    "es": "Alterna el lado de las propiedades entre la izquierda (valor predeterminado de Revit) y la derecha.",
+    "de": "Wechselt die Eigenschaften zwischen links (Revit-Standard) und rechts.",
+    "fr": "Bascule les propriétés entre la gauche (valeur par défaut de Revit) et la droite.",
+    "it": "Alterna il lato delle proprietà tra sinistra (predefinito di Revit) e destra.",
+    "pl": "Przełącza położenie właściwości między lewą (domyślnie w Revit) a prawą stroną."
+  },
+  {
+    "pt": "Etiquetar todos",
+    "es": "Etiquetar todo",
+    "de": "Alle beschriften",
+    "fr": "Étiqueter tout",
+    "it": "Etichetta tutto",
+    "pl": "Oznacz wszystko"
+  },
+  {
+    "pt": "Etiqueta todos os elementos sem etiqueta desta vista.",
+    "es": "Etiqueta todos los elementos sin etiquetar de esta vista.",
+    "de": "Beschriftet alle noch nicht beschrifteten Elemente in dieser Ansicht.",
+    "fr": "Étiquette tous les éléments non étiquetés de cette vue.",
+    "it": "Etichetta tutti gli elementi non etichettati di questa vista.",
+    "pl": "Oznacza wszystkie nieoznaczone elementy w tym widoku."
+  },
+  {
+    "pt": "Códigos de parede",
+    "es": "Códigos de pared",
+    "de": "Wandcodes",
+    "fr": "Codes de mur",
+    "it": "Codici parete",
+    "pl": "Kody ścian"
+  },
+  {
+    "pt": "Mostra ou oculta as etiquetas de elementos na vista.",
+    "es": "Muestra u oculta las etiquetas de elementos en la vista.",
+    "de": "Blendet die Elementbeschriftungen in der Ansicht ein oder aus.",
+    "fr": "Affiche ou masque les étiquettes d'éléments dans la vue.",
+    "it": "Mostra o nasconde le etichette degli elementi nella vista.",
+    "pl": "Pokazuje lub ukrywa etykiety elementów w widoku."
+  },
+  {
+    "pt": "Navegador à direita",
+    "es": "Navegador a la derecha",
+    "de": "Projektbrowser rechts",
+    "fr": "Navigateur à droite",
+    "it": "Browser a destra",
+    "pl": "Przeglądarka po prawej"
+  },
+  {
+    "pt": "Alterna o lado do navegador de projeto entre a esquerda (padrão do Revit) e a direita.",
+    "es": "Alterna el lado del navegador de proyectos entre la izquierda (valor predeterminado de Revit) y la derecha.",
+    "de": "Wechselt den Projektbrowser zwischen links (Revit-Standard) und rechts.",
+    "fr": "Bascule le navigateur de projet entre la gauche (valeur par défaut de Revit) et la droite.",
+    "it": "Alterna il lato del browser di progetto tra sinistra (predefinito di Revit) e destra.",
+    "pl": "Przełącza położenie przeglądarki projektu między lewą (domyślnie w Revit) a prawą stroną."
+  },
+  {
+    "pt": "Restaurar disposição dos painéis",
+    "es": "Restablecer disposición de paneles",
+    "de": "Bereichsanordnung zurücksetzen",
+    "fr": "Réinitialiser la disposition des panneaux",
+    "it": "Ripristina disposizione dei riquadri",
+    "pl": "Przywróć układ paneli"
+  },
+  {
+    "pt": "Volta Propriedades e Navegador ao padrão: à esquerda, com as propriedades em cima.",
+    "es": "Devuelve Propiedades y Navegador al valor predeterminado: a la izquierda, con las propiedades arriba.",
+    "de": "Setzt Eigenschaften und Projektbrowser auf den Standard zurück: links, mit den Eigenschaften oben.",
+    "fr": "Rétablit Propriétés et Navigateur par défaut : à gauche, avec les propriétés en haut.",
+    "it": "Riporta Proprietà e Browser alla configurazione predefinita: a sinistra, con le proprietà in alto.",
+    "pl": "Przywraca domyślne położenie Właściwości i Przeglądarki: po lewej, z właściwościami u góry."
+  },
+  {
+    "pt": "Mesmo tipo",
+    "es": "Mismo tipo",
+    "de": "Gleicher Typ",
+    "fr": "Même type",
+    "it": "Stesso tipo",
+    "pl": "Ten sam typ"
+  },
+  {
+    "pt": "Seleciona todas as instâncias do tipo do elemento selecionado.",
+    "es": "Selecciona todas las instancias del tipo del elemento seleccionado.",
+    "de": "Wählt alle Instanzen des Typs des ausgewählten Elements aus.",
+    "fr": "Sélectionne toutes les occurrences du type de l'élément sélectionné.",
+    "it": "Seleziona tutte le istanze del tipo dell'elemento selezionato.",
+    "pl": "Zaznacza wszystkie wystąpienia typu wybranego elementu."
+  },
+  {
+    "pt": "Mesmo nome",
+    "es": "Mismo nombre",
+    "de": "Gleicher Name",
+    "fr": "Même nom",
+    "it": "Stesso nome",
+    "pl": "Ta sama nazwa"
+  },
+  {
+    "pt": "Seleciona todos os ambientes do nível com o mesmo nome (hoje só ambientes).",
+    "es": "Selecciona todos los ambientes del nivel con el mismo nombre (por ahora, solo ambientes).",
+    "de": "Wählt alle Räume der Ebene mit demselben Namen aus (derzeit nur Räume).",
+    "fr": "Sélectionne toutes les pièces du niveau portant le même nom (pour l'instant, uniquement les pièces).",
+    "it": "Seleziona tutti gli ambienti del livello con lo stesso nome (per ora solo ambienti).",
+    "pl": "Zaznacza wszystkie pomieszczenia na poziomie o tej samej nazwie (na razie tylko pomieszczenia)."
+  },
+  {
+    "pt": "Selecione um ambiente primeiro.",
+    "es": "Seleccione un ambiente primero.",
+    "de": "Wählen Sie zuerst einen Raum aus.",
+    "fr": "Sélectionnez d'abord une pièce.",
+    "it": "Seleziona prima un ambiente.",
+    "pl": "Najpierw wybierz pomieszczenie."
+  },
+  {
+    "pt": "Criar semelhante",
+    "es": "Crear similar",
+    "de": "Ähnliches erstellen",
+    "fr": "Créer similaire",
+    "it": "Crea simile",
+    "pl": "Utwórz podobny"
+  },
+  {
+    "pt": "Ativa a ferramenta do elemento selecionado, já com o tipo dele.",
+    "es": "Activa la herramienta del elemento seleccionado, ya con su tipo.",
+    "de": "Startet das Werkzeug des ausgewählten Elements mit dessen Typ.",
+    "fr": "Active l'outil de l'élément sélectionné, avec son type.",
+    "it": "Attiva lo strumento dell'elemento selezionato, già con il suo tipo.",
+    "pl": "Uruchamia narzędzie wybranego elementu wraz z jego typem."
+  },
+  {
+    "pt": "Selecione um elemento de um só tipo (parede, porta, janela, piso, laje, forro ou telhado).",
+    "es": "Seleccione un elemento de un solo tipo (pared, puerta, ventana, suelo, losa, techo o tejado).",
+    "de": "Wählen Sie ein Element eines einzigen Typs aus (Wand, Tür, Fenster, Boden, Decke, Unterdecke oder Dach).",
+    "fr": "Sélectionnez un élément d'un seul type (mur, porte, fenêtre, sol, dalle, plafond ou toit).",
+    "it": "Seleziona un elemento di un solo tipo (parete, porta, finestra, pavimentazione, soletta, controsoffitto o tetto).",
+    "pl": "Wybierz element jednego typu (ściana, drzwi, okno, posadzka, strop, sufit podwieszany lub dach)."
+  },
+  {
+    "pt": "Nível…",
+    "es": "Nivel…",
+    "de": "Ebene…",
+    "fr": "Niveau…",
+    "it": "Livello…",
+    "pl": "Poziom…"
+  },
+  {
+    "pt": "Move a seleção para outro nível.",
+    "es": "Mueve la selección a otro nivel.",
+    "de": "Verschiebt die Auswahl auf eine andere Ebene.",
+    "fr": "Déplace la sélection vers un autre niveau.",
+    "it": "Sposta la selezione su un altro livello.",
+    "pl": "Przenosi zaznaczenie na inny poziom."
+  },
+  {
+    "pt": "Editar perímetro",
+    "es": "Editar perímetro",
+    "de": "Umfang bearbeiten",
+    "fr": "Modifier le périmètre",
+    "it": "Modifica perimetro",
+    "pl": "Edytuj obwód"
+  },
+  {
+    "pt": "Reabre o contorno do elemento selecionado na planta, para ajustar linhas, inclinação e balanço.",
+    "es": "Reabre el contorno del elemento seleccionado en la planta para ajustar líneas, inclinación y voladizo.",
+    "de": "Öffnet die Kontur des ausgewählten Elements im Grundriss erneut, um Linien, Neigung und Überstand anzupassen.",
+    "fr": "Rouvre le contour de l'élément sélectionné sur le plan pour ajuster les lignes, la pente et le porte-à-faux.",
+    "it": "Riapre il contorno dell'elemento selezionato nella pianta per regolare linee, pendenza e sbalzo.",
+    "pl": "Ponownie otwiera obrys wybranego elementu na rzucie, aby dostosować linie, nachylenie i wysięg."
+  },
+  {
+    "pt": "Selecione um telhado, piso, laje ou forro",
+    "es": "Seleccione un tejado, suelo, losa o techo",
+    "de": "Wählen Sie ein Dach, einen Boden, eine Decke oder eine Unterdecke aus",
+    "fr": "Sélectionnez un toit, un sol, une dalle ou un plafond",
+    "it": "Seleziona un tetto, una pavimentazione, una soletta o un controsoffitto",
+    "pl": "Wybierz dach, posadzkę, strop lub sufit podwieszany"
+  },
+  {
+    "pt": "Copiar",
+    "es": "Copiar",
+    "de": "Kopieren",
+    "fr": "Copier",
+    "it": "Copia",
+    "pl": "Kopiuj"
+  },
+  {
+    "pt": "Copia a seleção; Ctrl+V cola seguindo o cursor.",
+    "es": "Copia la selección; Ctrl+V pega siguiendo el cursor.",
+    "de": "Kopiert die Auswahl; Ctrl+V fügt am Cursor ein.",
+    "fr": "Copie la sélection ; Ctrl+V colle en suivant le curseur.",
+    "it": "Copia la selezione; Ctrl+V incolla seguendo il cursore.",
+    "pl": "Kopiuje zaznaczenie; Ctrl+V wkleja zgodnie z kursorem."
+  },
+  {
+    "pt": "Recortar",
+    "es": "Cortar",
+    "de": "Ausschneiden",
+    "fr": "Couper",
+    "it": "Taglia",
+    "pl": "Wytnij"
+  },
+  {
+    "pt": "Copia e apaga a seleção; Ctrl+V cola seguindo o cursor.",
+    "es": "Copia y elimina la selección; Ctrl+V pega siguiendo el cursor.",
+    "de": "Kopiert und löscht die Auswahl; Ctrl+V fügt am Cursor ein.",
+    "fr": "Copie et supprime la sélection ; Ctrl+V colle en suivant le curseur.",
+    "it": "Copia ed elimina la selezione; Ctrl+V incolla seguendo il cursore.",
+    "pl": "Kopiuje i usuwa zaznaczenie; Ctrl+V wkleja zgodnie z kursorem."
+  },
+  {
+    "pt": "Colar",
+    "es": "Pegar",
+    "de": "Einfügen",
+    "fr": "Coller",
+    "it": "Incolla",
+    "pl": "Wklej"
+  },
+  {
+    "pt": "Cola o copiado seguindo o cursor; clique para posicionar.",
+    "es": "Pega lo copiado siguiendo el cursor; haga clic para colocarlo.",
+    "de": "Fügt das Kopierte am Cursor ein; klicken Sie zum Platzieren.",
+    "fr": "Colle le contenu copié en suivant le curseur ; cliquez pour le placer.",
+    "it": "Incolla il contenuto copiato seguendo il cursore; fai clic per posizionarlo.",
+    "pl": "Wkleja skopiowany element zgodnie z kursorem; kliknij, aby go umieścić."
+  },
+  {
+    "pt": "Não vale para pranchas.",
+    "es": "No disponible para planos.",
+    "de": "Für Pläne nicht verfügbar.",
+    "fr": "Non disponible pour les feuilles.",
+    "it": "Non disponibile per i fogli.",
+    "pl": "Niedostępne dla arkuszy."
+  },
+  {
+    "pt": "Só em planta.",
+    "es": "Solo en planta.",
+    "de": "Nur im Grundriss.",
+    "fr": "Uniquement en plan.",
+    "it": "Solo in pianta.",
+    "pl": "Tylko na rzucie."
+  },
+  {
+    "pt": "Nada copiado ainda. Use Copiar ou Ctrl+C.",
+    "es": "Nada copiado todavía. Use Copiar o Ctrl+C.",
+    "de": "Noch nichts kopiert. Verwenden Sie Kopieren oder Ctrl+C.",
+    "fr": "Rien n'a encore été copié. Utilisez Copier ou Ctrl+C.",
+    "it": "Niente ancora copiato. Usa Copia o Ctrl+C.",
+    "pl": "Nic jeszcze nie skopiowano. Użyj Kopiuj lub Ctrl+C."
+  },
+  {
+    "pt": "Sincronizar",
+    "es": "Sincronizar",
+    "de": "Synchronisieren",
+    "fr": "Synchroniser",
+    "it": "Sincronizza",
+    "pl": "Synchronizuj"
+  },
+  {
+    "pt": "Sincroniza o andar-tipo inteiro (paredes, aberturas, pisos, forros...) a partir do nível selecionado, num passo de desfazer.",
+    "es": "Sincroniza la planta tipo completa (paredes, huecos, suelos, techos...) a partir del nivel seleccionado, en un solo paso de deshacer.",
+    "de": "Synchronisiert das gesamte Regelgeschoss (Wände, Öffnungen, Böden, Unterdecken ...) ab der ausgewählten Ebene in einem Rückgängig-Schritt.",
+    "fr": "Synchronise l'étage courant entier (murs, ouvertures, sols, plafonds...) depuis le niveau sélectionné, en une seule étape d'annulation.",
+    "it": "Sincronizza l'intero piano tipo (pareti, aperture, pavimentazioni, controsoffitti...) dal livello selezionato, in un unico passo di annulla.",
+    "pl": "Synchronizuje całą kondygnację powtarzalną (ściany, otwory, posadzki, sufity...) od wybranego poziomu, w jednym kroku cofania."
+  },
+  {
+    "pt": "Selecione um elemento de andar-tipo.",
+    "es": "Seleccione un elemento de la planta tipo.",
+    "de": "Wählen Sie ein Element des Regelgeschosses aus.",
+    "fr": "Sélectionnez un élément d'étage courant.",
+    "it": "Seleziona un elemento del piano tipo.",
+    "pl": "Wybierz element kondygnacji powtarzalnej."
+  },
+  {
+    "pt": "Desvincular",
+    "es": "Desvincular",
+    "de": "Verknüpfung lösen",
+    "fr": "Dissocier",
+    "it": "Scollega",
+    "pl": "Odłącz"
+  },
+  {
+    "pt": "Desfaz o vínculo: as cópias ficam no projeto, mas não sincronizam mais.",
+    "es": "Deshace el vínculo: las copias permanecen en el proyecto, pero dejan de sincronizarse.",
+    "de": "Löst die Verknüpfung: Die Kopien bleiben im Projekt, werden aber nicht mehr synchronisiert.",
+    "fr": "Supprime le lien : les copies restent dans le projet, mais ne se synchronisent plus.",
+    "it": "Rimuove il collegamento: le copie restano nel progetto, ma non si sincronizzano più.",
+    "pl": "Usuwa powiązanie: kopie pozostają w projekcie, ale nie są już synchronizowane."
+  },
+  {
+    "pt": "Alinhado aos níveis selecionados",
+    "es": "Alineado a los niveles seleccionados",
+    "de": "An ausgewählte Ebenen ausgerichtet",
+    "fr": "Aligné sur les niveaux sélectionnés",
+    "it": "Allineato ai livelli selezionati",
+    "pl": "Wyrównane do wybranych poziomów"
+  },
+  {
+    "pt": "Copia o que está copiado para os níveis escolhidos, mantendo o X/Y e os offsets do nível (vale em planta, 3D, corte e elevação).",
+    "es": "Copia lo copiado a los niveles elegidos, manteniendo X/Y y los desfases del nivel (válido en planta, 3D, sección y alzado).",
+    "de": "Kopiert den kopierten Inhalt auf die gewählten Ebenen und behält X/Y sowie die Ebenenversätze bei (gilt in Grundriss, 3D, Schnitt und Ansicht).",
+    "fr": "Copie le contenu copié vers les niveaux choisis, en conservant X/Y et les décalages du niveau (valable en plan, 3D, coupe et élévation).",
+    "it": "Copia il contenuto copiato sui livelli scelti, mantenendo X/Y e gli scostamenti del livello (valido in pianta, 3D, sezione e prospetto).",
+    "pl": "Kopiuje skopiowaną zawartość na wybrane poziomy, zachowując X/Y i przesunięcia poziomu (działa na rzucie, w 3D, przekroju i elewacji)."
+  },
+  {
+    "pt": "Excluir",
+    "es": "Eliminar",
+    "de": "Löschen",
+    "fr": "Supprimer",
+    "it": "Elimina",
+    "pl": "Usuń"
+  },
+  {
+    "pt": "Enquadrar tudo",
+    "es": "Encuadrar todo",
+    "de": "Alles einpassen",
+    "fr": "Ajuster tout",
+    "it": "Adatta tutto",
+    "pl": "Dopasuj wszystko"
+  },
+  {
+    "pt": "Linhas finas",
+    "es": "Líneas finas",
+    "de": "Dünne Linien",
+    "fr": "Lignes fines",
+    "it": "Linee sottili",
+    "pl": "Cienkie linie"
+  },
+  {
+    "pt": "Mostra todas as linhas da vista com 1 px de espessura na tela.",
+    "es": "Muestra todas las líneas de la vista con 1 px de grosor en pantalla.",
+    "de": "Zeigt alle Linien der Ansicht mit 1 px Stärke auf dem Bildschirm.",
+    "fr": "Affiche toutes les lignes de la vue avec une épaisseur de 1 px à l'écran.",
+    "it": "Mostra tutte le linee della vista con spessore di 1 px sullo schermo.",
+    "pl": "Wyświetla wszystkie linie widoku o grubości 1 px na ekranie."
+  },
+  {
+    "pt": "Só em planta ou corte.",
+    "es": "Solo en planta o sección.",
+    "de": "Nur im Grundriss oder Schnitt.",
+    "fr": "Uniquement en plan ou coupe.",
+    "it": "Solo in pianta o sezione.",
+    "pl": "Tylko na rzucie lub w przekroju."
+  },
+  {
+    "pt": "Grade",
+    "es": "Rejilla",
+    "de": "Raster",
+    "fr": "Grille",
+    "it": "Griglia",
+    "pl": "Siatka"
+  },
+  {
+    "pt": "Grade de pontos na planta: mostra os pontos e o cursor os captura.",
+    "es": "Rejilla de puntos en la planta: muestra los puntos y el cursor se engancha a ellos.",
+    "de": "Punktraster im Grundriss: zeigt die Punkte, und der Cursor fängt sie ein.",
+    "fr": "Grille de points dans le plan : affiche les points et le curseur s'y accroche.",
+    "it": "Griglia di punti nella pianta: mostra i punti e il cursore vi si aggancia.",
+    "pl": "Siatka punktów na rzucie: pokazuje punkty, do których przyciąga kursor."
+  },
+  {
+    "pt": "Subpavimento",
+    "es": "Subyacente",
+    "de": "Unterlage",
+    "fr": "Sous-couche",
+    "it": "Sottostante",
+    "pl": "Podkład"
+  },
+  {
+    "pt": "Mostra o pavimento abaixo, apagado.",
+    "es": "Muestra la planta inferior, atenuada.",
+    "de": "Zeigt die Ebene darunter abgeblendet an.",
+    "fr": "Affiche le niveau inférieur, estompé.",
+    "it": "Mostra il livello sottostante, attenuato.",
+    "pl": "Pokazuje kondygnację poniżej w postaci wyblakłej."
+  },
+  {
+    "pt": "Projeção da cobertura",
+    "es": "Proyección de cubierta",
+    "de": "Dachprojektion",
+    "fr": "Projection de toiture",
+    "it": "Proiezione della copertura",
+    "pl": "Projekcja dachu"
+  },
+  {
+    "pt": "Visibilidade/Gráficos",
+    "es": "Visibilidad/Gráficos",
+    "de": "Sichtbarkeit/Grafiken",
+    "fr": "Visibilité/Graphismes",
+    "it": "Visibilità/Grafica",
+    "pl": "Widoczność/Grafika"
+  },
+  {
+    "pt": "Visibilidade por categoria e gráficos da vista ativa.",
+    "es": "Visibilidad por categoría y gráficos de la vista activa.",
+    "de": "Sichtbarkeit nach Kategorie und Grafik der aktiven Ansicht.",
+    "fr": "Visibilité par catégorie et graphismes de la vue active.",
+    "it": "Visibilità per categoria e grafica della vista attiva.",
+    "pl": "Widoczność według kategorii i grafika aktywnego widoku."
+  },
+  {
+    "pt": "Vista 3D",
+    "es": "Vista 3D",
+    "de": "3D-Ansicht",
+    "fr": "Vue 3D",
+    "it": "Vista 3D",
+    "pl": "Widok 3D"
+  },
+  {
+    "pt": "Elevação",
+    "es": "Alzado",
+    "de": "Ansicht",
+    "fr": "Élévation",
+    "it": "Prospetto",
+    "pl": "Elewacja"
+  },
+  {
+    "pt": "Cria Norte, Sul, Leste e Oeste em volta das paredes do nível ativo (substitui as de mesmo nome).",
+    "es": "Crea alzados Norte, Sur, Este y Oeste alrededor de las paredes del nivel activo (sustituye los del mismo nombre).",
+    "de": "Erstellt Nord-, Süd-, Ost- und Westansichten um die Wände der aktiven Ebene (ersetzt gleichnamige Ansichten).",
+    "fr": "Crée les élévations Nord, Sud, Est et Ouest autour des murs du niveau actif (remplace celles portant le même nom).",
+    "it": "Crea i prospetti Nord, Sud, Est e Ovest intorno alle pareti del livello attivo (sostituisce quelli con lo stesso nome).",
+    "pl": "Tworzy elewacje północną, południową, wschodnią i zachodnią wokół ścian aktywnego poziomu (zastępuje te o tej samej nazwie)."
+  },
+  {
+    "pt": "Prancha",
+    "es": "Plano",
+    "de": "Plan",
+    "fr": "Feuille",
+    "it": "Foglio",
+    "pl": "Arkusz"
+  },
+  {
+    "pt": "Adicionar vista",
+    "es": "Añadir vista",
+    "de": "Ansicht hinzufügen",
+    "fr": "Ajouter une vue",
+    "it": "Aggiungi vista",
+    "pl": "Dodaj widok"
+  },
+  {
+    "pt": "Adiciona plantas, cortes ou o 3D à prancha aberta.",
+    "es": "Añade plantas, secciones o el 3D al plano abierto.",
+    "de": "Fügt dem geöffneten Plan Grundrisse, Schnitte oder die 3D-Ansicht hinzu.",
+    "fr": "Ajoute des plans, des coupes ou la vue 3D à la feuille ouverte.",
+    "it": "Aggiunge piante, sezioni o il 3D al foglio aperto.",
+    "pl": "Dodaje rzuty, przekroje lub widok 3D do otwartego arkusza."
+  },
+  {
+    "pt": "Publicar pranchas",
+    "es": "Publicar planos",
+    "de": "Pläne veröffentlichen",
+    "fr": "Publier les feuilles",
+    "it": "Pubblica fogli",
+    "pl": "Publikuj arkusze"
+  },
+  {
+    "pt": "Escolhe as pranchas, a ordem e um PDF por prancha.",
+    "es": "Elige los planos, el orden y un PDF por plano.",
+    "de": "Wählt die Pläne, die Reihenfolge und ein PDF pro Plan.",
+    "fr": "Choisit les feuilles, l'ordre et un PDF par feuille.",
+    "it": "Sceglie i fogli, l'ordine e un PDF per foglio.",
+    "pl": "Wybiera arkusze, kolejność i jeden PDF na arkusz."
+  },
+  {
+    "pt": "Prancha por nível",
+    "es": "Plano por nivel",
+    "de": "Plan pro Ebene",
+    "fr": "Feuille par niveau",
+    "it": "Foglio per livello",
+    "pl": "Arkusz na poziom"
+  },
+  {
+    "pt": "Cria uma prancha A3 com a planta de cada nível do projeto.",
+    "es": "Crea un plano A3 con la planta de cada nivel del proyecto.",
+    "de": "Erstellt einen A3-Plan mit dem Grundriss jeder Ebene des Projekts.",
+    "fr": "Crée une feuille A3 avec le plan de chaque niveau du projet.",
+    "it": "Crea un foglio A3 con la pianta di ogni livello del progetto.",
+    "pl": "Tworzy arkusz A3 z rzutem każdego poziomu projektu."
+  },
+  {
+    "pt": "Materiais",
+    "es": "Materiales",
+    "de": "Materialien",
+    "fr": "Matériaux",
+    "it": "Materiali",
+    "pl": "Materiały"
+  },
+  {
+    "pt": "Importar CAD (DXF)",
+    "es": "Importar CAD (DXF)",
+    "de": "CAD importieren (DXF)",
+    "fr": "Importer un CAD (DXF)",
+    "it": "Importa CAD (DXF)",
+    "pl": "Importuj CAD (DXF)"
+  },
+  {
+    "pt": "Insere um desenho DXF no nível, como um objeto só, com as camadas do arquivo.",
+    "es": "Inserta un dibujo DXF en el nivel, como un solo objeto, con las capas del archivo.",
+    "de": "Fügt eine DXF-Zeichnung als einzelnes Objekt mit den Layern der Datei in die Ebene ein.",
+    "fr": "Insère un dessin DXF dans le niveau, comme un seul objet, avec les calques du fichier.",
+    "it": "Inserisce un disegno DXF nel livello, come un unico oggetto, con i layer del file.",
+    "pl": "Wstawia rysunek DXF na poziomie jako jeden obiekt, z warstwami z pliku."
+  },
+  {
+    "pt": "Gerenciar CAD",
+    "es": "Gestionar CAD",
+    "de": "CAD verwalten",
+    "fr": "Gérer les CAD",
+    "it": "Gestisci CAD",
+    "pl": "Zarządzaj CAD"
+  },
+  {
+    "pt": "Lista os desenhos DXF importados: visibilidade, enquadramento, renomear e excluir.",
+    "es": "Lista los dibujos DXF importados: visibilidad, encuadre, renombrar y eliminar.",
+    "de": "Listet die importierten DXF-Zeichnungen auf: Sichtbarkeit, Einpassen, Umbenennen und Löschen.",
+    "fr": "Liste les dessins DXF importés : visibilité, cadrage, renommage et suppression.",
+    "it": "Elenca i disegni DXF importati: visibilità, inquadratura, rinomina ed elimina.",
+    "pl": "Wyświetla listę zaimportowanych rysunków DXF: widoczność, dopasowanie, zmiana nazwy i usuwanie."
+  },
+  {
+    "pt": "Gerenciar níveis",
+    "es": "Gestionar niveles",
+    "de": "Ebenen verwalten",
+    "fr": "Gérer les niveaux",
+    "it": "Gestisci livelli",
+    "pl": "Zarządzaj poziomami"
+  },
+  {
+    "pt": "Cria e edita os níveis do projeto.",
+    "es": "Crea y edita los niveles del proyecto.",
+    "de": "Erstellt und bearbeitet die Ebenen des Projekts.",
+    "fr": "Crée et modifie les niveaux du projet.",
+    "it": "Crea e modifica i livelli del progetto.",
+    "pl": "Tworzy i edytuje poziomy projektu."
+  },
+  {
+    "pt": "Nível (LL)",
+    "es": "Nivel (LL)",
+    "de": "Ebene (LL)",
+    "fr": "Niveau (LL)",
+    "it": "Livello (LL)",
+    "pl": "Poziom (LL)"
+  },
+  {
+    "pt": "Cria um nível no corte ou elevação: clique no início e no fim da linha horizontal.",
+    "es": "Crea un nivel en la sección o el alzado: haga clic al principio y al final de la línea horizontal.",
+    "de": "Erstellt eine Ebene im Schnitt oder in der Ansicht: Klicken Sie auf Anfang und Ende der waagerechten Linie.",
+    "fr": "Crée un niveau en coupe ou en élévation : cliquez au début et à la fin de la ligne horizontale.",
+    "it": "Crea un livello nella sezione o nel prospetto: fai clic all'inizio e alla fine della linea orizzontale.",
+    "pl": "Tworzy poziom w przekroju lub elewacji: kliknij początek i koniec linii poziomej."
+  },
+  {
+    "pt": "Espessuras de linha",
+    "es": "Grosor de líneas",
+    "de": "Linienstärken",
+    "fr": "Épaisseurs de ligne",
+    "it": "Spessori linea",
+    "pl": "Grubości linii"
+  },
+  {
+    "pt": "Pesos de linha por escala, por categoria e limites de detalhe.",
+    "es": "Grosor de línea por escala, por categoría y límites de detalle.",
+    "de": "Linienstärken nach Maßstab, nach Kategorie und Detailgrenzen.",
+    "fr": "Épaisseurs de ligne par échelle, par catégorie et limites de détail.",
+    "it": "Spessori linea per scala, per categoria e limiti di dettaglio.",
+    "pl": "Grubości linii według skali, kategorii i granic szczegółowości."
+  },
+  {
+    "pt": "Unidades do projeto",
+    "es": "Unidades del proyecto",
+    "de": "Projekteinheiten",
+    "fr": "Unités du projet",
+    "it": "Unità del progetto",
+    "pl": "Jednostki projektu"
+  }
+]

@@ -15,11 +15,11 @@ import { Node } from './Tree.tsx';
 function openingGroups(kind: 'door' | 'window', types: OpeningType[], lang: Lang = 'pt'): Array<{ id: string; name: string; types: OpeningType[] }> {
   const byCode = (tipo: OpeningType): string => tipo.code ?? tipo.name;
   const groups: Array<{ id: string; name: string; types: OpeningType[] }> = [];
-  for (const f of openingFamilies(kind)) {
-    const items = types.filter((t) => openingFamilyOf(t)?.id === f.id);
+  for (const f of openingFamilies(kind, lang)) {
+    const items = types.filter((t) => openingFamilyOf(t, lang)?.id === f.id);
     if (items.length) groups.push({ id: f.id, name: f.name, types: items });
   }
-  const orphans = types.filter((t) => !openingFamilyOf(t));
+  const orphans = types.filter((t) => !openingFamilyOf(t, lang));
   if (orphans.length) groups.push({ id: 'outros', name: t(lang, 'cvn_br_family_others'), types: orphans });
   for (const g of groups) g.types.sort((a, b) => cmpTexto(byCode(a), byCode(b), lang));
   return groups;

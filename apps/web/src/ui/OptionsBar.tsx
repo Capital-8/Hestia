@@ -79,7 +79,7 @@ function DimensionOptions(): ReactElement {
 /** Tipo Selector do Revit: agrupa os tipos por família e filtra por nome ou código. */
 function OpeningTypePicker({ kind, value, onChange }: { kind: 'door' | 'window'; value: string; onChange: (id: string) => void }): ReactElement {
   const p = useProject();
-  const { t } = useT();
+  const { t, lang } = useT();
   const [q, setQ] = useState('');
   const types = Object.values(p.openingTypes).filter((tp) => tp.kind === kind);
   const needle = q.trim().toLowerCase();
@@ -90,10 +90,10 @@ function OpeningTypePicker({ kind, value, onChange }: { kind: 'door' | 'window';
   const favoriteItems = shown.filter((tp) => favSet.has(tp.id));
   const rest = shown.filter((tp) => !favSet.has(tp.id));
   // Um grupo por família (ordem da interface); tipos sem família (dado fora do contrato) caem em "Outros".
-  const groups = openingFamilies(kind)
-    .map((f) => ({ family: f, items: rest.filter((tp) => openingFamilyOf(tp)?.id === f.id) }))
+  const groups = openingFamilies(kind, lang)
+    .map((f) => ({ family: f, items: rest.filter((tp) => openingFamilyOf(tp, lang)?.id === f.id) }))
     .filter((g) => g.items.length);
-  const orphans = rest.filter((tp) => !openingFamilyOf(tp));
+  const orphans = rest.filter((tp) => !openingFamilyOf(tp, lang));
   const visible = new Set(shown.map((tp) => tp.id));
   const current = p.openingTypes[value];
   return (

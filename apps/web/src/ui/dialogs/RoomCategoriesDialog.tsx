@@ -21,14 +21,14 @@ export function RoomCategoriesDialog(): ReactElement {
     return t('dlt_hatch_filled');
   };
   const update = (c: RoomCategory, patch: Partial<RoomCategory>): void => {
-    editor.store.exec({ type: 'upsertRoomCategory', category: { ...c, ...patch } }, 'Editar categoria de ambiente');
+    editor.store.exec({ type: 'upsertRoomCategory', category: { ...c, ...patch } }, 'undo_edit_room_category');
   };
   const add = (): void => {
-    editor.store.exec({ type: 'upsertRoomCategory', category: { id: newId('rc'), name: t('dlt_rc_new'), code: '', color: '#dbe7f3', hatch: 'diagonal' } }, 'Criar categoria de ambiente');
+    editor.store.exec({ type: 'upsertRoomCategory', category: { id: newId('rc'), name: t('dlt_rc_new'), code: '', color: '#dbe7f3', hatch: 'diagonal' } }, 'undo_create_room_category');
   };
   const remove = (c: RoomCategory): void => {
     try {
-      editor.store.exec({ type: 'removeRoomCategory', id: c.id }, 'Excluir categoria de ambiente');
+      editor.store.exec({ type: 'removeRoomCategory', id: c.id }, 'undo_delete_room_category');
     } catch (e) {
       useUi.setState({ status: e instanceof Error ? e.message : { key: 'dlt_rc_err_delete' } });
     }

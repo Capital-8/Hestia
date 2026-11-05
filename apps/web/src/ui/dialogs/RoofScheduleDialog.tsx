@@ -3,7 +3,7 @@ import { buildRoofSchedule, filterRoofRows, roofScheduleToCsv, ROOF_SHAPE_LABEL,
 import { formatQuantity, type Quantity, type ResolvedUnits, type RoofShape } from '@hestia/model';
 import { useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
-import { cmpTexto, resolveText, t as translate, useI18n, I18N, type Lang, type TextLike } from '../../editor/i18n.ts';
+import { cmpTexto, resolveText, t as translate, useI18n, dictOf, I18N, type Lang, type TextLike } from '../../editor/i18n.ts';
 import { saveText } from '../../editor/saveText.ts';
 import { Icon } from '../Icon.tsx';
 import { Dialog } from './Dialog.tsx';
@@ -61,7 +61,7 @@ const SHAPES = Object.keys(ROOF_SHAPE_LABEL) as RoofShape[];
 export function RoofScheduleDialog(): ReactElement {
   const p = useProject();
   const lang = useI18n((s) => s.lang);
-  const t = I18N[lang];
+  const t = dictOf(lang);
   const units = useUnits();
   /** Nome da forma no idioma ativo (o rótulo do engine é só PT). */
   const shapeName = (s: RoofShape): string => t[`roof_shape_${s}` as keyof typeof I18N.pt];
@@ -80,7 +80,7 @@ export function RoofScheduleDialog(): ReactElement {
   const visible = useMemo(() => {
     const list = filterRoofRows(schedule.rows, { levelId: levelId || undefined, typeId: typeId || undefined, shape: shape || undefined });
     // A coluna Forma guarda o rótulo PT no engine: ordena pelo nome já traduzido.
-    const shapeOf = I18N[lang];
+    const shapeOf = dictOf(lang);
     const sortLabel = sort?.key === 'shapeLabel' ? (r: RoofScheduleRow) => shapeOf[`roof_shape_${r.shape}` as keyof typeof I18N.pt] : undefined;
     return sort ? [...list].sort((a, b) => compare(a, b, sort, lang, sortLabel)) : list;
   }, [schedule, levelId, typeId, shape, sort, lang]);

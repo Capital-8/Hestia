@@ -1,6 +1,6 @@
 import { Fragment, useState, type ReactElement } from 'react';
 import type { StairRunStyle, StairType, StairUndersideStyle } from '@hestia/model';
-import { fmtNum, I18N, useI18n } from '../../editor/i18n.ts';
+import { dictOf, fmtNum, I18N, useI18n } from '../../editor/i18n.ts';
 import { NumField, TextField } from '../fields.tsx';
 import { applyPreset, matchPreset, STAIR_DIALOG_PRESETS, type StairPresetId } from './stairTypeCalc.ts';
 import { STAIR_FIELD_LIMITS, type StairFieldName, type StairTypeIssue } from './stairTypeForm.ts';
@@ -92,7 +92,7 @@ interface SectionProps {
 /** Seções 1 a 5 do modal do tipo de escada (dimensões, cálculo, construção, abertura e identificação). */
 export function StairTypeSections({ draft, set, onStyle, materials, issues, canGoProps, onGoProps }: SectionProps): ReactElement {
   const lang = useI18n((s) => s.lang);
-  const t = I18N[lang];
+  const t = dictOf(lang);
   const [ranges, setRanges] = useState<Record<string, string>>({});
   const [lastPreset, setLastPreset] = useState<StairPresetId>(() => matchPreset(draft));
   const [applied, setApplied] = useState(false);

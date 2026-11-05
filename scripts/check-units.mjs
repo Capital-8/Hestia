@@ -53,6 +53,8 @@ export function scanUnits() {
       const rel = file.split(path.sep).join('/');
       if (/\.(test|stories)\./.test(path.basename(rel))) continue;
       if (/^packages\/model\/src\/units[^/]*\.ts$/.test(rel)) continue;
+      // Dicionários são texto traduzido, não formatação: "m²"/"m³"/"R$" aparecem nas próprias traduções.
+      if (/(^|\/)(i18n\.ts|i18nTabelas\.ts|i18n\/)/.test(rel)) continue;
       const count = scanText(readFileSync(file, 'utf8'));
       if (count > 0) out.set(rel, count);
     }

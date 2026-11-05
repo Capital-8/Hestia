@@ -1,5 +1,5 @@
 import type { StairType } from '@hestia/model';
-import { fmtNum, t } from '../../editor/i18n.ts';
+import { fmtNum, t, type Lang } from '../../editor/i18n.ts';
 import {
   CHAR_W,
   LINE_H,
@@ -22,7 +22,7 @@ export interface StairDrawingParams {
   riser: number;
   tread: number;
   steps?: number;
-  lang?: 'pt' | 'en';
+  lang?: Lang;
   fmt?: (n: number, decimals: number) => string;
 }
 
@@ -147,7 +147,7 @@ function createBuilder(type: StairType, params: StairDrawingParams, R: number, T
   const n = Math.max(1, Math.floor(params.steps ?? 3));
   const lang = params.lang ?? 'pt';
   const fmt = params.fmt ?? ((n: number, dec: number): string => fmtNum(n, dec, lang));
-  const t = STAIR_DRAWING_TEXT[lang];
+  const t = STAIR_DRAWING_TEXT[lang === 'pt' ? 'pt' : 'en'];
   const d = Math.max(type.structuralDepth, 0);
   const H = Math.hypot(T, R);
   const cosTheta = T / H;

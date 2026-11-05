@@ -1,3 +1,5 @@
+import { t, useI18n } from '../i18n.ts';
+
 /** Resposta dos comandos Rust `verificar_atualizacao` e `instalar_atualizacao`. */
 export interface AtualizacaoDisponivel {
   versao: string;
@@ -38,7 +40,7 @@ export async function verificarAtualizacao(): Promise<AtualizacaoDisponivel | nu
 /** Baixa, instala e reinicia o app. O processo pode ser encerrado antes da promessa resolver. */
 export async function instalarAtualizacao(): Promise<void> {
   const invoke = invokeDoTauri();
-  if (!invoke) throw new Error('atualização disponível apenas no aplicativo desktop');
+  if (!invoke) throw new Error(t(useI18n.getState().lang, 'upd_desktop_only'));
   await invoke('instalar_atualizacao');
 }
 

@@ -1,5 +1,5 @@
 import { Fragment, useState, type ReactElement } from 'react';
-import { coreRange, type FloorType, floorTypeThickness, formatQuantity, FUNCTION_LABEL, type Layer, type LayerFunction, layerPriority, temPrioridadeEmpatada } from '@hestia/model';
+import { coreRange, type FloorType, floorTypeThickness, formatQuantity, functionLabels, FUNCTION_LABEL, type Layer, type LayerFunction, layerPriority, temPrioridadeEmpatada } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
 import { duplicateFloorType, floorTypeDeleteBlock, floorTypeError, floorTypeUsage, tryDeleteFloorType } from '../../editor/typeActions.ts';
@@ -19,7 +19,8 @@ const FUNCTIONS = Object.keys(FUNCTION_LABEL) as LayerFunction[];
 /** Editor de tipo de piso: camadas do topo para baixo (reusa o editor de camadas do tipo de parede). */
 export function FloorTypeDialog({ typeId }: { typeId: string }): ReactElement | null {
   const units = useUnits();
-  const { t } = useT();
+  const { t, lang } = useT();
+  const fnLabels = functionLabels(lang);
   const p = useProject();
   const src = p.floorTypes[typeId];
   const [draft, setDraft] = useState<FloorType | null>(src ? structuredClone(src) : null);
@@ -62,11 +63,11 @@ export function FloorTypeDialog({ typeId }: { typeId: string }): ReactElement | 
   /** Grava como o OK, mas o diálogo segue aberto com o rascunho. */
   const apply = (): void => {
     if (error) return;
-    editor.store.exec({ type: 'upsertFloorType', floorType: draft }, 'Editar tipo de piso');
+    editor.store.exec({ type: 'upsertFloorType', floorType: draft }, 'undo_edit_floor_type');
   };
   const ok = (): void => {
     if (error) return;
-    editor.store.exec({ type: 'upsertFloorType', floorType: draft }, 'Editar tipo de piso');
+    editor.store.exec({ type: 'upsertFloorType', floorType: draft }, 'undo_edit_floor_type');
     close();
   };
   const duplicate = (): void => {
@@ -125,7 +126,7 @@ export function FloorTypeDialog({ typeId }: { typeId: string }): ReactElement | 
                         <td>
                           <span className="fn-cell">
                             <select className="select" aria-label={t('dlt_a11y_layer_function', { n: i + 1 })} value={l.function} onChange={(e) => setLayer(i, { function: e.target.value as LayerFunction })}>
-                              {FUNCTIONS.map((f) => <option key={f} value={f}>{FUNCTION_LABEL[f]}</option>)}
+                              {FUNCTIONS.map((f) => <option key={f} value={f}>{fnLabels[f]}</option>)}
                             </select>
                             <span className="pbadge" title={t('dlt_tt_join_priority')}>P{layerPriority(l)}</span>
                           </span>

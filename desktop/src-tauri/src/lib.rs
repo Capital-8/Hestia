@@ -1,9 +1,12 @@
 //! Casca desktop do Hestia: abre a janela com o app web já gerado em
 //! `apps/web/dist`. A interface web decide quando verificar/instalar atualizações;
-//! aqui ficam só os comandos que falam com o `tauri_plugin_updater`.
+//! aqui ficam só os comandos que falam com o `tauri_plugin_updater` e com a pasta
+//! de projetos (`biblioteca`, um projeto por pasta).
 
 use tauri::AppHandle;
 use tauri_plugin_updater::UpdaterExt;
+
+mod biblioteca;
 
 /// Consulta o updater e devolve a versão nova com as notas (`notes` do latest.json).
 /// `null` significa que já estamos na versão mais recente.
@@ -61,7 +64,15 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
             verificar_atualizacao,
-            instalar_atualizacao
+            instalar_atualizacao,
+            biblioteca::biblioteca_escolher_raiz,
+            biblioteca::biblioteca_raiz_lembrada,
+            biblioteca::biblioteca_esquecer,
+            biblioteca::biblioteca_ler_indice,
+            biblioteca::biblioteca_listar,
+            biblioteca::biblioteca_ler,
+            biblioteca::biblioteca_gravar,
+            biblioteca::biblioteca_gravar_indice
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o Hestia");

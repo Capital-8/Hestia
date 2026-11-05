@@ -1,6 +1,6 @@
 import { useMemo, type ReactElement } from 'react';
 import type { StairRunStyle, StairType } from '@hestia/model';
-import { fmtNum, I18N, useI18n } from '../../editor/i18n.ts';
+import { dictOf, fmtNum, useI18n } from '../../editor/i18n.ts';
 import { SchematicViews } from '../schematic/SchematicDrawing.tsx';
 import { buildStairSectionDrawing } from './stairSectionDrawing.ts';
 
@@ -15,7 +15,7 @@ const fill = (s: string, params: Record<string, string>): string => s.replace(/\
 /** Corte técnico do tipo de escada: corpo, cotas fora do desenho e pé-direito quebrado, desenhados por `SchematicDrawing`. */
 export function StairSectionPreview({ type, riser, tread }: { type: StairType; riser?: number; tread?: number }): ReactElement {
   const lang = useI18n((s) => s.lang);
-  const t = I18N[lang];
+  const t = dictOf(lang);
   const cm = (m: number, dec = 1): string => fmtNum(m * 100, dec, lang);
   const r = riser ?? type.maxRiser;
   const tp = tread ?? type.minTread;

@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState, type ReactElement } from 'react';
-import { formatQuantity, FUNCTION_LABEL, coreRange, layerPriority, newId, totalThickness, wallTypeUsage, type Layer, type LayerFunction, type WallType, type WrapMode } from '@hestia/model';
+import { formatQuantity, functionLabels, FUNCTION_LABEL, coreRange, layerPriority, newId, totalThickness, wallTypeUsage, type Layer, type LayerFunction, type WallType, type WrapMode } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
 import { NumField, TextField } from '../fields.tsx';
@@ -21,6 +21,7 @@ type Tab = 'estrutura' | 'faixas' | 'graficos' | 'identidade';
 export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | null {
   const units = useUnits();
   const { t, lang } = useT();
+  const fnLabels = functionLabels(lang);
   const WRAP_OPTIONS: Array<[WrapMode, string]> = [
     ['none', t('dlt_wrap_none')],
     ['both', t('dlt_wrap_both')],
@@ -71,16 +72,16 @@ export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | n
   /** Grava como o OK, mas o diálogo segue aberto com o rascunho. */
   const apply = (): void => {
     if (stripsInvalid) return;
-    editor.store.exec({ type: 'upsertWallType', wallType: draft }, 'Editar tipo de parede');
+    editor.store.exec({ type: 'upsertWallType', wallType: draft }, 'undo_edit_wall_type');
   };
   const ok = (): void => {
     if (stripsInvalid) return;
-    editor.store.exec({ type: 'upsertWallType', wallType: draft }, 'Editar tipo de parede');
+    editor.store.exec({ type: 'upsertWallType', wallType: draft }, 'undo_edit_wall_type');
     close();
   };
   const duplicate = (): void => {
     const copy = { ...draft, id: newId('wt'), name: `${draft.name} ${t('dlt_duplicate_suffix')}` };
-    editor.store.exec({ type: 'upsertWallType', wallType: copy }, 'Duplicar tipo');
+    editor.store.exec({ type: 'upsertWallType', wallType: copy }, 'dlo_cmd_duplicate');
     useUi.setState({ dialogArg: copy.id });
   };
   const del = (): void => {
@@ -141,7 +142,7 @@ export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | n
                         <td>
                           <span className="fn-cell">
                             <select className="select" aria-label={t('dlt_a11y_layer_function', { n: i + 1 })} value={l.function} onChange={(e) => setLayer(i, { function: e.target.value as LayerFunction })}>
-                            {FUNCTIONS.map((f) => <option key={f} value={f}>{FUNCTION_LABEL[f]}</option>)}
+                            {FUNCTIONS.map((f) => <option key={f} value={f}>{fnLabels[f]}</option>)}
                           </select>
                             <span className="pbadge" title={t('dlt_tt_join_priority')}>P{layerPriority(l)}</span>
                           </span>
@@ -213,7 +214,7 @@ export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | n
                   const m = p.materials[l.materialId];
                   return (
                     <tr key={i}>
-                      <td>{FUNCTION_LABEL[l.function]}</td>
+                      <td>{fnLabels[l.function]}</td>
                       <td><span className="swatch" style={{ background: m?.color }} /> {m?.name}</td>
                       <td>{m?.hatch}</td>
                     </tr>

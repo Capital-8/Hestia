@@ -1,6 +1,6 @@
 /* eslint-disable max-lines */
 import { formatRampSlope, rampNormRowFor, type RampType } from '@hestia/model';
-import { fmtNum, t } from '../../editor/i18n.ts';
+import { fmtNum, t, type Lang } from '../../editor/i18n.ts';
 import {
   CHAR_W,
   LINE_H,
@@ -22,7 +22,7 @@ export interface RampDrawingParams {
   view: 'section' | 'plan';
   slope?: number;
   totalRise?: number;
-  lang?: 'pt' | 'en';
+  lang?: Lang;
   fmt?: (n: number, decimals: number) => string;
 }
 
@@ -214,7 +214,7 @@ function computeNumbers(type: RampType, params: RampDrawingParams): RampNumbers 
 function createSectionBuilder(type: RampType, params: RampDrawingParams, num: RampNumbers): (em: number) => Drawing {
   const lang = params.lang ?? 'pt';
   const fmt = params.fmt ?? ((n: number, dec: number): string => fmtNum(n, dec, lang));
-  const t = RAMP_DRAWING_TEXT[lang];
+  const t = RAMP_DRAWING_TEXT[lang === 'pt' ? 'pt' : 'en'];
   const { s, nFl, r1, c1, c2, P, Ltot, tv, vExag, tvY, ltY, m, Y, overLimit, maxRise } = num;
   const slopeText = lang === 'en' ? formatRampSlope(s).replace(/,/g, '.') : formatRampSlope(s);
 
@@ -367,7 +367,7 @@ function createSectionBuilder(type: RampType, params: RampDrawingParams, num: Ra
 function createPlanBuilder(type: RampType, params: RampDrawingParams, num: RampNumbers): (em: number) => Drawing {
   const lang = params.lang ?? 'pt';
   const fmt = params.fmt ?? ((n: number, dec: number): string => fmtNum(n, dec, lang));
-  const t = RAMP_DRAWING_TEXT[lang];
+  const t = RAMP_DRAWING_TEXT[lang === 'pt' ? 'pt' : 'en'];
   const { c1, c2, P, nFl } = num;
   const w = type.defaultWidth;
   const Pd = Math.max(P, w);

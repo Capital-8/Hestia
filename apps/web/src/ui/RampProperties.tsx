@@ -189,7 +189,7 @@ export function RampProperties({ ramps }: { ramps: Ramp[] }): ReactElement {
       </Group>
       <Group title={t('prb_pgrp_results')} open={!!quantities}>
         {single && quantities ? (
-          rampSummaryLines(quantities.rr, quantities.q).map((line) => (
+          rampSummaryLines(quantities.rr, quantities.q, lang).map((line) => (
             <Row key={line.label} label={line.label}><span className="val">{line.value}</span></Row>
           ))
         ) : (

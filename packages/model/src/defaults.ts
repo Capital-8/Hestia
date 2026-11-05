@@ -10,7 +10,7 @@ import { ot } from './catalogoAberturasBase.ts';
 import { catalogoJanelas } from './catalogoJanelas.ts';
 import { catalogoPortas } from './catalogoPortas.ts';
 import { catalogoComposicoes } from './catalogoComposicoes.ts';
-import { openingName, t, type Lang } from './i18n.ts';
+import { LANGS, openingName, t, type Lang } from './i18n.ts';
 import { SCHEMA_VERSION, type Layer, type Material, type OpeningType, type Project, type WallType } from './types.ts';
 
 const mat = (id: string, name: string, color: string, hatch: Material['hatch'], extra: Partial<Material> = {}): Material => ({
@@ -191,8 +191,8 @@ const toRecord = <T extends { id: string }>(list: T[]): Record<string, T> =>
 
 export function createEmptyProject(nameOrLang?: string | Lang, lang: Lang = 'pt'): Project {
   // Aceita `createEmptyProject('en')` (idioma) e `createEmptyProject('Meu projeto')` (nome); o nome é dado do usuário.
-  const byLang = nameOrLang === 'pt' || nameOrLang === 'en';
-  const activeLang: Lang = byLang ? nameOrLang : lang;
+  const byLang = typeof nameOrLang === 'string' && LANGS.includes(nameOrLang as Lang);
+  const activeLang: Lang = byLang ? (nameOrLang as Lang) : lang;
   const name = byLang ? undefined : nameOrLang;
   return {
     schemaVersion: SCHEMA_VERSION,

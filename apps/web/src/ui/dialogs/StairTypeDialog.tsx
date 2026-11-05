@@ -4,7 +4,7 @@ import { editor, useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
 import { keptStairType } from '../../editor/stairActions.ts';
 import { saveStairType, stairTypeDeleteBlock, tryDeleteStairType } from '../../editor/stairTypeActions.ts';
-import { I18N, useI18n } from '../../editor/i18n.ts';
+import { dictOf, useI18n } from '../../editor/i18n.ts';
 import { safeGet, safeSet } from '../../editor/storage.ts';
 import { TextField } from '../fields.tsx';
 import { Dialog } from './Dialog.tsx';
@@ -65,7 +65,7 @@ export function StairTypeDialog({ typeId }: { typeId: string }): ReactElement | 
   const p = useProject();
   const selection = useUi((s) => s.selection);
   const lang = useI18n((s) => s.lang);
-  const t = I18N[lang];
+  const t = dictOf(lang);
   const src = p.stairTypes[typeId];
   const base = src ? normalize(structuredClone(src)) : null;
   const [draft, setDraftState] = useState<StairType | null>(() => (src ? normalize(structuredClone(src)) : null));
@@ -177,7 +177,7 @@ export function StairTypeDialog({ typeId }: { typeId: string }): ReactElement | 
       return;
     }
     const copy = duplicateDraft(finalizeForSave(cur), undefined, lang);
-    editor.store.exec({ type: 'upsertStairType', stairType: copy }, 'Duplicar tipo de escada');
+    editor.store.exec({ type: 'upsertStairType', stairType: copy }, 'edc_undo_duplicate_stair');
     useUi.setState({ dialogArg: copy.id });
   };
   const selectType = (id: string): void => {

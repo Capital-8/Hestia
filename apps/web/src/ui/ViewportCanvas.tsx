@@ -16,7 +16,7 @@ import { cotaParaEditar, ehDuploClique, type CliqueAnterior } from '../editor/di
 import { dimensionFormatStyle, dimensionGeometry, dimensionStyleFor, dimensionText, sectionAnnotationsOf } from '@hestia/model';
 import { sectionDimensionPoints, type SectionDimensionGrip } from '@hestia/render';
 import { clickSelect3d, useUi } from '../editor/state.ts';
-import { consumirCameraPendente, registrarCena3D, registrarOrbita3D } from '../editor/vista3dAoVivo.ts';
+import { consumirCameraPendente, registrarCena3D, registrarOrbita3D, registrarPreparoCena3D } from '../editor/vista3dAoVivo.ts';
 import { thinLinesOn } from '../editor/graphicsActions.ts';
 import { buildSectionFrame } from './SectionCanvas.tsx';
 import { cursorForView } from './cursor.ts';
@@ -102,6 +102,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   // Ganchos de depuração (?debug=1): câmera orbital do 3D e a cena 3D (o e2e conta as peças do modelo).
   if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug')) Object.assign(window, { __hestia3d: model.current.orbit, __hestia3dModel: model.current });
   const modelKey = useRef('');
+  const geracaoMontagem = useRef(0);
   /** Redesenho agendado para refazer a sombra depois do gesto de câmera (ver `renderQuadro`). */
   const sombraAdiada = useRef<ReturnType<typeof setTimeout> | null>(null);
   const montagem = useRef<Montagem3dProgressiva | null>(null);
@@ -250,6 +251,11 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     if (key === modelKey.current) return false;
     modelKey.current = key;
     const m = model.current;
+    // Projeto novo ou aberto: a montagem não herda os níveis do anterior (o nível "antigo" iria para a cena com a chave nova).
+    if (geracaoMontagem.current !== editor.geracaoDoProjeto) {
+      geracaoMontagem.current = editor.geracaoDoProjeto;
+      montagem.current?.cancelar();
+    }
     // Os níveis entram em fatias (ver montagem3dProgressiva.ts): a tela não espera o projeto inteiro. Depois da
     // primeira montagem, `atualizar` só re-resolve os níveis que a edição alcançou — e nada no tema/visibilidade.
     montagem.current ??= criarMontagemVista3d(m, (id) => editor.resolved(id), (id) => editor.resolucaoPronta(id));
@@ -264,6 +270,23 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       return montagem.current ? { montados: montagem.current.montados, total: montagem.current.total } : null;
     });
     return () => registrarPreparo3d(null);
+  }, [iniciarMontagem3d]);
+
+  // Miniatura do projeto (salvar na biblioteca): a cena 3D precisa estar montada mesmo com a planta na tela. Monta o que
+  // faltar agora e enquadra a câmera se ela nunca foi enquadrada — senão o quadro sai só com o fundo.
+  useEffect(() => {
+    registrarPreparoCena3D(() => {
+      if (!editor.project) return false;
+      iniciarMontagem3d(darkRef.current, useUi.getState());
+      montagem.current?.montarTudo();
+      if (!montagem.current || montagem.current.montados === 0) return false;
+      if (!useUi.getState().seen3d) {
+        model.current?.fit();
+        useUi.setState({ seen3d: true });
+      }
+      return true;
+    });
+    return () => registrarPreparoCena3D(null);
   }, [iniciarMontagem3d]);
 
   // ---- desenho ----

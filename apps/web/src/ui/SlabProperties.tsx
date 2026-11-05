@@ -1,6 +1,6 @@
 import { useMemo, type ReactElement } from 'react';
 import { quantifySlabs, slabRiseAt } from '@hestia/engine';
-import { FUNCTION_LABEL, slabArea, slabTypeThickness, type Id, type Project, type Slab } from '@hestia/model';
+import { functionLabels, slabArea, slabTypeThickness, type Id, type Project, type Slab } from '@hestia/model';
 import { ringPerimeter } from '@hestia/tools';
 import { editor, useProject } from '../editor/controller.ts';
 import { toolLabel, useT } from '../editor/i18n.ts';
@@ -53,6 +53,7 @@ export const topVariation = (s: Slab): number => {
 /** Propriedades de uma ou mais lajes selecionadas (tipo, deslocamento, inclinação, marca, áreas e camadas). */
 export function SlabProperties({ slabs }: { slabs: Slab[] }): ReactElement {
   const { t, lang } = useT();
+  const fnLabels = functionLabels(lang);
   const fmt = useFormat();
   const p = useProject();
   const ids = slabs.map((s) => s.id);
@@ -113,7 +114,7 @@ export function SlabProperties({ slabs }: { slabs: Slab[] }): ReactElement {
             <Row label={t('prd_fld_total_thickness')} readOnly fromType><span className="val">{fmt('smallLength', slabTypeThickness(type))}</span></Row>
             {type.layers.map((l, i) => (
               <div className="prow ro" key={i}>
-                <span className="lbl" title={FUNCTION_LABEL[l.function]}>{FUNCTION_LABEL[l.function]}</span>
+                <span className="lbl" title={fnLabels[l.function]}>{fnLabels[l.function]}</span>
                 <span className="val soft" title={p.materials[l.materialId]?.name}>{fmt('smallLength', l.thickness)}</span>
               </div>
             ))}

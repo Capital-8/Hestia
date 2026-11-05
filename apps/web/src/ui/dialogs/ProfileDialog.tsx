@@ -31,7 +31,7 @@ export function ProfileDialog({ wallId, onClose }: { wallId: Id; onClose: () => 
   };
   const ok = (): void => {
     if (err) return;
-    editor.store.exec({ type: 'updateElements', ids: [wall.id], patch: { topProfile: draft } }, 'Editar perfil superior');
+    editor.store.exec({ type: 'updateElements', ids: [wall.id], patch: { topProfile: draft } }, 'undo_edit_roof_profile');
     onClose();
   };
   return (

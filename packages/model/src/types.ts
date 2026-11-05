@@ -828,6 +828,12 @@ export interface Project {
    * Ausente = o padrão montado pelo escritor (categoria gráfica e escala). Ver `dxfLayerStyle.ts`.
    */
   dxfLayers?: Record<string, DxfLayerStyle>;
+  /**
+   * Miniatura da vista 3D (`data:` URL JPEG/WebP), gravada ao salvar na biblioteca: é o card da tela inicial. Fica
+   * dentro do documento para viajar com o projeto (não tem como perder nem trocar a imagem), e NÃO entra na geometria
+   * nem nas assinaturas de nível — refazer a miniatura não remonta nada.
+   */
+  thumbnail?: string;
 }
 
 export const isRoof = (e: Element | undefined): e is Roof => e?.kind === 'roof';

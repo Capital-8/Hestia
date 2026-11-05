@@ -3,6 +3,7 @@ import { formatQuantity, type Id, type Project, type ResolvedUnits } from '@hest
 import type { PerimeterModifyKind } from './perimeterModifyKind.ts';
 import { SELECT_PX, hitSeg, segLines } from './perimeterToolPick.ts';
 import type { PointerInfo, PreviewItem, ToolOptions } from './types.ts';
+import type { Lang } from './i18n.ts';
 
 /** Passo de um comando de Modificar: estágio, linhas e pontos já escolhidos, valor digitado e as opções de Tab. */
 export interface Step {
@@ -36,7 +37,7 @@ export interface ModHost {
   project?(): Project;
   levelId?(): Id;
   /** Idioma da interface (ausente = português). */
-  lang?(): 'pt' | 'en';
+  lang?(): Lang;
 }
 
 /** Comandos que agem sobre a seleção: o primeiro estágio escolhe as linhas (Enter confirma). */

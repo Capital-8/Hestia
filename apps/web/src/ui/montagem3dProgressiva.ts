@@ -518,7 +518,9 @@ export class Montagem3dProgressiva {
       const nivel = this.prontos.get(id) ?? this.antigos.get(id);
       return nivel ? [nivel] : [];
     });
-    this.op.cena.update(this.projeto, niveis, this.opcoes);
+    // Os níveis ainda em `antigos` são a resolução da versão anterior: a cena os desenha, mas não os põe no cache de
+    // malha (a chave é a do projeto novo e a malha ficaria presa nela — ver `Scene3DOptions.provisorios`).
+    this.op.cena.update(this.projeto, niveis, this.antigos.size ? { ...this.opcoes, provisorios: new Set(this.antigos.keys()) } : this.opcoes);
     this.op.aoAtualizar();
   }
 
