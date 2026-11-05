@@ -221,3 +221,142 @@
     overflow: visible;
   }
 }
+
+/* Resultado do render GPU: a imagem ocupa a área da prévia; o canvas fica oculto enquanto ela existe. */
+.ri-previa canvas[hidden] {
+  display: none;
+}
+
+.ri-resultado {
+  position: absolute;
+  inset: 8px;
+  width: calc(100% - 16px);
+  height: calc(100% - 16px);
+  object-fit: contain;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.18);
+  background: var(--sheet);
+}
+
+/* Progresso do render GPU dentro do modal (barra + texto + cancelar). */
+.ri-progresso {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--panel);
+}
+
+.ri-progresso-topo,
+.ri-progresso-rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--fg-soft);
+  font-size: 12px;
+}
+
+.ri-barra {
+  position: relative;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--line);
+}
+
+.ri-barra i {
+  display: block;
+  height: 100%;
+  background: var(--accent, #3b82f6);
+  transition: width 0.2s ease;
+}
+
+.ri-barra.indeterminada i {
+  width: 35%;
+  animation: ri-indeterminada 1.2s ease-in-out infinite;
+}
+
+@keyframes ri-indeterminada {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+/* Grade de tiles do render GPU: a área tem a proporção da imagem; cada tile é posicionado em %.
+   Nada anima sozinho: a mudança de estado acontece quando o serviço entrega cada tile. */
+.rt {
+  display: grid;
+  gap: 4px;
+}
+
+.rt-area {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: #111;
+}
+
+.rt-tile {
+  position: absolute;
+  box-sizing: border-box;
+}
+
+/* Tile concluído: o PNG do pedaço renderizado; entra com uma transição curta de opacidade. */
+img.rt-concluido {
+  display: block;
+  object-fit: fill;
+  animation: rt-surgir 150ms ease-out;
+}
+
+/* Pendente: branco semitransparente. */
+.rt-pendente {
+  background: #fff;
+  opacity: 0.85;
+}
+
+/* Próximo tile a renderizar (espiral): branco pleno com borda. */
+.rt-destaque {
+  background: #fff;
+  border: 2px solid var(--accent, #3b82f6);
+}
+
+/* Buscando o PNG ainda: sem preenchimento, o fundo escuro aparece. */
+.rt-carregando {
+  background: transparent;
+}
+
+/* Falha ao buscar o tile: cinza com borda vermelha discreta e texto (não silencioso). */
+.rt-erro {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  overflow: hidden;
+  background: #4a4a4a;
+  border: 1px solid var(--danger, #dc2626);
+  color: #fff;
+  font-size: 10px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.rt-legenda {
+  margin: 0;
+  color: var(--fg-soft);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+@keyframes rt-surgir {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  img.rt-concluido {
+    animation: none;
+  }
+}

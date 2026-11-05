@@ -15,10 +15,8 @@ export interface SaudeRenderNativo {
 export interface OpcoesRenderNativo {
   largura: number;
   altura: number;
-  spp: number;
   /** Paradas de exposição (EV), como no estúdio. */
   exposicao?: number;
-  denoise?: boolean;
   sinal?: AbortSignal;
 }
 
@@ -81,9 +79,7 @@ export async function renderizarNativo(
   const q = new URLSearchParams({
     largura: String(Math.round(opcoes.largura)),
     altura: String(Math.round(opcoes.altura)),
-    spp: String(Math.max(1, Math.round(opcoes.spp))),
     exposicao: String(opcoes.exposicao ?? 0),
-    denoise: opcoes.denoise === false ? '0' : '1',
   });
   const resposta = await fetch(`${urlRenderNativo()}/render?${q}`, {
     method: 'POST',
@@ -103,12 +99,22 @@ export async function servicoNativoDisponivel(): Promise<boolean> {
   return (await saudeRenderNativo())?.ok === true;
 }
 
+export interface TileJobNativo {
+  i: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface StatusJobNativo {
   fase: string;
   fracao: number;
   pronto: boolean;
   cancelado: boolean;
   erro: string | null;
+  /** Ausente em serviços antigos que não reportam tiles: a UI deve tratar `undefined`. */
+  tiles?: { total: number; concluidos: TileJobNativo[] };
 }
 
 /** Cria um job progressivo; o serviço devolve `{id}` e renderiza em background. */
@@ -119,7 +125,6 @@ export async function criarJobNativo(
   const q = new URLSearchParams({
     largura: String(Math.round(opcoes.largura)),
     altura: String(Math.round(opcoes.altura)),
-    spp: String(Math.max(1, Math.round(opcoes.spp))),
     exposicao: String(opcoes.exposicao ?? 0),
   });
   const resposta = await fetch(`${urlRenderNativo()}/jobs?${q}`, {
@@ -132,14 +137,59 @@ export async function criarJobNativo(
   return dados.id;
 }
 
+/** Valida a forma do status; forma inválida é erro explícito, nunca valor inventado. */
+function validarStatusJobNativo(dados: unknown): StatusJobNativo {
+  if (typeof dados !== 'object' || dados === null) {
+    throw new Error('render-service: status do job inválido (não é objeto)');
+  }
+  const d = dados as Record<string, unknown>;
+  if (typeof d.fracao !== 'number' || !Number.isFinite(d.fracao) || d.fracao < 0 || d.fracao > 1) {
+    throw new Error(`render-service: status do job com fracao inválida (${String(d.fracao)})`);
+  }
+  let tiles: StatusJobNativo['tiles'];
+  if (d.tiles !== undefined && d.tiles !== null) {
+    const t = d.tiles as Record<string, unknown>;
+    if (typeof t !== 'object' || typeof t.total !== 'number' || !Number.isFinite(t.total)) {
+      throw new Error('render-service: status do job com tiles.total inválido');
+    }
+    if (!Array.isArray(t.concluidos)) {
+      throw new Error('render-service: status do job com tiles.concluidos não é array');
+    }
+    tiles = { total: t.total, concluidos: t.concluidos as TileJobNativo[] };
+  }
+  return {
+    fase: String(d.fase ?? ''),
+    fracao: d.fracao,
+    pronto: d.pronto === true,
+    cancelado: d.cancelado === true,
+    erro: typeof d.erro === 'string' ? d.erro : null,
+    tiles,
+  };
+}
+
+/**
+ * Status de um job. `null` = serviço inacessível ou HTTP de erro (como antes).
+ * Forma inválida do JSON lança Error explícito.
+ */
 export async function statusJobNativo(id: string, sinal?: AbortSignal): Promise<StatusJobNativo | null> {
+  let resposta: Response;
   try {
-    const resposta = await fetch(`${urlRenderNativo()}/jobs/${encodeURIComponent(id)}`, { signal: sinal, cache: 'no-store' });
-    if (!resposta.ok) return null;
-    return await resposta.json() as StatusJobNativo;
+    resposta = await fetch(`${urlRenderNativo()}/jobs/${encodeURIComponent(id)}`, { signal: sinal, cache: 'no-store' });
   } catch {
     return null;
   }
+  if (!resposta.ok) return null;
+  return validarStatusJobNativo(await resposta.json());
+}
+
+/** Um tile PNG já concluído do job progressivo. Erro HTTP lança Error com o status. */
+export async function tileNativo(id: string, i: number, sinal?: AbortSignal): Promise<Blob> {
+  const resposta = await fetch(`${urlRenderNativo()}/jobs/${encodeURIComponent(id)}/tile/${i}`, {
+    signal: sinal,
+    cache: 'no-store',
+  });
+  if (!resposta.ok) throw new Error(`render-service: HTTP ${resposta.status} ao buscar tile ${i}`);
+  return await resposta.blob();
 }
 
 /** Último PNG parcial do job, ou null se ainda não há imagem. */

@@ -5,7 +5,7 @@ import { openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wall
 import { DARK, LIGHT } from '../plan/types.ts';
 import { AVISO } from '../aviso.ts';
 import { projetoDaJuncao } from '../plan/viewContext.ts';
-import { OrbitCamera, aplicarCameraNaOrbita, cameraBasis } from './orbit.ts';
+import { HOME_VIEW, OCUPACAO_ENQUADRAMENTO, OrbitCamera, aplicarCameraNaOrbita, cameraBasis, enquadrarCamera } from './orbit.ts';
 import { firstSurfaceDistance } from './pick3d.ts';
 import { caixasEPrismasDaAbertura, montarAbertura } from './aberturas3d.ts';
 import { arestasDaSilhuetaDeCaixas } from './silhuetaCaixas3d.ts';
@@ -29,6 +29,7 @@ import { Materiais3D } from './materiais3d.ts';
 import { CacheMalhas, bytesDeNivel, disposeNivel, type EntradaNivel, type PickSource } from './cacheMalhas3d.ts';
 import { chavesDeNivel } from './chaveNivel3d.ts';
 import { caixaDaSelecao } from './selecao3d.ts';
+import { tipoProceduralDoElemento } from './tipoMaterial.ts';
 import type { RenderBatch, RenderMaterial, RenderSceneSnapshot } from '../offline/cena.ts';
 
 /** O mínimo do renderer que o gancho de quadro da cena lê (o three chama `scene.onBeforeRender` com o renderer real). */
@@ -79,6 +80,40 @@ const SUN_DISTANCE = Math.hypot(0.7, 0.5, 1.1);
 const REVEAL_COLOR = 0x2563eb;
 /** Conjunto de visibilidade vazio (o caso padrão: nada oculto nem revelado). */
 const NADA: ReadonlySet<Id> = new Set();
+
+/**
+ * Chão neutro da imagem final: só existe na exportação de render (`exportarCenaDeRender`), nunca no viewport. É um
+ * retângulo horizontal na base do modelo, com `MARGEM_CHAO_NEUTRO` em cada lado, que recebe a sombra do sol. Não é
+ * grade, datum nem nível: esses continuam fora da exportação, como o chão de sombra do viewport (`ModelScene.ground`).
+ */
+/**
+ * Margem mínima (m) do chão neutro além da caixa do modelo, em cada lado. Com 30 m, a borda do chão aparecia no topo
+ * do quadro na vista padrão (elevação 0,5 rad, FOV 38°); com 100 m ela sai do quadro. Câmeras mais afastadas pedem mais
+ * margem (ver `FATOR_MARGEM_CHAO`). O preço é a resolução da sombra: a luz cobre o raio da cena inteira.
+ */
+export const MARGEM_CHAO_NEUTRO = 100;
+/** Recuo (m) do chão abaixo da base do modelo, para não disputar profundidade com as faces de baixo. */
+export const RECUO_CHAO_NEUTRO = 0.002;
+/**
+ * Fator da margem pela distância da câmera: a borda do chão tem de ficar além do ponto em que o raio do topo do quadro
+ * toca o chão. Com elevação 0,5 rad e FOV 38°, isso dá uma margem de ~2,5 vezes a distância; 3 deixa folga.
+ */
+export const FATOR_MARGEM_CHAO = 3;
+/** Cinza-claro neutro, cor linear (o material do chão usa esta cor, rugosidade 0,9 e metálico 0). */
+export const COR_CHAO_NEUTRO = 0.78;
+
+/**
+ * Os seis vértices (dois triângulos, enrolamento anti-horário visto de cima, normal +Z) do chão neutro para a caixa do
+ * modelo. A ordem é a da exportação: três números por vértice, sem índice compartilhado.
+ */
+export function verticesDoChaoNeutro(caixa: THREE.Box3, margem: number = MARGEM_CHAO_NEUTRO): number[] {
+  const z = caixa.min.z - RECUO_CHAO_NEUTRO;
+  const x0 = caixa.min.x - margem;
+  const x1 = caixa.max.x + margem;
+  const y0 = caixa.min.y - margem;
+  const y1 = caixa.max.y + margem;
+  return [x0, y0, z, x1, y0, z, x1, y1, z, x0, y0, z, x1, y1, z, x0, y1, z];
+}
 
 /** Direção unitária do sol, de alvo para luz: azimute em graus (0 = leste, anti-horário) e elevação acima do horizonte. */
 export function sunDirection(azimuth: number, elevation: number): THREE.Vector3 {
@@ -165,6 +200,8 @@ export class ModelScene {
   private sun = new THREE.DirectionalLight(0xffffff, 2.1);
   private ground: THREE.Mesh;
   private grid: THREE.GridHelper;
+  /** Visibilidade de niveis, grade, chão, picking e realces antes de `modoApresentacao(true)`; `null` fora do modo. */
+  private visiveisAntesDaApresentacao: boolean[] | null = null;
   private boxCache = new THREE.Box3();
   /** Reuso do tamanho da tela no gancho de quadro (evita alocar por quadro). */
   private readonly tamanhoTela = new THREE.Vector2();
@@ -704,13 +741,19 @@ export class ModelScene {
   /**
    * Modo apresentação do estúdio/render: esconde datum dos níveis, grade, chão de sombra,
    * picking e realces. Fica só a construção do usuário (paredes, pisos, lajes, telhado, etc.).
+   * Desligar devolve a visibilidade que cada parte tinha antes de ligar (o chão some no estilo
+   * wireframe por `update`; voltar "tudo visível" o faria reaparecer).
    */
   modoApresentacao(ligado: boolean): void {
-    this.niveis3d.visible = !ligado;
-    this.grid.visible = !ligado;
-    this.ground.visible = !ligado;
-    this.pickLayer.visible = !ligado;
-    this.realces.camada.visible = !ligado;
+    const partes = [this.niveis3d, this.grid, this.ground, this.pickLayer, this.realces.camada];
+    if (ligado) {
+      this.visiveisAntesDaApresentacao ??= partes.map((o) => o.visible);
+      for (const o of partes) o.visible = false;
+      return;
+    }
+    const antes = this.visiveisAntesDaApresentacao;
+    this.visiveisAntesDaApresentacao = null;
+    if (antes) partes.forEach((o, i) => { o.visible = antes[i] ?? o.visible; });
   }
 
   /**
@@ -729,10 +772,14 @@ export class ModelScene {
 
   /**
    * Snapshot neutro para o renderizador offline (Rust/WASM): triângulos em mundo, material por
-   * lote, câmera e sol. Lê o mesmo `model` que a GPU desenha; ficam de fora datum, chão, grade,
-   * picking, realces e arestas. Sem DOM: pode rodar em Node/teste.
+   * lote, câmera e sol. Lê o mesmo `model` que a GPU desenha; ficam de fora datum, grade, picking,
+   * realces, arestas e o chão de sombra do viewport. Sem DOM: pode rodar em Node/teste.
+   *
+   * Acrescenta o chão neutro (ver `verticesDoChaoNeutro`), que recebe a sombra do sol. Sem `camera`, usa o
+   * enquadramento automático (`enquadrarCamera`) da geometria exportada, na vista padrão do app e no `aspect` pedido;
+   * a câmera escolhida pelo usuário, quando passada, vence.
    */
-  exportarCenaDeRender(opcoes: { camera: SheetView3DCamera; aspect?: number }): RenderSceneSnapshot {
+  exportarCenaDeRender(opcoes: { camera?: SheetView3DCamera; aspect?: number }): RenderSceneSnapshot {
     this.model.updateMatrixWorld(true);
     const posicoes: number[] = [];
     const indices: number[] = [];
@@ -742,9 +789,13 @@ export class ModelScene {
     const v = new THREE.Vector3();
     const mtx = new THREE.Matrix4();
 
-    const materialDe = (mat: THREE.Material | THREE.Material[] | undefined): number => {
+    // Um material three.js pode ser compartilhado por elementos de tipos diferentes, então a chave é (material, tipo, escala):
+    // dois elementos com o mesmo material e tipos distintos viram entradas distintas. O tipo vem do elemento de origem da
+    // malha (`userData.kind`, a categoria), nunca da cor; ver `tipoMaterial.ts`.
+    const materialDe = (mat: THREE.Material | THREE.Material[] | undefined, kind: string | undefined): number => {
       const escolhido = Array.isArray(mat) ? mat[0] : mat;
-      const chave = escolhido?.uuid ?? 'sem-material';
+      const { tipo, escala } = tipoProceduralDoElemento(kind);
+      const chave = `${escolhido?.uuid ?? 'sem-material'}|${tipo}|${escala}`;
       const existente = porMaterial.get(chave);
       if (existente !== undefined) return existente;
       const m = escolhido as (THREE.MeshStandardMaterial & { color?: THREE.Color; opacity?: number }) | undefined;
@@ -761,6 +812,8 @@ export class ModelScene {
         transmission: Math.max(0, 1 - opacity),
         ior: 1.5,
         emissive: [0, 0, 0],
+        tipo,
+        escala,
       });
       porMaterial.set(chave, indice);
       return indice;
@@ -773,7 +826,7 @@ export class ModelScene {
       if (!pos || pos.count === 0) return;
       const indice = geometria.index;
       const contar = indice ? indice.count : pos.count;
-      const material = materialDe(o.material);
+      const material = materialDe(o.material, typeof o.userData.kind === 'string' ? o.userData.kind : undefined);
       const matrizes: THREE.Matrix4[] = [];
       if (o instanceof THREE.InstancedMesh) {
         for (let i = 0; i < o.count; i++) {
@@ -797,9 +850,33 @@ export class ModelScene {
       if (indices.length > indexStart) lotes.push({ indexStart, indexCount: indices.length - indexStart, material });
     });
 
+    // A caixa é a do modelo (antes do chão): é a base do enquadramento automático e do próprio chão neutro.
+    const caixa = new THREE.Box3().setFromArray(posicoes);
+    const aspecto = opcoes.aspect ?? 16 / 9;
     const orb = new OrbitCamera();
-    aplicarCameraNaOrbita(orb, opcoes.camera);
-    orb.setAspect(opcoes.aspect ?? 16 / 9, 1);
+    const cameraDoRender = opcoes.camera ?? enquadrarCamera(caixa, HOME_VIEW.azimuth, HOME_VIEW.elevation, orb.perspective.fov, aspecto, OCUPACAO_ENQUADRAMENTO, posicoes);
+    if (!caixa.isEmpty()) {
+      const margem = Math.max(MARGEM_CHAO_NEUTRO, FATOR_MARGEM_CHAO * cameraDoRender.distance);
+      const chao = verticesDoChaoNeutro(caixa, margem);
+      const inicioChao = indices.length;
+      const indiceChao = materiais.length;
+      materiais.push({
+        baseColor: [COR_CHAO_NEUTRO, COR_CHAO_NEUTRO, COR_CHAO_NEUTRO],
+        roughness: 0.9,
+        metallic: 0,
+        opacity: 1,
+        transmission: 0,
+        ior: 1.5,
+        emissive: [0, 0, 0],
+        tipo: 0,
+        escala: 1,
+      });
+      posicoes.push(...chao);
+      for (let i = 0; i < chao.length / 3; i++) indices.push(indices.length);
+      lotes.push({ indexStart: inicioChao, indexCount: indices.length - inicioChao, material: indiceChao });
+    }
+    aplicarCameraNaOrbita(orb, cameraDoRender);
+    orb.setAspect(aspecto, 1);
     orb.apply();
     const camera = orb.camera;
     camera.updateMatrixWorld(true);

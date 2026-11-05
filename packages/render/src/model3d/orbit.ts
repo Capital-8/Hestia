@@ -287,3 +287,77 @@ export function aplicarCameraNaOrbita(o: OrbitCamera, c: SheetView3DCamera): voi
   o.ortho = c.ortho;
   o.apply();
 }
+
+/** Distância (m) de enquadramento quando a caixa é vazia: a mesma de `OrbitCamera.framing` (vista do modelo vazio). */
+const DISTANCIA_VAZIA = 14;
+/** Ocupação-alvo do enquadramento automático: o modelo cobre 78 % do quadro no eixo que domina (faixa de 75 a 80 %). */
+export const OCUPACAO_ENQUADRAMENTO = 0.78;
+
+/**
+ * Enquadramento automático da imagem final, sem câmera do usuário (fallback do render). Mantém a direção de vista
+ * (`azimute`, `elevacao`, em rad) e põe o alvo no centro da caixa; a distância é a menor em que o modelo ocupa
+ * `ocupacao` do quadro no eixo que domina (largura ou altura). `fovDeg` é o FOV vertical (como `PerspectiveCamera`) e
+ * `proporcao` é largura/altura do quadro.
+ *
+ * Mede `pontos` (xyz em sequência, a geometria exportada) quando são dados; sem eles, os 8 cantos da caixa. A caixa
+ * sozinha superestima o modelo: um volume em L ou com beirais deixa cantos vazios (a casa de teste ocupava ~66 % do
+ * quadro com a caixa e fica na ocupação pedida com os pontos). A busca é uma bisseção em escala logarítmica.
+ * A esfera de `OrbitCamera.framing` não é reaproveitada: a folga dela depende da forma, e mudar a margem dela mudaria
+ * o "Início" da vista 3D, que não deve mudar.
+ */
+export function enquadrarCamera(
+  caixa: THREE.Box3,
+  azimute: number,
+  elevacao: number,
+  fovDeg: number,
+  proporcao: number,
+  ocupacao: number = OCUPACAO_ENQUADRAMENTO,
+  pontos?: ArrayLike<number>,
+): SheetView3DCamera {
+  const padrao = { azimuth: azimute, elevation: elevacao, ortho: false } as const;
+  if (caixa.isEmpty()) return { ...padrao, distance: DISTANCIA_VAZIA, target: { x: 0, y: 0, z: 1 } };
+  const centro = caixa.getCenter(new THREE.Vector3());
+  const meia = caixa.getSize(new THREE.Vector3()).multiplyScalar(0.5);
+  // Os pontos medidos, relativos ao centro: os dados (xyz) ou os 8 cantos da caixa.
+  const rel: THREE.Vector3[] = [];
+  if (pontos && pontos.length >= 3) {
+    for (let i = 0; i + 2 < pontos.length; i += 3) {
+      rel.push(new THREE.Vector3(pontos[i]! - centro.x, pontos[i + 1]! - centro.y, pontos[i + 2]! - centro.z));
+    }
+  } else {
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) rel.push(new THREE.Vector3(sx * meia.x, sy * meia.y, sz * meia.z));
+  }
+  let raio = 0;
+  for (const v of rel) raio = Math.max(raio, v.length());
+  if (raio < 1e-9) return { ...padrao, distance: DISTANCIA_VAZIA, target: { x: centro.x, y: centro.y, z: centro.z } };
+
+  const { toCamera, right, up } = cameraBasis(azimute, elevacao);
+  const tgVertical = Math.tan((fovDeg * Math.PI) / 360);
+  const tgHorizontal = tgVertical * proporcao;
+  // Cada ponto em coordenadas da câmera, relativas ao centro: a (direita), b (cima) e e (ao longo da vista).
+  const coord = rel.map((v): [number, number, number] => [v.dot(right), v.dot(up), v.dot(toCamera)]);
+  // Com a câmera a `d` do centro, um ponto tem profundidade d − e > 0 (d > raio) e posição na tela a / (d − e).
+  const ocupacaoEm = (d: number): number => {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const [a, b, e] of coord) {
+      const prof = d - e;
+      const x = a / (prof * tgHorizontal);
+      const y = b / (prof * tgVertical);
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+    return Math.max((maxX - minX) / 2, (maxY - minY) / 2);
+  };
+  // A ocupação cai com a distância: começa em raio·1,0001 (tudo na frente da câmera) e dobra o teto até ficar abaixo.
+  let baixo = raio * 1.0001;
+  let alto = raio * 4;
+  while (ocupacaoEm(alto) > ocupacao && alto < raio * 1e6) alto *= 2;
+  for (let i = 0; i < 80; i++) {
+    const meio = Math.sqrt(baixo * alto);
+    if (ocupacaoEm(meio) > ocupacao) baixo = meio;
+    else alto = meio;
+  }
+  return { ...padrao, distance: alto, target: { x: centro.x, y: centro.y, z: centro.z } };
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { HOME_VIEW, OrbitCamera, POLE_ELEVATION, cameraBasis, easeInOut, wrapAngle } from './orbit.ts';
+import { HOME_VIEW, OrbitCamera, POLE_ELEVATION, aplicarCameraNaOrbita, cameraBasis, easeInOut, enquadrarCamera, wrapAngle } from './orbit.ts';
 import { clipPlanes } from './cameraClip.ts';
 
 const DEG = Math.PI / 180;
@@ -362,5 +362,86 @@ describe('OrbitCamera.zoom: não atravessa a parede no eixo de visão', () => {
       // A folga é ao longo do eixo de visão (elevação 0,1 rad): na direção x ela vale 0,2·cos(elevação).
       expect(o.perspective.position.x - 3).toBeGreaterThanOrEqual(0.2 * Math.cos(o.elevation) - 1e-6);
     }
+  });
+});
+
+/** Fração do quadro (0 a 1) ocupada pelos pontos na largura e na altura, projetados pela câmera devolvida (a mesma montagem do render). */
+function ocupacaoDePontos(pontos: THREE.Vector3[], cam: ReturnType<typeof enquadrarCamera>, aspecto: number): { horizontal: number; vertical: number } {
+  const o = new OrbitCamera();
+  aplicarCameraNaOrbita(o, cam);
+  o.setAspect(aspecto, 1);
+  o.apply();
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const p of pontos) {
+    const v = p.clone().project(o.camera);
+    x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x);
+    y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y);
+  }
+  return { horizontal: (x1 - x0) / 2, vertical: (y1 - y0) / 2 };
+}
+
+/** Os 8 cantos de uma caixa, como pontos. */
+function cantosDaCaixa(caixa: THREE.Box3): THREE.Vector3[] {
+  const { min, max } = caixa;
+  const pontos: THREE.Vector3[] = [];
+  for (const x of [min.x, max.x]) for (const y of [min.y, max.y]) for (const z of [min.z, max.z]) pontos.push(new THREE.Vector3(x, y, z));
+  return pontos;
+}
+
+describe('enquadrarCamera (imagem final sem câmera do usuário)', () => {
+  const caixa = new THREE.Box3(new THREE.Vector3(-5, -5, 0), new THREE.Vector3(5, 5, 6));
+
+  it('caixa 10x10x6 m em 16:9 ocupa 70 a 85 % do quadro na dimensão que domina, e cabe inteira', () => {
+    const cam = enquadrarCamera(caixa, -Math.PI / 4, 0.5, 38, 16 / 9);
+    const occ = ocupacaoDePontos(cantosDaCaixa(caixa), cam, 16 / 9);
+    const dominante = Math.max(occ.horizontal, occ.vertical);
+    expect(dominante).toBeGreaterThanOrEqual(0.7);
+    expect(dominante).toBeLessThanOrEqual(0.85);
+    expect(dominante).toBeCloseTo(0.78, 2);
+    expect(occ.horizontal).toBeLessThanOrEqual(1);
+    expect(occ.vertical).toBeLessThanOrEqual(1);
+    // Esta caixa é mais alta que larga na projeção (o eixo vertical domina); a horizontal fica menor.
+    expect(occ.vertical).toBeGreaterThan(occ.horizontal);
+  });
+
+  it('mantém a direção de vista e põe o alvo no centro da caixa', () => {
+    const cam = enquadrarCamera(caixa, -Math.PI / 4, 0.5, 38, 16 / 9);
+    expect(cam.azimuth).toBe(-Math.PI / 4);
+    expect(cam.elevation).toBe(0.5);
+    expect(cam.ortho).toBe(false);
+    expect(cam.target).toEqual({ x: 0, y: 0, z: 3 });
+    // A distância fica além do raio da caixa (a câmera nunca entra nela).
+    expect(cam.distance).toBeGreaterThan(new THREE.Vector3(5, 5, 3).length());
+  });
+
+  it('vale para outras proporções e ocupações: a dimensão que domina bate com a ocupação pedida', () => {
+    for (const [proporcao, ocupacao] of [[1, 0.5], [4 / 3, 0.6], [16 / 9, 0.9]] as const) {
+      const cam = enquadrarCamera(caixa, 0.3, 0.9, 38, proporcao, ocupacao);
+      const occ = ocupacaoDePontos(cantosDaCaixa(caixa), cam, proporcao);
+      expect(Math.abs(Math.max(occ.horizontal, occ.vertical) - ocupacao)).toBeLessThan(0.01);
+    }
+  });
+
+  it('com os pontos do modelo (volume em L, cantos vazios), a ocupação medida nos pontos é a pedida, não a da caixa', () => {
+    // Volume com os dois cantos que definem a vertical na projeção vazios (o alto e afastado, e o baixo e próximo):
+    // os pontos ocupam menos altura que a caixa, então a caixa superestima o modelo.
+    const pontos: THREE.Vector3[] = [];
+    for (let x = -5; x <= 5; x++) for (let y = -5; y <= 5; y++) for (const z of [0, 1.5, 3, 4.5, 6]) {
+      const noCantoAlto = x < -2 && y > 2 && z > 3;
+      const noCantoBaixo = x > 2 && y < -2 && z < 3;
+      if (!noCantoAlto && !noCantoBaixo) pontos.push(new THREE.Vector3(x, y, z));
+    }
+    const bruta = new Float32Array(pontos.flatMap((p) => [p.x, p.y, p.z]));
+    const cam = enquadrarCamera(caixa, -Math.PI / 4, 0.5, 38, 16 / 9, 0.78, bruta);
+    const occ = ocupacaoDePontos(pontos, cam, 16 / 9);
+    expect(Math.abs(Math.max(occ.horizontal, occ.vertical) - 0.78)).toBeLessThan(0.01);
+    // Sem os pontos, a mesma caixa dá outra distância: a caixa superestima o volume em L.
+    expect(enquadrarCamera(caixa, -Math.PI / 4, 0.5, 38, 16 / 9).distance).toBeGreaterThan(cam.distance);
+  });
+
+  it('caixa vazia: a vista padrão do modelo vazio (alvo em z = 1 m, 14 m), como OrbitCamera.framing', () => {
+    const cam = enquadrarCamera(new THREE.Box3(), HOME_VIEW.azimuth, HOME_VIEW.elevation, 38, 16 / 9);
+    expect(cam.target).toEqual({ x: 0, y: 0, z: 1 });
+    expect(cam.distance).toBe(14);
   });
 });
