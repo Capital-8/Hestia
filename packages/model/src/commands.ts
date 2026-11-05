@@ -1,5 +1,6 @@
 /* eslint-disable max-lines */
 import { applyTransform, type Transform, type Vec2 } from '@hestia/geom';
+import { validarMaterialPbr, type MaterialPbrPatch } from './materialPbr.ts';
 import {
   isOpening,
   isCeiling,
@@ -132,6 +133,7 @@ export type Command =
   | { type: 'upsertWallType'; wallType: WallType }
   | { type: 'deleteWallType'; id: Id }
   | { type: 'upsertMaterial'; material: Material }
+  | { type: 'updateMaterialPbr'; id: Id; patch: MaterialPbrPatch }
   | { type: 'upsertOpeningType'; openingType: OpeningType }
   | { type: 'upsertLevel'; level: Level }
   | AnnotationCommand
@@ -445,6 +447,20 @@ export function applyCommand(p: Project, c: Command): void {
     case 'upsertMaterial':
       p.materials[c.material.id] = c.material;
       break;
+    case 'updateMaterialPbr': {
+      const atual = p.materials[c.id];
+      if (!atual) throw new Error('Material não encontrado');
+      // Valor undefined no patch remove o campo (volta ao padrão). O candidato é validado antes de gravar.
+      const next: Material = { ...atual };
+      for (const [chave, valor] of Object.entries(c.patch) as Array<[keyof MaterialPbrPatch, unknown]>) {
+        if (valor === undefined) delete next[chave];
+        else (next as unknown as Record<string, unknown>)[chave] = valor;
+      }
+      const issue = validarMaterialPbr(next);
+      if (issue) throw new Error(issue);
+      p.materials[c.id] = next;
+      break;
+    }
     case 'upsertOpeningType': {
       const issue = openingTypeIssue(c.openingType);
       if (issue) throw new Error(issue);
