@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { flatPiece, overlapVolume, type SolidPiece } from './junctionNet.ts';
-import type { MultiPolygon } from '@hestia/geom';
+import type { MultiPolygon, Vec2 } from '@hestia/geom';
 
 /** Retângulo [x0,x1]×[y0,y1] como multipolígono (um anel, sentido anti-horário). */
 const rect = (x0: number, y0: number, x1: number, y1: number): MultiPolygon => [
@@ -65,5 +65,14 @@ describe('volume de sobreposição é exato (não depende da divisão em faixas)
     const b = linear(rect(0, 0, 2, 1), 0, 0, 0.3, 1, -1, 0);
     const ref = volumeDeReferencia(a, b, 0, 0, 2, 1, 0.0005);
     expect(Math.abs(overlapVolume(a, b) - ref)).toBeLessThan(2e-5);
+  });
+});
+
+describe('volume exato com forma não convexa (valor analítico, sem amostragem)', () => {
+  it('L = retângulo [0,2]x[0,1] menos [0,1]x[0,0.5]; altura max(0, 1 - x - 0.3y): 0.365 - 0.214375 = 0.150625', () => {
+    const forma = [[[{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 1 }, { x: 0, y: 1 }, { x: 0, y: 0.5 }, { x: 1, y: 0.5 }]]] as MultiPolygon;
+    const a = { poly: forma, flat: false, span: (p: Vec2) => [0, 1 + p.x] as const } as SolidPiece;
+    const b = { poly: forma, flat: false, span: (p: Vec2) => [0.3 * p.y, 1 - p.x] as const } as SolidPiece;
+    expect(Math.abs(overlapVolume(a, b) - 0.150625)).toBeLessThan(1e-9);
   });
 });
