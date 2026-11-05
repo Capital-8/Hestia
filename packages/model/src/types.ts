@@ -7,6 +7,7 @@ import type { Ramp, RampType } from './rampTypes.ts';
 import type { ViewRange } from './viewRange.ts';
 import type { Sheet } from './sheet.ts';
 import type { View3DPoint } from './view3dPoints.ts';
+import type { RenderCamera } from './renderCameras.ts';
 import type { Grid, GridType } from './grid.ts';
 import type { ProjectGraphics, View3DSettings, ViewGraphics, ViewHidden } from './graphics.ts';
 import type { SectionAnnotations } from './sectionAnnotations.ts';
@@ -809,6 +810,8 @@ export interface Project {
    * Ver `view3dPoints.ts`.
    */
   view3dPoints?: View3DPoint[];
+  /** Câmeras de render do projeto, em planta por nível (Revit: Camera). Ausente = nenhuma. Ver `renderCameras.ts`. */
+  renderCameras?: RenderCamera[];
   /** Gráficos do corte e da elevação (decisão 0015); ausente = padrão. */
   sectionGraphics?: ViewGraphics;
   /** Pranchas (decisão 0022); ausente = nenhuma. */

@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactElement } from 'react';
-import { areaPlansOf, formatQuantity, projectSheets, projectView3DPoints, view3DPointOf, view3DPointsUsage, type Element, type SectionView, type SheetViewSource, type View3DPoint } from '@hestia/model';
+import { areaPlansOf, formatQuantity, projectRenderCameras, projectSheets, projectView3DPoints, view3DPointOf, view3DPointsUsage, type Element, type RenderCamera, type SectionView, type SheetViewSource, type View3DPoint } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
+import { excluirCameraRenderAction, iniciarCapturaRenderAction, renomearCameraRenderAction, selecionarCameraRenderAction, useRenderCameraUi } from '../../editor/renderCameraActions.ts';
 import { duplicateSheetCommand, addSheetAction } from '../../editor/sheetActions.ts';
 import { moveSheetCommand } from '../../editor/sheetNumbering.ts';
 import { beginSheetDrag, endSheetDrag, SHEET_VIEW_MIME } from '../../editor/sheetDrag.ts';
@@ -147,6 +148,7 @@ export function ViewsTree(): ReactElement {
   const sections = p.views.filter((v) => v.kind === 'section');
   const elevations = p.views.filter((v) => v.kind === 'elevation');
   const pontos3D = projectView3DPoints(p);
+  const rcams = projectRenderCameras(p);
   const genMenu: MenuItem[] = [{ label: 'Gerar elevações (Norte, Sul, Leste, Oeste)', run: () => editor.generateElevations(), hint: 'Cria as quatro em volta das paredes do nível ativo; substitui as de mesmo nome.' }];
   /** Salva a câmera da vista 3D viva como ponto novo; o nome padrão (Vista 3D, Vista 3D 2…) renomeia-se no menu do ponto. */
   const salvarVista3D = (): void => {
@@ -219,6 +221,17 @@ export function ViewsTree(): ReactElement {
         <Node id="v:3d" label="Modelo 3D" icon="cube" bold={view === '3d'} onOpen={() => activateView({ kind: '3d' })} menu={[{ label: 'Abrir', run: () => activateView({ kind: '3d' }) }, { label: 'Salvar vista atual…', run: salvarVista3D, sep: true, hint: 'Guarda a câmera da vista 3D aberta como um ponto do catálogo.' }]} drag={dragView({ kind: '3d' }, 'Modelo 3D')} />
         {pontos3D.map((pt) => <View3DPointNode key={pt.id} point={pt} pranchas={view3DPointsUsage(p, pt.id).length} />)}
       </Node>
+      <Node
+        id="g:rcam"
+        label="Câmeras de render"
+        icon="cube"
+        group
+        open
+        menu={[{ label: 'Capturar câmera…', run: () => iniciarCapturaRenderAction(editor.store), hint: 'Captura a câmera 3D atual para o render; a moldura mostra a área.' }]}
+        empty="Nenhuma câmera de render. Botão direito: Capturar câmera."
+      >
+        {rcams.length ? rcams.map((c) => <RenderCameraNode key={c.id} camera={c} />) : undefined}
+      </Node>
       <Node id="g:elev" label="Elevações (Elevação de edifício)" group menu={genMenu} empty="Nenhuma elevação. Botão direito: Gerar elevações.">
         {elevations.length ? elevations.map((v) => <SectionNode key={v.id} view={v} />) : undefined}
       </Node>
@@ -228,6 +241,78 @@ export function ViewsTree(): ReactElement {
       <Node id="g:draft" label="Vistas de desenho (Detalhe)" group empty="Ainda não disponível." />
       <Node id="g:legends" label="Legendas" group empty="Ainda não disponível." />
     </Node>
+  );
+}
+
+/**
+ * Câmera de render: duplo clique ou "Selecionar" escolhe a câmera para o render (seleção de tela, não do projeto);
+ * renomear é no lugar, como os cortes; excluir passa pelo modelo. A linha mostra nome, nível e campo de visão.
+ */
+function RenderCameraNode({ camera }: { camera: RenderCamera }): ReactElement {
+  const selecionada = useRenderCameraUi((s) => s.selecionada === camera.id);
+  const nivel = useProject().levels.find((l) => l.id === camera.levelId)?.name ?? 'nível removido';
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(camera.name);
+  // Enter, Esc e a perda de foco podem disparar em sequência; só o primeiro encerra a edição.
+  const editingRef = useRef(false);
+  const selecionar = (): void => {
+    selecionarCameraRenderAction(editor.store, camera.id);
+    say(`Câmera de render "${camera.name}" selecionada para o render.`);
+  };
+  const start = (): void => {
+    editingRef.current = true;
+    setDraft(camera.name);
+    setEditing(true);
+  };
+  const finish = (save: boolean): void => {
+    if (!editingRef.current) return;
+    editingRef.current = false;
+    setEditing(false);
+    if (!save || draft.trim() === camera.name) return;
+    const recusa = renomearCameraRenderAction(editor.store, camera.id, draft);
+    say(recusa ?? `Câmera de render renomeada para "${draft.trim()}".`);
+  };
+  const label = editing ? (
+    <input
+      className="input view-rename"
+      aria-label={`Novo nome de ${camera.name}`}
+      autoFocus
+      value={draft}
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => setDraft(e.target.value)}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') finish(true);
+        else if (e.key === 'Escape') finish(false);
+      }}
+      onBlur={() => finish(true)}
+    />
+  ) : (
+    <>
+      {selecionada ? '● ' : ''}
+      {`${camera.name} · ${nivel} · ${Math.round(camera.fovDeg)}°`}
+    </>
+  );
+  const menu: MenuItem[] = [
+    { label: 'Selecionar para o render', run: selecionar, disabled: selecionada },
+    { label: 'Renomear…', run: start },
+    {
+      label: 'Excluir',
+      run: () => say(excluirCameraRenderAction(editor.store, camera.id) ?? `Câmera de render "${camera.name}" excluída.`),
+      danger: true,
+      sep: true,
+    },
+  ];
+  return (
+    <Node
+      id={`rcam:${camera.id}`}
+      label={label}
+      icon="cube"
+      bold={selecionada}
+      title={`Proporção ${camera.aspect.w}:${camera.aspect.h} · campo de visão ${camera.fovDeg.toFixed(1)}° na horizontal. Duplo clique seleciona para o render.`}
+      onOpen={selecionar}
+      menu={menu}
+    />
   );
 }
 

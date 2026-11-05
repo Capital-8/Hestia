@@ -13,6 +13,8 @@ export { AlignTool } from './alignTool.ts';
 export * from './registry.ts';
 export { ToolBase } from './base.ts';
 export { LevelTool, nextLevelName, LEVEL_Z_TOLERANCE, LEVEL_MIN_EXTENT } from './levelTool.ts';
+export * from './renderCameraGeometria.ts';
+export { RenderCameraTool } from './renderCameraTool.ts';
 export * from './wallGeom.ts';
 export * from './clipboard.ts';
 export * from './pasteTool.ts';

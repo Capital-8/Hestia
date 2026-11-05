@@ -4,6 +4,7 @@ import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanSce
 import { formatQuantity, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
 import { useShallow } from 'zustand/react/shallow';
 import { editor } from '../editor/controller.ts';
+import { useRenderCameraUi } from '../editor/renderCameraSelecao.ts';
 import { transfer } from '../editor/transfer.ts';
 import { consumirManterCameraDaPrevia, guardarCamera, limparPreviaPreparada, montarPrevia, previaPreparada, restaurarCamera, type CameraDaPrevia } from '../editor/pastePreview.ts';
 import { visibilityOf } from '../editor/viewVisibility.ts';
@@ -24,6 +25,7 @@ import { selecionarNivelNoClique } from './nivelPick3d.ts';
 import { NivelCotaEditor, type NivelCotaEditorHandle } from './NivelCotaEditor.tsx';
 import { PlanLabels, type PlanLabelsHandle } from './PlanLabels';
 import { ViewportOverlays } from './ViewportOverlays.tsx';
+import { RenderCameraCaptura } from './RenderCameraCaptura.tsx';
 import { abrirMenuDeContexto, viewDoMenu } from './useCanvasContextMenu.ts';
 import { useDark } from './useDark.ts';
 import { encerrarGesto, iniciarGesto, interacaoAtiva, marcarInteracao, msAteLiberar } from '../editor/interacaoAtiva.ts';
@@ -504,7 +506,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     const gridOn = st.showGrid || (st.options.snap?.enabled !== false && !!st.options.snap?.grid);
     const areaPlan = st.planKind === 'area' && st.areaPlanId ? (p.areaPlans ?? []).find((x) => x.id === st.areaPlanId) : undefined;
     const visKey = `${[...vis.hidden].sort().join(',')}|${[...vis.revealed].sort().join(',')}`;
-    const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showUnderlay, st.underlayLevel, st.showRoofProjection, gridOn, st.gridStep, st.planKind, areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey].join('|'), atualizar: () => planFrameUpdateOf({ project: p, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(p, { levelId: st.levelId }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: editor.activeTool.preview(), inference: editor.activeTool.inference(), resolve: quadro.resolver, sketch, hidden: vis.hidden, revealed: vis.revealed }) });
+    const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showUnderlay, st.underlayLevel, st.showRoofProjection, gridOn, st.gridStep, st.planKind, areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey, useRenderCameraUi.getState().selecionada ?? ''].join('|'), atualizar: () => planFrameUpdateOf({ project: p, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(p, { levelId: st.levelId }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: editor.activeTool.preview(), inference: editor.activeTool.inference(), resolve: quadro.resolver, sketch, hidden: vis.hidden, revealed: vis.revealed, renderCameraSelecionada: useRenderCameraUi.getState().selecionada }) });
     if (g) {
       g.gpu.setSize(w, h, dpr);
       plan.current.setViewport(v);
@@ -1152,6 +1154,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     >
       <PlanLabels ref={labelLayer} labels={ui.view !== '3d' && labelView ? labels : NO_LABELS} v={labelView} />
       <ViewportOverlays host={host} model={model.current} selection={selection} ui={ui} />
+      <RenderCameraCaptura host={host} />
       <NivelCotaEditor ref={cotaRef} />
       <div ref={caixaRef} style={CAIXA_DE_SELECAO_STYLE} />
       {ui.view === '3d' && <Progresso3D />}

@@ -23,7 +23,8 @@ import {
   type SectionView,
   type TemplateId,
 } from '@hestia/model';
-import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, sectionInferContext, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId, pickRefCommands } from '@hestia/tools';
+import { projectRenderCameras } from '@hestia/model';
+import { annotationAt, cameraEmPonto, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, sectionInferContext, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId, pickRefCommands } from '@hestia/tools';
 import { ResolucaoCancelada } from '@hestia/engine/src/worker/protocolo.ts';
 import type { ClienteResolucao } from '@hestia/engine/src/worker/cliente.ts';
 import { kernelExperimentalLigado } from './preferenciasKernel.ts';
@@ -40,6 +41,7 @@ import { pedirConfirmacaoHostedLoss } from './hostedLossPrompt.ts';
 import { pedirAlerta } from './alertaPrompt.ts';
 import { fitBox, levelFrameBox, panBy, planViewOf, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
 import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
+import { useRenderCameraUi } from './renderCameraSelecao.ts';
 import { defaultOpenViews, type PlanKind } from './openViews.ts';
 import { casador } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
 import { elevationCommand, type PlanBox } from './elevations.ts';
@@ -540,6 +542,14 @@ export class Editor {
     const ui = useUi.getState();
     // Escolha de nova referência de cota (Shift+clique na alça): o próximo clique na planta define a ponta.
     if (kind === 'click' && ui.dimRefPick) { this.escolherReferenciaCota(ui.dimRefPick, info); this.bump(); return; }
+    // Câmera de render na planta (H13): clique na posição ou no cone de uma câmera do nível seleciona-a. Só com a
+    // seleção comum e sem elemento sob o cursor (o elemento tem prioridade). Clique em vazio solta a câmera.
+    if (kind === 'click' && ui.tool === 'select' && ui.view === 'plan' && !ui.hover) {
+      const doNivel = projectRenderCameras(this.project).filter((c) => c.levelId === ui.levelId);
+      const camera = cameraEmPonto(doNivel, info.raw, 8 * this.env.metersPerPixel());
+      useRenderCameraUi.setState({ selecionada: camera });
+      if (camera) { useUi.setState({ selection: [] }); this.bump(); return; }
+    }
     // Rótulo do ambiente: alvo do arraste na planta de piso e na de área. Só com a ferramenta Selecionar:
     // com Cota/Texto/Etiqueta/Detalhe/Medir ativos, o clique é da ferramenta (a planta de área é de anotação).
     // A posição é do MODELO (vale em todas as vistas).
