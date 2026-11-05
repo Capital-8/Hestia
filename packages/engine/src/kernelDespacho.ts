@@ -19,7 +19,7 @@
 import { CenaV2, ErroKernelGrave, GerenciadorKernelV2, baixarAssetDoWasm, fonteDeSecoes } from '@hestia/geom';
 import { wallsOnLevel, openingsOfWall, type Id, type Project } from '@hestia/model';
 import { montarCenaA1 } from './kernelA1.ts';
-import { DespachoB, type ContextoB, type DivergenciaB } from './kernelDespachoB.ts';
+import { DespachoB, ErroDespachoKernel, type ContextoB, type DivergenciaB } from './kernelDespachoB.ts';
 import { chaveDasOpcoes, interpretarMensagem, LIMITE_MENSAGEM, NaoCoberto, secoesDe, textoDoErro, type EntradaCena } from './kernelDespachoA.ts';
 import { CONFIG_PADRAO, type ConfigDespacho } from './kernelDespachoConfig.ts';
 export { CONFIG_PADRAO, K_0049_FATIA_B, type ConfigDespacho } from './kernelDespachoConfig.ts';
@@ -162,7 +162,13 @@ export class DespachoKernel {
     const cfg = this.opcoes.config();
     if (!cfg.fatiaA) return ts();
     const ger = this.opcoes.gerenciador();
-    if (!ger || !ger.ligado) return ts();
+    if (!ger) return ts(); // wasm ainda não carregado: o app inicia antes dele
+    if (!ger.ligado) {
+      if (cfg.sombra) return ts();
+      const motivo = ger.estado().motivoDesligado ?? 'kernel desligado';
+      this.ultimoErro = motivo;
+      throw new ErroDespachoKernel('A', levelId, `kernel desligado: ${motivo}`);
+    }
     return cfg.sombra ? this.emSombra(p, levelId, opts, ts, ger) : this.noRust(p, levelId, opts, ts, ger);
   }
 
@@ -197,12 +203,12 @@ export class DespachoKernel {
 
   // --- caminhos ---------------------------------------------------------------------------------------------------------------
 
-  private noRust(p: Project, levelId: Id, opts: PlanResolveOptions, ts: () => ResolvedLevel, ger: GerenciadorKernelV2): ResolvedLevel {
+  private noRust(p: Project, levelId: Id, opts: PlanResolveOptions, _ts: () => ResolvedLevel, ger: GerenciadorKernelV2): ResolvedLevel {
     const chave = chaveDasOpcoes(levelId, opts);
     const guardado = this.memo.get(p)?.get(chave);
     if (guardado) return guardado;
     const r = this.consultar(p, levelId, opts, ger);
-    if (!r) return ts();
+    if (!r) throw new ErroDespachoKernel('A', levelId, this.ultimoErro ?? 'o Rust não devolveu resultado');
     let porProjeto = this.memo.get(p);
     if (!porProjeto) this.memo.set(p, (porProjeto = new Map()));
     porProjeto.set(chave, r.resolvido);
@@ -248,7 +254,7 @@ export class DespachoKernel {
     if (this.registro.length > LIMITE_REGISTRO) this.registro.shift();
   }
 
-  /** Cena sincronizada com o projeto + consulta + decodificação. `null`: falhou (já contado) e a chamada volta ao TS. */
+  /** Cena sincronizada com o projeto + consulta + decodificação. `null`: falhou (já contado) e a chamada fora da sombra lança `ErroDespachoKernel`. */
   private consultar(p: Project, levelId: Id, opts: PlanResolveOptions, ger: GerenciadorKernelV2): { resolvido: ResolvedLevel; rust: ResolvidoA3d; entrada: EntradaCena } | null {
     const flat = opts.flatAttach === true;
     let fase: 'envio' | 'consulta' = 'envio';
@@ -264,11 +270,11 @@ export class DespachoKernel {
     } catch (e) {
       this.ultimoErro = textoDoErro(e);
       if (e instanceof ErroKernelGrave) {
-        // A cena já recriou a instância e repetiu; a chamada volta ao TS. As cenas são reenviadas por inteiro na próxima.
+        // A cena já recriou a instância e repetiu; a chamada falha com erro explícito (fora da sombra). As cenas são reenviadas por inteiro na próxima.
         this.voltasGraves++;
         for (const x of this.cenas.values()) x.projeto = null;
       } else {
-        // Falha leve (ou nível não coberto): só esta chamada volta ao TS, sem recriar. Se o envio parou no meio, a cena fica suja.
+        // Falha leve (ou nível não coberto): só esta chamada falha, sem recriar. Se o envio parou no meio, a cena fica suja.
         this.voltasLeves++;
         const viva = this.cenas.get(flat);
         if (fase === 'envio' && viva) viva.projeto = null;
@@ -415,3 +421,4 @@ export function iniciarDespachoKernel(config: ConfigDespacho, carregar: Carregad
   }
   return carregando;
 }
+export { ErroDespachoKernel } from './kernelDespachoB.ts';

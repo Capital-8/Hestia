@@ -240,6 +240,21 @@ function campoDaMensagem(m: string): string {
   return campo.slice(0, 40) || m.slice(0, 30);
 }
 
+/**
+ * O Rust falhou com a fatia ligada (e fora do modo sombra): não há substituição pelo TypeScript (decisão do dono: só o Rust calcula as partes de A e B).
+ * Leva a fatia, o nível e a mensagem original; chega ao chamador de `resolveLevel`, `resolveFloors`, `resolveSlabs` e `junctionLevel`.
+ */
+export class ErroDespachoKernel extends Error {
+  constructor(
+    readonly fatia: 'A' | 'B',
+    readonly nivel: Id | null,
+    readonly mensagemOriginal: string,
+  ) {
+    super(`kernel Rust (fatia ${fatia}, nível ${nivel}): ${mensagemOriginal}`);
+    this.name = 'ErroDespachoKernel';
+  }
+}
+
 const textoDoErro = (e: unknown): string => (e instanceof Error ? e.message : String(e)).replace(/\s+/g, ' ').trim().slice(0, LIMITE_MENSAGEM_B);
 
 /**
@@ -250,9 +265,11 @@ export class DespachoB {
   private cenaB: EntradaB | null = null;
   /** Despacho da B fechado: a montagem da cena (que lê pisos e lajes) está em curso. */
   private montandoB = false;
-  /** Saída do Rust por projeto e nível (`null`: a consulta falhou e a chamada ficou no TS; não se repete para o mesmo projeto e nível). */
+  /** Saída do Rust por projeto e nível (`null`: a consulta falhou e a chamada lançou erro explícito; não se repete para o mesmo projeto e nível). */
   private readonly rustPisosELajes = new WeakMap<Project, Map<Id, { el: ElementoB1[]; mapas: MapasB } | null>>();
   private readonly rustJuncao = new WeakMap<Project, Map<Id, { juncao: JuncaoB3; mapas: MapasB } | null>>();
+  /** Mensagem da falha do Rust por projeto e chave (`pl|nivel`, `j|nivel`): o erro explícito se repete para o mesmo projeto e nível. */
+  private readonly falhas = new WeakMap<Project, Map<string, string>>();
   private readonly memoPisosELajes = new WeakMap<Project, Map<Id, { pisos: ResolvedFloor[]; lajes: ResolvedSlab[] }>>();
   private readonly comparadosB = new WeakMap<Project, Set<string>>();
   /** Projetos que a cena da B não cobre (parede sem tipo ou nível, abertura sem tipo): vale o TS, sem remontar a cena a cada nível. */
@@ -264,26 +281,44 @@ export class DespachoB {
   resolverPisos(p: Project, levelId: Id, ts: () => ResolvedFloor[]): ResolvedFloor[] {
     const ger = this.gerenciador();
     if (!ger) return ts();
-    return this.ctx.sombra() ? this.emSombraPisosELajes(p, levelId, ts, ger, false) : (this.pisosELajesDoRust(p, levelId, ger)?.pisos ?? ts());
+    if (this.ctx.sombra()) return this.emSombraPisosELajes(p, levelId, ts, ger, false);
+    return this.exigir(this.pisosELajesDoRust(p, levelId, ger), p, levelId, 'pl').pisos;
   }
 
   /** O despachante de `resolveSlabs`. */
   resolverLajes(p: Project, levelId: Id, ts: () => ResolvedSlab[]): ResolvedSlab[] {
     const ger = this.gerenciador();
     if (!ger) return ts();
-    return this.ctx.sombra() ? this.emSombraPisosELajes(p, levelId, ts, ger, true) : (this.pisosELajesDoRust(p, levelId, ger)?.lajes ?? ts());
+    if (this.ctx.sombra()) return this.emSombraPisosELajes(p, levelId, ts, ger, true);
+    return this.exigir(this.pisosELajesDoRust(p, levelId, ger), p, levelId, 'pl').lajes;
   }
 
   /**
    * O despachante de `junctionLevel`. Com a fatia B ligada, a junção vem do Rust (convertida para o formato do TS); o modo
-   * sombra compara as duas. Qualquer falha (sem cena, conversão com erro) volta ao TypeScript, sem quebrar o app.
+   * sombra compara as duas. Qualquer falha do Rust (sem cena, conversão com erro) lança `ErroDespachoKernel`; o TypeScript só é devolvido no modo sombra.
    */
   resolverJuncao(p: Project, levelId: Id, ts: () => JunctionLevel): JunctionLevel {
     const ger = this.gerenciador();
     if (!ger) return ts();
     if (this.ctx.sombra()) return this.emSombraJuncao(p, levelId, ts, ger);
-    return this.juncaoDoRust(p, levelId, ger) ?? ts();
+    return this.exigir(this.juncaoDoRust(p, levelId, ger), p, levelId, 'j');
   }
+
+  /** Fora do modo sombra o resultado é o do Rust ou o erro explícito: nunca o TypeScript. */
+  private exigir<T>(r: T | null, p: Project, levelId: Id, chave: 'pl' | 'j'): T {
+    if (r) return r;
+    const msg = this.falhas.get(p)?.get(`${chave}|${levelId}`) ?? 'o Rust não devolveu resultado';
+    throw new ErroDespachoKernel('B', levelId, msg);
+  }
+
+  /** Guarda a mensagem da falha que acabou de acontecer para a chave (o erro explícito a repete enquanto o resultado nulo estiver em cache). */
+  private guardarFalha(p: Project, chave: string): void {
+    let m = this.falhas.get(p);
+    if (!m) this.falhas.set(p, (m = new Map()));
+    m.set(chave, this.ultimaMsg);
+  }
+  private ultimaMsg = 'o Rust não devolveu resultado';
+  private readonly motivoSemCobertura = new WeakMap<Project, string>();
 
   private readonly memoJuncao = new WeakMap<Project, Map<Id, JunctionLevel>>();
 
@@ -292,9 +327,15 @@ export class DespachoB {
     const guardado = this.memoJuncao.get(p)?.get(levelId);
     if (guardado) return guardado;
     const r = this.consultarJuncao(p, levelId, ger);
-    if (!r) return null;
+    if (!r) {
+      if (!this.falhas.get(p)?.has(`j|${levelId}`)) this.guardarFalha(p, `j|${levelId}`);
+      return null;
+    }
     const convertido = this.converter(() => converterJuncao(levelId, r.juncao, r.mapas));
-    if (!convertido) return null;
+    if (!convertido) {
+      this.guardarFalha(p, `j|${levelId}`);
+      return null;
+    }
     this.ctx.contar('entreguesB');
     let por = this.memoJuncao.get(p);
     if (!por) this.memoJuncao.set(p, (por = new Map()));
@@ -302,10 +343,18 @@ export class DespachoB {
     return convertido;
   }
 
-  /** O gerenciador, só com a fatia B ligada, o wasm pronto e fora da montagem da cena. */
+  /**
+   * O gerenciador, só com a fatia B ligada e fora da montagem da cena. Sem wasm carregado ainda: `null` (o app inicia antes do wasm).
+   * Kernel DESLIGADO por falhas (limite de recriações) fora da sombra: erro explícito, não TypeScript.
+   */
   private gerenciador(): GerenciadorKernelV2 | null {
     if (!this.ctx.fatiaLigada() || this.montandoB) return null;
     const ger = this.ctx.gerenciador();
+    if (ger && !ger.ligado && !this.ctx.sombra()) {
+      const motivo = ger.estado().motivoDesligado ?? 'kernel desligado';
+      this.ctx.erro(motivo);
+      throw new ErroDespachoKernel('B', null, `kernel desligado: ${motivo}`);
+    }
     return ger && ger.ligado ? ger : null;
   }
 
@@ -313,9 +362,15 @@ export class DespachoB {
     const guardado = this.memoPisosELajes.get(p)?.get(levelId);
     if (guardado) return guardado;
     const r = this.consultarPisosELajes(p, levelId, ger);
-    if (!r) return null;
+    if (!r) {
+      if (!this.falhas.get(p)?.has(`pl|${levelId}`)) this.guardarFalha(p, `pl|${levelId}`);
+      return null;
+    }
     const convertido = this.converter(() => converterPisosELajes(p, levelId, r.el, r.mapas));
-    if (!convertido) return null;
+    if (!convertido) {
+      this.guardarFalha(p, `pl|${levelId}`);
+      return null;
+    }
     let por = this.memoPisosELajes.get(p);
     if (!por) this.memoPisosELajes.set(p, (por = new Map()));
     por.set(levelId, convertido);
@@ -328,7 +383,8 @@ export class DespachoB {
     try {
       return f();
     } catch (e) {
-      this.ctx.erro(`conversão: ${textoDoErro(e)}`);
+      this.ultimaMsg = `conversão: ${textoDoErro(e)}`;
+      this.ctx.erro(this.ultimaMsg);
       this.ctx.contar('voltasLeves');
       return null;
     }
@@ -362,7 +418,10 @@ export class DespachoB {
 
   /** Sincroniza a cena da B com o projeto e roda a consulta. `null`: falhou (já contado) e a chamada volta ao TS. */
   private consultarB<T>(p: Project, ger: GerenciadorKernelV2, comJuncao: boolean, consulta: (e: EntradaB) => T): T | null {
-    if (this.semCoberturaB.has(p)) return null;
+    if (this.semCoberturaB.has(p)) {
+      this.ultimaMsg = this.motivoSemCobertura.get(p) ?? 'projeto fora da cobertura da fatia B';
+      return null;
+    }
     let fase: 'envio' | 'consulta' = 'envio';
     this.montandoB = true;
     try {
@@ -371,16 +430,20 @@ export class DespachoB {
       fase = 'consulta';
       return consulta(e);
     } catch (e) {
-      this.ctx.erro(textoDoErro(e));
+      this.ultimaMsg = textoDoErro(e);
+      this.ctx.erro(this.ultimaMsg);
       if (e instanceof ErroKernelGrave) {
-        // A cena já recriou a instância e repetiu; a chamada volta ao TS. As cenas são reenviadas por inteiro na próxima.
+        // A cena já recriou a instância e repetiu; a chamada falha com erro explícito (fora da sombra). As cenas são reenviadas por inteiro na próxima.
         this.ctx.contar('voltasGraves');
         this.ctx.aoGrave();
         if (this.cenaB) this.cenaB.projeto = null;
       } else {
-        // Falha leve (ou projeto que a consulta não cobre): só esta chamada volta ao TS, sem recriar. Se o envio parou no meio, a cena fica suja.
+        // Falha leve (ou projeto que a consulta não cobre): só esta chamada falha com erro explícito, sem recriar. Se o envio parou no meio, a cena fica suja.
         this.ctx.contar('voltasLeves');
-        if (e instanceof NaoCobertoB) this.semCoberturaB.add(p);
+        if (e instanceof NaoCobertoB) {
+          this.semCoberturaB.add(p);
+          this.motivoSemCobertura.set(p, this.ultimaMsg);
+        }
         else if (fase === 'envio' && this.cenaB) this.cenaB.projeto = null;
       }
       return null;

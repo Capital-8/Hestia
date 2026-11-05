@@ -10,7 +10,7 @@ import { gerenciadorFalso } from '../../geom/src/kernel/v2/falso.ts';
 import { resolveFloors, resolveFloorsTs } from './floors.ts';
 import { syntheticProject } from './fixtureSintetica.ts';
 import { junctionLevel, junctionLevelTs } from './junctionLevel.ts';
-import { instalarDespachoKernel, removerDespachoKernel, type ConfigDespacho } from './kernelDespacho.ts';
+import { ErroDespachoKernel, instalarDespachoKernel, removerDespachoKernel, type ConfigDespacho } from './kernelDespacho.ts';
 import { resolveLevel, resolveLevelTs } from './resolve.ts';
 import { resolveSlabs, resolveSlabsTs } from './slabs.ts';
 
@@ -20,6 +20,16 @@ const B: ConfigDespacho = { fatiaA: false, fatiaB: true, sombra: false };
 const base = syntheticProject(2);
 const nivel = base.levels[0]!.id;
 const novo = (): Project => structuredClone(base);
+/** Fora da sombra uma falha do Rust é erro explícito: nunca o resultado do TypeScript no lugar. */
+const falha = (f: () => unknown): ErroDespachoKernel => {
+  try {
+    f();
+  } catch (e) {
+    expect(e).toBeInstanceOf(ErroDespachoKernel);
+    return e as ErroDespachoKernel;
+  }
+  throw new Error('esperava ErroDespachoKernel, mas a chamada devolveu um resultado');
+};
 
 describe('despacho da B: fatia desligada', () => {
   it('com a fatia B desligada (mesmo com a sombra ligada) o gerenciador nem é consultado e o resultado é o do TS', () => {
@@ -71,13 +81,27 @@ describe('despacho da B: fatia desligada', () => {
 });
 
 describe('despacho da B: falha leve', () => {
-  it('NAO_IMPLEMENTADO volta só aquela chamada ao TS, sem recriar a instância (pisos e lajes)', () => {
+  it('falha do Rust vira ErroDespachoKernel em pisos, lajes e junção (fatia, nível e mensagem original), não o resultado do TS', () => {
+    const { ger } = gerenciadorFalso();
+    const d = instalarDespachoKernel({ gerenciador: () => ger, config: () => B });
+    const p = novo();
+    for (const f of [() => resolveFloors(p, nivel), () => resolveSlabs(p, nivel), () => junctionLevel(p, nivel)]) {
+      const e = falha(f);
+      expect(e.fatia).toBe('B');
+      expect(e.nivel).toBe(nivel);
+      expect(e.mensagemOriginal).toContain('NAO_IMPLEMENTADO');
+    }
+    expect(d.diagnostico().ultimoErro).toContain('NAO_IMPLEMENTADO'); // chega ao painel de diagnóstico
+    expect(d.diagnostico().entreguesB).toBe(0);
+  });
+
+  it('NAO_IMPLEMENTADO falha só aquela chamada (erro explícito), sem recriar a instância (pisos e lajes)', () => {
     const { ger, instancias } = gerenciadorFalso();
     const d = instalarDespachoKernel({ gerenciador: () => ger, config: () => B });
     for (let i = 0; i < 2; i++) {
       const p = novo();
-      expect(resolveFloors(p, nivel)).toEqual(resolveFloorsTs(p, nivel));
-      expect(resolveSlabs(p, nivel)).toEqual(resolveSlabsTs(p, nivel));
+      falha(() => resolveFloors(p, nivel));
+      falha(() => resolveSlabs(p, nivel));
     }
     expect(ger.estado().recriacoesTotal).toBe(0);
     expect(ger.ligado).toBe(true);
@@ -90,20 +114,11 @@ describe('despacho da B: falha leve', () => {
     expect(diag.ultimoErro).toContain('NAO_IMPLEMENTADO');
   });
 
-  it('a junção (B3) fica no TypeScript: junction_nivel não é consultado e o resultado é o de junctionLevelTs', () => {
+  it('a junção (B3) com a B ligada também exige o Rust: falha vira erro explícito, não junctionLevelTs', () => {
     const { ger } = gerenciadorFalso();
-    const d = instalarDespachoKernel({
-      gerenciador: () => ger,
-      config: () => B,
-      intervencaoDeTesteB: {
-        juncao: () => {
-          throw new Error('junction_nivel não deveria ser consultado');
-        },
-      },
-    });
+    const d = instalarDespachoKernel({ gerenciador: () => ger, config: () => B });
     const p = novo();
-    expect(junctionLevel(p, nivel)).toBe(junctionLevelTs(p, nivel));
-    // a junção do TS ainda lê pisos e lajes (que, no falso, falham leve); o que não pode acontecer é consultar junction_nivel
+    falha(() => junctionLevel(p, nivel));
     expect(d.diagnostico().voltasGraves).toBe(0);
     expect(d.diagnostico().entreguesB).toBe(0);
   });
@@ -112,10 +127,10 @@ describe('despacho da B: falha leve', () => {
     const { ger, instancias } = gerenciadorFalso();
     const d = instalarDespachoKernel({ gerenciador: () => ger, config: () => B });
     const p = novo();
-    resolveFloors(p, nivel);
+    const primeira = falha(() => resolveFloors(p, nivel));
     const antes = instancias[0]!.controle.chamadas('cena_executar');
-    resolveFloors(p, nivel);
-    resolveSlabs(p, nivel);
+    expect(falha(() => resolveFloors(p, nivel)).mensagemOriginal).toBe(primeira.mensagemOriginal); // o erro se repete sem refazer a consulta
+    falha(() => resolveSlabs(p, nivel));
     expect(instancias[0]!.controle.chamadas('cena_executar')).toBe(antes);
     expect(d.diagnostico().voltasLeves).toBe(1);
   });
@@ -123,23 +138,23 @@ describe('despacho da B: falha leve', () => {
   it('LIMITE e ENTRADA injetados em cena_executar também são leves', () => {
     const { ger, instancias } = gerenciadorFalso();
     const d = instalarDespachoKernel({ gerenciador: () => ger, config: () => B });
-    resolveFloors(novo(), nivel); // cria a cena
+    falha(() => resolveFloors(novo(), nivel)); // cria a cena
     instancias[0]!.controle.injetar({ funcao: 'cena_executar', efeito: CODIGOS.LIMITE });
     instancias[0]!.controle.injetar({ funcao: 'cena_executar', efeito: CODIGOS.ENTRADA });
-    resolveFloors(novo(), nivel);
-    resolveFloors(novo(), nivel);
+    falha(() => resolveFloors(novo(), nivel));
+    falha(() => resolveFloors(novo(), nivel));
     expect(ger.estado().recriacoesTotal).toBe(0);
     expect(d.diagnostico().voltasLeves).toBe(3);
   });
 
-  it('projeto com parede de nível inexistente (que a cena não cobre) volta ao TS sem enviar nada', () => {
+  it('projeto com parede de nível inexistente (que a cena não cobre) falha com erro explícito sem enviar nada', () => {
     const { ger, instancias } = gerenciadorFalso();
     const d = instalarDespachoKernel({ gerenciador: () => ger, config: () => B });
     const p = novo();
     const parede = Object.values(p.elements).find((e) => e.kind === 'wall' && e.levelId === nivel)!;
     (parede as { levelId: string }).levelId = 'nivel-fantasma';
-    expect(resolveFloors(p, nivel)).toEqual(resolveFloorsTs(p, nivel));
-    expect(resolveSlabs(p, nivel)).toEqual(resolveSlabsTs(p, nivel));
+    expect(falha(() => resolveFloors(p, nivel)).mensagemOriginal).toContain('a consulta não a cobre');
+    expect(falha(() => resolveSlabs(p, nivel)).mensagemOriginal).toContain('a consulta não a cobre');
     expect(d.diagnostico().voltasLeves).toBe(1); // a cobertura é verificada uma vez por projeto
     expect(d.diagnostico().ultimoErro).toContain('a consulta não a cobre');
     expect(instancias.length === 0 || instancias[0]!.controle.chamadas('cena_executar') === 0).toBe(true);
@@ -148,13 +163,13 @@ describe('despacho da B: falha leve', () => {
 });
 
 describe('despacho da B: falha grave', () => {
-  it('trap: recria a instância, reenvia a cena e repete a chamada (que cai em NAO_IMPLEMENTADO leve do falso)', () => {
+  it('trap: recria a instância, reenvia a cena e repete a chamada (que cai em NAO_IMPLEMENTADO leve do falso, agora erro explícito)', () => {
     const { ger, instancias } = gerenciadorFalso();
     const d = instalarDespachoKernel({ gerenciador: () => ger, config: () => B });
-    resolveFloors(novo(), nivel);
+    falha(() => resolveFloors(novo(), nivel));
     instancias[0]!.controle.injetar({ funcao: 'cena_executar', efeito: 'trap' });
     const p = novo();
-    expect(resolveFloors(p, nivel)).toEqual(resolveFloorsTs(p, nivel));
+    falha(() => resolveFloors(p, nivel));
     expect(ger.estado().recriacoesTotal).toBe(1);
     expect(instancias.length).toBe(2);
     expect(instancias[1]!.controle.cenasVivas()).toBe(1);
@@ -164,34 +179,34 @@ describe('despacho da B: falha grave', () => {
   it('HANDLE (grave) também recria e repete, em pisos e lajes', () => {
     const { ger, instancias } = gerenciadorFalso();
     instalarDespachoKernel({ gerenciador: () => ger, config: () => B });
-    resolveFloors(novo(), nivel);
+    falha(() => resolveFloors(novo(), nivel));
     instancias[0]!.controle.injetar({ funcao: 'cena_executar', efeito: CODIGOS.HANDLE });
     const p = novo();
-    expect(resolveFloors(p, nivel)).toEqual(resolveFloorsTs(p, nivel));
+    falha(() => resolveFloors(p, nivel));
     expect(ger.estado().recriacoesTotal).toBe(1);
     expect(ger.ligado).toBe(true);
   });
 
-  it('no máximo 3 recriações em 5 min: a quarta desliga o kernel e o despacho passa a ignorá-lo; o TS segue correto (relógio injetado)', () => {
+  it('no máximo 3 recriações em 5 min: a quarta desliga o kernel e o despacho passa a lançar erro explícito, nunca o TS (relógio injetado)', () => {
     let agora = 0;
     const { ger, instancias } = gerenciadorFalso({ agora: () => agora, aoCriar: (i) => i.controle.injetar({ funcao: 'cena_executar', efeito: 'trap', vezes: 1000 }) });
     const d = instalarDespachoKernel({ gerenciador: () => ger, config: () => B });
     for (let i = 1; i <= 3; i++) {
       agora = i * 60_000;
       const p = novo();
-      expect(resolveFloors(p, nivel)).toEqual(resolveFloorsTs(p, nivel));
+      falha(() => resolveFloors(p, nivel));
       expect(ger.estado().recriacoesTotal).toBe(i);
       expect(ger.ligado).toBe(true);
     }
     agora = 4 * 60_000;
     const p4 = novo();
-    expect(resolveFloors(p4, nivel)).toEqual(resolveFloorsTs(p4, nivel));
+    falha(() => resolveFloors(p4, nivel));
     expect(ger.ligado).toBe(false);
     expect(ger.estado().recriacoesTotal).toBe(3);
     const criadas = instancias.length;
-    // desligado: o despacho nem tenta; nada novo é criado
+    // desligado: o despacho nem tenta; nada novo é criado, e o erro explícito diz que o kernel está desligado
     const p5 = novo();
-    expect(resolveSlabs(p5, nivel)).toEqual(resolveSlabsTs(p5, nivel));
+    expect(falha(() => resolveSlabs(p5, nivel)).mensagemOriginal).toContain('kernel desligado');
     expect(instancias.length).toBe(criadas);
     const diag = d.diagnostico();
     expect(diag.voltasGraves).toBe(4);
@@ -205,11 +220,11 @@ describe('despacho da B: falha grave', () => {
     instalarDespachoKernel({ gerenciador: () => ger, config: () => B });
     for (let i = 0; i < 3; i++) {
       agora = i * 1000;
-      resolveFloors(novo(), nivel);
+      falha(() => resolveFloors(novo(), nivel));
     }
     expect(ger.estado().recriacoesNaJanela).toBe(3);
     agora = 6 * 60_000;
-    resolveFloors(novo(), nivel);
+    falha(() => resolveFloors(novo(), nivel));
     expect(ger.ligado).toBe(true);
     expect(ger.estado().recriacoesNaJanela).toBe(1);
     expect(ger.estado().recriacoesTotal).toBe(4);
