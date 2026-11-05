@@ -157,6 +157,17 @@ export function geometriaDoRealce(mesh: THREE.Mesh, tabela: TabelaDeCodigos): TH
 
 // ---- material: descarta o que não está na máscara ----
 
+/**
+ * Viés de profundidade da sobreposição, em coordenada de dispositivo normalizada (NDC, de −1 a 1): ~5 passos de um buffer
+ * de 24 bits. A sobreposição tem a mesma geometria da face que cobre, mas sai de OUTRO shader (o do material do elemento
+ * faz a conta da posição em outra ordem), e as duas profundidades diferem por 1 ou 2 passos do buffer: sem viés, a
+ * sobreposição ora passa e ora perde o teste de profundidade conforme a câmera se mexe (z-fighting: a seleção alterna
+ * entre o azul e a textura). Com o viés ela vence sempre as faces coplanares, e só adianta o equivalente a ~5 passos
+ * (≈6 mm a 100 m; ≈0,07 mm a 10 m), menos que a espessura de uma camada de parede, então o que está de fato atrás não vaza.
+ * Não usa `polygonOffset`: ele escala com a inclinação da face e fazia as camadas de baixo vazarem pelo topo.
+ */
+export const VIES_DE_PROFUNDIDADE = 6e-7;
+
 const VERTEX = /* glsl */ `
 attribute float aElem;
 uniform sampler2D uMascara;
@@ -175,6 +186,8 @@ void main() {
     return;
   }
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  // Viés de profundidade (ver VIES_DE_PROFUNDIDADE): a sobreposição vence as faces coplanares que ela cobre.
+  gl_Position.z -= gl_Position.w * ${VIES_DE_PROFUNDIDADE.toExponential()};
 }
 `;
 
