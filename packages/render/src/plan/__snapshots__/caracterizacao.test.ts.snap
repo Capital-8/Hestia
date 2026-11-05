@@ -270,26 +270,6 @@ exports[`caracterização do render (golden) > (a) planta de piso: ops do projet
       "center": true,
       "color": "#16181c",
       "fontFamily": "Arial Narrow, Arial, sans-serif",
-      "maskBorderColor": "none",
-      "maskBoundary": [
-        {
-          "x": 1.505,
-          "y": 1.07375,
-        },
-        {
-          "x": 2.495,
-          "y": 1.07375,
-        },
-        {
-          "x": 2.495,
-          "y": 1.4762499999999998,
-        },
-        {
-          "x": 1.505,
-          "y": 1.4762499999999998,
-        },
-      ],
-      "maskColor": "#fbfbfa",
       "papel": {
         "escala": 100,
         "fontMm": 2.5,
@@ -827,26 +807,6 @@ exports[`caracterização do render (golden) > (b) planta de área com anotaçõ
       "center": true,
       "color": "#16181c",
       "fontFamily": "Arial Narrow, Arial, sans-serif",
-      "maskBorderColor": "none",
-      "maskBoundary": [
-        {
-          "x": 1.7525,
-          "y": 1.536875,
-        },
-        {
-          "x": 2.2475,
-          "y": 1.536875,
-        },
-        {
-          "x": 2.2475,
-          "y": 1.738125,
-        },
-        {
-          "x": 1.7525,
-          "y": 1.738125,
-        },
-      ],
-      "maskColor": "#fbfbfa",
       "papel": {
         "escala": 50,
         "fontMm": 2.5,
@@ -1223,26 +1183,6 @@ exports[`caracterização do render (golden) > (b2) planta de área sem anotaç�
       "center": true,
       "color": "#16181c",
       "fontFamily": "Arial Narrow, Arial, sans-serif",
-      "maskBorderColor": "none",
-      "maskBoundary": [
-        {
-          "x": 1.7525,
-          "y": 1.036875,
-        },
-        {
-          "x": 2.2475,
-          "y": 1.036875,
-        },
-        {
-          "x": 2.2475,
-          "y": 1.238125,
-        },
-        {
-          "x": 1.7525,
-          "y": 1.238125,
-        },
-      ],
-      "maskColor": "#fbfbfa",
       "papel": {
         "escala": 50,
         "fontMm": 2.5,
