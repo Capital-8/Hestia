@@ -120,6 +120,119 @@ function zEnvelope(sp: SolidPiece): readonly [number, number] {
   return env;
 }
 
+/** Função afim sobre a planta: gx·x + gy·y + gc. */
+interface Afim {
+  gx: number;
+  gy: number;
+  gc: number;
+}
+
+/**
+ * Ajusta `f` como função afim sobre a região `m`. Testa a afinidade em cinco pontos (cantos do retângulo envolvente e
+ * o centro). Devolve `null` se não for afim (ex.: topo de perfil com quebra): aí quem chama mantém o cálculo antigo.
+ */
+function ajustarAfim(f: (p: Vec2) => number, m: MultiPolygon): Afim | null {
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const p of multiPoints(m)) {
+    x0 = Math.min(x0, p.x);
+    y0 = Math.min(y0, p.y);
+    x1 = Math.max(x1, p.x);
+    y1 = Math.max(y1, p.y);
+  }
+  const s = Math.max(x1 - x0, y1 - y0, 1);
+  const f00 = f({ x: x0, y: y0 });
+  const f10 = f({ x: x0 + s, y: y0 });
+  const f01 = f({ x: x0, y: y0 + s });
+  const f11 = f({ x: x0 + s, y: y0 + s });
+  const gx = (f10 - f00) / s;
+  const gy = (f01 - f00) / s;
+  const gc = f00 - gx * x0 - gy * y0;
+  const cx = x0 + s / 2;
+  const cy = y0 + s / 2;
+  const fc = f({ x: cx, y: cy });
+  const esc = Math.max(1, Math.abs(f00), Math.abs(f11), Math.abs(fc));
+  if (Math.abs(f11 - (gx * (x0 + s) + gy * (y0 + s) + gc)) > 1e-9 * esc) return null;
+  if (Math.abs(fc - (gx * cx + gy * cy + gc)) > 1e-9 * esc) return null;
+  return { gx, gy, gc };
+}
+
+/** Recorte de um anel pelo semiplano s·(gx·x + gy·y + gc) >= 0 (Sutherland–Hodgman). Preserva a área orientada. */
+function recortarAnel(anel: readonly Vec2[], d: Afim, s: 1 | -1): Vec2[] {
+  const out: Vec2[] = [];
+  const f = (p: Vec2): number => s * (d.gx * p.x + d.gy * p.y + d.gc);
+  for (let k = 0; k < anel.length; k++) {
+    const p = anel[k]!;
+    const q = anel[(k + 1) % anel.length]!;
+    const fp = f(p);
+    const fq = f(q);
+    if (fp >= 0) out.push(p);
+    if (fp >= 0 !== fq >= 0) {
+      const t = fp / (fp - fq);
+      out.push({ x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t });
+    }
+  }
+  return out;
+}
+
+/**
+ * Volume de sobreposição exato quando as alturas são afins. As retas onde duas alturas se igualam (topo com topo, base
+ * com base, topo com base) dividem a planta em células convexas. Dentro de cada célula a altura é afim, então a integral
+ * é a área da célula vezes a altura no centróide dela (fórmula do polígono, com furos). Devolve `null` se alguma altura
+ * não for afim (aí quem chama mantém o cálculo antigo).
+ */
+function volumeExatoAfim(common: MultiPolygon, a: SolidPiece, b: SolidPiece, altura: (p: Vec2) => number): number | null {
+  const ajustes = [
+    ajustarAfim((p) => a.span(p)[0], common),
+    ajustarAfim((p) => a.span(p)[1], common),
+    ajustarAfim((p) => b.span(p)[0], common),
+    ajustarAfim((p) => b.span(p)[1], common),
+  ];
+  if (ajustes.some((x) => x === null)) return null;
+  const [a0, a1, b0, b1] = ajustes as [Afim, Afim, Afim, Afim];
+  const diferenca = (f: Afim, g: Afim): Afim | null => {
+    const d = { gx: f.gx - g.gx, gy: f.gy - g.gy, gc: f.gc - g.gc };
+    return Math.hypot(d.gx, d.gy) < 1e-12 ? null : d;
+  };
+  const retas = [diferenca(a1, b0), diferenca(a1, a0), diferenca(b1, a0), diferenca(b1, b0), diferenca(a1, b1), diferenca(a0, b0)].filter(
+    (d): d is Afim => d !== null,
+  );
+  let total = 0;
+  for (let mascara = 0; mascara < 1 << retas.length; mascara++) {
+    let area = 0;
+    let mx = 0;
+    let my = 0;
+    for (const poly of common) {
+      for (const anelOriginal of poly) {
+        let anel: Vec2[] = anelOriginal.slice();
+        retas.forEach((d, k) => {
+          if (anel.length >= 3) anel = recortarAnel(anel, d, (mascara >> k) & 1 ? 1 : -1);
+        });
+        if (anel.length < 3) continue;
+        let a2 = 0;
+        let sx = 0;
+        let sy = 0;
+        for (let k = 0; k < anel.length; k++) {
+          const p = anel[k]!;
+          const q = anel[(k + 1) % anel.length]!;
+          const cr = p.x * q.y - q.x * p.y;
+          a2 += cr;
+          sx += (p.x + q.x) * cr;
+          sy += (p.y + q.y) * cr;
+        }
+        area += a2 / 2;
+        mx += sx / 6;
+        my += sy / 6;
+      }
+    }
+    if (Math.abs(area) < 1e-18) continue;
+    total += area * altura({ x: mx / area, y: my / area });
+  }
+  return total;
+}
+
 /** Volume (metros cúbicos) de `a` que está dentro de `b`: área da interseção em planta vezes a sobreposição de cota. */
 export function overlapVolume(a: SolidPiece, b: SolidPiece): number {
   const [a0, a1] = zEnvelope(a);
@@ -134,7 +247,8 @@ export function overlapVolume(a: SolidPiece, b: SolidPiece): number {
     return Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
   };
   if (a.flat && b.flat) return multiArea(common) * height(ORIGIN);
-  return integrate(common, height);
+  const exato = volumeExatoAfim(common, a, b, height);
+  return exato ?? integrate(common, height);
 }
 
 /**
