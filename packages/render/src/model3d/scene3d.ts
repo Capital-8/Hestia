@@ -6,6 +6,7 @@ import { DARK, LIGHT } from '../plan/types.ts';
 import { AVISO } from '../aviso.ts';
 import { projetoDaJuncao } from '../plan/viewContext.ts';
 import { OrbitCamera, aplicarCameraNaOrbita, cameraBasis } from './orbit.ts';
+import { ehElementoDeApresentacao } from './apresentacao.ts';
 import { firstSurfaceDistance } from './pick3d.ts';
 import { caixasEPrismasDaAbertura, montarAbertura } from './aberturas3d.ts';
 import { arestasDaSilhuetaDeCaixas } from './silhuetaCaixas3d.ts';
@@ -232,6 +233,7 @@ export class ModelScene {
       new THREE.ShadowMaterial({ color: 0x000000, opacity: 0.22, transparent: true, depthWrite: false }),
     );
     this.ground.position.z = -0.03;
+    this.ground.userData = { chaoDeSombra: true };
     this.ground.receiveShadow = true;
     this.scene.add(this.ground);
     this.grid = new THREE.GridHelper(100, 100, 0xb9b3a6, 0xcfcabd);
@@ -711,7 +713,23 @@ export class ModelScene {
     this.ground.visible = !ligado;
     this.pickLayer.visible = !ligado;
     this.realces.camada.visible = !ligado;
+    // Dentro do modelo, a mesma regra de `exportarCenaDeRender` (ver apresentacao.ts): o que não é construção sai.
+    // O conjunto guarda só o que este modo escondeu, para restaurar ao sair; `update` refaz o modelo e o próximo
+    // `modoApresentacao(true)` (o estúdio chama depois de cada `update`) esconde o que for novo.
+    if (ligado) {
+      this.model.traverse((o) => {
+        if (o.visible && !ehElementoDeApresentacao(o)) {
+          o.visible = false;
+          this.escondidosNaApresentacao.add(o);
+        }
+      });
+    } else {
+      for (const o of this.escondidosNaApresentacao) o.visible = true;
+      this.escondidosNaApresentacao.clear();
+    }
   }
+  /** Objetos do modelo que `modoApresentacao(true)` escondeu (para restaurar em `modoApresentacao(false)`). */
+  private escondidosNaApresentacao = new Set<THREE.Object3D>();
 
   /**
    * Move só a luz solar (sem remontar a geometria), para o estudo solar do estúdio. O mapa de
@@ -767,7 +785,7 @@ export class ModelScene {
     };
 
     this.model.traverse((o) => {
-      if (!this.visivelNaCena(o) || !(o instanceof THREE.Mesh)) return;
+      if (!(o instanceof THREE.Mesh) || !ehElementoDeApresentacao(o)) return;
       const geometria = o.geometry;
       const pos = geometria.getAttribute('position');
       if (!pos || pos.count === 0) return;
