@@ -206,7 +206,34 @@ pub fn diferenca_com_escala(args: &[MultiPoligono], escala: f64) -> Result<Multi
     if resultado.is_empty() {
         return Ok(Vec::new());
     }
-    Ok(converter(resultado, escala))
+    Ok(descartar_residuos(converter(resultado, escala)))
+}
+
+/// Limiar de área (m²) abaixo do qual a diferença descarta um anel: 1e-9 m². O `polygon-clipping` do TS devolve vazio onde a subtração zera a peça; o
+/// `i_overlay` em escala fina deixa resíduos de ~1e-11 m² (anel de 3 a 4 vértices, ruído de quantização a 1 nm) dentro da junção (B3) e do corte.
+/// 1e-9 m² é muito menor que qualquer peça real e fica acima do ruído de 1 nm, então nenhuma área ou volume acima de 1e-6 muda.
+const AREA_RESIDUO: f64 = 1e-9;
+
+fn area_absoluta(anel: &Anel) -> f64 {
+    let n = anel.len();
+    let mut s = 0.0;
+    for i in 0..n {
+        let (a, b) = (anel[i], anel[(i + 1) % n]);
+        s += a[0] * b[1] - b[0] * a[1];
+    }
+    (s / 2.0).abs()
+}
+
+/// Remove anéis (furos inclusive) e polígonos cujo anel externo tem área absoluta abaixo de [`AREA_RESIDUO`].
+fn descartar_residuos(m: MultiPoligono) -> MultiPoligono {
+    m.into_iter()
+        .filter_map(|poli| {
+            if poli.first().map_or(true, |ext| area_absoluta(ext) < AREA_RESIDUO) {
+                return None;
+            }
+            Some(poli.into_iter().enumerate().filter(|(i, r)| *i == 0 || area_absoluta(r) >= AREA_RESIDUO).map(|(_, r)| r).collect())
+        })
+        .collect()
 }
 
 /// `intersection(a, b)`.
