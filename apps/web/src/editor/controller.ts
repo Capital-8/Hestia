@@ -408,6 +408,9 @@ export class Editor {
   /** Resolução do nível já pronta em segundo plano (ou do cache de geometria), sem calcular. Para a montagem da 3D. */
   resolucaoPronta(levelId: Id): ResolvedLevel | null { return this.fluxo.nivelPronto(levelId); }
 
+  /** Sobe a cada carga de projeto (novo ou aberto): quem guarda estado derivado do projeto anterior o descarta. */
+  geracaoDoProjeto = 0;
+
   /** Libera os caches de um nível (viewport da planta e resolução). Chamado ao fechar uma aba de planta. */
   releaseLevel(levelId: Id): void {
     this.viewports.delete(levelId);
@@ -1107,6 +1110,7 @@ export class Editor {
     this.limparArrasteRotulo();
     this.limparVisibilidadeBuffer();
     resetAllTemporary();
+    this.geracaoDoProjeto++;
     this.perimetro.encerrar(); this.store.load(p);
     this.fileName = name;
     this.levels.clear(); const iniciais = this.fluxo.abrir(p, this.store.version);

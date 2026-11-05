@@ -102,6 +102,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   // Ganchos de depuração (?debug=1): câmera orbital do 3D e a cena 3D (o e2e conta as peças do modelo).
   if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug')) Object.assign(window, { __hestia3d: model.current.orbit, __hestia3dModel: model.current });
   const modelKey = useRef('');
+  const geracaoMontagem = useRef(0);
   /** Redesenho agendado para refazer a sombra depois do gesto de câmera (ver `renderQuadro`). */
   const sombraAdiada = useRef<ReturnType<typeof setTimeout> | null>(null);
   const montagem = useRef<Montagem3dProgressiva | null>(null);
@@ -250,6 +251,11 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     if (key === modelKey.current) return false;
     modelKey.current = key;
     const m = model.current;
+    // Projeto novo ou aberto: a montagem não herda os níveis do anterior (o nível "antigo" iria para a cena com a chave nova).
+    if (geracaoMontagem.current !== editor.geracaoDoProjeto) {
+      geracaoMontagem.current = editor.geracaoDoProjeto;
+      montagem.current?.cancelar();
+    }
     // Os níveis entram em fatias (ver montagem3dProgressiva.ts): a tela não espera o projeto inteiro. Depois da
     // primeira montagem, `atualizar` só re-resolve os níveis que a edição alcançou — e nada no tema/visibilidade.
     montagem.current ??= criarMontagemVista3d(m, (id) => editor.resolved(id), (id) => editor.resolucaoPronta(id));
