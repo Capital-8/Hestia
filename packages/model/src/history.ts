@@ -242,6 +242,8 @@ export function labelOf(c: Command): string {
       return 'Excluir tipo de parede';
     case 'upsertMaterial':
       return 'Editar material';
+    case 'updateMaterialPbr':
+      return 'Editar propriedades físicas do material';
     case 'upsertOpeningType':
       return 'Editar tipo de abertura';
     case 'upsertLevel':

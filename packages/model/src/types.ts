@@ -47,6 +47,48 @@ export interface Material {
   cost: number;
   /** Unidade do custo/quantitativo. */
   unit: 'm2' | 'm3' | 'm';
+  /**
+   * Propriedades físicas para o render PBR (todas opcionais: arquivo antigo não as tem). Os valores efetivos e os
+   * padrões ficam em `materialPbr.ts` (`materialRoughness`, `materialMetallic`, …), nunca lidos direto do campo.
+   */
+  /** Rugosidade 0..1 (0 espelhado … 1 fosco). Ausente = 1 - gloss. */
+  roughness?: number;
+  /** Metalicidade 0..1. Ausente = 0. */
+  metallic?: number;
+  /** Transmissão 0..1 (vidro). Ausente = 1 - opacity quando opacity < 1, senão 0. */
+  transmission?: number;
+  /** Índice de refração, 1.0..3.0. Ausente = 1.5. */
+  ior?: number;
+  /** Emissão própria (luz). Ausente = sem emissão. */
+  emissive?: MaterialEmissive;
+  /** Textura, com caminhos relativos à biblioteca de texturas do projeto. Ausente = sem textura. */
+  texture?: MaterialTexture;
+  /** Escala e rotação da textura. Ausente = escala 1.0 m por repetição, sem rotação. */
+  mapping?: MaterialMapping;
+}
+
+/** Emissão própria do material: cor `#rrggbb` e intensidade (>= 0). */
+export interface MaterialEmissive {
+  color: string;
+  intensity: number;
+}
+
+export type MaterialTexturePreset = 'reboco' | 'tijolo' | 'madeira' | 'telha' | 'pedra' | 'metal' | 'concreto' | 'piso' | 'nenhum';
+
+/** Mapas de textura do material. Cada campo é um caminho relativo à biblioteca de texturas do projeto. */
+export interface MaterialTexture {
+  preset?: MaterialTexturePreset;
+  albedo?: string;
+  normal?: string;
+  roughness?: string;
+  metallic?: string;
+  ao?: string;
+}
+
+/** Mapeamento da textura: `scale` em metros por repetição (> 0); `rotationDeg` em graus. */
+export interface MaterialMapping {
+  scale: number;
+  rotationDeg?: number;
 }
 
 export interface Layer {

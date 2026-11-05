@@ -10,6 +10,7 @@ export * from './semEsquadrias.ts';
 export * from './hostedOffset.ts';
 export * from './ids.ts';
 export * from './defaults.ts';
+export * from './materialPbr.ts';
 export * from './commands.ts';
 export * from './copyLink.ts';
 export * from './copyLinkCommands.ts';

@@ -1,11 +1,13 @@
 import type { Vec2 } from '@hestia/geom';
 import type { Command } from './commands.ts';
+import { DEFAULT_WALL_TYPES } from './defaults.ts';
 import { makeFloor } from './floor.ts';
+import type { MaterialPbrPatch } from './materialPbr.ts';
 import { makeLevel } from './level.ts';
 import { makeRoof } from './roof.ts';
 import { makeSlab } from './slab.ts';
 import { makeStair } from './stair.ts';
-import type { Id, Opening, OpeningType, PlanSymbol, SectionRole, SectionView, StairRun } from './types.ts';
+import type { Id, Layer, Opening, OpeningType, PlanSymbol, SectionRole, SectionView, StairRun, WallType } from './types.ts';
 import { makeWall } from './wall.ts';
 
 /**
@@ -51,6 +53,85 @@ function tipoAbertura(
 const EXT = 'wt_ext19';
 const PA14 = 'wt_alv14';
 const PA09 = 'wt_alv9';
+
+/**
+ * Materiais físicos do render (T3). Só o preset da textura entra aqui; os caminhos das texturas da pasta pbr ficam para a
+ * etapa F3 (leitura de textura de imagem). Superfícies que já têm material próprio no padrão recebem o PBR com
+ * `updateMaterialPbr`. O reboco externo e o interno são materiais novos, porque o padrão usa `mat_reboco` nas duas faces.
+ */
+const pbr = (id: Id, patch: MaterialPbrPatch): Command => ({ type: 'updateMaterialPbr', id, patch });
+
+const MATERIAIS_PBR: Command[] = [
+  // Reboco externo (fachadas) e interno (paredes internas, um tom mais claro). Os dois têm o mesmo preset e escala 2,0 m.
+  {
+    type: 'upsertMaterial',
+    material: { id: 'mat-reboco-externo', name: 'Reboco externo', color: '#d9d2c5', hatch: 'dots', gloss: 0.15, opacity: 1, cost: 38, unit: 'm2' },
+  },
+  {
+    type: 'upsertMaterial',
+    material: { id: 'mat-reboco-interno', name: 'Reboco interno', color: '#e6e0d4', hatch: 'dots', gloss: 0.1, opacity: 1, cost: 38, unit: 'm2' },
+  },
+  // Vidro: a opacidade é campo do material (não do PBR), então o registro inteiro é regravado. Cor azul-acinzentada clara mantida.
+  { type: 'upsertMaterial', material: { id: 'mat_vidro', name: 'Vidro', color: '#a9d6e5', hatch: 'none', gloss: 0.9, opacity: 0.3, cost: 220, unit: 'm2' } },
+  pbr('mat-reboco-externo', { roughness: 0.85, metallic: 0, texture: { preset: 'reboco' }, mapping: { scale: 2 } }),
+  pbr('mat-reboco-interno', { roughness: 0.9, metallic: 0, texture: { preset: 'reboco' }, mapping: { scale: 2 } }),
+  pbr('mat_vidro', { transmission: 0.85, roughness: 0.05, ior: 1.52 }),
+  // Esquadrias metálicas (caixilhos de alumínio).
+  pbr('mat_aluminio', { metallic: 1, roughness: 0.35, texture: { preset: 'metal' } }),
+  // Madeira: portas, vãos e o portão da garagem (`frameMaterialId`). Também é a madeira do madeiramento do telhado.
+  pbr('mat_madeira', { roughness: 0.6, texture: { preset: 'madeira' }, mapping: { scale: 1 } }),
+  // Telha cerâmica do telhado.
+  pbr('mat_telha_ceramica', { roughness: 0.7, texture: { preset: 'telha' }, mapping: { scale: 1 } }),
+  // Piso cerâmico interno (`mat_ceramica`, acabamento de ft_ceram). Não há piso externo no padrão.
+  pbr('mat_ceramica', { roughness: 0.4, texture: { preset: 'piso' }, mapping: { scale: 0.6 } }),
+  // Concreto das lajes e da base da garagem. A escada monolítica usa o mesmo material (sem material próprio).
+  pbr('mat_concreto', { roughness: 0.85, texture: { preset: 'concreto' }, mapping: { scale: 2 } }),
+];
+
+/** Troca de material numa camada do tipo de parede: índice da camada, material esperado no padrão e material novo. */
+type TrocaCamada = [indice: number, de: Id, para: Id];
+
+/**
+ * Tipo de parede do padrão com o material de algumas camadas trocado. Espessura, função e retorno não mudam, então a
+ * geometria fica igual. A troca só é aceita se a camada ainda tiver o material esperado.
+ */
+function tipoParede(base: Id, trocas: TrocaCamada[], rotulo?: { name: string; description: string }): Command {
+  const padrao = DEFAULT_WALL_TYPES.find((t) => t.id === base);
+  if (!padrao) throw new Error(`Tipo de parede ${base} não existe no padrão`);
+  const layers: Layer[] = padrao.layers.map((camada, i) => {
+    const troca = trocas.find(([k]) => k === i);
+    if (!troca) return camada;
+    if (camada.materialId !== troca[1]) throw new Error(`Camada ${i} de ${base} deveria ser ${troca[1]}`);
+    return { ...camada, materialId: troca[2] };
+  });
+  const wallType: WallType = { ...padrao, ...rotulo, layers };
+  return { type: 'upsertWallType', wallType };
+}
+
+/**
+ * Paredes do padrão por material. Externas (`wt_ext19`): o acabamento externo (antes cerâmico) e o argamassado viram
+ * reboco externo; o substrato interno vira reboco interno. A estrutura continua bloco 19 e a pintura interna continua
+ * `mat_tinta`. Internas (`wt_alv14`, `wt_alv9`): o reboco das duas faces vira reboco interno.
+ */
+const TIPOS_PAREDE: Command[] = [
+  tipoParede(
+    EXT,
+    [
+      [0, 'mat_ceramica', 'mat-reboco-externo'],
+      [1, 'mat_argamassa', 'mat-reboco-externo'],
+      [3, 'mat_reboco', 'mat-reboco-interno'],
+    ],
+    { name: 'Externa 19 + reboco', description: 'Bloco 19 cm com reboco externo e pintura interna (casa de alto padrão)' },
+  ),
+  tipoParede(PA14, [
+    [1, 'mat_reboco', 'mat-reboco-interno'],
+    [3, 'mat_reboco', 'mat-reboco-interno'],
+  ]),
+  tipoParede(PA09, [
+    [1, 'mat_reboco', 'mat-reboco-interno'],
+    [3, 'mat_reboco', 'mat-reboco-interno'],
+  ]),
+];
 
 /**
  * Parede reta de a até b. Com `noTopo` false (térreo), o topo vai ao **topo da laje** do lv_1 (3,00 + 0,10) e não é
@@ -344,7 +425,9 @@ const CORTES: SectionView[] = [
 
 /** Monta a casa de alto padrão (2 pavimentos) como uma lista de comandos, no mesmo estilo de `house2`. */
 export function casaAltoPadrao(cmds: Command[]): void {
+  for (const c of MATERIAIS_PBR) cmds.push(c);
   for (const t of OPENING_TYPES) cmds.push({ type: 'upsertOpeningType', openingType: t });
+  for (const c of TIPOS_PAREDE) cmds.push(c);
   for (const c of PAREDES) cmds.push(c);
   for (const c of aberturas(ABERTURAS_TERREO)) cmds.push(c);
   for (const c of aberturas(ABERTURAS_PAV2)) cmds.push(c);
