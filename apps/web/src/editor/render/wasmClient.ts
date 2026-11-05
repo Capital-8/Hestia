@@ -1,7 +1,7 @@
 ﻿/**
  * Cliente do renderizador Rust/WASM (T8).
  *
- * Layout binário congelado em `crates/render-wasm/src/lib.rs` (cena `HSTR` v2; lê v1 e v2) e em
+ * Layout binário congelado em `crates/render-wasm/src/lib.rs` (cena `HSTR` v2, ou v3 com texturas) e em
  * `crates/render-core/src/trabalho.rs` (trabalho `HSWK` v1). Este arquivo é o único do TypeScript
  * que conhece esses bytes e os códigos da ABI (0 ok · 1 cena · 2 trabalho · 3 interno · 4 cancelado).
  *
@@ -10,51 +10,30 @@
  * import: o `.wasm` só é baixado quando alguém pede o cliente (modo final).
  */
 import type { RenderMaterial, RenderSceneSnapshot } from '@hestia/render';
+import { CODIGO_RENDER, ErroRenderWasm, MENSAGENS } from './erroRender.ts';
+import { indicesDeTextura, tamanhoDasTexturas } from './texturasCena.ts';
+
+export { CODIGO_RENDER, ErroRenderWasm, ehCancelamento } from './erroRender.ts';
 
 /** Versão do ABI aceita (`VERSAO_ABI` em `crates/render-wasm/src/lib.rs`). */
 export const VERSAO_ABI_RENDER = 1;
 
-/** Versão escrita da cena: 2 acrescenta tipo procedural e escala a cada material (52 bytes). */
+/** Versão escrita da cena sem texturas: 2 acrescenta tipo procedural e escala a cada material (52 bytes). */
 const VERSAO_CENA = 2;
+/** Versão escrita quando a cena tem texturas: material ganha 4 índices u32 e há a seção de texturas (ver `codificarCena`). */
+const VERSAO_CENA_TEXTURAS = 3;
 const VERSAO_TRABALHO = 1;
 const FORMATO_RGBA8_SRGB = 0;
 const CABECALHO_CENA = 32;
 /** Material na v2: 11 f32 (44 bytes) + tipo u32 + escala f32. */
 const TAMANHO_MATERIAL_CENA = 52;
+/** Material na v3: os 52 bytes da v2 + 4 u32 (albedo, normal, rugosidade, metálico). */
+const TAMANHO_MATERIAL_TEXTURAS = 68;
 const TIPO_MATERIAL_MAXIMO = 7;
 const MAX_VERTICES = 4_000_000;
 const MAX_INDICES = 12_000_000;
 const MAX_MATERIAIS = 100_000;
 const MAX_BATCHES = 1_000_000;
-
-export const CODIGO_RENDER = {
-  ok: 0,
-  cenaInvalida: 1,
-  trabalhoInvalido: 2,
-  interno: 3,
-  cancelado: 4,
-} as const;
-
-const MENSAGENS: Record<number, string> = {
-  1: 'a cena não tem geometria visível válida para o renderizador Rust',
-  2: 'a resolução/bloco do render é inválido para o renderizador Rust',
-  3: 'o renderizador Rust falhou internamente',
-  4: 'o render foi cancelado',
-};
-
-/** Erro da ABI com o código bruto, para separar cancelamento de falha real. */
-export class ErroRenderWasm extends Error {
-  readonly codigo: number;
-  constructor(codigo: number, mensagem?: string) {
-    super(mensagem ?? MENSAGENS[codigo] ?? `renderizador Rust devolveu o código ${codigo}`);
-    this.name = 'ErroRenderWasm';
-    this.codigo = codigo;
-  }
-}
-
-export function ehCancelamento(erro: unknown): boolean {
-  return erro instanceof ErroRenderWasm && erro.codigo === CODIGO_RENDER.cancelado;
-}
 
 /** Câmera de `atualizar_camera`: view/projeção em coluna maior + posição e planos. */
 export interface CameraQuadro {
@@ -105,6 +84,10 @@ class Escritor {
   f32(valor: number): void {
     this.view.setFloat32(this.offset, valor, true);
     this.offset += 4;
+  }
+  copiar(valor: Uint8Array): void {
+    this.bytes.set(valor, this.offset);
+    this.offset += valor.length;
   }
   concluir(): Uint8Array {
     if (this.offset !== this.bytes.length) {
@@ -196,11 +179,16 @@ function validarCena(cena: RenderSceneSnapshot): void {
   }
 }
 /**
- * Serializa `RenderSceneSnapshot` no formato `HSTR` v2 (material de 52 bytes: 11 f32, tipo u32, escala f32).
+ * Serializa `RenderSceneSnapshot` no formato `HSTR`. Sem texturas: v2 (material de 52 bytes: 11 f32, tipo u32,
+ * escala f32), exatamente como antes. Com texturas: v3, com material de 68 bytes (os 52 da v2 + 4 u32 de índice de
+ * textura: albedo, normal, rugosidade, metálico; `0xFFFFFFFF` = sem textura) e a seção de texturas logo após os
+ * materiais e antes dos lotes (u32 quantidade; por textura: u32 largura, u32 altura, u32 níveis N, e os N níveis
+ * RGBA8 em sequência, nível 0 primeiro).
  *
  * Materiais/sol/fundo são limitados à faixa aceita pelo Rust: o exportador já deveria mandar tudo
  * certo, mas um arredondamento não pode reprovar a cena inteira. Tipo fora de 0..7 ou não inteiro
- * vira o limite/arredondado; escala ausente, não finita ou não positiva vira 1.0.
+ * vira o limite/arredondado; escala ausente, não finita ou não positiva vira 1.0. Índice de textura
+ * fora da lista, ou textura fora dos limites, é erro (não há o que arredondar).
  */
 export function codificarCena(cena: RenderSceneSnapshot): Uint8Array {
   validarCena(cena);
@@ -209,13 +197,17 @@ export function codificarCena(cena: RenderSceneSnapshot): Uint8Array {
   const normais = cena.normals && cena.normals.length > 0 ? cena.normals : null;
   const materiais = cena.materials.length > 0 ? cena.materials : [MATERIAL_PADRAO];
   const fundo = cena.background;
+  const texturas = cena.texturas && cena.texturas.length > 0 ? cena.texturas : null;
+  const tamanhoSecaoTexturas = texturas ? tamanhoDasTexturas(texturas) : 0;
+  const mapas = materiais.map((material, i) => indicesDeTextura(material.mapas, texturas?.length ?? 0, i));
   const nVertices = posicoes.length / 3;
   const nNormais = normais ? nVertices : 0;
+  const tamanhoMaterial = texturas ? TAMANHO_MATERIAL_TEXTURAS : TAMANHO_MATERIAL_CENA;
   const tamanho = CABECALHO_CENA + posicoes.length * 4 + indices.length * 4 + nNormais * 12
-    + materiais.length * TAMANHO_MATERIAL_CENA + cena.batches.length * 12 + 12 + (fundo ? 12 : 0) + 148;
+    + materiais.length * tamanhoMaterial + tamanhoSecaoTexturas + cena.batches.length * 12 + 12 + (fundo ? 12 : 0) + 148;
   const escritor = new Escritor(tamanho);
   escritor.magia('HSTR');
-  escritor.u32(VERSAO_CENA);
+  escritor.u32(texturas ? VERSAO_CENA_TEXTURAS : VERSAO_CENA);
   escritor.u32(nVertices);
   escritor.u32(indices.length);
   escritor.u32(nNormais);
@@ -225,7 +217,7 @@ export function codificarCena(cena: RenderSceneSnapshot): Uint8Array {
   for (let i = 0; i < posicoes.length; i++) escritor.f32(posicoes[i] as number);
   for (let i = 0; i < indices.length; i++) escritor.u32(indices[i] as number);
   if (normais) for (let i = 0; i < normais.length; i++) escritor.f32(normais[i] as number);
-  for (const material of materiais) {
+  materiais.forEach((material, indiceMaterial) => {
     for (let i = 0; i < 3; i++) escritor.f32(limitar(material.baseColor[i] as number, 0, 1, 0.55));
     escritor.f32(limitar(material.roughness, 0, 1, 0.8));
     escritor.f32(limitar(material.metallic, 0, 1, 0));
@@ -235,6 +227,16 @@ export function codificarCena(cena: RenderSceneSnapshot): Uint8Array {
     for (let i = 0; i < 3; i++) escritor.f32(limitar(material.emissive[i] as number, 0, 100, 0));
     escritor.u32(tipoDoMaterial(material.tipo));
     escritor.f32(escalaDoMaterial(material.escala));
+    if (texturas) for (const indice of mapas[indiceMaterial] as number[]) escritor.u32(indice);
+  });
+  if (texturas) {
+    escritor.u32(texturas.length);
+    for (const textura of texturas) {
+      escritor.u32(textura.largura);
+      escritor.u32(textura.altura);
+      escritor.u32(textura.mips.length);
+      for (const nivel of textura.mips) escritor.copiar(nivel);
+    }
   }
   for (const lote of cena.batches) {
     escritor.u32(lote.indexStart);

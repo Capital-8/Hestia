@@ -16,6 +16,26 @@ export interface RenderMaterial {
   tipo?: number;
   /** Metros por repetição do padrão procedural, finito > 0. Ausente = 1.0. */
   escala?: number;
+  /** Texturas de imagem do material (índices em `RenderSceneSnapshot.texturas`). Ausente = sem textura. */
+  mapas?: RenderMaterialMapas;
+}
+
+/** Índice, em `RenderSceneSnapshot.texturas`, de cada mapa do material. Ausente = sem textura naquele canal. */
+export interface RenderMaterialMapas {
+  albedo?: number;
+  normal?: number;
+  roughness?: number;
+  metallic?: number;
+}
+
+/**
+ * Textura de imagem RGBA8 sRGB sem compressão. `mips[0]` é o nível 0 (largura × altura); cada nível seguinte tem metade
+ * da largura e da altura, com mínimo 1 (ver `gerarMips` em `apps/web/src/editor/render/texturaRender.ts`).
+ */
+export interface RenderTextura {
+  largura: number;
+  altura: number;
+  mips: Uint8Array[];
 }
 
 export interface RenderBatch {
@@ -44,4 +64,6 @@ export interface RenderSceneSnapshot {
   sun: { azimuth: number; elevation: number; intensity: number };
   background: [number, number, number] | null;
   camera: RenderCamera;
+  /** Texturas de imagem da cena. Vazio ou ausente = cena v2 (sem seção de texturas); com texturas, a cena vai como v3. */
+  texturas?: RenderTextura[];
 }

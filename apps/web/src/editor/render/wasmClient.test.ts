@@ -8,6 +8,7 @@
  * 3. integração opcional com o asset real (`packages/render/assets/render_wasm.wasm`), pulada
  *    quando o wasm ainda não foi buildado (a suíte padrão não pode depender do artefato).
  */
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -241,6 +242,104 @@ describe('HSTR v2: tipo e escala por material', () => {
     expect(view.getFloat32(material0 + 48, true)).toBe(2.5); // escala do material 0
     expect(view.getUint32(material0 + 52 + 44, true)).toBe(3); // tipo do material 1
     expect(view.getUint32(material0 + 104 + 44, true)).toBe(6); // tipo do material 2
+  });
+});
+
+/** SHA-256 do `codificarCena(cenaExemplo())` gerado pelo encoder v2 ANTES da v3 (regressão: sem textura, bytes idênticos). */
+const HASH_V2_CENA_EXEMPLO = '29abe30f499415e6d21e137e77bc848b071a10b102d4750fe3e48835476c3edd';
+const sha256 = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex');
+
+/** Textura 2×2 RGBA8 com dois níveis de mip (2×2 e 1×1), referenciada pelo albedo do único material. */
+function cenaComTextura(): RenderSceneSnapshot {
+  const base = cenaExemplo();
+  const nivel0 = Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+  const nivel1 = Uint8Array.from([100, 110, 120, 255]);
+  return {
+    ...base,
+    materials: [{ ...base.materials[0]!, mapas: { albedo: 0 } }],
+    texturas: [{ largura: 2, altura: 2, mips: [nivel0, nivel1] }],
+  };
+}
+
+describe('HSTR v3: texturas', () => {
+  it('sem texturas (ausente ou lista vazia) a cena continua v2 com bytes idênticos aos de antes', () => {
+    // Mesma cena da captura de hash feita antes da v3: 4 vértices (o quarto solto), fundo, um material, um lote.
+    const base = cenaExemplo();
+    const cena = { ...base, positions: new Float32Array([-2, -2, 0, 2, -2, 0, 0, 2, 0, 1, 1, 1]) };
+    expect(codificarCena(cena).length).toBe(328);
+    expect(sha256(codificarCena(cena))).toBe(HASH_V2_CENA_EXEMPLO);
+    expect(sha256(codificarCena({ ...cena, texturas: [] }))).toBe(HASH_V2_CENA_EXEMPLO);
+    const view = new DataView(codificarCena(cena).buffer);
+    expect(view.getUint32(4, true)).toBe(2);
+  });
+
+  it('com textura: versão 3, material de 68 bytes com índice 0 no albedo e 0xFFFFFFFF nos demais canais', () => {
+    const bytes = codificarCena(cenaComTextura());
+    // 32 + 3 vértices (36) + 3 índices (12) + 1 material v3 (68) + seção de texturas (36) + lote (12) + sol, fundo, câmera.
+    expect(bytes.length).toBe(32 + 36 + 12 + 68 + 36 + 12 + 12 + 12 + 148);
+    expect(lerTexto(bytes, 0, 4)).toBe('HSTR');
+    const view = new DataView(bytes.buffer);
+    expect(view.getUint32(4, true)).toBe(3);
+    const indicesDoMaterial = 32 + 36 + 12 + 52; // offset dos 4 u32 de textura do material 0
+    expect(view.getUint32(indicesDoMaterial, true)).toBe(0); // albedo
+    expect(view.getUint32(indicesDoMaterial + 4, true)).toBe(0xffffffff); // normal
+    expect(view.getUint32(indicesDoMaterial + 8, true)).toBe(0xffffffff); // rugosidade
+    expect(view.getUint32(indicesDoMaterial + 12, true)).toBe(0xffffffff); // metálico
+  });
+
+  it('seção de texturas logo após os materiais: quantidade, largura, altura, níveis e pixels nos offsets certos', () => {
+    const bytes = codificarCena(cenaComTextura());
+    const view = new DataView(bytes.buffer);
+    const secao = 32 + 36 + 12 + 68; // 148: início da seção
+    expect(view.getUint32(secao, true)).toBe(1); // quantidade de texturas
+    expect(view.getUint32(secao + 4, true)).toBe(2); // largura
+    expect(view.getUint32(secao + 8, true)).toBe(2); // altura
+    expect(view.getUint32(secao + 12, true)).toBe(2); // níveis de mip
+    expect(Array.from(bytes.subarray(secao + 16, secao + 32))).toEqual(Array.from({ length: 16 }, (_, i) => i + 1));
+    expect(Array.from(bytes.subarray(secao + 32, secao + 36))).toEqual([100, 110, 120, 255]);
+    // Os lotes vêm logo depois da seção: primeiro índice 0, contagem 3.
+    expect(view.getUint32(secao + 36, true)).toBe(0);
+    expect(view.getUint32(secao + 40, true)).toBe(3);
+  });
+
+  it('material sem mapa explícito recebe 0xFFFFFFFF nos quatro canais mesmo com texturas na cena', () => {
+    const cena = cenaComTextura();
+    const semMapa = { ...cena, materials: [{ ...cena.materials[0]!, mapas: undefined }] };
+    const view = new DataView(codificarCena(semMapa).buffer);
+    for (let canal = 0; canal < 4; canal++) expect(view.getUint32(32 + 36 + 12 + 52 + canal * 4, true)).toBe(0xffffffff);
+  });
+
+  it('recusa textura de 0 ou acima de 8192 pixels de lado, em pt-BR', () => {
+    const base = cenaComTextura();
+    const comLargura = (largura: number) => ({ ...base, texturas: [{ ...base.texturas![0]!, largura }] });
+    expect(() => codificarCena(comLargura(8193))).toThrow(/entre 1 e 8192/);
+    expect(() => codificarCena(comLargura(0))).toThrow(ErroRenderWasm);
+    const alturaGrande = { ...base, texturas: [{ ...base.texturas![0]!, altura: 9000 }] };
+    expect(() => codificarCena(alturaGrande)).toThrow(/textura 0 tem 2×9000/);
+  });
+
+  it('recusa mais de 64 texturas, em pt-BR', () => {
+    const textura = { largura: 1, altura: 1, mips: [new Uint8Array(4)] };
+    const sessenta = Array.from({ length: 64 }, () => textura);
+    const cena = { ...cenaComTextura(), texturas: sessenta };
+    expect(codificarCena(cena).length).toBeGreaterThan(0);
+    expect(() => codificarCena({ ...cena, texturas: [...sessenta, textura] })).toThrow(/o máximo é 64/);
+  });
+
+  it('recusa pixels com tamanho errado e níveis de mip além da cadeia', () => {
+    const base = cenaComTextura();
+    const pixelsCurtos = { ...base, texturas: [{ largura: 2, altura: 2, mips: [new Uint8Array(15), new Uint8Array(4)] }] };
+    expect(() => codificarCena(pixelsCurtos)).toThrow(/textura 0, nível 0: esperados 16 bytes/);
+    const niveisDemais = { ...base, texturas: [{ largura: 2, altura: 2, mips: [new Uint8Array(16), new Uint8Array(4), new Uint8Array(4)] }] };
+    expect(() => codificarCena(niveisDemais)).toThrow(/níveis de mip/);
+  });
+
+  it('recusa índice de textura fora da lista, inclusive com a cena sem texturas', () => {
+    const base = cenaComTextura();
+    const indiceErrado = { ...base, materials: [{ ...base.materials[0]!, mapas: { normal: 1 } }] };
+    expect(() => codificarCena(indiceErrado)).toThrow(/normal aponta para a textura 1, fora de 0..0/);
+    const semTexturas = { ...cenaExemplo(), materials: [{ ...cenaExemplo().materials[0]!, mapas: { albedo: 0 } }] };
+    expect(() => codificarCena(semTexturas)).toThrow(ErroRenderWasm);
   });
 });
 
