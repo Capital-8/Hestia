@@ -1,8 +1,9 @@
 /**
- * B5 (decisão 0050): despacho de `resolveFloors` e `resolveSlabs` para o Rust e modo sombra da fatia B, com o binário de verdade. Roda só em
+ * B5 (decisão 0050): despacho de `resolveFloors`, `resolveSlabs` e da junção (`junction_nivel`) para o Rust, com o binário de verdade. Roda só em
  * `npm run test:wasm` (`KERNEL_WASM_PATH` aponta para um wasm recém-compilado). A equivalência do despacho usa `compararB1` (1e-6 nos campos, 0048 e 0049 com
- * K = 0,08), sem afrouxar nada: o resultado do despacho (já convertido para os tipos do TS) e o do TS passam pela MESMA codificação. A junção (B3) ainda não é
- * despachada porque o `junction_nivel` do Rust diverge do TS fora da 0049 (ver 0050, B5); o modo sombra a compara com `compararB3` e devolve o TS.
+ * K = 0,08), sem afrouxar nada: o resultado do despacho (já convertido para os tipos do TS) e o do TS passam pela MESMA codificação. Com a fatia B ligada, a
+ * junção é despachada, e a saída crua do Rust é comparada com a referência do TS (`referenciaB3`, sobre `junctionLevelTs`) pelo comparador oficial `compararB3`
+ * (1e-6 nos campos, 0049 com K = 0,08). A sombra da junção segue em `kernelDespachoB.ts`.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { ProjectStore, makeFloor, makeSlab, migrateProject, type Command, type Id, type Project } from '@hestia/model';
@@ -11,8 +12,12 @@ import { enclosedRooms, roomAt } from '../packages/engine/src/enclosed.ts';
 import { resolveFloors, resolveFloorsTs, type ResolvedFloor } from '../packages/engine/src/floors.ts';
 import { syntheticProject } from '../packages/engine/src/fixtureSintetica.ts';
 import { junctionLevel, junctionLevelTs } from '../packages/engine/src/junctionLevel.ts';
+import { montarCenaA1 } from '../packages/engine/src/kernelA1.ts';
 import { montarCenaB1, referenciaDeResultados } from '../packages/engine/src/kernelB.ts';
+import { referenciaB3, type JuncaoB3 } from '../packages/engine/src/kernelB3.ts';
+import { converterJuncao } from '../packages/engine/src/kernelDespachoB.ts';
 import { compararB1 } from '../packages/engine/src/kernelComparaB.ts';
+import { compararB3 } from '../packages/engine/src/kernelComparaB3.ts';
 import { instalarDespachoKernel, removerDespachoKernel, K_0049_FATIA_B, type ConfigDespacho, type DespachoKernel, type OpcoesDespacho } from '../packages/engine/src/kernelDespacho.ts';
 import { resolveSlabs, resolveSlabsTs, type ResolvedSlab } from '../packages/engine/src/slabs.ts';
 import { caminhoDoWasm } from '../packages/geom/src/kernel/caminhoWasm.ts';
@@ -49,7 +54,7 @@ interface ReferenciaDoNivel {
 const referenciasDe = (p: Project, niveis?: readonly Id[]): ReferenciaDoNivel[] =>
   p.levels.filter((l) => !niveis || niveis.includes(l.id)).map((l) => ({ levelId: l.id, pisos: resolveFloorsTs(p, l.id), lajes: resolveSlabsTs(p, l.id) }));
 
-/** Compara o que o despacho entrega (pisos e lajes) com o TS; devolve as divergências. A junção (B3) ainda não é despachada (0050, B5). */
+/** Compara o que o despacho entrega (pisos e lajes) com o TS; devolve as divergências. A junção (B3) é comparada no teste dela (`compararB3`). */
 function divergenciasDe(p: Project, refs: ReferenciaDoNivel[]): string[] {
   const b = montarCenaB1(p);
   const out: string[] = [];
@@ -96,7 +101,7 @@ function casaComVinculados(): Project {
   return store.project;
 }
 
-describe.skipIf(!bytes)('B5: despacho de pisos e lajes para o Rust (a junção fica no TS; ver a sombra)', () => {
+describe.skipIf(!bytes)('B5: despacho de pisos, lajes e junção para o Rust (a junção é comparada com o TS pelo comparador oficial)', () => {
   const pula = (): boolean => ger === null;
 
   it('fixture do repositório (casa de 2 quartos, com piso e laje vinculados a cada ambiente): equivalente ao TS', () => {
@@ -128,19 +133,32 @@ describe.skipIf(!bytes)('B5: despacho de pisos e lajes para o Rust (a junção f
     }, 90_000);
   }
 
-  it('a junção (B3) fica no TypeScript: junction_nivel não é consultado e o resultado é o de junctionLevelTs', () => {
+  it('a junção (B3) é despachada com a fatia B ligada: junction_nivel é consultado uma vez e o resultado é o de converterJuncao', () => {
     if (pula()) return;
     const p = projetoDeEstresseB1(2, { paredesB2: true, anexos: true, pavimentos: 2, semParedes: false });
     const l = p.levels[0]!.id;
+    const captura: { consultas: number; juncao?: JuncaoB3 } = { consultas: 0 };
     const d = instalar(DESPACHO, {
       intervencaoDeTesteB: {
-        juncao: () => {
-          throw new Error('junction_nivel não deveria ser consultado');
+        juncao: (j) => {
+          captura.consultas++;
+          captura.juncao = j;
+          return j;
         },
       },
     });
-    expect(junctionLevel(p, l)).toBe(junctionLevelTs(p, l));
-    expect(d.diagnostico().voltasLeves + d.diagnostico().voltasGraves).toBe(0);
+    const obtida = junctionLevel(p, l);
+    const diag = d.diagnostico();
+    expect(captura.consultas, 'consultas a junction_nivel (uma por nível)').toBe(1);
+    expect(diag.entreguesB, 'consultas entregues pelo Rust (a junção, por nível)').toBe(1);
+    expect(diag.voltasLeves + diag.voltasGraves, `voltas ao TS: ${diag.ultimoErro}`).toBe(0);
+    // O mesmo que a conversão da saída do Rust (cena de A1 e B1 montadas como o despacho as monta).
+    const a1 = montarCenaA1(p, true);
+    const b = montarCenaB1(p, a1.materialDe);
+    expect(obtida).toEqual(converterJuncao(l, captura.juncao!, { b, a1 }));
+    // A saída crua do Rust contra a referência do TS (junctionLevelTs, via referenciaB3), pelo comparador oficial da junção (B3).
+    const cmp = compararB3(referenciaB3(p, l, b, a1), captura.juncao!, { k0049: K_0049_FATIA_B });
+    expect(cmp.divergencias, `junção ${l} (Rust x TS): ${cmp.divergencias.slice(0, 3).join(' | ')}`).toEqual([]);
   }, 60_000);
 
   it('o memo por projeto e nível entrega o mesmo objeto; as opções de planta (layers: false) seguem no TS', () => {
