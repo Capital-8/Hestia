@@ -2,6 +2,7 @@
  * Formatação de grandezas para texto de interface. Recebe sempre o valor em metros (SI) e as unidades
  * resolvidas do projeto; não guarda estado.
  */
+import { decimalSymbolFor, type Lang } from './i18n.ts';
 import {
   displayIn,
   effectiveUnit,
@@ -21,6 +22,10 @@ export interface FormatOptions {
   trim?: boolean;
   /** Substitui a unidade da configuração; ignorada se não pertencer à grandeza. */
   unit?: QuantityUnit;
+  /** Símbolo decimal explícito (vence o das unidades do projeto). */
+  decimalSymbol?: ',' | '.';
+  /** Idioma ativo: usa o símbolo decimal dele quando o projeto não sobrescreveu. */
+  lang?: Lang;
 }
 
 function clampDecimals(v: number, fallback: number): number {
@@ -54,9 +59,10 @@ function numberText(v: number, decimals: number, decimalSymbol: ',' | '.', trim:
  */
 export function formatQuantity(u: ResolvedUnits, q: Quantity, si: number, o: FormatOptions = {}): string {
   const withUnit = o.withUnit !== false;
+  const decimalSymbol = o.decimalSymbol ?? (o.lang ? decimalSymbolFor(o.lang) : u.decimalSymbol);
   if (q === 'currency') {
     const decimals = clampDecimals(o.decimals ?? 2, 2);
-    const text = numberText(si, decimals, u.decimalSymbol, o.trim ?? false);
+    const text = numberText(si, decimals, decimalSymbol, o.trim ?? false);
     return withUnit ? `${u.currency} ${text}` : text;
   }
   const fmt = u[q];
@@ -64,7 +70,7 @@ export function formatQuantity(u: ResolvedUnits, q: Quantity, si: number, o: For
   const decimals = clampDecimals(o.decimals ?? fmt.decimals, fmt.decimals);
   if (unit === 'ft-in') return formatFeetInches(si, fmt.denominator);
   const trim = o.trim ?? false;
-  const text = numberText(displayIn(q, unit, si), decimals, u.decimalSymbol, trim || fmt.suppressZeros);
+  const text = numberText(displayIn(q, unit, si), decimals, decimalSymbol, trim || fmt.suppressZeros);
   if (!withUnit) return text;
   const symbol = unitSymbolFor(q, unit);
   return symbol === '°' || symbol === '%' ? `${text}${symbol}` : `${text} ${symbol}`;

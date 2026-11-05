@@ -1,8 +1,7 @@
 import { useRef, useState, type ReactElement } from 'react';
 import { FUNCTION_PRIORITY, type Layer } from '@hestia/model';
+import { useT } from '../../editor/i18n.ts';
 import { LayerTermino } from './LayerTermino.tsx';
-
-const AJUDA = 'Número menor = prioridade maior: a camada de menor número atravessa as de maior número. Camadas de mesmo número não se cortam e deixam linha de fronteira.';
 
 interface LayerAdvancedProps {
   /** Prefixo de id estável da linha, ex.: `wt-layer-2`. */
@@ -16,6 +15,7 @@ interface LayerAdvancedProps {
 
 /** Conteúdo expandido ("mais") de uma linha de camada (docs/06 §5). Não guarda nada além do texto do campo. */
 export function LayerAdvanced({ id, layer, onChange, termino = false }: LayerAdvancedProps): ReactElement {
+  const { t } = useT();
   const padrao = FUNCTION_PRIORITY[layer.function];
   const shown = layer.priority === undefined ? '' : String(layer.priority);
   const [text, setText] = useState(shown);
@@ -53,7 +53,7 @@ export function LayerAdvanced({ id, layer, onChange, termino = false }: LayerAdv
     <>
       <div className="adv-panel">
         <div className="adv-row">
-          <label htmlFor={`${id}-prio`}>Prioridade de junção (sobrescreve a função)</label>
+          <label htmlFor={`${id}-prio`}>{t('dlc_layer_join_priority')}</label>
           <span className="adv-ctl">
             <input
               id={`${id}-prio`}
@@ -74,11 +74,11 @@ export function LayerAdvanced({ id, layer, onChange, termino = false }: LayerAdv
               }}
             />
             <button id={`${id}-prio-reset`} className="btn small" disabled={layer.priority === undefined} onClick={() => apply(null)}>
-              Padrão
+              {t('dlc_btn_default')}
             </button>
           </span>
         </div>
-        <p id={`${id}-prio-help`} className="adv-help">{AJUDA}</p>
+        <p id={`${id}-prio-help`} className="adv-help">{t('dlc_layer_join_priority_help')}</p>
       </div>
       {termino && <LayerTermino id={id} layer={layer} onChange={onChange} />}
     </>

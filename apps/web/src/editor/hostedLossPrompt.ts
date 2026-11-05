@@ -29,7 +29,7 @@ export function responderHostedLoss(ok: boolean): void {
   if (!pedido) return;
   atual = null;
   useUi.setState({ dialog: null });
-  if (ok) useUi.setState({ status: 'Alteração aplicada; aberturas excluídas. Ctrl+Z desfaz.' });
-  else useUi.setState({ status: 'Operação cancelada: nada foi alterado.' });
+  if (ok) useUi.setState({ status: { key: 'edc_hosted_loss_applied' } });
+  else useUi.setState({ status: { key: 'edc_operation_cancelled' } });
   pedido.resolver(ok);
 }

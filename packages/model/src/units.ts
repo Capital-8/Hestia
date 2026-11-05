@@ -8,6 +8,7 @@
  * **razão** (rise/run), então quem vem de `slopePercent` divide por 100 e quem volta multiplica por 100.
  * Percentual exibido = razão × 100; graus = atan(razão) em graus.
  */
+import { type Lang } from './i18n.ts';
 import type { Project } from './types.ts';
 
 export type LengthUnit = 'm' | 'cm' | 'mm' | 'ft' | 'in' | 'ft-in';
@@ -93,10 +94,13 @@ const DEFAULT_UNITS: ResolvedUnits = {
   currency: 'R$',
 };
 
-/** Padrões do programa. Sempre a mesma referência (comparável por identidade). */
-export function defaultUnits(): ResolvedUnits {
-  return DEFAULT_UNITS;
+/** Padrões do programa no idioma pedido: PT devolve sempre a mesma referência. */
+export function defaultUnits(lang: Lang = 'pt'): ResolvedUnits {
+  return lang === 'en' ? EN_DEFAULT_UNITS : DEFAULT_UNITS;
 }
+
+/** Padrões do programa em EN (ponto decimal e dólar). */
+const EN_DEFAULT_UNITS: ResolvedUnits = { ...DEFAULT_UNITS, decimalSymbol: '.', currency: '$' };
 
 function clampDecimals(v: unknown, fallback: number): number {
   if (typeof v !== 'number' || !Number.isFinite(v)) return fallback;
@@ -119,35 +123,38 @@ function resolveFormat<U extends string>(
 }
 
 /** Mescla campo a campo com os padrões; casas decimais fora de 0..5 são limitadas. */
-export function resolveUnits(u: UnitsSettings | undefined): ResolvedUnits {
-  if (!u) return DEFAULT_UNITS;
-  const decimalSymbol = u.decimalSymbol === '.' || u.decimalSymbol === ',' ? u.decimalSymbol : DEFAULT_UNITS.decimalSymbol;
-  const currency = typeof u.currency === 'string' && u.currency.trim() ? u.currency.trim() : DEFAULT_UNITS.currency;
+export function resolveUnits(u: UnitsSettings | undefined, lang: Lang = 'pt'): ResolvedUnits {
+  const fallback = defaultUnits(lang);
+  if (!u) return fallback;
+  const decimalSymbol = u.decimalSymbol === '.' || u.decimalSymbol === ',' ? u.decimalSymbol : fallback.decimalSymbol;
+  const currency = typeof u.currency === 'string' && u.currency.trim() ? u.currency.trim() : fallback.currency;
   return {
-    length: resolveFormat(LENGTH_UNITS, DEFAULT_UNITS.length, u.length),
-    smallLength: resolveFormat(LENGTH_UNITS, DEFAULT_UNITS.smallLength, u.smallLength),
-    area: resolveFormat(AREA_UNITS, DEFAULT_UNITS.area, u.area),
-    volume: resolveFormat(VOLUME_UNITS, DEFAULT_UNITS.volume, u.volume),
-    angle: resolveFormat(ANGLE_UNITS, DEFAULT_UNITS.angle, u.angle),
-    slope: resolveFormat(SLOPE_UNITS, DEFAULT_UNITS.slope, u.slope),
+    length: resolveFormat(LENGTH_UNITS, fallback.length, u.length),
+    smallLength: resolveFormat(LENGTH_UNITS, fallback.smallLength, u.smallLength),
+    area: resolveFormat(AREA_UNITS, fallback.area, u.area),
+    volume: resolveFormat(VOLUME_UNITS, fallback.volume, u.volume),
+    angle: resolveFormat(ANGLE_UNITS, fallback.angle, u.angle),
+    slope: resolveFormat(SLOPE_UNITS, fallback.slope, u.slope),
     decimalSymbol,
     currency,
   };
 }
 
-const cache = new WeakMap<object, ResolvedUnits>();
+const cache = new WeakMap<object, Partial<Record<Lang, ResolvedUnits>>>();
 
 /**
- * Unidades de um projeto, memoizadas pela identidade de `settings.units`. Sem `units` devolve a referência
- * de `defaultUnits()`.
+ * Unidades de um projeto, memoizadas pela identidade de `settings.units` e pelo idioma. Sem `units` devolve a
+ * referência de `defaultUnits(lang)`.
  */
-export function unitsOf(p: Pick<Project, 'settings'> | undefined): ResolvedUnits {
+export function unitsOf(p: Pick<Project, 'settings'> | undefined, lang: Lang = 'pt'): ResolvedUnits {
   const settings = p?.settings?.units;
-  if (!settings) return DEFAULT_UNITS;
-  const hit = cache.get(settings);
+  if (!settings) return defaultUnits(lang);
+  const byLang = cache.get(settings) ?? {};
+  const hit = byLang[lang];
   if (hit) return hit;
-  const resolved = resolveUnits(settings);
-  cache.set(settings, resolved);
+  const resolved = resolveUnits(settings, lang);
+  byLang[lang] = resolved;
+  cache.set(settings, byLang);
   return resolved;
 }
 

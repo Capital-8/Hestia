@@ -1,5 +1,6 @@
 import { formatQuantity, isWall, unitsOf, wallMaxHeight, wallBaseElevation, type Project, type ValidationIssue, type Wall } from '@hestia/model';
 import { resolveAllFloors } from './floors.ts';
+import { t, type Lang } from './i18nMessages.ts';
 import { attachSpans } from './wallAttach.ts';
 import { resolveAllSlabs } from './slabs.ts';
 
@@ -13,7 +14,7 @@ const UNCOVERED_TOL = 1e-3;
  * telhado (`attachTopToRoof`) ou quando a parede tem perfil superior (o perfil já define o topo). O motor calcula; a
  * interface junta. Como em `roofWallIssues`, a cobertura vem dos mesmos trechos que a geometria usa.
  */
-export function wallFloorIssues(p: Project): ValidationIssue[] {
+export function wallFloorIssues(p: Project, lang: Lang = 'pt'): ValidationIssue[] {
   const floors = resolveAllFloors(p);
   const slabs = resolveAllSlabs(p);
   const out: ValidationIssue[] = [];
@@ -25,27 +26,33 @@ export function wallFloorIssues(p: Project): ValidationIssue[] {
     const base = wallBaseElevation(p, e);
     const spans = attachSpans(e, base, base + wallMaxHeight(p, e), bottom ? e.levelId : null, top ? e.topLevelId : null, floors, slabs);
     const L = spans.reduce((s, sp) => s + (sp.t1 - sp.t0), 0);
-    if (bottom) out.push(...endIssues(e, 'base', L, spans.filter((s) => s.onBottom), unitsOf(p)));
-    if (top) out.push(...endIssues(e, 'topo', L, spans.filter((s) => s.onTop), unitsOf(p)));
+    if (bottom) out.push(...endIssues(e, 'base', L, spans.filter((s) => s.onBottom), unitsOf(p), lang));
+    if (top) out.push(...endIssues(e, 'topo', L, spans.filter((s) => s.onTop), unitsOf(p), lang));
   }
   return out;
 }
 
 /** Aviso de uma extremidade (base ou topo) pela soma dos trechos aplicados. */
-function endIssues(e: Wall, nome: 'base' | 'topo', L: number, aplicados: Array<{ t0: number; t1: number }>, units: ReturnType<typeof unitsOf>): ValidationIssue[] {
+function endIssues(e: Wall, nome: 'base' | 'topo', L: number, aplicados: Array<{ t0: number; t1: number }>, units: ReturnType<typeof unitsOf>, lang: Lang): ValidationIssue[] {
   const coberto = aplicados.reduce((s, sp) => s + (sp.t1 - sp.t0), 0);
   if (coberto >= L - UNCOVERED_TOL) return [];
-  const doAnexo = nome === 'base' ? 'à base' : 'ao topo';
+  const base = nome === 'base';
+  const doAnexo = t(lang, base ? 'egb_wf_side_base' : 'egb_wf_side_top');
   if (coberto <= UNCOVERED_TOL) {
-    const fim = nome === 'base' ? 'a base fica na cota do nível' : 'o topo fica na altura normal';
-    const cobre = nome === 'base' ? 'do nível' : 'do nível de topo';
-    return [{ severity: 'warning', code: 'wall-attach-none', message: `Parede "${e.id}" está anexada ${doAnexo} no piso, mas nenhum piso ou laje ${cobre} cobre o eixo; ${fim}.`, elementId: e.id }];
+    const fim = t(lang, base ? 'egb_wf_end_base' : 'egb_wf_end_top');
+    const cobre = t(lang, base ? 'egb_wf_cover_level' : 'egb_wf_cover_top');
+    return [{ severity: 'warning', code: 'wall-attach-none', message: t(lang, 'egb_issue_wall_floor_none', { id: e.id, side: doAnexo, cover: cobre, end: fim }), elementId: e.id }];
   }
   return [
     {
       severity: 'info',
       code: 'wall-floor-partial',
-      message: `Parede "${e.id}" está anexada ${doAnexo} no piso, mas só ${formatQuantity(units, 'length', coberto)} dos ${formatQuantity(units, 'length', L)} do eixo estão sobre piso ou laje; só o trecho coberto foi ajustado.`,
+      message: t(lang, 'egb_issue_wall_floor_partial', {
+        id: e.id,
+        side: doAnexo,
+        a: formatQuantity(units, 'length', coberto),
+        b: formatQuantity(units, 'length', L),
+      }),
       elementId: e.id,
     },
   ];

@@ -1,6 +1,7 @@
 import { dist } from '@hestia/geom';
 import { defaultUnits, formatQuantity, newId, type Id, type ResolvedUnits, type StairCurve, type StairGenerator, type StairLanding, type StairRun, type StairSpiralParams } from '@hestia/model';
 import { stairLandingPolygon, trimRisers, validateRunSketch, type StairRunSketch, type StairSketchIssue } from '@hestia/engine';
+import { t, type DictKey, type Lang } from './i18n.ts';
 
 /** Sub-modos do croqui (Revit: Boundary, Riser, Stair Path, Landing, Finish). A ordem é a dos botões da barra. */
 export const STAIR_SUBMODES = ['limites', 'espelhos', 'caminhada', 'patamar', 'concluir'] as const;
@@ -12,6 +13,19 @@ export const STAIR_SUBMODE_LABEL: Record<StairSubmode, string> = {
   caminhada: 'Caminhada',
   patamar: 'Patamar',
   concluir: 'Concluir',
+};
+
+/** Rótulo do sub-modo no idioma pedido. */
+export function stairSubmodeLabel(mode: StairSubmode, lang: Lang = 'pt'): string {
+  return t(lang, SUBMODE_KEYS[mode]);
+}
+
+const SUBMODE_KEYS: Record<StairSubmode, DictKey> = {
+  limites: 'tl_stt_sub_boundaries',
+  espelhos: 'tl_stt_sub_risers',
+  caminhada: 'tl_stt_sub_walk',
+  patamar: 'tl_stt_sub_landing',
+  concluir: 'tl_stt_sub_finish',
 };
 
 /** Primitiva de desenho: linha (cliques encadeados) ou arco por três cliques (início, fim, flecha). */

@@ -24,6 +24,7 @@ import { addSegs } from './perimeterSession.ts';
 import { roomAt } from './sketchPickRoom.ts';
 import { segDistance, type SketchCtx } from './sketchPickFaceGeom.ts';
 import type { PreviewItem } from './types.ts';
+import { t as translate, type Lang } from './i18n.ts';
 
 /**
  * Geometria de clique do esboço, em metros (a ferramenta não vê a vista). Os valores em pixels viram metros pelo
@@ -164,26 +165,27 @@ export function triangleHit(draft: SketchDraft, p: Vec2, mpp: number): string | 
 }
 
 /** Dica da forma "Por ambiente" na barra de status. */
-export const ROOM_HINT = 'Por ambiente: clique dentro de um ambiente com circuito fechado. O contorno dele entra no esboço.';
+export const roomHint = (lang: Lang = 'pt'): string => translate(lang, 'tl_hint_perim_room');
+export const ROOM_HINT = roomHint();
 
 /** Prévia do ambiente sob o cursor (contorno tracejado e o nome). Fora de ambiente, a prévia fica vazia. */
-export function roomHover(ctx: SketchCtx, at: Vec2): { items: PreviewItem[]; say: string } {
+export function roomHover(ctx: SketchCtx, at: Vec2, lang: Lang = 'pt'): { items: PreviewItem[]; say: string } {
   const r = roomAt(ctx, at);
-  if (!r) return { items: [], say: 'Aponte para dentro de um ambiente fechado.' };
-  const name = r.name || 'Ambiente';
+  if (!r) return { items: [], say: translate(lang, 'tl_msg_room_click_empty') };
+  const name = r.name || translate(lang, 'tl_label_room');
   const items: PreviewItem[] = [...r.segs.flatMap((s) => segLines(s, { dashed: true, halo: true })), { kind: 'label', at: r.point, text: name }];
-  return { items, say: `${name}. Clique adiciona o contorno.` };
+  return { items, say: translate(lang, 'tl_msg_room_hover', { name }) };
 }
 
 /**
  * Clique em "Por ambiente": adiciona o contorno do ambiente ao rascunho (sem repetir as linhas que já estão nele) e
  * devolve o id do ambiente, que o forro usa em "Acompanhar o ambiente".
  */
-export function roomClick(ctx: SketchCtx, at: Vec2, d: SketchDraft): { draft: SketchDraft; roomId?: Id; say: string } {
+export function roomClick(ctx: SketchCtx, at: Vec2, d: SketchDraft, lang: Lang = 'pt'): { draft: SketchDraft; roomId?: Id; say: string } {
   const r = roomAt(ctx, at);
-  if (!r) return { draft: d, say: 'Nada aqui: clique dentro de um ambiente com circuito fechado.' };
-  const name = r.name || 'Ambiente';
+  if (!r) return { draft: d, say: translate(lang, 'tl_msg_room_click_empty') };
+  const name = r.name || translate(lang, 'tl_label_room');
   const fresh = r.segs.filter((s) => !hasSeg(d.segs, s));
-  if (fresh.length === 0) return { draft: d, roomId: r.roomId, say: `${name}: o contorno já está no esboço.` };
-  return { draft: addSegs(d, fresh), roomId: r.roomId, say: `Contorno do ambiente ${name} adicionado.` };
+  if (fresh.length === 0) return { draft: d, roomId: r.roomId, say: translate(lang, 'tl_msg_room_outline_exists', { name }) };
+  return { draft: addSegs(d, fresh), roomId: r.roomId, say: translate(lang, 'tl_msg_room_outline_added', { name }) };
 }

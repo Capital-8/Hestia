@@ -4,6 +4,8 @@ import { climbWalk, openingPlanWorldPaths, ownerOf, planViewOf, risersInClimbOrd
 import {
   dxfDocOf,
   dxfGenericEntities,
+  dxfLayerCanonical,
+  dxfLayerName,
   dxfLayerStyleOf,
   dxfLayersOf,
   dxfLineRoleOf,
@@ -33,6 +35,10 @@ import {
 } from '@hestia/io';
 import { areaPlanOf, openingTypeById, GRAPHICS_CATEGORIES, formatRampSlope, graphicsOf, isCad, levelGraphicsOf, lineWeightMm, openingAngle2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, openingsOfWall, sectionGraphicsOf, sectionPoints, unitsOf, type CadDrawing, type DxfLayerStyle, type GraphicsCategory, type Id, type Project } from '@hestia/model';
 import { AREA_LAYER_NAMES, areaLayerStyleOf, areaPlanDxf as areaPlanDxfOf } from './dxfAreaPlan.ts';
+import { useI18n, t as tr, type Lang } from './i18n.ts';
+
+/** Idioma ativo (fora do React): quem chama pode fixar outro `lang`. */
+const activeLang = (): Lang => useI18n.getState().lang;
 
 /**
  * Região de um piso ou laje para o DXF (F7.1, 0023 §6): a região resolvida pela junção quando houve corte; sem corte, a camada
@@ -405,13 +411,14 @@ const ROOM_TEXT_HEIGHT_M = 0.2;
 
 export { areaPlanDxf } from './dxfAreaPlan.ts';
 
-export function planDxf(p: Project, levelId: Id, showRoofProjection = true, units?: DxfUnit): string {
-  const doc = dxfDocOf(p, levelId, dxfGeometryOf(p, levelId, showRoofProjection, units));
+export function planDxf(p: Project, levelId: Id, showRoofProjection = true, units?: DxfUnit, lang: Lang = activeLang()): string {
+  const doc = dxfDocOf(p, levelId, dxfGeometryOf(p, levelId, showRoofProjection, units), lang);
   const shown = levelGraphicsOf(p, levelId).overrides.generic.visible !== false;
-  const generics = shown ? dxfGenericEntities(p, levelId) : [];
+  const generics = shown ? dxfGenericEntities(p, levelId, dxfLayerName(DXF_LAYER_GENERIC, lang)) : [];
   // A camada dos importados entra com a cor da categoria (cinza), como as do nível.
-  const layers = generics.length > 0 && !doc.layers.some((l) => l.name === DXF_LAYER_GENERIC)
-    ? [...doc.layers, { name: DXF_LAYER_GENERIC, ...(p.dxfLayers?.[DXF_LAYER_GENERIC] ?? dxfLayerStyleOf(DXF_LAYER_GENERIC)) }]
+  const genericLayer = dxfLayerName(DXF_LAYER_GENERIC, lang);
+  const layers = generics.length > 0 && !doc.layers.some((l) => l.name === genericLayer)
+    ? [...doc.layers, { name: genericLayer, ...(p.dxfLayers?.[DXF_LAYER_GENERIC] ?? dxfLayerStyleOf(DXF_LAYER_GENERIC)) }]
     : doc.layers;
   return writeDxf2000({ ...doc, layers, entities: [...doc.entities, ...generics] });
 }
@@ -432,24 +439,30 @@ export interface DxfLayerRow {
  * Camadas do DXF que a vista exportaria, com o estilo efetivo (padrão por categoria/escala + o que o projeto guarda em
  * `dxfLayers`). É a base da tabela editável do diálogo: a mesma ordem e os mesmos nomes que o arquivo leva.
  */
-export function dxfLayerTableOf(p: Project, target: DxfExportTarget): DxfLayerRow[] {
+export function dxfLayerTableOf(p: Project, target: DxfExportTarget, lang: Lang = activeLang()): DxfLayerRow[] {
   if (target.kind === 'plan') {
     const geo = dxfGeometryOf(p, target.levelId, target.showRoofProjection ?? true);
-    const rows = dxfLayersOf(p, geo).map((name) => ({ name, style: geo.layerStyles?.[name] ?? dxfLayerStyleOf(name, geo.lineWeights?.[name]) }));
+    const rows = dxfLayersOf(p, geo, lang).map((name) => {
+      const canonical = dxfLayerCanonical(name);
+      return { name, style: geo.layerStyles?.[canonical] ?? dxfLayerStyleOf(name, geo.lineWeights?.[canonical]) };
+    });
     // A camada dos importados só entra no arquivo quando há `Generic` no nível e a categoria está visível.
     const generic = levelGraphicsOf(p, target.levelId).overrides.generic.visible !== false
       && Object.values(p.elements).some((e) => e.kind === 'generic' && e.levelId === target.levelId);
-    if (generic && !rows.some((r) => r.name === DXF_LAYER_GENERIC)) {
-      rows.push({ name: DXF_LAYER_GENERIC, style: p.dxfLayers?.[DXF_LAYER_GENERIC] ?? dxfLayerStyleOf(DXF_LAYER_GENERIC) });
+    if (generic && !rows.some((r) => r.name === dxfLayerName(DXF_LAYER_GENERIC, lang))) {
+      rows.push({ name: dxfLayerName(DXF_LAYER_GENERIC, lang), style: p.dxfLayers?.[DXF_LAYER_GENERIC] ?? dxfLayerStyleOf(DXF_LAYER_GENERIC) });
       rows.sort((a, b) => a.name.localeCompare(b.name));
     }
     return rows;
   }
   if (target.kind === 'section') {
     const geo = sectionDxfGeometryOf(p, target.sectionId);
-    return dxfSectionLayersOf(geo).map((name) => ({ name, style: geo.layerStyles?.[name] ?? dxfSectionLayerStyleOf(name, geo.lineWeights?.[name]) }));
+    return dxfSectionLayersOf(geo, lang).map((name) => {
+      const canonical = dxfLayerCanonical(name);
+      return { name, style: geo.layerStyles?.[canonical] ?? dxfSectionLayerStyleOf(name, geo.lineWeights?.[canonical]) };
+    });
   }
-  if (!areaPlanOf(p, target.planId)) throw new Error('Planta de área inexistente');
+  if (!areaPlanOf(p, target.planId)) throw new Error(tr(lang, 'io_err_area_plan_missing'));
   return ['0', ...AREA_LAYER_NAMES].sort().map((name) => ({ name, style: areaLayerStyleOf(p, name) }));
 }
 
@@ -485,9 +498,9 @@ export function sectionLineWeightsOf(p: Project, geo: DxfSectionGeometry): Recor
  * Geometria do corte/elevação para o DXF, a partir do mesmo `computeSection` da tela. Categoria oculta na vista
  * (`sectionGraphics.overrides[cat].visible === false`) não sai. As camadas levam a largura da categoria na escala.
  */
-export function sectionDxfGeometryOf(p: Project, sectionId: Id, units?: DxfUnit): DxfSectionGeometry {
+export function sectionDxfGeometryOf(p: Project, sectionId: Id, units?: DxfUnit, lang: Lang = activeLang()): DxfSectionGeometry {
   const view = p.views.find((v) => v.id === sectionId);
-  if (!view) throw new Error(`Vista ausente: ${sectionId}`);
+  if (!view) throw new Error(tr(lang, 'io_err_dxf_view_missing', { id: sectionId }));
   const pts = sectionPoints(p, view);
   const section = computeSection(p, { a: pts.a, b: pts.b, depth: view.depth });
   const vg = sectionGraphicsOf(p);
@@ -515,8 +528,8 @@ export function sectionDxfGeometryOf(p: Project, sectionId: Id, units?: DxfUnit)
 }
 
 /** Texto DXF do corte/elevação, com as camadas e as larguras de linha da vista. */
-export function sectionDxf(p: Project, sectionId: Id, units?: DxfUnit): string {
-  return exportSectionDxf(p, sectionId, sectionDxfGeometryOf(p, sectionId, units));
+export function sectionDxf(p: Project, sectionId: Id, units?: DxfUnit, lang: Lang = activeLang()): string {
+  return exportSectionDxf(p, sectionId, sectionDxfGeometryOf(p, sectionId, units, lang), lang);
 }
 
 /** Vista de planta exportável: a planta de piso do nível ou uma planta de área (perfil + anotações próprias). */
@@ -527,8 +540,8 @@ export interface PlanViewRef {
 }
 
 /** Ponto único de exportação do DXF de uma planta: a de área segue o perfil da vista; a de piso é inalterada. */
-export function viewDxf(p: Project, v: PlanViewRef): string {
-  return v.areaPlanId ? areaPlanDxfOf(p, v.areaPlanId) : planDxf(p, v.levelId, v.showRoofProjection ?? true);
+export function viewDxf(p: Project, v: PlanViewRef, lang: Lang = activeLang()): string {
+  return v.areaPlanId ? areaPlanDxfOf(p, v.areaPlanId) : planDxf(p, v.levelId, v.showRoofProjection ?? true, undefined, lang);
 }
 
 

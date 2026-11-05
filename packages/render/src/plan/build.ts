@@ -34,6 +34,7 @@ import { cadPlanOps } from './cad.ts';
 import { areaPlanProfile, FLOOR_PLAN_PROFILE, type FillOp, type LabelOp, type PlanDrawList, type PlanOps, type PlanProfile, type PlanTheme, type StrokeOp } from './types.ts';
 
 import { buildPlanOverlay } from './planOverlay.ts';
+import type { Lang } from '../i18n.ts';
 
 export { buildPlanHoverOverlay, buildPlanLiveOverlay, buildPlanOverlay, buildPlanScreenOverlay, buildPlanSelectionOverlay } from './planOverlay.ts';
 export { planBelowOf, underlayIdOf } from './planContext.ts';
@@ -93,6 +94,8 @@ export interface PlanInput {
    * o DXF não passam a opção, então usam os pesos reais. Não lê o modelo: quem chama decide.
    */
   thinLines?: boolean;
+  /** Idioma dos textos fixos da planta (nome padrão de ambiente, "SOBE", cabeçalhos e tooltip de captura). Padrão `'pt'`. */
+  lang?: Lang;
 }
 
 const ringsOf = (m: MultiPolygon): Ring[] => m.flatMap((p) => p);
@@ -221,9 +224,7 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   const profile: PlanProfile = input.profile ?? (areaPlan ? areaPlanProfile(areaPlan) : FLOOR_PLAN_PROFILE);
   const limiares = new Limiares();
   const v: VistaComLimiares = { ...input.viewport, limiares };
-  const fills: FillOp[] = [];
-  const strokes: StrokeOp[] = [];
-  const labels: LabelOp[] = [];
+  const fills: FillOp[] = [], strokes: StrokeOp[] = [], labels: LabelOp[] = [];
   const fillBase = input.dark ? theme.bg : '#ffffff';
   const fillT = input.dark ? 0.5 : 0.58;
 
@@ -333,11 +334,11 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
       strokes.push(...room.strokes);
       labels.push(...room.labels);
     } else {
-      addOps(roomOps(p, input.levelId, theme, input.dark, detail, style.scale, hidden, paint.room, input.hideLabelRoomId), paint.room, !rp);
+      addOps(roomOps(p, input.levelId, theme, input.dark, detail, style.scale, hidden, paint.room, input.hideLabelRoomId, input.lang), paint.room, !rp);
     }
   }
   // Escadas do nível: depois dos pisos e lajes, antes das paredes (o degrau não cobre parede).
-  if (profile.stairs) addOps(stairFills(p, stairs, theme, input.dark, detail, v, view ? { cutZ: view.cutZ, topZ: view.topZ } : undefined, paint.stair, scale), paint.stair, !rp);
+  if (profile.stairs) addOps(stairFills(p, stairs, theme, input.dark, detail, v, view ? { cutZ: view.cutZ, topZ: view.topZ } : undefined, paint.stair, scale, input.lang), paint.stair, !rp);
   // Rampas do nível: junto das escadas, com o mesmo estilo da categoria.
   if (profile.ramps) addOps(rampFills(p, ramps, theme, input.dark, detail, v, view ? { cutZ: view.cutZ, topZ: view.topZ } : undefined, paint.stair, scale), paint.stair, !rp);
   // Forros: só na planta de forro (na planta baixa eles estão acima do topo e não saem).
@@ -511,7 +512,7 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
     fills.push(...legend.fills);
     strokes.push(...legend.strokes);
     labels.push(...legend.labels);
-    const table = areaPlanTableOps(p, areaPlan, scale, input.dark);
+    const table = areaPlanTableOps(p, areaPlan, scale, input.dark, input.lang);
     fills.push(...table.fills);
     strokes.push(...table.strokes);
     labels.push(...table.labels);

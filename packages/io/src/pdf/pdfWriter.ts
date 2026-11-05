@@ -20,12 +20,12 @@ function toBytes(s: string): Uint8Array {
   return out;
 }
 
-/** Monta o documento: `pages` na ordem; `title` vai no dicionário de informações. */
-export function buildPdf(pages: PdfPageSpec[], title = 'Hestia'): Uint8Array {
+/** Monta o documento: `pages` na ordem; `title` vai no dicionário de informações e `lang` no catálogo. */
+export function buildPdf(pages: PdfPageSpec[], title = 'Hestia', lang: 'pt' | 'en' = 'pt'): Uint8Array {
   const objects: string[] = [];
   // 1 catálogo, 2 páginas, 3 fonte, 4 informações; página i = 5 + 2i, fluxo = 6 + 2i.
   const kids = pages.map((_, i) => `${5 + 2 * i} 0 R`).join(' ');
-  objects[1] = '<< /Type /Catalog /Pages 2 0 R >>';
+  objects[1] = `<< /Type /Catalog /Pages 2 0 R /Lang (${lang === 'en' ? 'en-US' : 'pt-BR'}) >>`;
   objects[2] = `<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`;
   objects[3] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
   objects[4] = `<< /Title ${pdfString(title)} /Producer (Hestia) >>`;

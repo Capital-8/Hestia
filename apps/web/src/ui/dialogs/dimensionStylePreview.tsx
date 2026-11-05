@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import type { DimensionStyle } from '@hestia/model';
 import { formatDimValue } from './dimensionStyleModel.ts';
+import { useT } from '../../editor/i18n.ts';
 
 /** Pixels por milímetro de papel na prévia (só para o desenho caber; não é a escala de impressão). */
 const PX_PER_MM = 4;
@@ -13,10 +14,11 @@ const MID = (X0 + X1) / 2;
 
 /** Prévia ao vivo: uma cota horizontal de 3,50 com as linhas de extensão, o marcador e o texto do estilo. */
 export function DimensionStylePreview({ style }: { style: DimensionStyle }): ReactElement {
+  const { t, lang } = useT();
   const s = PX_PER_MM;
   const tick = style.tickSize * s;
   const fs = style.textHeight * s;
-  const label = formatDimValue(SAMPLE, style);
+  const label = formatDimValue(SAMPLE, style, lang);
   const textW = label.length * fs * 0.6;
   const extStart = OBJ_Y - style.extensionGap * s;
   const extEnd = Math.max(2, DIM_Y - style.extensionOvershoot * s);
@@ -43,7 +45,7 @@ export function DimensionStylePreview({ style }: { style: DimensionStyle }): Rea
       className="dim-style-preview"
       viewBox="0 0 240 110"
       role="img"
-      aria-label={`Prévia: cota de ${label}`}
+      aria-label={t('dlt_a11y_dim_preview', { value: label })}
       style={{ width: '100%', maxWidth: 420, height: 'auto', background: 'var(--panel, #fff)', border: '1px solid var(--line)', borderRadius: 4 }}
     >
       <g stroke="currentColor" strokeWidth={1} fill="none" color="#1f2937">

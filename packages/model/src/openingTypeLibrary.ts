@@ -1,5 +1,6 @@
 import type { Command } from './commands.ts';
 import { newId } from './ids.ts';
+import { t, type Lang } from './i18n.ts';
 import { openingTypeIssue } from './opening.ts';
 import type { Id, Material, OpeningType, Project } from './types.ts';
 
@@ -91,22 +92,22 @@ function idLivre(usados: ReadonlySet<Id>): Id {
 }
 
 /** Cópia de um tipo do projeto com id novo, nome "<nome> (cópia)" e código livre. Não altera `p`. */
-export function duplicateOpeningType(p: Project, id: Id): OpeningType {
+export function duplicateOpeningType(p: Project, id: Id, lang: Lang = 'pt'): OpeningType {
   const origem = p.openingTypes[id];
-  if (!origem) throw new Error('Tipo de abertura inexistente');
+  if (!origem) throw new Error(t(lang, 'md_ot_not_found'));
   const copy = copia(origem);
   copy.id = idLivre(new Set(Object.keys(p.openingTypes)));
-  copy.name = `${origem.name} (cópia)`;
+  copy.name = t(lang, 'md_doc_type_copy', { name: origem.name });
   if (origem.code) copy.code = codigoLivre(origem.code, codigosDo(p));
   return copy;
 }
 
 /** Arquivo com os tipos escolhidos e os materiais que eles referenciam (só os que existem no projeto). */
-export function exportOpeningTypes(p: Project, ids: readonly Id[]): OpeningTypesFile {
+export function exportOpeningTypes(p: Project, ids: readonly Id[], lang: Lang = 'pt'): OpeningTypesFile {
   const types = [...new Set(ids)].map((id) => {
-    const t = p.openingTypes[id];
-    if (!t) throw new Error(`Tipo de abertura inexistente: ${id}`);
-    return copia(t);
+    const tipo = p.openingTypes[id];
+    if (!tipo) throw new Error(t(lang, 'md_ot_not_found_id', { id }));
+    return copia(tipo);
   });
   const usados = new Set<Id>(types.flatMap(materiaisDoTipo));
   const materials = [...usados].flatMap((id) => {

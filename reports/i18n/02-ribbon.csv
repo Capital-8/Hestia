@@ -1,0 +1,94 @@
+arquivo,linha,texto,tipo,severidade,chave,en,nota
+apps/web/src/ui/Ribbon.tsx,31,"Abertura",aria-label,P0,rb_open_panel,Opening,"painel extra da aba contextual; PT fixo"
+apps/web/src/ui/Ribbon.tsx,34,"Inverter sentido (Tab)",title + aria-label,P0,rb_flip_facing,"Flip Facing (Tab)","aria-label ""Inverter sentido"" na mesma linha"
+apps/web/src/ui/Ribbon.tsx,37,"Inverter dobradiça (Espaço)",title + aria-label,P0,rb_flip_hand,"Flip Hand (Space)","aria-label ""Inverter dobradiça"" na mesma linha"
+apps/web/src/ui/Ribbon.tsx,40,"Etiquetas de portas e janelas",title + aria-label,P0,rb_open_tags,"Door/Window Tags","alternador de etiquetas"
+apps/web/src/ui/Ribbon.tsx,45,"Abertura",JSX texto,P0,rb_open_panel,Opening,"rb-title do painel"
+apps/web/src/ui/Ribbon.tsx,156,"pt ? 'Arquivo' : 'File' (e demais)",ternário inline,P2,,-,"padrão sistêmico (156-189); funciona, mas é dívida"
+apps/web/src/ui/ribbon/actions.ts,171,"${n} ambiente(s) etiquetado(s). / Todos os ambientes desta planta já têm etiqueta.",status,P1,status_rooms_tagged,"{n} room(s) tagged. / All rooms in this plan are already tagged.","mensagem gerada sem lang"
+apps/web/src/ui/ribbon/actions.ts,181,"Alternar etiquetas do modelo",undo label,P1,undo_toggle_tags,"Toggle model tags","aparece no tooltip de Desfazer"
+apps/web/src/ui/ribbon/actions.ts,307,"Não foi possível alterar as linhas finas.",status,P1,status_thin_lines_error,"Could not change thin lines.","fallback fixo"
+apps/web/src/ui/ribbon/actions.ts,338,"Prancha criada.",status,P1,status_sheet_created,"Sheet created.","confirmação"
+apps/web/src/ui/ribbon/actions.ts,340,"Operação recusada.",status,P1,status_op_rejected,"Operation not allowed.","fallback de exceção"
+apps/web/src/ui/ribbon/actions.ts,351,"Abra uma prancha para adicionar vistas.",status,P1,status_open_sheet_first,"Open a sheet to add views.",
+apps/web/src/ui/ribbon/actions.ts,372,"Prancha do nível criada. / ${n} pranchas criadas, uma por nível.",status,P1,status_sheet_per_level,"Level sheet created. / {n} sheets created, one per level.",
+apps/web/src/ui/ribbon/actions.ts,374,"Operação recusada.",status,P1,status_op_rejected,"Operation not allowed.","segundo ponto"
+apps/web/src/ui/ribbon/parts.tsx,62,"Na planta de área, use as ferramentas de anotação.",ternário inline,P2,rb_area_plan_hint,"In an area plan, use the annotation tools.","funciona; padronizar em I18N"
+apps/web/src/ui/ribbon/parts.tsx,160,"a criar",ternário inline,P2,rb_soon_tag,soon,"texto do menu de split"
+apps/web/src/ui/ribbon/commandSearch.ts,30,"toolLabel(it.tool, lang)",lógica,P2,,-,"ignora it.label; resultado diverge do botão"
+apps/web/src/ui/StatusBar.tsx,14,"Extremidade",mapa PT-only,P1,snap_endpoint,Endpoint,"mapa SNAP inteiro (13-25) é PT: endpoint/face/core/midpoint/intersection/perpendicular/nearest/alignment/ortho/polar/grid"
+apps/web/src/ui/StatusBar.tsx,43,"Sequência de atalho em andamento",aria-label,P1,sb_shortcut_pending,"Shortcut sequence in progress",
+apps/web/src/ui/StatusBar.tsx,44,"formatQuantity(units, 'length', cursor.x)",formatação,P2,,-,"sem locale; vírgula decimal fixa (também linha 46)"
+apps/web/src/ui/InfoCenter.tsx,49,"pt ? 'Pesquisar comando' : 'Search commands' (e demais)",ternário inline,P2,,-,"padrão sistêmico (49-81); funciona"
+apps/web/src/ui/ViewTabs.tsx,128,"Vistas abertas",aria-label,P1,viewtabs_aria,"Open views","arquivo sem useI18n"
+apps/web/src/ui/ViewTabs.tsx,167,"Fechar ${t.label}",aria-label,P1,viewtabs_close,"Close {name}","title igual na linha 168"
+apps/web/src/ui/ViewTabs.tsx,181,"Mais vistas",title,P1,viewtabs_more,"More views","botão de overflow"
+apps/web/src/ui/ViewTabs.tsx,208,"Fechar ${t.label}",aria-label,P1,viewtabs_close,"Close {name}","duplicado no menu de overflow (209)"
+apps/web/src/ui/ViewTabs.tsx,224,"Mostrar/ocultar propriedades",title,P1,viewtabs_toggle_props,"Show/hide Properties","sem aria-label"
+apps/web/src/ui/ViewTabs.tsx,227,"Mostrar/ocultar navegador",title,P1,viewtabs_toggle_browser,"Show/hide Project Browser","sem aria-label"
+apps/web/src/ui/ViewControlBar.tsx,76,"DETAIL_LABEL = Por escala/Grosso/Médio/Fino",mapa PT-only,P0,detail_by_scale + detail_coarse/medium/fine (já existem),"By scale / Coarse / Medium / Fine","EN mantém PT na lista"
+apps/web/src/ui/ViewControlBar.tsx,86,"VISUAL_STYLE_LABEL = Aramado/Linhas ocultas/Sombreado/Cores consistentes/Realista",mapa PT-only,P0,"style_wireframe (novo), style_hidden, style_shaded, style_consistent, style_realistic","Wireframe / Hidden Line / Shaded / Consistent Colors / Realistic","EN mantém PT na lista"
+apps/web/src/ui/ViewControlBar.tsx,36,"Não foi possível alterar a vista.",status,P1,status_view_error,"Could not change the view.","fallback fixo"
+apps/web/src/ui/ViewControlBar.tsx,65,"pt ? 'Escala' : 'Scale' (e demais)",ternário inline,P2,,-,"padrão sistêmico (65-153); funciona"
+apps/web/src/ui/FileMenu.tsx,80,"IFC importado em ${segundos} s: ${name} · ${r.texto}",status,P1,status_ifc_imported,"IFC imported in {s} s: {name} · {summary}","PT mesmo no menu EN"
+apps/web/src/ui/FileMenu.tsx,138,"Renomear projeto",undo label,P1,undo_rename_project,"Rename project","tooltip de Desfazer"
+apps/web/src/ui/FileMenu.tsx,95,"pt ? 'Novo' : 'New' (e demais)",ternário inline,P2,,-,"padrão sistêmico (95-165); funciona"
+apps/web/src/ui/NavBar.tsx,28,"pt ? 'Barra de navegação' : 'Navigation bar' (e demais)",ternário inline,P2,,-,"padrão sistêmico (28-32); funciona"
+apps/web/src/ui/Dock.tsx,58,"Altura dos painéis",aria-label,P1,dock_resize_height,"Panel height","separador horizontal"
+apps/web/src/ui/Dock.tsx,66,"Largura do painel",aria-label,P1,dock_resize_width,"Panel width","separador vertical"
+apps/web/src/ui/PanelHead.tsx,73,"Arraste para mover o painel",title,P1,panel_drag_hint,"Drag to move the panel","cabeçalho de painel"
+apps/web/src/ui/PanelHead.tsx,80,"Fechar (reabra em Vista ▸ Interface do usuário)",title,P1,panel_close_hint,"Close (reopen in View ▸ User Interface)",
+apps/web/src/ui/LabelScroll.tsx,58,"Largura da coluna de rótulos / Arraste para ajustar",aria-label + title,P1,props_label_width / props_label_drag,"Label column width / Drag to adjust","divisor da paleta"
+apps/web/src/ui/Tutorial.tsx,44,"Desenhe um circuito de paredes{w} — clique nos pontos e feche no primeiro",JSX texto,P0,tut_step_walls,"Draw a loop of walls{w} — click the points and close on the first","onboarding de primeiro uso"
+apps/web/src/ui/Tutorial.tsx,45,"Insira uma porta{d} e uma janela{n} sobre as paredes",JSX texto,P0,tut_step_openings,"Insert a door{d} and a window{n} on the walls",
+apps/web/src/ui/Tutorial.tsx,46,"Selecione uma parede e troque o tipo nas Propriedades",JSX texto,P0,tut_step_type,"Select a wall and change its type in Properties",
+apps/web/src/ui/Tutorial.tsx,47,"Abra o Modelo 3D no navegador de projeto",JSX texto,P0,tut_step_3d,"Open the 3D Model in the Project Browser",
+apps/web/src/ui/Tutorial.tsx,48,"Salve o projeto (Ctrl+S)",JSX texto,P0,tut_step_save,"Save the project (Ctrl+S)",
+apps/web/src/ui/Tutorial.tsx,65,"Passo ${now + 1} de ${steps.length}",JSX texto,P0,tut_progress,"Step {n} of {total}",
+apps/web/src/ui/Tutorial.tsx,72,"Dispensar",JSX texto,P0,tut_dismiss,Dismiss,
+apps/web/src/ui/Tutorial.tsx,64,"Primeiros passos",aria-label,P1,tut_title,"Getting started",
+apps/web/src/ui/IssuesButton.tsx,49,"✓ Modelo sem avisos",JSX texto,P0,issues_none,"✓ Model has no warnings","status bar"
+apps/web/src/ui/IssuesButton.tsx,68,"Ver avisos de validação do modelo",title,P1,issues_tip,"View model validation warnings",
+apps/web/src/ui/IssuesButton.tsx,77,"Avisos de validação",aria-label,P1,issues_title,"Validation warnings",
+apps/web/src/ui/IssuesButton.tsx,86,"Ir para o elemento: ${issue.message}",aria-label,P1,issues_goto_aria,"Go to element: {msg}",
+apps/web/src/ui/IssuesButton.tsx,87,"Ir para",JSX texto,P1,issues_goto,"Go to",
+apps/web/src/ui/DisjoinCheck.tsx,5,"A parede se solta das paredes ligadas às suas pontas em vez de esticá-las",title/hint,P1,opt_disjoin_hint,"The wall detaches from walls at its ends instead of stretching them",
+apps/web/src/ui/DisjoinCheck.tsx,11,"Desconectar",JSX texto,P0,opt_disjoin,Disjoin,"barra de opções de Mover/Rotacionar/Espelhar"
+apps/web/src/ui/SnapButton.tsx,16,"Extremidade (+ Pontas de paredes e vértices)",mapa PT-only,P1,snap_endpoint / snap_endpoint_hint,"Endpoint / Wall ends and vertices","ITEMS inteiro (15-26)"
+apps/web/src/ui/SnapButton.tsx,17,"Ponto Médio (+ Centro das paredes e arestas)",mapa PT-only,P1,snap_midpoint / snap_midpoint_hint,"Midpoint / Center of walls and edges",
+apps/web/src/ui/SnapButton.tsx,18,"Eixos de Parede (+ Pé sobre o eixo da parede…)",mapa PT-only,P1,snap_axis / snap_axis_hint,"Wall Axes / Foot on the wall axis (hosts doors and windows)",
+apps/web/src/ui/SnapButton.tsx,19,"Interseção (+ Cruzamento de eixos e quinas)",mapa PT-only,P1,snap_intersection / snap_intersection_hint,"Intersection / Crossing of axes and corners",
+apps/web/src/ui/SnapButton.tsx,20,"Perpendicular (+ Ângulo reto a partir do ponto anterior)",mapa PT-only,P1,snap_perpendicular / snap_perpendicular_hint,"Perpendicular / Right angle from the previous point",
+apps/web/src/ui/SnapButton.tsx,21,"Rastreamento Dinâmico (+ Linhas-guia pontilhadas…)",mapa PT-only,P1,snap_alignment / snap_alignment_hint,"Dynamic Tracking / Dotted alignment guides with other points",
+apps/web/src/ui/SnapButton.tsx,22,"Faces de Parede (+ Cantos e arestas…)",mapa PT-only,P1,snap_faces / snap_faces_hint,"Wall Faces / Corners and edges of finish faces",
+apps/web/src/ui/SnapButton.tsx,23,"Faces do Núcleo (+ Cantos e arestas da alvenaria estrutural)",mapa PT-only,P1,snap_core / snap_core_hint,"Core Faces / Corners and edges of the structural core",
+apps/web/src/ui/SnapButton.tsx,24,"CAD importado (DXF) (+ Vértices, meios, pontos…)",mapa PT-only,P1,snap_cad / snap_cad_hint,"Imported CAD (DXF) / Vertices, midpoints, points and crossings",
+apps/web/src/ui/SnapButton.tsx,25,"Pela grade (+ Captura nos pontos da grade visível…)",mapa PT-only,P1,snap_grid / snap_grid_hint,"Snap to Grid / Snaps to visible grid points",
+apps/web/src/ui/SnapButton.tsx,103,"Capturas de desenho (F3): extremidades, meios, interseções, alinhamento e CAD importado",title,P1,snap_btn_tip,"Drafting snaps (F3): endpoints, midpoints, intersections, alignment and imported CAD",
+apps/web/src/ui/SnapButton.tsx,118,"Capturas de desenho",aria-label,P1,snap_pop_title,"Drafting snaps",
+apps/web/src/ui/SnapButton.tsx,121,"Capturas de Objeto (Snaps)",JSX texto,P0,snap_master_title,"Object Snaps","popover da barra de status"
+apps/web/src/ui/SnapButton.tsx,122,"Atalho mestre:",JSX texto,P1,snap_master_hint,"Master shortcut:",
+apps/web/src/ui/SnapButton.tsx,129,"LIGADO / DESLIGADO",JSX texto,P0,snap_on / snap_off,"ON / OFF",
+apps/web/src/ui/SnapButton.tsx,133,"Checklist de capturas",aria-label,P1,snap_checklist_aria,"Snap checklist",
+apps/web/src/ui/SnapButton.tsx,156,"Tudo",JSX texto,P0,snap_all,All,"ação em massa"
+apps/web/src/ui/SnapButton.tsx,157,"Padrão",JSX texto,P0,snap_default,Default,
+apps/web/src/ui/SnapButton.tsx,158,"Nenhum",JSX texto,P0,snap_none,None,
+apps/web/src/ui/OrthoButton.tsx,18,"Orto/Polar",aria-label,P1,status_ortho_polar,"Ortho/Polar",
+apps/web/src/ui/OrthoButton.tsx,19,"Orto/Polar",JSX texto,P0,status_ortho_polar,"Ortho/Polar","título visível do grupo"
+apps/web/src/ui/OrthoButton.tsx,25,"Orto ativo (F8): apenas 0°/90° / Orto desligado (F8)",title,P0,status_ortho_on / status_ortho_off,"Ortho on (F8): 0°/90° only / Ortho off (F8)",
+apps/web/src/ui/OrthoButton.tsx,27,"Orto",JSX texto,P0,status_ortho,Ortho,
+apps/web/src/ui/OrthoButton.tsx,35,"Polar ativo (F10): múltiplos de ${inc}° / Polar desligado (F10)",title,P1,status_polar_on / status_polar_off,"Polar on (F10): multiples of {inc}° / Polar off (F10)",
+apps/web/src/ui/OrthoButton.tsx,37,"Polar",JSX texto,P0,status_polar,Polar,
+apps/web/src/ui/OrthoButton.tsx,43,"Incremento polar",title,P1,status_polar_inc,"Polar increment",
+apps/web/src/ui/OrthoButton.tsx,52,"Personalizado",JSX texto,P1,opt_custom,Custom,"opção do select"
+apps/web/src/ui/OrthoButton.tsx,61,"Incremento polar personalizado em graus",aria-label,P1,status_polar_custom_aria,"Custom polar increment in degrees",
+apps/web/src/ui/EmptyViews.tsx,9,"Nenhuma vista aberta",JSX texto,P0,empty_views_title,"No views open","estado vazio da área de desenho"
+apps/web/src/ui/EmptyViews.tsx,10,"Abra um nível ou o Modelo 3D pelo navegador de projeto.",JSX texto,P0,empty_views_body,"Open a level or the 3D Model from the Project Browser.",
+apps/web/src/ui/EmptyViews.tsx,13,"Mostrar navegador de projeto",JSX texto,P0,empty_views_show_browser,"Show Project Browser",
+apps/web/src/ui/Browser.tsx,17,"Navegador de projeto",aria-label,P0,project_browser_title (já existe),"Project Browser","reaproveitar chave"
+apps/web/src/ui/Browser.tsx,18,"Navegador de projeto - ${p.name} / Fechar o navegador de projeto",title + closeLabel,P0,project_browser_head / browser_close,"Project Browser - {name} / Close the Project Browser","nome do projeto é dado"
+apps/web/src/ui/Browser.tsx,19,"Navegador de projeto - {p.name}",JSX texto,P0,project_browser_head,"Project Browser - {name}","título do painel"
+apps/web/src/ui/Browser.tsx,22,"Navegador de projeto",aria-label (Tree),P1,project_browser_title (já existe),"Project Browser",
+apps/web/src/ui/Browser.tsx,28,"Grupos / Ainda não disponível.",JSX texto,P1,browser_groups / common_soon,"Groups / Not available yet.","nó desabilitado"
+apps/web/src/ui/Browser.tsx,29,"Links do Revit / Ainda não disponível.",JSX texto,P1,browser_links / common_soon,"Revit Links / Not available yet.",
+apps/web/index.html,2,"<html lang=""pt-BR"">",atributo,P1,html_lang (runtime),"en / pt-BR","nunca sincroniza com useI18n"

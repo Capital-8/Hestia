@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactElement } from 'react';
+import { useT } from '../editor/i18n.ts';
 import { filterTypeChoices, groupTypeChoices } from './typeSelectorModel.ts';
 import { TypeThumb, type PreviewSubject } from './TypePreview.tsx';
 
@@ -37,6 +38,7 @@ interface TypeSelectorProps {
  * a categoria e o "Editar tipo". A lista fecha com Esc, com clique fora ou ao escolher um tipo.
  */
 export function TypeSelector({ triggerId, label, categoryLabel, options, selectedId, favoriteIds, disabled, editDisabled, onSelect, onEdit }: TypeSelectorProps): ReactElement {
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [menuMax, setMenuMax] = useState(430);
@@ -96,7 +98,7 @@ export function TypeSelector({ triggerId, label, categoryLabel, options, selecte
           >
             {selected ? <TypeThumb subject={selected.subject} /> : null}
             <span className="two">
-              <b>{selected ? selected.family : selectedId === null && options.length ? 'variados' : '—'}</b>
+              <b>{selected ? selected.family : selectedId === null && options.length ? t('prc_opt_varied') : '—'}</b>
               <span>{selected ? selected.name : ''}</span>
             </span>
             <span className="chev" aria-hidden="true">▼</span>
@@ -106,8 +108,8 @@ export function TypeSelector({ triggerId, label, categoryLabel, options, selecte
               <input
                 className="search"
                 type="text"
-                aria-label="Pesquisar tipos"
-                placeholder="Pesquisar tipos…"
+                aria-label={t('prc_aria_search_types')}
+                placeholder={t('prc_ph_search_types')}
                 value={query}
                 autoFocus
                 onChange={(e) => setQuery(e.target.value)}
@@ -132,14 +134,14 @@ export function TypeSelector({ triggerId, label, categoryLabel, options, selecte
                     ))}
                   </div>
                 ))}
-                {groups.length === 0 && <div className="empty">Nenhum tipo encontrado.</div>}
+                {groups.length === 0 && <div className="empty">{t('prc_msg_no_types_found')}</div>}
               </div>
             </div>
           )}
         </div>
         <div className="rv-filter">
           <span className="filt">{categoryLabel}</span>
-          <button id={`${triggerId}-edit`} type="button" className="edit" disabled={editDisabled} onClick={onEdit}>✎ Editar tipo</button>
+          <button id={`${triggerId}-edit`} type="button" className="edit" disabled={editDisabled} onClick={onEdit}>✎ {t('edit_type_btn')}</button>
         </div>
       </div>
     </div>

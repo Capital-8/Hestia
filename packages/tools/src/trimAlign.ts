@@ -16,7 +16,9 @@ function cotaItems(u: ResolvedUnits, a: Vec2, b: Vec2): PreviewItem[] {
 export class MeasureTool extends ToolBase {
   readonly id = 'measure';
   readonly label = 'Medir';
-  readonly hint = 'Medir: clique em dois pontos. A cota fica no desenho até Esc ou um novo clique.';
+  override get hint(): string {
+    return this.t('tl_hint_measure');
+  }
   private a: Vec2 | null = null;
   /** Última medida concluída: a cota fica no desenho até Esc ou um novo clique. Só é visual (não entra no modelo nem no desfazer). */
   private kept: { a: Vec2; b: Vec2 } | null = null;
@@ -53,7 +55,12 @@ export class MeasureTool extends ToolBase {
     const d = dist(this.a, inf.point);
     const ang = (Math.atan2(inf.point.y - this.a.y, inf.point.x - this.a.x) * 180) / Math.PI;
     const u = unitsOf(this.env.project());
-    this.env.say(`Distância ${formatQuantity(u, 'length', d)} · ΔX ${formatQuantity(u, 'length', inf.point.x - this.a.x, { withUnit: false })} · ΔY ${formatQuantity(u, 'length', inf.point.y - this.a.y, { withUnit: false })} · ${formatQuantity(u, 'angle', (ang * Math.PI) / 180)}`);
+    this.env.say(this.t('tl_msg_measure', {
+      d: formatQuantity(u, 'length', d),
+      dx: formatQuantity(u, 'length', inf.point.x - this.a.x, { withUnit: false }),
+      dy: formatQuantity(u, 'length', inf.point.y - this.a.y, { withUnit: false }),
+      angle: formatQuantity(u, 'angle', (ang * Math.PI) / 180),
+    }));
     this.kept = { a: this.a, b: inf.point };
     this.a = null;
     this.items = cotaItems(unitsOf(this.env.project()), this.kept.a, this.kept.b);

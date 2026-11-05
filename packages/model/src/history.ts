@@ -1,6 +1,7 @@
 import { applyPatches, enablePatches, produceWithPatches, type Patch } from 'immer';
 import { applyCommand, type Command } from './commands.ts';
 import type { Project } from './types.ts';
+import type { Lang } from './i18n.ts';
 
 enablePatches();
 
@@ -82,9 +83,9 @@ export class ProjectStore {
     this.savedVersion = this.version;
   }
 
-  exec(cmd: Command, label = labelOf(cmd)): void {
+  exec(cmd: Command, label = labelOf(cmd), lang: Lang = 'pt'): void {
     const [next, patches, inverse] = produceWithPatches(this.present, (draft) => {
-      applyCommand(draft as Project, cmd);
+      applyCommand(draft as Project, cmd, lang);
     });
     if (patches.length === 0) return;
     this.present = next;

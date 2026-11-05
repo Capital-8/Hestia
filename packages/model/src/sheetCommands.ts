@@ -1,6 +1,7 @@
 import { newId } from './ids.ts';
 import { projectSheets, sheetIssue, sheetOf, sheetView3DCameraIssue, viewportIssue, type Sheet, type SheetViewport, type SheetViewSource } from './sheet.ts';
 import type { Id, Project } from './types.ts';
+import { t as translate, type Lang } from './i18n.ts';
 
 /**
  * Comandos de pranchas (decisão 0022). Recusam com mensagem pt-BR e não alteram o projeto. Mudar tamanho, orientação ou
@@ -22,10 +23,10 @@ export function dropOrphanViewports(p: Project): void {
 }
 
 /** Motivo de recusa de uma fonte de vista (nível ou seção que precisa existir), ou null. */
-export function viewSourceIssue(p: Pick<Project, 'levels' | 'views'> & Partial<Pick<Project, 'areaPlans'>>, view: SheetViewSource): string | null {
-  if (view.kind === 'plan' && !p.levels.some((l) => l.id === view.levelId)) return 'Nível inexistente';
-  if (view.kind === 'areaPlan' && !(p.areaPlans ?? []).some((a) => a.id === view.planId)) return 'Planta de área inexistente';
-  if (view.kind === 'section' && !p.views.some((v) => v.id === view.sectionId)) return 'Vista de corte inexistente';
+export function viewSourceIssue(p: Pick<Project, 'levels' | 'views'> & Partial<Pick<Project, 'areaPlans'>>, view: SheetViewSource, lang: Lang = 'pt'): string | null {
+  if (view.kind === 'plan' && !p.levels.some((l) => l.id === view.levelId)) return translate(lang, 'md_level_missing');
+  if (view.kind === 'areaPlan' && !(p.areaPlans ?? []).some((a) => a.id === view.planId)) return translate(lang, 'md_area_plan_missing');
+  if (view.kind === 'section' && !p.views.some((v) => v.id === view.sectionId)) return translate(lang, 'md_cmd_section_missing');
   if (view.kind === '3d' && view.camera !== undefined) return sheetView3DCameraIssue(view.camera);
   return null;
 }
@@ -34,9 +35,9 @@ const refuse = (issue: string | null): void => {
   if (issue) throw new Error(issue);
 };
 
-function sheetRef(p: Project, id: Id): Sheet {
+function sheetRef(p: Project, id: Id, lang: Lang): Sheet {
   const s = sheetOf(p, id);
-  if (!s) throw new Error('Prancha inexistente');
+  if (!s) throw new Error(translate(lang, 'md_cmd_sheet_missing'));
   return s;
 }
 
@@ -45,32 +46,32 @@ function setSheets(p: Project, next: Sheet[]): void {
 }
 
 /** Aplica um comando de prancha sobre o rascunho do projeto. Lança Error em texto pt-BR se recusar. */
-export function applySheetCommand(p: Project, c: SheetCommand): void {
+export function applySheetCommand(p: Project, c: SheetCommand, lang: Lang = 'pt'): void {
   switch (c.type) {
     case 'addSheet': {
-      refuse(sheetIssue(c.sheet));
-      if (projectSheets(p).some((s) => s.id === c.sheet.id)) throw new Error('Prancha já existe');
-      c.sheet.viewports.forEach((v) => refuse(viewportIssue(c.sheet, v) ?? viewSourceIssue(p, v.view)));
+      refuse(sheetIssue(c.sheet, lang));
+      if (projectSheets(p).some((s) => s.id === c.sheet.id)) throw new Error(translate(lang, 'md_cmd_sheet_exists'));
+      c.sheet.viewports.forEach((v) => refuse(viewportIssue(c.sheet, v, lang) ?? viewSourceIssue(p, v.view, lang)));
       setSheets(p, [...projectSheets(p), c.sheet]);
       break;
     }
     case 'updateSheet': {
-      const old = sheetRef(p, c.id);
+      const old = sheetRef(p, c.id, lang);
       const next: Sheet = { ...old, ...c.patch, id: old.id, viewports: old.viewports };
-      refuse(sheetIssue(next));
-      next.viewports.forEach((v) => refuse(viewportIssue(next, v)));
+      refuse(sheetIssue(next, lang));
+      next.viewports.forEach((v) => refuse(viewportIssue(next, v, lang)));
       setSheets(p, projectSheets(p).map((s) => (s.id === c.id ? next : s)));
       break;
     }
     case 'removeSheet': {
-      sheetRef(p, c.id);
+      sheetRef(p, c.id, lang);
       setSheets(p, projectSheets(p).filter((s) => s.id !== c.id));
       break;
     }
     case 'setSheetOrder': {
       const all = projectSheets(p);
-      if (new Set(c.ids).size !== c.ids.length) throw new Error('Prancha repetida na ordem.');
-      for (const id of c.ids) if (!all.some((s) => s.id === id)) throw new Error('Prancha inexistente na ordem.');
+      if (new Set(c.ids).size !== c.ids.length) throw new Error(translate(lang, 'md_cmd_sheet_order_duplicate'));
+      for (const id of c.ids) if (!all.some((s) => s.id === id)) throw new Error(translate(lang, 'md_cmd_sheet_order_missing'));
       const byId = new Map(all.map((s) => [s.id, s]));
       const ordered = c.ids.map((id) => byId.get(id)!);
       // Pranchas não citadas (ex.: criadas por outro caminho) ficam no fim, na ordem atual.
@@ -78,24 +79,24 @@ export function applySheetCommand(p: Project, c: SheetCommand): void {
       break;
     }
     case 'addViewport': {
-      const old = sheetRef(p, c.sheetId);
-      if (old.viewports.some((v) => v.id === c.viewport.id)) throw new Error('Vista já existe na prancha');
-      refuse(viewportIssue(old, c.viewport) ?? viewSourceIssue(p, c.viewport.view));
+      const old = sheetRef(p, c.sheetId, lang);
+      if (old.viewports.some((v) => v.id === c.viewport.id)) throw new Error(translate(lang, 'md_cmd_viewport_exists'));
+      refuse(viewportIssue(old, c.viewport, lang) ?? viewSourceIssue(p, c.viewport.view, lang));
       setSheets(p, projectSheets(p).map((s) => (s.id === c.sheetId ? { ...s, viewports: [...s.viewports, c.viewport] } : s)));
       break;
     }
     case 'updateViewport': {
-      const old = sheetRef(p, c.sheetId);
+      const old = sheetRef(p, c.sheetId, lang);
       const cur = old.viewports.find((v) => v.id === c.id);
-      if (!cur) throw new Error('Vista inexistente');
+      if (!cur) throw new Error(translate(lang, 'md_view_missing'));
       const next: SheetViewport = { ...cur, ...c.patch, id: cur.id };
-      refuse(viewportIssue(old, next) ?? viewSourceIssue(p, next.view));
+      refuse(viewportIssue(old, next, lang) ?? viewSourceIssue(p, next.view, lang));
       setSheets(p, projectSheets(p).map((s) => (s.id === c.sheetId ? { ...s, viewports: s.viewports.map((v) => (v.id === c.id ? next : v)) } : s)));
       break;
     }
     case 'removeViewport': {
-      const old = sheetRef(p, c.sheetId);
-      if (!old.viewports.some((v) => v.id === c.id)) throw new Error('Vista inexistente');
+      const old = sheetRef(p, c.sheetId, lang);
+      if (!old.viewports.some((v) => v.id === c.id)) throw new Error(translate(lang, 'md_view_missing'));
       setSheets(p, projectSheets(p).map((s) => (s.id === c.sheetId ? { ...s, viewports: s.viewports.filter((v) => v.id !== c.id) } : s)));
       break;
     }

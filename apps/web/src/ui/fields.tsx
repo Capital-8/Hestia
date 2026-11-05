@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { formatQuantity, fromDisplay, unitSymbol, type Quantity, type ResolvedUnits } from '@hestia/model';
 import { parseNumber, parseQuantityText } from '@hestia/tools';
+import { fmtNum, useT } from '../editor/i18n.ts';
 import { safeGet, safeSet } from '../editor/storage.ts';
 import { useUnits } from './useUnits.ts';
-
-// units-ok: número puro (contagem, razão, escala) — não é medida do projeto
-const fmt = (v: number, decimals: number): string => v.toFixed(decimals).replace('.', ',');
 
 /** Texto exibido de um campo por grandeza: até 4 casas, sem zeros à direita; vazio se nulo ou variado. */
 export function formatQuantityField(units: ResolvedUnits, q: Quantity, si: number | null, mixed: boolean): string {
@@ -62,8 +60,11 @@ interface NumProps {
 
 /** Campo numérico que aceita expressões (`3,50+0,15`); confirma com Enter ou ao sair. */
 export function NumField({ id, value, onCommit, decimals = 2, suffix, quantity, unit, scale = 1, min, max, disabled, mixed, width, readOnly, placeholder, onClear, onInvalid, onValid, strictRange, invalid, describedBy }: NumProps): ReactElement {
+  const { t, lang } = useT();
   const units = useUnits();
   const ref = useRef<HTMLInputElement>(null);
+  // units-ok: número puro (contagem, razão, escala) — não é medida do projeto
+  const fmt = (v: number, casas: number): string => fmtNum(v, casas, lang);
   const show = (v: number | null): string =>
     quantity
       ? formatQuantityField(units, quantity, v, !!mixed)
@@ -77,7 +78,7 @@ export function NumField({ id, value, onCommit, decimals = 2, suffix, quantity, 
   useEffect(() => {
     if (!focus) setText(show(value));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, focus, mixed, decimals, quantity, units, unit, scale]);
+  }, [value, focus, mixed, decimals, quantity, units, unit, scale, lang]);
   const commit = (): void => {
     if (onClear && text.trim() === '') {
       if (text !== show(value)) onClear();
@@ -137,7 +138,7 @@ export function NumField({ id, value, onCommit, decimals = 2, suffix, quantity, 
         className={`input num${readOnly ? ' ro' : ''}${mixed ? ' mixed' : ''}`}
         style={width ? { width } : undefined}
         value={text}
-        placeholder={mixed ? 'variados' : placeholder ?? ''}
+        placeholder={mixed ? t('prc_opt_varied') : placeholder ?? ''}
         disabled={disabled}
         readOnly={readOnly}
         inputMode="decimal"
@@ -171,6 +172,7 @@ export function NumField({ id, value, onCommit, decimals = 2, suffix, quantity, 
 }
 
 export function TextField({ id, value, onCommit, placeholder, mixed, disabled, invalid, describedBy, dataAutofocus }: { id?: string; value: string; onCommit: (v: string) => void; placeholder?: string; mixed?: boolean; disabled?: boolean; invalid?: boolean; describedBy?: string; dataAutofocus?: boolean }): ReactElement {
+  const { t } = useT();
   const [text, setText] = useState(value);
   useEffect(() => setText(value), [value]);
   return (
@@ -178,7 +180,7 @@ export function TextField({ id, value, onCommit, placeholder, mixed, disabled, i
       id={id}
       className={`input wide${mixed ? ' mixed' : ''}`}
       value={mixed ? '' : text}
-      placeholder={mixed ? 'variados' : placeholder}
+      placeholder={mixed ? t('prc_opt_varied') : placeholder}
       disabled={disabled}
       aria-invalid={invalid ? true : undefined}
       aria-describedby={describedBy}
@@ -216,11 +218,12 @@ export function Check({ id, checked, onChange, children, disabled, mixed }: { id
  * controlado por outro lugar); `fromType` põe o selo "tipo" (o valor vem do tipo: muda-se em Editar tipo).
  */
 export function Row({ label, htmlFor, children, readOnly, fromType }: { label: string; htmlFor?: string; children: ReactNode; readOnly?: boolean; fromType?: boolean }): ReactElement {
+  const { t } = useT();
   return (
     <div className={`prow${readOnly ? ' ro' : ''}`}>
       <label htmlFor={htmlFor} title={label}>
         {label}
-        {fromType ? <span className="tmark" title="Parâmetro do tipo — edite em Editar tipo">tipo</span> : null}
+        {fromType ? <span className="tmark" title={t('prc_tip_type_param')}>{t('prc_badge_type')}</span> : null}
       </label>
       <div>{children}</div>
     </div>
@@ -229,11 +232,11 @@ export function Row({ label, htmlFor, children, readOnly, fromType }: { label: s
 
 /**
  * Grupo de propriedades da paleta (Restrições, Dimensões, Identidade...). O aberto/fechado fica guardado no navegador
- * pelo título: o grupo fechado continua fechado ao trocar de seleção, que é o que mantém a paleta compacta (padrão do
- * Revit). O título é a chave, então grupos de mesmo nome em painéis diferentes compartilham o estado.
+ * pelo `stateKey` (ou pelo título, quando não vem): o grupo fechado continua fechado ao trocar de seleção, que é o que
+ * mantém a paleta compacta (padrão do Revit). O `stateKey` precisa ser estável entre idiomas.
  */
-export function Group({ title, children, open = true }: { title: string; children: ReactNode; open?: boolean }): ReactElement {
-  const key = `pgroup:${title}`;
+export function Group({ title, children, open = true, stateKey }: { title: string; children: ReactNode; open?: boolean; stateKey?: string }): ReactElement {
+  const key = `pgroup:${stateKey ?? title}`;
   const [isOpen, setOpen] = useState<boolean>(() => {
     const saved = safeGet(key);
     return saved === null ? open : saved === '1';

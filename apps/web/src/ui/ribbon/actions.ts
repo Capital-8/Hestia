@@ -1,6 +1,7 @@
 /* eslint-disable max-lines -- a faixa concentra as ações pontuais (cada uma com rótulo bilíngue, dica e guarda); dividir depois. */
 import { copyLinkOf, isCeiling, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Element, type Id, type Project, type Ramp } from '@hestia/model';
 import type { PerimeterModifyKind, ShortcutCommand, ToolOptions } from '@hestia/tools';
+import { t as translate, useI18n } from '../../editor/i18n.ts';
 import { tagAllNotTagged } from '../../editor/tagActions.ts';
 import { addMissingTagsAction } from '../../editor/areaPlanActions.ts';
 import { editor } from '../../editor/controller.ts';
@@ -168,7 +169,11 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
       const s = useUi.getState();
       if (s.view === 'plan' && s.planKind === 'area' && s.areaPlanId) {
         const n = addMissingTagsAction(editor.store, s.areaPlanId);
-        useUi.setState({ status: n ? `${n} ambiente(s) etiquetado(s).` : 'Todos os ambientes desta planta já têm etiqueta.' });
+        useUi.setState({
+          status: n
+            ? { key: n === 1 ? 'shr_status_rooms_tagged_one' : 'shr_status_rooms_tagged_many', args: { n } }
+            : { key: 'shr_status_rooms_all_tagged' },
+        });
         return;
       }
       tagAllNotTagged();
@@ -178,7 +183,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     label: t('Códigos de parede', 'Wall Type Codes'),
     icon: 'tag',
     hint: t('Mostra ou oculta as etiquetas de elementos na vista.', 'Show or hide element labels in the view.'),
-    run: () => editor.store.exec({ type: 'setSettings', patch: { showTags: !editor.project.settings.showTags } }, 'Alternar etiquetas do modelo'),
+    run: () => editor.store.exec({ type: 'setSettings', patch: { showTags: !editor.project.settings.showTags } }, translate(useI18n.getState().lang, 'shr_undo_toggle_tags')),
     pressed: (c) => c.p.settings.showTags,
   },
   browserSide: {
@@ -304,7 +309,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     run: () => {
       const target = thinTarget();
       const r = editThinLines(editor.store, target, !thinLinesOn(editor.project, target));
-      if (!r.ok) useUi.setState({ status: r.error ?? 'Não foi possível alterar as linhas finas.' });
+      if (!r.ok) useUi.setState({ status: r.error ?? { key: 'shr_status_thin_lines_error' } });
     },
     pressed: (c) => planOrSection(c) && thinLinesOn(c.p, c.view === 'section' ? 'section' : { levelId: c.levelId }),
     disabled: (c) => (planOrSection(c) ? false : t('Só em planta ou corte.', 'Plan or section views only.')),
@@ -335,9 +340,9 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     run: () => {
       try {
         activateView({ kind: 'sheet', sheetId: addSheetAction(editor.store) });
-        useUi.setState({ status: 'Prancha criada.' });
+        useUi.setState({ status: { key: 'shr_status_sheet_created' } });
       } catch (e) {
-        useUi.setState({ status: e instanceof Error ? e.message : 'Operação recusada.' });
+        useUi.setState({ status: e instanceof Error ? e.message : { key: 'shr_status_op_rejected' } });
       }
     },
   },
@@ -348,7 +353,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     run: () => {
       const s = useUi.getState();
       if (s.view !== 'sheet' || !s.sheetId) {
-        useUi.setState({ status: 'Abra uma prancha para adicionar vistas.' });
+        useUi.setState({ status: { key: 'shr_status_open_sheet_first' } });
         return;
       }
       useUi.setState({ dialog: 'addView', dialogArg: s.sheetId });
@@ -369,9 +374,9 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
         const ids = sheetsPerLevelAction(editor.store);
         const first = ids[0];
         if (first) activateView({ kind: 'sheet', sheetId: first });
-        useUi.setState({ status: ids.length === 1 ? 'Prancha do nível criada.' : `${ids.length} pranchas criadas, uma por nível.` });
+        useUi.setState({ status: ids.length === 1 ? { key: 'shr_status_sheet_per_level' } : { key: 'shr_status_sheets_per_level', args: { n: ids.length } } });
       } catch (e) {
-        useUi.setState({ status: e instanceof Error ? e.message : 'Operação recusada.' });
+        useUi.setState({ status: e instanceof Error ? e.message : { key: 'shr_status_op_rejected' } });
       }
     },
   },

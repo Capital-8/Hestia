@@ -17,6 +17,7 @@ import {
   type Wall,
 } from '@hestia/model';
 import { resolveAllFloors } from './floors.ts';
+import { t, type Lang } from './i18nMessages.ts';
 import { resolveAllRoofs } from './roofs.ts';
 import { resolveAllSlabs, type ResolvedSlab } from './slabs.ts';
 import { wallZRange } from './wallZ.ts';
@@ -39,19 +40,19 @@ const label = (e: { id: string; mark: string }): string => (e.mark ? `"${e.mark}
  * O motor calcula; a interface junta. A validação do modelo (`validateProject`) não é alterada. Pisos, lajes e telhados
  * só são resolvidos quando há um par candidato de topos ou uma camada `passa`; modelos sem esses casos não pagam a conta.
  */
-export function projectIssues(p: Project): ValidationIssue[] {
-  const out = openingOutside(p);
-  out.push(...wallTopIssues(p));
+export function projectIssues(p: Project, lang: Lang = 'pt'): ValidationIssue[] {
+  const out = openingOutside(p, lang);
+  out.push(...wallTopIssues(p, lang));
   if (hasPassaLayer(p)) {
     const floors = resolveAllFloors(p);
     const slabs = resolveAllSlabs(p);
-    out.push(...wallInsideSlab(p, floors, slabs));
+    out.push(...wallInsideSlab(p, floors, slabs, lang));
   }
   return out;
 }
 
 /** Abertura cujo `offset + largura` passa do comprimento do eixo da parede (1 mm de folga). */
-function openingOutside(p: Project): ValidationIssue[] {
+function openingOutside(p: Project, lang: Lang): ValidationIssue[] {
   const out: ValidationIssue[] = [];
   for (const e of Object.values(p.elements)) {
     if (!isOpening(e)) continue;
@@ -64,7 +65,14 @@ function openingOutside(p: Project): ValidationIssue[] {
     out.push({
       severity: 'warning',
       code: 'abertura-fora-da-parede',
-      message: `Abertura ${label(e)} está fora da parede ${label(host)}: offset ${formatQuantity(unitsOf(p), 'length', e.offset)} + largura ${formatQuantity(unitsOf(p), 'length', type.width)} = ${formatQuantity(unitsOf(p), 'length', end)}, mas o eixo tem ${formatQuantity(unitsOf(p), 'length', L)}.`,
+      message: t(lang, 'egb_issue_opening_outside_wall', {
+        opening: label(e),
+        wall: label(host),
+        offset: formatQuantity(unitsOf(p), 'length', e.offset),
+        width: formatQuantity(unitsOf(p), 'length', type.width),
+        end: formatQuantity(unitsOf(p), 'length', end),
+        length: formatQuantity(unitsOf(p), 'length', L),
+      }),
       elementId: e.id,
       ids: [e.id, host.id],
     });
@@ -111,7 +119,7 @@ function wallTop(p: Project, w: Wall, floors?: ReturnType<typeof resolveAllFloor
 }
 
 /** Paredes colineares e do mesmo nível com topos diferentes (mais de 1 mm). */
-function wallTopIssues(p: Project): ValidationIssue[] {
+function wallTopIssues(p: Project, lang: Lang): ValidationIssue[] {
   const axes = Object.values(p.elements)
     .filter(isWall)
     .map(wallAxis)
@@ -146,7 +154,13 @@ function wallTopIssues(p: Project): ValidationIssue[] {
     out.push({
       severity: 'warning',
       code: 'parede-topo-desnivelado',
-      message: `Paredes ${label(a.wall)} e ${label(b.wall)} estão alinhadas no nível "${levelName}", mas os topos estão desnivelados: ${formatQuantity(unitsOf(p), 'length', topA)} e ${formatQuantity(unitsOf(p), 'length', topB)}.`,
+      message: t(lang, 'egb_issue_wall_top_uneven', {
+        a: label(a.wall),
+        b: label(b.wall),
+        level: levelName,
+        topA: formatQuantity(unitsOf(p), 'length', topA),
+        topB: formatQuantity(unitsOf(p), 'length', topB),
+      }),
       elementId: a.wall.id,
       ids: [a.wall.id, b.wall.id],
     });
@@ -166,7 +180,7 @@ interface PassaLayer {
 }
 
 /** Paredes cuja faixa de cota cruza uma camada `passa` que cobre o eixo: o trecho comum pode ser contado duas vezes. */
-function wallInsideSlab(p: Project, floors: ReturnType<typeof resolveAllFloors>, slabs: ResolvedSlab[]): ValidationIssue[] {
+function wallInsideSlab(p: Project, floors: ReturnType<typeof resolveAllFloors>, slabs: ResolvedSlab[], lang: Lang): ValidationIssue[] {
   const layers: PassaLayer[] = [];
   for (const r of slabs) {
     const slab = p.elements[r.slabId];
@@ -206,7 +220,12 @@ function wallInsideSlab(p: Project, floors: ReturnType<typeof resolveAllFloors>,
       out.push({
         severity: 'warning',
         code: 'parede-dentro-da-laje',
-        message: `Parede ${label(w)} está dentro da laje ${label(layer.slab)} (camada ${layer.layerIndex + 1}, término "passa"): o trecho comum de ${formatQuantity(unitsOf(p), 'length', overlap)} pode ser contado duas vezes.`,
+        message: t(lang, 'egb_issue_wall_inside_slab', {
+          wall: label(w),
+          slab: label(layer.slab),
+          layer: layer.layerIndex + 1,
+          length: formatQuantity(unitsOf(p), 'length', overlap),
+        }),
         elementId: w.id,
         ids: [w.id, layer.slab.id],
       });

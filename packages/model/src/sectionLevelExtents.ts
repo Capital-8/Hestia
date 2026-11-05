@@ -1,4 +1,5 @@
 import type { Id, Project, SectionView } from './types.ts';
+import { t, type Lang } from './i18n.ts';
 
 /** Extensão 2D de uma linha de nível no corte/elevação: coordenadas `t` ao longo da linha do corte. */
 export interface SectionLevelExtent {
@@ -12,10 +13,10 @@ export function sectionLevelExtentOf(v: Pick<SectionView, 'levelExtents'> | unde
 }
 
 /** Motivo de recusa de uma extensão, ou null. */
-export function sectionLevelExtentIssue(extent: SectionLevelExtent): string | null {
-  if (!extent || typeof extent !== 'object') return 'A extensão da linha do nível é inválida.';
-  if (!Number.isFinite(extent.a) || !Number.isFinite(extent.b)) return 'As extremidades da linha do nível devem ser números finitos.';
-  if (Math.abs(extent.b - extent.a) < 1e-6) return 'A linha do nível precisa de duas extremidades distintas.';
+export function sectionLevelExtentIssue(extent: SectionLevelExtent, lang: Lang = 'pt'): string | null {
+  if (!extent || typeof extent !== 'object') return t(lang, 'md_cmd_extent_invalid');
+  if (!Number.isFinite(extent.a) || !Number.isFinite(extent.b)) return t(lang, 'md_cmd_extent_finite');
+  if (Math.abs(extent.b - extent.a) < 1e-6) return t(lang, 'md_cmd_extent_distinct');
   return null;
 }
 
@@ -23,9 +24,9 @@ export function sectionLevelExtentIssue(extent: SectionLevelExtent): string | nu
  * Aplica ou limpa a extensão da linha de nível numa vista de corte/elevação.
  * `undefined` devolve a linha ao comprimento inteiro da vista (remove a entrada).
  */
-export function applySectionLevelExtent(p: Project, sectionId: Id, levelId: Id, extent: SectionLevelExtent | undefined): void {
+export function applySectionLevelExtent(p: Project, sectionId: Id, levelId: Id, extent: SectionLevelExtent | undefined, lang: Lang = 'pt'): void {
   const view = p.views.find((v) => v.id === sectionId);
-  if (!view) throw new Error('Vista de corte/elevação inexistente.');
+  if (!view) throw new Error(t(lang, 'md_cmd_section_view_missing'));
   if (extent === undefined) {
     if (!view.levelExtents || !(levelId in view.levelExtents)) return;
     const next = { ...view.levelExtents };
@@ -34,8 +35,8 @@ export function applySectionLevelExtent(p: Project, sectionId: Id, levelId: Id, 
     else delete view.levelExtents;
     return;
   }
-  if (!p.levels.some((l) => l.id === levelId)) throw new Error('Nível inexistente.');
-  const issue = sectionLevelExtentIssue(extent);
+  if (!p.levels.some((l) => l.id === levelId)) throw new Error(t(lang, 'md_cmd_section_level_missing'));
+  const issue = sectionLevelExtentIssue(extent, lang);
   if (issue) throw new Error(issue);
   view.levelExtents = { ...(view.levelExtents ?? {}), [levelId]: { a: extent.a, b: extent.b } };
 }

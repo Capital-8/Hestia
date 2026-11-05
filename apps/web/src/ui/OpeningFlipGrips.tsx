@@ -4,6 +4,7 @@ import { openingTypeById, isOpening, type Id } from '@hestia/model';
 import { worldToScreen } from '@hestia/render';
 import { nextOpeningFlip, openingGripPlacements, openingHasHinge, type OpeningFlipKind } from '@hestia/tools';
 import { editor, useProject } from '../editor/controller.ts';
+import { useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 
 const BASE: CSSProperties = {
@@ -44,13 +45,14 @@ const conterSeEsquerdo = (e: RPointerEvent<HTMLElement>): void => {
  * desfazer. Tab inverte o sentido e Espaço a dobradiça, com a Selecionar ativa.
  */
 export function OpeningFlipGrips({ openingId }: { openingId: Id }): ReactElement | null {
+  const { t } = useT();
   const p = useProject();
   const tick = useUi((s) => s.previewTick);
   const apply = useCallback((kind: OpeningFlipKind): void => {
     const current = editor.project.elements[openingId];
     if (!current || !isOpening(current)) return;
     editor.store.exec({ type: 'updateElements', ids: [openingId], patch: nextOpeningFlip(current, kind) });
-    useUi.setState({ status: kind === 'facing' ? 'Sentido de abertura invertido.' : 'Dobradiça invertida.' });
+    useUi.setState({ status: { key: kind === 'facing' ? 'msc_flip_facing_done' : 'msc_flip_hand_done' } });
   }, [openingId]);
 
   useEffect(() => {
@@ -91,8 +93,8 @@ export function OpeningFlipGrips({ openingId }: { openingId: Id }): ReactElement
     <div style={{ position: 'absolute', inset: 0, zIndex: 12, pointerEvents: 'none' }}>
       <button
         type="button"
-        title="Inverter sentido (Tab)"
-        aria-label="Inverter sentido"
+        title={t('msc_flip_facing_tip')}
+        aria-label={t('dlo_prev_flip_facing')}
         style={{ ...BASE, left: facing.x, top: facing.y }}
         onPointerDown={conterSeEsquerdo}
         onPointerUp={conterSeEsquerdo}
@@ -107,8 +109,8 @@ export function OpeningFlipGrips({ openingId }: { openingId: Id }): ReactElement
       {hand && (
         <button
           type="button"
-          title="Inverter dobradiça (Espaço)"
-          aria-label="Inverter dobradiça"
+          title={t('msc_flip_hand_tip')}
+          aria-label={t('dlo_prev_flip_hand')}
           style={{ ...BASE, left: hand.x, top: hand.y }}
           onPointerDown={conterSeEsquerdo}
           onPointerUp={conterSeEsquerdo}

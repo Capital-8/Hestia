@@ -3,14 +3,13 @@ import type { Sheet } from '@hestia/model';
 import type { SheetDrawList } from '@hestia/render';
 import { editor } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
+import { useT, type TextLike } from '../../editor/i18n.ts';
 import { commitMove } from './sheetCommit.ts';
 import { alignDelta, sameOwner, sheetAlignFeatures, type SheetAlignFeature } from './sheetAlignTool.ts';
 import { viewportBox } from '@hestia/model';
 import type { PaperBox, PaperPoint } from './sheetSelection.ts';
 
-const say = (status: string): void => useUi.setState({ status });
-
-const HINT = 'Alinhar: clique na referência e depois no que deseja alinhar. Ctrl+clique acumula vários; Tab alterna a feição; Esc volta um passo.';
+const say = (status: TextLike): void => useUi.setState({ status });
 
 export interface SheetAlignOverlay {
   ref: SheetAlignFeature | null;
@@ -43,6 +42,7 @@ export interface SheetAlignApi {
  */
 export function useSheetAlign(args: { sheet: Sheet | null; sheetId: string; drawList: SheetDrawList | null; zoom: number }): SheetAlignApi {
   const { sheet, sheetId, drawList, zoom } = args;
+  const { t, lang } = useT();
   const on = useUi((s) => s.sheetAlign);
   const [ref, setRef] = useState<SheetAlignFeature | null>(null);
   const [cands, setCands] = useState<SheetAlignFeature[]>([]);
@@ -58,12 +58,12 @@ export function useSheetAlign(args: { sheet: Sheet | null; sheetId: string; draw
     setQueue([]);
     setCands([]);
     setIdx(0);
-    if (on) say(HINT);
+    if (on) say({ key: 'cvs_align_hint' });
   }, [on]);
 
   const candidates = useCallback(
-    (at: PaperPoint): SheetAlignFeature[] => (sheet && drawList ? sheetAlignFeatures({ project: editor.project, sheet, drawList, at, zoom, prefer: 'faces' }) : []),
-    [sheet, drawList, zoom],
+    (at: PaperPoint): SheetAlignFeature[] => (sheet && drawList ? sheetAlignFeatures({ project: editor.project, sheet, drawList, at, zoom, prefer: 'faces', lang }) : []),
+    [sheet, drawList, zoom, lang],
   );
 
   const apply = useCallback(
@@ -71,25 +71,25 @@ export function useSheetAlign(args: { sheet: Sheet | null; sheetId: string; draw
       if (!sheet) return;
       const boxes: Record<string, PaperBox> = {};
       const notes: string[] = [];
-      for (const t of targets) {
-        if (sameOwner(reference, t)) {
-          notes.push('a vista de referência não se move');
+      for (const target of targets) {
+        if (sameOwner(reference, target)) {
+          notes.push(t('cvs_align_note_ref'));
           continue;
         }
-        const owner = t.owner;
+        const owner = target.owner;
         if (owner.type !== 'viewport') {
-          notes.push('a folha não se move');
+          notes.push(t('cvs_align_note_sheet'));
           continue;
         }
         const vp = sheet.viewports.find((v) => v.id === owner.id);
         if (!vp) continue;
         if (vp.locked) {
-          notes.push('vista travada');
+          notes.push(t('cvs_align_note_locked'));
           continue;
         }
-        const d = alignDelta(reference, t);
+        const d = alignDelta(reference, target);
         if (!d) {
-          notes.push('linhas não paralelas');
+          notes.push(t('cvs_align_note_parallel'));
           continue;
         }
         if (Math.abs(d.dx) < 1e-6 && Math.abs(d.dy) < 1e-6) continue;
@@ -97,7 +97,7 @@ export function useSheetAlign(args: { sheet: Sheet | null; sheetId: string; draw
       }
       const ids = Object.keys(boxes);
       if (ids.length === 0) {
-        say(notes.length ? `Nada a alinhar: ${notes.join('; ')}.` : 'Já estão alinhados.');
+        say(notes.length ? { key: 'cvs_align_nothing', args: { notes: notes.join('; ') } } : { key: 'cvs_align_already' });
         return;
       }
       const err = commitMove(editor.store, sheetId, sheet, ids, boxes);
@@ -113,10 +113,18 @@ export function useSheetAlign(args: { sheet: Sheet | null; sheetId: string; draw
             return !v || Math.abs(v.at.x - want.x) > 0.01 || Math.abs(v.at.y - want.y) > 0.01;
           })
         : false;
-      say(`${ids.length > 1 ? 'Vistas alinhadas' : 'Alinhada'}${partial ? ' (encostou no limite da folha)' : ''}. Referência: ${reference.label}. Clique no próximo (Esc troca a referência).`);
+      const done =
+        ids.length > 1
+          ? partial
+            ? ('cvs_align_done_many_partial' as const)
+            : ('cvs_align_done_many' as const)
+          : partial
+            ? ('cvs_align_done_one_partial' as const)
+            : ('cvs_align_done_one' as const);
+      say({ key: done, args: { label: reference.label } });
       setQueue([]);
     },
-    [sheet, sheetId],
+    [sheet, sheetId, t],
   );
 
   const hover = useCallback(
@@ -136,22 +144,23 @@ export function useSheetAlign(args: { sheet: Sheet | null; sheetId: string; draw
       const cand = list[idx] ?? list[0] ?? null;
       if (!ref) {
         if (!cand) {
-          say('Clique sobre uma face, eixo, aresta ou na moldura da vista.');
+          say({ key: 'cvs_align_pick' });
           return;
         }
         setRef(cand);
         setQueue([]);
-        say(`Referência: ${cand.label}. Clique no que deseja alinhar (Tab troca a candidata).`);
+        say({ key: 'cvs_align_ref_set', args: { label: cand.label } });
         return;
       }
       if (!cand) {
-        say('Clique sobre a feição que deseja mover.');
+        say({ key: 'cvs_align_pick_target' });
         return;
       }
       if (ctrl) {
         const has = queue.some((q) => q.key === cand.key);
+        const n = has ? queue.length - 1 : queue.length + 1;
         setQueue((q) => (has ? q.filter((x) => x.key !== cand.key) : [...q, cand]));
-        say(`${has ? queue.length - 1 : queue.length + 1} feição(ões) para alinhar. Ctrl+clique soma ou tira; clique sem Ctrl (ou Enter) aplica.`);
+        say({ key: n === 1 ? 'cvs_align_queue_one' : 'cvs_align_queue_many', args: { n } });
         return;
       }
       const targets = queue.length ? [...queue.filter((q) => q.key !== cand.key), cand] : [cand];
@@ -164,27 +173,27 @@ export function useSheetAlign(args: { sheet: Sheet | null; sheetId: string; draw
   const cycle = useCallback((): void => {
     const n = cands.length;
     if (n < 2) {
-      if (cands[0]) say(`${cands[0].label}. ${HINT}`);
+      if (cands[0]) say({ key: 'cvs_align_cycle_one', args: { label: cands[0].label, hint: t('cvs_align_hint') } });
       return;
     }
     const next = (idx + 1) % n;
     setIdx(next);
-    say(`${cands[next]!.label}. ${ref ? 'Clique para alinhar; Tab troca a feição.' : 'Clique para usar como referência; Tab troca a feição.'}`);
-  }, [cands, idx, ref]);
+    say({ key: ref ? 'cvs_align_click_align' : 'cvs_align_click_ref', args: { label: cands[next]!.label } });
+  }, [cands, idx, ref, t]);
 
   const back = useCallback((): void => {
     if (queue.length) {
       setQueue([]);
-      say(`Seleção múltipla cancelada. Referência: ${ref?.label ?? 'nenhuma'}. ${HINT}`);
+      say({ key: 'cvs_align_cancel', args: { label: ref?.label ?? t('cvs_none'), hint: t('cvs_align_hint') } });
       return;
     }
     if (ref) {
       setRef(null);
-      say(HINT);
+      say({ key: 'cvs_align_hint' });
       return;
     }
     useUi.setState({ sheetAlign: false });
-  }, [queue.length, ref]);
+  }, [queue.length, ref, t]);
 
   const confirm = useCallback((): void => {
     if (ref && queue.length) apply(ref, queue);

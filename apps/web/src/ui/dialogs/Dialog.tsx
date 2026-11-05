@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactElement, type ReactNode } from 'react';
+import { useT } from '../../editor/i18n.ts';
 import { Icon } from '../Icon.tsx';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -26,6 +27,7 @@ interface DialogProps {
 }
 
 export function Dialog({ title, sub, onClose, children, footer, size = '', z, onSubmit, trapFocus }: DialogProps): ReactElement {
+  const { t } = useT();
   const root = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   const submitRef = useRef(onSubmit);
@@ -90,7 +92,7 @@ export function Dialog({ title, sub, onClose, children, footer, size = '', z, on
           <h2>{title}</h2>
           {sub ? <span className="sub">{sub}</span> : null}
           <span style={{ flex: 1 }} />
-          <button className="ibtn" onClick={onClose} aria-label="Fechar"><Icon name="close" size={16} /></button>
+          <button className="ibtn" onClick={onClose} aria-label={t('dlm_btn_close')}><Icon name="close" size={16} /></button>
         </div>
         <div className="dbody">{children}</div>
         {footer ? <div className="dfoot">{footer}</div> : null}

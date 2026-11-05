@@ -1,7 +1,8 @@
 import type { ReactElement } from 'react';
-import { counterText, isStairTool, STAIR_SUBMODE_LABEL, STAIR_SUBMODES, type StairPrimitive, type StairSubmode, type StairTool, type StairToolOptions } from '@hestia/tools';
+import { counterText, isStairTool, STAIR_SUBMODES, type StairPrimitive, type StairSubmode, type StairTool, type StairToolOptions } from '@hestia/tools';
 import { levelAbove } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
+import { type Dict, useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { stairNote } from '../editor/stairActions.ts';
 import { NumField } from './fields.tsx';
@@ -23,10 +24,21 @@ export function setStairOpt(patch: Partial<StairToolOptions>): void {
 }
 
 const ERROR_COLOR = 'var(--danger, #b42318)';
-const PRIMITIVES: Array<[StairPrimitive, string]> = [
-  ['line', 'Linha'],
-  ['arc', 'Arco'],
-];
+
+/** Rótulo traduzido de cada método de desenho. */
+const PRIMITIVE_KEY: Record<StairPrimitive, keyof Dict> = {
+  line: 'pro_line',
+  arc: 'pro_arc',
+};
+
+/** Rótulo traduzido de cada sub-modo do croqui. */
+const SUBMODE_KEY: Record<StairSubmode, keyof Dict> = {
+  limites: 'pro_stair_submode_boundary',
+  espelhos: 'pro_stair_submode_riser',
+  caminhada: 'pro_stair_submode_path',
+  patamar: 'pro_stair_submode_landing',
+  concluir: 'pro_stair_submode_finish',
+};
 
 /**
  * Barra da ferramenta Escada (croqui): tipo, sub-modos (Limites, Espelhos, Caminhada, Patamar, Concluir), método de
@@ -38,6 +50,7 @@ export function StairOptionsBar(): ReactElement | null {
   const p = useProject();
   const levelId = useUi((s) => s.levelId);
   const options = useUi((s) => s.options);
+  const { t } = useT();
   const opts: StairToolOptions = options.stair ?? {};
   // Re-renderiza a cada passo do croqui (o `previewTick` muda com cada clique, tecla e ação).
   const tick = useUi((s) => s.previewTick);
@@ -51,58 +64,58 @@ export function StairOptionsBar(): ReactElement | null {
 
   return (
     <>
-      <div className="stair-modes" role="group" aria-label="Sub-modo do croqui" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+      <div className="stair-modes" role="group" aria-label={t('pro_stair_submode_aria')} style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
         {STAIR_SUBMODES.map((m: StairSubmode) => (
-          <button key={m} className={`btn small${st.submode === m ? ' primary' : ''}`} aria-pressed={st.submode === m} onClick={() => act((t) => t.setSubmode(m))}>
-            {STAIR_SUBMODE_LABEL[m]}
+          <button key={m} className={`btn small${st.submode === m ? ' primary' : ''}`} aria-pressed={st.submode === m} onClick={() => act((tp) => tp.setSubmode(m))}>
+            {t(SUBMODE_KEY[m])}
           </button>
         ))}
       </div>
       <label>
-        Tipo
+        {t('pro_type')}
         <select
           id="opt-stairtype"
           className="select"
           value={st.typeId ?? ''}
           disabled={st.editing}
-          title={st.editing ? 'Tipo da escada em edição: altere em Propriedades.' : 'Tipo usado na criação'}
+          title={st.editing ? t('pro_stair_type_edit_title') : t('pro_stair_type_create_title')}
           onChange={(e) => setStairOpt({ typeId: e.target.value })}
         >
-          {Object.values(p.stairTypes).map((t) => (
-            <option key={t.id} value={t.id}>{t.name}</option>
+          {Object.values(p.stairTypes).map((tp) => (
+            <option key={tp.id} value={tp.id}>{tp.name}</option>
           ))}
         </select>
       </label>
-      <div className="stair-prim" role="group" aria-label="Método de desenho" style={{ display: 'flex', gap: 4 }}>
-        {PRIMITIVES.map(([id, label]) => (
-          <button key={id} className={`btn small${!st.picking && st.primitive === id ? ' primary' : ''}`} aria-pressed={!st.picking && st.primitive === id} onClick={() => act((t) => t.setPrimitive(id))} title="Tab alterna linha e arco">
-            {label}
+      <div className="stair-prim" role="group" aria-label={t('pro_stair_primitive_aria')} style={{ display: 'flex', gap: 4 }}>
+        {(Object.keys(PRIMITIVE_KEY) as StairPrimitive[]).map((id) => (
+          <button key={id} className={`btn small${!st.picking && st.primitive === id ? ' primary' : ''}`} aria-pressed={!st.picking && st.primitive === id} onClick={() => act((tp) => tp.setPrimitive(id))} title={t('pro_stair_tab_hint')}>
+            {t(PRIMITIVE_KEY[id])}
           </button>
         ))}
-        <button className={`btn small${st.picking ? ' primary' : ''}`} aria-pressed={st.picking} onClick={() => act((t) => t.setPick(!st.picking))} title="Pega a parede (eixo, faces ou núcleo conforme a captura), a linha de escada ou a aresta de laje ou piso sob o cursor">
-          Pegar linhas
+        <button className={`btn small${st.picking ? ' primary' : ''}`} aria-pressed={st.picking} onClick={() => act((tp) => tp.setPick(!st.picking))} title={t('pro_stair_pick_title')}>
+          {t('pro_pick_lines')}
         </button>
       </div>
       {st.picking && (
         <>
-          <button className={`btn small${opts.pickChain ? ' primary' : ''}`} aria-pressed={!!opts.pickChain} onClick={() => setStairOpt({ pickChain: !opts.pickChain })} title="Pega a cadeia de segmentos conectados até as pontas (ou o laço inteiro)">
-            Corrente
+          <button className={`btn small${opts.pickChain ? ' primary' : ''}`} aria-pressed={!!opts.pickChain} onClick={() => setStairOpt({ pickChain: !opts.pickChain })} title={t('pro_pick_chain_title')}>
+            {t('pro_chain')}
           </button>
           <label>
-            Deslocamento (m)
+            {t('pro_offset_m')}
             <NumField id="opt-stairoffset" value={opts.pickOffset ?? 0} min={0} onCommit={(v) => setStairOpt({ pickOffset: v })} quantity="length" />
           </label>
         </>
       )}
       <label>
-        Espelhos
+        {t('pro_risers')}
         <NumField id="opt-stairn" value={opts.distributeCount ?? st.desired} decimals={0} min={1} onCommit={(v) => setStairOpt({ distributeCount: Math.max(1, Math.round(v)) })} />
       </label>
-      <button className="btn small" onClick={() => act((t) => t.distribute())} title="Distribui N espelhos igualmente entre os limites do lance">
-        Distribuir espelhos
+      <button className="btn small" onClick={() => act((tp) => tp.distribute())} title={t('pro_distribute_risers_title')}>
+        {t('pro_distribute_risers')}
       </button>
-      <button className="btn small" onClick={() => act((t) => t.clearLayer())} title="Apaga a camada do sub-modo atual (Del)">
-        Apagar camada
+      <button className="btn small" onClick={() => act((tp) => tp.clearLayer())} title={t('pro_clear_layer_title')}>
+        {t('pro_clear_layer')}
       </button>
       <span className="stair-counter" aria-live="polite" style={{ color: 'var(--fg-soft)' }}>{counterText(st)}</span>
       {note && (
@@ -113,32 +126,32 @@ export function StairOptionsBar(): ReactElement | null {
       {!st.editing && (
         <>
           <label>
-            Nível de topo
+            {t('ramp_levels_top')}
             <select id="opt-stairtop" className="select" value={topValue} onChange={(e) => setStairOpt({ topLevelId: e.target.value || null })}>
-              <option value="">Automático (nível acima)</option>
+              <option value="">{t('ramp_levels_auto')}</option>
               {p.levels.map((l) => (
-                <option key={l.id} value={l.id}>{`Até ${l.name}`}</option>
+                <option key={l.id} value={l.id}>{`${t('ramp_levels_until')} ${l.name}`}</option>
               ))}
             </select>
           </label>
           <label>
-            Desloc. da base
+            {t('ramp_levels_base_offset')}
             <NumField id="opt-stairbase" value={opts.baseOffset ?? 0} onCommit={(v) => setStairOpt({ baseOffset: v })} quantity="length" />
           </label>
           <label>
-            Desloc. do topo
+            {t('ramp_levels_top_offset')}
             <NumField id="opt-stairtopoff" value={opts.topOffset ?? 0} onCommit={(v) => setStairOpt({ topOffset: v })} quantity="length" />
           </label>
           {noLevelAbove && !opts.topLevelId && (
             <label>
-              Altura
+              {t('pro_height')}
               <NumField id="opt-stairheight" value={opts.height ?? 2.8} min={0.1} onCommit={(v) => setStairOpt({ height: v })} quantity="length" />
             </label>
           )}
         </>
       )}
-      <button className="btn small primary" onClick={() => act((t) => t.setSubmode('concluir'))} title="Grava a escada (Enter em Concluir)">
-        Concluir
+      <button className="btn small primary" onClick={() => act((tp) => tp.setSubmode('concluir'))} title={t('pro_stair_finish_title')}>
+        {t('pro_finish')}
       </button>
     </>
   );

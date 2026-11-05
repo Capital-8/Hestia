@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { codigosPorVertice, geometriaDoRealce, LARGURA_DA_MASCARA, MascaraDoRealce, SEM_ELEMENTO, TabelaDeCodigos } from './realceGpu3d.ts';
+import { codigosPorVertice, criarMaterialDoRealce, geometriaDoRealce, LARGURA_DA_MASCARA, MascaraDoRealce, SEM_ELEMENTO, TabelaDeCodigos, VIES_DE_PROFUNDIDADE } from './realceGpu3d.ts';
+import { BITS_PROFUNDIDADE } from './precisao3d.ts';
 import { RealcesDaCena } from './realceDaCena3d.ts';
 
 function malhaDeDois(): THREE.Mesh {
@@ -86,5 +87,25 @@ describe('sobreposição de GPU', () => {
     expect(r.camada.children.length).toBe(1);
     r.definir('sel', [], { color: 0xff0000, fill: 0.35, edges: 1 });
     expect(r.camada.children.length).toBe(0);
+  });
+});
+
+describe('viés de profundidade da sobreposição (seleção sem z-fighting)', () => {
+  it('o vertex shader adianta a profundidade da sobreposição no espaço de clip, proporcional a w', () => {
+    const vs = criarMaterialDoRealce().vertexShader;
+    expect(vs).toContain(`gl_Position.z -= gl_Position.w * ${VIES_DE_PROFUNDIDADE.toExponential()};`);
+    // O viés vem DEPOIS do cálculo da posição final (senão seria sobrescrito) e fora do ramo que descarta o vértice.
+    expect(vs.indexOf('gl_Position = projectionMatrix')).toBeLessThan(vs.indexOf('gl_Position.z -='));
+  });
+
+  it('vale ~5 passos de um buffer de 24 bits: acima do ruído de 1-2 passos entre shaders, abaixo do que faria camada de baixo vazar', () => {
+    // NDC vai de −1 a 1 (2 unidades) e o buffer guarda [0,1]: um passo de profundidade vale 2/(2^bits − 1) em NDC.
+    const passos = VIES_DE_PROFUNDIDADE / (2 / (2 ** BITS_PROFUNDIDADE - 1));
+    expect(passos).toBeGreaterThanOrEqual(3);
+    expect(passos).toBeLessThanOrEqual(8);
+  });
+
+  it('o viés não depende de a posição ser perto ou longe: o termo é sempre w · constante (mesmo sinal em qualquer vértice)', () => {
+    expect(VIES_DE_PROFUNDIDADE).toBeGreaterThan(0);
   });
 });

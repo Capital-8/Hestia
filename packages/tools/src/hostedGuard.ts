@@ -35,7 +35,7 @@ export function execWithHostedLoss(
     apply(env, label, commands, losses, session);
     return { status: 'applied', losses };
   }
-  const answer = env.confirmHostedLoss(losses, hostedLossMessage(losses));
+  const answer = env.confirmHostedLoss(losses, hostedLossMessage(losses, env.lang?.() ?? 'pt'));
   if (typeof answer === 'boolean') {
     if (answer) apply(env, label, commands, losses, session);
     return { status: answer ? 'applied' : 'cancelled', losses };

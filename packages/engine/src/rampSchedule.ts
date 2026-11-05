@@ -1,5 +1,7 @@
-import { rampTopLevel, rampsOnLevel, type Id, type Level, type Project, type Ramp } from '@hestia/model';
-import { csvDocument, csvText, formatDecimal } from './csv.ts';
+import { defaultUnits, rampTopLevel, rampsOnLevel, type Id, type Level, type Project, type Ramp, type ResolvedUnits } from '@hestia/model';
+import { csvDocument, csvText } from './csv.ts';
+import { scheduleCsvCell, scheduleCsvHeader } from './scheduleCsv.ts';
+import { t, type Lang } from './i18n.ts';
 import { rampQuantities, type RampQuantities } from './rampQuantities.ts';
 import { resolveRamps } from './ramps.ts';
 
@@ -93,24 +95,28 @@ export function sumRampRows(rows: RampScheduleRow[]): RampScheduleTotals {
   );
 }
 
-const CSV_HEADER = [
-  'Marca',
-  'Tipo',
-  'Código',
-  'Nível base',
-  'Nível topo',
-  'Lances',
-  'Inclinação (%)',
-  'Desnível (m)',
-  'Comprimento (m)',
-  'Largura (m)',
-  'Área (m²)',
-  'Volume (m³)',
+const csvHeader = (u: ResolvedUnits, lang: Lang): string[] => [
+  t(lang, 'egs_csv_col_marca'),
+  t(lang, 'egs_csv_col_tipo'),
+  t(lang, 'egs_csv_col_codigo'),
+  t(lang, 'egs_csv_col_nivel_base'),
+  t(lang, 'egs_csv_col_nivel_topo'),
+  t(lang, 'egs_csv_col_lances'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_inclinacao'), 'slope'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_desnivel'), 'length'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_comprimento'), 'length'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_largura'), 'length'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_area'), 'area'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_volume'), 'volume'),
 ];
 
-/** CSV com separador ';', decimal com vírgula, cabeçalho em português e BOM UTF-8. */
-export function rampScheduleToCsv(rows: RampScheduleRow[], totals: RampScheduleTotals): string {
-  const n = formatDecimal;
+/**
+ * CSV com separador ';', decimal do idioma (ou o do projeto), cabeçalho no idioma ativo e BOM UTF-8. Sem `units`, usa as
+ * unidades padrão do idioma (m, m² e m³).
+ */
+export function rampScheduleToCsv(rows: RampScheduleRow[], totals: RampScheduleTotals, units?: ResolvedUnits, lang: Lang = 'pt'): string {
+  const u = units ?? defaultUnits(lang);
+  const n = (q: 'length' | 'area' | 'volume' | 'slope', v: number, d: number): string => scheduleCsvCell(u, q, v, d, lang);
   const body = rows.map((r) => [
     csvText(r.mark),
     csvText(r.typeName),
@@ -118,13 +124,13 @@ export function rampScheduleToCsv(rows: RampScheduleRow[], totals: RampScheduleT
     csvText(r.baseLevelName),
     csvText(r.topLevelName),
     String(r.flightCount),
-    n(r.slope * 100, 2),
-    n(r.rise, 2),
-    n(r.pathLength, 2),
-    n(r.width, 2),
-    n(r.planArea, 2),
-    n(r.volume, 3),
+    n('slope', r.slope, 2),
+    n('length', r.rise, 2),
+    n('length', r.pathLength, 2),
+    n('length', r.width, 2),
+    n('area', r.planArea, 2),
+    n('volume', r.volume, 3),
   ]);
-  const total = ['Total', '', '', '', '', '', '', '', '', '', n(totals.planArea, 2), n(totals.volume, 3)];
-  return csvDocument([CSV_HEADER, ...body, total]);
+  const total = [t(lang, 'egs_csv_total'), '', '', '', '', '', '', '', '', '', n('area', totals.planArea, 2), n('volume', totals.volume, 3)];
+  return csvDocument([csvHeader(u, lang), ...body, total]);
 }

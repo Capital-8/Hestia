@@ -2,6 +2,7 @@ import { useState, type ReactElement } from 'react';
 import { formatQuantity, type Id } from '@hestia/model';
 import { Check } from '../fields.tsx';
 import { useUnits } from '../useUnits.ts';
+import { useT } from '../../editor/i18n.ts';
 import { Dialog } from './Dialog.tsx';
 import {
   createPasteLevelsModel,
@@ -49,10 +50,11 @@ export function SelectLevelsDialog({
   onPreview,
   onPaste,
 }: SelectLevelsDialogProps): ReactElement {
+  const { t, lang } = useT();
   const units = useUnits();
   // O diálogo é montado do zero a cada abertura: o estado local começa dos props e evolui daí.
   const [model, setModel] = useState<PasteLevelsModel>(() =>
-    createPasteLevelsModel({ levels, originLevelIds, elementCount, initialSelected, initialLink }),
+    createPasteLevelsModel({ levels, originLevelIds, elementCount, initialSelected, initialLink }, lang),
   );
   const [term, setTerm] = useState('');
   const [rangeOpen, setRangeOpen] = useState(false);
@@ -67,7 +69,7 @@ export function SelectLevelsDialog({
   const setLink = (link: boolean): void => change((m) => ({ ...m, link }));
 
   const copies = model.selected.length * model.elementCount;
-  const groups = groupLevels(model);
+  const groups = groupLevels(model, lang);
   const above = groups.find((g) => g.key === 'above')?.levels ?? [];
   const below = groups.find((g) => g.key === 'below')?.levels ?? [];
 
@@ -85,7 +87,7 @@ export function SelectLevelsDialog({
   };
 
   const confirm = (action: (levelIds: Id[], link: boolean) => void): void => {
-    const problem = validate(model);
+    const problem = validate(model, lang);
     if (problem !== null) {
       setErro(problem);
       return;
@@ -95,17 +97,17 @@ export function SelectLevelsDialog({
 
   return (
     <Dialog
-      title="Selecionar níveis"
-      sub="Colar alinhado"
+      title={t('dlc_select_levels')}
+      sub={t('dlc_paste_aligned')}
       size="mid"
       onClose={onCancel}
       footer={
         <>
-          <span aria-live="polite" style={{ color: 'var(--fg-soft)' }}>{summary(model)}</span>
+          <span aria-live="polite" style={{ color: 'var(--fg-soft)' }}>{summary(model, lang)}</span>
           <span style={{ flex: 1 }} />
-          <button className="btn" onClick={onCancel}>Cancelar</button>
-          <button className="btn" onClick={() => confirm(onPreview)}>Pré-visualizar</button>
-          <button className="btn primary" onClick={() => confirm(onPaste)}>Colar {copies}</button>
+          <button className="btn" onClick={onCancel}>{t('dlc_btn_cancel')}</button>
+          <button className="btn" onClick={() => confirm(onPreview)}>{t('dlc_btn_preview')}</button>
+          <button className="btn primary" onClick={() => confirm(onPaste)}>{t('dlc_btn_paste_n', { n: copies })}</button>
         </>
       }
     >
@@ -115,23 +117,23 @@ export function SelectLevelsDialog({
             className="input"
             style={{ flex: 1, minWidth: 160 }}
             type="search"
-            placeholder="Buscar nível…"
-            aria-label="Buscar nível"
+            placeholder={t('dlc_ph_search_level')}
+            aria-label={t('dlc_ph_search_level')}
             value={term}
             onChange={(e) => setTerm(e.target.value)}
           />
-          <button className="btn small" onClick={() => change(selectAllAbove)} disabled={above.length === 0}>Todos acima</button>
-          <button className="btn small" onClick={() => change(selectAllBelow)} disabled={below.length === 0}>Todos abaixo</button>
-          <button className="btn small" aria-expanded={rangeOpen} onClick={() => setRangeOpen((open) => !open)}>Intervalo…</button>
+          <button className="btn small" onClick={() => change(selectAllAbove)} disabled={above.length === 0}>{t('dlc_btn_all_above')}</button>
+          <button className="btn small" onClick={() => change(selectAllBelow)} disabled={below.length === 0}>{t('dlc_btn_all_below')}</button>
+          <button className="btn small" aria-expanded={rangeOpen} onClick={() => setRangeOpen((open) => !open)}>{t('dlc_btn_range')}</button>
         </div>
 
         {rangeOpen ? (
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-            <label htmlFor="paste-levels-from">De</label>
+            <label htmlFor="paste-levels-from">{t('dlc_lbl_from')}</label>
             <select
               id="paste-levels-from"
               className="select"
-              aria-label="Primeiro nível do intervalo"
+              aria-label={t('dlc_aria_range_from')}
               value={rangeFrom}
               onChange={(e) => {
                 const from = Number(e.target.value);
@@ -143,11 +145,11 @@ export function SelectLevelsDialog({
                 <option key={level.id} value={index}>{index + 1} · {level.name}</option>
               ))}
             </select>
-            <label htmlFor="paste-levels-to">Até</label>
+            <label htmlFor="paste-levels-to">{t('dlc_lbl_to')}</label>
             <select
               id="paste-levels-to"
               className="select"
-              aria-label="Último nível do intervalo"
+              aria-label={t('dlc_aria_range_to')}
               value={rangeTo}
               onChange={(e) => {
                 const to = Number(e.target.value);
@@ -163,13 +165,13 @@ export function SelectLevelsDialog({
         ) : null}
 
         {groups.length === 0 || groups.every((g) => search(g.levels, term).length === 0) ? (
-          <p className="hint">Nenhum nível encontrado.</p>
+          <p className="hint">{t('dlc_no_levels_found')}</p>
         ) : (
-          <table className="layers" aria-label="Níveis de destino">
+          <table className="layers" aria-label={t('dlc_aria_target_levels')}>
             <thead>
               <tr>
-                <th>Nome</th>
-                <th style={{ textAlign: 'right' }}>Elevação</th>
+                <th>{t('col_name')}</th>
+                <th style={{ textAlign: 'right' }}>{t('dlc_col_elevation')}</th>
                 <th style={{ textAlign: 'right' }}>Δh</th>
               </tr>
             </thead>
@@ -196,7 +198,7 @@ export function SelectLevelsDialog({
                           >
                             {level.name}
                           </Check>
-                          {origin ? <span className="tmark">Origem</span> : null}
+                          {origin ? <span className="tmark">{t('dlc_tag_origin')}</span> : null}
                         </td>
                         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{levelLabel(level)}</td>
                         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{deltaLabel(level.id)}</td>
@@ -209,7 +211,7 @@ export function SelectLevelsDialog({
           </table>
         )}
 
-        <Check id="paste-levels-link" checked={model.link} onChange={setLink}>Manter cópias vinculadas</Check>
+        <Check id="paste-levels-link" checked={model.link} onChange={setLink}>{t('dlc_keep_linked')}</Check>
 
         {erro ? <p className="error" role="alert">{erro}</p> : null}
       </div>

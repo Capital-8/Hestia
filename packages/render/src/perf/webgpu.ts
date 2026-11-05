@@ -1,4 +1,5 @@
 import type { ContadoresPerf } from './contadores.ts';
+import { t, type Lang } from '../i18n.ts';
 
 export interface InstrumentacaoWebGpu {
   remover(): void;
@@ -13,11 +14,11 @@ interface FilaWebGpu {
  * `WebGPURenderer` do three informa `info.render` e o `gpu.ts` usa esse fallback. Se a fila não expuser `writeBuffer`,
  * devolve `null` e o motivo fica registrado como indisponível.
  */
-export function instrumentarWebGpu(dispositivo: unknown, contadores: ContadoresPerf): InstrumentacaoWebGpu | null {
+export function instrumentarWebGpu(dispositivo: unknown, contadores: ContadoresPerf, lang: Lang = 'pt'): InstrumentacaoWebGpu | null {
   const fila = (dispositivo as { queue?: FilaWebGpu } | null | undefined)?.queue;
   const original = fila?.writeBuffer;
   if (!fila || typeof original !== 'function') {
-    contadores.registrarIndisponivel('WebGPU: queue.writeBuffer não exposto; uploads não contados');
+    contadores.registrarIndisponivel(t(lang, 'rn_gpu_queue_not_exposed'));
     return null;
   }
   const proprio = original.bind(fila);
@@ -34,7 +35,7 @@ export function instrumentarWebGpu(dispositivo: unknown, contadores: ContadoresP
       return proprio(...args);
     };
   } catch {
-    contadores.registrarIndisponivel('WebGPU: não foi possível interceptar queue.writeBuffer');
+    contadores.registrarIndisponivel(t(lang, 'rn_gpu_queue_intercept_failed'));
     return null;
   }
   return {

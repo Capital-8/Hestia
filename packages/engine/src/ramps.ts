@@ -11,6 +11,7 @@ import {
   type Ramp,
   type RampType,
 } from '@hestia/model';
+import { numLang, t, type Lang } from './i18nMessages.ts';
 import { makeRampIssue, rampNormIssues, type RampIssueItem } from './rampIssues.ts';
 import { distributeRisers, stairLandingPolygon, stairRunSteps } from './stairSketch.ts';
 import { minWidth } from './stairIssues.ts';
@@ -91,7 +92,7 @@ function runLength(run: { risers: Array<{ a: Vec2; b: Vec2 }> }): number {
 }
 
 /** Resolve uma rampa; null se o tipo não existe (o validador do modelo já aponta `ramp-type-missing`). */
-function resolveOne(p: Project, r: Ramp): ResolvedRamp | null {
+function resolveOne(p: Project, r: Ramp, lang: Lang): ResolvedRamp | null {
   const type = p.rampTypes[r.typeId];
   if (!type) return null;
   const baseZ = rampBaseZ(p, r);
@@ -124,12 +125,12 @@ function resolveOne(p: Project, r: Ramp): ResolvedRamp | null {
   r.components.forEach((c, ci) => {
     if (c.kind === 'run' && c.risers.length !== 2) {
       edgeError = true;
-      issues.push(makeRampIssue(r.id, 'ramp-run-edges', 'error', 'O lance da rampa deve ter exatamente 2 linhas de borda.', ci));
+      issues.push(makeRampIssue(r.id, 'ramp-run-edges', 'error', t(lang, 'egb_issue_ramp_flight_edges'), ci));
     }
   });
   const totalL = lengths.reduce((s, x) => s + x, 0);
   if (totalL <= 0) {
-    issues.push(makeRampIssue(r.id, 'ramp-empty', 'error', 'A rampa não tem lances.'));
+    issues.push(makeRampIssue(r.id, 'ramp-empty', 'error', t(lang, 'egb_issue_ramp_empty')));
     return empty();
   }
   if (edgeError) return empty();
@@ -144,7 +145,7 @@ function resolveOne(p: Project, r: Ramp): ResolvedRamp | null {
     if (c.kind === 'run') {
       if (!(Li > EPS)) return;
       const rise = (H * Li) / totalL;
-      const res = stairRunSteps(c, { baseZ: z, riserHeight: rise });
+      const res = stairRunSteps(c, { baseZ: z, riserHeight: rise, lang });
       issues.push(...sketchIssues(r.id, ci, res.issues));
       if (res.treads.length > 0) {
         const first = res.risers[0]!;
@@ -166,13 +167,13 @@ function resolveOne(p: Project, r: Ramp): ResolvedRamp | null {
       // Fatias de ~10 cm: k linhas (≥ 2) viram k−1 degraus; o passo cresce acima do teto.
       const lines = Math.min(MAX_SLICES + 1, Math.max(2, Math.ceil(Li / RAMP_SLICE_LENGTH) + 1));
       const sliced = { ...c, risers: distributeRisers(c, lines) };
-      const step = res.treads.length > 0 ? stairRunSteps(sliced, { baseZ: z, riserHeight: rise / (lines - 1), skipPairCheck: true }) : null;
+      const step = res.treads.length > 0 ? stairRunSteps(sliced, { baseZ: z, riserHeight: rise / (lines - 1), skipPairCheck: true, lang }) : null;
       if (step) {
         for (const t of step.treads) slices.push({ componentIndex: ci, kind: 'flight', polygon: t.polygon, z: t.z });
       }
       z += rise;
     } else {
-      const lp = stairLandingPolygon({ boundary: c.boundary });
+      const lp = stairLandingPolygon({ boundary: c.boundary }, lang);
       issues.push(...sketchIssues(r.id, ci, lp.issues));
       if (lp.polygon) {
         const w = minWidth(lp.polygon);
@@ -206,45 +207,46 @@ function resolveOne(p: Project, r: Ramp): ResolvedRamp | null {
     footprint,
     issues,
   };
-  rr.issues.push(...rampNormIssues(rr));
+  rr.issues.push(...rampNormIssues(rr, lang));
   if (r.inputMode === 'slope' && r.slopeTarget !== null && Math.abs(rr.slope - r.slopeTarget) > 0.0005) {
+    const pct = pctIn(lang);
     rr.issues.push(
       makeRampIssue(
         r.id,
         'ramp-slope-differs',
         'warning',
-        `A inclinação resultante (${pct(rr.slope)}) difere da alvo (${pct(r.slopeTarget)}); regenere a rampa.`,
+        t(lang, 'egb_issue_ramp_slope_diff', { slope: pct(rr.slope), target: pct(r.slopeTarget) }),
       ),
     );
   }
   for (let i = 0; i + 1 < r.components.length; i++) {
     if (r.components[i]!.kind === 'run' && r.components[i + 1]!.kind === 'run') {
-      rr.issues.push(makeRampIssue(r.id, 'ramp-no-landing', 'warning', 'Há lances consecutivos sem patamar entre eles.', i));
+      rr.issues.push(makeRampIssue(r.id, 'ramp-no-landing', 'warning', t(lang, 'egb_issue_ramp_no_landing'), i));
       break;
     }
   }
   return rr;
 }
 
-const pct = (s: number): string => `${(s * 100).toFixed(2).replace('.', ',')} %`;
+const pctIn = (lang: Lang) => (s: number): string => `${numLang(s * 100, 2, lang)} %`;
 
 /** Uma rampa resolvida, memorizada por projeto (a resolução é ~100 ms por rampa; o projeto é imutável). */
-export function resolveRampOne(p: Project, r: Ramp): ResolvedRamp | null {
-  return memoDoProjetoMotor(p, `rampa|${r.id}`, () => resolveOne(p, r));
+export function resolveRampOne(p: Project, r: Ramp, lang: Lang = 'pt'): ResolvedRamp | null {
+  return memoDoProjetoMotor(p, `rampa|${r.id}|${lang}`, () => resolveOne(p, r, lang));
 }
 
-const resolveList = (p: Project, list: Ramp[]): ResolvedRamp[] =>
+const resolveList = (p: Project, list: Ramp[], lang: Lang): ResolvedRamp[] =>
   list.flatMap((r) => {
-    const rr = resolveRampOne(p, r);
+    const rr = resolveRampOne(p, r, lang);
     return rr ? [rr] : [];
   });
 
 /** Todas as rampas do projeto, resolvidas (ordem de criação). */
-export function resolveRamps(p: Project): ResolvedRamp[] {
-  return resolveList(p, ramps(p));
+export function resolveRamps(p: Project, lang: Lang = 'pt'): ResolvedRamp[] {
+  return resolveList(p, ramps(p), lang);
 }
 
 /** Rampas cujo nível (`levelId`) é o dado. */
-export function resolveRampsOnLevel(p: Project, levelId: Id): ResolvedRamp[] {
-  return resolveList(p, rampsOnLevel(p, levelId));
+export function resolveRampsOnLevel(p: Project, levelId: Id, lang: Lang = 'pt'): ResolvedRamp[] {
+  return resolveList(p, rampsOnLevel(p, levelId), lang);
 }

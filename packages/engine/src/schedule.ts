@@ -1,6 +1,7 @@
 import { formatQuantity, totalThickness, unitSymbol, unitsOf, wallType, wallsOnLevel, type Id, type Project, type ResolvedUnits, type Wall, type WallType } from '@hestia/model';
 import { csvDocument, csvText } from './csv.ts';
 import { scheduleCsvCell, scheduleCsvHeader } from './scheduleCsv.ts';
+import { collationFor, t, type Lang } from './i18n.ts';
 import { quantifyLevel, type WallQuantity } from './quantities.ts';
 import { resolveLevel } from './resolve.ts';
 
@@ -50,14 +51,14 @@ export interface WallSchedule {
   volumeByMaterial: MaterialVolume[];
 }
 
-const layersSummary = (p: Project, t: WallType): string => {
-  const u = unitsOf(p);
-  return t.layers
+const layersSummary = (p: Project, wt: WallType, lang: Lang): string => {
+  const u = unitsOf(p, lang);
+  return wt.layers
     .map((l) => `${p.materials[l.materialId]?.name ?? l.materialId} ${formatQuantity(u, 'smallLength', l.thickness, { decimals: 1, withUnit: false })}`)
     .join(' | ');
 };
 
-function rowOf(p: Project, wall: Wall, levelName: string, q: WallQuantity): WallScheduleRow {
+function rowOf(p: Project, wall: Wall, levelName: string, q: WallQuantity, lang: Lang): WallScheduleRow {
   const t = wallType(p, wall);
   return {
     wallId: wall.id,
@@ -74,7 +75,7 @@ function rowOf(p: Project, wall: Wall, levelName: string, q: WallQuantity): Wall
     netFaceArea: q.netFaceArea,
     volume: q.volume,
     grossVolume: q.grossVolume,
-    layersSummary: layersSummary(p, t),
+    layersSummary: layersSummary(p, t, lang),
   };
 }
 
@@ -93,7 +94,7 @@ export function sumWallRows(rows: WallScheduleRow[]): WallScheduleTotals {
 }
 
 /** Tabela de paredes do projeto inteiro, nível a nível (ordem de criação dentro de cada nível). */
-export function buildWallSchedule(p: Project): WallSchedule {
+export function buildWallSchedule(p: Project, lang: Lang = 'pt'): WallSchedule {
   const rows: WallScheduleRow[] = [];
   const volumes = new Map<Id, number>();
   for (const level of p.levels) {
@@ -101,7 +102,7 @@ export function buildWallSchedule(p: Project): WallSchedule {
     const byWall = new Map<Id, WallQuantity>(q.walls.map((x) => [x.wallId, x]));
     for (const wall of wallsOnLevel(p, level.id)) {
       const wq = byWall.get(wall.id);
-      if (wq) rows.push(rowOf(p, wall, level.name, wq));
+      if (wq) rows.push(rowOf(p, wall, level.name, wq, lang));
     }
     for (const [materialId, vol] of Object.entries(q.volumeByMaterial)) {
       volumes.set(materialId, (volumes.get(materialId) ?? 0) + vol);
@@ -109,31 +110,31 @@ export function buildWallSchedule(p: Project): WallSchedule {
   }
   const volumeByMaterial = [...volumes]
     .map(([materialId, volume]) => ({ materialId, name: p.materials[materialId]?.name ?? materialId, volume }))
-    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    .sort((a, b) => a.name.localeCompare(b.name, collationFor(lang)));
   return { rows, totals: sumWallRows(rows), volumeByMaterial };
 }
 
 /** Cabeçalho do CSV com os símbolos das unidades do projeto. */
-const csvHeader = (u: ResolvedUnits): string[] => [
-  'Marca',
-  'Tipo',
-  'Nível',
-  scheduleCsvHeader(u, 'Espessura', 'smallLength'),
-  scheduleCsvHeader(u, 'Comprimento', 'length'),
-  scheduleCsvHeader(u, 'Altura', 'length'),
-  scheduleCsvHeader(u, 'Área bruta', 'area'),
-  scheduleCsvHeader(u, 'Área de vãos', 'area'),
-  scheduleCsvHeader(u, 'Área líquida', 'area'),
-  scheduleCsvHeader(u, 'Volume', 'volume'),
-  `Camadas (${unitSymbol(u, 'smallLength')})`,
+const csvHeader = (u: ResolvedUnits, lang: Lang): string[] => [
+  t(lang, 'egs_csv_col_marca'),
+  t(lang, 'egs_csv_col_tipo'),
+  t(lang, 'egs_csv_col_nivel'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_espessura'), 'smallLength'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_comprimento'), 'length'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_altura'), 'length'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_area_bruta'), 'area'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_area_de_vaos'), 'area'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_area_liquida'), 'area'),
+  scheduleCsvHeader(u, t(lang, 'egs_csv_col_volume'), 'volume'),
+  `${t(lang, 'egs_csv_col_camadas')} (${unitSymbol(u, 'smallLength')})`,
 ];
 
 /**
- * CSV com separador ';', decimal com vírgula, cabeçalho em português e BOM UTF-8.
+ * CSV com separador ';', decimal do idioma (ou o do projeto), cabeçalho no idioma ativo e BOM UTF-8.
  * Uma linha por parede, seguida de uma linha de total.
  */
-export function scheduleToCsv(rows: WallScheduleRow[], totals: WallScheduleTotals, units: ResolvedUnits): string {
-  const n = (q: 'length' | 'smallLength' | 'area' | 'volume', v: number, d: number): string => scheduleCsvCell(units, q, v, d);
+export function scheduleToCsv(rows: WallScheduleRow[], totals: WallScheduleTotals, units: ResolvedUnits, lang: Lang = 'pt'): string {
+  const n = (q: 'length' | 'smallLength' | 'area' | 'volume', v: number, d: number): string => scheduleCsvCell(units, q, v, d, lang);
   const grossCut = rows.some((r) => Math.abs(r.grossVolume - r.volume) > 1e-9);
   const body = rows.map((r) => [
     csvText(r.mark),
@@ -149,9 +150,9 @@ export function scheduleToCsv(rows: WallScheduleRow[], totals: WallScheduleTotal
     csvText(r.layersSummary),
     ...(grossCut ? [n('volume', r.grossVolume, 3)] : []),
   ]);
-  const total = ['Total', '', '', '', n('length', totals.length, 2), '', n('area', totals.grossFaceArea, 2), n('area', totals.openingsArea, 2), n('area', totals.netFaceArea, 2), n('volume', totals.volume, 3), ''];
+  const total = [t(lang, 'egs_csv_total'), '', '', '', n('length', totals.length, 2), '', n('area', totals.grossFaceArea, 2), n('area', totals.openingsArea, 2), n('area', totals.netFaceArea, 2), n('volume', totals.volume, 3), ''];
   if (grossCut) total.push(n('volume', totals.grossVolume, 3));
-  const header = csvHeader(units);
-  if (grossCut) header.push(scheduleCsvHeader(units, 'Volume bruto', 'volume'));
+  const header = csvHeader(units, lang);
+  if (grossCut) header.push(scheduleCsvHeader(units, t(lang, 'egs_csv_col_volume_bruto'), 'volume'));
   return csvDocument([header, ...body, total]);
 }

@@ -10,7 +10,9 @@ import type { PointerInfo } from './types.ts';
 export class DetailLineTool extends ToolBase {
   readonly id = 'detailLine';
   readonly label = 'Linha de detalhe';
-  readonly hint = 'Linha de detalhe: clique no início e no fim.';
+  override get hint(): string {
+    return this.t('tl_hint_detail_line');
+  }
   private a: Vec2 | null = null;
   private last: Vec2 | null = null;
   protected reset(): void { this.a = null; this.last = null; this.items = []; this.inf = null; }

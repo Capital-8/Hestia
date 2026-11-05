@@ -1,4 +1,5 @@
 import type { StairType } from '@hestia/model';
+import { t, type Lang } from './i18nMessages.ts';
 import { treadRuleOf, treadFor, riserCountFor } from './stairGenerators.ts';
 import { DEFAULT_STAIR_NORMS, type StairNorms } from './stairNorms.ts';
 
@@ -25,29 +26,30 @@ export interface StairLiveParams {
 }
 
 /**
- * N, h, T e M da escada livre. `fixed` troca N e T (h = H ÷ N). Erro em pt-BR se H <= 0, N < 2 ou o tipo é inválido.
- * Nunca lança.
+ * N, h, T e M da escada livre. `fixed` troca N e T (h = H ÷ N). Erro (no idioma de `opts.lang`, padrão `'pt'`) se
+ * H <= 0, N < 2 ou o tipo é inválido. Nunca lança.
  */
 export function stairLiveParams(
   H: number,
   type: StairType,
-  opts: { fixed?: StairFixed; width?: number; norms?: StairNorms } = {},
+  opts: { fixed?: StairFixed; width?: number; norms?: StairNorms; lang?: Lang } = {},
 ): StairLiveParams | { error: string } {
+  const lang = opts.lang ?? 'pt';
   const norms = opts.norms ?? DEFAULT_STAIR_NORMS;
-  if (!type || !(type.maxRiser > 0)) return { error: 'Tipo de escada inválido.' };
-  if (!(H > 0)) return { error: 'A altura deve ser positiva: nada a gerar.' };
+  if (!type || !(type.maxRiser > 0)) return { error: t(lang, 'egb_err_stair_type_invalid') };
+  if (!(H > 0)) return { error: t(lang, 'egb_err_stair_height') };
   let N: number;
   if (opts.fixed) {
     N = opts.fixed.risers;
-    if (!Number.isInteger(N) || !(opts.fixed.tread > 0)) return { error: 'Número de espelhos ou piso fixado inválido.' };
+    if (!Number.isInteger(N) || !(opts.fixed.tread > 0)) return { error: t(lang, 'egb_err_stair_fixed') };
   } else {
     try {
       N = riserCountFor(H, type.maxRiser);
     } catch {
-      return { error: 'Tipo de escada inválido.' };
+      return { error: t(lang, 'egb_err_stair_type_invalid') };
     }
   }
-  if (N < 2) return { error: 'A altura é menor que um espelho: nada a gerar.' };
+  if (N < 2) return { error: t(lang, 'egb_err_stair_too_low') };
   const h = H / N;
   const tread = opts.fixed?.tread ?? treadFor(h, treadRuleOf(type));
   return {

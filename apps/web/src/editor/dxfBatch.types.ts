@@ -1,5 +1,6 @@
 import type { Id, Project } from '@hestia/model';
 import type { DxfUnit } from '@hestia/io';
+import type { Lang } from './i18n.ts';
 
 /**
  * Contrato do lote de exportação DXF (fase 4). O diálogo monta a lista a partir de `dxfBatchTargetsOf`, o usuário marca os
@@ -27,6 +28,8 @@ export interface DxfBatchOptions {
   prefix: string;
   /** Modelo do nome, com `{projeto}`, `{tipo}`, `{nome}`, `{nivel}` e `{prancha}`. */
   pattern: string;
+  /** Idioma dos nomes e do LEIA-ME; ausente = o idioma ativo do app. */
+  lang?: Lang;
 }
 
 /** Renderizadores por tipo de documento; cada um devolve o texto do DXF já na unidade pedida. */

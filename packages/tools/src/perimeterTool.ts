@@ -1,14 +1,15 @@
+/* eslint-disable max-lines */
 import type { PerimeterModifyKind } from './perimeterModifyKind.ts';
 import { add, angleOf, dist, len, mul, norm, sub, type SketchDraft, type SketchResult, type SketchTarget, type Vec2 } from '@hestia/geom';
 import { ToolBase } from './base.ts';
 import { unitsOf } from '@hestia/model';
 import { parseNumber, parseQuantityText } from './numeric.ts';
 import { SKETCH_DEFAULTS, addSegs, closeAnalysis, finish as finishSketch, newDraft, removeSegs, selectAllSegs, type FinishResult, type SketchOrigin } from './perimeterSession.ts';
-import { anchorOf, buildShape, kindOf, promptOf, stepPreview, stepsOf, type ShapeStep } from './perimeterToolShape.ts';
+import { anchorOf, buildShape, kindOf, promptOf, shapeName, stepPreview, stepsOf, type ShapeStep } from './perimeterToolShape.ts';
 import { SELECT_PX, boxRing, hitSeg, roomClick, roomHover, segLines } from './perimeterToolPick.ts';
 import { boxPick, facePick, selectClick, shapeHintOf } from './perimeterToolInput.ts';
 import { applySegs, faceMove, refuse, shapeIdOf, snapExtraOf } from './perimeterToolHelpers.ts';
-import type { ShapeKindId } from './sketchShapes.ts';
+import { shapeInputLabel, type ShapeKindId } from './sketchShapes.ts';
 import type { PointerInfo, PreviewItem, ToolEnv } from './types.ts';
 import { DraftHistory } from './perimeterToolModifyHistory.ts';
 import { ModifyFlow } from './perimeterToolModify.ts';
@@ -23,9 +24,8 @@ export type PerimeterShape = ShapeKindId | 'pickFace' | 'byPerimeter' | 'pickRoo
 /** Linha de limite (clique seleciona e desenha) ou inclinação (clique no triângulo de uma aresta, só telhado). */
 export type LineKind = 'boundary' | 'slope';
 
+/** Dica inicial do Perímetro (PT: fallback histórico; a ferramenta usa a chave `tl_hint_perimeter`). */
 export const PERIMETER_HINT = 'Perímetro: escolha uma forma na barra, ou clique numa linha para selecionar. Concluir fecha o contorno.';
-const SELECT_HINT = 'Selecione linhas: clique ou arraste uma janela (Shift soma, Ctrl subtrai, Ctrl+A todas). Delete remove.';
-const SLOPE_HINT = 'Inclinação: clique no triângulo de uma aresta do contorno para ligar ou desligar.';
 
 /**
  * Esboço de perímetro (Criar/Editar perímetro). A ferramenta guarda o `SketchDraft` e só o altera pelas funções puras
@@ -36,7 +36,7 @@ const SLOPE_HINT = 'Inclinação: clique no triângulo de uma aresta do contorno
 export class PerimeterTool extends ToolBase {
   readonly id = 'perimeter';
   readonly label = 'Perímetro';
-  readonly hint = PERIMETER_HINT;
+  override get hint(): string { return this.t('tl_hint_perimeter'); }
   /** Passos de desfazer do rascunho. A UI desfaz e refaz com `undoDraft` e `redoDraft` (Ctrl+Z, Ctrl+Y). */
   readonly draftHistory: DraftHistory;
   private readonly mod: ModifyFlow;
@@ -67,12 +67,14 @@ export class PerimeterTool extends ToolBase {
       options: () => this.env.options(),
       project: () => this.env.project(),
       levelId: () => this.env.levelId(),
+      lang: () => this.uiLang(),
     });
     this.sel = new BoxSelection({
       draft: () => this.d,
       mpp: () => this.env.metersPerPixel(),
       replace: (next) => this.draftHistory.replace(next),
       say: (msg) => this.env.say(msg),
+      lang: () => this.uiLang(),
     });
   }
 
@@ -115,7 +117,7 @@ export class PerimeterTool extends ToolBase {
   selectAll(): void {
     const next = selectAllSegs(this.d);
     this.draftHistory.replace(next);
-    this.env.say(`${next.selected.length} linha(s) selecionada(s).`);
+    this.env.say(this.t('tl_msg_lines_selected', { n: next.selected.length }));
   }
 
   override preview(): PreviewItem[] {
@@ -131,7 +133,7 @@ export class PerimeterTool extends ToolBase {
     this.shape = kind;
     this.flags = {};
     this.reset();
-    this.env.say(kind === null ? SELECT_HINT : shapeHintOf(kind));
+    this.env.say(kind === null ? this.t('tl_hint_perim_select') : shapeHintOf(kind, this.uiLang()));
   }
 
   /** Comando de Modificar ativo, ou null (seleção de linhas). */
@@ -148,10 +150,10 @@ export class PerimeterTool extends ToolBase {
       this.mod.stop();
       this.shape = null;
       this.reset();
-      this.env.say(SELECT_HINT);
+      this.env.say(this.t('tl_hint_perim_select'));
       return true;
     }
-    if (this.d.segs.length === 0) return refuse(this.env, 'Desenhe linhas antes de modificar.');
+    if (this.d.segs.length === 0) return refuse(this.env, this.t('tl_msg_draw_lines_first'));
     this.shape = null;
     this.flags = {};
     this.reset();
@@ -161,24 +163,24 @@ export class PerimeterTool extends ToolBase {
 
   /** Desfaz o último passo do rascunho. Devolve false se não há o que desfazer. */
   undoDraft(): boolean {
-    if (!this.draftHistory.undo()) return refuse(this.env, 'Nada a desfazer.');
+    if (!this.draftHistory.undo()) return refuse(this.env, this.t('tl_msg_nothing_undo'));
     this.reset();
-    this.env.say('Desfeito.');
+    this.env.say(this.t('tl_msg_undone'));
     return true;
   }
 
   /** Refaz o passo desfeito. Devolve false se não há o que refazer. */
   redoDraft(): boolean {
-    if (!this.draftHistory.redo()) return refuse(this.env, 'Nada a refazer.');
+    if (!this.draftHistory.redo()) return refuse(this.env, this.t('tl_msg_nothing_redo'));
     this.reset();
-    this.env.say('Refeito.');
+    this.env.say(this.t('tl_msg_redone'));
     return true;
   }
 
   /** Linha de limite ou de inclinação. Inclinação só existe no telhado e leva o modo de seleção (clique no triângulo). */
   setLineKind(kind: LineKind): boolean {
     if (kind === 'slope' && this.d.target !== 'roof') {
-      this.env.say('Inclinação por aresta só existe no telhado.');
+      this.env.say(this.t('tl_msg_slope_roof_only'));
       return false;
     }
     this.mod.stop();
@@ -186,7 +188,7 @@ export class PerimeterTool extends ToolBase {
     if (kind === 'slope') this.shape = null;
     this.flags = {};
     this.reset();
-    this.env.say(kind === 'slope' ? SLOPE_HINT : SELECT_HINT);
+    this.env.say(kind === 'slope' ? this.t('tl_hint_perim_slope') : this.t('tl_hint_perim_select'));
     return true;
   }
 
@@ -194,14 +196,14 @@ export class PerimeterTool extends ToolBase {
   finish(): FinishResult {
     const r = finishSketch(this.d);
     if (!r.ok) {
-      this.env.say(r.issues[0]?.message ?? 'Esboço incompleto.');
+      this.env.say(r.issues[0]?.message ?? this.t('tl_msg_sketch_incomplete'));
       return r;
     }
     this.draftHistory.reset(newDraft(this.d.target, this.d.defaults));
     this.originInfo = {};
     this.mod.stop();
     this.reset();
-    this.env.say('Perímetro concluído.');
+    this.env.say(this.t('tl_msg_perimeter_done'));
     return r;
   }
 
@@ -212,7 +214,7 @@ export class PerimeterTool extends ToolBase {
     this.flags = {};
     this.mod.stop();
     this.reset();
-    this.env.say('Perímetro descartado.');
+    this.env.say(this.t('tl_msg_perimeter_discarded'));
   }
 
   /**
@@ -237,20 +239,20 @@ export class PerimeterTool extends ToolBase {
     }
     if (this.step || this.box || this.sel.active()) {
       this.reset();
-      this.env.say('Passo cancelado. Esc de novo tira a forma escolhida.');
+      this.env.say(this.t('tl_msg_step_cancelled'));
       return;
     }
     if (this.shape !== null) {
       this.setShape(null);
       return;
     }
-    this.env.say(SELECT_HINT);
+    this.env.say(this.t('tl_hint_perim_select'));
   }
 
   /** Enter não conclui: só avisa onde está o botão. Com Modificar, confirma a seleção ou a matriz. */
   override confirm(): void {
     if (this.mod.active()) return this.mod.confirm();
-    if (this.d.segs.length > 0) this.env.say('Enter não conclui o perímetro: use o botão Concluir.');
+    if (this.d.segs.length > 0) this.env.say(this.t('tl_msg_perimeter_enter'));
   }
 
   protected reset(): void {
@@ -273,8 +275,8 @@ export class PerimeterTool extends ToolBase {
     const st = this.step;
     const input = st ? stepsOf(st.shape)[st.idx] : undefined;
     if (!st || !input) return null;
-    if (input.kind === 'length' || input.kind === 'angle' || input.kind === 'count') return input.label;
-    return input.kind === 'point' && st.shape.id === 'line' && anchorOf(st) ? 'Comprimento' : null;
+    if (input.kind === 'length' || input.kind === 'angle' || input.kind === 'count') return shapeInputLabel(input.label, this.uiLang());
+    return input.kind === 'point' && st.shape.id === 'line' && anchorOf(st) ? this.t('tl_inp_length') : null;
   }
 
   override move(p: PointerInfo): void {
@@ -292,9 +294,9 @@ export class PerimeterTool extends ToolBase {
       if (this.line === 'boundary') this.hover = hitSeg(this.d.segs, p.raw, SELECT_PX * this.env.metersPerPixel());
       return;
     }
-    if (this.shape === 'pickFace') faceMove(this.env, p.raw, this.cycle, this.items);
+    if (this.shape === 'pickFace') faceMove(this.env, p.raw, this.cycle, this.items, this.uiLang());
     else if (this.shape === 'pickRoom') {
-      const h = roomHover(this.env, p.raw);
+      const h = roomHover(this.env, p.raw, this.uiLang());
       this.items = h.items;
       this.env.say(h.say);
     } else if (id) this.moveShape(p, id);
@@ -305,7 +307,7 @@ export class PerimeterTool extends ToolBase {
     if (this.mod.active()) this.mod.click(p);
     else if (this.shape === null) this.clickSelect(p);
     else if (this.shape === 'pickFace') this.clickPick(p);
-    else if (this.shape === 'pickRoom') this.roomStep(roomClick(this.env, p.raw, this.d));
+    else if (this.shape === 'pickRoom') this.roomStep(roomClick(this.env, p.raw, this.d, this.uiLang()));
     else if (this.shape === 'byPerimeter') return;
     else this.clickShape(p, this.shape);
   }
@@ -342,7 +344,7 @@ export class PerimeterTool extends ToolBase {
     const box = this.box;
     if (!box) return;
     this.reset();
-    const r = boxPick(this.env, box.a, p.raw);
+    const r = boxPick(this.env, box.a, p.raw, this.uiLang());
     if (!r) return;
     if (r.segs.length > 0) this.commit(applySegs(this.d, r.segs));
     if (r.segs.length > 0) this.originInfo = { ...this.originInfo, walls: true };
@@ -362,7 +364,10 @@ export class PerimeterTool extends ToolBase {
     const flag = id ? kindOf(id).inputs.find((i) => i.kind === 'flag') : undefined;
     if (!flag) return;
     this.flags[flag.key] = !this.flags[flag.key];
-    this.env.say(`${flag.label}: ${this.flags[flag.key] ? 'sim' : 'não'} (Tab alterna).`);
+    this.env.say(this.t('tl_msg_flag_toggle', {
+      label: shapeInputLabel(flag.label, this.uiLang()),
+      value: this.flags[flag.key] ? this.t('tl_yes') : this.t('tl_no'),
+    }));
   }
 
   /** Digitação: medida, ângulo (graus) ou contagem para a entrada pendente. Na linha, digitar o comprimento põe o fim na direção do cursor. */
@@ -374,16 +379,16 @@ export class PerimeterTool extends ToolBase {
     const q = input.kind === 'length' ? 'length' : input.kind === 'angle' ? 'angle' : null;
     const v = q ? parseQuantityText(text, unitsOf(this.env.project()), q) : parseNumber(text);
     if (input.kind === 'length' || input.kind === 'angle' || input.kind === 'count') {
-      if (v === null) return refuse(this.env, 'Valor inválido. Digite um número.');
-      if (input.kind === 'length' && v <= 0) return refuse(this.env, 'Digite um comprimento maior que zero, em metros.');
-      if (input.kind === 'count' && (!Number.isInteger(v) || v < 3)) return refuse(this.env, 'Lados: um inteiro de 3 para cima.');
+      if (v === null) return refuse(this.env, this.t('tl_msg_invalid_number_plain'));
+      if (input.kind === 'length' && v <= 0) return refuse(this.env, this.t('tl_msg_length_positive_m'));
+      if (input.kind === 'count' && (!Number.isInteger(v) || v < 3)) return refuse(this.env, this.t('tl_msg_sides_int'));
       this.setInput(st, input.key, v);
       return true;
     }
     const anchor = anchorOf(st);
     if (input.kind !== 'point' || st.shape.id !== 'line' || !anchor) return false;
-    if (v === null) return refuse(this.env, 'Valor inválido. Digite um número em metros.');
-    if (v <= 0) return refuse(this.env, 'Digite um comprimento maior que zero, em metros.');
+    if (v === null) return refuse(this.env, this.t('tl_msg_invalid_number_m'));
+    if (v <= 0) return refuse(this.env, this.t('tl_msg_length_positive_m'));
     const dir = sub(this.inf?.point ?? this.raw, anchor);
     const u = len(dir) < 1e-9 ? { x: 1, y: 0 } : norm(dir);
     this.setInput(st, input.key, add(anchor, mul(u, v)));
@@ -396,7 +401,7 @@ export class PerimeterTool extends ToolBase {
     if (ids.length === 0) return false;
     this.commit(removeSegs(this.d, ids));
     this.hover = null;
-    this.env.say(`${ids.length} linha(s) removida(s).`);
+    this.env.say(this.t('tl_msg_lines_removed', { n: ids.length }));
     return true;
   }
 
@@ -419,7 +424,10 @@ export class PerimeterTool extends ToolBase {
       const sid = hitSeg(this.d.segs, p.raw, SELECT_PX * this.env.metersPerPixel());
       const seg = this.d.segs.find((s) => s.id === sid);
       if (seg) this.items.push(...segLines(seg, { halo: true }));
-      this.env.say(seg ? `${input.label}: clique para escolher.` : `Clique numa linha do esboço (${input.label.toLowerCase()}).`);
+      const labelLow = shapeInputLabel(input.label, this.uiLang()).toLowerCase();
+      this.env.say(seg
+        ? this.t('tl_msg_click_shape_pick', { label: shapeInputLabel(input.label, this.uiLang()) })
+        : this.t('tl_msg_click_sketch_line_by', { label: labelLow }));
       return;
     }
     let value: unknown = null;
@@ -437,22 +445,22 @@ export class PerimeterTool extends ToolBase {
     }
     this.items.push(...stepPreview(st, value, anchor, cursor, this.flags));
     if (this.line === 'boundary' && st.shape.id === 'line' && anchor && this.inf) this.items.push(...draftAngleItemsForDraft(this.env.project(), this.env.levelId(), this.env.areaPlanId?.(), this.d.segs, anchor, this.inf.point, this.env.metersPerPixel(), unitsOf(this.env.project())));
-    this.env.say(`${st.shape.label}: ${promptOf(st)}.`);
+    this.env.say(this.t('tl_msg_shape_prompt', { shape: shapeName(st.shape, this.uiLang()), prompt: promptOf(st, this.uiLang()) }));
   }
 
   private clickSelect(p: PointerInfo): void {
-    const r = selectClick(this.d, p, this.line === 'slope', this.env.metersPerPixel(), SELECT_HINT);
+    const r = selectClick(this.d, p, this.line === 'slope', this.env.metersPerPixel(), this.t('tl_hint_perim_select'), this.uiLang());
     if (r.geom) this.commit(r.next);
     else this.draftHistory.replace(r.next);
     this.env.say(r.msg);
   }
 
   private clickPick(p: PointerInfo): void {
-    const r = facePick(this.env, p.raw, this.cycle, this.d);
+    const r = facePick(this.env, p.raw, this.cycle, this.d, this.uiLang());
     if ('msg' in r) return this.env.say(r.msg);
     this.commit(addSegs(this.d, [r.seg]));
     this.cycle = 0;
-    this.env.say(`${r.label} adicionada.`);
+    this.env.say(this.t('tl_msg_added', { label: r.label }));
   }
 
   private clickShape(p: PointerInfo, id: ShapeKindId): void {
@@ -463,7 +471,7 @@ export class PerimeterTool extends ToolBase {
     if (input.kind === 'point') {
       const q = this.snap(p, snapExtraOf(this.d, st)).point;
       if (anchor && dist(q, anchor) < 1e-9) {
-        this.env.say('Ponto repetido: clique noutro lugar.');
+        this.env.say(this.t('tl_msg_point_repeated'));
         return;
       }
       this.setInput(st, input.key, q);
@@ -471,7 +479,7 @@ export class PerimeterTool extends ToolBase {
     }
     if (input.kind === 'segment') {
       const seg = this.d.segs.find((s) => s.id === hitSeg(this.d.segs, p.raw, SELECT_PX * this.env.metersPerPixel()));
-      if (!seg) this.env.say('Clique numa linha do esboço.');
+      if (!seg) this.env.say(this.t('tl_msg_click_sketch_line'));
       else this.setInput(st, input.key, seg);
       return;
     }
@@ -481,7 +489,7 @@ export class PerimeterTool extends ToolBase {
       this.setInput(st, input.key, v);
       return;
     }
-    this.env.say(`Digite ${input.label.toLowerCase()}.`);
+    this.env.say(this.t('tl_msg_type_label', { label: shapeInputLabel(input.label, this.uiLang()).toLowerCase() }));
   }
 
   /** Grava a entrada pendente e avança; ao fechar todas, cria a forma. */
@@ -490,7 +498,7 @@ export class PerimeterTool extends ToolBase {
     st.idx += 1;
     this.items = [];
     if (st.idx >= stepsOf(st.shape).length) this.complete(st);
-    else this.env.say(`${st.shape.label}: ${promptOf(st)}.`);
+    else this.env.say(this.t('tl_msg_shape_prompt', { shape: shapeName(st.shape, this.uiLang()), prompt: promptOf(st, this.uiLang()) }));
   }
 
   private complete(st: ShapeStep): void {
@@ -499,7 +507,7 @@ export class PerimeterTool extends ToolBase {
       const last = stepsOf(st.shape)[st.idx - 1]!;
       st.idx -= 1;
       delete st.vals[last.key];
-      this.env.say('Forma degenerada com esses pontos: escolha outro.');
+      this.env.say(this.t('tl_msg_degenerate_shape'));
       return;
     }
     this.commit(applySegs(this.d, segs));
@@ -508,10 +516,10 @@ export class PerimeterTool extends ToolBase {
     if (st.shape.id === 'line') {
       // Linha de limite: a próxima começa na ponta desta, até Esc.
       this.step = { shape: st.shape, idx: 1, vals: { a: st.vals.b } };
-      this.env.say('Linha criada. Clique no próximo ponto; Esc encerra.');
+      this.env.say(this.t('tl_msg_line_created'));
       return;
     }
     this.step = null;
-    this.env.say(`${st.shape.label} adicionada. Escolha outra forma ou clique numa linha.`);
+    this.env.say(this.t('tl_msg_shape_added', { shape: shapeName(st.shape, this.uiLang()) }));
   }
 }

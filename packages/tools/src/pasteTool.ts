@@ -111,7 +111,9 @@ function idsOf(c: ClipBuffer): Id[] {
 export class PasteTool extends ToolBase {
   readonly id = 'paste';
   readonly label = 'Colar';
-  readonly hint = 'Colar: clique para posicionar o conteúdo copiado. Esc cancela.';
+  override get hint(): string {
+    return this.t('tl_hint_paste');
+  }
   private clip: ClipBuffer | null = null;
   /** Projeto com os elementos do buffer numa cópia rasa: a prévia não altera o modelo. */
   private previewProject: Project | null = null;
@@ -172,7 +174,7 @@ export class PasteTool extends ToolBase {
     this.delta = { x: inf.point.x - this.anchor.x, y: inf.point.y - this.anchor.y };
     const r = pasteAlignedCommand(this.env.project(), this.clip, this.env.levelId());
     if (!r) {
-      this.env.say('Não há o que colar neste nível.');
+      this.env.say(this.t('tl_msg_paste_empty'));
       return;
     }
       // Decisão 0044: colar também não põe parede em cima de outra (nem em cima da própria origem).

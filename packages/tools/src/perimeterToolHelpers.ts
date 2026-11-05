@@ -6,6 +6,7 @@ import { facePreview } from './perimeterToolInput.ts';
 import { anchorOf, pointsOf, type ShapeStep } from './perimeterToolShape.ts';
 import type { ShapeKindId } from './sketchShapes.ts';
 import type { PreviewItem, ToolEnv } from './types.ts';
+import type { Lang } from './i18n.ts';
 
 /** Substitui as linhas com o mesmo id (fileta, por exemplo) e acrescenta as demais, com ids novos. */
 export function applySegs(d: SketchDraft, segs: SketchSeg[]): SketchDraft {
@@ -30,8 +31,8 @@ export function shapeIdOf(shape: ShapeKindId | 'pickFace' | 'byPerimeter' | 'pic
 }
 
 /** Prévia da face sob o cursor no modo de seleção da forma: realce e aviso, acrescentados à prévia corrente. */
-export function faceMove(env: ToolEnv, at: Vec2, cycle: number, items: PreviewItem[]): void {
-  const r = facePreview(env, at, cycle);
+export function faceMove(env: ToolEnv, at: Vec2, cycle: number, items: PreviewItem[], lang: Lang = 'pt'): void {
+  const r = facePreview(env, at, cycle, lang);
   items.push(...r.items);
   env.say(r.msg);
 }

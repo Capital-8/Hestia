@@ -1,16 +1,17 @@
 import { dist, mid, sub } from '@hestia/geom';
 import { generateStraightRun } from '@hestia/engine';
 import { defaultUnits, formatQuantity, type ResolvedUnits, type Stair, type StairLanding, type StairRun } from '@hestia/model';
+import { t as translate, type Lang } from './i18n.ts';
 
 /**
  * Nº de espelhos editado nas Propriedades de uma escada reta gerada (2º clique da ferramenta). O comprimento do lance
  * (do 1º ao último espelho) e a largura ficam; o piso vira comprimento ÷ (N − 1) e a altura do espelho, H ÷ N, que o
  * modelo calcula sozinho. Erro em pt-BR se a escada não é um lance reto gerado ou se o piso fica abaixo do mínimo.
  */
-export function regenStraightComponents(stair: Stair, risers: number, minTread: number, u: ResolvedUnits = defaultUnits()): { components: Array<StairRun | StairLanding> } | { error: string } {
+export function regenStraightComponents(stair: Stair, risers: number, minTread: number, u: ResolvedUnits = defaultUnits(), lang: Lang = 'pt'): { components: Array<StairRun | StairLanding> } | { error: string } {
   const only = stair.components[0];
   if (stair.components.length !== 1 || only?.kind !== 'run' || only.generatedBy !== 'straight') {
-    return { error: 'o nº de espelhos só se edita em escada reta gerada pela ferramenta.' };
+    return { error: translate(lang, 'tl_msg_risers_edit_straight') };
   }
   if (!Number.isInteger(risers) || risers < 2) return { error: 'o nº de espelhos é pelo menos 2.' };
   const first = only.risers[0];

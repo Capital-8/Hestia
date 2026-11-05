@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ProjectStore, createEmptyProject, makeWall } from '@hestia/model';
 import { desfazerOuRefazer } from './historyStatus.ts';
+import { resolveText } from './i18n.ts';
 import { useUi } from './state.ts';
 
 describe('Desfazer e Refazer dizem o passo na barra de status', () => {
@@ -11,9 +12,9 @@ describe('Desfazer e Refazer dizem o passo na barra de status', () => {
     );
     useUi.setState({ status: 'Parede paralela criada a 3,000 m. Ctrl+Z desfaz.' });
     desfazerOuRefazer(s, 'undo');
-    expect(useUi.getState().status).toBe('Desfeito: Parede paralela.');
+    expect(resolveText(useUi.getState().status, 'pt')).toBe('Desfeito: Parede paralela.');
     desfazerOuRefazer(s, 'redo');
-    expect(useUi.getState().status).toBe('Refeito: Parede paralela.');
+    expect(resolveText(useUi.getState().status, 'pt')).toBe('Refeito: Parede paralela.');
   });
 
   it('sem passo a desfazer, a barra não muda', () => {

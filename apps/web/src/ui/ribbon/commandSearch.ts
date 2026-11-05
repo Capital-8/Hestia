@@ -27,7 +27,7 @@ export function allCommands(lang: Lang): Command[] {
           const id = `tool:${it.tool}`;
           if (seen.has(id)) continue;
           seen.add(id);
-          out.push({ id, label: toolLabel(it.tool, lang), where: `${txt(tab.label, lang)} › ${txt(panel.title, lang)}`, run: () => editor.setTool(it.tool) });
+          out.push({ id, label: it.label ? txt(it.label, lang) : toolLabel(it.tool, lang), where: `${txt(tab.label, lang)} › ${txt(panel.title, lang)}`, run: () => editor.setTool(it.tool) });
         } else if (it.kind === 'action') {
           const id = `act:${it.action}`;
           if (seen.has(id)) continue;

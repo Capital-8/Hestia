@@ -3,6 +3,8 @@
  * Função pura: recebe o estado da tela e devolve a árvore de entradas. Quem executa é ui/CanvasContextMenu.tsx.
  */
 
+import { t } from './i18n.ts';
+
 export type MenuLang = 'pt' | 'en';
 export type MenuView = 'plan' | '3d' | 'section';
 
@@ -54,51 +56,54 @@ export interface MenuEntry {
   children?: MenuEntry[];
 }
 
-/** Textos PT-BR e EN. Os nomes seguem o Revit; o que não foi confirmado na web está marcado em docs/paridade/menu-contexto.md. */
+/**
+ * Chaves do dicionário para o menu. Os nomes seguem o Revit; o que não foi confirmado na web está marcado em
+ * docs/paridade/menu-contexto.md. A tradução acontece na montagem, com o `ctx.lang` do momento da abertura.
+ */
 const TEXTOS = {
-  repeat: ['Repetir', 'Repeat'],
-  recent: ['Comandos recentes', 'Recent Commands'],
-  cancel: ['Cancelar', 'Cancel'],
-  copy: ['Copiar', 'Copy'],
-  paste: ['Colar', 'Paste'],
-  pasteLevels: ['Alinhado aos níveis selecionados…', 'Aligned to Selected Levels…'],
-  noSelection: ['Nada selecionado', 'Nothing selected'],
-  nothingCopied: ['Nada copiado. Use Copiar ou Ctrl+C', 'Nothing copied. Use Copy or Ctrl+C'],
-  planOnly: ['Colar seguindo o cursor só vale em planta', 'Paste following the cursor works in plan views only'],
-  selectPrevious: ['Selecionar anterior', 'Select Previous'],
-  locate: ['Localizar vistas de referência', 'Locate Reference Views'],
-  zoomRegion: ['Ampliar região', 'Zoom In Region'],
-  zoomOut2x: ['Reduzir (2x)', 'Zoom Out (2x)'],
-  zoomFit: ['Ajustar zoom', 'Zoom to Fit'],
-  panPrev: ['Pan/Zoom anterior', 'Previous Pan/Zoom'],
-  panNext: ['Próximo Pan/Zoom', 'Next Pan/Zoom'],
-  browser: ['Navegador', 'Browser'],
-  properties: ['Propriedades', 'Properties'],
-  hide: ['Ocultar na vista', 'Hide in View'],
-  hideElements: ['Elementos', 'Elements'],
-  hideCategory: ['Categoria', 'Category'],
-  hideFilter: ['Por filtro', 'By Filter'],
-  unhide: ['Reexibir na vista', 'Unhide in View'],
-  unhideElements: ['Elementos', 'Elements'],
-  unhideCategory: ['Categoria', 'Category'],
-  unhideAll: ['Reexibir tudo nesta vista', 'Unhide All in View'],
-  isolate: ['Isolar temporariamente', 'Temporary Isolate'],
-  override: ['Substituir gráficos na vista', 'Override Graphics in View'],
-  createSimilar: ['Criar semelhante', 'Create Similar'],
-  editFamily: ['Editar família', 'Edit Family'],
-  selectAll: ['Selecionar todas as instâncias', 'Select All Instances'],
-  selectAllView: ['Visíveis na vista', 'Visible in View'],
-  selectAllProject: ['No projeto inteiro', 'In Entire Project'],
-  delete: ['Excluir', 'Delete'],
-  snapOverrides: ['Opções de captura', 'Snap Overrides'],
-  steering: ['Rodas de navegação', 'Steering Wheels'],
-  shortcutSpace: ['Espaço', 'Space'],
-  soon: ['ainda não disponível', 'not available yet'],
-  noRecent: ['Nenhum comando recente', 'No recent commands'],
-  noRepeat: ['Nenhum comando para repetir', 'No command to repeat'],
-  noPrevious: ['Nenhuma seleção anterior', 'No previous selection'],
-  oneType: ['Selecione elementos de um só tipo', 'Select elements of one type only'],
-  notCopyable: ['Copiar só vale para paredes, pisos, lajes, telhados, escadas, rampas, ambientes e aberturas hospedadas', 'Copy only works for walls, floors, slabs, roofs, stairs, ramps, rooms and hosted openings'],
+  repeat: 'edc_ctx_repeat',
+  recent: 'edc_ctx_recent',
+  cancel: 'edc_ctx_cancel',
+  copy: 'edc_ctx_copy',
+  paste: 'edc_ctx_paste',
+  pasteLevels: 'edc_ctx_paste_levels',
+  noSelection: 'edc_ctx_no_selection',
+  nothingCopied: 'edc_ctx_nothing_copied',
+  planOnly: 'edc_ctx_plan_only',
+  selectPrevious: 'edc_ctx_select_previous',
+  locate: 'edc_ctx_locate',
+  zoomRegion: 'edc_ctx_zoom_region',
+  zoomOut2x: 'edc_ctx_zoom_out_2x',
+  zoomFit: 'edc_ctx_zoom_fit',
+  panPrev: 'edc_ctx_pan_prev',
+  panNext: 'edc_ctx_pan_next',
+  browser: 'edc_ctx_browser',
+  properties: 'edc_ctx_properties',
+  hide: 'edc_ctx_hide',
+  hideElements: 'edc_ctx_elements',
+  hideCategory: 'edc_ctx_category',
+  hideFilter: 'edc_ctx_hide_filter',
+  unhide: 'edc_ctx_unhide',
+  unhideElements: 'edc_ctx_elements',
+  unhideCategory: 'edc_ctx_category',
+  unhideAll: 'edc_ctx_unhide_all',
+  isolate: 'edc_ctx_isolate',
+  override: 'edc_ctx_override',
+  createSimilar: 'edc_ctx_create_similar',
+  editFamily: 'edc_ctx_edit_family',
+  selectAll: 'edc_ctx_select_all',
+  selectAllView: 'edc_ctx_select_all_view',
+  selectAllProject: 'edc_ctx_select_all_project',
+  delete: 'edc_ctx_delete',
+  snapOverrides: 'edc_ctx_snap_overrides',
+  steering: 'edc_ctx_steering',
+  shortcutSpace: 'edc_ctx_space',
+  soon: 'edc_ctx_soon',
+  noRecent: 'edc_ctx_no_recent',
+  noRepeat: 'edc_ctx_no_repeat',
+  noPrevious: 'edc_ctx_no_previous',
+  oneType: 'edc_ctx_one_type',
+  notCopyable: 'edc_ctx_not_copyable',
 } as const;
 
 type Chave = keyof typeof TEXTOS;
@@ -110,8 +115,7 @@ const TIPOS_EM_BREVE = new Set(['stair', 'ramp', 'room']);
 
 /** Monta o menu de contexto para o estado dado. As entradas vêm em grupos separados por linha. */
 export function buildContextMenu(ctx: ContextMenuCtx): MenuEntry[] {
-  const pt = ctx.lang === 'pt' ? 0 : 1;
-  const T = (k: Chave): string => TEXTOS[k][pt];
+  const T = (k: Chave): string => t(ctx.lang, TEXTOS[k]);
   const soon = (id: string, label: string, extra: Partial<MenuEntry> = {}): MenuEntry => ({ id, label, disabled: true, soon: true, hint: T('soon'), ...extra });
   const plan = ctx.view !== '3d';
   const na3d = ctx.view === '3d';

@@ -13,6 +13,7 @@ import {
 } from './componentOps.ts';
 import { updateStairComponents } from './stairCommands.ts';
 import { updateRampComponents } from './rampCommands.ts';
+import { langOf, t as translate } from './i18n.ts';
 
 /** Resultado de uma edição de aresta: só `ok`, ou o motivo da recusa em pt-BR. */
 export type ComponentEditResult = { ok: true } | { ok: false; error: string };
@@ -25,20 +26,20 @@ export function commitComponentEdge(
   env: ToolEnv,
   elementId: Id,
   components: Array<StairRun | StairLanding>,
-  label = 'Editar croqui da escada/rampa',
+  label = translate(langOf(env), 'tl_undo_edit_component'),
 ): ComponentEditResult {
   const e = env.project().elements[elementId];
   if (isStair(e)) {
-    if (e.freePath) return { ok: false, error: 'A escada livre não permite editar arestas do croqui.' };
+    if (e.freePath) return { ok: false, error: translate(langOf(env), 'tl_msg_free_stair_no_edges') };
     const r = updateStairComponents(env, elementId, components);
     return 'error' in r ? { ok: false, error: r.error } : { ok: true };
   }
   if (isRamp(e)) {
-    if (e.shape === 'free' || e.freePath) return { ok: false, error: 'A rampa livre não permite editar arestas do croqui.' };
+    if (e.shape === 'free' || e.freePath) return { ok: false, error: translate(langOf(env), 'tl_msg_free_ramp_no_edges') };
     const r = updateRampComponents(env, elementId, components, label);
     return 'error' in r ? { ok: false, error: r.error } : { ok: true };
   }
-  return { ok: false, error: 'O elemento não é uma escada nem uma rampa.' };
+  return { ok: false, error: translate(langOf(env), 'tl_msg_not_stair_ramp') };
 }
 
 /** Aplica uma operação pura ao elemento, grava o croqui e devolve ok/erro. */
@@ -50,8 +51,8 @@ function applyEdgeOp(
   fail: string,
 ): ComponentEditResult {
   const e = env.project().elements[ref.elementId];
-  if (!isStair(e) && !isRamp(e)) return { ok: false, error: 'O elemento não é uma escada nem uma rampa.' };
-  if (!componentEdgeCurve(e, ref)) return { ok: false, error: 'A aresta não foi encontrada no croqui.' };
+  if (!isStair(e) && !isRamp(e)) return { ok: false, error: translate(langOf(env), 'tl_msg_not_stair_ramp') };
+  if (!componentEdgeCurve(e, ref)) return { ok: false, error: translate(langOf(env), 'tl_msg_edge_not_found') };
   const next = op(e);
   if (!next) return { ok: false, error: fail };
   return commitComponentEdge(env, ref.elementId, next.components, label);
@@ -59,17 +60,17 @@ function applyEdgeOp(
 
 /** Move a aresta pelo vetor `d` (m), mantendo a cadeia contínua. */
 export function moveEdge(env: ToolEnv, ref: ComponentEdgeRef, d: Vec2): ComponentEditResult {
-  return applyEdgeOp(env, ref, 'Mover aresta de escada/rampa', (h) => moveComponentEdge(h, ref, d), 'A aresta não foi encontrada no croqui.');
+  return applyEdgeOp(env, ref, translate(langOf(env), 'tl_undo_move_component_edge'), (h) => moveComponentEdge(h, ref, d), translate(langOf(env), 'tl_msg_edge_not_found'));
 }
 
 /** Desloca a aresta `dist` metros à esquerda do sentido a→b (negativo, à direita). */
 export function offsetEdge(env: ToolEnv, ref: ComponentEdgeRef, dist: number): ComponentEditResult {
-  return applyEdgeOp(env, ref, 'Deslocar aresta de escada/rampa', (h) => offsetComponentEdge(h, ref, dist), 'A aresta não pode ser deslocada.');
+  return applyEdgeOp(env, ref, translate(langOf(env), 'tl_undo_offset_component_edge'), (h) => offsetComponentEdge(h, ref, dist), translate(langOf(env), 'tl_msg_edge_cannot_offset'));
 }
 
 /** Divide a aresta no ponto projetado do cursor. */
 export function splitEdge(env: ToolEnv, ref: ComponentEdgeRef, at: Vec2): ComponentEditResult {
-  return applyEdgeOp(env, ref, 'Dividir aresta de escada/rampa', (h) => splitComponentEdge(h, ref, at), 'Não foi possível dividir a aresta neste ponto.');
+  return applyEdgeOp(env, ref, translate(langOf(env), 'tl_undo_split_component_edge'), (h) => splitComponentEdge(h, ref, at), translate(langOf(env), 'tl_msg_edge_cannot_split'));
 }
 
 /** Apara a aresta reta até a linha de corte, movendo a ponta indicada. */
@@ -77,9 +78,9 @@ export function trimEdge(env: ToolEnv, ref: ComponentEdgeRef, line: EdgeLine, en
   return applyEdgeOp(
     env,
     ref,
-    'Aparar aresta de escada/rampa',
+    translate(langOf(env), 'tl_undo_trim_component_edge'),
     (h) => trimComponentEdge(h, ref, line, endToMove),
-    'A aresta não pode ser aparada (só retas; a linha de corte não pode ser paralela).',
+    translate(langOf(env), 'tl_msg_edge_cannot_trim'),
   );
 }
 
@@ -88,8 +89,8 @@ export function alignEdge(env: ToolEnv, ref: ComponentEdgeRef, line: EdgeLine): 
   return applyEdgeOp(
     env,
     ref,
-    'Alinhar aresta de escada/rampa',
+    translate(langOf(env), 'tl_undo_align_component_edge'),
     (h) => alignComponentEdge(h, ref, line),
-    'A aresta não pode ser alinhada (só retas).',
+    translate(langOf(env), 'tl_msg_edge_cannot_align'),
   );
 }

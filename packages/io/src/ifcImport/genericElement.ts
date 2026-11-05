@@ -1,5 +1,5 @@
 import type { Generic, Id, Project } from '@hestia/model';
-import { hull2, type Body } from './geometry.ts';
+import { bodyPoints, hull2, type Body } from './geometry.ts';
 import { styleOfWithMaterial } from './elementTypes.ts';
 import type { IfcFile } from './ifc.ts';
 import { propertiesOf } from './psets.ts';
@@ -16,8 +16,8 @@ export interface GenericSource {
 export function minZOf(body: Body): number {
   let z = Infinity;
   for (const prism of body.prisms) z = Math.min(z, prism.z0);
-  for (const p of body.points) z = Math.min(z, p.z);
-  for (const tri of body.tris) for (const p of tri) z = Math.min(z, p.z);
+  const t = body.tris;
+  for (let i = 2; i < t.length; i += 3) z = Math.min(z, t[i]!);
   return z;
 }
 
@@ -27,16 +27,13 @@ export function minZOf(body: Body): number {
  */
 export function makeGeneric(src: GenericSource, e: StepEntity, body: Body, levelId: Id): Omit<Generic, 'order'> | null {
   if (!body.tris.length) return null;
-  const positions: number[] = [];
-  const indices: number[] = [];
-  for (const tri of body.tris) {
-    for (const p of tri) {
-      indices.push(positions.length / 3);
-      positions.push(p.x, p.y, p.z);
-    }
-  }
+  // Os triângulos já vêm achatados (x, y, z por vértice); cada um tem vértices próprios, então os índices são 0,1,2...
+  const positions = body.tris.slice();
+  const total = positions.length / 3;
+  const indices = new Array<number>(total);
+  for (let i = 0; i < total; i++) indices[i] = i;
   if (!positions.length) return null;
-  const outline = hull2(body.points.map((p) => ({ x: p.x, y: p.y })));
+  const outline = hull2(bodyPoints(body).map((p) => ({ x: p.x, y: p.y })));
   const props = propertiesOf(src.f, e, src.typeOf.get(e.id));
   const style = styleOfWithMaterial(src, src.f, e);
   return {

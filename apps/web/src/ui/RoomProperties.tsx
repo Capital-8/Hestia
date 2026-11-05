@@ -4,24 +4,25 @@ import { areaPlanOf, DEFAULT_ROOM_CATEGORIES, roomCeilingHeight, type AreaPlan, 
 import { ensureRoomTagAction, removeRoomTagAction, updateRoomTagAction, type RoomTagPatch } from '../editor/areaPlanActions.ts';
 import { editor, useProject } from '../editor/controller.ts';
 import { useUi } from '../editor/state.ts';
+import { t as translate, useT, type Dict, type Lang, type TextLike } from '../editor/i18n.ts';
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
 import { useFormat } from './useUnits.ts';
 
 
 const ROOM_DEFAULT_COLOR = '#b8c4d4';
 
-const say = (status: string): void => useUi.setState({ status });
+const say = (status: TextLike): void => useUi.setState({ status });
 
 /** Campos da etiqueta de ambiente, na ordem em que aparecem no bloco. */
-export const TAG_FIELD_OPTIONS: ReadonlyArray<{ field: TagField; label: string }> = [
-  { field: 'name', label: 'Nome' },
-  { field: 'number', label: 'Número' },
-  { field: 'area', label: 'Área' },
-  { field: 'category', label: 'Categoria' },
-  { field: 'level', label: 'Nível' },
-  { field: 'perimeter', label: 'Perímetro' },
-  { field: 'volume', label: 'Volume' },
-  { field: 'custom', label: 'Personalizado' },
+export const TAG_FIELD_OPTIONS: ReadonlyArray<{ field: TagField; labelKey: keyof Dict }> = [
+  { field: 'name', labelKey: 'pra_fld_name' },
+  { field: 'number', labelKey: 'pra_fld_number' },
+  { field: 'area', labelKey: 'pra_fld_area' },
+  { field: 'category', labelKey: 'pra_fld_category' },
+  { field: 'level', labelKey: 'pra_fld_level' },
+  { field: 'perimeter', labelKey: 'pra_fld_perimeter' },
+  { field: 'volume', labelKey: 'pra_fld_volume' },
+  { field: 'custom', labelKey: 'pra_opt_custom' },
 ];
 
 /** Liga ou desliga um campo da etiqueta, mantendo ao menos um (o modelo recusa a lista vazia). */
@@ -45,10 +46,10 @@ function patch(ids: Id[], p: Partial<Room>): void {
 }
 
 /** Aviso do ambiente sem circuito fechado: o motivo (ponto fora ou circuito aberto). */
-export function roomWarning(r: ResolvedRoom): string | null {
-  if (r.problem === 'fora') return 'Sem circuito fechado: o ponto interior não está dentro de paredes fechadas.';
-  if (r.problem === 'aberto') return 'Circuito aberto: há um vão entre as paredes em volta do ambiente.';
-  if (r.duplicateOf !== undefined) return `Mesmo circuito do ambiente "${r.duplicateOf}".`;
+export function roomWarning(r: ResolvedRoom, lang: Lang = 'pt'): string | null {
+  if (r.problem === 'fora') return translate(lang, 'pra_msg_room_not_closed_point');
+  if (r.problem === 'aberto') return translate(lang, 'pra_msg_room_open_loop');
+  if (r.duplicateOf !== undefined) return translate(lang, 'pra_msg_room_duplicate', { name: r.duplicateOf });
   return null;
 }
 
@@ -57,15 +58,16 @@ export function roomWarning(r: ResolvedRoom): string | null {
  * `Room.labelPosition` nem no rótulo compartilhado do grupo "Rótulo (todas as vistas)".
  */
 export function RoomTagGroup({ room, plan, hasCircuit }: { room: Room; plan: AreaPlan; hasCircuit: boolean }): ReactElement {
+  const { t } = useT();
   const tag: RoomTag | undefined = plan.tags.find((t) => t.roomId === room.id);
   const fields = tag?.fields ?? plan.graphics.tagDefault.fields;
   const orientation = tag?.orientation ?? plan.graphics.tagDefault.orientation;
   const leader = tag?.leader ?? plan.graphics.tagDefault.leader;
   const save = (patch: RoomTagPatch): void => {
     try {
-      if (!updateRoomTagAction(editor.store, plan.id, room.id, patch)) say('O ambiente não tem circuito fechado nesta planta.');
+      if (!updateRoomTagAction(editor.store, plan.id, room.id, patch)) say({ key: 'pra_msg_room_not_closed_plan' });
     } catch (e) {
-      say(e instanceof Error ? e.message : 'Não foi possível alterar a etiqueta.');
+      say(e instanceof Error ? e.message : { key: 'pra_msg_tag_update_failed' });
     }
   };
   const toggle = (field: TagField): void => {
@@ -75,57 +77,57 @@ export function RoomTagGroup({ room, plan, hasCircuit }: { room: Room; plan: Are
     save(patch);
   };
   return (
-    <Group title="Etiqueta nesta planta de área">
+    <Group title={t('pra_pgrp_room_tag_plan')}>
       {hasCircuit ? (
         <>
-          <Row label="Campos">
+          <Row label={t('pra_fld_fields')}>
             <span style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 10px', padding: '2px 4px' }}>
               {TAG_FIELD_OPTIONS.map((o) => (
                 <Check key={o.field} id={`p-tagfield-${o.field}`} checked={fields.includes(o.field)} disabled={fields.length === 1 && fields.includes(o.field)} onChange={() => toggle(o.field)}>
-                  {o.label}
+                  {t(o.labelKey)}
                 </Check>
               ))}
             </span>
           </Row>
           {fields.includes('custom') && (
-            <Row label="Texto" htmlFor="p-tagcustom">
-              <TextField id="p-tagcustom" value={tag?.custom ?? ''} placeholder="Texto da etiqueta" onCommit={(v) => save({ custom: v })} />
+            <Row label={t('pra_fld_text')} htmlFor="p-tagcustom">
+              <TextField id="p-tagcustom" value={tag?.custom ?? ''} placeholder={t('pra_ph_tag_text')} onCommit={(v) => save({ custom: v })} />
             </Row>
           )}
-          <Row label="Orientação" htmlFor="p-tagorient">
+          <Row label={t('pra_fld_orientation')} htmlFor="p-tagorient">
             <select id="p-tagorient" className="select" value={orientation} onChange={(e) => save({ orientation: e.target.value as RoomTag['orientation'] })}>
-              <option value="horizontal">Horizontal</option>
-              <option value="vertical">Vertical</option>
+              <option value="horizontal">{t('pra_opt_horizontal')}</option>
+              <option value="vertical">{t('pra_opt_vertical')}</option>
             </select>
           </Row>
-          <Row label="Chamada" htmlFor="p-tagleader">
+          <Row label={t('pra_fld_leader')} htmlFor="p-tagleader">
             <select id="p-tagleader" className="select" value={leader} onChange={(e) => save({ leader: e.target.value as RoomTag['leader'] })}>
-              <option value="none">Nenhuma</option>
-              <option value="straight">Reta</option>
-              <option value="kinked">Com cotovelo</option>
-              <option value="crossed">Duas linhas cruzadas</option>
+              <option value="none">{t('pra_opt_none')}</option>
+              <option value="straight">{t('pra_opt_straight')}</option>
+              <option value="kinked">{t('pra_opt_kinked')}</option>
+              <option value="crossed">{t('pra_opt_crossed')}</option>
             </select>
           </Row>
-          <Row label="Visível nesta planta"><Check id="p-tagvisible" checked={tag?.visible ?? true} onChange={(v) => save({ visible: v })} /></Row>
+          <Row label={t('pra_fld_visible_in_plan')}><Check id="p-tagvisible" checked={tag?.visible ?? true} onChange={(v) => save({ visible: v })} /></Row>
           <div className="btn-row">
             <button
               type="button"
               className="btn small"
               onClick={() => {
                 const created = ensureRoomTagAction(editor.store, plan.id, room.id);
-                say(created ? (tag ? 'A etiqueta desta planta já está criada.' : 'Etiqueta criada nesta planta.') : 'O ambiente não tem circuito fechado nesta planta.');
+                say(created ? { key: tag ? 'pra_msg_tag_already_created' : 'pra_msg_tag_created' } : { key: 'pra_msg_room_not_closed_plan' });
               }}
             >
-              Criar/atualizar etiqueta
+              {t('pra_btn_create_update_tag')}
             </button>
-            <button type="button" className="btn small" disabled={!tag} onClick={() => say(removeRoomTagAction(editor.store, plan.id, room.id) ? 'Etiqueta voltou ao padrão da planta.' : 'Esta planta já usa o padrão.')}>
-              Voltar ao padrão
+            <button type="button" className="btn small" disabled={!tag} onClick={() => say(removeRoomTagAction(editor.store, plan.id, room.id) ? { key: 'pra_msg_tag_reset' } : { key: 'pra_msg_tag_already_default' })}>
+              {t('pra_btn_reset_to_default')}
             </button>
           </div>
-          <div className="hint">Estes ajustes valem só nesta planta de área. A posição do rótulo continua compartilhada em “Rótulo (todas as vistas)”.</div>
+          <div className="hint">{t('pra_msg_tag_plan_only')}</div>
         </>
       ) : (
-        <div className="hint">Sem circuito fechado: feche as paredes em volta do ambiente para a etiqueta aparecer nesta planta.</div>
+        <div className="hint">{t('pra_msg_tag_needs_closed_loop')}</div>
       )}
     </Group>
   );
@@ -134,6 +136,7 @@ export function RoomTagGroup({ room, plan, hasCircuit }: { room: Room; plan: Are
 /** Propriedades de um ou mais ambientes: nome, número, ponto interior (leitura), deslocamento, pé-direito, acabamentos e cor, com área, perímetro e volume. */
 export function RoomProperties({ rooms }: { rooms: Room[] }): ReactElement {
   const fmt = useFormat();
+  const { t, lang } = useT();
   const p: Project = useProject();
   // Planta de área ativa: a etiqueta da vista só aparece nesse contexto.
   const areaPlanId = useUi((s) => (s.view === 'plan' && s.planKind === 'area' ? s.areaPlanId : null));
@@ -156,84 +159,84 @@ export function RoomProperties({ rooms }: { rooms: Room[] }): ReactElement {
   }, [p, rooms]);
   const geo = single ? resolved.get(single.id) : undefined;
   const sum = (f: (r: ResolvedRoom) => number): number => rooms.reduce((s, r) => s + (resolved.get(r.id) ? f(resolved.get(r.id)!) : 0), 0);
-  const warning = single && geo ? roomWarning(geo) : null;
+  const warning = single && geo ? roomWarning(geo, lang) : null;
 
   return (
     <>
       {warning && <div className="hint warn" role="alert">{warning}</div>}
-      <Group title="Dados de identidade">
-        <Row label="Nome" htmlFor="p-rname"><TextField id="p-rname" value={name.value} mixed={name.mixed} onCommit={(v) => patch(ids, { name: v })} /></Row>
-        <Row label="Número" htmlFor="p-rnum"><TextField id="p-rnum" value={number.value} mixed={number.mixed} onCommit={(v) => patch(ids, { number: v })} /></Row>
-        <Row label="Categoria" htmlFor="p-rcat">
+      <Group title={t('pra_pgrp_identity')}>
+        <Row label={t('pra_fld_name')} htmlFor="p-rname"><TextField id="p-rname" value={name.value} mixed={name.mixed} onCommit={(v) => patch(ids, { name: v })} /></Row>
+        <Row label={t('pra_fld_number')} htmlFor="p-rnum"><TextField id="p-rnum" value={number.value} mixed={number.mixed} onCommit={(v) => patch(ids, { number: v })} /></Row>
+        <Row label={t('pra_fld_category')} htmlFor="p-rcat">
           <select id="p-rcat" className="select" value={category.value} onChange={(e) => patch(ids, { categoryId: e.target.value || undefined })}>
-            <option value="">Sem categoria</option>
+            <option value="">{t('pra_opt_no_category')}</option>
             {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </Row>
         <div className="btn-row">
-          <button type="button" className="btn small" onClick={() => useUi.setState({ dialog: 'roomCategories' })}>Gerenciar categorias…</button>
+          <button type="button" className="btn small" onClick={() => useUi.setState({ dialog: 'roomCategories' })}>{t('pra_btn_manage_categories')}</button>
         </div>
         {single && (
-          <Row label="Ponto interior">
-            <span className="val" title="Ponto usado para achar o circuito de paredes (somente leitura)">
+          <Row label={t('pra_fld_interior_point')}>
+            <span className="val" title={t('pra_tip_interior_point')}>
               {fmt('length', single.point.x)}; {fmt('length', single.point.y)}
             </span>
           </Row>
         )}
       </Group>
-      <Group title="Dimensões">
-        <Row label="Desloc. da base" htmlFor="p-roff">
+      <Group title={t('pra_pgrp_dimensions')}>
+        <Row label={t('pra_fld_base_offset')} htmlFor="p-roff">
           <NumField id="p-roff" value={offset.value} mixed={offset.mixed} onCommit={(v) => patch(ids, { heightOffset: v })} quantity="length" />
         </Row>
-        <Row label="Pé-direito" htmlFor="p-rceil">
+        <Row label={t('pra_fld_ceiling_height')} htmlFor="p-rceil">
           <NumField id="p-rceil" value={ceiling.value} mixed={ceiling.mixed} min={0.1} onCommit={(v) => patch(ids, { ceilingHeight: v })} quantity="length" />
         </Row>
-        <Row label={rooms.length > 1 ? 'Área total' : 'Área líquida'}><span className="val">{fmt('area', sum((r) => r.area))}</span></Row>
-        <Row label={rooms.length > 1 ? 'Perímetro total' : 'Perímetro'}><span className="val">{fmt('length', sum((r) => r.perimeter))}</span></Row>
-        <Row label={rooms.length > 1 ? 'Volume total' : 'Volume'}><span className="val">{fmt('volume', sum((r) => r.volume))}</span></Row>
+        <Row label={rooms.length > 1 ? t('pra_fld_area_total') : t('pra_fld_net_area')}><span className="val">{fmt('area', sum((r) => r.area))}</span></Row>
+        <Row label={rooms.length > 1 ? t('pra_fld_perimeter_total') : t('pra_fld_perimeter')}><span className="val">{fmt('length', sum((r) => r.perimeter))}</span></Row>
+        <Row label={rooms.length > 1 ? t('pra_fld_volume_total') : t('pra_fld_volume')}><span className="val">{fmt('volume', sum((r) => r.volume))}</span></Row>
       </Group>
-      <Group title="Acabamentos">
-        <Row label="Piso" htmlFor="p-rfloor"><TextField id="p-rfloor" value={floorFin.value} mixed={floorFin.mixed} onCommit={(v) => patch(ids, { floorFinish: v })} /></Row>
-        <Row label="Parede" htmlFor="p-rwall"><TextField id="p-rwall" value={wallFin.value} mixed={wallFin.mixed} onCommit={(v) => patch(ids, { wallFinish: v })} /></Row>
-        <Row label="Forro" htmlFor="p-rceilf"><TextField id="p-rceilf" value={ceilFin.value} mixed={ceilFin.mixed} onCommit={(v) => patch(ids, { ceilingFinish: v })} /></Row>
+      <Group title={t('pra_pgrp_finishes')}>
+        <Row label={t('pra_fld_finish_floor')} htmlFor="p-rfloor"><TextField id="p-rfloor" value={floorFin.value} mixed={floorFin.mixed} onCommit={(v) => patch(ids, { floorFinish: v })} /></Row>
+        <Row label={t('pra_fld_finish_wall')} htmlFor="p-rwall"><TextField id="p-rwall" value={wallFin.value} mixed={wallFin.mixed} onCommit={(v) => patch(ids, { wallFinish: v })} /></Row>
+        <Row label={t('pra_fld_finish_ceiling')} htmlFor="p-rceilf"><TextField id="p-rceilf" value={ceilFin.value} mixed={ceilFin.mixed} onCommit={(v) => patch(ids, { ceilingFinish: v })} /></Row>
       </Group>
       {single && (
-        <Group title="Rótulo (todas as vistas)">
-          <Row label="Posição X" htmlFor="p-lx">
-            <NumField id="p-lx" value={(single.labelPosition ?? single.referencePoint ?? single.point).x} unit="m" onCommit={(v) => editor.store.exec({ type: 'setRoomLabel', id: single.id, position: { x: v, y: (single.labelPosition ?? single.referencePoint ?? single.point).y } }, 'Mover rótulo')} />
+        <Group title={t('pra_pgrp_room_label_all_views')}>
+          <Row label={t('pra_fld_position_x')} htmlFor="p-lx">
+            <NumField id="p-lx" value={(single.labelPosition ?? single.referencePoint ?? single.point).x} unit="m" onCommit={(v) => editor.store.exec({ type: 'setRoomLabel', id: single.id, position: { x: v, y: (single.labelPosition ?? single.referencePoint ?? single.point).y } }, t('pra_undo_move_label'))} />
           </Row>
-          <Row label="Posição Y" htmlFor="p-ly">
-            <NumField id="p-ly" value={(single.labelPosition ?? single.referencePoint ?? single.point).y} unit="m" onCommit={(v) => editor.store.exec({ type: 'setRoomLabel', id: single.id, position: { x: (single.labelPosition ?? single.referencePoint ?? single.point).x, y: v } }, 'Mover rótulo')} />
+          <Row label={t('pra_fld_position_y')} htmlFor="p-ly">
+            <NumField id="p-ly" value={(single.labelPosition ?? single.referencePoint ?? single.point).y} unit="m" onCommit={(v) => editor.store.exec({ type: 'setRoomLabel', id: single.id, position: { x: (single.labelPosition ?? single.referencePoint ?? single.point).x, y: v } }, t('pra_undo_move_label'))} />
           </Row>
-          <Row label="Rotação" htmlFor="p-lrot">
-            <NumField id="p-lrot" value={single.labelRotation ?? 0} unit="°" onCommit={(v) => editor.store.exec({ type: 'setRoomLabel', id: single.id, position: single.labelPosition ?? null, rotation: v }, 'Girar rótulo')} />
+          <Row label={t('pra_fld_rotation')} htmlFor="p-lrot">
+            <NumField id="p-lrot" value={single.labelRotation ?? 0} unit="°" onCommit={(v) => editor.store.exec({ type: 'setRoomLabel', id: single.id, position: single.labelPosition ?? null, rotation: v }, t('pra_undo_rotate_label'))} />
           </Row>
-          <Row label="Chamada" htmlFor="p-llead">
-            <select id="p-llead" className="select" value={single.labelLeader ?? 'auto'} onChange={(e) => editor.store.exec({ type: 'setRoomLabel', id: single.id, position: single.labelPosition ?? null, leader: e.target.value as 'auto' | 'none' | 'straight' | 'kinked' | 'crossed' }, 'Alterar chamada do rótulo')}>
-              <option value="auto">Automática (liga ao sair)</option>
-              <option value="none">Sem chamada</option>
-              <option value="straight">Reta</option>
-              <option value="kinked">Com cotovelo</option>
-              <option value="crossed">Duas linhas cruzadas</option>
+          <Row label={t('pra_fld_leader')} htmlFor="p-llead">
+            <select id="p-llead" className="select" value={single.labelLeader ?? 'auto'} onChange={(e) => editor.store.exec({ type: 'setRoomLabel', id: single.id, position: single.labelPosition ?? null, leader: e.target.value as 'auto' | 'none' | 'straight' | 'kinked' | 'crossed' }, t('pra_undo_change_label_leader'))}>
+              <option value="auto">{t('pra_opt_leader_auto')}</option>
+              <option value="none">{t('pra_opt_leader_none')}</option>
+              <option value="straight">{t('pra_opt_straight')}</option>
+              <option value="kinked">{t('pra_opt_kinked')}</option>
+              <option value="crossed">{t('pra_opt_crossed')}</option>
             </select>
           </Row>
           <div className="btn-row">
-            <button type="button" className="btn small" onClick={() => editor.store.exec({ type: 'setRoomLabel', id: single.id, position: null, leader: 'auto' }, 'Recentralizar rótulo')}>Recentralizar rótulo</button>
+            <button type="button" className="btn small" onClick={() => editor.store.exec({ type: 'setRoomLabel', id: single.id, position: null, leader: 'auto' }, t('pra_undo_recenter_label'))}>{t('pra_btn_recenter_label')}</button>
           </div>
-          <div className="hint">A posição vale na planta de piso, na planta de área e em qualquer vista onde o rótulo aparecer.</div>
+          <div className="hint">{t('pra_msg_label_position_scope')}</div>
         </Group>
       )}
       {single && areaPlan && areaPlan.levelId === single.levelId && (
         <RoomTagGroup room={single} plan={areaPlan} hasCircuit={!!geo?.polygon} />
       )}
-      <Group title="Vista" open={false}>
-        <Row label="Cor" htmlFor="p-rcolor">
+      <Group title={t('pra_pgrp_view')} open={false}>
+        <Row label={t('pra_fld_color')} htmlFor="p-rcolor">
           <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <input id="p-rcolor" type="color" value={color.value || ROOM_DEFAULT_COLOR} aria-label="Cor do ambiente" onChange={(e) => patch(ids, { color: e.target.value })} />
-            <button type="button" className="btn small" disabled={!color.value} onClick={() => patch(ids, { color: undefined })} title="Volta à cor padrão do tema">Padrão</button>
+            <input id="p-rcolor" type="color" value={color.value || ROOM_DEFAULT_COLOR} aria-label={t('pra_aria_room_color')} onChange={(e) => patch(ids, { color: e.target.value })} />
+            <button type="button" className="btn small" disabled={!color.value} onClick={() => patch(ids, { color: undefined })} title={t('pra_tip_reset_theme_color')}>{t('pra_opt_default')}</button>
           </span>
         </Row>
-        <div className="hint">A cor do ambiente aparece só na planta de área; a planta de piso usa o preenchimento padrão do tema.</div>
+        <div className="hint">{t('pra_msg_room_color_scope')}</div>
       </Group>
     </>
   );

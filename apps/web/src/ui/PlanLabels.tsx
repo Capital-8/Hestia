@@ -42,6 +42,17 @@ function caixaDoRotulo(l: LabelOp, v: Viewport): { x0: number; y0: number; x1: n
 }
 
 /**
+ * `transform` do rótulo: a posição em px entra num `translate3d` (o navegador compõe em subpixel de forma estável, sem o
+ * arredondamento de `left`/`top` a cada quadro) e, à direita, a ancoragem e a rotação que o estilo do rótulo já usava.
+ */
+export function transformDoRotulo(l: LabelOp, x: number, y: number): string {
+  const pos = `translate3d(${x}px, ${y}px, 0)`;
+  if (l.fontPx !== undefined && l.center) return `${pos} translate(-50%, -50%) rotate(${-(l.rotation ?? 0)}deg)`;
+  if (l.fontPx !== undefined) return `${pos} translate(${l.align === 'right' ? '-100%' : l.align === 'center' ? '-50%' : '0'}, -50%)`;
+  return `${pos} translate(0, -100%)`;
+}
+
+/**
  * O rótulo aparece nesta vista? Culling (fora da vista com margem) e LOD (texto abaixo de `LOD_MIN_PX`). Função pura:
  * a camada DOM a usa a cada quadro, sem re-renderizar o React.
  */
@@ -85,8 +96,8 @@ export const PlanLabels = forwardRef<PlanLabelsHandle, { labels: LabelOp[]; v: V
         if (!visivel) return;
         mostrados++;
         const screen = worldToScreen(view, label.at);
-        node.style.left = `${screen.x + (label.dx ?? 0)}px`;
-        node.style.top = `${screen.y + (label.dy ?? 0)}px`;
+        // `left`/`top` ficam em 0: a posição fracionária vai no `translate3d`, composta no mesmo passo da rotação.
+        node.style.transform = transformDoRotulo(label, screen.x + (label.dx ?? 0), screen.y + (label.dy ?? 0));
       });
     },
   }), [labels]);
@@ -109,8 +120,8 @@ export const PlanLabels = forwardRef<PlanLabelsHandle, { labels: LabelOp[]; v: V
                   ref={(node) => { nodes.current[i] = node; }}
                   className={`plan-note${l.appearance === 'dimension-preview' ? ' plan-note--dimension-preview' : ''}`}
                   style={{
-                    left: sp.x + (l.dx ?? 0),
-                    top: sp.y + (l.dy ?? 0),
+                    left: 0,
+                    top: 0,
                     fontSize: l.fontPx,
                     fontFamily: l.fontFamily,
                     width: l.widthPx,
@@ -120,7 +131,7 @@ export const PlanLabels = forwardRef<PlanLabelsHandle, { labels: LabelOp[]; v: V
                     fontStyle: l.italic ? 'italic' : undefined,
                     textDecoration: l.underline ? 'underline' : undefined,
                     color: l.color,
-                    transform: `translate(-50%, -50%) rotate(${-(l.rotation ?? 0)}deg)`,
+                    transform: transformDoRotulo(l, sp.x + (l.dx ?? 0), sp.y + (l.dy ?? 0)),
                   }}
                 >
                   {l.text}
@@ -131,12 +142,12 @@ export const PlanLabels = forwardRef<PlanLabelsHandle, { labels: LabelOp[]; v: V
             // sem centralizar em X, só em Y (para o ponto de ancoragem ficar no centro vertical do texto).
             if (l.fontPx !== undefined)
               return (
-                <span key={i} ref={(node) => { nodes.current[i] = node; }} className="plan-note" style={{ left: sp.x + (l.dx ?? 0), top: sp.y + (l.dy ?? 0), fontSize: l.fontPx, textAlign: l.align, color: l.color, transform: `translate(${l.align === 'right' ? '-100%' : l.align === 'center' ? '-50%' : '0'}, -50%)` }}>
+                <span key={i} ref={(node) => { nodes.current[i] = node; }} className="plan-note" style={{ left: 0, top: 0, fontSize: l.fontPx, textAlign: l.align, color: l.color, transform: transformDoRotulo(l, sp.x + (l.dx ?? 0), sp.y + (l.dy ?? 0)) }}>
                   {l.text}
                 </span>
               );
             return (
-              <span key={i} ref={(node) => { nodes.current[i] = node; }} className={l.tone === 'soft' ? 'dim-label dim-label--soft' : 'dim-label'} style={{ left: sp.x + (l.dx ?? 0), top: sp.y + (l.dy ?? 0), color: l.color }}>
+              <span key={i} ref={(node) => { nodes.current[i] = node; }} className={l.tone === 'soft' ? 'dim-label dim-label--soft' : 'dim-label'} style={{ left: 0, top: 0, color: l.color, transform: transformDoRotulo(l, sp.x + (l.dx ?? 0), sp.y + (l.dy ?? 0)) }}>
                 {l.text}
               </span>
             );

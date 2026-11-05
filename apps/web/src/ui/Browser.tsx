@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { useProject } from '../editor/controller.ts';
+import { useT } from '../editor/i18n.ts';
 import { FamiliesTree } from './browser/Families.tsx';
 import { CadTree } from './browser/Cad.tsx';
 import { Node, Tree } from './browser/Tree.tsx';
@@ -13,20 +14,21 @@ import { PanelHead } from './PanelHead.tsx';
  */
 export function Browser(): ReactElement {
   const p = useProject();
+  const { t } = useT();
   return (
-    <aside className="side" aria-label="Navegador de projeto">
-      <PanelHead panel="browser" name={`Navegador de projeto - ${p.name}`} closeLabel="Fechar o navegador de projeto">
-        Navegador de projeto - {p.name}
+    <aside className="side" aria-label={t('project_browser_title')}>
+      <PanelHead panel="browser" name={t('shc_browser_head', { name: p.name })} closeLabel={t('shc_browser_close')}>
+        {t('shc_browser_head', { name: p.name })}
       </PanelHead>
       <div className="panel-scroll">
-        <Tree label="Navegador de projeto">
+        <Tree label={t('project_browser_title')}>
           <ViewsTree />
           <SchedulesTree />
           <SheetsTree />
           <CadTree />
           <FamiliesTree />
-          <Node id="g:groups" label="Grupos" group empty="Ainda não disponível." />
-          <Node id="g:links" label="Links do Revit" group empty="Ainda não disponível." />
+          <Node id="g:groups" label={t('shc_browser_groups')} group empty={t('shc_browser_soon')} />
+          <Node id="g:links" label={t('shc_browser_links')} group empty={t('shc_browser_soon')} />
         </Tree>
       </div>
     </aside>

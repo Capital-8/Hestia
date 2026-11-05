@@ -2,6 +2,7 @@ import type { Id, Project, ValidationIssue, ViewRange } from '@hestia/model';
 import { viewRangeWarnings, type ViewRangeWarning } from '@hestia/engine';
 import { contextoDaVista } from '@hestia/render';
 import { avisosDoProjeto } from './avisosCalculo.ts';
+import { useI18n, type Lang } from './i18n.ts';
 
 /**
  * Cálculos de aviso fora da thread principal. Na abertura de um projeto grande, `avisosDoProjeto` (cerca de 2 s) e os
@@ -15,8 +16,8 @@ import { avisosDoProjeto } from './avisosCalculo.ts';
 
 /** Pedido ao worker. `projeto` ausente: é o mesmo `chave` do pedido anterior que o trouxe. */
 export type PedidoAviso =
-  | { id: number; tipo: 'avisos'; chave: number; projeto?: Project }
-  | { id: number; tipo: 'vista'; chave: number; projeto?: Project; nivel: Id; faixa: ViewRange };
+  | { id: number; tipo: 'avisos'; chave: number; projeto?: Project; lang?: Lang }
+  | { id: number; tipo: 'vista'; chave: number; projeto?: Project; nivel: Id; faixa: ViewRange; lang?: Lang };
 
 export interface RespostaAviso {
   id: number;
@@ -25,9 +26,9 @@ export interface RespostaAviso {
 }
 
 /** Calcula um pedido. É a mesma função no worker e na thread principal. */
-export function executarAviso(p: Project, pedido: { tipo: 'avisos' } | { tipo: 'vista'; nivel: Id; faixa: ViewRange }): ValidationIssue[] | ViewRangeWarning[] {
+export function executarAviso(p: Project, pedido: { tipo: 'avisos' } | { tipo: 'vista'; nivel: Id; faixa: ViewRange }, lang: Lang = useI18n.getState().lang): ValidationIssue[] | ViewRangeWarning[] {
   // Contexto só do nível pedido (o mesmo que a planta usa): resolver lajes de todos os níveis custava ~2–3 s.
-  return pedido.tipo === 'avisos' ? avisosDoProjeto(p) : viewRangeWarnings(p, pedido.nivel, pedido.faixa, contextoDaVista(p, pedido.nivel));
+  return pedido.tipo === 'avisos' ? avisosDoProjeto(p, lang) : viewRangeWarnings(p, pedido.nivel, pedido.faixa, contextoDaVista(p, pedido.nivel), lang);
 }
 
 /** Forma mínima de um `Worker` (ou de um substituto nos testes). */
@@ -64,12 +65,12 @@ export class ClienteAvisos {
     return this.worker !== null;
   }
 
-  avisos(p: Project): Promise<ValidationIssue[]> {
-    return this.pedir('avisos', p, {}) as Promise<ValidationIssue[]>;
+  avisos(p: Project, lang: Lang = useI18n.getState().lang): Promise<ValidationIssue[]> {
+    return this.pedir('avisos', p, {}, lang) as Promise<ValidationIssue[]>;
   }
 
-  vista(p: Project, nivel: Id, faixa: ViewRange): Promise<ViewRangeWarning[]> {
-    return this.pedir('vista', p, { nivel, faixa }) as Promise<ViewRangeWarning[]>;
+  vista(p: Project, nivel: Id, faixa: ViewRange, lang: Lang = useI18n.getState().lang): Promise<ViewRangeWarning[]> {
+    return this.pedir('vista', p, { nivel, faixa }, lang) as Promise<ViewRangeWarning[]>;
   }
 
   /** Descarta os pedidos em curso (a resposta, se vier, é ignorada) e desliga o worker. */
@@ -83,7 +84,7 @@ export class ClienteAvisos {
     this.worker = null;
   }
 
-  private pedir(tipo: 'avisos' | 'vista', p: Project, extra: { nivel?: Id; faixa?: ViewRange }): Promise<unknown> {
+  private pedir(tipo: 'avisos' | 'vista', p: Project, extra: { nivel?: Id; faixa?: ViewRange }, lang: Lang): Promise<unknown> {
     const w = this.worker;
     if (!w) return Promise.reject(new Error('sem worker'));
     const id = this.proximoId++;
@@ -91,7 +92,7 @@ export class ClienteAvisos {
       this.pendentes.set(id, { resolver, rejeitar, tipo });
       const repetido = this.enviado?.projeto === p;
       const chave = repetido ? this.enviado!.chave : ++this.chaves;
-      const base = { id, chave, ...(repetido ? {} : { projeto: p }) };
+      const base = { id, chave, lang, ...(repetido ? {} : { projeto: p }) };
       const msg = tipo === 'avisos' ? { ...base, tipo } : { ...base, tipo, nivel: extra.nivel!, faixa: extra.faixa! };
       try {
         w.postMessage(msg);
@@ -143,7 +144,7 @@ export function instalarServidorAvisos(escopo: { postMessage(m: unknown): void; 
         escopo.postMessage({ id: pedido.id, resultado: null, erro: 'projeto-ausente' } satisfies RespostaAviso);
         return;
       }
-      const resultado = executarAviso(ultimo.projeto, pedido.tipo === 'avisos' ? { tipo: 'avisos' } : { tipo: 'vista', nivel: pedido.nivel, faixa: pedido.faixa });
+      const resultado = executarAviso(ultimo.projeto, pedido.tipo === 'avisos' ? { tipo: 'avisos' } : { tipo: 'vista', nivel: pedido.nivel, faixa: pedido.faixa }, pedido.lang ?? 'pt');
       escopo.postMessage({ id: pedido.id, resultado, erro: null } satisfies RespostaAviso);
     } catch (e) {
       escopo.postMessage({ id: pedido.id, resultado: null, erro: e instanceof Error ? e.message : String(e) } satisfies RespostaAviso);

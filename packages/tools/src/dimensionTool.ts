@@ -53,7 +53,9 @@ function styleOverrides(o: ToolOptions): Partial<Dimension> {
 export class DimensionTool extends ToolBase {
   readonly id = 'dimension';
   readonly label = 'Cota';
-  readonly hint = 'Cota: clique no primeiro ponto medido, depois no segundo. Mova o cursor para o lado da linha de cota e clique (ou digite o deslocamento).';
+  override get hint(): string {
+    return this.t('tl_hint_dimension');
+  }
   private a: Vec2 | null = null;
   private b: Vec2 | null = null;
   private refA: AnyRef | undefined;
@@ -154,14 +156,14 @@ export class DimensionTool extends ToolBase {
   }
 
   override inputPrompt(): string | null {
-    return (this.a && this.b) || this.offsetStage ? 'Deslocamento' : null;
+    return (this.a && this.b) || this.offsetStage ? this.t('tl_inp_offset') : null;
   }
 
   override confirm(): void {
     if ((this.env.options().dimensionString ?? 'single') !== 'single' && this.chain.length >= 2 && !this.offsetStage) {
       this.offsetStage = true;
       this.chainOffset = this.rememberedOffset();
-      this.env.say('Sequência definida. Clique no lado da linha ou digite o afastamento e Enter.');
+      this.env.say(this.t('tl_msg_chain_defined'));
       return;
     }
     if (this.chain.length && this.chain.length < 2) { this.reset(); this.env.say(this.hint); return; }
@@ -193,13 +195,13 @@ export class DimensionTool extends ToolBase {
         this.chain.push(point);
         this.chainRefs.push(this.refAt(point));
       }
-      this.env.say(`${this.chain.length} referências selecionadas. Continue os cliques e pressione Enter para concluir a sequência.`);
+      this.env.say(this.t('tl_msg_refs_selected', { n: this.chain.length }));
       return;
     }
     if (!this.a) {
       this.a = point;
       this.refA = this.refAt(point);
-      this.env.say('Clique no segundo ponto da cota.');
+      this.env.say(this.t('tl_msg_click_second_point'));
       return;
     }
     if (!this.b) {
@@ -207,12 +209,12 @@ export class DimensionTool extends ToolBase {
       const measured = this.measuredPoints();
       this.b = null;
       if (dist(measured.a, measured.b) < DIM_MIN_LENGTH) {
-        this.env.say('Os dois pontos da cota são o mesmo: escolha outro ponto.');
+        this.env.say(this.t('tl_msg_dim_same_point'));
         return;
       }
       this.b = point;
       this.refB = this.refAt(point);
-      this.env.say('Clique do lado da linha de cota, ou digite o deslocamento e Enter.');
+      this.env.say(this.t('tl_msg_click_dim_side'));
       return;
     }
     this.commit(this.snapOffset(this.side(p.raw) * roundMm(this.distanceToLine(p.raw))));
@@ -221,14 +223,14 @@ export class DimensionTool extends ToolBase {
   override type(text: string): boolean {
     if (this.offsetStage) {
       const value = parseQuantityText(text, unitsOf(this.env.project()), 'length');
-      if (value === null || value <= 0) { this.env.say(`Digite o afastamento em ${lengthUnitName(unitsOf(this.env.project()))}, maior que zero.`); return false; }
+      if (value === null || value <= 0) { this.env.say(this.t('tl_msg_type_offset_unit', { unit: lengthUnitName(unitsOf(this.env.project()), this.uiLang()) })); return false; }
       this.commitChain(this.side(this.raw) * value);
       return true;
     }
     if (!this.a || !this.b) return false;
     const v = parseQuantityText(text, unitsOf(this.env.project()), 'length');
     if (v === null || v === 0) {
-      this.env.say(`Digite o deslocamento em ${lengthUnitName(unitsOf(this.env.project()))}, diferente de zero. Com sinal negativo, a cota vai para o lado direito de a→b.`);
+      this.env.say(this.t('tl_msg_type_displacement_unit', { unit: lengthUnitName(unitsOf(this.env.project()), this.uiLang()) }));
       return false;
     }
     // O sinal digitado escolhe o lado (negativo = direito de a→b); sem sinal, vale o lado do cursor.
@@ -324,12 +326,12 @@ export class DimensionTool extends ToolBase {
   }
 
   private commitChain(offset: number): void {
-    if (!Number.isFinite(offset) || Math.abs(offset) < 1e-6) { this.env.say('O afastamento da cota não pode ser zero.'); return; }
+    if (!Number.isFinite(offset) || Math.abs(offset) < 1e-6) { this.env.say(this.t('tl_msg_dim_offset_zero')); return; }
     this.chainOffset = offset;
     const opts = this.env.options();
     const pairs = this.chainPairs();
-    if (!pairs.length) { this.env.say('A sequência não contém segmentos mensuráveis.'); return; }
-    this.env.transaction('Criar sequência de cotas', () => {
+    if (!pairs.length) { this.env.say(this.t('tl_msg_chain_no_segments')); return; }
+    this.env.transaction(this.t('tl_undo_create_dim_chain'), () => {
       for (const d of pairs) {
         const refs = { ...(d.ra ? { a: d.ra } : {}), ...(d.rb ? { b: d.rb } : {}) };
         const dimension: Dimension = { id: newId('dim'), a: d.a, b: d.b, offset: d.offset, mode: d.mode, ...styleOverrides(opts), ...(opts.dimensionPrefix ? { prefix: opts.dimensionPrefix } : {}), ...(opts.dimensionSuffix ? { suffix: opts.dimensionSuffix } : {}), ...(Object.keys(refs).length ? { refs } : {}), ...this.familyPatch() };
@@ -338,7 +340,7 @@ export class DimensionTool extends ToolBase {
     });
     this.env.setOptions?.({ dimensionOffset: offset });
     this.reset();
-    this.env.say(`${pairs.length} cotas criadas na sequência.`);
+    this.env.say(this.t('tl_msg_dim_created', { n: pairs.length }));
   }
 
   /** `familyId` da cota nova, quando há família (a aparência vai da família; sem ela, vale o estilo global). */
@@ -351,7 +353,7 @@ export class DimensionTool extends ToolBase {
     const a = this.a!;
     const b = this.b!;
     if (!Number.isFinite(offset) || Math.abs(offset) < 1e-6) {
-      this.env.say('O deslocamento da cota não pode ser zero.');
+      this.env.say(this.t('tl_msg_dim_offset_zero'));
       return;
     }
     const refs = { ...(this.refA ? { a: this.refA } : {}), ...(this.refB ? { b: this.refB } : {}) };

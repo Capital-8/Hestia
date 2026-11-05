@@ -40,8 +40,9 @@ function paredeDaFeicao(f: AlignFeature): Id | undefined {
 export class AlignTool extends ToolBase {
   readonly id = 'align';
   readonly label = 'Alinhar';
-  readonly hint =
-    'Alinhar: clique na referência e depois no que deseja alinhar. Ctrl+clique acumula vários; Tab alterna a feição sob o cursor; Esc volta um passo.';
+  override get hint(): string {
+    return this.t('tl_hint_align');
+  }
   private ref: AlignFeature | null = null;
   private queue: AlignFeature[] = [];
   private hover: AlignFeature[] = [];
@@ -110,10 +111,10 @@ export class AlignTool extends ToolBase {
 
   private refreshItems(): void {
     const items: PreviewItem[] = [];
-    if (this.ref) items.push(...this.featureItems(this.ref, 'Referência: '));
-    for (const q of this.queue) items.push(...this.featureItems(q, 'Alinhar: ', true));
+    if (this.ref) items.push(...this.featureItems(this.ref, this.t('tl_label_reference')));
+    for (const q of this.queue) items.push(...this.featureItems(q, this.t('tl_label_align'), true));
     const cand = this.current();
-    if (cand) items.push(...this.featureItems(cand, this.ref ? 'Mover: ' : 'Referência: ', true));
+    if (cand) items.push(...this.featureItems(cand, this.ref ? this.t('tl_label_move') : this.t('tl_label_reference'), true));
     this.items = items;
   }
 
@@ -130,7 +131,7 @@ export class AlignTool extends ToolBase {
     }
     this.hoverIndex = (this.hoverIndex + 1) % this.hover.length;
     this.refreshItems();
-    this.env.say(`${this.current()!.label}. ${this.ref ? 'Clique para alinhar; Tab troca a feição.' : 'Clique para usar como referência; Tab troca a feição.'}`);
+    this.env.say(`${this.current()!.label}. ${this.t(this.ref ? 'tl_msg_click_align_tab' : 'tl_msg_click_reference_tab')}`);
   }
 
   /** Texto de recusa/“já alinhado” a partir dos resultados calculados. */
@@ -138,9 +139,9 @@ export class AlignTool extends ToolBase {
     const error = results.find((r): r is Extract<AlignSolution, { kind: 'erro' }> => r.kind === 'erro');
     if (error) return error.mensagem;
     if (results.length > 0 && results.every((r) => r.kind === 'nada')) {
-      return targets.every((t) => t.kind === 'arestaAnel') ? 'Já estão alinhadas.' : 'Já estão alinhados.';
+      return targets.every((t) => t.kind === 'arestaAnel') ? this.t('tl_msg_already_aligned_f') : this.t('tl_msg_already_aligned_m');
     }
-    return 'Nada a alinhar com essa referência.';
+    return this.t('tl_msg_nothing_align');
   }
 
   /** Calcula e aplica os alvos num só passo de desfazer; a referência continua escolhida. */
@@ -150,9 +151,9 @@ export class AlignTool extends ToolBase {
     const refWall = paredeDaFeicao(this.ref);
     // Alinhar a parede de referência a ela mesma não faz sentido: a referência se moveria junto.
     const results: AlignSolution[] = targets.map((t) => {
-      const sol = solveAlign(this.ref!.line, t, pr);
+      const sol = solveAlign(this.ref!.line, t, pr, this.uiLang());
       if (sol.kind === 'transladar' && sol.target === 'parede' && sol.id === refWall) {
-        return { kind: 'erro', mensagem: 'Alinhar não move a própria parede de referência: nada foi alterado.' };
+        return { kind: 'erro', mensagem: this.t('tl_msg_align_self_ref') };
       }
       return sol;
     });
@@ -161,13 +162,13 @@ export class AlignTool extends ToolBase {
       this.env.say(this.refusal(results, targets));
       return;
     }
-    const label = valid.every((r) => r.kind === 'anel') ? 'Alinhar aresta' : 'Alinhar';
+    const label = valid.every((r) => r.kind === 'anel') ? this.t('tl_label_align_edge') : this.t('tl_label_align_do');
     const { applied } = applyAlignMany(this.env, valid, label, { referencia: refWall });
     // Recusas individuais (vizinha curta, anel travado) já foram ditas por `applyAlign`.
     if (!applied) return;
     const ignored = results.filter((r) => r.kind === 'erro').length;
-    const extra = ignored ? ` ${ignored} alvo(s) ignorado(s): ${this.refusal(results, targets)}` : '';
-    this.env.say(`Alinhado. ${extra}Referência: ${this.ref.label}. Clique no próximo (Esc troca a referência).`);
+    const extra = ignored ? this.t('tl_msg_targets_ignored', { n: ignored, msg: this.refusal(results, targets) }) : '';
+    this.env.say(this.t('tl_msg_aligned', { extra, ref: this.ref.label }));
   }
 
   override click(p: PointerInfo): void {
@@ -176,17 +177,17 @@ export class AlignTool extends ToolBase {
     const cand = this.current();
     if (!this.ref) {
       if (!cand) {
-        this.env.say('Clique sobre uma face, eixo, aresta, ombreira, extremidade ou linha do esboço.');
+        this.env.say(this.t('tl_msg_click_align_feature'));
         return;
       }
       this.ref = cand;
       this.queue = [];
       this.refreshItems();
-      this.env.say(`Referência: ${cand.label}. Clique no que deseja alinhar (Tab troca a candidata).`);
+      this.env.say(this.t('tl_msg_align_reference', { ref: cand.label }));
       return;
     }
     if (!cand) {
-      this.env.say('Clique sobre a feição que deseja mover.');
+      this.env.say(this.t('tl_msg_click_move_feature'));
       return;
     }
     if (p.ctrl) {
@@ -196,8 +197,8 @@ export class AlignTool extends ToolBase {
       this.refreshItems();
       this.env.say(
         this.queue.length
-          ? `${this.queue.length} feição(ões) para alinhar. Ctrl+clique soma ou tira; clique sem Ctrl (ou Enter) aplica.`
-          : 'Seleção múltipla vazia. Ctrl+clique numa feição para acumular.',
+          ? this.t('tl_msg_features_to_align', { n: this.queue.length })
+          : this.t('tl_msg_multi_empty'),
       );
       return;
     }
@@ -225,7 +226,7 @@ export class AlignTool extends ToolBase {
     if (this.queue.length) {
       this.queue = [];
       this.refreshItems();
-      this.env.say(`Seleção múltipla cancelada. Referência: ${this.ref?.label ?? 'nenhuma'}. ${this.hint}`);
+      this.env.say(this.t('tl_msg_align_multi_cancel', { ref: this.ref?.label ?? this.t('tl_msg_none'), hint: this.hint }));
       return;
     }
     if (this.ref) {

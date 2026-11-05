@@ -11,6 +11,7 @@ import {
   type Stair,
   type StairType,
 } from '@hestia/model';
+import { t, type Lang } from './i18nMessages.ts';
 import { makeStairIssue, spiralNormIssues, stairNormIssues, type StairIssueItem } from './stairIssues.ts';
 import { DEFAULT_STAIR_NORMS } from './stairNorms.ts';
 import { orderRisers, stairLandingPolygon, stairRunSteps, trimRisers, type StairRunSketch } from './stairSketch.ts';
@@ -107,7 +108,7 @@ function sharesRiser(prev: StairRunSketch, next: StairRunSketch): boolean {
 }
 
 /** Resolve uma escada; null se o tipo não existe (o validador do modelo já aponta `stair-type-missing`). */
-function resolveOne(p: Project, s: Stair): ResolvedStair | null {
+function resolveOne(p: Project, s: Stair, lang: Lang): ResolvedStair | null {
   const type = p.stairTypes[s.typeId];
   if (!type) return null;
   const baseZ = stairBaseZ(p, s);
@@ -124,7 +125,7 @@ function resolveOne(p: Project, s: Stair): ResolvedStair | null {
   const issues: StairIssueItem[] = [];
   const steps: ResolvedStairStep[] = [];
   const risers: ResolvedStairRiser[] = [];
-  if (N === 0) issues.push(makeStairIssue(s.id, 'stair-empty', 'error', 'A escada não tem espelhos.'));
+  if (N === 0) issues.push(makeStairIssue(s.id, 'stair-empty', 'error', t(lang, 'egb_issue_stair_empty')));
   // `next` = nº de linhas de espelho distintas até o último espelho já contado (cota do próximo patamar).
   let next = 0;
   let landingCount = 0;
@@ -136,7 +137,7 @@ function resolveOne(p: Project, s: Stair): ResolvedStair | null {
       if (h <= 0) return;
       const z = baseZ + g0 * h;
       // Erro de croqui: o lance não gera degraus, mas conta nos espelhos e os demais componentes continuam.
-      const res = stairRunSteps(c, { baseZ: z, riserHeight: h });
+      const res = stairRunSteps(c, { baseZ: z, riserHeight: h, lang });
       issues.push(...sketchIssues(s, ci, res.issues));
       for (const t of res.treads) steps.push({ componentIndex: ci, kind: 'tread', index: t.index, polygon: t.polygon, z: t.z });
       for (const r of res.risers) {
@@ -146,7 +147,7 @@ function resolveOne(p: Project, s: Stair): ResolvedStair | null {
     } else {
       // Escada sem altura não gera patamar (ele alimentaria o footprint e o furo derivado).
       if (h <= 0) return;
-      const lp = stairLandingPolygon({ boundary: c.boundary });
+      const lp = stairLandingPolygon({ boundary: c.boundary }, lang);
       issues.push(...sketchIssues(s, ci, lp.issues));
       if (lp.polygon) {
         landingCount++;
@@ -180,35 +181,35 @@ function resolveOne(p: Project, s: Stair): ResolvedStair | null {
     issues,
     ...(sketchBounds ? { sketchBounds } : {}),
   };
-  rs.issues.push(...stairNormIssues(rs, DEFAULT_STAIR_NORMS));
+  rs.issues.push(...stairNormIssues(rs, DEFAULT_STAIR_NORMS, lang));
   const spiralIndex = s.components.findIndex((c) => c.kind === 'run' && spiralParamsOf(c) !== undefined);
   const sp = spiralIndex >= 0 ? spiralParamsOf(s.components[spiralIndex]!) : undefined;
   if (sp) rs.spiral = { componentIndex: spiralIndex, center: sp.center, rInner: sp.rInner, rOuter: sp.rOuter };
   s.components.forEach((c, ci) => {
     if (c.kind !== 'run' || !isSpiralRun(c)) return;
     const sp = spiralParamsOf(c);
-    rs.issues.push(...spiralNormIssues(rs, ci, sp && { sweep: sp.sweep, rInner: sp.rInner, rOuter: sp.rOuter, risers: c.risers.length }, DEFAULT_STAIR_NORMS));
+    rs.issues.push(...spiralNormIssues(rs, ci, sp && { sweep: sp.sweep, rInner: sp.rInner, rOuter: sp.rOuter, risers: c.risers.length }, DEFAULT_STAIR_NORMS, lang));
   });
   return rs;
 }
 
 /** Uma escada resolvida, memorizada por projeto (o projeto é imutável: cada edição cria outro objeto). */
-export function resolveStairOne(p: Project, s: Stair): ResolvedStair | null {
-  return memoDoProjetoMotor(p, `escada|${s.id}`, () => resolveOne(p, s));
+export function resolveStairOne(p: Project, s: Stair, lang: Lang = 'pt'): ResolvedStair | null {
+  return memoDoProjetoMotor(p, `escada|${s.id}|${lang}`, () => resolveOne(p, s, lang));
 }
 
-const resolveList = (p: Project, list: Stair[]): ResolvedStair[] =>
+const resolveList = (p: Project, list: Stair[], lang: Lang): ResolvedStair[] =>
   list.flatMap((s) => {
-    const r = resolveStairOne(p, s);
+    const r = resolveStairOne(p, s, lang);
     return r ? [r] : [];
   });
 
 /** Todas as escadas do projeto, resolvidas (ordem de criação). */
-export function resolveStairs(p: Project): ResolvedStair[] {
-  return resolveList(p, stairs(p));
+export function resolveStairs(p: Project, lang: Lang = 'pt'): ResolvedStair[] {
+  return resolveList(p, stairs(p), lang);
 }
 
 /** Escadas cujo nível (`levelId`) é o dado. */
-export function resolveStairsOnLevel(p: Project, levelId: Id): ResolvedStair[] {
-  return resolveList(p, stairsOnLevel(p, levelId));
+export function resolveStairsOnLevel(p: Project, levelId: Id, lang: Lang = 'pt'): ResolvedStair[] {
+  return resolveList(p, stairsOnLevel(p, levelId), lang);
 }

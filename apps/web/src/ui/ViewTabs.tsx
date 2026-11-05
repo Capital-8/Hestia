@@ -3,12 +3,14 @@ import { useProject } from '../editor/controller.ts';
 import { useUi } from '../editor/state.ts';
 import { activeViewOf, sameView, viewKey } from '../editor/openViews.ts';
 import { activateView, closeTab, dropMissingViews, tabOf } from '../editor/viewTabActions.ts';
+import { useT } from '../editor/i18n.ts';
 import { useNarrow } from './useNarrow.ts';
 import { Icon } from './Icon.tsx';
 
 export function ViewTabs(): ReactElement {
   const p = useProject();
   const s = useUi();
+  const { t } = useT();
   const active = activeViewOf(s);
   const narrow = useNarrow();
 
@@ -106,7 +108,7 @@ export function ViewTabs(): ReactElement {
     return () => ro.disconnect();
   }, [allTabs.length, p.levels, s.openViews]);
 
-  const activeIndex = allTabs.findIndex((t) => t.active);
+  const activeIndex = allTabs.findIndex((tab) => tab.active);
   let visibleTabs = allTabs;
   let overflowTabs: typeof allTabs = [];
 
@@ -125,7 +127,7 @@ export function ViewTabs(): ReactElement {
   }
 
   return (
-    <div className="viewtabs" role="tablist" aria-label="Vistas abertas" ref={containerRef}>
+    <div className="viewtabs" role="tablist" aria-label={t('shc_viewtabs_aria')} ref={containerRef}>
       {/* Elemento oculto para medição de tamanho exato de cada aba */}
       <div
         ref={measureRef}
@@ -141,32 +143,32 @@ export function ViewTabs(): ReactElement {
           whiteSpace: 'nowrap',
         }}
       >
-        {allTabs.map((t) => (
-          <div key={t.key} style={{ display: 'inline-flex', alignItems: 'flex-end' }}>
+        {allTabs.map((tab) => (
+          <div key={tab.key} style={{ display: 'inline-flex', alignItems: 'flex-end' }}>
             <button className="vtab">
-              <Icon name={t.icon} size={14} /> <span className="vtab-label">{t.label}</span>
+              <Icon name={tab.icon} size={14} /> <span className="vtab-label">{tab.label}</span>
             </button>
             <span style={{ width: 20 }} />
           </div>
         ))}
       </div>
 
-      {visibleTabs.map((t) => (
-        <div key={t.key} style={{ display: 'inline-flex', alignItems: 'flex-end' }}>
+      {visibleTabs.map((tab) => (
+        <div key={tab.key} style={{ display: 'inline-flex', alignItems: 'flex-end' }}>
           <button
             role="tab"
-            aria-selected={t.active}
-            className={`vtab${t.active ? ' on' : ''}`}
-            onClick={t.onClick}
+            aria-selected={tab.active}
+            className={`vtab${tab.active ? ' on' : ''}`}
+            onClick={tab.onClick}
           >
-            <Icon name={t.icon} size={14} /> <span className="vtab-label">{t.label}</span>
+            <Icon name={tab.icon} size={14} /> <span className="vtab-label">{tab.label}</span>
           </button>
           <button
             type="button"
             className="ibtn vtab-close"
-            aria-label={`Fechar ${t.label}`}
-            title={`Fechar ${t.label}`}
-            onClick={t.onClose}
+            aria-label={t('shc_viewtabs_close', { name: tab.label })}
+            title={t('shc_viewtabs_close', { name: tab.label })}
+            onClick={tab.onClose}
           >
             ×
           </button>
@@ -176,9 +178,9 @@ export function ViewTabs(): ReactElement {
       {overflowTabs.length > 0 && (
         <div className="vtab-overflow" ref={overflowRef}>
           <button
-            className={`vtab-overflow-btn${overflowTabs.some((t) => t.active) ? ' has-active' : ''}`}
+            className={`vtab-overflow-btn${overflowTabs.some((tab) => tab.active) ? ' has-active' : ''}`}
             onClick={() => setDropdownOpen((v) => !v)}
-            title="Mais vistas"
+            title={t('shc_viewtabs_more')}
             aria-haspopup="menu"
             aria-expanded={dropdownOpen}
           >
@@ -188,26 +190,26 @@ export function ViewTabs(): ReactElement {
 
           {dropdownOpen && (
             <div className="vtab-overflow-menu" role="menu">
-              {overflowTabs.map((t) => (
-                <div key={t.key} style={{ display: 'flex', alignItems: 'center' }}>
+              {overflowTabs.map((tab) => (
+                <div key={tab.key} style={{ display: 'flex', alignItems: 'center' }}>
                   <button
                     role="menuitem"
-                    className={`vtab-overflow-item${t.active ? ' on' : ''}`}
+                    className={`vtab-overflow-item${tab.active ? ' on' : ''}`}
                     style={{ flex: 1 }}
                     onClick={() => {
-                      t.onClick();
+                      tab.onClick();
                       setDropdownOpen(false);
                     }}
                   >
-                    <Icon name={t.icon} size={14} />
-                    <span>{t.label}</span>
+                    <Icon name={tab.icon} size={14} />
+                    <span>{tab.label}</span>
                   </button>
                   <button
                     type="button"
                     className="ibtn vtab-close"
-                    aria-label={`Fechar ${t.label}`}
-                    title={`Fechar ${t.label}`}
-                    onClick={t.onClose}
+                    aria-label={t('shc_viewtabs_close', { name: tab.label })}
+                    title={t('shc_viewtabs_close', { name: tab.label })}
+                    onClick={tab.onClose}
                   >
                     ×
                   </button>
@@ -221,10 +223,10 @@ export function ViewTabs(): ReactElement {
       <span style={{ flex: 1, minWidth: 4 }} />
 
       <div className="vtab-controls" ref={controlsRef}>
-        <button className="ibtn" onClick={() => useUi.setState({ propsOpen: !s.propsOpen, ...(narrow && !s.propsOpen ? { browserOpen: false } : {}) })} title="Mostrar/ocultar propriedades" aria-pressed={s.propsOpen}>
+        <button className="ibtn" onClick={() => useUi.setState({ propsOpen: !s.propsOpen, ...(narrow && !s.propsOpen ? { browserOpen: false } : {}) })} title={t('shc_viewtabs_toggle_props')} aria-pressed={s.propsOpen}>
           <Icon name="edit" size={16} />
         </button>
-        <button className="ibtn" onClick={() => useUi.setState({ browserOpen: !s.browserOpen, ...(narrow && !s.browserOpen ? { propsOpen: false } : {}) })} title="Mostrar/ocultar navegador" aria-pressed={s.browserOpen}>
+        <button className="ibtn" onClick={() => useUi.setState({ browserOpen: !s.browserOpen, ...(narrow && !s.browserOpen ? { propsOpen: false } : {}) })} title={t('shc_viewtabs_toggle_browser')} aria-pressed={s.browserOpen}>
           <Icon name="levels" size={16} />
         </button>
       </div>

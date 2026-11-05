@@ -148,7 +148,7 @@ function setTemp(patch: Partial<TempViewVisibility> | null): void {
 /** Ocultação permanente (Hide in View) dos elementos/categorias na vista ativa. */
 export function hideInView(elements: readonly Id[], categories: readonly GraphicsCategory[] = []): void {
   if (elements.length === 0 && categories.length === 0) {
-    useUi.setState({ status: 'Selecione elementos (ou uma categoria) para ocultar na vista.' });
+    useUi.setState({ status: { key: 'eds_msg_hide_select' } });
     return;
   }
   const st = useUi.getState();
@@ -159,15 +159,15 @@ export function hideInView(elements: readonly Id[], categories: readonly Graphic
     ...(elements.length ? { elements: [...elements] } : {}),
     ...(categories.length ? { categories: [...categories] } : {}),
   });
-  editor.store.exec({ type: 'setViewHidden', target, hidden }, 'Ocultar na vista');
+  editor.store.exec({ type: 'setViewHidden', target, hidden }, 'eds_undo_hide_view');
   redesenhar();
-  useUi.setState({ status: 'Elementos ocultos nesta vista. Ctrl+Z desfaz.' });
+  useUi.setState({ status: { key: 'eds_msg_hidden_done' } });
 }
 
 /** Reexibe elementos/categorias na vista ativa (modo Reveal). */
 export function unhideInView(elements: readonly Id[], categories: readonly GraphicsCategory[] = []): void {
   if (elements.length === 0 && categories.length === 0) {
-    useUi.setState({ status: 'Selecione elementos (ou uma categoria) para reexibir na vista.' });
+    useUi.setState({ status: { key: 'eds_msg_unhide_select' } });
     return;
   }
   const st = useUi.getState();
@@ -178,9 +178,9 @@ export function unhideInView(elements: readonly Id[], categories: readonly Graph
     ...(elements.length ? { elements: [...elements] } : {}),
     ...(categories.length ? { categories: [...categories] } : {}),
   });
-  editor.store.exec({ type: 'setViewHidden', target, hidden }, 'Reexibir na vista');
+  editor.store.exec({ type: 'setViewHidden', target, hidden }, 'eds_undo_unhide_view');
   redesenhar();
-  useUi.setState({ status: 'Elementos reexibidos nesta vista. Ctrl+Z desfaz.' });
+  useUi.setState({ status: { key: 'eds_msg_unhidden_done' } });
 }
 
 /** Limpa toda a ocultação permanente da vista ativa. */
@@ -188,15 +188,15 @@ export function clearViewHidden(): void {
   const st = useUi.getState();
   const target = viewHiddenTargetOf(st);
   if (!target || !permanentHiddenOf(editor.project, target)) return;
-  editor.store.exec({ type: 'setViewHidden', target, hidden: undefined }, 'Reexibir tudo na vista');
+  editor.store.exec({ type: 'setViewHidden', target, hidden: undefined }, 'eds_undo_unhide_all_view');
   redesenhar();
-  useUi.setState({ status: 'Tudo reexibido nesta vista. Ctrl+Z desfaz.' });
+  useUi.setState({ status: { key: 'eds_msg_unhide_all_done' } });
 }
 
 /** Hide temporário (HH): some até HR, sem gravar no projeto. */
 export function temporaryHide(elements: readonly Id[], categories: readonly GraphicsCategory[] = []): void {
   if (elements.length === 0 && categories.length === 0) {
-    useUi.setState({ status: 'Selecione elementos para ocultar temporariamente (HH).' });
+    useUi.setState({ status: { key: 'eds_msg_temp_hide_select' } });
     return;
   }
   const st = useUi.getState();
@@ -207,13 +207,13 @@ export function temporaryHide(elements: readonly Id[], categories: readonly Grap
     ...(elements.length ? { elements: [...elements] } : {}),
     ...(categories.length ? { categories: [...categories] } : {}),
   }), isolated: undefined });
-  useUi.setState({ status: 'Oculto temporariamente nesta vista. HR restaura.' });
+  useUi.setState({ status: { key: 'eds_msg_temp_hidden' } });
 }
 
 /** Isolate temporário (HI/IC): só a seleção/categoria fica visível até HR. */
 export function temporaryIsolate(elements: readonly Id[], categories: readonly GraphicsCategory[] = []): void {
   if (elements.length === 0 && categories.length === 0) {
-    useUi.setState({ status: 'Selecione elementos para isolar temporariamente (HI).' });
+    useUi.setState({ status: { key: 'eds_msg_temp_isolate_select' } });
     return;
   }
   const st = useUi.getState();
@@ -223,7 +223,7 @@ export function temporaryIsolate(elements: readonly Id[], categories: readonly G
     ...(elements.length ? { elements: [...elements] } : {}),
     ...(categories.length ? { categories: [...categories] } : {}),
   }, hidden: undefined });
-  useUi.setState({ status: 'Isolado temporariamente nesta vista. HR restaura.' });
+  useUi.setState({ status: { key: 'eds_msg_temp_isolated' } });
 }
 
 /** Reexibe tudo da vista: ocultação permanente e temporária (não mexe no modo Reveal). */
@@ -231,16 +231,16 @@ export function unhideAllInView(): void {
   const st = useUi.getState();
   const target = viewHiddenTargetOf(st);
   if (target && permanentHiddenOf(editor.project, target)) {
-    editor.store.exec({ type: 'setViewHidden', target, hidden: undefined }, 'Reexibir tudo na vista');
+    editor.store.exec({ type: 'setViewHidden', target, hidden: undefined }, 'eds_undo_unhide_all_view');
   }
   setTemp({ hidden: undefined, isolated: undefined });
-  useUi.setState({ status: 'Tudo reexibido nesta vista. Ctrl+Z desfaz a ocultação permanente.' });
+  useUi.setState({ status: { key: 'eds_msg_unhide_all_reveal' } });
 }
 
 /** Reset do hide/isolate temporário (HR). */
 export function resetTemporaryHidden(): void {
   setTemp({ hidden: undefined, isolated: undefined });
-  useUi.setState({ status: 'Hide/isolate temporário restaurado.' });
+  useUi.setState({ status: { key: 'eds_msg_temp_reset' } });
 }
 
 /** Liga/desliga o modo Reveal da vista ativa (RH). */
@@ -250,7 +250,7 @@ export function toggleRevealHidden(): void {
   if (!key) return;
   const atual = st.viewTemp[key]?.reveal === true;
   setTemp({ reveal: !atual });
-  useUi.setState({ status: !atual ? 'Revelar elementos ocultos ativo. Bordas azuis.' : 'Revelar elementos ocultos desligado.' });
+  useUi.setState({ status: !atual ? { key: 'eds_msg_reveal_on' } : { key: 'eds_msg_reveal_off' } });
 }
 
 /** Limpa o temporário ao trocar/abrir projeto. */
@@ -283,7 +283,7 @@ export function hideSelectionInView(): void {
 export function hideSelectedCategoryInView(): void {
   const cats = selectedCategories(editor.project);
   if (cats.length !== 1) {
-    useUi.setState({ status: 'Selecione elementos de uma só categoria para ocultar a categoria.' });
+    useUi.setState({ status: { key: 'eds_msg_hide_category_select' } });
     return;
   }
   hideInView([], cats);
@@ -298,7 +298,7 @@ export function unhideSelectionInView(): void {
 export function unhideSelectedCategoryInView(): void {
   const cats = selectedCategories(editor.project);
   if (cats.length !== 1) {
-    useUi.setState({ status: 'Selecione elementos de uma só categoria para reexibir a categoria.' });
+    useUi.setState({ status: { key: 'eds_msg_unhide_category_select' } });
     return;
   }
   unhideInView([], cats);
@@ -318,7 +318,7 @@ export function temporaryIsolateSelection(): void {
 export function temporarySelectedCategory(only: boolean): void {
   const cats = selectedCategories(editor.project);
   if (cats.length !== 1) {
-    useUi.setState({ status: 'Selecione elementos de uma só categoria.' });
+    useUi.setState({ status: { key: 'eds_msg_category_select' } });
     return;
   }
   if (only) temporaryIsolate([], cats);

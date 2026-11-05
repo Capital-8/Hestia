@@ -1,6 +1,7 @@
 import type { Project, Sheet, SheetViewport, SheetViewSource } from '@hestia/model';
 import { sectionTitleOf, sheetInnerBox, areaPlanOf, view3DPointOf, viewportFrameVisible, viewportLabel } from '@hestia/model';
 import { emptyParts, type ViewportParts } from './types.ts';
+import { t as translate, type Lang } from '../i18n.ts';
 
 /** Altura das linhas do carimbo e largura da caixa (mm de papel). */
 export const STAMP_W = 120;
@@ -28,27 +29,28 @@ const rectPts = (x0: number, y0: number, x1: number, y1: number) => [
 ];
 
 /** Nome da vista na legenda: nível, corte ou o ponto de vista 3D. Vista sem origem válida fica "Vista inexistente". */
-export function captionOf(p: Project, view: SheetViewSource, vp: SheetViewport): string {
-  const base = vp.title?.trim() ? vp.title.trim() : sourceName(p, view);
+export function captionOf(p: Project, view: SheetViewSource, vp: SheetViewport, lang: Lang = 'pt'): string {
+  const base = vp.title?.trim() ? vp.title.trim() : sourceName(p, view, lang);
   // Vista 3D não tem escala de desenho (a câmera define o enquadramento): o Revit imprime "NTS".
-  return view.kind === '3d' ? `${base} · Sem escala` : `${base} · 1:${vp.scale}`;
+  return view.kind === '3d' ? `${base} · ${translate(lang, 'rn_sheet_no_scale')}` : `${base} · 1:${vp.scale}`;
 }
 
-function sourceName(p: Project, view: SheetViewSource): string {
-  if (view.kind === 'plan') return p.levels.find((l) => l.id === view.levelId)?.name ?? 'Vista inexistente';
-  if (view.kind === 'areaPlan') return areaPlanOf(p, view.planId)?.name ?? 'Vista inexistente';
-  if (view.kind === 'areaTable') return 'Quadro geral de áreas';
+function sourceName(p: Project, view: SheetViewSource, lang: Lang): string {
+  const missing = translate(lang, 'rn_sheet_view_missing');
+  if (view.kind === 'plan') return p.levels.find((l) => l.id === view.levelId)?.name ?? missing;
+  if (view.kind === 'areaPlan') return areaPlanOf(p, view.planId)?.name ?? missing;
+  if (view.kind === 'areaTable') return translate(lang, 'rn_sheet_area_table');
   if (view.kind === 'section') {
     const found = p.views.find((v) => v.id === view.sectionId);
-    return found ? sectionTitleOf(found) : 'Vista inexistente';
+    return found ? sectionTitleOf(found) : missing;
   }
   return (view.pointId ? view3DPointOf(p, view.pointId)?.name : undefined) ?? '3D';
 }
 
 /** Escalas usadas na prancha, sem repetição, em ordem: "1:50 · 1:100". Só vistas com escala (o 3D não entra). */
-function scalesLine(s: Sheet): string {
+function scalesLine(s: Sheet, lang: Lang): string {
   const set = [...new Set(s.viewports.filter((v) => v.view.kind !== '3d').map((v) => v.scale))];
-  return set.length ? set.map((k) => `1:${k}`).join(' · ') : 'Sem escala';
+  return set.length ? set.map((k) => `1:${k}`).join(' · ') : translate(lang, 'rn_sheet_no_scale');
 }
 
 /** Altura total do carimbo, já contando a tabela de revisões (uma linha por revisão, acima do bloco). */
@@ -72,7 +74,7 @@ function scaleBarParts(out: ViewportParts, x0: number, yBase: number): void {
  * Moldura, legenda de cada vista e carimbo, em mm de papel. Fica por cima das vistas (o carimbo tem fundo branco e
  * cobre o que estiver sob ele).
  */
-export function furnitureParts(p: Project, s: Sheet): ViewportParts {
+export function furnitureParts(p: Project, s: Sheet, lang: Lang = 'pt'): ViewportParts {
   const out = emptyParts();
   const box = sheetInnerBox(s);
   out.paths.push({ pts: rectPts(box.x0, box.y0, box.x1, box.y1), closed: true, widthMm: FRAME_MM, color: paperInk });
@@ -83,7 +85,7 @@ export function furnitureParts(p: Project, s: Sheet): ViewportParts {
     }
     const label = viewportLabel(v);
     if (!label.show) continue;
-    const caption = captionOf(p, v.view, v);
+    const caption = captionOf(p, v.view, v, lang);
     const yBase = v.at.y - 3.5;
     out.texts.push({ at: { x: v.at.x, y: yBase }, text: caption, sizeMm: label.sizeMm, rotation: 0, center: false, color: paperInk });
     if (label.rule) {
@@ -105,22 +107,22 @@ export function furnitureParts(p: Project, s: Sheet): ViewportParts {
     const y = stampTop - STAMP_HEAD - (i - 1) * STAMP_ROW;
     out.paths.push({ pts: [{ x: x0, y }, { x: box.x1, y }], closed: false, widthMm: LINE_MM, color: paperInk });
   }
-  const text = (x: number, y: number, t: string, size = 2.5) => out.texts.push({ at: { x, y }, text: t, sizeMm: size, rotation: 0, center: false, color: paperInk });
+  const text = (x: number, y: number, value: string, size = 2.5) => out.texts.push({ at: { x, y }, text: value, sizeMm: size, rotation: 0, center: false, color: paperInk });
   // Disciplina entra no cabeçalho, ao lado do número e do nome da prancha.
   const head = s.discipline?.trim() ? `${s.number}  ${s.name}  ·  ${s.discipline.trim()}` : `${s.number}  ${s.name}`;
   text(x0 + 3, stampTop - 8, head, 4.5);
   const row = (i: number) => stampTop - STAMP_HEAD - (i - 1) * STAMP_ROW - 5;
-  text(x0 + 3, row(1), `Projeto: ${tb.project}`);
-  text(x0 + 3, row(2), `Cliente: ${tb.client}`);
-  text(x0 + 3, row(3), `Autor: ${tb.author}`);
-  text(x0 + 62, row(3), `Data: ${tb.date}`);
-  text(x0 + 3, row(4), `Revisão: ${tb.revision}`);
-  text(x0 + 62, row(4), `Escala: ${tb.scaleNote?.trim() ? tb.scaleNote : scalesLine(s)}`);
+  text(x0 + 3, row(1), translate(lang, 'rn_sheet_tb_project', { value: tb.project }));
+  text(x0 + 3, row(2), translate(lang, 'rn_sheet_tb_client', { value: tb.client }));
+  text(x0 + 3, row(3), translate(lang, 'rn_sheet_tb_author', { value: tb.author }));
+  text(x0 + 62, row(3), translate(lang, 'rn_sheet_tb_date', { value: tb.date }));
+  text(x0 + 3, row(4), translate(lang, 'rn_sheet_tb_revision', { value: tb.revision }));
+  text(x0 + 62, row(4), translate(lang, 'rn_sheet_tb_scale', { value: tb.scaleNote?.trim() ? tb.scaleNote : scalesLine(s, lang) }));
   // Tabela de revisões ACIMA do carimbo: uma linha por revisão, com separador sob cada uma.
   const revisions = s.revisions ?? [];
   revisions.forEach((r, i) => {
     const bottom = top - (i + 1) * STAMP_ROW;
-    text(x0 + 3, bottom + 3, `Rev. ${r.tag}`, 2.2);
+    text(x0 + 3, bottom + 3, translate(lang, 'rn_sheet_tb_rev', { tag: r.tag }), 2.2);
     text(x0 + 22, bottom + 3, r.date, 2.2);
     text(x0 + 48, bottom + 3, r.description, 2.2);
     out.paths.push({ pts: [{ x: x0, y: bottom }, { x: box.x1, y: bottom }], closed: false, widthMm: LINE_MM, color: paperInk });

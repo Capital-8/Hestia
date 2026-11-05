@@ -7,7 +7,9 @@ import { ToolBase } from './base.ts';
 export class FloorTool extends ToolBase {
   readonly id = 'floor';
   readonly label = 'Piso';
-  readonly hint = 'Piso: crie o contorno pelo modo Criar/Editar perímetro.';
+  override get hint(): string {
+    return this.t('tl_hint_floor');
+  }
 
   protected reset(): void {
     // Sem estado próprio: nada a limpar.

@@ -1,5 +1,6 @@
 import { resolveRooms } from '@hestia/engine';
 import { levelRoomSeparators, isWall, ProjectStore, type Command, type Id, type Project } from '@hestia/model';
+import { fmtNum, t, useI18n, type Lang } from './i18n.ts';
 
 /** Resumo de um ambiente para o aviso de fusão de áreas. */
 export interface AreaMergeRoom {
@@ -25,8 +26,8 @@ const roomSummary = (room: { roomId: Id; name: string; number: string; area: num
   area: room.area,
 });
 
-const labelOf = (r: AreaMergeRoom): string => `${r.number ? `${r.number} — ` : ''}${r.name || 'Ambiente'}`;
-const areaText = (a: number): string => `${a.toFixed(2).replace('.', ',')} m²`; // units-ok: rótulo de área do diálogo de fusão
+const labelOf = (r: AreaMergeRoom, lang: Lang): string => `${r.number ? `${r.number} — ` : ''}${r.name || t(lang, 'edc_area_room_fallback')}`;
+const areaText = (a: number, lang: Lang): string => t(lang, 'edc_area_m2', { area: fmtNum(a, 2, lang) });
 
 /**
  * Previsão pura da regra de áreas: simula as remoções num projeto clonado, resolve os ambientes e, se uma parede ou
@@ -38,6 +39,7 @@ export function areaMergePreview(
   levelId: Id,
   commands: readonly Command[],
   removingCircuit: boolean,
+  lang: Lang = useI18n.getState().lang,
 ): AreaMergePreview | null {
   if (!removingCircuit) return null;
   const before = new Map(resolveRooms(project, levelId).map((r) => [r.roomId, r] as const));
@@ -73,10 +75,10 @@ export function areaMergePreview(
   }
   if (keep.length === 0 || remove.length === 0) return null;
   const message = [
-    'Ao remover esta parede/separador, os ambientes abaixo vão se fundir:',
-    ...keep.map((r) => `• Fica: ${labelOf(r)} (${areaText(r.area)}).`),
-    ...remove.map((r) => `• Sai: ${labelOf(r)} (${areaText(r.area)}).`),
-    `A área final do circuito será ${areaText(mergedArea)}. Confirmar a expansão e apagar o(s) ambiente(s) menor(es)?`,
+    t(lang, 'edc_area_merge_intro'),
+    ...keep.map((r) => t(lang, 'edc_area_merge_keep', { room: labelOf(r, lang), area: areaText(r.area, lang) })),
+    ...remove.map((r) => t(lang, 'edc_area_merge_remove', { room: labelOf(r, lang), area: areaText(r.area, lang) })),
+    t(lang, 'edc_area_merge_confirm', { area: areaText(mergedArea, lang) }),
   ].join('\n');
   return { keep, remove, mergedArea, message };
 }

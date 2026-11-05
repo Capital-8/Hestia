@@ -1,5 +1,6 @@
 import { buildPdf, num } from './pdfWriter.ts';
 import { pdfString, textWidthMm } from './helvetica.ts';
+import type { Lang } from '../i18n.ts';
 import type { PdfFill, PdfGroup, PdfPath, PdfPoint, PdfSheet, PdfText } from './types.ts';
 
 /** Milímetros para pontos tipográficos (1 pt = 25,4 / 72 mm). */
@@ -59,11 +60,11 @@ function groupOps(g: PdfGroup): string {
  * PDF vetorial com uma página por prancha (decisão 0022). Tamanho da página = folha em pontos; traços em pt
  * (mm × 72/25,4); textos em Helvetica; cada grupo com recorte fica dentro da caixa da vista.
  */
-export function exportSheetsPdf(sheets: PdfSheet[], title = 'Hestia'): Uint8Array {
+export function exportSheetsPdf(sheets: PdfSheet[], title = 'Hestia', lang: Lang = 'pt'): Uint8Array {
   const pages = sheets.map((s) => ({
     widthPt: s.widthMm * PT_PER_MM,
     heightPt: s.heightMm * PT_PER_MM,
     content: s.groups.map(groupOps).join('\n'),
   }));
-  return buildPdf(pages, title);
+  return buildPdf(pages, title, lang);
 }

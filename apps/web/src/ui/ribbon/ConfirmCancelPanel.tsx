@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
-import type { Lang } from '../../editor/i18n.ts';
+import { t, type Lang } from '../../editor/i18n.ts';
 import type { PastePreviewState } from '../../editor/pasteLevels/types.ts';
 
 /** Ícone 32×32 no estilo da faixa: as cores vêm de `--revit-green` e `--danger`, como no modo de perímetro. */
@@ -28,46 +28,45 @@ export interface ConfirmCancelPanelProps {
  * perímetro) e a Prévia (só informação: níveis de destino e total de cópias, sem interação).
  */
 export function ConfirmCancelPanel({ preview, levelNames, onConfirm, onCancel, lang }: ConfirmCancelPanelProps): ReactElement {
-  const pt = lang === 'pt';
   const niveis = levelNames.length ? levelNames.join(', ') : '—';
   return (
     <>
-      <div className="rb-panel" role="group" aria-label={pt ? 'Modo' : 'Mode'}>
+      <div className="rb-panel" role="group" aria-label={t(lang, 'shr_mode')}>
         <div className="rb-cols">
           <button
             className="rb-btn rb-large"
-            title={pt ? 'Colar nos níveis selecionados (um passo de desfazer)' : 'Paste to the selected levels (one undo step)'}
-            aria-label={pt ? 'Colar' : 'Paste'}
+            title={t(lang, 'shr_paste_levels_tip')}
+            aria-label={t(lang, 'tool_paste')}
             onClick={onConfirm}
           >
             <Ic>
               <path d="M5 17L12.5 24.5L27 7" fill="none" style={{ stroke: 'var(--revit-green)' }} strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round" />
             </Ic>
-            <span className="rb-lbl">{pt ? 'Colar' : 'Paste'}</span>
+            <span className="rb-lbl">{t(lang, 'tool_paste')}</span>
           </button>
           <button
             className="rb-btn rb-large"
-            title={pt ? 'Cancelar (volta à vista, sem alterar o modelo)' : 'Cancel (return to the view without changing the model)'}
-            aria-label={pt ? 'Cancelar' : 'Cancel'}
+            title={t(lang, 'shr_cancel_tip')}
+            aria-label={t(lang, 'shr_cancel')}
             onClick={onCancel}
           >
             <Ic>
               <path d="M7 7L25 25M25 7L7 25" fill="none" style={{ stroke: 'var(--danger)' }} strokeWidth={3.2} strokeLinecap="round" />
             </Ic>
-            <span className="rb-lbl">{pt ? 'Cancelar' : 'Cancel'}</span>
+            <span className="rb-lbl">{t(lang, 'shr_cancel')}</span>
           </button>
         </div>
-        <div className="rb-title">{pt ? 'Modo' : 'Mode'}</div>
+        <div className="rb-title">{t(lang, 'shr_mode')}</div>
       </div>
 
-      <div className="rb-panel" role="group" aria-label={pt ? 'Prévia' : 'Preview'}>
+      <div className="rb-panel" role="group" aria-label={t(lang, 'shr_preview')}>
         <div className="rb-cols">
           <div className="rb-stack" style={{ justifyContent: 'center', alignItems: 'flex-start', padding: '0 8px', fontSize: '11px', lineHeight: 1.3, whiteSpace: 'nowrap' }}>
-            <span>{pt ? 'Níveis de destino' : 'Target levels'}: {niveis}</span>
-            <span>{pt ? 'Total de cópias' : 'Total copies'}: {preview.count}</span>
+            <span>{t(lang, 'shr_target_levels')}: {niveis}</span>
+            <span>{t(lang, 'shr_total_copies')}: {preview.count}</span>
           </div>
         </div>
-        <div className="rb-title">{pt ? 'Prévia' : 'Preview'}</div>
+        <div className="rb-title">{t(lang, 'shr_preview')}</div>
       </div>
     </>
   );

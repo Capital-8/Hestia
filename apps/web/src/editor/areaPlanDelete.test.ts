@@ -3,6 +3,7 @@ import type { Vec2 } from '@hestia/geom';
 import { areaPlanOf, createEmptyProject, levelRoomSeparators, makeRoom, makeWall, ProjectStore } from '@hestia/model';
 import { createAreaPlanAction } from './areaPlanActions.ts';
 import { deleteSelectionIn } from './deleteIds.ts';
+import { resolveText } from './i18n.ts';
 import { useUi } from './state.ts';
 
 const ring = (pts: Array<[number, number]>): Vec2[] => pts.map(([x, y]) => ({ x, y }));
@@ -52,7 +53,7 @@ describe('excluir na planta de área', () => {
     useUi.setState({ selection: ['w0'] });
     await deleteSelectionIn(s);
     expect(s.project.elements.w0).toBeDefined();
-    expect(useUi.getState().status).toContain('paredes');
+    expect(resolveText(useUi.getState().status, 'pt')).toContain('paredes');
   });
 
   it('apaga anotação da vista junto com ambiente, sem tocar no nível', async () => {

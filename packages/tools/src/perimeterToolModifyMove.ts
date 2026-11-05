@@ -6,6 +6,7 @@ import type { PerimeterModifyKind } from './perimeterModifyKind.ts';
 import { moveSegs, removeSegs } from './perimeterSession.ts';
 import { alongTo, clearData, dashedLine, fmt, ghost, halo, segById, type ModHost, type Step } from './perimeterToolModifyStep.ts';
 import type { PointerInfo, PreviewItem } from './types.ts';
+import { t as translate, type Lang } from './i18n.ts';
 
 /** Comandos com a opção Tab de copiar ou mover (ou copiar, no espelho e na rotação). */
 const COPY_KINDS: ReadonlySet<PerimeterModifyKind> = new Set(['offset', 'rotate', 'mirror']);
@@ -15,37 +16,50 @@ const refuse = (h: ModHost, msg: string): false => {
   return false;
 };
 
-/** Rótulo da entrada numérica do estágio, ou null se o estágio não pede número. */
-export function transformPrompt(kind: PerimeterModifyKind, st: Step): string | null {
-  if (kind === 'offset') return st.stage === 1 ? 'Distância (ou clique do lado)' : null;
-  if (kind === 'rotate') return st.stage === 2 ? 'Ângulo (graus)' : null;
-  if (kind === 'array') return st.stage === 2 ? 'Comprimento' : st.stage === 3 ? 'Quantidade' : null;
-  if (kind === 'move' || kind === 'copy') return st.stage === 2 ? 'Comprimento' : null;
+const lg = (h: ModHost): Lang => h.lang?.() ?? 'pt';
+
+/** Tipo de entrada numérica do estágio, ou null se o estágio não pede número. */
+export function transformPromptKind(kind: PerimeterModifyKind, st: Step): 'offset' | 'angle' | 'length' | 'count' | null {
+  if (kind === 'offset') return st.stage === 1 ? 'offset' : null;
+  if (kind === 'rotate') return st.stage === 2 ? 'angle' : null;
+  if (kind === 'array') return st.stage === 2 ? 'length' : st.stage === 3 ? 'count' : null;
+  if (kind === 'move' || kind === 'copy') return st.stage === 2 ? 'length' : null;
   return null;
 }
 
+/** Rótulo da entrada numérica do estágio, ou null se o estágio não pede número. */
+export function transformPrompt(kind: PerimeterModifyKind, st: Step, lang: Lang = 'pt'): string | null {
+  switch (transformPromptKind(kind, st)) {
+    case 'offset': return translate(lang, 'tl_inp_offset_click');
+    case 'angle': return translate(lang, 'tl_inp_angle_deg');
+    case 'length': return translate(lang, 'tl_inp_length');
+    case 'count': return translate(lang, 'tl_inp_count');
+    default: return null;
+  }
+}
+
 /** Dica do estágio atual, com o modo de Tab (copiar ou mover) quando o comando tem a opção. */
-export function transformHint(kind: PerimeterModifyKind, st: Step, u: ResolvedUnits): string {
-  const mode = st.copy ? 'copiar' : 'mover';
+export function transformHint(kind: PerimeterModifyKind, st: Step, u: ResolvedUnits, lang: Lang = 'pt'): string {
+  const mode = translate(lang, st.copy ? 'tl_mode_copy' : 'tl_mode_move');
   switch (kind) {
     case 'offset':
       return st.num === null
-        ? `Deslocar: digite a distância, ou clique do lado (a distância é a do clique). Tab: ${mode}.`
-        : `Distância ${fmt(u, st.num)} m: clique do lado. Tab: ${mode}.`;
+        ? translate(lang, 'tl_hint_mv_offset', { mode })
+        : translate(lang, 'tl_hint_mv_offset_num', { d: fmt(u, st.num), mode });
     case 'move':
-      return st.stage === 1 ? 'Mover: clique no ponto de base.' : 'Mover: clique no destino, ou digite a distância.';
+      return st.stage === 1 ? translate(lang, 'tl_hint_mv_move_base') : translate(lang, 'tl_hint_mv_move_dest');
     case 'copy':
-      return st.stage === 1 ? 'Copiar: clique no ponto de base.' : 'Copiar: clique no destino (Ctrl repete), ou digite a distância.';
+      return st.stage === 1 ? translate(lang, 'tl_hint_mv_copy_base') : translate(lang, 'tl_hint_mv_copy_dest');
     case 'rotate':
       return st.stage === 1
-        ? `Rotacionar: clique no centro. Tab: ${mode}.`
-        : `Rotacionar: clique para o ângulo (a referência segue o cursor), ou digite graus. Tab: ${mode}.`;
+        ? translate(lang, 'tl_hint_mv_rot_center', { mode })
+        : translate(lang, 'tl_hint_mv_rot_angle', { mode });
     case 'mirror':
-      return st.stage === 1 ? `Espelhar: clique no primeiro ponto do eixo. Tab: ${mode}.` : 'Espelhar: clique no segundo ponto do eixo.';
+      return st.stage === 1 ? translate(lang, 'tl_hint_mv_mirror_first', { mode }) : translate(lang, 'tl_hint_mv_mirror_second');
     case 'array':
-      if (st.stage === 1) return 'Matriz: clique no ponto de base.';
-      if (st.stage === 2) return 'Matriz: clique no passo, ou digite a distância.';
-      return 'Matriz: digite a quantidade de itens (Enter usa o padrão).';
+      if (st.stage === 1) return translate(lang, 'tl_hint_mv_array_base');
+      if (st.stage === 2) return translate(lang, 'tl_hint_mv_array_step');
+      return translate(lang, 'tl_hint_mv_array_count');
     default:
       return '';
   }
@@ -70,12 +84,12 @@ function offsetAt(h: ModHost, st: Step, at: Vec2): void {
   const d = h.draft();
   const ids = d.selected;
   const dist = st.num ?? nearestDist(d, ids, at);
-  if (!(dist > MOD_TOL)) return h.say('Clique do lado, fora das linhas.');
+  if (!(dist > MOD_TOL)) return h.say(translate(lg(h), 'tl_msg_click_side_outside'));
   const next = offsetNext(d, ids, dist, at);
-  if (!next) return h.say('Não dá para deslocar: uma linha ficaria degenerada, ou um canto não existe.');
+  if (!next) return h.say(translate(lg(h), 'tl_msg_offset_fail'));
   h.commit(st.copy ? next : removeSegs(next, ids));
   st.num = null;
-  h.say(`Deslocada ${fmt(unitsOf(h.project?.()), dist)} m. Clique do lado para outra cópia, ou digite a distância.`);
+  h.say(translate(lg(h), 'tl_msg_offset_done', { d: fmt(unitsOf(h.project?.()), dist) }));
 }
 
 /** Ângulo (radianos) de girar até a referência (ponta a da primeira linha) passar pelo cursor, em torno de `c`. */
@@ -90,10 +104,10 @@ function rotAngle(d: SketchDraft, c: Vec2, at: Vec2): number | null {
 function applyRotate(h: ModHost, st: Step, ang: number): boolean {
   const d = h.draft();
   const next = rotateSegs(d, d.selected, st.pts[0]!, ang, st.copy);
-  if (!next) return refuse(h, 'Ângulo zero: nada a girar.');
+  if (!next) return refuse(h, translate(lg(h), 'tl_msg_angle_zero'));
   h.commit(next);
   clearData('rotate', st);
-  h.say(`Girada. ${transformHint('rotate', st, unitsOf(h.project?.()))}`);
+  h.say(translate(lg(h), 'tl_msg_rotated', { hint: transformHint('rotate', st, unitsOf(h.project?.()), lg(h)) }));
   return true;
 }
 
@@ -101,10 +115,10 @@ function rotateClick(h: ModHost, st: Step, at: Vec2): void {
   if (st.stage === 1) {
     st.pts = [at];
     st.stage = 2;
-    return h.say(transformHint('rotate', st, unitsOf(h.project?.())));
+    return h.say(transformHint('rotate', st, unitsOf(h.project?.()), lg(h)));
   }
   const ang = rotAngle(h.draft(), st.pts[0]!, at);
-  if (ang === null) return h.say('A referência está no centro: digite o ângulo em graus.');
+  if (ang === null) return h.say(translate(lg(h), 'tl_msg_ref_at_center'));
   applyRotate(h, st, ang);
 }
 
@@ -112,14 +126,14 @@ function mirrorClick(h: ModHost, st: Step, at: Vec2): void {
   if (st.stage === 1) {
     st.pts = [at];
     st.stage = 2;
-    return h.say(transformHint('mirror', st, unitsOf(h.project?.())));
+    return h.say(transformHint('mirror', st, unitsOf(h.project?.()), lg(h)));
   }
   const d = h.draft();
   const next = mirrorSegs(d, d.selected, st.pts[0]!, at, st.copy);
-  if (!next) return h.say('Eixo de tamanho zero: clique noutro ponto.');
+  if (!next) return h.say(translate(lg(h), 'tl_msg_axis_zero'));
   h.commit(next);
   clearData('mirror', st);
-  h.say(`Espelhada. ${transformHint('mirror', st, unitsOf(h.project?.()))}`);
+  h.say(translate(lg(h), 'tl_msg_mirrored', { hint: transformHint('mirror', st, unitsOf(h.project?.()), lg(h)) }));
 }
 
 /**
@@ -130,27 +144,27 @@ function destAt(h: ModHost, kind: PerimeterModifyKind, st: Step, dest: Vec2, ctr
   if (kind === 'array') {
     st.pts = [base, dest];
     st.stage = 3;
-    h.say(transformHint(kind, st, unitsOf(h.project?.())));
+    h.say(transformHint(kind, st, unitsOf(h.project?.()), lg(h)));
     return true;
   }
   const delta = sub(dest, base);
-  if (len(delta) <= MOD_TOL) return refuse(h, 'Destino igual à base: clique noutro ponto.');
+  if (len(delta) <= MOD_TOL) return refuse(h, translate(lg(h), 'tl_msg_dest_equals_base'));
   const d = h.draft();
   if (kind === 'move') {
     h.commit(moveSegs(d, d.selected, delta));
     clearData(kind, st);
-    h.say(`Movida. ${transformHint(kind, st, unitsOf(h.project?.()))}`);
+    h.say(translate(lg(h), 'tl_msg_moved', { hint: transformHint(kind, st, unitsOf(h.project?.()), lg(h)) }));
     return true;
   }
   const next = copySegs(d, d.selected, delta);
-  if (!next) return refuse(h, 'Destino igual à base: clique noutro ponto.');
+  if (!next) return refuse(h, translate(lg(h), 'tl_msg_dest_equals_base'));
   h.commit(next);
   if (ctrl) {
-    h.say('Cópia feita. Clique no próximo destino (Esc encerra a repetição).');
+    h.say(translate(lg(h), 'tl_msg_copy_made'));
     return true;
   }
   clearData(kind, st);
-  h.say(`Copiada. ${transformHint(kind, st, unitsOf(h.project?.()))}`);
+  h.say(translate(lg(h), 'tl_msg_copied', { hint: transformHint(kind, st, unitsOf(h.project?.()), lg(h)) }));
   return true;
 }
 
@@ -163,13 +177,13 @@ export function transformDelta(h: ModHost, kind: PerimeterModifyKind, st: Step, 
 
 /** Matriz: quantidade de itens (inclui o original). Devolve false se a quantidade ou o passo não servem. */
 function arrayCount(h: ModHost, st: Step, count: number): boolean {
-  if (!Number.isInteger(count) || count < 2) return refuse(h, 'Quantidade: um inteiro de 2 para cima.');
+  if (!Number.isInteger(count) || count < 2) return refuse(h, translate(lg(h), 'tl_msg_count_int'));
   const d = h.draft();
   const next = arraySegs(d, d.selected, sub(st.pts[1]!, st.pts[0]!), count);
-  if (!next) return refuse(h, 'Passo zero: escolha outro destino.');
+  if (!next) return refuse(h, translate(lg(h), 'tl_msg_step_zero'));
   h.commit(next);
   clearData('array', st);
-  h.say(`Matriz de ${count} itens. ${transformHint('array', st, unitsOf(h.project?.()))}`);
+  h.say(translate(lg(h), 'tl_msg_array_done', { n: count, hint: transformHint('array', st, unitsOf(h.project?.()), lg(h)) }));
   return true;
 }
 
@@ -181,13 +195,13 @@ export function transformClick(h: ModHost, kind: PerimeterModifyKind, st: Step, 
   if (st.stage === 1) {
     st.pts = [at];
     st.stage = 2;
-    return h.say(transformHint(kind, st, unitsOf(h.project?.())));
+    return h.say(transformHint(kind, st, unitsOf(h.project?.()), lg(h)));
   }
   if (st.stage === 2) {
     destAt(h, kind, st, at, p.ctrl);
     return;
   }
-  h.say(transformHint(kind, st, unitsOf(h.project?.())));
+  h.say(transformHint(kind, st, unitsOf(h.project?.()), lg(h)));
 }
 
 /**
@@ -196,14 +210,14 @@ export function transformClick(h: ModHost, kind: PerimeterModifyKind, st: Step, 
  */
 export function transformType(h: ModHost, kind: PerimeterModifyKind, st: Step, v: number, cursor: Vec2): boolean {
   if (kind === 'offset') {
-    if (!(v > MOD_TOL)) return refuse(h, 'Digite uma distância maior que zero, em metros.');
+    if (!(v > MOD_TOL)) return refuse(h, translate(lg(h), 'tl_msg_length_positive_m'));
     st.num = v;
-    h.say(transformHint(kind, st, unitsOf(h.project?.())));
+    h.say(transformHint(kind, st, unitsOf(h.project?.()), lg(h)));
     return true;
   }
   if (kind === 'rotate') return applyRotate(h, st, (v * Math.PI) / 180);
   if (kind === 'array' && st.stage === 3) return arrayCount(h, st, v);
-  if (!(v > MOD_TOL)) return refuse(h, 'Digite uma distância maior que zero, em metros.');
+  if (!(v > MOD_TOL)) return refuse(h, translate(lg(h), 'tl_msg_length_positive_m'));
   return destAt(h, kind, st, alongTo(st.pts[0]!, cursor, v), false);
 }
 
@@ -216,7 +230,7 @@ export function transformConfirm(h: ModHost, kind: PerimeterModifyKind, st: Step
 export function transformTab(h: ModHost, kind: PerimeterModifyKind, st: Step): boolean {
   if (!COPY_KINDS.has(kind)) return false;
   st.copy = !st.copy;
-  h.say(transformHint(kind, st, unitsOf(h.project?.())));
+  h.say(transformHint(kind, st, unitsOf(h.project?.()), lg(h)));
   return true;
 }
 

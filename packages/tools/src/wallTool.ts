@@ -19,7 +19,9 @@ const fmt = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length',
 export class WallTool extends ToolBase {
   readonly id = 'wall';
   readonly label = 'Parede';
-  readonly hint = 'Parede: clique no ponto inicial. Tab alterna referências de alinhamento; Espaço inverte o lado.';
+  override get hint(): string {
+    return this.t('tl_hint_wall');
+  }
   private startPt: Vec2 | null = null;
   /** Arco: ponto final da corda, já definido; falta o ponto sobre o arco. */
   private chordEnd: Vec2 | null = null;
@@ -64,7 +66,7 @@ export class WallTool extends ToolBase {
 
   override inputPrompt(): string | null {
     if (!this.startPt || this.isRect()) return null;
-    return this.chordEnd ? 'Flecha do arco' : this.isArc() ? 'Comprimento da corda' : 'Comprimento';
+    return this.chordEnd ? 'Flecha do arco' : this.isArc() ? 'Comprimento da corda' : this.t('tl_inp_length');
   }
 
   override tab(): void {
@@ -75,7 +77,7 @@ export class WallTool extends ToolBase {
   override space(): void {
     this.flip = !this.flip;
     if (this.lastPointer) this.move(this.lastPointer);
-    this.env.say(this.sideFlip() ? 'Lado externo à direita do sentido de desenho.' : 'Lado externo à esquerda do sentido de desenho.');
+    this.env.say(this.sideFlip() ? this.t('tl_msg_wall_side_right') : 'Lado externo à esquerda do sentido de desenho.');
   }
 
   private snapWall(p: PointerInfo, extra: Partial<InferContext> = {}) {
@@ -131,7 +133,7 @@ export class WallTool extends ToolBase {
     const a = this.startPt;
     const c = inf.point;
     if (Math.abs(c.x - a.x) < 0.01 || Math.abs(c.y - a.y) < 0.01) {
-      this.env.say('Retângulo muito estreito: afaste o canto oposto.');
+      this.env.say(this.t('tl_msg_rect_narrow'));
       return;
     }
     const pts = this.rectCorners(c);
@@ -143,7 +145,7 @@ export class WallTool extends ToolBase {
       for (const wall of lados) this.env.exec({ type: 'addWall', wall });
     });
     this.reset();
-    this.env.say('Retângulo criado. Clique em outro canto para desenhar outro, ou Esc para sair.');
+    this.env.say(this.t('tl_msg_rect_created'));
   }
 
   tempDims(_overrides: Readonly<Record<string, DimRef>> = {}): TempDim[] {

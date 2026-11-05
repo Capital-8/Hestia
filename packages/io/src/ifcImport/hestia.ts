@@ -9,6 +9,7 @@
  */
 
 import type { Element, Generic, Id, IfcProperty, Level, Project } from '@hestia/model';
+import { t as tr, type Lang } from '../i18n.ts';
 import { HESTIA_ELEMENT_PSET, HESTIA_PROJECT_PSET, HESTIA_VERSION, isHestiaPset, type HestiaElementRecord } from '../ifc/ifcHestia.ts';
 import { bodyOf } from './geometry.ts';
 import { makeGeneric } from './genericElement.ts';
@@ -60,6 +61,8 @@ export interface HestiaTarget {
   handled: Set<number>;
   warn(msg: string): void;
   count(kind: string): void;
+  /** Idioma das mensagens do resumo; ausente = `'pt'`. */
+  lang?: Lang;
 }
 
 /** Rótulo do relatório de importação por `kind` (o mesmo do caminho heurístico). */
@@ -297,7 +300,7 @@ function genericOf(t: HestiaTarget, entity: number, record: HestiaElementRecord)
 function elementOf(t: HestiaTarget, entity: number, record: HestiaElementRecord): Element | null {
   if (record.kind === 'generic') return genericOf(t, entity, record);
   if (!plausible(record)) {
-    t.warn(`Registro Hestia de "${record.id}" (${record.kind}) está incompleto: a geometria do IFC foi usada.`);
+    t.warn(tr(t.lang ?? 'pt', 'io_ifc_warn_record_incomplete', { id: record.id, kind: record.kind }));
     return null;
   }
   return record as unknown as Element;

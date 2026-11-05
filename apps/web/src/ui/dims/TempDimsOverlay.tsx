@@ -3,6 +3,7 @@ import { worldToScreen } from '@hestia/render';
 import { toPermanent, type TempDim, type Tool, type ToolId } from '@hestia/tools';
 import type { Id, Project } from '@hestia/model';
 import { editor } from '../../editor/controller.ts';
+import { useT } from '../../editor/i18n.ts';
 import { setDimOverride, suspendSelectionDims, useUi, type ViewKind } from '../../editor/state.ts';
 import { currentUnits, useFormat } from '../useUnits.ts';
 import { INVALID_FLASH_MS, resolveDimEdit, suspensionAfterConversion } from './dimsActions.ts';
@@ -80,6 +81,7 @@ const semPrevia = (): PreviewCache => ({ tool: null, toolId: 'select', levelId: 
  * nenhum elemento: tudo vem dos provedores (`TempDim`).
  */
 export function TempDimsOverlay(): ReactElement | null {
+  const { t, lang } = useT();
   const ctx = useDimContext();
   const selDims = useSelectionDims();
   const tick = useUi((s) => s.previewTick);
@@ -122,14 +124,14 @@ export function TempDimsOverlay(): ReactElement | null {
   // antigas sobre o desenho depois de terminar, cancelar ou reiniciar a ferramenta.
   else if (fresh.length > 0) {
     lastPreview.current = fresh.some(dimAcionavel) ? { tool: editor.activeTool, toolId: tool, levelId: ctx.levelId, view, project: ctx.project, dims: fresh } : semPrevia();
-  } else if (sameScope && holdsLastPreview(0, lastPreview.current.dims.map((d) => valueRect(viewOfDim(d, toScreen, 1 / viewport.zoom, null).textAt)), cursorPx)) {
+  } else if (sameScope && holdsLastPreview(0, lastPreview.current.dims.map((d) => valueRect(viewOfDim(d, toScreen, 1 / viewport.zoom, null, lang).textAt)), cursorPx)) {
     dims = lastPreview.current.dims;
   } else lastPreview.current = semPrevia();
   if (dims.length === 0) return null;
-  const views = dims.map((d) => ({ dim: d, view: viewOfDim(d, toScreen, 1 / viewport.zoom, invalidKey) }));
+  const views = dims.map((d) => ({ dim: d, view: viewOfDim(d, toScreen, 1 / viewport.zoom, invalidKey, lang) }));
 
   const commit = (dim: TempDim, text: string): void => {
-    const r = resolveDimEdit(dim, text, currentUnits());
+    const r = resolveDimEdit(dim, text, currentUnits(), lang);
     setEditing(null);
     if (r.kind === 'error') {
       useUi.setState({ status: r.message });
@@ -137,29 +139,29 @@ export function TempDimsOverlay(): ReactElement | null {
       return;
     }
     if (r.commands.length === 0) return;
-    const applied = editor.applyCommands('Alterar cota', r.commands);
+    const applied = editor.applyCommands(t('cvv_dim_undo_edit'), r.commands);
     if (applied.status === 'cancelled') return;
     if (applied.status === 'pending') {
-      useUi.setState({ status: 'Confirme o diálogo para aplicar a cota.' });
+      useUi.setState({ status: { key: 'cvv_dim_confirm_dialog' } });
       return;
     }
-    useUi.setState({ status: r.note ?? 'Cota atualizada.' });
+    useUi.setState({ status: r.note ?? t('cvv_dim_updated') });
   };
 
   const makePermanent = (): void => {
     const st = useUi.getState();
     const cmds = toPermanent(ctx.levelId, dims, st.planKind === 'area' ? st.areaPlanId ?? undefined : undefined);
     const before = editor.store.version;
-    editor.store.transaction('Converter em cotas permanentes', () => cmds.forEach((c) => editor.store.exec(c)));
+    editor.store.transaction(t('cvv_dim_undo_make_permanent'), () => cmds.forEach((c) => editor.store.exec(c)));
     const suspended = suspensionAfterConversion(before, editor.store.version);
     if (suspended === null) {
-      useUi.setState({ status: 'Nada a converter.' });
+      useUi.setState({ status: { key: 'cvv_dim_nothing_convert' } });
       return;
     }
     // As temporárias da seleção somem junto: as pretas nascem no mesmo lugar e não podem se sobrepor. O undo muda a
     // versão e devolve as temporárias (ver `selectionDimsSuspended`).
     suspendSelectionDims(suspended);
-    useUi.setState({ status: 'Cotas criadas.' });
+    useUi.setState({ status: { key: 'cvv_dim_created' } });
   };
 
   // Pontas vivas (em tela): só nelas o clique da prévia é do canvas; valor e "I" nunca deixam o clique criar geometria.
@@ -195,8 +197,8 @@ export function TempDimsOverlay(): ReactElement | null {
           <div key={view.key}>
             <input
               className="input num"
-              aria-label={`Cota: ${dim.key.split(':').pop()}`}
-              title={view.editable ? 'Digite a medida e pressione Enter' : 'Cota de leitura'}
+              aria-label={t('cvv_dim_field_aria', { id: dim.key.split(':').pop() ?? '' })}
+              title={view.editable ? t('cvv_dim_edit_tip') : t('cvv_dim_readonly_tip')}
               readOnly={!view.editable}
               style={{ ...BOX, width, left: view.textAt.x, top: view.textAt.y, transform: `translate(-50%, -50%) rotate(${-(view.textRotation ?? 0)}deg)`, appearance: 'none', lineHeight: '22px', textShadow: '0 0 2px var(--panel), 0 0 3px var(--panel)', pointerEvents: captures(valueRect(view.textAt, width), view.editable, 0), ...(view.invalid ? { color: DANGER } : {}), ...(ocultaDesenhoPermanente(dim, editing?.key ?? null) ? { color: 'transparent', textShadow: 'none' } : {}) }}
               value={texto}
@@ -237,13 +239,13 @@ export function TempDimsOverlay(): ReactElement | null {
                   stop(e);
                   if (e.shiftKey && g.pickable) {
                     // Shift+clique: a próxima escolha na planta (clique numa parede, porta...) vira a referência desta ponta.
-                    useUi.setState({ dimRefPick: { dimId: dim.key.split(':')[1] ?? '', slot: g.slot === 'b' ? 'b' : 'a' }, status: 'Clique no elemento para a nova referência (Esc cancela).' });
+                    useUi.setState({ dimRefPick: { dimId: dim.key.split(':')[1] ?? '', slot: g.slot === 'b' ? 'b' : 'a' }, status: { key: 'cvv_dim_pick_ref' } });
                     return;
                   }
                   if (g.onAlternate) {
                     // Cota permanente: a troca é gravada no modelo (um passo de desfazer).
                     const cmds = g.onAlternate();
-                    if (cmds.length > 0) editor.applyCommands('Trocar referência da cota', cmds);
+                    if (cmds.length > 0) editor.applyCommands(t('cvv_dim_undo_ref'), cmds);
                   } else if (g.next) {
                     setDimOverride(g.overrideKey, g.next);
                   }
@@ -258,8 +260,8 @@ export function TempDimsOverlay(): ReactElement | null {
       <button
         type="button"
         className="btn"
-        aria-label="Converter em cotas permanentes"
-        title="Converter em cotas permanentes"
+        aria-label={t('cvv_dim_convert_permanent')}
+        title={t('cvv_dim_convert_permanent')}
         style={{ position: 'absolute', left: convert.x, top: convert.y, width: convert.w, height: convert.h, padding: 0, pointerEvents: captures(convert, true, 0), zIndex: 13 }}
         onPointerDown={stop}
         onPointerUp={stop}

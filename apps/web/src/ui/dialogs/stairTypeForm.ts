@@ -1,4 +1,5 @@
 import { newId, type StairCalcRule, type StairRunStyle, type StairType } from '@hestia/model';
+import { t as translate, type Lang } from '../../editor/i18n.ts';
 
 /** Limites de um campo numérico do diálogo: metros internos, exibição em `scale` e casas decimais. */
 export interface StairFieldLimit {
@@ -157,6 +158,6 @@ export function hasUnsavedChanges(draft: StairType | null, saved: StairType | nu
 }
 
 /** Cópia do rascunho atual (com as alterações não salvas), com id novo e nome "(cópia)". */
-export function duplicateDraft(draft: StairType, id: string = newId('stt')): StairType {
-  return { ...structuredClone(draft), id, name: `${draft.name} (cópia)` };
+export function duplicateDraft(draft: StairType, id: string = newId('stt'), lang: Lang = 'pt'): StairType {
+  return { ...structuredClone(draft), id, name: `${draft.name} ${translate(lang, 'dlt_duplicate_suffix')}` };
 }

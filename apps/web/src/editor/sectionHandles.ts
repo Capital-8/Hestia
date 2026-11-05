@@ -124,9 +124,9 @@ export function deleteSectionAnnotationsIn(store: ProjectStore): number {
   for (const x of a.detailRegions) if (want.has(x.id)) commands.push({ type: 'removeDetailRegion', levelId, sectionId, id: x.id });
   for (const x of a.tags) if (want.has(x.id)) commands.push({ type: 'removeTag', levelId, sectionId, id: x.id });
   if (commands.length === 0) return sel.length;
-  store.transaction('Excluir anotações do corte', () => { for (const c of commands) store.exec(c); });
+  store.transaction('edc_undo_delete_section_annotations', () => { for (const c of commands) store.exec(c); });
   const removed = new Set(commands.map((c) => ('id' in c ? c.id : '')));
   const rest = sel.filter((id) => !removed.has(id));
-  useUi.setState({ selection: rest, status: 'Anotações excluídas do corte. Ctrl+Z desfaz.' });
+  useUi.setState({ selection: rest, status: { key: 'edc_section_annotations_deleted' } });
   return rest.length;
 }

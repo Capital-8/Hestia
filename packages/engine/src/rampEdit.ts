@@ -9,6 +9,7 @@ import {
   type StairLanding,
   type StairRun,
 } from '@hestia/model';
+import { t, type Lang } from './i18nMessages.ts';
 import { planRamp, rampBasis, type RampPlan } from './rampPlan.ts';
 import { planRampFree } from './rampFree.ts';
 import { resolveRamps } from './ramps.ts';
@@ -41,18 +42,18 @@ function toComponent(sketch: RampPlan['parts'][number], id: string): StairRun | 
  * Regenera os componentes de uma rampa a partir da base do 1º lance, do tipo e do desnível do projeto. Mantém forma e
  * giro. Quem grava faz `updateElements` em uma transação só.
  */
-export function regenRamp(ramp: Ramp, p: Project, patch: RampRegenPatch): RampRegenResult | { error: string } {
-  if (ramp.shape === 'free' && ramp.freePath) return regenFree(ramp, p, patch);
+export function regenRamp(ramp: Ramp, p: Project, patch: RampRegenPatch, lang: Lang = 'pt'): RampRegenResult | { error: string } {
+  if (ramp.shape === 'free' && ramp.freePath) return regenFree(ramp, p, patch, lang);
   const basis = rampBasis(ramp);
-  if (!basis) return { error: 'A rampa não tem um lance válido para regenerar.' };
+  if (!basis) return { error: t(lang, 'egb_err_ramp_no_flight') };
   const type = p.rampTypes[ramp.typeId];
-  if (!type) return { error: 'Tipo de rampa inexistente' };
+  if (!type) return { error: t(lang, 'egb_err_ramp_type') };
 
   const mode = patch.mode ?? ramp.inputMode;
   const width = patch.width ?? basis.width;
   const landingDepth = patch.landingDepth ?? ramp.landingDepth;
   const H = rampTopZ(p, ramp) - rampBaseZ(p, ramp);
-  const currentLength = resolveRamps(p).find((r) => r.id === ramp.id)?.pathLength;
+  const currentLength = resolveRamps(p, lang).find((r) => r.id === ramp.id)?.pathLength;
 
   const common = {
     start: basis.start,
@@ -68,8 +69,8 @@ export function regenRamp(ramp: Ramp, p: Project, patch: RampRegenPatch): RampRe
 
   const plan =
     mode === 'slope'
-      ? planRamp({ ...common, slope: patch.slope ?? ramp.slopeTarget ?? type.defaultSlope })
-      : planRamp({ ...common, length: patch.length ?? currentLength });
+      ? planRamp({ ...common, slope: patch.slope ?? ramp.slopeTarget ?? type.defaultSlope, lang })
+      : planRamp({ ...common, length: patch.length ?? currentLength, lang });
   if ('error' in plan) return { error: plan.error };
 
   const components = plan.parts.map((part, i) => toComponent(part, ramp.components[i]?.id ?? newId('rc')));
@@ -94,13 +95,13 @@ function pathTotal(path: Vec2[]): number {
  * acompanha); no modo 'length', `patch.length` ajusta o último trecho para o trajeto ter esse comprimento e a
  * inclinação sai do resultado.
  */
-function regenFree(ramp: Ramp, p: Project, patch: RampRegenPatch): RampRegenResult | { error: string } {
+function regenFree(ramp: Ramp, p: Project, patch: RampRegenPatch, lang: Lang): RampRegenResult | { error: string } {
   const type = p.rampTypes[ramp.typeId];
-  if (!type) return { error: 'Tipo de rampa inexistente' };
+  if (!type) return { error: t(lang, 'egb_err_ramp_type') };
   let path = (patch.freePath ?? ramp.freePath ?? []).map((v) => ({ ...v }));
-  if (path.length < 2) return { error: 'A rampa livre não tem trajeto para regenerar.' };
+  if (path.length < 2) return { error: t(lang, 'egb_err_ramp_no_path') };
   const width = patch.width ?? rampBasis(ramp)?.width;
-  if (!width) return { error: 'A rampa não tem um lance válido para regenerar.' };
+  if (!width) return { error: t(lang, 'egb_err_ramp_no_flight') };
   const mode = patch.mode ?? ramp.inputMode;
   const landingDepth = patch.landingDepth ?? ramp.landingDepth;
   const H = rampTopZ(p, ramp) - rampBaseZ(p, ramp);
@@ -111,11 +112,11 @@ function regenFree(ramp: Ramp, p: Project, patch: RampRegenPatch): RampRegenResu
     const a = path[n - 2]!;
     const b = path[n - 1]!;
     const newLast = dist(a, b) + (patch.length - pathTotal(path));
-    if (!(newLast > 0.01)) return { error: 'Comprimento menor que o do trajeto antes do último trecho.' };
+    if (!(newLast > 0.01)) return { error: t(lang, 'egb_err_ramp_length_low') };
     path = [...path.slice(0, n - 1), add(a, mul(norm(sub(b, a)), newLast))];
   }
 
-  const plan = planRampFree(path, H, type, { width, mode, slope: mode === 'slope' ? slope : undefined, landingDepth, manualLandings: ramp.manualLandings });
+  const plan = planRampFree(path, H, type, { width, mode, slope: mode === 'slope' ? slope : undefined, landingDepth, manualLandings: ramp.manualLandings, lang });
   if ('error' in plan) return { error: plan.error };
 
   // No modo 'slope' o plano pode encurtar/estender o último trecho: o último vértice vai para o fim do último lance.

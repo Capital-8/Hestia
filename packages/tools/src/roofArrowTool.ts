@@ -8,7 +8,7 @@ import { planeIndexAt, roofToFreePatch } from './roofFreeConvert.ts';
 import { fmtPercent } from './slabSlope.ts';
 import type { PointerInfo } from './types.ts';
 
-const HINT = 'Seta de inclinação: clique no beiral da água e depois no ponto para onde ela sobe. A água sob o primeiro clique é alterada; fora de toda água, uma nova água cobre o contorno.';
+
 
 /**
  * Seta de inclinação (A5, Revit: águas livres). Com um telhado de qualquer forma selecionado, dois cliques definem uma
@@ -20,7 +20,9 @@ const HINT = 'Seta de inclinação: clique no beiral da água e depois no ponto 
 export class RoofArrowTool extends ToolBase {
   readonly id = 'roofarrow';
   readonly label = 'Seta de inclinação';
-  readonly hint = HINT;
+  override get hint(): string {
+    return this.t('tl_hint_roof_arrow');
+  }
   private first: Vec2 | null = null;
 
   /** Telhado selecionado, se for o único selecionado. */
@@ -34,9 +36,9 @@ export class RoofArrowTool extends ToolBase {
   /** Mensagem para o estado da seleção: o que falta para a seta funcionar. */
   private stateHint(): string {
     const r = this.roof();
-    if (!r) return 'Selecione um telhado (qualquer forma) e use a seta de inclinação.';
-    if (r.shape !== 'free') return 'Clique no beiral da água e depois para onde ela sobe: o telhado vira de águas livres e as águas atuais viram planos editáveis.';
-    return HINT;
+    if (!r) return this.t('tl_msg_roof_arrow_select');
+    if (r.shape !== 'free') return this.t('tl_msg_roof_arrow_free');
+    return this.t('tl_hint_roof_arrow');
   }
 
   override start(): void {
@@ -111,7 +113,7 @@ export class RoofArrowTool extends ToolBase {
   private commit(r: Roof, to: Vec2): void {
     const up = this.upOf(to);
     if (!up || !this.first) {
-      this.env.say('Direção nula: afaste o segundo ponto do primeiro.');
+      this.env.say(this.t('tl_msg_roof_dir_zero'));
       return;
     }
     const slope = this.env.options().roofSlope ?? 30;
@@ -140,7 +142,7 @@ export class RoofArrowTool extends ToolBase {
     const patch: Partial<Roof> = { ...convert, planes };
     const was = r.shape === 'free' ? '' : ' O telhado virou de águas livres.';
     const verb = k >= 0 ? `Água ${k + 1} alterada` : 'Água adicionada';
-    if (commitRoofPatch(this.env, [r.id], patch)) this.env.say(`${verb} com inclinação de ${fmtPercent(unitsOf(this.env.project()), slope)}.${was} Ctrl+Z desfaz.`);
+    if (commitRoofPatch(this.env, [r.id], patch, this.env.lang?.() ?? 'pt')) this.env.say(`${verb} com inclinação de ${fmtPercent(unitsOf(this.env.project()), slope)}.${was} Ctrl+Z desfaz.`);
     this.reset();
   }
 }

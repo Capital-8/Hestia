@@ -13,6 +13,7 @@ import {
   sub,
   type Vec2,
 } from '@hestia/geom';
+import { t, type DictKey, type Lang } from './i18nMessages.ts';
 
 /** Reta (sag = 0) ou arco por flecha, mesma convenção de `arcFromSagitta`. Estrutura igual a `StairCurve` do modelo. */
 export interface StairCurve {
@@ -52,23 +53,33 @@ export const PATH_TOL = 1e-3;
 const POINT_TOL = 1e-7;
 const SEG_TOL = 1e-9;
 
-/** Textos exatos da decisão 0011 §3 (pt-BR). */
-export const STAIR_SKETCH_MESSAGES: Record<string, string> = {
-  'stair-boundaries-touch': 'Os limites esquerdo e direito do lance não podem se tocar.',
-  'stair-boundary-gap': 'Cada limite deve ser uma cadeia contínua de retas e arcos.',
-  'stair-riser-on-boundary': 'Parte do espelho está sobre o limite: não é permitido.',
-  'stair-riser-crossing': 'Espelhos que se cruzam não são permitidos.',
-  'stair-riser-boundary-multi': 'O espelho cruza o mesmo limite mais de uma vez.',
-  'stair-riser-not-spanning': 'Cada espelho deve ligar o limite esquerdo ao direito.',
-  'stair-riser-same-location': 'Dois espelhos ocupam a mesma posição.',
-  'stair-path-ends': 'A caminhada deve ir do primeiro ao último espelho.',
-  'stair-path-misses-riser': 'A caminhada não cruza todos os espelhos.',
-  'stair-landing-open': 'O contorno do patamar deve ser um laço fechado.',
+/** Textos exatos da decisão 0011 §3 (pt-BR). Use `sketchIssue` para obter o texto no idioma pedido. */
+const SKETCH_KEYS: Record<string, DictKey> = {
+  'stair-boundaries-touch': 'egb_stair_sketch_boundaries_touch',
+  'stair-boundary-gap': 'egb_stair_sketch_boundary_gap',
+  'stair-riser-on-boundary': 'egb_stair_sketch_riser_on_boundary',
+  'stair-riser-crossing': 'egb_stair_sketch_riser_crossing',
+  'stair-riser-boundary-multi': 'egb_stair_sketch_riser_boundary_multi',
+  'stair-riser-not-spanning': 'egb_stair_sketch_riser_not_spanning',
+  'stair-riser-same-location': 'egb_stair_sketch_riser_same',
+  'stair-path-ends': 'egb_stair_sketch_path_ends',
+  'stair-path-misses-riser': 'egb_stair_sketch_path_misses',
+  'stair-landing-open': 'egb_stair_sketch_landing_open',
 };
 
+export const STAIR_SKETCH_MESSAGES: Record<string, string> = Object.fromEntries(
+  Object.entries(SKETCH_KEYS).map(([code, key]) => [code, t('pt', key)]),
+);
+
+/** Código do croqui e o texto no idioma pedido (sem chave conhecida, devolve o próprio código). */
+export function stairSketchText(code: string, lang: Lang = 'pt'): string {
+  const key = SKETCH_KEYS[code];
+  return key ? t(lang, key) : code;
+}
+
 /** Erro de croqui. `message` substitui o texto padrão quando a mensagem traz o espelho, o limite ou a distância. */
-export function sketchIssue(code: string, riserIndex?: number, message?: string): StairSketchIssue {
-  const issue: StairSketchIssue = { code, severity: 'error', message: message ?? STAIR_SKETCH_MESSAGES[code] ?? code };
+export function sketchIssue(code: string, riserIndex?: number, message?: string, lang: Lang = 'pt'): StairSketchIssue {
+  const issue: StairSketchIssue = { code, severity: 'error', message: message ?? stairSketchText(code, lang) };
   if (riserIndex !== undefined) issue.riserIndex = riserIndex;
   return issue;
 }

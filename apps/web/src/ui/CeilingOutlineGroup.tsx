@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import { ceilingOutline, ceilingRoomFor } from '@hestia/engine';
 import { followsRoom, type Ceiling, type Id, type Project, type ProjectStore } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
+import { t, useT, type Lang } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { Group } from './fields.tsx';
 
@@ -23,7 +24,7 @@ const roomName = (p: Project, roomId: Id): string => {
  * ambiente não fecha ou foi apagado). Solto (editado à mão): "Estático (editado à mão)", com "Revincular ao ambiente".
  * Desenhado à mão, sem ambiente: "Sem ambiente (desenhado à mão)", sem ações.
  */
-export function ceilingOutlineView(p: Project, ceilings: readonly Ceiling[]): CeilingOutlineView {
+export function ceilingOutlineView(p: Project, ceilings: readonly Ceiling[], lang: Lang = 'pt'): CeilingOutlineView {
   const parts = new Set<string>();
   const detachIds: Id[] = [];
   const relinkIds: Id[] = [];
@@ -31,18 +32,18 @@ export function ceilingOutlineView(p: Project, ceilings: readonly Ceiling[]): Ce
     if (followsRoom(c)) {
       const { problem } = ceilingOutline(p, c);
       const nome = roomName(p, c.roomId!);
-      if (!problem) parts.add(`Acompanha o ambiente «${nome}»`);
-      else if (problem === 'apagado') parts.add('Ambiente apagado: mantém o último contorno');
-      else parts.add(`Ambiente «${nome}» não fecha: mantém o último contorno`);
+      if (!problem) parts.add(t(lang, 'msc_ceiling_follows_room', { name: nome }));
+      else if (problem === 'apagado') parts.add(t(lang, 'msc_ceiling_room_deleted'));
+      else parts.add(t(lang, 'msc_ceiling_room_open', { name: nome }));
       detachIds.push(c.id);
     } else if (c.roomId) {
-      parts.add('Estático (editado à mão)');
+      parts.add(t(lang, 'msc_ceiling_static'));
       relinkIds.push(c.id);
     } else {
-      parts.add('Sem ambiente (desenhado à mão)');
+      parts.add(t(lang, 'msc_ceiling_no_room'));
     }
   }
-  return { text: [...parts].join(' · ') || 'Sem elementos', detachIds, relinkIds };
+  return { text: [...parts].join(' · ') || t(lang, 'msc_no_elements'), detachIds, relinkIds };
 }
 
 /**
@@ -51,7 +52,7 @@ export function ceilingOutlineView(p: Project, ceilings: readonly Ceiling[]): Ce
  */
 export function detachCeilingOutlines(store: Pick<ProjectStore, 'project' | 'transaction' | 'exec'>, ids: Id[]): void {
   if (ids.length === 0) return;
-  store.transaction('Soltar forro do ambiente', () => {
+  store.transaction('msc_undo_detach_ceiling', () => {
     for (const id of ids) {
       const c = store.project.elements[id];
       if (c?.kind !== 'ceiling') continue;
@@ -68,7 +69,7 @@ export function detachCeilingOutlines(store: Pick<ProjectStore, 'project' | 'tra
  */
 export function relinkCeilingOutlines(store: Pick<ProjectStore, 'project' | 'transaction' | 'exec'>, ids: Id[]): number {
   let done = 0;
-  store.transaction('Revincular forro ao ambiente', () => {
+  store.transaction('msc_undo_relink_ceiling', () => {
     for (const id of ids) {
       const c = store.project.elements[id];
       if (c?.kind !== 'ceiling') continue;
@@ -78,25 +79,26 @@ export function relinkCeilingOutlines(store: Pick<ProjectStore, 'project' | 'tra
       done += 1;
     }
   });
-  if (ids.length > 0 && done === 0) useUi.setState({ status: 'Nenhum ambiente contém o forro.' });
+  if (ids.length > 0 && done === 0) useUi.setState({ status: { key: 'msc_ceiling_no_room_contains' } });
   return done;
 }
 
 /** Grupo "Contorno" do painel de forro: estado do vínculo com o ambiente e os botões Desvincular / Revincular ao ambiente. */
 export function CeilingOutlineGroup({ ceilings }: { ceilings: readonly Ceiling[] }): ReactElement {
+  const { t, lang } = useT();
   const p = useProject();
-  const view = ceilingOutlineView(p, ceilings);
+  const view = ceilingOutlineView(p, ceilings, lang);
   return (
-    <Group title="Contorno">
+    <Group title={t('prb_fld_outline')}>
       <div className="hint" id="p-ceiling-outline">{view.text}</div>
       <div className="row">
         <button className="btn small" disabled={view.detachIds.length === 0} onClick={() => detachCeilingOutlines(editor.store, view.detachIds)}>
-          Desvincular
+          {t('msc_ceiling_detach')}
         </button>
       </div>
       <div className="row">
         <button className="btn small" disabled={view.relinkIds.length === 0} onClick={() => relinkCeilingOutlines(editor.store, view.relinkIds)}>
-          Revincular ao ambiente
+          {t('msc_ceiling_relink')}
         </button>
       </div>
     </Group>

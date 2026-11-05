@@ -1,6 +1,7 @@
 import { dot, sub, type Vec2 } from '@hestia/geom';
 import { formatQuantity, openingTypeById, isOpening, isRoof, isWall, unitsOf, type Id, type Opening, type Project, type ValidationIssue, type Wall } from '@hestia/model';
 import { buildFrame, type WallFrame } from './frame.ts';
+import { t, type Lang } from './i18nMessages.ts';
 import { expandRoofArcs } from './roofArcs.ts';
 
 /** Distância (m) do beiral à abertura abaixo da qual se avisa (checagem de proximidade, `roof-eave-opening`). */
@@ -108,7 +109,7 @@ function eaveEdges(boundary: Vec2[]): Array<{ p: Vec2; q: Vec2 }> {
  *   `EAVE_OPENING_DISTANCE` de uma abertura hospedada numa parede do mesmo nível.
  * Paredes curvas não são checadas. A cota do beiral não entra no cálculo (só a planta).
  */
-export function roofEaveIssues(p: Project): ValidationIssue[] {
+export function roofEaveIssues(p: Project, lang: Lang = 'pt'): ValidationIssue[] {
   const units = unitsOf(p);
   const roofs = Object.values(p.elements).filter(isRoof);
   if (roofs.length === 0) return [];
@@ -127,7 +128,7 @@ export function roofEaveIssues(p: Project): ValidationIssue[] {
         out.push({
           severity: 'warning',
           code: 'roof-eave-wall',
-          message: `Telhado ${label(roof)}: beiral invade a parede ${label(b.wall)}; recue o contorno do telhado ou reduza o balanço.`,
+          message: t(lang, 'egb_issue_roof_eave_wall', { roof: label(roof), wall: label(b.wall) }),
           elementId: roof.id,
           ids: [roof.id, b.wall.id],
         });
@@ -154,7 +155,12 @@ export function roofEaveIssues(p: Project): ValidationIssue[] {
         out.push({
           severity: 'warning',
           code: 'roof-eave-opening',
-          message: `Telhado ${label(roof)}: beiral a ${formatQuantity(units, 'smallLength', best)} da abertura ${label(o)} (limite de ${formatQuantity(units, 'smallLength', EAVE_OPENING_DISTANCE)}); ajuste o balanço ou a posição da abertura.`,
+          message: t(lang, 'egb_issue_roof_eave_opening', {
+            roof: label(roof),
+            dist: formatQuantity(units, 'smallLength', best),
+            opening: label(o),
+            limit: formatQuantity(units, 'smallLength', EAVE_OPENING_DISTANCE),
+          }),
           elementId: roof.id,
           ids: [roof.id, o.id],
         });

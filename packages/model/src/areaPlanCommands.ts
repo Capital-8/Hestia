@@ -3,38 +3,39 @@ import { areaPlanIssue, areaPlanOf, copyPlanAnnotations, DEFAULT_AREA_GRAPHICS, 
 import type { Command } from './commands.ts';
 import { dropOrphanViewports } from './sheetCommands.ts';
 import { isRoom, type Id, type Project } from './types.ts';
+import { t as translate, type Lang } from './i18n.ts';
 
 /** Comandos da planta de área e da etiqueta de ambiente (fora do `switch` grande de `commands.ts`). */
 export type AreaPlanCommand = Extract<Command, { type: 'addAreaPlan' | 'updateAreaPlan' | 'removeAreaPlan' | 'addRoomTag' | 'updateRoomTag' | 'removeRoomTag' | 'setRoomReference' | 'upsertRoomCategory' | 'removeRoomCategory' | 'upsertColorScheme' | 'removeColorScheme' }>;
 
-const planOf = (p: Project, id: Id): AreaPlan => {
+const planOf = (p: Project, id: Id, lang: Lang): AreaPlan => {
   const plan = areaPlanOf(p, id);
-  if (!plan) throw new Error('Planta de área inexistente');
+  if (!plan) throw new Error(translate(lang, 'md_area_plan_missing'));
   return plan;
 };
 
-const roomOf = (p: Project, id: Id) => {
+const roomOf = (p: Project, id: Id, lang: Lang) => {
   const room = p.elements[id];
-  if (!isRoom(room)) throw new Error('Ambiente inexistente');
+  if (!isRoom(room)) throw new Error(translate(lang, 'md_cmd_room_missing'));
   return room;
 };
 
 const finite = (v: Vec2): boolean => Number.isFinite(v.x) && Number.isFinite(v.y);
 
 /** Aplica um comando de planta de área. Devolve false quando o comando não é desta família. */
-export function applyAreaPlanCommand(p: Project, c: Command): boolean {
+export function applyAreaPlanCommand(p: Project, c: Command, lang: Lang = 'pt'): boolean {
   switch (c.type) {
     case 'addAreaPlan': {
       const issue = areaPlanIssue(p, c.plan);
       if (issue) throw new Error(issue);
-      if (areaPlanOf(p, c.plan.id)) throw new Error('Já existe planta de área com este id');
+      if (areaPlanOf(p, c.plan.id)) throw new Error(translate(lang, 'md_cmd_plan_id_exists'));
       const plan: AreaPlan = { ...c.plan, graphics: { ...DEFAULT_AREA_GRAPHICS, ...c.plan.graphics }, tags: [...c.plan.tags] };
       if (c.plan.annotations) plan.annotations = copyPlanAnnotations(c.plan.annotations);
       p.areaPlans = [...(p.areaPlans ?? []), plan];
       return true;
     }
     case 'updateAreaPlan': {
-      const plan = planOf(p, c.id);
+      const plan = planOf(p, c.id, lang);
       const next: AreaPlan = { ...plan, ...c.patch, id: plan.id };
       const issue = areaPlanIssue(p, next);
       if (issue) throw new Error(issue);
@@ -42,26 +43,26 @@ export function applyAreaPlanCommand(p: Project, c: Command): boolean {
       return true;
     }
     case 'removeAreaPlan': {
-      planOf(p, c.id);
+      planOf(p, c.id, lang);
       p.areaPlans = (p.areaPlans ?? []).filter((x) => x.id !== c.id);
       dropOrphanViewports(p);
       return true;
     }
     case 'addRoomTag': {
-      const plan = planOf(p, c.planId);
-      roomOf(p, c.tag.roomId);
+      const plan = planOf(p, c.planId, lang);
+      roomOf(p, c.tag.roomId, lang);
       const issue = roomTagIssue(c.tag);
       if (issue) throw new Error(issue);
-      if (c.tag.planId !== c.planId) throw new Error('A etiqueta aponta para outra planta');
-      if (plan.tags.some((t) => t.id === c.tag.id)) throw new Error('Já existe etiqueta com este id na planta');
-      if (plan.tags.some((t) => t.roomId === c.tag.roomId)) throw new Error('Este ambiente já tem etiqueta nesta planta');
+      if (c.tag.planId !== c.planId) throw new Error(translate(lang, 'md_cmd_tag_wrong_plan'));
+      if (plan.tags.some((t) => t.id === c.tag.id)) throw new Error(translate(lang, 'md_cmd_tag_id_exists'));
+      if (plan.tags.some((t) => t.roomId === c.tag.roomId)) throw new Error(translate(lang, 'md_cmd_room_tag_exists'));
       plan.tags = [...plan.tags, { ...c.tag, fields: [...c.tag.fields] }];
       return true;
     }
     case 'updateRoomTag': {
-      const plan = planOf(p, c.planId);
+      const plan = planOf(p, c.planId, lang);
       const tag = plan.tags.find((t) => t.id === c.id);
-      if (!tag) throw new Error('Etiqueta inexistente');
+      if (!tag) throw new Error(translate(lang, 'md_cmd_tag_missing'));
       const next: RoomTag = { ...tag, ...c.patch, id: tag.id, planId: tag.planId, roomId: tag.roomId };
       const issue = roomTagIssue(next);
       if (issue) throw new Error(issue);
@@ -69,50 +70,50 @@ export function applyAreaPlanCommand(p: Project, c: Command): boolean {
       return true;
     }
     case 'removeRoomTag': {
-      const plan = planOf(p, c.planId);
-      if (!plan.tags.some((t) => t.id === c.id)) throw new Error('Etiqueta inexistente');
+      const plan = planOf(p, c.planId, lang);
+      if (!plan.tags.some((t) => t.id === c.id)) throw new Error(translate(lang, 'md_cmd_tag_missing'));
       plan.tags = plan.tags.filter((t) => t.id !== c.id);
       return true;
     }
     case 'setRoomReference': {
-      const room = roomOf(p, c.id);
+      const room = roomOf(p, c.id, lang);
       if (c.point === null) delete room.referencePoint;
       else {
-        if (!finite(c.point)) throw new Error('A referência precisa ser um ponto finito');
+        if (!finite(c.point)) throw new Error(translate(lang, 'md_cmd_reference_finite'));
         room.referencePoint = c.point;
       }
       return true;
     }
     case 'setRoomLabel': {
-      const room = roomOf(p, c.id);
+      const room = roomOf(p, c.id, lang);
       if (c.position === null) delete room.labelPosition;
       else {
-        if (!finite(c.position)) throw new Error('O rótulo precisa de um ponto finito');
+        if (!finite(c.position)) throw new Error(translate(lang, 'md_cmd_label_finite'));
         room.labelPosition = c.position;
       }
       if (c.rotation !== undefined) {
-        if (!Number.isFinite(c.rotation)) throw new Error('A rotação do rótulo precisa ser um número');
+        if (!Number.isFinite(c.rotation)) throw new Error(translate(lang, 'md_cmd_label_rotation'));
         room.labelRotation = c.rotation;
       }
       if (c.leader !== undefined) room.labelLeader = c.leader;
       return true;
     }
     case 'upsertRoomCategory': {
-      if (!c.category.name.trim()) throw new Error('A categoria precisa de nome');
+      if (!c.category.name.trim()) throw new Error(translate(lang, 'md_cmd_category_name'));
       const list = p.roomCategories ?? DEFAULT_ROOM_CATEGORIES;
       p.roomCategories = list.some((x) => x.id === c.category.id) ? list.map((x) => (x.id === c.category.id ? c.category : x)) : [...list, c.category];
       return true;
     }
     case 'removeRoomCategory': {
       const inUse = Object.values(p.elements).some((e) => isRoom(e) && e.categoryId === c.id);
-      if (inUse) throw new Error('Categoria em uso');
+      if (inUse) throw new Error(translate(lang, 'md_cmd_category_in_use'));
       p.roomCategories = (p.roomCategories ?? DEFAULT_ROOM_CATEGORIES).filter((x) => x.id !== c.id);
       return true;
     }
     case 'upsertColorScheme': {
       const s = c.scheme;
-      if (!s.name.trim()) throw new Error('O esquema precisa de nome');
-      if (s.by === 'areaRange' && (!s.ranges || s.ranges.length === 0)) throw new Error('O esquema por faixa precisa de ao menos uma faixa');
+      if (!s.name.trim()) throw new Error(translate(lang, 'md_cmd_scheme_name'));
+      if (s.by === 'areaRange' && (!s.ranges || s.ranges.length === 0)) throw new Error(translate(lang, 'md_cmd_scheme_ranges'));
       const list = p.colorSchemes ?? [];
       p.colorSchemes = list.some((x) => x.id === s.id) ? list.map((x) => (x.id === s.id ? s : x)) : [...list, s];
       return true;

@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactElement } from 'react';
 import type * as THREE from 'three';
 import type { OpeningType } from '@hestia/model';
+import { useT } from '../../../editor/i18n.ts';
 import { previewScene, type Preview3DStyle } from './previewScene.ts';
 import { previewTypeSignature } from './previewViews.ts';
 
@@ -31,6 +32,7 @@ export function Preview3D({
   active,
   dark = false,
 }: Preview3DProps): ReactElement {
+  const { t } = useT();
   const host = useRef<HTMLDivElement>(null);
   const signature = previewTypeSignature(type);
   // Câmera do usuário entre as atualizações da cena: ângulo, elevação e o zoom relativo ao enquadramento (a cena é refeita a cada edição).
@@ -52,7 +54,7 @@ export function Preview3D({
     canvas.style.display = 'block';
     canvas.style.width = '100%';
     canvas.style.height = '100%';
-    canvas.setAttribute('aria-label', style === 'lines' ? 'Prévia 3D em linhas' : 'Prévia 3D sombreada');
+    canvas.setAttribute('aria-label', t(style === 'lines' ? 'dlo_prev_3d_lines' : 'dlo_prev_3d_shaded'));
     if (canvas.parentElement !== el) el.appendChild(canvas);
     renderer.shadowMap.enabled = false;
     let frame = 0;
@@ -109,7 +111,7 @@ export function Preview3D({
     };
     // `signature` resume os campos visuais do tipo: mudar o nome ou o custo não refaz a cena.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [renderer, signature, style, angle, flipHand, flipFacing, active, dark]);
+  }, [renderer, signature, style, angle, flipHand, flipFacing, active, dark, t]);
 
   return (
     <div

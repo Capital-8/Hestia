@@ -3,7 +3,7 @@ import type { Id } from '@hestia/model';
 import type { ToolEnv } from './types.ts';
 
 /** Contexto mínimo das ferramentas de esboço: o mesmo subconjunto de `ToolEnv` que a captura usa. */
-export type SketchCtx = Pick<ToolEnv, 'project' | 'levelId' | 'hiddenInView'>;
+export type SketchCtx = Pick<ToolEnv, 'project' | 'levelId' | 'hiddenInView' | 'lang'>;
 
 /** Tolerância (m) para dizer que um ponto está sobre um círculo de face. */
 export const CIRCLE_TOL = 0.005;

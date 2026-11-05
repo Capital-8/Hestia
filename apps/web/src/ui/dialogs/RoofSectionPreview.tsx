@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { formatQuantity, roofTypeThickness, type Material, type RoofType } from '@hestia/model';
+import { useT } from '../../editor/i18n.ts';
 import { useUnits } from '../useUnits.ts';
 
 function mixHex(a: string, b: string, t: number): string {
@@ -14,6 +15,7 @@ function mixHex(a: string, b: string, t: number): string {
  * na mesma convenção de cor e hachura do tipo de parede.
  */
 export function RoofSectionPreview({ type, materials }: { type: RoofType; materials: Record<string, Material> }): ReactElement {
+  const { t } = useT();
   const units = useUnits();
   const W = 340;
   const H = 230;
@@ -30,7 +32,7 @@ export function RoofSectionPreview({ type, materials }: { type: RoofType; materi
   });
   const bottom = y;
   return (
-    <svg className="section-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Seção do telhado">
+    <svg className="section-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t('dls_a11y_roof_section')}>
       <defs>
         {(['diagonal', 'cross', 'dots'] as const).map((h) => (
           <pattern key={h} id={`rh-${h}`} width="6" height="6" patternUnits="userSpaceOnUse">
@@ -40,8 +42,8 @@ export function RoofSectionPreview({ type, materials }: { type: RoofType; materi
           </pattern>
         ))}
       </defs>
-      <text x={22} y={14} fontSize="10" fill="var(--fg-faint)" fontFamily="var(--font-ui)">TOPO DO TELHADO</text>
-      <text x={22} y={H - 8} fontSize="10" fill="var(--fg-faint)" fontFamily="var(--font-ui)">FACE INFERIOR</text>
+      <text x={22} y={14} fontSize="10" fill="var(--fg-faint)" fontFamily="var(--font-ui)">{t('dls_svg_roof_top')}</text>
+      <text x={22} y={H - 8} fontSize="10" fill="var(--fg-faint)" fontFamily="var(--font-ui)">{t('dls_svg_bottom_face')}</text>
       {bands.map((b) => {
         const m = materials[b.layer.materialId];
         const fill = mixHex(m?.color ?? '#999999', '#ffffff', 0.55);

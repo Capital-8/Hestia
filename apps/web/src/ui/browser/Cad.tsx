@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { useProject } from '../../editor/controller.ts';
+import { fmtNum, useT, type Dict } from '../../editor/i18n.ts';
 import { useUi } from '../../editor/state.ts';
 import { cadDrawingsOf, cadLevelName, frameCad, removeCad, selectCad, setCadVisible } from '../../editor/cadActions.ts';
 import { Node, type MenuItem } from './Tree.tsx';
@@ -9,37 +10,45 @@ import { Node, type MenuItem } from './Tree.tsx';
  * excluir no menu de contexto. Duplo clique abre a planta do nível e seleciona o desenho.
  */
 export function CadTree(): ReactElement {
+  const { t, lang } = useT();
   const p = useProject();
   const cads = cadDrawingsOf(p);
+  const contar = (n: number, uma: keyof Dict, muitas: keyof Dict): string =>
+    n === 1 ? t(uma, { n: fmtNum(n, 0, lang) }) : t(muitas, { n: fmtNum(n, 0, lang) });
   return (
     <Node
       id="g:cad"
-      label="CAD importado"
+      label={t('cvn_br_cad_imported')}
       icon="layers"
       group
       open
-      empty="Nenhum desenho CAD. Menu Inserir → Importar CAD (DXF)."
+      empty={t('cvn_br_cad_empty')}
       menu={[
-        { label: 'Importar CAD (DXF)…', run: () => useUi.setState({ dialog: 'importCad', dialogArg: null }) },
-        { label: 'Gerenciar CAD…', run: () => useUi.setState({ dialog: 'manageCad', dialogArg: null }) },
+        { label: t('cvn_br_import_cad'), run: () => useUi.setState({ dialog: 'importCad', dialogArg: null }) },
+        { label: t('cvn_br_manage_cad'), run: () => useUi.setState({ dialog: 'manageCad', dialogArg: null }) },
       ]}
     >
       {cads.map((c) => {
         const visivel = c.visible !== false;
         const menu: MenuItem[] = [
-          { label: visivel ? 'Ocultar' : 'Mostrar', run: () => setCadVisible(c, !visivel) },
-          { label: 'Selecionar', run: () => selectCad(c) },
-          { label: 'Enquadrar', run: () => { selectCad(c); frameCad(c); } },
-          { label: 'Renomear…', run: () => useUi.setState({ dialog: 'manageCad', dialogArg: null }) },
-          { label: 'Excluir', run: () => removeCad(c), danger: true, sep: true },
+          { label: visivel ? t('cvn_br_hide') : t('cvn_br_show'), run: () => setCadVisible(c, !visivel) },
+          { label: t('cvn_br_select'), run: () => selectCad(c) },
+          { label: t('cvn_br_zoom_fit'), run: () => { selectCad(c); frameCad(c); } },
+          { label: t('cvn_br_rename_cad'), run: () => useUi.setState({ dialog: 'manageCad', dialogArg: null }) },
+          { label: t('cvn_br_delete'), run: () => removeCad(c), danger: true, sep: true },
         ];
         return (
           <Node
             key={c.id}
             id={`cad:${c.id}`}
-            label={visivel ? c.name : `${c.name} (oculto)`}
+            label={visivel ? c.name : t('cvn_br_cad_hidden', { name: c.name })}
             icon="layers"
-            title={`${cadLevelName(p, c)} · ${c.layers.length} camada(s), ${c.paths.length} traço(s), ${c.texts.length} texto(s). Duplo clique seleciona; botão direito: mostrar/ocultar, enquadrar, excluir.`}
+            title={t('cvn_br_cad_title', {
+              level: cadLevelName(p, c),
+              layers: contar(c.layers.length, 'cvn_br_cad_layers_one', 'cvn_br_cad_layers_many'),
+              paths: contar(c.paths.length, 'cvn_br_cad_paths_one', 'cvn_br_cad_paths_many'),
+              texts: contar(c.texts.length, 'cvn_br_cad_texts_one', 'cvn_br_cad_texts_many'),
+            })}
             onOpen={() => selectCad(c)}
             menu={menu}
           />

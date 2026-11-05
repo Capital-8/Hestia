@@ -3,15 +3,18 @@ import { rampsOnLevel, stairsOnLevel, type Id, type Project } from '@hestia/mode
 import { rampPolylines } from './rampPick.ts';
 import { stairPolylines } from './stairPick.ts';
 import type { ToolEnv } from './types.ts';
+import { t as translate, type Lang } from './i18n.ts';
 
 /** Escada ou rampa atingida pela LINHA do croqui (limite, espelho, caminhada ou contorno de patamar). */
 export type ComponentHit = { id: Id; kind: 'stair' | 'ramp' };
 
 /** Aviso das ferramentas de aresta ao clicar numa linha de escada/rampa. */
-export const COMPONENT_EDGE_MSG = 'Aresta de escada/rampa: use Editar croqui para alterar o croqui.';
+export const componentEdgeMsg = (lang: Lang = 'pt'): string => translate(lang, 'tl_msg_component_edge');
+export const COMPONENT_EDGE_MSG = componentEdgeMsg();
 
 /** Aviso do Mover sem seleção: a aresta do croqui não se move sozinha; a escada/rampa inteira se move. */
-export const COMPONENT_MOVE_MSG = 'Para mover a escada/rampa inteira, selecione o elemento (Selecionar) e use Mover.';
+export const componentMoveMsg = (lang: Lang = 'pt'): string => translate(lang, 'tl_msg_component_move');
+export const COMPONENT_MOVE_MSG = componentMoveMsg();
 
 /** Distância de `at` à polilinha `pl` (menor entre os segmentos). */
 function distToPolyline(at: Vec2, pl: Vec2[]): number {

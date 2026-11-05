@@ -3,6 +3,7 @@ import { sheetOf } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
 import { emitRevisionCommand, nextRevisionTag } from '../../editor/sheetNumbering.ts';
 import { useUi } from '../../editor/state.ts';
+import { fmtDate, useT } from '../../editor/i18n.ts';
 import { Row, TextField } from '../fields.tsx';
 import { Dialog } from './Dialog.tsx';
 
@@ -11,9 +12,10 @@ import { Dialog } from './Dialog.tsx';
  * prancha, a data já vem de hoje e a revisão entra no histórico e no carimbo num único passo de desfazer.
  */
 export function RevisionDialog({ sheetId }: { sheetId: string }): ReactElement | null {
+  const { t, lang } = useT();
   const p = useProject();
   const s = sheetOf(p, sheetId);
-  const [date, setDate] = useState(() => new Date().toLocaleDateString('pt-BR'));
+  const [date, setDate] = useState(() => fmtDate(lang));
   const [description, setDescription] = useState('');
   const [author, setAuthor] = useState(s?.titleBlock.author ?? '');
   const [err, setErr] = useState('');
@@ -22,48 +24,48 @@ export function RevisionDialog({ sheetId }: { sheetId: string }): ReactElement |
   const tag = nextRevisionTag(s.revisions);
   const emit = (): void => {
     const descricao = description.trim();
-    if (!descricao) return setErr('Descreva a revisão.');
+    if (!descricao) return setErr(t('dlc_err_describe_revision'));
     const cmd = emitRevisionCommand(p, [s.id], {
       date: date.trim(),
       description: descricao,
       ...(author.trim() ? { by: author.trim() } : {}),
       tag,
     });
-    if (!cmd) return setErr('Prancha inexistente.');
+    if (!cmd) return setErr(t('dlc_err_sheet_missing'));
     try {
-      editor.store.exec(cmd, 'Emitir revisão');
-      useUi.setState({ status: `Revisão ${tag} emitida na prancha ${s.number}.` });
+      editor.store.exec(cmd, t('dlc_undo_issue_revision'));
+      useUi.setState({ status: { key: 'dlc_status_revision_issued', args: { tag, number: s.number } } });
       close();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Revisão recusada.');
+      setErr(e instanceof Error ? e.message : t('dlc_err_revision_refused'));
     }
   };
   return (
     <Dialog
-      title="Emitir revisão"
+      title={t('dlc_issue_revision')}
       sub={`${s.number} · ${s.name}`}
       onClose={close}
       size="narrow"
       footer={
         <>
-          <button className="btn" onClick={close}>Cancelar</button>
-          <button className="btn primary" onClick={emit}>Emitir revisão</button>
+          <button className="btn" onClick={close}>{t('dlc_btn_cancel')}</button>
+          <button className="btn primary" onClick={emit}>{t('dlc_btn_issue_revision')}</button>
         </>
       }
     >
-      <Row label="Tag" readOnly>
+      <Row label={t('dlc_col_tag')} readOnly>
         <span className="val">{tag}</span>
       </Row>
-      <Row label="Data" htmlFor="rev-date">
+      <Row label={t('dlc_date')} htmlFor="rev-date">
         <TextField id="rev-date" value={date} onCommit={setDate} />
       </Row>
-      <Row label="Descrição" htmlFor="rev-desc">
-        <TextField id="rev-desc" value={description} placeholder="O que mudou nesta revisão" onCommit={setDescription} />
+      <Row label={t('dlc_col_description')} htmlFor="rev-desc">
+        <TextField id="rev-desc" value={description} placeholder={t('dlc_ph_revision_desc')} onCommit={setDescription} />
       </Row>
-      <Row label="Autor" htmlFor="rev-by">
-        <TextField id="rev-by" value={author} placeholder="Em branco: sem autor" onCommit={setAuthor} />
+      <Row label={t('dlc_author')} htmlFor="rev-by">
+        <TextField id="rev-by" value={author} placeholder={t('dlc_ph_revision_author')} onCommit={setAuthor} />
       </Row>
-      <p className="hint">A revisão entra no histórico da prancha e a tag vai para o carimbo. Ctrl+Z desfaz.</p>
+      <p className="hint">{t('dlc_revision_hint')}</p>
       {err ? <p className="error" role="alert">{err}</p> : null}
     </Dialog>
   );

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_CATEGORY_STYLES, DEFAULT_LINE_WEIGHTS, DEFAULT_VIEW_3D, DEFAULT_VIEW_GRAPHICS, ProjectStore, createEmptyProject, graphicsOf, levelGraphicsOf, view3dOf } from '@hestia/model';
 import { alreadyApplied, editLevelGraphics, editProjectGraphics, editThinLines, editView3D, restoreLevelGraphicsDefault, restoreProjectGraphicsDefault, restoreView3DDefault, showLevelsOn, thinLinesOn } from './graphicsActions.ts';
+import { resolveText } from './i18n.ts';
 
 const store = (): ProjectStore => new ProjectStore(createEmptyProject());
 
@@ -19,7 +20,7 @@ describe('editLevelGraphics (planta do nível)', () => {
     const s = store();
     expect(editLevelGraphics(s, 'lv_0', { scale: 50 })).toEqual({ ok: true, error: null });
     expect(levelGraphicsOf(s.project, 'lv_0').scale).toBe(50);
-    expect(s.undoLabel).toBe('Alterar gráficos da vista');
+    expect(resolveText(s.undoLabel!, 'pt')).toBe('Alterar gráficos da vista');
     s.undo();
     expect(levelGraphicsOf(s.project, 'lv_0')).toEqual(DEFAULT_VIEW_GRAPHICS);
     s.redo();
@@ -97,7 +98,7 @@ describe('editView3D (vista 3D: sombras, arestas, sol, fundo)', () => {
   it('o rótulo padrão é "Alterar gráficos do 3D"', () => {
     const s = store();
     editView3D(s, { edges: false });
-    expect(s.undoLabel).toBe('Alterar gráficos do 3D');
+    expect(resolveText(s.undoLabel!, 'pt')).toBe('Alterar gráficos do 3D');
   });
 
   it('recusa cor de fundo fora de #rrggbb e não grava', () => {
@@ -151,7 +152,7 @@ describe('editProjectGraphics (pesos de linha do projeto)', () => {
     table[4]![1] = 0.8;
     expect(editProjectGraphics(s, { lineWeights: table })).toEqual({ ok: true, error: null });
     expect(graphicsOf(s.project).lineWeights[4]).toEqual([0.7, 0.8, 0.35]);
-    expect(s.undoLabel).toBe('Alterar pesos de linha');
+    expect(resolveText(s.undoLabel!, 'pt')).toBe('Alterar pesos de linha');
     s.undo();
     expect(graphicsOf(s.project).lineWeights).toEqual(DEFAULT_LINE_WEIGHTS);
   });
@@ -190,7 +191,7 @@ describe('restauração (planta, 3D)', () => {
     expect(restoreLevelGraphicsDefault(s, 'lv_0')).toEqual({ ok: true, error: null });
     expect(levelGraphicsOf(s.project, 'lv_0')).toEqual(DEFAULT_VIEW_GRAPHICS);
     expect(levelGraphicsOf(s.project, 'lv_1').scale).toBe(200);
-    expect(s.undoLabel).toBe('Restaurar gráficos da vista');
+    expect(resolveText(s.undoLabel!, 'pt')).toBe('Restaurar gráficos da vista');
     s.undo();
     expect(levelGraphicsOf(s.project, 'lv_0').scale).toBe(50);
   });
@@ -226,7 +227,7 @@ describe('editThinLines (linhas finas da vista ativa, só na tela)', () => {
     expect(editThinLines(s, { levelId: 'lv_0' }, false)).toEqual({ ok: true, error: null });
     expect(thinLinesOn(s.project, { levelId: 'lv_0' })).toBe(false);
     expect(s.project.levels[0]!.graphics?.thinLines).toBe(false);
-    expect(s.undoLabel).toBe('Alternar linhas finas da planta');
+    expect(resolveText(s.undoLabel!, 'pt')).toBe('Alternar linhas finas da planta');
     s.undo();
     expect(thinLinesOn(s.project, { levelId: 'lv_0' })).toBe(true);
   });
@@ -237,6 +238,6 @@ describe('editThinLines (linhas finas da vista ativa, só na tela)', () => {
     expect(thinLinesOn(s.project, 'section')).toBe(false);
     expect(s.project.sectionGraphics?.thinLines).toBe(false);
     expect(thinLinesOn(s.project, { levelId: 'lv_0' })).toBe(true);
-    expect(s.undoLabel).toBe('Alternar linhas finas do corte');
+    expect(resolveText(s.undoLabel!, 'pt')).toBe('Alternar linhas finas do corte');
   });
 });

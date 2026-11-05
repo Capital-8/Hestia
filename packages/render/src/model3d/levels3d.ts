@@ -1,7 +1,8 @@
 /* eslint-disable max-lines -- o datum reúne duas linhas, bolha, texto, plano e cota no mesmo módulo. */
 import * as THREE from 'three';
-import type { Id, Project } from '@hestia/model';
+import { unitsOf, type Id, type Project } from '@hestia/model';
 import { LEVEL_LINE_OFFSET, levelDataOf, levelProjectBox, type LevelBox, type LevelDatum } from './levelsData.ts';
+import { fmtNumLang as fmtNum } from '../i18n.ts';
 
 /**
  * Datum de nível no 3D (revisão 2): **duas linhas** por nível — a da esquerda (com a bolha e o texto) e a de trás,
@@ -167,8 +168,9 @@ export function buildLevels(p: Project, selected: Id | null, dark = false): THRE
   if (selected !== null) {
     const i = data.findIndex((d) => d.levelId === selected);
     if (i >= 0) {
-      if (i > 0) dimensions.push(dimensao(data[i]!, data[i - 1]!, 'below', cores));
-      if (i < data.length - 1) dimensions.push(dimensao(data[i]!, data[i + 1]!, 'above', cores));
+      const dec = unitsOf(p).decimalSymbol;
+      if (i > 0) dimensions.push(dimensao(data[i]!, data[i - 1]!, 'below', cores, dec));
+      if (i < data.length - 1) dimensions.push(dimensao(data[i]!, data[i + 1]!, 'above', cores, dec));
     }
     for (const dim of dimensions) grupo.add(dim.line, dim.extensions, dim.ticks, dim.label);
   }
@@ -252,6 +254,7 @@ function dimensao(
   vizinho: LevelDatum,
   side: DimensionSide,
   cores: LevelPalette,
+  decimalSymbol: ',' | '.',
 ): DimensionView {
   const info: DimensionInfo = {
     levelId: sel.levelId,
@@ -271,7 +274,7 @@ function dimensao(
   const ticks = segmentos(material);
   ticks.userData = { dimension: info };
   ticks.renderOrder = 24;
-  const textura = texturaDaCota(info.value, cores);
+  const textura = texturaDaCota(info.value, cores, decimalSymbol);
   const label = new THREE.Sprite(
     new THREE.SpriteMaterial({
       ...(textura ? { map: textura } : {}),
@@ -555,7 +558,7 @@ function texturaDoTexto(texto: string, cores: LevelPalette): THREE.CanvasTexture
 }
 
 /** Textura da etiqueta da cota: valor em fundo e borda da paleta. */
-function texturaDaCota(value: number, cores: LevelPalette): THREE.CanvasTexture | null {
+function texturaDaCota(value: number, cores: LevelPalette, decimalSymbol: ',' | '.'): THREE.CanvasTexture | null {
   const alvo = canvasComContexto(320, 96);
   if (!alvo) return null;
   const { ctx } = alvo;
@@ -566,7 +569,7 @@ function texturaDaCota(value: number, cores: LevelPalette): THREE.CanvasTexture 
   ctx.lineWidth = 4;
   ctx.strokeRect(2, 2, 316, 92);
   // units-ok: rótulo da cota de nível no 3D (m)
-  const texto = `${value.toFixed(2).replace('.', ',')} m`;
+  const texto = `${fmtNum(value, 2, decimalSymbol)} m`;
   ctx.fillStyle = hex(cores.dimensionText);
   ctx.font = 'bold 44px sans-serif';
   ctx.textAlign = 'center';

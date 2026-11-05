@@ -1,0 +1,58 @@
+arquivo,linha,texto,tipo,severidade,chave,en,nota
+apps/web/src/editor/i18n.ts,18,lang: (safeGet(LANG_KEY) as Lang) || 'pt',infra (validação),P1,-,-,"cast sem validar: ""pt-BR""/""en-US""/lixo no localStorage faz I18N[lang] virar undefined e derruba o app"
+apps/web/src/editor/i18n.ts,31,export const I18N = {,infra (dicionário monolítico),P2,-,-,739 linhas; só as tabelas foram extraídas para i18nTabelas.ts (281 linhas); ~200 chaves stt_* de um único diálogo
+apps/web/src/editor/i18n.ts,717,return I18N[lang][key] || toolId;,fallback,P2,-,-,chave ausente em EN cai no id cru da ferramenta (não em PT); é o único ponto com fallback explícito
+apps/web/src/editor/i18n.ts,722,Atalhos de teclado / Keyboard shortcuts,ternário inline,P2,cmd_shortcuts,Keyboard Shortcuts,"nome de comando fora do dicionário (nomeComandoLang); testado por valor, não por chave"
+apps/web/src/editor/i18n.ts,723,Unidades do projeto / Project Units,ternário inline,P2,cmd_units,Project Units,idem
+apps/web/src/editor/i18n.ts,724,Criar semelhante / Create Similar,ternário inline,P2,cmd_create_similar,Create Similar,idem
+apps/web/src/editor/i18n.ts,726,Ocultar temporariamente (elemento) / Temporary Hide (Element),dict paralelo,P2,cmd_temporary_hide,Temporary Hide (Element),"tabela [pt,en] embutida na função (726-737): 4ª fonte de tradução, não coberta pelo teste de paridade"
+apps/web/src/editor/i18n.test.ts,33,expect(en).toEqual(pt),teste (cobertura),P2,-,-,"só paridade de chaves + alguns valores; não varre a UI, não checa chave usada, nem <html lang>, nem fmtNum"
+apps/web/src/editor/i18nTabelas.ts,2,export const PT_TABELAS = {,infra (split por tamanho),P2,-,-,"EN em :143; separação existe só por limite de linhas, sem namespace por área (dialog/tabela/ferramenta)"
+apps/web/src/App.tsx,245,"Pronto. Pressione ${parede} para desenhar paredes, ou selecione para editar. / Pronto. Escolha uma ferramenta, ou selecione para editar.",status,P0,status_ready_wall_hint / status_ready_hint,"Ready. Press {key} to draw walls, or select to edit. / Ready. Pick a tool, or select to edit.",useEffect com deps []: grava texto PT uma vez; trocar para EN não reescreve a barra de status
+apps/web/src/App.tsx,147,Estilo de cotas,undo label,P1,undo_dim_style,Dimension Style,"vai para store.undoLabel e aparece em ""Desfazer: ... (Ctrl+Z)"" na TitleBar:64"
+apps/web/index.html,9,<title>Hestia</title>,título da aba,P2,app_title,Hestia,nunca muda; document.title jamais é atribuído (grep = 0 ocorrências em apps/web/src)
+apps/web/src/main.tsx,16,createRoot(...).render(<App />),infra (sync ausente),P1,-,-,"nenhum updater de document.documentElement.lang/document.title; index.html:2 fica lang=""pt-BR"" para sempre (attr já reportado em 02-ribbon)"
+apps/web/src/ui/TitleBar.tsx,20,Vista 3D: Modelo 3D / 3D View: 3D Model,ternário inline,P2,title_view_3d,3D View: 3D Model,viewTitle() monta o título da vista com ternários
+apps/web/src/ui/TitleBar.tsx,23,Elevação / Corte,ternário inline,P2,title_elevation / title_section,Elevation / Section,nome da vista de corte/elevação
+apps/web/src/ui/TitleBar.tsx,27,Prancha / Sheet,ternário inline,P2,title_sheet,Sheet,-
+apps/web/src/ui/TitleBar.tsx,31,Planta de área / Area Plan,ternário inline,P2,title_area_plan,Area Plan,-
+apps/web/src/ui/TitleBar.tsx,33,Planta de cobertura / Planta de piso,ternário inline,P2,title_roof_plan / title_floor_plan,Roof Plan / Floor Plan,-
+apps/web/src/ui/TitleBar.tsx,55,Abrir / Open,ternário inline,P2,btn_open,Open,a chave btn_open já existe em i18n.ts:122 e não é usada
+apps/web/src/ui/TitleBar.tsx,56,Salvar / Save,ternário inline,P2,btn_save,Save,btn_save já existe (i18n.ts:123)
+apps/web/src/ui/TitleBar.tsx,57,Desfazer / Undo,ternário inline,P2,btn_undo,Undo,btn_undo já existe (i18n.ts:126)
+apps/web/src/ui/TitleBar.tsx,58,Refazer / Redo,ternário inline,P2,btn_redo,Redo,btn_redo já existe (i18n.ts:127)
+apps/web/src/ui/TitleBar.tsx,64,Desfazer: ${store.undoLabel} (Ctrl+Z),tooltip composto,P1,tip_undo_label,Undo: {label} (Ctrl+Z),"undoLabel é texto PT gravado na transação (ex.: App.tsx:147, ""Criar parede"" em packages/model); em EN o tooltip mistura EN + PT"
+apps/web/src/ui/TitleBar.tsx,74,Menu Arquivo / File menu,aria-label + title,P2,menu_file,File menu,botão H
+apps/web/src/ui/TitleBar.tsx,78,Barra de acesso rápido / Quick access toolbar,aria-label,P2,qat_aria,Quick access toolbar,-
+apps/web/src/ui/TitleBar.tsx,80,Mais comandos de acesso rápido / More quick access commands,aria-label,P2,qat_more,More quick access commands,-
+apps/web/src/ui/dialogs/ShortcutsConfigDialog.tsx,16,titulo: 'Outros' + g.title,dado PT de packages/tools,P1,kbd_group_others,Others,"TOOL_GROUPS.title é PT fixo (""Construir"", ""Modificar""...); cabeçalhos ficam PT em EN (render em 120)"
+apps/web/src/ui/dialogs/ShortcutsConfigDialog.tsx,50,Nenhuma tecla foi digitada: atalho não alterado.,mensagem,P2,kbd_msg_empty,No key was pressed: shortcut unchanged.,setMsg PT fixo
+apps/web/src/ui/dialogs/ShortcutsConfigDialog.tsx,66,Atribuição cancelada.,mensagem,P2,kbd_msg_cancelled,Assignment cancelled.,-
+apps/web/src/ui/dialogs/ShortcutsConfigDialog.tsx,93,Atalhos de teclado / Teclas de ferramentas e comandos,título de diálogo,P1,kbd_title / kbd_sub,Keyboard Shortcuts / Tool and command keys,diálogo inteiro em PT apesar de usar nomeComandoLang para os comandos
+apps/web/src/ui/dialogs/ShortcutsConfigDialog.tsx,98,Revit (duas letras) / Simples (uma tecla),dado PT de packages/tools,P1,kbd_profile_revit / kbd_profile_simple,Revit (two letters) / Simple (one key),PERFIL_NOMES é Record PT-only em shortcutDefaults.ts
+apps/web/src/ui/dialogs/ShortcutsConfigDialog.tsx,112,"Pressione as novas teclas para {comando}: Enter grava, Backspace apaga, Esc cancela.",JSX texto,P2,kbd_press_keys,"Press the new keys for {command}: Enter saves, Backspace deletes, Esc cancels.",-
+apps/web/src/ui/dialogs/ShortcutsConfigDialog.tsx,127,sem atalho,JSX texto,P2,kbd_no_shortcut,no shortcut,também em OtherDialogs:174
+apps/web/src/ui/dialogs/ShortcutsConfigDialog.tsx,129,Atribuir,botão,P1,kbd_assign,Assign,-
+apps/web/src/ui/dialogs/ShortcutsConfigDialog.tsx,130,Remover,botão,P1,btn_remove,Remove,"mensagem composta ""…: sem atalho."" também PT"
+apps/web/src/ui/dialogs/ShortcutsConfigDialog.tsx,131,Restaurar,botão,P1,kbd_restore,Restore,"mensagem ""…: atalho do perfil restaurado."" também PT"
+apps/web/src/ui/dialogs/OtherDialogs.tsx,130,Esc / Cancela o passo; segundo Esc sai da ferramenta...,dado PT (tabela KEYS),P2,kbd_key_esc,Esc / Cancels the step; a second Esc leaves the tool...,"14 linhas de descrição PT em 130-144, renderizadas em 178"
+apps/web/src/ui/dialogs/OtherDialogs.tsx,147,"Escada (croqui: limites, espelhos, caminhada, patamar)",dado PT (tooltip),P2,kbd_desc_stair,"Stair (sketch: boundaries, risers, run, landing)",DESCRICAO_COMANDO 147-155 vira title da célula em 175
+apps/web/src/ui/dialogs/OtherDialogs.tsx,164,Atalhos,título de diálogo,P1,dlg_shortcuts,Shortcuts,"ShortcutsDialog: usa nomeComandoLang para o nome, mas o resto é PT"
+apps/web/src/ui/dialogs/OtherDialogs.tsx,167,Personalizar atalhos… / Fechar,botões,P1,kbd_customize / btn_close,Customize Shortcuts… / Close,btn_close existe no dicionário
+apps/web/src/ui/dialogs/OtherDialogs.tsx,171,sem tecla / Selecionar (volta com Esc),JSX texto,P1,kbd_no_key / kbd_select_row,no key / Select (returns with Esc),primeira linha da tabela de atalhos
+apps/web/src/ui/dialogs/OtherDialogs.tsx,174,sem atalho,JSX texto,P2,kbd_no_shortcut,no shortcut,mesma chave de ShortcutsConfigDialog:127
+apps/web/src/ui/dialogs/RampScheduleDialog.tsx,40,useI18n.getState().lang === 'en' ? 'en-US' : 'pt-BR',formatação numérica,P2,-,-,duplica fmtNum (i18n.ts:710) e lê o store fora do React; hoje funciona só porque é chamado no render
+apps/web/src/ui/fields.tsx,8,"v.toFixed(decimals).replace('.', ',')",formatação numérica,P1,-,-,"formatter de todo número puro (NumField): em EN continua ""1,50""; deveria usar fmtNum(v, d, lang)"
+apps/web/src/ui/GenericProps.tsx,7,"n.toFixed(d).replace('.', ',')",formatação numérica,P1,-,-,propriedades genéricas IFC sempre com vírgula
+apps/web/src/ui/RampProperties.tsx,17,"n.toFixed(d).replace('.', ',')",formatação numérica,P2,-,-,painel de propriedades da rampa
+apps/web/src/ui/NivelCotaEditor.tsx,109,"hit.value.toFixed(2).replace('.', ',')",formatação numérica,P2,-,-,editor de cota do nível
+packages/model/src/units.ts,92,"decimalSymbol: ','",formatação numérica (raiz),P1,-,-,padrão do projeto é vírgula e não depende do idioma; quem não mexe em Unidades vê vírgula em EN
+packages/model/src/unitsFormat.ts,44,"numberText(v, decimals, decimalSymbol, trim)",formatação numérica (raiz),P1,-,-,"formatQuantity não recebe lang: coordenadas, propriedades e tabelas seguem o símbolo do projeto, não o idioma"
+apps/web/src/ui/useUnits.ts,6,unitsOf(editor.project),store sem lang,P2,-,-,snapshot só muda com settings.units; trocar idioma não re-renderiza quem formata medida
+apps/web/src/editor/sheetActions.ts,34,today.toLocaleDateString('pt-BR'),data,P1,-,-,data do carimbo da prancha criada: dd/mm/aaaa mesmo em EN
+apps/web/src/ui/dialogs/SheetDialog.tsx,40,new Date().toLocaleDateString('pt-BR'),data,P1,-,-,data da nova revisão da prancha
+apps/web/src/ui/dialogs/RevisionDialog.tsx,16,new Date().toLocaleDateString('pt-BR'),data,P2,-,-,valor inicial do campo de data
+apps/web/src/ui/dialogs/RampScheduleDialog.tsx,45,"localeCompare(String(y ?? ''), 'pt-BR', { numeric: true })",collation fixa,P2,-,-,"ordenação usa collation PT em EN (mesmo padrão em 13 arquivos, 20 linhas)"
+apps/web/src/ui/dialogs/RampScheduleDialog.tsx,69,"a.name.localeCompare(b.name, 'pt-BR')",collation fixa,P2,-,-,ordem da lista de tipos
+apps/web/src/ui/useCanvasContextMenu.ts,35,const lang = useI18n.getState().lang;,snapshot de idioma,P2,-,-,"menu montado no clique: se o idioma mudar com o menu aberto, ele não se traduz (aceitável, mas é leitura não reativa)"
+apps/web/src/editor/contextMenu.ts,113,const pt = ctx.lang === 'pt' ? 0 : 1;,dict paralelo (tuplas),P2,-,-,"43 pares [pt,en] em TEXTOS (59-105): 3ª fonte de tradução, fora do I18N e do teste de paridade"

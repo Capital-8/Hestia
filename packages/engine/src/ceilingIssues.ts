@@ -1,5 +1,6 @@
 import { ceilingTypeThickness, followsRoom, formatQuantity, isCeiling, isWall, levelElevation, unitsOf, wallsOnLevel, type Ceiling, type Id, type Project, type ValidationIssue } from '@hestia/model';
 import { ceilingOutline, roomsById, type CeilingRoomProblem, type RoomsById } from './ceilings.ts';
+import { t, type DictKey, type Lang } from './i18nMessages.ts';
 import { elementZRange } from './viewClass.ts';
 
 /** Tolerância (m) para a comparação de cotas: 1 mm. */
@@ -7,10 +8,10 @@ const EPS = 1e-3;
 
 const label = (c: Ceiling): string => (c.mark ? `"${c.mark}" (${c.id})` : `"${c.id}"`);
 
-const ROOM_PROBLEM_TEXT: Record<CeilingRoomProblem, string> = {
-  aberto: 'o circuito de paredes do ambiente tem um vão',
-  fora: 'o ambiente não está num circuito fechado de paredes',
-  apagado: 'o ambiente foi apagado',
+const ROOM_PROBLEM_TEXT: Record<CeilingRoomProblem, DictKey> = {
+  aberto: 'egb_ceiling_room_open',
+  fora: 'egb_ceiling_room_outside',
+  apagado: 'egb_ceiling_room_deleted',
 };
 
 /**
@@ -19,19 +20,19 @@ const ROOM_PROBLEM_TEXT: Record<CeilingRoomProblem, string> = {
  * `forro-ambiente-aberto` (decisão 0023 §13, P-5): forro que acompanha o ambiente e não o segue (vão, ponto fora ou
  * ambiente apagado); o forro mantém o último contorno gravado.
  */
-export function ceilingIssues(p: Project): ValidationIssue[] {
+export function ceilingIssues(p: Project, lang: Lang = 'pt'): ValidationIssue[] {
   const units = unitsOf(p);
   const out: ValidationIssue[] = [];
   const roomsCache = new Map<Id, RoomsById>();
   for (const c of Object.values(p.elements).filter(isCeiling)) {
     const name = label(c);
     if (c.boundary.length < 3) {
-      out.push({ severity: 'error', code: 'ceiling-no-boundary', message: `Forro ${name} não tem contorno (menos de 3 pontos).`, elementId: c.id });
+      out.push({ severity: 'error', code: 'ceiling-no-boundary', message: t(lang, 'egb_issue_ceiling_no_boundary', { name }), elementId: c.id });
       continue;
     }
-    const t = p.ceilingTypes[c.typeId];
-    if (!t) {
-      out.push({ severity: 'error', code: 'ceiling-type-missing', message: `Forro ${name} usa um tipo que não existe no projeto.`, elementId: c.id });
+    const ceilingType = p.ceilingTypes[c.typeId];
+    if (!ceilingType) {
+      out.push({ severity: 'error', code: 'ceiling-type-missing', message: t(lang, 'egb_issue_ceiling_type_missing', { name }), elementId: c.id });
       continue;
     }
     if (followsRoom(c)) {
@@ -41,7 +42,7 @@ export function ceilingIssues(p: Project): ValidationIssue[] {
         out.push({
           severity: 'warning',
           code: 'forro-ambiente-aberto',
-          message: `Forro ${name} acompanha o ambiente, mas ${ROOM_PROBLEM_TEXT[problem]}: mantém o último contorno gravado. Solte o forro para editá-lo à mão.`,
+          message: t(lang, 'egb_issue_ceiling_follows_room', { name, problem: t(lang, ROOM_PROBLEM_TEXT[problem]) }),
           elementId: c.id,
         });
       }
@@ -49,12 +50,16 @@ export function ceilingIssues(p: Project): ValidationIssue[] {
     const walls = wallsOnLevel(p, c.levelId).filter(isWall);
     if (walls.length === 0) continue;
     const lowestTop = Math.min(...walls.map((w) => elementZRange(p, w)?.z1 ?? Infinity));
-    const underside = levelElevation(p, c.levelId) + c.heightOffset - ceilingTypeThickness(t);
+    const underside = levelElevation(p, c.levelId) + c.heightOffset - ceilingTypeThickness(ceilingType);
     if (underside > lowestTop + EPS) {
       out.push({
         severity: 'warning',
         code: 'ceiling-above-wall',
-        message: `Forro ${name} fica acima da parede mais baixa do nível (face inferior em ${formatQuantity(units, 'length', underside)}; parede em ${formatQuantity(units, 'length', lowestTop)}).`,
+        message: t(lang, 'egb_issue_ceiling_above_wall', {
+          name,
+          a: formatQuantity(units, 'length', underside),
+          b: formatQuantity(units, 'length', lowestTop),
+        }),
         elementId: c.id,
       });
     }

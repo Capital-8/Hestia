@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ProjectStore, createEmptyProject, emptyTitleBlock, sheetOf, type Sheet, type SheetViewport } from '@hestia/model';
 import { alignViewportsAction, distributeViewportsAction, planAlign, planDistribute, type AlignItem, type SheetInner } from './sheetAlign.ts';
+import { resolveText } from './i18n.ts';
 
 /** A3 deitada, margem 10: área de desenho de 10 a 410 em x e de 10 a 287 em y (mm de papel). */
 const INNER: SheetInner = { x0: 10, y0: 10, x1: 410, y1: 287 };
@@ -125,7 +126,7 @@ describe('pranchas: ações de alinhar e distribuir', () => {
     const antes = positions(sheetOf(store.project, 'sht_teste')!);
     expect(alignViewportsAction(store, 'sht_teste', ['v1', 'v2', 'v3'], 'left')).toBeNull();
     expect(positions(sheetOf(store.project, 'sht_teste')!).map((p) => p.x)).toEqual([20, 20, 20]);
-    expect(store.undoLabel).toBe('Alinhar vistas da prancha');
+    expect(resolveText(store.undoLabel!, 'pt')).toBe('Alinhar vistas da prancha');
     store.undo();
     expect(positions(sheetOf(store.project, 'sht_teste')!)).toEqual(antes);
   });
@@ -135,7 +136,7 @@ describe('pranchas: ações de alinhar e distribuir', () => {
     const antes = positions(sheetOf(store.project, 'sht_teste')!);
     expect(distributeViewportsAction(store, 'sht_teste', ['v1', 'v2', 'v3'], 'h')).toBeNull();
     expect(positions(sheetOf(store.project, 'sht_teste')!).map((p) => p.x)).toEqual([20, 120, 200]);
-    expect(store.undoLabel).toBe('Distribuir vistas da prancha');
+    expect(resolveText(store.undoLabel!, 'pt')).toBe('Distribuir vistas da prancha');
     store.undo();
     expect(positions(sheetOf(store.project, 'sht_teste')!)).toEqual(antes);
   });

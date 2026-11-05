@@ -8,7 +8,7 @@ import { useUi } from './state.ts';
  * sem fusão, a exclusão continua síncrona (o Delete responde na hora, como nas demais vistas).
  */
 function executar(store: ProjectStore, commands: readonly Command[]): void {
-  store.transaction('Excluir', () => {
+  store.transaction('eds_undo_delete', () => {
     for (const c of commands) store.exec(c);
   });
   useUi.setState({ selection: [] });
@@ -44,7 +44,7 @@ function deletePlanSelectionIn(store: ProjectStore, planId: Id, ids: Id[]): void
   const rooms = ids.filter((id) => isRoom(store.project.elements[id]));
   const separators = levelRoomSeparators(store.project, plan.levelId).filter((r) => want.has(r.id)).map((r) => r.id);
   if (removedAnnotations === 0 && tags.length === 0 && rooms.length === 0 && separators.length === 0) {
-    useUi.setState({ status: 'Na planta de área dá para excluir ambientes, separadores, etiquetas e anotações; paredes e demais elementos de modelo continuam bloqueados.' });
+    useUi.setState({ status: { key: 'eds_msg_area_delete_blocked' } });
     return;
   }
   const commands: Command[] = [];
@@ -55,7 +55,15 @@ function deletePlanSelectionIn(store: ProjectStore, planId: Id, ids: Id[]): void
   const preview = areaMergePreview(store.project, plan.levelId, commands, removesCircuit(store.project, plan.levelId, ids));
   if (!preview) {
     executar(store, commands);
-    useUi.setState({ status: rooms.length > 0 ? 'Ambiente excluído.' : separators.length > 0 ? 'Separador excluído.' : tags.length > 0 ? 'Etiqueta excluída.' : 'Anotações excluídas da planta de área.' });
+    useUi.setState({
+      status: rooms.length > 0
+        ? { key: 'eds_msg_area_deleted_room' }
+        : separators.length > 0
+          ? { key: 'eds_msg_area_deleted_separator' }
+          : tags.length > 0
+            ? { key: 'eds_msg_area_deleted_tag' }
+            : { key: 'eds_msg_area_deleted_annotations' },
+    });
     return;
   }
   return (async () => {
@@ -65,7 +73,7 @@ function deletePlanSelectionIn(store: ProjectStore, planId: Id, ids: Id[]): void
     const finalCommands = commands.filter((c) => c.type !== 'deleteElements') as Command[];
     if (allRooms.length > 0) finalCommands.push({ type: 'deleteElements', ids: allRooms });
     executar(store, finalCommands);
-    useUi.setState({ status: 'Ambientes menores excluídos; a área maior expandiu. Ctrl+Z desfaz.' });
+    useUi.setState({ status: { key: 'eds_msg_area_merged_deleted' } });
   })();
 }
 
@@ -97,7 +105,7 @@ export function deleteSelectionIn(store: ProjectStore): void | Promise<void> {
   const preview = areaMergePreview(store.project, levelId, commands, removesCircuit(store.project, levelId, ids));
   if (!preview) {
     executar(store, commands);
-    useUi.setState({ status: 'Seleção excluída.' });
+    useUi.setState({ status: { key: 'eds_msg_selection_deleted' } });
     return;
   }
   return (async () => {
@@ -107,6 +115,6 @@ export function deleteSelectionIn(store: ProjectStore): void | Promise<void> {
     const finalCommands = commands.filter((c) => c.type !== 'deleteElements') as Command[];
     if (allElems.length > 0) finalCommands.push({ type: 'deleteElements', ids: allElems });
     executar(store, finalCommands);
-    useUi.setState({ status: 'Seleção excluída; ambientes menores fundidos. Ctrl+Z desfaz.' });
+    useUi.setState({ status: { key: 'eds_msg_selection_deleted_merged' } });
   })();
 }

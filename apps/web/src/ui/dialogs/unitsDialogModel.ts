@@ -8,6 +8,7 @@ import {
   type ResolvedUnits,
   type UnitsSettings,
 } from '@hestia/model';
+import { t as translate, type Dict, type Lang } from '../../editor/i18n.ts';
 
 /** Linhas da tabela do diálogo, na ordem do plano. */
 export const QUANTITY_KEYS = ['length', 'smallLength', 'area', 'volume', 'angle', 'slope'] as const;
@@ -26,33 +27,53 @@ export interface UnitsDraft {
   currency: string;
 }
 
-export const QUANTITY_LABELS: Record<Quantity, string> = {
-  length: 'Comprimento',
-  smallLength: 'Comprimento pequeno (espessuras e folgas)',
-  area: 'Área',
-  volume: 'Volume',
-  angle: 'Ângulo',
-  slope: 'Inclinação',
-  currency: 'Moeda',
+const QUANTITY_LABEL_KEYS: Record<Quantity, keyof Dict> = {
+  length: 'dlc_qty_length',
+  smallLength: 'dlc_qty_small_length',
+  area: 'dlc_qty_area',
+  volume: 'dlc_qty_volume',
+  angle: 'dlc_qty_angle',
+  slope: 'dlc_qty_slope',
+  currency: 'dlc_qty_currency',
 };
 
-export const UNIT_LABELS: Record<QuantityUnit, string> = {
-  m: 'Metros',
-  cm: 'Centímetros',
-  mm: 'Milímetros',
-  ft: 'Pés',
-  in: 'Polegadas',
-  'ft-in': 'Pés e polegadas',
-  m2: 'm²', // units-ok: rótulo de unidade
-  cm2: 'cm²', // units-ok: rótulo de unidade
-  ft2: 'ft²',
-  m3: 'm³', // units-ok: rótulo de unidade
-  l: 'Litros',
-  ft3: 'ft³',
-  deg: 'Graus',
-  rad: 'Radianos',
-  percent: 'Porcentagem',
+/** Rótulos das grandezas no idioma pedido. */
+export function quantityLabels(lang: Lang): Record<Quantity, string> {
+  const out = {} as Record<Quantity, string>;
+  for (const q of Object.keys(QUANTITY_LABEL_KEYS) as Quantity[]) out[q] = translate(lang, QUANTITY_LABEL_KEYS[q]);
+  return out;
+}
+
+/** Rótulos em PT (compatibilidade com consumidores antigos). */
+export const QUANTITY_LABELS: Record<Quantity, string> = quantityLabels('pt');
+
+const UNIT_LABEL_KEYS: Record<QuantityUnit, keyof Dict> = {
+  m: 'dlc_unit_name_m',
+  cm: 'dlc_unit_name_cm',
+  mm: 'dlc_unit_name_mm',
+  ft: 'dlc_unit_name_ft',
+  in: 'dlc_unit_name_in',
+  'ft-in': 'dlc_unit_name_ft_in',
+  m2: 'dlc_unit_name_m2',
+  cm2: 'dlc_unit_name_cm2',
+  ft2: 'dlc_unit_name_ft2',
+  m3: 'dlc_unit_name_m3',
+  l: 'dlc_unit_name_l',
+  ft3: 'dlc_unit_name_ft3',
+  deg: 'dlc_unit_name_deg',
+  rad: 'dlc_unit_name_rad',
+  percent: 'dlc_unit_name_percent',
 };
+
+/** Rótulos das unidades no idioma pedido. */
+export function unitLabels(lang: Lang): Record<QuantityUnit, string> {
+  const out = {} as Record<QuantityUnit, string>;
+  for (const u of Object.keys(UNIT_LABEL_KEYS) as QuantityUnit[]) out[u] = translate(lang, UNIT_LABEL_KEYS[u]);
+  return out;
+}
+
+/** Rótulos em PT (compatibilidade com consumidores antigos). */
+export const UNIT_LABELS: Record<QuantityUnit, string> = unitLabels('pt');
 
 /** Valores SI dos exemplos ao vivo (um por grandeza). */
 export const EXAMPLES: Array<[Quantity, number]> = [
@@ -123,28 +144,30 @@ export function applyDraft(d: UnitsDraft): UnitsSettings | undefined {
 }
 
 /** Erro de validação do rascunho, ou `null` se estiver tudo certo. */
-export function validateDraft(d: UnitsDraft): string | null {
+export function validateDraft(d: UnitsDraft, lang: Lang = 'pt'): string | null {
+  const labels = quantityLabels(lang);
   for (const key of QUANTITY_KEYS) {
     const casas = d[key].decimals;
     if (!Number.isInteger(casas) || casas < 0 || casas > 5) {
-      return `${QUANTITY_LABELS[key]}: as casas decimais precisam ser um inteiro de 0 a 5.`;
+      return translate(lang, 'dlc_units_err_decimals', { label: labels[key] });
     }
     if (d[key].unit === 'ft-in' && ![2, 4, 8, 16, 32, 64].includes(d[key].denominator)) {
-      return `${QUANTITY_LABELS[key]}: fração de polegada inválida.`;
+      return translate(lang, 'dlc_units_err_fraction', { label: labels[key] });
     }
   }
   const moeda = d.currency.trim();
-  if (moeda.length < 1 || moeda.length > 4) return 'O símbolo de moeda precisa ter de 1 a 4 caracteres.';
+  if (moeda.length < 1 || moeda.length > 4) return translate(lang, 'dlc_units_err_currency');
   return null;
 }
 
 /** Linhas do exemplo ao vivo: valor de referência (SI) → valor com as escolhas do rascunho. */
-export function exampleLines(d: UnitsDraft): Array<{ q: Quantity; label: string; text: string }> {
+export function exampleLines(d: UnitsDraft, lang: Lang = 'pt'): Array<{ q: Quantity; label: string; text: string }> {
   const padrao = defaultUnits();
   const unidades = resolveUnits(draftSettings(d));
+  const labels = quantityLabels(lang);
   return EXAMPLES.map(([q, si]) => ({
     q,
-    label: QUANTITY_LABELS[q],
+    label: labels[q],
     text: `${formatQuantity(padrao, q, si, { decimals: 4, trim: true })} → ${formatQuantity(unidades, q, si)}`,
   }));
 }

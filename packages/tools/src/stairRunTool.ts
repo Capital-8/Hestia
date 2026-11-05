@@ -12,25 +12,23 @@ import { planSpiralRun, SPIRAL_DEFAULT_INNER, SPIRAL_MIN_SWEEP, wrapAngle, type 
 import { stairTypeForShape } from './stairRunTypes.ts';
 import { StairLiveSession, type StairLiveConfig, type StairLiveEvent } from './stairLiveSession.ts';
 import type { PointerInfo, PreviewItem } from './types.ts';
+import { fmtNumLang, t as translate, type Lang } from './i18n.ts';
 
-const START_HINT = 'Escada: clique no centro do 1º espelho. Esc cancela.';
-const FREE_START_HINT = 'Escada livre: clique o ponto inicial (centro do 1º espelho). Esc cancela.';
-const DIRECTION_HINT = 'Escada: clique para dar a direção de subida, ou digite o ângulo em graus (0 = eixo X). Esc cancela o ponto.';
-const SPIRAL_START_HINT = 'Caracol: clique no centro. Esc cancela.';
-const SPIRAL_RADIUS_HINT = 'Caracol: clique no raio externo e no ângulo inicial (ou digite o raio em metros). Backspace volta ao centro.';
 /** Dica do 3º passo; o limite superior sai na unidade de ângulo do projeto. */
-const spiralSweepHint = (u: ResolvedUnits): string =>
-  `Caracol: gire o mouse em torno do centro para a varredura (dá mais de uma volta, até ${formatQuantity(u, 'angle', SPIRAL_MAX_SWEEP, { trim: true })}). Clique ou Enter confirma; Backspace volta.`;
+const spiralSweepHint = (u: ResolvedUnits, lang: Lang): string =>
+  lang === 'en'
+    ? `Spiral: sweep the mouse around the center for the sweep (more than one turn is allowed, up to ${formatQuantity(u, 'angle', SPIRAL_MAX_SWEEP, { trim: true })}). Click or Enter confirms; Backspace goes back.`
+    : `Caracol: gire o mouse em torno do centro para a varredura (dá mais de uma volta, até ${formatQuantity(u, 'angle', SPIRAL_MAX_SWEEP, { trim: true })}). Clique ou Enter confirma; Backspace volta.`;
 /** Distância mínima (m) entre o 1º espelho e o cursor para definir a direção. */
 const MIN_DIRECTION = 0.01;
 /** Vértices do círculo de prévia do caracol. */
 const CIRCLE_SEGMENTS = 96;
 const DEG = Math.PI / 180;
 
-/** Centímetros com vírgula, como nas outras mensagens (0,175 m → "17,5"). */
-const cm = (m: number): string => (m * 100).toFixed(1).replace('.', ',');
-/** Metros com vírgula e duas casas (1 → "1,00"). */
-const mText = (m: number): string => m.toFixed(2).replace('.', ',');
+/** Centímetros com o separador do idioma (0,175 m → "17,5"). */
+const cm = (m: number, lang: Lang): string => fmtNumLang(m * 100, 1, lang);
+/** Metros com duas casas no separador do idioma (1 → "1,00"). */
+const mText = (m: number, lang: Lang): string => fmtNumLang(m, 2, lang);
 /** Ângulo em módulo, na unidade do projeto (540° → "540°"; 275,25° → "275,3°"). */
 const angleText = (u: ResolvedUnits, rad: number): string => formatQuantity(u, 'angle', Math.abs(rad), { trim: true });
 
@@ -58,12 +56,12 @@ interface SpiralDraw {
 const emptySpiral = (cursor: Vec2 = { x: 0, y: 0 }): SpiralDraw => ({ outer: null, start: null, sweep: 0, last: null, cursor });
 
 /** Prévia de um caracol: o croqui do gerador, os degraus e o rótulo "Varredura: X° · N espelhos" no cursor. */
-function caracolItems(plan: SpiralPlan, cur: Vec2, units: ResolvedUnits, ctx: TreadPreviewContext): PreviewItem[] {
+function caracolItems(plan: SpiralPlan, cur: Vec2, units: ResolvedUnits, ctx: TreadPreviewContext, lang: Lang): PreviewItem[] {
   const parts: StairPart[] = [{ kind: 'run', run: plan.run }];
   return [
     ...partsPreview(parts),
     ...treadItems(parts, ctx),
-    { kind: 'label', at: cur, text: `Varredura: ${angleText(units, plan.run.spiral.sweep)} · ${plan.risers} espelhos` },
+    { kind: 'label', at: cur, text: translate(lang, 'tl_lbl_spiral_sweep', { angle: angleText(units, plan.run.spiral.sweep), n: plan.risers }) },
   ];
 }
 
@@ -78,7 +76,9 @@ function caracolItems(plan: SpiralPlan, cur: Vec2, units: ResolvedUnits, ctx: Tr
 export class StairRunTool extends ToolBase {
   readonly id = 'stairrun';
   readonly label = 'Escada (reta/L/U/caracol)';
-  readonly hint = START_HINT;
+  override get hint(): string {
+    return this.t('tl_hint_stair_run');
+  }
   private origin: Vec2 | null = null;
   /** Estado do caracol em criação (só usado na forma `spiral`). */
   private sp: SpiralDraw = emptySpiral();
@@ -119,16 +119,16 @@ export class StairRunTool extends ToolBase {
 
   override start(): void {
     this.reset();
-    this.env.say(this.free ? FREE_START_HINT : this.spiralOn ? SPIRAL_START_HINT : START_HINT);
+    this.env.say(this.free ? this.t('tl_hint_stair_free') : this.spiralOn ? this.t('tl_hint_spiral_start') : this.t('tl_hint_stair_run'));
   }
 
   override inputPrompt(): string | null {
-    if (this.free) return this.session?.state === 'ORIGIN' || this.session?.state === 'DRAWING' ? 'Comprimento (m)' : null;
+    if (this.free) return this.session?.state === 'ORIGIN' || this.session?.state === 'DRAWING' ? this.t('tl_inp_length_m') : null;
     if (this.spiralOn) {
       if (this.origin === null) return null;
-      return this.sp.start === null ? 'Raio externo (m)' : 'Varredura (°)';
+      return this.sp.start === null ? this.t('tl_inp_outer_radius') : this.t('tl_inp_sweep');
     }
-    return this.origin !== null ? 'Ângulo (°)' : null;
+    return this.origin !== null ? this.t('tl_inp_angle') : null;
   }
 
   /** Enter: no desenho livre conclui (com aviso se faltam espelhos); nos demais, o padrão da base. */
@@ -143,7 +143,7 @@ export class StairRunTool extends ToolBase {
     }
     if (this.origin === null) return;
     if (this.sp.start === null) {
-      this.env.say(SPIRAL_RADIUS_HINT);
+      this.env.say(this.t('tl_hint_spiral_radius'));
       return;
     }
     this.spiralTrack(this.sp.cursor);
@@ -155,7 +155,7 @@ export class StairRunTool extends ToolBase {
     if (this.free && this.busy()) {
       this.reset();
       this.items = [];
-      this.env.say(FREE_START_HINT);
+      this.env.say(this.t('tl_hint_stair_free'));
       return;
     }
     super.cancel();
@@ -175,12 +175,12 @@ export class StairRunTool extends ToolBase {
     if (!this.spiralOn || this.origin === null) return false;
     if (this.sp.start !== null) {
       this.sp = emptySpiral(this.sp.cursor);
-      this.env.say(SPIRAL_RADIUS_HINT);
+      this.env.say(this.t('tl_hint_spiral_radius'));
       this.items = this.spiralItems();
       return true;
     }
     this.reset();
-    this.env.say(SPIRAL_START_HINT);
+    this.env.say(this.t('tl_hint_spiral_start'));
     return true;
   }
 
@@ -217,7 +217,7 @@ export class StairRunTool extends ToolBase {
       const volta = this.liveSession();
       volta?.load(pts);
       this.items = volta ? volta.move(pts[pts.length - 1]!, 0) : [];
-      this.env.say('Não foi possível ajustar: o trajeto ajustado fica curto demais ou faz retorno agudo.');
+      this.env.say(this.t('tl_msg_adjust_fail'));
       return true;
     }
     this.items = novo.move(novo.points[novo.points.length - 1]!, 0);
@@ -257,12 +257,12 @@ export class StairRunTool extends ToolBase {
     const inf = this.snap(p, { from: this.origin ?? undefined });
     if (this.origin === null) {
       this.origin = inf.point;
-      this.env.say(DIRECTION_HINT);
+      this.env.say(this.t('tl_hint_stair_dir'));
       return;
     }
     const dir = sub(inf.point, this.origin);
     if (len(dir) < MIN_DIRECTION) {
-      this.env.say('Afaste o cursor do ponto inicial para dar a direção.');
+      this.env.say(this.t('tl_msg_move_cursor_direction'));
       return;
     }
     // Reta: o 2º clique define também o comprimento do lance (o nº de espelhos sai dele).
@@ -279,7 +279,7 @@ export class StairRunTool extends ToolBase {
     if (this.origin === null) return false;
     const v = parseNumber(text);
     if (v === null) {
-      this.env.say('Valor inválido. Digite o ângulo em graus.');
+      this.env.say(this.t('tl_msg_invalid_angle'));
       return false;
     }
     const a = (v * Math.PI) / 180;
@@ -296,12 +296,12 @@ export class StairRunTool extends ToolBase {
       this.env.say(b.error);
       return [{ kind: 'point', at: this.origin }];
     }
-    this.env.say(DIRECTION_HINT);
+    this.env.say(this.t('tl_hint_stair_dir'));
     const plan = b;
     return [
       ...partsPreview(plan.parts),
       ...treadItems(plan.parts, this.treadContext(plan.risers, plan.riserHeight)),
-      { kind: 'label', at: cursor, text: `${plan.risers} espelhos · ${cm(plan.riserHeight)} cm · piso ${cm(plan.tread)} cm` },
+      { kind: 'label', at: cursor, text: this.t('tl_lbl_stair_preview', { n: plan.risers, h: cm(plan.riserHeight, this.uiLang()), t: cm(plan.tread, this.uiLang()) }) },
     ];
   }
 
@@ -338,12 +338,12 @@ export class StairRunTool extends ToolBase {
     const ref = draftStair(p, this.creation(), this.env.levelId());
     const limits = ref ? stairLimits(p, ref) : null;
     const type = ref ? p.stairTypes[ref.typeId] : undefined;
-    if (!ref || !limits || !type) return { error: 'O projeto não tem tipo de escada.' };
+    if (!ref || !limits || !type) return { error: this.t('tl_msg_no_stair_type') };
     if (!(limits.H > 0)) {
       return {
         error: stairTopLevel(p, ref)
-          ? 'O nível de topo não fica acima da base: nada a gerar.'
-          : 'Sem nível de topo: escolha o nível de cima na barra de escada (ou informe uma altura positiva).',
+          ? this.t('tl_msg_top_not_above')
+          : this.t('tl_msg_no_top_level_stair'),
       };
     }
     return { H: limits.H, maxRiser: limits.maxRiser, minTread: type.minTread, rule: treadRuleOf(type) };
@@ -369,19 +369,19 @@ export class StairRunTool extends ToolBase {
     }
     const comps = componentsFromParts(b.parts);
     const out: { r?: StairCommandResult } = {};
-    this.env.transaction('Criar escada', () => {
+    this.env.transaction(this.t('tl_undo_create_stair'), () => {
       out.r = stairFromGenerator(this.env, comps, { ...this.creation(), generatedBy: this.opts.shape });
     });
     const r = out.r;
     if (!r || 'error' in r) {
-      this.env.say(`Não é possível criar a escada: ${r?.error ?? 'falha ao gravar.'}`);
+      this.env.say(this.t('tl_msg_stair_fail', { error: r?.error ?? this.t('tl_msg_save_failed') }));
       return false;
     }
     // Com comprimento que dá outro nº (`note`), a explicação substitui o aviso "difere do nº desejado", que contradiria o criado.
     const aviso = stairIssuesOf(this.env.project(), r.id).find((i) => i.stairId === r.id && i.severity === 'warning' && !(b.note && i.code === 'stair-risers-count'));
     const extra = b.note ? ` ${b.note}` : '';
-    const avisoText = aviso ? ` Aviso: ${aviso.message}` : '';
-    this.env.say(`Escada criada: ${b.risers} espelhos de ${cm(b.riserHeight)} cm, piso ${cm(b.tread)} cm.${extra}${avisoText} Ctrl+Z desfaz.`);
+    const avisoText = aviso ? this.t('tl_msg_warning_note', { msg: aviso.message }) : '';
+    this.env.say(this.t('tl_msg_stair_created', { n: b.risers, h: cm(b.riserHeight, this.uiLang()), t: cm(b.tread, this.uiLang()), note: extra, warning: avisoText }));
     this.reset();
     return true;
   }
@@ -393,7 +393,7 @@ export class StairRunTool extends ToolBase {
     const p = this.env.project();
     const typeId = stairTypeForShape(p, this.opts.shape, this.opts.typeId);
     const type = typeId ? p.stairTypes[typeId] : undefined;
-    if (!type) return { error: 'O projeto não tem tipo de escada.' };
+    if (!type) return { error: this.t('tl_msg_no_stair_type') };
     const lim = this.limitsNow();
     if ('error' in lim) return lim;
     return {
@@ -402,6 +402,7 @@ export class StairRunTool extends ToolBase {
       width: this.opts.width,
       ...(this.opts.landingDepth !== undefined ? { landingDepth: this.opts.landingDepth } : {}),
       ...(this.fixed ? { fixed: this.fixed } : {}),
+      lang: this.uiLang(),
     };
   }
 
@@ -444,7 +445,7 @@ export class StairRunTool extends ToolBase {
     if (!s) return false;
     const v = parseNumber(text);
     if (v === null) {
-      this.env.say('Valor inválido. Digite o comprimento em metros.');
+      this.env.say(this.t('tl_msg_invalid_length_m'));
       return false;
     }
     const ev = s.typeLength(v);
@@ -462,7 +463,7 @@ export class StairRunTool extends ToolBase {
     }
     if (ev.kind === 'added') {
       this.items = s.move(at ?? s.points[s.points.length - 1]!, 0);
-      this.env.say(ev.message ? `${ev.message} Enter ou clique conclui; Backspace volta.` : s.hint());
+      this.env.say(ev.message ? `${ev.message}${this.t('tl_msg_enter_or_click')}` : s.hint());
       return;
     }
     this.createFree(ev.path);
@@ -481,27 +482,36 @@ export class StairRunTool extends ToolBase {
       const s = this.session;
       s?.load(path);
       this.items = s ? s.move(path[path.length - 1]!, 0) : [];
-      this.env.say(`Não é possível criar a escada: ${plan.error} Backspace volta um ponto.`);
+      this.env.say(this.t('tl_msg_stair_create_fail_back', { error: plan.error }));
       return;
     }
     const comps = componentsFromParts(plan.parts);
     const out: { r?: StairCommandResult } = {};
-    this.env.transaction('Criar escada', () => {
+    this.env.transaction(this.t('tl_undo_create_stair'), () => {
       out.r = stairFromGenerator(this.env, comps, { ...this.creation(), generatedBy: 'free', ...(plan.path ? { freePath: plan.path } : {}) });
     });
     const r = out.r;
     if (!r || 'error' in r) {
-      this.env.say(`Não é possível criar a escada: ${r?.error ?? 'falha ao gravar.'}`);
+      this.env.say(this.t('tl_msg_stair_fail', { error: r?.error ?? this.t('tl_msg_save_failed') }));
       return;
     }
     const aviso = stairIssuesOf(this.env.project(), r.id).find((i) => i.stairId === r.id && i.severity === 'warning' && !(plan.note && i.code === 'stair-risers-count'));
     const runs = plan.runs ?? 0;
     const landings = plan.landings ?? 0;
     const extra = plan.note ? ` ${plan.note}` : '';
-    const avisoText = aviso ? ` Aviso: ${aviso.message}` : '';
-    this.env.say(
-      `Escada criada: ${plan.risers} espelhos de ${cm(plan.riserHeight)} cm, piso ${cm(plan.tread)} cm, ${runs} ${runs === 1 ? 'lance' : 'lances'}, ${landings} ${landings === 1 ? 'patamar' : 'patamares'}.${extra}${avisoText} Ctrl+Z desfaz.`,
-    );
+    const avisoText = aviso ? this.t('tl_msg_warning_note', { msg: aviso.message }) : '';
+    const lang = this.uiLang();
+    const runsText = lang === 'en' ? `${runs} ${runs === 1 ? 'flight' : 'flights'}` : `${runs} ${runs === 1 ? 'lance' : 'lances'}`;
+    const landingsText = lang === 'en' ? `${landings} ${landings === 1 ? 'landing' : 'landings'}` : `${landings} ${landings === 1 ? 'patamar' : 'patamares'}`;
+    this.env.say(this.t('tl_msg_stair_created_free', {
+      n: plan.risers,
+      h: cm(plan.riserHeight, lang),
+      t: cm(plan.tread, lang),
+      runs: runsText,
+      landings: landingsText,
+      note: extra,
+      warning: avisoText,
+    }));
     this.reset();
     this.items = [];
   }
@@ -512,7 +522,7 @@ export class StairRunTool extends ToolBase {
     if (this.origin === null) {
       this.origin = this.snap(p).point;
       this.sp = emptySpiral(p.raw);
-      this.env.say(SPIRAL_RADIUS_HINT);
+      this.env.say(this.t('tl_hint_spiral_radius'));
       return;
     }
     if (this.sp.start === null) {
@@ -532,11 +542,11 @@ export class StairRunTool extends ToolBase {
     const d = sub(raw, c);
     const r = this.opts.spiralOuter ?? len(d);
     if (!(r > 0)) {
-      this.env.say('Afaste o cursor do centro para dar o raio externo.');
+      this.env.say(this.t('tl_msg_spiral_radius'));
       return;
     }
     if (!(r > this.innerR)) {
-      this.env.say(`O raio externo (${mText(r)} m) deve ser maior que o interno (${mText(this.innerR)} m).`);
+      this.env.say(this.t('tl_msg_spiral_radius_gt_inner', { outer: mText(r, this.uiLang()), inner: mText(this.innerR, this.uiLang()) }));
       return;
     }
     this.sp = { outer: r, start: Math.atan2(d.y, d.x), sweep: 0, last: null, cursor: raw };
@@ -547,7 +557,7 @@ export class StairRunTool extends ToolBase {
       if (!this.spiralConfirm()) this.sp.sweep = 0;
       return;
     }
-    this.env.say(spiralSweepHint(unitsOf(this.env.project())));
+    this.env.say(spiralSweepHint(unitsOf(this.env.project()), this.uiLang()));
     this.items = this.spiralItems();
   }
 
@@ -574,7 +584,7 @@ export class StairRunTool extends ToolBase {
   private spiralPlanNow(): SpiralPlan | { error: string } {
     const lim = this.limitsNow();
     if ('error' in lim) return lim;
-    if (this.origin === null || this.sp.outer === null || this.sp.start === null) return { error: 'Caracol: falta o centro, o raio ou o ângulo inicial.' };
+    if (this.origin === null || this.sp.outer === null || this.sp.start === null) return { error: this.t('tl_msg_spiral_missing') };
     return planSpiralRun({
       center: this.origin,
       rInner: this.innerR,
@@ -601,18 +611,22 @@ export class StairRunTool extends ToolBase {
   private spiralCreate(plan: SpiralPlan): boolean {
     const comps = componentsFromParts([{ kind: 'run', run: plan.run }]);
     const out: { r?: StairCommandResult } = {};
-    this.env.transaction('Criar escada', () => {
+    this.env.transaction(this.t('tl_undo_create_stair'), () => {
       out.r = stairFromGenerator(this.env, comps, { ...this.creation(), generatedBy: 'spiral' });
     });
     const r = out.r;
     if (!r || 'error' in r) {
-      this.env.say(`Não é possível criar a escada: ${r?.error ?? 'falha ao gravar.'}`);
+      this.env.say(this.t('tl_msg_stair_fail', { error: r?.error ?? this.t('tl_msg_save_failed') }));
       return false;
     }
     // O aviso fixo de saída de emergência vem em todo caracol: a mensagem traz só o aviso que muda o projeto.
     const aviso = stairIssuesOf(this.env.project(), r.id).find((i) => i.stairId === r.id && i.severity === 'warning' && i.code !== 'stair-spiral-exit');
-    const extra = aviso ? ` Aviso: ${aviso.message}` : '';
-    this.env.say(`Escada caracol criada: ${plan.risers} espelhos, varredura ${angleText(unitsOf(this.env.project()), plan.run.spiral.sweep)}.${extra} Ctrl+Z desfaz.`);
+    const extra = aviso ? this.t('tl_msg_warning_note', { msg: aviso.message }) : '';
+    this.env.say(this.t('tl_msg_spiral_created', {
+      n: plan.risers,
+      angle: angleText(unitsOf(this.env.project()), plan.run.spiral.sweep),
+      note: extra,
+    }));
     this.reset();
     return true;
   }
@@ -622,18 +636,18 @@ export class StairRunTool extends ToolBase {
     if (this.origin === null) return false;
     const v = parseNumber(text);
     if (v === null || !(v > 0)) {
-      this.env.say(this.sp.start === null ? 'Valor inválido. Digite o raio externo em metros.' : 'Valor inválido. Digite a varredura em graus.');
+      this.env.say(this.sp.start === null ? this.t('tl_msg_invalid_radius_m') : this.t('tl_msg_invalid_sweep'));
       return false;
     }
     if (this.sp.start === null) {
       if (!(v > this.innerR)) {
-        this.env.say(`O raio externo (${mText(v)} m) deve ser maior que o interno (${mText(this.innerR)} m).`);
+        this.env.say(this.t('tl_msg_spiral_radius_gt_inner', { outer: mText(v, this.uiLang()), inner: mText(this.innerR, this.uiLang()) }));
         return false;
       }
       const d = sub(this.sp.cursor, this.origin);
       this.sp = { outer: v, start: Math.atan2(d.y, d.x), sweep: 0, last: null, cursor: this.sp.cursor };
       this.sp.last = this.sp.start;
-      this.env.say(spiralSweepHint(unitsOf(this.env.project())));
+      this.env.say(spiralSweepHint(unitsOf(this.env.project()), this.uiLang()));
       this.items = this.spiralItems();
       return true;
     }
@@ -669,11 +683,11 @@ export class StairRunTool extends ToolBase {
       if (!('error' in lim)) {
         const units = unitsOf(this.env.project());
         const plan = planSpiralRun({ center: c, rInner: this.innerR, rOuter: r, startAngle: th, sweep: sw, H: lim.H, maxRiser: lim.maxRiser, units });
-        if (!('error' in plan)) items.push(...caracolItems(plan, cur, units, this.treadContext(plan.risers, plan.riserHeight)));
+        if (!('error' in plan)) items.push(...caracolItems(plan, cur, units, this.treadContext(plan.risers, plan.riserHeight), this.uiLang()));
       }
     }
-    items.push({ kind: 'label', at: cur, text: `Raio externo ${mText(r)} m` });
-    if (sw === null) this.env.say(`Raio externo ${mText(r)} m: clique para fixar o raio e o ângulo inicial.`);
+    items.push({ kind: 'label', at: cur, text: this.t('tl_lbl_outer_radius', { r: mText(r, this.uiLang()) }) });
+    if (sw === null) this.env.say(this.t('tl_msg_outer_radius_pick', { r: mText(r, this.uiLang()) }));
     return items;
   }
 
@@ -682,9 +696,9 @@ export class StairRunTool extends ToolBase {
     const lim = this.limitsNow();
     const sw = this.sp.sweep;
     const units = unitsOf(this.env.project());
-    const label: PreviewItem = { kind: 'label', at: cur, text: `Varredura: ${angleText(units, sw)}` };
+    const label: PreviewItem = { kind: 'label', at: cur, text: this.t('tl_lbl_sweep', { angle: angleText(units, sw) }) };
     if ('error' in lim || this.sp.outer === null || this.sp.start === null) {
-      this.env.say('error' in lim ? lim.error : 'Caracol: falta o raio ou o ângulo inicial.');
+      this.env.say('error' in lim ? lim.error : this.t('tl_msg_spiral_missing_radius'));
       return [label];
     }
     const outer = this.sp.outer;
@@ -694,7 +708,7 @@ export class StairRunTool extends ToolBase {
       // Abaixo de 30° (ou fora dos limites) não há caracol: mostra o raio e o ângulo inicial, com o motivo na barra.
       const short = Math.abs(sw) < SPIRAL_MIN_SWEEP;
       const minSweep = formatQuantity(units, 'angle', SPIRAL_MIN_SWEEP, { trim: true });
-      this.env.say(short ? `Varredura ${angleText(units, sw)}: gire o mouse para pelo menos ${minSweep}.` : plan.error);
+      this.env.say(short ? this.t('tl_msg_sweep_min', { angle: angleText(units, sw), min: minSweep }) : plan.error);
       const u = { x: Math.cos(start), y: Math.sin(start) };
       return [
         { kind: 'polygon', ring: circleRing(c, outer), dashed: true },
@@ -702,7 +716,7 @@ export class StairRunTool extends ToolBase {
         label,
       ];
     }
-    this.env.say(`Varredura ${angleText(units, sw)}: clique ou Enter confirma; Backspace volta.`);
-    return caracolItems(plan, cur, units, this.treadContext(plan.risers, plan.riserHeight));
+    this.env.say(this.t('tl_msg_sweep_confirm', { angle: angleText(units, sw) }));
+    return caracolItems(plan, cur, units, this.treadContext(plan.risers, plan.riserHeight), this.uiLang());
   }
 }
