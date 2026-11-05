@@ -37,14 +37,15 @@ const SEMENTES = Number(process.env['B3_SEMENTES'] ?? 5);
 const MEDIR = process.env['B3_MEDIR'] === '1';
 const medidas: string[] = [];
 /**
- * Casos com o DEFEITO CONHECIDO da junção (0050, "B3 entregue" e "B3 encerrada sem a junção"): em parede com faixas inclinadas cruzada por piso ou laje o Rust
+ * Lista de casos com DEFEITO CONHECIDO da junção: VAZIA desde a saída 3 da 0050 (as faixas de parede vêm do TypeScript, e o Rust só recorta). O mecanismo
+ * `it.fails` fica para o próximo defeito. Histórico (0050, "B3 encerrada sem a junção"): em parede com faixas inclinadas cruzada por piso ou laje o Rust
  * deixa de recortar faixas que o TypeScript recorta (de 0,04 a 0,65 m² na camada de parede). A partição vertical do TS depende da ordem textual dos anéis do
  * `polygon-clipping`, que o `i_overlay` não reproduz; três correções locais no Rust foram tentadas e cada uma consertou um caso e quebrou outros.
  * `it.fails` EXIGE que o caso continue reprovando: se um deles passar o teste reprova e esta lista deve ser atualizada (o defeito foi corrigido). Nada foi
  * afrouxado: o comparador segue bloqueante e a junção NÃO é despachada ao Rust. Em modo de medição (B3_MEDIR=1) o comparador não lança e a lista não vale.
  * Chaves: `estresse:<semente>:<pavimento>` e `naoAdjacente:<semente>:<pavimento>`.
  */
-const DEFEITO_CONHECIDO = new Set(['estresse:1:2', 'estresse:2:0', 'estresse:5:1', 'naoAdjacente:43:0', 'naoAdjacente:43:1']);
+const DEFEITO_CONHECIDO = new Set<string>(); // vazia desde a saída 3 da 0050 (faixas de parede vindas do TypeScript): nenhum caso falha por defeito conhecido.
 const itB3 = (chave: string) => (!MEDIR && DEFEITO_CONHECIDO.has(chave) ? it.fails : it);
 const maior = { sim: 0, k: 0, casoSim: '', casoK: '' };
 const memo = new Map<string, { p: Project; cena: CenaV2; a1: ReturnType<typeof montarCenaA1>; b: ReturnType<typeof montarCenaB1>; b3: ReturnType<typeof montarCenaB3> }>();
@@ -105,6 +106,8 @@ const cenaDe = (p: Project, opcoes: { todas?: boolean } = {}) => {
       niveis: { colunas: sb.niveis, n: nb.niveis },
       paredes_z_juncao: { colunas: b3.secoes.paredes_z_juncao, n: b3.nLinhas.paredes_z_juncao },
       perfis_z_juncao: { colunas: b3.secoes.perfis_z_juncao, n: b3.nLinhas.perfis_z_juncao },
+      faixas_juncao: { colunas: b3.secoes.faixas_juncao, n: b3.nLinhas.faixas_juncao },
+      pontos_faixas_juncao: { colunas: b3.secoes.pontos_faixas_juncao, n: b3.nLinhas.pontos_faixas_juncao },
     })),
   );
   return { cena, a1, b, b3 };
@@ -430,6 +433,10 @@ describe.skipIf(!bytes)('B3: junction_nivel do Rust x levelCutterSet e junctionL
     const { cena, a1, b, b3 } = cenaDe(p);
     try {
       const args = argumentosB3(p, p.levels[0]!.id, b);
+      // (v11) com faixas_juncao a junção usa as faixas do TypeScript; as asserções antigas valem no caminho anterior, então a cena começa SEM a seção.
+      const comFaixas = decodificarB3(cena.consultar('junction_nivel', args));
+      cena.remover('faixas_juncao', b3.secoes.faixas_juncao['id_num']!);
+      cena.remover('pontos_faixas_juncao', b3.secoes.pontos_faixas_juncao['id_num']!);
       const antes = decodificarB3(cena.consultar('junction_nivel', args));
       expect(comparavelB3(decodificarB3(cena.consultar('junction_nivel', args)))).toEqual(comparavelB3(antes));
       // remover a variante da junção: as paredes voltam à cota do término por camada (a consulta muda)
@@ -462,6 +469,10 @@ describe.skipIf(!bytes)('B3: junction_nivel do Rust x levelCutterSet e junctionL
       expect(antes.cortadores.flatMap((c) => c.pecas).some((pc) => pc.externa)).toBe(true);
       cena.upsert('niveis', b.secoes.niveis, b.nLinhas.niveis);
       expect(comparavelB3(decodificarB3(cena.consultar('junction_nivel', args)))).toEqual(comparavelB3(antes));
+      // (v11) o mecanismo novo: de volta com as faixas do TypeScript, a consulta é a de antes da remoção
+      cena.upsert('faixas_juncao', b3.secoes.faixas_juncao, b3.nLinhas.faixas_juncao);
+      cena.upsert('pontos_faixas_juncao', b3.secoes.pontos_faixas_juncao, b3.nLinhas.pontos_faixas_juncao);
+      expect(comparavelB3(decodificarB3(cena.consultar('junction_nivel', args)))).toEqual(comparavelB3(comFaixas));
     } finally {
       cena.destruir();
     }
@@ -470,8 +481,11 @@ describe.skipIf(!bytes)('B3: junction_nivel do Rust x levelCutterSet e junctionL
   it('entradas inválidas viram falha leve, nunca panic', () => {
     if (pula()) return;
     const p = projetoDeEstresseB1(3, { paredesB2: true, anexos: true, pavimentos: 1, semParedes: false });
-    const { cena } = cenaDe(p);
+    const { cena, b3 } = cenaDe(p);
     try {
+      // (v11) as asserções de variante valem no caminho anterior: a cena começa sem faixas_juncao (as inválidas da seção nova estão no teste seguinte)
+      cena.remover('faixas_juncao', b3.secoes.faixas_juncao['id_num']!);
+      cena.remover('pontos_faixas_juncao', b3.secoes.pontos_faixas_juncao['id_num']!);
       expect(() => cena.consultar('junction_nivel', [0xffffffff, 0.02])).toThrow(ErroKernelLeve);
       expect(() => cena.consultar('junction_nivel', [0])).toThrow(ErroKernelLeve);
       expect(() => cena.consultar('junction_nivel', [0, 0.02, 1])).toThrow(ErroKernelLeve);
@@ -501,6 +515,62 @@ describe.skipIf(!bytes)('B3: junction_nivel do Rust x levelCutterSet e junctionL
       cena.destruir();
     }
   });
+
+  it('faixas_juncao e pontos_faixas_juncao inconsistentes viram falha leve na consulta (nunca panic) e a remoção devolve a cena', () => {
+    if (pula()) return;
+    const p = projetoDeEstresseB1(3, { paredesB2: true, anexos: true, pavimentos: 1, semParedes: false });
+    const { cena, a1 } = cenaDe(p);
+    try {
+      const args = [0, 0.02];
+      const parede = [...a1.idDe.values()][0]!;
+      expect(() => cena.consultar('junction_nivel', args)).not.toThrow();
+      const faixa = (id: number, z0 = 0, z1 = 2.8, par = parede) => ({
+        id_num: [id], nivel_num: [0], parede_num: [par], camada: [0], banda: [0], prioridade: [1], nucleo: [1], base_z: [0], z0: [z0], z1: [z1],
+        inclinada: [0], o_x: [0], o_y: [0], d_x: [0], d_y: [0], t0: [0], t1: [0], h0: [0], h1: [0],
+      });
+      const vertices = (faixaNum: number, ids: number[], indices: number[], poligono = 0, anel = 0) => ({
+        id_num: ids, faixa_num: ids.map(() => faixaNum), poligono: ids.map(() => poligono), anel: ids.map(() => anel), indice: indices,
+        x: indices.map((i) => i * 0.1), y: indices.map((i) => i * 0.1),
+      });
+      const quadrado = (faixaNum: number, ids: number[], poligono = 0, anel = 0) => vertices(faixaNum, ids, [0, 1, 2, 3], poligono, anel);
+      const naoSobe = (fn: () => unknown) => expect(fn).toThrow(ErroKernelLeve);
+      // parede que não existe na cena
+      cena.upsert('faixas_juncao', faixa(900001, 0, 2.8, 999999), 1);
+      naoSobe(() => cena.consultar('junction_nivel', args));
+      cena.remover('faixas_juncao', [900001]);
+      // lacuna de índice (índice 1 falta)
+      cena.upsert('faixas_juncao', faixa(900002), 1);
+      cena.upsert('pontos_faixas_juncao', vertices(900002, [900101, 900102, 900103], [0, 2, 3]), 3);
+      naoSobe(() => cena.consultar('junction_nivel', args));
+      cena.remover('pontos_faixas_juncao', [900101, 900102, 900103]);
+      // índice repetido
+      cena.upsert('pontos_faixas_juncao', vertices(900002, [900101, 900102, 900103], [0, 1, 1]), 3);
+      naoSobe(() => cena.consultar('junction_nivel', args));
+      cena.remover('pontos_faixas_juncao', [900101, 900102, 900103]);
+      // lacuna de anel (falta o anel 0; só há o anel 1)
+      cena.upsert('pontos_faixas_juncao', quadrado(900002, [900101, 900102, 900103, 900104], 0, 1), 4);
+      naoSobe(() => cena.consultar('junction_nivel', args));
+      cena.remover('pontos_faixas_juncao', [900101, 900102, 900103, 900104]);
+      // lacuna de polígono (há o polígono 1, falta o 0)
+      cena.upsert('pontos_faixas_juncao', quadrado(900002, [900101, 900102, 900103, 900104], 1, 0), 4);
+      naoSobe(() => cena.consultar('junction_nivel', args));
+      cena.remover('pontos_faixas_juncao', [900101, 900102, 900103, 900104]);
+      // vértices de uma faixa que não existe em faixas_juncao (faixa órfã)
+      cena.upsert('pontos_faixas_juncao', quadrado(900777, [900111, 900112, 900113, 900114]), 4);
+      naoSobe(() => cena.consultar('junction_nivel', args));
+      cena.remover('pontos_faixas_juncao', [900111, 900112, 900113, 900114]);
+      cena.remover('faixas_juncao', [900002]);
+      expect(() => cena.consultar('junction_nivel', args)).not.toThrow();
+      // valores fora do contrato na carga: z0 não finito, z0 >= z1, colunas de tamanhos diferentes
+      expect(() => cena.upsert('faixas_juncao', faixa(900003, Number.NaN), 1)).toThrow(ErroKernelLeve);
+      expect(() => cena.upsert('faixas_juncao', faixa(900003, 2.8, 2.8), 1)).toThrow(ErroKernelLeve);
+      expect(() => cena.upsert('faixas_juncao', { ...faixa(900003), z1: [2.8, 2.8] }, 1)).toThrow(ErroKernelLeve);
+      expect(() => cena.upsert('pontos_faixas_juncao', { ...quadrado(900003, [900121, 900122, 900123, 900124]), y: [0, 1] }, 4)).toThrow(ErroKernelLeve);
+      expect(() => cena.consultar('junction_nivel', args)).not.toThrow();
+    } finally {
+      cena.destruir();
+    }
+  }, 120_000);
 
   // Uma cena por teste (montagem + consulta + destruição), cada um abaixo de 30 s; a memória volta ao valor do início de cada um.
   for (let i = 0; i < 3; i++) {

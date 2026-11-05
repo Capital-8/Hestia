@@ -13,6 +13,8 @@ use crate::esquema::{
 };
 use crate::secoes_a1::{bool01, chaves_validas, f64s, finito, u32s, u8s, ParedeZ};
 use crate::secoes_a3::{PontoDePerfil, LISTA_MAX};
+use crate::a3c::Inclinacao as InclinacaoDaFaixa;
+use crate::esquema::{SECAO_FAIXAS_JUNCAO, SECAO_PONTOS_FAIXAS_JUNCAO};
 
 /// Maior código de `modo` (`outlineSource.mode`): 0 sem origem, 1 walls-finish, 2 walls-core, 3 perimeter.
 pub const MODO_MAX: u8 = 3;
@@ -97,6 +99,33 @@ pub struct PontoLinha {
     pub y: f64,
 }
 
+/// Linha de `faixas_juncao` (B3, saída 3, esquema v11): uma faixa vertical de parede como o TypeScript a devolve na junção (já recortada
+/// pelo perfil superior e pelo de base). `base_z` é a cota absoluta da base; `z0` e `z1`, relativas a ela. `inclinacao` só existe com topo inclinado.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FaixaJuntadaLinha {
+    pub nivel: u32,
+    pub parede: u32,
+    pub camada: u32,
+    pub banda: u32,
+    pub prioridade: f64,
+    pub nucleo: bool,
+    pub base_z: f64,
+    pub z0: f64,
+    pub z1: f64,
+    pub inclinacao: Option<InclinacaoDaFaixa>,
+}
+
+/// Linha de `pontos_faixas_juncao`: um vértice da região de uma faixa (`faixa` é o id da linha de `faixas_juncao`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PontoDeFaixa {
+    pub faixa: u32,
+    pub poligono: u32,
+    pub anel: u32,
+    pub indice: u32,
+    pub x: f64,
+    pub y: f64,
+}
+
 #[derive(Default)]
 pub struct SecoesB {
     pub pisos: BTreeMap<u32, ElementoLinha>,
@@ -114,6 +143,10 @@ pub struct SecoesB {
     pub paredes_z_juncao: BTreeMap<u32, ParedeZ>,
     /// `perfis_z_juncao` (B3): os pontos de perfil dessa variante.
     pub perfis_juncao: BTreeMap<u32, PontoDePerfil>,
+    /// `faixas_juncao` (B3, saída 3): as faixas de parede da junção, com a cota e o topo já resolvidos pelo JS.
+    pub faixas_juncao: BTreeMap<u32, FaixaJuntadaLinha>,
+    /// `pontos_faixas_juncao`: a região de cada faixa, um vértice por linha.
+    pub pontos_faixas: BTreeMap<u32, PontoDeFaixa>,
 }
 
 enum Lote {
@@ -124,6 +157,8 @@ enum Lote {
     Niveis(Vec<(u32, (u32, f64))>),
     ParedesZ(Vec<(u32, ParedeZ)>),
     Perfis(Vec<(u32, PontoDePerfil)>),
+    Faixas(Vec<(u32, FaixaJuntadaLinha)>),
+    PontosFaixas(Vec<(u32, PontoDeFaixa)>),
 }
 
 impl Lote {
@@ -136,6 +171,8 @@ impl Lote {
             Lote::Niveis(v) => v.iter().map(|x| x.0).collect(),
             Lote::ParedesZ(v) => v.iter().map(|x| x.0).collect(),
             Lote::Perfis(v) => v.iter().map(|x| x.0).collect(),
+            Lote::Faixas(v) => v.iter().map(|x| x.0).collect(),
+            Lote::PontosFaixas(v) => v.iter().map(|x| x.0).collect(),
         }
     }
 }
@@ -332,16 +369,85 @@ fn decodificar(secao: u32, n_linhas: u32, bytes: &[u8]) -> Result<Lote, u32> {
             }
             Ok(Lote::Perfis(v))
         }
+        SECAO_FAIXAS_JUNCAO => {
+            let id = u32s(c.next())?;
+            let nivel = u32s(c.next())?;
+            let parede = u32s(c.next())?;
+            let camada = u32s(c.next())?;
+            let banda = u32s(c.next())?;
+            let prioridade = f64s(c.next())?;
+            let nucleo = u8s(c.next())?;
+            let base = f64s(c.next())?;
+            let z0 = f64s(c.next())?;
+            let z1 = f64s(c.next())?;
+            let inclinada = u8s(c.next())?;
+            let mut sl: Vec<Vec<f64>> = Vec::with_capacity(8);
+            for _ in 0..8 {
+                sl.push(f64s(c.next())?);
+            }
+            chaves_validas(&id)?;
+            let mut v = Vec::with_capacity(n);
+            for i in 0..n {
+                let k = ao(&id, i)?;
+                let (nv, pa, ca, ba) = (ao(&nivel, i)?, ao(&parede, i)?, ao(&camada, i)?, ao(&banda, i)?);
+                let (pr, bz, a0, a1) = (ao(&prioridade, i)?, ao(&base, i)?, ao(&z0, i)?, ao(&z1, i)?);
+                let (nu, inc) = (ao(&nucleo, i)?, ao(&inclinada, i)?);
+                let mut s = [0.0f64; 8];
+                for (j, col) in sl.iter().enumerate() {
+                    s[j] = ao(col, i)?;
+                }
+                let finitos = [pr, bz, a0, a1].iter().chain(s.iter()).all(|&x| finito(x));
+                if nu > 1 || inc > 1 || !finitos || !(a1 > a0) {
+                    return Err(ENTRADA);
+                }
+                if inc == 1 && s[5] == s[4] {
+                    return Err(ENTRADA);
+                }
+                let inclinacao = (inc == 1).then_some(InclinacaoDaFaixa { o: [s[0], s[1]], d: [s[2], s[3]], t0: s[4], t1: s[5], h0: s[6], h1: s[7] });
+                v.push((k, FaixaJuntadaLinha { nivel: nv, parede: pa, camada: ca, banda: ba, prioridade: pr, nucleo: nu == 1, base_z: bz, z0: a0, z1: a1, inclinacao }));
+            }
+            Ok(Lote::Faixas(v))
+        }
+        SECAO_PONTOS_FAIXAS_JUNCAO => {
+            let id = u32s(c.next())?;
+            let faixa = u32s(c.next())?;
+            let poligono = u32s(c.next())?;
+            let anel = u32s(c.next())?;
+            let indice = u32s(c.next())?;
+            let x = f64s(c.next())?;
+            let y = f64s(c.next())?;
+            chaves_validas(&id)?;
+            let mut v = Vec::with_capacity(n);
+            for i in 0..n {
+                let (px, py) = (ao(&x, i)?, ao(&y, i)?);
+                if !(finito(px) && finito(py)) {
+                    return Err(ENTRADA);
+                }
+                let linha = PontoDeFaixa { faixa: ao(&faixa, i)?, poligono: ao(&poligono, i)?, anel: ao(&anel, i)?, indice: ao(&indice, i)?, x: px, y: py };
+                v.push((ao(&id, i)?, linha));
+            }
+            Ok(Lote::PontosFaixas(v))
+        }
         _ => Err(ENTRADA),
     }
 }
 
+/// Valor da linha `i` de uma coluna (`INTERNO` se a coluna é mais curta que `n_linhas`).
+fn ao<T: Copy>(v: &[T], i: usize) -> Result<T, u32> {
+    v.get(i).copied().ok_or(INTERNO)
+}
+
 impl SecoesB {
+    /// `true` se há faixas de `faixas_juncao`: então a junção usa essas faixas, não o cálculo do Rust. Sem linhas (seção vazia ou removida), vale o cálculo anterior.
+    pub fn faixas_juncao_definidas(&self) -> bool {
+        !self.faixas_juncao.is_empty()
+    }
+
     /// `true` se a seção é uma das daqui.
     pub fn e_minha(secao: u32) -> bool {
         matches!(
             secao,
-            SECAO_PISOS | SECAO_LAJES | SECAO_TIPOS_PISO | SECAO_TIPOS_LAJE | SECAO_CAMADAS_PISO | SECAO_CAMADAS_LAJE | SECAO_CONTORNOS_ESTATICOS | SECAO_CONTORNOS_VINCULADOS | SECAO_FUROS_NIVEL | SECAO_NIVEIS | SECAO_PAREDES_Z_JUNCAO | SECAO_PERFIS_Z_JUNCAO
+            SECAO_PISOS | SECAO_LAJES | SECAO_TIPOS_PISO | SECAO_TIPOS_LAJE | SECAO_CAMADAS_PISO | SECAO_CAMADAS_LAJE | SECAO_CONTORNOS_ESTATICOS | SECAO_CONTORNOS_VINCULADOS | SECAO_FUROS_NIVEL | SECAO_NIVEIS | SECAO_PAREDES_Z_JUNCAO | SECAO_PERFIS_Z_JUNCAO | SECAO_FAIXAS_JUNCAO | SECAO_PONTOS_FAIXAS_JUNCAO
         )
     }
 
@@ -358,6 +464,8 @@ impl SecoesB {
             SECAO_NIVEIS => self.niveis.len(),
             SECAO_PAREDES_Z_JUNCAO => self.paredes_z_juncao.len(),
             SECAO_PERFIS_Z_JUNCAO => self.perfis_juncao.len(),
+            SECAO_FAIXAS_JUNCAO => self.faixas_juncao.len(),
+            SECAO_PONTOS_FAIXAS_JUNCAO => self.pontos_faixas.len(),
             _ => self.furos.len(),
         }
     }
@@ -375,6 +483,8 @@ impl SecoesB {
             SECAO_NIVEIS => self.niveis.contains_key(&k),
             SECAO_PAREDES_Z_JUNCAO => self.paredes_z_juncao.contains_key(&k),
             SECAO_PERFIS_Z_JUNCAO => self.perfis_juncao.contains_key(&k),
+            SECAO_FAIXAS_JUNCAO => self.faixas_juncao.contains_key(&k),
+            SECAO_PONTOS_FAIXAS_JUNCAO => self.pontos_faixas.contains_key(&k),
             _ => self.furos.contains_key(&k),
         }
     }
@@ -393,6 +503,8 @@ impl SecoesB {
             Lote::Niveis(v) => self.niveis.extend(v),
             Lote::ParedesZ(v) => self.paredes_z_juncao.extend(v),
             Lote::Perfis(v) => self.perfis_juncao.extend(v),
+            Lote::Faixas(v) => self.faixas_juncao.extend(v),
+            Lote::PontosFaixas(v) => self.pontos_faixas.extend(v),
         }
     }
 
@@ -411,6 +523,8 @@ impl SecoesB {
             SECAO_NIVEIS => self.niveis.clear(),
             SECAO_PAREDES_Z_JUNCAO => self.paredes_z_juncao.clear(),
             SECAO_PERFIS_Z_JUNCAO => self.perfis_juncao.clear(),
+            SECAO_FAIXAS_JUNCAO => self.faixas_juncao.clear(),
+            SECAO_PONTOS_FAIXAS_JUNCAO => self.pontos_faixas.clear(),
             _ => self.furos.clear(),
         }
         self.aplicar(lote);
@@ -464,6 +578,12 @@ impl SecoesB {
                 }
                 SECAO_PERFIS_Z_JUNCAO => {
                     self.perfis_juncao.remove(k);
+                }
+                SECAO_FAIXAS_JUNCAO => {
+                    self.faixas_juncao.remove(k);
+                }
+                SECAO_PONTOS_FAIXAS_JUNCAO => {
+                    self.pontos_faixas.remove(k);
                 }
                 _ => {
                     self.furos.remove(k);

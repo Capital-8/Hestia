@@ -1,7 +1,7 @@
 /**
  * Adaptador da sub-etapa A3d do kernel Rust (decisão 0047 §7): `ResolvedLevel` completo. NÃO calcula geometria: monta a seção `perfis_z` do
  * esquema v7 (os perfis que `wallZRange` calcula no JS) e EXTRAI de `resolveLevel` o que o Rust produz em `resolver_nivel`, na mesma
- * codificação plana (ver `crates/geom-wasm/schema/cena-v10.json`).
+ * codificação plana (ver `crates/geom-wasm/schema/cena-v11.json`).
  */
 import type { MultiPolygon } from '@hestia/geom';
 import type { Id, ProfilePoint, Project, Wall } from '@hestia/model';

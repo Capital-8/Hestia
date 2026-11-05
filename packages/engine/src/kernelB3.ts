@@ -1,9 +1,11 @@
 /**
  * Adaptador da sub-etapa B3 do kernel Rust (decisão 0050 §3): cortadores por nível e junção entre pavimentos. NÃO calcula geometria de junção: só
- * (1) monta as seções `paredes_z_juncao` e `perfis_z_juncao` do esquema v10 (a cota e os perfis das paredes SEM `flatAttach`, a variante que a junção
- *     lê; o término por camada de piso e laje usa `flatAttach`, e as duas variantes convivem na mesma cena) e
+ * (1) monta as seções `paredes_z_juncao` e `perfis_z_juncao` do esquema v11 (a cota e os perfis das paredes SEM `flatAttach`, a variante que a junção
+ *     lê; o término por camada de piso e laje usa `flatAttach`, e as duas variantes convivem na mesma cena) e, desde a saída 3 da 0050, as faixas
+ *     de parede da junção já resolvidas pelo TypeScript (`faixas_juncao` e `pontos_faixas_juncao`, em `montarFaixasB3`), que o Rust usa no lugar
+ *     de recalcular a partição vertical (ver `crates/geom-wasm/schema/cena-v11.json`) e
  * (2) EXTRAI de `levelCutterSet` e `junctionLevel` o que o Rust produz em `junction_nivel`, na mesma codificação plana (ver
- *     `crates/geom-wasm/schema/cena-v10.json`), para o harness e os testes compararem.
+ *     `crates/geom-wasm/schema/cena-v11.json`), para o harness e os testes compararem.
  *
  * Os caches do TypeScript (`WeakMap`, LRU, assinatura `r6`) não migram. Os testes passam projetos novos a cada chamada, então o `WeakMap` por projeto não
  * devolve resultado de outro; o cache por assinatura de `junctionLevel` só reaproveita uma junção cujas peças sejam iguais a 1e-6.
@@ -17,11 +19,12 @@ import { argumentosB2 } from './kernelB.ts';
 import { bandTopAt } from './profile.ts';
 import { bandKey, junctionLevelTs, type JunctionLevel } from './junctionLevel.ts';
 import { levelCutterSet, spanRange, type CutterSolid, type LevelCutters, type SolidPiece } from './junctionNet.ts';
+import { resolveLevelTs } from './resolve.ts';
 import { slabRiseAt } from './slabs.ts';
 import { decodificarForma } from './kernelA2.ts';
 import type { LayerBand } from './types.ts';
 
-export const NOMES_SECOES_B3 = ['paredes_z_juncao', 'perfis_z_juncao'] as const;
+export const NOMES_SECOES_B3 = ['paredes_z_juncao', 'perfis_z_juncao', 'faixas_juncao', 'pontos_faixas_juncao'] as const;
 export type NomeSecaoB3 = (typeof NOMES_SECOES_B3)[number];
 
 export interface CenaB3 {
@@ -74,7 +77,72 @@ export function montarCenaB3(p: Project, a1: CenaA1, opcoes: { todas?: boolean }
       });
     }
   }
-  return { secoes: { paredes_z_juncao: z, perfis_z_juncao: perfis }, nLinhas: { paredes_z_juncao: z['id_num']!.length, perfis_z_juncao: perfis['id_num']!.length }, comVariante };
+  const fx = montarFaixasB3(p, a1);
+  return {
+    secoes: { paredes_z_juncao: z, perfis_z_juncao: perfis, faixas_juncao: fx.faixas, pontos_faixas_juncao: fx.pontos },
+    nLinhas: { paredes_z_juncao: z['id_num']!.length, perfis_z_juncao: perfis['id_num']!.length, faixas_juncao: fx.nLinhas.faixas, pontos_faixas_juncao: fx.nLinhas.pontos },
+    comVariante,
+  };
+}
+
+/**
+ * Faixas de parede da junção (saída 3 da 0050, esquema v11): para cada nível e cada parede, as faixas verticais de cada camada na ordem em que
+ * `wallBandPieces` (junctionNet.ts) as vê, isto é, `resolveLevel(p, nível)` padrão (SEM `flatAttach`) DEPOIS dos perfis. Não há cálculo novo: o
+ * que sai é o `LayerBand` do TypeScript, com a região dele. A junção do Rust usa essa partição no lugar dos pontos de quebra próprios.
+ */
+export function montarFaixasB3(p: Project, a1: CenaA1): { faixas: ColunasA1; pontos: ColunasA1; nLinhas: { faixas: number; pontos: number } } {
+  const f: ColunasA1 = { id_num: [], nivel_num: [], parede_num: [], camada: [], banda: [], prioridade: [], nucleo: [], base_z: [], z0: [], z1: [], inclinada: [], o_x: [], o_y: [], d_x: [], d_y: [], t0: [], t1: [], h0: [], h1: [] };
+  const v: ColunasA1 = { id_num: [], faixa_num: [], poligono: [], anel: [], indice: [], x: [], y: [] };
+  let idFaixa = 0;
+  let idPonto = 0;
+  for (const level of p.levels) {
+    const nivel = a1.nivelDe.get(level.id);
+    if (nivel === undefined) throw new Error(`nível ${level.id} sem nivel_num`);
+    for (const rw of Object.values(resolveLevelTs(p, level.id).walls)) {
+      const parede = a1.idDe.get(rw.wallId);
+      if (parede === undefined) throw new Error(`parede ${rw.wallId} sem id_num`);
+      for (const layer of rw.layers) {
+        layer.bands.forEach((b, banda) => {
+          idFaixa++;
+          const s = b.slope;
+          f['id_num']!.push(idFaixa);
+          f['nivel_num']!.push(nivel);
+          f['parede_num']!.push(parede);
+          f['camada']!.push(layer.layerIndex);
+          f['banda']!.push(banda);
+          f['prioridade']!.push(layer.priority);
+          f['nucleo']!.push(layer.core ? 1 : 0);
+          f['base_z']!.push(rw.baseZ);
+          f['z0']!.push(b.z0);
+          f['z1']!.push(b.z1);
+          f['inclinada']!.push(s ? 1 : 0);
+          f['o_x']!.push(s?.o.x ?? 0);
+          f['o_y']!.push(s?.o.y ?? 0);
+          f['d_x']!.push(s?.d.x ?? 0);
+          f['d_y']!.push(s?.d.y ?? 0);
+          f['t0']!.push(s?.t0 ?? 0);
+          f['t1']!.push(s?.t1 ?? 0);
+          f['h0']!.push(s?.h0 ?? 0);
+          f['h1']!.push(s?.h1 ?? 0);
+          b.poly.forEach((pol, poligono) =>
+            pol.forEach((anel, ai) =>
+              anel.forEach((q, indice) => {
+                idPonto++;
+                v['id_num']!.push(idPonto);
+                v['faixa_num']!.push(idFaixa);
+                v['poligono']!.push(poligono);
+                v['anel']!.push(ai);
+                v['indice']!.push(indice);
+                v['x']!.push(q.x);
+                v['y']!.push(q.y);
+              }),
+            ),
+          );
+        });
+      }
+    }
+  }
+  return { faixas: f, pontos: v, nLinhas: { faixas: idFaixa, pontos: idPonto } };
 }
 
 /** Argumentos de `junction_nivel`: o nível e a tolerância de junção do projeto (os mesmos de `pisos_lajes_com_paredes`). */
