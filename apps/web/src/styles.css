@@ -166,6 +166,8 @@ svg { display: block; }
 .input.wide { width: 100%; }
 .unit { color: var(--fg-faint); font-family: var(--font-mono); font-size: 11px; margin-left: 4px; }
 .numwrap { display: inline-flex; align-items: center; }
+input[type='checkbox'], input[type='radio'] { accent-color: var(--accent); }
+:root[data-theme='light'] { color-scheme: light; }
 .check { display: inline-flex; align-items: center; gap: 6px; }
 .input.ro { background: transparent; border-color: transparent; color: var(--fg-soft); cursor: default; }
 

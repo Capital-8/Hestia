@@ -22,7 +22,7 @@ import { closestOnWall, wallMid } from './wallGeom.ts';
 import { addGridSnaps } from './gridSnapPoints.ts';
 import { addCadSnaps, type CadSnapIndex } from './snapCad.ts';
 import { addExtraPoints, addExtraSegments, addExtraTracks } from './snapExtras.ts';
-import { orthoPoint, polarPoint } from './angleSnap.ts';
+import { polarPoint } from './angleSnap.ts';
 import { DEFAULT_SNAP, type Guide, type Inference, type SnapKind, type SnapOptions } from './types.ts';
 
 /** Ponto extra de captura. `hostId` é o elemento dono: some da captura quando ele está em `ignore` (ex.: o piso sendo movido). */
@@ -231,6 +231,81 @@ function crossAxis(p: Vec2, d: Vec2, axis: 'x' | 'y', v: number): Vec2 | null {
 }
 
 /**
+ * Trava angular (Orto F8 / Polar F10) vista como eixo. O ponto livre anda sobre o eixo, mas as capturas continuam
+ * valendo: as que estão sobre ele são mantidas no lugar e as que estão fora ficam só para o Tab (como no Revit, em
+ * que o Shift restringe e o Tab escapa da restrição). As guias de alinhamento cruzam a trava e viram candidatos.
+ */
+interface AxisConstraint {
+  kind: 'ortho' | 'polar';
+  /** Origem da trava (ponto anterior). */
+  origin: Vec2;
+  /** Direção unitária do eixo. */
+  dir: Vec2;
+  /** Cursor já travado no eixo (no orto, quantizado pela grade quando ela está ligada). */
+  point: Vec2;
+  /** Projeta um ponto sobre o eixo, mantendo o componente ao longo dele. */
+  project: (p: Vec2) => Vec2;
+  /** Distância perpendicular do ponto ao eixo. */
+  offset: (p: Vec2) => number;
+  /** Guia do ponto anterior até o alvo. */
+  guide: (to: Vec2) => Guide;
+}
+
+/** Peso somado às capturas fora do eixo: continuam alcançáveis com Tab, mas nunca vencem a trava. */
+const OFF_AXIS_PENALTY = 1000;
+
+function axisConstraint(cursor: Vec2, ctx: InferContext, free: (v: number) => number): AxisConstraint | null {
+  const origin = ctx.from;
+  if (!origin) return null;
+  const d = sub(cursor, origin);
+  if (len(d) <= 1e-6) return null;
+  if (ctx.orthoLock) {
+    const horiz = Math.abs(d.y) <= Math.abs(d.x);
+    const dir = horiz ? v2(1, 0) : v2(0, 1);
+    return {
+      kind: 'ortho',
+      origin,
+      dir,
+      point: horiz ? v2(free(cursor.x), origin.y) : v2(origin.x, free(cursor.y)),
+      project: (p) => (horiz ? v2(p.x, origin.y) : v2(origin.x, p.y)),
+      offset: (p) => (horiz ? Math.abs(p.y - origin.y) : Math.abs(p.x - origin.x)),
+      guide: (to) => ({ from: origin, to, kind: 'ortho' }),
+    };
+  }
+  if (ctx.polar) {
+    const point = polarPoint(cursor, origin, ctx.polarIncrementDeg);
+    if (!point) return null;
+    const dir = norm(sub(point, origin));
+    const along = (p: Vec2): number => Math.max(0, dot(sub(p, origin), dir));
+    return {
+      kind: 'polar',
+      origin,
+      dir,
+      point,
+      project: (p) => {
+        const k = along(p);
+        return v2(origin.x + dir.x * k, origin.y + dir.y * k);
+      },
+      offset: (p) => Math.abs(dot(sub(p, origin), v2(-dir.y, dir.x))),
+      guide: (to) => ({ from: origin, to, kind: 'polar' }),
+    };
+  }
+  return null;
+}
+
+/** Mantém sobre o eixo as capturas que caem nele e rebaixa as demais (Tab). */
+function constrainToAxis(cands: Cand[], axis: AxisConstraint, tol: number): void {
+  for (const c of cands) {
+    if (axis.offset(c.point) > tol) {
+      c.weight += OFF_AXIS_PENALTY;
+      continue;
+    }
+    c.point = axis.project(c.point);
+    if (!c.guides.some((g) => g.kind === axis.kind)) c.guides = [axis.guide(c.point), ...c.guides];
+  }
+}
+
+/**
  * Cruzamentos entre as arestas da seção (contornos de corte/além, aberturas, membranas e linhas de nível). Só entram os
  * trechos ao alcance do cursor, então o par a par fica pequeno mesmo numa vista cheia de arestas.
  */
@@ -258,6 +333,9 @@ function addSectionCrossings(ctx: InferContext, sn: SnapOptions, cursor: Vec2, t
   }
 }
 
+/** Ponto travado devolvido quando nenhuma captura sobre o eixo está ao alcance. */
+const lockedOf = (axis: AxisConstraint): Inference => ({ point: axis.point, kind: axis.kind, guides: [axis.guide(axis.point)] });
+
 /**
  * Motor de inferência único (docs/01 §8): função pura que devolve o melhor ponto e as guias.
  * Todas as ferramentas o consomem; o cursor "adivinha" o que o usuário quer.
@@ -268,20 +346,13 @@ function addSectionCrossings(ctx: InferContext, sn: SnapOptions, cursor: Vec2, t
  */
 export function infer(cursor: Vec2, ctx: InferContext): Inference {
   const sn = { ...DEFAULT_SNAP, ...ctx.snap };
-  if (sn.enabled === false && !ctx.orthoLock && !ctx.polar) {
-    return { point: cursor, kind: 'none', guides: [] };
-  }
-
   const tol = TOL_PX * ctx.mpp;
   const g = ctx.noGrid || !sn.grid ? 0 : ctx.gridStep;
   const free = (v: number): number => (g > 0 ? Math.round(v / g) * g : v);
-  if (ctx.orthoLock && ctx.from) {
-    const snapped = orthoPoint(cursor, ctx.from, free);
-    return snapped ? { point: snapped, kind: 'ortho', guides: [{ from: ctx.from, to: snapped, kind: 'ortho' }] } : { point: cursor, kind: 'none', guides: [] };
-  }
-  if (ctx.polar && ctx.from) {
-    const snapped = polarPoint(cursor, ctx.from, ctx.polarIncrementDeg);
-    return snapped ? { point: snapped, kind: 'polar', guides: [{ from: ctx.from, to: snapped, kind: 'polar' }] } : { point: cursor, kind: 'none', guides: [] };
+  const axis = axisConstraint(cursor, ctx, free);
+  if (sn.enabled === false) {
+    if (!axis) return { point: cursor, kind: 'none', guides: [] };
+    return { point: axis.point, kind: axis.kind, guides: [axis.guide(axis.point)] };
   }
   // Pavimento atual e, se visível como referência, o de baixo: o que se vê na planta é o que se captura.
   const levels: Id[] = ctx.underlayLevelId ? [ctx.levelId, ctx.underlayLevelId] : [ctx.levelId];
@@ -401,7 +472,10 @@ export function infer(cursor: Vec2, ctx: InferContext): Inference {
       }
     }
   }
-  if (ctx.onWallsOnly) return bestOf(cands, cursor, tol, ctx.previous, ctx.cycle, [], undefined);
+  if (ctx.onWallsOnly) {
+    if (axis) constrainToAxis(cands, axis, tol);
+    return bestOf(cands, cursor, tol, ctx.previous, ctx.cycle, [], undefined, axis ? lockedOf(axis) : undefined);
+  }
 
   // Restrições de alinhamento: referências (pontos) e trechos de face. Cada uma dá uma linha; as linhas que
   // passam ao alcance do cursor viram candidatos, e os cruzamentos entre elas viram candidatos de peso menor.
@@ -534,27 +608,46 @@ export function infer(cursor: Vec2, ctx: InferContext): Inference {
         }
       }
     }
+
+    // Com Orto/Polar ligado, as guias continuam valendo: cada linha de referência (ponta, ponto médio, face,
+    // ombreira) cruza a trava angular e vira candidato sobre o eixo, com a guia de alinhamento visível.
+    if (axis) {
+      const nearAxis = (p: Vec2): boolean => dist2(p, axis.point) <= tol * tol * 2;
+      const guide = (from: Vec2, p: Vec2): Guide[] => [axis.guide(p), { from, to: p, kind: 'alignment' }];
+      for (const r of refs) {
+        const v = crossAxis(axis.origin, axis.dir, 'x', r.x);
+        if (v && nearAxis(v)) add(v, 'alignment', guide(r, v), undefined, WEIGHT_ALIGN_CROSS);
+        const h = crossAxis(axis.origin, axis.dir, 'y', r.y);
+        if (h && nearAxis(h)) add(h, 'alignment', guide(r, h), undefined, WEIGHT_ALIGN_CROSS);
+      }
+      for (const tr of tracks) {
+        const p = intersectLines(axis.origin, axis.dir, tr.a, sub(tr.b, tr.a));
+        if (p && nearAxis(p)) add(p, 'alignment', guide(closestOnSegment(p, tr.a, tr.b), p), tr.hostId, WEIGHT_ALIGN_CROSS);
+      }
+    }
   }
 
-  // Ortogonal a partir do ponto anterior: sempre ativo quando próximo, travado com Shift/opção.
-  if ((sn.alignment || ctx.orthoLock) && ctx.from) {
+  // Sem trava, a ortogonal suave continua: perto do eixo, o ponto puxa para 0°/90°.
+  if (!axis && sn.alignment && ctx.from) {
     const d = sub(cursor, ctx.from);
     if (len(d) > 1e-6) {
       const horiz = Math.abs(d.y) <= Math.abs(d.x);
       const snapped = horiz ? v2(free(cursor.x), ctx.from.y) : v2(ctx.from.x, free(cursor.y));
       const off = horiz ? Math.abs(d.y) : Math.abs(d.x);
-      if (ctx.orthoLock || off <= tol * 0.7) {
-        add(snapped, 'ortho', [{ from: ctx.from, to: snapped, kind: 'ortho' }], undefined, ctx.orthoLock ? 0.4 : WEIGHT.ortho);
+      if (off <= tol * 0.7) {
+        add(snapped, 'ortho', [{ from: ctx.from, to: snapped, kind: 'ortho' }], undefined, WEIGHT.ortho);
       }
     }
   }
 
-  return bestOf(cands, cursor, tol, ctx.previous, ctx.cycle, [], g > 0 ? g : undefined);
+  if (axis) constrainToAxis(cands, axis, tol);
+
+  return bestOf(cands, cursor, tol, ctx.previous, ctx.cycle, [], g > 0 ? g : undefined, axis ? lockedOf(axis) : undefined);
 }
 
 /**
  * Escolhe o candidato: menor custo (distância normalizada + peso do tipo), com histerese para a captura anterior.
- * `cycle` percorre a lista ordenada (Tab). Sem candidato, cai na grade, se houver grade.
+ * `cycle` percorre a lista ordenada (Tab). Sem candidato, cai no ponto travado (Orto/Polar) e depois na grade.
  */
 function bestOf(
   cands: Cand[],
@@ -564,6 +657,7 @@ function bestOf(
   cycle: number | undefined,
   guides: Guide[],
   grid: number | undefined,
+  locked?: Inference,
 ): Inference {
   const ranked = cands
     .map((c) => {
@@ -579,8 +673,11 @@ function bestOf(
   if (list.length) {
     const n = list.length;
     const best = list[((cycle ?? 0) % n + n) % n]!;
+    // Sem Tab, uma captura fora do eixo (rebaixada) perde para o ponto travado; com Tab, ela é alcançável.
+    if (!cycle && locked && best.weight >= OFF_AXIS_PENALTY) return locked;
     return { point: best.point, kind: best.kind, guides: best.guides.length ? best.guides : guides, hostId: best.hostId };
   }
+  if (locked) return locked;
   if (grid && grid > 0) {
     return { point: v2(Math.round(cursor.x / grid) * grid, Math.round(cursor.y / grid) * grid), kind: 'grid', guides };
   }

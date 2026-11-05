@@ -16,6 +16,7 @@ import { dimensionFormatStyle, dimensionGeometry, dimensionStyleFor, dimensionTe
 import { sectionDimensionPoints, type SectionDimensionGrip } from '@hestia/render';
 import { clickSelect3d, useUi } from '../editor/state.ts';
 import { consumirCameraPendente, registrarCena3D, registrarOrbita3D } from '../editor/vista3dAoVivo.ts';
+import { limparCanvasAtivo, registrarCanvasAtivo } from '../editor/render/captureRegistry.ts';
 import { thinLinesOn } from '../editor/graphicsActions.ts';
 import { buildSectionFrame } from './SectionCanvas.tsx';
 import { cursorForView } from './cursor.ts';
@@ -60,6 +61,13 @@ interface DownAdiado {
 const NO_LABELS: LabelOp[] = [];
 
 /**
+ * Cena 3D compartilhada entre montagens do `ViewportCanvas`. Sair do Estúdio de animação e voltar
+ * ao 3D reusa as malhas já montadas (o cache por nível vive no `ModelScene`) em vez de reconstruir
+ * a casa inteira. A câmera chega pelo `pedirCamera3D` do estúdio.
+ */
+const cena3dCompartilhada = new ModelScene();
+
+/**
  * Rótulos do desenho do corte no zoom corrente (mm de papel → px), com cache por lista e zoom. É o equivalente do
  * `PlanFrame.labels` da planta: sem resolver, o valor da cota cai no estilo de "chip" da interface em vez do texto de cota.
  */
@@ -85,13 +93,14 @@ export interface ViewportCanvasProps {
 /** Desenha o plano (GPU ou CPU) e o 3D, e traduz o ponteiro em chamadas ao editor. */
 export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): ReactElement {
   const host = useRef<HTMLDivElement>(null);
+  const canvasOwner = useRef({}).current;
   const labelLayer = useRef<PlanLabelsHandle>(null);
   const gpuRef = useRef<{ gpu: GpuContext; canvas: HTMLCanvasElement } | null>(null);
   const cpuRef = useRef<HTMLCanvasElement | null>(null);
   const pickGpu = useRef<PickGpu3d | null>(null);
   const pickSize = useRef({ w: 0, h: 0 });
   const plan = useRef(new PlanScene());
-  const model = useRef(new ModelScene());
+  const model = useRef(cena3dCompartilhada);
   // Prévia do Colar alinhado: camada de fantasmas, rascunho em cache e a câmera de antes do comando.
   const fantasmas = useRef<CamadaFantasmas | null>(null);
   const previaProjeto = useRef<{ chave: string; projeto: Project } | null>(null);
@@ -108,8 +117,13 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     const m = model.current;
     registrarOrbita3D(m.orbit);
     registrarCena3D({ scene: m.scene, camera: m.orbit.camera });
-    return () => { registrarOrbita3D(null); registrarCena3D(null); };
-  }, []);
+    registrarCanvasAtivo(canvasOwner, () => gpuRef.current?.canvas ?? cpuRef.current);
+    return () => {
+      registrarOrbita3D(null);
+      registrarCena3D(null);
+      limparCanvasAtivo(canvasOwner);
+    };
+  }, [canvasOwner]);
   const [size, setSize] = useState({ w: 0, h: 0 });
   // Rótulos da planta e a vista deles: o estado só troca quando o conteúdo ou a vista muda (`publish`).
   const [labels, setLabels] = useState<LabelOp[]>(NO_LABELS);

@@ -1,0 +1,31 @@
+[package]
+name = "render-native"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "MIT"
+description = "Renderizador GPU nativo do Hestia: lê HSTR v1 e grava PNG RGBA8 com wgpu."
+
+[lib]
+name = "render_native"
+path = "src/lib.rs"
+
+[[bin]]
+name = "render-native"
+path = "src/main.rs"
+
+[dependencies]
+# O formato HSTR, a câmera e a validação de cena continuam no núcleo compartilhado.
+render-core = { path = "../render-core" }
+# GPU nativa: DX12, Vulkan e Metal (sem nenhum caminho de CPU).
+wgpu = "30"
+pollster = "1"
+bytemuck = { version = "1.25", features = ["derive"] }
+png = "0.17"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

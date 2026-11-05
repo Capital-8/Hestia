@@ -12,14 +12,14 @@ import type { TempViewVisibility } from './viewVisibility.ts';
 import type { PastePreviewState } from './pasteLevels/types.ts';
 import type { ProgressoImportacao } from './ifcImport.ts';
 
-export type ViewKind = 'plan' | '3d' | 'section' | 'sheet';
+export type ViewKind = 'plan' | '3d' | 'section' | 'sheet' | 'animation';
 export type ThemePref = 'system' | 'light' | 'dark';
 /**
  * Tema ao abrir o app: claro, mesmo que o sistema esteja no escuro (o app não herda a preferência do Windows).
  * Quem quiser seguir o sistema ou usar o escuro escolhe no menu Arquivo; a escolha vale só para a sessão.
  */
 export const DEFAULT_THEME: ThemePref = 'light';
-export type DialogKind = 'wallType' | 'floorType' | 'materials' | 'levels' | 'openingType' | 'start' | 'shortcuts' | 'shortcutsConfig' | 'about' | 'schedule' | 'floorSchedule' | 'slabType' | 'slabSchedule' | 'ceilingType' | 'ceilingSchedule' | 'roofType' | 'roofSchedule' | 'stairType' | 'stairSchedule' | 'rampType' | 'rampSchedule' | 'openingSchedule' | 'graphicsVisibility' | 'lineWeights' | 'dxfLayers' | 'sheet' | 'addView' | 'renumberSheets' | 'revision' | 'publish' | 'roomSchedule' | 'roomCategories' | 'cotasAuto' | 'dimensionFamilies' | 'moveLevel' | 'levelMoveConflict' | 'gridType' | 'units' | 'dimensions' | 'hostedLoss' | 'alerta' | 'areaMerge' | 'importCad' | 'manageCad' | 'experimentos' | 'selectLevels' | null;
+export type DialogKind = 'wallType' | 'floorType' | 'materials' | 'levels' | 'openingType' | 'start' | 'shortcuts' | 'shortcutsConfig' | 'about' | 'schedule' | 'floorSchedule' | 'slabType' | 'slabSchedule' | 'ceilingType' | 'ceilingSchedule' | 'roofType' | 'roofSchedule' | 'stairType' | 'stairSchedule' | 'rampType' | 'rampSchedule' | 'openingSchedule' | 'graphicsVisibility' | 'lineWeights' | 'dxfLayers' | 'sheet' | 'addView' | 'renumberSheets' | 'revision' | 'publish' | 'roomSchedule' | 'roomCategories' | 'cotasAuto' | 'dimensionFamilies' | 'moveLevel' | 'levelMoveConflict' | 'gridType' | 'units' | 'dimensions' | 'hostedLoss' | 'alerta' | 'areaMerge' | 'importCad' | 'manageCad' | 'experimentos' | 'selectLevels' | 'renderImage' | 'renderGallery' | null;
 
 export interface UiState {
   tool: ToolId;

@@ -51,12 +51,14 @@ export async function createGpu(newCanvas: () => HTMLCanvasElement, prefer: Pref
     }
     try {
       const canvas = newCanvas();
-      const contexto = canvas.getContext('webgl2', { antialias: true, alpha: false, powerPreference: 'high-performance' });
+      const contexto = canvas.getContext('webgl2', { antialias: true, alpha: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
       if (!contexto || contexto.isContextLost()) {
         registrar(false, 'sem contexto WebGL2');
         continue;
       }
-      const r = new THREE.WebGLRenderer({ canvas, context: contexto, antialias: true, alpha: false, powerPreference: 'high-performance' });
+      // `preserveDrawingBuffer`: a captura de imagem (T5) lê o canvas da vista ativa depois do
+      // desenho. Sem isso o navegador pode devolver um buffer já limpo (imagem preta).
+      const r = new THREE.WebGLRenderer({ canvas, context: contexto, antialias: true, alpha: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
       registrar(true, null);
       return concluir(wrap(r, 'webgl2'), canvas);
     } catch (e) {

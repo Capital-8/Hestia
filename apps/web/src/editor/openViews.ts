@@ -14,11 +14,12 @@ export type OpenView =
   | { kind: 'plan'; levelId: Id; planKind?: PlanKind; areaPlanId?: Id }
   | { kind: '3d' }
   | { kind: 'section'; viewId: Id }
-  | { kind: 'sheet'; sheetId: Id };
+  | { kind: 'sheet'; sheetId: Id }
+  | { kind: 'animation' };
 
 /** Campos de vista da interface que determinam a vista ativa (subconjunto de `UiState`). */
 export interface ActiveViewFields {
-  view: 'plan' | '3d' | 'section' | 'sheet';
+  view: 'plan' | '3d' | 'section' | 'sheet' | 'animation';
   levelId: Id;
   sectionId: Id | null;
   sheetId: Id | null;
@@ -50,6 +51,8 @@ export function viewKey(v: OpenView): string {
       return `section:${v.viewId}`;
     case 'sheet':
       return `sheet:${v.sheetId}`;
+    case 'animation':
+      return 'animation';
   }
 }
 
@@ -132,5 +135,7 @@ export function activeViewOf(ui: ActiveViewFields): OpenView | null {
       return ui.sectionId ? { kind: 'section', viewId: ui.sectionId } : null;
     case 'sheet':
       return ui.sheetId ? { kind: 'sheet', sheetId: ui.sheetId } : null;
+    case 'animation':
+      return { kind: 'animation' };
   }
 }

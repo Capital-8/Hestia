@@ -129,6 +129,7 @@ function OpeningTypePicker({ kind, value, onChange }: { kind: 'door' | 'window';
 
 export function OptionsBar(): ReactElement {
   const p = useProject();
+  const view = useUi((s) => s.view);
   const perim = usePerimeter();
   const tool = useUi((s) => s.tool);
   const o = useUi((s) => s.options);
@@ -136,6 +137,7 @@ export function OptionsBar(): ReactElement {
   const sel = useUi((s) => s.selection);
   const areaPlan = useUi((s) => s.view === 'plan' && s.planKind === 'area' && !!s.areaPlanId);
   const set = (patch: Partial<typeof o>): void => useUi.setState({ options: { ...o, ...patch } });
+  if (view === 'animation') return <div className="optbar" role="group" aria-label="Estúdio de animação"><span className="tool-name">Estúdio de animação</span><span style={{ color: 'var(--fg-soft)' }}>Configure a sequência na linha do tempo e no painel à direita.</span></div>;
   if (perim.active) return <PerimeterOptionsBar target={perim.target} modify={perim.modify} options={perim.options} onChange={perimeterActions.setOptions} />;
   // A paleta Propriedades é a fonte de configuração antes da colocação; a barra superior fica como indicação da ferramenta.
   if (['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'stairrun', 'roof', 'roofextrusion'].includes(tool)) {

@@ -859,7 +859,7 @@ export class Editor {
     }
     // Pré-aquece o 3D atrás do diálogo: quando o usuário clicar em "Pré-visualizar", a cena já está montada.
     const st = useUi.getState();
-    guardarOrigemDoColar({ view: st.view, levelId: st.levelId, sectionId: st.sectionId, planKind: st.planKind, areaPlanId: st.areaPlanId });
+    guardarOrigemDoColar({ view: st.view === 'animation' ? '3d' : st.view, levelId: st.levelId, sectionId: st.sectionId, planKind: st.planKind, areaPlanId: st.areaPlanId });
     limparPreviaPreparada();
     // Primeiro o diálogo aparece; o 3D começa a montar atrás dele no quadro seguinte (assim o clique não trava).
     useUi.setState({ dialog: 'selectLevels', dialogArg: null });
@@ -921,10 +921,11 @@ export class Editor {
     // A vista de origem é a de quando o diálogo abriu (o 3D atrás dele é só pré-aquecimento).
     const origem = origemDoColar();
     const st = useUi.getState();
+    const origemView = origem?.view ?? st.view;
     const preview: PastePreviewState = {
       levelIds: niveis,
       count: transfer.elementCount(clip) * niveis.length,
-      originView: origem?.view ?? st.view,
+      originView: origemView === 'animation' ? '3d' : origemView,
       originLevelId: origem?.levelId ?? st.levelId,
       originSectionId: origem?.sectionId ?? st.sectionId,
       originPlanKind: origem?.planKind ?? st.planKind,

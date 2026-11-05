@@ -1,0 +1,50 @@
+.render-overlay {
+  position: fixed;
+  right: 18px;
+  bottom: 42px;
+  z-index: 60;
+  pointer-events: none;
+}
+
+.render-card {
+  width: min(360px, 86vw);
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 22%);
+  pointer-events: auto;
+}
+
+.render-head,
+.render-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.render-head {
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.render-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--field);
+  overflow: hidden;
+}
+
+.render-bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 120ms linear;
+}
+
+.render-foot {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--fg-soft);
+}

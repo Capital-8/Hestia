@@ -1,11 +1,11 @@
 /* eslint-disable max-lines -- a cena 3D reúne o port GPU (faixas/sombras) e o alizar/esquadrias do plano; extrair depois. */
 import * as THREE from 'three';
 import { applyPartialStructure, frameOfWall, openingGeometry, junctionOfWalls, pisoOuLajeNaFaixa, type JunctionLevel, type ResolvedWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
-import { openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, type GraphicsCategory, type Id, type Material, type Opening, type Project, type View3DSettings, type VisualStyle } from '@hestia/model';
+import { openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, type GraphicsCategory, type Id, type Material, type Opening, type Project, type SheetView3DCamera, type View3DSettings, type VisualStyle } from '@hestia/model';
 import { DARK, LIGHT } from '../plan/types.ts';
 import { AVISO } from '../aviso.ts';
 import { projetoDaJuncao } from '../plan/viewContext.ts';
-import { OrbitCamera, cameraBasis } from './orbit.ts';
+import { OrbitCamera, aplicarCameraNaOrbita, cameraBasis } from './orbit.ts';
 import { firstSurfaceDistance } from './pick3d.ts';
 import { caixasEPrismasDaAbertura, montarAbertura } from './aberturas3d.ts';
 import { arestasDaSilhuetaDeCaixas } from './silhuetaCaixas3d.ts';
@@ -29,6 +29,7 @@ import { Materiais3D } from './materiais3d.ts';
 import { CacheMalhas, bytesDeNivel, disposeNivel, type EntradaNivel, type PickSource } from './cacheMalhas3d.ts';
 import { chavesDeNivel } from './chaveNivel3d.ts';
 import { caixaDaSelecao } from './selecao3d.ts';
+import type { RenderBatch, RenderMaterial, RenderSceneSnapshot } from '../offline/cena.ts';
 
 /** O mínimo do renderer que o gancho de quadro da cena lê (o three chama `scene.onBeforeRender` com o renderer real). */
 export interface RendererDeQuadro {
@@ -697,6 +698,129 @@ export class ModelScene {
       triangleIndices,
       edges: Float32Array.from(arestas),
       box,
+    };
+  }
+
+  /**
+   * Modo apresentação do estúdio/render: esconde datum dos níveis, grade, chão de sombra,
+   * picking e realces. Fica só a construção do usuário (paredes, pisos, lajes, telhado, etc.).
+   */
+  modoApresentacao(ligado: boolean): void {
+    this.niveis3d.visible = !ligado;
+    this.grid.visible = !ligado;
+    this.ground.visible = !ligado;
+    this.pickLayer.visible = !ligado;
+    this.realces.camada.visible = !ligado;
+  }
+
+  /**
+   * Move só a luz solar (sem remontar a geometria), para o estudo solar do estúdio. O mapa de
+   * sombra é marcado como sujo; o próximo quadro o refaz.
+   */
+  aplicarSol(azimuth: number, elevation: number): void {
+    const direcao = sunDirection(azimuth, elevation);
+    const centro = this.boxCache.getCenter(new THREE.Vector3());
+    const raio = Math.max(8, this.boxCache.isEmpty() ? 8 : this.boxCache.getSize(new THREE.Vector3()).length());
+    this.sun.target.position.copy(centro);
+    this.sun.position.copy(centro).addScaledVector(direcao, raio * SUN_DISTANCE);
+    this.sun.target.updateMatrixWorld();
+    this.sombras.marcar();
+  }
+
+  /**
+   * Snapshot neutro para o renderizador offline (Rust/WASM): triângulos em mundo, material por
+   * lote, câmera e sol. Lê o mesmo `model` que a GPU desenha; ficam de fora datum, chão, grade,
+   * picking, realces e arestas. Sem DOM: pode rodar em Node/teste.
+   */
+  exportarCenaDeRender(opcoes: { camera: SheetView3DCamera; aspect?: number }): RenderSceneSnapshot {
+    this.model.updateMatrixWorld(true);
+    const posicoes: number[] = [];
+    const indices: number[] = [];
+    const materiais: RenderMaterial[] = [];
+    const lotes: RenderBatch[] = [];
+    const porMaterial = new Map<string, number>();
+    const v = new THREE.Vector3();
+    const mtx = new THREE.Matrix4();
+
+    const materialDe = (mat: THREE.Material | THREE.Material[] | undefined): number => {
+      const escolhido = Array.isArray(mat) ? mat[0] : mat;
+      const chave = escolhido?.uuid ?? 'sem-material';
+      const existente = porMaterial.get(chave);
+      if (existente !== undefined) return existente;
+      const m = escolhido as (THREE.MeshStandardMaterial & { color?: THREE.Color; opacity?: number }) | undefined;
+      const cor = m?.color ?? new THREE.Color(0x999999);
+      const opacity = typeof m?.opacity === 'number' ? Math.max(0, Math.min(1, m.opacity)) : 1;
+      const roughness = typeof m?.roughness === 'number' ? Math.max(0, Math.min(1, m.roughness)) : 0.8;
+      const metallic = typeof m?.metalness === 'number' ? Math.max(0, Math.min(1, m.metalness)) : 0;
+      const indice = materiais.length;
+      materiais.push({
+        baseColor: [cor.r, cor.g, cor.b],
+        roughness,
+        metallic,
+        opacity,
+        transmission: Math.max(0, 1 - opacity),
+        ior: 1.5,
+        emissive: [0, 0, 0],
+      });
+      porMaterial.set(chave, indice);
+      return indice;
+    };
+
+    this.model.traverse((o) => {
+      if (!this.visivelNaCena(o) || !(o instanceof THREE.Mesh)) return;
+      const geometria = o.geometry;
+      const pos = geometria.getAttribute('position');
+      if (!pos || pos.count === 0) return;
+      const indice = geometria.index;
+      const contar = indice ? indice.count : pos.count;
+      const material = materialDe(o.material);
+      const matrizes: THREE.Matrix4[] = [];
+      if (o instanceof THREE.InstancedMesh) {
+        for (let i = 0; i < o.count; i++) {
+          o.getMatrixAt(i, mtx);
+          matrizes.push(new THREE.Matrix4().multiplyMatrices(o.matrixWorld, mtx));
+        }
+      } else {
+        matrizes.push(o.matrixWorld);
+      }
+      const indexStart = indices.length;
+      for (const matriz of matrizes) {
+        for (let i = 0; i + 2 < contar; i += 3) {
+          for (let k = 0; k < 3; k++) {
+            const n = indice ? indice.getX(i + k) : i + k;
+            v.fromBufferAttribute(pos, n).applyMatrix4(matriz);
+            posicoes.push(v.x, v.y, v.z);
+            indices.push(indices.length);
+          }
+        }
+      }
+      if (indices.length > indexStart) lotes.push({ indexStart, indexCount: indices.length - indexStart, material });
+    });
+
+    const orb = new OrbitCamera();
+    aplicarCameraNaOrbita(orb, opcoes.camera);
+    orb.setAspect(opcoes.aspect ?? 16 / 9, 1);
+    orb.apply();
+    const camera = orb.camera;
+    camera.updateMatrixWorld(true);
+    camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+    const bg = new THREE.Color(this.frame.view.background ?? (this.frame.dark ? '#14171b' : '#dfe7ee'));
+
+    return {
+      version: 1,
+      positions: Float32Array.from(posicoes),
+      indices: Uint32Array.from(indices),
+      materials: materiais,
+      batches: lotes,
+      sun: { azimuth: this.frame.view.sunAzimuth, elevation: this.frame.view.sunElevation, intensity: 1 },
+      background: [bg.r, bg.g, bg.b],
+      camera: {
+        view: Float32Array.from(camera.matrixWorldInverse.elements),
+        projection: Float32Array.from(camera.projectionMatrix.elements),
+        position: [camera.position.x, camera.position.y, camera.position.z],
+        near: camera.near,
+        far: camera.far,
+      },
     };
   }
 

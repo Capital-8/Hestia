@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react';
 import { worldToScreen } from '@hestia/render';
-import { toPermanent, type TempDim, type Tool, type ToolId } from '@hestia/tools';
-import type { Id, Project } from '@hestia/model';
+import { toPermanent, viewAnnotationsOf, type TempDim, type Tool, type ToolId } from '@hestia/tools';
+import { levelDimensions, type Id, type Project } from '@hestia/model';
 import { editor } from '../../editor/controller.ts';
 import { setDimOverride, suspendSelectionDims, useUi, type ViewKind } from '../../editor/state.ts';
 import { currentUnits, useFormat } from '../useUnits.ts';
@@ -190,7 +190,14 @@ export function TempDimsOverlay(): ReactElement | null {
       {views.map(({ dim, view }) => {
         const shown = dimText(dim, format);
         const texto = editing?.key === dim.key ? editing.text : shown;
-        const width = larguraDoCampo(texto);
+        // Cota permanente: o campo usa o MESMO tamanho do texto desenhado e, ao editar, cobre o texto original (sem 2º texto menor).
+        const perm = ehPermanente(dim);
+        const st = useUi.getState();
+        const permDim = perm ? levelDimensions(ctx.project, ctx.levelId).find((d) => d.id === dim.key.split(':')[1]) : undefined;
+        const permScale = perm ? viewAnnotationsOf(ctx.project, ctx.levelId, st.planKind === 'area' ? st.areaPlanId ?? undefined : undefined).scale : 100;
+        const textPx = perm ? Math.max(11, ((permDim?.textHeight ?? 2.5) / 1000) * permScale * viewport.zoom * 1.25) : 11;
+        const width = perm ? Math.max(larguraDoCampo(texto), (texto.length + 3) * textPx * 0.62 + 12) : larguraDoCampo(texto);
+        const cobre = perm && editing?.key === dim.key;
         return (
           <div key={view.key}>
             <input
@@ -198,7 +205,7 @@ export function TempDimsOverlay(): ReactElement | null {
               aria-label={`Cota: ${dim.key.split(':').pop()}`}
               title={view.editable ? 'Digite a medida e pressione Enter' : 'Cota de leitura'}
               readOnly={!view.editable}
-              style={{ ...BOX, width, left: view.textAt.x, top: view.textAt.y, transform: `translate(-50%, -50%) rotate(${-(view.textRotation ?? 0)}deg)`, appearance: 'none', lineHeight: '22px', textShadow: '0 0 2px var(--panel), 0 0 3px var(--panel)', pointerEvents: captures(valueRect(view.textAt, width), view.editable, 0), ...(view.invalid ? { color: DANGER } : {}), ...(ocultaDesenhoPermanente(dim, editing?.key ?? null) ? { color: 'transparent', textShadow: 'none' } : {}) }}
+              style={{ ...BOX, width, ...(perm ? { fontSize: textPx, height: textPx * 1.9, lineHeight: `${textPx * 1.9}px` } : {}), ...(cobre ? { background: 'var(--sheet)' } : {}), left: view.textAt.x, top: view.textAt.y, transform: `translate(-50%, -50%) rotate(${-(view.textRotation ?? 0)}deg)`, appearance: 'none', ...(perm ? {} : { lineHeight: '22px' }), textShadow: '0 0 2px var(--panel), 0 0 3px var(--panel)', pointerEvents: captures(valueRect(view.textAt, width), view.editable, 0), ...(view.invalid ? { color: DANGER } : {}), ...(ocultaDesenhoPermanente(dim, editing?.key ?? null) ? { color: 'transparent', textShadow: 'none' } : {}) }}
               value={texto}
               onPointerDown={stop}
               onPointerUp={stop}

@@ -1,0 +1,19 @@
+[package]
+name = "render-core"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "MIT"
+description = "Núcleo de renderização offline do Hestia: BVH, path tracing simples, tone mapping e PNG."
+
+[dependencies]
+# `png` é puro Rust (flate2/miniz_oxide + crc32fast), o que mantém o alvo
+# `wasm32-unknown-unknown` compilável com o toolchain Rust padrão, sem C/C++.
+png = "0.17"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

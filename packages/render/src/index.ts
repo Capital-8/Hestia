@@ -1,5 +1,8 @@
 export * from './viewport.ts';
 export * from './gpu.ts';
+export * from './offline/animacao.ts';
+export * from './offline/cena.ts';
+export * from './offline/solar.ts';
 // Instrumentação de desempenho (Fase 0.2): contadores, instância do app e interceções de contexto.
 export * from './perf/index.ts';
 export * from './plan/types.ts';

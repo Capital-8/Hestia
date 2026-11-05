@@ -26,6 +26,7 @@ function viewTitle(p: Project, view: string, levelId: string, sectionId: string 
     const sh = sheetId ? sheetOf(p, sheetId) : undefined;
     return `${pt ? 'Prancha' : 'Sheet'}: ${sh ? `${sh.number} ${sh.name}` : ''}`;
   }
+  if (view === 'animation') return pt ? 'Estúdio de animação' : 'Animation Studio';
   if (planKind === 'area') {
     const ap = areaPlanId ? areaPlanOf(p, areaPlanId) : undefined;
     return `${pt ? 'Planta de área' : 'Area Plan'}: ${ap?.name ?? ''}`;

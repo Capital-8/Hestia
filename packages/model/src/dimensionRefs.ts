@@ -11,7 +11,8 @@ import { isOpening, isWall, type DimensionRef, type Opening, type Id, type Locat
  *   - `wall-axis-a|b`: a própria extremidade `a`/`b` da parede (a linha de localização, como o antigo `DimensionRef`).
  *   - `wall-face-hi`: ponto da face do lado de +n (esquerda de a→b) na extremidade `index`; `wall-face-lo`: face do
  *     lado -n. É geométrico (independe de `flipped`), como `sHi`/`sLo` do engine, e leva em conta a `locationLine`
- *     e a espessura do tipo.
+ *     e a espessura do tipo. `index: -1` = QUALQUER ponto ao longo da face (como no Revit: a cota referencia a face
+ *     da parede, não um canto); o ponto exato fica no `a`/`b` gravado da cota e é reprojetado na face.
  * - Esquadria: o ponto fica na linha média da parede (`sMid`), em `t = offset` (centro) ou `offset ∓ largura/2`
  *   (largura do vão do tipo). `opening-edge-a` é a borda do lado de `a` da parede, `opening-edge-b` do lado de `b`.
  * - `vertex`: `boundary[index]` de laje/piso/forro/telhado; em escada/rampa, o anel de vértices na ordem dos componentes
@@ -171,7 +172,25 @@ export function dimRefAt(p: Project, levelId: Id, point: Vec2, tol: number): { r
     if (isWall(el) || isOpening(el) || !('levelId' in el) || el.levelId !== levelId) continue;
     for (const c of dimRefCandidates(p, el)) consider(c);
   }
-  return best;
+  if (best) return best;
+  // Sem canto/ponta/esquadria perto: o clique na FACE da parede (em qualquer ponto ao longo dela) referencia a face.
+  let face: { ref: DimensionElementRef; point: Vec2 } | null = null;
+  let faceD = Infinity;
+  for (const w of wallsOnLevel(p, levelId)) {
+    const g = wallGeo(p, w);
+    if (!g) continue;
+    const t = (point.x - g.a.x) * g.u.x + (point.y - g.a.y) * g.u.y;
+    if (t < -tol || t > g.length + tol) continue;
+    const s = (point.x - g.a.x) * g.n.x + (point.y - g.a.y) * g.n.y;
+    for (const [feature, sf] of [['wall-face-hi', g.sHi], ['wall-face-lo', g.sLo]] as const) {
+      const d = Math.abs(s - sf);
+      if (d <= tol && d < faceD - 1e-9) {
+        faceD = d;
+        face = { ref: { elementId: w.id, feature, index: -1 }, point: at(g, Math.min(Math.max(t, 0), g.length), sf) };
+      }
+    }
+  }
+  return face;
 }
 
 /** Ponto de uma ponta da cota: a referência resolvida (com a projeção `axis` do antigo) ou o ponto guardado. */
@@ -182,6 +201,14 @@ export function resolveDimEnd(p: Project, ref: DimensionRef | DimensionElementRe
   if (!isElementRef(ref)) {
     if (ref.axis === 'x') return { x: pt.x, y: fallback.y };
     if (ref.axis === 'y') return { x: fallback.x, y: pt.y };
+  } else if ((ref.feature === 'wall-face-hi' || ref.feature === 'wall-face-lo') && ref.index === -1) {
+    // Face "em qualquer ponto": o ponto gravado da cota, reprojetado na face (acompanha a parede se ela se mover).
+    const w = p.elements[ref.elementId];
+    const g = isWall(w) ? wallGeo(p, w) : null;
+    if (g) {
+      const t = (fallback.x - g.a.x) * g.u.x + (fallback.y - g.a.y) * g.u.y;
+      return at(g, t, ref.feature === 'wall-face-hi' ? g.sHi : g.sLo);
+    }
   }
   return pt;
 }

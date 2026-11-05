@@ -84,7 +84,16 @@ export const TAB_VISTA: RibbonTab = {
       stack(act('thinLines', 'small'), soonS(t('Mostrar linhas ocultas', 'Show Hidden Lines'), 'eye'), soonS(t('Remover linhas ocultas', 'Remove Hidden Lines'), 'hide')),
       stack(act('grid', 'small'), act('underlay', 'small'), act('roofProjection', 'small')),
     ),
-    panel('apresentacao', t('Apresentação', 'Presentation'), soon(t('Renderizar', 'Render'), 'cube'), soon(t('Galeria de renderização', 'Render Gallery'), 'sheet')),
+    panel(
+      'apresentacao',
+      t('Apresentação', 'Presentation'),
+      split(act('renderImage', 'large', t('Renderizar', 'Render')), [
+        act('renderImage', 'small', t('Imagem…', 'Image…')),
+        act('renderAnimation', 'small', t('Animação…', 'Animation…')),
+        act('solarStudy', 'small', t('Estudo solar…', 'Solar Study…')),
+      ]),
+      act('renderGallery', 'large', t('Galeria de renderização', 'Render Gallery')),
+    ),
     panel(
       'criar-vistas',
       t('Criar', 'Create'),

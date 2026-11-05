@@ -23,12 +23,28 @@ describe('modo ortogonal travado (F8)', () => {
     expect(v.point).toEqual({ x: 0, y: 3.03 });
   });
 
-  it('nÃ£o deixa endpoint fora do eixo vencer o modo travado', () => {
+  it('nÃ£o deixa endpoint fora do eixo vencer o modo travado, mas a guia dele cruza o eixo', () => {
     const s = new ProjectStore(createEmptyProject());
     s.exec({ type: 'addWall', wall: makeWall({ id: 'w', typeId: 'wt_alv14', levelId: 'lv_0', a: { x: 3, y: 0.4 }, b: { x: 5, y: 0.4 } }) });
     const inf = infer({ x: 3.02, y: 0.38 }, ctx({ project: s.project, orthoLock: true }));
-    expect(inf.point).toEqual({ x: 3.02, y: 0 });
-    expect(inf.kind).toBe('ortho');
+    expect(inf.point).toEqual({ x: 3, y: 0 });
+    expect(inf.kind).toBe('alignment');
+    // A guia de alinhamento da ponta (x = 3) continua visÃ­vel junto com a linha ortogonal.
+    expect(inf.guides.some((g) => g.kind === 'alignment' && g.from.x === 3 && g.from.y === 0.4)).toBe(true);
+    expect(inf.guides.some((g) => g.kind === 'ortho')).toBe(true);
+    // Como no Revit (Shift trava e Tab escapa), o Tab alcanÃ§a a captura fora do eixo.
+    const tabbed = infer({ x: 3.02, y: 0.38 }, ctx({ project: s.project, orthoLock: true, cycle: 1 }));
+    expect(tabbed.kind).toBe('endpoint');
+    expect(tabbed.point).toEqual({ x: 3, y: 0.4 });
+  });
+
+  it('captura sobre o eixo vence o ponto travado e mantÃ©m a guia ortogonal', () => {
+    const s = new ProjectStore(createEmptyProject());
+    s.exec({ type: 'addWall', wall: makeWall({ id: 'w', typeId: 'wt_alv14', levelId: 'lv_0', a: { x: 3, y: 0 }, b: { x: 5, y: 0 } }) });
+    const inf = infer({ x: 3.02, y: 0.03 }, ctx({ project: s.project, orthoLock: true }));
+    expect(inf.kind).toBe('endpoint');
+    expect(inf.point).toEqual({ x: 3, y: 0 });
+    expect(inf.guides.some((g) => g.kind === 'ortho')).toBe(true);
   });
 
   it('continua ortogonal mesmo com as capturas desligadas', () => {
@@ -44,7 +60,7 @@ describe('modo ortogonal travado (F8)', () => {
 });
 
 describe('rastreamento polar (F10)', () => {
-  it('projeta no múltiplo do incremento e devolve guia polar', () => {
+  it('projeta no mï¿½ltiplo do incremento e devolve guia polar', () => {
     const inf = infer({ x: 3, y: 1.1 }, ctx({ polar: true, polarIncrementDeg: 30 }));
     const angle = Math.atan2(inf.point.y, inf.point.x) * 180 / Math.PI;
     expect(angle).toBeCloseTo(30, 6);
@@ -52,13 +68,13 @@ describe('rastreamento polar (F10)', () => {
     expect(inf.guides[0]).toMatchObject({ kind: 'polar' });
   });
 
-  it('aceita incremento personalizado (22,5°)', () => {
+  it('aceita incremento personalizado (22,5ï¿½)', () => {
     const inf = infer({ x: 3, y: 1.2 }, ctx({ polar: true, polarIncrementDeg: 22.5 }));
     const angle = Math.atan2(inf.point.y, inf.point.x) * 180 / Math.PI;
     expect(angle).toBeCloseTo(22.5, 6);
   });
 
-  it('ortogonal tem prioridade quando os dois estão ligados', () => {
+  it('ortogonal tem prioridade quando os dois estï¿½o ligados', () => {
     const inf = infer({ x: 3, y: 1.1 }, ctx({ orthoLock: true, polar: true, polarIncrementDeg: 30 }));
     expect(inf.kind).toBe('ortho');
     expect(inf.point).toEqual({ x: 3, y: 0 });

@@ -27,6 +27,8 @@ export function tabOf(p: Project, v: OpenView): { icon: 'plan' | 'roof' | 'cube'
       const sh = sheetOf(p, v.sheetId);
       return sh ? { icon: 'plan', label: `${sh.number} ${sh.name}` } : null;
     }
+    case 'animation':
+      return { icon: 'cube', label: 'Estúdio de animação' };
   }
 }
 
@@ -63,6 +65,10 @@ function navega(v: OpenView): boolean {
     case 'sheet':
       if (editor.perimetro.bloqueiaNavegacao()) return false;
       useUi.setState({ view: 'sheet', sheetId: v.sheetId });
+      return true;
+    case 'animation':
+      if (editor.perimetro.bloqueiaNavegacao()) return false;
+      useUi.setState({ view: 'animation' });
       return true;
   }
 }

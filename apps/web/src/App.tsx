@@ -26,6 +26,10 @@ import { AddViewDialog } from './ui/dialogs/AddViewDialog.tsx';
 import { RenumberSheetsDialog } from './ui/dialogs/RenumberSheetsDialog.tsx';
 import { RevisionDialog } from './ui/dialogs/RevisionDialog.tsx';
 import { PublishDialog } from './ui/dialogs/PublishDialog.tsx';
+import { RenderImageDialog } from './ui/dialogs/RenderImageDialog.tsx';
+import { RenderGalleryDialog } from './ui/dialogs/RenderGalleryDialog.tsx';
+import { AnimationStudio } from './ui/animation/AnimationStudio.tsx';
+import { RenderOverlay } from './ui/RenderOverlay.tsx';
 import { AutoCotaDialog } from './ui/dialogs/AutoCotaDialog.tsx';
 import { MaterialsDialog } from './ui/dialogs/MaterialsDialog.tsx';
 import { LevelsDialog, OpeningTypeDialog, ShortcutsDialog, StartDialog } from './ui/dialogs/OtherDialogs.tsx';
@@ -163,6 +167,10 @@ function Dialogs(): ReactElement | null {
       return <RenumberSheetsDialog />;
     case 'publish':
       return <PublishDialog />;
+    case 'renderImage':
+      return <RenderImageDialog />;
+    case 'renderGallery':
+      return <RenderGalleryDialog />;
     case 'revision':
       return arg ? <RevisionDialog sheetId={arg} /> : null;
     case 'graphicsVisibility':
@@ -207,7 +215,13 @@ function Palco(): ReactElement {
       <div style={{ position: 'relative', minHeight: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Tutorial />
         <div style={{ position: 'relative', minHeight: 0, flex: 1, display: 'grid' }}>
-          {semVistas ? <EmptyViews /> : view === 'sheet' && sheetId ? <SheetView sheetId={sheetId} /> : <ViewportCanvas />}
+          {semVistas
+            ? <EmptyViews />
+            : view === 'animation'
+              ? <AnimationStudio />
+              : view === 'sheet' && sheetId
+                ? <SheetView sheetId={sheetId} />
+                : <ViewportCanvas />}
         </div>
       </div>
       {!semVistas && <ViewControlBar />}
@@ -222,6 +236,7 @@ export function App(): ReactElement {
   const widths = dockWidths(propsOpen, browserOpen, dock);
   const theme = useUi((s) => s.theme);
   const dialog = useUi((s) => s.dialog);
+  const view = useUi((s) => s.view);
   const narrow = useNarrow();
   // A caixa de texto não entra em `dialog` (DialogKind); as teclas ficam presas a ela enquanto estiver aberta.
   const caixaTextoAberta = useCaixaDeTextoAberta();
@@ -249,12 +264,12 @@ export function App(): ReactElement {
     const onKey = (e: KeyboardEvent): void => {
       const t = e.target as HTMLElement | null;
       const typing = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
-      if (dialog || caixaTextoAberta || typing) return;
+      if (dialog || caixaTextoAberta || typing || view === 'animation') return;
       if (editor.key(e)) e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [dialog, caixaTextoAberta]);
+  }, [dialog, caixaTextoAberta, view]);
 
   useEffect(() => {
     const warn = (e: BeforeUnloadEvent): void => {
@@ -284,6 +299,7 @@ export function App(): ReactElement {
       <TextDialog />
       <FileMenu />
       <IfcImportOverlay />
+      <RenderOverlay />
     </div>
   );
 }

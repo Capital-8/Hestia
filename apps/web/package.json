@@ -8,14 +8,15 @@
     "build": "vite build && node ../../scripts/copiar-wasm-dist.mjs"
   },
   "dependencies": {
-    "@hestia/geom": "*",
-    "@hestia/model": "*",
     "@hestia/engine": "*",
-    "@hestia/tools": "*",
-    "@hestia/render": "*",
+    "@hestia/geom": "*",
     "@hestia/io": "*",
+    "@hestia/model": "*",
+    "@hestia/render": "*",
+    "@hestia/tools": "*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "webm-muxer": "^5.1.4",
     "zustand": "^5.0.0"
   },
   "devDependencies": {

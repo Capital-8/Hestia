@@ -1,5 +1,8 @@
 /* eslint-disable max-lines -- a faixa concentra as ações pontuais (cada uma com rótulo bilíngue, dica e guarda); dividir depois. */
 import { copyLinkOf, isCeiling, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Element, type Id, type Project, type Ramp } from '@hestia/model';
+import { openAnimationStudio } from '../../editor/animationActions.ts';
+import { openRenderImageDialog } from '../../editor/renderImageActions.ts';
+import { openRenderGalleryDialog } from '../../editor/renderGallery.ts';
 import type { PerimeterModifyKind, ShortcutCommand, ToolOptions } from '@hestia/tools';
 import { tagAllNotTagged } from '../../editor/tagActions.ts';
 import { addMissingTagsAction } from '../../editor/areaPlanActions.ts';
@@ -433,6 +436,30 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
       if (r) useUi.setState({ dialog: 'rampType', dialogArg: r.typeId });
     },
     disabled: (c) => (rampsIn(c).length > 0 ? false : t('Selecione uma rampa.', 'Select a ramp.')),
+  },
+  renderImage: {
+    label: t('Renderizar imagem', 'Render Image'),
+    icon: 'cube',
+    hint: t('Abre a imagem da vista atual em um diálogo, com resolução e fundo.', 'Opens the current view as an image dialog, with resolution and background.'),
+    run: openRenderImageDialog,
+  },
+  renderAnimation: {
+    label: t('Animação', 'Animation'),
+    icon: 'cube',
+    hint: t('Abre o Estúdio de animação: câmera, keyframes, linha do tempo e vídeo.', 'Opens the Animation Studio: camera, keyframes, timeline and video.'),
+    run: () => openAnimationStudio(),
+  },
+  renderGallery: {
+    label: t('Galeria de renderização', 'Render Gallery'),
+    icon: 'sheet',
+    hint: t('Lista as imagens e os vídeos renderizados neste navegador.', 'Lists images and videos rendered in this browser.'),
+    run: openRenderGalleryDialog,
+  },
+  solarStudy: {
+    label: t('Estudo solar', 'Solar Study'),
+    icon: 'sun',
+    hint: t('Abre o estúdio com o sol percorrendo um dia (câmera fixa).', 'Opens the studio with the sun moving through a day (fixed camera).'),
+    run: () => openAnimationStudio({ mode: 'solar', novo: true }),
   },
 };
 

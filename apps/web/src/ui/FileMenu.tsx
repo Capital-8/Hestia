@@ -5,6 +5,9 @@ import { useI18n } from '../editor/i18n.ts';
 import { importIfcFile, resumoImportacao, type ResumoImportacao } from '../editor/ifcImport.ts';
 import { useUi } from '../editor/state.ts';
 import { openPublish } from './dialogs/PublishDialog.tsx';
+import { openAnimationStudio } from '../editor/animationActions.ts';
+import { openRenderImageDialog } from '../editor/renderImageActions.ts';
+import { openRenderGalleryDialog } from '../editor/renderGallery.ts';
 
 type Section = 'export' | 'info' | 'options';
 
@@ -122,6 +125,9 @@ export function FileMenu(): ReactElement | null {
                 {card('PDF', pt ? 'Todas as pranchas em um arquivo (cria uma prancha da planta atual se não houver).' : 'All sheets in one file.', exportPdf)}
                 {card(pt ? 'Publicar…' : 'Publish…', pt ? 'Escolhe pranchas, ordem e um arquivo por prancha.' : 'Pick sheets, order and one file per sheet.', async () => openPublish())}
                 {card('IFC', pt ? 'Modelo completo para outros programas BIM.' : 'Full model for other BIM software.', exportIfc)}
+                {card(pt ? 'Imagem' : 'Image', pt ? 'Imagem PNG da vista 3D atual.' : 'PNG image of the current 3D view.', async () => openRenderImageDialog())}
+                {card(pt ? 'Vídeo' : 'Video', pt ? 'Abre o Estúdio de animação para gerar um vídeo.' : 'Open the Animation Studio to render a video.', async () => openAnimationStudio())}
+                {card(pt ? 'Galeria…' : 'Gallery…', pt ? 'Imagens e vídeos já renderizados.' : 'Images and videos already rendered.', async () => openRenderGalleryDialog())}
               </div>
             </>
           )}

@@ -36,6 +36,11 @@ export function tipoDoArquivo(nome: string): string {
   if (ext === 'json') return 'application/json';
   if (ext === 'pdf') return 'application/pdf';
   if (ext === 'zip') return 'application/zip';
+  if (ext === 'png') return 'image/png';
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+  if (ext === 'webp') return 'image/webp';
+  if (ext === 'webm') return 'video/webm';
+  if (ext === 'mp4') return 'video/mp4';
   return 'text/plain;charset=utf-8';
 }
 

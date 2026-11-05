@@ -1,0 +1,223 @@
+/* Diálogo Renderizar imagem (T5). Todas as classes usam o prefixo ri- e as variáveis do tema. */
+
+.ri {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ri-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr);
+  gap: 14px;
+  align-items: start;
+  min-width: 0;
+}
+
+/* Área da prévia: o fundo quadriculado mostra transparência sem depender de uma imagem externa. */
+.ri-previa {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  width: 100%;
+  min-height: 190px;
+  max-height: min(46vh, 460px);
+  padding: 8px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background-color: var(--chrome);
+  background-image:
+    linear-gradient(45deg, color-mix(in srgb, var(--line) 60%, transparent) 25%, transparent 25%),
+    linear-gradient(-45deg, color-mix(in srgb, var(--line) 60%, transparent) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--line) 60%, transparent) 75%),
+    linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--line) 60%, transparent) 75%);
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-size: 16px 16px;
+}
+
+.ri-previa canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  background: var(--sheet);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.18);
+}
+
+.ri-previa-vazio {
+  color: var(--fg-faint);
+  font-size: 12px;
+}
+
+.ri-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  max-height: min(70vh, 640px);
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.ri-bloco {
+  margin: 0;
+  padding: 8px 9px 9px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--panel);
+  min-width: 0;
+}
+
+.ri-bloco h3 {
+  margin: 0 0 7px;
+  color: var(--fg-soft);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.ri-campo {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  min-width: 0;
+}
+
+.ri-campo > span {
+  color: var(--fg-soft);
+  font-size: 11px;
+}
+
+.ri-campo .numwrap {
+  width: 100%;
+}
+
+.ri-campo .input.num {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+.ri-dica {
+  margin: 5px 0 0;
+  color: var(--fg-soft);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.ri-dica code {
+  font-family: var(--font-mono);
+  color: var(--fg);
+  word-break: break-all;
+}
+
+/* Botões segmentados de resolução. */
+.ri-seg {
+  display: flex;
+  gap: 0;
+  margin-bottom: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.ri-op {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 5px;
+  border: 0;
+  border-right: 1px solid var(--line-strong);
+  background: var(--sheet);
+  color: var(--fg);
+  font-size: 11.5px;
+}
+
+.ri-op:last-child {
+  border-right: 0;
+}
+
+.ri-op:hover:not(.on) {
+  background: var(--accent-soft);
+}
+
+.ri-op.on {
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+.ri-dim {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 7px;
+}
+
+.ri-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fg-soft);
+  font-size: 11.5px;
+}
+
+.ri-alvo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px dashed var(--line);
+  color: var(--fg-soft);
+  font-size: 11.5px;
+}
+
+.ri-alvo b {
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.ri-aviso {
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--warn);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--warn) 8%, var(--panel));
+  color: var(--fg);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.ri-aviso b {
+  font-weight: 600;
+}
+
+.ri-erro {
+  border-left-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, var(--panel));
+}
+
+@media (max-width: 900px) {
+  .ri-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ri-previa {
+    min-height: 150px;
+    max-height: 300px;
+  }
+
+  .ri-col {
+    max-height: none;
+    overflow: visible;
+  }
+}
