@@ -218,7 +218,7 @@ export function noteOps(p: Project, levelId: Id, pt: PlanPaint, look: NoteLook, 
     const hov = !sel && look.hover === id;
     const estado = sel || hov;
     const c = sel ? look.select : hov ? (look.hoverColor ?? look.select) : color;
-    const d = drawDimension(l, scale, { color: c, fina: projecao, marcador: corte, paper: look.paper ?? '#fbfbfa', fator: estado ? DIM_ESTADO_FATOR : 1 });
+    const d = drawDimension(l, scale, { color: c, fina: projecao, marcador: corte, fator: estado ? DIM_ESTADO_FATOR : 1 });
     out.fills.push(...d.fills);
     out.strokes.push(...d.strokes);
     out.labels.push(...d.labels);
@@ -328,7 +328,7 @@ export function annotationHighlightOps(
     const marcador = { widthPx: 1.6 };
     for (const l of layouts) {
       if (hover !== l.item.d.id || selected.has(l.item.d.id)) continue;
-      const d = drawDimension(l, scale, { color: hoverColor, fina, marcador, paper: look.paper ?? '#fbfbfa', fator: DIM_ESTADO_FATOR });
+      const d = drawDimension(l, scale, { color: hoverColor, fina, marcador, fator: DIM_ESTADO_FATOR });
       out.fills.push(...d.fills);
       out.strokes.push(...d.strokes);
       out.labels.push(...d.labels);
