@@ -274,11 +274,32 @@ export class DespachoB {
     return this.ctx.sombra() ? this.emSombraPisosELajes(p, levelId, ts, ger, true) : (this.pisosELajesDoRust(p, levelId, ger)?.lajes ?? ts());
   }
 
-  /** O despachante de `junctionLevel`: a B3 é só do modo sombra (o `junction_nivel` ainda diverge do TS fora da 0049). */
+  /**
+   * O despachante de `junctionLevel`. Com a fatia B ligada, a junção vem do Rust (convertida para o formato do TS); o modo
+   * sombra compara as duas. Qualquer falha (sem cena, conversão com erro) volta ao TypeScript, sem quebrar o app.
+   */
   resolverJuncao(p: Project, levelId: Id, ts: () => JunctionLevel): JunctionLevel {
     const ger = this.gerenciador();
     if (!ger) return ts();
-    return this.ctx.sombra() ? this.emSombraJuncao(p, levelId, ts, ger) : ts();
+    if (this.ctx.sombra()) return this.emSombraJuncao(p, levelId, ts, ger);
+    return this.juncaoDoRust(p, levelId, ger) ?? ts();
+  }
+
+  private readonly memoJuncao = new WeakMap<Project, Map<Id, JunctionLevel>>();
+
+  /** A junção do Rust, convertida e guardada por projeto e nível (a conversão é cara; o projeto muda a cada edição). */
+  private juncaoDoRust(p: Project, levelId: Id, ger: GerenciadorKernelV2): JunctionLevel | null {
+    const guardado = this.memoJuncao.get(p)?.get(levelId);
+    if (guardado) return guardado;
+    const r = this.consultarJuncao(p, levelId, ger);
+    if (!r) return null;
+    const convertido = this.converter(() => converterJuncao(levelId, r.juncao, r.mapas));
+    if (!convertido) return null;
+    this.ctx.contar('entreguesB');
+    let por = this.memoJuncao.get(p);
+    if (!por) this.memoJuncao.set(p, (por = new Map()));
+    por.set(levelId, convertido);
+    return convertido;
   }
 
   /** O gerenciador, só com a fatia B ligada, o wasm pronto e fora da montagem da cena. */

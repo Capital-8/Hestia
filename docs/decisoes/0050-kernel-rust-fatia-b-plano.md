@@ -336,3 +336,17 @@ Ajuste de contrato (feito depois do primeiro aceite): a seção `faixas_juncao` 
 4. O binário versionado `packages/geom/assets/geom_wasm.wasm` continua v10 até ser regenerado; testes que carregam o binário padrão falham até lá.
 5. Semente 7 (acima): reprovação aberta, a investigar antes de promover a saída 3.
 
+
+## B3 despachada com a fatia B (2026-11-05)
+
+Revoga o encerramento "sem a junção despachada" acima. A junção entre pavimentos (`junction_nivel`, saída 3, contrato cena-v11) passa a ser calculada pelo Rust quando a fatia B está ligada (`?kernelFatias=A,B`), convertida para o formato do TypeScript (`converterJuncao`). Qualquer falha (sem cena, conversão com erro) volta ao TypeScript, e o modo sombra continua comparando as duas.
+
+**Condições de liberação, na ordem:**
+1. Equivalência da junção inteira (cortes, regiões e faixas) entre TypeScript e Rust nos projetos sintéticos de estresse e nos projetos reais, com critério de 1e-6 m² e 1e-6 m³ por célula.
+2. Suíte wasm completa (jobs `wasm` e `wasm-pesado`) verde com a junção despachada.
+3. Mutações da B3 (`scripts/mutar-rust.mjs`) rodadas, com as sobreviventes documentadas.
+4. Validação visual do dono de A e B, com e sem `?kernelFatias=A,B`.
+
+**Defeito conhecido e aceito (semente 7, pavimento 3):** o limiar de corte absoluto (1e-9 m³) do TypeScript (`lostVolume`) dispara por um resto de 1 µm do arredondamento do polygon-clipping; o Rust calcula exato, e só a marca discreta de corte difere (a região é a mesma). Decisão do dono em 2026-11-05: aceitar e documentar. Corrigir o limiar muda a geometria no TypeScript e exige versão nova do motor, como mudança separada.
+
+**Fora da fatia B:** B4 (altura e perfis de paredes anexadas, ainda no JavaScript).
