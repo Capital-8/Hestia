@@ -6,6 +6,7 @@ import { DARK, LIGHT } from '../plan/types.ts';
 import { AVISO } from '../aviso.ts';
 import { projetoDaJuncao } from '../plan/viewContext.ts';
 import { HOME_VIEW, OCUPACAO_ENQUADRAMENTO, OrbitCamera, aplicarCameraNaOrbita, cameraBasis, enquadrarCamera } from './orbit.ts';
+import { ehElementoDeApresentacao } from './apresentacao.ts';
 import { firstSurfaceDistance } from './pick3d.ts';
 import { caixasEPrismasDaAbertura, montarAbertura } from './aberturas3d.ts';
 import { arestasDaSilhuetaDeCaixas } from './silhuetaCaixas3d.ts';
@@ -269,6 +270,7 @@ export class ModelScene {
       new THREE.ShadowMaterial({ color: 0x000000, opacity: 0.22, transparent: true, depthWrite: false }),
     );
     this.ground.position.z = -0.03;
+    this.ground.userData = { chaoDeSombra: true };
     this.ground.receiveShadow = true;
     this.scene.add(this.ground);
     this.grid = new THREE.GridHelper(100, 100, 0xb9b3a6, 0xcfcabd);
@@ -749,12 +751,25 @@ export class ModelScene {
     if (ligado) {
       this.visiveisAntesDaApresentacao ??= partes.map((o) => o.visible);
       for (const o of partes) o.visible = false;
+      // Dentro do modelo, a mesma regra de `exportarCenaDeRender` (ver apresentacao.ts): o que não é construção sai.
+      // O conjunto guarda só o que este modo escondeu, para restaurar ao sair; `update` refaz o modelo e o próximo
+      // `modoApresentacao(true)` (o estúdio chama depois de cada `update`) esconde o que for novo.
+      this.model.traverse((o) => {
+        if (o.visible && !ehElementoDeApresentacao(o)) {
+          o.visible = false;
+          this.escondidosNaApresentacao.add(o);
+        }
+      });
       return;
     }
     const antes = this.visiveisAntesDaApresentacao;
     this.visiveisAntesDaApresentacao = null;
     if (antes) partes.forEach((o, i) => { o.visible = antes[i] ?? o.visible; });
+    for (const o of this.escondidosNaApresentacao) o.visible = true;
+    this.escondidosNaApresentacao.clear();
   }
+  /** Objetos do modelo que `modoApresentacao(true)` escondeu (para restaurar em `modoApresentacao(false)`). */
+  private escondidosNaApresentacao = new Set<THREE.Object3D>();
 
   /**
    * Move só a luz solar (sem remontar a geometria), para o estudo solar do estúdio. O mapa de
@@ -820,7 +835,7 @@ export class ModelScene {
     };
 
     this.model.traverse((o) => {
-      if (!this.visivelNaCena(o) || !(o instanceof THREE.Mesh)) return;
+      if (!(o instanceof THREE.Mesh) || !ehElementoDeApresentacao(o)) return;
       const geometria = o.geometry;
       const pos = geometria.getAttribute('position');
       if (!pos || pos.count === 0) return;
