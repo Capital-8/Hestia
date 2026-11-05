@@ -8,10 +8,12 @@ import {
   nomeArquivoRender,
   podeClicarRenderizar,
   podeRascunhoDaVista,
+  podeCairParaRascunho,
   rotuloDoBotaoPrincipal,
   rotuloDoResultado,
   type EntradaPodeRenderizar,
 } from './renderDialogoLogica.ts';
+import { CODIGO_RENDER, ErroRenderWasm } from '../../editor/render/erroRender.ts';
 import type { EstadoSessao } from './renderSessao.ts';
 
 const ocioso: EstadoSessao = { tipo: 'ocioso' };
@@ -148,5 +150,16 @@ describe('rotuloDoResultado', () => {
   it('cada qualidade de render final tem o seu rótulo', () => {
     expect(rotuloDoResultado('final', true)).toMatch(/Rust\/WASM/);
     expect(rotuloDoResultado('gpu', true)).toMatch(/GPU nativa/);
+  });
+});
+
+describe('falha do Final e rascunho', () => {
+  it('textura não suportada não cai para o rascunho', () => {
+    expect(podeCairParaRascunho(new ErroRenderWasm(CODIGO_RENDER.texturasNaoSuportadas))).toBe(false);
+  });
+
+  it('outras falhas do Final mantêm o rascunho (com aviso no diálogo)', () => {
+    expect(podeCairParaRascunho(new ErroRenderWasm(CODIGO_RENDER.interno))).toBe(true);
+    expect(podeCairParaRascunho(new Error('falha qualquer'))).toBe(true);
   });
 });

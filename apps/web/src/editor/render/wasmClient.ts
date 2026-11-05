@@ -3,7 +3,7 @@
  *
  * Layout binário congelado em `crates/render-wasm/src/lib.rs` (cena `HSTR` v2, ou v3 com texturas) e em
  * `crates/render-core/src/trabalho.rs` (trabalho `HSWK` v1). Este arquivo é o único do TypeScript
- * que conhece esses bytes e os códigos da ABI (0 ok · 1 cena · 2 trabalho · 3 interno · 4 cancelado).
+ * que conhece esses bytes e os códigos da ABI (0 ok · 1 cena · 2 trabalho · 3 interno · 4 cancelado · 5 textura não suportada).
  *
  * Memória: qualquer chamada ao wasm pode crescer `memory.buffer` e invalidar views antigas; por
  * isso toda leitura/escrita relê o buffer DEPOIS de `alocar`/renderizar. Nada é carregado no
@@ -13,7 +13,7 @@ import type { RenderMaterial, RenderSceneSnapshot } from '@hestia/render';
 import { CODIGO_RENDER, ErroRenderWasm, MENSAGENS } from './erroRender.ts';
 import { indicesDeTextura, tamanhoDasTexturas } from './texturasCena.ts';
 
-export { CODIGO_RENDER, ErroRenderWasm, ehCancelamento } from './erroRender.ts';
+export { CODIGO_RENDER, ErroRenderWasm, ehCancelamento, ehTexturasNaoSuportadas } from './erroRender.ts';
 
 /** Versão do ABI aceita (`VERSAO_ABI` em `crates/render-wasm/src/lib.rs`). */
 export const VERSAO_ABI_RENDER = 1;

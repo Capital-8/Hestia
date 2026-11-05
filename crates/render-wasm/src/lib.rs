@@ -33,7 +33,8 @@
 //!
 //! ## Códigos de retorno
 //!
-//! `0` ok · `1` cena inválida · `2` trabalho inválido · `3` erro interno · `4` cancelado.
+//! `0` ok · `1` cena inválida · `2` trabalho inválido · `3` erro interno · `4` cancelado ·
+//! `5` cena com textura referenciada (o tracer CPU ainda não aplica texturas; use a GPU nativa).
 //!
 //! ## Formato da cena (`HSTR` versão 2 na escrita; versões 1 e 2 na leitura)
 //!
@@ -111,6 +112,9 @@ pub const ERRO_CENA: u32 = 1;
 pub const ERRO_TRABALHO: u32 = 2;
 pub const ERRO_INTERNO: u32 = 3;
 pub const ERRO_CANCELADO: u32 = 4;
+/// Cena com textura referenciada por material. O tracer CPU não amostra texturas, então recusar é
+/// melhor que renderizar sem elas. Código acrescentado no fim da lista; os anteriores não mudam.
+pub const ERRO_TEXTURAS_NAO_SUPORTADAS: u32 = 5;
 
 /// Teto de segurança para uma entrada vinda do JS (cena ou trabalho).
 const MAX_ENTRADA: usize = 256 * 1024 * 1024;
@@ -143,7 +147,8 @@ pub extern "C" fn versao_abi() -> u32 {
     VERSAO_ABI
 }
 
-/// Decodifica e guarda a cena. Devolve `0` ou `1` (cena inválida) / `3` (erro interno).
+/// Decodifica e guarda a cena. Devolve `0` ou `1` (cena inválida) / `3` (erro interno) /
+/// `5` (textura referenciada: a cena anterior também é descartada, para nada renderizar com ela).
 #[no_mangle]
 pub extern "C" fn carregar_cena(ptr: *const u8, len: usize) -> u32 {
     let bytes = match entrada(ptr, len) {
@@ -152,6 +157,13 @@ pub extern "C" fn carregar_cena(ptr: *const u8, len: usize) -> u32 {
     };
     match Cena::decodificar(bytes) {
         Ok(cena) => {
+            if usa_textura(&cena) {
+                unsafe {
+                    CENA = None;
+                    SAIDA.clear();
+                }
+                return ERRO_TEXTURAS_NAO_SUPORTADAS;
+            }
             unsafe {
                 CENA = Some(cena);
                 SAIDA.clear();
@@ -161,6 +173,16 @@ pub extern "C" fn carregar_cena(ptr: *const u8, len: usize) -> u32 {
         Err(Erro::CenaInvalida) | Err(Erro::TrabalhoInvalido) | Err(Erro::Cancelado) => ERRO_CENA,
         Err(Erro::Interno) => ERRO_INTERNO,
     }
+}
+
+/// `true` quando há textura carregada e algum material a referencia. Lista de texturas sem
+/// referência não entra no render, então não recusa a cena.
+fn usa_textura(cena: &Cena) -> bool {
+    !cena.texturas.is_empty()
+        && cena
+            .materiais
+            .iter()
+            .any(|m| m.texturas.iter().any(Option::is_some))
 }
 
 /// Decodifica e guarda o trabalho. Devolve `0` ou `2` (trabalho inválido).
@@ -310,11 +332,29 @@ fn entrada(ptr: *const u8, len: usize) -> Option<&'static [u8]> {
 mod testes {
     use super::*;
     use render_core::camera::Camera;
-    use render_core::cena::{Lote, Material, PartesCena, Sol};
+    use render_core::cena::{Lote, Material, PartesCena, Sol, Textura};
     use render_core::vetor::Vec3;
     use render_core::Trabalho;
+    use std::sync::Mutex;
+
+    /// Os testes deste módulo mexem nos estáticos da ABI (`ENTRADA`, `CENA`...). O cargo roda os
+    /// testes em paralelo, então cada um segura esta trava durante o uso da ABI.
+    static TRAVA_ABI: Mutex<()> = Mutex::new(());
+
+    fn textura_1x1() -> Textura {
+        Textura {
+            largura: 1,
+            altura: 1,
+            niveis: vec![vec![255, 255, 255, 255]],
+        }
+    }
 
     fn cena_bytes() -> Vec<u8> {
+        cena_com_textura(Vec::new(), None)
+    }
+
+    /// Cena de dois triângulos. `texturas` vai para a cena; `indice_textura` vai no albedo do material.
+    fn cena_com_textura(texturas: Vec<Textura>, indice_textura: Option<u32>) -> Vec<u8> {
         let posicoes = vec![
             -5.0, -5.0, 0.0, 5.0, -5.0, 0.0, 5.0, 5.0, 0.0, -5.0, 5.0, 0.0,
         ];
@@ -329,7 +369,7 @@ mod testes {
             emissivo: [0.0, 0.0, 0.0],
             tipo: 0,
             escala: 1.0,
-            texturas: [None; 4],
+            texturas: [indice_textura, None, None, None],
         }];
         let lotes = vec![Lote {
             inicio_indices: 0,
@@ -351,7 +391,7 @@ mod testes {
             indices,
             normais: Vec::new(),
             materiais,
-            texturas: Vec::new(),
+            texturas,
             lotes,
             sol: Sol::padrao(),
             fundo: None,
@@ -361,8 +401,54 @@ mod testes {
         .codificar()
     }
 
+    /// Copia `bytes` para a arena de entrada e chama `carregar_cena`.
+    fn carregar(bytes: &[u8]) -> u32 {
+        let ptr = alocar(bytes.len());
+        assert!(!ptr.is_null());
+        unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), ptr, bytes.len()) };
+        carregar_cena(ptr, bytes.len())
+    }
+
+    #[test]
+    fn cena_com_textura_referenciada_e_recusada_com_codigo_proprio() {
+        let _trava = TRAVA_ABI.lock().unwrap_or_else(|erro| erro.into_inner());
+        // Primeiro uma cena válida, para provar que a recusa também apaga a anterior.
+        assert_eq!(carregar(&cena_bytes()), OK);
+        assert_eq!(limpar_cancelamento(), OK);
+        let trabalho = Trabalho::novo(8, 8, 1.0).expect("trabalho");
+        let bytes_trabalho = trabalho.codificar();
+        assert_eq!(
+            preparar_trabalho(alocar_e_copiar(&bytes_trabalho), bytes_trabalho.len()),
+            OK
+        );
+
+        let com_textura = cena_com_textura(vec![textura_1x1()], Some(0));
+        assert_eq!(ERRO_TEXTURAS_NAO_SUPORTADAS, 5);
+        assert_eq!(carregar(&com_textura), ERRO_TEXTURAS_NAO_SUPORTADAS);
+        // Sem cena carregada o render para com ERRO_CENA; não sai imagem da cena anterior.
+        assert_eq!(renderizar_bloco(0, 0, 8, 8, 1, 9), ERRO_CENA);
+        assert_eq!(saida_len(), 0);
+    }
+
+    #[test]
+    fn textura_nao_referenciada_e_cena_sem_textura_continuam_aceitas() {
+        let _trava = TRAVA_ABI.lock().unwrap_or_else(|erro| erro.into_inner());
+        assert_eq!(carregar(&cena_bytes()), OK);
+        // Lista de texturas presente, mas nenhum material a usa: o render não usa textura, então aceita.
+        let sem_referencia = cena_com_textura(vec![textura_1x1()], None);
+        assert_eq!(carregar(&sem_referencia), OK);
+    }
+
+    fn alocar_e_copiar(bytes: &[u8]) -> *const u8 {
+        let ptr = alocar(bytes.len());
+        assert!(!ptr.is_null());
+        unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), ptr, bytes.len()) };
+        ptr
+    }
+
     #[test]
     fn abi_completa_no_host() {
+        let _trava = TRAVA_ABI.lock().unwrap_or_else(|erro| erro.into_inner());
         let cena = cena_bytes();
         let ptr = alocar(cena.len());
         assert!(!ptr.is_null());

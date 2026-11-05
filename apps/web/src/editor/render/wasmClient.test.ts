@@ -24,6 +24,7 @@ import {
   codificarTrabalho,
   criarClienteWasm,
   ehCancelamento,
+  ehTexturasNaoSuportadas,
   fatorExposicao,
   type ExportsRenderWasm,
 } from './wasmClient.ts';
@@ -248,6 +249,15 @@ describe('HSTR v2: tipo e escala por material', () => {
 /** SHA-256 do `codificarCena(cenaExemplo())` gerado pelo encoder v2 ANTES da v3 (regressão: sem textura, bytes idênticos). */
 const HASH_V2_CENA_EXEMPLO = '29abe30f499415e6d21e137e77bc848b071a10b102d4750fe3e48835476c3edd';
 const sha256 = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex');
+/** Executa `fn` e devolve o erro lançado (ou `null` se não lançou). */
+function capturar(fn: () => void): unknown {
+  try {
+    fn();
+  } catch (erro) {
+    return erro;
+  }
+  return null;
+}
 
 /** Textura 2×2 RGBA8 com dois níveis de mip (2×2 e 1×1), referenciada pelo albedo do único material. */
 function cenaComTextura(): RenderSceneSnapshot {
@@ -340,6 +350,17 @@ describe('HSTR v3: texturas', () => {
     expect(() => codificarCena(indiceErrado)).toThrow(/normal aponta para a textura 1, fora de 0..0/);
     const semTexturas = { ...cenaExemplo(), materials: [{ ...cenaExemplo().materials[0]!, mapas: { albedo: 0 } }] };
     expect(() => codificarCena(semTexturas)).toThrow(ErroRenderWasm);
+  });
+
+  it('o cliente transforma o código 5 da ABI em erro de textura não suportada, com a mensagem da GPU', () => {
+    const { exports } = criarMock();
+    exports.carregar_cena = () => CODIGO_RENDER.texturasNaoSuportadas;
+    const cliente = new ClienteRenderWasm(exports);
+    const erro = capturar(() => cliente.carregarCena(cenaComTextura()));
+    expect(erro).toBeInstanceOf(ErroRenderWasm);
+    expect((erro as ErroRenderWasm).codigo).toBe(5);
+    expect(ehTexturasNaoSuportadas(erro)).toBe(true);
+    expect((erro as ErroRenderWasm).message).toContain('GPU');
   });
 });
 
@@ -559,6 +580,21 @@ it('carrega o asset real sem erro de ABI', () => {
 });
 
 suiteReal('renderizador Rust real', () => {
+  it('recusa a cena com textura referenciada (código 5, mensagem com GPU) e segue com a cena sem textura', () => {
+    const cliente = clienteReal!;
+    cliente.limparCancelamento();
+    const erro = capturar(() => cliente.carregarCena(cenaComTextura()));
+    expect(erro).toBeInstanceOf(ErroRenderWasm);
+    expect((erro as ErroRenderWasm).codigo).toBe(CODIGO_RENDER.texturasNaoSuportadas);
+    expect((erro as ErroRenderWasm).message).toContain('GPU');
+
+    // A recusa apaga a cena anterior: nada renderiza até a próxima carga válida.
+    expect(() => cliente.renderizarBloco(0, 0, 4, 4, 1, 9)).toThrow(ErroRenderWasm);
+    cliente.carregarCena(cenaExemplo());
+    cliente.prepararTrabalho({ largura: 16, altura: 16, exposicao: 1 });
+    expect(cliente.renderizarBloco(0, 0, 16, 16, 1, 9).some((valor) => valor !== 0)).toBe(true);
+  });
+
   it('aceita a cena HSTR e devolve RGBA8 determinístico', () => {
     const cliente = clienteReal!;
     cliente.limparCancelamento();

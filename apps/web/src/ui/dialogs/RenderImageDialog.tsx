@@ -41,6 +41,7 @@ import {
   podeClicarRenderizar,
   podeRascunhoDaVista,
   rotuloDoBotaoPrincipal,
+  podeCairParaRascunho,
   rotuloDoResultado,
   type QualidadeRender,
 } from './renderDialogoLogica.ts';
@@ -429,11 +430,13 @@ export function RenderImageDialog(): ReactElement {
             canvas.height = altura;
             canvas.getContext('2d')?.putImageData(render.imagem, 0, 0);
             setPreviaFalhou(false);
-          } catch {
+          } catch (e) {
             if (cancelado) return;
             if (passo === passos[0]) {
               // Se o wasm falhar, a prévia mostra o rascunho da vista 3D (sem grade), nunca a planta com helpers.
-              if (fonte && rascunhoPermitido) {
+              // Cena com textura não ganha rascunho: a prévia diria que é o Final, e não é.
+              if (!podeCairParaRascunho(e)) setErro(e instanceof Error ? e.message : 'O render final não pôde ser feito.');
+              if (fonte && rascunhoPermitido && podeCairParaRascunho(e)) {
                 const escala = Math.min(1, 640 / base.largura, 360 / base.altura);
                 const l = Math.round(base.largura * escala);
                 const a = Math.round(base.altura * escala);
@@ -553,8 +556,9 @@ export function RenderImageDialog(): ReactElement {
             cancelado = true;
             throw e;
           }
-          if (fonte && rascunhoPermitido) {
-            // O Rust é opcional: se a cena não passar, entrega o rascunho da vista 3D (sem grade) em vez de uma tela preta.
+          // Textura não suportada não cai para o rascunho: o diálogo mostra o motivo (ver `podeCairParaRascunho`).
+          // Outras falhas do Rust entregam o rascunho da vista 3D (sem grade), com aviso, em vez de uma tela preta.
+          if (fonte && rascunhoPermitido && podeCairParaRascunho(e)) {
             blob = await capturarRascunho({ largura: alvo.largura, altura: alvo.altura }, apresentacao3d);
             saida = 'rascunho';
             setErro(`O render final falhou (${e instanceof Error ? e.message : 'erro desconhecido'}). Mostro o rascunho da vista 3D.`);

@@ -5,6 +5,8 @@ export const CODIGO_RENDER = {
   trabalhoInvalido: 2,
   interno: 3,
   cancelado: 4,
+  /** Cena com textura referenciada: o render CPU (Final) não aplica texturas. Código 5 da ABI. */
+  texturasNaoSuportadas: 5,
 } as const;
 
 export const MENSAGENS: Record<number, string> = {
@@ -12,6 +14,7 @@ export const MENSAGENS: Record<number, string> = {
   2: 'a resolução/bloco do render é inválido para o renderizador Rust',
   3: 'o renderizador Rust falhou internamente',
   4: 'o render foi cancelado',
+  5: 'o render final (CPU) ainda não aplica texturas; use o render GPU nativo',
 };
 
 /** Erro da ABI com o código bruto, para separar cancelamento de falha real. */
@@ -26,4 +29,9 @@ export class ErroRenderWasm extends Error {
 
 export function ehCancelamento(erro: unknown): boolean {
   return erro instanceof ErroRenderWasm && erro.codigo === CODIGO_RENDER.cancelado;
+}
+
+/** A cena traz textura e o render final (CPU) recusou: não há imagem a entregar sem a GPU nativa. */
+export function ehTexturasNaoSuportadas(erro: unknown): boolean {
+  return erro instanceof ErroRenderWasm && erro.codigo === CODIGO_RENDER.texturasNaoSuportadas;
 }

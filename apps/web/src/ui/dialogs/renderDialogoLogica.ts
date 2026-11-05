@@ -2,6 +2,7 @@
  * Decisões puras do diálogo "Renderizar imagem": rótulo do botão principal, quando ele pode ser
  * clicado e nome do arquivo entregue. Sem React, para serem testáveis isoladamente.
  */
+import { ehTexturasNaoSuportadas } from '../../editor/render/erroRender.ts';
 import type { EstadoSessao } from './renderSessao.ts';
 
 export type QualidadeRender = 'rascunho' | 'final' | 'gpu';
@@ -63,6 +64,15 @@ export function podeRascunhoDaVista(modo: ModoVistaCaptura): boolean {
 
 export const MENSAGEM_RASCUNHO_SO_3D =
   'O rascunho de imagem só vale para a vista 3D. Na planta, no corte ou na prancha, use o GPU nativo ou o Final (Rust/WASM).';
+
+/**
+ * Se uma falha do Final (Rust/WASM) pode cair para o rascunho. Cena com textura não pode: o rascunho é a captura
+ * da tela, e entregá-lo no lugar do Final seria imagem fingindo ser o render pedido. As demais falhas mantêm o
+ * rascunho, com o aviso no diálogo.
+ */
+export function podeCairParaRascunho(erro: unknown): boolean {
+  return !ehTexturasNaoSuportadas(erro);
+}
 
 /** Legenda do resultado no modal. Null enquanto não há imagem pronta. */
 export function rotuloDoResultado(qualidade: QualidadeRender, pronto: boolean): string | null {
