@@ -63,6 +63,7 @@ export * from './annotations.ts';
 export * from './sheet.ts';
 export * from './sheetCommands.ts';
 export * from './view3dPoints.ts';
+export * from './renderCameras.ts';
 export * from './areaPlan.ts';
 export * from './viewProfile.ts';
 export * from './areaPlanCommands.ts';

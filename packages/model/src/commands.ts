@@ -76,6 +76,7 @@ import { newId } from './ids.ts';
 import { applyAnnotationCommand, type AnnotationCommand } from './annotations.ts';
 import { applySheetCommand, dropOrphanViewports, type SheetCommand } from './sheetCommands.ts';
 import { applyView3DPointCommand, type View3DPointCommand } from './view3dPoints.ts';
+import { applyRenderCameraCommand, type RenderCameraCommand } from './renderCameras.ts';
 import { applyGridCommand, type GridCommand } from './grid.ts';
 import { applyViewCommand } from './viewCommands.ts';
 import { applyCeilingCommand } from './ceilingCommands.ts';
@@ -137,6 +138,7 @@ export type Command =
   | AnnotationCommand
   | SheetCommand
   | View3DPointCommand
+  | RenderCameraCommand
   | GridCommand
   | { type: 'deleteLevel'; id: Id }
   | { type: 'setLevelViewRange'; levelId: Id; patch: Partial<ViewRange> }
@@ -496,6 +498,12 @@ export function applyCommand(p: Project, c: Command): void {
     case 'removeView3DPoint':
     case 'setView3DPointOrder':
       applyView3DPointCommand(p, c);
+      break;
+    case 'addRenderCamera':
+    case 'updateRenderCamera':
+    case 'removeRenderCamera':
+    case 'setRenderCameraOrder':
+      applyRenderCameraCommand(p, c);
       break;
     case 'addGrid':
     case 'updateGrid':

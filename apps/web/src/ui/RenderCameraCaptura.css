@@ -1,0 +1,59 @@
+/* Captura de câmera de render (componente RenderCameraCaptura). A camada cobre o canvas 3D sem bloquear o mouse; só o
+   cartão recebe cliques. A moldura escurece o que ficará de fora do render. */
+.rcap-camada {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.rcap-moldura {
+  position: absolute;
+  border: 2px solid var(--accent, #2a6df4);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+}
+
+.rcap-cartao {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: min(300px, calc(100% - 24px));
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  pointer-events: auto;
+}
+
+.rcap-titulo {
+  font-weight: 600;
+}
+
+.rcap-campo {
+  display: grid;
+  gap: 4px;
+}
+
+.rcap-dica {
+  margin: 0;
+  opacity: 0.75;
+}
+
+.rcap-erro {
+  margin: 0;
+  color: var(--danger, #c0392b);
+}
+
+.rcap-acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

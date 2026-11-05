@@ -11,6 +11,7 @@ import { planFootprint, stairSelectionOps } from './stairs.ts';
 import { rampFootprint, rampSelectionOps } from './ramps.ts';
 import { guideStrokes, previewOverlay, snapMarker, snapTooltipLabel } from './overlay.ts';
 import { hiddenSelectionOps, planViewOf, type PlanView } from './view.ts';
+import { renderCamerasOps } from './renderCameras.ts';
 import { planContext, type PlanContext } from './planContext.ts';
 import { ambientesDoNivel, lajesDoNivel, pisosDoNivel, telhadosDoNivel } from './resolucao.ts';
 import { labelGhostOps } from './areaPlan.ts';
@@ -271,6 +272,9 @@ export function buildPlanHoverOverlay(input: PlanInput): PlanOps {
   return out;
 }
 
+/** Entrada da planta com a câmera de render escolhida na tela (H13): só de tela, ausente = nenhuma. */
+export type PlanInputComCamera = PlanInput & { renderCameraSelecionada?: Id | null };
+
 /** Sobreposição viva da ferramenta: pré-visualização, guias, marcador de captura e o balão de inferência. */
 export function buildPlanLiveOverlay(input: PlanInput): PlanOps {
   const { project: p, theme } = input;
@@ -300,7 +304,7 @@ export function buildPlanLiveOverlay(input: PlanInput): PlanOps {
  * seleção e hover, pré-visualização e inferência. Na tela, as três partes são camadas separadas da cena (`PlanFrame`),
  * para uma não refazer as outras.
  */
-export function buildPlanOverlay(input: PlanInput): PlanOps {
+export function buildPlanOverlay(input: PlanInputComCamera): PlanOps {
   const { project: p, theme, viewport: v } = input;
   const ctx = planContext(input);
   const { geo, hidden, up, roofHidden, stairs, ramps, view, style } = ctx;
@@ -354,6 +358,8 @@ export function buildPlanOverlay(input: PlanInput): PlanOps {
     const tip = snapTooltipLabel(input.inference, p);
     if (tip) out.labels.push(tip);
   }
+  // Câmeras de render do nível (cone, seta e nome): por cima do desenho, abaixo da prévia.
+  add(renderCamerasOps(p, input.levelId, input.renderCameraSelecionada ?? null, theme));
   return out;
 }
 
@@ -361,7 +367,7 @@ export function buildPlanOverlay(input: PlanInput): PlanOps {
  * Sobreposição da tela: a de `buildPlanOverlay` mais o contorno fantasma dos selecionados que estão fora do intervalo de
  * vista (decisão 0013 §4). A planta não os desenha; o fantasma vai por último, como antes.
  */
-export function buildPlanScreenOverlay(input: PlanInput): PlanOps {
+export function buildPlanScreenOverlay(input: PlanInputComCamera): PlanOps {
   const o = buildPlanOverlay(input);
   const ghosts = hiddenSelectionOps(input.project, input.levelId, planViewOf(input.project, input.levelId), input.selection, input.theme);
   return ghosts.length ? { ...o, strokes: [...o.strokes, ...ghosts] } : o;

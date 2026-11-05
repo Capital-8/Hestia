@@ -360,6 +360,14 @@ export function labelOf(c: Command): string {
       return 'Excluir ponto de vista 3D';
     case 'setView3DPointOrder':
       return 'Reordenar pontos de vista 3D';
+    case 'addRenderCamera':
+      return 'Criar câmera de render';
+    case 'updateRenderCamera':
+      return 'Editar câmera de render';
+    case 'removeRenderCamera':
+      return 'Excluir câmera de render';
+    case 'setRenderCameraOrder':
+      return 'Reordenar câmeras de render';
     case 'addGrid':
       return 'Criar grade';
     case 'updateGrid':

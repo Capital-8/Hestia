@@ -58,6 +58,7 @@ const R: Record<string, string> = {
   section: p('s3', 'M2 17L8 11V23Z') + p('s3', 'M30 17L24 11V23Z') + p('ln ic-ds', 'M8 17H24') + p('ac', 'M16 17V9') + p('fa', 'M16 3L12 9H20Z'),
   plan: p('s1', 'M4 4H28V28H4Z') + p('ln2', 'M16 4V16H28M4 21H12') + p('ac', 'M12 21A6 6 0 0 1 18 27'),
   fit: p('ln2', 'M4 11V4H11M21 4H28V11M28 21V28H21M11 28H4V21') + p('s1', 'M11 11H21V21H11Z'),
+  camera: p('s1', 'M4 10H20V22H4Z') + p('bl', 'M20 14L28 9V23L20 18Z') + p('ac', 'M12 13A3 3 0 1 0 12 19A3 3 0 1 0 12 13Z'),
   grid: p('ln', 'M10 9V29M22 9V29M9 15H29M9 23H29') + '<circle class="ic-s1" cx="10" cy="6" r="3"/><circle class="ic-s1" cx="22" cy="6" r="3"/><circle class="ic-s1" cx="6" cy="15" r="3"/><circle class="ic-s1" cx="6" cy="23" r="3"/>',
   cube: p('s1', 'M16 3L28 10L16 17L4 10Z') + p('s2', 'M4 10L16 17V30L4 23Z') + p('s3', 'M16 17L28 10V23L16 30Z'),
   sun: '<circle class="ic-fa" cx="16" cy="16" r="6"/>' + p('ac', 'M16 3V7M16 25V29M3 16H7M25 16H29M7 7L9.5 9.5M22.5 22.5L25 25M7 25L9.5 22.5M22.5 9.5L25 7'),
