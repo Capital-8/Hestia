@@ -2,12 +2,30 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 
 import * as THREE from 'three';
 import { view3dOf, type SheetView3DCamera } from '@hestia/model';
 import { resolveLevel } from '@hestia/engine';
-import { ModelScene, aplicarCameraNaOrbita, cameraDaOrbita, sampleCamera, sampleSun } from '@hestia/render';
+import { ModelScene, aplicarCameraNaOrbita, cameraDaOrbita, pickModelPoint, sampleCamera, sampleSun } from '@hestia/render';
 import { useProject } from '../../editor/controller.ts';
 import { useAnimationStore } from '../../editor/animationStore.ts';
 import { limparCanvasAtivo, registrarCanvasAtivo } from '../../editor/render/captureRegistry.ts';
 import { registrarCameraPreview } from '../../editor/render/previewCamera.ts';
 import { useDark } from '../useDark.ts';
+import {
+  classificarGestoPonteiro,
+  deltaZoom,
+  deslocamentoDoPontoMedio,
+  deveAproximarNoCursor,
+  fatorAproximacaoCursor,
+  moverAlvoParaPonto,
+  ndcDoCursor,
+  zoomDoPinch,
+} from '../navegacao3d.ts';
+
+interface PontoTela { x: number; y: number }
+
+/** Distância e ponto médio entre os dois primeiros ponteiros (pinch de dois dedos, como no 3D). */
+function medirPinca(pontos: Map<number, PontoTela>): { dist: number; mid: PontoTela } {
+  const [a, b] = [...pontos.values()] as [PontoTela, PontoTela];
+  return { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
+}
 
 export interface AnimationPreviewHandle {
   /** Canvas interno, na resolução de rascunho. */
@@ -41,6 +59,13 @@ export const AnimationPreview = forwardRef<AnimationPreviewHandle, Props>(functi
   const raf = useRef<number | null>(null);
   const inicio = useRef(0);
   const gesto = useRef<{ modo: 'orbit' | 'pan'; x: number; y: number } | null>(null);
+  // Ponteiros ativos sobre o canvas (toque): dois dedos fazem pinch (zoom + deslocamento) e cancelam a órbita em curso.
+  const pontos = useRef(new Map<number, PontoTela>()).current;
+  const pinca = useRef<ReturnType<typeof medirPinca> | null>(null);
+  // Espaço segura o pan com o botão esquerdo (como no 3D). Só é rastreado com o ponteiro sobre o preview ou com foco nele.
+  const espacoPressionado = useRef(false);
+  const sobPreview = useRef(false);
+  const comFoco = useRef(false);
   const activeId = useAnimationStore((s) => s.activeId);
   const seq = useAnimationStore((s) => (s.activeId ? s.sequences[s.activeId] : undefined));
   const playhead = useAnimationStore((s) => s.playhead);
@@ -65,6 +90,10 @@ export const AnimationPreview = forwardRef<AnimationPreviewHandle, Props>(functi
     r.render(m.scene, m.orbit.camera);
   }, [seq, largura, altura]);
 
+  // O observer (criado uma vez por montagem) chama sempre a `desenhar` mais recente, não a da montagem.
+  const desenharRef = useRef(desenhar);
+  desenharRef.current = desenhar;
+
   useImperativeHandle(ref, () => ({
     canvas: () => canvasRef.current,
     cameraAtual: () => (modelo.current ? cameraDaOrbita(modelo.current.orbit) : null),
@@ -85,7 +114,7 @@ export const AnimationPreview = forwardRef<AnimationPreviewHandle, Props>(functi
     modelo.current = m;
     const ro = new ResizeObserver(() => {
       // O canvas mantém a resolução de rascunho; só redesenha quando o host muda de tamanho.
-      desenhar(useAnimationStore.getState().playhead);
+      desenharRef.current(useAnimationStore.getState().playhead);
     });
     if (host.current) ro.observe(host.current);
     return () => {
@@ -127,6 +156,36 @@ export const AnimationPreview = forwardRef<AnimationPreviewHandle, Props>(functi
     if (!playing) desenhar(playhead);
   }, [playhead, playing, desenhar]);
 
+  // Rastreia Espaço só enquanto o ponteiro está sobre o preview ou o preview tem foco. Sem isso, a tecla pode ficar presa.
+  useEffect(() => {
+    const ehEspaco = (e: KeyboardEvent): boolean => e.key === ' ' || e.code === 'Space';
+    const ehEditavel = (alvo: EventTarget | null): boolean => {
+      if (!(alvo instanceof HTMLElement)) return false;
+      return alvo.isContentEditable || alvo.tagName === 'INPUT' || alvo.tagName === 'TEXTAREA' || alvo.tagName === 'SELECT';
+    };
+    const aoTeclaBaixo = (e: KeyboardEvent): void => {
+      if (!ehEspaco(e) || ehEditavel(e.target)) return;
+      if (!sobPreview.current && !comFoco.current) return;
+      espacoPressionado.current = true;
+      if (comFoco.current) e.preventDefault();
+    };
+    // Soltar a tecla zera sempre, mesmo fora do preview: evita tecla presa.
+    const aoTeclaCima = (e: KeyboardEvent): void => {
+      if (ehEspaco(e)) espacoPressionado.current = false;
+    };
+    const aoPerderJanela = (): void => {
+      espacoPressionado.current = false;
+    };
+    window.addEventListener('keydown', aoTeclaBaixo);
+    window.addEventListener('keyup', aoTeclaCima);
+    window.addEventListener('blur', aoPerderJanela);
+    return () => {
+      window.removeEventListener('keydown', aoTeclaBaixo);
+      window.removeEventListener('keyup', aoTeclaCima);
+      window.removeEventListener('blur', aoPerderJanela);
+    };
+  }, []);
+
   // Play: o relógio é a duração da sequência, não o framerate da tela.
   useEffect(() => {
     if (!playing || !seq) return;
@@ -155,11 +214,30 @@ export const AnimationPreview = forwardRef<AnimationPreviewHandle, Props>(functi
     if (e.button !== 0 && e.button !== 1) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     if (playing) setPlaying(false);
-    gesto.current = { modo: e.shiftKey || e.button === 1 ? 'pan' : 'orbit', x: e.clientX, y: e.clientY };
+    pontos.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    // Com dois ou mais dedos, o gesto é pinch: qualquer órbita em curso é cancelada (como no 3D).
+    gesto.current = null;
+    pinca.current = pontos.size === 2 ? medirPinca(pontos) : null;
+    if (pontos.size >= 2) return;
+    // Mesmo mapeamento do 3D (navegacao3d.ts), com o estado da tecla Espaço.
+    const gesto3d = classificarGestoPonteiro({ botao: e.button, shift: e.shiftKey, alt: e.altKey, espaco: espacoPressionado.current });
+    gesto.current = { modo: gesto3d === 'pan' ? 'pan' : 'orbit', x: e.clientX, y: e.clientY };
   };
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>): void => {
-    const g = gesto.current;
     const m = modelo.current;
+    if (pontos.has(e.pointerId)) pontos.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (m && pontos.size === 2) {
+      // Sem linha de base (ex.: depois de um terceiro dedo), o primeiro quadro só marca a posição: sem salto.
+      if (!pinca.current) { pinca.current = medirPinca(pontos); return; }
+      const atual = medirPinca(pontos);
+      m.orbit.zoom(zoomDoPinch(pinca.current.dist, atual.dist));
+      const desl = deslocamentoDoPontoMedio(pinca.current.mid, atual.mid);
+      m.orbit.pan(desl.dx, desl.dy);
+      pinca.current = atual;
+      desenhar(useAnimationStore.getState().playhead, false);
+      return;
+    }
+    const g = gesto.current;
     if (!g || !m) return;
     const dx = e.clientX - g.x;
     const dy = e.clientY - g.y;
@@ -170,20 +248,45 @@ export const AnimationPreview = forwardRef<AnimationPreviewHandle, Props>(functi
     desenhar(useAnimationStore.getState().playhead, false);
   };
   const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>): void => {
+    pontos.delete(e.pointerId);
+    if (pontos.size < 2) pinca.current = null;
     gesto.current = null;
+    espacoPressionado.current = false;
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* já solto */ }
   };
   const onWheel = (e: React.WheelEvent<HTMLCanvasElement>): void => {
     e.preventDefault();
     if (playing) setPlaying(false);
-    modelo.current?.orbit.zoom(-e.deltaY);
+    const m = modelo.current;
+    if (!m) return;
+    // Zoom para o ponto sob o cursor, como no 3D: ao aproximar, o alvo deriva em direção ao ponto 3D sob o cursor.
+    if (deveAproximarNoCursor(e.deltaY)) {
+      const ndc = ndcDoCursor(e.currentTarget.getBoundingClientRect(), e.clientX, e.clientY);
+      const hit = ndc ? pickModelPoint(m.scene, m.orbit.camera, ndc) : null;
+      if (hit) {
+        const orb = m.orbit;
+        const fator = fatorAproximacaoCursor(e.deltaY);
+        const alvoX = moverAlvoParaPonto(orb.target, hit, fator);
+        orb.target.x = alvoX.x;
+        orb.target.y = alvoX.y;
+      }
+    }
+    m.orbit.zoom(deltaZoom(e.deltaY));
     desenhar(useAnimationStore.getState().playhead, false);
   };
 
   return (
-    <div ref={host} className="anim-preview">
+    <div
+      ref={host}
+      className="anim-preview"
+      onPointerEnter={() => { sobPreview.current = true; }}
+      onPointerLeave={() => { sobPreview.current = false; }}
+      onFocus={() => { comFoco.current = true; }}
+      onBlur={() => { comFoco.current = false; espacoPressionado.current = false; }}
+    >
       <canvas
         ref={canvasRef}
+        tabIndex={-1}
         className="anim-preview-canvas"
         width={largura}
         height={altura}
