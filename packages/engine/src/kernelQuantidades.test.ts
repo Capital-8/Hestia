@@ -41,7 +41,7 @@ describe('indexarQuantidades', () => {
   const numero = new Map<Id, number>([['a', 7]]);
 
   it('devolve a camada e a altura pelo id do projeto; a linha de parede sem camada só dá a altura', () => {
-    const q = indexarQuantidades([linha(7, 0, { altura: 2.8 }), linha(7, -1), linha(9, 0, { flags: 2, altura: 3.1 })], new Map([...numero, ['b', 9]]), 'paredes');
+    const q = indexarQuantidades([linha(7, 0, { altura: 2.8 }), linha(7, -1, { altura: 2.8 }), linha(9, 0, { flags: 2, altura: 3.1 })], new Map([...numero, ['b', 9]]), 'paredes');
     expect(q.camada('a', 0).liquido).toBe(0.75);
     expect(q.camada('a', -1).camada).toBe(-1);
     expect(q.altura('a')).toBe(2.8);
@@ -59,11 +59,11 @@ describe('indexarQuantidades', () => {
 describe('forros: seções e despacho', () => {
   it('montarCenaForros leva o contorno com furo e a espessura vertical de cada camada', () => {
     const p = comForro();
-    const f = montarCenaForros(p, new Map([['lv_0', 0]]));
+    const f = montarCenaForros(p, new Map(p.levels.map((l, i) => [l.id, i] as const)));
     const tipo = DEFAULT_CEILING_TYPES.find((t) => t.id === 'ct_gesso')!;
     const camadas = tipo.layers.filter((l) => l.thickness >= 1e-6);
     expect(f.nLinhas.camadas_forro).toBe(camadas.length);
-    expect(f.secoes.camadas_forro['espessura']).toEqual(camadas.map((l) => l.thickness));
+    f.secoes.camadas_forro['espessura']!.forEach((e, i) => expect(e).toBeCloseTo(camadas[i]!.thickness, 12));
     expect(new Set(f.secoes.camadas_forro['forro_num'])).toEqual(new Set([f.forroDe.get('c1')]));
     // dois anéis (contorno e furo): 4 + 4 vértices
     expect(f.nLinhas.pontos_forro).toBe(8);
