@@ -92,3 +92,35 @@ jobs:
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
+
+      # O site (repo `hestia-web`) publica o /app copiando exatamente estes assets: o HTML carrega a
+      # meta `hestia-version` (carimbada no build) e os workers/wasm ficam ao lado dele, com os nomes
+      # que o próprio bundle referencia. Nomes sem versão no asset: o pacote é por release.
+      - name: Publicar app web no Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          for padrao in resolveWorker avisosWorker ifcWorker; do
+            compgen -G "apps/web/dist/${padrao}-*.js" > /dev/null || {
+              echo "::error::worker ${padrao} ausente em apps/web/dist"
+              exit 1
+            }
+          done
+          [[ -f apps/web/dist/geom_wasm.wasm ]] || {
+            echo "::error::geom_wasm.wasm ausente em apps/web/dist"
+            exit 1
+          }
+
+          versao_no_html="$(grep -o 'name="hestia-version" content="[^"]*"' apps/web/dist/index.html | sed 's/.*content="//; s/"$//')"
+          if [[ "v${versao_no_html}" != "$TAG" ]]; then
+            echo "::error::meta hestia-version='${versao_no_html}' não bate com a tag '$TAG'"
+            exit 1
+          fi
+
+          shopt -s nullglob
+          arquivos=(apps/web/dist/index.html apps/web/dist/geom_wasm.wasm apps/web/dist/*Worker-*.js)
+          gh release upload "$TAG" "${arquivos[@]}" --clobber
+          echo "app web publicado em $TAG: ${arquivos[*]}"

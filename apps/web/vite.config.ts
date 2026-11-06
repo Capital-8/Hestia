@@ -41,10 +41,26 @@ function servirWasmNoDev() {
   };
 }
 
+/**
+ * Carimba a versão no HTML publicado.
+ *
+ * O site (repo `hestia-web`) copia `dist/` para `app/` e um verificador compara esta meta com a tag
+ * da release. Sem isso não há como saber, de fora, qual versão está no ar — foi assim que o /app
+ * ficou dois releases atrasado sem ninguém notar.
+ */
+function carimbarVersao() {
+  return {
+    name: 'hestia-carimbar-versao',
+    transformIndexHtml(html: string): string {
+      return html.replace('</head>', `  <meta name="hestia-version" content="${VERSAO_APP}" />\n  </head>`);
+    },
+  };
+}
+
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(VERSAO_APP),
   },
-  plugins: [react(), viteSingleFile(), servirWasmNoDev()],
+  plugins: [react(), viteSingleFile(), servirWasmNoDev(), carimbarVersao()],
   build: { target: 'es2022', chunkSizeWarningLimit: 4000, cssCodeSplit: false },
 });

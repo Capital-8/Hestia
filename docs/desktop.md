@@ -19,6 +19,9 @@ Ela tem `package.json` e lockfile próprios: não mexe na instalação da raiz n
 3. O workflow `release-desktop` roda no Windows: confere se a tag bate com as versões
    (falha com mensagem clara se divergirem), gera o app web, empacota o instalador,
    assina os artefatos de atualização e publica o Release com o `latest.json`.
+4. No mesmo Release sobem os arquivos do app web (`index.html`, os três workers e
+   `geom_wasm.wasm`). É deles que o site (`hestia-web`) tira o conteúdo de `/app`, e a meta
+   `hestia-version` do HTML é o que a verificação de publicação compara com a tag.
 
 Para repetir uma publicação, rode manualmente em Actions > release-desktop > Run workflow
 e escolha a tag existente no seletor. A execução manual só funciona com uma tag `vX.Y.Z`.
