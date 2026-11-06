@@ -66,7 +66,7 @@ describe('snapshot da cena para o render offline', () => {
       const chao = snap.batches[snap.batches.length - 1]!;
       expect(chao.indexCount).toBe(6);
       const m = snap.materials[chao.material]!;
-      expect(m.baseColor).toEqual([0.78, 0.78, 0.78]);
+      expect(m.baseColor).toEqual([0.25, 0.25, 0.25]);
       expect([m.roughness, m.metallic, m.opacity, m.tipo, m.escala]).toEqual([0.9, 0, 1, 0, 1]);
 
       // Vértices do chão e do modelo (os anteriores ao lote do chão).

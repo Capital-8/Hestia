@@ -100,8 +100,13 @@ export const RECUO_CHAO_NEUTRO = 0.002;
  * toca o chão. Com elevação 0,5 rad e FOV 38°, isso dá uma margem de ~2,5 vezes a distância; 3 deixa folga.
  */
 export const FATOR_MARGEM_CHAO = 3;
-/** Cinza-claro neutro, cor linear (o material do chão usa esta cor, rugosidade 0,9 e metálico 0). */
-export const COR_CHAO_NEUTRO = 0.78;
+/**
+ * Albedo linear do chão neutro (o material usa esta cor, rugosidade 0,9 e metálico 0). Tabela de albedo típica:
+ * concreto ou asfalto claro 0,20 a 0,30; grama 0,10 a 0,20; gesso ou papel branco ~0,8. O valor antigo (0,78) era de
+ * papel branco e deixava o chão claro demais (~0,52 linear no quadro). Com 0,25 e exposição de 0 EV, a luminância média
+ * do quadro (render sem textura de `house-premium`) fica em ~0,17 linear, perto do cinza médio de 0,18.
+ */
+export const COR_CHAO_NEUTRO = 0.25;
 
 /**
  * Os seis vértices (dois triângulos, enrolamento anti-horário visto de cima, normal +Z) do chão neutro para a caixa do
