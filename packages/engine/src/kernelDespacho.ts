@@ -21,7 +21,9 @@ import { wallsOnLevel, openingsOfWall, type Id, type Project } from '@hestia/mod
 import { montarCenaA1 } from './kernelA1.ts';
 import { DespachoB, ErroDespachoKernel, type ContextoB, type DivergenciaB } from './kernelDespachoB.ts';
 import { chaveDasOpcoes, interpretarMensagem, LIMITE_MENSAGEM, NaoCoberto, secoesDe, textoDoErro, type EntradaCena } from './kernelDespachoA.ts';
+import { avisarKernelPendente, KernelPendente } from './kernelPendente.ts';
 import { CONFIG_PADRAO, type ConfigDespacho } from './kernelDespachoConfig.ts';
+export { aoMudarKernelPendente, KernelPendente } from './kernelPendente.ts';
 export { CONFIG_PADRAO, K_0049_FATIA_B, type ConfigDespacho } from './kernelDespachoConfig.ts';
 import type { ElementoB1 } from './kernelB.ts';
 import type { JuncaoB3 } from './kernelB3.ts';
@@ -103,7 +105,6 @@ export interface OpcoesDespacho {
 export class DespachoKernel {
   private readonly cenas = new Map<boolean, EntradaCena>();
   private readonly memo = new WeakMap<Project, Map<string, ResolvedLevel>>();
-  private readonly comparados = new WeakMap<Project, Set<string>>();
   private readonly agora: () => number;
   private entreguesPeloRust = 0;
   private entreguesB = 0;
@@ -139,6 +140,7 @@ export class DespachoKernel {
         for (const x of this.cenas.values()) x.projeto = null;
       },
       limiteRegistro: LIMITE_REGISTRO,
+      semKernel: (nivel) => this.semKernel('B', nivel),
     };
     this.b = new DespachoB(contexto);
   }
@@ -168,14 +170,21 @@ export class DespachoKernel {
     const cfg = this.opcoes.config();
     if (!cfg.fatiaA) return ts();
     const ger = this.opcoes.gerenciador();
-    if (!ger) return ts(); // wasm ainda não carregado: o app inicia antes dele
+    if (!ger) throw this.semKernel('A', levelId); // wasm ainda não carregado: pendente, nunca TypeScript
     if (!ger.ligado) {
-      if (cfg.sombra) return ts();
       const motivo = ger.estado().motivoDesligado ?? 'kernel desligado';
       this.ultimoErro = motivo;
       throw new ErroDespachoKernel('A', levelId, `kernel desligado: ${motivo}`);
     }
     return cfg.sombra ? this.emSombra(p, levelId, opts, ts, ger) : this.noRust(p, levelId, opts, ts, ger);
+  }
+
+  /** Sem wasm: `KernelPendente` enquanto carrega; `ErroDespachoKernel` se o carregamento falhou. */
+  private semKernel(fatia: 'A' | 'B', nivel: Id | null): Error {
+    const motivo = this.opcoes.motivoIndisponivel?.() ?? null;
+    if (!motivo) return new KernelPendente(fatia, nivel);
+    this.ultimoErro = motivo;
+    return new ErroDespachoKernel(fatia, nivel, `kernel indisponível: ${motivo}`);
   }
 
   diagnostico(): DiagnosticoDespacho {
@@ -223,15 +232,18 @@ export class DespachoKernel {
   }
 
   private emSombra(p: Project, levelId: Id, opts: PlanResolveOptions, ts: () => ResolvedLevel, ger: GerenciadorKernelV2): ResolvedLevel {
-    const resultadoTs = ts();
+    // O resultado é o do Rust (memo como fora da sombra); o TypeScript só serve de referência da comparação, uma vez por projeto, nível e opções.
     const chave = chaveDasOpcoes(levelId, opts);
-    let feitos = this.comparados.get(p);
-    if (!feitos) this.comparados.set(p, (feitos = new Set()));
-    if (feitos.has(chave)) return resultadoTs;
+    const guardado = this.memo.get(p)?.get(chave);
+    if (guardado) return guardado;
     const r = this.consultar(p, levelId, opts, ger);
-    if (!r) return resultadoTs;
-    feitos.add(chave);
+    if (!r) throw new ErroDespachoKernel('A', levelId, this.ultimoErro ?? 'o Rust não devolveu resultado');
+    let porProjeto = this.memo.get(p);
+    if (!porProjeto) this.memo.set(p, (porProjeto = new Map()));
+    porProjeto.set(chave, r.resolvido);
+    this.entreguesPeloRust++;
     try {
+      const resultadoTs = ts();
       const ref = codificarA3d(resultadoTs, r.entrada.a1);
       const curvas = new Set<number>();
       const q = r.entrada.a1.secoes.paredes_quadro;
@@ -249,10 +261,10 @@ export class DespachoKernel {
         this.registrar({ quando: this.agora(), nivel: levelId, parede, campo, mensagem: primeira.slice(0, LIMITE_MENSAGEM), nesteNivel: cmp.divergencias.length });
       }
     } catch (e) {
-      // Falha ao comparar não pode afetar o resultado: o TS já está em mãos.
+      // Falha ao comparar não pode afetar o resultado: ele é o do Rust.
       this.ultimoErro = `comparação: ${textoDoErro(e)}`;
     }
-    return resultadoTs;
+    return r.resolvido;
   }
 
   private registrar(d: DivergenciaRegistrada): void {
@@ -359,7 +371,14 @@ export function removerDespachoKernel(): void {
   motivoIndisponivel = null;
   carregando = null;
   diagnosticoRemoto = null;
+  avisarKernelPendente();
 }
+
+/** Há fatia ligada esperando o wasm (nem carregou, nem falhou)? Enquanto for `true`, nada de A, B ou quantidades pode ser calculado: a interface mostra "calculando…". */
+export const kernelPendente = (): boolean => (configAtual.fatiaA || configAtual.fatiaB) && !gerenciadorAtual && !motivoIndisponivel;
+
+/** Espera o carregamento do wasm terminar (com sucesso ou não). Resolve de imediato se nada está carregando. */
+export const aguardarKernel = (): Promise<void> => carregando ?? Promise.resolve();
 
 /** Existe despachante instalado? */
 export const despachoInstalado = (): boolean => despacho !== null;
@@ -425,6 +444,7 @@ export function iniciarDespachoKernel(config: ConfigDespacho, carregar: Carregad
       } catch (e) {
         motivoIndisponivel = textoDoErro(e);
       }
+      avisarKernelPendente();
     })();
   }
   return carregando;

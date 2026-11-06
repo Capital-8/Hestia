@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { despachoInstalado, removerDespachoKernel } from '../kernelDespacho.ts';
+import { despachoInstalado, KernelPendente, removerDespachoKernel } from '../kernelDespacho.ts';
 import { instalarServidor, type EscopoServidor } from './servidor.ts';
 import { colherBuffers, type PedidoResolucao, type RespostaResolucao } from './protocolo.ts';
 
@@ -102,7 +102,7 @@ describe('instalarServidor: despacho das fatias A e B (kernelV2)', () => {
     expect(despachoInstalado()).toBe(false);
   });
 
-  it('kernelV2 com a fatia A instala o despachante e a resposta leva o diagnóstico (wasm indisponível no Node: segue TS)', async () => {
+  it('kernelV2 com a fatia A instala o despachante e a resposta leva o diagnóstico (wasm indisponível no Node; o executor falso responde)', async () => {
     const escopo = escopoFalso();
     instalarServidor(escopo, () => 'ok');
     escopo.onmessage?.({ data: { ...pedido(1, 'nivel', 'lv_0'), kernelV2: { fatiaA: true, fatiaB: false, sombra: false } } });
@@ -122,5 +122,34 @@ describe('instalarServidor: despacho das fatias A e B (kernelV2)', () => {
     const r = escopo.respostas[0]!;
     expect(r.resultado).toBe('ok');
     expect(r.kernelDiag).toMatchObject({ instalado: true, pronto: false, entreguesB: 0, config: { fatiaA: false, fatiaB: true, sombra: false } });
+  });
+
+  it('KernelPendente do executor: o pedido espera o wasm e roda de novo (uma vez), sem responder erro nem resultado do TS', async () => {
+    const escopo = escopoFalso();
+    let chamadas = 0;
+    instalarServidor(escopo, () => {
+      chamadas++;
+      if (chamadas === 1) throw new KernelPendente('A', 'lv_0');
+      return 'do-rust';
+    });
+    escopo.onmessage?.({ data: pedido(1, 'nivel', 'lv_0') });
+    await esperar();
+    expect(chamadas).toBe(2);
+    expect(escopo.respostas).toEqual([{ id: 1, resultado: 'do-rust', erro: null }]);
+  });
+
+  it('KernelPendente que persiste depois da espera vira erro (não fica em laço)', async () => {
+    const escopo = escopoFalso();
+    let chamadas = 0;
+    instalarServidor(escopo, () => {
+      chamadas++;
+      throw new KernelPendente('B', 'lv_0');
+    });
+    escopo.onmessage?.({ data: pedido(1, 'pisos', 'lv_0') });
+    await esperar();
+    expect(chamadas).toBe(2);
+    expect(escopo.respostas).toHaveLength(1);
+    expect(escopo.respostas[0]!.resultado).toBeNull();
+    expect(escopo.respostas[0]!.erro).toContain('pendente');
   });
 });

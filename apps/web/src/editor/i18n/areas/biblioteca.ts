@@ -32,6 +32,7 @@ export const PT_BIBLIOTECA = {
   bib_recover_hint: 'Há um projeto aberto da última sessão que não foi salvo numa pasta.',
   bib_loading: 'Lendo a pasta de projetos…',
   bib_opening: 'Abrindo projeto…',
+  kernel_calculando: 'Calculando geometria e quantidades…',
 
   // ---- salvar -----------------------------------------------------------------------------------
   bib_saved: 'Projeto salvo em {name}',
@@ -94,6 +95,7 @@ export const EN_BIBLIOTECA: Record<keyof typeof PT_BIBLIOTECA, string> = {
   bib_recover_hint: 'A project from the last session was not saved to a folder.',
   bib_loading: 'Reading the projects folder…',
   bib_opening: 'Opening project…',
+  kernel_calculando: 'Calculating geometry and quantities…',
 
   bib_saved: 'Project saved to {name}',
   bib_saved_new: 'Project created in {name}',
@@ -155,6 +157,7 @@ export const ES_BIBLIOTECA: Record<keyof typeof PT_BIBLIOTECA, string> = {
   bib_recover_hint: 'Hay un proyecto abierto de la última sesión que no se guardó en una carpeta.',
   bib_loading: 'Leyendo la carpeta de proyectos…',
   bib_opening: 'Abriendo proyecto…',
+  kernel_calculando: 'Calculando geometría y cantidades…',
 
   bib_saved: 'Proyecto guardado en {name}',
   bib_saved_new: 'Proyecto creado en {name}',
@@ -216,6 +219,7 @@ export const DE_BIBLIOTECA: Record<keyof typeof PT_BIBLIOTECA, string> = {
   bib_recover_hint: 'Es gibt ein Projekt aus der letzten Sitzung, das nicht in einem Ordner gespeichert wurde.',
   bib_loading: 'Projektordner wird gelesen…',
   bib_opening: 'Projekt wird geöffnet…',
+  kernel_calculando: 'Geometrie und Mengen werden berechnet…',
 
   bib_saved: 'Projekt in {name} gespeichert',
   bib_saved_new: 'Projekt in {name} erstellt',
@@ -277,6 +281,7 @@ export const FR_BIBLIOTECA: Record<keyof typeof PT_BIBLIOTECA, string> = {
   bib_recover_hint: 'Un projet de la dernière session n\'a pas été enregistré dans un dossier.',
   bib_loading: 'Lecture du dossier de projets…',
   bib_opening: 'Ouverture du projet…',
+  kernel_calculando: 'Calcul de la géométrie et des quantités…',
 
   bib_saved: 'Projet enregistré dans {name}',
   bib_saved_new: 'Projet créé dans {name}',
@@ -338,6 +343,7 @@ export const IT_BIBLIOTECA: Record<keyof typeof PT_BIBLIOTECA, string> = {
   bib_recover_hint: 'C\'è un progetto aperto nell\'ultima sessione che non è stato salvato in una cartella.',
   bib_loading: 'Lettura della cartella dei progetti…',
   bib_opening: 'Apertura del progetto…',
+  kernel_calculando: 'Calcolo di geometria e quantità…',
 
   bib_saved: 'Progetto salvato in {name}',
   bib_saved_new: 'Progetto creato in {name}',
@@ -399,6 +405,7 @@ export const PL_BIBLIOTECA: Record<keyof typeof PT_BIBLIOTECA, string> = {
   bib_recover_hint: 'Istnieje projekt z ostatniej sesji, który nie został zapisany w folderze.',
   bib_loading: 'Odczyt folderu projektów…',
   bib_opening: 'Otwieranie projektu…',
+  kernel_calculando: 'Obliczanie geometrii i ilości…',
 
   bib_saved: 'Projekt zapisany w {name}',
   bib_saved_new: 'Projekt utworzony w {name}',

@@ -7,7 +7,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CODIGOS } from '../../geom/src/kernel/v2/esquema.gerado.ts';
 import { gerenciadorFalso } from '../../geom/src/kernel/v2/falso.ts';
 import { syntheticProject } from './fixtureSintetica.ts';
-import { ErroDespachoKernel, instalarDespachoKernel, removerDespachoKernel, type ConfigDespacho } from './kernelDespacho.ts';
+import { aoMudarKernelPendente, ErroDespachoKernel, iniciarDespachoKernel, instalarDespachoKernel, kernelPendente, KernelPendente, removerDespachoKernel, type ConfigDespacho } from './kernelDespacho.ts';
+import { despachanteDeNivel } from './resolveDespacho.ts';
 import { resolveLevel, resolveLevelTs } from './resolve.ts';
 
 afterEach(() => removerDespachoKernel());
@@ -41,10 +42,37 @@ describe('despacho: fatia desligada', () => {
     expect(resolveLevel(projeto, nivel, new Map())).toEqual(resolveLevelTs(projeto, nivel, new Map()));
   });
 
-  it('fatia ligada mas wasm ainda não carregado: TS, sem erro', () => {
+  it('fatia ligada mas wasm ainda não carregado: resultado pendente (KernelPendente), nunca o do TS', () => {
     const d = instalarDespachoKernel({ gerenciador: () => null, config: () => LIGADA });
-    expect(resolveLevel(projeto, nivel, new Map())).toEqual(resolveLevelTs(projeto, nivel, new Map()));
+    const ts = vi.fn(() => resolveLevelTs(projeto, nivel, new Map()));
+    expect(() => despachanteDeNivel()!(projeto, nivel, {}, ts)).toThrow(KernelPendente);
+    expect(() => resolveLevel(projeto, nivel, new Map())).toThrow(KernelPendente);
+    expect(ts).not.toHaveBeenCalled();
     expect(d.diagnostico().pronto).toBe(false);
+  });
+
+  it('no modo sombra, sem wasm, também fica pendente (o TS não é devolvido)', () => {
+    instalarDespachoKernel({ gerenciador: () => null, config: () => ({ ...LIGADA, sombra: true }) });
+    expect(() => resolveLevel(projeto, nivel, new Map())).toThrow(KernelPendente);
+  });
+
+  it('wasm que falhou ao carregar: erro explícito (não pendente, não TS)', () => {
+    instalarDespachoKernel({ gerenciador: () => null, config: () => LIGADA, motivoIndisponivel: () => 'wasm sem o ABI v2' });
+    expect(() => resolveLevel(projeto, nivel, new Map())).toThrow(ErroDespachoKernel);
+  });
+
+  it('kernelPendente() vale enquanto há fatia ligada esperando o wasm e avisa quando o carregamento termina', async () => {
+    expect(kernelPendente()).toBe(false);
+    let liberar!: () => void;
+    const avisos = vi.fn();
+    const parar = aoMudarKernelPendente(avisos);
+    const p = iniciarDespachoKernel(LIGADA, () => new Promise<Uint8Array>((_, rej) => (liberar = () => rej(new Error('sem wasm')))));
+    expect(kernelPendente()).toBe(true);
+    liberar();
+    await p;
+    expect(kernelPendente()).toBe(false); // falhou: deixa de ser pendente (vira erro explícito)
+    expect(avisos).toHaveBeenCalled();
+    parar();
   });
 });
 

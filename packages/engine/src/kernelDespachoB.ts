@@ -239,6 +239,8 @@ export interface ContextoB {
   /** A instância foi recriada: as cenas da fatia A também precisam ser reenviadas. */
   aoGrave: () => void;
   limiteRegistro: number;
+  /** O erro de quem pede sem wasm: `KernelPendente` (ainda carregando) ou `ErroDespachoKernel` (o carregamento falhou). */
+  semKernel: (nivel: Id | null) => Error;
 }
 
 const LIMITE_MENSAGEM_B = 400;
@@ -290,27 +292,25 @@ export class DespachoB {
 
   /** O despachante de `resolveFloors`. */
   resolverPisos(p: Project, levelId: Id, ts: () => ResolvedFloor[]): ResolvedFloor[] {
-    const ger = this.gerenciador();
+    const ger = this.gerenciador(levelId);
     if (!ger) return ts();
-    if (this.ctx.sombra()) return this.emSombraPisosELajes(p, levelId, ts, ger, false);
-    return this.exigir(this.pisosELajesDoRust(p, levelId, ger), p, levelId, 'pl').pisos;
+    return this.pisosELajes(p, levelId, ts, ger, false) as ResolvedFloor[];
   }
 
   /** O despachante de `resolveSlabs`. */
   resolverLajes(p: Project, levelId: Id, ts: () => ResolvedSlab[]): ResolvedSlab[] {
-    const ger = this.gerenciador();
+    const ger = this.gerenciador(levelId);
     if (!ger) return ts();
-    if (this.ctx.sombra()) return this.emSombraPisosELajes(p, levelId, ts, ger, true);
-    return this.exigir(this.pisosELajesDoRust(p, levelId, ger), p, levelId, 'pl').lajes;
+    return this.pisosELajes(p, levelId, ts, ger, true) as ResolvedSlab[];
   }
 
   /**
-   * O despachante das quantidades (esquema v12). `null`: sem Rust no caminho (wasm ainda não carregado, fatia B desligada ou modo sombra), e quem chama
-   * usa o motor TypeScript. Com a fatia ligada, o resultado é o do Rust ou `ErroDespachoKernel`; nunca o TypeScript.
+   * O despachante das quantidades (esquema v12). `null`: fatia B desligada (ou cena em montagem), e quem chama usa o motor TypeScript. Com a fatia
+   * ligada, o resultado é o do Rust, `KernelPendente` (wasm sem carregar) ou `ErroDespachoKernel`; nunca o TypeScript, nem no modo sombra.
    */
   quantificar(p: Project, levelId: Id, tipo: TipoQuant): QuantidadesRust | null {
-    const ger = this.gerenciador();
-    if (!ger || this.ctx.sombra()) return null;
+    const ger = this.gerenciador(levelId);
+    if (!ger) return null;
     return this.exigir(this.quantidadesDoRust(p, levelId, tipo, ger), p, levelId, `q${tipo}`);
   }
 
@@ -346,10 +346,11 @@ export class DespachoB {
    * sombra compara as duas. Qualquer falha do Rust (sem cena, conversão com erro) lança `ErroDespachoKernel`; o TypeScript só é devolvido no modo sombra.
    */
   resolverJuncao(p: Project, levelId: Id, ts: () => JunctionLevel): JunctionLevel {
-    const ger = this.gerenciador();
+    const ger = this.gerenciador(levelId);
     if (!ger) return ts();
-    if (this.ctx.sombra()) return this.emSombraJuncao(p, levelId, ts, ger);
-    return this.exigir(this.juncaoDoRust(p, levelId, ger), p, levelId, 'j');
+    const rust = this.exigir(this.juncaoDoRust(p, levelId, ger), p, levelId, 'j');
+    if (this.ctx.sombra()) this.compararJuncao(p, levelId, ts, ger);
+    return rust;
   }
 
   /** Fora do modo sombra o resultado é o do Rust ou o erro explícito: nunca o TypeScript. */
@@ -392,18 +393,19 @@ export class DespachoB {
   }
 
   /**
-   * O gerenciador, só com a fatia B ligada e fora da montagem da cena. Sem wasm carregado ainda: `null` (o app inicia antes do wasm).
-   * Kernel DESLIGADO por falhas (limite de recriações) fora da sombra: erro explícito, não TypeScript.
+   * O gerenciador, só com a fatia B ligada e fora da montagem da cena (`null`: vale o TypeScript, que é só a fatia desligada). Sem wasm carregado
+   * ainda: `KernelPendente`. Kernel DESLIGADO por falhas (limite de recriações): erro explícito. Nunca TypeScript com a fatia ligada.
    */
-  private gerenciador(): GerenciadorKernelV2 | null {
+  private gerenciador(levelId: Id): GerenciadorKernelV2 | null {
     if (!this.ctx.fatiaLigada() || this.montandoB) return null;
     const ger = this.ctx.gerenciador();
-    if (ger && !ger.ligado && !this.ctx.sombra()) {
+    if (!ger) throw this.ctx.semKernel(levelId);
+    if (!ger.ligado) {
       const motivo = ger.estado().motivoDesligado ?? 'kernel desligado';
       this.ctx.erro(motivo);
-      throw new ErroDespachoKernel('B', null, `kernel desligado: ${motivo}`);
+      throw new ErroDespachoKernel('B', levelId, `kernel desligado: ${motivo}`);
     }
-    return ger && ger.ligado ? ger : null;
+    return ger;
   }
 
   private pisosELajesDoRust(p: Project, levelId: Id, ger: GerenciadorKernelV2): { pisos: ResolvedFloor[]; lajes: ResolvedSlab[] } | null {
@@ -500,16 +502,24 @@ export class DespachoB {
     }
   }
 
-  private emSombraPisosELajes<T extends ResolvedFloor | ResolvedSlab>(p: Project, levelId: Id, ts: () => T[], ger: GerenciadorKernelV2, laje: boolean): T[] {
-    const resultadoTs = ts();
+  /** Pisos ou lajes do Rust (memo por projeto e nível). No modo sombra, compara uma vez com o TypeScript; o resultado devolvido é sempre o do Rust. */
+  private pisosELajes(p: Project, levelId: Id, ts: () => (ResolvedFloor | ResolvedSlab)[], ger: GerenciadorKernelV2, laje: boolean): (ResolvedFloor | ResolvedSlab)[] {
+    const rust = this.exigir(this.pisosELajesDoRust(p, levelId, ger), p, levelId, 'pl');
+    if (this.ctx.sombra()) this.compararPisosELajes(p, levelId, ts, ger, laje);
+    return laje ? rust.lajes : rust.pisos;
+  }
+
+  /** Só o modo sombra: o TypeScript entra aqui apenas como referência da comparação (uma vez por projeto, nível e tipo). */
+  private compararPisosELajes(p: Project, levelId: Id, ts: () => (ResolvedFloor | ResolvedSlab)[], ger: GerenciadorKernelV2, laje: boolean): void {
     const chave = `${laje ? 'lajes' : 'pisos'}|${levelId}`;
     let feitos = this.comparadosB.get(p);
     if (!feitos) this.comparadosB.set(p, (feitos = new Set()));
-    if (feitos.has(chave)) return resultadoTs;
+    if (feitos.has(chave)) return;
     const r = this.consultarPisosELajes(p, levelId, ger);
-    if (!r) return resultadoTs;
+    if (!r) return;
     feitos.add(chave);
     try {
+      const resultadoTs = ts();
       const ref = referenciaDeResultados(laje ? [] : (resultadoTs as ResolvedFloor[]), laje ? (resultadoTs as ResolvedSlab[]) : [], r.mapas.b);
       const cmp = compararB1(ref, r.el.filter((e) => e.laje === laje), { k0049: K_0049_B, maxDivergencias: this.ctx.limiteRegistro });
       this.ctx.contar('comparacoes');
@@ -522,22 +532,22 @@ export class DespachoB {
         this.ctx.registrar({ quando: this.ctx.agora(), nivel: levelId, fatia: 'B', parede: null, elemento, campo: campoDaMensagem(primeira), mensagem: primeira.slice(0, LIMITE_MENSAGEM_B), nesteNivel: cmp.divergencias.length });
       }
     } catch (e) {
-      // Falha ao comparar não pode afetar o resultado: o TS já está em mãos.
+      // Falha ao comparar não pode afetar o resultado: ele é o do Rust.
       this.ctx.erro(`comparação: ${textoDoErro(e)}`);
     }
-    return resultadoTs;
   }
 
-  private emSombraJuncao(p: Project, levelId: Id, ts: () => JunctionLevel, ger: GerenciadorKernelV2): JunctionLevel {
-    const resultadoTs = ts();
+  /** Só o modo sombra: compara a junção do Rust com a do TypeScript (referência), uma vez por projeto e nível. */
+  private compararJuncao(p: Project, levelId: Id, ts: () => JunctionLevel, ger: GerenciadorKernelV2): void {
     const chave = `juncao|${levelId}`;
     let feitos = this.comparadosB.get(p);
     if (!feitos) this.comparadosB.set(p, (feitos = new Set()));
-    if (feitos.has(chave)) return resultadoTs;
+    if (feitos.has(chave)) return;
     const r = this.consultarJuncao(p, levelId, ger);
-    if (!r) return resultadoTs;
+    if (!r) return;
     feitos.add(chave);
     try {
+      const resultadoTs = ts();
       // `levelCutterSet` é o do TS (nunca despachado); os pisos e as lajes que ele lê podem vir do Rust (equivalentes na B2).
       const ref = referenciaB3De(levelCutterSet(p, levelId), resultadoTs, r.mapas.b, r.mapas.a1);
       const cmp = compararB3(ref, r.juncao, { k0049: K_0049_B, maxDivergencias: this.ctx.limiteRegistro });
@@ -556,7 +566,6 @@ export class DespachoB {
     } catch (e) {
       this.ctx.erro(`comparação: ${textoDoErro(e)}`);
     }
-    return resultadoTs;
   }
 
   /** Libera a cena da B no Rust (testes e troca de gerenciador). O estado é cache: a próxima chamada reconstrói. */
