@@ -9,8 +9,9 @@
 //!   travessia de CPU que espelha o shader. Motivo de não reutilizar a do `render-core`: ela é
 //!   privada e presa ao tipo `Triangulo` do tracer de CPU.
 //! - `pt0.wgsl`: compute shader. Raio primário, travessia com pilha local, sombra do sol por raio
-//!   de sombra, céu (`ceu.wgsl`), um rebote difuso por cosseno (modo 2), e soma numa textura
-//!   RGBA32F em ping-pong.
+//!   de sombra, céu (`ceu.wgsl`), e um caminho de até 4 vértices (`radiancia_caminho`) com sol
+//!   direto, Blinn-Phong e ambiente da referência em cada vértice, e rebote por cosseno. Soma numa
+//!   textura RGBA32F em ping-pong.
 //! - [`ceu`]: céu do motor (`radiancia_ceu` e halo de `shader.wgsl`) em Rust, e a irradiância SH9
 //!   do céu. Espelho de `ceu.wgsl`, com teste de sincronia.
 //! - [`amostragem`]: hash PCG e amostragem por cosseno, com a mesma aritmética do WGSL.
@@ -21,10 +22,11 @@
 //!
 //! ## Escopo desta fase (o que NÃO está aqui)
 //!
-//! Sem textura de material, sem vidro (transmissão é tratada como opaca), sem especular, sem
-//! oclusão de ambiente (a irradiância do céu não sabe se a parede está coberta), sem luzes
-//! internas e sem denoise. Um rebote só. O sol é pontual por padrão; `raio_sol` (radianos) liga um
-//! disco solar, que é a única fonte estocástica além do subpixel. Nada disso é pronto para produção.
+//! Sem textura de material, sem vidro (transmissão é tratada como opaca), sem metal com reflexão
+//! especular no rebote, sem oclusão de ambiente (o termo de céu não sabe se a parede está coberta),
+//! sem luzes internas e sem denoise. Sem roleta russa: a profundidade é fixa (até 4 vértices, como
+//! o render-core). O sol é pontual por padrão; `raio_sol` (radianos) liga um disco solar. Nada disso
+//! é pronto para produção.
 //!
 //! ## Convenções
 //!

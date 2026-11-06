@@ -4,6 +4,33 @@
 //! mesmas contas de `tracer::luz_direta` no caso difuso: `cor * (1 - metal) / pi * I * cos * sombra`,
 //! mais a emissão. Não entram céu, especular nem rebotes, para que a comparação com a GPU seja
 //! direta. A imagem completa do tracer (com tudo isso) sai à parte, só para a prova visual.
+//!
+//! ## Fórmula da referência (`render-core/src/tracer.rs`, fase 3)
+//!
+//! Caminho de até `PROFUNDIDADE_MAXIMA = 4` vértices, `peso` começa em 1 (throughput):
+//!
+//! ```text
+//! para cada vértice k (ponto acertado, normal n = face voltada para o raio d, sol s = cena.sol.direcao()):
+//!   L += peso * emissao
+//!   E  = cor_sol * I * max(n.s, 0) * visivel(sombra)           (visivel: n.dir > 0 e sem acerto)
+//!   difuso   = cor * (1 - metal) / pi
+//!   espec    = f0 * ndh^e * (e + 8) / (8 pi) * (0,25 + 0,75 (1 - r)),
+//!              e = 8 + (1 - r)^2 * 500,  f0 = 0,04 (1 - metal) + cor * metal,
+//!              ndh = max(n . normalizado(s + (-d)), 0)
+//!   L += peso * (difuso + espec) * E                           (o especular entra no mesmo fator de sol)
+//!   ambiente = 0,3 * cor * (1 - metal) * ceu(n)                  (sem oclusão)
+//!   L += peso * ambiente
+//!   se k + 1 = profundidade: para
+//!   vidro (transmissao > 0,5): atravessa, peso *= cor (não usado aqui)
+//!   metal (metal > 0,5): reflete com dispersão, peso *= cor * metal + 0,04 (1 - metal)
+//!   difuso: direção por cosseno, peso *= cor * (1 - metal)
+//! se o raio sai da cena em k: L += peso * ceu(d)
+//! ```
+//!
+//! `ceu(d)` é a cor de fundo da cena, quando existe (cena-h1 tem uma: é o céu uniforme usado nas
+//! comparações), ou o gradiente do próprio `render-core`. A GPU não usa o gradiente do render-core.
+//! Na GPU (`pt0.wgsl`, `radiancia_caminho`), a fórmula acima vale para materiais sem metal e sem
+//! vidro, sem disco solar (raio 0) e com profundidade fixa; metal e vidro dessa cena ficam como diferença.
 
 use render_core::cena::Cena;
 use render_core::matematica::{inverter, transformar};

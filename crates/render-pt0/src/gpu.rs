@@ -16,7 +16,7 @@ use wgpu::util::DeviceExt;
 use crate::bvh::{Bvh, NoGpu, TrianguloGpu};
 use crate::COR_SOL;
 
-/// Uniforme do shader (304 bytes, mesmo layout de `struct Quadro` em `pt0.wgsl`).
+/// Uniforme do shader (320 bytes, mesmo layout de `struct Quadro` em `pt0.wgsl`).
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Quadro {
@@ -28,9 +28,54 @@ pub struct Quadro {
     pub dimensao: [u32; 4],
     pub modo: [u32; 4],
     pub irradiancia: [[f32; 4]; 9],
+    pub opcoes: [u32; 4],
 }
 
-/// O que o passe calcula. Cada modo é uma linha da medição: (a), (b) e (c) do relatório.
+/// Vértices máximos do caminho, igual a `PROFUNDIDADE_MAXIMA` do `render-core` (tracer.rs).
+pub const PROFUNDIDADE_MAXIMA: u32 = 4;
+
+/// Diagnóstico: o raio de sombra do sol não é lançado (sol sempre visível). Só para medir custo.
+pub const DIAG_SEM_SOMBRA: u32 = 1;
+/// Diagnóstico: travessia por força bruta (todos os triângulos, sem BVH e sem pilha). Só para medir.
+pub const DIAG_FORCA_BRUTA: u32 = 2;
+
+/// Ambiente por vértice: a fonte de luz do céu que soma em cada ponto do caminho.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Ambiente {
+    /// Nenhum termo de céu: o raio que sai da cena vê só o fundo (fase 1).
+    Nenhum = 0,
+    /// Irradiância SH9 do céu (sem o fator 0,3 da referência), só no último vértice do caminho.
+    /// É o termo da fase 2: com um rebote, o céu do primário chega pelo rebote, não por SH.
+    Sh = 1,
+    /// Termo da referência (`tracer.rs`): `0,3 * cor * (1 - metálico) * céu(normal)`, por vértice.
+    Referencia = 2,
+}
+
+/// Termos que o caminho soma. Um conjunto desses é uma linha da medição.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Configuracao {
+    /// Vértices com iluminação direta: 1 = só o primário; 2 = um rebote; até `PROFUNDIDADE_MAXIMA`.
+    pub profundidade: u32,
+    pub ambiente: Ambiente,
+    /// Especular Blinn-Phong da referência, junto com o sol.
+    pub especular: bool,
+    /// Bits de `DIAG_*`. Zero no resultado real.
+    pub diagnostico: u32,
+}
+
+impl Configuracao {
+    /// Conjunto da referência em cada vértice: sol, especular e ambiente (`tracer.rs`).
+    pub fn referencia(profundidade: u32) -> Self {
+        Self {
+            profundidade,
+            ambiente: Ambiente::Referencia,
+            especular: true,
+            diagnostico: 0,
+        }
+    }
+}
+
+/// O que o passe calcula. Cada modo é uma linha da medição: (a), (b) e (c) do relatório da fase 2.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Modo {
     /// (a) Só sol direto, com sombra por raio. Fundo como na fase 1 (preto ou explícito).
@@ -39,6 +84,22 @@ pub enum Modo {
     SolCeu = 1,
     /// (c) Sol direto, céu e um rebote difuso por cosseno (sombra e céu no ponto acertado).
     SolCeuRebote = 2,
+}
+
+impl From<Modo> for Configuracao {
+    fn from(modo: Modo) -> Self {
+        let (profundidade, ambiente) = match modo {
+            Modo::SolDireto => (1, Ambiente::Nenhum),
+            Modo::SolCeu => (1, Ambiente::Sh),
+            Modo::SolCeuRebote => (2, Ambiente::Sh),
+        };
+        Self {
+            profundidade,
+            ambiente,
+            especular: false,
+            diagnostico: 0,
+        }
+    }
 }
 
 /// Fonte do céu que os modos 1 e 2 veem fora da cena e usam para a luz do céu.
@@ -236,7 +297,7 @@ pub fn avaliar_ceu(
     Ok((ceus, irradiancias))
 }
 
-/// Material no formato da GPU (32 bytes).
+/// Material no formato da GPU (48 bytes, mesmo layout de `struct Material` em `pt0.wgsl`).
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct MaterialGpu {
@@ -244,6 +305,8 @@ pub struct MaterialGpu {
     pub cor: [f32; 4],
     /// rgb: emissão linear.
     pub emissao: [f32; 4],
+    /// x: rugosidade (o especular da referência usa `1 - rugosidade`).
+    pub propriedades: [f32; 4],
 }
 
 const LADO_WORKGROUP: u32 = 8;
@@ -299,6 +362,7 @@ impl Prototipo {
                     m.emissivo[2] as f32,
                     0.0,
                 ],
+                propriedades: [m.rugosidade as f32, 0.0, 0.0, 0.0],
             })
             .collect();
 
@@ -462,7 +526,30 @@ impl Prototipo {
     /// Escolhe o que o próximo passe calcula. Quem chama zera o acumulado (`limpar`) antes de
     /// trocar de modo, porque as amostras de modos diferentes não se misturam.
     pub fn definir_modo(&mut self, modo: Modo) {
-        self.base.modo[0] = modo as u32;
+        self.aplicar(modo.into());
+    }
+
+    /// Escolhe os termos do caminho (profundidade, ambiente, especular, diagnóstico). Quem chama
+    /// zera o acumulado antes de trocar, pelo mesmo motivo de `definir_modo`.
+    pub fn definir_configuracao(&mut self, configuracao: Configuracao) -> Result<(), String> {
+        if !(1..=PROFUNDIDADE_MAXIMA).contains(&configuracao.profundidade) {
+            return Err(format!(
+                "profundidade {} fora de 1..={PROFUNDIDADE_MAXIMA}",
+                configuracao.profundidade
+            ));
+        }
+        self.aplicar(configuracao);
+        Ok(())
+    }
+
+    fn aplicar(&mut self, configuracao: Configuracao) {
+        self.base.modo[0] = configuracao.profundidade;
+        self.base.opcoes = [
+            configuracao.ambiente as u32,
+            u32::from(configuracao.especular),
+            configuracao.diagnostico,
+            0,
+        ];
     }
 
     /// Escolhe a fonte do céu (ver `Ceu`) e recalcula a irradiância SH9 que ela implica. `Uniforme`
@@ -661,7 +748,8 @@ fn quadro_da_cena(cena: &Cena, largura: u32, altura: u32, raio_sol: f32) -> Resu
         fundo: [fundo[0], fundo[1], fundo[2], tem_fundo],
         tile: [0; 4],
         dimensao: [largura, altura, 0, 0],
-        modo: [Modo::SolDireto as u32, u32::from(sol_ativo), Ceu::Motor as u32, 0],
+        modo: [1, u32::from(sol_ativo), Ceu::Motor as u32, 0],
         irradiancia,
+        opcoes: [0; 4],
     })
 }

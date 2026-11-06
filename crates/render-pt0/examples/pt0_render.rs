@@ -1,22 +1,26 @@
-//! Medição da fase 2 do protótipo: céu, um rebote difuso, custo por passe, corretude e ruído.
+//! Medição do protótipo (fase 3): corretude contra o tracer do `render-core`, custo por passe e ruído.
 //!
-//! Três modos na GPU (ver `Modo`): (a) só sol direto, (b) sol + céu, (c) sol + céu + um rebote.
-//! Para cada modo: 9 passes cronometrados (mediana), 64 passes no total, e uma segunda cadeia de
-//! 64 passes com outra semente, para o ruído (a diferença entre as duas cadeias tira o valor
-//! esperado e deixa só o ruído).
+//! Três partes, todas com o mesmo `Prototipo` na GPU:
+//! 1. Legado da fase 2: (a) só sol direto, (b) sol + céu SH, (c) sol + céu SH + um rebote, com céu do
+//!    motor e com céu uniforme. Serve de regressão: os números têm de bater com a fase 2.
+//! 2. Fase 3, todas com céu uniforme (o fundo da cena, como o render-core): `direto`, `+ambiente`
+//!    (termo da referência, `0,3 * albedo * céu`), `+especular` (Blinn-Phong), `+ambiente +especular`,
+//!    e profundidade 2, 3 e 4 com os termos acima em cada vértice.
+//! 3. `--diagnostico` (sem corretude): custo do raio de sombra e da travessia por força bruta, e a
+//!    ordem de medição (para a anomalia da fase 2, em que o modo (a) era mais lento que o (b)).
 //!
-//! Corretude: (a) é comparado com a sombra direta da CPU (`referencia::direto_cpu`). (b) e (c) são
-//! comparados com o tracer completo do `render-core` (`renderizar_imagem`, com `--cpu-ref-spp`
-//! amostras). O tracer do `render-core` devolve RGBA8 já com tone mapping; o valor linear é
-//! recuperado por tabela (inverso exato da curva, 256 entradas), com erro de meio código de 8 bits.
+//! Cada configuração: duas cadeias de `spp` passes com sementes diferentes. O tempo por passe é a
+//! mediana das passagens da cadeia A (com o tempo total). O ruído é std(A - B) / sqrt(2) numa região
+//! plana (`--regiao-parede`).
 //!
-//! Uso (tudo opcional): `cargo run --release --example pt0_render -- --saida <dir> --largura 640
-//!   --altura 360 --spp 64 --raio-sol-graus 0 --ref-spp 256 --cpu-ref-spp 256
-//!   --regiao-parede x,y,w,h`
+//! Corretude: as linhas são comparadas com o tracer completo do `render-core` (`renderizar_imagem`,
+//! `--cpu-ref-spp` amostras, RGBA8 com tone mapping, invertido por tabela). A sombra direta da CPU
+//! (`--ref-spp`) serve de referência do termo direto. Os dois resultados ficam em `--cache`, porque
+//! são determinísticos para a mesma cena e as mesmas amostras.
 //!
-//! Saídas em `<dir>`: `sol_direto.png` (a), `sol_ceu.png` (b), `sol_ceu_rebote_n64.png` (c),
-//! `sol_ceu_rebote_n16.png`, `cpu_direto.png` (sombra direta da CPU) e `cpu_ref.png` (tracer
-//! completo do `render-core`, só para a prova visual).
+//! Uso (tudo opcional): `cargo run --release --example pt0_render -- --saida <dir> --cache <dir>
+//!   --largura 640 --altura 360 --spp 64 --raio-sol-graus 0 --ref-spp 256 --cpu-ref-spp 256
+//!   --regiao-parede x,y,w,h [--diagnostico]`
 //!
 //! Ferramenta de medição, não parte do render de produção.
 
@@ -28,23 +32,27 @@ use render_core::tonemap::{aces, mapear_cor};
 use render_core::vetor::Vec3;
 use render_core::{renderizar_imagem, Trabalho};
 use render_pt0::bvh::Bvh;
-use render_pt0::gpu::{Ceu, Modo, Prototipo};
+use render_pt0::gpu::{
+    Ambiente, Ceu, Configuracao, Modo, Prototipo, DIAG_FORCA_BRUTA, DIAG_SEM_SOMBRA,
+};
 use render_pt0::{luminancia, referencia};
 
-/// Uma cadeia: tempos por passe, média em N = 16 e média em N = spp.
-type Medicao = (Vec<f64>, Vec<[f32; 3]>, Vec<[f32; 3]>);
-
-/// Uma medição de modo: tempos por passe da cadeia A, médias em N = 16 e N = spp das cadeias A e B.
+/// Uma cadeia: tempos por passe, médias em N = 16 e N = spp da cadeia A, e médias em N = 16 e N = spp da cadeia B.
 type Cadeia = (Vec<f64>, Vec<[f32; 3]>, Vec<[f32; 3]>, Vec<[f32; 3]>, Vec<[f32; 3]>);
 
 /// Semente da cadeia principal e da cadeia independente (ruído).
 const SEMENTE_A: u32 = 7;
 const SEMENTE_B: u32 = 11;
+/// Semente da segunda referência do render-core. O `Rng::novo` do render-core mistura a semente e a
+/// amostra com XOR nos mesmos bits baixos: as sementes 1 e 2 com 4 ou 64 amostras geram o mesmo
+/// conjunto de sequências (imagem idêntica). 256 usa só bits acima dos 8 da amostra, então é independente.
+const SEMENTE_REFERENCIA_B: u32 = 256;
 
 #[derive(Debug)]
 struct Opcoes {
     cena: String,
     saida: String,
+    cache: Option<String>,
     largura: u32,
     altura: u32,
     spp: u32,
@@ -53,6 +61,11 @@ struct Opcoes {
     cpu_ref_spp: u32,
     modelo_spp: u32,
     parede: Option<[u32; 4]>,
+    diagnostico: bool,
+    aquecimento: u32,
+    pausa_ms: u64,
+    /// Compara uma segunda referência do render-core (outra semente) com a primeira: o ruído da referência.
+    ref_ruido: bool,
 }
 
 fn ler_retangulo(texto: &str) -> Result<[u32; 4], String> {
@@ -67,6 +80,7 @@ fn ler_opcoes() -> Result<Opcoes, String> {
     let mut o = Opcoes {
         cena: format!("{}/../render-engine/tests/fixtures/cena-h1.hstr", env!("CARGO_MANIFEST_DIR")),
         saida: ".".into(),
+        cache: None,
         largura: 640,
         altura: 360,
         spp: 64,
@@ -75,14 +89,28 @@ fn ler_opcoes() -> Result<Opcoes, String> {
         cpu_ref_spp: 256,
         modelo_spp: 64,
         parede: None,
+        diagnostico: false,
+        aquecimento: 0,
+        pausa_ms: 0,
+        ref_ruido: false,
     };
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mut i = 0;
     while i < args.len() {
+        if args[i] == "--diagnostico" || args[i] == "--ref-ruido" {
+            if args[i] == "--diagnostico" {
+                o.diagnostico = true;
+            } else {
+                o.ref_ruido = true;
+            }
+            i += 1;
+            continue;
+        }
         let valor = || args.get(i + 1).cloned().ok_or_else(|| format!("{} sem valor", args[i]));
         match args[i].as_str() {
             "--cena" => o.cena = valor()?,
             "--saida" => o.saida = valor()?,
+            "--cache" => o.cache = Some(valor()?),
             "--largura" => o.largura = valor()?.parse().map_err(|e| format!("{e}"))?,
             "--altura" => o.altura = valor()?.parse().map_err(|e| format!("{e}"))?,
             "--spp" => o.spp = valor()?.parse().map_err(|e| format!("{e}"))?,
@@ -91,6 +119,8 @@ fn ler_opcoes() -> Result<Opcoes, String> {
             "--cpu-ref-spp" => o.cpu_ref_spp = valor()?.parse().map_err(|e| format!("{e}"))?,
             "--modelo-spp" => o.modelo_spp = valor()?.parse().map_err(|e| format!("{e}"))?,
             "--regiao-parede" => o.parede = Some(ler_retangulo(&valor()?)?),
+            "--aquecimento" => o.aquecimento = valor()?.parse().map_err(|e| format!("{e}"))?,
+            "--pausa-ms" => o.pausa_ms = valor()?.parse().map_err(|e| format!("{e}"))?,
             outro => return Err(format!("argumento desconhecido: {outro}")),
         }
         i += 2;
@@ -176,6 +206,7 @@ fn luminancias(pixels: &[[f32; 3]]) -> Vec<f64> {
 }
 
 /// Diferença média relativa: Σ|Y_gpu − Y_ref| / Σ Y_ref, sobre os pixels com `mascara` verdadeira.
+/// Devolve também o viés com sinal: (Σ Y_gpu − Σ Y_ref) / Σ Y_ref.
 fn diferenca_relativa(gpu: &[f64], referencia_px: &[f64], mascara: &[bool]) -> (f64, f64) {
     let mut soma_dif = 0.0;
     let mut soma_ref = 0.0;
@@ -190,15 +221,15 @@ fn diferenca_relativa(gpu: &[f64], referencia_px: &[f64], mascara: &[bool]) -> (
     (soma_dif / soma_ref, (soma_gpu - soma_ref) / soma_ref)
 }
 
-/// Uma cadeia de `spp` passes no modo dado. Devolve os tempos por passe e as médias em N = 16 e N = spp.
+/// Uma cadeia de `spp` passes numa configuração. Devolve os tempos por passe e as médias em N = 16 e N = spp.
 fn rodar_cadeia(
     proto: &mut Prototipo,
-    modo: Modo,
+    configuracao: Configuracao,
     spp: u32,
     semente: u32,
 ) -> Result<Medicao, String> {
     proto.limpar();
-    proto.definir_modo(modo);
+    proto.definir_configuracao(configuracao)?;
     let mut tempos = Vec::with_capacity(spp as usize);
     let mut media16 = Vec::new();
     let mut media_final = Vec::new();
@@ -217,11 +248,155 @@ fn rodar_cadeia(
     Ok((tempos, media16, media_final))
 }
 
-/// Duas cadeias do mesmo modo: a principal (cronometrada) e a independente (só para o ruído).
-fn rodar_par(proto: &mut Prototipo, modo: Modo, spp: u32) -> Result<Cadeia, String> {
-    let (tempos, m16, mfinal) = rodar_cadeia(proto, modo, spp, SEMENTE_A)?;
-    let (_, b16, bfinal) = rodar_cadeia(proto, modo, spp, SEMENTE_B)?;
+/// Tempos por passe da cadeia A, médias em N = 16 e N = spp das cadeias A e B.
+type Medicao = (Vec<f64>, Vec<[f32; 3]>, Vec<[f32; 3]>);
+
+/// Duas cadeias da mesma configuração: a principal (cronometrada) e a independente (só para o ruído).
+fn rodar_par(proto: &mut Prototipo, configuracao: Configuracao, spp: u32) -> Result<Cadeia, String> {
+    let (tempos, m16, mfinal) = rodar_cadeia(proto, configuracao, spp, SEMENTE_A)?;
+    let (_, b16, bfinal) = rodar_cadeia(proto, configuracao, spp, SEMENTE_B)?;
     Ok((tempos, m16, mfinal, b16, bfinal))
+}
+
+/// Mediana, mínimo e máximo de uma lista de tempos (ms).
+fn resumo(tempos: &[f64]) -> (f64, f64, f64) {
+    let mut ordenados = tempos.to_vec();
+    ordenados.sort_by(f64::total_cmp);
+    (ordenados[ordenados.len() / 2], ordenados[0], ordenados[ordenados.len() - 1])
+}
+
+/// Configurações da fase 3, com céu uniforme. Cada uma é cumulativa ou isolada, como indicado no rótulo.
+fn configuracoes_fase3() -> Vec<(&'static str, &'static str, Configuracao)> {
+    let base = |profundidade: u32, ambiente: Ambiente, especular: bool| Configuracao {
+        profundidade,
+        ambiente,
+        especular,
+        diagnostico: 0,
+    };
+    vec![
+        ("direto", "f3_direto", base(1, Ambiente::Nenhum, false)),
+        ("+ambiente (referência)", "f3_ambiente", base(1, Ambiente::Referencia, false)),
+        ("+especular", "f3_especular", base(1, Ambiente::Nenhum, true)),
+        ("+ambiente +especular", "f3_amb_espec", base(1, Ambiente::Referencia, true)),
+        ("profundidade 2", "f3_prof2", base(2, Ambiente::Referencia, true)),
+        ("profundidade 3", "f3_prof3", base(3, Ambiente::Referencia, true)),
+        ("profundidade 4", "f3_prof4", base(4, Ambiente::Referencia, true)),
+    ]
+}
+
+/// Referências de corretude para as métricas de uma linha.
+struct Referencias {
+    /// Luminância do tracer completo do render-core.
+    lum: Vec<f64>,
+    /// Indireta de referência: tracer completo menos sombra direta.
+    ind: Vec<f64>,
+    /// Superfície (o raio do centro acerta geometria).
+    sup: Vec<bool>,
+    /// Faces diretas: superfície com sol direto na referência.
+    direta: Vec<bool>,
+    todos: Vec<bool>,
+}
+
+struct Metricas {
+    geral: f64,
+    viés: f64,
+    superficie: f64,
+    diretas: f64,
+    indireta: f64,
+}
+
+/// Métricas de uma linha. `base_ind` é a luminância da GPU no termo direto (a), para a indireta.
+fn medir(g: &[f64], base_ind: &[f64], r: &Referencias) -> Metricas {
+    let (geral, viés) = diferenca_relativa(g, &r.lum, &r.todos);
+    let (superficie, _) = diferenca_relativa(g, &r.lum, &r.sup);
+    let (diretas, _) = diferenca_relativa(g, &r.lum, &r.direta);
+    let ind_g: Vec<f64> = g.iter().zip(base_ind).map(|(x, a)| x - a).collect();
+    let (indireta, _) = diferenca_relativa(&ind_g, &r.ind, &r.sup);
+    Metricas {
+        geral,
+        viés,
+        superficie,
+        diretas,
+        indireta,
+    }
+}
+
+fn imprimir_metricas(rotulo: &str, m: &Metricas) {
+    println!(
+        "  ({rotulo}) geral {:.2} % (viés {:+.2} %) | superfície {:.2} % | faces diretas {:.2} % | indireta {:.2} %",
+        m.geral * 100.0,
+        m.viés * 100.0,
+        m.superficie * 100.0,
+        m.diretas * 100.0,
+        m.indireta * 100.0
+    );
+}
+
+/// Ruído: desvio padrão de (A − B)/√2 numa região plana, para N = 16 e N = spp.
+fn ruido(a: &[[f32; 3]], b: &[[f32; 3]], largura: u32, r: [u32; 4]) -> f64 {
+    let diferenca: Vec<f64> = a
+        .iter()
+        .zip(b)
+        .map(|(x, y)| f64::from(luminancia(*x) - luminancia(*y)) / std::f64::consts::SQRT_2)
+        .collect();
+    desvio_regiao(&diferenca, largura, r)
+}
+
+/// Lê um cache binário, se existir e tiver o tamanho esperado.
+fn ler_cache(o: &Opcoes, nome: &str, bytes_esperados: usize) -> Option<Vec<u8>> {
+    let dir = o.cache.as_ref()?;
+    let bytes = std::fs::read(format!("{dir}/{nome}")).ok()?;
+    (bytes.len() == bytes_esperados).then_some(bytes)
+}
+
+fn gravar_cache(o: &Opcoes, nome: &str, bytes: &[u8]) -> Result<(), String> {
+    if let Some(dir) = &o.cache {
+        std::fs::create_dir_all(dir).map_err(|e| format!("{dir}: {e}"))?;
+        std::fs::write(format!("{dir}/{nome}"), bytes).map_err(|e| format!("{dir}/{nome}: {e}"))?;
+    }
+    Ok(())
+}
+
+/// Diagnóstico de custo (parte 3): mesma configuração com e sem raio de sombra, com e sem BVH, e a
+/// mesma medição repetida em outra posição da ordem, para separar custo real de efeito de ordem.
+fn rodar_diagnostico(proto: &mut Prototipo, spp: u32, aquecimento: u32, pausa_ms: u64) -> Result<(), String> {
+    let direto = Configuracao::from(Modo::SolDireto);
+    let sh = Configuracao::from(Modo::SolCeu);
+    let com = |diagnostico: u32| Configuracao {
+        diagnostico,
+        ..direto
+    };
+    let sequencia: Vec<(&str, Configuracao)> = vec![
+        ("(a) direto, 1.ª posição", direto),
+        ("(b) SH, 2.ª posição", sh),
+        ("(a) direto, depois de (b)", direto),
+        ("(a) sem raio de sombra", com(DIAG_SEM_SOMBRA)),
+        ("(a) travessia por força bruta", com(DIAG_FORCA_BRUTA)),
+        ("(a) sem sombra e força bruta", com(DIAG_SEM_SOMBRA | DIAG_FORCA_BRUTA)),
+        ("(b) SH, depois de (a)", sh),
+        ("(a) direto, última posição", direto),
+    ];
+    if pausa_ms > 0 {
+        std::thread::sleep(std::time::Duration::from_millis(pausa_ms));
+    }
+    // Aquecimento sem medir: passes da configuração direta, para testar se o tempo lento é de subida da GPU.
+    proto.limpar();
+    proto.definir_configuracao(direto)?;
+    for amostra in 0..aquecimento {
+        proto.passe(amostra, SEMENTE_A, 0)?;
+    }
+    println!("\nDiagnóstico de custo ({spp} passes por linha, GPU, ms por passe; céu uniforme, sem corretude; aquecimento {aquecimento} passes, pausa {pausa_ms} ms):");
+    for (rotulo, configuracao) in sequencia {
+        let (tempos, _, _) = rodar_cadeia(proto, configuracao, spp, SEMENTE_A)?;
+        let (mediana, minimo, maximo) = resumo(&tempos);
+        let primeiros: Vec<String> = tempos.iter().take(5).map(|t| format!("{t:.1}")).collect();
+        let total_s: f64 = tempos.iter().sum::<f64>() / 1000.0;
+        println!(
+            "  {rotulo}: mediana {mediana:.2} (mín {minimo:.2}, máx {maximo:.2}), total {total_s:.2} s; primeiros 5: [{}]",
+            primeiros.join(", ")
+        );
+    }
+    Ok(())
 }
 
 fn main() -> Result<(), String> {
@@ -238,138 +413,218 @@ fn main() -> Result<(), String> {
         cena.sol.intensidade,
         cena.fundo
     );
+    for (i, m) in cena.materiais.iter().enumerate() {
+        println!(
+            "  material {i}: cor {:?} rugosidade {:.2} metálico {:.2} transmissão {:.2} emissivo {:?}",
+            m.cor_base, m.rugosidade, m.metalico, m.transmissao, m.emissivo
+        );
+    }
     let bvh = Bvh::construir(&cena)?;
     let raio_sol = o.raio_sol_graus.to_radians() as f32;
     let mut proto = Prototipo::iniciar(&cena, &bvh, o.largura, o.altura, raio_sol)?;
     println!("GPU: {} | imagem {}x{} | sol {}", proto.adaptador(), o.largura, o.altura, if raio_sol > 0.0 { "disco" } else { "pontual" });
 
-    // Aquecimento: um passe sem medir, para o clock da GPU subir antes da mediana.
+    // Aquecimento: um passe sem medir, para o clock da GPU subir antes da primeira medição.
     proto.limpar();
     proto.definir_modo(Modo::SolCeuRebote);
     proto.passe(0, SEMENTE_A, 0)?;
+    // Aquecimento longo (opcional, --aquecimento n): tira a GPU do estado de baixo clock após ociosidade.
+    for amostra in 0..o.aquecimento {
+        proto.passe(amostra, SEMENTE_A, 0)?;
+    }
+
+    if o.diagnostico {
+        proto.definir_ceu(Ceu::Uniforme)?;
+        return rodar_diagnostico(&mut proto, o.spp, o.aquecimento, o.pausa_ms);
+    }
 
     let modos = [
         (Modo::SolDireto, "a"),
         (Modo::SolCeu, "b"),
         (Modo::SolCeuRebote, "c"),
     ];
-    // Céu do motor (padrão): (a), (b) e (c).
+    // Legado da fase 2, céu do motor: (a), (b) e (c).
     proto.definir_ceu(Ceu::Motor)?;
     let mut cadeias = Vec::new();
     for (modo, _) in modos {
-        cadeias.push(rodar_par(&mut proto, modo, o.spp)?);
+        cadeias.push(rodar_par(&mut proto, Configuracao::from(modo), o.spp)?);
     }
-    // Céu uniforme do fundo da cena (como o render-core): (b) e (c). A (a) não depende do céu.
+    // Legado da fase 2, céu uniforme do fundo da cena (como o render-core): (b) e (c).
     proto.definir_ceu(Ceu::Uniforme)?;
     let cadeias_uniforme: Vec<Cadeia> = [Modo::SolCeu, Modo::SolCeuRebote]
         .into_iter()
-        .map(|modo| rodar_par(&mut proto, modo, o.spp))
+        .map(|modo| rodar_par(&mut proto, Configuracao::from(modo), o.spp))
+        .collect::<Result<_, _>>()?;
+    // Fase 3, céu uniforme.
+    let fase3 = configuracoes_fase3();
+    let cadeias_f3: Vec<Cadeia> = fase3
+        .iter()
+        .map(|(_, _, c)| rodar_par(&mut proto, *c, o.spp))
         .collect::<Result<_, _>>()?;
     proto.definir_ceu(Ceu::Motor)?;
 
-    println!("\nCusto por passe ({}x{}, GPU, mediana de 9 passes; total de {} amostras):", o.largura, o.altura, o.spp);
+    println!("\nCusto por passe ({}x{}, GPU, mediana de {} passes; total de {} amostras):", o.largura, o.altura, o.spp, o.spp);
     for ((modo, rotulo), (tempos, _, _, _, _)) in modos.iter().zip(&cadeias) {
-        let mut primeiros: Vec<f64> = tempos.iter().take(9).copied().collect();
-        primeiros.sort_by(f64::total_cmp);
-        let mediana = primeiros[primeiros.len() / 2];
+        let (mediana, minimo, maximo) = resumo(tempos);
         let total_s: f64 = tempos.iter().sum::<f64>() / 1000.0;
-        println!(
-            "  ({rotulo}) {:?}: mediana {:.2} ms/passe (mín {:.2}, máx {:.2}), total {} amostras = {:.2} s",
-            modo,
-            mediana,
-            primeiros[0],
-            primeiros[primeiros.len() - 1],
-            o.spp,
-            total_s
-        );
+        println!("  ({rotulo}) {modo:?}: mediana {mediana:.2} ms/passe (mín {minimo:.2}, máx {maximo:.2}), total {total_s:.2} s");
+    }
+    for ((rotulo, _, _), (tempos, _, _, _, _)) in fase3.iter().zip(&cadeias_f3) {
+        let (mediana, minimo, maximo) = resumo(tempos);
+        let total_s: f64 = tempos.iter().sum::<f64>() / 1000.0;
+        println!("  (fase 3, uniforme) {rotulo}: mediana {mediana:.2} ms/passe (mín {minimo:.2}, máx {maximo:.2}), total {total_s:.2} s");
     }
 
     // Ruído: diferença entre as duas cadeias independentes, dividida por sqrt(2), numa região plana.
-    let mut ruido_16_64 = Vec::new();
     if let Some(r) = o.parede {
         println!("\nRuído na região {:?} (desvio padrão da luminância, sigma = std(A-B)/sqrt(2)):", r);
         for ((_, rotulo), (_, m16, mfinal, b16, bfinal)) in modos.iter().zip(&cadeias) {
-            let s16 = desvio_diferenca(m16, b16, o.largura, r);
-            let s64 = desvio_diferenca(mfinal, bfinal, o.largura, r);
+            let s16 = ruido(m16, b16, o.largura, r);
+            let s64 = ruido(mfinal, bfinal, o.largura, r);
             println!("  ({rotulo}) N=16: {s16:.5}  N={}: {s64:.5}  razão {:.2}", o.spp, s16 / s64);
-            ruido_16_64.push((s16, s64));
+        }
+        for ((rotulo, _, _), (_, m16, mfinal, b16, bfinal)) in fase3.iter().zip(&cadeias_f3) {
+            let s16 = ruido(m16, b16, o.largura, r);
+            let s64 = ruido(mfinal, bfinal, o.largura, r);
+            println!("  (fase 3, {rotulo}) N=16: {s16:.5}  N={}: {s64:.5}  razão {:.2}", o.spp, s16 / s64);
         }
     }
 
-    // Referência de sol direto na CPU (fase 1), para a máscara de faces diretas.
+    // Referência de sol direto na CPU (fase 1), para a máscara de faces diretas. Com cache.
     let t_direto = Instant::now();
-    let direto_ref = referencia::direto_cpu(&cena, o.largura, o.altura, o.ref_spp, 1, f64::from(raio_sol))?;
-    println!(
-        "\nreferência CPU sol direto ({} amostras): {:.1} s",
-        o.ref_spp,
-        t_direto.elapsed().as_secs_f64()
-    );
+    let nome_direto = format!("direto_{}x{}_s{}_r{}.bin", o.largura, o.altura, o.ref_spp, o.raio_sol_graus);
+    let n_px = (o.largura * o.altura) as usize;
+    let direto_ref: Vec<[f32; 3]> = match ler_cache(&o, &nome_direto, n_px * 12) {
+        Some(bytes) => {
+            println!("\nreferência CPU sol direto: cache {nome_direto}");
+            bytes
+                .chunks_exact(12)
+                .map(|c| {
+                    let f = |i: usize| f32::from_le_bytes([c[i], c[i + 1], c[i + 2], c[i + 3]]);
+                    [f(0), f(4), f(8)]
+                })
+                .collect()
+        }
+        None => {
+            let calculada = referencia::direto_cpu(&cena, o.largura, o.altura, o.ref_spp, 1, f64::from(raio_sol))?;
+            let bytes: Vec<u8> = calculada.iter().flat_map(|p| p.iter().flat_map(|v| v.to_le_bytes())).collect();
+            gravar_cache(&o, &nome_direto, &bytes)?;
+            println!(
+                "\nreferência CPU sol direto ({} amostras): {:.1} s",
+                o.ref_spp,
+                t_direto.elapsed().as_secs_f64()
+            );
+            calculada
+        }
+    };
     salvar_png(&format!("{}/cpu_direto.png", o.saida), &direto_ref, o.largura, o.altura)?;
     let mascara_superficie = referencia::mascara_superficie(&cena, o.largura, o.altura)?;
 
-    // Tracer completo do render-core: céu, especular e rebotes. Só a referência de corretude.
+    // Tracer completo do render-core: céu, especular e rebotes. Referência de corretude.
     if o.cpu_ref_spp > 0 {
-        let trabalho = Trabalho::novo(o.largura, o.altura, 1.0).map_err(|e| format!("{e:?}"))?;
-        let cancelado = AtomicBool::new(false);
-        let t = Instant::now();
-        let rgba = renderizar_imagem(&cena, &trabalho, o.cpu_ref_spp, 1, &cancelado).map_err(|e| format!("{e:?}"))?;
-        println!(
-            "tracer completo do render-core ({} amostras, céu e rebotes): {:.1} s",
-            o.cpu_ref_spp,
-            t.elapsed().as_secs_f64()
-        );
+        let nome_completo = format!("completo_{}x{}_s{}.rgba", o.largura, o.altura, o.cpu_ref_spp);
+        let rgba: Vec<u8> = match ler_cache(&o, &nome_completo, n_px * 4) {
+            Some(bytes) => {
+                println!("tracer completo do render-core: cache {nome_completo}");
+                bytes
+            }
+            None => {
+                let trabalho = Trabalho::novo(o.largura, o.altura, 1.0).map_err(|e| format!("{e:?}"))?;
+                let cancelado = AtomicBool::new(false);
+                let t = Instant::now();
+                let rgba = renderizar_imagem(&cena, &trabalho, o.cpu_ref_spp, 1, &cancelado).map_err(|e| format!("{e:?}"))?;
+                println!(
+                    "tracer completo do render-core ({} amostras, céu e rebotes): {:.1} s",
+                    o.cpu_ref_spp,
+                    t.elapsed().as_secs_f64()
+                );
+                gravar_cache(&o, &nome_completo, &rgba)?;
+                rgba
+            }
+        };
         let png = render_core::imagem::codificar_png(o.largura, o.altura, &rgba).map_err(|e| format!("{e:?}"))?;
         std::fs::write(format!("{}/cpu_ref.png", o.saida), png).map_err(|e| e.to_string())?;
         let referencia_lin = rgba_para_linear(&rgba, &tabela_inversa());
         let ref_lum = luminancias(&referencia_lin);
         let direto_lum = luminancias(&direto_ref);
-        // Indireta de referência: tracer completo menos sombra direta (inclui especular e o termo de
-        // ambiente do tracer). Só como estimativa.
         let ind_ref: Vec<f64> = ref_lum.iter().zip(&direto_lum).map(|(r, d)| r - d).collect();
         let sup: Vec<bool> = mascara_superficie.clone();
         let direta: Vec<bool> = sup.iter().zip(&direto_lum).map(|(s, d)| *s && *d > 1.0e-3).collect();
         let todos = vec![true; ref_lum.len()];
-
-        // Linhas: (rótulo, imagem final da GPU). A indireta usa a imagem (a) como base.
-        let linhas: Vec<(String, Vec<[f32; 3]>)> = vec![
-            ("a".into(), cadeias[0].2.clone()),
-            ("b, céu do motor".into(), cadeias[1].2.clone()),
-            ("c, céu do motor".into(), cadeias[2].2.clone()),
-            ("b, céu uniforme".into(), cadeias_uniforme[0].2.clone()),
-            ("c, céu uniforme".into(), cadeias_uniforme[1].2.clone()),
-        ];
+        let referencias = Referencias {
+            lum: ref_lum.clone(),
+            ind: ind_ref,
+            sup: sup.clone(),
+            direta: direta.clone(),
+            todos,
+        };
         let ind_a = luminancias(&cadeias[0].2);
+
         println!("\nCorretude (diferença média de luminância vs tracer do render-core; viés com sinal):");
         println!(
             "  faces diretas = superfícies com sol direto na referência ({} px); superfície = {} px",
             direta.iter().filter(|b| **b).count(),
             sup.iter().filter(|b| **b).count()
         );
-        for (rotulo, mfinal) in &linhas {
-            let g = luminancias(mfinal);
-            let (geral, viés_geral) = diferenca_relativa(&g, &ref_lum, &todos);
-            let (superficie, _) = diferenca_relativa(&g, &ref_lum, &sup);
-            let (diretas, _) = diferenca_relativa(&g, &ref_lum, &direta);
-            // Indireta: (GPU − GPU a) contra (referência − sombra direta da CPU), em superfícies.
-            let ind_g: Vec<f64> = g.iter().zip(&ind_a).map(|(x, a)| x - a).collect();
-            let (indireta, _) = diferenca_relativa(&ind_g, &ind_ref, &sup);
-            println!(
-                "  ({rotulo}) geral {:.2} % (viés {:+.2} %) | superfície {:.2} % | faces diretas {:.2} % | indireta {:.2} %",
-                geral * 100.0,
-                viés_geral * 100.0,
-                superficie * 100.0,
-                diretas * 100.0,
-                indireta * 100.0
-            );
+        // Legado da fase 2.
+        let legado: Vec<(&str, &Vec<[f32; 3]>)> = vec![
+            ("a", &cadeias[0].2),
+            ("b, céu do motor", &cadeias[1].2),
+            ("c, céu do motor", &cadeias[2].2),
+            ("b, céu uniforme", &cadeias_uniforme[0].2),
+            ("c, céu uniforme", &cadeias_uniforme[1].2),
+        ];
+        for (rotulo, imagem) in &legado {
+            let g = luminancias(imagem);
+            imprimir_metricas(rotulo, &medir(&g, &ind_a, &referencias));
         }
+        // Fase 3.
+        println!("  -- fase 3, céu uniforme --");
+        for ((rotulo, _, _), (_, _, mfinal, _, _)) in fase3.iter().zip(&cadeias_f3) {
+            let g = luminancias(mfinal);
+            imprimir_metricas(rotulo, &medir(&g, &ind_a, &referencias));
+        }
+        // Ruído da própria referência: o tracer com outra semente contra o da semente 1 (mesmas métricas;
+        // a diferença é ruído de duas referências, ou seja, cerca de sqrt(2) vezes o ruído de uma).
+        if o.ref_ruido {
+            let nome_outra = format!("completo_{}x{}_s{}_semente256.rgba", o.largura, o.altura, o.cpu_ref_spp);
+            let rgba2: Vec<u8> = match ler_cache(&o, &nome_outra, n_px * 4) {
+                Some(bytes) => bytes,
+                None => {
+                    let trabalho = Trabalho::novo(o.largura, o.altura, 1.0).map_err(|e| format!("{e:?}"))?;
+                    let cancelado = AtomicBool::new(false);
+                    let rgba2 = renderizar_imagem(&cena, &trabalho, o.cpu_ref_spp, SEMENTE_REFERENCIA_B, &cancelado).map_err(|e| format!("{e:?}"))?;
+                    gravar_cache(&o, &nome_outra, &rgba2)?;
+                    rgba2
+                }
+            };
+            let ref2_lum = luminancias(&rgba_para_linear(&rgba2, &tabela_inversa()));
+            let m = medir(&ref2_lum, &ind_a, &referencias);
+            imprimir_metricas("referência, semente 2 contra semente 1 (ruído da referência)", &m);
+        }
+
+        // Ruído da GPU: cadeia B contra cadeia A de cada configuração (mesmo N). A diferença média entre
+        // duas cadeias independentes é sqrt(2) vezes o erro de uma cadeia contra o valor esperado.
+        println!("  -- ruído da GPU (cadeia B contra A, N = {}; divida por sqrt(2) para o erro de uma cadeia) --", o.spp);
+        for ((rotulo, _, _), (_, _, mfinal, _, bfinal)) in fase3.iter().zip(&cadeias_f3) {
+            let a_lum = luminancias(mfinal);
+            let b_lum = luminancias(bfinal);
+            let (geral_ruido, _) = diferenca_relativa(&b_lum, &a_lum, &referencias.todos);
+            let (diretas_ruido, _) = diferenca_relativa(&b_lum, &a_lum, &referencias.direta);
+            println!("  ({rotulo}) geral {:.2} % | faces diretas {:.2} %", geral_ruido * 100.0, diretas_ruido * 100.0);
+        }
+
+        // Termo direto isolado: a GPU (direto) contra a sombra direta da CPU, na superfície.
+        let g_direto = luminancias(&cadeias_f3[0].2);
+        let (direto_vs_cpu, _) = diferenca_relativa(&g_direto, &direto_lum, &sup);
+        println!("  (direto da GPU contra sombra direta da CPU, superfície) {:.3} %", direto_vs_cpu * 100.0);
         let (direto_vs_ref, _) = diferenca_relativa(&direto_lum, &ref_lum, &direta);
         println!(
             "  (referência CPU sol direto contra o tracer completo, faces diretas) {:.2} %",
             direto_vs_ref * 100.0
         );
 
-        // Modelo da GPU em CPU, com as mesmas contas (ver referencia::modelo_cpu). Separa erro de
-        // implementação (GPU contra este modelo) de diferença de modelo (contra o render-core).
+        // Modelo da GPU em CPU (só o legado da fase 2): separa erro de implementação de diferença de modelo.
         if o.modelo_spp > 0 {
             let fundo_cena = cena.fundo.map(|c| [c[0] as f32, c[1] as f32, c[2] as f32]);
             let mut opcoes = vec![
@@ -394,28 +649,31 @@ fn main() -> Result<(), String> {
                 };
                 let cpu = referencia::modelo_cpu(&cena, &parametros)?;
                 let cpu_lum = luminancias(&cpu);
-                let gpu_img = &linhas.iter().find(|(nome, _)| nome == rotulo).ok_or("linha da GPU ausente")?.1;
-                let g = luminancias(gpu_img);
-                let ind_g: Vec<f64> = g.iter().zip(&ind_a).map(|(x, a)| x - a).collect();
+                let imagem = &legado.iter().find(|(nome, _)| *nome == rotulo).ok_or("linha da GPU ausente")?.1;
+                let g = luminancias(imagem);
                 let ind_c: Vec<f64> = cpu_lum.iter().zip(&direto_lum).map(|(c, d)| c - d).collect();
-                let (geral, viés) = diferenca_relativa(&g, &cpu_lum, &todos);
-                let (superficie, _) = diferenca_relativa(&g, &cpu_lum, &sup);
-                let (diretas, _) = diferenca_relativa(&g, &cpu_lum, &direta);
-                let (indireta, _) = diferenca_relativa(&ind_g, &ind_c, &sup);
+                let referencias_modelo = Referencias {
+                    lum: cpu_lum.clone(),
+                    ind: ind_c,
+                    sup: sup.clone(),
+                    direta: direta.clone(),
+                    todos: vec![true; cpu_lum.len()],
+                };
+                let m = medir(&g, &ind_a, &referencias_modelo);
                 println!(
                     "  ({rotulo}) geral {:.2} % (viés {:+.2} %) | superfície {:.2} % | faces diretas {:.2} % | indireta {:.2} % ({:.1} s)",
-                    geral * 100.0,
-                    viés * 100.0,
-                    superficie * 100.0,
-                    diretas * 100.0,
-                    indireta * 100.0,
+                    m.geral * 100.0,
+                    m.viés * 100.0,
+                    m.superficie * 100.0,
+                    m.diretas * 100.0,
+                    m.indireta * 100.0,
                     t.elapsed().as_secs_f64()
                 );
             }
         }
     }
 
-    // Imagens da prova visual (N = spp; e N = 16 do rebote, para ver o ruído).
+    // Imagens da prova visual (N = spp), legado e fase 3.
     for ((_, rotulo), (_, _, mfinal, _, _)) in modos.iter().zip(&cadeias) {
         let nome = match *rotulo {
             "a" => "sol_direto.png",
@@ -424,17 +682,9 @@ fn main() -> Result<(), String> {
         };
         salvar_png(&format!("{}/{nome}", o.saida), mfinal, o.largura, o.altura)?;
     }
-    salvar_png(&format!("{}/sol_ceu_rebote_n16.png", o.saida), &cadeias[2].1, o.largura, o.altura)?;
+    for ((_, arquivo, _), (_, _, mfinal, _, _)) in fase3.iter().zip(&cadeias_f3) {
+        salvar_png(&format!("{}/{arquivo}_n{}.png", o.saida, o.spp), mfinal, o.largura, o.altura)?;
+    }
     println!("\nsaídas em {}", o.saida);
     Ok(())
-}
-
-/// Desvio padrão de (A − B)/√2 numa região: estima o ruído de uma cadeia com N amostras.
-fn desvio_diferenca(a: &[[f32; 3]], b: &[[f32; 3]], largura: u32, r: [u32; 4]) -> f64 {
-    let diferenca: Vec<f64> = a
-        .iter()
-        .zip(b)
-        .map(|(x, y)| f64::from(luminancia(*x) - luminancia(*y)) / std::f64::consts::SQRT_2)
-        .collect();
-    desvio_regiao(&diferenca, largura, r)
 }
