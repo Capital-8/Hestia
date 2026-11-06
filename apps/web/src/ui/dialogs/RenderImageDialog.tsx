@@ -1,8 +1,8 @@
 /* eslint-disable max-lines -- o diálogo reúne prévia progressiva, resolução e entrega; dividir depois. */
 import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react';
-import { newId, view3dOf, type Project, type SheetView3DCamera } from '@hestia/model';
+import { newId, projectRenderCameras, renderCameraOf, view3dOf, type Project, type SheetView3DCamera } from '@hestia/model';
 import { resolveLevel } from '@hestia/engine';
-import { ModelScene } from '@hestia/render';
+import { ModelScene, cameraDeRenderParaSnapshot, type CameraDeRenderSnapshot } from '@hestia/render';
 import { useProject } from '../../editor/controller.ts';
 import { entregarArquivo } from '../../editor/entregarArquivo.ts';
 import { canvasAtivo, comModoApresentacao } from '../../editor/render/captureRegistry.ts';
@@ -12,6 +12,7 @@ import { comTexturasCarregadas } from '../../editor/render/texturasCena.ts';
 import { renderizarNativo, saudeRenderNativo } from '../../editor/render/nativeClient.ts';
 import { cameraPreviewAtual } from '../../editor/render/previewCamera.ts';
 import { camera3DAtual } from '../../editor/vista3dAoVivo.ts';
+import { useRenderCameraUi } from '../../editor/renderCameraSelecao.ts';
 import {
   LIMITE_LADO_IMAGEM,
   LIMITE_PIXELS_IMAGEM,
@@ -36,6 +37,7 @@ import {
   MENSAGEM_SERVICO_GPU_INDISPONIVEL,
   barraProgresso,
   modoVistaDaCaptura,
+  linhaDaCameraDeRender,
   motivoGpuIndisponivel,
   nomeArquivoRender,
   podeClicarRenderizar,
@@ -72,13 +74,16 @@ function rotuloDaVista(view: string): string {
   return 'Vista ativa';
 }
 
-/** Snapshot da cena 3D para o path tracer (mesma montagem realista da vista 3D). */
-function cenaDoProjeto(p: Project, camera: SheetView3DCamera, aspect: number) {
+/**
+ * Snapshot da cena 3D para o path tracer (mesma montagem realista da vista 3D). Com `explicita` (câmera de render
+ * escolhida na aba Vista), a câmera é a dela; senão, a câmera da vista 3D ou o enquadramento automático.
+ */
+function cenaDoProjeto(p: Project, camera: SheetView3DCamera | null, aspect: number, explicita: CameraDeRenderSnapshot | null = null) {
   const cena = new ModelScene();
   try {
     const projeto = { ...p, view3d: { ...view3dOf(p), style: 'realistic' as const, shadows: true, edges: true } };
     cena.update(projeto, p.levels.map((l) => resolveLevel(projeto, l.id)), { dark: false, edges: true, shadows: true });
-    return cena.exportarCenaDeRender({ camera, aspect });
+    return explicita ? cena.exportarCenaDeRender({ cameraExplicita: explicita }) : cena.exportarCenaDeRender({ camera: camera ?? undefined, aspect });
   } finally {
     cena.dispose();
   }
@@ -225,6 +230,13 @@ export function RenderImageDialog(): ReactElement {
   const alvoSaidaRef = useRef<DimensoesImagem | null>(null);
   const nomeSaidaRef = useRef<string>('');
   const cameraFinal = camera3DAtual() ?? cameraPreviewAtual();
+  // Câmera de render escolhida na aba Vista (seleção de tela). Só o render GPU nativo a usa: posição, alvo, FOV e proporção.
+  const idCameraDeRender = useRenderCameraUi((s) => s.selecionada);
+  const cameraDeRender = useMemo(
+    () => (idCameraDeRender ? renderCameraOf(p, idCameraDeRender) ?? null : null),
+    [idCameraDeRender, p],
+  );
+  const explicitaDeRender = useMemo(() => (cameraDeRender ? cameraDeRenderParaSnapshot(cameraDeRender) : null), [cameraDeRender]);
   // Com uma câmera 3D disponível, abrir já no render final: a prévia é o path tracer de verdade e
   // não depende do buffer do canvas da tela (que pode vir vazio em alguns navegadores).
   const [qualidade, setQualidade] = useState<'rascunho' | 'final' | 'gpu'>(() => (cameraFinal ? 'final' : 'rascunho'));
@@ -258,20 +270,33 @@ export function RenderImageDialog(): ReactElement {
     void clienteFinal.current?.then((c) => c.dispose()).catch(() => {});
   }, []);
 
-  const alvo = useMemo(
-    () => (base ? resolverDimensoes(base, modo, personalizado) : null),
-    [base, modo, personalizado],
-  );
+  // A câmera de render vale só no GPU nativo; nos outros caminhos a câmera continua a da vista.
+  const cameraDeRenderGpu = qualidade === 'gpu' ? explicitaDeRender : null;
+  const alvo = useMemo(() => {
+    const dim = base ? resolverDimensoes(base, modo, personalizado) : null;
+    // Com a câmera de render, a altura segue a proporção dela (a largura escolhida fica).
+    if (!dim || !cameraDeRenderGpu) return dim;
+    return { largura: dim.largura, altura: Math.max(1, Math.round(dim.largura / cameraDeRenderGpu.aspect)) };
+  }, [base, modo, personalizado, cameraDeRenderGpu]);
   const problema = alvo ? validarDimensoes(alvo) : null;
   const arquivo = nomeArquivoPng(nome);
   const snapshotFinal = useMemo(() => {
-    if (qualidade === 'rascunho' || !cameraFinal || !alvo) return null;
+    if (qualidade === 'rascunho' || !alvo) return null;
     try {
+      if (cameraDeRenderGpu) return cenaDoProjeto(p, null, alvo.largura / alvo.altura, cameraDeRenderGpu);
+      if (!cameraFinal) return null;
       return cenaDoProjeto(p, cameraFinal, alvo.largura / alvo.altura);
     } catch {
       return null;
     }
-  }, [qualidade, cameraFinal, alvo, p]);
+  }, [qualidade, cameraFinal, alvo, p, cameraDeRenderGpu]);
+  const linhaCamera = linhaDaCameraDeRender({
+    gpu: qualidade === 'gpu',
+    selecionada: cameraDeRender ? { nome: cameraDeRender.name } : null,
+    temCameras: projectRenderCameras(p).length > 0,
+  });
+  // Proporção da prévia: a da câmera de render no GPU, a da vista de base nos outros caminhos.
+  const proporcaoPrevia = cameraDeRenderGpu && alvo ? alvo : base;
   const estadoGpu = session.estado;
   const progressoGpu = estadoGpu.tipo === 'renderizando' ? estadoGpu : null;
   const fracaoGpu = session.fracao;
@@ -286,7 +311,7 @@ export function RenderImageDialog(): ReactElement {
     ocupadoLegado: ocupado,
     alvoValido: !!base && !!alvo && !problema,
     servicoDisponivel: gpuDisponivel === true,
-    temCamera: !!cameraFinal,
+    temCamera: qualidade === 'gpu' ? !!cameraFinal || !!cameraDeRenderGpu : !!cameraFinal,
     temSnapshot: !!snapshotFinal,
     // Rascunho só vale na vista 3D (ver `podeRascunhoDaVista`); fora dela o botão fica parado com o aviso.
     temFonte: !!fonte && rascunhoPermitido,
@@ -357,10 +382,12 @@ export function RenderImageDialog(): ReactElement {
     if (!canvas || !base) return;
 
     if (qualidade === 'gpu') {
-      if (!snapshotFinal || !cameraFinal || !gpuDisponivel) return;
+      if (!snapshotFinal || !gpuDisponivel) return;
       let cancelado = false;
       const largura = Math.max(1, Math.min(640, Math.round(base.largura)));
-      const altura = Math.max(1, Math.round((largura * base.altura) / base.largura));
+      const altura = cameraDeRenderGpu
+        ? Math.max(1, Math.round(largura / cameraDeRenderGpu.aspect))
+        : Math.max(1, Math.round((largura * base.altura) / base.largura));
       // As texturas dos presets são carregadas antes de codificar (falha vira erro da prévia, não cena sem textura).
       void comTexturasCarregadas(snapshotFinal)
         .then((cena) => renderizarNativo(codificarCena(cena), { largura, altura, exposicao }))
@@ -462,7 +489,7 @@ export function RenderImageDialog(): ReactElement {
     } catch {
       setPreviaFalhou(true);
     }
-  }, [fonte, base, qualidade, snapshotFinal, cameraFinal, exposicao, gpuDisponivel, rascunhoPermitido, apresentacao3d]);
+  }, [fonte, base, qualidade, snapshotFinal, cameraFinal, exposicao, gpuDisponivel, rascunhoPermitido, apresentacao3d, cameraDeRenderGpu]);
 
   // Em “largura/altura”, o campo que não foi editado acompanha o outro enquanto a proporção estiver travada.
   const mudarLargura = (v: number): void => {
@@ -488,7 +515,7 @@ export function RenderImageDialog(): ReactElement {
 
   /** GPU nativo: o job roda na sessão (hook); o resultado aparece no modal e só então "Baixar". */
   const iniciarGpu = async (): Promise<void> => {
-    if (!base || !alvo || problema || !snapshotFinal || !cameraFinal) return;
+    if (!base || !alvo || problema || !snapshotFinal || !(cameraFinal || cameraDeRenderGpu)) return;
     if (gpuDisponivel !== true) {
       setErro(MENSAGEM_SERVICO_GPU_INDISPONIVEL);
       return;
@@ -726,7 +753,7 @@ export function RenderImageDialog(): ReactElement {
         ) : null}
 
         <div className="ri-grid">
-          <div className="ri-previa" style={base ? { aspectRatio: `${base.largura} / ${base.altura}` } : undefined}>
+          <div className="ri-previa" style={proporcaoPrevia ? { aspectRatio: `${proporcaoPrevia.largura} / ${proporcaoPrevia.altura}` } : undefined}>
             {base ? (
               <canvas ref={previaRef} aria-label="Prévia da captura" hidden={urlResultado !== null || rascunhoRecusado} />
             ) : (
@@ -767,7 +794,7 @@ export function RenderImageDialog(): ReactElement {
                   type="button"
                   className={`ri-op${qualidade === 'gpu' ? ' on' : ''}`}
                   aria-pressed={qualidade === 'gpu'}
-                  disabled={gpuDisponivel !== true || !cameraFinal || travada}
+                  disabled={gpuDisponivel !== true || !(cameraFinal || explicitaDeRender) || travada}
                   title={gpuDisponivel === true ? 'Render GPU nativo Rust/wgpu com mapa de sombra e PBR' : 'Inicie o render-service local para usar a GPU nativa'}
                   onClick={() => { escolhaManual.current = true; setQualidade('gpu'); }}
                 >
@@ -781,6 +808,7 @@ export function RenderImageDialog(): ReactElement {
                     ? 'Render final em Rust/WASM no navegador; mais lento que a GPU nativa.'
                     : 'Rascunho: captura a vista 3D em modo apresentação (sem grade nem níveis), sem recalcular a luz.'}
               </p>
+              {linhaCamera ? <p className="ri-dica">{linhaCamera}</p> : null}
               {qualidade === 'final' ? (
                 <label className="ri-campo">
                   <span>Amostras (WASM)</span>

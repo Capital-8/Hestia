@@ -14,6 +14,7 @@ export * from './plan/gpuPlan.ts';
 export * from './model3d/solids.ts';
 export * from './model3d/orbit.ts';
 export * from './model3d/scene3d.ts';
+export * from './model3d/cameraDeRender.ts';
 export * from './model3d/pick3d.ts';
 export * from './model3d/selecaoPorCaixa3d.ts';
 export * from './model3d/cad3d.ts';

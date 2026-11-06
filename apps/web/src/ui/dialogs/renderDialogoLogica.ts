@@ -106,3 +106,26 @@ export function nomeArquivoRender(data: Date): string {
   const hora = `${dois(data.getHours())}${dois(data.getMinutes())}${dois(data.getSeconds())}`;
   return `render-${dia}-${hora}.png`;
 }
+
+/** Linha do diálogo sobre a câmera de render: a escolhida na aba Vista (ou o enquadramento automático). */
+export const TEXTO_ENQUADRAMENTO_AUTOMATICO = 'Enquadramento automático';
+export const TEXTO_SELECIONE_CAMERA = 'Enquadramento automático (selecione uma câmera de render na aba Vista para usá-la)';
+
+export interface EntradaLinhaCameraDeRender {
+  /** Qualidade GPU: só o render GPU nativo usa a câmera de render; os outros caminhos não mostram a linha. */
+  gpu: boolean;
+  /** Câmera de render escolhida e existente no projeto (ausente = nenhuma). */
+  selecionada: { nome: string } | null;
+  /** O projeto tem câmeras de render (para sugerir a seleção). */
+  temCameras: boolean;
+}
+
+/**
+ * Texto da linha de câmera no diálogo. Null fora do GPU nativo (o Rascunho e o Final seguem a vista ativa, não a câmera
+ * de render, então a linha não diria a verdade para eles).
+ */
+export function linhaDaCameraDeRender(e: EntradaLinhaCameraDeRender): string | null {
+  if (!e.gpu) return null;
+  if (e.selecionada) return `Câmera: ${e.selecionada.nome}`;
+  return e.temCameras ? TEXTO_SELECIONE_CAMERA : TEXTO_ENQUADRAMENTO_AUTOMATICO;
+}

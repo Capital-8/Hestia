@@ -9,6 +9,7 @@ import {
   podeClicarRenderizar,
   podeRascunhoDaVista,
   podeCairParaRascunho,
+  linhaDaCameraDeRender,
   rotuloDoBotaoPrincipal,
   rotuloDoResultado,
   type EntradaPodeRenderizar,
@@ -161,5 +162,26 @@ describe('falha do Final e rascunho', () => {
   it('outras falhas do Final mantêm o rascunho (com aviso no diálogo)', () => {
     expect(podeCairParaRascunho(new ErroRenderWasm(CODIGO_RENDER.interno))).toBe(true);
     expect(podeCairParaRascunho(new Error('falha qualquer'))).toBe(true);
+  });
+});
+
+describe('linha da câmera de render no diálogo', () => {
+  it('câmera escolhida e em uso no GPU: "Câmera: <nome>"', () => {
+    expect(linhaDaCameraDeRender({ gpu: true, selecionada: { nome: 'Câmera 1' }, temCameras: true })).toBe('Câmera: Câmera 1');
+  });
+
+  it('sem câmera escolhida, mas com câmeras no projeto: pede a seleção na aba Vista', () => {
+    expect(linhaDaCameraDeRender({ gpu: true, selecionada: null, temCameras: true })).toBe(
+      'Enquadramento automático (selecione uma câmera de render na aba Vista para usá-la)',
+    );
+  });
+
+  it('sem câmera escolhida e sem câmeras no projeto: enquadramento automático simples', () => {
+    expect(linhaDaCameraDeRender({ gpu: true, selecionada: null, temCameras: false })).toBe('Enquadramento automático');
+  });
+
+  it('fora do GPU nativo não há linha (Rascunho e Final seguem a vista ativa)', () => {
+    expect(linhaDaCameraDeRender({ gpu: false, selecionada: { nome: 'Câmera 1' }, temCameras: true })).toBeNull();
+    expect(linhaDaCameraDeRender({ gpu: false, selecionada: null, temCameras: false })).toBeNull();
   });
 });

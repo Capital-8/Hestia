@@ -6,6 +6,7 @@ import { DARK, LIGHT } from '../plan/types.ts';
 import { AVISO } from '../aviso.ts';
 import { projetoDaJuncao } from '../plan/viewContext.ts';
 import { HOME_VIEW, OCUPACAO_ENQUADRAMENTO, OrbitCamera, aplicarCameraNaOrbita, cameraBasis, enquadrarCamera } from './orbit.ts';
+import { aplicarCameraDeRenderNaOrbita, vistaDaPosicao, type CameraDeRenderSnapshot } from './cameraDeRender.ts';
 import { ehElementoDeApresentacao } from './apresentacao.ts';
 import { firstSurfaceDistance } from './pick3d.ts';
 import { caixasEPrismasDaAbertura, montarAbertura } from './aberturas3d.ts';
@@ -799,8 +800,12 @@ export class ModelScene {
    * Acrescenta o chão neutro (ver `verticesDoChaoNeutro`), que recebe a sombra do sol. Sem `camera`, usa o
    * enquadramento automático (`enquadrarCamera`) da geometria exportada, na vista padrão do app e no `aspect` pedido;
    * a câmera escolhida pelo usuário, quando passada, vence.
+   *
+   * `cameraExplicita` (a câmera de render do projeto, ver `cameraDeRender.ts`) vence sobre tudo: posição, alvo, FOV
+   * vertical e proporção são os dela, sem enquadramento. A distância do chão neutro sai da mesma posição.
    */
-  exportarCenaDeRender(opcoes: { camera?: SheetView3DCamera; aspect?: number }): RenderSceneSnapshot {
+  exportarCenaDeRender(opcoes: { camera?: SheetView3DCamera; aspect?: number; cameraExplicita?: CameraDeRenderSnapshot }): RenderSceneSnapshot {
+    const explicita = opcoes.cameraExplicita;
     this.model.updateMatrixWorld(true);
     const posicoes: number[] = [];
     const indices: number[] = [];
@@ -861,9 +866,11 @@ export class ModelScene {
 
     // A caixa é a do modelo (antes do chão): é a base do enquadramento automático e do próprio chão neutro.
     const caixa = new THREE.Box3().setFromArray(posicoes);
-    const aspecto = opcoes.aspect ?? 16 / 9;
+    const aspecto = explicita?.aspect ?? opcoes.aspect ?? 16 / 9;
     const orb = new OrbitCamera();
-    const cameraDoRender = opcoes.camera ?? enquadrarCamera(caixa, HOME_VIEW.azimuth, HOME_VIEW.elevation, orb.perspective.fov, aspecto, OCUPACAO_ENQUADRAMENTO, posicoes);
+    const cameraDoRender = explicita
+      ? vistaDaPosicao(explicita.position, explicita.target)
+      : (opcoes.camera ?? enquadrarCamera(caixa, HOME_VIEW.azimuth, HOME_VIEW.elevation, orb.perspective.fov, aspecto, OCUPACAO_ENQUADRAMENTO, posicoes));
     if (!caixa.isEmpty()) {
       const margem = Math.max(MARGEM_CHAO_NEUTRO, FATOR_MARGEM_CHAO * cameraDoRender.distance);
       const chao = verticesDoChaoNeutro(caixa, margem);
@@ -884,7 +891,8 @@ export class ModelScene {
       for (let i = 0; i < chao.length / 3; i++) indices.push(indices.length);
       lotes.push({ indexStart: inicioChao, indexCount: indices.length - inicioChao, material: indiceChao });
     }
-    aplicarCameraNaOrbita(orb, cameraDoRender);
+    if (explicita) aplicarCameraDeRenderNaOrbita(orb, explicita);
+    else aplicarCameraNaOrbita(orb, cameraDoRender);
     orb.setAspect(aspecto, 1);
     orb.apply();
     const camera = orb.camera;
