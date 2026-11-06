@@ -60,3 +60,18 @@ Uma ficha por caso, tudo junto numa nota só: (1) data; (2) pavimento (nível); 
 - **Decisões:** 0048 (tolerância do pintor) e 0049 (diferença de arredondamento entre bibliotecas), com medição registrada; as tolerâncias seguem 1 µm de coordenada e 1e-6 m²/m³, sem afrouxamento.
 - **Fora da fatia B:** B4; e, não cobertos pelos seus projetos: paredes curvas, esquinas em miter, lajes inclinadas, pisos/lajes vinculados a ambiente, perfil de topo de parede, limite externo de camada, telhados na comparação e escadas como elemento (só os furos).
 - **Pendências:** decidir a saída do defeito das faixas inclinadas (0050) e então despachar a B3; B4; validação visual do dono (roteiro acima); projeto de teste dos casos não cobertos; medição de desempenho no fim da migração.
+
+## Atualização 2026-11-06: só Rust e verificação (ver docs/decisoes/0049)
+
+Esta seção substitui, pela decisão "só Rust", as frases que dizem que uma falha do Rust **volta ao TypeScript** (itens 1 e 7 do roteiro e o item "Despachado" do resumo). Quando a falha ocorrer, o app deve mostrar erro explícito (`ErroKernel`), não o cálculo do TypeScript. O TypeScript fica só como oráculo de teste e no modo sombra. O recuo ainda está no código e a remoção está pendente.
+
+- **Correção I3 (commit 688a96e7):** faixas de junção vindas do TS com vértices a menos de 1e-9 m passam por `normalizar_na_grade` (grade de 1 µm) no Rust, em `crates/geom-wasm/src/b3.rs`.
+- **Volume exato:** `volume_exato_afim`, `volume_por_trechos` (`Span::Perfil`) e `overlap_volume`, com casos analíticos em `crates/geom-wasm/src/volume_sobreposicao.rs`.
+- **Verificação nova:** `tests/kernel-invariantes-rust.wasm.test.ts` (invariantes I1 a I5), mais `cargo test` em `crates/geom-wasm`.
+
+### Pendente
+
+- Regenerar o `.wasm`.
+- Verificação completa nos 11 projetos, só com agregados.
+- Medição de desempenho.
+- Validação visual pelo dono, com o roteiro acima.

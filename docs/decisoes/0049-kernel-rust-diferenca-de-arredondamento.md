@@ -89,3 +89,54 @@ as cotas de `compararB3` em `kernelComparaB3.ts`. O limite de 1e-6 m² e as dema
 - Regra: a altura de uma faixa é o mínimo de z0 e o máximo de z1 SOMENTE entre as peças com área maior que 1e-6 m² (`areaDaForma`). No comparador de faixas (`compararB3`), as cotas que definem as amostras verticais só entram quando a peça tem área real. Se não houver peça acima de 1e-6 m², a faixa não tem altura medida e não compara.
 - Motivo: resíduos de arredondamento de área menor que 1e-6 m² não são material. Uma peça de área zero (ou de 1e-7 m²) com cota diferente da peça real (por exemplo 3,00 x 2,88) fazia a medida usar uma cota que não existe na região; foi a origem dos 24 casos de "0,12 m" nos projetos sem-titulo-8, -9 e -10.
 - Não muda: a comparação de REGIÃO e de VOLUME continua com todas as peças, inclusive as de área menor. Só a medida de altura muda.
+
+## Atualização 2026-11-06: só Rust, correção I3 e volume exato
+
+Data: 2026-11-06. Decisões do dono. Registra o que mudou no kernel Rust (fatias A e B) nesta data.
+
+### Decisão "só Rust"
+
+- O Rust calcula as partes de A e B e as quantidades (parede, piso, laje e forro).
+- Falha do Rust vira erro explícito (`ErroKernel`), nunca cálculo em TypeScript no lugar.
+- O TypeScript fica só como oráculo de teste (comparações nos testes e modo sombra).
+- Estado do código: o recuo ao TypeScript ainda existe (`ErroKernelLeve` em `packages/geom/src/kernel/v2/cena.ts` e os
+  despachos `kernelDespacho.ts` e `kernelDespachoB.ts`). A remoção está na seção Pendente.
+
+### Correção I3 (commit 688a96e7)
+
+- Faixas de junção vindas do TS com vértices a menos de 1e-9 m passam por `normalizar_na_grade` (grade de 1 µm,
+  `ESCALA_FINA`) em `crates/geom-wasm/src/b3.rs`, antes da montagem do anel.
+- O flag `cut` só é ligado acima de área × `Z_EPS`.
+- Corrige a falha do I3 na semente 1 (teste `faixa_de_juncao_com_vertices_a_menos_de_1e_9_nao_sai_com_anel_que_toca_a_si_mesmo`).
+
+### Volume exato
+
+- `volume_exato_afim` (`crates/geom-wasm/src/volume_sobreposicao.rs`): volume da interseção quando as alturas são afins.
+- `volume_por_trechos` com `Span::Perfil`: recorte em trechos quando a altura é um perfil. Tolerância da média de perfil: ≤ 1e-6.
+- `overlap_volume`: ponto de entrada que escolhe o método para duas peças.
+- Casos analíticos (retângulo, forma não convexa, topos cruzados, rampa 4×1, face não afim) ficam em `volume_sobreposicao.rs`.
+
+### Decisões do dono (2026-11-06)
+
+- O Rust exato vale onde a triangulação do TS aproximava: `VERSAO_MOTOR_GEOMETRIA` sobe (hoje 4, em
+  `apps/web/src/editor/geometriaAbertura.ts`) e a diferença é registrada.
+- Média de perfil ≤ 1e-6.
+- A grade de 1 µm vale também para as quantidades.
+- O forro migra.
+
+### Verificação nova
+
+- `tests/kernel-invariantes-rust.wasm.test.ts`: teste de invariantes I1 (contenção), I2 (sem sobreposição), I3 (anéis
+  válidos), I4 (volume não negativo e cotas ordenadas) e I5 (conservação), com anexos true e false, nas sementes listadas
+  em `SEMENTES` do arquivo (hoje 1 a 4).
+- `cargo test` em `crates/geom-wasm`.
+
+## Pendente
+
+- Regenerar o `.wasm` a partir de `crates/geom-wasm`.
+- Verificação completa nos 11 projetos, só com agregados (sem nomes nem conteúdo dos projetos).
+- Medição de desempenho (ainda não medida).
+- Validação visual pelo dono (roteiro em `docs/handoff/fatia-b-validacao-e-resumo.md`).
+- Remover o recuo ao TypeScript, conforme a decisão "só Rust".
+- Subir `VERSAO_MOTOR_GEOMETRIA` e registrar a diferença medida.
+- Migrar o forro.
