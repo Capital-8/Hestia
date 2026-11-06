@@ -11,13 +11,13 @@ export interface LinhaQuantRust {
   camada: number;
   nFaixas: number;
   flags: number;
-  /** Volume bruto (m³), antes dos cortes. Zero na membrana. */
+  /** Volume bruto (m³), antes dos cortes. Zero na membrana. */ // units-ok: comentário, não formatação
   bruto: number;
-  /** Volume que piso e laje ocupam (m³), somado por faixa. */
+  /** Volume que piso e laje ocupam (m³), somado por faixa. */ // units-ok: comentário, não formatação
   cortado: number;
   /** `max(0, bruto - cortado)`, o zero uma vez por camada. */
   liquido: number;
-  /** Área de face (m²). */
+  /** Área de face (m²). */ // units-ok: comentário, não formatação
   areaDeFace: number;
   /** Altura média da parede (m); zero nos demais. */
   altura: number;
