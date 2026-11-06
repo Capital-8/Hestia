@@ -14,8 +14,8 @@ describe('ícone de esfera quadriculada (Materiais)', () => {
     const html = renderToStaticMarkup(createElement(Icon, { name: 'materialSphere' }));
     expect(html).toContain('viewBox="0 0 32 32"');
     expect(html).toContain('class="ic"');
-    expect(html).toContain('ic-bl');
-    expect(html).toContain('ic-s3');
+    expect(html).toContain('fill="#62b8f5"');
+    expect(html).toContain('url(#ic-esfera-volume)');
     expect(html).toContain('class="ic-ln"');
     expect(html).not.toContain('viewBox="0 0 24 24"');
   });
