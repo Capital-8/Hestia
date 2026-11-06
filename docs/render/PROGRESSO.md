@@ -39,3 +39,10 @@ Verificação no localhost, só depois de todos os lotes terminarem:
 1. Recompilar e reiniciar o serviço (`npm run render:service`, a partir de `wt\integracao`); o serviço não estava em execução em 2026-11-06.
 2. Conferir no app: segundo render da mesma cena sem reenvio (cache de cenas), céu e horizonte, cor das paredes com textura, câmera de render escolhida, aba Render dos materiais, ícone de materiais nos dois temas.
 3. Conferir no console (F12) se alguma textura de `/texturas-render/` falha ao carregar.
+
+## Protótipo de iluminação global (crates/render-pt0)
+
+- Fase 3 (commit 06668b4f): com 4 vértices por caminho, a diferença contra o rastreador de CPU do render-core é 0,77 % nas faces diretas e 2,27 % na luz indireta (cena de teste, céu uniforme, 640x360). Custo ~8,4 ms por passe, 0,54 s para 64 amostras na RX 580.
+- Limites: a referência usa um ambiente simplificado (0,3 x cor x céu); a cena de teste não tem metal, vidro nem texturas; ainda há grão com 64 amostras (falta denoise). Não é fotorrealismo comprovado.
+- Bug achado em crates/render-core: `Rng::novo` mistura semente e amostra por XOR nos mesmos bits; sementes 1 e 2 com 4 ou 64 amostras geram imagens idênticas. Não corrigido (código fora do escopo do render GPU).
+- A anomalia de tempo do modo "só sol" era a GPU saindo do repouso, não custo do modo (inferido pelo tempo).
