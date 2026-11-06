@@ -23,7 +23,7 @@ use crate::b3::{conjunto_de_cortadores, faixa_da_peca, peca_da_camada, vence, Co
 use crate::cena::Cena;
 use crate::consultas::Saida;
 use crate::esquema::{ENTRADA, NIVEL_TODOS};
-use crate::ops::{interseccao, interseccao_com_escala, uniao, uniao_com_escala, ESCALA_FINA};
+use crate::ops::{diferenca, interseccao, normalizar_na_grade, uniao, ESCALA};
 use crate::perfil_quant::{perfil_media, volume_faixa, Inclinacao as InclinacaoDoVolume};
 use crate::pintor::area_da_forma;
 use crate::geo2d::V;
@@ -156,16 +156,28 @@ pub(crate) fn laje_cobre_piso(c: &Cortador, piso: &ElementoResolvido) -> Result<
     if (z1 - piso.topo_z).abs() > Z_EPS || z0 > piso.base_z + Z_EPS {
         return Ok(false);
     }
-    // `cutterPlan`: união em planta das camadas do cortador. A comparação de áreas usa 1e-6 m² (AREA_EPS): na grade de 1 µm o recorte de um contorno
-    // de dezenas de metros já desloca a área mais que isso, então aqui a grade é a de 1 nm (como o pintor).
-    let planta = uniao_com_escala(&c.pecas.iter().map(|p| p.poly.clone()).collect::<Vec<_>>(), ESCALA_FINA)?;
+    // `cutterPlan`: união em planta das camadas do cortador, na mesma grade (1 µm) de todo o resto. A camada entra na grade ANTES de comparar:
+    // a área da camada solta e a da camada já arredondada diferem em até perímetro × 0,5 µm (3,9e-6 m² numa camada de 10 m²), e esse viés
+    // (e não a cobertura) era o que reprovava a laje. Cobrir é "a camada na grade, menos a planta, não deixa região": o que sobra são fiapos de
+    // arredondamento ao longo das arestas, de largura até 1 grade (0,5 µm de cada lado), então a área deles é no máximo `perímetro / ESCALA`.
+    // O limite é esse, derivado da grade, mais a tolerância `AREA_EPS` do TypeScript; não há limiar escolhido para passar.
+    let planta = uniao(&c.pecas.iter().map(|p| p.poly.clone()).collect::<Vec<_>>())?;
     for l in &piso.camadas {
-        let comum = interseccao_com_escala(&planta, &l.poligono, ESCALA_FINA)?;
-        if (area_da_forma(&comum) - area_da_forma(&l.poligono)).abs() > AREA_EPS {
+        let na_grade = normalizar_na_grade(&l.poligono, ESCALA)?;
+        let fora = diferenca(&[na_grade.clone(), planta.clone()])?;
+        if area_da_forma(&fora) > AREA_EPS + perimetro_da_forma(&na_grade) / ESCALA {
             return Ok(false);
         }
     }
     Ok(true)
+}
+
+/// Soma do comprimento de todos os anéis (contornos e furos) da forma.
+pub(crate) fn perimetro_da_forma(m: &MultiPoligono) -> f64 {
+    m.iter()
+        .flatten()
+        .map(|anel| (0..anel.len()).map(|i| ((anel[i][0] - anel[(i + 1) % anel.len()][0]).powi(2) + (anel[i][1] - anel[(i + 1) % anel.len()][1]).powi(2)).sqrt()).sum::<f64>())
+        .sum()
 }
 
 fn liquido_de(bruto: f64, cortado: f64) -> f64 {
@@ -384,6 +396,57 @@ mod testes {
     use crate::esquema::{CONSULTA_QUANT_FORROS, CONSULTA_QUANT_LAJES, CONSULTA_QUANT_PAREDES, CONSULTA_QUANT_PISOS, SECAO_CAMADAS_FORRO, SECAO_PONTOS_FORRO};
 
     const TOL: f64 = 0.02;
+
+    fn elemento_de_piso(poligono: MultiPoligono) -> ElementoResolvido {
+        ElementoResolvido {
+            laje: false,
+            id: 1,
+            tipo: 0,
+            problema: 0,
+            inclinacao: None,
+            topo_z: 0.0,
+            base_z: -0.1,
+            poligono: poligono.clone(),
+            camadas: vec![CamadaResolvida { indice: 0, material: 0, z0: -0.1, z1: 0.0, prioridade: 0.0, nucleo: false, membrana: false, explicita: false, precisa_paredes: false, poligono }],
+        }
+    }
+
+    fn laje_plana(poligono: MultiPoligono) -> Cortador {
+        Cortador { tipo: Tipo::Laje, pecas: vec![PecaSolida { poly: poligono, span: Span::Constante { z0: -0.2, z1: 0.0 }, plana: true, meta: None, externa: false }] }
+    }
+
+    /// Laje com uma aresta inclinada e piso com um vértice em cima dessa aresta (fora da grade): coberto de verdade, mas a camada, ao entrar na
+    /// grade de 1 µm, passa de 0,5 µm da aresta da laje e deixa um fiapo mais largo que `AREA_EPS`. Comparar a área da camada solta com a da
+    /// interseção (o que fazia o 1 µm falhar) reprova; a camada na grade contra a planta aprova, e o fiapo cabe no limite derivado da grade.
+    #[test]
+    fn laje_cobre_piso_com_aresta_inclinada_fora_da_grade() {
+        let (kx, ky) = (37.123456789, 12.3456789123);
+        let na_aresta = |x: f64| [x, x * ky / kx];
+        let laje = laje_plana(vec![vec![vec![[0.0, 0.0], [kx, ky], [kx, 40.0], [0.0, 40.0]]]]);
+        // 300 vértices sobre a aresta inclinada (cada um arredondado à grade para um lado ou para o outro) e o resto do contorno dentro da laje
+        let mut anel: Vec<[f64; 2]> = (0..300).map(|i| na_aresta(0.3 + (36.7777777777 - 0.3) * (i as f64 + 0.37 * (i % 7) as f64 / 7.0) / 300.0)).collect();
+        anel.extend([[36.7777777777, 30.0], [0.3, 30.0]]);
+        let camada = vec![vec![anel]];
+        let piso = elemento_de_piso(camada.clone());
+        let na_grade = normalizar_na_grade(&camada, ESCALA).unwrap();
+        let fora = area_da_forma(&diferenca(&[na_grade.clone(), laje.pecas[0].poly.clone()]).unwrap());
+        // o fiapo existe e passa de AREA_EPS (senão o teste não provaria nada), mas cabe em perímetro / ESCALA
+        assert!(fora > AREA_EPS, "fiapo {fora}");
+        assert!(fora <= perimetro_da_forma(&na_grade) / ESCALA, "fiapo {fora}");
+        let solta = area_da_forma(&interseccao(&laje.pecas[0].poly, &camada).unwrap()) - area_da_forma(&camada);
+        assert!(solta.abs() > AREA_EPS, "a comparação antiga (área solta contra interseção) reprovaria: {solta}");
+        assert!(laje_cobre_piso(&laje, &piso).unwrap(), "a laje cobre o piso");
+    }
+
+    #[test]
+    fn laje_nao_cobre_piso_que_passa_da_borda() {
+        let laje = laje_plana(vec![vec![vec![[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]]]]);
+        // 1 mm além da borda ao longo de 8 m: 8e-3 m², muito acima do limite da grade
+        let piso = elemento_de_piso(vec![vec![vec![[1.0, 1.0], [10.001, 1.0], [10.001, 9.0], [1.0, 9.0]]]]);
+        assert!(!laje_cobre_piso(&laje, &piso).unwrap());
+        let dentro = elemento_de_piso(vec![vec![vec![[1.0, 1.0], [10.0, 1.0], [10.0, 9.0], [1.0, 9.0]]]]);
+        assert!(laje_cobre_piso(&laje, &dentro).unwrap());
+    }
 
     fn linhas(m: &mut crate::b1::testes::Montada, consulta: u32, nivel: f64) -> Vec<LinhaQuant> {
         let s = executar(&mut m.cena, consulta, &[nivel, TOL]).expect("consulta de quantidades");

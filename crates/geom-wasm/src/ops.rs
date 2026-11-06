@@ -37,7 +37,7 @@ use i_overlay::mesh::float::style::{LineJoin, OutlineStyle};
 use crate::{Anel, MultiPoligono, Poligono, ERRO_ENTRADA, ERRO_INTERNO};
 
 /// Escala da quantização: 1 µm, a mesma de `CLIP_SCALE` em `boolean.ts`.
-const ESCALA: f64 = 1e6;
+pub const ESCALA: f64 = 1e6;
 
 /// Escala fina (1 nm) para o pintor da sub-etapa A2. Com 1 µm a quantização desloca cada aresta até 0,5 µm e a área de
 /// um fragmento de perímetro de alguns metros até ~1e-5 m² — mais que a tolerância de 1e-6 m² da decisão 0046 §2.4 —,
@@ -110,9 +110,74 @@ fn preparar(m: &MultiPoligono, escala: f64) -> Result<Formas, u32> {
             }
             aneis.push(pontos);
         }
+        if aneis.len() > 1 && aneis[1..].iter().any(|furo| !furo_dentro_do_externo(furo, &aneis[0])) {
+            // O furo passa da borda do contorno (entrada inválida, como o furo de escada que sai do piso). O polígono é "externo menos furos": a parte
+            // do furo que cai fora do contorno não é região. Com a regra NonZero ela contaria como região (enrolamento -1), então o polígono é
+            // refeito aqui como a diferença entre o contorno e os furos (o mesmo que o `polygon-clipping` do TypeScript entende por polígono).
+            let mut it = aneis.into_iter();
+            let externo = it.next().unwrap_or_default();
+            let furos: Formas = it.map(|mut f| {
+                f.reverse();
+                vec![f]
+            })
+            .collect();
+            formas.extend(aplicar(&vec![vec![externo]], &furos, OverlayRule::Difference)?);
+            continue;
+        }
         formas.push(aneis);
     }
     Ok(formas)
+}
+
+/// Posição de `p` em relação ao anel (coordenadas inteiras da grade): `1` dentro, `-1` fora, `0` sobre a borda.
+fn posicao_no_anel(p: [f64; 2], anel: &Anel) -> i8 {
+    let (px, py) = (p[0] as i128, p[1] as i128);
+    let n = anel.len();
+    let mut dentro = false;
+    for i in 0..n {
+        let (a, b) = (anel[i], anel[(i + 1) % n]);
+        let (ax, ay, bx, by) = (a[0] as i128, a[1] as i128, b[0] as i128, b[1] as i128);
+        let cruz = (bx - ax) * (py - ay) - (by - ay) * (px - ax);
+        if cruz == 0 && px >= ax.min(bx) && px <= ax.max(bx) && py >= ay.min(by) && py <= ay.max(by) {
+            return 0;
+        }
+        if (ay > py) != (by > py) {
+            // x da aresta na altura de p, comparado sem divisão: p.x < ax + (py-ay)(bx-ax)/(by-ay)
+            let esquerda = if by > ay { cruz > 0 } else { cruz < 0 };
+            if esquerda {
+                dentro = !dentro;
+            }
+        }
+    }
+    if dentro {
+        1
+    } else {
+        -1
+    }
+}
+
+/// Sinal do produto vetorial `(b-a) x (c-a)` em inteiros.
+fn orientacao(a: [f64; 2], b: [f64; 2], c: [f64; 2]) -> i8 {
+    let v = (b[0] as i128 - a[0] as i128) * (c[1] as i128 - a[1] as i128) - (b[1] as i128 - a[1] as i128) * (c[0] as i128 - a[0] as i128);
+    v.signum() as i8
+}
+
+/// O furo está dentro do contorno externo (encostar na borda vale)? Nenhum vértice fora e nenhum cruzamento próprio entre as arestas dos dois anéis.
+fn furo_dentro_do_externo(furo: &Anel, externo: &Anel) -> bool {
+    if furo.iter().any(|&p| posicao_no_anel(p, externo) < 0) {
+        return false;
+    }
+    let (nf, ne) = (furo.len(), externo.len());
+    for i in 0..nf {
+        let (a, b) = (furo[i], furo[(i + 1) % nf]);
+        for j in 0..ne {
+            let (c, d) = (externo[j], externo[(j + 1) % ne]);
+            if orientacao(a, b, c) * orientacao(a, b, d) < 0 && orientacao(c, d, a) * orientacao(c, d, b) < 0 {
+                return false;
+            }
+        }
+    }
+    true
 }
 
 /// Divide um anel (em coordenadas já inteiras da grade) em anéis simples nos vértices que ele visita mais de uma vez. Um anel
@@ -630,6 +695,29 @@ mod testes {
 
     fn erro(r: Result<MultiPoligono, u32>) -> Option<u32> {
         r.err()
+    }
+
+    /// Quadrado de 10 m com um furo de 2 x 3 m que ultrapassa a borda de cima em 1 m (o furo de escada que sai do contorno, como no fixture de
+    /// estresse). Como o TypeScript (`polygon-clipping`), o polígono é "externo menos furos": a parte do furo que cai fora do contorno não é região.
+    fn quadrado_com_furo_que_sai() -> MultiPoligono {
+        let mut q = quadrado(0.0, 0.0, 10.0);
+        q[0].push(vec![[4.0, 7.0], [6.0, 7.0], [6.0, 11.0], [4.0, 11.0]]);
+        q
+    }
+
+    #[test]
+    fn furo_que_sai_do_contorno_nao_vira_regiao_fora_dele() {
+        let p = quadrado_com_furo_que_sai();
+        let grande = quadrado(-5.0, -5.0, 30.0);
+        // dentro do contorno o furo ocupa 2 x 3 = 6 m²
+        for escala in [ESCALA, ESCALA_FINA] {
+            let i = interseccao_com_escala(&p, &grande, escala).expect("interseccao");
+            assert!((area(&i) - 94.0).abs() < 1e-9, "interseccao a {escala}: {}", area(&i));
+            let u = uniao_com_escala(&[p.clone()], escala).expect("uniao");
+            assert!((area(&u) - 94.0).abs() < 1e-9, "uniao a {escala}: {}", area(&u));
+            let d = diferenca_com_escala(&[grande.clone(), p.clone()], escala).expect("diferenca");
+            assert!((area(&d) - (900.0 - 94.0)).abs() < 1e-9, "diferenca a {escala}: {}", area(&d));
+        }
     }
 
     #[test]
