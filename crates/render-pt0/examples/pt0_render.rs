@@ -33,7 +33,7 @@ use render_core::vetor::Vec3;
 use render_core::{renderizar_imagem, Trabalho};
 use render_pt0::bvh::Bvh;
 use render_pt0::gpu::{
-    Ambiente, Ceu, Configuracao, Modo, Prototipo, DIAG_FORCA_BRUTA, DIAG_SEM_SOMBRA,
+    Ambiente, Ceu, Configuracao, Especular, Modo, Prototipo, DIAG_FORCA_BRUTA, DIAG_SEM_SOMBRA,
 };
 use render_pt0::{luminancia, referencia};
 
@@ -267,20 +267,20 @@ fn resumo(tempos: &[f64]) -> (f64, f64, f64) {
 
 /// Configurações da fase 3, com céu uniforme. Cada uma é cumulativa ou isolada, como indicado no rótulo.
 fn configuracoes_fase3() -> Vec<(&'static str, &'static str, Configuracao)> {
-    let base = |profundidade: u32, ambiente: Ambiente, especular: bool| Configuracao {
+    let base = |profundidade: u32, ambiente: Ambiente, especular: Especular| Configuracao {
         profundidade,
         ambiente,
         especular,
         diagnostico: 0,
     };
     vec![
-        ("direto", "f3_direto", base(1, Ambiente::Nenhum, false)),
-        ("+ambiente (referência)", "f3_ambiente", base(1, Ambiente::Referencia, false)),
-        ("+especular", "f3_especular", base(1, Ambiente::Nenhum, true)),
-        ("+ambiente +especular", "f3_amb_espec", base(1, Ambiente::Referencia, true)),
-        ("profundidade 2", "f3_prof2", base(2, Ambiente::Referencia, true)),
-        ("profundidade 3", "f3_prof3", base(3, Ambiente::Referencia, true)),
-        ("profundidade 4", "f3_prof4", base(4, Ambiente::Referencia, true)),
+        ("direto", "f3_direto", base(1, Ambiente::Nenhum, Especular::Nenhum)),
+        ("+ambiente (referência)", "f3_ambiente", base(1, Ambiente::Referencia, Especular::Nenhum)),
+        ("+especular", "f3_especular", base(1, Ambiente::Nenhum, Especular::BlinnPhong)),
+        ("+ambiente +especular", "f3_amb_espec", base(1, Ambiente::Referencia, Especular::BlinnPhong)),
+        ("profundidade 2", "f3_prof2", base(2, Ambiente::Referencia, Especular::BlinnPhong)),
+        ("profundidade 3", "f3_prof3", base(3, Ambiente::Referencia, Especular::BlinnPhong)),
+        ("profundidade 4", "f3_prof4", base(4, Ambiente::Referencia, Especular::BlinnPhong)),
     ]
 }
 

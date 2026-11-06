@@ -1,11 +1,12 @@
-// Protótipo de rastreamento de caminhos, fase 3 (crates/render-pt0).
+// Protótipo de rastreamento de caminhos, fase 4 (crates/render-pt0).
 //
 // Um passe = uma amostra por pixel do tile. Cada pixel lança um raio primário pela câmera e
-// percorre o caminho em `radiancia_caminho`: em cada vértice (até q.modo.x vértices) soma a
-// emissão, a luz direta do sol (difuso e, se ligado, Blinn-Phong da referência), o ambiente
-// (q.opcoes.x) e, se houver próximo vértice, sorteia um rebote por cosseno com peso = albedo.
-// A fórmula é a do render-core (tracer.rs); ver o comentário de `radiancia_caminho` e
-// crates/render-pt0/src/referencia.rs, onde ela está escrita por extenso.
+// percorre o caminho em `radiancia_caminho`. Em cada vértice difuso soma a emissão, a luz direta
+// do sol (difuso e, conforme q.opcoes.y, Blinn-Phong da referência ou GGX), o ambiente (q.opcoes.x)
+// e um rebote: por cosseno, ou reflexo com dispersão se o material é metal (como o render-core).
+// Vidro (transmissão, opacidade < 1 ou tipo 6) não recebe luz direta nem ambiente: Fresnel de
+// Schlick escolhe entre reflexo e refração de Snell (IOR do material), e cada vértice de vidro dá
+// dois vértices extras ao caminho. A fórmula da referência está em crates/render-pt0/src/referencia.rs.
 //
 // A travessia espelha bvh.rs (mesma ordem, mesma aritmética f32). A acumulação é ping-pong
 // entre duas texturas RGBA32F: a textura de entrada é lida, a de saída é escrita.
@@ -20,6 +21,10 @@ const PILHA: u32 = 64u;
 const T_INFINITO: f32 = 1.0e30;
 // Fator do ambiente da referência (tracer.rs: `* 0.3`).
 const AMBIENTE_REFERENCIA: f32 = 0.3;
+// Vértices extras que cada vértice de vidro acrescenta ao limite do caminho.
+const VERTICES_EXTRAS_VIDRO: u32 = 2u;
+// Limite absoluto de iterações do caminho (profundidade + extras de vidro), para o laço ter fim.
+const VERTICES_ABSOLUTOS: u32 = 12u;
 
 struct Quadro {
     inv_vp: mat4x4<f32>,
@@ -38,8 +43,9 @@ struct Quadro {
     modo: vec4<u32>,
     // Irradiância SH9 do céu, sem disco e sem halo, já convoluída (ver ceu.rs). Só o ambiente SH usa.
     irradiancia: array<vec4<f32>, 9>,
-    // x: ambiente (0 nenhum, 1 SH9 legado, 2 referência 0,3 * céu); y: 1 especular Blinn-Phong;
-    // z: diagnóstico (bit 0 = sem raio de sombra; bit 1 = força bruta, sem BVH); w: não usado.
+    // x: ambiente (0 nenhum, 1 SH9 legado, 2 referência 0,3 * céu); y: especular (0 nenhum,
+    // 1 Blinn-Phong da referência, 2 GGX); z: diagnóstico (bit 0 = sem raio de sombra; bit 1 =
+    // força bruta, sem BVH); w: não usado.
     opcoes: vec4<u32>,
 };
 
@@ -67,6 +73,8 @@ struct Material {
     emissao: vec4<f32>,
     // x: rugosidade.
     propriedades: vec4<f32>,
+    // x: transmissão; y: IOR; z: opacidade; w: tipo procedural (6 = vidro).
+    vidro: vec4<f32>,
 };
 
 struct Hit {
@@ -77,7 +85,9 @@ struct Hit {
     triangulo: u32,
 };
 
-// Superfície no ponto acertado. `albedo` é a fração difusa: cor * (1 - metálico).
+// Superfície no ponto acertado. `albedo` é a fração difusa: cor * (1 - metálico). `normal` aponta
+// para quem olha; `frente` é verdadeiro se o raio chega pelo lado da normal geométrica (entra no
+// vidro). `vidro`, `ior` e `transmissao` vêm do material.
 struct Superficie {
     ponto: vec3<f32>,
     normal: vec3<f32>,
@@ -86,6 +96,9 @@ struct Superficie {
     cor: vec3<f32>,
     metal: f32,
     rugosidade: f32,
+    vidro: bool,
+    frente: bool,
+    ior: f32,
 };
 
 @group(0) @binding(0) var<uniform> q: Quadro;
@@ -248,7 +261,9 @@ fn direcao_sol(estado: ptr<function, u32>) -> vec3<f32> {
     }
     let u1 = aleatorio(estado);
     let u2 = aleatorio(estado);
-    let cos_t = 1.0 - u1 * (1.0 - cos(raio));
+    // 1 - cos(raio) = 2 sen²(raio/2): estável em f32 para discos pequenos (0,25 grau).
+    let meio_seno = sin(0.5 * raio);
+    let cos_t = 1.0 - u1 * (2.0 * meio_seno * meio_seno);
     let sen_t = sqrt(max(0.0, 1.0 - cos_t * cos_t));
     let phi = 2.0 * PI * u2;
     let ajuda = select(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), abs(s.z) < 0.999);
@@ -262,6 +277,7 @@ fn superficie(o: vec3<f32>, d: vec3<f32>, acerto: Hit) -> Superficie {
     let tri = tris[acerto.triangulo];
     let w0 = 1.0 - acerto.u - acerto.v;
     var normal = normalize(tri.n0.xyz * w0 + tri.n1.xyz * acerto.u + tri.n2.xyz * acerto.v);
+    let frente = dot(normal, d) < 0.0;
     if (dot(normal, d) > 0.0) {
         normal = -normal;
     }
@@ -274,7 +290,15 @@ fn superficie(o: vec3<f32>, d: vec3<f32>, acerto: Hit) -> Superficie {
     s.cor = material.cor.rgb;
     s.metal = material.cor.w;
     s.rugosidade = material.propriedades.x;
+    s.vidro = e_vidro(material);
+    s.frente = frente;
+    s.ior = material.vidro.y;
     return s;
+}
+
+// Vidro: transmissão > 0, opacidade < 1 ou tipo 6 (vidro). Mesmo critério de `e_vidro` em gpu.rs.
+fn e_vidro(m: Material) -> bool {
+    return m.vidro.x > 0.0 || m.vidro.z < 1.0 || m.vidro.w == 6.0;
 }
 
 // Luz direta do sol num ponto, com uma amostra de sombra por raio. Devolve a irradiância
@@ -311,6 +335,52 @@ fn especular_sol(n: vec3<f32>, s: vec3<f32>, v: vec3<f32>, cor: vec3<f32>, metal
     let normalizacao = (expoente + 8.0) / (8.0 * PI);
     let f0 = vec3<f32>(0.04 * (1.0 - metal)) + cor * metal;
     return f0 * (pow(ndh, expoente) * normalizacao * (0.25 + 0.75 * (1.0 - rugosidade)));
+}
+
+// GGX (segunda opção de especular, q.opcoes.y == 2): BRDF de microfacetas com distribuição de
+// Trowbridge-Reitz, sombreamento de Smith e Fresnel de Schlick. Devolve a BRDF (sem o cosseno do
+// sol, que já está em `irradiancia_sol`). Sem conservação de energia do difuso (medido como opção).
+fn especular_ggx(n: vec3<f32>, s: vec3<f32>, v: vec3<f32>, cor: vec3<f32>, metal: f32, rugosidade: f32) -> vec3<f32> {
+    let ndl = dot(n, s);
+    let ndv = dot(n, v);
+    if (ndl <= 0.0 || ndv <= 0.0) {
+        return vec3<f32>(0.0);
+    }
+    let meio_bruto = s + v;
+    if (dot(meio_bruto, meio_bruto) < 1.0e-12) {
+        return vec3<f32>(0.0);
+    }
+    let h = normalize(meio_bruto);
+    let ndh = max(dot(n, h), 0.0);
+    let vdh = max(dot(v, h), 0.0);
+    let a = max(rugosidade * rugosidade, 0.002);
+    let a2 = a * a;
+    let den = ndh * ndh * (a2 - 1.0) + 1.0;
+    let dist = a2 / (PI * den * den);
+    let g1l = 2.0 * ndl / (ndl + sqrt(a2 + (1.0 - a2) * ndl * ndl));
+    let g1v = 2.0 * ndv / (ndv + sqrt(a2 + (1.0 - a2) * ndv * ndv));
+    let f0 = vec3<f32>(0.04 * (1.0 - metal)) + cor * metal;
+    let fresnel = f0 + (vec3<f32>(1.0) - f0) * pow(1.0 - vdh, 5.0);
+    return fresnel * (dist * g1l * g1v / (4.0 * ndl * ndv));
+}
+
+// Fresnel de Schlick: f0 + (1 - f0) (1 - cos)^5, com cos em [0, 1].
+fn fresnel_schlick(cos_t: f32, f0: f32) -> f32 {
+    let m = clamp(1.0 - cos_t, 0.0, 1.0);
+    let m2 = m * m;
+    return f0 + (1.0 - f0) * m2 * m2 * m;
+}
+
+// Refração de Snell, vetorial. `n` aponta para quem olha (dot(n, d) < 0). Devolve (direção, 1), ou
+// (0, 0, 0, 0) na reflexão interna total (sen_t > 1). Mesma conta de `optica::refratar`.
+fn refratar(d: vec3<f32>, n: vec3<f32>, eta: f32) -> vec4<f32> {
+    let cos_i = -dot(d, n);
+    let k = 1.0 - eta * eta * (1.0 - cos_i * cos_i);
+    if (k < 0.0) {
+        return vec4<f32>(0.0);
+    }
+    let v = eta * d + (eta * cos_i - sqrt(k)) * n;
+    return vec4<f32>(normalize(v), 1.0);
 }
 
 // Irradiância difusa do céu na normal n: E(n) = soma de E_k * Y_k(n), 9 termos de SH.
@@ -377,17 +447,21 @@ fn direcao_cosseno(normal: vec3<f32>, estado: ptr<function, u32>) -> vec3<f32> {
 //   fuga: se o raio sai da cena no vértice k, soma peso_k * ceu(d_k)
 // Um vértice tem luz direta; o próximo é um rebote por cosseno com peso = albedo_k (o cosseno
 // cancela o pdf). Não há roleta russa: o limite é fixo (`profundidade`, no máximo 4, como no render-core).
-// Diferenças conhecidas em relação ao render-core: sem vidro, sem metal (reflexão especular de
-// rebote) e sem disco solar nesta medição (raio = 0).
+// Metal (transmissão ausente, metálico > 0,5): o rebote é o reflexo com dispersão do tracer.rs, e a
+// fração difusa é zero. Vidro: Fresnel de Schlick e Snell, sem absorção volumétrica e sem luz direta
+// dentro dele. Diferenças conhecidas em relação ao render-core: o vidro dele atravessa reto (tinge
+// pela cor, sem refração), e o sol da referência é pontual (o disco solar só existe aqui).
+// Texturas de imagem não existem nesta fase.
 fn radiancia_caminho(o0: vec3<f32>, d0: vec3<f32>, estado: ptr<function, u32>) -> vec3<f32> {
-    let profundidade = q.modo.x;
     let ambiente = q.opcoes.x;
-    let com_especular = q.opcoes.y == 1u;
+    let especular = q.opcoes.y;
+    // Vértices permitidos: começa em q.modo.x e cresce VERTICES_EXTRAS_VIDRO a cada vértice de vidro.
+    var orcamento = q.modo.x;
     var radiancia = vec3<f32>(0.0);
     var peso = vec3<f32>(1.0);
     var o = o0;
     var d = d0;
-    for (var k = 0u; k < profundidade; k = k + 1u) {
+    for (var k = 0u; k < VERTICES_ABSOLUTOS; k = k + 1u) {
         let acerto = intersecta(o, d, T_MINIMO, T_INFINITO);
         if (!acerto.ok) {
             radiancia = radiancia + peso * ceu_de_fuga(d, k == 0u);
@@ -395,27 +469,69 @@ fn radiancia_caminho(o0: vec3<f32>, d0: vec3<f32>, estado: ptr<function, u32>) -
         }
         let s = superficie(o, d, acerto);
         radiancia = radiancia + peso * s.emissao;
-        let irradiancia_sol = sol_direto(s.ponto, s.normal, estado);
-        var refletancia = s.albedo / PI;
-        if (com_especular) {
-            refletancia = refletancia + especular_sol(s.normal, q.sol.xyz, -d, s.cor, s.metal, s.rugosidade);
+        if (s.vidro) {
+            // Vidro: sem luz direta nem ambiente. Fresnel de Schlick sorteia o reflexo ou a refração
+            // (o sorteio é não-viesado: reflexo tem peso 1 com probabilidade F; refração, peso = cor).
+            orcamento = orcamento + VERTICES_EXTRAS_VIDRO;
+            let cos_i = clamp(dot(-d, s.normal), 0.0, 1.0);
+            let f0 = fresnel_schlick_f0(s.ior);
+            let fresnel = fresnel_schlick(cos_i, f0);
+            let eta = select(s.ior, 1.0 / s.ior, s.frente);
+            let refrai = refratar(d, s.normal, eta);
+            let sorteio = aleatorio(estado);
+            if (refrai.w < 0.5 || sorteio < fresnel) {
+                d = d - 2.0 * dot(d, s.normal) * s.normal;
+                o = s.ponto + s.normal * DESLOCAMENTO_SOMBRA;
+            } else {
+                d = refrai.xyz;
+                o = s.ponto - s.normal * DESLOCAMENTO_SOMBRA;
+                peso = peso * s.cor;
+            }
+        } else {
+            let irradiancia_sol = sol_direto(s.ponto, s.normal, estado);
+            var refletancia = s.albedo / PI;
+            if (especular == 1u) {
+                refletancia = refletancia + especular_sol(s.normal, q.sol.xyz, -d, s.cor, s.metal, s.rugosidade);
+            } else if (especular == 2u) {
+                refletancia = refletancia + especular_ggx(s.normal, q.sol.xyz, -d, s.cor, s.metal, s.rugosidade);
+            }
+            radiancia = radiancia + peso * (refletancia * irradiancia_sol);
+            // SH legado (fase 2): só no último vértice. Com um rebote, o céu do ponto primário chega pelo
+            // rebote (ceu_de_fuga), então somar SH também no primário contaria o céu duas vezes.
+            if (ambiente == 1u && k + 1u == orcamento) {
+                radiancia = radiancia + peso * (s.albedo / PI) * irradiancia_do_ceu(s.normal);
+            } else if (ambiente == 2u) {
+                radiancia = radiancia + peso * (AMBIENTE_REFERENCIA * s.albedo * ceu_sem_disco(s.normal));
+            }
+            if (k + 1u >= orcamento) {
+                break;
+            }
+            if (s.metal > 0.5) {
+                // Metal (como tracer.rs): reflexo com dispersão de rugosidade * 0,5; peso = cor * m + 0,04 (1 - m).
+                let refletido = d - 2.0 * dot(d, s.normal) * s.normal;
+                let dispersao = (vec3<f32>(aleatorio(estado), aleatorio(estado), aleatorio(estado)) * 2.0 - vec3<f32>(1.0))
+                    * (s.rugosidade * 0.5);
+                var nova = refletido + dispersao;
+                if (dot(nova, nova) < 1.0e-12) {
+                    nova = refletido;
+                }
+                d = normalize(nova);
+                o = s.ponto + s.normal * DESLOCAMENTO_SOMBRA;
+                peso = peso * (s.cor * s.metal + vec3<f32>(0.04 * (1.0 - s.metal)));
+            } else {
+                d = direcao_cosseno(s.normal, estado);
+                o = s.ponto + s.normal * DESLOCAMENTO_SOMBRA;
+                peso = peso * s.albedo;
+            }
         }
-        radiancia = radiancia + peso * (refletancia * irradiancia_sol);
-        // SH legado (fase 2): só no último vértice. Com um rebote, o céu do ponto primário chega pelo
-        // rebote (ceu_de_fuga), então somar SH também no primário contaria o céu duas vezes.
-        if (ambiente == 1u && k + 1u == profundidade) {
-            radiancia = radiancia + peso * (s.albedo / PI) * irradiancia_do_ceu(s.normal);
-        } else if (ambiente == 2u) {
-            radiancia = radiancia + peso * (AMBIENTE_REFERENCIA * s.albedo * ceu_sem_disco(s.normal));
-        }
-        if (k + 1u == profundidade) {
-            break;
-        }
-        d = direcao_cosseno(s.normal, estado);
-        o = s.ponto + s.normal * DESLOCAMENTO_SOMBRA;
-        peso = peso * s.albedo;
     }
     return radiancia;
+}
+
+// Fator de Fresnel no ângulo normal: ((1 - ior) / (1 + ior))^2.
+fn fresnel_schlick_f0(ior: f32) -> f32 {
+    let r = (1.0 - ior) / (1.0 + ior);
+    return r * r;
 }
 
 @compute @workgroup_size(8, 8, 1)

@@ -51,14 +51,24 @@ pub enum Ambiente {
     Referencia = 2,
 }
 
+/// Especular do sol em cada vértice difuso. `BlinnPhong` é o da referência (`tracer.rs`), o padrão
+/// para comparar com o `render-core`. `Ggx` é a segunda opção medida (microfacetas GGX com Smith e
+/// Fresnel de Schlick), só no termo direto do sol.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Especular {
+    Nenhum = 0,
+    BlinnPhong = 1,
+    Ggx = 2,
+}
+
 /// Termos que o caminho soma. Um conjunto desses é uma linha da medição.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Configuracao {
     /// Vértices com iluminação direta: 1 = só o primário; 2 = um rebote; até `PROFUNDIDADE_MAXIMA`.
+    /// Cada vértice de vidro acrescenta `VERTICES_EXTRAS_VIDRO` ao limite (ver `pt0.wgsl`).
     pub profundidade: u32,
     pub ambiente: Ambiente,
-    /// Especular Blinn-Phong da referência, junto com o sol.
-    pub especular: bool,
+    pub especular: Especular,
     /// Bits de `DIAG_*`. Zero no resultado real.
     pub diagnostico: u32,
 }
@@ -69,7 +79,7 @@ impl Configuracao {
         Self {
             profundidade,
             ambiente: Ambiente::Referencia,
-            especular: true,
+            especular: Especular::BlinnPhong,
             diagnostico: 0,
         }
     }
@@ -96,7 +106,7 @@ impl From<Modo> for Configuracao {
         Self {
             profundidade,
             ambiente,
-            especular: false,
+            especular: Especular::Nenhum,
             diagnostico: 0,
         }
     }
@@ -297,7 +307,7 @@ pub fn avaliar_ceu(
     Ok((ceus, irradiancias))
 }
 
-/// Material no formato da GPU (48 bytes, mesmo layout de `struct Material` em `pt0.wgsl`).
+/// Material no formato da GPU (64 bytes, mesmo layout de `struct Material` em `pt0.wgsl`).
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct MaterialGpu {
@@ -307,6 +317,14 @@ pub struct MaterialGpu {
     pub emissao: [f32; 4],
     /// x: rugosidade (o especular da referência usa `1 - rugosidade`).
     pub propriedades: [f32; 4],
+    /// x: transmissão; y: IOR; z: opacidade; w: tipo procedural (6 = vidro).
+    pub vidro: [f32; 4],
+}
+
+/// Vidro segundo o material: transmissão > 0, opacidade < 1 ou tipo "vidro" (6). Mesmo critério do
+/// `pt0.wgsl` (`e_vidro`).
+pub fn e_vidro(m: &render_core::cena::Material) -> bool {
+    m.transmissao > 0.0 || m.opacidade < 1.0 || m.tipo == 6
 }
 
 const LADO_WORKGROUP: u32 = 8;
@@ -363,6 +381,12 @@ impl Prototipo {
                     0.0,
                 ],
                 propriedades: [m.rugosidade as f32, 0.0, 0.0, 0.0],
+                vidro: [
+                    m.transmissao as f32,
+                    m.ior as f32,
+                    m.opacidade as f32,
+                    f32::from(m.tipo),
+                ],
             })
             .collect();
 
@@ -546,7 +570,7 @@ impl Prototipo {
         self.base.modo[0] = configuracao.profundidade;
         self.base.opcoes = [
             configuracao.ambiente as u32,
-            u32::from(configuracao.especular),
+            configuracao.especular as u32,
             configuracao.diagnostico,
             0,
         ];

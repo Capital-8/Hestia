@@ -37,6 +37,7 @@ pub mod amostragem;
 pub mod bvh;
 pub mod ceu;
 pub mod gpu;
+pub mod optica;
 pub mod referencia;
 
 /// Cor do sol, a mesma de `render-core::tracer::luz_direta`.
