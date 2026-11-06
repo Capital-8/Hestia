@@ -11,7 +11,7 @@ use crate::erro::ErroRender;
 use crate::geometria::Vertice;
 use crate::gpu::Gpu;
 
-const ATRIBUTOS: [wgpu::VertexAttribute; 10] = wgpu::vertex_attr_array![
+const ATRIBUTOS: [wgpu::VertexAttribute; 11] = wgpu::vertex_attr_array![
     0 => Float32x3, // posição
     1 => Float32x3, // normal de face
     2 => Float32x3, // cor base linear
@@ -21,7 +21,8 @@ const ATRIBUTOS: [wgpu::VertexAttribute; 10] = wgpu::vertex_attr_array![
     6 => Float32,   // tipo de superfície procedural (u8 como f32)
     7 => Float32,   // escala do padrão (metros por repetição)
     8 => Float32,   // opacidade do material (abaixo de 1: passe de vidro)
-    9 => Uint32x4   // índices de textura: albedo, normal, rugosidade, metálico (0xFFFFFFFF = nenhum)
+    9 => Uint32x4,  // índices de textura: albedo, normal, rugosidade, metálico (0xFFFFFFFF = nenhum)
+    10 => Float32x3 // média linear RGB da textura de albedo (normaliza o albedo no shader)
 ];
 
 /// Layouts de bind group usados pelas pipelines.

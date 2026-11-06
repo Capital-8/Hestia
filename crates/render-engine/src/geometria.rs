@@ -22,6 +22,8 @@ pub const TIPO_VIDRO: u8 = 6;
 /// `opacidade` (location 8) é a do material: abaixo de 1 o triângulo é vidro (ver `e_vidro`).
 /// `texturas` (location 9, `Uint32x4`) são os índices de textura do material: albedo, normal,
 /// rugosidade e metálico, com `SEM_TEXTURA` (0xFFFFFFFF) onde o canal não tem textura.
+/// `media_albedo` (location 10, `Float32x3`) é a média linear RGB da textura de albedo do material
+/// (ver `Plano::remapear`); o shader a usa para normalizar o albedo. Fora de textura, vale branco.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
 pub struct Vertice {
@@ -35,6 +37,7 @@ pub struct Vertice {
     pub escala: f32,
     pub opacidade: f32,
     pub texturas: [u32; 4],
+    pub media_albedo: [f32; 3],
 }
 
 /// Vidro: tipo 6 ou material com opacidade abaixo de 1. Esses triângulos saem do passe opaco e
@@ -175,6 +178,7 @@ pub fn expandir(cena: &Cena) -> Result<Malha, ErroRender> {
                 escala,
                 opacidade,
                 texturas,
+                media_albedo: [1.0; 3],
             });
         }
     }
@@ -276,10 +280,10 @@ mod testes {
     }
 
     #[test]
-    fn vertice_tem_84_bytes() {
+    fn vertice_tem_96_bytes() {
         // 68 bytes até a opacidade (location 8) do passe de vidro, mais os 4 índices de textura
-        // (location 9, Uint32x4).
-        assert_eq!(std::mem::size_of::<Vertice>(), 84);
+        // (location 9, Uint32x4) e a média do albedo (location 10, Float32x3).
+        assert_eq!(std::mem::size_of::<Vertice>(), 96);
     }
 
     #[test]

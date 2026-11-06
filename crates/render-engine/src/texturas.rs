@@ -14,6 +14,11 @@
 //!
 //! Cada camada tem a cadeia completa de mips do tamanho comum. Os níveis gerados aqui fazem média
 //! de 2x2 texels, como o gerador de `examples/gerar_cena_texturas.rs`.
+//!
+//! Média do albedo: cada camada de albedo tem a média linear RGB da sua textura (`media_linear_rgb`,
+//! na CPU, uma vez por textura). Ela vai para cada vértice (`Vertice::media_albedo`) e o shader usa
+//! `cor_do_material * (textura_linear / media)`: a textura varia em torno da cor do material sem
+//! escurecê-la.
 
 use std::borrow::Cow;
 
@@ -35,7 +40,7 @@ pub const NOMES_MAPAS: [&str; MAPAS] = ["albedo", "normal", "rugosidade", "metá
 const SEM_CAMADA: u32 = u32::MAX;
 
 /// Plano de uma cena: tamanho comum, camadas de cada mapa e a tabela de índices.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Plano {
     pub largura: u32,
     pub altura: u32,
@@ -44,6 +49,9 @@ pub struct Plano {
     /// Por mapa: índice, na lista de texturas da cena, de cada camada. A camada `i` do mapa `m`
     /// é a textura `camadas[m][i]`.
     pub camadas: [Vec<u32>; MAPAS],
+    /// Média linear RGB de cada camada de albedo (ver `media_linear_rgb`). Vai para o vértice
+    /// (`Vertice::media_albedo`) e o shader divide a textura por ela.
+    pub medias_albedo: Vec<[f32; 3]>,
     /// Por mapa e por índice da lista de texturas da cena: a camada usada nesse mapa.
     tabela: [Vec<u32>; MAPAS],
 }
@@ -102,17 +110,25 @@ impl Plano {
             }
         }
 
+        // Média do albedo de cada camada, calculada uma vez por textura (no nível 0, original).
+        let medias_albedo = camadas[0]
+            .iter()
+            .map(|&i| media_linear_rgb(&texturas[i as usize].niveis[0]))
+            .collect();
+
         Ok(Plano {
             largura,
             altura,
             niveis: Textura::niveis_completos(largura, altura),
             camadas,
+            medias_albedo,
             tabela,
         })
     }
 
-    /// Troca os índices de textura de cada vértice (índices da cena) pela camada do mapa.
-    /// `SEM_TEXTURA` continua `SEM_TEXTURA`: o shader não amostra o canal.
+    /// Troca os índices de textura de cada vértice (índices da cena) pela camada do mapa e copia a
+    /// média linear do albedo da camada para o vértice. `SEM_TEXTURA` continua `SEM_TEXTURA`: o
+    /// shader não amostra o canal.
     pub fn remapear(&self, vertices: &mut [Vertice]) {
         for vertice in vertices {
             for mapa in 0..MAPAS {
@@ -120,6 +136,10 @@ impl Plano {
                 if indice != SEM_TEXTURA {
                     vertice.texturas[mapa] = self.tabela[mapa][indice as usize];
                 }
+            }
+            let camada_albedo = vertice.texturas[0];
+            if camada_albedo != SEM_TEXTURA {
+                vertice.media_albedo = self.medias_albedo[camada_albedo as usize];
             }
         }
     }
@@ -133,6 +153,33 @@ impl Plano {
         }
         por_camada * u64::from(camadas)
     }
+}
+
+/// Média linear RGB de um nível RGBA8 codificado em sRGB (o alfa não entra). Cada canal é decodificado
+/// como o shader faz (`linear_de_srgb`: a fórmula sRGB exata, por tabela de 256 entradas, que é
+/// exata porque a entrada é um byte) e depois tira-se a média dos texels. Sem texels, devolve
+/// branco, para que a divisão do shader não zere a cor.
+pub fn media_linear_rgb(nivel: &[u8]) -> [f32; 3] {
+    let tabela: [f64; 256] = std::array::from_fn(|byte| {
+        let c = byte as f64 / 255.0;
+        if c <= 0.04045 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        }
+    });
+    let mut soma = [0f64; 3];
+    let mut texels = 0u64;
+    for texel in nivel.chunks_exact(4) {
+        for (canal, acumulado) in soma.iter_mut().enumerate() {
+            *acumulado += tabela[usize::from(texel[canal])];
+        }
+        texels += 1;
+    }
+    if texels == 0 {
+        return [1.0; 3];
+    }
+    soma.map(|s| (s / texels as f64) as f32)
 }
 
 /// Redimensiona uma imagem RGBA8 para `(dw, dh)` por interpolação bilinear, com o centro do texel
@@ -334,10 +381,83 @@ mod testes {
             escala: 1.0,
             opacidade: 1.0,
             texturas: [2, SEM_TEXTURA, 0, SEM_TEXTURA],
+            media_albedo: [1.0; 3],
         }];
         plano.remapear(&mut vertices);
         // Textura 2 é a camada 1 do albedo; textura 0 é a camada 0 da rugosidade.
         assert_eq!(vertices[0].texturas, [1, SEM_TEXTURA, 0, SEM_TEXTURA]);
+        // A média do albedo vem da camada 1 (textura 2, lisa de valor 0 em sRGB: média linear 0).
+        assert_eq!(plano.medias_albedo.len(), 2);
+        assert_eq!(vertices[0].media_albedo, plano.medias_albedo[1]);
+    }
+
+    fn texels(valores: &[[u8; 3]]) -> Vec<u8> {
+        valores.iter().flat_map(|c| [c[0], c[1], c[2], 255]).collect()
+    }
+
+    #[test]
+    fn media_linear_de_preto_e_branco_e_meio_linear() {
+        // Preto e branco em sRGB: 0 e 1 em linear; a média é 0,5 em cada canal.
+        let media = media_linear_rgb(&texels(&[[0, 0, 0], [255, 255, 255]]));
+        for canal in media {
+            assert!((canal - 0.5).abs() < 1e-6, "canal {canal}");
+        }
+    }
+
+    #[test]
+    fn media_linear_decodifica_srgb_e_nao_media_os_bytes() {
+        // 128 em sRGB é 0,2159 em linear (não 0,502, que seria a média dos bytes).
+        let media = media_linear_rgb(&texels(&[[128, 128, 128]]));
+        for canal in media {
+            assert!((canal - 0.2159).abs() < 1e-3, "canal {canal}");
+        }
+        // Canais separados: a média de cada um sai do próprio byte.
+        let media = media_linear_rgb(&texels(&[[255, 0, 0], [255, 0, 0]]));
+        assert!((media[0] - 1.0).abs() < 1e-6 && media[1].abs() < 1e-6 && media[2].abs() < 1e-6);
+    }
+
+    #[test]
+    fn media_linear_sem_texels_e_branco() {
+        assert_eq!(media_linear_rgb(&[]), [1.0; 3]);
+    }
+
+    #[test]
+    fn plano_guarda_a_media_do_albedo_por_camada_e_leva_ao_vertice() {
+        let texturas = vec![
+            Textura { largura: 2, altura: 1, niveis: vec![texels(&[[0, 0, 0], [255, 255, 255]])] },
+            Textura { largura: 1, altura: 1, niveis: vec![texels(&[[128, 128, 128]])] },
+        ];
+        let materiais = vec![
+            material_com([Some(1), None, None, None]),
+            material_com([Some(0), None, None, None]),
+        ];
+        let plano = Plano::planejar(&texturas, &materiais, 256).expect("plano");
+        // Camadas do albedo na ordem da cena: camada 0 é a textura 0 (preto e branco, média 0,5);
+        // camada 1 é a textura 1 (cinza 128, média 0,2159).
+        assert_eq!(plano.camadas[0], vec![0, 1]);
+        assert_eq!(plano.medias_albedo.len(), 2);
+        assert!((plano.medias_albedo[0][0] - 0.5).abs() < 1e-6);
+        assert!((plano.medias_albedo[1][0] - 0.2159).abs() < 1e-3);
+
+        let vertice = |texturas: [u32; 4]| Vertice {
+            posicao: [0.0; 3],
+            normal: [0.0; 3],
+            cor: [0.0; 3],
+            rugosidade: 0.0,
+            metalico: 0.0,
+            emissivo: [0.0; 3],
+            tipo_material: 0.0,
+            escala: 1.0,
+            opacidade: 1.0,
+            texturas,
+            media_albedo: [1.0; 3],
+        };
+        // Vértice do material 0 (textura 1, camada 1 do albedo).
+        let mut vertices = vec![vertice([1, SEM_TEXTURA, SEM_TEXTURA, SEM_TEXTURA]), vertice([SEM_TEXTURA; 4])];
+        plano.remapear(&mut vertices);
+        assert_eq!(vertices[0].media_albedo, plano.medias_albedo[1]);
+        // Sem albedo, a média fica no valor neutro (o shader não a usa).
+        assert_eq!(vertices[1].media_albedo, [1.0; 3]);
     }
 
     #[test]
@@ -396,6 +516,7 @@ mod testes {
             altura: 8,
             niveis: 4,
             camadas: std::array::from_fn(|_| Vec::new()),
+            medias_albedo: Vec::new(),
             tabela: std::array::from_fn(|_| Vec::new()),
         };
         // 8x8 + 4x4 + 2x2 + 1x1 = 85 texels de 4 bytes = 340 bytes por camada.

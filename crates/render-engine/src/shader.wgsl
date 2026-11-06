@@ -90,6 +90,8 @@ struct Entrada {
   @location(8) opacidade: f32,
   // Índices de textura do material: albedo, normal, rugosidade, metálico (SEM_TEXTURA = nenhum).
   @location(9) texturas: vec4<u32>,
+  // Média linear RGB da textura de albedo do material (ver texturas.rs, media_linear_rgb).
+  @location(10) media_albedo: vec3<f32>,
 };
 
 struct SaidaSombra {
@@ -109,6 +111,7 @@ struct Saida {
   @location(8) opacidade: f32,
   // Inteiro: interpolação plana (o material é o mesmo em todo o triângulo).
   @location(9) @interpolate(flat) texturas: vec4<u32>,
+  @location(10) @interpolate(flat) media_albedo: vec3<f32>,
 };
 
 @vertex
@@ -132,6 +135,7 @@ fn vs_principal(e: Entrada) -> Saida {
   s.escala = e.escala;
   s.opacidade = e.opacidade;
   s.texturas = e.texturas;
+  s.media_albedo = e.media_albedo;
   return s;
 }
 
@@ -638,13 +642,15 @@ fn fs_principal(e: Saida) -> @location(0) vec4<f32> {
       normal = normal_com_relevo(tipo, e.mundo, normal, cor_material, escala);
     }
   }
-  // Albedo de textura substitui a cor procedural. A amostra é sRGB codificada: decodifica por canal
-  // antes de misturar, como a cor linear do material.
+  // Albedo de textura: a cor do material multiplica a textura normalizada pela média linear dela,
+  // textura / média (média por canal, calculada na CPU). A textura varia em torno da cor do
+  // material sem escurecê-la. A amostra é sRGB codificada: decodifica por canal antes de misturar.
   if (tex.x != SEM_TEXTURA) {
     let a = amostrar_eixos(texturas_albedo, tex.x, tri);
-    base = linear_de_srgb(a.x.rgb) * peso.x
+    let textura = linear_de_srgb(a.x.rgb) * peso.x
       + linear_de_srgb(a.y.rgb) * peso.y
       + linear_de_srgb(a.z.rgb) * peso.z;
+    base = cor_material * (textura / max(e.media_albedo, vec3<f32>(1.0e-4)));
   }
   // Mapa de normal: whiteout triplanar sobre a normal base (o relevo procedural já não entra aqui).
   if (tex.y != SEM_TEXTURA) {
