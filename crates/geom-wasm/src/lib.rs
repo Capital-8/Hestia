@@ -73,6 +73,7 @@ pub mod quadro;
 pub mod secoes_a1;
 pub mod secoes_a3;
 pub mod secoes_b;
+pub mod volume_sobreposicao;
 #[cfg(test)]
 mod teste_util;
 
