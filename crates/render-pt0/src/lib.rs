@@ -26,7 +26,8 @@
 //! ## Escopo desta fase (o que NÃO está aqui)
 //!
 //! Vidro sem textura (como o motor), transmissão tratada como opaca nas texturas, sem oclusão de
-//! ambiente (o termo de céu não sabe se a parede está coberta), sem luzes internas e sem denoise.
+//! ambiente (o termo de céu não sabe se a parede está coberta) e sem luzes internas. O denoise (fase 6,
+//! [`denoise`]) é opcional: é um passo depois do acumulado, guiado pelo G-buffer do passe 0.
 //! Sem roleta russa: a profundidade é fixa (até 4 vértices, como o render-core). O sol é pontual por
 //! padrão; `raio_sol` (radianos) liga um disco solar. Tipos procedurais (reboco, madeira, telha...)
 //! não existem aqui: a superfície é a cor do material mais os mapas. Nada disso é pronto para produção.
@@ -39,6 +40,7 @@
 pub mod amostragem;
 pub mod bvh;
 pub mod ceu;
+pub mod denoise;
 pub mod gpu;
 pub mod optica;
 pub mod referencia;

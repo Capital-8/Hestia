@@ -122,6 +122,16 @@ struct Superficie {
 @group(0) @binding(9) var texturas_rugosidade: texture_2d_array<f32>;
 @group(0) @binding(10) var texturas_metalico: texture_2d_array<f32>;
 
+// G-buffer do primeiro acerto (fase 6, denoise). Gravado só no passe 0 (`q.dimensao.z == 0`), no centro
+// do pixel e sem jitter, para ser limpo. geo: xyz ponto no mundo, w flag (0 filtra, 1 fundo, 2 preserva).
+// normal: xyz normal de sombreamento (depois do mapa), w distância do primário. albedo: xyz fator R de
+// desmodulação (difuso + cor * metálico, com piso). Ver denoise.rs.
+@group(0) @binding(11) var gbuffer_geo: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(12) var gbuffer_normal: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(13) var gbuffer_albedo: texture_storage_2d<rgba32float, write>;
+// Metal com rugosidade até este valor não é filtrado (reflexo nítido, como o vidro).
+const LIMIAR_METAL_LISO: f32 = 0.4;
+
 // Camada marcada para "este mapa não usa textura" (igual a `SEM_CAMADA` em texturas.rs).
 const SEM_CAMADA: u32 = 0xffffffffu;
 // Mesmo limite de escala de render-engine (shader.wgsl): escala mínima do padrão em metros.
@@ -702,6 +712,30 @@ fn fresnel_schlick_f0(ior: f32) -> f32 {
     return r * r;
 }
 
+// Grava o G-buffer do primeiro acerto do pixel (centro, sem jitter). Ver as declarações acima.
+fn gravar_gbuffer(c: vec2<i32>, ndc: vec2<f32>) {
+    let perto = q.inv_vp * vec4<f32>(ndc, -1.0, 1.0);
+    let longe = q.inv_vp * vec4<f32>(ndc, 1.0, 1.0);
+    let o = perto.xyz / perto.w;
+    let d = normalize(longe.xyz / longe.w - o);
+    let acerto = intersecta(o, d, T_MINIMO, T_INFINITO);
+    if (!acerto.ok) {
+        textureStore(gbuffer_geo, c, vec4<f32>(0.0, 0.0, 0.0, 1.0));
+        textureStore(gbuffer_normal, c, vec4<f32>(0.0));
+        textureStore(gbuffer_albedo, c, vec4<f32>(0.0));
+        return;
+    }
+    let s = superficie(o, d, acerto, acerto.t);
+    // Vidro e metal liso não são filtrados: refração e reflexo nítidos (medido em denoise.rs).
+    var flag = 0.0;
+    if (s.vidro || (s.metal > 0.5 && s.rugosidade <= LIMIAR_METAL_LISO)) {
+        flag = 2.0;
+    }
+    textureStore(gbuffer_geo, c, vec4<f32>(s.ponto, flag));
+    textureStore(gbuffer_normal, c, vec4<f32>(s.normal, acerto.t));
+    textureStore(gbuffer_albedo, c, vec4<f32>(max(s.albedo + s.cor * s.metal, vec3<f32>(0.02)), 0.0));
+}
+
 @compute @workgroup_size(8, 8, 1)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     if (id.x >= q.tile.z || id.y >= q.tile.w) {
@@ -727,6 +761,13 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let radiancia = radiancia_caminho(p0, normalize(p1 - p0), &estado);
 
     let coordenada = vec2<i32>(i32(px), i32(py));
+    if (q.dimensao.z == 0u) {
+        let ndc_centro = vec2<f32>(
+            ((f32(px) + 0.5) / largura) * 2.0 - 1.0,
+            1.0 - ((f32(py) + 0.5) / altura) * 2.0,
+        );
+        gravar_gbuffer(coordenada, ndc_centro);
+    }
     let anterior = textureLoad(acumulado_entrada, coordenada, 0);
     textureStore(acumulado_saida, coordenada, anterior + vec4<f32>(radiancia, 1.0));
 }

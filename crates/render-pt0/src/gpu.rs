@@ -357,6 +357,11 @@ pub struct Prototipo {
     erro_de_validacao: Arc<AtomicBool>,
     /// Texturas de material da cena (fase 5): arrays por mapa, plano e amostrador.
     mapas: MapasGpu,
+    /// Vistas do G-buffer do primeiro acerto (fase 6): geo, normal e albedo/R. Gravado no passe 0 de
+    /// cada cadeia. As vistas mantêm as texturas vivas.
+    gbuffer_vistas: [wgpu::TextureView; 3],
+    /// Denoise À-Trous (fase 6, ver `denoise.rs`): pipeline e texturas intermediárias.
+    denoiser: crate::denoise::DenoiseGpu,
 }
 
 impl Prototipo {
@@ -457,6 +462,33 @@ impl Prototipo {
             texturas[0].create_view(&wgpu::TextureViewDescriptor::default()),
             texturas[1].create_view(&wgpu::TextureViewDescriptor::default()),
         ];
+        // G-buffer (fase 6): três texturas RGBA32F por pixel, escritas no passe 0 e lidas pelo denoise.
+        let criar_gbuffer = |rotulo: &str| {
+            dispositivo.create_texture(&wgpu::TextureDescriptor {
+                label: Some(rotulo),
+                size: wgpu::Extent3d {
+                    width: largura,
+                    height: altura,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: FORMATO_ACUMULADO,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::STORAGE_BINDING,
+                view_formats: &[],
+            })
+        };
+        let gbuffer = [
+            criar_gbuffer("pt0-gbuffer-geo"),
+            criar_gbuffer("pt0-gbuffer-normal"),
+            criar_gbuffer("pt0-gbuffer-albedo"),
+        ];
+        let gbuffer_vistas = [
+            gbuffer[0].create_view(&wgpu::TextureViewDescriptor::default()),
+            gbuffer[1].create_view(&wgpu::TextureViewDescriptor::default()),
+            gbuffer[2].create_view(&wgpu::TextureViewDescriptor::default()),
+        ];
 
         let camada = |binding: u32, tipo: wgpu::BufferBindingType| wgpu::BindGroupLayoutEntry {
             binding,
@@ -543,6 +575,37 @@ impl Prototipo {
                     },
                     count: None,
                 },
+                // G-buffer (fase 6): geo, normal e albedo/R, escritos pelo passe 0 (ver `gravar_gbuffer`).
+                wgpu::BindGroupLayoutEntry {
+                    binding: 11,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::StorageTexture {
+                        access: wgpu::StorageTextureAccess::WriteOnly,
+                        format: FORMATO_ACUMULADO,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 12,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::StorageTexture {
+                        access: wgpu::StorageTextureAccess::WriteOnly,
+                        format: FORMATO_ACUMULADO,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 13,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::StorageTexture {
+                        access: wgpu::StorageTextureAccess::WriteOnly,
+                        format: FORMATO_ACUMULADO,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
             ],
         });
 
@@ -595,6 +658,18 @@ impl Prototipo {
                         binding: 10,
                         resource: wgpu::BindingResource::TextureView(&mapas.vistas[3]),
                     },
+                    wgpu::BindGroupEntry {
+                        binding: 11,
+                        resource: wgpu::BindingResource::TextureView(&gbuffer_vistas[0]),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 12,
+                        resource: wgpu::BindingResource::TextureView(&gbuffer_vistas[1]),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 13,
+                        resource: wgpu::BindingResource::TextureView(&gbuffer_vistas[2]),
+                    },
                 ],
             })
         };
@@ -628,6 +703,7 @@ impl Prototipo {
         ];
         // Mapas (bit 0) e normal de mapa (bit 1) ligados por padrão; ver `definir_mapas`.
         base.opcoes[3] = 3;
+        let denoiser = crate::denoise::DenoiseGpu::criar(&dispositivo, largura, altura);
         let mut protot = Self {
             dispositivo,
             fila,
@@ -642,6 +718,8 @@ impl Prototipo {
             adaptador: nome_adaptador,
             erro_de_validacao,
             mapas,
+            gbuffer_vistas,
+            denoiser,
         };
         protot.limpar();
         Ok(protot)
@@ -804,61 +882,38 @@ impl Prototipo {
 
     /// Acumulado atual: RGBA32F linear, `largura * altura * 4` floats (alfa = contagem).
     pub fn acumulado(&self) -> Result<Vec<f32>, String> {
-        let bytes_linha = self.largura * 16;
-        let alinhada = bytes_linha.div_ceil(256) * 256;
-        let leitura = self.dispositivo.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("pt0-leitura"),
-            size: u64::from(alinhada) * u64::from(self.altura),
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-            mapped_at_creation: false,
-        });
-        let mut codificador = self.dispositivo.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("pt0-leitura-cmd"),
-        });
-        codificador.copy_texture_to_buffer(
-            self.texturas[self.atual].as_image_copy(),
-            wgpu::TexelCopyBufferInfo {
-                buffer: &leitura,
-                layout: wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(alinhada),
-                    rows_per_image: Some(self.altura),
-                },
-            },
-            wgpu::Extent3d {
-                width: self.largura,
-                height: self.altura,
-                depth_or_array_layers: 1,
-            },
-        );
-        self.fila.submit(Some(codificador.finish()));
-
-        let (envio, recebimento) = mpsc::channel();
-        leitura.slice(..).map_async(wgpu::MapMode::Read, move |resultado| {
-            let _ = envio.send(resultado);
-        });
-        self.dispositivo
-            .poll(wgpu::PollType::wait_indefinitely())
-            .map_err(|erro| format!("espera da leitura: {erro}"))?;
-        recebimento
-            .recv()
-            .map_err(|erro| format!("canal de leitura: {erro}"))?
-            .map_err(|erro| format!("mapeamento falhou: {erro:?}"))?;
-
-        let dados = leitura
-            .slice(..)
-            .get_mapped_range()
-            .map_err(|erro| format!("leitura mapeada indisponível: {erro:?}"))?;
-        let mut saida = Vec::with_capacity((self.largura * self.altura * 4) as usize);
-        for linha in 0..self.altura as usize {
-            let inicio = linha * alinhada as usize;
-            let trecho = &dados[inicio..inicio + bytes_linha as usize];
-            saida.extend(trecho.chunks_exact(4).map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]])));
-        }
-        drop(dados);
-        leitura.unmap();
+        let saida = ler_rgba32f(&self.dispositivo, &self.fila, &self.texturas[self.atual], self.largura, self.altura)?;
         self.checar_erros()?;
         Ok(saida)
+    }
+
+    /// Denoise (fase 6): filtra o acumulado atual com o G-buffer do passe 0. Quem chama precisa de um
+    /// passe 0 feito com a configuração atual (mapas, câmera). Não espera a GPU; `denoised` espera.
+    pub fn denoise(&mut self, parametros: &crate::denoise::Parametros) -> Result<(), String> {
+        let acumulado = self.texturas[self.atual].create_view(&wgpu::TextureViewDescriptor::default());
+        let gbuffer = crate::denoise::GBufferVistas {
+            geo: &self.gbuffer_vistas[0],
+            normal: &self.gbuffer_vistas[1],
+            albedo: &self.gbuffer_vistas[2],
+        };
+        self.denoiser
+            .executar(&self.dispositivo, &self.fila, &acumulado, gbuffer, parametros, self.base.textura[0]);
+        self.checar_erros()
+    }
+
+    /// Resultado do último `denoise`: RGBA32F com alfa 1 (`largura * altura * 4` floats). Espera a GPU.
+    pub fn denoised(&self) -> Result<Vec<f32>, String> {
+        let saida = self.denoiser.ler(&self.dispositivo, &self.fila)?;
+        self.checar_erros()?;
+        Ok(saida)
+    }
+
+    /// Espera a GPU terminar o que já foi submetido (para medir tempo).
+    pub fn sincronizar(&self) -> Result<(), String> {
+        self.dispositivo
+            .poll(wgpu::PollType::wait_indefinitely())
+            .map(|_| ())
+            .map_err(|erro| format!("espera da GPU: {erro}"))
     }
 
     fn checar_erros(&self) -> Result<(), String> {
@@ -868,6 +923,71 @@ impl Prototipo {
             Ok(())
         }
     }
+}
+
+/// Lê uma textura RGBA32F de `largura` x `altura` para a CPU (linhas alinhadas a 256 bytes, como exige
+/// a cópia). Espera a GPU. Usado pelo acumulado e pela saída do denoise.
+pub(crate) fn ler_rgba32f(
+    dispositivo: &wgpu::Device,
+    fila: &wgpu::Queue,
+    textura: &wgpu::Texture,
+    largura: u32,
+    altura: u32,
+) -> Result<Vec<f32>, String> {
+    let bytes_linha = largura * 16;
+    let alinhada = bytes_linha.div_ceil(256) * 256;
+    let leitura = dispositivo.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("pt0-leitura"),
+        size: u64::from(alinhada) * u64::from(altura),
+        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+        mapped_at_creation: false,
+    });
+    let mut codificador = dispositivo.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("pt0-leitura-cmd"),
+    });
+    codificador.copy_texture_to_buffer(
+        textura.as_image_copy(),
+        wgpu::TexelCopyBufferInfo {
+            buffer: &leitura,
+            layout: wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(alinhada),
+                rows_per_image: Some(altura),
+            },
+        },
+        wgpu::Extent3d {
+            width: largura,
+            height: altura,
+            depth_or_array_layers: 1,
+        },
+    );
+    fila.submit(Some(codificador.finish()));
+
+    let (envio, recebimento) = mpsc::channel();
+    leitura.slice(..).map_async(wgpu::MapMode::Read, move |resultado| {
+        let _ = envio.send(resultado);
+    });
+    dispositivo
+        .poll(wgpu::PollType::wait_indefinitely())
+        .map_err(|erro| format!("espera da leitura: {erro}"))?;
+    recebimento
+        .recv()
+        .map_err(|erro| format!("canal de leitura: {erro}"))?
+        .map_err(|erro| format!("mapeamento falhou: {erro:?}"))?;
+
+    let dados = leitura
+        .slice(..)
+        .get_mapped_range()
+        .map_err(|erro| format!("leitura mapeada indisponível: {erro:?}"))?;
+    let mut saida = Vec::with_capacity((largura * altura * 4) as usize);
+    for linha in 0..altura as usize {
+        let inicio = linha * alinhada as usize;
+        let trecho = &dados[inicio..inicio + bytes_linha as usize];
+        saida.extend(trecho.chunks_exact(4).map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]])));
+    }
+    drop(dados);
+    leitura.unmap();
+    Ok(saida)
 }
 
 /// Uniforme de câmera e sol a partir da cena. Os campos de passe (tile, amostra, semente) ficam
