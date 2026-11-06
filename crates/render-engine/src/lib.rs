@@ -18,6 +18,7 @@ pub mod png_saida;
 pub mod renderizador;
 pub mod sombra;
 pub mod ssao;
+pub mod texturas;
 pub mod tiles;
 pub mod uniformes;
 

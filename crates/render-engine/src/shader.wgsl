@@ -36,28 +36,17 @@ struct Uniformes {
 // lê; é a "cor de tela" que a refração desloca. Ver motor.rs (passe de vidro).
 @group(0) @binding(8) var cor_tela: texture_2d<f32>;
 
-// ---- Texturas de material (grupo 1, só o passe principal; ver pipeline.rs e motor.rs) ----
-// Um binding por slot (WGSL sem binding array exige um nome por textura): 16 slots, com a 1x1
-// branca nos vazios. O `switch` escolhe o slot de cada fragmento. A amostragem usa gradientes
-// explícitos (textureSampleGrad), que não exigem fluxo uniforme, então o slot pode variar por pixel.
+// ---- Texturas de material (grupo 1, só o passe principal; ver pipeline.rs, texturas.rs e motor.rs) ----
+// Um array por mapa: uma camada por textura da cena, todas no mesmo tamanho e com a mesma cadeia de
+// mips. O vértice guarda a camada de cada mapa (`texturas`); SEM_TEXTURA = o canal não tem textura.
+// Os arrays são amostrados com gradientes explícitos (textureSampleGrad), que não exigem fluxo
+// uniforme, então a camada pode variar por pixel.
 const SEM_TEXTURA: u32 = 0xffffffffu;
 @group(1) @binding(0) var amostrador_textura: sampler;
-@group(1) @binding(1) var textura_0: texture_2d<f32>;
-@group(1) @binding(2) var textura_1: texture_2d<f32>;
-@group(1) @binding(3) var textura_2: texture_2d<f32>;
-@group(1) @binding(4) var textura_3: texture_2d<f32>;
-@group(1) @binding(5) var textura_4: texture_2d<f32>;
-@group(1) @binding(6) var textura_5: texture_2d<f32>;
-@group(1) @binding(7) var textura_6: texture_2d<f32>;
-@group(1) @binding(8) var textura_7: texture_2d<f32>;
-@group(1) @binding(9) var textura_8: texture_2d<f32>;
-@group(1) @binding(10) var textura_9: texture_2d<f32>;
-@group(1) @binding(11) var textura_10: texture_2d<f32>;
-@group(1) @binding(12) var textura_11: texture_2d<f32>;
-@group(1) @binding(13) var textura_12: texture_2d<f32>;
-@group(1) @binding(14) var textura_13: texture_2d<f32>;
-@group(1) @binding(15) var textura_14: texture_2d<f32>;
-@group(1) @binding(16) var textura_15: texture_2d<f32>;
+@group(1) @binding(1) var texturas_albedo: texture_2d_array<f32>;
+@group(1) @binding(2) var texturas_normal: texture_2d_array<f32>;
+@group(1) @binding(3) var texturas_rugosidade: texture_2d_array<f32>;
+@group(1) @binding(4) var texturas_metalico: texture_2d_array<f32>;
 
 // Mesmo valor de constantes.rs (AMOSTRAS_AO). O teste de sincronia lê esta linha.
 const AMOSTRAS_AO: u32 = 16u;
@@ -478,28 +467,9 @@ fn normal_com_relevo(tipo: i32, mundo: vec3<f32>, normal: vec3<f32>, base: vec3<
   return normalize(normal - tangente);
 }
 
-// Amostra o slot `indice` com os gradientes dados. Slot fora de 0..15 devolve branco (não ocorre
-// com os índices validados pelo núcleo).
-fn amostrar_slot(indice: u32, uv: vec2<f32>, dx: vec2<f32>, dy: vec2<f32>) -> vec4<f32> {
-  switch indice {
-    case 0u: { return textureSampleGrad(textura_0, amostrador_textura, uv, dx, dy); }
-    case 1u: { return textureSampleGrad(textura_1, amostrador_textura, uv, dx, dy); }
-    case 2u: { return textureSampleGrad(textura_2, amostrador_textura, uv, dx, dy); }
-    case 3u: { return textureSampleGrad(textura_3, amostrador_textura, uv, dx, dy); }
-    case 4u: { return textureSampleGrad(textura_4, amostrador_textura, uv, dx, dy); }
-    case 5u: { return textureSampleGrad(textura_5, amostrador_textura, uv, dx, dy); }
-    case 6u: { return textureSampleGrad(textura_6, amostrador_textura, uv, dx, dy); }
-    case 7u: { return textureSampleGrad(textura_7, amostrador_textura, uv, dx, dy); }
-    case 8u: { return textureSampleGrad(textura_8, amostrador_textura, uv, dx, dy); }
-    case 9u: { return textureSampleGrad(textura_9, amostrador_textura, uv, dx, dy); }
-    case 10u: { return textureSampleGrad(textura_10, amostrador_textura, uv, dx, dy); }
-    case 11u: { return textureSampleGrad(textura_11, amostrador_textura, uv, dx, dy); }
-    case 12u: { return textureSampleGrad(textura_12, amostrador_textura, uv, dx, dy); }
-    case 13u: { return textureSampleGrad(textura_13, amostrador_textura, uv, dx, dy); }
-    case 14u: { return textureSampleGrad(textura_14, amostrador_textura, uv, dx, dy); }
-    case 15u: { return textureSampleGrad(textura_15, amostrador_textura, uv, dx, dy); }
-    default: { return vec4<f32>(1.0); }
-  }
+// Amostra a camada `camada` do array `tex` com os gradientes dados.
+fn amostrar_camada(tex: texture_2d_array<f32>, camada: u32, uv: vec2<f32>, dx: vec2<f32>, dy: vec2<f32>) -> vec4<f32> {
+  return textureSampleGrad(tex, amostrador_textura, uv, camada, dx, dy);
 }
 
 // Coordenadas triplanares de textura: uv de cada eixo (X, Y, Z), derivadas por pixel e o sinal da
@@ -537,12 +507,12 @@ struct AmostrasEixos {
   z: vec4<f32>,
 };
 
-// Uma textura amostrada nos três eixos.
-fn amostrar_eixos(indice: u32, t: Triplanar) -> AmostrasEixos {
+// Uma camada de um array amostrada nos três eixos.
+fn amostrar_eixos(tex: texture_2d_array<f32>, camada: u32, t: Triplanar) -> AmostrasEixos {
   var r: AmostrasEixos;
-  r.x = amostrar_slot(indice, t.uv[0], t.dx[0], t.dy[0]);
-  r.y = amostrar_slot(indice, t.uv[1], t.dx[1], t.dy[1]);
-  r.z = amostrar_slot(indice, t.uv[2], t.dx[2], t.dy[2]);
+  r.x = amostrar_camada(tex, camada, t.uv[0], t.dx[0], t.dy[0]);
+  r.y = amostrar_camada(tex, camada, t.uv[1], t.dx[1], t.dy[1]);
+  r.z = amostrar_camada(tex, camada, t.uv[2], t.dx[2], t.dy[2]);
   return r;
 }
 
@@ -629,22 +599,22 @@ fn fs_principal(e: Saida) -> @location(0) vec4<f32> {
   // Albedo de textura substitui a cor procedural. A amostra é sRGB codificada: decodifica por canal
   // antes de misturar, como a cor linear do material.
   if (tex.x != SEM_TEXTURA) {
-    let a = amostrar_eixos(tex.x, tri);
+    let a = amostrar_eixos(texturas_albedo, tex.x, tri);
     base = linear_de_srgb(a.x.rgb) * peso.x
       + linear_de_srgb(a.y.rgb) * peso.y
       + linear_de_srgb(a.z.rgb) * peso.z;
   }
   // Mapa de normal: whiteout triplanar sobre a normal base (o relevo procedural já não entra aqui).
   if (tex.y != SEM_TEXTURA) {
-    normal = normal_de_mapa(amostrar_eixos(tex.y, tri), tri, normal, peso);
+    normal = normal_de_mapa(amostrar_eixos(texturas_normal, tex.y, tri), tri, normal, peso);
   }
   // Rugosidade e metálico vêm do canal R da textura, quando o material tem o mapa.
   if (tex.z != SEM_TEXTURA) {
-    let r = amostrar_eixos(tex.z, tri);
+    let r = amostrar_eixos(texturas_rugosidade, tex.z, tri);
     rugosidade = clamp(r.x.r * peso.x + r.y.r * peso.y + r.z.r * peso.z, 0.04, 1.0);
   }
   if (tex.w != SEM_TEXTURA) {
-    let m = amostrar_eixos(tex.w, tri);
+    let m = amostrar_eixos(texturas_metalico, tex.w, tri);
     metalico = clamp(m.x.r * peso.x + m.y.r * peso.y + m.z.r * peso.z, 0.0, 1.0);
   }
 

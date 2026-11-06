@@ -6,9 +6,7 @@ use std::mem::size_of;
 
 use wgpu::util::DeviceExt;
 
-use crate::constantes::{
-    FORMATO_COR, FORMATO_NORMAIS, FORMATO_OCLUSAO, FORMATO_PROFUNDIDADE, TEXTURAS_POR_CENA,
-};
+use crate::constantes::{FORMATO_COR, FORMATO_NORMAIS, FORMATO_OCLUSAO, FORMATO_PROFUNDIDADE};
 use crate::erro::ErroRender;
 use crate::geometria::Vertice;
 use crate::gpu::Gpu;
@@ -32,8 +30,9 @@ pub struct Layouts {
     pub uniforme: wgpu::BindGroupLayout,
     /// Uniforme, mapa de sombra, comparador, harmônicos do céu e oclusão (passe principal, grupo 0).
     pub principal: wgpu::BindGroupLayout,
-    /// Texturas de material (passe principal, grupo 1): sampler no binding 0 e uma textura por slot
-    /// nos bindings 1 a `TEXTURAS_POR_CENA`. Slot sem textura usa uma 1x1 branca (ver motor.rs).
+    /// Texturas de material (passe principal, grupo 1): sampler no binding 0 e um `texture_2d_array`
+    /// por mapa nos bindings 1 a 4 (albedo, normal, rugosidade, metálico). Cada camada é uma textura
+    /// da cena no tamanho comum (ver texturas.rs). Mapa sem textura usa uma 1x1 branca de uma camada.
     pub texturas: wgpu::BindGroupLayout,
     /// Pré-passe de normais: uniforme (0) e uniforme extra da oclusão (5).
     pub pre: wgpu::BindGroupLayout,
@@ -155,21 +154,21 @@ pub fn criar_layouts(device: &wgpu::Device) -> Layouts {
         ],
     });
 
-    // Grupo 1 das texturas: o sampler no binding 0 e as texturas nos bindings 1..=16, um por slot
-    // (WGSL não tem array de texturas sem a feature de binding array, então cada slot é um binding).
+    // Grupo 1 das texturas: o sampler no binding 0 e um array de texturas por mapa nos bindings
+    // 1..=4 (albedo, normal, rugosidade, metálico). Sem limite de slots: as camadas ficam no array.
     let mut entradas_texturas = vec![wgpu::BindGroupLayoutEntry {
         binding: 0,
         visibility: wgpu::ShaderStages::FRAGMENT,
         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
         count: None,
     }];
-    for slot in 0..TEXTURAS_POR_CENA as u32 {
+    for mapa in 0..crate::texturas::MAPAS as u32 {
         entradas_texturas.push(wgpu::BindGroupLayoutEntry {
-            binding: 1 + slot,
+            binding: 1 + mapa,
             visibility: wgpu::ShaderStages::FRAGMENT,
             ty: wgpu::BindingType::Texture {
                 sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                view_dimension: wgpu::TextureViewDimension::D2,
+                view_dimension: wgpu::TextureViewDimension::D2Array,
                 multisampled: false,
             },
             count: None,

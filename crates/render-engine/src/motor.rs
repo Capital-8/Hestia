@@ -7,14 +7,14 @@
 
 use std::mem::size_of;
 
-use render_core::cena::{Cena, Textura};
+use render_core::cena::{Cena, Textura, MAX_TEXTURAS};
 use wgpu::util::DeviceExt;
 
 use crate::ceu;
 use crate::constantes::{
     ANISOTROPIA_TEXTURAS, CEU_PADRAO, FORMATO_COR, FORMATO_NORMAIS, FORMATO_OCLUSAO,
     FORMATO_PROFUNDIDADE, FORMATO_TEXTURA_MATERIAL, FRACAO_REFRACAO, LADO_SOMBRA, MARGEM_AO_PX,
-    MARGEM_DESFOQUE_PX, TEXTURAS_POR_CENA,
+    MARGEM_DESFOQUE_PX,
 };
 use crate::cor;
 use crate::erro::ErroRender;
@@ -28,6 +28,7 @@ use crate::pipeline::{
     Layouts, Pipelines,
 };
 use crate::ssao::{camera_extra, expandir, CameraExtra};
+use crate::texturas::{criar_array, Plano, MAPAS, NOMES_MAPAS};
 use crate::uniformes::Uniformes;
 
 /// Maior lado aceito para a imagem final (o mesmo limite do CLI).
@@ -59,7 +60,8 @@ pub struct Motor {
     /// Sampler das texturas de material (grupo 1, binding 0): mip linear e anisotropia 8 quando o
     /// adaptador aceita, senão 1.
     amostrador_textura: wgpu::Sampler,
-    /// Textura 1x1 branca nos slots que a cena não usa (todos os bindings do grupo 1 precisam existir).
+    /// Textura 1x1 branca de uma camada: o array de um mapa que a cena não usa (os quatro bindings do
+    /// grupo 1 precisam existir).
     textura_vazia: wgpu::Texture,
     /// Amostras por pixel do passe principal: 1 (sem MSAA) ou 4 (MSAA x4, com resolve).
     amostras: u32,
@@ -81,10 +83,21 @@ pub struct CenaGpu {
     sh_ceu: wgpu::Buffer,
     _sombra: wgpu::Texture,
     sombra_view: wgpu::TextureView,
-    /// Texturas de material da cena (mantidas vivas enquanto o grupo 1 existir).
+    /// Arrays de textura de material da cena (mantidos vivos enquanto o grupo 1 existir). Só os
+    /// mapas que a cena usa; o mapa sem textura aponta para a 1x1 de `Motor`.
     _texturas: Vec<wgpu::Texture>,
-    /// Grupo 1 do passe principal: sampler e uma textura por slot (ver pipeline.rs).
+    /// Bytes na GPU dos arrays de textura, com todos os níveis de mip (ver `bytes_texturas`).
+    bytes_texturas: u64,
+    /// Grupo 1 do passe principal: sampler e um array por mapa (ver pipeline.rs).
     grupo_texturas: wgpu::BindGroup,
+}
+
+/// Descrição de visão para um array de texturas de material (todas as camadas).
+fn visao_de_array() -> wgpu::TextureViewDescriptor<'static> {
+    wgpu::TextureViewDescriptor {
+        dimension: Some(wgpu::TextureViewDimension::D2Array),
+        ..Default::default()
+    }
 }
 
 /// Envia uma textura de material à GPU com todos os seus níveis de mip (um `write_texture` por
@@ -138,6 +151,12 @@ impl CenaGpu {
     /// Quantidade de vértices da malha expandida.
     pub fn vertices(&self) -> usize {
         self.vertices
+    }
+
+    /// Bytes na GPU dos arrays de textura de material da cena, com todos os níveis de mip. Zero
+    /// sem textura (a 1x1 compartilhada de `Motor` não entra na conta).
+    pub fn bytes_texturas(&self) -> u64 {
+        self.bytes_texturas
     }
 }
 
@@ -291,6 +310,16 @@ impl Motor {
         }
     }
 
+    /// Limites da placa para texturas de material: (lado máximo de uma textura 2D, camadas máximas
+    /// de um array de textura). A cena com mais camadas por mapa é recusada com esses números.
+    pub fn limites_de_textura(&self) -> (u32, u32) {
+        let limites = self.gpu.device.limits();
+        (
+            limites.max_texture_dimension_2d,
+            limites.max_texture_array_layers,
+        )
+    }
+
     /// Backend escolhido (DX12, Vulkan, Metal...).
     pub fn backend(&self) -> wgpu::Backend {
         self.gpu.backend
@@ -308,10 +337,10 @@ impl Motor {
 
     /// Envia a malha da cena à GPU e gera o mapa de sombra, uma vez. Reuse o `CenaGpu`.
     pub fn carregar_cena(&self, cena: &Cena) -> Result<CenaGpu, ErroRender> {
-        // Limite explícito antes de qualquer alocação: o grupo 1 tem TEXTURAS_POR_CENA slots.
-        if cena.texturas.len() > TEXTURAS_POR_CENA {
+        // Limite do formato antes de qualquer alocação (a decodificação já recusa mais de 64).
+        if cena.texturas.len() > MAX_TEXTURAS as usize {
             return Err(ErroRender::Gpu(format!(
-                "cena com {} texturas; o limite desta etapa é {TEXTURAS_POR_CENA} por cena",
+                "cena com {} texturas; o formato aceita até {MAX_TEXTURAS} por cena",
                 cena.texturas.len()
             )));
         }
@@ -325,7 +354,15 @@ impl Motor {
                 "textura de material maior que o limite de {limite_lado} texels da GPU"
             )));
         }
-        let malha = expandir_malha(cena)?;
+        // Plano dos arrays de textura: camadas de cada mapa, tamanho comum e o limite da placa. Erro
+        // explícito se a placa não aceitar as camadas; não há fallback.
+        let plano = Plano::planejar(
+            &cena.texturas,
+            &cena.materiais,
+            self.gpu.device.limits().max_texture_array_layers,
+        )?;
+        let mut malha = expandir_malha(cena)?;
+        plano.remapear(&mut malha.vertices);
         let device = &self.gpu.device;
         let tamanho_vertices = malha.vertices.len() as u64 * size_of::<Vertice>() as u64;
         if tamanho_vertices > device.limits().max_buffer_size {
@@ -405,28 +442,34 @@ impl Motor {
         }
         self.gpu.queue.submit(Some(codificador.finish()));
 
-        // Texturas de material: uma `wgpu::Texture` por textura da cena, e o grupo 1 com o sampler
-        // e um slot por binding. Slot sem textura recebe a 1x1 branca.
-        let texturas: Vec<wgpu::Texture> = cena
-            .texturas
-            .iter()
-            .map(|textura| criar_textura_material(device, &self.gpu.queue, textura))
-            .collect();
-        let vistas: Vec<wgpu::TextureView> = texturas
-            .iter()
-            .map(|textura| textura.create_view(&wgpu::TextureViewDescriptor::default()))
-            .collect();
-        let vista_vazia = self
-            .textura_vazia
-            .create_view(&wgpu::TextureViewDescriptor::default());
+        // Texturas de material: um array por mapa (albedo, normal, rugosidade, metálico), com uma
+        // camada por textura que o mapa usa (ver texturas.rs). Mapa sem textura usa a 1x1 branca.
+        let mut arrays: Vec<wgpu::Texture> = Vec::new();
+        let mut bytes_texturas = 0u64;
+        let mut vistas: Vec<wgpu::TextureView> = Vec::with_capacity(MAPAS);
+        for (mapa, nome) in NOMES_MAPAS.iter().enumerate() {
+            if plano.camadas[mapa].is_empty() {
+                vistas.push(self.textura_vazia.create_view(&visao_de_array()));
+                continue;
+            }
+            let referencias: Vec<&Textura> = plano.camadas[mapa]
+                .iter()
+                .map(|&indice| &cena.texturas[indice as usize])
+                .collect();
+            let rotulo = format!("texturas de {nome}");
+            let array = criar_array(device, &self.gpu.queue, &rotulo, &plano, &referencias);
+            bytes_texturas += plano.bytes_do_array(referencias.len() as u32);
+            vistas.push(array.create_view(&visao_de_array()));
+            arrays.push(array);
+        }
         let mut entradas = vec![wgpu::BindGroupEntry {
             binding: 0,
             resource: wgpu::BindingResource::Sampler(&self.amostrador_textura),
         }];
-        for slot in 0..TEXTURAS_POR_CENA {
+        for (mapa, vista) in vistas.iter().enumerate() {
             entradas.push(wgpu::BindGroupEntry {
-                binding: 1 + slot as u32,
-                resource: wgpu::BindingResource::TextureView(vistas.get(slot).unwrap_or(&vista_vazia)),
+                binding: 1 + mapa as u32,
+                resource: wgpu::BindingResource::TextureView(vista),
             });
         }
         let grupo_texturas = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -446,7 +489,8 @@ impl Motor {
             sh_ceu,
             _sombra: sombra,
             sombra_view,
-            _texturas: texturas,
+            _texturas: arrays,
+            bytes_texturas,
             grupo_texturas,
         })
     }

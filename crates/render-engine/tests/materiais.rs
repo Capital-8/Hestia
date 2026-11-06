@@ -7,7 +7,7 @@
 use std::io::Cursor;
 use std::path::PathBuf;
 
-use render_core::{Cena, Textura};
+use render_core::{Cena, Material, Textura};
 use render_engine::{Motor, Retangulo};
 
 const LARGURA: u32 = 640;
@@ -256,12 +256,125 @@ fn textura_de_albedo_muda_a_imagem() {
     assert!(diferenca > 40, "a textura de albedo não alterou a imagem (diferença {diferenca})");
 }
 
+/// Textura de prova numa cor por índice: xadrez de 8x8 texels entre a cor `i` e cinza escuro. Só o
+/// nível 0: o motor gera a cadeia de mips.
+fn textura_de_cor(i: usize, lado: u32) -> Textura {
+    let cor = [((i * 37) % 256) as u8, ((i * 91 + 50) % 256) as u8, ((i * 53 + 100) % 256) as u8, 255];
+    let cinza = [30, 30, 30, 255];
+    let mut pixels = Vec::with_capacity((lado * lado * 4) as usize);
+    for y in 0..lado {
+        for x in 0..lado {
+            let escolhida = if ((x / 2) + (y / 2)) % 2 == 0 { cor } else { cinza };
+            pixels.extend_from_slice(&escolhida);
+        }
+    }
+    Textura {
+        largura: lado,
+        altura: lado,
+        niveis: vec![pixels],
+    }
+}
+
+/// Bytes de um array de camadas 8x8 com a cadeia completa (8x8, 4x4, 2x2 e 1x1: 85 texels).
+const BYTES_CAMADA_8X8: u64 = 85 * 4;
+
 #[test]
-fn textura_alem_do_limite_da_gpu_e_recusada() {
-    // O núcleo aceita até 64 texturas, mas o grupo 1 da GPU tem 16 slots: a recusa é explícita.
-    let mut cena = Cena::decodificar(&ler_fixture("cena-materiais.hstr")).expect("fixture v2");
-    cena.texturas = (0..17).map(|_| textura_xadrez()).collect();
+fn cena_com_22_texturas_carrega_e_renderiza_sem_limite_de_16() {
+    // Vinte e duas texturas, mais do que os 16 slots antigos. Os seis materiais da cena de prova
+    // recebem quatro mapas cada (a 22 cobre albedo, normal, rugosidade e metálico). A textura 20
+    // é o albedo do material 5 (chaminé); a textura 0 é o albedo do material 0, então trocar a
+    // camada 20 pela 0 tem que mudar a imagem: prova que a camada escolhida é a certa.
+    let sem = Cena::decodificar(&ler_fixture("cena-materiais.hstr")).expect("fixture v2");
+    let mut com = Cena::decodificar(&ler_fixture("cena-materiais.hstr")).expect("fixture v2");
+    com.texturas = (0..22).map(|i| textura_de_cor(i, 8)).collect();
+    for (material, m) in com.materiais.iter_mut().take(6).enumerate() {
+        for canal in 0..4 {
+            let indice = material * 4 + canal;
+            m.texturas[canal] = (indice < 22).then_some(indice as u32);
+        }
+    }
     let motor = Motor::nativo().expect("GPU nativa necessária para este teste");
-    let erro = motor.carregar_cena(&cena).err().expect("17 texturas devem ser recusadas");
-    assert!(erro.to_string().contains("17 texturas"), "mensagem: {erro}");
+    let cena_gpu = motor.carregar_cena(&com).expect("22 texturas devem carregar");
+    assert_eq!(cena_gpu.bytes_texturas(), bytes_esperados(&com));
+    let com_textura = renderizar(&com, &motor);
+    assert!(com_textura.chunks_exact(4).any(|p| p[0] > 0 || p[1] > 0 || p[2] > 0), "imagem preta");
+    let diferenca_sem = maior_diferenca(&renderizar(&sem, &motor), &com_textura);
+    eprintln!("[22 texturas] diferença para a cena sem textura = {diferenca_sem}");
+    assert!(diferenca_sem > 40, "as texturas não alteraram a imagem (diferença {diferenca_sem})");
+
+    // Camada 0 no lugar da 20 no albedo do material 5: a imagem tem que mudar.
+    let mut trocada = Cena::decodificar(&com.codificar()).expect("cena v3 com 22 texturas");
+    trocada.materiais[5].texturas[0] = Some(0);
+    let diferenca_camada = maior_diferenca(&com_textura, &renderizar(&trocada, &motor));
+    eprintln!("[22 texturas] camada 20 vs camada 0 no albedo da chaminé: diferença = {diferenca_camada}");
+    assert!(diferenca_camada > 20, "a camada 20 não foi amostrada (diferença {diferenca_camada})");
+}
+
+/// Bytes esperados de uma cena cujas texturas têm 8x8 e cada uma é usada uma vez por mapa.
+fn bytes_esperados(cena: &Cena) -> u64 {
+    let mut total = 0u64;
+    for mapa in 0..4 {
+        let usadas = cena
+            .materiais
+            .iter()
+            .filter(|m| m.texturas[mapa].is_some())
+            .count() as u64;
+        total += usadas * BYTES_CAMADA_8X8;
+    }
+    total
+}
+
+#[test]
+fn cena_com_64_texturas_carrega_dentro_do_formato() {
+    // 64 camadas num único mapa (albedo): cada material com uma textura própria.
+    let mut cena = Cena::decodificar(&ler_fixture("cena-materiais.hstr")).expect("fixture v2");
+    cena.texturas = (0..64).map(|i| textura_de_cor(i, 8)).collect();
+    cena.materiais = (0..64)
+        .map(|i| {
+            let mut material = Material::padrao();
+            material.texturas[0] = Some(i as u32);
+            material
+        })
+        .collect();
+    let motor = Motor::nativo().expect("GPU nativa necessária para este teste");
+    let (_, camadas_da_placa) = motor.limites_de_textura();
+    eprintln!("[64 texturas] camadas máximas da placa = {camadas_da_placa}");
+    let cena_gpu = motor.carregar_cena(&cena).expect("64 texturas devem carregar");
+    assert_eq!(cena_gpu.bytes_texturas(), 64 * BYTES_CAMADA_8X8);
+}
+
+#[test]
+fn cena_com_65_texturas_e_recusada_pelo_formato() {
+    // O formato (HSTR v3) aceita até 64 texturas: a decodificação recusa 65.
+    let mut cena = Cena::decodificar(&ler_fixture("cena-materiais.hstr")).expect("fixture v2");
+    cena.texturas = (0..65).map(|i| textura_de_cor(i, 8)).collect();
+    assert!(Cena::decodificar(&cena.codificar()).is_err(), "o formato deve recusar 65 texturas");
+    // E a GPU também recusa, com erro explícito, se receber a cena montada na memória.
+    let motor = Motor::nativo().expect("GPU nativa necessária para este teste");
+    let erro = motor.carregar_cena(&cena).err().expect("65 texturas devem ser recusadas");
+    assert!(erro.to_string().contains("65 texturas"), "mensagem: {erro}");
+}
+
+#[test]
+#[ignore = "medição de carga com 22 texturas de 1024 px; rodar com --ignored --nocapture (de preferência com --release)"]
+fn medir_carga_com_22_texturas_de_1024() {
+    let mut cena = Cena::decodificar(&ler_fixture("cena-materiais.hstr")).expect("fixture v2");
+    cena.texturas = (0..22).map(|i| textura_de_cor(i, 1024)).collect();
+    for (material, m) in cena.materiais.iter_mut().take(6).enumerate() {
+        for canal in 0..4 {
+            let indice = material * 4 + canal;
+            m.texturas[canal] = (indice < 22).then_some(indice as u32);
+        }
+    }
+    let motor = Motor::nativo().expect("GPU nativa necessária para este teste");
+    let (lado_maximo, camadas) = motor.limites_de_textura();
+    let inicio = std::time::Instant::now();
+    let cena_gpu = motor.carregar_cena(&cena).expect("22 texturas de 1024 px devem carregar");
+    let tempo = inicio.elapsed();
+    eprintln!(
+        "[medicao] carregar_cena com 22 texturas de 1024 px: {:.1} ms; memoria na GPU dos arrays: {} bytes ({:.1} MiB); limites da placa: textura 2D {lado_maximo}, camadas {camadas}",
+        tempo.as_secs_f64() * 1000.0,
+        cena_gpu.bytes_texturas(),
+        cena_gpu.bytes_texturas() as f64 / (1024.0 * 1024.0),
+    );
 }

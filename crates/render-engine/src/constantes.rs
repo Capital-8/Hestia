@@ -6,17 +6,14 @@ pub const LADO_SOMBRA: u32 = 2048;
 /// Formato da textura final; a codificação sRGB é feita no shader.
 pub const FORMATO_COR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
-/// Texturas de material por cena na GPU. Cada uma ocupa um binding (1 a 16) do grupo 1 do passe
-/// principal (ver pipeline.rs e shader.wgsl). Cena com mais texturas é recusada com erro explícito.
-pub const TEXTURAS_POR_CENA: usize = 16;
-
 /// Anisotropia pedida ao sampler das texturas de material. Vale 1 quando o adaptador não tem
 /// `ANISOTROPIC_FILTERING` (ver gpu.rs).
 pub const ANISOTROPIA_TEXTURAS: u16 = 8;
 
 /// Formato das texturas de material: RGBA8 normalizado (Unorm), sem view sRGB. O albedo é
 /// decodificado de sRGB no shader, porque a mesma textura pode servir de albedo ou de dado linear
-/// (normal, rugosidade, metálico) em materiais diferentes, e cada textura só tem um upload.
+/// (normal, rugosidade, metálico) em materiais diferentes, e cada textura só tem um upload. Os
+/// arrays de material (ver texturas.rs) usam este mesmo formato.
 pub const FORMATO_TEXTURA_MATERIAL: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
 /// Formato de profundidade principal e do mapa de sombra.
