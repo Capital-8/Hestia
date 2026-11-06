@@ -12,11 +12,15 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  AMOSTRAS_PADRAO_PT,
   cancelarJobNativo,
   criarJobComCache,
+  previewJobNativo,
   resultadoJobNativo,
   statusJobNativo,
   tileNativo,
+  type ModoRenderNativo,
+  type OpcoesJobNativo,
   type StatusJobNativo,
 } from '../../editor/render/nativeClient.ts';
 import {
@@ -33,6 +37,12 @@ export interface ParamsRender {
   largura: number;
   altura: number;
   exposicao?: number;
+  /** Ausente = raster (rasterização, com tiles). `pt` = path tracing por amostras. */
+  modo?: ModoRenderNativo;
+  /** Só modo pt: amostras pedidas (padrão 64). */
+  amostras?: number;
+  /** Só modo pt: reduz o ruído no fim de cada passe (padrão false). */
+  denoise?: boolean;
 }
 
 /** Situação de um tile concluído pelo serviço: buscando o PNG, já pronto, ou falha ao buscar. */
@@ -59,6 +69,8 @@ export interface RenderSession {
   estado: EstadoSessao;
   /** Tiles do job GPU; `null` sem tiles (serviço antigo, fase prévia) ou fora de um render. */
   tiles: TilesSessao | null;
+  /** Prévia que refina no modo pt (PNG a 320 px, a cada ~500 ms); `null` fora dele ou antes do 1º passe. */
+  previa: Blob | null;
   iniciar(params: ParamsRender): Promise<void>;
   cancelar(): void;
   baixar(nomeArquivo: string): void;
@@ -68,17 +80,23 @@ export interface RenderSession {
 
 const INTERVALO_POLLING_MS = 250;
 const LIMITE_BUSCA_TILES = 4;
+/** Intervalo mínimo entre duas buscas da prévia do modo pt. */
+const INTERVALO_PREVIA_PT_MS = 500;
 const MENSAGEM_SERVICO_PAROU = 'O serviço de render nativo parou de responder.';
 const MENSAGEM_SEM_RESULTADO = 'O render terminou, mas o serviço não devolveu a imagem.';
 
 /**
  * Aplica um status do job ao estado. Erro e cancelamento são terminais; `pronto` não entra aqui
- * (a imagem precisa ser baixada, o que o hook faz). Serviço antigo, sem `tiles`, não avança o
- * progresso: o estado continua `renderizando` sem fração inventada.
+ * (a imagem precisa ser baixada, o que o hook faz). Job do modo pt traz `amostras` e avança por
+ * amostra. Serviço antigo, sem `tiles`, não avança o progresso: o estado continua `renderizando`
+ * sem fração inventada.
  */
 export function aplicarStatus(estado: EstadoSessao, status: StatusJobNativo): EstadoSessao {
   if (status.erro) return transicionar(estado, { tipo: 'falhar', mensagem: status.erro });
   if (status.cancelado) return transicionar(estado, { tipo: 'cancelar' });
+  if (status.amostras) {
+    return transicionar(estado, { tipo: 'amostra', feitas: status.amostras.feitas, total: status.amostras.total });
+  }
   if (!status.tiles) return estado;
   return transicionar(estado, {
     tipo: 'tile',
@@ -106,6 +124,7 @@ export function useRenderSession(opcoes: OpcoesRenderSession = {}): RenderSessio
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [tiles, setTiles] = useState<TilesSessao | null>(null);
   const tilesRef = useRef<TilesSessao | null>(null);
+  const [previa, setPrevia] = useState<Blob | null>(null);
 
   const atualizar = useCallback((proximo: (atual: EstadoSessao) => EstadoSessao) => {
     const novo = proximo(estadoRef.current);
@@ -123,6 +142,8 @@ export function useRenderSession(opcoes: OpcoesRenderSession = {}): RenderSessio
     setTiles(proximo);
   }, []);
 
+  const publicarPrevia = useCallback((proximo: Blob | null) => setPrevia(proximo), []);
+
   /** Para o polling e solta a referência do job (não mexe no estado). */
   const pararPolling = useCallback(() => {
     if (timerRef.current !== null) {
@@ -137,7 +158,8 @@ export function useRenderSession(opcoes: OpcoesRenderSession = {}): RenderSessio
     pararPolling();
     jobIdRef.current = null;
     publicarTiles(null);
-  }, [pararPolling, publicarTiles]);
+    publicarPrevia(null);
+  }, [pararPolling, publicarTiles, publicarPrevia]);
 
   // Desmontagem: nenhum polling fica vivo e os Blobs de tiles são soltos.
   useEffect(
@@ -150,8 +172,11 @@ export function useRenderSession(opcoes: OpcoesRenderSession = {}): RenderSessio
 
   const iniciar = useCallback(
     async (params: ParamsRender): Promise<void> => {
+      const pt = params.modo === 'pt';
+      // No modo pt, o total do progresso são as amostras pedidas; no raster, ele vem dos tiles.
+      const amostrasPt = pt ? (params.amostras ?? AMOSTRAS_PADRAO_PT) : 0;
       // Uma sessão por vez: transicionar ignora 'iniciar' fora dos estados permitidos.
-      const proximo = transicionar(estadoRef.current, { tipo: 'iniciar', total: 0 });
+      const proximo = transicionar(estadoRef.current, { tipo: 'iniciar', total: amostrasPt });
       if (proximo === estadoRef.current) return;
       if (controllerRef.current !== null) return;
 
@@ -163,15 +188,22 @@ export function useRenderSession(opcoes: OpcoesRenderSession = {}): RenderSessio
       const limitarBusca = criarLimitadorConcorrencia(LIMITE_BUSCA_TILES);
       // Instante em que cada tile entrou em 'buscando' (para o timeout de LIMITE_BUSCA_TILE_MS).
       const inicioBusca = new Map<number, number>();
+      // Prévia do modo pt: no máximo uma busca em curso; refaz só quando há passe novo e o intervalo passou.
+      let previaEmCurso = false;
+      let previaFeitas = -1;
+      let ultimaPreviaMs = Number.NEGATIVE_INFINITY;
+
+      const opcoesJob: OpcoesJobNativo = {
+        largura: params.largura,
+        altura: params.altura,
+        exposicao: params.exposicao,
+        sinal,
+        ...(pt ? { modo: 'pt' as const, amostras: amostrasPt, denoise: params.denoise ?? false } : {}),
+      };
 
       let id: string;
       try {
-        id = await criarJobComCache(params.hstr, {
-          largura: params.largura,
-          altura: params.altura,
-          exposicao: params.exposicao,
-          sinal,
-        });
+        id = await criarJobComCache(params.hstr, opcoesJob);
       } catch (erro) {
         if (sinal.aborted) return;
         finalizar();
@@ -231,6 +263,21 @@ export function useRenderSession(opcoes: OpcoesRenderSession = {}): RenderSessio
           concluidos: [...base.concluidos, ...adicionados].sort((a, b) => a.i - b.i),
         });
         for (const i of novos) void limitarBusca(() => buscarTile(i));
+      };
+
+      const buscarPrevia = (feitas: number): void => {
+        if (previaEmCurso || feitas === previaFeitas) return;
+        const agora = relogioRef.current();
+        if (agora - ultimaPreviaMs < INTERVALO_PREVIA_PT_MS) return;
+        previaEmCurso = true;
+        previaFeitas = feitas;
+        ultimaPreviaMs = agora;
+        void previewJobNativo(id, sinal).then((blob) => {
+          previaEmCurso = false;
+          // Blob nulo (ainda sem passe, ou serviço não respondeu) mantém a prévia anterior.
+          if (sinal.aborted || blob === null) return;
+          publicarPrevia(blob);
+        });
       };
 
       const tick = async (): Promise<void> => {
@@ -294,6 +341,7 @@ export function useRenderSession(opcoes: OpcoesRenderSession = {}): RenderSessio
           }
         }
         if (status.tiles) registrarTiles(status.tiles);
+        if (pt && status.amostras) buscarPrevia(status.amostras.feitas);
         timerRef.current = setTimeout(() => {
           timerRef.current = null;
           void tick();
@@ -302,7 +350,7 @@ export function useRenderSession(opcoes: OpcoesRenderSession = {}): RenderSessio
 
       void tick();
     },
-    [atualizar, despachar, finalizar, publicarTiles],
+    [atualizar, despachar, finalizar, publicarTiles, publicarPrevia],
   );
 
   const cancelar = useCallback((): void => {
@@ -344,6 +392,7 @@ export function useRenderSession(opcoes: OpcoesRenderSession = {}): RenderSessio
   return {
     estado,
     tiles,
+    previa,
     iniciar,
     cancelar,
     baixar,

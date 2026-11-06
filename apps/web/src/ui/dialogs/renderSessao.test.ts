@@ -73,4 +73,18 @@ describe('renderSessao', () => {
     expect(podeRenderizar(cancelado)).toBe(true);
     expect(podeRenderizar(renderizando)).toBe(false);
   });
+
+  it('amostra (modo pt): avança concluidos/total e não regride', () => {
+    let estado = transicionar({ tipo: 'ocioso' }, { tipo: 'iniciar', total: 64 });
+    estado = transicionar(estado, { tipo: 'amostra', feitas: 16, total: 64 });
+    expect(estado).toMatchObject({ tipo: 'renderizando', concluidos: 16, total: 64 });
+    estado = transicionar(estado, { tipo: 'amostra', feitas: 8, total: 64 });
+    expect(estado).toMatchObject({ concluidos: 16 });
+    estado = transicionar(estado, { tipo: 'amostra', feitas: 200, total: 64 });
+    expect(estado).toMatchObject({ concluidos: 64, total: 64 });
+  });
+
+  it('amostra fora de um render é ignorada', () => {
+    expect(transicionar({ tipo: 'ocioso' }, { tipo: 'amostra', feitas: 1, total: 4 })).toEqual({ tipo: 'ocioso' });
+  });
 });

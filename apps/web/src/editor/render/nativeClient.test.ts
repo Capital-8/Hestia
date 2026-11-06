@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   criarJobComCache,
+  criarJobNativo,
   hashHstrSemTrailer,
   renderizarNativo,
   saudeRenderNativo,
@@ -337,5 +338,198 @@ describe('hash do HSTR no worker dedicado', () => {
     const erro = await hashHstrNoWorker(hstrDe(4), controlador.signal).catch((e: unknown) => e);
     expect(ehCancelamento(erro)).toBe(true);
     expect(instanciasWorker).toHaveLength(0);
+  });
+});
+
+/* ------------------------------------------------------------------ modo pt (qualidade máxima) ------------------------------------------------------------------ */
+
+const opcoesPt = { largura: 640, altura: 360 };
+
+/** Tipo das opções de job, para os casos inválidos (sem depender do tipo público no teste). */
+type OpcoesJobNativoTeste = Parameters<typeof criarJobNativo>[1];
+
+describe('modo pt: saúde do serviço', () => {
+  it('serviço antigo, sem modos em /health, é só raster', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      JSON.stringify({ ok: true, versao: '0.1.0', backend: 'wgpu', gpu: 'nativo' }),
+      { status: 200 },
+    )));
+    const saude = await saudeRenderNativo();
+    expect(saude?.modos).toEqual(['raster']);
+    expect(saude?.versaoPt).toBeNull();
+    expect(saude?.erroPt).toBeNull();
+  });
+
+  it('lê modos, versao_pt e erro_pt quando o motor pt subiu', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      JSON.stringify({ ok: true, versao: '0.3.0', backend: 'wgpu', gpu: 'nativo', modos: ['raster', 'pt'], versao_pt: '0.1.0', erro_pt: null }),
+      { status: 200 },
+    )));
+    const saude = await saudeRenderNativo();
+    expect(saude?.modos).toEqual(['raster', 'pt']);
+    expect(saude?.versaoPt).toBe('0.1.0');
+    expect(saude?.erroPt).toBeNull();
+  });
+
+  it('erro_pt aparece como motivo quando o modo pt não subiu', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      JSON.stringify({ ok: true, versao: '0.3.0', backend: 'wgpu', gpu: 'nativo', modos: ['raster'], versao_pt: null, erro_pt: 'sem adaptador GPU' }),
+      { status: 200 },
+    )));
+    const saude = await saudeRenderNativo();
+    expect(saude?.modos).toEqual(['raster']);
+    expect(saude?.erroPt).toBe('sem adaptador GPU');
+  });
+
+  it('modos com valor desconhecido é erro explícito, nunca modo inventado', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      JSON.stringify({ ok: true, modos: ['raster', 'turbo'] }),
+      { status: 200 },
+    )));
+    await expect(saudeRenderNativo()).rejects.toThrow(/modos inválidos/);
+  });
+});
+
+describe('modo pt: parâmetros do job', () => {
+  it('raster: a URL não leva modo, amostras nem denoise', async () => {
+    const fetchFalso = vi.fn(async () => new Response(JSON.stringify({ id: 'job-r' }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchFalso);
+    expect(await criarJobNativo(hstrDe(1), opcoesPt)).toBe('job-r');
+    const [url] = fetchFalso.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toContain('/jobs?');
+    expect(url).not.toContain('modo=');
+    expect(url).not.toContain('amostras=');
+    expect(url).not.toContain('denoise=');
+  });
+
+  it('pt sem amostras nem denoise manda os padrões: amostras=64 e denoise=0', async () => {
+    const fetchFalso = vi.fn(async () => new Response(JSON.stringify({ id: 'job-p' }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchFalso);
+    await criarJobNativo(hstrDe(1), { ...opcoesPt, modo: 'pt' });
+    const [url] = fetchFalso.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toContain('modo=pt');
+    expect(url).toContain('amostras=64');
+    expect(url).toContain('denoise=0');
+    expect(url).toContain('exposicao=0');
+  });
+
+  it('pt com amostras 16 e denoise true manda amostras=16 e denoise=1', async () => {
+    const fetchFalso = vi.fn(async () => new Response(JSON.stringify({ id: 'job-p' }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchFalso);
+    await criarJobNativo(hstrDe(1), { ...opcoesPt, modo: 'pt', amostras: 16, denoise: true });
+    const [url] = fetchFalso.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toContain('amostras=16');
+    expect(url).toContain('denoise=1');
+  });
+
+  it('o cache também leva o modo: /jobs/cache recebe modo=pt na segunda chamada', async () => {
+    const { fetchFalso, chamadas } = servicoSimulado();
+    vi.stubGlobal('fetch', fetchFalso);
+    const hstr = hstrDe(21);
+    const opcoes = { ...opcoesPt, modo: 'pt' as const, amostras: 256, denoise: true };
+    expect(await criarJobComCache(hstr, opcoes)).toBe('job-1');
+    expect(await criarJobComCache(comCamera(hstr, 4), opcoes)).toBe('cache-2');
+    expect(item(chamadas, 0).query).toContain('modo=pt');
+    expect(item(chamadas, 0).query).toContain('amostras=256');
+    expect(item(chamadas, 0).query).toContain('denoise=1');
+    expect(item(chamadas, 1).rota).toBe('cache');
+    expect(item(chamadas, 1).query).toContain('modo=pt');
+    expect(item(chamadas, 1).query).toContain('hash=');
+  });
+
+  it('validação: opções inválidas são recusadas antes de qualquer envio', async () => {
+    const fetchFalso = vi.fn(async () => new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchFalso);
+    const invalidas: OpcoesJobNativoTeste[] = [
+      { ...opcoesPt, modo: 'pt', amostras: 0 },
+      { ...opcoesPt, modo: 'pt', amostras: 4097 },
+      { ...opcoesPt, modo: 'pt', amostras: 2.5 },
+      { ...opcoesPt, modo: 'pt', denoise: 'sim' as unknown as boolean },
+      { ...opcoesPt, amostras: 16 },
+      { ...opcoesPt, modo: 'raster', denoise: true },
+      { ...opcoesPt, modo: 'turbo' as unknown as 'pt' },
+    ];
+    for (const opcoes of invalidas) {
+      await expect(criarJobNativo(hstrDe(1), opcoes)).rejects.toThrow(/render-service:/);
+    }
+    expect(fetchFalso).not.toHaveBeenCalled();
+  });
+
+  it('validação no criarJobComCache não transfere o HSTR ao worker', async () => {
+    vi.stubGlobal('Worker', WorkerSimulado);
+    const fetchFalso = vi.fn(async () => new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchFalso);
+    const bytes = hstrDe(22);
+    await expect(criarJobComCache(bytes, { ...opcoesPt, modo: 'pt', amostras: 0 })).rejects.toThrow(/amostras/);
+    expect(bytes.byteLength).toBe(hstrDe(22).byteLength);
+    expect(instanciasWorker).toHaveLength(0);
+    expect(fetchFalso).not.toHaveBeenCalled();
+  });
+
+  it('507 do serviço: a mensagem do serviço chega sem alteração', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      JSON.stringify({ erro: 'necessário 2048 MiB, orçamento 1024 MiB' }),
+      { status: 507 },
+    )));
+    await expect(criarJobNativo(hstrDe(1), { ...opcoesPt, modo: 'pt' }))
+      .rejects.toThrow(/^necessário 2048 MiB, orçamento 1024 MiB$/);
+  });
+
+  it('erro HTTP sem corpo de erro cai na mensagem de status', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('falha', { status: 500 })));
+    await expect(criarJobNativo(hstrDe(1), opcoesPt)).rejects.toThrow(/HTTP 500/);
+  });
+});
+
+describe('modo pt: status do job', () => {
+  const corpoPt = {
+    fase: 'amostrando',
+    fracao: 0.25,
+    pronto: false,
+    cancelado: false,
+    erro: null,
+    modo: 'pt',
+    amostras: { feitas: 16, total: 64 },
+    denoise: true,
+  };
+
+  it('status pt traz modo, amostras e denoise, sem tiles', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(corpoPt), { status: 200 })));
+    const status = await statusJobNativo('job1');
+    expect(status?.modo).toBe('pt');
+    expect(status?.amostras).toEqual({ feitas: 16, total: 64 });
+    expect(status?.denoise).toBe(true);
+    expect(status?.tiles).toBeUndefined();
+    expect(status?.fracao).toBe(0.25);
+  });
+
+  it('status raster continua sem modo, amostras nem denoise', async () => {
+    const corpo = { fase: 'tiles', fracao: 0.5, pronto: false, cancelado: false, erro: null, tiles: { total: 2, concluidos: [] } };
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(corpo), { status: 200 })));
+    const status = await statusJobNativo('job1');
+    expect(status?.modo).toBeUndefined();
+    expect(status?.amostras).toBeUndefined();
+    expect(status?.denoise).toBeUndefined();
+  });
+
+  it('status pt sem amostras ou denoise é erro explícito', async () => {
+    const semAmostras = { ...corpoPt, amostras: undefined };
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(semAmostras), { status: 200 })));
+    await expect(statusJobNativo('job1')).rejects.toThrow(/sem amostras ou denoise/);
+    const semDenoise = { ...corpoPt, denoise: undefined };
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(semDenoise), { status: 200 })));
+    await expect(statusJobNativo('job1')).rejects.toThrow(/sem amostras ou denoise/);
+  });
+
+  it('amostras com feitas negativo, total zero ou fração é erro', async () => {
+    for (const amostras of [{ feitas: -1, total: 64 }, { feitas: 1, total: 0 }, { feitas: 1.5, total: 64 }]) {
+      vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ ...corpoPt, amostras }), { status: 200 })));
+      await expect(statusJobNativo('job1')).rejects.toThrow(/amostras inválidas/);
+    }
+  });
+
+  it('modo desconhecido no status é erro', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ ...corpoPt, modo: 'turbo' }), { status: 200 })));
+    await expect(statusJobNativo('job1')).rejects.toThrow(/modo inválido/);
   });
 });

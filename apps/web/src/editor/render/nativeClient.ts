@@ -7,11 +7,23 @@
 import { hashHstrNoWorker } from './workerRender.ts';
 import { chaveSha256DoCorpo, TAMANHO_TRAILER_CAMERA } from './renderWorkerTarefas.ts';
 
+/** Modo do job: rasterização (padrão, sem parâmetro na URL) ou path tracing (`modo=pt`). */
+export type ModoRenderNativo = 'raster' | 'pt';
+
+export const AMOSTRAS_PADRAO_PT = 64;
+export const AMOSTRAS_MAXIMAS_PT = 4096;
+
 export interface SaudeRenderNativo {
   ok: boolean;
   versao: string;
   backend: string;
   gpu: string;
+  /** Modos que o serviço aceita. Serviço antigo (sem `modos` em /health) = só `raster`. */
+  modos: ModoRenderNativo[];
+  /** Versão do motor pt, ou `null` quando o modo pt não subiu. */
+  versaoPt: string | null;
+  /** Motivo de o modo pt não ter subido (`erro_pt` do serviço), ou `null`. */
+  erroPt: string | null;
 }
 
 export interface OpcoesRenderNativo {
@@ -20,6 +32,16 @@ export interface OpcoesRenderNativo {
   /** Paradas de exposição (EV), como no estúdio. */
   exposicao?: number;
   sinal?: AbortSignal;
+}
+
+/**
+ * Opções de criação de job. `modo` ausente é o raster. `amostras` (1 a 4096, padrão 64) e `denoise`
+ * só valem com `modo: 'pt'`; fora dele são erro, como no serviço.
+ */
+export interface OpcoesJobNativo extends OpcoesRenderNativo {
+  modo?: ModoRenderNativo;
+  amostras?: number;
+  denoise?: boolean;
 }
 
 const CHAVE_SERVICO = 'hestia:renderService';
@@ -53,21 +75,44 @@ async function json<T>(resposta: Response): Promise<T> {
   return (await resposta.json()) as T;
 }
 
-/** Consulta o serviço local. `null` = não está rodando/acessível. */
+/**
+ * Lê `modos` do /health. Ausente = serviço antigo, só raster. Presente com valor fora de
+ * `raster`/`pt` é erro explícito: não se inventa modo.
+ */
+function lerModosSaude(valor: unknown): ModoRenderNativo[] {
+  if (valor === undefined || valor === null) return ['raster'];
+  if (!Array.isArray(valor) || !valor.every((m) => m === 'raster' || m === 'pt')) {
+    throw new Error(`render-service: /health com modos inválidos (${JSON.stringify(valor)})`);
+  }
+  return valor as ModoRenderNativo[];
+}
+
+/**
+ * Consulta o serviço local. `null` = não está rodando/acessível. Forma inválida de `modos` lança
+ * Error explícito (quem chama mostra o motivo).
+ */
 export async function saudeRenderNativo(sinal?: AbortSignal): Promise<SaudeRenderNativo | null> {
+  let dados: Partial<Record<keyof SaudeRenderNativo | 'erro_pt' | 'versao_pt', unknown>>;
   try {
     const resposta = await fetch(`${urlRenderNativo()}/health`, { signal: sinal, cache: 'no-store' });
     if (!resposta.ok) return null;
-    const dados = await resposta.json() as Partial<SaudeRenderNativo>;
-    return {
-      ok: dados.ok !== false,
-      versao: String(dados.versao ?? ''),
-      backend: String(dados.backend ?? ''),
-      gpu: String(dados.gpu ?? ''),
-    };
+    const lido: unknown = await resposta.json();
+    if (typeof lido !== 'object' || lido === null) return null;
+    dados = lido as typeof dados;
   } catch {
     return null;
   }
+  const versaoPt = typeof dados.versao_pt === 'string' ? dados.versao_pt : null;
+  const erroPt = typeof dados.erro_pt === 'string' && dados.erro_pt !== '' ? dados.erro_pt : null;
+  return {
+    ok: dados.ok !== false,
+    versao: String(dados.versao ?? ''),
+    backend: String(dados.backend ?? ''),
+    gpu: String(dados.gpu ?? ''),
+    modos: lerModosSaude(dados.modos),
+    versaoPt,
+    erroPt,
+  };
 }
 
 /**
@@ -117,6 +162,10 @@ export interface StatusJobNativo {
   erro: string | null;
   /** Ausente em serviços antigos que não reportam tiles: a UI deve tratar `undefined`. */
   tiles?: { total: number; concluidos: TileJobNativo[] };
+  /** Só nos jobs do modo pt: o modo e o andamento por amostra (sem tiles). */
+  modo?: ModoRenderNativo;
+  amostras?: { feitas: number; total: number };
+  denoise?: boolean;
 }
 
 /** Mesmo limite do serviço (`LIMITE_CACHE` em main.rs). */
@@ -133,30 +182,77 @@ async function fetchRede(url: string, init: RequestInit, rota: string): Promise<
   }
 }
 
+/**
+ * Resposta de `POST /jobs*`. Erro HTTP lança Error com a mensagem `erro` do serviço, sem alterar o
+ * texto (ex.: 507 com "necessário X MiB, orçamento Y MiB"). Sem `erro` no corpo, vale o status.
+ */
+async function lerRespostaJob<T>(resposta: Response): Promise<T> {
+  if (resposta.ok) return (await resposta.json()) as T;
+  const texto = await resposta.text().catch(() => '');
+  let mensagem = '';
+  try {
+    const dados = JSON.parse(texto) as unknown;
+    if (typeof dados === 'object' && dados !== null && typeof (dados as { erro?: unknown }).erro === 'string') {
+      mensagem = (dados as { erro: string }).erro;
+    }
+  } catch {
+    // corpo que não é JSON: cai na mensagem de status
+  }
+  throw new Error(mensagem || `render-service: HTTP ${resposta.status}`);
+}
+
+/** Valida as opções de modo antes de qualquer trabalho (e antes de transferir o HSTR ao worker). */
+function validarOpcoesJob(opcoes: OpcoesJobNativo): void {
+  const { modo, amostras, denoise } = opcoes;
+  if (modo === undefined || modo === 'raster') {
+    if (amostras !== undefined || denoise !== undefined) {
+      throw new Error('render-service: amostras e denoise só valem com modo pt');
+    }
+    return;
+  }
+  if (modo !== 'pt') throw new Error(`render-service: modo desconhecido (${String(modo)})`);
+  if (amostras !== undefined && (!Number.isInteger(amostras) || amostras < 1 || amostras > AMOSTRAS_MAXIMAS_PT)) {
+    throw new Error(`render-service: amostras deve ser um inteiro de 1 a ${AMOSTRAS_MAXIMAS_PT} (recebido ${String(amostras)})`);
+  }
+  if (denoise !== undefined && typeof denoise !== 'boolean') {
+    throw new Error('render-service: denoise deve ser verdadeiro ou falso');
+  }
+}
+
+/** Acrescenta `modo`, `amostras` e `denoise` à URL. Raster não manda nada (URL igual à de antes). */
+function acrescentarModo(q: URLSearchParams, opcoes: OpcoesJobNativo): void {
+  if (opcoes.modo !== 'pt') return;
+  q.set('modo', 'pt');
+  q.set('amostras', String(opcoes.amostras ?? AMOSTRAS_PADRAO_PT));
+  q.set('denoise', opcoes.denoise === true ? '1' : '0');
+}
+
 /** Cria um job com o HSTR completo; o serviço devolve `{id, hash}` e renderiza em background. */
 async function postJobCompleto(
   cenaHstr: Uint8Array,
-  opcoes: OpcoesRenderNativo,
+  opcoes: OpcoesJobNativo,
 ): Promise<{ id: string; hash?: string }> {
   const q = new URLSearchParams({
     largura: String(Math.round(opcoes.largura)),
     altura: String(Math.round(opcoes.altura)),
     exposicao: String(opcoes.exposicao ?? 0),
   });
+  acrescentarModo(q, opcoes);
   const resposta = await fetchRede(`${urlRenderNativo()}/jobs?${q}`, {
     method: 'POST',
     headers: { 'content-type': 'application/octet-stream' },
     body: corpoBinario(cenaHstr),
     signal: opcoes.sinal,
   }, 'POST /jobs');
-  return await json<{ id: string; hash?: string }>(resposta);
+  return await lerRespostaJob<{ id: string; hash?: string }>(resposta);
 }
 
 /** Cria um job progressivo; o serviço devolve `{id}` e renderiza em background. */
 export async function criarJobNativo(
   cenaHstr: Uint8Array,
-  opcoes: OpcoesRenderNativo,
+  opcoes: OpcoesJobNativo,
 ): Promise<string> {
+  validarOpcoesJob(opcoes);
   return (await postJobCompleto(cenaHstr, opcoes)).id;
 }
 
@@ -208,7 +304,7 @@ function registrarHashServico(chave: string, hash: string): void {
 async function postJobCache(
   hash: string,
   trailer: Uint8Array,
-  opcoes: OpcoesRenderNativo,
+  opcoes: OpcoesJobNativo,
 ): Promise<string | null> {
   const q = new URLSearchParams({
     hash,
@@ -216,6 +312,7 @@ async function postJobCache(
     altura: String(Math.round(opcoes.altura)),
     exposicao: String(opcoes.exposicao ?? 0),
   });
+  acrescentarModo(q, opcoes);
   const resposta = await fetchRede(`${urlRenderNativo()}/jobs/cache?${q}`, {
     method: 'POST',
     headers: { 'content-type': 'application/octet-stream' },
@@ -226,7 +323,7 @@ async function postJobCache(
     await resposta.arrayBuffer().catch(() => undefined);
     return null;
   }
-  const dados = await json<{ id?: unknown }>(resposta);
+  const dados = await lerRespostaJob<{ id?: unknown }>(resposta);
   if (typeof dados.id !== 'string') throw new Error('render-service: resposta de /jobs/cache sem id');
   return dados.id;
 }
@@ -245,8 +342,10 @@ async function postJobCache(
  */
 export async function criarJobComCache(
   cenaHstr: Uint8Array,
-  opcoes: OpcoesRenderNativo,
+  opcoes: OpcoesJobNativo,
 ): Promise<string> {
+  // Valida antes do hash: opção inválida não transfere o HSTR ao worker.
+  validarOpcoesJob(opcoes);
   const { chave: chaveConteudo, hstr } = await hashHstrNoWorker(cenaHstr, opcoes.sinal);
   if (chaveConteudo === null) return criarJobNativo(hstr, opcoes);
 
@@ -284,6 +383,11 @@ function validarStatusJobNativo(dados: unknown): StatusJobNativo {
     }
     tiles = { total: t.total, concluidos: t.concluidos as TileJobNativo[] };
   }
+  const modo = validarModoStatus(d);
+  const amostras = validarAmostrasStatus(d.amostras);
+  if (modo === 'pt' && (amostras === undefined || typeof d.denoise !== 'boolean')) {
+    throw new Error('render-service: status de job pt sem amostras ou denoise');
+  }
   return {
     fase: String(d.fase ?? ''),
     fracao: d.fracao,
@@ -291,7 +395,28 @@ function validarStatusJobNativo(dados: unknown): StatusJobNativo {
     cancelado: d.cancelado === true,
     erro: typeof d.erro === 'string' ? d.erro : null,
     tiles,
+    ...(modo !== undefined ? { modo } : {}),
+    ...(amostras !== undefined ? { amostras } : {}),
+    ...(typeof d.denoise === 'boolean' ? { denoise: d.denoise } : {}),
   };
+}
+
+function validarModoStatus(d: Record<string, unknown>): ModoRenderNativo | undefined {
+  if (d.modo === undefined || d.modo === null) return undefined;
+  if (d.modo !== 'raster' && d.modo !== 'pt') {
+    throw new Error(`render-service: status do job com modo inválido (${String(d.modo)})`);
+  }
+  return d.modo;
+}
+
+function validarAmostrasStatus(valor: unknown): { feitas: number; total: number } | undefined {
+  if (valor === undefined || valor === null) return undefined;
+  const a = valor as Record<string, unknown>;
+  const inteiroNaoNegativo = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 0;
+  if (typeof a !== 'object' || !inteiroNaoNegativo(a.feitas) || !inteiroNaoNegativo(a.total) || a.total < 1) {
+    throw new Error(`render-service: status do job com amostras inválidas (${JSON.stringify(valor)})`);
+  }
+  return { feitas: a.feitas, total: a.total };
 }
 
 /**

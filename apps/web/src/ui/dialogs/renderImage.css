@@ -172,6 +172,26 @@
   margin-bottom: 7px;
 }
 
+/* Amostras do modo máximo: o campo numérico e os atalhos (16, 64, 256) numa linha só. */
+.ri-atalhos {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 7px;
+}
+
+.ri-atalhos .numwrap {
+  flex: 1 1 96px;
+  min-width: 0;
+}
+
+.ri-atalhos .ri-op {
+  flex: 0 0 auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+}
+
 .ri-check {
   display: flex;
   align-items: center;

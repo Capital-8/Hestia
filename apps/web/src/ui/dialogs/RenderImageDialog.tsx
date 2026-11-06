@@ -11,7 +11,14 @@ import { criarClienteWasm, type ClienteRenderWasm } from '../../editor/render/wa
 import { comTexturasCarregadas } from '../../editor/render/texturasCena.ts';
 import { LADO_PREVIA_TEXTURA } from '../../editor/render/texturaRender.ts';
 import { codificarCenaNoWorker, type ProgressoCodificacao } from '../../editor/render/renderWorkerClient.ts';
-import { renderizarNativo, saudeRenderNativo } from '../../editor/render/nativeClient.ts';
+import {
+  AMOSTRAS_PADRAO_PT,
+  AMOSTRAS_MAXIMAS_PT,
+  renderizarNativo,
+  saudeRenderNativo,
+  type ModoRenderNativo,
+  type SaudeRenderNativo,
+} from '../../editor/render/nativeClient.ts';
 import { cameraPreviewAtual } from '../../editor/render/previewCamera.ts';
 import { camera3DAtual } from '../../editor/vista3dAoVivo.ts';
 import { useRenderCameraUi } from '../../editor/renderCameraSelecao.ts';
@@ -35,18 +42,26 @@ import { useRenderSession } from './useRenderSession.ts';
 import { RenderTilesGrade } from './RenderTilesGrade.tsx';
 import { podeBaixar } from './renderSessao.ts';
 import {
+  ATALHOS_AMOSTRAS_PT,
   MENSAGEM_RASCUNHO_SO_3D,
   MENSAGEM_SERVICO_GPU_INDISPONIVEL,
+  TEXTO_AVISO_TEMPO_PT,
   barraProgresso,
   modoVistaDaCaptura,
+  legendaDoResultado,
   linhaDaCameraDeRender,
   motivoGpuIndisponivel,
+  motivoModoMaximoIndisponivel,
   nomeArquivoRender,
   podeClicarRenderizar,
   podeRascunhoDaVista,
+  podeUsarModoMaximo,
+  problemaAmostrasPt,
   rotuloDoBotaoPrincipal,
+  rotuloDoModo,
   podeCairParaRascunho,
   rotuloDoResultado,
+  textoProgressoPt,
   type QualidadeRender,
 } from './renderDialogoLogica.ts';
 import './renderImage.css';
@@ -247,6 +262,14 @@ export function RenderImageDialog(): ReactElement {
   // não depende do buffer do canvas da tela (que pode vir vazio em alguns navegadores).
   const [qualidade, setQualidade] = useState<'rascunho' | 'final' | 'gpu'>(() => (cameraFinal ? 'final' : 'rascunho'));
   const [gpuDisponivel, setGpuDisponivel] = useState<boolean | null>(null);
+  // Saúde do serviço (modos, erro do motor pt): decide se o "Modo" de qualidade máxima está disponível.
+  const [saudeNativa, setSaudeNativa] = useState<SaudeRenderNativo | null>(null);
+  // Modo do GPU nativo: rápido (rasterização, o padrão) ou qualidade máxima (path tracing, por amostras).
+  const [modoGpu, setModoGpu] = useState<ModoRenderNativo>('raster');
+  const [amostrasPt, setAmostrasPt] = useState(AMOSTRAS_PADRAO_PT);
+  const [denoisePt, setDenoisePt] = useState(true);
+  // Configuração do último render GPU iniciado: rotula o progresso e a legenda do resultado.
+  const [configSessao, setConfigSessao] = useState<{ modo: ModoRenderNativo; amostras: number; denoise: boolean } | null>(null);
   const escolhaManual = useRef(false);
   const autoFinal = useRef(false);
   useEffect(() => {
@@ -260,12 +283,24 @@ export function RenderImageDialog(): ReactElement {
     void saudeRenderNativo().then((saude) => {
       if (!ativo) return;
       const ok = saude?.ok === true;
+      setSaudeNativa(saude);
       setGpuDisponivel(ok);
       // Se o serviço nativo está no ar, ele é o render final profissional.
       if (ok && !escolhaManual.current) setQualidade('gpu');
+    }).catch((e: unknown) => {
+      // Resposta com forma inválida (ex.: modos malformados): o motivo aparece no diálogo.
+      if (!ativo) return;
+      setSaudeNativa(null);
+      setGpuDisponivel(false);
+      setErro(e instanceof Error ? e.message : 'Resposta inválida do render-service.');
     });
     return () => { ativo = false; };
   }, []);
+
+  // Modo máximo: habilitado só se o serviço declara `pt`; senão o seletor mostra o motivo.
+  const ptDisponivel = podeUsarModoMaximo(saudeNativa);
+  const motivoPt = gpuDisponivel === null ? 'Verificando o render-service…' : motivoModoMaximoIndisponivel(saudeNativa);
+  const problemaAmostras = modoGpu === 'pt' ? problemaAmostrasPt(amostrasPt) : null;
   const previaRef = useRef<HTMLCanvasElement>(null);
   // A prévia e o botão Salvar usam instâncias wasm separadas: uma não prepara trabalho com
   // resolução diferente da outra enquanto a outra renderiza.
@@ -321,6 +356,8 @@ export function RenderImageDialog(): ReactElement {
     temSnapshot: !!snapshotFinal,
     // Rascunho só vale na vista 3D (ver `podeRascunhoDaVista`); fora dela o botão fica parado com o aviso.
     temFonte: !!fonte && rascunhoPermitido,
+    // Raster sempre pronto; o modo máximo exige o serviço com pt e amostras válidas.
+    modoPronto: modoGpu === 'raster' || (ptDisponivel && problemaAmostras === null),
   });
   const rotuloPrincipal = rotuloDoBotaoPrincipal(estadoGpu, ocupado);
 
@@ -329,6 +366,12 @@ export function RenderImageDialog(): ReactElement {
   useEffect(() => () => {
     if (urlRender) URL.revokeObjectURL(urlRender);
   }, [urlRender]);
+  // Prévia que refina no modo máximo: a URL vive só enquanto a prévia está na tela.
+  const previaPt = session.previa;
+  const urlPrevia = useMemo(() => (previaPt ? URL.createObjectURL(previaPt) : null), [previaPt]);
+  useEffect(() => () => {
+    if (urlPrevia) URL.revokeObjectURL(urlPrevia);
+  }, [urlPrevia]);
   // Ao concluir, o PNG entra na galeria (o render já foi produzido, com ou sem download).
   useEffect(() => {
     if (!gpuConcluida) return;
@@ -364,7 +407,10 @@ export function RenderImageDialog(): ReactElement {
     : mostrarResultadoLegado && resultadoLegado
       ? resultadoLegado.saida
       : null;
-  const rotuloResultado = saidaExibida ? rotuloDoResultado(saidaExibida, true) : null;
+  // Legenda do GPU: no modo máximo, "Qualidade máxima · N amostras · denoise sim/não"; no rápido, a de sempre.
+  const rotuloResultado = saidaExibida === 'gpu' && configSessao?.modo === 'pt'
+    ? legendaDoResultado('pt', configSessao.amostras, configSessao.denoise)
+    : saidaExibida ? rotuloDoResultado(saidaExibida, true) : null;
   const rascunhoRecusado = qualidade === 'rascunho' && !rascunhoPermitido;
 
   // Fechar o diálogo no meio de um render GPU cancela o job no serviço (não fica órfão).
@@ -558,6 +604,7 @@ export function RenderImageDialog(): ReactElement {
       setErro(MENSAGEM_SERVICO_GPU_INDISPONIVEL);
       return;
     }
+    if (modoGpu === 'pt' && (problemaAmostras !== null || !ptDisponivel)) return;
     // Mips e HSTR no worker (renderWorkerClient); o indicador da prévia mostra o progresso. Fechar aborta.
     controladorGpuRef.current?.abort();
     const controlador = new AbortController();
@@ -581,7 +628,14 @@ export function RenderImageDialog(): ReactElement {
     if (!montadoRef.current) return;
     setErro('');
     alvoSaidaRef.current = { ...alvo };
-    void session.iniciar({ hstr, largura: alvo.largura, altura: alvo.altura, exposicao });
+    // A câmera, o enquadramento e o cache de cenas são os mesmos nos dois modos; só muda o job.
+    if (modoGpu === 'pt') {
+      setConfigSessao({ modo: 'pt', amostras: amostrasPt, denoise: denoisePt });
+      void session.iniciar({ hstr, largura: alvo.largura, altura: alvo.altura, exposicao, modo: 'pt', amostras: amostrasPt, denoise: denoisePt });
+    } else {
+      setConfigSessao({ modo: 'raster', amostras: 0, denoise: false });
+      void session.iniciar({ hstr, largura: alvo.largura, altura: alvo.altura, exposicao });
+    }
   };
 
   /** Rascunho e Final (Rust/WASM): ainda fora da sessão; mantêm a captura e a entrega antigas. */
@@ -809,10 +863,17 @@ export function RenderImageDialog(): ReactElement {
         <div className="ri-grid">
           <div className="ri-previa" style={proporcaoPrevia ? { aspectRatio: `${proporcaoPrevia.largura} / ${proporcaoPrevia.altura}` } : undefined}>
             {base ? (
-              <canvas ref={previaRef} aria-label="Prévia da captura" hidden={urlResultado !== null || rascunhoRecusado} />
+              <canvas
+                ref={previaRef}
+                aria-label="Prévia da captura"
+                hidden={urlResultado !== null || urlPrevia !== null || rascunhoRecusado}
+              />
             ) : (
               <span className="ri-previa-vazio">Sem prévia</span>
             )}
+            {urlPrevia !== null && urlResultado === null ? (
+              <img className="ri-resultado" src={urlPrevia} alt="Prévia do render, refinando a cada amostra" />
+            ) : null}
             {base && rascunhoRecusado && urlResultado === null ? (
               <span className="ri-previa-vazio">Rascunho indisponível nesta vista</span>
             ) : null}
@@ -870,6 +931,63 @@ export function RenderImageDialog(): ReactElement {
                     : 'Rascunho: captura a vista 3D em modo apresentação (sem grade nem níveis), sem recalcular a luz.'}
               </p>
               {linhaCamera ? <p className="ri-dica">{linhaCamera}</p> : null}
+              {qualidade === 'gpu' ? (
+                <>
+                  <label className="ri-campo">
+                    <span>Modo</span>
+                    <select
+                      className="select"
+                      value={modoGpu}
+                      disabled={travada}
+                      onChange={(e) => setModoGpu(e.target.value === 'pt' ? 'pt' : 'raster')}
+                    >
+                      <option value="raster">{rotuloDoModo('raster')}</option>
+                      <option value="pt" disabled={!ptDisponivel}>{rotuloDoModo('pt')}</option>
+                    </select>
+                  </label>
+                  {motivoPt ? <p className="ri-dica">{motivoPt}</p> : null}
+                </>
+              ) : null}
+              {qualidade === 'gpu' && modoGpu === 'pt' ? (
+                <>
+                  <div className="ri-campo">
+                    <span id="ri-amostras-rotulo">Amostras</span>
+                    <div className="ri-atalhos" role="group" aria-labelledby="ri-amostras-rotulo">
+                      <NumField
+                        value={amostrasPt}
+                        decimals={0}
+                        min={1}
+                        max={AMOSTRAS_MAXIMAS_PT}
+                        disabled={travada}
+                        onCommit={(v) => setAmostrasPt(Math.round(v))}
+                      />
+                      {ATALHOS_AMOSTRAS_PT.map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          className={`ri-op${amostrasPt === n ? ' on' : ''}`}
+                          aria-pressed={amostrasPt === n}
+                          disabled={travada}
+                          onClick={() => setAmostrasPt(n)}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {problemaAmostras ? <p className="ri-aviso ri-erro" role="alert">{problemaAmostras}</p> : null}
+                  <label className="ri-check">
+                    <input
+                      type="checkbox"
+                      checked={denoisePt}
+                      disabled={travada}
+                      onChange={(e) => setDenoisePt(e.target.checked)}
+                    />
+                    Reduzir ruído (denoise)
+                  </label>
+                  <p className="ri-dica">{TEXTO_AVISO_TEMPO_PT}</p>
+                </>
+              ) : null}
               {qualidade === 'final' ? (
                 <label className="ri-campo">
                   <span>Amostras (WASM)</span>
@@ -994,7 +1112,11 @@ export function RenderImageDialog(): ReactElement {
           <BlocoProgresso
             titulo="Renderizando"
             // Com a grade, a contagem fica sob ela (legenda); sem tiles, a contagem segue no topo.
-            detalhe={progressoGpu.total > 0 && !session.tiles ? `${progressoGpu.concluidos} de ${progressoGpu.total} tiles` : undefined}
+            detalhe={
+              configSessao?.modo === 'pt'
+                ? textoProgressoPt(estadoGpu) ?? undefined
+                : progressoGpu.total > 0 && !session.tiles ? `${progressoGpu.concluidos} de ${progressoGpu.total} tiles` : undefined
+            }
             fracao={progressoIndeterminado ? null : (fracaoGpu ?? 0)}
             rodape={progressoIndeterminado ? 'Preparando…' : ''}
             onCancelar={() => session.cancelar()}

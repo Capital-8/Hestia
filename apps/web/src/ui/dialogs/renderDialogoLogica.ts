@@ -3,9 +3,68 @@
  * clicado e nome do arquivo entregue. Sem React, para serem testáveis isoladamente.
  */
 import { ehTexturasNaoSuportadas } from '../../editor/render/erroRender.ts';
+import {
+  AMOSTRAS_MAXIMAS_PT,
+  type ModoRenderNativo,
+  type SaudeRenderNativo,
+} from '../../editor/render/nativeClient.ts';
 import type { EstadoSessao } from './renderSessao.ts';
 
 export type QualidadeRender = 'rascunho' | 'final' | 'gpu';
+
+/** Rótulo do seletor "Modo" do GPU nativo. `raster` é o padrão e não muda nada do que já existia. */
+export function rotuloDoModo(modo: ModoRenderNativo): string {
+  return modo === 'pt' ? 'Qualidade máxima (path tracing)' : 'Rápido (rasterização)';
+}
+
+/** Atalhos do campo "Amostras" no modo máximo. */
+export const ATALHOS_AMOSTRAS_PT: readonly number[] = [16, 64, 256];
+
+export const TEXTO_AVISO_TEMPO_PT =
+  'Pode levar de segundos a minutos; a imagem refina a cada amostra.';
+
+/**
+ * O modo máximo só vale se o serviço declara `pt` em /health. Serviço indisponível, antigo ou com o
+ * motor pt parado (erro_pt) não o oferece.
+ */
+export function podeUsarModoMaximo(saude: SaudeRenderNativo | null): boolean {
+  return saude !== null && saude.ok && saude.modos.includes('pt');
+}
+
+/**
+ * Motivo para o modo máximo estar desabilitado (o seletor mostra o texto, nunca esconde a opção).
+ * `null` quando o modo está disponível.
+ */
+export function motivoModoMaximoIndisponivel(saude: SaudeRenderNativo | null): string | null {
+  if (saude === null) return 'Qualidade máxima indisponível: o render-service não respondeu. Inicie o serviço local.';
+  if (!saude.ok) return 'Qualidade máxima indisponível: o render-service respondeu com erro.';
+  if (saude.modos.includes('pt')) return null;
+  if (saude.erroPt) return `Qualidade máxima indisponível: ${saude.erroPt}`;
+  return 'Qualidade máxima indisponível: este render-service não informa o modo pt (versão antiga). Recompile e reinicie o serviço.';
+}
+
+/** Texto do progresso no modo pt: "N de M amostras". Null fora de um render. */
+export function textoProgressoPt(estado: EstadoSessao): string | null {
+  if (estado.tipo !== 'renderizando') return null;
+  return `${estado.concluidos} de ${estado.total} amostras`;
+}
+
+/**
+ * Legenda do resultado do GPU nativo. No modo pt: "Qualidade máxima · N amostras · denoise sim/não".
+ * No raster devolve null (o diálogo mantém a legenda que já existia).
+ */
+export function legendaDoResultado(modo: ModoRenderNativo, amostras: number, denoise: boolean): string | null {
+  if (modo !== 'pt') return null;
+  return `Qualidade máxima · ${amostras} amostras · denoise ${denoise ? 'sim' : 'não'}`;
+}
+
+/** Problema do campo "Amostras" (inteiro de 1 a 4096). Null se válido. */
+export function problemaAmostrasPt(amostras: number): string | null {
+  if (!Number.isInteger(amostras) || amostras < 1 || amostras > AMOSTRAS_MAXIMAS_PT) {
+    return `Amostras deve ser um número inteiro de 1 a ${AMOSTRAS_MAXIMAS_PT}.`;
+  }
+  return null;
+}
 
 export const MENSAGEM_SERVICO_GPU_INDISPONIVEL =
   'O serviço GPU nativo não está disponível. Inicie o `render-service` e tente de novo.';
@@ -34,6 +93,8 @@ export interface EntradaPodeRenderizar {
   temSnapshot: boolean;
   /** Há canvas da vista ativa (necessário para o rascunho). */
   temFonte: boolean;
+  /** GPU: o modo escolhido está pronto (raster sempre; pt só com modo disponível e amostras válidas). Ausente = pronto. */
+  modoPronto?: boolean;
 }
 
 /** "Renderizar" habilitado só com dimensões válidas, fora de outro render e com a qualidade pronta. */
@@ -42,7 +103,7 @@ export function podeClicarRenderizar(e: EntradaPodeRenderizar): boolean {
   if (!e.alvoValido) return false;
   if (e.qualidade === 'rascunho') return e.temFonte;
   if (e.qualidade === 'final') return e.temCamera;
-  return e.servicoDisponivel && e.temCamera && e.temSnapshot;
+  return e.servicoDisponivel && e.temCamera && e.temSnapshot && (e.modoPronto ?? true);
 }
 
 /**

@@ -55,4 +55,19 @@ describe('aplicarStatus', () => {
     );
     expect(estado).toMatchObject({ tipo: 'renderizando', concluidos: 0, total: 0 });
   });
+
+  it('T6 (modo pt): status com amostras avança o progresso por amostra, sem tiles', () => {
+    const inicial = transicionar({ tipo: 'ocioso' }, { tipo: 'iniciar', total: 64 });
+    const estado = aplicarStatus(
+      inicial,
+      base({ modo: 'pt', amostras: { feitas: 16, total: 64 }, denoise: true, fracao: 0.25 }),
+    );
+    expect(estado).toMatchObject({ tipo: 'renderizando', concluidos: 16, total: 64 });
+  });
+
+  it('T7 (modo pt): erro do status ainda vence o andamento por amostra', () => {
+    const inicial = transicionar({ tipo: 'ocioso' }, { tipo: 'iniciar', total: 64 });
+    const estado = aplicarStatus(inicial, base({ modo: 'pt', amostras: { feitas: 3, total: 64 }, denoise: false, erro: 'memória' }));
+    expect(estado).toEqual({ tipo: 'erro', mensagem: 'memória' });
+  });
 });

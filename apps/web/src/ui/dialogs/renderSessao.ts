@@ -17,6 +17,8 @@ export type EstadoSessao =
 export type EventoSessao =
   | { tipo: 'iniciar'; total: number }
   | { tipo: 'tile'; concluidos: number; total: number }
+  /** Modo pt: andamento por amostra (`feitas` de `total`). Mesma regra de `tile`: não regride. */
+  | { tipo: 'amostra'; feitas: number; total: number }
   | { tipo: 'concluir'; imagem: Blob }
   | { tipo: 'falhar'; mensagem: string }
   | { tipo: 'cancelar' }
@@ -35,7 +37,7 @@ function totalValido(total: number): number {
 
 /**
  * Aplica um evento ao estado. Eventos inválidos para o estado atual devolvem o próprio estado.
- * Em 'tile', `concluidos` nunca diminui e nunca passa de `total`.
+ * Em 'tile' e 'amostra', `concluidos` nunca diminui e nunca passa de `total`.
  */
 export function transicionar(estado: EstadoSessao, evento: EventoSessao): EstadoSessao {
   switch (evento.tipo) {
@@ -43,10 +45,12 @@ export function transicionar(estado: EstadoSessao, evento: EventoSessao): Estado
       if (!permiteIniciar(estado)) return estado;
       return { tipo: 'renderizando', concluidos: 0, total: totalValido(evento.total), mensagem: 'Preparando o render' };
 
-    case 'tile': {
+    case 'tile':
+    case 'amostra': {
       if (estado.tipo !== 'renderizando') return estado;
       const total = totalValido(evento.total);
-      const concluidos = Math.min(Math.max(evento.concluidos, estado.concluidos), total);
+      const feitos = evento.tipo === 'tile' ? evento.concluidos : evento.feitas;
+      const concluidos = Math.min(Math.max(feitos, estado.concluidos), total);
       if (concluidos === estado.concluidos && total === estado.total) return estado;
       return { ...estado, concluidos, total };
     }

@@ -1,20 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ATALHOS_AMOSTRAS_PT,
   MENSAGEM_RASCUNHO_SO_3D,
   MENSAGEM_SERVICO_GPU_INDISPONIVEL,
   barraProgresso,
   modoVistaDaCaptura,
   motivoGpuIndisponivel,
+  motivoModoMaximoIndisponivel,
   nomeArquivoRender,
   podeClicarRenderizar,
   podeRascunhoDaVista,
+  podeUsarModoMaximo,
   podeCairParaRascunho,
+  problemaAmostrasPt,
+  legendaDoResultado,
   linhaDaCameraDeRender,
   rotuloDoBotaoPrincipal,
+  rotuloDoModo,
   rotuloDoResultado,
+  textoProgressoPt,
   type EntradaPodeRenderizar,
 } from './renderDialogoLogica.ts';
 import { CODIGO_RENDER, ErroRenderWasm } from '../../editor/render/erroRender.ts';
+import type { SaudeRenderNativo } from '../../editor/render/nativeClient.ts';
 import type { EstadoSessao } from './renderSessao.ts';
 
 const ocioso: EstadoSessao = { tipo: 'ocioso' };
@@ -183,5 +191,92 @@ describe('linha da câmera de render no diálogo', () => {
   it('fora do GPU nativo não há linha (Rascunho e Final seguem a vista ativa)', () => {
     expect(linhaDaCameraDeRender({ gpu: false, selecionada: { nome: 'Câmera 1' }, temCameras: true })).toBeNull();
     expect(linhaDaCameraDeRender({ gpu: false, selecionada: null, temCameras: false })).toBeNull();
+  });
+});
+
+/* ------------------------------------------------------------------ modo máximo (path tracing) ------------------------------------------------------------------ */
+
+const saudeBase: SaudeRenderNativo = {
+  ok: true,
+  versao: '0.3.0',
+  backend: 'wgpu',
+  gpu: 'nativo',
+  modos: ['raster', 'pt'],
+  versaoPt: '0.1.0',
+  erroPt: null,
+};
+
+describe('modo máximo: rótulos e disponibilidade', () => {
+  it('rotuloDoModo: rápido é o padrão e o máximo diz o que é', () => {
+    expect(rotuloDoModo('raster')).toBe('Rápido (rasterização)');
+    expect(rotuloDoModo('pt')).toBe('Qualidade máxima (path tracing)');
+  });
+
+  it('podeUsarModoMaximo: só com o serviço no ar e pt declarado em /health', () => {
+    expect(podeUsarModoMaximo(saudeBase)).toBe(true);
+    expect(podeUsarModoMaximo(null)).toBe(false);
+    expect(podeUsarModoMaximo({ ...saudeBase, ok: false })).toBe(false);
+    expect(podeUsarModoMaximo({ ...saudeBase, modos: ['raster'], erroPt: 'sem GPU' })).toBe(false);
+  });
+
+  it('motivoModoMaximoIndisponivel: null quando disponível, motivo explícito quando não', () => {
+    expect(motivoModoMaximoIndisponivel(saudeBase)).toBeNull();
+    expect(motivoModoMaximoIndisponivel(null)).toMatch(/não respondeu/);
+    expect(motivoModoMaximoIndisponivel({ ...saudeBase, ok: false })).toMatch(/erro/);
+  });
+
+  it('motivoModoMaximoIndisponivel: erro_pt do serviço vira o motivo, sem alteração', () => {
+    const motivo = motivoModoMaximoIndisponivel({ ...saudeBase, modos: ['raster'], versaoPt: null, erroPt: 'sem adaptador GPU' });
+    expect(motivo).toBe('Qualidade máxima indisponível: sem adaptador GPU');
+  });
+
+  it('motivoModoMaximoIndisponivel: serviço antigo (sem pt e sem erro_pt) pede para recompilar', () => {
+    const motivo = motivoModoMaximoIndisponivel({ ...saudeBase, modos: ['raster'], versaoPt: null, erroPt: null });
+    expect(motivo).toMatch(/versão antiga/);
+    expect(motivo).toMatch(/Recompile e reinicie/);
+  });
+});
+
+describe('modo máximo: progresso, legenda e amostras', () => {
+  it('textoProgressoPt: "N de M amostras" durante o render, null fora dele', () => {
+    expect(textoProgressoPt({ tipo: 'renderizando', concluidos: 16, total: 64, mensagem: '' })).toBe('16 de 64 amostras');
+    expect(textoProgressoPt(ocioso)).toBeNull();
+    expect(textoProgressoPt(concluido)).toBeNull();
+  });
+
+  it('legendaDoResultado: pt diz amostras e denoise; raster não tem legenda própria', () => {
+    expect(legendaDoResultado('pt', 64, true)).toBe('Qualidade máxima · 64 amostras · denoise sim');
+    expect(legendaDoResultado('pt', 256, false)).toBe('Qualidade máxima · 256 amostras · denoise não');
+    expect(legendaDoResultado('raster', 0, false)).toBeNull();
+  });
+
+  it('problemaAmostrasPt: inteiro de 1 a 4096; o resto é recusado', () => {
+    expect(problemaAmostrasPt(1)).toBeNull();
+    expect(problemaAmostrasPt(64)).toBeNull();
+    expect(problemaAmostrasPt(4096)).toBeNull();
+    expect(problemaAmostrasPt(0)).toMatch(/1 a 4096/);
+    expect(problemaAmostrasPt(4097)).toMatch(/1 a 4096/);
+    expect(problemaAmostrasPt(2.5)).toMatch(/inteiro/);
+    expect(problemaAmostrasPt(Number.NaN)).toMatch(/inteiro/);
+  });
+
+  it('atalhos de amostras são 16, 64 e 256', () => {
+    expect([...ATALHOS_AMOSTRAS_PT]).toEqual([16, 64, 256]);
+  });
+
+  it('podeClicarRenderizar: no GPU, modo máximo indisponível bloqueia; disponível libera', () => {
+    const base: EntradaPodeRenderizar = {
+      qualidade: 'gpu',
+      estado: ocioso,
+      ocupadoLegado: false,
+      alvoValido: true,
+      servicoDisponivel: true,
+      temCamera: true,
+      temSnapshot: true,
+      temFonte: false,
+    };
+    expect(podeClicarRenderizar(base)).toBe(true);
+    expect(podeClicarRenderizar({ ...base, modoPronto: true })).toBe(true);
+    expect(podeClicarRenderizar({ ...base, modoPronto: false })).toBe(false);
   });
 });
