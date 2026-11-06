@@ -32,3 +32,10 @@ Data: 2026-11-06. Branch: `render/integracao-teste` (integração de teste, aind
 
 - Serviço: `npm run render:service` (a partir de `wt\integracao`).
 - App: `npx vite --port 5180 --strictPort` (em `apps\web`), depois `http://localhost:5180/`.
+
+## Pendência final (verificar por último)
+
+Verificação no localhost, só depois de todos os lotes terminarem:
+1. Recompilar e reiniciar o serviço (`npm run render:service`, a partir de `wt\integracao`); o serviço não estava em execução em 2026-11-06.
+2. Conferir no app: segundo render da mesma cena sem reenvio (cache de cenas), céu e horizonte, cor das paredes com textura, câmera de render escolhida, aba Render dos materiais, ícone de materiais nos dois temas.
+3. Conferir no console (F12) se alguma textura de `/texturas-render/` falha ao carregar.
