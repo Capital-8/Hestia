@@ -9,7 +9,7 @@
 // paredes); sem `contencao` (projeto sem paredes) são comparadas como as demais.
 import { difference, intersection, type MultiPolygon } from '@hestia/geom';
 import { areaDaForma, canonica, compararFormas } from './kernelComparaA2.ts';
-import { LIMIAR_FIAPO, perimetroDaForma, topologia0049 } from './kernelComparaA3c.ts';
+import { LIMIAR_FIAPO, perimetroDaForma, resultadoRustValido, topologia0049 } from './kernelComparaA3c.ts';
 import type { ElementoB1 } from './kernelB.ts';
 
 export const TOLERANCIA_B1 = 1e-6;
@@ -122,7 +122,11 @@ export function poligonoIgualB1(ts: MultiPolygon, rust: MultiPolygon, k0049?: nu
         } else grandes.push(x);
       }
     }
-    if (grandes.length) return { ...base, erro: `topologia ${topo.rust} (Rust) x ${topo.ts} (TS); sem par acima de ${LIMIAR_FIAPO} e fora da equivalência: ${grandes.map((x) => `${x.tipo} ${x.area} [${x.lado}]`).join('; ')}`, pela0049: false };
+    // 0049, "Topologia equivalente por região" (2026-11-05): topologia diferente é aceita pela REGIÃO (a área simétrica já está dentro de
+    // `limite`, acima), e só se o resultado do Rust for válido. Sem topologia diferente, componente sem par acima do fiapo continua a falhar.
+    const difTopo = topo.ts !== topo.rust;
+    if (difTopo && !resultadoRustValido(rust)) return { ...base, erro: `topologia ${topo.rust} (Rust) x ${topo.ts} (TS): resultado do Rust inválido (anel que se cruza ou repete vértice, ou furo fora do contorno); sem comparação por região`, pela0049: false };
+    if (grandes.length && !difTopo) return { ...base, erro: `topologia ${topo.rust} (Rust) x ${topo.ts} (TS); sem par acima de ${LIMIAR_FIAPO} e fora da equivalência: ${grandes.map((x) => `${x.tipo} ${x.area} [${x.lado}]`).join('; ')}`, pela0049: false };
     const geral = dArea <= TOLERANCIA_B1 && sim <= TOLERANCIA_B1 && topo.ts === topo.rust;
     return { ...base, erro: null, pela0049: !geral };
   }

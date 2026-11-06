@@ -425,7 +425,8 @@ export function compararB3(ref: JuncaoB3, rust: JuncaoB3, opcoes: OpcoesComparar
             if (p.faixa) zs.push(p.faixa[0], p.faixa[1]);
             for (const poly of p.poligono) for (const anel of poly) for (const v of anel) zs.push(...p.span(v));
           }
-          for (const lista of ps ? [...ps.values()] : []) for (const x of lista) zs.push(x.z0, x.z1);
+          // cotas das partes só de peças com área real (> 1e-6 m²): resíduo de área zero não mede altura
+          for (const lista of ps ? [...ps.values()] : []) for (const x of lista) if (areaDaForma(x.poligono) > 1e-6) zs.push(x.z0, x.z1);
         }
         zs.sort((x, y) => x - y);
         const pontos: number[] = [];
