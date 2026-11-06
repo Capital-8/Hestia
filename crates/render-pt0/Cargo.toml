@@ -13,7 +13,8 @@ path = "src/lib.rs"
 [dependencies]
 # Cena, câmera, matrizes, ruído e tone mapping vêm do núcleo compartilhado (referência em CPU).
 render-core = { path = "../render-core" }
-# Mesmas versões de render-engine (Cargo.lock copiado para manter o mesmo wgpu).
+# Mesmas versões de render-engine (Cargo.lock copiado para manter o mesmo wgpu). render-engine NÃO é
+# dependência: a montagem das texturas é cópia de render-engine/src/texturas.rs (ver texturas.rs).
 wgpu = "30"
 pollster = "1"
 bytemuck = { version = "1.25", features = ["derive"] }

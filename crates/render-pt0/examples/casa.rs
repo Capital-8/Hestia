@@ -16,7 +16,11 @@
 //!
 //! Uso: `cargo run --release --example casa -- --cena <casa.hstr> --saida <dir> [--cache <dir>]
 //!   [--largura 1280 --altura 720 --spp 64 --tile 0 --raio-sol-graus 0.25 --ggx --parede x,y,w,h
-//!    --corretude --ref-largura 320 --ref-altura 180 --ref-spp 256]`
+//!    --corretude --ref-largura 320 --ref-altura 180 --ref-spp 256 --sem-texturas --sem-normal]`
+//!
+//! Texturas de material (fase 5): ligadas por padrão quando a cena as tem. `--sem-texturas` desliga
+//! albedo, rugosidade, metálico e normal (o que a fase 4 media); `--sem-normal` desliga só a normal de mapa.
+//! A corretude contra o render-core roda sem texturas, porque o tracer de CPU não as usa.
 //!
 //! Ferramenta de medição, não parte do render de produção.
 
@@ -55,6 +59,9 @@ struct Opcoes {
     ref_largura: u32,
     ref_altura: u32,
     ref_spp: u32,
+    /// Mapas de material (albedo, rugosidade, metálico) e normal de mapa, na GPU (fase 5).
+    mapas: bool,
+    normal: bool,
 }
 
 fn ler_retangulo(texto: &str) -> Result<[u32; 4], String> {
@@ -81,15 +88,21 @@ fn ler_opcoes() -> Result<Opcoes, String> {
         ref_largura: 320,
         ref_altura: 180,
         ref_spp: 256,
+        mapas: true,
+        normal: true,
     };
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mut i = 0;
     while i < args.len() {
-        if args[i] == "--ggx" || args[i] == "--corretude" {
-            if args[i] == "--ggx" {
-                o.ggx = true;
-            } else {
-                o.corretude = true;
+        if args[i] == "--ggx" || args[i] == "--corretude" || args[i] == "--sem-texturas" || args[i] == "--sem-normal" {
+            match args[i].as_str() {
+                "--ggx" => o.ggx = true,
+                "--corretude" => o.corretude = true,
+                "--sem-texturas" => {
+                    o.mapas = false;
+                    o.normal = false;
+                }
+                _ => o.normal = false,
             }
             i += 1;
             continue;
@@ -421,6 +434,8 @@ fn corretude(o: &Opcoes, cena: &Cena, bvh: &Bvh) -> Result<(), String> {
     // direto (profundidade 1, sem ambiente nem especular), que é a base da indireta.
     let mut proto = Prototipo::iniciar(cena, bvh, w, h, 0.0)?;
     proto.definir_ceu(Ceu::Uniforme)?;
+    // A referência do render-core não tem texturas: a comparação é sem mapas.
+    proto.definir_mapas(false, false);
     let completo = Configuracao::referencia(4);
     let direto = Configuracao {
         profundidade: 1,
@@ -499,6 +514,17 @@ fn main() -> Result<(), String> {
         o.raio_sol_graus,
         t.elapsed().as_secs_f64() * 1000.0
     );
+    let (lado_w, lado_h, niveis) = proto.tamanho_texturas();
+    let camadas = proto.camadas_por_mapa();
+    println!(
+        "texturas: {} de {} (albedo, normal, rugosidade, metálico) | {lado_w}x{lado_h}, {niveis} níveis | memória na GPU {:.1} MB | mapas {} | normal {}",
+        camadas.iter().map(|c| c.to_string()).collect::<Vec<_>>().join(" / "),
+        cena.texturas.len(),
+        proto.memoria_texturas() as f64 / (1024.0 * 1024.0),
+        if o.mapas { "ligados" } else { "desligados" },
+        if o.normal { "ligada" } else { "desligada" },
+    );
+    proto.definir_mapas(o.mapas, o.normal);
 
     // Passe final: céu do motor, caminho de 4 vértices, sol com disco, especular e ambiente da referência.
     let especular = if o.ggx { Especular::Ggx } else { Especular::BlinnPhong };

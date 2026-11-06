@@ -16,17 +16,20 @@
 //!   do céu. Espelho de `ceu.wgsl`, com teste de sincronia.
 //! - [`amostragem`]: hash PCG e amostragem por cosseno, com a mesma aritmética do WGSL.
 //! - [`gpu`]: buffers, pipeline, modos (`Modo`), passes por tile e leitura do acumulado.
+//! - [`texturas`] (fase 5): texturas de material (albedo, normal, rugosidade, metálico) em arrays
+//!   por mapa, montadas por `render_engine::texturas` e amostradas no `pt0.wgsl` de forma triplanar,
+//!   com nível de mip pela distância do raio (compute não tem derivadas). Mesma regra de cor do motor.
 //! - [`referencia`]: sombra direta do sol no tracer de CPU, com as mesmas contas, para medir a
 //!   corretude do protótipo. A referência completa (com especular e os rebotes do tracer) é a do
 //!   `render-core`.
 //!
 //! ## Escopo desta fase (o que NÃO está aqui)
 //!
-//! Sem textura de material, sem vidro (transmissão é tratada como opaca), sem metal com reflexão
-//! especular no rebote, sem oclusão de ambiente (o termo de céu não sabe se a parede está coberta),
-//! sem luzes internas e sem denoise. Sem roleta russa: a profundidade é fixa (até 4 vértices, como
-//! o render-core). O sol é pontual por padrão; `raio_sol` (radianos) liga um disco solar. Nada disso
-//! é pronto para produção.
+//! Vidro sem textura (como o motor), transmissão tratada como opaca nas texturas, sem oclusão de
+//! ambiente (o termo de céu não sabe se a parede está coberta), sem luzes internas e sem denoise.
+//! Sem roleta russa: a profundidade é fixa (até 4 vértices, como o render-core). O sol é pontual por
+//! padrão; `raio_sol` (radianos) liga um disco solar. Tipos procedurais (reboco, madeira, telha...)
+//! não existem aqui: a superfície é a cor do material mais os mapas. Nada disso é pronto para produção.
 //!
 //! ## Convenções
 //!
@@ -39,6 +42,7 @@ pub mod ceu;
 pub mod gpu;
 pub mod optica;
 pub mod referencia;
+pub mod texturas;
 
 /// Cor do sol, a mesma de `render-core::tracer::luz_direta`.
 pub const COR_SOL: [f32; 3] = [1.0, 0.96, 0.9];

@@ -47,6 +47,9 @@ struct Quadro {
     // 1 Blinn-Phong da referência, 2 GGX); z: diagnóstico (bit 0 = sem raio de sombra; bit 1 =
     // força bruta, sem BVH); w: não usado.
     opcoes: vec4<u32>,
+    // Texturas (fase 5): x, abertura do pixel (rad); y, lado comum das texturas (texels); z, níveis
+    // de mip; w, não usado.
+    textura: vec4<f32>,
 };
 
 struct No {
@@ -75,6 +78,10 @@ struct Material {
     propriedades: vec4<f32>,
     // x: transmissão; y: IOR; z: opacidade; w: tipo procedural (6 = vidro).
     vidro: vec4<f32>,
+    // Camada de cada mapa (albedo, normal, rugosidade, metálico); SEM_CAMADA = sem mapa.
+    texturas: vec4<u32>,
+    // rgb: média linear do albedo da textura (divisor); w: escala do padrão (metros por repetição).
+    media_escala: vec4<f32>,
 };
 
 struct Hit {
@@ -107,6 +114,18 @@ struct Superficie {
 @group(0) @binding(3) var<storage, read> materiais: array<Material>;
 @group(0) @binding(4) var acumulado_entrada: texture_2d<f32>;
 @group(0) @binding(5) var acumulado_saida: texture_storage_2d<rgba32float, write>;
+// Texturas de material (fase 5): amostrador de repetição com mip linear e um array por mapa, uma
+// camada por textura da cena (ver `texturas.rs` e a seção de texturas, mais abaixo).
+@group(0) @binding(6) var amostrador_textura: sampler;
+@group(0) @binding(7) var texturas_albedo: texture_2d_array<f32>;
+@group(0) @binding(8) var texturas_normal: texture_2d_array<f32>;
+@group(0) @binding(9) var texturas_rugosidade: texture_2d_array<f32>;
+@group(0) @binding(10) var texturas_metalico: texture_2d_array<f32>;
+
+// Camada marcada para "este mapa não usa textura" (igual a `SEM_CAMADA` em texturas.rs).
+const SEM_CAMADA: u32 = 0xffffffffu;
+// Mesmo limite de escala de render-engine (shader.wgsl): escala mínima do padrão em metros.
+const ESCALA_MINIMA_TEXTURA: f32 = 0.001;
 
 // Hash PCG: gerador de uma linha, sem estado global.
 fn pcg(v: u32) -> u32 {
@@ -273,7 +292,8 @@ fn direcao_sol(estado: ptr<function, u32>) -> vec3<f32> {
 }
 
 // Superfície do acerto: normal voltada para quem olha (dupla face) e material do triângulo.
-fn superficie(o: vec3<f32>, d: vec3<f32>, acerto: Hit) -> Superficie {
+// `distancia` é o caminho do raio desde a câmera até o acerto (nível de mip das texturas).
+fn superficie(o: vec3<f32>, d: vec3<f32>, acerto: Hit, distancia: f32) -> Superficie {
     let tri = tris[acerto.triangulo];
     let w0 = 1.0 - acerto.u - acerto.v;
     var normal = normalize(tri.n0.xyz * w0 + tri.n1.xyz * acerto.u + tri.n2.xyz * acerto.v);
@@ -285,7 +305,6 @@ fn superficie(o: vec3<f32>, d: vec3<f32>, acerto: Hit) -> Superficie {
     var s: Superficie;
     s.ponto = o + d * acerto.t;
     s.normal = normal;
-    s.albedo = material.cor.rgb * (1.0 - material.cor.w);
     s.emissao = material.emissao.rgb;
     s.cor = material.cor.rgb;
     s.metal = material.cor.w;
@@ -293,12 +312,157 @@ fn superficie(o: vec3<f32>, d: vec3<f32>, acerto: Hit) -> Superficie {
     s.vidro = e_vidro(material);
     s.frente = frente;
     s.ior = material.vidro.y;
+    // Vidro não recebe textura (como o motor: `fs_vidro` não amostra os mapas).
+    if (!s.vidro) {
+        aplicar_mapas(&s, material, distancia);
+    }
+    s.albedo = s.cor * (1.0 - s.metal);
     return s;
 }
 
 // Vidro: transmissão > 0, opacidade < 1 ou tipo 6 (vidro). Mesmo critério de `e_vidro` em gpu.rs.
 fn e_vidro(m: Material) -> bool {
     return m.vidro.x > 0.0 || m.vidro.z < 1.0 || m.vidro.w == 6.0;
+}
+
+// ---- Texturas de material (fase 5) ----
+// Mesma regra do motor de rasterização (render-engine, shader.wgsl): triplanar em espaço do mundo com
+// pesos |n|^4, uma repetição a cada `escala` metros, albedo = cor do material * (textura linear / média),
+// whiteout triplanar para a normal de mapa, e rugosidade e metálico pelo canal R. Diferença: compute não
+// tem derivadas, então o nível de mip vem da distância do raio (`lod_da_distancia`, espelho de
+// texturas.rs), com `textureSampleLevel`. Sem anisotropia (a rasterização usa 8x quando o adaptador tem).
+// `q.opcoes.w`: bit 0 liga albedo, rugosidade e metálico; bit 1 liga a normal de mapa.
+
+// Nível de mip pela distância: log2(max(1, distancia * abertura_do_pixel / tamanho_do_texel)), até o último
+// nível. `tamanho_texel` é escala / lado comum das texturas (metros por texel).
+fn lod_da_distancia(distancia: f32, tamanho_texel: f32) -> f32 {
+    let razao = max(distancia * q.textura.x / max(tamanho_texel, 1.0e-9), 1.0);
+    return min(log2(razao), q.textura.z - 1.0);
+}
+
+// Pesos triplanares: |normal|^4 normalizado (como render-engine, EXPOENTE_TRIPLANAR = 4).
+fn pesos_triplanares(normal: vec3<f32>) -> vec3<f32> {
+    let a = pow(abs(normal), vec3<f32>(4.0));
+    return a / max(a.x + a.y + a.z, 1.0e-6);
+}
+
+// sRGB para linear (curva exata), canal a canal.
+fn linear_de_srgb(c: vec3<f32>) -> vec3<f32> {
+    let baixo = c / 12.92;
+    let alto = pow((c + vec3<f32>(0.055)) / 1.055, vec3<f32>(2.4));
+    return select(alto, baixo, c <= vec3<f32>(0.04045));
+}
+
+// Coordenadas triplanares: uv de cada eixo (X, Y, Z) e o sinal da normal em cada eixo (orienta a
+// projeção para a face). Em V, o topo da imagem aponta para +Z (paredes) ou +Y (planos horizontais).
+struct Triplanar {
+    uv: array<vec2<f32>, 3>,
+    sinal: vec3<f32>,
+};
+
+fn triplanar_de(mundo: vec3<f32>, normal: vec3<f32>, escala: f32) -> Triplanar {
+    let p = mundo / escala;
+    let sx = select(-1.0, 1.0, normal.x >= 0.0);
+    let sy = select(-1.0, 1.0, normal.y >= 0.0);
+    let sz = select(-1.0, 1.0, normal.z >= 0.0);
+    var t: Triplanar;
+    t.uv = array<vec2<f32>, 3>(
+        vec2<f32>(sx * p.y, -p.z),
+        vec2<f32>(-sy * p.x, -p.z),
+        vec2<f32>(sz * p.x, -p.y),
+    );
+    t.sinal = vec3<f32>(sx, sy, sz);
+    return t;
+}
+
+struct AmostrasEixos {
+    x: vec4<f32>,
+    y: vec4<f32>,
+    z: vec4<f32>,
+};
+
+// Uma camada de um array amostrada nos três eixos, no nível de mip `lod`.
+fn amostrar_eixos(tex: texture_2d_array<f32>, camada: u32, t: Triplanar, lod: f32) -> AmostrasEixos {
+    var r: AmostrasEixos;
+    r.x = textureSampleLevel(tex, amostrador_textura, t.uv[0], camada, lod);
+    r.y = textureSampleLevel(tex, amostrador_textura, t.uv[1], camada, lod);
+    r.z = textureSampleLevel(tex, amostrador_textura, t.uv[2], camada, lod);
+    return r;
+}
+
+// Whiteout (Golus) num eixo: `t` é a normal do mapa em espaço tangente e `nf` a normal base nesse
+// referencial (tangente, binormal, eixo). Soma os xy e multiplica o z.
+fn whiteout(t: vec3<f32>, nf: vec3<f32>, tangente: vec3<f32>, binormal: vec3<f32>, eixo: vec3<f32>) -> vec3<f32> {
+    let c = normalize(vec3<f32>(t.xy + nf.xy, nf.z * t.z));
+    return tangente * c.x + binormal * c.y + eixo * c.z;
+}
+
+// Normal de mapa para o mundo, com a orientação de tangente de triplanar_de (copiada de render-engine):
+// eixo X (T = sx*Y, B = Z), eixo Y (T = -sy*X, B = Z) e eixo Z (T = sz*X, B = Y).
+fn normal_de_mapa(mapa: AmostrasEixos, t: Triplanar, normal: vec3<f32>, peso: vec3<f32>) -> vec3<f32> {
+    let sx = t.sinal.x;
+    let sy = t.sinal.y;
+    let sz = t.sinal.z;
+    let tx = mapa.x.rgb * 2.0 - vec3<f32>(1.0);
+    let ty = mapa.y.rgb * 2.0 - vec3<f32>(1.0);
+    let tz = mapa.z.rgb * 2.0 - vec3<f32>(1.0);
+    let wx = whiteout(
+        tx,
+        vec3<f32>(sx * normal.y, normal.z, sx * normal.x),
+        vec3<f32>(0.0, sx, 0.0),
+        vec3<f32>(0.0, 0.0, 1.0),
+        vec3<f32>(sx, 0.0, 0.0)
+    );
+    let wy = whiteout(
+        ty,
+        vec3<f32>(-sy * normal.x, normal.z, sy * normal.y),
+        vec3<f32>(-sy, 0.0, 0.0),
+        vec3<f32>(0.0, 0.0, 1.0),
+        vec3<f32>(0.0, sy, 0.0)
+    );
+    let wz = whiteout(
+        tz,
+        vec3<f32>(sz * normal.x, normal.y, sz * normal.z),
+        vec3<f32>(sz, 0.0, 0.0),
+        vec3<f32>(0.0, 1.0, 0.0),
+        vec3<f32>(0.0, 0.0, sz)
+    );
+    return normalize(wx * peso.x + wy * peso.y + wz * peso.z);
+}
+
+// Mapas de material de uma superfície difusa: albedo de textura (cor * textura / média), rugosidade e
+// metálico pelo canal R, e a normal de mapa. O triplanar usa a normal geométrica do acerto (antes do
+// mapa). `distancia` é o caminho do raio até o ponto.
+fn aplicar_mapas(s: ptr<function, Superficie>, m: Material, distancia: f32) {
+    let mapas_ligados = (q.opcoes.w & 1u) != 0u;
+    let normal_ligada = (q.opcoes.w & 2u) != 0u;
+    if (!mapas_ligados && !normal_ligada) {
+        return;
+    }
+    let tex = m.texturas;
+    let escala = max(m.media_escala.w, ESCALA_MINIMA_TEXTURA);
+    let lod = lod_da_distancia(distancia, escala / q.textura.y);
+    let normal = (*s).normal;
+    let tri = triplanar_de((*s).ponto, normal, escala);
+    let peso = pesos_triplanares(normal);
+    if (mapas_ligados && tex.x != SEM_CAMADA) {
+        let a = amostrar_eixos(texturas_albedo, tex.x, tri, lod);
+        let textura = linear_de_srgb(a.x.rgb) * peso.x
+            + linear_de_srgb(a.y.rgb) * peso.y
+            + linear_de_srgb(a.z.rgb) * peso.z;
+        (*s).cor = (*s).cor * (textura / max(m.media_escala.rgb, vec3<f32>(1.0e-4)));
+    }
+    if (normal_ligada && tex.y != SEM_CAMADA) {
+        (*s).normal = normal_de_mapa(amostrar_eixos(texturas_normal, tex.y, tri, lod), tri, normal, peso);
+    }
+    if (mapas_ligados && tex.z != SEM_CAMADA) {
+        let r = amostrar_eixos(texturas_rugosidade, tex.z, tri, lod);
+        (*s).rugosidade = clamp(r.x.r * peso.x + r.y.r * peso.y + r.z.r * peso.z, 0.04, 1.0);
+    }
+    if (mapas_ligados && tex.w != SEM_CAMADA) {
+        let mt = amostrar_eixos(texturas_metalico, tex.w, tri, lod);
+        (*s).metal = clamp(mt.x.r * peso.x + mt.y.r * peso.y + mt.z.r * peso.z, 0.0, 1.0);
+    }
 }
 
 // Luz direta do sol num ponto, com uma amostra de sombra por raio. Devolve a irradiância
@@ -451,7 +615,8 @@ fn direcao_cosseno(normal: vec3<f32>, estado: ptr<function, u32>) -> vec3<f32> {
 // fração difusa é zero. Vidro: Fresnel de Schlick e Snell, sem absorção volumétrica e sem luz direta
 // dentro dele. Diferenças conhecidas em relação ao render-core: o vidro dele atravessa reto (tinge
 // pela cor, sem refração), e o sol da referência é pontual (o disco solar só existe aqui).
-// Texturas de imagem não existem nesta fase.
+// Texturas de material (fase 5): o albedo, a normal, a rugosidade e o metálico vêm de `aplicar_mapas`,
+// dentro de `superficie`.
 fn radiancia_caminho(o0: vec3<f32>, d0: vec3<f32>, estado: ptr<function, u32>) -> vec3<f32> {
     let ambiente = q.opcoes.x;
     let especular = q.opcoes.y;
@@ -461,13 +626,16 @@ fn radiancia_caminho(o0: vec3<f32>, d0: vec3<f32>, estado: ptr<function, u32>) -
     var peso = vec3<f32>(1.0);
     var o = o0;
     var d = d0;
+    // Caminho acumulado desde a câmera (nível de mip das texturas; ver `lod_da_distancia`).
+    var distancia = 0.0;
     for (var k = 0u; k < VERTICES_ABSOLUTOS; k = k + 1u) {
         let acerto = intersecta(o, d, T_MINIMO, T_INFINITO);
         if (!acerto.ok) {
             radiancia = radiancia + peso * ceu_de_fuga(d, k == 0u);
             break;
         }
-        let s = superficie(o, d, acerto);
+        distancia = distancia + acerto.t;
+        let s = superficie(o, d, acerto, distancia);
         radiancia = radiancia + peso * s.emissao;
         if (s.vidro) {
             // Vidro: sem luz direta nem ambiente. Fresnel de Schlick sorteia o reflexo ou a refração

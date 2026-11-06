@@ -14,9 +14,10 @@ use render_core::cena::Cena;
 use wgpu::util::DeviceExt;
 
 use crate::bvh::{Bvh, NoGpu, TrianguloGpu};
+use crate::texturas::{self, MapasGpu, SEM_CAMADA};
 use crate::COR_SOL;
 
-/// Uniforme do shader (320 bytes, mesmo layout de `struct Quadro` em `pt0.wgsl`).
+/// Uniforme do shader (336 bytes, mesmo layout de `struct Quadro` em `pt0.wgsl`).
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Quadro {
@@ -29,6 +30,9 @@ pub struct Quadro {
     pub modo: [u32; 4],
     pub irradiancia: [[f32; 4]; 9],
     pub opcoes: [u32; 4],
+    /// Texturas (fase 5): x, abertura do pixel (rad); y, lado comum das texturas (texels); z, níveis de
+    /// mip; w, não usado. Ver `texturas::lod_da_distancia`.
+    pub textura: [f32; 4],
 }
 
 /// Vértices máximos do caminho, igual a `PROFUNDIDADE_MAXIMA` do `render-core` (tracer.rs).
@@ -307,9 +311,9 @@ pub fn avaliar_ceu(
     Ok((ceus, irradiancias))
 }
 
-/// Material no formato da GPU (64 bytes, mesmo layout de `struct Material` em `pt0.wgsl`).
+/// Material no formato da GPU (96 bytes, mesmo layout de `struct Material` em `pt0.wgsl`).
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct MaterialGpu {
     /// rgb: cor base linear; w: metálico.
     pub cor: [f32; 4],
@@ -319,6 +323,11 @@ pub struct MaterialGpu {
     pub propriedades: [f32; 4],
     /// x: transmissão; y: IOR; z: opacidade; w: tipo procedural (6 = vidro).
     pub vidro: [f32; 4],
+    /// Camada de cada mapa (albedo, normal, rugosidade, metálico) no array; `SEM_CAMADA` = sem mapa.
+    pub texturas: [u32; 4],
+    /// rgb: média linear do albedo da textura (divisor do albedo); w: escala do padrão (metros por
+    /// repetição), como `Material::escala`.
+    pub media_escala: [f32; 4],
 }
 
 /// Vidro segundo o material: transmissão > 0, opacidade < 1 ou tipo "vidro" (6). Mesmo critério do
@@ -346,6 +355,8 @@ pub struct Prototipo {
     atual: usize,
     adaptador: String,
     erro_de_validacao: Arc<AtomicBool>,
+    /// Texturas de material da cena (fase 5): arrays por mapa, plano e amostrador.
+    mapas: MapasGpu,
 }
 
 impl Prototipo {
@@ -364,29 +375,44 @@ impl Prototipo {
 
         let nos = bvh.nos.clone();
         let tris: Vec<TrianguloGpu> = bvh.tris.clone();
+        let limite_camadas = dispositivo.limits().max_texture_array_layers;
+        let mapas = MapasGpu::criar(&dispositivo, &fila, cena, limite_camadas)?;
         let materiais: Vec<MaterialGpu> = cena
             .materiais
             .iter()
-            .map(|m| MaterialGpu {
-                cor: [
-                    m.cor_base[0] as f32,
-                    m.cor_base[1] as f32,
-                    m.cor_base[2] as f32,
-                    m.metalico as f32,
-                ],
-                emissao: [
-                    m.emissivo[0] as f32,
-                    m.emissivo[1] as f32,
-                    m.emissivo[2] as f32,
-                    0.0,
-                ],
-                propriedades: [m.rugosidade as f32, 0.0, 0.0, 0.0],
-                vidro: [
-                    m.transmissao as f32,
-                    m.ior as f32,
-                    m.opacidade as f32,
-                    f32::from(m.tipo),
-                ],
+            .map(|m| {
+                // Camada de cada mapa, e a média linear do albedo (1 quando o albedo não tem textura).
+                let camada = |mapa: usize| match m.texturas[mapa] {
+                    Some(i) => texturas::camada_do_mapa(&mapas.plano, mapa, i),
+                    None => SEM_CAMADA,
+                };
+                let media = match m.texturas[0] {
+                    Some(i) => texturas::media_do_albedo(&mapas.plano, i),
+                    None => [1.0; 3],
+                };
+                MaterialGpu {
+                    cor: [
+                        m.cor_base[0] as f32,
+                        m.cor_base[1] as f32,
+                        m.cor_base[2] as f32,
+                        m.metalico as f32,
+                    ],
+                    emissao: [
+                        m.emissivo[0] as f32,
+                        m.emissivo[1] as f32,
+                        m.emissivo[2] as f32,
+                        0.0,
+                    ],
+                    propriedades: [m.rugosidade as f32, 0.0, 0.0, 0.0],
+                    vidro: [
+                        m.transmissao as f32,
+                        m.ior as f32,
+                        m.opacidade as f32,
+                        f32::from(m.tipo),
+                    ],
+                    texturas: [camada(0), camada(1), camada(2), camada(3)],
+                    media_escala: [media[0], media[1], media[2], m.escala as f32],
+                }
             })
             .collect();
 
@@ -469,6 +495,54 @@ impl Prototipo {
                     },
                     count: None,
                 },
+                // Texturas de material (fase 5): amostrador e um array por mapa (albedo, normal,
+                // rugosidade, metálico). Ver `texturas.rs` e a seção de texturas do `pt0.wgsl`.
+                wgpu::BindGroupLayoutEntry {
+                    binding: 6,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 7,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2Array,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 8,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2Array,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 9,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2Array,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 10,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2Array,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
             ],
         });
 
@@ -501,6 +575,26 @@ impl Prototipo {
                         binding: 5,
                         resource: wgpu::BindingResource::TextureView(&vistas[1 - i]),
                     },
+                    wgpu::BindGroupEntry {
+                        binding: 6,
+                        resource: wgpu::BindingResource::Sampler(&mapas.amostrador),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 7,
+                        resource: wgpu::BindingResource::TextureView(&mapas.vistas[0]),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 8,
+                        resource: wgpu::BindingResource::TextureView(&mapas.vistas[1]),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 9,
+                        resource: wgpu::BindingResource::TextureView(&mapas.vistas[2]),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 10,
+                        resource: wgpu::BindingResource::TextureView(&mapas.vistas[3]),
+                    },
                 ],
             })
         };
@@ -524,7 +618,16 @@ impl Prototipo {
             cache: None,
         });
 
-        let base = quadro_da_cena(cena, largura, altura, raio_sol)?;
+        let mut base = quadro_da_cena(cena, largura, altura, raio_sol)?;
+        // LOD das texturas (ver `texturas::lod_da_distancia`): abertura do pixel, lado comum e níveis.
+        base.textura = [
+            texturas::angulo_do_pixel(cena, largura)?,
+            mapas.plano.largura.max(mapas.plano.altura) as f32,
+            mapas.plano.niveis as f32,
+            0.0,
+        ];
+        // Mapas (bit 0) e normal de mapa (bit 1) ligados por padrão; ver `definir_mapas`.
+        base.opcoes[3] = 3;
         let mut protot = Self {
             dispositivo,
             fila,
@@ -538,6 +641,7 @@ impl Prototipo {
             atual: 0,
             adaptador: nome_adaptador,
             erro_de_validacao,
+            mapas,
         };
         protot.limpar();
         Ok(protot)
@@ -568,12 +672,33 @@ impl Prototipo {
 
     fn aplicar(&mut self, configuracao: Configuracao) {
         self.base.modo[0] = configuracao.profundidade;
-        self.base.opcoes = [
-            configuracao.ambiente as u32,
-            configuracao.especular as u32,
-            configuracao.diagnostico,
-            0,
-        ];
+        // Só os três primeiros campos: `opcoes[3]` é dos mapas de material (`definir_mapas`).
+        self.base.opcoes[0] = configuracao.ambiente as u32;
+        self.base.opcoes[1] = configuracao.especular as u32;
+        self.base.opcoes[2] = configuracao.diagnostico;
+    }
+
+    /// Liga ou desliga os mapas de material (albedo, rugosidade, metálico) e o mapa de normal. Com os
+    /// dois desligados, o passe usa só os valores do material (o que a fase 4 media). Não zera o
+    /// acumulado: quem chama zera antes de comparar.
+    pub fn definir_mapas(&mut self, mapas: bool, normal: bool) {
+        self.base.opcoes[3] = u32::from(mapas) | (u32::from(normal) << 1);
+    }
+
+    /// Bytes na GPU dos arrays de textura de material (todos os níveis de mip).
+    pub fn memoria_texturas(&self) -> u64 {
+        self.mapas.bytes
+    }
+
+    /// Camadas usadas em cada mapa (albedo, normal, rugosidade, metálico).
+    pub fn camadas_por_mapa(&self) -> [usize; 4] {
+        self.mapas.camadas_por_mapa()
+    }
+
+    /// Tamanho comum das texturas (largura, altura, níveis de mip). Cena sem textura: 1 x 1 x 1.
+    pub fn tamanho_texturas(&self) -> (u32, u32, u32) {
+        let p = &self.mapas.plano;
+        (p.largura, p.altura, p.niveis)
     }
 
     /// Escolhe a fonte do céu (ver `Ceu`) e recalcula a irradiância SH9 que ela implica. `Uniforme`
@@ -775,5 +900,6 @@ fn quadro_da_cena(cena: &Cena, largura: u32, altura: u32, raio_sol: f32) -> Resu
         modo: [1, u32::from(sol_ativo), Ceu::Motor as u32, 0],
         irradiancia,
         opcoes: [0; 4],
+        textura: [0.0; 4],
     })
 }
