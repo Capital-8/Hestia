@@ -5,7 +5,11 @@
 //! células convexas. Em cada célula a altura é afim, então a integral é a área da célula vezes a altura no centróide dela
 //! (fórmula do polígono, com furos). A altura de cada peça é o par `[base, topo]` em cada ponto da planta.
 
+use crate::b3::{caixa_total, caixas_se_tocam, faixa_da_peca, PecaSolida, Span};
+use crate::esquema::ENTRADA;
 use crate::geo2d::{hipot, v, V};
+use crate::ops::interseccao;
+use crate::pintor::area_da_forma;
 use crate::MultiPoligono;
 
 /// Função afim sobre a planta: `gx·x + gy·y + gc`.
@@ -168,6 +172,160 @@ pub fn volume_exato_afim(common: &MultiPoligono, a: &dyn Fn(V) -> [f64; 2], b: &
     Some(total)
 }
 
+/// Recorta cada anel do multipolígono pelos semiplanos dados (Sutherland–Hodgman). A área orientada é preservada, então
+/// um furo recortado continua subtraindo a parte dele que cai dentro. Anel externo com menos de 3 vértices tira o polígono.
+fn recortar_multi(m: &MultiPoligono, cortes: &[(Afim, i8)]) -> MultiPoligono {
+    let mut saida: MultiPoligono = Vec::new();
+    for poli in m {
+        let mut aneis: Vec<Vec<[f64; 2]>> = Vec::new();
+        for (i, anel) in poli.iter().enumerate() {
+            let mut a: Vec<V> = anel.iter().map(|p| v(p[0], p[1])).collect();
+            for (d, s) in cortes {
+                if a.len() >= 3 {
+                    a = recortar_anel(&a, d, *s);
+                }
+            }
+            if a.len() >= 3 {
+                aneis.push(a.iter().map(|p| [p.x, p.y]).collect());
+            } else if i == 0 {
+                aneis.clear();
+                break;
+            }
+        }
+        if !aneis.is_empty() {
+            saida.push(aneis);
+        }
+    }
+    saida
+}
+
+/// Eixo de um perfil (`o`, `d`) com as quebras `t` das peças que o usam.
+struct Familia {
+    o: [f64; 2],
+    d: [f64; 2],
+    quebras: Vec<f64>,
+}
+
+fn indice_da_familia(familias: &mut Vec<Familia>, span: &Span) -> Option<usize> {
+    let Span::Perfil { o, d, pts, .. } = span else {
+        return None;
+    };
+    let i = match familias.iter().position(|f| f.o == *o && f.d == *d) {
+        Some(i) => i,
+        None => {
+            familias.push(Familia { o: *o, d: *d, quebras: Vec::new() });
+            familias.len() - 1
+        }
+    };
+    familias[i].quebras.extend(pts.iter().map(|p| p.0));
+    Some(i)
+}
+
+/// Volume de `a` dentro de `b` quando alguma altura é um perfil por trechos. `common` é a região comum das plantas.
+/// Junta as quebras `t_i` dos dois perfis que caem dentro do intervalo de `t` da região comum, recorta `common` em
+/// fatias por semiplanos perpendiculares a `d` (`t = t_i`) e soma `volume_exato_afim` de cada fatia. Em cada fatia a
+/// altura de cada peça é a reta do trecho dela. Perfis de eixos diferentes dão fatias nos dois sentidos.
+/// Devolve `ENTRADA` se alguma fatia ainda não for afim; nunca aproxima.
+pub fn volume_por_trechos(common: &MultiPoligono, a: &PecaSolida, b: &PecaSolida) -> Result<f64, u32> {
+    let mut familias: Vec<Familia> = Vec::new();
+    let fam_a = indice_da_familia(&mut familias, &a.span);
+    let fam_b = indice_da_familia(&mut familias, &b.span);
+
+    // Cada fatia: a forma e o t de referência (meio do intervalo) em cada família.
+    let mut fatias: Vec<(MultiPoligono, Vec<f64>)> = vec![(common.clone(), Vec::new())];
+    for fam in &familias {
+        let ts: Vec<f64> = common
+            .iter()
+            .flatten()
+            .flatten()
+            .map(|q| (q[0] - fam.o[0]) * fam.d[0] + (q[1] - fam.o[1]) * fam.d[1])
+            .collect();
+        let lo = ts.iter().cloned().fold(f64::INFINITY, f64::min);
+        let hi = ts.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let mut limites: Vec<f64> = fam.quebras.iter().cloned().filter(|t| *t > lo && *t < hi).collect();
+        limites.sort_by(|x, y| x.partial_cmp(y).unwrap());
+        limites.dedup();
+        limites.insert(0, lo);
+        limites.push(hi);
+        let od = fam.o[0] * fam.d[0] + fam.o[1] * fam.d[1];
+        let mut novas = Vec::new();
+        for (forma, refs) in fatias {
+            let ultimo = limites.len() - 2;
+            for k in 0..=ultimo {
+                let mut cortes: Vec<(Afim, i8)> = Vec::new();
+                if k > 0 {
+                    cortes.push((Afim { gx: fam.d[0], gy: fam.d[1], gc: -od - limites[k] }, 1));
+                }
+                if k < ultimo {
+                    cortes.push((Afim { gx: fam.d[0], gy: fam.d[1], gc: -od - limites[k + 1] }, -1));
+                }
+                let pedaco = if cortes.is_empty() { forma.clone() } else { recortar_multi(&forma, &cortes) };
+                if pedaco.is_empty() {
+                    continue;
+                }
+                let mut r = refs.clone();
+                r.push((limites[k] + limites[k + 1]) / 2.0);
+                novas.push((pedaco, r));
+            }
+        }
+        fatias = novas;
+    }
+
+    let mut total = 0.0;
+    for (forma, refs) in &fatias {
+        let fa = |p: V| {
+            let (z0, z1) = a.span.em_no_trecho([p.x, p.y], fam_a.map(|i| refs[i]));
+            [z0, z1]
+        };
+        let fb = |p: V| {
+            let (z0, z1) = b.span.em_no_trecho([p.x, p.y], fam_b.map(|i| refs[i]));
+            [z0, z1]
+        };
+        total += volume_exato_afim(forma, &fa, &fb).ok_or(ENTRADA)?;
+    }
+    Ok(total)
+}
+
+/// `overlapVolume` de `junctionNet.ts`: volume (m³) de `a` que está dentro de `b`. Envelope de cota e caixas descartam
+/// o que não se toca; a interseção em planta vem do recorte na grade de 1 µm; se as duas peças forem planas vale
+/// área × altura; senão o cálculo exato afim (sem perfil) ou por trechos (com perfil). Nunca devolve aproximação:
+/// onde o TS integrava por triangulação, aqui a resposta é exata (ou `ENTRADA`).
+pub fn overlap_volume(a: &PecaSolida, b: &PecaSolida) -> Result<f64, u32> {
+    let (Some((a0, a1)), Some((b0, b1))) = (faixa_da_peca(a), faixa_da_peca(b)) else {
+        return Ok(0.0);
+    };
+    if a1.min(b1) - a0.max(b0) <= 0.0 {
+        return Ok(0.0);
+    }
+    if !caixas_se_tocam(&caixa_total(&a.poly), &caixa_total(&b.poly)) {
+        return Ok(0.0);
+    }
+    let common = interseccao(&a.poly, &b.poly)?;
+    if common.is_empty() {
+        return Ok(0.0);
+    }
+    if a.plana && b.plana {
+        let (p0, p1) = a.span.em([0.0, 0.0]);
+        let (q0, q1) = b.span.em([0.0, 0.0]);
+        return Ok(area_da_forma(&common) * 0.0f64.max(p1.min(q1) - p0.max(q0)));
+    }
+    let com_perfil = matches!(a.span, Span::Perfil { .. }) || matches!(b.span, Span::Perfil { .. });
+    if !com_perfil {
+        let fa = |p: V| {
+            let (z0, z1) = a.span.em([p.x, p.y]);
+            [z0, z1]
+        };
+        let fb = |p: V| {
+            let (z0, z1) = b.span.em([p.x, p.y]);
+            [z0, z1]
+        };
+        if let Some(vol) = volume_exato_afim(&common, &fa, &fb) {
+            return Ok(vol);
+        }
+    }
+    volume_por_trechos(&common, a, b)
+}
+
 #[cfg(test)]
 mod testes {
     use super::*;
@@ -241,5 +399,181 @@ mod testes {
         let a = |p: V| [0.0, 1.0 + (p.x - 1.0).abs()];
         let b = |_p: V| [0.0, 1.0];
         assert!(volume_exato_afim(&m, &a, &b).is_none());
+    }
+
+    // ---- overlap_volume / volume_por_trechos ----
+
+    fn peca(poly: MultiPoligono, span: Span) -> PecaSolida {
+        PecaSolida { poly, span, plana: false, meta: None, externa: false }
+    }
+
+    /// Perfil ao longo de x, base em z = 0.
+    fn perfil_x(poly: MultiPoligono, pts: &[(f64, f64)]) -> PecaSolida {
+        peca(poly, Span::Perfil { base_z: 0.0, z0: 0.0, o: [0.0, 0.0], d: [1.0, 0.0], pts: pts.to_vec() })
+    }
+
+    /// Cortador plano (peça plana) com faixa `[z0, z1]`.
+    fn cortador(poly: MultiPoligono, z0: f64, z1: f64) -> PecaSolida {
+        PecaSolida { poly, span: Span::Constante { z0, z1 }, plana: true, meta: None, externa: false }
+    }
+
+    fn confere(nome: &str, esperado: f64, obtido: f64, tol: f64) {
+        println!("{nome}: esperado {esperado:.12} obtido {obtido:.12} diferenca {:.3e}", (obtido - esperado).abs());
+        assert!((obtido - esperado).abs() < tol, "{nome}: esperado {esperado}, obtido {obtido}");
+    }
+
+    /// Rampa 0 -> 2 em t in [0,4], largura 1: V = integral de t/2 = 4.
+    #[test]
+    fn rampa_4x1() {
+        let r = perfil_x(retangulo(0.0, 0.0, 4.0, 1.0), &[(0.0, 0.0), (4.0, 2.0)]);
+        let c = cortador(retangulo(-1.0, -1.0, 5.0, 2.0), -1.0, 5.0);
+        confere("rampa", 4.0, overlap_volume(&r, &c).unwrap(), 1e-9);
+        confere("rampa (invertido)", 4.0, overlap_volume(&c, &r).unwrap(), 1e-9);
+    }
+
+    /// Mesma rampa sob cortador plano z in [0,1]: integral de min(t/2, 1) = 1 + 2 = 3.
+    #[test]
+    fn rampa_sob_cortador_plano() {
+        let r = perfil_x(retangulo(0.0, 0.0, 4.0, 1.0), &[(0.0, 0.0), (4.0, 2.0)]);
+        let c = cortador(retangulo(-1.0, -1.0, 5.0, 2.0), 0.0, 1.0);
+        confere("rampa sob plano", 3.0, overlap_volume(&r, &c).unwrap(), 1e-9);
+    }
+
+    /// Telhado 0 -> 2 -> 0 (pico em t = 2): V = 4; acima de z = 1: triangulo de base 2 e altura 1, V = 1;
+    /// faixa [1.5, 2]: triangulo de base 1 e altura 0.5, V = 0.25 (o pico nao esta em nenhum vertice da planta).
+    #[test]
+    fn telhado_e_parte_acima() {
+        let r = perfil_x(retangulo(0.0, 0.0, 4.0, 1.0), &[(0.0, 0.0), (2.0, 2.0), (4.0, 0.0)]);
+        let tudo = cortador(retangulo(-1.0, -1.0, 5.0, 2.0), -1.0, 5.0);
+        let acima = cortador(retangulo(-1.0, -1.0, 5.0, 2.0), 1.0, 5.0);
+        let pico = cortador(retangulo(-1.0, -1.0, 5.0, 2.0), 1.5, 2.0);
+        confere("telhado", 4.0, overlap_volume(&r, &tudo).unwrap(), 1e-9);
+        confere("telhado acima de z=1", 1.0, overlap_volume(&r, &acima).unwrap(), 1e-9);
+        confere("telhado, so o pico", 0.25, overlap_volume(&r, &pico).unwrap(), 1e-9);
+    }
+
+    /// Degrau 1 -> 3 em t = 2: V = 2*1 + 2*3 = 8.
+    #[test]
+    fn degrau_1_3() {
+        let r = perfil_x(retangulo(0.0, 0.0, 4.0, 1.0), &[(0.0, 1.0), (2.0, 1.0), (2.0, 3.0), (4.0, 3.0)]);
+        let c = cortador(retangulo(-1.0, -1.0, 5.0, 2.0), -1.0, 5.0);
+        confere("degrau", 8.0, overlap_volume(&r, &c).unwrap(), 1e-9);
+    }
+
+    /// Telhado (h = t ate 2, 4 - t depois) em [0,4]x[0,2] com furo [1.5,2.5]x[0.5,1.5] sobre o pico.
+    /// Cheio: 2*4 = 8. O furo tira (integral de 1.5 a 2 de t) + (integral de 2 a 2.5 de 4 - t) = 0.875 + 0.875 = 1.75. V = 6.25.
+    #[test]
+    fn peca_com_furo() {
+        let forma: MultiPoligono = vec![vec![
+            vec![[0.0, 0.0], [4.0, 0.0], [4.0, 2.0], [0.0, 2.0]],
+            vec![[1.5, 0.5], [1.5, 1.5], [2.5, 1.5], [2.5, 0.5]],
+        ]];
+        let r = perfil_x(forma, &[(0.0, 0.0), (2.0, 2.0), (4.0, 0.0)]);
+        let c = cortador(retangulo(-1.0, -1.0, 5.0, 3.0), -1.0, 5.0);
+        confere("furo", 6.25, overlap_volume(&r, &c).unwrap(), 1e-9);
+    }
+
+    /// Integral de min(ha(x), hb(y)) em [0,4]x[0,3]: em y exata (min de constante e reta, por trecho de hb);
+    /// em x, Simpson com 40000 subintervalos por trecho de ha.
+    fn oraculo_cruzado(ha: &[(f64, f64)], hb: &[(f64, f64)]) -> f64 {
+        let h = |pts: &[(f64, f64)], t: f64| -> f64 {
+            if t <= pts[0].0 {
+                return pts[0].1;
+            }
+            for w in pts.windows(2) {
+                if t <= w[1].0 {
+                    return w[0].1 + (w[1].1 - w[0].1) * (t - w[0].0) / (w[1].0 - w[0].0);
+                }
+            }
+            pts[pts.len() - 1].1
+        };
+        // Integral em y de min(c, hb(y)) por trecho linear de hb.
+        let f = |c: f64| -> f64 {
+            let mut s = 0.0;
+            for w in hb.windows(2) {
+                let (y0, g0, y1, g1) = (w[0].0, w[0].1, w[1].0, w[1].1);
+                let dy = y1 - y0;
+                if g0 <= c && g1 <= c {
+                    s += dy * (g0 + g1) / 2.0;
+                } else if g0 >= c && g1 >= c {
+                    s += dy * c;
+                } else {
+                    let yc = y0 + dy * (c - g0) / (g1 - g0);
+                    if g0 < c {
+                        s += (yc - y0) * (g0 + c) / 2.0 + (y1 - yc) * c;
+                    } else {
+                        s += (yc - y0) * c + (y1 - yc) * (c + g1) / 2.0;
+                    }
+                }
+            }
+            s
+        };
+        let n = 40000usize;
+        let mut total = 0.0;
+        for w in ha.windows(2) {
+            let (x0, x1) = (w[0].0, w[1].0);
+            let dx = (x1 - x0) / n as f64;
+            let mut acc = f(h(ha, x0)) + f(h(ha, x1));
+            for i in 1..n {
+                let x = x0 + dx * i as f64;
+                acc += f(h(ha, x)) * if i % 2 == 1 { 4.0 } else { 2.0 };
+            }
+            total += acc * dx / 3.0;
+        }
+        total
+    }
+
+    /// Dois perfis cruzados: a varia em x, b varia em y, mesma planta [0,4]x[0,3], ambos com base em z = 0.
+    #[test]
+    fn dois_perfis_cruzados_contra_simpson() {
+        let ha = [(0.0, 0.0), (2.0, 2.0), (4.0, 1.0)];
+        let hb = [(0.0, 3.0), (1.0, 0.5), (3.0, 2.0)];
+        let a = perfil_x(retangulo(0.0, 0.0, 4.0, 3.0), &ha);
+        let b = peca(
+            retangulo(0.0, 0.0, 4.0, 3.0),
+            Span::Perfil { base_z: 0.0, z0: 0.0, o: [0.0, 0.0], d: [0.0, 1.0], pts: hb.to_vec() },
+        );
+        let esperado = oraculo_cruzado(&ha, &hb);
+        confere("perfis cruzados (Simpson)", esperado, overlap_volume(&a, &b).unwrap(), 1e-7);
+        confere("perfis cruzados, ordem inversa", esperado, overlap_volume(&b, &a).unwrap(), 1e-7);
+    }
+
+    /// Perfis paralelos de quebras diferentes: h1 = 0 -> 2 -> 0 e h2 = 2 -> 0 em t in [0,4].
+    /// h1 = t (t<=2), 4 - t depois; h2 = 2 - t/2. Cruzam em t = 4/3: integral de t em [0,4/3] = 8/9;
+    /// integral de 2 - t/2 em [4/3,4] = (8 - 4) - (8/3 - 4/9) = 16/9. Total 24/9 = 8/3.
+    #[test]
+    fn perfis_paralelos_de_quebras_diferentes() {
+        let a = perfil_x(retangulo(0.0, 0.0, 4.0, 1.0), &[(0.0, 0.0), (2.0, 2.0), (4.0, 0.0)]);
+        let b = perfil_x(retangulo(0.0, 0.0, 4.0, 1.0), &[(0.0, 2.0), (4.0, 0.0)]);
+        confere("paralelos", 8.0 / 3.0, overlap_volume(&a, &b).unwrap(), 1e-9);
+    }
+
+    /// Dividir a peca em duas nao muda o volume total (1e-12).
+    #[test]
+    fn invariancia_por_divisao_da_peca() {
+        let pts = [(0.0, 0.0), (1.0, 1.5), (2.5, 0.5), (4.0, 2.0)];
+        let c = cortador(retangulo(-1.0, -1.0, 5.0, 2.0), 0.4, 1.2);
+        let inteira = overlap_volume(&perfil_x(retangulo(0.0, 0.0, 4.0, 1.0), &pts), &c).unwrap();
+        for corte in [1.0, 1.3, 2.5, 3.1] {
+            let p1 = overlap_volume(&perfil_x(retangulo(0.0, 0.0, corte, 1.0), &pts), &c).unwrap();
+            let p2 = overlap_volume(&perfil_x(retangulo(corte, 0.0, 4.0, 1.0), &pts), &c).unwrap();
+            confere(&format!("divisao em x = {corte}"), inteira, p1 + p2, 1e-12);
+        }
+        let q1 = overlap_volume(&perfil_x(retangulo(0.0, 0.0, 4.0, 0.37), &pts), &c).unwrap();
+        let q2 = overlap_volume(&perfil_x(retangulo(0.0, 0.37, 4.0, 1.0), &pts), &c).unwrap();
+        confere("divisao em y = 0.37", inteira, q1 + q2, 1e-12);
+    }
+
+    /// Sem perfil: afim exato; planas: area x altura; sem toque em cota: zero.
+    #[test]
+    fn overlap_sem_perfil() {
+        // Laje [0,1] subindo 100% ao longo de x, sob o plano z in [0,1]: altura = min(1 + x, 1) - max(x, 0) = 1 - x em x<=1.
+        let a = peca(retangulo(0.0, 0.0, 2.0, 1.0), Span::Laje { z0: 0.0, z1: 1.0, origem: [0.0, 0.0], direcao: [1.0, 0.0], percentual: 100.0 });
+        let b = cortador(retangulo(0.0, 0.0, 2.0, 1.0), 0.0, 1.0);
+        confere("laje inclinada sob plano", 0.5, overlap_volume(&a, &b).unwrap(), 1e-9);
+        let c = cortador(retangulo(1.0, 0.0, 3.0, 1.0), 0.5, 2.0);
+        confere("planas", 0.5, overlap_volume(&b, &c).unwrap(), 1e-12);
+        let alto = cortador(retangulo(0.0, 0.0, 2.0, 1.0), 5.0, 6.0);
+        confere("sem toque", 0.0, overlap_volume(&b, &alto).unwrap(), 1e-300);
     }
 }

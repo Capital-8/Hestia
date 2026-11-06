@@ -113,7 +113,7 @@ pub struct Prisma {
 
 type Caixa = [f64; 4];
 
-fn caixa_total(m: &MultiPoligono) -> Caixa {
+pub(crate) fn caixa_total(m: &MultiPoligono) -> Caixa {
     let mut c = [f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY];
     for p in m {
         for a in p {
@@ -128,7 +128,7 @@ fn caixa_total(m: &MultiPoligono) -> Caixa {
     c
 }
 
-fn caixas_se_tocam(a: &Caixa, b: &Caixa) -> bool {
+pub(crate) fn caixas_se_tocam(a: &Caixa, b: &Caixa) -> bool {
     a[0] <= b[2] && a[2] >= b[0] && a[1] <= b[3] && a[3] >= b[1]
 }
 
@@ -210,7 +210,7 @@ fn na_grade(m: &MultiPoligono) -> MultiPoligono {
 }
 
 /// Faixa de cota de uma peça (`SolidPiece.span`).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum Span {
     /// `flatPiece` (piso, e laje sem inclinação): `[z0, z1]`.
     Constante { z0: f64, z1: f64 },
@@ -218,12 +218,55 @@ pub enum Span {
     Laje { z0: f64, z1: f64, origem: [f64; 2], direcao: [f64; 2], percentual: f64 },
     /// `bandPiece`: `[baseZ + z0, baseZ + bandTopAt]`.
     Faixa { base_z: f64, z0: f64, z1: f64, inclinacao: Option<InclinacaoDaFaixa> },
+    /// Faixa com topo em perfil: `[base_z + z0, base_z + h(t)]`, `t = (q - o)·d`, `h` linear por trechos pelos pontos
+    /// `(t, h)` (em ordem crescente de `t`; dois pontos no mesmo `t` formam um degrau, valendo o de cima à direita).
+    /// Fora do primeiro e do último `t`, `h` é constante.
+    Perfil { base_z: f64, z0: f64, o: [f64; 2], d: [f64; 2], pts: Vec<(f64, f64)> },
+}
+
+/// Altura `h` do perfil em `t`, usando o trecho que contém `t_ref` estendido em reta. Com `t_ref == t` é o perfil
+/// por trechos comum. Sem pontos, zero.
+fn altura_do_perfil(pts: &[(f64, f64)], t: f64, t_ref: f64) -> f64 {
+    let (Some(&(t_ini, h_ini)), Some(&(t_fim, h_fim))) = (pts.first(), pts.last()) else {
+        return 0.0;
+    };
+    if t_ref < t_ini {
+        return h_ini;
+    }
+    if t_ref >= t_fim {
+        return h_fim;
+    }
+    for w in pts.windows(2) {
+        let ((ta, ha), (tb, hb)) = (w[0], w[1]);
+        if ta <= t_ref && t_ref < tb {
+            return ha + (hb - ha) * (t - ta) / (tb - ta);
+        }
+    }
+    h_fim
 }
 
 impl Span {
     /// `span(q)`.
     pub fn em(&self, q: [f64; 2]) -> (f64, f64) {
+        self.em_no_trecho(q, None)
+    }
+
+    /// Posição de `q` ao longo do perfil (`(q - o)·d`); `None` fora de `Perfil`.
+    pub fn t_do_perfil(&self, q: [f64; 2]) -> Option<f64> {
+        match self {
+            Span::Perfil { o, d, .. } => Some((q[0] - o[0]) * d[0] + (q[1] - o[1]) * d[1]),
+            _ => None,
+        }
+    }
+
+    /// Como `em`, mas num `Perfil` usa o trecho que contém `t_ref` (estendido em reta além dele); `None` é o `t` de `q`.
+    /// É a altura afim de uma fatia de planta entre duas quebras (`volume_por_trechos`). Nas demais faixas é `em`.
+    pub fn em_no_trecho(&self, q: [f64; 2], t_ref: Option<f64>) -> (f64, f64) {
         match *self {
+            Span::Perfil { base_z, z0, o, d, ref pts } => {
+                let t = (q[0] - o[0]) * d[0] + (q[1] - o[1]) * d[1];
+                (base_z + z0, base_z + altura_do_perfil(pts, t, t_ref.unwrap_or(t)))
+            }
             Span::Constante { z0, z1 } => (z0, z1),
             Span::Laje { z0, z1, origem, direcao, percentual } => {
                 let subida = (percentual / 100.0) * ((q[0] - origem[0]) * direcao[0] + (q[1] - origem[1]) * direcao[1]);
@@ -277,7 +320,8 @@ pub struct Cortadores {
     pub paredes: Vec<Cortador>,
 }
 
-/// `spanRange`: a envolvente das cotas nos vértices; sem vértices, `None`.
+/// `spanRange`: a envolvente das cotas nos vértices; sem vértices, `None`. Num `Perfil` entram também as quebras do perfil
+/// que caem dentro do intervalo de `t` da peça (o extremo de um perfil por trechos está numa quebra, não num vértice).
 pub fn faixa_da_peca(p: &PecaSolida) -> Option<(f64, f64)> {
     let mut z0 = f64::INFINITY;
     let mut z1 = f64::NEG_INFINITY;
@@ -287,6 +331,17 @@ pub fn faixa_da_peca(p: &PecaSolida) -> Option<(f64, f64)> {
                 let (a, b) = p.span.em(*v);
                 z0 = z0.min(a);
                 z1 = z1.max(b);
+            }
+        }
+    }
+    if let Span::Perfil { base_z, z0: zb, pts, .. } = &p.span {
+        let ts: Vec<f64> = p.poly.iter().flatten().flatten().filter_map(|q| p.span.t_do_perfil(*q)).collect();
+        let lo = ts.iter().cloned().fold(f64::INFINITY, f64::min);
+        let hi = ts.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        for &(t, h) in pts {
+            if t >= lo && t <= hi {
+                z0 = z0.min(base_z + zb);
+                z1 = z1.max(base_z + h);
             }
         }
     }
@@ -633,7 +688,7 @@ fn codificar(c: &Cortadores, j: &Juncao) -> Result<Vec<Saida>, u32> {
             let mut v = [0.0f64; 16];
             v[0] = camada;
             v[1] = prioridade;
-            match p.span {
+            match p.span.clone() {
                 Span::Constante { z0, z1 } => {
                     v[3] = z0;
                     v[4] = z1;
@@ -654,6 +709,8 @@ fn codificar(c: &Cortadores, j: &Juncao) -> Result<Vec<Saida>, u32> {
                         v[6..16].copy_from_slice(&[s.o[0], s.o[1], s.d[0], s.d[1], s.t0, s.t1, s.h0, s.h1, 0.0, 0.0]);
                     }
                 }
+                // O formato de saída (esquema v11) não tem perfil por trechos; nenhuma consulta produz essa faixa ainda.
+                Span::Perfil { .. } => return Err(ENTRADA),
             }
             v[14] = faixa.0;
             v[15] = faixa.1;
