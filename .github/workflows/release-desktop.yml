@@ -1,6 +1,6 @@
 name: release-desktop
 
-# Gera o instalador Windows do Hestia (Tauri) e publica no GitHub Releases.
+# Gera os pacotes do Hestia (Tauri) para Windows e Linux e publica no GitHub Releases.
 # Como publicar: veja docs/desktop.md.
 
 on:
@@ -14,7 +14,20 @@ permissions:
 
 jobs:
   release:
-    runs-on: windows-latest
+    # fail-fast: false para o Linux ainda ser publicado se o Windows falhar (e vice-versa).
+    # max-parallel: 1 porque o latest.json do atualizador é um arquivo único: cada job
+    # lê o que existe e mescla a sua plataforma, então rodar em paralelo pode perder a
+    # entrada da outra plataforma. Duas plataformas em fila levam ~20 min no total.
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - platform: windows-latest
+            args: "--bundles nsis"
+          - platform: ubuntu-22.04
+            args: "--bundles appimage,deb,rpm"
+    runs-on: ${{ matrix.platform }}
     steps:
       - name: Baixar o código
         uses: actions/checkout@v4
@@ -28,8 +41,14 @@ jobs:
             package-lock.json
             desktop/package-lock.json
 
-      - name: Instalar toolchain Rust (stable, MSVC)
+      - name: Instalar toolchain Rust (stable)
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Instalar dependências do Linux (só no Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils libfuse2
 
       - name: Instalar dependências da raiz
         run: npm ci
@@ -75,7 +94,7 @@ jobs:
               echo "FIM_DAS_NOTAS"
             } >> "$GITHUB_OUTPUT"
           else
-            echo "body=Instalador para Windows. Notas desta versão ainda não foram escritas." >> "$GITHUB_OUTPUT"
+            echo "body=Instaladores para Windows (.exe) e Linux (.AppImage, .deb, .rpm). Notas desta versão ainda não foram escritas." >> "$GITHUB_OUTPUT"
           fi
 
       - name: Empacotar e publicar
@@ -86,6 +105,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: desktop
+          args: ${{ matrix.args }}
           tagName: ${{ github.ref_name }}
           releaseName: Hestia ${{ github.ref_name }}
           releaseBody: ${{ steps.notas.outputs.body }}
@@ -96,7 +116,10 @@ jobs:
       # O site (repo `hestia-web`) publica o /app copiando exatamente estes assets: o HTML carrega a
       # meta `hestia-version` (carimbada no build) e os workers/wasm ficam ao lado dele, com os nomes
       # que o próprio bundle referencia. Nomes sem versão no asset: o pacote é por release.
+      # Roda só no job do Windows: os arquivos são idênticos nos dois runners e, com a matriz em
+      # fila, publicar de novo pelo Linux seria trabalho repetido (mas inofensivo, com --clobber).
       - name: Publicar app web no Release
+        if: matrix.platform == 'windows-latest'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
