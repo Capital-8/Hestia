@@ -6,8 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildTemplate, createEmptyProject, makeWall, view3dOf } from '@hestia/model';
 import { resolveLevel } from '@hestia/engine';
 import { ModelScene, type RenderSceneSnapshot, type RenderTextura } from '@hestia/render';
-import { carregarTexturaRgba } from './texturaRender.ts';
-import { SEM_TEXTURA, carregarTexturasDoSnapshot, comTexturasCarregadas } from './texturasCena.ts';
+import { carregarTexturaRgba, LADO_PREVIA_TEXTURA } from './texturaRender.ts';
+import { LIMITE_BUSCA_TEXTURAS, SEM_TEXTURA, carregarTexturasDoSnapshot, comTexturasCarregadas, limparCacheDeTexturas } from './texturasCena.ts';
 import { codificarCena } from './wasmClient.ts';
 
 vi.mock('./texturaRender.ts', async (importOriginal) => {
@@ -60,6 +60,7 @@ function indicesLidos(bytes: Uint8Array, k: number): number[] {
 
 beforeEach(() => {
   mockCarregar.mockReset();
+  limparCacheDeTexturas();
 });
 
 describe('carregarTexturasDoSnapshot', () => {
@@ -140,5 +141,107 @@ describe('ponta a ponta: exportação do template -> carregamento -> HSTR v3', (
     expect(new DataView(bytes.buffer).getUint32(4, true)).toBe(2);
     expect(Array.from(bytes)).toEqual(Array.from(codificarCena({ ...snap, texturas: [] })));
     expect(mockCarregar).not.toHaveBeenCalled();
+  });
+});
+
+/** Cena com texturas pendentes de caminhos dados (o foco é a lista, não a geometria). */
+function cenaComTexturas(caminhos: string[]): RenderSceneSnapshot {
+  const base = exportarSemPreset();
+  return {
+    ...base,
+    // Sem mapas nos materiais: os índices do preset não existem nesta lista.
+    materials: base.materials.map((m) => ({ ...m, mapas: undefined })),
+    texturas: caminhos.map((caminho) => ({ caminho, largura: 0, altura: 0, mips: [] })),
+  };
+}
+
+describe('cache, paralelismo, prévia, progresso e chave das texturas', () => {
+  it('cache: a segunda chamada não chama o carregador de novo e devolve a mesma lista (seção reaproveitada)', async () => {
+    mockCarregar.mockResolvedValue(imagem2x2());
+    const snap = cenaComTexturas(['tijolo_a.jpg', 'tijolo_b.jpg']);
+    const primeira = await comTexturasCarregadas(snap);
+    expect(mockCarregar).toHaveBeenCalledTimes(2);
+    const segunda = await comTexturasCarregadas(snap);
+    expect(mockCarregar).toHaveBeenCalledTimes(2);
+    expect(segunda.texturas).toBe(primeira.texturas);
+    expect(Array.from(codificarCena(segunda))).toEqual(Array.from(codificarCena(primeira)));
+  });
+
+  it('paralelismo: nunca mais de LIMITE_BUSCA_TEXTURAS buscas ao mesmo tempo, e o limite é atingido', async () => {
+    expect(LIMITE_BUSCA_TEXTURAS).toBe(4);
+    let emAndamento = 0;
+    let maximo = 0;
+    mockCarregar.mockImplementation(async () => {
+      emAndamento++;
+      maximo = Math.max(maximo, emAndamento);
+      await new Promise((resolver) => setTimeout(resolver, 1));
+      emAndamento--;
+      return imagem2x2();
+    });
+    const caminhos = Array.from({ length: 22 }, (_, i) => `parallel_${i}.jpg`);
+    const carregadas = await carregarTexturasDoSnapshot(cenaComTexturas(caminhos));
+    expect(mockCarregar).toHaveBeenCalledTimes(22);
+    expect(maximo).toBe(LIMITE_BUSCA_TEXTURAS);
+    expect(carregadas.map((t) => t.caminho)).toEqual(caminhos);
+  });
+
+  it('prévia em 512 px: o carregador recebe o lado pedido; o final (padrão) continua em 1024', async () => {
+    mockCarregar.mockResolvedValue(imagem2x2());
+    const snap = cenaComTexturas(['previa_a.jpg']);
+    await comTexturasCarregadas(snap, { lado: LADO_PREVIA_TEXTURA });
+    expect(LADO_PREVIA_TEXTURA).toBe(512);
+    expect(mockCarregar.mock.calls[0]).toEqual(['/texturas-render/previa_a.jpg', 512]);
+    // Mesmo arquivo no final: não reaproveita a versão de prévia (o lado faz parte da chave).
+    await comTexturasCarregadas(snap);
+    expect(mockCarregar.mock.calls[1]).toEqual(['/texturas-render/previa_a.jpg', 1024]);
+  });
+
+  it('progresso: avisa (0, total) no começo e (feitas, total) a cada textura pronta', async () => {
+    mockCarregar.mockResolvedValue(imagem2x2());
+    const avisos: Array<[number, number]> = [];
+    await carregarTexturasDoSnapshot(cenaComTexturas(['prog_a.jpg', 'prog_b.jpg', 'prog_c.jpg']), {
+      progresso: (feitas, total) => avisos.push([feitas, total]),
+    });
+    expect(avisos[0]).toEqual([0, 3]);
+    expect(avisos.slice(1)).toEqual([[1, 3], [2, 3], [3, 3]]);
+  });
+
+  it('erro: falha de uma textura aparece com o caminho, e a tentativa seguinte busca de novo (não fica em cache)', async () => {
+    mockCarregar.mockRejectedValueOnce(new Error('textura: HTTP 404 ao buscar /texturas-render/falha.jpg'));
+    mockCarregar.mockResolvedValue(imagem2x2());
+    const snap = cenaComTexturas(['falha.jpg']);
+    await expect(comTexturasCarregadas(snap)).rejects.toThrow(/não foi possível carregar a textura falha\.jpg: textura: HTTP 404/);
+    const depois = await comTexturasCarregadas(snap);
+    expect(depois.texturas![0]!.mips.length).toBeGreaterThan(0);
+    expect(mockCarregar).toHaveBeenCalledTimes(2);
+  });
+
+  it('chave: mudar a lista de texturas invalida o cache da lista (devolve outra lista, buscando só o que é novo)', async () => {
+    mockCarregar.mockResolvedValue(imagem2x2());
+    const a = await comTexturasCarregadas(cenaComTexturas(['chave_a.jpg', 'chave_b.jpg']));
+    expect(mockCarregar).toHaveBeenCalledTimes(2);
+    const b = await comTexturasCarregadas(cenaComTexturas(['chave_a.jpg', 'chave_c.jpg']));
+    expect(b.texturas).not.toBe(a.texturas);
+    expect(b.texturas!.map((t) => t.caminho)).toEqual(['chave_a.jpg', 'chave_c.jpg']);
+    // chave_a já estava na imagem em cache: só chave_c foi buscada.
+    expect(mockCarregar).toHaveBeenCalledTimes(3);
+    expect(mockCarregar.mock.calls[2]![0]).toBe('/texturas-render/chave_c.jpg');
+  });
+});
+
+describe('seção de texturas reaproveitada: só quando os mips são os mesmos', () => {
+  it('trocar os mips de uma textura na mesma lista muda os bytes (não reaproveita a seção antiga)', async () => {
+    // Pixels que dependem do arquivo: a textura trocada tem de mudar a seção.
+    mockCarregar.mockImplementation(async (url) => {
+      const semente = [...url].reduce((soma, c) => soma + c.charCodeAt(0), 0);
+      return { largura: 2, altura: 2, rgba: Uint8Array.from({ length: 16 }, (_, i) => (i * 10 + semente) & 0xff) };
+    });
+    const cena = await comTexturasCarregadas(cenaComTexturas(['secao_a.jpg', 'secao_b.jpg']));
+    const antes = Array.from(codificarCena(cena));
+    const outro = await comTexturasCarregadas(cenaComTexturas(['secao_c.jpg', 'secao_b.jpg']));
+    // Mesma lista de objetos, com a textura 0 trocada por outra imagem: a seção tem de ser recodificada.
+    cena.texturas![0] = outro.texturas![0]!;
+    expect(Array.from(codificarCena(cena))).not.toEqual(antes);
+    expect(Array.from(codificarCena(cena))).toEqual(Array.from(codificarCena({ ...cena, texturas: [...cena.texturas!] })));
   });
 });

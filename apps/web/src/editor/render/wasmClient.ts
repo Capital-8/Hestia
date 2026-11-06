@@ -9,7 +9,7 @@
  * isso toda leitura/escrita relê o buffer DEPOIS de `alocar`/renderizar. Nada é carregado no
  * import: o `.wasm` só é baixado quando alguém pede o cliente (modo final).
  */
-import type { RenderMaterial, RenderSceneSnapshot } from '@hestia/render';
+import type { RenderMaterial, RenderSceneSnapshot, RenderTextura } from '@hestia/render';
 import { CODIGO_RENDER, ErroRenderWasm, MENSAGENS } from './erroRender.ts';
 import { indicesDeTextura, tamanhoDasTexturas } from './texturasCena.ts';
 
@@ -88,6 +88,10 @@ class Escritor {
   copiar(valor: Uint8Array): void {
     this.bytes.set(valor, this.offset);
     this.offset += valor.length;
+  }
+  /** Quantos bytes já foram escritos (posição do próximo byte). */
+  posicao(): number {
+    return this.offset;
   }
   concluir(): Uint8Array {
     if (this.offset !== this.bytes.length) {
@@ -178,6 +182,42 @@ function validarCena(cena: RenderSceneSnapshot): void {
     throw new ErroRenderWasm(CODIGO_RENDER.cenaInvalida, 'cor de fundo da cena inválida');
   }
 }
+
+/**
+ * Seção de texturas já escrita num HSTR, lembrada pela identidade da lista de texturas, com as referências (mips e
+ * dimensões) que a geraram. `bytes` é uma VISTA dentro do HSTR daquela codificação: não há cópia extra.
+ */
+const secoesEscritas = new WeakMap<
+  RenderTextura[],
+  { referencias: Array<{ mips: Uint8Array[]; largura: number; altura: number }>; bytes: Uint8Array }
+>();
+
+/**
+ * Seção cacheada desta lista de texturas, ou `null`. Só vale se a lista é a mesma instância E os mips e dimensões são
+ * os mesmos da codificação anterior. Quem mantém a mesma lista é `comTexturasCarregadas` (texturasCena.ts), enquanto a
+ * chave (lado + caminhos) não muda.
+ */
+function secaoEscritaDe(texturas: RenderTextura[]): Uint8Array | null {
+  const emCache = secoesEscritas.get(texturas);
+  if (!emCache || emCache.referencias.length !== texturas.length) return null;
+  const iguais = texturas.every((t, i) => {
+    const r = emCache.referencias[i]!;
+    return r.mips === t.mips && r.largura === t.largura && r.altura === t.altura;
+  });
+  return iguais ? emCache.bytes : null;
+}
+
+/** Seção de texturas do HSTR v3: u32 quantidade; por textura, u32 largura, u32 altura, u32 níveis e os níveis RGBA8. */
+function escreverSecaoTexturas(escritor: Escritor, texturas: RenderTextura[]): void {
+  escritor.u32(texturas.length);
+  for (const textura of texturas) {
+    escritor.u32(textura.largura);
+    escritor.u32(textura.altura);
+    escritor.u32(textura.mips.length);
+    for (const nivel of textura.mips) escritor.copiar(nivel);
+  }
+}
+
 /**
  * Serializa `RenderSceneSnapshot` no formato `HSTR`. Sem texturas: v2 (material de 52 bytes: 11 f32, tipo u32,
  * escala f32), exatamente como antes. Com texturas: v3, com material de 68 bytes (os 52 da v2 + 4 u32 de índice de
@@ -198,7 +238,9 @@ export function codificarCena(cena: RenderSceneSnapshot): Uint8Array {
   const materiais = cena.materials.length > 0 ? cena.materials : [MATERIAL_PADRAO];
   const fundo = cena.background;
   const texturas = cena.texturas && cena.texturas.length > 0 ? cena.texturas : null;
+  // Valida a seção antes de qualquer escrita (erro de textura não chega a ser codificado).
   const tamanhoSecaoTexturas = texturas ? tamanhoDasTexturas(texturas) : 0;
+  const secaoEmCache = texturas ? secaoEscritaDe(texturas) : null;
   const mapas = materiais.map((material, i) => indicesDeTextura(material.mapas, texturas?.length ?? 0, i));
   const nVertices = posicoes.length / 3;
   const nNormais = normais ? nVertices : 0;
@@ -230,12 +272,15 @@ export function codificarCena(cena: RenderSceneSnapshot): Uint8Array {
     if (texturas) for (const indice of mapas[indiceMaterial] as number[]) escritor.u32(indice);
   });
   if (texturas) {
-    escritor.u32(texturas.length);
-    for (const textura of texturas) {
-      escritor.u32(textura.largura);
-      escritor.u32(textura.altura);
-      escritor.u32(textura.mips.length);
-      for (const nivel of textura.mips) escritor.copiar(nivel);
+    const inicioSecao = escritor.posicao();
+    if (secaoEmCache) {
+      escritor.copiar(secaoEmCache);
+    } else {
+      escreverSecaoTexturas(escritor, texturas);
+      secoesEscritas.set(texturas, {
+        referencias: texturas.map((t) => ({ mips: t.mips, largura: t.largura, altura: t.altura })),
+        bytes: escritor.bytes.subarray(inicioSecao, escritor.posicao()),
+      });
     }
   }
   for (const lote of cena.batches) {

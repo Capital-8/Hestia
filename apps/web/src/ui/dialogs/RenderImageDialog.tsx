@@ -9,6 +9,7 @@ import { canvasAtivo, comModoApresentacao } from '../../editor/render/captureReg
 import { renderizarImagemRust } from '../../editor/render/rustStillRenderer.ts';
 import { codificarCena, criarClienteWasm, type ClienteRenderWasm } from '../../editor/render/wasmClient.ts';
 import { comTexturasCarregadas } from '../../editor/render/texturasCena.ts';
+import { LADO_PREVIA_TEXTURA } from '../../editor/render/texturaRender.ts';
 import { renderizarNativo, saudeRenderNativo } from '../../editor/render/nativeClient.ts';
 import { cameraPreviewAtual } from '../../editor/render/previewCamera.ts';
 import { camera3DAtual } from '../../editor/vista3dAoVivo.ts';
@@ -218,6 +219,8 @@ export function RenderImageDialog(): ReactElement {
   const [erro, setErro] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const [previaFalhou, setPreviaFalhou] = useState(false);
+  // Carregamento das texturas da prévia (lado de prévia): "carregando texturas N de 22" enquanto busca.
+  const [progressoTexturas, setProgressoTexturas] = useState<{ feitas: number; total: number } | null>(null);
   const [progressoLegado, setProgressoLegado] = useState<ProgressoLegado | null>(null);
   const [legadoCancelado, setLegadoCancelado] = useState(false);
   const [resultadoLegado, setResultadoLegado] = useState<ResultadoLegado | null>(null);
@@ -389,7 +392,11 @@ export function RenderImageDialog(): ReactElement {
         ? Math.max(1, Math.round(largura / cameraDeRenderGpu.aspect))
         : Math.max(1, Math.round((largura * base.altura) / base.largura));
       // As texturas dos presets são carregadas antes de codificar (falha vira erro da prévia, não cena sem textura).
-      void comTexturasCarregadas(snapshotFinal)
+      // A prévia usa a resolução de prévia das texturas (`LADO_PREVIA_TEXTURA`); o Final continua em 1024.
+      void comTexturasCarregadas(snapshotFinal, {
+        lado: LADO_PREVIA_TEXTURA,
+        progresso: (feitas, total) => { if (!cancelado) setProgressoTexturas({ feitas, total }); },
+      })
         .then((cena) => renderizarNativo(codificarCena(cena), { largura, altura, exposicao }))
         .then(async (blob) => {
           const bitmap = await createImageBitmap(blob);
@@ -403,6 +410,9 @@ export function RenderImageDialog(): ReactElement {
         })
         .catch(() => {
           if (!cancelado) setPreviaFalhou(true);
+        })
+        .finally(() => {
+          if (!cancelado) setProgressoTexturas(null);
         });
       return () => { cancelado = true; };
     }
@@ -429,7 +439,11 @@ export function RenderImageDialog(): ReactElement {
           return;
         }
         // Uma vez para todos os passos: as texturas dos presets entram na cena antes de ir ao wasm.
-        const cenaComTexturas = await comTexturasCarregadas(snapshotFinal).catch(() => null);
+        const cenaComTexturas = await comTexturasCarregadas(snapshotFinal, {
+          lado: LADO_PREVIA_TEXTURA,
+          progresso: (feitas, total) => { if (!cancelado) setProgressoTexturas({ feitas, total }); },
+        }).catch(() => null);
+        if (!cancelado) setProgressoTexturas(null);
         if (!cenaComTexturas) {
           if (!cancelado) setPreviaFalhou(true);
           return;
@@ -761,6 +775,11 @@ export function RenderImageDialog(): ReactElement {
             )}
             {base && rascunhoRecusado && urlResultado === null ? (
               <span className="ri-previa-vazio">Rascunho indisponível nesta vista</span>
+            ) : null}
+            {progressoTexturas && urlResultado === null ? (
+              <span className="ri-previa-vazio ri-previa-progresso" role="status">
+                Carregando texturas {progressoTexturas.feitas} de {progressoTexturas.total}
+              </span>
             ) : null}
             {urlResultado !== null ? (
               <img className="ri-resultado" src={urlResultado} alt={rotuloResultado ?? 'Imagem renderizada'} />

@@ -12,7 +12,7 @@ import { resolveLevel } from '@hestia/engine';
 import { ModelScene, type RenderSceneSnapshot } from '@hestia/render';
 import { arquivosDoPreset } from '../../../../../packages/render/src/offline/texturasPreset.ts';
 import { carregarTexturaRgba, urlDaTextura } from './texturaRender.ts';
-import { SEM_TEXTURA, comTexturasCarregadas } from './texturasCena.ts';
+import { SEM_TEXTURA, comTexturasCarregadas, limparCacheDeTexturas } from './texturasCena.ts';
 import { codificarCena } from './wasmClient.ts';
 
 vi.mock('./texturaRender.ts', async (importOriginal) => {
@@ -87,6 +87,7 @@ describe('casa de alto padrão: texturas pelo caminho de exportação', () => {
 
   beforeEach(() => {
     mockCarregar.mockReset();
+    limparCacheDeTexturas();
     mockCarregar.mockImplementation(async () => imagem2x2());
     snap = exportarCasa();
   });

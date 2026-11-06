@@ -55,6 +55,18 @@
   font-size: 12px;
 }
 
+/* Progresso do carregamento das texturas: faixa sobre a prévia, sem empurrar o canvas. */
+.ri-previa-progresso {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  padding: 4px 8px;
+  text-align: center;
+  background: var(--chrome);
+  border: 1px solid var(--line);
+}
+
 .ri-col {
   display: flex;
   flex-direction: column;

@@ -10,6 +10,12 @@ import type { RenderTextura } from '@hestia/render';
 
 /** Lado maior máximo da textura carregada, em pixels. Acima disso a imagem é reduzida antes de gerar os mips. */
 export const LADO_MAXIMO_TEXTURA = 1024;
+/**
+ * Lado maior das texturas da PRÉVIA (diálogo de render, antes do Final). O render final continua em
+ * `LADO_MAXIMO_TEXTURA`. Quem escolhe é o chamador: `comTexturasCarregadas(snapshot, { lado: LADO_PREVIA_TEXTURA })`
+ * no `RenderImageDialog.tsx` (as duas prévias).
+ */
+export const LADO_PREVIA_TEXTURA = 512;
 /** Pasta publicada da biblioteca de texturas do render (`apps/web/public/texturas-render/`). */
 export const BASE_TEXTURAS_RENDER = '/texturas-render/';
 
@@ -90,15 +96,18 @@ export function gerarMips(rgba: Uint8Array, largura: number, altura: number): Ui
 }
 
 /**
- * Busca a imagem, reduz o lado maior a `LADO_MAXIMO_TEXTURA` e devolve os pixels RGBA8. Só roda no navegador (ou em
- * worker com `OffscreenCanvas`); o teste não chama esta função.
+ * Busca a imagem, reduz o lado maior a `lado` (padrão `LADO_MAXIMO_TEXTURA`) e devolve os pixels RGBA8. Só roda no
+ * navegador (ou em worker com `OffscreenCanvas`); o teste não chama esta função (usa um carregador simulado).
  */
-export async function carregarTexturaRgba(url: string): Promise<{ largura: number; altura: number; rgba: Uint8Array }> {
+export async function carregarTexturaRgba(
+  url: string,
+  lado: number = LADO_MAXIMO_TEXTURA,
+): Promise<{ largura: number; altura: number; rgba: Uint8Array }> {
   const resposta = await fetch(url);
   if (!resposta.ok) throw new Error(`textura: HTTP ${resposta.status} ao buscar ${url}`);
   const imagem = await createImageBitmap(await resposta.blob());
   try {
-    const [largura, altura] = dimensoesReduzidas(imagem.width, imagem.height);
+    const [largura, altura] = dimensoesReduzidas(imagem.width, imagem.height, lado);
     const canvas = new OffscreenCanvas(largura, altura);
     const contexto = canvas.getContext('2d');
     if (!contexto) throw new Error('textura: canvas 2D indisponível neste ambiente');
