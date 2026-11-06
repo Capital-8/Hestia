@@ -64,6 +64,14 @@ describe('Selecionar todas as instâncias (mesmo tipo do elemento clicado)', () 
     expect(selecao()).toEqual(['J1', 'J2']);
   });
 
+  it('parede: "Visíveis na vista" na planta pega o mesmo tipo e deixa de fora o oculto na vista', () => {
+    setup('plan', ['A2']);
+    executaComandoDoMenu('hideElements', 'plan', camera, centro);
+    useUi.setState({ selection: ['A1'] });
+    executaComandoDoMenu('selectAllVisible', 'plan', camera, centro);
+    expect(selecao()).toEqual(['A1']);
+  });
+
   it('parede: na planta o critério é o mesmo', () => {
     setup('plan', ['A1']);
     executaComandoDoMenu('selectAllView', 'plan', camera, centro);

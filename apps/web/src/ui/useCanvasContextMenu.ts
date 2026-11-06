@@ -114,6 +114,8 @@ export function executaComandoDoMenu(id: string, view: MenuView, camera: Camera3
     case 'pasteAlignedLevels': editor.openPasteLevelsDialog(); return;
     // Selecionar todas as instâncias: o mesmo tipo da seleção no nível (critério único da planta, também na 3D).
     case 'selectAllView': editor.selectAllOfSelectedType(); return;
+    // Só os visíveis na vista (planta ou corte/elevação): o mesmo tipo, sem o que está oculto ou fora do desenho.
+    case 'selectAllVisible': editor.selectAllVisibleOfSelectedType(); return;
     case 'createSimilar': startCreateSimilar(editor.project, (id) => editor.setTool(id)); return;
     case 'hideElements': hideSelectionInView(); return;
     case 'hideCategory': hideSelectedCategoryInView(); return;

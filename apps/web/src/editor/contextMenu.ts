@@ -93,6 +93,7 @@ const TEXTOS = {
   editFamily: 'edc_ctx_edit_family',
   selectAll: 'edc_ctx_select_all',
   selectAllView: 'edc_ctx_select_all_view',
+  selectAllVisible: 'edc_ctx_select_all_visible',
   selectAllProject: 'edc_ctx_select_all_project',
   delete: 'edc_ctx_delete',
   snapOverrides: 'edc_ctx_snap_overrides',
@@ -184,6 +185,8 @@ export function buildContextMenu(ctx: ContextMenuCtx): MenuEntry[] {
       hint: visiveisOk ? undefined : T('oneType'),
       children: [
         { id: 'selectAllView', label: T('selectAllView'), disabled: !visiveisOk, hint: visiveisOk ? undefined : T('oneType') },
+        // Só o que a vista mostra (sem os ocultos): na planta e no corte/elevação; o 3D não tem essa variante.
+        ...(ctx.view === '3d' ? [] : [{ id: 'selectAllVisible', label: T('selectAllVisible'), disabled: !visiveisOk, hint: visiveisOk ? undefined : T('oneType') }]),
         soon('selectAllProject', T('selectAllProject')),
       ],
     };

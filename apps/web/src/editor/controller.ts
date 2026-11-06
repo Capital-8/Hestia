@@ -1049,6 +1049,14 @@ export class Editor {
   selectAllOfType(typeId: Id): number { return transfer.ofType(this.project, useUi.getState().levelId, typeId); }
   /** "Mesmo tipo" (botão na aba Modificar). */
   selectAllOfSelectedType(): boolean { this.setTool('select'); return transfer.sameType(this.project, useUi.getState().levelId) > 0; }
+  /** "Visíveis na vista": o mesmo tipo da seleção, só do que a vista ativa mostra (planta ou corte/elevação). */
+  selectAllVisibleOfSelectedType(): boolean {
+    this.setTool('select');
+    const st = useUi.getState();
+    const hidden = visibilityOf(this.project, st).hidden;
+    const result = st.view === 'section' && st.sectionId ? this.sectionOf(st.sectionId) : null;
+    return transfer.sameTypeVisible(this.project, st.levelId, hidden, result) > 0;
+  }
   /** "Mesmo nome" dos ambientes selecionados (botão na aba Modificar). */
   selectAllOfSelectedName(): boolean { this.setTool('select'); return transfer.sameName(this.project, useUi.getState().levelId) > 0; }
 

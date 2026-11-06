@@ -10,7 +10,7 @@ import { consumirManterCameraDaPrevia, guardarCamera, limparPreviaPreparada, mon
 import { visibilityKeyOf, visibilityOf } from '../editor/viewVisibility.ts';
 import { usePerimeter } from '../editor/perimeter.ts';
 import { hoverSectionAt, sectionPickAt } from '../editor/sectionPick.ts';
-import { gestoDoBotaoNoCorte, idsNaCaixaDoCorte, modoDaCaixa, selecaoComCaixa } from '../editor/sectionBoxSelect.ts';
+import { anotacoesNaCaixaDoCorte, gestoDoBotaoNoCorte, idsNaCaixaDoCorte, modoDaCaixa, selecaoComCaixa } from '../editor/sectionBoxSelect.ts';
 import { sectionDimensionGripAt, sectionDimensionGripCommand, sectionHandleAt, sectionHandleCommand, sectionOpeningValues } from '../editor/sectionHandles.ts';
 import { cotaParaEditar, ehDuploClique, type CliqueAnterior } from '../editor/dimDoubleClick.ts';
 import { dimensionFormatStyle, dimensionGeometry, dimensionStyleFor, dimensionText, sectionAnnotationsOf } from '@hestia/model';
@@ -575,7 +575,14 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     const st = useUi.getState();
     const result = st.sectionId ? editor.sectionOf(st.sectionId) : null;
     if (!v || !result) return;
-    const ids = idsNaCaixaDoCorte(result, screenToWorld(v, a), screenToWorld(v, b));
+    const wa = screenToWorld(v, a);
+    const wb = screenToWorld(v, b);
+    const view = st.sectionId ? editor.project.views.find((x) => x.id === st.sectionId) : undefined;
+    const ids = [
+      ...idsNaCaixaDoCorte(result, wa, wb, visibilityOf(editor.project, st).hidden),
+      // Cotas e demais anotações do corte entram com a mesma regra janela×cruzamento.
+      ...anotacoesNaCaixaDoCorte(sectionAnnotationsOf(view), wa, wb, editor.viewScale()),
+    ];
     useUi.setState({ selection: selecaoComCaixa(st.selection, ids, somar), selectedLevel: null });
   };
   /** Caixa da seleção na 3D (arrasto com Selecionar): pontas da tela viram NDC, como `elementAt3d`; janela ou cruzamento pelo sentido. */
