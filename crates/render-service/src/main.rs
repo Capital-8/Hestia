@@ -6,7 +6,7 @@
 //! rotas de render respondem 503 com a mensagem. Não existe fallback de CPU.
 //!
 //! Rotas:
-//! - `GET  /health`                     → JSON do serviço e da GPU
+//! - `GET  /health`                     → JSON do serviço, da GPU e do perfil de qualidade (`perfil`)
 //! - `POST /render?largura&altura`      → PNG (síncrono, imagem final)
 //! - `POST /scenes`                     → `{id, hash}`; carrega a cena na GPU (ou reusa o cache)
 //! - `POST /scenes/cache?hash=H`        → `{id, hash}` se H está no cache (200); 404 se não
@@ -43,17 +43,23 @@ use std::io::Read;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Instant;
 
 use render_core::camera::Camera;
 use render_core::Cena;
-use render_engine::{png_saida, CenaGpu, Motor, Retangulo};
+use render_engine::{ordenar_tiles_espiral, png_saida, CenaGpu, Motor, Retangulo};
 use serde_json::json;
 use tiny_http::{Header, Method, Request, Response, Server};
 
 const PORTA: u16 = 19787;
 const MAX_CORPO: usize = 256 * 1024 * 1024;
-/// Lado dos tiles do render final (contrato do render-engine).
-const LADO_TILE: u32 = 256;
+/// Menor lado de tile que a medição pode pedir.
+const LADO_TILE_MINIMO: u32 = 64;
+/// Tempo de um tile de teste acima do qual o lado cai pela metade (risco de watchdog do Windows,
+/// que reinicia o driver quando uma tarefa de GPU passa de cerca de 2 s).
+const TILE_LENTO_MS: f64 = 500.0;
+/// Tempo de um tile de teste abaixo do qual o lado pode dobrar (até o máximo do perfil).
+const TILE_RAPIDO_MS: f64 = 100.0;
 /// Largura da prévia em pixels; a altura segue a proporção da imagem.
 const LARGURA_PREVIA: u32 = 320;
 /// Cenas na GPU mantidas pelo cache por hash. Cada uma soma os bytes de textura medidos em
@@ -167,7 +173,7 @@ enum Fim {
 }
 
 fn main() {
-    let (motor, erro_gpu) = match Motor::nativo() {
+    let (motor, erro_gpu) = match Motor::nativo_auto() {
         Ok(m) => (Some(Arc::new(m)), None),
         Err(e) => {
             let mensagem = e.to_string();
@@ -194,6 +200,11 @@ fn main() {
     println!("render-service: http://{endereco}");
     if let Some(motor) = &servico.motor {
         println!("render-service: GPU {:?} {}", motor.backend(), motor.adaptador());
+        println!(
+            "render-service: perfil {} ({})",
+            motor.perfil().perfil.nome,
+            motor.perfil().motivo
+        );
     }
 
     for requisicao in servidor.incoming_requests() {
@@ -226,6 +237,17 @@ fn atender(mut req: Request, servico: Arc<Servico>) -> Result<(), String> {
                 "gpu_disponivel": servico.motor.is_some(),
                 "erro_gpu": servico.erro_gpu,
                 "adaptador": servico.motor.as_ref().map(|m| m.adaptador().to_string()),
+                "perfil": servico.motor.as_ref().map(|m| {
+                    let escolha = m.perfil();
+                    json!({
+                        "nome": escolha.perfil.nome,
+                        "motivo": escolha.motivo,
+                        "lado_tile": escolha.perfil.lado_tile,
+                        "lado_maximo_textura": escolha.perfil.lado_maximo_textura,
+                        "amostras_msaa": escolha.perfil.amostras_msaa,
+                        "forcado": escolha.forcado,
+                    })
+                }),
             })
             .to_string();
             responder(req, 200, "application/json", corpo.into_bytes())
@@ -664,8 +686,13 @@ fn rodar_job(job: &Job, motor: &Motor, servico: &Servico, pedido: Pedido) -> Res
         estado.preview = Some(png_previa);
     }
 
-    // Tiles: ordem espiral; cada um renderizado como recorte da imagem inteira, sem costura.
-    let tiles = render_engine::ordenar_tiles_espiral(largura, altura, LADO_TILE)
+    // Tiles: ordem espiral; cada um renderizado como recorte da imagem inteira, sem costura. O lado
+    // vem de um tile de teste (ver `medir_lado_tile`), decidido antes da lista e fixo no job.
+    if cancelar_se_preciso(job) {
+        return Ok(Fim::Cancelado);
+    }
+    let lado = medir_lado_tile(motor, &cena_gpu, &camera, (largura, altura), exposicao)?;
+    let tiles = ordenar_tiles_espiral(largura, altura, lado)
         .map_err(|e| format!("tiles inválidos: {e}"))?;
     let total = tiles.len();
     if let Ok(mut estado) = job.lock() {
@@ -676,9 +703,17 @@ fn rodar_job(job: &Job, motor: &Motor, servico: &Servico, pedido: Pedido) -> Res
         if cancelar_se_preciso(job) {
             return Ok(Fim::Cancelado);
         }
+        let inicio = Instant::now();
         let rgba = motor
             .renderizar_regiao(&cena_gpu, &camera, largura, altura, regiao, exposicao)
             .map_err(|e| format!("render do tile {indice} falhou: {e}"))?;
+        let ms = inicio.elapsed().as_secs_f64() * 1000.0;
+        if ms > TILE_LENTO_MS {
+            eprintln!(
+                "render-service: tile {indice} ({}x{}) levou {ms:.0} ms, acima de {TILE_LENTO_MS:.0} ms (risco de watchdog)",
+                regiao.w, regiao.h
+            );
+        }
         let png = png_saida::codificar(&rgba, regiao.w, regiao.h)
             .map_err(|e| format!("PNG do tile {indice} falhou: {e}"))?;
         let mut estado = job.lock().map_err(|e| e.to_string())?;
@@ -711,6 +746,57 @@ fn rodar_job(job: &Job, motor: &Motor, servico: &Servico, pedido: Pedido) -> Res
     estado.fase = "concluido".into();
     estado.fracao = 1.0;
     Ok(Fim::Concluido)
+}
+
+/// Lado dos tiles do job, medido num tile de teste no canto da imagem. Esse tile é descartado: a
+/// imagem final vem só dos tiles da lista, então nenhuma área sai duplicada nem falta. O lado é
+/// decidido uma vez por job, antes da lista: trocá-lo no meio exigiria replanejar a área já
+/// renderizada, e o tamanho muda o custo por tile, não a imagem. Imagem que cabe num tile do
+/// perfil usa o lado inicial, sem medir.
+fn medir_lado_tile(
+    motor: &Motor,
+    cena: &CenaGpu,
+    camera: &Camera,
+    (largura, altura): (u32, u32),
+    exposicao: f64,
+) -> Result<u32, String> {
+    let perfil = motor.perfil().perfil;
+    let inicial = perfil.lado_tile;
+    if largura <= inicial && altura <= inicial {
+        return Ok(inicial);
+    }
+    let teste = Retangulo {
+        x: 0,
+        y: 0,
+        w: inicial.min(largura),
+        h: inicial.min(altura),
+    };
+    let inicio = Instant::now();
+    motor
+        .renderizar_regiao(cena, camera, largura, altura, teste, exposicao)
+        .map_err(|e| format!("render do tile de teste falhou: {e}"))?;
+    let ms = inicio.elapsed().as_secs_f64() * 1000.0;
+    let lado = decidir_lado_tile(inicial, perfil.lado_tile_maximo, ms);
+    println!(
+        "render-service: tile de teste {}x{} em {ms:.0} ms; lado dos tiles {lado} (perfil {})",
+        teste.w, teste.h, perfil.nome
+    );
+    Ok(lado)
+}
+
+/// Lado dos tiles a partir do tempo de um tile de teste. Lento (acima de `TILE_LENTO_MS`) cai pela
+/// metade, sem passar de `LADO_TILE_MINIMO`; rápido (abaixo de `TILE_RAPIDO_MS`) dobra, sem passar
+/// do máximo do perfil; entre os dois, mantém. O resultado fica sempre entre o mínimo e o máximo.
+fn decidir_lado_tile(lado_inicial: u32, lado_maximo: u32, tempo_ms: f64) -> u32 {
+    let maximo = lado_maximo.max(LADO_TILE_MINIMO);
+    let lado = lado_inicial.clamp(LADO_TILE_MINIMO, maximo);
+    if tempo_ms > TILE_LENTO_MS {
+        (lado / 2).max(LADO_TILE_MINIMO)
+    } else if tempo_ms < TILE_RAPIDO_MS {
+        (lado * 2).min(maximo)
+    } else {
+        lado
+    }
 }
 
 /// Recompõe a imagem `largura x altura` (RGBA8 sem padding) a partir dos tiles. Não renderiza:
@@ -825,7 +911,6 @@ fn responder(req: Request, status: u16, tipo: &str, corpo: Vec<u8>) -> Result<()
 mod testes {
     use super::*;
     use render_core::vetor::Vec3;
-    use render_engine::ordenar_tiles_espiral;
 
     /// Imagem sintética com cor única por pixel (sem repetição dentro de 5x3).
     fn imagem_sintetica(largura: u32, altura: u32) -> Vec<u8> {
@@ -1005,5 +1090,67 @@ mod testes {
         assert_eq!(camera_do_corpo.posicao.para_array(), cena.camera.posicao.para_array());
         let (status, _) = resolver_corpo(&servico, b"lixo").err().expect("lixo deve falhar");
         assert_eq!(status, 400);
+    }
+
+    #[test]
+    fn tile_lento_reduz_o_lado_ate_o_minimo() {
+        assert_eq!(decidir_lado_tile(256, 256, 600.0), 128);
+        assert_eq!(decidir_lado_tile(128, 256, 900.0), 64);
+        // Já no mínimo: não desce abaixo de 64.
+        assert_eq!(decidir_lado_tile(64, 512, 2_000.0), 64);
+    }
+
+    #[test]
+    fn tile_rapido_aumenta_ate_o_maximo_do_perfil() {
+        assert_eq!(decidir_lado_tile(128, 256, 40.0), 256);
+        // Já no máximo: não passa dele.
+        assert_eq!(decidir_lado_tile(256, 256, 40.0), 256);
+        assert_eq!(decidir_lado_tile(256, 512, 40.0), 512);
+        assert_eq!(decidir_lado_tile(512, 512, 40.0), 512);
+    }
+
+    #[test]
+    fn tile_no_meio_mantem_o_lado() {
+        assert_eq!(decidir_lado_tile(256, 512, 100.0), 256);
+        assert_eq!(decidir_lado_tile(256, 512, 300.0), 256);
+        assert_eq!(decidir_lado_tile(256, 512, 500.0), 256);
+    }
+
+    #[test]
+    fn sequencia_simulada_fica_sempre_dentro_dos_limites() {
+        // Tempos simulados de tiles (ms): lentos, rápidos e intermediários, em sequência.
+        let tempos = [900.0, 700.0, 30.0, 30.0, 30.0, 250.0, 60.0, 800.0, 20.0, 499.0];
+        for (inicial, maximo) in [(128u32, 256u32), (256, 256), (256, 512), (64, 64)] {
+            let mut lado = inicial;
+            for &ms in &tempos {
+                lado = decidir_lado_tile(lado, maximo, ms);
+                assert!(
+                    (LADO_TILE_MINIMO..=maximo.max(LADO_TILE_MINIMO)).contains(&lado),
+                    "lado {lado} fora de {LADO_TILE_MINIMO}..={maximo} (inicial {inicial}, {ms} ms)"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn qualquer_lado_decidido_cobre_a_imagem_exatamente() {
+        // Para cada lado que a medição pode escolher, a lista de tiles cobre cada pixel uma vez.
+        for lado in [64u32, 128, 256, 512] {
+            for (largura, altura) in [(1000u32, 600u32), (333, 187), (64, 64), (1, 1), (100, 900)] {
+                let tiles = ordenar_tiles_espiral(largura, altura, lado).unwrap();
+                let mut grade = vec![0u32; (largura * altura) as usize];
+                for t in &tiles {
+                    for yy in t.y..t.y + t.h {
+                        for xx in t.x..t.x + t.w {
+                            grade[(yy * largura + xx) as usize] += 1;
+                        }
+                    }
+                }
+                assert!(
+                    grade.iter().all(|&c| c == 1),
+                    "lado {lado} em {largura}x{altura} não cobre cada pixel uma vez"
+                );
+            }
+        }
     }
 }

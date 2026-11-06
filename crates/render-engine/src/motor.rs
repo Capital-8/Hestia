@@ -23,6 +23,7 @@ use crate::gpu::{self, Gpu};
 use crate::iluminacao::{aplicar_camera, esfera_da_sombra, matriz_da_luz, uniformes_fixos};
 use crate::leitura::ler_textura;
 use crate::matrizes::colunas_f32;
+use crate::perfil::{self, DadosAdaptador, Escolha, Estimativa};
 use crate::pipeline::{
     criar_layouts, criar_pipelines, criar_textura, criar_vertex_buffer, validar_limite_textura,
     Layouts, Pipelines,
@@ -65,6 +66,8 @@ pub struct Motor {
     textura_vazia: wgpu::Texture,
     /// Amostras por pixel do passe principal: 1 (sem MSAA) ou 4 (MSAA x4, com resolve).
     amostras: u32,
+    /// Perfil em uso e o motivo da escolha (ver perfil.rs).
+    perfil: Escolha,
     /// Temperatura da luz para o balanço de branco, em kelvin. 6500 K (padrão) não corrige nada.
     temperatura_k: f64,
 }
@@ -90,6 +93,8 @@ pub struct CenaGpu {
     _texturas: Vec<wgpu::Texture>,
     /// Bytes na GPU dos arrays de textura, com todos os níveis de mip (ver `bytes_texturas`).
     bytes_texturas: u64,
+    /// Bytes na GPU do vertex buffer (opacos e vidro).
+    bytes_malha: u64,
     /// Grupo 1 do passe principal: sampler e um array por mapa (ver pipeline.rs).
     grupo_texturas: wgpu::BindGroup,
 }
@@ -159,6 +164,40 @@ impl CenaGpu {
     /// sem textura (a 1x1 compartilhada de `Motor` não entra na conta).
     pub fn bytes_texturas(&self) -> u64 {
         self.bytes_texturas
+    }
+
+    /// Memória fixa da cena na GPU (texturas, malha e sombra), sem os alvos do render. Os alvos
+    /// dependem da região e entram na conferência de `renderizar_regiao`.
+    pub fn estimativa_fixa(&self) -> Estimativa {
+        Estimativa {
+            texturas: self.bytes_texturas,
+            malha: self.bytes_malha,
+            sombra: perfil::bytes_sombra(),
+            alvos: 0,
+        }
+    }
+}
+
+/// Reduz o tamanho comum do plano ao `teto`. A UV é normalizada, então o conteúdo das texturas não
+/// muda: `niveis_no_tamanho_comum` (texturas.rs) reamostra cada uma para o tamanho menor.
+fn aplicar_teto_textura(plano: &mut Plano, teto: u32) {
+    if plano.largura <= teto && plano.altura <= teto {
+        return;
+    }
+    plano.largura = plano.largura.min(teto);
+    plano.altura = plano.altura.min(teto);
+    plano.niveis = Textura::niveis_completos(plano.largura, plano.altura);
+}
+
+/// Dados do adaptador para a escolha do perfil. A memória da placa é `None`: o wgpu não a expõe.
+fn dados_do_adaptador(gpu: &Gpu) -> DadosAdaptador {
+    let limites = gpu.device.limits();
+    DadosAdaptador {
+        tipo: gpu.tipo,
+        max_dimensao_textura: limites.max_texture_dimension_2d,
+        max_buffer: limites.max_buffer_size,
+        max_camadas: limites.max_texture_array_layers,
+        memoria_mib: None,
     }
 }
 
@@ -234,12 +273,45 @@ impl Motor {
                 gpu.adaptador, gpu.backend
             )));
         }
-        Ok(Self::montar(gpu, amostras))
+        let escolha = Escolha::explicita(amostras, "chamada explícita de Motor::nativo_com_amostras");
+        Ok(Self::montar(gpu, escolha))
+    }
+
+    /// Cria o dispositivo nativo e escolhe o perfil de qualidade pela medida do adaptador (ver
+    /// perfil.rs), ou pelo `RENDER_PERFIL`. Se o perfil pede MSAA x4 e o adaptador não tem, cai
+    /// para 1 amostra e o motivo diz isso; se o `RENDER_PERFIL` pediu, é erro.
+    pub fn nativo_auto() -> Result<Motor, ErroRender> {
+        let gpu = gpu::iniciar()?;
+        let dados = dados_do_adaptador(&gpu);
+        let sobrescrita = std::env::var_os(perfil::VARIAVEL_PERFIL)
+            .map(|valor| valor.to_string_lossy().into_owned());
+        let mut escolha =
+            perfil::escolher_perfil(&dados, sobrescrita.as_deref()).map_err(ErroRender::Gpu)?;
+        if escolha.perfil.amostras_msaa == 4 && !gpu.suporta_msaa4 {
+            if escolha.forcado {
+                return Err(ErroRender::Gpu(format!(
+                    "{} pede MSAA x4, mas o adaptador '{}' ({:?}) não suporta MSAA x4 para a cor \
+                     e a profundidade",
+                    escolha.motivo, gpu.adaptador, gpu.backend
+                )));
+            }
+            escolha.perfil.amostras_msaa = 1;
+            escolha.motivo = format!(
+                "{}; adaptador sem MSAA x4, usa 1 amostra",
+                escolha.motivo
+            );
+        }
+        Ok(Self::montar(gpu, escolha))
     }
 
     /// Amostras por pixel do passe principal (1 ou 4).
     pub fn amostras(&self) -> u32 {
         self.amostras
+    }
+
+    /// Perfil em uso e o motivo da escolha (log do serviço e `/health`).
+    pub fn perfil(&self) -> &Escolha {
+        &self.perfil
     }
 
     /// Temperatura da luz, em kelvin, usada no balanço de branco (6500 K = neutro).
@@ -279,11 +351,12 @@ impl Motor {
                 // Sem consulta ao adaptador: anisotropia 1, como o caminho sem suporte.
                 suporta_anisotropia: false,
             },
-            1,
+            Escolha::explicita(1, "caminho externo com_device: 1 amostra, sem consulta ao adaptador"),
         )
     }
 
-    fn montar(gpu: Gpu, amostras: u32) -> Motor {
+    fn montar(gpu: Gpu, perfil: Escolha) -> Motor {
+        let amostras = perfil.perfil.amostras_msaa;
         let layouts = criar_layouts(&gpu.device);
         let pipelines = criar_pipelines(&gpu, &layouts, amostras);
         let comparador = gpu.device.create_sampler(&wgpu::SamplerDescriptor {
@@ -330,6 +403,7 @@ impl Motor {
             amostrador_textura,
             textura_vazia,
             amostras,
+            perfil,
             temperatura_k: cor::TEMPERATURA_NEUTRA_K,
         }
     }
@@ -380,11 +454,13 @@ impl Motor {
         }
         // Plano dos arrays de textura: camadas de cada mapa, tamanho comum e o limite da placa. Erro
         // explícito se a placa não aceitar as camadas; não há fallback.
-        let plano = Plano::planejar(
+        let mut plano = Plano::planejar(
             &cena.texturas,
             &cena.materiais,
             self.gpu.device.limits().max_texture_array_layers,
         )?;
+        // Teto do perfil (e do limite da placa) no tamanho comum das texturas de material.
+        aplicar_teto_textura(&mut plano, self.teto_textura());
         let mut malha = expandir_malha(cena)?;
         plano.remapear(&mut malha.vertices);
         let device = &self.gpu.device;
@@ -396,6 +472,22 @@ impl Motor {
                 device.limits().max_buffer_size / (1024 * 1024)
             )));
         }
+        // Conferência de memória antes de alocar: texturas, malha, sombra e um tile do perfil
+        // (o tamanho máximo que o job pode pedir). Recusa com os números, sem fallback.
+        let bytes_texturas_previstos: u64 = (0..MAPAS)
+            .filter(|&mapa| !plano.camadas[mapa].is_empty())
+            .map(|mapa| plano.bytes_do_array(plano.camadas[mapa].len() as u32))
+            .sum();
+        let lado_reserva = self.perfil.perfil.lado_tile_maximo;
+        let vidro = malha.vertices.len() > malha.opacos;
+        Estimativa {
+            texturas: bytes_texturas_previstos,
+            malha: tamanho_vertices,
+            sombra: perfil::bytes_sombra(),
+            alvos: perfil::bytes_alvos(lado_reserva, lado_reserva, self.amostras, vidro),
+        }
+        .conferir(&self.perfil.perfil)
+        .map_err(ErroRender::Gpu)?;
 
         // Sombra dimensionada pelos projetores, sem a margem do chão de render (ver esfera_da_sombra).
         let (centro_luz, raio) =
@@ -515,8 +607,17 @@ impl Motor {
             sombra_view,
             _texturas: arrays,
             bytes_texturas,
+            bytes_malha: tamanho_vertices,
             grupo_texturas,
         })
+    }
+
+    /// Lado máximo das texturas de material neste motor: o do perfil, limitado pela placa.
+    fn teto_textura(&self) -> u32 {
+        self.perfil
+            .perfil
+            .lado_maximo_textura
+            .min(self.gpu.device.limits().max_texture_dimension_2d)
     }
 
     /// Registra no codificador os passes de oclusão ambiente (SSAO) da região: pré-passe de
@@ -750,6 +851,12 @@ impl Motor {
         validar_regiao(largura, altura, regiao)?;
         validar_limite_textura(&self.gpu, largura, altura, LADO_SOMBRA)?;
         let tem_vidro = cena.n_vertices > cena.opacos;
+        // Memória do render: a cena já na GPU mais os alvos desta região. Recusa com os números.
+        let mut estimativa = cena.estimativa_fixa();
+        estimativa.alvos = perfil::bytes_alvos(regiao.w, regiao.h, self.amostras, tem_vidro);
+        estimativa
+            .conferir(&self.perfil.perfil)
+            .map_err(ErroRender::Gpu)?;
         if tem_vidro && !self.gpu.suporta_copia_tela {
             return Err(ErroRender::Gpu(format!(
                 "o adaptador '{}' ({:?}) não aceita cópia e leitura de {FORMATO_COR:?}, \

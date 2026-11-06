@@ -13,6 +13,7 @@ pub mod iluminacao;
 pub mod leitura;
 pub mod matrizes;
 pub mod motor;
+pub mod perfil;
 pub mod pipeline;
 pub mod png_saida;
 pub mod renderizador;
