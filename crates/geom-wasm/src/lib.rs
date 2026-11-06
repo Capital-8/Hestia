@@ -66,6 +66,7 @@ pub mod geo2d;
 pub mod grupos;
 pub mod itens;
 pub mod juncoes;
+pub mod perfil_quant;
 pub mod pintor;
 pub mod indice;
 pub mod memoria;
