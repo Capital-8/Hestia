@@ -15,6 +15,7 @@ import type { SheetView3DCamera } from '@hestia/model';
 import type { AnimationSequence, RenderSceneSnapshot, SunState } from '@hestia/render';
 import { clienteWasmCompartilhado, type ClienteRenderWasm } from './wasmClient.ts';
 import { renderizarQuadroRgba } from './rustStillRenderer.ts';
+import { codificarCenaNoWorker } from './renderWorkerClient.ts';
 
 /** Requisição de um frame — espelha `RenderFrameRequest` do contrato. */
 export interface RenderFrameRequest {
@@ -113,7 +114,9 @@ export class RustFrameSource implements VideoFrameSource {
     this.cliente = this.clienteInformado ?? (await clienteWasmCompartilhado());
     this.cliente.limparCancelamento();
     // Uma vez por job: a BVH e a cena ficam no wasm; os frames seguintes só atualizam câmera/sol.
-    this.cliente.carregarCena(this.cena);
+    // A codificação do HSTR sai da thread principal (worker); a BVH continua no wasm, na thread principal. As texturas de
+    // `cena` vêm de `comTexturasCarregadas` no lado padrão (ver `startVideoJob.ts`).
+    this.cliente.carregarHstr(await codificarCenaNoWorker(this.cena, {}, undefined, this.sinal ?? undefined));
   }
 
   async renderFrame(req: RenderFrameRequest, width: number, height: number): Promise<VideoFrame> {

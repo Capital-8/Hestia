@@ -379,7 +379,13 @@ export class ClienteRenderWasm {
     }
   }
   carregarCena(cena: RenderSceneSnapshot): void {
-    const bytes = codificarCena(cena);
+    this.carregarHstr(codificarCena(cena));
+  }
+  /**
+   * Carrega um HSTR já codificado (ver `codificarCenaNoWorker`: a codificação pode ter saído da thread principal). O
+   * conteúdo precisa ser o da cena que o chamador quer renderizar; o wasm não confere isso.
+   */
+  carregarHstr(bytes: Uint8Array): void {
     this.conferir(this.vivo().carregar_cena(this.escrever(bytes), bytes.length), 'carregar cena');
   }
   prepararTrabalho(trabalho: TrabalhoRender): void {

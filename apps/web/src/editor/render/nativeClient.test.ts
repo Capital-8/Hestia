@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   criarJobComCache,
   hashHstrSemTrailer,
@@ -8,9 +9,13 @@ import {
   tileNativo,
   urlRenderNativo,
 } from './nativeClient.ts';
+import { ehCancelamento } from './erroRender.ts';
+import { tratarPedidoRender, type PedidoRender, type RespostaRender } from './renderWorker.ts';
+import { encerrarWorkerCompartilhado, hashHstrNoWorker } from './workerRender.ts';
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  encerrarWorkerCompartilhado();
 });
 
 describe('cliente do render nativo', () => {
@@ -236,5 +241,101 @@ describe('hashHstrSemTrailer', () => {
 
   it('sem trailer completo, devolve null', async () => {
     expect(await hashHstrSemTrailer(new Uint8Array(10))).toBeNull();
+  });
+});
+
+/* ------------------------------------------------------------------ hash no worker dedicado ------------------------------------------------------------------ */
+
+/** Atraso (ms) antes de o worker simulado responder. O teste de cancelamento o aumenta. */
+let atrasoWorkerMs = 0;
+const instanciasWorker: WorkerSimulado[] = [];
+
+/**
+ * Worker simulado: roda `tratarPedidoRender` (a mesma lógica do worker real) e atravessa as mensagens com `structuredClone`
+ * e `transfer`, que destaca os buffers da origem como uma transferência real: quem enviou perde os bytes.
+ */
+class WorkerSimulado {
+  onmessage: ((evento: { data: RespostaRender }) => void) | null = null;
+  onerror: ((evento: { message: string }) => void) | null = null;
+  encerrado = false;
+  constructor() {
+    instanciasWorker.push(this);
+  }
+  postMessage(pedido: PedidoRender, transferir: ArrayBuffer[] = []): void {
+    const copia = structuredClone(pedido, { transfer: transferir }) as PedidoRender;
+    setTimeout(() => {
+      if (this.encerrado) return;
+      void tratarPedidoRender(copia, (resposta, transf) => {
+        const entregue = structuredClone(resposta, { transfer: transf as ArrayBuffer[] }) as RespostaRender;
+        setTimeout(() => {
+          if (!this.encerrado) this.onmessage?.({ data: entregue });
+        }, 0);
+      });
+    }, atrasoWorkerMs);
+  }
+  terminate(): void {
+    this.encerrado = true;
+  }
+}
+
+/** SHA-256 em hex do corpo (sem o trailer) de um HSTR de referência. */
+const sha256DoCorpo = (hstr: Uint8Array): string =>
+  createHash('sha256').update(hstr.subarray(0, hstr.length - 148)).digest('hex');
+
+describe('hash do HSTR no worker dedicado', () => {
+  beforeEach(() => {
+    atrasoWorkerMs = 0;
+    instanciasWorker.length = 0;
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  it('mesma chave com e sem Worker (SHA-256 do mesmo HSTR); o HSTR é transferido e volta na resposta', async () => {
+    const direto = await hashHstrSemTrailer(hstrDe(1));
+    expect(direto).toBe(sha256DoCorpo(hstrDe(1)));
+    vi.stubGlobal('Worker', WorkerSimulado);
+    const bytes = hstrDe(1);
+    const via = await hashHstrNoWorker(bytes);
+    expect(via.chave).toBe(direto);
+    // Transferido: quem chamou perdeu o buffer; o que volta é o HSTR inteiro, com os mesmos bytes.
+    expect(bytes.byteLength).toBe(0);
+    expect(via.hstr.byteLength).toBe(hstrDe(1).byteLength);
+    expect(Buffer.from(via.hstr).equals(Buffer.from(hstrDe(1)))).toBe(true);
+    expect(instanciasWorker).toHaveLength(1);
+    expect(instanciasWorker[0]!.encerrado).toBe(true);
+  });
+
+  it('criarJobComCache com Worker: mesma chave da versão direta, então o segundo envio usa /jobs/cache', async () => {
+    const { fetchFalso, chamadas } = servicoSimulado();
+    vi.stubGlobal('fetch', fetchFalso);
+    vi.stubGlobal('Worker', WorkerSimulado);
+    expect(await criarJobComCache(hstrDe(1), opcoesCache)).toBe('job-1');
+    expect(await criarJobComCache(comCamera(hstrDe(1), 9), opcoesCache)).toBe('cache-2');
+    expect(chamadas.map((c) => c.rota)).toEqual(['jobs', 'cache']);
+    // Um worker dedicado por chamada de hash.
+    expect(instanciasWorker).toHaveLength(2);
+  });
+
+  it('cancelar durante o hash encerra o worker, rejeita com cancelamento e não chega ao serviço', async () => {
+    const { fetchFalso } = servicoSimulado();
+    vi.stubGlobal('fetch', fetchFalso);
+    vi.stubGlobal('Worker', WorkerSimulado);
+    atrasoWorkerMs = 50;
+    const controlador = new AbortController();
+    const promessa = criarJobComCache(hstrDe(3), { ...opcoesCache, sinal: controlador.signal }).catch((e: unknown) => e);
+    await vi.waitFor(() => expect(instanciasWorker).toHaveLength(1));
+    controlador.abort();
+    const erro = await promessa;
+    expect(ehCancelamento(erro)).toBe(true);
+    expect(instanciasWorker[0]!.encerrado).toBe(true);
+    expect(fetchFalso).not.toHaveBeenCalled();
+  });
+
+  it('sinal já abortado: rejeita sem criar nenhum worker', async () => {
+    vi.stubGlobal('Worker', WorkerSimulado);
+    const controlador = new AbortController();
+    controlador.abort();
+    const erro = await hashHstrNoWorker(hstrDe(4), controlador.signal).catch((e: unknown) => e);
+    expect(ehCancelamento(erro)).toBe(true);
+    expect(instanciasWorker).toHaveLength(0);
   });
 });

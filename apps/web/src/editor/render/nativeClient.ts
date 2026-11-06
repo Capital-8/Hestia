@@ -4,6 +4,8 @@
  * O navegador não faz o render final: ele envia o snapshot HSTR e recebe o PNG/MP4 do
  * serviço local. Sem serviço, a UI mostra "indisponível" — nunca cai para o path tracer de CPU.
  */
+import { hashHstrNoWorker } from './workerRender.ts';
+import { chaveSha256DoCorpo, TAMANHO_TRAILER_CAMERA } from './renderWorkerTarefas.ts';
 
 export interface SaudeRenderNativo {
   ok: boolean;
@@ -117,8 +119,6 @@ export interface StatusJobNativo {
   tiles?: { total: number; concluidos: TileJobNativo[] };
 }
 
-/** Tamanho do trailer da câmera (37 f32) no fim do HSTR. Fica fora da chave do cache (main.rs). */
-const TAMANHO_TRAILER_CAMERA = 37 * 4;
 /** Mesmo limite do serviço (`LIMITE_CACHE` em main.rs). */
 export const LIMITE_CACHE_CENAS_CLIENTE = 4;
 
@@ -168,16 +168,12 @@ export async function criarJobNativo(
  * serviço devolveu em `/jobs`. SHA-256 evita colisão silenciosa (uma colisão faria o serviço
  * renderizar outra cena). `null` se não há `crypto.subtle` ou o corpo é menor que o trailer: nesses
  * casos o chamador envia o HSTR completo, como antes.
+ *
+ * Esta é a versão direta (thread atual). `criarJobComCache` usa a versão do worker quando há Worker
+ * (`hashHstrNoWorker`); as duas dão a mesma chave.
  */
 export async function hashHstrSemTrailer(bytes: Uint8Array): Promise<string | null> {
-  const subtle = globalThis.crypto?.subtle;
-  if (!subtle || bytes.length < TAMANHO_TRAILER_CAMERA) return null;
-  const corpo = bytes.subarray(0, bytes.length - TAMANHO_TRAILER_CAMERA);
-  // Sem cópia: digest aceita a visão (respeita byteOffset).
-  const digest = await subtle.digest('SHA-256', corpo as BufferSource);
-  let hex = '';
-  for (const b of new Uint8Array(digest)) hex += b.toString(16).padStart(2, '0');
-  return hex;
+  return chaveSha256DoCorpo(bytes);
 }
 
 /**
@@ -238,29 +234,32 @@ async function postJobCache(
 /**
  * Cria um job reaproveitando a cena já carregada na GPU quando possível.
  *
+ * 0. A chave do conteúdo (SHA-256) sai no worker dedicado quando há Worker. O HSTR é TRANSFERIDO para ele: quem chama
+ *    não deve reutilizar `cenaHstr` depois desta chamada (com Worker o buffer fica vazio; sem Worker não se altera).
  * 1. Se o hash do serviço para este conteúdo é conhecido, tenta `POST /jobs/cache` com só o trailer.
  * 2. Se o serviço responde 200, usa o id. Se responde 404, envia o HSTR completo em `POST /jobs`.
  * 3. Sem hash conhecido, envia o HSTR completo e guarda o `hash` devolvido.
  *
- * Erro de rede ou HTTP de erro (exceto 404 do cache) é propagado. Não há fallback silencioso.
+ * Erro de rede ou HTTP de erro (exceto 404 do cache) é propagado. Não há fallback silencioso. Sinal abortado durante o
+ * hash encerra o worker e rejeita com cancelamento.
  */
 export async function criarJobComCache(
   cenaHstr: Uint8Array,
   opcoes: OpcoesRenderNativo,
 ): Promise<string> {
-  const chaveConteudo = await hashHstrSemTrailer(cenaHstr);
-  if (chaveConteudo === null) return criarJobNativo(cenaHstr, opcoes);
+  const { chave: chaveConteudo, hstr } = await hashHstrNoWorker(cenaHstr, opcoes.sinal);
+  if (chaveConteudo === null) return criarJobNativo(hstr, opcoes);
 
   const chave = `${urlRenderNativo()}|${chaveConteudo}`;
   const hashConhecido = hashServicoConhecido(chave);
   if (hashConhecido !== undefined) {
-    const trailer = cenaHstr.subarray(cenaHstr.length - TAMANHO_TRAILER_CAMERA);
+    const trailer = hstr.subarray(hstr.length - TAMANHO_TRAILER_CAMERA);
     const id = await postJobCache(hashConhecido, trailer, opcoes);
     if (id !== null) return id;
     hashesServico.delete(chave);
   }
 
-  const { id, hash } = await postJobCompleto(cenaHstr, opcoes);
+  const { id, hash } = await postJobCompleto(hstr, opcoes);
   if (typeof hash === 'string' && hash !== '') registrarHashServico(chave, hash);
   return id;
 }

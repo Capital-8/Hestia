@@ -150,6 +150,11 @@ export interface OpcoesQuadroRust {
   sinal?: AbortSignal;
   cliente?: ClienteRenderWasm;
   /**
+   * HSTR de `cena`, já codificado (ver `codificarCenaNoWorker`): a codificação sai da thread principal. Sem ele, a cena
+   * é codificada aqui. Precisa ser a codificação de `cena`; só é usado quando a cena é carregada (`recarregarCena`).
+   */
+  hstr?: Uint8Array;
+  /**
    * `false` quando o cliente já carregou a cena (vídeo): evita reconstruir a BVH por frame.
    * Padrão `true`.
    */
@@ -192,7 +197,10 @@ export async function renderizarQuadroRgba(
 
   const cliente = opcoes.cliente ?? (await clienteWasmCompartilhado());
   if (opcoes.limparCancelamento !== false) cliente.limparCancelamento();
-  if (opcoes.recarregarCena !== false) cliente.carregarCena(opcoes.cena);
+  if (opcoes.recarregarCena !== false) {
+    if (opcoes.hstr) cliente.carregarHstr(opcoes.hstr);
+    else cliente.carregarCena(opcoes.cena);
+  }
   if (opcoes.camera) cliente.atualizarCamera(quadroDaCamera(opcoes.camera, largura / altura));
   if (opcoes.sol) cliente.atualizarSol(opcoes.sol);
   cliente.prepararTrabalho({

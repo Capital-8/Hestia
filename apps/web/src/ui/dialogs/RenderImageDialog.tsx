@@ -433,6 +433,8 @@ export function RenderImageDialog(): ReactElement {
     if (qualidade === 'final') {
       if (!snapshotFinal || !cameraFinal) return;
       let cancelado = false;
+      // Fechar o diálogo (ou trocar as dependências) aborta a codificação do HSTR no worker.
+      const controlador = new AbortController();
       const larguraMax = Math.max(1, Math.min(720, Math.round(base.largura)));
       // Refinamento progressivo: primeiro um quadro pequeno e barato, depois mais resolução e
       // amostras. O PNG salvo é o do botão (resolução final), este laço é só a prévia.
@@ -461,11 +463,16 @@ export function RenderImageDialog(): ReactElement {
           if (!cancelado) setPreviaFalhou(true);
           return;
         }
+        // HSTR da cena (com as texturas da prévia), codificado no worker no primeiro passe; os passes seguintes reaproveitam.
+        let hstr: Uint8Array | undefined;
         for (const passo of passos) {
           if (cancelado) return;
           const largura = Math.max(1, passo.largura);
           const altura = Math.max(1, Math.round((largura * base.altura) / base.largura));
           try {
+            if (passo === passos[0]) {
+              hstr = await codificarCenaNoWorker(cenaComTexturas, { lado: LADO_PREVIA_TEXTURA }, undefined, controlador.signal);
+            }
             const render = await renderizarImagemRust({
               cena: cenaComTexturas,
               largura,
@@ -476,6 +483,7 @@ export function RenderImageDialog(): ReactElement {
               camera: cameraFinal,
               bloco: 128,
               cliente,
+              hstr,
               // A cena/BVH já está no cliente da prévia; só o primeiro passe a carrega.
               recarregarCena: passo === passos[0],
             });
@@ -502,7 +510,10 @@ export function RenderImageDialog(): ReactElement {
           }
         }
       })();
-      return () => { cancelado = true; };
+      return () => {
+        cancelado = true;
+        controlador.abort();
+      };
     }
 
     // Rascunho recusado (planta, corte, prancha): não há prévia; o aviso explica e o botão fica parado.
@@ -603,6 +614,8 @@ export function RenderImageDialog(): ReactElement {
         controladorLegadoRef.current = controlador;
         setProgressoLegado({ titulo: 'Renderizando', rodape: 'Preparando o render final', fracao: null, cancelavel: true });
         try {
+          // A codificação do HSTR sai da thread principal (worker); fechar o diálogo aborta.
+          const hstr = await codificarCenaNoWorker(snapshot, {}, undefined, controlador.signal);
           const render = await renderizarImagemRust({
             cena: snapshot,
             largura: alvo.largura,
@@ -612,6 +625,7 @@ export function RenderImageDialog(): ReactElement {
             seed: Date.now() >>> 0,
             camera: cameraFinal,
             cliente,
+            hstr,
             sinal: controlador.signal,
             aoProgredir: (p) => {
               setProgressoLegado({ titulo: 'Renderizando', rodape: 'Renderizando a imagem final', fracao: p.fracao, cancelavel: true });

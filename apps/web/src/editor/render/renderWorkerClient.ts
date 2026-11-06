@@ -14,15 +14,27 @@
  * principal em silêncio: a promessa rejeita com a mensagem do erro.
  *
  * Cancelamento: `sinal` abortado encerra o worker de codificação (`terminate`, que libera a memória dele), tira as
- * texturas emprestadas do cache e rejeita com `ErroRenderWasm` de código cancelado (`ehCancelamento`). Um worker
- * encerrado não devolve os pixels, por isso a próxima chamada recarrega as imagens.
+ * texturas emprestadas do cache e rejeita com `ErroRenderWasm` de código cancelado (`ehCancelamento`). Se o cancelamento
+ * vence a espera pelas texturas, a carga que ainda chega devolve o empréstimo na hora. Um worker encerrado não devolve os
+ * pixels, por isso a próxima chamada recarrega as imagens.
+ *
+ * Os mips e a leitura de pixels usam o worker compartilhado (`workerRender.ts`); a codificação usa um worker próprio.
  */
 import type { RenderSceneSnapshot, RenderTextura } from '@hestia/render';
-import { CODIGO_RENDER, ErroRenderWasm } from './erroRender.ts';
 import { gerarMips, LADO_MAXIMO_TEXTURA } from './texturaRender.ts';
 import { emprestarTexturasCarregadas, type Emprestimo } from './texturasCena.ts';
 import { codificarCena } from './wasmClient.ts';
-import { bufferesUnicos, paraTransferir, type PedidoRender, type RespostaRender } from './renderWorker.ts';
+import type { PedidoRender, RespostaRender } from './renderWorker.ts';
+import { bufferesUnicos, paraTransferir } from './renderWorkerTarefas.ts';
+import {
+  criarWorkerRender,
+  encerrarWorkerCompartilhado,
+  erroDaResposta,
+  erroDeCancelamento,
+  lancarSeCancelado,
+  pedirAoWorker,
+  proximoIdRender,
+} from './workerRender.ts';
 
 /** Progresso da preparação: 'texturas' (feitas de total, decodificadas e com mips) e 'codificando' (um passo só, sem fração). */
 export interface ProgressoCodificacao {
@@ -36,79 +48,9 @@ export interface OpcoesCodificacao {
   lado?: number;
 }
 
-let avisoEmitido = false;
-function avisarModoSemWorker(motivo: string): void {
-  if (avisoEmitido) return;
-  avisoEmitido = true;
-  console.warn(`render: ${motivo}. Mips e HSTR rodam na thread principal; o resultado é o mesmo, só a thread muda.`);
-}
-
-/** Um worker novo do render, ou `null` (sem `Worker` no ambiente, ou se o navegador recusar) com o aviso de modo sem worker. */
-function criarWorkerRender(): Worker | null {
-  if (typeof Worker === 'undefined') {
-    avisarModoSemWorker('Worker indisponível neste ambiente');
-    return null;
-  }
-  try {
-    // O Vite reconhece este `new URL(..., import.meta.url)` e empacota o worker à parte (mesmo padrão de ifcImport.ts).
-    return new Worker(new URL('./renderWorker.ts', import.meta.url), { type: 'module' });
-  } catch (erro) {
-    avisarModoSemWorker(`o navegador recusou o worker (${erro instanceof Error ? erro.message : String(erro)})`);
-    return null;
-  }
-}
-
-function erroDeCancelamento(): ErroRenderWasm {
-  return new ErroRenderWasm(CODIGO_RENDER.cancelado, 'a codificação da cena foi cancelada');
-}
-
-function lancarSeCancelado(sinal?: AbortSignal): void {
-  if (sinal?.aborted) throw erroDeCancelamento();
-}
-
-/** Erro reconstruído da resposta do worker: com código ABI quando a falha veio do renderizador. */
-function erroDaResposta(resposta: { mensagem: string; codigo?: number }): Error {
-  return resposta.codigo !== undefined ? new ErroRenderWasm(resposta.codigo, resposta.mensagem) : new Error(resposta.mensagem);
-}
-
-let proximoId = 1;
-
-/** Worker compartilhado dos mips (curtos; não precisa ser encerrado a cada pedido). */
-let workerMips: Worker | null = null;
-const esperandoMips = new Map<number, { resolver: (mips: Uint8Array[]) => void; rejeitar: (erro: Error) => void }>();
-
-function workerDeMips(): Worker | null {
-  if (workerMips) return workerMips;
-  const worker = criarWorkerRender();
-  if (!worker) return null;
-  worker.onmessage = (evento: MessageEvent<RespostaRender>) => {
-    const resposta = evento.data;
-    const espera = esperandoMips.get(resposta.id);
-    if (!espera) return;
-    esperandoMips.delete(resposta.id);
-    if (!resposta.ok) espera.rejeitar(erroDaResposta(resposta));
-    else if (resposta.resultado.tipo === 'mips') espera.resolver(resposta.resultado.mips);
-    else espera.rejeitar(new Error('render: resposta inesperada do worker de mips'));
-  };
-  worker.onerror = (evento) => {
-    // Erro atrasado de um worker já substituído: não pode rejeitar os pedidos do worker novo.
-    if (workerMips !== worker) return;
-    // Worker que caiu: rejeita o que estava em voo; o próximo pedido cria outro.
-    const erro = new Error(`render: o worker de mips falhou${evento.message ? `: ${evento.message}` : ''}`);
-    worker.terminate();
-    if (workerMips === worker) workerMips = null;
-    for (const espera of esperandoMips.values()) espera.rejeitar(erro);
-    esperandoMips.clear();
-  };
-  workerMips = worker;
-  return worker;
-}
-
-/** Encerra o worker compartilhado dos mips (o próximo pedido cria outro). Usado pelos testes; o app não precisa chamar. */
+/** Encerra o worker compartilhado (mips e leitura de pixels). Usado pelos testes; o app não precisa chamar. */
 export function encerrarWorkerDeMips(): void {
-  workerMips?.terminate();
-  workerMips = null;
-  esperandoMips.clear();
+  encerrarWorkerCompartilhado();
 }
 
 /**
@@ -116,25 +58,58 @@ export function encerrarWorkerDeMips(): void {
  * (o chamador não os usa depois); os mips voltam transferidos. Sem Worker, roda `gerarMips` na thread atual.
  */
 export async function gerarMipsNoWorker(rgba: Uint8Array, largura: number, altura: number): Promise<Uint8Array[]> {
-  const worker = workerDeMips();
-  if (!worker) return gerarMips(rgba, largura, altura);
-  const entrada = paraTransferir(rgba);
-  const id = proximoId++;
-  return new Promise<Uint8Array[]>((resolver, rejeitar) => {
-    esperandoMips.set(id, { resolver, rejeitar });
+  const pendente = pedirAoWorker((id) => {
+    const entrada = paraTransferir(rgba);
     const pedido: PedidoRender = { tipo: 'mips', id, rgba: entrada, largura, altura };
-    try {
-      worker.postMessage(pedido, bufferesUnicos([entrada]));
-    } catch (erro) {
-      esperandoMips.delete(id);
-      rejeitar(erro instanceof Error ? erro : new Error(String(erro)));
-    }
+    return { pedido, transferir: bufferesUnicos([entrada]) };
+  });
+  if (!pendente) return gerarMips(rgba, largura, altura);
+  const resposta = await pendente;
+  if (!resposta.ok) throw erroDaResposta(resposta);
+  if (resposta.resultado.tipo !== 'mips') throw new Error('render: resposta inesperada do worker de mips');
+  return resposta.resultado.mips;
+}
+
+/**
+ * Espera a carga das texturas ou o cancelamento, o que vier primeiro. Se o cancelamento vencer, a carga que ainda chega
+ * registra um empréstimo: ele é devolvido na hora (os pixels continuam com a thread principal), para a lista não ficar
+ * emprestada para sempre.
+ */
+function aguardarOuCancelar<T extends { cena: RenderSceneSnapshot; emprestimo: Emprestimo }>(
+  promessa: Promise<T>,
+  sinal: AbortSignal | undefined,
+): Promise<T> {
+  if (!sinal) return promessa;
+  return new Promise<T>((resolver, rejeitar) => {
+    const cancelar = (): void => {
+      rejeitar(erroDeCancelamento());
+      promessa.then(
+        ({ cena, emprestimo }) => emprestimo.devolver((cena.texturas ?? []).map((textura) => textura.mips)),
+        () => {
+          // Carga que falhou: nada foi emprestado.
+        },
+      );
+    };
+    sinal.addEventListener('abort', cancelar, { once: true });
+    promessa.then(
+      (valor) => {
+        sinal.removeEventListener('abort', cancelar);
+        resolver(valor);
+      },
+      (erro: unknown) => {
+        sinal.removeEventListener('abort', cancelar);
+        rejeitar(erro);
+      },
+    );
   });
 }
 
 /**
  * Codifica o HSTR da cena num worker dedicado (encerrado ao fim, ao cancelamento ou à falha). Carrega as texturas no
- * lado pedido (com os mips no worker de mips), empresta-as ao worker de codificação e devolve o HSTR.
+ * lado pedido (com os mips no worker compartilhado), empresta-as ao worker de codificação e devolve o HSTR.
+ *
+ * `opcoes.lado` deve ser o mesmo com que as texturas do snapshot foram carregadas (padrão `LADO_MAXIMO_TEXTURA`): quando
+ * elas já estão carregadas, a codificação usa os pixels que estão lá.
  *
  * `aoProgredir` recebe 'texturas' (feitas de total) enquanto carrega e um aviso 'codificando' antes da codificação.
  * `sinal` abortado antes ou durante a codificação rejeita com cancelamento; durante, o worker é encerrado (ver o cabeçalho).
@@ -147,11 +122,14 @@ export async function codificarCenaNoWorker(
 ): Promise<Uint8Array> {
   const lado = opcoes.lado ?? LADO_MAXIMO_TEXTURA;
   lancarSeCancelado(sinal);
-  const { cena, emprestimo } = await emprestarTexturasCarregadas(snapshot, {
-    lado,
-    gerarMips: gerarMipsNoWorker,
-    progresso: (feitas, total) => aoProgredir?.({ fase: 'texturas', feitas, total }),
-  });
+  const { cena, emprestimo } = await aguardarOuCancelar(
+    emprestarTexturasCarregadas(snapshot, {
+      lado,
+      gerarMips: gerarMipsNoWorker,
+      progresso: (feitas, total) => aoProgredir?.({ fase: 'texturas', feitas, total }),
+    }),
+    sinal,
+  );
   const texturas = cena.texturas ?? [];
   if (sinal?.aborted) {
     emprestimo.devolver(texturas.map((textura) => textura.mips));
@@ -181,7 +159,7 @@ function codificarNoWorker(
   const texturasDoPedido = texturas.map((textura) => ({ ...textura, mips: textura.mips.map(paraTransferir) }));
   const pedido: PedidoRender = {
     tipo: 'codificar',
-    id: proximoId++,
+    id: proximoIdRender(),
     cena: { ...cena, texturas: cena.texturas === undefined ? undefined : texturasDoPedido },
   };
   const transferir = bufferesUnicos(texturasDoPedido.flatMap((textura) => textura.mips));

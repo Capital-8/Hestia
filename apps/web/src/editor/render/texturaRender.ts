@@ -2,11 +2,13 @@
  * Texturas de imagem do render offline (F3). Carrega um JPEG/PNG da biblioteca publicada em `/texturas-render/`, reduz
  * o lado maior a 1024 px (para a seção de texturas do HSTR não crescer sem limite) e gera a cadeia de mips por média 2×2.
  *
- * Só o carregamento usa APIs do navegador (`fetch`, `createImageBitmap`, `OffscreenCanvas`); as funções puras
- * (`dimensoesReduzidas`, `gerarMips`) não tocam em DOM e são testadas em `texturaRender.test.ts`.
+ * Só o carregamento usa APIs do navegador (`fetch`, `createImageBitmap`; a leitura dos pixels usa `OffscreenCanvas`, no
+ * worker quando há). As funções puras (`dimensoesReduzidas`, `gerarMips`) não tocam em DOM e são testadas em
+ * `texturaRender.test.ts`.
  * A média é feita sobre os valores sRGB do arquivo (sem conversão para linear), como o resto da cadeia de texturas.
  */
 import type { RenderTextura } from '@hestia/render';
+import { lerPixelsNoWorker } from './workerRender.ts';
 
 /** Lado maior máximo da textura carregada, em pixels. Acima disso a imagem é reduzida antes de gerar os mips. */
 export const LADO_MAXIMO_TEXTURA = 1024;
@@ -97,7 +99,9 @@ export function gerarMips(rgba: Uint8Array, largura: number, altura: number): Ui
 
 /**
  * Busca a imagem, reduz o lado maior a `lado` (padrão `LADO_MAXIMO_TEXTURA`) e devolve os pixels RGBA8. Só roda no
- * navegador (ou em worker com `OffscreenCanvas`); o teste não chama esta função (usa um carregador simulado).
+ * navegador; o teste não chama esta função (usa um carregador simulado). A decodificação (`createImageBitmap`) já sai da
+ * thread principal no navegador; a leitura dos pixels (desenho e `getImageData`) vai para o worker quando há
+ * `OffscreenCanvas` nele (ver `workerRender.ts`).
  */
 export async function carregarTexturaRgba(
   url: string,
@@ -108,13 +112,9 @@ export async function carregarTexturaRgba(
   const imagem = await createImageBitmap(await resposta.blob());
   try {
     const [largura, altura] = dimensoesReduzidas(imagem.width, imagem.height, lado);
-    const canvas = new OffscreenCanvas(largura, altura);
-    const contexto = canvas.getContext('2d');
-    if (!contexto) throw new Error('textura: canvas 2D indisponível neste ambiente');
-    contexto.imageSmoothingQuality = 'high';
-    contexto.drawImage(imagem, 0, 0, largura, altura);
-    const pixels = contexto.getImageData(0, 0, largura, altura).data;
-    return { largura, altura, rgba: new Uint8Array(pixels.buffer, pixels.byteOffset, pixels.byteLength) };
+    // O bitmap pode ser transferido ao worker: depois da leitura, `close()` não faz nada no que foi transferido.
+    const rgba = await lerPixelsNoWorker(imagem, largura, altura);
+    return { largura, altura, rgba };
   } finally {
     imagem.close();
   }

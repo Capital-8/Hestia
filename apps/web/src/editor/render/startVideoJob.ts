@@ -11,7 +11,8 @@ import { safeFilename } from '../nomeArquivo.ts';
 import { saveBytes } from '../saveBytes.ts';
 import { RustFrameSource } from './rustFrameSource.ts';
 import { quadroDaCamera } from './rustStillRenderer.ts';
-import { codificarCena, codificarCamera } from './wasmClient.ts';
+import { codificarCamera } from './wasmClient.ts';
+import { codificarCenaNoWorker } from './renderWorkerClient.ts';
 import { comTexturasCarregadas } from './texturasCena.ts';
 import { criarCenaNativa, removerCenaNativa, renderizarFrameNativo } from './nativeClient.ts';
 import { encodeVideoWebCodecs } from './videoEncoderWebCodecs.ts';
@@ -62,6 +63,15 @@ function snapshotDaSequencia(seq: AnimationSequence): RenderSceneSnapshot {
     cena.dispose();
   }
 }
+
+/*
+ * Decisão do render de vídeo (medida simples, registrada): a CENA é codificada uma vez por job, no worker (`startGpuVideo`
+ * e `RustFrameSource.prepare`). Por quadro, só a câmera vai para o HSTR (`codificarCamera`, 148 bytes). Medido em Node
+ * (20 mil quadros): cerca de 2,5 µs por quadro. Mandar cada quadro ao worker custaria mais que isso só de mensagem (ida
+ * e volta), então a câmera fica na thread principal. Não há cena por quadro.
+ * O render do quadro no wasm (`renderizarBloco`, síncrono) também fica na thread principal: mover o wasm para o worker é
+ * outro trabalho (a instância e a BVH viveriam lá).
+ */
 
 /** Render final: Rust/WASM nos quadros e WebCodecs no contêiner. */
 async function startFinalVideo(seq: AnimationSequence, opts: VideoJobOptions): Promise<void> {
@@ -136,7 +146,8 @@ async function startGpuVideo(seq: AnimationSequence, opts: VideoJobOptions): Pro
   job.definirCancelar(() => controlador.abort());
   let cenaId: string | null = null;
   try {
-    const hstr = codificarCena(await comTexturasCarregadas(snapshotDaSequencia(seq)));
+    // A cena (com texturas) é codificada no worker; cancelar durante a preparação aborta a codificação.
+    const hstr = await codificarCenaNoWorker(snapshotDaSequencia(seq), {}, undefined, controlador.signal);
     cenaId = await criarCenaNativa(hstr);
     const largura = seq.resolution.w;
     const altura = seq.resolution.h;
