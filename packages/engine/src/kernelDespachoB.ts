@@ -133,7 +133,7 @@ export function sincronizarB(atual: EntradaB | null, p: Project, ger: Gerenciado
 export const argumentosDaFatiaB = argumentosB2;
 
 export { converterJuncao, converterPisosELajes, type MapasB } from './kernelConversaoB.ts';
-import type { MapasB } from './kernelConversaoB.ts';
+import { converterJuncao, converterPisosELajes, type MapasB } from './kernelConversaoB.ts';
 
 /** Uma divergência do modo sombra da B (o registro circular e o diálogo são do `DespachoKernel`). */
 export interface DivergenciaB {
