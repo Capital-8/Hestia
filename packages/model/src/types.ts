@@ -740,6 +740,11 @@ export interface ProjectSettings {
   defaultDimensionFamilyId?: Id;
   /** Unidades do projeto (ausente = padrões de `defaultUnits()`). */
   units?: UnitsSettings;
+  /**
+   * Render físico dos materiais padrão já aplicado a este projeto (`migrateProject` preenche uma vez). Ausente = ainda
+   * não aplicado: a próxima abertura preenche os materiais padrão que não têm campos PBR.
+   */
+  materialPbrPadrao?: boolean;
 }
 
 /** Direção de uma elevação gerada automaticamente. A identidade fica no papel, não no nome editável. */

@@ -43,6 +43,35 @@ export function materialMapping(m: Material): { scale: number; rotationDeg: numb
   return { scale: m.mapping?.scale ?? 1, rotationDeg: m.mapping?.rotationDeg ?? 0 };
 }
 
+/** Campos PBR de `Material` (todos opcionais). */
+const CAMPOS_PBR = ['roughness', 'metallic', 'transmission', 'ior', 'emissive', 'texture', 'mapping'] as const;
+
+/** Verdadeiro se o material tem pelo menos um campo PBR definido (mesmo que seja igual ao padrão). */
+export function temPbr(m: Material): boolean {
+  return CAMPOS_PBR.some((c) => m[c] !== undefined);
+}
+
+/**
+ * Preenche o render físico dos materiais PADRÃO (ids de `padroes`, o catálogo) que ainda não têm nenhum campo PBR. Os
+ * materiais de usuário (id fora do catálogo) e os que já têm algum campo PBR não são tocados. Cor, hachura, custo,
+ * `gloss` e `opacity` nunca mudam, mesmo que o usuário tenha editado a cor do material de catálogo. Função pura.
+ */
+export function preencherPbrPadrao(materiais: Record<string, Material>, padroes: readonly Material[]): Record<string, Material> {
+  const porId = new Map(padroes.map((m) => [m.id, m]));
+  const out: Record<string, Material> = { ...materiais };
+  for (const [id, m] of Object.entries(materiais)) {
+    const padrao = porId.get(id);
+    if (!padrao || temPbr(m)) continue;
+    const fisico: Partial<Material> = {};
+    for (const c of CAMPOS_PBR) {
+      const valor = padrao[c];
+      if (valor !== undefined) (fisico as Record<string, unknown>)[c] = typeof valor === 'object' ? { ...valor } : valor;
+    }
+    out[id] = { ...m, ...fisico };
+  }
+  return out;
+}
+
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 const isNumber = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
 const inUnit = (x: unknown): boolean => isNumber(x) && x >= 0 && x <= 1;

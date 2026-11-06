@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_MATERIALS } from './defaults.ts';
 import {
   ProjectStore,
   buildTemplate,
@@ -94,17 +95,18 @@ describe('validarMaterialPbr', () => {
 describe('updateMaterialPbr', () => {
   it('aplica o patch e desfazer/refazer restauram o valor anterior', () => {
     const s = new ProjectStore(createEmptyProject());
-    s.exec({ type: 'updateMaterialPbr', id: 'mat_vidro', patch: { roughness: 0.2, ior: 1.52 } });
+    // mat_vidro é do catálogo: já vem com rugosidade 0,05 e IOR 1,52. O patch usa valores diferentes para o teste ser útil.
+    s.exec({ type: 'updateMaterialPbr', id: 'mat_vidro', patch: { roughness: 0.2, ior: 1.6 } });
     expect(s.project.materials['mat_vidro']!.roughness).toBe(0.2);
-    expect(s.project.materials['mat_vidro']!.ior).toBe(1.52);
+    expect(s.project.materials['mat_vidro']!.ior).toBe(1.6);
 
     s.undo();
-    expect(s.project.materials['mat_vidro']!.roughness).toBeUndefined();
-    expect(s.project.materials['mat_vidro']!.ior).toBeUndefined();
+    expect(s.project.materials['mat_vidro']!.roughness).toBe(0.05);
+    expect(s.project.materials['mat_vidro']!.ior).toBe(1.52);
 
     s.redo();
     expect(s.project.materials['mat_vidro']!.roughness).toBe(0.2);
-    expect(s.project.materials['mat_vidro']!.ior).toBe(1.52);
+    expect(s.project.materials['mat_vidro']!.ior).toBe(1.6);
   });
 
   it('patch com undefined remove o campo e volta ao padrão', () => {
@@ -119,7 +121,7 @@ describe('updateMaterialPbr', () => {
   it('valor inválido é recusado e o material não muda', () => {
     const s = new ProjectStore(createEmptyProject());
     expect(() => s.exec({ type: 'updateMaterialPbr', id: 'mat_vidro', patch: { roughness: 1.5 } })).toThrow('Rugosidade');
-    expect(s.project.materials['mat_vidro']!.roughness).toBeUndefined();
+    expect(s.project.materials['mat_vidro']!.roughness).toBe(0.05);
     expect(s.canUndo).toBe(false);
   });
 
@@ -130,19 +132,27 @@ describe('updateMaterialPbr', () => {
 });
 
 describe('compatibilidade com projetos antigos', () => {
-  it('projeto sem os campos PBR carrega, e os materiais do modelo continuam válidos', () => {
+  it('projeto sem os campos PBR carrega: catálogo recebe o render padrão, material de usuário fica no padrão antigo', () => {
     const p = buildTemplate('house2');
-    // Simula o arquivo antigo: nenhum material tem campo PBR.
+    // Simula o arquivo antigo: nenhum material tem campo PBR e a marca de migração não existe.
     const semPbr = JSON.parse(JSON.stringify(p));
     for (const m of Object.values(semPbr.materials as Record<string, Record<string, unknown>>)) {
       for (const k of ['roughness', 'metallic', 'transmission', 'ior', 'emissive', 'texture', 'mapping']) delete m[k];
     }
+    delete semPbr.settings.materialPbrPadrao;
     const carregado = migrateProject(semPbr);
     expect(Object.keys(carregado.materials)).toEqual(Object.keys(p.materials));
+    const catalogo = new Map(DEFAULT_MATERIALS.map((m) => [m.id, m]));
     for (const m of Object.values(carregado.materials)) {
       expect(validarMaterialPbr(m)).toBeNull();
-      expect(materialRoughness(m)).toBeCloseTo(1 - m.gloss);
-      expect(materialIor(m)).toBe(1.5);
+      const padrao = catalogo.get(m.id);
+      if (padrao) {
+        expect(materialRoughness(m)).toBe(materialRoughness(padrao));
+        expect(materialIor(m)).toBe(materialIor(padrao));
+      } else {
+        expect(materialRoughness(m)).toBeCloseTo(1 - m.gloss);
+        expect(materialIor(m)).toBe(1.5);
+      }
     }
   });
 });

@@ -10,7 +10,7 @@ import { ot } from './catalogoAberturasBase.ts';
 import { CATALOGO_JANELAS_BR } from './catalogoJanelas.ts';
 import { CATALOGO_PORTAS_BR } from './catalogoPortas.ts';
 import { CATALOGO_COMPOSICOES_BR } from './catalogoComposicoes.ts';
-import { SCHEMA_VERSION, type Layer, type Material, type OpeningType, type Project, type WallType } from './types.ts';
+import { SCHEMA_VERSION, type Layer, type Material, type MaterialTexturePreset, type OpeningType, type Project, type WallType } from './types.ts';
 
 const mat = (id: string, name: string, color: string, hatch: Material['hatch'], extra: Partial<Material> = {}): Material => ({
   id,
@@ -24,26 +24,63 @@ const mat = (id: string, name: string, color: string, hatch: Material['hatch'], 
   ...extra,
 });
 
+/**
+ * Render físico (PBR) de um material padrão: rugosidade, preset de textura e escala da textura (metros por repetição).
+ * Metalicidade 0, transmissão 0 e IOR 1.5 quando não dito; só o aço/alumínio e o vidro saem disso. Sem emissão: o
+ * catálogo não tem lâmpada.
+ */
+const fisico = (roughness: number, preset: MaterialTexturePreset, scale: number, extra: Partial<Material> = {}): Partial<Material> => ({
+  roughness,
+  metallic: 0,
+  transmission: 0,
+  ior: 1.5,
+  texture: { preset },
+  mapping: { scale },
+  ...extra,
+});
+
+/**
+ * Catálogo padrão. Cor, hachura, custo, unidade, `gloss` e `opacity` ficam como estavam (a planta não muda). Os campos
+ * de render vêm de `fisico(...)`; cada linha justifica o valor com um material real. Metálicos: metalicidade 1.
+ * Escala: 2 m para reboco e concreto, 1 m para madeira, telha e metal, 0,6 m para piso e 0,5 m para tijolo.
+ */
 export const DEFAULT_MATERIALS: Material[] = [
-  mat('mat_tinta', 'Tinta branca', '#f4f1ea', 'none'),
-  mat('mat_reboco', 'Reboco', '#d9d2c5', 'dots', { cost: 38 }),
-  mat('mat_bloco14', 'Bloco cerâmico 14', '#c0693f', 'diagonal', { unit: 'm2', cost: 62 }),
-  mat('mat_bloco9', 'Bloco cerâmico 9', '#c9784c', 'diagonal', { cost: 52 }),
-  mat('mat_bloco19', 'Bloco cerâmico 19', '#b45f38', 'diagonal', { cost: 74 }),
-  mat('mat_concreto', 'Concreto', '#8f9296', 'cross', { unit: 'm3', cost: 640 }),
-  mat('mat_argamassa', 'Argamassa', '#cdbfa9', 'dots', { cost: 30 }),
-  mat('mat_ceramica', 'Revestimento cerâmico', '#e9e4da', 'none', { gloss: 0.6, cost: 85 }),
-  mat('mat_gesso', 'Placa de gesso', '#ece9e2', 'none', { cost: 44 }),
-  mat('mat_pvc', 'PVC', '#e8e6df', 'none', { gloss: 0.4, cost: 60 }),
-  mat('mat_la', 'Lã mineral', '#e5d27a', 'dots', { cost: 28 }),
-  mat('mat_perfil', 'Perfil de aço', '#9aa0a6', 'cross', { cost: 20 }),
-  mat('mat_aco', 'Aço', '#7b8189', 'solid', { gloss: 0.6, unit: 'm3' }),
-  mat('mat_madeira', 'Madeira', '#a9794a', 'diagonal', { cost: 150 }),
-  mat('mat_vidro', 'Vidro', '#a9d6e5', 'none', { gloss: 0.9, opacity: 0.35, cost: 220 }),
-  mat('mat_aluminio', 'Alumínio', '#b8bdc2', 'solid', { gloss: 0.7, unit: 'm' }),
-  mat('mat_telha_ceramica', 'Telha cerâmica', '#b5522d', 'diagonal', { cost: 85 }),
-  mat('mat_fibrocimento', 'Fibrocimento', '#9ea3a8', 'cross', { cost: 55 }),
-  mat('mat_telha_metalica', 'Telha metálica', '#8e99a3', 'solid', { gloss: 0.6, cost: 140 }),
+  // Pintura acrílica acetinada: meio-fosca, sem textura própria.
+  mat('mat_tinta', 'Tinta branca', '#f4f1ea', 'none', fisico(0.5, 'nenhum', 1)),
+  // Reboco de cal/cimento: muito fosco, estuque.
+  mat('mat_reboco', 'Reboco', '#d9d2c5', 'dots', { cost: 38, ...fisico(0.9, 'reboco', 2) }),
+  // Bloco cerâmico queimado: argila fosca, com a textura de tijolo.
+  mat('mat_bloco14', 'Bloco cerâmico 14', '#c0693f', 'diagonal', { unit: 'm2', cost: 62, ...fisico(0.8, 'tijolo', 0.5) }),
+  mat('mat_bloco9', 'Bloco cerâmico 9', '#c9784c', 'diagonal', { cost: 52, ...fisico(0.8, 'tijolo', 0.5) }),
+  mat('mat_bloco19', 'Bloco cerâmico 19', '#b45f38', 'diagonal', { cost: 74, ...fisico(0.8, 'tijolo', 0.5) }),
+  // Concreto aparente: fosco e rugoso.
+  mat('mat_concreto', 'Concreto', '#8f9296', 'cross', { unit: 'm3', cost: 640, ...fisico(0.85, 'concreto', 2) }),
+  // Argamassa de assentamento/regularização: fosca, com a textura de reboco (como no lote T3).
+  mat('mat_argamassa', 'Argamassa', '#cdbfa9', 'dots', { cost: 30, ...fisico(0.85, 'reboco', 2) }),
+  // Revestimento cerâmico esmaltado: semibrilho, textura de piso.
+  mat('mat_ceramica', 'Revestimento cerâmico', '#e9e4da', 'none', { gloss: 0.6, cost: 85, ...fisico(0.35, 'piso', 0.6) }),
+  // Cartão de gesso: papel fosco.
+  mat('mat_gesso', 'Placa de gesso', '#ece9e2', 'none', { cost: 44, ...fisico(0.8, 'nenhum', 1) }),
+  // PVC de forro: plástico semibrilho.
+  mat('mat_pvc', 'PVC', '#e8e6df', 'none', { gloss: 0.4, cost: 60, ...fisico(0.45, 'nenhum', 1) }),
+  // Lã mineral: fibrosa, sem brilho.
+  mat('mat_la', 'Lã mineral', '#e5d27a', 'dots', { cost: 28, ...fisico(0.95, 'nenhum', 1) }),
+  // Perfil de aço galvanizado (montante de drywall e terça): metálico com pouca oxidação.
+  mat('mat_perfil', 'Perfil de aço', '#9aa0a6', 'cross', { cost: 20, ...fisico(0.4, 'metal', 1, { metallic: 1 }) }),
+  // Aço estrutural pintado ou escovado: metálico, mais liso que o galvanizado.
+  mat('mat_aco', 'Aço', '#7b8189', 'solid', { gloss: 0.6, unit: 'm3', ...fisico(0.3, 'metal', 1, { metallic: 1 }) }),
+  // Madeira serrada (tábua): acabamento natural, sem verniz brilhante.
+  mat('mat_madeira', 'Madeira', '#a9794a', 'diagonal', { cost: 150, ...fisico(0.6, 'madeira', 1) }),
+  // Vidro float incolor: lisíssimo, transmissão 0,85 e IOR 1,52.
+  mat('mat_vidro', 'Vidro', '#a9d6e5', 'none', { gloss: 0.9, opacity: 0.35, cost: 220, ...fisico(0.05, 'nenhum', 1, { transmission: 0.85, ior: 1.52 }) }),
+  // Alumínio anodizado de caixilho: metálico e relativamente liso.
+  mat('mat_aluminio', 'Alumínio', '#b8bdc2', 'solid', { gloss: 0.7, unit: 'm', ...fisico(0.35, 'metal', 1, { metallic: 1 }) }),
+  // Telha de argila queimada: fosca, com a textura de telha.
+  mat('mat_telha_ceramica', 'Telha cerâmica', '#b5522d', 'diagonal', { cost: 85, ...fisico(0.7, 'telha', 1) }),
+  // Telha ondulada de fibrocimento: cimento com acabamento fosco, textura de concreto.
+  mat('mat_fibrocimento', 'Fibrocimento', '#9ea3a8', 'cross', { cost: 55, ...fisico(0.8, 'concreto', 2) }),
+  // Chapa de aço galvanizado pré-pintada da telha metálica: metálica, semibrilho.
+  mat('mat_telha_metalica', 'Telha metálica', '#8e99a3', 'solid', { gloss: 0.6, cost: 140, ...fisico(0.4, 'metal', 1, { metallic: 1 }) }),
 ];
 
 const L = (fn: Layer['function'], materialId: string, thickness: number, wraps = false): Layer => ({
@@ -187,7 +224,7 @@ export function createEmptyProject(name = 'Projeto sem título'): Project {
     openingTypes: toRecord(DEFAULT_OPENING_TYPES),
     elements: {},
     nextOrder: 1,
-    settings: { joinTolerance: 0.02, showTags: false, debugJoins: false, detail: 'medium' },
+    settings: { joinTolerance: 0.02, showTags: false, debugJoins: false, detail: 'medium', materialPbrPadrao: true },
     views: [],
     areaPlans: [],
     roomCategories: DEFAULT_ROOM_CATEGORIES,

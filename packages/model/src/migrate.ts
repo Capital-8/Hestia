@@ -7,7 +7,8 @@ import { DEFAULT_STAIR_OPENING_MARGIN, DEFAULT_STAIR_POST_MATERIAL_ID, DEFAULT_S
 import { DEFAULT_AREA_SCALE, mergeAreaGraphics } from './viewProfile.ts';
 import { DEFAULT_RAMP_TYPES } from './ramp.ts';
 import { DEFAULT_STAIR_CALC_RULE } from './stairTypes.ts';
-import { SCHEMA_VERSION, type PlanSymbol, type Project } from './types.ts';
+import { preencherPbrPadrao } from './materialPbr.ts';
+import { SCHEMA_VERSION, type Material, type PlanSymbol, type Project } from './types.ts';
 import { DEFAULT_VIEW_RANGE } from './viewRange.ts';
 import { compositionOfType } from './openingCompositionOf.ts';
 import { defaultOpeningProfiles } from './openingProfiles.ts';
@@ -278,6 +279,17 @@ export function migrateProject(raw: unknown): Project {
     obj = m(obj);
     v += 1;
     obj.schemaVersion = v;
+  }
+  // Render físico (PBR) dos materiais padrão: os que não têm nenhum campo PBR recebem os valores do catálogo, uma vez por
+  // projeto. A marca `settings.materialPbrPadrao` impede que a migração volte a preencher um material que o usuário
+  // limpou de propósito ("volta ao padrão"). Campos opcionais: sem nova versão de esquema.
+  const settingsAtuais = (obj.settings as Record<string, unknown> | undefined) ?? {};
+  if (obj.materials && typeof obj.materials === 'object' && settingsAtuais.materialPbrPadrao !== true) {
+    obj = {
+      ...obj,
+      materials: preencherPbrPadrao(obj.materials as Record<string, Material>, DEFAULT_MATERIALS),
+      settings: { ...settingsAtuais, materialPbrPadrao: true },
+    };
   }
   // Espelho mínimo (NBR 9050): tipos de escada antigos não o têm; recebem 0,16 m (ou o máximo/2 se o máximo for menor).
   // Idempotente e sem nova versão de esquema.
