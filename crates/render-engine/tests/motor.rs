@@ -10,8 +10,13 @@ use render_engine::{renderizar_com_camera, Motor, Retangulo};
 
 const CENA: &[u8] = include_bytes!("fixtures/cena-h1.hstr");
 /// Referência com amostras = 1 (sem MSAA). Regenerada no H19: o estado H18 já tinha mudado o ambiente.
+/// Regenerada de novo em 2026-11-05 pela sombra do Sol dimensionada pelos projetores (d03af5ef):
+/// a borda da sombra no chão e no telhado ficou mais nítida; diferença máxima 116 e 2212 px com
+/// diferença acima de 2. Ver tests/fixtures/CHANGELOG-referencias.md.
 const REFERENCIA: &[u8] = include_bytes!("fixtures/ref-h1-640x360.png");
 /// Referência com amostras = 4 (MSAA x4), gerada a partir do mesmo estado do H19.
+/// Regenerada em 2026-11-05 pelo mesmo motivo de `REFERENCIA` (diferença máxima 113, 2323 px
+/// acima de 2). Ver tests/fixtures/CHANGELOG-referencias.md.
 const REFERENCIA_MSAA4: &[u8] = include_bytes!("fixtures/ref-h1-msaa4-640x360.png");
 const LARGURA: u32 = 640;
 const ALTURA: u32 = 360;

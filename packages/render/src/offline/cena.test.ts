@@ -25,11 +25,13 @@ describe('snapshot da cena para o render offline', () => {
       expect(snap.positions.length).toBeGreaterThan(0);
       expect(snap.indices.length % 3).toBe(0);
       expect(snap.materials.length).toBeGreaterThan(0);
-      // Só há parede no projeto. A fonte do tipo é o material de CAMADA (F2): os materiais padrão da parede (tinta, reboco,
-      // bloco) não têm preset de textura, então são lisos (0), não reboco pela categoria. Escala 1.0. O último material é o
-      // chão neutro (liso, ver o teste próprio); os demais são as paredes. O fallback por categoria é testado em
-      // `materialRender.test.ts`.
-      expect(snap.materials.slice(0, -1).every((m) => m.tipo === 0 && m.escala === 1)).toBe(true);
+      // Só há parede no projeto. A fonte do tipo é o material de CAMADA (F2). Os materiais padrão da parede têm preset
+      // (catálogo DEFAULT_MATERIALS, packages/model/src/defaults.ts): tinta sem textura (tipo 0, escala 1,0), reboco (tipo 1,
+      // escala 2,0) e bloco cerâmico com textura de tijolo (tipo 7, escala 0,5). Antes, sem preset, os três eram lisos (0) e
+      // a expectativa era `every(tipo 0)`. O último material é o chão neutro (liso, ver o teste próprio). O fallback por
+      // categoria é testado em `materialRender.test.ts`.
+      const materiaisDaParede = snap.materials.slice(0, -1).map((m) => `${m.tipo}/${m.escala}`).sort();
+      expect(materiaisDaParede).toEqual(['0/1', '1/2', '7/0.5']);
       expect(snap.batches.length).toBeGreaterThan(0);
       expect(snap.camera.view.length).toBe(16);
       expect(snap.camera.projection.length).toBe(16);

@@ -90,6 +90,9 @@ fn cena_materiais_renderiza_sem_erro_e_nao_e_preta() {
     assert!((10.0..=245.0).contains(&media), "luminância média {media:.2} fora de 10..245");
 }
 
+/// A referência `ref-h1-msaa4-640x360.png` foi regenerada em 2026-11-05 pela sombra do Sol
+/// dimensionada pelos projetores (d03af5ef): só as bordas de sombra mudaram (diferença máxima
+/// 113, 2323 px acima de 2). A tolerância continua 3. Ver tests/fixtures/CHANGELOG-referencias.md.
 #[test]
 fn cena_h1_lida_como_v1_tem_tipo_zero_e_bate_a_referencia() {
     let cena = Cena::decodificar(&ler_fixture("cena-h1.hstr")).expect("H1 v1");

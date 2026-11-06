@@ -28,7 +28,7 @@ function exportar(p: Project): { snap: RenderSceneSnapshot; cena: ModelScene } {
   return { snap: cena.exportarCenaDeRender({ aspect: 16 / 9 }), cena };
 }
 
-/** Um projeto com uma parede de alvenaria 14 (padrão: tinta, reboco e bloco, sem preset) no térreo. */
+/** Um projeto com uma parede de alvenaria 14 (padrão: tinta, reboco e bloco; reboco e bloco têm preset) no térreo. */
 function paredes(n: number): Project {
   const p = createEmptyProject();
   for (let i = 0; i < n; i++) {
@@ -156,7 +156,9 @@ describe('fonte do material: camada primeiro, categoria só como fallback', () =
       (cena as unknown as { model: THREE.Group }).model.add(sem);
       const depois = cena.exportarCenaDeRender({ aspect: 16 / 9 });
       expect(depois.materials.some((m) => m.tipo === 1 && m.escala === 1)).toBe(true);
-      expect(snap.materials.some((m) => m.tipo === 1)).toBe(false);
+      // A parede padrão já traz reboco pela camada (escala 2,0, ver DEFAULT_MATERIALS). O que antes não existia é reboco de
+      // escala 1,0: é esse que o fallback por categoria acrescenta.
+      expect(snap.materials.some((m) => m.tipo === 1 && m.escala === 1)).toBe(false);
     } finally {
       cena.dispose();
     }
@@ -308,11 +310,22 @@ describe('exportação: mapas de textura por material de camada', () => {
     }
   });
 
-  it('sem nenhum material com preset (paredes sem preset), o snapshot não tem texturas nem mapas', () => {
+  it('paredes padrão têm preset (reboco e tijolo): o snapshot traz texturas, com mapas só nos materiais com preset', () => {
     const { snap, cena } = exportar(paredes(2));
     try {
-      expect(snap.texturas).toBeUndefined();
-      expect(snap.materials.every((m) => !('mapas' in m))).toBe(true);
+      // Antes, as paredes padrão não tinham preset e o snapshot não tinha texturas nem mapas. Agora o catálogo dá reboco
+      // (escala 2,0) e tijolo (escala 0,5) ao bloco: a lista única tem albedo, normal e rugosidade de cada um (6 arquivos).
+      expect(snap.texturas?.map((t) => t.caminho).sort()).toEqual([
+        'reboco_estuque_albedo.jpg',
+        'reboco_estuque_normal.jpg',
+        'reboco_estuque_roughness.jpg',
+        'tijolo_vermelho_albedo.jpg',
+        'tijolo_vermelho_normal.jpg',
+        'tijolo_vermelho_roughness.jpg',
+      ]);
+      // Tinta e chão não têm preset: sem `mapas`. Reboco e bloco têm.
+      expect(snap.materials.filter((m) => 'mapas' in m).length).toBe(2);
+      expect(snap.materials.filter((m) => !('mapas' in m)).every((m) => m.tipo === 0)).toBe(true);
     } finally {
       cena.dispose();
     }
