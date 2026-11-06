@@ -23,7 +23,7 @@ use crate::motor::Retangulo;
 /// Ângulo áureo em radianos, o mesmo espaçamento de Vogel usado no `shader.wgsl`.
 const ANGULO_OURO: f64 = 2.399_963_229_728_653;
 
-/// Uniforme extra dos passes de oclusão (buffer separado de `Uniformes`, que continua com 304
+/// Uniforme extra dos passes de oclusão (buffer separado de `Uniformes`, que continua com 320
 /// bytes). Layout espelhado em `shader.wgsl` (`CameraExtra`).
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
@@ -162,11 +162,11 @@ mod testes {
     }
 
     #[test]
-    fn tamanho_do_uniforme_extra_e_multiplo_de_16_e_separado_dos_304_bytes() {
+    fn tamanho_do_uniforme_extra_e_multiplo_de_16_e_separado_dos_320_bytes() {
         let tamanho = std::mem::size_of::<CameraExtra>();
         assert_eq!(tamanho % 16, 0);
         assert_eq!(tamanho, 528);
-        assert_eq!(crate::uniformes::Uniformes::TAMANHO, 304);
+        assert_eq!(crate::uniformes::Uniformes::TAMANHO, 320);
     }
 
     #[test]

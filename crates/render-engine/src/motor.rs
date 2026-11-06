@@ -65,6 +65,8 @@ pub struct Motor {
     textura_vazia: wgpu::Texture,
     /// Amostras por pixel do passe principal: 1 (sem MSAA) ou 4 (MSAA x4, com resolve).
     amostras: u32,
+    /// Temperatura da luz para o balanço de branco, em kelvin. 6500 K (padrão) não corrige nada.
+    temperatura_k: f64,
 }
 
 /// Cena já enviada à GPU: malha, uniformes fixos, mapa de sombra e texturas de material.
@@ -240,6 +242,27 @@ impl Motor {
         self.amostras
     }
 
+    /// Temperatura da luz, em kelvin, usada no balanço de branco (6500 K = neutro).
+    pub fn temperatura_k(&self) -> f64 {
+        self.temperatura_k
+    }
+
+    /// Define a temperatura da luz do balanço de branco, entre `TEMPERATURA_MINIMA_K` e
+    /// `TEMPERATURA_MAXIMA_K`. Fora dessa faixa (ou não finita) é `Argumentos`.
+    pub fn com_temperatura(mut self, kelvin: f64) -> Result<Motor, ErroRender> {
+        if !kelvin.is_finite()
+            || !(cor::TEMPERATURA_MINIMA_K..=cor::TEMPERATURA_MAXIMA_K).contains(&kelvin)
+        {
+            return Err(ErroRender::Argumentos(format!(
+                "temperatura {kelvin} K fora de {}..{} K",
+                cor::TEMPERATURA_MINIMA_K,
+                cor::TEMPERATURA_MAXIMA_K
+            )));
+        }
+        self.temperatura_k = kelvin;
+        Ok(self)
+    }
+
     /// Usa um dispositivo já existente (navegador/WebGPU, fase posterior).
     pub fn com_device(device: wgpu::Device, queue: wgpu::Queue, info: InfoAdaptador) -> Motor {
         // Sem consulta ao adaptador: o caminho externo fica com 1 amostra, como antes do MSAA.
@@ -307,6 +330,7 @@ impl Motor {
             amostrador_textura,
             textura_vazia,
             amostras,
+            temperatura_k: cor::TEMPERATURA_NEUTRA_K,
         }
     }
 
@@ -556,7 +580,7 @@ impl Motor {
         let ao_view = ao.create_view(&wgpu::TextureViewDescriptor::default());
 
         // Um uniforme extra por passe, porque a janela de cada um é diferente. Não está em
-        // `Uniformes`, que continua com 304 bytes.
+        // `Uniformes`, que continua com 320 bytes.
         let extra_pre = camera_extra(camera, largura, altura, janela_g, janela_g, janela_ao)?;
         let extra_ssao = camera_extra(camera, largura, altura, janela_ao, janela_g, janela_ao)?;
         let extra_desfoque = camera_extra(camera, largura, altura, regiao, janela_g, janela_ao)?;
@@ -736,7 +760,8 @@ impl Motor {
 
         let device = &self.gpu.device;
         let mut uniformes = cena.fixos;
-        aplicar_camera(&mut uniformes, camera, largura, altura, cena.raio, exposicao)?;
+        let ganhos = cor::ganhos_balanco_branco(self.temperatura_k);
+        aplicar_camera(&mut uniformes, camera, largura, altura, cena.raio, exposicao, ganhos)?;
         let buffer_uniformes = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("uniformes da região"),
             contents: bytemuck::bytes_of(&uniformes),

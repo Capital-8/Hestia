@@ -25,6 +25,9 @@ pub struct Uniformes {
     pub resolucao: [f32; 4],
     /// Inversa de `view_proj` (usada só pelo céu de fundo, para achar a direção de cada pixel).
     pub inversa_vp: [[f32; 4]; 4],
+    /// Ganhos RGB do balanço de branco (1, 1, 1 = 6500 K, neutro), aplicados à luz linear antes do
+    /// tone mapping (w livre).
+    pub balanco: [f32; 4],
 }
 
 impl Uniformes {
@@ -39,6 +42,6 @@ mod testes {
     #[test]
     fn layout_tem_multiplos_de_dezesseis_bytes() {
         assert_eq!(Uniformes::TAMANHO % 16, 0);
-        assert_eq!(Uniformes::TAMANHO, 304);
+        assert_eq!(Uniformes::TAMANHO, 320);
     }
 }

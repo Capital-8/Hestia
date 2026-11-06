@@ -49,10 +49,12 @@ pub fn uniformes_fixos(cena: &Cena) -> Uniformes {
         parametros: [0.0; 4],
         resolucao: [0.0; 4],
         inversa_vp: [[0.0; 4]; 4],
+        balanco: [1.0, 1.0, 1.0, 0.0],
     }
 }
 
-/// Preenche os campos de câmera, exposição e resolução sobre os uniformes fixos da cena.
+/// Preenche os campos de câmera, exposição, balanço de branco e resolução sobre os uniformes fixos
+/// da cena. `ganhos` são os RGB de `cor::ganhos_balanco_branco` (1, 1, 1 = neutro).
 pub fn aplicar_camera(
     uniformes: &mut Uniformes,
     camera: &render_core::camera::Camera,
@@ -60,7 +62,9 @@ pub fn aplicar_camera(
     altura: u32,
     raio: f64,
     exposicao: f64,
+    ganhos: [f64; 3],
 ) -> Result<(), ErroRender> {
+    uniformes.balanco = [ganhos[0] as f32, ganhos[1] as f32, ganhos[2] as f32, 0.0];
     let vp = matriz_vp_wgpu(&camera.view, &camera.projecao);
     let vp_inversa = inverter(&vp)
         .ok_or_else(|| ErroRender::Gpu("matriz de vista-projeção da câmera não é invertível".into()))?;

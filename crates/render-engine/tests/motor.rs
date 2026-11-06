@@ -305,11 +305,11 @@ fn luminancia_em(rgba: &[u8], x: u32, y: u32) -> f64 {
 
 #[test]
 fn oclusao_escurece_a_base_da_parede_e_poupa_a_face_plana() {
-    // Valores medidos no estado anterior ao SSAO (H1, 640x360, MSAA x4). A base é a média de
-    // 10 px acima da linha de contato parede-rodapé, nas colunas 206..246. A face plana é a
-    // empena (x 380..420, y 200..240), longe de cantos.
-    const BASE_SEM_OCLUSAO: f64 = 126.86;
-    const PLANA_SEM_OCLUSAO: f64 = 126.83;
+    // Valores medidos sem SSAO (H1, 640x360, MSAA x4), com o tone mapping AgX do lote B (antes eram
+    // 126,86 e 126,83 com ACES). A base é a média de 10 px acima da linha de contato parede-rodapé,
+    // nas colunas 206..246. A face plana é a empena (x 380..420, y 200..240), longe de cantos.
+    const BASE_SEM_OCLUSAO: f64 = 119.58;
+    const PLANA_SEM_OCLUSAO: f64 = 119.60;
 
     let cena = cena();
     let motor = Motor::nativo().expect("GPU nativa necessária para este teste");

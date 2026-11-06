@@ -1,5 +1,5 @@
 // PBR direto do render-native: Cook-Torrance/GGX, sol direcional com mapa de sombra
-// (PCSS: penumbra física), ambiente por céu analítico com irradiância SH9 (ver ceu.rs), tone mapping ACES e
+// (PCSS: penumbra física), ambiente por céu analítico com irradiância SH9 (ver ceu.rs), tone mapping AgX e
 // codificação sRGB.
 //
 // Convenções:metros, Z para cima, normais de face; a conversão do recorte WebGL para
@@ -19,6 +19,9 @@ struct Uniformes {
   resolucao: vec4<f32>,
   // Inversa de view_proj: leva um ponto NDC de volta ao mundo. Só o passe do céu de fundo lê.
   inversa_vp: mat4x4<f32>,
+  // Ganhos RGB do balanço de branco (1,1,1 = 6500 K, neutro), aplicados à luz linear antes do tone
+  // mapping (ver `balanco_branco` em ceu.rs/cor.rs). w livre.
+  balanco: vec4<f32>,
 };
 
 @group(0) @binding(0) var<uniform> u: Uniformes;
@@ -152,15 +155,35 @@ fn fresnel_schlick(vdh: f32, f0: vec3<f32>) -> vec3<f32> {
   return f0 + (vec3<f32>(1.0) - f0) * base;
 }
 
-fn aces(x: vec3<f32>) -> vec3<f32> {
-  let a = 2.51;
-  let b = 0.03;
-  let c = 2.43;
-  let d = 0.59;
-  let e = 0.14;
-  let numerador = x * (a * x + b);
-  let denominador = x * (c * x + d) + e;
-  return clamp(numerador / denominador, vec3<f32>(0.0), vec3<f32>(1.0));
+// Tone mapping AgX (Troy Sobotka, 2023), na forma usada pelo Blender e pelo three.js: entra em
+// luz linear Rec.709, faz a projeção de cores (inset), leva a log2 e comprime entre AGX_EV_MIN e
+// AGX_EV_MAX com um polinômio de contraste de 6ª ordem, desfaz a projeção (outset) e linearizia com
+// potência 2,2. Não corta matizes saturados como a curva ACES. Espelho de cor.rs::agx (teste de
+// sincronia lê as constantes daqui). A exposição entra antes, em EV via 2^EV no chamador.
+const AGX_INSET: mat3x3<f32> = mat3x3<f32>(
+  vec3<f32>(0.856627153315983, 0.137318972929847, 0.11189821299995),
+  vec3<f32>(0.0951212405381588, 0.761241990602591, 0.0767994186031903),
+  vec3<f32>(0.0482516061458583, 0.101439036467562, 0.811302368396859));
+const AGX_OUTSET: mat3x3<f32> = mat3x3<f32>(
+  vec3<f32>(1.1271005818144368, -0.1413297634984383, -0.14132976349843826),
+  vec3<f32>(-0.11060664309660323, 1.157823702216272, -0.11060664309660294),
+  vec3<f32>(-0.016493938717834573, -0.016493938717834257, 1.2519364065950405));
+const AGX_EV_MIN: f32 = -12.47393;
+const AGX_EV_MAX: f32 = 4.026069;
+
+fn agx_contraste(x: vec3<f32>) -> vec3<f32> {
+  let x2 = x * x;
+  let x4 = x2 * x2;
+  return 15.5 * x4 * x2 - 40.14 * x4 * x + 31.96 * x4 - 6.868 * x2 * x + 0.4298 * x2 + 0.1191 * x - 0.00232;
+}
+
+// Tone mapping de luz linear (já exposta e balanceada) para luz linear de saída, em [0, 1].
+fn tonemapear(cor: vec3<f32>) -> vec3<f32> {
+  var c = AGX_INSET * max(cor, vec3<f32>(0.0));
+  c = max(c, vec3<f32>(1.0e-10));
+  c = clamp((log2(c) - AGX_EV_MIN) / (AGX_EV_MAX - AGX_EV_MIN), vec3<f32>(0.0), vec3<f32>(1.0));
+  c = AGX_OUTSET * agx_contraste(c);
+  return clamp(pow(max(c, vec3<f32>(0.0)), vec3<f32>(2.2)), vec3<f32>(0.0), vec3<f32>(1.0));
 }
 
 fn linear_para_srgb(c: vec3<f32>) -> vec3<f32> {
@@ -675,7 +698,7 @@ fn fs_principal(e: Saida) -> @location(0) vec4<f32> {
   let hd = normalize(e.mundo.xy - u.camera.xy + vec2<f32>(1.0e-7, 0.0));
   let cor_horizonte = radiancia_ceu(vec3<f32>(hd, 0.0));
   let nevoa = fator_nevoa(length(e.mundo - u.camera.xyz));
-  let tonemapeado = aces(mix(cor, cor_horizonte, nevoa) * u.parametros.x);
+  let tonemapeado = tonemapear(mix(cor, cor_horizonte, nevoa) * u.balanco.rgb * u.parametros.x);
   return vec4<f32>(linear_para_srgb(tonemapeado), 1.0);
 }
 
@@ -708,7 +731,7 @@ fn fs_ceu(e: SaidaCeu) -> @location(0) vec4<f32> {
   if (intensidade > 0.0 && sol_dir.z > 0.0) {
     cor = cor + vec3<f32>(HALO_SOL * intensidade * pow(max(dot(d, sol_dir), 0.0), HALO_SOL_EXPOENTE));
   }
-  let tonemapeado = aces(cor * u.parametros.x);
+  let tonemapeado = tonemapear(cor * u.balanco.rgb * u.parametros.x);
   return vec4<f32>(linear_para_srgb(tonemapeado), 1.0);
 }
 
@@ -782,7 +805,7 @@ fn fs_vidro(e: Saida) -> @location(0) vec4<f32> {
   let refletido = radiancia_ceu(reflect(-visao, normal)) * fresnel + especular_sol + e.emissivo;
 
   let transmitido = fundo * tint * transmissao * (1.0 - fresnel);
-  let cor = transmitido + aces(refletido * u.parametros.x);
+  let cor = transmitido + tonemapear(refletido * u.balanco.rgb * u.parametros.x);
   return vec4<f32>(linear_para_srgb(clamp(cor, vec3<f32>(0.0), vec3<f32>(1.0))), 1.0);
 }
 

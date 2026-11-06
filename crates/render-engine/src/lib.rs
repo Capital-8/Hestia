@@ -24,5 +24,8 @@ pub mod uniformes;
 
 pub use erro::ErroRender;
 pub use motor::{CenaGpu, InfoAdaptador, Motor, Retangulo};
-pub use renderizador::{renderizar, renderizar_com_camera, renderizar_com_exposicao, ImagemRenderizada};
+pub use renderizador::{
+    renderizar, renderizar_com_camera, renderizar_com_exposicao, renderizar_com_exposicao_automatica,
+    ImagemRenderizada,
+};
 pub use tiles::ordenar_tiles_espiral;

@@ -3,6 +3,49 @@
 Cada entrada registra por que uma referência PNG foi regenerada, a diferença medida contra a
 referência antiga e quantos pixels mudaram. Tolerâncias não foram alteradas por nenhuma entrada.
 
+## 2026-11-05 — tone mapping AgX, balanço de branco e exposição automática (lote B)
+
+- **Commit de causa:** alterações em `shader.wgsl` (`tonemapear`, `agx_contraste`, `AGX_*` no lugar de
+  `aces`; uniforme `balanco`), `cor.rs` (`agx`, `ganhos_balanco_branco`, `exposicao_automatica`,
+  `luminancia_media_da_cena`), `uniformes.rs` (`balanco`, 320 bytes), `iluminacao.rs` (`aplicar_camera`
+  recebe os ganhos), `motor.rs` (`com_temperatura`, 6500 K por padrão), `renderizador.rs`
+  (`renderizar_com_exposicao_automatica`, desligada por padrão) e o exemplo `renderizar_hstr`.
+- **Motivo:** a curva ACES fixa cortava matizes saturados e deixava a luz branca amarelada; a exposição era
+  só manual e não havia balanço de branco. A curva é AgX (Troy Sobotka, versão de Blender e three.js), com
+  a mesma exposição em EV (2^EV antes da curva). A exposição padrão (EV 0) não mudou.
+- **Medidas, vista padrão da casa (1280x720, MSAA x4), antes e depois:**
+
+| Medida | Original (antes do lote A) | Lote A (ACES) | Lote B (AgX, EV 0) |
+|---|---|---|---|
+| Luminância média linear do quadro | 0,1734 | 0,2953 | 0,2335 |
+| Pixels com R = G = B = 255 (céu e chão) | 0 | 0 | 0 |
+
+  A vista com horizonte e o Sol de frente também não têm pixel em 255 nos três canais (pico do disco
+  do Sol: 229, 231, 234).
+- **Exposição automática (`auto`):** a estimativa da luminância média da cena (a partir da imagem
+  tonemapeada, por inversa tabelada do AgX) deu 0,2340 e EV -0,379. O quadro final ficou com média linear
+  0,1929. A estimativa é aproximada (não há HDR de volta), por isso o alvo não é exato.
+- **Balanço de branco:** 6500 K é idêntico ao padrão (diferença zero). Em 3000 K o quadro fica mais azul
+  (média RGB 127/126/133 para 131/144/168), o que compensa a luz quente, como no controle de temperatura
+  de editores de foto.
+- **Referências h1 (640x360):** a curva muda todos os pixels da imagem (inclusive a casa), porque é um
+  mapeamento de tons global. Diferença máxima 32 (MSAA x4) e 31 (1 amostra); pixels com diferença acima de
+  0: 230400 de 230400 nas duas. Luminância média linear 0,3857 para 0,2863. A tolerância de 2 falhava
+  com a referência do lote A; por isso as duas foram regeneradas.
+
+| Arquivo | Teste | Diferença máxima | Pixels com diferença > 0 | Pixels com diferença > 2 | Tolerância |
+|---|---|---|---|---|---|
+| `ref-h1-640x360.png` (1 amostra) | `motor::sem_msaa_bate_a_referencia_estrita` | 31 | 230400 | 230400 | 2 (inalterada) |
+| `ref-h1-msaa4-640x360.png` (MSAA x4) | `motor::imagem_inteira_igual_a_api_antiga_e_a_referencia`, `materiais::cena_h1_lida_como_v1_tem_tipo_zero_e_bate_a_referencia` | 32 | 230400 | 230370 | 2 e 3 (inalteradas) |
+
+Regeneração: `renderizar_hstr cena-h1.hstr ref-h1-640x360.png 640 360 1 0` e
+`renderizar_hstr cena-h1.hstr ref-h1-msaa4-640x360.png 640 360 4 0` (EV 0, 6500 K).
+- **Constantes de `oclusao_escurece_a_base_da_parede_e_poupa_a_face_plana` recalibradas** (não é a
+  referência PNG, mas é a mesma medida absoluta): a base sem SSAO ia de 126,86 (ACES) para 119,58 e a face
+  plana de 126,83 para 119,60 (AgX). Medidas com o SSAO desligado no sombreador, na mesma imagem H1 e pela
+  mesma definição do teste. Com SSAO, a base cai 5,05% (limite de 5%, antes 7,0%) e a face plana varia
+  0,02% (limite de 3%). A tolerância e as asserções não mudaram; a queda da base ficou perto do limite.
+
 ## 2026-11-05 — céu de fundo com horizonte e névoa de distância (lote A)
 
 - **Commit de causa:** alterações em `shader.wgsl` (`fs_ceu`, `vs_ceu`, `fator_nevoa`, `fs_principal`),

@@ -5,6 +5,7 @@ use std::time::Instant;
 
 use render_core::cena::Cena;
 
+use crate::cor;
 use crate::erro::ErroRender;
 use crate::motor::{validar_imagem, Motor, Retangulo};
 
@@ -26,7 +27,7 @@ pub fn renderizar(cena: &Cena, largura: u32, altura: u32) -> Result<ImagemRender
 }
 
 /// Renderiza a cena inteira e devolve os pixels já tonemapeados em sRGB.
-/// `exposicao` é o multiplicador aplicado antes do ACES (2^EV no chamador).
+/// `exposicao` é o multiplicador aplicado antes do tone mapping AgX (2^EV no chamador).
 pub fn renderizar_com_exposicao(
     cena: &Cena,
     largura: u32,
@@ -34,6 +35,20 @@ pub fn renderizar_com_exposicao(
     exposicao: f64,
 ) -> Result<ImagemRenderizada, ErroRender> {
     renderizar_com_camera(cena, &cena.camera, largura, altura, exposicao)
+}
+
+/// Renderiza com exposição automática (opcional, desligada por padrão): uma passada com exposição
+/// 1, estimativa da luminância média da cena (`cor::luminancia_media_da_cena`) e uma segunda
+/// passada com a exposição que leva essa média ao cinza médio (`cor::exposicao_automatica`). Custa
+/// duas renderizações. O controle manual (`renderizar_com_exposicao`) continua valendo.
+pub fn renderizar_com_exposicao_automatica(
+    cena: &Cena,
+    largura: u32,
+    altura: u32,
+) -> Result<ImagemRenderizada, ErroRender> {
+    let primeira = renderizar_com_exposicao(cena, largura, altura, 1.0)?;
+    let media = cor::luminancia_media_da_cena(&primeira.rgba);
+    renderizar_com_exposicao(cena, largura, altura, cor::exposicao_automatica(media))
 }
 
 /// Renderiza usando uma câmera explícita. Cria um `Motor` a cada chamada (lento).
