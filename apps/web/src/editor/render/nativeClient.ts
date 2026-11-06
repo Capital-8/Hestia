@@ -117,24 +117,152 @@ export interface StatusJobNativo {
   tiles?: { total: number; concluidos: TileJobNativo[] };
 }
 
-/** Cria um job progressivo; o serviço devolve `{id}` e renderiza em background. */
-export async function criarJobNativo(
+/** Tamanho do trailer da câmera (37 f32) no fim do HSTR. Fica fora da chave do cache (main.rs). */
+const TAMANHO_TRAILER_CAMERA = 37 * 4;
+/** Mesmo limite do serviço (`LIMITE_CACHE` em main.rs). */
+export const LIMITE_CACHE_CENAS_CLIENTE = 4;
+
+/** `fetch` que traduz falha de rede em erro com a rota. Abort segue como veio (o chamador o trata). */
+async function fetchRede(url: string, init: RequestInit, rota: string): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (erro) {
+    if (init.signal?.aborted) throw erro;
+    const motivo = erro instanceof Error ? erro.message : String(erro);
+    throw new Error(`render-service: falha de rede em ${rota} (${motivo})`);
+  }
+}
+
+/** Cria um job com o HSTR completo; o serviço devolve `{id, hash}` e renderiza em background. */
+async function postJobCompleto(
   cenaHstr: Uint8Array,
   opcoes: OpcoesRenderNativo,
-): Promise<string> {
+): Promise<{ id: string; hash?: string }> {
   const q = new URLSearchParams({
     largura: String(Math.round(opcoes.largura)),
     altura: String(Math.round(opcoes.altura)),
     exposicao: String(opcoes.exposicao ?? 0),
   });
-  const resposta = await fetch(`${urlRenderNativo()}/jobs?${q}`, {
+  const resposta = await fetchRede(`${urlRenderNativo()}/jobs?${q}`, {
     method: 'POST',
     headers: { 'content-type': 'application/octet-stream' },
     body: corpoBinario(cenaHstr),
     signal: opcoes.sinal,
+  }, 'POST /jobs');
+  return await json<{ id: string; hash?: string }>(resposta);
+}
+
+/** Cria um job progressivo; o serviço devolve `{id}` e renderiza em background. */
+export async function criarJobNativo(
+  cenaHstr: Uint8Array,
+  opcoes: OpcoesRenderNativo,
+): Promise<string> {
+  return (await postJobCompleto(cenaHstr, opcoes)).id;
+}
+
+/**
+ * Chave do conteúdo de um HSTR sem o trailer da câmera: SHA-256 em hex do corpo.
+ *
+ * NÃO é o hash do serviço. Ele usa `DefaultHasher` (SipHash-1-3 da std do Rust), que o JS não
+ * replica de forma garantida. O cliente só usa esta chave para lembrar, por conteúdo, o hash que o
+ * serviço devolveu em `/jobs`. SHA-256 evita colisão silenciosa (uma colisão faria o serviço
+ * renderizar outra cena). `null` se não há `crypto.subtle` ou o corpo é menor que o trailer: nesses
+ * casos o chamador envia o HSTR completo, como antes.
+ */
+export async function hashHstrSemTrailer(bytes: Uint8Array): Promise<string | null> {
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle || bytes.length < TAMANHO_TRAILER_CAMERA) return null;
+  const corpo = bytes.subarray(0, bytes.length - TAMANHO_TRAILER_CAMERA);
+  // Sem cópia: digest aceita a visão (respeita byteOffset).
+  const digest = await subtle.digest('SHA-256', corpo as BufferSource);
+  let hex = '';
+  for (const b of new Uint8Array(digest)) hex += b.toString(16).padStart(2, '0');
+  return hex;
+}
+
+/**
+ * Hash do serviço por conteúdo do cliente, em ordem de uso (LRU). Chave: `url|chaveConteudo`, para
+ * que trocar o endereço do serviço não reaproveite hash de outro processo.
+ */
+const hashesServico = new Map<string, string>();
+
+function hashServicoConhecido(chave: string): string | undefined {
+  const hash = hashesServico.get(chave);
+  if (hash !== undefined) {
+    hashesServico.delete(chave);
+    hashesServico.set(chave, hash);
+  }
+  return hash;
+}
+
+function registrarHashServico(chave: string, hash: string): void {
+  hashesServico.delete(chave);
+  hashesServico.set(chave, hash);
+  while (hashesServico.size > LIMITE_CACHE_CENAS_CLIENTE) {
+    const antiga = hashesServico.keys().next().value;
+    if (antiga === undefined) break;
+    hashesServico.delete(antiga);
+  }
+}
+
+/**
+ * `POST /jobs/cache`: só o trailer da câmera, com o hash da cena. `null` = 404 (a cena não está
+ * mais no cache do serviço; também é a resposta de um serviço antigo sem essa rota).
+ */
+async function postJobCache(
+  hash: string,
+  trailer: Uint8Array,
+  opcoes: OpcoesRenderNativo,
+): Promise<string | null> {
+  const q = new URLSearchParams({
+    hash,
+    largura: String(Math.round(opcoes.largura)),
+    altura: String(Math.round(opcoes.altura)),
+    exposicao: String(opcoes.exposicao ?? 0),
   });
-  const dados = await json<{ id: string }>(resposta);
+  const resposta = await fetchRede(`${urlRenderNativo()}/jobs/cache?${q}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/octet-stream' },
+    body: corpoBinario(trailer),
+    signal: opcoes.sinal,
+  }, 'POST /jobs/cache');
+  if (resposta.status === 404) {
+    await resposta.arrayBuffer().catch(() => undefined);
+    return null;
+  }
+  const dados = await json<{ id?: unknown }>(resposta);
+  if (typeof dados.id !== 'string') throw new Error('render-service: resposta de /jobs/cache sem id');
   return dados.id;
+}
+
+/**
+ * Cria um job reaproveitando a cena já carregada na GPU quando possível.
+ *
+ * 1. Se o hash do serviço para este conteúdo é conhecido, tenta `POST /jobs/cache` com só o trailer.
+ * 2. Se o serviço responde 200, usa o id. Se responde 404, envia o HSTR completo em `POST /jobs`.
+ * 3. Sem hash conhecido, envia o HSTR completo e guarda o `hash` devolvido.
+ *
+ * Erro de rede ou HTTP de erro (exceto 404 do cache) é propagado. Não há fallback silencioso.
+ */
+export async function criarJobComCache(
+  cenaHstr: Uint8Array,
+  opcoes: OpcoesRenderNativo,
+): Promise<string> {
+  const chaveConteudo = await hashHstrSemTrailer(cenaHstr);
+  if (chaveConteudo === null) return criarJobNativo(cenaHstr, opcoes);
+
+  const chave = `${urlRenderNativo()}|${chaveConteudo}`;
+  const hashConhecido = hashServicoConhecido(chave);
+  if (hashConhecido !== undefined) {
+    const trailer = cenaHstr.subarray(cenaHstr.length - TAMANHO_TRAILER_CAMERA);
+    const id = await postJobCache(hashConhecido, trailer, opcoes);
+    if (id !== null) return id;
+    hashesServico.delete(chave);
+  }
+
+  const { id, hash } = await postJobCompleto(cenaHstr, opcoes);
+  if (typeof hash === 'string' && hash !== '') registrarHashServico(chave, hash);
+  return id;
 }
 
 /** Valida a forma do status; forma inválida é erro explícito, nunca valor inventado. */

@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   cancelarJobNativo,
-  criarJobNativo,
+  criarJobComCache,
   resultadoJobNativo,
   statusJobNativo,
   tileNativo,
@@ -166,7 +166,7 @@ export function useRenderSession(opcoes: OpcoesRenderSession = {}): RenderSessio
 
       let id: string;
       try {
-        id = await criarJobNativo(params.hstr, {
+        id = await criarJobComCache(params.hstr, {
           largura: params.largura,
           altura: params.altura,
           exposicao: params.exposicao,
