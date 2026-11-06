@@ -1,13 +1,18 @@
-// Protótipo de rastreamento de caminhos, fatia 0 (crates/render-pt0).
+// Protótipo de rastreamento de caminhos, fase 2 (crates/render-pt0).
 //
 // Um passe = uma amostra por pixel do tile. Cada pixel lança um raio primário pela câmera,
-// percorre a BVH (pilha local, sem recursão), e no primeiro acerto soma:
-//   emissão + (cor/pi) * sol * cos * visibilidade
-// A visibilidade vem de um raio de sombra até o sol. Sem luz indireta, sem textura, sem
-// transmissão (vidro é opaco nesta fatia). O resultado é somado à amostra anterior.
+// percorre a BVH (pilha local, sem recursão) e, no primeiro acerto, soma (modo conforme q.modo.x):
+//   modo 0 (sol direto):           emissão + (cor/pi) * sol * cos * visibilidade
+//   modo 1 (sol + céu):            modo 0 + (cor/pi) * irradiância do céu (sem oclusão)
+//   modo 2 (sol + céu + 1 rebote): modo 0 + cor * L_rebote (um rebote difuso por cosseno)
+// Fora da cena o raio vê o fundo preto ou explícito (modo 0, como na fase 1) ou o céu do motor
+// (modos 1 e 2). O rebote sorteia uma direção no hemisfério da normal; se acerta, soma o sol
+// direto (sombra por raio) e o céu no ponto acertado; se não acerta, soma o céu sem disco.
+// Um rebote só (profundidade 2 no total). Vidro, textura e luzes internas ainda não entram.
 //
-// A travessia espelha `bvh.rs` (mesma ordem, mesma aritmética f32). A acumulação é ping-pong
+// A travessia espelha bvh.rs (mesma ordem, mesma aritmética f32). A acumulação é ping-pong
 // entre duas texturas RGBA32F: a textura de entrada é lida, a de saída é escrita.
+// O céu (radiancia_ceu, halo_sol) vem de ceu.wgsl, concatenado antes deste arquivo.
 
 const PI: f32 = 3.14159265358979;
 const T_MINIMO: f32 = 1.0e-4;
@@ -29,6 +34,11 @@ struct Quadro {
     tile: vec4<u32>,
     // x, y: tamanho da imagem; z: índice da amostra; w: semente.
     dimensao: vec4<u32>,
+    // x: modo (0 sol direto, 1 sol + céu, 2 sol + céu + rebote); y: 1 se o sol está acima do horizonte;
+    // z: 1 se o céu é a cor uniforme do fundo (como o render-core), 0 se é o gradiente do motor.
+    modo: vec4<u32>,
+    // Irradiância SH9 do céu, sem disco e sem halo, já convoluída (ver ceu.rs).
+    irradiancia: array<vec4<f32>, 9>,
 };
 
 struct No {
@@ -61,6 +71,14 @@ struct Hit {
     u: f32,
     v: f32,
     triangulo: u32,
+};
+
+// Superfície no ponto acertado. `albedo` é a fração difusa: cor * (1 - metálico).
+struct Superficie {
+    ponto: vec3<f32>,
+    normal: vec3<f32>,
+    albedo: vec3<f32>,
+    emissao: vec3<f32>,
 };
 
 @group(0) @binding(0) var<uniform> q: Quadro;
@@ -212,6 +230,91 @@ fn direcao_sol(estado: ptr<function, u32>) -> vec3<f32> {
     return normalize(t1 * (sen_t * cos(phi)) + t2 * (sen_t * sin(phi)) + s * cos_t);
 }
 
+// Superfície do acerto: normal voltada para quem olha (dupla face) e material do triângulo.
+fn superficie(o: vec3<f32>, d: vec3<f32>, acerto: Hit) -> Superficie {
+    let tri = tris[acerto.triangulo];
+    let w0 = 1.0 - acerto.u - acerto.v;
+    var normal = normalize(tri.n0.xyz * w0 + tri.n1.xyz * acerto.u + tri.n2.xyz * acerto.v);
+    if (dot(normal, d) > 0.0) {
+        normal = -normal;
+    }
+    let material = materiais[tri.material.x];
+    var s: Superficie;
+    s.ponto = o + d * acerto.t;
+    s.normal = normal;
+    s.albedo = material.cor.rgb * (1.0 - material.cor.w);
+    s.emissao = material.emissao.rgb;
+    return s;
+}
+
+// Luz direta do sol num ponto, com uma amostra de sombra por raio. Mesma conta da fase 1.
+// Devolve a irradiância direta, sem o 1/pi do difuso.
+fn sol_direto(ponto: vec3<f32>, normal: vec3<f32>, estado: ptr<function, u32>) -> vec3<f32> {
+    let ndl = dot(normal, q.sol.xyz);
+    if (ndl <= 0.0) {
+        return vec3<f32>(0.0);
+    }
+    let para_sol = direcao_sol(estado);
+    if (dot(normal, para_sol) <= 0.0) {
+        return vec3<f32>(0.0);
+    }
+    if (ocluso(ponto + normal * DESLOCAMENTO_SOMBRA, para_sol, T_MINIMO, T_INFINITO)) {
+        return vec3<f32>(0.0);
+    }
+    return q.cor_sol.rgb * q.sol.w * ndl;
+}
+
+// Irradiância difusa do céu na normal n: E(n) = soma de E_k * Y_k(n), 9 termos de SH.
+fn irradiancia_do_ceu(n: vec3<f32>) -> vec3<f32> {
+    return irradiancia_em(q.irradiancia, n);
+}
+
+// Céu visto pelo raio primário que não acerta (modos 1 e 2): fundo explícito, ou o céu do motor
+// com disco e halo do Sol.
+fn ceu_primario(d: vec3<f32>) -> vec3<f32> {
+    if (q.modo.z == 1u) {
+        return q.fundo.rgb;
+    }
+    let com_disco = q.modo.y == 1u;
+    var cor = radiancia_ceu(d, q.sol.xyz, q.sol.w, com_disco);
+    if (com_disco) {
+        cor = cor + vec3<f32>(halo_sol(d, q.sol.xyz, q.sol.w));
+    }
+    return cor;
+}
+
+// Céu visto por um rebote que sai da cena: sem disco e sem halo, porque o sol já entra por sombra.
+fn ceu_do_rebote(d: vec3<f32>) -> vec3<f32> {
+    if (q.modo.z == 1u) {
+        return q.fundo.rgb;
+    }
+    return radiancia_ceu(d, q.sol.xyz, q.sol.w, false);
+}
+
+// Um rebote difuso. A direção vem de amostragem por cosseno na normal: a densidade cos/pi cancela
+// o difuso cor/pi, então o peso do rebote é só a cor, que quem chama multiplica. Devolve a
+// radiância que chega ao ponto por essa direção (sem emissão do ponto acertado).
+fn radiancia_rebote(ponto: vec3<f32>, normal: vec3<f32>, estado: ptr<function, u32>) -> vec3<f32> {
+    let u1 = aleatorio(estado);
+    let u2 = aleatorio(estado);
+    let raio = sqrt(u1);
+    let phi = 2.0 * PI * u2;
+    let local = vec3<f32>(raio * cos(phi), raio * sin(phi), sqrt(max(0.0, 1.0 - u1)));
+    let ajuda = select(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), abs(normal.z) < 0.999);
+    let t1 = normalize(cross(ajuda, normal));
+    let t2 = cross(normal, t1);
+    let d = normalize(t1 * local.x + t2 * local.y + normal * local.z);
+
+    let origem = ponto + normal * DESLOCAMENTO_SOMBRA;
+    let acerto = intersecta(origem, d, T_MINIMO, T_INFINITO);
+    if (!acerto.ok) {
+        return ceu_do_rebote(d);
+    }
+    let s = superficie(origem, d, acerto);
+    // Saindo do ponto acertado em direção ao primário: difuso * (sol direto + céu).
+    return (s.albedo / PI) * (sol_direto(s.ponto, s.normal, estado) + irradiancia_do_ceu(s.normal));
+}
+
 @compute @workgroup_size(8, 8, 1)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     if (id.x >= q.tile.z || id.y >= q.tile.w) {
@@ -237,38 +340,24 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let o = p0;
     let d = normalize(p1 - p0);
 
+    let modo = q.modo.x;
     var radiancia = vec3<f32>(0.0);
     let acerto = intersecta(o, d, T_MINIMO, T_INFINITO);
     if (!acerto.ok) {
-        radiancia = q.fundo.rgb * q.fundo.w;
+        if (modo == 0u) {
+            radiancia = q.fundo.rgb * q.fundo.w;
+        } else {
+            radiancia = ceu_primario(d);
+        }
     } else {
-        let tri = tris[acerto.triangulo];
-        let w0 = 1.0 - acerto.u - acerto.v;
-        var normal = normalize(tri.n0.xyz * w0 + tri.n1.xyz * acerto.u + tri.n2.xyz * acerto.v);
-        if (dot(normal, d) > 0.0) {
-            normal = -normal;
+        let s = superficie(o, d, acerto);
+        radiancia = s.emissao + (s.albedo / PI) * sol_direto(s.ponto, s.normal, &estado);
+        if (modo == 1u) {
+            radiancia = radiancia + (s.albedo / PI) * irradiancia_do_ceu(s.normal);
         }
-        let ponto = o + d * acerto.t;
-        let material = materiais[tri.material.x];
-        let cor = material.cor.rgb;
-        let metalico = material.cor.w;
-
-        // Sol: uma amostra de sombra por amostra de pixel.
-        var direto = vec3<f32>(0.0);
-        let ndl = dot(normal, q.sol.xyz);
-        if (ndl > 0.0) {
-            let para_sol = direcao_sol(&estado);
-            var visivel = 0.0;
-            if (dot(normal, para_sol) > 0.0) {
-                let origem_sombra = ponto + normal * DESLOCAMENTO_SOMBRA;
-                if (!ocluso(origem_sombra, para_sol, T_MINIMO, T_INFINITO)) {
-                    visivel = 1.0;
-                }
-            }
-            direto = q.cor_sol.rgb * q.sol.w * ndl * visivel;
+        if (modo == 2u) {
+            radiancia = radiancia + s.albedo * radiancia_rebote(s.ponto, s.normal, &estado);
         }
-        let difuso = cor * (1.0 - metalico) / PI;
-        radiancia = material.emissao.rgb + difuso * direto;
     }
 
     let coordenada = vec2<i32>(i32(px), i32(py));

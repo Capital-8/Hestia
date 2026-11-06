@@ -16,7 +16,7 @@ use wgpu::util::DeviceExt;
 use crate::bvh::{Bvh, NoGpu, TrianguloGpu};
 use crate::COR_SOL;
 
-/// Uniforme do shader (160 bytes, mesmo layout de `struct Quadro` em `pt0.wgsl`).
+/// Uniforme do shader (304 bytes, mesmo layout de `struct Quadro` em `pt0.wgsl`).
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Quadro {
@@ -26,6 +26,214 @@ pub struct Quadro {
     pub fundo: [f32; 4],
     pub tile: [u32; 4],
     pub dimensao: [u32; 4],
+    pub modo: [u32; 4],
+    pub irradiancia: [[f32; 4]; 9],
+}
+
+/// O que o passe calcula. Cada modo é uma linha da medição: (a), (b) e (c) do relatório.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Modo {
+    /// (a) Só sol direto, com sombra por raio. Fundo como na fase 1 (preto ou explícito).
+    SolDireto = 0,
+    /// (b) Sol direto mais a irradiância do céu no ponto primário, sem oclusão e sem rebote.
+    SolCeu = 1,
+    /// (c) Sol direto, céu e um rebote difuso por cosseno (sombra e céu no ponto acertado).
+    SolCeuRebote = 2,
+}
+
+/// Fonte do céu que os modos 1 e 2 veem fora da cena e usam para a luz do céu.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Ceu {
+    /// Gradiente do motor (`radiancia_ceu` de `shader.wgsl`), com disco e halo no raio primário.
+    /// É o padrão: é o céu que o usuário vê no motor, mesmo que a cena tenha fundo explícito.
+    Motor = 0,
+    /// Cor uniforme do fundo explícito da cena, como o tracer do `render-core`. Só existe com
+    /// fundo explícito. Serve para comparar com a referência do `render-core` sem diferença de céu.
+    Uniforme = 1,
+}
+
+/// Código-fonte do shader: céu (`ceu.wgsl`) seguido do passe (`pt0.wgsl`).
+const FONTE_SHADER: &str = concat!(include_str!("ceu.wgsl"), include_str!("pt0.wgsl"));
+
+/// Cria o dispositivo wgpu (DX12, Vulkan ou Metal) e devolve o nome do adaptador.
+///
+/// Falha se não houver adaptador de hardware. Usado pelo protótipo e pelo teste do céu.
+pub fn criar_dispositivo() -> Result<(String, wgpu::Device, wgpu::Queue), String> {
+    let instancia = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        backends: wgpu::Backends::PRIMARY,
+        ..wgpu::InstanceDescriptor::new_without_display_handle()
+    });
+    let adaptador = pollster::block_on(instancia.request_adapter(&wgpu::RequestAdapterOptions {
+        power_preference: wgpu::PowerPreference::HighPerformance,
+        force_fallback_adapter: false,
+        compatible_surface: None,
+        apply_limit_buckets: false,
+    }))
+    .map_err(|erro| format!("nenhum adaptador GPU: {erro:?}"))?;
+    let info = adaptador.get_info();
+    if info.device_type == wgpu::DeviceType::Cpu {
+        return Err(format!("o único adaptador é de software ({})", info.name));
+    }
+    let (dispositivo, fila) = pollster::block_on(adaptador.request_device(&wgpu::DeviceDescriptor {
+        label: Some("render-pt0"),
+        required_features: wgpu::Features::empty(),
+        required_limits: adaptador.limits(),
+        ..Default::default()
+    }))
+    .map_err(|erro| format!("falha ao criar o dispositivo: {erro:?}"))?;
+    Ok((info.name, dispositivo, fila))
+}
+
+/// Céu e halo (`[r, g, b, halo]`) e irradiância (`[r, g, b]`), uma entrada por direção.
+pub type SaidaCeu = (Vec<[f32; 4]>, Vec<[f32; 3]>);
+
+/// Avalia o céu e a irradiância do WGSL (`ceu.wgsl`) em cada direção, na GPU.
+///
+/// Só para o teste de sincronia com `ceu::radiancia` e `ceu::irradiancia_em`. `entradas` traz
+/// (direção unitária, com disco?). `sol` é (direção para o sol, intensidade) e `coeficientes` são
+/// os 9 coeficientes SH de `ceu::irradiancia_sh`. Devolve (céu e halo `[r, g, b, halo]`, irradiância).
+pub fn avaliar_ceu(
+    entradas: &[([f32; 3], bool)],
+    sol: [f32; 3],
+    intensidade: f32,
+    coeficientes: &[[f32; 3]; 9],
+) -> Result<SaidaCeu, String> {
+    let (_, dispositivo, fila) = criar_dispositivo()?;
+    let fonte = format!("{}\n{}", include_str!("ceu.wgsl"), include_str!("ceu_prova.wgsl"));
+    let modulo = dispositivo.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("ceu-prova"),
+        source: wgpu::ShaderSource::Wgsl(fonte.into()),
+    });
+    let dados_entrada: Vec<[f32; 4]> = entradas
+        .iter()
+        .map(|(d, disco)| [d[0], d[1], d[2], if *disco { 1.0 } else { 0.0 }])
+        .collect();
+    // Dois blocos de saída: céu (n) e irradiância (n).
+    let tamanho_saida = (entradas.len() * 16 * 2) as u64;
+    let mut uniforme = [[0.0f32; 4]; 10];
+    uniforme[0] = [sol[0], sol[1], sol[2], intensidade];
+    for (k, c) in coeficientes.iter().enumerate() {
+        uniforme[k + 1] = [c[0], c[1], c[2], 0.0];
+    }
+    let buffer_sol = dispositivo.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("ceu-prova-sol"),
+        contents: bytemuck::cast_slice(&uniforme),
+        usage: wgpu::BufferUsages::UNIFORM,
+    });
+    let buffer_entrada = dispositivo.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("ceu-prova-entrada"),
+        contents: bytemuck::cast_slice(&dados_entrada),
+        usage: wgpu::BufferUsages::STORAGE,
+    });
+    let buffer_saida = dispositivo.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("ceu-prova-saida"),
+        size: tamanho_saida,
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+        mapped_at_creation: false,
+    });
+    let leitura = dispositivo.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("ceu-prova-leitura"),
+        size: tamanho_saida,
+        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+        mapped_at_creation: false,
+    });
+    let camada = |binding: u32, tipo: wgpu::BufferBindingType| wgpu::BindGroupLayoutEntry {
+        binding,
+        visibility: wgpu::ShaderStages::COMPUTE,
+        ty: wgpu::BindingType::Buffer {
+            ty: tipo,
+            has_dynamic_offset: false,
+            min_binding_size: None,
+        },
+        count: None,
+    };
+    let layout = dispositivo.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("ceu-prova-layout"),
+        entries: &[
+            camada(0, wgpu::BufferBindingType::Uniform),
+            camada(1, wgpu::BufferBindingType::Storage { read_only: true }),
+            camada(2, wgpu::BufferBindingType::Storage { read_only: false }),
+        ],
+    });
+    let grupo = dispositivo.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("ceu-prova-grupo"),
+        layout: &layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: buffer_sol.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: buffer_entrada.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: buffer_saida.as_entire_binding(),
+            },
+        ],
+    });
+    let pl = dispositivo.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("ceu-prova-pipeline-layout"),
+        bind_group_layouts: &[Some(&layout)],
+        immediate_size: 0,
+    });
+    let pipeline = dispositivo.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        label: Some("ceu-prova"),
+        layout: Some(&pl),
+        module: &modulo,
+        entry_point: Some("main"),
+        compilation_options: Default::default(),
+        cache: None,
+    });
+    let mut codificador = dispositivo.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("ceu-prova-cmd"),
+    });
+    {
+        let mut passe = codificador.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: Some("ceu-prova-passe"),
+            timestamp_writes: None,
+        });
+        passe.set_pipeline(&pipeline);
+        passe.set_bind_group(0, &grupo, &[]);
+        passe.dispatch_workgroups((entradas.len() as u32).div_ceil(64), 1, 1);
+    }
+    codificador.copy_buffer_to_buffer(&buffer_saida, 0, &leitura, 0, tamanho_saida);
+    fila.submit(Some(codificador.finish()));
+
+    let (envio, recebimento) = mpsc::channel();
+    leitura.slice(..).map_async(wgpu::MapMode::Read, move |resultado| {
+        let _ = envio.send(resultado);
+    });
+    dispositivo
+        .poll(wgpu::PollType::wait_indefinitely())
+        .map_err(|erro| format!("espera da prova do céu: {erro}"))?;
+    recebimento
+        .recv()
+        .map_err(|erro| format!("canal da prova do céu: {erro}"))?
+        .map_err(|erro| format!("mapeamento da prova do céu: {erro:?}"))?;
+    let dados = leitura
+        .slice(..)
+        .get_mapped_range()
+        .map_err(|erro| format!("leitura da prova do céu: {erro:?}"))?;
+    let todos: Vec<[f32; 4]> = dados
+        .chunks_exact(16)
+        .map(|c| {
+            [
+                f32::from_le_bytes([c[0], c[1], c[2], c[3]]),
+                f32::from_le_bytes([c[4], c[5], c[6], c[7]]),
+                f32::from_le_bytes([c[8], c[9], c[10], c[11]]),
+                f32::from_le_bytes([c[12], c[13], c[14], c[15]]),
+            ]
+        })
+        .collect();
+    drop(dados);
+    leitura.unmap();
+    let n = entradas.len();
+    let irradiancias = todos[n..].iter().map(|v| [v[0], v[1], v[2]]).collect();
+    let mut ceus = todos;
+    ceus.truncate(n);
+    Ok((ceus, irradiancias))
 }
 
 /// Material no formato da GPU (32 bytes).
@@ -64,28 +272,7 @@ impl Prototipo {
     ///
     /// `raio_sol` em radianos: 0 para sol pontual (padrão desta fatia), > 0 para disco solar.
     pub fn iniciar(cena: &Cena, bvh: &Bvh, largura: u32, altura: u32, raio_sol: f32) -> Result<Self, String> {
-        let instancia = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::PRIMARY,
-            ..wgpu::InstanceDescriptor::new_without_display_handle()
-        });
-        let adaptador = pollster::block_on(instancia.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            force_fallback_adapter: false,
-            compatible_surface: None,
-            apply_limit_buckets: false,
-        }))
-        .map_err(|erro| format!("nenhum adaptador GPU: {erro:?}"))?;
-        let info = adaptador.get_info();
-        if info.device_type == wgpu::DeviceType::Cpu {
-            return Err(format!("o único adaptador é de software ({})", info.name));
-        }
-        let (dispositivo, fila) = pollster::block_on(adaptador.request_device(&wgpu::DeviceDescriptor {
-            label: Some("render-pt0"),
-            required_features: wgpu::Features::empty(),
-            required_limits: adaptador.limits(),
-            ..Default::default()
-        }))
-        .map_err(|erro| format!("falha ao criar o dispositivo: {erro:?}"))?;
+        let (nome_adaptador, dispositivo, fila) = criar_dispositivo()?;
 
         let erro_de_validacao = Arc::new(AtomicBool::new(false));
         let sinal = Arc::clone(&erro_de_validacao);
@@ -233,7 +420,7 @@ impl Prototipo {
 
         let modulo = dispositivo.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("pt0.wgsl"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("pt0.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(FONTE_SHADER.into()),
         });
         let pl = dispositivo.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("pt0-pipeline-layout"),
@@ -261,7 +448,7 @@ impl Prototipo {
             largura,
             altura,
             atual: 0,
-            adaptador: info.name,
+            adaptador: nome_adaptador,
             erro_de_validacao,
         };
         protot.limpar();
@@ -270,6 +457,30 @@ impl Prototipo {
 
     pub fn adaptador(&self) -> &str {
         &self.adaptador
+    }
+
+    /// Escolhe o que o próximo passe calcula. Quem chama zera o acumulado (`limpar`) antes de
+    /// trocar de modo, porque as amostras de modos diferentes não se misturam.
+    pub fn definir_modo(&mut self, modo: Modo) {
+        self.base.modo[0] = modo as u32;
+    }
+
+    /// Escolhe a fonte do céu (ver `Ceu`) e recalcula a irradiância SH9 que ela implica. `Uniforme`
+    /// exige fundo explícito na cena. Quem chama zera o acumulado antes de trocar.
+    pub fn definir_ceu(&mut self, ceu: Ceu) -> Result<(), String> {
+        let uniforme = match ceu {
+            Ceu::Motor => None,
+            Ceu::Uniforme => {
+                let f = self.base.fundo;
+                if f[3] < 0.5 {
+                    return Err("céu uniforme pede fundo explícito na cena".into());
+                }
+                Some([f[0], f[1], f[2]])
+            }
+        };
+        self.base.modo[2] = ceu as u32;
+        self.base.irradiancia = crate::ceu::para_buffer(&crate::ceu::irradiancia_sh(uniforme));
+        Ok(())
     }
 
     /// Zera o acumulado (as duas texturas).
@@ -439,6 +650,10 @@ fn quadro_da_cena(cena: &Cena, largura: u32, altura: u32, raio_sol: f32) -> Resu
         Some(cor) => ([cor[0] as f32, cor[1] as f32, cor[2] as f32], 1.0),
         None => ([0.0; 3], 0.0),
     };
+    // Sol acima do horizonte: liga o disco e o halo do céu (modos 1 e 2). Como em `iluminacao.rs`
+    // do motor, a intensidade fica zero quando o sol está abaixo.
+    let sol_ativo = cena.sol.elevacao > 0.0 && cena.sol.intensidade > 0.0;
+    let irradiancia = crate::ceu::para_buffer(&crate::ceu::irradiancia_sh(None));
     Ok(Quadro {
         inv_vp,
         sol: [s.x as f32, s.y as f32, s.z as f32, cena.sol.intensidade as f32],
@@ -446,5 +661,7 @@ fn quadro_da_cena(cena: &Cena, largura: u32, altura: u32, raio_sol: f32) -> Resu
         fundo: [fundo[0], fundo[1], fundo[2], tem_fundo],
         tile: [0; 4],
         dimensao: [largura, altura, 0, 0],
+        modo: [Modo::SolDireto as u32, u32::from(sol_ativo), Ceu::Motor as u32, 0],
+        irradiancia,
     })
 }
