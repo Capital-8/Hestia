@@ -12,7 +12,8 @@ import { slabRiseAt, terminoOf, type Project } from '@hestia/model';
 import { montarCenaA1 } from '../packages/engine/src/kernelA1.ts';
 import { NOMES_SECOES_B1, argumentosB1, montarCenaB1, referenciaB1 } from '../packages/engine/src/kernelB.ts';
 import { areaDaForma } from '../packages/engine/src/kernelComparaA2.ts';
-import { compararB1 } from '../packages/engine/src/kernelComparaB.ts';
+import { compararB1, poligonoIgualB1 } from '../packages/engine/src/kernelComparaB.ts';
+import { topologia0049 } from '../packages/engine/src/kernelComparaA3c.ts';
 import { CONSULTAS, SECOES } from '../packages/geom/src/kernel/v2/esquema.gerado.ts';
 import { projetoComRampa, projetoDeEstresseB1, semParedes } from '../scripts/kernel-b1-estresse.mts';
 import { syntheticProject } from '../packages/engine/src/fixtureSintetica.ts';
@@ -180,6 +181,25 @@ describe('B1: seções, argumentos e referência do motor TypeScript', () => {
     id[0]!.id += 100;
     expect(compararB1(ref, id).divergencias.length).toBeGreaterThan(0);
     expect(compararB1(ref, ref.slice(1)).divergencias.length).toBeGreaterThan(0);
+  });
+
+  it('0049, topologia equivalente por região: topologia diferente passa pela região se o Rust é válido; reprova região diferente e Rust inválido', () => {
+    const R = (pts: number[][]) => pts.map(([x, y]) => ({ x: x!, y: y! }));
+    // Fenda de 1e-7 m liga o furo ao contorno: anel simples (válido), que a canonicalização não funde (TS 1/0); o Rust tem o furo (1/1).
+    const e = 1e-7;
+    const comFenda = [[R([[0, 0], [10, 0], [10, 10], [0, 10], [0, 5 + e], [4, 5 + e], [4, 6], [6, 6], [6, 4], [4, 4], [4, 5], [0, 5]])]];
+    // Mesma forma com a fenda exata (vértice repetido): Rust inválido, mesma região.
+    const comFendaExata = [[R([[0, 0], [10, 0], [10, 10], [0, 10], [0, 5], [4, 5], [4, 6], [6, 6], [6, 4], [4, 4], [4, 5], [0, 5]])]];
+    const comFuro = [[R([[0, 0], [10, 0], [10, 10], [0, 10]]), R([[4, 4], [6, 4], [6, 6], [4, 6]])]];
+    const furoMaior = [[R([[0, 0], [10, 0], [10, 10], [0, 10]]), R([[4, 4], [7, 4], [7, 6], [4, 6]])]];
+    const t = topologia0049(comFenda, comFuro);
+    expect(t.ts).not.toBe(t.rust);
+    // (a) mesma região, topologias diferentes, Rust válido: passa (K da 0049 = 6)
+    expect(poligonoIgualB1(comFenda, comFuro, 6).erro).toBeNull();
+    // (b) regiões diferentes: falha
+    expect(poligonoIgualB1(comFenda, furoMaior, 6).erro).toMatch(/erro grosseiro|fora do limite/);
+    // (c) mesma região, topologias diferentes, Rust inválido: falha
+    expect(poligonoIgualB1(comFenda, comFendaExata, 6).erro).toMatch(/resultado do Rust inválido/);
   });
 
   it('o sintético de 10 pavimentos monta a cena sem ignorar nada e a referência roda em todos os níveis', () => {

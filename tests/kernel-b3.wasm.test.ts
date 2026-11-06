@@ -367,12 +367,17 @@ describe.skipIf(!bytes)('B3: junction_nivel do Rust x levelCutterSet e junctionL
             if (!origem) return;
             camadas++;
             const original = areaDaForma(origem.pc.poligono) * (origem.z[1] - origem.z[0]);
+            // Limite de contenção (ADR 0049, "Contenção de partes após arredondamento à grade"): as coordenadas das partes são arredondadas
+            // à grade EPS_Z = 1e-6 m, então cada coordenada da borda pode sair da original por até EPS_Z / 2 (meio micrômetro). Pela borda,
+            // o excesso de área fora da original é no máximo perímetro x EPS_Z / 2, somado à tolerância base de 1e-6 m².
+            const EPS_Z_CONTENCAO = 1e-6;
+            const limiteForaDaOriginal = 1e-6 + perimetroDaForma(origem.pc.poligono) * EPS_Z_CONTENCAO / 2;
             // partes: faixas de cota crescentes, sem sobreposição de cota; em cada faixa a região cabe na original
             let volumeDasPartes = 0;
             partes.forEach((x, i) => {
               if (i > 0) expect(x.z0, `partes da camada ${tipo}/${dono}/${camada}: cotas fora de ordem`).toBeGreaterThanOrEqual(partes[i - 1]!.z1 - 1e-9);
               const dentro = x.poligono.length && origem.pc.poligono.length ? areaDaForma(intersection(x.poligono, origem.pc.poligono)) : 0;
-              expect(areaDaForma(x.poligono) - dentro, `parte ${i} da camada ${tipo}/${dono}/${camada} fora da original`).toBeLessThanOrEqual(1e-6);
+              expect(areaDaForma(x.poligono) - dentro, `parte ${i} da camada ${tipo}/${dono}/${camada} fora da original`).toBeLessThanOrEqual(limiteForaDaOriginal);
               volumeDasPartes += areaDaForma(x.poligono) * (x.z1 - x.z0);
             });
             // volume esperado: para cada faixa de cota que a junção mantém (`resolveJunction` descarta faixas de até Z_EPS = 1e-6, então a soma das
