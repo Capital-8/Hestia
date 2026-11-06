@@ -556,7 +556,7 @@ impl Motor {
         let ao_view = ao.create_view(&wgpu::TextureViewDescriptor::default());
 
         // Um uniforme extra por passe, porque a janela de cada um é diferente. Não está em
-        // `Uniformes`, que continua com 240 bytes.
+        // `Uniformes`, que continua com 304 bytes.
         let extra_pre = camera_extra(camera, largura, altura, janela_g, janela_g, janela_ao)?;
         let extra_ssao = camera_extra(camera, largura, altura, janela_ao, janela_g, janela_ao)?;
         let extra_desfoque = camera_extra(camera, largura, altura, regiao, janela_g, janela_ao)?;
@@ -736,7 +736,7 @@ impl Motor {
 
         let device = &self.gpu.device;
         let mut uniformes = cena.fixos;
-        aplicar_camera(&mut uniformes, camera, largura, altura, cena.raio, exposicao);
+        aplicar_camera(&mut uniformes, camera, largura, altura, cena.raio, exposicao)?;
         let buffer_uniformes = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("uniformes da região"),
             contents: bytemuck::bytes_of(&uniformes),
@@ -894,6 +894,12 @@ impl Motor {
                 0.0,
                 1.0,
             );
+            // Céu de fundo antes do opaco: o opaco sobrescreve onde há geometria. Mesmo grupo de
+            // uniformes e de texturas do principal (o layout é o mesmo).
+            passe.set_pipeline(&self.pipelines.ceu);
+            passe.set_bind_group(0, &grupo_principal, &[]);
+            passe.set_bind_group(1, &cena.grupo_texturas, &[]);
+            passe.draw(0..3, 0..1);
             passe.set_pipeline(&self.pipelines.principal);
             passe.set_bind_group(0, &grupo_principal, &[]);
             passe.set_bind_group(1, &cena.grupo_texturas, &[]);

@@ -17,6 +17,8 @@ struct Uniformes {
   chao: vec4<f32>,
   parametros: vec4<f32>,
   resolucao: vec4<f32>,
+  // Inversa de view_proj: leva um ponto NDC de volta ao mundo. Só o passe do céu de fundo lê.
+  inversa_vp: mat4x4<f32>,
 };
 
 @group(0) @binding(0) var<uniform> u: Uniformes;
@@ -182,6 +184,23 @@ fn radiancia_ceu(dir: vec3<f32>) -> vec3<f32> {
     cor = cor + vec3<f32>(intensidade * FATOR_DISCO_SOLAR);
   }
   return cor;
+}
+
+// Névoa de distância (metros, da câmera): zero até NEVOA_INICIO_M, cheia a partir de NEVOA_FIM_M,
+// com suavização de Hermite (smoothstep). A cor de névoa é a do horizonte (radiancia_ceu no
+// horizonte), a mesma que o céu de fundo mostra abaixo do horizonte, então a borda do chão de
+// render (a ~90 m nesta cena) some na cor do céu. Espelho de ceu.rs::fator_nevoa (teste de sincronia).
+const NEVOA_INICIO_M: f32 = 40.0;
+const NEVOA_FIM_M: f32 = 85.0;
+
+// Halo do Sol no céu de fundo: intensidade relativa e expoente de cos^n (o disco de radiancia_ceu
+// já cobre 6 graus; o halo cai em torno dele, até ~15 graus com n = 96). Só o fundo usa o halo,
+// para que a irradiância SH e os reflexos fiquem como estavam.
+const HALO_SOL: f32 = 0.25;
+const HALO_SOL_EXPOENTE: f32 = 96.0;
+
+fn fator_nevoa(distancia: f32) -> f32 {
+  return smoothstep(NEVOA_INICIO_M, NEVOA_FIM_M, distancia);
 }
 
 // Irradiância difusa do céu em n: soma dos 9 termos de SH com as bases reais. Os coeficientes
@@ -651,6 +670,44 @@ fn fs_principal(e: Saida) -> @location(0) vec4<f32> {
   let oclusao = textureLoad(oclusao_ambiente, vec2<i32>(e.clip.xy), 0).r;
   let ambiente = (difuso_ambiente + especular_ambiente) * oclusao;
   let cor = direto + ambiente + e.emissivo;
+  // Névoa de distância: funde a cor linear com a do horizonte antes do tone mapping, para que a
+  // borda do chão de render some contra o céu de fundo (ver fs_ceu).
+  let hd = normalize(e.mundo.xy - u.camera.xy + vec2<f32>(1.0e-7, 0.0));
+  let cor_horizonte = radiancia_ceu(vec3<f32>(hd, 0.0));
+  let nevoa = fator_nevoa(length(e.mundo - u.camera.xyz));
+  let tonemapeado = aces(mix(cor, cor_horizonte, nevoa) * u.parametros.x);
+  return vec4<f32>(linear_para_srgb(tonemapeado), 1.0);
+}
+
+// ---- Céu de fundo: passe em tela cheia, antes do opaco. Cada pixel recebe a radiância do céu na
+// direção do raio que passa por ele (inversa de view_proj). Abaixo do horizonte o chão acaba, então
+// o céu mostra a cor do horizonte (z limitado a 0), e não o chão escuro de radiancia_ceu.
+struct SaidaCeu {
+  @builtin(position) clip: vec4<f32>,
+  @location(0) ndc: vec2<f32>,
+};
+
+@vertex
+fn vs_ceu(@builtin(vertex_index) indice: u32) -> SaidaCeu {
+  let x = f32((indice << 1u) & 2u);
+  let y = f32(indice & 2u);
+  var s: SaidaCeu;
+  s.ndc = vec2<f32>(x * 2.0 - 1.0, 1.0 - y * 2.0);
+  s.clip = vec4<f32>(s.ndc, 0.0, 1.0);
+  return s;
+}
+
+@fragment
+fn fs_ceu(e: SaidaCeu) -> @location(0) vec4<f32> {
+  let p = u.inversa_vp * vec4<f32>(e.ndc, 0.5, 1.0);
+  let dir = normalize(p.xyz / p.w - u.camera.xyz);
+  let d = normalize(vec3<f32>(dir.xy, max(dir.z, 0.0)) + vec3<f32>(0.0, 0.0, 1.0e-6));
+  var cor = radiancia_ceu(d);
+  let sol_dir = normalize(u.sol.xyz);
+  let intensidade = u.sol.w;
+  if (intensidade > 0.0 && sol_dir.z > 0.0) {
+    cor = cor + vec3<f32>(HALO_SOL * intensidade * pow(max(dot(d, sol_dir), 0.0), HALO_SOL_EXPOENTE));
+  }
   let tonemapeado = aces(cor * u.parametros.x);
   return vec4<f32>(linear_para_srgb(tonemapeado), 1.0);
 }

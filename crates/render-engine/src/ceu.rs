@@ -44,6 +44,21 @@ const COS_DISCO_SOLAR: f32 = 0.994_521_9;
 /// Radiância do disco solar, em múltiplos da intensidade do Sol.
 const FATOR_DISCO_SOLAR: f32 = 2.0;
 
+/// Névoa de distância, em metros a partir da câmera: nula até `NEVOA_INICIO_M` e cheia a partir de
+/// `NEVOA_FIM_M`. Nesta cena o chão de render vai até ~90 m, e a casa fica entre ~19 m e ~37 m, então
+/// a névoa começa depois da casa e termina na borda do chão, que assim some contra o horizonte.
+/// Espelho de `NEVOA_INICIO_M` e `NEVOA_FIM_M` em `shader.wgsl` (o teste de sincronia lê de lá).
+pub const NEVOA_INICIO_M: f64 = 40.0;
+/// Ver `NEVOA_INICIO_M`.
+pub const NEVOA_FIM_M: f64 = 85.0;
+
+/// Fator de névoa de distância: 0 até `NEVOA_INICIO_M`, 1 a partir de `NEVOA_FIM_M`, com
+/// suavização de Hermite (smoothstep) entre os dois. Espelho de `fator_nevoa` no shader.
+pub fn fator_nevoa(distancia: f64) -> f64 {
+    let t = ((distancia - NEVOA_INICIO_M) / (NEVOA_FIM_M - NEVOA_INICIO_M)).clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
 /// Número de amostras de Fibonacci usadas na projeção SH.
 pub const AMOSTRAS_SH: usize = 4096;
 
@@ -154,6 +169,38 @@ pub fn para_buffer(coeficientes: &[[f32; 3]; 9]) -> [[f32; 4]; 9] {
 #[cfg(test)]
 mod testes {
     use super::*;
+
+    #[test]
+    fn nevoa_e_zero_na_distancia_zero_e_um_longe() {
+        assert_eq!(fator_nevoa(0.0), 0.0);
+        assert_eq!(fator_nevoa(NEVOA_INICIO_M), 0.0);
+        assert!((fator_nevoa(1.0e6) - 1.0).abs() < 1.0e-12);
+        assert_eq!(fator_nevoa(NEVOA_FIM_M), 1.0);
+    }
+
+    #[test]
+    fn nevoa_cresce_de_forma_monotonica_e_fica_em_zero_um() {
+        let mut anterior = 0.0;
+        for i in 0..=400 {
+            let f = fator_nevoa(f64::from(i) * 0.5);
+            assert!((0.0..=1.0).contains(&f));
+            assert!(f >= anterior - 1.0e-12, "névoa caiu em {}", f64::from(i) * 0.5);
+            anterior = f;
+        }
+    }
+
+    #[test]
+    fn constantes_da_nevoa_batem_com_o_shader() {
+        const SHADER: &str = include_str!("shader.wgsl");
+        let valor = |nome: &str| -> f64 {
+            let trecho = format!("const {nome}: f32 = ");
+            let inicio = SHADER.find(&trecho).expect("constante no shader") + trecho.len();
+            let fim = inicio + SHADER[inicio..].find(';').expect("fim da constante");
+            SHADER[inicio..fim].trim().parse().expect("número")
+        };
+        assert!((valor("NEVOA_INICIO_M") - NEVOA_INICIO_M).abs() < 1.0e-6);
+        assert!((valor("NEVOA_FIM_M") - NEVOA_FIM_M).abs() < 1.0e-6);
+    }
 
     const SOL: [f32; 3] = [0.6, 0.0, 0.8];
 

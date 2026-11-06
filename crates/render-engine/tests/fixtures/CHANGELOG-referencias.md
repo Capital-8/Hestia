@@ -3,6 +3,38 @@
 Cada entrada registra por que uma referência PNG foi regenerada, a diferença medida contra a
 referência antiga e quantos pixels mudaram. Tolerâncias não foram alteradas por nenhuma entrada.
 
+## 2026-11-05 — céu de fundo com horizonte e névoa de distância (lote A)
+
+- **Commit de causa:** alterações em `shader.wgsl` (`fs_ceu`, `vs_ceu`, `fator_nevoa`, `fs_principal`),
+  `ceu.rs` (`fator_nevoa`, `NEVOA_INICIO_M`, `NEVOA_FIM_M`), `iluminacao.rs` (`aplicar_camera` passa a
+  preencher `inversa_vp`), `uniformes.rs` (`inversa_vp`, 304 bytes), `pipeline.rs` (pipeline `ceu`) e
+  `motor.rs` (passe do céu antes do opaco).
+- **Motivo:** o fundo era uma cor única (`Cena.fundo`), e o chão de render (até ~90 m nesta cena) ficava
+  com uma borda seca contra ele. Agora o céu de fundo usa `radiancia_ceu` (o mesmo gradiente que já
+  alimentava a irradiância SH e os reflexos, sem cor nova) com o horizonte abaixo de z = 0, e o chão
+  recebe névoa de distância de 40 m a 85 m que o funde com a cor do horizonte. A casa fica entre 19 m e
+  37 m, então a névoa não a alcança. O disco do Sol já existia em `radiancia_ceu`; o halo novo
+  (`HALO_SOL`, `HALO_SOL_EXPOENTE`) só entra no fundo.
+- **Efeito colateral documentado:** `Cena.fundo` não aparece mais no céu visível. Ele continua sendo a cor
+  de limpeza do passe, que o céu cobre. Quem quiser um céu de cor única precisará de outro caminho.
+- **Medida (vista com horizonte, 1280x720, coluna x = 40, mesma câmera com inclinação de 7,8 graus):** a
+  transição céu-chão ia de 1 px (degrau de 109 níveis sRGB) para 121 px (10% a 90%). A vista padrão da
+  cena (câmera a 29 graus para baixo) não enquadra o horizonte; por isso a medida usa a variante.
+- **Medida (referência h1, 640x360, sem alterar tolerância):** diferença máxima 17 nas duas
+  referências. Pixels com diferença acima de 0: 81211 (1 amostra) e 81479 (MSAA x4), de 230400. A
+  diferença está no céu de fundo e no chão distante (névoa). O telhado, as paredes e as esquadrias da
+  casa não mudam: a imagem tem diferença zero dentro da silhueta da casa (verificado no mapa de
+  diferenças). A tolerância de 2 falhava com a referência antiga; por isso as duas foram regeneradas.
+
+| Arquivo | Teste | Diferença máxima | Pixels com diferença > 0 | Pixels com diferença > 2 | Tolerância |
+|---|---|---|---|---|---|
+| `ref-h1-640x360.png` (1 amostra) | `motor::sem_msaa_bate_a_referencia_estrita` | 17 | 81211 | 81211 | 2 (inalterada) |
+| `ref-h1-msaa4-640x360.png` (MSAA x4) | `motor::imagem_inteira_igual_a_api_antiga_e_a_referencia`, `materiais::cena_h1_lida_como_v1_tem_tipo_zero_e_bate_a_referencia` | 17 | 81479 | 81479 | 2 e 3 (inalteradas) |
+
+Regeneração: `renderizar_hstr cena-h1.hstr ref-h1-640x360.png 640 360 1` e
+`renderizar_hstr cena-h1.hstr ref-h1-msaa4-640x360.png 640 360 4` (exemplo do render-engine, com
+`Motor::nativo_com_amostras`). A saída é determinística.
+
 ## 2026-11-05 — sombra do Sol dimensionada pelos projetores
 
 - **Commit de causa:** `d03af5ef` (sombra do Sol dimensionada pelos projetores, sem a margem do chão).

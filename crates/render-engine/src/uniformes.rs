@@ -23,6 +23,8 @@ pub struct Uniformes {
     pub parametros: [f32; 4],
     /// (largura, altura, 1/largura, 1/altura).
     pub resolucao: [f32; 4],
+    /// Inversa de `view_proj` (usada só pelo céu de fundo, para achar a direção de cada pixel).
+    pub inversa_vp: [[f32; 4]; 4],
 }
 
 impl Uniformes {
@@ -37,6 +39,6 @@ mod testes {
     #[test]
     fn layout_tem_multiplos_de_dezesseis_bytes() {
         assert_eq!(Uniformes::TAMANHO % 16, 0);
-        assert_eq!(Uniformes::TAMANHO, 240);
+        assert_eq!(Uniformes::TAMANHO, 304);
     }
 }

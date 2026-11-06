@@ -1,7 +1,7 @@
 //! Uniformes da cena e matriz ortográfica da luz solar.
 
 use render_core::cena::{Cena, Sol};
-use render_core::matematica::{multiplicar, olhar_para};
+use render_core::matematica::{inverter, multiplicar, olhar_para};
 use render_core::vetor::Vec3;
 
 use crate::constantes::{CEU_PADRAO, CHAO_AMBIENTE, LADO_SOMBRA};
@@ -48,6 +48,7 @@ pub fn uniformes_fixos(cena: &Cena) -> Uniformes {
         ],
         parametros: [0.0; 4],
         resolucao: [0.0; 4],
+        inversa_vp: [[0.0; 4]; 4],
     }
 }
 
@@ -59,8 +60,12 @@ pub fn aplicar_camera(
     altura: u32,
     raio: f64,
     exposicao: f64,
-) {
-    uniformes.view_proj = colunas_f32(&matriz_vp_wgpu(&camera.view, &camera.projecao));
+) -> Result<(), ErroRender> {
+    let vp = matriz_vp_wgpu(&camera.view, &camera.projecao);
+    let vp_inversa = inverter(&vp)
+        .ok_or_else(|| ErroRender::Gpu("matriz de vista-projeção da câmera não é invertível".into()))?;
+    uniformes.view_proj = colunas_f32(&vp);
+    uniformes.inversa_vp = colunas_f32(&vp_inversa);
     uniformes.camera = [
         camera.posicao.x as f32,
         camera.posicao.y as f32,
@@ -79,6 +84,7 @@ pub fn aplicar_camera(
         1.0 / largura as f32,
         1.0 / altura as f32,
     ];
+    Ok(())
 }
 
 /// Centro e raio da esfera que dimensiona a câmera ortográfica do Sol.

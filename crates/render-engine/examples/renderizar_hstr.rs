@@ -1,6 +1,7 @@
 //! Renderiza um arquivo HSTR em GPU nativa (MSAA x4, como `Motor::nativo`) e grava PNG.
 //!
-//! Uso: `cargo run --example renderizar_hstr -- <entrada.hstr> <saida.png> [largura altura]`.
+//! Uso: `cargo run --example renderizar_hstr -- <entrada.hstr> <saida.png> [largura altura [amostras]]`.
+//! `amostras` é 1 ou 4 (padrão 4, o mesmo de `Motor::nativo`).
 //! Ferramenta de prova visual; não faz parte do caminho de produção.
 
 use render_core::Cena;
@@ -16,7 +17,8 @@ fn main() -> Result<(), String> {
 
     let bytes = std::fs::read(&args[1]).map_err(|e| e.to_string())?;
     let cena = Cena::decodificar(&bytes).map_err(|e| e.to_string())?;
-    let motor = Motor::nativo().map_err(|e| e.to_string())?;
+    let amostras: u32 = args.get(5).map_or(Ok(4), |v| v.parse()).map_err(|e| format!("{e}"))?;
+    let motor = Motor::nativo_com_amostras(amostras).map_err(|e| e.to_string())?;
     let cena_gpu = motor.carregar_cena(&cena).map_err(|e| e.to_string())?;
     let rgba = motor
         .renderizar_regiao(

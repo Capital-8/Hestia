@@ -46,6 +46,8 @@ pub struct Layouts {
 
 /// Pipelines fixas do renderizador.
 pub struct Pipelines {
+    /// Céu de fundo em tela cheia, desenhado antes do opaco (mesmo layout do principal).
+    pub ceu: wgpu::RenderPipeline,
     pub principal: wgpu::RenderPipeline,
     pub sombra: wgpu::RenderPipeline,
     /// Pré-passe de normais e profundidade (1 amostra, sem blend).
@@ -377,6 +379,40 @@ pub fn criar_pipelines(gpu: &Gpu, layouts: &Layouts, amostras: u32) -> Pipelines
         cache: None,
     });
 
+    // Céu de fundo: triângulo em tela cheia, sem vértices. Não lê nem escreve profundidade (o opaco
+    // desenhado depois sobrescreve o céu onde há geometria), mas tem as mesmas amostras do principal.
+    let ceu = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("céu de fundo"),
+        layout: Some(&layout_principal),
+        vertex: wgpu::VertexState {
+            module: &shader,
+            entry_point: Some("vs_ceu"),
+            compilation_options: Default::default(),
+            buffers: &[],
+        },
+        primitive: primitiva,
+        depth_stencil: Some(wgpu::DepthStencilState {
+            format: FORMATO_PROFUNDIDADE,
+            depth_write_enabled: Some(false),
+            depth_compare: Some(wgpu::CompareFunction::Always),
+            stencil: wgpu::StencilState::default(),
+            bias: wgpu::DepthBiasState::default(),
+        }),
+        multisample: multisample_principal,
+        fragment: Some(wgpu::FragmentState {
+            module: &shader,
+            entry_point: Some("fs_ceu"),
+            compilation_options: Default::default(),
+            targets: &[Some(wgpu::ColorTargetState {
+                format: FORMATO_COR,
+                blend: None,
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+        }),
+        multiview_mask: None,
+        cache: None,
+    });
+
     // Vidro: mesma geometria e mesmo viewport do principal, com as mesmas amostras. Escreve a
     // cor inteira (sem blend: o fundo refratado já entra na conta) e não escreve profundidade,
     // para o vidro não tapar o vidro atrás dele. O teste LessEqual usa a profundidade do opaco.
@@ -455,6 +491,7 @@ pub fn criar_pipelines(gpu: &Gpu, layouts: &Layouts, amostras: u32) -> Pipelines
     );
 
     Pipelines {
+        ceu,
         principal,
         sombra,
         pre,
