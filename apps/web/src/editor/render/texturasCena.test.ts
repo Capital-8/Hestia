@@ -92,7 +92,8 @@ describe('carregarTexturasDoSnapshot', () => {
   });
 
   it('sem texturas na cena, comTexturasCarregadas devolve o mesmo snapshot e não carrega nada', async () => {
-    const snap = exportarSemPreset();
+    // A parede de exportarSemPreset (wt_alv14) tem reboco e tijolo: a lista vazia é o caso "sem texturas" de verdade.
+    const snap: RenderSceneSnapshot = { ...exportarSemPreset(), texturas: [] };
     expect(await comTexturasCarregadas(snap)).toBe(snap);
     expect(mockCarregar).not.toHaveBeenCalled();
   });
@@ -131,7 +132,9 @@ describe('ponta a ponta: exportação do template -> carregamento -> HSTR v3', (
   });
 
   it('snapshot sem nenhum preset: sem texturas, versão 2 e os mesmos bytes do encoder sem a lista', async () => {
-    const snap = exportarSemPreset();
+    // Sem preset, os materiais não têm `mapas` e a cena não tem lista de texturas (o caso que fica na v2).
+    const base = exportarSemPreset();
+    const snap: RenderSceneSnapshot = { ...base, texturas: undefined, materials: base.materials.map((m) => ({ ...m, mapas: undefined })) };
     expect(snap.texturas).toBeUndefined();
     const bytes = codificarCena(await comTexturasCarregadas(snap));
     expect(new DataView(bytes.buffer).getUint32(4, true)).toBe(2);
