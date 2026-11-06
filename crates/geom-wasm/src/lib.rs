@@ -68,6 +68,7 @@ pub mod itens;
 pub mod juncoes;
 pub mod perfil_quant;
 pub mod pintor;
+pub mod quantidades;
 pub mod indice;
 pub mod memoria;
 pub mod quadro;

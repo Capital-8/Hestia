@@ -5,7 +5,7 @@
 //! Mudou o JSON => sobe `VERSAO_ESQUEMA` e este arquivo.
 
 /// `versao` de `cena-v11.json`.
-pub const VERSAO_ESQUEMA: u32 = 11;
+pub const VERSAO_ESQUEMA: u32 = 12;
 /// `abi` de `cena-v11.json`.
 pub const VERSAO_ABI2: u32 = 2;
 
@@ -91,6 +91,8 @@ pub const SECAO_PAREDES_Z_JUNCAO: u32 = 20;
 pub const SECAO_PERFIS_Z_JUNCAO: u32 = 21;
 pub const SECAO_FAIXAS_JUNCAO: u32 = 22;
 pub const SECAO_PONTOS_FAIXAS_JUNCAO: u32 = 23;
+pub const SECAO_CAMADAS_FORRO: u32 = 24;
+pub const SECAO_PONTOS_FORRO: u32 = 25;
 
 const fn col(nome: &'static str, tipo: Tipo) -> Coluna {
     Coluna { nome, tipo }
@@ -337,6 +339,18 @@ pub const SECOES: &[Secao] = &[
         chave: "id_num",
         colunas: &[col("id_num", Tipo::U32), col("faixa_num", Tipo::U32), col("poligono", Tipo::U32), col("anel", Tipo::U32), col("indice", Tipo::U32), col("x", Tipo::F64), col("y", Tipo::F64)],
     },
+    Secao {
+        id: SECAO_CAMADAS_FORRO,
+        nome: "camadas_forro",
+        chave: "id_num",
+        colunas: &[col("id_num", Tipo::U32), col("forro_num", Tipo::U32), col("nivel_num", Tipo::U32), col("indice", Tipo::U32), col("espessura", Tipo::F64)],
+    },
+    Secao {
+        id: SECAO_PONTOS_FORRO,
+        nome: "pontos_forro",
+        chave: "id_num",
+        colunas: &[col("id_num", Tipo::U32), col("forro_num", Tipo::U32), col("poligono", Tipo::U32), col("anel", Tipo::U32), col("indice", Tipo::U32), col("x", Tipo::F64), col("y", Tipo::F64)],
+    },
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -379,6 +393,10 @@ pub const CONSULTA_RESOLVER_NIVEL: u32 = 9;
 pub const CONSULTA_PISOS_LAJES_NIVEL: u32 = 10;
 pub const CONSULTA_PISOS_LAJES_COM_PAREDES: u32 = 11;
 pub const CONSULTA_JUNCTION_NIVEL: u32 = 12;
+pub const CONSULTA_QUANT_PAREDES: u32 = 13;
+pub const CONSULTA_QUANT_PISOS: u32 = 14;
+pub const CONSULTA_QUANT_LAJES: u32 = 15;
+pub const CONSULTA_QUANT_FORROS: u32 = 16;
 
 pub const CONSULTAS: &[Consulta] = &[
     Consulta {
@@ -554,6 +572,46 @@ pub const CONSULTAS: &[Consulta] = &[
             SaidaDef { nome: "poligonos", tipo: Tipo::U32, elementos: Elementos::DoisN },
             SaidaDef { nome: "aneis", tipo: Tipo::U32, elementos: Elementos::DoisN },
             SaidaDef { nome: "pontos", tipo: Tipo::F64, elementos: Elementos::Livre },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_QUANT_PAREDES,
+        nome: "quant_paredes",
+        args: &["nivel_num", "tol_juncao"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "valores", tipo: Tipo::F64, elementos: Elementos::Multiplo(5) },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_QUANT_PISOS,
+        nome: "quant_pisos",
+        args: &["nivel_num", "tol_juncao"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "valores", tipo: Tipo::F64, elementos: Elementos::Multiplo(5) },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_QUANT_LAJES,
+        nome: "quant_lajes",
+        args: &["nivel_num", "tol_juncao"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "valores", tipo: Tipo::F64, elementos: Elementos::Multiplo(5) },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_QUANT_FORROS,
+        nome: "quant_forros",
+        args: &["nivel_num", "tol_juncao"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "valores", tipo: Tipo::F64, elementos: Elementos::Multiplo(5) },
         ],
     },
 ];

@@ -29,7 +29,7 @@
 
 use crate::cena::Cena;
 use crate::esquema::{
-    self, Tipo, CONSULTA_ESTATISTICAS_NIVEL, CONSULTA_ABERTURAS_GEOM, CONSULTA_CLUSTER_RESOLVIDO, CONSULTA_ITENS_PINTADOS, CONSULTA_RETORNOS_GEOM, CONSULTA_PARES_PROXIMOS, CONSULTA_PAREDES_NA_CAIXA, CONSULTA_QUADROS_E_JUNCOES, CONSULTA_JUNCTION_NIVEL, CONSULTA_PISOS_LAJES_COM_PAREDES, CONSULTA_PISOS_LAJES_NIVEL, CONSULTA_RESOLVER_NIVEL,
+    self, Tipo, CONSULTA_ESTATISTICAS_NIVEL, CONSULTA_ABERTURAS_GEOM, CONSULTA_CLUSTER_RESOLVIDO, CONSULTA_ITENS_PINTADOS, CONSULTA_RETORNOS_GEOM, CONSULTA_PARES_PROXIMOS, CONSULTA_PAREDES_NA_CAIXA, CONSULTA_QUADROS_E_JUNCOES, CONSULTA_JUNCTION_NIVEL, CONSULTA_QUANT_FORROS, CONSULTA_QUANT_LAJES, CONSULTA_QUANT_PAREDES, CONSULTA_QUANT_PISOS, CONSULTA_PISOS_LAJES_COM_PAREDES, CONSULTA_PISOS_LAJES_NIVEL, CONSULTA_RESOLVER_NIVEL,
     ENTRADA,
     NAO_IMPLEMENTADO,
 };
@@ -217,6 +217,20 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
                 return Err(ENTRADA);
             }
             crate::b3::junction_nivel(cena, nivel, tol)
+        }
+        CONSULTA_QUANT_PAREDES | CONSULTA_QUANT_PISOS | CONSULTA_QUANT_LAJES | CONSULTA_QUANT_FORROS => {
+            let nivel = arg_nivel(args[0])?;
+            let tol = arg_finito(args[1])?;
+            if tol < 0.0 {
+                return Err(ENTRADA);
+            }
+            let linhas = match id {
+                CONSULTA_QUANT_PAREDES => crate::quantidades::quantidades_paredes(cena, nivel, tol)?,
+                CONSULTA_QUANT_PISOS => crate::quantidades::quantidades_pisos(cena, nivel, tol)?,
+                CONSULTA_QUANT_LAJES => crate::quantidades::quantidades_lajes(cena, nivel, tol)?,
+                _ => crate::quantidades::quantidades_forros(cena, nivel)?,
+            };
+            Ok(crate::quantidades::codificar(&linhas))
         }
         _ => Err(NAO_IMPLEMENTADO),
     }

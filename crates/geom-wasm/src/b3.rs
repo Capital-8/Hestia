@@ -32,7 +32,7 @@ use crate::pintor::area_da_forma;
 use crate::MultiPoligono;
 
 /// `Z_EPS` de `junctionNet.ts` e de `junctionPlanar.ts`.
-const Z_EPS: f64 = 1e-6;
+pub(crate) const Z_EPS: f64 = 1e-6;
 /// Espessura (m) abaixo da qual a peça plana é descartada (`planarOf`: `z1 - z0 > 1e-9`).
 const ESPESSURA_MINIMA: f64 = 1e-9;
 
@@ -349,10 +349,10 @@ pub fn faixa_da_peca(p: &PecaSolida) -> Option<(f64, f64)> {
 }
 
 /// Liga a variante da junção (`paredes_z_juncao`, `perfis_z_juncao`) e a desliga ao sair, também em erro.
-struct VarianteDaJuncao<'a>(&'a Cell<bool>, bool);
+pub(crate) struct VarianteDaJuncao<'a>(&'a Cell<bool>, bool);
 
 impl<'a> VarianteDaJuncao<'a> {
-    fn ligar(cena: &'a Cena) -> VarianteDaJuncao<'a> {
+    pub(crate) fn ligar(cena: &'a Cena) -> VarianteDaJuncao<'a> {
         let anterior = cena.variante_juncao.replace(true);
         VarianteDaJuncao(&cena.variante_juncao, anterior)
     }
@@ -398,29 +398,32 @@ fn pecas_das_paredes(cena: &Cena, nivel: u32, tol: f64) -> Result<Vec<PecaSolida
     Ok(pecas)
 }
 
+/// `floorLayerPiece` e `slabLayerPiece`: a peça de uma camada de piso ou de laje (a laje inclinada leva a subida na faixa de cota).
+pub(crate) fn peca_da_camada(e: &crate::b1::ElementoResolvido, l: &crate::b1::CamadaResolvida) -> PecaSolida {
+    let tipo = if e.laje { Tipo::Laje } else { Tipo::Piso };
+    let span = match (e.laje, e.inclinacao) {
+        (true, Some(s)) => Span::Laje { z0: l.z0, z1: l.z1, origem: s.origem, direcao: s.direcao, percentual: s.percentual },
+        _ => Span::Constante { z0: l.z0, z1: l.z1 },
+    };
+    PecaSolida {
+        poly: l.poligono.clone(),
+        span,
+        plana: !(e.laje && e.inclinacao.is_some()),
+        meta: Some(MetaDaPeca { juncao: MetaDeJuncao { tipo, prioridade: l.prioridade, nucleo: l.nucleo, explicita: l.explicita }, dono: (tipo, e.id), camada: l.indice as i64, banda: None }),
+        externa: false,
+    }
+}
+
+/// O cortador de um piso ou de uma laje: uma peça por camada.
+pub(crate) fn cortador_do_elemento(e: &crate::b1::ElementoResolvido) -> Cortador {
+    Cortador { tipo: if e.laje { Tipo::Laje } else { Tipo::Piso }, pecas: e.camadas.iter().map(|l| peca_da_camada(e, l)).collect() }
+}
+
 /// `levelCutters(p, nivel)`: pisos e lajes camada a camada (`floorLayerPiece`, `slabLayerPiece`) e as faixas de parede do próprio nível.
 fn cortadores_do_nivel(cena: &Cena, nivel: u32, tol: f64) -> Result<Cortadores, u32> {
     let mut out = Cortadores::default();
     for e in calcular(cena, nivel, Some(tol))? {
-        let tipo = if e.laje { Tipo::Laje } else { Tipo::Piso };
-        let pecas = e
-            .camadas
-            .iter()
-            .map(|l| {
-                let span = match (e.laje, e.inclinacao) {
-                    (true, Some(s)) => Span::Laje { z0: l.z0, z1: l.z1, origem: s.origem, direcao: s.direcao, percentual: s.percentual },
-                    _ => Span::Constante { z0: l.z0, z1: l.z1 },
-                };
-                PecaSolida {
-                    poly: l.poligono.clone(),
-                    span,
-                    plana: !(e.laje && e.inclinacao.is_some()),
-                    meta: Some(MetaDaPeca { juncao: MetaDeJuncao { tipo, prioridade: l.prioridade, nucleo: l.nucleo, explicita: l.explicita }, dono: (tipo, e.id), camada: l.indice as i64, banda: None }),
-                    externa: false,
-                }
-            })
-            .collect();
-        let c = Cortador { tipo, pecas };
+        let c = cortador_do_elemento(&e);
         if e.laje {
             out.lajes.push(c);
         } else {
@@ -767,7 +770,7 @@ fn codificar(c: &Cortadores, j: &Juncao) -> Result<Vec<Saida>, u32> {
 }
 
 #[cfg(test)]
-mod testes {
+pub(crate) mod testes {
     use super::*;
     use crate::a1::testes_util::{bytes_camadas as camadas_de_parede, bytes_paredes, bytes_quadros, bytes_tipos as tipos_de_parede, c32, c64, c8, f64s, tipo_simples, u32s, Par};
     use crate::b1::testes::{com_niveis, el, montar, simples, Cam, Montada};
@@ -883,7 +886,7 @@ mod testes {
 
     // ---- cena: um nível com parede e piso, o de cima com laje que atravessa a parede ----
 
-    fn com_paredes(m: &mut Montada, ps: &[Par]) {
+    pub(crate) fn com_paredes(m: &mut Montada, ps: &[Par]) {
         let n = ps.len() as u32;
         m.cena.definir_secao(SECAO_PAREDES, n, &bytes_paredes(ps)).expect("paredes");
         m.cena.definir_secao(SECAO_PAREDES_QUADRO, n, &bytes_quadros(ps)).expect("quadros");
@@ -897,7 +900,7 @@ mod testes {
     }
 
     /// Nível 0 com a parede (x = 3, de y = -1 a 5, de 0 a 2,8 m) e um piso; nível 1 (cota 2,8) com uma laje de 6 x 4 (camada estrutural de 0,15 m).
-    fn cena_de_dois_niveis() -> Montada {
+    pub(crate) fn cena_de_dois_niveis() -> Montada {
         let mut piso = el(1);
         piso.cota = 0.0;
         let mut laje = el(1);

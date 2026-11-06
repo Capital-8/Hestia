@@ -14,7 +14,7 @@ use crate::esquema::{
 use crate::secoes_a1::{bool01, chaves_validas, f64s, finito, u32s, u8s, ParedeZ};
 use crate::secoes_a3::{PontoDePerfil, LISTA_MAX};
 use crate::a3c::Inclinacao as InclinacaoDaFaixa;
-use crate::esquema::{SECAO_FAIXAS_JUNCAO, SECAO_PONTOS_FAIXAS_JUNCAO};
+use crate::esquema::{SECAO_CAMADAS_FORRO, SECAO_FAIXAS_JUNCAO, SECAO_PONTOS_FAIXAS_JUNCAO, SECAO_PONTOS_FORRO};
 
 /// Maior código de `modo` (`outlineSource.mode`): 0 sem origem, 1 walls-finish, 2 walls-core, 3 perimeter.
 pub const MODO_MAX: u8 = 3;
@@ -126,6 +126,26 @@ pub struct PontoDeFaixa {
     pub y: f64,
 }
 
+/// Linha de `camadas_forro` (quantidades, esquema v12): uma camada de um forro, com a espessura já resolvida pelo JS.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CamadaForroLinha {
+    pub forro: u32,
+    pub nivel: u32,
+    pub indice: u32,
+    pub espessura: f64,
+}
+
+/// Linha de `pontos_forro`: um vértice do contorno de um forro (`forro` é o `forro_num`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PontoForroLinha {
+    pub forro: u32,
+    pub poligono: u32,
+    pub anel: u32,
+    pub indice: u32,
+    pub x: f64,
+    pub y: f64,
+}
+
 #[derive(Default)]
 pub struct SecoesB {
     pub pisos: BTreeMap<u32, ElementoLinha>,
@@ -147,6 +167,10 @@ pub struct SecoesB {
     pub faixas_juncao: BTreeMap<u32, FaixaJuntadaLinha>,
     /// `pontos_faixas_juncao`: a região de cada faixa, um vértice por linha.
     pub pontos_faixas: BTreeMap<u32, PontoDeFaixa>,
+    /// `camadas_forro` (quantidades, v12): as camadas de cada forro.
+    pub camadas_forro: BTreeMap<u32, CamadaForroLinha>,
+    /// `pontos_forro`: o contorno de cada forro, um vértice por linha.
+    pub pontos_forro: BTreeMap<u32, PontoForroLinha>,
 }
 
 enum Lote {
@@ -159,6 +183,8 @@ enum Lote {
     Perfis(Vec<(u32, PontoDePerfil)>),
     Faixas(Vec<(u32, FaixaJuntadaLinha)>),
     PontosFaixas(Vec<(u32, PontoDeFaixa)>),
+    CamadasForro(Vec<(u32, CamadaForroLinha)>),
+    PontosForro(Vec<(u32, PontoForroLinha)>),
 }
 
 impl Lote {
@@ -173,6 +199,8 @@ impl Lote {
             Lote::Perfis(v) => v.iter().map(|x| x.0).collect(),
             Lote::Faixas(v) => v.iter().map(|x| x.0).collect(),
             Lote::PontosFaixas(v) => v.iter().map(|x| x.0).collect(),
+            Lote::CamadasForro(v) => v.iter().map(|x| x.0).collect(),
+            Lote::PontosForro(v) => v.iter().map(|x| x.0).collect(),
         }
     }
 }
@@ -428,6 +456,42 @@ fn decodificar(secao: u32, n_linhas: u32, bytes: &[u8]) -> Result<Lote, u32> {
             }
             Ok(Lote::PontosFaixas(v))
         }
+        SECAO_CAMADAS_FORRO => {
+            let id = u32s(c.next())?;
+            let forro = u32s(c.next())?;
+            let nivel = u32s(c.next())?;
+            let indice = u32s(c.next())?;
+            let espessura = f64s(c.next())?;
+            chaves_validas(&id)?;
+            let mut v = Vec::with_capacity(n);
+            for i in 0..n {
+                let e = ao(&espessura, i)?;
+                if !(finito(e) && e >= 0.0) {
+                    return Err(ENTRADA);
+                }
+                v.push((ao(&id, i)?, CamadaForroLinha { forro: ao(&forro, i)?, nivel: ao(&nivel, i)?, indice: ao(&indice, i)?, espessura: e }));
+            }
+            Ok(Lote::CamadasForro(v))
+        }
+        SECAO_PONTOS_FORRO => {
+            let id = u32s(c.next())?;
+            let forro = u32s(c.next())?;
+            let poligono = u32s(c.next())?;
+            let anel = u32s(c.next())?;
+            let indice = u32s(c.next())?;
+            let x = f64s(c.next())?;
+            let y = f64s(c.next())?;
+            chaves_validas(&id)?;
+            let mut v = Vec::with_capacity(n);
+            for i in 0..n {
+                let (px, py) = (ao(&x, i)?, ao(&y, i)?);
+                if !(finito(px) && finito(py)) {
+                    return Err(ENTRADA);
+                }
+                v.push((ao(&id, i)?, PontoForroLinha { forro: ao(&forro, i)?, poligono: ao(&poligono, i)?, anel: ao(&anel, i)?, indice: ao(&indice, i)?, x: px, y: py }));
+            }
+            Ok(Lote::PontosForro(v))
+        }
         _ => Err(ENTRADA),
     }
 }
@@ -447,7 +511,7 @@ impl SecoesB {
     pub fn e_minha(secao: u32) -> bool {
         matches!(
             secao,
-            SECAO_PISOS | SECAO_LAJES | SECAO_TIPOS_PISO | SECAO_TIPOS_LAJE | SECAO_CAMADAS_PISO | SECAO_CAMADAS_LAJE | SECAO_CONTORNOS_ESTATICOS | SECAO_CONTORNOS_VINCULADOS | SECAO_FUROS_NIVEL | SECAO_NIVEIS | SECAO_PAREDES_Z_JUNCAO | SECAO_PERFIS_Z_JUNCAO | SECAO_FAIXAS_JUNCAO | SECAO_PONTOS_FAIXAS_JUNCAO
+            SECAO_PISOS | SECAO_LAJES | SECAO_TIPOS_PISO | SECAO_TIPOS_LAJE | SECAO_CAMADAS_PISO | SECAO_CAMADAS_LAJE | SECAO_CONTORNOS_ESTATICOS | SECAO_CONTORNOS_VINCULADOS | SECAO_FUROS_NIVEL | SECAO_NIVEIS | SECAO_PAREDES_Z_JUNCAO | SECAO_PERFIS_Z_JUNCAO | SECAO_FAIXAS_JUNCAO | SECAO_PONTOS_FAIXAS_JUNCAO | SECAO_CAMADAS_FORRO | SECAO_PONTOS_FORRO
         )
     }
 
@@ -466,6 +530,8 @@ impl SecoesB {
             SECAO_PERFIS_Z_JUNCAO => self.perfis_juncao.len(),
             SECAO_FAIXAS_JUNCAO => self.faixas_juncao.len(),
             SECAO_PONTOS_FAIXAS_JUNCAO => self.pontos_faixas.len(),
+            SECAO_CAMADAS_FORRO => self.camadas_forro.len(),
+            SECAO_PONTOS_FORRO => self.pontos_forro.len(),
             _ => self.furos.len(),
         }
     }
@@ -485,6 +551,8 @@ impl SecoesB {
             SECAO_PERFIS_Z_JUNCAO => self.perfis_juncao.contains_key(&k),
             SECAO_FAIXAS_JUNCAO => self.faixas_juncao.contains_key(&k),
             SECAO_PONTOS_FAIXAS_JUNCAO => self.pontos_faixas.contains_key(&k),
+            SECAO_CAMADAS_FORRO => self.camadas_forro.contains_key(&k),
+            SECAO_PONTOS_FORRO => self.pontos_forro.contains_key(&k),
             _ => self.furos.contains_key(&k),
         }
     }
@@ -505,6 +573,8 @@ impl SecoesB {
             Lote::Perfis(v) => self.perfis_juncao.extend(v),
             Lote::Faixas(v) => self.faixas_juncao.extend(v),
             Lote::PontosFaixas(v) => self.pontos_faixas.extend(v),
+            Lote::CamadasForro(v) => self.camadas_forro.extend(v),
+            Lote::PontosForro(v) => self.pontos_forro.extend(v),
         }
     }
 
@@ -525,6 +595,8 @@ impl SecoesB {
             SECAO_PERFIS_Z_JUNCAO => self.perfis_juncao.clear(),
             SECAO_FAIXAS_JUNCAO => self.faixas_juncao.clear(),
             SECAO_PONTOS_FAIXAS_JUNCAO => self.pontos_faixas.clear(),
+            SECAO_CAMADAS_FORRO => self.camadas_forro.clear(),
+            SECAO_PONTOS_FORRO => self.pontos_forro.clear(),
             _ => self.furos.clear(),
         }
         self.aplicar(lote);
@@ -584,6 +656,12 @@ impl SecoesB {
                 }
                 SECAO_PONTOS_FAIXAS_JUNCAO => {
                     self.pontos_faixas.remove(k);
+                }
+                SECAO_CAMADAS_FORRO => {
+                    self.camadas_forro.remove(k);
+                }
+                SECAO_PONTOS_FORRO => {
+                    self.pontos_forro.remove(k);
                 }
                 _ => {
                     self.furos.remove(k);
