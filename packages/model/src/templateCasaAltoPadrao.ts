@@ -74,18 +74,21 @@ const MATERIAIS_PBR: Command[] = [
   // Vidro: a opacidade é campo do material (não do PBR), então o registro inteiro é regravado. Cor azul-acinzentada clara mantida.
   { type: 'upsertMaterial', material: { id: 'mat_vidro', name: 'Vidro', color: '#a9d6e5', hatch: 'none', gloss: 0.9, opacity: 0.3, cost: 220, unit: 'm2' } },
   // Rebocos: acabamento externo (mat_ceramica), substrato externo (mat_argamassa) e paredes internas (mat_reboco).
-  pbr('mat_ceramica', { roughness: 0.85, metallic: 0, texture: { preset: 'reboco' }, mapping: { scale: 2 } }),
-  pbr('mat_argamassa', { roughness: 0.85, metallic: 0, texture: { preset: 'reboco' }, mapping: { scale: 2 } }),
-  pbr('mat_reboco', { roughness: 0.9, metallic: 0, texture: { preset: 'reboco' }, mapping: { scale: 2 } }),
+  // Escala 4 m (topo da faixa do brief, de 2 a 4 m; ver `defaults.ts`): com 2 m o grão do reboco some em 1280x720.
+  pbr('mat_ceramica', { roughness: 0.85, metallic: 0, texture: { preset: 'reboco' }, mapping: { scale: 4 } }),
+  pbr('mat_argamassa', { roughness: 0.85, metallic: 0, texture: { preset: 'reboco' }, mapping: { scale: 4 } }),
+  pbr('mat_reboco', { roughness: 0.9, metallic: 0, texture: { preset: 'reboco' }, mapping: { scale: 4 } }),
   pbr('mat_vidro', { transmission: 0.85, roughness: 0.05, ior: 1.52 }),
   // Esquadrias metálicas (caixilhos de alumínio).
   pbr('mat_aluminio', { metallic: 1, roughness: 0.35, texture: { preset: 'metal' } }),
   // Madeira: portas, vãos e o portão da garagem (`frameMaterialId`). Também é a madeira do madeiramento do telhado.
-  pbr('mat_madeira', { roughness: 0.6, texture: { preset: 'madeira' }, mapping: { scale: 1 } }),
-  // Telha cerâmica do telhado.
-  pbr('mat_telha_ceramica', { roughness: 0.7, texture: { preset: 'telha' }, mapping: { scale: 1 } }),
+  // Escala 1,4 m: 9,3 tábuas por imagem x 0,15 m (mesma conta de `defaults.ts`).
+  pbr('mat_madeira', { roughness: 0.6, texture: { preset: 'madeira' }, mapping: { scale: 1.4 } }),
+  // Telha cerâmica do telhado. Escala 6,4 m: uma telha de 0,40 m ocupa 64 px da imagem (16 por imagem x 0,40 m).
+  pbr('mat_telha_ceramica', { roughness: 0.7, texture: { preset: 'telha' }, mapping: { scale: 6.4 } }),
   // Piso cerâmico interno (acabamento de ft_ceram, `mat-piso-ceramico`). Não há piso externo no padrão.
-  pbr(PISO_CERAMICO, { roughness: 0.4, texture: { preset: 'piso' }, mapping: { scale: 0.6 } }),
+  // Escala 1,5 m: 2,5 placas por imagem x 0,60 m.
+  pbr(PISO_CERAMICO, { roughness: 0.4, texture: { preset: 'piso' }, mapping: { scale: 1.5 } }),
   // Concreto das lajes e da base da garagem. A escada monolítica usa o mesmo material (sem material próprio).
   pbr('mat_concreto', { roughness: 0.85, texture: { preset: 'concreto' }, mapping: { scale: 2 } }),
 ];

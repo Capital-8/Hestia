@@ -179,10 +179,11 @@ describe('exportação com o template de casa de alto padrão', () => {
     }
   });
 
-  it('paredes externas (mat_ceramica e mat_argamassa, rebocos) saem com tipo 1 e escala 2,0 m', () => {
+  it('paredes externas (mat_ceramica e mat_argamassa, rebocos) saem com tipo 1 e escala 4,0 m', () => {
     const { snap, cena } = exportar(buildTemplate('house-premium'));
     try {
-      expect(snap.materials.some((m) => m.tipo === 1 && m.escala === 2)).toBe(true);
+      // Escala do reboco: 4 m (antes 2 m; ver defaults.ts).
+      expect(snap.materials.some((m) => m.tipo === 1 && m.escala === 4)).toBe(true);
     } finally {
       cena.dispose();
     }

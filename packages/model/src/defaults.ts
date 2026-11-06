@@ -42,23 +42,34 @@ const fisico = (roughness: number, preset: MaterialTexturePreset, scale: number,
 /**
  * Catálogo padrão. Cor, hachura, custo, unidade, `gloss` e `opacity` ficam como estavam (a planta não muda). Os campos
  * de render vêm de `fisico(...)`; cada linha justifica o valor com um material real. Metálicos: metalicidade 1.
- * Escala: 2 m para reboco e concreto, 1 m para madeira, telha e metal, 0,6 m para piso e 0,5 m para tijolo.
+ * Escala (`mapping.scale`, metros por repetição da imagem = uma imagem de 1024 px cobre esse tamanho na superfície).
+ * A conta sai da própria imagem: contam-se as repetições dela (fiadas, tábuas, placas, colunas de telha) e multiplica-se
+ * pelo tamanho real de cada uma. O render usa uma escala só nos três eixos, então quando a imagem tem razões diferentes
+ * entre eixos a escala é o meio-termo (ver cada linha):
+ *   - tijolo: 12 fiadas por imagem x 0,065 m = 0,78 m; 5,1 tijolos x 0,21 m = 1,07 m; meio-termo de erro igual = 0,9 m.
+ *   - telha: uma telha de 0,40 m ocupa 64 px da imagem (16 telhas por imagem) = 16 x 0,40 = 6,4 m.
+ *   - madeira: 9,3 tábuas por imagem x 0,15 m = 1,4 m.
+ *   - piso cerâmico: 2,5 placas por imagem x 0,60 m = 1,5 m (a biblioteca cita 1,5 m x 1,5 m para essa imagem).
+ *   - reboco: 4 m (faixa do brief, de 2 a 4 m; a imagem não tem repetição discreta para contar. Com 2 m o grão some
+ *     em 1280x720; 4 m é o topo da faixa e foi escolhido pela prova visual, desvio padrão da fachada de 3,2 para 5,6).
+ *   - concreto: 2 m (mantido; sem referência no brief).
+ *   - metal: 1 m (mantido; sem referência no brief).
  */
 export const DEFAULT_MATERIALS: Material[] = [
   // Pintura acrílica acetinada: meio-fosca, sem textura própria.
   mat('mat_tinta', 'Tinta branca', '#f4f1ea', 'none', fisico(0.5, 'nenhum', 1)),
   // Reboco de cal/cimento: muito fosco, estuque.
-  mat('mat_reboco', 'Reboco', '#d9d2c5', 'dots', { cost: 38, ...fisico(0.9, 'reboco', 2) }),
+  mat('mat_reboco', 'Reboco', '#d9d2c5', 'dots', { cost: 38, ...fisico(0.9, 'reboco', 4) }),
   // Bloco cerâmico queimado: argila fosca, com a textura de tijolo.
-  mat('mat_bloco14', 'Bloco cerâmico 14', '#c0693f', 'diagonal', { unit: 'm2', cost: 62, ...fisico(0.8, 'tijolo', 0.5) }),
-  mat('mat_bloco9', 'Bloco cerâmico 9', '#c9784c', 'diagonal', { cost: 52, ...fisico(0.8, 'tijolo', 0.5) }),
-  mat('mat_bloco19', 'Bloco cerâmico 19', '#b45f38', 'diagonal', { cost: 74, ...fisico(0.8, 'tijolo', 0.5) }),
+  mat('mat_bloco14', 'Bloco cerâmico 14', '#c0693f', 'diagonal', { unit: 'm2', cost: 62, ...fisico(0.8, 'tijolo', 0.9) }),
+  mat('mat_bloco9', 'Bloco cerâmico 9', '#c9784c', 'diagonal', { cost: 52, ...fisico(0.8, 'tijolo', 0.9) }),
+  mat('mat_bloco19', 'Bloco cerâmico 19', '#b45f38', 'diagonal', { cost: 74, ...fisico(0.8, 'tijolo', 0.9) }),
   // Concreto aparente: fosco e rugoso.
   mat('mat_concreto', 'Concreto', '#8f9296', 'cross', { unit: 'm3', cost: 640, ...fisico(0.85, 'concreto', 2) }),
   // Argamassa de assentamento/regularização: fosca, com a textura de reboco (como no lote T3).
-  mat('mat_argamassa', 'Argamassa', '#cdbfa9', 'dots', { cost: 30, ...fisico(0.85, 'reboco', 2) }),
+  mat('mat_argamassa', 'Argamassa', '#cdbfa9', 'dots', { cost: 30, ...fisico(0.85, 'reboco', 4) }),
   // Revestimento cerâmico esmaltado: semibrilho, textura de piso.
-  mat('mat_ceramica', 'Revestimento cerâmico', '#e9e4da', 'none', { gloss: 0.6, cost: 85, ...fisico(0.35, 'piso', 0.6) }),
+  mat('mat_ceramica', 'Revestimento cerâmico', '#e9e4da', 'none', { gloss: 0.6, cost: 85, ...fisico(0.35, 'piso', 1.5) }),
   // Cartão de gesso: papel fosco.
   mat('mat_gesso', 'Placa de gesso', '#ece9e2', 'none', { cost: 44, ...fisico(0.8, 'nenhum', 1) }),
   // PVC de forro: plástico semibrilho.
@@ -70,13 +81,13 @@ export const DEFAULT_MATERIALS: Material[] = [
   // Aço estrutural pintado ou escovado: metálico, mais liso que o galvanizado.
   mat('mat_aco', 'Aço', '#7b8189', 'solid', { gloss: 0.6, unit: 'm3', ...fisico(0.3, 'metal', 1, { metallic: 1 }) }),
   // Madeira serrada (tábua): acabamento natural, sem verniz brilhante.
-  mat('mat_madeira', 'Madeira', '#a9794a', 'diagonal', { cost: 150, ...fisico(0.6, 'madeira', 1) }),
+  mat('mat_madeira', 'Madeira', '#a9794a', 'diagonal', { cost: 150, ...fisico(0.6, 'madeira', 1.4) }),
   // Vidro float incolor: lisíssimo, transmissão 0,85 e IOR 1,52.
   mat('mat_vidro', 'Vidro', '#a9d6e5', 'none', { gloss: 0.9, opacity: 0.35, cost: 220, ...fisico(0.05, 'nenhum', 1, { transmission: 0.85, ior: 1.52 }) }),
   // Alumínio anodizado de caixilho: metálico e relativamente liso.
   mat('mat_aluminio', 'Alumínio', '#b8bdc2', 'solid', { gloss: 0.7, unit: 'm', ...fisico(0.35, 'metal', 1, { metallic: 1 }) }),
   // Telha de argila queimada: fosca, com a textura de telha.
-  mat('mat_telha_ceramica', 'Telha cerâmica', '#b5522d', 'diagonal', { cost: 85, ...fisico(0.7, 'telha', 1) }),
+  mat('mat_telha_ceramica', 'Telha cerâmica', '#b5522d', 'diagonal', { cost: 85, ...fisico(0.7, 'telha', 6.4) }),
   // Telha ondulada de fibrocimento: cimento com acabamento fosco, textura de concreto.
   mat('mat_fibrocimento', 'Fibrocimento', '#9ea3a8', 'cross', { cost: 55, ...fisico(0.8, 'concreto', 2) }),
   // Chapa de aço galvanizado pré-pintada da telha metálica: metálica, semibrilho.

@@ -56,7 +56,7 @@ describe('F2: material de camada no HSTR v2', () => {
       expect(primeiro).toBeGreaterThanOrEqual(0);
       const m = inicioMateriais + primeiro * TAMANHO_MATERIAL;
       expect(view.getFloat32(m + 12, true)).toBeCloseTo(0.37, 6); // rugosidade do modelo
-      expect(view.getFloat32(m + 48, true)).toBeCloseTo(2, 6); // escala de 2,0 m do reboco externo/interno
+      expect(view.getFloat32(m + 48, true)).toBeCloseTo(4, 6); // escala de 4,0 m do reboco externo/interno (antes 2 m; ver defaults.ts)
     } finally {
       cena.dispose();
     }

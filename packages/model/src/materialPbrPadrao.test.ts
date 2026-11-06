@@ -46,12 +46,15 @@ describe('catálogo padrão: render físico (PBR)', () => {
     }
   });
 
-  it('valores de referência: reboco fosco 2 m, tijolo 0,5 m, metal metálico, vidro transparente', () => {
+  it('valores de referência: reboco fosco 4 m, tijolo 0,9 m, metal metálico, vidro transparente', () => {
     const por = (id: string): Material => DEFAULT_MATERIALS.find((m) => m.id === id)!;
-    expect(por('mat_reboco')).toMatchObject({ roughness: 0.9, metallic: 0, texture: { preset: 'reboco' }, mapping: { scale: 2 } });
-    expect(por('mat_bloco14')).toMatchObject({ roughness: 0.8, texture: { preset: 'tijolo' }, mapping: { scale: 0.5 } });
+    // Escala do reboco: 4 m (antes 2 m; topo da faixa do brief, ver defaults.ts).
+    expect(por('mat_reboco')).toMatchObject({ roughness: 0.9, metallic: 0, texture: { preset: 'reboco' }, mapping: { scale: 4 } });
+    // Escala do tijolo: 0,9 m (conta em defaults.ts; antes 0,5 m, pequena demais para a imagem).
+    expect(por('mat_bloco14')).toMatchObject({ roughness: 0.8, texture: { preset: 'tijolo' }, mapping: { scale: 0.9 } });
     expect(por('mat_aluminio')).toMatchObject({ roughness: 0.35, metallic: 1, texture: { preset: 'metal' } });
-    expect(por('mat_madeira')).toMatchObject({ roughness: 0.6, texture: { preset: 'madeira' }, mapping: { scale: 1 } });
+    // Escala da madeira: 1,4 m (9,3 tábuas por imagem x 0,15 m; antes 1 m).
+    expect(por('mat_madeira')).toMatchObject({ roughness: 0.6, texture: { preset: 'madeira' }, mapping: { scale: 1.4 } });
     expect(por('mat_vidro')).toMatchObject({ roughness: 0.05, transmission: 0.85, ior: 1.52, texture: { preset: 'nenhum' } });
     expect(por('mat_concreto')).toMatchObject({ roughness: 0.85, texture: { preset: 'concreto' }, mapping: { scale: 2 } });
   });
@@ -70,7 +73,7 @@ describe('migração de projeto antigo: render padrão', () => {
     const m = migrateProject(raw);
     expect(m.materials['mat_reboco']!.roughness).toBe(0.9);
     expect(materialTexture(m.materials['mat_reboco']!)).toEqual({ preset: 'reboco' });
-    expect(materialMapping(m.materials['mat_reboco']!).scale).toBe(2);
+    expect(materialMapping(m.materials['mat_reboco']!).scale).toBe(4);
     expect(temPbr(m.materials['mat_usuario']!)).toBe(false);
     expect(materialRoughness(m.materials['mat_usuario']!)).toBeCloseTo(0.8);
     expect(materialTransmission(m.materials['mat_usuario']!)).toBe(0);
