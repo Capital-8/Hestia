@@ -386,7 +386,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
       }
     },
   },
-  materials: { label: t('Materiais', 'Materials'), icon: 'layers', run: openDialog('materials') },
+  materials: { label: t('Materiais', 'Materials'), icon: 'materialSphere', run: openDialog('materials') },
   externalTools: {
     label: t('Ferramentas externas', 'External Tools'),
     icon: 'component',
