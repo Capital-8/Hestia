@@ -382,44 +382,7 @@ impl Prototipo {
         let tris: Vec<TrianguloGpu> = bvh.tris.clone();
         let limite_camadas = dispositivo.limits().max_texture_array_layers;
         let mapas = MapasGpu::criar(&dispositivo, &fila, cena, limite_camadas)?;
-        let materiais: Vec<MaterialGpu> = cena
-            .materiais
-            .iter()
-            .map(|m| {
-                // Camada de cada mapa, e a média linear do albedo (1 quando o albedo não tem textura).
-                let camada = |mapa: usize| match m.texturas[mapa] {
-                    Some(i) => texturas::camada_do_mapa(&mapas.plano, mapa, i),
-                    None => SEM_CAMADA,
-                };
-                let media = match m.texturas[0] {
-                    Some(i) => texturas::media_do_albedo(&mapas.plano, i),
-                    None => [1.0; 3],
-                };
-                MaterialGpu {
-                    cor: [
-                        m.cor_base[0] as f32,
-                        m.cor_base[1] as f32,
-                        m.cor_base[2] as f32,
-                        m.metalico as f32,
-                    ],
-                    emissao: [
-                        m.emissivo[0] as f32,
-                        m.emissivo[1] as f32,
-                        m.emissivo[2] as f32,
-                        0.0,
-                    ],
-                    propriedades: [m.rugosidade as f32, 0.0, 0.0, 0.0],
-                    vidro: [
-                        m.transmissao as f32,
-                        m.ior as f32,
-                        m.opacidade as f32,
-                        f32::from(m.tipo),
-                    ],
-                    texturas: [camada(0), camada(1), camada(2), camada(3)],
-                    media_escala: [media[0], media[1], media[2], m.escala as f32],
-                }
-            })
-            .collect();
+        let materiais = materiais_da_cena(cena, &mapas);
 
         let buffer_storage = |rotulo: &str, dados: &[u8]| {
             dispositivo.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -490,124 +453,7 @@ impl Prototipo {
             gbuffer[2].create_view(&wgpu::TextureViewDescriptor::default()),
         ];
 
-        let camada = |binding: u32, tipo: wgpu::BufferBindingType| wgpu::BindGroupLayoutEntry {
-            binding,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Buffer {
-                ty: tipo,
-                has_dynamic_offset: false,
-                min_binding_size: None,
-            },
-            count: None,
-        };
-        let layout = dispositivo.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("pt0-layout"),
-            entries: &[
-                camada(0, wgpu::BufferBindingType::Uniform),
-                camada(1, wgpu::BufferBindingType::Storage { read_only: true }),
-                camada(2, wgpu::BufferBindingType::Storage { read_only: true }),
-                camada(3, wgpu::BufferBindingType::Storage { read_only: true }),
-                wgpu::BindGroupLayoutEntry {
-                    binding: 4,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 5,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::StorageTexture {
-                        access: wgpu::StorageTextureAccess::WriteOnly,
-                        format: FORMATO_ACUMULADO,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-                // Texturas de material (fase 5): amostrador e um array por mapa (albedo, normal,
-                // rugosidade, metálico). Ver `texturas.rs` e a seção de texturas do `pt0.wgsl`.
-                wgpu::BindGroupLayoutEntry {
-                    binding: 6,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 7,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2Array,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 8,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2Array,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 9,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2Array,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 10,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2Array,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                // G-buffer (fase 6): geo, normal e albedo/R, escritos pelo passe 0 (ver `gravar_gbuffer`).
-                wgpu::BindGroupLayoutEntry {
-                    binding: 11,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::StorageTexture {
-                        access: wgpu::StorageTextureAccess::WriteOnly,
-                        format: FORMATO_ACUMULADO,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 12,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::StorageTexture {
-                        access: wgpu::StorageTextureAccess::WriteOnly,
-                        format: FORMATO_ACUMULADO,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 13,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::StorageTexture {
-                        access: wgpu::StorageTextureAccess::WriteOnly,
-                        format: FORMATO_ACUMULADO,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-            ],
-        });
+        let (layout, pipeline) = criar_layout_e_pipeline(&dispositivo);
 
         let grupo = |i: usize| {
             dispositivo.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -675,23 +521,6 @@ impl Prototipo {
         };
         let grupos = [grupo(0), grupo(1)];
 
-        let modulo = dispositivo.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("pt0.wgsl"),
-            source: wgpu::ShaderSource::Wgsl(FONTE_SHADER.into()),
-        });
-        let pl = dispositivo.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("pt0-pipeline-layout"),
-            bind_group_layouts: &[Some(&layout)],
-            immediate_size: 0,
-        });
-        let pipeline = dispositivo.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("pt0-compute"),
-            layout: Some(&pl),
-            module: &modulo,
-            entry_point: Some("main"),
-            compilation_options: Default::default(),
-            cache: None,
-        });
 
         let mut base = quadro_da_cena(cena, largura, altura, raio_sol)?;
         // LOD das texturas (ver `texturas::lod_da_distancia`): abertura do pixel, lado comum e níveis.
@@ -990,10 +819,9 @@ pub(crate) fn ler_rgba32f(
     Ok(saida)
 }
 
-/// Uniforme de câmera e sol a partir da cena. Os campos de passe (tile, amostra, semente) ficam
-/// zerados e são preenchidos em cada passe.
-fn quadro_da_cena(cena: &Cena, largura: u32, altura: u32, raio_sol: f32) -> Result<Quadro, String> {
-    let inversa = render_core::matematica::inverter(&cena.camera.matriz_vp())
+/// Inversa da matriz vista-projeção da câmera, por colunas, em f32 (o que o shader lê em `inv_vp`).
+pub(crate) fn inversa_vp(camera: &render_core::camera::Camera) -> Result<[[f32; 4]; 4], String> {
+    let inversa = render_core::matematica::inverter(&camera.matriz_vp())
         .ok_or("matriz da câmera não inverte")?;
     let mut inv_vp = [[0.0f32; 4]; 4];
     for (c, coluna) in inv_vp.iter_mut().enumerate() {
@@ -1001,6 +829,24 @@ fn quadro_da_cena(cena: &Cena, largura: u32, altura: u32, raio_sol: f32) -> Resu
             *valor = inversa[c * 4 + r] as f32;
         }
     }
+    Ok(inv_vp)
+}
+
+/// Uniforme de câmera e sol a partir da cena. Os campos de passe (tile, amostra, semente) ficam
+/// zerados e são preenchidos em cada passe.
+fn quadro_da_cena(cena: &Cena, largura: u32, altura: u32, raio_sol: f32) -> Result<Quadro, String> {
+    quadro_da_camera(cena, &cena.camera, largura, altura, raio_sol)
+}
+
+/// Como `quadro_da_cena`, com a câmera dada (o modo pt renderiza a câmera do pedido, não a da cena).
+pub(crate) fn quadro_da_camera(
+    cena: &Cena,
+    camera: &render_core::camera::Camera,
+    largura: u32,
+    altura: u32,
+    raio_sol: f32,
+) -> Result<Quadro, String> {
+    let inv_vp = inversa_vp(camera)?;
     let s = cena.sol.direcao();
     let (fundo, tem_fundo) = match cena.fundo {
         Some(cor) => ([cor[0] as f32, cor[1] as f32, cor[2] as f32], 1.0),
@@ -1022,4 +868,189 @@ fn quadro_da_cena(cena: &Cena, largura: u32, altura: u32, raio_sol: f32) -> Resu
         opcoes: [0; 4],
         textura: [0.0; 4],
     })
+}
+
+/// Materiais no formato da GPU, com a camada de cada mapa do `Plano` de `mapas`.
+pub(crate) fn materiais_da_cena(cena: &Cena, mapas: &MapasGpu) -> Vec<MaterialGpu> {
+    cena
+        .materiais
+        .iter()
+        .map(|m| {
+            // Camada de cada mapa, e a média linear do albedo (1 quando o albedo não tem textura).
+            let camada = |mapa: usize| match m.texturas[mapa] {
+                Some(i) => texturas::camada_do_mapa(&mapas.plano, mapa, i),
+                None => SEM_CAMADA,
+            };
+            let media = match m.texturas[0] {
+                Some(i) => texturas::media_do_albedo(&mapas.plano, i),
+                None => [1.0; 3],
+            };
+            MaterialGpu {
+                cor: [
+                    m.cor_base[0] as f32,
+                    m.cor_base[1] as f32,
+                    m.cor_base[2] as f32,
+                    m.metalico as f32,
+                ],
+                emissao: [
+                    m.emissivo[0] as f32,
+                    m.emissivo[1] as f32,
+                    m.emissivo[2] as f32,
+                    0.0,
+                ],
+                propriedades: [m.rugosidade as f32, 0.0, 0.0, 0.0],
+                vidro: [
+                    m.transmissao as f32,
+                    m.ior as f32,
+                    m.opacidade as f32,
+                    f32::from(m.tipo),
+                ],
+                texturas: [camada(0), camada(1), camada(2), camada(3)],
+                media_escala: [media[0], media[1], media[2], m.escala as f32],
+            }
+        })
+        .collect()
+}
+
+/// Layout dos grupos e pipeline do `pt0.wgsl`. Não depende da cena nem da câmera: o modo pt cria uma
+/// vez por `Pt0` e o protótipo cria uma por cena.
+pub(crate) fn criar_layout_e_pipeline(dispositivo: &wgpu::Device) -> (wgpu::BindGroupLayout, wgpu::ComputePipeline) {
+    let camada = |binding: u32, tipo: wgpu::BufferBindingType| wgpu::BindGroupLayoutEntry {
+        binding,
+        visibility: wgpu::ShaderStages::COMPUTE,
+        ty: wgpu::BindingType::Buffer {
+            ty: tipo,
+            has_dynamic_offset: false,
+            min_binding_size: None,
+        },
+        count: None,
+    };
+    let layout = dispositivo.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("pt0-layout"),
+        entries: &[
+            camada(0, wgpu::BufferBindingType::Uniform),
+            camada(1, wgpu::BufferBindingType::Storage { read_only: true }),
+            camada(2, wgpu::BufferBindingType::Storage { read_only: true }),
+            camada(3, wgpu::BufferBindingType::Storage { read_only: true }),
+            wgpu::BindGroupLayoutEntry {
+                binding: 4,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 5,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::StorageTexture {
+                    access: wgpu::StorageTextureAccess::WriteOnly,
+                    format: FORMATO_ACUMULADO,
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                },
+                count: None,
+            },
+            // Texturas de material (fase 5): amostrador e um array por mapa (albedo, normal,
+            // rugosidade, metálico). Ver `texturas.rs` e a seção de texturas do `pt0.wgsl`.
+            wgpu::BindGroupLayoutEntry {
+                binding: 6,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 7,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    view_dimension: wgpu::TextureViewDimension::D2Array,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 8,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    view_dimension: wgpu::TextureViewDimension::D2Array,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 9,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    view_dimension: wgpu::TextureViewDimension::D2Array,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 10,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    view_dimension: wgpu::TextureViewDimension::D2Array,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            // G-buffer (fase 6): geo, normal e albedo/R, escritos pelo passe 0 (ver `gravar_gbuffer`).
+            wgpu::BindGroupLayoutEntry {
+                binding: 11,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::StorageTexture {
+                    access: wgpu::StorageTextureAccess::WriteOnly,
+                    format: FORMATO_ACUMULADO,
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 12,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::StorageTexture {
+                    access: wgpu::StorageTextureAccess::WriteOnly,
+                    format: FORMATO_ACUMULADO,
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 13,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::StorageTexture {
+                    access: wgpu::StorageTextureAccess::WriteOnly,
+                    format: FORMATO_ACUMULADO,
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                },
+                count: None,
+            },
+        ],
+    });
+
+    let modulo = dispositivo.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("pt0.wgsl"),
+        source: wgpu::ShaderSource::Wgsl(FONTE_SHADER.into()),
+    });
+    let pl = dispositivo.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("pt0-pipeline-layout"),
+        bind_group_layouts: &[Some(&layout)],
+        immediate_size: 0,
+    });
+    let pipeline = dispositivo.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        label: Some("pt0-compute"),
+        layout: Some(&pl),
+        module: &modulo,
+        entry_point: Some("main"),
+        compilation_options: Default::default(),
+        cache: None,
+    });
+
+    (layout, pipeline)
 }

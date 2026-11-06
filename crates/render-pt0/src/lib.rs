@@ -38,13 +38,19 @@
 //! o tone mapping só acontece na saída PNG.
 
 pub mod amostragem;
+pub mod api;
 pub mod bvh;
 pub mod ceu;
 pub mod denoise;
+pub mod erro;
 pub mod gpu;
 pub mod optica;
+pub mod orcamento;
 pub mod referencia;
 pub mod texturas;
+
+pub use api::{Acumulacao, CenaPt, ImagemRgba8, Limites, Opcoes, Pt0, VERSAO};
+pub use erro::ErroPt;
 
 /// Cor do sol, a mesma de `render-core::tracer::luz_direta`.
 pub const COR_SOL: [f32; 3] = [1.0, 0.96, 0.9];

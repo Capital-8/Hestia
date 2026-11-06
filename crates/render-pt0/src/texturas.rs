@@ -124,6 +124,33 @@ impl Plano {
     }
 }
 
+/// Reduz o tamanho comum do plano ao `teto` (mesma regra do modo raster: `aplicar_teto_textura` de
+/// render-engine). A UV é normalizada, então a reamostragem não muda o conteúdo.
+pub fn aplicar_teto(plano: &mut Plano, teto: u32) {
+    if plano.largura <= teto && plano.altura <= teto {
+        return;
+    }
+    plano.largura = plano.largura.min(teto);
+    plano.altura = plano.altura.min(teto);
+    plano.niveis = Textura::niveis_completos(plano.largura, plano.altura);
+}
+
+/// Bytes na GPU dos quatro arrays do plano, com todos os mips. Mapa sem textura conta o placeholder
+/// de 1 texel de `MapasGpu::criar_com_plano`.
+pub fn bytes_do_plano(plano: &Plano) -> u64 {
+    plano
+        .camadas
+        .iter()
+        .map(|usados| {
+            if usados.is_empty() {
+                4
+            } else {
+                plano.bytes_do_array(usados.len() as u32)
+            }
+        })
+        .sum()
+}
+
 /// Média linear RGB de um nível RGBA8 codificado em sRGB (o alfa não entra). Cada canal é decodificado
 /// como o shader faz (a fórmula sRGB exata, por tabela de 256 entradas) e depois tira-se a média dos
 /// texels. Sem texels, devolve branco, para que a divisão do shader não zere a cor.
@@ -317,6 +344,17 @@ impl MapasGpu {
         limite_camadas: u32,
     ) -> Result<Self, String> {
         let plano = Plano::planejar(&cena.texturas, &cena.materiais, limite_camadas)?;
+        Self::criar_com_plano(dispositivo, fila, cena, plano)
+    }
+
+    /// Sobe os arrays com um plano já pronto (o modo pt confere o orçamento de memória entre o plano e
+    /// o envio; ver `bytes_do_plano` e `aplicar_teto`).
+    pub fn criar_com_plano(
+        dispositivo: &wgpu::Device,
+        fila: &wgpu::Queue,
+        cena: &Cena,
+        plano: Plano,
+    ) -> Result<Self, String> {
         let mut bytes = 0u64;
         let arrays: [wgpu::Texture; MAPAS] = std::array::from_fn(|mapa| {
             let usados = &plano.camadas[mapa];
@@ -418,7 +456,12 @@ pub fn lod_da_distancia(distancia: f32, angulo_do_pixel: f32, tamanho_do_texel: 
 /// Abertura de um pixel (radianos): ângulo entre os raios de dois pixels vizinhos no centro da imagem.
 /// Com a câmera de perspectiva, nas bordas o pixel é um pouco maior; a aproximação usa o centro.
 pub fn angulo_do_pixel(cena: &Cena, largura: u32) -> Result<f32, String> {
-    let inversa = render_core::matematica::inverter(&cena.camera.matriz_vp())
+    angulo_do_pixel_da_camera(&cena.camera, largura)
+}
+
+/// Como `angulo_do_pixel`, para a câmera dada (o modo pt usa a câmera do pedido).
+pub fn angulo_do_pixel_da_camera(camera: &render_core::camera::Camera, largura: u32) -> Result<f32, String> {
+    let inversa = render_core::matematica::inverter(&camera.matriz_vp())
         .ok_or("matriz da câmera não inverte")?;
     let direcao = |ndc_x: f64, ndc_y: f64| -> [f64; 3] {
         let perto = render_core::matematica::transformar(&inversa, [ndc_x, ndc_y, -1.0, 1.0]);

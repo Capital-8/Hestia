@@ -612,6 +612,17 @@ impl Motor {
         &self.gpu.adaptador
     }
 
+    /// Dispositivo wgpu do motor. O clone aponta para o mesmo dispositivo (não cria outro contexto de
+    /// GPU). Usado pelo modo pt (`render-pt0`, `Pt0::novo`).
+    pub fn device(&self) -> wgpu::Device {
+        self.gpu.device.clone()
+    }
+
+    /// Fila do motor, do mesmo dispositivo que `device`.
+    pub fn queue(&self) -> wgpu::Queue {
+        self.gpu.queue.clone()
+    }
+
     /// Tipo do adaptador (discreto, integrado, CPU...).
     pub fn tipo(&self) -> wgpu::DeviceType {
         self.gpu.tipo

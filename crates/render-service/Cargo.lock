@@ -774,11 +774,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "render-pt0"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "png",
+ "pollster",
+ "render-core",
+ "render-engine",
+ "wgpu",
+]
+
+[[package]]
 name = "render-service"
 version = "0.1.0"
 dependencies = [
+ "png",
  "render-core",
  "render-engine",
+ "render-pt0",
  "serde_json",
  "tiny_http",
 ]

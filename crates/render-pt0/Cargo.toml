@@ -13,8 +13,11 @@ path = "src/lib.rs"
 [dependencies]
 # Cena, câmera, matrizes, ruído e tone mapping vêm do núcleo compartilhado (referência em CPU).
 render-core = { path = "../render-core" }
-# Mesmas versões de render-engine (Cargo.lock copiado para manter o mesmo wgpu). render-engine NÃO é
-# dependência: a montagem das texturas é cópia de render-engine/src/texturas.rs (ver texturas.rs).
+# Modo pt como biblioteca: a saída usa a mesma curva de tom do motor (AgX e sRGB, `cor::fundo_tonemapeado`).
+# Só isso é usado de render-engine; nenhum contexto de GPU é criado por ele (o serviço passa o dispositivo do Motor).
+render-engine = { path = "../render-engine" }
+# Mesmas versões de render-engine (Cargo.lock copiado para manter o mesmo wgpu). A montagem das texturas
+# é cópia de render-engine/src/texturas.rs (ver texturas.rs).
 wgpu = "30"
 pollster = "1"
 bytemuck = { version = "1.25", features = ["derive"] }

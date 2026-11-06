@@ -24,6 +24,13 @@
 //! Fases de um job, em ordem: `decodificando`, `previa`, `tiles`, `montando`, `concluido`.
 //! Também: `cancelado` e `erro`. A imagem final só é publicada na fase `concluido`.
 //!
+//! Modo `pt` (path tracing, ver `modo_pt.rs`): `POST /jobs?modo=pt&amostras=N&denoise=1` e
+//! `POST /jobs/cache?modo=pt&...` (o mesmo corpo do modo raster). Padrão: `modo=raster`, sem mudança.
+//! O pt acumula `N` passes, com fases `decodificando`, `amostrando`, `montando`, `concluido`.
+//!
+//! Variáveis de ambiente: `RENDER_PERFIL` (ver render-engine/perfil.rs) e `RENDER_SERVICE_PORTA`
+//! (porta alternativa para testes; padrão 19787).
+//!
 //! Cache de cenas na GPU (protocolo):
 //! - A chave é o `hash` (16 dígitos hex, 64 bits) do HSTR sem os últimos 148 bytes (trailer da
 //!   câmera), misturado com o tamanho desse corpo. A câmera muda a cada quadro e fica fora da chave.
@@ -48,10 +55,20 @@ use std::time::Instant;
 use render_core::camera::Camera;
 use render_core::Cena;
 use render_engine::{ordenar_tiles_espiral, png_saida, CenaGpu, Motor, Retangulo};
+use render_pt0::{CenaPt, Limites, Pt0};
 use serde_json::json;
 use tiny_http::{Header, Method, Request, Response, Server};
 
+mod modo_pt;
+
+use modo_pt::{ModoJob, ParametrosPt};
+
 const PORTA: u16 = 19787;
+/// Variável que troca a porta (testes de integração do modo pt). Valor inválido é erro na inicialização.
+const VARIAVEL_PORTA: &str = "RENDER_SERVICE_PORTA";
+/// Cenas do modo pt mantidas na GPU (BVH, materiais e texturas). Cada uma pode ser grande, então o
+/// limite é menor que o do raster.
+const LIMITE_CACHE_PT: usize = 2;
 const MAX_CORPO: usize = 256 * 1024 * 1024;
 /// Menor lado de tile que a medição pode pedir.
 const LADO_TILE_MINIMO: u32 = 64;
@@ -89,6 +106,8 @@ struct EstadoJob {
     resultado: Option<Vec<u8>>,
     erro: Option<String>,
     cancelado: bool,
+    /// Só nos jobs do modo pt (`None` no raster, que segue como antes).
+    pt: Option<modo_pt::InfoPt>,
 }
 
 type Job = Arc<Mutex<EstadoJob>>;
@@ -158,11 +177,17 @@ struct Servico {
     motor: Option<Arc<Motor>>,
     /// Motivo da falha ao criar o motor (presente só quando `motor` é `None`).
     erro_gpu: Option<String>,
+    /// Modo pt sobre o dispositivo do motor. `None` sem GPU ou se o pipeline não validou.
+    pt: Option<Arc<Pt0>>,
+    /// Motivo da falha ao criar o `Pt0` (presente só com GPU e sem `pt`).
+    erro_pt: Option<String>,
     jobs: Mutex<HashMap<String, Job>>,
     /// Cenas registradas por `POST /scenes` (id → GPU), até `DELETE /scenes/{id}`.
     cenas: Mutex<HashMap<String, Arc<CenaGpu>>>,
     /// Cenas na GPU por hash do conteúdo, no máximo `LIMITE_CACHE` (ver o protocolo no topo).
     cache: Mutex<CacheCenas<CenaGpu>>,
+    /// Cenas do modo pt na GPU, pelo mesmo hash, no máximo `LIMITE_CACHE_PT`.
+    cache_pt: Mutex<CacheCenas<CenaPt>>,
     sequencia: AtomicU64,
 }
 
@@ -181,15 +206,48 @@ fn main() {
             (None, Some(mensagem))
         }
     };
+    // Modo pt sobre o mesmo dispositivo do motor (sem segundo contexto de GPU). Falha só desliga o
+    // modo pt, e isso aparece em /health e nas recusas de `modo=pt`: nada cai para o raster.
+    let (pt, erro_pt) = match &motor {
+        Some(motor) => {
+            let perfil = motor.perfil().perfil;
+            let limites = Limites {
+                orcamento_bytes: perfil.orcamento_mib * 1024 * 1024,
+                lado_maximo_textura: perfil.lado_maximo_textura,
+            };
+            match Pt0::novo(motor.device(), motor.queue(), limites) {
+                Ok(pt) => (Some(Arc::new(pt)), None),
+                Err(e) => {
+                    let mensagem = e.to_string();
+                    eprintln!("render-service: modo pt indisponível: {mensagem}");
+                    (None, Some(mensagem))
+                }
+            }
+        }
+        None => (None, None),
+    };
     let servico = Arc::new(Servico {
         motor,
         erro_gpu,
+        pt,
+        erro_pt,
         jobs: Mutex::new(HashMap::new()),
         cenas: Mutex::new(HashMap::new()),
         cache: Mutex::new(CacheCenas::novo(LIMITE_CACHE)),
+        cache_pt: Mutex::new(CacheCenas::novo(LIMITE_CACHE_PT)),
         sequencia: AtomicU64::new(1),
     });
-    let endereco = format!("127.0.0.1:{PORTA}");
+    let porta = match std::env::var(VARIAVEL_PORTA) {
+        Ok(valor) => match valor.parse::<u16>() {
+            Ok(porta) => porta,
+            Err(_) => {
+                eprintln!("render-service: {VARIAVEL_PORTA}={valor} não é uma porta válida");
+                std::process::exit(1);
+            }
+        },
+        Err(_) => PORTA,
+    };
+    let endereco = format!("127.0.0.1:{porta}");
     let servidor = match Server::http(&endereco) {
         Ok(s) => s,
         Err(e) => {
@@ -204,6 +262,13 @@ fn main() {
             "render-service: perfil {} ({})",
             motor.perfil().perfil.nome,
             motor.perfil().motivo
+        );
+    }
+    if let Some(pt) = &servico.pt {
+        println!(
+            "render-service: modo pt {} (orçamento {} MiB)",
+            pt.versao(),
+            pt.orcamento_bytes() / (1024 * 1024)
         );
     }
 
@@ -236,6 +301,9 @@ fn atender(mut req: Request, servico: Arc<Servico>) -> Result<(), String> {
                 "gpu": "nativo",
                 "gpu_disponivel": servico.motor.is_some(),
                 "erro_gpu": servico.erro_gpu,
+                "modos": if servico.pt.is_some() { json!(["raster", "pt"]) } else { json!(["raster"]) },
+                "versao_pt": servico.pt.as_ref().map(|p| p.versao()),
+                "erro_pt": servico.erro_pt,
                 "adaptador": servico.motor.as_ref().map(|m| m.adaptador().to_string()),
                 "perfil": servico.motor.as_ref().map(|m| {
                     let escolha = m.perfil();
@@ -274,10 +342,18 @@ fn atender(mut req: Request, servico: Arc<Servico>) -> Result<(), String> {
         (Method::Post, "/jobs") => {
             let (largura, altura) = dimensoes(consulta);
             let exposicao = fator_exposicao(consulta);
+            let modo = match modo_pt::ler_modo(consulta) {
+                Ok(m) => m,
+                Err(e) => return erro_json(req, 400, &e),
+            };
             let bytes = match ler_corpo(&mut req) {
                 Ok(b) => b,
                 Err(e) => return erro_json(req, 400, &e),
             };
+            if let ModoJob::Pt { amostras, denoise } = modo {
+                let p = ParametrosPt { largura, altura, exposicao, amostras, denoise };
+                return modo_pt::receber_completo(req, &servico, &bytes, p);
+            }
             let Some(motor) = servico.motor.clone() else {
                 return sem_gpu(req, &servico);
             };
@@ -292,6 +368,10 @@ fn atender(mut req: Request, servico: Arc<Servico>) -> Result<(), String> {
         (Method::Post, "/jobs/cache") => {
             let (largura, altura) = dimensoes(consulta);
             let exposicao = fator_exposicao(consulta);
+            let modo = match modo_pt::ler_modo(consulta) {
+                Ok(m) => m,
+                Err(e) => return erro_json(req, 400, &e),
+            };
             let Some(chave) = hash_da_consulta(consulta) else {
                 return erro_json(req, 400, "informe ?hash=<16 dígitos hex>");
             };
@@ -299,6 +379,10 @@ fn atender(mut req: Request, servico: Arc<Servico>) -> Result<(), String> {
                 Ok(b) => b,
                 Err(e) => return erro_json(req, 400, &e),
             };
+            if let ModoJob::Pt { amostras, denoise } = modo {
+                let p = ParametrosPt { largura, altura, exposicao, amostras, denoise };
+                return modo_pt::receber_cache(req, &servico, chave, &bytes, p);
+            }
             let Some(motor) = servico.motor.clone() else {
                 return sem_gpu(req, &servico);
             };
@@ -499,6 +583,18 @@ fn buscar_no_cache(servico: &Servico, chave: u64) -> Result<Option<Arc<CenaGpu>>
 fn guardar_no_cache(servico: &Servico, chave: u64, gpu: Arc<CenaGpu>) -> Result<(), String> {
     let mut cache = servico.cache.lock().map_err(|e| e.to_string())?;
     cache.inserir(chave, gpu);
+    Ok(())
+}
+
+/// Cena do modo pt no cache próprio (ver `LIMITE_CACHE_PT`).
+fn buscar_no_cache_pt(servico: &Servico, chave: u64) -> Result<Option<Arc<CenaPt>>, String> {
+    let mut cache = servico.cache_pt.lock().map_err(|e| e.to_string())?;
+    Ok(cache.buscar(chave))
+}
+
+fn guardar_no_cache_pt(servico: &Servico, chave: u64, cena: Arc<CenaPt>) -> Result<(), String> {
+    let mut cache = servico.cache_pt.lock().map_err(|e| e.to_string())?;
+    cache.inserir(chave, cena);
     Ok(())
 }
 
@@ -848,7 +944,12 @@ fn status_json(req: Request, job: &Job) -> Result<(), String> {
         "cancelado": estado.cancelado,
         "erro": estado.erro,
     });
-    if matches!(estado.fase.as_str(), "tiles" | "montando" | "concluido") {
+    if let Some(info) = estado.pt {
+        // Modo pt: o modo e as amostras feitas, para a UI rotular o resultado. Sem tiles.
+        corpo["modo"] = json!("pt");
+        corpo["amostras"] = json!({ "feitas": info.amostras_feitas, "total": info.amostras_total });
+        corpo["denoise"] = json!(info.denoise);
+    } else if matches!(estado.fase.as_str(), "tiles" | "montando" | "concluido") {
         let concluidos: Vec<_> = estado
             .tiles
             .iter()
@@ -1079,9 +1180,12 @@ mod testes {
         let servico = Servico {
             motor: None,
             erro_gpu: Some("teste sem GPU".into()),
+            pt: None,
+            erro_pt: None,
             jobs: Mutex::new(HashMap::new()),
             cenas: Mutex::new(HashMap::new()),
             cache: Mutex::new(CacheCenas::novo(LIMITE_CACHE)),
+            cache_pt: Mutex::new(CacheCenas::novo(LIMITE_CACHE_PT)),
             sequencia: AtomicU64::new(1),
         };
         let (origem, camera_do_corpo) = resolver_corpo(&servico, &bytes).expect("resolve");

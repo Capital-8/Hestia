@@ -13,8 +13,10 @@ path = "src/main.rs"
 [dependencies]
 render-core = { path = "../render-core" }
 render-engine = { path = "../render-engine" }
+render-pt0 = { path = "../render-pt0" }
 tiny_http = "0.12"
 serde_json = "1"
+
 
 [profile.release]
 opt-level = 3
@@ -22,3 +24,6 @@ lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
+
+[dev-dependencies]
+png = "0.17"
