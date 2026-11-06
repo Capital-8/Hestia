@@ -10,8 +10,12 @@ import { gerenciadorFalso } from '../../geom/src/kernel/v2/falso.ts';
 import { resolveFloors, resolveFloorsTs } from './floors.ts';
 import { syntheticProject } from './fixtureSintetica.ts';
 import { junctionLevel, junctionLevelTs } from './junctionLevel.ts';
-import { ErroDespachoKernel, instalarDespachoKernel, removerDespachoKernel, type ConfigDespacho } from './kernelDespacho.ts';
+import { ErroDespachoKernel, KernelPendente, instalarDespachoKernel, removerDespachoKernel, type ConfigDespacho } from './kernelDespacho.ts';
 import { resolveLevel, resolveLevelTs } from './resolve.ts';
+import { quantifyLevel } from './quantities.ts';
+import { quantifyFloors } from './floorQuantities.ts';
+import { quantifySlabs } from './slabQuantities.ts';
+import { quantifyCeilings } from './ceilingQuantities.ts';
 import { resolveSlabs, resolveSlabsTs } from './slabs.ts';
 
 afterEach(() => removerDespachoKernel());
@@ -52,12 +56,26 @@ describe('despacho da B: fatia desligada', () => {
     expect(junctionLevel(p, nivel)).toEqual(junctionLevelTs(p, nivel));
   });
 
-  it('fatia B ligada mas wasm ainda não carregado: TS, sem erro', () => {
-    const d = instalarDespachoKernel({ gerenciador: () => null, config: () => B });
+  it('fatia B ligada mas wasm ainda não carregado: pendente (KernelPendente) em pisos, lajes, junção e quantidades, nunca números do TS', () => {
+    for (const sombra of [false, true]) {
+      const d = instalarDespachoKernel({ gerenciador: () => null, config: () => ({ ...B, sombra }) });
+      const p = novo();
+      expect(() => resolveFloors(p, nivel)).toThrow(KernelPendente);
+      expect(() => resolveSlabs(p, nivel)).toThrow(KernelPendente);
+      expect(() => junctionLevel(p, nivel)).toThrow(KernelPendente);
+      expect(() => quantifyFloors(p, nivel)).toThrow(KernelPendente);
+      expect(() => quantifySlabs(p, nivel)).toThrow(KernelPendente);
+      expect(() => quantifyCeilings(p, nivel)).toThrow(KernelPendente);
+      expect(() => quantifyLevel(p, resolveLevelTs(p, nivel))).toThrow(KernelPendente);
+      expect(d.diagnostico().pronto).toBe(false);
+      expect(d.diagnostico().voltasLeves).toBe(0);
+    }
+  });
+
+  it('resolveFloorsTs segue calculando (oráculo de teste), mesmo com a B ligada e o wasm pendente', () => {
+    instalarDespachoKernel({ gerenciador: () => null, config: () => B });
     const p = novo();
-    expect(resolveFloors(p, nivel)).toEqual(resolveFloorsTs(p, nivel));
-    expect(d.diagnostico().pronto).toBe(false);
-    expect(d.diagnostico().voltasLeves).toBe(0);
+    expect(() => resolveFloorsTs(p, nivel)).not.toThrow();
   });
 
   it('as opções de planta (layers: false) nunca são despachadas, nem com a B ligada', () => {

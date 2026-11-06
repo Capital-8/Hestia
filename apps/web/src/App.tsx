@@ -15,6 +15,7 @@ import { IconDefs } from './ui/Icon.tsx';
 import { IfcImportOverlay } from './ui/IfcImportOverlay.tsx';
 import { HomeScreen } from './ui/home/HomeScreen.tsx';
 import { TelaDeAbertura } from './ui/home/TelaDeAbertura.tsx';
+import { useKernelPendente } from './editor/kernelPendente.ts';
 import { EmptyViews } from './ui/EmptyViews.tsx';
 import { OptionsBar } from './ui/OptionsBar.tsx';
 import { Ribbon } from './ui/Ribbon.tsx';
@@ -254,6 +255,8 @@ export function App(): ReactElement {
   const [restaurando, setRestaurando] = useState(() => lerSessao() !== null);
   // A caixa de texto não entra em `dialog` (DialogKind); as teclas ficam presas a ela enquanto estiver aberta.
   const caixaTextoAberta = useCaixaDeTextoAberta();
+  // Fatia A/B ligada e wasm ainda carregando: nenhuma geometria nem quantidade é calculada (nem pelo TypeScript) até ele chegar.
+  const kernelPendente = useKernelPendente();
 
   // O host (artefato) pode ter definido data-theme: guardamos o valor original e o devolvemos em "sistema".
   const hostTheme = useRef<string | null>(document.documentElement.getAttribute('data-theme') === 'light' ? null : document.documentElement.getAttribute('data-theme'));
@@ -361,6 +364,9 @@ export function App(): ReactElement {
 
   // Tela inicial de projetos: o editor (faixa, palco, docks) só monta depois que um projeto é aberto ou criado.
   if (tela === 'home') return <HomeScreen />;
+
+  // O editor monta quando o kernel Rust fica pronto: aí tudo é calculado de uma vez, pelo Rust.
+  if (kernelPendente) return <TelaDeAbertura chave="kernel_calculando" />;
 
   return (
     <div className="app">

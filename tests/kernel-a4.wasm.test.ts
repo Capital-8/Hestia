@@ -204,33 +204,33 @@ describe.skipIf(!bytes)('A4: despacho de resolveLevel para o Rust', () => {
 describe.skipIf(!bytes)('A4: modo sombra', () => {
   const pula = (): boolean => ger === null;
 
-  it('sem divergência: devolve o TS, compara e registra zero', () => {
+  it('sem divergência: devolve o Rust, compara com o TS (só referência) e registra zero', () => {
     if (pula()) return;
     const d = instalar(SOMBRA);
     const p = projetoDeEstresseA3d(2, { paredes: 12, pavimentos: 2 });
     for (const l of p.levels) {
       const cache = new Map();
-      const r = resolveLevel(p, l.id, cache);
-      expect(r).toEqual(resolveLevelTs(p, l.id, cache));
+      expect(resolveLevel(p, l.id, cache).levelId).toBe(l.id);
     }
     const diag = d.diagnostico();
     expect(diag.comparacoes).toBe(2);
     expect(diag.divergencias).toBe(0);
     expect(diag.ultimaDivergencia).toBeNull();
-    expect(diag.entreguesPeloRust).toBe(0);
+    expect(diag.entreguesPeloRust).toBe(2); // o resultado exibido é o do Rust, nunca o do TS
   }, 120_000);
 
-  it('divergência artificial: contador, registro (nível, parede e campo) e retorno SEMPRE o do TS', () => {
+  it('divergência artificial: contador, registro (nível, parede e campo); o retorno é o do Rust (com a divergência), nunca o do TS', () => {
     if (pula()) return;
     const d = instalar(SOMBRA, (r) => ({ ...r, paredes: r.paredes.map((w, i) => (i === 0 ? { ...w, length: w.length + 1 } : w)) }));
     const p = projetoDeEstresseA3d(9, { paredes: 12, pavimentos: 2 });
     const l = p.levels[1]!.id;
     const cache = new Map();
     const retorno = resolveLevel(p, l, cache);
-    expect(retorno).toEqual(resolveLevelTs(p, l, cache));
+    const ts = resolveLevelTs(p, l, cache);
     const primeira = Object.values(retorno.walls).find((w) => w)!;
     expect(retorno.clusters[0]!.wallIds[0]).toBe(primeira.wallId);
-    expect(retorno.walls[retorno.clusters[0]!.wallIds[0]!]!.length).not.toBe(retorno.walls[retorno.clusters[0]!.wallIds[0]!]!.length + 1);
+    const id = retorno.clusters[0]!.wallIds[0]!;
+    expect(retorno.walls[id]!.length).toBeCloseTo(ts.walls[id]!.length + 1, 6); // a divergência injetada no Rust aparece no retorno
     const diag = d.diagnostico();
     expect(diag.comparacoes).toBe(1);
     expect(diag.divergencias).toBe(1);

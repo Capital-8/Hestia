@@ -30,15 +30,11 @@ if (kernelExperimentalLigado()) {
 }
 
 // Fatias A e B do kernel v2 (0047 §12; B: pisos, lajes e junção, 0050): `?kernelFatias=A,B`, `?kernel=rust` ou `hestia:kernel:fatias`. `resolveLevel` passa a pedir o nível ao Rust
-// (ou, no modo sombra, compara e devolve o TS). Mesma ativação adiada: até o wasm ficar pronto, e se ele falhar, vale o TypeScript. Sem a
+// (no modo sombra, também compara com o TS, que nunca é o resultado exibido). O despacho é instalado já no boot: até o wasm carregar, o editor mostra
+// "calculando…" (`kernelPendente`) em vez de resultado do TypeScript, e recalcula quando ele chega. Se o wasm falhar, o erro é explícito. Sem a
 // fatia ligada, nada é instalado nem baixado.
 const despacho = configDoDespacho();
-if (despacho.fatiaA || despacho.fatiaB) {
-  const ativar = (): void => void iniciarDespachoKernel(despacho);
-  const g = globalThis as { requestIdleCallback?: (cb: () => void, opcoes?: { timeout: number }) => number };
-  if (typeof g.requestIdleCallback === 'function') g.requestIdleCallback(ativar, { timeout: 4000 });
-  else setTimeout(ativar, 2500);
-}
+if (despacho.fatiaA || despacho.fatiaB) void iniciarDespachoKernel(despacho);
 
 // Ganchos de depuração para testes no navegador (?debug=1). `resolveSlabs` e `resolveFloors` deixam o e2e medir o furo da
 // escada na laje e a área de cada camada de piso (decisão 0025); `junctionLevel` e `cutLevelByJunction` deixam o e2e
