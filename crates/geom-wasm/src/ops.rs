@@ -115,28 +115,118 @@ fn preparar(m: &MultiPoligono, escala: f64) -> Result<Formas, u32> {
     Ok(formas)
 }
 
-/// Converte a saída do `i_overlay` para o modelo do ABI, de volta em metros.
+/// Divide um anel (em coordenadas já inteiras da grade) em anéis simples nos vértices que ele visita mais de uma vez. Um anel
+/// que toca a si mesmo é geometria inválida; cada laço entre duas visitas ao mesmo vértice vira um anel próprio, com a sua
+/// área e o seu sentido, então a soma das áreas com sinal não muda. Vértices consecutivos repetidos (aresta de comprimento
+/// zero) são o laço mais curto: um laço de menos de 3 vértices (um ponto, ou ida e volta pela mesma aresta) tem área
+/// exatamente zero, não é região, e por isso é removido (não é descarte por limiar de área).
+fn dividir_em_aneis_simples(anel: Vec<[f64; 2]>) -> Vec<Anel> {
+    let mut pilha: Vec<[f64; 2]> = Vec::with_capacity(anel.len());
+    let mut saida: Vec<Anel> = Vec::new();
+    for p in anel {
+        if let Some(k) = pilha.iter().position(|q| *q == p) {
+            let laco: Anel = pilha.split_off(k + 1);
+            // `pilha[k]` é o próprio vértice repetido: o laço é [p, laco...].
+            if laco.len() >= 2 {
+                let mut a: Anel = Vec::with_capacity(laco.len() + 1);
+                a.push(p);
+                a.extend(laco);
+                saida.push(a);
+            }
+        } else {
+            pilha.push(p);
+        }
+    }
+    if pilha.len() >= 3 {
+        saida.push(pilha);
+    }
+    saida
+}
+
+/// Ponto dentro do anel (par-ímpar), para ligar um lobo horário ao polígono que o contém.
+fn ponto_no_anel(p: [f64; 2], anel: &Anel) -> bool {
+    let n = anel.len();
+    let mut dentro = false;
+    for i in 0..n {
+        let (a, b) = (anel[i], anel[(i + 1) % n]);
+        if (a[1] > p[1]) != (b[1] > p[1]) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0] {
+            dentro = !dentro;
+        }
+    }
+    dentro
+}
+
+/// Ponto de teste de um anel que toca outro só em vértices: o meio da primeira aresta cujo meio não é vértice do outro anel.
+fn ponto_de_teste(anel: &Anel, outro: &Anel) -> [f64; 2] {
+    let n = anel.len();
+    for i in 0..n {
+        let (a, b) = (anel[i], anel[(i + 1) % n]);
+        let m = [(a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0];
+        if !outro.contains(&m) {
+            return m;
+        }
+    }
+    anel[0]
+}
+
+/// Garante polígonos de anéis simples (sem toque do anel consigo mesmo) na grade. O anel externo que se divide em lobos
+/// anti-horários gera um polígono por lobo; um lobo horário (recorte que volta ao vértice) vira furo do lobo que o contém.
+/// Os furos originais, divididos ou não, vão para o lobo externo que os contém; um lobo anti-horário vindo de um furo (ilha
+/// encostada no furo) vira polígono próprio.
+fn poligono_simples(anel_externo: Vec<[f64; 2]>, furos: Vec<Vec<[f64; 2]>>) -> Vec<Poligono> {
+    let mut externos: Vec<Anel> = Vec::new();
+    let mut buracos: Vec<Anel> = Vec::new();
+    for lobo in dividir_em_aneis_simples(anel_externo) {
+        if area_com_sinal(&lobo) > 0.0 {
+            externos.push(lobo);
+        } else if area_com_sinal(&lobo) < 0.0 {
+            buracos.push(lobo);
+        }
+    }
+    let mut ilhas: Vec<Anel> = Vec::new();
+    for furo in furos {
+        for lobo in dividir_em_aneis_simples(furo) {
+            let a = area_com_sinal(&lobo);
+            if a < 0.0 {
+                buracos.push(lobo);
+            } else if a > 0.0 {
+                ilhas.push(lobo);
+            }
+        }
+    }
+    let mut polis: Vec<Poligono> = externos.into_iter().map(|e| vec![e]).collect();
+    for b in buracos {
+        // O menor externo que contém o buraco (um buraco encostado no externo tem o meio de uma aresta dentro dele).
+        let dono = (0..polis.len())
+            .filter(|&i| ponto_no_anel(ponto_de_teste(&b, &polis[i][0]), &polis[i][0]))
+            .min_by(|&i, &j| area_absoluta(&polis[i][0]).partial_cmp(&area_absoluta(&polis[j][0])).unwrap_or(std::cmp::Ordering::Equal));
+        match dono {
+            Some(i) => polis[i].push(b),
+            // Sem externo que o contenha (entrada inconsistente): mantém o anel como estava, em vez de perder área.
+            None => polis.push(vec![b]),
+        }
+    }
+    polis.extend(ilhas.into_iter().map(|i| vec![i]));
+    polis
+}
+
+/// Converte a saída do `i_overlay` para o modelo do ABI, de volta em metros. Antes de dividir pela escala, os anéis passam
+/// por [`poligono_simples`]: depois do arredondamento à grade, dois vértices distintos podem cair no mesmo ponto e o anel
+/// passaria a tocar a si mesmo.
 fn converter(formas: Formas, escala: f64) -> MultiPoligono {
     let mut saida: MultiPoligono = Vec::with_capacity(formas.len());
     for poli in formas {
-        let mut aneis: Poligono = Vec::with_capacity(poli.len());
-        for mut anel in poli {
-            // O Clipper/`i_overlay` não repetem o primeiro ponto, mas não custa garantir.
-            if anel.len() > 1 && anel[0] == anel[anel.len() - 1] {
-                anel.pop();
+        let mut it = poli.into_iter();
+        let Some(externo) = it.next() else { continue };
+        let furos: Vec<Vec<[f64; 2]>> = it.collect();
+        for aneis in poligono_simples(externo, furos) {
+            let aneis: Poligono = aneis
+                .into_iter()
+                .map(|anel| anel.into_iter().map(|p| [p[0] / escala, p[1] / escala]).collect())
+                .collect();
+            if !aneis.is_empty() {
+                saida.push(aneis);
             }
-            if anel.len() < 3 {
-                continue;
-            }
-            aneis.push(
-                anel
-                    .into_iter()
-                    .map(|p| [p[0] / escala, p[1] / escala])
-                    .collect(),
-            );
-        }
-        if !aneis.is_empty() {
-            saida.push(aneis);
         }
     }
     saida
@@ -564,6 +654,43 @@ mod testes {
         let fina: MultiPoligono = vec![vec![vec![[0.0, 0.0], [20.0, 0.0], [20.0, 0.000002], [0.0, 0.000002]]]];
         let s = fechar_frestas_seguro(&fina, 3e-6, 2e-5).expect("seguro");
         assert!(area(&s) >= area(&fina) - 2e-5 - 1e-12);
+    }
+
+    fn tem_vertice_repetido(anel: &Anel) -> bool {
+        (0..anel.len()).any(|i| (i + 1..anel.len()).any(|j| anel[i] == anel[j]))
+    }
+
+    #[test]
+    fn converter_divide_anel_que_toca_a_si_mesmo_no_vertice_repetido() {
+        // Dois triângulos unidos pelo vértice (2,2), visitado duas vezes pelo mesmo anel: 4 + 4 = 8 m².
+        let gravata: Formas = vec![vec![vec![[0.0, 0.0], [4.0, 0.0], [2.0, 2.0], [4.0, 4.0], [0.0, 4.0], [2.0, 2.0]]]];
+        let r = converter(gravata, 1.0);
+        assert_eq!(r.len(), 2, "dois polígonos simples: {r:?}");
+        for poli in &r {
+            assert_eq!(poli.len(), 1);
+            assert!(!tem_vertice_repetido(&poli[0]), "vértice repetido: {:?}", poli[0]);
+            assert!(area_com_sinal(&poli[0]) > 0.0, "externo anti-horário");
+        }
+        let total: f64 = r.iter().map(|p| area_absoluta(&p[0])).sum();
+        assert!((total - 8.0).abs() < 1e-12, "área {total}");
+    }
+
+    #[test]
+    fn converter_poe_como_furo_o_lobo_horario_do_anel_externo_e_descarta_espigao_de_area_zero() {
+        // Externo 10x10 com um recorte que volta ao vértice (0,0): lobo interno horário (2x2 = 4 m²) vira furo do externo.
+        // O espigão (1,0)-(0,0)-(1,0) tem área exatamente zero e some.
+        let f: Formas = vec![vec![vec![
+            [0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0], [0.0, 0.0], [0.0, 2.0], [2.0, 2.0], [2.0, 0.0], [0.0, 0.0], [-1.0, 0.0],
+        ]]];
+        let r = converter(f, 1.0);
+        let total_liquido: f64 = r.iter().map(|p| p.iter().map(area_com_sinal).sum::<f64>()).sum();
+        for poli in &r {
+            for anel in poli {
+                assert!(!tem_vertice_repetido(anel), "vértice repetido: {anel:?}");
+            }
+        }
+        assert!(r.iter().all(|p| area_com_sinal(&p[0]) > 0.0));
+        assert!((total_liquido - (100.0 - 4.0)).abs() < 1e-12, "área líquida {total_liquido}: {r:?}");
     }
 
     #[test]
