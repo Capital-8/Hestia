@@ -75,6 +75,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: hestia-${{ matrix.platform }}
-          path: desktop/src-tauri/target/release/bundle/**/*
+          # Só os pacotes finais (e as assinaturas): os diretórios de staging
+          # (Hestia.AppDir, extração do .deb) ficam de fora e o download fica limpo.
+          path: |
+            desktop/src-tauri/target/release/bundle/*/*.AppImage
+            desktop/src-tauri/target/release/bundle/*/*.deb
+            desktop/src-tauri/target/release/bundle/*/*.rpm
+            desktop/src-tauri/target/release/bundle/*/*.exe
+            desktop/src-tauri/target/release/bundle/*/*.sig
           if-no-files-found: error
           retention-days: 14

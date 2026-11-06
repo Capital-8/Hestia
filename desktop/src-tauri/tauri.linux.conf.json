@@ -1,6 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "bundle": {
+    "shortDescription": "BIM para arquitetura residencial",
+    "longDescription": "Hestia é um editor BIM para arquitetura residencial: planta, corte e vista 3D do mesmo modelo, com exportação IFC e DXF.",
     "targets": [
       "appimage",
       "deb",
