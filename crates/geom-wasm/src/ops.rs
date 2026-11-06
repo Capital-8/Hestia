@@ -232,6 +232,13 @@ fn converter(formas: Formas, escala: f64) -> MultiPoligono {
     saida
 }
 
+/// Leva uma forma que veio de fora (sem passar por booleana) à grade da `escala` e a deixa em anéis simples: o mesmo caminho de saída
+/// de toda operação ([`preparar`] e [`converter`]), sem nenhuma região subtraída ou somada. Dois vértices a menos de uma célula da grade
+/// viram o mesmo ponto e o anel que tocaria a si mesmo é dividido, como na saída da união e da diferença.
+pub fn normalizar_na_grade(m: &MultiPoligono, escala: f64) -> Result<MultiPoligono, u32> {
+    Ok(converter(preparar(m, escala)?, escala))
+}
+
 /// Operação booleana em coordenadas quantizadas (µm) com escala fixa `1.0` e motor `i64`.
 fn aplicar(a: &Formas, b: &Formas, regra: OverlayRule) -> Result<Formas, u32> {
     a.overlay_with_fixed_scale_as::<i64>(b, regra, FillRule::NonZero, 1.0)

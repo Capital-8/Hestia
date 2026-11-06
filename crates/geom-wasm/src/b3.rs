@@ -11,7 +11,7 @@
 //! LRU, assinatura `r6`) não migram: cada consulta recalcula.
 //!
 //! Junção: as peças com `meta` (laje inclinada e membrana ficam de fora) entram em `resolveJunction`; a camada perde, em cada faixa de cota, a região comum com
-//! as que a vencem. `cut` = alguma camada perdeu volume (1e-9 m³); `region` = união das partes (só com `cut`). Peça externa só corta: não sai.
+//! as que a vencem. `cut` = alguma camada perdeu volume (mais que área × `Z_EPS`); `region` = união das partes (só com `cut`). Peça externa só corta: não sai.
 //!
 //! Escala: as booleanas usam 1 nm (`ESCALA_FINA`), como a B1, a B2 e o pintor. Não migram: `cutVolume`, `coveredFaceArea`, `slabCoversFloor` e
 //! `overlapVolume` (quantitativos, que precisam do `earcut` do TS para laje inclinada); a consulta devolve as partes de cada camada, de onde o volume sai.
@@ -27,7 +27,7 @@ use crate::cena::Cena;
 use crate::geo2d::arredonda_js;
 use crate::consultas::Saida;
 use crate::esquema::{ENTRADA, NIVEL_TODOS};
-use crate::ops::{diferenca_com_escala, uniao_com_escala, ESCALA_FINA};
+use crate::ops::{diferenca_com_escala, normalizar_na_grade, uniao_com_escala, ESCALA_FINA};
 use crate::pintor::area_da_forma;
 use crate::MultiPoligono;
 
@@ -35,8 +35,6 @@ use crate::MultiPoligono;
 const Z_EPS: f64 = 1e-6;
 /// Espessura (m) abaixo da qual a peça plana é descartada (`planarOf`: `z1 - z0 > 1e-9`).
 const ESPESSURA_MINIMA: f64 = 1e-9;
-/// Tolerância (m³) de `lostVolume`.
-const VOLUME_PERDIDO: f64 = 1e-9;
 
 /// Tipo do elemento (`JunctionKind`): o mesmo código de `cortadores` e `pecas` na saída.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -190,9 +188,9 @@ pub fn resolver_juncao(pecas: &[PecaPlana]) -> Result<Vec<Vec<Prisma>>, u32> {
                 t.poly.clone()
             } else {
                 let mut args: Vec<MultiPoligono> = Vec::with_capacity(ativas.len() + 1);
-                args.push(crate::b1::como_o_polygon_clipping(&t.poly)?);
+                args.push(crate::b1::como_o_polygon_clipping(&na_grade(&t.poly))?);
                 for a in ativas {
-                    args.push(crate::b1::como_o_polygon_clipping(a)?);
+                    args.push(crate::b1::como_o_polygon_clipping(&na_grade(a))?);
                 }
                 diferenca_com_escala(&args, ESCALA_FINA)?
             };
@@ -203,6 +201,12 @@ pub fn resolver_juncao(pecas: &[PecaPlana]) -> Result<Vec<Vec<Prisma>>, u32> {
         saida.push(partes);
     }
     Ok(saida)
+}
+
+/// Coordenadas na grade de `Z_EPS` (`Math.round(v / EPS_Z) * EPS_Z` do TS, `naGrade`): bordas que deveriam coincidir coincidem exatamente.
+fn na_grade(m: &MultiPoligono) -> MultiPoligono {
+    let g = |v: f64| arredonda_js(v / Z_EPS) * Z_EPS;
+    m.iter().map(|poli| poli.iter().map(|anel| anel.iter().map(|p| [g(p[0]), g(p[1])]).collect()).collect()).collect()
 }
 
 /// Faixa de cota de uma peça (`SolidPiece.span`).
@@ -410,6 +414,8 @@ fn pecas_das_faixas_juntadas(cena: &Cena, nivel: u32) -> Result<Vec<PecaSolida>,
                 poly.push(forma);
             }
         }
+        // A região vem do TypeScript em ponto flutuante: à grade e em anéis simples, como a saída de qualquer operação do Rust.
+        let poly = normalizar_na_grade(&poly, ESCALA_FINA)?;
         pecas.push(PecaSolida {
             poly,
             span: Span::Faixa { base_z: f.base_z, z0: f.z0, z1: f.z1, inclinacao: f.inclinacao },
@@ -520,9 +526,11 @@ fn volume_das_partes(partes: &[Prisma]) -> f64 {
     partes.iter().fold(0.0, |s, x| s + area_da_forma(&x.poly) * (x.z1 - x.z0))
 }
 
-/// `lostVolume`: a camada perdeu volume (tolerância 1e-9 m³).
+/// `lostVolume`: a camada perdeu volume. Só conta como perda o que passa da resolução da grade sobre a área da faixa
+/// (área × `Z_EPS`: uma camada de 1 µm); menos que isso é ruído de ponto flutuante, abaixo da resolução do próprio Rust.
 fn perdeu_volume(t: &PecaPlana, partes: &[Prisma]) -> bool {
-    (area_da_forma(&t.poly) * (t.z1 - t.z0) - volume_das_partes(partes)).abs() > VOLUME_PERDIDO
+    let area = area_da_forma(&t.poly);
+    (area * (t.z1 - t.z0) - volume_das_partes(partes)).abs() > area * Z_EPS
 }
 
 /// `junctionLevel`: a junção do nível a partir dos cortadores.
@@ -723,6 +731,15 @@ mod testes {
 
     fn volume(partes: &[Prisma]) -> f64 {
         volume_das_partes(partes)
+    }
+
+    #[test]
+    fn perda_de_volume_so_conta_acima_da_resolucao_da_grade() {
+        // faixa plana de 4 x 0,2 m (área 0,8 m²): o limiar é 0,8 x 1e-6 = 8e-7 m³
+        let t = peca(Tipo::Parede, 1.0, true, ret(0.0, 0.0, 4.0, 0.2), 0.0, 2.7, 1);
+        let com_perda = |perda: f64| vec![Prisma { poly: t.poly.clone(), z0: t.z0, z1: t.z1 - perda / 0.8 }];
+        assert!(!perdeu_volume(&t, &com_perda(1e-8)), "ruído de 1e-8 m³ está abaixo de área x Z_EPS: não é perda");
+        assert!(perdeu_volume(&t, &com_perda(1e-3)), "perda real de 1e-3 m³ continua sendo perda");
     }
 
     #[test]
@@ -1013,6 +1030,43 @@ mod testes {
         m.cena.remover(SECAO_FAIXAS_JUNCAO, &[1]).expect("remover faixa");
         m.cena.remover(SECAO_PONTOS_FAIXAS_JUNCAO, &[1, 2, 3, 4]).expect("remover pontos");
         assert_eq!(consulta(&mut m, 0.0), sem, "removidas as linhas, volta ao cálculo anterior");
+    }
+
+    /// Algum anel da saída repete vértice fora de sequência (critério do invariante I3 do teste de TS: repetições seguidas e o fechamento são aresta
+    /// de comprimento zero; fora isso, dois vértices no mesmo ponto a 1e-9 m).
+    fn algum_anel_toca_a_si_mesmo(s: &[Saida]) -> bool {
+        let (aneis, pts) = (u32s(&s[12]), f64s(&s[13]));
+        (0..aneis.len() / 2).any(|a| {
+            let (pi, pn) = (aneis[2 * a] as usize, aneis[2 * a + 1] as usize);
+            let mut c: Vec<[f64; 2]> = Vec::new();
+            for q in pi..pi + pn {
+                let p = [pts[2 * q], pts[2 * q + 1]];
+                if c.last().map_or(true, |u| (p[0] - u[0]).hypot(p[1] - u[1]) > 1e-12) {
+                    c.push(p);
+                }
+            }
+            while c.len() > 1 && (c[0][0] - c[c.len() - 1][0]).hypot(c[0][1] - c[c.len() - 1][1]) <= 1e-12 {
+                c.pop();
+            }
+            let mut chaves: Vec<(i64, i64)> = c.iter().map(|p| ((p[0] * 1e9).round() as i64, (p[1] * 1e9).round() as i64)).collect();
+            chaves.sort_unstable();
+            chaves.dedup();
+            chaves.len() != c.len()
+        })
+    }
+
+    #[test]
+    fn faixa_de_juncao_com_vertices_a_menos_de_1e_9_nao_sai_com_anel_que_toca_a_si_mesmo() {
+        // A faixa chega do TypeScript com dois vértices a 3e-10 m um do outro (o mesmo ponto na grade de 1e-9 m): o anel tocaria a si mesmo.
+        // Sem corte (faixa de 0 a 2 m, abaixo da laje) a parte sai da própria peça, sem passar por booleana, e com corte passa pela diferença.
+        for topo in [2.0, 2.8] {
+            let mut m = cena_de_dois_niveis();
+            let anel = vec![[2.9, -1.0], [2.9 + 3e-10, -1.0], [3.1, -1.0], [3.1, 5.0], [2.9, 5.0]];
+            com_faixas(&mut m, &[(0, 1, 0.0, topo, vec![vec![anel]])]);
+            let s = consulta(&mut m, 0.0);
+            assert!(!algum_anel_toca_a_si_mesmo(&s), "topo {topo}: anel que toca a si mesmo na saída");
+            assert!(volume_da_faixa(&s, 0) > 0.0, "topo {topo}: a faixa não pode sumir");
+        }
     }
 
     #[test]
