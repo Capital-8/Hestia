@@ -11,7 +11,7 @@ export type SecoesDaCena = Partial<Record<NomeSecao, { colunas: ColunasDeEntrada
 export function fonteDeSecoes(ler: () => SecoesDaCena): FonteDaCena {
   return (cena) => {
     const secoes = ler();
-    for (const nome of ['paredes', 'tipos_parede', 'camadas', 'faixas', 'paredes_quadro', 'paredes_z', 'tipos_abertura', 'aberturas', 'perfis_z', 'tipos_piso', 'tipos_laje', 'camadas_piso', 'camadas_laje', 'pisos', 'lajes', 'contornos_estaticos', 'contornos_vinculados', 'furos_nivel', 'niveis', 'paredes_z_juncao', 'perfis_z_juncao', 'faixas_juncao', 'pontos_faixas_juncao'] as const) {
+    for (const nome of ['paredes', 'tipos_parede', 'camadas', 'faixas', 'paredes_quadro', 'paredes_z', 'tipos_abertura', 'aberturas', 'perfis_z', 'tipos_piso', 'tipos_laje', 'camadas_piso', 'camadas_laje', 'pisos', 'lajes', 'contornos_estaticos', 'contornos_vinculados', 'furos_nivel', 'niveis', 'paredes_z_juncao', 'perfis_z_juncao', 'faixas_juncao', 'pontos_faixas_juncao', 'camadas_forro', 'pontos_forro'] as const) {
       const s = secoes[nome];
       if (s) cena.definirSecao(nome, s.colunas, s.n);
     }

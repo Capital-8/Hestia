@@ -1,7 +1,7 @@
 // ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v11.json.
 // Não edite à mão: mude o JSON e rode `node scripts/gerar-esquema-kernel.mjs`.
 
-export const ESQUEMA_VERSAO = 11;
+export const ESQUEMA_VERSAO = 12;
 export const ABI_VERSAO = 2;
 export const NIVEL_TODOS = 4294967295;
 
@@ -942,6 +942,66 @@ export const SECOES = {
         "tipo": "f64"
       }
     ]
+  },
+  "camadas_forro": {
+    "id": 24,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "forro_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "nivel_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "indice",
+        "tipo": "u32"
+      },
+      {
+        "nome": "espessura",
+        "tipo": "f64"
+      }
+    ]
+  },
+  "pontos_forro": {
+    "id": 25,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "forro_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "poligono",
+        "tipo": "u32"
+      },
+      {
+        "nome": "anel",
+        "tipo": "u32"
+      },
+      {
+        "nome": "indice",
+        "tipo": "u32"
+      },
+      {
+        "nome": "x",
+        "tipo": "f64"
+      },
+      {
+        "nome": "y",
+        "tipo": "f64"
+      }
+    ]
   }
 } as const;
 
@@ -1486,6 +1546,82 @@ export const CONSULTAS = {
         "nome": "pontos",
         "tipo": "f64",
         "elementos": "livre"
+      }
+    ]
+  },
+  "quant_paredes": {
+    "id": 13,
+    "args": [
+      "nivel_num",
+      "tol_juncao"
+    ],
+    "saidas": [
+      {
+        "nome": "linhas",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "valores",
+        "tipo": "f64",
+        "elementos": "5n"
+      }
+    ]
+  },
+  "quant_pisos": {
+    "id": 14,
+    "args": [
+      "nivel_num",
+      "tol_juncao"
+    ],
+    "saidas": [
+      {
+        "nome": "linhas",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "valores",
+        "tipo": "f64",
+        "elementos": "5n"
+      }
+    ]
+  },
+  "quant_lajes": {
+    "id": 15,
+    "args": [
+      "nivel_num",
+      "tol_juncao"
+    ],
+    "saidas": [
+      {
+        "nome": "linhas",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "valores",
+        "tipo": "f64",
+        "elementos": "5n"
+      }
+    ]
+  },
+  "quant_forros": {
+    "id": 16,
+    "args": [
+      "nivel_num",
+      "tol_juncao"
+    ],
+    "saidas": [
+      {
+        "nome": "linhas",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "valores",
+        "tipo": "f64",
+        "elementos": "5n"
       }
     ]
   }

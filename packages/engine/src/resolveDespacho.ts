@@ -4,6 +4,7 @@ import type { ResolvedFloor } from './floors.ts';
 import type { JunctionLevel } from './junctionLevel.ts';
 import type { ResolvedSlab } from './slabs.ts';
 import type { ResolvedLevel } from './types.ts';
+import type { QuantidadesRust, TipoQuant } from './quantidadesTipos.ts';
 
 /**
  * Despachante do kernel Rust (decisão 0047 §12, fatia A): quando instalado (`instalarDespachoKernel`, em `kernelDespacho.ts`), recebe o
@@ -45,3 +46,19 @@ export function definirDespachantesDaFatiaB(d: { pisos: DespachanteDePisos; laje
 export const despachanteDePisos = (): DespachanteDePisos | null => dePisos;
 export const despachanteDeLajes = (): DespachanteDeLajes | null => deLajes;
 export const despachanteDeJuncao = (): DespachanteDeJuncao | null => deJuncao;
+
+/**
+ * Despachante das quantidades (esquema v12): paredes, pisos, lajes e forros de um nível. Devolve as quantidades do Rust, ou `null` quando não há
+ * Rust no caminho (nenhum despachante instalado, fatia B desligada, wasm ainda não carregado ou modo sombra): aí vale o motor TypeScript, que
+ * sobrevive só como referência. Com a fatia ligada, uma falha do Rust lança `ErroDespachoKernel`; nunca devolve `null`.
+ */
+export type DespachanteDeQuantidades = (p: Project, levelId: Id, tipo: TipoQuant) => QuantidadesRust | null;
+
+let deQuantidades: DespachanteDeQuantidades | null = null;
+
+/** Instala (ou, com `null`, remove) o despachante das quantidades. */
+export function definirDespachanteDeQuantidades(d: DespachanteDeQuantidades | null): void {
+  deQuantidades = d;
+}
+
+export const despachanteDeQuantidades = (): DespachanteDeQuantidades | null => deQuantidades;

@@ -3,6 +3,8 @@ import { bandVolume } from './profile.ts';
 import { bandPiece, cutVolume, floorCutters, slabCutters } from './junctionNet.ts';
 import { profileHeightAt, profileMean, openingHeight, openingSill, openingType, openingsOfWall, wallLength, type Id, type Project } from '@hestia/model';
 import type { ResolvedLevel } from './types.ts';
+import { despachanteDeQuantidades } from './resolveDespacho.ts';
+import type { QuantidadesRust } from './quantidadesTipos.ts';
 
 export interface LayerQuantity {
   wallId: Id;
@@ -44,11 +46,19 @@ export interface Quantities {
  * (decisão 0023 §1, B): quem tem prioridade maior fica com a zona comum, inclusive laje ou piso de outro nível que alcance a parede.
  */
 export function quantifyLevel(p: Project, r: ResolvedLevel): Quantities {
+  return quantifyLevelCom(p, r, despachanteDeQuantidades()?.(p, r.levelId, 'paredes') ?? null);
+}
+
+/** O motor TypeScript das quantidades de parede, sem despacho: só a referência (oráculo) dos testes do Rust. */
+export const quantifyLevelTs = (p: Project, r: ResolvedLevel): Quantities => quantifyLevelCom(p, r, null);
+
+/** `rust`: as quantidades que o Rust calculou (volume bruto, líquido e altura); sem elas, o cálculo TypeScript. */
+function quantifyLevelCom(p: Project, r: ResolvedLevel, rust: QuantidadesRust | null): Quantities {
   const layers: LayerQuantity[] = [];
   const walls: WallQuantity[] = [];
   const volumeByMaterial: Record<Id, number> = {};
   const faceAreaByMaterial: Record<Id, number> = {};
-  const cutters = [...floorCutters(p, r.levelId), ...slabCutters(p, r.levelId)];
+  const cutters = rust ? [] : [...floorCutters(p, r.levelId), ...slabCutters(p, r.levelId)];
   for (const rw of Object.values(r.walls)) {
     const w = p.elements[rw.wallId];
     if (!w || w.kind !== 'wall') continue;
@@ -56,23 +66,25 @@ export function quantifyLevel(p: Project, r: ResolvedLevel): Quantities {
     // Altura resolvida (com a base e o topo anexados a piso); sem anexos é a altura do modelo. Com base por trecho
     // (decisão 0023 §6, P9), a altura média é o topo médio menos a base média.
     const comprimento = wallLength(w);
-    const H0 = profiled ? profileMean(profiled, comprimento) : rw.height;
-    const H = rw.profileBottom ? (rw.profileTop ? profileMean(rw.profileTop, comprimento) : H0) - profileMean(rw.profileBottom, comprimento) : H0;
+    const H0 = rust ? 0 : profiled ? profileMean(profiled, comprimento) : rw.height;
+    const H = rust ? rust.altura(rw.wallId) : rw.profileBottom ? (rw.profileTop ? profileMean(rw.profileTop, comprimento) : H0) - profileMean(rw.profileBottom, comprimento) : H0;
     let total = 0;
     let grossTotal = 0;
     for (const l of rw.layers) {
-      const grossVol = l.bands.reduce((s, b) => s + bandVolume(b), 0);
+      const q = rust?.camada(rw.wallId, l.layerIndex);
+      const grossVol = q ? q.bruto : l.bands.reduce((s, b) => s + bandVolume(b), 0);
       // Líquido da camada: o corte soma por faixa, e o zero (sem volume negativo) vale uma vez por camada. Com o clamp por faixa,
       // a partição em faixas (que muda entre motores) alterava o resultado: uma faixa fina com corte maior que o bruto criava volume.
-      const cortado = l.bands.reduce((s, b) => s + cutVolume(bandPiece(rw, b, { priority: l.priority, core: l.core }), 'wall', cutters), 0);
-      const vol = Math.max(0, grossVol - cortado);
+      const cortado = q ? q.cortado : l.bands.reduce((s, b) => s + cutVolume(bandPiece(rw, b, { priority: l.priority, core: l.core }), 'wall', cutters), 0);
+      const vol = q ? q.liquido : Math.max(0, grossVol - cortado);
       total += vol;
       grossTotal += grossVol;
       layers.push({ wallId: rw.wallId, layerIndex: l.layerIndex, materialId: l.materialId, planArea: multiArea(l.cut), volume: vol, grossVolume: grossVol });
       volumeByMaterial[l.materialId] = (volumeByMaterial[l.materialId] ?? 0) + vol;
       const wt = p.wallTypes[w.typeId];
       const thick = (l.layerIndex >= 0 ? wt?.layers[l.layerIndex]?.thickness : wt?.strips[-l.layerIndex - 1]?.thickness) ?? 0;
-      if (thick > 0) faceAreaByMaterial[l.materialId] = (faceAreaByMaterial[l.materialId] ?? 0) + vol / thick;
+      // Com o Rust, a área de face é a dele (volume líquido ÷ espessura da camada).
+      if (thick > 0) faceAreaByMaterial[l.materialId] = (faceAreaByMaterial[l.materialId] ?? 0) + (q ? q.areaDeFace : vol / thick);
     }
     for (const m of rw.membranes) {
       const len = Math.hypot(m.pts[1]!.x - m.pts[0]!.x, m.pts[1]!.y - m.pts[0]!.y);

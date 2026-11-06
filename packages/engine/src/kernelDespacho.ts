@@ -32,7 +32,8 @@ import { montarCenaA3, type OpcoesA3c } from './kernelA3.ts';
 import { argumentosA3d, codificarA3d, decodificarA3d, montarPerfisA3d, resolvidoDeA3d, type ResolvidoA3d } from './kernelA3d.ts';
 import { compararA3d } from './kernelComparaA3d.ts';
 import type { PlanResolveOptions } from './resolve.ts';
-import { definirDespachanteDeNivel, definirDespachantesDaFatiaB } from './resolveDespacho.ts';
+import { definirDespachanteDeNivel, definirDespachanteDeQuantidades, definirDespachantesDaFatiaB } from './resolveDespacho.ts';
+import type { QuantidadesRust, TipoQuant } from './quantidadesTipos.ts';
 import type { ResolvedLevel } from './types.ts';
 
 /** Quantas divergências o registro circular guarda. */
@@ -155,6 +156,11 @@ export class DespachoKernel {
   /** O despachante de `junctionLevel` (fatia B): só o modo sombra consulta a B3. */
   resolverJuncao(p: Project, levelId: Id, ts: () => JunctionLevel): JunctionLevel {
     return this.b.resolverJuncao(p, levelId, ts);
+  }
+
+  /** O despachante das quantidades (fatia B, esquema v12). */
+  quantificar(p: Project, levelId: Id, tipo: TipoQuant): QuantidadesRust | null {
+    return this.b.quantificar(p, levelId, tipo);
   }
 
   /** O despachante de `resolveLevel`. */
@@ -337,6 +343,7 @@ export function instalarDespachoKernel(opcoes: OpcoesDespacho): DespachoKernel {
     lajes: (p, levelId, ts) => d.resolverLajes(p, levelId, ts),
     juncao: (p, levelId, ts) => d.resolverJuncao(p, levelId, ts),
   });
+  definirDespachanteDeQuantidades((p, levelId, tipo) => d.quantificar(p, levelId, tipo));
   return d;
 }
 
@@ -346,6 +353,7 @@ export function removerDespachoKernel(): void {
   despacho = null;
   definirDespachanteDeNivel(null);
   definirDespachantesDaFatiaB(null);
+  definirDespachanteDeQuantidades(null);
   configAtual = CONFIG_PADRAO;
   gerenciadorAtual = null;
   motivoIndisponivel = null;

@@ -1,6 +1,8 @@
 import { dist, multiArea, type Vec2 } from '@hestia/geom';
 import type { Id, Project } from '@hestia/model';
 import { resolveFloors, type ResolvedFloor } from './floors.ts';
+import { despachanteDeQuantidades } from './resolveDespacho.ts';
+import type { QuantidadesRust } from './quantidadesTipos.ts';
 import { coveredFaceArea, cutVolume, floorCutters, floorLayerPiece, slabCoversFloor, slabCutters, wallCutters, type CutterSolid } from './junctionNet.ts';
 
 /** Uma camada de um piso. A área é a da face superior da camada, líquida: sem o que a laje ocupa (decisão 0023 §4). */
@@ -56,13 +58,16 @@ export interface FloorQuantities {
 /** Comprimento de um anel fechado (o último ponto liga-se ao primeiro). */
 const ringLength = (r: Vec2[]): number => r.reduce((s, p, i) => s + dist(p, r[(i + 1) % r.length]!), 0);
 
-function quantifyFloor(rf: ResolvedFloor, cutters: CutterSolid[], slabs: readonly CutterSolid[]): { floor: FloorQuantity; layers: FloorLayerQuantity[] } {
+function quantifyFloor(rf: ResolvedFloor, cutters: CutterSolid[], slabs: readonly CutterSolid[], rust: QuantidadesRust | null): { floor: FloorQuantity; layers: FloorLayerQuantity[] } {
   const area = multiArea(rf.polygon);
   // Laje que cobre o piso inteiro no mesmo nível: o piso é a mesma construção (acabamento embutido na laje), não uma
   // junta. Descontá-la apagaria o piso; a duplicidade fica para os avisos de sobreposição.
-  const skip = new Set(slabs.filter((c) => slabCoversFloor(c, rf)));
+  const skip = new Set(rust ? [] : slabs.filter((c) => slabCoversFloor(c, rf)));
   const layers = rf.layers.map<FloorLayerQuantity>((l) => {
     const thickness = l.z1 - l.z0;
+    // Com o Rust, volume bruto, líquido e área de face são os dele (nada de geometria aqui).
+    const q = rust?.camada(rf.floorId, l.layerIndex);
+    if (q) return { floorId: rf.floorId, layerIndex: l.layerIndex, materialId: l.materialId, thickness, area: q.areaDeFace, volume: q.liquido, grossVolume: q.bruto, membrane: l.membrane };
     const piece = floorLayerPiece(rf, l);
     // Área da própria camada (P8): pode ir ao núcleo da parede ou recuar à face. Só o volume que a laje ocupa sai do piso
     // (padrão por tipo, §1.3). A membrana não tem volume a descontar.
@@ -108,14 +113,21 @@ function quantifyFloor(rf: ResolvedFloor, cutters: CutterSolid[], slabs: readonl
  * aponta).
  */
 export function quantifyFloors(p: Project, levelId: Id): FloorQuantities {
+  return quantifyFloorsCom(p, levelId, despachanteDeQuantidades()?.(p, levelId, 'pisos') ?? null);
+}
+
+/** O motor TypeScript das quantidades de piso, sem despacho: só a referência (oráculo) dos testes do Rust. */
+export const quantifyFloorsTs = (p: Project, levelId: Id): FloorQuantities => quantifyFloorsCom(p, levelId, null);
+
+function quantifyFloorsCom(p: Project, levelId: Id, rust: QuantidadesRust | null): FloorQuantities {
   const floors: FloorQuantity[] = [];
   const layers: FloorLayerQuantity[] = [];
   const volumeByMaterial: Record<Id, number> = {};
   const faceAreaByMaterial: Record<Id, number> = {};
-  const slabs = slabCutters(p, levelId);
-  const cutters = [...slabs, ...floorCutters(p, levelId), ...wallCutters(p, levelId)];
+  const slabs = rust ? [] : slabCutters(p, levelId);
+  const cutters = rust ? [] : [...slabs, ...floorCutters(p, levelId), ...wallCutters(p, levelId)];
   for (const rf of resolveFloors(p, levelId)) {
-    const q = quantifyFloor(rf, cutters, slabs);
+    const q = quantifyFloor(rf, cutters, slabs, rust);
     floors.push(q.floor);
     for (const l of q.layers) {
       layers.push(l);

@@ -3,7 +3,7 @@
  * Rust é cache. Por isso cada cena guarda uma "fonte da cena" (função que reenvia tudo) e o gerenciador a usa
  * para reconstruir a cena depois de recriar a instância.
  *
- * - Falha leve: lança `ErroKernelLeve`; o chamador refaz aquela operação em TypeScript e o kernel segue ligado.
+ * - Falha leve: lança `ErroKernelLeve`; o despacho das fatias A e B a transforma em erro explícito (sem TypeScript no lugar) e o kernel segue ligado.
  * - Falha grave (código grave ou trap): o gerenciador recria a instância, reenvia a cena e a chamada é
  *   repetida uma vez. Só chega ao chamador como `ErroKernelGrave` se isso também falhar ou se desligou.
  */

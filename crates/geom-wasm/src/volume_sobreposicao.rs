@@ -174,7 +174,7 @@ pub fn volume_exato_afim(common: &MultiPoligono, a: &dyn Fn(V) -> [f64; 2], b: &
 
 /// Recorta cada anel do multipolígono pelos semiplanos dados (Sutherland–Hodgman). A área orientada é preservada, então
 /// um furo recortado continua subtraindo a parte dele que cai dentro. Anel externo com menos de 3 vértices tira o polígono.
-fn recortar_multi(m: &MultiPoligono, cortes: &[(Afim, i8)]) -> MultiPoligono {
+pub(crate) fn recortar_multi(m: &MultiPoligono, cortes: &[(Afim, i8)]) -> MultiPoligono {
     let mut saida: MultiPoligono = Vec::new();
     for poli in m {
         let mut aneis: Vec<Vec<[f64; 2]>> = Vec::new();

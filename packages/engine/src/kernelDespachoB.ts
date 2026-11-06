@@ -23,6 +23,8 @@ import { levelCutterSet } from './junctionNet.ts';
 import { compararB1 } from './kernelComparaB.ts';
 import { compararB3 } from './kernelComparaB3.ts';
 import type { OutlineProblem } from './outlineBound.ts';
+import { indexarQuantidades, montarCenaForros, quantidadesNivelRust, type CenaForros } from './kernelQuantidades.ts';
+import type { QuantidadesRust, TipoQuant } from './quantidadesTipos.ts';
 
 type Secoes = ReturnType<Parameters<typeof fonteDeSecoes>[0]>;
 
@@ -39,6 +41,8 @@ export interface EntradaB {
   a3: CenaA3;
   b: CenaB1;
   b3: CenaB3 | null;
+  /** Forros de todos os níveis (esquema v12), só quando as quantidades de forro foram pedidas. */
+  forros: CenaForros | null;
   /** O projeto cujas seções estão no Rust; `null` quando o envio falhou no meio (a próxima chamada reenvia tudo). */
   projeto: Project | null;
 }
@@ -55,7 +59,7 @@ function verificarCobertura(p: Project, a1: CenaA1, a3: CenaA3): void {
   for (const el of Object.values(p.elements)) if (isWall(el) && !a1.idDe.has(el.id)) throw new NaoCobertoB(`parede ${el.id} sem tipo ou nível: a consulta não a cobre`);
 }
 
-function secoesDe(a1: CenaA1, a3: CenaA3, perfis: ReturnType<typeof montarPerfisA3d>, b: CenaB1, b3: CenaB3 | null): Secoes {
+function secoesDe(a1: CenaA1, a3: CenaA3, perfis: ReturnType<typeof montarPerfisA3d>, b: CenaB1, b3: CenaB3 | null, forros: CenaForros | null): Secoes {
   const s = a1.secoes;
   const n = a1.nLinhas;
   const sb = b.secoes;
@@ -88,6 +92,12 @@ function secoesDe(a1: CenaA1, a3: CenaA3, perfis: ReturnType<typeof montarPerfis
           pontos_faixas_juncao: { colunas: b3.secoes.pontos_faixas_juncao, n: b3.nLinhas.pontos_faixas_juncao },
         }
       : {}),
+    ...(forros
+      ? {
+          camadas_forro: { colunas: forros.secoes.camadas_forro, n: forros.nLinhas.camadas_forro },
+          pontos_forro: { colunas: forros.secoes.pontos_forro, n: forros.nLinhas.pontos_forro },
+        }
+      : {}),
   };
 }
 
@@ -95,26 +105,27 @@ function secoesDe(a1: CenaA1, a3: CenaA3, perfis: ReturnType<typeof montarPerfis
  * Garante que a cena do Rust tem as seções do projeto `p` (envio completo quando o projeto mudou: a edição invalida o que depende dela). Com
  * `comJuncao`, as seções da B3 também; uma cena que as tinha as mantém. Lança `NaoCobertoB` (nada foi enviado) se a cena não cobre o projeto.
  */
-export function sincronizarB(atual: EntradaB | null, p: Project, ger: GerenciadorKernelV2, comJuncao: boolean): EntradaB {
+export function sincronizarB(atual: EntradaB | null, p: Project, ger: GerenciadorKernelV2, comJuncao: boolean, comForros = false): EntradaB {
   let e = atual;
   if (e && e.ger !== ger) {
     e.cena?.destruir();
     e = null;
   }
-  if (e && e.projeto === p && e.cena && (e.b3 !== null || !comJuncao)) return e;
+  if (e && e.projeto === p && e.cena && (e.b3 !== null || !comJuncao) && (e.forros !== null || !comForros)) return e;
   const a1 = montarCenaA1(p, true);
   const a3 = montarCenaA3(p, a1);
   verificarCobertura(p, a1, a3);
   const perfis = montarPerfisA3d(p, a1, true);
   const b = montarCenaB1(p, a1.materialDe);
   const b3 = comJuncao || e?.b3 ? montarCenaB3(p, a1) : null;
-  const secoes = secoesDe(a1, a3, perfis, b, b3);
+  const forros = comForros || e?.forros ? montarCenaForros(p, b.nivelDe) : null;
+  const secoes = secoesDe(a1, a3, perfis, b, b3, forros);
   if (!e) {
-    const nova: EntradaB = { ger, cena: null, fonte: fonteDeSecoes(() => nova.secoes), secoes, a1, a3, b, b3, projeto: null };
+    const nova: EntradaB = { ger, cena: null, fonte: fonteDeSecoes(() => nova.secoes), secoes, a1, a3, b, b3, forros, projeto: null };
     e = nova;
   }
   e.projeto = null;
-  Object.assign(e, { secoes, a1, a3, b, b3 });
+  Object.assign(e, { secoes, a1, a3, b, b3, forros });
   if (e.cena) e.fonte(e.cena);
   else e.cena = CenaV2.criar(ger, e.fonte);
   e.projeto = p;
@@ -294,7 +305,44 @@ export class DespachoB {
   }
 
   /**
-   * O despachante de `junctionLevel`. Com a fatia B ligada, a junção vem do Rust (convertida para o formato do TS); o modo
+   * O despachante das quantidades (esquema v12). `null`: sem Rust no caminho (wasm ainda não carregado, fatia B desligada ou modo sombra), e quem chama
+   * usa o motor TypeScript. Com a fatia ligada, o resultado é o do Rust ou `ErroDespachoKernel`; nunca o TypeScript.
+   */
+  quantificar(p: Project, levelId: Id, tipo: TipoQuant): QuantidadesRust | null {
+    const ger = this.gerenciador();
+    if (!ger || this.ctx.sombra()) return null;
+    return this.exigir(this.quantidadesDoRust(p, levelId, tipo, ger), p, levelId, `q${tipo}`);
+  }
+
+  private readonly memoQuantidades = new WeakMap<Project, Map<string, QuantidadesRust>>();
+
+  private quantidadesDoRust(p: Project, levelId: Id, tipo: TipoQuant, ger: GerenciadorKernelV2): QuantidadesRust | null {
+    const chave = `${tipo}|${levelId}`;
+    const guardado = this.memoQuantidades.get(p)?.get(chave);
+    if (guardado) return guardado;
+    const r = this.consultarB(
+      p,
+      ger,
+      true,
+      (e) => {
+        const [nivel, tol] = argumentosDaFatiaB(p, levelId, e.b) as [number, number];
+        const numeroDe = tipo === 'paredes' ? e.a1.idDe : tipo === 'pisos' ? e.b.pisoDe : tipo === 'lajes' ? e.b.lajeDe : e.forros!.forroDe;
+        return indexarQuantidades(quantidadesNivelRust(e.cena!, nivel, tol, tipo), numeroDe, tipo);
+      },
+      tipo === 'forros',
+    );
+    if (!r) {
+      if (!this.falhas.get(p)?.has(`q${tipo}|${levelId}`)) this.guardarFalha(p, `q${tipo}|${levelId}`);
+      return null;
+    }
+    let por = this.memoQuantidades.get(p);
+    if (!por) this.memoQuantidades.set(p, (por = new Map()));
+    por.set(chave, r);
+    this.ctx.contar('entreguesB');
+    return r;
+  }
+
+  /** O despachante de `junctionLevel`. Com a fatia B ligada, a junção vem do Rust (convertida para o formato do TS); o modo
    * sombra compara as duas. Qualquer falha do Rust (sem cena, conversão com erro) lança `ErroDespachoKernel`; o TypeScript só é devolvido no modo sombra.
    */
   resolverJuncao(p: Project, levelId: Id, ts: () => JunctionLevel): JunctionLevel {
@@ -305,7 +353,7 @@ export class DespachoB {
   }
 
   /** Fora do modo sombra o resultado é o do Rust ou o erro explícito: nunca o TypeScript. */
-  private exigir<T>(r: T | null, p: Project, levelId: Id, chave: 'pl' | 'j'): T {
+  private exigir<T>(r: T | null, p: Project, levelId: Id, chave: string): T {
     if (r) return r;
     const msg = this.falhas.get(p)?.get(`${chave}|${levelId}`) ?? 'o Rust não devolveu resultado';
     throw new ErroDespachoKernel('B', levelId, msg);
@@ -378,7 +426,7 @@ export class DespachoB {
     return convertido;
   }
 
-  /** Conversão para os tipos do TS: se a saída do Rust não casa com o projeto (id desconhecido), a chamada volta ao TS. */
+  /** Conversão para os tipos do TS: se a saída do Rust não casa com o projeto (id desconhecido), a chamada falha com erro explícito (fora da sombra). */
   private converter<T>(f: () => T): T | null {
     try {
       return f();
@@ -417,7 +465,7 @@ export class DespachoB {
   }
 
   /** Sincroniza a cena da B com o projeto e roda a consulta. `null`: falhou (já contado) e a chamada volta ao TS. */
-  private consultarB<T>(p: Project, ger: GerenciadorKernelV2, comJuncao: boolean, consulta: (e: EntradaB) => T): T | null {
+  private consultarB<T>(p: Project, ger: GerenciadorKernelV2, comJuncao: boolean, consulta: (e: EntradaB) => T, comForros = false): T | null {
     if (this.semCoberturaB.has(p)) {
       this.ultimaMsg = this.motivoSemCobertura.get(p) ?? 'projeto fora da cobertura da fatia B';
       return null;
@@ -425,7 +473,7 @@ export class DespachoB {
     let fase: 'envio' | 'consulta' = 'envio';
     this.montandoB = true;
     try {
-      const e = sincronizarB(this.cenaB, p, ger, comJuncao);
+      const e = sincronizarB(this.cenaB, p, ger, comJuncao, comForros);
       this.cenaB = e;
       fase = 'consulta';
       return consulta(e);

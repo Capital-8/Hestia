@@ -1,8 +1,8 @@
 /**
  * Erros do kernel v2 (decisão 0046 §2.3).
  *
- * - `ErroKernelLeve`: só aquela chamada falhou (`ENTRADA`, `NAO_IMPLEMENTADO`, `LIMITE`). O chamador refaz a
- *   operação em TypeScript; o kernel continua ligado.
+ * - `ErroKernelLeve`: só aquela chamada falhou (`ENTRADA`, `NAO_IMPLEMENTADO`, `LIMITE`). O despacho das fatias A e B a transforma em ErroDespachoKernel (sem
+ *   TypeScript no lugar); o kernel continua ligado.
  * - `ErroKernelGrave`: a instância não é confiável (`VERSAO`, `HANDLE`, `INTERNO`, trap). O gerenciador já
  *   tratou (recriou e repetiu); só chega ao chamador quando o kernel desligou.
  */

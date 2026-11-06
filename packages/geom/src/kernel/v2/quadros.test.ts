@@ -23,8 +23,8 @@ const secoes = (): SecoesDaCena => ({
 
 describe('esquema v11 (A1, A2, A3a, A3b, A3c, A3d, B1, B2 e B3) no lado TypeScript', () => {
   it('versão 11, seções novas e as consultas quadros_e_juncoes, itens_pintados, aberturas_geom, retornos_geom, cluster_resolvido, resolver_nivel, pisos_lajes_nivel, pisos_lajes_com_paredes e junction_nivel no esquema', () => {
-    expect(ESQUEMA_VERSAO).toBe(11);
-    expect(Object.keys(SECOES)).toEqual(['paredes', 'paredes_quadro', 'tipos_parede', 'camadas', 'faixas', 'paredes_z', 'tipos_abertura', 'aberturas', 'perfis_z', 'pisos', 'lajes', 'tipos_piso', 'tipos_laje', 'camadas_piso', 'camadas_laje', 'contornos_estaticos', 'contornos_vinculados', 'furos_nivel', 'niveis', 'paredes_z_juncao', 'perfis_z_juncao', 'faixas_juncao', 'pontos_faixas_juncao']);
+    expect(ESQUEMA_VERSAO).toBe(12);
+    expect(Object.keys(SECOES)).toEqual(['paredes', 'paredes_quadro', 'tipos_parede', 'camadas', 'faixas', 'paredes_z', 'tipos_abertura', 'aberturas', 'perfis_z', 'pisos', 'lajes', 'tipos_piso', 'tipos_laje', 'camadas_piso', 'camadas_laje', 'contornos_estaticos', 'contornos_vinculados', 'furos_nivel', 'niveis', 'paredes_z_juncao', 'perfis_z_juncao', 'faixas_juncao', 'pontos_faixas_juncao', 'camadas_forro', 'pontos_forro']);
     expect(CONSULTAS.pisos_lajes_nivel.id).toBe(10);
     expect([...CONSULTAS.pisos_lajes_nivel.args]).toEqual(['nivel_num']);
     expect(CONSULTAS.pisos_lajes_nivel.saidas.map((s) => s.nome)).toEqual(['elementos', 'elementos_num', 'camadas', 'camadas_num', 'poligonos', 'aneis', 'pontos']);
@@ -38,6 +38,8 @@ describe('esquema v11 (A1, A2, A3a, A3b, A3c, A3d, B1, B2 e B3) no lado TypeScri
     expect(SECOES.perfis_z_juncao.id).toBe(21);
     expect(SECOES.faixas_juncao.id).toBe(22);
     expect(SECOES.pontos_faixas_juncao.id).toBe(23);
+    expect(SECOES.camadas_forro.id).toBe(24);
+    expect(SECOES.pontos_forro.id).toBe(25);
     expect(CONSULTAS.quadros_e_juncoes.id).toBe(4);
     expect([...CONSULTAS.quadros_e_juncoes.args]).toEqual(['nivel_num', 'tol_juncao']);
     expect(CONSULTAS.quadros_e_juncoes.saidas.map((s) => s.nome)).toEqual([

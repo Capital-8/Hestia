@@ -23,10 +23,11 @@ use crate::b3::{conjunto_de_cortadores, faixa_da_peca, peca_da_camada, vence, Co
 use crate::cena::Cena;
 use crate::consultas::Saida;
 use crate::esquema::{ENTRADA, NIVEL_TODOS};
-use crate::ops::{interseccao, uniao};
+use crate::ops::{interseccao, interseccao_com_escala, uniao, uniao_com_escala, ESCALA_FINA};
 use crate::perfil_quant::{perfil_media, volume_faixa, Inclinacao as InclinacaoDoVolume};
 use crate::pintor::area_da_forma;
-use crate::volume_sobreposicao::overlap_volume;
+use crate::geo2d::V;
+use crate::volume_sobreposicao::{ajustar_afim, overlap_volume, recortar_multi, Afim};
 use crate::MultiPoligono;
 
 /// Tolerância (m²) para considerar que um cortador cobre a forma inteira em planta (`AREA_EPS`).
@@ -92,9 +93,13 @@ pub fn volume_cortado(peca: &PecaSolida, tipo: Tipo, cortadores: &[&Cortador], p
     Ok(corte)
 }
 
-/// `coveredFaceArea`: área (m²) de uma face de espessura zero que está dentro da faixa de cota de um cortador.
+/// `coveredFaceArea`: área (m²) de uma face de espessura zero que está dentro da faixa de cota de um cortador. O TypeScript avaliava a cota no primeiro
+/// vértice da interseção (uma amostra só); com cortador inclinado isso dependia de qual vértice vinha primeiro. Aqui a condição vale em cada ponto:
+/// a região da interseção em que `z_base >= base_do_cortador - Z_EPS` e `z_topo <= topo_do_cortador + Z_EPS`, recortada exatamente pelas retas onde as alturas
+/// afins se igualam. A área é a da UNIÃO das regiões cobertas (o TypeScript somava a interseção inteira de cada cortador, contando em dobro onde eles se sobrepõem). Altura que não seja afim na interseção (perfil por trechos) é `ENTRADA`: nunca se aproxima.
 pub fn area_coberta(peca: &PecaSolida, tipo: Tipo, cortadores: &[&Cortador], pular: &BTreeSet<usize>) -> Result<f64, u32> {
-    let mut area = 0.0;
+    // Regiões cobertas por cada peça cortadora; a face some onde QUALQUER uma cobre, então a área é a da união (cortadores que se sobrepõem não contam duas vezes).
+    let mut cobertas: Vec<MultiPoligono> = Vec::new();
     for (i, c) in cortadores.iter().enumerate() {
         if pular.contains(&i) {
             continue;
@@ -104,15 +109,34 @@ pub fn area_coberta(peca: &PecaSolida, tipo: Tipo, cortadores: &[&Cortador], pul
                 continue;
             }
             let comum = interseccao(&peca.poly, &cp.poly)?;
-            let Some(primeiro) = comum.first().and_then(|p| p.first()).and_then(|a| a.first()).copied() else { continue };
-            let (z, z_topo) = peca.span.em(primeiro);
-            let (c0, c1) = cp.span.em(primeiro);
-            if z >= c0 - Z_EPS && z_topo <= c1 + Z_EPS {
-                area += area_da_forma(&comum);
+            if comum.is_empty() {
+                continue;
+            }
+            let altura = |s: &Span, k: usize| {
+                let s = s.clone();
+                move |q: V| {
+                    let (a, b) = s.em([q.x, q.y]);
+                    if k == 0 {
+                        a
+                    } else {
+                        b
+                    }
+                }
+            };
+            let (p0, p1) = (altura(&peca.span, 0), altura(&peca.span, 1));
+            let (c0, c1) = (altura(&cp.span, 0), altura(&cp.span, 1));
+            let (Some(p0), Some(p1), Some(c0), Some(c1)) = (ajustar_afim(&p0, &comum), ajustar_afim(&p1, &comum), ajustar_afim(&c0, &comum), ajustar_afim(&c1, &comum)) else {
+                return Err(ENTRADA);
+            };
+            let base = Afim { gx: p0.gx - c0.gx, gy: p0.gy - c0.gy, gc: p0.gc - c0.gc + Z_EPS };
+            let topo = Afim { gx: c1.gx - p1.gx, gy: c1.gy - p1.gy, gc: c1.gc - p1.gc + Z_EPS };
+            let coberta = recortar_multi(&comum, &[(base, 1), (topo, 1)]);
+            if !coberta.is_empty() {
+                cobertas.push(coberta);
             }
         }
     }
-    Ok(area)
+    Ok(if cobertas.is_empty() { 0.0 } else { area_da_forma(&uniao(&cobertas)?) })
 }
 
 /// `slabCoversFloor`: a laje é plana, do próprio nível, tem a mesma face superior do piso, contém a faixa de cota dele e cobre todas as camadas em planta.
@@ -132,10 +156,11 @@ pub(crate) fn laje_cobre_piso(c: &Cortador, piso: &ElementoResolvido) -> Result<
     if (z1 - piso.topo_z).abs() > Z_EPS || z0 > piso.base_z + Z_EPS {
         return Ok(false);
     }
-    // `cutterPlan`: união em planta das camadas do cortador.
-    let planta = uniao(&c.pecas.iter().map(|p| p.poly.clone()).collect::<Vec<_>>())?;
+    // `cutterPlan`: união em planta das camadas do cortador. A comparação de áreas usa 1e-6 m² (AREA_EPS): na grade de 1 µm o recorte de um contorno
+    // de dezenas de metros já desloca a área mais que isso, então aqui a grade é a de 1 nm (como o pintor).
+    let planta = uniao_com_escala(&c.pecas.iter().map(|p| p.poly.clone()).collect::<Vec<_>>(), ESCALA_FINA)?;
     for l in &piso.camadas {
-        let comum = interseccao(&planta, &l.poligono)?;
+        let comum = interseccao_com_escala(&planta, &l.poligono, ESCALA_FINA)?;
         if (area_da_forma(&comum) - area_da_forma(&l.poligono)).abs() > AREA_EPS {
             return Ok(false);
         }
@@ -421,6 +446,138 @@ mod testes {
         assert_eq!(lajes.len(), 1);
         assert!((lajes[0].bruto - 24.0 * 0.15).abs() < 1e-9);
         assert!((lajes[0].area_de_face - 24.0 * lajes[0].liquido / lajes[0].bruto).abs() < 1e-9, "sem inclinação a face é a planta líquida");
+    }
+
+
+    fn peca_de(tipo: Tipo, dono: u32, poly: MultiPoligono, span: Span, plana: bool) -> PecaSolida {
+        PecaSolida {
+            poly,
+            span,
+            plana,
+            meta: Some(MetaDaPeca { juncao: MetaDeJuncao { tipo, prioridade: 1.0, nucleo: true, explicita: false }, dono: (tipo, dono), camada: 0, banda: None }),
+            externa: false,
+        }
+    }
+
+    #[test]
+    fn membrana_sob_laje_inclinada_cobre_exatamente_a_faixa_onde_a_cota_cabe() {
+        // laje inclinada (25 % em x) com faixa de 0 a 0,4 m acima da subida; membrana a 0,5 m sobre 3 x 1 m.
+        // Coberta onde 0,25 x <= 0,5 e 0,5 <= 0,4 + 0,25 x: x entre 0,4 e 2 -> 1,6 m2 (mais a folga de Z_EPS), qualquer que seja o vértice por onde a interseção comece.
+        let retangulo = vec![vec![vec![[0.0, 0.0], [3.0, 0.0], [3.0, 1.0], [0.0, 1.0]]]];
+        let laje = Cortador { tipo: Tipo::Laje, pecas: vec![peca_de(Tipo::Laje, 1, retangulo.clone(), Span::Laje { z0: 0.0, z1: 0.4, origem: [0.0, 0.0], direcao: [1.0, 0.0], percentual: 25.0 }, false)] };
+        let membrana = peca_de(Tipo::Piso, 2, retangulo.clone(), Span::Constante { z0: 0.5, z1: 0.5 }, true);
+        let area = area_coberta(&membrana, Tipo::Piso, &[&laje], &BTreeSet::new()).expect("area_coberta");
+        assert!((area - 1.6).abs() < 2e-5, "área coberta {area}");
+        // a mesma conta com o anel girado (outro vértice inicial) dá o mesmo resultado
+        let girado = vec![vec![vec![[3.0, 1.0], [0.0, 1.0], [0.0, 0.0], [3.0, 0.0]]]];
+        let membrana2 = peca_de(Tipo::Piso, 2, girado, Span::Constante { z0: 0.5, z1: 0.5 }, true);
+        let area2 = area_coberta(&membrana2, Tipo::Piso, &[&laje], &BTreeSet::new()).expect("area_coberta");
+        assert!((area2 - area).abs() < 1e-9, "{area2} x {area}");
+        // laje plana que contém a cota cobre tudo; que não contém, nada
+        let plana = |z0, z1| Cortador { tipo: Tipo::Laje, pecas: vec![peca_de(Tipo::Laje, 1, retangulo.clone(), Span::Constante { z0, z1 }, true)] };
+        assert!((area_coberta(&membrana, Tipo::Piso, &[&plana(0.3, 0.5)], &BTreeSet::new()).unwrap() - 3.0).abs() < 1e-9);
+        assert_eq!(area_coberta(&membrana, Tipo::Piso, &[&plana(0.0, 0.4)], &BTreeSet::new()).unwrap(), 0.0);
+    }
+
+    #[test]
+    fn corte_maior_que_o_bruto_zera_o_liquido_uma_vez_e_nao_cria_volume() {
+        // peça de parede de 1 x 1 x 1 m dentro de uma laje de 2 x 2 x 1 m: corta 1 m3 (tudo)
+        let quadrado = |l: f64| vec![vec![vec![[0.0, 0.0], [l, 0.0], [l, l], [0.0, l]]]];
+        let laje = Cortador { tipo: Tipo::Laje, pecas: vec![peca_de(Tipo::Laje, 1, quadrado(2.0), Span::Constante { z0: 0.0, z1: 1.0 }, true)] };
+        let parede = peca_de(Tipo::Parede, 2, quadrado(1.0), Span::Faixa { base_z: 0.0, z0: 0.0, z1: 1.0, inclinacao: None }, true);
+        let cortado = volume_cortado(&parede, Tipo::Parede, &[&laje], &BTreeSet::new()).unwrap();
+        assert!((cortado - 1.0).abs() < 1e-9);
+        assert_eq!(liquido_de(1.0, cortado + 0.3), 0.0, "o zero vale uma vez por camada");
+        assert!((liquido_de(1.0, cortado) - 0.0).abs() < 1e-9);
+        // cortador de outro nível (externo) de laje sobre parede conta; laje sobre laje externa não
+        let mut externa = laje.clone();
+        for p in &mut externa.pecas {
+            p.externa = true;
+        }
+        assert!((volume_cortado(&parede, Tipo::Parede, &[&externa], &BTreeSet::new()).unwrap() - 1.0).abs() < 1e-9);
+        let outra_laje = peca_de(Tipo::Laje, 3, quadrado(1.0), Span::Constante { z0: 0.0, z1: 1.0 }, true);
+        assert_eq!(volume_cortado(&outra_laje, Tipo::Laje, &[&externa], &BTreeSet::new()).unwrap(), 0.0);
+    }
+
+    #[test]
+    fn cortadores_que_se_sobrepoem_nao_contam_a_area_coberta_duas_vezes() {
+        let retangulo = vec![vec![vec![[0.0, 0.0], [3.0, 0.0], [3.0, 1.0], [0.0, 1.0]]]];
+        let metade = vec![vec![vec![[1.0, 0.0], [4.0, 0.0], [4.0, 1.0], [1.0, 1.0]]]];
+        let membrana = peca_de(Tipo::Piso, 9, retangulo.clone(), Span::Constante { z0: 0.5, z1: 0.5 }, true);
+        let a = Cortador { tipo: Tipo::Laje, pecas: vec![peca_de(Tipo::Laje, 1, retangulo, Span::Constante { z0: 0.0, z1: 1.0 }, true)] };
+        let b = Cortador { tipo: Tipo::Laje, pecas: vec![peca_de(Tipo::Laje, 2, metade, Span::Constante { z0: 0.0, z1: 1.0 }, true)] };
+        // a cobre x em [0, 3]; b cobre [1, 4] (a interseção com a membrana é [1, 3]); a união cobre [0, 3] = 3 m2, não 3 + 2.
+        let area = area_coberta(&membrana, Tipo::Piso, &[&a, &b], &BTreeSet::new()).unwrap();
+        assert!((area - 3.0).abs() < 1e-9, "área coberta {area}");
+    }
+
+
+    /// Amostragem em grade fina: área da membrana não coberta por nenhuma peça (a referência independente do recorte exato).
+    fn area_coberta_por_amostragem(membrana: &PecaSolida, cortadores: &[&Cortador], n: usize) -> f64 {
+        let caixa = crate::b3::caixa_total(&membrana.poly);
+        let (dx, dy) = ((caixa[2] - caixa[0]) / n as f64, (caixa[3] - caixa[1]) / n as f64);
+        let mut cobertos = 0usize;
+        for i in 0..n {
+            for j in 0..n {
+                let q = [caixa[0] + (i as f64 + 0.5) * dx, caixa[1] + (j as f64 + 0.5) * dy];
+                let (z, z_topo) = membrana.span.em(q);
+                let dentro = |poly: &MultiPoligono| poly.iter().any(|p| p.iter().enumerate().fold(0i32, |s, (k, anel)| s + if crate::quantidades::testes::ponto_em_anel(q, anel) { if k == 0 { 1 } else { -1 } } else { 0 }) > 0);
+                if !dentro(&membrana.poly) {
+                    continue;
+                }
+                let coberto = cortadores.iter().any(|c| c.pecas.iter().any(|cp| {
+                    let (c0, c1) = cp.span.em(q);
+                    dentro(&cp.poly) && z >= c0 - Z_EPS && z_topo <= c1 + Z_EPS
+                }));
+                if coberto {
+                    cobertos += 1;
+                }
+            }
+        }
+        cobertos as f64 * dx * dy
+    }
+
+    pub(crate) fn ponto_em_anel(q: [f64; 2], anel: &[[f64; 2]]) -> bool {
+        let mut dentro = false;
+        for k in 0..anel.len() {
+            let (a, b) = (anel[k], anel[(k + 1) % anel.len()]);
+            if (a[1] > q[1]) != (b[1] > q[1]) && q[0] < (b[0] - a[0]) * (q[1] - a[1]) / (b[1] - a[1]) + a[0] {
+                dentro = !dentro;
+            }
+        }
+        dentro
+    }
+
+    #[test]
+    fn area_coberta_exata_confere_com_amostragem_em_cortadores_aleatorios_inclinados() {
+        let mut r = crate::teste_util::Xorshift::novo(7);
+        for caso in 0..16 {
+            let membrana_poly = vec![vec![vec![[0.0, 0.0], [6.0, 0.0], [6.0, 4.0], [3.0, 5.0], [0.0, 4.0]], vec![[2.0, 1.0], [2.0, 2.0], [3.0, 2.0], [3.0, 1.0]]]];
+            let z = r.intervalo(0.2, 0.8);
+            let membrana = peca_de(Tipo::Piso, 99, membrana_poly, Span::Constante { z0: z, z1: z }, true);
+            let mut cortadores: Vec<Cortador> = Vec::new();
+            for k in 0..5u32 {
+                let (x0, y0) = (r.intervalo(-1.0, 4.0), r.intervalo(-1.0, 3.0));
+                let (x1, y1) = (x0 + r.intervalo(1.0, 4.0), y0 + r.intervalo(1.0, 3.0));
+                let mut poly = vec![vec![vec![[x0, y0], [x1, y0], [x1, y1], [x0, y1]]]];
+                if (caso + k) % 3 == 0 {
+                    let (hx, hy) = ((x0 + x1) / 2.0, (y0 + y1) / 2.0);
+                    poly[0].push(vec![[hx - 0.3, hy - 0.3], [hx - 0.3, hy + 0.3], [hx + 0.3, hy + 0.3], [hx + 0.3, hy - 0.3]]);
+                }
+                let (esp, base) = (r.intervalo(0.1, 0.6), r.intervalo(0.0, 0.5));
+                let inclinada = (caso + k) % 2 == 0;
+                let span = if inclinada {
+                    Span::Laje { z0: base, z1: base + esp, origem: [x0, y0], direcao: [0.6, 0.8], percentual: r.intervalo(-20.0, 20.0) }
+                } else {
+                    Span::Constante { z0: base, z1: base + esp }
+                };
+                cortadores.push(Cortador { tipo: Tipo::Laje, pecas: vec![peca_de(Tipo::Laje, 1 + k, poly, span, !inclinada)] });
+            }
+            let refs: Vec<&Cortador> = cortadores.iter().collect();
+            let exata = area_coberta(&membrana, Tipo::Piso, &refs, &BTreeSet::new()).unwrap();
+            let amostra = area_coberta_por_amostragem(&membrana, &refs, 300);
+            assert!((exata - amostra).abs() < 0.06, "caso {caso}: exata {exata} x amostragem {amostra}");
+        }
     }
 
     #[test]
