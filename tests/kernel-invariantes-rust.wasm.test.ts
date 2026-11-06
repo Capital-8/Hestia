@@ -9,7 +9,7 @@
  * Só roda em `npm run test:wasm` (o config do kernel precisa incluir este arquivo). Sem skip e sem it.fails.
  */
 import { readFileSync } from 'node:fs';
-import { boxOf, boxesOverlap, difference, intersection, multiPoints, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
+import { boxOf, boxesOverlap, difference, intersection, multiPoints, type Ring, type Vec2 } from '@hestia/geom';
 import { type Project } from '@hestia/model';
 import { beforeAll, afterAll, describe, expect, it } from 'vitest';
 import { winsOver, zOverlaps } from '../packages/engine/src/junctionPlanar.ts';
