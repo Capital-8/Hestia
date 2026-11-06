@@ -162,11 +162,11 @@ mod testes {
     }
 
     #[test]
-    fn tamanho_do_uniforme_extra_e_multiplo_de_16_e_separado_dos_320_bytes() {
+    fn tamanho_do_uniforme_extra_e_multiplo_de_16_e_separado_dos_256_bytes() {
         let tamanho = std::mem::size_of::<CameraExtra>();
         assert_eq!(tamanho % 16, 0);
         assert_eq!(tamanho, 528);
-        assert_eq!(crate::uniformes::Uniformes::TAMANHO, 320);
+        assert_eq!(crate::uniformes::Uniformes::TAMANHO, 256);
     }
 
     #[test]

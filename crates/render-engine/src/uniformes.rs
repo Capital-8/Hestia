@@ -8,7 +8,6 @@ use bytemuck::{Pod, Zeroable};
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct Uniformes {
     pub view_proj: [[f32; 4]; 4],
-    pub luz_vp: [[f32; 4]; 4],
     /// Posição da câmera (w livre).
     pub camera: [f32; 4],
     /// Direção normalizada **para o Sol** (xyz) e intensidade (w).
@@ -42,6 +41,7 @@ mod testes {
     #[test]
     fn layout_tem_multiplos_de_dezesseis_bytes() {
         assert_eq!(Uniformes::TAMANHO % 16, 0);
-        assert_eq!(Uniformes::TAMANHO, 320);
+        // Sem `luz_vp` (as matrizes das cascatas de sombra vão no buffer de `cascatas.rs`).
+        assert_eq!(Uniformes::TAMANHO, 256);
     }
 }

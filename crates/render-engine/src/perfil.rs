@@ -12,6 +12,7 @@
 //!
 //! Tudo aqui é função pura (testável sem GPU); quem chama fornece os dados do adaptador.
 
+use crate::cascatas::NUMERO_CASCATAS;
 use crate::constantes::{LADO_SOMBRA, MARGEM_AO_PX, MARGEM_DESFOQUE_PX};
 
 /// Variável de ambiente que força um perfil (`leve`, `padrao` ou `alta`).
@@ -203,9 +204,9 @@ fn limitar_a_placa(escolha: &mut Escolha, dados: &DadosAdaptador) {
     }
 }
 
-/// Bytes do mapa de sombra (Depth32Float, `LADO_SOMBRA` x `LADO_SOMBRA`).
+/// Bytes dos mapas de sombra em cascata (Depth32Float, `NUMERO_CASCATAS` camadas de `LADO_SOMBRA`²).
 pub fn bytes_sombra() -> u64 {
-    u64::from(LADO_SOMBRA) * u64::from(LADO_SOMBRA) * 4
+    NUMERO_CASCATAS as u64 * u64::from(LADO_SOMBRA) * u64::from(LADO_SOMBRA) * 4
 }
 
 /// Bytes dos alvos de um render de região `largura x altura`, por cima. Cor final e oclusão da
@@ -437,8 +438,8 @@ mod testes {
     }
 
     #[test]
-    fn sombra_tem_16_mib() {
-        assert_eq!(bytes_sombra(), 16 * MIB);
+    fn sombra_tem_uma_camada_de_16_mib_por_cascata() {
+        assert_eq!(bytes_sombra(), NUMERO_CASCATAS as u64 * 16 * MIB);
     }
 
     #[test]

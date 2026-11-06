@@ -4,6 +4,7 @@
 //! em GPU (wgpu/DX12/Vulkan/Metal). Não existe caminho de CPU. Não faz HTTP nem lê arquivo.
 
 pub mod ceu;
+pub mod cascatas;
 pub mod constantes;
 pub mod cor;
 pub mod erro;

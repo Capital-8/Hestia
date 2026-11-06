@@ -9,7 +9,6 @@ const PI: f32 = 3.141592653589793;
 
 struct Uniformes {
   view_proj: mat4x4<f32>,
-  luz_vp: mat4x4<f32>,
   camera: vec4<f32>,
   sol: vec4<f32>,
   sol_cor: vec4<f32>,
@@ -25,7 +24,9 @@ struct Uniformes {
 };
 
 @group(0) @binding(0) var<uniform> u: Uniformes;
-@group(0) @binding(1) var sombra: texture_depth_2d;
+// Mapa de sombra do Sol em cascatas: um array de profundidade, uma camada por cascata (ver
+// cascatas.rs). Só o passe principal lê.
+@group(0) @binding(1) var sombra: texture_depth_2d_array;
 @group(0) @binding(2) var comparador: sampler_comparison;
 // Irradiância SH9 do céu já convoluída (E_lm = A_l · L_lm), w livre. Calculada em ceu.rs.
 @group(0) @binding(3) var<uniform> sh: array<vec4<f32>, 9>;
@@ -40,6 +41,36 @@ struct Uniformes {
 // Cópia da cor opaca já resolvida da região (sRGB codificado, como a final). Só o passe de vidro
 // lê; é a "cor de tela" que a refração desloca. Ver motor.rs (passe de vidro).
 @group(0) @binding(8) var cor_tela: texture_2d<f32>;
+// Cascatas de sombra (ver cascatas.rs, `CascatasGpu`): matrizes, escalas, limites e a direção da
+// câmera. Só o passe principal lê.
+@group(0) @binding(9) var<uniform> cascatas: CascatasGpu;
+// Matriz da luz de uma cascata, no passe de sombra (cada cascata tem um bind group com offset).
+@group(0) @binding(10) var<uniform> luz_sombra: mat4x4<f32>;
+
+// Número de cascatas (igual a NUMERO_CASCATAS em cascatas.rs; teste de sincronia).
+const CASCATAS: u32 = 3u;
+// Fração do intervalo de cada cascata em que ela mistura com a seguinte (igual a FRACAO_MISTURA
+// em cascatas.rs; teste de sincronia).
+const FRACAO_MISTURA: f32 = 0.1;
+
+// Uma cascata: matriz da luz (recorte 0..1 em profundidade), faixa e reservado. 256 bytes, o
+// passo do offset dinâmico do passe de sombra.
+struct CascataGpu {
+  luz_vp: mat4x4<f32>,
+  // (profundidade do volume da luz em m, metros por texel, reservado, reservado).
+  faixa: vec4<f32>,
+  reservado: array<vec4<f32>, 11>,
+};
+
+// Buffer de cascatas. Profundidade de visão = (mundo - olho) · frente. Os limites s_0..s_K valem
+// nos escalares de `limites` (s_0 é o plano próximo e s_K o distante).
+struct CascatasGpu {
+  cascatas: array<CascataGpu, CASCATAS>,
+  frente: vec4<f32>,
+  limites: array<vec4<f32>, 2>,
+  // (metros por texel do mapa único de antes: escala as distâncias do PCSS, como antes).
+  referencia: vec4<f32>,
+};
 
 // ---- Texturas de material (grupo 1, só o passe principal; ver pipeline.rs, texturas.rs e motor.rs) ----
 // Um array por mapa: uma camada por textura da cena, todas no mesmo tamanho e com a mesma cadeia de
@@ -117,7 +148,7 @@ struct Saida {
 @vertex
 fn vs_sombra(e: Entrada) -> SaidaSombra {
   var s: SaidaSombra;
-  s.clip = u.luz_vp * vec4<f32>(e.posicao, 1.0);
+  s.clip = luz_sombra * vec4<f32>(e.posicao, 1.0);
   return s;
 }
 
@@ -249,17 +280,22 @@ fn irradiancia_sh(n: vec3<f32>) -> vec3<f32> {
   return max(e, vec3<f32>(0.0));
 }
 
-// Sombra PCSS (Fernando, 2005) do Sol: busca de bloqueadores, penumbra proporcional à distância
-// bloqueador-receptor e PCF com disco de Vogel. Constantes e conversão de profundidade espelhadas
-// em src/sombra.rs (o teste de sincronia lê TAMANHO_LUZ_SOL deste arquivo).
-// Devolve 1.0 fora do mapa e quando não há bloqueador.
+// Sombra PCSS (Fernando, 2005) do Sol, por cascata: busca de bloqueadores, penumbra proporcional à
+// distância bloqueador-receptor e PCF com disco de Vogel. Constantes espelhadas em src/sombra.rs (o
+// teste de sincronia lê TAMANHO_LUZ_SOL deste arquivo). As distâncias da penumbra são físicas (metros);
+// os limites em texels do mapa único de antes viram metros pela referência de `cascatas.referencia`.
 const TAMANHO_LUZ_SOL: f32 = 0.02;
 const AMOSTRAS_BLOQUEIO: i32 = 16;
 const AMOSTRAS_PCF: i32 = 32;
 const PENUMBRA_MIN_TEXEL: f32 = 1.0;
 const PENUMBRA_MAX_TEXEL: f32 = 12.0;
+const BUSCA_MIN_TEXEL: f32 = 1.0;
 const BUSCA_MAX_TEXEL: f32 = 24.0;
 const ANGULO_OURO: f32 = 2.399963229728653;
+// Viés do mapa de sombra, em texels da cascata: 0,0008 e 0,0015 em profundidade NDC de uma
+// ortográfica de 3 R (antes do CSM), com texel de 2,1 R / 2048. Escalado pelo texel de cada cascata.
+const VIES_TEXEL_BASE: f32 = 2.3406;
+const VIES_TEXEL_INCLINACAO: f32 = 4.3896;
 
 // Ponto i de n num disco unitário (espiral de Vogel: distribuição quase uniforme e determinística).
 fn disco(i: i32, n: i32) -> vec2<f32> {
@@ -268,46 +304,51 @@ fn disco(i: i32, n: i32) -> vec2<f32> {
   return vec2<f32>(cos(t), sin(t)) * r;
 }
 
-// Profundidade NDC do mapa de sombra para distância em metros a partir do olho da luz
-// (ortográfica de iluminacao.rs: perto = raio * 0.5, longe = raio * 3.5, profundidade linear).
-fn distancia_luz(z_ndc: f32, raio: f32) -> f32 {
-  return z_ndc * (3.0 * raio) + 0.5 * raio;
+// Limite s_i do buffer de cascatas (i de 0 a CASCATAS).
+fn limite(i: u32) -> f32 {
+  return cascatas.limites[i / 4u][i % 4u];
 }
 
-fn fator_sombra(mundo: vec3<f32>, normal: vec3<f32>, ndl: f32) -> f32 {
+// Sombra de uma cascata: 1.0 fora da janela, fora da profundidade e quando não há bloqueador.
+fn sombra_cascata(k: u32, mundo: vec3<f32>, normal: vec3<f32>, ndl: f32) -> f32 {
+  let c = cascatas.cascatas[k];
   let deslocamento = normal * (0.015 + 0.05 * (1.0 - ndl));
-  let posicao = u.luz_vp * vec4<f32>(mundo + deslocamento, 1.0);
+  let posicao = c.luz_vp * vec4<f32>(mundo + deslocamento, 1.0);
   if (posicao.w <= 0.0) {
     return 1.0;
   }
   let ndc = posicao.xyz / posicao.w;
   let uv = vec2<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
-  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || ndc.z > 1.0) {
+  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || ndc.z > 1.0 || ndc.z < 0.0) {
     return 1.0;
   }
 
-  // Viés constante + dependente do ângulo (o mesmo do PCF 3x3, para não criar acne).
-  let referencia = ndc.z - (0.0008 + 0.0015 * (1.0 - ndl));
-  let texel = u.parametros.z;
-  let raio = u.parametros.w;
-  // A ortográfica cobre 2 * raio * 1.05 metros em uma unidade de uv.
-  let metros_por_texel = 2.0 * raio * 1.05 * texel;
-  let d_receptor = distancia_luz(ndc.z, raio);
+  // Profundidade do volume e metros por texel desta cascata. O viés é escalado pelo texel; o PCSS
+  // fica em metros, então a penumbra física não muda de uma cascata para outra.
+  let profundidade_m = c.faixa.x;
+  let texel_m = c.faixa.y;
+  let texel_uv = u.parametros.z;
+  let texel_referencia = cascatas.referencia.x;
+  let bias_m = texel_m * (VIES_TEXEL_BASE + VIES_TEXEL_INCLINACAO * (1.0 - ndl));
+  let referencia = ndc.z - bias_m / profundidade_m;
+  // Distância do receptor ao plano próximo da cascata, em metros (sentido do Sol).
+  let d_receptor = ndc.z * profundidade_m;
   let dimensao = vec2<i32>(textureDimensions(sombra));
   let centro = uv * vec2<f32>(dimensao);
 
-  // 1. Busca de bloqueadores: raio da busca proporcional ao tamanho da luz e à distância do
-  // receptor ao plano próximo.
-  let busca_texel = clamp(
-    TAMANHO_LUZ_SOL * (d_receptor - 0.5 * raio) / metros_por_texel,
-    1.0,
-    BUSCA_MAX_TEXEL
+  // 1. Busca de bloqueadores: raio proporcional ao tamanho da luz e à distância do receptor. Piso de
+  // 1 texel desta cascata; teto de 24 texels do mapa de referência (o de antes).
+  let busca_m = clamp(
+    TAMANHO_LUZ_SOL * d_receptor,
+    BUSCA_MIN_TEXEL * texel_m,
+    BUSCA_MAX_TEXEL * texel_referencia
   );
+  let busca_texel = busca_m / texel_m;
   var soma_bloqueio = 0.0;
   var bloqueadores = 0.0;
   for (var i = 0; i < AMOSTRAS_BLOQUEIO; i = i + 1) {
     let coord = vec2<i32>(floor(centro + disco(i, AMOSTRAS_BLOQUEIO) * busca_texel));
-    let z = textureLoad(sombra, clamp(coord, vec2<i32>(0), dimensao - vec2<i32>(1)), 0);
+    let z = textureLoad(sombra, clamp(coord, vec2<i32>(0), dimensao - vec2<i32>(1)), i32(k), 0);
     if (z < referencia) {
       soma_bloqueio = soma_bloqueio + z;
       bloqueadores = bloqueadores + 1.0;
@@ -316,21 +357,56 @@ fn fator_sombra(mundo: vec3<f32>, normal: vec3<f32>, ndl: f32) -> f32 {
   if (bloqueadores < 0.5) {
     return 1.0;
   }
-  let d_bloqueador = distancia_luz(soma_bloqueio / bloqueadores, raio);
+  let d_bloqueador = (soma_bloqueio / bloqueadores) * profundidade_m;
 
-  // 2. Penumbra: largura física (metros) = (d_receptor - d_bloqueador) * tamanho angular da luz.
-  // Para luz direcional a divisão por d_bloqueador de Fernando sai, porque a luz está no infinito.
+  // 2. Penumbra física (metros) = (d_receptor - d_bloqueador) * tamanho angular da luz. O piso é o
+  // texel desta cascata (anti-serrilhado, como o texel do mapa único era antes); o teto é a penumbra
+  // física de antes, em texels do mapa de referência, para a penumbra não mudar de cascata para cascata.
   let penumbra_m = max(d_receptor - d_bloqueador, 0.0) * TAMANHO_LUZ_SOL;
-  let penumbra_texel = clamp(penumbra_m / metros_por_texel, PENUMBRA_MIN_TEXEL, PENUMBRA_MAX_TEXEL);
+  let penumbra_m_limitada = clamp(
+    penumbra_m,
+    PENUMBRA_MIN_TEXEL * texel_m,
+    PENUMBRA_MAX_TEXEL * texel_referencia
+  );
+  let penumbra_texel_uv = (penumbra_m_limitada / texel_m) * texel_uv;
 
-  // 3. PCF com disco de raio = penumbra. textureSampleCompareLevel não usa derivadas, então
-  // pode ficar depois de desvios que dependem da posição.
+  // 3. PCF com disco de raio = penumbra. textureSampleCompareLevel não usa derivadas, então pode
+  // ficar depois de desvios que dependem da posição.
   var soma = 0.0;
   for (var i = 0; i < AMOSTRAS_PCF; i = i + 1) {
-    let desloc = disco(i, AMOSTRAS_PCF) * penumbra_texel * texel;
-    soma = soma + textureSampleCompareLevel(sombra, comparador, uv + desloc, referencia);
+    let desloc = disco(i, AMOSTRAS_PCF) * penumbra_texel_uv;
+    soma = soma + textureSampleCompareLevel(sombra, comparador, uv + desloc, i32(k), referencia);
   }
   return soma / f32(AMOSTRAS_PCF);
+}
+
+// Fator de sombra do Sol no ponto. Escolhe a cascata pela profundidade de visão (quantos limites
+// internos ela passou) e mistura com a seguinte nos últimos FRACAO_MISTURA do intervalo.
+// Sol abaixo do horizonte: 1.0, sem consultar o mapa.
+fn fator_sombra(mundo: vec3<f32>, normal: vec3<f32>, ndl: f32) -> f32 {
+  if (u.sol.w <= 0.0) {
+    return 1.0;
+  }
+  let profundidade = dot(mundo - u.camera.xyz, cascatas.frente.xyz);
+  var k = 0u;
+  for (var i = 1u; i < CASCATAS; i = i + 1u) {
+    if (profundidade >= limite(i)) {
+      k = i;
+    }
+  }
+  if (k + 1u < CASCATAS) {
+    let fim = limite(k + 1u);
+    let inicio = fim - FRACAO_MISTURA * (fim - limite(k));
+    if (profundidade > inicio) {
+      let t = smoothstep(inicio, fim, profundidade);
+      return mix(
+        sombra_cascata(k, mundo, normal, ndl),
+        sombra_cascata(k + 1u, mundo, normal, ndl),
+        t
+      );
+    }
+  }
+  return sombra_cascata(k, mundo, normal, ndl);
 }
 
 // ---- Superfícies procedurais (sem textura e sem UV) ----

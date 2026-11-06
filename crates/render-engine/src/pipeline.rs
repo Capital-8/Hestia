@@ -27,9 +27,10 @@ const ATRIBUTOS: [wgpu::VertexAttribute; 11] = wgpu::vertex_attr_array![
 
 /// Layouts de bind group usados pelas pipelines.
 pub struct Layouts {
-    /// Só o uniforme (passe de sombra).
-    pub uniforme: wgpu::BindGroupLayout,
-    /// Uniforme, mapa de sombra, comparador, harmônicos do céu e oclusão (passe principal, grupo 0).
+    /// Matriz de uma cascata no passe de sombra (binding 10, offset dinâmico do buffer de cascatas).
+    pub luz_sombra: wgpu::BindGroupLayout,
+    /// Uniforme, array de mapas de sombra em cascata (1), comparador, harmônicos do céu, oclusão e
+    /// buffer de cascatas (9) (passe principal, grupo 0).
     pub principal: wgpu::BindGroupLayout,
     /// Texturas de material (passe principal, grupo 1): sampler no binding 0 e um `texture_2d_array`
     /// por mapa nos bindings 1 a 4 (albedo, normal, rugosidade, metálico). Cada camada é uma textura
@@ -98,15 +99,16 @@ pub fn criar_textura(
 
 /// Cria os layouts de bind group (uma vez por dispositivo).
 pub fn criar_layouts(device: &wgpu::Device) -> Layouts {
-    let uniforme = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: Some("uniforme"),
+    // Uma matriz (64 bytes) por cascata, lida do buffer de cascatas num offset de 256 bytes.
+    let luz_sombra = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("matriz da luz por cascata"),
         entries: &[wgpu::BindGroupLayoutEntry {
-            binding: 0,
+            binding: 10,
             visibility: wgpu::ShaderStages::VERTEX,
             ty: wgpu::BindingType::Buffer {
                 ty: wgpu::BufferBindingType::Uniform,
                 has_dynamic_offset: false,
-                min_binding_size: None,
+                min_binding_size: wgpu::BufferSize::new(64),
             },
             count: None,
         }],
@@ -125,12 +127,13 @@ pub fn criar_layouts(device: &wgpu::Device) -> Layouts {
                 },
                 count: None,
             },
+            // Array de mapas de sombra, uma camada por cascata (ver cascatas.rs).
             wgpu::BindGroupLayoutEntry {
                 binding: 1,
                 visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Texture {
                     sample_type: wgpu::TextureSampleType::Depth,
-                    view_dimension: wgpu::TextureViewDimension::D2,
+                    view_dimension: wgpu::TextureViewDimension::D2Array,
                     multisampled: false,
                 },
                 count: None,
@@ -154,6 +157,8 @@ pub fn criar_layouts(device: &wgpu::Device) -> Layouts {
             },
             // Oclusão ambiente da região (R8, lida com textureLoad: sem sampler).
             entrada_textura(4),
+            // Cascatas: divisão, matrizes e escalas (ver cascatas.rs e `CascatasGpu` em shader.wgsl).
+            entrada_uniforme(9, wgpu::ShaderStages::FRAGMENT),
         ],
     });
 
@@ -215,7 +220,7 @@ pub fn criar_layouts(device: &wgpu::Device) -> Layouts {
     );
 
     Layouts {
-        uniforme,
+        luz_sombra,
         principal,
         texturas,
         pre,
@@ -276,7 +281,7 @@ pub fn criar_pipelines(gpu: &Gpu, layouts: &Layouts, amostras: u32) -> Pipelines
 
     let layout_sombra = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("layout da sombra"),
-        bind_group_layouts: &[Some(&layouts.uniforme)],
+        bind_group_layouts: &[Some(&layouts.luz_sombra)],
         immediate_size: 0,
     });
     let layout_principal = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {

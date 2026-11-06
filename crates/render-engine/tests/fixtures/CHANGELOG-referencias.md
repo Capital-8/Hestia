@@ -3,6 +3,34 @@
 Cada entrada registra por que uma referência PNG foi regenerada, a diferença medida contra a
 referência antiga e quantos pixels mudaram. Tolerâncias não foram alteradas por nenhuma entrada.
 
+## 2026-11-06 — sombras em cascata (CSM), três cascatas
+
+- **Commit de causa:** WIP em `render/integracao-teste` que adiciona `cascatas.rs` (divisão, janelas, matrizes e
+  buffer de cascatas) e altera `shader.wgsl` (`fator_sombra`, `sombra_cascata`, mistura entre cascatas, binding 9
+  e 10), `motor.rs` (cascatas por câmera, com cache), `pipeline.rs` (array de profundidade e layouts),
+  `iluminacao.rs` (sem `luz_vp`), `uniformes.rs` (256 bytes, antes 320) e `perfil.rs` (três mapas).
+- **Motivo:** o mapa único de 2048 px cobria a esfera inteira da cena. Com a câmera perto da fachada, cada texel
+  cobre mais que o necessário. As três cascatas dividem o volume de visão (λ = 0,75, de 0,14 m até a
+  profundidade da caixa dos projetores), e cada uma tem a janela presa à menor entre a esfera do seu subfrustum
+  e a caixa dos projetores. Onde a câmera está longe da caixa, a janela é a mesma de antes (texel de 1,13 cm).
+  O piso da penumbra e da busca de bloqueadores passa a ser o texel da cascata; o teto continua na penumbra física
+  de antes.
+- **Efeito medido (referências h1, 640x360, comparadas com a versão anterior do arquivo):**
+
+| Arquivo | Teste | Diferença máxima | Pixels com diferença > 0 | > 2 | > 3 | > 10 | Tolerância |
+|---|---|---|---|---|---|---|---|
+| `ref-h1-640x360.png` (1 amostra) | `motor::sem_msaa_bate_a_referencia_estrita` | 26 | 1519 | 230 | 159 | 18 | 2 (inalterada) |
+| `ref-h1-msaa4-640x360.png` (MSAA x4) | `motor::imagem_inteira_igual_a_api_antiga_e_a_referencia`, `materiais::cena_h1_lida_como_v1_tem_tipo_zero_e_bate_a_referencia` | 26 | 1524 | 231 | 159 | 18 | 2 e 3 (inalteradas) |
+
+  Total de pixels: 230400. A luminância média não muda (138,83 antes e depois, Rec. 709 sobre o sRGB). As
+  diferenças estão só nas bordas da sombra do beiral no telhado e na parede, e da sombra da casa no chão (mapa de
+  diferenças verificado). A linha de base reproduz a referência anterior com diferença 0.
+- **Tiles e oclusão:** os testes de tiles (`tiles_com_msaa4_igualam_a_imagem_inteira`,
+  `tiles_sem_msaa_igualam_a_imagem_inteira`) e `oclusao_escurece_a_base_da_parede_e_poupa_a_face_plana`
+  passam sem mudança de constante ou de tolerância.
+- **Regeneração:** `renderizar_hstr cena-h1.hstr ref-h1-640x360.png 640 360 1 0` e
+  `renderizar_hstr cena-h1.hstr ref-h1-msaa4-640x360.png 640 360 4 0` (EV 0, 6500 K), com o build deste commit.
+
 ## 2026-11-05 — tone mapping AgX, balanço de branco e exposição automática (lote B)
 
 - **Commit de causa:** alterações em `shader.wgsl` (`tonemapear`, `agx_contraste`, `AGX_*` no lugar de

@@ -6,6 +6,7 @@
 //! cada tile é um recorte exato da imagem inteira, sem costura.
 
 use std::mem::size_of;
+use std::sync::{Arc, Mutex};
 
 use render_core::cena::{Cena, Textura, MAX_TEXTURAS};
 use wgpu::util::DeviceExt;
@@ -18,11 +19,11 @@ use crate::constantes::{
 };
 use crate::cor;
 use crate::erro::ErroRender;
-use crate::geometria::{expandir as expandir_malha, Vertice};
+use crate::geometria::{expandir as expandir_malha, Caixa, Vertice};
 use crate::gpu::{self, Gpu};
-use crate::iluminacao::{aplicar_camera, esfera_da_sombra, matriz_da_luz, uniformes_fixos};
+use crate::cascatas::{self, Cascata, CascataGpu, CascatasGpu, NUMERO_CASCATAS};
+use crate::iluminacao::{aplicar_camera, uniformes_fixos};
 use crate::leitura::ler_textura;
-use crate::matrizes::colunas_f32;
 use crate::perfil::{self, DadosAdaptador, Escolha, Estimativa};
 use crate::pipeline::{
     criar_layouts, criar_pipelines, criar_textura, criar_vertex_buffer, validar_limite_textura,
@@ -81,13 +82,18 @@ pub struct CenaGpu {
     /// vidro desenha `opacos..n_vertices`.
     opacos: u32,
     vertices: usize,
-    raio: f64,
     fundo: [f64; 3],
     fixos: Uniformes,
     /// Irradiância SH9 do céu (buffer separado de `Uniformes`, binding 3 do passe principal).
     sh_ceu: wgpu::Buffer,
-    _sombra: wgpu::Texture,
-    sombra_view: wgpu::TextureView,
+    /// Caixa dos projetores (a sombra em cascata de cada câmera é presa a ela) e direção do Sol.
+    caixa_sombra: Caixa,
+    direcao_sol: [f64; 3],
+    /// Cascatas da última câmera renderizada, com a chave dela (matrizes e posição). Os tiles de um
+    /// mesmo render usam a mesma câmera, então as cascatas são calculadas uma vez por render.
+    cascatas: Mutex<Option<(Vec<u64>, Arc<Cascatas>)>>,
+    /// Cascatas vazias para Sol abaixo do horizonte: nenhum passe de sombra, nenhum custo extra.
+    vazio: Arc<Cascatas>,
     /// Arrays de textura de material da cena (mantidos vivos enquanto o grupo 1 existir). Só os
     /// mapas que a cena usa; o mapa sem textura aponta para a 1x1 de `Motor`.
     _texturas: Vec<wgpu::Texture>,
@@ -97,6 +103,184 @@ pub struct CenaGpu {
     bytes_malha: u64,
     /// Grupo 1 do passe principal: sampler e um array por mapa (ver pipeline.rs).
     grupo_texturas: wgpu::BindGroup,
+}
+
+/// Cascatas de sombra de uma câmera: o array de mapas de profundidade (uma camada por cascata), o
+/// buffer `CascatasGpu` que o passe principal lê (binding 9) e as cascatas planejadas (diagnóstico).
+struct Cascatas {
+    _textura: wgpu::Texture,
+    vista: wgpu::TextureView,
+    buffer: wgpu::Buffer,
+    resumo: Vec<Cascata>,
+}
+
+/// Chave de cache de uma câmera: matrizes e posição, em bits. Câmera igual, cascatas iguais.
+fn chave_da_camera(camera: &render_core::camera::Camera) -> Vec<u64> {
+    let mut chave: Vec<u64> = camera
+        .view
+        .iter()
+        .chain(camera.projecao.iter())
+        .map(|v| v.to_bits())
+        .collect();
+    chave.extend([camera.posicao.x, camera.posicao.y, camera.posicao.z].map(f64::to_bits));
+    chave
+}
+
+/// Cascatas vazias (Sol abaixo do horizonte): um array de uma camada que nenhum passe escreve, e o
+/// buffer zerado. O passe principal não consulta o mapa quando a intensidade é zero.
+fn criar_cascatas_vazias(device: &wgpu::Device) -> Cascatas {
+    let textura = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("sombra vazia (Sol abaixo do horizonte)"),
+        size: wgpu::Extent3d {
+            width: 1,
+            height: 1,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: FORMATO_PROFUNDIDADE,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING,
+        view_formats: &[],
+    });
+    let vista = textura.create_view(&wgpu::TextureViewDescriptor {
+        dimension: Some(wgpu::TextureViewDimension::D2Array),
+        ..Default::default()
+    });
+    let zerado: CascatasGpu = bytemuck::Zeroable::zeroed();
+    let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("cascatas vazias"),
+        contents: bytemuck::bytes_of(&zerado),
+        usage: wgpu::BufferUsages::UNIFORM,
+    });
+    Cascatas {
+        _textura: textura,
+        vista,
+        buffer,
+        resumo: Vec::new(),
+    }
+}
+
+impl CenaGpu {
+    /// Cascatas da última câmera renderizada (intervalo, texel e profundidade de cada uma), ou `None`
+    /// sem Sol ou antes do primeiro render. Para diagnóstico e medidas.
+    pub fn cascatas(&self) -> Option<Vec<Cascata>> {
+        let guarda = self.cascatas.lock().ok()?;
+        guarda.as_ref().map(|(_, cascatas)| cascatas.resumo.clone())
+    }
+}
+
+impl Motor {
+    /// Cascatas da câmera: a do cache se a câmera for a mesma, senão calcula e guarda.
+    fn cascatas_da_camera(
+        &self,
+        cena: &CenaGpu,
+        camera: &render_core::camera::Camera,
+    ) -> Result<Arc<Cascatas>, ErroRender> {
+        let chave = chave_da_camera(camera);
+        {
+            let guarda = cena
+                .cascatas
+                .lock()
+                .map_err(|_| ErroRender::Gpu("cache das cascatas de sombra envenenado".into()))?;
+            if let Some((antiga, cascatas)) = guarda.as_ref() {
+                if *antiga == chave {
+                    return Ok(Arc::clone(cascatas));
+                }
+            }
+        }
+        let nova = Arc::new(self.construir_cascatas(cena, camera)?);
+        let mut guarda = cena
+            .cascatas
+            .lock()
+            .map_err(|_| ErroRender::Gpu("cache das cascatas de sombra envenenado".into()))?;
+        *guarda = Some((chave, Arc::clone(&nova)));
+        Ok(nova)
+    }
+
+    /// Planeja as cascatas da câmera, envia o buffer e desenha um mapa de profundidade por cascata
+    /// (uma camada do array), com a matriz de cada uma no offset dela do buffer.
+    fn construir_cascatas(
+        &self,
+        cena: &CenaGpu,
+        camera: &render_core::camera::Camera,
+    ) -> Result<Cascatas, ErroRender> {
+        let device = &self.gpu.device;
+        let plano = cascatas::planejar(camera, cena.caixa_sombra, cena.direcao_sol)?;
+        let dados = plano.para_gpu();
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("cascatas da sombra"),
+            contents: bytemuck::bytes_of(&dados),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+        let textura = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("mapas de sombra em cascata"),
+            size: wgpu::Extent3d {
+                width: LADO_SOMBRA,
+                height: LADO_SOMBRA,
+                depth_or_array_layers: NUMERO_CASCATAS as u32,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: FORMATO_PROFUNDIDADE,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+        let vista = textura.create_view(&wgpu::TextureViewDescriptor {
+            dimension: Some(wgpu::TextureViewDimension::D2Array),
+            ..Default::default()
+        });
+        let mut codificador = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("passes de sombra em cascata"),
+        });
+        for k in 0..NUMERO_CASCATAS {
+            let grupo_luz = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("matriz da luz da cascata"),
+                layout: &self.layouts.luz_sombra,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 10,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &buffer,
+                        offset: (k * size_of::<CascataGpu>()) as u64,
+                        size: wgpu::BufferSize::new(size_of::<[[f32; 4]; 4]>() as u64),
+                    }),
+                }],
+            });
+            let camada = textura.create_view(&wgpu::TextureViewDescriptor {
+                dimension: Some(wgpu::TextureViewDimension::D2),
+                base_array_layer: k as u32,
+                array_layer_count: Some(1),
+                ..Default::default()
+            });
+            let mut passe = codificador.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("passe de sombra da cascata"),
+                color_attachments: &[],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &camada,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+            passe.set_pipeline(&self.pipelines.sombra);
+            passe.set_bind_group(0, &grupo_luz, &[]);
+            passe.set_vertex_buffer(0, cena.vertex_buffer.slice(..));
+            passe.draw(0..cena.n_vertices, 0..1);
+        }
+        self.gpu.queue.submit(Some(codificador.finish()));
+        Ok(Cascatas {
+            _textura: textura,
+            vista,
+            buffer,
+            resumo: plano.cascatas.to_vec(),
+        })
+    }
 }
 
 /// Descrição de visão para um array de texturas de material (todas as camadas).
@@ -489,12 +673,15 @@ impl Motor {
         .conferir(&self.perfil.perfil)
         .map_err(ErroRender::Gpu)?;
 
-        // Sombra dimensionada pelos projetores, sem a margem do chão de render (ver esfera_da_sombra).
-        let (centro_luz, raio) =
-            esfera_da_sombra(malha.caixa_sombra, malha.caixa.minimo[2], cena.sol);
-        let luz_vp = matriz_da_luz(cena, centro_luz, raio)?;
-        let mut fixos = uniformes_fixos(cena);
-        fixos.luz_vp = colunas_f32(&luz_vp);
+        // As cascatas de sombra dependem da câmera: são calculadas no primeiro render de cada câmera
+        // (ver `cascatas_da_camera`). Aqui só a conferência de camadas do array e o restante da cena.
+        if self.gpu.device.limits().max_texture_array_layers < NUMERO_CASCATAS as u32 {
+            return Err(ErroRender::Gpu(format!(
+                "a placa aceita {} camadas de array de textura; as sombras em cascata pedem {NUMERO_CASCATAS}",
+                self.gpu.device.limits().max_texture_array_layers
+            )));
+        }
+        let fixos = uniformes_fixos(cena);
 
         // Irradiância do céu analítico, uma vez por cena. Usa o mesmo Sol que os uniformes.
         let sol_dir = [fixos.sol[0], fixos.sol[1], fixos.sol[2]];
@@ -504,60 +691,12 @@ impl Motor {
             contents: bytemuck::bytes_of(&ceu::para_buffer(&sh)),
             usage: wgpu::BufferUsages::UNIFORM,
         });
+        let direcao = cena.sol.direcao();
+        let direcao_sol = [direcao.x, direcao.y, direcao.z];
+        let vazio = Arc::new(criar_cascatas_vazias(device));
 
         let vertex_buffer = criar_vertex_buffer(device, &malha.vertices);
         let opacos = malha.opacos as u32;
-        // O mapa de sombra depende só da luz (da cena), não da câmera: gerado uma vez aqui.
-        let buffer_sombra = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("uniformes da sombra"),
-            contents: bytemuck::bytes_of(&fixos),
-            usage: wgpu::BufferUsages::UNIFORM,
-        });
-        let sombra = criar_textura(
-            device,
-            "mapa de sombra",
-            LADO_SOMBRA,
-            LADO_SOMBRA,
-            FORMATO_PROFUNDIDADE,
-            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-            1,
-        );
-        let sombra_view = sombra.create_view(&wgpu::TextureViewDescriptor::default());
-        let grupo_sombra = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("grupo da sombra"),
-            layout: &self.layouts.uniforme,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: buffer_sombra.as_entire_binding(),
-            }],
-        });
-
-        let mut codificador = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("passe de sombra da cena"),
-        });
-        {
-            let mut passe = codificador.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("passe de sombra"),
-                color_attachments: &[],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &sombra_view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: wgpu::StoreOp::Store,
-                    }),
-                    stencil_ops: None,
-                }),
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                multiview_mask: None,
-            });
-            passe.set_pipeline(&self.pipelines.sombra);
-            passe.set_bind_group(0, &grupo_sombra, &[]);
-            passe.set_vertex_buffer(0, vertex_buffer.slice(..));
-            passe.draw(0..malha.vertices.len() as u32, 0..1);
-        }
-        self.gpu.queue.submit(Some(codificador.finish()));
-
         // Texturas de material: um array por mapa (albedo, normal, rugosidade, metálico), com uma
         // camada por textura que o mapa usa (ver texturas.rs). Mapa sem textura usa a 1x1 branca.
         let mut arrays: Vec<wgpu::Texture> = Vec::new();
@@ -599,12 +738,13 @@ impl Motor {
             n_vertices: malha.vertices.len() as u32,
             opacos,
             vertices: malha.vertices.len(),
-            raio,
             fundo: cena.fundo.unwrap_or(CEU_PADRAO),
             fixos,
             sh_ceu,
-            _sombra: sombra,
-            sombra_view,
+            caixa_sombra: malha.caixa_sombra,
+            direcao_sol,
+            cascatas: Mutex::new(None),
+            vazio,
             _texturas: arrays,
             bytes_texturas,
             bytes_malha: tamanho_vertices,
@@ -865,10 +1005,17 @@ impl Motor {
             )));
         }
 
+        // Cascatas de sombra desta câmera (cacheadas: os tiles de um render usam a mesma câmera). Sol
+        // abaixo do horizonte: o conjunto vazio, sem passe de sombra.
+        let sombra = if cena.fixos.sol[3] > 0.0 {
+            self.cascatas_da_camera(cena, camera)?
+        } else {
+            Arc::clone(&cena.vazio)
+        };
         let device = &self.gpu.device;
         let mut uniformes = cena.fixos;
         let ganhos = cor::ganhos_balanco_branco(self.temperatura_k);
-        aplicar_camera(&mut uniformes, camera, largura, altura, cena.raio, exposicao, ganhos)?;
+        aplicar_camera(&mut uniformes, camera, largura, altura, exposicao, ganhos)?;
         let buffer_uniformes = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("uniformes da região"),
             contents: bytemuck::bytes_of(&uniformes),
@@ -976,7 +1123,7 @@ impl Motor {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&cena.sombra_view),
+                    resource: wgpu::BindingResource::TextureView(&sombra.vista),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
@@ -989,6 +1136,10 @@ impl Motor {
                 wgpu::BindGroupEntry {
                     binding: 4,
                     resource: wgpu::BindingResource::TextureView(&oclusao_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 9,
+                    resource: sombra.buffer.as_entire_binding(),
                 },
             ],
         });
