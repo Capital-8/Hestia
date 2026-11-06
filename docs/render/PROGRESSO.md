@@ -46,3 +46,24 @@ Verificação no localhost, só depois de todos os lotes terminarem:
 - Limites: a referência usa um ambiente simplificado (0,3 x cor x céu); a cena de teste não tem metal, vidro nem texturas; ainda há grão com 64 amostras (falta denoise). Não é fotorrealismo comprovado.
 - Bug achado em crates/render-core: `Rng::novo` mistura semente e amostra por XOR nos mesmos bits; sementes 1 e 2 com 4 ou 64 amostras geram imagens idênticas. Não corrigido (código fora do escopo do render GPU).
 - A anomalia de tempo do modo "só sol" era a GPU saindo do repouso, não custo do modo (inferido pelo tempo).
+
+## Atualização 2026-11-06 (tarde)
+
+Feito desde a nota anterior (todos commitados no branch de teste):
+- **Cor do material com textura**: a textura é multiplicada pela cor do material (a parede deixou de ficar mais escura que a paleta).
+- **Céu/horizonte e pós-processamento**: horizonte com névoa de distância, halo do sol, curva AgX, balanço de branco, exposição automática opcional (desligada).
+- **Cache de cenas** no serviço e no cliente (segundo render sem reenvio do HSTR; ~0,4 s para ~0,06 s no serviço).
+- **Fluidez**: mipmaps, codificação do HSTR, hash SHA-256 e leitura de pixels das texturas em Web Worker. Não medido em navegador real.
+- **Perfis de qualidade por placa** (leve/padrão/alta), tile adaptativo e recusa explícita quando a cena não cabe. Só a RX 580 foi testada; a memória da placa não é informada pelo wgpu.
+- **Sombras em cascata** (3 cascatas): texel até 4x mais fino perto da câmera; sem ganho mensurável de nitidez de borda; memória de sombra 16 -> 48 MiB.
+- **Protótipo de iluminação global (crates/render-pt0)**: path tracing na GPU com BVH, sol com disco, céu do motor, 4 vértices, metal, vidro, texturas (triplanar + mips) e denoise À-Trous. Na casa de alto padrão, 1280x720: ~84 ms por passe; N=16 com denoise estimado em ~3 s (1920x1080).
+  - Limites: denoise piora texturas e arestas a partir de N=32 e remove o antialias dos contornos; vidro e metal não validados contra referência correta; tipos procedurais não existem no pt0.
+  - Ainda NÃO está integrado ao serviço nem ao app.
+
+Pendências:
+1. Integrar o path tracing ao serviço como modo de qualidade máxima (modo no job, progressão por amostra, perfis).
+2. Corrigir o denoise (albedo por amostra, preservar antialias).
+3. Luzes internas (precisa de decisão sobre quais elementos são luminárias).
+4. Compressão das texturas.
+5. Bug no render-core: `Rng::novo` mistura semente e amostra por XOR.
+6. Verificação final no localhost (ver "Pendência final").
