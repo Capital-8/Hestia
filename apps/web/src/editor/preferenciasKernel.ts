@@ -9,7 +9,7 @@
  * nesse caso o padrão é o TypeScript, exatamente como hoje.
  */
 
-import { CHAVE_FATIAS, FATIAS, interpretarLista, kernelFatiaLigada, type Fatia } from '@hestia/geom';
+import { interpretarLista } from '@hestia/geom';
 
 /** Caminho escolhido pelo usuário: o kernel experimental (`rust`) ou o TypeScript de sempre (`ts`). */
 export type FlagKernel = 'rust' | 'ts';
@@ -72,12 +72,6 @@ export function ligarKernelExperimental(ligado: boolean): void {
   }
 }
 
-/**
- * Fatias do kernel v2 (decisão 0046 §2.6): `?kernelFatias=A,B` / `hestia:kernel:fatias`. `?kernel=rust` e a preferência acima
- * (`hestia:kernel`) ligam todas as fatias; o comportamento do kernel v1 não muda.
- */
-export { kernelFatiaLigada, fatiasLigadas, type Fatia } from '@hestia/geom';
-
 /** Acesso à URL e ao `localStorage`, injetável nos testes. O padrão lê o ambiente real. */
 export interface AmbienteKernel {
   busca?: string | null;
@@ -104,36 +98,6 @@ function ambienteReal(): AmbienteKernel {
   };
 }
 
-/** Fatias que o interruptor do diálogo "Experimentais" libera. As demais aparecem desabilitadas. */
-export const FATIAS_HABILITADAS: readonly Fatia[] = ['A', 'B'];
-
-/** Lista de fatias gravada pelo diálogo (`hestia:kernel:fatias`); vazia quando não há. */
-export function lerFatiasSalvas(amb: AmbienteKernel = ambienteReal()): Set<Fatia> {
-  return interpretarLista(amb.ler?.(CHAVE_FATIAS)) ?? new Set<Fatia>();
-}
-
-/**
- * Grava a lista de fatias no formato que `fatias.ts` lê (`A,C`, em ordem). Lista vazia grava `-`: texto não nulo
- * sem fatias conhecidas, que `fatias.ts` lê como "nenhuma fatia" e que vence `hestia:kernel=rust`.
- */
-export function gravarFatiasSalvas(fatias: ReadonlySet<Fatia>, amb: AmbienteKernel = ambienteReal()): void {
-  const texto = FATIAS.filter((f) => fatias.has(f)).join(',') || '-';
-  amb.gravar?.(CHAVE_FATIAS, texto);
-}
-
-/** Qual parâmetro da URL trava as fatias: `kernelFatias` (lista), `kernel` (`rust`/`ts`) ou `null` (a URL não opina). */
-export function forcaDaUrl(amb: AmbienteKernel = ambienteReal()): 'kernelFatias' | 'kernel' | null {
-  let params: URLSearchParams;
-  try {
-    params = new URLSearchParams(amb.busca ?? '');
-  } catch {
-    return null;
-  }
-  if (interpretarLista(params.get('kernelFatias'))) return 'kernelFatias';
-  const geral = params.get('kernel');
-  return geral === 'rust' || geral === 'ts' ? 'kernel' : null;
-}
-
 /** Chave do modo sombra (decisão 0046 §7.1). A lógica fica em `packages/engine/src/kernelDespacho.ts` (decisão 0047 §12). */
 export const CHAVE_MODO_SOMBRA = 'hestia:kernel:sombra';
 
@@ -148,13 +112,34 @@ export function gravarModoSombra(ligado: boolean, amb: AmbienteKernel = ambiente
 }
 
 /**
- * Configuração do despacho das fatias A e B (decisões 0047 §12 e 0050, B5), lida do ambiente: cada fatia ligada (URL > `localStorage`) e o modo
- * sombra, que só vale com ao menos uma fatia ligada (e vale para cada fatia ligada). Sem fatia, nada é instalado nem baixado: o padrão continua
- * TypeScript.
+ * Configuração do despacho das fatias A e B (decisões 0047 §12 e 0050, B5; decisão do dono de 2026-11-06): o Rust é o ÚNICO caminho de produção das
+ * fatias A e B e das quantidades. Em produção as duas fatias ficam SEMPRE ligadas e o wasm é sempre carregado; não existe opção para desligá-las.
+ * Só o modo sombra (comparar com o TypeScript) é preferência do usuário.
+ *
+ * Em build de desenvolvimento (`import.meta.env.DEV`, o que inclui os testes) a URL ainda pode desligar para depuração: `?kernel=ts` desliga as duas
+ * e `?kernelFatias=A`, `?kernelFatias=B` ou `?kernelFatias=A,B` escolhem quais ficam ligadas. Em produção esses parâmetros são ignorados.
  */
-export function configDoDespacho(amb: AmbienteKernel = ambienteReal()): { fatiaA: boolean; fatiaB: boolean; sombra: boolean } {
-  const ambFatias = { busca: amb.busca ?? null, ler: amb.ler ?? (() => null) };
-  const fatiaA = kernelFatiaLigada('A', ambFatias);
-  const fatiaB = kernelFatiaLigada('B', ambFatias);
+export function configDoDespacho(
+  amb: AmbienteKernel = ambienteReal(),
+  desenvolvimento: boolean = import.meta.env.DEV === true,
+): { fatiaA: boolean; fatiaB: boolean; sombra: boolean } {
+  let fatiaA = true;
+  let fatiaB = true;
+  if (desenvolvimento) {
+    let params: URLSearchParams | null = null;
+    try {
+      params = new URLSearchParams(amb.busca ?? '');
+    } catch {
+      params = null;
+    }
+    const lista = interpretarLista(params?.get('kernelFatias'));
+    if (lista) {
+      fatiaA = lista.has('A');
+      fatiaB = lista.has('B');
+    } else if (params?.get('kernel') === 'ts') {
+      fatiaA = false;
+      fatiaB = false;
+    }
+  }
   return { fatiaA, fatiaB, sombra: (fatiaA || fatiaB) && lerModoSombra(amb) };
 }

@@ -99,8 +99,8 @@ Data: 2026-11-06. Decisões do dono. Registra o que mudou no kernel Rust (fatias
 - O Rust calcula as partes de A e B e as quantidades (parede, piso, laje e forro).
 - Falha do Rust vira erro explícito (`ErroKernel`), nunca cálculo em TypeScript no lugar.
 - O TypeScript fica só como oráculo de teste (comparações nos testes e modo sombra).
-- Estado do código: o recuo ao TypeScript ainda existe (`ErroKernelLeve` em `packages/geom/src/kernel/v2/cena.ts` e os
-  despachos `kernelDespacho.ts` e `kernelDespachoB.ts`). A remoção está na seção Pendente.
+- Estado do código: o despacho já não devolve o cálculo do TypeScript (ver a atualização 2026-11-06 (2)); `ErroKernelLeve` em
+  `packages/geom/src/kernel/v2/cena.ts` ainda existe como tipo de erro.
 
 ### Correção I3 (commit 688a96e7)
 
@@ -131,12 +131,42 @@ Data: 2026-11-06. Decisões do dono. Registra o que mudou no kernel Rust (fatias
   em `SEMENTES` do arquivo (hoje 1 a 4).
 - `cargo test` em `crates/geom-wasm`.
 
+## Atualização 2026-11-06 (2): Rust sempre ligado, "calculando…" e critério por camada
+
+Data: 2026-11-06. Decisões do dono.
+
+### Rust sempre ligado
+
+- O Rust é o ÚNICO caminho de produção das fatias A e B e das quantidades, sempre ligado. Não existe opção de desligar A ou B em produção.
+- `configDoDespacho` (`apps/web/src/editor/preferenciasKernel.ts`) devolve A e B ligadas sempre e o wasm é sempre carregado no boot.
+- `?kernel=ts`, `?kernelFatias=...` e a fatia desligada só funcionam em build de desenvolvimento (`import.meta.env.DEV`) ou nos testes. Em produção
+  são ignorados, assim como o `hestia:kernel:fatias` do `localStorage`.
+- O diálogo Experimentais e `preferenciasKernel.ts` ficam só com o modo sombra (comparar com o TypeScript) e o diagnóstico do despacho.
+
+### "calculando…" no carregamento
+
+- Enquanto o wasm não carregou, o resultado de A, B e quantidades é `KernelPendente` (`packages/engine/src/kernelPendente.ts`): o editor mostra
+  "calculando…" e recalcula quando o Rust fica pronto. Nunca devolve o resultado do TypeScript no lugar.
+- Falha do Rust é erro explícito. O modo sombra devolve sempre o resultado do Rust (o TypeScript só é comparado).
+
+### Critério de comparação por camada (aprovado pelo dono em 2026-11-06)
+
+- Diferença por camada ≤ 1e-6 + 1e-6 × Σ(perímetro × cota), com a soma sobre as faces da camada. É o limite derivado da grade de 1 µm: cada aresta
+  desloca até uma grade, e o volume acompanha a cota. Substitui o limite fixo de 2e-5 do teste B6 (commit 00c05368). Nenhuma tolerância base muda.
+
+### Correções do Rust (commit d71830a2)
+
+- Furo que sai do contorno não vira região: um polígono é o contorno menos os furos; com a regra NonZero a parte do furo fora do contorno contava
+  como região (enrolamento -1) e inflava o corte em 1,6e-4 m² num piso do estresse (furo de escada 1 mm além da borda). `preparar` refaz o polígono
+  como contorno menos furos (`crates/geom-wasm/src/ops.rs`).
+- `laje_cobre_piso` na grade de 1 µm, sem escala própria: a camada entra na grade de 1 µm antes de comparar (o viés da área solta contra a
+  arredondada era o falso negativo) e o fiapo restante tem limite derivado da grade, perímetro / ESCALA, mais AREA_EPS
+  (`crates/geom-wasm/src/quantidades.rs`).
+
 ## Pendente
 
-- Regenerar o `.wasm` a partir de `crates/geom-wasm`.
 - Verificação completa nos 11 projetos, só com agregados (sem nomes nem conteúdo dos projetos).
 - Medição de desempenho (ainda não medida).
 - Validação visual pelo dono (roteiro em `docs/handoff/fatia-b-validacao-e-resumo.md`).
-- Remover o recuo ao TypeScript, conforme a decisão "só Rust".
 - Subir `VERSAO_MOTOR_GEOMETRIA` e registrar a diferença medida.
 - Migrar o forro.

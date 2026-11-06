@@ -8,21 +8,18 @@
  * O estado do Rust é cache: a fonte da verdade é o projeto em JS, reenviado por inteiro quando o projeto muda.
  */
 import { CenaV2, ErroKernelGrave, fonteDeSecoes, type GerenciadorKernelV2 } from '@hestia/geom';
-import { isWall, openingsOfWall, wallsOnLevel, type Id, type Project, type Slab } from '@hestia/model';
-import type { ResolvedFloor, ResolvedFloorLayer } from './floors.ts';
-import type { ElementJunction, JunctionLevel, WallJunction } from './junctionLevel.ts';
-import type { ResolvedPrism } from './junctionPlanar.ts';
-import type { ResolvedSlab, ResolvedSlabLayer } from './slabs.ts';
+import { isWall, openingsOfWall, wallsOnLevel, type Id, type Project } from '@hestia/model';
+import type { ResolvedFloor } from './floors.ts';
+import type { JunctionLevel } from './junctionLevel.ts';
+import type { ResolvedSlab } from './slabs.ts';
 import { montarCenaA1, type CenaA1 } from './kernelA1.ts';
 import { montarCenaA3, type CenaA3 } from './kernelA3.ts';
 import { montarPerfisA3d } from './kernelA3d.ts';
-import { argumentosB2, decodificarB2, montarCenaB1, referenciaDeResultados, type CamadaB1, type CenaB1, type ElementoB1 } from './kernelB.ts';
-import { decodificarB3, montarCenaB3, referenciaB3De, TIPO_B3, type CenaB3, type JuncaoB3 } from './kernelB3.ts';
-import { bandKey } from './junctionLevel.ts';
+import { argumentosB2, decodificarB2, montarCenaB1, referenciaDeResultados, type CenaB1, type ElementoB1 } from './kernelB.ts';
+import { decodificarB3, montarCenaB3, referenciaB3De, type CenaB3, type JuncaoB3 } from './kernelB3.ts';
 import { levelCutterSet } from './junctionNet.ts';
 import { compararB1 } from './kernelComparaB.ts';
 import { compararB3 } from './kernelComparaB3.ts';
-import type { OutlineProblem } from './outlineBound.ts';
 import { indexarQuantidades, montarCenaForros, quantidadesNivelRust, type CenaForros } from './kernelQuantidades.ts';
 import type { QuantidadesRust, TipoQuant } from './quantidadesTipos.ts';
 
@@ -135,82 +132,8 @@ export function sincronizarB(atual: EntradaB | null, p: Project, ger: Gerenciado
 /** Argumentos de `pisos_lajes_com_paredes` e de `junction_nivel` (os mesmos: o nível e a tolerância de junção do projeto). */
 export const argumentosDaFatiaB = argumentosB2;
 
-const inverso = <V>(m: ReadonlyMap<V, number>): Map<number, V> => new Map([...m].map(([k, n]) => [n, k] as const));
-
-const PROBLEMAS: ReadonlyArray<OutlineProblem | null> = [null, 'aberto', 'fora'];
-
-function numeroParaId(m: ReadonlyMap<number, Id>, n: number, o: string): Id {
-  const id = m.get(n);
-  if (id === undefined) throw new Error(`${o} ${n} da saída do Rust não existe no projeto`);
-  return id;
-}
-
-/** O que a conversão precisa da cena que gerou a saída (guardado junto dela: a cena é substituída a cada edição do projeto). */
-export interface MapasB {
-  b: CenaB1;
-  a1: CenaA1;
-}
-
-function camada(c: CamadaB1, material: ReadonlyMap<number, Id>): ResolvedFloorLayer & ResolvedSlabLayer {
-  return {
-    layerIndex: c.indice,
-    materialId: numeroParaId(material, c.material, 'material'),
-    z0: c.z0,
-    z1: c.z1,
-    priority: c.prioridade,
-    core: c.nucleo,
-    membrane: c.membrana,
-    explicit: c.explicita,
-    polygon: c.poligono,
-  };
-}
-
-/** `ElementoB1` do Rust -> `ResolvedFloor` e `ResolvedSlab` do nível, na mesma ordem (pisos e depois lajes) e com os mesmos campos do TypeScript. */
-export function converterPisosELajes(p: Project, levelId: Id, el: readonly ElementoB1[], m: MapasB): { pisos: ResolvedFloor[]; lajes: ResolvedSlab[] } {
-  const piso = inverso(m.b.pisoDe);
-  const laje = inverso(m.b.lajeDe);
-  const tipoPiso = inverso(m.b.tipoPisoDe);
-  const tipoLaje = inverso(m.b.tipoLajeDe);
-  const material = inverso(m.b.materialDe);
-  const pisos: ResolvedFloor[] = [];
-  const lajes: ResolvedSlab[] = [];
-  for (const e of el) {
-    const base = {
-      levelId,
-      polygon: e.poligono,
-      topZ: e.topoZ,
-      bottomZ: e.baseZ,
-      problem: PROBLEMAS[e.problema] ?? null,
-    };
-    const layers = e.camadas.map((c) => camada(c, material));
-    if (e.laje) {
-      const slabId = numeroParaId(laje, e.id, 'laje');
-      const s = p.elements[slabId] as Slab;
-      lajes.push({ slabId, typeId: numeroParaId(tipoLaje, e.tipo, 'tipo de laje'), ...base, slope: s.slope, layers });
-    } else {
-      pisos.push({ floorId: numeroParaId(piso, e.id, 'piso'), typeId: numeroParaId(tipoPiso, e.tipo, 'tipo de piso'), ...base, layers });
-    }
-  }
-  return { pisos, lajes };
-}
-
-/** `JuncaoB3` do Rust -> `JunctionLevel` (o inverso de `referenciaB3De`; os cortadores não voltam: `levelCutterSet` segue no TypeScript). */
-export function converterJuncao(levelId: Id, j: JuncaoB3, m: MapasB): JunctionLevel {
-  const piso = inverso(m.b.pisoDe);
-  const laje = inverso(m.b.lajeDe);
-  const parede = inverso(m.a1.idDe);
-  const prismas = (ps: ReadonlyArray<{ poligono: ResolvedPrism['poly']; z0: number; z1: number }>): ResolvedPrism[] => ps.map((x) => ({ poly: x.poligono, z0: x.z0, z1: x.z1 }));
-  const elements = new Map<Id, ElementJunction>();
-  for (const e of j.elementos) {
-    const id = e.tipo === TIPO_B3.floor ? numeroParaId(piso, e.dono, 'piso') : numeroParaId(laje, e.dono, 'laje');
-    elements.set(id, { cut: e.corte, layers: e.camadas.map((c) => ({ layerIndex: c.camada, parts: prismas(c.partes) })), region: e.regiao });
-  }
-  const walls = new Map<Id, WallJunction>();
-  for (const w of j.paredes) {
-    walls.set(numeroParaId(parede, w.parede, 'parede'), { cut: w.corte, bands: new Map(w.faixas.map((f) => [bandKey(f.camada, f.banda), prismas(f.partes)] as const)) });
-  }
-  return { levelId, elements, walls };
-}
+export { converterJuncao, converterPisosELajes, type MapasB } from './kernelConversaoB.ts';
+import type { MapasB } from './kernelConversaoB.ts';
 
 /** Uma divergência do modo sombra da B (o registro circular e o diálogo são do `DespachoKernel`). */
 export interface DivergenciaB {

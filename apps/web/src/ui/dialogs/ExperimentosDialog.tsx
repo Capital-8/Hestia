@@ -12,20 +12,13 @@ import {
   ativarKernelExperimental,
   desativarKernelExperimental,
   estadoKernel,
-  fatiasLigadas,
-  FATIAS,
   medicaoOperacoes,
   type EstadoKernel,
-  type Fatia,
   type MedicaoOperacoes,
 } from '@hestia/geom';
 import {
-  FATIAS_HABILITADAS,
-  forcaDaUrl,
-  gravarFatiasSalvas,
   gravarModoSombra,
   kernelExperimentalLigado,
-  lerFatiasSalvas,
   lerFlagDaUrl,
   lerModoSombra,
   ligarKernelExperimental,
@@ -39,17 +32,13 @@ const fechar = (): void => useUi.setState({ dialog: null, dialogArg: null });
 /** Textos novos deste diálogo, no mesmo par `pt`/`en` do resto da interface. */
 const TEXTOS = {
   pt: {
-    fatiasTitulo: 'Fatias do kernel v2 (Rust/WASM)',
+    fatiasTitulo: 'Kernel v2 (Rust/WASM)',
     fatiasDica:
-      'Cada fatia troca uma parte das operações geométricas pelo Rust. O padrão continua TypeScript; nenhuma fatia liga sem a sua validação.',
-    fatia: 'Fatia',
-    indisponivel: 'ainda não disponível',
-    definidoUrl: 'definido pela URL',
+      'As fatias A e B e as quantidades são calculadas pelo Rust, sempre. O que resta aqui é comparar com o TypeScript (modo sombra) e ver o diagnóstico.',
     reiniciar: 'Preferência salva. Requer recarregar a página para valer.',
     sombra: 'Modo sombra (Rust e TypeScript na mesma chamada)',
-    sombraDica: 'só vale com a fatia A ou B ligada',
     despachoTitulo: 'Fatias A e B: despacho e modo sombra',
-    despachoInativo: 'Despacho inativo (fatias A e B desligadas ou wasm ainda não carregado).',
+    despachoInativo: 'Despacho inativo (wasm ainda não carregado).',
     despachoEstado: 'Kernel v2',
     pronto: 'pronto',
     emFalta: 'indisponível',
@@ -68,17 +57,13 @@ const TEXTOS = {
     ultimoErro: 'Último erro',
   },
   en: {
-    fatiasTitulo: 'Kernel v2 slices (Rust/WASM)',
+    fatiasTitulo: 'Kernel v2 (Rust/WASM)',
     fatiasDica:
-      'Each slice moves part of the geometry operations to Rust. The default stays TypeScript; no slice turns on without your validation.',
-    fatia: 'Slice',
-    indisponivel: 'not available yet',
-    definidoUrl: 'set by the URL',
+      'Slices A and B and the quantities are always computed by Rust. What is left here is comparing with TypeScript (shadow mode) and the diagnostics.',
     reiniciar: 'Preference saved. Requires reloading the page to take effect.',
     sombra: 'Shadow mode (Rust and TypeScript in the same call)',
-    sombraDica: 'only applies with slice A or B on',
     despachoTitulo: 'Slices A and B: dispatch and shadow mode',
-    despachoInativo: 'Dispatch inactive (slices A and B off or wasm not loaded yet).',
+    despachoInativo: 'Dispatch inactive (wasm not loaded yet).',
     despachoEstado: 'Kernel v2',
     pronto: 'ready',
     emFalta: 'unavailable',
@@ -122,29 +107,15 @@ export function ExperimentosDialog(): ReactElement {
   const daUrl = lerFlagDaUrl();
   // Textos locais só têm pt/en; os demais idiomas caem no inglês até ganharem entrada própria.
   const tf = TEXTOS[lang === 'pt' ? 'pt' : 'en'];
-  const [salvas, setSalvas] = useState<Set<Fatia>>(lerFatiasSalvas);
   const [avisoFatias, setAvisoFatias] = useState('');
-  const forcadaPelaUrl = forcaDaUrl() !== null;
-  // Estado efetivo (URL > localStorage das fatias > preferência geral), lido a cada desenho.
-  const efetivas = fatiasLigadas();
   const [sombraSalva, setSombraSalva] = useState(lerModoSombra);
   const [diag, setDiag] = useState<DiagnosticoDespacho | null>(diagnosticoDespacho);
-  // O modo sombra só vale com a fatia A ou B efetiva (a mesma regra do despacho em `configDoDespacho`).
-  const fatiaAEfetiva = efetivas.has('A') || efetivas.has('B');
-  const sombra = sombraSalva && fatiaAEfetiva;
+  // As fatias A e B estão sempre ligadas em produção (`configDoDespacho`): o modo sombra vale sempre que o usuário o liga.
+  const sombra = sombraSalva;
 
   const alternarSombra = (valor: boolean): void => {
     gravarModoSombra(valor);
     setSombraSalva(valor);
-    setAvisoFatias(tf.reiniciar);
-  };
-
-  const alternarFatia = (fatia: Fatia, valor: boolean): void => {
-    const proxima = new Set(salvas);
-    if (valor) proxima.add(fatia);
-    else proxima.delete(fatia);
-    gravarFatiasSalvas(proxima);
-    setSalvas(proxima);
     setAvisoFatias(tf.reiniciar);
   };
 
@@ -237,35 +208,12 @@ export function ExperimentosDialog(): ReactElement {
       <div className="hint" style={{ marginBottom: 10 }}>
         <strong>{tf.fatiasTitulo}</strong>
         <p>{tf.fatiasDica}</p>
-        {FATIAS.map((fatia) => {
-          const habilitada = FATIAS_HABILITADAS.includes(fatia);
-          const travada = forcadaPelaUrl;
-          const desabilitada = travada || !habilitada;
-          const motivo = travada ? tf.definidoUrl : habilitada ? null : tf.indisponivel;
-          return (
-            <div className="prow" key={fatia}>
-              <label htmlFor={`kernel-fatia-${fatia}`}>
-                {tf.fatia} {fatia}
-                {motivo ? ` — ${motivo}` : ''}
-              </label>
-              <div>
-                <input
-                  id={`kernel-fatia-${fatia}`}
-                  type="checkbox"
-                  checked={efetivas.has(fatia)}
-                  disabled={desabilitada}
-                  onChange={(e) => alternarFatia(fatia, e.target.checked)}
-                />
-              </div>
-            </div>
-          );
-        })}
         <div className="prow">
           <label htmlFor="kernel-sombra">
-            {tf.sombra} — {tf.sombraDica}
+            {tf.sombra}
           </label>
           <div>
-            <input id="kernel-sombra" type="checkbox" checked={sombra} disabled={!fatiaAEfetiva} onChange={(e) => alternarSombra(e.target.checked)} />
+            <input id="kernel-sombra" type="checkbox" checked={sombra} onChange={(e) => alternarSombra(e.target.checked)} />
           </div>
         </div>
         {avisoFatias ? <p role="status" style={{ margin: '4px 0 10px', color: 'var(--fg-soft)' }}>{avisoFatias}</p> : null}

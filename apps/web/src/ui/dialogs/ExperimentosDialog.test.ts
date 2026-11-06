@@ -24,84 +24,21 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('Experimentais: interruptor por fatia', () => {
-  it('padrão desligado: A e B podem ser ligadas; as demais ficam desabilitadas com a dica', () => {
+describe('Experimentais: modo sombra (as fatias A e B são sempre Rust)', () => {
+  it('não há interruptor de fatia; o modo sombra está habilitado e desmarcado por padrão', () => {
     simularAmbiente('');
     const html = renderToStaticMarkup(createElement(ExperimentosDialog));
-    for (const f of ['A', 'B']) {
-      expect(entrada(html, `kernel-fatia-${f}`)).not.toContain('checked=""');
-      expect(entrada(html, `kernel-fatia-${f}`)).not.toContain('disabled=""');
-    }
-    for (const f of ['C', 'D', 'E']) {
-      expect(entrada(html, `kernel-fatia-${f}`)).toContain('disabled=""');
-      expect(entrada(html, `kernel-fatia-${f}`)).not.toContain('checked=""');
-    }
-    expect(html).toContain('ainda não disponível');
-    expect(html).not.toContain('definido pela URL');
+    expect(html).not.toContain('kernel-fatia-');
+    expect(entrada(html, 'kernel-sombra')).not.toContain('disabled=""');
+    expect(entrada(html, 'kernel-sombra')).not.toContain('checked=""');
+    expect(html).toContain('sempre');
   });
 
-  it('a fatia B salva aparece ligada; "requer recarregar" é o aviso ao mudar (texto pt)', () => {
-    simularAmbiente('', { 'hestia:kernel:fatias': 'B' });
-    const html = renderToStaticMarkup(createElement(ExperimentosDialog));
-    expect(entrada(html, 'kernel-fatia-B')).toContain('checked=""');
-    expect(entrada(html, 'kernel-fatia-A')).not.toContain('checked=""');
-    expect(entrada(html, 'kernel-fatia-B')).not.toContain('disabled=""');
-  });
-
-  it('?kernelFatias=B na URL trava o interruptor da B ("definido pela URL")', () => {
-    simularAmbiente('?kernelFatias=B');
-    const html = renderToStaticMarkup(createElement(ExperimentosDialog));
-    expect(entrada(html, 'kernel-fatia-B')).toContain('checked=""');
-    expect(entrada(html, 'kernel-fatia-B')).toContain('disabled=""');
-    expect(html).toContain('definido pela URL');
-  });
-
-  it('reflete a lista salva em hestia:kernel:fatias', () => {
-    simularAmbiente('', { 'hestia:kernel:fatias': 'A' });
-    const html = renderToStaticMarkup(createElement(ExperimentosDialog));
-    expect(entrada(html, 'kernel-fatia-A')).toContain('checked=""');
-    expect(entrada(html, 'kernel-fatia-A')).not.toContain('disabled=""');
-  });
-
-  it('?kernelFatias na URL trava o interruptor e explica "definido pela URL"', () => {
-    simularAmbiente('?kernelFatias=A');
-    const html = renderToStaticMarkup(createElement(ExperimentosDialog));
-    expect(entrada(html, 'kernel-fatia-A')).toContain('checked=""');
-    expect(entrada(html, 'kernel-fatia-A')).toContain('disabled=""');
-    expect(html).toContain('definido pela URL');
-  });
-
-  it('?kernel=rust na URL liga e trava todas as fatias', () => {
-    simularAmbiente('?kernel=rust');
-    const html = renderToStaticMarkup(createElement(ExperimentosDialog));
-    for (const f of ['A', 'B', 'C', 'D', 'E']) {
-      expect(entrada(html, `kernel-fatia-${f}`)).toContain('checked=""');
-      expect(entrada(html, `kernel-fatia-${f}`)).toContain('disabled=""');
-    }
-  });
-
-  it('modo sombra aparece desabilitado sem fatia ligada, com a dica "só vale com a fatia A ou B ligada"', () => {
+  it('reflete hestia:kernel:sombra', () => {
     simularAmbiente('', { 'hestia:kernel:sombra': 'true' });
     const html = renderToStaticMarkup(createElement(ExperimentosDialog));
-    expect(entrada(html, 'kernel-sombra')).toContain('disabled=""');
-    expect(entrada(html, 'kernel-sombra')).not.toContain('checked=""');
-    expect(html).toContain('só vale com a fatia A ou B ligada');
-  });
-
-  it('com só a fatia B ligada o modo sombra também fica habilitado', () => {
-    simularAmbiente('', { 'hestia:kernel:fatias': 'B' });
-    const html = renderToStaticMarkup(createElement(ExperimentosDialog));
-    expect(entrada(html, 'kernel-sombra')).not.toContain('disabled=""');
-  });
-
-  it('com a fatia A ligada o modo sombra fica habilitado e reflete hestia:kernel:sombra', () => {
-    simularAmbiente('', { 'hestia:kernel:fatias': 'A' });
-    let html = renderToStaticMarkup(createElement(ExperimentosDialog));
-    expect(entrada(html, 'kernel-sombra')).not.toContain('disabled=""');
-    expect(entrada(html, 'kernel-sombra')).not.toContain('checked=""');
-    simularAmbiente('', { 'hestia:kernel:fatias': 'A', 'hestia:kernel:sombra': 'true' });
-    html = renderToStaticMarkup(createElement(ExperimentosDialog));
     expect(entrada(html, 'kernel-sombra')).toContain('checked=""');
+    expect(entrada(html, 'kernel-sombra')).not.toContain('disabled=""');
   });
 });
 

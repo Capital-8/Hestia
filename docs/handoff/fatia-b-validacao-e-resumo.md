@@ -69,9 +69,15 @@ Esta seção substitui, pela decisão "só Rust", as frases que dizem que uma fa
 - **Volume exato:** `volume_exato_afim`, `volume_por_trechos` (`Span::Perfil`) e `overlap_volume`, com casos analíticos em `crates/geom-wasm/src/volume_sobreposicao.rs`.
 - **Verificação nova:** `tests/kernel-invariantes-rust.wasm.test.ts` (invariantes I1 a I5), mais `cargo test` em `crates/geom-wasm`.
 
+### Atualização 2026-11-06 (2)
+
+- **Rust sempre ligado:** A, B e quantidades só são calculadas pelo Rust, em produção, sem opção de desligar. `?kernel=ts` e `?kernelFatias` só valem em desenvolvimento e nos testes; o diálogo Experimentais ficou só com o modo sombra e o diagnóstico. Isso vale no lugar de "o padrão continua TypeScript" do resumo e do roteiro (a flag `?kernelFatias=A,B` não é mais necessária).
+- **"calculando…":** até o wasm carregar, o editor mostra "calculando…" (`KernelPendente`) e recalcula quando ele chega. O modo sombra devolve o resultado do Rust.
+- **Critério de comparação (dono, 2026-11-06):** diferença por camada ≤ 1e-6 + 1e-6 × Σ(perímetro × cota).
+- **Correções do Rust (commit d71830a2):** furo que sai do contorno deixa de virar região (inflava o corte em 1,6e-4 m² num piso do estresse) e `laje_cobre_piso` passa a comparar na grade de 1 µm, com o fiapo limitado pela grade (perímetro / ESCALA + AREA_EPS).
+
 ### Pendente
 
-- Regenerar o `.wasm`.
 - Verificação completa nos 11 projetos, só com agregados.
 - Medição de desempenho.
 - Validação visual pelo dono, com o roteiro acima.
