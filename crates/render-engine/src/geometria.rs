@@ -87,6 +87,8 @@ pub struct Malha {
     /// Vértices opacos primeiro (`vertices[..opacos]`), depois os de vidro, na ordem da cena.
     pub vertices: Vec<Vertice>,
     pub caixa: Caixa,
+    /// Caixa só dos triângulos que projetam sombra (ver `caixa_dos_projetores`).
+    pub caixa_sombra: Caixa,
     /// Quantidade de vértices opacos no início de `vertices`.
     pub opacos: usize,
 }
@@ -182,11 +184,48 @@ pub fn expandir(cena: &Cena) -> Result<Malha, ErroRender> {
     }
     let n_opacos = opacos.len();
     opacos.extend(vidro);
+    let caixa_sombra = caixa_dos_projetores(&opacos, caixa);
     Ok(Malha {
         vertices: opacos,
         caixa,
+        caixa_sombra,
         opacos: n_opacos,
     })
+}
+
+/// Tolerância, em metros, para dizer que um vértice está no nível mais baixo da cena.
+const TOLERANCIA_NIVEL_M: f64 = 1.0e-3;
+
+/// Caixa dos triângulos que podem projetar sombra: a malha inteira menos os triângulos com os três
+/// vértices no nível mais baixo da cena (o chão de render, que tem margem de dezenas de metros).
+///
+/// Essa exclusão é exata para o Sol acima do horizonte: todo ponto que recebe sombra está em z >=
+/// nível mais baixo, e a luz sobe a partir dele, então um triângulo nesse nível não fica entre o
+/// ponto e o Sol. O chão continua recebendo sombra normalmente; só deixa de alargar o mapa.
+/// Se nada sobra (cena só de chão), vale a caixa inteira.
+fn caixa_dos_projetores(vertices: &[Vertice], caixa_total: Caixa) -> Caixa {
+    let nivel = caixa_total.minimo[2];
+    let mut caixa = Caixa::vazia();
+    for triangulo in vertices.chunks_exact(3) {
+        let no_nivel = triangulo
+            .iter()
+            .all(|v| f64::from(v.posicao[2]) <= nivel + TOLERANCIA_NIVEL_M);
+        if no_nivel {
+            continue;
+        }
+        for v in triangulo {
+            caixa.expandir(Vec3::novo(
+                f64::from(v.posicao[0]),
+                f64::from(v.posicao[1]),
+                f64::from(v.posicao[2]),
+            ));
+        }
+    }
+    if caixa.minimo.iter().all(|v| v.is_finite()) {
+        caixa
+    } else {
+        caixa_total
+    }
 }
 
 #[cfg(test)]
@@ -307,5 +346,37 @@ mod testes {
         }
         // A câmera olha de -Y; a face está no plano Z=0, então a normal é +Z.
         assert!((malha.caixa.raio() - std::f64::consts::FRAC_1_SQRT_2).abs() < 1.0e-9);
+    }
+    /// Chão de render de 200 m no nível Z=0 (dois triângulos) e uma casa de 1 m de lado a 3 m.
+    fn cena_com_chao_de_margem() -> Cena {
+        let mut cena = cena_um_triangulo();
+        cena.posicoes = vec![
+            -100.0, -100.0, 0.0, 100.0, -100.0, 0.0, 100.0, 100.0, 0.0, -100.0, 100.0, 0.0,
+            0.0, 0.0, 3.0, 1.0, 0.0, 3.0, 0.0, 1.0, 3.0,
+        ];
+        cena.indices = vec![0, 1, 2, 0, 2, 3, 4, 5, 6];
+        cena.lotes = vec![
+            Lote { inicio_indices: 0, quantidade_indices: 6, material: 0 },
+            Lote { inicio_indices: 6, quantidade_indices: 3, material: 0 },
+        ];
+        cena
+    }
+
+    #[test]
+    fn caixa_da_sombra_ignora_o_chao_de_margem() {
+        let malha = expandir(&cena_com_chao_de_margem()).expect("expande");
+        // A caixa total cobre os 200 m do chão; a dos projetores, só a casa.
+        assert!(malha.caixa.raio() > 140.0, "caixa total: {}", malha.caixa.raio());
+        assert!(malha.caixa_sombra.raio() < 2.0, "caixa da sombra: {}", malha.caixa_sombra.raio());
+        assert!((malha.caixa_sombra.minimo[2] - 3.0).abs() < 1.0e-9);
+    }
+
+    #[test]
+    fn caixa_da_sombra_com_so_chao_vale_a_caixa_inteira() {
+        let mut cena = cena_com_chao_de_margem();
+        cena.indices = vec![0, 1, 2, 0, 2, 3];
+        cena.lotes = vec![Lote { inicio_indices: 0, quantidade_indices: 6, material: 0 }];
+        let malha = expandir(&cena).expect("expande");
+        assert_eq!(malha.caixa_sombra, malha.caixa);
     }
 }

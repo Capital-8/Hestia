@@ -20,7 +20,7 @@ use crate::cor;
 use crate::erro::ErroRender;
 use crate::geometria::{expandir as expandir_malha, Vertice};
 use crate::gpu::{self, Gpu};
-use crate::iluminacao::{aplicar_camera, matriz_da_luz, uniformes_fixos};
+use crate::iluminacao::{aplicar_camera, esfera_da_sombra, matriz_da_luz, uniformes_fixos};
 use crate::leitura::ler_textura;
 use crate::matrizes::colunas_f32;
 use crate::pipeline::{
@@ -336,8 +336,10 @@ impl Motor {
             )));
         }
 
-        let raio = malha.caixa.raio();
-        let luz_vp = matriz_da_luz(cena, malha.caixa.centro(), raio)?;
+        // Sombra dimensionada pelos projetores, sem a margem do chão de render (ver esfera_da_sombra).
+        let (centro_luz, raio) =
+            esfera_da_sombra(malha.caixa_sombra, malha.caixa.minimo[2], cena.sol);
+        let luz_vp = matriz_da_luz(cena, centro_luz, raio)?;
         let mut fixos = uniformes_fixos(cena);
         fixos.luz_vp = colunas_f32(&luz_vp);
 

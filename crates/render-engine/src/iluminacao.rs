@@ -1,12 +1,14 @@
 //! Uniformes da cena e matriz ortográfica da luz solar.
 
-use render_core::cena::Cena;
+use render_core::cena::{Cena, Sol};
 use render_core::matematica::{multiplicar, olhar_para};
 use render_core::vetor::Vec3;
 
 use crate::constantes::{CEU_PADRAO, CHAO_AMBIENTE, LADO_SOMBRA};
 use crate::erro::ErroRender;
+use crate::geometria::Caixa;
 use crate::matrizes::{colunas_f32, matriz_vp_wgpu, ortografica_wgpu};
+use crate::sombra::{LONGE_FATOR_RAIO, PERTO_FATOR_RAIO};
 use crate::uniformes::Uniformes;
 
 /// Parte dos uniformes que só depende da cena (Sol, céu e chão). A câmera, a exposição e a
@@ -79,7 +81,27 @@ pub fn aplicar_camera(
     ];
 }
 
-/// Câmera ortográfica do Sol, dimensionada pela esfera envolvente da cena.
+/// Centro e raio da esfera que dimensiona a câmera ortográfica do Sol.
+///
+/// O raio cobre a caixa dos projetores (`Malha::caixa_sombra`), e não a cena com o chão de render:
+/// com o chão de 200 m, o mapa de 2048 px ficaria 13 vezes mais grosso que a casa. A esfera de raio R
+/// projeta numa janela de 2 * R * 1,05 em torno do centro, e todo projetor dentro dela cai dentro
+/// da janela. A profundidade vai de 0,5 R a 3,5 R do olho da luz, que fica a 2 R do centro: vai de
+/// -1,5 R a +1,5 R em torno do centro. Um receptor sombreado pode estar mais fundo que isso, até
+/// (z_max - nível) / sen(elevação) além do centro, então R é no mínimo esse valor / 1,5. Sol baixo
+/// faz o R crescer; sol alto deixa o R na casa.
+pub fn esfera_da_sombra(caixa_sombra: Caixa, nivel: f64, sol: Sol) -> ([f64; 3], f64) {
+    let mut raio = caixa_sombra.raio();
+    let seno = sol.direcao().z;
+    if seno > 1.0e-3 {
+        let alcance = (caixa_sombra.maximo[2] - nivel).max(0.0) / seno;
+        let meio_alcance = (LONGE_FATOR_RAIO - 2.0).min(2.0 - PERTO_FATOR_RAIO);
+        raio = raio.max(alcance / meio_alcance);
+    }
+    (caixa_sombra.centro(), raio)
+}
+
+/// Câmera ortográfica do Sol, dimensionada pela esfera de `esfera_da_sombra`.
 pub fn matriz_da_luz(cena: &Cena, centro: [f64; 3], raio: f64) -> Result<[f64; 16], ErroRender> {
     let centro = Vec3::de_array(centro);
     let direcao = cena.sol.direcao().normalizado();
@@ -98,4 +120,49 @@ pub fn matriz_da_luz(cena: &Cena, centro: [f64; 3], raio: f64) -> Result<[f64; 1
         .ok_or_else(|| ErroRender::Gpu("não foi possível montar a câmera do Sol".into()))?;
     let projecao = ortografica_wgpu(raio * 1.05, raio * 1.05, raio * 0.5, raio * 3.5);
     Ok(multiplicar(&projecao, &vista))
+}
+
+#[cfg(test)]
+mod testes {
+    use super::*;
+
+    fn sol_em(elevacao: f64) -> Sol {
+        Sol {
+            azimute: 40.0,
+            elevacao,
+            intensidade: 1.0,
+        }
+    }
+
+    /// Casa de 10 m x 10 m x 8 m sobre o nível Z=0 (só a caixa dos projetores).
+    fn casa() -> Caixa {
+        Caixa {
+            minimo: [0.0, 0.0, 0.0],
+            maximo: [10.0, 10.0, 8.0],
+        }
+    }
+
+    #[test]
+    fn sol_alto_usa_so_a_caixa_dos_projetores() {
+        let (centro, raio) = esfera_da_sombra(casa(), 0.0, sol_em(60.0));
+        assert_eq!(centro, [5.0, 5.0, 4.0]);
+        assert!((raio - casa().raio()).abs() < 1.0e-12);
+    }
+
+    #[test]
+    fn sol_baixo_aumenta_o_raio_para_a_profundidade_caber() {
+        // Sol a 5 graus: o chão a 8 m de altura do topo fica a 8 / sen(5) m do topo, além do centro.
+        let sol = sol_em(5.0);
+        let (_, raio) = esfera_da_sombra(casa(), 0.0, sol);
+        let alcance = 8.0 / sol.direcao().z;
+        assert!(raio > casa().raio());
+        // A profundidade vai de -1,5 R a +1,5 R em torno do centro: o receptor mais fundo cabe.
+        assert!(alcance <= 1.5 * raio + 1.0e-9, "alcance {alcance} raio {raio}");
+    }
+
+    #[test]
+    fn sol_abaixo_do_horizonte_nao_aumenta_o_raio() {
+        let (_, raio) = esfera_da_sombra(casa(), 0.0, sol_em(-10.0));
+        assert!((raio - casa().raio()).abs() < 1.0e-12);
+    }
 }
