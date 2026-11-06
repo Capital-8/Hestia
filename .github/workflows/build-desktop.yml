@@ -1,0 +1,80 @@
+name: build-desktop
+
+# Gera os pacotes do desktop (Windows e Linux) SEM publicar Release.
+# Serve para testar antes de criar a tag: baixe os artefatos na página da execução
+# (Actions > build-desktop > execução > Artifacts) e rode na máquina de teste.
+# Publicar de verdade é o workflow release-desktop, disparado por uma tag vX.Y.Z.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "feat/desktop-linux*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            args: "--bundles nsis"
+          - platform: ubuntu-22.04
+            args: "--bundles appimage,deb,rpm"
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Instalar Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+
+      - name: Instalar toolchain Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Instalar dependências do Linux (só no Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils libfuse2
+
+      - name: Instalar dependências da raiz
+        run: npm ci
+
+      - name: Gerar o app web (apps/web/dist)
+        run: npm run build
+
+      - name: Instalar dependências do desktop
+        working-directory: desktop
+        run: npm ci
+
+      # createUpdaterArtifacts está ligado em tauri.conf.json: sem a chave de assinatura
+      # o build falha, então a chave dos segredos também é usada aqui (artefatos de teste
+      # assinados como os de release, só não são publicados).
+      - name: Empacotar (sem publicar)
+        working-directory: desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npx tauri build ${{ matrix.args }}
+
+      - name: Guardar os pacotes como artefato da execução
+        uses: actions/upload-artifact@v4
+        with:
+          name: hestia-${{ matrix.platform }}
+          path: desktop/src-tauri/target/release/bundle/**/*
+          if-no-files-found: error
+          retention-days: 14
