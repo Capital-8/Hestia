@@ -90,12 +90,21 @@ export function indicesDeTextura(mapas: RenderMaterialMapas | undefined, nTextur
 /** Quantas texturas são buscadas ao mesmo tempo (ver `comLimite`). */
 export const LIMITE_BUSCA_TEXTURAS = 4;
 
-/** Opções do carregamento: `lado` (padrão 1024 = render final; a prévia pede `LADO_PREVIA_TEXTURA`) e `progresso`. */
+/** Gera a cadeia de mips de uma textura. Padrão: `gerarMips` na thread atual; o render GPU passa a versão do worker. */
+export type GeradorMips = (rgba: Uint8Array, largura: number, altura: number) => Promise<Uint8Array[]>;
+
+/**
+ * Opções do carregamento: `lado` (padrão 1024 = render final; a prévia pede `LADO_PREVIA_TEXTURA`), `progresso` e
+ * `gerarMips` (padrão: a função direta).
+ */
 export interface OpcoesTexturas {
   lado?: number;
   /** Chamado com (feitas, total): de (0, total) no início e a cada textura pronta. */
   progresso?: (feitas: number, total: number) => void;
+  gerarMips?: GeradorMips;
 }
+
+const gerarMipsDireto: GeradorMips = async (rgba, largura, altura) => gerarMips(rgba, largura, altura);
 
 /**
  * Imagens já baixadas, decodificadas e com mips, por lado e caminho (`${lado}|${caminho}`). Guarda a PROMESSA: duas
@@ -122,12 +131,12 @@ export function chaveDasTexturas(texturas: readonly RenderTextura[], lado: numbe
 }
 
 /** Textura da biblioteca pronta (pixels no lado pedido e mips), do cache quando já foi buscada. */
-function carregarTexturaDaBiblioteca(caminho: string, lado: number): Promise<RenderTextura> {
+function carregarTexturaDaBiblioteca(caminho: string, lado: number, gerar: GeradorMips): Promise<RenderTextura> {
   const chave = `${lado}|${caminho}`;
   const emCache = cacheImagens.get(chave);
   if (emCache) return emCache;
   const carregando = carregarTexturaRgba(urlDaTextura(caminho), lado)
-    .then(({ largura, altura, rgba }) => ({ caminho, largura, altura, mips: gerarMips(rgba, largura, altura) }))
+    .then(async ({ largura, altura, rgba }) => ({ caminho, largura, altura, mips: await gerar(rgba, largura, altura) }))
     .catch((e: unknown) => {
       cacheImagens.delete(chave);
       const motivo = e instanceof Error ? e.message : 'falha desconhecida';
@@ -173,13 +182,14 @@ export async function comLimite<T, R>(
  */
 export async function carregarTexturasDoSnapshot(snapshot: RenderSceneSnapshot, opcoes: OpcoesTexturas = {}): Promise<RenderTextura[]> {
   const lado = opcoes.lado ?? LADO_MAXIMO_TEXTURA;
+  const gerar = opcoes.gerarMips ?? gerarMipsDireto;
   const lista = snapshot.texturas ?? [];
   let feitas = 0;
   opcoes.progresso?.(0, lista.length);
   return comLimite(lista, LIMITE_BUSCA_TEXTURAS, async (textura, i) => {
     const caminho = textura.caminho;
     if (!caminho) throw new Error(`textura ${i} da cena não tem caminho na biblioteca de texturas`);
-    const pronta = await carregarTexturaDaBiblioteca(caminho, lado);
+    const pronta = await carregarTexturaDaBiblioteca(caminho, lado, gerar);
     feitas++;
     opcoes.progresso?.(feitas, lista.length);
     return pronta;
@@ -204,5 +214,94 @@ export async function comTexturasCarregadas(snapshot: RenderSceneSnapshot, opcoe
     ultimaListaCarregada = nova;
     entrada = nova;
   }
-  return { ...snapshot, texturas: await entrada.carregando };
+  const texturas = await entrada.carregando;
+  await esperarEmprestimos(texturas);
+  return { ...snapshot, texturas };
+}
+
+/*
+ * Empréstimo ao worker de codificação (ver `renderWorkerClient.ts`). Os mips são pixels grandes: para não copiá-los, o
+ * cliente TRANSFERE os buffers ao worker, e a lista fica sem pixels até o worker devolvê-los. Enquanto isso, cada textura
+ * da lista está "emprestada": quem pedir a lista espera (`comTexturasCarregadas`). Se o worker for encerrado antes de
+ * devolver (cancelamento), os pixels se perdem: a lista sai do cache, e a próxima chamada carrega de novo.
+ */
+
+/** Promessa de cada textura emprestada, resolvida quando a lista volta (ou sai do cache). */
+const emprestimos = new WeakMap<RenderTextura, Promise<void>>();
+
+/** Empréstimo de uma lista: `devolver` restaura os mips (na ordem da lista); `perder` tira a lista do cache. */
+export interface Emprestimo {
+  devolver(mipsPorTextura: Uint8Array[][]): void;
+  perder(): void;
+}
+
+function temEmprestimo(texturas: readonly RenderTextura[]): boolean {
+  return texturas.some((textura) => emprestimos.has(textura));
+}
+
+/** Espera a devolução de todas as texturas emprestadas da lista (sem empréstimo, não espera nada). */
+async function esperarEmprestimos(texturas: readonly RenderTextura[]): Promise<void> {
+  while (temEmprestimo(texturas)) {
+    await Promise.all(texturas.flatMap((textura) => emprestimos.get(textura) ?? []));
+  }
+}
+
+/** Registra o empréstimo de forma síncrona: chamar só depois de confirmar que a lista está livre e com pixels. */
+function registrarEmprestimo(texturas: RenderTextura[], lado: number): Emprestimo {
+  const unicas = [...new Set(texturas)];
+  let liberar: () => void = () => {};
+  const fim = new Promise<void>((resolver) => {
+    liberar = resolver;
+  });
+  for (const textura of unicas) emprestimos.set(textura, fim);
+  let encerrado = false;
+  const encerrar = (): void => {
+    if (encerrado) return;
+    encerrado = true;
+    for (const textura of unicas) {
+      if (emprestimos.get(textura) === fim) emprestimos.delete(textura);
+    }
+    liberar();
+  };
+  return {
+    devolver(mipsPorTextura) {
+      if (encerrado) return;
+      texturas.forEach((textura, i) => {
+        textura.mips = mipsPorTextura[i]!;
+      });
+      encerrar();
+    },
+    perder() {
+      if (encerrado) return;
+      // Tira a lista do cache: a próxima chamada busca e decodifica as imagens de novo.
+      for (const textura of texturas) {
+        if (textura.caminho !== undefined) cacheImagens.delete(`${lado}|${textura.caminho}`);
+      }
+      if (ultimaListaCarregada?.chave === chaveDasTexturas(texturas, lado)) ultimaListaCarregada = null;
+      encerrar();
+    },
+  };
+}
+
+/**
+ * Carrega as texturas (como `comTexturasCarregadas`) e as EMPRESTA ao worker: espera empréstimos em curso, confere que
+ * nenhuma textura perdeu os pixels e só então registra o empréstimo, sem nenhum `await` entre a conferência e o registro.
+ */
+export async function emprestarTexturasCarregadas(
+  snapshot: RenderSceneSnapshot,
+  opcoes: OpcoesTexturas = {},
+): Promise<{ cena: RenderSceneSnapshot; emprestimo: Emprestimo }> {
+  const lado = opcoes.lado ?? LADO_MAXIMO_TEXTURA;
+  let semPixels = 0;
+  for (;;) {
+    const cena = await comTexturasCarregadas(snapshot, { ...opcoes, lado });
+    const texturas = cena.texturas ?? [];
+    if (temEmprestimo(texturas)) continue;
+    if (!texturas.every((textura) => textura.mips.every((nivel) => nivel.length > 0))) {
+      semPixels++;
+      if (semPixels >= 3) throw new Error('texturas: os pixels continuam indisponíveis depois de recarregar');
+      continue;
+    }
+    return { cena, emprestimo: registrarEmprestimo(texturas, lado) };
+  }
 }

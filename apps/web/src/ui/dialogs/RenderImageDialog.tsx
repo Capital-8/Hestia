@@ -7,9 +7,10 @@ import { useProject } from '../../editor/controller.ts';
 import { entregarArquivo } from '../../editor/entregarArquivo.ts';
 import { canvasAtivo, comModoApresentacao } from '../../editor/render/captureRegistry.ts';
 import { renderizarImagemRust } from '../../editor/render/rustStillRenderer.ts';
-import { codificarCena, criarClienteWasm, type ClienteRenderWasm } from '../../editor/render/wasmClient.ts';
+import { criarClienteWasm, type ClienteRenderWasm } from '../../editor/render/wasmClient.ts';
 import { comTexturasCarregadas } from '../../editor/render/texturasCena.ts';
 import { LADO_PREVIA_TEXTURA } from '../../editor/render/texturaRender.ts';
+import { codificarCenaNoWorker, type ProgressoCodificacao } from '../../editor/render/renderWorkerClient.ts';
 import { renderizarNativo, saudeRenderNativo } from '../../editor/render/nativeClient.ts';
 import { cameraPreviewAtual } from '../../editor/render/previewCamera.ts';
 import { camera3DAtual } from '../../editor/vista3dAoVivo.ts';
@@ -219,12 +220,14 @@ export function RenderImageDialog(): ReactElement {
   const [erro, setErro] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const [previaFalhou, setPreviaFalhou] = useState(false);
-  // Carregamento das texturas da prévia (lado de prévia): "carregando texturas N de 22" enquanto busca.
-  const [progressoTexturas, setProgressoTexturas] = useState<{ feitas: number; total: number } | null>(null);
+  // Preparo da cena GPU (texturas N de 22, depois codificação): alimenta o indicador da prévia.
+  const [progressoTexturas, setProgressoTexturas] = useState<ProgressoCodificacao | null>(null);
   const [progressoLegado, setProgressoLegado] = useState<ProgressoLegado | null>(null);
   const [legadoCancelado, setLegadoCancelado] = useState(false);
   const [resultadoLegado, setResultadoLegado] = useState<ResultadoLegado | null>(null);
   const controladorLegadoRef = useRef<AbortController | null>(null);
+  // Preparo do GPU (mips e HSTR no worker): fechar o diálogo ou iniciar outro render aborta este.
+  const controladorGpuRef = useRef<AbortController | null>(null);
   // O rascunho só é limpo na vista 3D (cena em modo apresentação); planta, corte e prancha são recusados.
   const rascunhoPermitido = podeRascunhoDaVista(modoVistaDaCaptura(vista));
   const apresentacao3d = vista === '3d';
@@ -376,7 +379,10 @@ export function RenderImageDialog(): ReactElement {
     };
   }, []);
   // O mesmo vale para o Final (Rust/WASM): fechar o modal no meio do render o aborta.
-  useEffect(() => () => controladorLegadoRef.current?.abort(), []);
+  useEffect(() => () => {
+    controladorLegadoRef.current?.abort();
+    controladorGpuRef.current?.abort();
+  }, []);
 
   // Prévia: diminui a captura para caber no diálogo. A prévia usa a mesma rota da imagem final
   // (`desenharCaptura`), então o enquadramento é o da vista ativa.
@@ -392,12 +398,16 @@ export function RenderImageDialog(): ReactElement {
         ? Math.max(1, Math.round(largura / cameraDeRenderGpu.aspect))
         : Math.max(1, Math.round((largura * base.altura) / base.largura));
       // As texturas dos presets são carregadas antes de codificar (falha vira erro da prévia, não cena sem textura).
-      // A prévia usa a resolução de prévia das texturas (`LADO_PREVIA_TEXTURA`); o Final continua em 1024.
-      void comTexturasCarregadas(snapshotFinal, {
-        lado: LADO_PREVIA_TEXTURA,
-        progresso: (feitas, total) => { if (!cancelado) setProgressoTexturas({ feitas, total }); },
-      })
-        .then((cena) => renderizarNativo(codificarCena(cena), { largura, altura, exposicao }))
+      // Mips e HSTR saem da thread principal (worker); a prévia usa a resolução de prévia (`LADO_PREVIA_TEXTURA`).
+      // Trocar a cena ou fechar o diálogo aborta o preparo (o worker é encerrado).
+      const controlador = new AbortController();
+      void codificarCenaNoWorker(
+        snapshotFinal,
+        { lado: LADO_PREVIA_TEXTURA },
+        (progresso) => { if (!cancelado) setProgressoTexturas(progresso); },
+        controlador.signal,
+      )
+        .then((hstr) => renderizarNativo(hstr, { largura, altura, exposicao }))
         .then(async (blob) => {
           const bitmap = await createImageBitmap(blob);
           if (cancelado) { bitmap.close(); return; }
@@ -414,7 +424,10 @@ export function RenderImageDialog(): ReactElement {
         .finally(() => {
           if (!cancelado) setProgressoTexturas(null);
         });
-      return () => { cancelado = true; };
+      return () => {
+        cancelado = true;
+        controlador.abort();
+      };
     }
 
     if (qualidade === 'final') {
@@ -441,7 +454,7 @@ export function RenderImageDialog(): ReactElement {
         // Uma vez para todos os passos: as texturas dos presets entram na cena antes de ir ao wasm.
         const cenaComTexturas = await comTexturasCarregadas(snapshotFinal, {
           lado: LADO_PREVIA_TEXTURA,
-          progresso: (feitas, total) => { if (!cancelado) setProgressoTexturas({ feitas, total }); },
+          progresso: (feitas, total) => { if (!cancelado) setProgressoTexturas({ fase: 'texturas', feitas, total }); },
         }).catch(() => null);
         if (!cancelado) setProgressoTexturas(null);
         if (!cenaComTexturas) {
@@ -534,12 +547,25 @@ export function RenderImageDialog(): ReactElement {
       setErro(MENSAGEM_SERVICO_GPU_INDISPONIVEL);
       return;
     }
+    // Mips e HSTR no worker (renderWorkerClient); o indicador da prévia mostra o progresso. Fechar aborta.
+    controladorGpuRef.current?.abort();
+    const controlador = new AbortController();
+    controladorGpuRef.current = controlador;
     let hstr: Uint8Array;
     try {
-      hstr = codificarCena(await comTexturasCarregadas(snapshotFinal));
+      hstr = await codificarCenaNoWorker(
+        snapshotFinal,
+        {},
+        (progresso) => { if (!controlador.signal.aborted) setProgressoTexturas(progresso); },
+        controlador.signal,
+      );
     } catch (e) {
+      if (controlador.signal.aborted) return;
       setErro(e instanceof Error ? e.message : 'Não foi possível preparar a cena para a GPU.');
       return;
+    } finally {
+      if (controladorGpuRef.current === controlador) controladorGpuRef.current = null;
+      if (!controlador.signal.aborted) setProgressoTexturas(null);
     }
     if (!montadoRef.current) return;
     setErro('');
@@ -778,7 +804,9 @@ export function RenderImageDialog(): ReactElement {
             ) : null}
             {progressoTexturas && urlResultado === null ? (
               <span className="ri-previa-vazio ri-previa-progresso" role="status">
-                Carregando texturas {progressoTexturas.feitas} de {progressoTexturas.total}
+                {progressoTexturas.fase === 'texturas'
+                  ? `Carregando texturas ${progressoTexturas.feitas} de ${progressoTexturas.total}`
+                  : 'Codificando a cena para a GPU…'}
               </span>
             ) : null}
             {urlResultado !== null ? (
