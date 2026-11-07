@@ -23,6 +23,7 @@ import { resolveSlabs, resolveSlabsTs, type ResolvedSlab } from '../packages/eng
 import { caminhoDoWasm } from '../packages/geom/src/kernel/caminhoWasm.ts';
 import { GerenciadorKernelV2 } from '../packages/geom/src/kernel/v2/gerenciador.ts';
 import { projetoDeEstresseB1 } from '../scripts/kernel-b1-estresse.mts';
+import { projetoDaJuncao } from '../packages/render/src/plan/viewContext.ts';
 
 const caminho = caminhoDoWasm();
 const bytes = existsSync(caminho) ? readFileSync(caminho) : null;
@@ -289,4 +290,23 @@ describe.skipIf(!bytes)('B5: modo sombra da fatia B', () => {
     expect(resolveFloors(p, p.levels[0]!.id)).toEqual(resolveFloorsTs(p, p.levels[0]!.id));
     expect(d.diagnostico().comparacoes).toBe(0);
   }, 60_000);
+});
+
+describe.skipIf(!bytes)('B5: junção pedida com o projeto reduzido da vista (projetoDaJuncao)', () => {
+  it('o reduzido vale o projeto inteiro: sem erro de cobertura, sem volta ao TS e com a mesma junção do inteiro', () => {
+    if (ger === null) return;
+    const p = migrateProject(JSON.parse(JSON.stringify(projetoDeEstresseB1(1, { anexos: false }))));
+    const ultimo = p.levels[p.levels.length - 1]!.id;
+    const reduzido = projetoDaJuncao(p, ultimo);
+    // o nível de cima não alcança o térreo: o reduzido perde níveis (e as paredes deles, que a cobertura do projeto reduzido não veria)
+    expect(reduzido).not.toBe(p);
+    expect(reduzido.levels.length).toBeLessThan(p.levels.length);
+    const d = instalar(DESPACHO);
+    const doReduzido = junctionLevel(reduzido, ultimo);
+    const doInteiro = junctionLevel(p, ultimo);
+    expect(doReduzido).toBe(doInteiro); // a mesma consulta (memo do inteiro), não um reenvio da cena por nível
+    const diag = d.diagnostico();
+    expect(diag.voltasLeves + diag.voltasGraves).toBe(0);
+    expect(diag.ultimoErro).toBeNull();
+  }, 120_000);
 });

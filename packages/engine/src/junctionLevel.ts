@@ -105,6 +105,13 @@ const lostVolume = (t: PlanarPiece, parts: readonly ResolvedPrism[]): boolean =>
   Math.abs(multiArea(t.poly) * (t.z1 - t.z0) - volumeOfParts(parts)) > 1e-9;
 
 /**
+ * Projeto reduzido da junção (`projetoDaJuncao`) -> o projeto inteiro de que saiu. O reduzido é uma cópia rasa com menos níveis, nova a
+ * cada nível, e o kernel Rust trabalha sobre o projeto inteiro (uma única cena, enviada uma vez): quem despacha a junção ao Rust troca o
+ * reduzido pelo inteiro (a junção do nível é a mesma nos dois, que é a garantia da redução).
+ */
+export const projetoInteiroDaJuncao = new WeakMap<Project, Project>();
+
+/**
  * Junção resolvida do nível. Pisos, lajes e paredes com camadas recortadas pela de maior prioridade (`resolveJunction`),
  * com os elementos dos níveis adjacentes como cortadores (P7c, só o que cruza a cota). Lajes com caimento ficam de fora,
  * porque a faixa inclinada não se recorta por aproximação plana (quantitativos já integram).

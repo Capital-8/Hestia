@@ -10,7 +10,7 @@
 import { CenaV2, ErroKernelGrave, fonteDeSecoes, type GerenciadorKernelV2 } from '@hestia/geom';
 import { isWall, openingsOfWall, wallsOnLevel, type Id, type Project } from '@hestia/model';
 import type { ResolvedFloor } from './floors.ts';
-import type { JunctionLevel } from './junctionLevel.ts';
+import { projetoInteiroDaJuncao, type JunctionLevel } from './junctionLevel.ts';
 import type { ResolvedSlab } from './slabs.ts';
 import { montarCenaA1, type CenaA1 } from './kernelA1.ts';
 import { montarCenaA3, type CenaA3 } from './kernelA3.ts';
@@ -271,8 +271,11 @@ export class DespachoB {
   resolverJuncao(p: Project, levelId: Id, ts: () => JunctionLevel): JunctionLevel {
     const ger = this.gerenciador(levelId);
     if (!ger) return ts();
-    const rust = this.exigir(this.juncaoDoRust(p, levelId, ger), p, levelId, 'j');
-    if (this.ctx.sombra()) this.compararJuncao(p, levelId, ts, ger);
+    // O Rust tem a cena do projeto inteiro: o projeto reduzido da junção (cópia nova a cada nível) vira o inteiro, senão cada nível reenviaria a
+    // cena toda e as paredes dos níveis cortados pela redução ficariam fora da cobertura.
+    const inteiro = projetoInteiroDaJuncao.get(p) ?? p;
+    const rust = this.exigir(this.juncaoDoRust(inteiro, levelId, ger), inteiro, levelId, 'j');
+    if (this.ctx.sombra()) this.compararJuncao(inteiro, levelId, ts, ger, p);
     return rust;
   }
 
@@ -461,7 +464,7 @@ export class DespachoB {
   }
 
   /** SÃ³ o modo sombra: compara a junÃ§Ã£o do Rust com a do TypeScript (referÃªncia), uma vez por projeto e nÃ­vel. */
-  private compararJuncao(p: Project, levelId: Id, ts: () => JunctionLevel, ger: GerenciadorKernelV2): void {
+  private compararJuncao(p: Project, levelId: Id, ts: () => JunctionLevel, ger: GerenciadorKernelV2, pTs: Project = p): void {
     const chave = `juncao|${levelId}`;
     let feitos = this.comparadosB.get(p);
     if (!feitos) this.comparadosB.set(p, (feitos = new Set()));
@@ -472,7 +475,7 @@ export class DespachoB {
     try {
       const resultadoTs = ts();
       // `levelCutterSet` Ã© o do TS (nunca despachado); os pisos e as lajes que ele lÃª podem vir do Rust (equivalentes na B2).
-      const ref = referenciaB3De(levelCutterSet(p, levelId), resultadoTs, r.mapas.b, r.mapas.a1);
+      const ref = referenciaB3De(levelCutterSet(pTs, levelId), resultadoTs, r.mapas.b, r.mapas.a1);
       const cmp = compararB3(ref, r.juncao, { k0049: K_0049_B, maxDivergencias: this.ctx.limiteRegistro });
       this.ctx.contar('comparacoes');
       if (cmp.divergencias.length > 0) {
