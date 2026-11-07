@@ -371,22 +371,6 @@ pub fn diferenca_com_escala(args: &[MultiPoligono], escala: f64) -> Result<Multi
     Ok(descartar_residuos(converter(resultado, escala)))
 }
 
-/// Espessura (m) abaixo da qual uma sobreposição medida a 1 nm é ruído de quantização, não região: duas arestas quantizadas separadamente andam
-/// até ~0,7 nm cada, então uma sobreposição de menos de 2 nm de espessura média pode ser só isso.
-const ESPESSURA_DE_RUIDO: f64 = 2.0 / ESCALA_FINA;
-
-fn perimetro_do_anel(anel: &Anel) -> f64 {
-    let n = anel.len();
-    (0..n).map(|i| (anel[(i + 1) % n][0] - anel[i][0]).hypot(anel[(i + 1) % n][1] - anel[i][1])).sum()
-}
-
-/// Espessura média de um polígono: área líquida sobre meio perímetro (a largura de uma tira fina).
-fn espessura_media(poli: &Poligono) -> f64 {
-    let area = poli.iter().enumerate().map(|(i, r)| if i == 0 { area_absoluta(r) } else { -area_absoluta(r) }).sum::<f64>();
-    let per: f64 = poli.iter().map(perimetro_do_anel).sum();
-    if per <= 0.0 { 0.0 } else { area / (per / 2.0) }
-}
-
 fn caixa(m: &MultiPoligono) -> Option<[f64; 4]> {
     let mut c: Option<[f64; 4]> = None;
     for p in m.iter().flat_map(|poli| poli.iter().take(1)) {
@@ -401,15 +385,20 @@ fn caixa(m: &MultiPoligono) -> Option<[f64; 4]> {
     c
 }
 
-/// O subtraendo corta de verdade o minuendo? Falso quando só encosta nele: as caixas não se sobrepõem, ou a interseção medida a 1 nm tem
-/// menos de [`ESPESSURA_DE_RUIDO`] de espessura em todos os pedaços (a área exata de um vizinho que encosta é zero).
+/// Escala da grade inteira onde se decide se um subtraendo corta o minuendo: 1 pm. Em coordenadas inteiras a interseção é exata (dois polígonos
+/// que só compartilham borda ou ponto não têm interseção), e o ruído de ponto flutuante das entradas (~1e-16 em valores de metros) fica abaixo
+/// de uma célula da grade.
+const ESCALA_DE_RELEVANCIA: f64 = 1e12;
+
+/// O subtraendo corta o minuendo? Falso só quando a interseção exata, em inteiros numa grade de 1 pm, é vazia: as caixas não se sobrepõem, ou os
+/// dois só compartilham borda ou ponto. Sem limiar de área nem de espessura: qualquer sobreposição, por menor que seja, conta.
 fn corta_de_verdade(minuendo: &MultiPoligono, sub: &MultiPoligono) -> Result<bool, u32> {
     let (Some(a), Some(b)) = (caixa(minuendo), caixa(sub)) else { return Ok(false) };
     if b[0] >= a[2] || b[2] <= a[0] || b[1] >= a[3] || b[3] <= a[1] {
         return Ok(false);
     }
-    let comum = interseccao_com_escala(minuendo, sub, ESCALA_FINA)?;
-    Ok(comum.iter().any(|poli| espessura_media(poli) > ESPESSURA_DE_RUIDO))
+    let comum = interseccao_com_escala(minuendo, sub, ESCALA_DE_RELEVANCIA)?;
+    Ok(!comum.is_empty())
 }
 
 /// `diferenca` só com os subtraendos que cortam de verdade o minuendo. Quantizados a 1 µm cada um por si, um vizinho que só encosta entra alguns
@@ -1137,5 +1126,17 @@ mod testes {
             }
         }
         assert!(mudou_em_1um > 0, "a premissa do teste: a 1 µm a vizinha que só encosta muda a região em algum caso");
+    }
+
+    #[test]
+    fn corta_de_verdade_so_descarta_o_que_apenas_encosta() {
+        // Os 200 vizinhos que só encostam (vértices sobre a reta da aresta, em ponto flutuante) são descartados; um vizinho que entra 1 nm na região
+        // (sobreposição real, mínima e não nula) NÃO é: sem número arbitrário, qualquer sobreposição conta.
+        for k in 0..200 {
+            let (a, _s1, s2) = regiao_e_vizinha_que_encosta(k);
+            assert!(!corta_de_verdade(&a, &s2).expect("encosta"), "caso {k}: vizinho que só encosta deveria ser descartado");
+            let entra: MultiPoligono = s2.iter().map(|p| p.iter().map(|r| r.iter().map(|q| [q[0] - 1e-9, q[1]]).collect()).collect()).collect();
+            assert!(corta_de_verdade(&a, &entra).expect("entra"), "caso {k}: vizinho que entra 1 nm deveria cortar");
+        }
     }
 }
