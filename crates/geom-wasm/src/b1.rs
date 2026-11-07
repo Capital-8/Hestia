@@ -19,6 +19,7 @@
 //! a 1 µm o contorno de um piso de alguns metros muda de área mais que 1e-6 m², ver decisões 0048 e 0050). O deslocamento `{cm}` usa o
 //! porte do `ClipperOffset` do TS (`ops::offset_clipper`: cantos em esquadria e quadrados abaixo de 60°, pontos arredondados a 1 µm).
 
+use std::rc::Rc;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::a2::Codificador;
@@ -428,7 +429,22 @@ pub fn pisos_lajes_com_paredes(cena: &Cena, nivel: u32, tol: f64) -> Result<Vec<
     codificar(&calcular(cena, nivel, Some(tol))?, false)
 }
 
-pub(crate) fn calcular(cena: &Cena, nivel: u32, tol: Option<f64>) -> Result<Vec<ElementoResolvido>, u32> {
+/// Pisos e lajes resolvidos do nível. Com tolerância (B2), o resultado fica em cache na cena: `pisos_lajes_com_paredes`, os cortadores da junção e as
+/// quantidades de pisos e de lajes pedem o mesmo cálculo do mesmo nível. Esvaziado em qualquer escrita de seção.
+pub(crate) fn calcular(cena: &Cena, nivel: u32, tol: Option<f64>) -> Result<Rc<Vec<ElementoResolvido>>, u32> {
+    let Some(t) = tol else {
+        return calcular_sem_cache(cena, nivel, None).map(Rc::new);
+    };
+    let chave = (nivel, t.to_bits(), cena.variante_juncao.get());
+    if let Some(c) = cena.cache_elementos.borrow().get(&chave) {
+        return Ok(Rc::clone(c));
+    }
+    let c = Rc::new(calcular_sem_cache(cena, nivel, tol)?);
+    cena.cache_elementos.borrow_mut().insert(chave, Rc::clone(&c));
+    Ok(c)
+}
+
+fn calcular_sem_cache(cena: &Cena, nivel: u32, tol: Option<f64>) -> Result<Vec<ElementoResolvido>, u32> {
     let carregador = tol.map(|t| Carregador::novo(cena, t));
     let vizinhos = niveis_vizinhos(cena, nivel);
     let b = &cena.b;
