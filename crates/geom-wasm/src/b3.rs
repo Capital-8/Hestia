@@ -1178,4 +1178,98 @@ pub(crate) mod testes {
         let s = consulta(&mut m, 7.0);
         assert_eq!(u32s(&s[0]), [0, 0, 0]);
     }
+
+    /// Cena de estresse da junção: grade de salas com paredes altas, pisos e lajes que as cortam, peças de outros níveis e lajes parciais.
+    fn cena_de_estresse(n: usize) -> Vec<PecaPlana> {
+        let mut r = crate::teste_util::Xorshift::novo(7);
+        let mut v: Vec<PecaPlana> = Vec::new();
+        let mut dono = 0u32;
+        let lado = 4.0;
+        // Parede = 4 camadas (tiras de 5 cm) x 3 faixas de cota, como as paredes reais por camada e faixa.
+        let mut parede = |v: &mut Vec<PecaPlana>, r: &mut crate::teste_util::Xorshift, dono: &mut u32, horizontal: bool, a: f64, b: f64| {
+            *dono += 1;
+            let h = 2.6 + (r.proximo() % 3) as f64 * 0.1;
+            let prio = 1.0 + (r.proximo() % 3) as f64;
+            for camada in 0..4 {
+                let (e0, e1) = (a - 0.1 + camada as f64 * 0.05, a - 0.05 + camada as f64 * 0.05);
+                let poly = if horizontal { ret(b, e0, b + lado, e1) } else { ret(e0, b, e1, b + lado) };
+                for (z0, z1) in [(0.0, 1.0), (1.0, 2.0), (2.0, h)] {
+                    v.push(peca(Tipo::Parede, prio + camada as f64 * 0.5, camada == 1, poly.clone(), z0, z1, *dono));
+                }
+            }
+        };
+        for i in 0..=n {
+            for j in 0..n {
+                let (a, b) = (i as f64 * lado, j as f64 * lado);
+                parede(&mut v, &mut r, &mut dono, false, a, b);
+                parede(&mut v, &mut r, &mut dono, true, a, b);
+            }
+        }
+        for i in 0..n {
+            for j in 0..n {
+                let (a, b) = (i as f64 * lado, j as f64 * lado);
+                dono += 1;
+                for k in 0..4 {
+                    let z = k as f64 * 0.025;
+                    v.push(peca(Tipo::Piso, 2.0 + k as f64, k == 0, ret(a + 0.05, b + 0.05, a + lado - 0.05, b + lado - 0.05), z, z + 0.025, dono));
+                }
+                dono += 1;
+                for k in 0..3 {
+                    let z = 2.8 + k as f64 * 0.05;
+                    v.push(peca(Tipo::Laje, 1.0 + k as f64, k == 1, ret(a - 0.3, b - 0.3, a + lado + 0.3, b + lado + 0.3), z, z + 0.05, dono));
+                }
+                if (i + j) % 3 == 0 {
+                    dono += 1;
+                    v.push(PecaPlana { externa: true, ..peca(Tipo::Laje, 1.0, false, ret(a + 1.0, b + 1.0, a + 2.5, b + 2.5), 2.5, 2.9, dono) });
+                }
+            }
+        }
+        v
+    }
+
+    fn resumo_bitwise(r: &[Vec<Prisma>]) -> u64 {
+        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+        let mut mistura = |x: u64| {
+            h ^= x;
+            h = h.wrapping_mul(0x0000_0100_0000_01b3);
+        };
+        for partes in r {
+            mistura(partes.len() as u64);
+            for p in partes {
+                mistura(p.z0.to_bits());
+                mistura(p.z1.to_bits());
+                for poli in &p.poly {
+                    mistura(poli.len() as u64);
+                    for anel in poli {
+                        mistura(anel.len() as u64);
+                        for q in anel {
+                            mistura(q[0].to_bits());
+                            mistura(q[1].to_bits());
+                        }
+                    }
+                }
+            }
+        }
+        h
+    }
+
+    /// Micro-benchmark da junção (`cargo test --release bench_resolver_juncao -- --ignored --nocapture`). `B3_BENCH_N` (lado da grade, padrão 12) e
+    /// `B3_BENCH_RODADAS` (padrão 7). Imprime a mediana e o resumo bit a bit da saída, para comparar versões.
+    #[test]
+    #[ignore]
+    fn bench_resolver_juncao() {
+        let n: usize = std::env::var("B3_BENCH_N").ok().and_then(|s| s.parse().ok()).unwrap_or(12);
+        let rodadas: usize = std::env::var("B3_BENCH_RODADAS").ok().and_then(|s| s.parse().ok()).unwrap_or(7);
+        let pecas = cena_de_estresse(n);
+        let mut tempos: Vec<f64> = Vec::new();
+        let mut hash = 0;
+        for _ in 0..rodadas {
+            let t0 = std::time::Instant::now();
+            let r = resolver_juncao(&pecas).expect("juncao");
+            tempos.push(t0.elapsed().as_secs_f64() * 1000.0);
+            hash = resumo_bitwise(&r);
+        }
+        tempos.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        println!("BENCH pecas={} mediana_ms={:.2} min_ms={:.2} hash={:016x}", pecas.len(), tempos[tempos.len() / 2], tempos[0], hash);
+    }
 }
