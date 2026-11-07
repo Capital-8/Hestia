@@ -1,6 +1,6 @@
 import type { SheetView3DCamera } from '@hestia/model';
 import type { Camera, Object3D } from 'three';
-import { cameraDaOrbita, idsNaCaixaDaTela, type OrbitCamera } from '@hestia/render';
+import { aplicarCameraNaOrbita, cameraDaOrbita, idsNaCaixaDaTela, type OrbitCamera } from '@hestia/render';
 import { useUi } from './state.ts';
 import { activateView } from './viewTabActions.ts';
 
@@ -88,4 +88,11 @@ export function consumirCameraPendente(): SheetView3DCamera | null {
   const c = pendente;
   pendente = null;
   return c;
+}
+
+/** Aplica a câmera direto na órbita viva (plugins). false quando não há vista 3D montada; não troca de aba. */
+export function aplicarCamera3DAoVivo(c: SheetView3DCamera): boolean {
+  if (!orbita) return false;
+  aplicarCameraNaOrbita(orbita, { ...c, target: { ...c.target } });
+  return true;
 }

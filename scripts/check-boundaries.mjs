@@ -11,7 +11,9 @@ const ALLOWED = {
   // Exceção consciente (2026-10-29): o exportador IFC precisa dos quantitativos/contornos RESOLVIDOS do motor para
   // `IfcSpace` e `Qto_*`; o importador e o DXF continuam usando só `model`. Ver docs/ifc/exportacao.md §Arquitetura.
   io: ['model', 'engine'],
-  web: ['geom', 'model', 'engine', 'tools', 'render', 'io'],
+  // Pacote sem dependências: contrato público de plugins e protocolo (docs/plugins).
+  'plugin-api': [],
+  web: ['geom', 'model', 'engine', 'tools', 'render', 'io', 'plugin-api'],
 };
 
 function* files(dir) {
