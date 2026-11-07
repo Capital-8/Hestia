@@ -36,6 +36,9 @@ struct Opcoes {
     n_ref: u32,
     parede: [u32; 4],
     borda: (u32, u32, u32),
+    /// Arquivo binário com as duas metades da referência (f32). Se existe, pula a referência; se não,
+    /// grava nele. Vazio = sem cache. Um arquivo por valor de `--n-ref`.
+    cache_ref: String,
 }
 
 fn ler_opcoes() -> Result<Opcoes, String> {
@@ -46,6 +49,7 @@ fn ler_opcoes() -> Result<Opcoes, String> {
     // uma aresta casa/céu (y, x0, x1): a parede direita contra o céu, na câmera padrão.
     let mut parede = [750u32, 458, 35, 32];
     let mut borda = (400u32, 950u32, 990u32);
+    let mut cache_ref = String::new();
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mut i = 0;
     while i < args.len() {
@@ -59,6 +63,7 @@ fn ler_opcoes() -> Result<Opcoes, String> {
                 let [y, x0, x1] = ler_tres(&valor()?)?;
                 borda = (y, x0, x1);
             }
+            "--cache-ref" => cache_ref = valor()?,
             outro => return Err(format!("argumento desconhecido: {outro}")),
         }
         i += 2;
@@ -75,7 +80,63 @@ fn ler_opcoes() -> Result<Opcoes, String> {
         n_ref,
         parede,
         borda,
+        cache_ref,
     })
+}
+
+/// Grava as duas metades da referência (RGB f32 little-endian, uma metade após a outra).
+fn gravar_cache_ref(caminho: &str, partes: &[Vec<[f32; 3]>]) -> Result<(), String> {
+    let mut bytes = Vec::new();
+    for parte in partes {
+        for p in parte {
+            for c in p {
+                bytes.extend_from_slice(&c.to_le_bytes());
+            }
+        }
+    }
+    std::fs::write(caminho, bytes).map_err(|e| format!("{caminho}: {e}"))
+}
+
+/// Lê o cache de `gravar_cache_ref`. Recusa arquivo de outro tamanho (outro N ou outra resolução).
+fn ler_cache_ref(caminho: &str, pixels: usize) -> Result<Vec<Vec<[f32; 3]>>, String> {
+    let bytes = std::fs::read(caminho).map_err(|e| format!("{caminho}: {e}"))?;
+    if bytes.len() != 2 * pixels * 3 * 4 {
+        return Err(format!("{caminho}: tamanho {} não é de {pixels} pixels x 2 metades", bytes.len()));
+    }
+    let floats: Vec<f32> = bytes
+        .chunks_exact(4)
+        .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+        .collect();
+    let metade = |k: usize| -> Vec<[f32; 3]> {
+        floats[k * pixels * 3..(k + 1) * pixels * 3]
+            .chunks_exact(3)
+            .map(|c| [c[0], c[1], c[2]])
+            .collect()
+    };
+    Ok(vec![metade(0), metade(1)])
+}
+
+/// RMSE de luminância restrito a uma máscara de pixels.
+fn rmse_na_mascara(g: &[f64], r: &[f64], m: &[bool]) -> f64 {
+    let (soma, n) = g
+        .iter()
+        .zip(r)
+        .zip(m)
+        .filter(|(_, k)| **k)
+        .fold((0.0f64, 0usize), |(s, n), ((a, b), _)| (s + (a - b).powi(2), n + 1));
+    (soma / n.max(1) as f64).sqrt()
+}
+
+/// Ruído por pixel (sigma) restrito a uma máscara: std(A - B) / sqrt 2 sobre os pixels da máscara.
+fn sigma_na_mascara(a: &[f64], b: &[f64], m: &[bool]) -> f64 {
+    let v: Vec<f64> = a
+        .iter()
+        .zip(b)
+        .zip(m)
+        .filter(|(_, k)| **k)
+        .map(|((x, y), _)| (x - y) / std::f64::consts::SQRT_2)
+        .collect();
+    desvio(&v)
 }
 
 fn ler_quatro(texto: &str) -> Result<[u32; 4], String> {
@@ -199,6 +260,8 @@ fn conjuntos() -> Vec<(&'static str, Parametros)> {
         ("Padrao, sigma_lum 1", Parametros { sigma_luminancia: 1.0, ..padrao }),
         ("Padrao, sigma_lum 4", Parametros { sigma_luminancia: 4.0, ..padrao }),
         ("Padrao, sigma_normal 128", Parametros { sigma_normal: 128.0, ..padrao }),
+        // Sem peso de luminância: diagnóstico do viés. Se o viés some, a rejeição de amostras claras o causa.
+        ("Padrao, sem peso de luminância", Parametros { sigma_luminancia: 1.0e6, ..padrao }),
     ]
 }
 
@@ -261,15 +324,24 @@ fn main() -> Result<(), String> {
 
     // 1. Referência em duas metades independentes.
     let metade = o.n_ref / 2;
-    let t = Instant::now();
-    let mut ref_partes = Vec::new();
-    for semente in [SEMENTES_REF.0, SEMENTES_REF.1] {
-        cadeia(&mut proto, metade, semente, &[metade], |_, _, cru| {
-            ref_partes.push(cru);
-            Ok(())
-        })?;
+    let mut ref_partes: Vec<Vec<[f32; 3]>> = Vec::new();
+    if !o.cache_ref.is_empty() && std::path::Path::new(&o.cache_ref).exists() {
+        // A referência é o caminho cru (sem denoise), então um cache de uma rodada vale para as outras.
+        ref_partes = ler_cache_ref(&o.cache_ref, (LARGURA * ALTURA) as usize)?;
+        println!("referência: lida de {}", o.cache_ref);
+    } else {
+        let t = Instant::now();
+        for semente in [SEMENTES_REF.0, SEMENTES_REF.1] {
+            cadeia(&mut proto, metade, semente, &[metade], |_, _, cru| {
+                ref_partes.push(cru);
+                Ok(())
+            })?;
+        }
+        println!("referência: {} passes em {:.1} s", o.n_ref, t.elapsed().as_secs_f64());
+        if !o.cache_ref.is_empty() {
+            gravar_cache_ref(&o.cache_ref, &ref_partes)?;
+        }
     }
-    println!("referência: {} passes em {:.1} s", o.n_ref, t.elapsed().as_secs_f64());
     let (r1, r2) = (&ref_partes[0], &ref_partes[1]);
     let referencia: Vec<[f32; 3]> = r1.iter().zip(r2).map(|(a, b)| [(a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5, (a[2] + b[2]) * 0.5]).collect();
     salvar_png(&format!("{}/ref_n{}.png", o.saida, o.n_ref), &referencia)?;
@@ -327,9 +399,28 @@ fn main() -> Result<(), String> {
         println!("  perfil da borda (y {y}, x {x0}..{x1}): {}", perfil.join(" "));
     }
 
+    // Pixel de antialias da aresta: o primeiro x da linha de borda em que a referência fica entre 0,25 e
+    // 0,45 (o contorno casa/céu tem um pixel de transição, perto de 0,34).
+    let aa_x: Option<usize> = if o.borda.0 == 0 {
+        None
+    } else {
+        let (y, x0, x1) = o.borda;
+        (x0..=x1)
+            .map(|x| (y * LARGURA + x) as usize)
+            .find(|&i| (0.25..=0.45).contains(&lref[i]))
+            .map(|i| i % LARGURA as usize)
+    };
+    let valor_aa = |l: &[f64]| -> String {
+        match aa_x {
+            Some(x) => format!("{:.3}", l[o.borda.0 as usize * LARGURA as usize + x]),
+            None => "-".into(),
+        }
+    };
+    println!("pixel AA da referência: x = {aa_x:?}, valor {}", valor_aa(&lref));
+
     println!("\nErro contra a referência (luminância linear, 1280x720):");
-    println!("| N | conjunto | RMSE | erro rel. | ruído fachada | desvio fachada / ref | borda 10-90 % (px) |");
-    println!("|---|---|---|---|---|---|---|");
+    println!("| N | conjunto | RMSE | erro rel. | ruído fachada | desvio fachada / ref | borda 10-90 % (px) | pixel AA |");
+    println!("|---|---|---|---|---|---|---|---|");
     for (idx, &n) in NS.iter().enumerate() {
         let la = lum_de(&crua_a[idx]);
         let lb = lum_de(&crua_b[idx]);
@@ -337,10 +428,11 @@ fn main() -> Result<(), String> {
         let sigma = sigma_ruido(&la, &lb, o.parede);
         let fachada = desvio(&regiao(&la, o.parede));
         println!(
-            "| {n} | sem denoise | {rmse:.5} | {:.2} % | {sigma:.5} | {:.2} | {} |",
+            "| {n} | sem denoise | {rmse:.5} | {:.2} % | {sigma:.5} | {:.2} | {} | {} |",
             rel * 100.0,
             fachada / fachada_ref,
-            medir_linha(&crua_a[idx]).map_or("-".into(), |w| format!("{w:.2}"))
+            medir_linha(&crua_a[idx]).map_or("-".into(), |w| format!("{w:.2}")),
+            valor_aa(&la)
         );
         for (k, (nome, _)) in conj.iter().enumerate() {
             let da = lum_de(&den_a[k][idx]);
@@ -349,10 +441,64 @@ fn main() -> Result<(), String> {
             let sigma_d = sigma_ruido(&da, &db, o.parede);
             let fachada_d = desvio(&regiao(&da, o.parede));
             println!(
-                "| {n} | {nome} | {rmse_d:.5} | {:.2} % | {sigma_d:.5} | {:.2} | {} |",
+                "| {n} | {nome} | {rmse_d:.5} | {:.2} % | {sigma_d:.5} | {:.2} | {} | {} |",
                 rel_d * 100.0,
                 fachada_d / fachada_ref,
-                medir_linha(&den_a[k][idx]).map_or("-".into(), |w| format!("{w:.2}"))
+                medir_linha(&den_a[k][idx]).map_or("-".into(), |w| format!("{w:.2}")),
+                valor_aa(&da)
+            );
+        }
+    }
+
+    // Cobertura do G-buffer (passe 0 da cadeia B) e erro nos pixels que não são filtrados. Filtro: 0;
+    // fundo: 1; vidro ou metal liso: 2; borda com fundo ou mistura de vidro: 3 (quando existir).
+    let gb = proto.gbuffer_geo()?;
+    let mut tipos = [0usize; 4];
+    let mut mascara_tipo: Vec<Vec<bool>> = vec![vec![false; (LARGURA * ALTURA) as usize]; 4];
+    for (i, px) in gb.chunks_exact(4).enumerate() {
+        let f = (px[3].round() as usize).min(3);
+        tipos[f] += 1;
+        mascara_tipo[f][i] = true;
+    }
+    let total = (LARGURA * ALTURA) as f64;
+    // Pixel de antialias: o tipo do G-buffer nele.
+    if let Some(x) = aa_x {
+        let i = (o.borda.0 as usize) * LARGURA as usize + x;
+        println!("pixel AA: flag {:.0}, G-buffer (ponto, flag) {:?}", gb[i * 4 + 3], &gb[i * 4..i * 4 + 4]);
+    }
+    println!(
+        "\nG-buffer (passe 0): filtrável {:.2} %, fundo {:.2} %, vidro/metal liso {:.2} %, borda com fundo/mistura {:.2} %",
+        tipos[0] as f64 / total * 100.0,
+        tipos[1] as f64 / total * 100.0,
+        tipos[2] as f64 / total * 100.0,
+        tipos[3] as f64 / total * 100.0
+    );
+    for (idx, &n) in NS.iter().enumerate() {
+        if n != 16 && n != 64 {
+            continue;
+        }
+        let la = lum_de(&crua_a[idx]);
+        let lb = lum_de(&crua_b[idx]);
+        let ld = lum_de(&den_a[1][idx]);
+        let erro_total: f64 = ld.iter().zip(&lref).map(|(a, b)| (a - b).abs()).sum();
+        let erro_vidro: f64 = ld
+            .iter()
+            .zip(&lref)
+            .zip(&mascara_tipo[2])
+            .filter(|(_, m)| **m)
+            .map(|((a, b), _)| (a - b).abs())
+            .sum();
+        println!("  N {n:2}: erro absoluto nos pixels de vidro/metal liso = {:.2} % do erro total (Padrao)", erro_vidro / erro_total * 100.0);
+        for (f, nome) in [(2usize, "vidro/metal liso"), (3usize, "borda/mistura")] {
+            let m = &mascara_tipo[f];
+            if !m.iter().any(|b| *b) {
+                continue;
+            }
+            println!(
+                "  N {n:2} {nome:17}: ruído (sigma) {:.5}, RMSE cru {:.5}, RMSE Padrao {:.5}",
+                sigma_na_mascara(&la, &lb, m),
+                rmse_na_mascara(&la, &lref, m),
+                rmse_na_mascara(&ld, &lref, m)
             );
         }
     }
@@ -439,6 +585,7 @@ fn main() -> Result<(), String> {
         println!("  {nome}: {:.2} [{minimo:.2}, {maximo:.2}]", mediana(&mut tempos));
     }
     println!("  passe do path tracer (mediana, cadeia A): {passe_mediana:.1} ms");
+    println!("  passe 0 (com G-buffer em subamostras, cadeia A): {:.1} ms", tempos_a[0]);
 
     // Perfil da aresta com o denoise padrão em N = 16, para ver se o contorno ficou mais duro.
     if o.borda.0 > 0 {

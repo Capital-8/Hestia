@@ -122,13 +122,17 @@ struct Superficie {
 @group(0) @binding(9) var texturas_rugosidade: texture_2d_array<f32>;
 @group(0) @binding(10) var texturas_metalico: texture_2d_array<f32>;
 
-// G-buffer do primeiro acerto (fase 6, denoise). Gravado só no passe 0 (`q.dimensao.z == 0`), no centro
-// do pixel e sem jitter, para ser limpo. geo: xyz ponto no mundo, w flag (0 filtra, 1 fundo, 2 preserva).
-// normal: xyz normal de sombreamento (depois do mapa), w distância do primário. albedo: xyz fator R de
-// desmodulação (difuso + cor * metálico, com piso). Ver denoise.rs.
+// G-buffer do primeiro acerto (fase 6, denoise). Gravado só no passe 0 (`q.dimensao.z == 0`), como média
+// de subamostras do pixel (ver `gravar_gbuffer`). geo: xyz ponto no mundo, w flag (0 filtra, 1 fundo,
+// 2 vidro ou metal liso, 3 borda com fundo). normal: xyz normal de sombreamento (depois do mapa), w
+// distância do primário. Ver denoise.rs.
 @group(0) @binding(11) var gbuffer_geo: texture_storage_2d<rgba32float, write>;
 @group(0) @binding(12) var gbuffer_normal: texture_storage_2d<rgba32float, write>;
-@group(0) @binding(13) var gbuffer_albedo: texture_storage_2d<rgba32float, write>;
+// Acumulado do fator R (difuso + cor do metálico, com piso), somado por amostra junto da radiância: a
+// média por pixel é o divisor da desmodulação e o multiplicador da remodulação (ver denoise.rs). Mesmo
+// ping-pong do acumulado de radiância; a contagem fica no alfa.
+@group(0) @binding(14) var acumulado_r_entrada: texture_2d<f32>;
+@group(0) @binding(15) var acumulado_r_saida: texture_storage_2d<rgba32float, write>;
 // Metal com rugosidade até este valor não é filtrado (reflexo nítido, como o vidro).
 const LIMIAR_METAL_LISO: f32 = 0.4;
 
@@ -627,7 +631,9 @@ fn direcao_cosseno(normal: vec3<f32>, estado: ptr<function, u32>) -> vec3<f32> {
 // pela cor, sem refração), e o sol da referência é pontual (o disco solar só existe aqui).
 // Texturas de material (fase 5): o albedo, a normal, a rugosidade e o metálico vêm de `aplicar_mapas`,
 // dentro de `superficie`.
-fn radiancia_caminho(o0: vec3<f32>, d0: vec3<f32>, estado: ptr<function, u32>) -> vec3<f32> {
+// `r_primario` recebe o fator R do primeiro acerto (0 se o raio sai da cena). Mesma definição do G-buffer
+// antigo: difuso mais a cor do metálico, com piso 0,02.
+fn radiancia_caminho(o0: vec3<f32>, d0: vec3<f32>, estado: ptr<function, u32>, r_primario: ptr<function, vec3<f32>>) -> vec3<f32> {
     let ambiente = q.opcoes.x;
     let especular = q.opcoes.y;
     // Vértices permitidos: começa em q.modo.x e cresce VERTICES_EXTRAS_VIDRO a cada vértice de vidro.
@@ -646,6 +652,9 @@ fn radiancia_caminho(o0: vec3<f32>, d0: vec3<f32>, estado: ptr<function, u32>) -
         }
         distancia = distancia + acerto.t;
         let s = superficie(o, d, acerto, distancia);
+        if (k == 0u) {
+            *r_primario = max(s.albedo + s.cor * s.metal, vec3<f32>(0.02));
+        }
         radiancia = radiancia + peso * s.emissao;
         if (s.vidro) {
             // Vidro: sem luz direta nem ambiente. Fresnel de Schlick sorteia o reflexo ou a refração
@@ -712,28 +721,63 @@ fn fresnel_schlick_f0(ior: f32) -> f32 {
     return r * r;
 }
 
-// Grava o G-buffer do primeiro acerto do pixel (centro, sem jitter). Ver as declarações acima.
-fn gravar_gbuffer(c: vec2<i32>, ndc: vec2<f32>) {
-    let perto = q.inv_vp * vec4<f32>(ndc, -1.0, 1.0);
-    let longe = q.inv_vp * vec4<f32>(ndc, 1.0, 1.0);
-    let o = perto.xyz / perto.w;
-    let d = normalize(longe.xyz / longe.w - o);
-    let acerto = intersecta(o, d, T_MINIMO, T_INFINITO);
-    if (!acerto.ok) {
+// Subamostras do G-buffer por lado (SUB_G x SUB_G, nos centros de subpixel). O G-buffer é a média delas:
+// ponto, normal e distância referem-se ao pixel inteiro, não ao centro. Uma borda com fundo (algumas
+// subamostras acertam o céu) fica com flag 3: o pixel é o próprio antialias e é copiado sem filtro.
+const SUB_G: u32 = 4u;
+
+// Grava o G-buffer do primeiro acerto do pixel (px, py), como média de SUB_G x SUB_G subamostras.
+fn gravar_gbuffer(c: vec2<i32>, px: u32, py: u32) {
+    let largura = f32(q.dimensao.x);
+    let altura = f32(q.dimensao.y);
+    var soma_p = vec3<f32>(0.0);
+    var soma_n = vec3<f32>(0.0);
+    var soma_t = 0.0;
+    var acertos = 0.0;
+    var fundo = 0.0;
+    var especial = 0.0;
+    for (var sy = 0u; sy < SUB_G; sy = sy + 1u) {
+        for (var sx = 0u; sx < SUB_G; sx = sx + 1u) {
+            let fx = (f32(sx) + 0.5) / f32(SUB_G);
+            let fy = (f32(sy) + 0.5) / f32(SUB_G);
+            let ndc = vec2<f32>(
+                ((f32(px) + fx) / largura) * 2.0 - 1.0,
+                1.0 - ((f32(py) + fy) / altura) * 2.0,
+            );
+            let perto = q.inv_vp * vec4<f32>(ndc, -1.0, 1.0);
+            let longe = q.inv_vp * vec4<f32>(ndc, 1.0, 1.0);
+            let o = perto.xyz / perto.w;
+            let d = normalize(longe.xyz / longe.w - o);
+            let acerto = intersecta(o, d, T_MINIMO, T_INFINITO);
+            if (!acerto.ok) {
+                fundo = fundo + 1.0;
+                continue;
+            }
+            let s = superficie(o, d, acerto, acerto.t);
+            // Vidro e metal liso não são filtrados: refração e reflexo nítidos (medido em denoise.rs).
+            if (s.vidro || (s.metal > 0.5 && s.rugosidade <= LIMIAR_METAL_LISO)) {
+                especial = especial + 1.0;
+            }
+            soma_p = soma_p + s.ponto;
+            soma_n = soma_n + s.normal;
+            soma_t = soma_t + acerto.t;
+            acertos = acertos + 1.0;
+        }
+    }
+    if (acertos == 0.0) {
         textureStore(gbuffer_geo, c, vec4<f32>(0.0, 0.0, 0.0, 1.0));
         textureStore(gbuffer_normal, c, vec4<f32>(0.0));
-        textureStore(gbuffer_albedo, c, vec4<f32>(0.0));
         return;
     }
-    let s = superficie(o, d, acerto, acerto.t);
-    // Vidro e metal liso não são filtrados: refração e reflexo nítidos (medido em denoise.rs).
     var flag = 0.0;
-    if (s.vidro || (s.metal > 0.5 && s.rugosidade <= LIMIAR_METAL_LISO)) {
+    if (especial > 0.0) {
         flag = 2.0;
+    } else if (fundo > 0.0) {
+        flag = 3.0;
     }
-    textureStore(gbuffer_geo, c, vec4<f32>(s.ponto, flag));
-    textureStore(gbuffer_normal, c, vec4<f32>(s.normal, acerto.t));
-    textureStore(gbuffer_albedo, c, vec4<f32>(max(s.albedo + s.cor * s.metal, vec3<f32>(0.02)), 0.0));
+    let normal = soma_n / max(length(soma_n), 1.0e-12);
+    textureStore(gbuffer_geo, c, vec4<f32>(soma_p / acertos, flag));
+    textureStore(gbuffer_normal, c, vec4<f32>(normal, soma_t / acertos));
 }
 
 @compute @workgroup_size(8, 8, 1)
@@ -758,16 +802,16 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let longe = q.inv_vp * vec4<f32>(ndc, 1.0, 1.0);
     let p0 = perto.xyz / perto.w;
     let p1 = longe.xyz / longe.w;
-    let radiancia = radiancia_caminho(p0, normalize(p1 - p0), &estado);
+    var r_primario = vec3<f32>(0.0);
+    let radiancia = radiancia_caminho(p0, normalize(p1 - p0), &estado, &r_primario);
 
     let coordenada = vec2<i32>(i32(px), i32(py));
     if (q.dimensao.z == 0u) {
-        let ndc_centro = vec2<f32>(
-            ((f32(px) + 0.5) / largura) * 2.0 - 1.0,
-            1.0 - ((f32(py) + 0.5) / altura) * 2.0,
-        );
-        gravar_gbuffer(coordenada, ndc_centro);
+        gravar_gbuffer(coordenada, px, py);
     }
     let anterior = textureLoad(acumulado_entrada, coordenada, 0);
     textureStore(acumulado_saida, coordenada, anterior + vec4<f32>(radiancia, 1.0));
+    // O R do mesmo raio que gerou a radiância: a média por pixel acompanha a textura dentro do pixel.
+    let anterior_r = textureLoad(acumulado_r_entrada, coordenada, 0);
+    textureStore(acumulado_r_saida, coordenada, anterior_r + vec4<f32>(r_primario, 1.0));
 }

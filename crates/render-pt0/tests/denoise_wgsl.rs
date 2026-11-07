@@ -1,6 +1,6 @@
 //! O denoise em WGSL (`denoise.wgsl`) bate com o espelho em CPU (`denoise::filtrar_cpu`) numa imagem
-//! sintética: dois planos com aresta de normal, um pixel de fundo, um de vidro (flag 2) e contagens de
-//! amostra diferentes. Roda na GPU real; sem adaptador de hardware, o teste avisa e passa sem comparar.
+//! sintética: dois planos com aresta de normal, um pixel de fundo, um de vidro (flag 2), um de borda com
+//! fundo (flag 3) e contagens de amostra diferentes. Roda na GPU real; sem adaptador de hardware, o teste avisa e passa sem comparar.
 
 use render_pt0::denoise::{filtrar_cpu, DenoiseGpu, Entrada, GBufferVistas, Parametros};
 use render_pt0::gpu::criar_dispositivo;
@@ -38,9 +38,12 @@ fn cena() -> Campos {
             } else {
                 ([0.24, y as f32 * 0.02, (x - 12) as f32 * 0.02], [1.0, 0.0, 0.0])
             };
-            // Vidro em (5, 5) e fundo em (20, 3). O fundo tem distância zero, como no G-buffer.
+            // Vidro em (5, 5), borda com fundo em (9, 9) e fundo em (20, 3). O fundo tem distância zero, como no
+            // G-buffer.
             let flag = if (x, y) == (5, 5) {
                 2.0
+            } else if (x, y) == (9, 9) {
+                3.0
             } else if (x, y) == (20, 3) {
                 1.0
             } else {
@@ -49,7 +52,8 @@ fn cena() -> Campos {
             let distancia = if flag == 1.0 { 0.0 } else { 5.0 };
             geo.push([ponto[0], ponto[1], ponto[2], flag]);
             normal.push([nrm[0], nrm[1], nrm[2], distancia]);
-            alb.push([r[0], r[1], r[2], 0.0]);
+            // Acumulado de R: soma de `contagem` amostras de R (a média por pixel é `r`).
+            alb.push([r[0] * contagem, r[1] * contagem, r[2] * contagem, contagem]);
         }
     }
     assert_eq!(acum.len(), n);
@@ -100,7 +104,7 @@ fn denoise_wgsl_bate_com_o_espelho_em_cpu() {
     let t_acum = textura(&dispositivo, &fila, "teste-acumulado", &acum);
     let t_geo = textura(&dispositivo, &fila, "teste-geo", &geo);
     let t_normal = textura(&dispositivo, &fila, "teste-normal", &normal);
-    let t_alb = textura(&dispositivo, &fila, "teste-albedo", &alb);
+    let t_alb = textura(&dispositivo, &fila, "teste-acumulado-r", &alb);
     let v_acum = t_acum.create_view(&wgpu::TextureViewDescriptor::default());
     let v_geo = t_geo.create_view(&wgpu::TextureViewDescriptor::default());
     let v_normal = t_normal.create_view(&wgpu::TextureViewDescriptor::default());
@@ -121,7 +125,7 @@ fn denoise_wgsl_bate_com_o_espelho_em_cpu() {
             GBufferVistas {
                 geo: &v_geo,
                 normal: &v_normal,
-                albedo: &v_alb,
+                acumulado_r: &v_alb,
             },
             &p,
             abertura,
@@ -134,7 +138,7 @@ fn denoise_wgsl_bate_com_o_espelho_em_cpu() {
                 acumulado: &acum,
                 geo: &geo,
                 normal: &normal,
-                albedo: &alb,
+                acumulado_r: &alb,
             },
             &p,
             abertura,

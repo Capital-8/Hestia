@@ -2,10 +2,13 @@
 // (gravado por `pt0.wgsl` no passe 0). Espelho em CPU: `denoise.rs::filtrar_cpu`, mesma aritmética.
 //
 // Modos (`dimensao.w`):
-//   0: desmodulação. Média do acumulado (soma / contagem) e divisão por R, nos pixels filtráveis.
+//   0: desmodulação. Média do acumulado (soma / contagem) e divisão pela média de R do pixel, nos pixels
+//      filtráveis.
 //   1: passo do À-Trous, com passo `dimensao.z` (1, 2, 4, ...), B3 5x5 dilatado.
-//   2: último passo. Mesmo filtro, e depois remodulação por R. Saída com alfa 1.
-// Flag != 0 (fundo, vidro, metal liso): o pixel é copiado sem filtro, e vizinhos com flag != 0 não entram.
+//   2: último passo. Mesmo filtro, e depois remodulação pela média de R do pixel. Saída com alfa 1.
+// A média de R vem do acumulado de R (soma por amostra e contagem), não de uma amostra no centro: a textura
+// dentro do pixel entra na média (ver denoise.rs).
+// Flag != 0 (fundo, vidro, metal liso, borda): o pixel é copiado sem filtro, e vizinhos com flag != 0 não entram.
 // Pesos: geometria (distância ao plano tangente do centro, em pegadas do pixel), normal (potência do
 // produto escalar) e luminância (diferença sobre o desvio local 3x3 do passo de entrada).
 
@@ -21,7 +24,7 @@ struct Parametros {
 @group(0) @binding(1) var entrada: texture_2d<f32>;
 @group(0) @binding(2) var gb_geo: texture_2d<f32>;
 @group(0) @binding(3) var gb_normal: texture_2d<f32>;
-@group(0) @binding(4) var gb_albedo: texture_2d<f32>;
+@group(0) @binding(4) var acumulado_r: texture_2d<f32>;
 @group(0) @binding(5) var saida: texture_storage_2d<rgba32float, write>;
 
 const EPS_LUMINANCIA: f32 = 1.0e-3;
@@ -47,6 +50,12 @@ fn dentro(q: vec2<i32>) -> bool {
     return q.x >= 0 && q.y >= 0 && q.x < i32(p.dimensao.x) && q.y < i32(p.dimensao.y);
 }
 
+// Média do fator R do pixel: soma das amostras sobre a contagem (alfa do acumulado de R).
+fn r_medio(c: vec2<i32>) -> vec3<f32> {
+    let a = textureLoad(acumulado_r, c, 0);
+    return a.rgb / max(a.a, 1.0);
+}
+
 @compute @workgroup_size(8, 8, 1)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     if (id.x >= p.dimensao.x || id.y >= p.dimensao.y) {
@@ -55,27 +64,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let c = vec2<i32>(i32(id.x), i32(id.y));
     let geo = textureLoad(gb_geo, c, 0);
     let flag = geo.w;
-    let alb = textureLoad(gb_albedo, c, 0).rgb;
     let entrada_c = textureLoad(entrada, c, 0);
 
     if (p.dimensao.w == 0u) {
         var v = entrada_c.rgb / max(entrada_c.a, 1.0);
         if (flag == 0.0) {
-            // Divisor: média 3x3 do albedo (só vizinhos filtráveis). Dividir pelo R do centro dá viés de
-            // Jensen em texturas fortes (E[R_q / R_p] != 1); a remodulação no último passo usa o R do centro.
-            var soma_r = vec3<f32>(0.0);
-            var n_r = 0.0;
-            for (var dy = -1; dy <= 1; dy = dy + 1) {
-                for (var dx = -1; dx <= 1; dx = dx + 1) {
-                    let q = c + vec2<i32>(dx, dy);
-                    if (!dentro(q) || textureLoad(gb_geo, q, 0).w != 0.0) {
-                        continue;
-                    }
-                    soma_r = soma_r + textureLoad(gb_albedo, q, 0).rgb;
-                    n_r = n_r + 1.0;
-                }
-            }
-            v = v / (soma_r / n_r);
+            v = v / r_medio(c);
         }
         textureStore(saida, c, vec4<f32>(v, 1.0));
         return;
@@ -142,7 +136,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     var resultado = acum / total;
     if (p.dimensao.w == 2u) {
-        resultado = resultado * alb;
+        resultado = resultado * r_medio(c);
     }
     textureStore(saida, c, vec4<f32>(resultado, 1.0));
 }

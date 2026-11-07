@@ -357,9 +357,15 @@ pub struct Prototipo {
     erro_de_validacao: Arc<AtomicBool>,
     /// Texturas de material da cena (fase 5): arrays por mapa, plano e amostrador.
     mapas: MapasGpu,
-    /// Vistas do G-buffer do primeiro acerto (fase 6): geo, normal e albedo/R. Gravado no passe 0 de
-    /// cada cadeia. As vistas mantêm as texturas vivas.
-    gbuffer_vistas: [wgpu::TextureView; 3],
+    /// Vistas do G-buffer do primeiro acerto (fase 6): geo e normal. Gravado no passe 0 de cada cadeia.
+    /// As vistas mantêm as texturas vivas.
+    gbuffer_vistas: [wgpu::TextureView; 2],
+    /// Texturas do G-buffer (as mesmas das vistas), para o diagnóstico `gbuffer_geo`.
+    gbuffer_texturas: [wgpu::Texture; 2],
+    /// Acumulado do fator R por amostra (ping-pong, como o de radiância; ver `pt0.wgsl`). Vistas e
+    /// texturas: a textura de cada índice é a que o denoise lê quando `atual` é esse índice.
+    acumulado_r_texturas: [wgpu::Texture; 2],
+    acumulado_r_vistas: [wgpu::TextureView; 2],
     /// Denoise À-Trous (fase 6, ver `denoise.rs`): pipeline e texturas intermediárias.
     denoiser: crate::denoise::DenoiseGpu,
 }
@@ -425,7 +431,12 @@ impl Prototipo {
             texturas[0].create_view(&wgpu::TextureViewDescriptor::default()),
             texturas[1].create_view(&wgpu::TextureViewDescriptor::default()),
         ];
-        // G-buffer (fase 6): três texturas RGBA32F por pixel, escritas no passe 0 e lidas pelo denoise.
+        let acumulado_r_texturas = [criar_textura("pt0-acumulado-r-a"), criar_textura("pt0-acumulado-r-b")];
+        let acumulado_r_vistas = [
+            acumulado_r_texturas[0].create_view(&wgpu::TextureViewDescriptor::default()),
+            acumulado_r_texturas[1].create_view(&wgpu::TextureViewDescriptor::default()),
+        ];
+        // G-buffer (fase 6): geo e normal em RGBA32F por pixel, escritos no passe 0 e lidos pelo denoise.
         let criar_gbuffer = |rotulo: &str| {
             dispositivo.create_texture(&wgpu::TextureDescriptor {
                 label: Some(rotulo),
@@ -438,19 +449,16 @@ impl Prototipo {
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
                 format: FORMATO_ACUMULADO,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::STORAGE_BINDING,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING
+                    | wgpu::TextureUsages::STORAGE_BINDING
+                    | wgpu::TextureUsages::COPY_SRC,
                 view_formats: &[],
             })
         };
-        let gbuffer = [
-            criar_gbuffer("pt0-gbuffer-geo"),
-            criar_gbuffer("pt0-gbuffer-normal"),
-            criar_gbuffer("pt0-gbuffer-albedo"),
-        ];
+        let gbuffer = [criar_gbuffer("pt0-gbuffer-geo"), criar_gbuffer("pt0-gbuffer-normal")];
         let gbuffer_vistas = [
             gbuffer[0].create_view(&wgpu::TextureViewDescriptor::default()),
             gbuffer[1].create_view(&wgpu::TextureViewDescriptor::default()),
-            gbuffer[2].create_view(&wgpu::TextureViewDescriptor::default()),
         ];
 
         let (layout, pipeline) = criar_layout_e_pipeline(&dispositivo);
@@ -513,8 +521,12 @@ impl Prototipo {
                         resource: wgpu::BindingResource::TextureView(&gbuffer_vistas[1]),
                     },
                     wgpu::BindGroupEntry {
-                        binding: 13,
-                        resource: wgpu::BindingResource::TextureView(&gbuffer_vistas[2]),
+                        binding: 14,
+                        resource: wgpu::BindingResource::TextureView(&acumulado_r_vistas[i]),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 15,
+                        resource: wgpu::BindingResource::TextureView(&acumulado_r_vistas[1 - i]),
                     },
                 ],
             })
@@ -548,6 +560,9 @@ impl Prototipo {
             erro_de_validacao,
             mapas,
             gbuffer_vistas,
+            gbuffer_texturas: gbuffer,
+            acumulado_r_texturas,
+            acumulado_r_vistas,
             denoiser,
         };
         protot.limpar();
@@ -626,10 +641,10 @@ impl Prototipo {
         Ok(())
     }
 
-    /// Zera o acumulado (as duas texturas).
+    /// Zera o acumulado de radiância e o de R (as duas texturas de cada).
     pub fn limpar(&mut self) {
         let zeros = vec![0u8; (self.largura * self.altura * 16) as usize];
-        for textura in &self.texturas {
+        for textura in self.texturas.iter().chain(&self.acumulado_r_texturas) {
             self.fila.write_texture(
                 textura.as_image_copy(),
                 &zeros,
@@ -723,11 +738,25 @@ impl Prototipo {
         let gbuffer = crate::denoise::GBufferVistas {
             geo: &self.gbuffer_vistas[0],
             normal: &self.gbuffer_vistas[1],
-            albedo: &self.gbuffer_vistas[2],
+            acumulado_r: &self.acumulado_r_vistas[self.atual],
         };
-        self.denoiser
-            .executar(&self.dispositivo, &self.fila, &acumulado, gbuffer, parametros, self.base.textura[0]);
+        self.denoiser.executar(
+            &self.dispositivo,
+            &self.fila,
+            &acumulado,
+            gbuffer,
+            parametros,
+            self.base.textura[0],
+        );
         self.checar_erros()
+    }
+
+    /// G-buffer geo do último passe 0 (RGBA32F: xyz ponto, w flag), `largura * altura * 4` floats. Só para
+    /// diagnóstico (cobertura e tipo de cada pixel). Espera a GPU.
+    pub fn gbuffer_geo(&self) -> Result<Vec<f32>, String> {
+        let saida = ler_rgba32f(&self.dispositivo, &self.fila, &self.gbuffer_texturas[0], self.largura, self.altura)?;
+        self.checar_erros()?;
+        Ok(saida)
     }
 
     /// Resultado do último `denoise`: RGBA32F com alfa 1 (`largura * altura * 4` floats). Espera a GPU.
@@ -1000,7 +1029,7 @@ pub(crate) fn criar_layout_e_pipeline(dispositivo: &wgpu::Device) -> (wgpu::Bind
                 },
                 count: None,
             },
-            // G-buffer (fase 6): geo, normal e albedo/R, escritos pelo passe 0 (ver `gravar_gbuffer`).
+            // G-buffer (fase 6): geo e normal, escritos pelo passe 0 (ver `gravar_gbuffer`).
             wgpu::BindGroupLayoutEntry {
                 binding: 11,
                 visibility: wgpu::ShaderStages::COMPUTE,
@@ -1021,8 +1050,19 @@ pub(crate) fn criar_layout_e_pipeline(dispositivo: &wgpu::Device) -> (wgpu::Bind
                 },
                 count: None,
             },
+            // Acumulado de R (ping-pong, ver `pt0.wgsl`): leitura e escrita, como o de radiância.
             wgpu::BindGroupLayoutEntry {
-                binding: 13,
+                binding: 14,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 15,
                 visibility: wgpu::ShaderStages::COMPUTE,
                 ty: wgpu::BindingType::StorageTexture {
                     access: wgpu::StorageTextureAccess::WriteOnly,

@@ -2,16 +2,17 @@
 //!
 //! Contas (todas em bytes):
 //! - cena: BVH (nós e triângulos), materiais e os arrays de textura com todos os mips (`bytes_do_plano`);
-//! - render: acumulado em ping-pong (2 RGBA32F), G-buffer do primeiro acerto (3), e uma leitura
-//!   transitória do acumulado (1); com denoise, mais 3 (duas intermediárias e a saída). Cada RGBA32F
-//!   custa 16 bytes por pixel.
+//! - render: acumulado de radiância em ping-pong (2 RGBA32F), acumulado de R em ping-pong (2), G-buffer
+//!   do primeiro acerto (2: geo e normal) e uma leitura transitória do acumulado (1); com denoise, mais 3
+//!   (duas intermediárias e a saída). Cada RGBA32F custa 16 bytes por pixel.
 
 use crate::erro::ErroPt;
 
 /// Bytes de um pixel RGBA32F.
 pub const BYTES_PIXEL_RGBA32F: u64 = 16;
-/// RGBA32F por pixel sem denoise: acumulado (2), G-buffer (3) e leitura transitória (1).
-pub const TEXTURAS_DO_RENDER: u64 = 2 + 3 + 1;
+/// RGBA32F por pixel sem denoise: acumulado de radiância (2), acumulado de R (2), G-buffer (2) e leitura
+/// transitória (1).
+pub const TEXTURAS_DO_RENDER: u64 = 2 + 2 + 2 + 1;
 /// RGBA32F extras do denoise (duas intermediárias e a saída).
 pub const TEXTURAS_DO_DENOISE: u64 = 3;
 
@@ -23,8 +24,8 @@ pub const LADO_TILE_PT: u32 = 256;
 /// Menor lado de tile que a política reduz.
 pub const LADO_TILE_MINIMO: u32 = 64;
 
-/// Bytes dos alvos de um render de `largura x altura`. Sem denoise, 6 RGBA32F por pixel; com denoise,
-/// 9 (o denoise soma 3 texturas).
+/// Bytes dos alvos de um render de `largura x altura`. Sem denoise, 7 RGBA32F por pixel; com denoise,
+/// 10 (o denoise soma 3 texturas).
 pub fn bytes_alvos(largura: u32, altura: u32, denoise: bool) -> u64 {
     let pixels = u64::from(largura) * u64::from(altura);
     let texturas = TEXTURAS_DO_RENDER + if denoise { TEXTURAS_DO_DENOISE } else { 0 };
@@ -64,9 +65,9 @@ mod testes {
 
     #[test]
     fn alvos_contam_o_que_o_render_aloca() {
-        // 1280x720 = 921.600 px; 6 RGBA32F de 16 bytes.
-        assert_eq!(bytes_alvos(1280, 720, false), 921_600 * 16 * 6);
-        assert_eq!(bytes_alvos(1280, 720, true), 921_600 * 16 * 9);
+        // 1280x720 = 921.600 px; 7 RGBA32F de 16 bytes (sem denoise), 10 com denoise.
+        assert_eq!(bytes_alvos(1280, 720, false), 921_600 * 16 * 7);
+        assert_eq!(bytes_alvos(1280, 720, true), 921_600 * 16 * 10);
     }
 
     #[test]

@@ -2,16 +2,19 @@
 //! G-buffer do primeiro acerto que o passe 0 de `pt0.wgsl` grava (ponto e flag, normal e distância,
 //! fator R).
 //!
-//! Fluxo, sobre o acumulado de N amostras (soma em RGB, contagem no alfa):
-//! 1. desmodulação: média / D, só nos pixels filtráveis. R é o albedo difuso mais a cor do metal; D é a
-//!    média 3x3 de R (o divisor suave). Dividir pelo R do próprio pixel daria viés de Jensen em texturas
-//!    fortes (medido: +1,2 % nas arestas e telhado). A remodulação do último passo usa o R do centro, então
-//!    a textura volta por pixel;
+//! Fluxo, sobre o acumulado de N amostras (soma em RGB, contagem no alfa), e o acumulado de R (soma por
+//! amostra do fator R do primeiro acerto, mesma contagem). R é o albedo difuso mais a cor do metal.
+//! 1. desmodulação: média de radiância / média de R do pixel, só nos pixels filtráveis. As duas médias
+//!    saem da mesma amostragem, então a textura dentro do pixel entra na razão (o R de uma amostra no centro
+//!    errava nas texturas e nas arestas);
 //! 2. `iteracoes` passos À-Trous com passo 2^i (1, 2, 4, 8, 16), B3 5x5 dilatado, peso = geometria x normal
 //!    x luminância;
-//! 3. no último passo, remodulação por R. A saída tem alfa 1, então `media_do_acumulado` a usa direto.
+//! 3. no último passo, remodulação pela mesma média de R. A saída tem alfa 1, então `media_do_acumulado` a
+//!    usa direto.
 //!
-//! Não filtrado (copiado): fundo (flag 1), vidro e metal com rugosidade até `LIMIAR_METAL_LISO` (flag 2).
+//! Não filtrado (copiado): fundo (flag 1), vidro e metal com rugosidade até `LIMIAR_METAL_LISO` (flag 2),
+//! e borda com fundo (flag 3): o pixel de antialias do contorno, média de subamostras do G-buffer, que
+//! vizinhos filtráveis não devem apagar nem misturar.
 //! Reflexo e refração nítidos, e o vidro tem ruído próprio (Fresnel sorteado) que o filtro não resolve.
 //!
 //! `filtrar_cpu` é o espelho em CPU, com a mesma aritmética do WGSL. `tests/denoise_wgsl.rs` compara os dois.
@@ -70,14 +73,14 @@ impl Parametros {
 
 /// Entradas do filtro, por pixel (`y * largura + x`). `acumulado`: RGB soma e contagem no alfa.
 /// `geo`: xyz ponto, w flag (0 filtra, 1 fundo, 2 preserva). `normal`: xyz normal, w distância do
-/// primário. `albedo`: xyz fator R.
+/// primário. `acumulado_r`: soma do fator R por amostra (xyz) e contagem (w), como `acumulado`.
 pub struct Entrada<'a> {
     pub largura: usize,
     pub altura: usize,
     pub acumulado: &'a [[f32; 4]],
     pub geo: &'a [[f32; 4]],
     pub normal: &'a [[f32; 4]],
-    pub albedo: &'a [[f32; 4]],
+    pub acumulado_r: &'a [[f32; 4]],
 }
 
 fn xyz(v: [f32; 4]) -> [f32; 3] {
@@ -103,16 +106,27 @@ fn vizinho(e: &Entrada, px: usize, py: usize, dx: i64, dy: i64, passo: usize) ->
     (e.geo[j][3] == 0.0).then_some(j)
 }
 
+/// Média do fator R por pixel (soma do acumulado de R / contagem). Divisor e remodulação do denoise.
+fn r_medio_de(e: &Entrada) -> Vec<[f32; 3]> {
+    e.acumulado_r
+        .iter()
+        .map(|a| {
+            let c = a[3].max(1.0);
+            [a[0] / c, a[1] / c, a[2] / c]
+        })
+        .collect()
+}
+
 /// Um passo do À-Trous no pixel (px, py), com a aritmética de `denoise.wgsl` (modo 1, ou modo 2 com
-/// `ultima`).
+/// `ultima`, que remodula por `r_medio`).
 fn passo_pixel(
     x: &[[f32; 3]],
     e: &Entrada,
     p: &Parametros,
     abertura: f32,
     (px, py): (usize, usize),
-    passo: usize,
-    ultima: bool,
+    (passo, ultima): (usize, bool),
+    r_medio: &[[f32; 3]],
 ) -> [f32; 3] {
     let i = py * e.largura + px;
     let xc = x[i];
@@ -164,7 +178,7 @@ fn passo_pixel(
     }
     let mut saida = [acum[0] / total, acum[1] / total, acum[2] / total];
     if ultima {
-        let r = xyz(e.albedo[i]);
+        let r = r_medio[i];
         saida = [saida[0] * r[0], saida[1] * r[1], saida[2] * r[2]];
     }
     saida
@@ -174,26 +188,15 @@ fn passo_pixel(
 /// alfa 1, por pixel.
 pub fn filtrar_cpu(e: &Entrada, p: &Parametros, abertura: f32) -> Vec<[f32; 4]> {
     let n = e.largura * e.altura;
+    let r_medio = r_medio_de(e);
     let mut x: Vec<[f32; 3]> = (0..n)
         .map(|i| {
             let a = e.acumulado[i];
             let c = a[3].max(1.0);
             let v = [a[0] / c, a[1] / c, a[2] / c];
             if e.geo[i][3] == 0.0 {
-                // Divisor: média 3x3 do albedo entre vizinhos filtráveis (ver denoise.wgsl, modo 0).
-                let (px, py) = (i % e.largura, i / e.largura);
-                let mut soma = [0.0f32; 3];
-                let mut nr = 0.0f32;
-                for dy in -1..=1 {
-                    for dx in -1..=1 {
-                        if let Some(j) = vizinho(e, px, py, dx, dy, 1) {
-                            let r = xyz(e.albedo[j]);
-                            soma = [soma[0] + r[0], soma[1] + r[1], soma[2] + r[2]];
-                            nr += 1.0;
-                        }
-                    }
-                }
-                [v[0] / (soma[0] / nr), v[1] / (soma[1] / nr), v[2] / (soma[2] / nr)]
+                let r = r_medio[i];
+                [v[0] / r[0], v[1] / r[1], v[2] / r[2]]
             } else {
                 v
             }
@@ -206,7 +209,7 @@ pub fn filtrar_cpu(e: &Entrada, p: &Parametros, abertura: f32) -> Vec<[f32; 4]> 
         let mut saida = vec![[0.0f32; 3]; n];
         for py in 0..e.altura {
             for px in 0..e.largura {
-                saida[py * e.largura + px] = passo_pixel(&x, e, p, abertura, (px, py), passo, ultima);
+                saida[py * e.largura + px] = passo_pixel(&x, e, p, abertura, (px, py), (passo, ultima), &r_medio);
             }
         }
         x = saida;
@@ -223,11 +226,12 @@ struct ParamsGpu {
     sigmas: [f32; 4],
 }
 
-/// Vistas do G-buffer (geo, normal e albedo/R), na ordem de `pt0.wgsl` (bindings 11 a 13).
+/// Vistas das entradas do filtro além do acumulado de radiância: geo e normal do G-buffer (bindings 11 e 12
+/// de `pt0.wgsl`) e o acumulado de R (soma do fator R por amostra, mesma contagem).
 pub struct GBufferVistas<'a> {
     pub geo: &'a wgpu::TextureView,
     pub normal: &'a wgpu::TextureView,
-    pub albedo: &'a wgpu::TextureView,
+    pub acumulado_r: &'a wgpu::TextureView,
 }
 
 /// Recursos GPU do denoise: pipeline, duas texturas intermediárias e a saída.
@@ -394,7 +398,7 @@ impl DenoiseGpu {
                     },
                     wgpu::BindGroupEntry {
                         binding: 4,
-                        resource: wgpu::BindingResource::TextureView(gbuffer.albedo),
+                        resource: wgpu::BindingResource::TextureView(gbuffer.acumulado_r),
                     },
                     wgpu::BindGroupEntry {
                         binding: 5,
@@ -436,10 +440,11 @@ mod testes {
         }
     }
 
-    /// Campos de uma imagem de teste: acumulado, geo, normal e albedo.
+    /// Campos de uma imagem de teste: acumulado, geo, normal e acumulado de R.
     type Campos = (Vec<[f32; 4]>, Vec<[f32; 4]>, Vec<[f32; 4]>, Vec<[f32; 4]>);
 
-    /// Imagem plana (plano z = 0, normal +Z, distância 5 m), toda filtrável, acumulado com N = 16.
+    /// Imagem plana (plano z = 0, normal +Z, distância 5 m), toda filtrável, acumulado com N = 16. O
+    /// acumulado de R é a soma de N amostras iguais a `r`.
     fn plano(largura: usize, altura: usize, valor: [f32; 3], r: [f32; 3]) -> Campos {
         let n = largura * altura;
         let mut acum = Vec::with_capacity(n);
@@ -451,7 +456,7 @@ mod testes {
                 acum.push([valor[0] * 16.0, valor[1] * 16.0, valor[2] * 16.0, 16.0]);
                 geo.push([x as f32 * 0.02, y as f32 * 0.02, 0.0, 0.0]);
                 normal.push([0.0, 0.0, 1.0, 5.0]);
-                alb.push([r[0], r[1], r[2], 0.0]);
+                alb.push([r[0] * 16.0, r[1] * 16.0, r[2] * 16.0, 16.0]);
             }
         }
         (acum, geo, normal, alb)
@@ -477,7 +482,7 @@ mod testes {
             acumulado: &acum,
             geo: &geo,
             normal: &normal,
-            albedo: &alb,
+            acumulado_r: &alb,
         };
         for iteracoes in [1, 3, 5] {
             let saida = filtrar_cpu(&e, &parametros(iteracoes), 0.001);
@@ -504,7 +509,8 @@ mod testes {
         let mut acum = vec![[0.0f32; 4]; n];
         let mut geo = vec![[0.0f32; 4]; n];
         let mut normal = vec![[0.0f32; 4]; n];
-        let alb = vec![[0.5f32, 0.5, 0.5, 0.0]; n];
+        // R = 0,5 em 16 amostras.
+        let alb = vec![[8.0f32, 8.0, 8.0, 16.0]; n];
         for y in 0..altura {
             for x in 0..largura {
                 let i = y * largura + x;
@@ -520,7 +526,7 @@ mod testes {
             acumulado: &acum,
             geo: &geo,
             normal: &normal,
-            albedo: &alb,
+            acumulado_r: &alb,
         };
         let saida = filtrar_cpu(&e, &parametros(5), 0.001);
         for y in 0..altura {
@@ -548,12 +554,77 @@ mod testes {
             acumulado: &acum,
             geo: &geo,
             normal: &normal,
-            albedo: &alb,
+            acumulado_r: &alb,
         };
         let saida = filtrar_cpu(&e, &parametros(3), 0.001);
         assert!((saida[7][0] - 0.9).abs() < 1.0e-6, "fundo alterado: {}", saida[7][0]);
         for (x, px) in saida.iter().enumerate().take(7) {
             assert!((px[0] - 0.4).abs() < 1.0e-5, "pixel {x} recebeu o fundo: {}", px[0]);
+        }
+    }
+
+    #[test]
+    fn remodulacao_usa_a_media_de_r_de_cada_pixel() {
+        // Radiância constante (I = 0,6 por amostra) e textura que varia dentro de cada pixel: pixel par com
+        // 4 amostras de R (média 0,5), ímpar com 2 (média 0,25). A soma de radiância é I x soma de R. A saída
+        // tem de ser I x média de R, pixel a pixel; uma só amostra de R daria outro valor.
+        let (largura, altura) = (8usize, 8usize);
+        let n = largura * altura;
+        let mut acum = vec![[0.0f32; 4]; n];
+        let mut geo = vec![[0.0f32; 4]; n];
+        let mut normal = vec![[0.0f32; 4]; n];
+        let mut acum_r = vec![[0.0f32; 4]; n];
+        for y in 0..altura {
+            for x in 0..largura {
+                let i = y * largura + x;
+                let par = (x + y) % 2 == 0;
+                let rs: &[f32] = if par { &[0.1, 0.9, 0.3, 0.7] } else { &[0.1, 0.4] };
+                let contagem = rs.len() as f32;
+                let soma_r: f32 = rs.iter().sum();
+                acum[i] = [0.6 * soma_r, 0.6 * soma_r, 0.6 * soma_r, contagem];
+                acum_r[i] = [soma_r, soma_r, soma_r, contagem];
+                geo[i] = [x as f32 * 0.02, y as f32 * 0.02, 0.0, 0.0];
+                normal[i] = [0.0, 0.0, 1.0, 5.0];
+            }
+        }
+        let e = Entrada {
+            largura,
+            altura,
+            acumulado: &acum,
+            geo: &geo,
+            normal: &normal,
+            acumulado_r: &acum_r,
+        };
+        let saida = filtrar_cpu(&e, &parametros(3), 0.001);
+        for y in 0..altura {
+            for x in 0..largura {
+                let media_r = if (x + y) % 2 == 0 { 0.5 } else { 0.25 };
+                let esperado = 0.6 * media_r;
+                let v = saida[y * largura + x][0];
+                assert!((v - esperado).abs() < 1.0e-5, "pixel ({x},{y}): {v} != {esperado}");
+            }
+        }
+    }
+
+    #[test]
+    fn borda_com_fundo_mantem_o_pixel_de_antialias() {
+        // Linha de pixels filtráveis com 0,52 e um pixel de borda com fundo (flag 3) de 0,34: o antialias do
+        // contorno com o céu. A borda sai igual ao cru, e não entra na média dos vizinhos (que ficam em 0,52).
+        let (mut acum, mut geo, normal, alb) = plano(8, 1, [0.52, 0.52, 0.52], [1.0, 1.0, 1.0]);
+        acum[4] = [0.34 * 16.0, 0.34 * 16.0, 0.34 * 16.0, 16.0];
+        geo[4][3] = 3.0;
+        let e = Entrada {
+            largura: 8,
+            altura: 1,
+            acumulado: &acum,
+            geo: &geo,
+            normal: &normal,
+            acumulado_r: &alb,
+        };
+        let saida = filtrar_cpu(&e, &parametros(5), 0.001);
+        assert!((saida[4][0] - 0.34).abs() < 1.0e-6, "borda alterada: {}", saida[4][0]);
+        for (x, px) in saida.iter().enumerate().filter(|(x, _)| *x != 4) {
+            assert!((px[0] - 0.52).abs() < 1.0e-5, "pixel {x} misturou a borda: {}", px[0]);
         }
     }
 }

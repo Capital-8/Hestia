@@ -105,8 +105,10 @@ pub struct CenaPt {
 pub struct Acumulacao<'a> {
     pt: &'a Pt0,
     acumulados: [wgpu::Texture; 2],
-    _gbuffer: [wgpu::Texture; 3],
-    gbuffer_vistas: [wgpu::TextureView; 3],
+    /// Acumulado do fator R por amostra, em ping-pong como `acumulados` (ver `pt0.wgsl`).
+    acumulados_r: [wgpu::Texture; 2],
+    _gbuffer: [wgpu::Texture; 2],
+    gbuffer_vistas: [wgpu::TextureView; 2],
     uniforme: wgpu::Buffer,
     grupos: [wgpu::BindGroup; 2],
     denoiser: Option<DenoiseGpu>,
@@ -253,19 +255,25 @@ impl Pt0 {
             criar_rgba32f(d, largura, altura, "pt-acumulado-a"),
             criar_rgba32f(d, largura, altura, "pt-acumulado-b"),
         ];
+        let acumulados_r = [
+            criar_rgba32f(d, largura, altura, "pt-acumulado-r-a"),
+            criar_rgba32f(d, largura, altura, "pt-acumulado-r-b"),
+        ];
         let gbuffer = [
             criar_rgba32f(d, largura, altura, "pt-gbuffer-geo"),
             criar_rgba32f(d, largura, altura, "pt-gbuffer-normal"),
-            criar_rgba32f(d, largura, altura, "pt-gbuffer-albedo"),
         ];
         let vistas_acumulados = [
             acumulados[0].create_view(&wgpu::TextureViewDescriptor::default()),
             acumulados[1].create_view(&wgpu::TextureViewDescriptor::default()),
         ];
+        let vistas_acumulados_r = [
+            acumulados_r[0].create_view(&wgpu::TextureViewDescriptor::default()),
+            acumulados_r[1].create_view(&wgpu::TextureViewDescriptor::default()),
+        ];
         let gbuffer_vistas = [
             gbuffer[0].create_view(&wgpu::TextureViewDescriptor::default()),
             gbuffer[1].create_view(&wgpu::TextureViewDescriptor::default()),
-            gbuffer[2].create_view(&wgpu::TextureViewDescriptor::default()),
         ];
         let uniforme = d.create_buffer(&wgpu::BufferDescriptor {
             label: Some("pt-quadro"),
@@ -291,7 +299,8 @@ impl Pt0 {
                     entrada(10, wgpu::BindingResource::TextureView(&cena.mapas.vistas[3])),
                     entrada(11, wgpu::BindingResource::TextureView(&gbuffer_vistas[0])),
                     entrada(12, wgpu::BindingResource::TextureView(&gbuffer_vistas[1])),
-                    entrada(13, wgpu::BindingResource::TextureView(&gbuffer_vistas[2])),
+                    entrada(14, wgpu::BindingResource::TextureView(&vistas_acumulados_r[i])),
+                    entrada(15, wgpu::BindingResource::TextureView(&vistas_acumulados_r[1 - i])),
                 ],
             })
         };
@@ -314,6 +323,7 @@ impl Pt0 {
         Ok(Acumulacao {
             pt: self,
             acumulados,
+            acumulados_r,
             _gbuffer: gbuffer,
             gbuffer_vistas,
             uniforme,
@@ -477,10 +487,11 @@ impl Acumulacao<'_> {
         let d = &self.pt.dispositivo;
         if let Some(denoiser) = &self.denoiser {
             let acumulado = self.acumulados[self.atual].create_view(&wgpu::TextureViewDescriptor::default());
+            let acumulado_r = self.acumulados_r[self.atual].create_view(&wgpu::TextureViewDescriptor::default());
             let gbuffer = GBufferVistas {
                 geo: &self.gbuffer_vistas[0],
                 normal: &self.gbuffer_vistas[1],
-                albedo: &self.gbuffer_vistas[2],
+                acumulado_r: &acumulado_r,
             };
             denoiser.executar(
                 d,
