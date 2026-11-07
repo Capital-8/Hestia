@@ -330,6 +330,25 @@ pub struct Cena {
     /// pedem exatamente o mesmo `resolver_nivel` + `aplicar_perfis`. Esvaziado em qualquer escrita de seção.
     pub(crate) cache_niveis: RefCell<HashMap<(u32, u64, bool), Rc<crate::a3c::NivelResolvido>>>,
     pub(crate) cache_niveis_perfis: RefCell<HashMap<(u32, u64), Rc<crate::b3::NivelComPerfis>>>,
+    /// Selo (linhas e bytes) da última `definir_secao` bem-sucedida de cada seção, enquanto nenhuma outra escrita a tocou. Reenviar a mesma seção (a cena
+    /// é reenviada inteira quando só faltam as seções da junção ou dos forros) não muda nada, então não refaz índices nem esvazia os caches.
+    selos: HashMap<u32, (u32, usize, u64, u64)>,
+}
+
+/// Selo de 128 bits (dois FNV-1a de 64 bits com sementes e primos distintos, oito bytes por passo) das linhas de uma seção.
+fn selo_da_secao(n_linhas: u32, bytes: &[u8]) -> (u32, usize, u64, u64) {
+    let (mut h1, mut h2) = (0xcbf2_9ce4_8422_2325u64, 0x9e37_79b9_7f4a_7c15u64);
+    let mut blocos = bytes.chunks_exact(8);
+    for b in &mut blocos {
+        let v = u64::from_le_bytes([b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]]);
+        h1 = (h1 ^ v).wrapping_mul(0x0000_0100_0000_01b3).rotate_left(5);
+        h2 = (h2 ^ v.rotate_left(31)).wrapping_mul(0xff51_afd7_ed55_8ccd).rotate_left(27);
+    }
+    for &b in blocos.remainder() {
+        h1 = (h1 ^ u64::from(b)).wrapping_mul(0x0000_0100_0000_01b3);
+        h2 = (h2 ^ u64::from(b)).wrapping_mul(0xff51_afd7_ed55_8ccd);
+    }
+    (n_linhas, bytes.len(), h1, h2)
 }
 
 impl Cena {
@@ -357,6 +376,29 @@ impl Cena {
         self.a1.paredes_z.get(&id).copied()
     }
 
+    /// Esvazia só os caches que a seção escrita pode ter tornado velhos. O nível resolvido das paredes (`cache_niveis`, `cache_niveis_perfis`) lê só as
+    /// seções das paredes, das aberturas, dos perfis e, na variante da junção, `paredes_z_juncao` e `perfis_z_juncao`; os elementos (`cache_elementos`)
+    /// leem também as seções de pisos e lajes; os cortadores (`cache_cortadores`) leem tudo isso mais as faixas da junção e dos forros.
+    fn invalidar_caches(&mut self, secao_id: u32) {
+        use esquema::{SECAO_FAIXAS_JUNCAO, SECAO_PAREDES_Z_JUNCAO, SECAO_PERFIS_Z_JUNCAO, SECAO_PONTOS_FAIXAS_JUNCAO};
+        let so_b = SecoesB::e_minha(secao_id);
+        let de_juncao = matches!(secao_id, SECAO_PAREDES_Z_JUNCAO | SECAO_PERFIS_Z_JUNCAO);
+        self.cache_cortadores.get_mut().clear();
+        if !so_b {
+            self.cache_niveis.get_mut().clear();
+            self.cache_niveis_perfis.get_mut().clear();
+            self.cache_elementos.get_mut().clear();
+        } else if de_juncao {
+            // Só a variante da junção lê estas seções: o resultado sem variante continua valendo.
+            self.cache_niveis.get_mut().retain(|k, _| !k.2);
+            self.cache_niveis_perfis.get_mut().clear();
+            self.cache_elementos.get_mut().retain(|k, _| !k.2);
+        } else if !matches!(secao_id, SECAO_FAIXAS_JUNCAO | SECAO_PONTOS_FAIXAS_JUNCAO) {
+            // Pisos, lajes, tipos, camadas, contornos, furos, níveis e forros: não entram no nível resolvido das paredes.
+            self.cache_elementos.get_mut().clear();
+        }
+    }
+
     fn invalidar(&mut self, tocados: &[u32]) {
         for n in tocados {
             self.indices.remove(n);
@@ -366,11 +408,14 @@ impl Cena {
 
     /// Substitui todas as linhas da seção. Atômico: se falhar, a cena não muda.
     pub fn definir_secao(&mut self, secao_id: u32, n_linhas: u32, bytes: &[u8]) -> Result<(), u32> {
-        self.cache_cortadores.get_mut().clear();
-        self.cache_niveis.get_mut().clear();
-        self.cache_niveis_perfis.get_mut().clear();
-        self.cache_elementos.get_mut().clear();
-        match secao_id {
+        let selo = selo_da_secao(n_linhas, bytes);
+        if self.selos.get(&secao_id) == Some(&selo) {
+            // Mesmas linhas já definidas e nenhuma escrita desde então: a cena e os caches valem como estão.
+            return Ok(());
+        }
+        self.selos.remove(&secao_id);
+        self.invalidar_caches(secao_id);
+        let r = match secao_id {
             SECAO_PAREDES => {
                 let lote = decodificar_paredes(n_linhas, bytes)?;
                 self.paredes.limpar();
@@ -383,15 +428,17 @@ impl Cena {
             s if SecoesA3::e_minha(s) => self.a3.definir(s, n_linhas, bytes),
             s if SecoesB::e_minha(s) => self.b.definir(s, n_linhas, bytes),
             _ => Err(ENTRADA),
+        };
+        if r.is_ok() {
+            self.selos.insert(secao_id, selo);
         }
+        r
     }
 
     /// Insere ou substitui pela chave. Atômico.
     pub fn upsert(&mut self, secao_id: u32, n_linhas: u32, bytes: &[u8]) -> Result<(), u32> {
-        self.cache_cortadores.get_mut().clear();
-        self.cache_niveis.get_mut().clear();
-        self.cache_niveis_perfis.get_mut().clear();
-        self.cache_elementos.get_mut().clear();
+        self.selos.remove(&secao_id);
+        self.invalidar_caches(secao_id);
         match secao_id {
             SECAO_PAREDES => {
                 let lote = decodificar_paredes(n_linhas, bytes)?;
@@ -413,10 +460,8 @@ impl Cena {
 
     /// Remove linhas pelos ids (ausentes são ignorados).
     pub fn remover(&mut self, secao_id: u32, ids: &[u32]) -> Result<(), u32> {
-        self.cache_cortadores.get_mut().clear();
-        self.cache_niveis.get_mut().clear();
-        self.cache_niveis_perfis.get_mut().clear();
-        self.cache_elementos.get_mut().clear();
+        self.selos.remove(&secao_id);
+        self.invalidar_caches(secao_id);
         match secao_id {
             SECAO_PAREDES => {
                 let mut tocados = Vec::new();

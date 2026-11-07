@@ -20,7 +20,10 @@ const raiz = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const crate = join(raiz, 'crates', 'geom-wasm');
 const destinoDir = join(raiz, 'packages', 'geom', 'assets');
 const destino = join(destinoDir, 'geom_wasm.wasm');
+// `CARGO_TARGET_DIR` (pasta de build fora da árvore) tem precedência: sem isto o script copiaria um artefato velho de `crates/geom-wasm/target`.
+const alvoCargo = process.env.CARGO_TARGET_DIR ? resolve(process.env.CARGO_TARGET_DIR) : null;
 const origens = [
+  ...(alvoCargo ? [join(alvoCargo, 'wasm32-unknown-unknown', 'release', 'geom_wasm.wasm'), join(alvoCargo, 'wasm32-unknown-unknown', 'release', 'geom-wasm.wasm')] : []),
   join(crate, 'target', 'wasm32-unknown-unknown', 'release', 'geom_wasm.wasm'),
   join(crate, 'target', 'wasm32-unknown-unknown', 'release', 'geom-wasm.wasm'),
 ];

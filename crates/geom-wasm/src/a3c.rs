@@ -455,6 +455,26 @@ mod testes {
     }
 
     #[test]
+    fn reenviar_a_mesma_secao_preserva_o_cache_do_nivel_e_mudar_invalida() {
+        use crate::b3::nivel_resolvido;
+        let mut c = com_z(&[Par::nova(1, (0.0, 0.0), (4.0, 0.0))]);
+        let a = nivel_resolvido(&c, 0, 0.02).expect("nível");
+        let bz = |h: f64| [c32(&[1]), c64(&[0.0]), c64(&[h])].concat();
+        // Mesmas linhas: nada muda e o cache vale.
+        c.definir_secao(SECAO_PAREDES_Z, 1, &bz(2.8)).expect("paredes_z");
+        assert!(Rc::ptr_eq(&a, &nivel_resolvido(&c, 0, 0.02).expect("nível")), "mesma seção reenviada mantém o cache");
+        // Seção da junção (nenhuma linha: nada a definir) e seções de pisos não tocam o nível sem variante.
+        c.definir_secao(crate::esquema::SECAO_PAREDES_Z_JUNCAO, 0, &[]).expect("juncao vazia");
+        c.definir_secao(crate::esquema::SECAO_PISOS, 0, &[]).expect("pisos vazios");
+        assert!(Rc::ptr_eq(&a, &nivel_resolvido(&c, 0, 0.02).expect("nível")), "seções que o nível não lê mantêm o cache");
+        // Outras linhas: invalida e o resultado novo é recalculado.
+        c.definir_secao(SECAO_PAREDES_Z, 1, &bz(3.0)).expect("paredes_z");
+        let b = nivel_resolvido(&c, 0, 0.02).expect("nível");
+        assert!(!Rc::ptr_eq(&a, &b), "seção alterada invalida o cache");
+        assert!((b.grupos[0].camadas[0].faixas[0].z1 - 3.0).abs() < 1e-12);
+    }
+
+    #[test]
     fn assinatura_arredonda_a_1e_6() {
         let a: MultiPoligono = vec![vec![vec![[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]]]];
         let b: MultiPoligono = vec![vec![vec![[0.0, 0.0], [1.0 + 4e-7, 0.0], [1.0, 1.0]]]];
