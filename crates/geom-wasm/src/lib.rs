@@ -179,23 +179,7 @@ pub extern "C" fn executar(op: u32, n_args: u32, param: f64) -> u32 {
         Some(a) => a,
         None => return ERRO_ENTRADA,
     };
-    let resultado = match op {
-        OP_UNIAO => ops::uniao(&args),
-        OP_DIFERENCA => ops::diferenca(&args),
-        OP_INTERSECAO => {
-            if args.len() != 2 {
-                return ERRO_ENTRADA;
-            }
-            ops::interseccao(&args[0], &args[1])
-        }
-        OP_OFFSET => {
-            if args.len() != 1 {
-                return ERRO_ENTRADA;
-            }
-            ops::offset(&args[0], param)
-        }
-        _ => return ERRO_OP,
-    };
+    let resultado = executar_op(op, &args, param);
     match resultado {
         Ok(m) => {
             let area = area_total(&m);
@@ -203,6 +187,31 @@ pub extern "C" fn executar(op: u32, n_args: u32, param: f64) -> u32 {
             ERRO_OK
         }
         Err(codigo) => codigo,
+    }
+}
+
+/// A operação em si, sem a arena: o que `executar` faz depois de decodificar a entrada. Pura, então os testes a chamam direto.
+///
+/// `param` em `OP_DIFERENCA`: `0` é a diferença de sempre (1 µm, todos os subtraendos); `1` descarta antes os subtraendos que só encostam no
+/// minuendo (ver [`ops::diferenca_relevante`]). Em `OP_OFFSET` é o `delta`; nas demais é ignorado.
+pub(crate) fn executar_op(op: u32, args: &[MultiPoligono], param: f64) -> Result<MultiPoligono, u32> {
+    match op {
+        OP_UNIAO => ops::uniao(args),
+        OP_DIFERENCA if param == 1.0 => ops::diferenca_relevante(args),
+        OP_DIFERENCA => ops::diferenca(args),
+        OP_INTERSECAO => {
+            if args.len() != 2 {
+                return Err(ERRO_ENTRADA);
+            }
+            ops::interseccao(&args[0], &args[1])
+        }
+        OP_OFFSET => {
+            if args.len() != 1 {
+                return Err(ERRO_ENTRADA);
+            }
+            ops::offset(&args[0], param)
+        }
+        _ => Err(ERRO_OP),
     }
 }
 

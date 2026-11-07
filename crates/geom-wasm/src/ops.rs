@@ -371,6 +371,65 @@ pub fn diferenca_com_escala(args: &[MultiPoligono], escala: f64) -> Result<Multi
     Ok(descartar_residuos(converter(resultado, escala)))
 }
 
+/// Espessura (m) abaixo da qual uma sobreposição medida a 1 nm é ruído de quantização, não região: duas arestas quantizadas separadamente andam
+/// até ~0,7 nm cada, então uma sobreposição de menos de 2 nm de espessura média pode ser só isso.
+const ESPESSURA_DE_RUIDO: f64 = 2.0 / ESCALA_FINA;
+
+fn perimetro_do_anel(anel: &Anel) -> f64 {
+    let n = anel.len();
+    (0..n).map(|i| (anel[(i + 1) % n][0] - anel[i][0]).hypot(anel[(i + 1) % n][1] - anel[i][1])).sum()
+}
+
+/// Espessura média de um polígono: área líquida sobre meio perímetro (a largura de uma tira fina).
+fn espessura_media(poli: &Poligono) -> f64 {
+    let area = poli.iter().enumerate().map(|(i, r)| if i == 0 { area_absoluta(r) } else { -area_absoluta(r) }).sum::<f64>();
+    let per: f64 = poli.iter().map(perimetro_do_anel).sum();
+    if per <= 0.0 { 0.0 } else { area / (per / 2.0) }
+}
+
+fn caixa(m: &MultiPoligono) -> Option<[f64; 4]> {
+    let mut c: Option<[f64; 4]> = None;
+    for p in m.iter().flat_map(|poli| poli.iter().take(1)) {
+        for q in p {
+            let b = c.get_or_insert([q[0], q[1], q[0], q[1]]);
+            b[0] = b[0].min(q[0]);
+            b[1] = b[1].min(q[1]);
+            b[2] = b[2].max(q[0]);
+            b[3] = b[3].max(q[1]);
+        }
+    }
+    c
+}
+
+/// O subtraendo corta de verdade o minuendo? Falso quando só encosta nele: as caixas não se sobrepõem, ou a interseção medida a 1 nm tem
+/// menos de [`ESPESSURA_DE_RUIDO`] de espessura em todos os pedaços (a área exata de um vizinho que encosta é zero).
+fn corta_de_verdade(minuendo: &MultiPoligono, sub: &MultiPoligono) -> Result<bool, u32> {
+    let (Some(a), Some(b)) = (caixa(minuendo), caixa(sub)) else { return Ok(false) };
+    if b[0] >= a[2] || b[2] <= a[0] || b[1] >= a[3] || b[3] <= a[1] {
+        return Ok(false);
+    }
+    let comum = interseccao_com_escala(minuendo, sub, ESCALA_FINA)?;
+    Ok(comum.iter().any(|poli| espessura_media(poli) > ESPESSURA_DE_RUIDO))
+}
+
+/// `diferenca` só com os subtraendos que cortam de verdade o minuendo. Quantizados a 1 µm cada um por si, um vizinho que só encosta entra alguns
+/// décimos de µm na região e deixa vértices novos na borda; a mesma região, com e sem ele, saía com vértices diferentes (e a camada de parede
+/// ganhava uma faixa de cota a mais). Sem ele a entrada da varredura é a mesma, então a saída é a mesma. A decisão de cada subtraendo depende só
+/// dele e do minuendo, nunca dos outros operandos.
+pub fn diferenca_relevante(args: &[MultiPoligono]) -> Result<MultiPoligono, u32> {
+    let Some((minuendo, subs)) = args.split_first() else {
+        return Err(ERRO_ENTRADA);
+    };
+    let mut uteis: Vec<MultiPoligono> = Vec::with_capacity(args.len());
+    uteis.push(minuendo.clone());
+    for s in subs {
+        if corta_de_verdade(minuendo, s)? {
+            uteis.push(s.clone());
+        }
+    }
+    diferenca(&uteis)
+}
+
 /// Limiar de área (m²) abaixo do qual a diferença descarta um anel: 1e-9 m². O `polygon-clipping` do TS devolve vazio onde a subtração zera a peça; o
 /// `i_overlay` em escala fina deixa resíduos de ~1e-11 m² (anel de 3 a 4 vértices, ruído de quantização a 1 nm) dentro da junção (B3) e do corte.
 /// 1e-9 m² é muito menor que qualquer peça real e fica acima do ruído de 1 nm, então nenhuma área ou volume acima de 1e-6 muda.
@@ -1022,5 +1081,61 @@ mod testes {
                 }
             }
         }
+    }
+
+    /// Assinatura de uma forma na precisão que o TypeScript compara (1e-6): vértices arredondados, anel girado ao menor vértice, tudo ordenado.
+    fn assinatura(m: &MultiPoligono) -> Vec<Vec<String>> {
+        let mut polis: Vec<Vec<String>> = m
+            .iter()
+            .map(|p| {
+                let mut aneis: Vec<String> = p
+                    .iter()
+                    .map(|r| {
+                        let pts: Vec<String> = r.iter().map(|q| format!("{:.6},{:.6}", q[0], q[1])).collect();
+                        let k = (0..pts.len()).min_by(|&a, &b| pts[a].cmp(&pts[b])).unwrap_or(0);
+                        pts[k..].iter().chain(pts[..k].iter()).cloned().collect::<Vec<_>>().join(";")
+                    })
+                    .collect();
+                aneis.sort();
+                aneis
+            })
+            .collect();
+        polis.sort();
+        polis
+    }
+
+    /// Região `a` com a aresta de baixo e a da esquerda inclinadas, e a vizinha `s2` que só ENCOSTA na aresta inclinada da direita: os vértices dela ficam
+    /// sobre a reta da aresta (pontos em outras posições da reta, fora da grade). Interseção exata: área zero.
+    fn regiao_e_vizinha_que_encosta(k: usize) -> (MultiPoligono, MultiPoligono, MultiPoligono) {
+        let d = |n: usize, m: usize| ((n * 7919 + m * 104729) % 1000) as f64 * 1e-9; // deslocamentos fora da grade, de 0 a 1 µm
+        let p = [1.0 + d(k, 1), 0.0 + d(k, 2)];
+        let q = [1.3 + d(k, 3), 0.2 + d(k, 4)];
+        let a: MultiPoligono = vec![vec![vec![[0.0 + d(k, 5), 0.0], p, q, [0.0, 0.2 + d(k, 6)]]]];
+        let pt = |t: f64| [p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])];
+        let (t1, t2) = (0.1 + (k % 7) as f64 * 0.01, 0.6 + (k % 11) as f64 * 0.03);
+        let (r1, r2) = (pt(t1), pt(t2));
+        let s2: MultiPoligono = vec![vec![vec![r1, [r1[0] + 0.1, r1[1]], [r2[0] + 0.1, r2[1]], r2]]];
+        let s1: MultiPoligono = vec![vec![vec![[-1.0, -1.0], [0.4, -1.0], [0.4, 1.0], [-1.0, 1.0]]]]; // corta de verdade a ponta esquerda
+        (a, s1, s2)
+    }
+
+    #[test]
+    fn vizinha_que_so_encosta_nao_muda_os_vertices_da_diferenca() {
+        // A mesma região, com e sem uma vizinha que só encosta nela, tem de sair com os mesmos vértices (a precisão de 1e-6 do TypeScript). A 1 µm,
+        // a vizinha quantizada separadamente entra alguns décimos de µm na região e deixa vértices novos na borda: era o que dividia uma camada de
+        // parede em duas faixas de cota quando a vizinha só existia numa delas.
+        let mut mudou_em_1um = 0;
+        for k in 0..200 {
+            let (a, s1, s2) = regiao_e_vizinha_que_encosta(k);
+            let sem = crate::executar_op(crate::OP_DIFERENCA, &[a.clone(), s1.clone()], 1.0).expect("sem");
+            let com = crate::executar_op(crate::OP_DIFERENCA, &[a.clone(), s1.clone(), s2.clone()], 1.0).expect("com");
+            assert_eq!(assinatura(&sem), assinatura(&com), "caso {k}: a vizinha que só encosta mudou a região");
+            let antigo_sem = diferenca(&[a.clone(), s1.clone()]).expect("a");
+            let antigo_com = diferenca(&[a, s1, s2]).expect("b");
+            if assinatura(&antigo_sem) != assinatura(&antigo_com) {
+                mudou_em_1um += 1;
+            }
+        }
+        assert!(mudou_em_1um > 0, "a premissa do teste: a 1 µm a vizinha que só encosta muda a região em algum caso");
     }
 }

@@ -145,7 +145,7 @@ export function difference(a: MultiPolygon, ...bs: MultiPolygon[]): MultiPolygon
   const subs = bs.filter((m) => m.length > 0);
   // Mesma referência devolvida hoje por `boolean.ts` quando não há subtraendo.
   if (subs.length === 0) return a;
-  return noKernel('difference', (k) => k.diferenca([a, ...subs]), () => ts.difference(a, ...subs));
+  return noKernel('difference', (k) => k.diferenca([a, ...subs], true), () => ts.difference(a, ...subs));
 }
 
 export function intersection(a: MultiPolygon, b: MultiPolygon): MultiPolygon {

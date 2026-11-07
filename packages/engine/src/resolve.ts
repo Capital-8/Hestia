@@ -42,7 +42,7 @@ import { attachTargets } from './attachTargets.ts';
 import { resolveAllRoofs } from './roofs.ts';
 import { wallZRange, type WallZ } from './wallZ.ts';
 import { withWallZ } from './wallFrameZ.ts';
-import { round, ringsOfShape, mesmaRegiaoNaGrade } from './geomSig.ts';
+import { round, ringsOfShape, sigCanonica } from './geomSig.ts';
 import type { LayerBand, OpeningGeometry, Region, ResolvedCluster, ResolvedLayer, ResolvedLevel, ResolvedWall } from './types.ts';
 
 const MIN_AREA = 1e-9;
@@ -349,7 +349,7 @@ function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRang
       const prev = list[list.length - 1];
       const rel0 = za - w.z0;
       const rel1 = zb - w.z0;
-      if (prev && Math.abs(prev.z1 - rel0) < EPS_Z && mesmaRegiaoNaGrade(prev.poly, poly)) prev.z1 = rel1;
+      if (prev && Math.abs(prev.z1 - rel0) < EPS_Z && (prev.poly === poly || sigCanonica(prev.poly) === sigCanonica(poly))) prev.z1 = rel1;
       else list.push({ z0: rel0, z1: rel1, poly });
       bandsOf.set(it, list);
     }

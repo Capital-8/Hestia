@@ -53,7 +53,11 @@ export interface ImplKernel {
   /** Nome do que está ativo, para o diagnóstico na interface. */
   readonly nome: string;
   uniao(args: MultiPolygon[]): MultiPolygon;
-  diferenca(args: MultiPolygon[]): MultiPolygon;
+  /**
+   * `relevante`: só os subtraendos que cortam de verdade o minuendo entram na conta (o `difference` do `polygon-clipping`, para quem um vizinho que
+   * só encosta não muda nada). Sem ele (padrão), todos entram, como no `differenceClipper`.
+   */
+  diferenca(args: MultiPolygon[], relevante?: boolean): MultiPolygon;
   interseccao(a: MultiPolygon, b: MultiPolygon): MultiPolygon;
   offset(m: MultiPolygon, delta: number): MultiPolygon;
   /** Libera a instância (no wasm, nada a fazer; existe para o teste poder desmontar). */
