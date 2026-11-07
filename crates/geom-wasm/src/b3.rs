@@ -27,7 +27,7 @@ use crate::cena::Cena;
 use crate::geo2d::arredonda_js;
 use crate::consultas::Saida;
 use crate::esquema::{ENTRADA, NIVEL_TODOS};
-use crate::ops::{diferenca_com_escala, normalizar_na_grade, uniao_com_escala, ESCALA_FINA};
+use crate::ops::{diferenca_de_preparadas, normalizar_na_grade, preparar_forma, uniao_com_escala, FormasPreparadas, ESCALA_FINA};
 use crate::pintor::area_da_forma;
 use crate::MultiPoligono;
 
@@ -132,35 +132,102 @@ pub(crate) fn caixas_se_tocam(a: &Caixa, b: &Caixa) -> bool {
     a[0] <= b[2] && a[2] >= b[0] && a[1] <= b[3] && a[3] >= b[1]
 }
 
+/// Uma peça planar com o polígono emprestado: a junção só lê o polígono, então quem já o tem (a cena) não precisa clonar para resolver.
+#[derive(Clone, Copy, Debug)]
+pub struct PecaRef<'a> {
+    pub meta: MetaDeJuncao,
+    pub poly: &'a MultiPoligono,
+    pub z0: f64,
+    pub z1: f64,
+    pub dono: Option<(Tipo, u32)>,
+    pub externa: bool,
+}
+
+impl PecaPlana {
+    pub fn como_ref(&self) -> PecaRef<'_> {
+        PecaRef { meta: self.meta, poly: &self.poly, z0: self.z0, z1: self.z1, dono: self.dono, externa: self.externa }
+    }
+}
+
 /// `pairCuts(c, t)`: camadas do mesmo elemento não se cortam, parede não corta parede, e entre níveis só parede x piso/laje.
-fn par_corta(c: &PecaPlana, t: &PecaPlana) -> bool {
+fn par_corta_ref(c: &PecaRef, t: &PecaRef) -> bool {
     if c.externa || t.externa {
         return c.externa != t.externa && (c.meta.tipo == Tipo::Parede) != (t.meta.tipo == Tipo::Parede);
     }
     !(c.dono.is_some() && c.dono == t.dono) && !(c.meta.tipo == Tipo::Parede && t.meta.tipo == Tipo::Parede)
 }
 
+/// Passos da diferença de uma peça por suas vencedoras, feitos uma vez por peça (não por faixa de cota nem por peça que ela corta):
+/// `como_o_polygon_clipping(na_grade(poly))` e depois a preparação (quantização a `ESCALA_FINA`) que `diferenca_com_escala` repetia a cada chamada.
+/// A ordem dos passos (todas as conversões, depois todas as preparações) é a de antes, então o primeiro erro, se houver, é o mesmo.
+struct PassosPorPeca {
+    convertida: Vec<Option<MultiPoligono>>,
+    preparada: Vec<Option<FormasPreparadas>>,
+}
+
+impl PassosPorPeca {
+    fn novo(n: usize) -> PassosPorPeca {
+        PassosPorPeca { convertida: (0..n).map(|_| None).collect(), preparada: (0..n).map(|_| None).collect() }
+    }
+
+    fn converter(&mut self, pecas: &[PecaRef], k: usize) -> Result<(), u32> {
+        if self.convertida[k].is_none() {
+            self.convertida[k] = Some(crate::b1::como_o_polygon_clipping(&na_grade(pecas[k].poly))?);
+        }
+        Ok(())
+    }
+
+    fn preparar(&mut self, k: usize) -> Result<(), u32> {
+        if self.preparada[k].is_none() {
+            let c = self.convertida[k].as_ref().ok_or(ENTRADA)?;
+            self.preparada[k] = Some(preparar_forma(c, ESCALA_FINA)?);
+        }
+        Ok(())
+    }
+}
+
 /// `resolveJunction`: a região resolvida de cada peça (na ordem de `pecas`; a externa sai vazia, só corta).
 pub fn resolver_juncao(pecas: &[PecaPlana]) -> Result<Vec<Vec<Prisma>>, u32> {
-    let caixas: Vec<Option<Caixa>> = pecas.iter().map(|t| if t.poly.is_empty() { None } else { Some(caixa_total(&t.poly)) }).collect();
+    resolver_juncao_ref(&pecas.iter().map(PecaPlana::como_ref).collect::<Vec<_>>())
+}
+
+/// [`resolver_juncao`] sobre peças emprestadas. As candidatas a vencedoras de cada peça vêm de um índice espacial (as caixas que se tocam, em ordem
+/// crescente de posição, como o filtro linear de antes), e a diferença de cada peça só é refeita quando o conjunto de vencedoras ativas da faixa muda.
+pub fn resolver_juncao_ref(pecas: &[PecaRef]) -> Result<Vec<Vec<Prisma>>, u32> {
+    let caixas: Vec<Option<Caixa>> = pecas.iter().map(|t| if t.poly.is_empty() { None } else { Some(caixa_total(t.poly)) }).collect();
+    // Índice só das peças com polígono; `ids` leva a posição no índice de volta à posição em `pecas`.
+    let mut ids: Vec<u32> = Vec::new();
+    let mut para_indice: Vec<crate::indice::Caixa> = Vec::new();
+    for (k, c) in caixas.iter().enumerate() {
+        if let Some(c) = c {
+            ids.push(k as u32);
+            para_indice.push(crate::indice::Caixa { minx: c[0], miny: c[1], maxx: c[2], maxy: c[3] });
+        }
+    }
+    let indice = crate::indice::Indice::construir(para_indice);
+    let mut candidatas: Vec<u32> = Vec::new();
+    let mut passos = PassosPorPeca::novo(pecas.len());
+    let mut todos = Vec::new();
     let mut saida: Vec<Vec<Prisma>> = Vec::with_capacity(pecas.len());
     for (i, t) in pecas.iter().enumerate() {
         if t.externa {
             saida.push(Vec::new());
             continue;
         }
-        let vencedoras: Vec<&PecaPlana> = pecas
-            .iter()
-            .enumerate()
-            .filter(|(j, c)| {
-                *j != i
-                    && matches!((&caixas[i], &caixas[*j]), (Some(bi), Some(bj)) if caixas_se_tocam(bi, bj))
-                    && par_corta(c, t)
-                    && z_se_cruzam((t.z0, t.z1), (c.z0, c.z1))
-                    && vence(&c.meta, &t.meta) == Some(true)
-            })
-            .map(|(_, c)| c)
-            .collect();
+        let vencedoras: Vec<usize> = match &caixas[i] {
+            None => Vec::new(),
+            Some(bi) => {
+                indice.buscar(&crate::indice::Caixa { minx: bi[0], miny: bi[1], maxx: bi[2], maxy: bi[3] }, &mut candidatas);
+                candidatas
+                    .iter()
+                    .map(|&c| ids[c as usize] as usize)
+                    .filter(|&j| {
+                        let c = &pecas[j];
+                        j != i && par_corta_ref(c, t) && z_se_cruzam((t.z0, t.z1), (c.z0, c.z1)) && vence(&c.meta, &t.meta) == Some(true)
+                    })
+                    .collect()
+            }
+        };
         if vencedoras.is_empty() {
             saida.push(vec![Prisma { poly: t.poly.clone(), z0: t.z0, z1: t.z1 }]);
             continue;
@@ -168,31 +235,43 @@ pub fn resolver_juncao(pecas: &[PecaPlana]) -> Result<Vec<Vec<Prisma>>, u32> {
         // Mesma grade de EPS_Z das alturas de parede (a3c.rs): alturas quase iguais não criam fatias minúsculas.
         let grade = |z: f64| arredonda_js(z / Z_EPS) * Z_EPS;
         let mut cortes: Vec<f64> = vec![grade(t.z0), grade(t.z1)];
-        for w in &vencedoras {
-            cortes.push(grade(w.z0));
-            cortes.push(grade(w.z1));
+        for &w in &vencedoras {
+            cortes.push(grade(pecas[w].z0));
+            cortes.push(grade(pecas[w].z1));
         }
         // `new Set(cortes.filter(...).map(clamp)).sort`: duplicatas exatas saem; a ordem é crescente.
         let mut limites: Vec<f64> = cortes.into_iter().filter(|&z| z >= t.z0 - Z_EPS && z <= t.z1 + Z_EPS).map(|z| t.z1.min(t.z0.max(z))).collect();
         limites.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         limites.dedup();
         let mut partes: Vec<Prisma> = Vec::new();
+        // Diferença já calculada para o conjunto de vencedoras ativas (faixas vizinhas costumam repetir o conjunto).
+        let mut memo: Vec<(Vec<usize>, MultiPoligono)> = Vec::new();
         for k in 0..limites.len().saturating_sub(1) {
             let (z0, z1) = (limites[k], limites[k + 1]);
             if z1 - z0 <= Z_EPS {
                 continue;
             }
             let meio = (z0 + z1) / 2.0;
-            let ativas: Vec<&MultiPoligono> = vencedoras.iter().filter(|w| w.z0 < meio && w.z1 > meio).map(|w| &w.poly).collect();
+            let ativas: Vec<usize> = vencedoras.iter().copied().filter(|&w| pecas[w].z0 < meio && pecas[w].z1 > meio).collect();
             let poly = if ativas.is_empty() {
                 t.poly.clone()
+            } else if let Some((_, feito)) = memo.iter().find(|(c, _)| *c == ativas) {
+                feito.clone()
             } else {
-                let mut args: Vec<MultiPoligono> = Vec::with_capacity(ativas.len() + 1);
-                args.push(crate::b1::como_o_polygon_clipping(&na_grade(&t.poly))?);
-                for a in ativas {
-                    args.push(crate::b1::como_o_polygon_clipping(&na_grade(a))?);
+                passos.converter(pecas, i)?;
+                for &w in &ativas {
+                    passos.converter(pecas, w)?;
                 }
-                diferenca_com_escala(&args, ESCALA_FINA)?
+                passos.preparar(i)?;
+                for &w in &ativas {
+                    passos.preparar(w)?;
+                }
+                let primeiro = passos.convertida[i].as_ref().ok_or(ENTRADA)?;
+                let a = passos.preparada[i].as_ref().ok_or(ENTRADA)?;
+                let subs: Vec<&FormasPreparadas> = ativas.iter().filter_map(|&w| passos.preparada[w].as_ref()).collect();
+                let feito = diferenca_de_preparadas(primeiro, a, &subs, ESCALA_FINA, &mut todos)?;
+                memo.push((ativas, feito.clone()));
+                feito
             };
             if !poly.is_empty() {
                 partes.push(Prisma { poly, z0, z1 });
@@ -568,7 +647,7 @@ pub struct Juncao {
 }
 
 /// `planarOf`: a faixa de cota é a envolvente dos vértices; membrana (espessura zero) e peça sem `meta` ficam de fora.
-fn peca_plana(sp: &PecaSolida) -> Option<PecaPlana> {
+fn peca_plana(sp: &PecaSolida) -> Option<PecaRef<'_>> {
     let meta = sp.meta?;
     if sp.poly.is_empty() {
         return None;
@@ -577,7 +656,7 @@ fn peca_plana(sp: &PecaSolida) -> Option<PecaPlana> {
     if !(z1 - z0 > ESPESSURA_MINIMA) {
         return None;
     }
-    Some(PecaPlana { meta: MetaDeJuncao { explicita: meta.juncao.explicita, ..meta.juncao }, poly: sp.poly.clone(), z0, z1, dono: Some(meta.dono), externa: sp.externa })
+    Some(PecaRef { meta: MetaDeJuncao { explicita: meta.juncao.explicita, ..meta.juncao }, poly: &sp.poly, z0, z1, dono: Some(meta.dono), externa: sp.externa })
 }
 
 fn volume_das_partes(partes: &[Prisma]) -> f64 {
@@ -586,15 +665,15 @@ fn volume_das_partes(partes: &[Prisma]) -> f64 {
 
 /// `lostVolume`: a camada perdeu volume. Só conta como perda o que passa da resolução da grade sobre a área da faixa
 /// (área × `Z_EPS`: uma camada de 1 µm); menos que isso é ruído de ponto flutuante, abaixo da resolução do próprio Rust.
-fn perdeu_volume(t: &PecaPlana, partes: &[Prisma]) -> bool {
-    let area = area_da_forma(&t.poly);
+fn perdeu_volume(t: &PecaRef, partes: &[Prisma]) -> bool {
+    let area = area_da_forma(t.poly);
     (area * (t.z1 - t.z0) - volume_das_partes(partes)).abs() > area * Z_EPS
 }
 
 /// `junctionLevel`: a junção do nível a partir dos cortadores.
 pub fn juncao_do_nivel(cortadores: &Cortadores) -> Result<Juncao, u32> {
-    struct Marcada {
-        peca: PecaPlana,
+    struct Marcada<'a> {
+        peca: PecaRef<'a>,
         camada: i64,
         banda: Option<u32>,
         plana: bool,
@@ -609,7 +688,7 @@ pub fn juncao_do_nivel(cortadores: &Cortadores) -> Result<Juncao, u32> {
         let Some(peca) = peca_plana(sp) else { continue };
         marcadas.push(Marcada { peca, camada: meta.camada, banda: meta.banda, plana: sp.plana });
     }
-    let resolvidas = resolver_juncao(&marcadas.iter().map(|m| m.peca.clone()).collect::<Vec<_>>())?;
+    let resolvidas = resolver_juncao_ref(&marcadas.iter().map(|m| m.peca).collect::<Vec<_>>())?;
     let mut juncao = Juncao::default();
     let mut indice_el: HashMap<(Tipo, u32), usize> = HashMap::new();
     let mut indice_pa: HashMap<u32, usize> = HashMap::new();
@@ -798,8 +877,8 @@ pub(crate) mod testes {
         // faixa plana de 4 x 0,2 m (área 0,8 m²): o limiar é 0,8 x 1e-6 = 8e-7 m³
         let t = peca(Tipo::Parede, 1.0, true, ret(0.0, 0.0, 4.0, 0.2), 0.0, 2.7, 1);
         let com_perda = |perda: f64| vec![Prisma { poly: t.poly.clone(), z0: t.z0, z1: t.z1 - perda / 0.8 }];
-        assert!(!perdeu_volume(&t, &com_perda(1e-8)), "ruído de 1e-8 m³ está abaixo de área x Z_EPS: não é perda");
-        assert!(perdeu_volume(&t, &com_perda(1e-3)), "perda real de 1e-3 m³ continua sendo perda");
+        assert!(!perdeu_volume(&t.como_ref(), &com_perda(1e-8)), "ruído de 1e-8 m³ está abaixo de área x Z_EPS: não é perda");
+        assert!(perdeu_volume(&t.como_ref(), &com_perda(1e-3)), "perda real de 1e-3 m³ continua sendo perda");
     }
 
     #[test]
@@ -1186,7 +1265,7 @@ pub(crate) mod testes {
         let mut dono = 0u32;
         let lado = 4.0;
         // Parede = 4 camadas (tiras de 5 cm) x 3 faixas de cota, como as paredes reais por camada e faixa.
-        let mut parede = |v: &mut Vec<PecaPlana>, r: &mut crate::teste_util::Xorshift, dono: &mut u32, horizontal: bool, a: f64, b: f64| {
+        let parede = |v: &mut Vec<PecaPlana>, r: &mut crate::teste_util::Xorshift, dono: &mut u32, horizontal: bool, a: f64, b: f64| {
             *dono += 1;
             let h = 2.6 + (r.proximo() % 3) as f64 * 0.1;
             let prio = 1.0 + (r.proximo() % 3) as f64;

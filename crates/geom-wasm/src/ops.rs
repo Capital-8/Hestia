@@ -347,7 +347,7 @@ pub fn diferenca_com_escala(args: &[MultiPoligono], escala: f64) -> Result<Multi
         return Err(ERRO_ENTRADA);
     };
     // Valida todos antes dos atalhos: entrada degenerada nunca chega ao `i_overlay`.
-    let preparados: Vec<Formas> = args
+    let mut preparados: Vec<Formas> = args
         .iter()
         .map(|m| preparar(m, escala))
         .collect::<Result<_, _>>()?;
@@ -357,14 +357,43 @@ pub fn diferenca_com_escala(args: &[MultiPoligono], escala: f64) -> Result<Multi
     // UMA passada: todos os subtraendos entram juntos como clip. Com NonZero e a orientação normalizada em `preparar`,
     // o conjunto de clips equivale à união deles, então `a − (b1 ∪ b2 ∪ ...)` é igual a subtrair um a um — sem refazer
     // a varredura sobre o acumulado a cada subtraendo (com ~300 subtraendos, a versão em laço era 10× mais lenta que o TS).
+    // Os subtraendos são MOVIDOS para o clip (nada é clonado).
+    let mut resto = preparados.drain(..);
+    let a = resto.next().unwrap_or_default();
     let mut todos: Formas = Vec::new();
-    for subtraendo in preparados.iter().skip(1) {
-        todos.extend(subtraendo.iter().cloned());
+    for subtraendo in resto {
+        todos.extend(subtraendo);
     }
+    diferenca_final(primeiro, &a, &todos, escala)
+}
+
+/// Forma já validada, orientada e quantizada em `escala` (o primeiro passo de toda operação). Quem repete a mesma entrada em várias
+/// diferenças (a junção B3) prepara uma vez e reaproveita com [`diferenca_de_preparadas`].
+pub(crate) type FormasPreparadas = Formas;
+
+/// [`preparar`] para uso fora deste módulo.
+pub(crate) fn preparar_forma(m: &MultiPoligono, escala: f64) -> Result<FormasPreparadas, u32> {
+    preparar(m, escala)
+}
+
+/// `diferenca_com_escala(&[primeiro, subtraendos...], escala)` com as entradas JÁ preparadas na mesma `escala`: o resultado é idêntico bit a bit, sem
+/// requantizar. `primeiro` é a entrada bruta (devolvida como está quando não há nada a subtrair); `todos` é um buffer reaproveitável do chamador.
+pub(crate) fn diferenca_de_preparadas(primeiro: &MultiPoligono, a: &FormasPreparadas, subtraendos: &[&FormasPreparadas], escala: f64, todos: &mut Formas) -> Result<MultiPoligono, u32> {
+    if primeiro.is_empty() || a.is_empty() {
+        return Ok(Vec::new());
+    }
+    todos.clear();
+    for s in subtraendos {
+        todos.extend(s.iter().cloned());
+    }
+    diferenca_final(primeiro, a, todos, escala)
+}
+
+fn diferenca_final(primeiro: &MultiPoligono, a: &Formas, todos: &Formas, escala: f64) -> Result<MultiPoligono, u32> {
     if todos.is_empty() {
         return Ok(primeiro.clone());
     }
-    let resultado = aplicar(&preparados[0], &todos, OverlayRule::Difference)?;
+    let resultado = aplicar(a, todos, OverlayRule::Difference)?;
     if resultado.is_empty() {
         return Ok(Vec::new());
     }
