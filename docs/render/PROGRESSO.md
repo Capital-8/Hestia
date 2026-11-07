@@ -67,3 +67,14 @@ Pendências:
 4. Compressão das texturas.
 5. Bug no render-core: `Rng::novo` mistura semente e amostra por XOR.
 6. Verificação final no localhost (ver "Pendência final").
+
+## Verificação final do serviço (2026-11-06, noite)
+
+Serviço integrado recompilado e reiniciado a partir de `wt\integracao`; casa de alto padrão (22 texturas, 118 MiB), 1280x720, via HTTP: 14 verificações passaram.
+- Rasterização: 0,34 s (15 tiles); segundo envio da mesma cena usa o cache (`/jobs/cache`, 148 bytes).
+- Qualidade máxima (`modo=pt`): 16 amostras com denoise em 5,1 s; status rotulado com modo e amostras; cancelamento termina em `cancelado` sem resultado; `amostras` sem `modo=pt` dá 400.
+- `/health`: modos `raster` e `pt`, perfil `padrao` (memória da placa não informada), orçamento do pt 2048 MiB.
+
+Avaliação visual honesta: o modo de qualidade máxima ainda não é nitidamente mais realista que a rasterização nessa vista. As paredes recebem luz indireta, mas o céu é um fundo plano (sem o degradê de horizonte da rasterização), o reboco continua quase liso e o vidro fica granulado. O denoise preserva 89% da textura (meta 90%) e tem RMSE global acima do cru a partir de 32 amostras.
+
+Ainda não feito: compressão das texturas; luzes internas; céu e horizonte no path tracing; balanço de branco no pt; teste em navegador real (interface, worker, seletor de modo); integração na main.
