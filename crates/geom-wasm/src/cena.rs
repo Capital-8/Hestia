@@ -7,8 +7,9 @@
 //! Determinismo: as linhas ficam em `Vec` por coluna e a ordem canônica (id crescente) vem de um
 //! `BTreeMap<id, posição>`; nunca se itera um mapa de hash.
 
-use std::cell::Cell;
-use std::collections::BTreeMap;
+use std::cell::{Cell, RefCell};
+use std::collections::{BTreeMap, HashMap};
+use std::rc::Rc;
 
 use crate::esquema::{self, Tipo, ENTRADA, ID_AUSENTE, LIMITE, LIMITE_LINHAS_POR_SECAO, NIVEL_TODOS, SECAO_PAREDES};
 use crate::indice::{Caixa, Indice};
@@ -320,6 +321,11 @@ pub struct Cena {
     /// B3: `true` enquanto a consulta `junction_nivel` resolve as paredes na variante da JUNÇÃO (`paredes_z_juncao` e `perfis_z_juncao`, sem `flatAttach`). Só a
     /// `b3` o liga (com `VarianteDaJuncao`) e as leituras de cota e de perfil das paredes o consultam; fora dela vale sempre `paredes_z` e `perfis_z`.
     pub(crate) variante_juncao: Cell<bool>,
+    /// Cortadores por (conjunto, nível, tolerância, variante): as consultas `junction_nivel` e `quant_*` do mesmo nível e as dos níveis vizinhos
+    /// (que entram como cortadores externos) pedem os mesmos conjuntos; recalculá-los a cada consulta era o custo dominante da exportação.
+    /// Esvaziado em qualquer escrita de seção.
+    pub(crate) cache_elementos: RefCell<HashMap<(u32, u64, bool), Rc<Vec<crate::b1::ElementoResolvido>>>>,
+    pub(crate) cache_cortadores: RefCell<HashMap<(bool, u32, u64, bool), Rc<crate::b3::Cortadores>>>,
 }
 
 impl Cena {
@@ -350,6 +356,8 @@ impl Cena {
 
     /// Substitui todas as linhas da seção. Atômico: se falhar, a cena não muda.
     pub fn definir_secao(&mut self, secao_id: u32, n_linhas: u32, bytes: &[u8]) -> Result<(), u32> {
+        self.cache_cortadores.get_mut().clear();
+        self.cache_elementos.get_mut().clear();
         match secao_id {
             SECAO_PAREDES => {
                 let lote = decodificar_paredes(n_linhas, bytes)?;
@@ -368,6 +376,8 @@ impl Cena {
 
     /// Insere ou substitui pela chave. Atômico.
     pub fn upsert(&mut self, secao_id: u32, n_linhas: u32, bytes: &[u8]) -> Result<(), u32> {
+        self.cache_cortadores.get_mut().clear();
+        self.cache_elementos.get_mut().clear();
         match secao_id {
             SECAO_PAREDES => {
                 let lote = decodificar_paredes(n_linhas, bytes)?;
@@ -389,6 +399,8 @@ impl Cena {
 
     /// Remove linhas pelos ids (ausentes são ignorados).
     pub fn remover(&mut self, secao_id: u32, ids: &[u32]) -> Result<(), u32> {
+        self.cache_cortadores.get_mut().clear();
+        self.cache_elementos.get_mut().clear();
         match secao_id {
             SECAO_PAREDES => {
                 let mut tocados = Vec::new();

@@ -1,4 +1,4 @@
-import { resolveAllRoofs, resolveFloors, resolveRoofs, resolveSlabs, viewContextOf, wallZRange, type ResolvedFloor, type ResolvedRoof, type ResolvedSlab, type ViewContext } from '@hestia/engine';
+import { resolveAllRoofs, resolveFloors, resolveRoofs, resolveSlabs, projetoInteiroDaJuncao, viewContextOf, wallZRange, type ResolvedFloor, type ResolvedRoof, type ResolvedSlab, type ViewContext } from '@hestia/engine';
 import { isWall, levelAbove, levelElevation, wallMaxHeight, wallsOnLevel, wallTopElevation, type Id, type Project, type Wall } from '@hestia/model';
 
 /**
@@ -195,7 +195,10 @@ export function projetoDaJuncao(p: Project, levelId: Id): Project {
   }
   fechaDependencias(p, mantidos);
   const levels = p.levels.filter((l) => mantidos.has(l.id));
-  if (levels.length < p.levels.length) out = { ...p, levels };
+  if (levels.length < p.levels.length) {
+    out = { ...p, levels };
+    projetoInteiroDaJuncao.set(out, p);
+  }
   byLevel.set(levelId, out);
   return out;
 }

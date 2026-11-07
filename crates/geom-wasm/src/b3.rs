@@ -17,6 +17,7 @@
 //! `overlapVolume` (quantitativos, que precisam do `earcut` do TS para laje inclinada); a consulta devolve as partes de cada camada, de onde o volume sai.
 
 use std::cell::Cell;
+use std::rc::Rc;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use crate::a2::{Codificador, OpcoesDePlanta};
@@ -499,10 +500,20 @@ pub(crate) fn cortador_do_elemento(e: &crate::b1::ElementoResolvido) -> Cortador
 }
 
 /// `levelCutters(p, nivel)`: pisos e lajes camada a camada (`floorLayerPiece`, `slabLayerPiece`) e as faixas de parede do próprio nível.
-fn cortadores_do_nivel(cena: &Cena, nivel: u32, tol: f64) -> Result<Cortadores, u32> {
+fn cortadores_do_nivel(cena: &Cena, nivel: u32, tol: f64) -> Result<Rc<Cortadores>, u32> {
+    let chave = (false, nivel, tol.to_bits(), cena.variante_juncao.get());
+    if let Some(c) = cena.cache_cortadores.borrow().get(&chave) {
+        return Ok(Rc::clone(c));
+    }
+    let c = Rc::new(cortadores_do_nivel_sem_cache(cena, nivel, tol)?);
+    cena.cache_cortadores.borrow_mut().insert(chave, Rc::clone(&c));
+    Ok(c)
+}
+
+fn cortadores_do_nivel_sem_cache(cena: &Cena, nivel: u32, tol: f64) -> Result<Cortadores, u32> {
     let mut out = Cortadores::default();
-    for e in calcular(cena, nivel, Some(tol))? {
-        let c = cortador_do_elemento(&e);
+    for e in calcular(cena, nivel, Some(tol))?.iter() {
+        let c = cortador_do_elemento(e);
         if e.laje {
             out.lajes.push(c);
         } else {
@@ -578,16 +589,26 @@ fn niveis_do_projeto(cena: &Cena) -> Vec<u32> {
 }
 
 /// `levelCutterSet`: os cortadores do nível mais os dos OUTROS níveis que tocam a faixa de cota dele (peças `external`).
-pub fn conjunto_de_cortadores(cena: &Cena, nivel: u32, tol: f64) -> Result<Cortadores, u32> {
+pub fn conjunto_de_cortadores(cena: &Cena, nivel: u32, tol: f64) -> Result<Rc<Cortadores>, u32> {
+    let chave = (true, nivel, tol.to_bits(), cena.variante_juncao.get());
+    if let Some(c) = cena.cache_cortadores.borrow().get(&chave) {
+        return Ok(Rc::clone(c));
+    }
+    let c = Rc::new(conjunto_de_cortadores_sem_cache(cena, nivel, tol)?);
+    cena.cache_cortadores.borrow_mut().insert(chave, Rc::clone(&c));
+    Ok(c)
+}
+
+fn conjunto_de_cortadores_sem_cache(cena: &Cena, nivel: u32, tol: f64) -> Result<Cortadores, u32> {
     let proprio = cortadores_do_nivel(cena, nivel, tol)?;
     let faixas: Vec<(f64, f64)> = proprio.pisos.iter().chain(&proprio.lajes).chain(&proprio.paredes).flat_map(|c| c.pecas.iter()).filter_map(faixa_da_peca).collect();
     if faixas.is_empty() {
-        return Ok(proprio);
+        return Ok((*proprio).clone());
     }
     let lo = faixas.iter().fold(f64::INFINITY, |m, r| m.min(r.0));
     let hi = faixas.iter().fold(f64::NEG_INFINITY, |m, r| m.max(r.1));
     let alcanca = |p: &PecaSolida| faixa_da_peca(p).is_some_and(|r| r.1 > lo + Z_EPS && r.0 < hi - Z_EPS);
-    let mut out = proprio;
+    let mut out = (*proprio).clone();
     for outro in niveis_do_projeto(cena) {
         if outro == nivel {
             continue;
