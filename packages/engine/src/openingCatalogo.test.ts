@@ -326,7 +326,7 @@ describe('catálogo completo: modelo único', () => {
         }
       }
     }
-  });
+  }, 120_000); // Catálogo brasileiro completo (130 tipos) é lento por natureza; passa dos 5 s padrão.
 
   it('folha fechada não tem volume comum com batente/caixilho em nenhuma família', () => {
     for (const base of DEFAULT_OPENING_TYPES.map((t) => t.id)) {

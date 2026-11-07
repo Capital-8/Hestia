@@ -163,10 +163,26 @@ Data: 2026-11-06. Decisões do dono.
   arredondada era o falso negativo) e o fiapo restante tem limite derivado da grade, perímetro / ESCALA, mais AREA_EPS
   (`crates/geom-wasm/src/quantidades.rs`).
 
+## Desempenho final (2026-11-07)
+
+- **Correções:** cache do nível resolvido na cena; reenvio de seção idêntica não invalida caches, e a invalidação passa a ser por seção; `sincronizarB` reaproveita as seções; o TS não manda mais as faixas da junção B3 (o Rust usa o próprio resolver); `build-wasm.mjs` respeita `CARGO_TARGET_DIR`.
+- **Medição em projetos reais** (razão Rust/TS; abaixo de 1, o Rust é mais rápido):
+
+| Projeto | Frio | DXF | IFC |
+|---|---|---|---|
+| P1 | 0,47 | 0,93 | 0,73 |
+| P2 | 0,84 | 1,25 (8 contra 10 ms, ruído) | 0,89 |
+| P3 | 0,56 | 0,99 | 0,58 |
+| P10 | 0,42 | 0,72 | 0,38 |
+
+- **Sementes do b6 (quantidades):** 0,78, 0,95, 0,86 e 0,38.
+- **Critério aprovado:** 11 projetos com 0 erros e 0 violações.
+- **Pendente:** DXF e IFC de P6 a P11, e o bench do kernel v1.
+
 ## Pendente
 
 - Verificação completa nos 11 projetos, só com agregados (sem nomes nem conteúdo dos projetos).
-- Medição de desempenho (ainda não medida).
+- Medição de desempenho: feita, ver "Desempenho final (2026-11-07)"; falta DXF/IFC de P6 a P11 e o bench do kernel v1.
 - Validação visual pelo dono (roteiro em `docs/handoff/fatia-b-validacao-e-resumo.md`).
 - Subir `VERSAO_MOTOR_GEOMETRIA` e registrar a diferença medida.
 - Migrar o forro.

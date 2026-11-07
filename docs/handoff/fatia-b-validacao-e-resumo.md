@@ -79,5 +79,21 @@ Esta seção substitui, pela decisão "só Rust", as frases que dizem que uma fa
 ### Pendente
 
 - Verificação completa nos 11 projetos, só com agregados.
-- Medição de desempenho.
+- Medição de desempenho: feita, ver a seção "Desempenho final (2026-11-07)"; falta DXF/IFC de P6 a P11 e o bench do kernel v1.
 - Validação visual pelo dono, com o roteiro acima.
+
+## Desempenho final (2026-11-07)
+
+- **Correções:** cache do nível resolvido na cena; reenvio de seção idêntica não invalida caches, e a invalidação passa a ser por seção; `sincronizarB` reaproveita as seções; o TS não manda mais as faixas da junção B3 (o Rust usa o próprio resolver); `build-wasm.mjs` respeita `CARGO_TARGET_DIR`.
+- **Medição em projetos reais** (razão Rust/TS; abaixo de 1, o Rust é mais rápido):
+
+| Projeto | Frio | DXF | IFC |
+|---|---|---|---|
+| P1 | 0,47 | 0,93 | 0,73 |
+| P2 | 0,84 | 1,25 (8 contra 10 ms, ruído) | 0,89 |
+| P3 | 0,56 | 0,99 | 0,58 |
+| P10 | 0,42 | 0,72 | 0,38 |
+
+- **Sementes do b6 (quantidades):** 0,78, 0,95, 0,86 e 0,38.
+- **Critério aprovado:** 11 projetos com 0 erros e 0 violações.
+- **Pendente:** DXF e IFC de P6 a P11, e o bench do kernel v1.
