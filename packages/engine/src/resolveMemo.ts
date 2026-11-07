@@ -37,6 +37,12 @@ export function pinturasDoCluster(items: readonly ItemPintura[]): Map<string, Mu
   return m;
 }
 
+/** Esvazia os caches por conteúdo desta peça (pintura dos clusters e estrutura de junções); ver `cachesDeConteudo.ts`. */
+export function esvaziarCachesDeResolucao(): void {
+  pinturasPorItens.clear();
+  estruturaPorNivel.clear();
+}
+
 /** Fragmento menos os vãos, por identidade do fragmento e conteúdo dos vãos (o fragmento é estável, ver `pinturasDoCluster`). */
 const furosPorFragmento = new WeakMap<MultiPolygon, Map<string, MultiPolygon>>();
 

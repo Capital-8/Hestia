@@ -80,6 +80,12 @@ export class CacheLRUPorBytes<V> {
     this.total -= antes.bytes;
   }
 
+  /** Esvazia o cache (sem contar expulsões). */
+  esvaziar(): void {
+    this.itens.clear();
+    this.total = 0;
+  }
+
   /** Muda o teto (bytes) e expulsa o que não cabe mais. */
   definirLimite(bytes: number): void {
     this.limite = bytes;

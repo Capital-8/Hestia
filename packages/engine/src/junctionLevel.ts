@@ -89,6 +89,10 @@ function signature(tagged: readonly Tagged[]): string {
 
 /** Cache por nível e por conteúdo (como o circuito de ambientes, decisão 0023 §11): nível não editado = mesmo resultado. */
 const levelCache = new Map<Id, { sig: string; value: JunctionLevel }>();
+/** Esvazia o cache de junção por nível e conteúdo; ver `cachesDeConteudo.ts`. */
+export function esvaziarCacheDeJuncao(): void {
+  levelCache.clear();
+}
 /** Atalho por snapshot imutável: evita reconstruir assinatura e cortadores quando o mesmo nível é consultado de novo. */
 const projectLevelCache = new WeakMap<Project, Map<Id, JunctionLevel>>();
 /** Conteúdo de cortadores compartilhado entre snapshots também compartilha a junção e sua assinatura. */

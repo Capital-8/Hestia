@@ -70,6 +70,11 @@ export function resolveSlabsTs(p: Project, levelId: Id, opts: FloorResolveOption
 
 const lajesPorNivel = new Map<string, { fontes: readonly unknown[]; valor: ResolvedSlab[] }>();
 
+/** Esvazia o cache de lajes por nível; ver `cachesDeConteudo.ts`. */
+export function esvaziarCacheDeLajes(): void {
+  lajesPorNivel.clear();
+}
+
 function calcularLajes(p: Project, levelId: Id, opts: FloorResolveOptions): ResolvedSlab[] {
   const openings = openingsOnLevel(p, levelId);
   const out: ResolvedSlab[] = [];
