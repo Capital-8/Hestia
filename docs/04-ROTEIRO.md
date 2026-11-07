@@ -38,8 +38,11 @@ Escada (trajetória e croqui), pilar/viga/sapata, guarda-corpo, cortina de vidro
 ## Fase 8 · Interoperabilidade e nuvem
 IFC de entrada e saída, importador do Hestia 1, salvar na nuvem, link de compartilhamento.
 
+## Plugins de integração (priorizado em 2026-11-07)
+A decisão [0047](decisoes/0047-plugins-de-integracao.md) tira *plugins* de "Fora da v1": fundação de API, protocolo e gerenciador (Suplementos › Ferramentas externas) em `docs/plugins/`. Falta o plugin do renderizador Rust.
+
 ## Fora da v1
-Plugins e scripting, famílias paramétricas gerais, colaboração em tempo real, IA generativa de layout,
+Scripting, famílias paramétricas gerais, colaboração em tempo real, IA generativa de layout,
 instalações (hidráulica/elétrica), renderização fotorrealista.
 
 ## Regra de passagem entre elementos

@@ -353,6 +353,12 @@ export function labelOf(c: Command): string {
       return 'Excluir vista da prancha';
     case 'setSheetOrder':
       return 'Reordenar pranchas';
+    case 'ensurePluginProjectUid':
+      return 'Identificar projeto para plugins';
+    case 'setPluginViewOverride':
+      return 'Substituição de material de visualização';
+    case 'clearPluginViewOverride':
+      return 'Remover substituição de visualização';
     case 'addView3DPoint':
       return 'Salvar ponto de vista 3D';
     case 'updateView3DPoint':

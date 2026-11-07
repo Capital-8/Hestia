@@ -387,6 +387,12 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     },
   },
   materials: { label: t('Materiais', 'Materials'), icon: 'layers', run: openDialog('materials') },
+  externalTools: {
+    label: t('Ferramentas externas', 'External Tools'),
+    icon: 'component',
+    hint: t('Conecta programas externos (como o renderizador) ao modelo.', 'Connect external programs (such as the renderer) to the model.'),
+    run: openDialog('externalTools'),
+  },
   importCad: {
     label: t('Importar CAD (DXF)', 'Import CAD'),
     icon: 'open',

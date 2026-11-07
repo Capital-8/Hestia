@@ -1,4 +1,4 @@
-import { panel, soon, soonS, stack, t, type RibbonPanel, type RibbonTab, type RibbonTabId, type Txt } from './model.ts';
+import { act, panel, soon, soonS, stack, t, type RibbonPanel, type RibbonTab, type RibbonTabId, type Txt } from './model.ts';
 
 /**
  * Abas do Revit que o Hestia ainda não tem. Existem para manter a sequência e o roteiro: cada botão é `soon`
@@ -51,5 +51,6 @@ export const TABS_SOON: RibbonTab[] = [
     p('col-gerenciar', t('Gerenciar colaboração', 'Manage Collaboration'), [t('Conjuntos de trabalho', 'Worksets')], [t('Opções de design', 'Design Options')]),
     p('col-coordenar', t('Coordenar', 'Coordinate'), [t('Copiar/monitorar', 'Copy/Monitor')], [t('Verificar interferências', 'Interference Check')]),
   ),
-  tab('suplementos', t('Suplementos', 'Add-Ins'), p('sup-externas', t('Ferramentas externas', 'External Tools'), [t('Ferramentas externas', 'External Tools')])),
+  // Única entrada habilitada de Suplementos: gerenciador de plugins de integração (docs/plugins).
+  tab('suplementos', t('Suplementos', 'Add-Ins'), panel('sup-externas', t('Ferramentas externas', 'External Tools'), act('externalTools'))),
 ];

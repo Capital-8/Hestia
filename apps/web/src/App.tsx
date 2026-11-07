@@ -65,6 +65,8 @@ import { ImportCadDialog } from './ui/dialogs/ImportCadDialog.tsx';
 import { ManageCadDialog } from './ui/dialogs/ManageCadDialog.tsx';
 import { ExperimentosDialog } from './ui/dialogs/ExperimentosDialog.tsx';
 import { SobreDialog } from './ui/dialogs/SobreDialog.tsx';
+import { pluginHost } from './plugins/appPorts.ts';
+import { ExternalToolsDialog } from './ui/dialogs/ExternalToolsDialog.tsx';
 import { AvisoAtualizacaoDialog } from './ui/dialogs/AvisoAtualizacaoDialog.tsx';
 import { verificarAvisoAoAbrir } from './editor/atualizacao/auto.ts';
 import { definirAtualizacaoPendente } from './editor/atualizacao/ponte.ts';
@@ -189,6 +191,8 @@ function Dialogs(): ReactElement | null {
       return <ExperimentosDialog />;
     case 'about':
       return <SobreDialog />;
+    case 'externalTools':
+      return <ExternalToolsDialog />;
     case 'updatePrompt':
       return <AvisoAtualizacaoDialog />;
     case 'moveLevel':
@@ -266,6 +270,9 @@ export function App(): ReactElement {
       else root.removeAttribute('data-theme');
     } else root.setAttribute('data-theme', theme);
   }, [theme]);
+
+  // Plugins que o usuário deixou habilitados reconectam ao abrir o app (nada é iniciado: só se conecta a porta local).
+  useEffect(() => { pluginHost().start(); }, []);
 
   // Retomada: só existe sessão quando a página foi recarregada (F5). Abrir a aba ou o programa de novo cai na tela de
   // projetos, que é onde o usuário escolhe o que abrir.

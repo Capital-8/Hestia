@@ -804,6 +804,8 @@ export interface Project {
   graphics?: ProjectGraphics;
   /** Gráficos do modelo 3D (decisão 0015); ausente = padrão. */
   view3d?: View3DSettings;
+  /** ID estável do projeto e substituições de visualização de plugins (pluginData.ts); ausente = nenhum. */
+  plugins?: import('./pluginData.ts').PluginProjectData;
   /**
    * Pontos de vista 3D salvos (decisão 0040): catálogo do projeto, referenciado pelas pranchas. Ausente = nenhum.
    * Ver `view3dPoints.ts`.
