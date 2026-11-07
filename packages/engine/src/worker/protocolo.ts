@@ -41,12 +41,6 @@ export interface PedidoResolucao {
   projeto: ProjetoEnviado;
   base?: number | null;
   /**
-   * Kernel geométrico experimental ligado na thread principal (preferência de aplicação, ver
-   * `apps/web/src/editor/preferenciasKernel.ts`). O worker não vê `localStorage`: este campo é o que o faz ativar o
-   * wasm. Ausente ou `false`: nada muda no caminho de sempre.
-   */
-  kernel?: boolean;
-  /**
    * Despacho das fatias A e B do kernel v2 (decisões 0047 §12 e 0050): a URL e o `localStorage` não chegam ao worker, então a configuração viaja no
    * pedido. Ausente: o worker não instala nada e o caminho é o de sempre.
    */

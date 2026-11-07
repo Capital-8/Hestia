@@ -4,7 +4,6 @@ import type { ClienteResolucao } from '@hestia/engine/src/worker/cliente.ts';
 import type { TipoResolucao } from '@hestia/engine/src/worker/protocolo.ts';
 import type { Id, Project } from '@hestia/model';
 import type { EventoFluxo } from './fluxoEdicao.ts';
-import { kernelExperimentalLigado } from './preferenciasKernel.ts';
 import { criarClienteResolucao } from './resolveWorker.ts';
 
 /** Atraso (ms) do aviso à interface: resoluções que chegam juntas geram um único redesenho. */
@@ -99,7 +98,7 @@ export class ResolucaoProgressiva {
   private versaoResolucao = 0;
 
   constructor(opcoes: OpcoesResolucaoProgressiva = {}) {
-    this.cliente = opcoes.cliente ?? criarClienteResolucao({ usarWorker: true, kernelExperimental: kernelExperimentalLigado() });
+    this.cliente = opcoes.cliente ?? criarClienteResolucao({ usarWorker: true });
     this.aoMudar = opcoes.aoMudar ?? (() => undefined);
     this.aoEvento = opcoes.aoEvento ?? (() => undefined);
     this.agendarOcioso = opcoes.agendarOcioso ?? agendarOciosoPadrao;

@@ -16,7 +16,7 @@
  * (VERSAO, HANDLE, INTERNO, trap): a cena recria a instância e repete (no máximo 3 recriações em 5 min, no gerenciador); se ainda assim
  * falhar, a chamada volta ao TS e, esgotado o limite, o kernel fica desligado na sessão. Nada liga sem flag: o padrão é o TypeScript.
  */
-import { CenaV2, ErroKernelGrave, GerenciadorKernelV2, baixarAssetDoWasm, fonteDeSecoes } from '@hestia/geom';
+import { ativarKernelExperimental, desativarKernelExperimental, exigirKernel, CenaV2, ErroKernelGrave, GerenciadorKernelV2, baixarAssetDoWasm, fonteDeSecoes } from '@hestia/geom';
 import { wallsOnLevel, openingsOfWall, type Id, type Project } from '@hestia/model';
 import { montarCenaA1 } from './kernelA1.ts';
 import { DespachoB, ErroDespachoKernel, type ContextoB, type DivergenciaB } from './kernelDespachoB.ts';
@@ -342,6 +342,8 @@ let configAtual: ConfigDespacho = CONFIG_PADRAO;
 let gerenciadorAtual: GerenciadorKernelV2 | null = null;
 let motivoIndisponivel: string | null = null;
 let carregando: Promise<void> | null = null;
+/** O carregamento do wasm (v2 e v1) terminou, com sucesso ou não? Enquanto não, o v1 exigido lançaria `KernelV1Pendente`. */
+let carregamentoConcluido = false;
 let diagnosticoRemoto: DiagnosticoDespacho | null = null;
 
 /** Instala o despachante em `resolveLevel` com as opções dadas (testes injetam o gerenciador; o app usa `iniciarDespachoKernel`). */
@@ -370,12 +372,15 @@ export function removerDespachoKernel(): void {
   gerenciadorAtual = null;
   motivoIndisponivel = null;
   carregando = null;
+  carregamentoConcluido = false;
+  exigirKernel(false);
   diagnosticoRemoto = null;
   avisarKernelPendente();
 }
 
 /** Há fatia ligada esperando o wasm (nem carregou, nem falhou)? Enquanto for `true`, nada de A, B ou quantidades pode ser calculado: a interface mostra "calculando…". */
-export const kernelPendente = (): boolean => (configAtual.fatiaA || configAtual.fatiaB) && !gerenciadorAtual && !motivoIndisponivel;
+export const kernelPendente = (): boolean =>
+  (configAtual.fatiaA || configAtual.fatiaB) && ((!gerenciadorAtual && !motivoIndisponivel) || (carregando !== null && !carregamentoConcluido));
 
 /** Espera o carregamento do wasm terminar (com sucesso ou não). Resolve de imediato se nada está carregando. */
 export const aguardarKernel = (): Promise<void> => carregando ?? Promise.resolve();
@@ -426,24 +431,40 @@ export function diagnosticoDespacho(): DiagnosticoDespacho | null {
 export type CarregadorDeBytes = () => Promise<ArrayBuffer | Uint8Array>;
 
 /**
- * Liga (ou desliga) o despacho conforme a configuração. Idempotente: o primeiro pedido com a fatia A ligada instala o despachante e
- * carrega o wasm em segundo plano (nunca bloqueia nem lança); enquanto não fica pronto, e se o carregamento falhar (binário sem o
- * ABI v2, por exemplo), `resolveLevel` segue no TypeScript. Sem fatia ligada (A ou B), nada é instalado nem baixado.
+ * Liga (ou desliga) o despacho conforme a configuração. Idempotente: o primeiro pedido com uma fatia ligada instala o despachante, torna o
+ * kernel v1 (booleanas e offset) exigido e carrega o wasm em segundo plano (nunca bloqueia nem lança). Os mesmos bytes instanciam o v2 e o v1.
+ * Enquanto não ficam prontos, `resolveLevel` e as operações do v1 lançam pendente; se o carregamento falhar, o erro é explícito (nunca TypeScript).
+ * Sem fatia ligada (A ou B), nada é instalado nem baixado: é o caminho de testes e depuração em desenvolvimento.
  */
 export function iniciarDespachoKernel(config: ConfigDespacho, carregar: CarregadorDeBytes = baixarAssetDoWasm): Promise<void> {
   const alguma = config.fatiaA || config.fatiaB;
   configAtual = { fatiaA: config.fatiaA, fatiaB: config.fatiaB, sombra: alguma && config.sombra };
   if (!alguma) return carregando ?? Promise.resolve();
+  exigirKernel(true);
   if (!despacho) {
     instalarDespachoKernel({ gerenciador: () => gerenciadorAtual, config: () => configAtual, motivoIndisponivel: () => motivoIndisponivel });
   }
   if (!carregando) {
     carregando = (async () => {
+      let bytes: ArrayBuffer | Uint8Array | null = null;
       try {
-        gerenciadorAtual = await GerenciadorKernelV2.dosBytes(await carregar());
+        bytes = await carregar();
       } catch (e) {
         motivoIndisponivel = textoDoErro(e);
+        desativarKernelExperimental(`wasm indisponível: ${motivoIndisponivel}`);
       }
+      if (bytes) {
+        const u = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+        const copiaV1 = u.slice().buffer as ArrayBuffer;
+        try {
+          gerenciadorAtual = await GerenciadorKernelV2.dosBytes(bytes);
+        } catch (e) {
+          motivoIndisponivel = textoDoErro(e);
+        }
+        // v1: o mesmo wasm; `ativarKernelExperimental` nunca lança (a falha fica no motivo do kernel e vira `ErroKernelV1` nas operações).
+        await ativarKernelExperimental({ bytes: copiaV1 });
+      }
+      carregamentoConcluido = true;
       avisarKernelPendente();
     })();
   }

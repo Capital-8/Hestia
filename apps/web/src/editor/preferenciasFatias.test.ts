@@ -37,7 +37,7 @@ describe('preferências de fatias do kernel v2', () => {
     expect(prod('', { 'hestia:kernel:sombra': 'true' })).toEqual({ fatiaA: true, fatiaB: true, sombra: true });
     expect(prod('?kernel=ts')).toEqual({ fatiaA: true, fatiaB: true, sombra: false });
     expect(prod('?kernelFatias=A')).toEqual({ fatiaA: true, fatiaB: true, sombra: false });
-    expect(prod('?kernelFatias=C', { 'hestia:kernel:fatias': '-', 'hestia:kernel': 'ts' })).toEqual({ fatiaA: true, fatiaB: true, sombra: false });
+    expect(prod('?kernelFatias=C', { 'hestia:kernel:fatias': '-' })).toEqual({ fatiaA: true, fatiaB: true, sombra: false });
     expect(configDoDespacho(ambiente(null), false)).toEqual({ fatiaA: true, fatiaB: true, sombra: false });
   });
 

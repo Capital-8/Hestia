@@ -1,4 +1,4 @@
-import { garantirKernelExperimental } from '@hestia/geom';
+import { KernelV1Pendente } from '@hestia/geom';
 import type { Id, Project } from '@hestia/model';
 import { MemoriaPatch } from '../fluxoPatch.ts';
 import { aguardarKernel, diagnosticoLocalDoDespacho, iniciarDespachoKernel, KernelPendente } from '../kernelDespacho.ts';
@@ -54,7 +54,7 @@ export function instalarServidor(escopo: EscopoServidor, executor: Executor = cr
       escopo.postMessage(resposta, colherBuffers(resultado));
     } catch (e) {
       // Kernel pendente (wasm ainda carregando): nada de resultado do TypeScript; o pedido espera o wasm e roda de novo (uma vez).
-      if (e instanceof KernelPendente && !jaEsperou) {
+      if ((e instanceof KernelPendente || e instanceof KernelV1Pendente) && !jaEsperou) {
         void aguardarKernel().then(() => executar(pedido, true));
         return;
       }
@@ -83,11 +83,7 @@ export function instalarServidor(escopo: EscopoServidor, executor: Executor = cr
       if (i >= 0) fila.splice(i, 1);
       return;
     }
-    // Kernel geométrico experimental: a preferência é da aplicação e não atravessa o `localStorage` até este realm;
-    // ela vem no pedido (`kernel: true`). Fire-and-forget, sem `await` no executor: o pedido atual e os seguintes usam
-    // o que estiver disponível. Sem o campo (o padrão), nada acontece e o caminho é exatamente o de antes.
-    if (mensagem.kernel === true) void garantirKernelExperimental().catch(() => undefined);
-    // Despacho das fatias A e B (0047 §12, 0050): a configuração viaja no pedido; o wasm carrega em segundo plano e, até ficar pronto, os pedidos esperam (`KernelPendente`), nunca valem o TS.
+    // Despacho das fatias A e B e kernel v1 (0047 §12, 0050; decisão do dono de 2026-11-06): o Rust é o único caminho de produção; a configuração viaja no pedido; o wasm carrega em segundo plano e, até ficar pronto, os pedidos esperam (`KernelPendente`), nunca valem o TS.
     if (mensagem.kernelV2?.fatiaA === true || mensagem.kernelV2?.fatiaB === true) void iniciarDespachoKernel(mensagem.kernelV2);
     // O projeto é fixado ao chegar o pedido (não ao executá-lo): um pedido da fila de uma versão antiga não vê a seguinte.
     const { versao, estrutura } = mensagem.projeto;

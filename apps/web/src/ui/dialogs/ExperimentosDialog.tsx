@@ -1,28 +1,17 @@
 ﻿/**
- * Diálogo "Experimentais": liga e desliga o kernel geométrico experimental (Rust/WASM) e mostra o
- * diagnóstico do contrato (`estadoKernel`) e a medição das operações (`medicaoOperacoes`).
- *
- * O flag é uma preferência de APLICAÇÃO (ver `editor/preferenciasKernel.ts`): não entra no projeto nem
- * no arquivo `.hestia`. Este diálogo só grava a preferência e chama a ativação/desativação; a leitura
- * do estado é feita na abertura e a cada alternância — nada de polling.
+ * Diálogo "Experimentais": mostra o diagnóstico do kernel Rust (`estadoKernel`, despacho) e a medição das
+ * operações (`medicaoOperacoes`). O Rust é sempre o caminho de produção: não há interruptor. Só o modo sombra é
+ * preferência de APLICAÇÃO (ver `editor/preferenciasKernel.ts`), fora do projeto e do `.hestia`.
  */
 import { useEffect, useState, type ReactElement } from 'react';
 import { diagnosticoDespacho, type DiagnosticoDespacho } from '@hestia/engine';
 import {
-  ativarKernelExperimental,
-  desativarKernelExperimental,
   estadoKernel,
   medicaoOperacoes,
   type EstadoKernel,
   type MedicaoOperacoes,
 } from '@hestia/geom';
-import {
-  gravarModoSombra,
-  kernelExperimentalLigado,
-  lerFlagDaUrl,
-  lerModoSombra,
-  ligarKernelExperimental,
-} from '../../editor/preferenciasKernel.ts';
+import { gravarModoSombra, lerModoSombra } from '../../editor/preferenciasKernel.ts';
 import { fmtNum, useT, type Dict, type Lang } from '../../editor/i18n.ts';
 import { useUi } from '../../editor/state.ts';
 import { Dialog } from './Dialog.tsx';
@@ -99,12 +88,8 @@ const ms = (valor: number, lang: Lang): string => `${fmtNum(valor, 1, lang)} ms`
 
 export function ExperimentosDialog(): ReactElement {
   const { t, lang } = useT();
-  const [ligado, setLigado] = useState(kernelExperimentalLigado);
   const [estado, setEstado] = useState<EstadoKernel>(estadoKernel);
   const [medicao, setMedicao] = useState<MedicaoOperacoes>(medicaoOperacoes);
-  const [aviso, setAviso] = useState('');
-  const [ocupado, setOcupado] = useState(false);
-  const daUrl = lerFlagDaUrl();
   // Textos locais só têm pt/en; os demais idiomas caem no inglês até ganharem entrada própria.
   const tf = TEXTOS[lang === 'pt' ? 'pt' : 'en'];
   const [avisoFatias, setAvisoFatias] = useState('');
@@ -132,37 +117,6 @@ export function ExperimentosDialog(): ReactElement {
     setDiag(diagnosticoDespacho());
   }, []);
 
-  const ligar = (): void => {
-    ligarKernelExperimental(true);
-    setLigado(true);
-    setOcupado(true);
-    setAviso(t('dlm_msg_kernel_on'));
-    // Fire-and-forget: o contrato do carregador nunca rejeita; o `finally` só atualiza o diagnóstico.
-    void ativarKernelExperimental()
-      .then(
-        () => undefined,
-        () => undefined,
-      )
-      .finally(() => {
-        setOcupado(false);
-        atualizar();
-      });
-  };
-
-  const desligar = (): void => {
-    ligarKernelExperimental(false);
-    desativarKernelExperimental(t('dlm_kernel_reason_user_off'));
-    setLigado(false);
-    setOcupado(false);
-    setAviso(t('dlm_msg_kernel_off'));
-    atualizar();
-  };
-
-  const alternar = (valor: boolean): void => {
-    if (valor) ligar();
-    else desligar();
-  };
-
   return (
     <Dialog
       title={t('dlm_experimental')}
@@ -177,34 +131,6 @@ export function ExperimentosDialog(): ReactElement {
         </>
       }
     >
-      <p className="hint">
-        {t('dlm_kernel_hint_before')}{' '}
-        <strong>{t('dlm_kernel_hint_emph')}</strong>{t('dlm_kernel_hint_after')}{' '}
-        <code>.hestia</code>.
-      </p>
-      <div className="prow">
-        <label htmlFor="kernel-experimental">{t('dlm_kernel_enable')}</label>
-        <div>
-          <input
-            id="kernel-experimental"
-            type="checkbox"
-            checked={ligado}
-            disabled={ocupado}
-            onChange={(e) => alternar(e.target.checked)}
-          />
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-        <button className="btn primary" onClick={ligar} disabled={ocupado}>{t('dlm_btn_enable')}</button>
-        <button className="btn" onClick={desligar} disabled={ocupado || (!ligado && !estado.ativo)}>{t('dlm_btn_disable')}</button>
-        {ocupado ? <span style={{ color: 'var(--fg-soft)' }}>{t('dlm_msg_activating_wasm')}</span> : null}
-      </div>
-      {daUrl ? (
-        <p className="hint">
-          {t('dlm_kernel_url_before')} <code>kernel={daUrl}</code>{t('dlm_kernel_url_after')}
-        </p>
-      ) : null}
-      {aviso ? <p role="status" style={{ margin: '4px 0 10px', color: 'var(--fg-soft)' }}>{aviso}</p> : null}
       <div className="hint" style={{ marginBottom: 10 }}>
         <strong>{tf.fatiasTitulo}</strong>
         <p>{tf.fatiasDica}</p>
