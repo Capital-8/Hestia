@@ -150,6 +150,23 @@ navegador pode perder a permissão de execução (resolvido com `chmod +x`), e a
 gerenciadores de arquivos pedem confirmação antes de abrir. O `.deb`/`.rpm` passa pelo
 gerenciador de pacotes, que confia no arquivo baixado do próprio Release.
 
+### Se o app fechar ao abrir (VM ou ambiente sem GPU)
+
+Em máquina virtual, contêiner ou host sem aceleração gráfica, o WebKitGTK pode encerrar
+logo na abertura — no log aparece `WebProcess didn't exit as expected after the UI process
+connection was closed`. É limitação do renderizador por software, não do Hestia. Nesses
+ambientes, rode com as variáveis abaixo (o 3D fica lento, mas a interface funciona):
+
+```bash
+WEBKIT_DISABLE_COMPOSITING_MODE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1 LIBGL_ALWAYS_SOFTWARE=1 \
+  hestia-desktop
+# AppImage:
+WEBKIT_DISABLE_COMPOSITING_MODE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1 LIBGL_ALWAYS_SOFTWARE=1 \
+  ./Hestia_0.2.2_amd64.AppImage
+```
+
+Comprovado no teste da 0.2.2 em VM VirtualBox com Xubuntu 24.04.
+
 ## Política de conteúdo (CSP)
 
 Definida em `desktop/src-tauri/tauri.conf.json` (`app.security`). Além do mínimo pedido

@@ -1,6 +1,6 @@
 {
   "name": "hestia-desktop",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "description": "Casca desktop (Tauri v2) do Hestia: instaladores Windows e Linux e atualização pelo GitHub Releases.",
   "scripts": {

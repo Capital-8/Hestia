@@ -1,6 +1,6 @@
 [package]
 name = "hestia-desktop"
-version = "0.2.1"
+version = "0.2.2"
 description = "Casca desktop do Hestia (Tauri v2)"
 authors = ["Hestia"]
 license = "MIT"
