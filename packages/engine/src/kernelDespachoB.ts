@@ -109,13 +109,15 @@ export function sincronizarB(atual: EntradaB | null, p: Project, ger: Gerenciado
     e = null;
   }
   if (e && e.projeto === p && e.cena && (e.b3 !== null || !comJuncao) && (e.forros !== null || !comForros)) return e;
-  const a1 = montarCenaA1(p, true);
-  const a3 = montarCenaA3(p, a1);
-  verificarCobertura(p, a1, a3);
-  const perfis = montarPerfisA3d(p, a1, true);
-  const b = montarCenaB1(p, a1.materialDe);
-  const b3 = comJuncao || e?.b3 ? montarCenaB3(p, a1) : null;
-  const forros = comForros || e?.forros ? montarCenaForros(p, b.nivelDe) : null;
+  // Mesmo projeto, só faltam as seções da junção ou dos forros: as demais (função só do projeto) valem e não são remontadas.
+  const mesmo = e !== null && e.projeto === p && e.cena !== null;
+  const a1 = mesmo ? e!.a1 : montarCenaA1(p, true);
+  const a3 = mesmo ? e!.a3 : montarCenaA3(p, a1);
+  if (!mesmo) verificarCobertura(p, a1, a3);
+  const perfis = mesmo ? { colunas: e!.secoes.perfis_z!.colunas, n: e!.secoes.perfis_z!.n } : montarPerfisA3d(p, a1, true);
+  const b = mesmo ? e!.b : montarCenaB1(p, a1.materialDe);
+  const b3 = mesmo && e!.b3 ? e!.b3 : comJuncao || e?.b3 ? montarCenaB3(p, a1) : null;
+  const forros = mesmo && e!.forros ? e!.forros : comForros || e?.forros ? montarCenaForros(p, b.nivelDe) : null;
   const secoes = secoesDe(a1, a3, perfis, b, b3, forros);
   if (!e) {
     const nova: EntradaB = { ger, cena: null, fonte: fonteDeSecoes(() => nova.secoes), secoes, a1, a3, b, b3, forros, projeto: null };

@@ -1,9 +1,8 @@
 /**
  * Adaptador da sub-etapa B3 do kernel Rust (decisão 0050 §3): cortadores por nível e junção entre pavimentos. NÃO calcula geometria de junção: só
  * (1) monta as seções `paredes_z_juncao` e `perfis_z_juncao` do esquema v11 (a cota e os perfis das paredes SEM `flatAttach`, a variante que a junção
- *     lê; o término por camada de piso e laje usa `flatAttach`, e as duas variantes convivem na mesma cena) e, desde a saída 3 da 0050, as faixas
- *     de parede da junção já resolvidas pelo TypeScript (`faixas_juncao` e `pontos_faixas_juncao`, em `montarFaixasB3`), que o Rust usa no lugar
- *     de recalcular a partição vertical (ver `crates/geom-wasm/schema/cena-v11.json`) e
+ *     lê; o término por camada de piso e laje usa `flatAttach`, e as duas variantes convivem na mesma cena). As faixas de parede da junção
+ *     (`faixas_juncao`, `pontos_faixas_juncao`) NÃO são enviadas: o Rust as monta do próprio `resolver_nivel`; `montarFaixasB3` é só oráculo de teste, e
  * (2) EXTRAI de `levelCutterSet` e `junctionLevel` o que o Rust produz em `junction_nivel`, na mesma codificação plana (ver
  *     `crates/geom-wasm/schema/cena-v11.json`), para o harness e os testes compararem.
  *
@@ -77,22 +76,28 @@ export function montarCenaB3(p: Project, a1: CenaA1, opcoes: { todas?: boolean }
       });
     }
   }
-  const fx = montarFaixasB3(p, a1);
+  // As faixas de parede da junção NÃO vão do TypeScript: com `faixas_juncao` vazia o Rust as monta do próprio `resolver_nivel` (cacheado na cena).
+  const fx = faixasB3Vazias();
   return {
     secoes: { paredes_z_juncao: z, perfis_z_juncao: perfis, faixas_juncao: fx.faixas, pontos_faixas_juncao: fx.pontos },
-    nLinhas: { paredes_z_juncao: z['id_num']!.length, perfis_z_juncao: perfis['id_num']!.length, faixas_juncao: fx.nLinhas.faixas, pontos_faixas_juncao: fx.nLinhas.pontos },
+    nLinhas: { paredes_z_juncao: z['id_num']!.length, perfis_z_juncao: perfis['id_num']!.length, faixas_juncao: 0, pontos_faixas_juncao: 0 },
     comVariante,
   };
 }
 
+const faixasB3Vazias = (): { faixas: ColunasA1; pontos: ColunasA1 } => ({
+  faixas: { id_num: [], nivel_num: [], parede_num: [], camada: [], banda: [], prioridade: [], nucleo: [], base_z: [], z0: [], z1: [], inclinada: [], o_x: [], o_y: [], d_x: [], d_y: [], t0: [], t1: [], h0: [], h1: [] },
+  pontos: { id_num: [], faixa_num: [], poligono: [], anel: [], indice: [], x: [], y: [] },
+});
+
 /**
+ * ORÁCULO DE TESTE (não roda em produção: `montarCenaB3` não o chama; o Rust usa o próprio `resolver_nivel`).
  * Faixas de parede da junção (saída 3 da 0050, esquema v11): para cada nível e cada parede, as faixas verticais de cada camada na ordem em que
  * `wallBandPieces` (junctionNet.ts) as vê, isto é, `resolveLevel(p, nível)` padrão (SEM `flatAttach`) DEPOIS dos perfis. Não há cálculo novo: o
  * que sai é o `LayerBand` do TypeScript, com a região dele. A junção do Rust usa essa partição no lugar dos pontos de quebra próprios.
  */
 export function montarFaixasB3(p: Project, a1: CenaA1): { faixas: ColunasA1; pontos: ColunasA1; nLinhas: { faixas: number; pontos: number } } {
-  const f: ColunasA1 = { id_num: [], nivel_num: [], parede_num: [], camada: [], banda: [], prioridade: [], nucleo: [], base_z: [], z0: [], z1: [], inclinada: [], o_x: [], o_y: [], d_x: [], d_y: [], t0: [], t1: [], h0: [], h1: [] };
-  const v: ColunasA1 = { id_num: [], faixa_num: [], poligono: [], anel: [], indice: [], x: [], y: [] };
+  const { faixas: f, pontos: v } = faixasB3Vazias();
   let idFaixa = 0;
   let idPonto = 0;
   for (const level of p.levels) {

@@ -15,7 +15,7 @@ import { montarCenaA1 } from '../packages/engine/src/kernelA1.ts';
 import { montarCenaA3 } from '../packages/engine/src/kernelA3.ts';
 import { montarPerfisA3d } from '../packages/engine/src/kernelA3d.ts';
 import { montarCenaB1 } from '../packages/engine/src/kernelB.ts';
-import { argumentosB3, decodificarB3, montarCenaB3, referenciaB3, type JuncaoB3, type PecaB3 } from '../packages/engine/src/kernelB3.ts';
+import { argumentosB3, decodificarB3, montarCenaB3, montarFaixasB3, referenciaB3, type JuncaoB3, type PecaB3 } from '../packages/engine/src/kernelB3.ts';
 import { areaDaForma } from '../packages/engine/src/kernelComparaA2.ts';
 import { perimetroDaForma } from '../packages/engine/src/kernelComparaA3c.ts';
 import { caminhoDoWasm } from '../packages/geom/src/kernel/caminhoWasm.ts';
@@ -443,9 +443,13 @@ describe.skipIf(!bytes)('B3: junction_nivel do Rust x levelCutterSet e junctionL
     try {
       const args = argumentosB3(p, p.levels[0]!.id, b);
       // (v11) com faixas_juncao a junção usa as faixas do TypeScript; as asserções antigas valem no caminho anterior, então a cena começa SEM a seção.
+      // (o adaptador de produção não manda as faixas; aqui o oráculo TS as manda só para exercitar o mecanismo)
+      const fx = montarFaixasB3(p, a1);
+      cena.upsert('faixas_juncao', fx.faixas, fx.nLinhas.faixas);
+      cena.upsert('pontos_faixas_juncao', fx.pontos, fx.nLinhas.pontos);
       const comFaixas = decodificarB3(cena.consultar('junction_nivel', args));
-      cena.remover('faixas_juncao', b3.secoes.faixas_juncao['id_num']!);
-      cena.remover('pontos_faixas_juncao', b3.secoes.pontos_faixas_juncao['id_num']!);
+      cena.remover('faixas_juncao', fx.faixas['id_num']!);
+      cena.remover('pontos_faixas_juncao', fx.pontos['id_num']!);
       const antes = decodificarB3(cena.consultar('junction_nivel', args));
       expect(comparavelB3(decodificarB3(cena.consultar('junction_nivel', args)))).toEqual(comparavelB3(antes));
       // remover a variante da junção: as paredes voltam à cota do término por camada (a consulta muda)
@@ -479,8 +483,8 @@ describe.skipIf(!bytes)('B3: junction_nivel do Rust x levelCutterSet e junctionL
       cena.upsert('niveis', b.secoes.niveis, b.nLinhas.niveis);
       expect(comparavelB3(decodificarB3(cena.consultar('junction_nivel', args)))).toEqual(comparavelB3(antes));
       // (v11) o mecanismo novo: de volta com as faixas do TypeScript, a consulta é a de antes da remoção
-      cena.upsert('faixas_juncao', b3.secoes.faixas_juncao, b3.nLinhas.faixas_juncao);
-      cena.upsert('pontos_faixas_juncao', b3.secoes.pontos_faixas_juncao, b3.nLinhas.pontos_faixas_juncao);
+      cena.upsert('faixas_juncao', fx.faixas, fx.nLinhas.faixas);
+      cena.upsert('pontos_faixas_juncao', fx.pontos, fx.nLinhas.pontos);
       expect(comparavelB3(decodificarB3(cena.consultar('junction_nivel', args)))).toEqual(comparavelB3(comFaixas));
     } finally {
       cena.destruir();
