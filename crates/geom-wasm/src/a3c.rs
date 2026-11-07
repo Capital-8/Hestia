@@ -63,6 +63,7 @@ pub struct Inclinacao {
 }
 
 /// Faixa vertical de uma camada (`LayerBand`): alturas relativas à base da parede. `inclinacao` só existe depois do perfil superior (A3d).
+#[derive(Clone)]
 pub struct FaixaVertical {
     pub z0: f64,
     pub z1: f64,
@@ -71,6 +72,7 @@ pub struct FaixaVertical {
 }
 
 /// `ResolvedLayer` de uma camada resolvida.
+#[derive(Clone)]
 pub struct CamadaResolvida {
     pub item: usize,
     pub fragment: MultiPoligono,
@@ -79,6 +81,7 @@ pub struct CamadaResolvida {
 }
 
 /// `ClusterCore` de um grupo.
+#[derive(Clone)]
 pub struct GrupoResolvido {
     /// Camadas por parede na ordem de `resolveLevel` (paredes na ordem de primeira aparição; em cada uma, por `layerIndex`).
     pub camadas: Vec<CamadaResolvida>,

@@ -252,7 +252,7 @@ export class DespachoB {
         const numeroDe = tipo === 'paredes' ? e.a1.idDe : tipo === 'pisos' ? e.b.pisoDe : tipo === 'lajes' ? e.b.lajeDe : e.forros!.forroDe;
         return indexarQuantidades(quantidadesNivelRust(e.cena!, nivel, tol, tipo), numeroDe, tipo);
       },
-      tipo === 'forros',
+      true, // os forros entram na cena desde a primeira consulta: pedi-los só na de forros reenviava a cena inteira uma segunda vez
     );
     if (!r) {
       if (!this.falhas.get(p)?.has(`q${tipo}|${levelId}`)) this.guardarFalha(p, `q${tipo}|${levelId}`);

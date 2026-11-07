@@ -435,7 +435,7 @@ pub(crate) fn calcular(cena: &Cena, nivel: u32, tol: Option<f64>) -> Result<Rc<V
     let Some(t) = tol else {
         return calcular_sem_cache(cena, nivel, None).map(Rc::new);
     };
-    let chave = (nivel, t.to_bits(), cena.variante_juncao.get());
+    let chave = (nivel, t.to_bits(), cena.variante_efetiva());
     if let Some(c) = cena.cache_elementos.borrow().get(&chave) {
         return Ok(Rc::clone(c));
     }

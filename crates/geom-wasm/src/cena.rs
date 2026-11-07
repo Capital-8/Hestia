@@ -326,6 +326,10 @@ pub struct Cena {
     /// Esvaziado em qualquer escrita de seção.
     pub(crate) cache_elementos: RefCell<HashMap<(u32, u64, bool), Rc<Vec<crate::b1::ElementoResolvido>>>>,
     pub(crate) cache_cortadores: RefCell<HashMap<(bool, u32, u64, bool), Rc<crate::b3::Cortadores>>>,
+    /// Nível resolvido na variante da junção, com os perfis já aplicados, por (nível, tolerância): a `junction_nivel` (peças das paredes) e a `quant_paredes`
+    /// pedem exatamente o mesmo `resolver_nivel` + `aplicar_perfis`. Esvaziado em qualquer escrita de seção.
+    pub(crate) cache_niveis: RefCell<HashMap<(u32, u64, bool), Rc<crate::a3c::NivelResolvido>>>,
+    pub(crate) cache_niveis_perfis: RefCell<HashMap<(u32, u64), Rc<crate::b3::NivelComPerfis>>>,
 }
 
 impl Cena {
@@ -336,6 +340,12 @@ impl Cena {
     pub fn n_paredes(&self) -> usize {
         self.paredes.len()
     }
+    /// A variante da junção só muda alguma coisa se existe alguma linha em `paredes_z_juncao` (a cota e os perfis só são trocados nas paredes que a têm).
+    /// Sem elas as duas variantes calculam exatamente o mesmo; as chaves dos caches usam este valor para compartilhar o resultado.
+    pub(crate) fn variante_efetiva(&self) -> bool {
+        self.variante_juncao.get() && !self.b.paredes_z_juncao.is_empty()
+    }
+
 
     /// `paredes_z` da parede `id`. Na variante da junção (B3), a parede que tem linha em `paredes_z_juncao` usa a dela.
     pub(crate) fn parede_z(&self, id: u32) -> Option<ParedeZ> {
@@ -357,6 +367,8 @@ impl Cena {
     /// Substitui todas as linhas da seção. Atômico: se falhar, a cena não muda.
     pub fn definir_secao(&mut self, secao_id: u32, n_linhas: u32, bytes: &[u8]) -> Result<(), u32> {
         self.cache_cortadores.get_mut().clear();
+        self.cache_niveis.get_mut().clear();
+        self.cache_niveis_perfis.get_mut().clear();
         self.cache_elementos.get_mut().clear();
         match secao_id {
             SECAO_PAREDES => {
@@ -377,6 +389,8 @@ impl Cena {
     /// Insere ou substitui pela chave. Atômico.
     pub fn upsert(&mut self, secao_id: u32, n_linhas: u32, bytes: &[u8]) -> Result<(), u32> {
         self.cache_cortadores.get_mut().clear();
+        self.cache_niveis.get_mut().clear();
+        self.cache_niveis_perfis.get_mut().clear();
         self.cache_elementos.get_mut().clear();
         match secao_id {
             SECAO_PAREDES => {
@@ -400,6 +414,8 @@ impl Cena {
     /// Remove linhas pelos ids (ausentes são ignorados).
     pub fn remover(&mut self, secao_id: u32, ids: &[u32]) -> Result<(), u32> {
         self.cache_cortadores.get_mut().clear();
+        self.cache_niveis.get_mut().clear();
+        self.cache_niveis_perfis.get_mut().clear();
         self.cache_elementos.get_mut().clear();
         match secao_id {
             SECAO_PAREDES => {

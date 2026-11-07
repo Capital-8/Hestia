@@ -12,13 +12,11 @@
 //! Escala das booleanas: 1 nm (`ESCALA_FINA`), como o corte dos furos da B1 (o `polygon-clipping` do TS não quantiza).
 
 use std::cell::RefCell;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::a2::OpcoesDePlanta;
 use crate::a3::aberturas_do_nivel;
 use crate::b1::como_o_polygon_clipping;
-use crate::a3c::{resolver_nivel, OpcoesDoCluster};
 use crate::cena::Cena;
 use crate::esquema::ENTRADA;
 use crate::ops::{diferenca_com_escala, uniao_com_escala, ESCALA_FINA};
@@ -177,8 +175,7 @@ impl<'a> Carregador<'a> {
         if let Some(p) = self.por_nivel.borrow().get(&nivel) {
             return Ok(Rc::clone(p));
         }
-        let opcoes = OpcoesDoCluster { planta: OpcoesDePlanta { corte_z: None, contorno: BTreeSet::new() }, aberturas_planta: None };
-        let resolvido = resolver_nivel(self.cena, nivel, self.tol, &opcoes)?;
+        let resolvido = crate::b3::nivel_resolvido(self.cena, nivel, self.tol)?;
         let aberturas = aberturas_do_nivel(self.cena, nivel)?;
         let mut paredes: Vec<ParedeDoNivel> = Vec::new();
         for (gi, g) in resolvido.pintado.grupos.iter().enumerate() {

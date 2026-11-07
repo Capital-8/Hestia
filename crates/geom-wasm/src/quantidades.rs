@@ -16,10 +16,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::a3c::{resolver_nivel, NivelResolvido, OpcoesDoCluster};
-use crate::a3d::{aplicar_perfis, perfis_por_parede};
+
+use crate::a3d::perfis_por_parede;
 use crate::b1::{calcular, CamadaResolvida, ElementoResolvido};
-use crate::b3::{conjunto_de_cortadores, faixa_da_peca, peca_da_camada, vence, Cortador, MetaDaPeca, MetaDeJuncao, PecaSolida, Span, Tipo, VarianteDaJuncao, Z_EPS};
+use crate::b3::{conjunto_de_cortadores, nivel_resolvido_com_perfis, faixa_da_peca, peca_da_camada, vence, Cortador, MetaDaPeca, MetaDeJuncao, PecaSolida, Span, Tipo, VarianteDaJuncao, Z_EPS};
 use crate::cena::Cena;
 use crate::consultas::Saida;
 use crate::esquema::{ENTRADA, NIVEL_TODOS};
@@ -85,6 +85,48 @@ pub fn volume_cortado(peca: &PecaSolida, tipo: Tipo, cortadores: &[&Cortador], p
             continue;
         }
         for cp in &c.pecas {
+            if corta(c, cp, peca, tipo) {
+                corte += overlap_volume(peca, cp)?;
+            }
+        }
+    }
+    Ok(corte)
+}
+
+/// Faixa de cota e caixa em planta de uma peça, calculadas uma vez: `overlap_volume` devolve zero quando as faixas não se sobrepõem ou as caixas não se
+/// tocam, e esse teste (a mesma condição) vale antes de `corta`, que não depende dele.
+#[derive(Clone, Copy)]
+pub struct PreDaPeca {
+    faixa: Option<(f64, f64)>,
+    caixa: crate::b3::Caixa,
+}
+
+pub fn pre_da_peca(p: &PecaSolida) -> PreDaPeca {
+    PreDaPeca { faixa: faixa_da_peca(p), caixa: crate::b3::caixa_total(&p.poly) }
+}
+
+/// Os pré-cálculos de cada peça de cada cortador, na ordem de `cortadores`.
+pub fn pre_dos_cortadores(cortadores: &[&Cortador]) -> Vec<Vec<PreDaPeca>> {
+    cortadores.iter().map(|c| c.pecas.iter().map(pre_da_peca).collect()).collect()
+}
+
+/// `volume_cortado` com os pré-cálculos: pula sem custo o par que `overlap_volume` devolveria zero (mesmo resultado, bit a bit).
+pub fn volume_cortado_pre(peca: &PecaSolida, tipo: Tipo, cortadores: &[&Cortador], pre: &[Vec<PreDaPeca>], pular: &BTreeSet<usize>) -> Result<f64, u32> {
+    let pp = pre_da_peca(peca);
+    let Some((a0, a1)) = pp.faixa else {
+        return Ok(0.0);
+    };
+    let mut corte = 0.0;
+    for (i, c) in cortadores.iter().enumerate() {
+        if pular.contains(&i) {
+            continue;
+        }
+        for (j, cp) in c.pecas.iter().enumerate() {
+            let q = &pre[i][j];
+            let Some((b0, b1)) = q.faixa else { continue };
+            if a1.min(b1) - a0.max(b0) <= 0.0 || !crate::b3::caixas_se_tocam(&pp.caixa, &q.caixa) {
+                continue;
+            }
             if corta(c, cp, peca, tipo) {
                 corte += overlap_volume(peca, cp)?;
             }
@@ -198,12 +240,12 @@ pub fn quantidades_paredes(cena: &Cena, nivel: u32, tol: f64) -> Result<Vec<Linh
     let c = conjunto_de_cortadores(cena, nivel, tol)?;
     // `[...floorCutters, ...slabCutters]`
     let cortadores: Vec<&Cortador> = c.pisos.iter().chain(c.lajes.iter()).collect();
+    let pre = pre_dos_cortadores(&cortadores);
     let nenhum = BTreeSet::new();
     let _variante = VarianteDaJuncao::ligar(cena);
     let perfis = perfis_por_parede(cena)?;
-    let opcoes = OpcoesDoCluster { planta: crate::a2::OpcoesDePlanta { corte_z: None, contorno: BTreeSet::new() }, aberturas_planta: None };
-    let NivelResolvido { pintado, mut grupos } = resolver_nivel(cena, nivel, tol, &opcoes)?;
-    aplicar_perfis(cena, &pintado, &mut grupos, &perfis)?;
+    let resolvido = nivel_resolvido_com_perfis(cena, nivel, tol)?;
+    let (pintado, grupos) = (resolvido.pintado(), resolvido.grupos());
     let mut saida: Vec<LinhaQuant> = Vec::new();
     for (gi, g) in pintado.grupos.iter().enumerate() {
         for &mi in &g.membros {
@@ -238,7 +280,7 @@ pub fn quantidades_paredes(cena: &Cena, nivel: u32, tol: f64) -> Result<Vec<Linh
                         }),
                         externa: false,
                     };
-                    cortado += volume_cortado(&peca, Tipo::Parede, &cortadores, &nenhum)?;
+                    cortado += volume_cortado_pre(&peca, Tipo::Parede, &cortadores, &pre, &nenhum)?;
                 }
                 let liquido = liquido_de(bruto, cortado);
                 let area_de_face = if it.espessura > 0.0 { liquido / it.espessura } else { 0.0 };
@@ -277,6 +319,7 @@ pub fn quantidades_pisos(cena: &Cena, nivel: u32, tol: f64) -> Result<Vec<LinhaQ
     let elementos = calcular(cena, nivel, Some(tol))?;
     let c = conjunto_de_cortadores(cena, nivel, tol)?;
     let cortadores: Vec<&Cortador> = c.lajes.iter().chain(c.pisos.iter()).chain(c.paredes.iter()).collect();
+    let pre = pre_dos_cortadores(&cortadores);
     let mut saida = Vec::new();
     for e in elementos.iter().filter(|e| !e.laje) {
         let mut pular = BTreeSet::new();
@@ -290,7 +333,7 @@ pub fn quantidades_pisos(cena: &Cena, nivel: u32, tol: f64) -> Result<Vec<LinhaQ
             let esp = l.z1 - l.z0;
             let area = area_da_forma(&l.poligono);
             let bruto = if l.membrana { 0.0 } else { area * esp };
-            let cortado = if l.membrana { 0.0 } else { volume_cortado(&peca, Tipo::Piso, &cortadores, &pular)? };
+            let cortado = if l.membrana { 0.0 } else { volume_cortado_pre(&peca, Tipo::Piso, &cortadores, &pre, &pular)? };
             let liquido = liquido_de(bruto, cortado);
             let face = if l.membrana {
                 0.0f64.max(area - area_coberta(&peca, Tipo::Piso, &cortadores, &pular)?)
@@ -311,6 +354,7 @@ pub fn quantidades_lajes(cena: &Cena, nivel: u32, tol: f64) -> Result<Vec<LinhaQ
     let elementos = calcular(cena, nivel, Some(tol))?;
     let c = conjunto_de_cortadores(cena, nivel, tol)?;
     let cortadores: Vec<&Cortador> = c.pisos.iter().chain(c.lajes.iter()).chain(c.paredes.iter()).collect();
+    let pre = pre_dos_cortadores(&cortadores);
     let nenhum = BTreeSet::new();
     let mut saida = Vec::new();
     for e in elementos.iter().filter(|e| e.laje) {
@@ -321,7 +365,7 @@ pub fn quantidades_lajes(cena: &Cena, nivel: u32, tol: f64) -> Result<Vec<LinhaQ
             let planta = area_da_forma(&l.poligono);
             let face_bruta = planta * fator;
             let bruto = if l.membrana { 0.0 } else { planta * esp };
-            let cortado = if l.membrana { 0.0 } else { volume_cortado(&peca, Tipo::Laje, &cortadores, &nenhum)? };
+            let cortado = if l.membrana { 0.0 } else { volume_cortado_pre(&peca, Tipo::Laje, &cortadores, &pre, &nenhum)? };
             let liquido = liquido_de(bruto, cortado);
             let face = if l.membrana {
                 0.0f64.max(face_bruta - area_coberta(&peca, Tipo::Laje, &cortadores, &nenhum)?)

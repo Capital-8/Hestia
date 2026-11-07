@@ -21,7 +21,8 @@ use std::rc::Rc;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use crate::a2::{Codificador, OpcoesDePlanta};
-use crate::a3c::{resolver_nivel, Inclinacao as InclinacaoDaFaixa, NivelResolvido, OpcoesDoCluster};
+use crate::a2::NivelPintado;
+use crate::a3c::{resolver_nivel, GrupoResolvido, Inclinacao as InclinacaoDaFaixa, NivelResolvido, OpcoesDoCluster};
 use crate::a3d::{aplicar_perfis, perfis_por_parede};
 use crate::b1::calcular;
 use crate::cena::Cena;
@@ -112,7 +113,7 @@ pub struct Prisma {
     pub z1: f64,
 }
 
-type Caixa = [f64; 4];
+pub(crate) type Caixa = [f64; 4];
 
 pub(crate) fn caixa_total(m: &MultiPoligono) -> Caixa {
     let mut c = [f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY];
@@ -444,13 +445,60 @@ impl Drop for VarianteDaJuncao<'_> {
     }
 }
 
+/// `resolver_nivel` com as opções padrão (`resolveLevel` sem corte, contorno nem aberturas de planta), guardado na cena por (nível, tolerância, variante
+/// efetiva): o `Carregador` do B2 (contornos de camada de pisos e lajes) e a junção/quantidades de parede pedem o mesmo cálculo do mesmo nível.
+pub(crate) fn nivel_resolvido(cena: &Cena, nivel: u32, tol: f64) -> Result<Rc<NivelResolvido>, u32> {
+    let chave = (nivel, tol.to_bits(), cena.variante_efetiva());
+    if let Some(c) = cena.cache_niveis.borrow().get(&chave) {
+        return Ok(Rc::clone(c));
+    }
+    let opcoes = OpcoesDoCluster { planta: OpcoesDePlanta { corte_z: None, contorno: BTreeSet::new() }, aberturas_planta: None };
+    let r = Rc::new(resolver_nivel(cena, nivel, tol, &opcoes)?);
+    cena.cache_niveis.borrow_mut().insert(chave, Rc::clone(&r));
+    Ok(r)
+}
+
+/// O nível resolvido na variante da junção com os perfis aplicados (`withBottomProfile`/`withProfile`). Sem perfil nenhum reaproveita o resolvido; com
+/// perfis, só os grupos são copiados (a pintura é compartilhada).
+pub(crate) struct NivelComPerfis {
+    base: Rc<NivelResolvido>,
+    grupos_com_perfis: Option<Vec<GrupoResolvido>>,
+}
+
+impl NivelComPerfis {
+    pub(crate) fn pintado(&self) -> &NivelPintado {
+        &self.base.pintado
+    }
+    pub(crate) fn grupos(&self) -> &[GrupoResolvido] {
+        self.grupos_com_perfis.as_deref().unwrap_or(&self.base.grupos)
+    }
+}
+
+pub(crate) fn nivel_resolvido_com_perfis(cena: &Cena, nivel: u32, tol: f64) -> Result<Rc<NivelComPerfis>, u32> {
+    let chave = (nivel, tol.to_bits());
+    if let Some(c) = cena.cache_niveis_perfis.borrow().get(&chave) {
+        return Ok(Rc::clone(c));
+    }
+    let _variante = VarianteDaJuncao::ligar(cena);
+    let perfis = perfis_por_parede(cena)?;
+    let base = nivel_resolvido(cena, nivel, tol)?;
+    let grupos_com_perfis = if perfis.is_empty() {
+        None
+    } else {
+        let mut grupos = base.grupos.clone();
+        aplicar_perfis(cena, &base.pintado, &mut grupos, &perfis)?;
+        Some(grupos)
+    };
+    let r = Rc::new(NivelComPerfis { base, grupos_com_perfis });
+    cena.cache_niveis_perfis.borrow_mut().insert(chave, Rc::clone(&r));
+    Ok(r)
+}
+
 /// `wallBandPieces`: os pedaços de cada faixa de parede do nível (`resolveLevel` padrão, sem `flatAttach`), na ordem de `Object.values(r.walls)`.
 fn pecas_das_paredes(cena: &Cena, nivel: u32, tol: f64) -> Result<Vec<PecaSolida>, u32> {
     let _variante = VarianteDaJuncao::ligar(cena);
-    let perfis = perfis_por_parede(cena)?;
-    let opcoes = OpcoesDoCluster { planta: OpcoesDePlanta { corte_z: None, contorno: BTreeSet::new() }, aberturas_planta: None };
-    let NivelResolvido { pintado, mut grupos } = resolver_nivel(cena, nivel, tol, &opcoes)?;
-    aplicar_perfis(cena, &pintado, &mut grupos, &perfis)?;
+    let resolvido = nivel_resolvido_com_perfis(cena, nivel, tol)?;
+    let (pintado, grupos) = (resolvido.pintado(), resolvido.grupos());
     let mut pecas: Vec<PecaSolida> = Vec::new();
     for (gi, g) in pintado.grupos.iter().enumerate() {
         for &mi in &g.membros {
@@ -501,7 +549,7 @@ pub(crate) fn cortador_do_elemento(e: &crate::b1::ElementoResolvido) -> Cortador
 
 /// `levelCutters(p, nivel)`: pisos e lajes camada a camada (`floorLayerPiece`, `slabLayerPiece`) e as faixas de parede do próprio nível.
 fn cortadores_do_nivel(cena: &Cena, nivel: u32, tol: f64) -> Result<Rc<Cortadores>, u32> {
-    let chave = (false, nivel, tol.to_bits(), cena.variante_juncao.get());
+    let chave = (false, nivel, tol.to_bits(), cena.variante_efetiva());
     if let Some(c) = cena.cache_cortadores.borrow().get(&chave) {
         return Ok(Rc::clone(c));
     }
@@ -590,7 +638,7 @@ fn niveis_do_projeto(cena: &Cena) -> Vec<u32> {
 
 /// `levelCutterSet`: os cortadores do nível mais os dos OUTROS níveis que tocam a faixa de cota dele (peças `external`).
 pub fn conjunto_de_cortadores(cena: &Cena, nivel: u32, tol: f64) -> Result<Rc<Cortadores>, u32> {
-    let chave = (true, nivel, tol.to_bits(), cena.variante_juncao.get());
+    let chave = (true, nivel, tol.to_bits(), cena.variante_efetiva());
     if let Some(c) = cena.cache_cortadores.borrow().get(&chave) {
         return Ok(Rc::clone(c));
     }
