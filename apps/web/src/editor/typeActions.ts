@@ -16,7 +16,7 @@ const lang = () => useI18n.getState().lang;
 
 /** Nível de um elemento: a parede tem o seu; a abertura herda o da parede anfitriã. */
 export function levelOfElement(p: Project, e: Element): Id | undefined {
-  if (isWall(e) || isGeneric(e) || isCad(e) || isRamp(e) || e.kind === 'floor' || e.kind === 'slab' || e.kind === 'ceiling' || e.kind === 'roof' || e.kind === 'stair' || e.kind === 'room') return e.levelId;
+  if (isWall(e) || isGeneric(e) || isCad(e) || isRamp(e) || e.kind === 'railing' || e.kind === 'floor' || e.kind === 'slab' || e.kind === 'ceiling' || e.kind === 'roof' || e.kind === 'stair' || e.kind === 'room') return e.levelId;
   const host = p.elements[e.hostId];
   return isWall(host) ? host.levelId : undefined;
 }

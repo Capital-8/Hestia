@@ -4,6 +4,8 @@ import type { DimensionFamily } from './dimensionFamily.ts';
 import type { Vec2 } from '@hestia/geom';
 import type { Stair, StairType } from './stairTypes.ts';
 import type { Ramp, RampType } from './rampTypes.ts';
+import type { GuardaCorpo, TipoGuardaCorpo } from './guardaCorpoTypes.ts';
+import type { PerfilNorma } from './guardaCorpoNorma.ts';
 import type { ViewRange } from './viewRange.ts';
 import type { Sheet } from './sheet.ts';
 import type { View3DPoint } from './view3dPoints.ts';
@@ -20,10 +22,11 @@ import type { CadDrawing } from './cad.ts';
 import type { CopyLink } from './copyLink.ts';
 
 export type Id = string;
-export const SCHEMA_VERSION = 23;
+export const SCHEMA_VERSION = 24;
 
 export type { Stair, StairCurve, StairGenerator, StairLanding, StairRun, StairRunStyle, StairSpiralParams, StairType, StairUndersideStyle } from './stairTypes.ts';
 export type { Ramp, RampInputMode, RampNormProfile, RampNormRow, RampShape, RampType } from './rampTypes.ts';
+export type { GuardaCorpo, TipoGuardaCorpo } from './guardaCorpoTypes.ts';
 export type * from './openingTypes.ts';
 
 /** Funções de camada, no modelo do Revit (docs/05 §1). */
@@ -661,7 +664,7 @@ export interface Generic {
   ifcProperties?: IfcProperty[];
 }
 
-export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | Room | Generic | CadDrawing;
+export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Room | Generic | CadDrawing;
 
 export interface ProjectDefaults {
   wallTypeId: Id;
@@ -697,6 +700,8 @@ export interface ProjectSettings {
   defaultDimensionFamilyId?: Id;
   /** Unidades do projeto (ausente = padrões de `defaultUnits()`). */
   units?: UnitsSettings;
+  /** Perfil de norma do guarda-corpo do projeto (ausente = `nbr-br`). Só gera avisos. */
+  normaGuardaCorpoId?: Id;
 }
 
 /** Direção de uma elevação gerada automaticamente. A identidade fica no papel, não no nome editável. */
@@ -786,9 +791,13 @@ export interface Project {
   stairTypes: Record<Id, StairType>;
   /** Tipos de rampa (Revit: Ramp Type). Mesmo papel dos demais mapas de tipos. */
   rampTypes: Record<Id, RampType>;
+  /** Tipos de guarda-corpo e corrimão (decisão 0055). Mesmo papel dos demais mapas de tipos; a migração 23 → 24 semeia os iniciais. */
+  tiposGuardaCorpo: Record<Id, TipoGuardaCorpo>;
   openingTypes: Record<Id, OpeningType>;
   /** Presets de perfil das esquadrias (editáveis); a migração 19 → 20 semeia os iniciais. Ausente = os iniciais por leitura. */
   openingProfiles?: Record<Id, ProfilePreset>;
+  /** Perfis de norma do guarda-corpo (decisão 0055 §4.3). Ausente = os presets por leitura; a primeira escrita grava o conjunto. */
+  perfisNorma?: Record<Id, PerfilNorma>;
   elements: Record<Id, Element>;
   /**
    * Vínculos de andar-tipo criados pelo "Colar alinhado aos níveis selecionados" com a opção
@@ -846,5 +855,6 @@ export const isWall = (e: Element | undefined): e is Wall => e?.kind === 'wall';
 export const isOpening = (e: Element | undefined): e is Opening => e?.kind === 'door' || e?.kind === 'window';
 export const isStair = (e: Element | undefined): e is Stair => e?.kind === 'stair';
 export const isRamp = (e: Element | undefined): e is Ramp => e?.kind === 'ramp';
+export const isGuardaCorpo = (e: Element | undefined): e is GuardaCorpo => e?.kind === 'railing';
 export const isRoom = (e: Element | undefined): e is Room => e?.kind === 'room';
 export const isGeneric = (e: Element | undefined): e is Generic => e?.kind === 'generic';

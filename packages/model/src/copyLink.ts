@@ -179,6 +179,9 @@ function syncOne(
   if (from.kind !== target.kind) return null;
   const toLevelId = elementLevelIdOf(p, target.id) ?? targetMember.levelId;
   switch (from.kind) {
+    // v1: guarda-corpo não entra no vínculo de andar-tipo (decisão 0055 §11); a cópia fica sem sincronização.
+    case 'railing':
+      return null;
     case 'wall': {
       if (!isWall(target)) return null;
       const { id: _id, kind: _kind, levelId: _levelId, order: _order, ...rest } = from;

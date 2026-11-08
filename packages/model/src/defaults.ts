@@ -5,6 +5,7 @@ import { slabTypes } from './slab.ts';
 import { roofTypes } from './roof.ts';
 import { stairTypes } from './stair.ts';
 import { rampTypes } from './ramp.ts';
+import { tiposGuardaCorpo } from './guardaCorpo.ts';
 import { makeLevel } from './level.ts';
 import { ot } from './catalogoAberturasBase.ts';
 import { catalogoJanelas } from './catalogoJanelas.ts';
@@ -209,6 +210,7 @@ export function createEmptyProject(nameOrLang?: string | Lang, lang: Lang = 'pt'
     roofTypes: toRecord(roofTypes(activeLang)),
     stairTypes: toRecord(stairTypes(activeLang)),
     rampTypes: toRecord(rampTypes(activeLang)),
+    tiposGuardaCorpo: toRecord(tiposGuardaCorpo(activeLang)),
     openingTypes: toRecord(openingTypeCatalog(activeLang)),
     elements: {},
     nextOrder: 1,

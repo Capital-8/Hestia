@@ -12,6 +12,7 @@ const CATEGORY_KEY: Record<GraphicsCategory, keyof Dict> = {
   slab: 'tool_slab',
   roof: 'tool_roof',
   stair: 'cvn_cat_stair',
+  railing: 'cvn_cat_railing',
   room: 'tool_room',
   annotation: 'cvn_cat_annotation',
   generic: 'cvn_cat_generic',

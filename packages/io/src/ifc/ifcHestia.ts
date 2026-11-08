@@ -62,6 +62,7 @@ const PRODUCT_PREFIXES: Record<Element['kind'], readonly string[]> = {
   roof: ['roof'],
   stair: ['stair'],
   ramp: ['ramp'],
+  railing: ['railing'],
   room: ['space', 'room', 'ifcspace'],
   generic: ['generic'],
   // O CAD importado não vira produto IFC (é desenho de referência, como no Revit).

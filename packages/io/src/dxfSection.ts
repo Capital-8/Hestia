@@ -57,6 +57,7 @@ const CATEGORY_LAYER: Record<GraphicsCategory, string> = {
   slab: 'CORTE_LAJE',
   roof: 'CORTE_TELHADO',
   stair: 'CORTE_ESCADA',
+  railing: 'CORTE_GUARDA_CORPO',
   room: 'CORTE_AMBIENTE',
   annotation: 'CORTE_ANOTACAO',
   generic: 'CORTE_IMPORTADO',

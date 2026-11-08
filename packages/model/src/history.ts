@@ -399,6 +399,22 @@ export function labelOf(c: Command): string {
       return 'Editar categoria de ambiente';
     case 'removeRoomCategory':
       return 'Excluir categoria de ambiente';
+    case 'addGuardaCorpo':
+      return 'Adicionar guarda-corpo';
+    case 'updateGuardaCorpo':
+      return 'Editar guarda-corpo';
+    case 'deleteGuardaCorpo':
+      return 'Excluir guarda-corpo';
+    case 'upsertTipoGuardaCorpo':
+      return 'Editar tipo de guarda-corpo';
+    case 'deleteTipoGuardaCorpo':
+      return 'Excluir tipo de guarda-corpo';
+    case 'upsertPerfilNorma':
+      return 'Editar perfil de norma';
+    case 'deletePerfilNorma':
+      return 'Excluir perfil de norma';
+    case 'setNormaGuardaCorpo':
+      return 'Escolher norma do projeto';
     case 'upsertColorScheme':
       return 'Editar esquema de cores';
     case 'removeColorScheme':
