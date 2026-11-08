@@ -1,11 +1,12 @@
 /* eslint-disable max-lines -- seleção reúne alças, arrastes e as etiquetas de ambiente da vista (decisão 0039). */
 import { add, boxOf, dist, dot, sub, type Vec2 } from '@hestia/geom';
 import { ceilingOutline, frameOfWall } from '@hestia/engine';
-import { angularDimensionGeometry, areaPlanOf, formatQuantity, isCeiling, isFloor, isOpening, isRamp, isRoof, isSlab, isStair, isWall, resolveViewProfile, unitsOf, type Id, type ProfileLayers, type Project, type ResolvedUnits } from '@hestia/model';
+import { angularDimensionGeometry, areaPlanOf, formatQuantity, isCeiling, isFloor, isGuardaCorpo, isOpening, isRamp, isRoof, isSlab, isStair, isWall, resolveViewProfile, unitsOf, type Id, type ProfileLayers, type Project, type ResolvedUnits } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 import { ToolBase } from './base.ts';
 import { ghostBands, ghostViews, moveWalls, selectedMovables, selectedOpenings, selectedViews, slideOpenings, transformViews } from './edit.ts';
 import { genericAt, idsInBox, pickAt, cadAt, cadIdsInBox } from './pick.ts';
+import { pickRailingAt, railingPolylines } from './railingPick.ts';
 import { floorIdsInBox, pickFloorAt, ringRemoveVertex } from './floorPick.ts';
 import { pickRoomAt, roomIdsInBox } from './roomPick.ts';
 import { pickRoomSeparatorAt } from './roomSeparatorPick.ts';
@@ -37,7 +38,7 @@ type Mode = 'idle' | 'pending' | 'window' | 'grip' | 'dragwait' | 'moving' | 'op
 /** Elemento sob o cursor: parede, abertura ou piso. */
 interface AnyHit {
   id: Id;
-  kind: 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'ramp' | 'generic' | 'roomSeparator' | 'room' | 'annotation' | 'view' | 'grid';
+  kind: 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'ramp' | 'railing' | 'generic' | 'roomSeparator' | 'room' | 'annotation' | 'view' | 'grid';
 }
 
 const fmtLen = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length', m);
@@ -49,7 +50,7 @@ const soma = (p: PointerInfo): boolean => p.shift || p.ctrl;
  * Categorias de modelo: na planta de área elas só se selecionam (clique e janela). Arrasto, alças e fantasmas de mover
  * são de edição, e a planta de área é vista de análise/anotação. Anotação, vista e separador de ambiente não são modelo.
  */
-const MODELO = new Set<AnyHit['kind']>(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'ramp', 'generic', 'room', 'grid']);
+const MODELO = new Set<AnyHit['kind']>(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'ramp', 'railing', 'generic', 'room', 'grid']);
 const ehModelo = (kind: AnyHit['kind']): boolean => MODELO.has(kind);
 
 export class SelectTool extends ToolBase {
@@ -210,6 +211,9 @@ export class SelectTool extends ToolBase {
     if (st) return { id: st, kind: 'stair' };
     const rp = pickRampAt(pr, lv, at, mpp);
     if (rp) return { id: rp, kind: 'ramp' };
+    // Guarda-corpo: a planta só o acha pelo caminho desenhado (manual) ou pelo gancho do hospedado; oculto não é alvo.
+    const rl = pickRailingAt(pr, lv, at, mpp, this.env.hiddenInView?.());
+    if (rl) return { id: rl, kind: 'railing' };
     const f = pickFloorAt(vp, lv, at, mpp);
     if (f) return { id: f, kind: 'floor' };
     const sl = pickSlabAt(pr, lv, at, mpp);
@@ -238,6 +242,8 @@ export class SelectTool extends ToolBase {
     const hit = this.hitAt(p.raw);
     this.hover = hit?.id ?? null;
     this.items = this.hover ? [{ kind: 'highlight', ids: [this.hover] }] : [];
+    const hg = hit?.kind === 'railing' ? pr.elements[hit.id] : undefined;
+    if (hg && isGuardaCorpo(hg)) for (const pl of railingPolylines(pr, hg)) for (let i = 1; i < pl.length; i++) this.items.push({ kind: 'line', a: pl[i - 1]!, b: pl[i]!, dashed: true });
     // Na planta de área a alça de modelo nem aparece: sem prévia, o cursor não sinaliza uma edição que não existe.
     const semAlcaDeModelo = this.somenteLeitura && hit !== null && ehModelo(hit.kind);
     const grip = this.somenteLeitura
