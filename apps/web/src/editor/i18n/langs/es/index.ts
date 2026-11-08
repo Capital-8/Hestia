@@ -24,8 +24,10 @@ import { ES_EDITOR_CONTEXT } from '../../areas/editor-context.ts';
 import { ES_PROPS_OPTIONS } from '../../areas/props-options.ts';
 import { ES_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { ES_BIBLIOTECA } from '../../areas/biblioteca.ts';
+import { ES_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
 
 export const ES_ALL = {
+  ...ES_GUARDA_CORPO,
   ...ES_SHELL_RIBBON,
   ...ES_MISC_UI,
   ...ES_SCHEDULES_EXTRA,

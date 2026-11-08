@@ -28,6 +28,7 @@ import { AttachRoofTool, DetachRoofTool } from './attachRoofTool.ts';
 import { StairTool } from './stairTool.ts';
 import { StairRunTool } from './stairRunTool.ts';
 import { RampTool } from './rampTool.ts';
+import { GuardaCorpoTool } from './guardaCorpoTool.ts';
 import { DimensionTool } from './dimensionTool.ts';
 import { AngularDimensionTool } from './angularDimensionTool.ts';
 import { TextTool } from './textTool.ts';
@@ -40,10 +41,10 @@ import { GridTool } from './gridTool.ts';
 import { LevelTool } from './levelTool.ts';
 import { PasteTool } from './pasteTool.ts';
 
-export type ToolId = 'select' | 'wall' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'dimension' | 'angularDimension' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste';
+export type ToolId = 'select' | 'wall' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'railing' | 'dimension' | 'angularDimension' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste';
 
 export const TOOL_GROUPS: Array<{ title: string; tools: ToolId[] }> = [
-  { title: 'Construir', tools: ['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'stairrun', 'ramp', 'room'] },
+  { title: 'Construir', tools: ['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'stairrun', 'ramp', 'railing', 'room'] },
   { title: 'Modificar', tools: ['move', 'copy', 'rotate', 'mirror', 'array', 'offset', 'parallel', 'trim', 'align', 'joins', 'split', 'rehost', 'slope', 'attachroof', 'detachroof'] },
   { title: 'Anotar', tools: ['level', 'dimension', 'angularDimension', 'text', 'detailLine', 'filledRegion', 'tag'] },
   { title: 'Medir', tools: ['measure'] },
@@ -98,6 +99,8 @@ export function createTool(id: ToolId, env: ToolEnv, perimeterTarget: SketchTarg
       return new StairRunTool(env);
     case 'ramp':
       return new RampTool(env);
+    case 'railing':
+      return new GuardaCorpoTool(env);
     case 'dimension':
       return new DimensionTool(env);
     case 'angularDimension':
@@ -186,6 +189,7 @@ export const TOOL_LABEL: Record<ToolId, string> = {
   stair: 'Escada por croqui',
   stairrun: 'Escada (reta/L/U/caracol)',
   ramp: 'Rampa',
+  railing: 'Guarda-corpo',
   dimension: 'Cota',
   angularDimension: 'Cota angular',
   grid: 'Grade',

@@ -11,6 +11,8 @@ export * from './alignSolve.ts';
 export * from './alignApply.ts';
 export { AlignTool } from './alignTool.ts';
 export * from './registry.ts';
+export * from './guardaCorpoTool.ts';
+export * from './guardaCorpoGrips.ts';
 export { ToolBase } from './base.ts';
 export { LevelTool, nextLevelName, LEVEL_Z_TOLERANCE, LEVEL_MIN_EXTENT } from './levelTool.ts';
 export * from './wallGeom.ts';

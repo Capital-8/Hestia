@@ -24,8 +24,10 @@ import { DE_EDITOR_CONTEXT } from '../../areas/editor-context.ts';
 import { DE_PROPS_OPTIONS } from '../../areas/props-options.ts';
 import { DE_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { DE_BIBLIOTECA } from '../../areas/biblioteca.ts';
+import { DE_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
 
 export const DE_ALL = {
+  ...DE_GUARDA_CORPO,
   ...DE_SHELL_RIBBON,
   ...DE_MISC_UI,
   ...DE_SCHEDULES_EXTRA,
