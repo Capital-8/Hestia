@@ -4,7 +4,7 @@
  * própria (coordenada `u` medida a partir da face da parede voltada para o elemento), sem usar `bordaDaCamada`. Compartilhada entre o teste do motor
  * TypeScript e o do Rust (wasm).
  */
-import { intersection } from '@hestia/geom';
+import { intersection, multiArea } from '@hestia/geom';
 import { ProjectStore, createEmptyProject, makeFloor, makeSlab, makeWall, type Layer, type LayerLimiteExterno, type LayerTermino, type OutlineSource, type Project, type TerminoCamada } from '@hestia/model';
 import { resolveSlabs } from '../packages/engine/src/slabs.ts';
 import { resolveFloors } from '../packages/engine/src/floors.ts';
@@ -162,4 +162,52 @@ export function esperadoCamada(c: CasoMatriz): { perimetroH: Intervalos; perimet
   const leste = [faceO + bInt, 6 + T / 2 - bInt];
   const perimetroH = oeste[1]! >= leste[0]! ? [[oeste[0]!, leste[1]!]] : [oeste, leste];
   return { perimetroH, perimetroV: [[-T / 2 + bInt, 4 + T / 2 - bInt]], salaH: [oeste] };
+}
+
+/** Cenários do caso real do dono: laje estática com excesso sub-micrométrico para o outro lado da parede externa, e laje que termina na junção em T. */
+export type Cenario = 'excesso' | 't';
+export const CENARIOS: ReadonlyArray<{ id: Cenario; nome: string }> = [
+  { id: 'excesso', nome: 'laje estática passa 3e-7 m da face externa para o outro lado' },
+  { id: 't', nome: 'laje estática termina na junção em T (sem ponta na parede externa)' },
+];
+const EXCESSO = 3e-7;
+
+/** Projeto da matriz mais a laje `lq` e o piso `fq`, estáticos, do cenário. */
+export function projetoDoCenario(c: { regra: LayerTermino }, cenario: Cenario): Project {
+  const p = projetoDaMatriz(c);
+  const s = new ProjectStore(p);
+  const h = T / 2 + (cenario === 'excesso' ? EXCESSO : 0);
+  const [x0, x1, y0, y1] = cenario === 'excesso' ? [-h, 6 + h, -h, 4 + h] : [0, 3, 0, 4];
+  const boundary = [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
+  s.exec({ type: 'addSlab', slab: makeSlab({ id: 'lq', typeId: 'ls_m', levelId: 'lv_0', heightOffset: 0.2, boundary }) });
+  s.exec({ type: 'addFloor', floor: makeFloor({ id: 'fq', typeId: 'ft_m', levelId: 'lv_0', heightOffset: 0.2, boundary }) });
+  return s.project;
+}
+
+/** Caixa [xmin, xmax, ymin, ymax] do contorno da camada de `lq` e de `fq`. */
+export function caixasDoCenario(p: Project): Record<string, number[]> {
+  const caixa = (pol: Multi): number[] => {
+    const xs: number[] = [];
+    const ys: number[] = [];
+    // Peças de área desprezível (o excesso de 3e-7 m da laje estática fora da parede, que nenhuma regra alcança) ficam fora da caixa.
+    for (const poly of pol) {
+      if (multiArea([poly] as never) < 1e-4) continue;
+      for (const ring of poly) for (const q of ring) { xs.push(q.x); ys.push(q.y); }
+    }
+    return [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  };
+  const out: Record<string, number[]> = {};
+  for (const r of resolveSlabs(p, 'lv_0')) { const id = (r as unknown as { slabId?: string; id?: string }).slabId ?? (r as unknown as { id: string }).id; if (id === 'lq') out.lq = caixa(r.layers[0]!.polygon as unknown as Multi); }
+  for (const r of resolveFloors(p, 'lv_0')) { const id = (r as unknown as { floorId?: string; id?: string }).floorId ?? (r as unknown as { id: string }).id; if (id === 'fq') out.fq = caixa(r.layers[0]!.polygon as unknown as Multi); }
+  return out;
+}
+
+/** Caixa esperada do cenário (a borda sai de `bordaEsperada`, as mesmas contas da matriz). */
+export function caixaEsperada(c: CasoMatriz, cenario: Cenario): number[] {
+  const r = (c.regra as { camada: TerminoCamada }).camada;
+  const bInt = bordaEsperada(r, 'int');
+  const bExt = bordaEsperada(r, 'ext');
+  if (cenario === 'excesso') return [-T / 2 + bInt, 6 + T / 2 - bInt, -T / 2 + bInt, 4 + T / 2 - bInt];
+  // A laje termina em x = 3: a regra da parede interna pode recuá-la, mas nenhuma regra a faz passar do fim dela nem do fim da camada na parede interna.
+  return [-T / 2 + bInt, Math.max(3, 3 - T / 2 + bExt), -T / 2 + bInt, 4 + T / 2 - bInt];
 }

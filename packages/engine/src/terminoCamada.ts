@@ -15,12 +15,10 @@ import type { ResolvedWall } from './types.ts';
  * laje dos dois lados (elemento que passa por cima dela, ou laje de um lado e outra do outro).
  */
 
-/** Largura (m) da faixa colada à face da parede em que se procura a laje: ela só conta se cobrir área nessa faixa. */
+/** Largura (m) da faixa colada à face da parede em que se procura a laje: o lado da laje é o que tem mais área nessa faixa. */
 export const LARGURA_PRESENCA = 0.05;
 /** Folga (m) para a banda passar das faces da parede. */
 export const FOLGA_BANDA = 1;
-/** Área mínima (m2) de uma peça da laje na faixa de presença para a laje contar como presente naquele lado. */
-export const AREA_MINIMA = 1e-9;
 /** Tolerância (m) para a camada do meio da parede contar nas duas metades. */
 export const TOLERANCIA_META = 1e-9;
 /** Camada da parede como a busca a enxerga: função, e distâncias da face externa ao início e ao fim. */
@@ -120,6 +118,8 @@ export function regionCamada(p: Project, ref: MultiPolygon, walls: readonly Reso
   if (!bx) return ref;
   const blocos: MultiPolygon[] = [];
   const proprios: MultiPolygon[] = [];
+  // Primeira passada: as paredes do escopo que a camada alcança, cada uma com a sua zona (restrita aos trechos reais) e o eixo t dela.
+  const itens: Array<{ rw: ResolvedWall; f: WallFrame; F: MultiPolygon; tMin: number; tMax: number }> = [];
   for (const rw of walls) {
     const trechos = trechosReais(p, rw, z0, z1);
     if (trechos !== null && trechos.length === 0) continue;
@@ -137,19 +137,40 @@ export function regionCamada(p: Project, ref: MultiPolygon, walls: readonly Reso
       tMin = Math.min(tMin, lo);
       tMax = Math.max(tMax, hi);
     }
+    itens.push({ rw, f, F, tMin, tMax });
+  }
+  for (const { rw, f, F, tMin, tMax } of itens) {
     const T = f.thickness;
     const camadas: CamadaDeBusca[] = layerSpans(f.type).map((sp) => ({ funcao: sp.layer.function, de: sp.from, ate: sp.to }));
     const portas = doorRectsReaching(p, rw, z1);
-    for (const lado of ['ext', 'int'] as const) {
+    // Lado da laje nesta parede: o lado com MAIOR fração da faixa colada à face coberta pela laje. Faixa inteira coberta dos dois lados
+    // (laje contínua sobre a parede) ou frações iguais: os dois lados. Sem tolerância: "inteira" é a diferença booleana vazia.
+    const presencaDe = (lado: 'ext' | 'int'): { presentes: MultiPolygon; fracao: number; cheia: boolean } => {
       const faixa = lado === 'ext' ? bandaDaParede(f, tMin, tMax, -LARGURA_PRESENCA, 0) : bandaDaParede(f, tMin, tMax, T, T + LARGURA_PRESENCA);
-      const presentes = intersection(ref, faixa).filter((poly) => multiArea([poly]) > AREA_MINIMA);
-      if (presentes.length === 0) continue;
+      const presentes = intersection(ref, faixa).filter((poly) => multiArea([poly]) > 0);
+      if (presentes.length === 0) return { presentes, fracao: 0, cheia: false };
+      return { presentes, fracao: multiArea(presentes) / multiArea(faixa), cheia: difference(faixa, ref).length === 0 };
+    };
+    const pExt = presencaDe('ext');
+    const pInt = presencaDe('int');
+    for (const lado of ['ext', 'int'] as const) {
+      const { presentes, fracao, cheia } = lado === 'ext' ? pExt : pInt;
+      const outra = lado === 'ext' ? pInt.fracao : pExt.fracao;
+      if (presentes.length === 0 || (!cheia && fracao < outra)) continue;
       const { borda, aviso } = bordaDaCamada(camadas, T, regra, lado);
       if (aviso) avisos?.push({ wallId: rw.wallId, funcao: regra.funcao, lado: regra.lado });
-      // A borda avança `avanco` sobre a parede: a faixa passa dessa medida nas duas pontas da presença, para o canto (esquadria) não ficar com o entalhe.
+      // A borda avança `avanco` sobre a parede: a faixa passa dessa medida nas duas pontas da presença, e só quando essa ponta cai no fim da zona da parede, ou seja, no canto (a esquadria não fica com entalhe; na junção em T não nasce ponta).
       const avanco = Math.max(0, lado === 'ext' ? borda : T - borda);
       const banda = (d0: number, d1: number): MultiPolygon =>
-        union(...presentes.map((poly) => { const [lo, hi] = intervaloT(f, poly[0]!); return bandaDaParede(f, lo - avanco, hi + avanco, d0, d1); }));
+        union(
+          ...presentes.map((poly) => {
+            const [lo, hi] = intervaloT(f, poly[0]!);
+            // Só a ponta da presença que cai a menos de duas espessuras do fim da zona da parede (canto) avança; a que termina no meio dela (junção em T, borda da laje) não ganha ponta.
+            const avLo = lo - tMin < 2 * T ? avanco : 0;
+            const avHi = tMax - hi < 2 * T ? avanco : 0;
+            return bandaDaParede(f, lo - avLo, hi + avHi, d0, d1);
+          }),
+        );
       const tira = (d0: number, d1: number): MultiPolygon => intersection(F, banda(d0, d1));
       let bloco: MultiPolygon;
       if (lado === 'ext') {

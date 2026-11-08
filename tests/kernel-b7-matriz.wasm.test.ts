@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { instalarDespachoKernel, removerDespachoKernel } from '../packages/engine/src/kernelDespacho.ts';
 import { caminhoDoWasm } from '../packages/geom/src/kernel/caminhoWasm.ts';
 import { GerenciadorKernelV2 } from '../packages/geom/src/kernel/v2/gerenciador.ts';
-import { casosCamada, esperadoCamada, medir, projetoDaMatriz, type Intervalos } from './termino-camada-matriz.ts';
+import { CENARIOS, caixaEsperada, caixasDoCenario, casosCamada, esperadoCamada, medir, projetoDaMatriz, projetoDoCenario, type Intervalos } from './termino-camada-matriz.ts';
 
 const caminho = caminhoDoWasm();
 const bytes = existsSync(caminho) ? readFileSync(caminho) : null;
@@ -40,5 +40,17 @@ describe.skipIf(!bytes)('matriz do término por camada (Rust): a borda sai das e
       }
       for (const id of ['ls', 'fs']) expect(arred(por(id).horizontal), `${id} horizontal`).toEqual(arred(e.salaH));
     }, 60_000);
+  }
+});
+
+describe.skipIf(!bytes)('cenários do caso real (Rust): excesso sub-micrométrico e junção em T', () => {
+  for (const cen of CENARIOS) {
+    for (const c of casosCamada().filter((k) => k.grupo === 'preset')) {
+      it(`${cen.nome}: ${c.nome}`, () => {
+        if (ger === null) return;
+        const m = caixasDoCenario(projetoDoCenario(c, cen.id));
+        for (const id of ['lq', 'fq']) expect(m[id]!.map((v) => +v.toFixed(4)), id).toEqual(caixaEsperada(c, cen.id).map((v) => +v.toFixed(4)));
+      }, 60_000);
+    }
   }
 });

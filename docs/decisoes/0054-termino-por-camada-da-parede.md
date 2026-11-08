@@ -11,14 +11,16 @@ efeito do item 4.
 
 **2. Semântica.**
 - Tudo se mede em profundidade `d` a partir da face externa da parede (`layerSpans`). A laje fica do lado externo (`d` pequeno) ou do interno da parede, e a mesma
-  parede pode ter laje dos dois lados. O lado é achado pela geometria: a laje está num lado se o contorno de partida cobre área (mais de 1e-9 m²) numa faixa de 5 cm
-  colada à face daquele lado. Só o trecho do eixo em que a laje está colada recebe a regra.
+  parede pode ter laje dos dois lados. O lado é achado pela geometria: compara-se, nos dois lados da parede, a fração da faixa de 5 cm colada à face que o contorno de partida
+  cobre. O lado de MAIOR fração é o lado da laje; faixa inteira coberta dos dois lados (diferença booleana vazia, laje contínua sobre a parede) ou frações
+  exatamente iguais contam como laje dos dois lados. Não há área mínima nem tolerância: um excesso sub-micrométrico da laje para o outro lado (laje estática
+  que passa 3e-7 m da face) não conta como presença, porque o outro lado cobre mais. Só o trecho do eixo em que a laje está colada recebe a regra.
 - Lado: a parede é dividida ao meio da espessura total. `proximo` é a metade do lado da laje, `distante` a oposta. A camada pedida é a primeira daquela metade, a
   partir da face dela. A camada que cruza o meio conta nas duas metades (tolerância 1e-9 m).
 - `eixo` é a linha de centro da espessura total da parede (não a linha de localização); `face` é ignorada nele, o `cm` vale.
 - A borda da camada da laje fica na face pedida, somada ao `cm`. A camada da laje ocupa da face da parede do lado dela até a borda (avança sobre a parede); o que
   fica além da borda, no trecho de presença, sai da camada (laje estática ou de perímetro que cobria a parede). Recuo além da face tira da camada a faixa que sobra
-  antes da parede. A faixa de avanço passa das pontas da presença pelo próprio avanço, para o canto em esquadria não ficar com entalhe.
+  antes da parede. A faixa de avanço passa das pontas da presença pelo próprio avanço, para o canto em esquadria não ficar com entalhe, mas só na ponta que cai a menos de duas espessuras do fim da zona da parede (o canto); a ponta que termina no meio da parede (laje que acaba na junção em T) não ganha extensão, senão nasce uma ponta de cerca de 10 cm dentro da parede externa.
 - Vão de porta que chega ao topo da camada continua como na 0025: a parede não é cortada ali.
 - Na região que a camada atravessa, a camada da laje vence: a junção recorta as camadas da parede nessa faixa de cota (`venceParede` em `winsOver`), e o volume
   conta para a laje, sem duplicar nas quantidades. As camadas da parede que a laje não alcança ficam inteiras.

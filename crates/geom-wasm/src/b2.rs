@@ -426,8 +426,6 @@ impl<'a> Escopo<'a> {
 const LARGURA_PRESENCA: f64 = 0.05;
 /// Folga (m) para a banda passar das faces da parede (`FOLGA_BANDA`).
 const FOLGA_BANDA: f64 = 1.0;
-/// Área mínima (m2) de uma peça da laje na faixa de presença (`AREA_MINIMA`).
-const AREA_MINIMA: f64 = 1e-9;
 /// Tolerância (m) para a camada do meio da parede contar nas duas metades (`TOLERANCIA_META`).
 const TOLERANCIA_META: f64 = 1e-9;
 /// Código de `eixo` em `TerminoCamada.funcao`.
@@ -552,10 +550,25 @@ impl<'a> Escopo<'a> {
                 let total = f.thickness;
                 let camadas: Vec<CamadaDeBusca> = f.tipo.camadas.iter().map(|c| CamadaDeBusca { funcao: c.funcao, de: c.de, ate: c.ate }).collect();
                 let portas = parede.portas_ate(z1);
-                for externo in [true, false] {
+                // Lado da laje nesta parede: o lado com MAIOR fração da faixa colada à face coberta pela laje. Faixa inteira coberta dos dois lados
+                // (laje contínua sobre a parede) ou frações iguais: os dois lados. Sem tolerância: "inteira" é a diferença booleana vazia.
+                let presenca_de = |externo: bool| -> Result<(MultiPoligono, f64, bool), u32> {
                     let faixa = if externo { banda_da_parede(f, t_min, t_max, -LARGURA_PRESENCA, 0.0) } else { banda_da_parede(f, t_min, t_max, total, total + LARGURA_PRESENCA) };
-                    let presentes: MultiPoligono = interseccao_com_escala(&ref_pc, &faixa, ESCALA_FINA)?.into_iter().filter(|poly| area_do_poligono(poly) > AREA_MINIMA).collect();
+                    let presentes: MultiPoligono = interseccao_com_escala(&ref_pc, &faixa, ESCALA_FINA)?.into_iter().filter(|poly| area_do_poligono(poly) > 0.0).collect();
                     if presentes.is_empty() {
+                        return Ok((presentes, 0.0, false));
+                    }
+                    let area_faixa: f64 = faixa.iter().map(|p| area_do_poligono(p)).sum();
+                    let area: f64 = presentes.iter().map(|p| area_do_poligono(p)).sum();
+                    let cheia = diferenca_com_escala(&[faixa, referencia.clone()], ESCALA_FINA)?.is_empty();
+                    Ok((presentes, area / area_faixa, cheia))
+                };
+                let p_ext = presenca_de(true)?;
+                let p_int = presenca_de(false)?;
+                for externo in [true, false] {
+                    let (presentes, fracao, cheia) = if externo { &p_ext } else { &p_int };
+                    let outra = if externo { p_int.1 } else { p_ext.1 };
+                    if presentes.is_empty() || (!*cheia && *fracao < outra) {
                         continue;
                     }
                     let (borda, _) = borda_da_camada(&camadas, total, regra, externo);
@@ -566,7 +579,10 @@ impl<'a> Escopo<'a> {
                             .iter()
                             .map(|poly| {
                                 let (lo, hi) = poly.first().map(|a| intervalo_t(f, a)).unwrap_or((f64::INFINITY, f64::NEG_INFINITY));
-                                banda_da_parede(f, lo - avanco, hi + avanco, d0, d1)
+                                // Só a ponta da presença que cai a menos de duas espessuras do fim da zona da parede (canto) avança; a que termina no meio dela (junção em T, borda da laje) não ganha ponta.
+                                let av_lo = if lo - t_min < 2.0 * total { avanco } else { 0.0 };
+                                let av_hi = if t_max - hi < 2.0 * total { avanco } else { 0.0 };
+                                banda_da_parede(f, lo - av_lo, hi + av_hi, d0, d1)
                             })
                             .collect();
                         uniao_com_escala(&partes, ESCALA_FINA)

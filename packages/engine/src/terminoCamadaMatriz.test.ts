@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { casosCamada, esperadoCamada, medir, projetoDaMatriz, type Intervalos } from '../../../tests/termino-camada-matriz.ts';
+import { CENARIOS, caixaEsperada, caixasDoCenario, casosCamada, esperadoCamada, medir, projetoDaMatriz, projetoDoCenario, type Intervalos } from '../../../tests/termino-camada-matriz.ts';
 
 const arred = (a: Intervalos): number[][] => a.map((i) => i.map((v) => +v.toFixed(5)));
 
@@ -15,5 +15,16 @@ describe('matriz do término por camada (TypeScript): a borda sai das espessuras
       }
       for (const id of ['ls', 'fs']) expect(arred(por(id).horizontal), `${id} horizontal`).toEqual(arred(e.salaH));
     });
+  }
+});
+
+describe('cenários do caso real (TypeScript): excesso sub-micrométrico e junção em T', () => {
+  for (const cen of CENARIOS) {
+    for (const c of casosCamada().filter((k) => k.grupo === 'preset')) {
+      it(`${cen.nome}: ${c.nome}`, () => {
+        const m = caixasDoCenario(projetoDoCenario(c, cen.id));
+        for (const id of ['lq', 'fq']) expect(m[id]!.map((v) => +v.toFixed(5)), id).toEqual(caixaEsperada(c, cen.id).map((v) => +v.toFixed(5)));
+      });
+    }
   }
 });

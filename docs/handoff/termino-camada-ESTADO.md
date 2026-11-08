@@ -20,3 +20,8 @@ Paredes internas com laje dos dois lados: cada lado vai até o substrato distant
 - Corrigir a presença do lado oposto (TS e Rust), acrescentar o caso (laje com excesso minúsculo) à matriz, regenerar o wasm (`node scripts/build-wasm.mjs`, depois `--check`, CARGO_TARGET_DIR=E:\hestia-target-termino).
 - Ponta de ~10 cm na junção em T (extensão de canto `avanco` em regionCamada/regiao_camada passa do canto da parede interna): limitar a extensão e acrescentar o caso à matriz.
 - Reconfirmar o caso real: a cópia do projeto foi apagada do scratch; copiar de novo (somente leitura) de Documents\pasta\Projeto sem título\projeto.hestia.json, fora do repositório. Verificação: aplicar o preset à camada de estrutura da laje e medir a borda em cada parede (esperado: face interna do substrato distante).
+
+## Atualização (2026-11-08, depois do WIP)
+- Presença do lado: lado de maior fração coberta da faixa de 5 cm (sem AREA_MINIMA); dois lados se a faixa está inteira coberta nos dois ou as frações são iguais (decisão 0054 atualizada). TS e Rust.
+- Ponta do T: a extensão de canto (`avanco`) só vale na ponta da presença a menos de 2 espessuras do fim da zona da parede (parâmetro novo, relatado). TS e Rust.
+- Matriz: cenários `excesso` (3e-7 m) e `t` em tests/termino-camada-matriz.ts (TS e wasm).
