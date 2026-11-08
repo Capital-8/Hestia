@@ -6,8 +6,9 @@
  *  - Protocolo: o formato dos quadros no fio. O mesmo critério.
  */
 export const API_VERSION = { major: 1, minor: 0 } as const;
+/** 1.2 acrescenta o snapshot em partes (`scene.snapshot.begin`, `.part`, `.end`). */
 /** 1.1 acrescenta o pareamento autenticado (`auth`, `auth.ok`); o 1.0 continua negociável quando o host não exige token. */
-export const PROTOCOL_VERSION = { major: 1, minor: 1 } as const;
+export const PROTOCOL_VERSION = { major: 1, minor: 2 } as const;
 
 export interface Version {
   major: number;

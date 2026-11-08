@@ -13,7 +13,10 @@ manifesto não tem caminho de executável. Não há loja nem download automátic
 - **Geometria:** vem das malhas com faixas por elemento da cena 3D montada. Entidades instanciadas sem faixas e elementos de
   níveis ainda não montados saem com `mesh: null`; o material por triângulo sai `null` (usa-se `materialIds` do tipo).
   Texturas: contrato pronto, mas o Hestia ainda não as tem.
-- **Escala:** geometria como números em JSON; adequado a protótipo. Quadros binários ou compactados ficam para a 1.x.
+- **Escala:** geometria como números em JSON. O quadro máximo continua 64 MiB, mas desde o protocolo 1.2 o snapshot vai **em partes** de ~8 MiB
+  e não há mais teto prático de cena (validado com 70 MiB entre processos, [06](06-validacao-processo-rust.md)). Cada **entidade** ainda precisa caber
+  num quadro, e o plugin guarda a cena inteira em memória (JSON→estruturas: ~4 vezes o tamanho do texto no Rust de referência). Quadros binários
+  seguem como melhoria futura (o JSON de posições ocupa ~65 a 100 bytes por triângulo).
 - **Câmera:** a órbita não emite eventos; há amostragem a cada 80 ms só com sessão assinante. A órbita é "olhar para o
   alvo": `up` e roll do plugin são descartados.
 - As substituições entram no desfazer do projeto; o `projectUid` é criado no primeiro uso (marca o projeto como alterado).

@@ -35,6 +35,8 @@ export interface HostSessionOptions {
   /** Tempo em que mudanças da câmera do Hestia, logo depois de aplicar a do plugin, são tratadas como eco. */
   cameraSettleMs?: number;
   retained?: RetainedSession | null;
+  /** Tamanho-alvo (caracteres de JSON) de cada parte do snapshot em partes (protocolo 1.2). Padrão 8 MiB. */
+  snapshotChunkChars?: number;
   /**
    * Pareamento por token (protocolo 1.1). PADRÃO: autenticação OBRIGATÓRIA. `allowUnauthenticated` existe só para
    * testes locais e compatibilidade 1.0 explícita; nunca deve ser ligado por padrão em uso real.
@@ -67,6 +69,8 @@ export class HostSession {
   private state: 'handshaking' | 'authenticating' | 'ready' | 'closed' = 'handshaking';
   private authCtx: { nP: string; expected: string; finish: () => void } | null = null;
   private authenticated = false;
+  /** `minor` do protocolo negociado (1.2+ usa snapshot em partes). */
+  private protoMinor = 0;
   private manifest: PluginManifest | null = null;
   private granted = new Set<Capability>();
   private revision = 0;
@@ -241,6 +245,7 @@ export class HostSession {
     const denied = v.manifest.capabilities.filter((c) => !g.has(c));
     const ret = this.o.retained;
     const resumed = !!(m.resume && ret && m.resume.sessionId === ret.sessionId && m.resume.lastRevision === ret.revision);
+    this.protoMinor = version.minor;
     this.state = 'ready';
     this.peer.setHeartbeat(this.o.heartbeatMs);
     this.peer.startHeartbeat();
@@ -275,8 +280,31 @@ export class HostSession {
     const content = this.o.ports.scene.read();
     this.revision += 1;
     this.sent = content;
-    this.peer.send({ t: 'scene.snapshot', snapshot: this.snapshotOf(content), ...(re ? { re } : {}) });
+    const full = this.snapshotOf(content);
+    if (this.protoMinor >= 2) this.sendSnapshotInParts(full, re);
+    else this.peer.send({ t: 'scene.snapshot', snapshot: full, ...(re ? { re } : {}) });
     this.retain();
+  }
+
+  /** Protocolo 1.2: cabeçalho, partes de ~`snapshotChunkChars` e fim. Nenhum quadro passa do teto do protocolo. */
+  private sendSnapshotInParts(full: SceneSnapshot, re?: string): void {
+    const limit = this.o.snapshotChunkChars ?? 8 * 1024 * 1024;
+    const { entities, materials, textures, ...header } = full;
+    const parts: Array<{ entities?: typeof entities; materials?: typeof materials; textures?: typeof textures }> = [];
+    let cur: typeof entities = [];
+    let size = 0;
+    for (const e of entities) {
+      const n = JSON.stringify(e).length;
+      if (cur.length > 0 && size + n > limit) { parts.push({ entities: cur }); cur = []; size = 0; }
+      cur.push(e);
+      size += n;
+    }
+    if (cur.length > 0) parts.push({ entities: cur });
+    if (parts.length === 0) parts.push({});
+    parts[0] = { ...parts[0], materials, textures };
+    this.peer.send({ t: 'scene.snapshot.begin', snapshot: header, parts: parts.length, counts: { entities: entities.length, materials: materials.length, textures: textures.length }, ...(re ? { re } : {}) });
+    parts.forEach((p, index) => this.peer.send({ t: 'scene.snapshot.part', index, ...p }));
+    this.peer.send({ t: 'scene.snapshot.end', revision: full.revision });
   }
 
   private resumeFrom(ret: RetainedSession): void {

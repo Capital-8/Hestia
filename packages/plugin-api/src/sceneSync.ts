@@ -1,3 +1,4 @@
+import type { SnapshotBeginMsg, SnapshotEndMsg, SnapshotPartMsg } from './protocol.ts';
 import type { SceneDelta, SceneEntity, SceneMaterial, SceneOp, SceneSnapshot, SceneTexture } from './scene.ts';
 
 /** Conteúdo comparável da cena (sem câmera, revisão nem substituições). */
@@ -61,4 +62,47 @@ export function applyDelta(snap: SceneSnapshot, d: SceneDelta): SceneSnapshot | 
     }
   }
   return { ...snap, revision: d.revision, entities: [...entities.values()], materials: [...materials.values()], textures: [...textures.values()] };
+}
+
+/**
+ * Monta o snapshot em partes (protocolo 1.2) do lado do plugin. `begin` zera, `part` acumula (índices em ordem) e `end`
+ * confere as contagens e devolve o snapshot completo. Lança Error se a sequência for inconsistente: o plugin deve pedir
+ * `scene.resync`.
+ */
+export class SnapshotAssembler {
+  private head: SnapshotBeginMsg | null = null;
+  private next = 0;
+  private entities: SceneEntity[] = [];
+  private materials: SceneMaterial[] = [];
+  private textures: SceneTexture[] = [];
+  /** Há um snapshot em montagem (deltas não devem chegar até o `end`). */
+  get assembling(): boolean { return this.head !== null; }
+
+  begin(m: SnapshotBeginMsg): void {
+    this.head = m;
+    this.next = 0;
+    this.entities = [];
+    this.materials = [];
+    this.textures = [];
+  }
+
+  part(m: SnapshotPartMsg): void {
+    if (!this.head) throw new Error('parte sem begin');
+    if (m.index !== this.next) throw new Error(`parte ${m.index} fora de ordem (esperava ${this.next})`);
+    this.next += 1;
+    if (m.entities) this.entities.push(...m.entities);
+    if (m.materials) this.materials.push(...m.materials);
+    if (m.textures) this.textures.push(...m.textures);
+  }
+
+  end(m: SnapshotEndMsg): SceneSnapshot {
+    const h = this.head;
+    if (!h) throw new Error('end sem begin');
+    this.head = null;
+    if (this.next !== h.parts) throw new Error(`faltam partes (${this.next} de ${h.parts})`);
+    if (m.revision !== h.snapshot.revision) throw new Error('revisão do end difere do begin');
+    const c = h.counts;
+    if (this.entities.length !== c.entities || this.materials.length !== c.materials || this.textures.length !== c.textures) throw new Error('contagens do snapshot não conferem');
+    return { ...h.snapshot, entities: this.entities, materials: this.materials, textures: this.textures };
+  }
 }

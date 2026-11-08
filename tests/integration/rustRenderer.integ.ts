@@ -55,6 +55,7 @@ interface RState {
   cameraUpdates: number; overrides: Record<string, Record<string, unknown>>; snapshots: number; deltas: number; resyncs: number;
   errors: Array<{ code: string; message: string }>;
   authenticated: boolean; insecure: boolean; authFailures: number;
+  snapshotParts: number; chunkedSnapshots: number; largestFrame: number;
   scene: { projectId: string; revision: number; entities: Record<string, { kind: string; triangles: number; vertices: number; meshHash: string }>; materials: Record<string, { color: string }> };
 }
 
@@ -64,11 +65,14 @@ class Renderer {
   readonly events: Array<Record<string, unknown>> = [];
   /** Saída bruta do processo (stdout + stderr): o teste confere que o token nunca aparece nela. */
   output = '';
+  /** O processo já saiu (evento `exit` visto): `kill()` repetido não espera de novo. */
+  private exited = false;
   constructor(readonly dir: string, readonly port: number, readonly extra: string[] = []) {
     this.stateFile = path.join(dir, `state-${port}-${Date.now()}.json`);
   }
   async start(): Promise<this> {
     this.proc = spawn(BIN, ['--port', String(this.port), '--state-file', this.stateFile, '--control-stdin', ...this.extra], { stdio: ['pipe', 'pipe', 'pipe'] });
+    this.proc.once('exit', () => { this.exited = true; });
     let buf = '';
     this.proc.stdout.on('data', (d: Buffer) => {
       this.output += d.toString();
@@ -86,7 +90,7 @@ class Renderer {
     return until(what, () => { const s = this.state(); return pred(s) ? s : false; }, ms);
   }
   async kill(): Promise<void> {
-    if (this.proc.exitCode !== null) return;
+    if (this.exited || this.proc.exitCode !== null || this.proc.signalCode !== null) return;
     const done = new Promise<void>((r) => this.proc.once('exit', () => r()));
     this.proc.kill();
     await done;
@@ -295,7 +299,7 @@ describe('Hestia ↔ renderizador Rust, processos separados', () => {
     const v = await until('conectado', () => { const x = host.get('renderer-rust')!; return x.state === 'connected' ? x : false; });
     expect(v.manifest).toMatchObject({ id: PLUGIN_ID, kind: 'renderer', hestiaApi: '1.0', version: '0.1.0' });
     const s = await r.waitState('welcome registrado', (x) => x.sessionId !== null);
-    expect(s).toMatchObject({ protocol: '1.1', api: '1.0', resumed: false, cameraMode: 'follow-hestia', authenticated: true, insecure: false, authFailures: 0 });
+    expect(s).toMatchObject({ protocol: '1.2', api: '1.0', resumed: false, cameraMode: 'follow-hestia', authenticated: true, insecure: false, authFailures: 0 });
     expect(s.granted.sort()).toEqual([...RENDERER_CAPABILITIES].sort());
     expect(s.pid).toBe(r.proc.pid);
     expect(s.pid).not.toBe(process.pid);
@@ -531,7 +535,7 @@ describe('pareamento autenticado entre processos (protocolo 1.1)', () => {
     const { rr, host } = await pair(['--token-file', tokenFile], { token });
     await until('conectado', () => host.get('renderer-rust')!.state === 'connected');
     const s = await rr.waitState('cena entregue', (x) => x.snapshots === 1);
-    expect(s).toMatchObject({ protocol: '1.1', authenticated: true, insecure: false, authFailures: 0 });
+    expect(s).toMatchObject({ protocol: '1.2', authenticated: true, insecure: false, authFailures: 0 });
     expect(host.get('renderer-rust')!.hasToken).toBe(true);
     expect(rr.output).not.toContain(token);
     host.dispose();
@@ -588,7 +592,7 @@ describe('pareamento autenticado entre processos (protocolo 1.1)', () => {
     const legacy = new RawHost(`ws://127.0.0.1:${port}`);
     await legacy.open();
     const hello = await legacy.hello();
-    expect(hello.protocol).toEqual({ min: '1.1', max: '1.1' });
+    expect(hello.protocol).toEqual({ min: '1.1', max: '1.2' });
     expect(hello.auth.nonce).toHaveLength(24);
     legacy.send({ t: 'welcome', protocol: '1.0', api: '1.0', sessionId: 's', granted: ['scene.read'], denied: [], heartbeatMs: 5000, cameraMode: 'follow-hestia', resumed: false });
     const err = await legacy.find('error');
@@ -720,4 +724,45 @@ describe('pareamento autenticado entre processos (protocolo 1.1)', () => {
     proxy.close();
     await rr.kill();
   });
+});
+
+describe('snapshot em partes (protocolo 1.2) entre processos', () => {
+  const MIB = 1024 * 1024;
+
+  it('uma cena maior que o quadro de 64 MiB chega ao Rust em partes pequenas, completa e sem estourar o limite', async () => {
+    const { file, token } = makeToken(tmp, 'tok-chunk.txt');
+    // Cena sintética GRANDE (não é um projeto real): 70 entidades de ~1 MiB de JSON cada, números de precisão cheia.
+    let seed = 1;
+    const rnd = (): number => { seed = (seed * 16807) % 2147483647; return (seed / 2147483647) * 100; };
+    const entities = Array.from({ length: 70 }, (_, i) => ({
+      id: `big_${i}`, kind: 'generic', transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1], visible: true,
+      mesh: { positions: Array.from({ length: 54_000 }, rnd), indices: Array.from({ length: 6_000 }, (_, k) => k % 18_000), groups: [{ start: 0, count: 6_000, materialId: null }], hash: `h${i}` },
+    }));
+    const content = { projectName: 'grande', entities, materials: [{ id: 'm1', name: 'M', color: '#112233', gloss: 0.1, opacity: 1 }], textures: [] };
+    const total = JSON.stringify(content).length;
+    expect(total).toBeGreaterThan(64 * MIB); // um scene.snapshot único passaria do teto do protocolo
+    const camera = toSceneCamera(camA);
+    const ports: HostPorts = {
+      scene: { projectId: () => 'prj_grande01', read: () => content, subscribe: () => () => undefined },
+      camera: { read: () => camera, write: () => false, subscribe: () => () => undefined },
+      overrides: { read: () => ({}), set: () => undefined, clear: () => undefined, subscribe: () => () => undefined },
+    };
+    const port = await freePort();
+    const rr = await new Renderer(tmp, port, ['--token-file', file]).start();
+    procs.push(rr);
+    const host = makeHost(ports, port, { token });
+    hosts.push(host);
+    host.enable('renderer-rust', RENDERER_CAPABILITIES);
+    await until('conectado', () => host.get('renderer-rust')!.state === 'connected', 20000);
+    const s = await rr.waitState('snapshot em partes completo', (x) => x.chunkedSnapshots === 1, 60000);
+    expect(s).toMatchObject({ protocol: '1.2', snapshots: 1, resyncs: 0 });
+    expect(Object.keys(s.scene.entities)).toHaveLength(70);
+    expect(s.scene.entities.big_69!.vertices).toBe(18_000);
+    expect(s.scene.materials.m1).toBeTruthy();
+    expect(s.snapshotParts).toBeGreaterThanOrEqual(8); // ~70 MiB em partes de ~8 MiB
+    expect(s.largestFrame).toBeLessThan(10 * MIB);
+    expect(s.largestFrame).toBeLessThan(64 * MIB);
+    host.dispose();
+    await rr.kill();
+  }, 120_000);
 });

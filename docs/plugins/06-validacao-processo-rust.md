@@ -48,6 +48,11 @@ transporte em memória; o PID do relatório é do processo filho e difere do PID
    (`resumed: true`, nenhum snapshot novo).
 10. Processo Rust encerrado: o Hestia sai de "conectado", reconecta sozinho a um processo novo e este recebe o snapshot.
 
+## Snapshot em partes entre processos (protocolo 1.2)
+O teste `snapshot em partes (protocolo 1.2) entre processos` envia ao Rust uma cena **sintética** de 70 entidades (~70 MiB de JSON, maior que o
+quadro de 64 MiB) e confere: protocolo negociado 1.2, `chunkedSnapshots = 1`, 70 entidades completas, material, `resyncs = 0`, ≥ 8 partes e o
+maior quadro recebido < 10 MiB. A cena não é um projeto real; ela existe para provar o mecanismo.
+
 ## Defeito achado só com processos reais
 Um quadro numerado com campos inválidos não consumia o `seq`; a mensagem válida seguinte virava `out_of_order` fatal e
 derrubava a conexão. Corrigido em `Peer` (`transport.ts`): o `seq` é consumido e confirmado, e o erro volta com o `re` do

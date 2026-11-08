@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  authProof, API_VERSION, PluginHost, TEST_RENDERER_MANIFEST, TestPlugin, createMemoryPair, decode, findImagePayload, negotiateProtocol, validateEndpoint, validateManifest,
+  SnapshotAssembler, authProof, API_VERSION, PluginHost, TEST_RENDERER_MANIFEST, TestPlugin, createMemoryPair, decode, findImagePayload, negotiateProtocol, validateEndpoint, validateManifest,
   type Capability, type HostPorts, type PluginEntry, type SceneCamera, type SceneContent, type SceneEntity, type ViewMaterialOverride,
 } from './index.ts';
 
@@ -39,7 +39,7 @@ const flush = async (): Promise<void> => { for (let i = 0; i < 8; i++) { await v
 const ENTRY: PluginEntry = { key: 'renderer', label: 'Renderizador', endpoint: { host: '127.0.0.1', port: 47800 }, enabled: false, grants: [], suggested: ['scene.read'], expectedKind: 'renderer', builtin: true };
 const ALL: Capability[] = ['scene.read', 'camera.read', 'events.subscribe', 'camera.write', 'overrides.write'];
 
-function setup(opts: { plugin?: ConstructorParameters<typeof TestPlugin>[1]; refuse?: boolean; insecure?: boolean; token?: string; spy?: string[] } = {}) {
+function setup(opts: { plugin?: ConstructorParameters<typeof TestPlugin>[1]; refuse?: boolean; insecure?: boolean; token?: string; spy?: string[]; chunk?: number } = {}) {
   const f = fakePorts();
   const mem = new Map<string, string>();
   const plugins: TestPlugin[] = [];
@@ -50,6 +50,7 @@ function setup(opts: { plugin?: ConstructorParameters<typeof TestPlugin>[1]; ref
     heartbeatMs: 1000,
     backoffMs: [100, 200],
     insecureAllowUnauthenticated: opts.insecure ?? true,
+    ...(opts.chunk ? { snapshotChunkChars: opts.chunk } : {}),
     connect: async () => {
       if (opts.refuse) throw new Error('recusado');
       const [a, b] = createMemoryPair();
@@ -513,5 +514,75 @@ describe('compatibilidade das provas com o renderizador Rust', () => {
     const nh = 'BBBBBBBBBBBBBBBBBBBBBB==';
     expect(await authProof(T, 'host', np, nh)).toBe('ee6ZJLkKce+oaVKpc8wRmc8AnOzpS+ror65AwTwKLSY=');
     expect(await authProof(T, 'plugin', np, nh)).toBe('pkiqvzN+kIf4STO/1ClJqHrwtmVY2HPTihukJBJEqU0=');
+  });
+});
+
+describe('snapshot em partes (protocolo 1.2)', () => {
+  const TOKEN = 'c'.repeat(64);
+  const many = (f: ReturnType<typeof fakePorts>, n: number): void => { for (let i = 0; i < n; i++) f.content.entities.push(wall(`m${i}`, `h${i}`)); };
+
+  it('plugin 1.2: negocia 1.2, recebe várias partes pequenas e a cena fecha igual ao snapshot inteiro', async () => {
+    const parts = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN, protocolMax: '1.2' }, chunk: 600 });
+    many(parts.f, 12);
+    parts.host.enable('renderer', ALL);
+    await flushAuth();
+    const p = parts.last();
+    expect(p.welcome).toMatchObject({ protocol: '1.2' });
+    expect(p.partsReceived).toBeGreaterThan(3);
+    const whole = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN } });
+    many(whole.f, 12);
+    whole.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(whole.last().welcome).toMatchObject({ protocol: '1.1' });
+    expect(whole.last().partsReceived).toBe(0);
+    expect(p.snapshot!.entities).toEqual(whole.last().snapshot!.entities);
+    expect(p.snapshot!.materials).toEqual(whole.last().snapshot!.materials);
+    expect(p.snapshot!.revision).toBe(whole.last().snapshot!.revision);
+    // Depois do snapshot em partes, os deltas seguem normais.
+    parts.f.content.entities.push(wall('novo'));
+    parts.f.changeScene();
+    await flushAuth();
+    expect(p.snapshot!.entities.some((e) => e.id === 'novo')).toBe(true);
+    expect(p.resyncs).toBe(0);
+  });
+
+  it('nenhum quadro passa do tamanho-alvo (mais a folga de uma entidade)', async () => {
+    const wire: string[] = [];
+    const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN, protocolMax: '1.2' }, chunk: 2000, spy: wire });
+    many(s.f, 40);
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    const partFrames = wire.filter((f) => f.includes('"scene.snapshot.part"'));
+    expect(partFrames.length).toBeGreaterThan(2);
+    const maxEntity = Math.max(...s.f.content.entities.map((e) => JSON.stringify(e).length));
+    expect(Math.max(...partFrames.map((f) => f.length))).toBeLessThan(2000 + maxEntity + 400);
+  });
+
+  it('montador recusa sequência inconsistente', () => {
+    const a = new SnapshotAssembler();
+    const head = { t: 'scene.snapshot.begin', snapshot: { projectId: 'p', projectName: 'n', revision: 3, units: { length: 'm', angle: 'rad' }, axes: {}, camera: {}, overrides: {} }, parts: 2, counts: { entities: 1, materials: 0, textures: 0 } } as never;
+    expect(() => a.part({ t: 'scene.snapshot.part', index: 0 })).toThrow(/sem begin/);
+    a.begin(head);
+    expect(() => a.part({ t: 'scene.snapshot.part', index: 1 })).toThrow(/fora de ordem/);
+    a.begin(head);
+    a.part({ t: 'scene.snapshot.part', index: 0, entities: [wall('x')] });
+    expect(() => a.end({ t: 'scene.snapshot.end', revision: 3 })).toThrow(/faltam partes/);
+    a.begin(head);
+    a.part({ t: 'scene.snapshot.part', index: 0, entities: [wall('x')] });
+    a.part({ t: 'scene.snapshot.part', index: 1 });
+    expect(() => a.end({ t: 'scene.snapshot.end', revision: 4 })).toThrow(/revisão/);
+    a.begin(head);
+    a.part({ t: 'scene.snapshot.part', index: 0, entities: [wall('x')] });
+    a.part({ t: 'scene.snapshot.part', index: 1 });
+    expect(a.end({ t: 'scene.snapshot.end', revision: 3 }).entities.map((e) => e.id)).toEqual(['x']);
+  });
+
+  it('mensagens de snapshot em partes malformadas são recusadas', () => {
+    const d = (m: unknown): boolean => decode(JSON.stringify(m)).ok;
+    expect(d({ t: 'scene.snapshot.part', seq: 1, index: -1 })).toBe(false);
+    expect(d({ t: 'scene.snapshot.part', seq: 1, index: 0, entities: 'x' })).toBe(false);
+    expect(d({ t: 'scene.snapshot.end', seq: 1, revision: 'a' })).toBe(false);
+    expect(d({ t: 'scene.snapshot.begin', seq: 1, snapshot: { revision: 1, projectId: 'p' }, parts: 0, counts: { entities: 0, materials: 0, textures: 0 } })).toBe(false);
+    expect(d({ t: 'scene.snapshot.part', seq: 1, index: 0, entities: [] })).toBe(true);
   });
 });

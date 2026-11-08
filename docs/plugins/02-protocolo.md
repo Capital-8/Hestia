@@ -1,4 +1,7 @@
-# Protocolo (versão 1.1)
+# Protocolo (versão 1.2)
+
+> **1.2 (aditiva):** acrescenta o **snapshot em partes** (`scene.snapshot.begin`, `scene.snapshot.part`, `scene.snapshot.end`), para cenas
+> maiores que o quadro de 64 MiB. Usado só quando as duas pontas negociam 1.2; com 1.0 ou 1.1 o host segue enviando `scene.snapshot` inteiro.
 
 > **1.1 (aditiva):** acrescenta o pareamento autenticado (`auth`, `auth.ok`, `hello.auth`, `welcome.authenticated`, erros
 > `auth_required`, `auth_failed`, `not_authenticated`). Ver [07](07-pareamento-por-token.md). O host exige token por padrão; o 1.0
@@ -16,7 +19,7 @@ Envelope: `{ "t": tipo, "seq"?: n, "id"?: correlação, "re"?: id respondido, ..
 | plugin→host | `hello` (`protocol` com `min` e `max`, `manifest`, `resume?`, `auth?` na 1.1) | — |
 | host→plugin | `auth` (1.1: `nonce`, `proof`) e plugin→host `auth.ok` (1.1: `proof`) | — |
 | host→plugin | `welcome` (`protocol`, `api`, `sessionId`, `granted`, `denied`, `heartbeatMs`, `cameraMode`, `resumed`) | — |
-| host→plugin | `scene.snapshot`, `scene.delta`, `event.connection` | `scene.read` (deltas também `events.subscribe`) |
+| host→plugin | `scene.snapshot` (1.0/1.1) ou `scene.snapshot.begin`/`.part`/`.end` (1.2), `scene.delta`, `event.connection` | `scene.read` (deltas também `events.subscribe`) |
 | plugin→host | `scene.resync` | `scene.read` |
 | host→plugin | `camera.update` (`camera`, `cameraRev`, `origin`) | `camera.read` e `events.subscribe` |
 | plugin→host | `camera.set` (`camera`, `cameraRev`) | `camera.write` |
@@ -32,6 +35,11 @@ Envelope: `{ "t": tipo, "seq"?: n, "id"?: correlação, "re"?: id respondido, ..
 - **Confirmação:** toda mensagem exceto `ack`, `ping`, `pong`, `bye` e `error` leva `seq` crescente a partir de 1; o
   receptor responde `ack`. Duplicata: reconfirma e ignora. Salto: `out_of_order` fatal. Sem `ack` no prazo: `ack_timeout` fatal.
 - **Heartbeat:** `ping` a cada `heartbeatMs` (padrão 5 s). Silêncio por mais de 2,5 vezes isso: `heartbeat_timeout` e fechamento.
+- **Snapshot em partes (1.2):** `scene.snapshot.begin { snapshot (cabeçalho sem as listas), parts, counts }`, depois `parts` mensagens
+  `scene.snapshot.part { index, entities?, materials?, textures? }` com `index` 0, 1, 2… e, por fim, `scene.snapshot.end { revision }`. O host
+  fecha cada parte perto de 8 MiB de JSON (uma entidade nunca é dividida). O plugin só considera a cena válida no `end`, depois de
+  conferir partes, revisão e contagens (`SnapshotAssembler`); inconsistência ⇒ `scene.resync`. O host não envia deltas entre `begin` e `end`
+  (a ordem é garantida), e o primeiro delta parte de `end.revision`. Nenhum quadro passa do teto; o teto do snapshot deixa de ser 64 MiB.
 - **Cena:** cada `scene.delta` tem `baseRevision` igual à revisão anterior. Se não casar, o plugin pede `scene.resync` e
   recebe novo snapshot. O host agrupa alterações (cerca de 300 ms) e nunca envia delta vazio.
 - **Câmera:** modo `follow-hestia` (padrão): Hestia→plugin; `camera.set` é recusado (`bad_request`). Modo `plugin-drives`

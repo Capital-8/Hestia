@@ -47,6 +47,11 @@ export interface WelcomeMsg extends Envelope {
 }
 export interface AuthMsg extends Envelope { t: 'auth'; nonce: string; proof: string }
 export interface SnapshotMsg extends Envelope { t: 'scene.snapshot'; snapshot: SceneSnapshot }
+/** Snapshot em partes (protocolo 1.2): cabeçalho sem as listas, depois `parts` partes numeradas, depois o fim. */
+export type SnapshotHeader = Omit<SceneSnapshot, 'entities' | 'materials' | 'textures'>;
+export interface SnapshotBeginMsg extends Envelope { t: 'scene.snapshot.begin'; snapshot: SnapshotHeader; parts: number; counts: { entities: number; materials: number; textures: number } }
+export interface SnapshotPartMsg extends Envelope { t: 'scene.snapshot.part'; index: number; entities?: SceneSnapshot['entities']; materials?: SceneSnapshot['materials']; textures?: SceneSnapshot['textures'] }
+export interface SnapshotEndMsg extends Envelope { t: 'scene.snapshot.end'; revision: number }
 export interface DeltaMsg extends Envelope { t: 'scene.delta'; delta: SceneDelta }
 export interface ConnectionEventMsg extends Envelope { t: 'event.connection'; state: 'connected' | 'closing'; reason?: string }
 
@@ -61,13 +66,13 @@ export interface ByeMsg extends Envelope { t: 'bye'; reason?: string }
 export interface ErrorMsg extends Envelope { t: 'error'; error: ProtocolError }
 
 export type PluginToHost = HelloMsg | AuthOkMsg | ResyncMsg | CameraModeSetMsg | CameraSetMsg | OverridesSetMsg | OverridesClearMsg | CancelMsg | CameraUpdateMsg | AckMsg | PingMsg | PongMsg | ByeMsg | ErrorMsg;
-export type HostToPlugin = WelcomeMsg | AuthMsg | SnapshotMsg | DeltaMsg | ConnectionEventMsg | CameraUpdateMsg | CameraModeMsg | OverridesStateMsg | AckMsg | PingMsg | PongMsg | ByeMsg | ErrorMsg;
+export type HostToPlugin = WelcomeMsg | AuthMsg | SnapshotMsg | SnapshotBeginMsg | SnapshotPartMsg | SnapshotEndMsg | DeltaMsg | ConnectionEventMsg | CameraUpdateMsg | CameraModeMsg | OverridesStateMsg | AckMsg | PingMsg | PongMsg | ByeMsg | ErrorMsg;
 export type Message = PluginToHost | HostToPlugin;
 
 /** Tipos que consomem `seq` e exigem `ack`. */
 export const ACKED_TYPES: ReadonlySet<string> = new Set([
   'hello', 'auth', 'auth.ok', 'scene.resync', 'camera.mode.set', 'camera.set', 'overrides.set', 'overrides.clear', 'cancel',
-  'welcome', 'scene.snapshot', 'scene.delta', 'event.connection', 'camera.update', 'camera.mode', 'overrides.state',
+  'welcome', 'scene.snapshot', 'scene.snapshot.begin', 'scene.snapshot.part', 'scene.snapshot.end', 'scene.delta', 'event.connection', 'camera.update', 'camera.mode', 'overrides.state',
 ]);
 
 export const KNOWN_TYPES: ReadonlySet<string> = new Set([...ACKED_TYPES, 'bye', 'ack', 'ping', 'pong', 'error']);
@@ -197,6 +202,12 @@ export function validateMessage(m: Message): string | null {
       return null;
     case 'scene.snapshot':
       return isObj(r.snapshot) && isInt(r.snapshot.revision) && isStr(r.snapshot.projectId, 100) && Array.isArray(r.snapshot.entities) && Array.isArray(r.snapshot.materials) ? null : 'snapshot inválido';
+    case 'scene.snapshot.begin':
+      return isObj(r.snapshot) && isInt(r.snapshot.revision) && isStr(r.snapshot.projectId, 100) && isInt(r.parts, 1) && isObj(r.counts) && isInt(r.counts.entities) && isInt(r.counts.materials) && isInt(r.counts.textures) ? null : 'snapshot.begin inválido';
+    case 'scene.snapshot.part':
+      return isInt(r.index) && (r.entities === undefined || Array.isArray(r.entities)) && (r.materials === undefined || Array.isArray(r.materials)) && (r.textures === undefined || Array.isArray(r.textures)) ? null : 'snapshot.part inválido';
+    case 'scene.snapshot.end':
+      return isInt(r.revision) ? null : 'snapshot.end inválido';
     case 'scene.delta':
       return isObj(r.delta) && isInt(r.delta.baseRevision) && isInt(r.delta.revision) && (r.delta.revision as number) > (r.delta.baseRevision as number) && Array.isArray(r.delta.ops) ? null : 'delta inválido';
     case 'camera.mode.set': case 'camera.mode':

@@ -15,6 +15,19 @@ pub struct Scene {
     pub materials: BTreeMap<String, Value>,
     pub textures: BTreeMap<String, Value>,
     pub has_snapshot: bool,
+    /// Snapshot em montagem (protocolo 1.2): cabeçalho, contagens esperadas e próxima parte.
+    pending: Option<Pending>,
+}
+
+struct Pending {
+    revision: u64,
+    parts: u64,
+    next: u64,
+    counts: [usize; 3],
+    head: Value,
+    entities: BTreeMap<String, Value>,
+    materials: BTreeMap<String, Value>,
+    textures: BTreeMap<String, Value>,
 }
 
 #[derive(Default)]
@@ -38,6 +51,11 @@ pub struct State {
     pub resyncs: u32,
     pub errors: Vec<Value>,
     pub last_close: String,
+    pub snapshot_parts: u32,
+    pub snapshot_parts_in_flight: u32,
+    pub chunked_snapshots: u32,
+    /// Maior quadro de texto recebido, em bytes (prova de que o protocolo 1.2 mantém os quadros pequenos).
+    pub largest_frame: u64,
     pub authenticated: bool,
     /// Modo sem autenticação (`--insecure-no-auth`, só testes locais).
     pub insecure: bool,
@@ -59,6 +77,50 @@ impl Scene {
         self.materials = collect(&s["materials"]);
         self.textures = collect(&s["textures"]);
         self.has_snapshot = true;
+    }
+
+    pub fn begin_snapshot(&mut self, m: &Value) {
+        let c = |k: &str| m["counts"][k].as_u64().unwrap_or(0) as usize;
+        self.pending = Some(Pending {
+            revision: m["snapshot"]["revision"].as_u64().unwrap_or(0),
+            parts: m["parts"].as_u64().unwrap_or(0),
+            next: 0,
+            counts: [c("entities"), c("materials"), c("textures")],
+            head: m["snapshot"].clone(),
+            entities: BTreeMap::new(),
+            materials: BTreeMap::new(),
+            textures: BTreeMap::new(),
+        });
+    }
+
+    /// Acrescenta uma parte; `false` se não houver `begin` ou o índice estiver fora de ordem.
+    pub fn snapshot_part(&mut self, m: &Value) -> bool {
+        let Some(p) = self.pending.as_mut() else { return false };
+        if m["index"].as_u64() != Some(p.next) {
+            self.pending = None;
+            return false;
+        }
+        p.next += 1;
+        p.entities.extend(collect(&m["entities"]));
+        p.materials.extend(collect(&m["materials"]));
+        p.textures.extend(collect(&m["textures"]));
+        true
+    }
+
+    /// Fecha o snapshot em partes; só vale se partes e contagens conferem.
+    pub fn end_snapshot(&mut self, m: &Value) -> bool {
+        let Some(p) = self.pending.take() else { return false };
+        if p.next != p.parts || m["revision"].as_u64() != Some(p.revision) || [p.entities.len(), p.materials.len(), p.textures.len()] != p.counts {
+            return false;
+        }
+        self.project_id = p.head["projectId"].as_str().unwrap_or_default().to_owned();
+        self.project_name = p.head["projectName"].as_str().unwrap_or_default().to_owned();
+        self.revision = p.revision;
+        self.entities = p.entities;
+        self.materials = p.materials;
+        self.textures = p.textures;
+        self.has_snapshot = true;
+        true
     }
 
     /// Aplica um delta. `false` quando ele não parte da revisão que temos (o chamador pede `scene.resync`).
@@ -142,6 +204,9 @@ impl State {
             "resyncs": self.resyncs,
             "errors": self.errors,
             "lastClose": self.last_close,
+            "snapshotParts": self.snapshot_parts,
+            "chunkedSnapshots": self.chunked_snapshots,
+            "largestFrame": self.largest_frame,
             "authenticated": self.authenticated,
             "insecure": self.insecure,
             "authFailures": self.auth_failures,

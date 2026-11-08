@@ -85,6 +85,8 @@ export interface PluginHostOptions {
    * obrigatório). Não há controle para isto na interface.
    */
   insecureAllowUnauthenticated?: boolean;
+  /** Tamanho-alvo das partes do snapshot (protocolo 1.2); padrão 8 MiB. Testes usam valores pequenos. */
+  snapshotChunkChars?: number;
 }
 
 const DEFAULT_BACKOFF = [1000, 2000, 4000, 8000, 15000];
@@ -235,6 +237,7 @@ export class PluginHost {
       ...(e.expectedKind ? { expectedKind: e.expectedKind } : {}),
       ...(this.o.heartbeatMs ? { heartbeatMs: this.o.heartbeatMs } : {}),
       retained: this.retained.get(key) ?? null,
+      ...(this.o.snapshotChunkChars ? { snapshotChunkChars: this.o.snapshotChunkChars } : {}),
       onRetain: (r) => this.retained.set(key, r),
       onEvent: (ev) => this.onEvent(key, my, ev),
     });

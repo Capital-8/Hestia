@@ -33,6 +33,9 @@ const NUMBERED_FROM_HOST: &[&str] = &[
     "auth",
     "welcome",
     "scene.snapshot",
+    "scene.snapshot.begin",
+    "scene.snapshot.part",
+    "scene.snapshot.end",
     "scene.delta",
     "event.connection",
     "camera.update",
@@ -136,7 +139,7 @@ pub fn run_connection(ws: WebSocket<TcpStream>, state: &mut State, retained: &mu
     // Com token: protocolo 1.1 e `auth.nonce`. Sem token (modo inseguro, só testes): fala 1.0, como um plugin antigo.
     let mut hello = json!({
         "t": "hello",
-        "protocol": if token.is_some() { json!({ "min": "1.1", "max": "1.1" }) } else { json!({ "min": "1.0", "max": "1.0" }) },
+        "protocol": if token.is_some() { json!({ "min": "1.1", "max": "1.2" }) } else { json!({ "min": "1.0", "max": "1.0" }) },
         "manifest": manifest(),
     });
     if token.is_some() {
@@ -169,6 +172,7 @@ pub fn run_connection(ws: WebSocket<TcpStream>, state: &mut State, retained: &mu
         match p.ws.read() {
             Ok(Message::Text(txt)) => {
                 p.last_seen = Instant::now();
+                state.largest_frame = state.largest_frame.max(txt.len() as u64);
                 match handle(&mut p, state, retained, &txt) {
                     Ok(true) => report(state),
                     Ok(false) => return finish(state, report, "encerrado pelo host".into()),
@@ -320,6 +324,33 @@ fn handle(p: &mut Peer, state: &mut State, retained: &mut Retained, txt: &str) -
         "scene.snapshot" => {
             state.scene.load_snapshot(&m["snapshot"]);
             state.snapshots += 1;
+        }
+        // Snapshot em partes (protocolo 1.2): monta aos poucos; só conta e vale depois do `end` conferido.
+        "scene.snapshot.begin" => {
+            state.scene.begin_snapshot(&m);
+            state.snapshot_parts_in_flight = 0;
+        }
+        "scene.snapshot.part" => {
+            if !state.scene.snapshot_part(&m) {
+                state.errors.push(json!({ "code": "bad_request", "message": "parte de snapshot fora de ordem ou sem begin" }));
+                state.resyncs += 1;
+                let id = p.next_id("r");
+                p.send(json!({ "t": "scene.resync", "id": id }))?;
+            } else {
+                state.snapshot_parts_in_flight += 1;
+                state.snapshot_parts += 1;
+            }
+        }
+        "scene.snapshot.end" => {
+            if state.scene.end_snapshot(&m) {
+                state.snapshots += 1;
+                state.chunked_snapshots += 1;
+            } else {
+                state.errors.push(json!({ "code": "bad_request", "message": "snapshot em partes inconsistente" }));
+                state.resyncs += 1;
+                let id = p.next_id("r");
+                p.send(json!({ "t": "scene.resync", "id": id }))?;
+            }
         }
         "scene.delta" => {
             if state.scene.apply_delta(&m["delta"]) {
