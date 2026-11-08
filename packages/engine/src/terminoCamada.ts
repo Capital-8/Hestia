@@ -21,6 +21,12 @@ export const LARGURA_PRESENCA = 0.05;
 export const FOLGA_BANDA = 1;
 /** Tolerância (m) para a camada do meio da parede contar nas duas metades. */
 export const TOLERANCIA_META = 1e-9;
+/**
+ * Tolerância (m) da face da parede: a resolução do kernel (grade de 1 µm). A peça do contorno da laje que fica além da face OPOSTA à laje por no
+ * máximo isso é a própria face (desenho com erro de arredondamento) e sai com o corte da parede. Sem isso sobra uma peça fio fora da pegada, que a
+ * extrusão transforma numa folha de espessura nula na face da parede, e a face dela é desenhada por cima da face da parede.
+ */
+export const TOLERANCIA_FACE = 1e-6;
 /** Camada da parede como a busca a enxerga: função, e distâncias da face externa ao início e ao fim. */
 export interface CamadaDeBusca {
   funcao: string;
@@ -172,6 +178,16 @@ export function regionCamada(p: Project, ref: MultiPolygon, walls: readonly Reso
           }),
         );
       const tira = (d0: number, d1: number): MultiPolygon => intersection(F, banda(d0, d1));
+      // Peças do contorno que passam da face oposta à laje por no máximo `TOLERANCIA_FACE`: saem junto com o corte (inclusive sob o vão de porta).
+      const fios = (): MultiPolygon => {
+        const faixa = lado === 'int' ? banda(-FOLGA_BANDA, 0) : banda(T, T + FOLGA_BANDA);
+        return intersection(ref, faixa).filter((poly) =>
+          poly[0]!.every((q) => {
+            const d = f.extOffset - f.sign * toLocal(f, q).s;
+            return lado === 'int' ? d >= -TOLERANCIA_FACE : d <= T + TOLERANCIA_FACE;
+          }),
+        );
+      };
       let bloco: MultiPolygon;
       if (lado === 'ext') {
         if (borda > 0) proprios.push(tira(-FOLGA_BANDA, borda));
@@ -186,6 +202,7 @@ export function regionCamada(p: Project, ref: MultiPolygon, walls: readonly Reso
         if (borda < 0) proprios.push(banda(borda, 0));
       }
       blocos.push(portas.length === 0 ? bloco : difference(bloco, ...portas));
+      blocos.push(fios());
     }
   }
   const proprios_ = proprios.filter((m) => m.length > 0);

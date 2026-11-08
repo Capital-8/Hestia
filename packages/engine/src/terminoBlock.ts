@@ -137,7 +137,8 @@ function doorRect(c: Vec2, u: Vec2, n: Vec2, halfWidth: number, halfThick: numbe
 
 /**
  * Vãos de porta da parede que chegam ao piso até o topo `z1` da camada (soleira no nível do acabamento): retângulos em
- * planta. Janela não entra: a zona só perde o trecho onde o piso passa por baixo de porta.
+ * planta. Janela não entra: a zona só perde o trecho onde o piso passa por baixo de porta. O vão também tem de alcançar o topo da camada
+ * (soleira + altura do vão >= `z1`): acima da porta (verga) a parede é contínua e a camada a recorta como no trecho cheio.
  */
 export function doorRectsReaching(p: Project, rw: ResolvedWall, z1: number): MultiPolygon[] {
   const f = frameOfWall(p, rw.wallId);
@@ -147,6 +148,7 @@ export function doorRectsReaching(p: Project, rw: ResolvedWall, z1: number): Mul
     if (o.kind !== 'door') continue;
     const g = openingGeometry(p, o, f);
     if (rw.baseZ + g.sill > z1 + Z_TOL) continue;
+    if (rw.baseZ + g.sill + g.roughHeight < z1 - Z_TOL) continue;
     rects.push([[doorRect(g.center, g.u, g.n, g.width / 2, g.thickness / 2 + 0.005)]]);
   }
   return rects;

@@ -8,7 +8,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { instalarDespachoKernel, removerDespachoKernel } from '../packages/engine/src/kernelDespacho.ts';
 import { caminhoDoWasm } from '../packages/geom/src/kernel/caminhoWasm.ts';
 import { GerenciadorKernelV2 } from '../packages/geom/src/kernel/v2/gerenciador.ts';
-import { CENARIOS, caixaEsperada, caixasDoCenario, casosCamada, esperadoCamada, medir, projetoDaMatriz, projetoDoCenario, type Intervalos } from './termino-camada-matriz.ts';
+import { bordaDaLajeEm, projetoPortaSobLaje } from './termino-camada-porta.ts';
+import { CENARIOS, caixaEsperada, caixasDoCenario, casosCamada, larguraMinimaDasPecas, esperadoCamada, medir, projetoDaMatriz, projetoDoCenario, type Intervalos } from './termino-camada-matriz.ts';
 
 const caminho = caminhoDoWasm();
 const bytes = existsSync(caminho) ? readFileSync(caminho) : null;
@@ -53,4 +54,23 @@ describe.skipIf(!bytes)('cenários do caso real (Rust): excesso sub-micrométric
       }, 60_000);
     }
   }
+
+  for (const c of casosCamada().filter((k) => k.grupo === 'preset')) {
+    it(`excesso: ${c.nome}: o contorno não guarda peça fio (largura média menor que 1 µm) que a extrusão leva à face da parede`, () => {
+        if (ger === null) return;
+      const m = larguraMinimaDasPecas(projetoDoCenario(c, 'excesso'));
+      for (const id of ['lq', 'fq']) expect(m[id]!, id).toBeGreaterThanOrEqual(1e-6);
+    }, 60_000);
+  }
+});
+
+describe.skipIf(!bytes)('término por camada (Rust): acima da porta a parede é contínua', () => {
+  it('a borda da laje sobre o vão da porta é a mesma do trecho cheio da parede', () => {
+    if (ger === null) return;
+    const p = projetoPortaSobLaje();
+    const cheio = bordaDaLajeEm(p, 1);
+    const sobPorta = bordaDaLajeEm(p, 3);
+    expect(Number.isFinite(cheio) && Number.isFinite(sobPorta)).toBe(true);
+    expect(sobPorta).toBeCloseTo(cheio, 6);
+  }, 60_000);
 });

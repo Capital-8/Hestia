@@ -202,6 +202,23 @@ export function caixasDoCenario(p: Project): Record<string, number[]> {
   return out;
 }
 
+/** Menor largura média (área sobre meio perímetro) entre as peças do contorno da camada 0 de `lq` e de `fq`: peça fio é a que fica abaixo de 1 µm. */
+export function larguraMinimaDasPecas(p: Project): Record<string, number> {
+  const menor = (pol: Multi): number => {
+    let m = Infinity;
+    for (const poly of pol) {
+      let per = 0;
+      for (const ring of poly) for (let i = 0; i < ring.length; i++) per += Math.hypot(ring[(i + 1) % ring.length]!.x - ring[i]!.x, ring[(i + 1) % ring.length]!.y - ring[i]!.y);
+      m = Math.min(m, per > 0 ? (2 * multiArea([poly] as never)) / per : 0);
+    }
+    return m;
+  };
+  const out: Record<string, number> = {};
+  for (const r of resolveSlabs(p, 'lv_0')) { const id = (r as unknown as { slabId?: string; id?: string }).slabId ?? (r as unknown as { id: string }).id; if (id === 'lq') out.lq = menor(r.layers[0]!.polygon as unknown as Multi); }
+  for (const r of resolveFloors(p, 'lv_0')) { const id = (r as unknown as { floorId?: string; id?: string }).floorId ?? (r as unknown as { id: string }).id; if (id === 'fq') out.fq = menor(r.layers[0]!.polygon as unknown as Multi); }
+  return out;
+}
+
 /** Caixa esperada do cenário (a borda sai de `bordaEsperada`, as mesmas contas da matriz). */
 export function caixaEsperada(c: CasoMatriz, cenario: Cenario): number[] {
   const r = (c.regra as { camada: TerminoCamada }).camada;

@@ -62,6 +62,8 @@ pub struct CamadaDaParede {
 /// Porta da parede (`kind === 'door'`): a soleira e o retângulo do vão em planta.
 pub struct Porta {
     pub peitoril: f64,
+    /// Altura do vão (`roughHeight`): a porta só está no vão até `peitoril + vao_altura`; acima dela a parede é contínua.
+    pub vao_altura: f64,
     pub retangulo: MultiPoligono,
 }
 
@@ -188,9 +190,9 @@ impl ParedeDoNivel {
         interseccao_com_escala(zona, &faixas, ESCALA_FINA)
     }
 
-    /// `doorRectsReaching(p, rw, z1)`: os vãos de porta cuja soleira chega ao topo `z1` da camada.
+    /// `doorRectsReaching(p, rw, z1)`: os vãos de porta cuja soleira chega ao topo `z1` da camada e cujo vão alcança esse topo.
     fn portas_ate(&self, z1: f64) -> Vec<MultiPoligono> {
-        self.portas.iter().filter(|p| !(self.base_z + p.peitoril > z1 + Z_TOL)).map(|p| p.retangulo.clone()).collect()
+        self.portas.iter().filter(|p| !(self.base_z + p.peitoril > z1 + Z_TOL) && !(self.base_z + p.peitoril + p.vao_altura < z1 - Z_TOL)).map(|p| p.retangulo.clone()).collect()
     }
 
     /// `blockedLayerIndexes(rw, rule)`: faixa contígua entre o menor e o maior índice no caso `ate`.
@@ -304,7 +306,7 @@ impl<'a> Carregador<'a> {
                 let portas = aberturas
                     .iter()
                     .filter(|(_, a, _, _)| a.parede == q.id && !a.janela)
-                    .map(|(_, _, _, geo)| Porta { peitoril: geo.peitoril, retangulo: vec![vec![retangulo_da_porta([geo.centro.x, geo.centro.y], [geo.u.x, geo.u.y], [geo.n.x, geo.n.y], geo.largura, geo.espessura)]] })
+                    .map(|(_, _, _, geo)| Porta { peitoril: geo.peitoril, vao_altura: geo.vao_altura, retangulo: vec![vec![retangulo_da_porta([geo.centro.x, geo.centro.y], [geo.u.x, geo.u.y], [geo.n.x, geo.n.y], geo.largura, geo.espessura)]] })
                     .collect();
                 // Perfis (`withBottomProfile`/`withProfile`): só parede reta, com ao menos 2 pontos; o topo é o derivado ou, sem ele, o do modelo.
                 let reta = self.cena.a1.quadros.get(&q.id).ok_or(ENTRADA)?.sag == 0.0;
@@ -424,6 +426,9 @@ impl<'a> Escopo<'a> {
 
 /// Largura (m) da faixa colada à face da parede em que se procura a laje (`LARGURA_PRESENCA`).
 const LARGURA_PRESENCA: f64 = 0.05;
+/// Tolerância (m) da face da parede: a resolução do kernel (grade de 1 µm) (`TOLERANCIA_FACE`). A peça do contorno da laje que fica além da face OPOSTA à
+/// laje por no máximo isso é a própria face e sai com o corte da parede (senão sobra uma peça fio fora da pegada, que a extrusão desenha por cima da face).
+const TOLERANCIA_FACE: f64 = 1e-6;
 /// Folga (m) para a banda passar das faces da parede (`FOLGA_BANDA`).
 const FOLGA_BANDA: f64 = 1.0;
 /// Tolerância (m) para a camada do meio da parede contar nas duas metades (`TOLERANCIA_META`).
@@ -588,6 +593,21 @@ impl<'a> Escopo<'a> {
                         uniao_com_escala(&partes, ESCALA_FINA)
                     };
                     let tira = |d0: f64, d1: f64| -> Result<MultiPoligono, u32> { interseccao_com_escala(&grande_f, &banda(d0, d1)?, ESCALA_FINA) };
+                    // Peças do contorno que passam da face oposta à laje por no máximo `TOLERANCIA_FACE`: saem junto com o corte (inclusive sob o vão de porta).
+                    let fios = || -> Result<MultiPoligono, u32> {
+                        let faixa = if externo { banda(total, total + FOLGA_BANDA)? } else { banda(-FOLGA_BANDA, 0.0)? };
+                        Ok(interseccao_com_escala(&ref_pc, &faixa, ESCALA_FINA)?
+                            .into_iter()
+                            .filter(|poly| {
+                                poly.first().is_some_and(|anel| {
+                                    anel.iter().all(|q| {
+                                        let d = f.ext_offset - f.sign * para_local(f, crate::geo2d::v(q[0], q[1])).1;
+                                        if externo { d <= total + TOLERANCIA_FACE } else { d >= -TOLERANCIA_FACE }
+                                    })
+                                })
+                            })
+                            .collect())
+                    };
                     let mut bloco: MultiPoligono;
                     if externo {
                         if borda > 0.0 {
@@ -620,6 +640,7 @@ impl<'a> Escopo<'a> {
                         bloco = diferenca_com_escala(&args, ESCALA_FINA)?;
                     }
                     blocos.push(bloco);
+                    blocos.push(fios()?);
                 }
             }
         }
@@ -698,7 +719,7 @@ mod testes {
     #[test]
     fn zona_tira_so_a_porta_que_chega_ao_topo_da_camada() {
         // porta em x de 1 a 2 (largura 1, espessura 0,2 + 5 mm por face): o retângulo cobre y de -0,105 a 0,305 e perde 1 x 0,2 da pegada de 4 x 0,2
-        let porta = |peitoril: f64| Porta { peitoril, retangulo: vec![vec![retangulo_da_porta([1.5, 0.1], [1.0, 0.0], [0.0, 1.0], 1.0, 0.2)]] };
+        let porta = |peitoril: f64| Porta { peitoril, vao_altura: 2.1, retangulo: vec![vec![retangulo_da_porta([1.5, 0.1], [1.0, 0.0], [0.0, 1.0], 1.0, 0.2)]] };
         let p = parede_de_tres([4.0, 1.0, 5.0], vec![porta(0.0)]);
         let pegada = area_da_forma(&p.zona_bloqueada(Regra::Face).unwrap());
         assert!((pegada - 0.8).abs() < 1e-9);

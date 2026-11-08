@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CENARIOS, caixaEsperada, caixasDoCenario, casosCamada, esperadoCamada, medir, projetoDaMatriz, projetoDoCenario, type Intervalos } from '../../../tests/termino-camada-matriz.ts';
+import { CENARIOS, caixaEsperada, caixasDoCenario, casosCamada, larguraMinimaDasPecas, esperadoCamada, medir, projetoDaMatriz, projetoDoCenario, type Intervalos } from '../../../tests/termino-camada-matriz.ts';
 
 const arred = (a: Intervalos): number[][] => a.map((i) => i.map((v) => +v.toFixed(5)));
 
@@ -26,5 +26,12 @@ describe('cenários do caso real (TypeScript): excesso sub-micrométrico e junç
         for (const id of ['lq', 'fq']) expect(m[id]!.map((v) => +v.toFixed(5)), id).toEqual(caixaEsperada(c, cen.id).map((v) => +v.toFixed(5)));
       });
     }
+  }
+
+  for (const c of casosCamada().filter((k) => k.grupo === 'preset')) {
+    it(`excesso: ${c.nome}: o contorno não guarda peça fio (largura média menor que 1 µm) que a extrusão leva à face da parede`, () => {
+      const m = larguraMinimaDasPecas(projetoDoCenario(c, 'excesso'));
+      for (const id of ['lq', 'fq']) expect(m[id]!, id).toBeGreaterThanOrEqual(1e-6);
+    });
   }
 });
