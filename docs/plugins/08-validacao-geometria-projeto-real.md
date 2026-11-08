@@ -80,9 +80,11 @@ produção), lê a cena **viva** (`lerCena3D()`/`prepararCena3D()`, o mesmo cami
 - **Tempo:** o navegador (WebGL por software, máquina de desenvolvimento) leva cerca de 2 vezes o tempo do Node. Para ~370 mil triângulos: ~2,3 s para extrair, montar
   e serializar o snapshot.
 - Sem erros de página nesses 4 projetos.
-- **Defeito separado, fora do plugin:** abrir `Projeto sem título` (`Documents\pasta`) no app lança `ErroDespachoKernel: kernel Rust (fatia B, nível lv_0): kernel v2 (ENTRADA):
-  entrada invalida` em `resolveFloors` (via `faixaDaParedeNoTelhado`), **sem nenhum código de plugin em execução**. Como o Rust é o único caminho de produção, o projeto
-  não abre limpo. Não corrigido aqui; precisa de investigação própria (fatia B, piso do nível `lv_0`). Esse projeto só foi validado em Node.
+- **Incompatibilidade de formato, fora do plugin (causa achada):** abrir `Projeto sem título` (`Documents\pasta`) lança `ErroDespachoKernel: kernel Rust (fatia B, nível lv_0): kernel v2
+  (ENTRADA): entrada invalida` e a vista 3D fica em branco, **sem nenhum código de plugin em execução**. Isolado por bissecção no wasm: o tipo de laje `ls_mac12` do arquivo tem
+  `termino: { camada: {...} }` (a feature "término por camada", branch `feat/termino-camada`, ainda não mesclada). O `LayerTermino` desta base só conhece
+  `auto | nucleo | face | passa | {cm} | {ate}`; `codificarTermino` (`kernelB.ts`) trata o formato desconhecido como `{cm}` e envia `NaN`, que o Rust recusa. Sem o `termino`,
+  o mesmo projeto passa. O outro projeto da pasta (sem `termino.camada`) abre normalmente. Falta: a feature chegar à main e, antes disso, um erro claro em vez de `NaN`.
 - **Não exercitado:** o ORLA (165 MB) no navegador, GPU real (só WebGL por software), `prepararCena3D()` durante montagem progressiva por fases
   (`abrirPorFases`), e visibilidade por vista.
 
