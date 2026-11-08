@@ -22,6 +22,35 @@ function previewCurvePoints(c: StairCurve): Vec2[] {
   return out;
 }
 
+/** Parte da feição que a prévia precisa: a reta, a aresta/curva exata e o rótulo. */
+export type AlignPreviewFeature = Pick<AlignFeature, 'line' | 'label'> & Partial<Pick<AlignFeature, 'seg' | 'curve'>>;
+
+/**
+ * Realce de uma feição (o MESMO da planta e dos cortes/elevações). Com `curve` (arco), desenha a curva inteira em
+ * segmentos; com `seg`, a aresta exata; sem nenhum dos dois (eixos e referências), o risco curto centrado em `line.p`.
+ * `ref` usa traço cheio; alvo em espera usa tracejado. O rótulo fica sobre a feição.
+ */
+export function alignFeatureItems(f: AlignPreviewFeature, prefix: string, dashed = false): PreviewItem[] {
+  const items: PreviewItem[] = [];
+  let labelAt = f.line.p;
+  if (f.curve && Math.abs(f.curve.sag) >= 1e-9) {
+    const pts = previewCurvePoints(f.curve);
+    for (let i = 1; i < pts.length; i++) {
+      items.push({ kind: 'line', a: pts[i - 1]!, b: pts[i]!, halo: true, dashed });
+    }
+    if (pts.length) labelAt = pts[Math.floor(pts.length / 2)]!;
+  } else if (f.seg) {
+    items.push({ kind: 'line', a: f.seg.a, b: f.seg.b, halo: true, dashed });
+    labelAt = mul(add(f.seg.a, f.seg.b), 0.5);
+  } else {
+    const a = add(f.line.p, mul(f.line.d, -LABEL_HALF));
+    const b = add(f.line.p, mul(f.line.d, LABEL_HALF));
+    items.push({ kind: 'line', a, b, halo: true, dashed });
+  }
+  items.push({ kind: 'label', at: labelAt, text: `${prefix}${f.label}` });
+  return items;
+}
+
 /** Parede que a feição de referência pertence (a própria parede, a da extremidade ou a hospedeira da abertura). */
 function paredeDaFeicao(f: AlignFeature): Id | undefined {
   const m = f.move;
@@ -83,30 +112,8 @@ export class AlignTool extends ToolBase {
     return this.hover[this.hoverIndex] ?? null;
   }
 
-  /**
-   * Realce de uma feição. Com `curve` (arco), desenha a curva inteira em segmentos; com `seg`, a aresta exata;
-   * sem nenhum dos dois (eixos e referências), o risco curto centrado em `line.p`. `ref` usa traço cheio; alvo em
-   * espera usa tracejado. O rótulo fica sobre a feição.
-   */
   private featureItems(f: AlignFeature, prefix: string, dashed = false): PreviewItem[] {
-    const items: PreviewItem[] = [];
-    let labelAt = f.line.p;
-    if (f.curve && Math.abs(f.curve.sag) >= 1e-9) {
-      const pts = previewCurvePoints(f.curve);
-      for (let i = 1; i < pts.length; i++) {
-        items.push({ kind: 'line', a: pts[i - 1]!, b: pts[i]!, halo: true, dashed });
-      }
-      if (pts.length) labelAt = pts[Math.floor(pts.length / 2)]!;
-    } else if (f.seg) {
-      items.push({ kind: 'line', a: f.seg.a, b: f.seg.b, halo: true, dashed });
-      labelAt = mul(add(f.seg.a, f.seg.b), 0.5);
-    } else {
-      const a = add(f.line.p, mul(f.line.d, -LABEL_HALF));
-      const b = add(f.line.p, mul(f.line.d, LABEL_HALF));
-      items.push({ kind: 'line', a, b, halo: true, dashed });
-    }
-    items.push({ kind: 'label', at: labelAt, text: `${prefix}${f.label}` });
-    return items;
+    return alignFeatureItems(f, prefix, dashed);
   }
 
   private refreshItems(): void {

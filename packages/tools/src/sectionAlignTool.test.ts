@@ -111,8 +111,8 @@ describe('ferramenta Alinhar no corte (referência e alvo por clique)', () => {
     expect(guide?.from.x).toBeCloseTo(0, 9);
     expect(guide?.to.x).toBeCloseTo(10, 9);
     expect(guide?.to.y).toBeCloseTo(2.1, 9);
-    // A referência é só a guia da inferência: nenhuma linha própria no preview.
-    expect(t.preview().some((i) => i.kind === 'line')).toBe(false);
+    // A referência é a guia da inferência (reta inteira) + o realce da feição (segmento exato), como na planta.
+    expect(t.preview().some((i) => i.kind === 'line' && i.halo && i.a.x === 1.1 && i.b.x === 1.9)).toBe(true);
 
     t.move(P(4, 2.3)); // sobre o topo da janela
     const fullReference = t.preview().find((i) => i.kind === 'line' && i.a.x === 0 && i.a.y === 2.1 && i.b.x === 10);
@@ -248,5 +248,51 @@ describe('ferramenta Alinhar no corte (referência e alvo por clique)', () => {
     clickAt(t, 5.5, 3.6); // fora da parede e dos vãos
     expect(ctx.store.version).toBe(version);
     expect(ctx.messages.some((m) => m.includes('Nenhuma janela'))).toBe(true);
+  });
+});
+
+describe('Alinhar no corte: captura independente do zoom', () => {
+  // 1x = 60 px/m (padrão), 0,25x = 15 px/m e 4x = 240 px/m. O clique cai a 3 px da aresta, como na mão do usuário.
+  for (const [nome, zoom] of [['1x', 60], ['0,25x', 15], ['4x', 240]] as const) {
+    it(`topo da janela alinha com o topo da porta na primeira tentativa (${nome})`, () => {
+      const ctx = scene();
+      const mpp = 1 / zoom;
+      ctx.env.metersPerPixel = () => mpp;
+      const t = tool('align', ctx.env);
+      clickAt(t, 1.5, 2.1 - 3 * mpp); // topo da porta, 3 px abaixo
+      clickAt(t, 4, 2.3 + 3 * mpp); // topo da janela, 3 px acima (fora da caixa)
+      expect(opening(ctx, 'j').sillOverride).toBeCloseTo(0.9, 9);
+      expect(opening(ctx, 'j').heightOverride ?? null).toBeNull();
+      expect(ctx.store.undoLabel).toBe('Alinhar no corte');
+    });
+  }
+
+  it('a escolha usa o cursor, não o ponto capturado: uma trilha de alinhamento não desloca o alvo', () => {
+    const ctx = scene();
+    const t = tool('align', ctx.env);
+    clickAt(t, 1.5, 2.1);
+    // Pontos de captura da porta ficam perto, mas o cursor está sobre o topo da janela.
+    clickAt(t, 3.45, 2.3);
+    expect(opening(ctx, 'j').sillOverride).toBeCloseTo(0.9, 9);
+  });
+
+  it('com o corte ainda calculando, a vista de corte já escolhe a ferramenta do corte (não a da planta)', () => {
+    const ctx = scene({ withResult: false });
+    ctx.env.section = () => null;
+    ctx.env.isSectionView = () => true;
+    const t = tool('align', ctx.env);
+    expect(t.constructor.name).toBe('SectionAlignTool');
+  });
+
+  it('a referência e a candidata usam o mesmo realce da planta (linha com halo e rótulo)', () => {
+    const ctx = scene();
+    const t = tool('align', ctx.env);
+    clickAt(t, 1.5, 2.1);
+    t.move(P(4, 2.3));
+    const items = t.preview();
+    expect(items.some((i) => i.kind === 'line' && i.halo && !i.dashed && i.a.y === 2.1 && i.b.y === 2.1)).toBe(true);
+    expect(items.some((i) => i.kind === 'line' && i.halo && i.dashed && i.a.y === 2.3)).toBe(true);
+    expect(items.some((i) => i.kind === 'label' && /Refer/.test(i.text))).toBe(true);
+    expect(items.some((i) => i.kind === 'label' && /Mover/.test(i.text))).toBe(true);
   });
 });

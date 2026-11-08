@@ -2,6 +2,7 @@
 import { closestOnSegment, dist, dot, norm, pointInMulti, sub, type MultiPolygon, type Vec2 } from '@hestia/geom';
 import { frameOfWall, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
 import { formatQuantity, isOpening, isWall, levelElevation, openingHeight, openingSill, openingType, unitsOf, wallBaseElevation, wallLength, wallTopElevation, type Command, type Id, type Opening, type Project } from '@hestia/model';
+import { alignFeatureItems } from './alignTool.ts';
 import { ToolBase } from './base.ts';
 import type { Guide, Inference, PointerInfo, PreviewItem, SectionToolContext, SnapKind, ToolEnv } from './types.ts';
 import { t as translate, type DictKey, type Lang } from './i18n.ts';
@@ -212,12 +213,21 @@ type AlignTarget = { hostId: Id; kind: PieceKind; feature: string; label: string
 type Piece = { hostId: Id; depth: number; polygons: MultiPolygon };
 type Pick = { kind: PieceKind; hostId: Id; opening?: SectionOpening; lines: FeatureLine[]; line: FeatureLine };
 
-const TIE = 0.01;
 const LINE_EPS = 1e-7;
 const FEATURE_ORDER = ['top', 'sill', 'jambLeft', 'jambRight', 'base', 'faceLeft', 'faceRight', 'axis', 'edge', 'centerV', 'centerH'];
 
+const openingLinesCache = new WeakMap<SectionOpening, FeatureLine[]>();
+const polygonLinesCache = new WeakMap<object, FeatureLine[]>();
+const piecesCache = new WeakMap<SectionResult, Piece[]>();
+
 /** As seis linhas de uma janela/porta: topo, peitoril, duas ombreiras e os dois centros. */
 function openingLines(o: SectionOpening): FeatureLine[] {
+  let hit = openingLinesCache.get(o);
+  if (!hit) { hit = buildOpeningLines(o); openingLinesCache.set(o, hit); }
+  return hit;
+}
+
+function buildOpeningLines(o: SectionOpening): FeatureLine[] {
   const mt = (o.t0 + o.t1) / 2, mz = (o.z0 + o.z1) / 2;
   return [
     { feature: 'top', label: 'topo', axis: 'h', value: o.z1, a: { x: o.t0, y: o.z1 }, b: { x: o.t1, y: o.z1 } },
@@ -233,6 +243,12 @@ function openingLines(o: SectionOpening): FeatureLine[] {
 
 /** Arestas dos polígonos da vista, classificadas pela posição dentro da caixa (topo/base/faces). */
 function linesOfPolygons(polys: MultiPolygon): FeatureLine[] {
+  let hit = polygonLinesCache.get(polys);
+  if (!hit) { hit = buildLinesOfPolygons(polys); polygonLinesCache.set(polys, hit); }
+  return hit;
+}
+
+function buildLinesOfPolygons(polys: MultiPolygon): FeatureLine[] {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const p of polys.flatMap((poly) => poly.flat())) {
     minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
@@ -263,11 +279,14 @@ function linesOfPolygons(polys: MultiPolygon): FeatureLine[] {
 }
 
 /** Linha mais próxima do clique. No empate (canto), a feição compatível com o eixo da referência vence. */
-function nearestLine(lines: FeatureLine[], at: Vec2, prefer: 'h' | 'v' | null = null): FeatureLine | null {
+function nearestLine(lines: FeatureLine[], at: Vec2, prefer: 'h' | 'v' | null = null, tie = 0.01): FeatureLine | null {
   if (!lines.length) return null;
-  const scored = lines.map((line) => ({ line, d: dist(at, closestOnSegment(at, line.a, line.b)) }));
+  // Os eixos de centro cruzam as bordas no meio: clicar no meio do topo dava 0 de distância ao eixo vertical e ele
+  // vencia a borda. O centro leva uma desvantagem de alguns pixels, então a borda sob o cursor vence (qualquer zoom).
+  const centerPenalty = tie * 4;
+  const scored = lines.map((line) => ({ line, d: dist(at, closestOnSegment(at, line.a, line.b)) + (line.feature === 'centerV' || line.feature === 'centerH' ? centerPenalty : 0) }));
   const min = Math.min(...scored.map((s) => s.d));
-  const ties = scored.filter((s) => s.d <= min + TIE);
+  const ties = scored.filter((s) => s.d <= min + tie);
   const compatible = prefer ? ties.filter((s) => s.line.axis === prefer) : [];
   const pool = compatible.length ? compatible : ties;
   const rank = (f: FeatureLine): number => { const i = FEATURE_ORDER.indexOf(f.feature); return i < 0 ? FEATURE_ORDER.length : i; };
@@ -279,14 +298,14 @@ const inBox = (o: SectionOpening, at: Vec2, tol: number): boolean =>
   at.x >= o.t0 - tol && at.x <= o.t1 + tol && at.y >= o.z0 - tol && at.y <= o.z1 + tol;
 
 /** Abertura visível sob o clique. Vãos sobrepostos: o mais perto do plano de corte (menor `depth`) vence. */
-function hitOpening(result: SectionResult, at: Vec2, tol: number, prefer: 'h' | 'v' | null): { opening: SectionOpening; lines: FeatureLine[]; line: FeatureLine } | null {
+function hitOpening(result: SectionResult, at: Vec2, tol: number, prefer: 'h' | 'v' | null, tie: number): { opening: SectionOpening; lines: FeatureLine[]; line: FeatureLine } | null {
   let best: { opening: SectionOpening; lines: FeatureLine[]; line: FeatureLine } | null = null;
   let score = Infinity;
   for (const o of result.openings ?? []) {
     const polys = o.polygons ?? [];
     const inside = inBox(o, at, tol) || pointInMulti(at, polys);
     const lines = openingLines(o);
-    const line = nearestLine(lines, at, prefer);
+    const line = nearestLine(lines, at, prefer, tie);
     if (!line) continue;
     const d = dist(at, closestOnSegment(at, line.a, line.b));
     if (!inside && d > tol) continue;
@@ -299,6 +318,12 @@ function hitOpening(result: SectionResult, at: Vec2, tol: number, prefer: 'h' | 
 
 /** Peças da vista com dono: cortes por origem (profundidade 0) e o que está além do plano. */
 function resultPieces(result: SectionResult): Piece[] {
+  let hit = piecesCache.get(result);
+  if (!hit) { hit = buildResultPieces(result); piecesCache.set(result, hit); }
+  return hit;
+}
+
+function buildResultPieces(result: SectionResult): Piece[] {
   const out: Piece[] = [];
   const push = (origin: SectionOrigin, polygons: MultiPolygon, depth: number): void => {
     const hostId = origin.wallId ?? origin.floorId ?? origin.slabId ?? origin.ceilingId ?? origin.roofId ?? origin.stairId ?? origin.rampId ?? origin.openingId;
@@ -312,13 +337,30 @@ function resultPieces(result: SectionResult): Piece[] {
   return out;
 }
 
-function hitPiece(pieces: Piece[], at: Vec2, tol: number, prefer: 'h' | 'v' | null): { piece: Piece; lines: FeatureLine[]; line: FeatureLine } | null {
+const boxCache = new WeakMap<object, { minX: number; minY: number; maxX: number; maxY: number }>();
+/** Caixa envolvente dos polígonos (cacheada): descarta sem custo as peças longe do clique. */
+function boxOf(polys: MultiPolygon): { minX: number; minY: number; maxX: number; maxY: number } {
+  let b = boxCache.get(polys);
+  if (!b) {
+    b = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+    for (const p of polys.flatMap((poly) => poly.flat())) {
+      b.minX = Math.min(b.minX, p.x); b.maxX = Math.max(b.maxX, p.x);
+      b.minY = Math.min(b.minY, p.y); b.maxY = Math.max(b.maxY, p.y);
+    }
+    boxCache.set(polys, b);
+  }
+  return b;
+}
+
+function hitPiece(pieces: Piece[], at: Vec2, tol: number, prefer: 'h' | 'v' | null, tie: number): { piece: Piece; lines: FeatureLine[]; line: FeatureLine } | null {
   let best: { piece: Piece; lines: FeatureLine[]; line: FeatureLine } | null = null;
   let score = Infinity;
   for (const piece of pieces) {
+    const box = boxOf(piece.polygons);
+    if (at.x < box.minX - tol || at.x > box.maxX + tol || at.y < box.minY - tol || at.y > box.maxY + tol) continue;
     const inside = pointInMulti(at, piece.polygons);
     const lines = linesOfPolygons(piece.polygons);
-    const line = nearestLine(lines, at, prefer);
+    const line = nearestLine(lines, at, prefer, tie);
     if (!line) continue;
     const d = dist(at, closestOnSegment(at, line.a, line.b));
     if (!inside && d > tol) continue;
@@ -329,13 +371,13 @@ function hitPiece(pieces: Piece[], at: Vec2, tol: number, prefer: 'h' | 'v' | nu
 }
 
 /** Elemento sob o clique: abertura primeiro, depois parede, depois qualquer outro dono visível. */
-function pickAt(result: SectionResult, project: Project, at: Vec2, tol: number, prefer: 'h' | 'v' | null): Pick | null {
-  const op = hitOpening(result, at, tol, prefer);
+function pickAt(result: SectionResult, project: Project, at: Vec2, tol: number, prefer: 'h' | 'v' | null, tie = tol / 10): Pick | null {
+  const op = hitOpening(result, at, tol, prefer, tie);
   if (op) return { kind: 'opening', hostId: op.opening.openingId, opening: op.opening, lines: op.lines, line: op.line };
   const all = resultPieces(result);
-  const wall = hitPiece(all.filter((p) => isWall(project.elements[p.hostId])), at, tol, prefer);
+  const wall = hitPiece(all.filter((p) => isWall(project.elements[p.hostId])), at, tol, prefer, tie);
   if (wall) return { kind: 'wall', hostId: wall.piece.hostId, lines: wall.lines, line: wall.line };
-  const other = hitPiece(all.filter((p) => !isWall(project.elements[p.hostId])), at, tol, prefer);
+  const other = hitPiece(all.filter((p) => !isWall(project.elements[p.hostId])), at, tol, prefer, tie);
   if (other) return { kind: 'other', hostId: other.piece.hostId, lines: other.lines, line: other.line };
   return null;
 }
@@ -392,9 +434,14 @@ export class SectionAlignTool extends ToolBase {
   override move(p: PointerInfo): void {
     if (!sectionResult(this.env)) { this.items = []; return; }
     const inf = this.snap(p);
-    const target = this.ref ? this.findTarget(inf.point) : null;
-    if (!target) { this.items = [{ kind: 'point', at: inf.point }]; return; }
-    const items: PreviewItem[] = [{ kind: 'point', at: inf.point }, { kind: 'highlight', ids: [target.hostId] }];
+    // O alvo sai do que está sob o cursor (px), não do ponto capturado: uma trilha de alinhamento não pode deslocar a escolha.
+    const target = this.findTarget(p.raw);
+    const items: PreviewItem[] = [];
+    // Mesma prévia da planta: a referência em traço cheio com rótulo e a candidata sob o cursor em tracejado.
+    if (this.ref?.line) items.push(...alignFeatureItems(this.refFeature(this.ref), this.t('tl_label_reference')));
+    if (!target) { this.items = [...items, { kind: 'point', at: inf.point }]; return; }
+    items.push({ kind: 'point', at: inf.point }, { kind: 'highlight', ids: [target.hostId] });
+    if (this.ref) items.push(...alignFeatureItems(this.targetFeature(target), this.t('tl_label_move'), true));
     const ghost = this.ghost(target);
     if (ghost) items.push({ kind: 'line', a: ghost.a, b: ghost.b, dashed: true });
     this.items = items;
@@ -403,29 +450,47 @@ export class SectionAlignTool extends ToolBase {
   override click(p: PointerInfo): void {
     if (!sectionResult(this.env)) { this.env.say(NO_RESULT); return; }
     const inf = this.snap(p);
-    if (!this.ref) { this.setReference(inf); return; }
-    const target = this.findTarget(inf.point);
+    if (!this.ref) { this.setReference(inf, p.raw); return; }
+    const target = this.findTarget(p.raw);
     if (!target) { this.env.say('Nenhuma janela, porta ou parede sob o clique; nada foi alterado.'); return; }
     this.apply(target);
+    this.items = [];
   }
 
-  private tolerance(): number { return Math.max(0.02, this.env.metersPerPixel() * 10); }
+  private refFeature(r: AlignRef): { line: { p: Vec2; d: Vec2 }; seg?: { a: Vec2; b: Vec2 }; label: string } {
+    return this.featureOf(r.line, r.axis, r.value, r.label);
+  }
+  private targetFeature(t: AlignTarget): { line: { p: Vec2; d: Vec2 }; seg?: { a: Vec2; b: Vec2 }; label: string } {
+    return this.featureOf(t.line, t.axis, t.value, t.label);
+  }
+  private featureOf(seg: { a: Vec2; b: Vec2 } | null, axis: Axis, value: number, label: string): { line: { p: Vec2; d: Vec2 }; seg?: { a: Vec2; b: Vec2 }; label: string } {
+    const a = seg?.a ?? { x: 0, y: value };
+    const b = seg?.b ?? a;
+    const len = dist(a, b);
+    const d = len < 1e-9 ? (axis === 'v' ? { x: 0, y: 1 } : { x: 1, y: 0 }) : norm(sub(b, a));
+    return { line: { p: a, d }, ...(seg ? { seg: { a, b } } : {}), label: featureLabel(label, this.uiLang()) };
+  }
+
+  /** Raio de captura: 10 px da tela em metros. Só depende do zoom por esta conta (sem piso em unidades de mundo). */
+  private tolerance(): number { return Math.max(1e-6, this.env.metersPerPixel() * 10); }
+  /** Empate entre linhas vizinhas: 1,5 px da tela. */
+  private tie(): number { return Math.max(1e-7, this.env.metersPerPixel() * 1.5); }
 
   private findTarget(at: Vec2): AlignTarget | null {
     const result = sectionResult(this.env);
     if (!result) return null;
     const prefer = this.ref?.axis === 'h' || this.ref?.axis === 'v' ? this.ref.axis : null;
-    const pick = pickAt(result, this.env.project(), at, this.tolerance(), prefer);
+    const pick = pickAt(result, this.env.project(), at, this.tolerance(), prefer, this.tie());
     if (!pick) return null;
     const line = pick.line;
     return { hostId: pick.hostId, kind: pick.kind, feature: line.feature, label: line.label, axis: line.axis ?? 'point', value: line.value, line: { a: line.a, b: line.b }, point: closestOnSegment(at, line.a, line.b) };
   }
 
-  private setReference(inf: Inference): void {
+  private setReference(inf: Inference, raw: Vec2): void {
     const result = sectionResult(this.env);
     if (!result) { this.env.say(NO_RESULT); return; }
     const p0 = this.env.project();
-    const pick = pickAt(result, p0, inf.point, this.tolerance(), null);
+    const pick = pickAt(result, p0, raw, this.tolerance(), null, this.tie());
     if (!pick) {
       this.ref = { elementKind: 'other', feature: 'point', label: 'ponto', axis: 'point', z: inf.point.y, t: inf.point.x, value: inf.point.y, point: { ...inf.point }, line: null, guide: null, snap: inf.kind };
       this.items = [];
@@ -434,9 +499,9 @@ export class SectionAlignTool extends ToolBase {
     }
     const line = pick.line;
     const axis: Axis = line.axis ?? 'point';
-    const at = closestOnSegment(inf.point, line.a, line.b);
+    const at = closestOnSegment(raw, line.a, line.b);
     this.ref = { hostId: pick.hostId, elementKind: pick.kind, feature: line.feature, label: line.label, axis, z: axis === 'h' ? line.value : at.y, t: axis === 'v' ? line.value : at.x, value: line.value, point: at, line: { a: line.a, b: line.b }, guide: guideOf(result, axis, line), snap: inf.kind !== 'none' ? inf.kind : 'nearest' };
-    this.items = [];
+    this.items = alignFeatureItems(this.refFeature(this.ref), this.t('tl_label_reference'));
     const el = p0.elements[pick.hostId];
     const alvo = pick.kind === 'opening' ? (isOpening(el) && el.kind === 'door' ? this.t('tl_sec_of_door') : this.t('tl_sec_of_window')) : pick.kind === 'wall' ? this.t('tl_sec_of_wall') : this.t('tl_sec_of_element');
     const valor = axis === 'v' ? formatQuantity(unitsOf(p0), 'length', this.ref.t) : cotaText(this.env, this.ref.z);
