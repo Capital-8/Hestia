@@ -3,7 +3,7 @@
  * TypeScript. Cada caso é um projeto pequeno: paredes de três tipos (substrato dos dois lados, só de um lado e sem substrato), lajes com o
  * término `{ camada }` em todas as camadas e quatro disposições (cruz, perímetro, estático, L).
  */
-import { ProjectStore, createEmptyProject, makeFloor, makeSlab, makeWall, type Layer, type LayerTermino, type OutlineSource, type Project, type SlabType, type TerminoCamada, type WallType } from '@hestia/model';
+import { ProjectStore, createEmptyProject, makeFloor, makeRoof, makeSlab, makeWall, type Layer, type LayerTermino, type OutlineSource, type Project, type SlabType, type TerminoCamada, type WallType } from '@hestia/model';
 
 const M = { kind: 'miter' as const, flip: false };
 
@@ -108,6 +108,18 @@ export function projetoComTopoAnexado(): Project {
   return s.project;
 }
 
+/**
+ * Mesma laje do caso do topo anexado, mas as paredes do nível 0 têm `attachTopToRoof` e o telhado real (duas águas, beiral em 2,5 m, 10 %) deixa o topo
+ * entre 2,4 e 2,8 m, abaixo das camadas de cima da laje (de 2,9 a 3 m): a laje não pode ser bloqueada onde a parede não chega.
+ */
+export function projetoComTopoNoTelhado(): Project {
+  const p = projetoComTopoAnexado();
+  const s = new ProjectStore(p);
+  s.exec({ type: 'addRoof', roof: makeRoof({ id: 'r1', typeId: 'rt_ceramica', levelId: 'lv_0', boundary: [{ x: -1, y: -1 }, { x: 5, y: -1 }, { x: 5, y: 4 }, { x: -1, y: 4 }], shape: 'gable', slopePercent: 10, dir: { x: 0, y: 1 }, heightOffset: 2.5 }) });
+  s.exec({ type: 'updateElements', ids: ['w0', 'w1', 'w2', 'w3'], patch: { attachTopToRoof: true, attachTopToFloor: false, topLevelId: undefined } });
+  return s.project;
+}
+
 /** Piso do nível 0 (topo em 0,25 m) sobre uma parede com o topo em rampa de 3 m a 0,1 m: as camadas altas só encontram a parede no começo. */
 export function projetoComPerfil(): Project {
   const base = createEmptyProject();
@@ -126,6 +138,6 @@ export const casosDoTermino = (): Array<{ nome: string; p: Project }> => {
       for (const disposicao of ['cruz', 'perimetro', 'estatico', 'ele'] as const) out.push({ nome: `${tipo}/${regras}/${disposicao}`, p: projetoDoCaso(tipo, regras, disposicao) });
     }
   }
-  out.push({ nome: 'topo anexado', p: projetoComTopoAnexado() }, { nome: 'perfil', p: projetoComPerfil() });
+  out.push({ nome: 'topo anexado', p: projetoComTopoAnexado() }, { nome: 'topo no telhado', p: projetoComTopoNoTelhado() }, { nome: 'perfil', p: projetoComPerfil() });
   return out;
 };

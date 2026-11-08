@@ -1,6 +1,6 @@
 import { isFloor, isSlab, terminoCamadaOf, terminoOf, type Id, type Layer, type Project, type ValidationIssue } from '@hestia/model';
 import { resolveAllFloors } from './floors.ts';
-import type { Lang } from './i18nMessages.ts';
+import { t, type Lang } from './i18nMessages.ts';
 import { resolveAllSlabs } from './slabs.ts';
 import { adjacentLevelIds, wallsOfLevel } from './terminoBlock.ts';
 import { regionCamada, type AvisoTerminoCamada } from './terminoCamada.ts';
@@ -16,11 +16,6 @@ export const temTerminoCamada = (p: Project): boolean => {
   const usa = (layers: readonly Layer[]): boolean => layers.some((l) => terminoCamadaOf(terminoOf(l)) !== null);
   return Object.values(p.elements).some((e) => (isFloor(e) && usa(p.floorTypes[e.typeId]?.layers ?? [])) || (isSlab(e) && usa(p.slabTypes[e.typeId]?.layers ?? [])));
 };
-
-const texto = (lang: Lang, o: { elemento: string; parede: string; funcao: string; lado: string; camada: number }): string =>
-  lang === 'pt'
-    ? `A camada ${o.camada} de ${o.elemento} termina na camada da parede ${o.parede}, mas essa parede não tem a função "${o.funcao}" no lado ${o.lado}: a borda foi para a camada seguinte, em direção ao lado oposto.`
-    : `Layer ${o.camada} of ${o.elemento} ends at a layer of wall ${o.parede}, but that wall has no "${o.funcao}" function on the ${o.lado === 'próximo' ? 'near' : 'far'} side: the edge went to the next layer, toward the opposite side.`;
 
 /** Avisos do término por camada de todo o projeto. */
 export function avisosTerminoCamada(p: Project, lang: Lang = 'pt'): ValidationIssue[] {
@@ -42,7 +37,13 @@ export function avisosTerminoCamada(p: Project, lang: Lang = 'pt'): ValidationIs
         out.push({
           severity: 'warning',
           code: 'termino-camada-sem-funcao',
-          message: texto(lang, { elemento: `"${elementId}"`, parede: `"${a.wallId}"`, funcao: a.funcao, lado: a.lado === 'proximo' ? 'próximo' : 'distante', camada: i + 1 }),
+          message: t(lang, 'egb_issue_termino_camada_sem_funcao', {
+            elemento: `"${elementId}"`,
+            parede: `"${a.wallId}"`,
+            funcao: a.funcao,
+            lado: t(lang, a.lado === 'proximo' ? 'egb_issue_termino_lado_proximo' : 'egb_issue_termino_lado_distante'),
+            camada: i + 1,
+          }),
           elementId,
           ids: [elementId, a.wallId],
         });

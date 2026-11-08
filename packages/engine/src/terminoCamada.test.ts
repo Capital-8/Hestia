@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { intersection, multiArea } from '@hestia/geom';
 import { ProjectStore, createEmptyProject, makeSlab, makeWall, type Layer, type LayerTermino, type Project } from '@hestia/model';
-import { camada, projetoComPerfil, projetoComTopoAnexado, TIPOS_DE_PAREDE } from '../../../tests/termino-camada-casos.ts';
+import { camada, projetoComPerfil, projetoComTopoAnexado, projetoComTopoNoTelhado, TIPOS_DE_PAREDE } from '../../../tests/termino-camada-casos.ts';
 import { resolveFloors } from './floors.ts';
 import { bandKey, junctionLevelTs } from './junctionLevel.ts';
 import { projectIssues } from './projectIssues.ts';
@@ -186,6 +186,15 @@ describe('parede com topo anexado e com perfil: só bloqueia a camada onde exist
     }
     const laje = resolveSlabs(p, 'lv_1')[0]!;
     // camada de cima (2,95 a 3 m) e a seguinte (2,9 a 2,95 m), ambas 'face', acima do topo real: sem recorte de parede
+    expect(multiArea(laje.layers[0]!.polygon)).toBeCloseTo(multiArea(laje.polygon), 6);
+    expect(multiArea(laje.layers[1]!.polygon)).toBeCloseTo(multiArea(laje.polygon), 6);
+  });
+
+  it('topo no telhado real abaixo da laje: as camadas de cima da laje, acima do topo da parede, ficam inteiras', () => {
+    const p = projetoComTopoNoTelhado();
+    const rws = wallsOfLevel(p, 'lv_0');
+    for (const rw of rws) expect(rw.baseZ + rw.height).toBeLessThan(2.85);
+    const laje = resolveSlabs(p, 'lv_1')[0]!;
     expect(multiArea(laje.layers[0]!.polygon)).toBeCloseTo(multiArea(laje.polygon), 6);
     expect(multiArea(laje.layers[1]!.polygon)).toBeCloseTo(multiArea(laje.polygon), 6);
   });

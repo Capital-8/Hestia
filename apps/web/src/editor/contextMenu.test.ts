@@ -121,7 +121,7 @@ describe('planta com elemento selecionado', () => {
     expect(e.disabled).toBe(true);
   });
 
-  it('Selecionar todas as instâncias: Visíveis na vista habilitado, No projeto inteiro esmaecido', () => {
+  it('Selecionar todas as instâncias: Mesmo tipo neste pavimento habilitado, No projeto inteiro esmaecido', () => {
     const e = find(buildContextMenu(sel), 'selectAll');
     expect(e.children?.find((c) => c.id === 'selectAllView')?.disabled).toBeFalsy();
     expect(e.children?.find((c) => c.id === 'selectAllProject')?.soon).toBe(true);
@@ -243,7 +243,7 @@ describe('idioma inglês', () => {
     expect(find(m, 'repeat').shortcut).toBe('Space');
     expect(find(m, 'createSimilar').label).toBe('Create Similar');
     expect(find(m, 'hide').label).toBe('Hide in View');
-    expect(find(m, 'selectAll').children?.[0]?.label).toBe('Visible in View');
+    expect(find(m, 'selectAll').children?.[0]?.label).toBe('Same type on this level');
     expect(find(m, 'delete').label).toBe('Delete');
     expect(find(m, 'zoomOut2x').label).toBe('Zoom Out (2x)');
   });
@@ -258,7 +258,7 @@ describe('separadores', () => {
   });
 });
 
-describe('Visíveis na vista (Selecionar todas as instâncias)', () => {
+describe('Mesmo tipo neste pavimento (Selecionar todas as instâncias)', () => {
   const mista = { ...base, hasSelection: true, selectionKinds: ['wall', 'door'], singleType: false };
 
   it('3D com seleção mista: Selecionar todas segue desabilitado com o motivo (mesmo critério da planta)', () => {
@@ -267,7 +267,7 @@ describe('Visíveis na vista (Selecionar todas as instâncias)', () => {
     expect(find(find(m, 'selectAll').children ?? [], 'selectAllView').disabled).toBe(true);
   });
 
-  it('3D com seleção de um só tipo: Selecionar todas e Visíveis na vista habilitados', () => {
+  it('3D com seleção de um só tipo: Selecionar todas e Mesmo tipo neste pavimento habilitados', () => {
     const m = buildContextMenu({ ...mista, view: '3d', selectionKinds: ['wall'], singleType: true });
     expect(find(m, 'selectAll').disabled).toBeFalsy();
     expect(find(find(m, 'selectAll').children ?? [], 'selectAllView').disabled).toBeFalsy();
