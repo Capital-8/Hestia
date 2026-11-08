@@ -14,7 +14,7 @@ manifesto não tem caminho de executável. Não há loja nem download automátic
 - **Geometria:** vem das malhas com faixas por elemento da cena 3D montada. Entidades instanciadas sem faixas e elementos de
   níveis ainda não montados saem com `mesh: null`; o material por triângulo sai `null` (usa-se `materialIds` do tipo).
   Texturas: contrato pronto, mas o Hestia ainda não as tem.
-- **Escala:** geometria como números em JSON; adequado a protótipo. Quadros binários ou compactados ficam para a 1.x.
+- **Escala:** geometria como números em JSON. **O quadro máximo é 64 MiB: um projeto de ~760 mil triângulos (71 MiB) não cabe** ([08](08-validacao-geometria-projeto-real.md)). Snapshot em partes ou quadros binários ficam para a 1.x (proposta separada).
 - **Câmera:** a órbita não emite eventos; há amostragem a cada 80 ms só com sessão assinante. A órbita é "olhar para o
   alvo": `up` e roll do plugin são descartados.
 - As substituições entram no desfazer do projeto; o `projectUid` é criado no primeiro uso (marca o projeto como alterado).

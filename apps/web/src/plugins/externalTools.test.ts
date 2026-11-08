@@ -75,4 +75,16 @@ describe('exportação de cena', () => {
     expect(c.materials.map((x) => x.id).sort()).toEqual(Object.keys(p.materials).sort());
     expect(c.entities.every((e) => e.mesh === null)).toBe(true);
   });
+  it('posições saem com resolução de 1 µm (JSON compacto, sem float32 longo)', () => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0.1, 0.2, 0.3, 1.1, 0.2, 0.3, 0.1, 1.2, 0.3]), 3));
+    g.setIndex([0, 1, 2]);
+    const mesh = new THREE.Mesh(g);
+    mesh.userData = { ranges: [{ id: 'a', start: 0, count: 3 }] };
+    const root = new THREE.Group();
+    root.add(mesh);
+    const pos = extractElementMeshes(root).get('a')!.positions;
+    expect(pos.every((n) => Math.round(n * 1e6) / 1e6 === n)).toBe(true);
+    expect(JSON.stringify(pos)).not.toMatch(/\d{8,}/);
+  });
 });

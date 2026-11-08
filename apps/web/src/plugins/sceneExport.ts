@@ -11,6 +11,9 @@ function hashMesh(pos: number[], idx: number[]): string {
   return (h >>> 0).toString(16) + ':' + pos.length;
 }
 
+/** Posições em metros com resolução de 1 µm: o float32 da GPU vira "0.10000000149011612" em JSON; arredondado fica "0.1". */
+const q = (n: number): number => Math.round(n * 1e6) / 1e6;
+
 interface Range { id: string; start: number; count: number }
 
 /**
@@ -39,7 +42,7 @@ export function extractElementMeshes(root: THREE.Object3D): Map<string, SceneMes
         if (to === undefined) {
           v.fromBufferAttribute(pos, vi).applyMatrix4(mesh.matrixWorld);
           to = a.pos.length / 3;
-          a.pos.push(v.x, v.y, v.z);
+          a.pos.push(q(v.x), q(v.y), q(v.z));
           a.remap.set(key, to);
         }
         a.idx.push(to);

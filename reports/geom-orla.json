@@ -1,0 +1,257 @@
+[
+  {
+    "projeto": "CAS_LOJA-MASTER-ORLA.hestia.json",
+    "nome": "CAS_LOJA MASTER ORLA",
+    "niveis": 4,
+    "elementosPorTipo": {
+      "wall": 160,
+      "generic": 1562,
+      "door": 28,
+      "window": 27,
+      "slab": 2
+    },
+    "elementos": 1779,
+    "tempos_ms": {
+      "resolverNiveis": 229.1,
+      "montarCena3D": 10646.3,
+      "contarDesenhados": 0.5,
+      "extrairMalhas": 1180.9,
+      "conteudoDoSnapshot": 1138,
+      "serializarJSON": 1216.1
+    },
+    "verificacaoGeometrica": {
+      "triangulosDaCena": 762148,
+      "tolerancia": "centroide 1 mm, area 0,1 %",
+      "faltandoNoPlugin": 23218,
+      "sobrandoNoPlugin": 23218,
+      "igual": false,
+      "elementosDivergentes": 332,
+      "divergencias": [
+        {
+          "id": "g_1$L5QXPtKFc0FB11qLGIOX",
+          "tipo": "generic",
+          "triangulos": 357
+        },
+        {
+          "id": "g_0LCA5hcPCx_m3JhB4jLU7Q",
+          "tipo": "generic",
+          "triangulos": 355
+        },
+        {
+          "id": "g_3ShmwjfZFx1mKi1JiCvdsC",
+          "tipo": "generic",
+          "triangulos": 285
+        },
+        {
+          "id": "g_2MCOloQhjaF$RU_DuAQxmp",
+          "tipo": "generic",
+          "triangulos": 284
+        },
+        {
+          "id": "g_0K1Ctr4BBPUqkYfbD2Bt0N",
+          "tipo": "generic",
+          "triangulos": 270
+        },
+        {
+          "id": "g_33ZE_ZIQJFcdK4NAMzwpWe",
+          "tipo": "generic",
+          "triangulos": 270
+        },
+        {
+          "id": "g_1CvnU7XqgJ4qX44Dk3YRf3",
+          "tipo": "generic",
+          "triangulos": 260
+        },
+        {
+          "id": "g_2NjpON_BVJV3q5qN4_KD9i",
+          "tipo": "generic",
+          "triangulos": 250
+        }
+      ],
+      "faltandoAmostra": [
+        [
+          -43.36,
+          43.97,
+          0.004
+        ],
+        [
+          -43.354,
+          43.98,
+          0.004
+        ],
+        [
+          -43.362,
+          43.982,
+          0.004
+        ],
+        [
+          -43.365,
+          43.974,
+          0.004
+        ],
+        [
+          -43.362,
+          43.971,
+          0.004
+        ]
+      ]
+    },
+    "triangulos": {
+      "desenhadosPelaCena": 762148,
+      "extraidos": 762148,
+      "cobertura": 100
+    },
+    "vertices": 2280040,
+    "entidades": {
+      "total": 1779,
+      "comMalha": 1776,
+      "semMalha": 3
+    },
+    "semMalhaPorTipo": {
+      "wall": {
+        "total": 3,
+        "exemplos": [
+          "w_0e2McIPkX58goXklOuItZM",
+          "w_0gi2_O$i52JB28z50bVCqs",
+          "w_2ycysLSlf16Qur0$hTnm0v"
+        ]
+      }
+    },
+    "malhasSemElementoNoProjeto": 0,
+    "materiais": 39,
+    "snapshot": {
+      "bytes": 74551141,
+      "MiB": 71.1,
+      "limiteDoQuadroMiB": 64,
+      "bytesPorTriangulo": 98
+    },
+    "deltaDeUmaParede": {
+      "ms": 10363.3,
+      "ops": 0,
+      "bytes": 76
+    },
+    "inventarioDeMalhas": [
+      {
+        "classe": "Mesh",
+        "kind": "generic",
+        "ranges": 21,
+        "caixasPick": false,
+        "semPick": false,
+        "instanciada": false,
+        "visivel": true,
+        "triangulos": 743584,
+        "elementos": 1562
+      },
+      {
+        "classe": "Mesh",
+        "kind": "door",
+        "ranges": 2,
+        "caixasPick": false,
+        "semPick": false,
+        "instanciada": false,
+        "visivel": true,
+        "triangulos": 12180,
+        "elementos": 54
+      },
+      {
+        "classe": "Mesh",
+        "kind": "wall",
+        "ranges": 8,
+        "caixasPick": true,
+        "semPick": false,
+        "instanciada": false,
+        "visivel": false,
+        "triangulos": 2820,
+        "elementos": 127
+      },
+      {
+        "classe": "InstancedMesh",
+        "kind": "wall",
+        "ranges": 0,
+        "caixasPick": false,
+        "semPick": true,
+        "instanciada": true,
+        "visivel": true,
+        "triangulos": 2820,
+        "elementos": 0
+      },
+      {
+        "classe": "Mesh",
+        "kind": "window",
+        "ranges": 4,
+        "caixasPick": true,
+        "semPick": false,
+        "instanciada": false,
+        "visivel": false,
+        "triangulos": 1620,
+        "elementos": 54
+      },
+      {
+        "classe": "InstancedMesh",
+        "kind": "window",
+        "ranges": 0,
+        "caixasPick": false,
+        "semPick": true,
+        "instanciada": true,
+        "visivel": true,
+        "triangulos": 1620,
+        "elementos": 0
+      },
+      {
+        "classe": "Mesh",
+        "kind": "door",
+        "ranges": 6,
+        "caixasPick": true,
+        "semPick": false,
+        "instanciada": false,
+        "visivel": false,
+        "triangulos": 1524,
+        "elementos": 56
+      },
+      {
+        "classe": "InstancedMesh",
+        "kind": "door",
+        "ranges": 0,
+        "caixasPick": false,
+        "semPick": true,
+        "instanciada": true,
+        "visivel": true,
+        "triangulos": 1524,
+        "elementos": 0
+      },
+      {
+        "classe": "Mesh",
+        "kind": "wall",
+        "ranges": 1,
+        "caixasPick": false,
+        "semPick": false,
+        "instanciada": false,
+        "visivel": true,
+        "triangulos": 396,
+        "elementos": 30
+      },
+      {
+        "classe": "Mesh",
+        "kind": "slab",
+        "ranges": 1,
+        "caixasPick": false,
+        "semPick": false,
+        "instanciada": false,
+        "visivel": true,
+        "triangulos": 24,
+        "elementos": 2
+      },
+      {
+        "classe": "Mesh",
+        "kind": "-",
+        "ranges": 0,
+        "caixasPick": false,
+        "semPick": false,
+        "instanciada": false,
+        "visivel": true,
+        "triangulos": 2,
+        "elementos": 0
+      }
+    ]
+  }
+]

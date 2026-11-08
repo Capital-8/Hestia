@@ -9,5 +9,6 @@
 | [05-plugin-de-teste.md](05-plugin-de-teste.md) | Como criar um plugin de teste e rodar os testes |
 | [06-validacao-processo-rust.md](06-validacao-processo-rust.md) | Processo Rust separado: o que foi validado, comandos, limitações, próximo passo |
 | [07-pareamento-por-token.md](07-pareamento-por-token.md) | Proposta (1.1) de token de pareamento; obrigatório antes de uso real |
+| [08-validacao-geometria-projeto-real.md](08-validacao-geometria-projeto-real.md) | Geometria extraída pelo app em 6 projetos reais: contagens, malhas ausentes, tamanho e tempo do snapshot |
 
 Decisão: [0047](../decisoes/0047-plugins-de-integracao.md).
