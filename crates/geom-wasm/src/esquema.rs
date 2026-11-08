@@ -5,7 +5,7 @@
 //! Mudou o JSON => sobe `VERSAO_ESQUEMA` e este arquivo.
 
 /// `versao` de `cena-v11.json`.
-pub const VERSAO_ESQUEMA: u32 = 12;
+pub const VERSAO_ESQUEMA: u32 = 13;
 /// `abi` de `cena-v11.json`.
 pub const VERSAO_ABI2: u32 = 2;
 
@@ -93,6 +93,26 @@ pub const SECAO_FAIXAS_JUNCAO: u32 = 22;
 pub const SECAO_PONTOS_FAIXAS_JUNCAO: u32 = 23;
 pub const SECAO_CAMADAS_FORRO: u32 = 24;
 pub const SECAO_PONTOS_FORRO: u32 = 25;
+pub const SECAO_ESCADAS_GC: u32 = 60;
+pub const SECAO_ESCADA_COMPONENTES_GC: u32 = 61;
+pub const SECAO_ESCADA_CURVAS_GC: u32 = 62;
+pub const SECAO_ESCADA_ESPELHOS_GC: u32 = 63;
+pub const SECAO_ESCADA_PATAMARES_GC: u32 = 64;
+pub const SECAO_RAMPAS_GC: u32 = 65;
+pub const SECAO_RAMPA_LANCES_GC: u32 = 66;
+pub const SECAO_RAMPA_PATAMARES_GC: u32 = 67;
+pub const SECAO_GUARDAS_CORPO: u32 = 70;
+pub const SECAO_GUARDA_CAMINHOS_MANUAIS: u32 = 71;
+pub const SECAO_TIPOS_GUARDA: u32 = 72;
+pub const SECAO_PERFIS_GUARDA: u32 = 73;
+pub const SECAO_PERFIS_GUARDA_PONTOS: u32 = 74;
+pub const SECAO_TRILHOS_GUARDA: u32 = 75;
+pub const SECAO_CORRIMAOS_GUARDA: u32 = 76;
+pub const SECAO_POSTES_GUARDA: u32 = 77;
+pub const SECAO_PADROES_GUARDA: u32 = 78;
+pub const SECAO_PADRAO_ELEMENTOS_GUARDA: u32 = 79;
+pub const SECAO_PAINEIS_GUARDA: u32 = 80;
+pub const SECAO_NORMAS_GUARDA: u32 = 81;
 
 const fn col(nome: &'static str, tipo: Tipo) -> Coluna {
     Coluna { nome, tipo }
@@ -351,6 +371,375 @@ pub const SECOES: &[Secao] = &[
         chave: "id_num",
         colunas: &[col("id_num", Tipo::U32), col("forro_num", Tipo::U32), col("poligono", Tipo::U32), col("anel", Tipo::U32), col("indice", Tipo::U32), col("x", Tipo::F64), col("y", Tipo::F64)],
     },
+    Secao {
+        id: SECAO_ESCADAS_GC,
+        nome: "escadas_gc",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("nivel_num", Tipo::U32),
+            col("z_base", Tipo::F64),
+            col("z_topo", Tipo::F64),
+            col("altura_espelho", Tipo::F64),
+            col("profundidade_piso", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_ESCADA_COMPONENTES_GC,
+        nome: "escada_componentes_gc",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("escada_num", Tipo::U32),
+            col("indice", Tipo::U32),
+            col("tipo", Tipo::U8),
+            col("caracol", Tipo::U8),
+            col("centro_x", Tipo::F64),
+            col("centro_y", Tipo::F64),
+            col("r_int", Tipo::F64),
+            col("r_ext", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_ESCADA_CURVAS_GC,
+        nome: "escada_curvas_gc",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("componente_num", Tipo::U32),
+            col("lado", Tipo::U8),
+            col("ordem", Tipo::U32),
+            col("ax", Tipo::F64),
+            col("ay", Tipo::F64),
+            col("bx", Tipo::F64),
+            col("by", Tipo::F64),
+            col("sag", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_ESCADA_ESPELHOS_GC,
+        nome: "escada_espelhos_gc",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("componente_num", Tipo::U32),
+            col("indice", Tipo::U32),
+            col("ax", Tipo::F64),
+            col("ay", Tipo::F64),
+            col("bx", Tipo::F64),
+            col("by", Tipo::F64),
+            col("z0", Tipo::F64),
+            col("z1", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_ESCADA_PATAMARES_GC,
+        nome: "escada_patamares_gc",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("componente_num", Tipo::U32),
+            col("indice", Tipo::U32),
+            col("x", Tipo::F64),
+            col("y", Tipo::F64),
+            col("z", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_RAMPAS_GC,
+        nome: "rampas_gc",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("nivel_num", Tipo::U32),
+            col("z_base", Tipo::F64),
+            col("z_topo", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_RAMPA_LANCES_GC,
+        nome: "rampa_lances_gc",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("rampa_num", Tipo::U32),
+            col("indice", Tipo::U32),
+            col("sx", Tipo::F64),
+            col("sy", Tipo::F64),
+            col("ex", Tipo::F64),
+            col("ey", Tipo::F64),
+            col("ax", Tipo::F64),
+            col("ay", Tipo::F64),
+            col("bx", Tipo::F64),
+            col("by", Tipo::F64),
+            col("cx", Tipo::F64),
+            col("cy", Tipo::F64),
+            col("dx", Tipo::F64),
+            col("dy", Tipo::F64),
+            col("z0", Tipo::F64),
+            col("z1", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_RAMPA_PATAMARES_GC,
+        nome: "rampa_patamares_gc",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("rampa_num", Tipo::U32),
+            col("indice", Tipo::U32),
+            col("x", Tipo::F64),
+            col("y", Tipo::F64),
+            col("z", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_GUARDAS_CORPO,
+        nome: "guardas_corpo",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("nivel_num", Tipo::U32),
+            col("tipo_num", Tipo::U32),
+            col("hosp", Tipo::U8),
+            col("hosp_num", Tipo::U32),
+            col("lados", Tipo::U8),
+            col("pos_base", Tipo::U8),
+            col("desloc", Tipo::F64),
+            col("altura", Tipo::F64),
+            col("inverter", Tipo::U8),
+            col("fechado", Tipo::U8),
+            col("lado_desloc", Tipo::U8),
+            col("cota_base", Tipo::F64),
+            col("flags", Tipo::U8),
+        ],
+    },
+    Secao {
+        id: SECAO_GUARDA_CAMINHOS_MANUAIS,
+        nome: "guarda_caminhos_manuais",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("guarda_num", Tipo::U32),
+            col("indice", Tipo::U32),
+            col("x", Tipo::F64),
+            col("y", Tipo::F64),
+            col("dz", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_TIPOS_GUARDA,
+        nome: "tipos_guarda",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("altura", Tipo::F64),
+            col("desloc", Tipo::F64),
+            col("ajuste_patamar", Tipo::F64),
+            col("folga_inferior", Tipo::F64),
+            col("junc_angular", Tipo::U8),
+            col("junc_tangente", Tipo::U8),
+            col("conexao", Tipo::U8),
+            col("tol_corda", Tipo::F64),
+            col("norma_num", Tipo::U32),
+        ],
+    },
+    Secao {
+        id: SECAO_PERFIS_GUARDA,
+        nome: "perfis_guarda",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("forma", Tipo::U8),
+            col("largura", Tipo::F64),
+            col("altura", Tipo::F64),
+            col("n_pontos", Tipo::U32),
+            col("lados", Tipo::U32),
+        ],
+    },
+    Secao {
+        id: SECAO_PERFIS_GUARDA_PONTOS,
+        nome: "perfis_guarda_pontos",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("perfil_num", Tipo::U32),
+            col("indice", Tipo::U32),
+            col("x", Tipo::F64),
+            col("y", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_TRILHOS_GUARDA,
+        nome: "trilhos_guarda",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("tipo_num", Tipo::U32),
+            col("indice", Tipo::U32),
+            col("altura", Tipo::F64),
+            col("desloc", Tipo::F64),
+            col("perfil_num", Tipo::U32),
+            col("material_num", Tipo::U32),
+        ],
+    },
+    Secao {
+        id: SECAO_CORRIMAOS_GUARDA,
+        nome: "corrimaos_guarda",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("tipo_num", Tipo::U32),
+            col("indice", Tipo::U32),
+            col("funcao", Tipo::U8),
+            col("posicao", Tipo::U8),
+            col("altura", Tipo::F64),
+            col("afastamento", Tipo::F64),
+            col("perfil_num", Tipo::U32),
+            col("material_num", Tipo::U32),
+            col("ext_ini_estilo", Tipo::U8),
+            col("ext_ini_comp", Tipo::F64),
+            col("ext_ini_mais_piso", Tipo::U8),
+            col("ext_fim_estilo", Tipo::U8),
+            col("ext_fim_comp", Tipo::F64),
+            col("ext_fim_mais_piso", Tipo::U8),
+            col("sup_layout", Tipo::U8),
+            col("sup_espac", Tipo::F64),
+            col("sup_numero", Tipo::U32),
+            col("sup_justif", Tipo::U8),
+            col("sup_perfil_num", Tipo::U32),
+            col("sup_comp", Tipo::F64),
+            col("transicao", Tipo::U8),
+            col("juncao", Tipo::U8),
+            col("raio_filete", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_POSTES_GUARDA,
+        nome: "postes_guarda",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("tipo_num", Tipo::U32),
+            col("papel", Tipo::U8),
+            col("ativo", Tipo::U8),
+            col("perfil_num", Tipo::U32),
+            col("material_num", Tipo::U32),
+            col("acima", Tipo::F64),
+            col("abaixo", Tipo::F64),
+            col("ang_canto", Tipo::F64),
+            col("modo", Tipo::U8),
+            col("espacamento", Tipo::F64),
+            col("numero", Tipo::U32),
+        ],
+    },
+    Secao {
+        id: SECAO_PADROES_GUARDA,
+        nome: "padroes_guarda",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("tipo_num", Tipo::U32),
+            col("indice", Tipo::U32),
+            col("base_tipo", Tipo::U8),
+            col("base_idx", Tipo::U32),
+            col("topo_tipo", Tipo::U8),
+            col("topo_idx", Tipo::U32),
+            col("periodo", Tipo::F64),
+            col("justif", Tipo::U8),
+            col("sobra", Tipo::U8),
+            col("quebra", Tipo::U8),
+            col("ang_quebra", Tipo::F64),
+            col("escopo", Tipo::U8),
+            col("pd_ativo", Tipo::U8),
+            col("pd_qtd", Tipo::U32),
+            col("pd_dist", Tipo::F64),
+            col("pd_perfil_num", Tipo::U32),
+            col("pd_material_num", Tipo::U32),
+        ],
+    },
+    Secao {
+        id: SECAO_PADRAO_ELEMENTOS_GUARDA,
+        nome: "padrao_elementos_guarda",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("padrao_num", Tipo::U32),
+            col("indice", Tipo::U32),
+            col("perfil_num", Tipo::U32),
+            col("material_num", Tipo::U32),
+            col("dist_anterior", Tipo::F64),
+            col("desloc_lateral", Tipo::F64),
+            col("desloc_base", Tipo::F64),
+            col("desloc_topo", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_PAINEIS_GUARDA,
+        nome: "paineis_guarda",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("tipo_num", Tipo::U32),
+            col("indice", Tipo::U32),
+            col("familia", Tipo::U8),
+            col("base_tipo", Tipo::U8),
+            col("base_idx", Tipo::U32),
+            col("topo_tipo", Tipo::U8),
+            col("topo_idx", Tipo::U32),
+            col("desl_base", Tipo::F64),
+            col("desl_topo", Tipo::F64),
+            col("espessura", Tipo::F64),
+            col("folga_lateral", Tipo::F64),
+            col("largura_max", Tipo::F64),
+            col("material_num", Tipo::U32),
+            col("perf_diam", Tipo::F64),
+            col("perf_passo_x", Tipo::F64),
+            col("perf_passo_y", Tipo::F64),
+            col("perf_alternado", Tipo::U8),
+            col("tela_larg", Tipo::F64),
+            col("tela_alt", Tipo::F64),
+            col("tela_fio", Tipo::F64),
+            col("cabo_diam", Tipo::F64),
+            col("cabo_espac", Tipo::F64),
+            col("cabo_orient", Tipo::U8),
+        ],
+    },
+    Secao {
+        id: SECAO_NORMAS_GUARDA,
+        nome: "normas_guarda",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("n_flags", Tipo::U32),
+            col("desnivel_exige_guarda", Tipo::F64),
+            col("altura_minima", Tipo::F64),
+            col("altura_minima_escada_interna", Tipo::F64),
+            col("altura_alta_acima", Tipo::F64),
+            col("altura_alta_altura", Tipo::F64),
+            col("esfera_maxima", Tipo::F64),
+            col("esfera_maxima_triangulo", Tipo::F64),
+            col("folga_inferior_maxima", Tipo::F64),
+            col("carga_linear_horizontal", Tipo::F64),
+            col("carga_area_horizontal", Tipo::F64),
+            col("carga_pontual_guarda", Tipo::F64),
+            col("corrimao_altura_min", Tipo::F64),
+            col("corrimao_altura_max", Tipo::F64),
+            col("corrimao_altura_adicional_1", Tipo::F64),
+            col("corrimao_altura_adicional_2", Tipo::F64),
+            col("corrimao_altura_adicional_3", Tipo::F64),
+            col("corrimao_altura_adicional_4", Tipo::F64),
+            col("corrimao_diametro_min", Tipo::F64),
+            col("corrimao_diametro_max", Tipo::F64),
+            col("corrimao_afastamento_min", Tipo::F64),
+            col("corrimao_extensao_min", Tipo::F64),
+            col("corrimao_dois_lados", Tipo::U8),
+            col("corrimao_continuo", Tipo::U8),
+            col("corrimao_intermediario_largura", Tipo::F64),
+            col("corrimao_intermediario_espacamento", Tipo::F64),
+            col("carga_corrimao", Tipo::F64),
+        ],
+    },
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -397,6 +786,12 @@ pub const CONSULTA_QUANT_PAREDES: u32 = 13;
 pub const CONSULTA_QUANT_PISOS: u32 = 14;
 pub const CONSULTA_QUANT_LAJES: u32 = 15;
 pub const CONSULTA_QUANT_FORROS: u32 = 16;
+pub const CONSULTA_GUARDA_CAMINHOS: u32 = 60;
+pub const CONSULTA_GUARDA_MALHA: u32 = 61;
+pub const CONSULTA_GUARDA_PLANTA: u32 = 62;
+pub const CONSULTA_GUARDA_CORTE: u32 = 63;
+pub const CONSULTA_QUANT_GUARDA: u32 = 64;
+pub const CONSULTA_GUARDA_AVISOS: u32 = 65;
 
 pub const CONSULTAS: &[Consulta] = &[
     Consulta {
@@ -611,6 +1006,70 @@ pub const CONSULTAS: &[Consulta] = &[
         args_variaveis: false,
         saidas: &[
             SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "valores", tipo: Tipo::F64, elementos: Elementos::Multiplo(5) },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_GUARDA_CAMINHOS,
+        nome: "guarda_caminhos",
+        args: &["nivel_num", "tol_juncao"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "trechos", tipo: Tipo::U32, elementos: Elementos::Multiplo(5) },
+            SaidaDef { nome: "nos", tipo: Tipo::F64, elementos: Elementos::Multiplo(3) },
+            SaidaDef { nome: "avisos", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "valores", tipo: Tipo::F64, elementos: Elementos::Multiplo(5) },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_GUARDA_MALHA,
+        nome: "guarda_malha",
+        args: &["nivel_num", "lod"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "grupos", tipo: Tipo::U32, elementos: Elementos::Multiplo(5) },
+            SaidaDef { nome: "vertices", tipo: Tipo::F64, elementos: Elementos::Multiplo(3) },
+            SaidaDef { nome: "indices", tipo: Tipo::U32, elementos: Elementos::N },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_GUARDA_PLANTA,
+        nome: "guarda_planta",
+        args: &["nivel_num", "corte_z", "detalhe"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "pontos", tipo: Tipo::F64, elementos: Elementos::DoisN },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_GUARDA_CORTE,
+        nome: "guarda_corte",
+        args: &["nivel_num", "ox", "oy", "dx", "dy", "profundidade"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "pontos", tipo: Tipo::F64, elementos: Elementos::DoisN },
+            SaidaDef { nome: "poligonos", tipo: Tipo::F64, elementos: Elementos::Livre },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_QUANT_GUARDA,
+        nome: "quant_guarda",
+        args: &["nivel_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(5) },
+            SaidaDef { nome: "valores", tipo: Tipo::F64, elementos: Elementos::Multiplo(4) },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_GUARDA_AVISOS,
+        nome: "guarda_avisos",
+        args: &["nivel_num", "norma_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "avisos", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
             SaidaDef { nome: "valores", tipo: Tipo::F64, elementos: Elementos::Multiplo(5) },
         ],
     },

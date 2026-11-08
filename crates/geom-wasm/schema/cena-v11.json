@@ -1,6 +1,6 @@
 {
-  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`. v3 (sub-etapa A2): colunas novas em `camadas` (material_num, envolve) e `tipos_parede` (wrap_ends, n_faixas), seções `faixas` e `paredes_z` e a consulta `itens_pintados`; as demais seções e consultas não mudaram. v4 (sub-etapa A3a, vãos): seções `tipos_abertura` e `aberturas` e a consulta `aberturas_geom`; as demais não mudaram. Os perfis de topo e base de `wallZRange` NÃO entram em `paredes_z` nesta versão (nenhuma consulta da A3a os lê; entram na A3d, onde `withProfile`/`withBottomProfile` os consomem). v5 (sub-etapa A3b, retornos de acabamento nos vãos): `tipos_parede.wrap_inserts`; `tipos_abertura` ganha janela, fechamento, tem_alizar, estilo_batente, modo_prof, prof_pedida, larg_batente e esp_folha (tudo o que `insertMode` e `insertReturns` leem do tipo da abertura, já resolvido pelo JS); consulta `retornos_geom`; as demais seções e consultas não mudaram. v6 (sub-etapa A3c, faixas verticais e solveCluster): nenhuma seção nova; consulta `cluster_resolvido` (a lista de aberturas que furam a planta, `planOpenings`, viaja como argumento variável). v7 (sub-etapa A3d, ResolvedLevel completo): seção `perfis_z` (pontos dos perfis de topo e de base de `wallZRange`, mais o `topProfile` do modelo, que o JS calcula e envia; uma lista por parede é uma lista de linhas, por isso é uma seção à parte e não colunas de `paredes_z`) e consulta `resolver_nivel` (tudo o que `resolveLevel` devolve: campos de ResolvedWall, camadas com faixas já recortadas pelos perfis, membranas, regiões e silhueta). As demais seções e consultas não mudaram. v8 (sub-etapa B1 da fatia B, decisão 0050): seções pisos, lajes, tipos_piso, tipos_laje, camadas_piso, camadas_laje, contornos_estaticos, contornos_vinculados e furos_nivel e a consulta pisos_lajes_nivel (resolveFloors e resolveSlabs; os circuitos dos vinculados e os furos de escada e rampa chegam do JS já calculados; os términos que dependem de paredes ficam para a B2). As demais seções e consultas não mudaram. v9 (sub-etapa B2 da fatia B, decisão 0050): seção `niveis` (cota de cada nível, para a adjacência de níveis acima e abaixo que as lajes usam) e consulta `pisos_lajes_com_paredes` (resolveFloors e resolveSlabs COM as paredes do projeto: o Rust aplica regionMinusWalls e regionPlusWalls com as paredes resolvidas do nível, por dentro, sem precisa_paredes; a consulta pisos_lajes_nivel da B1 segue igual). As demais seções e consultas não mudaram. v10 (sub-etapa B3 da fatia B, decisão 0050): seções `paredes_z_juncao` e `perfis_z_juncao` (a cota e os perfis das paredes na variante da JUNÇÃO, sem flatAttach: a junção usa `resolveLevel(p, nivel)` padrão para as faixas de parede, enquanto o término por camada de piso e laje usa `flatAttach`) e a consulta `junction_nivel` (levelCutterSet e junctionLevel: cortadores por nível e junção resolvida de camadas de piso, laje e faixas de parede). As demais seções e consultas não mudaram. v11 (sub-etapa B3, saída 3 da 0050): seções `faixas_juncao` (22) e `pontos_faixas_juncao` (23), a partição vertical das faixas de parede já resolvida pelo JS (`resolveLevel` padrão, DEPOIS do perfil superior e do perfil de base: as faixas que `wallLayerBandsAfterJunction` devolve), com a região de cada faixa; o Rust da consulta `junction_nivel` usa essas faixas no lugar de recalcular os pontos de quebra quando a seção `faixas_juncao` está definida, e só executa os recortes de piso e laje. Sem a seção, vale o cálculo anterior (`paredes_z_juncao`, `perfis_z_juncao`). As demais seções e consultas não mudaram. v12 (quantidades): seções `camadas_forro` (24) e `pontos_forro` (25) (os forros chegam do JS já resolvidos: contorno e espessura de cada camada) e as consultas `quant_paredes` (13), `quant_pisos` (14), `quant_lajes` (15) e `quant_forros` (16): bruto, cortado, líquido, área de face e altura de cada camada (volume líquido = max(0, bruto - cortado), o zero uma vez por camada). As demais seções e consultas não mudaram.",
-  "versao": 12,
+  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`. v3 (sub-etapa A2): colunas novas em `camadas` (material_num, envolve) e `tipos_parede` (wrap_ends, n_faixas), seções `faixas` e `paredes_z` e a consulta `itens_pintados`; as demais seções e consultas não mudaram. v4 (sub-etapa A3a, vãos): seções `tipos_abertura` e `aberturas` e a consulta `aberturas_geom`; as demais não mudaram. Os perfis de topo e base de `wallZRange` NÃO entram em `paredes_z` nesta versão (nenhuma consulta da A3a os lê; entram na A3d, onde `withProfile`/`withBottomProfile` os consomem). v5 (sub-etapa A3b, retornos de acabamento nos vãos): `tipos_parede.wrap_inserts`; `tipos_abertura` ganha janela, fechamento, tem_alizar, estilo_batente, modo_prof, prof_pedida, larg_batente e esp_folha (tudo o que `insertMode` e `insertReturns` leem do tipo da abertura, já resolvido pelo JS); consulta `retornos_geom`; as demais seções e consultas não mudaram. v6 (sub-etapa A3c, faixas verticais e solveCluster): nenhuma seção nova; consulta `cluster_resolvido` (a lista de aberturas que furam a planta, `planOpenings`, viaja como argumento variável). v7 (sub-etapa A3d, ResolvedLevel completo): seção `perfis_z` (pontos dos perfis de topo e de base de `wallZRange`, mais o `topProfile` do modelo, que o JS calcula e envia; uma lista por parede é uma lista de linhas, por isso é uma seção à parte e não colunas de `paredes_z`) e consulta `resolver_nivel` (tudo o que `resolveLevel` devolve: campos de ResolvedWall, camadas com faixas já recortadas pelos perfis, membranas, regiões e silhueta). As demais seções e consultas não mudaram. v8 (sub-etapa B1 da fatia B, decisão 0050): seções pisos, lajes, tipos_piso, tipos_laje, camadas_piso, camadas_laje, contornos_estaticos, contornos_vinculados e furos_nivel e a consulta pisos_lajes_nivel (resolveFloors e resolveSlabs; os circuitos dos vinculados e os furos de escada e rampa chegam do JS já calculados; os términos que dependem de paredes ficam para a B2). As demais seções e consultas não mudaram. v9 (sub-etapa B2 da fatia B, decisão 0050): seção `niveis` (cota de cada nível, para a adjacência de níveis acima e abaixo que as lajes usam) e consulta `pisos_lajes_com_paredes` (resolveFloors e resolveSlabs COM as paredes do projeto: o Rust aplica regionMinusWalls e regionPlusWalls com as paredes resolvidas do nível, por dentro, sem precisa_paredes; a consulta pisos_lajes_nivel da B1 segue igual). As demais seções e consultas não mudaram. v10 (sub-etapa B3 da fatia B, decisão 0050): seções `paredes_z_juncao` e `perfis_z_juncao` (a cota e os perfis das paredes na variante da JUNÇÃO, sem flatAttach: a junção usa `resolveLevel(p, nivel)` padrão para as faixas de parede, enquanto o término por camada de piso e laje usa `flatAttach`) e a consulta `junction_nivel` (levelCutterSet e junctionLevel: cortadores por nível e junção resolvida de camadas de piso, laje e faixas de parede). As demais seções e consultas não mudaram. v11 (sub-etapa B3, saída 3 da 0050): seções `faixas_juncao` (22) e `pontos_faixas_juncao` (23), a partição vertical das faixas de parede já resolvida pelo JS (`resolveLevel` padrão, DEPOIS do perfil superior e do perfil de base: as faixas que `wallLayerBandsAfterJunction` devolve), com a região de cada faixa; o Rust da consulta `junction_nivel` usa essas faixas no lugar de recalcular os pontos de quebra quando a seção `faixas_juncao` está definida, e só executa os recortes de piso e laje. Sem a seção, vale o cálculo anterior (`paredes_z_juncao`, `perfis_z_juncao`). As demais seções e consultas não mudaram. v12 (quantidades): seções `camadas_forro` (24) e `pontos_forro` (25) (os forros chegam do JS já resolvidos: contorno e espessura de cada camada) e as consultas `quant_paredes` (13), `quant_pisos` (14), `quant_lajes` (15) e `quant_forros` (16): bruto, cortado, líquido, área de face e altura de cada camada (volume líquido = max(0, bruto - cortado), o zero uma vez por camada). As demais seções e consultas não mudaram. v13 (decisão 0055, guarda-corpo): seções 60 a 81 e consultas 60 a 65, declaradas para o contrato do guarda-corpo e ainda não implementadas no Rust (seção ainda sem implementação: definir/upsert devolvem ENTRADA; consulta: NAO_IMPLEMENTADO).",
+  "versao": 13,
   "abi": 2,
   "tipos": {
     "u32": {
@@ -1048,6 +1048,1062 @@
           "tipo": "f64"
         }
       ]
+    },
+    {
+      "id": 60,
+      "nome": "escadas_gc",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "nivel_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "z_base",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z_topo",
+          "tipo": "f64"
+        },
+        {
+          "nome": "altura_espelho",
+          "tipo": "f64"
+        },
+        {
+          "nome": "profundidade_piso",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 61,
+      "nome": "escada_componentes_gc",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "escada_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "caracol",
+          "tipo": "u8"
+        },
+        {
+          "nome": "centro_x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "centro_y",
+          "tipo": "f64"
+        },
+        {
+          "nome": "r_int",
+          "tipo": "f64"
+        },
+        {
+          "nome": "r_ext",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 62,
+      "nome": "escada_curvas_gc",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "componente_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "lado",
+          "tipo": "u8"
+        },
+        {
+          "nome": "ordem",
+          "tipo": "u32"
+        },
+        {
+          "nome": "ax",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ay",
+          "tipo": "f64"
+        },
+        {
+          "nome": "bx",
+          "tipo": "f64"
+        },
+        {
+          "nome": "by",
+          "tipo": "f64"
+        },
+        {
+          "nome": "sag",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 63,
+      "nome": "escada_espelhos_gc",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "componente_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "ax",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ay",
+          "tipo": "f64"
+        },
+        {
+          "nome": "bx",
+          "tipo": "f64"
+        },
+        {
+          "nome": "by",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z0",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z1",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 64,
+      "nome": "escada_patamares_gc",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "componente_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "y",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 65,
+      "nome": "rampas_gc",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "nivel_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "z_base",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z_topo",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 66,
+      "nome": "rampa_lances_gc",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "rampa_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "sx",
+          "tipo": "f64"
+        },
+        {
+          "nome": "sy",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ex",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ey",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ax",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ay",
+          "tipo": "f64"
+        },
+        {
+          "nome": "bx",
+          "tipo": "f64"
+        },
+        {
+          "nome": "by",
+          "tipo": "f64"
+        },
+        {
+          "nome": "cx",
+          "tipo": "f64"
+        },
+        {
+          "nome": "cy",
+          "tipo": "f64"
+        },
+        {
+          "nome": "dx",
+          "tipo": "f64"
+        },
+        {
+          "nome": "dy",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z0",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z1",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 67,
+      "nome": "rampa_patamares_gc",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "rampa_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "y",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 70,
+      "nome": "guardas_corpo",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "nivel_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "hosp",
+          "tipo": "u8"
+        },
+        {
+          "nome": "hosp_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "lados",
+          "tipo": "u8"
+        },
+        {
+          "nome": "pos_base",
+          "tipo": "u8"
+        },
+        {
+          "nome": "desloc",
+          "tipo": "f64"
+        },
+        {
+          "nome": "altura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "inverter",
+          "tipo": "u8"
+        },
+        {
+          "nome": "fechado",
+          "tipo": "u8"
+        },
+        {
+          "nome": "lado_desloc",
+          "tipo": "u8"
+        },
+        {
+          "nome": "cota_base",
+          "tipo": "f64"
+        },
+        {
+          "nome": "flags",
+          "tipo": "u8"
+        }
+      ]
+    },
+    {
+      "id": 71,
+      "nome": "guarda_caminhos_manuais",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "guarda_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "y",
+          "tipo": "f64"
+        },
+        {
+          "nome": "dz",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 72,
+      "nome": "tipos_guarda",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "altura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "desloc",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ajuste_patamar",
+          "tipo": "f64"
+        },
+        {
+          "nome": "folga_inferior",
+          "tipo": "f64"
+        },
+        {
+          "nome": "junc_angular",
+          "tipo": "u8"
+        },
+        {
+          "nome": "junc_tangente",
+          "tipo": "u8"
+        },
+        {
+          "nome": "conexao",
+          "tipo": "u8"
+        },
+        {
+          "nome": "tol_corda",
+          "tipo": "f64"
+        },
+        {
+          "nome": "norma_num",
+          "tipo": "u32"
+        }
+      ]
+    },
+    {
+      "id": 73,
+      "nome": "perfis_guarda",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "forma",
+          "tipo": "u8"
+        },
+        {
+          "nome": "largura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "altura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "n_pontos",
+          "tipo": "u32"
+        },
+        {
+          "nome": "lados",
+          "tipo": "u32"
+        }
+      ]
+    },
+    {
+      "id": 74,
+      "nome": "perfis_guarda_pontos",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "perfil_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "y",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 75,
+      "nome": "trilhos_guarda",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "altura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "desloc",
+          "tipo": "f64"
+        },
+        {
+          "nome": "perfil_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "material_num",
+          "tipo": "u32"
+        }
+      ]
+    },
+    {
+      "id": 76,
+      "nome": "corrimaos_guarda",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "funcao",
+          "tipo": "u8"
+        },
+        {
+          "nome": "posicao",
+          "tipo": "u8"
+        },
+        {
+          "nome": "altura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "afastamento",
+          "tipo": "f64"
+        },
+        {
+          "nome": "perfil_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "material_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "ext_ini_estilo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "ext_ini_comp",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ext_ini_mais_piso",
+          "tipo": "u8"
+        },
+        {
+          "nome": "ext_fim_estilo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "ext_fim_comp",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ext_fim_mais_piso",
+          "tipo": "u8"
+        },
+        {
+          "nome": "sup_layout",
+          "tipo": "u8"
+        },
+        {
+          "nome": "sup_espac",
+          "tipo": "f64"
+        },
+        {
+          "nome": "sup_numero",
+          "tipo": "u32"
+        },
+        {
+          "nome": "sup_justif",
+          "tipo": "u8"
+        },
+        {
+          "nome": "sup_perfil_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "sup_comp",
+          "tipo": "f64"
+        },
+        {
+          "nome": "transicao",
+          "tipo": "u8"
+        },
+        {
+          "nome": "juncao",
+          "tipo": "u8"
+        },
+        {
+          "nome": "raio_filete",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 77,
+      "nome": "postes_guarda",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "papel",
+          "tipo": "u8"
+        },
+        {
+          "nome": "ativo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "perfil_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "material_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "acima",
+          "tipo": "f64"
+        },
+        {
+          "nome": "abaixo",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ang_canto",
+          "tipo": "f64"
+        },
+        {
+          "nome": "modo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "espacamento",
+          "tipo": "f64"
+        },
+        {
+          "nome": "numero",
+          "tipo": "u32"
+        }
+      ]
+    },
+    {
+      "id": 78,
+      "nome": "padroes_guarda",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "base_tipo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "base_idx",
+          "tipo": "u32"
+        },
+        {
+          "nome": "topo_tipo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "topo_idx",
+          "tipo": "u32"
+        },
+        {
+          "nome": "periodo",
+          "tipo": "f64"
+        },
+        {
+          "nome": "justif",
+          "tipo": "u8"
+        },
+        {
+          "nome": "sobra",
+          "tipo": "u8"
+        },
+        {
+          "nome": "quebra",
+          "tipo": "u8"
+        },
+        {
+          "nome": "ang_quebra",
+          "tipo": "f64"
+        },
+        {
+          "nome": "escopo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "pd_ativo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "pd_qtd",
+          "tipo": "u32"
+        },
+        {
+          "nome": "pd_dist",
+          "tipo": "f64"
+        },
+        {
+          "nome": "pd_perfil_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "pd_material_num",
+          "tipo": "u32"
+        }
+      ]
+    },
+    {
+      "id": 79,
+      "nome": "padrao_elementos_guarda",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "padrao_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "perfil_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "material_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "dist_anterior",
+          "tipo": "f64"
+        },
+        {
+          "nome": "desloc_lateral",
+          "tipo": "f64"
+        },
+        {
+          "nome": "desloc_base",
+          "tipo": "f64"
+        },
+        {
+          "nome": "desloc_topo",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 80,
+      "nome": "paineis_guarda",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "familia",
+          "tipo": "u8"
+        },
+        {
+          "nome": "base_tipo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "base_idx",
+          "tipo": "u32"
+        },
+        {
+          "nome": "topo_tipo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "topo_idx",
+          "tipo": "u32"
+        },
+        {
+          "nome": "desl_base",
+          "tipo": "f64"
+        },
+        {
+          "nome": "desl_topo",
+          "tipo": "f64"
+        },
+        {
+          "nome": "espessura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "folga_lateral",
+          "tipo": "f64"
+        },
+        {
+          "nome": "largura_max",
+          "tipo": "f64"
+        },
+        {
+          "nome": "material_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "perf_diam",
+          "tipo": "f64"
+        },
+        {
+          "nome": "perf_passo_x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "perf_passo_y",
+          "tipo": "f64"
+        },
+        {
+          "nome": "perf_alternado",
+          "tipo": "u8"
+        },
+        {
+          "nome": "tela_larg",
+          "tipo": "f64"
+        },
+        {
+          "nome": "tela_alt",
+          "tipo": "f64"
+        },
+        {
+          "nome": "tela_fio",
+          "tipo": "f64"
+        },
+        {
+          "nome": "cabo_diam",
+          "tipo": "f64"
+        },
+        {
+          "nome": "cabo_espac",
+          "tipo": "f64"
+        },
+        {
+          "nome": "cabo_orient",
+          "tipo": "u8"
+        }
+      ]
+    },
+    {
+      "id": 81,
+      "nome": "normas_guarda",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "n_flags",
+          "tipo": "u32"
+        },
+        {
+          "nome": "desnivel_exige_guarda",
+          "tipo": "f64"
+        },
+        {
+          "nome": "altura_minima",
+          "tipo": "f64"
+        },
+        {
+          "nome": "altura_minima_escada_interna",
+          "tipo": "f64"
+        },
+        {
+          "nome": "altura_alta_acima",
+          "tipo": "f64"
+        },
+        {
+          "nome": "altura_alta_altura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "esfera_maxima",
+          "tipo": "f64"
+        },
+        {
+          "nome": "esfera_maxima_triangulo",
+          "tipo": "f64"
+        },
+        {
+          "nome": "folga_inferior_maxima",
+          "tipo": "f64"
+        },
+        {
+          "nome": "carga_linear_horizontal",
+          "tipo": "f64"
+        },
+        {
+          "nome": "carga_area_horizontal",
+          "tipo": "f64"
+        },
+        {
+          "nome": "carga_pontual_guarda",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_altura_min",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_altura_max",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_altura_adicional_1",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_altura_adicional_2",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_altura_adicional_3",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_altura_adicional_4",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_diametro_min",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_diametro_max",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_afastamento_min",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_extensao_min",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_dois_lados",
+          "tipo": "u8"
+        },
+        {
+          "nome": "corrimao_continuo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "corrimao_intermediario_largura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_intermediario_espacamento",
+          "tipo": "f64"
+        },
+        {
+          "nome": "carga_corrimao",
+          "tipo": "f64"
+        }
+      ]
     }
   ],
   "consultas": [
@@ -1816,6 +2872,150 @@
           "tipo": "f64",
           "elementos": "5n",
           "descricao": "5 valores por camada: bruto, cortado, liquido = max(0, bruto - cortado), area_de_face, altura (altura média da parede; 0 nas demais)"
+        }
+      ]
+    },
+    {
+      "id": 60,
+      "nome": "guarda_caminhos",
+      "args": [
+        "nivel_num",
+        "tol_juncao"
+      ],
+      "saidas": [
+        {
+          "nome": "trechos",
+          "tipo": "u32",
+          "elementos": "5n"
+        },
+        {
+          "nome": "nos",
+          "tipo": "f64",
+          "elementos": "3n"
+        },
+        {
+          "nome": "avisos",
+          "tipo": "u32",
+          "elementos": "4n"
+        },
+        {
+          "nome": "valores",
+          "tipo": "f64",
+          "elementos": "5n"
+        }
+      ]
+    },
+    {
+      "id": 61,
+      "nome": "guarda_malha",
+      "args": [
+        "nivel_num",
+        "lod"
+      ],
+      "saidas": [
+        {
+          "nome": "grupos",
+          "tipo": "u32",
+          "elementos": "5n"
+        },
+        {
+          "nome": "vertices",
+          "tipo": "f64",
+          "elementos": "3n"
+        },
+        {
+          "nome": "indices",
+          "tipo": "u32",
+          "elementos": "n"
+        }
+      ]
+    },
+    {
+      "id": 62,
+      "nome": "guarda_planta",
+      "args": [
+        "nivel_num",
+        "corte_z",
+        "detalhe"
+      ],
+      "saidas": [
+        {
+          "nome": "linhas",
+          "tipo": "u32",
+          "elementos": "4n"
+        },
+        {
+          "nome": "pontos",
+          "tipo": "f64",
+          "elementos": "2n"
+        }
+      ]
+    },
+    {
+      "id": 63,
+      "nome": "guarda_corte",
+      "args": [
+        "nivel_num",
+        "ox",
+        "oy",
+        "dx",
+        "dy",
+        "profundidade"
+      ],
+      "saidas": [
+        {
+          "nome": "linhas",
+          "tipo": "u32",
+          "elementos": "4n"
+        },
+        {
+          "nome": "pontos",
+          "tipo": "f64",
+          "elementos": "2n"
+        },
+        {
+          "nome": "poligonos",
+          "tipo": "f64",
+          "elementos": "livre"
+        }
+      ]
+    },
+    {
+      "id": 64,
+      "nome": "quant_guarda",
+      "args": [
+        "nivel_num"
+      ],
+      "saidas": [
+        {
+          "nome": "linhas",
+          "tipo": "u32",
+          "elementos": "5n"
+        },
+        {
+          "nome": "valores",
+          "tipo": "f64",
+          "elementos": "4n"
+        }
+      ]
+    },
+    {
+      "id": 65,
+      "nome": "guarda_avisos",
+      "args": [
+        "nivel_num",
+        "norma_num"
+      ],
+      "saidas": [
+        {
+          "nome": "avisos",
+          "tipo": "u32",
+          "elementos": "4n"
+        },
+        {
+          "nome": "valores",
+          "tipo": "f64",
+          "elementos": "5n"
         }
       ]
     }
