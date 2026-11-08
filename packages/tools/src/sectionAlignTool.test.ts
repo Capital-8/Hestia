@@ -90,6 +90,15 @@ describe('ferramenta Alinhar no corte (referência e alvo por clique)', () => {
     expect(t.preview()).toEqual([]);
   });
 
+  it('antes da referência, passar o mouse sobre o topo da porta já mostra a feição que o clique vai pegar', () => {
+    const ctx = scene();
+    const t = tool('align', ctx.env);
+    t.move(P(1.5, 2.1 + 0.03)); // 3 px acima da aresta
+    const items = t.preview();
+    expect(items.some((i) => i.kind === 'line' && i.halo && i.dashed && i.a.x === 1.1 && i.b.x === 1.9 && i.a.y === 2.1)).toBe(true);
+    expect(items.some((i) => i.kind === 'label' && /topo/.test(i.text))).toBe(true);
+  });
+
   it('o primeiro clique no topo da porta só grava a referência, sem alterar o modelo', () => {
     const ctx = scene();
     const t = tool('align', ctx.env);

@@ -284,7 +284,9 @@ function nearestLine(lines: FeatureLine[], at: Vec2, prefer: 'h' | 'v' | null = 
   // Os eixos de centro cruzam as bordas no meio: clicar no meio do topo dava 0 de distância ao eixo vertical e ele
   // vencia a borda. O centro leva uma desvantagem de alguns pixels, então a borda sob o cursor vence (qualquer zoom).
   const centerPenalty = tie * 4;
-  const scored = lines.map((line) => ({ line, d: dist(at, closestOnSegment(at, line.a, line.b)) + (line.feature === 'centerV' || line.feature === 'centerH' ? centerPenalty : 0) }));
+  // Arestas internas do marco (nem topo, nem base, nem face) ficam a poucos px do topo: clicar na moldura não pode roubar a feição de borda.
+  const edgePenalty = tie * 2;
+  const scored = lines.map((line) => ({ line, d: dist(at, closestOnSegment(at, line.a, line.b)) + (line.feature === 'centerV' || line.feature === 'centerH' ? centerPenalty : line.feature === 'edge' ? edgePenalty : 0) }));
   const min = Math.min(...scored.map((s) => s.d));
   const ties = scored.filter((s) => s.d <= min + tie);
   const compatible = prefer ? ties.filter((s) => s.line.axis === prefer) : [];
@@ -441,7 +443,8 @@ export class SectionAlignTool extends ToolBase {
     if (this.ref?.line) items.push(...alignFeatureItems(this.refFeature(this.ref), this.t('tl_label_reference')));
     if (!target) { this.items = [...items, { kind: 'point', at: inf.point }]; return; }
     items.push({ kind: 'point', at: inf.point }, { kind: 'highlight', ids: [target.hostId] });
-    if (this.ref) items.push(...alignFeatureItems(this.targetFeature(target), this.t('tl_label_move'), true));
+    // Sem referência, a feição sob o cursor já aparece tracejada (como na planta): é a que o clique vai escolher.
+    items.push(...alignFeatureItems(this.targetFeature(target), this.ref ? this.t('tl_label_move') : this.t('tl_label_reference'), true));
     const ghost = this.ghost(target);
     if (ghost) items.push({ kind: 'line', a: ghost.a, b: ghost.b, dashed: true });
     this.items = items;
