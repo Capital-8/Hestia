@@ -1,6 +1,6 @@
 import type { SheetView3DCamera } from '@hestia/model';
 import type { Camera, Object3D } from 'three';
-import { aplicarCameraNaOrbita, cameraDaOrbita, idsNaCaixaDaTela, type OrbitCamera } from '@hestia/render';
+import { aplicarCameraNaOrbita, cameraDaOrbita, type OrbitCamera } from '@hestia/render';
 import { useUi } from './state.ts';
 import { activateView } from './viewTabActions.ts';
 
@@ -46,21 +46,6 @@ export function registrarPreparoCena3D(f: (() => boolean) | null): void {
 /** Monta o que faltar na cena 3D (síncrono) e diz se há geometria pronta para a miniatura. */
 export function prepararCena3D(): boolean {
   return prepararCena ? prepararCena() : false;
-}
-
-/**
- * Ctrl+A na vista 3D: seleciona os elementos visíveis no quadro (cruzamento com o retângulo inteiro da tela). Devolve
- * false quando a vista 3D não está viva, e nada muda.
- */
-export function selecionarVisiveis3D(): boolean {
-  if (!cena3d) return false;
-  const ids = idsNaCaixaDaTela(cena3d.scene, cena3d.camera, { x0: -1, y0: -1, x1: 1, y1: 1 }, 'cruzamento');
-  useUi.setState({
-    selection: ids,
-    selectedLevel: null,
-    status: ids.length ? { key: 'edc_3d_selected', args: { n: ids.length } } : { key: 'edc_3d_none_visible' },
-  });
-  return true;
 }
 
 /** Há uma vista 3D viva de onde ler a câmera atual? */

@@ -261,31 +261,20 @@ describe('separadores', () => {
 describe('Visíveis na vista (Selecionar todas as instâncias)', () => {
   const mista = { ...base, hasSelection: true, selectionKinds: ['wall', 'door'], singleType: false };
 
-  it('3D com seleção mista: Selecionar todas e Visíveis na vista habilitados', () => {
+  it('3D com seleção mista: Selecionar todas segue desabilitado com o motivo (mesmo critério da planta)', () => {
     const m = buildContextMenu({ ...mista, view: '3d' });
-    expect(find(m, 'selectAll').disabled).toBeFalsy();
-    expect(find(m, 'selectAll').hint).toBeUndefined();
-    expect(find(find(m, 'selectAll').children ?? [], 'selectAllView').disabled).toBeFalsy();
+    expect(find(m, 'selectAll').disabled).toBe(true);
+    expect(find(find(m, 'selectAll').children ?? [], 'selectAllView').disabled).toBe(true);
   });
 
-  it('3D com seleção de um só tipo continua habilitado', () => {
+  it('3D com seleção de um só tipo: Selecionar todas e Visíveis na vista habilitados', () => {
     const m = buildContextMenu({ ...mista, view: '3d', selectionKinds: ['wall'], singleType: true });
+    expect(find(m, 'selectAll').disabled).toBeFalsy();
     expect(find(find(m, 'selectAll').children ?? [], 'selectAllView').disabled).toBeFalsy();
   });
 
-  it('3D sem seleção: aparece Selecionar todas com Visíveis na vista habilitado e No projeto inteiro esmaecido', () => {
-    const m = buildContextMenu({ ...base, view: '3d' });
-    const todas = find(m, 'selectAll');
-    expect(todas.disabled).toBeFalsy();
-    expect(find(todas.children ?? [], 'selectAllView').disabled).toBeFalsy();
-    expect(find(todas.children ?? [], 'selectAllProject').soon).toBe(true);
-    expect(find(todas.children ?? [], 'selectAllProject').disabled).toBe(true);
-  });
-
-  it('3D sem seleção: Visíveis na vista fica no grupo antes de Rodas de navegação e Zoom', () => {
-    const m = buildContextMenu({ ...base, view: '3d' });
-    expect(ids(m).indexOf('selectAll')).toBeLessThan(ids(m).indexOf('steering'));
-    expect(ids(m).indexOf('selectPrevious')).toBeLessThan(ids(m).indexOf('selectAll'));
+  it('3D sem seleção: não há Selecionar todas (sem tipo de referência)', () => {
+    expect(ids(buildContextMenu({ ...base, view: '3d' }))).not.toContain('selectAll');
   });
 
   it('planta com seleção mista: Selecionar todas segue desabilitado com o motivo', () => {
