@@ -1,4 +1,4 @@
-import type { Project } from '@hestia/model';
+import type { DimensionStyle, Project } from '@hestia/model';
 import { useI18n, type Lang } from '../editor/i18n.ts';
 import { familyName, openingFamilyName } from './typeFamilies.ts';
 import type { TypeOption } from './TypeSelector.tsx';
@@ -38,4 +38,9 @@ export function openingOptions(p: Project, kind: 'door' | 'window', lang: Lang =
   return Object.values(p.openingTypes)
     .filter((t) => t.kind === kind)
     .map((t) => ({ id: t.id, name: t.name, code: t.code ?? '', family: openingFamilyName(t, lang), subject: { kind, type: t } }));
+}
+
+/** Famílias de cota (a Padrão inclusa): a lista do seletor, todas no grupo da categoria `family`. */
+export function dimensionOptions(familias: ReadonlyArray<{ id: string; name: string } & DimensionStyle>, family: string): TypeOption[] {
+  return familias.map((f) => ({ id: f.id, name: f.name, code: '', family, subject: { kind: 'dimension', style: f } }));
 }
