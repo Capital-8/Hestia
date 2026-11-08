@@ -1,0 +1,753 @@
+# Decisão 0055 — Guarda-corpo e corrimão (modelo, norma configurável, contrato com o kernel Rust)
+
+Data: 2026-11-08. Estado: **proposta da Fase 0 (pesquisa e desenho), nada implementado**. Branch `feat/guarda-corpo`.
+Numeração: o maior número visto em `origin/main` e nas branches remotas é 0054 (`feat/termino-camada`); 0051 a 0053 estão em branches do kernel. Há números duplicados históricos (0046, 0047, 0049); se 0055 colidir na hora de mesclar, renumere.
+
+Marcações de confiança usadas abaixo: **[LIDO]** = página ou PDF aberto e lido nesta rodada; **[BUSCA]** = só o resultado da busca, página não aberta; **[A CONFIRMAR]** = valor que não está em fonte pública verificada (norma paga da ABNT, ou fonte secundária). Valores marcados [A CONFIRMAR] entram nos perfis de norma com `verificado: false` e aparecem como "(a conferir)" nas mensagens, como já faz a rampa (`RampType.normChecked`).
+
+---
+
+## 1. Decisões do dono (de partida, não reabrir)
+
+1. **Hospedeiros automáticos: escada e rampa.** Ligar/desligar por lado (esquerdo/direito, visto de quem sobe) e por tipo de trecho (lance, patamar). O guarda-corpo segue lances, patamares, mudanças de direção e a escada caracol, e **se refaz quando a escada muda**.
+2. **Hospedeiros manuais: borda de laje, varanda e mezanino.** O usuário traça o início e o fim do caminho (que pode encostar numa borda).
+3. **Preenchimento completo:** balaústres em padrão (vários balaústres por padrão, espaçamento, justificação, por degrau), painéis (vidro, chapa, chapa perfurada, tela, cabo de aço) e postes (início, fim, canto, intermediários).
+4. **Norma configurável:** um perfil de norma por projeto (e por país), editável, que só gera avisos. Vem o perfil Brasil (NBR 9077, NBR 14718, NBR 9050) e exemplos IBC (EUA) e Parte K (Reino Unido).
+5. **Arquitetura:** modelo, família, UI, editor de tipo e quantidades em TS; geometria pesada no Rust (caminho 3D hospedado, varredura de perfil, junções, distribuição, malha, linhas de planta e corte). O TS entra só como referência em testes, como no resto do kernel.
+
+---
+
+## 2. Pesquisa
+
+### 2.1 Revit (Autodesk)
+
+[LIDO] [Railing System Type Properties](https://help.autodesk.com/cloudhelp/2020/ENU/Revit-Model/files/GUID-6385104B-4295-4659-855F-BA7DD2793CD5.htm):
+- **Railing Height** (altura do corrimão superior); **Rail Structure (Non-Continuous)**: lista de trilhos, cada um com altura, deslocamento, material e perfil; **Baluster Placement**: abre o editor de padrão; **Baluster Offset** (deslocamento lateral do balaústre à linha do croqui).
+- **Use Landing Height Adjustment** + **Landing Height Adjustment**: sobe ou desce o guarda-corpo nos patamares intermediário e de topo.
+- **Angled Joins** (trechos em ângulo, sem conexão vertical): *Add Vertical/Horizontal Segments* ou *Add No Connector*. **Tangent Joins** (trechos colineares ou tangentes): os dois anteriores mais *Extend Rails to Meet*. **Rail Connections**: *Trim* (corte em plano vertical) ou *Weld* (mais próximo de esquadria, bom para perfil circular).
+- **Top Rail** (altura e tipo) e **Handrail 1 / Handrail 2** (posição Esquerda, Direita ou as duas; tipo; altura vem do tipo do corrimão).
+
+[LIDO] [Continuous Rail Type Properties](https://help.autodesk.com/cloudhelp/2023/ENU/Revit-ArchDesign/files/GUID-B6A3CEF7-E14C-46DA-8F0C-61556908EB99.htm) (corrimão e top rail):
+- **Default Join** (esquadria ou filete) e **Fillet Radius**; **Hand Clearance** (borda externa do corrimão à parede/poste); **Projection**; **Profile**; **Height** (topo do corrimão acima do hospedeiro).
+- **Transitions**: *None* (o corrimão interno acaba na quina do primeiro ou do último degrau), *Gooseneck* (transições apertadas e perfis complexos), *Simple* (transições apertadas com perfil circular).
+- **Supports**: família, layout (*None, Fixed Distance, Align with Posts, Fixed Number, Maximum Spacing, Minimum Spacing*), espaçamento, número, justificação (início, centro, fim).
+- **Extensions** (início/base e fim/topo): estilo *None, 1 - Wall, 2 - Floor, 3 - Post*, comprimento e **Plus Tread Depth** (soma uma profundidade de degrau; a página diz que "pode ser necessário para atender a muitos códigos de corrimão"). **Terminations** nas duas pontas.
+
+[LIDO] [Create a Custom Baluster Pattern](https://help.autodesk.com/cloudhelp/2018/ENU/Revit-Model/files/GUID-84F925AC-E09A-4C79-A7F7-EA2F20FF6364.htm) e [BUSCA] [BalusterPlacement (API)](https://help.autodesk.com/cloudhelp/2026/ENU/Revit-API-MainReference/files/html/33c016f2-bf39-a852-052f-b1c80b0f1860.htm):
+- Padrão principal (*Main Pattern*): por linha, *Name, Baluster Family, Base* (hospedeiro ou um trilho), *Base Offset, Top, Top Offset, Distance from previous, Offset*. **Break Pattern**: *Each Segment End*, *Angles Greater Than* (quebra e põe poste onde o giro em planta passa do valor) ou *Never*. **Justify** (início, fim, centro) e **Excess Length Fill** (como preencher a sobra quando a justificação não é "espalhar"). Postes (*Start, Corner, End*) ficam no mesmo editor (`PostPattern` na API). **Use Baluster Per Tread on Stairs** e número de balaústres por degrau.
+- Página que descreve **Main Pattern: Spacing, Justify e Excess Length Fill** em detalhe não foi aberta (a página lida remete a outro tópico): o cálculo exato da sobra do Revit é [A CONFIRMAR].
+- Não lido: *Railing System Instance Properties* (Base Level, Base Offset, Tread/Stringer Offset, Host, Slope). A busca mostra que o corrimão do Revit tem **Place on Tread / Stringer** ([BUSCA] em [Override the Main Baluster Pattern for Stairs](https://help.autodesk.com/cloudhelp/2015/ENU/Revit-Model/files/GUID-2F7A63EC-3756-4021-ABD8-133593CC041F.htm)); o nome das propriedades de instância é [A CONFIRMAR].
+- Já registrado em `docs/05-REFERENCIA-REVIT-ARCHICAD.md` §5: o corrimão sai com o lance e é desligável ([Run Component Tool](https://help.autodesk.com/cloudhelp/2020/ENU/Revit-Model/files/GUID-26053199-6B08-44B9-907C-F5D9AA7CEC81.htm)); corrimão contínuo entre escadas separadas não é possível.
+
+### 2.2 ArchiCAD (Graphisoft)
+
+[LIDO] [Railing Settings: Overview](https://help.graphisoft.com/AC/28/INT/_AC28_Help/040_ElementsVB/040_ElementsVB-211.htm) e [BUSCA] das páginas irmãs ([About the Railing Tool](https://help.graphisoft.com/AC/30/INT/Topics/040_ElementsVB/040_ElementsVB-205.html), [Inner Post Settings](https://help.graphisoft.com/AC/25/INT/_AC25_Help/040_ElementsVB/040_ElementsVB-230.htm), [Panel Settings](https://help.graphisoft.com/AC/21/INT/AC21Help/03_1_Elements_Virtual_Building/03_1_Elements_Virtual_Building-198.htm), [Pattern Distribution](https://community.graphisoft.com/t5/Modeling/Railing-Tool-Basics-Pattern-Distribution-Settings/ta-p/303682), esta última com erro 403 ao abrir):
+- Dois níveis: **Segmentos** (trecho entre dois nós; tem o *Railing Pattern* e a altura do segmento) e **Nós** (os pontos que dividem os segmentos; um ou mais **Postes** em cada nó).
+- O padrão do segmento é feito de: **Toprail**, **Handrail** (até dois, cada um pode ser duplicado nos dois lados), **Rails**, **Inner Posts** (entre nós, ao contrário dos Posts, que ficam nos nós), **Balusters** ("um padrão dentro do padrão", pode haver mais de um conjunto) e **Panels** (preenchem o vão entre dois Inner Posts ou Rails; onde já há balaústres não cabe painel).
+- Distribuição do padrão: dividir o segmento em N partes, distribuir igualmente por comprimento máximo, ou comprimentos fixos. O padrão **para no nó e recomeça no segmento seguinte**; a configuração *Pattern Continuity* do nó carrega o padrão adiante.
+- Páginas separadas para *Connection Settings* e *Railing Ends* (extremidades e conexões de Toprail, Handrail e Rail): [BUSCA], conteúdo não aberto.
+- A associação do corrimão com escada/laje no ArchiCAD (guarda-corpo que segue a escada) não foi confirmada em página oficial: **[A CONFIRMAR]**. O Hestia segue o modelo do Revit nesse ponto (decisão do dono, item 1).
+
+### 2.3 Normas
+
+**NBR 9077 (saídas de emergência)** — [LIDO] texto da norma em cópia pública ([mprj.mp.br, NBR 9077](https://www.mprj.mp.br/documents/20184/74453/nbr_9077_saidas_de_emergencia_em_edificios_2001.pdf); o corpo do texto traz o cabeçalho "NBR 9077/1993", o arquivo se chama 2001: diferenças entre as edições são [A CONFIRMAR]). Item 4.8:
+- 4.8.1.1: guarda em todo desnível maior que **19 cm** (corredores, balcões, terraços, mezaninos, patamares, escadas, rampas).
+- 4.8.1.2: altura mínima **1,05 m** ao longo de patamares, corredores, mezaninos; pode cair para **0,92 m nas escadas internas**, medida na vertical do topo da guarda à linha que une as pontas dos bocéis (quinas dos degraus).
+- 4.8.1.3: escadas externas, patamares e balcões **a mais de 12 m** do solo: **1,30 m**.
+- 4.8.1.4: guardas vazadas (exceto grupos I e J): **esfera de 15 cm** não passa por nenhuma abertura; sem saliências que enganchem roupa; material não estilhaçável (vidro aramado ou laminado).
+- 4.8.2: corrimão entre **80 e 92 cm**; seção circular **38 a 65 mm**; afastado **40 mm no mínimo** da parede/guarda; contínuo, sem arestas; outros corrimãos em alturas diferentes são permitidos (escolas).
+- 4.8.3: guarda resiste a **730 N/m** horizontal a 1,05 m e **1,20 kPa** na área bruta; corrimão resiste a **900 N** em qualquer ponto, vertical e horizontal.
+- 4.8.4: escada com mais de **2,20 m** de largura leva corrimão intermediário a cada **1,80 m** no máximo; lanços entre corrimãos com no mínimo **1,10 m**.
+- 4.7.2 b: corrimão pode invadir até **10 cm** de cada lado sem alargar a escada. 4.6.2.7: rampas têm guardas e corrimãos "de forma análoga" a 4.8.
+- Complemento estadual [LIDO] ([Orientação Técnica 001-17, CBMPR](https://www.bombeiros.pr.gov.br/sites/bombeiros/arquivos_restritos/files/documento/2018-12/OrientacaoTecnica00117guardaCorpoEcorrimao.pdf), baseada na NPT 11): o guarda-corpo interno da escada pode servir de corrimão se tiver 0,92 m e cumprir 5.8.2 (os itens equivalentes da NPT 11 são os de 4.8 da NBR 9077). É norma de incêndio estadual, não vale como geral.
+
+**NBR 14718 (guarda-corpos de edificação)** — a norma é paga; nada foi lido nesta rodada. O repositório já traz uma tabela em `docs/aberturas/archicad/04-brasil-tipos-e-normas.md` §6.5 (lida de um PDF público da edição 2001, hoje fora do ar para este agente; há revisões de 2008 e 2019): altura mínima **1,10 m**; mureta de 20 a 80 cm pede guarda de **0,90 m** acima dela; vão entre perfis **110 mm**; carga horizontal e vertical **1000 N/m** (uso privativo) e **1670 N/m** (uso comum); impacto de **700 J** no painel; ancoragem. Tudo isso fica **[A CONFIRMAR]** contra a edição vigente; outras fontes de editais ([BUSCA], Lages-SC) repetem 1,10 m citando "NBR 9050:2020 e NBR 14718:2008".
+
+**NBR 9050 (acessibilidade)** — norma paga, nada lido. [BUSCA, fonte secundária]: corrimãos em **dois lados** de escadas e rampas, em **duas alturas**, **0,92 m e 0,70 m** (do topo do corrimão à quina do degrau); seção circular de **30 a 45 mm**; **prolongamento de 0,30 m** no início e no fim (editais citam; não achei a página da norma); afastamento da parede: os 40 mm achados na busca são de barras de apoio, não de corrimão (para corrimão a norma mais citada diz 40 mm, mas **[A CONFIRMAR]**). Tudo [A CONFIRMAR].
+
+**IBC 2021 (EUA)** — [BUSCA] [1015.3 Height](https://codes.iccsafe.org/s/IBC2021P1/chapter-10-means-of-egress/IBC2021P1-Ch10-Sec1015.3) e [1015.4 Opening limitations](https://codes.iccsafe.org/s/IBC2021P1/chapter-10-means-of-egress/IBC2021P1-Ch10-Sec1015.4): guarda **42 pol (1067 mm)** do piso ou da linha das quinas dos degraus; esfera de **4 pol (102 mm)** (e 4 3/8 pol = 111 mm em faixas e em unidades residenciais); abertura triangular de degrau: esfera de **6 pol (152 mm)**; guarda servindo de corrimão em R-3: **34 a 38 pol** acima da linha das quinas. Corrimão 34-38 pol, extensão horizontal de 12 pol no topo e um degrau embaixo, pegada de 1 1/4 a 2 pol, folga de 1 1/2 pol da parede, cargas de 50 lbf/pé e 200 lbf pontual (ASCE 7): **[A CONFIRMAR]** (conhecimento geral, não verificado).
+
+**Approved Document K (Inglaterra)** — [BUSCA] só visões gerais ([gov.uk](https://www.gov.uk/government/publications/protection-from-falling-collision-and-impact-approved-document-k)); os valores abaixo são de memória e **[A CONFIRMAR]**: guarda de **900 mm** em escadas e patamares internos de casas, **1100 mm** em sacadas e bordas externas; esfera de **100 mm**; corrimão de **900 a 1000 mm**; extensão de 300 mm só em rampas e escadas de uso público.
+
+---
+
+## 3. Como o código está hoje (leitura)
+
+- **Escada** (`packages/model/src/stairTypes.ts`): `Stair` guarda `components: Array<StairRun | StairLanding>`; `StairRun` é um croqui (`boundaryLeft`, `boundaryRight`, `risers`, `path`, `spiral?`); `StairCurve = {a, b, sag}` (reta ou arco por flecha). Escada livre: `freePath`, `manualLandings`. `StairType` traz `maxRiser, minRiser, minTread, calc*` e `minRunWidth`. **Não há corrimão nem guarda-corpo** no modelo (`docs/02-MODELO-BIM.md` §9 apenas prevê "guarda-corpo por trajetória com baluste/montante").
+- **Rampa** (`rampTypes.ts`): mesmo `components` (cada lance tem exatamente 2 linhas de espelho), `shape`, `freePath`, `turn`; `RampType.normProfile/normTable/normChecked` é o precedente de norma configurável por tipo.
+- **Resolução** (`packages/engine/src/stairs.ts`, `ramps.ts`): `ResolvedStair` (degraus com polígono e `z`, espelhos com `a`, `b`, `z0`, `z1`, `spiral?`) e `ResolvedRamp` (lances com `startEdge`, `endEdge`, `z0`, `z1`; patamares com anel e `z`). Normas da escada em `stairNorms.ts` (`StairNorms`, `DEFAULT_STAIR_NORMS`), avisos em `stairIssues.ts` (`StairIssueItem`, `makeStairIssue`). O patamar de giro é um anel de 6 pontos `[aIn, inner, bIn, bOut, outer, aOut]` (`docs/handoff/escada-livre/contrato-escada-livre.md` §1).
+- **Tipos no projeto:** `Project.stairTypes`, `rampTypes`, `openingTypes` (`types.ts:786-789`) com `upsertStairType`/`deleteStairType` em `commands.ts`; `SCHEMA_VERSION = 23` com migração por versão em `migrate.ts`. `Element` é uma união fechada (`types.ts`, hoje `Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | Room | Generic | CadDrawing`) e `hasLevel` em `elementLevel.ts` é lista explícita.
+- **Famílias autorais (componentes):** decisão 0049 (`origin/feat/familias-interface`, ainda fora da main) define `ComponentFamily/ComponentType/Component` com parâmetros e fórmulas. Aqui, o guarda-corpo **não depende dela** (o tipo é um registro tipado, como `StairType`); a integração futura é balaústre e poste usarem uma `ComponentFamily` (ver §12, ponto aberto 4).
+- **Kernel Rust** (`crates/geom-wasm`, contrato `schema/cena-v11.json`, `versao: 12`, `abi: 2`): seções em colunas planas (`u32`, `i32`, `f64`, `u8`), chave `id_num`, seções 1 a 25 (paredes, tipos, camadas, faixas, pisos, lajes, contornos, furos, forros...), 16 consultas (`resolver_nivel`, `pisos_lajes_nivel`, `quant_paredes` ... `quant_forros`); saídas são vetores planos tipados com `elementos` por linha; limites `4_194_304` linhas por seção e `268_435_456` bytes por chamada; constantes espelhadas em `esquema.rs` com teste `contrato_confere_com_json`. O adaptador TS (`packages/engine/src/kernelB.ts`) monta as seções a partir do `Project` e decide o que enviar pronto ao Rust (furos de escada e rampa já vão resolvidos por elemento).
+- **Quantidades, IFC e renderização de escada** são módulos por tipo: `engine/stairQuantities.ts`, `io/src/ifc/ifcElements.ts` (`addStairs`, `addRamps`, IFC4), `render/src/model3d`, `render/src/plan`, `render/src/section`, `tools/src/stair*.ts`, `apps/web/src/ui/Stair*.tsx`.
+
+---
+
+## 4. Modelo de dados (TS exato)
+
+Arquivo novo `packages/model/src/guardaCorpoTypes.ts` (só tipos e constantes, no molde de `stairTypes.ts`). Metros e radianos em todo o modelo. Nomes em português, como pediu o dono; o discriminante do elemento é `'railing'` (os outros `kind` do projeto são em inglês: `'stair'`, `'ramp'`).
+
+### 4.1 Elemento
+
+```ts
+/** Lado de um caminho, visto de quem sobe (escada, rampa) ou de quem percorre o caminho manual. */
+export type LadoGC = 'esquerdo' | 'direito';
+
+/** Em que parte do hospedeiro o guarda-corpo existe: ligar/desligar por lado e por tipo de trecho. */
+export interface LadoHospedado {
+  /** Acompanha os lances (e, na rampa, os lances inclinados). */
+  lance: boolean;
+  /** Acompanha os patamares (inclui o patamar de giro). */
+  patamar: boolean;
+}
+
+/** Revit: Place on Treads / Stringer. */
+export type PosicaoBaseGC = 'degrau' | 'lateral';
+
+export interface HospedeiroEscada {
+  tipo: 'escada';
+  escadaId: Id;
+  lados: Record<LadoGC, LadoHospedado>;
+  posicaoBase: PosicaoBaseGC;
+}
+export interface HospedeiroRampa {
+  tipo: 'rampa';
+  rampaId: Id;
+  lados: Record<LadoGC, LadoHospedado>;
+  posicaoBase: PosicaoBaseGC;
+}
+/** Borda de laje, varanda, mezanino: o usuário traça o caminho. `referenciaId` só ajuda a ferramenta e o "Ir para". */
+export interface HospedeiroManual {
+  tipo: 'manual';
+  uso: 'borda-laje' | 'varanda' | 'mezanino' | 'livre';
+  referenciaId?: Id;
+  /** Vértices em planta; `dz` é o desnível sobre `cotaBase` (0 = horizontal). Mínimo 2 pontos. */
+  caminho: PontoCaminhoGC[];
+  /** Laço fechado (último ponto liga ao primeiro). */
+  fechado: boolean;
+  /** Lado do caminho para o qual o deslocamento lateral vale. */
+  ladoDeslocamento: LadoGC | 'centro';
+}
+export interface PontoCaminhoGC { x: number; y: number; dz: number }
+
+export type HospedeiroGC = HospedeiroEscada | HospedeiroRampa | HospedeiroManual;
+
+export interface GuardaCorpo {
+  id: Id;
+  kind: 'railing';
+  levelId: Id;
+  typeId: Id;
+  hospedeiro: HospedeiroGC;
+  /** Cota do ponto de partida sobre o nível, só no modo manual (m). Em escada e rampa vem do hospedeiro. */
+  cotaBase: number;
+  /** Deslocamento lateral do eixo do guarda-corpo (m); positivo = para dentro do hospedeiro (sobre o degrau/laje). null = usa o do tipo. */
+  deslocamento: number | null;
+  /** Altura do guarda-corpo (m) quando difere do tipo; null = a do tipo. */
+  altura: number | null;
+  /** Inverte o sentido do caminho (muda o início e o fim; no manual, o lado "esquerdo"). */
+  inverter: boolean;
+  /** Sobrescritas de instância (Revit: parâmetros de instância). Só o que o usuário alterou. */
+  sobrescritas?: Partial<SobrescritasGC>;
+  mark: string;
+  comments: string;
+  /** Ordem de criação. */
+  order: number;
+}
+export interface SobrescritasGC {
+  postesIntermediarios: boolean;
+  preenchimentoAtivo: boolean;
+  corrimaoAtivo: boolean;
+  normaId: Id | null;
+}
+```
+
+Regras do elemento:
+- `GuardaCorpo` **não guarda geometria**. A geometria deriva do hospedeiro a cada resolução; é isso que o faz se refazer quando a escada muda (§6.1).
+- Hospedeiro escada/rampa inexistente: erro de validação `railing-host-missing` (o guarda-corpo fica no modelo, sem desenho, e entra na lista de problemas).
+- `levelId` de escada e rampa = `levelId` do hospedeiro (o nível da base). Mudar o hospedeiro troca o `levelId` no comando.
+- Um guarda-corpo por hospedeiro e conjunto de lados é o padrão; o botão "Criar guarda-corpo" na escada cria um com os dois lados ligados.
+
+### 4.2 Tipo (família)
+
+Arquivo `guardaCorpoTypes.ts`, `Project.tiposGuardaCorpo: Record<Id, TipoGuardaCorpo>`.
+
+```ts
+export type FormaPerfilGC = 'circular' | 'retangular' | 'poligono';
+
+/** Perfil de varredura ou de extrusão vertical. Origem no centro; Y para cima. */
+export interface PerfilGC {
+  forma: FormaPerfilGC;
+  /** circular: diâmetro; retangular: largura (m). */
+  largura: number;
+  /** retangular: altura (m); ignorado no circular. */
+  altura: number;
+  /** poligono: vértices anti-horários (m), 3 a 64 pontos. */
+  pontos?: Vec2[];
+}
+
+export type RefBaseGC =
+  | { de: 'hospedeiro' }                 // piso/degrau/linha das quinas
+  | { de: 'trilho'; indice: number };    // um dos `trilhos` do tipo
+export type RefTopoGC =
+  | { de: 'altura' }                     // altura do guarda-corpo
+  | { de: 'trilho'; indice: number }
+  | { de: 'corrimao'; indice: number };
+
+/** Revit: Rail Structure (trilho não contínuo). */
+export interface TrilhoGC {
+  nome: string;
+  /** Altura do eixo sobre o hospedeiro (m). */
+  altura: number;
+  /** Deslocamento lateral (m). */
+  deslocamento: number;
+  perfil: PerfilGC;
+  materialId: Id;
+}
+
+export type ExtremidadeEstiloGC = 'nenhum' | 'parede' | 'piso' | 'poste';
+export interface ExtensaoGC {
+  estilo: ExtremidadeEstiloGC;
+  /** Comprimento horizontal da extensão (m). */
+  comprimento: number;
+  /** Revit: Plus Tread Depth. Soma a profundidade de um degrau (só escada e rampa). */
+  maisPiso: boolean;
+}
+export type LayoutSuporteGC = 'nenhum' | 'distancia-fixa' | 'alinhar-postes' | 'numero-fixo' | 'espacamento-maximo' | 'espacamento-minimo';
+export interface SuportesGC {
+  layout: LayoutSuporteGC;
+  espacamento: number;
+  numero: number;
+  justificacao: JustificacaoGC;
+  perfil: PerfilGC;
+  /** Comprimento do suporte (m), do eixo do corrimão ao ponto de fixação. */
+  comprimento: number;
+  materialId: Id;
+}
+export type TransicaoCorrimaoGC = 'nenhuma' | 'simples' | 'pescoco-de-ganso';
+export type JuncaoCorrimaoGC = 'esquadria' | 'filete';
+
+/** Corrimão ou travessa superior (Revit: Continuous Rail; ArchiCAD: Toprail e Handrail). */
+export interface CorrimaoGC {
+  nome: string;
+  /** 'topo' = travessa superior sobre os postes (não é para agarrar); demais = corrimão. */
+  funcao: 'topo' | 'corrimao';
+  /** Em que lado do guarda-corpo fica. 'eixo' = sobre o eixo (travessa superior). */
+  posicao: 'eixo' | 'esquerda' | 'direita' | 'ambas';
+  /** Altura do TOPO do corrimão sobre o hospedeiro (m): sobre a linha das quinas em escada e rampa. */
+  altura: number;
+  /** Folga entre a face lateral do corrimão e a face do guarda-corpo ou da parede (m). */
+  afastamento: number;
+  perfil: PerfilGC;
+  materialId: Id;
+  extensaoInicio: ExtensaoGC;
+  extensaoFim: ExtensaoGC;
+  suportes: SuportesGC;
+  transicao: TransicaoCorrimaoGC;
+  juncao: JuncaoCorrimaoGC;
+  raioFilete: number;
+}
+
+export type PapelPosteGC = 'inicio' | 'fim' | 'canto' | 'intermediario';
+export interface PosteGC {
+  ativo: boolean;
+  perfil: PerfilGC;
+  materialId: Id;
+  /** Quanto o poste sobe acima da altura do guarda-corpo (m, ≥ 0). */
+  alturaAcima: number;
+  /** Quanto desce abaixo da base (m, ≥ 0; embute na laje/degrau). */
+  profundidadeAbaixo: number;
+}
+export interface PostesGC {
+  inicio: PosteGC;
+  fim: PosteGC;
+  /** Poste em cada vértice cujo giro em planta passa de `anguloCanto`. */
+  canto: PosteGC;
+  anguloCanto: number;      // rad, padrão 5° (0,0873)
+  intermediario: PosteGC & {
+    modo: 'espacamento-maximo' | 'espacamento-fixo' | 'numero-fixo' | 'nenhum';
+    espacamento: number;    // m
+    numero: number;         // por trecho
+  };
+}
+
+export type JustificacaoGC = 'inicio' | 'fim' | 'centro' | 'distribuir';
+export type QuebraPadraoGC = 'cada-segmento' | 'angulo' | 'nunca';
+export type SobraPadraoGC = 'nenhuma' | 'balaustre-extra' | 'folga-nas-pontas';
+
+/** Um balaústre dentro do padrão. `modelo: null` = vazio (só ocupa espaço). */
+export interface ElementoPadraoGC {
+  modelo: { perfil: PerfilGC; materialId: Id } | null;
+  /** Distância horizontal ao elemento anterior do padrão (m); o primeiro usa 0. */
+  distanciaAnterior: number;
+  deslocamentoLateral: number;
+  /** Cortes de altura em relação à base e ao topo do padrão (m). */
+  deslocamentoBase: number;
+  deslocamentoTopo: number;
+}
+
+/** Padrão de balaústres (Revit: Main Pattern; ArchiCAD: Balusters). */
+export interface PadraoBalaustresGC {
+  tipo: 'balaustres';
+  nome: string;
+  base: RefBaseGC;
+  topo: RefTopoGC;
+  elementos: ElementoPadraoGC[];            // 1 a 16
+  /** Distância horizontal entre o início de uma repetição e o da seguinte (m). Maior que a soma das `distanciaAnterior`. */
+  periodo: number;
+  justificacao: JustificacaoGC;
+  sobra: SobraPadraoGC;
+  quebra: QuebraPadraoGC;
+  anguloQuebra: number;                     // rad, usado com quebra 'angulo'
+  /** O padrão é distribuído em cada vão entre postes ('vao') ou no segmento inteiro ('segmento'). */
+  escopo: 'vao' | 'segmento';
+  /** Só escada/rampa: balaústres por degrau no lugar do `periodo` nos lances. */
+  porDegrau: { ativo: boolean; quantidade: number; distanciaDaQuina: number; modelo: ElementoPadraoGC['modelo'] };
+}
+
+export type FamiliaPainelGC = 'vidro' | 'chapa' | 'chapa-perfurada' | 'tela' | 'cabo-aco';
+export interface PainelGC {
+  tipo: 'painel';
+  nome: string;
+  familia: FamiliaPainelGC;
+  base: RefBaseGC;
+  topo: RefTopoGC;
+  deslocamentoBase: number;
+  deslocamentoTopo: number;
+  /** Espessura do painel (m): vidro, chapa, chapa perfurada. */
+  espessura: number;
+  /** Folga lateral entre o painel e o poste (m). */
+  folgaLateral: number;
+  /** Largura máxima de um painel (m); acima disso divide em painéis iguais. 0 = sem limite (um painel por vão). */
+  larguraMaxima: number;
+  materialId: Id;
+  /** Só 'chapa-perfurada'. Furo circular. */
+  perfuracao?: { diametro: number; passoX: number; passoY: number; alternado: boolean };
+  /** Só 'tela': malha retangular e fio. */
+  tela?: { larguraMalha: number; alturaMalha: number; diametroFio: number };
+  /** Só 'cabo-aco': cabos paralelos. */
+  cabos?: { diametro: number; espacamento: number; orientacao: 'horizontal' | 'vertical'; tensao?: number };
+}
+
+export type PreenchimentoGC = PadraoBalaustresGC | PainelGC;
+
+export type JuncaoAngularGC = 'segmento-vertical' | 'nenhum';
+export type JuncaoTangenteGC = 'segmento-vertical' | 'nenhum' | 'estender-trilhos';
+export type ConexaoTrilhoGC = 'cortar' | 'soldar';
+
+export interface TipoGuardaCorpo {
+  id: Id;
+  name: string;
+  code: string;
+  description: string;
+  /** Altura nominal do guarda-corpo (m), medida do hospedeiro ao topo do trilho superior. */
+  altura: number;
+  /** Deslocamento lateral padrão do eixo (m). */
+  deslocamento: number;
+  /** Revit: Landing Height Adjustment. Soma à altura nos patamares (0 = desligado). */
+  ajusteAlturaPatamar: number;
+  /** Folga entre a base do preenchimento e o hospedeiro (m), para o aviso de vão inferior. */
+  folgaInferior: number;
+  trilhos: TrilhoGC[];                      // 0 a 12
+  corrimaos: CorrimaoGC[];                  // 0 a 4
+  postes: PostesGC;
+  preenchimentos: PreenchimentoGC[];        // 0 a 8, desenhados na ordem
+  juncaoAngular: JuncaoAngularGC;
+  juncaoTangente: JuncaoTangenteGC;
+  conexaoTrilho: ConexaoTrilhoGC;
+  /** Perfil de norma que vale para este tipo; null = o do projeto. */
+  normaId: Id | null;
+  /** Para o IFC (IfcRailingTypeEnum): null = o Hestia escolhe pela composição (§9). */
+  ifcPredefinido: 'GUARDRAIL' | 'HANDRAIL' | 'BALUSTRADE' | 'USERDEFINED' | null;
+  materialPadraoId: Id;
+  /** Cargas que o tipo declara suportar (o Hestia não calcula estrutura); null = não declarada. */
+  cargaLinear: number | null;   // N/m
+  cargaArea: number | null;     // kPa
+  cargaPontual: number | null;  // N
+  /** Custo informativo (R$ por metro). */
+  cost: number;
+}
+```
+
+Limites (defesa e determinismo, no molde da decisão 0049): `trilhos ≤ 12`, `corrimaos ≤ 4`, `preenchimentos ≤ 8`, `elementos` por padrão ≤ 16, perfil poligonal ≤ 64 pontos, caminho manual ≤ 512 vértices, balaústres por guarda-corpo ≤ 20 000 (acima disso o Rust devolve `LIMITE` e o app avisa).
+
+`stairTypeIssue`-equivalente: `tipoGuardaCorpoIssue(tipo, lang)` (em `guardaCorpoTypes.ts`) confere ao salvar: altura > 0; `periodo > soma das distanciaAnterior`; larguras de perfil > 0; `RefBaseGC/RefTopoGC` apontando para trilho existente; trilho de referência abaixo do topo; `porDegrau.quantidade ≥ 1`; sem ciclo (base referindo trilho que referencia a si).
+
+Tipos iniciais (`tiposGuardaCorpo(lang)`), nomes de i18n `md_gc_*`:
+`gct_balaustres` (corrimão superior + balaústres redondos a cada 0,11 m de centro, 2 postes de extremidade), `gct_vidro` (painéis de vidro laminado entre postes de aço, corrimão tubular), `gct_cabos` (cabos de aço horizontais a 0,09 m), `gct_chapa_perfurada`, `gct_corrimao_parede` (só corrimão, sem preenchimento: corrimão de parede da NBR 9050, duas alturas 0,92 e 0,70).
+
+### 4.3 Perfil de norma
+
+Arquivo `packages/model/src/guardaCorpoNorma.ts`. `Project.perfisNorma?: Record<Id, PerfilNorma>` (opcional, semeado com os presets na primeira vez, no molde de `openingProfiles?`) e `ProjectSettings.normaGuardaCorpoId?: Id`.
+
+```ts
+/** Fonte de um limite: norma, item e se o valor foi verificado em texto público. */
+export interface FonteNormaGC { norma: string; item: string; verificado: boolean }
+
+/** Todos os limites são opcionais: `undefined` = não verificar. Metros, newtons, radianos. */
+export interface LimitesNormaGC {
+  // --- guarda ---
+  /** Desnível a partir do qual a guarda é exigida (m). NBR 9077 4.8.1.1: 0,19. */
+  desnivelExigeGuarda?: number;
+  /** Altura mínima da guarda sobre piso, patamar, mezanino, varanda (m). */
+  alturaMinima?: number;
+  /** Altura mínima da guarda em escada INTERNA, medida da linha das quinas (m). */
+  alturaMinimaEscadaInterna?: number;
+  /** Altura mínima acima de uma cota de queda e o valor exigido ali (NBR 9077 4.8.1.3: 12 m → 1,30 m). */
+  alturaMinimaAlta?: { acimaDe: number; altura: number };
+  /** Maior esfera que não pode passar por nenhuma abertura da guarda (m). */
+  esferaMaxima?: number;
+  /** Idem, na abertura triangular entre degrau, espelho e trilho inferior. */
+  esferaMaximaTriangulo?: number;
+  /** Maior folga entre a base do preenchimento e o hospedeiro (m). */
+  folgaInferiorMaxima?: number;
+  /** Cargas de projeto (informativas: a verificação é "o tipo declara carga"). */
+  cargaLinearHorizontal?: number;   // N/m
+  cargaAreaHorizontal?: number;     // kPa
+  cargaPontualGuarda?: number;      // N
+  // --- corrimão ---
+  /** Faixa de altura do topo do corrimão (m), medida da linha das quinas em escada. */
+  corrimaoAlturaMin?: number;
+  corrimaoAlturaMax?: number;
+  /** Alturas adicionais exigidas para o corrimão duplo (NBR 9050: 0,70 m). */
+  corrimaoAlturasAdicionais?: number[];
+  /** Diâmetro de seção circular (m). */
+  corrimaoDiametroMin?: number;
+  corrimaoDiametroMax?: number;
+  /** Afastamento mínimo da parede/guarda (m). */
+  corrimaoAfastamentoMin?: number;
+  /** Prolongamento mínimo no início e no fim (m). */
+  corrimaoExtensaoMin?: number;
+  /** Exige corrimão nos dois lados. */
+  corrimaoDoisLados?: boolean;
+  /** Corrimão contínuo (sem interrupção) nos lances e patamares. */
+  corrimaoContinuo?: boolean;
+  /** Largura de escada acima da qual exige corrimão intermediário, e espaçamento máximo entre corrimãos (m). */
+  corrimaoIntermediarioLargura?: number;
+  corrimaoIntermediarioEspacamento?: number;
+  cargaCorrimao?: number;           // N
+}
+
+export interface PerfilNorma {
+  id: Id;
+  name: string;
+  /** Código ISO 3166-1 alfa-2 ou 'XX' para personalizado. */
+  pais: string;
+  limites: LimitesNormaGC;
+  /** Fonte por campo de `limites`. Campo sem fonte = valor do usuário. */
+  fontes: Partial<Record<keyof LimitesNormaGC, FonteNormaGC>>;
+  /** false = tem valores "a conferir": as mensagens acrescentam "(norma a conferir)". */
+  verificado: boolean;
+  /** Para onde a guarda vale: 'residencial' | 'publico' | 'saida-emergencia' (informativo, ver §8). */
+  uso: 'geral' | 'residencial' | 'publico' | 'saida-emergencia';
+}
+```
+
+Presets (`PERFIS_NORMA_PADRAO`):
+
+| id | Campo | Brasil composto (`nbr-br`) | IBC 2021 (`ibc-us`) | Parte K (`uk-k`) |
+|---|---|---|---|---|
+| `desnivelExigeGuarda` | | 0,19 (9077 4.8.1.1) | 0,762 (30 pol) [A CONFIRMAR] | 0,6 [A CONFIRMAR] |
+| `alturaMinima` | | **1,10** (14718, a confirmar; a 9077 pede 1,05) | 1,067 | 1,10 (sacada); 0,90 (interno) |
+| `alturaMinimaEscadaInterna` | | **0,92** (9077 4.8.1.2) | 1,067 | 0,90 |
+| `alturaMinimaAlta` | | 12 m → 1,30 (9077 4.8.1.3) | — | — |
+| `esferaMaxima` | | **0,110** (14718, a confirmar; a 9077 pede 0,15) | 0,102 | 0,100 |
+| `esferaMaximaTriangulo` | | 0,15 (9077) | 0,152 | — |
+| `corrimaoAlturaMin/Max` | | 0,80 / 0,92 (9077 4.8.2.1; 9050 0,92) | 0,864 / 0,965 | 0,90 / 1,00 |
+| `corrimaoAlturasAdicionais` | | [0,70] (9050, a confirmar) | — | — |
+| `corrimaoDiametroMin/Max` | | 0,038 / 0,045 (interseção 9077 38-65 e 9050 30-45) | 0,032 / 0,051 | — |
+| `corrimaoAfastamentoMin` | | 0,040 (9077 4.8.2.4) | 0,038 | — |
+| `corrimaoExtensaoMin` | | 0,30 (9050, a confirmar) | 0,305 [A CONFIRMAR] | 0,30 (público) |
+| `corrimaoDoisLados` | | true (9050 e 9077 4.7.x) | true | false |
+| `corrimaoIntermediario*` | | 2,20 / 1,80 (9077 4.8.4.1) | — | — |
+| `cargaLinearHorizontal` | | 1000 (14718, a confirmar) a 730 (9077) | 730 (50 lbf/pé) | — |
+| `cargaAreaHorizontal` | | 1,20 kPa (9077) | 0,24 kPa (5 psf) [A CONFIRMAR] | — |
+| `cargaCorrimao` | | 900 N (9077 4.8.3.2) | 890 N (200 lbf) | — |
+
+Regra de composição do Brasil: **vale o mais restritivo** entre as três normas (maior altura mínima, menor esfera, interseção de diâmetro). Os campos onde as normas divergem ficam anotados em `fontes` com as duas referências no texto do item (ex.: `item: '14718 (1,10); 9077 4.8.1.2 (1,05)'`). Todos os presets saem com `verificado: false`, exceto os campos da NBR 9077 lidos nesta rodada, que o preset marca com `FonteNormaGC.verificado: true`. O usuário edita qualquer valor (`upsertPerfilNorma`), duplica o preset e escolhe o perfil do projeto em Configurações do projeto; cada `TipoGuardaCorpo.normaId` pode apontar para outro perfil (ex.: guarda de saída de emergência com outro uso).
+
+### 4.4 Comandos e migração
+
+Em `commands.ts`: `addGuardaCorpo`, `updateGuardaCorpo` (patch), `deleteGuardaCorpo`, `upsertTipoGuardaCorpo`, `deleteTipoGuardaCorpo` (como `deleteStairType`: não apaga o último, não apaga tipo em uso), `upsertPerfilNorma`, `deletePerfilNorma` (não apaga o do projeto), `setNormaGuardaCorpo`. Comandos de escada e rampa que mudam geometria **não precisam** tocar nos guarda-corpos (derivação em tempo de resolução); `deleteStair`/`deleteRamp` marcam os guarda-corpos dependentes como órfãos (erro `railing-host-missing`) em vez de apagá-los, e o painel oferece "excluir órfãos". `moveElements`/espelhar/girar/copiar tratam o manual com `transformPlanar.ts`; guarda-corpo hospedado em escada acompanha o hospedeiro (não se move sozinho).
+
+Migração `SCHEMA_VERSION` 23 → 24: acrescenta `tiposGuardaCorpo` (tipos iniciais) a projetos antigos; `perfisNorma` e `normaGuardaCorpoId` são opcionais (sem migração). Se outra branch já tiver subido a versão na hora de mesclar, a Fase 1 renumera.
+
+Pontos de integração do elemento novo (lista da Fase 1; mesmo roteiro da decisão 0049 §2): `Element` em `types.ts`, `isGuardaCorpo`, `hasLevel` (`elementLevel.ts`), `GraphicsCategory` ganha `'railing'` (`graphics.ts`), `validate.ts` (`validateGuardaCorpo.ts`), `clipboard`/colar, `selectTool`/`pick`, `transform`, lista de problemas, i18n (`md_gc_*`).
+
+---
+
+## 5. Regras de geometria
+
+Convenções: planta em `Vec2` (x, y), cota z absoluta, tolerância de soldagem de nós `1e-6 m`, grade de saída de 1 µm (mesma regra das quantidades, memória "Quantidades no Rust"). **Esquerdo/direito** = lado visto de quem sobe a escada ou percorre o caminho no sentido do início ao fim.
+
+### 5.1 Caminho hospedado (o "eixo" do guarda-corpo)
+
+O Rust constrói, por guarda-corpo e por lado ligado, uma **cadeia de nós 3D** `N_k = (x, y, z, tipoTrecho, origem)` e trechos entre eles; o eixo do guarda-corpo é essa cadeia deslocada.
+
+**Escada.** Para cada componente na ordem de `components`:
+1. **Lance reto:** a borda do lado escolhido é a cadeia `boundaryLeft` ou `boundaryRight` do croqui. A cota segue a **linha das quinas**: para cada espelho `i`, o ponto da borda mais próximo da linha de espelho recebe `z1_i` (topo do espelho); entre dois espelhos a cota varia **linearmente com o comprimento horizontal** (a reta de inclinação da escada, não o serrote dos degraus). Vira um único trecho inclinado por lance reto (os `z1` são colineares); o nó só existe nas pontas do lance.
+2. **Lance curvo ou caracol:** a borda é uma sequência de `StairCurve` (reta ou arco por flecha `sag`). O arco é discretizado por **flecha de corda ≤ 2 mm** (`tolCorda` do tipo, ajustável 0,5 a 10 mm) com no mínimo 8 segmentos por quarto de volta, e a cota cresce linearmente com o comprimento de arco horizontal (a hélice). Nenhum nó de canto no meio do arco: o trecho é marcado `curvo`, e a varredura trata o conjunto como uma curva suave.
+3. **Patamar (`StairLanding`, incluindo patamar de giro):** a cadeia do lado é o anel do patamar **sem a aresta de entrada e sem a aresta de saída** (as arestas que coincidem com a linha de espelho final do lance anterior e a inicial do seguinte). No anel de 6 pontos do giro, a cadeia interna é `aIn → inner → bIn` e a externa é `aOut → outer → bOut`; qual é "esquerda" ou "direita" vem do sinal do produto vetorial entre a direção de entrada e a de saída. Cota constante = `z` do patamar. Em patamar retangular em linha, as duas cadeias são as laterais.
+4. **Emendas:** o fim da cadeia de um componente e o início do seguinte coincidem dentro de `1e-6 m` e são soldados num nó. Se não coincidirem (croqui editado à mão), o Rust devolve o aviso `gc-hospedeiro-descontinuo` e abre o caminho em dois (cada parte com poste de fim/início).
+5. **Ligar/desligar:** `lados[lado].lance` e `lados[lado].patamar` filtram os componentes. Onde o filtro interrompe a cadeia, ela se parte em **trechos independentes**, cada um com seus postes de início e fim, extensões de corrimão e padrão de balaústres (não existe guarda-corpo "fantasma" atravessando o intervalo).
+6. **Posição de base:** `degrau` = a base do guarda-corpo está na linha das quinas (a face superior do degrau no ponto da borda), com o eixo recuado `deslocamento` para dentro. `lateral` = o eixo fica no plano da borda externa da escada (deslocamento medido para fora a partir da borda: `-deslocamento`) e a base desce `profundidadeAbaixo` do poste ao longo da face lateral. O valor padrão do `deslocamento` do tipo é metade da largura do poste mais 1 cm.
+7. **Altura:** `altura` do tipo (ou da instância) **medida na vertical a partir da linha das quinas** em lances e a partir do piso nos patamares (alinhado a NBR 9077 4.8.1.2 e à linha das quinas do IBC). Nos patamares soma `ajusteAlturaPatamar` do tipo. A transição de altura entre lance e patamar é a **junção** do nó (§5.3).
+
+**Rampa.** Usa `flights` (início e fim com cotas `z0`, `z1`, bordas `startEdge`/`endEdge`) e `landings` (anel com `z` constante). O lado esquerdo/direito do lance vem das bordas; a cota é linear entre `z0` e `z1`. Patamares seguem a mesma regra do item 3. A altura vem do piso do lance (não há quinas), igual ao patamar.
+
+**Manual.** `caminho` + `cotaBase` + `dz` por vértice; o eixo é o caminho deslocado `deslocamento` para o lado `ladoDeslocamento`. `fechado` liga o último ao primeiro com nó de canto.
+
+**Deslocamento lateral:** o eixo é a cadeia da borda deslocada de `deslocamento` na normal à esquerda da cadeia orientada (para a direita, a normal à direita), com **esquadria nos vértices** e limite de esquadria 2,5× (acima disso, chanfro). Deslocamento que faria a cadeia se auto-cruzar (largura de lance menor que `2·deslocamento`) é recusado com o aviso `gc-deslocamento-excede-largura`.
+
+**Escada que muda:** o `ResolvedStair` e o `ResolvedRamp` já são recalculados a cada edição; o adaptador TS reenvia só as linhas das seções do hospedeiro alterado (upsert por `id_num`, ABI v2). Os guarda-corpos dependentes são recalculados na próxima consulta; a cache de malha é por `(guarda-corpo, hash do hospedeiro, hash do tipo, hash da norma)`. Nenhum campo do `GuardaCorpo` precisa ser reescrito pela edição da escada (esse é o ponto de "se refaz").
+
+### 5.2 Trechos, segmentos e nós (modelo do ArchiCAD com motor do Revit)
+
+A cadeia de nós se divide em **segmentos** (trechos retos em planta, ou um arco discretizado). **Nó de canto** = vértice com giro em planta maior que `postes.anguloCanto` (padrão 5°). Mudança de inclinação sem giro em planta (lance → patamar) é **nó de transição**, que recebe poste só se `canto.ativo` (configurável: `postes.canto` vale para ambos? **não**: o poste de transição usa `postes.intermediario` quando o tipo tiver `modo ≠ nenhum`, e senão `canto`). Início e fim de cada trecho independente recebem `inicio` e `fim`.
+
+### 5.3 Junções (cotovelo, ponta, gooseneck)
+
+Aplicadas pelo tipo (`juncaoAngular`, `juncaoTangente`, `conexaoTrilho`) a trilhos, travessa superior e corrimão em cada nó entre dois trechos com direções `u1`, `u2` (vetores 3D unitários):
+- **Angular em planta** (giro > 3°): `esquadria` (padrão): corte pelo plano bissetor, com limite de esquadria; `filete`: arco de raio `raioFilete` tangente aos dois trechos (só no corrimão, `juncao: 'filete'`); `conexaoTrilho: 'soldar'` gera cunha/curva para perfil circular, `cortar` faz o corte plano. Com `juncaoAngular: 'segmento-vertical'` um desnível entre os dois lados vira um segmento vertical.
+- **Tangente** (giro ≤ 3° e inclinações diferentes: lance → patamar reto): `nenhum` (os trilhos acabam em cada trecho), `segmento-vertical` (liga com trecho vertical no poste) ou `estender-trilhos` (cada trilho se prolonga até encontrar o seguinte, junção suave).
+- **Corrimão em transição lance → patamar:** `transicao: 'simples'` = arco vertical de raio `r = max(0,15 m, 2·diâmetro)` tangente às duas retas; `'pescoco-de-ganso'` = dois arcos em S que sobem do nível do lance ao do patamar numa distância horizontal `dg = max(0,30 m, 3·diâmetro)` antes do nó, para o corrimão do patamar ficar na altura de patamar (≠ altura de lance quando `ajusteAlturaPatamar ≠ 0`); `'nenhuma'` = corta no nó.
+- **Quina do degrau** (extensão `maisPiso`): a extensão inferior do corrimão de escada começa **uma profundidade de degrau antes** da primeira quina (`Plus Tread Depth`), seguindo a inclinação da escada; a superior é horizontal ao nível do patamar de chegada.
+
+### 5.4 Altura que segue o hospedeiro
+
+- Em lance inclinado, a cota de cada ponto do eixo = cota da linha das quinas + `altura`. Postes e balaústres são **verticais**; trilhos e corrimão são **paralelos à inclinação**; painéis são paralelogramos (base e topo inclinados, laterais verticais).
+- Mudança de altura entre lance e patamar (`ajusteAlturaPatamar`) é absorvida no nó de transição conforme §5.3.
+- Hospedeiro manual com `dz` segue as mesmas regras (sem distinção de lance/patamar; o `ajusteAlturaPatamar` não se aplica).
+
+### 5.5 Distribuição de postes
+
+No segmento de comprimento horizontal `L` entre nós: postes de nó conforme §5.2; `intermediario`: `espacamento-maximo`: `n = ceil(L / espacamento) - 1` postes igualmente espaçados (nunca passa do máximo); `espacamento-fixo`: a partir do início, sobra no fim (aviso se `< 0,3·espacamento`); `numero-fixo`: `numero` postes iguais. O espaçamento é medido no plano horizontal (os postes são verticais). Poste que cairia a menos de `meia largura dos dois` de um poste de nó é descartado.
+
+### 5.6 Distribuição de balaústres e o padrão que não cabe
+
+Escopo `vao` (padrão quando há postes intermediários): cada vão entre postes recebe o padrão separadamente; escopo `segmento`: o padrão cobre o segmento inteiro, ignorando os postes intermediários (elementos que colidem com o poste são removidos). O comprimento útil `Lu = L_vão − folga_poste_esquerdo − folga_poste_direito`, com folga = meia largura do poste + meia largura do primeiro/último elemento. A medida é **horizontal** (a esfera de norma enxerga a folga horizontal entre balaústres verticais). *(Divergência do Revit, que mede ao longo do comprimento do croqui: [A CONFIRMAR]; ver §13.)*
+
+Seja `D = Σ distanciaAnterior` (extensão do padrão) e `P = periodo`, `k = floor((Lu - D) / P) + 1` repetições inteiras possíveis:
+- `justificacao: 'inicio'|'fim'|'centro'`: `k` repetições a partir da ponta (ou centralizadas); a sobra `S = Lu - ((k-1)·P + D)`. Com `sobra: 'balaustre-extra'` e `S ≥ P/2`, põe o primeiro elemento do padrão no fim da fila; com `'folga-nas-pontas'` reparte `S/2` em cada ponta; com `'nenhuma'` a sobra fica no lado oposto à justificação.
+- `justificacao: 'distribuir'` (**padrão recomendado e o dos presets de norma**): refaz o período `P' = (Lu - D) / ceil((Lu - D) / P)` (≤ P, nunca maior que o pedido); assim o vão nunca passa do `periodo`, e o padrão preenche o vão de ponta a ponta. Se `P' < 0,5·P`, o aviso `gc-padrao-comprimido`.
+- **Padrão que não cabe:** `Lu < D` (o padrão inteiro não cabe): gera só os elementos do início do padrão que cabem (sem cortar nenhum) e emite o aviso `gc-padrao-nao-cabe`; `Lu ≤ 0`: nenhum balaústre e aviso `gc-vao-sem-espaco`. Elemento vazio (`modelo: null`) conta espaço mas não gera malha. Nenhum elemento é truncado pelo poste.
+- **Quebra:** `cada-segmento`: o padrão reinicia em cada segmento; `angulo`: reinicia nos nós com giro maior que `anguloQuebra`; `nunca`: o padrão corre pelo comprimento da cadeia contínua (ao contornar um canto, elementos dentro de `meia largura` do poste de canto são removidos).
+- **`porDegrau`** (só em lance de escada): em cada degrau o Rust coloca `quantidade` balaústres igualmente espaçados na profundidade do degrau a partir de `distanciaDaQuina` da quina; cada um tem a base na cota do degrau naquele ponto (base **no degrau**, não na linha das quinas), e o topo na cota do trilho de referência. Substitui o `periodo` nos lances; nos patamares vale o padrão normal. Em caracol, o degrau é uma cunha: os balaústres ficam igualmente espaçados no arco da borda.
+- **Balaústres inclinados:** não há. Todos verticais. A folga entre dois balaústres vizinhos numa escada é medida na horizontal.
+
+### 5.7 Painéis
+
+Painel entre dois postes consecutivos (ou, sem postes intermediários, no segmento): `larguraMaxima > 0` divide em `n = ceil(Lu / larguraMaxima)` painéis iguais com `folgaLateral` entre eles. Geometria: placa de espessura `espessura` ao longo do eixo (quadriláteros no vão reto; **facetas planas** de flecha ≤ `tolCorda` em trecho curvo). Perfurada: furos circulares dispostos em malha (`passoX`, `passoY`, `alternado` = quincôncio); a malha 3D recebe os furos como **vazados** só quando o furo tem ≥ 8 segmentos e `passo ≤ 0,2 m` e o total de furos ≤ 2000 por painel; acima disso o 3D usa um sólido sem furo marcado `simplificado`, a planta e a quantidade mantêm a área líquida real. Tela: malha de fios `diametroFio`; no 3D é um painel translúcido (não vira malha de fios por padrão). Cabos: cilindros de seção circular `cabos.diametro` nos vãos `espacamento`, entre postes, com `orientacao`.
+
+### 5.8 Perfis e varredura
+
+Cada trilho, corrimão e suporte é a **varredura** de um `PerfilGC` ao longo da cadeia. Quadro de varredura: *rotation-minimizing frames* (transporte paralelo da normal), inicializado com a normal horizontal perpendicular ao trecho, para evitar torção em hélice e em tangente vertical. Perfil circular usa 16 lados (24 acima de 80 mm de diâmetro); `poligono` é usado como está. Terminação: topo plano, sem tampa embutida em poste. Soldagem de vértices em grade de 1 µm. Esquadria: o plano bissetor; `soldar`: curva com 8 segmentos no ângulo. Não há operações booleanas (a interseção de trilho com poste é só sobreposição de sólidos fechados); a malha final por guarda-corpo é uma lista de **grupos** (um por peça lógica), cada um fechado e orientado para fora.
+
+---
+
+## 6. Contrato TS ↔ Rust
+
+Novas seções e consultas em `crates/geom-wasm/schema/cena-v11.json`. `versao` 12 → 13, `abi` continua 2. Os ids de seção e de consulta **começam em 60** (reservado para o guarda-corpo, para não colidir com as fatias C a E em andamento, que usam a faixa de 26 em diante); a colisão com as branches 0051 a 0053 deve ser conferida pela Fase 2 antes de congelar. Mesmo esquema: coluna `id_num` (`u32`) como chave de upsert.
+
+### 6.1 Seções de entrada (TS → Rust)
+
+Hospedeiro, enviado pelo adaptador a partir de `ResolvedStair`/`ResolvedRamp` (**sem** que o Rust conheça o Project):
+
+| id | `nome` | chave | colunas (tipo) |
+|---|---|---|---|
+| 60 | `escadas_gc` | `id_num` | `id_num u32, nivel_num u32, z_base f64, z_topo f64, altura_espelho f64, profundidade_piso f64` |
+| 61 | `escada_componentes_gc` | `id_num` | `id_num u32, escada_num u32, indice u32, tipo u8 (0 lance, 1 patamar), caracol u8, centro_x f64, centro_y f64, r_int f64, r_ext f64` |
+| 62 | `escada_curvas_gc` | `id_num` | `id_num u32, componente_num u32, lado u8 (0 esq, 1 dir), ordem u32, ax f64, ay f64, bx f64, by f64, sag f64` |
+| 63 | `escada_espelhos_gc` | `id_num` | `id_num u32, componente_num u32, indice u32, ax f64, ay f64, bx f64, by f64, z0 f64, z1 f64` |
+| 64 | `escada_patamares_gc` | `id_num` | `id_num u32, componente_num u32, indice u32, x f64, y f64, z f64` (um vértice por linha, anel em ordem) |
+| 65 | `rampas_gc` | `id_num` | `id_num u32, nivel_num u32, z_base f64, z_topo f64` |
+| 66 | `rampa_lances_gc` | `id_num` | `id_num u32, rampa_num u32, indice u32, sx f64, sy f64, ex f64, ey f64, ax f64, ay f64, bx f64, by f64, cx f64, cy f64, dx f64, dy f64, z0 f64, z1 f64` (bordas de início A-B e fim C-D) |
+| 67 | `rampa_patamares_gc` | `id_num` | `id_num u32, rampa_num u32, indice u32, x f64, y f64, z f64` |
+
+Guarda-corpo, tipo e norma:
+
+| id | `nome` | colunas principais |
+|---|---|---|
+| 70 | `guardas_corpo` | `id_num u32, nivel_num u32, tipo_num u32, hosp u8 (0 manual, 1 escada, 2 rampa), hosp_num u32 (ID_AUSENTE no manual), lados u8 (bit0 esq-lance, bit1 esq-patamar, bit2 dir-lance, bit3 dir-patamar), pos_base u8, desloc f64, altura f64 (NaN = do tipo), inverter u8, fechado u8, lado_desloc u8 (0 esq, 1 dir, 2 centro), cota_base f64, flags u8 (bit0 postes intermediários, bit1 preenchimento, bit2 corrimão)` |
+| 71 | `guarda_caminhos_manuais` | `id_num u32, guarda_num u32, indice u32, x f64, y f64, dz f64` |
+| 72 | `tipos_guarda` | `id_num u32, altura f64, desloc f64, ajuste_patamar f64, folga_inferior f64, junc_angular u8, junc_tangente u8, conexao u8, tol_corda f64, norma_num u32` |
+| 73 | `perfis_guarda` | `id_num u32, forma u8, largura f64, altura f64, n_pontos u32, lados u32` |
+| 74 | `perfis_guarda_pontos` | `id_num u32, perfil_num u32, indice u32, x f64, y f64` |
+| 75 | `trilhos_guarda` | `id_num u32, tipo_num u32, indice u32, altura f64, desloc f64, perfil_num u32, material_num u32` |
+| 76 | `corrimaos_guarda` | `id_num, tipo_num, indice, funcao u8, posicao u8, altura f64, afastamento f64, perfil_num, material_num, ext_ini_estilo u8, ext_ini_comp f64, ext_ini_mais_piso u8, ext_fim_estilo u8, ext_fim_comp f64, ext_fim_mais_piso u8, sup_layout u8, sup_espac f64, sup_numero u32, sup_justif u8, sup_perfil_num u32, sup_comp f64, transicao u8, juncao u8, raio_filete f64` |
+| 77 | `postes_guarda` | `id_num, tipo_num, papel u8 (0 início, 1 fim, 2 canto, 3 intermediário), ativo u8, perfil_num, material_num, acima f64, abaixo f64, ang_canto f64, modo u8, espacamento f64, numero u32` |
+| 78 | `padroes_guarda` | `id_num, tipo_num, indice, base_tipo u8, base_idx u32, topo_tipo u8, topo_idx u32, periodo f64, justif u8, sobra u8, quebra u8, ang_quebra f64, escopo u8, pd_ativo u8, pd_qtd u32, pd_dist f64, pd_perfil_num u32, pd_material_num u32` |
+| 79 | `padrao_elementos_guarda` | `id_num, padrao_num, indice, perfil_num (ID_AUSENTE = vazio), material_num, dist_anterior f64, desloc_lateral f64, desloc_base f64, desloc_topo f64` |
+| 80 | `paineis_guarda` | `id_num, tipo_num, indice, familia u8, base_tipo u8, base_idx u32, topo_tipo u8, topo_idx u32, desl_base f64, desl_topo f64, espessura f64, folga_lateral f64, largura_max f64, material_num, perf_diam f64, perf_passo_x f64, perf_passo_y f64, perf_alternado u8, tela_larg f64, tela_alt f64, tela_fio f64, cabo_diam f64, cabo_espac f64, cabo_orient u8` |
+| 81 | `normas_guarda` | `id_num u32, n_flags u32 (máscara de limites definidos), + um f64 por limite de LimitesNormaGC (NaN = não verificar)` |
+
+Todos são enviados com `definir_secao` na carga e com `upsert`/`remover` nas edições (ABI v2 já existe). O `material_num` reusa o mapa de materiais da cena (`kernelB.ts`). O adaptador novo é `packages/engine/src/kernelGuardaCorpo.ts`.
+
+### 6.2 Consultas (Rust → TS)
+
+Todas por nível (`nivel_num`, `NIVEL_TODOS` aceito), ids 60 em diante; saída em vetores planos como as consultas existentes:
+
+| id | `nome` | args | saídas |
+|---|---|---|---|
+| 60 | `guarda_caminhos` | `nivel_num, tol_juncao` | `trechos u32 [guarda_num, trecho, origem(0 lance,1 patamar,2 manual,3 caracol), n_nos, flags]`, `nos f64 [x, y, z]` (cadeia deslocada), `avisos` (§8) |
+| 61 | `guarda_malha` | `nivel_num, lod (0 grosso, 1 médio, 2 fino)` | `grupos u32 [guarda_num, papel, material_num, primeiro_indice, n_indices]` (papel: 0 poste, 1 balaústre, 2 trilho, 3 corrimão, 4 suporte, 5 painel, 6 cabo, 7 travessa superior), `vertices f64 [x, y, z]`, `indices u32` |
+| 62 | `guarda_planta` | `nivel_num, corte_z, detalhe` | `linhas u32 [guarda_num, papel, estilo (0 cortado, 1 projetado, 2 oculto), n_pontos]`, `pontos f64 [x, y]` (polilinhas fechadas para peças cortadas pelo plano `corte_z`, abertas para o eixo) |
+| 63 | `guarda_corte` | `nivel_num, ox, oy, dx, dy, profundidade` | `linhas` e `pontos` como acima, em coordenadas `(s, z)` do plano de corte (s ao longo de `dx,dy`), mais `poligonos` cortados (perfis de trilho e poste cortados) |
+| 64 | `quant_guarda` | `nivel_num` | `linhas u32 [guarda_num, papel, perfil_num, material_num, n_pecas]`, `valores f64 [comprimento, area, volume, area_projetada]` por linha |
+| 65 | `guarda_avisos` | `nivel_num, norma_num` | `avisos u32 [guarda_num, codigo, trecho, indice]`, `valores f64 [medido, limite, x, y, z]` |
+
+Regras do contrato:
+- **Determinismo:** mesmas seções → mesmos bytes. Ordem das saídas por `guarda_num`, `trecho`, `papel`, `indice`.
+- **Sem estado do projeto no Rust além das seções;** o Rust não lê `Project`.
+- **Erros:** `ENTRADA` para seção inconsistente (perfil inexistente, índice de trilho fora), `LIMITE` para >20 000 balaústres ou >512 vértices; o aviso `gc-hospedeiro-descontinuo` não é erro.
+- **Teste de contrato** `contrato_confere_com_json` e o equivalente TS (`kernel*.contrato.test.ts`) passam a cobrir as 16+ novas seções e 6 consultas; `VERSAO_ESQUEMA` 13.
+- **Referência TS:** `packages/engine/src/guardaCorpoRef/` (caminho, varredura, distribuição, avisos) com a mesma saída plana, **usada só pelos testes de paridade** (`*.paridade.test.ts`), como o resto do kernel. Tolerância de paridade: posições 1e-6 m, contagens exatas. O app não chama a referência.
+- **Kernel Rust desligado:** o guarda-corpo vive só no Rust (decisão do dono). Com o kernel desligado, o elemento permanece no modelo e na lista; o 3D e a planta mostram o eixo (uma polilinha simples do hospedeiro, sem varredura) e um aviso "ligue o kernel Rust para ver o guarda-corpo completo". Ponto aberto para o dono (§12, 1).
+
+---
+
+## 7. Quantidades e IFC
+
+### 7.1 Quantidades (TS, `packages/engine/src/guardaCorpoQuantities.ts`)
+
+O TS só **agrega** o que `quant_guarda` devolve (sem recalcular geometria). Por guarda-corpo:
+- `comprimentoEixo` (m, planta) e `comprimentoDesenvolvido` (m, no espaço, contando a inclinação);
+- por papel e perfil: **comprimento** de cada trilho, corrimão, suporte; **contagem** de postes por papel (início, fim, canto, intermediário), de balaústres por modelo, de painéis; **área** dos painéis (bruta e líquida de furos), **volume** das peças (m³), massa estimada = volume × densidade do material quando o material tem densidade;
+- `custo` = `tipo.cost × comprimentoDesenvolvido` (informativo, igual a escada e rampa).
+Linhas com `{ tipo, hospedeiro, nivel, ... }` para o quadro de quantidades, com o mesmo molde de `stairQuantities.ts` (`GuardaCorpoQuantities`, `guardaCorpoQuantities(...)`); entra no quadro de elementos por tipo e na lista de materiais pelas camadas de `materialId` das peças.
+
+### 7.2 IFC (`packages/io/src/ifc/ifcGuardaCorpo.ts`, esquema IFC4 como o restante)
+
+- **Um `IFCRAILING` por `GuardaCorpo`**, contido no pavimento do `levelId` (`IFCRELCONTAINEDINSPATIALSTRUCTURE`), com `PredefinedType` (`IfcRailingTypeEnum`: `HANDRAIL`, `GUARDRAIL`, `BALUSTRADE`, `USERDEFINED`, `NOTDEFINED`) conforme `tipo.ifcPredefinido` ou, se `null`, pela composição: tem preenchimento (balaústre/painel) → `GUARDRAIL`; só balaústres sem painel e sem corrimão → `BALUSTRADE`; só corrimão → `HANDRAIL`; outro → `USERDEFINED` com `ObjectType = 'GUARDA-CORPO'`.
+- **Partes agregadas** (`IFCRELAGGREGATES`): corrimões e travessas → `IFCRAILING` filho com `HANDRAIL`; postes → `IFCMEMBER` com `PredefinedType = POST`; balaústres → `IFCMEMBER` `USERDEFINED` com `ObjectType = 'BALUSTER'` (um por modelo, malha instanciada); painéis de vidro e chapa → `IFCPLATE` (`SHEET`; vidro `CURTAIN_PANEL`); cabos → `IFCMEMBER` `USERDEFINED`/`CABLE`. **[A CONFIRMAR]** a escolha de enumerações para balaústre e cabo com visualizadores (BIMcollab, Solibri, Revit) na Fase 7.
+- Geometria: malha triangulada por parte (`IfcTriangulatedFaceSet`), a mesma saída de `guarda_malha`; tipo `IFCRAILINGTYPE` por `TipoGuardaCorpo` (`gct_*`), ligado por `IFCRELDEFINESBYTYPE`.
+- Propriedade `Pset_RailingCommon` (`Reference`, `Height`, `Diameter`, `IsExternal`, `FireRating`) com `Height = altura` e `Diameter` do corrimão; `Qto_RailingBaseQuantities` (`Length`) pelo `comprimentoDesenvolvido`; `Pset_Hestia_GuardaCorpo` com `hospedeiro`, `lados`, `norma`.
+- Importação: `IFCRAILING` do IFC lido continua entrando como `Generic` (hoje `ifcImport` trata como proxy); a conversão para `GuardaCorpo` está **fora do escopo** deste recurso.
+
+---
+
+## 8. Regras de aviso de norma
+
+Avisos **nunca bloqueiam** (como as escadas). Cada aviso tem `code`, `severity` ('warning' sempre; 'error' só para hospedeiro ausente e geometria inválida), `guardaId`, `trecho?` e `ids?` (para "Ir para"); formato `GuardaCorpoIssueItem` no molde de `StairIssueItem`, mensagens com i18n `md_gc_*` e o sufixo "(norma a conferir)" quando o campo do perfil tem `fontes[campo].verificado === false` ou o perfil tem `verificado: false`.
+
+O Rust devolve **medidas** (`guarda_avisos`: medido, limite, posição) para o que depende de geometria; o TS decide texto e severidade. As regras de configuração do tipo são avaliadas só no TS (`guardaCorpoIssues.ts`), sem esperar o Rust.
+
+| Código | Quem avalia | Regra (campo do perfil) |
+|---|---|---|
+| `gc-altura-baixa` | TS (tipo) | `altura < alturaMinima`; em lance de escada interna, `altura < alturaMinimaEscadaInterna`. O Rust devolve a altura medida real (considera `ajusteAlturaPatamar` e a linha das quinas). |
+| `gc-altura-alta-exige` | Rust (medida) | Guarda a mais de `alturaMinimaAlta.acimaDe` do solo adjacente com altura abaixo de `alturaMinimaAlta.altura` (cota do solo = menor cota de nível do projeto abaixo; **[A CONFIRMAR]** o que conta como "solo adjacente": usa o nível mais baixo do projeto). |
+| `gc-vao-grande` | Rust | Maior esfera que passa por uma abertura do preenchimento (§8.1) `> esferaMaxima`. Devolve a posição do vão. |
+| `gc-vao-triangulo` | Rust | Folga entre degrau, espelho e trilho inferior (maior esfera que passa) `> esferaMaximaTriangulo`. |
+| `gc-vao-inferior` | Rust | Folga entre a base do preenchimento e o hospedeiro `> folgaInferiorMaxima`. |
+| `gc-sem-guarda` | TS | Hospedeiro com desnível `> desnivelExigeGuarda` e lado sem guarda-corpo nem parede (escada com lado ligado = 0; borda de laje não coberta: só avisa quando a laje tem `edge` aberta, **fora de escopo na v1**; v1 avisa só escada e rampa). |
+| `gc-corrimao-ausente` | TS | Escada/rampa sem corrimão num lado quando `corrimaoDoisLados`. |
+| `gc-corrimao-altura` | Rust (medida) + TS | Topo do corrimão fora de `[corrimaoAlturaMin, corrimaoAlturaMax]`, medido da linha das quinas; e para `corrimaoAlturasAdicionais` (ex.: 0,70), falta um corrimão nessa altura (± 1 cm). |
+| `gc-corrimao-diametro` | TS | Perfil circular com diâmetro fora de `[corrimaoDiametroMin, Max]`; perfil não circular: aviso informativo "seção não circular, confira preensão". |
+| `gc-corrimao-afastamento` | TS | `afastamento < corrimaoAfastamentoMin`. |
+| `gc-corrimao-extensao` | Rust (medida) | Extensão de início ou fim menor que `corrimaoExtensaoMin`; com `maisPiso` conta o degrau. |
+| `gc-corrimao-descontinuo` | Rust | Corrimão interrompido (lado de patamar desligado, junção `nenhuma` com descontinuidade) quando `corrimaoContinuo`. |
+| `gc-corrimao-intermediario` | TS | Largura do lance `> corrimaoIntermediarioLargura` sem corrimão intermediário; ou espaçamento `> corrimaoIntermediarioEspacamento`. |
+| `gc-carga-nao-declarada` | TS | Tipo sem `cargaDeclarada` ≥ limites de carga do perfil (campos `cargaLinear`, `cargaArea`, `cargaPontual` do tipo); o Hestia **não calcula** estrutura. |
+| `gc-padrao-nao-cabe`, `gc-padrao-comprimido`, `gc-vao-sem-espaco` | Rust | §5.6. |
+| `gc-hospedeiro-descontinuo`, `gc-deslocamento-excede-largura` | Rust | §5.1. |
+| `railing-host-missing`, `railing-type-missing` | TS (`validateGuardaCorpo.ts`) | Erros de modelo. |
+
+### 8.1 Medida do vão (esfera)
+
+O Rust trabalha no desenho plano `(s, h)` do guarda-corpo (s = comprimento horizontal, h = altura sobre o hospedeiro, "desdobramento" em que balaústres e postes verticais viram faixas verticais, trilhos viram faixas horizontais corrigidas pelo cosseno da inclinação). Obstáculos: poste (faixa de `s`), balaústre (faixa de `s`), trilho (faixa de `h`), painel sólido (retângulo cheio), painel perfurado/tela (abertura = furo ou malha), cabo (faixa de `h`). As **células livres** são os retângulos livres maximais entre obstáculos; a esfera máxima que passa por uma célula retangular é `min(largura, altura)`; o aviso usa o maior valor entre células na faixa `[folgaInferior, alturaMinima]`. Cálculo `O(n log n)` por vão. Folga do vão considera a largura do perfil dos vizinhos. Isto é aproximação 2D da esfera (válida para peças verticais/horizontais, que é o caso das guardas de norma); guardas com padrão em losango ou inclinado são avaliadas pelo menor espaço projetado (conservador).
+
+---
+
+## 9. Fases de implementação (1 a 7)
+
+Cada fase termina com testes passando (`npm test` nos pacotes tocados, `cargo test -p geom-wasm`, `cargo clippy`), commit em português e `CHANGELOG`/handoff curto. **Regra dos arquivos compartilhados:** a Fase 1 cria e mescla, **sozinha**, todos os "ganchos" em arquivos que várias fases tocariam (`types.ts` / união `Element`, `index.ts` dos pacotes, `commands.ts`, `registry.ts` de ferramentas, `lib.rs`, `cena.rs`, `esquema.rs`, `cena-v11.json` com as seções e consultas vazias, `i18n`), com módulos vazios que as fases seguintes só preenchem. Assim as fases paralelas só editam arquivos próprios.
+
+### Fase 1 — Modelo, tipos, norma, comandos (TS puro; fase bloqueante)
+Arquivos: `packages/model/src/guardaCorpoTypes.ts`, `guardaCorpo.ts` (`makeGuardaCorpo`, `tiposGuardaCorpo(lang)`, constantes), `guardaCorpoNorma.ts` (`PERFIS_NORMA_PADRAO`, `normaDe(projeto, tipo)`), `validateGuardaCorpo.ts`, `commands.ts` (comandos §4.4), `types.ts` (`Element`, `Project.tiposGuardaCorpo`, `perfisNorma?`), `migrate.ts` + `SCHEMA_VERSION` 24, `elementLevel.ts`, `graphics.ts`, `index.ts`, `i18n.ts`. Mais os esqueletos vazios (módulos com `export {}`) para as demais fases: `engine/src/guardaCorpoRef/`, `engine/src/kernelGuardaCorpo.ts`, `render/src/model3d/guardaCorpo3d.ts`, `tools/src/guardaCorpoTool.ts` registrado no `registry.ts`, e o esquema JSON com as seções 60 a 81 e consultas 60 a 65 (colunas definidas em §6, sem implementação Rust).
+Testes: criação, migração 23 → 24 (projeto antigo ganha tipos), `tipoGuardaCorpoIssue` (cada regra), comandos com desfazer, validação (hospedeiro ausente, tipo ausente), presets de norma (valores e `fontes`), serialização ida e volta JSON, `deleteTipo` em uso recusado.
+Depende de: nada. Bloqueia todas.
+
+### Fase 2 — Contrato Rust e adaptador TS
+Arquivos: `crates/geom-wasm/schema/cena-v11.json` (já com os ganchos; aqui são conferidos e ajustados), `crates/geom-wasm/src/esquema.rs`, `secoes_gc.rs` (decodificação e tabelas das seções 60-81), `cena.rs` (despacho de `definir_secao`/`upsert`/`remover`), `lib.rs`, `packages/engine/src/kernelGuardaCorpo.ts` (monta as seções a partir de `Project`, `ResolvedStair`, `ResolvedRamp`; upsert incremental por hospedeiro).
+Testes: `contrato_confere_com_json` e o contrato TS; ida e volta de cada seção (TS monta, Rust decodifica, devolve contagens); limites; upsert/remover; hospedeiro editado só reenvia as linhas dele.
+Depende de: Fase 1. **Congela o JSON** no primeiro commit (as fases 3 a 5 leem o contrato).
+
+### Fase 3 — Motor Rust da geometria (3a, 3b e 3c em paralelo)
+- **3a Caminho hospedado:** `crates/geom-wasm/src/gc_caminho.rs` (cadeias de lance, patamar, caracol, rampa, manual; deslocamento com esquadria; cortes por lado e tipo; emendas) e a consulta `guarda_caminhos`. Referência TS em `engine/src/guardaCorpoRef/caminho.ts`. Testes: escada reta, L, U, patamar de giro (anel de 6 pontos), caracol (hélice, sem torção, cota linear), escada livre com `freePath`, rampa, manual aberto/fechado, lado desligado, descontinuidade, deslocamento excessivo; paridade com a referência TS; propriedades (comprimento desenvolvido ≥ planta; z monótono em lance).
+- **3b Varredura e junções:** `gc_varredura.rs` (quadros RMF, perfis, esquadria, filete, solda, goosenecks, extensões `maisPiso`, suportes), `gc_malha.rs` (grupos, soldagem em grade de 1 µm). Testes: malha fechada e orientada (Euler, volume > 0), torção nula em hélice, esquadria em 90° e 135°, gooseneck com altura de patamar diferente, perfil poligonal, determinismo.
+- **3c Distribuição:** `gc_distribuicao.rs` (postes §5.5, balaústres §5.6, `porDegrau`, painéis §5.7). Testes: justificações, sobra, `distribuir` nunca passa do período, padrão que não cabe, quebra por ângulo, vãos com poste intermediário, por degrau com 1/2/3 por degrau, caracol, limite de 20 000 elementos.
+Depende de: Fases 1 e 2 (tipos Rust das seções). 3a, 3b e 3c mexem em arquivos diferentes e podem rodar juntas; 3b e 3c consomem a cadeia de 3a, então as três começam com uma **estrutura `CadeiaGC` de teste** (cadeias sintéticas fixas) definida em `gc_tipos.rs` pela Fase 2 e usam essa estrutura nos testes até a 3a ficar pronta; integração das três ao final (consulta `guarda_malha`).
+
+### Fase 4 — Linhas de planta e corte, quantidades, avisos (4a Rust, 4b TS em paralelo)
+- **4a Rust:** `gc_planta.rs` (`guarda_planta`: eixo, contornos de postes, balaústres e trilhos cortados em `corte_z`, estilo cortado/projetado/oculto por nível de detalhe), `gc_corte.rs` (`guarda_corte`), `gc_quant.rs` (`quant_guarda`), `gc_avisos.rs` (`guarda_avisos`, §8.1). Testes: a planta de uma guarda reta tem o eixo; poste cortado a 1,0 m gera retângulo; corte no meio de um vão não corta balaústre; avisos com guardas sintéticas (vão 120 mm contra limite 110; corrimão a 0,95 m; extensão curta).
+- **4b TS:** `engine/src/guardaCorpoQuantities.ts`, `engine/src/guardaCorpoIssues.ts` (regras do tipo e tradução das medidas do Rust para avisos com i18n e "a conferir"), `engine/src/guardaCorpoRef/` (completar referência: avisos, distribuição, quantidades), `io/src/ifc/ifcGuardaCorpo.ts` + registro em `ifcElements.ts`. Testes: agregação de quantidades de um tipo conhecido (contagens e comprimentos exatos), cada código de aviso, IFC (`IFCRAILING` por guarda, `PredefinedType` por composição, partes agregadas, quantidade `Length`).
+Depende de: Fase 2 (4a precisa das seções; 4b só do contrato JSON). 4a e 4b rodam juntas; 4a depende de 3a para a cadeia (usar `CadeiaGC` sintética até lá).
+
+### Fase 5 — Renderização (3D, planta, corte) e seleção
+Arquivos: `packages/render/src/model3d/guardaCorpo3d.ts` (malha por grupo e material, cache por `(guarda, hash do hospedeiro, tipo, norma)`, LOD), integração nos pontos de `levels3d.ts`, `pick3d.ts`, `indiceDeElementos3d.ts`, `highlight3d.ts`; `packages/render/src/plan/` (camada de guarda-corpo com a categoria gráfica `railing`); `packages/render/src/section/` (linhas do corte). Fallback do kernel desligado (§6.2): eixo simples. Testes: unitários com malha sintética; contagem de peças desenhadas; seleção por clique; visibilidade por categoria; cache invalidado quando a escada muda; captura visual de referência (escada em U com balaústres, vidro, cabos, caracol).
+Depende de: Fase 3 (consulta `guarda_malha`) e Fase 4a (linhas). Pode começar com mocks do contrato assim que a Fase 2 congelar o JSON.
+
+### Fase 6 — Ferramentas e interface (6a, 6b, 6c em paralelo)
+- **6a Ferramenta:** `packages/tools/src/guardaCorpoTool.ts` (traçar caminho manual com snap em borda de laje, parede e escada; início/fim; teclas); `guardaCorpoGrips.ts` (alças de vértice); botão "Criar guarda-corpo" na escada e na rampa (`stairCommands.ts`/`rampCommands.ts` chamam `addGuardaCorpo` com lados ligados); ribbon (`apps/web/src/ui/ribbon/model.ts`). Testes: sessão de desenho sem `resolve` por movimento, snap, fechar caminho, desfazer.
+- **6b Propriedades e opções:** `apps/web/src/ui/GuardaCorpoProperties.tsx` (hospedeiro, lados por tipo de trecho, posição de base, deslocamento, altura, inverter, sobrescritas, lista de avisos com "Ir para"), `GuardaCorpoOptionsBar.tsx`, painel de Problemas.
+- **6c Editor de tipo e de norma:** `apps/web/src/ui/dialogs/guardaCorpoType/` (abas: Geral; Trilhos; Corrimão; Postes; Preenchimento com lista de padrões e painéis e prévia de padrão; Junções; Norma) e `dialogs/normaGuardaCorpo/` (editor do `PerfilNorma` com fonte e "a conferir" por campo; duplicar/restaurar preset; escolher perfil do projeto). Prévia usando o mini-projeto, como `previewProject.ts`.
+Depende de: Fase 1 (tipos); 6a/6b/6c não se tocam. 6b e 6c usam a Fase 5 só na prévia 3D (podem usar o eixo simples até lá).
+
+### Fase 7 — Integração, desempenho e acabamento
+Arquivos: DXF (`io/src/dxf.ts`, camada `GUARDA-CORPO`, linhas de `guarda_planta`), quadro de quantidades e de materiais (UI), documentos de prancha (vistas e cortes mostram o guarda-corpo), IFC exportado conferido em visualizador, gabaritos (`templates.ts` ganha guarda-corpo na casa de dois pavimentos), desempenho (medir `guarda_malha` num prédio de 10 pavimentos com guarda-corpo em todas as escadas e sacadas; meta: reconstrução incremental < 16 ms por guarda-corpo editado, memória de malha < 20 MB), documentação (handoff `docs/handoff/guarda-corpo/ESTADO.md`), validação visual com o dono, fechamento dos pontos de norma que estavam [A CONFIRMAR] se o dono conseguir os textos.
+Testes: e2e de ponta a ponta (criar escada, ligar guarda-corpo, mudar escada, ver refazer), regressão visual, benchmark, importar/exportar projeto.
+Depende de: Fases 4 a 6.
+
+### Mapa de paralelismo
+
+```
+F1 ─┬─ F2 ─┬─ F3a ┐
+    │      ├─ F3b ┼─ F5 ─┐
+    │      ├─ F3c ┘      │
+    │      ├─ F4a ───────┤
+    │      └─ F4b        ├─ F7
+    ├─ F6a ──────────────┤
+    ├─ F6b ──────────────┤
+    └─ F6c ──────────────┘
+```
+
+Podem rodar ao mesmo tempo sem conflito de arquivo: {F3a, F3b, F3c, F4a, F4b} depois de F2; {F6a, F6b, F6c} logo depois de F1 (em paralelo com F2 a F4). F5 espera F3 e F4a. F7 por último. Arquivos tocados por mais de uma fase (todos criados vazios pela F1 e editados só por quem os "possui"): `cena.rs` e `lib.rs` (só F2), `cena-v11.json` e `esquema.rs` (só F2, congelado), `engine/src/index.ts` (só F1), `tools/src/registry.ts` (F1 cria a entrada, F6a preenche a ferramenta), `i18n.ts` (cada fase acrescenta chaves num bloco próprio `md_gc_<fase>_*` para evitar conflito de merge).
+
+---
+
+## 10. Riscos e testes transversais
+
+- **Desempenho do 3D:** um guarda-corpo de 30 m com balaústres a cada 11 cm tem ~270 balaústres × 16 lados = ~35 mil triângulos; o `lod` grosso usa prismas de 6 lados e agrupa por modelo (instanciação). Medido na Fase 7.
+- **Hélice (caracol):** o maior risco numérico é a torção do perfil; o teste de torção nula e a paridade com a referência cobrem.
+- **Escada que muda e o guarda-corpo cai em lado inexistente** (ex.: caracol vira reta): os lados do `HospedeiroEscada` continuam válidos (esq/dir sempre existem); caminho vazio vira o aviso `gc-hospedeiro-descontinuo`, não erro.
+- **Regras sobre `Element` fechado:** a Fase 1 percorre a lista de pontos de integração da decisão 0049 §2 (clipboard, selectTool, pick, transform, copyLink etc.).
+- **Licença:** só conceito e método de Revit e ArchiCAD; nenhuma geometria, família ou texto de norma copiado (as normas ABNT e ICC são citadas por valor e por item, não transcritas).
+
+---
+
+## 11. O que não entra nesta decisão
+
+Escada importada do IFC como hospedeiro; guarda-corpo em borda de laje com detecção automática de bordas abertas; cálculo estrutural de guarda (só declaração de carga); famílias autorais de balaústre via componentes (`ComponentFamily`); guarda-corpo de cobertura de telhado; corrimão contínuo entre escadas separadas.
+
+---
+
+## 12. Pontos em aberto para o dono
+
+1. **Kernel Rust desligado:** o guarda-corpo vive só no Rust. Quando o dono desliga o kernel (opção que a memória do projeto manda manter visível), o 3D mostra só o eixo e um aviso. Aceitável, ou prefere um motor TS completo de fallback (desfaz a decisão 5)?
+2. **Valores de norma a confirmar** (preciso dos textos ou de alguém para conferir): NBR 14718 (altura 1,10 m, vão 110 mm, cargas), NBR 9050 (corrimão 0,92/0,70, diâmetro 30-45 mm, prolongamento 0,30 m, afastamento), IBC 1014 (corrimão, extensões, pegada) e Parte K inteira. Os presets saem marcados "(a conferir)" até lá.
+3. **Perfil Brasil "mais restritivo" ou "um por norma":** o preset composto pega o maior valor entre NBR 9077, 14718 e 9050 (guarda 1,10 m e esfera 110 mm). Prefere três perfis separados (um por norma) que o usuário alterna?
+4. **Balaústre e poste como componente:** hoje são perfil extrudido + material. Quer permitir uma `ComponentFamily` (decisão 0049, ainda fora da main) como modelo de balaústre/poste no futuro? Exigiria o contrato do Rust receber malha instanciada.
+5. **Guarda-corpo automático na abertura da laje do nível de topo da escada:** a decisão pede manual para borda de laje; a borda do furo da escada no pavimento superior é o caso mais comum e poderia ser sugerida. Fica fora da v1.
+6. **Corrimão de parede** (sem guarda-corpo, só fixado na parede ao lado da escada): modelado como `TipoGuardaCorpo` sem preenchimento e hospedeiro escada/rampa; o afastamento da parede vem do `afastamento`. Confirmar que atende (não há hospedeiro "parede").
+7. **Numeração** (0055) e `SCHEMA_VERSION` 24: conferir contra as branches no dia da mesclagem.
+
+## 13. Divergências Revit × ArchiCAD que exigiram escolha
+
+| Tema | Revit | ArchiCAD | Escolha no Hestia |
+|---|---|---|---|
+| Postes | Só início, fim e canto entram no editor de balaústres; postes intermediários vêm do padrão | Postes nos **nós**; *Inner Posts* entre nós como componente do padrão | Modelo de nós e postes intermediários do ArchiCAD, com espaçamento próprio (§5.5), que dá vãos para painéis |
+| Segmentação | Rail contínuo ao longo do croqui; quebra do padrão por ângulo ou nunca | Segmentos e nós; o padrão recomeça no nó, salvo *Pattern Continuity* | Segmentos e nós do ArchiCAD; `quebra` de 3 valores do Revit |
+| Preenchimento | Padrão principal (e quebra) mais famílias de balaústre; painel só como família de balaústre | Balaústres ("padrão dentro do padrão") e **Painéis** nativos entre postes ou trilhos; onde há balaústre não há painel | Lista de `preenchimentos` ordenada, balaústre e painel como tipos irmãos, painel nativo (ArchiCAD) |
+| Corrimão | Top Rail e Handrail 1/2 em tipos de rail contínuo com extensões, suportes e transições | Toprail, até dois Handrails (cada um dobrável nos dois lados), Rails; conexões e extremidades em página própria | Dados do Revit (extensão, suporte, transição, `maisPiso`) em até 4 corrimãos (`posicao` esquerda/direita/ambas) |
+| Escada hospedeira | Hospedagem explícita (degrau/viga lateral, balaústre por degrau, refaz com a escada) | Guarda-corpo associado à escada **não confirmado** em fonte oficial | Hospedagem do Revit (decisão do dono) |
+| Medida do espaçamento do padrão | Ao longo do comprimento do croqui [A CONFIRMAR] | Por divisões iguais ou comprimento máximo do segmento | **Horizontal** (porque a esfera de norma enxerga a folga horizontal), com `distribuir` (igual ao ArchiCAD) como justificação recomendada |
+| Altura de patamar | *Landing Height Adjustment* | altura de segmento por segmento | Ajuste do Revit no tipo (`ajusteAlturaPatamar`), coerente com a NBR 9077 (0,92 m na escada, 1,05 m no patamar) |
