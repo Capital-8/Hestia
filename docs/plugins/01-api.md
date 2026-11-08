@@ -37,5 +37,8 @@ Auxiliares para plugins em TypeScript: `diffScene`, `applyDelta`.
 
 ## Gerenciamento
 `PluginHost` (`pluginHost.ts`): `list`, `get`, `subscribe`, `enable`, `disable`, `connect`, `disconnect`, `setGrants`,
-`setCameraMode`, `add`, `remove` (endereço loopback) e `start` (reconecta o que estava habilitado). Estado persistido no
+`setCameraMode`, `setToken`, `clearToken` (token de pareamento; `PluginView.hasToken`, nunca o valor), `add`, `remove` (endereço loopback) e `start` (reconecta o que estava habilitado). Estado persistido no
 `localStorage` (`hestia.plugins.v1`): habilitação, concessões e último manifesto.
+
+`PluginHost({ insecureAllowUnauthenticated })` (padrão `false`) aceita plugin sem autenticação 1.1: **somente testes locais**; não há
+controle na interface. Auxiliares de pareamento exportados: `authProof`, `randomNonce`, `timingSafeEqual`, `isValidToken`.

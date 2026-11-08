@@ -1,3 +1,4 @@
+import { isValidToken } from './auth.ts';
 import { ALL_CAPABILITIES, isCapability, type Capability } from './permissions.ts';
 import { validateManifest, type PluginManifest } from './manifest.ts';
 import type { HostPorts } from './hostPorts.ts';
@@ -64,7 +65,8 @@ export interface PluginRuntime {
   attempt: number;
 }
 
-export interface PluginView extends PluginEntry, PluginRuntime {}
+/** O token em si NUNCA aparece na visão (tela, logs): só se existe um configurado. */
+export interface PluginView extends PluginEntry, PluginRuntime { hasToken: boolean }
 
 export interface KeyValueStore { get(k: string): string | null; set(k: string, v: string): void }
 
@@ -78,6 +80,11 @@ export interface PluginHostOptions {
   heartbeatMs?: number;
   /** Esperas entre tentativas de reconexão, em ms (a última se repete). */
   backoffMs?: number[];
+  /**
+   * SOMENTE testes locais e compatibilidade 1.0 explícita: aceita plugin sem autenticação. PADRÃO: false (token
+   * obrigatório). Não há controle para isto na interface.
+   */
+  insecureAllowUnauthenticated?: boolean;
 }
 
 const DEFAULT_BACKOFF = [1000, 2000, 4000, 8000, 15000];
@@ -97,12 +104,14 @@ export class PluginHost {
   private cache: PluginView[] = [];
   private readonly storeKey: string;
   private readonly backoff: number[];
+  private tokens = new Map<string, string>();
 
   constructor(private readonly o: PluginHostOptions) {
     this.storeKey = o.storeKey ?? 'hestia.plugins.v1';
     this.backoff = o.backoffMs ?? DEFAULT_BACKOFF;
     for (const b of o.builtins) this.entries.set(b.key, { ...b, builtin: true });
     this.load();
+    this.loadTokens();
     for (const e of this.entries.values()) this.runtime.set(e.key, this.idle(e));
     this.rebuild();
   }
@@ -111,6 +120,25 @@ export class PluginHost {
   list(): PluginView[] { return this.cache; }
   subscribe(cb: () => void): () => void { this.listeners.add(cb); return () => this.listeners.delete(cb); }
   get(key: string): PluginView | undefined { return this.cache.find((p) => p.key === key); }
+
+  // ---- token de pareamento ----
+  /** Guarda o token deste plugin (nunca é enviado pela conexão nem exibido). false se for curto demais. */
+  setToken(key: string, token: string): boolean {
+    const t = token.trim();
+    if (!this.entries.has(key) || !isValidToken(t)) return false;
+    this.tokens.set(key, t);
+    this.saveTokens();
+    this.restart(key);
+    return true;
+  }
+
+  clearToken(key: string): void {
+    if (this.tokens.delete(key)) { this.saveTokens(); this.restart(key); }
+  }
+
+  private restart(key: string): void {
+    if (this.sessions.has(key)) { this.dropSession(key, 'token'); void this.connect(key); } else this.rebuild();
+  }
 
   // ---- configuração ----
   /** Cadastra um endereço de plugin informado pelo usuário. Devolve a chave, ou null se o endereço não for loopback válido. */
@@ -131,6 +159,7 @@ export class PluginHost {
     this.disable(key);
     this.entries.delete(key);
     this.runtime.delete(key);
+    if (this.tokens.delete(key)) this.saveTokens();
     this.save();
     this.rebuild();
   }
@@ -202,6 +231,7 @@ export class PluginHost {
     const session = new HostSession(tr, {
       ports: this.o.ports,
       grants: e.grants,
+      auth: { token: this.tokens.get(key) ?? null, allowUnauthenticated: this.o.insecureAllowUnauthenticated === true },
       ...(e.expectedKind ? { expectedKind: e.expectedKind } : {}),
       ...(this.o.heartbeatMs ? { heartbeatMs: this.o.heartbeatMs } : {}),
       retained: this.retained.get(key) ?? null,
@@ -299,8 +329,20 @@ export class PluginHost {
   }
 
   private rebuild(): void {
-    this.cache = [...this.entries.values()].map((e) => ({ ...e, ...this.runtime.get(e.key)! }));
+    this.cache = [...this.entries.values()].map((e) => ({ ...e, ...this.runtime.get(e.key)!, hasToken: this.tokens.has(e.key) }));
     for (const l of this.listeners) l();
+  }
+
+  /** Tokens ficam numa chave própria, fora da lista de plugins (que pode ser exportada ou depurada). */
+  private saveTokens(): void {
+    try { this.o.store.set(`${this.storeKey}.tokens`, JSON.stringify(Object.fromEntries(this.tokens))); } catch { /* indisponível: vale só nesta sessão */ }
+  }
+
+  private loadTokens(): void {
+    try {
+      const raw = JSON.parse(this.o.store.get(`${this.storeKey}.tokens`) ?? 'null') as Record<string, unknown> | null;
+      for (const [k, v] of Object.entries(raw ?? {})) if (this.entries.has(k) && isValidToken(v)) this.tokens.set(k, v);
+    } catch { /* ignora conteúdo inválido */ }
   }
 
   private save(): void {

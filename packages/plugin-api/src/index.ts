@@ -1,4 +1,5 @@
 export * from './version.ts';
+export * from './auth.ts';
 export * from './permissions.ts';
 export * from './manifest.ts';
 export * from './scene.ts';

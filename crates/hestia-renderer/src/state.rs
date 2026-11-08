@@ -38,6 +38,12 @@ pub struct State {
     pub resyncs: u32,
     pub errors: Vec<Value>,
     pub last_close: String,
+    pub authenticated: bool,
+    /// Modo sem autenticação (`--insecure-no-auth`, só testes locais).
+    pub insecure: bool,
+    pub auth_failures: u32,
+    /// Falhas seguidas; zera ao autenticar. Alimenta o atraso entre tentativas.
+    pub auth_consecutive: u32,
 }
 
 fn id_of(v: &Value) -> Option<String> {
@@ -136,6 +142,9 @@ impl State {
             "resyncs": self.resyncs,
             "errors": self.errors,
             "lastClose": self.last_close,
+            "authenticated": self.authenticated,
+            "insecure": self.insecure,
+            "authFailures": self.auth_failures,
             "scene": {
                 "projectId": self.scene.project_id,
                 "projectName": self.scene.project_name,

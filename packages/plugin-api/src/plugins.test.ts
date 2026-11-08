@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  API_VERSION, PluginHost, TEST_RENDERER_MANIFEST, TestPlugin, createMemoryPair, decode, findImagePayload, negotiateProtocol, validateEndpoint, validateManifest,
+  authProof, API_VERSION, PluginHost, TEST_RENDERER_MANIFEST, TestPlugin, createMemoryPair, decode, findImagePayload, negotiateProtocol, validateEndpoint, validateManifest,
   type Capability, type HostPorts, type PluginEntry, type SceneCamera, type SceneContent, type SceneEntity, type ViewMaterialOverride,
 } from './index.ts';
 
@@ -31,12 +31,15 @@ function fakePorts() {
   };
 }
 
+// HMAC (WebCrypto) conclui em tempo real, fora dos timers falsos: espera um pouco de verdade a cada passo.
+const realSetTimeout = globalThis.setTimeout;
+const flushAuth = async (): Promise<void> => { for (let i = 0; i < 6; i++) { await vi.advanceTimersByTimeAsync(1); await new Promise<void>((r) => realSetTimeout(r, 12)); } };
 const flush = async (): Promise<void> => { for (let i = 0; i < 8; i++) { await vi.advanceTimersByTimeAsync(1); } };
 
 const ENTRY: PluginEntry = { key: 'renderer', label: 'Renderizador', endpoint: { host: '127.0.0.1', port: 47800 }, enabled: false, grants: [], suggested: ['scene.read'], expectedKind: 'renderer', builtin: true };
 const ALL: Capability[] = ['scene.read', 'camera.read', 'events.subscribe', 'camera.write', 'overrides.write'];
 
-function setup(opts: { plugin?: ConstructorParameters<typeof TestPlugin>[1]; refuse?: boolean } = {}) {
+function setup(opts: { plugin?: ConstructorParameters<typeof TestPlugin>[1]; refuse?: boolean; insecure?: boolean; token?: string; spy?: string[] } = {}) {
   const f = fakePorts();
   const mem = new Map<string, string>();
   const plugins: TestPlugin[] = [];
@@ -46,15 +49,23 @@ function setup(opts: { plugin?: ConstructorParameters<typeof TestPlugin>[1]; ref
     builtins: [{ ...ENTRY }],
     heartbeatMs: 1000,
     backoffMs: [100, 200],
+    insecureAllowUnauthenticated: opts.insecure ?? true,
     connect: async () => {
       if (opts.refuse) throw new Error('recusado');
       const [a, b] = createMemoryPair();
+      if (opts.spy) {
+        const o1 = a.send.bind(a);
+        a.send = (f) => { opts.spy!.push(f); o1(f); };
+        const o2 = b.send.bind(b);
+        b.send = (f) => { opts.spy!.push(f); o2(f); };
+      }
       const p = new TestPlugin(b, { heartbeatMs: 1000, ...opts.plugin });
       plugins.push(p);
       p.hello();
       return a;
     },
   });
+  if (opts.token) host.setToken('renderer', opts.token);
   return { f, host, plugins, mem, last: () => plugins[plugins.length - 1]! };
 }
 
@@ -382,5 +393,125 @@ describe('mensagens malformadas', () => {
     expect(s.f.ov[TEST_RENDERER_MANIFEST.id]!.mat1!.color).toBe('#445566');
     expect(s.host.get('renderer')!.state).toBe('connected');
     expect(p.peer.pendingAcks).toBe(0);
+  });
+});
+
+describe('pareamento por token (protocolo 1.1)', () => {
+  const TOKEN = 'a'.repeat(31) + 'T'.repeat(33);
+  const OTHER = 'b'.repeat(64);
+
+  it('token correto: autentica, negocia 1.1 e só então entrega a cena', async () => {
+    const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN } });
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(s.host.get('renderer')!.state).toBe('connected');
+    expect(s.last().authenticated).toBe(true);
+    expect(s.last().welcome).toMatchObject({ protocol: '1.1', authenticated: true });
+    expect(s.last().snapshot?.entities.length).toBe(1);
+  });
+
+  it('token incorreto no Hestia: incompatível (auth_failed) e NENHUMA cena sai', async () => {
+    const s = setup({ insecure: false, token: OTHER, plugin: { token: TOKEN } });
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(s.host.get('renderer')!.state).toBe('incompatible');
+    expect(s.host.get('renderer')!.error?.code).toBe('auth_failed');
+    expect(s.last().snapshot).toBeNull();
+    expect(s.last().welcome).toBeNull();
+  });
+
+  it('plugin com token errado não prova o token: Hestia recusa', async () => {
+    const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN, proofToken: OTHER } });
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(s.host.get('renderer')!.state).toBe('incompatible');
+    expect(s.host.get('renderer')!.error?.code).toBe('auth_failed');
+    expect(s.last().snapshot).toBeNull();
+  });
+
+  it('sem token configurado no Hestia: auth_required, sem reconexão automática', async () => {
+    const s = setup({ insecure: false, plugin: { token: TOKEN } });
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(s.host.get('renderer')!.error?.code).toBe('auth_required');
+    expect(s.host.get('renderer')!.state).toBe('incompatible');
+    expect(s.host.get('renderer')!.hasToken).toBe(false);
+    await vi.advanceTimersByTimeAsync(30000);
+    expect(s.plugins.length).toBe(1);
+  });
+
+  it('compatibilidade 1.0: plugin sem auth é recusado por padrão e aceito só no modo inseguro explícito', async () => {
+    const req = setup({ insecure: false, token: TOKEN });
+    req.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(req.host.get('renderer')!.error?.code).toBe('auth_required');
+    expect(req.last().snapshot).toBeNull();
+    const legacy = setup({ insecure: true });
+    legacy.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(legacy.host.get('renderer')!.state).toBe('connected');
+    expect(legacy.last().welcome).toMatchObject({ protocol: '1.0', authenticated: false });
+  });
+
+  it('mensagem antes de concluir o pareamento: not_authenticated e conexão fechada', async () => {
+    const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN } });
+    s.host.enable('renderer', ALL);
+    await vi.advanceTimersByTimeAsync(0);
+    s.last().peer.send({ t: 'scene.resync' });
+    await flushAuth();
+    expect(s.last().errors.some((e) => e.code === 'not_authenticated')).toBe(true);
+    expect(s.last().snapshot).toBeNull();
+  });
+
+  it('repetição: prova capturada em outra conexão não vale (nonces novos); quadro duplicado não reexecuta', async () => {
+    const first = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN } });
+    first.host.enable('renderer', ALL);
+    await flushAuth();
+    const captured = first.last().lastProof!;
+    expect(captured).toBeTruthy();
+    const replay = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN, replayProof: captured } });
+    replay.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(replay.host.get('renderer')!.error?.code).toBe('auth_failed');
+    expect(replay.last().snapshot).toBeNull();
+    const sent: string[] = [];
+    const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN }, spy: sent });
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    const p = s.last();
+    p.setMode('plugin-drives');
+    await flushAuth();
+    p.drive(cam(40));
+    await flushAuth();
+    const frame = sent.find((f) => f.includes('"camera.set"'))!;
+    const tr = (p.peer as unknown as { tr: { send(f: string): void } }).tr;
+    tr.send(frame);
+    tr.send(frame);
+    await flushAuth();
+    expect(s.f.writes.length).toBe(1);
+    expect(s.host.get('renderer')!.state).toBe('connected');
+  });
+
+  it('o token nunca trafega nem aparece na visão do gerenciador', async () => {
+    const wire: string[] = [];
+    const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN }, spy: wire });
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(wire.length).toBeGreaterThan(5);
+    expect(wire.some((f) => f.includes(TOKEN))).toBe(false);
+    expect(JSON.stringify(s.host.list())).not.toContain(TOKEN);
+    expect(s.mem.get('hestia.plugins.v1')).not.toContain(TOKEN);
+    expect(s.host.get('renderer')!.hasToken).toBe(true);
+    expect(s.host.setToken('renderer', 'curto')).toBe(false);
+  });
+});
+
+describe('compatibilidade das provas com o renderizador Rust', () => {
+  it('vetor fixo: o HMAC do WebCrypto é idêntico ao do Rust', async () => {
+    const T = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+    const np = 'AAAAAAAAAAAAAAAAAAAAAA==';
+    const nh = 'BBBBBBBBBBBBBBBBBBBBBB==';
+    expect(await authProof(T, 'host', np, nh)).toBe('ee6ZJLkKce+oaVKpc8wRmc8AnOzpS+ror65AwTwKLSY=');
+    expect(await authProof(T, 'plugin', np, nh)).toBe('pkiqvzN+kIf4STO/1ClJqHrwtmVY2HPTihukJBJEqU0=');
   });
 });

@@ -1,6 +1,7 @@
 //! Lado do plugin do protocolo 1.0 (docs/plugins/02-protocolo.md): `hello`, `ack`, heartbeat, snapshot e deltas,
 //! câmera, modo de câmera e substituições. Uma conexão por vez; o estado da cena sobrevive entre conexões para a retomada.
 
+use crate::auth::{self, Role};
 use crate::state::State;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -29,6 +30,7 @@ pub struct Retained {
 }
 
 const NUMBERED_FROM_HOST: &[&str] = &[
+    "auth",
     "welcome",
     "scene.snapshot",
     "scene.delta",
@@ -39,6 +41,7 @@ const NUMBERED_FROM_HOST: &[&str] = &[
 ];
 const NUMBERED_TO_HOST: &[&str] = &[
     "hello",
+    "auth.ok",
     "scene.resync",
     "camera.mode.set",
     "camera.set",
@@ -64,6 +67,11 @@ struct Peer {
     cam_rev: u64,
     req_n: u64,
     last_report: Instant,
+    /// Token de pareamento (None = modo inseguro, só testes locais). Nunca é enviado nem registrado.
+    token: Option<String>,
+    n_plugin: String,
+    authenticated: bool,
+    connected_at: Instant,
 }
 
 impl Peer {
@@ -76,6 +84,10 @@ impl Peer {
             self.pending.insert(seq, Instant::now());
         }
         self.ws.send(Message::text(v.to_string()))
+    }
+
+    fn send_error(&mut self, code: &str, message: &str, fatal: bool) -> Result<(), WsError> {
+        self.ws.send(Message::text(json!({ "t": "error", "error": { "code": code, "message": message, "fatal": fatal } }).to_string()))
     }
 
     fn next_id(&mut self, prefix: &str) -> String {
@@ -96,7 +108,7 @@ fn manifest() -> Value {
 }
 
 /// Trata uma conexão até ela terminar. Escreve o relatório de estado depois de cada mensagem e de cada comando.
-pub fn run_connection(ws: WebSocket<TcpStream>, state: &mut State, retained: &mut Retained, cmds: &Receiver<Cmd>, report: &dyn Fn(&State)) -> End {
+pub fn run_connection(ws: WebSocket<TcpStream>, state: &mut State, retained: &mut Retained, cmds: &Receiver<Cmd>, report: &dyn Fn(&State), token: Option<&str>) -> End {
     let mut p = Peer {
         ws,
         next_seq: 1,
@@ -109,17 +121,27 @@ pub fn run_connection(ws: WebSocket<TcpStream>, state: &mut State, retained: &mu
         cam_rev: 0,
         req_n: 0,
         last_report: Instant::now(),
+        token: token.map(str::to_owned),
+        n_plugin: auth::nonce(),
+        authenticated: false,
+        connected_at: Instant::now(),
     };
     state.connections += 1;
     state.connected = true;
     state.last_close.clear();
     state.session_id = None;
+    state.authenticated = false;
+    state.insecure = token.is_none();
 
+    // Com token: protocolo 1.1 e `auth.nonce`. Sem token (modo inseguro, só testes): fala 1.0, como um plugin antigo.
     let mut hello = json!({
         "t": "hello",
-        "protocol": { "min": "1.0", "max": "1.0" },
+        "protocol": if token.is_some() { json!({ "min": "1.1", "max": "1.1" }) } else { json!({ "min": "1.0", "max": "1.0" }) },
         "manifest": manifest(),
     });
+    if token.is_some() {
+        hello["auth"] = json!({ "nonce": p.n_plugin });
+    }
     if let Some(sid) = &retained.session_id {
         hello["resume"] = json!({ "sessionId": sid, "lastRevision": state.scene.revision });
     }
@@ -161,6 +183,12 @@ pub fn run_connection(ws: WebSocket<TcpStream>, state: &mut State, retained: &mu
 
         // 3. Heartbeat e prazos.
         let now = Instant::now();
+        if p.token.is_some() && !p.authenticated && now.duration_since(p.connected_at) > Duration::from_secs(5) {
+            let _ = p.send_error("auth_failed", "pareamento não concluído a tempo", true);
+            state.auth_failures += 1;
+            state.auth_consecutive += 1;
+            return finish(state, report, "auth_timeout".into());
+        }
         if now.duration_since(p.last_report) >= Duration::from_millis(250) {
             p.last_report = now;
             report(state); // reescreve o relatório: se uma gravação falhou, a próxima corrige
@@ -236,7 +264,39 @@ fn handle(p: &mut Peer, state: &mut State, retained: &mut Retained, txt: &str) -
         p.ws.send(Message::text(json!({ "t": "ack", "ack": seq }).to_string()))?;
     }
 
+    // Com token, NADA além do pareamento é aceito antes de o host provar que conhece o token.
+    if p.token.is_some() && !p.authenticated && !matches!(t.as_str(), "auth" | "ack" | "ping" | "pong" | "error" | "bye") {
+        let (code, msg) = if t == "welcome" { ("auth_required", "o host não fez o pareamento por token") } else { ("not_authenticated", "mensagem antes do pareamento") };
+        p.send_error(code, msg, true)?;
+        state.auth_failures += 1;
+        state.auth_consecutive += 1;
+        return Ok(false);
+    }
+
     match t.as_str() {
+        "auth" => {
+            let Some(token) = p.token.clone() else {
+                state.errors.push(json!({ "code": "bad_request", "message": "auth recebido em modo sem token" }));
+                return Ok(true);
+            };
+            if p.authenticated {
+                state.errors.push(json!({ "code": "bad_request", "message": "auth repetido" }));
+                return Ok(true);
+            }
+            let (n_host, host_proof) = (m["nonce"].as_str().unwrap_or_default(), m["proof"].as_str().unwrap_or_default());
+            if !auth::verify(&token, Role::Host, &p.n_plugin, n_host, host_proof) {
+                p.send_error("auth_failed", "o host não provou conhecer o token", true)?;
+                state.auth_failures += 1;
+                state.auth_consecutive += 1;
+                state.errors.push(json!({ "code": "auth_failed", "message": "prova do host recusada" }));
+                return Ok(false);
+            }
+            p.authenticated = true;
+            state.authenticated = true;
+            state.auth_consecutive = 0;
+            let proof = auth::proof(&token, Role::Plugin, &p.n_plugin, n_host);
+            p.send(json!({ "t": "auth.ok", "proof": proof }))?;
+        }
         "ack" => {
             if let Some(a) = m["ack"].as_u64() {
                 p.pending.remove(&a);

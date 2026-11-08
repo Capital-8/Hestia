@@ -3,6 +3,7 @@ import { Peer, type Transport } from './transport.ts';
 import type { Message, ProtocolError } from './protocol.ts';
 import type { CameraMode, MaterialId, SceneCamera, SceneSnapshot, ViewMaterialOverride } from './scene.ts';
 import { applyDelta } from './sceneSync.ts';
+import { authProof, randomNonce, timingSafeEqual } from './auth.ts';
 import { API_VERSION, PROTOCOL_VERSION, formatVersion } from './version.ts';
 
 /** Manifesto de um renderizador de teste que pede só o necessário (sem escrita geral). */
@@ -21,6 +22,12 @@ export interface TestPluginOptions {
   /** Reenvia hello com `resume` (plugin que reconecta). */
   resume?: { sessionId: string; lastRevision: number };
   heartbeatMs?: number;
+  /** Token de pareamento: com ele o plugin fala 1.1 e autentica; sem ele, fala só 1.0 (sem auth). */
+  token?: string;
+  /** Token errado na resposta (teste de falha). */
+  proofToken?: string;
+  /** Responde `auth.ok` com ESTA prova (repetição de uma prova capturada em outra conexão). */
+  replayProof?: string;
 }
 
 /**
@@ -39,6 +46,10 @@ export class TestPlugin {
   resyncs = 0;
   deltas = 0;
   private camRev = 0;
+  private nonce = '';
+  authenticated = false;
+  /** Última prova enviada em `auth.ok` (para testes de repetição). */
+  lastProof: string | null = null;
 
   constructor(transport: Transport, readonly opts: TestPluginOptions = {}) {
     this.peer = new Peer(transport, {
@@ -51,16 +62,34 @@ export class TestPlugin {
   }
 
   hello(): void {
+    this.nonce = randomNonce();
+    const auth = this.opts.token !== undefined;
     this.peer.send({
       t: 'hello',
-      protocol: this.opts.protocol ?? { min: formatVersion(PROTOCOL_VERSION), max: formatVersion(PROTOCOL_VERSION) },
+      protocol: this.opts.protocol ?? (auth ? { min: formatVersion(PROTOCOL_VERSION), max: formatVersion(PROTOCOL_VERSION) } : { min: '1.0', max: '1.0' }),
       manifest: this.opts.manifest ?? TEST_RENDERER_MANIFEST,
       ...(this.opts.resume ? { resume: this.opts.resume } : {}),
+      ...(auth ? { auth: { nonce: this.nonce } } : {}),
     });
+  }
+
+  private async onAuth(nH: string, proof: string): Promise<void> {
+    const token = this.opts.token!;
+    const expected = await authProof(token, 'host', this.nonce, nH);
+    if (!timingSafeEqual(proof, expected)) {
+      this.errors.push({ code: 'auth_failed', message: 'host não provou o token', fatal: true });
+      this.peer.sendError({ code: 'auth_failed', message: 'host não provou o token', fatal: true });
+      this.peer.close('auth_failed');
+      return;
+    }
+    this.authenticated = true;
+    this.lastProof = this.opts.replayProof ?? (await authProof(this.opts.proofToken ?? token, 'plugin', this.nonce, nH));
+    this.peer.send({ t: 'auth.ok', proof: this.lastProof });
   }
 
   private onMessage(m: Message): void {
     switch (m.t) {
+      case 'auth': void this.onAuth(m.nonce, m.proof); break;
       case 'welcome': this.welcome = m; this.mode = m.cameraMode; this.peer.setHeartbeat(m.heartbeatMs); this.peer.startHeartbeat(); break;
       case 'scene.snapshot': this.snapshot = m.snapshot; break;
       case 'scene.delta': {

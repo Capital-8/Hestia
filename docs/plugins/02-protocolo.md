@@ -1,4 +1,8 @@
-# Protocolo (versão 1.0)
+# Protocolo (versão 1.1)
+
+> **1.1 (aditiva):** acrescenta o pareamento autenticado (`auth`, `auth.ok`, `hello.auth`, `welcome.authenticated`, erros
+> `auth_required`, `auth_failed`, `not_authenticated`). Ver [07](07-pareamento-por-token.md). O host exige token por padrão; o 1.0
+> continua negociável só quando o host aceita plugin sem autenticação (modo de teste). Tudo abaixo vale para as duas versões.
 
 Quadros de **texto JSON** em transporte ordenado e bidirecional (WebSocket em loopback). O **plugin é o servidor**; o
 Hestia conecta e o plugin fala primeiro (`hello`). Independente de linguagem; a referência em TypeScript é `protocol.ts`
@@ -9,7 +13,8 @@ Envelope: `{ "t": tipo, "seq"?: n, "id"?: correlação, "re"?: id respondido, ..
 ## Tipos
 | Sentido | Tipo | Capacidade exigida (concessão) |
 |---|---|---|
-| plugin→host | `hello` (`protocol` com `min` e `max`, `manifest`, `resume?`) | — |
+| plugin→host | `hello` (`protocol` com `min` e `max`, `manifest`, `resume?`, `auth?` na 1.1) | — |
+| host→plugin | `auth` (1.1: `nonce`, `proof`) e plugin→host `auth.ok` (1.1: `proof`) | — |
 | host→plugin | `welcome` (`protocol`, `api`, `sessionId`, `granted`, `denied`, `heartbeatMs`, `cameraMode`, `resumed`) | — |
 | host→plugin | `scene.snapshot`, `scene.delta`, `event.connection` | `scene.read` (deltas também `events.subscribe`) |
 | plugin→host | `scene.resync` | `scene.read` |
