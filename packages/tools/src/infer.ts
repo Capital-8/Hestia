@@ -369,20 +369,20 @@ export function infer(rawCursor: Vec2, ctx: InferContext): Inference {
   // Linhas e vértices dos desenhos CAD importados (DXF) servem de referência, como as paredes.
   if (!ctx.onWallsOnly && !ctx.section) addCadSnaps(ctx.cad, sn, cursor, tol, ctx.from, add, ctx.ignore);
   // Faces: cantos, pontos médios, arestas e pé da perpendicular nas faces de acabamento e (opcional) do núcleo.
-  const addSegs = (segs: Array<[Vec2, Vec2]>, kind: 'face' | 'core', hostId?: Id): void => {
+  const addSegs = (segs: Array<[Vec2, Vec2]>, kind: 'face' | 'core', hostId?: Id, perpOnly = false): void => {
     for (const [a, b] of segs) {
       if (dist(a, b) < 1e-9) continue;
-      if (sn.endpoint !== false) {
+      if (!perpOnly && sn.endpoint !== false) {
         for (const q of [a, b]) {
           if (dist(cursor, q) <= tol) add(q, kind, [], hostId);
         }
       }
-      if (sn.midpoint !== false) {
+      if (!perpOnly && sn.midpoint !== false) {
         const mid = v2((a.x + b.x) / 2, (a.y + b.y) / 2);
         if (dist(cursor, mid) <= tol) add(mid, 'midpoint', [], hostId);
       }
       const foot = closestOnSegment(cursor, a, b);
-      if (dist(cursor, foot) <= tol) add(foot, 'nearest', [], hostId);
+      if (!perpOnly && dist(cursor, foot) <= tol) add(foot, 'nearest', [], hostId);
       if (sn.perpendicular && ctx.from) {
         const pf = closestOnSegment(ctx.from, a, b);
         if (dist(cursor, pf) <= tol && dist(pf, ctx.from) > 1e-6) add(pf, 'perpendicular', [{ from: ctx.from, to: pf, kind: 'perpendicular' }], hostId);
@@ -391,12 +391,13 @@ export function infer(rawCursor: Vec2, ctx: InferContext): Inference {
   };
   // Faces seguem o contorno real da parede (`outline`, com as esquadrias das junções), não a corda das tampas.
   const outlineSegs = (ring: Vec2[]): Array<[Vec2, Vec2]> => ring.map((p, i) => [p, ring[(i + 1) % ring.length]!] as [Vec2, Vec2]);
-  if (sn.faces || sn.core) {
+  if (sn.faces || sn.core || (sn.perpendicular && ctx.from)) {
     for (const wf of facesIn()) {
       if (ctx.ignore?.has(wf.wallId)) continue;
       // Índice barato: contorno longe do cursor (além da tolerância) não tem captura. Evita varrer todas as arestas.
       if (!boxNear(cursor, wf.outline, tol)) continue;
-      if (sn.faces) addSegs(wf.outline.length >= 3 ? outlineSegs(wf.outline) : wf.faces, 'face', wf.wallId);
+      // Só a perpendicular ligada: o pé sobre a face continua valendo, sem as demais capturas de face.
+      if (sn.faces || sn.perpendicular) addSegs(wf.outline.length >= 3 ? outlineSegs(wf.outline) : wf.faces, 'face', wf.wallId, !sn.faces);
       if (sn.core) addSegs(wf.coreOutline.length >= 3 ? outlineSegs(wf.coreOutline) : wf.core, 'core', wf.wallId);
     }
   }

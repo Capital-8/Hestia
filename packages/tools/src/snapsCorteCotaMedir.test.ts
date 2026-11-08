@@ -3,7 +3,7 @@ import { createEmptyProject } from '@hestia/model';
 import type { SectionResult } from '@hestia/engine';
 import type { Vec2 } from '@hestia/geom';
 import { sectionInferContext } from './sectionContext.ts';
-import { clickAt, makeEnv, P, tool } from './testEnv.ts';
+import { clickAt, drawWall, makeEnv, P, tool } from './testEnv.ts';
 import type { Inference, SectionToolContext } from './types.ts';
 import type { ToolId } from './registry.ts';
 
@@ -163,5 +163,43 @@ describe('corte: visibilidade da esquadria é pelo id dela', () => {
     const hosts = (c: ReturnType<typeof ctx>) => (c.extraPoints ?? []).map((p) => (p as { hostId?: string }).hostId);
     expect(hosts(ctx(['w1']))).toContain('op1');
     expect(hosts(ctx(['op1']))).not.toContain('op1');
+  });
+});
+
+describe.each(FERRAMENTAS)('perpendicular sozinha (as demais capturas desligadas): %s', (id) => {
+  const SO_PERPENDICULAR = { enabled: true, grid: false, axis: false, faces: false, core: false, intersections: false, perpendicular: true, alignment: false, endpoint: false, midpoint: false, cad: false };
+
+  it('corte: o pé da perpendicular sobre a aresta é capturado', () => {
+    const { env, options } = cena();
+    options.snap = SO_PERPENDICULAR;
+    const t = tool(id, env);
+    clickAt(t, 1, 6);
+    t.move(P(1.04, 3.03));
+    const r = (t as unknown as { inference(): Inference }).inference();
+    expect(r.kind).toBe('perpendicular');
+    expect(r.point).toEqual(v(1, 3));
+  });
+
+  it('corte: perpendicular a uma aresta vertical', () => {
+    const { env, options } = cena();
+    options.snap = SO_PERPENDICULAR;
+    const t = tool(id, env);
+    clickAt(t, 9, 1.5);
+    t.move(P(6.03, 1.52));
+    const r = (t as unknown as { inference(): Inference }).inference();
+    expect(r.kind).toBe('perpendicular');
+    expect(r.point).toEqual(v(6, 1.5));
+  });
+
+  it('planta: o pé sobre a face da parede e sobre o eixo é capturado', () => {
+    const ctx = makeEnv();
+    ctx.options.snap = SO_PERPENDICULAR;
+    drawWall(ctx.env, [0, 0], [4, 0]);
+    const t = tool(id, ctx.env);
+    clickAt(t, 2, 3);
+    t.move(P(2.02, 0.03));
+    const r = (t as unknown as { inference(): Inference }).inference();
+    expect(r.kind).toBe('perpendicular');
+    expect(r.point.x).toBeCloseTo(2, 6);
   });
 });
