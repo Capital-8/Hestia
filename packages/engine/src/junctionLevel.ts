@@ -74,7 +74,7 @@ function planarOf(sp: SolidPiece): PlanarPiece | null {
     }
   }
   if (!(z1 - z0 > 1e-9)) return null;
-  return { meta: { kind: meta.kind, priority: meta.priority, core: meta.core, ...(meta.explicit ? { explicit: true } : {}) }, poly: sp.poly, z0, z1, owner: meta.owner, ...(sp.external ? { external: true } : {}) };
+  return { meta: { kind: meta.kind, priority: meta.priority, core: meta.core, ...(meta.explicit ? { explicit: true } : {}), ...(meta.venceParede ? { venceParede: true } : {}) }, poly: sp.poly, z0, z1, owner: meta.owner, ...(sp.external ? { external: true } : {}) };
 }
 
 /** Assinatura do conteúdo das peças (camada, faixa, prioridade e contorno): muda quando o nível muda. */
@@ -82,7 +82,7 @@ function signature(tagged: readonly Tagged[]): string {
   return tagged
     .map(({ piece: t, layerIndex }) => {
       const poly = t.poly.map((p) => p.map((ring) => ring.map((v) => `${r6(v.x)},${r6(v.y)}`).join(' ')).join('/')).join('#');
-      return `${t.external ? 'x' : ''}${t.owner}|${layerIndex}|${t.meta.kind}|${t.meta.priority}|${t.meta.core ? 1 : 0}|${t.meta.explicit ? 1 : 0}|${r6(t.z0)}|${r6(t.z1)}|${poly}`;
+      return `${t.external ? 'x' : ''}${t.owner}|${layerIndex}|${t.meta.kind}|${t.meta.priority}|${t.meta.core ? 1 : 0}|${t.meta.explicit ? 1 : 0}${t.meta.venceParede ? 'v' : ''}|${r6(t.z0)}|${r6(t.z1)}|${poly}`;
     })
     .join('\n');
 }

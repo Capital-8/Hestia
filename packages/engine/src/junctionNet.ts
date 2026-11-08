@@ -291,7 +291,7 @@ export function slabLayerPiece(rs: ResolvedSlab, l: ResolvedSlab['layers'][numbe
     poly: l.polygon,
     span: (q: Vec2) => [l.z0 + slabRiseAt(rs.slope, q), l.z1 + slabRiseAt(rs.slope, q)] as const,
     flat: rs.slope === null,
-    meta: { kind: 'slab', priority: l.priority, core: l.core, owner: rs.slabId, layerIndex: l.layerIndex, explicit: l.explicit },
+    meta: { kind: 'slab', priority: l.priority, core: l.core, owner: rs.slabId, layerIndex: l.layerIndex, explicit: l.explicit, venceParede: l.venceParede },
   };
 }
 
@@ -299,7 +299,7 @@ export function slabLayerPiece(rs: ResolvedSlab, l: ResolvedSlab['layers'][numbe
 export function floorLayerPiece(rf: ResolvedFloor, l: ResolvedFloorLayer): SolidPiece {
   return {
     ...flatPiece(l.polygon, l.z0, l.z1),
-    meta: { kind: 'floor', priority: l.priority, core: l.core, owner: rf.floorId, layerIndex: l.layerIndex, explicit: l.explicit },
+    meta: { kind: 'floor', priority: l.priority, core: l.core, owner: rf.floorId, layerIndex: l.layerIndex, explicit: l.explicit, venceParede: l.venceParede },
   };
 }
 

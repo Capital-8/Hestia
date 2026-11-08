@@ -1,5 +1,5 @@
 import type { MultiPolygon } from '@hestia/geom';
-import { floorsOnLevel, isMembraneLayer, layerPriority, levelElevation, terminoEhRegraParede, type Id, type Project } from '@hestia/model';
+import { floorsOnLevel, isMembraneLayer, layerPriority, levelElevation, terminoCamadaOf, terminoEhRegraParede, terminoOf, type Id, type Project } from '@hestia/model';
 import { layerOutlines, memoCut } from './layerOutline.ts';
 import { layerCoreFlags } from './junctionPlanar.ts';
 import { resolveBoundary, type OutlineProblem } from './outlineBound.ts';
@@ -20,6 +20,8 @@ export interface ResolvedFloorLayer {
   membrane: boolean;
   /** Término com regra explícita (decisão 0025): a junção automática por prioridade contra paredes não recorta a camada. */
   explicit: boolean;
+  /** Término por camada da parede (decisão 0054): a camada vence as camadas de parede onde se cruzam (a parede perde a região comum). */
+  venceParede: boolean;
   /** Contorno da camada, em planta, menos furos (decisão 0023 §2, P8): o do piso, salvo término que vai ao núcleo ou desloca. */
   polygon: MultiPolygon;
 }
@@ -120,6 +122,7 @@ export function resolveFloorsTs(p: Project, levelId: Id, opts: FloorResolveOptio
       priority: layerPriority(l),
       core: core[i]!,
       explicit: terminoEhRegraParede(l),
+      venceParede: terminoCamadaOf(terminoOf(l)) !== null,
       polygon: cut(outlines[i]!),
     }));
     out.push({ floorId: f.id, typeId: f.typeId, levelId: f.levelId, polygon, topZ, bottomZ, layers, problem });

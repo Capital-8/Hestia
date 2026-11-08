@@ -212,7 +212,7 @@ export function compararB1(ref: ElementoB1[], rust: ElementoB1[], opcoes: Opcoes
       r.camadas++;
       if (ca.membrana) r.membranas++;
       if (ca.explicita) r.explicitas++;
-      for (const campo of ['indice', 'material', 'nucleo', 'membrana', 'explicita'] as const) if (ca[campo] !== cb[campo]) falha(`${cn}: ${campo} ${cb[campo]} (Rust) x ${ca[campo]} (TS)`);
+      for (const campo of ['indice', 'material', 'nucleo', 'membrana', 'explicita', 'venceParede'] as const) if (ca[campo] !== cb[campo]) falha(`${cn}: ${campo} ${cb[campo]} (Rust) x ${ca[campo]} (TS)`);
       num(`${cn}: z0`, ca.z0, cb.z0);
       num(`${cn}: z1`, ca.z1, cb.z1);
       num(`${cn}: prioridade`, ca.prioridade, cb.prioridade);

@@ -273,7 +273,7 @@ pub fn quantidades_paredes(cena: &Cena, nivel: u32, tol: f64) -> Result<Vec<Linh
                         span: Span::Faixa { base_z: z.z0, z0: f.z0, z1: f.z1, inclinacao: f.inclinacao },
                         plana: f.inclinacao.is_none(),
                         meta: Some(MetaDaPeca {
-                            juncao: MetaDeJuncao { tipo: Tipo::Parede, prioridade: it.prioridade, nucleo: it.nucleo, explicita: false },
+                            juncao: MetaDeJuncao { tipo: Tipo::Parede, prioridade: it.prioridade, nucleo: it.nucleo, explicita: false, vence_parede: false },
                             dono: (Tipo::Parede, q.id),
                             camada: it.camada(),
                             banda: Some(banda as u32),
@@ -451,7 +451,7 @@ mod testes {
             topo_z: 0.0,
             base_z: -0.1,
             poligono: poligono.clone(),
-            camadas: vec![CamadaResolvida { indice: 0, material: 0, z0: -0.1, z1: 0.0, prioridade: 0.0, nucleo: false, membrana: false, explicita: false, precisa_paredes: false, poligono }],
+            camadas: vec![CamadaResolvida { indice: 0, material: 0, z0: -0.1, z1: 0.0, prioridade: 0.0, nucleo: false, membrana: false, explicita: false, vence_parede: false, precisa_paredes: false, poligono }],
         }
     }
 
@@ -561,7 +561,7 @@ mod testes {
             poly,
             span,
             plana,
-            meta: Some(MetaDaPeca { juncao: MetaDeJuncao { tipo, prioridade: 1.0, nucleo: true, explicita: false }, dono: (tipo, dono), camada: 0, banda: None }),
+            meta: Some(MetaDaPeca { juncao: MetaDeJuncao { tipo, prioridade: 1.0, nucleo: true, explicita: false, vence_parede: false }, dono: (tipo, dono), camada: 0, banda: None }),
             externa: false,
         }
     }

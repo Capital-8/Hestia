@@ -9,7 +9,7 @@ import { compararB3 } from '../packages/engine/src/kernelComparaB3.ts';
 
 const retangulo = (largura: number, altura: number): MultiPolygon => [[[{ x: 0, y: 0 }, { x: largura, y: 0 }, { x: largura, y: altura }, { x: 0, y: altura }]]];
 const faixaDeParede = (banda: number, z0: number, z1: number, poly: MultiPolygon): PecaB3 => ({
-  meta: { tipo: 0, prioridade: 1, nucleo: false, explicita: false, dono: 1, camada: 0, banda },
+  meta: { tipo: 0, prioridade: 1, nucleo: false, explicita: false, venceParede: false, dono: 1, camada: 0, banda },
   externa: false,
   plana: true,
   poligono: poly,

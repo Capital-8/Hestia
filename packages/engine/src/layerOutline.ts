@@ -1,8 +1,9 @@
 import { intersection, offsetMulti, type MultiPolygon, type Ring } from '@hestia/geom';
-import { terminoMeters, terminoOf, type Id, type Layer, type LayerTermino, type OutlineSource, type Project } from '@hestia/model';
+import { terminoCamadaOf, terminoMeters, terminoOf, type Id, type Layer, type LayerTermino, type OutlineSource, type Project } from '@hestia/model';
 import { enclosedRooms, outerPerimeter, roomAt, type RoomExtend } from './enclosed.ts';
 import type { ResolvedWall } from './types.ts';
 import { regionMinusWalls, regionPlusWalls, wallsOfLevel } from './terminoBlock.ts';
+import { regionCamada } from './terminoCamada.ts';
 
 /**
  * Contorno por camada de piso e de laje vinculados às paredes (decisão 0023 §2, P8). Cada camada escolhe, pelo seu
@@ -50,7 +51,8 @@ const isAte = (t: LayerTermino): t is { ate: { prioridade: number } } => typeof 
  * Término (decisão 0023 §2 e 0025): `face` = até a face de acabamento; `nucleo` = até o núcleo; `passa` = sem recorte;
  * `{ate}` = até a primeira camada da parede de prioridade ≤ N; `{cm}` = a face de acabamento deslocada (positivo avança), só
  * em elemento vinculado: em estático e em perímetro o deslocamento segue ignorado, como antes.
- * Nos três casos com parede, a região é o contorno menos a zona bloqueada das paredes do `scope` (`regionMinusWalls`).
+ * `{camada}` (decisão 0054) = até uma camada da parede, em toda parede que a camada toca (`regionCamada`, contorno de acabamento como
+ * partida). Nos três casos com parede, a região é o contorno menos a zona bloqueada das paredes do `scope` (`regionMinusWalls`).
  * Em elemento vinculado, `face` e `nucleo` saem dos circuitos (P8, sem mudança). Sem `scope`, não há paredes.
  */
 export function layerOutlines(p: Project, levelId: Id, el: LinkedHost, layers: readonly Layer[], core: readonly boolean[], base: MultiPolygon, scope?: WallScope): MultiPolygon[] {
@@ -93,9 +95,11 @@ export function layerOutlines(p: Project, levelId: Id, el: LinkedHost, layers: r
     return layers.map((_, i) => {
       const t = term[i]!;
       if (t === 'passa') return base;
+      const porCamada = terminoCamadaOf(t);
+      if (porCamada) return regionCamada(p, finish, wallsNow(), porCamada, zoneOf(i).z0, zoneOf(i).z1);
       if (isAte(t)) return regionMinusWalls(p, ref, wallsNow(), { kind: 'ate', prioridade: t.ate.prioridade }, zoneOf(i).z0, zoneOf(i).z1);
       // `{cm}` desloca a face externa da camada (F6): positivo avança sobre a parede, como nas paredes internas.
-      if (typeof t === 'object') return t.cm === 0 ? finish : offsetMulti(finish, terminoMeters(t));
+      if (typeof t === 'object' && 'cm' in t) return t.cm === 0 ? finish : offsetMulti(finish, terminoMeters(t));
       if (t === 'nucleo') return corePoly ?? finish;
       if (t === 'face') return finish;
       // `auto` no perímetro fica na face de acabamento, por compatibilidade com os projetos antigos (0023 F6; a decisão
@@ -116,10 +120,12 @@ export function layerOutlines(p: Project, levelId: Id, el: LinkedHost, layers: r
   const ref = corePoly ?? finish;
   return layers.map((_, i) => {
     const t = term[i]!;
+    const porCamada = terminoCamadaOf(t);
+    if (porCamada) return regionCamada(p, finish, wallsNow(), porCamada, zoneOf(i).z0, zoneOf(i).z1);
     if (typeof t === 'object' && 'cm' in t) return linked && t.cm !== 0 ? offsetMulti(finish, terminoMeters(t)) : base;
     if (t === 'face') return linked ? finish : regionMinusWalls(p, base, wallsNow(), { kind: 'face' }, zoneOf(i).z0, zoneOf(i).z1);
     if (t === 'nucleo') return linked ? ref : regionMinusWalls(p, base, wallsNow(), { kind: 'nucleo' }, zoneOf(i).z0, zoneOf(i).z1);
-    if (t === 'passa') return linked ? regionPlusWalls(ref, wallsNow(), allZ0, allZ1) : base;
+    if (t === 'passa') return linked ? regionPlusWalls(p, ref, wallsNow(), allZ0, allZ1) : base;
     if (isAte(t)) return regionMinusWalls(p, ref, wallsNow(), { kind: 'ate', prioridade: t.ate.prioridade }, zoneOf(i).z0, zoneOf(i).z1);
     return core[i] && corePoly ? corePoly : finish;
   }).map((m, i) => limite(i, m));

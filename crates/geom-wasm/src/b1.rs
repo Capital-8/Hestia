@@ -24,7 +24,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::a2::Codificador;
 use crate::cena::Cena;
-use crate::b2::{Carregador, Escopo, Regra};
+use crate::b2::{Carregador, Escopo, Regra, RegraCamada};
 use crate::consultas::Saida;
 use crate::esquema::{ENTRADA, NIVEL_TODOS};
 use crate::itens::marcas_de_nucleo;
@@ -46,6 +46,8 @@ enum Termino {
     /// `{ ate: { prioridade } }`.
     Ate(f64),
     Cm(f64),
+    /// `{ camada }` (decisão 0054).
+    Camada(RegraCamada),
 }
 
 fn termino_de(c: &CamadaLinha) -> Termino {
@@ -55,6 +57,8 @@ fn termino_de(c: &CamadaLinha) -> Termino {
         TERMINO_PASSA => Termino::Passa,
         TERMINO_ATE => Termino::Ate(c.termino_valor),
         TERMINO_CM => Termino::Cm(c.termino_valor),
+        // `termino_ref = funcao + 7 * (lado + 2 * face)`.
+        TERMINO_CAMADA => Termino::Camada(RegraCamada { funcao: c.termino_ref % 7, lado: (c.termino_ref / 7) % 2, face: c.termino_ref / 14, cm: c.termino_valor }),
         _ => Termino::Auto,
     }
 }
@@ -69,6 +73,8 @@ pub(crate) struct CamadaResolvida {
     pub(crate) nucleo: bool,
     pub(crate) membrana: bool,
     pub(crate) explicita: bool,
+    /// Término por camada da parede (decisão 0054): a camada vence as de parede onde se cruzam.
+    pub(crate) vence_parede: bool,
     pub(crate) precisa_paredes: bool,
     pub(crate) poligono: MultiPoligono,
 }
@@ -219,6 +225,13 @@ fn contornos_das_camadas(linha: &ElementoLinha, camadas: &[CamadaLinha], nucleo:
             None => Ok((ref_.clone(), true)),
         }
     };
+    // Término por camada da parede (decisão 0054): a camada para numa camada da parede, em toda parede que ela toca.
+    let por_camada = |ref_: &MultiPoligono, regra: &RegraCamada, i: usize| -> Result<(MultiPoligono, bool), u32> {
+        match escopo {
+            Some(e) => Ok((e.regiao_camada(ref_, regra, i)?, false)),
+            None => Ok((ref_.clone(), true)),
+        }
+    };
     let deslocada = |m: &MultiPoligono, cm: f64| -> Result<MultiPoligono, u32> { offset_clipper(m, cm / 100.0) };
     let mut saida: Vec<(MultiPoligono, bool)> = Vec::with_capacity(camadas.len());
     if perimetro {
@@ -239,6 +252,7 @@ fn contornos_das_camadas(linha: &ElementoLinha, camadas: &[CamadaLinha], nucleo:
                 Termino::Passa => (base.clone(), false),
                 Termino::Ate(prioridade) => menos(&referencia, Regra::Ate(prioridade), i)?,
                 Termino::Cm(cm) => (if cm == 0.0 { acabamento.clone() } else { deslocada(&acabamento, cm)? }, false),
+                Termino::Camada(r) => por_camada(&acabamento, &r, i)?,
                 Termino::Nucleo => (nucleo_poly.clone().unwrap_or_else(|| acabamento.clone()), false),
                 Termino::Face => (acabamento.clone(), false),
                 Termino::Auto => {
@@ -270,6 +284,7 @@ fn contornos_das_camadas(linha: &ElementoLinha, camadas: &[CamadaLinha], nucleo:
     for (i, t) in termino.iter().enumerate() {
         let (m, precisa) = match *t {
             Termino::Cm(cm) => (if vinculado && cm != 0.0 { deslocada(&acabamento, cm)? } else { base.clone() }, false),
+            Termino::Camada(r) => por_camada(&acabamento, &r, i)?,
             Termino::Face => {
                 if vinculado {
                     (acabamento.clone(), false)
@@ -379,7 +394,7 @@ fn resolver_elemento(laje: bool, id: u32, linha: &ElementoLinha, camadas: &[Cama
             feitos.push((m.clone(), c.clone()));
             c
         };
-        let ate = l.termino == TERMINO_FACE || l.termino == TERMINO_NUCLEO || l.termino == TERMINO_PASSA || l.termino == TERMINO_ATE;
+        let ate = l.termino == TERMINO_FACE || l.termino == TERMINO_NUCLEO || l.termino == TERMINO_PASSA || l.termino == TERMINO_ATE || l.termino == TERMINO_CAMADA;
         saida.push(CamadaResolvida {
             indice: l.indice,
             material: l.material,
@@ -389,6 +404,7 @@ fn resolver_elemento(laje: bool, id: u32, linha: &ElementoLinha, camadas: &[Cama
             nucleo: nucleo[i],
             membrana: l.funcao == FUNCAO_MEMBRANA || l.espessura < ESPESSURA_DE_MEMBRANA,
             explicita: ate,
+            vence_parede: l.termino == TERMINO_CAMADA,
             precisa_paredes: *precisa,
             poligono: cortada,
         });
@@ -509,7 +525,7 @@ fn codificar(resolvidos: &[ElementoResolvido], com_flag: bool) -> Result<Vec<Sai
         for c in &r.camadas {
             // A camada com o contorno do elemento aponta para o mesmo polígono da saída (como `memoCut` reaproveita o objeto).
             let (ci, cn) = if c.poligono == r.poligono { (pi, pn) } else { cod.forma(&c.poligono) };
-            camadas_u.extend([c.indice, c.material, c.nucleo as u32, c.membrana as u32, c.explicita as u32]);
+            camadas_u.extend([c.indice, c.material, c.nucleo as u32, c.membrana as u32, c.explicita as u32 + c.vence_parede as u32]);
             if com_flag {
                 camadas_u.push(c.precisa_paredes as u32);
             }
@@ -605,7 +621,7 @@ pub(crate) mod testes {
 
     fn bytes_camadas(ts: &[(u32, Vec<Cam>)]) -> (u32, Vec<u8>) {
         let (mut ids, mut tipo, mut ix, mut esp, mut fun) = (vec![], vec![], vec![], vec![], vec![]);
-        let (mut tem, mut pri, mut mat, mut ter, mut tv, mut lim) = (vec![], vec![], vec![], vec![], vec![], vec![]);
+        let (mut tem, mut pri, mut mat, mut ter, mut tv, mut lim, mut tref) = (vec![], vec![], vec![], vec![], vec![], vec![], vec![]);
         for (tn, cs) in ts {
             for (i, c) in cs.iter().enumerate() {
                 ids.push(ids.len() as u32 + 1);
@@ -619,10 +635,11 @@ pub(crate) mod testes {
                 ter.push(c.2);
                 tv.push(c.3);
                 lim.push(c.4);
+                tref.push(0u8);
             }
         }
         let n = ids.len() as u32;
-        (n, [c32(&ids), c32(&tipo), c32(&ix), c64(&esp), c8(&fun), c8(&tem), c64(&pri), c32(&mat), c8(&ter), c64(&tv), c8(&lim)].concat())
+        (n, [c32(&ids), c32(&tipo), c32(&ix), c64(&esp), c8(&fun), c8(&tem), c64(&pri), c32(&mat), c8(&ter), c64(&tv), c8(&lim), c8(&tref)].concat())
     }
 
     /// Vértices das seções de contorno e de furo (colunas conforme a seção).
@@ -934,9 +951,23 @@ pub(crate) mod testes {
         let ts = [(1u32, vec![simples(0.1, 6)])];
         let (n, b) = bytes_camadas(&ts);
         assert_eq!(c.definir_secao(SECAO_CAMADAS_PISO, n, &b).err(), Some(ENTRADA), "funcao 6");
+        let ts = [(1u32, vec![(0.1, 0, 7, 0.0, 0, None)])];
+        let (n, b) = bytes_camadas(&ts);
+        assert_eq!(c.definir_secao(SECAO_CAMADAS_PISO, n, &b).err(), Some(ENTRADA), "termino 7");
+        // termino 6 (`{ camada }`) é válido; `termino_ref` só vale com ele e vai até 41
         let ts = [(1u32, vec![(0.1, 0, 6, 0.0, 0, None)])];
         let (n, b) = bytes_camadas(&ts);
-        assert_eq!(c.definir_secao(SECAO_CAMADAS_PISO, n, &b).err(), Some(ENTRADA), "termino 6");
+        assert!(c.definir_secao(SECAO_CAMADAS_PISO, n, &b).is_ok(), "termino 6");
+        let ts = [(1u32, vec![(0.1, 0, 5, 0.0, 0, None)])];
+        let (n, mut b) = bytes_camadas(&ts);
+        let ultimo = b.len() - 8; // a coluna `termino_ref` vem por último e tem 7 bytes de preenchimento
+        b[ultimo] = 3;
+        assert_eq!(c.definir_secao(SECAO_CAMADAS_PISO, n, &b).err(), Some(ENTRADA), "termino_ref sem termino 6");
+        let ts = [(1u32, vec![(0.1, 0, 6, 0.0, 0, None)])];
+        let (n, mut b) = bytes_camadas(&ts);
+        let ultimo = b.len() - 8; // a coluna `termino_ref` vem por último e tem 7 bytes de preenchimento
+        b[ultimo] = 42;
+        assert_eq!(c.definir_secao(SECAO_CAMADAS_PISO, n, &b).err(), Some(ENTRADA), "termino_ref 42");
         let ts = [(1u32, vec![(f64::NAN, 0, 0, 0.0, 0, None)])];
         let (n, b) = bytes_camadas(&ts);
         assert_eq!(c.definir_secao(SECAO_CAMADAS_PISO, n, &b).err(), Some(ENTRADA), "espessura NaN");

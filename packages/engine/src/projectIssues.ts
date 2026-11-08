@@ -20,6 +20,7 @@ import { resolveAllFloors } from './floors.ts';
 import { t, type Lang } from './i18nMessages.ts';
 import { resolveAllRoofs } from './roofs.ts';
 import { resolveAllSlabs, type ResolvedSlab } from './slabs.ts';
+import { avisosTerminoCamada } from './terminoCamadaAvisos.ts';
 import { wallZRange } from './wallZ.ts';
 
 /** Tolerância de comprimento (m): 1 mm. */
@@ -48,6 +49,7 @@ export function projectIssues(p: Project, lang: Lang = 'pt'): ValidationIssue[] 
     const slabs = resolveAllSlabs(p);
     out.push(...wallInsideSlab(p, floors, slabs, lang));
   }
+  out.push(...avisosTerminoCamada(p, lang));
   return out;
 }
 

@@ -1,5 +1,5 @@
-import { boxOf, boxesOverlap, difference, multiPoints, union, type Box, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
-import { openingsOfWall, type Id, type Project } from '@hestia/model';
+import { boxOf, boxesOverlap, difference, intersection, multiPoints, union, type Box, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
+import { isWall, openingsOfWall, type Id, type Project } from '@hestia/model';
 import { frameOfWall, openingGeometry, resolveLevel } from './resolve.ts';
 import type { ResolvedWall } from './types.ts';
 
@@ -13,6 +13,8 @@ import type { ResolvedWall } from './types.ts';
  *   parede é passa (nenhuma zona).
  * Vão de porta que chega ao piso (cota do vão ≤ topo da camada) é tirado da zona: o acabamento continua sob a soleira.
  * Nenhuma regra lê nome ou material: só prioridade, núcleo e a cota.
+ * Decisão 0054: a parede só entra onde existe de fato na faixa de cota da camada (cota REAL, por trecho do eixo quando o perfil varia),
+ * e não mais pela faixa nominal; o término por camada da parede (`regionCamada`) está em `terminoCamada.ts`.
  */
 
 /** Regra de parede que define a zona bloqueada (o `passa` não tem zona e não entra aqui). */
@@ -21,13 +23,92 @@ export type BlockRule = { kind: 'face' } | { kind: 'nucleo' } | { kind: 'ate'; p
 /** Tolerância (m) para cotas: parede que encosta na camada conta como tocando (decisão 0025). */
 export const Z_TOL = 1e-3;
 
-/** Parede do nível cuja faixa de cota (base até base mais altura) toca a faixa da camada (± 1 mm). */
-export const wallTouchesZone = (rw: ResolvedWall, z0: number, z1: number): boolean => {
-  // Faixa nominal: a parede anexada a uma laje (topo na face inferior) ainda atravessa as camadas que o término esvazia.
-  const b0 = rw.nominalZ0 ?? rw.baseZ;
-  const b1 = rw.nominalZ1 ?? rw.baseZ + rw.height;
-  return b0 <= z1 + Z_TOL && b1 >= z0 - Z_TOL;
-};
+/** Distância (m) dos cantos da faixa de um trecho de perfil até o eixo (a faixa vai de lado a lado da parede). */
+export const ALCANCE_TRECHO = 100;
+
+/**
+ * Parede do nível cuja faixa REAL de cota (base até base mais altura, ± 1 mm) toca a faixa da camada. Decisão 0054: a parede com
+ * topo anexado (a telhado ou a laje) usa a cota que de fato tem, não a nominal; assim ela só bloqueia a camada onde existe.
+ * Este é o filtro barato; com perfil de topo ou de base (parede reta), o trecho exato vem de `trechosReais`.
+ */
+export const wallTouchesZone = (rw: ResolvedWall, z0: number, z1: number): boolean => rw.baseZ <= z1 + Z_TOL && rw.baseZ + rw.height >= z0 - Z_TOL;
+
+/** Interpola o perfil (pares t, h) em `t`; `dir` escolhe o valor à direita ou à esquerda de um degrau (dois pontos de mesmo t). */
+function alturaDoPerfil(pts: readonly { t: number; h: number }[], t: number, dir: boolean): number {
+  const n = pts.length;
+  for (let i = 0; i + 1 < n; i++) {
+    const a = pts[i]!;
+    const b = pts[i + 1]!;
+    const dentro = dir ? a.t <= t && t < b.t : a.t < t && t <= b.t;
+    if (!dentro) continue;
+    return a.h + ((b.h - a.h) * (t - a.t)) / (b.t - a.t);
+  }
+  return t <= pts[0]!.t ? pts[0]!.h : pts[n - 1]!.h;
+}
+
+/**
+ * Trechos do eixo (distância a partir de `a`) em que a parede REAL toca a faixa de cota `z0..z1` (decisão 0054, ex-0025):
+ * a cota real, não a nominal. `null` = a parede inteira toca; vazio = não toca. Com perfil de topo ou de base (parede reta), vale
+ * o perfil por trecho (linear entre os pontos); sem perfil, a base e a altura da parede.
+ */
+export function trechosReais(p: Project, rw: ResolvedWall, z0: number, z1: number): Array<[number, number]> | null {
+  const alto = rw.baseZ + rw.height;
+  if (!(rw.baseZ <= z1 + Z_TOL && alto >= z0 - Z_TOL)) return [];
+  const w = p.elements[rw.wallId];
+  const reta = !!w && isWall(w) && w.sag === 0;
+  const topo = reta ? (rw.profileTop ?? w.topProfile) : null;
+  const base = reta ? rw.profileBottom : undefined;
+  const topoOk = topo && topo.length >= 2 ? topo : null;
+  const baseOk = base && base.length >= 2 ? base : null;
+  if (!topoOk && !baseOk) return null;
+  const L = rw.length;
+  const cortes = new Set<number>([0, L]);
+  for (const q of [...(topoOk ?? []), ...(baseOk ?? [])]) if (q.t > 0 && q.t < L) cortes.add(q.t);
+  const ts = [...cortes].sort((a, b) => a - b);
+  const topoEm = (t: number, dir: boolean): number => (topoOk ? rw.baseZ + alturaDoPerfil(topoOk, t, dir) : alto);
+  const baseEm = (t: number, dir: boolean): number => (baseOk ? rw.baseZ + alturaDoPerfil(baseOk, t, dir) : rw.baseZ);
+  const out: Array<[number, number]> = [];
+  for (let k = 0; k + 1 < ts.length; k++) {
+    const ta = ts[k]!;
+    const tb = ts[k + 1]!;
+    let l0 = 0;
+    let l1 = 1;
+    let vazio = false;
+    // topo >= z0 - tol (cresce com lambda se topoB > topoA)
+    const restringe = (A: number, B: number, c: number, maior: boolean): void => {
+      if (B === A) {
+        if (maior ? !(A >= c) : !(A <= c)) vazio = true;
+        return;
+      }
+      const raiz = (c - A) / (B - A);
+      if ((B > A) === maior) l0 = Math.max(l0, raiz);
+      else l1 = Math.min(l1, raiz);
+    };
+    restringe(topoEm(ta, true), topoEm(tb, false), z0 - Z_TOL, true);
+    restringe(baseEm(ta, true), baseEm(tb, false), z1 + Z_TOL, false);
+    if (vazio || l0 > l1) continue;
+    const t0 = l0 === 0 ? ta : ta + (tb - ta) * l0;
+    const t1 = l1 === 1 ? tb : ta + (tb - ta) * l1;
+    if (!(t1 > t0)) continue;
+    const ult = out[out.length - 1];
+    if (ult && ult[1] >= t0) ult[1] = t1;
+    else out.push([t0, t1]);
+  }
+  if (out.length === 1 && out[0]![0] <= 0 && out[0]![1] >= L) return null;
+  return out;
+}
+
+/** Faixas (retângulos de lado a lado da parede) dos trechos do eixo, em planta. Só para parede reta. */
+export function poligonoDosTrechos(rw: ResolvedWall, trechos: ReadonlyArray<[number, number]>): MultiPolygon {
+  const em = (t: number, s: number): Vec2 => ({ x: rw.a.x + rw.u.x * t + rw.n.x * s, y: rw.a.y + rw.u.y * t + rw.n.y * s });
+  return trechos.map(([t0, t1]) => [[em(t0, -ALCANCE_TRECHO), em(t1, -ALCANCE_TRECHO), em(t1, ALCANCE_TRECHO), em(t0, ALCANCE_TRECHO)]]);
+}
+
+/** A zona restrita aos trechos em que a parede real toca a camada (`null` = a parede inteira). */
+export function restringirAosTrechos(rw: ResolvedWall, zona: MultiPolygon, trechos: ReadonlyArray<[number, number]> | null): MultiPolygon {
+  if (trechos === null || zona.length === 0) return zona;
+  return intersection(zona, poligonoDosTrechos(rw, trechos));
+}
 
 /** Índices das camadas da parede que a regra bloqueia (faixa contígua entre o menor e o maior índice, no caso `ate`). */
 export function blockedLayerIndexes(rw: ResolvedWall, rule: BlockRule): number[] {
@@ -112,7 +193,9 @@ export function regionMinusWalls(p: Project, ref: MultiPolygon, walls: readonly 
   const blocks: MultiPolygon[] = [];
   for (const rw of walls) {
     if (!wallTouchesZone(rw, z0, z1)) continue;
-    const zone = wallZoneAt(p, rw, rule, z1);
+    const trechos = trechosReais(p, rw, z0, z1);
+    if (trechos !== null && trechos.length === 0) continue;
+    const zone = restringirAosTrechos(rw, wallZoneAt(p, rw, rule, z1), trechos);
     if (zone.length === 0) continue;
     const bz = boxOfMulti(zone);
     if (!bz || !boxesOverlap(bx, bz)) continue;
@@ -126,13 +209,15 @@ export function regionMinusWalls(p: Project, ref: MultiPolygon, walls: readonly 
  * Região da camada que passa pelas paredes (`passa` em elemento vinculado): `ref` mais a pegada inteira das paredes que
  * tocam a faixa da camada e cruzam `ref` em planta. Sem vão: a camada não é recortada pela parede.
  */
-export function regionPlusWalls(ref: MultiPolygon, walls: readonly ResolvedWall[], z0: number, z1: number): MultiPolygon {
+export function regionPlusWalls(p: Project, ref: MultiPolygon, walls: readonly ResolvedWall[], z0: number, z1: number): MultiPolygon {
   const bx = boxOfMulti(ref);
   if (!bx) return ref;
   const extra: MultiPolygon[] = [];
   for (const rw of walls) {
     if (!wallTouchesZone(rw, z0, z1)) continue;
-    const pegada = wallBlockedZone(rw, { kind: 'face' });
+    const trechos = trechosReais(p, rw, z0, z1);
+    if (trechos !== null && trechos.length === 0) continue;
+    const pegada = restringirAosTrechos(rw, wallBlockedZone(rw, { kind: 'face' }), trechos);
     const bz = boxOfMulti(pegada);
     if (bz && boxesOverlap(bx, bz)) extra.push(pegada);
   }

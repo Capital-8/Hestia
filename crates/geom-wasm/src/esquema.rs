@@ -5,7 +5,7 @@
 //! Mudou o JSON => sobe `VERSAO_ESQUEMA` e este arquivo.
 
 /// `versao` de `cena-v11.json`.
-pub const VERSAO_ESQUEMA: u32 = 12;
+pub const VERSAO_ESQUEMA: u32 = 13;
 /// `abi` de `cena-v11.json`.
 pub const VERSAO_ABI2: u32 = 2;
 
@@ -147,6 +147,7 @@ const COLUNAS_CAMADA_B: &[Coluna] = &[
     col("termino", Tipo::U8),
     col("termino_valor", Tipo::F64),
     col("limite_externo", Tipo::U8),
+    col("termino_ref", Tipo::U8),
 ];
 
 pub const SECOES: &[Secao] = &[
