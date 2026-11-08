@@ -1,6 +1,6 @@
 # Decisão 0055 — Guarda-corpo e corrimão (modelo, norma configurável, contrato com o kernel Rust)
 
-Data: 2026-11-08. Estado: **proposta da Fase 0 (pesquisa e desenho), nada implementado**. Branch `feat/guarda-corpo`.
+Data: 2026-11-08. Estado: **Fase 1 implementada (modelo, norma, contrato v13 declarado); Fases 2 a 7 pendentes** (ver §14). Branch `feat/guarda-corpo`.
 Numeração: o maior número visto em `origin/main` e nas branches remotas é 0054 (`feat/termino-camada`); 0051 a 0053 estão em branches do kernel. Há números duplicados históricos (0046, 0047, 0049); se 0055 colidir na hora de mesclar, renumere.
 
 Marcações de confiança usadas abaixo: **[LIDO]** = página ou PDF aberto e lido nesta rodada; **[BUSCA]** = só o resultado da busca, página não aberta; **[A CONFIRMAR]** = valor que não está em fonte pública verificada (norma paga da ABNT, ou fonte secundária). Valores marcados [A CONFIRMAR] entram nos perfis de norma com `verificado: false` e aparecem como "(a conferir)" nas mensagens, como já faz a rampa (`RampType.normChecked`).
@@ -751,3 +751,29 @@ Escada importada do IFC como hospedeiro; guarda-corpo em borda de laje com detec
 | Escada hospedeira | Hospedagem explícita (degrau/viga lateral, balaústre por degrau, refaz com a escada) | Guarda-corpo associado à escada **não confirmado** em fonte oficial | Hospedagem do Revit (decisão do dono) |
 | Medida do espaçamento do padrão | Ao longo do comprimento do croqui [A CONFIRMAR] | Por divisões iguais ou comprimento máximo do segmento | **Horizontal** (porque a esfera de norma enxerga a folga horizontal), com `distribuir` (igual ao ArchiCAD) como justificação recomendada |
 | Altura de patamar | *Landing Height Adjustment* | altura de segmento por segmento | Ajuste do Revit no tipo (`ajusteAlturaPatamar`), coerente com a NBR 9077 (0,92 m na escada, 1,05 m no patamar) |
+
+---
+
+## 14. Registro da Fase 1 (o que ficou pronto e as escolhas feitas)
+
+Estado: **Fase 1 implementada** (modelo, tipos padrão, perfis de norma, comandos, migração 23 → 24, contrato do kernel declarado em `cena-v11.json` v13). As fases 2 a 7 seguem pendentes.
+
+**Ganchos entregues para as fases seguintes** (arquivos compartilhados já mesclados na Fase 1):
+- `packages/model`: `guardaCorpoTypes.ts` (tipos da §4, `LIMITES_GUARDA_CORPO`), `guardaCorpo.ts` (`makeGuardaCorpo`, `tiposGuardaCorpo(lang)`, `tipoGuardaCorpoIssue`), `guardaCorpoNorma.ts` (`PerfilNorma`, `PERFIS_NORMA_PADRAO`, `perfisNormaPadrao(lang)`, `normaDe`, `perfilNormaIssue`), `validateGuardaCorpo.ts` (`guardaCorpoIssues`), `guardaCorpoCommands.ts` (`applyGuardaCorpoCommand`, chamado por `applyCommand`). `types.ts` (união `Element`, `Project.tiposGuardaCorpo`, `Project.perfisNorma?`, `ProjectSettings.normaGuardaCorpoId?`, `isGuardaCorpo`, esquema 24), `migrate.ts`, `defaults.ts`, `elementLevel.ts`, `graphics.ts` (categoria `railing`), `validate.ts`, `history.ts`, `copyLink.ts`, `index.ts`, `i18n.ts` (chaves `md_gc_*`, `md_cmd_gc_*`, `md_cat_railing` nos sete idiomas).
+- `crates/geom-wasm`: `schema/cena-v11.json` (v13: seções 60 a 81, consultas 60 a 65), `src/esquema.rs` (constantes `SECAO_*` e `CONSULTA_*`, entradas de `SECOES` e `CONSULTAS`, `VERSAO_ESQUEMA` 13). `packages/geom/src/kernel/v2/esquema.gerado.ts` regenerado.
+- Esqueletos vazios: `packages/engine/src/kernelGuardaCorpo.ts`, `packages/engine/src/guardaCorpoRef/index.ts` (exportado por `engine/src/index.ts`), `packages/render/src/model3d/guardaCorpo3d.ts`, `packages/tools/src/guardaCorpoTool.ts` (ver escolha 8).
+- `apps/web`: `graphicsLabels.ts`, `editor/typeActions.ts` e `i18n/areas/canvas-nav.ts` (`cvn_cat_railing`). `packages/io`: categoria `railing` em `dxf.ts` (cor 9), `dxfSection.ts` (camada `CORTE_GUARDA_CORPO`) e `ifc/ifcHestia.ts`.
+
+**Escolhas tomadas onde a ADR era ambígua ou silenciosa:**
+1. **Perfis de norma (§4.3).** `Project.perfisNorma` ausente = a leitura dos presets. A primeira escrita (`upsertPerfilNorma` ou `deletePerfilNorma`) grava o conjunto completo; sem isso, apagar um preset faria ele voltar. A migração 23 → 24 não grava perfis. A norma do projeto ausente vale `nbr-br`.
+2. **Regra "sem ciclo" (§4.2).** Não se aplica: `TrilhoGC` não tem referências próprias, então não há como formar ciclo. A regra não foi implementada.
+3. **Alturas adicionais do corrimão na seção 81.** A lista do TS (`corrimaoAlturasAdicionais`) entra como até 4 colunas (`corrimao_altura_adicional_1..4`, NaN = ausente). Booleanos da seção 81 são `u8`, não `f64`. Se algum perfil precisar de mais de 4 alturas, a seção sobe de versão.
+4. **Colunas das consultas que a ADR não detalhava.** `guarda_caminhos`: `avisos u32 4n` e `valores f64 5n`. `guarda_corte`: `poligonos f64 livre`.
+5. **Tipos padrão.** Sete famílias com os ids da ADR (`gct_balaustres`, `gct_vidro`, `gct_madeira`, `gct_cabos`, `gct_tela`, `gct_chapa_perfurada`, `gct_corrimao_parede`). Altura 1,10 m (corrimão de parede 0,92 m), deslocamento 0,035 m, postes circulares de 0,05 m, corrimão superior sobre o eixo. O corrimão de parede tem dois corrimãos (0,92 e 0,70 m, NBR 9050 a conferir) e nenhum preenchimento.
+6. **Exclusão de escada ou rampa.** Nenhum comando novo: o guarda-corpo fica com o hospedeiro ausente e a validação aponta `railing-host-missing`. A ação "excluir órfãos" fica com a Fase 6b.
+7. **Cota ao trocar de nível (`applyElementLevel`).** Só o guarda-corpo manual tem cota própria (`cotaBase`); o hospedado segue o hospedeiro. Vínculo de andar-tipo (`copyLink`): a v1 não sincroniza guarda-corpo (`syncOne` devolve `null`).
+8. **Ferramenta fora do registro nesta fase.** `ToolId` `'railing'` não foi registrado: o teste de faixa exige que toda ferramenta registrada esteja na fita, e a fita é da Fase 6a. Isto é um desvio da lista de ganchos da Fase 1; `guardaCorpoTool.ts` é só o esqueleto, a registrar na 6a.
+9. **Comportamento do kernel sem implementação.** Seções 60 a 81 ainda sem implementação devolvem `ENTRADA` em definir e upsert; consultas 60 a 65 devolvem `NAO_IMPLEMENTADO`. Como o kernel é sempre ligado (decisão do dono), essas chamadas só ocorrem depois da Fase 2 e da Fase 4.
+10. **Textos de validação.** `guardaCorpoIssues` usa o dicionário no idioma pedido (`lang`, padrão PT), diferente do `validateRamps`, que é fixo em PT. Os avisos de norma com "(a conferir)" ficam para a Fase 4.
+11. **Testes de versão.** Asserções de versão de esquema passaram de 23 para 24 (12 linhas de asserção em 7 arquivos de teste) e de versão do kernel de 12 para 13 (`gerenciador`, `quadros`, `real.wasm`); a lista de seções em `quadros.test.ts` ganhou os 20 nomes novos.
+
