@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { despachoInstalado, KernelPendente, removerDespachoKernel } from '../kernelDespacho.ts';
 import { instalarServidor, type EscopoServidor } from './servidor.ts';
 import { colherBuffers, type PedidoResolucao, type RespostaResolucao } from './protocolo.ts';
@@ -111,6 +111,21 @@ describe('instalarServidor: despacho das fatias A e B (kernelV2)', () => {
     const r = escopo.respostas[0]!;
     expect(r.resultado).toBe('ok');
     expect(r.kernelDiag).toMatchObject({ instalado: true, pronto: false, comparacoes: 0, divergencias: 0, config: { fatiaA: true, fatiaB: false, sombra: false } });
+  });
+
+  it('kernelV2 com urlWasm: o worker baixa o wasm daquele endereço (no dev o endereço do worker devolve o index.html, e os cortes saíam vazios)', async () => {
+    const buscar = vi.fn(async () => new Response('<!doctype html>', { headers: { 'content-type': 'text/html' } }));
+    vi.stubGlobal('fetch', buscar);
+    try {
+      const escopo = escopoFalso();
+      instalarServidor(escopo, () => 'ok');
+      escopo.onmessage?.({ data: { ...pedido(1, 'nivel', 'lv_0'), kernelV2: { fatiaA: true, fatiaB: true, sombra: false, urlWasm: 'http://localhost:5175/geom_wasm.wasm' } } });
+      await esperar(150);
+      expect(buscar).toHaveBeenCalledTimes(1);
+      expect(String((buscar.mock.calls[0] as unknown[])[0])).toBe('http://localhost:5175/geom_wasm.wasm');
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('kernelV2 só com a fatia B também instala o despachante e o diagnóstico leva a configuração da B', async () => {
