@@ -18,6 +18,7 @@ import { moveRoomSeparatorEnd, roomSeparatorGripAt, type RoomSeparatorGrip } fro
 import { stairGripAt, stairHold } from './stairGrips.ts';
 import { stairFreeGripAt, stairFreeHold } from './stairFreeGrips.ts';
 import { rampGripAt, rampHold } from './rampGrips.ts';
+import { railingGripAt, railingHandlePreview, railingHold } from './guardaCorpoGrips.ts';
 import { spiralGripAt, spiralHold } from './stairSpiralGrips.ts';
 import { gridGripProvider } from './gridGripHold.ts';
 import type { PointerInfo, PreviewItem, ToolEnv } from './types.ts';
@@ -299,8 +300,14 @@ const rampGrip: GripProvider = (env, at) => {
   return g ? rampHold(env, g) : null;
 };
 
+/** Alça de vértice de guarda-corpo manual selecionado (`guardaCorpoGrips.ts`). */
+const railingGrip: GripProvider = (env, at) => {
+  const g = railingGripAt(env.project(), env.selection(), at, env.metersPerPixel());
+  return g ? railingHold(env, g) : null;
+};
+
 /** Registro de provedores de alça, em ordem de prioridade (o primeiro que acerta vence). */
-export const gripProviders: GripProvider[] = [roomSeparatorGrip, gridGripProvider, wallGrip, spiralGrip, stairFreeGrip, stairGrip, rampGrip, floorGrip, slabGrip, roofGrip, ceilingGrip];
+export const gripProviders: GripProvider[] = [roomSeparatorGrip, gridGripProvider, wallGrip, spiralGrip, stairFreeGrip, stairGrip, rampGrip, railingGrip, floorGrip, slabGrip, roofGrip, ceilingGrip];
 
 /** Alça sob o cursor entre os elementos selecionados, por ordem de `gripProviders`. */
 export function gripHoldAt(env: ToolEnv, at: Vec2): GripHold | null {
@@ -330,6 +337,7 @@ export function ringHandlePreview(p: Project, sel: Id[], focus: GripFocus | null
     }
   }
   if (!grips) return items;
+  items.push(...railingHandlePreview(p, sel, grips));
   const f = sel.length === 1 ? p.elements[sel[0]!] : undefined;
   if (!(isFloor(f) || isSlab(f) || isRoof(f))) return items;
   const n = f.boundary.length;

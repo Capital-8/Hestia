@@ -5,7 +5,12 @@ import {
   perfisNormaDo,
   tipoGuardaCorpoIssue,
   type CorrimaoGC,
+  type ExtensaoGC,
+  type ExtremidadeEstiloGC,
   type FamiliaPainelGC,
+  type JustificacaoGC,
+  type LayoutSuporteGC,
+  type SuportesGC,
   type PainelGC,
   type PreenchimentoGC,
   type TipoGuardaCorpo,
@@ -16,6 +21,7 @@ import { useI18n, useT } from '../../../editor/i18n.ts';
 import { useUi } from '../../../editor/state.ts';
 import { Check, NumField, Row, TextField } from '../../fields.tsx';
 import { Dialog } from '../Dialog.tsx';
+import { GuardaCorpoPreview } from './preview.tsx';
 
 const LIMITE = { trilhos: 12, corrimaos: 4, preenchimentos: 8 };
 const ABAS = ['geral', 'trilhos', 'corrimaos', 'postes', 'preenchimento', 'juncoes', 'norma'] as const;
@@ -119,6 +125,7 @@ export function GuardaCorpoTypeDialog({ typeId }: { typeId: string }): ReactElem
         ))}
       </div>
       {(issue || erro) && <p className="hint" role="alert">{erro ?? issue}</p>}
+      <GuardaCorpoPreview tipo={draft} />
 
       {aba === 'geral' && (
         <>
@@ -189,6 +196,9 @@ export function GuardaCorpoTypeDialog({ typeId }: { typeId: string }): ReactElem
                   <option value="pescoco-de-ganso">{t('gc6c_tr_gooseneck')}</option>
                 </select>
               </Row>
+              <ExtensaoCampos titulo={t('gc6c_ext_start')} ext={c.extensaoInicio} onChange={(e) => setCorrimao(i, { extensaoInicio: e })} />
+              <ExtensaoCampos titulo={t('gc6c_ext_end')} ext={c.extensaoFim} onChange={(e) => setCorrimao(i, { extensaoFim: e })} />
+              <SuporteCampos suportes={c.suportes} onChange={(s) => setCorrimao(i, { suportes: s })} />
               <button type="button" className="link" onClick={() => set({ corrimaos: draft.corrimaos.filter((_, j) => j !== i) })}>{t('gc6c_remove')}</button>
             </fieldset>
           ))}
@@ -232,6 +242,9 @@ export function GuardaCorpoTypeDialog({ typeId }: { typeId: string }): ReactElem
                   <Row label={t('gc6c_diameter')}>
                     <NumField value={pr.elementos[0]?.modelo?.perfil.largura ?? null} unit="m" min={0.001} decimals={3} onCommit={(v) => setPreench(i, { elementos: pr.elementos.map((el, j) => (j === 0 && el.modelo ? { ...el, modelo: { ...el.modelo, perfil: { ...el.modelo.perfil, largura: v } } } : el)) })} />
                   </Row>
+                  <Check id={`gc-pd-${i}`} checked={pr.porDegrau.ativo} onChange={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, ativo: v } })}>{t('gc6c_pd_active')}</Check>
+                  <Row label={t('gc6c_pd_qty')}><NumField value={pr.porDegrau.quantidade} min={1} decimals={0} onCommit={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, quantidade: Math.max(1, Math.round(v)) } })} /></Row>
+                  <Row label={t('gc6c_pd_edge')}><NumField value={pr.porDegrau.distanciaDaQuina} unit="m" min={0} decimals={3} onCommit={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, distanciaDaQuina: v } })} /></Row>
                 </>
               ) : (
                 <>
@@ -244,6 +257,8 @@ export function GuardaCorpoTypeDialog({ typeId }: { typeId: string }): ReactElem
                   <Row label={t('gc6c_inf_max_width')}><NumField value={pr.larguraMaxima} unit="m" min={0} decimals={3} onCommit={(v) => setPreench(i, { larguraMaxima: v })} /></Row>
                 </>
               )}
+              <button type="button" className="link" disabled={i === 0} onClick={() => moverPreench(i, -1)}>{t('gc6c_move_up')}</button>
+              <button type="button" className="link" disabled={i === draft.preenchimentos.length - 1} onClick={() => moverPreench(i, 1)}>{t('gc6c_move_down')}</button>
               <button type="button" className="link" onClick={() => set({ preenchimentos: draft.preenchimentos.filter((_, j) => j !== i) })}>{t('gc6c_remove')}</button>
             </fieldset>
           ))}
@@ -317,10 +332,77 @@ export function GuardaCorpoTypeDialog({ typeId }: { typeId: string }): ReactElem
     const d = draft!;
     set({ postes: { ...d.postes, inicio: aplica(d.postes.inicio), fim: aplica(d.postes.fim), canto: aplica(d.postes.canto), intermediario: { ...d.postes.intermediario, ...aplica(d.postes.intermediario) } } });
   }
+  /** Sobe ou desce um preenchimento na ordem de desenho. */
+  function moverPreench(i: number, d: number): void {
+    const arr = [...draft!.preenchimentos];
+    const j = i + d;
+    if (j < 0 || j >= arr.length) return;
+    [arr[i], arr[j]] = [arr[j]!, arr[i]!];
+    set({ preenchimentos: arr });
+  }
   /** Troca um preenchimento pelo índice (o patch vale para o tipo do item). */
   function setPreench(i: number, patch: Partial<PreenchimentoGC> & Partial<PainelGC>): void {
     set({ preenchimentos: draft!.preenchimentos.map((pr, j) => (j === i ? ({ ...pr, ...patch } as PreenchimentoGC) : pr)) });
   }
+}
+
+/** Campos de uma extremidade do corrimão: apoio (parede, piso, poste), comprimento e a profundidade de degrau extra. */
+function ExtensaoCampos({ titulo, ext, onChange }: { titulo: string; ext: ExtensaoGC; onChange: (e: ExtensaoGC) => void }): ReactElement {
+  const { t } = useT();
+  return (
+    <fieldset className="gc-item">
+      <legend>{titulo}</legend>
+      <Row label={t('gc6c_ext_style')}>
+        <select className="select" value={ext.estilo} onChange={(e) => onChange({ ...ext, estilo: e.target.value as ExtremidadeEstiloGC })}>
+          <option value="nenhum">{t('gc6c_ext_none')}</option>
+          <option value="parede">{t('gc6c_ext_wall')}</option>
+          <option value="piso">{t('gc6c_ext_floor')}</option>
+          <option value="poste">{t('gc6c_ext_post')}</option>
+        </select>
+      </Row>
+      <Row label={t('gc6c_ext_length')}><NumField value={ext.comprimento} unit="m" min={0} decimals={3} onCommit={(v) => onChange({ ...ext, comprimento: v })} /></Row>
+      <Check checked={ext.maisPiso} onChange={(v) => onChange({ ...ext, maisPiso: v })}>{t('gc6c_ext_plus_tread')}</Check>
+    </fieldset>
+  );
+}
+
+/** Campos dos suportes do corrimão: layout, espaçamento ou número, justificação e comprimento do suporte. */
+function SuporteCampos({ suportes, onChange }: { suportes: SuportesGC; onChange: (s: SuportesGC) => void }): ReactElement {
+  const { t } = useT();
+  const layouts: LayoutSuporteGC[] = ['nenhum', 'distancia-fixa', 'alinhar-postes', 'numero-fixo', 'espacamento-maximo', 'espacamento-minimo'];
+  const layoutKey: Record<LayoutSuporteGC, 'gc6c_sl_none' | 'gc6c_sl_fixed_dist' | 'gc6c_sl_align_posts' | 'gc6c_sl_fixed_count' | 'gc6c_sl_max_spacing' | 'gc6c_sl_min_spacing'> = {
+    nenhum: 'gc6c_sl_none',
+    'distancia-fixa': 'gc6c_sl_fixed_dist',
+    'alinhar-postes': 'gc6c_sl_align_posts',
+    'numero-fixo': 'gc6c_sl_fixed_count',
+    'espacamento-maximo': 'gc6c_sl_max_spacing',
+    'espacamento-minimo': 'gc6c_sl_min_spacing',
+  };
+  const justificacoes: JustificacaoGC[] = ['inicio', 'centro', 'fim', 'distribuir'];
+  const justKey: Record<JustificacaoGC, 'gc6c_just_start' | 'gc6c_just_center' | 'gc6c_just_end' | 'gc6c_just_distribute'> = {
+    inicio: 'gc6c_just_start',
+    centro: 'gc6c_just_center',
+    fim: 'gc6c_just_end',
+    distribuir: 'gc6c_just_distribute',
+  };
+  return (
+    <fieldset className="gc-item">
+      <legend>{t('gc6c_sup_layout')}</legend>
+      <Row label={t('gc6c_sup_layout')}>
+        <select className="select" value={suportes.layout} onChange={(e) => onChange({ ...suportes, layout: e.target.value as LayoutSuporteGC })}>
+          {layouts.map((l) => <option key={l} value={l}>{t(layoutKey[l])}</option>)}
+        </select>
+      </Row>
+      <Row label={t('gc6c_post_spacing')}><NumField value={suportes.espacamento} unit="m" min={0} decimals={3} onCommit={(v) => onChange({ ...suportes, espacamento: v })} /></Row>
+      <Row label={t('gc6c_sup_number')}><NumField value={suportes.numero} min={0} decimals={0} onCommit={(v) => onChange({ ...suportes, numero: Math.round(v) })} /></Row>
+      <Row label={t('gc6c_sup_justify')}>
+        <select className="select" value={suportes.justificacao} onChange={(e) => onChange({ ...suportes, justificacao: e.target.value as JustificacaoGC })}>
+          {justificacoes.map((j) => <option key={j} value={j}>{t(justKey[j])}</option>)}
+        </select>
+      </Row>
+      <Row label={t('gc6c_sup_length')}><NumField value={suportes.comprimento} unit="m" min={0} decimals={3} onCommit={(v) => onChange({ ...suportes, comprimento: v })} /></Row>
+    </fieldset>
+  );
 }
 
 /** Trilho novo, abaixo do corrimão e com o material padrão. */
