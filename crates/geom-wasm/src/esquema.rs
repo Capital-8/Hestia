@@ -487,6 +487,7 @@ pub const SECOES: &[Secao] = &[
         colunas: &[
             col("id_num", Tipo::U32),
             col("rampa_num", Tipo::U32),
+            col("componente", Tipo::U32),
             col("indice", Tipo::U32),
             col("x", Tipo::F64),
             col("y", Tipo::F64),

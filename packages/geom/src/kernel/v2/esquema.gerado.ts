@@ -1298,6 +1298,10 @@ export const SECOES = {
         "tipo": "u32"
       },
       {
+        "nome": "componente",
+        "tipo": "u32"
+      },
+      {
         "nome": "indice",
         "tipo": "u32"
       },

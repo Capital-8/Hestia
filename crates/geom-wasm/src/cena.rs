@@ -16,6 +16,7 @@ use crate::indice::{Caixa, Indice};
 use crate::secoes_a1::{ParedeZ, SecoesA1};
 use crate::secoes_a3::SecoesA3;
 use crate::secoes_b::SecoesB;
+use crate::secoes_gc::SecoesGC;
 
 /// Módulo máximo aceito para uma coordenada ou espessura (metros). Evita `inf` em somas e
 /// subtrações internas; 1e12 m é muito maior que qualquer projeto real.
@@ -316,6 +317,7 @@ pub struct Cena {
     pub(crate) a3: SecoesA3,
     /// Seções da B1 (`pisos`, `lajes`, tipos, camadas, contornos e furos).
     pub(crate) b: SecoesB,
+    pub(crate) gc: SecoesGC,
     /// Cache por nível (`NIVEL_TODOS` inclusive). Invalidado quando a seção muda.
     indices: BTreeMap<u32, IndiceNivel>,
     /// B3: `true` enquanto a consulta `junction_nivel` resolve as paredes na variante da JUNÇÃO (`paredes_z_juncao` e `perfis_z_juncao`, sem `flatAttach`). Só a
@@ -381,6 +383,10 @@ impl Cena {
     /// leem também as seções de pisos e lajes; os cortadores (`cache_cortadores`) leem tudo isso mais as faixas da junção e dos forros.
     fn invalidar_caches(&mut self, secao_id: u32) {
         use esquema::{SECAO_FAIXAS_JUNCAO, SECAO_PAREDES_Z_JUNCAO, SECAO_PERFIS_Z_JUNCAO, SECAO_PONTOS_FAIXAS_JUNCAO};
+        // As seções do guarda-corpo (60 a 81) não entram em nenhum cache de paredes, pisos, lajes ou forros.
+        if SecoesGC::e_minha(secao_id) {
+            return;
+        }
         let so_b = SecoesB::e_minha(secao_id);
         let de_juncao = matches!(secao_id, SECAO_PAREDES_Z_JUNCAO | SECAO_PERFIS_Z_JUNCAO);
         self.cache_cortadores.get_mut().clear();
@@ -427,6 +433,7 @@ impl Cena {
             s if SecoesA1::e_minha(s) => self.a1.definir(s, n_linhas, bytes),
             s if SecoesA3::e_minha(s) => self.a3.definir(s, n_linhas, bytes),
             s if SecoesB::e_minha(s) => self.b.definir(s, n_linhas, bytes),
+            s if SecoesGC::e_minha(s) => self.gc.definir(s, n_linhas, bytes),
             _ => Err(ENTRADA),
         };
         if r.is_ok() {
@@ -454,6 +461,7 @@ impl Cena {
             s if SecoesA1::e_minha(s) => self.a1.upsert(s, n_linhas, bytes),
             s if SecoesA3::e_minha(s) => self.a3.upsert(s, n_linhas, bytes),
             s if SecoesB::e_minha(s) => self.b.upsert(s, n_linhas, bytes),
+            s if SecoesGC::e_minha(s) => self.gc.upsert(s, n_linhas, bytes),
             _ => Err(ENTRADA),
         }
     }
@@ -479,6 +487,10 @@ impl Cena {
             }
             s if SecoesB::e_minha(s) => {
                 self.b.remover(s, ids);
+                Ok(())
+            }
+            s if SecoesGC::e_minha(s) => {
+                self.gc.remover(s, ids);
                 Ok(())
             }
             _ => Err(ENTRADA),
