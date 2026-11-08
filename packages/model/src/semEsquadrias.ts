@@ -25,6 +25,11 @@ export function fontesSemEsquadrias(p: Project, soJanelas = false): readonly unk
 
 const memo = new Map<string, { fontes: readonly unknown[]; valor: unknown }>();
 
+/** Esvazia o memo por chave (testes e troca de backend do kernel); ver `cachesDeConteudo.ts` do motor. */
+export function esvaziarMemoSemEsquadrias(): void {
+  memo.clear();
+}
+
 /** `calcula()` guardado por `chave` enquanto as fontes sem esquadrias forem as mesmas (a chave deve incluir todo parâmetro além do projeto). */
 export function memoSemEsquadrias<T>(chave: string, p: Project, calcula: () => T, soJanelas = false): T {
   const fontes = fontesSemEsquadrias(p, soJanelas);

@@ -58,7 +58,7 @@ function urlDoAsset(): URL {
 }
 
 /** Baixa o asset do wasm. Em Node, `file:` não é suportado por `fetch` e o erro é tratado pelo chamador. */
-async function baixarAsset(): Promise<Uint8Array> {
+export async function baixarAsset(): Promise<Uint8Array> {
   if (typeof fetch !== 'function') throw new Error('fetch indisponível para carregar o wasm');
   const url = urlDoAsset();
   const resposta = await fetch(url);

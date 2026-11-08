@@ -121,8 +121,10 @@ export function resolveJunction(pieces: readonly PlanarPiece[]): ResolvedPrism[]
       return j !== i && bi && bj && boxesOverlap(bi, bj) && pairCuts(c, t) && zOverlaps(t, c) && winsOver(c.meta, t.meta) === true;
     });
     if (winners.length === 0) return [{ poly: t.poly, z0: t.z0, z1: t.z1 }];
-    const cuts = [t.z0, t.z1];
-    for (const w of winners) cuts.push(w.z0, w.z1);
+    // Mesma grade de EPS_Z das alturas de parede (resolve.ts): alturas quase iguais não criam fatias minúsculas.
+    const grade = (z: number): number => Math.round(z / Z_EPS) * Z_EPS;
+    const cuts = [grade(t.z0), grade(t.z1)];
+    for (const w of winners) cuts.push(grade(w.z0), grade(w.z1));
     const bounds = [...new Set(cuts.filter((z) => z >= t.z0 - Z_EPS && z <= t.z1 + Z_EPS).map((z) => Math.min(t.z1, Math.max(t.z0, z))))].sort((a, b) => a - b);
     const out: ResolvedPrism[] = [];
     for (let k = 0; k + 1 < bounds.length; k++) {

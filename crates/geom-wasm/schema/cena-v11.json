@@ -1,0 +1,1841 @@
+{
+  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`. v3 (sub-etapa A2): colunas novas em `camadas` (material_num, envolve) e `tipos_parede` (wrap_ends, n_faixas), seções `faixas` e `paredes_z` e a consulta `itens_pintados`; as demais seções e consultas não mudaram. v4 (sub-etapa A3a, vãos): seções `tipos_abertura` e `aberturas` e a consulta `aberturas_geom`; as demais não mudaram. Os perfis de topo e base de `wallZRange` NÃO entram em `paredes_z` nesta versão (nenhuma consulta da A3a os lê; entram na A3d, onde `withProfile`/`withBottomProfile` os consomem). v5 (sub-etapa A3b, retornos de acabamento nos vãos): `tipos_parede.wrap_inserts`; `tipos_abertura` ganha janela, fechamento, tem_alizar, estilo_batente, modo_prof, prof_pedida, larg_batente e esp_folha (tudo o que `insertMode` e `insertReturns` leem do tipo da abertura, já resolvido pelo JS); consulta `retornos_geom`; as demais seções e consultas não mudaram. v6 (sub-etapa A3c, faixas verticais e solveCluster): nenhuma seção nova; consulta `cluster_resolvido` (a lista de aberturas que furam a planta, `planOpenings`, viaja como argumento variável). v7 (sub-etapa A3d, ResolvedLevel completo): seção `perfis_z` (pontos dos perfis de topo e de base de `wallZRange`, mais o `topProfile` do modelo, que o JS calcula e envia; uma lista por parede é uma lista de linhas, por isso é uma seção à parte e não colunas de `paredes_z`) e consulta `resolver_nivel` (tudo o que `resolveLevel` devolve: campos de ResolvedWall, camadas com faixas já recortadas pelos perfis, membranas, regiões e silhueta). As demais seções e consultas não mudaram. v8 (sub-etapa B1 da fatia B, decisão 0050): seções pisos, lajes, tipos_piso, tipos_laje, camadas_piso, camadas_laje, contornos_estaticos, contornos_vinculados e furos_nivel e a consulta pisos_lajes_nivel (resolveFloors e resolveSlabs; os circuitos dos vinculados e os furos de escada e rampa chegam do JS já calculados; os términos que dependem de paredes ficam para a B2). As demais seções e consultas não mudaram. v9 (sub-etapa B2 da fatia B, decisão 0050): seção `niveis` (cota de cada nível, para a adjacência de níveis acima e abaixo que as lajes usam) e consulta `pisos_lajes_com_paredes` (resolveFloors e resolveSlabs COM as paredes do projeto: o Rust aplica regionMinusWalls e regionPlusWalls com as paredes resolvidas do nível, por dentro, sem precisa_paredes; a consulta pisos_lajes_nivel da B1 segue igual). As demais seções e consultas não mudaram. v10 (sub-etapa B3 da fatia B, decisão 0050): seções `paredes_z_juncao` e `perfis_z_juncao` (a cota e os perfis das paredes na variante da JUNÇÃO, sem flatAttach: a junção usa `resolveLevel(p, nivel)` padrão para as faixas de parede, enquanto o término por camada de piso e laje usa `flatAttach`) e a consulta `junction_nivel` (levelCutterSet e junctionLevel: cortadores por nível e junção resolvida de camadas de piso, laje e faixas de parede). As demais seções e consultas não mudaram. v11 (sub-etapa B3, saída 3 da 0050): seções `faixas_juncao` (22) e `pontos_faixas_juncao` (23), a partição vertical das faixas de parede já resolvida pelo JS (`resolveLevel` padrão, DEPOIS do perfil superior e do perfil de base: as faixas que `wallLayerBandsAfterJunction` devolve), com a região de cada faixa; o Rust da consulta `junction_nivel` usa essas faixas no lugar de recalcular os pontos de quebra quando a seção `faixas_juncao` está definida, e só executa os recortes de piso e laje. Sem a seção, vale o cálculo anterior (`paredes_z_juncao`, `perfis_z_juncao`). As demais seções e consultas não mudaram. v12 (quantidades): seções `camadas_forro` (24) e `pontos_forro` (25) (os forros chegam do JS já resolvidos: contorno e espessura de cada camada) e as consultas `quant_paredes` (13), `quant_pisos` (14), `quant_lajes` (15) e `quant_forros` (16): bruto, cortado, líquido, área de face e altura de cada camada (volume líquido = max(0, bruto - cortado), o zero uma vez por camada). As demais seções e consultas não mudaram.",
+  "versao": 12,
+  "abi": 2,
+  "tipos": {
+    "u32": {
+      "bytes": 4,
+      "arrayTs": "Uint32Array",
+      "codigo": 1
+    },
+    "i32": {
+      "bytes": 4,
+      "arrayTs": "Int32Array",
+      "codigo": 2
+    },
+    "f64": {
+      "bytes": 8,
+      "arrayTs": "Float64Array",
+      "codigo": 3
+    },
+    "u8": {
+      "bytes": 1,
+      "arrayTs": "Uint8Array",
+      "codigo": 4
+    }
+  },
+  "secoes": [
+    {
+      "id": 1,
+      "nome": "paredes",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "nivel_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "ax",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ay",
+          "tipo": "f64"
+        },
+        {
+          "nome": "bx",
+          "tipo": "f64"
+        },
+        {
+          "nome": "by",
+          "tipo": "f64"
+        },
+        {
+          "nome": "espessura",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Segmento e espessura total (Fase 0). Em A1 a espessura vem do tipo (soma das camadas) e é redundante com `tipos_parede`/`camadas`; a consulta quadros_e_juncoes lê só a, b e o nível daqui."
+    },
+    {
+      "id": 2,
+      "nome": "paredes_quadro",
+      "chave": "id_num",
+      "descricao": "Complemento da seção `paredes` (mesma chave id_num; a consulta exige uma linha aqui para cada parede do nível). tipo_num: chave de `tipos_parede`. ordem: Wall.order (desempata junções e ordena os quadros do nível: ordem crescente, empate por id_num crescente = ordem estável do JS). linha_loc: 0 wallCenter, 1 coreCenter, 2 finishExterior, 3 finishInterior, 4 coreExterior, 5 coreInterior. invertida/sem_junta_a/sem_junta_b/junta_*_inverte: 0 ou 1. junta_a_*/junta_b_*: JoinConfig de joinStart/joinEnd; *_tipo: 0 butt, 1 miter. sag: flecha do arco (0 = reta). z0 e topo: cota da base e do topo nominais (wallBaseElevation e base + wallMaxHeight, calculados pelo JS; o Rust não os deriva).",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "ordem",
+          "tipo": "f64"
+        },
+        {
+          "nome": "linha_loc",
+          "tipo": "u8"
+        },
+        {
+          "nome": "invertida",
+          "tipo": "u8"
+        },
+        {
+          "nome": "sem_junta_a",
+          "tipo": "u8"
+        },
+        {
+          "nome": "sem_junta_b",
+          "tipo": "u8"
+        },
+        {
+          "nome": "junta_a_tipo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "junta_a_inverte",
+          "tipo": "u8"
+        },
+        {
+          "nome": "junta_b_tipo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "junta_b_inverte",
+          "tipo": "u8"
+        },
+        {
+          "nome": "sag",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z0",
+          "tipo": "f64"
+        },
+        {
+          "nome": "topo",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "nome": "tipos_parede",
+      "chave": "id_num",
+      "descricao": "Tipo de parede. n_camadas deve bater com as linhas de `camadas` do tipo e n_faixas com as de `faixas` (senão ENTRADA na consulta). wrap_ends: WallType.wrapEnds, 0 none, 1 exterior, 2 interior, 3 both. Sem texto: nomes e materiais ficam no JS. wrap_inserts (v5): WallType.wrapInserts, mesma codificação de wrap_ends.",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "n_camadas",
+          "tipo": "u32"
+        },
+        {
+          "nome": "wrap_ends",
+          "tipo": "u8"
+        },
+        {
+          "nome": "n_faixas",
+          "tipo": "u32"
+        },
+        {
+          "nome": "wrap_inserts",
+          "tipo": "u8"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "nome": "camadas",
+      "chave": "id_num",
+      "descricao": "Camadas dos tipos, da face externa para a interna (ordem por `indice`, que deve ser 0..n_camadas-1 sem repetição). funcao: 0 structure, 1 substrate, 2 thermal, 3 membrane, 4 finish1, 5 finish2 (prioridades padrão 1,2,3,3,4,5). tem_prioridade=1 usa `prioridade` no lugar da padrão da função (layerPriority). O núcleo (coreRange/coreSpan) é derivado: do primeiro ao último layer de função structure; sem estrutura, o tipo inteiro. material_num: material da camada, interno pelo JS (só identidade; nada é calculado a partir dele). envolve: Layer.wraps (0 ou 1), a camada contorna a ponta livre da parede quando o tipo tem wrapEnds.",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "espessura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "funcao",
+          "tipo": "u8"
+        },
+        {
+          "nome": "tem_prioridade",
+          "tipo": "u8"
+        },
+        {
+          "nome": "prioridade",
+          "tipo": "f64"
+        },
+        {
+          "nome": "material_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "envolve",
+          "tipo": "u8"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "nome": "faixas",
+      "chave": "id_num",
+      "descricao": "Faixas verticais do tipo (WallType.strips: rodapé, barra de azulejo), na ordem de `indice` (0..n_faixas-1 sem repetição, a ordem do tipo). lado: 0 exterior, 1 interior. z0 e z1 são alturas relativas à base da parede (como WallStrip.z0/z1).",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "lado",
+          "tipo": "u8"
+        },
+        {
+          "nome": "material_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "espessura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z0",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z1",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "nome": "paredes_z",
+      "chave": "id_num",
+      "descricao": "Cota real da parede (a de wallZRange, já com anexos a piso, laje e telhado, calculada pelo JS; o Rust não a deriva): z0 = cota absoluta da base, altura = altura máxima. Uma linha para cada parede do nível que a consulta itens_pintados resolve. Difere de `paredes_quadro.z0/topo` (cotas nominais, usadas pelas junções).",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "z0",
+          "tipo": "f64"
+        },
+        {
+          "nome": "altura",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "nome": "tipos_abertura",
+      "chave": "id_num",
+      "descricao": "Tipo de abertura já normalizado para o VÃO (o que `openingType` devolve: `spanTypeOf` aplicado, então `largura`/`altura` são o vão mesmo com nominalRef leaf ou composição; o JS calcula isso). peitoril: OpeningType.sill. folga_w/folga_h: OpeningType.roughOversize (w, h), 0 se ausente ou inválido no JS; valor negativo vale 0 (nonNeg). folhas: 0..4. plano (PlanSymbol): 0 swing, 1 double, 2 sliding, 3 pivot, 4 fixed, 5 tilt, 6 casement, 7 dblact, 8 pocket, 9 bifold, 10 accordion, 11 garage, 12 hinged, 13 hung, 14 pivotwin, 15 louver. Sem texto. Colunas da v5 (retornos, A3b; todas já resolvidas pelo JS a partir do tipo, o Rust não as deriva): janela: OpeningType.kind (0 door, 1 window; é o do TIPO, `ot.kind` de insertFrameFootprint). fechamento: OpeningType.closure, 0 none, 1 exterior, 2 interior, 3 both, 4 inherit. tem_alizar: 1 se `openingCasing(t)` ou o casing da composição (`faces` diferente de none e `width` > 0) valem, o que força o fechamento efetivo a none. estilo_batente: openingFrameStyle (0 rebate, 1 simple, 2 aduela, 3 block). modo_prof: frameDepthMode (0 wall, 1 core, 2 fixed; valor inválido vale wall). prof_pedida: a profundidade que `openingFrameDepth` pede no modo fixed (frameDepth se finito e > 0, senão 0,09). larg_batente: `openingFrame(t).frameWidth` (padrão aplicado). esp_folha: `openingFrame(t).leafThickness` (padrão aplicado).",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "largura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "altura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "peitoril",
+          "tipo": "f64"
+        },
+        {
+          "nome": "folga_w",
+          "tipo": "f64"
+        },
+        {
+          "nome": "folga_h",
+          "tipo": "f64"
+        },
+        {
+          "nome": "folhas",
+          "tipo": "u8"
+        },
+        {
+          "nome": "plano",
+          "tipo": "u8"
+        },
+        {
+          "nome": "janela",
+          "tipo": "u8"
+        },
+        {
+          "nome": "fechamento",
+          "tipo": "u8"
+        },
+        {
+          "nome": "tem_alizar",
+          "tipo": "u8"
+        },
+        {
+          "nome": "estilo_batente",
+          "tipo": "u8"
+        },
+        {
+          "nome": "modo_prof",
+          "tipo": "u8"
+        },
+        {
+          "nome": "prof_pedida",
+          "tipo": "f64"
+        },
+        {
+          "nome": "larg_batente",
+          "tipo": "f64"
+        },
+        {
+          "nome": "esp_folha",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "nome": "aberturas",
+      "chave": "id_num",
+      "descricao": "Aberturas (Opening). parede_num: id_num da parede hospedeira em `paredes`. tipo_num: chave de `tipos_abertura`. kind: 0 door, 1 window (o `kind` da instância, devolvido como está). deslocamento: Opening.offset (distância do centro ao início da parede, ao longo do eixo). flip_mao/flip_frente: flipHand/flipFacing (0 ou 1). tem_peitoril=1 usa `peitoril` no lugar do peitoril do tipo (sillOverride ?? t.sill; o JS manda 0 para null/ausente). tem_altura=1 usa `altura` no lugar da altura do tipo SE for > 0 (heightOverride válido; senão vale a do tipo, como `openingHeight`). Ordem de iteração no JS = ordem crescente de id_num dentro da parede.",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "parede_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "kind",
+          "tipo": "u8"
+        },
+        {
+          "nome": "deslocamento",
+          "tipo": "f64"
+        },
+        {
+          "nome": "flip_mao",
+          "tipo": "u8"
+        },
+        {
+          "nome": "flip_frente",
+          "tipo": "u8"
+        },
+        {
+          "nome": "tem_peitoril",
+          "tipo": "u8"
+        },
+        {
+          "nome": "peitoril",
+          "tipo": "f64"
+        },
+        {
+          "nome": "tem_altura",
+          "tipo": "u8"
+        },
+        {
+          "nome": "altura",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "nome": "perfis_z",
+      "chave": "id_num",
+      "descricao": "Pontos de perfil por parede (A3d), uma linha por ponto. parede_num: id_num da parede. lista: 0 = perfil superior derivado de `wallZRange` (`WallZ.profile`: telhado ou piso/laje do nível de topo; é o que `ResolvedWall.profileTop` copia), 1 = perfil de base derivado (`WallZ.bottomProfile`, copiado em `profileBottom`), 2 = `Wall.topProfile` do modelo (só aplica o recorte quando a lista 0 não existe da parede, como o default de `withProfile`; não é copiado para o resultado). indice: posição do ponto na lista (0..n-1 sem repetição e sem lacuna por (parede_num, lista), senão ENTRADA na consulta). t e h: ProfilePoint (t = distância ao longo de a->b; h = altura relativa à base `paredes_z.z0`). Uma lista existe quando tem ao menos uma linha. Os pontos vão como o JS os calcula (o Rust não os deriva). Perfil de parede curva (sag diferente de 0) é copiado mas nunca recorta as faixas (`withProfile`/`withBottomProfile`).",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "parede_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "lista",
+          "tipo": "u8"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "t",
+          "tipo": "f64"
+        },
+        {
+          "nome": "h",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "nome": "pisos",
+      "chave": "id_num",
+      "descricao": "pisos (B1): Floor de um nível, sem texto. tipo_num: chave de tipos_piso (tipo ausente: o elemento é ignorado, como resolveFloors). ordem: order (a saída vem em ordem crescente de ordem, empate por id_num crescente = ordem estável do JS). cota_nivel: levelElevation; desloc: heightOffset (o topo é cota_nivel + desloc, somados no Rust). modo: outlineSource.mode (0 sem origem, 1 walls-finish, 2 walls-core, 3 perimeter); vinculado: outlineSource.linked (0 se não há origem); tem_semente: outlineSource.seed existe; extend_nucleo: outlineSource.extend === 'core'; problema: o problem que o JS obteve de resolveBoundary (0 nenhum, 1 aberto, 2 fora), só vale com vinculado = 1.",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "nivel_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "ordem",
+          "tipo": "f64"
+        },
+        {
+          "nome": "cota_nivel",
+          "tipo": "f64"
+        },
+        {
+          "nome": "desloc",
+          "tipo": "f64"
+        },
+        {
+          "nome": "modo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "vinculado",
+          "tipo": "u8"
+        },
+        {
+          "nome": "tem_semente",
+          "tipo": "u8"
+        },
+        {
+          "nome": "extend_nucleo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "problema",
+          "tipo": "u8"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "nome": "lajes",
+      "chave": "id_num",
+      "descricao": "lajes (B1): Slab de um nível, sem texto. tipo_num: chave de tipos_laje (tipo ausente: o elemento é ignorado, como resolveSlabs). ordem: order (a saída vem em ordem crescente de ordem, empate por id_num crescente = ordem estável do JS). cota_nivel: levelElevation; desloc: heightOffset (o topo é cota_nivel + desloc, somados no Rust). modo: outlineSource.mode (0 sem origem, 1 walls-finish, 2 walls-core, 3 perimeter); vinculado: outlineSource.linked (0 se não há origem); tem_semente: outlineSource.seed existe; extend_nucleo: outlineSource.extend === 'core'; problema: o problem que o JS obteve de resolveBoundary (0 nenhum, 1 aberto, 2 fora), só vale com vinculado = 1. tem_inclinacao: Slab.slope existe; inc_ox, inc_oy (origin), inc_dx, inc_dy (dir) e inc_percentual (percent) valem só com tem_inclinacao = 1.",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "nivel_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "ordem",
+          "tipo": "f64"
+        },
+        {
+          "nome": "cota_nivel",
+          "tipo": "f64"
+        },
+        {
+          "nome": "desloc",
+          "tipo": "f64"
+        },
+        {
+          "nome": "modo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "vinculado",
+          "tipo": "u8"
+        },
+        {
+          "nome": "tem_semente",
+          "tipo": "u8"
+        },
+        {
+          "nome": "extend_nucleo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "problema",
+          "tipo": "u8"
+        },
+        {
+          "nome": "tem_inclinacao",
+          "tipo": "u8"
+        },
+        {
+          "nome": "inc_ox",
+          "tipo": "f64"
+        },
+        {
+          "nome": "inc_oy",
+          "tipo": "f64"
+        },
+        {
+          "nome": "inc_dx",
+          "tipo": "f64"
+        },
+        {
+          "nome": "inc_dy",
+          "tipo": "f64"
+        },
+        {
+          "nome": "inc_percentual",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "nome": "tipos_piso",
+      "chave": "id_num",
+      "descricao": "Tipo de piso (B1): só o número de camadas (n_camadas deve bater com as linhas de camadas_piso do tipo, senão ENTRADA na consulta).",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "n_camadas",
+          "tipo": "u32"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "nome": "tipos_laje",
+      "chave": "id_num",
+      "descricao": "Tipo de laje (B1): só o número de camadas (n_camadas deve bater com as linhas de camadas_laje do tipo, senão ENTRADA na consulta).",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "n_camadas",
+          "tipo": "u32"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "nome": "camadas_piso",
+      "chave": "id_num",
+      "descricao": "Camadas de tipos_piso (B1), do topo para baixo, uma linha por camada (indice 0..n_camadas-1 sem repetição e sem lacuna). funcao: 0 structure, 1 substrate, 2 thermal, 3 membrane, 4 finish1, 5 finish2. tem_prioridade/prioridade: Layer.priority (senão a da função, FUNCTION_PRIORITY). termino: Layer.termino (0 auto, 1 face, 2 nucleo, 3 passa, 4 ate, 5 cm); termino_valor: a prioridade de ate ou os cm de cm (0 nos demais). limite_externo: Layer.limiteExterno (0 ausente, 1 parede, 2 nucleo). material_num: só identidade, sem texto.",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "espessura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "funcao",
+          "tipo": "u8"
+        },
+        {
+          "nome": "tem_prioridade",
+          "tipo": "u8"
+        },
+        {
+          "nome": "prioridade",
+          "tipo": "f64"
+        },
+        {
+          "nome": "material_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "termino",
+          "tipo": "u8"
+        },
+        {
+          "nome": "termino_valor",
+          "tipo": "f64"
+        },
+        {
+          "nome": "limite_externo",
+          "tipo": "u8"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "nome": "camadas_laje",
+      "chave": "id_num",
+      "descricao": "Camadas de tipos_laje (B1), do topo para baixo, uma linha por camada (indice 0..n_camadas-1 sem repetição e sem lacuna). funcao: 0 structure, 1 substrate, 2 thermal, 3 membrane, 4 finish1, 5 finish2. tem_prioridade/prioridade: Layer.priority (senão a da função, FUNCTION_PRIORITY). termino: Layer.termino (0 auto, 1 face, 2 nucleo, 3 passa, 4 ate, 5 cm); termino_valor: a prioridade de ate ou os cm de cm (0 nos demais). limite_externo: Layer.limiteExterno (0 ausente, 1 parede, 2 nucleo). material_num: só identidade, sem texto.",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "espessura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "funcao",
+          "tipo": "u8"
+        },
+        {
+          "nome": "tem_prioridade",
+          "tipo": "u8"
+        },
+        {
+          "nome": "prioridade",
+          "tipo": "f64"
+        },
+        {
+          "nome": "material_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "termino",
+          "tipo": "u8"
+        },
+        {
+          "nome": "termino_valor",
+          "tipo": "f64"
+        },
+        {
+          "nome": "limite_externo",
+          "tipo": "u8"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "nome": "contornos_estaticos",
+      "chave": "id_num",
+      "descricao": "Contorno gravado do piso ou da laje (B1), uma linha por vértice. tipo_el: 0 piso, 1 laje; elemento_num: id_num do elemento. anel 0 = boundary; anel k >= 1 = o furo manual k-1 de holes. indice: posição do vértice no anel (0..n-1 sem repetição e sem lacuna por (elemento, anel), senão ENTRADA na consulta). A numeração dos anéis de um elemento começa em 0 e não tem lacuna (senão ENTRADA na consulta). Elemento sem linhas, ou com anel 0 de menos de 3 pontos, é ignorado (como boundary.length < 3), salvo se o contorno vinculado o substitui. Os furos manuais que passam do contorno entram como o polygon-clipping do TS os trata: só vale a parte dentro dele.",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_el",
+          "tipo": "u8"
+        },
+        {
+          "nome": "elemento_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "anel",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "y",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "nome": "contornos_vinculados",
+      "chave": "id_num",
+      "descricao": "Circuitos já fechados que o JS calcula para elementos com outlineSource (B1; enclosed.ts é da fatia D), uma linha por vértice. papel: 0 circuito de acabamento (roomAt(enclosedRooms(finish))), 1 circuito do núcleo (roomAt(enclosedRooms(core))), 2 perímetro externo de acabamento (outerPerimeter(finish)), 3 perímetro externo do núcleo (outerPerimeter(core)). Nos papéis 0 e 1 o anel 0 é o externo do espaço e os demais são ilhas de parede; nos papéis 2 e 3 só o anel 0. Ausência de linhas = o JS recebeu null. O Rust usa só o que resolveBoundary e layerOutlines leem do modo do elemento (o JS pode enviar os quatro).",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_el",
+          "tipo": "u8"
+        },
+        {
+          "nome": "elemento_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "papel",
+          "tipo": "u8"
+        },
+        {
+          "nome": "anel",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "y",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "nome": "furos_nivel",
+      "chave": "id_num",
+      "descricao": "Furos de escada e rampa já calculados pelo JS para o elemento (B1; holesFor(openingsOnLevel(nivel), cota da face inferior do elemento), que depende do tipo do elemento e, na laje inclinada, de coverUnderside, por isso a linha é por elemento). Um multipolígono por elemento, uma linha por vértice: poligono, anel (0 externo, demais furos) e indice (sem repetição e sem lacuna por (elemento, poligono, anel)). Sem linhas = sem furos.",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_el",
+          "tipo": "u8"
+        },
+        {
+          "nome": "elemento_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "poligono",
+          "tipo": "u32"
+        },
+        {
+          "nome": "anel",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "y",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "nome": "niveis",
+      "chave": "id_num",
+      "descricao": "Níveis do projeto (B2): nivel_num (o mesmo das demais seções) e a cota do nível em metros. A laje também lê as paredes do nível de baixo e do de cima (adjacentLevelIds: ordenação ESTÁVEL por cota, empate pela ordem de nivel_num; o vizinho é o anterior e o seguinte na lista ordenada). Nível ausente desta seção = sem vizinhos. id_num é a chave (>= 1, em geral nivel_num + 1).",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "nivel_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "cota",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "nome": "paredes_z_juncao",
+      "chave": "id_num",
+      "descricao": "Variante da junção de `paredes_z` (B3): a cota real da parede como `resolveLevel(p, nivel)` a calcula SEM `flatAttach` (anexo a piso e laje pelas camadas resolvidas, quando algum tipo tem término por parede). id_num = id_num da parede (a mesma chave de `paredes_z`). Uma parede com linha aqui usa esta cota e os perfis de `perfis_z_juncao` (todas as listas, 0, 1 e 2) SOMENTE na consulta `junction_nivel`; parede sem linha usa `paredes_z` e `perfis_z`. As demais consultas ignoram esta seção. Sem linhas, `junction_nivel` usa `paredes_z`.",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "z0",
+          "tipo": "f64"
+        },
+        {
+          "nome": "altura",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "nome": "perfis_z_juncao",
+      "chave": "id_num",
+      "descricao": "Pontos de perfil da variante da junção (B3), mesmas colunas e regras de `perfis_z`. Vale para as paredes que têm linha em `paredes_z_juncao`: os perfis delas vêm só daqui (parede com linha em `paredes_z_juncao` e nenhuma aqui = sem perfis na variante). As demais consultas ignoram esta seção.",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "parede_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "lista",
+          "tipo": "u8"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "t",
+          "tipo": "f64"
+        },
+        {
+          "nome": "h",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "nome": "faixas_juncao",
+      "chave": "id_num",
+      "descricao": "Faixas verticais de parede da junção (B3, saída 3 da 0050): uma linha por faixa, na ordem em que o TypeScript as devolve (paredes na ordem de `Object.values(resolveLevel(p, nivel).walls)`, camadas na ordem de `layers` e faixas na ordem de `bands`, já recortadas pelo perfil superior e pelo de base). nivel_num: nível da parede (o mesmo de `niveis`). parede_num: id_num da parede em `paredes`. camada: layerIndex; banda: índice da faixa dentro da camada (chave `camada/banda` da junção). prioridade e nucleo: da camada. base_z: cota absoluta da base da parede (rw.baseZ); z0 e z1: alturas RELATIVAS à base (como LayerBand). inclinada 0: topo plano em z1; inclinada 1: topo `h0 + (h1 - h0) * ((d . (p - o)) - t0) / (t1 - t0)` com o=(o_x, o_y), d=(d_x, d_y); os campos de inclinação valem 0 quando inclinada = 0. A região da faixa vem em `pontos_faixas_juncao`. Com pelo menos uma linha, esta seção manda sobre o cálculo anterior da junção (a parede sem linha aqui não tem faixa); sem linhas (seção vazia ou removida), vale o cálculo anterior.",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "nivel_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "parede_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "camada",
+          "tipo": "u32"
+        },
+        {
+          "nome": "banda",
+          "tipo": "u32"
+        },
+        {
+          "nome": "prioridade",
+          "tipo": "f64"
+        },
+        {
+          "nome": "nucleo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "base_z",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z0",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z1",
+          "tipo": "f64"
+        },
+        {
+          "nome": "inclinada",
+          "tipo": "u8"
+        },
+        {
+          "nome": "o_x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "o_y",
+          "tipo": "f64"
+        },
+        {
+          "nome": "d_x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "d_y",
+          "tipo": "f64"
+        },
+        {
+          "nome": "t0",
+          "tipo": "f64"
+        },
+        {
+          "nome": "t1",
+          "tipo": "f64"
+        },
+        {
+          "nome": "h0",
+          "tipo": "f64"
+        },
+        {
+          "nome": "h1",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "nome": "pontos_faixas_juncao",
+      "chave": "id_num",
+      "descricao": "Região de cada faixa de `faixas_juncao`, uma linha por vértice (B3, saída 3): faixa_num é o id_num da faixa; poligono, o índice do polígono dentro da faixa (0 em diante, na ordem do MultiPolygon); anel, o índice do anel (0 = contorno, k >= 1 = furo, na ordem do polígono); indice, a posição do vértice no anel. Os anéis são guardados como o TypeScript os tem (fechados ou não, sem reordenar). Uma faixa sem linha aqui tem região vazia.",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "faixa_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "poligono",
+          "tipo": "u32"
+        },
+        {
+          "nome": "anel",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "y",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "nome": "camadas_forro",
+      "chave": "id_num",
+      "descricao": "Camadas de forro (quantidades, v12): uma linha por camada. forro_num: número do forro (o mesmo de pontos_forro); nivel_num: nível do forro; indice: layerIndex; espessura: espessura vertical da camada em metros (z1 - z0), já resolvida pelo JS.",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "forro_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "nivel_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "espessura",
+          "tipo": "f64"
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "nome": "pontos_forro",
+      "chave": "id_num",
+      "descricao": "Contorno de cada forro, uma linha por vértice (quantidades, v12): forro_num; poligono: índice do polígono; anel: 0 = contorno, k >= 1 = furo; indice: posição do vértice no anel. Forro sem linha aqui tem área zero.",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "forro_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "poligono",
+          "tipo": "u32"
+        },
+        {
+          "nome": "anel",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "y",
+          "tipo": "f64"
+        }
+      ]
+    }
+  ],
+  "consultas": [
+    {
+      "id": 1,
+      "nome": "estatisticas_nivel",
+      "args": [
+        "nivel_num"
+      ],
+      "saidas": [
+        {
+          "nome": "n_paredes",
+          "tipo": "u32",
+          "elementos": 1
+        },
+        {
+          "nome": "caixa",
+          "tipo": "f64",
+          "elementos": 4,
+          "descricao": "minx, miny, maxx, maxy da união das caixas dos segmentos (sem espessura); [0,0,0,0] se não há paredes"
+        },
+        {
+          "nome": "comprimento_total",
+          "tipo": "f64",
+          "elementos": 1
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "nome": "paredes_na_caixa",
+      "args": [
+        "nivel_num",
+        "minx",
+        "miny",
+        "maxx",
+        "maxy"
+      ],
+      "saidas": [
+        {
+          "nome": "ids",
+          "tipo": "u32",
+          "elementos": "n",
+          "descricao": "id_num das paredes do nível cuja caixa (segmento + metade da espessura de cada lado) cruza a caixa pedida, em ordem crescente de id_num"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "nome": "pares_proximos",
+      "args": [
+        "nivel_num",
+        "tol"
+      ],
+      "saidas": [
+        {
+          "nome": "pares",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "pares (a, b) com a < b de paredes do nível cujas caixas (segmento + metade da espessura) expandidas por tol se cruzam, em ordem lexicográfica"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "nome": "quadros_e_juncoes",
+      "descricao": "Sub-etapa A1: quadros (WallFrame), estado de cada extremidade (joinStatus), pontas resolvidas (computeEnds) e grupos (clusterWalls) das paredes de um nível. Os quadros são os de levelFrames: paredes do nível ordenadas por (ordem, id_num), sem as de corda < 1e-4 m. Em todas as saídas, a parede `i` é a i-ésima desta ordem (ids[i]). nivel_num = 0xFFFFFFFF é ENTRADA. Parede sem linha em `paredes_quadro`, tipo inexistente ou camadas incoerentes => ENTRADA.",
+      "args": [
+        "nivel_num",
+        "tol_juncao"
+      ],
+      "argsDescricao": {
+        "tol_juncao": "tolerância de junção em metros (Project.settings.joinTolerance ?? 0.02); finita e >= 0"
+      },
+      "saidas": [
+        {
+          "nome": "ids",
+          "tipo": "u32",
+          "elementos": "n",
+          "descricao": "id_num de cada parede com quadro, na ordem dos quadros"
+        },
+        {
+          "nome": "quadro",
+          "tipo": "f64",
+          "elementos": "17n",
+          "descricao": "17 valores por parede: ax, ay, bx, by, ux, uy, nx, ny, length, sign, ext_offset, thickness, s_ext, s_int, s_hi, s_lo, s_mid (a, b, u e n do WallFrame; u e n são a tangente e a normal do INÍCIO)"
+        },
+        {
+          "nome": "arco",
+          "tipo": "f64",
+          "elementos": "8n",
+          "descricao": "8 valores por parede: tem_arco (0 ou 1), cx, cy, radius, a0, sweep, length, k. Reta: tudo 0"
+        },
+        {
+          "nome": "estado_pontas",
+          "tipo": "u32",
+          "elementos": "8n",
+          "descricao": "Por parede, extremidade a depois b (índice 2i+e), 4 valores por extremidade: tipo, id_hospedeira, ini_parceiros, n_parceiros. tipo: 0 free, 1 disallowed, 2 pair, 3 node, 4 tee. id_hospedeira (id_num) só em tee, senão 0xFFFFFFFF. ini_parceiros/n_parceiros: faixa (em parceiros, não em u32) da saída `parceiros`; 0,0 se não há"
+        },
+        {
+          "nome": "parceiros",
+          "tipo": "u32",
+          "elementos": "livre",
+          "descricao": "Pares (id_num da parede, extremidade 0=a 1=b) dos parceiros de pair/node, na ordem de joinStatus"
+        },
+        {
+          "nome": "pontas_cab",
+          "tipo": "u32",
+          "elementos": "6n",
+          "descricao": "Por parede, extremidade a depois b (índice 2i+e), 3 valores por extremidade: tipo_corte, ini, len em f64 de `pontas_dados`. tipo_corte: 0 flat, 1 miter, 2 steps, 3 plane. hi e lo do EndSpec são sempre o mesmo corte e só um vai"
+        },
+        {
+          "nome": "pontas_dados",
+          "tipo": "f64",
+          "elementos": "livre",
+          "descricao": "Dados dos cortes. flat: [t]. miter: [lado_self, lado_other], cada lado = [id_parede, ox, oy, ux, uy, nx, ny, sHi, sLo, sigma, outerToCore, coreEnd, tem_arco, cx, cy, radius, k, n_bounds, bounds...]. steps: [n_runs, runs...] cada run = [s, s1, t, t1, on, host] com NaN em s1/t1/on e -1 em host quando ausentes (host = id_num). plane: [px, py, qx, qy, n_pts, (x, y)...]"
+        },
+        {
+          "nome": "cordas_cab",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por parede: ini, n em cordas (não em f64) da saída `cordas`; as cordas que as outras paredes deixam nas faces de arco desta"
+        },
+        {
+          "nome": "cordas",
+          "tipo": "f64",
+          "elementos": "livre",
+          "descricao": "5 valores por corda: s, px, py, qx, qy"
+        },
+        {
+          "nome": "grupos",
+          "tipo": "u32",
+          "elementos": "n",
+          "descricao": "Índice do grupo (cluster) de cada parede. Grupos numerados na ordem da primeira parede de cada um; caixas de ponta e arco expandidas por CLUSTER_PAD = 0.02 m, sobreposição inclusiva, união transitiva"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "nome": "itens_pintados",
+      "descricao": "Sub-etapa A2: itens por camada (buildItems) e pintor (paint) de cada grupo de paredes de um nível, só em planta. Itens na ordem do TypeScript: grupos na ordem de clusterWalls; dentro do grupo, as paredes em ordem de quadro e, em cada parede, as camadas (ordem do tipo, sem as de espessura < 1e-6) e depois as faixas verticais. Todo item sai, mesmo com fragmento vazio. `fragment` só é calculado para item em planta (pintura entre os itens em planta do grupo) ou de contorno (pintura só entre os itens de contorno do grupo); item que não é nem um nem outro sai com fragmento vazio. Parede sem linha em `paredes_z`, `paredes_quadro`, camadas/faixas incoerentes ou tipo inexistente => ENTRADA. nivel_num = 0xFFFFFFFF é ENTRADA.",
+      "args": [
+        "nivel_num",
+        "tol_juncao",
+        "tem_corte_z",
+        "corte_z",
+        "n_contorno"
+      ],
+      "argsVariaveis": "depois dos 5 fixos vêm n_contorno valores: id_num das paredes de contorno (PlanResolveOptions.outlineWalls)",
+      "argsDescricao": {
+        "tol_juncao": "como em quadros_e_juncoes",
+        "tem_corte_z": "1 se PlanResolveOptions.cutZ foi dado, senão 0 (o corte fica 1,20 m acima da base de cada parede)",
+        "corte_z": "cota absoluta do plano de corte (ignorada se tem_corte_z = 0, mas finita)",
+        "n_contorno": "quantas paredes de contorno vêm a seguir (inteiro >= 0)"
+      },
+      "saidas": [
+        {
+          "nome": "itens",
+          "tipo": "u32",
+          "elementos": "9n",
+          "descricao": "9 valores por item: id_num da parede, grupo (índice do grupo, como `grupos` de quadros_e_juncoes), faixa (0 camada, 1 faixa vertical), indice (índice da camada no tipo, ou da faixa em `faixas`; layerIndex do TS é -(indice+1) nas faixas), material_num, core, em_planta (inPlan), contorno (outline), atravessa (through)"
+        },
+        {
+          "nome": "itens_num",
+          "tipo": "f64",
+          "elementos": "6n",
+          "descricao": "6 valores por item: prioridade, ordem (Wall.order), nucleo_t (coreT), z0, z1 (absolutas), espessura"
+        },
+        {
+          "nome": "formas_cab",
+          "tipo": "u32",
+          "elementos": "4n",
+          "descricao": "4 valores por item: bruto_ini, bruto_n, fragmento_ini, fragmento_n: faixas (em polígonos, não em u32) da saída `poligonos` para o `shape` bruto e para o `fragment` pintado"
+        },
+        {
+          "nome": "poligonos",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por polígono: ini, n em anéis (não em u32) da saída `aneis`; o primeiro anel é o externo, os demais furos"
+        },
+        {
+          "nome": "aneis",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por anel: ini, n em pontos (não em f64) da saída `pontos`"
+        },
+        {
+          "nome": "pontos",
+          "tipo": "f64",
+          "elementos": "livre",
+          "descricao": "Pares (x, y) em metros, na ordem das saídas anteriores"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "nome": "aberturas_geom",
+      "descricao": "Sub-etapa A3a: `openingGeometry` (resolve.ts) e `openingRect` (openingCut.ts) de cada abertura cuja parede hospedeira está num nível. Ordem: paredes na ordem dos quadros de `quadros_e_juncoes` (ordem, id_num; sem as de corda < 1e-4 m) e, em cada parede, aberturas por id_num crescente. Abertura de parede que não tem quadro, ou de parede de outro nível, não sai. Tipo inexistente em `tipos_abertura`, valores não finitos ou enums fora do domínio => ENTRADA. nivel_num = 0xFFFFFFFF é ENTRADA.",
+      "args": [
+        "nivel_num"
+      ],
+      "saidas": [
+        {
+          "nome": "ids",
+          "tipo": "u32",
+          "elementos": "n",
+          "descricao": "id_num de cada abertura"
+        },
+        {
+          "nome": "dados",
+          "tipo": "u32",
+          "elementos": "7n",
+          "descricao": "7 valores por abertura: parede_num, tipo_num, kind, folhas, plano, flip_mao, flip_frente (os mesmos de `aberturas`/`tipos_abertura`, devolvidos como estão)"
+        },
+        {
+          "nome": "medidas",
+          "tipo": "f64",
+          "elementos": "16n",
+          "descricao": "16 valores por abertura: cx, cy (center), ux, uy (u: tangente no deslocamento), nx, ny (n: normal à esquerda), largura, altura (width, height efetiva), vao_largura, vao_altura (roughWidth, roughHeight), peitoril (sill), espessura (thickness da parede), s_hi, s_lo, deslocamento (offset), meia_prof (cutHalf; NaN se a parede é reta, onde o TS deixa `cutHalf` ausente)"
+        },
+        {
+          "nome": "retangulo",
+          "tipo": "f64",
+          "elementos": "8n",
+          "descricao": "8 valores por abertura: os 4 vértices (x, y) de `openingRect` (orientedRect(center, u, roughWidth/2, cutHalf ?? thickness/2 + 0,02)), na ordem do TS"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "nome": "retornos_geom",
+      "descricao": "Sub-etapa A3b: retornos de acabamento nos vãos (`insertMode` e `insertReturns` de wrap.ts) e o recorte de cada um pelo `makeReturnClipper` (clipReturn.ts) contra o pintado em planta do grupo. Mesmos argumentos e mesma orquestração de `itens_pintados` (grupos, pontas livres, paredes que atravessam um T, corte da planta): o `painted` do recorte é o `fragment` dos itens em planta do grupo (pintura entre os itens em planta). Ordem dos retornos: grupos na ordem de clusterWalls; dentro do grupo, as paredes em ordem de quadro, em cada parede as aberturas por id_num crescente e, em cada abertura, a ordem de `insertReturns` (lados exterior depois interior; em cada lado, as camadas envolventes do núcleo para fora). Abertura de parede sem quadro não sai; tipo de abertura inexistente, camadas/tipos incoerentes ou parede sem linha em `paredes_z` => ENTRADA. A escala das booleanas é a de `ops::diferenca`/`interseccao` (1 µm, a da ABI v1), inclusive no recorte (`differenceClipper`). nivel_num = 0xFFFFFFFF é ENTRADA.",
+      "args": [
+        "nivel_num",
+        "tol_juncao",
+        "tem_corte_z",
+        "corte_z",
+        "n_contorno"
+      ],
+      "argsVariaveis": "depois dos 5 fixos vêm n_contorno valores: id_num das paredes de contorno (PlanResolveOptions.outlineWalls)",
+      "argsDescricao": {
+        "tol_juncao": "como em quadros_e_juncoes",
+        "tem_corte_z": "1 se PlanResolveOptions.cutZ foi dado, senão 0 (o corte fica 1,20 m acima da base de cada parede)",
+        "corte_z": "cota absoluta do plano de corte (ignorada se tem_corte_z = 0, mas finita)",
+        "n_contorno": "quantas paredes de contorno vêm a seguir (inteiro >= 0)"
+      },
+      "saidas": [
+        {
+          "nome": "retornos",
+          "tipo": "u32",
+          "elementos": "5n",
+          "descricao": "5 valores por retorno: parede_num, abertura_num, camada (layerIndex), grupo (índice do grupo, como em `grupos` de quadros_e_juncoes), modo (insertMode efetivo: 0 none, 1 exterior, 2 interior, 3 both; um retorno só existe com modo diferente de none)"
+        },
+        {
+          "nome": "formas_cab",
+          "tipo": "u32",
+          "elementos": "4n",
+          "descricao": "4 valores por retorno: bruto_ini, bruto_n, recorte_ini, recorte_n: faixas (em polígonos, não em u32) da saída `poligonos` para o retorno de `insertReturns` e para o resultado de `makeReturnClipper` sobre ele"
+        },
+        {
+          "nome": "poligonos",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por polígono: ini, n em anéis (não em u32) da saída `aneis`; o primeiro anel é o externo, os demais furos"
+        },
+        {
+          "nome": "aneis",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por anel: ini, n em pontos (não em f64) da saída `pontos`"
+        },
+        {
+          "nome": "pontos",
+          "tipo": "f64",
+          "elementos": "livre",
+          "descricao": "Pares (x, y) em metros, na ordem das saídas anteriores"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "nome": "cluster_resolvido",
+      "descricao": "Sub-etapa A3c: `solveCluster` (resolve.ts) de cada grupo (cluster) de um nível, sem o cache `resolveMemo`: camadas por parede com `raw`, `fragment`, `cut` e faixas verticais (altura relativa à base da parede, já fundidas quando contíguas e de mesma assinatura), regiões por material e silhueta de cada grupo. Mesma orquestração e mesmos primeiros argumentos de `itens_pintados` (grupos, pontas livres, paredes que atravessam um T, corte da planta, paredes de contorno); `wallZRange` vem de `paredes_z` (z0 e altura) e os vãos, de `aberturas`/`tipos_abertura`; os retornos são os de `retornos_geom`. Camadas na ordem de `resolveLevel`: grupos na ordem de clusterWalls; dentro do grupo, as paredes na ordem do grupo que têm alguma camada e, em cada parede, ordenadas por layerIndex (faixas verticais do tipo, de índice negativo, primeiro; empate estável na ordem dos itens). Camada sem fragmento e sem faixas não sai; camada em planta de fragmento vazio também não (mesmo com faixas). `cut` vazio em paredes de contorno. Regiões por material na ordem em que o material aparece nos cortes; só com `cut` não vazio. Uma silhueta por grupo (vazia se não há corte). Parede sem linha em `paredes_z`, `paredes_quadro`, camadas/faixas incoerentes, tipo de parede ou de abertura inexistente => ENTRADA. nivel_num = 0xFFFFFFFF é ENTRADA. Escala das booleanas: 1 nm (`ESCALA_FINA`) no pintor, nos furos, no recorte dos retornos e no corte; 1 µm na união de regiões e silhueta e no fechamento de frestas (as do Clipper do TypeScript). Faixas verticais, `fragment` e `cut` herdam o pintor e seguem a tolerância da decisão 0048 (região); `raw` e a identidade são exatos.",
+      "args": [
+        "nivel_num",
+        "tol_juncao",
+        "tem_corte_z",
+        "corte_z",
+        "n_contorno",
+        "tem_aberturas_planta",
+        "n_aberturas_planta"
+      ],
+      "argsVariaveis": "depois dos 7 fixos vêm n_contorno valores (id_num das paredes de contorno, PlanResolveOptions.outlineWalls) e depois n_aberturas_planta valores (id_num das aberturas que furam a parede na planta, PlanResolveOptions.planOpenings)",
+      "argsDescricao": {
+        "tol_juncao": "como em quadros_e_juncoes",
+        "tem_corte_z": "1 se PlanResolveOptions.cutZ foi dado, senão 0 (o corte fica 1,20 m acima da base de cada parede)",
+        "corte_z": "cota absoluta do plano de corte (ignorada se tem_corte_z = 0, mas finita)",
+        "n_contorno": "quantas paredes de contorno vêm a seguir (inteiro >= 0)",
+        "tem_aberturas_planta": "1 se PlanResolveOptions.planOpenings foi dado (só essas furam a parede na planta; a lista pode ser vazia), 0 se foi omitido (todas furam)",
+        "n_aberturas_planta": "quantas aberturas de planta vêm depois das de contorno (inteiro >= 0; 0 se tem_aberturas_planta = 0)"
+      },
+      "saidas": [
+        {
+          "nome": "camadas",
+          "tipo": "u32",
+          "elementos": "6n",
+          "descricao": "6 valores por camada resolvida: id_num da parede, grupo (índice do grupo, como `grupos` de quadros_e_juncoes), faixa (0 camada do tipo, 1 faixa vertical do tipo), indice (da camada, ou da faixa em `faixas`; layerIndex do TS é -(indice+1) nas faixas), material_num, core"
+        },
+        {
+          "nome": "camadas_num",
+          "tipo": "f64",
+          "elementos": "n",
+          "descricao": "prioridade de cada camada resolvida"
+        },
+        {
+          "nome": "camadas_formas",
+          "tipo": "u32",
+          "elementos": "8n",
+          "descricao": "8 valores por camada resolvida: raw_ini, raw_n, fragment_ini, fragment_n, cut_ini, cut_n (faixas em polígonos da saída `poligonos`) e faixas_ini, faixas_n (faixas em `faixas`/`faixas_forma`, não em f64)"
+        },
+        {
+          "nome": "faixas",
+          "tipo": "f64",
+          "elementos": "2n",
+          "descricao": "Por faixa vertical: z0 e z1 relativos à base da parede, na ordem crescente de altura de cada camada"
+        },
+        {
+          "nome": "faixas_forma",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por faixa vertical: poligono_ini, poligono_n (faixa em polígonos da saída `poligonos`)"
+        },
+        {
+          "nome": "regioes",
+          "tipo": "u32",
+          "elementos": "4n",
+          "descricao": "4 valores por região por material: grupo, material_num, poligono_ini, poligono_n; na ordem dos grupos e, em cada grupo, na ordem em que o material aparece nos cortes"
+        },
+        {
+          "nome": "silhuetas",
+          "tipo": "u32",
+          "elementos": "3n",
+          "descricao": "3 valores por grupo, na ordem dos grupos (uma linha por grupo, vazia se não há corte): grupo, poligono_ini, poligono_n"
+        },
+        {
+          "nome": "poligonos",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por polígono: ini, n em anéis (não em u32) da saída `aneis`; o primeiro anel é o externo, os demais furos"
+        },
+        {
+          "nome": "aneis",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por anel: ini, n em pontos (não em f64) da saída `pontos`"
+        },
+        {
+          "nome": "pontos",
+          "tipo": "f64",
+          "elementos": "livre",
+          "descricao": "Pares (x, y) em metros, na ordem das saídas anteriores"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "nome": "resolver_nivel",
+      "descricao": "Sub-etapa A3d: `resolveLevel` completo (ResolvedLevel) de um nível: tudo o que `cluster_resolvido` (A3c) devolve e mais, por parede, os campos de ResolvedWall (a, b, u, n, length, sHi, sLo, baseZ, height, nominalZ0, nominalZ1), as membranas (`membranesOf`), os perfis de topo e de base copiados (`profileTop`, `profileBottom`, de `perfis_z` listas 0 e 1) e as faixas verticais de cada camada já recortadas pelos perfis (`withBottomProfile` e depois `withProfile`; o perfil superior é o da lista 0 ou, se não existe, o `Wall.topProfile` da lista 2; só em parede reta e com ao menos 2 pontos), com a inclinação do topo (`slope`) quando o trecho do perfil é inclinado. Mesmos argumentos, mesma orquestração, mesma ordem e mesma escala de `cluster_resolvido`; a interseção das fatias do perfil com as faixas usa 1 nm (`ESCALA_FINA`), como o pintor. Paredes em `paredes`: grupos na ordem de clusterWalls e, em cada um, as paredes na ordem do grupo (a de `ResolvedCluster.wallIds`; toda parede do grupo sai, mesmo sem camadas). Ordem das camadas, regiões e silhuetas: as de `cluster_resolvido`. nivel_num = 0xFFFFFFFF é ENTRADA. Lista de perfil com índice repetido ou com lacuna => ENTRADA.",
+      "args": [
+        "nivel_num",
+        "tol_juncao",
+        "tem_corte_z",
+        "corte_z",
+        "n_contorno",
+        "tem_aberturas_planta",
+        "n_aberturas_planta"
+      ],
+      "argsVariaveis": "depois dos 7 fixos vêm n_contorno valores (id_num das paredes de contorno, PlanResolveOptions.outlineWalls) e depois n_aberturas_planta valores (id_num das aberturas que furam a parede na planta, PlanResolveOptions.planOpenings)",
+      "argsDescricao": {
+        "tol_juncao": "como em quadros_e_juncoes",
+        "tem_corte_z": "1 se PlanResolveOptions.cutZ foi dado, senão 0 (o corte fica 1,20 m acima da base de cada parede)",
+        "corte_z": "cota absoluta do plano de corte (ignorada se tem_corte_z = 0, mas finita)",
+        "n_contorno": "quantas paredes de contorno vêm a seguir (inteiro >= 0)",
+        "tem_aberturas_planta": "1 se PlanResolveOptions.planOpenings foi dado (só essas furam a parede na planta; a lista pode ser vazia), 0 se foi omitido (todas furam)",
+        "n_aberturas_planta": "quantas aberturas de planta vêm depois das de contorno (inteiro >= 0; 0 se tem_aberturas_planta = 0)"
+      },
+      "saidas": [
+        {
+          "nome": "paredes",
+          "tipo": "u32",
+          "elementos": "8n",
+          "descricao": "8 valores por parede resolvida: id_num, grupo, tem_perfil_topo, topo_ini, topo_n, tem_perfil_base, base_ini, base_n (faixas em pontos da saída `perfis`, não em f64; zeros quando a lista não existe)"
+        },
+        {
+          "nome": "paredes_num",
+          "tipo": "f64",
+          "elementos": "15n",
+          "descricao": "15 valores por parede resolvida: ax, ay, bx, by (a, b), ux, uy, nx, ny (u, n), length, s_hi, s_lo, base_z, height, nominal_z0, nominal_z1"
+        },
+        {
+          "nome": "perfis",
+          "tipo": "f64",
+          "elementos": "2n",
+          "descricao": "Pares (t, h) dos perfis copiados (`profileTop` e `profileBottom`), na ordem das paredes: topo e depois base"
+        },
+        {
+          "nome": "membranas",
+          "tipo": "u32",
+          "elementos": "3n",
+          "descricao": "3 valores por membrana (`membranesOf`; só parede reta, camadas de espessura < 1e-6): parede_num, camada (layerIndex), material_num; na ordem das paredes e, em cada uma, das camadas"
+        },
+        {
+          "nome": "membranas_pts",
+          "tipo": "f64",
+          "elementos": "4n",
+          "descricao": "4 valores por membrana: ax, ay, bx, by (os dois pontos de `pts`)"
+        },
+        {
+          "nome": "camadas",
+          "tipo": "u32",
+          "elementos": "6n",
+          "descricao": "6 valores por camada resolvida: id_num da parede, grupo (índice do grupo, como `grupos` de quadros_e_juncoes), faixa (0 camada do tipo, 1 faixa vertical do tipo), indice (da camada, ou da faixa em `faixas`; layerIndex do TS é -(indice+1) nas faixas), material_num, core"
+        },
+        {
+          "nome": "camadas_num",
+          "tipo": "f64",
+          "elementos": "n",
+          "descricao": "prioridade de cada camada resolvida"
+        },
+        {
+          "nome": "camadas_formas",
+          "tipo": "u32",
+          "elementos": "8n",
+          "descricao": "8 valores por camada resolvida: raw_ini, raw_n, fragment_ini, fragment_n, cut_ini, cut_n (faixas em polígonos da saída `poligonos`) e faixas_ini, faixas_n (faixas em `faixas`/`faixas_forma`, não em f64)"
+        },
+        {
+          "nome": "faixas",
+          "tipo": "f64",
+          "elementos": "11n",
+          "descricao": "Por faixa vertical: z0 e z1 relativos à base da parede (z1 é a maior altura quando há inclinação), tem_slope (0 ou 1) e, se 1, ox, oy, dx, dy, t0, t1, h0, h1 de `LayerBand.slope`; zeros quando tem_slope = 0. Ordem das faixas de cada camada: a de `withProfile`"
+        },
+        {
+          "nome": "faixas_forma",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por faixa vertical: poligono_ini, poligono_n (faixa em polígonos da saída `poligonos`)"
+        },
+        {
+          "nome": "regioes",
+          "tipo": "u32",
+          "elementos": "4n",
+          "descricao": "4 valores por região por material: grupo, material_num, poligono_ini, poligono_n; na ordem dos grupos e, em cada grupo, na ordem em que o material aparece nos cortes"
+        },
+        {
+          "nome": "silhuetas",
+          "tipo": "u32",
+          "elementos": "3n",
+          "descricao": "3 valores por grupo, na ordem dos grupos (uma linha por grupo, vazia se não há corte): grupo, poligono_ini, poligono_n"
+        },
+        {
+          "nome": "poligonos",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por polígono: ini, n em anéis (não em u32) da saída `aneis`; o primeiro anel é o externo, os demais furos"
+        },
+        {
+          "nome": "aneis",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por anel: ini, n em pontos (não em f64) da saída `pontos`"
+        },
+        {
+          "nome": "pontos",
+          "tipo": "f64",
+          "elementos": "livre",
+          "descricao": "Pares (x, y) em metros, na ordem das saídas anteriores"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "nome": "pisos_lajes_nivel",
+      "descricao": "Sub-etapa B1: resolveFloors e resolveSlabs de um nível: primeiro os pisos e depois as lajes do nível, cada grupo em ordem crescente de ordem (empate por id_num). Por elemento: tipo, cotas, inclinação, problema e polígono (contorno menos furos de escada e rampa); por camada: cotas z0/z1, prioridade, núcleo, membrana, regra explícita e polígono. Os términos que dependem de paredes (face, núcleo, passa e ate com paredes do nível) entram com precisa_paredes = 1 e o contorno SEM paredes (as paredes chegam na B2). Elementos com tipo ausente, com contorno de menos de 3 pontos ou cujo polígono some nos furos não saem. nivel_num = 0xFFFFFFFF é ENTRADA. Tipo cujas camadas não batem com n_camadas, lista de vértices com índice repetido ou com lacuna => ENTRADA.",
+      "args": [
+        "nivel_num"
+      ],
+      "saidas": [
+        {
+          "nome": "elementos",
+          "tipo": "u32",
+          "elementos": "9n",
+          "descricao": "9 valores por elemento: tipo_el (0 piso, 1 laje), id_num, tipo_num, problema (0 nenhum, 1 aberto, 2 fora), tem_inclinacao, camada_ini, camada_n (faixa em camadas), poligono_ini, poligono_n (faixa em polígonos da saída poligonos)"
+        },
+        {
+          "nome": "elementos_num",
+          "tipo": "f64",
+          "elementos": "7n",
+          "descricao": "7 valores por elemento: topo_z, base_z, inc_ox, inc_oy, inc_dx, inc_dy, inc_percentual (zeros sem inclinação)"
+        },
+        {
+          "nome": "camadas",
+          "tipo": "u32",
+          "elementos": "8n",
+          "descricao": "8 valores por camada, do topo para baixo e na ordem dos elementos: indice, material_num, nucleo, membrana, explicita, precisa_paredes, poligono_ini, poligono_n"
+        },
+        {
+          "nome": "camadas_num",
+          "tipo": "f64",
+          "elementos": "3n",
+          "descricao": "3 valores por camada: z0, z1 (cotas absolutas na origem da inclinação; a membrana de espessura zero tem z0 = z1) e prioridade efetiva"
+        },
+        {
+          "nome": "poligonos",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por polígono: ini, n em anéis (não em u32) da saída aneis; o primeiro anel é o externo, os demais furos"
+        },
+        {
+          "nome": "aneis",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por anel: ini, n em pontos (não em f64) da saída pontos"
+        },
+        {
+          "nome": "pontos",
+          "tipo": "f64",
+          "elementos": "livre",
+          "descricao": "Pares (x, y) em metros, na ordem das saídas anteriores"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "nome": "pisos_lajes_com_paredes",
+      "descricao": "Sub-etapa B2: resolveFloors e resolveSlabs de um nível COM as paredes do projeto (o contorno por camada de layerOutlines e a zona bloqueada de terminoBlock, aplicados por dentro). Mesma ordem, mesmos elementos e mesma codificação de pisos_lajes_nivel, menos a coluna precisa_paredes (todo término é resolvido aqui). As paredes são as de wallsOfLevel (resolveLevel com flatAttach): o Rust usa resolver_nivel (A3d) sobre as seções de parede da cena, que o JS monta com a cota de paredes_z do término por camada (flatAttach = true), mais aberturas_geom (portas que chegam ao piso); piso lê as paredes do próprio nível, laje as do nível, do anterior e do seguinte (seção niveis). Paredes só são resolvidas quando alguma camada do nível as consulta (nível sem término por parede nem as seções da A não as exige). tol_juncao é a tolerância de junção do projeto (a de resolver_nivel), tol_juncao >= 0. Escala: as booleanas das zonas usam 1 nm (ESCALA_FINA), como o corte dos furos da B1. nivel_num = 0xFFFFFFFF é ENTRADA. Demais regras de pisos_lajes_nivel.",
+      "args": [
+        "nivel_num",
+        "tol_juncao"
+      ],
+      "saidas": [
+        {
+          "nome": "elementos",
+          "tipo": "u32",
+          "elementos": "9n",
+          "descricao": "9 valores por elemento: tipo_el (0 piso, 1 laje), id_num, tipo_num, problema (0 nenhum, 1 aberto, 2 fora), tem_inclinacao, camada_ini, camada_n (faixa em camadas), poligono_ini, poligono_n (faixa em polígonos da saída poligonos)"
+        },
+        {
+          "nome": "elementos_num",
+          "tipo": "f64",
+          "elementos": "7n",
+          "descricao": "7 valores por elemento: topo_z, base_z, inc_ox, inc_oy, inc_dx, inc_dy, inc_percentual (zeros sem inclinação)"
+        },
+        {
+          "nome": "camadas",
+          "tipo": "u32",
+          "elementos": "7n",
+          "descricao": "7 valores por camada, do topo para baixo e na ordem dos elementos: indice, material_num, nucleo, membrana, explicita, poligono_ini, poligono_n"
+        },
+        {
+          "nome": "camadas_num",
+          "tipo": "f64",
+          "elementos": "3n",
+          "descricao": "3 valores por camada: z0, z1 (cotas absolutas na origem da inclinação; a membrana de espessura zero tem z0 = z1) e prioridade efetiva"
+        },
+        {
+          "nome": "poligonos",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por polígono: ini, n em anéis (não em u32) da saída aneis; o primeiro anel é o externo, os demais furos"
+        },
+        {
+          "nome": "aneis",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por anel: ini, n em pontos (não em f64) da saída pontos"
+        },
+        {
+          "nome": "pontos",
+          "tipo": "f64",
+          "elementos": "livre",
+          "descricao": "Pares (x, y) em metros, na ordem das saídas anteriores"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "nome": "junction_nivel",
+      "descricao": "Sub-etapa B3: `levelCutterSet` (junctionNet.ts) e `junctionLevel` (junctionLevel.ts) de um nível. Cortadores: os pisos, as lajes e as faixas de parede do próprio nível (sempre) mais os de OUTROS níveis (seção `niveis`, na ordem de nivel_num) que tocam a faixa de cota do nível (peças `external`: só cortam, e só parede x piso/laje); ordem: pisos, lajes e paredes, o próprio nível primeiro e depois cada outro nível. Pisos e lajes vêm de `pisos_lajes_com_paredes` (B2) de cada nível; as faixas de parede, de `resolver_nivel` (A3d) sobre a variante da JUNÇÃO (`paredes_z_juncao`, `perfis_z_juncao`, sem flatAttach). O cortador do próprio nível para paredes é sempre um só (mesmo sem peças); os de outros níveis só saem com peças. Junção: `resolveJunction` sobre as peças com `meta` (laje inclinada fica fora; membrana, de espessura zero, também), com `winsOver` (núcleo, prioridade, tipo, explícita), `zOverlaps` e as partes por camada (a camada perde a região das que a vencem, por faixa de cota). `cut` = alguma camada perdeu volume (tolerância 1e-9 m³); `region` = união das partes (só com `cut`). Peças externas não saem na junção. Paredes: só faixas planas entram nas faixas de junção. As booleanas usam 1 nm (ESCALA_FINA). Nível sem a seção `niveis` não tem vizinhos. tol_juncao >= 0 (a de `resolver_nivel`). nivel_num = 0xFFFFFFFF = ENTRADA. Na v11, as faixas de parede vêm de `faixas_juncao` e `pontos_faixas_juncao` quando a seção `faixas_juncao` tem linhas (a partição e a região já resolvidas pelo TS); sem ela, o cálculo anterior.",
+      "args": [
+        "nivel_num",
+        "tol_juncao"
+      ],
+      "saidas": [
+        {
+          "nome": "cortadores",
+          "tipo": "u32",
+          "elementos": "3n",
+          "descricao": "3 valores por cortador (CutterSolid): kind (0 parede, 1 piso, 2 laje), n_pecas, peca_ini (faixa em pecas)"
+        },
+        {
+          "nome": "pecas",
+          "tipo": "u32",
+          "elementos": "11n",
+          "descricao": "11 valores por peça (SolidPiece), na ordem dos cortadores: tem_meta, kind_meta (0 parede, 1 piso, 2 laje), owner (id_num do elemento dono: piso, laje ou parede), explicita, nucleo, external, flat (cota constante), tem_banda (parede), banda (índice da faixa de altura), poligono_ini, poligono_n (faixa em poligonos)"
+        },
+        {
+          "nome": "pecas_num",
+          "tipo": "f64",
+          "elementos": "16n",
+          "descricao": "16 valores por peça: layer_index (camada do elemento; faixa vertical de parede é negativa), prioridade, span_tipo (0 constante z0..z1; 1 laje: z0 e z1 mais a subida da inclinação; 2 faixa de parede: base_z + z0 .. base_z + topo da faixa), z0, z1, base_z (só faixa), ox, oy, dx, dy (inclinação da laje ou da faixa; o da faixa só com a inclinação), a (percentual da laje ou t0 da faixa), t1, h0, h1 (só faixa inclinada), env0, env1 (spanRange: menor base e maior topo pelos vértices; env0 > env1 = sem vértices). Faixa inclinada: span_tipo 2 e dx, dy diferentes de zero; zeros sem inclinação"
+        },
+        {
+          "nome": "elementos",
+          "tipo": "u32",
+          "elementos": "7n",
+          "descricao": "7 valores por piso ou laje na junção, na ordem de primeira aparição: kind (1 piso, 2 laje), owner (id_num), cut, camada_ini, camada_n (faixa em camadas), regiao_ini, regiao_n (faixa em poligonos; vazia sem cut)"
+        },
+        {
+          "nome": "camadas",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "2 valores por camada de elemento na junção: parte_ini, parte_n (faixa em partes)"
+        },
+        {
+          "nome": "camadas_indice",
+          "tipo": "f64",
+          "elementos": "n",
+          "descricao": "layer_index de cada camada de `camadas`"
+        },
+        {
+          "nome": "paredes",
+          "tipo": "u32",
+          "elementos": "4n",
+          "descricao": "4 valores por parede na junção, na ordem de primeira aparição: owner (id_num), cut, faixa_ini, faixa_n (faixa em faixas)"
+        },
+        {
+          "nome": "faixas",
+          "tipo": "u32",
+          "elementos": "3n",
+          "descricao": "3 valores por faixa plana de parede na junção: parte_ini, parte_n (faixa em partes), banda (índice da faixa de altura)"
+        },
+        {
+          "nome": "faixas_camada",
+          "tipo": "f64",
+          "elementos": "n",
+          "descricao": "layer_index de cada faixa de `faixas`"
+        },
+        {
+          "nome": "partes",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "2 valores por parte (ResolvedPrism): poligono_ini, poligono_n (faixa em poligonos)"
+        },
+        {
+          "nome": "partes_z",
+          "tipo": "f64",
+          "elementos": "2n",
+          "descricao": "2 valores por parte: z0, z1 (cotas absolutas)"
+        },
+        {
+          "nome": "poligonos",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por polígono: ini, n em anéis (não em u32) da saída aneis; o primeiro anel é o externo, os demais furos"
+        },
+        {
+          "nome": "aneis",
+          "tipo": "u32",
+          "elementos": "2n",
+          "descricao": "Por anel: ini, n em pontos (não em f64) da saída pontos"
+        },
+        {
+          "nome": "pontos",
+          "tipo": "f64",
+          "elementos": "livre",
+          "descricao": "Pares (x, y) em metros, na ordem das saídas anteriores"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "nome": "quant_paredes",
+      "descricao": "Quantidades por camada de parede de um nível (quantifyLevel): bruto = soma de volume_faixa; cortado = volume das faixas dentro de piso e laje (cuts par a par); altura média com os perfis. Parede sem camada sai com flag 2.",
+      "args": [
+        "nivel_num",
+        "tol_juncao"
+      ],
+      "saidas": [
+        {
+          "nome": "linhas",
+          "tipo": "u32",
+          "elementos": "4n",
+          "descricao": "4 valores por camada: dono_id (id_num da parede, piso, laje ou forro), indice_camada (layerIndex em complemento de dois), n_faixas, flags (bit 0 membrana; bit 1 linha de parede sem camada)"
+        },
+        {
+          "nome": "valores",
+          "tipo": "f64",
+          "elementos": "5n",
+          "descricao": "5 valores por camada: bruto, cortado, liquido = max(0, bruto - cortado), area_de_face, altura (altura média da parede; 0 nas demais)"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "nome": "quant_pisos",
+      "descricao": "Quantidades por camada de piso de um nível (quantifyFloors): bruto = área da camada x espessura; cortado = lajes, pisos e paredes, salvo a laje que cobre o piso inteiro no mesmo nível; membrana: área de face líquida.",
+      "args": [
+        "nivel_num",
+        "tol_juncao"
+      ],
+      "saidas": [
+        {
+          "nome": "linhas",
+          "tipo": "u32",
+          "elementos": "4n",
+          "descricao": "4 valores por camada: dono_id (id_num da parede, piso, laje ou forro), indice_camada (layerIndex em complemento de dois), n_faixas, flags (bit 0 membrana; bit 1 linha de parede sem camada)"
+        },
+        {
+          "nome": "valores",
+          "tipo": "f64",
+          "elementos": "5n",
+          "descricao": "5 valores por camada: bruto, cortado, liquido = max(0, bruto - cortado), area_de_face, altura (altura média da parede; 0 nas demais)"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "nome": "quant_lajes",
+      "descricao": "Quantidades por camada de laje de um nível (quantifySlabs): bruto = área em planta x espessura; area_de_face leva o fator 1/cos(atan(|percentual|/100)).",
+      "args": [
+        "nivel_num",
+        "tol_juncao"
+      ],
+      "saidas": [
+        {
+          "nome": "linhas",
+          "tipo": "u32",
+          "elementos": "4n",
+          "descricao": "4 valores por camada: dono_id (id_num da parede, piso, laje ou forro), indice_camada (layerIndex em complemento de dois), n_faixas, flags (bit 0 membrana; bit 1 linha de parede sem camada)"
+        },
+        {
+          "nome": "valores",
+          "tipo": "f64",
+          "elementos": "5n",
+          "descricao": "5 valores por camada: bruto, cortado, liquido = max(0, bruto - cortado), area_de_face, altura (altura média da parede; 0 nas demais)"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "nome": "quant_forros",
+      "descricao": "Quantidades por camada de forro de um nível (quantifyCeilings): área do contorno (pontos_forro) x espessura (camadas_forro); cortado sempre zero. tol_juncao é ignorada.",
+      "args": [
+        "nivel_num",
+        "tol_juncao"
+      ],
+      "saidas": [
+        {
+          "nome": "linhas",
+          "tipo": "u32",
+          "elementos": "4n",
+          "descricao": "4 valores por camada: dono_id (id_num da parede, piso, laje ou forro), indice_camada (layerIndex em complemento de dois), n_faixas, flags (bit 0 membrana; bit 1 linha de parede sem camada)"
+        },
+        {
+          "nome": "valores",
+          "tipo": "f64",
+          "elementos": "5n",
+          "descricao": "5 valores por camada: bruto, cortado, liquido = max(0, bruto - cortado), area_de_face, altura (altura média da parede; 0 nas demais)"
+        }
+      ]
+    }
+  ],
+  "args": {
+    "$comentario": "Todos os argumentos de consulta viajam num Float64Array (inteiros são exatos em f64). nivel_num = 4294967295 (0xFFFFFFFF) significa 'todos os níveis'.",
+    "nivel_todos": 4294967295
+  },
+  "codigos": {
+    "OK": 0,
+    "VERSAO": 1,
+    "HANDLE": 2,
+    "ENTRADA": 3,
+    "NAO_IMPLEMENTADO": 4,
+    "LIMITE": 5,
+    "INTERNO": 6,
+    "$comentario": "ENTRADA, NAO_IMPLEMENTADO e LIMITE são 'leves' (só esta chamada cai para o TypeScript); VERSAO, HANDLE e INTERNO são 'graves' (descarta e recria a instância)."
+  },
+  "limites": {
+    "linhas_por_secao": 4194304,
+    "bytes_por_chamada": 268435456
+  }
+}

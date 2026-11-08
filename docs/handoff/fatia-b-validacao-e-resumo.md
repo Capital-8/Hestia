@@ -1,0 +1,99 @@
+# Fatia B — validação visual e resumo (T6)
+
+Documento para o dono do projeto. Fontes: entregas da fatia B em `docs/decisoes/0050-kernel-rust-fatia-b-plano.md` (B1, B2, B3 parcial, B5), os fatos desta sessão e os nomes de menus e campos conferidos no código. Onde não há fonte, o texto marca **(a confirmar)**.
+
+## Roteiro de validação visual da fatia B
+
+**O que os seus 13 projetos de teste já cobrem.** As comparações automáticas deram **52 comparações da fatia B e zero divergências** (a fatia A, 156 comparações, também zero): 11 pisos (2 com furo), 60 lajes (35 com furo de escada), 2433 paredes anexadas, 25 escadas, camadas com término `cm` (198), `face` (44) e `passa` (28) e 11 membranas. **Não cobrem:** paredes curvas, esquinas em miter, lajes inclinadas, pisos e lajes vinculados a ambiente, perfil de topo de parede, limite externo de camada, telhados na comparação e escadas como elemento (só os furos). Por isso o roteiro fecha com um projeto de teste de 8 passos.
+
+### 1. Como rodar e comparar (5 minutos)
+
+1. Na pasta do worktree, `npm run dev` e abra http://localhost:5173.
+2. **Aba 1 (Rust):** `http://localhost:5173/?kernelFatias=A,B`. A fatia B só liga por flag: `?kernelFatias=A,B` na URL, ou `?kernel=rust`, ou localStorage `hestia:kernel:fatias` (gravado no diálogo Experimentais). Sem nada disso, o padrão continua TypeScript. Com a flag ligada, **pisos e lajes passam a sair do Rust**; o resto segue no TS.
+3. **Aba 2 (referência):** a mesma URL **sem a flag** (ou com `?kernel=ts`). O TypeScript é a referência de correção.
+4. Nas duas abas, abra o mesmo projeto e o mesmo pavimento, na mesma vista (planta ou 3D) e no mesmo enquadramento (mesmo zoom).
+5. **Modo sombra (contagem automática):** no console da aba com A,B rode `localStorage.setItem('hestia:kernel:sombra','true')` e recarregue. O programa passa a rodar Rust e TypeScript na mesma chamada, **mostra sempre o resultado do TypeScript** e conta as divergências no **Arquivo > Experimentais** (bloco "Fatias A e B: despacho e modo sombra": comparações, divergências, última divergência, voltas ao TypeScript, recriações e consultas da fatia B entregues). Para comparar visualmente lado a lado, desligue antes: `localStorage.setItem('hestia:kernel:sombra','false')` e recarregue — com a sombra ligada, as duas abas mostram o TS.
+6. **Quedas do Rust voltam sozinhas ao TypeScript:** o desenho continua correto; anote a volta, mas não pare a validação.
+7. **A junção (B3) vai para o Rust quando a fatia B está ligada.** Com `?kernelFatias=A,B`, a junção parede × piso/laje entre pavimentos é calculada pelo Rust e convertida para o formato do TypeScript; se falhar, volta ao TypeScript sem quebrar o app. A tela deve ficar igual ao caminho TypeScript. No modo sombra ela é comparada e **pode acusar divergência**: há um defeito conhecido do Rust em paredes com faixas inclinadas (topo anexado ou com perfil) cruzadas por laje, de até 0,41 m² em testes sintéticos. A saída 3 da B3 corrige esse defeito: os 5 casos do defeito passam; semente 7 pavimento 3 reprova por defeito antigo do limiar de corte (ver docs/decisoes/0050). O caminho antigo, sem a seção nova, mantém o defeito. A validação visual deve comparar com e sem `?kernelFatias=A,B`. Anote na ficha (item 4 abaixo) e siga: não tente corrigir na validação.
+
+### 2. O que olhar na planta e no 3D
+
+- **Pisos.** Na planta: o contorno do piso e o de cada camada. No 3D: a superfície superior, a pilha de camadas e a membrana (espessura zero) sem faces duplicadas. No corte: as espessuras e o ponto exato em que cada camada termina.
+- **Lajes retas.** Contorno, camadas e encontro com as paredes; no 3D, face superior e face inferior; no corte, topo e fundo.
+- **Lajes inclinadas** (não cobertas pelos seus projetos — só no projeto de teste). A seta e o percentual de caimento iguais aos do TypeScript; no 3D, planos superior e inferior paralelos, sem degrau; no corte, a cota do topo sobe e desce conforme o caimento e a espessura fica perpendicular à rampa; o furo de escada acompanha a inclinação e o término nas paredes acompanha a cota local. Observação: laje com caimento fica fora da junção (só a laje plana entra), como no TS.
+- **Furos de escada.** O furo aparece só no piso ou laje do nível de topo da escada, com o modo escolhido em **Propriedades > Abertura da laje** ("Pé-direito livre", "Contorno completo" ou "Sem abertura"); não pode aparecer no piso de baixo nem sobrar retalho; no 3D a escada passa sem bater e a borda do furo fica limpa.
+- **Términos de camada** (**Propriedades > Tipo de piso > lápis**, na linha da camada clique **Mais** e olhe **Término nas paredes**): `Automático` (o núcleo vai até o núcleo da parede e as demais camadas param na face de acabamento), `Até a face de acab.` (o piso não entra na parede), `Até o núcleo da parede` (avança sob o acabamento e para no núcleo), `Passa por baixo` (a parede não recorta a camada), `Até a prioridade ≤ N` (para na primeira camada da parede com prioridade ≤ N, número de 1 a 9) e `Deslocamento (cm)` (positivo avança sobre a parede, negativo recua, a partir da face de acabamento). No corte, confira onde cada camada para; no 3D, que não sobre nem falte material na parede. Se houver porta com soleira até o piso, a zona bloqueada libera no vão da porta. O `Limite no perímetro` (`Contorno do elemento` / `Até face ext. parede` / `Até face ext. núcleo`) não é coberto pelos seus projetos: confira no projeto de teste.
+- **Pisos e lajes vinculados a ambiente** (não cobertos pelos seus projetos). No painel do piso/laje, o grupo **Contorno** mostra "Vinculado às paredes (modo: ...)" com os botões **Desvincular contorno** e **Revincular às paredes**: o contorno acompanha o circuito fechado das paredes e muda quando a parede ou o ambiente muda; desvincular congela a forma e revincular volta a acompanhar. O vínculo antigo "por ambiente" (modo `walls-finish`, clique na área fechada) só existe na ferramenta antiga de piso por paredes, fora da faixa (0033 §7) — **(a confirmar)** se há outro caminho na interface.
+- **Junção parede × piso/laje entre pavimentos.** No corte e no 3D: base e topo da parede encontrando o piso/laje sem fresta, sem sobreposição e sem face dupla; as peças externas vêm de todos os níveis cuja cota coincide com a da parede, não só dos adjacentes; parede vinda de baixo atravessando a laje e parede do pavimento de cima apoiada no piso. Esta junção vem do TS (item 7 acima): visualmente deve ser idêntica nas duas abas; no modo sombra, divergência de junção era o defeito conhecido: a saída 3 da B3 corrige esse defeito (os 5 casos do defeito passam), mas o caminho antigo, sem a seção nova, mantém o defeito.
+
+### 3. O que conta como "deu certo"
+
+- As duas abas mostram o mesmo desenho, no mesmo enquadramento; nada falta e nada sobra.
+- As áreas em **Propriedades > Dimensões** (Área líquida) e as tabelas (**Vista > Criar > Tabelas > Tabela de pisos / Tabela de lajes**) batem entre as abas.
+- Sem fresta, sem sobreposição e sem face dupla visíveis no 3D e no corte.
+- No modo sombra: **zero divergência de pisos e lajes**; divergência de junção é o caso conhecido do item 7 (anote).
+- No **Arquivo > Experimentais**: sem voltas graves nem recriações (voltas leves são a volta prevista ao TS). Haver volta grave ou recriação é defeito do binário, não do TS: o app continua correto, mas avise.
+- Diferenças abaixo das tolerâncias (1 µm de coordenada; 1e-6 m², pelas decisões 0048 e 0049) não contam como erro. Perto de parede curva, diferença de região ou silhueta da ordem de 3,5e-3 m² é defeito conhecido do TS (0049 e 0047): anote, mas não trate como erro do Rust.
+- Tempo de edição: a cena inteira é reenviada a cada edição (sem atualização incremental) e o ganho de desempenho ainda não foi medido — medição formal só no fim da migração.
+
+### 4. Como anotar uma divergência
+
+Uma ficha por caso, tudo junto numa nota só: (1) data; (2) pavimento (nível); (3) elemento — tipo, marca ou id — e camada/término; (4) vista (planta, 3D ou corte) e o enquadramento; (5) o que o TypeScript mostra e o que o Rust mostra; (6) **captura das duas abas** no mesmo enquadramento; (7) a mensagem do Experimentais (nível, elemento, campo, mensagem), se houver; (8) se o caso também aparece só no TS.
+
+### 5. Projeto de teste em 8 passos (cobre o que os seus projetos não cobrem)
+
+1. **Níveis.** **Arquitetura > Referência > Gerenciar níveis** (diálogo "Níveis"): crie "Pavimento 1" em 0,00 m e "Pavimento 2" em 3,00 m (o botão "+ Novo nível" cria em +3,00 m). Salve como "teste-B".
+2. **Paredes, curvas e esquinas.** No Pavimento 1, **Arquitetura > Construir > Parede**: feche um ambiente de cerca de 5 × 4 m, faça um encontro em "T", desenhe **duas ou três paredes curvas** (**Forma: Arco (3 pontos)** na barra da ferramenta) e nas esquinas troque a junção para **Esquadria** (**Propriedades > "Início: junção" / "Fim: junção"**, em vez de "Encosto"). Coloque uma **Porta** numa das paredes.
+3. **Piso vinculado ao ambiente.** Ainda no Pavimento 1, **Arquitetura > Construir > Piso > Piso: Arquitetônico**; na barra de opções marque **Vincular às paredes (esboço por perímetro)**, escolha uma forma na galeria **Desenhar** (por exemplo Retângulo), desenhe sobre o ambiente e clique **Concluir**. No painel, o grupo **Contorno** deve dizer "Vinculado às paredes (modo: ...)".
+4. **Términos de camada.** Com o piso selecionado: **Propriedades > Tipo de piso > lápis**; na linha da camada clique **Mais** e, em **Término nas paredes**, escolha **Até a face de acab.**; duplique o tipo e faça variantes com `Automático`, `Até o núcleo da parede`, `Passa por baixo`, `Até a prioridade ≤ N` (3) e `Deslocamento (cm)` (+2 e depois −2), e, se o tipo permitir, uma membrana de espessura zero. Em **Limite no perímetro**, teste "Até face ext. parede".
+5. **Laje reta.** No Pavimento 2, **Arquitetura > Construir > Piso > Piso: Estrutural (Laje)**, com **Vincular às paredes** marcado e um tipo com camadas, término e membrana. Essa laje recebe o furo da escada no passo 7.
+6. **Laje inclinada.** Crie outra laje no Pavimento 2; com ela selecionada, **Lajes > Editar forma > Inclinação**: clique na origem do caimento, clique na direção, digite o percentual (por exemplo 2) e tecle **Enter**. Confira em **Propriedades > Caimento**.
+7. **Escada com furo.** **Arquitetura > Circulação > Escada > Escada por lances**: clique no centro do primeiro espelho e na direção de subida; em **Propriedades**, escolha **Abertura da laje = Pé-direito livre** e depois repita com "Contorno completo" e "Sem abertura". O furo deve sair no piso/laje do Pavimento 2, não no Pavimento 1.
+8. **Parede de dois pavimentos atravessando a laje.** Com o **Pavimento 2** como nível ativo, **Parede** com **Desloc. da base = −3,00 m** (a base desce ao Pavimento 1) e o topo acima do piso/laje do Pavimento 2 — por exemplo **Nível superior: Até Pavimento 2** com **Desloc. do topo = +3,00 m** (ou **Nível superior: Por altura** com Altura = 6,00 m). Na **Propriedades** da parede, teste também **Topo no piso: Anexar** — é o caso do defeito conhecido da junção (faixa inclinada com topo anexado cruzando laje). Duplique o projeto e faça variantes (todos os términos, sem vínculo, sem inclinação, escada sem abertura) para comparar; não altere os seus projetos reais.
+
+## Resumo da fatia B
+
+- **Portado para o Rust:** B1 — pisos e lajes (camadas, cotas, inclinação, membrana, furos de escada); B2 — contornos de camada e términos usando as paredes (`auto`, `face`, `núcleo`, `passa`, `até`, `cm`, zonas por parede e portas que chegam ao piso); B3 — junção entre pavimentos (cortadores e partes), implementada; B5 — flag `?kernelFatias=A,B` / `?kernel=rust` / localStorage `hestia:kernel:fatias`, despacho de pisos e lajes, modo sombra e diagnóstico no diálogo Experimentais (menu Arquivo). O padrão continua TypeScript e queda do Rust volta sozinha ao TS.
+- **Despachado:** a B3 é calculada pelo Rust quando a fatia B está ligada, com volta ao TypeScript em caso de falha. A saída 3 da B3 corrige o defeito conhecido do Rust em paredes com faixas inclinadas (topo anexado ou com perfil) cruzadas por laje, de até 0,41 m² em testes sintéticos: os 5 casos do defeito passam; semente 7 pavimento 3 reprova por defeito antigo do limiar de corte (ver docs/decisoes/0050). O caminho antigo, sem a seção nova, mantém o defeito. **B4 adiada:** altura e perfis das paredes anexadas continuam sendo calculados pelo JS.
+- **Validação automática:** CI do PR #5 verde (check, completo, perf, wasm e wasm-pesado); nos seus 13 projetos de teste (casas e edifícios de 11 pavimentos) a fatia A teve 156 comparações e a fatia B 52, **zero divergências**; junção no edifício de 11 pavimentos com zero divergências nos 11 pavimentos, inclusive no modo estrito. Cobertura: 11 pisos (2 com furo), 60 lajes (35 com furo de escada), 2433 paredes anexadas, 25 escadas, camadas com término `cm` 198, `face` 44 e `passa` 28, 11 membranas.
+- **Medições:** maior diferença simétrica em pisos e lajes **1,4e-6 m²** (regra da decisão 0049, K adotado 0,08); **K da junção 0,14**. Ganho de desempenho não foi medido (medição formal só no fim da migração).
+- **Decisões:** 0048 (tolerância do pintor) e 0049 (diferença de arredondamento entre bibliotecas), com medição registrada; as tolerâncias seguem 1 µm de coordenada e 1e-6 m²/m³, sem afrouxamento.
+- **Fora da fatia B:** B4; e, não cobertos pelos seus projetos: paredes curvas, esquinas em miter, lajes inclinadas, pisos/lajes vinculados a ambiente, perfil de topo de parede, limite externo de camada, telhados na comparação e escadas como elemento (só os furos).
+- **Pendências:** decidir a saída do defeito das faixas inclinadas (0050) e então despachar a B3; B4; validação visual do dono (roteiro acima); projeto de teste dos casos não cobertos; medição de desempenho no fim da migração.
+
+## Atualização 2026-11-06: só Rust e verificação (ver docs/decisoes/0049)
+
+Esta seção substitui, pela decisão "só Rust", as frases que dizem que uma falha do Rust **volta ao TypeScript** (itens 1 e 7 do roteiro e o item "Despachado" do resumo). Quando a falha ocorrer, o app deve mostrar erro explícito (`ErroKernel`), não o cálculo do TypeScript. O TypeScript fica só como oráculo de teste e no modo sombra. O recuo ainda está no código e a remoção está pendente.
+
+- **Correção I3 (commit 688a96e7):** faixas de junção vindas do TS com vértices a menos de 1e-9 m passam por `normalizar_na_grade` (grade de 1 µm) no Rust, em `crates/geom-wasm/src/b3.rs`.
+- **Volume exato:** `volume_exato_afim`, `volume_por_trechos` (`Span::Perfil`) e `overlap_volume`, com casos analíticos em `crates/geom-wasm/src/volume_sobreposicao.rs`.
+- **Verificação nova:** `tests/kernel-invariantes-rust.wasm.test.ts` (invariantes I1 a I5), mais `cargo test` em `crates/geom-wasm`.
+
+### Atualização 2026-11-06 (2)
+
+- **Rust sempre ligado:** A, B e quantidades só são calculadas pelo Rust, em produção, sem opção de desligar. `?kernel=ts` e `?kernelFatias` só valem em desenvolvimento e nos testes; o diálogo Experimentais ficou só com o modo sombra e o diagnóstico. Isso vale no lugar de "o padrão continua TypeScript" do resumo e do roteiro (a flag `?kernelFatias=A,B` não é mais necessária).
+- **"calculando…":** até o wasm carregar, o editor mostra "calculando…" (`KernelPendente`) e recalcula quando ele chega. O modo sombra devolve o resultado do Rust.
+- **Critério de comparação (dono, 2026-11-06):** diferença por camada ≤ 1e-6 + 1e-6 × Σ(perímetro × cota).
+- **Correções do Rust (commit d71830a2):** furo que sai do contorno deixa de virar região (inflava o corte em 1,6e-4 m² num piso do estresse) e `laje_cobre_piso` passa a comparar na grade de 1 µm, com o fiapo limitado pela grade (perímetro / ESCALA + AREA_EPS).
+
+### Pendente
+
+- Verificação completa nos 11 projetos, só com agregados.
+- Medição de desempenho: feita, ver a seção "Desempenho final (2026-11-07)"; falta DXF/IFC de P6 a P11 e o bench do kernel v1.
+- Validação visual pelo dono, com o roteiro acima.
+
+## Desempenho final (2026-11-07)
+
+- **Correções:** cache do nível resolvido na cena; reenvio de seção idêntica não invalida caches, e a invalidação passa a ser por seção; `sincronizarB` reaproveita as seções; o TS não manda mais as faixas da junção B3 (o Rust usa o próprio resolver); `build-wasm.mjs` respeita `CARGO_TARGET_DIR`.
+- **Medição em projetos reais** (razão Rust/TS; abaixo de 1, o Rust é mais rápido):
+
+| Projeto | Frio | DXF | IFC |
+|---|---|---|---|
+| P1 | 0,47 | 0,93 | 0,73 |
+| P2 | 0,84 | 1,25 (8 contra 10 ms, ruído) | 0,89 |
+| P3 | 0,56 | 0,99 | 0,58 |
+| P10 | 0,42 | 0,72 | 0,38 |
+
+- **Sementes do b6 (quantidades):** 0,78, 0,95, 0,86 e 0,38.
+- **Critério aprovado:** 11 projetos com 0 erros e 0 violações.
+- **Pendente:** DXF e IFC de P6 a P11, e o bench do kernel v1.

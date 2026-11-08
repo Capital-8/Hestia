@@ -1,6 +1,7 @@
 import type { ResolveCache } from '@hestia/engine';
 import { ClienteResolucao, type WorkerLike } from '@hestia/engine/src/worker/cliente.ts';
 import { instalarServidor, type EscopoServidor } from '@hestia/engine/src/worker/servidor.ts';
+import { configDoDespacho } from './preferenciasKernel.ts';
 
 /**
  * Resolução de níveis fora da thread principal (ver `packages/engine/src/worker`). Este arquivo serve aos dois lados:
@@ -21,11 +22,12 @@ const ehEscopoDeWorker = (): boolean => {
  * Cria o cliente de resolução. Com `usarWorker` falso (padrão), tudo roda na thread principal, com o mesmo resultado.
  * Se o navegador não tiver `Worker` (ou ele falhar), o cliente cai para a thread principal sozinho.
  */
-export function criarClienteResolucao(opcoes: { usarWorker?: boolean; cache?: ResolveCache; kernelExperimental?: boolean } = {}): ClienteResolucao {
+export function criarClienteResolucao(opcoes: { usarWorker?: boolean; cache?: ResolveCache } = {}): ClienteResolucao {
   return new ClienteResolucao({
     usarWorker: opcoes.usarWorker ?? false,
     cache: opcoes.cache,
-    kernelExperimental: opcoes.kernelExperimental,
+    // Despacho da fatia A (0047 §12): URL e `localStorage` não chegam ao worker; a configuração viaja em cada pedido.
+    kernelV2: configDoDespacho,
     criarWorker: () => new Worker(new URL('./resolveWorker.ts', import.meta.url), { type: 'module' }) as unknown as WorkerLike,
   });
 }

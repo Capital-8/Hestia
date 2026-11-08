@@ -53,7 +53,11 @@ export interface ImplKernel {
   /** Nome do que está ativo, para o diagnóstico na interface. */
   readonly nome: string;
   uniao(args: MultiPolygon[]): MultiPolygon;
-  diferenca(args: MultiPolygon[]): MultiPolygon;
+  /**
+   * `relevante`: só os subtraendos que cortam de verdade o minuendo entram na conta (o `difference` do `polygon-clipping`, para quem um vizinho que
+   * só encosta não muda nada). Sem ele (padrão), todos entram, como no `differenceClipper`.
+   */
+  diferenca(args: MultiPolygon[], relevante?: boolean): MultiPolygon;
   interseccao(a: MultiPolygon, b: MultiPolygon): MultiPolygon;
   offset(m: MultiPolygon, delta: number): MultiPolygon;
   /** Libera a instância (no wasm, nada a fazer; existe para o teste poder desmontar). */
@@ -71,6 +75,39 @@ export interface EstadoKernel {
   /** Quantas vezes uma chamada do kernel falhou e obrigou a volta para o TypeScript. */
   readonly falhas: number;
 }
+
+/**
+ * Decisão do dono (2026-11-06): em produção o kernel v1 (booleanas e offset) é SEMPRE o Rust. Com o kernel exigido, `operacoesKernel.ts`
+ * nunca devolve resultado do TypeScript: enquanto o wasm carrega lança `KernelV1Pendente`; se o Rust falhar, recusar a entrada ou
+ * estiver indisponível, lança `ErroKernelV1`. Só testes e desenvolvimento (kernel não exigido) usam o TypeScript.
+ */
+export class KernelV1Pendente extends Error {
+  constructor(readonly operacao: string) {
+    super(`kernel Rust v1 (${operacao}): o wasm ainda não carregou; resultado pendente`);
+    this.name = 'KernelV1Pendente';
+  }
+}
+
+/** Falha explícita do kernel v1 exigido: o TypeScript não substitui o Rust. */
+export class ErroKernelV1 extends Error {
+  constructor(
+    readonly operacao: string,
+    mensagem: string,
+  ) {
+    super(`kernel Rust v1 (${operacao}): ${mensagem}`);
+    this.name = 'ErroKernelV1';
+  }
+}
+
+let exigido = false;
+
+/** Liga/desliga a exigência do Rust no v1. Quem chama é o despacho do app (produção) ou um teste. */
+export function exigirKernel(valor: boolean): void {
+  exigido = valor;
+}
+
+/** O Rust é o único caminho do v1 neste realm? */
+export const kernelExigido = (): boolean => exigido;
 
 let impl: ImplKernel | null = null;
 let motivo: string | null = null;
@@ -116,6 +153,7 @@ export function estadoKernel(): EstadoKernel {
 
 /** Zera o estado do módulo. Só para testes. */
 export function resetarEstadoKernel(): void {
+  exigido = false;
   impl = null;
   motivo = null;
   versaoAbi = null;

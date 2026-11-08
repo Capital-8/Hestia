@@ -9,11 +9,22 @@
  * `crates/geom-wasm/src/ops.rs`): quantização a 1 µm e preenchimento non-zero. Isso é o
  * comportamento documentado como o "plano B confiável" de `boolean.ts`.
  *
- * Disjuntor: se uma chamada do kernel lançar, o kernel é desativado para o resto da sessão e a
- * mesma operação é refeita em TypeScript. Um recurso experimental nunca pode derrubar a sessão.
+ * Em produção o kernel é exigido (`exigirKernel`, decisão do dono de 2026-11-06): o TypeScript nunca produz resultado; falha do Rust
+ * é `ErroKernelV1` e wasm ainda carregando é `KernelV1Pendente`. Fora disso (testes, desenvolvimento) vale o disjuntor: se uma chamada
+ * do kernel lançar, ele é desativado para o resto da sessão e a operação é refeita em TypeScript.
  */
 import * as ts from './boolean.ts';
-import { desativarKernel, ErroNaoImplementado, implKernel, registrarFalhaKernel, type ImplKernel } from './kernel/contrato.ts';
+import {
+  desativarKernel,
+  ErroKernelV1,
+  ErroNaoImplementado,
+  estadoKernel,
+  implKernel,
+  KernelV1Pendente,
+  kernelExigido,
+  registrarFalhaKernel,
+  type ImplKernel,
+} from './kernel/contrato.ts';
 import type { MultiPolygon } from './polygon.ts';
 
 /** Nome de cada operação, para a medição e para o diagnóstico. */
@@ -89,21 +100,35 @@ function medir<T>(nome: NomeOperacao, origem: 'ts' | 'rust', fn: () => T): T {
 }
 
 /**
- * Executa no kernel, com disjuntor. Se o kernel lançar, desativa e refaz em TypeScript.
- * `aoFalhar` refaz a operação pelo caminho de sempre.
+ * Executa no kernel. Kernel exigido (produção): nunca devolve resultado do TypeScript. Sem o wasm: `KernelV1Pendente` enquanto carrega
+ * e `ErroKernelV1` se o carregamento falhou ou o kernel foi desativado. Falha do Rust (ou entrada recusada): `ErroKernelV1`.
+ * Kernel não exigido (testes e desenvolvimento): o comportamento de sempre, com disjuntor e refazendo em TypeScript (`aoFalhar`).
  */
 function noKernel<T>(nome: NomeOperacao, op: (k: ImplKernel) => T, aoFalhar: () => T): T {
   const k = implKernel();
-  if (k === null) return medir(nome, 'ts', aoFalhar);
+  const exigido = kernelExigido();
+  if (k === null) {
+    if (!exigido) return medir(nome, 'ts', aoFalhar);
+    const motivo = estadoKernel().motivo;
+    if (motivo === null) throw new KernelV1Pendente(nome);
+    throw new ErroKernelV1(nome, `kernel indisponível: ${motivo}`);
+  }
   return medir(nome, 'rust', () => {
     try {
       return op(k);
     } catch (e) {
-      // Operação que o kernel ainda não implementa (hoje: offset): refaz em TypeScript e MANTÉM o
-      // kernel ativo — não é falha, é cobertura parcial declarada.
+      const texto = e instanceof Error ? e.message : String(e);
+      if (exigido) {
+        // Entrada recusada pelo Rust vale só para esta operação; falha real desativa o kernel (as seguintes recebem o motivo).
+        if (!(e instanceof ErroNaoImplementado)) {
+          registrarFalhaKernel();
+          desativarKernel(`falha em ${nome}: ${texto}`);
+        }
+        throw new ErroKernelV1(nome, texto);
+      }
       if (e instanceof ErroNaoImplementado) return aoFalhar();
       registrarFalhaKernel();
-      desativarKernel(`falha em ${nome}: ${e instanceof Error ? e.message : String(e)}`);
+      desativarKernel(`falha em ${nome}: ${texto}`);
       return aoFalhar();
     }
   });
@@ -120,7 +145,7 @@ export function difference(a: MultiPolygon, ...bs: MultiPolygon[]): MultiPolygon
   const subs = bs.filter((m) => m.length > 0);
   // Mesma referência devolvida hoje por `boolean.ts` quando não há subtraendo.
   if (subs.length === 0) return a;
-  return noKernel('difference', (k) => k.diferenca([a, ...subs]), () => ts.difference(a, ...subs));
+  return noKernel('difference', (k) => k.diferenca([a, ...subs], true), () => ts.difference(a, ...subs));
 }
 
 export function intersection(a: MultiPolygon, b: MultiPolygon): MultiPolygon {

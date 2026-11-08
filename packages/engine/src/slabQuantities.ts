@@ -1,6 +1,8 @@
 import { dist, multiArea, type Vec2 } from '@hestia/geom';
 import type { Id, Project } from '@hestia/model';
 import { resolveSlabs, type ResolvedSlab } from './slabs.ts';
+import { despachanteDeQuantidades } from './resolveDespacho.ts';
+import type { QuantidadesRust } from './quantidadesTipos.ts';
 import { coveredFaceArea, cutVolume, floorCutters, slabCutters, slabLayerPiece, wallCutters, type CutterSolid } from './junctionNet.ts';
 
 /**
@@ -65,12 +67,15 @@ const ringLength = (r: Vec2[]): number => r.reduce((s, p, i) => s + dist(p, r[(i
 /** Área real sobre área em planta de um plano com esse percentual: 1 / cos(atan(|percentual| / 100)). */
 const slopeFactor = (percent: number): number => 1 / Math.cos(Math.atan(Math.abs(percent) / 100));
 
-function quantifySlab(rs: ResolvedSlab, cutters: readonly CutterSolid[]): { slab: SlabQuantity; layers: SlabLayerQuantity[] } {
+function quantifySlab(rs: ResolvedSlab, cutters: readonly CutterSolid[], rust: QuantidadesRust | null): { slab: SlabQuantity; layers: SlabLayerQuantity[] } {
   const planArea = multiArea(rs.polygon);
   const slopePercent = rs.slope?.percent ?? 0;
   const faceArea = planArea * slopeFactor(slopePercent);
   const layers = rs.layers.map<SlabLayerQuantity>((l) => {
     const thickness = l.z1 - l.z0;
+    // Com o Rust, volume e área de face da camada são os dele; a área em planta da camada continua a do polígono resolvido.
+    const q = rust?.camada(rs.slabId, l.layerIndex);
+    if (q) return { slabId: rs.slabId, layerIndex: l.layerIndex, materialId: l.materialId, thickness, planArea: multiArea(l.polygon), faceArea: q.areaDeFace, volume: q.liquido, membrane: l.membrane };
     // Piso e laje mais prioritários (0023 §1, P7) tiram o volume que ocupam; a membrana tira a área de face.
     const piece = slabLayerPiece(rs, l);
     const layerPlan = multiArea(l.polygon);
@@ -112,13 +117,20 @@ function quantifySlab(rs: ResolvedSlab, cutters: readonly CutterSolid[]): { slab
  * planta. Lajes sem tipo válido ou com contorno de menos de 3 pontos não entram (a validação aponta).
  */
 export function quantifySlabs(p: Project, levelId: Id): SlabQuantities {
+  return quantifySlabsCom(p, levelId, despachanteDeQuantidades()?.(p, levelId, 'lajes') ?? null);
+}
+
+/** O motor TypeScript das quantidades de laje, sem despacho: só a referência (oráculo) dos testes do Rust. */
+export const quantifySlabsTs = (p: Project, levelId: Id): SlabQuantities => quantifySlabsCom(p, levelId, null);
+
+function quantifySlabsCom(p: Project, levelId: Id, rust: QuantidadesRust | null): SlabQuantities {
   const slabs: SlabQuantity[] = [];
   const layers: SlabLayerQuantity[] = [];
   const volumeByMaterial: Record<Id, number> = {};
   const faceAreaByMaterial: Record<Id, number> = {};
-  const cutters = [...floorCutters(p, levelId), ...slabCutters(p, levelId), ...wallCutters(p, levelId)];
+  const cutters = rust ? [] : [...floorCutters(p, levelId), ...slabCutters(p, levelId), ...wallCutters(p, levelId)];
   for (const rs of resolveSlabs(p, levelId)) {
-    const q = quantifySlab(rs, cutters);
+    const q = quantifySlab(rs, cutters, rust);
     slabs.push(q.slab);
     for (const l of q.layers) {
       layers.push(l);

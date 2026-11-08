@@ -3,6 +3,7 @@ import type { Id, Project } from '@hestia/model';
 import type { LayerBand, ResolvedLayer, ResolvedWall } from './types.ts';
 import { bandPiece, levelCutterSet, type LevelCutters, type SolidPiece } from './junctionNet.ts';
 import { resolveJunction, type PlanarPiece, type ResolvedPrism } from './junctionPlanar.ts';
+import { despachanteDeJuncao } from './resolveDespacho.ts';
 
 /**
  * Junção resolvida de um nível (decisão 0023 §3 e §10, P7b e P7c). Uma função única para planta, corte, 3D e
@@ -88,6 +89,10 @@ function signature(tagged: readonly Tagged[]): string {
 
 /** Cache por nível e por conteúdo (como o circuito de ambientes, decisão 0023 §11): nível não editado = mesmo resultado. */
 const levelCache = new Map<Id, { sig: string; value: JunctionLevel }>();
+/** Esvazia o cache de junção por nível e conteúdo; ver `cachesDeConteudo.ts`. */
+export function esvaziarCacheDeJuncao(): void {
+  levelCache.clear();
+}
 /** Atalho por snapshot imutável: evita reconstruir assinatura e cortadores quando o mesmo nível é consultado de novo. */
 const projectLevelCache = new WeakMap<Project, Map<Id, JunctionLevel>>();
 /** Conteúdo de cortadores compartilhado entre snapshots também compartilha a junção e sua assinatura. */
@@ -104,11 +109,25 @@ const lostVolume = (t: PlanarPiece, parts: readonly ResolvedPrism[]): boolean =>
   Math.abs(multiArea(t.poly) * (t.z1 - t.z0) - volumeOfParts(parts)) > 1e-9;
 
 /**
+ * Projeto reduzido da junção (`projetoDaJuncao`) -> o projeto inteiro de que saiu. O reduzido é uma cópia rasa com menos níveis, nova a
+ * cada nível, e o kernel Rust trabalha sobre o projeto inteiro (uma única cena, enviada uma vez): quem despacha a junção ao Rust troca o
+ * reduzido pelo inteiro (a junção do nível é a mesma nos dois, que é a garantia da redução).
+ */
+export const projetoInteiroDaJuncao = new WeakMap<Project, Project>();
+
+/**
  * Junção resolvida do nível. Pisos, lajes e paredes com camadas recortadas pela de maior prioridade (`resolveJunction`),
  * com os elementos dos níveis adjacentes como cortadores (P7c, só o que cruza a cota). Lajes com caimento ficam de fora,
  * porque a faixa inclinada não se recorta por aproximação plana (quantitativos já integram).
  */
 export function junctionLevel(p: Project, levelId: Id): JunctionLevel {
+  // Fatia B do kernel Rust (0050, B5): o despachante devolve a junção do Rust, no mesmo tipo, ou cai neste TypeScript.
+  const d = despachanteDeJuncao();
+  return d ? d(p, levelId, () => junctionLevelTs(p, levelId)) : junctionLevelTs(p, levelId);
+}
+
+/** O motor TypeScript da junção, sem despacho (a referência do Rust e o retorno de qualquer falha do kernel). */
+export function junctionLevelTs(p: Project, levelId: Id): JunctionLevel {
   const exact = projectLevelCache.get(p)?.get(levelId);
   if (exact) return exact;
   const remember = (value: JunctionLevel): JunctionLevel => {

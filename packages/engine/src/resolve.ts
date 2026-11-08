@@ -30,6 +30,7 @@ import {
 } from '@hestia/model';
 import { buildFrame, normalAt, pointAt, sAtDepth, tangentAt, toLocal, type WallFrame } from './frame.ts';
 import type { EndSpec, WallEnds } from './joins.ts';
+import { despachanteDeNivel } from './resolveDespacho.ts';
 import { estruturaDasJuncoes, furosDe, pinturasDoCluster, pintarCompartilhado } from './resolveMemo.ts';
 import { endPoint, layerQuad, membranesOf, sideAt, withBottomProfile, withProfile } from './layerGeom.ts';
 import { flatEnd } from './joinSides.ts';
@@ -41,14 +42,15 @@ import { attachTargets } from './attachTargets.ts';
 import { resolveAllRoofs } from './roofs.ts';
 import { wallZRange, type WallZ } from './wallZ.ts';
 import { withWallZ } from './wallFrameZ.ts';
-import { round, ringsOfShape, sigOf } from './geomSig.ts';
+import { round, ringsOfShape, sigCanonica } from './geomSig.ts';
 import type { LayerBand, OpeningGeometry, Region, ResolvedCluster, ResolvedLayer, ResolvedLevel, ResolvedWall } from './types.ts';
 
 const MIN_AREA = 1e-9;
 const EPS_Z = 1e-6;
 const CLUSTER_PAD = 0.02;
 
-interface Item {
+/** Item por camada (e faixa vertical) de uma parede; exportado para a referência da sub-etapa A2 do kernel Rust (decisão 0047). */
+export interface Item {
   wallId: Id;
   layerIndex: number;
   materialId: Id;
@@ -103,7 +105,7 @@ function flatT(f: WallFrame, which: 'a' | 'b', spec: EndSpec, sFace: number): nu
   return toLocal(f, endPoint(f, which, spec, sFace)).t;
 }
 
-function buildItems(
+export function buildItems(
   f: WallFrame,
   ends: WallEnds,
   freeEnds: Array<'a' | 'b'>,
@@ -165,7 +167,7 @@ function buildItems(
 }
 
 /** Algoritmo do pintor por prioridade (docs/05 §1): o menor número de prioridade é aceito primeiro e corta os demais. */
-function paint(items: Item[]): Map<Item, MultiPolygon> {
+export function paint(items: Item[]): Map<Item, MultiPolygon> {
   // Prioridade igual: a parede que atravessa um T vem primeiro (a que chega para na face dela, como no Revit);
   // só depois valem o núcleo mais robusto e a ordem de criação (paredes sobrepostas sem junção).
   const sorted = [...items].sort((x, y) => x.priority - y.priority || Number(y.through) - Number(x.through) || y.coreT - x.coreT || x.order - y.order || x.layerIndex - y.layerIndex);
@@ -192,7 +194,8 @@ function paint(items: Item[]): Map<Item, MultiPolygon> {
   return result;
 }
 
-function clusterWalls(frames: WallFrame[], ends: Map<string, WallEnds>): WallFrame[][] {
+/** Grupos de paredes por caixas sobrepostas (exportada para a referência da sub-etapa A1 do kernel Rust, decisão 0047). */
+export function clusterWalls(frames: WallFrame[], ends: Map<string, WallEnds>): WallFrame[][] {
   const boxes = frames.map((f) => {
     const e = ends.get(f.wall.id)!;
     const pts = [f.sHi, f.sLo].flatMap((s) => [
@@ -346,7 +349,7 @@ function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRang
       const prev = list[list.length - 1];
       const rel0 = za - w.z0;
       const rel1 = zb - w.z0;
-      if (prev && Math.abs(prev.z1 - rel0) < EPS_Z && (prev.poly === poly || sigOf(prev.poly) === sigOf(poly))) prev.z1 = rel1;
+      if (prev && Math.abs(prev.z1 - rel0) < EPS_Z && (prev.poly === poly || sigCanonica(prev.poly) === sigCanonica(poly))) prev.z1 = rel1;
       else list.push({ z0: rel0, z1: rel1, poly });
       bandsOf.set(it, list);
     }
@@ -383,18 +386,22 @@ export type ResolveCache = Map<string, ClusterCore>;
 const sharedCache: ResolveCache = new Map();
 const CACHE_LIMIT = 400;
 
-export function frameOfWall(p: Project, wallId: Id): WallFrame | null {
-  const w = p.elements[wallId];
-  if (!w || w.kind !== 'wall') return null;
-  return buildFrame(w, wallType(p, w));
+/** Esvazia o cache compartilhado dos clusters (padrão de `resolveLevel`); ver `cachesDeConteudo.ts`. */
+export function esvaziarCacheDeClusters(): void {
+  sharedCache.clear();
 }
 
-export function levelFrames(p: Project, levelId: Id): WallFrame[] {
-  const frames = wallsOnLevel(p, levelId).map((w) => buildFrame(w, wallType(p, w))).filter((f): f is WallFrame => f !== null);
-  return withWallZ(p, frames);
-}
+// `frameOfWall` e `levelFrames` moraram aqui; foram para `resolveFrames.ts` (limite de linhas) e seguem exportados por este módulo.
+export { frameOfWall, levelFrames } from './resolveFrames.ts';
 
+/** Com o despachante do kernel Rust instalado (`resolveDespacho.ts`), ele decide o resultado; senão é o TypeScript de sempre. */
 export function resolveLevel(p: Project, levelId: Id, cache: ResolveCache = sharedCache, opts: PlanResolveOptions = {}): ResolvedLevel {
+  const d = despachanteDeNivel();
+  return d ? d(p, levelId, opts, () => resolveLevelTs(p, levelId, cache, opts)) : resolveLevelTs(p, levelId, cache, opts);
+}
+
+/** O motor TypeScript, sem despacho (a referência do Rust e o retorno de qualquer falha do kernel). */
+export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sharedCache, opts: PlanResolveOptions = {}): ResolvedLevel {
   const walls = wallsOnLevel(p, levelId);
   const planOpenSet = opts.planOpenings;
   const planOpen = (id: Id): boolean => !planOpenSet || planOpenSet.has(id);

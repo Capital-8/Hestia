@@ -120,9 +120,9 @@ export async function criarImplKernelDoWasm(fonte: ArrayBuffer | Uint8Array): Pr
       garantirAtivo();
       return executarOperacao(exports, OP.UNIAO, args);
     },
-    diferenca(args: MultiPolygon[]): MultiPolygon {
+    diferenca(args: MultiPolygon[], relevante = false): MultiPolygon {
       garantirAtivo();
-      return executarOperacao(exports, OP.DIFERENCA, args);
+      return executarOperacao(exports, OP.DIFERENCA, args, relevante ? 1 : 0);
     },
     interseccao(a: MultiPolygon, b: MultiPolygon): MultiPolygon {
       garantirAtivo();

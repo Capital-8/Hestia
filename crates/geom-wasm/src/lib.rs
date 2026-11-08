@@ -45,7 +45,45 @@
 
 pub mod ops;
 
+// ABI v2 (decisão 0046): cenas em colunas, consultas e índice espacial. A ABI v1 abaixo continua
+// exportada e inalterada até a fatia A cobrir o mesmo uso.
+pub mod a1;
+pub mod a2;
+pub mod a3;
+pub mod a3b;
+pub mod a3c;
+pub mod a3d;
+pub mod b1;
+pub mod b2;
+pub mod b3;
+pub mod abi2;
+pub mod camadas;
+pub mod cena;
+pub mod envolvimento;
+pub mod consultas;
+pub mod esquema;
+pub mod geo2d;
+pub mod grupos;
+pub mod itens;
+pub mod juncoes;
+pub mod perfil_quant;
+pub mod pintor;
+pub mod quantidades;
+pub mod indice;
+pub mod memoria;
+pub mod quadro;
+pub mod secoes_a1;
+pub mod secoes_a3;
+pub mod secoes_b;
+pub mod volume_sobreposicao;
+#[cfg(test)]
+mod teste_util;
+
 use std::slice;
+
+/// Alocador global contador (`memoria_usada()`); embrulha o alocador padrão.
+#[global_allocator]
+static ALOCADOR: memoria::Contador = memoria::Contador;
 
 /// Versão do ABI. O lado JS recusa um wasm cuja versão não bata.
 pub const VERSAO_ABI: u32 = 1;
@@ -141,23 +179,7 @@ pub extern "C" fn executar(op: u32, n_args: u32, param: f64) -> u32 {
         Some(a) => a,
         None => return ERRO_ENTRADA,
     };
-    let resultado = match op {
-        OP_UNIAO => ops::uniao(&args),
-        OP_DIFERENCA => ops::diferenca(&args),
-        OP_INTERSECAO => {
-            if args.len() != 2 {
-                return ERRO_ENTRADA;
-            }
-            ops::interseccao(&args[0], &args[1])
-        }
-        OP_OFFSET => {
-            if args.len() != 1 {
-                return ERRO_ENTRADA;
-            }
-            ops::offset(&args[0], param)
-        }
-        _ => return ERRO_OP,
-    };
+    let resultado = executar_op(op, &args, param);
     match resultado {
         Ok(m) => {
             let area = area_total(&m);
@@ -165,6 +187,31 @@ pub extern "C" fn executar(op: u32, n_args: u32, param: f64) -> u32 {
             ERRO_OK
         }
         Err(codigo) => codigo,
+    }
+}
+
+/// A operação em si, sem a arena: o que `executar` faz depois de decodificar a entrada. Pura, então os testes a chamam direto.
+///
+/// `param` em `OP_DIFERENCA`: `0` é a diferença de sempre (1 µm, todos os subtraendos); `1` descarta antes os subtraendos que só encostam no
+/// minuendo (ver [`ops::diferenca_relevante`]). Em `OP_OFFSET` é o `delta`; nas demais é ignorado.
+pub(crate) fn executar_op(op: u32, args: &[MultiPoligono], param: f64) -> Result<MultiPoligono, u32> {
+    match op {
+        OP_UNIAO => ops::uniao(args),
+        OP_DIFERENCA if param == 1.0 => ops::diferenca_relevante(args),
+        OP_DIFERENCA => ops::diferenca(args),
+        OP_INTERSECAO => {
+            if args.len() != 2 {
+                return Err(ERRO_ENTRADA);
+            }
+            ops::interseccao(&args[0], &args[1])
+        }
+        OP_OFFSET => {
+            if args.len() != 1 {
+                return Err(ERRO_ENTRADA);
+            }
+            ops::offset(&args[0], param)
+        }
+        _ => Err(ERRO_OP),
     }
 }
 

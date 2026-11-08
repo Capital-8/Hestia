@@ -38,7 +38,7 @@ export function wrappingLayers(type: WallType, side: Side): Wrapper[] {
 export const sidesOf = (m: WrapMode): Side[] => (m === 'both' ? ['exterior', 'interior'] : m === 'none' ? [] : [m]);
 
 /** Alizar da composição gravada no tipo (faces diferentes de 'none' e largura positiva). */
-const compositionCasing = (ot: OpeningType): boolean => {
+export const compositionCasing = (ot: OpeningType): boolean => {
   const k = ot.composition?.casing;
   return !!k && k.faces !== 'none' && k.width > 0;
 };

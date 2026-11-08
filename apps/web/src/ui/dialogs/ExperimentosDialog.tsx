@@ -1,26 +1,76 @@
 ﻿/**
- * Diálogo "Experimentais": liga e desliga o kernel geométrico experimental (Rust/WASM) e mostra o
- * diagnóstico do contrato (`estadoKernel`) e a medição das operações (`medicaoOperacoes`).
- *
- * O flag é uma preferência de APLICAÇÃO (ver `editor/preferenciasKernel.ts`): não entra no projeto nem
- * no arquivo `.hestia`. Este diálogo só grava a preferência e chama a ativação/desativação; a leitura
- * do estado é feita na abertura e a cada alternância — nada de polling.
+ * Diálogo "Experimentais": mostra o diagnóstico do kernel Rust (`estadoKernel`, despacho) e a medição das
+ * operações (`medicaoOperacoes`). O Rust é sempre o caminho de produção: não há interruptor. Só o modo sombra é
+ * preferência de APLICAÇÃO (ver `editor/preferenciasKernel.ts`), fora do projeto e do `.hestia`.
  */
 import { useEffect, useState, type ReactElement } from 'react';
+import { diagnosticoDespacho, type DiagnosticoDespacho } from '@hestia/engine';
 import {
-  ativarKernelExperimental,
-  desativarKernelExperimental,
   estadoKernel,
   medicaoOperacoes,
   type EstadoKernel,
   type MedicaoOperacoes,
 } from '@hestia/geom';
+import { gravarModoSombra, lerModoSombra } from '../../editor/preferenciasKernel.ts';
 import { fmtNum, useT, type Dict, type Lang } from '../../editor/i18n.ts';
-import { kernelExperimentalLigado, lerFlagDaUrl, ligarKernelExperimental } from '../../editor/preferenciasKernel.ts';
 import { useUi } from '../../editor/state.ts';
 import { Dialog } from './Dialog.tsx';
 
 const fechar = (): void => useUi.setState({ dialog: null, dialogArg: null });
+
+/** Textos novos deste diálogo, no mesmo par `pt`/`en` do resto da interface. */
+const TEXTOS = {
+  pt: {
+    fatiasTitulo: 'Kernel v2 (Rust/WASM)',
+    fatiasDica:
+      'As fatias A e B e as quantidades são calculadas pelo Rust, sempre. O que resta aqui é comparar com o TypeScript (modo sombra) e ver o diagnóstico.',
+    reiniciar: 'Preferência salva. Requer recarregar a página para valer.',
+    sombra: 'Modo sombra (Rust e TypeScript na mesma chamada)',
+    despachoTitulo: 'Fatias A e B: despacho e modo sombra',
+    despachoInativo: 'Despacho inativo (wasm ainda não carregado).',
+    despachoEstado: 'Kernel v2',
+    pronto: 'pronto',
+    emFalta: 'indisponível',
+    entregues: 'Níveis entregues pelo Rust',
+    entreguesB: 'Consultas da fatia B entregues (pisos e lajes; a junção segue no TypeScript)',
+    elemento: 'elemento',
+    voltas: 'Voltas ao TypeScript (leves / graves)',
+    recriacoes: 'Recriações da instância',
+    comparacoes: 'Comparações do modo sombra',
+    divergencias: 'Divergências',
+    ultima: 'Última divergência',
+    nenhuma: 'nenhuma',
+    nivel: 'nível',
+    parede: 'parede',
+    campo: 'campo',
+    ultimoErro: 'Último erro',
+  },
+  en: {
+    fatiasTitulo: 'Kernel v2 (Rust/WASM)',
+    fatiasDica:
+      'Slices A and B and the quantities are always computed by Rust. What is left here is comparing with TypeScript (shadow mode) and the diagnostics.',
+    reiniciar: 'Preference saved. Requires reloading the page to take effect.',
+    sombra: 'Shadow mode (Rust and TypeScript in the same call)',
+    despachoTitulo: 'Slices A and B: dispatch and shadow mode',
+    despachoInativo: 'Dispatch inactive (wasm not loaded yet).',
+    despachoEstado: 'Kernel v2',
+    pronto: 'ready',
+    emFalta: 'unavailable',
+    entregues: 'Levels delivered by Rust',
+    entreguesB: 'Slice B queries delivered (floors and slabs; junction stays in TypeScript)',
+    elemento: 'element',
+    voltas: 'Fallbacks to TypeScript (light / severe)',
+    recriacoes: 'Instance recreations',
+    comparacoes: 'Shadow mode comparisons',
+    divergencias: 'Divergences',
+    ultima: 'Last divergence',
+    nenhuma: 'none',
+    nivel: 'level',
+    parede: 'wall',
+    campo: 'field',
+    ultimoErro: 'Last error',
+  },
+} as const;
 
 /** Operações medidas pelo seam do `geom`, na ordem em que aparecem na tabela. */
 const OPERACOES: Array<{ chave: keyof MedicaoOperacoes['porOp']; rotulo: keyof Dict }> = [
@@ -38,54 +88,34 @@ const ms = (valor: number, lang: Lang): string => `${fmtNum(valor, 1, lang)} ms`
 
 export function ExperimentosDialog(): ReactElement {
   const { t, lang } = useT();
-  const [ligado, setLigado] = useState(kernelExperimentalLigado);
   const [estado, setEstado] = useState<EstadoKernel>(estadoKernel);
   const [medicao, setMedicao] = useState<MedicaoOperacoes>(medicaoOperacoes);
-  const [aviso, setAviso] = useState('');
-  const [ocupado, setOcupado] = useState(false);
-  const daUrl = lerFlagDaUrl();
+  // Textos locais só têm pt/en; os demais idiomas caem no inglês até ganharem entrada própria.
+  const tf = TEXTOS[lang === 'pt' ? 'pt' : 'en'];
+  const [avisoFatias, setAvisoFatias] = useState('');
+  const [sombraSalva, setSombraSalva] = useState(lerModoSombra);
+  const [diag, setDiag] = useState<DiagnosticoDespacho | null>(diagnosticoDespacho);
+  // As fatias A e B estão sempre ligadas em produção (`configDoDespacho`): o modo sombra vale sempre que o usuário o liga.
+  const sombra = sombraSalva;
+
+  const alternarSombra = (valor: boolean): void => {
+    gravarModoSombra(valor);
+    setSombraSalva(valor);
+    setAvisoFatias(tf.reiniciar);
+  };
 
   const atualizar = (): void => {
     setEstado(estadoKernel());
     setMedicao(medicaoOperacoes());
+    setDiag(diagnosticoDespacho());
   };
 
   // Abriu o diálogo: lê o estado uma vez. Daqui em diante só atualiza em alternância ou no botão.
   useEffect(() => {
     setEstado(estadoKernel());
     setMedicao(medicaoOperacoes());
+    setDiag(diagnosticoDespacho());
   }, []);
-
-  const ligar = (): void => {
-    ligarKernelExperimental(true);
-    setLigado(true);
-    setOcupado(true);
-    setAviso(t('dlm_msg_kernel_on'));
-    // Fire-and-forget: o contrato do carregador nunca rejeita; o `finally` só atualiza o diagnóstico.
-    void ativarKernelExperimental()
-      .then(
-        () => undefined,
-        () => undefined,
-      )
-      .finally(() => {
-        setOcupado(false);
-        atualizar();
-      });
-  };
-
-  const desligar = (): void => {
-    ligarKernelExperimental(false);
-    desativarKernelExperimental(t('dlm_kernel_reason_user_off'));
-    setLigado(false);
-    setOcupado(false);
-    setAviso(t('dlm_msg_kernel_off'));
-    atualizar();
-  };
-
-  const alternar = (valor: boolean): void => {
-    if (valor) ligar();
-    else desligar();
-  };
 
   return (
     <Dialog
@@ -101,34 +131,48 @@ export function ExperimentosDialog(): ReactElement {
         </>
       }
     >
-      <p className="hint">
-        {t('dlm_kernel_hint_before')}{' '}
-        <strong>{t('dlm_kernel_hint_emph')}</strong>{t('dlm_kernel_hint_after')}{' '}
-        <code>.hestia</code>.
-      </p>
-      <div className="prow">
-        <label htmlFor="kernel-experimental">{t('dlm_kernel_enable')}</label>
-        <div>
-          <input
-            id="kernel-experimental"
-            type="checkbox"
-            checked={ligado}
-            disabled={ocupado}
-            onChange={(e) => alternar(e.target.checked)}
-          />
+      <div className="hint" style={{ marginBottom: 10 }}>
+        <strong>{tf.fatiasTitulo}</strong>
+        <p>{tf.fatiasDica}</p>
+        <div className="prow">
+          <label htmlFor="kernel-sombra">
+            {tf.sombra}
+          </label>
+          <div>
+            <input id="kernel-sombra" type="checkbox" checked={sombra} onChange={(e) => alternarSombra(e.target.checked)} />
+          </div>
+        </div>
+        {avisoFatias ? <p role="status" style={{ margin: '4px 0 10px', color: 'var(--fg-soft)' }}>{avisoFatias}</p> : null}
+        <div id="kernel-despacho" aria-live="polite">
+          <strong>{tf.despachoTitulo}</strong>
+          {diag ? (
+            <ul>
+              <li>
+                {tf.despachoEstado}: {diag.pronto ? tf.pronto : `${tf.emFalta}${diag.indisponivel ? ` (${diag.indisponivel})` : ''}`}
+              </li>
+              <li>
+                {tf.entregues}: {diag.entreguesPeloRust} · {tf.entreguesB}: {diag.entreguesB} · {tf.voltas}: {diag.voltasLeves} / {diag.voltasGraves} · {tf.recriacoes}: {diag.recriacoes}
+              </li>
+              <li>
+                {tf.comparacoes}: {diag.comparacoes} · {tf.divergencias}: {diag.divergencias}
+              </li>
+              <li>
+                {tf.ultima}:{' '}
+                {diag.ultimaDivergencia
+                  ? `${tf.nivel} ${diag.ultimaDivergencia.nivel}, ${diag.ultimaDivergencia.fatia === 'B' && diag.ultimaDivergencia.elemento ? `${tf.elemento} ${diag.ultimaDivergencia.elemento}` : `${tf.parede} ${diag.ultimaDivergencia.parede ?? '—'}`}, ${tf.campo} ${diag.ultimaDivergencia.campo} — ${diag.ultimaDivergencia.mensagem}`
+                  : tf.nenhuma}
+              </li>
+              {diag.ultimoErro ? (
+                <li>
+                  {tf.ultimoErro}: {diag.ultimoErro}
+                </li>
+              ) : null}
+            </ul>
+          ) : (
+            <p>{tf.despachoInativo}</p>
+          )}
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-        <button className="btn primary" onClick={ligar} disabled={ocupado}>{t('dlm_btn_enable')}</button>
-        <button className="btn" onClick={desligar} disabled={ocupado || (!ligado && !estado.ativo)}>{t('dlm_btn_disable')}</button>
-        {ocupado ? <span style={{ color: 'var(--fg-soft)' }}>{t('dlm_msg_activating_wasm')}</span> : null}
-      </div>
-      {daUrl ? (
-        <p className="hint">
-          {t('dlm_kernel_url_before')} <code>kernel={daUrl}</code>{t('dlm_kernel_url_after')}
-        </p>
-      ) : null}
-      {aviso ? <p role="status" style={{ margin: '4px 0 10px', color: 'var(--fg-soft)' }}>{aviso}</p> : null}
       <div className="hint" aria-live="polite">
         <strong>{t('dlm_kernel_status')}</strong>
         <ul>

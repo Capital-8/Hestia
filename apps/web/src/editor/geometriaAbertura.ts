@@ -23,7 +23,7 @@ export const VERSAO_ESQUEMA_CACHE = 1;
  * ele lê: junções, lajes, pisos, kernel) mudar de resultado, SUBA este número, senão o cache devolveria a geometria
  * antiga para o mesmo conteúdo. Teste de regressão: `geometriaAbertura.test.ts` compara o cache com o cálculo fresco.
  */
-export const VERSAO_MOTOR_GEOMETRIA = 1;
+export const VERSAO_MOTOR_GEOMETRIA = 4;
 /** Nome da lista de um nível no cache (ver `chaveDaLista`). */
 const LISTA_NIVEL = 'nivel';
 

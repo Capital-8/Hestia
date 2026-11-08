@@ -1,5 +1,6 @@
 import type { Id, Project } from '@hestia/model';
 import type { ResolveCache } from '../resolve.ts';
+import { registrarDiagnosticoRemoto, type ConfigDespacho } from '../kernelDespacho.ts';
 import { MemoriaPatch } from '../fluxoPatch.ts';
 import { executarResolucao } from './executor.ts';
 import {
@@ -29,12 +30,8 @@ export interface OpcoesClienteResolucao {
   usarWorker?: boolean;
   /** Cache de resolução usado na thread principal (fallback). */
   cache?: ResolveCache;
-  /**
-   * Kernel geométrico experimental (preferência de aplicação). Com `true` (ou função que devolva `true`), os pedidos ao
-   * worker levam `kernel: true` e ele ativa o wasm (ver `PedidoResolucao.kernel`). Ausente/`false`: os pedidos são
-   * exatamente os de antes. O worker é outro realm: não enxerga o `localStorage`, por isso o flag viaja no protocolo.
-   */
-  kernelExperimental?: boolean | (() => boolean);
+  /** Despacho do kernel Rust (fatias A e B e v1; em produção sempre ligado): a configuração que o pedido leva ao worker (função: lida a cada pedido). Ausente ou com a fatia desligada: nada muda. */
+  kernelV2?: ConfigDespacho | (() => ConfigDespacho);
 }
 
 /** Pedido ainda sem resposta: guarda o que é preciso para refazê-lo na thread principal se o worker falhar. */
@@ -76,12 +73,6 @@ export class ClienteResolucao {
   /** `'worker'` quando as resoluções vão para o worker; `'principal'` quando rodam na thread principal. */
   get modo(): 'worker' | 'principal' {
     return this.worker ? 'worker' : 'principal';
-  }
-
-  /** Kernel experimental ligado? Booleano ou função (a função lê a preferência na hora de cada pedido). */
-  private kernelExperimentalLigado(): boolean {
-    const opcao = this.opcoes.kernelExperimental;
-    return typeof opcao === 'function' ? opcao() : opcao === true;
   }
 
   /** Quantos pedidos estão sem resposta (medição e testes). */
@@ -160,7 +151,8 @@ export class ClienteResolucao {
     if (this.worker) {
       const repetido = this.enviado?.projeto === p.projeto && this.enviado.versao === p.versao;
       const mensagem: PedidoResolucao = { id: p.id, tipo: p.tipo, nivel: p.nivel, projeto: repetido ? { versao: p.versao } : { versao: p.versao, estrutura: p.projeto }, base: p.base };
-      if (this.kernelExperimentalLigado()) mensagem.kernel = true;
+      const v2 = typeof this.opcoes.kernelV2 === 'function' ? this.opcoes.kernelV2() : this.opcoes.kernelV2;
+      if (v2?.fatiaA === true || v2?.fatiaB === true) mensagem.kernelV2 = v2;
       try {
         this.worker.postMessage(mensagem);
         if (!repetido) this.enviado = { projeto: p.projeto, versao: p.versao };
@@ -191,6 +183,7 @@ export class ClienteResolucao {
   }
 
   private receber(resposta: RespostaResolucao): void {
+    registrarDiagnosticoRemoto(resposta.kernelDiag);
     const p = this.pendentes.get(resposta.id);
     if (!p) return; // cancelada, substituída ou já respondida: descarta
     this.pendentes.delete(p.id);

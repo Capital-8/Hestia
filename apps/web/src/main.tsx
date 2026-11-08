@@ -1,12 +1,13 @@
 import { createRoot } from 'react-dom/client';
-import { ativarKernelExperimental, estadoKernel, medicaoOperacoes } from '@hestia/geom';
+import { estadoKernel, medicaoOperacoes } from '@hestia/geom';
+import { iniciarDespachoKernel } from '@hestia/engine';
 import './styles.css';
 import './ribbon.css';
 import './appshell.css';
 import './dock.css';
 import './contextmenu.css';
 import { installAppShell } from './editor/appShell.ts';
-import { kernelExperimentalLigado } from './editor/preferenciasKernel.ts';
+import { configDoDespacho } from './editor/preferenciasKernel.ts';
 import { installRecentCommands } from './editor/recentCommands.ts';
 import { instalarConsentimentoAnalytics } from './consentimento.ts';
 import { App } from './App.tsx';
@@ -17,16 +18,12 @@ installRecentCommands();
 
 createRoot(document.getElementById('root')!).render(<App />);
 
-// Kernel geométrico experimental: preferência da aplicação (localStorage, com override por `?kernel=`), desligada por
-// padrão. A ativação é adiada para o navegador ficar ocioso: baixar 358 kB e instanciar o wasm durante o boot competia
-// com a primeira pintura (medido: FCP ~11% pior ao ativar de imediato). Enquanto não fica pronto, o seam usa o
-// TypeScript — nenhum resultado muda. Fire-and-forget: nunca bloqueia e o carregador nunca lança.
-if (kernelExperimentalLigado()) {
-  const ativar = (): void => void ativarKernelExperimental();
-  const g = globalThis as { requestIdleCallback?: (cb: () => void, opcoes?: { timeout: number }) => number };
-  if (typeof g.requestIdleCallback === 'function') g.requestIdleCallback(ativar, { timeout: 4000 });
-  else setTimeout(ativar, 2500);
-}
+// Kernel Rust sempre ativo em produção (decisão do dono de 2026-11-06): fatias A e B do v2 (0047 §12, 0050) e kernel v1 (booleanas e offset). Só em DEV a URL (`?kernel=ts`, `?kernelFatias=`) desliga, para depuração. `resolveLevel` passa a pedir o nível ao Rust
+// (no modo sombra, também compara com o TS, que nunca é o resultado exibido). O despacho é instalado já no boot: até o wasm carregar, o editor mostra
+// "calculando…" (`kernelPendente`) em vez de resultado do TypeScript, e recalcula quando ele chega. Se o wasm falhar, o erro é explícito (nunca TypeScript). Sem a
+// fatia ligada (só DEV), nada é instalado nem baixado.
+const despacho = configDoDespacho();
+if (despacho.fatiaA || despacho.fatiaB) void iniciarDespachoKernel(despacho);
 
 // Ganchos de depuração para testes no navegador (?debug=1). `resolveSlabs` e `resolveFloors` deixam o e2e medir o furo da
 // escada na laje e a área de cada camada de piso (decisão 0025); `junctionLevel` e `cutLevelByJunction` deixam o e2e

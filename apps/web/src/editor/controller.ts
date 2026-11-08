@@ -26,7 +26,6 @@ import {
 import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, sectionInferContext, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId, pickRefCommands } from '@hestia/tools';
 import { ResolucaoCancelada } from '@hestia/engine/src/worker/protocolo.ts';
 import type { ClienteResolucao } from '@hestia/engine/src/worker/cliente.ts';
-import { kernelExperimentalLigado } from './preferenciasKernel.ts';
 import { criarClienteResolucao } from './resolveWorker.ts';
 import { transfer } from './transfer.ts';
 import type { PastePreviewState } from './pasteLevels/types.ts';
@@ -379,7 +378,7 @@ export class Editor {
     const project = this.project;
     if (this.sectionPending.get(id) === project) return;
     this.sectionPending.set(id, project);
-    this.sectionClient ??= criarClienteResolucao({ usarWorker: true, kernelExperimental: kernelExperimentalLigado() });
+    this.sectionClient ??= criarClienteResolucao({ usarWorker: true });
     const version = this.store.version;
     void this.sectionClient.resolver('corte', id, project, version).then(
       (value) => {
