@@ -8,6 +8,11 @@ export interface ConfigDespacho {
   fatiaB: boolean;
   /** Modo sombra (`hestia:kernel:sombra`); vale para cada fatia ligada (sem fatia ligada não faz nada). */
   sombra: boolean;
+  /**
+   * URL absoluta do `geom_wasm.wasm`, calculada na página. O worker não pode deduzi-la do próprio `location`: no servidor de desenvolvimento ele
+   * fica em `/@fs/.../src/editor/` (o servidor devolve o index.html) e em worker de blob não há base. Ausente: relativa ao `location` (thread principal).
+   */
+  urlWasm?: string;
 }
 
 export const CONFIG_PADRAO: ConfigDespacho = { fatiaA: false, fatiaB: false, sombra: false };

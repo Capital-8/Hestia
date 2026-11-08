@@ -18,6 +18,15 @@ const ehEscopoDeWorker = (): boolean => {
   return g.window === undefined && typeof g.WorkerGlobalScope === 'function' && (globalThis as unknown) instanceof g.WorkerGlobalScope;
 };
 
+/** URL absoluta do wasm do kernel, relativa à página (o worker não a deduz do próprio endereço: ver `ConfigDespacho.urlWasm`). */
+const urlDoWasmDaPagina = (): string | undefined => {
+  try {
+    return new URL('geom_wasm.wasm', location.href).href;
+  } catch {
+    return undefined;
+  }
+};
+
 /**
  * Cria o cliente de resolução. Com `usarWorker` falso (padrão), tudo roda na thread principal, com o mesmo resultado.
  * Se o navegador não tiver `Worker` (ou ele falhar), o cliente cai para a thread principal sozinho.
@@ -27,7 +36,7 @@ export function criarClienteResolucao(opcoes: { usarWorker?: boolean; cache?: Re
     usarWorker: opcoes.usarWorker ?? false,
     cache: opcoes.cache,
     // Despacho da fatia A (0047 §12): URL e `localStorage` não chegam ao worker; a configuração viaja em cada pedido.
-    kernelV2: configDoDespacho,
+    kernelV2: () => ({ ...configDoDespacho(), urlWasm: urlDoWasmDaPagina() }),
     criarWorker: () => new Worker(new URL('./resolveWorker.ts', import.meta.url), { type: 'module' }) as unknown as WorkerLike,
   });
 }

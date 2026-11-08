@@ -1,4 +1,4 @@
-import { KernelV1Pendente } from '@hestia/geom';
+import { baixarAssetDoWasm, KernelV1Pendente } from '@hestia/geom';
 import type { Id, Project } from '@hestia/model';
 import { MemoriaPatch } from '../fluxoPatch.ts';
 import { aguardarKernel, diagnosticoLocalDoDespacho, iniciarDespachoKernel, KernelPendente } from '../kernelDespacho.ts';
@@ -84,7 +84,7 @@ export function instalarServidor(escopo: EscopoServidor, executor: Executor = cr
       return;
     }
     // Despacho das fatias A e B e kernel v1 (0047 §12, 0050; decisão do dono de 2026-11-06): o Rust é o único caminho de produção; a configuração viaja no pedido; o wasm carrega em segundo plano e, até ficar pronto, os pedidos esperam (`KernelPendente`), nunca valem o TS.
-    if (mensagem.kernelV2?.fatiaA === true || mensagem.kernelV2?.fatiaB === true) void iniciarDespachoKernel(mensagem.kernelV2);
+    if (mensagem.kernelV2?.fatiaA === true || mensagem.kernelV2?.fatiaB === true) void iniciarDespachoKernel(mensagem.kernelV2, mensagem.kernelV2.urlWasm ? () => baixarAssetDoWasm(mensagem.kernelV2!.urlWasm) : undefined);
     // O projeto é fixado ao chegar o pedido (não ao executá-lo): um pedido da fila de uma versão antiga não vê a seguinte.
     const { versao, estrutura } = mensagem.projeto;
     if (estrutura) ultimo = { versao, estrutura };
