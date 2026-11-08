@@ -127,7 +127,8 @@ export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>):
   const allIds = Object.keys(p.elements);
   const isolateSet = new Set(isolateIds);
   const baseHidden = isolateIds.length > 0 ? allIds.filter((id) => !isolateSet.has(id)) : uniq([...permanentIds, ...tempIds]);
-  const revealedIds = reveal ? uniq([...permanentIds, ...tempIds]) : [];
+  // Reveal mostra tudo o que está fora da vista: ocultos (permanente/temporário), isolados-fora e categorias.
+  const revealedIds = reveal ? baseHidden : [];
   const revealed = new Set(revealedIds);
   const hidden = new Set(baseHidden.filter((id) => !revealed.has(id)));
   const temporary = !!(temp.hidden || temp.isolated || temp.reveal);
@@ -174,11 +175,19 @@ export function unhideInView(elements: readonly Id[], categories: readonly Graph
   const target = viewHiddenTargetOf(st);
   if (!target) return;
   const atual = permanentHiddenOf(editor.project, target);
-  const hidden = removeHidden(atual, {
+  const remover = {
     ...(elements.length ? { elements: [...elements] } : {}),
     ...(categories.length ? { categories: [...categories] } : {}),
-  });
-  editor.store.exec({ type: 'setViewHidden', target, hidden }, 'eds_undo_unhide_view');
+  };
+  const hidden = removeHidden(atual, remover);
+  // Oculto temporário (HH) e isolamento (HI): o elemento reexibido sai do oculto, sem tocar no modo Reveal.
+  const key = visibilityKeyOf(st);
+  const temp = key ? st.viewTemp[key] : undefined;
+  if (key && temp?.hidden) setTemp({ hidden: removeHidden(temp.hidden, remover) });
+  if (key && temp?.isolated) setTemp({ isolated: mergeHidden(temp.isolated, remover) });
+  if (JSON.stringify(hidden ?? {}) !== JSON.stringify(atual)) {
+    editor.store.exec({ type: 'setViewHidden', target, hidden }, 'eds_undo_unhide_view');
+  }
   redesenhar();
   useUi.setState({ status: { key: 'eds_msg_unhidden_done' } });
 }

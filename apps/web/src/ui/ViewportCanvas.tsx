@@ -7,7 +7,7 @@ import { editor } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
 import { transfer } from '../editor/transfer.ts';
 import { consumirManterCameraDaPrevia, guardarCamera, limparPreviaPreparada, montarPrevia, previaPreparada, restaurarCamera, type CameraDaPrevia } from '../editor/pastePreview.ts';
-import { visibilityOf } from '../editor/viewVisibility.ts';
+import { visibilityKeyOf, visibilityOf } from '../editor/viewVisibility.ts';
 import { usePerimeter } from '../editor/perimeter.ts';
 import { hoverSectionAt, sectionPickAt } from '../editor/sectionPick.ts';
 import { gestoDoBotaoNoCorte, idsNaCaixaDoCorte, modoDaCaixa, selecaoComCaixa } from '../editor/sectionBoxSelect.ts';
@@ -129,6 +129,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   // Só o que a própria tela lê: a mudança de outros campos não re-renderiza a planta (o redesenho sai do agendamento abaixo).
   const ui = useUi(useShallow((s) => ({ view: s.view, gpu: s.gpu, prompt: s.prompt, typed: s.typed, hover: s.hover, tool: s.tool })));
   const selection = useUi((s) => s.selection);
+  const revealing = useUi((s) => { const k = visibilityKeyOf(s); return k ? s.viewTemp[k]?.reveal === true : false; });
   /** Prévia do Colar alinhado (só reage ao estado; quem o preenche é o controlador). */
   const previewState = useUi((s) => s.pastePreview);
   const frame = useRef(0);
@@ -1155,7 +1156,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   return (
     <div
       ref={host}
-      className="canvas-wrap"
+      className={revealing ? 'canvas-wrap revealing' : 'canvas-wrap'}
       style={{ cursor: cursorCss }}
       onPointerDown={onDown}
       onPointerMove={onMove}
