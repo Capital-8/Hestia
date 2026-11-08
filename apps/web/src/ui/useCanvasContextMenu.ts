@@ -10,7 +10,6 @@ import { clickSelect3d, useUi } from '../editor/state.ts';
 import { transfer } from '../editor/transfer.ts';
 import { hideSelectedCategoryInView, hideSelectionInView, revealActive, selectedCategories, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideAllInView, unhideSelectedCategoryInView, unhideSelectionInView, visibilityOf } from '../editor/viewVisibility.ts';
 import { startCreateSimilar } from '../editor/createSimilar.ts';
-import { selecionarVisiveis3D } from '../editor/vista3dAoVivo.ts';
 import { comEditarPerimetro, EDITAR_PERIMETRO_ID, idPerimetroEditavel } from './perimeter/perimeterEditavel.ts';
 
 /** Menu aberto: posição na tela, o contexto em que foi montado e as entradas. */
@@ -113,8 +112,8 @@ export function executaComandoDoMenu(id: string, view: MenuView, camera: Camera3
     case 'copySelection': editor.copySelection(); return;
     case 'pasteAligned': editor.pasteAligned(); return;
     case 'pasteAlignedLevels': editor.openPasteLevelsDialog(); return;
-    // Na 3D, "visíveis na vista" são os elementos do quadro (mesma regra do Ctrl+A); na planta, o mesmo tipo do nível.
-    case 'selectAllView': if (view === '3d') selecionarVisiveis3D(); else editor.selectAllOfSelectedType(); return;
+    // Selecionar todas as instâncias: o mesmo tipo da seleção no nível (critério único da planta, também na 3D).
+    case 'selectAllView': editor.selectAllOfSelectedType(); return;
     case 'createSimilar': startCreateSimilar(editor.project, (id) => editor.setTool(id)); return;
     case 'hideElements': hideSelectionInView(); return;
     case 'hideCategory': hideSelectedCategoryInView(); return;

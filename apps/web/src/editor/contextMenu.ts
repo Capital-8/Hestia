@@ -118,7 +118,6 @@ export function buildContextMenu(ctx: ContextMenuCtx): MenuEntry[] {
   const T = (k: Chave): string => t(ctx.lang, TEXTOS[k]);
   const soon = (id: string, label: string, extra: Partial<MenuEntry> = {}): MenuEntry => ({ id, label, disabled: true, soon: true, hint: T('soon'), ...extra });
   const plan = ctx.view !== '3d';
-  const na3d = ctx.view === '3d';
 
   const recentItem: MenuEntry = ctx.recent.length
     ? { id: 'recentes', label: T('recent'), children: ctx.recent.map((r) => ({ id: `recent:${r.id}`, label: r.label })) }
@@ -176,8 +175,8 @@ export function buildContextMenu(ctx: ContextMenuCtx): MenuEntry[] {
     const kind = ctx.selectionKinds[0] ?? '';
     const mesmoTipo = ctx.singleType;
     const criar = criarSemelhante(ctx, T);
-    // Na 3D, "Visíveis na vista" seleciona o que está no quadro: não exige um só tipo na seleção.
-    const visiveisOk = na3d || mesmoTipo;
+    // Selecionar todas as instâncias precisa de um só tipo na seleção, na 3D e na planta (mesmo critério).
+    const visiveisOk = mesmoTipo;
     const selecionarTodas: MenuEntry = {
       id: 'selectAll',
       label: T('selectAll'),
@@ -229,17 +228,6 @@ export function buildContextMenu(ctx: ContextMenuCtx): MenuEntry[] {
       { id: 'selectPrevious', label: T('selectPrevious'), disabled: !ctx.canSelectPrevious, hint: ctx.canSelectPrevious ? undefined : T('noPrevious') },
       ...locate,
     ]);
-    // Na 3D, sem seleção, "Visíveis na vista" continua disponível (seleciona o que está no quadro).
-    if (na3d) {
-      grupos.push([{
-        id: 'selectAll',
-        label: T('selectAll'),
-        children: [
-          { id: 'selectAllView', label: T('selectAllView') },
-          soon('selectAllProject', T('selectAllProject')),
-        ],
-      }]);
-    }
     grupos.push([...steer, ...zoom]);
   }
   if (ctx.hasHidden) grupos.push([{ id: 'unhideAll', label: T('unhideAll') }]);
