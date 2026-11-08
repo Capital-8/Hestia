@@ -113,8 +113,6 @@ function revealedOutlineOps(input: PlanInput, ctx: PlanContext): PlanOps {
       continue;
     }
     if (isOpening(e)) {
-      // Abertura de parede oculta não volta sozinha: o vão não tem mais hospedeiro desenhado.
-      if (hidden?.has(e.hostId)) continue;
       const f = frameOfWall(p, e.hostId);
       if (!f) continue;
       const g = openingGeometry(p, e, f);

@@ -18,7 +18,6 @@ export function openingTagLabels(p: Project, levelId: Id, paint: PlanPaint, scal
   const out: LabelOp[] = [];
   if (!paint.visible || p.settings.showOpeningTags !== true) return out;
   for (const f of levelFrames(p, levelId)) {
-    if (hidden?.has(f.wall.id)) continue;
     for (const o of aberturasDaParede(p, f.wall.id)) {
       if (hidden?.has(o.id)) continue;
       const type = openingTypeById(p, o.typeId);

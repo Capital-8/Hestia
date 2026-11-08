@@ -947,14 +947,13 @@ export class ModelScene {
     // Esquadrias: cada uma tem o seu grupo (no vão); as peças fixas são juntadas por material dentro dele, e a folha aberta
     // fica no pivô da dobradiça.
     for (const w of wallsOnLevel(p, lv.levelId)) {
-      // Parede oculta: as aberturas dela também não entram (nem no modelo, nem no picking, nem no Reveal).
-      if (oculto(w.id)) continue;
+      // A visibilidade da esquadria é dela (`oculto(o.id)`): a parede oculta não leva as aberturas junto.
       const f = frameOfWall(p, w.id);
       if (!f) continue;
       for (const o of openingsOfWall(p, w.id)) {
         if (oculto(o.id)) continue;
         // Base e altura resolvidas (paredes anexadas a pisos mudam de cota); sem resolução, as do modelo.
-        const rw = lv.walls[w.id];
+        const rw = lvBase.walls[w.id];
         const baseZ = rw?.baseZ ?? wallBaseElevation(p, w);
         const altura = rw?.height ?? wallHeight(p, w);
         const linhas = isLineStyle(view.style);
