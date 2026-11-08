@@ -369,4 +369,18 @@ describe('mensagens malformadas', () => {
     expect(s.f.ov[TEST_RENDERER_MANIFEST.id]).toBeUndefined();
     expect(s.f.writes.length).toBe(0);
   });
+  it('quadro numerado inválido ainda consome o seq: a mensagem válida seguinte NÃO vira out_of_order', async () => {
+    const s = setup();
+    s.host.enable('renderer', ALL);
+    await flush();
+    const p = s.last();
+    p.peer.send({ t: 'overrides.set', materialId: 'mat1', override: { opacity: 9 } } as never);
+    p.peer.send({ t: 'overrides.set', materialId: 'mat1', override: { color: '#445566' } });
+    await flush();
+    expect(p.errors.some((e) => e.code === 'out_of_order')).toBe(false);
+    expect(p.errors.filter((e) => e.code === 'bad_request').length).toBe(1);
+    expect(s.f.ov[TEST_RENDERER_MANIFEST.id]!.mat1!.color).toBe('#445566');
+    expect(s.host.get('renderer')!.state).toBe('connected');
+    expect(p.peer.pendingAcks).toBe(0);
+  });
 });

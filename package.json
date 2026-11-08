@@ -29,6 +29,7 @@
     "test:rapido:esquadria": "node scripts/test-esquadria.mjs",
     "test:completo": "node scripts/completo.mjs",
     "visual:juntas": "vite-node scripts/visual-juntas.mts && node scripts/visual-juntas.shot.mjs",
+    "test:rust-processo": "vitest run --config vitest.integration.config.ts",
     "test:perf": "vitest run --config vitest.perf.config.ts",
     "bench:interacao": "vite-node scripts/bench-interacao.mts",
     "perf:browser": "node tests/e2e/perf-browser.mjs",

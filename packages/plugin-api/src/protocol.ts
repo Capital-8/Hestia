@@ -80,7 +80,11 @@ export function encode(m: Message): string {
   return JSON.stringify(m);
 }
 
-export type DecodeResult = { ok: true; message: Message } | { ok: false; error: ProtocolError };
+/**
+ * Em caso de falha, `seq` e `id` aparecem quando o quadro era uma mensagem numerada bem formada no envelope mas com
+ * campos inválidos: o receptor ainda precisa CONSUMIR esse `seq` (ack), senão a próxima mensagem parece um salto.
+ */
+export type DecodeResult = { ok: true; message: Message } | { ok: false; error: ProtocolError; seq?: number; id?: string };
 
 const MAX_FRAME_CHARS = 64 * 1024 * 1024;
 
@@ -95,7 +99,14 @@ export function decode(frame: unknown): DecodeResult {
   if (!KNOWN_TYPES.has(m.t)) return { ok: false, error: { code: 'unknown_type', message: `Tipo desconhecido: ${String(m.t).slice(0, 40)}`, fatal: false } };
   if (m.seq !== undefined && !Number.isInteger(m.seq)) return { ok: false, error: { code: 'bad_frame', message: '"seq" inválido.', fatal: false } };
   const bad = validateMessage(m);
-  if (bad) return { ok: false, error: { code: 'bad_request', message: `${m.t}: ${bad}`, fatal: false, detail: { type: m.t } } };
+  if (bad) {
+    return {
+      ok: false,
+      error: { code: 'bad_request', message: `${m.t}: ${bad}`, fatal: false, detail: { type: m.t } },
+      ...(ACKED_TYPES.has(m.t) && m.seq !== undefined ? { seq: m.seq } : {}),
+      ...(typeof m.id === 'string' && m.id.length <= 64 ? { id: m.id } : {}),
+    };
+  }
   const img = findImagePayload(v);
   if (img) return { ok: false, error: { code: 'image_payload_forbidden', message: `Imagem não é meio de sincronização (${img}).`, fatal: false } };
   return { ok: true, message: m };

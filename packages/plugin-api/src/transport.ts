@@ -146,8 +146,10 @@ export class Peer {
     const r = decode(frame);
     if (!r.ok) {
       if (r.error.fatal) { this.fatal(r.error); return; }
+      // Mensagem numerada com campos inválidos: consome o seq (ack) para a ordem não quebrar e devolve o erro.
+      if (r.seq !== undefined && !this.consume(r.seq)) return;
       this.o.onBadFrame?.(r.error);
-      this.sendError(r.error);
+      this.sendError(r.error, r.id);
       return;
     }
     const m = r.message;
@@ -160,12 +162,18 @@ export class Peer {
     if (ACKED_TYPES.has(m.t)) {
       const seq = m.seq;
       if (seq === undefined) { this.o.onBadFrame?.({ code: 'bad_frame', message: `"${m.t}" sem seq.`, fatal: false }); return; }
-      if (seq <= this.lastRx) { this.send({ t: 'ack', ack: seq }); return; } // duplicata: reconfirma, não reprocessa
-      if (seq !== this.lastRx + 1) { this.fatal({ code: 'out_of_order', message: `seq ${seq} depois de ${this.lastRx}`, fatal: true }); return; }
-      this.lastRx = seq;
-      this.send({ t: 'ack', ack: seq });
+      if (!this.consume(seq)) return;
     }
     this.o.onMessage(m);
+  }
+
+  /** Registra o `seq` recebido. false = duplicata ou salto (já tratados); true = novo, em ordem, confirmado. */
+  private consume(seq: number): boolean {
+    if (seq <= this.lastRx) { this.send({ t: 'ack', ack: seq }); return false; } // duplicata: reconfirma, não reprocessa
+    if (seq !== this.lastRx + 1) { this.fatal({ code: 'out_of_order', message: `seq ${seq} depois de ${this.lastRx}`, fatal: true }); return false; }
+    this.lastRx = seq;
+    this.send({ t: 'ack', ack: seq });
+    return true;
   }
 
   private tick(): void {

@@ -19,7 +19,7 @@ manifesto não tem caminho de executável. Não há loja nem download automátic
   alvo": `up` e roll do plugin são descartados.
 - As substituições entram no desfazer do projeto; o `projectUid` é criado no primeiro uso (marca o projeto como alterado).
 
-## Pendências (dependem do renderizador Rust)
-Servidor WebSocket e `hello` no renderizador; validação ponta a ponta em **processo separado**; token de pareamento;
-transporte binário; texturas; validação visual da extração de geometria num projeto real. **Até lá a integração com o
-renderizador NÃO está validada**: só o protocolo e o gerenciador, contra o plugin de teste em memória.
+## Pendências
+O protocolo está validado contra um **processo Rust separado** por WebSocket real ([06](06-validacao-processo-rust.md)); o
+processo ainda **não desenha**. Pendentes: **token de pareamento ([07](07-pareamento-por-token.md), obrigatório antes de uso
+real)**, geometria de um projeto real, transporte binário, texturas, Linux/macOS.
