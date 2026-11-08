@@ -58,6 +58,8 @@ export interface ToolEnv {
   project(): Project;
   /** Presente quando a vista ativa é um corte/elevação; ausente na planta e no 3D. */
   section?(): SectionToolContext | null;
+  /** A vista ativa é um corte/elevação, mesmo que o cálculo (worker) ainda não tenha terminado. Escolhe a ferramenta certa. */
+  isSectionView?(): boolean;
   levelId(): Id;
   selection(): Id[];
   setSelection(ids: Id[]): void;

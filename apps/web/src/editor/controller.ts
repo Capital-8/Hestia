@@ -173,6 +173,7 @@ export class Editor {
   private env: ToolEnv = {
     project: () => this.store.project,
     levelId: () => useUi.getState().levelId,
+    isSectionView: () => { const st = useUi.getState(); return st.view === 'section' && !!st.sectionId; },
     section: () => {
       const st = useUi.getState();
       if (st.view !== 'section' || !st.sectionId) return null;
