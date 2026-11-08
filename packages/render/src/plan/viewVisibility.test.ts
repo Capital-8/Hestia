@@ -152,3 +152,35 @@ describe('PlanFrame: hidden/revealed entram na chave das camadas', () => {
     expect(planFrameUpdateOf(estado({ hidden: new Set(['w1']) })).geometryKey).toBe(oculto.geometryKey);
   });
 });
+
+/** Todos os ids do projeto menos os isolados: é o `hidden` que o Isolar produz. */
+const isolando = (...manter: Id[]): Set<Id> => new Set(Object.keys(p.elements).filter((id) => !manter.includes(id)));
+
+describe('Elemento hospedado tem visibilidade própria (planta)', () => {
+  it('ocultar a parede mantém o símbolo da porta', () => {
+    const ops = buildPlanGeometry(entrada(p, { hidden: new Set(['w0']) }));
+    expect(simboloDaPorta(ops)).toBeGreaterThan(0);
+    expect(coberto(ops, 1, 0)).toBe(false);
+  });
+
+  it('isolar a porta mostra só a porta: sem parede, sem piso', () => {
+    const ops = buildPlanGeometry(entrada(p, { hidden: isolando('d1') }));
+    expect(simboloDaPorta(ops)).toBeGreaterThan(0);
+    expect(coberto(ops, 1, 0)).toBe(false);
+    expect(coberto(ops, 6, 2)).toBe(false);
+    expect(coberto(ops, 11, 11)).toBe(false);
+  });
+
+  it('isolar as paredes mostra as paredes sem a esquadria', () => {
+    const ops = buildPlanGeometry(entrada(p, { hidden: isolando('w0', 'w1', 'w2', 'w3') }));
+    expect(coberto(ops, 6, 2)).toBe(true);
+    expect(simboloDaPorta(ops)).toBe(0);
+  });
+
+  it('isolar parede + porta mostra os dois', () => {
+    const ops = buildPlanGeometry(entrada(p, { hidden: isolando('w0', 'd1') }));
+    expect(coberto(ops, 1, 0)).toBe(true);
+    expect(simboloDaPorta(ops)).toBeGreaterThan(0);
+    expect(coberto(ops, 6, 2)).toBe(false);
+  });
+});

@@ -170,15 +170,12 @@ function openingSymbolStrokes(
   limiares: Limiares,
   view: PlanView | null,
   hidden: ReadonlySet<Id> | undefined,
-  hiddenWalls: ReadonlySet<Id> | undefined,
   oculto?: (q: Vec2) => boolean,
 ): StrokeOp[] {
   if (detail === 'coarse') return [];
   const out: StrokeOp[] = [];
   for (const w of paredesDoNivel(p, levelId)) {
-    // A parede oculta pelo Hide in View leva as aberturas junto (a vista foi resolvida sem ela). A oculta pela categoria
-    // não: a categoria da abertura é outra (a janela continua, como antes).
-    if (hiddenWalls?.has(w.id)) continue;
+    // A visibilidade da abertura é dela (`hidden.has(o.id)`), não do hospedeiro: parede oculta não oculta a esquadria.
     const f = frameOfWall(p, w.id);
     if (!f) continue;
     for (const o of aberturasDaParede(p, w.id)) {
@@ -229,7 +226,7 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   const fillT = input.dark ? 0.5 : 0.58;
 
   // Contexto do nível e da vista (o mesmo que a sobreposição usa): estilo, vista, geometria e ocultos.
-  const { style, rp, view, up, geo, hidden, hiddenWalls, roofOff, roofHidden, stairs, ramps } = planContext(input);
+  const { style, rp, view, up, geo, hidden, roofOff, roofHidden, stairs, ramps } = planContext(input);
   // As anotações e as marcas de corte leem o nível: o projeto sem as ocultas é o que elas desenham (Hide in View).
   const pNotas = semAnotacoesOcultas(p, input.levelId, hidden);
   const { detail, paint } = style;
@@ -412,7 +409,7 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
 
   // Símbolos das aberturas (fora do grosseiro): cortadas, tracejadas acima do corte, leves abaixo; as ocultas saem.
   // Cada um com o estilo da sua categoria (porta ou janela) e a espessura de corte ou de projeção.
-  if (profile.openings && !rp) strokes.push(...openingSymbolStrokes(p, input.levelId, paint, theme, fillBase, detail, input.viewport.zoom, limiares, view, hidden, hiddenWalls, sobCobertura));
+  if (profile.openings && !rp) strokes.push(...openingSymbolStrokes(p, input.levelId, paint, theme, fillBase, detail, input.viewport.zoom, limiares, view, hidden, sobCobertura));
 
   // Telhados (D1): por cima das paredes e dos pisos (semitransparentes); as linhas notáveis saem por último.
   if (profile.roofs !== 'hidden') {

@@ -69,6 +69,28 @@ export function semElementosOcultos(p: Project, hidden: ReadonlySet<Id> | undefi
 }
 
 /**
+ * A vista é resolvida sem as paredes ocultas (junção das vizinhas), o que também a deixa sem as aberturas delas. Elemento
+ * hospedado tem visibilidade própria: aqui o estado de cada abertura de parede oculta (corte, projeção, intervalo,
+ * categoria) volta da vista do projeto inteiro, para ela ser decidida pelo próprio id e não pelo hospedeiro.
+ */
+function comEsquadriasIndependentes(p: Project, view: PlanView, levelId: Id, paredesOcultas: readonly Id[] | undefined): PlanView {
+  if (!paredesOcultas?.length) return view;
+  const donas = new Set(paredesOcultas);
+  const cheia = planViewOf(p, levelId);
+  const cls = new Map(view.cls);
+  const hidden = new Set(view.hidden);
+  const categoryHidden = new Set(view.categoryHidden);
+  for (const [id, e] of Object.entries(p.elements)) {
+    if (!isOpening(e) || !donas.has(e.hostId)) continue;
+    const c = cheia.cls.get(id);
+    if (c) cls.set(id, c);
+    if (cheia.hidden.has(id)) hidden.add(id);
+    if (cheia.categoryHidden.has(id)) categoryHidden.add(id);
+  }
+  return { ...view, cls, hidden, categoryHidden };
+}
+
+/**
  * Junta dois conjuntos de ocultos sem repetição. Sem nenhum id, `undefined` (o caminho comum, sem filtro).
  */
 function uniaoOcultos(a: ReadonlySet<Id> | undefined, b: readonly Id[] | undefined): ReadonlySet<Id> | undefined {
@@ -124,11 +146,6 @@ export interface PlanContext {
   geo: ResolvedLevel;
   /** Ocultos efetivos da vista: intervalo, categoria (em `view`) e Hide in View + temporário (`input.hidden`), sem os revelados. */
   hidden: ReadonlySet<Id> | undefined;
-  /**
-   * Paredes ocultas pelo Hide in View (não pelo intervalo nem pela categoria): são as que a vista resolve fora do nível,
-   * então as aberturas delas também não têm hospedeiro para desenhar.
-   */
-  hiddenWalls: ReadonlySet<Id> | undefined;
   /** Telhados ocultos pela categoria. */
   roofOff: ReadonlySet<Id> | undefined;
   /** Telhados ocultos para a seleção e o realce (a vista, a categoria ou o Hide in View). */
@@ -153,7 +170,7 @@ export function planContext(input: PlanInput): PlanContext {
     return isWall(e) && e.levelId === input.levelId;
   });
   const pVis = paredesOcultas?.length ? projetoSemParedes(p, input.levelId, paredesOcultas) : p;
-  const view = rp ? null : planViewOf(pVis, input.levelId);
+  const view = rp ? null : comEsquadriasIndependentes(p, planViewOf(pVis, input.levelId), input.levelId, paredesOcultas);
   const up = view?.range.direction === 'up';
   const geo: ResolvedLevel = view ? view.geo : input.resolved;
   // `view.hidden` já traz o intervalo e a categoria; ele manda sobre o Reveal (o intervalo não é Hide in View).
@@ -162,6 +179,5 @@ export function planContext(input: PlanInput): PlanContext {
   const roofHidden = view ? hidden : uniaoOcultos(roofOff, doUsuario);
   const stairs = escadasDoNivel(p, input.levelId).filter((s) => !hidden?.has(s.id));
   const ramps = rampasDoNivel(p, input.levelId).filter((r) => !hidden?.has(r.id));
-  const hiddenWalls = paredesOcultas?.length ? new Set(paredesOcultas) : undefined;
-  return { style, rp, view, up, geo, hidden, hiddenWalls, roofOff, roofHidden, stairs, ramps };
+  return { style, rp, view, up, geo, hidden, roofOff, roofHidden, stairs, ramps };
 }
