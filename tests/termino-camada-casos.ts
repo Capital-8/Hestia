@@ -3,7 +3,7 @@
  * TypeScript. Cada caso é um projeto pequeno: paredes de três tipos (substrato dos dois lados, só de um lado e sem substrato), lajes com o
  * término `{ camada }` em todas as camadas e quatro disposições (cruz, perímetro, estático, L).
  */
-import { ProjectStore, createEmptyProject, makeFloor, makeRoof, makeSlab, makeWall, type Layer, type LayerTermino, type OutlineSource, type Project, type SlabType, type TerminoCamada, type WallType } from '@hestia/model';
+import { ProjectStore, createEmptyProject, makeFloor, makeLevel, makeRoof, makeSlab, makeWall, type Layer, type LayerTermino, type OutlineSource, type Project, type SlabType, type TerminoCamada, type WallType } from '@hestia/model';
 
 const M = { kind: 'miter' as const, flip: false };
 
@@ -131,6 +131,26 @@ export function projetoComPerfil(): Project {
   return s.project;
 }
 
+/**
+ * Casa de 6 x 4 m com uma parede interna, no nível 0, sob um telhado de duas águas (beiral em 3 m, 30 %) e uma laje no nível 1 (z de 2,88 a 3,00 m) cuja estrutura
+ * termina na face do núcleo da parede. Com `anexar`, as paredes têm `attachTopToRoof`: o topo segue o telhado (faixas de topo inclinado, algumas em V) e passa pela
+ * laje. A laje vence a parede nas camadas em que se cruzam: a parede, inclinada ou não, tem de ser recortada onde a laje entra.
+ */
+export function projetoParedeSobLaje(anexar: boolean, regra: TerminoCamada = { funcao: 'structure', lado: 'proximo', face: 'proxima', cm: 0 }): Project {
+  const base = createEmptyProject();
+  const estrutura: Layer = { ...cam('structure', 'mat_concreto', 0.12, { camada: regra }), limiteExterno: 'nucleo' };
+  base.slabTypes.ls_inclinada = { ...base.slabTypes.ls_mac12!, id: 'ls_inclinada', name: 'inclinada', code: 'inclinada', layers: [estrutura] };
+  const s = new ProjectStore(base);
+  const ret = (x0: number, y0: number, x1: number, y1: number) => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
+  s.exec({ type: 'upsertLevel', level: makeLevel({ id: 'lv_1', name: 'P2', elevation: 3 }) });
+  s.exec({ type: 'addRoof', roof: makeRoof({ id: 'r', typeId: 'rt_ceramica', levelId: 'lv_0', boundary: ret(-1, -1, 7, 5), shape: 'gable', slopePercent: 30, heightOffset: 3 }) });
+  const R = ret(0, 0, 6, 4);
+  R.forEach((a, i) => s.exec({ type: 'addWall', wall: makeWall({ id: `w${i}`, typeId: 'wt_alv14', levelId: 'lv_0', a, b: R[(i + 1) % 4]!, topLevelId: 'lv_1', attachTopToRoof: anexar }) }));
+  s.exec({ type: 'addWall', wall: makeWall({ id: 'wi', typeId: 'wt_alv14', levelId: 'lv_0', a: { x: 3, y: 0 }, b: { x: 3, y: 4 }, topLevelId: 'lv_1', attachTopToRoof: anexar }) });
+  s.exec({ type: 'addSlab', slab: makeSlab({ id: 'laje', typeId: 'ls_inclinada', levelId: 'lv_1', boundary: ret(-0.5, -0.5, 6.5, 4.5) }) });
+  return s.project;
+}
+
 export const casosDoTermino = (): Array<{ nome: string; p: Project }> => {
   const out: Array<{ nome: string; p: Project }> = [];
   for (const tipo of Object.keys(TIPOS_DE_PAREDE)) {
@@ -139,5 +159,6 @@ export const casosDoTermino = (): Array<{ nome: string; p: Project }> => {
     }
   }
   out.push({ nome: 'topo anexado', p: projetoComTopoAnexado() }, { nome: 'topo no telhado', p: projetoComTopoNoTelhado() }, { nome: 'perfil', p: projetoComPerfil() });
+  out.push({ nome: 'parede sob laje (reta)', p: projetoParedeSobLaje(false) }, { nome: 'parede sob laje (anexada ao telhado)', p: projetoParedeSobLaje(true) });
   return out;
 };

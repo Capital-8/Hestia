@@ -754,7 +754,6 @@ pub fn juncao_do_nivel(cortadores: &Cortadores) -> Result<Juncao, u32> {
         peca: PecaRef<'a>,
         camada: i64,
         banda: Option<u32>,
-        plana: bool,
     }
     let mut marcadas: Vec<Marcada> = Vec::new();
     for sp in cortadores.pisos.iter().chain(&cortadores.lajes).chain(&cortadores.paredes).flat_map(|c| c.pecas.iter()) {
@@ -764,7 +763,7 @@ pub fn juncao_do_nivel(cortadores: &Cortadores) -> Result<Juncao, u32> {
             continue;
         }
         let Some(peca) = peca_plana(sp) else { continue };
-        marcadas.push(Marcada { peca, camada: meta.camada, banda: meta.banda, plana: sp.plana });
+        marcadas.push(Marcada { peca, camada: meta.camada, banda: meta.banda });
     }
     let resolvidas = resolver_juncao_ref(&marcadas.iter().map(|m| m.peca).collect::<Vec<_>>())?;
     let mut juncao = Juncao::default();
@@ -782,16 +781,15 @@ pub fn juncao_do_nivel(cortadores: &Cortadores) -> Result<Juncao, u32> {
                 juncao.paredes.push(ParedeJuntada { parede: dono.1, corte: false, faixas: Vec::new() });
                 juncao.paredes.len() - 1
             });
-            if m.plana {
-                let w = &mut juncao.paredes[k];
-                if !intacta {
-                    w.corte = true;
-                }
-                let banda = m.banda.unwrap_or(0);
-                match w.faixas.iter_mut().find(|f| f.camada == m.camada && f.banda == banda) {
-                    Some(f) => f.partes = partes,
-                    None => w.faixas.push(FaixaJuntada { camada: m.camada, banda, partes }),
-                }
+            // A faixa de topo inclinado também guarda as partes (fatias da envolvente de cota); o desenho as converte nas peças reais.
+            let w = &mut juncao.paredes[k];
+            if !intacta {
+                w.corte = true;
+            }
+            let banda = m.banda.unwrap_or(0);
+            match w.faixas.iter_mut().find(|f| f.camada == m.camada && f.banda == banda) {
+                Some(f) => f.partes = partes,
+                None => w.faixas.push(FaixaJuntada { camada: m.camada, banda, partes }),
             }
             continue;
         }

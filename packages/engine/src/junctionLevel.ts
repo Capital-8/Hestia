@@ -1,4 +1,4 @@
-import { multiArea, union, type MultiPolygon } from '@hestia/geom';
+import { intersection, multiArea, orientedRect, union, type MultiPolygon } from '@hestia/geom';
 import type { Id, Project } from '@hestia/model';
 import type { LayerBand, ResolvedLayer, ResolvedWall } from './types.ts';
 import { bandPiece, levelCutterSet, type LevelCutters, type SolidPiece } from './junctionNet.ts';
@@ -29,7 +29,7 @@ export interface ElementJunction {
 
 /**
  * Junção de uma parede: partes resolvidas de cada faixa de cada camada (chave `bandKey`). Faixa ausente, ou parede sem
- * `cut`, vale a faixa inteira (como antes). Faixas com topo inclinado não entram: a cota delas não se recorta plano.
+ * `cut`, vale a faixa inteira (como antes). Faixa com topo inclinado guarda as fatias da envolvente de cota; `slopedBandPieces` as converte nas peças reais.
  */
 export interface WallJunction {
   cut: boolean;
@@ -176,10 +176,9 @@ export function junctionLevelTs(p: Project, levelId: Id): JunctionLevel {
     const untouched = !lostVolume(piece, parts);
     if (wall) {
       const wj = walls.get(wall.id) ?? { cut: false, bands: new Map<string, ResolvedPrism[]>() };
-      if (wall.flat) {
-        if (!untouched) wj.cut = true;
-        wj.bands.set(wall.key, parts);
-      }
+      // A faixa inclinada também guarda as partes (fatias da envolvente de cota): o desenho as converte nas peças reais.
+      if (!untouched) wj.cut = true;
+      wj.bands.set(wall.key, parts);
       walls.set(wall.id, wj);
       return;
     }
@@ -220,6 +219,64 @@ export function layerPartsOf(el: ElementJunction | undefined, layerIndex: number
   return hit.length ? hit.flatMap((l) => l.parts) : fallback;
 }
 
+/** Tolerância (m) das cotas ao converter as fatias da junção nas peças de uma faixa inclinada. */
+const EPS_INCL = 1e-9;
+
+/**
+ * Peças reais de uma faixa de topo inclinado depois da junção. A junção recorta a envolvente de cota da faixa (fatias `parts`, cada uma com
+ * uma região em planta e um intervalo de cota); aqui cada fatia `[ra, rb]` vira o que de fato existe nela: onde o topo do plano está acima de
+ * `rb` a faixa é plana (`ra`..`rb`), onde o topo está entre `ra` e `rb` ela segue inclinada (a partir de `ra`) e onde está abaixo de `ra`
+ * não há material. As regiões vêm de tiras perpendiculares ao eixo do plano (a altura só muda ao longo dele). Sem corte (uma fatia com a região
+ * inteira), a faixa volta como era.
+ */
+export function slopedBandPieces(b: LayerBand, parts: readonly ResolvedPrism[], baseZ: number): LayerBand[] {
+  const s = b.slope!;
+  const area = multiArea(b.poly);
+  if (parts.length === 1) {
+    const p = parts[0]!;
+    if (p.z0 - baseZ <= b.z0 + EPS_INCL && Math.abs(multiArea(p.poly) - area) <= EPS_INCL) return [b];
+  }
+  const k = (s.h1 - s.h0) / (s.t1 - s.t0);
+  const out: LayerBand[] = [];
+  for (const p of parts) {
+    const ra = Math.max(p.z0 - baseZ, b.z0);
+    const rb = Math.min(p.z1 - baseZ, b.z1);
+    if (!(rb - ra > EPS_INCL) || p.poly.length === 0) continue;
+    // Alcance da região em torno de `o`: as tiras vão de -R a R ao longo do eixo e têm R de meia-largura.
+    let R = 1;
+    for (const poly of p.poly) for (const ring of poly) for (const v of ring) R = Math.max(R, Math.hypot(v.x - s.o.x, v.y - s.o.y) + 1);
+    const tira = (lo: number, hi: number): MultiPolygon => {
+      const a = Math.max(lo, -R);
+      const c = Math.min(hi, R);
+      return c - a > EPS_INCL ? [[orientedRect(s.o.x + (s.d.x * (a + c)) / 2, s.o.y + (s.d.y * (a + c)) / 2, s.d.x, s.d.y, (c - a) / 2, R)]] : [];
+    };
+    const emitir = (region: MultiPolygon, plana: boolean): void => {
+      if (region.length === 0) return;
+      const poly = intersection(p.poly, region);
+      if (poly.length === 0 || multiArea(poly) <= 1e-12) return;
+      out.push(plana ? { z0: ra, z1: rb, poly } : { z0: ra, z1: rb, poly, slope: s });
+    };
+    if (Math.abs(k) < 1e-12) {
+      // topo constante em `h0`
+      if (s.h0 >= rb - EPS_INCL) emitir([[orientedRect(s.o.x, s.o.y, s.d.x, s.d.y, R, R)]], true);
+      else if (s.h0 > ra + EPS_INCL) emitir([[orientedRect(s.o.x, s.o.y, s.d.x, s.d.y, R, R)]], false);
+      continue;
+    }
+    // posição ao longo do eixo em que o topo vale `z`
+    const uEm = (z: number): number => s.t0 + (z - s.h0) / k;
+    const uA = uEm(ra);
+    const uB = uEm(rb);
+    if (k > 0) {
+      emitir(tira(uB, R), true);
+      emitir(tira(uA, uB), false);
+    } else {
+      emitir(tira(-R, uB), true);
+      emitir(tira(uB, uA), false);
+    }
+  }
+  return out;
+}
+
 /**
  * Faixas de uma camada de parede depois da junção com piso e laje, no formato de `LayerBand` (cota relativa à base da
  * parede). Faixa recortada vira as partes que sobram; sem corte, a própria faixa. Corte, 3D e planta usam esta função,
@@ -229,13 +286,14 @@ export function wallLayerBandsAfterJunction(jl: JunctionLevel | undefined, rw: R
   return layer.bands.flatMap((b, bandIndex) => {
     const parts = wallBandCut(jl, rw.wallId, layer.layerIndex, bandIndex);
     if (!parts) return [b];
+    if (b.slope) return slopedBandPieces(b, parts, rw.baseZ);
     return parts.map((x) => ({ z0: x.z0 - rw.baseZ, z1: x.z1 - rw.baseZ, poly: x.poly }));
   });
 }
 
 /**
  * Partes de uma faixa de parede para o desenho (planta, corte e 3D): as resolvidas quando a parede foi recortada por piso
- * ou laje; senão `fallback` (a faixa inteira). Faixa com topo inclinado sempre cai no `fallback`.
+ * ou laje; senão `fallback` (a faixa inteira). Faixa com topo inclinado devolve as fatias da envolvente (`wallLayerBandsAfterJunction` as converte).
  */
 export function wallBandPartsOf(
   jl: JunctionLevel | undefined,
@@ -290,10 +348,8 @@ export function junctionOfWalls(p: Project, levelId: Id, paredes: readonly Resol
   tagged.forEach(({ piece, wall }, i) => {
     const parts = res[i]!;
     const wj = walls.get(wall.id)!;
-    if (wall.flat) {
-      if (lostVolume(piece, parts)) wj.cut = true;
-      wj.bands.set(wall.key, parts);
-    }
+    if (lostVolume(piece, parts)) wj.cut = true;
+    wj.bands.set(wall.key, parts);
   });
   return walls;
 }
