@@ -336,6 +336,8 @@ export interface Tool {
   drag?(p: PointerInfo): void;
   up?(p: PointerInfo): void;
   preview(): PreviewItem[];
+  /** Recalcula a prévia no último ponteiro (ex.: o resultado do corte foi publicado depois da última passada). */
+  refreshPreviewAtPointer?(): void;
   /** Cotas dinâmicas da prévia (sistema único de cotas); ausente = a ferramenta não mostra cotas ao desenhar. */
   tempDims?(overrides?: Readonly<Record<string, DimRef>>): TempDim[];
   /** Inferência corrente, para o desenho de guias e marcadores. */

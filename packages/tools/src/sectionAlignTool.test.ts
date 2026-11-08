@@ -25,7 +25,7 @@ const sectionOpening = (b: Box): SectionOpening => {
 };
 
 /** Seção simulada: parede cortada de 0 a 10 m, três vãos e a guia da vista inteira. */
-function fakeResult(withWall = true): SectionResult {
+function fakeResult(withWall = true, boxes: Box[] = BOXES): SectionResult {
   const wall = rect(0, 0, 10, 2.8);
   return {
     length: 10,
@@ -34,7 +34,7 @@ function fakeResult(withWall = true): SectionResult {
     cut: withWall ? [{ materialId: 'mat_alv', polygons: wall, sources: [{ wallId: 'h' }], parts: [{ origin: { wallId: 'h' }, polygons: wall }] }] : [],
     silhouette: [],
     beyond: [],
-    openings: BOXES.map(sectionOpening),
+    openings: boxes.map(sectionOpening),
     membranes: [],
     levels: [],
   } as unknown as SectionResult;
@@ -237,6 +237,26 @@ describe('ferramenta Alinhar no corte (referência e alvo por clique)', () => {
     ctx.store.undo();
     const back = ctx.store.project.elements.h;
     expect(back && 'height' in back ? back.height : 0).toBeCloseTo(2.8, 9);
+  });
+
+  it('corte recalculado publicado: refresh() relê a vista e a prévia não fica na geometria antiga', () => {
+    const ctx = scene();
+    const t = tool('align', ctx.env);
+    t.move(P(4, 2.3)); // topo antigo da janela j (2,30)
+    expect(t.preview().some((i) => i.kind === 'highlight' && i.ids.includes('j'))).toBe(true);
+    expect(t.preview().some((i) => i.kind === 'line' && i.dashed && Math.abs(i.a.y - 2.3) < 1e-9)).toBe(true);
+
+    // Publicação do corte recalculado depois do commit: a janela j desceu para o topo 2,10 e o cursor continua no ponto
+    // antigo. Sem `refresh()`, a prévia seguiria realçando o topo velho até o próximo movimento do mouse.
+    const depois = BOXES.map((b) => (b.id === 'j' ? { ...b, z0: 0.9, z1: 2.1 } : b));
+    const sec = ctx.env.section!();
+    ctx.env.section = () => ({ ...sec, result: () => fakeResult(true, depois) } as SectionToolContext);
+    t.refreshPreviewAtPointer?.();
+
+    expect(t.preview().some((i) => i.kind === 'highlight' && i.ids.includes('j'))).toBe(false);
+    expect(t.preview().some((i) => i.kind === 'line' && i.dashed && Math.abs(i.a.y - 2.3) < 1e-9)).toBe(false);
+    // O ponto antigo agora cai no pano da parede (topo 2,80), que é o alvo real sob o cursor.
+    expect(t.preview().some((i) => i.kind === 'highlight' && i.ids.includes('h'))).toBe(true);
   });
 
   it('sem resultado da vista: avisa e não cria referência', () => {

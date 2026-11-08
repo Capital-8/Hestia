@@ -393,6 +393,10 @@ export class Editor {
           const box = sectionBox(value as SectionResult);
           if (vp && box) this.viewports.set(key, fitBox(vp, box));
         }
+        // A prévia da ferramenta foi calculada com o corte anterior: relê a vista no mesmo ponteiro antes de desenhar,
+        // senão a linha tracejada/halo fica presa na geometria antiga até o próximo movimento do mouse.
+        const st = useUi.getState();
+        if (st.view === 'section' && st.sectionId === id) this.tool.refreshPreviewAtPointer?.();
         this.bump();
       },
       (e: unknown) => {
