@@ -81,7 +81,9 @@ export type LayerLimiteExterno = 'parede' | 'nucleo';
  * primeira camada da parede de prioridade efetiva ≤ N, 1 a 9) ou `{ cm }` (deslocamento a partir da face de acabamento,
  * positivo avança sobre a parede, negativo recua).
  */
-export type LayerTermino = 'auto' | 'nucleo' | 'face' | 'passa' | { cm: number } | { ate: { prioridade: number } };
+export type FuncaoRefParede = 'structure' | 'substrate' | 'thermal' | 'membrane' | 'finish1' | 'finish2' | 'eixo';
+export interface TerminoCamada { funcao: FuncaoRefParede; lado: 'proximo' | 'distante'; face: 'proxima' | 'meio' | 'distante'; cm: number }
+export type LayerTermino = 'auto' | 'nucleo' | 'face' | 'passa' | { cm: number } | { ate: { prioridade: number } } | { camada: TerminoCamada };
 
 /** Em que lados os acabamentos "envolvem" (retornam) nos vãos e nas extremidades da parede. */
 export type WrapMode = 'none' | 'interior' | 'exterior' | 'both';

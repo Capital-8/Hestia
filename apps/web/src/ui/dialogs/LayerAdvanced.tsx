@@ -2,6 +2,7 @@ import { useRef, useState, type ReactElement } from 'react';
 import { FUNCTION_PRIORITY, type Layer } from '@hestia/model';
 import { useT } from '../../editor/i18n.ts';
 import { LayerTermino } from './LayerTermino.tsx';
+import type { PredefinicaoId } from './terminoForm.ts';
 
 interface LayerAdvancedProps {
   /** Prefixo de id estável da linha, ex.: `wt-layer-2`. */
@@ -11,10 +12,12 @@ interface LayerAdvancedProps {
   onChange: (next: Layer) => void;
   /** Mostra também "Término na junção" (só pisos e lajes, decisão 0023 §2, P8). */
   termino?: boolean;
+  /** Aplica uma predefinição de término a todas as camadas do tipo. */
+  onPreset?: (id: PredefinicaoId) => void;
 }
 
 /** Conteúdo expandido ("mais") de uma linha de camada (docs/06 §5). Não guarda nada além do texto do campo. */
-export function LayerAdvanced({ id, layer, onChange, termino = false }: LayerAdvancedProps): ReactElement {
+export function LayerAdvanced({ id, layer, onChange, termino = false, onPreset }: LayerAdvancedProps): ReactElement {
   const { t } = useT();
   const padrao = FUNCTION_PRIORITY[layer.function];
   const shown = layer.priority === undefined ? '' : String(layer.priority);
@@ -80,7 +83,7 @@ export function LayerAdvanced({ id, layer, onChange, termino = false }: LayerAdv
         </div>
         <p id={`${id}-prio-help`} className="adv-help">{t('dlc_layer_join_priority_help')}</p>
       </div>
-      {termino && <LayerTermino id={id} layer={layer} onChange={onChange} />}
+      {termino && <LayerTermino id={id} layer={layer} onChange={onChange} onPreset={onPreset} />}
     </>
   );
 }
