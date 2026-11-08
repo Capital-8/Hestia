@@ -1,6 +1,6 @@
 # Validação da geometria extraída pelo app com projetos reais
 
-**Estado:** medido em 6 projetos reais, em Node (cena 3D em CPU, sem GPU e sem navegador). Resultado resumido: a extração
+**Estado:** medido em 6 projetos reais em Node (cena 3D em CPU) e, para 4 deles, **dentro do app no navegador** (ver "Validação dentro do app"). Resultado resumido: a extração
 cobre a geometria desenhada nos 6 projetos (comparação exata); **um snapshot grande não cabe no quadro de 64 MiB** do protocolo 1.x. Nada disto altera o contrato do protocolo.
 
 ## Método
@@ -62,15 +62,43 @@ Nenhuma na comparação exata. Registro: comparadores por centroide e área, e p
 pequenos e casamento guloso), e sumiram na comparação exata. A quantização de 1 µm da exportação desloca cada vértice em ≤ 0,5 µm
 (abaixo da resolução do float32 a 44 m, ~4 µm).
 
+## Validação dentro do app (navegador)
+`tests/e2e/plugin-geometria.mjs` abre o projeto no editor real (Chromium com WebGL por software, servidor de desenvolvimento do Vite, kernel Rust/wasm ativo como em
+produção), lê a cena **viva** (`lerCena3D()`/`prepararCena3D()`, o mesmo caminho do plugin) e compara com `exportarVetores()` da cena do navegador. Dados: `reports/geom-app.json`.
+
+| Projeto | Triângulos da cena | Faltando / sobrando | Sem malha | Snapshot | Extrair exato + montar + serializar (navegador) |
+|---|---|---|---|---|---|
+| Casa térrea 2 quartos | 6 884 | 0 / 0 | 0 | 0,35 MiB | 22 + 17 + 7 ms |
+| Casa de alto padrão | 19 984 | 0 / 0 | 6 portas (vão livre) | 1,02 MiB | 55 + 43 + 19 ms |
+| edificio-dwg v2 | 371 544 | 0 / 0 | 0 | 23,2 MiB | 1 058 + 851 + 379 ms |
+| Edifício Multifamiliar | 318 172 | 0 / 0 | 0 | 20,9 MiB | 851 + 734 + 346 ms |
+
+- **Igual ao Node:** os conjuntos de triângulos do plugin e da cena viva são idênticos nos 4. A cena do navegador tem de 18 a 204 triângulos a mais que a do
+  Node nos mesmos projetos (19 984 contra 19 966; 371 544 contra 371 340), diferença do caminho do kernel Rust/wasm do app; o plugin acompanha a cena viva.
+- **Cena disponível antes de abrir a vista 3D:** com o projeto aberto e a planta ativa, `prepararCena3D()` devolveu a cena e todas as entidades já tinham malha
+  (nenhum "nível não montado"). Um plugin lendo da planta recebe a geometria completa.
+- **Tempo:** o navegador (WebGL por software, máquina de desenvolvimento) leva cerca de 2 vezes o tempo do Node. Para ~370 mil triângulos: ~2,3 s para extrair, montar
+  e serializar o snapshot.
+- Sem erros de página nesses 4 projetos.
+- **Defeito separado, fora do plugin:** abrir `Projeto sem título` (`Documents\pasta`) no app lança `ErroDespachoKernel: kernel Rust (fatia B, nível lv_0): kernel v2 (ENTRADA):
+  entrada invalida` em `resolveFloors` (via `faixaDaParedeNoTelhado`), **sem nenhum código de plugin em execução**. Como o Rust é o único caminho de produção, o projeto
+  não abre limpo. Não corrigido aqui; precisa de investigação própria (fatia B, piso do nível `lv_0`). Esse projeto só foi validado em Node.
+- **Não exercitado:** o ORLA (165 MB) no navegador, GPU real (só WebGL por software), `prepararCena3D()` durante montagem progressiva por fases
+  (`abrirPorFases`), e visibilidade por vista.
+
+Como rodar: `cd apps/web && npx vite --port 5199`; depois, na raiz,
+`HESTIA_URL=http://localhost:5199 CHROME_PATH=<chrome> node tests/e2e/plugin-geometria.mjs <projeto.hestia.json>...`. No sandbox do agente o esbuild precisa de `TEMP`/`TMP` dentro
+da área permitida (o `vite build` falhou por "Acesso negado" ao apagar o diretório temporário; o servidor de desenvolvimento funciona).
+
 ## Limitações desta validação
-- Cena 3D em **CPU no Node**; o app no navegador monta os níveis progressivamente e pode ter malhas ainda não montadas.
-  `prepararCena3D()` monta tudo antes da leitura, mas **isto não foi exercitado no navegador** nem com GPU.
+- A primeira parte (6 projetos) roda em **CPU no Node**; a validação no navegador cobre 4 projetos (seção anterior), com WebGL por software.
 - Visibilidade por vista (ocultar, isolar, revelar) e níveis ocultos não foram testados.
 - Tipos que não aparecem nestes projetos (forro, rampa, desenho CAD) **não** estão validados.
 - A geometria passou só pela verificação em Node. A etapa seguinte deve ser o mesmo exame **dentro do app** e entregue ao
   renderizador Rust real.
 
 ## Próximos passos
-1. Protocolo: snapshot em partes e/ou posições compactas (proposta separada, compatível com 1.1).
-2. Rodar o mesmo script dentro do app (navegador) e conferir contra `prepararCena3D()`.
-3. Só então ligar o desenho no renderizador Rust.
+1. Protocolo: snapshot em partes (protocolo 1.2) está na PR #25; posições compactas continuam opcionais.
+2. Investigar o erro do kernel Rust (fatia B) ao abrir `Projeto sem título`.
+3. Repetir no navegador com GPU real, com o ORLA e na abertura progressiva por fases.
+4. Só então ligar o desenho no renderizador Rust.

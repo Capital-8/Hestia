@@ -1,0 +1,74 @@
+[
+  {
+    "projeto": "edificio-dwg_v2.hestia.json",
+    "antesDeAbrirA3D": {
+      "prepararCena3D": true,
+      "haCena3D": true,
+      "entidades": 1853,
+      "comMalha": 1853
+    },
+    "comA3DAberta": {
+      "niveis": 11,
+      "elementos": 2057,
+      "porTipo": {
+        "wall": 1278,
+        "door": 394,
+        "window": 148,
+        "slab": 25,
+        "stair": 8,
+        "room": 204
+      },
+      "triangulosDaCena": 371544,
+      "triangulosExtraidos": 371544,
+      "faltandoNoPlugin": 0,
+      "sobrandoNoPlugin": 0,
+      "igual": true,
+      "entidades": 1853,
+      "semMalha": 0,
+      "snapshotMiB": 23.2,
+      "tempos_ms": {
+        "prepararLer": 36,
+        "extrairExato": 1058,
+        "buildSceneContent": 851,
+        "serializar": 379
+      }
+    },
+    "errosDaPagina": []
+  },
+  {
+    "projeto": "Edificio-Multifamiliar.hestia.json",
+    "antesDeAbrirA3D": {
+      "prepararCena3D": true,
+      "haCena3D": true,
+      "entidades": 1914,
+      "comMalha": 1914
+    },
+    "comA3DAberta": {
+      "niveis": 11,
+      "elementos": 2132,
+      "porTipo": {
+        "wall": 1330,
+        "door": 402,
+        "window": 148,
+        "slab": 26,
+        "stair": 8,
+        "room": 218
+      },
+      "triangulosDaCena": 318172,
+      "triangulosExtraidos": 318172,
+      "faltandoNoPlugin": 0,
+      "sobrandoNoPlugin": 0,
+      "igual": true,
+      "entidades": 1914,
+      "semMalha": 0,
+      "snapshotMiB": 20.86,
+      "tempos_ms": {
+        "prepararLer": 40,
+        "extrairExato": 851,
+        "buildSceneContent": 734,
+        "serializar": 346
+      }
+    },
+    "errosDaPagina": []
+  }
+]

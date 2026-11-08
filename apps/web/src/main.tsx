@@ -34,7 +34,7 @@ if (new URLSearchParams(location.search).has('debug')) {
     estado: estadoKernel,
     medicao: medicaoOperacoes,
   };
-  void Promise.all([import('./editor/controller.ts'), import('./editor/state.ts'), import('@hestia/engine'), import('@hestia/tools'), import('@hestia/model')]).then(([c, s, e, t, m]) => {
+  void Promise.all([import('./editor/controller.ts'), import('./editor/state.ts'), import('@hestia/engine'), import('@hestia/tools'), import('@hestia/model'), import('./plugins/sceneExport.ts'), import('./editor/vista3dAoVivo.ts')]).then(([c, s, e, t, m, px, v3]) => {
     (window as unknown as { __hestia: unknown }).__hestia = {
       editor: c.editor,
       abrirPorFases: (t: string, n: string) => import('./editor/aberturaProjeto.ts').then((a) => a.abrirProjetoPorFases(t, n)),
@@ -52,6 +52,8 @@ if (new URLSearchParams(location.search).has('debug')) {
       quantifyLevel: e.quantifyLevel,
       sectionSnapIndex: t.sectionSnapIndex,
       model: m,
+      // Plugins: o e2e confere a geometria que o app entregaria a um plugin contra a cena 3D viva (docs/plugins/08).
+      plugins: { buildSceneContent: px.buildSceneContent, extractElementMeshes: px.extractElementMeshes, lerCena3D: v3.lerCena3D, prepararCena3D: v3.prepararCena3D },
     };
   });
 }
