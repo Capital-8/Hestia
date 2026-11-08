@@ -805,3 +805,19 @@ Estado: **Fase 2 implementada** em `feat/gc-f2`. O JSON do contrato (`cena-v11.j
 6. **Referências entre seções.** Não são checadas na decodificação (as seções chegam em qualquer ordem); `validar_referencias` as confere por consulta. Também confere: `n_pontos` do perfil poligonal igual às linhas (3 a 64), `lados` do circular de 3 a 256, no máximo 12 trilhos, 4 corrimãos e 8 preenchimentos (padrões e painéis dividem a numeração do `indice`, sem repetir), 1 a 16 elementos por padrão, caminho manual de 2 a 512 vértices (`LIMITE` acima de 512). O limite de 20 000 balaústres fica para o motor da Fase 3c.
 7. **Cache.** Escrever seções 60 a 81 não esvazia os caches de paredes, pisos, lajes e forros (nenhum deles lê o guarda-corpo).
 8. **Correção de passagem.** `abi2::testes::versoes` ainda esperava a versão 12 do esquema (esquecida na Fase 1); passou para 13.
+
+---
+
+## 16. Fase 3c: nota de retomada (WIP, nenhum código escrito ainda)
+
+Branch `feat/gc-f3c` (a partir de `origin/feat/gc-f2`). Só a leitura da ADR e do código foi feita; falta tudo.
+
+Plano decidido:
+- Criar `crates/geom-wasm/src/gc_distribuicao.rs` e acrescentar `pub mod gc_distribuicao;` em `lib.rs` (única linha fora dos arquivos da 3c; inevitável). Funções puras sobre structs simples (`ParamPostes`, `PadraoParam`, `PainelParam`, `PerfilParam`) e `TrechoGC`; sem depender das tabelas.
+- Postes (§5.2/5.5): nós estruturais (todos se reto; só as pontas se `curvo`); início/fim/canto (giro > `ang_canto`)/transição (intermediário se ativo e modo ≠ nenhum, senão canto); intermediários por vão; descarte a menos de meia largura dos dois postes.
+- Balaústres (§5.6): vãos entre postes (escopo `vao`) ou segmento/quebra; `Lu = L − folgas`; justificações, `distribuir` (`P' = (Lu−D)/ceil((Lu−D)/P)`), sobra, `gc-padrao-nao-cabe` (só os elementos do início que cabem), `gc-padrao-comprimido` (P' < 0,5P), `gc-vao-sem-espaco`; limite 20 000 devolve `LIMITE`; `porDegrau` com degraus dados como `(s_quina, z, profundidade)`.
+- Painéis (§5.7): divisão por `larguraMaxima`, malha em lajota (perfurada e tela simplificadas), cabos como cilindros.
+- Malha: prisma vertical (circular 16/24 lados, retangular, polígono por leque do centroide), caixa inclinada, cilindro; fechada e orientada para fora.
+- Referência TS em `packages/engine/src/guardaCorpoRef/distribuicao.ts` e teste de paridade com casos de ouro iguais aos do cargo; teste `tests/kernel-gc3c.wasm.test.ts` (smoke, pois a consulta `guarda_malha` só existe na integração).
+- Atenção: a ordem real dos enums em `kernelGuardaCorpoTabelas.ts` para `modoPoste` é `nenhum=0, espacamento-maximo=1, espacamento-fixo=2, numero-fixo=3` (não a da ADR §4.2).
+- Escolhas já tomadas: espaçamento por degrau `(profundidade − distanciaDaQuina)/quantidade`; balaústre extra vai na ponta livre; retangular usa `largura` ao longo do caminho e `altura` na lateral.
