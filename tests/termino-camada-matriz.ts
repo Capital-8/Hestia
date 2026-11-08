@@ -18,8 +18,9 @@ export const PAREDE: ReadonlyArray<readonly [string, number]> = [['finish2', 0.0
 export const T = PAREDE.reduce((s, [, e]) => s + e, 0);
 
 /** Borda esperada (profundidade d desde a face externa) para a regra, com o elemento do lado `lado` da parede. */
-export function bordaEsperada(r: TerminoCamada, lado: 'ext' | 'int'): number {
-  const ordem = lado === 'ext' ? PAREDE.map(([f, e]) => ({ f, e })) : PAREDE.map(([f, e]) => ({ f, e })).reverse();
+export function bordaEsperada(r: TerminoCamada, lado: 'ext' | 'int', camadas: ReadonlyArray<readonly [string, number]> = PAREDE): number {
+  const T = camadas.reduce((s, [, e]) => s + e, 0);
+  const ordem = lado === 'ext' ? camadas.map(([f, e]) => ({ f, e })) : camadas.map(([f, e]) => ({ f, e })).reverse();
   const ls: Array<{ f: string; u0: number; u1: number }> = [];
   for (const c of ordem) {
     const u0 = ls.length ? ls[ls.length - 1]!.u1 : 0;
