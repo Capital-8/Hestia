@@ -9,6 +9,7 @@ import { repeatLast, selectPrevious, useRecent } from '../editor/recentCommands.
 import { clickSelect3d, useUi } from '../editor/state.ts';
 import { transfer } from '../editor/transfer.ts';
 import { hideSelectedCategoryInView, hideSelectionInView, revealActive, selectedCategories, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideAllInView, unhideSelectedCategoryInView, unhideSelectionInView, visibilityOf } from '../editor/viewVisibility.ts';
+import { annotationTypeOf, selectedAnnotations } from '../editor/viewAnnotations.ts';
 import { startCreateSimilar } from '../editor/createSimilar.ts';
 import { comEditarPerimetro, EDITAR_PERIMETRO_ID, idPerimetroEditavel } from './perimeter/perimeterEditavel.ts';
 
@@ -33,9 +34,14 @@ function contextoAtual(view: MenuView): ContextMenuCtx {
   const rec = useRecent.getState();
   const lang = useI18n.getState().lang;
   const p = editor.project;
-  const kinds = ui.selection.map((id) => p.elements[id]?.kind ?? '').filter((k) => k !== '');
+  const notas = selectedAnnotations(p, ui, ui.selection);
+  const notaPorId = new Map(notas.map((a) => [a.id, a.kind]));
+  const kinds = ui.selection.map((id) => p.elements[id]?.kind ?? notaPorId.get(id) ?? '').filter((k) => k !== '');
   const mesmoTipoDeCoisa = kinds.length > 0 && kinds.every((k) => k === kinds[0]);
-  const tipo = ui.selection.length ? selectedTypeId(p, ui.selection) : null;
+  // Seleção só de anotações: o tipo é o kind e, nas cotas, a família de cotas.
+  const soNotas = notas.length > 0 && notas.length === ui.selection.length;
+  const tipoDeNota = soNotas ? annotationTypeOf(p, ui, ui.selection) : null;
+  const tipo = ui.selection.length && !soNotas ? selectedTypeId(p, ui.selection) : null;
   const cats = selectedCategories(p, ui.selection);
   const vis = visibilityOf(p, ui);
   return {
@@ -43,7 +49,7 @@ function contextoAtual(view: MenuView): ContextMenuCtx {
     tool: ui.tool,
     selectionKinds: kinds,
     hasSelection: ui.selection.length > 0,
-    singleType: mesmoTipoDeCoisa && !!tipo && !('error' in tipo),
+    singleType: soNotas ? tipoDeNota !== null : mesmoTipoDeCoisa && !!tipo && !('error' in tipo),
     recent: rec.recent.map((id) => ({ id, label: toolLabel(id, lang) })),
     last: rec.last ? { id: rec.last, label: toolLabel(rec.last, lang) } : null,
     canSelectPrevious: rec.prevSelection.some((id) => p.elements[id] !== undefined),

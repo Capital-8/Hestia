@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { sectionAnnotationsOf, type Id } from '@hestia/model';
+import { anotacoesSemOcultas } from '../editor/viewAnnotations.ts';
 import { DARK, LIGHT, sectionFrame, type PlanDrawList, type Viewport } from '@hestia/render';
 import { editor, useProject } from '../editor/controller.ts';
 import { useT, type Lang } from '../editor/i18n.ts';
@@ -34,7 +35,7 @@ export function buildSectionFrame(v: Viewport, dark: boolean, hidden?: ReadonlyS
     showGrid: st.showGrid,
     hidden,
     revealed,
-    annotations: view ? sectionAnnotationsOf(view) : undefined,
+    annotations: view ? anotacoesSemOcultas(sectionAnnotationsOf(view), hidden) : undefined,
     levelExtents: view?.levelExtents,
     highlight: { selection: st.selection, hover: st.hover, aviso: st.avisoParede ? [st.avisoParede] : [] },
     thinLines: thinLinesOn(editor.project, 'section'),
