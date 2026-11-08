@@ -1,6 +1,6 @@
 # Decisão 0055 — Guarda-corpo e corrimão (modelo, norma configurável, contrato com o kernel Rust)
 
-Data: 2026-11-08. Estado: **Fase 1 implementada (modelo, norma, contrato v13 declarado); Fases 2 a 7 pendentes** (ver §14). Branch `feat/guarda-corpo`.
+Data: 2026-11-08. Estado: **Fases 1 e 2 implementadas (modelo, norma, contrato v13 congelado, seções no Rust e adaptador TS); Fases 3 a 7 pendentes** (ver §14 e §15). Branch `feat/guarda-corpo` (Fase 2 em `feat/gc-f2`).
 Numeração: o maior número visto em `origin/main` e nas branches remotas é 0054 (`feat/termino-camada`); 0051 a 0053 estão em branches do kernel. Há números duplicados históricos (0046, 0047, 0049); se 0055 colidir na hora de mesclar, renumere.
 
 Marcações de confiança usadas abaixo: **[LIDO]** = página ou PDF aberto e lido nesta rodada; **[BUSCA]** = só o resultado da busca, página não aberta; **[A CONFIRMAR]** = valor que não está em fonte pública verificada (norma paga da ABNT, ou fonte secundária). Valores marcados [A CONFIRMAR] entram nos perfis de norma com `verificado: false` e aparecem como "(a conferir)" nas mensagens, como já faz a rampa (`RampType.normChecked`).
@@ -561,7 +561,7 @@ Hospedeiro, enviado pelo adaptador a partir de `ResolvedStair`/`ResolvedRamp` (*
 | 64 | `escada_patamares_gc` | `id_num` | `id_num u32, componente_num u32, indice u32, x f64, y f64, z f64` (um vértice por linha, anel em ordem) |
 | 65 | `rampas_gc` | `id_num` | `id_num u32, nivel_num u32, z_base f64, z_topo f64` |
 | 66 | `rampa_lances_gc` | `id_num` | `id_num u32, rampa_num u32, indice u32, sx f64, sy f64, ex f64, ey f64, ax f64, ay f64, bx f64, by f64, cx f64, cy f64, dx f64, dy f64, z0 f64, z1 f64` (bordas de início A-B e fim C-D) |
-| 67 | `rampa_patamares_gc` | `id_num` | `id_num u32, rampa_num u32, indice u32, x f64, y f64, z f64` |
+| 67 | `rampa_patamares_gc` | `id_num` | `id_num u32, rampa_num u32, componente u32, indice u32, x f64, y f64, z f64` (a coluna `componente` foi acrescentada na Fase 2: sem ela vários patamares da mesma rampa não se distinguem) |
 
 Guarda-corpo, tipo e norma:
 
@@ -777,3 +777,31 @@ Estado: **Fase 1 implementada** (modelo, tipos padrão, perfis de norma, comando
 10. **Textos de validação.** `guardaCorpoIssues` usa o dicionário no idioma pedido (`lang`, padrão PT), diferente do `validateRamps`, que é fixo em PT. Os avisos de norma com "(a conferir)" ficam para a Fase 4.
 11. **Testes de versão.** Asserções de versão de esquema passaram de 23 para 24 (12 linhas de asserção em 7 arquivos de teste) e de versão do kernel de 12 para 13 (`gerenciador`, `quadros`, `real.wasm`); a lista de seções em `quadros.test.ts` ganhou os 20 nomes novos.
 
+---
+
+## 15. Registro da Fase 2 (o que ficou pronto, os ganchos e as escolhas)
+
+Estado: **Fase 2 implementada** em `feat/gc-f2`. O JSON do contrato (`cena-v11.json`, versão 13) fica **congelado** a partir do primeiro commit da fase; as fases 3 a 5 leem esse contrato.
+
+**Conferência de colisão (§6):** nenhuma branch remota (`origin/*`) usa ids de seção acima de 25 nem de consulta acima de 16; os ids 60 a 81 e 60 a 65 estão livres. As branches 0051 a 0053 ainda estão em `VERSAO_ESQUEMA` 10 a 12; quem mesclar depois da `feat/guarda-corpo` precisa renumerar a versão para 14 em diante.
+
+**Ajustes ao contrato feitos na Fase 2:**
+- `rampa_patamares_gc` ganhou a coluna `componente` (índice do patamar na rampa, `ResolvedRampLanding.componentIndex`).
+- Cada seção e cada consulta do guarda-corpo ganhou `descricao` no JSON (códigos dos enums, bits de `lados`, `flags` e `n_flags`).
+- `normas_guarda.n_flags`: o bit `k` liga a `k`-ésima coluna depois de `n_flags` (bit 0 `desnivel_exige_guarda` ... bit 25 `carga_corrimao`; são 26 limites). Bit zerado ignora a coluna; bit ligado exige valor finito. O par `alturaMinimaAlta` (bits 3 e 4) liga junto, senão `ENTRADA`. Os dois booleanos entram como `u8`.
+
+**Ganchos para as fases 3 e 4:**
+- Rust: `crates/geom-wasm/src/secoes_gc.rs` (`SecoesGC` em `Cena.gc`, uma tabela tipada por seção, ordem canônica por id, módulo `limite` com os índices dos limites de norma, `NORMA_COLUNAS`), `validar_referencias()` (referências entre seções e limites de defesa; a Fase 3a chama no começo de `guarda_caminhos`) e `gc_tipos.rs` (códigos dos enums, limites da ADR, `CadeiaGC`/`TrechoGC`/`No3`/`OrigemTrecho` com cadeias sintéticas `reta`, `em_l` e `lance_inclinado` para os testes das fases 3b, 3c e 4a).
+- `guarda_caminhos` hoje é só um **gancho**: valida as referências (`ENTRADA`/`LIMITE`) e devolve as quatro saídas vazias. A Fase 3a troca o corpo (função `guarda_caminhos_gancho` em `secoes_gc.rs`) e mantém a validação. As consultas 61 a 65 seguem `NAO_IMPLEMENTADO`.
+- TS: `engine/src/kernelGuardaCorpo.ts` (`montarCenaGC(p, { anterior, materialDe, escadas, rampas })`), `kernelGuardaCorpoEnvio.ts` (`enviarCenaGC`, `diferencaGC`, `aplicarDiferencaGC`, `sincronizarCenaGC`), `kernelGuardaCorpoLinhas.ts` e `kernelGuardaCorpoTabelas.ts` (colunas e enums). Fixture de teste: `engine/src/fixtureGuardaCorpo.ts`. A cena anterior encadeia a numeração: editar uma escada reenvia só as linhas dela. `CenaGC.normaProjetoNum` é o `norma_num` das consultas de avisos.
+- Testes: `cargo test -p geom-wasm secoes_gc`, `engine/src/kernelGuardaCorpo.test.ts` e `tests/kernel-gc2.wasm.test.ts` (entrou em `vitest.wasm.config.ts`).
+
+**Escolhas tomadas onde a ADR era ambígua ou silenciosa:**
+1. **`tol_corda` do tipo.** O modelo (`TipoGuardaCorpo`) não tem o campo; o adaptador envia a constante `TOL_CORDA_PADRAO_GC = 0,002 m` (2 mm, dentro da faixa da §5.1). O Rust aceita de 0,5 a 10 mm (`TOL_CORDA_MIN`/`MAX`, a faixa da própria §5.1) e devolve `ENTRADA` fora disso. Se o dono quiser a flecha editável, a Fase 6c acrescenta o campo ao tipo.
+2. **`profundidade_piso`.** A distância média entre linhas de espelho consecutivas do primeiro lance com dois ou mais espelhos; sem isso, `minTread` do tipo de escada. Só serve à extensão `maisPiso`.
+3. **Patamar da escada.** `escada_patamares_gc` leva o polígono do passo de patamar (`ResolvedStairStep`), com o `z` dele, na ordem dos vértices; o anel de 6 pontos do patamar de giro é o que o resolvedor já produz. A Fase 3a deriva dele as arestas de entrada e de saída.
+4. **Sobrescrita `normaId` da instância.** Não vai para o Rust: a norma da instância só muda qual norma o TS passa em `guarda_avisos`. `flags` leva só `postesIntermediarios`, `preenchimentoAtivo` e `corrimaoAtivo` (ausente = ligado).
+5. **Hospedeiro ausente ou que não resolveu.** O guarda-corpo fica de fora da cena (`CenaGC.ignorados`); o modelo continua apontando `railing-host-missing`. Só entram hospedeiros, tipos, perfis e normas usados por algum guarda-corpo (perfis iguais são internados uma vez; das normas, só a do projeto e as dos tipos usados).
+6. **Referências entre seções.** Não são checadas na decodificação (as seções chegam em qualquer ordem); `validar_referencias` as confere por consulta. Também confere: `n_pontos` do perfil poligonal igual às linhas (3 a 64), `lados` do circular de 3 a 256, no máximo 12 trilhos, 4 corrimãos e 8 preenchimentos (padrões e painéis dividem a numeração do `indice`, sem repetir), 1 a 16 elementos por padrão, caminho manual de 2 a 512 vértices (`LIMITE` acima de 512). O limite de 20 000 balaústres fica para o motor da Fase 3c.
+7. **Cache.** Escrever seções 60 a 81 não esvazia os caches de paredes, pisos, lajes e forros (nenhum deles lê o guarda-corpo).
+8. **Correção de passagem.** `abi2::testes::versoes` ainda esperava a versão 12 do esquema (esquecida na Fase 1); passou para 13.
