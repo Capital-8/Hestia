@@ -796,5 +796,6 @@ Estado: **Fase 1 implementada** (modelo, tipos padrão, perfis de norma, comando
     - (d) Avisos de norma e de geometria no painel: Fase 4.
     - Para as três vistas, o que falta é apenas a geometria. A regra de visibilidade e o modo de seleção já são os mesmos.
 26. **Filtro de seleção por categoria:** o filtro `ElementCategory` do menu de seleção continua com as nove categorias antigas; não entrou `railings` nesta rodada. A visibilidade por categoria (diálogo de visibilidade gráfica) já lista `railing`.
+27. **Retomada (pausa do dono):** o que ficou pronto está no branch feat/gc-f6 (6a, 6b, 6c e complemento: alças, extensões e suportes, porDegrau, subir/descer, prévia, visibilidade e seleção por categoria railing). Para retomar: (1) rodar `npx vitest run packages/tools/src/guardaCorpoTool.test.ts packages/tools/src/railingPick.test.ts apps/web/src/editor/viewVisibilityRailing.test.ts`; (2) pendente da Fase 3 a 5: polilinha do hospedado via `setRailingPlanShapes`, malha 3D e seleção nos cortes (itens 25a a 25c); (3) pendente de decisão: entrar `railings` no filtro `ElementCategory` (item 26) e a seleção de hospedado pela planta.
 
 
