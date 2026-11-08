@@ -78,6 +78,8 @@ export function layerOutlines(p: Project, levelId: Id, el: LinkedHost, layers: r
   const limite = (i: number, m: MultiPolygon): MultiPolygon => {
     const lim = layers[i]?.limiteExterno;
     if (!lim) return m;
+    // O término por camada da parede (decisão 0054) manda também no perímetro: o limite externo não o sobrescreve.
+    if (terminoCamadaOf(term[i]!)) return m;
     const ring = outerPerimeter(p, levelId, src?.seed, lim === 'nucleo' ? 'core' : 'finish');
     return ring ? intersection(m, [[ring]]) : m;
   };

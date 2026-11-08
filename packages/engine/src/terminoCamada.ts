@@ -156,10 +156,13 @@ export function regionCamada(p: Project, ref: MultiPolygon, walls: readonly Reso
         if (borda > 0) proprios.push(tira(-FOLGA_BANDA, borda));
         bloco = tira(borda, T + FOLGA_BANDA);
         if (borda < 0) bloco = union(bloco, banda(borda, 0));
+        // Borda além da face oposta (avanço maior que a espessura): a camada passa da parede toda e segue além dela.
+        if (borda > T) proprios.push(banda(T, borda));
       } else {
         if (borda < T) proprios.push(tira(borda, T + FOLGA_BANDA));
         bloco = tira(-FOLGA_BANDA, borda);
         if (borda > T) bloco = union(bloco, banda(T, borda));
+        if (borda < 0) proprios.push(banda(borda, 0));
       }
       blocos.push(portas.length === 0 ? bloco : difference(bloco, ...portas));
     }

@@ -581,6 +581,10 @@ impl<'a> Escopo<'a> {
                         if borda < 0.0 {
                             bloco = uniao_com_escala(&[bloco, banda(borda, 0.0)?], ESCALA_FINA)?;
                         }
+                        // Borda além da face oposta (avanço maior que a espessura): a camada passa da parede toda e segue além dela.
+                        if borda > total {
+                            proprios.push(banda(total, borda)?);
+                        }
                     } else {
                         if borda < total {
                             proprios.push(tira(borda, total + FOLGA_BANDA)?);
@@ -588,6 +592,9 @@ impl<'a> Escopo<'a> {
                         bloco = tira(-FOLGA_BANDA, borda)?;
                         if borda > total {
                             bloco = uniao_com_escala(&[bloco, banda(total, borda)?], ESCALA_FINA)?;
+                        }
+                        if borda < 0.0 {
+                            proprios.push(banda(borda, 0.0)?);
                         }
                     }
                     if !portas.is_empty() {

@@ -201,6 +201,10 @@ fn contornos_das_camadas(linha: &ElementoLinha, camadas: &[CamadaLinha], nucleo:
     let anel_do_perimetro = |papel: u8| anel_perimetro(vinc, papel);
     // Limite no perímetro externo (decisão 0027): corta a região da camada no contorno externo da edificação.
     let limite = |i: usize, m: MultiPoligono| -> Result<MultiPoligono, u32> {
+        // O término por camada da parede (decisão 0054) manda também no perímetro: o limite externo não o sobrescreve.
+        if matches!(termino[i], Termino::Camada(_)) {
+            return Ok(m);
+        }
         let papel = match camadas[i].limite_externo {
             LIMITE_PAREDE => PAPEL_PERIMETRO_ACABAMENTO,
             LIMITE_NUCLEO => PAPEL_PERIMETRO_NUCLEO,
