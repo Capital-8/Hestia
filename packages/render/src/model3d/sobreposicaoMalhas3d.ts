@@ -43,7 +43,7 @@ export function trianguloDaCena(ms: ModelScene): TrianguloDono[] {
 }
 
 /**
- * Volume (m³) da sobreposição entre os sólidos de dois conjuntos de elementos, pela malha: em cada ponto de uma grade em planta, os intervalos
+ * Volume em metros cúbicos da sobreposição entre os sólidos de dois conjuntos de elementos, pela malha: em cada ponto de uma grade em planta, os intervalos
  * de cota ocupados por cada conjunto (paridade dos cruzamentos de uma reta vertical com os triângulos) e o comprimento comum.
  * A cena tem z para cima.
  */

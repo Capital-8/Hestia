@@ -297,7 +297,7 @@ export function infer(rawCursor: Vec2, ctx: InferContext): Inference {
   // Na seção, a geometria da planta não é alvo: o que vale são os pontos e arestas da vista.
   const facesIn = (): WallFaces[] => (ctx.section ? [] : levels.flatMap((l) => facesOf(ctx.project, l)));
   const walls = ctx.section ? [] : levels.flatMap((l) => wallsOnLevel(ctx.project, l)).filter((w) => !ctx.ignore?.has(w.id) && (ctx.isVisible?.(w) ?? true));
-  let cands: Cand[] = [];
+  const cands: Cand[] = [];
   /** Escolha final. Com Orto/Polar travado só valem os candidatos sobre a reta; a própria reta é o candidato de reserva. */
   const decide = (grid: number | undefined): Inference => {
     if (!lock || !ctx.from) return bestOf(cands, cursor, tol, ctx.previous, ctx.cycle, [], grid);
