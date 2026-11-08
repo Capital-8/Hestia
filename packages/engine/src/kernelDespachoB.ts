@@ -14,7 +14,7 @@ import { projetoInteiroDaJuncao, type JunctionLevel } from './junctionLevel.ts';
 import type { ResolvedSlab } from './slabs.ts';
 import { montarCenaA1, type CenaA1 } from './kernelA1.ts';
 import { montarCenaA3, type CenaA3 } from './kernelA3.ts';
-import { montarPerfisA3d } from './kernelA3d.ts';
+import { montarPerfisA3d, type CenaA3d } from './kernelA3d.ts';
 import { argumentosB2, decodificarB2, montarCenaB1, referenciaDeResultados, type CenaB1, type ElementoB1 } from './kernelB.ts';
 import { decodificarB3, montarCenaB3, referenciaB3De, type CenaB3, type JuncaoB3 } from './kernelB3.ts';
 import { levelCutterSet } from './junctionNet.ts';
@@ -114,7 +114,7 @@ export function sincronizarB(atual: EntradaB | null, p: Project, ger: Gerenciado
   const a1 = mesmo ? e!.a1 : montarCenaA1(p, true);
   const a3 = mesmo ? e!.a3 : montarCenaA3(p, a1);
   if (!mesmo) verificarCobertura(p, a1, a3);
-  const perfis = mesmo ? { colunas: e!.secoes.perfis_z!.colunas, n: e!.secoes.perfis_z!.n } : montarPerfisA3d(p, a1, true);
+  const perfis = mesmo ? ({ colunas: e!.secoes.perfis_z!.colunas, n: e!.secoes.perfis_z!.n } as CenaA3d) : montarPerfisA3d(p, a1, true);
   const b = mesmo ? e!.b : montarCenaB1(p, a1.materialDe);
   const b3 = mesmo && e!.b3 ? e!.b3 : comJuncao || e?.b3 ? montarCenaB3(p, a1) : null;
   const forros = mesmo && e!.forros ? e!.forros : comForros || e?.forros ? montarCenaForros(p, b.nivelDe) : null;
