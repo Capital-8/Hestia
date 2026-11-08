@@ -10,19 +10,22 @@
     },
     "elementos": 21,
     "tempos_ms": {
-      "resolverNiveis": 145,
-      "montarCena3D": 220,
-      "contarDesenhados": 0.3,
-      "extrairMalhas": 14.2,
-      "conteudoDoSnapshot": 12.9,
-      "serializarJSON": 8.9
+      "resolverNiveis": 148.6,
+      "montarCena3D": 315.2,
+      "contarDesenhados": 0.4,
+      "extrairMalhas": 21.3,
+      "conteudoDoSnapshot": 13.7,
+      "serializarJSON": 5.5
     },
     "verificacaoGeometrica": {
       "triangulosDaCena": 6884,
-      "tolerancia": "centroide 1 mm, area 0,1 %",
+      "comparacao": "exata em float32, multiconjunto de triangulos",
       "faltandoNoPlugin": 0,
       "sobrandoNoPlugin": 0,
-      "igual": true
+      "igual": true,
+      "elementosDivergentes": 0,
+      "divergencias": [],
+      "faltandoAmostra": []
     },
     "triangulos": {
       "desenhadosPelaCena": 6884,
@@ -45,7 +48,7 @@
       "bytesPorTriangulo": 53
     },
     "deltaDeUmaParede": {
-      "ms": 524.1,
+      "ms": 634.2,
       "ops": 6,
       "bytes": 91234
     },
@@ -166,19 +169,22 @@
     },
     "elementos": 75,
     "tempos_ms": {
-      "resolverNiveis": 133.6,
-      "montarCena3D": 273.7,
+      "resolverNiveis": 145.1,
+      "montarCena3D": 302.8,
       "contarDesenhados": 0.1,
-      "extrairMalhas": 18.4,
-      "conteudoDoSnapshot": 15.5,
-      "serializarJSON": 16.3
+      "extrairMalhas": 18.9,
+      "conteudoDoSnapshot": 16.7,
+      "serializarJSON": 14.3
     },
     "verificacaoGeometrica": {
       "triangulosDaCena": 19966,
-      "tolerancia": "centroide 1 mm, area 0,1 %",
+      "comparacao": "exata em float32, multiconjunto de triangulos",
       "faltandoNoPlugin": 0,
       "sobrandoNoPlugin": 0,
-      "igual": true
+      "igual": true,
+      "elementosDivergentes": 0,
+      "divergencias": [],
+      "faltandoAmostra": []
     },
     "triangulos": {
       "desenhadosPelaCena": 19966,
@@ -210,7 +216,7 @@
       "bytesPorTriangulo": 54
     },
     "deltaDeUmaParede": {
-      "ms": 411.9,
+      "ms": 404.6,
       "ops": 8,
       "bytes": 94767
     },
@@ -373,19 +379,22 @@
     },
     "elementos": 22,
     "tempos_ms": {
-      "resolverNiveis": 40.9,
-      "montarCena3D": 93.7,
-      "contarDesenhados": 0.1,
-      "extrairMalhas": 4.1,
-      "conteudoDoSnapshot": 4.2,
-      "serializarJSON": 4.8
+      "resolverNiveis": 37.3,
+      "montarCena3D": 100.8,
+      "contarDesenhados": 0,
+      "extrairMalhas": 5.9,
+      "conteudoDoSnapshot": 5.1,
+      "serializarJSON": 4.7
     },
     "verificacaoGeometrica": {
       "triangulosDaCena": 4912,
-      "tolerancia": "centroide 1 mm, area 0,1 %",
+      "comparacao": "exata em float32, multiconjunto de triangulos",
       "faltandoNoPlugin": 0,
       "sobrandoNoPlugin": 0,
-      "igual": true
+      "igual": true,
+      "elementosDivergentes": 0,
+      "divergencias": [],
+      "faltandoAmostra": []
     },
     "triangulos": {
       "desenhadosPelaCena": 4912,
@@ -408,7 +417,7 @@
       "bytesPorTriangulo": 72
     },
     "deltaDeUmaParede": {
-      "ms": 134.6,
+      "ms": 151.5,
       "ops": 5,
       "bytes": 44932
     },
@@ -539,19 +548,22 @@
     },
     "elementos": 2132,
     "tempos_ms": {
-      "resolverNiveis": 3161.9,
-      "montarCena3D": 4179.2,
-      "contarDesenhados": 0.2,
-      "extrairMalhas": 387,
-      "conteudoDoSnapshot": 349.5,
-      "serializarJSON": 315.4
+      "resolverNiveis": 3138.2,
+      "montarCena3D": 4093.8,
+      "contarDesenhados": 0.1,
+      "extrairMalhas": 391.8,
+      "conteudoDoSnapshot": 353,
+      "serializarJSON": 334.8
     },
     "verificacaoGeometrica": {
       "triangulosDaCena": 317620,
-      "tolerancia": "centroide 1 mm, area 0,1 %",
+      "comparacao": "exata em float32, multiconjunto de triangulos",
       "faltandoNoPlugin": 0,
       "sobrandoNoPlugin": 0,
-      "igual": true
+      "igual": true,
+      "elementosDivergentes": 0,
+      "divergencias": [],
+      "faltandoAmostra": []
     },
     "triangulos": {
       "desenhadosPelaCena": 317620,
@@ -574,7 +586,7 @@
       "bytesPorTriangulo": 69
     },
     "deltaDeUmaParede": {
-      "ms": 983.7,
+      "ms": 1234.3,
       "ops": 1,
       "bytes": 2116
     },
@@ -716,64 +728,22 @@
     },
     "elementos": 2057,
     "tempos_ms": {
-      "resolverNiveis": 2234.4,
-      "montarCena3D": 9667.2,
-      "contarDesenhados": 0.3,
-      "extrairMalhas": 534.8,
-      "conteudoDoSnapshot": 580.1,
-      "serializarJSON": 389.7
+      "resolverNiveis": 2312.5,
+      "montarCena3D": 9638.8,
+      "contarDesenhados": 0.1,
+      "extrairMalhas": 410.2,
+      "conteudoDoSnapshot": 403,
+      "serializarJSON": 398
     },
     "verificacaoGeometrica": {
       "triangulosDaCena": 371340,
-      "tolerancia": "centroide 1 mm, area 0,1 %",
-      "faltandoNoPlugin": 4,
-      "sobrandoNoPlugin": 4,
-      "igual": false,
-      "elementosDivergentes": 4,
-      "divergencias": [
-        {
-          "id": "piso2-W305",
-          "tipo": "wall",
-          "triangulos": 1
-        },
-        {
-          "id": "piso4-W305",
-          "tipo": "wall",
-          "triangulos": 1
-        },
-        {
-          "id": "piso6-W305",
-          "tipo": "wall",
-          "triangulos": 1
-        },
-        {
-          "id": "piso8-W305",
-          "tipo": "wall",
-          "triangulos": 1
-        }
-      ],
-      "faltandoAmostra": [
-        [
-          12.955,
-          -5.845,
-          4
-        ],
-        [
-          12.955,
-          -5.845,
-          9.1
-        ],
-        [
-          12.955,
-          -5.845,
-          14.2
-        ],
-        [
-          12.955,
-          -5.845,
-          19.3
-        ]
-      ]
+      "comparacao": "exata em float32, multiconjunto de triangulos",
+      "faltandoNoPlugin": 0,
+      "sobrandoNoPlugin": 0,
+      "igual": true,
+      "elementosDivergentes": 0,
+      "divergencias": [],
+      "faltandoAmostra": []
     },
     "triangulos": {
       "desenhadosPelaCena": 371340,
@@ -796,7 +766,7 @@
       "bytesPorTriangulo": 65
     },
     "deltaDeUmaParede": {
-      "ms": 924.5,
+      "ms": 999.9,
       "ops": 3,
       "bytes": 68982
     },
@@ -910,6 +880,194 @@
         "visivel": true,
         "triangulos": 2208,
         "elementos": 8
+      },
+      {
+        "classe": "Mesh",
+        "kind": "-",
+        "ranges": 0,
+        "caixasPick": false,
+        "semPick": false,
+        "instanciada": false,
+        "visivel": true,
+        "triangulos": 2,
+        "elementos": 0
+      }
+    ]
+  },
+  {
+    "projeto": "CAS_LOJA-MASTER-ORLA.hestia.json",
+    "nome": "CAS_LOJA MASTER ORLA",
+    "niveis": 4,
+    "elementosPorTipo": {
+      "wall": 160,
+      "generic": 1562,
+      "door": 28,
+      "window": 27,
+      "slab": 2
+    },
+    "elementos": 1779,
+    "tempos_ms": {
+      "resolverNiveis": 126.4,
+      "montarCena3D": 10667.9,
+      "contarDesenhados": 0.1,
+      "extrairMalhas": 955.8,
+      "conteudoDoSnapshot": 1083.3,
+      "serializarJSON": 1043.5
+    },
+    "verificacaoGeometrica": {
+      "triangulosDaCena": 762148,
+      "comparacao": "exata em float32, multiconjunto de triangulos",
+      "faltandoNoPlugin": 0,
+      "sobrandoNoPlugin": 0,
+      "igual": true,
+      "elementosDivergentes": 0,
+      "divergencias": [],
+      "faltandoAmostra": []
+    },
+    "triangulos": {
+      "desenhadosPelaCena": 762148,
+      "extraidos": 762148,
+      "cobertura": 100
+    },
+    "vertices": 2280040,
+    "entidades": {
+      "total": 1779,
+      "comMalha": 1776,
+      "semMalha": 3
+    },
+    "semMalhaPorTipo": {
+      "wall": {
+        "total": 3,
+        "exemplos": [
+          "w_0e2McIPkX58goXklOuItZM",
+          "w_0gi2_O$i52JB28z50bVCqs",
+          "w_2ycysLSlf16Qur0$hTnm0v"
+        ]
+      }
+    },
+    "malhasSemElementoNoProjeto": 0,
+    "materiais": 39,
+    "snapshot": {
+      "bytes": 74551141,
+      "MiB": 71.1,
+      "limiteDoQuadroMiB": 64,
+      "bytesPorTriangulo": 98
+    },
+    "deltaDeUmaParede": {
+      "ms": 9268,
+      "ops": 0,
+      "bytes": 76
+    },
+    "inventarioDeMalhas": [
+      {
+        "classe": "Mesh",
+        "kind": "generic",
+        "ranges": 21,
+        "caixasPick": false,
+        "semPick": false,
+        "instanciada": false,
+        "visivel": true,
+        "triangulos": 743584,
+        "elementos": 1562
+      },
+      {
+        "classe": "Mesh",
+        "kind": "door",
+        "ranges": 2,
+        "caixasPick": false,
+        "semPick": false,
+        "instanciada": false,
+        "visivel": true,
+        "triangulos": 12180,
+        "elementos": 54
+      },
+      {
+        "classe": "Mesh",
+        "kind": "wall",
+        "ranges": 8,
+        "caixasPick": true,
+        "semPick": false,
+        "instanciada": false,
+        "visivel": false,
+        "triangulos": 2820,
+        "elementos": 127
+      },
+      {
+        "classe": "InstancedMesh",
+        "kind": "wall",
+        "ranges": 0,
+        "caixasPick": false,
+        "semPick": true,
+        "instanciada": true,
+        "visivel": true,
+        "triangulos": 2820,
+        "elementos": 0
+      },
+      {
+        "classe": "Mesh",
+        "kind": "window",
+        "ranges": 4,
+        "caixasPick": true,
+        "semPick": false,
+        "instanciada": false,
+        "visivel": false,
+        "triangulos": 1620,
+        "elementos": 54
+      },
+      {
+        "classe": "InstancedMesh",
+        "kind": "window",
+        "ranges": 0,
+        "caixasPick": false,
+        "semPick": true,
+        "instanciada": true,
+        "visivel": true,
+        "triangulos": 1620,
+        "elementos": 0
+      },
+      {
+        "classe": "Mesh",
+        "kind": "door",
+        "ranges": 6,
+        "caixasPick": true,
+        "semPick": false,
+        "instanciada": false,
+        "visivel": false,
+        "triangulos": 1524,
+        "elementos": 56
+      },
+      {
+        "classe": "InstancedMesh",
+        "kind": "door",
+        "ranges": 0,
+        "caixasPick": false,
+        "semPick": true,
+        "instanciada": true,
+        "visivel": true,
+        "triangulos": 1524,
+        "elementos": 0
+      },
+      {
+        "classe": "Mesh",
+        "kind": "wall",
+        "ranges": 1,
+        "caixasPick": false,
+        "semPick": false,
+        "instanciada": false,
+        "visivel": true,
+        "triangulos": 396,
+        "elementos": 30
+      },
+      {
+        "classe": "Mesh",
+        "kind": "slab",
+        "ranges": 1,
+        "caixasPick": false,
+        "semPick": false,
+        "instanciada": false,
+        "visivel": true,
+        "triangulos": 24,
+        "elementos": 2
       },
       {
         "classe": "Mesh",

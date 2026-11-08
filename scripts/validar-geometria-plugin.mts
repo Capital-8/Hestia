@@ -60,56 +60,32 @@ function triangulosDesenhados(root: THREE.Object3D): number {
   return Math.round(total);
 }
 
-interface Tri { cx: number; cy: number; cz: number; area: number; usado: boolean; id?: string }
 
-/** Triângulos (centroide e área) de um vetor de posições, com índice opcional. */
-function triangulos(pos: ArrayLike<number>, idx: ArrayLike<number> | null, destino: Tri[], id?: string): void {
+/** Chave exata de um triângulo: os três vértices em float32, ordenados (independe da ordem dos vértices). */
+function chaves(pos: ArrayLike<number>, idx: ArrayLike<number> | null, destino: Map<string, number>, porElemento?: { id: string; mapa: Map<string, string> }): void {
   const n = idx ? idx.length : pos.length / 3;
+  const f = (x: number): number => Math.fround(x);
   for (let t = 0; t + 2 < n; t += 3) {
-    const v = [0, 1, 2].map((k) => { const i = idx ? idx[t + k]! : t + k; return [pos[i * 3]!, pos[i * 3 + 1]!, pos[i * 3 + 2]!] as const; });
-    const [a, b, c] = v as [readonly [number, number, number], readonly [number, number, number], readonly [number, number, number]];
-    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
-    const wx = c[0] - a[0], wy = c[1] - a[1], wz = c[2] - a[2];
-    const area = 0.5 * Math.hypot(uy * wz - uz * wy, uz * wx - ux * wz, ux * wy - uy * wx);
-    destino.push({ cx: (a[0] + b[0] + c[0]) / 3, cy: (a[1] + b[1] + c[1]) / 3, cz: (a[2] + b[2] + c[2]) / 3, area, usado: false, ...(id ? { id } : {}) });
+    const k = [0, 1, 2].map((q) => { const i = idx ? idx[t + q]! : t + q; return `${f(pos[i * 3]!)},${f(pos[i * 3 + 1]!)},${f(pos[i * 3 + 2]!)}`; }).sort().join('|');
+    destino.set(k, (destino.get(k) ?? 0) + 1);
+    if (porElemento) porElemento.mapa.set(k, porElemento.id);
   }
 }
 
-const CELULA = 0.002; // 2 mm
-const TOL_CENTROIDE = 1e-3; // 1 mm
-const cel = (n: number): number => Math.floor(n / CELULA);
-
-/**
- * Casa os triângulos do plugin com os da cena por centroide (1 mm) e área (0,1 %). Triângulos coincidentes na cena e no plugin
- * se anulam; sobra o que falta de um lado e o que sobra do outro. Tolerante a float32 e à quantização de 1 µm.
- */
-function comparar(verdade: Tri[], obtido: Tri[]): { faltando: number; sobrando: number; sobrandoPorElemento: Record<string, number>; faltandoAmostra: number[][] } {
-  const grade = new Map<string, Tri[]>();
-  for (const t of verdade) {
-    const k = `${cel(t.cx)},${cel(t.cy)},${cel(t.cz)}`;
-    const l = grade.get(k);
-    if (l) l.push(t); else grade.set(k, [t]);
-  }
+/** Multiconjuntos: o que a cena tem e o plugin não (faltando) e o que o plugin tem e a cena não (sobrando). */
+function comparar(verdade: Map<string, number>, obtido: Map<string, number>, donos: Map<string, string>): { faltando: number; sobrando: number; sobrandoPorElemento: Record<string, number>; faltandoAmostra: string[] } {
+  let faltando = 0;
   let sobrando = 0;
   const sobrandoPorElemento: Record<string, number> = {};
-  for (const o of obtido) {
-    let achou = false;
-    const [ix, iy, iz] = [cel(o.cx), cel(o.cy), cel(o.cz)];
-    busca: for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
-      for (const t of grade.get(`${ix + dx},${iy + dy},${iz + dz}`) ?? []) {
-        if (t.usado) continue;
-        if (Math.abs(t.cx - o.cx) > TOL_CENTROIDE || Math.abs(t.cy - o.cy) > TOL_CENTROIDE || Math.abs(t.cz - o.cz) > TOL_CENTROIDE) continue;
-        if (Math.abs(t.area - o.area) > 1e-5 + 1e-3 * t.area) continue;
-        t.usado = true;
-        achou = true;
-        break busca;
-      }
-    }
-    if (!achou) { sobrando += 1; if (o.id) sobrandoPorElemento[o.id] = (sobrandoPorElemento[o.id] ?? 0) + 1; }
+  const faltandoAmostra: string[] = [];
+  for (const [k, c] of verdade) {
+    const d = c - (obtido.get(k) ?? 0);
+    if (d > 0) { faltando += d; if (faltandoAmostra.length < 3) faltandoAmostra.push(k); }
   }
-  let faltando = 0;
-  const faltandoAmostra: number[][] = [];
-  for (const t of verdade) if (!t.usado) { faltando += 1; if (faltandoAmostra.length < 5) faltandoAmostra.push([t.cx, t.cy, t.cz].map((n) => Math.round(n * 1000) / 1000)); }
+  for (const [k, c] of obtido) {
+    const d = c - (verdade.get(k) ?? 0);
+    if (d > 0) { sobrando += d; const id = donos.get(k) ?? '?'; sobrandoPorElemento[id] = (sobrandoPorElemento[id] ?? 0) + d; }
+  }
   return { faltando, sobrando, sobrandoPorElemento, faltandoAmostra };
 }
 
@@ -143,11 +119,14 @@ function validar(path: string) {
 
   // Verdade independente: os triângulos que a própria cena exporta para a prancha (`exportarVetores`, mundo, instâncias incluídas).
   const vetores = cena.exportarVetores();
-  const verdade: Tri[] = [];
-  triangulos(vetores.trianglePositions, null, verdade);
-  const obtido: Tri[] = [];
-  for (const [id, m] of extraidas) triangulos(m.positions, m.indices, obtido, id);
-  const { faltando, sobrando, sobrandoPorElemento, faltandoAmostra } = comparar(verdade, obtido);
+  // Para a comparação exata a extração roda SEM o arredondamento de 1 µm (mesma aritmética da cena ⇒ mesmos bits em float32).
+  const exatas = extractElementMeshes(cena.scene, false);
+  const verdade = new Map<string, number>();
+  chaves(vetores.trianglePositions, null, verdade);
+  const obtido = new Map<string, number>();
+  const donos = new Map<string, string>();
+  for (const [id, m] of exatas) chaves(m.positions, m.indices, obtido, { id, mapa: donos });
+  const { faltando, sobrando, sobrandoPorElemento, faltandoAmostra } = comparar(verdade, obtido, donos);
   const divergencias = Object.entries(sobrandoPorElemento).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([id, n]) => ({ id, tipo: project.elements[id]?.kind ?? '?', triangulos: n }));
   const triVerdade = vetores.trianglePositions.length / 9;
 
@@ -189,7 +168,7 @@ function validar(path: string) {
     elementosPorTipo: porTipo,
     elementos: Object.keys(project.elements).length,
     tempos_ms: { resolverNiveis: ms(t0, t1), montarCena3D: ms(t1, t2), contarDesenhados: ms(t2, t3), extrairMalhas: ms(t3, t4), conteudoDoSnapshot: ms(t4, t5), serializarJSON: ms(t6, t7) },
-    verificacaoGeometrica: { triangulosDaCena: triVerdade, tolerancia: 'centroide 1 mm, area 0,1 %', faltandoNoPlugin: faltando, sobrandoNoPlugin: sobrando, igual: faltando === 0 && sobrando === 0, elementosDivergentes: Object.keys(sobrandoPorElemento).length, divergencias, faltandoAmostra },
+    verificacaoGeometrica: { triangulosDaCena: triVerdade, comparacao: 'exata em float32, multiconjunto de triangulos', faltandoNoPlugin: faltando, sobrandoNoPlugin: sobrando, igual: faltando === 0 && sobrando === 0, elementosDivergentes: Object.keys(sobrandoPorElemento).length, divergencias, faltandoAmostra },
     triangulos: { desenhadosPelaCena: desenhados, extraidos: Math.round(triExtraidos), cobertura: desenhados ? Math.round((triExtraidos / desenhados) * 1000) / 10 : null },
     vertices,
     entidades: { total: content.entities.length, comMalha, semMalha: content.entities.length - comMalha },

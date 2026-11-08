@@ -21,7 +21,7 @@ interface Range { id: string; start: number; count: number }
  * modelo traz `userData.ranges` (faixas de índice por elemento); só elas entram. Malhas instanciadas, datum, chão,
  * grade e realces não têm faixas e ficam de fora.
  */
-export function extractElementMeshes(root: THREE.Object3D): Map<string, SceneMesh> {
+export function extractElementMeshes(root: THREE.Object3D, quantize = true): Map<string, SceneMesh> {
   root.updateMatrixWorld(true);
   const acc = new Map<string, { pos: number[]; idx: number[]; remap: Map<string, number> }>();
   const v = new THREE.Vector3();
@@ -42,7 +42,8 @@ export function extractElementMeshes(root: THREE.Object3D): Map<string, SceneMes
         if (to === undefined) {
           v.fromBufferAttribute(pos, vi).applyMatrix4(mesh.matrixWorld);
           to = a.pos.length / 3;
-          a.pos.push(q(v.x), q(v.y), q(v.z));
+          if (quantize) a.pos.push(q(v.x), q(v.y), q(v.z));
+          else a.pos.push(v.x, v.y, v.z);
           a.remap.set(key, to);
         }
         a.idx.push(to);
