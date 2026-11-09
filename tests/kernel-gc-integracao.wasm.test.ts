@@ -32,7 +32,7 @@ beforeAll(async () => {
 /** Escada em L (9 + 9 espelhos, patamar) com um guarda-corpo em cada lado (lance e patamar). */
 function projetoEscadaL(): Project {
   const sk = generateLShape({ start: { x: 0, y: 0 }, dir: { x: 1, y: 0 }, turn: 'left', width: 1.2, tread: 0.28, risersFirst: 9, risersSecond: 9 });
-  const comps = sk.map((x, k) => (x.kind === 'run' ? ({ id: `c${k}`, kind: 'run', ...x } as StairRun) : ({ id: `c${k}`, kind: 'landing', ...x } as StairLanding)));
+  const comps = sk.map((x, k) => (x.kind === 'run' ? ({ id: `c${k}`, kind: 'run', ...x.run } as StairRun) : ({ id: `c${k}`, kind: 'landing', ...x.landing } as StairLanding)));
   const s = new ProjectStore(createEmptyProject());
   s.exec({ type: 'upsertLevel', level: makeLevel({ id: 'lv_top', name: 'Topo', elevation: 3.06 }) });
   s.exec({ type: 'addStair', stair: makeStair({ id: 'st1', typeId: defaultStairTypeId, levelId: 'lv_0', topLevelId: 'lv_top', components: comps }) });
@@ -56,7 +56,9 @@ describe('guarda-corpo: integração de ponta a ponta (escada em L, dois lados)'
     expect(malhas).toHaveLength(1);
     const partes = malhas[0]!.partes;
     const papeis = new Set(partes.map((x) => x.papel));
-    for (const papel of ['poste', 'balaustre', 'trilho', 'corrimao'] as const) expect(papeis.has(papel), papel).toBe(true);
+    for (const papel of ['poste', 'balaustre'] as const) expect(papeis.has(papel), papel).toBe(true);
+    // Varredura de perfil (3b): o tipo traz trilho, corrimao ou travessa.
+    expect(papeis.has('trilho') || papeis.has('corrimao') || papeis.has('travessa'), [...papeis].join(',')).toBe(true);
     expect(partes.every((x) => x.indices.length > 0 && x.indices.length % 3 === 0 && x.positions.length % 3 === 0)).toBe(true);
     const lotes = buildGuardaCorpoSolids(malhas);
     expect(lotes.length).toBeGreaterThan(0);
