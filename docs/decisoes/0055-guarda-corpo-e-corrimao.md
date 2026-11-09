@@ -264,7 +264,7 @@ export interface PostesGC {
   canto: PosteGC;
   anguloCanto: number;      // rad, padrão 5° (0,0873)
   intermediario: PosteGC & {
-    modo: 'espacamento-maximo' | 'espacamento-fixo' | 'numero-fixo' | 'nenhum';
+    modo: 'nenhum' | 'espacamento-maximo' | 'espacamento-fixo' | 'numero-fixo';
     espacamento: number;    // m
     numero: number;         // por trecho
   };
@@ -808,16 +808,22 @@ Estado: **Fase 2 implementada** em `feat/gc-f2`. O JSON do contrato (`cena-v11.j
 
 ---
 
-## 16. Fase 3c: nota de retomada (WIP, nenhum código escrito ainda)
+## 16. Registro da Fase 3c (distribuição: postes, balaústres, por degrau e painéis)
 
-Branch `feat/gc-f3c` (a partir de `origin/feat/gc-f2`). Só a leitura da ADR e do código foi feita; falta tudo.
+Estado: **Fase 3c implementada** em `feat/gc-f3c` (a partir de `feat/gc-f2`). Arquivos: `crates/geom-wasm/src/gc_distribuicao.rs` (+ `gc_distribuicao/testes.rs`), uma linha `pub mod gc_distribuicao;` em `lib.rs` (única linha fora da 3c; inevitável), `packages/engine/src/guardaCorpoRef/distribuicao.ts` (referência TS), `distribuicao.paridade.test.ts` e `distribuicao.ouro.json` (casos de ouro lidos pelo cargo e pelo vitest) e o wasm regenerado. `guarda_malha` segue `NAO_IMPLEMENTADO`: a integração das três frentes da Fase 3 monta os parâmetros a partir das tabelas de `secoes_gc` e chama `distribuir`.
 
-Plano decidido:
-- Criar `crates/geom-wasm/src/gc_distribuicao.rs` e acrescentar `pub mod gc_distribuicao;` em `lib.rs` (única linha fora dos arquivos da 3c; inevitável). Funções puras sobre structs simples (`ParamPostes`, `PadraoParam`, `PainelParam`, `PerfilParam`) e `TrechoGC`; sem depender das tabelas.
-- Postes (§5.2/5.5): nós estruturais (todos se reto; só as pontas se `curvo`); início/fim/canto (giro > `ang_canto`)/transição (intermediário se ativo e modo ≠ nenhum, senão canto); intermediários por vão; descarte a menos de meia largura dos dois postes.
-- Balaústres (§5.6): vãos entre postes (escopo `vao`) ou segmento/quebra; `Lu = L − folgas`; justificações, `distribuir` (`P' = (Lu−D)/ceil((Lu−D)/P)`), sobra, `gc-padrao-nao-cabe` (só os elementos do início que cabem), `gc-padrao-comprimido` (P' < 0,5P), `gc-vao-sem-espaco`; limite 20 000 devolve `LIMITE`; `porDegrau` com degraus dados como `(s_quina, z, profundidade)`.
-- Painéis (§5.7): divisão por `larguraMaxima`, malha em lajota (perfurada e tela simplificadas), cabos como cilindros.
-- Malha: prisma vertical (circular 16/24 lados, retangular, polígono por leque do centroide), caixa inclinada, cilindro; fechada e orientada para fora.
-- Referência TS em `packages/engine/src/guardaCorpoRef/distribuicao.ts` e teste de paridade com casos de ouro iguais aos do cargo; teste `tests/kernel-gc3c.wasm.test.ts` (smoke, pois a consulta `guarda_malha` só existe na integração).
-- Atenção: a ordem real dos enums em `kernelGuardaCorpoTabelas.ts` para `modoPoste` é `nenhum=0, espacamento-maximo=1, espacamento-fixo=2, numero-fixo=3` (não a da ADR §4.2).
-- Escolhas já tomadas: espaçamento por degrau `(profundidade − distanciaDaQuina)/quantidade`; balaústre extra vai na ponta livre; retangular usa `largura` ao longo do caminho e `altura` na lateral.
+**API** (funções puras, sem tabelas): `distribuir(&TrechoGC, &ConfigDistribuicao, restante) -> Result<SaidaDistribuicao, u32>` devolve postes, balaústres por padrão, painéis, peças de malha (`papel` 0 poste, 1 balaústre, 5 painel, 6 cabo; sólido fechado e orientado, grade de 1 µm) e avisos (`1` padrão não cabe, `2` comprimido, `3` vão sem espaço, `4` sobra curta de poste). `restante` é quantos balaústres ainda cabem no guarda-corpo (`LIMITE_BALAUSTRES` menos o já usado); passar dele devolve `LIMITE`, padrão inválido devolve `ENTRADA`. Testes: 24 no cargo (suíte do crate: 235 ok), 23 na paridade TS, `tests/kernel-gc2.wasm.test.ts` verde com o wasm novo. Não há consulta nova, então não há teste wasm novo da 3c.
+
+**Escolhas onde a ADR era ambígua:**
+1. **`modoPoste`.** A ADR §4.2 foi alinhada ao código: `nenhum=0, espacamento-maximo=1, espacamento-fixo=2, numero-fixo=3`.
+2. **Cota da cadeia.** `CadeiaGC` guarda a cota do eixo sobre o hospedeiro; as alturas (`altura`, `h_base`, `h_topo`, já resolvidas pela integração a partir de `RefBaseGC`/`RefTopoGC`, trilhos e `ajusteAlturaPatamar`) somam a ela. O poste vai de `z - abaixo` a `z + altura + acima`.
+3. **Folga do vão.** Folga de cada ponta = meia largura do poste do limite (0 se não há) + meia largura do primeiro (ou último) elemento do padrão. O comprimento útil `Lu` vai do centro do primeiro ao centro do último elemento; `D` é a soma das `distanciaAnterior`. `Lu` menor que 1e-9 dá `gc-vao-sem-espaco`; `Lu < D` coloca só os elementos do início que cabem e avisa `gc-padrao-nao-cabe`.
+4. **Fronteiras dos vãos.** Escopo `vao`: pontas, todos os postes e as quebras. Escopo `segmento`: só pontas e quebras; poste interior tira os elementos que o tocam. Trecho curvo nunca quebra. Quebra `cada-segmento` quebra em todo nó interior; `angulo`, onde o giro passa de `anguloQuebra`.
+5. **Sobra `balaustre-extra`.** Com justificação início ou fim e `S >= P/2`, o primeiro elemento do padrão entra rente à ponta livre (no fim do vão útil para início; no começo para fim). Pôr no passo `k·P` nunca cabe (a sobra é menor que `P`). Em `centro` e `distribuir` a sobra não gera extra.
+6. **`folga-nas-pontas`** reparte `S/2` nas duas pontas também nas justificações início e fim.
+7. **Poste de transição** (lance para patamar sem giro): intermediário se o tipo tem intermediário ativo com modo diferente de `nenhum`, senão canto (conforme §5.2). Trecho curvo só tem poste nas pontas; trecho fechado não tem início nem fim, só cantos e transições.
+8. **Poste fixo.** `espacamento-fixo` mede a partir do início do vão e avisa (código 4) quando a sobra do fim é menor que 0,3 do espaçamento. Poste intermediário a menos de (meia largura dele + meia largura do vizinho) do poste de nó é descartado.
+9. **`porDegrau`.** `DegrauP { s0, profundidade, z }` (a quina, a pisada e a cota do degrau) vem da integração (espelhos da escada). Posições: `s0 + distanciaDaQuina + j·(profundidade - distanciaDaQuina)/quantidade`, `j = 0..quantidade`. Base na cota do degrau, topo no eixo mais `h_topo`. Vale em trecho de origem lance ou caracol; patamar usa o padrão normal. Sem degraus informados, cai no padrão normal.
+10. **Painéis.** Cada vão entre postes consecutivos vira `n = ceil((vão - meias - 2·folga)/larguraMaxima)` painéis iguais (`larguraMaxima = 0`: um) com `folgaLateral` entre eles e até o poste. Malha: uma caixa fechada por faceta (paralelogramo no trecho inclinado, facetas nos nós do trecho curvo). Chapa perfurada e tela saem como sólido sem furo marcado `simplificado` (a regra de furos vazados da §5.7 fica para a Fase 4a/7, junto da área líquida); a tela usa `max(diâmetro do fio, 2 mm)` de espessura. Cabos: cilindros de 16 lados, centrados no painel; horizontais seguem as facetas, verticais ficam espaçados em `s`.
+11. **Perfil retangular.** `largura` ao longo do caminho e `altura` na lateral; polígono em coordenadas locais (`x` ao longo do caminho, `y` à esquerda), corrigido para anti-horário. Tampas por triangulação de orelhas.
+12. **Limite de 20 000** é checado dentro da distribuição (cada balaústre colocado), por guarda-corpo, via `restante`; o aviso do app vem da integração.

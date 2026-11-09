@@ -77,6 +77,7 @@ pub mod secoes_a3;
 pub mod secoes_b;
 pub mod secoes_gc;
 pub mod gc_tipos;
+pub mod gc_distribuicao;
 pub mod volume_sobreposicao;
 #[cfg(test)]
 mod teste_util;
