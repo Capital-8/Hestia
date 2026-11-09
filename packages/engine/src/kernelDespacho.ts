@@ -383,6 +383,9 @@ export const kernelPendente = (): boolean =>
   (configAtual.fatiaA || configAtual.fatiaB) && ((!gerenciadorAtual && !motivoIndisponivel) || (carregando !== null && !carregamentoConcluido));
 
 /** Espera o carregamento do wasm terminar (com sucesso ou não). Resolve de imediato se nada está carregando. */
+/** O gerenciador do kernel v2 já carregado (ou null). Usado pelo serviço do guarda-corpo. */
+export const gerenciadorDoKernel = (): GerenciadorKernelV2 | null => gerenciadorAtual;
+
 export const aguardarKernel = (): Promise<void> => carregando ?? Promise.resolve();
 
 /** Existe despachante instalado? */

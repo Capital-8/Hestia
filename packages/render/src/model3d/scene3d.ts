@@ -1,6 +1,6 @@
 /* eslint-disable max-lines -- a cena 3D reúne o port GPU (faixas/sombras) e o alizar/esquadrias do plano; extrair depois. */
 import * as THREE from 'three';
-import { applyPartialStructure, frameOfWall, openingGeometry, junctionOfWalls, pisoOuLajeNaFaixa, type JunctionLevel, type ResolvedWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
+import { servicoGuardaCorpo, ServicoGuardaCorpo, applyPartialStructure, frameOfWall, openingGeometry, junctionOfWalls, pisoOuLajeNaFaixa, type JunctionLevel, type ResolvedWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
 import { openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, type GraphicsCategory, type Id, type Material, type Opening, type Project, type View3DSettings, type VisualStyle } from '@hestia/model';
 import { DARK, LIGHT } from '../plan/types.ts';
 import { AVISO } from '../aviso.ts';
@@ -15,6 +15,7 @@ import { LotesPorFaixa, type Faixa3D } from './faixas3d.ts';
 import { BITS_PROFUNDIDADE, diagnosticarOrigem, diagnosticarProfundidade, type DiagnosticoOrigem, type DiagnosticoProfundidade } from './precisao3d.ts';
 import { buildEaveSolids } from './eaveSolids.ts';
 import { buildStairSolids } from './stairSolids.ts';
+import { buildGuardaCorpoSolids } from './guardaCorpo3d.ts';
 import { buildGenericSolids } from './genericSolids.ts';
 import { buildCadLines } from './cad3d.ts';
 import { buildLevels, disposeLevels, layoutLevels } from './levels3d.ts';
@@ -886,6 +887,9 @@ export class ModelScene {
     const escadasNivel = shown('stair') ? escadas.filter((s) => s.levelId === lv.levelId && !oculto(s.id)) : [];
     const rampasNivel = shown('stair') ? rampas.filter((r) => r.levelId === lv.levelId && !oculto(r.id)) : [];
     const genericos = shown('generic') ? buildGenericSolids(pGen, lv.levelId) : [];
+    // Guarda-corpos (decisao 0055): a malha vem do kernel Rust; sem kernel pronto nao ha o que desenhar (nunca TypeScript no lugar).
+    const guardaCorpos = shown('railing') && ServicoGuardaCorpo.temGuardaCorpo(p) ? (servicoGuardaCorpo().malhas(p) ?? []) : [];
+    const idsDoNivel = new Set(Object.values(p.elements).filter((e) => e.kind === 'railing' && e.levelId === lv.levelId && !oculto(e.id)).map((e) => e.id));
     const batches: SolidBatch[] = [
       ...paredes.batches,
       ...buildFloorSolids(floors, juncao),
@@ -895,6 +899,7 @@ export class ModelScene {
       ...eave.batches,
       ...buildStairSolids(escadasNivel, (s) => stairArrivalTop(p, s).top),
       ...buildRampSolids(rampasNivel),
+      ...buildGuardaCorpoSolids(guardaCorpos, (id) => idsDoNivel.has(id)),
       ...genericos,
     ];
     // Reveal: o modelo normal continua desenhado; os elementos revelados ganham só as arestas azuis (sem preenchimento).
