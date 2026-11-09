@@ -104,3 +104,4 @@ export * from './guardaCorpoVista.ts';
 
 export { t as engineMessageText, type Lang as EngineLang, type DictKey as EngineMessageKey } from './i18nMessages.ts';
 export * from './kernelGuardaCorpoServico.ts';
+export * from './guardaCorpoSchedule.ts';

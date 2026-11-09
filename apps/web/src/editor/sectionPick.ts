@@ -1,7 +1,8 @@
-import { pickSection, pickSectionAnnotation, screenToWorld, type SectionAnnotationPick, type SectionPick } from '@hestia/render';
+import { pickGuardaCorpoNoCorte, pickSection, pickSectionAnnotation, screenToWorld, type SectionAnnotationPick, type SectionPick } from '@hestia/render';
 import { sectionAnnotationsOf } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
+import { visibilityOf } from './viewVisibility.ts';
 
 /** Tolerância de clique no corte e na elevação, em pixels de tela (decisão 0016). */
 const TOLERANCE_PX = 4;
@@ -34,6 +35,9 @@ export function sectionPickAt(s: ScreenPt): SectionHit | null {
   // A escala é a da vista: o mesmo tamanho de papel da cota/texto que o desenho usa (antes ficava fixo em 1:100).
   const note = pickSectionAnnotation(sectionAnnotationsOf(view), point, NOTE_LINE_PX / v.zoom, editor.viewScale(), NOTE_TEXT_PX / v.zoom);
   if (note) return note;
+  // Guarda-corpo: as mesmas linhas que o corte desenha (kernel); oculto ou fora do isolamento nao e alvo.
+  const guarda = pickGuardaCorpoNoCorte(editor.project, result, visibilityOf(editor.project, useUi.getState()).hidden, point, TOLERANCE_PX / v.zoom);
+  if (guarda) return { id: guarda, kind: 'railing' };
   return pickSection(result, point, TOLERANCE_PX / v.zoom);
 }
 

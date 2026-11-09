@@ -1,5 +1,7 @@
 import { union, type MultiPolygon } from '@hestia/geom';
 import {
+  servicoGuardaCorpo,
+  ServicoGuardaCorpo,
   buildOpeningModel,
   frameOfWall,
   junctionLevel,
@@ -20,7 +22,7 @@ import {
   type ResolvedRamp,
   type ResolvedStair,
 } from '@hestia/engine';
-import { exportIfc, type IfcGeometry, type IfcOpeningPartGeo, type IfcPlane, type IfcPolygon, type IfcPrism, type IfcRampGeo, type IfcStairGeo } from '@hestia/io';
+import { exportIfc, type IfcGeometry, type IfcGuardaCorpoGeo, type IfcOpeningPartGeo, type IfcPlane, type IfcPolygon, type IfcPrism, type IfcRampGeo, type IfcStairGeo } from '@hestia/io';
 import { isOpening, isRamp, openingSill, openingType, wallBaseElevation, wallHeight, type Id, type Opening, type OpeningType, type Project, type Wall } from '@hestia/model';
 import { saveText } from './saveText.ts';
 import { useI18n, type Lang } from './i18n.ts';
@@ -193,6 +195,29 @@ function rampOf(p: Project, rr: ResolvedRamp): IfcRampGeo {
   };
 }
 
+/**
+ * Guarda-corpos do projeto para o IFC (decisao 0055): a malha por parte (guarda_malha) e o comprimento desenvolvido (quant_guarda) vem do kernel Rust,
+ * a mesma saida do 3D e das quantidades. Papel e material vem do grupo (material_num ja traduzido para o id do projeto). Sem kernel pronto, sem railings.
+ */
+export function railingsOf(p: Project): IfcGuardaCorpoGeo[] | undefined {
+  if (!ServicoGuardaCorpo.temGuardaCorpo(p)) return undefined;
+  const servico = servicoGuardaCorpo();
+  const malhas = servico.malhas(p);
+  if (!malhas) return undefined;
+  const quant = new Map((servico.quantidades(p) ?? []).map((q) => [q.guardaId, q.comprimentoDesenvolvido] as const));
+  return malhas.map((m) => ({
+    guardaId: m.guardaId,
+    partes: m.partes.map((pt) => ({
+      papel: pt.papel,
+      materialId: pt.materialId,
+      mesh: { positions: pt.positions, indices: pt.indices },
+      ...(pt.papel === 'painel' && (p.materials[pt.materialId]?.opacity ?? 1) < 1 ? { vidro: true } : {}),
+      pecas: pt.pecas,
+    })),
+    ...(quant.get(m.guardaId) ? { comprimentoDesenvolvido: quant.get(m.guardaId)! } : {}),
+  }));
+}
+
 export function ifcGeometryOf(p: Project): IfcGeometry {
   const levels = p.levels.map((l) => l.id);
   const walls = levels.flatMap((id) => wallsOfLevel(p, id));
@@ -222,7 +247,8 @@ export function ifcGeometryOf(p: Project): IfcGeometry {
     .map((c) => ({ ceilingId: c.ceilingId, prisms: prismsOf(c.polygon, flatPlane(c.topZ), flatPlane(c.bottomZ)) }))
     .filter((c) => c.prisms.length > 0);
   const ramps = resolveRamps(p).map((r) => rampOf(p, r));
-  return { walls, openings: openingsOf(p), floors, slabs, ceilings, roofs, stairs, ramps };
+  const railings = railingsOf(p);
+  return { walls, openings: openingsOf(p), floors, slabs, ceilings, roofs, stairs, ramps, ...(railings ? { railings } : {}) };
 }
 
 /** Texto IFC4 (STEP) do projeto inteiro, com a data atual no cabeçalho e os nomes padrão no idioma ativo. */

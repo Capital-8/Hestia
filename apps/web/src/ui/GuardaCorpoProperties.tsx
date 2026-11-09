@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
-import { guardaCorpoIssues, type GuardaCorpo, type HospedeiroGC, type LadoGC, type LadoHospedado } from '@hestia/model';
+import { guardaCorpoMedidasParaAvisos, servicoGuardaCorpo } from '@hestia/engine';
+import { guardaCorpoIssues, normaDe, type GuardaCorpo, type HospedeiroGC, type LadoGC, type LadoHospedado } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
 import { useI18n, useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
@@ -23,6 +24,13 @@ export function GuardaCorpoProperties({ railings }: { railings: GuardaCorpo[] })
   const tipo = p.tiposGuardaCorpo?.[first.typeId];
   const ids = new Set(railings.map((g) => g.id));
   const issues = guardaCorpoIssues(p, lang).filter((i) => i.elementId !== undefined && ids.has(i.elementId));
+  // Avisos de norma que dependem da geometria (vao, altura real, corrimao): medidos pelo kernel (guarda_avisos); sem kernel pronto, so os de configuracao.
+  const medidas = servicoGuardaCorpo().avisos(p) ?? [];
+  const avisosGeometria = railings.flatMap((g) => {
+    const tp = p.tiposGuardaCorpo?.[g.typeId];
+    return tp ? guardaCorpoMedidasParaAvisos(medidas.filter((m) => m.guardaId === g.id), normaDe(p, g.sobrescritas?.normaId ? { normaId: g.sobrescritas.normaId } : tp), lang) : [];
+  });
+  const todosAvisos = [...issues.map((i) => ({ code: i.code, message: i.message, id: i.elementId })), ...avisosGeometria.map((i) => ({ code: i.code, message: i.message, id: i.guardaId }))];
   const orphanIds = railings.filter((g) => issues.some((i) => i.elementId === g.id && i.code === 'railing-host-missing')).map((g) => g.id);
   const hostedAll = railings.every((g) => g.hospedeiro.tipo !== 'manual');
   const hostLabel = h.tipo === 'manual' ? t('gc6b_host_manual') : h.tipo === 'escada' ? t('gc6b_host_stair') : t('gc6b_host_ramp');
@@ -111,11 +119,11 @@ export function GuardaCorpoProperties({ railings }: { railings: GuardaCorpo[] })
         </>
       )}
       <h3>{t('gc6b_issues')}</h3>
-      {issues.length === 0 ? <p className="hint">{t('gc6b_no_issues')}</p> : (
+      {todosAvisos.length === 0 ? <p className="hint">{t('gc6b_no_issues')}</p> : (
         <ul className="gc-issues">
-          {issues.map((i, k) => (
+          {todosAvisos.map((i, k) => (
             <li key={`${i.code}-${k}`}>
-              <button type="button" className="link" onClick={() => useUi.setState({ selection: i.elementId ? [i.elementId] : [] })}>{i.message}</button>
+              <button type="button" className="link" onClick={() => useUi.setState({ selection: i.id ? [i.id] : [] })}>{i.message}</button>
             </li>
           ))}
         </ul>
