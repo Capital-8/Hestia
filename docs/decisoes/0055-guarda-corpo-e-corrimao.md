@@ -828,6 +828,15 @@ Estado: **Fase 2 implementada** em `feat/gc-f2`. O JSON do contrato (`cena-v11.j
 7. **Cache.** Escrever seções 60 a 81 não esvazia os caches de paredes, pisos, lajes e forros (nenhum deles lê o guarda-corpo).
 8. **Correção de passagem.** `abi2::testes::versoes` ainda esperava a versão 12 do esquema (esquecida na Fase 1); passou para 13.
 
+**Fase 3b (varredura e junções), registro:** implementada em `feat/gc-f3b`. `crates/geom-wasm/src/gc_malha.rs` (`MalhaGC`: grupos por peça, soldagem na grade de 1 µm com `floor(v/1e-6 + 0,5)`, análise de Euler, volume e fechamento/orientação) e `gc_varredura.rs` (perfil, quadros por rotação mínima, `varrer`, `filete`, `soldar`, `corrimao_lance_patamar`, `estender`, `posicoes_suportes`, `suporte`). `lib.rs` ganhou só as duas linhas `pub mod`. Referência TS em `engine/src/guardaCorpoRef/malha.ts` e `varredura.ts` (não exportada pelo `index.ts`, que é da Fase 1); paridade por `varredura.paridade.json` (gerado com `GERAR_PARIDADE_GC=1` pelo teste TS e lido pelo teste cargo `gc_varredura::testes::paridade`, contagens exatas e 1e-6 m). `guarda_malha` segue `NAO_IMPLEMENTADO`: a consulta é a integração final da Fase 3 (junta 3a, 3b e 3c). Validado também com o caminho real da 3a (`gc_varredura::caminho_real`: escada reta, com patamar, em U, caracol, rampa com patamar).
+
+Escolhas onde a ADR era ambígua:
+1. **Esquadria sem escala de perfil:** o anel de cada nó é o corte do perfil (no quadro do segmento) pelo plano bissetor, deslizando ao longo do tangente; o quadro do segmento seguinte é a rotação mínima do anterior, então os dois anéis coincidem. Acima de `1/cos(meio giro) > 2,5` (ou giro de 180 graus) o canto vira chanfro: dois anéis perpendiculares ligados por uma faixa.
+2. **Solda (`conexaoTrilho: soldar`):** filete de 8 segmentos com raio de uma largura de perfil. **Filete do corrimão:** raio `raioFilete`, tangente limitada à metade do menor segmento vizinho (o raio efetivo diminui); sem número fixo, flecha de corda <= `tol_corda`.
+3. **Pescoço de ganso:** curva de Hermite cúbica (12 segmentos) de `dg` antes do nó, com a inclinação do lance na entrada e horizontal na saída, chegando ao nível do patamar (`h_patamar`). Transição simples: arco vertical `max(0,15; 2·d)` no encontro das duas retas do corrimão. Lance e patamar não colineares em planta (giro > 3 graus): um só caminho com degrau vertical no nó e esquadria.
+4. **Extensões:** ponta inferior segue a inclinação, superior é horizontal; `maisPiso` soma `profundidade_piso`. O estilo (`parede`, `piso`, `poste`) não muda o comprimento aqui; quem chama decide se há extensão.
+5. **Suportes:** posições pelo comprimento desenvolvido; máximo e mínimo incluem as duas pontas; o suporte é um prisma horizontal perpendicular ao corrimão.
+6. **Tampas** por triangulação por orelhas (perfil poligonal simples, anti-horário); laço fechado sem tampas. Laço fechado com holonomia não nula ganha faixa de torção.
 ---
 
 ## 16. Registro da Fase 3a (caminho hospedado no Rust)
