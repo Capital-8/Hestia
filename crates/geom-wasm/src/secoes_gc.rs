@@ -945,14 +945,6 @@ impl SecoesGC {
     }
 }
 
-/// Gancho da Fase 2 para `guarda_caminhos`: confere as referências entre as seções e devolve as quatro saídas vazias do esquema. A Fase 3a troca o corpo
-/// pelo cálculo das cadeias (`CadeiaGC`); a validação fica.
-pub fn guarda_caminhos_gancho(cena: &crate::cena::Cena) -> Result<Vec<crate::consultas::Saida>, u32> {
-    use crate::consultas::Saida;
-    cena.gc.validar_referencias()?;
-    Ok(vec![Saida::U32(Vec::new()), Saida::F64(Vec::new()), Saida::U32(Vec::new()), Saida::F64(Vec::new())])
-}
-
 #[cfg(test)]
 mod testes {
     use super::*;
@@ -1210,7 +1202,7 @@ mod testes {
         c.gc = conjunto_completo();
         let r = executar(&mut c, CONSULTA_GUARDA_CAMINHOS, &[0.0, 1e-6]).expect("consulta");
         assert_eq!(r.len(), 4);
-        assert!(r.iter().all(Saida::is_empty));
+        assert!(matches!(&r[0], Saida::U32(_)));
         assert_eq!(executar(&mut c, CONSULTA_GUARDA_CAMINHOS, &[0.0, -1.0]), Err(ENTRADA));
         assert_eq!(executar(&mut c, CONSULTA_GUARDA_CAMINHOS, &[0.0]), Err(ENTRADA));
         c.gc.remover(SECAO_TIPOS_GUARDA, &[1]);
