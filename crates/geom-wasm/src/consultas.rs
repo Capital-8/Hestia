@@ -234,12 +234,12 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
         }
         crate::esquema::CONSULTA_QUANT_GUARDA => crate::gc_quant::quant_guarda(&cena.gc, arg_nivel(args[0])?),
         CONSULTA_GUARDA_CAMINHOS => {
-            let _nivel = arg_nivel(args[0])?;
+            let nivel = arg_nivel(args[0])?;
             let tol = arg_finito(args[1])?;
             if tol < 0.0 {
                 return Err(ENTRADA);
             }
-            crate::secoes_gc::guarda_caminhos_gancho(cena)
+            crate::gc_caminho::guarda_caminhos(cena, nivel, tol)
         }
         _ => Err(NAO_IMPLEMENTADO),
     }
