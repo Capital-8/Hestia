@@ -98,5 +98,8 @@ export * from './angularDimension.ts';
 export * from './assinaturasNivel.ts';
 export * from './sectionIncremental.ts';
 export * from './kernelGuardaCorpo.ts';
+export * from './guardaCorpoIssues.ts';
+export * from './guardaCorpoQuantities.ts';
+export * from './guardaCorpoVista.ts';
 
 export { t as engineMessageText, type Lang as EngineLang, type DictKey as EngineMessageKey } from './i18nMessages.ts';

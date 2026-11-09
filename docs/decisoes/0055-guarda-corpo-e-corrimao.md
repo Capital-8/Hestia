@@ -824,3 +824,29 @@ Estado: **Fase 3a implementada** em `feat/gc-f3a`. `crates/geom-wasm/src/gc_cami
 7. **Rampa:** lado esquerdo do lance por produto vetorial com a direção `inicio -> fim`; patamares pela mesma regra do item 4 usando as bordas dos lances vizinhos.
 8. **Alturas, `ajusteAlturaPatamar` e junções** não entram aqui (são das fases 3b e 3c); os nós são do eixo no nível da linha das quinas / do piso.
 
+
+---
+
+## 16. Registro das Fases 4a e 4b (`feat/gc-f4`)
+
+**4a (Rust).** `gc_planta.rs`, `gc_corte.rs`, `gc_quant.rs` e `gc_avisos.rs` implementam a lógica pura de `guarda_planta`, `guarda_corte`, `quant_guarda` e das medidas de `guarda_avisos`, sobre a `CadeiaGC` e sobre `PecaGC` (peça lógica definida em `gc_planta.rs`). `cadeia_de_saida` converte a saída real de `guarda_caminhos` (3a) em `CadeiaGC`; há teste com o caminho real.
+- **Ainda não ligadas a `executar`.** As consultas 62 a 65 seguem `NAO_IMPLEMENTADO` até a 3b/3c entregarem as peças reais (balaústres, postes, trilhos). Ligar é só montar `Vec<PecaGC>` e chamar `achatar_*`.
+- Estilo de planta e corte é por peça, não por segmento: peça que cruza o plano sai inteira como cortada. Eixo sai com papel 255.
+- Corte: normal esquerda de `(dx, dy)` é o lado visível; elevação é o corte com plano fora da edificação e profundidade grande. `poligonos` = `[guarda, papel, n, s, z, ...]`.
+- Códigos de `guarda_avisos`: 1 vão grande, 2 vão inferior, 3 altura do corrimão, 4 extensão, 5 altura baixa (`CODIGO_AVISO_GC` no TS).
+
+**4b (TS).** `guardaCorpoQuantities.ts`, `guardaCorpoIssues.ts` (mensagens pt/en locais, os outros idiomas caem em pt, para não mexer no dicionário `egb_` espelhado no app), `guardaCorpoRef/avisos.ts` (esfera), `ifc/ifcGuardaCorpo.ts` (um `IFCRAILING` por guarda-corpo, corrimões do tipo como `IFCRAILING` HANDRAIL agregados; postes, balaústres e painéis como partes ficam para quando houver malha, Fase 5; `Length` só no manual enquanto o kernel não devolver o comprimento).
+- **Requisito do dono (aparece, seleciona, isola/oculta).** Arquivo extra, fora da lista da 4b: `viewVisibility.ts` não mapeava `railing` em `categoriaDoElemento`; corrigido, então ocultar/isolar por categoria `railing` e por elemento vale em planta, corte/elevação e 3D pelo `visibilityOf()`. `guardaCorpoVista.ts` decodifica as linhas de planta/corte, aplica o conjunto `hidden` e escolhe o guarda-corpo sob o cursor; a Fase 5 só liga isso ao desenho e ao `pick`. Testes em `viewVisibility.guardaCorpo.test.ts`. O desenho em si (planta, 3D, corte) é a Fase 5.
+- Mesclada `origin/feat/gc-f3a`; wasm regenerado e `--check` ok.
+
+## 16b. Unificação das quantidades (Fase 4a, `feat/gc-f5q`)
+
+- **Um único `gc_quant.rs`.** `quantificar_pecas` aplica as regras de contagem (postes, balaústres, painéis, trilhos, corrimãos) sobre a `CadeiaGC` real da 3a e as seções do tipo, e gera `PecaGC`; `quant_guarda` (da f4) agrega por `(guarda, papel, perfil, material)`; `consulta_quant_guarda` liga a consulta 64 em `executar`. Não há segundo somador.
+- **Um único `guardaCorpoQuantities.ts`.** Base da f4 (totais por guarda, custo, eixo) mais `decodificarQuantidadesGC(s, cena)`, `quantidadesGuardaNivelRust` e `totaisPorTipoGC` (a soma por tipo sai de `porPapel`).
+- **Ambiguidades decididas:**
+  - `distribuir`: n + 1 repetições por vão, a última encostando no fim do vão (n = ceil(Lu - D) / P).
+  - Transição lance → patamar sem giro em planta: nó; recebe poste de canto só com `canto.ativo`.
+  - Painel: área lateral de duas faces (convenção da f4); o TS divide por 2 em `areaPaineis`.
+  - Corrimão com extensão: o comprimento da extensão (horizontal) soma ao eixo 3D; `maisPiso` não entra.
+  - As peças de quantidade têm x, y = 0 até a 3b definir o eixo nas peças.
+- **Pendente:** balaústres de `porDegrau`; quebras `angulo` e `nunca` sem a remoção por canto da 3c; área líquida de painel perfurado; suportes e cabos. A tabela de quantitativos do app não consome a consulta ainda: não existe despachante de guarda-corpo no app (a ligação é da Fase 7).
