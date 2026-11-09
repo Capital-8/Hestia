@@ -1,9 +1,8 @@
-// @ts-nocheck -- referencia de paridade (so os testes a usam); a indexacao de vetores fixos [x, y, z] nao passa em noUncheckedIndexedAccess. Pendente: tipar com tuplas nomeadas.
 /**
  * Referência TS da varredura de perfil do guarda-corpo (decisão 0055, Fase 3b). Espelha `crates/geom-wasm/src/gc_varredura.rs` passo a passo
  * (mesmas fórmulas e mesma ordem de operações); usada só pelos testes de paridade (`varredura.paridade.test.ts`). O app não a chama.
  */
-import type { PecaMalha, V3 } from './malha.ts';
+import { at, type PecaMalha, type V3 } from './malha.ts';
 
 export const LIMITE_ESQUADRIA = 2.5;
 export const SOLDA_RAIO_LARGURAS = 1;
@@ -31,7 +30,10 @@ export const perfilRetangular = (l: number, a: number): P2[] => [[-l / 2, -a / 2
 
 const areaComSinal = (p: P2[]): number => {
   let s = 0;
-  for (let i = 0; i < p.length; i++) s += p[i][0] * p[(i + 1) % p.length][1] - p[(i + 1) % p.length][0] * p[i][1];
+  for (let i = 0; i < p.length; i++) {
+    const a = at(p, i), b = at(p, (i + 1) % p.length);
+    s += a[0] * b[1] - b[0] * a[1];
+  }
   return s / 2;
 };
 
@@ -51,16 +53,21 @@ export function triangularPerfil(p: P2[]): [number, number, number][] {
     const n = resto.length;
     let achou = -1;
     for (let i = 0; i < n; i++) {
-      const a = resto[(i + n - 1) % n], b = resto[i], c = resto[(i + 1) % n];
-      if (cr(p[a], p[b], p[c]) <= 1e-14) continue;
-      const dentro = resto.some((k) => k !== a && k !== b && k !== c && cr(p[a], p[b], p[k]) >= 0 && cr(p[b], p[c], p[k]) >= 0 && cr(p[c], p[a], p[k]) >= 0);
+      const a = at(resto, (i + n - 1) % n), b = at(resto, i), c = at(resto, (i + 1) % n);
+      const pa = at(p, a), pb = at(p, b), pc = at(p, c);
+      if (cr(pa, pb, pc) <= 1e-14) continue;
+      const dentro = resto.some((k) => {
+        if (k === a || k === b || k === c) return false;
+        const pk = at(p, k);
+        return cr(pa, pb, pk) >= 0 && cr(pb, pc, pk) >= 0 && cr(pc, pa, pk) >= 0;
+      });
       if (!dentro) { achou = i; break; }
     }
     const i = achou < 0 ? 0 : achou;
-    saida.push([resto[(i + n - 1) % n], resto[i], resto[(i + 1) % n]]);
+    saida.push([at(resto, (i + n - 1) % n), at(resto, i), at(resto, (i + 1) % n)]);
     resto.splice(i, 1);
   }
-  if (resto.length === 3) saida.push([resto[0], resto[1], resto[2]]);
+  if (resto.length === 3) saida.push([at(resto, 0), at(resto, 1), at(resto, 2)]);
   return saida;
 }
 
@@ -74,8 +81,8 @@ const ortonormalizar = (n: V3, t: V3): V3 => unit(sub(n, mul(t, dot(n, t))));
 
 export function limparNos(nos: V3[], tol: number, fechado: boolean): V3[] {
   const r: V3[] = [];
-  for (const p of nos) if (r.length === 0 || dist(r[r.length - 1], p) > tol) r.push(p);
-  if (fechado && r.length > 1 && dist(r[0], r[r.length - 1]) <= tol) r.pop();
+  for (const p of nos) if (r.length === 0 || dist(at(r, r.length - 1), p) > tol) r.push(p);
+  if (fechado && r.length > 1 && dist(at(r, 0), at(r, r.length - 1)) <= tol) r.pop();
   return r;
 }
 
@@ -85,11 +92,11 @@ export function quadros(nos: V3[], fechado: boolean): Quadro[] {
   const ns = fechado ? m : m - 1;
   const q: Quadro[] = [];
   for (let s = 0; s < ns; s++) {
-    const t = unit(sub(nos[(s + 1) % m], nos[s]));
+    const t = unit(sub(at(nos, (s + 1) % m), at(nos, s)));
     let n: V3;
     if (s === 0) n = Math.hypot(t[0], t[1]) < 1e-9 ? [1, 0, 0] : unit([-t[1], t[0], 0]);
     else {
-      const ant = q[s - 1];
+      const ant = at(q, s - 1);
       const k = cross(ant.t, t);
       const sen = norma(k);
       const n0 = sen < 1e-14 ? ant.n : rodar(ant.n, mul(k, 1 / sen), Math.atan2(sen, dot(ant.t, t)));
@@ -127,35 +134,48 @@ export function varrer(nosEntrada: V3[], fechado: boolean, perfil: P2[], limite:
   const bandas: [number, number][] = [];
   const empurrar = (r: V3[]): number => { const i = pc.vertices.length; for (const v of r) pc.vertices.push(v); return i; };
   for (let i = 0; i < m; i++) {
+    const no = at(nos, i);
     const ent = fechado ? (i + ns - 1) % ns : i > 0 ? i - 1 : null;
     const sai = fechado || i < ns ? i : null;
-    if (ent === null && sai !== null) ini[i] = empurrar(anel(nos[i], q[sai], q[sai].t, perfil));
-    else if (ent !== null && sai === null) fim[i] = empurrar(anel(nos[i], q[ent], q[ent].t, perfil));
-    else if (ent !== null && sai !== null) {
-      const soma = add(q[ent].t, q[sai].t);
+    if (ent === null && sai !== null) {
+      const qs = at(q, sai);
+      ini[i] = empurrar(anel(no, qs, qs.t, perfil));
+    } else if (ent !== null && sai === null) {
+      const qe = at(q, ent);
+      fim[i] = empurrar(anel(no, qe, qe.t, perfil));
+    } else if (ent !== null && sai !== null) {
+      const qe = at(q, ent), qs = at(q, sai);
+      const soma = add(qe.t, qs.t);
       const cosm = norma(soma) / 2;
       if (cosm > 1e-9 && 1 / cosm <= limite) {
         const mm = mul(soma, 1 / norma(soma));
-        const r = anel(nos[i], q[ent], mm, perfil);
-        const r2 = anel(nos[i], q[sai], mm, perfil);
-        const ig = r.every((a, k) => dist(a, r2[k]) < 1e-9);
+        const r = anel(no, qe, mm, perfil);
+        const r2 = anel(no, qs, mm, perfil);
+        const ig = r.every((a, k) => dist(a, at(r2, k)) < 1e-9);
         const a = empurrar(r);
         fim[i] = a;
         if (ig) ini[i] = a;
-        else { ini[i] = empurrar(r2); bandas.push([a, ini[i]]); }
+        else {
+          const b = empurrar(r2);
+          ini[i] = b;
+          bandas.push([a, b]);
+        }
       } else {
-        fim[i] = empurrar(anel(nos[i], q[ent], q[ent].t, perfil));
-        ini[i] = empurrar(anel(nos[i], q[sai], q[sai].t, perfil));
-        bandas.push([fim[i], ini[i]]);
+        const a = empurrar(anel(no, qe, qe.t, perfil));
+        fim[i] = a;
+        const b = empurrar(anel(no, qs, qs.t, perfil));
+        ini[i] = b;
+        bandas.push([a, b]);
       }
     }
   }
-  for (let s = 0; s < ns; s++) faixa(pc, ini[s], fim[(s + 1) % m], np);
+  for (let s = 0; s < ns; s++) faixa(pc, at(ini, s), at(fim, (s + 1) % m), np);
   for (const [a, b] of bandas) faixa(pc, a, b, np);
   if (!fechado) {
+    const fimUltimo = at(fim, m - 1), iniPrimeiro = at(ini, 0);
     for (const t of triangularPerfil(perfil)) {
-      pc.triangulos.push([fim[m - 1] + t[0], fim[m - 1] + t[1], fim[m - 1] + t[2]]);
-      pc.triangulos.push([ini[0] + t[0], ini[0] + t[2], ini[0] + t[1]]);
+      pc.triangulos.push([fimUltimo + t[0], fimUltimo + t[1], fimUltimo + t[2]]);
+      pc.triangulos.push([iniPrimeiro + t[0], iniPrimeiro + t[2], iniPrimeiro + t[1]]);
     }
   }
   return pc;
@@ -165,15 +185,16 @@ export function filete(nosEntrada: V3[], raio: number, tolCorda: number, nFixo: 
   const nos = limparNos(nosEntrada, 1e-9, false);
   const m = nos.length;
   if (m < 3 || raio <= 0) return nos;
-  const r: V3[] = [nos[0]];
+  const r: V3[] = [at(nos, 0)];
   for (let i = 1; i < m - 1; i++) {
-    const t1 = unit(sub(nos[i], nos[i - 1])), t2 = unit(sub(nos[i + 1], nos[i]));
+    const va = at(nos, i - 1), vb = at(nos, i), vc = at(nos, i + 1);
+    const t1 = unit(sub(vb, va)), t2 = unit(sub(vc, vb));
     const phi = Math.acos(clamp(dot(t1, t2), -1, 1));
-    if (phi < 1e-6 || phi > Math.PI - 1e-6) { r.push(nos[i]); continue; }
-    const lim = 0.5 * Math.min(dist(nos[i - 1], nos[i]), dist(nos[i], nos[i + 1]));
+    if (phi < 1e-6 || phi > Math.PI - 1e-6) { r.push(vb); continue; }
+    const lim = 0.5 * Math.min(dist(va, vb), dist(vb, vc));
     const t = Math.min(raio * Math.tan(phi / 2), lim);
     const re = t / Math.tan(phi / 2);
-    const p1 = sub(nos[i], mul(t1, t));
+    const p1 = sub(vb, mul(t1, t));
     const k = unit(cross(t1, t2));
     const nc = unit(cross(k, t1));
     const c = add(p1, mul(nc, re));
@@ -181,7 +202,7 @@ export function filete(nosEntrada: V3[], raio: number, tolCorda: number, nFixo: 
     const n = nFixo !== null ? Math.max(nFixo, 1) : Math.max(Math.ceil(phi / Math.max(2 * Math.acos(1 - Math.min(tolCorda / re, 1)), 1e-6)), 2);
     for (let j = 0; j <= n; j++) r.push(add(c, rodar(u0, k, (phi * j) / n)));
   }
-  r.push(nos[m - 1]);
+  r.push(at(nos, m - 1));
   return r;
 }
 
@@ -195,9 +216,9 @@ export function corrimaoLancePatamar(lance: V3[], patamar: V3[], hLance: number,
   const l = lance.map((p): V3 => [p[0], p[1], p[2] + hLance]);
   const p = patamar.map((q): V3 => [q[0], q[1], q[2] + hPatamar]);
   if (l.length < 2 || p.length < 2) return [l, p].filter((v) => v.length >= 2);
-  const lu = l[l.length - 1], pu = p[0];
-  const dl = unit(sub(lu, l[l.length - 2]));
-  const dp = unit(sub(p[1], pu));
+  const lu = at(l, l.length - 1), pu = at(p, 0);
+  const dl = unit(sub(lu, at(l, l.length - 2)));
+  const dp = unit(sub(at(p, 1), pu));
   const dlh = unit([dl[0], dl[1], 0]);
   const dph = unit([dp[0], dp[1], 0]);
   const colinear = dot(dlh, dph) > Math.cos((3 * Math.PI) / 180);
@@ -207,19 +228,20 @@ export function corrimaoLancePatamar(lance: V3[], patamar: V3[], hLance: number,
   const m = hLen < 1e-12 ? 0 : dl[2] / hLen;
   const zL = lu[2], zP = pu[2];
   const ponto = (s: number, z: number): V3 => [lu[0] + dlh[0] * s, lu[1] + dlh[1] * s, z];
-  const s0 = -dist([l[0][0], l[0][1], 0], [lu[0], lu[1], 0]);
+  const primeiroL = at(l, 0);
+  const s0 = -dist([primeiroL[0], primeiroL[1], 0], [lu[0], lu[1], 0]);
   if (transicao === 'simples') {
     if (Math.abs(m) < 1e-9) return [[...l, ...p.slice(1)]];
     const sQ = (zP - zL) / m;
-    const ultimo = p[p.length - 1];
+    const ultimo = at(p, p.length - 1);
     const sFim = dist([ultimo[0], ultimo[1], 0], [lu[0], lu[1], 0]);
     if (sQ <= s0 || sQ >= sFim) return [[...l, ...p]];
-    return [filete([l[0], ponto(sQ, zP), ultimo], raioTransicaoSimples(diametro), 0.002, null)];
+    return [filete([primeiroL, ponto(sQ, zP), ultimo], raioTransicaoSimples(diametro), 0.002, null)];
   }
   const dg = Math.min(distanciaGanso(diametro), 0.9 * -s0);
   const g = ponto(-dg, zL - m * dg);
   const e = ponto(0, zP);
-  const cam: V3[] = [l[0]];
+  const cam: V3[] = [primeiroL];
   if (dg > 1e-9) {
     cam.push(g);
     for (let j = 1; j < GANSO_SEGMENTOS; j++) {
@@ -239,7 +261,9 @@ function ponta(c: V3[], fim: boolean, e: ExtensaoPonta, prof: number): V3 | null
   const comp = e.comprimento + (e.maisPiso ? prof : 0);
   if (comp <= 0 || c.length < 2) return null;
   const n = c.length;
-  const [p, v] = fim ? [c[n - 1], sub(c[n - 1], c[n - 2])] : [c[0], sub(c[0], c[1])];
+  const p = fim ? at(c, n - 1) : at(c, 0);
+  const vizinho = fim ? at(c, n - 2) : at(c, 1);
+  const v = sub(p, vizinho);
   const d = e.horizontal ? unit([v[0], v[1], 0]) : unit(v);
   if (norma(d) < 0.5) return null;
   return add(p, mul(d, comp));
@@ -254,7 +278,7 @@ export function estender(c: V3[], ini: ExtensaoPonta | null, fim: ExtensaoPonta 
   return r;
 }
 
-export const comprimentoCaminho = (c: V3[]): number => { let s = 0; for (let i = 0; i + 1 < c.length; i++) s += dist(c[i], c[i + 1]); return s; };
+export const comprimentoCaminho = (c: V3[]): number => { let s = 0; for (let i = 0; i + 1 < c.length; i++) s += dist(at(c, i), at(c, i + 1)); return s; };
 
 export function posicoesSuportes(l: number, layout: number, espac: number, numero: number, justif: number, postes: number[]): number[] {
   if (l <= 0) return [];
