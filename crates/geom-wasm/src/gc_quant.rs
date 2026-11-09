@@ -19,14 +19,15 @@
 //! o padrão contínuo (usa a quebra do dado, mas sem a remoção por canto da 3c), área líquida de painel perfurado (a bruta sai), suportes de
 //! corrimão, cabos, extensão `maisPiso` e o deslocamento lateral nos comprimentos (sai o eixo).
 //!
-//! `quant_guarda` ainda não tem cadeias do motor (Fase 3a): `cadeias_do_nivel` devolve vazio até ela, como o gancho de `guarda_caminhos`. As
-//! contagens são exatas para as cadeias de `CadeiaGC` (reta, L, caracol) nos testes deste módulo.
+//! `quant_guarda` usa as cadeias reais da Fase 3a (`guarda_caminhos`, decodificadas em `cadeias_do_nivel`). As contagens são exatas para
+//! `CadeiaGC` sintéticas (reta, L, caracol) nos testes deste módulo, e os comprimentos de trilho e corrimão são conferidos com o caminho real (manual, reta e L).
 
 use std::collections::BTreeMap;
 use std::f64::consts::PI;
 
+use crate::cena::Cena;
 use crate::consultas::Saida;
-use crate::esquema::{ENTRADA, ID_AUSENTE, NIVEL_TODOS};
+use crate::esquema::{ENTRADA, ID_AUSENTE, INTERNO, NIVEL_TODOS};
 use crate::gc_tipos::*;
 use crate::secoes_gc::{ElementoPadraoLinha, PadraoLinha, PerfilGuardaLinha, PosteLinha, SecoesGC, TrilhoLinha};
 
@@ -541,19 +542,44 @@ pub fn quantificar(gc: &SecoesGC, nivel: u32, cadeias: &CadeiaGC) -> Result<Vec<
         .collect())
 }
 
-/// Cadeias do nível para as quantidades. Até a Fase 3a, não há motor de caminho: devolve vazio (como o gancho de `guarda_caminhos`).
-fn cadeias_do_nivel(_gc: &SecoesGC, _nivel: u32) -> Result<CadeiaGC, u32> {
-    Ok(CadeiaGC::default())
+/// Cadeias do nível, lidas da saída de `guarda_caminhos` (Fase 3a): `trechos` (5 u32 por trecho: guarda, trecho, origem, n_nos, flags) e `nos`
+/// (3 f64 por nó, em sequência). Os nós já vêm na grade de 1 µm.
+fn cadeias_do_nivel(cena: &Cena, nivel: u32) -> Result<CadeiaGC, u32> {
+    let saidas = crate::gc_caminho::guarda_caminhos(cena, nivel, TOL_SOLDA_NOS)?;
+    let (Some(Saida::U32(t)), Some(Saida::F64(n))) = (saidas.first(), saidas.get(1)) else {
+        return Err(INTERNO);
+    };
+    let mut trechos = Vec::with_capacity(t.len() / 5);
+    let mut cursor = 0usize;
+    for linha in t.chunks_exact(5) {
+        let (guarda, indice, origem, n_nos, flags) = (linha[0], linha[1], linha[2], linha[3] as usize, linha[4]);
+        let origem = match origem {
+            0 => OrigemTrecho::Lance,
+            1 => OrigemTrecho::Patamar,
+            2 => OrigemTrecho::Manual,
+            3 => OrigemTrecho::Caracol,
+            _ => return Err(INTERNO),
+        };
+        let mut nos = Vec::with_capacity(n_nos);
+        for k in 0..n_nos {
+            let i = (cursor + k) * 3;
+            let v = n.get(i..i + 3).ok_or(INTERNO)?;
+            nos.push(No3 { x: v[0], y: v[1], z: v[2] });
+        }
+        cursor += n_nos;
+        trechos.push(TrechoGC { guarda, indice, origem, curvo: flags & crate::gc_caminho::FLAG_CURVO != 0, fechado: flags & crate::gc_caminho::FLAG_FECHADO != 0, nos });
+    }
+    Ok(CadeiaGC { trechos })
 }
 
 /// Consulta `quant_guarda` (`nivel_num`): `linhas` U32 de 5 por linha e `valores` F64 de 4 por linha (esquema v13).
-pub fn quant_guarda(gc: &SecoesGC, nivel: u32) -> Result<Vec<Saida>, u32> {
+pub fn quant_guarda(cena: &Cena, nivel: u32) -> Result<Vec<Saida>, u32> {
     if nivel == NIVEL_TODOS {
         return Err(ENTRADA);
     }
-    gc.validar_referencias()?;
-    let cadeias = cadeias_do_nivel(gc, nivel)?;
-    let linhas = quantificar(gc, nivel, &cadeias)?;
+    cena.gc.validar_referencias()?;
+    let cadeias = cadeias_do_nivel(cena, nivel)?;
+    let linhas = quantificar(&cena.gc, nivel, &cadeias)?;
     Ok(codificar(&linhas))
 }
 
@@ -860,7 +886,7 @@ mod testes {
     fn guarda_sem_cadeia_nao_conta_e_nivel_todos_recusa() {
         let gc = gc_base(MODO_ESPACAMENTO_MAXIMO, 1.0, 0, false, FLAGS_TUDO);
         assert!(quantificar(&gc, NIVEL, &CadeiaGC::default()).expect("quant").is_empty());
-        assert_eq!(quant_guarda(&gc, NIVEL_TODOS), Err(ENTRADA));
+        assert_eq!(quant_guarda(&crate::cena::Cena::novo(), NIVEL_TODOS), Err(ENTRADA));
     }
 
     #[test]
@@ -874,5 +900,49 @@ mod testes {
             }
             _ => panic!("saídas com tipo inesperado"),
         }
+    }
+}
+
+#[cfg(test)]
+mod cadeias_reais {
+    use super::*;
+    use crate::cena::Cena;
+    use crate::secoes_gc::{GuardaCorpoLinha, PerfilGuardaLinha, PosteLinha, TipoGuardaLinha, TrilhoLinha};
+
+    /// Guarda-corpo manual com o caminho dado (planta e cota), tipo de 1,1 m, trilho e postes de início e fim de 5 cm.
+    fn cena_manual(pts: &[(f64, f64)]) -> Cena {
+        let mut c = Cena::novo();
+        c.gc.tipos.insert(1, TipoGuardaLinha { altura: 1.1, desloc: 0.0, ajuste_patamar: 0.0, folga_inferior: 0.0, junc_angular: 0, junc_tangente: 0, conexao: 0, tol_corda: 0.002, norma: ID_AUSENTE });
+        c.gc.guardas.insert(1, GuardaCorpoLinha { nivel: 0, tipo: 1, hosp: HOSP_MANUAL, hosp_num: ID_AUSENTE, lados: 0, pos_base: 0, desloc: 0.0, altura: f64::NAN, inverter: false, fechado: false, lado_desloc: 2, cota_base: 0.0, flags: FLAG_POSTES_INTERMEDIARIOS | FLAG_PREENCHIMENTO | FLAG_CORRIMAO });
+        for (i, (x, y)) in pts.iter().enumerate() {
+            c.gc.caminhos.insert(i as u32 + 1, crate::secoes_gc::CaminhoLinha { guarda: 1, indice: i as u32, x: *x, y: *y, dz: 0.0 });
+        }
+        c.gc.perfis.insert(10, PerfilGuardaLinha { forma: FORMA_CIRCULAR, largura: 0.05, altura: 0.0, n_pontos: 0, lados: 16 });
+        c.gc.trilhos.insert(1, TrilhoLinha { tipo: 1, indice: 0, altura: 0.5, desloc: 0.0, perfil: 10, material: 7 });
+        let poste = |papel: u8| PosteLinha { tipo: 1, papel, ativo: true, perfil: 10, material: 7, acima: 0.0, abaixo: 0.0, ang_canto: 0.0873, modo: 0, espacamento: 0.0, numero: 0 };
+        c.gc.postes.insert(1, poste(POSTE_INICIO));
+        c.gc.postes.insert(2, poste(POSTE_FIM));
+        c
+    }
+
+    fn comprimento_trilho(c: &Cena) -> f64 {
+        let cad = cadeias_do_nivel(c, 0).expect("cadeias");
+        let l = quantificar(&c.gc, 0, &cad).expect("quant");
+        l.iter().filter(|x| x.papel == QUANT_TRILHO).map(|x| x.comprimento).sum()
+    }
+
+    #[test]
+    fn reta_manual_tem_trilho_de_tres_metros() {
+        let c = cena_manual(&[(0.0, 0.0), (3.0, 0.0)]);
+        assert!((comprimento_trilho(&c) - 3.0).abs() < 1e-6);
+        let l = quant_guarda(&c, 0).expect("consulta");
+        assert!(matches!(&l[0], Saida::U32(u) if !u.is_empty()));
+    }
+
+    #[test]
+    fn l_manual_tem_trilho_de_quatro_metros_pelo_caminho_real() {
+        // Dois trechos de 2 m em L: o caminho real soma 4 m, e o canto não muda o comprimento do eixo.
+        let c = cena_manual(&[(0.0, 0.0), (2.0, 0.0), (2.0, 2.0)]);
+        assert!((comprimento_trilho(&c) - 4.0).abs() < 1e-6);
     }
 }
