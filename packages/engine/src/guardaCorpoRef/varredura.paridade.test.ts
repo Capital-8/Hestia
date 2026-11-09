@@ -1,4 +1,3 @@
-// @ts-nocheck -- referencia de paridade (so os testes a usam); a indexacao de vetores fixos [x, y, z] nao passa em noUncheckedIndexedAccess. Pendente: tipar com tuplas nomeadas.
 /**
  * Paridade da varredura do guarda-corpo (decisão 0055, Fase 3b). A referência TS gera `varredura.paridade.json` (com `GERAR_PARIDADE_GC=1`) e o teste
  * cargo `gc_varredura::paridade` compara o Rust com esse arquivo: contagens exatas e posições a 1e-6 m. Aqui, sem a variável, o teste confere que a
@@ -6,7 +5,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { MalhaRef, type V3 } from './malha.ts';
+import { at, MalhaRef, type V3 } from './malha.ts';
 import {
   corrimaoLancePatamar, estender, filete, LIMITE_ESQUADRIA, perfilCircular, perfilDe, perfilRetangular, posicoesSuportes, quadros, soldar, suporte, varrer, type P2,
 } from './varredura.ts';
@@ -74,6 +73,17 @@ export function casos(): Record<string, Saida> {
 describe('guarda-corpo 3b: referência TS da varredura', () => {
   const todos = casos();
 
+  const obter = (nome: string): Saida => {
+    const s = todos[nome];
+    if (s === undefined) throw new Error(`caso ausente: ${nome}`);
+    return s;
+  };
+  const malhaDe = (nome: string): SaidaMalha => {
+    const s = obter(nome);
+    if (s.tipo !== 'malha') throw new Error(`${nome} não é malha`);
+    return s;
+  };
+
   it('gera ou confere o arquivo de paridade', () => {
     const json = JSON.stringify(todos, null, 1) + '\n';
     if (process.env.GERAR_PARIDADE_GC === '1') writeFileSync(ARQUIVO, json);
@@ -84,24 +94,25 @@ describe('guarda-corpo 3b: referência TS da varredura', () => {
 
   it('malhas sólidas são fechadas, orientadas e de volume positivo', () => {
     for (const nome of ['reta_circular', 'em_l_retangular', 'lance_patamar', 'helice', 'chanfro_170', 'poligono_ele', 'filete_malha', 'suporte_malha']) {
-      const s = todos[nome] as SaidaMalha;
+      const s = malhaDe(nome);
       expect(s.fechada, nome).toBe(true);
       expect(s.euler, nome).toBe(2);
       expect(s.volume, nome).toBeGreaterThan(0);
     }
-    const laco = todos.laco_fechado as SaidaMalha;
+    const laco = malhaDe('laco_fechado');
     expect(laco.fechada && laco.euler === 0).toBe(true);
   });
 
   it('esquadria em L tem o volume exato da soma dos comprimentos', () => {
-    const s = todos.em_l_retangular as SaidaMalha;
+    const s = malhaDe('em_l_retangular');
     expect(s.volume).toBeCloseTo(0.05 * 0.03 * 4, 7);
   });
 
   it('quadros da hélice sem torção: cada passo é a rotação mínima do anterior', () => {
     const q = quadros(helice(1, 0.5, 2, 360), false);
     for (let i = 1; i < q.length; i++) {
-      const d = q[i].n[0] * q[i].t[0] + q[i].n[1] * q[i].t[1] + q[i].n[2] * q[i].t[2];
+      const qi = at(q, i);
+      const d = qi.n[0] * qi.t[0] + qi.n[1] * qi.t[1] + qi.n[2] * qi.t[2];
       expect(Math.abs(d)).toBeLessThan(1e-12);
     }
   });
