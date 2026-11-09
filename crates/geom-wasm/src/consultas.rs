@@ -232,6 +232,7 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
             };
             Ok(crate::quantidades::codificar(&linhas))
         }
+        crate::esquema::CONSULTA_QUANT_GUARDA => crate::gc_quant::quant_guarda(&cena.gc, arg_nivel(args[0])?),
         CONSULTA_GUARDA_CAMINHOS => {
             let _nivel = arg_nivel(args[0])?;
             let tol = arg_finito(args[1])?;
