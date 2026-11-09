@@ -897,3 +897,208 @@ mod testes {
         }
     }
 }
+
+/// Validação com o caminho real da Fase 3a: monta cenas de escada reta, com patamar, em U, caracol e rampa com patamar, roda
+/// `guarda_caminhos` e varre os trechos devolvidos (trilho de 40 mm a 0,90 m e corrimão com transição lance-patamar).
+#[cfg(test)]
+mod caminho_real {
+    use super::*;
+    use crate::cena::Cena;
+    use crate::consultas::Saida;
+    use crate::esquema::{ID_AUSENTE, NIVEL_TODOS};
+    use crate::gc_caminho::guarda_caminhos;
+    use crate::gc_malha::{MalhaGC, PAPEL_CORRIMAO, PAPEL_TRILHO};
+    use crate::secoes_gc::*;
+
+    fn cadeia(c: &Cena) -> CadeiaGC {
+        let s = guarda_caminhos(c, NIVEL_TODOS, 1e-6).expect("consulta");
+        let (Saida::U32(t), Saida::F64(n)) = (&s[0], &s[1]) else { panic!() };
+        let mut trechos = Vec::new();
+        let mut ini = 0usize;
+        for r in t.chunks_exact(5) {
+            let k = r[3] as usize;
+            let origem = match r[2] {
+                0 => OrigemTrecho::Lance,
+                1 => OrigemTrecho::Patamar,
+                2 => OrigemTrecho::Manual,
+                _ => OrigemTrecho::Caracol,
+            };
+            let nos = (ini..ini + k).map(|i| No3 { x: n[i * 3], y: n[i * 3 + 1], z: n[i * 3 + 2] }).collect();
+            trechos.push(TrechoGC { guarda: r[0], indice: r[1], origem, curvo: r[4] & 1 != 0, fechado: false, nos });
+            ini += k;
+        }
+        CadeiaGC { trechos }
+    }
+
+    fn v3(t: &TrechoGC, dz: f64) -> Vec<V3> {
+        t.nos.iter().map(|n| [n.x, n.y, n.z + dz]).collect()
+    }
+
+    /// Varre todos os trechos como trilhos e confere malha fechada, orientada e de volume positivo.
+    fn varrer_tudo(c: &CadeiaGC, min_trechos: usize) {
+        assert!(c.trechos.len() >= min_trechos, "{} trechos", c.trechos.len());
+        let pf = perfil_circular(0.04, 0);
+        for t in &c.trechos {
+            let mut m = MalhaGC::new();
+            let g = m.adicionar_grupo(t.guarda, PAPEL_TRILHO, 0, &varrer(&v3(t, 0.9), false, &pf, LIMITE_ESQUADRIA));
+            let a = m.analisar(g);
+            assert!(a.fechada && a.euler == 2 && a.volume > 0.0, "trecho {} {:?}", t.indice, a);
+        }
+    }
+
+    fn cena_base(hosp: u8, lados: u8, pos_base: u8) -> Cena {
+        let mut c = Cena::novo();
+        c.gc.tipos.insert(1, TipoGuardaLinha { altura: 1.1, desloc: 0.035, ajuste_patamar: 0.0, folga_inferior: 0.0, junc_angular: 0, junc_tangente: 0, conexao: 0, tol_corda: 0.002, norma: ID_AUSENTE });
+        c.gc.guardas.insert(1, GuardaCorpoLinha { nivel: 0, tipo: 1, hosp, hosp_num: 1, lados, pos_base, desloc: 0.0, altura: f64::NAN, inverter: false, fechado: false, lado_desloc: 0, cota_base: 0.0, flags: 7 });
+        c
+    }
+
+    fn comp(c: &mut Cena, id: u32, indice: u32, tipo: u8, caracol: bool) {
+        c.gc.componentes.insert(id, ComponenteGC { escada: 1, indice, tipo, caracol, centro: [0.0, 0.0], r_int: 0.0, r_ext: 0.0 });
+    }
+    fn curva(c: &mut Cena, comp: u32, lado: u8, a: [f64; 2], b: [f64; 2], sag: f64) {
+        let id = c.gc.curvas.len() as u32 + 1;
+        c.gc.curvas.insert(id, CurvaGC { componente: comp, lado, ordem: 0, a, b, sag });
+    }
+    fn espelho(c: &mut Cena, comp: u32, indice: u32, a: [f64; 2], b: [f64; 2], z1: f64) {
+        let id = c.gc.espelhos.len() as u32 + 1;
+        c.gc.espelhos.insert(id, EspelhoGC { componente: comp, indice, a, b, z0: z1 - 0.17, z1 });
+    }
+    fn lance_reto(c: &mut Cena, id: u32, indice: u32, x0: f64, n: u32, zi: f64, w: f64) {
+        comp(c, id, indice, COMPONENTE_LANCE, false);
+        let fim = x0 + (n - 1) as f64 * 0.28;
+        curva(c, id, 0, [x0 - 0.5, w / 2.0], [fim + 0.5, w / 2.0], 0.0);
+        curva(c, id, 1, [x0 - 0.5, -w / 2.0], [fim + 0.5, -w / 2.0], 0.0);
+        for k in 0..n {
+            let x = x0 + k as f64 * 0.28;
+            espelho(c, id, k, [x, -w / 2.0], [x, w / 2.0], zi + 0.17 * k as f64);
+        }
+    }
+    fn anel(c: &mut Cena, dono: u32, pts: &[(f64, f64)], z: f64) {
+        for (k, &(x, y)) in pts.iter().enumerate() {
+            let id = c.gc.patamares_escada.len() as u32 + 1;
+            c.gc.patamares_escada.insert(id, PontoAnelGC { dono, componente: 0, indice: k as u32, p: [x, y], z });
+        }
+    }
+    fn escada(c: &mut Cena) {
+        c.gc.escadas.insert(1, EscadaGC { nivel: 0, z_base: 0.0, z_topo: 3.0, altura_espelho: 0.17, profundidade_piso: 0.28 });
+    }
+
+    #[test]
+    fn escada_reta() {
+        let mut c = cena_base(HOSP_ESCADA, 0b1111, 0);
+        escada(&mut c);
+        lance_reto(&mut c, 1, 0, 0.0, 6, 0.17, 1.2);
+        varrer_tudo(&cadeia(&c), 2);
+    }
+
+    #[test]
+    fn escada_com_patamar_e_corrimao_com_ganso_e_extensoes() {
+        let mut c = cena_base(HOSP_ESCADA, 0b1111, 0);
+        escada(&mut c);
+        lance_reto(&mut c, 1, 0, 0.0, 4, 0.17, 1.2);
+        comp(&mut c, 2, 1, COMPONENTE_PATAMAR, false);
+        anel(&mut c, 2, &[(0.84, -0.6), (1.84, -0.6), (1.84, 0.6), (0.84, 0.6)], 0.51);
+        lance_reto(&mut c, 3, 2, 1.84, 4, 0.68, 1.2);
+        let ca = cadeia(&c);
+        varrer_tudo(&ca, 6);
+        let l = ca.trechos.iter().find(|t| t.origem == OrigemTrecho::Lance).unwrap();
+        let ult = l.nos[l.nos.len() - 1];
+        let p = ca.trechos.iter().find(|t| t.origem == OrigemTrecho::Patamar && (t.nos[0].y - ult.y).abs() < 1e-9 && (t.nos[0].x - ult.x).abs() < 1e-6).unwrap();
+        for tr in [Transicao::Nenhuma, Transicao::Simples, Transicao::PescocoDeGanso] {
+            let cams = corrimao_lance_patamar(&v3(l, 0.0), &v3(p, 0.0), 0.9, 1.0, 0.04, tr);
+            assert!(!cams.is_empty());
+            for cam in cams {
+                let cam = estender(
+                    &cam,
+                    Some(ExtensaoPonta { comprimento: 0.3, mais_piso: true, horizontal: false }),
+                    Some(ExtensaoPonta { comprimento: 0.3, mais_piso: false, horizontal: true }),
+                    0.28,
+                );
+                let mut m = MalhaGC::new();
+                let g = m.adicionar_grupo(1, PAPEL_CORRIMAO, 0, &varrer(&cam, false, &perfil_circular(0.04, 0), LIMITE_ESQUADRIA));
+                let a = m.analisar(g);
+                assert!(a.fechada && a.euler == 2 && a.volume > 0.0, "{tr:?} {a:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn patamar_de_giro_em_u() {
+        let mut c = cena_base(HOSP_ESCADA, 0b1111, 0);
+        escada(&mut c);
+        lance_reto(&mut c, 1, 0, 0.0, 4, 0.17, 1.2);
+        comp(&mut c, 3, 2, COMPONENTE_LANCE, false);
+        curva(&mut c, 3, 0, [1.5, 1.3], [-1.0, 1.3], 0.0);
+        curva(&mut c, 3, 1, [1.5, 2.5], [-1.0, 2.5], 0.0);
+        for k in 0..3 {
+            let x = 0.84 - 0.28 * k as f64;
+            espelho(&mut c, 3, k, [x, 1.3], [x, 2.5], 0.68 + 0.17 * k as f64);
+        }
+        comp(&mut c, 2, 1, COMPONENTE_PATAMAR, false);
+        anel(&mut c, 2, &[(0.84, 0.0), (2.4, 0.0), (2.4, 2.5), (0.84, 2.5), (0.84, 1.3), (0.84, 1.2)], 0.51);
+        let ca = cadeia(&c);
+        varrer_tudo(&ca, 4);
+        // a cadeia externa do giro tem cantos de 90 graus: esquadria com volume exato (perfil quadrado)
+        let ext = ca.trechos.iter().find(|t| t.nos.len() == 4).unwrap();
+        let nos = v3(ext, 0.9);
+        let mut m = MalhaGC::new();
+        let g = m.adicionar_grupo(1, PAPEL_TRILHO, 0, &varrer(&nos, false, &perfil_retangular(0.04, 0.04), LIMITE_ESQUADRIA));
+        assert!((m.analisar(g).volume - 0.0016 * comprimento_caminho(&nos)).abs() < 1e-7);
+    }
+
+    #[test]
+    fn caracol_helice_malha_fechada_e_sem_torcao() {
+        let mut c = cena_base(HOSP_ESCADA, 0b0101, 1);
+        escada(&mut c);
+        comp(&mut c, 1, 0, COMPONENTE_LANCE, true);
+        let q = std::f64::consts::FRAC_1_SQRT_2;
+        for (lado, r) in [(0u8, 0.5), (1u8, 1.5)] {
+            curva(&mut c, 1, lado, [r, 0.0], [0.0, r], -r * (1.0 - q));
+        }
+        for k in 0..10u32 {
+            let th = std::f64::consts::FRAC_PI_2 * (0.05 + 0.9 * k as f64 / 9.0);
+            espelho(&mut c, 1, k, [0.4 * th.cos(), 0.4 * th.sin()], [1.6 * th.cos(), 1.6 * th.sin()], 0.17 * (k + 1) as f64);
+        }
+        let ca = cadeia(&c);
+        assert!(ca.trechos[0].curvo);
+        varrer_tudo(&ca, 2);
+        let qs = quadros(&v3(&ca.trechos[0], 0.9), false);
+        for w in qs.windows(2) {
+            assert!(dot(w[1].n, w[1].t).abs() < 1e-12);
+            let k = cross(w[0].t, w[1].t);
+            let s = norma(k);
+            if s > 1e-14 {
+                let esperado = ortonormalizar(rodar(w[0].n, mul(k, 1.0 / s), s.atan2(dot(w[0].t, w[1].t))), w[1].t);
+                assert!(dist(esperado, w[1].n) < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn rampa_com_patamar() {
+        let mut c = cena_base(HOSP_RAMPA, 0b1111, 0);
+        c.gc.rampas.insert(1, RampaGC { nivel: 0, z_base: 0.0, z_topo: 0.6 });
+        c.gc.lances_rampa.insert(1, LanceRampaGC { rampa: 1, indice: 0, inicio: [0.0, 0.0], fim: [5.0, 0.0], a: [0.0, -0.75], b: [0.0, 0.75], c: [5.0, -0.75], d: [5.0, 0.75], z0: 0.0, z1: 0.4 });
+        for (k, (x, y)) in [(5.0, -0.75), (6.5, -0.75), (6.5, 0.75), (5.0, 0.75)].into_iter().enumerate() {
+            c.gc.patamares_rampa.insert(k as u32 + 1, PontoAnelGC { dono: 1, componente: 1, indice: k as u32, p: [x, y], z: 0.4 });
+        }
+        c.gc.lances_rampa.insert(2, LanceRampaGC { rampa: 1, indice: 2, inicio: [6.5, 0.0], fim: [10.0, 0.0], a: [6.5, -0.75], b: [6.5, 0.75], c: [10.0, -0.75], d: [10.0, 0.75], z0: 0.4, z1: 0.6 });
+        let ca = cadeia(&c);
+        varrer_tudo(&ca, 6);
+        // lance, patamar e lance de um lado viram um único trilho com esquadrias suaves nas mudanças de inclinação
+        let mut esq: Vec<V3> = Vec::new();
+        for t in ca.trechos.iter().filter(|t| t.nos[0].y > 0.0) {
+            for p in v3(t, 0.9) {
+                if esq.last().is_none_or(|&u| dist(u, p) > 1e-6) {
+                    esq.push(p);
+                }
+            }
+        }
+        let mut m = MalhaGC::new();
+        let g = m.adicionar_grupo(1, PAPEL_TRILHO, 0, &varrer(&esq, false, &perfil_retangular(0.04, 0.04), LIMITE_ESQUADRIA));
+        let a = m.analisar(g);
+        assert!(a.fechada && a.euler == 2);
+        assert!((a.volume - 0.0016 * comprimento_caminho(&esq)).abs() < 1e-6);
+    }
+}

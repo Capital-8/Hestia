@@ -79,6 +79,7 @@ pub mod secoes_gc;
 pub mod gc_tipos;
 pub mod gc_malha;
 pub mod gc_varredura;
+pub mod gc_caminho;
 pub mod volume_sobreposicao;
 #[cfg(test)]
 mod teste_util;
