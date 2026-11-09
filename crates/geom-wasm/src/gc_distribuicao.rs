@@ -941,6 +941,9 @@ pub struct SaidaDistribuicao {
     pub paineis: Vec<Vec<PainelGerado>>,
     pub pecas: Vec<PecaMalha>,
     pub avisos: Vec<Aviso>,
+    /// Cabos de cada painel de `cfg.paineis` (um item por painel de cabos; vazio nos outros): eixo de cada cabo como polilinha 3D. Sempre calculado
+    /// (com ou sem malha): é a fonte única do desenho e das quantidades dos cabos.
+    pub cabos: Vec<Vec<Vec<[f64; 3]>>>,
 }
 
 /// Distribui postes, balaústres e painéis de um trecho. `restante` = quantos balaústres ainda cabem no guarda-corpo (`LIMITE_BALAUSTRES` menos o que
@@ -956,7 +959,15 @@ pub fn distribuir(trecho: &TrechoGC, cfg: &ConfigDistribuicao, restante: usize) 
         saida.balaustres.push(v);
     }
     for pn in &cfg.paineis {
-        saida.paineis.push(paineis(&perc, &saida.postes, pn, &mut saida.avisos));
+        let lista = paineis(&perc, &saida.postes, pn, &mut saida.avisos);
+        let mut cabos = Vec::new();
+        if pn.familia == FAM_CABO {
+            for g in &lista {
+                cabos.extend(cabos_do_painel(&perc, g, pn));
+            }
+        }
+        saida.cabos.push(cabos);
+        saida.paineis.push(lista);
     }
     if cfg.gerar_malha {
         for p in &saida.postes {
@@ -998,36 +1009,13 @@ fn malha_painel(perc: &Percurso, g: &PainelGerado, p: &PainelP, pecas: &mut Vec<
     let zb = |a: &Amostra| a.z + p.h_base + p.desl_base;
     let zt = |a: &Amostra| a.z + p.h_topo + p.desl_topo;
     if p.familia == FAM_CABO {
-        let (alt_b, alt_t) = (p.h_base + p.desl_base, p.h_topo + p.desl_topo);
-        let h = alt_t - alt_b;
-        let d = p.cabo_diam;
-        if h <= d + EPS || d <= EPS || p.cabo_espac <= EPS {
-            return;
-        }
-        if p.cabo_orient == 0 {
-            let n = ((h - d) / p.cabo_espac + EPS).floor() as usize + 1;
-            let primeiro = alt_b + (h - (n as f64 - 1.0) * p.cabo_espac) / 2.0;
-            for k in 0..n {
-                let hk = primeiro + k as f64 * p.cabo_espac;
-                let mut m = Malha::default();
-                for w in am.windows(2) {
-                    let c = cilindro([w[0].1.x, w[0].1.y, w[0].1.z + hk], [w[1].1.x, w[1].1.y, w[1].1.z + hk], d, LADOS_CIRCULO);
-                    juntar(&mut m, &c);
-                }
-                pecas.push(PecaMalha { papel: PAPEL_CABO, material: p.material, malha: m, simplificado: false });
+        for eixo in cabos_do_painel(perc, g, p) {
+            let mut m = Malha::default();
+            for w in eixo.windows(2) {
+                let c = cilindro(w[0], w[1], p.cabo_diam, LADOS_CIRCULO);
+                juntar(&mut m, &c);
             }
-        } else {
-            let l = g.s1 - g.s0;
-            if l <= d + EPS {
-                return;
-            }
-            let n = ((l - d) / p.cabo_espac + EPS).floor() as usize + 1;
-            let primeiro = g.s0 + (l - (n as f64 - 1.0) * p.cabo_espac) / 2.0;
-            for k in 0..n {
-                let a = perc.amostra(primeiro + k as f64 * p.cabo_espac);
-                let m = cilindro([a.x, a.y, a.z + alt_b], [a.x, a.y, a.z + alt_t], d, LADOS_CIRCULO);
-                pecas.push(PecaMalha { papel: PAPEL_CABO, material: p.material, malha: m, simplificado: false });
-            }
+            pecas.push(PecaMalha { papel: PAPEL_CABO, material: p.material, malha: m, simplificado: false });
         }
         return;
     }
@@ -1038,6 +1026,39 @@ fn malha_painel(perc: &Percurso, g: &PainelGerado, p: &PainelP, pecas: &mut Vec<
         juntar(&mut m, &c);
     }
     pecas.push(PecaMalha { papel: PAPEL_PAINEL, material: p.material, malha: m, simplificado: p.familia == FAM_PERFURADA || p.familia == FAM_TELA });
+}
+
+/// Eixos dos cabos de um painel de cabos (`FAM_CABO`): horizontais acompanham a cadeia entre `g.s0` e `g.s1`; verticais são retas de `h_base` a `h_topo`.
+/// Fonte única da malha, da planta, do corte e das quantidades dos cabos.
+pub fn cabos_do_painel(perc: &Percurso, g: &PainelGerado, p: &PainelP) -> Vec<Vec<[f64; 3]>> {
+    let mut out = Vec::new();
+    let (alt_b, alt_t) = (p.h_base + p.desl_base, p.h_topo + p.desl_topo);
+    let h = alt_t - alt_b;
+    let d = p.cabo_diam;
+    if h <= d + EPS || d <= EPS || p.cabo_espac <= EPS {
+        return out;
+    }
+    if p.cabo_orient == 0 {
+        let am = amostras(perc, g.s0, g.s1);
+        let n = ((h - d) / p.cabo_espac + EPS).floor() as usize + 1;
+        let primeiro = alt_b + (h - (n as f64 - 1.0) * p.cabo_espac) / 2.0;
+        for k in 0..n {
+            let hk = primeiro + k as f64 * p.cabo_espac;
+            out.push(am.iter().map(|(_, a)| [a.x, a.y, a.z + hk]).collect());
+        }
+    } else {
+        let l = g.s1 - g.s0;
+        if l <= d + EPS {
+            return out;
+        }
+        let n = ((l - d) / p.cabo_espac + EPS).floor() as usize + 1;
+        let primeiro = g.s0 + (l - (n as f64 - 1.0) * p.cabo_espac) / 2.0;
+        for k in 0..n {
+            let a = perc.amostra(primeiro + k as f64 * p.cabo_espac);
+            out.push(vec![[a.x, a.y, a.z + alt_b], [a.x, a.y, a.z + alt_t]]);
+        }
+    }
+    out
 }
 
 /// Acrescenta os sólidos de `o` em `m` (sólidos separados: cada um continua fechado).

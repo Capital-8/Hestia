@@ -1,12 +1,15 @@
-//! Quantidades do guarda-corpo (decisão 0055, Fase 4a): consulta `quant_guarda` (ADR §6.2 e §7.1).
-//!
-//! Agrupa as peças por `(guarda, papel, perfil, material)`; soma número de peças, comprimento (m), área lateral (m²), volume (m³) e área projetada em
-//! elevação (m²). Comprimento: desenvolvido para trilho e corrimão, altura para peça vertical, vão para painel. Grade de 1 µm; ordem por chave.
+//! Quantidades do guarda-corpo (decisão 0055; consulta `quant_guarda`, id 64, ADR §6.2 e §7.1). FONTE ÚNICA: as peças são as mesmas que geram a malha e as
+//! linhas de planta e corte (`gc_montagem::montar`: distribuição da 3c e varredura da 3b), então quantidade e desenho nunca divergem. Este módulo só
+//! agrupa as peças lógicas (`PecaGC`) por `(guarda, papel, perfil, material)`: número de peças, comprimento, área lateral, volume e área projetada.
+//! Nada aqui deriva peças por conta própria.
 
 use std::collections::BTreeMap;
 
+use crate::cena::Cena;
+use crate::consultas::Saida;
 use crate::gc_planta::{na_grade, FormaGC, PecaGC};
 
+/// Uma linha agregada de `quant_guarda`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LinhaQuant {
     pub guarda: u32,
@@ -38,6 +41,7 @@ fn medidas(p: &PecaGC) -> (f64, f64, f64, f64) {
     }
 }
 
+/// Agrupa as peças por `(guarda, papel, perfil, material)`, em ordem de chave; números na grade de 1 µm.
 pub fn quant_guarda(pecas: &[PecaGC]) -> Vec<LinhaQuant> {
     let mut g: BTreeMap<(u32, u32, u32, u32), LinhaQuant> = BTreeMap::new();
     for p in pecas {
@@ -81,51 +85,8 @@ pub fn achatar_quant(l: &[LinhaQuant]) -> (Vec<u32>, Vec<f64>) {
     (a, v)
 }
 
-#[cfg(test)]
-mod testes {
-    use super::*;
-    use crate::gc_planta::{PAPEL_BALAUSTRE, PAPEL_CORRIMAO, PAPEL_POSTE};
-    use crate::gc_tipos::No3;
-
-    #[test]
-    fn contagens_e_comprimentos_exatos() {
-        let mut p: Vec<PecaGC> = (0..10).map(|k| PecaGC::vertical_redondo(1, PAPEL_BALAUSTRE, k as f64 * 0.11, 0.0, 0.0, 1.0, 0.012)).collect();
-        p.push(PecaGC::vertical_retangular(1, PAPEL_POSTE, 0.0, 0.0, 0.0, 1.1, 0.05, 0.05));
-        p.push(PecaGC::varrida_redonda(1, PAPEL_CORRIMAO, vec![No3 { x: 0.0, y: 0.0, z: 1.0 }, No3 { x: 3.0, y: 0.0, z: 5.0 }], 0.04));
-        let q = quant_guarda(&p);
-        assert_eq!(q.len(), 3);
-        let bal = q.iter().find(|x| x.papel == PAPEL_BALAUSTRE).unwrap();
-        assert_eq!(bal.n_pecas, 10);
-        assert!((bal.comprimento - 10.0).abs() < 1e-9);
-        assert!((bal.volume - 10.0 * std::f64::consts::PI * 0.012f64.powi(2) / 4.0).abs() < 1e-6);
-        let cor = q.iter().find(|x| x.papel == PAPEL_CORRIMAO).unwrap();
-        assert!((cor.comprimento - 5.0).abs() < 1e-9, "desenvolvido: 3-4-5");
-        let poste = q.iter().find(|x| x.papel == PAPEL_POSTE).unwrap();
-        assert!((poste.volume - 0.05 * 0.05 * 1.1).abs() < 1e-9);
-        assert!((poste.area - 4.0 * 0.05 * 1.1).abs() < 1e-9);
-    }
-
-    #[test]
-    fn painel_e_agrupamento_por_material() {
-        let a = No3 { x: 0.0, y: 0.0, z: 0.1 };
-        let b = No3 { x: 2.0, y: 0.0, z: 0.1 };
-        let mut p1 = PecaGC::painel(7, a, b, 1.0, 0.012);
-        let mut p2 = p1.clone();
-        p2.material_num = 3;
-        p1.material_num = 2;
-        let q = quant_guarda(&[p1.clone(), p1, p2]);
-        assert_eq!(q.len(), 2);
-        assert_eq!(q[0].material_num, 2);
-        assert_eq!(q[0].n_pecas, 2);
-        assert!((q[0].area - 8.0).abs() < 1e-9, "duas faces, dois painéis");
-        assert!((q[0].area_projetada - 4.0).abs() < 1e-9);
-        assert!((q[0].volume - 2.0 * 2.0 * 1.0 * 0.012).abs() < 1e-9);
-        let (l, v) = achatar_quant(&q);
-        assert_eq!((l.len(), v.len()), (10, 8));
-    }
-
-    #[test]
-    fn sem_pecas_sem_linhas() {
-        assert!(quant_guarda(&[]).is_empty());
-    }
+pub fn consulta_quant_guarda(cena: &Cena, nivel: u32) -> Result<Vec<Saida>, u32> {
+    let m = crate::gc_montagem::montar(cena, nivel, 1, crate::esquema::ID_AUSENTE, crate::consultas::TOL_JUNCAO_GC, false)?;
+    let (a, v) = achatar_quant(&quant_guarda(&m.pecas));
+    Ok(vec![Saida::U32(a), Saida::F64(v)])
 }

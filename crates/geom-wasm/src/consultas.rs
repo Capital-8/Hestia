@@ -29,7 +29,7 @@
 
 use crate::cena::Cena;
 use crate::esquema::{
-    self, Tipo, CONSULTA_ESTATISTICAS_NIVEL, CONSULTA_ABERTURAS_GEOM, CONSULTA_CLUSTER_RESOLVIDO, CONSULTA_ITENS_PINTADOS, CONSULTA_RETORNOS_GEOM, CONSULTA_PARES_PROXIMOS, CONSULTA_PAREDES_NA_CAIXA, CONSULTA_QUADROS_E_JUNCOES, CONSULTA_JUNCTION_NIVEL, CONSULTA_QUANT_FORROS, CONSULTA_QUANT_LAJES, CONSULTA_QUANT_PAREDES, CONSULTA_QUANT_PISOS, CONSULTA_PISOS_LAJES_COM_PAREDES, CONSULTA_PISOS_LAJES_NIVEL, CONSULTA_RESOLVER_NIVEL, CONSULTA_GUARDA_CAMINHOS, CONSULTA_GUARDA_MALHA, CONSULTA_GUARDA_PLANTA, CONSULTA_GUARDA_CORTE, CONSULTA_QUANT_GUARDA, CONSULTA_GUARDA_AVISOS,
+    self, Tipo, CONSULTA_ESTATISTICAS_NIVEL, CONSULTA_ABERTURAS_GEOM, CONSULTA_CLUSTER_RESOLVIDO, CONSULTA_ITENS_PINTADOS, CONSULTA_RETORNOS_GEOM, CONSULTA_PARES_PROXIMOS, CONSULTA_PAREDES_NA_CAIXA, CONSULTA_QUADROS_E_JUNCOES, CONSULTA_JUNCTION_NIVEL, CONSULTA_QUANT_FORROS, CONSULTA_QUANT_LAJES, CONSULTA_QUANT_PAREDES, CONSULTA_QUANT_PISOS, CONSULTA_PISOS_LAJES_COM_PAREDES, CONSULTA_PISOS_LAJES_NIVEL, CONSULTA_RESOLVER_NIVEL, CONSULTA_GUARDA_CAMINHOS, CONSULTA_GUARDA_MALHA, CONSULTA_GUARDA_PLANTA, CONSULTA_GUARDA_CORTE, CONSULTA_GUARDA_AVISOS,
     ENTRADA,
     NAO_IMPLEMENTADO,
 };
@@ -232,6 +232,7 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
             };
             Ok(crate::quantidades::codificar(&linhas))
         }
+        crate::esquema::CONSULTA_QUANT_GUARDA => crate::gc_quant::consulta_quant_guarda(cena, arg_nivel(args[0])?),
         CONSULTA_GUARDA_CAMINHOS => {
             let nivel = arg_nivel(args[0])?;
             let tol = arg_finito(args[1])?;
@@ -266,12 +267,6 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
             let s = crate::gc_corte::achatar_corte(&linhas);
             Ok(vec![Saida::U32(s.linhas), Saida::F64(s.pontos), Saida::F64(s.poligonos)])
         }
-        CONSULTA_QUANT_GUARDA => {
-            let nivel = arg_nivel(args[0])?;
-            let m = crate::gc_montagem::montar(cena, nivel, 1, crate::esquema::ID_AUSENTE, TOL_JUNCAO_GC, false)?;
-            let (a, v) = crate::gc_quant::achatar_quant(&crate::gc_quant::quant_guarda(&m.pecas));
-            Ok(vec![Saida::U32(a), Saida::F64(v)])
-        }
         CONSULTA_GUARDA_AVISOS => {
             let nivel = arg_nivel(args[0])?;
             let norma = arg_nivel(args[1])?;
@@ -284,7 +279,7 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
 }
 
 /// Tolerancia de juncao que as consultas 61 a 65 passam ao caminho do guarda-corpo.
-const TOL_JUNCAO_GC: f64 = 1e-3;
+pub(crate) const TOL_JUNCAO_GC: f64 = 1e-3;
 
 pub fn estatisticas_nivel(cena: &Cena, nivel: u32) -> Result<Vec<Saida>, u32> {
     let ps = cena.paredes.do_nivel(nivel);

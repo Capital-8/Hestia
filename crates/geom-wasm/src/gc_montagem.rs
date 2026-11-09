@@ -432,11 +432,19 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
                 let (a, b) = (perc.amostra(gp.s0), perc.amostra(gp.s1));
                 let z0 = a.z.min(b.z) + pn.h_base + pn.desl_base;
                 let h = pn.h_topo + pn.desl_topo - (pn.h_base + pn.desl_base);
-                if h > 1e-9 {
+                if h > 1e-9 && pn.familia != dist::FAM_CABO {
                     let mut pc = PecaGC::painel(gid, No3 { x: a.x, y: a.y, z: z0 }, No3 { x: b.x, y: b.y, z: z0 }, h, pn.espessura);
                     pc.material_num = pn.material;
                     m.pecas.push(pc);
                 }
+            }
+        }
+        // Cabos: peça lógica por cabo (a malha vem de `saida.pecas`).
+        for (pn, lista) in paineis.iter().zip(&saida.cabos) {
+            let rd = PerfilP::circular(pn.cabo_diam);
+            for eixo in lista {
+                let nos: Vec<V3> = eixo.clone();
+                m.pecas.push(peca_varrida(gid, 6, 0, pn.material, &rd, &nos));
             }
         }
         if com_malha {
@@ -593,7 +601,10 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
                     for s in var::posicoes_suportes(total, c.sup_layout, c.sup_espac, c.sup_numero, c.sup_justif, &[]) {
                         if let Some((p, t)) = var::ponto_em(&caminhos[0], s) {
                             let lado = if off > 0.0 { -1.0 } else { 1.0 };
-                            let pc = var::suporte(p, t, lado, off.abs().min(c.sup_comp), &sp.anel());
+                            let comp = off.abs().min(c.sup_comp);
+                            let pc = var::suporte(p, t, lado, comp, &sp.anel());
+                            let fim = [p[0] + (-t[1]) * lado * comp / t[0].hypot(t[1]).max(1e-12), p[1] + t[0] * lado * comp / t[0].hypot(t[1]).max(1e-12), p[2]];
+                            m.pecas.push(peca_varrida(gid, 4, c.sup_perfil, c.material, &sp, &[p, fim]));
                             if com_malha {
                                 m.malha.adicionar_grupo(gid, gc_malha::PAPEL_SUPORTE, c.material, &pc);
                             }
@@ -766,6 +777,46 @@ mod testes {
         c
     }
 
+    /// Fonte unica: cada grupo da malha tem exatamente uma peca logica do mesmo papel (quantidade e desenho nunca divergem).
+    fn confere_fonte_unica(m: &Montagem) {
+        for papel in 0..8u32 {
+            let na_malha = m.malha.grupos.iter().filter(|g| g.papel == papel).count();
+            let nas_pecas = m.pecas.iter().filter(|p| p.papel == papel).count();
+            assert_eq!(na_malha, nas_pecas, "papel {papel}: malha x quantidade");
+        }
+    }
+
+    #[test]
+    fn quantidade_e_malha_contam_as_mesmas_pecas_com_cabos_e_suportes() {
+        let mut c = cena_l(false);
+        c.gc.padroes.clear();
+        c.gc.padrao_elementos.clear();
+        for orient in [0u8, 1] {
+            let id = 1 + orient as u32;
+            c.gc.paineis.insert(
+                id,
+                PainelLinha {
+                    tipo: 1, indice: id - 1, familia: 4, base_tipo: REF_TRILHO, base_idx: 0, topo_tipo: REF_TRILHO, topo_idx: 1, desl_base: 0.0, desl_topo: 0.0,
+                    espessura: 0.0, folga_lateral: 0.01, largura_max: 0.0, material: 6, perf_diam: 0.0, perf_passo_x: 0.0, perf_passo_y: 0.0, perf_alternado: false,
+                    tela_larg: 0.0, tela_alt: 0.0, tela_fio: 0.0, cabo_diam: 0.008, cabo_espac: 0.1, cabo_orient: orient,
+                },
+            );
+        }
+        let co = c.gc.corrimaos.get_mut(&1).unwrap();
+        co.posicao = 1;
+        co.sup_layout = 3;
+        co.sup_numero = 3;
+        co.sup_perfil = 1;
+        co.sup_comp = 0.1;
+        let m = montar(&c, NIVEL_TODOS, 1, ID_AUSENTE, 1e-3, true).expect("montar");
+        assert!(m.pecas.iter().any(|p| p.papel == 6), "cabos viram pecas");
+        assert!(m.pecas.iter().any(|p| p.papel == 4), "suportes viram pecas");
+        confere_fonte_unica(&m);
+        let sem_malha = montar(&c, NIVEL_TODOS, 1, ID_AUSENTE, 1e-3, false).expect("montar");
+        assert_eq!(sem_malha.pecas.len(), m.pecas.len(), "a quantidade nao depende de gerar a malha");
+        assert_eq!(crate::gc_quant::quant_guarda(&sem_malha.pecas), crate::gc_quant::quant_guarda(&m.pecas));
+    }
+
     #[test]
     fn guarda_l_com_balaustres_trilhos_e_corrimao() {
         let c = cena_l(false);
@@ -782,6 +833,7 @@ mod testes {
             assert!(a.fechada && a.volume > 0.0, "grupo {i} (papel {}) aberto ou invertido: {a:?}", g.papel);
         }
         assert!(!m.pecas.is_empty());
+        confere_fonte_unica(&m);
         let m2 = montar(&c, NIVEL_TODOS, 1, ID_AUSENTE, 1e-3, true).expect("montar");
         assert_eq!(m.malha.vertices, m2.malha.vertices);
         assert_eq!(m.malha.indices, m2.malha.indices);

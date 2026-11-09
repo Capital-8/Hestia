@@ -7,7 +7,7 @@
 import { CenaV2, type GerenciadorKernelV2 } from '@hestia/geom';
 import { isGuardaCorpo, type Id, type Project } from '@hestia/model';
 import { decodificarLinhasGC, type LinhaVistaGC } from './guardaCorpoVista.ts';
-import { guardaCorpoQuantities, PAPEL_GC, type EixoGC, type GuardaCorpoQuantities, type LinhaQuantGC, type PapelGC } from './guardaCorpoQuantities.ts';
+import { decodificarQuantidadesGC, guardaCorpoQuantities, PAPEL_GC, type EixoGC, type GuardaCorpoQuantities, type PapelGC } from './guardaCorpoQuantities.ts';
 import { CODIGO_AVISO_GC, type MedidaAvisoGC } from './guardaCorpoIssues.ts';
 import { gerenciadorDoKernel } from './kernelDespacho.ts';
 import { montarCenaGC, sincronizarCenaGC, type CenaGC } from './kernelGuardaCorpo.ts';
@@ -68,26 +68,6 @@ export function decodificarMalhaGC(
     }
   }
   return [...porGuarda.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([guardaId, m]) => ({ guardaId, partes: [...m.values()].map((x) => x.parte) }));
-}
-
-export function decodificarQuantGC(linhas: ArrayLike<number>, valores: ArrayLike<number>, guardaIdDe: (n: number) => Id | undefined): LinhaQuantGC[] {
-  const out: LinhaQuantGC[] = [];
-  for (let i = 0; i < linhas.length / 5; i++) {
-    const guardaId = guardaIdDe(linhas[5 * i]!);
-    if (guardaId === undefined) continue;
-    out.push({
-      guardaId,
-      papel: linhas[5 * i + 1]!,
-      perfilNum: linhas[5 * i + 2]!,
-      materialNum: linhas[5 * i + 3]!,
-      nPecas: linhas[5 * i + 4]!,
-      comprimento: valores[4 * i]!,
-      area: valores[4 * i + 1]!,
-      volume: valores[4 * i + 2]!,
-      areaProjetada: valores[4 * i + 3]!,
-    });
-  }
-  return out;
 }
 
 export function decodificarAvisosGC(avisos: ArrayLike<number>, valores: ArrayLike<number>, guardaIdDe: (n: number) => Id | undefined): MedidaAvisoGC[] {
@@ -209,7 +189,7 @@ export class ServicoGuardaCorpo {
       const { guardaIdDe } = this.ids();
       const q = this.cena!.consultar('quant_guarda', [NIVEL_TODOS]);
       const e = this.cena!.consultar('guarda_caminhos', [NIVEL_TODOS, 1e-3]);
-      return guardaCorpoQuantities(p, decodificarQuantGC(q['linhas']!, q['valores']!, guardaIdDe), decodificarEixosGC(e['trechos']!, e['nos']!, guardaIdDe));
+      return guardaCorpoQuantities(p, decodificarQuantidadesGC(q, this.atual!), decodificarEixosGC(e['trechos']!, e['nos']!, guardaIdDe));
     });
   }
 

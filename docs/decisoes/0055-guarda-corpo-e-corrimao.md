@@ -901,3 +901,15 @@ Estado: **exportação IFC pronta** em `packages/io/src/ifc/ifcGuardaCorpo.ts` (
 5. **`Pset_RailingCommon`:** `Reference` (código ou nome do tipo), `Height` (altura da instância ou do tipo) e `Diameter` (primeiro corrimão circular). `IsExternal` e `FireRating` não saem (o modelo não os tem). `Pset_Hestia_GuardaCorpo`: `Hospedeiro`, `HospedeiroId`, `Lados`, `Norma` (nome do perfil usado), `NormaConferida`, `Tipo`. `Qto_RailingBaseQuantities.Length` só sai se o chamador passar `comprimentoDesenvolvido` (a quantidade vem do kernel, não da malha).
 6. **Hospedeiro escada/rampa:** `IFCRELCONNECTSELEMENTS` (relacionante = escada ou rampa, relacionado = guarda-corpo), achando o produto por `products` ou pelo GlobalId; sem hospedeiro exportado, não sai a relação (o `HospedeiroId` fica no pset).
 7. **Nomes das partes** em pt/es ou en (tabela local no módulo), sem passar pelo `i18n` de `io`, para não tocar outros arquivos.
+
+## 20. Unificação das quantidades (Fase 4a, `feat/gc-f5q`)
+
+- **Um único `gc_quant.rs`.** `quantificar_pecas` aplica as regras de contagem (postes, balaústres, painéis, trilhos, corrimãos) sobre a `CadeiaGC` real da 3a e as seções do tipo, e gera `PecaGC`; `quant_guarda` (da f4) agrega por `(guarda, papel, perfil, material)`; `consulta_quant_guarda` liga a consulta 64 em `executar`. Não há segundo somador.
+- **Um único `guardaCorpoQuantities.ts`.** Base da f4 (totais por guarda, custo, eixo) mais `decodificarQuantidadesGC(s, cena)`, `quantidadesGuardaNivelRust` e `totaisPorTipoGC` (a soma por tipo sai de `porPapel`).
+- **Ambiguidades decididas:**
+  - `distribuir`: n + 1 repetições por vão, a última encostando no fim do vão (n = ceil(Lu - D) / P).
+  - Transição lance → patamar sem giro em planta: nó; recebe poste de canto só com `canto.ativo`.
+  - Painel: área lateral de duas faces (convenção da f4); o TS divide por 2 em `areaPaineis`.
+  - Corrimão com extensão: o comprimento da extensão (horizontal) soma ao eixo 3D; `maisPiso` não entra.
+  - As peças de quantidade têm x, y = 0 até a 3b definir o eixo nas peças.
+- **Pendente:** balaústres de `porDegrau`; quebras `angulo` e `nunca` sem a remoção por canto da 3c; área líquida de painel perfurado; suportes e cabos. A tabela de quantitativos do app não consome a consulta ainda: não existe despachante de guarda-corpo no app (a ligação é da Fase 7).

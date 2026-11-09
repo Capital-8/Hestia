@@ -1,4 +1,6 @@
+import type { CenaV2 } from '@hestia/geom';
 import { isGuardaCorpo, type Id, type Project } from '@hestia/model';
+import type { CenaGC } from './kernelGuardaCorpo.ts';
 
 /** Papel das peças (igual ao do Rust, `guarda_malha` e `quant_guarda`). */
 export const PAPEL_GC = { poste: 0, balaustre: 1, trilho: 2, corrimao: 3, suporte: 4, painel: 5, cabo: 6, travessa: 7 } as const;
@@ -96,6 +98,74 @@ export function guardaCorpoQuantities(p: Pick<Project, 'elements' | 'tiposGuarda
       volumePorMaterial,
       custo: (p.tiposGuardaCorpo[el.typeId]?.cost ?? 0) * dev,
     });
+  }
+  return out;
+}
+
+/**
+ * Saída da consulta `quant_guarda` -> linhas (esquema v13): `linhas` U32 de 5 por linha e `valores` F64 de 4. O número interno do guarda-corpo
+ * vira o id do elemento pela cena do adaptador (`montarCenaGC`); número que a cena não conhece lança.
+ */
+export function decodificarQuantidadesGC(s: Record<string, ArrayLike<number>>, cena: CenaGC): LinhaQuantGC[] {
+  const u = s['linhas'];
+  const f = s['valores'];
+  if (!u || !f || u.length % 5 !== 0 || f.length % 4 !== 0 || u.length / 5 !== f.length / 4) throw new Error('saída de quant_guarda do Rust com formato inesperado');
+  const idDoNumero = new Map<number, Id>();
+  for (const [id, num] of cena.guardaDe) idDoNumero.set(num, id);
+  const out: LinhaQuantGC[] = [];
+  for (let i = 0; i < u.length / 5; i++) {
+    const guardaId = idDoNumero.get(u[5 * i]!);
+    if (guardaId === undefined) throw new Error(`quant_guarda: guarda-corpo número ${u[5 * i]} sem id no projeto`);
+    out.push({
+      guardaId,
+      papel: u[5 * i + 1]!,
+      perfilNum: u[5 * i + 2]!,
+      materialNum: u[5 * i + 3]!,
+      nPecas: u[5 * i + 4]!,
+      comprimento: f[4 * i]!,
+      area: f[4 * i + 1]!,
+      volume: f[4 * i + 2]!,
+      areaProjetada: f[4 * i + 3]!,
+    });
+  }
+  return out;
+}
+
+/** Quantidades de um nível pela consulta do Rust. Código de retorno diferente de zero lança; não há valor de reserva. */
+export function quantidadesGuardaNivelRust(cena: CenaV2, nivel: number, cenaGC: CenaGC): LinhaQuantGC[] {
+  return decodificarQuantidadesGC(cena.consultar('quant_guarda', [nivel]), cenaGC);
+}
+
+/** Totais de um tipo de guarda-corpo (soma dos guarda-corpos do tipo): metros, contagens e áreas, como o quadro de quantitativos precisa. */
+export interface TotaisTipoGC {
+  typeId: Id;
+  guardas: number;
+  metrosCorrimao: number;
+  metrosTravessa: number;
+  metrosTrilho: number;
+  balaustres: number;
+  postes: number;
+  areaPaineis: number;
+  volumeTotal: number;
+  custo: number;
+}
+
+/** Agrega `guardaCorpoQuantities` por tipo. É a única fonte da tabela de quantitativos dos guarda-corpos (sem outra soma paralela). */
+export function totaisPorTipoGC(quantidades: readonly GuardaCorpoQuantities[]): Record<Id, TotaisTipoGC> {
+  const out: Record<Id, TotaisTipoGC> = {};
+  for (const q of quantidades) {
+    const t = (out[q.typeId] ??= { typeId: q.typeId, guardas: 0, metrosCorrimao: 0, metrosTravessa: 0, metrosTrilho: 0, balaustres: 0, postes: 0, areaPaineis: 0, volumeTotal: 0, custo: 0 });
+    t.guardas += 1;
+    t.balaustres += q.balaustres;
+    t.postes += q.postes;
+    t.areaPaineis += q.areaPaineis;
+    t.volumeTotal += q.volumeTotal;
+    t.custo += q.custo;
+    for (const p of q.porPapel) {
+      if (p.papel === 'corrimao') t.metrosCorrimao += p.comprimento;
+      else if (p.papel === 'travessa') t.metrosTravessa += p.comprimento;
+      else if (p.papel === 'trilho') t.metrosTrilho += p.comprimento;
+    }
   }
   return out;
 }
