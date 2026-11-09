@@ -55,9 +55,13 @@ describe('guarda-corpo, Fase 2: seções no Rust real', () => {
     cena.destruir();
   });
 
-  it.skipIf(!bytes)('as outras consultas do guarda-corpo seguem como NAO_IMPLEMENTADO', () => {
+  it.skipIf(!bytes)('as consultas 61 a 65 do guarda-corpo estao ligadas (malha, planta, corte, quantidades e avisos)', () => {
     const { cena } = criar(montarCenaGC(projetoGuardaCorpo().p));
-    expect(codigoDe(() => cena.consultar('guarda_malha', [0, 1]))).toBe(CODIGOS.NAO_IMPLEMENTADO);
+    expect(cena.consultar('guarda_malha', [0, 1])['grupos']!.length).toBeGreaterThan(0);
+    expect(cena.consultar('guarda_planta', [0, 1.2, 1])['linhas']!.length).toBeGreaterThan(0);
+    expect(cena.consultar('guarda_corte', [0, 0, 0, 1, 0, 20])).toHaveProperty('poligonos');
+    expect(cena.consultar('quant_guarda', [0])['linhas']!.length).toBeGreaterThan(0);
+    expect(cena.consultar('guarda_avisos', [0, 1])).toHaveProperty('avisos');
     cena.destruir();
   });
 
