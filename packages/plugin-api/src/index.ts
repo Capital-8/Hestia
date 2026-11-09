@@ -7,6 +7,8 @@ export * from './protocol.ts';
 export * from './transport.ts';
 export * from './hostPorts.ts';
 export * from './sceneSync.ts';
+export * from './sceneValidate.ts';
+export * from './sceneForProtocol.ts';
 export * from './hostSession.ts';
 export * from './pluginHost.ts';
 export * from './testkit.ts';

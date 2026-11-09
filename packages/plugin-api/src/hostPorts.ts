@@ -1,4 +1,4 @@
-import type { MaterialId, SceneCamera, SceneEntity, SceneMaterial, SceneTexture, ViewMaterialOverride } from './scene.ts';
+import type { MaterialId, SceneCamera, SceneEntity, SceneLight, SceneMaterial, SceneSite, SceneTexture, ViewMaterialOverride } from './scene.ts';
 
 /**
  * Portas que o host do Hestia oferece à sessão de um plugin. São a ÚNICA superfície por onde a sessão toca o editor:
@@ -10,6 +10,10 @@ export interface SceneContent {
   entities: SceneEntity[];
   materials: SceneMaterial[];
   textures: SceneTexture[];
+  /** Luzes (protocolo 1.3). Ausente = nenhuma. */
+  lights?: SceneLight[];
+  /** Localização e sol (protocolo 1.3). Ausente = nada a informar. */
+  site?: SceneSite;
 }
 
 export interface ScenePort {

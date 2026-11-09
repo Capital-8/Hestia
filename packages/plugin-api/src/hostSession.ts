@@ -6,6 +6,7 @@ import { Peer, type Transport } from './transport.ts';
 import { REQUIRED_CAPABILITY, isValidCamera, type ErrorCode, type Message, type ProtocolError } from './protocol.ts';
 import { SCENE_AXES, SCENE_UNITS, type CameraMode, type SceneCamera, type SceneSnapshot } from './scene.ts';
 import { diffScene } from './sceneSync.ts';
+import { contentForProtocol, snapshotExtensionFields } from './sceneForProtocol.ts';
 import { API_VERSION, PROTOCOL_VERSION, formatVersion, negotiateProtocol, parseVersion } from './version.ts';
 
 /** Estado retido entre conexões do mesmo plugin, para a retomada (`hello.resume`). */
@@ -273,11 +274,17 @@ export class HostSession {
       textures: content.textures,
       camera: this.o.ports.camera.read() ?? defaultCamera(),
       overrides: this.o.ports.overrides.read(this.manifest!.id),
+      ...snapshotExtensionFields(content, this.protoMinor),
     };
   }
 
+  /** Conteúdo da cena na versão negociada (1.0 a 1.2 saem sem nada de 1.3). */
+  private contentNow(): SceneContent {
+    return contentForProtocol(this.o.ports.scene.read(), this.protoMinor);
+  }
+
   private sendSnapshot(re?: string): void {
-    const content = this.o.ports.scene.read();
+    const content = this.contentNow();
     this.revision += 1;
     this.sent = content;
     const full = this.snapshotOf(content);
@@ -309,7 +316,7 @@ export class HostSession {
 
   private resumeFrom(ret: RetainedSession): void {
     this.revision = ret.revision;
-    this.sent = ret.content;
+    this.sent = contentForProtocol(ret.content, this.protoMinor);
     this.flushDelta();
   }
 
@@ -337,7 +344,9 @@ export class HostSession {
 
   private flushDelta(): void {
     if (this.state !== 'ready' || !this.sent) return;
-    const next = this.o.ports.scene.read();
+    const next = this.contentNow();
+    // A localização não tem operação própria no delta: quando muda, vai um snapshot completo (nova revisão).
+    if (JSON.stringify(this.sent.site ?? null) !== JSON.stringify(next.site ?? null)) { this.sendSnapshot(); return; }
     const ops = diffScene(this.sent, next);
     if (ops.length === 0) return;
     const base = this.revision;

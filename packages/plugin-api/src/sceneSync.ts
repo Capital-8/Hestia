@@ -1,11 +1,12 @@
 import type { SnapshotBeginMsg, SnapshotEndMsg, SnapshotPartMsg } from './protocol.ts';
-import type { SceneDelta, SceneEntity, SceneMaterial, SceneOp, SceneSnapshot, SceneTexture } from './scene.ts';
+import type { SceneDelta, SceneEntity, SceneLight, SceneMaterial, SceneOp, SceneSnapshot, SceneTexture } from './scene.ts';
 
-/** Conteúdo comparável da cena (sem câmera, revisão nem substituições). */
+/** Conteúdo comparável da cena (sem câmera, revisão nem substituições). `lights` só existe em sessões 1.3. */
 export interface SyncContent {
   entities: SceneEntity[];
   materials: SceneMaterial[];
   textures: SceneTexture[];
+  lights?: SceneLight[];
 }
 
 const same = (a: unknown, b: unknown): boolean => a === b || JSON.stringify(a) === JSON.stringify(b);
@@ -39,6 +40,14 @@ export function diffScene(prev: SyncContent, next: SyncContent): SceneOp[] {
   const t1 = new Map(next.textures.map((t) => [t.id, t]));
   for (const [id, t] of t1) if (!t0.has(id)) ops.push({ op: 'texture.add', texture: t });
   for (const id of t0.keys()) if (!t1.has(id)) ops.push({ op: 'texture.remove', id });
+  const l0 = new Map((prev.lights ?? []).map((l) => [l.id, l]));
+  const l1 = new Map((next.lights ?? []).map((l) => [l.id, l]));
+  for (const [id, l] of l1) {
+    const old = l0.get(id);
+    if (!old) ops.push({ op: 'light.add', light: l });
+    else if (!same(old, l)) ops.push({ op: 'light.update', light: l });
+  }
+  for (const id of l0.keys()) if (!l1.has(id)) ops.push({ op: 'light.remove', id });
   return ops;
 }
 
@@ -51,6 +60,8 @@ export function applyDelta(snap: SceneSnapshot, d: SceneDelta): SceneSnapshot | 
   const entities = new Map(snap.entities.map((e) => [e.id, e]));
   const materials = new Map(snap.materials.map((m) => [m.id, m]));
   const textures = new Map(snap.textures.map((t) => [t.id, t]));
+  const lights = new Map((snap.lights ?? []).map((l) => [l.id, l]));
+  let mexeuNasLuzes = false;
   for (const o of d.ops) {
     switch (o.op) {
       case 'entity.add': case 'entity.update': entities.set(o.entity.id, o.entity); break;
@@ -59,9 +70,18 @@ export function applyDelta(snap: SceneSnapshot, d: SceneDelta): SceneSnapshot | 
       case 'material.remove': materials.delete(o.id); break;
       case 'texture.add': textures.set(o.texture.id, o.texture); break;
       case 'texture.remove': textures.delete(o.id); break;
+      case 'light.add': case 'light.update': lights.set(o.light.id, o.light); mexeuNasLuzes = true; break;
+      case 'light.remove': lights.delete(o.id); mexeuNasLuzes = true; break;
     }
   }
-  return { ...snap, revision: d.revision, entities: [...entities.values()], materials: [...materials.values()], textures: [...textures.values()] };
+  return {
+    ...snap,
+    revision: d.revision,
+    entities: [...entities.values()],
+    materials: [...materials.values()],
+    textures: [...textures.values()],
+    ...(snap.lights !== undefined || mexeuNasLuzes ? { lights: [...lights.values()] } : {}),
+  };
 }
 
 /**

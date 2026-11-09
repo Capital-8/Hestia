@@ -5,10 +5,16 @@
  *  - API: o contrato TypeScript e os campos de cena/manifesto. `major` quebra compatibilidade; `minor` só acrescenta.
  *  - Protocolo: o formato dos quadros no fio. O mesmo critério.
  */
-export const API_VERSION = { major: 1, minor: 0 } as const;
+export const API_VERSION = { major: 1, minor: 1 } as const;
+/**
+ * 1.1 da API acrescenta campos opcionais de cena (materiais PBR, luzes, localização e normais) e as ops `light.*`.
+ * Plugins 1.0 continuam compatíveis: nada do que era obrigatório mudou.
+ */
 /** 1.2 acrescenta o snapshot em partes (`scene.snapshot.begin`, `.part`, `.end`). */
 /** 1.1 acrescenta o pareamento autenticado (`auth`, `auth.ok`); o 1.0 continua negociável quando o host não exige token. */
-export const PROTOCOL_VERSION = { major: 1, minor: 2 } as const;
+/** 1.3 acrescenta, de forma aditiva e só quando negociada: material por triângulo (`groups[].materialId`), normais,
+ *  campos PBR opcionais, luzes (`snapshot.lights`, ops `light.*`) e `snapshot.site`. Sessões 1.0 a 1.2 não recebem nada disso. */
+export const PROTOCOL_VERSION = { major: 1, minor: 3 } as const;
 
 export interface Version {
   major: number;

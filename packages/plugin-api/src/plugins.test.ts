@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   SnapshotAssembler, authProof, API_VERSION, PluginHost, TEST_RENDERER_MANIFEST, TestPlugin, createMemoryPair, decode, findImagePayload, negotiateProtocol, validateEndpoint, validateManifest,
-  type Capability, type HostPorts, type PluginEntry, type SceneCamera, type SceneContent, type SceneEntity, type ViewMaterialOverride,
+  type Capability, type HostPorts, type PluginEntry, type SceneCamera, type SceneContent, type SceneEntity, type SceneLight, type ViewMaterialOverride,
 } from './index.ts';
 
 const cam = (x: number): SceneCamera => ({ projection: 'perspective', target: { x: 0, y: 0, z: 0 }, position: { x, y: -10, z: 8 }, up: { x: 0, y: 0, z: 1 }, fovY: 0.8, orthoHeight: 20, near: 0.1, far: 1000 });
@@ -584,5 +584,144 @@ describe('snapshot em partes (protocolo 1.2)', () => {
     expect(d({ t: 'scene.snapshot.end', seq: 1, revision: 'a' })).toBe(false);
     expect(d({ t: 'scene.snapshot.begin', seq: 1, snapshot: { revision: 1, projectId: 'p' }, parts: 0, counts: { entities: 0, materials: 0, textures: 0 } })).toBe(false);
     expect(d({ t: 'scene.snapshot.part', seq: 1, index: 0, entities: [] })).toBe(true);
+  });
+});
+
+
+describe('extensão de renderização (protocolo 1.3)', () => {
+  const TOKEN = 'd'.repeat(64);
+  const luz = (id: string): SceneLight => ({ id, kind: 'point', position: { x: 1, y: 2, z: 3 }, color: '#ffeedd', intensity: 800 });
+  /** Cena rica: normais, material por grupo, PBR, luz e sol. */
+  function rica(f: ReturnType<typeof fakePorts>): void {
+    f.content.entities[0]!.mesh!.normals = [0, 0, 1, 0, 0, 1, 0, 0, 1];
+    f.content.materials[0] = { ...f.content.materials[0]!, metallic: 0.9, emissive: { color: '#ff0000', intensity: 2 }, ior: 1.5, transmission: 0.4 };
+    f.content.lights = [luz('l1')];
+    f.content.site = { latitude: -23.5, longitude: -46.6, northAngle: 0.3, timezone: 'America/Sao_Paulo' };
+  }
+  const run = async (max: string, mut?: (f: ReturnType<typeof fakePorts>) => void) => {
+    const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN, protocolMax: max } });
+    rica(s.f);
+    mut?.(s.f);
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    return s;
+  };
+
+  it('plugin 1.3: negocia 1.3 e recebe grupos com material, normais, PBR, luzes e site', async () => {
+    const s = await run('1.3');
+    const p = s.last();
+    expect(p.welcome).toMatchObject({ protocol: '1.3' });
+    const snap = p.snapshot!;
+    expect(snap.entities[0]!.mesh!.groups[0]!.materialId).toBe('mat1');
+    expect(snap.entities[0]!.mesh!.normals).toEqual([0, 0, 1, 0, 0, 1, 0, 0, 1]);
+    expect(snap.materials[0]).toMatchObject({ metallic: 0.9, emissive: { color: '#ff0000', intensity: 2 }, ior: 1.5, transmission: 0.4 });
+    expect(snap.lights).toEqual([luz('l1')]);
+    expect(snap.site).toEqual({ latitude: -23.5, longitude: -46.6, northAngle: 0.3, timezone: 'America/Sao_Paulo' });
+  });
+
+  it('plugin 1.2 no mesmo host: negocia 1.2 e a cena sai como antes (sem campos de 1.3, material do grupo em null)', async () => {
+    const wire: string[] = [];
+    const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN, protocolMax: '1.2' }, spy: wire });
+    rica(s.f);
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    const p = s.last();
+    expect(p.welcome).toMatchObject({ protocol: '1.2' });
+    const snap = p.snapshot!;
+    expect(snap.lights).toBeUndefined();
+    expect(snap.site).toBeUndefined();
+    expect(snap.entities[0]!.mesh!.normals).toBeUndefined();
+    expect(snap.entities[0]!.mesh!.groups[0]!.materialId).toBeNull();
+    expect(Object.keys(snap.materials[0]!).sort()).toEqual(['color', 'gloss', 'id', 'name', 'opacity']);
+    expect(wire.join('\n')).not.toMatch(/"lights"|"site"|"normals"|"metallic"|"emissive"|"transmission"/);
+  });
+
+  it('plugin 1.1 (snapshot inteiro) também não recebe nada de 1.3', async () => {
+    const s = await run('1.1');
+    expect(s.last().welcome).toMatchObject({ protocol: '1.1' });
+    expect(s.last().snapshot!.lights).toBeUndefined();
+    expect(s.last().snapshot!.entities[0]!.mesh!.groups[0]!.materialId).toBeNull();
+  });
+
+  it('deltas 1.3: light.add, light.update e light.remove chegam e o plugin fecha igual ao host', async () => {
+    const s = await run('1.3');
+    const p = s.last();
+    s.f.content.lights!.push(luz('l2'));
+    s.f.changeScene();
+    await flushAuth();
+    expect(p.snapshot!.lights!.map((l) => l.id)).toEqual(['l1', 'l2']);
+    s.f.content.lights![0] = { ...luz('l1'), kind: 'spot', direction: { x: 0, y: 0, z: -1 }, innerAngle: 0.2, outerAngle: 0.5, range: 10 };
+    s.f.changeScene();
+    await flushAuth();
+    expect(p.snapshot!.lights![0]).toMatchObject({ kind: 'spot', outerAngle: 0.5 });
+    s.f.content.lights = [s.f.content.lights![1]!];
+    s.f.changeScene();
+    await flushAuth();
+    expect(p.snapshot!.lights!.map((l) => l.id)).toEqual(['l2']);
+    expect(p.resyncs).toBe(0);
+  });
+
+  it('mudança de site manda novo snapshot; mudança de luz num plugin 1.2 não gera nada', async () => {
+    const s13 = await run('1.3');
+    const rev = s13.last().snapshot!.revision;
+    s13.f.content.site = { latitude: 10 };
+    s13.f.changeScene();
+    await flushAuth();
+    expect(s13.last().snapshot!.site).toEqual({ latitude: 10 });
+    expect(s13.last().snapshot!.revision).toBeGreaterThan(rev);
+    const s12 = await run('1.2');
+    const d = s12.last().deltas;
+    s12.f.content.lights!.push(luz('l9'));
+    s12.f.changeScene();
+    await flushAuth();
+    expect(s12.last().deltas).toBe(d);
+  });
+
+  it('valores inválidos são descartados no host (a cena não cai)', async () => {
+    const s = await run('1.3', (f) => {
+      f.content.materials[0] = { ...f.content.materials[0]!, metallic: 7, ior: 1.4 };
+      f.content.lights = [luz('ok'), { ...luz('ruim'), intensity: -1 }, { ...luz('spot-sem-direcao'), kind: 'spot' }];
+      f.content.site = { latitude: 200, timezone: 'America/Sao_Paulo' };
+      f.content.entities[0]!.mesh!.normals = [0, 0, 1];
+    });
+    const snap = s.last().snapshot!;
+    expect(snap.materials[0]!.metallic).toBeUndefined();
+    expect(snap.materials[0]!.ior).toBe(1.4);
+    expect(snap.lights!.map((l) => l.id)).toEqual(['ok']);
+    expect(snap.site).toEqual({ timezone: 'America/Sao_Paulo' });
+    expect(snap.entities[0]!.mesh!.normals).toBeUndefined();
+  });
+
+  it('snapshot em partes (1.3) leva luzes e site no cabeçalho', async () => {
+    const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN, protocolMax: '1.3' }, chunk: 600 });
+    rica(s.f);
+    for (let i = 0; i < 8; i++) s.f.content.entities.push(wall(`m${i}`, `h${i}`));
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(s.last().partsReceived).toBeGreaterThan(2);
+    expect(s.last().snapshot!.lights).toHaveLength(1);
+    expect(s.last().snapshot!.site?.timezone).toBe('America/Sao_Paulo');
+  });
+
+  it('validação de mensagens: luz, material, site e normais malformados são recusados', () => {
+    const d = (m: unknown): boolean => decode(JSON.stringify(m)).ok;
+    const delta = (op: unknown): unknown => ({ t: 'scene.delta', seq: 1, delta: { baseRevision: 1, revision: 2, ops: [op] } });
+    const mat = (extra: object): unknown => ({ id: 'm', name: 'x', color: '#000000', gloss: 0, opacity: 1, ...extra });
+    expect(d(delta({ op: 'light.add', light: luz('a') }))).toBe(true);
+    expect(d(delta({ op: 'light.add', light: { ...luz('a'), kind: 'sol' } }))).toBe(false);
+    expect(d(delta({ op: 'light.update', light: { ...luz('a'), color: 'vermelho' } }))).toBe(false);
+    expect(d(delta({ op: 'light.update', light: { ...luz('a'), kind: 'spot' } }))).toBe(false);
+    expect(d(delta({ op: 'light.update', light: { ...luz('a'), kind: 'spot', direction: { x: 0, y: 0, z: -1 }, innerAngle: 1, outerAngle: 0.5 } }))).toBe(false);
+    expect(d(delta({ op: 'light.remove', id: 'a' }))).toBe(true);
+    expect(d(delta({ op: 'light.remove' }))).toBe(false);
+    expect(d(delta({ op: 'material.update', material: mat({ transmission: 2 }) }))).toBe(false);
+    expect(d(delta({ op: 'material.update', material: mat({ emissive: { color: '#fff', intensity: 1 } }) }))).toBe(false);
+    expect(d(delta({ op: 'material.update', material: mat({ metallic: 1, ior: 1.5, emissive: { color: '#ffffff', intensity: 0 } }) }))).toBe(true);
+    const snap = (extra: object): unknown => ({ t: 'scene.snapshot', seq: 1, snapshot: { revision: 1, projectId: 'p', entities: [], materials: [], ...extra } });
+    expect(d(snap({ lights: [luz('a')], site: { latitude: -23, timezone: 'UTC' } }))).toBe(true);
+    expect(d(snap({ site: { latitude: 91 } }))).toBe(false);
+    expect(d(snap({ site: { timezone: 'nao e fuso' } }))).toBe(false);
+    expect(d(snap({ lights: 'x' }))).toBe(false);
+    expect(d(snap({ entities: [{ mesh: { positions: [0, 0, 0], normals: [0, 1], indices: [], groups: [] } }] }))).toBe(false);
   });
 });
