@@ -805,3 +805,36 @@ Estado: **Fase 2 implementada** em `feat/gc-f2`. O JSON do contrato (`cena-v11.j
 6. **Referências entre seções.** Não são checadas na decodificação (as seções chegam em qualquer ordem); `validar_referencias` as confere por consulta. Também confere: `n_pontos` do perfil poligonal igual às linhas (3 a 64), `lados` do circular de 3 a 256, no máximo 12 trilhos, 4 corrimãos e 8 preenchimentos (padrões e painéis dividem a numeração do `indice`, sem repetir), 1 a 16 elementos por padrão, caminho manual de 2 a 512 vértices (`LIMITE` acima de 512). O limite de 20 000 balaústres fica para o motor da Fase 3c.
 7. **Cache.** Escrever seções 60 a 81 não esvazia os caches de paredes, pisos, lajes e forros (nenhum deles lê o guarda-corpo).
 8. **Correção de passagem.** `abi2::testes::versoes` ainda esperava a versão 12 do esquema (esquecida na Fase 1); passou para 13.
+
+---
+
+## 16. Registro da Fase 3a (caminho hospedado no Rust)
+
+Estado: **Fase 3a implementada** em `feat/gc-f3a`. `crates/geom-wasm/src/gc_caminho.rs` substitui `guarda_caminhos_gancho` (removido de `secoes_gc.rs`); a consulta mantém `validar_referencias` e devolve `ENTRADA` se `tol_corda` do tipo sair de 0,5 a 10 mm. Referência TS em `packages/engine/src/guardaCorpoRef/caminho.ts` (importada direto pelos testes; `guardaCorpoRef/index.ts` não foi tocado). Testes: `cargo test -p geom-wasm gc_caminho` (13), `tests/kernel-gc3a.wasm.test.ts` (paridade com `fixtureGuardaCorpo.ts` e variantes), `guardaCorpoRef/caminho.test.ts`. Wasm regenerado.
+
+**Formato da saída de `guarda_caminhos`** (para as fases 3b, 3c e 4): `trechos` `[guarda_num, trecho, origem (0 lance, 1 patamar, 2 manual, 3 caracol), n_nos, flags]`, com `flags` bit0 curvo, bit1 fechado, bit2 soldado ao trecho anterior (mesma sequência contínua), bit3 lado direito; `nos` `[x, y, z]` em grade de 1 µm; `avisos` `[guarda_num, codigo, trecho, indice]` com código 1 = `gc-hospedeiro-descontinuo` (indice = componente) e 2 = `gc-deslocamento-excede-largura`; `valores` `[medido, limite, x, y, z]` (descontinuidade: folga em planta e `tol_juncao`; deslocamento: o pedido e 0). Trechos por guarda-corpo: lado esquerdo primeiro, depois o direito, na ordem dos componentes. O argumento `nivel_num` filtra por `nivel` do guarda-corpo (`NIVEL_TODOS` aceito).
+
+**Escolhas onde a ADR era ambígua:**
+1. **Um trecho por componente** (lance, patamar, caracol), sem fundir; componentes consecutivos ligados e contínuos formam uma sequência, com o deslocamento e a esquadria calculados na sequência inteira (o nó comum recebe o mesmo ponto em planta; cada trecho guarda a sua cota). Folga em planta maior que `tol_juncao` abre a sequência e avisa; componente desligado entre dois ligados abre sem aviso.
+2. **Cota do lance** pelo `z1` do primeiro e do último espelho, linear no comprimento da borda; a cadeia é cortada entre o primeiro e o último espelho (pontos da borda mais próximos de cada linha de espelho). Sem espelhos: constante em `z_base`; um espelho: constante nele.
+3. **Arcos:** flecha de corda <= `tol_corda`, no mínimo 8 segmentos por quarto de volta, no máximo 720 por arco. Cadeias retas perdem os vértices colineares; curvas mantêm todos. Caracol = lance cujo componente tem `caracol`, sempre `curvo`.
+4. **Patamar:** a aresta de entrada é a do anel mais próxima da última linha de espelho (ou da borda final da rampa) do componente anterior; a de saída, a mais próxima da primeira linha do seguinte. Ausente uma delas, vale a aresta de ponto médio mais distante da outra. As duas cadeias vão da entrada à saída; esquerda é a de maior produto vetorial com a direção entrada-centro do anel. Em patamar em L a cadeia interna degenera num ponto e é omitida (sem guarda-corpo de um nó só).
+5. **Deslocamento:** `degrau` recua para dentro (esquerda desloca para a direita), `lateral` desloca para fora do eixo da escada; manual: `0` esquerda, `1` direita, `2` sem deslocamento. Esquadria com limite 2,5x e, acima, chanfro de dois pontos. A recusa (`gc-deslocamento-excede-largura`) dispara quando algum segmento deslocado se inverte; não há ainda checagem pela largura entre as duas bordas.
+6. **`inverter`** só reverte a ordem dos nós de cada trecho (lado e ordem dos trechos não mudam). Manual fechado não repete o primeiro nó no fim.
+7. **Rampa:** lado esquerdo do lance por produto vetorial com a direção `inicio -> fim`; patamares pela mesma regra do item 4 usando as bordas dos lances vizinhos.
+8. **Alturas, `ajusteAlturaPatamar` e junções** não entram aqui (são das fases 3b e 3c); os nós são do eixo no nível da linha das quinas / do piso.
+
+
+---
+
+## 16. Registro das Fases 4a e 4b (`feat/gc-f4`)
+
+**4a (Rust).** `gc_planta.rs`, `gc_corte.rs`, `gc_quant.rs` e `gc_avisos.rs` implementam a lógica pura de `guarda_planta`, `guarda_corte`, `quant_guarda` e das medidas de `guarda_avisos`, sobre a `CadeiaGC` e sobre `PecaGC` (peça lógica definida em `gc_planta.rs`). `cadeia_de_saida` converte a saída real de `guarda_caminhos` (3a) em `CadeiaGC`; há teste com o caminho real.
+- **Ainda não ligadas a `executar`.** As consultas 62 a 65 seguem `NAO_IMPLEMENTADO` até a 3b/3c entregarem as peças reais (balaústres, postes, trilhos). Ligar é só montar `Vec<PecaGC>` e chamar `achatar_*`.
+- Estilo de planta e corte é por peça, não por segmento: peça que cruza o plano sai inteira como cortada. Eixo sai com papel 255.
+- Corte: normal esquerda de `(dx, dy)` é o lado visível; elevação é o corte com plano fora da edificação e profundidade grande. `poligonos` = `[guarda, papel, n, s, z, ...]`.
+- Códigos de `guarda_avisos`: 1 vão grande, 2 vão inferior, 3 altura do corrimão, 4 extensão, 5 altura baixa (`CODIGO_AVISO_GC` no TS).
+
+**4b (TS).** `guardaCorpoQuantities.ts`, `guardaCorpoIssues.ts` (mensagens pt/en locais, os outros idiomas caem em pt, para não mexer no dicionário `egb_` espelhado no app), `guardaCorpoRef/avisos.ts` (esfera), `ifc/ifcGuardaCorpo.ts` (um `IFCRAILING` por guarda-corpo, corrimões do tipo como `IFCRAILING` HANDRAIL agregados; postes, balaústres e painéis como partes ficam para quando houver malha, Fase 5; `Length` só no manual enquanto o kernel não devolver o comprimento).
+- **Requisito do dono (aparece, seleciona, isola/oculta).** Arquivo extra, fora da lista da 4b: `viewVisibility.ts` não mapeava `railing` em `categoriaDoElemento`; corrigido, então ocultar/isolar por categoria `railing` e por elemento vale em planta, corte/elevação e 3D pelo `visibilityOf()`. `guardaCorpoVista.ts` decodifica as linhas de planta/corte, aplica o conjunto `hidden` e escolhe o guarda-corpo sob o cursor; a Fase 5 só liga isso ao desenho e ao `pick`. Testes em `viewVisibility.guardaCorpo.test.ts`. O desenho em si (planta, 3D, corte) é a Fase 5.
+- Mesclada `origin/feat/gc-f3a`; wasm regenerado e `--check` ok.

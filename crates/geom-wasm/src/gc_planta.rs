@@ -197,6 +197,28 @@ pub fn achatar_planta(linhas: &[LinhaPlanta]) -> SaidaPlanta {
     s
 }
 
+/// Monta a `CadeiaGC` a partir das saídas `trechos` e `nos` de `guarda_caminhos` (3a), para alimentar planta, corte e avisos com o caminho real.
+pub fn cadeia_de_saida(trechos: &[u32], nos: &[f64]) -> CadeiaGC {
+    use crate::gc_tipos::{OrigemTrecho, TrechoGC};
+    let mut c = CadeiaGC::default();
+    let mut ini = 0usize;
+    let mut contagem = std::collections::BTreeMap::<u32, u32>::new();
+    for t in trechos.chunks_exact(5) {
+        let n = t[3] as usize;
+        let indice = *contagem.entry(t[0]).and_modify(|k| *k += 1).or_insert(0);
+        let origem = match t[2] {
+            0 => OrigemTrecho::Lance,
+            1 => OrigemTrecho::Patamar,
+            3 => OrigemTrecho::Caracol,
+            _ => OrigemTrecho::Manual,
+        };
+        let pts = (ini..ini + n).map(|i| No3 { x: nos[3 * i], y: nos[3 * i + 1], z: nos[3 * i + 2] }).collect();
+        c.trechos.push(TrechoGC { guarda: t[0], indice, origem, curvo: t[2] == 3, fechado: false, nos: pts });
+        ini += n;
+    }
+    c
+}
+
 #[cfg(test)]
 mod testes {
     use super::*;
@@ -258,5 +280,31 @@ mod testes {
         let l = guarda_planta(&f, &[], 0.0, 0);
         assert_eq!(l[0].pontos.len(), 4);
         assert_eq!(l[0].pontos.first(), l[0].pontos.last());
+    }
+
+    #[test]
+    fn planta_com_o_caminho_real_da_3a() {
+        use crate::cena::Cena;
+        use crate::esquema::{ID_AUSENTE, NIVEL_TODOS};
+        use crate::gc_caminho::guarda_caminhos;
+        use crate::consultas::Saida;
+        use crate::secoes_gc::{CaminhoLinha, GuardaCorpoLinha, TipoGuardaLinha};
+        let mut c = Cena::novo();
+        c.gc.tipos.insert(1, TipoGuardaLinha { altura: 1.1, desloc: 0.0, ajuste_patamar: 0.0, folga_inferior: 0.0, junc_angular: 0, junc_tangente: 0, conexao: 0, tol_corda: 0.002, norma: ID_AUSENTE });
+        c.gc.guardas.insert(1, GuardaCorpoLinha { nivel: 0, tipo: 1, hosp: 0, hosp_num: ID_AUSENTE, lados: 0, pos_base: 0, desloc: 0.0, altura: f64::NAN, inverter: false, fechado: false, lado_desloc: 2, cota_base: 3.0, flags: 7 });
+        for (i, (x, y)) in [(0.0, 0.0), (4.0, 0.0), (4.0, 3.0)].iter().enumerate() {
+            c.gc.caminhos.insert(i as u32 + 1, CaminhoLinha { guarda: 1, indice: i as u32, x: *x, y: *y, dz: 0.0 });
+        }
+        let s = guarda_caminhos(&c, NIVEL_TODOS, 1e-6).expect("consulta");
+        let (Saida::U32(tr), Saida::F64(nos)) = (&s[0], &s[1]) else { panic!() };
+        let cad = cadeia_de_saida(tr, nos);
+        assert_eq!(cad.trechos.len(), 1);
+        let poste = PecaGC::vertical_retangular(1, PAPEL_POSTE, 4.0, 0.0, 3.0, 4.1, 0.05, 0.05);
+        let l = guarda_planta(&cad, &[poste], 3.5, 1);
+        assert_eq!(l[0].papel, PAPEL_EIXO);
+        assert_eq!(l[0].pontos.first(), Some(&(0.0, 0.0)));
+        assert_eq!(l[0].pontos.last(), Some(&(4.0, 3.0)));
+        assert!((cad.trechos[0].comprimento_planta() - 7.0).abs() < 1e-9);
+        assert_eq!(l[1].estilo, ESTILO_CORTADO, "poste do canto cortado a 0,5 m acima da base");
     }
 }

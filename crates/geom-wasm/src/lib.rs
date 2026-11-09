@@ -81,6 +81,7 @@ pub mod gc_planta;
 pub mod gc_corte;
 pub mod gc_quant;
 pub mod gc_avisos;
+pub mod gc_caminho;
 pub mod volume_sobreposicao;
 #[cfg(test)]
 mod teste_util;
