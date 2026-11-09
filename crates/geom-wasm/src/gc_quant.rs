@@ -36,7 +36,10 @@ fn medidas(p: &PecaGC) -> (f64, f64, f64, f64) {
         }
         FormaGC::Painel { a, b, altura, espessura } => {
             let c = ((b.x - a.x).powi(2) + (b.y - a.y).powi(2)).sqrt();
-            (c, *altura, 2.0 * c * altura, c * altura * espessura)
+            // Área líquida: `area_secao` já vem sem a fração aberta (perfurada, tela); a razão com a seção cheia é a fração fechada.
+            let cheia = altura * espessura;
+            let fechada = if cheia > 1e-12 { (p.area_secao / cheia).clamp(0.0, 1.0) } else { 1.0 };
+            (c, *altura, 2.0 * c * altura * fechada, c * p.area_secao)
         }
     }
 }

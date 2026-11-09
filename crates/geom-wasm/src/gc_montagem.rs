@@ -3,8 +3,8 @@
 //! as medidas de aviso. As consultas 61 a 65 são fatias da mesma montagem.
 //!
 //! Escolhas desta etapa (registradas na ADR, seção de integração): trilhos e corrimão de uma sequência soldada (lance + patamar) saem de uma varredura
-//! contínua; a transição do corrimão (simples ou pescoço de ganso) só vale para o par lance e patamar retos e colineares; `conexaoTrilho: soldar` e
-//! `juncaoAngular: filete` ficam em esquadria nos trilhos (o filete vale no corrimão); `lod` muda só os lados dos perfis circulares.
+//! contínua; a transição do corrimão (simples ou pescoço de ganso) só vale para o par lance e patamar retos e colineares; `conexaoTrilho: soldar` (perfil circular) solda os cantos dos trilhos
+//! e o filete do corrimão (`juncao: filete`) vale também nos trilhos, com o mesmo raio (o filete tem precedência sobre a solda); `lod` muda só os lados dos perfis circulares.
 
 use std::collections::BTreeMap;
 
@@ -324,6 +324,8 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
     let mut usados_lance = [0usize; 1];
     let mut restante = LIMITE_BALAUSTRES;
 
+    // Posições (planta) dos postes por trecho: alimentam o layout "alinhar com postes" dos suportes do corrimão.
+    let mut postes_xy: BTreeMap<u32, Vec<[f64; 2]>> = BTreeMap::new();
     // Padrões e painéis (as alturas dependem do trecho: patamar soma o ajuste).
     for t in trechos.iter() {
         let ajuste = if t.origem == OrigemTrecho::Patamar { tipo.linha.ajuste_patamar } else { 0.0 };
@@ -403,6 +405,7 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
         let cfg = ConfigDistribuicao { altura: h_t, postes: params.clone(), padroes: padroes.clone(), paineis: paineis.clone(), degraus, gerar_malha: com_malha };
         let tr = TrechoGC { guarda: gid, indice: t.trecho, origem: t.origem, curvo: t.curvo, fechado: t.fechado, nos: t.nos.clone() };
         let saida = dist::distribuir(&tr, &cfg, restante)?;
+        postes_xy.insert(t.trecho, saida.postes.iter().map(|p| [p.x, p.y]).collect());
         for a in &saida.avisos {
             m.avisos_dist.push((gid, t.trecho, a.codigo, a.s, a.valor));
         }
@@ -435,6 +438,8 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
                 if h > 1e-9 && pn.familia != dist::FAM_CABO {
                     let mut pc = PecaGC::painel(gid, No3 { x: a.x, y: a.y, z: z0 }, No3 { x: b.x, y: b.y, z: z0 }, h, pn.espessura);
                     pc.material_num = pn.material;
+                    // Área líquida: a seção do painel perde a fração aberta (furos da chapa perfurada, malha da tela); `gc_quant` lê a razão.
+                    pc.area_secao *= 1.0 - fracao_aberta(pn);
                     m.pecas.push(pc);
                 }
             }
@@ -525,10 +530,21 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
             r
         };
         let ajuste_de = |t: &TrechoInfo| if t.origem == OrigemTrecho::Patamar { tipo.linha.ajuste_patamar } else { 0.0 };
+        // Filete nos trilhos: acompanha o corrimão do tipo com `juncao: filete` (raio do primeiro); a ADR só define o raio no corrimão.
+        let raio_filete_trilho = tipo.corrimaos.iter().find(|(_, c)| c.juncao == 1 && c.raio_filete > 0.0).map(|(_, c)| c.raio_filete);
         for (_, tr_l) in &tipo.trilhos {
             let perfil = perfil_p(cena, tr_l.perfil, lod)?;
             let base = junta(&|t| tr_l.altura + ajuste_de(t));
             let cam = deslocar(&base, tr_l.desloc);
+            let cam = if fechado {
+                cam
+            } else if let Some(r) = raio_filete_trilho {
+                var::filete(&cam, r, tipo.linha.tol_corda, None)
+            } else if tipo.linha.conexao == 1 && perfil.forma == FORMA_CIRCULAR {
+                var::soldar(&cam, envelope(&perfil).0)
+            } else {
+                cam
+            };
             if fechado {
                 m.pecas.push(peca_varrida(gid, 2, tr_l.perfil, tr_l.material, &perfil, &cam));
                 if com_malha {
@@ -598,7 +614,18 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
                 if c.funcao != 0 && c.sup_layout != 0 && c.sup_perfil != ID_AUSENTE && c.sup_comp > 0.0 && off != 0.0 && caminhos.len() == 1 {
                     let sp = perfil_p(cena, c.sup_perfil, lod)?;
                     let total = var::comprimento_caminho(&caminhos[0]);
-                    for s in var::posicoes_suportes(total, c.sup_layout, c.sup_espac, c.sup_numero, c.sup_justif, &[]) {
+                    let mut s_postes: Vec<f64> = Vec::new();
+                    if c.sup_layout == 2 {
+                        let nos_c: Vec<No3> = caminhos[0].iter().map(|p| No3 { x: p[0], y: p[1], z: p[2] }).collect();
+                        for t in ch {
+                            for xy in postes_xy.get(&t.trecho).into_iter().flatten() {
+                                s_postes.push(s_da_projecao(&nos_c, *xy));
+                            }
+                        }
+                        s_postes.sort_by(|a, b| a.total_cmp(b));
+                        s_postes.dedup_by(|a, b| (*a - *b).abs() < 1e-6);
+                    }
+                    for s in var::posicoes_suportes(total, c.sup_layout, c.sup_espac, c.sup_numero, c.sup_justif, &s_postes) {
                         if let Some((p, t)) = var::ponto_em(&caminhos[0], s) {
                             let lado = if off > 0.0 { -1.0 } else { 1.0 };
                             let comp = off.abs().min(c.sup_comp);
@@ -618,6 +645,19 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
 }
 
 const MODO_NENHUM_GC: u8 = 0;
+
+/// Fração aberta (0 a 1) do painel: chapa perfurada = área do furo por célula (`passo_x * passo_y`, vale também no quincôncio); tela = área
+/// da abertura da malha `(larg - fio)(alt - fio)` sobre `larg * alt`. Outras famílias: 0. Limitada a 0,99 (sempre sobra material).
+fn fracao_aberta(p: &PainelP) -> f64 {
+    let f = match p.familia {
+        dist::FAM_PERFURADA if p.perf_passo_x > 0.0 && p.perf_passo_y > 0.0 && p.perf_diam > 0.0 => {
+            std::f64::consts::PI * p.perf_diam * p.perf_diam / 4.0 / (p.perf_passo_x * p.perf_passo_y)
+        }
+        dist::FAM_TELA if p.tela_larg > 0.0 && p.tela_alt > 0.0 => ((p.tela_larg - p.tela_fio).max(0.0) * (p.tela_alt - p.tela_fio).max(0.0)) / (p.tela_larg * p.tela_alt),
+        _ => 0.0,
+    };
+    f.clamp(0.0, 0.99)
+}
 
 fn m_largura_poste(p: &ParamPostes) -> f64 {
     let mut l: f64 = 0.0;
@@ -815,6 +855,70 @@ mod testes {
         let sem_malha = montar(&c, NIVEL_TODOS, 1, ID_AUSENTE, 1e-3, false).expect("montar");
         assert_eq!(sem_malha.pecas.len(), m.pecas.len(), "a quantidade nao depende de gerar a malha");
         assert_eq!(crate::gc_quant::quant_guarda(&sem_malha.pecas), crate::gc_quant::quant_guarda(&m.pecas));
+    }
+
+    fn nos_do_trilho(m: &Montagem, altura: f64) -> usize {
+        m.pecas
+            .iter()
+            .filter(|p| p.papel == 2)
+            .find_map(|p| match &p.forma {
+                FormaGC::Varrida { nos, .. } if (nos[0].z - altura).abs() < 1e-6 => Some(nos.len()),
+                _ => None,
+            })
+            .expect("trilho")
+    }
+
+    #[test]
+    fn trilho_soldado_e_com_filete_ganham_nos_no_canto() {
+        let mut c = cena_l(false);
+        let base = nos_do_trilho(&montar(&c, NIVEL_TODOS, 1, ID_AUSENTE, 1e-3, false).unwrap(), 1.05);
+        c.gc.tipos.get_mut(&1).unwrap().conexao = 1;
+        let soldado = nos_do_trilho(&montar(&c, NIVEL_TODOS, 1, ID_AUSENTE, 1e-3, false).unwrap(), 1.05);
+        assert!(soldado > base, "soldar: arco de 8 segmentos no canto ({soldado} > {base})");
+        c.gc.tipos.get_mut(&1).unwrap().conexao = 0;
+        let co = c.gc.corrimaos.get_mut(&1).unwrap();
+        co.juncao = 1;
+        co.raio_filete = 0.3;
+        let filete = nos_do_trilho(&montar(&c, NIVEL_TODOS, 1, ID_AUSENTE, 1e-3, false).unwrap(), 1.05);
+        assert!(filete > base, "filete acompanha o corrimão ({filete} > {base})");
+    }
+
+    #[test]
+    fn suporte_alinhado_com_postes_usa_as_posicoes_dos_postes() {
+        let mut c = cena_l(false);
+        let co = c.gc.corrimaos.get_mut(&1).unwrap();
+        co.posicao = 1;
+        co.sup_layout = 2;
+        co.sup_perfil = 1;
+        co.sup_comp = 0.1;
+        let m = montar(&c, NIVEL_TODOS, 1, ID_AUSENTE, 1e-3, false).unwrap();
+        let sup = m.pecas.iter().filter(|p| p.papel == 4).count();
+        let postes = m.pecas.iter().filter(|p| p.papel == 0).count();
+        assert!(sup > 0, "o layout alinhar com postes gera suportes");
+        assert_eq!(sup, postes, "um suporte por poste (dos 2 lados do eixo só um corrimão)");
+    }
+
+    #[test]
+    fn area_liquida_do_painel_perfurado_e_da_tela() {
+        let mut c = cena_l(true);
+        let bruta = crate::gc_quant::quant_guarda(&montar(&c, NIVEL_TODOS, 1, ID_AUSENTE, 1e-3, false).unwrap().pecas);
+        let area = |l: &[crate::gc_quant::LinhaQuant]| l.iter().filter(|x| x.papel == gc_malha::PAPEL_PAINEL).map(|x| (x.area, x.volume)).fold((0.0, 0.0), |a, b| (a.0 + b.0, a.1 + b.1));
+        let (a0, v0) = area(&bruta);
+        let p = c.gc.paineis.get_mut(&1).unwrap();
+        p.familia = 2;
+        p.perf_diam = 0.01;
+        p.perf_passo_x = 0.02;
+        p.perf_passo_y = 0.02;
+        let fr = std::f64::consts::PI * 0.01 * 0.01 / 4.0 / (0.02 * 0.02);
+        let (a1, v1) = area(&crate::gc_quant::quant_guarda(&montar(&c, NIVEL_TODOS, 1, ID_AUSENTE, 1e-3, false).unwrap().pecas));
+        assert!((a1 / a0 - (1.0 - fr)).abs() < 1e-6 && (v1 / v0 - (1.0 - fr)).abs() < 1e-4);
+        let p = c.gc.paineis.get_mut(&1).unwrap();
+        p.familia = 3;
+        p.tela_larg = 0.05;
+        p.tela_alt = 0.05;
+        p.tela_fio = 0.005;
+        let (a2, _) = area(&crate::gc_quant::quant_guarda(&montar(&c, NIVEL_TODOS, 1, ID_AUSENTE, 1e-3, false).unwrap().pecas));
+        assert!((a2 / a0 - (1.0 - 0.9 * 0.9)).abs() < 1e-4);
     }
 
     #[test]
