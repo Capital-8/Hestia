@@ -14,12 +14,12 @@ function projeto(typeId: string, n = 1): Project {
   const p = structuredClone(base);
   for (let i = 0; i < n; i++) {
     const id = `gc${i}`;
-    p.elements[id] = makeGuardaCorpo({
+    p.elements[id] = { order: i, ...makeGuardaCorpo({
       id,
       levelId: p.levels[0]!.id,
       typeId,
       hospedeiro: { tipo: 'manual', uso: 'varanda', caminho: [{ x: 0, y: 0, dz: 0 }, { x: 3, y: 4, dz: 0 }], fechado: false, ladoDeslocamento: 'esquerdo' },
-    });
+    }) };
   }
   return p;
 }
