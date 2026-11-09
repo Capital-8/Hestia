@@ -58,6 +58,8 @@ export interface ToolEnv {
   project(): Project;
   /** Presente quando a vista ativa é um corte/elevação; ausente na planta e no 3D. */
   section?(): SectionToolContext | null;
+  /** A vista ativa é um corte/elevação, mesmo que o cálculo (worker) ainda não tenha terminado. Escolhe a ferramenta certa. */
+  isSectionView?(): boolean;
   levelId(): Id;
   selection(): Id[];
   setSelection(ids: Id[]): void;
@@ -334,6 +336,8 @@ export interface Tool {
   drag?(p: PointerInfo): void;
   up?(p: PointerInfo): void;
   preview(): PreviewItem[];
+  /** Recalcula a prévia no último ponteiro (ex.: o resultado do corte foi publicado depois da última passada). */
+  refreshPreviewAtPointer?(): void;
   /** Cotas dinâmicas da prévia (sistema único de cotas); ausente = a ferramenta não mostra cotas ao desenhar. */
   tempDims?(overrides?: Readonly<Record<string, DimRef>>): TempDim[];
   /** Inferência corrente, para o desenho de guias e marcadores. */

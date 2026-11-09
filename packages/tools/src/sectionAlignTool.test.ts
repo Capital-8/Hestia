@@ -25,7 +25,7 @@ const sectionOpening = (b: Box): SectionOpening => {
 };
 
 /** Seção simulada: parede cortada de 0 a 10 m, três vãos e a guia da vista inteira. */
-function fakeResult(withWall = true): SectionResult {
+function fakeResult(withWall = true, boxes: Box[] = BOXES): SectionResult {
   const wall = rect(0, 0, 10, 2.8);
   return {
     length: 10,
@@ -34,7 +34,7 @@ function fakeResult(withWall = true): SectionResult {
     cut: withWall ? [{ materialId: 'mat_alv', polygons: wall, sources: [{ wallId: 'h' }], parts: [{ origin: { wallId: 'h' }, polygons: wall }] }] : [],
     silhouette: [],
     beyond: [],
-    openings: BOXES.map(sectionOpening),
+    openings: boxes.map(sectionOpening),
     membranes: [],
     levels: [],
   } as unknown as SectionResult;
@@ -90,6 +90,15 @@ describe('ferramenta Alinhar no corte (referência e alvo por clique)', () => {
     expect(t.preview()).toEqual([]);
   });
 
+  it('antes da referência, passar o mouse sobre o topo da porta já mostra a feição que o clique vai pegar', () => {
+    const ctx = scene();
+    const t = tool('align', ctx.env);
+    t.move(P(1.5, 2.1 + 0.03)); // 3 px acima da aresta
+    const items = t.preview();
+    expect(items.some((i) => i.kind === 'line' && i.halo && i.dashed && i.a.x === 1.1 && i.b.x === 1.9 && i.a.y === 2.1)).toBe(true);
+    expect(items.some((i) => i.kind === 'label' && /topo/.test(i.text))).toBe(true);
+  });
+
   it('o primeiro clique no topo da porta só grava a referência, sem alterar o modelo', () => {
     const ctx = scene();
     const t = tool('align', ctx.env);
@@ -111,8 +120,8 @@ describe('ferramenta Alinhar no corte (referência e alvo por clique)', () => {
     expect(guide?.from.x).toBeCloseTo(0, 9);
     expect(guide?.to.x).toBeCloseTo(10, 9);
     expect(guide?.to.y).toBeCloseTo(2.1, 9);
-    // A referência é só a guia da inferência: nenhuma linha própria no preview.
-    expect(t.preview().some((i) => i.kind === 'line')).toBe(false);
+    // A referência é a guia da inferência (reta inteira) + o realce da feição (segmento exato), como na planta.
+    expect(t.preview().some((i) => i.kind === 'line' && i.halo && i.a.x === 1.1 && i.b.x === 1.9)).toBe(true);
 
     t.move(P(4, 2.3)); // sobre o topo da janela
     const fullReference = t.preview().find((i) => i.kind === 'line' && i.a.x === 0 && i.a.y === 2.1 && i.b.x === 10);
@@ -230,6 +239,26 @@ describe('ferramenta Alinhar no corte (referência e alvo por clique)', () => {
     expect(back && 'height' in back ? back.height : 0).toBeCloseTo(2.8, 9);
   });
 
+  it('corte recalculado publicado: refresh() relê a vista e a prévia não fica na geometria antiga', () => {
+    const ctx = scene();
+    const t = tool('align', ctx.env);
+    t.move(P(4, 2.3)); // topo antigo da janela j (2,30)
+    expect(t.preview().some((i) => i.kind === 'highlight' && i.ids.includes('j'))).toBe(true);
+    expect(t.preview().some((i) => i.kind === 'line' && i.dashed && Math.abs(i.a.y - 2.3) < 1e-9)).toBe(true);
+
+    // Publicação do corte recalculado depois do commit: a janela j desceu para o topo 2,10 e o cursor continua no ponto
+    // antigo. Sem `refresh()`, a prévia seguiria realçando o topo velho até o próximo movimento do mouse.
+    const depois = BOXES.map((b) => (b.id === 'j' ? { ...b, z0: 0.9, z1: 2.1 } : b));
+    const sec = ctx.env.section!();
+    ctx.env.section = () => ({ ...sec, result: () => fakeResult(true, depois) } as SectionToolContext);
+    t.refreshPreviewAtPointer?.();
+
+    expect(t.preview().some((i) => i.kind === 'highlight' && i.ids.includes('j'))).toBe(false);
+    expect(t.preview().some((i) => i.kind === 'line' && i.dashed && Math.abs(i.a.y - 2.3) < 1e-9)).toBe(false);
+    // O ponto antigo agora cai no pano da parede (topo 2,80), que é o alvo real sob o cursor.
+    expect(t.preview().some((i) => i.kind === 'highlight' && i.ids.includes('h'))).toBe(true);
+  });
+
   it('sem resultado da vista: avisa e não cria referência', () => {
     const ctx = scene({ withResult: false });
     const t = tool('align', ctx.env);
@@ -248,5 +277,51 @@ describe('ferramenta Alinhar no corte (referência e alvo por clique)', () => {
     clickAt(t, 5.5, 3.6); // fora da parede e dos vãos
     expect(ctx.store.version).toBe(version);
     expect(ctx.messages.some((m) => m.includes('Nenhuma janela'))).toBe(true);
+  });
+});
+
+describe('Alinhar no corte: captura independente do zoom', () => {
+  // 1x = 60 px/m (padrão), 0,25x = 15 px/m e 4x = 240 px/m. O clique cai a 3 px da aresta, como na mão do usuário.
+  for (const [nome, zoom] of [['1x', 60], ['0,25x', 15], ['4x', 240]] as const) {
+    it(`topo da janela alinha com o topo da porta na primeira tentativa (${nome})`, () => {
+      const ctx = scene();
+      const mpp = 1 / zoom;
+      ctx.env.metersPerPixel = () => mpp;
+      const t = tool('align', ctx.env);
+      clickAt(t, 1.5, 2.1 - 3 * mpp); // topo da porta, 3 px abaixo
+      clickAt(t, 4, 2.3 + 3 * mpp); // topo da janela, 3 px acima (fora da caixa)
+      expect(opening(ctx, 'j').sillOverride).toBeCloseTo(0.9, 9);
+      expect(opening(ctx, 'j').heightOverride ?? null).toBeNull();
+      expect(ctx.store.undoLabel).toBe('Alinhar no corte');
+    });
+  }
+
+  it('a escolha usa o cursor, não o ponto capturado: uma trilha de alinhamento não desloca o alvo', () => {
+    const ctx = scene();
+    const t = tool('align', ctx.env);
+    clickAt(t, 1.5, 2.1);
+    // Pontos de captura da porta ficam perto, mas o cursor está sobre o topo da janela.
+    clickAt(t, 3.45, 2.3);
+    expect(opening(ctx, 'j').sillOverride).toBeCloseTo(0.9, 9);
+  });
+
+  it('com o corte ainda calculando, a vista de corte já escolhe a ferramenta do corte (não a da planta)', () => {
+    const ctx = scene({ withResult: false });
+    ctx.env.section = () => null;
+    ctx.env.isSectionView = () => true;
+    const t = tool('align', ctx.env);
+    expect(t.constructor.name).toBe('SectionAlignTool');
+  });
+
+  it('a referência e a candidata usam o mesmo realce da planta (linha com halo e rótulo)', () => {
+    const ctx = scene();
+    const t = tool('align', ctx.env);
+    clickAt(t, 1.5, 2.1);
+    t.move(P(4, 2.3));
+    const items = t.preview();
+    expect(items.some((i) => i.kind === 'line' && i.halo && !i.dashed && i.a.y === 2.1 && i.b.y === 2.1)).toBe(true);
+    expect(items.some((i) => i.kind === 'line' && i.halo && i.dashed && i.a.y === 2.3)).toBe(true);
+    expect(items.some((i) => i.kind === 'label' && /Refer/.test(i.text))).toBe(true);
+    expect(items.some((i) => i.kind === 'label' && /Mover/.test(i.text))).toBe(true);
   });
 });

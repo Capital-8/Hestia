@@ -74,6 +74,10 @@ const PT = {
     'Parede "{id}" está anexada ao telhado, mas {length} do eixo estão fora dele; esse trecho fica na altura normal.',
   egb_issue_wall_roof_over:
     'Parede "{id}" passa {length} da face inferior do telhado; ative o topo ajustado ao telhado ou baixe a parede.',
+  egb_issue_termino_camada_sem_funcao:
+    'A camada {camada} de {elemento} termina na camada da parede {parede}, mas essa parede não tem a função "{funcao}" no lado {lado}: a borda foi para a camada seguinte, em direção ao lado oposto.',
+  egb_issue_termino_lado_proximo: 'próximo',
+  egb_issue_termino_lado_distante: 'distante',
 
   // ---- beirais e superfície do telhado ---------------------------------------------------------------------
   egb_issue_roof_eave_wall:
@@ -333,6 +337,10 @@ const EN: Record<DictKey, string> = {
     'Wall "{id}" is attached to the roof, but {length} of the axis lies outside it; that stretch stays at the normal height.',
   egb_issue_wall_roof_over:
     'Wall "{id}" extends {length} past the roof underside; enable the roof-adjusted top or lower the wall.',
+  egb_issue_termino_camada_sem_funcao:
+    'Layer {camada} of {elemento} ends at a layer of wall {parede}, but that wall has no "{funcao}" function on the {lado} side: the edge went to the next layer, toward the opposite side.',
+  egb_issue_termino_lado_proximo: 'near',
+  egb_issue_termino_lado_distante: 'far',
 
   egb_issue_roof_eave_wall:
     'Roof {roof}: the eave overlaps wall {wall}; pull the roof boundary back or reduce the overhang.',

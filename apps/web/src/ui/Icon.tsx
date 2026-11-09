@@ -7,6 +7,9 @@ import type { ReactElement } from 'react';
  */
 const p = (c: string, d: string, x = ''): string => `<path class="ic-${c}" d="${d}"${x ? ` ${x}` : ''}/>`;
 
+// Esfera (Materiais, no menu Gerenciar): xadrez 6×6 de azul-escuro e azul-claro sobre o disco, em projeção ortográfica inclinada (linhas são arcos de elipse). Sombreado por degradês radiais de IconDefs.
+const ESFERA_XADREZ = 'M16 29L16 29L16 28.9L15.2 28.9L14.3 28.8L13.5 28.7L12.8 28.5L13.3 28.7ZM20.6 28.1L20.6 28.2L20 28.4L19.2 28.5L18.7 28.7ZM11.4 28.1L11.4 28.2L12 28.4L12.8 28.5L12 28.1L11.4 27.5L10.8 26.7L10.4 25.7L9.1 25.4L8 25L7.1 24.6L6.2 24.1L7.1 25.3L8 26.2L8.9 26.9ZM16 28.9L16.8 28.9L17.7 28.8L18.5 28.7L19.2 28.5L20 28.1L20.6 27.5L21.2 26.7L21.6 25.7L20.3 25.9L18.9 26.1L17.5 26.2L16 26.2L16 27.2L16 28L16 28.5ZM26.9 23L26.9 23.1L26.4 23.6L25.8 24.1L24.9 25.3L24 26.2L23.1 26.9ZM5.1 23L5.1 23.1L5.6 23.6L6.2 24.1L5.6 22.9L5.1 21.5L4.8 20L4.7 18.4L4 17.9L3.4 17.3L3.1 16.6L3 16L3 16ZM10.4 25.7L11.7 25.9L13.1 26.1L14.5 26.2L16 26.2L16 25.1L16 23.8L16 22.4L16 20.9L14.3 20.8L12.6 20.7L11 20.5L9.5 20.2L9.6 21.8L9.7 23.2L10 24.5ZM21.6 25.7L22.9 25.4L24 25L24.9 24.6L25.8 24.1L26.4 22.9L26.9 21.5L27.2 20L27.3 18.4L26.3 19L25.2 19.4L23.9 19.9L22.5 20.2L22.4 21.8L22.3 23.2L22 24.5ZM29 16L29 16L29 16ZM3 16L3 16L3.1 14.4L3.4 12.9L4 11.4L4.7 10L4.8 9.4L5.1 9ZM4.7 18.4L5.7 19L6.8 19.4L8.1 19.9L9.5 20.2L9.6 18.6L9.7 17L10 15.3L10.4 13.6L9.1 13.3L8 13L7.1 12.5L6.2 12.1L5.6 13.6L5.1 15.2L4.8 16.8ZM16 20.9L17.7 20.8L19.4 20.7L21 20.5L22.5 20.2L22.4 18.6L22.3 17L22 15.3L21.6 13.6L20.3 13.9L18.9 14L17.5 14.2L16 14.2L16 15.9L16 17.6L16 19.3ZM27.3 18.4L28 17.9L28.6 17.3L28.9 16.6L29 16L28.9 14.4L28.6 12.9L28 11.4L27.3 10L27.2 10.5L26.9 11.1L26.4 11.6L25.8 12.1L26.4 13.6L26.9 15.2L27.2 16.8ZM8.9 5.1L9.1 5L10.4 4.3L10.8 4.1L11.4 3.9ZM4.7 10L4.8 10.5L5.1 11.1L5.6 11.6L6.2 12.1L7.1 10.6L8 9.2L9.1 7.9L10.4 6.8L10 6.5L9.7 6.2L9.6 5.9L9.5 5.6L8.1 6.4L6.8 7.5L5.7 8.7ZM10.4 13.6L11.7 13.9L13.1 14L14.5 14.2L16 14.2L16 12.5L16 10.9L16 9.4L16 8L15.2 8L14.3 7.9L13.5 7.8L12.8 7.7L12 9L11.4 10.5L10.8 12ZM21.6 13.6L22.9 13.3L24 13L24.9 12.5L25.8 12.1L24.9 10.6L24 9.2L22.9 7.9L21.6 6.8L21.2 7L20.6 7.3L20 7.5L19.2 7.7L20 9L20.6 10.5L21.2 12ZM27.3 10L27.2 9.4L26.9 9L23.1 5.1L22.9 5L21.6 4.3L22 4.6L22.3 4.9L22.4 5.2L22.5 5.6L23.9 6.4L25.2 7.5L26.3 8.7ZM13.3 3.3L13.5 3.3L14.3 3.3L15.2 3.5L16 3.9L16 3.9L16 3.9L16 3.9L16 3.9L16 3.4L16 3.1L16 3ZM10.4 4.3L10 4.6L9.7 4.9L9.6 5.2L9.5 5.6L11 4.9L12.6 4.4L14.3 4L16 3.9L16 3.9L16 3.9L16 3.9L16 3.9L14.5 3.7L13.1 3.7L11.7 3.9ZM10.4 6.8L10.8 7L11.4 7.3L12 7.5L12.8 7.7L13.5 6.5L14.3 5.4L15.2 4.6L16 3.9L16 3.9L16 3.9L16 3.9L16 3.9L14.5 4.4L13.1 5L11.7 5.8ZM16 8L16.8 8L17.7 7.9L18.5 7.8L19.2 7.7L18.5 6.5L17.7 5.4L16.8 4.6L16 3.9L16 3.9L16 3.9L16 3.9L16 3.9L16 4.7L16 5.6L16 6.7ZM21.6 6.8L22 6.5L22.3 6.2L22.4 5.9L22.5 5.6L21 4.9L19.4 4.4L17.7 4L16 3.9L16 3.9L16 3.9L16 3.9L16 3.9L17.5 4.4L18.9 5L20.3 5.8ZM21.6 4.3L21.2 4.1L20.6 3.9L18.7 3.3L18.5 3.3L17.7 3.3L16.8 3.5L16 3.9L16 3.9L16 3.9L16 3.9L16 3.9L17.5 3.7L18.9 3.7L20.3 3.9Z';
+
 const R: Record<string, string> = {
   roomsep: p('s1', 'M3 3H29V29H3Z') + p('bl', 'M7 11H25V25H7Z') + p('ln', 'M1 18H31'),
   // Seleção e edição
@@ -71,6 +74,7 @@ const R: Record<string, string> = {
   cube: p('s1', 'M16 3L28 10L16 17L4 10Z') + p('s2', 'M4 10L16 17V30L4 23Z') + p('s3', 'M16 17L28 10V23L16 30Z'),
   sun: '<circle class="ic-fa" cx="16" cy="16" r="6"/>' + p('ac', 'M16 3V7M16 25V29M3 16H7M25 16H29M7 7L9.5 9.5M22.5 22.5L25 25M7 25L9.5 22.5M22.5 9.5L25 7'),
   layers: p('s3', 'M3 21L16 15L29 21L16 27Z') + p('s2', 'M3 15L16 9L29 15L16 21Z') + p('bl', 'M3 9L16 3L29 9L16 15Z'),
+  materialSphere: '<circle cx="16" cy="16" r="13" fill="#0b3a78"/>' + `<path fill="#62b8f5" d="${ESFERA_XADREZ}"/>` + '<circle cx="16" cy="16" r="13" fill="url(#ic-esfera-volume)"/>' + '<ellipse cx="11.6" cy="10.2" rx="3.2" ry="2.2" transform="rotate(-35 11.6 10.2)" fill="url(#ic-esfera-brilho)"/>' + '<circle class="ic-ln" cx="16" cy="16" r="13"/>',
   schedule: p('s1', 'M4 5H28V27H4Z') + p('s3', 'M4 5H28V11H4Z') + p('ln', 'M4 17H28M4 22H28M13 11V27'),
   type: p('s1', 'M4 5H28V12H4Z') + p('s3', 'M4 14H28V19H4Z') + p('s2', 'M4 21H28V28H4Z'),
 
@@ -149,6 +153,16 @@ export function IconDefs(): ReactElement {
         {g('g3', '#b9bfc5', '#8a9198')}
         {g('gb', '#d6ebfc', '#4f9fe0')}
         {g('gg', '#e3ebf2', '#a6b9ca')}
+        <radialGradient id="ic-esfera-volume" cx="0.38" cy="0.32" r="0.85">
+          <stop offset="0" stopColor="#ffffff" stopOpacity={0.32} />
+          <stop offset="0.35" stopColor="#ffffff" stopOpacity={0} />
+          <stop offset="0.62" stopColor="#00243f" stopOpacity={0} />
+          <stop offset="1" stopColor="#00243f" stopOpacity={0.7} />
+        </radialGradient>
+        <radialGradient id="ic-esfera-brilho" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stopColor="#ffffff" stopOpacity={0.95} />
+          <stop offset="1" stopColor="#ffffff" stopOpacity={0} />
+        </radialGradient>
       </defs>
     </svg>
   );

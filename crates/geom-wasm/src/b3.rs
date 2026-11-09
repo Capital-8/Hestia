@@ -62,11 +62,20 @@ pub struct MetaDeJuncao {
     pub prioridade: f64,
     pub nucleo: bool,
     pub explicita: bool,
+    /// Término por camada da parede (decisão 0054): a camada de piso ou de laje vence as de parede onde se cruzam.
+    pub vence_parede: bool,
 }
 
 /// `winsOver(a, b)`: `Some(true)` se `a` corta `b`, `Some(false)` se `b` corta `a`, `None` se nenhuma corta.
 pub fn vence(a: &MetaDeJuncao, b: &MetaDeJuncao) -> Option<bool> {
     // Camada com regra explícita (0025) decide a própria região com as paredes: nem é recortada por parede nem a recorta.
+    // Término por camada da parede (0054): a camada vence a parede onde as duas se cruzam.
+    if a.vence_parede && b.tipo == Tipo::Parede {
+        return Some(true);
+    }
+    if b.vence_parede && a.tipo == Tipo::Parede {
+        return Some(false);
+    }
     if b.explicita && a.tipo == Tipo::Parede {
         return None;
     }
@@ -512,7 +521,7 @@ fn pecas_das_paredes(cena: &Cena, nivel: u32, tol: f64) -> Result<Vec<PecaSolida
                         span: Span::Faixa { base_z, z0: f.z0, z1: f.z1, inclinacao: f.inclinacao },
                         plana: f.inclinacao.is_none(),
                         meta: Some(MetaDaPeca {
-                            juncao: MetaDeJuncao { tipo: Tipo::Parede, prioridade: it.prioridade, nucleo: it.nucleo, explicita: false },
+                            juncao: MetaDeJuncao { tipo: Tipo::Parede, prioridade: it.prioridade, nucleo: it.nucleo, explicita: false, vence_parede: false },
                             dono: (Tipo::Parede, q.id),
                             camada: it.camada(),
                             banda: Some(banda as u32),
@@ -537,7 +546,7 @@ pub(crate) fn peca_da_camada(e: &crate::b1::ElementoResolvido, l: &crate::b1::Ca
         poly: l.poligono.clone(),
         span,
         plana: !(e.laje && e.inclinacao.is_some()),
-        meta: Some(MetaDaPeca { juncao: MetaDeJuncao { tipo, prioridade: l.prioridade, nucleo: l.nucleo, explicita: l.explicita }, dono: (tipo, e.id), camada: l.indice as i64, banda: None }),
+        meta: Some(MetaDaPeca { juncao: MetaDeJuncao { tipo, prioridade: l.prioridade, nucleo: l.nucleo, explicita: l.explicita, vence_parede: l.vence_parede }, dono: (tipo, e.id), camada: l.indice as i64, banda: None }),
         externa: false,
     }
 }
@@ -617,7 +626,7 @@ fn pecas_das_faixas_juntadas(cena: &Cena, nivel: u32) -> Result<Vec<PecaSolida>,
             span: Span::Faixa { base_z: f.base_z, z0: f.z0, z1: f.z1, inclinacao: f.inclinacao },
             plana: f.inclinacao.is_none(),
             meta: Some(MetaDaPeca {
-                juncao: MetaDeJuncao { tipo: Tipo::Parede, prioridade: f.prioridade, nucleo: f.nucleo, explicita: false },
+                juncao: MetaDeJuncao { tipo: Tipo::Parede, prioridade: f.prioridade, nucleo: f.nucleo, explicita: false, vence_parede: false },
                 dono: (Tipo::Parede, f.parede),
                 camada: i64::from(f.camada),
                 banda: Some(f.banda),
@@ -725,7 +734,7 @@ fn peca_plana(sp: &PecaSolida) -> Option<PecaRef<'_>> {
     if !(z1 - z0 > ESPESSURA_MINIMA) {
         return None;
     }
-    Some(PecaRef { meta: MetaDeJuncao { explicita: meta.juncao.explicita, ..meta.juncao }, poly: &sp.poly, z0, z1, dono: Some(meta.dono), externa: sp.externa })
+    Some(PecaRef { meta: MetaDeJuncao { ..meta.juncao }, poly: &sp.poly, z0, z1, dono: Some(meta.dono), externa: sp.externa })
 }
 
 fn volume_das_partes(partes: &[Prisma]) -> f64 {
@@ -745,7 +754,6 @@ pub fn juncao_do_nivel(cortadores: &Cortadores) -> Result<Juncao, u32> {
         peca: PecaRef<'a>,
         camada: i64,
         banda: Option<u32>,
-        plana: bool,
     }
     let mut marcadas: Vec<Marcada> = Vec::new();
     for sp in cortadores.pisos.iter().chain(&cortadores.lajes).chain(&cortadores.paredes).flat_map(|c| c.pecas.iter()) {
@@ -755,7 +763,7 @@ pub fn juncao_do_nivel(cortadores: &Cortadores) -> Result<Juncao, u32> {
             continue;
         }
         let Some(peca) = peca_plana(sp) else { continue };
-        marcadas.push(Marcada { peca, camada: meta.camada, banda: meta.banda, plana: sp.plana });
+        marcadas.push(Marcada { peca, camada: meta.camada, banda: meta.banda });
     }
     let resolvidas = resolver_juncao_ref(&marcadas.iter().map(|m| m.peca).collect::<Vec<_>>())?;
     let mut juncao = Juncao::default();
@@ -773,16 +781,15 @@ pub fn juncao_do_nivel(cortadores: &Cortadores) -> Result<Juncao, u32> {
                 juncao.paredes.push(ParedeJuntada { parede: dono.1, corte: false, faixas: Vec::new() });
                 juncao.paredes.len() - 1
             });
-            if m.plana {
-                let w = &mut juncao.paredes[k];
-                if !intacta {
-                    w.corte = true;
-                }
-                let banda = m.banda.unwrap_or(0);
-                match w.faixas.iter_mut().find(|f| f.camada == m.camada && f.banda == banda) {
-                    Some(f) => f.partes = partes,
-                    None => w.faixas.push(FaixaJuntada { camada: m.camada, banda, partes }),
-                }
+            // A faixa de topo inclinado também guarda as partes (fatias da envolvente de cota); o desenho as converte nas peças reais.
+            let w = &mut juncao.paredes[k];
+            if !intacta {
+                w.corte = true;
+            }
+            let banda = m.banda.unwrap_or(0);
+            match w.faixas.iter_mut().find(|f| f.camada == m.camada && f.banda == banda) {
+                Some(f) => f.partes = partes,
+                None => w.faixas.push(FaixaJuntada { camada: m.camada, banda, partes }),
             }
             continue;
         }
@@ -826,7 +833,7 @@ fn codificar(c: &Cortadores, j: &Juncao) -> Result<Vec<Saida>, u32> {
         for p in &s.pecas {
             let (pi, pn) = cod.forma(&p.poly);
             let (tem_meta, kind, dono, explicita, nucleo) = match p.meta {
-                Some(m) => (1, m.juncao.tipo as u32, m.dono.1, m.juncao.explicita as u32, m.juncao.nucleo as u32),
+                Some(m) => (1, m.juncao.tipo as u32, m.dono.1, (m.juncao.explicita as u32 + m.juncao.vence_parede as u32), m.juncao.nucleo as u32),
                 None => (0, 0, 0, 0, 0),
             };
             let (tem_banda, banda) = match p.meta.and_then(|m| m.banda) {
@@ -930,7 +937,7 @@ pub(crate) mod testes {
     }
 
     fn meta(tipo: Tipo, prioridade: f64, nucleo: bool) -> MetaDeJuncao {
-        MetaDeJuncao { tipo, prioridade, nucleo, explicita: false }
+        MetaDeJuncao { tipo, prioridade, nucleo, explicita: false, vence_parede: false }
     }
 
     fn peca(tipo: Tipo, prioridade: f64, nucleo: bool, poly: MultiPoligono, z0: f64, z1: f64, dono: u32) -> PecaPlana {

@@ -22,6 +22,8 @@ export interface JunctionMeta {
   core: boolean;
   /** Término com regra explícita (decisão 0025): paredes não a recortam (a regra da camada já decide a região). */
   explicit?: boolean;
+  /** Término por camada da parede (decisão 0054): a camada de piso ou laje vence as camadas de parede que cruza. */
+  venceParede?: boolean;
 }
 
 /**
@@ -71,6 +73,9 @@ export function layerMetas(kind: JunctionKind, layers: readonly Layer[]): Juncti
 export function winsOver(a: JunctionMeta, b: JunctionMeta): boolean | null {
   // Camada com regra explícita (0025) decide a própria região com as paredes: ela não é recortada por parede e também
   // não recorta a parede (senão os dois lados perdem a mesma faixa e sobra um vazio).
+  // Término por camada da parede (0054): a camada da laje ou do piso vence a parede onde as duas se cruzam.
+  if (a.venceParede && b.kind === 'wall') return true;
+  if (b.venceParede && a.kind === 'wall') return false;
   if (b.explicit && a.kind === 'wall') return null;
   if (a.explicit && b.kind === 'wall') return null;
   if (a.core && !b.core && b.priority < a.priority) return true;

@@ -207,7 +207,7 @@ describe('anotações do corte no painel de propriedades', () => {
     const html = renderToStaticMarkup(createElement(AnnotationProps, { dim }));
     expect(html).toContain('300 cm');
     expect(html).toContain('Centímetros');
-    expect(html).toContain('Padrão');
+    expect(html).toContain('prop-dimfamily-edit');
     editor.store.exec({ type: 'removeDimensionFamily', id: 'fam_cm' });
   });
 });

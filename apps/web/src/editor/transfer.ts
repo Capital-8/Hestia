@@ -1,7 +1,10 @@
 import type { Id, Project, ProjectStore } from '@hestia/model';
 import { clipboardFrom, copyableIds as copyableIdsOf, idsOfType, pasteAlignedCommand, pasteAlignedToLevelsCommand, sameNameRoomIds, selectedTypeId, type ClipBuffer, type PasteIds, type PasteLevelsResult } from '@hestia/tools';
+import type { SectionResult } from '@hestia/engine';
+import { idsVisiveisDoTipoNoCorte } from './sectionBoxSelect.ts';
 import { t, useI18n, type Dict, type Lang } from './i18n.ts';
 import { useUi } from './state.ts';
+import { annotationIdsOfType, annotationTypeOf, selectedAnnotations } from './viewAnnotations.ts';
 
 /** Ordem canônica de exibição/seleção das categorias coladas (a mesma do motor). */
 const PASTE_ORDER: readonly (keyof PasteIds)[] = ['walls', 'openings', 'floors', 'slabs', 'ceilings', 'roofs', 'stairs', 'ramps', 'rooms', 'generics', 'cad'];
@@ -235,14 +238,54 @@ export class Transfer {
     return ids.length;
   }
 
+  /**
+   * Seleção só de anotações (cotas, textos, etiquetas...): seleciona as da vista ativa do mesmo tipo (mesmo kind e, nas
+   * cotas, a mesma família), sem as ocultas quando `hidden` vem. Devolve null quando a seleção não é só de anotações.
+   */
+  private ofAnnotationType(p: Project, hidden: ReadonlySet<Id> | null): number | null {
+    const st = useUi.getState();
+    if (st.selection.length === 0 || st.selection.some((id) => p.elements[id])) return null;
+    if (selectedAnnotations(p, st, st.selection).length === 0) return null;
+    const key = annotationTypeOf(p, st, st.selection);
+    if (key === null) {
+      // Cotas e textos (ou famílias de cota diferentes) misturados: não há um tipo único para estender.
+      useUi.setState({ status: { key: 'edc_same_type_none' } });
+      return 0;
+    }
+    const ids = annotationIdsOfType(p, st, key, hidden ?? undefined);
+    useUi.setState({ selection: ids, status: ids.length ? { key: 'edc_same_type_selected', args: { n: ids.length } } : { key: 'edc_same_type_none' } });
+    return ids.length;
+  }
+
   /** "Mesmo tipo": seleciona todos do tipo da seleção atual (que precisa ser de um só tipo). */
   sameType(p: Project, levelId: Id): number {
-    const r = selectedTypeId(p, useUi.getState().selection, useI18n.getState().lang);
+    const notas = this.ofAnnotationType(p, null);
+    if (notas !== null) return notas;
+    const r =selectedTypeId(p, useUi.getState().selection, useI18n.getState().lang);
     if ('error' in r) {
       useUi.setState({ status: r.error });
       return 0;
     }
     return this.ofType(p, levelId, r.typeId);
+  }
+
+  /**
+   * "Visíveis na vista": o tipo da seleção, só do que a vista mostra. Na planta, os do pavimento que não estão ocultos;
+   * no corte/elevação (`section` calculado), os que aparecem no desenho, de qualquer pavimento. Devolve quantos.
+   */
+  sameTypeVisible(p: Project, levelId: Id, hidden: ReadonlySet<Id>, section: SectionResult | null): number {
+    const notas = this.ofAnnotationType(p, hidden);
+    if (notas !== null) return notas;
+    const r =selectedTypeId(p, useUi.getState().selection, useI18n.getState().lang);
+    if ('error' in r) {
+      useUi.setState({ status: r.error });
+      return 0;
+    }
+    const ids = useUi.getState().view === 'section'
+      ? (section ? idsVisiveisDoTipoNoCorte(p, section, r.typeId, hidden) : [])
+      : idsOfType(p, levelId, r.typeId).filter((id) => !hidden.has(id));
+    useUi.setState({ selection: ids, status: ids.length ? { key: 'edc_same_type_selected', args: { n: ids.length } } : { key: 'edc_same_type_none' } });
+    return ids.length;
   }
 }
 

@@ -2,6 +2,8 @@ import { pickSection, pickSectionAnnotation, screenToWorld, type SectionAnnotati
 import { sectionAnnotationsOf } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
+import { anotacoesSemOcultas } from './viewAnnotations.ts';
+import { visibilityOf } from './viewVisibility.ts';
 
 /** Tolerância de clique no corte e na elevação, em pixels de tela (decisão 0016). */
 const TOLERANCE_PX = 4;
@@ -32,9 +34,11 @@ export function sectionPickAt(s: ScreenPt): SectionHit | null {
   const point = screenToWorld(v, s);
   const view = editor.project.views.find((x) => x.id === id);
   // A escala é a da vista: o mesmo tamanho de papel da cota/texto que o desenho usa (antes ficava fixo em 1:100).
-  const note = pickSectionAnnotation(sectionAnnotationsOf(view), point, NOTE_LINE_PX / v.zoom, editor.viewScale(), NOTE_TEXT_PX / v.zoom);
+  // Oculto na vista não é alvo de clique (o mesmo conjunto efetivo que o desenho usa), nem as anotações ocultas.
+  const hidden = visibilityOf(editor.project, useUi.getState()).hidden;
+  const note = pickSectionAnnotation(anotacoesSemOcultas(sectionAnnotationsOf(view), hidden), point, NOTE_LINE_PX / v.zoom, editor.viewScale(), NOTE_TEXT_PX / v.zoom);
   if (note) return note;
-  return pickSection(result, point, TOLERANCE_PX / v.zoom);
+  return pickSection(result, point, TOLERANCE_PX / v.zoom, hidden);
 }
 
 let frame = 0;

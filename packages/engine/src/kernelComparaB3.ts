@@ -260,7 +260,7 @@ export function compararB3(ref: JuncaoB3, rust: JuncaoB3, opcoes: OpcoesComparar
       const ma = ga.get(k)![0]!.meta;
       const mb = gb.get(k)![0]!.meta;
       if (ma && mb) {
-        for (const campo of ['tipo', 'nucleo', 'explicita'] as const) if (ma[campo] !== mb[campo]) falha(`${nome}, camada ${k}: meta.${campo} ${mb[campo]} (Rust) x ${ma[campo]} (TS)`);
+        for (const campo of ['tipo', 'nucleo', 'explicita', 'venceParede'] as const) if (ma[campo] !== mb[campo]) falha(`${nome}, camada ${k}: meta.${campo} ${mb[campo]} (Rust) x ${ma[campo]} (TS)`);
         num(`${nome}, camada ${k}: prioridade`, ma.prioridade, mb.prioridade);
       }
       // Peça externa: só as alturas dentro do nível. `levelCutterSet` mantém a faixa inteira que alcança o nível, e a partição das faixas (fusão do TS x A3c do
@@ -283,7 +283,7 @@ export function compararB3(ref: JuncaoB3, rust: JuncaoB3, opcoes: OpcoesComparar
     if (a.meta && a.faixa && a.faixa[1] - a.faixa[0] <= 1e-9) r.membranas++;
     if ((a.meta === null) !== (b.meta === null)) falha(`${rotulo}: meta ${JSON.stringify(b.meta)} (Rust) x ${JSON.stringify(a.meta)} (TS)`);
     else if (a.meta && b.meta) {
-      for (const campo of ['tipo', 'nucleo', 'explicita', 'dono', 'camada', 'banda'] as const) if ((campo !== 'banda' || !semBanda) && a.meta[campo] !== b.meta[campo]) falha(`${rotulo}: meta.${campo} ${b.meta[campo]} (Rust) x ${a.meta[campo]} (TS)`);
+      for (const campo of ['tipo', 'nucleo', 'explicita', 'venceParede', 'dono', 'camada', 'banda'] as const) if ((campo !== 'banda' || !semBanda) && a.meta[campo] !== b.meta[campo]) falha(`${rotulo}: meta.${campo} ${b.meta[campo]} (Rust) x ${a.meta[campo]} (TS)`);
       num(`${rotulo}: prioridade`, a.meta.prioridade, b.meta.prioridade);
     }
     for (const campo of ['externa', 'plana'] as const) if (a[campo] !== b[campo]) falha(`${rotulo}: ${campo} ${b[campo]} (Rust) x ${a[campo]} (TS)`);

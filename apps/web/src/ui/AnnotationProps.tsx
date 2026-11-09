@@ -28,6 +28,8 @@ import { resolveAngularDimension } from '@hestia/engine';
 import { useUi } from '../editor/state.ts';
 import { t as translate, useI18n, useT } from '../editor/i18n.ts';
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
+import { TypeSelector } from './TypeSelector.tsx';
+import { dimensionOptions } from './typeOptions.ts';
 import { useUnits } from './useUnits.ts';
 
 /** Cota, texto, detalhe ou etiqueta selecionado (decisão 0019); null se a seleção não é uma anotação. */
@@ -176,22 +178,21 @@ export function AnnotationProps({ dim, text, line, region, tag, section, planId,
     ? famíliasSalvas
     : [{ id: DIM_FAMILY_PADRAO, name: t('pra_opt_default'), ...dimensionStyleOf(p.settings) }, ...famíliasSalvas];
   const familiaAtual = (d: Dimension): Id => d.familyId ?? DIM_FAMILY_PADRAO;
-  /** Linha "Família": troca a aparência da cota pela família escolhida (Padrão = estilo global do projeto). */
-  const familiaRow = (d: Dimension): ReactElement => (
-    <Row label={t('pra_fld_family')} htmlFor="p-dfamily">
-      <select
-        id="p-dfamily"
-        className="select"
-        value={familiaAtual(d)}
-        onChange={(e) => {
-          const id = e.target.value;
-          edit(() => nota({ type: 'updateDimension', levelId, id: d.id, patch: { familyId: id === DIM_FAMILY_PADRAO ? undefined : id } }));
-        }}
-      >
-        {familias.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-      </select>
-    </Row>
-  );
+  /** Cabeçalho da cota: o mesmo seletor de tipo da parede (família no topo, "Editar" logo abaixo). Escolher troca a família; Padrão = estilo global do projeto. */
+  const familiaHeader = (d: Dimension): ReactElement => {
+    const atual = familiaAtual(d);
+    return (
+      <TypeSelector
+        triggerId="prop-dimfamily"
+        label={t('pra_fld_family')}
+        categoryLabel={t('pra_pgrp_dimension')}
+        options={dimensionOptions(familias, t('pra_pgrp_dimension'))}
+        selectedId={familias.some((f) => f.id === atual) ? atual : DIM_FAMILY_PADRAO}
+        onSelect={(id) => edit(() => nota({ type: 'updateDimension', levelId, id: d.id, patch: { familyId: id === DIM_FAMILY_PADRAO ? undefined : id } }))}
+        onEdit={() => useUi.setState({ dialog: 'dimensionFamilies', dimFamilyFocus: d.familyId ?? DIM_FAMILY_PADRAO })}
+      />
+    );
+  };
   /** Valor e texto da cota com a família. No corte/elevação o par gravado vale como está (`(t,z)`, sem refs da planta). */
   const cota = (d: Dimension): { valor: string; textoVazio: string } => {
     const base: Dimension = section ? d : d;
@@ -209,9 +210,10 @@ export function AnnotationProps({ dim, text, line, region, tag, section, planId,
       const valorAngular = formatDimension(shown, 0, units, dimensionFormatStyle(dimensionStyleFor(p.settings, dim)));
       const patchAngular = (patch: Partial<typeof a>): void => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { angular: { ...a, ...patch } } }));
       return (
-        <Group title={t('pra_pgrp_angular_dimension')}>
+        <>
+          {familiaHeader(dim)}
+          <Group title={t('pra_pgrp_angular_dimension')}>
           <Row label={t('pra_fld_value')}><span className="val">{valorAngular}</span></Row>
-          {familiaRow(dim)}
           <Row label={t('pra_fld_text')} htmlFor="p-dtext">
             <TextField id="p-dtext" value={dim.text ?? ''} placeholder={valorAngular} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { text: v.trim() === '' ? undefined : v } }))} />
           </Row>
@@ -221,14 +223,15 @@ export function AnnotationProps({ dim, text, line, region, tag, section, planId,
           <Row label={t('pra_fld_text_height')} htmlFor="p-dheight">{/* units-ok: altura em mm, como no campo da cota linear */}<NumField id="p-dheight" value={dim.textHeight ?? 2.5} decimals={1} unit="mm" min={0.5} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { textHeight: v } }))} /></Row>
           <Row label={t('pra_fld_tick_mark')}><select className="select" value={dim.tickStyle ?? 'slash'} onChange={(e) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { tickStyle: e.target.value as Dimension['tickStyle'] } }))}><option value="slash">{t('pra_opt_tick_slash')}</option><option value="arrow">{t('pra_opt_tick_arrow')}</option><option value="dot">{t('pra_opt_tick_dot')}</option></select></Row>
           <div className="prow"><span className="soft">{t('pra_msg_angular_dimension_hint')}</span></div>
-        </Group>
+          </Group>
+        </>
       );
     }
     return (
-      <Group title={t('pra_pgrp_dimension')}>
+      <>
+        {familiaHeader(dim)}
+        <Group title={t('pra_pgrp_dimension')}>
         <Row label={t('pra_fld_value')}><span className="val">{medida.valor}</span></Row>
-        {familiaRow(dim)}
-        <div className="prow"><button className="btn" title={t('pra_tip_edit_dimension_family')} onClick={() => useUi.setState({ dialog: 'dimensionFamilies', dimFamilyFocus: dim.familyId ?? DIM_FAMILY_PADRAO })}>{t('pra_btn_edit_family')}</button></div>
         <Row label={t('pra_fld_text')} htmlFor="p-dtext">
           <TextField id="p-dtext" value={dim.text ?? ''} placeholder={medida.textoVazio} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { text: v.trim() === '' ? undefined : v } }))} />
         </Row>
@@ -247,7 +250,8 @@ export function AnnotationProps({ dim, text, line, region, tag, section, planId,
         <Row label={t('pra_fld_tick_mark')}><select className="select" value={dim.tickStyle ?? 'slash'} onChange={(e) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { tickStyle: e.target.value as Dimension['tickStyle'] } }))}><option value="slash">{t('pra_opt_tick_slash')}</option><option value="arrow">{t('pra_opt_tick_arrow')}</option><option value="dot">{t('pra_opt_tick_dot')}</option></select></Row>
         </details>
         <div className="prow"><span className="soft">{section ? t('pra_msg_section_dimension_hint') : t('pra_msg_dimension_follows_wall')}</span></div>
-      </Group>
+        </Group>
+      </>
     );
   }
   if (line) return <Group title={t('pra_pgrp_detail_line')}><Row label={t('pra_fld_line_style')}><select className="select" value={line.style ?? 'solid'} onChange={(e) => edit(() => nota({ type: 'updateDetailLine', levelId, id: line.id, patch: { style: e.target.value as DetailLine['style'] } }))}><option value="solid">{t('pra_opt_continuous')}</option><option value="dashed">{t('pra_opt_dashed')}</option><option value="dotted">{t('pra_opt_dotted')}</option></select></Row></Group>;

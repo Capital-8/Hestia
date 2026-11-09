@@ -58,11 +58,13 @@ function urlDoAsset(): URL {
 }
 
 /** Baixa o asset do wasm. Em Node, `file:` não é suportado por `fetch` e o erro é tratado pelo chamador. */
-export async function baixarAsset(): Promise<Uint8Array> {
+export async function baixarAsset(urlAbsoluta?: string): Promise<Uint8Array> {
   if (typeof fetch !== 'function') throw new Error('fetch indisponível para carregar o wasm');
-  const url = urlDoAsset();
+  const url = urlAbsoluta ? new URL(urlAbsoluta) : urlDoAsset();
   const resposta = await fetch(url);
   if (!resposta.ok) throw new Error(`HTTP ${resposta.status} ao buscar ${url.pathname}`);
+  // Servidor com fallback de SPA devolve o index.html com 200 no lugar do wasm: acusar já aqui, com a causa, em vez de "magic word" no compile.
+  if (/text\/html/i.test(resposta.headers.get('content-type') ?? '')) throw new Error(`${url.pathname} devolveu HTML em vez do wasm (URL do asset errada)`);
   return new Uint8Array(await resposta.arrayBuffer());
 }
 

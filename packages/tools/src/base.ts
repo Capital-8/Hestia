@@ -16,6 +16,8 @@ export abstract class ToolBase implements Tool {
   protected inf: Inference | null = null;
   protected items: PreviewItem[] = [];
   protected raw: Vec2 = { x: 0, y: 0 };
+  /** Último ponteiro entregue à captura: `refreshPreviewAtPointer()` reexecuta a prévia nele quando a vista muda. */
+  protected ultimoPonteiro: PointerInfo | null = null;
 
   constructor(protected env: ToolEnv) {}
 
@@ -63,6 +65,14 @@ export abstract class ToolBase implements Tool {
 
   preview(): PreviewItem[] {
     return this.items;
+  }
+
+  /**
+   * Recalcula a prévia no último ponteiro. O resultado do corte chega em segundo plano: quando é publicado, a ferramenta
+   * ainda tem a geometria antiga em `items` e precisa reler a vista sem esperar o próximo movimento do mouse.
+   */
+  refreshPreviewAtPointer(): void {
+    if (this.ultimoPonteiro) this.move(this.ultimoPonteiro);
   }
 
   inference(): Inference | null {
@@ -135,6 +145,7 @@ export abstract class ToolBase implements Tool {
 
   protected snap(p: PointerInfo, extra: Partial<InferContext> = {}): Inference {
     this.raw = p.raw;
+    this.ultimoPonteiro = p;
     const ctx = this.ctx({ previous: this.inf, ...extra });
     if (p.shift) ctx.orthoLock = true;
     this.inf = infer(p.raw, ctx);

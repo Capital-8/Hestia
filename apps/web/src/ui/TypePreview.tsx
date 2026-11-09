@@ -7,6 +7,7 @@ import {
   slabTypeThickness,
   totalThickness,
   type CeilingType,
+  type DimensionStyle,
   type FloorType,
   type Material,
   type OpeningType,
@@ -20,6 +21,7 @@ import { FloorSectionPreview } from './dialogs/FloorSectionPreview.tsx';
 import { RampSectionPreview } from './dialogs/RampSectionPreview.tsx';
 import { RoofSectionPreview } from './dialogs/RoofSectionPreview.tsx';
 import { SectionPreview } from './dialogs/SectionPreview.tsx';
+import { DimensionStylePreview } from './dialogs/dimensionStylePreview.tsx';
 import { formatQuantity, type ResolvedUnits } from '@hestia/model';
 import { useUnits } from './useUnits.ts';
 import { SlabSectionPreview } from './dialogs/SlabSectionPreview.tsx';
@@ -34,12 +36,15 @@ export type PreviewSubject =
   | { kind: 'roof'; type: RoofType; materials: Record<string, Material> }
   | { kind: 'stair'; type: StairType }
   | { kind: 'ramp'; type: RampType }
-  | { kind: 'door' | 'window'; type: OpeningType };
+  | { kind: 'door' | 'window'; type: OpeningType }
+  /** Família de cota: a miniatura desenha a cota com o estilo da família (sem tipo nem código). */
+  | { kind: 'dimension'; style: DimensionStyle };
 
 
 
 /** Código do tipo (P-02, PA-14…), ou null quando o tipo não tem código. */
 function codeOf(s: PreviewSubject): string | null {
+  if (s.kind === 'dimension') return null;
   const c = s.type.code;
   return c ? c : null;
 }
@@ -62,6 +67,7 @@ function dimsOf(s: PreviewSubject, units: ResolvedUnits): string | null {
       return formatQuantity(units, 'smallLength', roofTypeThickness(s.type));
     case 'stair':
     case 'ramp':
+    case 'dimension':
       return null;
   }
 }
@@ -85,6 +91,8 @@ function Drawing({ subject }: { subject: PreviewSubject }): ReactElement {
       return <StairSectionPreview type={subject.type} />;
     case 'ramp':
       return <RampSectionPreview type={subject.type} />;
+    case 'dimension':
+      return <DimensionStylePreview style={subject.style} />;
     case 'door':
       return <DoorDrawing t={subject.type} uid={uid} />;
     case 'window':

@@ -24,7 +24,7 @@ export function addExtraPoints(ctx: InferContext, sn: SnapOptions, cursor: Vec2,
   for (const q of ctx.extraPoints ?? []) {
     if (q.hostId !== undefined && ctx.ignore?.has(q.hostId)) continue;
     const kind = q.kind ?? 'endpoint';
-    if ((kind === 'endpoint' && sn.endpoint === false) || (kind === 'center' && sn.midpoint === false) || (kind === 'face' && !sn.faces)) continue;
+    if ((kind === 'endpoint' && sn.endpoint === false) || ((kind === 'center' || kind === 'midpoint') && sn.midpoint === false) || (kind === 'face' && !sn.faces)) continue;
     if (dist2(cursor, q) <= reach) add(v2(q.x, q.y), kind, [], q.hostId);
   }
 }
@@ -34,7 +34,9 @@ export function addExtraPoints(ctx: InferContext, sn: SnapOptions, cursor: Vec2,
  * As ombreiras (`kind: 'face'`) também dão o pé da perpendicular a partir do ponto anterior.
  */
 export function addExtraSegments(ctx: InferContext, sn: SnapOptions, cursor: Vec2, tol: number, add: AddCandidate): void {
-  if (!sn.faces) return;
+  // A perpendicular é captura própria: não depende de Faces (nem do tipo da aresta). Com só ela ligada, o pé sobre
+  // qualquer aresta extra (contorno de piso/laje, ombreira, aresta do corte) continua valendo.
+  if (!sn.faces && !(sn.perpendicular && ctx.from)) return;
   const reach = tol * tol;
   for (const e of ctx.extraSegments ?? []) {
     if (e.hostId !== undefined && ctx.ignore?.has(e.hostId)) continue;
@@ -42,8 +44,8 @@ export function addExtraSegments(ctx: InferContext, sn: SnapOptions, cursor: Vec
     if (dist2(e.a, e.b) < 1e-18) continue;
     const kind = e.kind ?? 'nearest';
     const foot = closestOnSegment(cursor, e.a, e.b);
-    if (dist2(cursor, foot) <= reach) add(foot, kind, [], e.hostId);
-    if (kind === 'face' && sn.perpendicular && ctx.from) {
+    if (sn.faces && dist2(cursor, foot) <= reach) add(foot, kind, [], e.hostId);
+    if (sn.perpendicular && ctx.from) {
       const pf = closestOnSegment(ctx.from, e.a, e.b);
       if (dist2(cursor, pf) <= reach && dist2(pf, ctx.from) > 1e-12) add(pf, 'perpendicular', [{ from: ctx.from, to: pf, kind: 'perpendicular' }], e.hostId);
     }

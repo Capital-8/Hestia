@@ -38,6 +38,7 @@ export * from './section/pick.ts';
 export * from './section/handles.ts';
 // Camada viva do corte/elevação: marcador de captura, guias/trilhas e tooltip de snap em (t,z), sem refazer a lista.
 export * from './section/live.ts';
+export { previewOverlay } from './plan/overlay.ts';
 // Rótulos do corte/elevação resolvidos do papel (mm × escala) para pixels, como o `PlanFrame` faz na planta.
 export * from './section/labels.ts';
 export { sectionStyleOf, type SectionStyle } from './section/style.ts';
