@@ -32,7 +32,7 @@ export const TAB_ARQUITETURA: RibbonTab = {
     panel(
       'circulacao',
       t('Circulação', 'Circulation'),
-      soon(t('Guarda-corpo', 'Railing'), 'railing'),
+      split(tool('railing', 'large', { label: t('Guarda-corpo', 'Railing') }), [act('railingForHost', 'small', t('Da escada ou rampa selecionada', 'From selected stair or ramp'))]),
       tool('ramp', 'large', { label: t('Rampa', 'Ramp') }),
       split(tool('stairrun', 'large', { label: t('Escada', 'Stair') }), [
         tool('stairrun', 'small', { label: t('Escada por lances', 'Stair by Run') }),

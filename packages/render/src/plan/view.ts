@@ -104,6 +104,7 @@ function categoryHiddenIds(p: Project, levelId: Id, hiddenCats: HiddenCats): Set
   for (const s of resolveStairsOnLevel(p, levelId)) add('stair', s.id);
   for (const r of resolveRampsOnLevel(p, levelId)) add('stair', r.id);
   for (const r of resolveRooms(p, levelId)) add('room', r.roomId);
+  for (const e of Object.values(p.elements)) if (e.kind === 'railing' && e.levelId === levelId) add('railing', e.id);
   return out;
 }
 

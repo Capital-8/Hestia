@@ -38,9 +38,11 @@ import { PT_SHELL_CHROME, EN_SHELL_CHROME } from './shell-chrome.ts';
 import { PT_SHELL_RIBBON, EN_SHELL_RIBBON } from './shell-ribbon.ts';
 import { PT_SHELL, EN_SHELL } from './shell.ts';
 import { PT_STAIR, EN_STAIR } from './stair.ts';
+import { PT_GUARDA_CORPO, EN_GUARDA_CORPO } from './guarda-corpo.ts';
 import { PT_TOOLS, EN_TOOLS } from './tools.ts';
 
 export const PT_ALL = {
+  ...PT_GUARDA_CORPO,
   ...PT_BIBLIOTECA,
   ...PT_CANVAS,
   ...PT_CANVAS_NAV,
@@ -84,6 +86,7 @@ export const PT_ALL = {
 } as const;
 
 export const EN_ALL: Record<keyof typeof PT_ALL, string> = {
+  ...EN_GUARDA_CORPO,
   ...EN_BIBLIOTECA,
   ...EN_CANVAS,
   ...EN_CANVAS_NAV,

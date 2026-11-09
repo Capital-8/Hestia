@@ -24,8 +24,10 @@ import { PL_EDITOR_CONTEXT } from '../../areas/editor-context.ts';
 import { PL_PROPS_OPTIONS } from '../../areas/props-options.ts';
 import { PL_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { PL_BIBLIOTECA } from '../../areas/biblioteca.ts';
+import { PL_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
 
 export const PL_ALL = {
+  ...PL_GUARDA_CORPO,
   ...PL_SHELL_RIBBON,
   ...PL_MISC_UI,
   ...PL_SCHEDULES_EXTRA,

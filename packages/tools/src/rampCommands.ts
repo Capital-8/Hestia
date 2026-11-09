@@ -20,6 +20,7 @@ import type { ToolEnv } from './types.ts';
 import { componentsFromParts } from './stairSketchState.ts';
 import type { RampToolOptions } from './rampOptions.ts';
 import { langOf, t as translate } from './i18n.ts';
+import { criarGuardaCorpo, ladosAmbosGC, temGuardaCorpoDeHospedeiro, type RailingCreateResult, type RailingEnv } from './guardaCorpoTool.ts';
 
 /** Tipo de rampa válido: o pedido se existir no projeto, senão o padrão, senão o primeiro. */
 export function rampTypeId(p: Project, want?: Id): Id | null {
@@ -132,4 +133,12 @@ export function updateRampComponents(
   }
   env.transaction(label, () => env.exec({ type: 'updateElements', ids: [rampId], patch: { components } }));
   return { ok: true };
+}
+
+/** Guarda-corpo ligado em uma rampa, nos dois lados, com a base no degrau. Recusa a segunda na mesma rampa. */
+export function criarGuardaCorpoDeRampa(env: RailingEnv, rampId: Id, msgs: { noHost: string; exists: string; noType: string }): RailingCreateResult {
+  const r = env.project().elements[rampId];
+  if (!isRamp(r)) return { error: msgs.noHost };
+  if (temGuardaCorpoDeHospedeiro(env.project(), rampId)) return { error: msgs.exists };
+  return criarGuardaCorpo(env, r.levelId, { tipo: 'rampa', rampaId: rampId, lados: ladosAmbosGC(), posicaoBase: 'degrau' }, { noMessage: msgs.noType });
 }

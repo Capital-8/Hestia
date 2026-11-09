@@ -1,4 +1,4 @@
-import { isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Id, type Project } from '@hestia/model';
+import { isFloor, isGuardaCorpo, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Id, type Project } from '@hestia/model';
 import { t as translate, type Lang } from './i18n.ts';
 
 /** Categorias de filtro: paredes, portas, janelas, pisos, lajes, telhados, escadas, rampas e ambientes ('rooms', categoria 'room'). */
@@ -7,7 +7,7 @@ export type ElementCategory = 'walls' | 'doors' | 'windows' | 'floors' | 'slabs'
 /** Parede ou abertura pertence ao nível? Abertura pertence ao nível da parede que a hospeda. */
 function onLevel(p: Project, id: Id, levelId: Id): boolean {
   const e = p.elements[id];
-  if (isWall(e) || isFloor(e) || isSlab(e) || isRoof(e) || isStair(e) || isRamp(e) || isRoom(e)) return e.levelId === levelId;
+  if (isWall(e) || isFloor(e) || isSlab(e) || isRoof(e) || isStair(e) || isRamp(e) || isRoom(e) || isGuardaCorpo(e)) return e.levelId === levelId;
   if (isOpening(e)) {
     const host = p.elements[e.hostId];
     return isWall(host) && host.levelId === levelId;
@@ -18,7 +18,7 @@ function onLevel(p: Project, id: Id, levelId: Id): boolean {
 /** Todas as paredes, aberturas e pisos do nível que usam o tipo `typeId`. */
 export function idsOfType(p: Project, levelId: Id, typeId: Id): Id[] {
   return Object.values(p.elements)
-    .filter((e) => (isWall(e) || isOpening(e) || isFloor(e) || isSlab(e) || isRoof(e) || isStair(e) || isRamp(e)) && e.typeId === typeId && onLevel(p, e.id, levelId))
+    .filter((e) => (isWall(e) || isOpening(e) || isFloor(e) || isSlab(e) || isRoof(e) || isStair(e) || isRamp(e) || isGuardaCorpo(e)) && e.typeId === typeId && onLevel(p, e.id, levelId))
     .map((e) => e.id);
 }
 
@@ -47,7 +47,7 @@ export function selectedTypeId(p: Project, ids: Id[], lang: Lang = 'pt'): { type
   const types = new Set<Id>();
   for (const id of ids) {
     const e = p.elements[id];
-    if (isWall(e) || isOpening(e) || isFloor(e) || isSlab(e) || isRoof(e) || isStair(e) || isRamp(e)) types.add(e.typeId);
+    if (isWall(e) || isOpening(e) || isFloor(e) || isSlab(e) || isRoof(e) || isStair(e) || isRamp(e) || isGuardaCorpo(e)) types.add(e.typeId);
   }
   if (types.size === 0) return { error: translate(lang, 'tl_msg_filter_select_first') };
   if (types.size > 1) return { error: translate(lang, 'tl_msg_filter_mixed') };

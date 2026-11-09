@@ -7,6 +7,7 @@ import {
   isFloor,
   isGeneric,
   isOpening,
+  isGuardaCorpo,
   isRamp,
   isRoof,
   isRoom,
@@ -51,6 +52,7 @@ import { clienteAvisosCompartilhado } from '../editor/avisosCliente.ts';
 import { CeilingProperties } from './CeilingProperties.tsx';
 import { StairProperties } from './StairProperties.tsx';
 import { RampProperties } from './RampProperties.tsx';
+import { GuardaCorpoProperties } from './GuardaCorpoProperties.tsx';
 import { RoomProperties } from './RoomProperties.tsx';
 import { AreaProfileGroups, activeAreaPlan } from './AreaPlanProperties.tsx';
 import { GenericProps, selectionLabel } from './GenericProps.tsx';
@@ -443,11 +445,12 @@ export function Properties(): ReactElement {
   const roofs = els.filter(isRoof);
   const stairs = els.filter(isStair);
   const ramps = els.filter(isRamp);
+  const railings = els.filter(isGuardaCorpo);
   const rooms = els.filter(isRoom), generics = els.filter(isGeneric), cads = els.filter(isCad);
   // Grade é do projeto, não elemento: a seleção dela é um id que não está em `elements`.
   const grade = gradeDaSelecao(p, sel);
-  const count = walls.length + ops.length + floors.length + slabs.length + ceilings.length + roofs.length + stairs.length + ramps.length + rooms.length + generics.length + cads.length;
-  const kinds = [walls, ops, floors, slabs, ceilings, roofs, stairs, ramps, rooms, generics, cads].filter((g) => g.length > 0).length;
+  const count = walls.length + ops.length + floors.length + slabs.length + ceilings.length + roofs.length + stairs.length + ramps.length + railings.length + rooms.length + generics.length + cads.length;
+  const kinds = [walls, ops, floors, slabs, ceilings, roofs, stairs, ramps, railings, rooms, generics, cads].filter((g) => g.length > 0).length;
   const tool = useUi((s) => s.tool);
   const placing = count === 0 && hasPlacementProperties(tool);
   const perim = usePerimeter();
@@ -470,6 +473,7 @@ export function Properties(): ReactElement {
           : kinds === 1 && roofs.length > 0 ? <RoofProperties roofs={roofs} />
           : kinds === 1 && stairs.length > 0 ? <StairProperties stairs={stairs} />
           : kinds === 1 && ramps.length > 0 ? <RampProperties ramps={ramps} />
+          : kinds === 1 && railings.length > 0 ? <GuardaCorpoProperties railings={railings} />
           : kinds === 1 && rooms.length > 0 ? <RoomProperties rooms={rooms} />
           : kinds === 1 && generics.length > 0 ? <GenericProps items={generics} />
           : kinds === 1 && cads.length > 0 ? <CadProps items={cads} />

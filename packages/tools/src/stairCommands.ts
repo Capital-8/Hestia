@@ -1,6 +1,7 @@
 import type { Vec2 } from '@hestia/geom';
 import { isStair, defaultStairTypeId, levelAbove, makeStair, newId, stairBaseZ, stairTopZ, unitsOf, type Id, type Project, type Stair, type StairGenerator, type StairLanding, type StairRun } from '@hestia/model';
 import type { ToolEnv } from './types.ts';
+import { criarGuardaCorpo, ladosAmbosGC, temGuardaCorpoDeHospedeiro, type RailingCreateResult, type RailingEnv } from './guardaCorpoTool.ts';
 import { analyzeDraft, partsFromComponents, type DraftReport, type StairLimits } from './stairSketchState.ts';
 
 /** Opções da criação (vêm da barra de opções da ferramenta ou de um gerador). */
@@ -107,4 +108,12 @@ export function updateStairComponents(env: ToolEnv, stairId: Id, components: Arr
   // Editar o croqui à mão descarta o trajeto livre (como o caracol descarta `spiral`).
   env.transaction('Editar croqui da escada', () => env.exec({ type: 'updateElements', ids: [stairId], patch: { components, freePath: undefined, manualLandings: undefined } }));
   return { report };
+}
+
+/** Guarda-corpo ligado em uma escada, nos dois lados, com a base no degrau. Recusa a segunda na mesma escada. */
+export function criarGuardaCorpoDeEscada(env: RailingEnv, stairId: Id, msgs: { noHost: string; exists: string; noType: string }): RailingCreateResult {
+  const s = env.project().elements[stairId];
+  if (!isStair(s)) return { error: msgs.noHost };
+  if (temGuardaCorpoDeHospedeiro(env.project(), stairId)) return { error: msgs.exists };
+  return criarGuardaCorpo(env, s.levelId, { tipo: 'escada', escadaId: stairId, lados: ladosAmbosGC(), posicaoBase: 'degrau' }, { noMessage: msgs.noType });
 }
