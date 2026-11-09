@@ -1,4 +1,5 @@
 import { union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
+import { guardaCorpoCorteOps } from './guardaCorpo.ts';
 import { CLOSED, openingLinePaths, type ProjectedRing, type SectionBeyond, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
 import { dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, SECTION_TEXT_MM, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Project, type ResolvedUnits } from '@hestia/model';
 import { mix } from '../plan/color.ts';
@@ -350,6 +351,7 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   if (input.thinLines) thinStrokes(strokes);
   // Borda azul do Reveal por cima do desenho normal e com a largura própria (não passa pelo `thinStrokes`).
   if (revealStrokes.length > 0) strokes.push(...revealStrokes);
+  guardaCorpoCorteOps(p, s, theme, input.dark, hidden, paint.railing, fills, strokes);
   if (input.highlight) highlightOps(s, input.highlight, theme, fills, strokes);
 
   return { background: theme.bg, fills, strokes, labels };

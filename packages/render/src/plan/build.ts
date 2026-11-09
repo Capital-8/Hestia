@@ -18,6 +18,7 @@ import { ceilingFills } from './ceilings.ts';
 import { roofEdgeColor, roofFills, roofFootprint, roofOps } from './roofs.ts';
 import { belowStairOps, stairFills } from './stairs.ts';
 import { belowRampOps, rampFills } from './ramps.ts';
+import { guardaCorpoOps } from './guardaCorpo.ts';
 import { joinDebugLabels } from './joinDebug.ts';
 import { wallTagLabels } from './tags.ts';
 import { openingTagLabels } from './openingTags.ts';
@@ -341,6 +342,8 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   if (profile.stairs) addOps(stairFills(p, stairs, theme, input.dark, detail, v, view ? { cutZ: view.cutZ, topZ: view.topZ } : undefined, paint.stair, scale, input.lang), paint.stair, !rp);
   // Rampas do nível: junto das escadas, com o mesmo estilo da categoria.
   if (profile.ramps) addOps(rampFills(p, ramps, theme, input.dark, detail, v, view ? { cutZ: view.cutZ, topZ: view.topZ } : undefined, paint.stair, scale), paint.stair, !rp);
+  // Guarda-corpos (decisao 0055): linhas do kernel Rust, no estilo da categoria de escadas.
+  if (profile.stairs) addOps(guardaCorpoOps(p, input.levelId, hidden, theme, input.dark, paint.stair, view?.cutZ), paint.stair, !rp);
   // Forros: só na planta de forro (na planta baixa eles estão acima do topo e não saem).
   if (profile.ceilings && up) addOps(ceilingFills(p, input.levelId, theme, input.dark, detail, v, hidden, paint.floor, style.scale), paint.floor, true);
 

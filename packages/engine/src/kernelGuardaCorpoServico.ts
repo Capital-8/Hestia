@@ -184,6 +184,14 @@ export class ServicoGuardaCorpo {
     });
   }
 
+  /** Eixo (polilinhas 3D dos trechos) de cada guarda-corpo, de `guarda_caminhos`. */
+  eixos(p: Project): EixoGC[] | null {
+    return this.memoizar(p, 'eixos', () => {
+      const e = this.cena!.consultar('guarda_caminhos', [NIVEL_TODOS, 1e-3]);
+      return decodificarEixosGC(e['trechos']!, e['nos']!, this.ids().guardaIdDe);
+    });
+  }
+
   quantidades(p: Project): GuardaCorpoQuantities[] | null {
     return this.memoizar(p, 'quant', () => {
       const { guardaIdDe } = this.ids();

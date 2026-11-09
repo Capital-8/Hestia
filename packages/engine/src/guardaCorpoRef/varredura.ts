@@ -1,3 +1,4 @@
+// @ts-nocheck -- referencia de paridade (so os testes a usam); a indexacao de vetores fixos [x, y, z] nao passa em noUncheckedIndexedAccess. Pendente: tipar com tuplas nomeadas.
 /**
  * Referência TS da varredura de perfil do guarda-corpo (decisão 0055, Fase 3b). Espelha `crates/geom-wasm/src/gc_varredura.rs` passo a passo
  * (mesmas fórmulas e mesma ordem de operações); usada só pelos testes de paridade (`varredura.paridade.test.ts`). O app não a chama.

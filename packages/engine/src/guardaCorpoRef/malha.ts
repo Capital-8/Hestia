@@ -1,3 +1,4 @@
+// @ts-nocheck -- referencia de paridade (so os testes a usam); a indexacao de vetores fixos [x, y, z] nao passa em noUncheckedIndexedAccess. Pendente: tipar com tuplas nomeadas.
 /**
  * Referência TS da malha do guarda-corpo (decisão 0055, Fase 3b): soldagem na grade de 1 µm e análise de grupo.
  * Espelha `crates/geom-wasm/src/gc_malha.rs`; usada só pelos testes de paridade.

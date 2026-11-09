@@ -370,7 +370,18 @@ export function computeSection(p: Project, line: SectionLine, levelIds: Id[] = p
 }
 
 /** União, oclusão e acabamento das partes por pavimento (na ordem dos pavimentos) num `SectionResult`. */
+const planosDasSecoes = new WeakMap<SectionResult, SectionLine>();
+
+/** A linha (plano) com que um `SectionResult` foi montado: o guarda-corpo precisa dela para pedir o corte ao kernel. */
+export const planoDaSecao = (s: SectionResult): SectionLine | undefined => planosDasSecoes.get(s);
+
 export function assembleSection(p: Project, line: SectionLine, parts: readonly SectionLevelPart[]): SectionResult {
+  const r = assembleSectionBase(p, line, parts);
+  planosDasSecoes.set(r, line);
+  return r;
+}
+
+function assembleSectionBase(p: Project, line: SectionLine, parts: readonly SectionLevelPart[]): SectionResult {
   const { length } = sectionFrame(line);
   const empty: SectionResult = { length, zMin: 0, zMax: 3, cut: [], silhouette: [], beyond: [], openings: [], membranes: [], levels: [] };
   if (length < 1e-6) return empty;

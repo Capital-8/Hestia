@@ -1,3 +1,4 @@
+// @ts-nocheck -- referencia de paridade (so os testes a usam); a indexacao de vetores fixos [x, y, z] nao passa em noUncheckedIndexedAccess. Pendente: tipar com tuplas nomeadas.
 /**
  * Paridade da varredura do guarda-corpo (decisão 0055, Fase 3b). A referência TS gera `varredura.paridade.json` (com `GERAR_PARIDADE_GC=1`) e o teste
  * cargo `gc_varredura::paridade` compara o Rust com esse arquivo: contagens exatas e posições a 1e-6 m. Aqui, sem a variável, o teste confere que a

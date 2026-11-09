@@ -1,4 +1,5 @@
 import { closestOnSegment, dist, type Vec2 } from '@hestia/geom';
+import { guardaCorpoNoPonto, servicoGuardaCorpo, ServicoGuardaCorpo } from '@hestia/engine';
 import { isGuardaCorpo, type GuardaCorpo, type Id, type Project } from '@hestia/model';
 
 /**
@@ -7,7 +8,11 @@ import { isGuardaCorpo, type GuardaCorpo, type Id, type Project } from '@hestia/
  * `setRailingPlanShapes` na inicialização do app (a seleção, a visibilidade e o isolar já leem daqui).
  */
 export type RailingPlanShapes = (p: Project, g: GuardaCorpo) => Vec2[][];
-let hostedPlanShapes: RailingPlanShapes = () => [];
+/** Por padrao, o eixo dos trechos que o kernel devolve (`guarda_caminhos`); sem kernel pronto, nada. */
+let hostedPlanShapes: RailingPlanShapes = (p, g) => {
+  const eixo = ServicoGuardaCorpo.temGuardaCorpo(p) ? servicoGuardaCorpo().eixos(p)?.find((e) => e.guardaId === g.id) : undefined;
+  return eixo ? eixo.trechos.map((t) => t.map((n) => ({ x: n.x, y: n.y }))) : [];
+};
 
 /** Registra a fonte de polilinhas dos guarda-corpos hospedados (fases 3 e 4). */
 export function setRailingPlanShapes(fn: RailingPlanShapes): void {
@@ -37,6 +42,12 @@ function distToPolyline(at: Vec2, pl: Vec2[]): number {
  */
 export function pickRailingAt(p: Project, levelId: Id, at: Vec2, mpp: number, hidden?: ReadonlySet<Id>): Id | null {
   const tol = 4 * mpp;
+  // Com o kernel pronto, o alvo sao as mesmas linhas desenhadas na planta (eixo e pecas); sem ele, o eixo hospedado.
+  const linhas = ServicoGuardaCorpo.temGuardaCorpo(p) ? servicoGuardaCorpo().planta(p, levelId, (p.levels.find((l) => l.id === levelId)?.elevation ?? 0) + 1.2, 1) : null;
+  if (linhas) {
+    const noKernel = guardaCorpoNoPonto(linhas.filter((l) => p.elements[l.guardaId]?.kind === 'railing' && (p.elements[l.guardaId] as { levelId?: string }).levelId === levelId), hidden ?? new Set<Id>(), at, tol);
+    if (noKernel) return noKernel;
+  }
   let best: { id: Id; d: number } | null = null;
   for (const e of Object.values(p.elements)) {
     if (!isGuardaCorpo(e) || e.levelId !== levelId || hidden?.has(e.id)) continue;
