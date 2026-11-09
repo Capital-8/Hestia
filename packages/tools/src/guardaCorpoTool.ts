@@ -57,6 +57,20 @@ export function temGuardaCorpoDeHospedeiro(p: Project, hostId: Id): boolean {
   return Object.values(p.elements).some((e) => isGuardaCorpo(e) && (e.hospedeiro.tipo === 'escada' ? e.hospedeiro.escadaId : e.hospedeiro.tipo === 'rampa' ? e.hospedeiro.rampaId : null) === hostId);
 }
 
+/** Ids dos guarda-corpos hospedados nesta escada ou rampa. */
+export function guardaCorposDoHospedeiro(p: Project, hostId: Id): Id[] {
+  return Object.values(p.elements)
+    .filter((e) => isGuardaCorpo(e) && (e.hospedeiro.tipo === 'escada' ? e.hospedeiro.escadaId : e.hospedeiro.tipo === 'rampa' ? e.hospedeiro.rampaId : null) === hostId)
+    .map((e) => e.id);
+}
+
+/** Desliga o guarda-corpo da escada ou rampa: remove os hospedados nela (quem chama agrupa num único passo de desfazer). Devolve quantos saíram. */
+export function removerGuardaCorpoDeHospedeiro(env: Pick<ToolEnv, 'project' | 'exec'>, hostId: Id): number {
+  const ids = guardaCorposDoHospedeiro(env.project(), hostId);
+  for (const id of ids) env.exec({ type: 'deleteGuardaCorpo', id });
+  return ids.length;
+}
+
 /**
  * Ferramenta de guarda-corpo (decisão 0055, Fase 6a): traça o caminho manual (borda de laje, varanda, mezanino). Clique
  * nos pontos (a captura usa as bordas de laje, paredes e escadas); Enter conclui, C fecha o laço, Esc cancela.

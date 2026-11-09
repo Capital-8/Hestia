@@ -112,3 +112,21 @@ describe('guarda-corpo: integração de ponta a ponta (escada em L, dois lados)'
     srv.encerrar();
   });
 });
+
+describe('guarda-corpo: kernel que carrega depois da primeira montagem', () => {
+  it.skipIf(!bytes)('o serviço refaz o cálculo quando o kernel fica pronto (sem esperar a cena mudar)', () => {
+    let atual: GerenciadorKernelV2 | null = null;
+    const srv = new ServicoGuardaCorpo(() => atual);
+    const p = projetoEscadaL();
+    expect(srv.malhas(p)).toBeNull();
+    expect(srv.planta(p, 'lv_0', 1.2)).toBeNull();
+    let avisos = 0;
+    srv.aoMudarPronto(() => avisos++);
+    atual = ger;
+    srv.verificarPronto();
+    expect(avisos).toBe(1);
+    // Mesmo projeto (mesma identidade): agora há malha e linhas.
+    expect(srv.malhas(p)![0]!.partes.length).toBeGreaterThan(0);
+    expect(srv.planta(p, 'lv_0', 1.2)!.length).toBeGreaterThan(0);
+  });
+});

@@ -3,6 +3,7 @@ import { rampQuantities, rampValidationIssues, regenRamp, resolveRampsOnLevel } 
 import { levelAbove, validateProject, type Id, type Project, type Ramp, type RampInputMode, type RampShape, type StairOpeningMode, type ValidationIssue } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
 import { goToIssue } from '../editor/goToIssue.ts';
+import { GuardaCorpoDoHospedeiro } from './GuardaCorpoDoHospedeiro.tsx';
 import { useT, type Dict, type Lang } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { adjustRamp, applyRegen, patchRamps } from '../editor/rampActions.ts';
@@ -148,6 +149,7 @@ export function RampProperties({ ramps }: { ramps: Ramp[] }): ReactElement {
         <Row label={t('prb_fld_side_clearance')} htmlFor="p-ropenm"><NumField id="p-ropenm" value={openingMargin.value} mixed={openingMargin.mixed} disabled={noOpening} min={0} quantity="length" onCommit={(v) => patch(ids, { openingMargin: v })} /></Row>
         <Row label={t('prb_fld_rectangular_opening')} htmlFor="p-ropenrect"><Check id="p-ropenrect" checked={openingRect.value} mixed={openingRect.mixed} disabled={noOpening} onChange={(v) => patch(ids, { openingRect: v })} /></Row>
       </Group>
+      {single && <Group title={t('gc_host_toggle')}><GuardaCorpoDoHospedeiro hostId={single.id} htmlFor="p-rgc" /></Group>}
       <Group title={t('prb_pgrp_ramp')} open={!!single}>
         {single ? (
           <>

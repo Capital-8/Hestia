@@ -119,6 +119,13 @@ interface Frame3D {
 type Escadas = ReturnType<typeof resolveStairs>;
 type Rampas = ReturnType<typeof resolveRamps>;
 
+/**
+ * Marca de cache dos guarda-corpos: um nível montado ANTES de o kernel carregar não tem a malha deles. Com a marca na chave, quando o
+ * kernel fica pronto o nível deixa de casar com o cache e é remontado (nunca fica sem guarda-corpo até a cena mudar). Projeto sem
+ * guarda-corpo não é afetado (marca fixa).
+ */
+const gcPronto = (p: Project): string => (ServicoGuardaCorpo.temGuardaCorpo(p) ? (servicoGuardaCorpo().pronto() ? 'gc1' : 'gc0') : '-');
+
 /** Cena 3D do modelo: paredes e pisos por camada com material, esquadrias, luz e chão. */
 export class ModelScene {
   readonly scene = new THREE.Scene();
@@ -338,6 +345,7 @@ export class ModelScene {
         this.frame.edges,
         this.frame.shadows,
         view.style,
+        gcPronto(p),
       ]),
       // A visibilidade entra só na chave do nível que contém o elemento (e na dos vizinhos): ocultar uma parede não remonta o resto.
       { ocultos: this.ocultos, revelados: this.revelados },
@@ -641,7 +649,7 @@ export class ModelScene {
   /** Chaves de conteúdo dos níveis do projeto, com a marca da vista e a visibilidade desta atualização. */
   private chavesPara(p: Project, opt: Scene3DOptions): Map<Id, string> {
     const view = view3dOf(p);
-    return chavesDeNivel(p, JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style]), { ocultos: this.ocultos, revelados: this.revelados });
+    return chavesDeNivel(p, JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style, gcPronto(p)]), { ocultos: this.ocultos, revelados: this.revelados });
   }
 
   /**

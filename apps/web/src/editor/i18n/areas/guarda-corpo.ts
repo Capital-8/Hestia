@@ -1,6 +1,8 @@
 /* Textos da interface do guarda-corpo (decisão 0055, Fases 6a a 6c). Chaves gc6a_, gc6b_ e gc6c_. */
 export const PT_GUARDA_CORPO = {
   gc6a_undo_create: 'Criar guarda-corpo',
+  gc_host_toggle: 'Guarda-corpo',
+  gc_host_toggle_off: 'Remover guarda-corpo',
   gc6b_title: 'Guarda-corpo',
   gc6b_type: 'Tipo',
   gc6b_edit_type: 'Editar tipo…',
@@ -187,6 +189,8 @@ export const PT_GUARDA_CORPO = {
 
 export const EN_GUARDA_CORPO: Record<keyof typeof PT_GUARDA_CORPO, string> = {
   gc6a_undo_create: 'Create railing',
+  gc_host_toggle: 'Railing',
+  gc_host_toggle_off: 'Remove railing',
   gc6b_title: 'Railing',
   gc6b_type: 'Type',
   gc6b_edit_type: 'Edit type…',
@@ -373,6 +377,8 @@ export const EN_GUARDA_CORPO: Record<keyof typeof PT_GUARDA_CORPO, string> = {
 
 export const ES_GUARDA_CORPO: Record<keyof typeof PT_GUARDA_CORPO, string> = {
   gc6a_undo_create: 'Crear barandilla',
+  gc_host_toggle: 'Barandilla',
+  gc_host_toggle_off: 'Quitar barandilla',
   gc6b_title: 'Barandilla',
   gc6b_type: 'Tipo',
   gc6b_edit_type: 'Editar tipo…',
@@ -559,6 +565,8 @@ export const ES_GUARDA_CORPO: Record<keyof typeof PT_GUARDA_CORPO, string> = {
 
 export const DE_GUARDA_CORPO: Record<keyof typeof PT_GUARDA_CORPO, string> = {
   gc6a_undo_create: 'Geländer erstellen',
+  gc_host_toggle: 'Geländer',
+  gc_host_toggle_off: 'Geländer entfernen',
   gc6b_title: 'Geländer',
   gc6b_type: 'Typ',
   gc6b_edit_type: 'Typ bearbeiten…',
@@ -745,6 +753,8 @@ export const DE_GUARDA_CORPO: Record<keyof typeof PT_GUARDA_CORPO, string> = {
 
 export const FR_GUARDA_CORPO: Record<keyof typeof PT_GUARDA_CORPO, string> = {
   gc6a_undo_create: 'Créer le garde-corps',
+  gc_host_toggle: 'Garde-corps',
+  gc_host_toggle_off: 'Retirer le garde-corps',
   gc6b_title: 'Garde-corps',
   gc6b_type: 'Type',
   gc6b_edit_type: 'Modifier le type…',
@@ -931,6 +941,8 @@ export const FR_GUARDA_CORPO: Record<keyof typeof PT_GUARDA_CORPO, string> = {
 
 export const IT_GUARDA_CORPO: Record<keyof typeof PT_GUARDA_CORPO, string> = {
   gc6a_undo_create: 'Crea parapetto',
+  gc_host_toggle: 'Parapetto',
+  gc_host_toggle_off: 'Rimuovi parapetto',
   gc6b_title: 'Parapetto',
   gc6b_type: 'Tipo',
   gc6b_edit_type: 'Modifica tipo…',
@@ -1117,6 +1129,8 @@ export const IT_GUARDA_CORPO: Record<keyof typeof PT_GUARDA_CORPO, string> = {
 
 export const PL_GUARDA_CORPO: Record<keyof typeof PT_GUARDA_CORPO, string> = {
   gc6a_undo_create: 'Utwórz balustradę',
+  gc_host_toggle: 'Balustrada',
+  gc_host_toggle_off: 'Usuń balustradę',
   gc6b_title: 'Balustrada',
   gc6b_type: 'Typ',
   gc6b_edit_type: 'Edytuj typ…',

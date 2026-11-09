@@ -10,6 +10,7 @@ import { decodificarLinhasGC, type LinhaVistaGC } from './guardaCorpoVista.ts';
 import { decodificarQuantidadesGC, guardaCorpoQuantities, PAPEL_GC, type EixoGC, type GuardaCorpoQuantities, type PapelGC } from './guardaCorpoQuantities.ts';
 import { CODIGO_AVISO_GC, type MedidaAvisoGC } from './guardaCorpoIssues.ts';
 import { gerenciadorDoKernel } from './kernelDespacho.ts';
+import { aoMudarKernelPendente } from './kernelPendente.ts';
 import { montarCenaGC, sincronizarCenaGC, type CenaGC } from './kernelGuardaCorpo.ts';
 
 const NIVEL_TODOS = 4294967295;
@@ -112,8 +113,46 @@ export class ServicoGuardaCorpo {
   private atual: CenaGC | null = null;
   private projeto: Project | null = null;
   private readonly memo = new Map<string, unknown>();
+  /** Gerenciador com o qual a cena atual foi criada (se mudou, a cena é refeita). */
+  private gerDaCena: GerenciadorKernelV2 | null = null;
+  private prontoVisto = false;
+  private readonly ouvintesPronto = new Set<() => void>();
+  private soltarKernel: (() => void) | null = null;
 
   constructor(private readonly gerenciador: () => GerenciadorKernelV2 | null) {}
+
+  /** O kernel está carregado e ligado? Sem ele nada é calculado (nem desenhado): quem guarda resultado deve invalidar quando isto mudar. */
+  pronto(): boolean {
+    const g = this.gerenciador();
+    return !!g && g.ligado;
+  }
+
+  /**
+   * Avisa quando o kernel passa a estar pronto (ou deixa de estar): quem desenhou um nível sem guarda-corpo (kernel ausente) invalida o
+   * cache e recalcula, no mesmo padrão do `KernelPendente` das paredes. Devolve a função que cancela a assinatura.
+   */
+  aoMudarPronto(f: () => void): () => void {
+    this.ouvintesPronto.add(f);
+    this.prontoVisto = this.pronto();
+    this.soltarKernel ??= aoMudarKernelPendente(() => this.verificarPronto());
+    return () => {
+      this.ouvintesPronto.delete(f);
+      if (this.ouvintesPronto.size === 0) {
+        this.soltarKernel?.();
+        this.soltarKernel = null;
+      }
+    };
+  }
+
+  /** Compara a prontidão com a última vista; ao mudar, descarta a memória e avisa os ouvintes. */
+  verificarPronto(): void {
+    const agora = this.pronto();
+    if (agora === this.prontoVisto) return;
+    this.prontoVisto = agora;
+    this.projeto = null;
+    this.memo.clear();
+    [...this.ouvintesPronto].forEach((f) => f());
+  }
 
   /** Há algum guarda-corpo no projeto? (evita criar a cena à toa) */
   static temGuardaCorpo(p: Project): boolean {
@@ -122,12 +161,15 @@ export class ServicoGuardaCorpo {
 
   /** O projeto atual está na cena? Reenvia só a diferença quando mudou. Devolve `false` sem kernel pronto. */
   private preparar(p: Project): boolean {
-    if (this.projeto === p && this.cena) return true;
     const ger = this.gerenciador();
     if (!ger || !ger.ligado) return false;
+    // O kernel foi recriado/trocado desde que a cena nasceu: a cena velha não vale mais.
+    if (this.cena && this.gerDaCena !== ger) this.encerrar();
+    if (this.projeto === p && this.cena) return true;
     const nova = montarCenaGC(p, { anterior: this.atual });
     if (!this.cena) {
       this.cena = CenaV2.criar(ger, null);
+      this.gerDaCena = ger;
       sincronizarCenaGC(this.cena, null, nova);
     } else {
       sincronizarCenaGC(this.cena, this.atual, nova);
@@ -211,6 +253,7 @@ export class ServicoGuardaCorpo {
   encerrar(): void {
     this.cena?.destruir();
     this.cena = null;
+    this.gerDaCena = null;
     this.atual = null;
     this.projeto = null;
     this.memo.clear();
@@ -223,8 +266,17 @@ let fonteGerenciador: () => GerenciadorKernelV2 | null = gerenciadorDoKernel;
 /** O app liga o serviço ao gerenciador do kernel (`iniciarDespachoKernel`); testes injetam o deles. */
 export function definirGerenciadorDoGuardaCorpo(f: () => GerenciadorKernelV2 | null): void {
   fonteGerenciador = f;
-  servicoAtual?.encerrar();
+  const velho = servicoAtual;
   servicoAtual = null;
+  velho?.encerrar();
+  // O serviço novo herda os ouvintes: trocar o kernel (ou ele chegar) também invalida o que foi desenhado.
+  if (velho) {
+    const ouvintes = [...velho['ouvintesPronto']];
+    velho['soltarKernel']?.();
+    const novo = servicoGuardaCorpo();
+    for (const o of ouvintes) novo.aoMudarPronto(o);
+    ouvintes.forEach((o) => o());
+  }
 }
 
 /** O serviço único do processo. */

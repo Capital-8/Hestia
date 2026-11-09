@@ -5,6 +5,9 @@ import { mensagensDeGuardaCorpo } from './guardaCorpoTool.ts';
 import { criarGuardaCorpoDeEscada } from './stairCommands.ts';
 import { criarGuardaCorpoDeRampa } from './rampCommands.ts';
 import { gripsDoGuardaCorpo, patchMoverVerticeGC } from './guardaCorpoGrips.ts';
+import { gripHoldAt } from './selectGrips.ts';
+import { guardaCorposDoHospedeiro, removerGuardaCorpoDeHospedeiro, temGuardaCorpoDeHospedeiro } from './guardaCorpoTool.ts';
+import { P } from './testEnv.ts';
 
 const railings = (p: Project): GuardaCorpo[] => Object.values(p.elements).filter(isGuardaCorpo);
 
@@ -120,5 +123,83 @@ describe('alças de vértice do caminho manual (Fase 6a)', () => {
     const [g] = railings(store.project);
     expect(patchMoverVerticeGC(g!, 9, { x: 0, y: 0 })).toBeNull();
     expect(gripsDoGuardaCorpo({ ...g!, hospedeiro: { tipo: 'escada', escadaId: 'x', lados: { esquerdo: { lance: true, patamar: true }, direito: { lance: true, patamar: true } }, posicaoBase: 'degrau' } })).toEqual([]);
+  });
+});
+
+describe('alça de vértice no canvas (arrastar com captura)', () => {
+  function cenaManual() {
+    const ctx = makeEnv();
+    const t = tool('railing', ctx.env);
+    clickAt(t, 0, 0);
+    clickAt(t, 4, 0);
+    clickAt(t, 4, 3);
+    t.confirm();
+    const [g] = railings(ctx.store.project);
+    ctx.env.setSelection([g!.id]);
+    return { ...ctx, id: g!.id };
+  }
+  const caminho = (p: Project, id: string): number[][] => {
+    const h = (p.elements[id] as GuardaCorpo).hospedeiro;
+    return h.tipo === 'manual' ? h.caminho.map((v) => [v.x, v.y, v.dz]) : [];
+  };
+
+  it('arrastar o vértice usa o ponto capturado e grava um único passo de desfazer', () => {
+    const { store, env, id } = cenaManual();
+    const hold = gripHoldAt(env, { x: 4, y: 0 });
+    expect(hold).not.toBeNull();
+    let extra: unknown;
+    const prev = hold!.drag(P(6, 1), (e) => ((extra = e), { x: 6, y: 1.5 }));
+    expect(prev.length).toBe(2);
+    // O snap recebe os OUTROS vértices como pontos de captura (não o próprio).
+    expect((extra as { extraPoints: Array<{ x: number; y: number }> }).extraPoints).toEqual([{ x: 0, y: 0 }, { x: 4, y: 3 }]);
+    hold!.release(P(6, 1), () => {});
+    expect(caminho(store.project, id)).toEqual([[0, 0, 0], [6, 1.5, 0], [4, 3, 0]]);
+    store.undo();
+    expect(caminho(store.project, id)).toEqual([[0, 0, 0], [4, 0, 0], [4, 3, 0]]);
+  });
+
+  it('soltar sem mover não grava; a alça só existe no guarda-corpo manual selecionado', () => {
+    const { store, env, id } = cenaManual();
+    const antes = store.project;
+    const hold = gripHoldAt(env, { x: 4, y: 0 })!;
+    hold.drag(P(4, 0), () => ({ x: 4, y: 0 }));
+    hold.release(P(4, 0), () => {});
+    expect(store.project).toBe(antes);
+    env.setSelection([]);
+    expect(gripHoldAt(env, { x: 4, y: 0 })).toBeNull();
+    expect(id).toBeTruthy();
+  });
+});
+
+describe('liga/desliga o guarda-corpo da escada e da rampa', () => {
+  it('ligar cria um só, desligar remove, e dá para ligar de novo (um passo de desfazer cada)', () => {
+    const { store, env } = makeEnv();
+    const host = comEscada(store as never);
+    const msgs = mensagensDeGuardaCorpo('pt');
+    expect(temGuardaCorpoDeHospedeiro(store.project, host)).toBe(false);
+    expect('id' in criarGuardaCorpoDeEscada(env, host, msgs)).toBe(true);
+    expect(temGuardaCorpoDeHospedeiro(store.project, host)).toBe(true);
+    expect('error' in criarGuardaCorpoDeEscada(env, host, msgs)).toBe(true); // já ligado
+    expect(guardaCorposDoHospedeiro(store.project, host)).toHaveLength(1);
+    store.transaction('desligar', () => void removerGuardaCorpoDeHospedeiro(env, host));
+    expect(temGuardaCorpoDeHospedeiro(store.project, host)).toBe(false);
+    expect(railings(store.project)).toHaveLength(0);
+    store.undo();
+    expect(temGuardaCorpoDeHospedeiro(store.project, host)).toBe(true);
+    store.undo();
+    expect(temGuardaCorpoDeHospedeiro(store.project, host)).toBe(false);
+  });
+
+  it('desligar numa escada sem guarda-corpo não faz nada e não mexe nos de outro hospedeiro', () => {
+    const { store, env } = makeEnv();
+    const host = comEscada(store as never);
+    expect(removerGuardaCorpoDeHospedeiro(env, host)).toBe(0);
+    const t = tool('railing', env);
+    clickAt(t, 0, 0);
+    clickAt(t, 2, 0);
+    t.confirm();
+    criarGuardaCorpoDeEscada(env, host, mensagensDeGuardaCorpo('pt'));
+    expect(removerGuardaCorpoDeHospedeiro(env, host)).toBe(1);
+    expect(railings(store.project)).toHaveLength(1); // o manual segue
   });
 });
