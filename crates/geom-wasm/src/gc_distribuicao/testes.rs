@@ -11,7 +11,7 @@ fn poste_p(largura: Option<f64>) -> PosteP {
     PosteP { ativo: largura.is_some(), perfil: PerfilP::circular(largura.unwrap_or(0.05)), material: 1, acima: 0.0, abaixo: 0.0 }
 }
 
-fn param_postes(ini: Option<f64>, fim: Option<f64>, canto: Option<f64>, inter: Option<f64>, modo: u8, esp: f64, num: u32) -> ParamPostes {
+pub(super) fn param_postes(ini: Option<f64>, fim: Option<f64>, canto: Option<f64>, inter: Option<f64>, modo: u8, esp: f64, num: u32) -> ParamPostes {
     ParamPostes { inicio: poste_p(ini), fim: poste_p(fim), canto: poste_p(canto), intermediario: poste_p(inter), ang_canto: 0.0873, modo, espacamento: esp, numero: num }
 }
 
@@ -19,7 +19,7 @@ fn elem(largura: Option<f64>, dist: f64) -> ElemP {
     ElemP { perfil: largura.map(PerfilP::circular), material: 2, dist_anterior: dist, desloc_lateral: 0.0, desloc_base: 0.0, desloc_topo: 0.0 }
 }
 
-fn padrao(periodo: f64, justif: u8) -> PadraoP {
+pub(super) fn padrao(periodo: f64, justif: u8) -> PadraoP {
     PadraoP {
         elementos: vec![elem(Some(0.012), 0.0)],
         periodo,
@@ -34,7 +34,7 @@ fn padrao(periodo: f64, justif: u8) -> PadraoP {
     }
 }
 
-fn config(postes: ParamPostes, padroes: Vec<PadraoP>) -> ConfigDistribuicao {
+pub(super) fn config(postes: ParamPostes, padroes: Vec<PadraoP>) -> ConfigDistribuicao {
     ConfigDistribuicao { altura: 1.1, postes, padroes, paineis: vec![], degraus: vec![], gerar_malha: false }
 }
 

@@ -317,8 +317,10 @@ export function balaustres(
       for (const dg of degraus) {
         const passo = (dg.prof - pd.distQuina) / q;
         for (let j = 0; j < q; j++) {
-          const s = dg.s0 + pd.distQuina + j * passo;
-          if (s < -EPS_S || s > p.total + EPS_S || colide(ps, s, meiaPd, 0, p.total + 1)) continue;
+          const s0 = dg.s0 + pd.distQuina + j * passo;
+          if (s0 < -0.005 || s0 > p.total + 0.005) continue;
+          const s = Math.min(Math.max(s0, 0), p.total);
+          if (colide(ps, s, meiaPd, 0, p.total + 1)) continue;
           colocar(s, -1, dg.z, amostra(p, s).z + pad.hTopo, 0);
         }
       }

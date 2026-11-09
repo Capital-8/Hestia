@@ -1,6 +1,6 @@
 /**
  * Guarda-corpo, Fase 2 (decisão 0055): o adaptador TS monta as seções 60 a 81 e o Rust REAL as decodifica e confere as referências entre elas.
- * Roda só em `npm run test:wasm`. A única consulta ativa nesta fase é `guarda_caminhos`, que valida e devolve saídas vazias (a geometria é da Fase 3).
+ * Roda só em `npm run test:wasm`. A consulta `guarda_caminhos` valida e devolve as cadeias (Fase 3a); a paridade com a referência TS está em `kernel-gc3a.wasm.test.ts`.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { ProjectStore, type GuardaCorpo } from '@hestia/model';
@@ -51,7 +51,7 @@ describe('guarda-corpo, Fase 2: seções no Rust real', () => {
     const { cena } = criar(c);
     const saidas = consultar(cena);
     expect(Object.keys(saidas)).toEqual(['trechos', 'nos', 'avisos', 'valores']);
-    for (const s of Object.values(saidas)) expect(s.length).toBe(0);
+    expect(saidas['trechos']!.length).toBeGreaterThan(0);
     cena.destruir();
   });
 
@@ -71,14 +71,14 @@ describe('guarda-corpo, Fase 2: seções no Rust real', () => {
     const d = sincronizarCenaGC(cena, a, b);
     atual.c = b;
     expect(d.map((x) => x.secao).sort()).toEqual(['escada_espelhos_gc', 'escadas_gc']);
-    expect(consultar(cena)['trechos']!.length).toBe(0);
+    expect(consultar(cena)['trechos']!.length).toBeGreaterThan(0);
     // Apagar o guarda-corpo da rampa e depois a rampa inteira da cena também fecha as referências.
     s.exec({ type: 'deleteGuardaCorpo', id: 'gc_r' });
     const c2 = montarCenaGC(s.project, { anterior: b });
     sincronizarCenaGC(cena, b, c2);
     atual.c = c2;
     expect(c2.nLinhas.rampas_gc).toBe(0);
-    expect(consultar(cena)['trechos']!.length).toBe(0);
+    expect(consultar(cena)['trechos']!.length).toBeGreaterThan(0);
     cena.destruir();
   });
 
@@ -105,7 +105,7 @@ describe('guarda-corpo, Fase 2: seções no Rust real', () => {
     n['n_flags'] = n['n_flags']!.map((f) => f | (1 << 26));
     expect(codigoDe(() => cena.definirSecao('normas_guarda', n, c.nLinhas.normas_guarda))).toBe(CODIGOS.ENTRADA);
     // A cena continua válida depois das recusas.
-    expect(consultar(cena)['trechos']!.length).toBe(0);
+    expect(consultar(cena)['trechos']!.length).toBeGreaterThan(0);
     cena.destruir();
   });
 
@@ -119,7 +119,7 @@ describe('guarda-corpo, Fase 2: seções no Rust real', () => {
     g.hospedeiro.caminho = g.hospedeiro.caminho.slice(0, 512);
     cena.destruir();
     const ok = criar(montarCenaGC(p));
-    expect(consultar(ok.cena)['trechos']!.length).toBe(0);
+    expect(consultar(ok.cena)['trechos']!.length).toBeGreaterThan(0);
     ok.cena.destruir();
   });
 
@@ -130,7 +130,7 @@ describe('guarda-corpo, Fase 2: seções no Rust real', () => {
     expect(ID_AUSENTE_GC).toBe(0xffffffff);
     const { cena } = criar(c);
     enviarCenaGC(cena, c);
-    expect(consultar(cena)['trechos']!.length).toBe(0);
+    expect(consultar(cena)['trechos']!.length).toBeGreaterThan(0);
     cena.destruir();
   });
 });

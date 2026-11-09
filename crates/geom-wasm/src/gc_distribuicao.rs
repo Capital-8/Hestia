@@ -12,6 +12,8 @@ use crate::gc_tipos::*;
 
 const EPS: f64 = 1e-9;
 const EPS_S: f64 = 1e-7;
+/// Quanto a quina de um degrau pode ficar fora da cadeia (m) e ainda contar (arco discretizado da Fase 3a).
+const TOL_PONTA_DEGRAU: f64 = 0.005;
 
 pub const AVISO_PADRAO_NAO_CABE: u8 = 1;
 pub const AVISO_PADRAO_COMPRIMIDO: u8 = 2;
@@ -593,7 +595,12 @@ pub fn balaustres(
                 let passo = (dg.profundidade - pad.por_degrau.dist_quina) / q as f64;
                 for j in 0..q {
                     let s = dg.s0 + pad.por_degrau.dist_quina + j as f64 * passo;
-                    if s < -EPS_S || s > perc.total + EPS_S || colide(postes, s, meia_pd, 0.0, perc.total + 1.0) {
+                    // A cadeia real é cortada nas quinas por projeção em arco discretizado: tolera 5 mm fora das pontas.
+                    if s < -TOL_PONTA_DEGRAU || s > perc.total + TOL_PONTA_DEGRAU {
+                        continue;
+                    }
+                    let s = s.clamp(0.0, perc.total);
+                    if colide(postes, s, meia_pd, 0.0, perc.total + 1.0) {
                         continue;
                     }
                     let a = perc.amostra(s);
@@ -1044,3 +1051,5 @@ fn juntar(m: &mut Malha, o: &Malha) {
 
 #[cfg(test)]
 mod testes;
+#[cfg(test)]
+mod real;
