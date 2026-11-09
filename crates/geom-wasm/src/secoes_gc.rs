@@ -1197,7 +1197,7 @@ mod testes {
     fn consulta_guarda_caminhos_valida_as_referencias() {
         use crate::cena::Cena;
         use crate::consultas::{executar, Saida};
-        use crate::esquema::{CONSULTA_GUARDA_CAMINHOS, CONSULTA_GUARDA_MALHA, NAO_IMPLEMENTADO};
+        use crate::esquema::{CONSULTA_GUARDA_CAMINHOS, CONSULTA_GUARDA_MALHA};
         let mut c = Cena::novo();
         c.gc = conjunto_completo();
         let r = executar(&mut c, CONSULTA_GUARDA_CAMINHOS, &[0.0, 1e-6]).expect("consulta");
@@ -1207,7 +1207,7 @@ mod testes {
         assert_eq!(executar(&mut c, CONSULTA_GUARDA_CAMINHOS, &[0.0]), Err(ENTRADA));
         c.gc.remover(SECAO_TIPOS_GUARDA, &[1]);
         assert_eq!(executar(&mut c, CONSULTA_GUARDA_CAMINHOS, &[0.0, 1e-6]), Err(ENTRADA));
-        assert_eq!(executar(&mut c, CONSULTA_GUARDA_MALHA, &[0.0, 1.0]), Err(NAO_IMPLEMENTADO), "o resto fica para as fases 3 e 4");
+        assert_eq!(executar(&mut c, CONSULTA_GUARDA_MALHA, &[0.0, 1.0]), Err(ENTRADA), "a malha tambem valida as referencias");
     }
 
     #[test]
