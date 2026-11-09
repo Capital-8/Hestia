@@ -844,3 +844,17 @@ Estado: **Fase 3c implementada** em `feat/gc-f3c` (a partir de `feat/gc-f2`). Ar
 11. **Perfil retangular.** `largura` ao longo do caminho e `altura` na lateral; polígono em coordenadas locais (`x` ao longo do caminho, `y` à esquerda), corrigido para anti-horário. Tampas por triangulação de orelhas.
 12. **Limite de 20 000** é checado dentro da distribuição (cada balaústre colocado), por guarda-corpo, via `restante`; o aviso do app vem da integração.
 13. **Validação com o caminho real da 3a** (`gc_distribuicao/real.rs`): lance de 11 espelhos, patamar e caracol montados nas tabelas, cadeias vindas de `guarda_caminhos`. Como a 3a corta a cadeia nas quinas por projeção em arco discretizado, a quina de um degrau pode cair até 5 mm fora da cadeia: o `porDegrau` aceita isso e prende a posição às pontas (acima de 5 mm descarta).
+
+---
+
+## 18. Registro das Fases 4a e 4b (`feat/gc-f4`)
+
+**4a (Rust).** `gc_planta.rs`, `gc_corte.rs`, `gc_quant.rs` e `gc_avisos.rs` implementam a lógica pura de `guarda_planta`, `guarda_corte`, `quant_guarda` e das medidas de `guarda_avisos`, sobre a `CadeiaGC` e sobre `PecaGC` (peça lógica definida em `gc_planta.rs`). `cadeia_de_saida` converte a saída real de `guarda_caminhos` (3a) em `CadeiaGC`; há teste com o caminho real.
+- **Ainda não ligadas a `executar`.** As consultas 62 a 65 seguem `NAO_IMPLEMENTADO` até a 3b/3c entregarem as peças reais (balaústres, postes, trilhos). Ligar é só montar `Vec<PecaGC>` e chamar `achatar_*`.
+- Estilo de planta e corte é por peça, não por segmento: peça que cruza o plano sai inteira como cortada. Eixo sai com papel 255.
+- Corte: normal esquerda de `(dx, dy)` é o lado visível; elevação é o corte com plano fora da edificação e profundidade grande. `poligonos` = `[guarda, papel, n, s, z, ...]`.
+- Códigos de `guarda_avisos`: 1 vão grande, 2 vão inferior, 3 altura do corrimão, 4 extensão, 5 altura baixa (`CODIGO_AVISO_GC` no TS).
+
+**4b (TS).** `guardaCorpoQuantities.ts`, `guardaCorpoIssues.ts` (mensagens pt/en locais, os outros idiomas caem em pt, para não mexer no dicionário `egb_` espelhado no app), `guardaCorpoRef/avisos.ts` (esfera), `ifc/ifcGuardaCorpo.ts` (um `IFCRAILING` por guarda-corpo, corrimões do tipo como `IFCRAILING` HANDRAIL agregados; postes, balaústres e painéis como partes ficam para quando houver malha, Fase 5; `Length` só no manual enquanto o kernel não devolver o comprimento).
+- **Requisito do dono (aparece, seleciona, isola/oculta).** Arquivo extra, fora da lista da 4b: `viewVisibility.ts` não mapeava `railing` em `categoriaDoElemento`; corrigido, então ocultar/isolar por categoria `railing` e por elemento vale em planta, corte/elevação e 3D pelo `visibilityOf()`. `guardaCorpoVista.ts` decodifica as linhas de planta/corte, aplica o conjunto `hidden` e escolhe o guarda-corpo sob o cursor; a Fase 5 só liga isso ao desenho e ao `pick`. Testes em `viewVisibility.guardaCorpo.test.ts`. O desenho em si (planta, 3D, corte) é a Fase 5.
+- Mesclada `origin/feat/gc-f3a`; wasm regenerado e `--check` ok.
