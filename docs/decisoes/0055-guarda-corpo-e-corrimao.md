@@ -934,3 +934,20 @@ Fecha três limites da §21 (item 3), todos em `gc_montagem.rs` e `gc_quant.rs`;
 2. **Filete nos trilhos.** O modelo e a seção 72 não têm campo de filete para o trilho (`juncaoAngular` é `segmento-vertical` ou `nenhum`), e a §5.8 define o raio só no corrimão. Escolha: se o tipo tem um corrimão com `juncao: filete` e `raioFilete > 0`, os trilhos usam o raio do primeiro; o filete tem precedência sobre a solda. Mesmo limite de tangente (metade do menor segmento) e flecha `tolCorda`.
 3. **Suporte "alinhar com postes".** A montagem guarda as posições (x, y) dos postes de cada trecho (saída da 3c) e projeta cada uma no caminho do corrimão varrido; as distâncias desenvolvidas, ordenadas e sem repetição (1 µm), vão para `posicoes_suportes`. Assim a posição acompanha extensões e filete.
 4. **Área líquida.** `fracao_aberta`: perfurada = `π d² / 4 / (passoX · passoY)` (vale também alternado, quincôncio); tela = `(larguraMalha − fio)(alturaMalha − fio) / (larguraMalha · alturaMalha)`; limite de 0,99. A peça de painel guarda a seção já descontada (`area_secao`) e `quant_guarda` deriva a área lateral e o volume líquidos. A área projetada (silhueta em elevação) continua bruta. A malha 3D não muda (sólido `simplificado`).
+
+## 23. Decisões do dono e ajustes finais (2026-11-10)
+
+1. **Inverter (`inverter`).** Inverter muda só a orientação: o início vira fim e o fim vira início. A forma e o lado não mudam, inclusive no caminho manual (lados 0, 1 e 2 e o fechado continuam iguais). Isto **substitui** o trecho da §4.2 (comentário do campo `inverter`) que dizia que, no manual, inverter trocava o lado "esquerdo".
+
+2. **Verificação permanente.** `invariantes_do_guarda_corpo_sentido_normal_e_invertido` (`crates/geom-wasm/src/gc_caminho_testes.rs`) monta cada caso no sentido normal e no invertido e confere: nenhuma peça cruza o caminho em nenhum dos dois sentidos; o número de peças lógicas por papel é igual; a quantidade por papel é igual; o volume bate (tolerância de 0,1%) e o lado médio bate (1%). Casos: reta com escada, lance-patamar-lance, U com patamar de giro, caracol, rampa com patamar, manual aberto com lados 0, 1 e 2, e manual fechado.
+
+3. **Desempenho.**
+   - O lote 3D do guarda-corpo tem chave própria (`chavesDeGuardaCorpo`, `packages/render/src/model3d/chaveNivel3d.ts`). Editar paredes, lajes ou o resto do nível não refaz esse lote, e a visibilidade dos guarda-corpos entra só na chave deles.
+   - Camada própria na planta: em andamento.
+   - `ServicoGuardaCorpo` (`packages/engine/src/kernelGuardaCorpoServico.ts`) descarta a memória só quando a diferença enviada ao kernel não é vazia. Projeto novo com as seções idênticas mantém malhas, linhas, quantidades e avisos.
+
+4. **Família padrão.** Nos tipos metálico, madeira, cabo, tela e chapa perfurada, a travessa inferior (trilho) fica a 0,08 m do piso (`ALTURA_TRAVESSA_INFERIOR` em `packages/model/src/guardaCorpo.ts`). Balaústres e painéis de cabo, tela e chapa nascem nela. Vidro e corrimão de parede ficam como estavam.
+
+5. **Painel e ferramenta.** Seguem `docs/contratos/familias-e-ferramentas.md`: o painel `GuardaCorpoProperties.tsx` abre com `TypeSelector` e "Editar tipo" (regra 2), e a ferramenta `guardaCorpoTool.ts` traça pelo núcleo comum `desenhoPolilinha.ts` (regra 1). Os testes-guarda `contratoPaineisFamilia.test.ts` e `contratoFerramentas.test.ts` cobrem os dois.
+
+6. **Avisos de geometria degenerada.** Em andamento, ainda não entregues.
