@@ -2,6 +2,7 @@ import { add, dot, intersection, mul, norm, perp, sub, type Polygon, type Ring, 
 import type { Id, Project } from '@hestia/model';
 import { stairArrivalTop } from './stairArrival.ts';
 import { stairBody, type StairBodyPiece } from './stairBody.ts';
+import { stairFinishModel } from './stairFinish.ts';
 import type { ResolvedStair, ResolvedStairRiser } from './stairs.ts';
 import type { SectionBeyond } from './section.ts';
 import { prismSnapRings, type SectionSnapRing } from './sectionSnapRings.ts';
@@ -33,6 +34,8 @@ export interface StairBlock {
   ring: Ring;
   z0: number;
   z1: number;
+  /** Material do bloco; ausente = o do tipo (estrutura). Os acabamentos têm o próprio. */
+  materialId?: Id;
 }
 
 /**
@@ -157,6 +160,8 @@ export function sectionOfStairs(stairs: ResolvedStair[], line: SectionLine, p: P
       }
     }
     blocks.push(...riserBoards(s.risers, s.type.riserThickness));
+    // Acabamentos (piso com bocel e espelho): blocos de cota constante, cada um no seu material.
+    for (const f of stairFinishModel(s)?.solids ?? []) blocks.push({ ring: f.polygon, z0: f.z0, z1: f.z1, materialId: f.materialId });
 
     for (const b of blocks) {
       // Corte: cada intervalo que a linha atravessa vira um retângulo (t × z) do material do tipo.
@@ -164,7 +169,7 @@ export function sectionOfStairs(stairs: ResolvedStair[], line: SectionLine, p: P
         const lo = Math.max(0, t0);
         const hi = Math.min(length, t1);
         if (hi - lo < EPS_T) continue;
-        out.cut.push({ materialId, polygon: [rect(lo, hi, b.z0, b.z1)], stairId: s.id });
+        out.cut.push({ materialId: b.materialId ?? materialId, polygon: [rect(lo, hi, b.z0, b.z1)], stairId: s.id });
         out.snapRings.push({ hostId: s.id, ring: rect(lo, hi, b.z0, b.z1) });
         grow(b.z0, b.z1);
       }
@@ -179,7 +184,7 @@ export function sectionOfStairs(stairs: ResolvedStair[], line: SectionLine, p: P
         out.snapRings.push(...prismSnapRings(s.id, outer, along, () => b.z1, () => b.z0));
         out.beyond.push({
           stairId: s.id,
-          materialId,
+          materialId: b.materialId ?? materialId,
           layerIndex: 0,
           depth: Math.max(0, Math.min(...outer.map(dist2))),
           polygons: [[rect(tMin, tMax, b.z0, b.z1)]],

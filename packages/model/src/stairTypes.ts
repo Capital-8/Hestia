@@ -239,4 +239,70 @@ export interface StairType {
   materialId: Id;
   /** Custo informativo (em reais). 0 quando não informado. */
   cost: number;
+  /**
+   * Acabamento do PISO do degrau (revestimento sobre a estrutura): ligado/desligado, material e espessura (m). Campo
+   * ausente (tipos de projetos antigos) = desligado. Só vale nos estilos monolítico e poste (no montado, piso e espelho
+   * do tipo já são o acabamento). Ver `stairFinishOf`.
+   */
+  treadFinishEnabled?: boolean;
+  treadFinishMaterialId?: Id;
+  treadFinishThickness?: number;
+  /** Acabamento do ESPELHO (mesma regra do piso; não existe no estilo poste, que não tem espelho). */
+  riserFinishEnabled?: boolean;
+  riserFinishMaterialId?: Id;
+  riserFinishThickness?: number;
+  /**
+   * Bocel: ressalto do piso acabado sobre a face acabada do espelho. Ausente = ligado, com `bocelProjection` (padrão
+   * 0,02 m). Só tem efeito com o acabamento do piso ligado; faz parte do mesmo sólido do piso e não muda a planta.
+   */
+  bocelEnabled?: boolean;
+  /** Projeção do bocel (m). */
+  bocelProjection?: number;
+}
+
+/** Valores padrão dos acabamentos de um tipo novo (desligados; bocel ligado com 2 cm). */
+export const DEFAULT_STAIR_FINISH = {
+  treadFinishEnabled: false,
+  treadFinishMaterialId: 'mat_ceramica',
+  treadFinishThickness: 0.015,
+  riserFinishEnabled: false,
+  riserFinishMaterialId: 'mat_ceramica',
+  riserFinishThickness: 0.01,
+  bocelEnabled: true,
+  bocelProjection: 0.02,
+} as const;
+
+/** Acabamentos do tipo, já com os padrões aplicados. `treadOn`/`riserOn` só valem com espessura positiva. */
+export interface StairFinish {
+  treadOn: boolean;
+  treadThickness: number;
+  treadMaterialId: Id;
+  riserOn: boolean;
+  riserThickness: number;
+  riserMaterialId: Id;
+  /** Bocel efetivo (m): 0 se desligado ou se o piso acabado está desligado. */
+  bocel: number;
+}
+
+/**
+ * Acabamentos efetivos de um tipo de escada. Campos ausentes = desligado (migração sem mudar a versão do esquema).
+ * Estilo montado: sempre desligado (piso e espelho do tipo já são o acabamento). Poste: sem espelho, só piso.
+ */
+export function stairFinishOf(type: StairType): StairFinish {
+  const d = DEFAULT_STAIR_FINISH;
+  const applies = type.runStyle === 'monolithic' || type.runStyle === 'post';
+  const tt = Math.max(0, type.treadFinishThickness ?? d.treadFinishThickness);
+  const rt = Math.max(0, type.riserFinishThickness ?? d.riserFinishThickness);
+  const treadOn = applies && type.treadFinishEnabled === true && tt > 0;
+  const riserOn = applies && type.runStyle !== 'post' && type.riserFinishEnabled === true && rt > 0;
+  const bocelOn = type.bocelEnabled ?? d.bocelEnabled;
+  return {
+    treadOn,
+    treadThickness: treadOn ? tt : 0,
+    treadMaterialId: type.treadFinishMaterialId ?? d.treadFinishMaterialId,
+    riserOn,
+    riserThickness: riserOn ? rt : 0,
+    riserMaterialId: type.riserFinishMaterialId ?? d.riserFinishMaterialId,
+    bocel: treadOn && bocelOn ? Math.max(0, type.bocelProjection ?? d.bocelProjection) : 0,
+  };
 }

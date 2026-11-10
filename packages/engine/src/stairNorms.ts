@@ -26,6 +26,8 @@ export interface StairNorms {
   /** Leque (decisão 0011 §1 item 10): piso medido a `winderTreadAt` m da borda interna, mínimo `winderTreadMin` (m). */
   winderTreadAt: number;
   winderTreadMin: number;
+  /** Bocel (acabamento do piso): projeção acima da qual há aviso (m). Configurável; nunca bloqueia. */
+  nosingProjectionMax: number;
 }
 
 export const DEFAULT_STAIR_NORMS: StairNorms = {
@@ -42,4 +44,5 @@ export const DEFAULT_STAIR_NORMS: StairNorms = {
   spiralNarrowMin: 0.07,
   winderTreadAt: 0.55,
   winderTreadMin: 0.28,
+  nosingProjectionMax: 0.015,
 };

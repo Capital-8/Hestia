@@ -116,6 +116,10 @@ const PT = {
     'O lance sobe {rise} m sem patamar; o máximo entre patamares é {max} m.',
   egb_issue_stair_landing_small:
     'O patamar tem menor dimensão de {w} m, abaixo do mínimo de {min} m.',
+  egb_issue_stair_bocel:
+    'O bocel projeta {v} cm sobre o espelho, acima do recomendado de {max} cm (norma de escadas).',
+  egb_issue_stair_finish_thick:
+    'O acabamento do piso ({tp} cm) não cabe na estrutura ({st} cm): a estrutura do degrau fica sem espessura.',
   egb_issue_stair_spiral_egress:
     'Escada caracol não serve de saída de emergência (RS: RT 11 5.7.1.2; SP: só mezanino e área privativa).',
   egb_issue_stair_spiral_tread:
@@ -372,6 +376,10 @@ const EN: Record<DictKey, string> = {
     'The flight rises {rise} m without a landing; the maximum between landings is {max} m.',
   egb_issue_stair_landing_small:
     'The landing has a smallest dimension of {w} m, below the minimum of {min} m.',
+  egb_issue_stair_bocel:
+    'The nosing projects {v} cm over the riser, above the recommended {max} cm (stair code).',
+  egb_issue_stair_finish_thick:
+    'The tread finish ({tp} cm) does not fit in the structure ({st} cm): the step structure is left with no thickness.',
   egb_issue_stair_spiral_egress:
     'A spiral stair cannot serve as an emergency exit (RS: RT 11 5.7.1.2; SP: mezzanine and private area only).',
   egb_issue_stair_spiral_tread:

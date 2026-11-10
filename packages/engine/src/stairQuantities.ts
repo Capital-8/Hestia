@@ -1,6 +1,7 @@
 import { dist, multiArea, ringArea, type Vec2 } from '@hestia/geom';
 import type { Id, StairRunStyle } from '@hestia/model';
 import { pieceVolume, stairBody, type StairBodyPiece } from './stairBody.ts';
+import { stairFinishQuantities } from './stairFinish.ts';
 import type { ResolvedStair, ResolvedStairRiser, ResolvedStairStep } from './stairs.ts';
 
 /** Quantitativos de um lance (componente de tipo lance, agrupado pelo índice do componente). */
@@ -61,8 +62,16 @@ export interface StairQuantities {
   postPlanArea: number;
   /** Volume total (metros cúbicos): degraus + espelhos + patamares + poste. */
   volume: number;
-  /** Volume por material (metros cúbicos). Degraus, patamares e espelhos no material do tipo; poste no `postMaterialId`. */
+  /** Volume por material (metros cúbicos). Degraus, patamares e espelhos no material do tipo; poste no `postMaterialId`; acabamentos nos seus materiais. */
   volumeByMaterial: Record<Id, number>;
+  /** Acabamento do piso: área em planta do piso acabado, com o bocel (metros quadrados). 0 sem acabamento. */
+  treadFinishArea: number;
+  /** Acabamento do espelho: comprimento × altura dos espelhos acabados (metros quadrados). 0 sem acabamento. */
+  riserFinishArea: number;
+  /** Bocel: comprimento total da aresta com ressalto (m). 0 sem acabamento do piso ou com o bocel desligado. */
+  bocelLength: number;
+  /** Volume dos acabamentos (metros cúbicos), já somado em `volume` e em `volumeByMaterial`. */
+  volumeFinish: number;
   runs: StairRunQuantity[];
 }
 
@@ -109,6 +118,13 @@ export function stairQuantities(s: ResolvedStair): StairQuantities {
   const volumeByMaterial: Record<Id, number> = {};
   volumeByMaterial[s.type.materialId] = volumeRun + volumeRisers + volumeLandings;
   if (post) volumeByMaterial[s.type.postMaterialId] = (volumeByMaterial[s.type.postMaterialId] ?? 0) + volumePost;
+  // Acabamentos: sólidos próprios, nos materiais deles. A estrutura (acima) já perdeu a espessura que eles ocupam.
+  const finish = stairFinishQuantities(s);
+  let volumeFinish = 0;
+  for (const [m, v] of Object.entries(finish.volumeByMaterial)) {
+    volumeByMaterial[m] = (volumeByMaterial[m] ?? 0) + v;
+    volumeFinish += v;
+  }
 
   return {
     stairId: s.id,
@@ -128,8 +144,12 @@ export function stairQuantities(s: ResolvedStair): StairQuantities {
     volumeLandings,
     volumePost,
     postPlanArea,
-    volume: volumeRun + volumeRisers + volumeLandings + volumePost,
+    volume: volumeRun + volumeRisers + volumeLandings + volumePost + volumeFinish,
     volumeByMaterial,
+    treadFinishArea: finish.treadArea,
+    riserFinishArea: finish.riserArea,
+    bocelLength: finish.bocelLength,
+    volumeFinish,
     runs,
   };
 }

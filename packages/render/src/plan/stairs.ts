@@ -1,6 +1,6 @@
 import { add, difference, dist, dot, intersection, lerp, mul, multiArea, norm, perp, pointInMulti, rotate, sub, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
-import { sampleChain, spiralParamsOf, stairArrivalFrame, stairArrivalTop, type ResolvedStair, type ResolvedStairRiser, type ResolvedStairStep, type SpiralParams } from '@hestia/engine';
-import { isStair, unitsOf, type DetailLevel, type Id, type Project } from '@hestia/model';
+import { sampleChain, spiralParamsOf, stairArrivalFrame, stairArrivalTop, stairFinishModel, type ResolvedStair, type ResolvedStairRiser, type ResolvedStairStep, type SpiralParams } from '@hestia/engine';
+import { isStair, stairFinishOf, unitsOf, type DetailLevel, type Id, type Project } from '@hestia/model';
 import type { Viewport } from '../viewport.ts';
 import { mix } from './color.ts';
 import { labelPoint, outlineSelectionOps, type FloorOps } from './floors.ts';
@@ -366,6 +366,10 @@ export function stairFills(
     // de chegada é o piso do nível e a planta termina no último espelho.
     const arrival = stairArrivalTop(p, s);
     const post = postOps(p, s, spirals, cutZ, fillBase, dark, lineColor, paint);
+    // Acabamentos (piso e espelho): o modelo só existe com algum ligado; cada um pinta no material próprio.
+    const finish = stairFinishModel(s);
+    const finCfg = stairFinishOf(s.type);
+    const finishColor = (on: boolean, id: Id): string | null => (finish && on ? surfaceColor(p.materials[id]?.color ?? '#999999', fillBase, dark ? 0.42 : 0.74, paint) : null);
     const inView = (z: number): boolean => z <= viewTop + 1e-9;
     if (detail === 'coarse') {
       const seen = steps.filter((st) => inView(st.z));
@@ -381,8 +385,14 @@ export function stairFills(
     for (const st of steps) {
       const fill = !inView(st.z) ? null : st.z > cutZ + EPS ? aboveFill(st.polygon, cover) : [[st.polygon]];
       if (fill) out.fills.push({ polygons: fill, color, alpha: 1 });
+      // Acabamento do piso: o material próprio por cima da estrutura, na mesma região (o bocel não muda a planta).
+      const tf = finishColor(finCfg.treadOn, finCfg.treadMaterialId);
+      if (fill && tf) out.fills.push({ polygons: fill, color: tf, alpha: 1 });
       out.strokes.push(outlineOps(st.polygon, st.z, lineColor, cutZ, projecao));
     }
+    // Acabamento do espelho: a faixa do espelho acabado, no material dele (só onde o espelho está dentro da vista).
+    const rf = finishColor(finCfg.riserOn, finCfg.riserMaterialId);
+    if (rf) for (const f of finish!.solids) if (f.kind === 'riser' && f.z1 <= topZ + 1e-9 && inView(f.z1)) out.fills.push({ polygons: [[f.polygon]], color: rf, alpha: 1 });
     const last = arrival.covered ? null : arrivalRing(s);
     if (last) {
       if (inView(s.topZ)) out.fills.push({ polygons: [[last]], color, alpha: 1 });
