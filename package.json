@@ -20,6 +20,7 @@
     "e2e": "node tests/e2e/flow.mjs",
     "test:responsivo": "node tests/e2e/responsivo.mjs --strict",
     "test:visual": "node tests/e2e/escadas.mjs && node tests/e2e/vista-planta.mjs && node tests/e2e/escadas-closeup.mjs",
+    "test:vistas-ouro": "node scripts/vistas-ouro.mjs",
     "build:artifact": "npm run build && node scripts/make-artifact.mjs",
     "parity": "node scripts/check-parity.mjs --report",
     "test:rapido": "vitest run --exclude \"**/property.test.ts\" --exclude \"**/*perf.test.ts\"",
