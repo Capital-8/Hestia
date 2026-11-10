@@ -574,3 +574,17 @@ Na Fase 2, `Project.planViews` **tem de ficar fora** da assinatura global de geo
 `assinaturaGeometriaGlobal` de `assinaturasVista.ts`); o que depende da vista usa `assinaturaDeVista(p, viewId)`.
 Sem isso, cada cota editada refaria a malha 3D e os cortes. O corte e o 3D que dependem de ocultos/gráficos próprios
 continuam com as suas chaves atuais.
+
+### 10.4 Insumos da raia B para a Fase 2 (desenho)
+
+1. **Etiquetas de elemento na planta de área:** hoje a planta de área desenha as etiquetas (`ElementTag`) **do
+   nível** além das próprias, mesmo quando tem conjunto próprio (`packages/render/src/plan/build.ts`, chamada de
+   `elementTagOps` com `floorViewId`). Na migração, para o ouro sair idêntico, a vista de área recebe cópia das
+   etiquetas do nível (id `<idOriginal>__<idDaVista>`) nas mesmas condições em que o código atual as desenha — o
+   agente da Fase 2 lê a condição exata no código e a transcreve. Depois disso o desenho lê só a vista.
+2. Pontos que ainda escrevem no nível de um projeto derivado e precisam passar a escrever na vista:
+   `plan/planContext.ts` (`semAnotacoesOcultas`) e `sheet/viewports.ts` (`withSheetScale`, grava a escala em
+   `level.graphics`).
+3. Parâmetros opcionais `viewId` acrescentados na Fase 1 (`planViewOf` do render, `planStyleOf`, `drawnAnnotations`,
+   `noteOps`, `planGeometrySelection`, `elementTagOps`) viram obrigatórios na Fase 2, e `PlanInput` passa a carregar
+   `viewId` no lugar de `levelId` + `areaPlan` + `roofPlanMode`.
