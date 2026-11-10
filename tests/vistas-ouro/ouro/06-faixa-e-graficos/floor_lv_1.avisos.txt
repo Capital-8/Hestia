@@ -1,0 +1,5 @@
+[0].category = "slab"
+[0].count = 1
+[0].ids = ["L-P2-01"]
+[0].kind = "hidden"
+[0].message = "1 laje fora do intervalo de vista."

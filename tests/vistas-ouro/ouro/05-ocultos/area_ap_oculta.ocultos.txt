@@ -1,0 +1,2 @@
+alcanceECategoria = []
+usuario = ["F-T-01","F-T-02","dm_prem_a","r_jantar"]
