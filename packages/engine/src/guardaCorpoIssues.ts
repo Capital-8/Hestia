@@ -1,4 +1,4 @@
-import { isGuardaCorpo, normaDe, type GuardaCorpo, type Id, type LimitesNormaGC, type PerfilNorma, type Project, type TipoGuardaCorpo } from '@hestia/model';
+import { isGuardaCorpo, normaDe, type GuardaCorpo, type Id, type LimitesNormaGC, type PerfilNorma, type Project, type TipoGuardaCorpo, type ValidationIssue } from '@hestia/model';
 import type { Lang } from './i18nMessages.ts';
 
 /** Aviso de guarda-corpo (molde de `StairIssueItem`). Nunca bloqueia; 'error' só para modelo inválido. */
@@ -31,6 +31,130 @@ export const CODIGO_AVISO_GC: Record<number, string> = {
   3: 'gc-corrimao-altura',
   4: 'gc-corrimao-extensao',
   5: 'gc-altura-baixa',
+  // Geometria degenerada (ADR 0055, §23): o texto não depende de norma.
+  6: 'gc-hospedeiro-descontinuo',
+  7: 'gc-deslocamento-excede-largura',
+  8: 'gc-trecho-curto',
+  9: 'gc-caminho-repetido',
+  10: 'gc-caminho-nulo',
+  11: 'gc-sem-borda',
+  12: 'gc-perfil-auto-intersecta',
+  13: 'gc-padrao-nao-cabe',
+  14: 'gc-padrao-comprimido',
+  15: 'gc-vao-sem-espaco',
+  16: 'gc-poste-sobra-curta',
+};
+
+/** Códigos de geometria degenerada: nunca bloqueiam e não têm limite de norma (sem "a conferir"). */
+export const CODIGOS_GEOMETRIA_GC = [
+  'gc-hospedeiro-descontinuo',
+  'gc-deslocamento-excede-largura',
+  'gc-trecho-curto',
+  'gc-caminho-repetido',
+  'gc-caminho-nulo',
+  'gc-sem-borda',
+  'gc-perfil-auto-intersecta',
+  'gc-padrao-nao-cabe',
+  'gc-padrao-comprimido',
+  'gc-vao-sem-espaco',
+  'gc-poste-sobra-curta',
+] as const;
+export type CodigoGeometriaGC = (typeof CODIGOS_GEOMETRIA_GC)[number];
+const EH_GEOMETRIA = new Set<string>(CODIGOS_GEOMETRIA_GC);
+
+// Textos dos avisos de geometria nos sete idiomas. {medido} e {limite} vêm do Rust (metros; no `gc-caminho-repetido`, a contagem).
+const GEO: Record<Lang, Record<CodigoGeometriaGC, string>> = {
+  pt: {
+    'gc-hospedeiro-descontinuo': 'O hospedeiro tem uma folga de {medido} m entre dois trechos (tolerância {limite} m): o guarda-corpo foi aberto em dois caminhos.',
+    'gc-deslocamento-excede-largura': 'O deslocamento de {medido} m passa da largura disponível: este trecho não foi desenhado.',
+    'gc-trecho-curto': 'O trecho é curto demais ({medido} m) e vira um ponto: não foi desenhado.',
+    'gc-caminho-repetido': 'O caminho manual tem {medido} vértice(s) repetido(s): foram ignorados.',
+    'gc-caminho-nulo': 'O caminho manual não tem segmento (menos de dois vértices distintos): nada foi desenhado.',
+    'gc-sem-borda': 'O hospedeiro não tem borda no lado pedido: nada foi desenhado nesse lado.',
+    'gc-perfil-auto-intersecta': 'Curva apertada: o perfil recua {medido} m por dentro e o menor segmento tem {limite} m; as peças podem se sobrepor.',
+    'gc-padrao-nao-cabe': 'O padrão de balaústres não cabe no vão de {medido} m: só entram os elementos que cabem.',
+    'gc-padrao-comprimido': 'O período do padrão foi comprimido para {medido} m, menos da metade do pedido.',
+    'gc-vao-sem-espaco': 'O vão de {medido} m não tem espaço para balaústres nem painel.',
+    'gc-poste-sobra-curta': 'A sobra de {medido} m no fim do trecho é curta demais para um poste.',
+  },
+  en: {
+    'gc-hospedeiro-descontinuo': 'The host has a {medido} m gap between two segments (tolerance {limite} m): the railing was split into two paths.',
+    'gc-deslocamento-excede-largura': 'The {medido} m offset exceeds the available width: this segment was not drawn.',
+    'gc-trecho-curto': 'The segment is too short ({medido} m) and collapses to a point: it was not drawn.',
+    'gc-caminho-repetido': 'The manual path has {medido} repeated vertex(es): they were ignored.',
+    'gc-caminho-nulo': 'The manual path has no segment (fewer than two distinct vertices): nothing was drawn.',
+    'gc-sem-borda': 'The host has no edge on the requested side: nothing was drawn on that side.',
+    'gc-perfil-auto-intersecta': 'Tight bend: the profile recedes {medido} m on the inside and the shortest segment is {limite} m; the parts may overlap.',
+    'gc-padrao-nao-cabe': 'The baluster pattern does not fit the {medido} m bay: only the elements that fit are placed.',
+    'gc-padrao-comprimido': 'The pattern period was squeezed to {medido} m, less than half of the requested one.',
+    'gc-vao-sem-espaco': 'The {medido} m bay has no room for balusters or a panel.',
+    'gc-poste-sobra-curta': 'The {medido} m left at the end of the segment is too short for a post.',
+  },
+  es: {
+    'gc-hospedeiro-descontinuo': 'El anfitrión tiene una holgura de {medido} m entre dos tramos (tolerancia {limite} m): la barandilla se abrió en dos caminos.',
+    'gc-deslocamento-excede-largura': 'El desplazamiento de {medido} m supera el ancho disponible: este tramo no se dibujó.',
+    'gc-trecho-curto': 'El tramo es demasiado corto ({medido} m) y se reduce a un punto: no se dibujó.',
+    'gc-caminho-repetido': 'El camino manual tiene {medido} vértice(s) repetido(s): se ignoraron.',
+    'gc-caminho-nulo': 'El camino manual no tiene segmento (menos de dos vértices distintos): no se dibujó nada.',
+    'gc-sem-borda': 'El anfitrión no tiene borde en el lado pedido: no se dibujó nada en ese lado.',
+    'gc-perfil-auto-intersecta': 'Curva cerrada: el perfil retrocede {medido} m por dentro y el segmento más corto mide {limite} m; las piezas pueden superponerse.',
+    'gc-padrao-nao-cabe': 'El patrón de balaustres no cabe en el vano de {medido} m: solo entran los elementos que caben.',
+    'gc-padrao-comprimido': 'El período del patrón se comprimió a {medido} m, menos de la mitad del pedido.',
+    'gc-vao-sem-espaco': 'El vano de {medido} m no tiene espacio para balaustres ni panel.',
+    'gc-poste-sobra-curta': 'Los {medido} m que sobran al final del tramo son demasiado cortos para un poste.',
+  },
+  de: {
+    'gc-hospedeiro-descontinuo': 'Das Trägerbauteil hat {medido} m Lücke zwischen zwei Abschnitten (Toleranz {limite} m): das Geländer wurde in zwei Pfade geteilt.',
+    'gc-deslocamento-excede-largura': 'Der Versatz von {medido} m überschreitet die verfügbare Breite: dieser Abschnitt wurde nicht gezeichnet.',
+    'gc-trecho-curto': 'Der Abschnitt ist zu kurz ({medido} m) und wird zu einem Punkt: er wurde nicht gezeichnet.',
+    'gc-caminho-repetido': 'Der manuelle Pfad hat {medido} doppelte(n) Eckpunkt(e): sie wurden ignoriert.',
+    'gc-caminho-nulo': 'Der manuelle Pfad hat kein Segment (weniger als zwei verschiedene Eckpunkte): es wurde nichts gezeichnet.',
+    'gc-sem-borda': 'Das Trägerbauteil hat auf der gewünschten Seite keine Kante: auf dieser Seite wurde nichts gezeichnet.',
+    'gc-perfil-auto-intersecta': 'Enge Kurve: das Profil weicht innen um {medido} m zurück und das kürzeste Segment misst {limite} m; die Teile können sich überschneiden.',
+    'gc-padrao-nao-cabe': 'Das Stabmuster passt nicht in das Feld von {medido} m: nur die passenden Elemente werden gesetzt.',
+    'gc-padrao-comprimido': 'Die Musterperiode wurde auf {medido} m gestaucht, weniger als die Hälfte des Gewünschten.',
+    'gc-vao-sem-espaco': 'Das Feld von {medido} m hat keinen Platz für Stäbe oder Füllung.',
+    'gc-poste-sobra-curta': 'Der Rest von {medido} m am Ende des Abschnitts ist für einen Pfosten zu kurz.',
+  },
+  fr: {
+    'gc-hospedeiro-descontinuo': "L'hôte présente un jeu de {medido} m entre deux tronçons (tolérance {limite} m) : le garde-corps a été scindé en deux chemins.",
+    'gc-deslocamento-excede-largura': "Le décalage de {medido} m dépasse la largeur disponible : ce tronçon n'a pas été dessiné.",
+    'gc-trecho-curto': "Le tronçon est trop court ({medido} m) et se réduit à un point : il n'a pas été dessiné.",
+    'gc-caminho-repetido': 'Le chemin manuel compte {medido} sommet(s) répété(s) : ils ont été ignorés.',
+    'gc-caminho-nulo': "Le chemin manuel n'a aucun segment (moins de deux sommets distincts) : rien n'a été dessiné.",
+    'gc-sem-borda': "L'hôte n'a pas de bord du côté demandé : rien n'a été dessiné de ce côté.",
+    'gc-perfil-auto-intersecta': "Courbe serrée : le profil recule de {medido} m à l'intérieur et le plus petit segment mesure {limite} m ; les pièces peuvent se chevaucher.",
+    'gc-padrao-nao-cabe': 'Le motif de barreaux ne tient pas dans la travée de {medido} m : seuls les éléments qui tiennent sont posés.',
+    'gc-padrao-comprimido': 'La période du motif a été comprimée à {medido} m, moins de la moitié de la valeur demandée.',
+    'gc-vao-sem-espaco': "La travée de {medido} m n'a pas de place pour des barreaux ni un panneau.",
+    'gc-poste-sobra-curta': 'Les {medido} m restants en fin de tronçon sont trop courts pour un poteau.',
+  },
+  it: {
+    'gc-hospedeiro-descontinuo': "L'ospite ha un gioco di {medido} m tra due tratti (tolleranza {limite} m): il parapetto è stato aperto in due percorsi.",
+    'gc-deslocamento-excede-largura': 'Lo scostamento di {medido} m supera la larghezza disponibile: questo tratto non è stato disegnato.',
+    'gc-trecho-curto': 'Il tratto è troppo corto ({medido} m) e si riduce a un punto: non è stato disegnato.',
+    'gc-caminho-repetido': 'Il percorso manuale ha {medido} vertice/i ripetuto/i: sono stati ignorati.',
+    'gc-caminho-nulo': 'Il percorso manuale non ha segmenti (meno di due vertici distinti): non è stato disegnato nulla.',
+    'gc-sem-borda': "L'ospite non ha bordo sul lato richiesto: su quel lato non è stato disegnato nulla.",
+    'gc-perfil-auto-intersecta': "Curva stretta: il profilo arretra di {medido} m all'interno e il segmento più corto misura {limite} m; i pezzi possono sovrapporsi.",
+    'gc-padrao-nao-cabe': 'Il motivo dei balaustri non entra nella campata di {medido} m: entrano solo gli elementi che ci stanno.',
+    'gc-padrao-comprimido': 'Il periodo del motivo è stato compresso a {medido} m, meno della metà del richiesto.',
+    'gc-vao-sem-espaco': 'La campata di {medido} m non ha spazio per balaustri né pannello.',
+    'gc-poste-sobra-curta': 'I {medido} m avanzati a fine tratto sono troppo corti per un montante.',
+  },
+  pl: {
+    'gc-hospedeiro-descontinuo': 'Element nośny ma przerwę {medido} m między dwoma odcinkami (tolerancja {limite} m): balustradę podzielono na dwie ścieżki.',
+    'gc-deslocamento-excede-largura': 'Przesunięcie {medido} m przekracza dostępną szerokość: ten odcinek nie został narysowany.',
+    'gc-trecho-curto': 'Odcinek jest zbyt krótki ({medido} m) i zamienia się w punkt: nie został narysowany.',
+    'gc-caminho-repetido': 'Ścieżka ręczna ma {medido} powtórzonych wierzchołków: zostały pominięte.',
+    'gc-caminho-nulo': 'Ścieżka ręczna nie ma odcinka (mniej niż dwa różne wierzchołki): nic nie narysowano.',
+    'gc-sem-borda': 'Element nośny nie ma krawędzi po żądanej stronie: po tej stronie nic nie narysowano.',
+    'gc-perfil-auto-intersecta': 'Ciasny łuk: profil cofa się o {medido} m od wewnątrz, a najkrótszy odcinek ma {limite} m; elementy mogą się nakładać.',
+    'gc-padrao-nao-cabe': 'Wzór tralek nie mieści się w przęśle {medido} m: umieszczono tylko mieszczące się elementy.',
+    'gc-padrao-comprimido': 'Okres wzoru został ściśnięty do {medido} m, mniej niż połowa żądanego.',
+    'gc-vao-sem-espaco': 'Przęsło {medido} m nie ma miejsca na tralki ani panel.',
+    'gc-poste-sobra-curta': 'Pozostałe {medido} m na końcu odcinka to za mało na słupek.',
+  },
 };
 
 // Estas mensagens ficam aqui, em pt e en (os demais idiomas caem em pt), para não tocar o dicionário `egb_` espelhado no app.
@@ -70,6 +194,22 @@ function msg(lang: Lang, key: Chave, args: Record<string, string | number>, conf
     return v === undefined ? w : typeof v === 'number' ? fmt(v) : v;
   });
   return conferir ? base + d.conferir : base;
+}
+
+/** Mensagem de um aviso de geometria no idioma pedido. */
+export function mensagemGeometria(lang: Lang, code: CodigoGeometriaGC, medido: number, limite: number): string {
+  return GEO[lang][code].replace(/\{(\w+)\}/g, (_, n: string) => fmt(n === 'medido' ? medido : limite));
+}
+
+/** Avisos de geometria degenerada medidos pelo kernel, no formato da lista de avisos do projeto. Vazio sem kernel pronto (`medidas` nulo). */
+export function guardaCorpoAvisosDeGeometria(p: Project, medidas: readonly MedidaAvisoGC[] | null, lang: Lang = 'pt'): ValidationIssue[] {
+  const out: ValidationIssue[] = [];
+  for (const m of medidas ?? []) {
+    const code = CODIGO_AVISO_GC[m.codigo];
+    if (!code || !EH_GEOMETRIA.has(code) || !p.elements[m.guardaId]) continue;
+    out.push({ severity: 'warning', code, message: mensagemGeometria(lang, code as CodigoGeometriaGC, m.medido, m.limite), elementId: m.guardaId, ids: [m.guardaId] });
+  }
+  return out;
 }
 
 /** O limite ainda precisa ser conferido: a fonte do campo não é verificada ou, sem fonte, o perfil inteiro não é. */
@@ -130,6 +270,10 @@ export function guardaCorpoMedidasParaAvisos(medidas: readonly MedidaAvisoGC[], 
   const out: GuardaCorpoIssueItem[] = [];
   for (const m of medidas) {
     const code = CODIGO_AVISO_GC[m.codigo];
+    if (code && EH_GEOMETRIA.has(code)) {
+      out.push(item(m.guardaId, code, mensagemGeometria(lang, code as CodigoGeometriaGC, m.medido, m.limite), m.trecho));
+      continue;
+    }
     const campo = code ? CAMPO_DO_CODIGO[code] : undefined;
     if (!code || !campo) continue;
     out.push(item(m.guardaId, code, msg(lang, code as Chave, { medido: m.medido, limite: m.limite }, precisaConferir(norma, campo)), m.trecho));

@@ -521,3 +521,153 @@ fn invariantes_do_guarda_corpo_sentido_normal_e_invertido() {
     }
     confere_inversao("manual fechado", manual_c(&[(0.0, 0.0, 0.0), (4.0, 0.0, 0.0), (4.0, 4.0, 0.0), (0.0, 4.0, 0.0)], true, 0.1, 0));
 }
+
+// ------------------------------------------------ avisos de geometria degenerada (ADR 0055 §23)
+
+use crate::gc_avisos::{
+    AV_CAMINHO_NULO, AV_CAMINHO_REPETIDO, AV_DESLOCAMENTO_EXCEDE, AV_HOSPEDEIRO_DESCONTINUO, AV_PADRAO_NAO_CABE, AV_PERFIL_AUTO_INTERSECTA, AV_SEM_BORDA,
+    AV_TRECHO_CURTO, AV_VAO_SEM_ESPACO,
+};
+
+/// Monta o nível com o tipo completo, no sentido normal e no invertido, e confere o invariante: todo caso degenerado gera aviso e nunca uma peça
+/// inválida (grupo aberto, invertido ou sem volume). Devolve a montagem do sentido normal.
+fn montar_sem_peca_invalida(nome: &str, mut c: Cena) -> Montagem {
+    equipar(&mut c, false);
+    let normal = montar(&c, NIVEL_TODOS, 1, ID_AUSENTE, 1e-3, true).unwrap_or_else(|e| panic!("{nome}: montar falhou ({e})"));
+    c.gc.guardas.get_mut(&1).unwrap().inverter = true;
+    let inv = montar(&c, NIVEL_TODOS, 1, ID_AUSENTE, 1e-3, true).unwrap_or_else(|e| panic!("{nome}: montar invertido falhou ({e})"));
+    for (rotulo, m) in [("normal", &normal), ("invertido", &inv)] {
+        for (i, g) in m.malha.grupos.iter().enumerate() {
+            let a = m.malha.analisar(i);
+            assert!(a.fechada && a.volume > 0.0, "{nome} ({rotulo}): grupo {i} (papel {}) inválido: {a:?}", g.papel);
+        }
+    }
+    for k in [AV_TRECHO_CURTO, AV_CAMINHO_REPETIDO, AV_CAMINHO_NULO, AV_SEM_BORDA, AV_DESLOCAMENTO_EXCEDE, AV_HOSPEDEIRO_DESCONTINUO] {
+        assert_eq!(tem(&normal, k), tem(&inv, k), "{nome}: o aviso {k} difere ao inverter");
+    }
+    normal
+}
+
+fn tem(m: &Montagem, codigo: u32) -> bool {
+    m.avisos.iter().any(|a| a.codigo == codigo)
+}
+
+fn aviso_de(m: &Montagem, codigo: u32) -> &crate::gc_avisos::Aviso {
+    m.avisos.iter().find(|a| a.codigo == codigo).unwrap_or_else(|| panic!("sem aviso {codigo}: {:?}", m.avisos))
+}
+
+#[test]
+fn aviso_trecho_curto_no_lado_interno_do_patamar_em_l() {
+    // O lance entra pela aresta x = 0,84 e o seguinte sai pela aresta vizinha (y = 0,6): no canto o lado interno sobra com um nó só e vira ponto.
+    let mut c = cena_base(HOSP_ESCADA, 1, 0b1111, 0, 0.0);
+    escada(&mut c);
+    lance_reto(&mut c, 1, 0, 0.0, 4, 0.17, 1.2, 0.0);
+    patamar_reto(&mut c, 2, 1, 0.84, 1.84, 0.51);
+    comp(&mut c, 3, 2, COMPONENTE_LANCE, false);
+    curva(&mut c, 3, 0, 0, [1.84, 0.6], [1.84, 3.0], 0.0);
+    curva(&mut c, 3, 1, 0, [0.84, 0.6], [0.84, 3.0], 0.0);
+    for k in 0..3 {
+        let y = 0.6 + 0.28 * k as f64;
+        espelho(&mut c, 3, k, [0.84, y], [1.84, y], 0.68 + 0.17 * k as f64);
+    }
+    let r = rodar(&c, 1e-6);
+    let curtos: Vec<&[u32]> = r.avisos.chunks(4).filter(|a| a[1] == AVISO_TRECHO_CURTO).collect();
+    assert_eq!(curtos.len(), 1, "um lado do patamar vira ponto: {:?}", r.avisos);
+    assert_eq!(curtos[0][3], 1, "o item é o patamar");
+    let m = montar_sem_peca_invalida("L", c);
+    let a = aviso_de(&m, AV_TRECHO_CURTO);
+    assert_eq!((a.guarda, a.indice), (1, 1));
+}
+
+#[test]
+fn aviso_trecho_que_vira_ponto_na_montagem() {
+    let m = montar_sem_peca_invalida("ponto", manual_c(&[(0.0, 0.0, 0.0), (5e-7, 0.0, 0.0)], false, 0.0, 2));
+    let a = aviso_de(&m, AV_TRECHO_CURTO);
+    assert!(a.medido <= 1e-6 && a.limite > 0.0);
+    assert!(m.pecas.is_empty(), "nenhuma peça no trecho que vira ponto");
+}
+
+#[test]
+fn aviso_deslocamento_maior_que_a_largura() {
+    let p = [(0.0, 0.0, 0.0), (0.1, 0.0, 0.0), (0.1, 0.1, 0.0), (0.0, 0.1, 0.0)];
+    let m = montar_sem_peca_invalida("desloc", manual_c(&p, true, 0.2, 0));
+    let a = aviso_de(&m, AV_DESLOCAMENTO_EXCEDE);
+    assert_eq!((a.guarda, a.medido), (1, 0.2));
+    assert!(m.malha.grupos.is_empty());
+}
+
+#[test]
+fn aviso_vertices_repetidos_e_segmento_nulo_no_caminho_manual() {
+    let m = montar_sem_peca_invalida(
+        "repetido",
+        manual_c(&[(0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (4.0, 0.0, 0.0), (4.0, 0.0, 0.0), (4.0, 0.0, 0.0), (4.0, 3.0, 0.0)], false, 0.0, 2),
+    );
+    let a = aviso_de(&m, AV_CAMINHO_REPETIDO);
+    assert_eq!((a.medido, a.indice), (3.0, 1));
+    assert!(!m.pecas.is_empty(), "o caminho sem os repetidos ainda desenha");
+    let m = montar_sem_peca_invalida("nulo", manual_c(&[(1.0, 1.0, 0.0), (1.0, 1.0, 0.0), (1.0, 1.0, 0.0)], false, 0.0, 2));
+    assert!(tem(&m, AV_CAMINHO_REPETIDO));
+    let a = aviso_de(&m, AV_CAMINHO_NULO);
+    assert_eq!(a.medido, 1.0);
+    assert!(m.pecas.is_empty());
+}
+
+#[test]
+fn aviso_hospedeiro_sem_borda_no_lado_pedido() {
+    // Lance sem nenhum espelho: não há cadeia em nenhum lado ligado.
+    let mut c = cena_base(HOSP_ESCADA, 1, 0b0101, 0, 0.0);
+    escada(&mut c);
+    comp(&mut c, 1, 0, COMPONENTE_LANCE, false);
+    let r = rodar(&c, 1e-6);
+    assert_eq!(r.n(), 0);
+    assert_eq!(r.avisos.chunks(4).filter(|a| a[1] == AVISO_SEM_BORDA).count(), 2, "um por lado: {:?}", r.avisos);
+    let m = montar_sem_peca_invalida("sem-borda", c);
+    assert!(tem(&m, AV_SEM_BORDA));
+    // Escada sem componentes: sem borda nos dois lados ligados.
+    let mut c = cena_base(HOSP_ESCADA, 1, 0b0101, 0, 0.0);
+    escada(&mut c);
+    assert_eq!(rodar(&c, 1e-6).avisos.chunks(4).filter(|a| a[1] == AVISO_SEM_BORDA).count(), 2);
+    // Patamar sem anel (menos de três pontos): sem borda; com o lado desligado não avisa.
+    let mut c = cena_base(HOSP_ESCADA, 1, 0b1000, 0, 0.0);
+    escada(&mut c);
+    comp(&mut c, 2, 0, COMPONENTE_PATAMAR, false);
+    assert!(rodar(&c, 1e-6).avisos.chunks(4).any(|a| a[1] == AVISO_SEM_BORDA));
+    c.gc.guardas.get_mut(&1).unwrap().lados = 0;
+    assert!(rodar(&c, 1e-6).avisos.is_empty());
+}
+
+#[test]
+fn aviso_emenda_que_nao_fecha_sobe_para_a_lista() {
+    let m = montar_sem_peca_invalida("descontinuo", escada_com_patamar(0.1));
+    assert!(tem(&m, AV_HOSPEDEIRO_DESCONTINUO));
+}
+
+#[test]
+fn aviso_perfil_que_se_auto_intersecta_na_curva_apertada() {
+    // Trilhos de 4 cm: a 90 graus o contorno recua 2 cm por dentro; o segmento de 1 cm entre os dois cantos não comporta.
+    let m = montar_sem_peca_invalida("apertada", manual_c(&[(0.0, 0.0, 0.0), (2.0, 0.0, 0.0), (2.0, 0.01, 0.0), (0.0, 0.01, 0.0)], false, 0.0, 2));
+    let a = aviso_de(&m, AV_PERFIL_AUTO_INTERSECTA);
+    assert!(a.medido > a.limite && (a.limite - 0.01).abs() < 1e-6, "{a:?}");
+    // Folgado: nenhum aviso.
+    let m = montar_sem_peca_invalida("folgada", manual_c(&[(0.0, 0.0, 0.0), (2.0, 0.0, 0.0), (2.0, 1.0, 0.0), (0.0, 1.0, 0.0)], false, 0.0, 2));
+    assert!(!tem(&m, AV_PERFIL_AUTO_INTERSECTA));
+    // Laço fechado apertado.
+    let m = montar_sem_peca_invalida("fechado", manual_c(&[(0.0, 0.0, 0.0), (2.0, 0.0, 0.0), (2.0, 0.01, 0.0), (0.0, 0.01, 0.0)], true, 0.0, 2));
+    assert!(tem(&m, AV_PERFIL_AUTO_INTERSECTA));
+}
+
+#[test]
+fn aviso_padrao_que_nao_cabe_sobe_para_a_lista() {
+    // Trecho de 5 cm: o padrão de 12 cm não cabe entre os postes de 6 cm.
+    let m = montar_sem_peca_invalida("curtissimo", manual_c(&[(0.0, 0.0, 0.0), (0.05, 0.0, 0.0)], false, 0.0, 2));
+    assert!(tem(&m, AV_PADRAO_NAO_CABE) || tem(&m, AV_VAO_SEM_ESPACO), "{:?}", m.avisos);
+    assert_eq!(m.avisos.iter().find(|a| a.codigo == AV_PADRAO_NAO_CABE || a.codigo == AV_VAO_SEM_ESPACO).unwrap().guarda, 1);
+}
+
+#[test]
+fn saida_plana_dos_avisos_de_geometria() {
+    let m = montar_sem_peca_invalida("plana", manual_c(&[(0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (4.0, 0.0, 0.0)], false, 0.0, 2));
+    let (a, v) = crate::gc_avisos::achatar_avisos(&m.avisos);
+    assert_eq!(a.len() / 4, v.len() / 5);
+    assert!(a.chunks(4).any(|x| x[1] == AV_CAMINHO_REPETIDO));
+}

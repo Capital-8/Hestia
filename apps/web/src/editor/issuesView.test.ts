@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ProjectStore, createEmptyProject, makeFloor, makeRoom, makeStair, makeWall, type Opening, type Project, type StairRun, type ValidationIssue, type Wall } from '@hestia/model';
+import { ProjectStore, createEmptyProject, makeFloor, makeGuardaCorpo, makeRoom, makeStair, makeWall, type Opening, type Project, type StairRun, type ValidationIssue, type Wall } from '@hestia/model';
 import { groupIssues, issueTarget, summarize, worstSeverity } from './issuesView.ts';
 
 const err = (code: string, elementId?: string): ValidationIssue => ({ severity: 'error', code, message: `erro ${code}`, ...(elementId ? { elementId } : {}) });
@@ -126,5 +126,20 @@ describe('P9 · avisos informativos (wall-floor-partial)', () => {
     expect(groupIssues([info])[0]!.title).toBe('Informações');
     expect(worstSeverity([info])).toBe('info');
     expect(summarize([info, info])).toBe('2 informações');
+  });
+});
+
+describe('Ir para: guarda-corpo', () => {
+  it('manual: nível do guarda-corpo e caixa do caminho; hospedado: caixa da escada', () => {
+    const store = new ProjectStore(createEmptyProject());
+    store.exec({ type: 'addGuardaCorpo', guardaCorpo: makeGuardaCorpo({ id: 'gc1', levelId: 'lv_0', typeId: 'gct_balaustres', hospedeiro: { tipo: 'manual', uso: 'varanda', caminho: [{ x: 1, y: 2, dz: 0 }, { x: 5, y: 4, dz: 0 }], fechado: false, ladoDeslocamento: 'esquerdo' } }) });
+    const t = issueTarget(store.project, { severity: 'warning', code: 'gc-trecho-curto', message: 'aviso', elementId: 'gc1' });
+    expect(t).toEqual({ elementId: 'gc1', levelId: 'lv_0', center: { x: 3, y: 3 }, box: { minX: 1, minY: 2, maxX: 5, maxY: 4 } });
+    const c = (ax: number, ay: number, bx: number, by: number) => ({ a: { x: ax, y: ay }, b: { x: bx, y: by }, sag: 0 });
+    const run: StairRun = { id: 'r1', kind: 'run', boundaryLeft: [c(2, 0, 2, 3)], boundaryRight: [c(3, 0, 3, 3)], risers: [c(2, 1, 3, 1)], path: [] };
+    store.exec({ type: 'addStair', stair: makeStair({ id: 'st1', typeId: 'stt_monolitica', levelId: 'lv_0', components: [run] }) });
+    const lado = { lance: true, patamar: true };
+    store.exec({ type: 'addGuardaCorpo', guardaCorpo: makeGuardaCorpo({ id: 'gc2', levelId: 'lv_0', typeId: 'gct_balaustres', hospedeiro: { tipo: 'escada', escadaId: 'st1', lados: { esquerdo: lado, direito: lado }, posicaoBase: 'degrau' } }) });
+    expect(issueTarget(store.project, { severity: 'warning', code: 'x', message: 'aviso', elementId: 'gc2' })!.box).toEqual({ minX: 2, minY: 0, maxX: 3, maxY: 3 });
   });
 });

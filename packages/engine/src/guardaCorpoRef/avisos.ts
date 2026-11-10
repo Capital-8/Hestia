@@ -36,3 +36,82 @@ export function maiorEsfera(v: VaoGCRef, hMin: number, hMax: number): { diametro
   }
   return melhor;
 }
+
+/** Códigos de `guarda_avisos` (iguais a `gc_avisos.rs`). Os de 6 a 11 vêm do caminho (1 a 6) e os de 13 a 16 da distribuição (1 a 4). */
+export const AV = {
+  hospedeiroDescontinuo: 6,
+  deslocamentoExcede: 7,
+  trechoCurto: 8,
+  caminhoRepetido: 9,
+  caminhoNulo: 10,
+  semBorda: 11,
+  perfilAutoIntersecta: 12,
+  padraoNaoCabe: 13,
+  padraoComprimido: 14,
+  vaoSemEspaco: 15,
+  sobraCurta: 16,
+} as const;
+
+export interface AvisoRef {
+  guarda: number;
+  codigo: number;
+  trecho: number;
+  indice: number;
+  medido: number;
+  limite: number;
+  x: number;
+  y: number;
+  z: number;
+}
+
+/** Traduz `avisos`/`valores` de `guarda_caminhos` (códigos 1 a 6) para os códigos de `guarda_avisos` (6 a 11). */
+export function deCaminho(avisos: readonly number[], valores: readonly number[]): AvisoRef[] {
+  const mapa: Record<number, number> = { 1: AV.hospedeiroDescontinuo, 2: AV.deslocamentoExcede, 3: AV.trechoCurto, 4: AV.caminhoRepetido, 5: AV.caminhoNulo, 6: AV.semBorda };
+  const out: AvisoRef[] = [];
+  for (let i = 0; i < avisos.length / 4; i++) {
+    const codigo = mapa[avisos[4 * i + 1]!];
+    if (codigo === undefined) continue;
+    const v = valores.slice(5 * i, 5 * i + 5);
+    out.push({ guarda: avisos[4 * i]!, codigo, trecho: avisos[4 * i + 2]!, indice: avisos[4 * i + 3]!, medido: v[0]!, limite: v[1]!, x: v[2]!, y: v[3]!, z: v[4]! });
+  }
+  return out;
+}
+
+/** Traduz o aviso da distribuição (códigos 1 a 4) para o código de `guarda_avisos` (13 a 16). */
+export function deDistribuicao(guarda: number, trecho: number, codigo: number, s: number, valor: number): AvisoRef | null {
+  const mapa: Record<number, number> = { 1: AV.padraoNaoCabe, 2: AV.padraoComprimido, 3: AV.vaoSemEspaco, 4: AV.sobraCurta };
+  const c = mapa[codigo];
+  return c === undefined ? null : { guarda, codigo: c, trecho, indice: 0, medido: valor, limite: 0, x: s, y: 0, z: 0 };
+}
+
+/** `gc-trecho-curto`: trecho emitido pelo caminho que ainda assim vira ponto em planta. */
+export function avisoTrechoCurto(guarda: number, trecho: number, comprimento: number, minimo: number, p: [number, number, number]): AvisoRef | null {
+  return comprimento <= minimo ? { guarda, codigo: AV.trechoCurto, trecho, indice: 0, medido: comprimento, limite: minimo, x: p[0], y: p[1], z: p[2] } : null;
+}
+
+/**
+ * `gc-perfil-auto-intersecta`: num vértice com giro θ, o perfil de meia largura `m` recua `m * tan(θ/2)` pelo lado de dentro; se isso passa do menor
+ * segmento vizinho, o contorno da varredura dobra sobre si. Mede em planta; `fechado` inclui o vértice de fechamento. Devolve o pior vértice.
+ */
+export function avisoPerfilAutoIntersecta(guarda: number, trecho: number, nos: ReadonlyArray<readonly [number, number, number]>, meiaLargura: number, fechado: boolean): AvisoRef | null {
+  const n = nos.length;
+  if (n < 3 || meiaLargura <= 0) return null;
+  const seg = (i: number, j: number): [number, [number, number]] => {
+    const d: [number, number] = [nos[j]![0] - nos[i]![0], nos[j]![1] - nos[i]![1]];
+    return [Math.hypot(d[0], d[1]), d];
+  };
+  let pior: AvisoRef | null = null;
+  const vertices = fechado ? Array.from({ length: n }, (_, i) => i) : Array.from({ length: n - 2 }, (_, i) => i + 1);
+  for (const i of vertices) {
+    const [l1, d1] = seg((i + n - 1) % n, i);
+    const [l2, d2] = seg(i, (i + 1) % n);
+    if (l1 < 1e-9 || l2 < 1e-9) continue;
+    const giro = Math.acos(Math.min(1, Math.max(-1, (d1[0] * d2[0] + d1[1] * d2[1]) / (l1 * l2))));
+    const recuo = meiaLargura * Math.min(Math.tan(giro / 2), 1e6);
+    const menor = Math.min(l1, l2);
+    if (recuo > menor + 1e-9 && (!pior || recuo - menor > pior.medido - pior.limite)) {
+      pior = { guarda, codigo: AV.perfilAutoIntersecta, trecho, indice: i, medido: recuo, limite: menor, x: nos[i]![0], y: nos[i]![1], z: nos[i]![2] };
+    }
+  }
+  return pior;
+}

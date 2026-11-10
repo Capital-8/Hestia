@@ -7,6 +7,16 @@ import type { CenaGC } from '../kernelGuardaCorpo.ts';
 
 export const AVISO_HOSPEDEIRO_DESCONTINUO = 1;
 export const AVISO_DESLOCAMENTO_EXCEDE = 2;
+/** Trecho tão curto que vira ponto (medido = comprimento, limite = mínimo; `indice` = componente). */
+export const AVISO_TRECHO_CURTO = 3;
+/** Caminho manual com vértices repetidos descartados (medido = quantos, `indice` = o primeiro repetido). */
+export const AVISO_CAMINHO_REPETIDO = 4;
+/** Caminho manual sem segmento (menos de dois vértices distintos; medido = vértices distintos). */
+export const AVISO_CAMINHO_NULO = 5;
+/** O hospedeiro não tem borda no lado pedido (`indice` = componente). */
+export const AVISO_SEM_BORDA = 6;
+/** Comprimento (m) abaixo do qual um trecho vira ponto. */
+export const COMPRIMENTO_MIN_TRECHO = 1e-6;
 export const LIMITE_ESQUADRIA = 2.5;
 export const FLAG_CURVO = 1;
 export const FLAG_FECHADO = 2;
@@ -275,6 +285,12 @@ function itensRampa(c: CenaGC, rampaId: number): Item[] {
   return itens;
 }
 
+const comprimentoCadeia = (nos: P3[]): number => {
+  let s = 0;
+  for (let i = 1; i < nos.length; i++) s += Math.hypot(nos[i]![0] - nos[i - 1]![0], nos[i]![1] - nos[i - 1]![1], nos[i]![2] - nos[i - 1]![2]);
+  return s;
+};
+
 const custoAresta = (a: Vec2, b: Vec2, r: Ref): number => pontoSegmento(a, r[0], r[1])[0] + pontoSegmento(b, r[0], r[1])[0];
 
 function cadeiasPatamar(anel: Vec2[], z: number, entrada: Ref | null, saida: Ref | null): [Peca | null, Peca | null] {
@@ -363,12 +379,22 @@ export function guardaCaminhosRef(c: CenaGC, nivel: number | null, tolJuncao: nu
       const pts = caminhos.filter((x) => x['guarda_num'] === gid).sort((a, b) => a['indice']! - b['indice']!);
       let plano: Vec2[] = [];
       let z: number[] = [];
+      // Vértices repetidos em sequência (segmento nulo) são descartados, mas avisam: (quantos, o primeiro, onde).
+      let repetidos: { n: number; primeiro: number; p: P3 } | null = null;
       for (const q of pts) {
         const p = v(q['x']!, q['y']!);
         if (plano.length === 0 || dist(plano[plano.length - 1]!, p) > 1e-9) {
           plano.push(p);
           z.push(g['cota_base']! + q['dz']!);
+        } else {
+          repetidos ??= { n: 0, primeiro: q['indice']!, p: [q['x']!, q['y']!, g['cota_base']! + q['dz']!] };
+          repetidos.n++;
         }
+      }
+      if (repetidos) aviso(gid, AVISO_CAMINHO_REPETIDO, 0, repetidos.primeiro, [repetidos.n, 0, repetidos.p[0], repetidos.p[1], repetidos.p[2]]);
+      if (plano.length < 2) {
+        aviso(gid, AVISO_CAMINHO_NULO, 0, 0, [plano.length, 2, plano[0]?.x ?? 0, plano[0]?.y ?? 0, z[0] ?? g['cota_base']!]);
+        continue;
       }
       const fechado = g['fechado'] === 1;
       if (fechado && plano.length > 2 && dist(plano[0]!, plano[plano.length - 1]!) < 1e-9) {
@@ -386,6 +412,12 @@ export function guardaCaminhosRef(c: CenaGC, nivel: number | null, tolJuncao: nu
       continue;
     }
     const itens = g['hosp'] === 1 ? itensEscada(c, g['hosp_num']!, tipo['tol_corda']!) : itensRampa(c, g['hosp_num']!);
+    // Patamar sem anel não tem borda; com anel, o lado que sobra com menos de dois nós é curto demais (vira ponto).
+    const semAnel = itens.map((it) => !it.lance && !it.anel);
+    const posPat = itens.map((it): P3 => (it.anel ? [it.anel.pts[0]!.x, it.anel.pts[0]!.y, it.anel.z] : [0, 0, 0]));
+    if (itens.length === 0) {
+      for (const lado of [0, 1]) if ((g['lados']! & (lado === 0 ? 3 : 12)) !== 0) aviso(gid, AVISO_SEM_BORDA, 0, 0, [0, 0, 0, 0, 0]);
+    }
     for (let k = 0; k < itens.length; k++) {
       const it = itens[k]!;
       if (it.lance || !it.anel) continue;
@@ -403,7 +435,20 @@ export function guardaCaminhosRef(c: CenaGC, nivel: number | null, tolJuncao: nu
       const gaps: Array<[number, number[]]> = [];
       itens.forEach((it, k) => {
         const ligado = (lados & (it.lance ? bitLance : bitPat)) !== 0;
-        const peca = lado === 0 ? it.esq : it.dir;
+        let peca = lado === 0 ? it.esq : it.dir;
+        if (ligado) {
+          // Lado pedido sem trecho: sem borda (lance sem cadeia, patamar sem anel) ou curto demais (vira ponto).
+          if (peca && comprimentoCadeia(peca.nos) <= COMPRIMENTO_MIN_TRECHO) {
+            const q = peca.nos[0]!;
+            aviso(gid, AVISO_TRECHO_CURTO, trecho.n, k, [0, COMPRIMENTO_MIN_TRECHO, q[0], q[1], q[2]]);
+            peca = null;
+          } else if (!peca && (it.lance || semAnel[k])) {
+            aviso(gid, AVISO_SEM_BORDA, trecho.n, k, [0, 0, 0, 0, 0]);
+          } else if (!peca) {
+            const q = posPat[k]!;
+            aviso(gid, AVISO_TRECHO_CURTO, trecho.n, k, [0, COMPRIMENTO_MIN_TRECHO, q[0], q[1], q[2]]);
+          }
+        }
         if (ligado && peca) {
           const ult = run[run.length - 1];
           if (ult) {

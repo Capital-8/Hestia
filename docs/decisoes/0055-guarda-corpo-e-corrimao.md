@@ -951,3 +951,20 @@ Fecha três limites da §21 (item 3), todos em `gc_montagem.rs` e `gc_quant.rs`;
 5. **Painel e ferramenta.** Seguem `docs/contratos/familias-e-ferramentas.md`: o painel `GuardaCorpoProperties.tsx` abre com `TypeSelector` e "Editar tipo" (regra 2), e a ferramenta `guardaCorpoTool.ts` traça pelo núcleo comum `desenhoPolilinha.ts` (regra 1). Os testes-guarda `contratoPaineisFamilia.test.ts` e `contratoFerramentas.test.ts` cobrem os dois.
 
 6. **Avisos de geometria degenerada.** Em andamento, ainda não entregues.
+
+## 24. Avisos de geometria degenerada (`feat/gc-avisos-geometria`)
+
+Os casos degenerados deixam de sumir em silêncio: cada um gera um aviso (código, guarda-corpo, trecho e mensagem) e nunca uma peça inválida. O Rust devolve as medidas pela consulta 65 (`guarda_avisos`, mesmas colunas) e o TS escolhe o texto, nos sete idiomas (`guardaCorpoIssues.ts`, `mensagemGeometria`). Os avisos nunca bloqueiam.
+
+| Código (`guarda_avisos`) | Código textual | Quando | `medido` / `limite` |
+|---|---|---|---|
+| 6 | `gc-hospedeiro-descontinuo` | emenda entre componentes com folga maior que a tolerância (já existia em `guarda_caminhos`, agora sobe) | folga / tolerância |
+| 7 | `gc-deslocamento-excede-largura` | o deslocamento faz o caminho se auto-cruzar (já existia, agora sobe) | deslocamento / 0 |
+| 8 | `gc-trecho-curto` | lado do patamar que sobra com um nó só (lado interno do patamar em L), ou trecho de comprimento horizontal nulo (até 1 µm) | comprimento / 1e-6 |
+| 9 | `gc-caminho-repetido` | caminho manual com vértices repetidos em sequência (segmento nulo): são descartados | quantos / 0 (`indice` = primeiro repetido) |
+| 10 | `gc-caminho-nulo` | caminho manual com menos de dois vértices distintos | vértices distintos / 2 |
+| 11 | `gc-sem-borda` | lado pedido sem borda no hospedeiro: lance sem cadeia, patamar sem anel, escada ou rampa sem componentes | 0 / 0 (`indice` = componente) |
+| 12 | `gc-perfil-auto-intersecta` | curva apertada: o perfil de meia largura `m` recua `m·tan(θ/2)` por dentro e passa do menor segmento vizinho (trilhos e corrimãos; laço fechado inclui o vértice de fechamento) | recuo / menor segmento |
+| 13 a 16 | `gc-padrao-nao-cabe`, `gc-padrao-comprimido`, `gc-vao-sem-espaco`, `gc-poste-sobra-curta` | avisos da distribuição (3c, que já existiam no Rust mas não chegavam ao app) | vão ou valor / 0 |
+
+Decisões. (1) Trecho que vira ponto não é distribuído nem varrido: a montagem o tira da lista e avisa; as sequências soldadas só juntam trechos consecutivos. (2) O código textual `gc-deslocamento-excede-largura` segue a §5; o numérico 7 espelha o 2 do caminho, e a tradução está em `gc_avisos::de_caminho` e `de_distribuicao` (e nos espelhos TS `deCaminho`, `deDistribuicao`). (3) Referência TS de paridade: `guardaCorpoRef/caminho.ts` (códigos 3 a 6 do caminho) e `guardaCorpoRef/avisos.ts` (`avisoTrechoCurto`, `avisoPerfilAutoIntersecta`). (4) No app, os avisos entram na lista de avisos do projeto (`useIssues`, no mesmo tempo de silêncio, refeitos quando o kernel fica pronto) e no painel do guarda-corpo, com "Ir para" (`issueTarget` enquadra o caminho manual ou a escada ou rampa hospedeira). (5) Verificação: `invariantes_do_guarda_corpo_sentido_normal_e_invertido` confere peças fechadas e com volume; os testes `aviso_*` repetem a verificação nos casos degenerados, nos dois sentidos, e conferem que o aviso é o mesmo ao inverter.

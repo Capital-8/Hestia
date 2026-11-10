@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createEmptyProject, makeGuardaCorpo, type HospedeiroManual, normaDe, tiposGuardaCorpo, type PerfilNorma, type TipoGuardaCorpo } from '@hestia/model';
-import { CODIGO_AVISO_GC, guardaCorpoIssues, guardaCorpoMedidasParaAvisos, guardaCorpoRegrasDoTipo, precisaConferir } from './guardaCorpoIssues.ts';
+import { CODIGOS_GEOMETRIA_GC, CODIGO_AVISO_GC, guardaCorpoAvisosDeGeometria, guardaCorpoIssues, mensagemGeometria, guardaCorpoMedidasParaAvisos, guardaCorpoRegrasDoTipo, precisaConferir } from './guardaCorpoIssues.ts';
 import { PAPEL_GC, guardaCorpoQuantities, type LinhaQuantGC } from './guardaCorpoQuantities.ts';
 import { maiorEsfera } from './guardaCorpoRef/index.ts';
 
@@ -72,7 +72,7 @@ describe('medidas do Rust viram avisos', () => {
     );
     expect(r.map((i) => i.code)).toEqual(['gc-vao-grande', 'gc-corrimao-altura', 'gc-corrimao-extensao']);
     expect(r[0]!.message).toContain('0.12');
-    expect(Object.values(CODIGO_AVISO_GC)).toHaveLength(5);
+    expect(Object.values(CODIGO_AVISO_GC)).toHaveLength(16);
   });
 
   it('referência TS da esfera: vão de 120 mm passa 0,12 e o de 100 mm, 0,10', () => {
@@ -82,6 +82,43 @@ describe('medidas do Rust viram avisos', () => {
     };
     expect(maiorEsfera(v(0.12), 0.05, 1.05)!.diametro).toBeCloseTo(0.12, 9);
     expect(maiorEsfera(v(0.1), 0.05, 1.05)!.diametro).toBeCloseTo(0.1, 9);
+  });
+});
+
+describe('avisos de geometria degenerada', () => {
+  const base = { guardaId: 'g1', trecho: 0, indice: 0, x: 0, y: 0, z: 0 };
+  const LANGS = ['pt', 'en', 'es', 'de', 'fr', 'it', 'pl'] as const;
+
+  it('cada código de geometria tem texto nos sete idiomas, com o valor medido, e nenhum igual ao português fora o próprio pt', () => {
+    expect(CODIGOS_GEOMETRIA_GC).toHaveLength(11);
+    for (const code of CODIGOS_GEOMETRIA_GC) {
+      const pt = mensagemGeometria('pt', code, 0.123, 0.456);
+      for (const lang of LANGS) {
+        const m = mensagemGeometria(lang, code, 0.123, 0.456);
+        expect(m, `${code} ${lang}`).not.toMatch(/{w+}/);
+        expect(m.length).toBeGreaterThan(10);
+        if (lang !== 'pt') expect(m, `${code} ${lang} igual ao pt`).not.toBe(pt);
+      }
+    }
+  });
+
+  it('as medidas de geometria do Rust viram avisos com código, guarda-corpo, trecho e mensagem, sem "a conferir"', () => {
+    const n: PerfilNorma = { ...norma, verificado: false, fontes: {} };
+    const r = guardaCorpoMedidasParaAvisos([{ ...base, codigo: 8, trecho: 2, medido: 0, limite: 1e-6 }, { ...base, codigo: 9, medido: 3, limite: 0 }], n);
+    expect(r.map((i) => [i.code, i.guardaId, i.trecho])).toEqual([['gc-trecho-curto', 'g1', 2], ['gc-caminho-repetido', 'g1', 0]]);
+    expect(r[1]!.message).toContain('3 vértice(s)');
+    expect(r.every((i) => i.severity === 'warning' && !i.message.includes('a conferir'))).toBe(true);
+  });
+
+  it('a lista do projeto leva só os de geometria, de guarda-corpos que existem, e fica vazia sem kernel', () => {
+    const p = createEmptyProject();
+    p.elements['g1'] = gc() as never;
+    const medidas = [{ ...base, codigo: 10, medido: 1, limite: 2 }, { ...base, codigo: 1, medido: 0.12, limite: 0.11 }, { ...base, guardaId: 'fantasma', codigo: 8, medido: 0, limite: 0 }];
+    const r = guardaCorpoAvisosDeGeometria(p, medidas, 'en');
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ code: 'gc-caminho-nulo', severity: 'warning', elementId: 'g1', ids: ['g1'] });
+    expect(r[0]!.message).toContain('no segment');
+    expect(guardaCorpoAvisosDeGeometria(p, null)).toEqual([]);
   });
 });
 

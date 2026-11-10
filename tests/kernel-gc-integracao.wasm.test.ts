@@ -4,7 +4,9 @@
  * os avisos e o IFC com IFCRAILING. Roda só em `npm run test:wasm`.
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { ProjectStore, createEmptyProject, defaultStairTypeId, makeGuardaCorpo, makeLevel, makeStair, type Project, type StairLanding, type StairRun } from '@hestia/model';
+import { projetoGuardaCorpo } from '../packages/engine/src/fixtureGuardaCorpo.ts';
+import { CODIGO_AVISO_GC, guardaCorpoAvisosDeGeometria } from '../packages/engine/src/guardaCorpoIssues.ts';
+import { ProjectStore, createEmptyProject, defaultStairTypeId, makeGuardaCorpo, makeLevel, makeStair, type GuardaCorpo, type Project, type StairLanding, type StairRun } from '@hestia/model';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { generateLShape } from '../packages/engine/src/stairGenerators.ts';
 import { guardaCorpoNoPonto, linhasVisiveisGC } from '../packages/engine/src/guardaCorpoVista.ts';
@@ -128,5 +130,32 @@ describe('guarda-corpo: kernel que carrega depois da primeira montagem', () => {
     // Mesmo projeto (mesma identidade): agora há malha e linhas.
     expect(srv.malhas(p)![0]!.partes.length).toBeGreaterThan(0);
     expect(srv.planta(p, 'lv_0', 1.2)!.length).toBeGreaterThan(0);
+  });
+});
+
+describe('guarda-corpo: avisos de geometria degenerada sobre o Rust real (ADR 0055, §23)', () => {
+  it.skipIf(!bytes)('caminho manual degenerado vira aviso na lista do projeto, nunca silêncio', () => {
+    const p = projetoGuardaCorpo().p;
+    const q = structuredClone(p);
+    const g = q.elements['gc_m'] as GuardaCorpo;
+    if (g.hospedeiro.tipo !== 'manual') throw new Error('fixture');
+    // Vértices repetidos e uma curva apertada (segmento de 1 cm entre dois cantos de 90 graus).
+    g.hospedeiro.caminho = [{ x: 0, y: 8, dz: 0 }, { x: 0, y: 8, dz: 0 }, { x: 4, y: 8, dz: 0 }, { x: 4, y: 8.01, dz: 0 }, { x: 0, y: 8.01, dz: 0 }];
+    g.deslocamento = 0;
+    const srv = new ServicoGuardaCorpo(() => ger);
+    const medidas = srv.avisos(q)!;
+    const codigos = medidas.filter((m) => m.guardaId === 'gc_m').map((m) => CODIGO_AVISO_GC[m.codigo]);
+    expect(codigos).toContain('gc-caminho-repetido');
+    expect(codigos).toContain('gc-perfil-auto-intersecta');
+    for (const lang of ['pt', 'en', 'es', 'de', 'fr', 'it', 'pl'] as const) {
+      const lista = guardaCorpoAvisosDeGeometria(q, medidas, lang).filter((i) => i.elementId === 'gc_m');
+      expect(lista.length, lang).toBeGreaterThanOrEqual(2);
+      expect(lista.every((i) => i.message.length > 10 && !/\{\w+\}/.test(i.message))).toBe(true);
+    }
+    // O projeto sem degeneração continua sem avisos de geometria.
+    expect(guardaCorpoAvisosDeGeometria(p, srv.avisos(p))).toEqual([]);
+    // Todo guarda-corpo (inclusive o degenerado) gera malha de peças válidas.
+    expect(srv.malhas(q)!.every((m) => m.partes.every((x) => x.positions.length > 0 && x.indices.length % 3 === 0))).toBe(true);
+    srv.encerrar();
   });
 });

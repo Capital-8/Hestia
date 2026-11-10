@@ -12,6 +12,18 @@ pub const AV_VAO_INFERIOR: u32 = 2;
 pub const AV_CORRIMAO_ALTURA: u32 = 3;
 pub const AV_CORRIMAO_EXTENSAO: u32 = 4;
 pub const AV_ALTURA_BAIXA: u32 = 5;
+/// Avisos de geometria degenerada (ADR §23): vêm do caminho e da distribuição, o app só traduz o texto.
+pub const AV_HOSPEDEIRO_DESCONTINUO: u32 = 6;
+pub const AV_DESLOCAMENTO_EXCEDE: u32 = 7;
+pub const AV_TRECHO_CURTO: u32 = 8;
+pub const AV_CAMINHO_REPETIDO: u32 = 9;
+pub const AV_CAMINHO_NULO: u32 = 10;
+pub const AV_SEM_BORDA: u32 = 11;
+pub const AV_PERFIL_AUTO_INTERSECTA: u32 = 12;
+pub const AV_PADRAO_NAO_CABE: u32 = 13;
+pub const AV_PADRAO_COMPRIMIDO: u32 = 14;
+pub const AV_VAO_SEM_ESPACO: u32 = 15;
+pub const AV_SOBRA_CURTA: u32 = 16;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Aviso {
@@ -94,6 +106,70 @@ pub fn aviso_corrimao_extensao(guarda: u32, trecho: u32, indice: u32, extensao: 
 /// `gc-altura-baixa`: altura real do guarda-corpo menor que a mínima.
 pub fn aviso_altura(guarda: u32, trecho: u32, altura: f64, minima: f64) -> Option<Aviso> {
     (altura < minima - 1e-9).then(|| Aviso { guarda, codigo: AV_ALTURA_BAIXA, trecho, indice: 0, medido: na_grade(altura), limite: minima, x: 0.0, y: 0.0, z: 0.0 })
+}
+
+/// Traduz a saída `avisos`/`valores` de `guarda_caminhos` (códigos 1 a 6) para os códigos de `guarda_avisos` (6 a 11).
+pub fn de_caminho(av: &[u32], val: &[f64]) -> Vec<Aviso> {
+    av.chunks_exact(4)
+        .zip(val.chunks_exact(5))
+        .filter_map(|(a, v)| {
+            let codigo = match a[1] {
+                1 => AV_HOSPEDEIRO_DESCONTINUO,
+                2 => AV_DESLOCAMENTO_EXCEDE,
+                3 => AV_TRECHO_CURTO,
+                4 => AV_CAMINHO_REPETIDO,
+                5 => AV_CAMINHO_NULO,
+                6 => AV_SEM_BORDA,
+                _ => return None,
+            };
+            Some(Aviso { guarda: a[0], codigo, trecho: a[2], indice: a[3], medido: v[0], limite: v[1], x: v[2], y: v[3], z: v[4] })
+        })
+        .collect()
+}
+
+/// Traduz o aviso da distribuição (códigos 1 a 4) para o código de `guarda_avisos` (13 a 16). `s` vira `x`, `valor` vira `medido`.
+pub fn de_distribuicao(guarda: u32, trecho: u32, codigo: u8, s: f64, valor: f64) -> Option<Aviso> {
+    let codigo = match codigo {
+        1 => AV_PADRAO_NAO_CABE,
+        2 => AV_PADRAO_COMPRIMIDO,
+        3 => AV_VAO_SEM_ESPACO,
+        4 => AV_SOBRA_CURTA,
+        _ => return None,
+    };
+    Some(Aviso { guarda, codigo, trecho, indice: 0, medido: na_grade(valor), limite: 0.0, x: s, y: 0.0, z: 0.0 })
+}
+
+/// `gc-trecho-curto`: trecho emitido pelo caminho que ainda assim vira ponto em planta (menos de dois nós ou comprimento horizontal nulo).
+pub fn aviso_trecho_curto(guarda: u32, trecho: u32, comprimento: f64, minimo: f64, x: f64, y: f64, z: f64) -> Option<Aviso> {
+    (comprimento <= minimo).then(|| Aviso { guarda, codigo: AV_TRECHO_CURTO, trecho, indice: 0, medido: na_grade(comprimento), limite: minimo, x, y, z })
+}
+
+/// `gc-perfil-auto-intersecta`: num vértice com giro `θ`, o perfil de meia largura `m` recua `m * tan(θ/2)` pelo lado de dentro; se isso passa do
+/// menor segmento vizinho, o contorno da varredura dobra sobre si. Mede em planta. `fechado` inclui o vértice de fechamento. Devolve o pior vértice.
+pub fn aviso_perfil_auto_intersecta(guarda: u32, trecho: u32, nos: &[[f64; 3]], meia_largura: f64, fechado: bool) -> Option<Aviso> {
+    let n = nos.len();
+    if n < 3 || meia_largura <= 0.0 {
+        return None;
+    }
+    let seg = |i: usize, j: usize| ((nos[j][0] - nos[i][0]).hypot(nos[j][1] - nos[i][1]), [nos[j][0] - nos[i][0], nos[j][1] - nos[i][1]]);
+    let vertices: Vec<usize> = if fechado { (0..n).collect() } else { (1..n - 1).collect() };
+    let mut pior: Option<Aviso> = None;
+    for i in vertices {
+        let (a, b, c) = ((i + n - 1) % n, i, (i + 1) % n);
+        let ((l1, d1), (l2, d2)) = (seg(a, b), seg(b, c));
+        if l1 < 1e-9 || l2 < 1e-9 {
+            continue;
+        }
+        let cos = ((d1[0] * d2[0] + d1[1] * d2[1]) / (l1 * l2)).clamp(-1.0, 1.0);
+        let giro = cos.acos();
+        // Giro quase reto ou reversão total: tan(θ/2) explode; limita para o valor continuar finito.
+        let recuo = meia_largura * (giro / 2.0).tan().min(1e6);
+        let menor = l1.min(l2);
+        if recuo > menor + 1e-9 && pior.as_ref().is_none_or(|p| recuo - menor > p.medido - p.limite) {
+            pior = Some(Aviso { guarda, codigo: AV_PERFIL_AUTO_INTERSECTA, trecho, indice: i as u32, medido: na_grade(recuo), limite: na_grade(menor), x: nos[b][0], y: nos[b][1], z: nos[b][2] });
+        }
+    }
+    pior
 }
 
 /// Saída plana: `avisos` `[guarda_num, codigo, trecho, indice]` e `valores` `[medido, limite, x, y, z]`, ordenados por (guarda, trecho, codigo, indice).
