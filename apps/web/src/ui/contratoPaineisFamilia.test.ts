@@ -13,7 +13,7 @@ const fonte = (arq: string): string => readFileSync(join(aqui, arq), 'utf8');
 const temCabecalho = (arq: string): boolean => /<TypeSelector\b/.test(fonte(arq)) && /\bonEdit=/.test(fonte(arq)) && /from '\.\/TypeSelector\.tsx'/.test(fonte(arq));
 
 /** Painéis de elemento com família: cabeçalho de tipo obrigatório (Properties.tsx cobre parede e esquadria). */
-const COM_FAMILIA = ['Properties.tsx', 'FloorProperties.tsx', 'SlabProperties.tsx', 'CeilingProperties.tsx', 'RoofProperties.tsx', 'StairProperties.tsx', 'RampProperties.tsx'];
+const COM_FAMILIA = ['Properties.tsx', 'FloorProperties.tsx', 'SlabProperties.tsx', 'CeilingProperties.tsx', 'RoofProperties.tsx', 'StairProperties.tsx', 'RampProperties.tsx', 'GuardaCorpoProperties.tsx'];
 
 /** Painéis sem família/tipo (não têm seletor de tipo). */
 const SEM_FAMILIA = ['AreaPlanProperties.tsx', 'GridProperties.tsx', 'PlacementProperties.tsx', 'RoomProperties.tsx'];
@@ -22,7 +22,7 @@ const SEM_FAMILIA = ['AreaPlanProperties.tsx', 'GridProperties.tsx', 'PlacementP
  * Exceções EXPLÍCITAS, com TODO: painel de família fora do padrão. Quando passar a usar o cabeçalho padrão, o teste
  * "exceção obsoleta" pede para tirá-lo desta lista.
  */
-const EXCECOES_TODO = ['GuardaCorpoProperties.tsx']; // TODO: trocar o <select id="gc-type"> pelo TypeSelector + Editar (em andamento)
+const EXCECOES_TODO: string[] = [];
 
 describe('contrato: painéis de propriedades de família usam o cabeçalho de tipo da parede', () => {
   for (const arq of COM_FAMILIA) {

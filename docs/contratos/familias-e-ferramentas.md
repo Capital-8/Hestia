@@ -32,4 +32,4 @@ ou painel de família sem `TypeSelector` e `onEdit`).
 
 - Ferramentas com núcleo próprio: perímetro (piso, laje, forro, telhado), escada, lance livre, rampa, seta de
   caimento, inclinação de laje, extrusão de telhado, cota angular.
-- Painel: `GuardaCorpoProperties.tsx` (migração para `TypeSelector` em andamento).
+- Painel: nenhuma exceção (o `GuardaCorpoProperties.tsx` já usa o `TypeSelector` com Editar).
