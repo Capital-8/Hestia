@@ -1,7 +1,8 @@
 /* eslint-disable max-lines */
 import type { PerimeterModifyKind } from './perimeterModifyKind.ts';
-import { add, angleOf, dist, len, mul, norm, sub, type SketchDraft, type SketchResult, type SketchTarget, type Vec2 } from '@hestia/geom';
+import { angleOf, dist, sub, type SketchDraft, type SketchResult, type SketchTarget, type Vec2 } from '@hestia/geom';
 import { ToolBase } from './base.ts';
+import { lerComprimentoDigitado, pontoPorComprimento } from './desenhoPolilinha.ts';
 import { unitsOf } from '@hestia/model';
 import { parseNumber, parseQuantityText } from './numeric.ts';
 import { SKETCH_DEFAULTS, addSegs, closeAnalysis, finish as finishSketch, newDraft, removeSegs, selectAllSegs, type FinishResult, type SketchOrigin } from './perimeterSession.ts';
@@ -387,11 +388,10 @@ export class PerimeterTool extends ToolBase {
     }
     const anchor = anchorOf(st);
     if (input.kind !== 'point' || st.shape.id !== 'line' || !anchor) return false;
-    if (v === null) return refuse(this.env, this.t('tl_msg_invalid_number_m'));
-    if (v <= 0) return refuse(this.env, this.t('tl_msg_length_positive_m'));
-    const dir = sub(this.inf?.point ?? this.raw, anchor);
-    const u = len(dir) < 1e-9 ? { x: 1, y: 0 } : norm(dir);
-    this.setInput(st, input.key, add(anchor, mul(u, v)));
+    // Comprimento digitado no núcleo comum: o ponto cai na direção do cursor já com Orto/Polar/snap.
+    const comp = lerComprimentoDigitado(this.env, text);
+    if (comp === null) return false;
+    this.setInput(st, input.key, pontoPorComprimento(anchor, this.inf?.point ?? this.raw, comp));
     return true;
   }
 

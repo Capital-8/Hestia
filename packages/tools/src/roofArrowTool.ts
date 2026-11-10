@@ -1,6 +1,9 @@
 import { add, dot, len, mul, norm, sub, type Vec2 } from '@hestia/geom';
 import { isRoof, unitsOf, type Roof, type RoofPlaneDef } from '@hestia/model';
 import { ToolBase } from './base.ts';
+import { contextoDeTraco, lerComprimentoDigitado, pontoPorComprimento } from './desenhoPolilinha.ts';
+import { segmentLengthDim } from './dims/providers/wall.ts';
+import type { DimRef, TempDim } from './dims/types.ts';
 import { commitRoofPatch } from './roofCheck.ts';
 import { roofSlopeError } from './roofGeom.ts';
 import { lowestVertex } from './roofEdges.ts';
@@ -69,7 +72,7 @@ export class RoofArrowTool extends ToolBase {
   override move(p: PointerInfo): void {
     this.raw = p.raw;
     this.items = [];
-    const inf = this.snap(p, this.first ? { from: this.first } : {});
+    const inf = this.snap(p, contextoDeTraco(this.first));
     if (!this.first) {
       this.items.push({ kind: 'point', at: inf.point });
       return;
@@ -96,13 +99,33 @@ export class RoofArrowTool extends ToolBase {
       this.env.say(this.stateHint());
       return;
     }
-    const inf = this.snap(p, this.first ? { from: this.first } : {});
+    const inf = this.snap(p, contextoDeTraco(this.first));
     if (!this.first) {
       this.first = inf.point;
       this.env.say('Agora clique no ponto para onde a água sobe.');
       return;
     }
     this.commit(r, inf.point);
+  }
+
+  /** Cota dinâmica do comprimento da seta (mesmo provedor da parede). */
+  tempDims(_overrides: Readonly<Record<string, DimRef>> = {}): TempDim[] {
+    const c = this.inf?.point;
+    return this.first && c && len(sub(c, this.first)) > 1e-6 ? [segmentLengthDim(this.first, c)] : [];
+  }
+
+  override inputPrompt(): string | null {
+    return this.first ? this.t('tl_inp_length') : null;
+  }
+
+  /** Comprimento digitado + Enter: define a direção de subida a essa distância do 1º clique, na direção do cursor. */
+  override type(text: string): boolean {
+    const r = this.roof();
+    if (!r || !this.first) return false;
+    const v = lerComprimentoDigitado(this.env, text);
+    if (v === null) return false;
+    this.commit(r, pontoPorComprimento(this.first, this.inf?.point ?? this.raw, v));
+    return true;
   }
 
   /**

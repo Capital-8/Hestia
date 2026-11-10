@@ -30,6 +30,10 @@ ou painel de família sem `TypeSelector` e `onEdit`).
 
 ## Exceções vigentes (TODO)
 
-- Ferramentas com núcleo próprio: perímetro (piso, laje, forro, telhado), escada, lance livre, rampa, seta de
-  caimento, inclinação de laje, extrusão de telhado, cota angular.
+- Ferramentas: nenhuma exceção. Todas as de criação usam o núcleo comum de desenho.
 - Painel: nenhuma exceção (o `GuardaCorpoProperties.tsx` já usa o `TypeSelector` com Editar).
+
+Migradas para o núcleo comum: perímetro (piso, laje, forro e telhado traçam por `perimeterTool.ts`), seta de
+caimento, inclinação de laje e extrusão de telhado (teste `esbocoNucleo.test.ts`); escada, lance livre, rampa e cota
+angular (teste `contratoEscadaRampaCota.test.ts`). Nas ferramentas de dois pontos o comprimento digitado fixa o 2º
+ponto na direção do cursor. No lance reto e na rampa reta o valor digitado continua sendo o ângulo.
