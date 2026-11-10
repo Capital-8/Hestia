@@ -84,3 +84,5 @@ export {
   type PlanViewKind, type PlanAnnotations, type PlanView, type PlanViewRef,
 } from './planView.ts';
 export * from './planViewKinds.ts';
+export * from './planViewCommands.ts';
+export { resolvePlanViewRef } from './planViewResolve.ts';

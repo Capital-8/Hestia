@@ -70,15 +70,16 @@ export function applyProjectGraphics(p: Project, patch: DeepPartial<ProjectGraph
   p.graphics = next;
 }
 
+// Lê o valor efetivo do nível (a base de `viewGraphicsOf`) direto do rascunho: a projeção memorizada pode estar velha dentro de um lote.
 export function applyLevelGraphics(p: Project, levelId: Id, patch: DeepPartial<ViewGraphics>, lang: Lang = 'pt'): void {
   const l = levelOf(p, levelId, lang);
   const next = mergeLevel(copy(levelGraphicsOf(p, levelId)), copy(patch));
   refuse(graphicsIssues(next, lang));
-  l.graphics = next;
+  l.graphics = next; // armazenamento (Fase 2)
 }
 
 export function resetLevelGraphics(p: Project, levelId: Id, lang: Lang = 'pt'): void {
-  delete levelOf(p, levelId, lang).graphics;
+  delete levelOf(p, levelId, lang).graphics; // armazenamento (Fase 2)
 }
 
 export function applyView3D(p: Project, patch: DeepPartial<View3DSettings>, lang: Lang = 'pt'): void {
