@@ -1,4 +1,4 @@
-import { DEFAULT_CATEGORY_STYLES, DEFAULT_LINE_WEIGHTS, DEFAULT_PROJECT_GRAPHICS, graphicsOf, levelGraphicsOf, sectionGraphicsOf, view3dOf, type Command, type Id, type Project, type ProjectStore, type View3DSettings } from '@hestia/model';
+import { DEFAULT_CATEGORY_STYLES, DEFAULT_LINE_WEIGHTS, DEFAULT_PROJECT_GRAPHICS, floorViewId, graphicsOf, planViewOf, sectionGraphicsOf, view3dOf, viewGraphicsOf, type Command, type Id, type Project, type ProjectStore, type View3DSettings } from '@hestia/model';
 import { t, useI18n } from './i18n.ts';
 
 /** Resultado de uma edição de gráficos: `error` traz a mensagem pt-BR de quem recusou (nada é gravado). */
@@ -31,7 +31,7 @@ export function alreadyApplied(patch: unknown, current: unknown): boolean {
 export function editLevelGraphics(store: ProjectStore, levelId: Id, patch: LevelGraphicsPatch, label = 'eds_undo_change_view_graphics'): GraphicsEdit {
   try {
     const exists = store.project.levels.some((l) => l.id === levelId);
-    if (exists && alreadyApplied(patch, levelGraphicsOf(store.project, levelId))) return OK;
+    if (exists && alreadyApplied(patch, viewGraphicsOf(store.project, floorViewId(levelId)))) return OK;
     store.exec({ type: 'setLevelGraphics', levelId, patch }, label, useI18n.getState().lang);
     return OK;
   } catch (e) {
@@ -65,7 +65,7 @@ export function editProjectGraphics(store: ProjectStore, patch: ProjectGraphicsP
 export function restoreLevelGraphicsDefault(store: ProjectStore, levelId: Id): GraphicsEdit {
   try {
     const lv = store.project.levels.find((l) => l.id === levelId);
-    if (lv && !lv.graphics) return OK;
+    if (lv && !planViewOf(store.project, floorViewId(levelId))?.graphics) return OK;
     store.exec({ type: 'resetLevelGraphics', levelId }, 'eds_undo_restore_view_graphics', useI18n.getState().lang);
     return OK;
   } catch (e) {
@@ -124,7 +124,7 @@ export type ThinLinesTarget = { levelId: Id } | 'section';
 
 /** Linhas finas da vista ativa ligadas? Sem o campo salvo, ligadas (padrão do Hestia). */
 export function thinLinesOn(p: Project, target: ThinLinesTarget): boolean {
-  return (target === 'section' ? sectionGraphicsOf(p) : levelGraphicsOf(p, target.levelId)).thinLines === true;
+  return (target === 'section' ? sectionGraphicsOf(p) : viewGraphicsOf(p, floorViewId(target.levelId))).thinLines === true;
 }
 
 /** Níveis de referência (datum) ligados no 3D? Sem o campo salvo, ligados (padrão do Hestia). */

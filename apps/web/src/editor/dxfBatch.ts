@@ -1,6 +1,7 @@
-import { levelGraphicsOf, sectionGraphicsOf, sectionTitleOf, type Id, type Project } from '@hestia/model';
+import { floorViewId, planViewsOf, sectionGraphicsOf, sectionTitleOf, viewGraphicsOf, type Id, type Project } from '@hestia/model';
 import type { DxfBatchFile, DxfBatchOptions, DxfBatchRenderers, DxfBatchResult, DxfBatchSkip, DxfBatchTarget } from './dxfBatch.types.ts';
 import { t as tr, useI18n, type Lang } from './i18n.ts';
+import { vistaDeArea } from './vistaDeArea.ts';
 
 /** Idioma ativo (fora do React); `options.lang` manda quando presente. */
 const activeLang = (): Lang => useI18n.getState().lang;
@@ -28,7 +29,7 @@ export function dxfSanitizeName(text: string, lang: Lang = 'pt'): string {
 export function dxfBatchTargetsOf(p: Project): DxfBatchTarget[] {
   return [
     ...p.levels.map((l): DxfBatchTarget => ({ kind: 'plan', key: `plan:${l.id}`, levelId: l.id, label: l.name, group: 'plantas' })),
-    ...(p.areaPlans ?? []).map((a): DxfBatchTarget => ({ kind: 'area', key: `area:${a.id}`, planId: a.id, label: a.name, group: 'areas' })),
+    ...planViewsOf(p).filter((v) => v.kind === 'area').map((a): DxfBatchTarget => ({ kind: 'area', key: `area:${a.id}`, planId: a.id, label: a.name, group: 'areas' })),
     ...p.views.map(
       (v): DxfBatchTarget => ({ kind: 'section', key: `section:${v.id}`, viewId: v.id, label: sectionTitleOf(v), group: 'cortes', elevation: v.kind === 'elevation' }),
     ),
@@ -71,9 +72,9 @@ function nivelDe(p: Project, levelId: Id): string {
   return p.levels.find((l) => l.id === levelId)?.name ?? '';
 }
 
-/** Nome da planta de área, ou undefined. */
+/** Planta de área (vista) pelo id, ou undefined. */
 function areaPlanDe(p: Project, planId: Id) {
-  return (p.areaPlans ?? []).find((a) => a.id === planId);
+  return vistaDeArea(p, planId);
 }
 
 /** Valores dos tokens do modelo de nome. */
@@ -99,10 +100,10 @@ function nomeDe(p: Project, t: DxfBatchTarget, options: DxfBatchOptions, lang: L
 
 /** Escala de papel do alvo, no formato `1:<denominador>`; prancha fica vazia (a escala é da folha). */
 function escalaDe(p: Project, t: DxfBatchTarget): string {
-  if (t.kind === 'plan') return `1:${levelGraphicsOf(p, t.levelId).scale}`;
+  if (t.kind === 'plan') return `1:${viewGraphicsOf(p, floorViewId(t.levelId)).scale}`;
   if (t.kind === 'area') {
     const plan = areaPlanDe(p, t.planId);
-    return plan ? `1:${plan.scale}` : '';
+    return plan?.area ? `1:${plan.area.scale}` : '';
   }
   if (t.kind === 'section') return `1:${sectionGraphicsOf(p).scale}`;
   return '';

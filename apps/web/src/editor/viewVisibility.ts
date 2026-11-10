@@ -1,6 +1,7 @@
-import type { GraphicsCategory, Id, Project, ViewHiddenTarget, ViewHidden } from '@hestia/model';
+import { floorViewId, hiddenTargetOfView, planViewHiddenOf, planViewOf as vistaDoModelo, roofViewId, type GraphicsCategory, type Id, type Project, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
+import { nivelAtivo, planViewIdAtivo, tipoDeVistaAtivo } from './vistaAtiva.ts';
 import { annotationIdsOfActiveView, selectedAnnotations } from './viewAnnotations.ts';
 
 type ViewState = Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'>;
@@ -20,28 +21,36 @@ export function visibilityKeyOf(st: Pick<ReturnType<typeof useUi.getState>, 'vie
   if (st.view === 'sheet') return null;
   if (st.view === '3d') return '3d';
   if (st.view === 'section') return st.sectionId ? `section:${st.sectionId}` : null;
-  if (st.planKind === 'area') return st.areaPlanId ? `area:${st.areaPlanId}` : null;
-  if (st.planKind === 'roof') return `roof:${st.levelId}`;
-  return `plan:${st.levelId}`;
+  const viewId = planViewIdAtivo(st);
+  if (!viewId) return null;
+  const tipo = tipoDeVistaAtivo(st);
+  if (tipo === 'area') return `area:${viewId}`;
+  return tipo === 'roof' ? `roof:${nivelAtivo(st)}` : `plan:${nivelAtivo(st)}`;
 }
 
-/** Vista alvo de ocultação permanente para o estado atual; null na prancha ou sem vista. */
-export function viewHiddenTargetOf(st: Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'>): ViewHiddenTarget | null {
+/**
+ * Vista alvo de ocultação permanente para o estado atual; null na prancha ou sem vista. Com `p`, o alvo da planta sai de
+ * `hiddenTargetOfView(p, viewId)`; sem `p` (ou com vista que não existe no projeto) o alvo vem do tipo da vista ativa.
+ */
+export function viewHiddenTargetOf(st: Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'>, p?: Project): ViewHiddenTarget | null {
   if (st.view === 'sheet') return null;
   if (st.view === '3d') return { kind: '3d' };
   if (st.view === 'section') return st.sectionId ? { kind: 'section', viewId: st.sectionId } : null;
-  if (st.planKind === 'area') return st.areaPlanId ? { kind: 'area', planId: st.areaPlanId } : null;
-  if (st.planKind === 'roof') return { kind: 'roof', levelId: st.levelId };
-  return { kind: 'plan', levelId: st.levelId };
+  const viewId = planViewIdAtivo(st);
+  if (!viewId) return null;
+  if (p && vistaDoModelo(p, viewId)) return hiddenTargetOfView(p, viewId);
+  const tipo = tipoDeVistaAtivo(st);
+  if (tipo === 'area') return { kind: 'area', planId: viewId };
+  return tipo === 'roof' ? { kind: 'roof', levelId: nivelAtivo(st) } : { kind: 'plan', levelId: nivelAtivo(st) };
 }
 
 /** Ocultação permanente da vista atual, já normalizada. */
 export function permanentHiddenOf(p: Project, target: ViewHiddenTarget | null): ViewHidden {
   if (!target) return {};
   switch (target.kind) {
-    case 'plan': return p.levels.find((l) => l.id === target.levelId)?.hidden ?? {};
-    case 'roof': return p.levels.find((l) => l.id === target.levelId)?.roofHidden ?? {};
-    case 'area': return p.areaPlans?.find((a) => a.id === target.planId)?.hidden ?? {};
+    case 'plan': return planViewHiddenOf(p, floorViewId(target.levelId));
+    case 'roof': return planViewHiddenOf(p, roofViewId(target.levelId));
+    case 'area': return planViewHiddenOf(p, target.planId);
     case 'section': return p.views.find((v) => v.id === target.viewId)?.hidden ?? {};
     case '3d': return p.view3d?.hidden ?? {};
   }
@@ -121,7 +130,7 @@ const VAZIO: ViewVisibilitySets = { hidden: new Set(), revealed: new Set(), reve
 
 /** Resolve permanente + temporário + Reveal para a vista ativa. */
 export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>): ViewVisibilitySets {
-  const target = viewHiddenTargetOf(st);
+  const target = viewHiddenTargetOf(st, p);
   const key = visibilityKeyOf(st);
   if (!target || !key) return VAZIO;
   const temp = st.viewTemp[key] ?? {};
@@ -160,7 +169,7 @@ export function hideInView(elements: readonly Id[], categories: readonly Graphic
     return;
   }
   const st = useUi.getState();
-  const target = viewHiddenTargetOf(st);
+  const target = viewHiddenTargetOf(st, editor.project);
   if (!target) return;
   const atual = permanentHiddenOf(editor.project, target);
   const hidden = mergeHidden(atual, {
@@ -179,7 +188,7 @@ export function unhideInView(elements: readonly Id[], categories: readonly Graph
     return;
   }
   const st = useUi.getState();
-  const target = viewHiddenTargetOf(st);
+  const target = viewHiddenTargetOf(st, editor.project);
   if (!target) return;
   const atual = permanentHiddenOf(editor.project, target);
   const remover = {
@@ -202,7 +211,7 @@ export function unhideInView(elements: readonly Id[], categories: readonly Graph
 /** Limpa toda a ocultação permanente da vista ativa. */
 export function clearViewHidden(): void {
   const st = useUi.getState();
-  const target = viewHiddenTargetOf(st);
+  const target = viewHiddenTargetOf(st, editor.project);
   if (!target || !permanentHiddenOf(editor.project, target)) return;
   editor.store.exec({ type: 'setViewHidden', target, hidden: undefined }, 'eds_undo_unhide_all_view');
   redesenhar();
@@ -245,7 +254,7 @@ export function temporaryIsolate(elements: readonly Id[], categories: readonly G
 /** Reexibe tudo da vista: ocultação permanente e temporária (não mexe no modo Reveal). */
 export function unhideAllInView(): void {
   const st = useUi.getState();
-  const target = viewHiddenTargetOf(st);
+  const target = viewHiddenTargetOf(st, editor.project);
   if (target && permanentHiddenOf(editor.project, target)) {
     editor.store.exec({ type: 'setViewHidden', target, hidden: undefined }, 'eds_undo_unhide_all_view');
   }

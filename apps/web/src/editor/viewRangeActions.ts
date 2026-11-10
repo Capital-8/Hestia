@@ -1,4 +1,4 @@
-import { DEFAULT_VIEW_RANGE, viewRangeOf, type Id, type ProjectStore, type ViewRange } from '@hestia/model';
+import { DEFAULT_VIEW_RANGE, floorViewId, planViewRangeOf, type Id, type ProjectStore, type ViewRange } from '@hestia/model';
 import { t, useI18n } from './i18n.ts';
 
 /** Resultado de uma edição do intervalo de vista: `error` traz a mensagem pt-BR de quem recusou (nada é gravado). */
@@ -15,7 +15,7 @@ export interface ViewRangeEdit {
 export function editViewRange(store: ProjectStore, levelId: Id, patch: Partial<ViewRange>): ViewRangeEdit {
   try {
     // Nada muda (mesmos valores): não chama o comando, para não criar passo de desfazer vazio.
-    const cur = viewRangeOf(store.project, levelId);
+    const cur = planViewRangeOf(store.project, floorViewId(levelId));
     const keys = Object.keys(patch) as Array<keyof ViewRange>;
     const exists = store.project.levels.some((l) => l.id === levelId);
     if (exists && keys.every((k) => patch[k] === cur[k])) return { ok: true, error: null };

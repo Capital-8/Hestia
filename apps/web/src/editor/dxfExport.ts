@@ -33,9 +33,10 @@ import {
   type DxfUnit,
   type DxfViewState,
 } from '@hestia/io';
-import { areaPlanOf, openingTypeById, GRAPHICS_CATEGORIES, formatRampSlope, graphicsOf, isCad, levelGraphicsOf, lineWeightMm, openingAngle2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, openingsOfWall, sectionGraphicsOf, sectionPoints, unitsOf, type CadDrawing, type DxfLayerStyle, type GraphicsCategory, type Id, type Project } from '@hestia/model';
+import { floorViewId, openingTypeById, GRAPHICS_CATEGORIES, formatRampSlope, graphicsOf, isCad, lineWeightMm, openingAngle2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, openingsOfWall, sectionGraphicsOf, sectionPoints, unitsOf, viewGraphicsOf, type CadDrawing, type DxfLayerStyle, type GraphicsCategory, type Id, type Project } from '@hestia/model';
 import { AREA_LAYER_NAMES, areaLayerStyleOf, areaPlanDxf as areaPlanDxfOf } from './dxfAreaPlan.ts';
 import { useI18n, t as tr, type Lang } from './i18n.ts';
+import { vistaDeArea } from './vistaDeArea.ts';
 
 /** Idioma ativo (fora do React): quem chama pode fixar outro `lang`. */
 const activeLang = (): Lang => useI18n.getState().lang;
@@ -202,7 +203,7 @@ function dxfStateOf(cls: ViewClass | undefined): DxfViewState | null {
  */
 export function lineWeightsOf(p: Project, levelId: Id, geo: DxfLevelGeometry): Record<string, number> {
   const pg = graphicsOf(p);
-  const vg = levelGraphicsOf(p, levelId);
+  const vg = viewGraphicsOf(p, floorViewId(levelId));
   const out: Record<string, number> = {};
   for (const layer of dxfLayersOf(p, geo)) {
     const role = dxfLineRoleOf(layer);
@@ -303,7 +304,7 @@ function mergeNotes(a: DxfNotes | undefined, b: DxfNotes | undefined): DxfNotes 
 export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true, units?: DxfUnit): DxfLevelGeometry {
   const view: PlanView = planViewOf(p, levelId);
   const { hidden } = view;
-  const vg = levelGraphicsOf(p, levelId);
+  const vg = viewGraphicsOf(p, floorViewId(levelId));
   const shown = (c: GraphicsCategory): boolean => vg.overrides[c].visible !== false;
   const openings: DxfOpening[] = levelFrames(p, levelId).flatMap((f) =>
     openingsOfWall(p, f.wall.id).flatMap((o) => {
@@ -413,7 +414,7 @@ export { areaPlanDxf } from './dxfAreaPlan.ts';
 
 export function planDxf(p: Project, levelId: Id, showRoofProjection = true, units?: DxfUnit, lang: Lang = activeLang()): string {
   const doc = dxfDocOf(p, levelId, dxfGeometryOf(p, levelId, showRoofProjection, units), lang);
-  const shown = levelGraphicsOf(p, levelId).overrides.generic.visible !== false;
+  const shown = viewGraphicsOf(p, floorViewId(levelId)).overrides.generic.visible !== false;
   const generics = shown ? dxfGenericEntities(p, levelId, dxfLayerName(DXF_LAYER_GENERIC, lang)) : [];
   // A camada dos importados entra com a cor da categoria (cinza), como as do nível.
   const genericLayer = dxfLayerName(DXF_LAYER_GENERIC, lang);
@@ -447,7 +448,7 @@ export function dxfLayerTableOf(p: Project, target: DxfExportTarget, lang: Lang 
       return { name, style: geo.layerStyles?.[canonical] ?? dxfLayerStyleOf(name, geo.lineWeights?.[canonical]) };
     });
     // A camada dos importados só entra no arquivo quando há `Generic` no nível e a categoria está visível.
-    const generic = levelGraphicsOf(p, target.levelId).overrides.generic.visible !== false
+    const generic = viewGraphicsOf(p, floorViewId(target.levelId)).overrides.generic.visible !== false
       && Object.values(p.elements).some((e) => e.kind === 'generic' && e.levelId === target.levelId);
     if (generic && !rows.some((r) => r.name === dxfLayerName(DXF_LAYER_GENERIC, lang))) {
       rows.push({ name: dxfLayerName(DXF_LAYER_GENERIC, lang), style: p.dxfLayers?.[DXF_LAYER_GENERIC] ?? dxfLayerStyleOf(DXF_LAYER_GENERIC) });
@@ -462,7 +463,7 @@ export function dxfLayerTableOf(p: Project, target: DxfExportTarget, lang: Lang 
       return { name, style: geo.layerStyles?.[canonical] ?? dxfSectionLayerStyleOf(name, geo.lineWeights?.[canonical]) };
     });
   }
-  if (!areaPlanOf(p, target.planId)) throw new Error(tr(lang, 'io_err_area_plan_missing'));
+  if (!vistaDeArea(p, target.planId)) throw new Error(tr(lang, 'io_err_area_plan_missing'));
   return ['0', ...AREA_LAYER_NAMES].sort().map((name) => ({ name, style: areaLayerStyleOf(p, name) }));
 }
 

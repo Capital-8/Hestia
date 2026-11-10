@@ -1,4 +1,4 @@
-import { isOpening, isWall, newId, type Element, type ElementTag, type Id, type Project } from '@hestia/model';
+import { floorViewId, isOpening, isWall, newId, viewAnnotationsOf, type Element, type ElementTag, type Id, type Project } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
 
@@ -23,8 +23,8 @@ function center(p: Project, element: Element): { x: number; y: number } {
 export function tagAllNotTagged(): number {
   const p = editor.project;
   const levelId = useUi.getState().levelId;
-  const level = p.levels.find((x) => x.id === levelId);
-  const existing = new Set((level?.tags ?? []).map((x) => x.hostId));
+  // Etiquetas de elemento da planta de piso do nível (onde `addTag` sem `viewId` grava).
+  const existing = new Set(viewAnnotationsOf(p, floorViewId(levelId)).tags.map((x) => x.hostId));
   const property = useUi.getState().options.tagProperty ?? 'type';
   const orientation = useUi.getState().options.tagOrientation ?? 'horizontal';
   const items: ElementTag[] = Object.values(p.elements)

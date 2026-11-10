@@ -1,4 +1,4 @@
-import type { Id } from '@hestia/model';
+import { floorViewId, roofViewId, type Id } from '@hestia/model';
 
 /**
  * Planta de piso (padrão), de cobertura ou de área. A de cobertura é a planta do nível com o telhado completo
@@ -31,6 +31,16 @@ export interface ActiveViewFields {
 /** Tipo da planta de uma vista: 'floor' para qualquer vista que não seja de cobertura ou de área. */
 export function planKindOf(v: { planKind?: PlanKind }): PlanKind {
   return v.planKind === 'roof' ? 'roof' : v.planKind === 'area' ? 'area' : 'floor';
+}
+
+/**
+ * Id da vista de planta de uma aba (`floorViewId`, `roofViewId` ou o id da planta de área); `null` na planta de área
+ * sem `areaPlanId`. Leitura da forma antiga da aba (Fase 2 troca por `viewId` direto).
+ */
+export function planViewIdDaAba(v: { levelId: Id; planKind?: PlanKind; areaPlanId?: Id }): Id | null {
+  const kind = planKindOf(v);
+  if (kind === 'area') return v.areaPlanId ?? null;
+  return kind === 'roof' ? roofViewId(v.levelId) : floorViewId(v.levelId);
 }
 
 /** Padrão ao abrir um projeto: só o nível ativo, que é o primeiro nível do projeto. */
@@ -124,6 +134,7 @@ export function pruneViews(list: readonly OpenView[], exists: (v: OpenView) => b
 export function activeViewOf(ui: ActiveViewFields): OpenView | null {
   switch (ui.view) {
     case 'plan':
+      // forma antiga (Fase 2): a aba é escrita com `planKind`/`areaPlanId`.
       if (planKindOf(ui) === 'area') return ui.areaPlanId ? { kind: 'plan', levelId: ui.levelId, planKind: 'area', areaPlanId: ui.areaPlanId } : null;
       return planKindOf(ui) === 'roof' ? { kind: 'plan', levelId: ui.levelId, planKind: 'roof' } : { kind: 'plan', levelId: ui.levelId };
     case '3d':

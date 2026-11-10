@@ -1,5 +1,6 @@
-import { DIM_FAMILY_PADRAO, planAnnotationsOf, planOwnsAnnotations, sectionAnnotationsOf, type Id, type Project, type SectionAnnotations } from '@hestia/model';
+import { DIM_FAMILY_PADRAO, floorViewId, levelRoomSeparators, planViewOf as vistaDoModelo, sectionAnnotationsOf, viewAnnotationsOf, type Id, type Project, type SectionAnnotations } from '@hestia/model';
 import type { useUi } from './state.ts';
+import { planViewIdAtivo } from './vistaAtiva.ts';
 
 /** Anotação da vista ativa (cota, texto, linha/região de detalhe, etiqueta ou separador de ambiente). */
 export interface ViewAnnotation {
@@ -24,13 +25,12 @@ export function annotationsOfActiveView(p: Project, st: ViewState): ViewAnnotati
     if (!st.sectionId) return [];
     fonte = sectionAnnotationsOf(p.views.find((v) => v.id === st.sectionId));
   } else if (st.view === 'plan') {
-    const level = p.levels.find((l) => l.id === st.levelId);
-    const plan = st.planKind === 'area' && st.areaPlanId ? p.areaPlans?.find((a) => a.id === st.areaPlanId) : undefined;
-    if (plan && planOwnsAnnotations(plan)) fonte = planAnnotationsOf(plan);
-    else {
-      fonte = level;
-      separadores = plan ? [] : (level?.roomSeparators ?? []);
-    }
+    // O que a vista DESENHA (`viewAnnotationsOf`): na planta de área sem conjunto próprio, as do nível. Vista que não
+    // existe (planta de área órfã) cai na planta de piso do nível, como antes.
+    const viewId = planViewIdAtivo(st);
+    const vista = viewId ? vistaDoModelo(p, viewId) : undefined;
+    fonte = viewAnnotationsOf(p, vista ? vista.id : floorViewId(st.levelId));
+    separadores = vista?.kind === 'area' ? [] : levelRoomSeparators(p, st.levelId);
   } else return [];
   const out: ViewAnnotation[] = [];
   for (const d of fonte?.dimensions ?? []) out.push({ id: d.id, kind: 'dimension', typeKey: `dimension:${d.familyId ?? DIM_FAMILY_PADRAO}` });

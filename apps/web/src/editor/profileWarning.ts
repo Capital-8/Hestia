@@ -1,4 +1,5 @@
-import { areaPlanOf, isFloor, isOpening, isWall, resolveViewProfile, type Id, type Project } from '@hestia/model';
+import { isFloor, isOpening, isWall, viewProfileOf, type Id, type Project } from '@hestia/model';
+import { vistaDeArea } from './vistaDeArea.ts';
 import { t, useI18n } from './i18n.ts';
 
 /**
@@ -7,9 +8,8 @@ import { t, useI18n } from './i18n.ts';
  */
 export function hiddenCreationWarning(before: Project, after: Project, planId: Id): string | null {
   const lang = useI18n.getState().lang;
-  const plan = areaPlanOf(after, planId);
-  if (!plan) return null;
-  const ly = resolveViewProfile(plan).layers;
+  if (!vistaDeArea(after, planId)) return null;
+  const ly = viewProfileOf(after, planId).layers;
   if (ly.walls !== 'hidden' && ly.openings && ly.floors) return null;
   const hidden = new Set<string>();
   for (const [id, e] of Object.entries(after.elements)) {

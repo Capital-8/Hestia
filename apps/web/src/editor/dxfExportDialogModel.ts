@@ -2,6 +2,7 @@ import { unitsOf, type Id, type Project } from '@hestia/model';
 import type { DxfUnit } from '@hestia/io';
 import type { DxfBatchGroup, DxfBatchTarget } from './dxfBatch.types.ts';
 import { t as tr, useI18n, type Lang } from './i18n.ts';
+import { nivelAtivo, planViewIdAtivo, tipoDeVistaAtivo, type CamposDaVista } from './vistaAtiva.ts';
 
 /**
  * Lógica pura do diálogo de exportação em lote (fase 4): unidade padrão, agrupamento da lista, alvo ativo e seleção
@@ -66,9 +67,12 @@ export interface DxfActiveView {
  * próprio: devolve null e o diálogo cai na primeira planta.
  */
 export function activeDxfTargetKey(ui: DxfActiveView): string | null {
-  if (ui.view === 'plan' && ui.planKind === 'area' && ui.areaPlanId) return `area:${ui.areaPlanId}`;
+  // `DxfActiveView` guarda `view`/`planKind` como texto livre (o diálogo é anterior aos seletores); são os mesmos campos do estado.
+  const campos = ui as CamposDaVista;
+  const tipo = tipoDeVistaAtivo(campos);
+  if (tipo === 'area') return `area:${planViewIdAtivo(campos)}`;
   if (ui.view === 'section' && ui.sectionId) return `section:${ui.sectionId}`;
-  if (ui.view === 'plan' && ui.planKind !== 'area' && ui.planKind !== 'roof') return `plan:${ui.levelId}`;
+  if (tipo === 'floor') return `plan:${nivelAtivo(ui)}`;
   return null;
 }
 

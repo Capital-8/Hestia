@@ -1,8 +1,9 @@
-import { newSheetId, newViewportId, areaPlanOf, projectSheets, sectionPoints, sheetDimsMm, sheetInnerBox, sheetIssue, sheetOf, viewportAnchor, viewportIssue, type Command, type Id, type Project, type ProjectStore, type Sheet, type SheetViewport, type SheetViewSource } from '@hestia/model';
+import { newSheetId, newViewportId, projectSheets, sectionPoints, sheetDimsMm, sheetInnerBox, sheetIssue, sheetOf, viewportAnchor, viewportIssue, type Command, type Id, type Project, type ProjectStore, type Sheet, type SheetViewport, type SheetViewSource } from '@hestia/model';
 import { buildSheetDrawList, levelBox, sectionBox, STAMP_W, stampHeightOf, type SheetDrawList } from '@hestia/render';
 import { computeSection } from '@hestia/engine';
 import { exportSheetsPdf } from '@hestia/io';
 import { fmtDate, t, useI18n, type Lang } from './i18n.ts';
+import { vistaDeArea } from './vistaDeArea.ts';
 
 /**
  * Ações sobre pranchas (decisão 0022): cada uma é um comando com desfazer. O que é função pura (número, posição, cópia)
@@ -104,7 +105,7 @@ export const addSheetAction = (store: ProjectStore): Id => {
 
 /** Tamanho de uma planta de área na prancha: o conteúdo do nível na escala, com 30 mm de folga. */
 export function areaPlanSheetSize(p: Project, planId: Id, scale: number): { w: number; h: number } {
-  const plan = areaPlanOf(p, planId);
+  const plan = vistaDeArea(p, planId);
   const box = plan ? levelBox(p, plan.levelId) : null;
   if (!box) return { w: 180, h: 130 };
   return { w: (box.maxX - box.minX) * (scale / 1000) + 30, h: (box.maxY - box.minY) * (scale / 1000) + 30 };
@@ -161,7 +162,7 @@ export function viewContentBoxM(p: Project, view: SheetViewSource): { w: number;
     return b ? { w: Math.max(0.1, b.maxX - b.minX - LEVEL_BOX_PAD_M), h: Math.max(0.1, b.maxY - b.minY - LEVEL_BOX_PAD_M) } : null;
   }
   if (view.kind === 'areaPlan') {
-    const plan = areaPlanOf(p, view.planId);
+    const plan = vistaDeArea(p, view.planId);
     const b = plan ? levelBox(p, plan.levelId) : null;
     return b ? { w: Math.max(0.1, b.maxX - b.minX - LEVEL_BOX_PAD_M), h: Math.max(0.1, b.maxY - b.minY - LEVEL_BOX_PAD_M) } : null;
   }
