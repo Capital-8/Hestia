@@ -1,3 +1,4 @@
+import { mesmoSemGuardaCorpo } from './versoesPlanta.ts';
 import { difference, orientedRect, union, type MultiPolygon } from '@hestia/geom';
 import {
   applyPartialStructure,
@@ -155,8 +156,20 @@ function computePlanView(p: Project, levelId: Id, partial: PartialStructure, hid
   return { range, cutZ, topZ: elevation + range.top, cls, hidden, outlineWalls, outlines, geo, categoryHidden, partial };
 }
 
+/**
+ * Guarda-corpo não entra na vista (corte, junção, contornos): um projeto que difere do anterior só em guarda-corpos reaproveita a vista dele.
+ * Editar ou ligar o guarda-corpo não refaz a resolução do nível; os ocultos do guarda-corpo vêm de `ocultosDoGuardaCorpo` (build.ts), não da vista.
+ */
+let projetoCanonico: Project | null = null;
+function projetoDaVista(p: Project): Project {
+  if (projetoCanonico !== null && mesmoSemGuardaCorpo(projetoCanonico, p)) return projetoCanonico;
+  projetoCanonico = p;
+  return p;
+}
+
 /** Vista da planta do nível (memorizada por projeto, nível, exibição parcial e categorias ocultas). */
-export function planViewOf(p: Project, levelId: Id): PlanView {
+export function planViewOf(p0: Project, levelId: Id): PlanView {
+  const p = projetoDaVista(p0);
   const g = levelGraphicsOf(p, levelId);
   const hiddenCats = new Set(GRAPHICS_CATEGORIES.filter((c) => !g.overrides[c].visible));
   const key = `${levelId}|${g.partialStructure}|${[...hiddenCats].join(',')}`;
