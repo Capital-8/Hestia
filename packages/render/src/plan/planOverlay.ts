@@ -16,8 +16,9 @@ import { ambientesDoNivel, lajesDoNivel, pisosDoNivel, telhadosDoNivel } from '.
 import { labelGhostOps } from './areaPlan.ts';
 import { annotationHighlightOps, blocoEm, drawnAnnotations, textBlockModel } from './notes.ts';
 import type { PlanInput } from './build.ts';
+import { linhasGuardaCorpoPlanta } from './guardaCorpo.ts';
 import { AVISO, AVISO_ALPHA } from '../aviso.ts';
-import type { FillOp, PlanOps } from './types.ts';
+import { areaPlanProfile, FLOOR_PLAN_PROFILE, type FillOp, type PlanOps } from './types.ts';
 
 const ringsOf = (m: MultiPolygon): Ring[] => m.flatMap((p) => p);
 
@@ -132,6 +133,16 @@ function revealedOutlineOps(input: PlanInput, ctx: PlanContext): PlanOps {
     }
     if (isCad(e)) {
       for (const path of e.paths) if (path.pts.length >= 2) out.strokes.push({ pts: path.pts, closed: path.closed, widthPx: 2, color: REVEAL, alpha: 1 });
+    }
+  }
+  // Guarda-corpos revelados (decisão 0055): as mesmas linhas que a planta desenha (eixo aberto, peças fechadas), com a borda azul.
+  // Só onde a planta desenha guarda-corpo (a categoria de escadas da vista).
+  const profile = input.profile ?? (input.areaPlan ? areaPlanProfile(input.areaPlan) : FLOOR_PLAN_PROFILE);
+  const gcRevelados = new Set(ids.filter((id) => p.elements[id]?.kind === 'railing' && p.elements[id]?.levelId === levelId));
+  if (profile.stairs && gcRevelados.size > 0) {
+    for (const l of linhasGuardaCorpoPlanta(p, levelId, view?.cutZ) ?? []) {
+      if (!gcRevelados.has(l.guardaId) || l.pontos.length < 2) continue;
+      out.strokes.push({ pts: l.pontos.map((q) => ({ x: q.x, y: q.y })), closed: l.papel !== 255, widthPx: 2, color: REVEAL, alpha: 1 });
     }
   }
   // Anotações: caixa em volta do texto (texto, cota) e o próprio traço (linha/região de detalhe e separador de ambiente).

@@ -1,4 +1,4 @@
-import { servicoGuardaCorpo, ServicoGuardaCorpo } from '@hestia/engine';
+import { servicoGuardaCorpo, ServicoGuardaCorpo, type LinhaVistaGC } from '@hestia/engine';
 import type { Id, Project } from '@hestia/model';
 import { mix } from './color.ts';
 import { STAIR_DASH } from './stairs.ts';
@@ -13,12 +13,16 @@ export const GUARDA_CORPO_CORTE_PADRAO = 1.2;
  * Guarda-corpos do nivel na planta (decisao 0055): as linhas vem do kernel (`guarda_planta`): o eixo e, nas pecas, o contorno cortado
  * (cheio, traco de corte), projetado (traco fino) ou oculto (tracejado). Sem kernel pronto nao desenha nada (nunca TypeScript no lugar).
  */
+export function linhasGuardaCorpoPlanta(p: Project, levelId: Id, cutZ: number | undefined): LinhaVistaGC[] | null {
+  if (!ServicoGuardaCorpo.temGuardaCorpo(p)) return null;
+  const nivel = p.levels.find((l) => l.id === levelId);
+  if (!nivel) return null;
+  return servicoGuardaCorpo().planta(p, levelId, cutZ ?? nivel.elevation + GUARDA_CORPO_CORTE_PADRAO, 1);
+}
+
 export function guardaCorpoOps(p: Project, levelId: Id, hidden: ReadonlySet<Id> | undefined, theme: PlanTheme, dark: boolean, paint: PlanPaint, cutZ: number | undefined): FloorOps {
   const out: FloorOps = { fills: [], strokes: [], labels: [] };
-  if (!ServicoGuardaCorpo.temGuardaCorpo(p)) return out;
-  const nivel = p.levels.find((l) => l.id === levelId);
-  if (!nivel) return out;
-  const linhas = servicoGuardaCorpo().planta(p, levelId, cutZ ?? nivel.elevation + GUARDA_CORPO_CORTE_PADRAO, 1);
+  const linhas = linhasGuardaCorpoPlanta(p, levelId, cutZ);
   if (!linhas) return out;
   const corte = espessuraDeCorte(paint);
   const projecao = espessuraDeProjecao(paint);
