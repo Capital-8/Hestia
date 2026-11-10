@@ -155,7 +155,7 @@ function projectDataOf(f: IfcFile, pset: StepEntity): HestiaProjectData {
   if (types) data.types = types;
   const materials = parseJson<Project['materials']>(values.get('MaterialsJSON'));
   if (materials) data.materials = materials;
-  const levels = parseJson<Level[]>(values.get('LevelsJSON'));
+  const levels = parseJson<Level[]>(values.get('LevelsJSON')); // armazenamento (Fase 2)
   if (Array.isArray(levels) && levels.length > 0 && levels.every((l) => typeof l?.id === 'string' && finite(l.elevation))) {
     data.levels = levels;
   }
@@ -220,7 +220,7 @@ export function applyHestiaProject(p: Project, data: HestiaProjectData | null): 
  */
 export function applyHestiaLevels(p: Project, levels: Level[] | undefined, refs: LevelRef[]): LevelRef[] {
   if (!levels || levels.length === 0) return refs;
-  p.levels = levels;
+  p.levels = levels; // armazenamento (Fase 2)
   return refs.map((ref) => {
     let best = p.levels[0]!;
     for (const level of p.levels) if (Math.abs(level.elevation - ref.elevation) < Math.abs(best.elevation - ref.elevation)) best = level;

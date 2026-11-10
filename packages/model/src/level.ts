@@ -11,5 +11,6 @@ export interface LevelInput {
 
 /** Cria um nível completo: todo `Level` precisa de `viewRange` (decisão 0013). */
 export function makeLevel(l: LevelInput): Level {
+  // armazenamento (Fase 2): cria o Level com o intervalo de vista gravado nele.
   return { id: l.id, name: l.name, elevation: l.elevation, viewRange: { ...(l.viewRange ?? DEFAULT_VIEW_RANGE) } };
 }

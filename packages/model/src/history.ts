@@ -379,6 +379,12 @@ export function labelOf(c: Command): string {
       return 'Editar tipo de grade';
     case 'removeGridType':
       return 'Excluir tipo de grade';
+    case 'updatePlanView':
+      return 'Alterar vista de planta';
+    case 'addPlanView':
+      return 'Criar vista de planta';
+    case 'removePlanView':
+      return 'Excluir vista de planta';
     case 'addAreaPlan':
       return 'Criar planta de área';
     case 'updateAreaPlan':
