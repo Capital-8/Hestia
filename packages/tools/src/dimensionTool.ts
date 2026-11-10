@@ -15,7 +15,9 @@ import {
   type DimensionElementRef,
   type DimensionRef,
 } from '@hestia/model';
-import { contextoDeTraco } from './desenhoPolilinha.ts';
+import { contextoDeTraco, lerComprimentoDigitado, pontoPorComprimento } from './desenhoPolilinha.ts';
+import { segmentLengthDim } from './dims/providers/wall.ts';
+import type { DimRef, TempDim } from './dims/types.ts';
 import { addSectionDimension, ToolBase, viewPlanId } from './base.ts';
 import { signedOffset, viewAnnotationsOf } from './annotationPick.ts';
 import { lengthUnitName, parseQuantityText } from './numeric.ts';
@@ -157,7 +159,8 @@ export class DimensionTool extends ToolBase {
   }
 
   override inputPrompt(): string | null {
-    return (this.a && this.b) || this.offsetStage ? this.t('tl_inp_offset') : null;
+    if ((this.a && this.b) || this.offsetStage) return this.t('tl_inp_offset');
+    return this.pontoDeTraco() ? this.t('tl_inp_length') : null;
   }
 
   override confirm(): void {
@@ -184,9 +187,14 @@ export class DimensionTool extends ToolBase {
 
   override click(p: PointerInfo): void {
     const inf = this.snap(p, contextoDeTraco(this.chain.length && !this.a ? this.chain[this.chain.length - 1] : this.a));
-    const point = inf.point;
+    if (this.offsetStage) { this.commitChain(this.snapOffset(this.side(p.raw) * roundMm(this.distanceToLine(p.raw)))); return; }
+    if (this.a && this.b) { this.commit(this.snapOffset(this.side(p.raw) * roundMm(this.distanceToLine(p.raw)))); return; }
+    this.acceptPoint(inf.point);
+  }
+
+  /** Aceita um ponto de referência (clique ou comprimento digitado): 1º/2º ponto da cota ou ponto da sequência. */
+  private acceptPoint(point: Vec2): void {
     if ((this.env.options().dimensionString ?? 'single') !== 'single') {
-      if (this.offsetStage) { this.commitChain(this.snapOffset(this.side(p.raw) * roundMm(this.distanceToLine(p.raw)))); return; }
       if (!this.chain.length) {
         this.chain = [point];
         this.chainRefs = [this.refAt(point)];
@@ -216,9 +224,19 @@ export class DimensionTool extends ToolBase {
       this.b = point;
       this.refB = this.refAt(point);
       this.env.say(this.t('tl_msg_click_dim_side'));
-      return;
     }
-    this.commit(this.snapOffset(this.side(p.raw) * roundMm(this.distanceToLine(p.raw))));
+  }
+
+  /** Cota dinâmica do trecho em traçado (mesmo provedor da parede): último ponto de referência até o cursor. */
+  tempDims(_overrides: Readonly<Record<string, DimRef>> = {}): TempDim[] {
+    const from = this.pontoDeTraco();
+    const to = this.inf?.point;
+    return from && to && !this.offsetStage && !(this.a && this.b) && dist(from, to) > 1e-6 ? [segmentLengthDim(from, to)] : [];
+  }
+
+  /** Último ponto de referência já confirmado (origem do próximo trecho), ou null. */
+  private pontoDeTraco(): Vec2 | null {
+    return this.chain.length && !this.a ? this.chain[this.chain.length - 1]! : this.a;
   }
 
   override type(text: string): boolean {
@@ -228,7 +246,16 @@ export class DimensionTool extends ToolBase {
       this.commitChain(this.side(this.raw) * value);
       return true;
     }
-    if (!this.a || !this.b) return false;
+    if (!this.b) {
+      // Comprimento digitado: o próximo ponto sai a essa distância do último, na direção do cursor (com Orto/Polar).
+      const from = this.pontoDeTraco();
+      if (!from) return false;
+      const len = lerComprimentoDigitado(this.env, text);
+      if (len === null) return false;
+      this.acceptPoint(pontoPorComprimento(from, this.inf?.point ?? this.raw, len));
+      return true;
+    }
+    if (!this.a) return false;
     const v = parseQuantityText(text, unitsOf(this.env.project()), 'length');
     if (v === null || v === 0) {
       this.env.say(this.t('tl_msg_type_displacement_unit', { unit: lengthUnitName(unitsOf(this.env.project()), this.uiLang()) }));

@@ -4,6 +4,9 @@ import { formatQuantity, stairTopLevel, unitsOf, type ResolvedUnits } from '@hes
 import { SPIRAL_MAX_SWEEP, optimizeStair, stairIssuesOf, treadRuleOf, type StairFixed, type TreadRule } from '@hestia/engine';
 import { draftStair, stairFromGenerator, stairLimits, type StairCommandResult, type StairCreateOptions } from './stairCommands.ts';
 import { ToolBase } from './base.ts';
+import { contextoDeTraco, lerComprimentoDigitado } from './desenhoPolilinha.ts';
+import { segmentLengthDim } from './dims/providers/wall.ts';
+import type { DimRef, TempDim } from './dims/types.ts';
 import { parseNumber } from './numeric.ts';
 import { partsPreview, treadItems, type TreadPreviewContext } from './stairPreview.ts';
 import { componentsFromParts, type StairPart } from './stairSketchState.ts';
@@ -120,6 +123,14 @@ export class StairRunTool extends ToolBase {
   override start(): void {
     this.reset();
     this.env.say(this.free ? this.t('tl_hint_stair_free') : this.spiralOn ? this.t('tl_hint_spiral_start') : this.t('tl_hint_stair_run'));
+  }
+
+
+  /** Cota dinâmica do trecho em traçado (mesmo provedor da parede): origem ou último vértice até o cursor. */
+  tempDims(_overrides: Readonly<Record<string, DimRef>> = {}): TempDim[] {
+    const from = this.spiralOn ? null : this.free ? this.liveFrom() : this.origin;
+    const to = this.inf?.point;
+    return from && to && len(sub(to, from)) > 1e-6 ? [segmentLengthDim(from, to)] : [];
   }
 
   override inputPrompt(): string | null {
@@ -241,7 +252,7 @@ export class StairRunTool extends ToolBase {
       this.items = this.spiralItems();
       return;
     }
-    const inf = this.snap(p, { from: this.origin ?? undefined });
+    const inf = this.snap(p, contextoDeTraco(this.origin));
     this.items = this.drawItems(inf.point);
   }
 
@@ -254,7 +265,7 @@ export class StairRunTool extends ToolBase {
       this.spiralClick(p);
       return;
     }
-    const inf = this.snap(p, { from: this.origin ?? undefined });
+    const inf = this.snap(p, contextoDeTraco(this.origin));
     if (this.origin === null) {
       this.origin = inf.point;
       this.env.say(this.t('tl_hint_stair_dir'));
@@ -424,7 +435,7 @@ export class StairRunTool extends ToolBase {
   }
 
   private liveMove(p: PointerInfo): void {
-    const inf = this.snap(p, { from: this.liveFrom() });
+    const inf = this.snap(p, contextoDeTraco(this.liveFrom()));
     const s = this.liveSession();
     if (!s) {
       this.items = [{ kind: 'point', at: inf.point }];
@@ -434,7 +445,7 @@ export class StairRunTool extends ToolBase {
   }
 
   private liveClick(p: PointerInfo): void {
-    const inf = this.snap(p, { from: this.liveFrom() });
+    const inf = this.snap(p, contextoDeTraco(this.liveFrom()));
     const s = this.liveSession();
     if (!s) return;
     this.handleLive(s.click(inf.point), inf.point);
@@ -443,11 +454,8 @@ export class StairRunTool extends ToolBase {
   private liveType(text: string): boolean {
     const s = this.liveSession();
     if (!s) return false;
-    const v = parseNumber(text);
-    if (v === null) {
-      this.env.say(this.t('tl_msg_invalid_length_m'));
-      return false;
-    }
+    const v = lerComprimentoDigitado(this.env, text);
+    if (v === null) return false;
     const ev = s.typeLength(v);
     this.handleLive(ev);
     return ev.kind === 'added' || ev.kind === 'done';

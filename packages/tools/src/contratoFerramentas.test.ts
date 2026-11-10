@@ -22,6 +22,10 @@ const LINEARES: Record<string, string> = {
   dimension: 'dimensionTool.ts',
   grid: 'gridTool.ts',
   section: 'sectionTool.ts',
+  stair: 'stairTool.ts',
+  stairrun: 'stairRunTool.ts',
+  ramp: 'rampTool.ts',
+  angularDimension: 'angularDimensionTool.ts',
 };
 
 /**
@@ -30,9 +34,6 @@ const LINEARES: Record<string, string> = {
  */
 const EXCECOES_TODO: Record<string, string> = {
   perimeter: 'perimeterTool.ts', // TODO: sessão de perímetro (piso, laje, forro, telhado) tem rastreio próprio
-  stair: 'stairTool.ts', // TODO: croqui de escada
-  stairrun: 'stairRunTool.ts', // TODO: lance de escada livre
-  ramp: 'rampTool.ts', // TODO: croqui de rampa
   roofarrow: 'roofArrowTool.ts', // TODO: seta de caimento
   floor: 'floorTool.ts', // TODO: contorno de piso (núcleo de perímetro)
   slab: 'slabTool.ts', // TODO: contorno de laje (núcleo de perímetro)
@@ -40,7 +41,6 @@ const EXCECOES_TODO: Record<string, string> = {
   roof: 'roofTool.ts', // TODO: contorno de telhado (núcleo de perímetro)
   roofextrusion: 'roofExtrusionTool.ts', // TODO: perfil de telhado por extrusão
   slope: 'slabSlopeTool.ts', // TODO: inclinação de laje
-  angularDimension: 'angularDimensionTool.ts', // TODO: cota angular (picks de retas, não traçado de segmento)
 };
 
 /** Ferramentas que não traçam elemento linear (seleção, edição, inserção por clique único, anotação pontual). */

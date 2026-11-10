@@ -30,6 +30,7 @@ ou painel de família sem `TypeSelector` e `onEdit`).
 
 ## Exceções vigentes (TODO)
 
-- Ferramentas com núcleo próprio: perímetro (piso, laje, forro, telhado), escada, lance livre, rampa, seta de
-  caimento, inclinação de laje, extrusão de telhado, cota angular.
+- Ferramentas com núcleo próprio: perímetro (piso, laje, forro, telhado), seta de caimento, inclinação de laje,
+  extrusão de telhado. (Escada, lance livre, rampa e cota angular já usam o núcleo comum; a cota linear aceita
+  comprimento digitado.)
 - Painel: `GuardaCorpoProperties.tsx` (migração para `TypeSelector` em andamento).
