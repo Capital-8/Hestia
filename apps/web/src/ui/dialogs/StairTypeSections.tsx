@@ -1,5 +1,5 @@
 import { Fragment, useState, type ReactElement } from 'react';
-import type { StairRunStyle, StairType, StairUndersideStyle } from '@hestia/model';
+import { DEFAULT_STAIR_FINISH, stairFinishOf, type StairRunStyle, type StairType, type StairUndersideStyle } from '@hestia/model';
 import { dictOf, fmtNum, I18N, useI18n } from '../../editor/i18n.ts';
 import { NumField, TextField } from '../fields.tsx';
 import { applyPreset, matchPreset, STAIR_DIALOG_PRESETS, type StairPresetId } from './stairTypeCalc.ts';
@@ -7,6 +7,11 @@ import { STAIR_FIELD_LIMITS, type StairFieldName, type StairTypeIssue } from './
 import { fieldLabelOverride, isStairFieldVisible } from './stairFieldVisibility.ts';
 
 type Dict = Record<keyof typeof I18N.pt, string>;
+
+/** Campos de material (estrutura e acabamentos) escolhidos pelo mesmo seletor. */
+type MatField = 'materialId' | 'postMaterialId' | 'treadFinishMaterialId' | 'riserFinishMaterialId';
+const matDefault = (f: MatField): string =>
+  f === 'treadFinishMaterialId' ? DEFAULT_STAIR_FINISH.treadFinishMaterialId : f === 'riserFinishMaterialId' ? DEFAULT_STAIR_FINISH.riserFinishMaterialId : '';
 
 const fill = (s: string, params: Record<string, string>): string => s.replace(/\{(\w+)\}/g, (_, k: string) => params[k] ?? '');
 
@@ -98,6 +103,12 @@ export function StairTypeSections({ draft, set, onStyle, materials, issues, canG
   const [applied, setApplied] = useState(false);
   const presetId = matchPreset(draft);
   const mats = Object.values(materials);
+  // Acabamentos: o valor digitado vale só com o campo ligado; o efetivo (stairFinishOf) é o que o modelo usa.
+  const treadFlag = draft.treadFinishEnabled ?? DEFAULT_STAIR_FINISH.treadFinishEnabled;
+  const riserFlag = draft.riserFinishEnabled ?? DEFAULT_STAIR_FINISH.riserFinishEnabled;
+  const bocelFlag = draft.bocelEnabled ?? DEFAULT_STAIR_FINISH.bocelEnabled;
+  const treadOn = stairFinishOf(draft).treadOn;
+  const bocelDimmed = !treadOn || !bocelFlag;
   const noMats = mats.length === 0;
 
   const limitFor = (field: StairFieldName): { min: number; max: number; decimals: number; unit: string; scale: number } => {
@@ -186,8 +197,8 @@ export function StairTypeSections({ draft, set, onStyle, materials, issues, canG
   };
   const diverged = lastPreset !== 'custom' && presetId !== lastPreset;
 
-  const materialSelect = (id: string, field: 'materialId' | 'postMaterialId'): ReactElement => {
-    const value = draft[field];
+  const materialSelect = (id: string, field: MatField): ReactElement => {
+    const value = draft[field] ?? matDefault(field);
     const known = mats.some((m) => m.id === value);
     return (
       <select
@@ -280,6 +291,55 @@ export function StairTypeSections({ draft, set, onStyle, materials, issues, canG
         ) : null}
         {row('landingThickness')}
       </fieldset>
+
+      {draft.runStyle !== 'assembled' ? (
+        <fieldset className="dsec" id="stt-sec-finish">
+          <legend>{t.stt_sec_finish}</legend>
+          <div className="field-row">
+            <label htmlFor="stt-treadFinishEnabled">{t.stt_finish_tread}</label>
+            <input id="stt-treadFinishEnabled" type="checkbox" checked={treadFlag} onChange={(e) => set({ treadFinishEnabled: e.target.checked })} />
+          </div>
+          <div style={{ opacity: treadFlag ? 1 : 0.5 }}>
+            <div className="field-row">
+              <label htmlFor="stt-treadFinishMaterialId">{t.stt_finish_material}</label>
+              {materialSelect('stt-treadFinishMaterialId', 'treadFinishMaterialId')}
+            </div>
+            <div className="field-row">
+              <label htmlFor="stt-treadFinishThickness">{t.stt_finish_thickness}</label>
+              <NumField id="stt-treadFinishThickness" value={draft.treadFinishThickness ?? DEFAULT_STAIR_FINISH.treadFinishThickness} scale={100} decimals={1} unit="cm" min={0.001} max={0.1} disabled={!treadFlag} onCommit={(v) => set({ treadFinishThickness: v })} />
+            </div>
+          </div>
+          {draft.runStyle !== 'post' ? (
+            <>
+              <div className="field-row">
+                <label htmlFor="stt-riserFinishEnabled">{t.stt_finish_riser}</label>
+                <input id="stt-riserFinishEnabled" type="checkbox" checked={riserFlag} onChange={(e) => set({ riserFinishEnabled: e.target.checked })} />
+              </div>
+              <div style={{ opacity: riserFlag ? 1 : 0.5 }}>
+                <div className="field-row">
+                  <label htmlFor="stt-riserFinishMaterialId">{t.stt_finish_material}</label>
+                  {materialSelect('stt-riserFinishMaterialId', 'riserFinishMaterialId')}
+                </div>
+                <div className="field-row">
+                  <label htmlFor="stt-riserFinishThickness">{t.stt_finish_thickness}</label>
+                  <NumField id="stt-riserFinishThickness" value={draft.riserFinishThickness ?? DEFAULT_STAIR_FINISH.riserFinishThickness} scale={100} decimals={1} unit="cm" min={0.001} max={0.1} disabled={!riserFlag} onCommit={(v) => set({ riserFinishThickness: v })} />
+                </div>
+              </div>
+            </>
+          ) : null}
+          <div style={{ opacity: bocelDimmed ? 0.5 : 1 }}>
+            <div className="field-row">
+              <label htmlFor="stt-bocelEnabled">{t.stt_finish_bocel}</label>
+              <input id="stt-bocelEnabled" type="checkbox" checked={bocelFlag} disabled={!treadOn} onChange={(e) => set({ bocelEnabled: e.target.checked })} />
+            </div>
+            <div className="field-row">
+              <label htmlFor="stt-bocelProjection">{t.stt_bocel_projection}</label>
+              <NumField id="stt-bocelProjection" value={draft.bocelProjection ?? DEFAULT_STAIR_FINISH.bocelProjection} scale={100} decimals={1} unit="cm" min={0} max={0.1} disabled={bocelDimmed} onCommit={(v) => set({ bocelProjection: v })} />
+            </div>
+            {!treadOn ? <p className="hint">{t.stt_bocel_hint}</p> : null}
+          </div>
+        </fieldset>
+      ) : null}
 
       <fieldset className="dsec" id="stt-sec-4">
         <legend>{t.stt_sec_opening}</legend>
