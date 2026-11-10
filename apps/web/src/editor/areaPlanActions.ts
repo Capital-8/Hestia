@@ -6,7 +6,9 @@ import {
   areaPlansOfLevel,
   DEFAULT_AREA_GRAPHICS,
   DEFAULT_TAG_FIELDS,
+  floorViewId,
   newId,
+  viewAnnotationsOf,
   type AreaPlan,
   type AreaPlanAnnotations,
   type AreaTable,
@@ -30,10 +32,11 @@ export const areaPlanName = (p: Pick<Project, 'levels'>, levelId: Id): string =>
  * Cópia das anotações do nível (cotas, textos, linhas/regiões de detalhe e etiquetas) com ids novos.
  * A planta de área nasce com a mesma anotação da planta de piso, mas sem compartilhar objetos com ela.
  */
-export function annotationsFromLevel(p: Pick<Project, 'levels'>, levelId: Id): AreaPlanAnnotations {
-  const level = p.levels.find((l) => l.id === levelId);
+export function annotationsFromLevel(p: Pick<Project, 'levels' | 'areaPlans'>, levelId: Id): AreaPlanAnnotations {
+  // As do nível são as da planta de piso (`floorViewId`), na lista que a vista possui.
+  const level = viewAnnotationsOf(p, floorViewId(levelId));
   return {
-    dimensions: (level?.dimensions ?? []).map((d) => ({
+    dimensions: level.dimensions.map((d) => ({
       ...d,
       id: newId('dim'),
       a: { ...d.a },
@@ -41,15 +44,15 @@ export function annotationsFromLevel(p: Pick<Project, 'levels'>, levelId: Id): A
       ...(d.textAt ? { textAt: { ...d.textAt } } : {}),
       ...(d.refs ? { refs: { ...(d.refs.a ? { a: { ...d.refs.a } } : {}), ...(d.refs.b ? { b: { ...d.refs.b } } : {}) } } : {}),
     })),
-    texts: (level?.texts ?? []).map((t) => ({
+    texts: level.texts.map((t) => ({
       ...t,
       id: newId('txt'),
       at: { ...t.at },
       ...(t.leader ? { leader: t.leader.map((q) => ({ ...q })) } : {}),
     })),
-    detailLines: (level?.detailLines ?? []).map((x) => ({ ...x, id: newId('dl'), a: { ...x.a }, b: { ...x.b } })),
-    detailRegions: (level?.detailRegions ?? []).map((x) => ({ ...x, id: newId('dr'), boundary: x.boundary.map((q) => ({ ...q })) })),
-    tags: (level?.tags ?? []).map((x) => ({ ...x, id: newId('tag'), at: { ...x.at } })),
+    detailLines: level.detailLines.map((x) => ({ ...x, id: newId('dl'), a: { ...x.a }, b: { ...x.b } })),
+    detailRegions: level.detailRegions.map((x) => ({ ...x, id: newId('dr'), boundary: x.boundary.map((q) => ({ ...q })) })),
+    tags: level.tags.map((x) => ({ ...x, id: newId('tag'), at: { ...x.at } })),
   };
 }
 

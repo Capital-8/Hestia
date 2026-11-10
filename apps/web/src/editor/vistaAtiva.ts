@@ -44,6 +44,24 @@ export function tipoDeVistaAtivo(ui: CamposDaVista): PlanViewKind | null {
   return planViewIdAtivo(ui) === null ? null : ui.planKind;
 }
 
+/**
+ * Tipo da planta "de fundo" (a que `levelId`/`planKind` apontam, qualquer que seja `view`). Só para o código antigo que
+ * valia também fora da planta (ex.: a permissão de ferramenta, que só desliga no 3D). Não depende de `areaPlanId`.
+ */
+export const tipoDeVistaDeFundo = (ui: Pick<UiState, 'planKind'>): PlanViewKind => ui.planKind;
+
+/** Id da planta de ÁREA ativa (só em `view === 'plan'`); `null` em piso, cobertura, 3D, corte, prancha e sem `areaPlanId`. */
+export function areaViewIdAtivo(ui: CamposDaVista): Id | null {
+  return tipoDeVistaAtivo(ui) === 'area' ? planViewIdAtivo(ui) : null;
+}
+
+/** Chave do viewport da planta de fundo: nível (piso), `roof:<nível>` ou `area:<planta>` (cada planta tem o seu). */
+export function chaveDeViewportDePlanta(ui: Pick<UiState, 'levelId' | 'planKind' | 'areaPlanId'>): Id {
+  if (ui.planKind === 'roof') return `roof:${ui.levelId}`;
+  if (ui.planKind === 'area') return `area:${planViewIdDeFundo(ui) ?? ui.levelId}`;
+  return ui.levelId;
+}
+
 /** Hooks finos (mesmo padrão `useUi((s) => ...)` do resto do editor). Devolvem primitivos: sem re-render à toa. */
 export const usePlanViewIdAtivo = (): Id | null => useUi((s) => planViewIdAtivo(s));
 export const usePlanViewIdDeFundo = (): Id | null => useUi((s) => planViewIdDeFundo(s));

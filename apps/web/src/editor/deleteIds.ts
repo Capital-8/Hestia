@@ -1,7 +1,9 @@
-import { annotationRemovals, areaPlanOf, isRoom, levelRoomSeparators, planAnnotationsOf, projectGrids, viewRemovals, type Command, type Id, type ProjectStore } from '@hestia/model';
+import { annotationRemovals, isRoom, levelRoomSeparators, projectGrids, viewOwnAnnotationsOf, viewRemovals, type Command, type Id, type ProjectStore } from '@hestia/model';
 import { areaMergePreview, removesCircuit, roomsToRemove } from './areaMerge.ts';
 import { pedirConfirmacaoAreaMerge } from './areaMergePrompt.ts';
 import { useUi } from './state.ts';
+import { areaViewIdAtivo } from './vistaAtiva.ts';
+import { vistaDeArea } from './vistaDeArea.ts';
 
 /**
  * Executa as remoções num passo de desfazer. A regra de áreas só entra quando `areaMergePreview` encontra uma fusão;
@@ -20,10 +22,11 @@ function executar(store: ProjectStore, commands: readonly Command[]): void {
  * bloqueados nela.
  */
 function deletePlanSelectionIn(store: ProjectStore, planId: Id, ids: Id[]): void | Promise<void> {
-  const plan = areaPlanOf(store.project, planId);
-  if (!plan) return;
+  const vista = vistaDeArea(store.project, planId);
+  if (!vista?.area) return;
+  const levelId = vista.levelId;
   const want = new Set(ids);
-  const a = planAnnotationsOf(plan);
+  const a = viewOwnAnnotationsOf(store.project, planId);
   const next = {
     dimensions: a.dimensions.filter((x) => !want.has(x.id)),
     texts: a.texts.filter((x) => !want.has(x.id)),
@@ -40,9 +43,9 @@ function deletePlanSelectionIn(store: ProjectStore, planId: Id, ids: Id[]): void
   ]);
   const removedAnnotations = annotationIds.size - (next.dimensions.length + next.texts.length + next.detailLines.length + next.detailRegions.length + next.tags.length);
   // Etiquetas de ambiente (RoomTag) são da vista e ficam em `plan.tags`, fora de `annotations`.
-  const tags = plan.tags.filter((t) => want.has(t.id)).map((t) => t.id);
+  const tags = vista.area.tags.filter((t) => want.has(t.id)).map((t) => t.id);
   const rooms = ids.filter((id) => isRoom(store.project.elements[id]));
-  const separators = levelRoomSeparators(store.project, plan.levelId).filter((r) => want.has(r.id)).map((r) => r.id);
+  const separators = levelRoomSeparators(store.project, levelId).filter((r) => want.has(r.id)).map((r) => r.id);
   if (removedAnnotations === 0 && tags.length === 0 && rooms.length === 0 && separators.length === 0) {
     useUi.setState({ status: { key: 'eds_msg_area_delete_blocked' } });
     return;
@@ -51,8 +54,8 @@ function deletePlanSelectionIn(store: ProjectStore, planId: Id, ids: Id[]): void
   if (removedAnnotations > 0) commands.push({ type: 'updateAreaPlan', id: planId, patch: { annotations: next } });
   for (const id of tags) commands.push({ type: 'removeRoomTag', planId, id });
   if (rooms.length > 0) commands.push({ type: 'deleteElements', ids: rooms });
-  for (const id of separators) commands.push({ type: 'removeRoomSeparator', levelId: plan.levelId, id });
-  const preview = areaMergePreview(store.project, plan.levelId, commands, removesCircuit(store.project, plan.levelId, ids));
+  for (const id of separators) commands.push({ type: 'removeRoomSeparator', levelId, id });
+  const preview = areaMergePreview(store.project, levelId, commands, removesCircuit(store.project, levelId, ids));
   if (!preview) {
     executar(store, commands);
     useUi.setState({
@@ -82,9 +85,11 @@ function deletePlanSelectionIn(store: ProjectStore, planId: Id, ids: Id[]): void
  * ambiente (guardados no nível, fora de project.elements) pelos próprios comandos. Tudo num único passo de desfazer.
  */
 export function deleteSelectionIn(store: ProjectStore): void | Promise<void> {
-  const { selection: ids, levelId, view, planKind, areaPlanId } = useUi.getState();
+  const ui = useUi.getState();
+  const { selection: ids, levelId } = ui;
   if (!ids.length) return;
-  if (view === 'plan' && planKind === 'area' && areaPlanId) return deletePlanSelectionIn(store, areaPlanId, ids);
+  const areaId = areaViewIdAtivo(ui);
+  if (areaId) return deletePlanSelectionIn(store, areaId, ids);
   const notes = annotationRemovals(store.project, levelId, ids);
   const views = viewRemovals(store.project, ids);
   const separators = levelRoomSeparators(store.project, levelId).filter((r) => ids.includes(r.id)).map((r) => r.id);

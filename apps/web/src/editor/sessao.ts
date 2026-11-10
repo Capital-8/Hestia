@@ -17,6 +17,7 @@ export type VistaDaSessao = 'plan' | '3d' | 'section' | 'sheet';
 
 /** Aba de vista aberta (mesmo formato de `OpenView`), guardada como JSON simples. */
 export type AbaDaSessao =
+  // forma antiga (Fase 2): a aba salva leva `planKind`/`areaPlanId` (a sessão antiga continua sendo lida).
   | { kind: 'plan'; levelId: Id; planKind?: string; areaPlanId?: Id }
   | { kind: '3d' }
   | { kind: 'section'; viewId: Id }
@@ -28,6 +29,7 @@ export interface Sessao {
   pasta: string | null;
   view: VistaDaSessao;
   levelId: Id;
+  // forma antiga (Fase 2): campos soltos do estado, gravados e lidos assim na sessão.
   planKind: string;
   areaPlanId: Id | null;
   sectionId: Id | null;
