@@ -1,16 +1,18 @@
 import { add, cross, dist, dot, len, mul, norm, sub, v2, type Vec2 } from '@hestia/geom';
 import { frameOfWall, pointAt } from '@hestia/engine';
 import {
-  areaPlanOf,
+  floorViewId,
   formatQuantity,
   isCeiling,
   isFloor,
   isRoof,
   isSlab,
   levelRoomSeparators,
-  planAnnotationsOf,
+  planViewOf,
   projectGrids,
   unitsOf,
+  viewAnnotationsOf,
+  viewOwnAnnotationsOf,
   wallsOnLevel,
   type Id,
   type Project,
@@ -110,10 +112,9 @@ export function connectedLineAt(p: Project, levelId: Id, at: Vec2, mpp: number, 
     pushSegs(segs, gridPath(g));
     for (const seg of segs) addCandidate(seg);
   }
-  const level = p.levels.find((l) => l.id === levelId);
-  const plan = planId ? areaPlanOf(p, planId) : undefined;
-  const annotations = plan ? planAnnotationsOf(plan) : null;
-  for (const l of annotations?.detailLines ?? level?.detailLines ?? []) addCandidate({ a: l.a, b: l.b });
+  const plan = planId ? planViewOf(p, planId) : undefined;
+  const annotations = plan ? viewOwnAnnotationsOf(p, plan.id) : null;
+  for (const l of annotations?.detailLines ?? viewAnnotationsOf(p, floorViewId(levelId)).detailLines) addCandidate({ a: l.a, b: l.b });
   for (const r of levelRoomSeparators(p, levelId)) addCandidate({ a: r.a, b: r.b });
   for (const e of Object.values(p.elements)) {
     if (!(isFloor(e) || isSlab(e) || isRoof(e) || isCeiling(e))) continue;

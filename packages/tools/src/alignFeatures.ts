@@ -13,8 +13,8 @@ import {
 import { ceilingOutline, frameOfWall, normalAt, pointAt, tangentAt, toLocal, type WallFrame } from '@hestia/engine';
 import { t as translate, type Lang } from './i18n.ts';
 import {
-  areaPlanOf,
   coreSpan,
+  floorViewId,
   isCeiling,
   isFloor,
   isRoof,
@@ -22,8 +22,10 @@ import {
   levelRoomSeparators,
   openingsOfWall,
   openingType,
-  planAnnotationsOf,
+  planViewOf,
   projectGrids,
+  viewAnnotationsOf,
+  viewOwnAnnotationsOf,
   wallsOnLevel,
   type Id,
   type Project,
@@ -412,9 +414,8 @@ function referenceLineFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, p
       out.push(feature(`${g.id}:grade:${i - 1}`, 'linhaGrade', `grade ${g.name}`, g.id, line(closestOnSegment(at, a, b), sub(b, a)), { policy: 'nenhum' }, d, { a, b }));
     }
   }
-  const level = p.levels.find((l) => l.id === levelId);
-  const plan = planId ? areaPlanOf(p, planId) : undefined;
-  const details = plan ? planAnnotationsOf(plan).detailLines : (level?.detailLines ?? []);
+  const plan = planId ? planViewOf(p, planId) : undefined;
+  const details = plan ? viewOwnAnnotationsOf(p, plan.id).detailLines : viewAnnotationsOf(p, floorViewId(levelId)).detailLines;
   for (const l of details) {
     const d = segmentDistance(at, l.a, l.b);
     if (d > tol) continue;

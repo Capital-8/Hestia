@@ -1,5 +1,5 @@
 import { dot, len, sub, type Vec2 } from '@hestia/geom';
-import { levelGraphicsOf, sectionLabelOf, sectionMarkGeometry, sectionPoints, sectionSheetNumberOf, type Id, type Project } from '@hestia/model';
+import { floorViewId, sectionLabelOf, sectionMarkGeometry, sectionPoints, sectionSheetNumberOf, viewGraphicsOf, type Id, type Project } from '@hestia/model';
 
 /** Distância de `p` ao segmento a–b. */
 function distToSegment(p: Vec2, a: Vec2, b: Vec2): number {
@@ -22,7 +22,7 @@ function inTriangle(p: Vec2, a: Vec2, b: Vec2, c: Vec2): boolean {
 
 /** Vistas cujas extremidades caem na janela de seleção. */
 export function sectionMarkIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2): Id[] {
-  if (levelGraphicsOf(p, levelId).overrides.annotation.visible === false) return [];
+  if (viewGraphicsOf(p, floorViewId(levelId)).overrides.annotation.visible === false) return [];
   const x0 = Math.min(a.x, b.x);
   const x1 = Math.max(a.x, b.x);
   const y0 = Math.min(a.y, b.y);
@@ -42,7 +42,7 @@ export function sectionMarkIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2): 
  * escala da vista; o rótulo e os triângulos das setas também são clicáveis. Categoria `annotation` oculta não seleciona.
  */
 export function sectionMarkAt(p: Project, levelId: Id, at: Vec2, mpp: number): Id | null {
-  const g = levelGraphicsOf(p, levelId);
+  const g = viewGraphicsOf(p, floorViewId(levelId));
   if (g.overrides.annotation.visible === false) return null;
   const mPerMm = g.scale / 1000;
   const tol = Math.max(3 * mpp, 0.02);
