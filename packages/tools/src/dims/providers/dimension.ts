@@ -1,4 +1,4 @@
-import { areaPlanOf, areaPlansOfLevel, dimRefAt, dimRefCandidates, dimensionPoints, dimensionValue, isElementRef, isOpening, levelDimensions, planAnnotationsOf, type Command, type Dimension, type DimensionElementRef, type Id, type Project } from '@hestia/model';
+import { dimRefAt, dimRefCandidates, dimensionPoints, dimensionValue, isElementRef, isOpening, levelDimensions, planViewsOfLevel, viewOwnAnnotationsOf, type Command, type Dimension, type DimensionElementRef, type Id, type Project } from '@hestia/model';
 import type { DimContext, DimEditResult, DimEnd, DimProvider, TempDim } from '../types.ts';
 import { drivenEditCommands } from '../driven.ts';
 import { t as translate, type Lang } from '../../i18n.ts';
@@ -12,15 +12,14 @@ export interface CotaVista {
 /** Cotas da vista: as do nível, ou as da planta de área. */
 function dimsDaVista(p: Project, v: CotaVista): Dimension[] {
   if (!v.planId) return levelDimensions(p, v.levelId);
-  const plan = areaPlanOf(p, v.planId);
-  return plan ? planAnnotationsOf(plan).dimensions : [];
+  return viewOwnAnnotationsOf(p, v.planId).dimensions;
 }
 
 /** Vista que contém a cota: procura no nível e depois nas plantas de área do nível. Sem ela, null. */
 export function vistaDaCota(p: Project, levelId: Id, dimId: Id): CotaVista | null {
   if (levelDimensions(p, levelId).some((d) => d.id === dimId)) return { levelId };
-  for (const plan of areaPlansOfLevel(p, levelId)) {
-    if (planAnnotationsOf(plan).dimensions.some((d) => d.id === dimId)) return { levelId, planId: plan.id };
+  for (const plan of planViewsOfLevel(p, levelId, 'area')) {
+    if (viewOwnAnnotationsOf(p, plan.id).dimensions.some((d) => d.id === dimId)) return { levelId, planId: plan.id };
   }
   return null;
 }

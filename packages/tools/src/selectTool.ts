@@ -1,7 +1,7 @@
 /* eslint-disable max-lines -- seleção reúne alças, arrastes e as etiquetas de ambiente da vista (decisão 0039). */
 import { add, boxOf, dist, dot, sub, type Vec2 } from '@hestia/geom';
 import { ceilingOutline, frameOfWall } from '@hestia/engine';
-import { angularDimensionGeometry, areaPlanOf, formatQuantity, isCeiling, isFloor, isOpening, isRamp, isRoof, isSlab, isStair, isWall, resolveViewProfile, unitsOf, type Id, type ProfileLayers, type Project, type ResolvedUnits } from '@hestia/model';
+import { angularDimensionGeometry, formatQuantity, isCeiling, isFloor, isOpening, isRamp, isRoof, isSlab, isStair, isWall, planViewOf, unitsOf, viewProfileOf, type Id, type ProfileLayers, type Project, type ResolvedUnits } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 import { ToolBase } from './base.ts';
 import { ghostBands, ghostViews, moveWalls, selectedMovables, selectedOpenings, selectedViews, slideOpenings, transformViews } from './edit.ts';
@@ -86,8 +86,8 @@ export class SelectTool extends ToolBase {
   /** Camadas do perfil da planta de área aberta (null na planta de piso: tudo visível). */
   private layers(): ProfileLayers | null {
     const planId = this.planId();
-    const plan = planId ? areaPlanOf(this.env.project(), planId) : undefined;
-    return plan ? resolveViewProfile(plan).layers : null;
+    const plan = planId ? planViewOf(this.env.project(), planId) : undefined;
+    return plan ? viewProfileOf(this.env.project(), plan.id).layers : null;
   }
 
   /**
@@ -419,7 +419,7 @@ export class SelectTool extends ToolBase {
         break;
       }
       case 'tagmove': {
-        const t = this.tagGrip ? areaPlanOf(pr, this.planId() ?? '')?.tags.find((x) => x.id === this.tagGrip) : undefined;
+        const t = this.tagGrip ? planViewOf(pr, this.planId() ?? '')?.area?.tags.find((x) => x.id === this.tagGrip) : undefined;
         if (!t) break;
         this.tagAt = add(t.at, sub(p.raw, this.downPt));
         const ring = roomTagRing(pr, t.id, this.planId(), this.tagAt);

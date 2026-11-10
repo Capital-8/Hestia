@@ -1,9 +1,9 @@
 import { add, arcFromSagitta, dist, mul, norm, sub, type Vec2 } from '@hestia/geom';
-import type { Id, Project } from '@hestia/model';
+import { floorViewId, viewAnnotationsOf, type Id, type Project } from '@hestia/model';
 import { NON_POSITIVE_MSG, gapTranslation, segFrame, segPoint, segmentGaps, type ParallelGap, type SegFrame } from '../parallel.ts';
 import type { DimContext, DimEditResult, DimEnd, DimProvider, TempDim } from '../types.ts';
 
-/** Linha de detalhe a cotar (mora no nível, em `level.detailLines`). */
+/** Linha de detalhe a cotar (mora na planta de piso do nível, que é o que o nível guarda). */
 export interface DetailLineDimSubject {
   lineId: Id;
 }
@@ -50,7 +50,7 @@ export function detailLinePreviewDim(a: Vec2, b: Vec2): TempDim {
 }
 
 function findLine(project: Project, levelId: Id, id: Id) {
-  return project.levels.find((l) => l.id === levelId)?.detailLines?.find((x) => x.id === id) ?? null;
+  return viewAnnotationsOf(project, floorViewId(levelId)).detailLines.find((x) => x.id === id) ?? null;
 }
 
 /** Cota lateral até a linha de detalhe paralela vizinha: editar translada a linha inteira na normal. */
@@ -86,7 +86,7 @@ export const detailLineDimProvider: DimProvider<DetailLineDimSubject> = {
     const length = dist(line.a, line.b);
     if (length < MIN_LENGTH) return [];
     const f = segFrame(line.a, line.b);
-    const others = (ctx.project.levels.find((l) => l.id === ctx.levelId)?.detailLines ?? []).filter((x) => x.id !== lineId);
+    const others = viewAnnotationsOf(ctx.project, floorViewId(ctx.levelId)).detailLines.filter((x) => x.id !== lineId);
     const gaps = f ? segmentGaps(f, others) : [];
     if (f && gaps.length > 0) return gaps.map((g) => lateralDim(ctx, lineId, f, line.a, line.b, g));
     const edit = (value: number): DimEditResult => {

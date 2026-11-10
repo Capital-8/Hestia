@@ -1,5 +1,5 @@
 import { boxOf, boxesOverlap, dist, dot, intersectSegments, len, sub, type Vec2 } from '@hestia/geom';
-import { areaPlanOf, angularDimensionGeometry, dimensionGeometry, dimensionStyleFor, DIM_TEXT_MM, type DimensionGeometry, dimensionPoints, levelDimensions, levelGraphicsOf, levelTexts, planAnnotationsOf, resolveViewProfile, wallsOnLevel, type DetailLine, type DetailRegion, type Dimension, type DimensionRef, type ElementTag, type Id, type Project, type RoomTag, type TextNote } from '@hestia/model';
+import { angularDimensionGeometry, dimensionGeometry, dimensionStyleFor, DIM_TEXT_MM, type DimensionGeometry, dimensionPoints, floorViewId, levelDimensions, levelTexts, planViewOf, viewAnnotationsOf as anotacoesDaVista, viewGraphicsOf, viewOwnAnnotationsOf, viewProfileOf, wallsOnLevel, type DetailLine, type DetailRegion, type Dimension, type DimensionRef, type ElementTag, type Id, type Project, type RoomTag, type TextNote } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 
 /** Tolerância (m) para dizer que um ponto é a extremidade de uma parede. */
@@ -95,26 +95,27 @@ export interface ViewAnnotations {
  * (`plan.annotations`) — as do nível não vazam para a planta. Uma planta sem anotações devolve listas vazias.
  */
 export function viewAnnotationsOf(p: Project, levelId: Id, planId?: Id): ViewAnnotations {
-  const plan = planId ? areaPlanOf(p, planId) : undefined;
+  const plan = planId ? planViewOf(p, planId) : undefined;
   if (plan) {
     // O perfil da vista decide o que aparece: categoria oculta não é alvo de seleção (nem de alça).
-    const a = { ...planAnnotationsOf(plan) };
-    const ly = resolveViewProfile(plan).layers;
+    const a = { ...viewOwnAnnotationsOf(p, plan.id) };
+    const ly = viewProfileOf(p, plan.id).layers;
     if (!ly.dimensions) a.dimensions = [];
     if (!ly.texts) a.texts = [];
     if (!ly.detail) { a.detailLines = []; a.detailRegions = []; }
     if (!ly.tags) a.tags = [];
-    const scale = Number.isFinite(plan.scale) && plan.scale > 0 ? plan.scale : levelGraphicsOf(p, levelId).scale;
+    const escala = plan.area?.scale ?? NaN;
+    const scale = Number.isFinite(escala) && escala > 0 ? escala : viewGraphicsOf(p, floorViewId(levelId)).scale;
     return { scale, ...a };
   }
-  const level = p.levels.find((l) => l.id === levelId);
+  const nivel = anotacoesDaVista(p, floorViewId(levelId));
   return {
-    scale: levelGraphicsOf(p, levelId).scale,
+    scale: viewGraphicsOf(p, floorViewId(levelId)).scale,
     dimensions: levelDimensions(p, levelId),
     texts: levelTexts(p, levelId),
-    detailLines: level?.detailLines ?? [],
-    detailRegions: level?.detailRegions ?? [],
-    tags: level?.tags ?? [],
+    detailLines: nivel.detailLines,
+    detailRegions: nivel.detailRegions,
+    tags: nivel.tags,
   };
 }
 
@@ -332,8 +333,8 @@ function roomTagHalf(scale: number): { hw: number; hh: number } {
 
 /** Etiquetas de ambiente (RoomTag) visíveis da planta de área. */
 const visibleRoomTags = (p: Project, planId: Id | undefined): { tags: RoomTag[]; scale: number } => {
-  const plan = planId ? areaPlanOf(p, planId) : undefined;
-  return plan ? { tags: plan.tags.filter((t) => t.visible), scale: plan.scale > 0 ? plan.scale : 50 } : { tags: [], scale: 50 };
+  const area = planId ? planViewOf(p, planId)?.area : undefined;
+  return area ? { tags: area.tags.filter((t) => t.visible), scale: area.scale > 0 ? area.scale : 50 } : { tags: [], scale: 50 };
 };
 
 /** Etiqueta de ambiente da planta de área sob o cursor (a caixa do texto mais 6 px). Planta de piso: sempre null. */
