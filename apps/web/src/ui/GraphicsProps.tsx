@@ -1,5 +1,5 @@
 import { useState, type ReactElement } from 'react';
-import { GRAPHICS_CATEGORIES, PARTIAL_STRUCTURES, PLAN_VISUAL_STYLES, VISUAL_STYLES, levelGraphicsOf, sectionGraphicsOf, view3dOf, type DetailLevel, type Id, type View3DSettings, type ViewGraphics } from '@hestia/model';
+import { GRAPHICS_CATEGORIES, PARTIAL_STRUCTURES, PLAN_VISUAL_STYLES, VISUAL_STYLES, floorViewId, sectionGraphicsOf, view3dOf, viewGraphicsOf, type DetailLevel, type Id, type View3DSettings, type ViewGraphics } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
 import { editLevelGraphics, editSectionGraphics, editView3D, restoreLevelGraphicsDefault, restoreSectionGraphicsDefault, restoreView3DDefault, type LevelGraphicsPatch, type SectionGraphicsPatch, type View3DPatch } from '../editor/graphicsActions.ts';
@@ -14,7 +14,7 @@ const DETAILS: readonly (DetailLevel | 'byScale')[] = ['byScale', 'coarse', 'med
 export function LevelGraphicsGroup({ levelId }: { levelId: Id }): ReactElement {
   const { t, lang } = useT();
   const p = useProject();
-  const g = levelGraphicsOf(p, levelId);
+  const g = viewGraphicsOf(p, floorViewId(levelId));
   const [error, setError] = useState<string | null>(null);
   const edit = (patch: LevelGraphicsPatch): void => setError(editLevelGraphics(editor.store, levelId, patch).error);
   const hidden = GRAPHICS_CATEGORIES.filter((c) => !g.overrides[c].visible);

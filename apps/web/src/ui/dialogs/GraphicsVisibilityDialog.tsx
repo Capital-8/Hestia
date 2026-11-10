@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactElement } from 'react';
-import { GRAPHICS_CATEGORIES, graphicsOf, levelGraphicsOf, sectionGraphicsOf, view3dOf, type CategoryOverride, type GraphicsCategory } from '@hestia/model';
+import { GRAPHICS_CATEGORIES, floorViewId, graphicsOf, sectionGraphicsOf, view3dOf, viewGraphicsOf, type CategoryOverride, type GraphicsCategory } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
 import { editLevelGraphics, editSectionGraphics, editView3D, type GraphicsEdit } from '../../editor/graphicsActions.ts';
 import { useUi } from '../../editor/state.ts';
@@ -46,7 +46,7 @@ export function GraphicsVisibilityDialog({ target }: { target: string }): ReactE
   const lvl = is3d || isSection ? undefined : p.levels.find((l) => l.id === target);
   const [errors, setErrors] = useState<Partial<Record<GraphicsCategory, string>>>({});
   if (!is3d && !isSection && !lvl) return null;
-  const g = is3d ? view3dOf(p) : isSection ? sectionGraphicsOf(p) : levelGraphicsOf(p, target);
+  const g = is3d ? view3dOf(p) : isSection ? sectionGraphicsOf(p) : viewGraphicsOf(p, floorViewId(target));
   const pg = graphicsOf(p);
   const close = (): void => useUi.setState({ dialog: null, dialogArg: null });
   const run = (c: GraphicsCategory, o: Override): void => {
