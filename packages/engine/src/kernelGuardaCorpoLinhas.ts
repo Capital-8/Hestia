@@ -5,7 +5,7 @@
 import type { CorrimaoGC, Id, PerfilGC, Project, RefBaseGC, RefTopoGC, TipoGuardaCorpo } from '@hestia/model';
 import type { ResolvedRamp } from './ramps.ts';
 import type { ResolvedStair } from './stairs.ts';
-import { ENUM, ID_AUSENTE_GC, codigo, type NomeSecaoGC } from './kernelGuardaCorpoTabelas.ts';
+import { ENUM, ID_AUSENTE_GC, PD_CENTRO_GC, codigo, type NomeSecaoGC } from './kernelGuardaCorpoTabelas.ts';
 
 /** O que a montagem oferece às funções de linhas. */
 export interface CtxGC {
@@ -120,7 +120,8 @@ export function linhasDoTipo(c: CtxGC, t: TipoGuardaCorpo, id: number): void {
         escopo: codigo(ENUM.escopo, pr.escopo, 'escopo do padrão'),
         pd_ativo: pd.ativo ? 1 : 0,
         pd_qtd: pd.quantidade,
-        pd_dist: pd.distanciaDaQuina,
+        // `null` (ou ausente, em tipo antigo) = centro da pisada; o Rust lê -1 como centro.
+        pd_dist: pd.distanciaDoBocel ?? PD_CENTRO_GC,
         pd_perfil_num: pd.modelo ? perfil(pd.modelo.perfil) : ID_AUSENTE_GC,
         pd_material_num: materialNum(pd.modelo?.materialId),
       });

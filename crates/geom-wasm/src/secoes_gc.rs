@@ -61,6 +61,9 @@ pub mod limite {
     pub const CORRIMAO_EXTENSAO_MIN: usize = 20;
 }
 
+/// `pd_dist` com este valor = montante no centro da pisada.
+pub const PD_CENTRO: f64 = -1.0;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct EscadaGC {
     pub nivel: u32,
@@ -262,6 +265,7 @@ pub struct PadraoLinha {
     pub escopo: u8,
     pub pd_ativo: bool,
     pub pd_qtd: u32,
+    /// Distância do bocel ao centro do montante (m) ou `PD_CENTRO`.
     pub pd_dist: f64,
     pub pd_perfil: u32,
     pub pd_material: u32,
@@ -716,7 +720,15 @@ fn decodificar(secao: u32, n_linhas: u32, bytes: &[u8]) -> Result<Lote, u32> {
             escopo: t.e("escopo", i, 1)?,
             pd_ativo: t.b("pd_ativo", i)?,
             pd_qtd: t.u("pd_qtd", i)?,
-            pd_dist: t.dp("pd_dist", i)?,
+            pd_dist: {
+                // Distância do bocel (m, >= 0) ou `PD_CENTRO` (-1): centro da pisada.
+                let x = t.d("pd_dist", i)?;
+                if x >= 0.0 || x == PD_CENTRO {
+                    x
+                } else {
+                    return Err(ENTRADA);
+                }
+            },
             pd_perfil: t.u("pd_perfil_num", i)?,
             pd_material: t.u("pd_material_num", i)?,
         })),

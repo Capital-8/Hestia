@@ -60,7 +60,7 @@ describe('avisos de geometria degenerada na referência (paridade com o Rust)', 
     const a = deCaminho([1, 3, 2, 4, 1, 6, 0, 1, 1, 99, 0, 0], [0.5, 1e-6, 1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     expect(a.map((x) => x.codigo)).toEqual([AV.trechoCurto, AV.semBorda]);
     expect(a[0]).toMatchObject({ guarda: 1, trecho: 2, indice: 4, medido: 0.5, x: 1, y: 2, z: 3 });
-    expect([1, 2, 3, 4].map((c) => deDistribuicao(1, 0, c, 0.3, 0.1)!.codigo)).toEqual([AV.padraoNaoCabe, AV.padraoComprimido, AV.vaoSemEspaco, AV.sobraCurta]);
+    expect([1, 2, 3, 4, 5].map((c) => deDistribuicao(1, 0, c, 0.3, 0.1)!.codigo)).toEqual([AV.padraoNaoCabe, AV.padraoComprimido, AV.vaoSemEspaco, AV.sobraCurta, AV.montanteForaDoPiso]);
     expect(deDistribuicao(1, 0, 9, 0, 0)).toBeNull();
   });
 

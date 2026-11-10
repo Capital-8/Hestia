@@ -72,7 +72,7 @@ describe('medidas do Rust viram avisos', () => {
     );
     expect(r.map((i) => i.code)).toEqual(['gc-vao-grande', 'gc-corrimao-altura', 'gc-corrimao-extensao']);
     expect(r[0]!.message).toContain('0.12');
-    expect(Object.values(CODIGO_AVISO_GC)).toHaveLength(16);
+    expect(Object.values(CODIGO_AVISO_GC)).toHaveLength(17);
   });
 
   it('referência TS da esfera: vão de 120 mm passa 0,12 e o de 100 mm, 0,10', () => {
@@ -90,7 +90,7 @@ describe('avisos de geometria degenerada', () => {
   const LANGS = ['pt', 'en', 'es', 'de', 'fr', 'it', 'pl'] as const;
 
   it('cada código de geometria tem texto nos sete idiomas, com o valor medido, e nenhum igual ao português fora o próprio pt', () => {
-    expect(CODIGOS_GEOMETRIA_GC).toHaveLength(11);
+    expect(CODIGOS_GEOMETRIA_GC).toHaveLength(12);
     for (const code of CODIGOS_GEOMETRIA_GC) {
       const pt = mensagemGeometria('pt', code, 0.123, 0.456);
       for (const lang of LANGS) {

@@ -119,7 +119,7 @@ function balaustres(nome: string, perfil: PerfilGC, materialId: string, periodo:
     quebra: 'nunca',
     anguloQuebra: 0.5236,
     escopo: 'vao',
-    porDegrau: { ativo: false, quantidade: 2, distanciaDaQuina: 0.05, modelo: null },
+    porDegrau: { ativo: false, quantidade: 1, distanciaDoBocel: null, modelo: null },
   };
 }
 

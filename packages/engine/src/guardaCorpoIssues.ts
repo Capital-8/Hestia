@@ -43,6 +43,7 @@ export const CODIGO_AVISO_GC: Record<number, string> = {
   14: 'gc-padrao-comprimido',
   15: 'gc-vao-sem-espaco',
   16: 'gc-poste-sobra-curta',
+  17: 'gc-montante-fora-do-piso',
 };
 
 /** Códigos de geometria degenerada: nunca bloqueiam e não têm limite de norma (sem "a conferir"). */
@@ -58,6 +59,7 @@ export const CODIGOS_GEOMETRIA_GC = [
   'gc-padrao-comprimido',
   'gc-vao-sem-espaco',
   'gc-poste-sobra-curta',
+  'gc-montante-fora-do-piso',
 ] as const;
 export type CodigoGeometriaGC = (typeof CODIGOS_GEOMETRIA_GC)[number];
 const EH_GEOMETRIA = new Set<string>(CODIGOS_GEOMETRIA_GC);
@@ -76,6 +78,7 @@ const GEO: Record<Lang, Record<CodigoGeometriaGC, string>> = {
     'gc-padrao-comprimido': 'O período do padrão foi comprimido para {medido} m, menos da metade do pedido.',
     'gc-vao-sem-espaco': 'O vão de {medido} m não tem espaço para balaústres nem painel.',
     'gc-poste-sobra-curta': 'A sobra de {medido} m no fim do trecho é curta demais para um poste.',
+    'gc-montante-fora-do-piso': "O montante por degrau não cabe inteiro sobre o piso de {medido} m de pisada (invadiria o espelho ou o bocel): os que não cabem não foram desenhados.",
   },
   en: {
     'gc-hospedeiro-descontinuo': 'The host has a {medido} m gap between two segments (tolerance {limite} m): the railing was split into two paths.',
@@ -89,6 +92,7 @@ const GEO: Record<Lang, Record<CodigoGeometriaGC, string>> = {
     'gc-padrao-comprimido': 'The pattern period was squeezed to {medido} m, less than half of the requested one.',
     'gc-vao-sem-espaco': 'The {medido} m bay has no room for balusters or a panel.',
     'gc-poste-sobra-curta': 'The {medido} m left at the end of the segment is too short for a post.',
+    'gc-montante-fora-do-piso': "The per-tread baluster does not fit entirely on the {medido} m tread (it would hit the riser or the nosing): those that do not fit were not drawn.",
   },
   es: {
     'gc-hospedeiro-descontinuo': 'El anfitrión tiene una holgura de {medido} m entre dos tramos (tolerancia {limite} m): la barandilla se abrió en dos caminos.',
@@ -102,6 +106,7 @@ const GEO: Record<Lang, Record<CodigoGeometriaGC, string>> = {
     'gc-padrao-comprimido': 'El período del patrón se comprimió a {medido} m, menos de la mitad del pedido.',
     'gc-vao-sem-espaco': 'El vano de {medido} m no tiene espacio para balaustres ni panel.',
     'gc-poste-sobra-curta': 'Los {medido} m que sobran al final del tramo son demasiado cortos para un poste.',
+    'gc-montante-fora-do-piso': "El balaustre por peldaño no cabe entero sobre la huella de {medido} m (chocaría con la contrahuella o el borde): los que no caben no se dibujaron.",
   },
   de: {
     'gc-hospedeiro-descontinuo': 'Das Trägerbauteil hat {medido} m Lücke zwischen zwei Abschnitten (Toleranz {limite} m): das Geländer wurde in zwei Pfade geteilt.',
@@ -115,6 +120,7 @@ const GEO: Record<Lang, Record<CodigoGeometriaGC, string>> = {
     'gc-padrao-comprimido': 'Die Musterperiode wurde auf {medido} m gestaucht, weniger als die Hälfte des Gewünschten.',
     'gc-vao-sem-espaco': 'Das Feld von {medido} m hat keinen Platz für Stäbe oder Füllung.',
     'gc-poste-sobra-curta': 'Der Rest von {medido} m am Ende des Abschnitts ist für einen Pfosten zu kurz.',
+    'gc-montante-fora-do-piso': "Der Stab je Stufe passt nicht ganz auf die Trittfläche von {medido} m (er würde Setzstufe oder Vorderkante berühren): nicht passende wurden nicht gezeichnet.",
   },
   fr: {
     'gc-hospedeiro-descontinuo': "L'hôte présente un jeu de {medido} m entre deux tronçons (tolérance {limite} m) : le garde-corps a été scindé en deux chemins.",
@@ -128,6 +134,7 @@ const GEO: Record<Lang, Record<CodigoGeometriaGC, string>> = {
     'gc-padrao-comprimido': 'La période du motif a été comprimée à {medido} m, moins de la moitié de la valeur demandée.',
     'gc-vao-sem-espaco': "La travée de {medido} m n'a pas de place pour des barreaux ni un panneau.",
     'gc-poste-sobra-curta': 'Les {medido} m restants en fin de tronçon sont trop courts pour un poteau.',
+    'gc-montante-fora-do-piso': "Le balustre par marche ne tient pas entièrement sur le giron de {medido} m (il toucherait la contremarche ou le nez de marche) : ceux qui ne tiennent pas n'ont pas été dessinés.",
   },
   it: {
     'gc-hospedeiro-descontinuo': "L'ospite ha un gioco di {medido} m tra due tratti (tolleranza {limite} m): il parapetto è stato aperto in due percorsi.",
@@ -141,6 +148,7 @@ const GEO: Record<Lang, Record<CodigoGeometriaGC, string>> = {
     'gc-padrao-comprimido': 'Il periodo del motivo è stato compresso a {medido} m, meno della metà del richiesto.',
     'gc-vao-sem-espaco': 'La campata di {medido} m non ha spazio per balaustri né pannello.',
     'gc-poste-sobra-curta': 'I {medido} m avanzati a fine tratto sono troppo corti per un montante.',
+    'gc-montante-fora-do-piso': "Il balaustro per gradino non sta interamente sulla pedata di {medido} m (urterebbe l'alzata o il bordo): quelli che non ci stanno non sono stati disegnati.",
   },
   pl: {
     'gc-hospedeiro-descontinuo': 'Element nośny ma przerwę {medido} m między dwoma odcinkami (tolerancja {limite} m): balustradę podzielono na dwie ścieżki.',
@@ -154,6 +162,7 @@ const GEO: Record<Lang, Record<CodigoGeometriaGC, string>> = {
     'gc-padrao-comprimido': 'Okres wzoru został ściśnięty do {medido} m, mniej niż połowa żądanego.',
     'gc-vao-sem-espaco': 'Przęsło {medido} m nie ma miejsca na tralki ani panel.',
     'gc-poste-sobra-curta': 'Pozostałe {medido} m na końcu odcinka to za mało na słupek.',
+    'gc-montante-fora-do-piso': "Słupek na stopień nie mieści się w całości na stopnicy {medido} m (uderzyłby w podstopnicę lub krawędź): te, które się nie mieszczą, nie zostały narysowane.",
   },
 };
 

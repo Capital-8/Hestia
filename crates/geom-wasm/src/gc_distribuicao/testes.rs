@@ -30,7 +30,7 @@ pub(super) fn padrao(periodo: f64, justif: u8) -> PadraoP {
         escopo: ESCOPO_VAO,
         h_base: 0.1,
         h_topo: 1.0,
-        por_degrau: PorDegrauP { ativo: false, quantidade: 1, dist_quina: 0.0, perfil: None, material: 0 },
+        por_degrau: PorDegrauP { ativo: false, quantidade: 1, dist_quina: 0.0, centro: false, perfil: None, material: 0 },
     }
 }
 
@@ -299,23 +299,30 @@ fn balaustres_seguem_a_inclinacao_e_ficam_verticais() {
     }
 }
 
+fn pd_cfg(q: u32, dist: Option<f64>, diametro: f64, degraus: &[DegrauP]) -> ConfigDistribuicao {
+    let mut pad = padrao(0.11, JUSTIF_DISTRIBUIR);
+    pad.por_degrau = PorDegrauP { ativo: true, quantidade: q, dist_quina: dist.unwrap_or(0.0), centro: dist.is_none(), perfil: Some(PerfilP::circular(diametro)), material: 5 };
+    let mut cfg = config(param_postes(None, None, None, None, MODO_NENHUM, 0.0, 0), vec![pad]);
+    cfg.degraus = degraus.to_vec();
+    cfg
+}
+
 #[test]
 fn por_degrau_uma_duas_e_tres_por_degrau() {
     let t = CadeiaGC::lance_inclinado(1, 0.84, 0.0, 0.5, 0.0).trechos.remove(0);
     let degraus: Vec<DegrauP> = (0..3).map(|i| DegrauP { s0: 0.28 * i as f64, profundidade: 0.28, z: 0.17 * (i + 1) as f64 }).collect();
     for q in 1..=3u32 {
-        let mut pad = padrao(0.11, JUSTIF_DISTRIBUIR);
-        pad.por_degrau = PorDegrauP { ativo: true, quantidade: q, dist_quina: 0.04, perfil: Some(PerfilP::circular(0.012)), material: 5 };
-        let mut cfg = config(param_postes(None, None, None, None, MODO_NENHUM, 0.0, 0), vec![pad]);
-        cfg.degraus = degraus.clone();
+        // Distância do bocel dada: N = 1 em `d`; N > 1 igualmente espaçados de `d` até `pisada - d`.
+        let cfg = pd_cfg(q, Some(0.04), 0.024, &degraus);
         let o = distribuir(&t, &cfg, 100).unwrap();
         let b = &o.balaustres[0];
         assert_eq!(b.len(), 3 * q as usize);
         assert!(b.iter().all(|x| x.elem.is_none()));
-        let passo = (0.28 - 0.04) / q as f64;
+        assert!(o.avisos.is_empty());
         assert!(aproximado(b[0].s, 0.04));
         if q > 1 {
-            assert!(aproximado(b[1].s - b[0].s, passo));
+            assert!(aproximado(b[1].s - b[0].s, (0.28 - 0.08) / (q - 1) as f64));
+            assert!(aproximado(b[q as usize - 1].s, 0.28 - 0.04));
         }
         // A base está no degrau; o topo na cota do eixo mais o topo do padrão.
         assert!(aproximado(b[0].z0, 0.17));
@@ -324,7 +331,7 @@ fn por_degrau_uma_duas_e_tres_por_degrau() {
     // Patamar usa o padrão normal, mesmo com por degrau ligado.
     let p = CadeiaGC::lance_inclinado(1, 3.0, 0.0, 1.0, 1.0).trechos.remove(1);
     let mut pad = padrao(0.11, JUSTIF_DISTRIBUIR);
-    pad.por_degrau = PorDegrauP { ativo: true, quantidade: 2, dist_quina: 0.04, perfil: Some(PerfilP::circular(0.012)), material: 5 };
+    pad.por_degrau = PorDegrauP { ativo: true, quantidade: 2, dist_quina: 0.04, centro: false, perfil: Some(PerfilP::circular(0.012)), material: 5 };
     let mut cfg = config(param_postes(None, None, None, None, MODO_NENHUM, 0.0, 0), vec![pad]);
     cfg.degraus = degraus;
     let o = distribuir(&p, &cfg, 1000).unwrap();
@@ -546,6 +553,7 @@ fn config_json(c: &Value) -> (TrechoGC, ConfigDistribuicao) {
                 ativo: pd.get("ativo").and_then(Value::as_bool).unwrap_or(false),
                 quantidade: n(pd, "quantidade", 1.0) as u32,
                 dist_quina: n(pd, "dist_quina", 0.0),
+                centro: pd.get("centro").and_then(Value::as_bool).unwrap_or(false),
                 perfil: perfil_json(&pd["largura"]),
                 material: 5,
             },
@@ -600,4 +608,72 @@ fn casos_de_ouro_conferem_com_o_arquivo_compartilhado() {
         let caminho = concat!(env!("CARGO_MANIFEST_DIR"), "/../../packages/engine/src/guardaCorpoRef/distribuicao.ouro.json");
         std::fs::write(caminho, serde_json::to_string_pretty(&ouro).unwrap() + "\n").unwrap();
     }
+}
+
+/// Montante por degrau (decisão 0055, §registro do bocel): o centro cai no meio da pisada e a seção nunca invade o bocel nem o espelho seguinte.
+#[test]
+fn montante_por_degrau_fica_inteiro_sobre_o_piso_em_escadas_variadas() {
+    let diametros = [0.012, 0.025, 0.04];
+    // (pisada, espelho, quantidade de degraus)
+    for (pisada, espelho, n) in [(0.25, 0.18, 5usize), (0.28, 0.17, 8), (0.30, 0.16, 4), (0.24, 0.19, 6)] {
+        let total = pisada * n as f64;
+        for invertido in [false, true] {
+            let sg = if invertido { -1.0 } else { 1.0 };
+            let t0 = CadeiaGC::lance_inclinado(1, total, 0.0, espelho * n as f64, 0.0).trechos.remove(0);
+            // Invertido: nós em ordem contrária; o bocel de cada degrau passa a ser a ponta de MAIOR s e a pisada corre para trás.
+            let t = if invertido { TrechoGC { nos: t0.nos.iter().rev().cloned().collect(), ..t0 } } else { t0 };
+            let degraus: Vec<DegrauP> = (0..n)
+                .map(|i| {
+                    let s0 = if invertido { total - pisada * i as f64 } else { pisada * i as f64 };
+                    DegrauP { s0, profundidade: sg * pisada, z: espelho * (i + 1) as f64 }
+                })
+                .collect();
+            for &d in &diametros {
+                for q in 1..=3u32 {
+                    for dist in [None, Some(0.06)] {
+                        let cfg = pd_cfg(q, dist, d, &degraus);
+                        let o = distribuir(&t, &cfg, 1000).unwrap();
+                        let b = &o.balaustres[0];
+                        let meia = d / 2.0;
+                        for x in b {
+                            // Pisada do degrau a que o montante pertence.
+                            let i = degraus.iter().position(|g| (x.s - g.s0) * sg >= -1e-9 && (x.s - g.s0) * sg <= pisada + 1e-9).expect("sobre algum degrau");
+                            let off = (x.s - degraus[i].s0) * sg;
+                            assert!(off >= meia - 1e-9 && off <= pisada - meia + 1e-9, "pisada {pisada} d {d} q {q}: montante a {off} da quina invade espelho ou bocel");
+                        }
+                        // Posição padrão: N = 1 no meio da pisada; N > 1 no meio de N faixas iguais.
+                        if dist.is_none() {
+                            assert_eq!(b.len(), n * q as usize);
+                            for (k, x) in b.iter().enumerate() {
+                                let (i, j) = (k / q as usize, k % q as usize);
+                                let off = (j as f64 + 0.5) * pisada / q as f64;
+                                assert!(aproximado((x.s - degraus[i].s0) * sg, off), "degrau {i} montante {j}");
+                            }
+                            assert!(o.avisos.is_empty());
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn montante_que_nao_cabe_no_piso_avisa_e_nao_e_desenhado() {
+    let t = CadeiaGC::lance_inclinado(1, 0.84, 0.0, 0.5, 0.0).trechos.remove(0);
+    let degraus: Vec<DegrauP> = (0..3).map(|i| DegrauP { s0: 0.28 * i as f64, profundidade: 0.28, z: 0.17 * (i + 1) as f64 }).collect();
+    // Perfil de 30 cm de largura numa pisada de 28 cm: impossível.
+    let o = distribuir(&t, &pd_cfg(1, None, 0.30, &degraus), 100).unwrap();
+    assert!(o.balaustres[0].is_empty());
+    assert_eq!(o.avisos.len(), 1);
+    assert_eq!(o.avisos[0].codigo, AVISO_MONTANTE_FORA_DO_PISO);
+    // Distância do bocel menor que a meia largura: o montante invadiria o bocel.
+    let o = distribuir(&t, &pd_cfg(1, Some(0.005), 0.024, &degraus), 100).unwrap();
+    assert!(o.balaustres[0].is_empty());
+    assert_eq!(o.avisos[0].codigo, AVISO_MONTANTE_FORA_DO_PISO);
+    // Com 3 por degrau e perfil largo, as faixas de 9,3 cm não comportam 12 cm.
+    let o = distribuir(&t, &pd_cfg(3, None, 0.12, &degraus), 100).unwrap();
+    // Só o do meio de cada degrau cabe (faixa central), e o aviso é dado.
+    assert_eq!(o.balaustres[0].len(), 3);
+    assert_eq!(o.avisos.len(), 1);
 }

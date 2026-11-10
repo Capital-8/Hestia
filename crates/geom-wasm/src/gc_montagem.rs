@@ -390,7 +390,7 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
                     escopo: p.escopo,
                     h_base: altura_ref(cena, tipo, p.base_tipo, p.base_idx, false, h_t, lod)?,
                     h_topo: altura_ref(cena, tipo, p.topo_tipo, p.topo_idx, true, h_t, lod)?,
-                    por_degrau: PorDegrauP { ativo: p.pd_ativo, quantidade: p.pd_qtd, dist_quina: sentido * p.pd_dist, perfil: pd_perfil, material: p.pd_material },
+                    por_degrau: PorDegrauP { ativo: p.pd_ativo, quantidade: p.pd_qtd, dist_quina: p.pd_dist.max(0.0), centro: p.pd_dist < 0.0, perfil: pd_perfil, material: p.pd_material },
                 });
             }
         }

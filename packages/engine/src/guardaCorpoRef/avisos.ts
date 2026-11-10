@@ -37,7 +37,7 @@ export function maiorEsfera(v: VaoGCRef, hMin: number, hMax: number): { diametro
   return melhor;
 }
 
-/** Códigos de `guarda_avisos` (iguais a `gc_avisos.rs`). Os de 6 a 11 vêm do caminho (1 a 6) e os de 13 a 16 da distribuição (1 a 4). */
+/** Códigos de `guarda_avisos` (iguais a `gc_avisos.rs`). Os de 6 a 11 vêm do caminho (1 a 6) e os de 13 a 17 da distribuição (1 a 5). */
 export const AV = {
   hospedeiroDescontinuo: 6,
   deslocamentoExcede: 7,
@@ -50,6 +50,7 @@ export const AV = {
   padraoComprimido: 14,
   vaoSemEspaco: 15,
   sobraCurta: 16,
+  montanteForaDoPiso: 17,
 } as const;
 
 export interface AvisoRef {
@@ -77,9 +78,9 @@ export function deCaminho(avisos: readonly number[], valores: readonly number[])
   return out;
 }
 
-/** Traduz o aviso da distribuição (códigos 1 a 4) para o código de `guarda_avisos` (13 a 16). */
+/** Traduz o aviso da distribuição (códigos 1 a 5) para o código de `guarda_avisos` (13 a 17). */
 export function deDistribuicao(guarda: number, trecho: number, codigo: number, s: number, valor: number): AvisoRef | null {
-  const mapa: Record<number, number> = { 1: AV.padraoNaoCabe, 2: AV.padraoComprimido, 3: AV.vaoSemEspaco, 4: AV.sobraCurta };
+  const mapa: Record<number, number> = { 1: AV.padraoNaoCabe, 2: AV.padraoComprimido, 3: AV.vaoSemEspaco, 4: AV.sobraCurta, 5: AV.montanteForaDoPiso };
   const c = mapa[codigo];
   return c === undefined ? null : { guarda, codigo: c, trecho, indice: 0, medido: valor, limite: 0, x: s, y: 0, z: 0 };
 }

@@ -19,6 +19,8 @@ pub const AVISO_PADRAO_NAO_CABE: u8 = 1;
 pub const AVISO_PADRAO_COMPRIMIDO: u8 = 2;
 pub const AVISO_VAO_SEM_ESPACO: u8 = 3;
 pub const AVISO_POSTE_SOBRA_CURTA: u8 = 4;
+/// Montante por degrau que não cabe inteiro sobre o piso (invadiria o espelho ou a quina); `valor` é a pisada útil do degrau.
+pub const AVISO_MONTANTE_FORA_DO_PISO: u8 = 5;
 
 pub const PAPEL_POSTE: u8 = 0;
 pub const PAPEL_BALAUSTRE: u8 = 1;
@@ -440,7 +442,10 @@ pub struct ElemP {
 pub struct PorDegrauP {
     pub ativo: bool,
     pub quantidade: u32,
+    /// Distância do bocel (borda frontal do piso) ao centro do montante, em metros, sempre positiva (o sentido vem do sinal da pisada).
     pub dist_quina: f64,
+    /// `true` = centro da pisada (ignora `dist_quina`): com N montantes, o centro de cada uma de N faixas iguais da pisada.
+    pub centro: bool,
     pub perfil: Option<PerfilP>,
     pub material: u32,
 }
@@ -544,6 +549,29 @@ fn posicoes_no_vao(pad: &PadraoP, cum: &[f64], lu: f64, s_ref: f64, avisos: &mut
     out
 }
 
+/// Referência do degrau: `(s do bocel, pisada)`. O bocel é a borda frontal do piso e a pisada corre dele para a frente (sinal = sentido do caminho).
+/// PONTO DE INTEGRAÇÃO com o acabamento da escada (`feat/escada-acabamento`): hoje o bocel é a quina do espelho (`s0`) e a pisada é a do piso
+/// estrutural; quando o piso acabado e o bocel existirem, só esta função muda (bocel acabado e pisada útil acabada), o resto mede a partir dela.
+pub fn piso_do_degrau(dg: &DegrauP) -> (f64, f64) {
+    (dg.s0, dg.profundidade)
+}
+
+/// Distâncias, medidas do bocel para a frente, dos centros dos montantes de um degrau de pisada `p` (> 0).
+/// Centro da pisada: N faixas iguais, um montante no meio de cada (N = 1: no meio da pisada).
+/// Distância dada `d`: N = 1 em `d`; N > 1 igualmente espaçados de `d` até `p - d` (simétrico).
+pub fn deslocamentos_no_piso(pd: &PorDegrauP, p: f64) -> Vec<f64> {
+    let q = pd.quantidade.max(1) as usize;
+    if pd.centro {
+        return (0..q).map(|j| (j as f64 + 0.5) * p / q as f64).collect();
+    }
+    let d = pd.dist_quina.max(0.0);
+    if q == 1 {
+        return vec![d];
+    }
+    let passo = (p - 2.0 * d) / (q - 1) as f64;
+    (0..q).map(|j| d + j as f64 * passo).collect()
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn balaustres(
     perc: &Percurso,
@@ -588,13 +616,24 @@ pub fn balaustres(
 
     // Por degrau: só nos lances (escada); patamares usam o padrão normal.
     if pad.por_degrau.ativo && matches!(origem, OrigemTrecho::Lance | OrigemTrecho::Caracol) && !degraus.is_empty() && pad.por_degrau.quantidade >= 1 {
-        let q = pad.por_degrau.quantidade as usize;
         let meia_pd = pad.por_degrau.perfil.as_ref().map_or(0.0, |p| p.largura_ao_longo()) / 2.0;
         if pad.por_degrau.perfil.is_some() {
+            let mut avisou = false;
             for dg in degraus {
-                let passo = (dg.profundidade - pad.por_degrau.dist_quina) / q as f64;
-                for j in 0..q {
-                    let s = dg.s0 + pad.por_degrau.dist_quina + j as f64 * passo;
+                let (bocel, pisada) = piso_do_degrau(dg);
+                let sg = if pisada < 0.0 { -1.0 } else { 1.0 };
+                let p = pisada.abs();
+                let desl = deslocamentos_no_piso(&pad.por_degrau, p);
+                for off in desl.iter() {
+                    // O montante inteiro tem de ficar sobre o piso: a seção não passa do bocel nem do espelho do degrau seguinte.
+                    if *off < meia_pd - EPS || *off > p - meia_pd + EPS {
+                        if !avisou {
+                            avisos.push(Aviso { codigo: AVISO_MONTANTE_FORA_DO_PISO, s: bocel, valor: p });
+                            avisou = true;
+                        }
+                        continue;
+                    }
+                    let s = bocel + sg * off;
                     // A cadeia real é cortada nas quinas por projeção em arco discretizado: tolera 5 mm fora das pontas.
                     if s < -TOL_PONTA_DEGRAU || s > perc.total + TOL_PONTA_DEGRAU {
                         continue;

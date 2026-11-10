@@ -11,6 +11,7 @@ export const AVISO_PADRAO_NAO_CABE = 1;
 export const AVISO_PADRAO_COMPRIMIDO = 2;
 export const AVISO_VAO_SEM_ESPACO = 3;
 export const AVISO_POSTE_SOBRA_CURTA = 4;
+export const AVISO_MONTANTE_FORA_DO_PISO = 5;
 
 export const POSTE_INICIO = 0;
 export const POSTE_FIM = 1;
@@ -42,7 +43,7 @@ export interface ElemRef { largura: number | null; dist: number; lateral: number
 export interface PadraoRef {
   elementos: ElemRef[]; periodo: number; justif: number; sobra: number; quebra: number; angQuebra: number; escopo: number;
   hBase: number; hTopo: number;
-  porDegrau: { ativo: boolean; quantidade: number; distQuina: number; largura: number | null };
+  porDegrau: { ativo: boolean; quantidade: number; distQuina: number; centro: boolean; largura: number | null };
 }
 export interface DegrauRef { s0: number; prof: number; z: number }
 export interface PainelRef { larguraMax: number; folga: number }
@@ -288,6 +289,21 @@ function posicoesNoVao(pad: PadraoRef, cum: number[], lu: number, sRef: number, 
 const colide = (ps: PosteSaida[], s: number, meia: number, sa: number, sb: number): boolean =>
   ps.some((q) => q.s > sa + EPS_S && q.s < sb - EPS_S && Math.abs(q.s - s) < q.meia + meia - EPS);
 
+/** Referência do degrau: `[s do bocel, pisada]` (espelha `piso_do_degrau` do Rust; ponto de integração com o acabamento da escada). */
+export function pisoDoDegrau(dg: DegrauRef): [number, number] {
+  return [dg.s0, dg.prof];
+}
+
+/** Distâncias do bocel, para a frente, dos centros dos montantes de um degrau de pisada `p` (espelha `deslocamentos_no_piso`). */
+export function deslocamentosNoPiso(pd: PadraoRef['porDegrau'], p: number): number[] {
+  const q = Math.max(pd.quantidade, 1);
+  if (pd.centro) return Array.from({ length: q }, (_, j) => ((j + 0.5) * p) / q);
+  const d = Math.max(pd.distQuina, 0);
+  if (q === 1) return [d];
+  const passo = (p - 2 * d) / (q - 1);
+  return Array.from({ length: q }, (_, j) => d + j * passo);
+}
+
 export function balaustres(
   p: Percurso, curvo: boolean, origem: number, ps: PosteSaida[], pad: PadraoRef, degraus: DegrauRef[], avisos: AvisoSaida[],
 ): BalaustreSaida[] {
@@ -311,13 +327,20 @@ export function balaustres(
   };
   const pd = pad.porDegrau;
   if (pd.ativo && (origem === ORIGEM_LANCE || origem === ORIGEM_CARACOL) && degraus.length > 0 && pd.quantidade >= 1) {
-    const q = pd.quantidade;
     const meiaPd = (pd.largura ?? 0) / 2;
     if (pd.largura !== null) {
+      let avisou = false;
       for (const dg of degraus) {
-        const passo = (dg.prof - pd.distQuina) / q;
-        for (let j = 0; j < q; j++) {
-          const s0 = dg.s0 + pd.distQuina + j * passo;
+        const [bocel, pisada] = pisoDoDegrau(dg);
+        const sg = pisada < 0 ? -1 : 1;
+        const pis = Math.abs(pisada);
+        for (const off of deslocamentosNoPiso(pd, pis)) {
+          if (off < meiaPd - EPS || off > pis - meiaPd + EPS) {
+            if (!avisou) avisos.push({ codigo: AVISO_MONTANTE_FORA_DO_PISO, s: bocel, valor: pis });
+            avisou = true;
+            continue;
+          }
+          const s0 = bocel + sg * off;
           if (s0 < -0.005 || s0 > p.total + 0.005) continue;
           const s = Math.min(Math.max(s0, 0), p.total);
           if (colide(ps, s, meiaPd, -1, p.total + 1)) continue;
@@ -423,7 +446,7 @@ export function casoParaConfig(c: Json): { trecho: TrechoRef; cfg: ConfigRef } {
       })),
       periodo: num(d, 'periodo', 0.11), justif: num(d, 'justif', 3), sobra: num(d, 'sobra', 0), quebra: num(d, 'quebra', 2), angQuebra: num(d, 'ang_quebra', 0.0873),
       escopo: num(d, 'escopo', 0), hBase: num(d, 'h_base', 0.1), hTopo: num(d, 'h_topo', 1),
-      porDegrau: { ativo: pd.ativo === true, quantidade: num(pd, 'quantidade', 1), distQuina: num(pd, 'dist_quina', 0), largura: typeof pd.largura === 'number' ? pd.largura : null },
+      porDegrau: { ativo: pd.ativo === true, quantidade: num(pd, 'quantidade', 1), distQuina: num(pd, 'dist_quina', 0), centro: pd.centro === true, largura: typeof pd.largura === 'number' ? pd.largura : null },
     };
   }
   const painel = c.painel ? { larguraMax: num(c.painel, 'largura_max', 0), folga: num(c.painel, 'folga', 0) } : null;

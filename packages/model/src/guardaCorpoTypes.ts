@@ -215,8 +215,11 @@ export interface PadraoBalaustresGC {
   anguloQuebra: number;
   /** O padrão é distribuído em cada vão entre postes ('vao') ou no segmento inteiro ('segmento'). */
   escopo: 'vao' | 'segmento';
-  /** Só escada/rampa: balaústres por degrau no lugar do `periodo` nos lances. */
-  porDegrau: { ativo: boolean; quantidade: number; distanciaDaQuina: number; modelo: ElementoPadraoGC['modelo'] };
+  /**
+   * Só escada/rampa: balaústres por degrau no lugar do `periodo` nos lances. `distanciaDoBocel` é medida da borda frontal do piso até o centro do
+   * montante (m); `null` = centro da pisada (padrão). O montante fica sempre inteiro sobre o piso: sem espaço, o motor avisa.
+   */
+  porDegrau: { ativo: boolean; quantidade: number; distanciaDoBocel: number | null; modelo: ElementoPadraoGC['modelo'] };
 }
 
 export type FamiliaPainelGC = 'vidro' | 'chapa' | 'chapa-perfurada' | 'tela' | 'cabo-aco';

@@ -244,7 +244,10 @@ export function GuardaCorpoTypeDialog({ typeId }: { typeId: string }): ReactElem
                   </Row>
                   <Check id={`gc-pd-${i}`} checked={pr.porDegrau.ativo} onChange={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, ativo: v } })}>{t('gc6c_pd_active')}</Check>
                   <Row label={t('gc6c_pd_qty')}><NumField value={pr.porDegrau.quantidade} min={1} decimals={0} onCommit={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, quantidade: Math.max(1, Math.round(v)) } })} /></Row>
-                  <Row label={t('gc6c_pd_edge')}><NumField value={pr.porDegrau.distanciaDaQuina} unit="m" min={0} decimals={3} onCommit={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, distanciaDaQuina: v } })} /></Row>
+                  <Check id={`gc-pd-centro-${i}`} checked={pr.porDegrau.distanciaDoBocel === null} onChange={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, distanciaDoBocel: v ? null : 0.05 } })}>{t('gc6c_pd_center')}</Check>
+                  {pr.porDegrau.distanciaDoBocel !== null && (
+                    <Row label={t('gc6c_pd_edge')}><NumField value={pr.porDegrau.distanciaDoBocel} unit="m" min={0} decimals={3} onCommit={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, distanciaDoBocel: v } })} /></Row>
+                  )}
                 </>
               ) : (
                 <>
@@ -444,7 +447,7 @@ function novoBalaustre(nome: string, materialId: string): PreenchimentoGC {
     quebra: 'nunca',
     anguloQuebra: 0.5236,
     escopo: 'vao',
-    porDegrau: { ativo: false, quantidade: 2, distanciaDaQuina: 0.05, modelo: null },
+    porDegrau: { ativo: false, quantidade: 1, distanciaDoBocel: null, modelo: null },
   };
 }
 

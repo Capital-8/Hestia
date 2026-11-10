@@ -24,6 +24,7 @@ pub const AV_PADRAO_NAO_CABE: u32 = 13;
 pub const AV_PADRAO_COMPRIMIDO: u32 = 14;
 pub const AV_VAO_SEM_ESPACO: u32 = 15;
 pub const AV_SOBRA_CURTA: u32 = 16;
+pub const AV_MONTANTE_FORA_DO_PISO: u32 = 17;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Aviso {
@@ -127,13 +128,14 @@ pub fn de_caminho(av: &[u32], val: &[f64]) -> Vec<Aviso> {
         .collect()
 }
 
-/// Traduz o aviso da distribuição (códigos 1 a 4) para o código de `guarda_avisos` (13 a 16). `s` vira `x`, `valor` vira `medido`.
+/// Traduz o aviso da distribuição (códigos 1 a 5) para o código de `guarda_avisos` (13 a 17). `s` vira `x`, `valor` vira `medido`.
 pub fn de_distribuicao(guarda: u32, trecho: u32, codigo: u8, s: f64, valor: f64) -> Option<Aviso> {
     let codigo = match codigo {
         1 => AV_PADRAO_NAO_CABE,
         2 => AV_PADRAO_COMPRIMIDO,
         3 => AV_VAO_SEM_ESPACO,
         4 => AV_SOBRA_CURTA,
+        5 => AV_MONTANTE_FORA_DO_PISO,
         _ => return None,
     };
     Some(Aviso { guarda, codigo, trecho, indice: 0, medido: na_grade(valor), limite: 0.0, x: s, y: 0.0, z: 0.0 })

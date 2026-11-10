@@ -73,9 +73,10 @@ fn cadeias(c: &Cena) -> CadeiaGC {
     out
 }
 
+/// `dist` negativo = centro da pisada.
 fn cfg_por_degrau(q: u32, dist: f64, degraus: Vec<DegrauP>) -> ConfigDistribuicao {
     let mut pad = padrao(0.11, JUSTIF_DISTRIBUIR);
-    pad.por_degrau = PorDegrauP { ativo: true, quantidade: q, dist_quina: dist, perfil: Some(PerfilP::circular(0.012)), material: 5 };
+    pad.por_degrau = PorDegrauP { ativo: true, quantidade: q, dist_quina: dist.max(0.0), centro: dist < 0.0, perfil: Some(PerfilP::circular(0.012)), material: 5 };
     let mut cfg = config(param_postes(Some(0.05), Some(0.05), Some(0.05), None, MODO_NENHUM, 0.0, 0), vec![pad]);
     cfg.degraus = degraus;
     cfg.gerar_malha = true;
@@ -110,6 +111,7 @@ fn lance_e_patamar_reais_por_degrau_e_padrao() {
         for (k, b) in lance.balaustres[0].iter().step_by(q as usize).enumerate() {
             assert!((b.z0 - (0.17 + 0.17 * k as f64)).abs() < 1e-6);
             assert!((b.s - (0.28 * k as f64 + 0.04)).abs() < 1e-6);
+            assert!(b.s - 0.28 * k as f64 >= 0.006 - 1e-9 && b.s - 0.28 * k as f64 <= 0.28 - 0.006 + 1e-9, "montante fora do piso");
         }
         for p in &lance.pecas {
             assert!(p.malha.fechada() && p.malha.volume() > 0.0);
@@ -142,19 +144,20 @@ fn caracol_real_por_degrau_acompanha_a_helice() {
     let raio = t.nos[0].x.hypot(t.nos[0].y);
     let s_de = |k: u32| (th(k) - ang0) * raio;
     let degraus: Vec<DegrauP> = (0..9).map(|k| DegrauP { s0: s_de(k), profundidade: s_de(k + 1) - s_de(k), z: 0.17 * (k + 1) as f64 }).collect();
-    let cfg = cfg_por_degrau(2, 0.0, degraus);
+    let cfg = cfg_por_degrau(2, -1.0, degraus);
     let o = distribuir(t, &cfg, LIMITE_BALAUSTRES).unwrap();
     assert_eq!(o.postes.len(), 2, "caracol: poste só nas pontas");
     let b = &o.balaustres[0];
-    // O balaústre do primeiro degrau cai sobre o poste de início (dist_quina 0) e sai, como o do último cairia sobre o poste do fim.
-    assert_eq!(b.len(), 17);
+    // Centro da pisada, 2 por degrau: o primeiro montante do primeiro degrau cai sobre o poste de início e sai, e o último do último degrau passa do fim da cadeia.
+    assert_eq!(b.len(), 16);
     for w in b.windows(2) {
         assert!(w[1].z1 > w[0].z1 - 1e-9 && w[1].s > w[0].s);
     }
     for k in 1..9usize {
         let bk = &b[2 * k - 1];
         assert!((bk.z0 - 0.17 * (k + 1) as f64).abs() < 1e-9);
-        assert!((perc.amostra(bk.s).z - bk.z0).abs() < 0.01, "degrau {k}: eixo {} base {}", perc.amostra(bk.s).z, bk.z0);
+        // A base está no piso do degrau e o eixo segue a cadeia: no meio da pisada fica a até um espelho (0,17 m) acima do piso.
+        assert!((perc.amostra(bk.s).z - bk.z0).abs() < 0.17, "degrau {k}: eixo {} base {}", perc.amostra(bk.s).z, bk.z0);
     }
     for p in &o.pecas {
         assert!(p.malha.fechada() && p.malha.volume() > 0.0);

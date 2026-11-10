@@ -6,6 +6,8 @@ import type { LimitesNormaGC, PerfilGC } from '@hestia/model';
 
 /** `ID_AUSENTE` do esquema: "nenhum" onde o contrato permite (norma do projeto, elemento vazio do padrão). */
 export const ID_AUSENTE_GC = 0xffffffff;
+/** `pd_dist` = -1: montante no centro da pisada (igual a `PD_CENTRO` de `secoes_gc.rs`). */
+export const PD_CENTRO_GC = -1;
 /** Flecha de corda padrão (m) das curvas: o modelo ainda não tem o campo (ADR 0055 §14, Fase 2). */
 export const TOL_CORDA_PADRAO_GC = 0.002;
 
