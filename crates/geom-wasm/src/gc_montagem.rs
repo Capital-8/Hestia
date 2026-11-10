@@ -12,6 +12,7 @@ use crate::cena::Cena;
 use crate::consultas::Saida;
 use crate::esquema::{ENTRADA, ID_AUSENTE};
 use crate::gc_avisos::{self, Aviso, VaoGC};
+use crate::gc_caminho;
 use crate::gc_distribuicao::{
     self as dist, ConfigDistribuicao, DegrauP, ElemP, PadraoP, PainelP, ParamPostes, Percurso, PerfilP, PorDegrauP, PosteP,
 };
@@ -248,11 +249,12 @@ fn peca_varrida(guarda: u32, papel: u32, perfil_num: u32, material: u32, perfil:
     }
 }
 
-fn adicionar_varredura(m: &mut Montagem, com_malha: bool, guarda: u32, papel_malha: u32, perfil_num: u32, material: u32, perfil: &PerfilP, caminhos: &[Vec<V3>]) {
+fn adicionar_varredura(m: &mut Montagem, com_malha: bool, guarda: u32, trecho: u32, papel_malha: u32, perfil_num: u32, material: u32, perfil: &PerfilP, caminhos: &[Vec<V3>]) {
     for c in caminhos {
         if c.len() < 2 {
             continue;
         }
+        m.avisos.extend(gc_avisos::aviso_perfil_auto_intersecta(guarda, trecho, c, envelope(perfil).0 / 2.0, false));
         m.pecas.push(peca_varrida(guarda, papel_malha, perfil_num, material, perfil, c));
         if com_malha {
             let pc = var::varrer(c, false, &perfil.anel(), LIMITE_ESQUADRIA);
@@ -264,9 +266,10 @@ fn adicionar_varredura(m: &mut Montagem, com_malha: bool, guarda: u32, papel_mal
 /// Monta todos os guarda-corpos do nível (`NIVEL_TODOS` aceito). `norma_num` é a norma usada quando o tipo não fixa uma (`ID_AUSENTE` = nenhuma).
 pub fn montar(cena: &Cena, nivel: u32, lod: u32, norma_num: u32, tol_juncao: f64, com_malha: bool) -> Result<Montagem, u32> {
     let s = crate::gc_caminho::guarda_caminhos(cena, nivel, tol_juncao)?;
-    let (Saida::U32(tr), Saida::F64(nos)) = (&s[0], &s[1]) else { return Err(crate::esquema::INTERNO) };
+    let (Saida::U32(tr), Saida::F64(nos), Saida::U32(av), Saida::F64(vals)) = (&s[0], &s[1], &s[2], &s[3]) else { return Err(crate::esquema::INTERNO) };
     let trechos = ler_trechos(tr, nos);
     let mut m = Montagem::default();
+    m.avisos.extend(gc_avisos::de_caminho(av, vals));
     for t in &trechos {
         m.cadeia.trechos.push(TrechoGC { guarda: t.guarda, indice: t.trecho, origem: t.origem, curvo: t.curvo, fechado: t.fechado, nos: t.nos.clone() });
     }
@@ -275,7 +278,16 @@ pub fn montar(cena: &Cena, nivel: u32, lod: u32, norma_num: u32, tol_juncao: f64
     for gid in ids {
         let g = cena.gc.guardas[&gid];
         let tipo = do_tipo(cena, g.tipo);
-        let meus: Vec<&TrechoInfo> = trechos.iter().filter(|t| t.guarda == gid).collect();
+        // Trecho que vira ponto (menos de dois nós ou comprimento nulo em planta): nada a distribuir nem varrer; avisa em vez de calar.
+        let mut meus: Vec<&TrechoInfo> = Vec::new();
+        for t in trechos.iter().filter(|t| t.guarda == gid) {
+            let comp_t: f64 = t.nos.windows(2).map(|w| (w[1].x - w[0].x).hypot(w[1].y - w[0].y)).sum();
+            let p = t.nos.first().map_or([0.0; 3], |n| [n.x, n.y, n.z]);
+            match gc_avisos::aviso_trecho_curto(gid, t.trecho, comp_t, gc_caminho::COMPRIMENTO_MIN_TRECHO, p[0], p[1], p[2]) {
+                Some(a) => m.avisos.push(a),
+                None => meus.push(t),
+            }
+        }
         montar_guarda(cena, gid, &g, &tipo, &meus, lod, norma_num, com_malha, &mut m)?;
     }
     Ok(m)
@@ -430,6 +442,7 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
         postes_xy.insert(t.trecho, saida.postes.iter().map(|p| [p.x, p.y]).collect());
         for a in &saida.avisos {
             m.avisos_dist.push((gid, t.trecho, a.codigo, a.s, a.valor));
+            m.avisos.extend(gc_avisos::de_distribuicao(gid, t.trecho, a.codigo, a.s, a.valor));
         }
         for l in &saida.balaustres {
             restante = restante.saturating_sub(l.len());
@@ -532,7 +545,7 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
     let mut cadeias: Vec<Vec<&TrechoInfo>> = Vec::new();
     for t in trechos {
         match cadeias.last_mut() {
-            Some(c) if t.soldado => c.push(t),
+            Some(c) if t.soldado && c.last().is_some_and(|u| u.trecho + 1 == t.trecho) => c.push(t),
             _ => cadeias.push(vec![*t]),
         }
     }
@@ -568,13 +581,14 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
                 cam
             };
             if fechado {
+                m.avisos.extend(gc_avisos::aviso_perfil_auto_intersecta(gid, ch[0].trecho, &cam, envelope(&perfil).0 / 2.0, true));
                 m.pecas.push(peca_varrida(gid, 2, tr_l.perfil, tr_l.material, &perfil, &cam));
                 if com_malha {
                     let pc = var::varrer(&cam, true, &perfil.anel(), LIMITE_ESQUADRIA);
                     m.malha.adicionar_grupo(gid, gc_malha::PAPEL_TRILHO, tr_l.material, &pc);
                 }
             } else {
-                adicionar_varredura(m, com_malha, gid, gc_malha::PAPEL_TRILHO, tr_l.perfil, tr_l.material, &perfil, &[cam]);
+                adicionar_varredura(m, com_malha, gid, ch[0].trecho, gc_malha::PAPEL_TRILHO, tr_l.perfil, tr_l.material, &perfil, &[cam]);
             }
         }
         if g.flags & FLAG_CORRIMAO == 0 {
@@ -631,7 +645,7 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
                         m.avisos.extend(gc_avisos::aviso_corrimao_altura(gid, ch[0].trecho, c.indice, c.altura, mn, mx));
                     }
                 }
-                adicionar_varredura(m, com_malha, gid, papel, c.perfil, c.material, &perfil, &caminhos);
+                adicionar_varredura(m, com_malha, gid, ch[0].trecho, papel, c.perfil, c.material, &perfil, &caminhos);
                 // Suportes.
                 if c.funcao != 0 && c.sup_layout != 0 && c.sup_perfil != ID_AUSENTE && c.sup_comp > 0.0 && off != 0.0 && caminhos.len() == 1 {
                     let sp = perfil_p(cena, c.sup_perfil, lod)?;

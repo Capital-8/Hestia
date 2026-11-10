@@ -16,6 +16,16 @@ use crate::secoes_gc::{ComponenteGC, EscadaGC, EspelhoGC, GuardaCorpoLinha};
 pub const AVISO_HOSPEDEIRO_DESCONTINUO: u32 = 1;
 /// Código de aviso: deslocamento excede a largura (medido = deslocamento pedido, limite = 0).
 pub const AVISO_DESLOCAMENTO_EXCEDE: u32 = 2;
+/// Código de aviso: trecho tão curto que vira ponto (medido = comprimento, limite = mínimo; `indice` = componente).
+pub const AVISO_TRECHO_CURTO: u32 = 3;
+/// Código de aviso: caminho manual com vértices repetidos descartados (medido = quantos, `indice` = o primeiro repetido).
+pub const AVISO_CAMINHO_REPETIDO: u32 = 4;
+/// Código de aviso: caminho manual sem segmento (menos de dois vértices distintos; medido = vértices distintos).
+pub const AVISO_CAMINHO_NULO: u32 = 5;
+/// Código de aviso: o hospedeiro não tem borda no lado pedido (`indice` = componente; nenhum trecho sai desse lado).
+pub const AVISO_SEM_BORDA: u32 = 6;
+/// Comprimento (m) abaixo do qual um trecho vira ponto.
+pub const COMPRIMENTO_MIN_TRECHO: f64 = 1e-6;
 /// Limite de esquadria (múltiplos do deslocamento).
 pub const LIMITE_ESQUADRIA: f64 = 2.5;
 
@@ -421,9 +431,16 @@ fn aviso(acc: &mut Acc, guarda: u32, codigo: u32, trecho: u32, indice: u32, vals
 fn hospedado(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tol_juncao: f64, acc: &mut Acc) {
     let tipo = &cena.gc.tipos[&g.tipo];
     let mut itens = if g.hosp == HOSP_ESCADA { itens_escada(cena, g.hosp_num, tipo.tol_corda) } else { itens_rampa(cena, g.hosp_num) };
+    // Patamar sem anel não tem borda; com anel, o lado que sobra com menos de dois nós é curto demais (vira ponto).
+    let mut sem_anel: Vec<bool> = vec![false; itens.len()];
+    let mut pos_pat: Vec<[f64; 3]> = vec![[0.0; 3]; itens.len()];
     for k in 0..itens.len() {
         if itens[k].lance {
             continue;
+        }
+        sem_anel[k] = itens[k].anel.is_none();
+        if let Some((anel, z)) = &itens[k].anel {
+            pos_pat[k] = [anel[0].x, anel[0].y, *z];
         }
         let entrada = if k > 0 { itens[k - 1].fim_ref } else { None };
         let saida = itens.get(k + 1).and_then(|i| i.ini_ref);
@@ -431,6 +448,14 @@ fn hospedado(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tol_juncao: f64, acc: 
             let (e, d) = cadeias_patamar(&anel, z, entrada, saida);
             itens[k].esq = e;
             itens[k].dir = d;
+        }
+    }
+    if itens.is_empty() {
+        for lado in 0..2u8 {
+            let bit = if lado == 0 { LADO_ESQ_LANCE | LADO_ESQ_PATAMAR } else { LADO_DIR_LANCE | LADO_DIR_PATAMAR };
+            if g.lados & bit != 0 {
+                aviso(acc, gid, AVISO_SEM_BORDA, 0, 0, [0.0; 5]);
+            }
         }
     }
     let mut trecho = 0u32;
@@ -442,7 +467,23 @@ fn hospedado(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tol_juncao: f64, acc: 
         let mut avisos_gap: Vec<(usize, [f64; 5])> = Vec::new();
         for (k, it) in itens.iter().enumerate() {
             let ligado = g.lados & if it.lance { bit_lance } else { bit_pat } != 0;
-            let peca = if lado == 0 { it.esq.as_ref() } else { it.dir.as_ref() };
+            let mut peca = if lado == 0 { it.esq.as_ref() } else { it.dir.as_ref() };
+            if ligado {
+                // Lado pedido sem trecho: sem borda (lance sem cadeia, patamar sem anel) ou curto demais (vira ponto).
+                match peca {
+                    Some(p) if comprimento_cadeia(&p.nos) <= COMPRIMENTO_MIN_TRECHO => {
+                        let q = p.nos[0];
+                        aviso(acc, gid, AVISO_TRECHO_CURTO, trecho, k as u32, [0.0, COMPRIMENTO_MIN_TRECHO, q[0], q[1], q[2]]);
+                        peca = None;
+                    }
+                    None if it.lance || sem_anel[k] => aviso(acc, gid, AVISO_SEM_BORDA, trecho, k as u32, [0.0; 5]),
+                    None => {
+                        let q = pos_pat[k];
+                        aviso(acc, gid, AVISO_TRECHO_CURTO, trecho, k as u32, [0.0, COMPRIMENTO_MIN_TRECHO, q[0], q[1], q[2]]);
+                    }
+                    _ => {}
+                }
+            }
             match (ligado, peca) {
                 (true, Some(p)) => {
                     if let Some(&(ka, pa)) = run.last() {
@@ -516,17 +557,35 @@ fn hospedado(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tol_juncao: f64, acc: 
     }
 }
 
+/// Comprimento (3D) de uma cadeia de nós.
+fn comprimento_cadeia(nos: &[P3]) -> f64 {
+    nos.windows(2).map(|w| ((w[1][0] - w[0][0]).powi(2) + (w[1][1] - w[0][1]).powi(2) + (w[1][2] - w[0][2]).powi(2)).sqrt()).sum()
+}
+
 fn manual(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, acc: &mut Acc) {
     let mut pts: Vec<_> = cena.gc.caminhos.values().filter(|c| c.guarda == gid).collect();
     pts.sort_by_key(|c| c.indice);
     let mut plano: Vec<V> = Vec::new();
     let mut z: Vec<f64> = Vec::new();
+    // Vértices repetidos em sequência (segmento nulo) são descartados, mas avisam: (quantos, o primeiro, onde).
+    let mut repetidos: Option<(u32, u32, [f64; 3])> = None;
     for c in pts {
         let q = v(c.x, c.y);
         if plano.last().is_none_or(|l| dist(*l, q) > 1e-9) {
             plano.push(q);
             z.push(g.cota_base + c.dz);
+        } else {
+            let r = repetidos.get_or_insert((0, c.indice, [c.x, c.y, g.cota_base + c.dz]));
+            r.0 += 1;
         }
+    }
+    if let Some((n, primeiro, p)) = repetidos {
+        aviso(acc, gid, AVISO_CAMINHO_REPETIDO, 0, primeiro, [n as f64, 0.0, p[0], p[1], p[2]]);
+    }
+    if plano.len() < 2 {
+        let p = plano.first().copied().unwrap_or(v(0.0, 0.0));
+        aviso(acc, gid, AVISO_CAMINHO_NULO, 0, 0, [plano.len() as f64, 2.0, p.x, p.y, z.first().copied().unwrap_or(g.cota_base)]);
+        return;
     }
     if g.fechado && plano.len() > 2 && dist(plano[0], plano[plano.len() - 1]) < 1e-9 {
         plano.pop();

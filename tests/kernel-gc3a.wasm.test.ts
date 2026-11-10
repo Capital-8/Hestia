@@ -4,7 +4,7 @@
  * Roda só em `npm run test:wasm`.
  */
 import { existsSync, readFileSync } from 'node:fs';
-import type { GuardaCorpo, Project } from '@hestia/model';
+import type { GuardaCorpo, Project, Stair } from '@hestia/model';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { projetoGuardaCorpo } from '../packages/engine/src/fixtureGuardaCorpo.ts';
 import { guardaCaminhosRef } from '../packages/engine/src/guardaCorpoRef/caminho.ts';
@@ -103,5 +103,20 @@ describe('guarda-corpo, Fase 3a: paridade do caminho hospedado (Rust x referênc
     }));
     expect(r.avisos).toBeGreaterThanOrEqual(1);
     comparar(p, 0.5);
+  });
+
+  it.skipIf(!bytes)('avisos de geometria degenerada: vértices repetidos, caminho nulo e hospedeiro sem borda (Rust igual à referência)', () => {
+    const { p } = projetoGuardaCorpo();
+    const manual = (caminho: Array<{ x: number; y: number; dz: number }>) =>
+      edit(p, 'gc_m', (g) => {
+        if (g.hospedeiro.tipo === 'manual') g.hospedeiro.caminho = caminho;
+      });
+    const rep = comparar(manual([{ x: 0, y: 8, dz: 0 }, { x: 0, y: 8, dz: 0 }, { x: 4, y: 8, dz: 0 }, { x: 4, y: 8, dz: 0 }, { x: 4, y: 11, dz: 0 }]));
+    expect(rep.avisos).toBe(1);
+    const nulo = comparar(manual([{ x: 1, y: 1, dz: 0 }, { x: 1, y: 1, dz: 0 }]));
+    expect(nulo.avisos).toBe(2);
+    const q = structuredClone(p);
+    (q.elements['st1'] as Stair).components = [];
+    expect(comparar(q).avisos).toBeGreaterThanOrEqual(1);
   });
 });

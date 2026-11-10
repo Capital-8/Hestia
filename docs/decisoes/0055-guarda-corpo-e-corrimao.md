@@ -934,3 +934,20 @@ Fecha três limites da §21 (item 3), todos em `gc_montagem.rs` e `gc_quant.rs`;
 2. **Filete nos trilhos.** O modelo e a seção 72 não têm campo de filete para o trilho (`juncaoAngular` é `segmento-vertical` ou `nenhum`), e a §5.8 define o raio só no corrimão. Escolha: se o tipo tem um corrimão com `juncao: filete` e `raioFilete > 0`, os trilhos usam o raio do primeiro; o filete tem precedência sobre a solda. Mesmo limite de tangente (metade do menor segmento) e flecha `tolCorda`.
 3. **Suporte "alinhar com postes".** A montagem guarda as posições (x, y) dos postes de cada trecho (saída da 3c) e projeta cada uma no caminho do corrimão varrido; as distâncias desenvolvidas, ordenadas e sem repetição (1 µm), vão para `posicoes_suportes`. Assim a posição acompanha extensões e filete.
 4. **Área líquida.** `fracao_aberta`: perfurada = `π d² / 4 / (passoX · passoY)` (vale também alternado, quincôncio); tela = `(larguraMalha − fio)(alturaMalha − fio) / (larguraMalha · alturaMalha)`; limite de 0,99. A peça de painel guarda a seção já descontada (`area_secao`) e `quant_guarda` deriva a área lateral e o volume líquidos. A área projetada (silhueta em elevação) continua bruta. A malha 3D não muda (sólido `simplificado`).
+
+## 23. Avisos de geometria degenerada (`feat/gc-avisos-geometria`)
+
+Os casos degenerados deixam de sumir em silêncio: cada um gera um aviso (código, guarda-corpo, trecho e mensagem) e nunca uma peça inválida. O Rust devolve as medidas pela consulta 65 (`guarda_avisos`, mesmas colunas) e o TS escolhe o texto, nos sete idiomas (`guardaCorpoIssues.ts`, `mensagemGeometria`). Os avisos nunca bloqueiam.
+
+| Código (`guarda_avisos`) | Código textual | Quando | `medido` / `limite` |
+|---|---|---|---|
+| 6 | `gc-hospedeiro-descontinuo` | emenda entre componentes com folga maior que a tolerância (já existia em `guarda_caminhos`, agora sobe) | folga / tolerância |
+| 7 | `gc-deslocamento-excede-largura` | o deslocamento faz o caminho se auto-cruzar (já existia, agora sobe) | deslocamento / 0 |
+| 8 | `gc-trecho-curto` | lado do patamar que sobra com um nó só (lado interno do patamar em L), ou trecho de comprimento horizontal nulo (até 1 µm) | comprimento / 1e-6 |
+| 9 | `gc-caminho-repetido` | caminho manual com vértices repetidos em sequência (segmento nulo): são descartados | quantos / 0 (`indice` = primeiro repetido) |
+| 10 | `gc-caminho-nulo` | caminho manual com menos de dois vértices distintos | vértices distintos / 2 |
+| 11 | `gc-sem-borda` | lado pedido sem borda no hospedeiro: lance sem cadeia, patamar sem anel, escada ou rampa sem componentes | 0 / 0 (`indice` = componente) |
+| 12 | `gc-perfil-auto-intersecta` | curva apertada: o perfil de meia largura `m` recua `m·tan(θ/2)` por dentro e passa do menor segmento vizinho (trilhos e corrimãos; laço fechado inclui o vértice de fechamento) | recuo / menor segmento |
+| 13 a 16 | `gc-padrao-nao-cabe`, `gc-padrao-comprimido`, `gc-vao-sem-espaco`, `gc-poste-sobra-curta` | avisos da distribuição (3c, que já existiam no Rust mas não chegavam ao app) | vão ou valor / 0 |
+
+Decisões. (1) Trecho que vira ponto não é distribuído nem varrido: a montagem o tira da lista e avisa; as sequências soldadas só juntam trechos consecutivos. (2) O código textual `gc-deslocamento-excede-largura` segue a §5; o numérico 7 espelha o 2 do caminho, e a tradução está em `gc_avisos::de_caminho` e `de_distribuicao` (e nos espelhos TS `deCaminho`, `deDistribuicao`). (3) Referência TS de paridade: `guardaCorpoRef/caminho.ts` (códigos 3 a 6 do caminho) e `guardaCorpoRef/avisos.ts` (`avisoTrechoCurto`, `avisoPerfilAutoIntersecta`). (4) No app, os avisos entram na lista de avisos do projeto (`useIssues`, no mesmo tempo de silêncio, refeitos quando o kernel fica pronto) e no painel do guarda-corpo, com "Ir para" (`issueTarget` enquadra o caminho manual ou a escada ou rampa hospedeira). (5) Verificação: `invariantes_do_guarda_corpo_sentido_normal_e_invertido` confere peças fechadas e com volume; os testes `aviso_*` repetem a verificação nos casos degenerados, nos dois sentidos, e conferem que o aviso é o mesmo ao inverter.
