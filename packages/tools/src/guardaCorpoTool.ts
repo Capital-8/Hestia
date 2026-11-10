@@ -1,4 +1,3 @@
-import { dist, type Vec2 } from '@hestia/geom';
 import {
   DEFAULT_TIPO_GUARDA_CORPO_ID,
   LIMITES_GUARDA_CORPO,
@@ -11,8 +10,14 @@ import {
   type LadoHospedado,
   type PontoCaminhoGC,
   type Project,
+  unitsOf,
 } from '@hestia/model';
+import type { Vec2 } from '@hestia/geom';
 import { ToolBase } from './base.ts';
+import { contextoDeTraco, RascunhoPolilinha } from './desenhoPolilinha.ts';
+import { draftAngleItemsForConnection } from './anglePreview.ts';
+import { segmentLengthDim } from './dims/providers/wall.ts';
+import type { DimRef, TempDim } from './dims/types.ts';
 import type { PointerInfo, PreviewItem, ToolEnv } from './types.ts';
 import { t as translate, type Lang } from './i18n.ts';
 
@@ -81,57 +86,85 @@ export class GuardaCorpoTool extends ToolBase {
   override get hint(): string {
     return this.t('tl_hint_railing');
   }
-  private pts: Vec2[] = [];
+  private readonly r = new RascunhoPolilinha();
+  private last: Vec2 | null = null;
 
   protected reset(): void {
-    this.pts = [];
+    this.r.limpar();
+    this.last = null;
     this.items = [];
     this.inf = null;
   }
 
   protected busy(): boolean {
-    return this.pts.length > 0;
+    return this.r.ativo;
+  }
+
+  /** Captura no núcleo comum: o último ponto vira `from` (Orto, Polar, perpendicular e rastreios, como na parede). */
+  private snapGC(p: PointerInfo): Vec2 {
+    return this.snap(p, contextoDeTraco(this.r.ultimo)).point;
   }
 
   override move(p: PointerInfo): void {
-    const q = this.snap(p).point;
+    const q = this.snapGC(p);
+    this.last = q;
+    const pts = this.r.pts;
     const items: PreviewItem[] = [];
-    for (let i = 1; i < this.pts.length; i++) items.push({ kind: 'line', a: this.pts[i - 1]!, b: this.pts[i]! });
-    const tail = this.pts[this.pts.length - 1];
-    if (tail) items.push({ kind: 'line', a: tail, b: q, dashed: true });
+    for (let i = 1; i < pts.length; i++) items.push({ kind: 'line', a: pts[i - 1]!, b: pts[i]! });
+    const tail = this.r.ultimo;
+    if (tail) {
+      items.push({ kind: 'line', a: tail, b: q, dashed: true });
+      items.push(...draftAngleItemsForConnection(this.env.project(), this.env.levelId(), this.env.areaPlanId?.(), tail, q, this.env.metersPerPixel(), unitsOf(this.env.project())));
+    }
     this.items = items;
   }
 
+  /** Cota dinâmica do trecho em traçado (mesmo provedor da parede). */
+  tempDims(_overrides: Readonly<Record<string, DimRef>> = {}): TempDim[] {
+    const tail = this.r.ultimo;
+    return tail && this.last ? [segmentLengthDim(tail, this.last)] : [];
+  }
+
+  override inputPrompt(): string | null {
+    return this.r.ativo ? this.t('tl_inp_length') : null;
+  }
+
   override click(p: PointerInfo): void {
-    const q = this.snap(p).point;
-    const tail = this.pts[this.pts.length - 1];
-    if (tail && dist(tail, q) < 1e-6) return;
-    if (this.pts.length >= LIMITES_GUARDA_CORPO.caminhoManual) {
-      this.env.say(this.t('tl_msg_railing_point', { n: this.pts.length }));
+    this.acrescentar(this.snapGC(p));
+  }
+
+  private acrescentar(q: Vec2): void {
+    if (this.r.pts.length >= LIMITES_GUARDA_CORPO.caminhoManual) {
+      this.env.say(this.t('tl_msg_railing_point', { n: this.r.pts.length }));
       return;
     }
-    this.pts.push(q);
-    this.env.say(this.t('tl_msg_railing_point', { n: this.pts.length }));
+    if (!this.r.adicionar(q)) return;
+    this.env.say(this.t('tl_msg_railing_point', { n: this.r.pts.length }));
   }
 
   /** `C` fecha o laço (com três pontos ou mais) e conclui. */
   override type(text: string): boolean {
-    if (text.toLowerCase() === 'c' && this.pts.length >= 3) {
+    if (text.toLowerCase() === 'c' && this.r.pts.length >= 3) {
       this.finish(true);
       return true;
     }
-    return false;
+    // Comprimento digitado + Enter: novo ponto na direção do cursor (igual à parede); a polilinha segue encadeada.
+    const q = this.r.pontoDigitado(this.env, text, this.inf, this.raw);
+    if (!q) return false;
+    this.acrescentar(q);
+    this.last = null;
+    return true;
   }
 
   /** Enter conclui o caminho aberto (com dois pontos ou mais). */
   override confirm(): void {
-    if (this.pts.length >= 2) this.finish(false);
-    else if (this.pts.length === 1) this.env.say(this.t('tl_msg_railing_min'));
+    if (this.r.pts.length >= 2) this.finish(false);
+    else if (this.r.pts.length === 1) this.env.say(this.t('tl_msg_railing_min'));
     else super.confirm();
   }
 
   private finish(fechado: boolean): void {
-    const caminho: PontoCaminhoGC[] = this.pts.map((v) => ({ x: v.x, y: v.y, dz: 0 }));
+    const caminho: PontoCaminhoGC[] = this.r.pts.map((v) => ({ x: v.x, y: v.y, dz: 0 }));
     const r = criarGuardaCorpo(this.env, this.env.levelId(), { tipo: 'manual', uso: 'livre', caminho, fechado, ladoDeslocamento: 'esquerdo' }, {
       typeId: this.env.options().railingTypeId ?? null,
       noMessage: this.t('tl_msg_railing_no_type'),

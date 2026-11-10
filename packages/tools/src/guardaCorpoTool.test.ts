@@ -7,7 +7,7 @@ import { criarGuardaCorpoDeRampa } from './rampCommands.ts';
 import { gripsDoGuardaCorpo, patchMoverVerticeGC } from './guardaCorpoGrips.ts';
 import { gripHoldAt } from './selectGrips.ts';
 import { guardaCorposDoHospedeiro, removerGuardaCorpoDeHospedeiro, temGuardaCorpoDeHospedeiro } from './guardaCorpoTool.ts';
-import { P } from './testEnv.ts';
+import { P, drawWall } from './testEnv.ts';
 
 const railings = (p: Project): GuardaCorpo[] => Object.values(p.elements).filter(isGuardaCorpo);
 
@@ -201,5 +201,89 @@ describe('liga/desliga o guarda-corpo da escada e da rampa', () => {
     criarGuardaCorpoDeEscada(env, host, mensagensDeGuardaCorpo('pt'));
     expect(removerGuardaCorpoDeHospedeiro(env, host)).toBe(1);
     expect(railings(store.project)).toHaveLength(1); // o manual segue
+  });
+});
+
+/** Mesmo núcleo de desenho da parede: Orto, Polar, snaps e comprimento digitado (contrato de ferramentas). */
+describe('ferramenta Guarda-corpo: núcleo comum de desenho (igual à parede)', () => {
+  const caminho = (p: Project): number[][] => {
+    const g = railings(p)[0]!;
+    return g.hospedeiro.tipo === 'manual' ? g.hospedeiro.caminho.map((v) => [Math.round(v.x * 1000) / 1000, Math.round(v.y * 1000) / 1000]) : [];
+  };
+
+  it('Orto força o segmento na horizontal ou vertical a partir do ponto anterior', () => {
+    const { store, env, options } = makeEnv();
+    options.orthoLock = true;
+    const t = tool('railing', env);
+    clickAt(t, 0, 0);
+    clickAt(t, 3.04, 0.4);
+    t.confirm();
+    expect(caminho(store.project)).toEqual([[0, 0], [3.04, 0]]);
+  });
+
+  it('Polar projeta no múltiplo do incremento (45 graus)', () => {
+    const { store, env, options } = makeEnv();
+    options.angleMode = { ortho: false, polar: true, polarIncrementDeg: 45 } as never;
+    const t = tool('railing', env);
+    clickAt(t, 0, 0);
+    clickAt(t, 3, 3.1);
+    t.confirm();
+    const [, b] = caminho(store.project);
+    expect(Math.abs(b![0]! - b![1]!)).toBeLessThan(0.01);
+  });
+
+  it('captura na extremidade de uma parede existente', () => {
+    const { store, env } = makeEnv();
+    drawWall(env, [5, 5], [9, 5]);
+    const t = tool('railing', env);
+    clickAt(t, 5.01, 5.01);
+    clickAt(t, 5.01, 8);
+    t.confirm();
+    expect(caminho(store.project)[0]).toEqual([5, 5]);
+  });
+
+  it('captura a perpendicular a uma parede a partir do ponto anterior', () => {
+    const { store, env } = makeEnv();
+    drawWall(env, [0, 0], [10, 0]);
+    const t = tool('railing', env);
+    clickAt(t, 4, 3);
+    clickAt(t, 4.02, 0.02);
+    t.confirm();
+    const c = caminho(store.project);
+    expect(c[1]![0]).toBeCloseTo(4, 2);
+    expect(c[1]![1]).toBeCloseTo(0, 2);
+  });
+
+  it('comprimento digitado acrescenta o ponto na direção do cursor e encadeia', () => {
+    const { store, env } = makeEnv();
+    const t = tool('railing', env);
+    clickAt(t, 0, 0);
+    t.move(P(1, 0.01));
+    expect(t.type!('2.5')).toBe(true);
+    t.move(P(2.5, 1));
+    expect(t.type!('1')).toBe(true);
+    t.confirm();
+    const c = caminho(store.project);
+    expect(c[0]).toEqual([0, 0]);
+    expect(c[1]![0]).toBeCloseTo(2.5, 2);
+    expect(c.length).toBe(3);
+  });
+
+  it('valor digitado inválido não acrescenta ponto', () => {
+    const { env } = makeEnv();
+    const t = tool('railing', env);
+    clickAt(t, 0, 0);
+    expect(t.type!('abc')).toBe(false);
+    expect(t.type!('-1')).toBe(false);
+  });
+
+  it('expõe a cota dinâmica do trecho e o pedido de comprimento, como a parede', () => {
+    const { env } = makeEnv();
+    const t = tool('railing', env) as unknown as { tempDims(): unknown[]; inputPrompt(): string | null };
+    expect(t.inputPrompt()).toBeNull();
+    clickAt(t as never, 0, 0);
+    (t as never as { move(p: unknown): void }).move(P(2, 0));
+    expect(t.tempDims()).toHaveLength(1);
+    expect(t.inputPrompt()).not.toBeNull();
   });
 });

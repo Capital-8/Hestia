@@ -15,6 +15,7 @@ import {
   type DimensionElementRef,
   type DimensionRef,
 } from '@hestia/model';
+import { contextoDeTraco } from './desenhoPolilinha.ts';
 import { addSectionDimension, ToolBase, viewPlanId } from './base.ts';
 import { signedOffset, viewAnnotationsOf } from './annotationPick.ts';
 import { lengthUnitName, parseQuantityText } from './numeric.ts';
@@ -172,7 +173,7 @@ export class DimensionTool extends ToolBase {
 
   override move(p: PointerInfo): void {
     this.raw = p.raw;
-    const inf = this.snap(p);
+    const inf = this.snap(p, contextoDeTraco(this.chain.length && !this.a ? this.chain[this.chain.length - 1] : this.a));
     if (this.chain.length && !this.a) {
       this.items = this.offsetStage ? this.chainPreview(this.snapOffset(this.side(p.raw) * roundMm(this.distanceToLine(p.raw)))) : [{ kind: 'point', at: this.chain[0]! }, { kind: 'line', a: this.chain[this.chain.length - 1]!, b: inf.point, dashed: true }];
       return;
@@ -182,7 +183,7 @@ export class DimensionTool extends ToolBase {
   }
 
   override click(p: PointerInfo): void {
-    const inf = this.snap(p);
+    const inf = this.snap(p, contextoDeTraco(this.chain.length && !this.a ? this.chain[this.chain.length - 1] : this.a));
     const point = inf.point;
     if ((this.env.options().dimensionString ?? 'single') !== 'single') {
       if (this.offsetStage) { this.commitChain(this.snapOffset(this.side(p.raw) * roundMm(this.distanceToLine(p.raw)))); return; }
