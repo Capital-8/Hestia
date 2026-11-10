@@ -146,12 +146,13 @@ fn caracol_real_por_degrau_acompanha_a_helice() {
     let o = distribuir(t, &cfg, LIMITE_BALAUSTRES).unwrap();
     assert_eq!(o.postes.len(), 2, "caracol: poste só nas pontas");
     let b = &o.balaustres[0];
-    assert_eq!(b.len(), 18);
+    // O balaústre do primeiro degrau cai sobre o poste de início (dist_quina 0) e sai, como o do último cairia sobre o poste do fim.
+    assert_eq!(b.len(), 17);
     for w in b.windows(2) {
         assert!(w[1].z1 > w[0].z1 - 1e-9 && w[1].s > w[0].s);
     }
-    for k in 0..9usize {
-        let bk = &b[2 * k];
+    for k in 1..9usize {
+        let bk = &b[2 * k - 1];
         assert!((bk.z0 - 0.17 * (k + 1) as f64).abs() < 1e-9);
         assert!((perc.amostra(bk.s).z - bk.z0).abs() < 0.01, "degrau {k}: eixo {} base {}", perc.amostra(bk.s).z, bk.z0);
     }

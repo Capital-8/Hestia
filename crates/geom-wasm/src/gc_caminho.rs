@@ -495,11 +495,22 @@ fn hospedado(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tol_juncao: f64, acc: 
                 trecho += run.len() as u32;
                 continue;
             };
-            for (i, (_, p)) in run.iter().enumerate() {
-                let (a, b) = (inicio[i], inicio[i] + p.nos.len() - 1);
-                let nos: Vec<P3> = off.iter().filter(|(_, s)| *s >= a && *s <= b).map(|(q, s)| [q.x, q.y, p.nos[*s - a][2]]).collect();
+            let mut pecas: Vec<(&Peca, Vec<P3>)> = run
+                .iter()
+                .enumerate()
+                .map(|(i, (_, p))| {
+                    let (a, b) = (inicio[i], inicio[i] + p.nos.len() - 1);
+                    (*p, off.iter().filter(|(_, s)| *s >= a && *s <= b).map(|(q, s)| [q.x, q.y, p.nos[*s - a][2]]).collect())
+                })
+                .collect();
+            // Inverter o sentido reverte a sequência inteira (a ordem dos trechos e os nós de cada um), não só os nós de cada trecho:
+            // senão lance, patamar e lance viram um zigue-zague e o corrimão soldado atravessa o caminho.
+            if g.inverter {
+                pecas.reverse();
+            }
+            for (i, (p, nos)) in pecas.iter().enumerate() {
                 let flags = if i > 0 { FLAG_SOLDADO } else { 0 } | if lado == 1 { FLAG_DIREITO } else { 0 };
-                emitir(acc, gid, &mut trecho, p, &nos, flags, g.inverter);
+                emitir(acc, gid, &mut trecho, p, nos, flags, g.inverter);
             }
         }
     }

@@ -320,7 +320,7 @@ export function balaustres(
           const s0 = dg.s0 + pd.distQuina + j * passo;
           if (s0 < -0.005 || s0 > p.total + 0.005) continue;
           const s = Math.min(Math.max(s0, 0), p.total);
-          if (colide(ps, s, meiaPd, 0, p.total + 1)) continue;
+          if (colide(ps, s, meiaPd, -1, p.total + 1)) continue;
           colocar(s, -1, dg.z, amostra(p, s).z + pad.hTopo, 0);
         }
       }

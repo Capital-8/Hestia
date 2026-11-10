@@ -341,3 +341,183 @@ fn filtra_por_nivel() {
     let c = manual_c(&q, false, 0.0, 2);
     assert!(matches!(&guarda_caminhos(&c, 5, 1e-6).unwrap()[0], Saida::U32(v) if v.is_empty()));
 }
+
+// ------------------------------------------------ invariantes de geometria (ADR 0055: inverter só troca a orientação)
+
+use crate::gc_montagem::{montar, Montagem};
+
+/// Copia o tipo completo (perfis, postes, trilhos, corrimão, padrão) da cena de teste da montagem e acrescenta deslocamentos laterais
+/// assimétricos (trilho, elemento do padrão e corrimão de um lado só): qualquer troca de lado ao inverter aparece como mudança de lado.
+fn equipar(c: &mut Cena, por_degrau: bool) {
+    let l = crate::gc_montagem::testes::cena_l(false);
+    c.gc.perfis = l.gc.perfis;
+    c.gc.tipos = l.gc.tipos;
+    c.gc.postes = l.gc.postes;
+    c.gc.trilhos = l.gc.trilhos;
+    c.gc.corrimaos = l.gc.corrimaos;
+    c.gc.padroes = l.gc.padroes;
+    c.gc.padrao_elementos = l.gc.padrao_elementos;
+    c.gc.trilhos.get_mut(&1).unwrap().desloc = 0.02;
+    c.gc.padrao_elementos.get_mut(&1).unwrap().desloc_lateral = 0.03;
+    c.gc.corrimaos.get_mut(&1).unwrap().posicao = 1;
+    if por_degrau {
+        let p = c.gc.padroes.get_mut(&1).unwrap();
+        p.pd_ativo = true;
+        p.pd_qtd = 2;
+        p.pd_dist = 0.04;
+        p.pd_perfil = 1;
+        p.pd_material = 4;
+    }
+}
+
+fn caso_u() -> Cena {
+    let mut c = cena_base(HOSP_ESCADA, 1, 0b1111, 0, 0.0);
+    escada(&mut c);
+    lance_reto(&mut c, 1, 0, 0.0, 4, 0.17, 1.2, 0.0);
+    comp(&mut c, 3, 2, COMPONENTE_LANCE, false);
+    curva(&mut c, 3, 0, 0, [1.5, 1.3], [-1.0, 1.3], 0.0);
+    curva(&mut c, 3, 1, 0, [1.5, 2.5], [-1.0, 2.5], 0.0);
+    for k in 0..3 {
+        let x = 0.84 - 0.28 * k as f64;
+        espelho(&mut c, 3, k, [x, 1.3], [x, 2.5], 0.68 + 0.17 * k as f64);
+    }
+    comp(&mut c, 2, 1, COMPONENTE_PATAMAR, false);
+    for (k, (x, y)) in [(0.84, 0.0), (2.4, 0.0), (2.4, 2.5), (0.84, 2.5), (0.84, 1.3), (0.84, 1.2)].into_iter().enumerate() {
+        let id = c.gc.patamares_escada.len() as u32 + 1;
+        c.gc.patamares_escada.insert(id, PontoAnelGC { dono: 2, componente: 0, indice: k as u32, p: [x, y], z: 0.51 });
+    }
+    c
+}
+
+fn caso_caracol() -> Cena {
+    let mut c = cena_base(HOSP_ESCADA, 1, 0b0101, 1, 0.0);
+    escada(&mut c);
+    comp(&mut c, 1, 0, COMPONENTE_LANCE, true);
+    let q = std::f64::consts::FRAC_1_SQRT_2;
+    for (lado, r) in [(0u8, 0.5), (1u8, 1.5)] {
+        curva(&mut c, 1, lado, 0, [r, 0.0], [0.0, r], -r * (1.0 - q));
+    }
+    for k in 0..10u32 {
+        let th = std::f64::consts::FRAC_PI_2 * (0.05 + 0.9 * k as f64 / 9.0);
+        espelho(&mut c, 1, k, [0.4 * th.cos(), 0.4 * th.sin()], [1.6 * th.cos(), 1.6 * th.sin()], 0.17 * (k + 1) as f64);
+    }
+    c
+}
+
+fn caso_rampa() -> Cena {
+    let mut c = cena_base(HOSP_RAMPA, 1, 0b1111, 0, 0.0);
+    c.gc.rampas.insert(1, RampaGC { nivel: 0, z_base: 0.0, z_topo: 0.6 });
+    c.gc.lances_rampa.insert(
+        1,
+        LanceRampaGC { rampa: 1, indice: 0, inicio: [0.0, 0.0], fim: [5.0, 0.0], a: [0.0, -0.75], b: [0.0, 0.75], c: [5.0, -0.75], d: [5.0, 0.75], z0: 0.0, z1: 0.4 },
+    );
+    for (k, (x, y)) in [(5.0, -0.75), (6.5, -0.75), (6.5, 0.75), (5.0, 0.75)].into_iter().enumerate() {
+        c.gc.patamares_rampa.insert(k as u32 + 1, PontoAnelGC { dono: 1, componente: 1, indice: k as u32, p: [x, y], z: 0.4 });
+    }
+    c.gc.lances_rampa.insert(
+        2,
+        LanceRampaGC { rampa: 1, indice: 2, inicio: [6.5, 0.0], fim: [10.0, 0.0], a: [6.5, -0.75], b: [6.5, 0.75], c: [10.0, -0.75], d: [10.0, 0.75], z0: 0.4, z1: 0.6 },
+    );
+    c
+}
+
+/// Distância lateral com sinal (esquerda positiva) do ponto ao segmento mais próximo da cadeia, medida sempre na cadeia do sentido normal.
+fn lateral(m: &Montagem, p: [f64; 3]) -> f64 {
+    let mut melhor = (f64::INFINITY, 0.0);
+    for t in &m.cadeia.trechos {
+        let mut pts: Vec<[f64; 2]> = t.nos.iter().map(|n| [n.x, n.y]).collect();
+        if t.fechado {
+            pts.push(pts[0]);
+        }
+        for w in pts.windows(2) {
+            let (dx, dy) = (w[1][0] - w[0][0], w[1][1] - w[0][1]);
+            let l2 = dx * dx + dy * dy;
+            if l2 < 1e-18 {
+                continue;
+            }
+            let u = (((p[0] - w[0][0]) * dx + (p[1] - w[0][1]) * dy) / l2).clamp(0.0, 1.0);
+            let d = (p[0] - (w[0][0] + u * dx)).hypot(p[1] - (w[0][1] + u * dy));
+            if d < melhor.0 - 1e-12 {
+                melhor = (d, (dx * (p[1] - w[0][1]) - dy * (p[0] - w[0][0])) / l2.sqrt());
+            }
+        }
+    }
+    melhor.1
+}
+
+/// Por papel: quantidade, volume total, soma do lado médio dos grupos; mais a lista de grupos que atravessam o eixo.
+struct Resumo {
+    qtd: [usize; 8],
+    vol: [f64; 8],
+    lat: [f64; 8],
+    atravessa: Vec<String>,
+}
+
+/// Largura máxima de perfil dos testes (poste de 0,06 m): um grupo só "atravessa" o eixo se entrar mais que meia largura nos dois lados.
+const LARGURA_MAX_PERFIL: f64 = 0.06;
+
+fn resumir(m: &Montagem, ref_cad: &Montagem, nome: &str) -> Resumo {
+    let mut r = Resumo { qtd: [0; 8], vol: [0.0; 8], lat: [0.0; 8], atravessa: Vec::new() };
+    for (i, g) in m.malha.grupos.iter().enumerate() {
+        let a = m.malha.analisar(i);
+        assert!(a.fechada && a.volume > 0.0, "{nome}: grupo {i} (papel {}) aberto, invertido ou sem volume: {a:?}", g.papel);
+        let idx = &m.malha.indices[g.primeiro as usize..(g.primeiro + g.n) as usize];
+        let (mut mn, mut mx, mut soma) = (f64::INFINITY, f64::NEG_INFINITY, 0.0);
+        for &k in idx {
+            let l = lateral(ref_cad, m.malha.vertices[k as usize]);
+            mn = mn.min(l);
+            mx = mx.max(l);
+            soma += l;
+        }
+        if mn < -LARGURA_MAX_PERFIL / 2.0 - 1e-3 && mx > LARGURA_MAX_PERFIL / 2.0 + 1e-3 {
+            r.atravessa.push(format!("grupo {i} papel {} lateral [{mn:.3}, {mx:.3}]", g.papel));
+        }
+        let p = g.papel as usize;
+        r.qtd[p] += 1;
+        r.vol[p] += a.volume;
+        r.lat[p] += soma / idx.len() as f64;
+    }
+    r
+}
+
+fn confere_inversao(nome: &str, mut c: Cena) {
+    let hospedado = c.gc.guardas[&1].hosp != HOSP_MANUAL;
+    equipar(&mut c, hospedado);
+    let normal = montar(&c, NIVEL_TODOS, 1, ID_AUSENTE, 1e-3, true).unwrap_or_else(|e| panic!("{nome}: montar falhou ({e})"));
+    c.gc.guardas.get_mut(&1).unwrap().inverter = true;
+    let inv = montar(&c, NIVEL_TODOS, 1, ID_AUSENTE, 1e-3, true).unwrap_or_else(|e| panic!("{nome}: montar invertido falhou ({e})"));
+    let (a, b) = (resumir(&normal, &normal, nome), resumir(&inv, &normal, nome));
+    assert!(a.qtd.iter().sum::<usize>() > 0, "{nome}: sem peças");
+    assert!(a.atravessa.is_empty(), "{nome}: peça cruza o caminho no sentido normal: {:?}", a.atravessa);
+    assert!(b.atravessa.is_empty(), "{nome}: peça cruza o caminho invertido: {:?}", b.atravessa);
+    for papel in 0..8u32 {
+        let n = |m: &Montagem| m.pecas.iter().filter(|p| p.papel == papel).count();
+        assert_eq!(n(&normal), n(&inv), "{nome}: papel {papel}: peças lógicas");
+    }
+
+    for p in 0..8 {
+        assert_eq!(a.qtd[p], b.qtd[p], "{nome}: papel {p}: quantidade de peças muda ao inverter");
+        assert!((a.vol[p] - b.vol[p]).abs() <= 1e-3 * a.vol[p].max(1e-9), "{nome}: papel {p}: volume {} x {}", a.vol[p], b.vol[p]);
+        let n = a.qtd[p].max(1) as f64;
+        assert!((a.lat[p] - b.lat[p]).abs() / n < 0.01, "{nome}: papel {p}: lado médio {} x {}", a.lat[p] / n, b.lat[p] / n);
+    }
+}
+
+#[test]
+fn invariantes_do_guarda_corpo_sentido_normal_e_invertido() {
+    confere_inversao("reta", {
+        let mut c = cena_base(HOSP_ESCADA, 1, 0b0101, 0, 0.0);
+        escada(&mut c);
+        lance_reto(&mut c, 1, 0, 0.0, 11, 0.17, 1.2, 0.0);
+        c
+    });
+    confere_inversao("lance-patamar-lance", escada_com_patamar(0.0));
+    confere_inversao("U com patamar de giro", caso_u());
+    confere_inversao("caracol", caso_caracol());
+    confere_inversao("rampa com patamar", caso_rampa());
+    let l = [(0.0, 0.0, 0.0), (4.0, 0.0, 0.0), (4.0, 3.0, 0.5)];
+    for lado in [0u8, 1, 2] {
+        confere_inversao(&format!("manual aberto lado {lado}"), manual_c(&l, false, 0.1, lado));
+    }
+    confere_inversao("manual fechado", manual_c(&[(0.0, 0.0, 0.0), (4.0, 0.0, 0.0), (4.0, 4.0, 0.0), (0.0, 4.0, 0.0)], true, 0.1, 0));
+}

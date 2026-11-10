@@ -600,7 +600,7 @@ pub fn balaustres(
                         continue;
                     }
                     let s = s.clamp(0.0, perc.total);
-                    if colide(postes, s, meia_pd, 0.0, perc.total + 1.0) {
+                    if colide(postes, s, meia_pd, -1.0, perc.total + 1.0) {
                         continue;
                     }
                     let a = perc.amostra(s);

@@ -449,12 +449,14 @@ export function guardaCaminhosRef(c: CenaGC, nivel: number | null, tolJuncao: nu
           trecho.n += r.length;
           continue;
         }
-        r.forEach(([, p], i) => {
+        const pecas = r.map(([, p], i): [Peca, P3[]] => {
           const a = inicio[i]!;
           const b = a + p.nos.length - 1;
-          const nos = off.filter(([, s]) => s >= a && s <= b).map(([q, s]): P3 => [q.x, q.y, p.nos[s - a]![2]]);
-          emitir(gid, trecho, p, nos, (i > 0 ? FLAG_SOLDADO : 0) | (lado === 1 ? FLAG_DIREITO : 0), g['inverter'] === 1);
+          return [p, off.filter(([, s]) => s >= a && s <= b).map(([q, s]): P3 => [q.x, q.y, p.nos[s - a]![2]])];
         });
+        // Inverter reverte a sequência inteira (ordem dos trechos e nós de cada um); só reverter os nós faria lance, patamar e lance em zigue-zague.
+        if (g['inverter'] === 1) pecas.reverse();
+        pecas.forEach(([p, nos], i) => emitir(gid, trecho, p, nos, (i > 0 ? FLAG_SOLDADO : 0) | (lado === 1 ? FLAG_DIREITO : 0), g['inverter'] === 1));
       }
     }
   }

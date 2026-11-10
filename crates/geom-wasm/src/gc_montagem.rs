@@ -142,20 +142,21 @@ fn deslocar(nos: &[V3], d: f64) -> Vec<V3> {
     if d.abs() < 1e-12 || nos.len() < 2 {
         return nos.to_vec();
     }
-    let normal = |a: V3, b: V3| {
-        let (dx, dy) = (b[0] - a[0], b[1] - a[1]);
-        let l = dx.hypot(dy);
-        if l < 1e-12 {
-            [0.0, 0.0]
-        } else {
-            [-dy / l, dx / l]
-        }
-    };
+    // Normal de cada segmento da planta; segmento de comprimento nulo (degrau vertical: dois nós no mesmo ponto da planta, cotas diferentes)
+    // não tem direção e fica de fora, para o canto ser calculado com os segmentos reais vizinhos.
     let n = nos.len();
+    let segs: Vec<Option<[f64; 2]>> = (0..n - 1)
+        .map(|i| {
+            let (dx, dy) = (nos[i + 1][0] - nos[i][0], nos[i + 1][1] - nos[i][1]);
+            let l = dx.hypot(dy);
+            (l >= 1e-9).then(|| [-dy / l, dx / l])
+        })
+        .collect();
+    let Some(primeira) = segs.iter().flatten().next().copied() else { return nos.to_vec() };
     (0..n)
         .map(|i| {
-            let n1 = if i > 0 { normal(nos[i - 1], nos[i]) } else { normal(nos[0], nos[1]) };
-            let n2 = if i + 1 < n { normal(nos[i], nos[i + 1]) } else { n1 };
+            let n1 = segs[..i].iter().rev().flatten().next().copied().unwrap_or(primeira);
+            let n2 = segs[i..].iter().flatten().next().copied().unwrap_or(n1);
             let s = [n1[0] + n2[0], n1[1] + n2[1]];
             let l = s[0].hypot(s[1]);
             let m = if l < 1e-9 { n1 } else { [s[0] / l, s[1] / l] };
@@ -288,6 +289,9 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
         cena.gc.normas.get(&n)
     };
     let lim = |k: usize| norma.and_then(|n| n.limite[k]);
+    // Sentido do caminho: inverter troca início e fim, mas não o lado físico. Tudo que é medido para a esquerda do caminho (deslocamento de trilho,
+    // de corrimão, do elemento do padrão) troca de sinal junto com a ordem dos nós; a pisada do degrau passa a correr para trás.
+    let sentido = if g.inverter { -1.0 } else { 1.0 };
     let prof_piso = if g.hosp == HOSP_ESCADA { cena.gc.escadas.get(&g.hosp_num).map(|e| e.profundidade_piso).unwrap_or(0.0) } else { 0.0 };
 
     // Postes.
@@ -321,7 +325,26 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
     } else {
         Vec::new()
     };
-    let mut usados_lance = [0usize; 1];
+    // Ordem do lance de cada trecho no sentido normal: com o sentido invertido a sequência soldada vem ao contrário.
+    let mut ordem_lance: BTreeMap<u32, usize> = BTreeMap::new();
+    {
+        let mut n = 0usize;
+        let mut i = 0;
+        while i < trechos.len() {
+            let mut j = i + 1;
+            while j < trechos.len() && trechos[j].soldado {
+                j += 1;
+            }
+            let seq: Vec<&&TrechoInfo> = if g.inverter { trechos[i..j].iter().rev().collect() } else { trechos[i..j].iter().collect() };
+            for t in seq {
+                if t.origem == OrigemTrecho::Lance {
+                    ordem_lance.insert(t.trecho, n);
+                    n += 1;
+                }
+            }
+            i = j;
+        }
+    }
     let mut restante = LIMITE_BALAUSTRES;
 
     // Posições (planta) dos postes por trecho: alimentam o layout "alinhar com postes" dos suportes do corrimão.
@@ -341,7 +364,7 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
                 for (_, e) in &elementos {
                     let perfil = if e.perfil == ID_AUSENTE { None } else { Some(perfil_p(cena, e.perfil, lod)?) };
                     nums.push(e.perfil);
-                    el.push(ElemP { perfil, material: e.material, dist_anterior: e.dist_anterior, desloc_lateral: e.desloc_lateral, desloc_base: e.desloc_base, desloc_topo: e.desloc_topo });
+                    el.push(ElemP { perfil, material: e.material, dist_anterior: e.dist_anterior, desloc_lateral: sentido * e.desloc_lateral, desloc_base: e.desloc_base, desloc_topo: e.desloc_topo });
                 }
                 let pd_perfil = if p.pd_ativo && p.pd_perfil != ID_AUSENTE { Some(perfil_p(cena, p.pd_perfil, lod)?) } else { None };
                 nums_elem.push((nums, p.pd_perfil));
@@ -355,7 +378,7 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
                     escopo: p.escopo,
                     h_base: altura_ref(cena, tipo, p.base_tipo, p.base_idx, false, h_t, lod)?,
                     h_topo: altura_ref(cena, tipo, p.topo_tipo, p.topo_idx, true, h_t, lod)?,
-                    por_degrau: PorDegrauP { ativo: p.pd_ativo, quantidade: p.pd_qtd, dist_quina: p.pd_dist, perfil: pd_perfil, material: p.pd_material },
+                    por_degrau: PorDegrauP { ativo: p.pd_ativo, quantidade: p.pd_qtd, dist_quina: sentido * p.pd_dist, perfil: pd_perfil, material: p.pd_material },
                 });
             }
         }
@@ -390,15 +413,14 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
         if t.origem == OrigemTrecho::Lance && padroes.iter().any(|p| p.por_degrau.ativo) {
             // O lado do trecho vem da ordem: esquerdo primeiro, depois o direito, na ordem dos componentes.
             let n_lance = lances.len().max(1);
-            let ordem = usados_lance[0];
-            usados_lance[0] += 1;
+            let ordem = ordem_lance.get(&t.trecho).copied().unwrap_or(0);
             if let Some(&comp) = lances.get(ordem % n_lance) {
                 let mut esp: Vec<&EspelhoGC> = cena.gc.espelhos.values().filter(|e| e.componente == comp).collect();
                 esp.sort_by_key(|e| e.indice);
                 let prof = prof_piso;
                 for e in esp {
                     let mid = [(e.a[0] + e.b[0]) / 2.0, (e.a[1] + e.b[1]) / 2.0];
-                    degraus.push(DegrauP { s0: s_da_projecao(&t.nos, mid), profundidade: prof, z: e.z1 });
+                    degraus.push(DegrauP { s0: s_da_projecao(&t.nos, mid), profundidade: sentido * prof, z: e.z1 });
                 }
             }
         }
@@ -535,7 +557,7 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
         for (_, tr_l) in &tipo.trilhos {
             let perfil = perfil_p(cena, tr_l.perfil, lod)?;
             let base = junta(&|t| tr_l.altura + ajuste_de(t));
-            let cam = deslocar(&base, tr_l.desloc);
+            let cam = deslocar(&base, sentido * tr_l.desloc);
             let cam = if fechado {
                 cam
             } else if let Some(r) = raio_filete_trilho {
@@ -562,7 +584,7 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
             let perfil = perfil_p(cena, c.perfil, lod)?;
             let (larg, alt) = envelope(&perfil);
             let largura_poste = m_largura_poste(&params);
-            let lado_off = c.afastamento + larg / 2.0 + largura_poste / 2.0;
+            let lado_off = sentido * (c.afastamento + larg / 2.0 + largura_poste / 2.0);
             let lados: Vec<f64> = match c.posicao {
                 1 => vec![lado_off],
                 2 => vec![-lado_off],
@@ -689,7 +711,7 @@ pub fn saida_malha(m: &Montagem) -> Vec<Saida> {
 }
 
 #[cfg(test)]
-mod testes {
+pub(crate) mod testes {
     use super::*;
     use crate::esquema::NIVEL_TODOS;
 
@@ -698,7 +720,7 @@ mod testes {
     }
 
     /// Guarda manual em L (4 m por 3 m), com postes, dois trilhos, balaústres entre os trilhos, um painel de vidro e um corrimão.
-    fn cena_l(painel: bool) -> Cena {
+    pub(crate) fn cena_l(painel: bool) -> Cena {
         let mut c = Cena::novo();
         c.gc.perfis.insert(1, PerfilGuardaLinha { forma: FORMA_CIRCULAR, largura: 0.04, altura: 0.04, n_pontos: 0, lados: 16 });
         c.gc.perfis.insert(2, PerfilGuardaLinha { forma: FORMA_RETANGULAR, largura: 0.06, altura: 0.06, n_pontos: 0, lados: 16 });
