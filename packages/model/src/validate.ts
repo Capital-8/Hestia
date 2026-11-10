@@ -10,11 +10,11 @@ import { roomIssues } from './validateRooms.ts';
 import { profileError } from './profile.ts';
 import { wallBaseElevation, wallTopElevation } from './queries.ts';
 import { viewRangeIssues } from './viewRange.ts';
-import { graphicsIssues, graphicsOf, levelGraphicsOf, sectionGraphicsOf, view3dOf } from './graphics.ts';
+import { graphicsIssues, graphicsOf, sectionGraphicsOf, view3dOf } from './graphics.ts';
 import { sectionRefIssues, sectionViewIssue } from './sectionView.ts';
 import { projectSheets } from './sheet.ts';
 import { viewSourceIssue } from './sheetCommands.ts';
-import { planAnnotationsOf } from './areaPlan.ts';
+import { floorViewId, planViewOf, planViewsOf, viewGraphicsOf, viewOwnAnnotationsOf } from './planView.ts';
 import { isOpening, isWall, type Element, type Id, type Level, type Opening, type Project, type Wall } from './types.ts';
 import { openingTypeById } from './openingNominal.ts';
 import { formatQuantity } from './unitsFormat.ts';
@@ -220,8 +220,9 @@ function wallOverlaps(walls: Wall[]): ValidationIssue[] {
 }
 
 /** Intervalo de vista de cada nível (decisão 0013): uma mensagem por violação. */
-function levelIssues(l: Level): ValidationIssue[] {
-  const problems = l.viewRange ? viewRangeIssues(l.viewRange) : ['Falta o intervalo de vista do nível.'];
+function levelIssues(p: Project, l: Level): ValidationIssue[] {
+  const viewRange = planViewOf(p, floorViewId(l.id))?.viewRange;
+  const problems = viewRange ? viewRangeIssues(viewRange) : ['Falta o intervalo de vista do nível.'];
   return problems.map((message) => ({
     severity: 'error' as const,
     code: 'level-view-range-invalid',
@@ -236,7 +237,7 @@ function graphicsProblems(p: Project): ValidationIssue[] {
     for (const m of msgs) out.push({ severity: 'error', code: 'graphics-invalid', message: `${prefix}${m}` });
   };
   add('Gráficos do projeto: ', graphicsIssues(graphicsOf(p)));
-  for (const l of p.levels) add(`Nível "${l.name}" (${l.id}): `, graphicsIssues(levelGraphicsOf(p, l.id)));
+  for (const l of p.levels) add(`Nível "${l.name}" (${l.id}): `, graphicsIssues(viewGraphicsOf(p, floorViewId(l.id))));
   add('Vista 3D: ', graphicsIssues(view3dOf(p)));
   add('Corte/elevação: ', graphicsIssues(sectionGraphicsOf(p)));
   return out;
@@ -279,13 +280,14 @@ function sheetProblems(p: Project): ValidationIssue[] {
 /** Plantas de área: etiqueta de elemento apontando para elemento que não existe mais (aviso, não erro). */
 function areaPlanProblems(p: Project): ValidationIssue[] {
   const out: ValidationIssue[] = [];
-  for (const plan of p.areaPlans ?? []) {
-    for (const tag of planAnnotationsOf(plan).tags) {
+  for (const view of planViewsOf(p)) {
+    if (view.kind !== 'area') continue;
+    for (const tag of viewOwnAnnotationsOf(p, view.id).tags) {
       if (p.elements[tag.hostId]) continue;
       out.push({
         severity: 'warning',
         code: 'area-plan-tag-host-missing',
-        message: `Planta de área "${plan.name}": a etiqueta "${tag.id}" aponta para o elemento "${tag.hostId}", que não existe.`,
+        message: `Planta de área "${view.name}": a etiqueta "${tag.id}" aponta para o elemento "${tag.hostId}", que não existe.`,
         elementId: tag.id,
       });
     }
@@ -303,7 +305,7 @@ export function validateProject(p: Project): ValidationIssue[] {
     ...viewProblems(p),
     ...sheetProblems(p),
     ...areaPlanProblems(p),
-    ...p.levels.flatMap((l) => levelIssues(l)),
+    ...p.levels.flatMap((l) => levelIssues(p, l)),
     ...walls.flatMap((w) => wallIssues(p, w)),
     ...openings.flatMap((o) => openingIssues(p, o)),
     ...openingOverlaps(p, openings),

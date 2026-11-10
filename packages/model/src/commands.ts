@@ -53,7 +53,7 @@ import { rampTypeIssue } from './ramp.ts';
 import { openingTypeIssue, toggleFavoriteIn } from './opening.ts';
 import { withBridgedComposition } from './openingCompositionOf.ts';
 import { comTerminoValido } from './termino.ts';
-import { viewRangeIssues, type ViewRange } from './viewRange.ts';
+import type { ViewRange } from './viewRange.ts';
 import type { DxfLayerStyle } from './dxfLayerStyle.ts';
 import type { DimensionStyle } from './dimensionContract.ts';
 import { dimensionFamilyIssue, dimensionFamiliesOf, removeDimensionFamilyFrom, writeDimensionFamily, type DimensionFamily } from './dimensionFamily.ts';
@@ -85,6 +85,7 @@ import { applyOutlineCommand } from './outlineCommands.ts';
 import { applyCopyLinkCommand } from './copyLinkCommands.ts';
 import type { CopyLink } from './copyLink.ts';
 import { applyAreaPlanCommand, dropAreaPlansOfLevel, dropRoomTags, prunePlanElementTags } from './areaPlanCommands.ts';
+import { applyLevelViewRange, applyPlanViewCommand, type PlanViewCommand } from './planViewCommands.ts';
 import type { AreaPlan, ColorScheme, RoomCategory, RoomTag } from './areaPlan.ts';
 import type { Lang } from './i18n.ts';
 import { t } from './i18n.ts';
@@ -169,6 +170,7 @@ export type Command =
   | { type: 'deleteView'; id: Id }
   | { type: 'batch'; commands: Command[] }
   | { type: 'setOpeningHost'; id: Id; hostId: Id; offset: number }
+  | PlanViewCommand
   | { type: 'addAreaPlan'; plan: AreaPlan }
   | { type: 'updateAreaPlan'; id: Id; patch: Partial<Omit<AreaPlan, 'id' | 'tags'>> }
   | { type: 'removeAreaPlan'; id: Id }
@@ -281,7 +283,7 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
 }
 
 export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
-  if (applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c)) return;
+  if (applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyPlanViewCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c)) return;
   switch (c.type) {
     case 'addWall':
       p.elements[c.wall.id] = { ...c.wall, order: p.nextOrder++ };
@@ -428,13 +430,13 @@ export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
       break;
     case 'splitWall':
       splitWall(p, c, lang);
-      for (const level of p.levels) if (level.tags?.length) level.tags = level.tags.filter((tag) => Boolean(p.elements[tag.hostId]));
+      for (const level of p.levels) if (level.tags?.length) level.tags = level.tags.filter((tag) => Boolean(p.elements[tag.hostId])); // armazenamento (Fase 2)
       prunePlanElementTags(p);
       break;
     case 'deleteElements':
       removeIds(p, c.ids);
       dropRoomTags(p, c.ids);
-      for (const level of p.levels) if (level.tags?.length) level.tags = level.tags.filter((tag) => !c.ids.includes(tag.hostId));
+      for (const level of p.levels) if (level.tags?.length) level.tags = level.tags.filter((tag) => !c.ids.includes(tag.hostId)); // armazenamento (Fase 2)
       prunePlanElementTags(p);
       break;
     case 'upsertWallType':
@@ -514,16 +516,9 @@ export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
     case 'removeGridType':
       applyGridCommand(p, c, lang);
       break;
-    case 'setLevelViewRange': {
-      const l = p.levels.find((x) => x.id === c.levelId);
-      if (!l) throw new Error(t(lang, 'md_level_missing'));
-      // Sem normalização silenciosa: um valor que quebra a ordem topo ≥ corte ≥ base ≥ profundidade é recusado.
-      const next: ViewRange = { ...l.viewRange, ...c.patch };
-      const issues = viewRangeIssues(next);
-      if (issues.length > 0) throw new Error(issues.join(' '));
-      l.viewRange = next;
+    case 'setLevelViewRange':
+      applyLevelViewRange(p, c.levelId, c.patch, lang);
       break;
-    }
     case 'setProjectGraphics':
       applyProjectGraphics(p, c.patch, lang);
       break;

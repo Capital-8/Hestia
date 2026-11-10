@@ -1,17 +1,28 @@
 import { len, sub, type Vec2 } from '@hestia/geom';
-import { areaPlanOf, planAnnotationsOf, planAnnotationIds, type AreaPlan, type AreaPlanAnnotations } from './areaPlan.ts';
+import { areaPlanOf, planAnnotationsOf, type AreaPlan, type AreaPlanAnnotations } from './areaPlan.ts';
 import { DIM_MIN_LENGTH } from './dimension.ts';
 import { newId } from './ids.ts';
 import { type Dimension, type DetailLine, type DetailRegion, type ElementTag, type Id, type Level, type Project, type RoomSeparator, type SectionView, type TextNote } from './types.ts';
 import { cleanSectionAnnotations, sectionAnnotationsOf, type SectionAnnotations } from './sectionAnnotations.ts';
 import { t as translate, type Lang } from './i18n.ts';
+import { floorViewId, viewAnnotationsOf, viewOwnAnnotationsOf } from './planView.ts';
+import { resolvePlanViewRef } from './planViewResolve.ts';
 
 /**
  * Onde a anotação mora: sempre no nível e, quando `planId`/`sectionId` existe, na vista (planta de área ou corte/elevação).
  * Sem eles a anotação continua na planta de piso do nível, como sempre foi.
+ *
+ * Forma RECOMENDADA para planta (docs/vistas/PLANO-MESTRE.md §4.3): `viewId`, montado com `annotationTarget(p, viewId)`
+ * (que devolve `{ levelId, planId? }`, ou seja, preenche `levelId`/`planId` a partir do `viewId`) ou passado junto.
+ * A forma antiga (`levelId` + `planId?` + `sectionId?`) continua valendo igual; `sectionId` (corte) tem precedência.
  */
 interface AnnotationView {
   levelId: Id;
+  /**
+   * Vista de planta dona da anotação (`floorViewId`, `roofViewId` ou o id da planta de área). Quando presente, o destino
+   * vem dele e `planId` é ignorado; `levelId` precisa ser o nível da vista. Piso e cobertura gravam no nível.
+   */
+  viewId?: Id;
   /** Planta de área dona da anotação; ausente = anotação do nível (planta de piso). */
   planId?: Id;
   /** Vista de corte/elevação dona da anotação; ausente = anotação de planta. */
@@ -83,7 +94,7 @@ export function textIssue(note: TextNote, lang: Lang = 'pt'): string | null {
 }
 
 export const levelDimensions = (p: Pick<Project, 'levels'>, levelId: Id): Dimension[] =>
-  p.levels.find((l) => l.id === levelId)?.dimensions ?? [];
+  viewAnnotationsOf(p, floorViewId(levelId)).dimensions;
 
 /** Comprimento mínimo (m) de uma linha de separação de ambiente. */
 export const ROOM_SEPARATOR_MIN_LENGTH = 0.05;
@@ -99,7 +110,7 @@ export const levelRoomSeparators = (p: Pick<Project, 'levels'>, levelId: Id): Ro
   p.levels.find((l) => l.id === levelId)?.roomSeparators ?? [];
 
 export const levelTexts = (p: Pick<Project, 'levels'>, levelId: Id): TextNote[] =>
-  p.levels.find((l) => l.id === levelId)?.texts ?? [];
+  viewAnnotationsOf(p, floorViewId(levelId)).texts;
 
 /** Leitura e escrita de uma família de anotações na vista (nível ou planta de área). */
 interface AnnotationList<T> {
@@ -116,6 +127,7 @@ interface AnnotationScope {
 }
 
 /** Anotações do nível (planta de piso). */
+// armazenamento (Fase 2)
 const levelScope = (level: Level): AnnotationScope => ({
   dimensions: { get: () => level.dimensions ?? [], set: (next) => { level.dimensions = next; } },
   texts: { get: () => level.texts ?? [], set: (next) => { level.texts = next; } },
@@ -125,6 +137,7 @@ const levelScope = (level: Level): AnnotationScope => ({
 });
 
 /** Anotações da planta de área: cada escrita reatribui o conjunto, sem mutar o array atual. */
+// armazenamento (Fase 2)
 const planScope = (plan: AreaPlan): AnnotationScope => {
   const write = (patch: Partial<AreaPlanAnnotations>): void => {
     plan.annotations = { ...planAnnotationsOf(plan), ...patch };
@@ -139,6 +152,7 @@ const planScope = (plan: AreaPlan): AnnotationScope => {
 };
 
 /** Planta de área da vista: precisa existir e ser do mesmo nível da anotação. */
+// armazenamento (Fase 2)
 function viewPlan(p: Project, planId: Id, levelId: Id, lang: Lang): AreaPlan {
   const plan = areaPlanOf(p, planId);
   if (!plan) throw new Error(translate(lang, 'md_area_plan_missing'));
@@ -170,15 +184,36 @@ const sectionScope = (view: SectionView): AnnotationScope => {
   };
 };
 
+/**
+ * Destino de escrita (`levelId` + `planId?`) de uma vista de planta, para montar comandos de anotação a partir de um
+ * `viewId`. Piso e cobertura: só `levelId` (as anotações moram no nível); planta de área: `levelId` + `planId`.
+ * `viewId` inexistente lança Error.
+ */
+export function annotationTarget(p: Pick<Project, 'levels' | 'areaPlans'>, viewId: Id, lang: Lang = 'pt'): { levelId: Id; planId?: Id } {
+  const ref = resolvePlanViewRef(p, viewId);
+  if (!ref) throw new Error(translate(lang, 'md_view_missing'));
+  return ref.kind === 'area' ? { levelId: ref.levelId, planId: ref.areaPlanId } : { levelId: ref.levelId };
+}
+
+/** Escopo da anotação por `viewId`: piso e cobertura => nível; área => planta (conjunto próprio, como `planId`). */
+function viewIdScope(p: Project, viewId: Id, levelId: Id, lang: Lang): AnnotationScope {
+  const target = annotationTarget(p, viewId, lang);
+  if (target.levelId !== levelId) throw new Error(translate(lang, 'md_cmd_view_level_mismatch'));
+  if (target.planId) return planScope(viewPlan(p, target.planId, levelId, lang));
+  return levelScope(p.levels.find((l) => l.id === levelId)!); // armazenamento (Fase 2)
+}
+
 /** Aplica um comando de anotação sobre o rascunho do projeto. Lança Error em texto pt-BR se recusar. */
 export function applyAnnotationCommand(p: Project, c: AnnotationCommand, lang: Lang = 'pt'): void {
   const level = p.levels.find((l) => l.id === c.levelId);
   if (!level) throw new Error(translate(lang, 'md_level_missing'));
   const scope = 'sectionId' in c && c.sectionId
     ? sectionScope(viewSection(p, c.sectionId, lang))
-    : 'planId' in c && c.planId
-      ? planScope(viewPlan(p, c.planId, c.levelId, lang))
-      : levelScope(level);
+    : 'viewId' in c && c.viewId
+      ? viewIdScope(p, c.viewId, c.levelId, lang)
+      : 'planId' in c && c.planId
+        ? planScope(viewPlan(p, c.planId, c.levelId, lang))
+        : levelScope(level); // armazenamento (Fase 2)
   switch (c.type) {
     case 'addDimension': {
       const issue = dimensionIssue(c.dimension, lang);
@@ -299,13 +334,12 @@ export function annotationRemovals(p: Pick<Project, 'levels' | 'areaPlans'>, lev
   const out: RemoveAnnotation[] = [];
   for (const d of levelDimensions(p, levelId)) if (want.has(d.id)) out.push({ type: 'removeDimension', levelId, id: d.id });
   for (const t of levelTexts(p, levelId)) if (want.has(t.id)) out.push({ type: 'removeText', levelId, id: t.id });
-  const level = p.levels.find((l) => l.id === levelId);
-  for (const x of level?.detailLines ?? []) if (want.has(x.id)) out.push({ type: 'removeDetailLine', levelId, id: x.id });
-  for (const x of level?.detailRegions ?? []) if (want.has(x.id)) out.push({ type: 'removeDetailRegion', levelId, id: x.id });
-  for (const x of level?.tags ?? []) if (want.has(x.id)) out.push({ type: 'removeTag', levelId, id: x.id });
-  const plan = planId ? areaPlanOf(p, planId) : undefined;
-  if (plan) {
-    const a = planAnnotationsOf(plan);
+  const level = viewAnnotationsOf(p, floorViewId(levelId));
+  for (const x of level.detailLines) if (want.has(x.id)) out.push({ type: 'removeDetailLine', levelId, id: x.id });
+  for (const x of level.detailRegions) if (want.has(x.id)) out.push({ type: 'removeDetailRegion', levelId, id: x.id });
+  for (const x of level.tags) if (want.has(x.id)) out.push({ type: 'removeTag', levelId, id: x.id });
+  if (planId) {
+    const a = viewOwnAnnotationsOf(p, planId);
     for (const x of a.dimensions) if (want.has(x.id)) out.push({ type: 'removeDimension', levelId, planId, id: x.id });
     for (const x of a.texts) if (want.has(x.id)) out.push({ type: 'removeText', levelId, planId, id: x.id });
     for (const x of a.detailLines) if (want.has(x.id)) out.push({ type: 'removeDetailLine', levelId, planId, id: x.id });
@@ -326,17 +360,11 @@ export function annotationIdsIn(p: Pick<Project, 'levels'>, levelId: Id, ids: Id
  * (cotas, textos, detalhes e etiquetas que moram na própria planta).
  */
 export function annotationIdsInView(p: Pick<Project, 'levels' | 'areaPlans'>, levelId: Id, planId?: Id): Id[] {
-  const level = p.levels.find((l) => l.id === levelId);
-  const ids = [
-    ...(level?.dimensions ?? []),
-    ...(level?.texts ?? []),
-    ...(level?.detailLines ?? []),
-    ...(level?.detailRegions ?? []),
-    ...(level?.tags ?? []),
-  ].map((a) => a.id);
+  const level = viewAnnotationsOf(p, floorViewId(levelId));
+  const ids = [...level.dimensions, ...level.texts, ...level.detailLines, ...level.detailRegions, ...level.tags].map((a) => a.id);
   if (!planId) return ids;
-  const plan = areaPlanOf(p, planId);
-  return plan ? [...ids, ...planAnnotationIds(plan)] : ids;
+  const own = viewOwnAnnotationsOf(p, planId);
+  return [...ids, ...own.dimensions.map((a) => a.id), ...own.texts.map((a) => a.id), ...own.detailLines.map((a) => a.id), ...own.detailRegions.map((a) => a.id), ...own.tags.map((a) => a.id)];
 }
 
 /**
@@ -359,18 +387,18 @@ export function annotationMoveCommands(p: Pick<Project, 'levels'>, levelId: Id, 
     if (copy) out.push({ type: 'addText', levelId, text: { ...t, id: newId('txt'), at: shift(t.at), leader: movedLeader } });
     else out.push({ type: 'updateText', levelId, id: t.id, patch: { at: shift(t.at), leader: movedLeader } });
   }
-  const level = p.levels.find((l) => l.id === levelId);
-  for (const item of level?.detailLines ?? []) if (want.has(item.id)) {
+  const level = viewAnnotationsOf(p, floorViewId(levelId));
+  for (const item of level.detailLines) if (want.has(item.id)) {
     const moved = { a: shift(item.a), b: shift(item.b) };
     if (copy) out.push({ type: 'addDetailLine', levelId, item: { ...item, id: newId('dl'), ...moved } });
     else out.push({ type: 'updateDetailLine', levelId, id: item.id, patch: moved });
   }
-  for (const item of level?.detailRegions ?? []) if (want.has(item.id)) {
+  for (const item of level.detailRegions) if (want.has(item.id)) {
     const boundary = item.boundary.map(shift);
     if (copy) out.push({ type: 'addDetailRegion', levelId, item: { ...item, id: newId('dr'), boundary } });
     else out.push({ type: 'updateDetailRegion', levelId, id: item.id, patch: { boundary } });
   }
-  for (const item of level?.tags ?? []) if (want.has(item.id)) {
+  for (const item of level.tags) if (want.has(item.id)) {
     const at = shift(item.at);
     if (copy) out.push({ type: 'addTag', levelId, item: { ...item, id: newId('tag'), at } });
     else out.push({ type: 'updateTag', levelId, id: item.id, patch: { at } });

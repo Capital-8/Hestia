@@ -2,6 +2,7 @@ import { newId } from './ids.ts';
 import { projectSheets, sheetIssue, sheetOf, sheetView3DCameraIssue, viewportIssue, type Sheet, type SheetViewport, type SheetViewSource } from './sheet.ts';
 import type { Id, Project } from './types.ts';
 import { t as translate, type Lang } from './i18n.ts';
+import { resolvePlanViewRef } from './planViewResolve.ts';
 
 /**
  * Comandos de pranchas (decisão 0022). Recusam com mensagem pt-BR e não alteram o projeto. Mudar tamanho, orientação ou
@@ -25,7 +26,7 @@ export function dropOrphanViewports(p: Project): void {
 /** Motivo de recusa de uma fonte de vista (nível ou seção que precisa existir), ou null. */
 export function viewSourceIssue(p: Pick<Project, 'levels' | 'views'> & Partial<Pick<Project, 'areaPlans'>>, view: SheetViewSource, lang: Lang = 'pt'): string | null {
   if (view.kind === 'plan' && !p.levels.some((l) => l.id === view.levelId)) return translate(lang, 'md_level_missing');
-  if (view.kind === 'areaPlan' && !(p.areaPlans ?? []).some((a) => a.id === view.planId)) return translate(lang, 'md_area_plan_missing');
+  if (view.kind === 'areaPlan' && resolvePlanViewRef(p, view.planId)?.kind !== 'area') return translate(lang, 'md_area_plan_missing');
   if (view.kind === 'section' && !p.views.some((v) => v.id === view.sectionId)) return translate(lang, 'md_cmd_section_missing');
   if (view.kind === '3d' && view.camera !== undefined) return sheetView3DCameraIssue(view.camera);
   return null;

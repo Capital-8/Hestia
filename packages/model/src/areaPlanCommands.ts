@@ -6,6 +6,7 @@ import { isRoom, type Id, type Project } from './types.ts';
 import { t as translate, type Lang } from './i18n.ts';
 
 /** Comandos da planta de área e da etiqueta de ambiente (fora do `switch` grande de `commands.ts`). */
+// armazenamento (Fase 2): este arquivo inteiro escreve em `Project.areaPlans` (a Fase 2 o move para `planViews`).
 export type AreaPlanCommand = Extract<Command, { type: 'addAreaPlan' | 'updateAreaPlan' | 'removeAreaPlan' | 'addRoomTag' | 'updateRoomTag' | 'removeRoomTag' | 'setRoomReference' | 'upsertRoomCategory' | 'removeRoomCategory' | 'upsertColorScheme' | 'removeColorScheme' }>;
 
 const planOf = (p: Project, id: Id, lang: Lang): AreaPlan => {
