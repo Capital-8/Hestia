@@ -5,7 +5,7 @@ import { useUi } from '../editor/state.ts';
 import { ACTIONS } from '../ui/ribbon/actions.ts';
 import { TABS } from '../ui/ribbon/tabs.ts';
 import { fromSceneCamera, toSceneCamera } from './cameraConvert.ts';
-import { buildSceneContent, extractElementMeshes, extractLights, extractSite } from './sceneExport.ts';
+import { buildSceneContent, extractElementMeshes, extractLights, extractSite, categoriaDoMaterial, uvsCaixa, UVS_MAX_VERTICES } from './sceneExport.ts';
 
 describe('Suplementos › Ferramentas externas', () => {
   it('é a única entrada habilitada da aba e abre o diálogo', () => {
@@ -160,5 +160,58 @@ describe('exportação de cena (protocolo 1.3)', () => {
     (p.elements as Record<string, unknown>).wx = { id: 'wx', kind: 'wall', typeId: tipo.id, levelId: Object.keys(p.levels)[0], name: 'P' };
     const e = buildSceneContent(p, null).entities.find((x) => x.id === 'wx')!;
     expect(e.materialIds).toEqual(mats);
+  });
+});
+
+
+describe('categoria, PBR derivado e UVs (protocolo 1.3)', () => {
+  it('catálogo: categoria por id e PBR derivado (metal e vidro); demais sem PBR', () => {
+    const p = createEmptyProject('pt');
+    const mats = new Map(buildSceneContent(p, null).materials.map((m) => [m.id, m]));
+    expect(mats.get('mat_reboco')!.category).toBe('plaster');
+    expect(mats.get('mat_bloco14')!.category).toBe('brick');
+    expect(mats.get('mat_aco')).toMatchObject({ category: 'metal', metallic: 1 });
+    expect(mats.get('mat_aco')!.transmission).toBeUndefined();
+    expect(mats.get('mat_vidro')).toMatchObject({ category: 'glass', transmission: 0.9, ior: 1.5 });
+    expect(mats.get('mat_vidro')!.metallic).toBeUndefined();
+    expect(mats.get('mat_madeira')!.metallic).toBeUndefined();
+    for (const id of Object.keys(p.materials)) expect(mats.get(id)!.category, id).toBeDefined();
+  });
+  it('categoria do usuário tem prioridade sobre o catálogo; inválida é ignorada; sem categoria fica ausente', () => {
+    expect(categoriaDoMaterial({ id: 'mat_reboco', category: 'wood' })).toBe('wood');
+    expect(categoriaDoMaterial({ id: 'mat_reboco', category: 'Madeira Boa' })).toBe('plaster');
+    expect(categoriaDoMaterial({ id: 'mat_livre' })).toBeUndefined();
+    const p = createEmptyProject('pt');
+    p.materials.mat_usr = { id: 'mat_usr', name: 'Bancada', color: '#aa8855', hatch: 'none', gloss: 0.2, opacity: 1, cost: 0, unit: 'm2', category: 'wood' };
+    p.materials.mat_sem = { id: 'mat_sem', name: 'Parede sala 2', color: '#aa8855', hatch: 'none', gloss: 0.2, opacity: 1, cost: 0, unit: 'm2' };
+    const m = new Map(buildSceneContent(p, null).materials.map((x) => [x.id, x]));
+    expect(m.get('mat_usr')!.category).toBe('wood');
+    expect('category' in m.get('mat_sem')!).toBe(false);
+  });
+  it('category persiste no JSON do projeto (sem mudar o esquema)', () => {
+    const store = new ProjectStore(createEmptyProject('pt'));
+    const base = store.project.materials.mat_tinta!;
+    store.exec({ type: 'upsertMaterial', material: { ...base, id: 'mat_n', category: 'paint' } });
+    expect(JSON.parse(JSON.stringify(store.project)).materials.mat_n.category).toBe('paint');
+  });
+  it('UVs por projeção em caixa, em metros: eixo da maior componente da normal', () => {
+    const pos = [5, 6, 7, 5, 6, 7, 5, 6, 7];
+    const nor = [1, 0, 0, 0, -1, 0, 0, 0.2, 0.9];
+    expect(uvsCaixa(pos, nor)).toEqual([6, 7, 5, 7, 5, 6]);
+    expect(uvsCaixa(pos, [0, 0, 1])).toBeUndefined();
+    const n = 3 * (UVS_MAX_VERTICES + 1);
+    expect(uvsCaixa(new Array<number>(n).fill(0), new Array<number>(n).fill(1))).toBeUndefined();
+  });
+  it('extração envia uvs com 2 números por vértice quando há normais', () => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 0, 2, 1, 0, 2, 0, 1, 2]), 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]), 3));
+    g.setIndex([0, 1, 2]);
+    const mesh = new THREE.Mesh(g);
+    mesh.position.set(10, 0, 0);
+    mesh.userData = { materialId: 'm', ranges: [{ id: 'a', start: 0, count: 3 }] };
+    const root = new THREE.Group();
+    root.add(mesh);
+    expect(extractElementMeshes(root).get('a')!.uvs).toEqual([10, 0, 11, 0, 10, 1]);
   });
 });

@@ -17,10 +17,11 @@ const nonZero = (v: Vec3): boolean => v.x !== 0 || v.y !== 0 || v.z !== 0;
 const PI = Math.PI;
 
 // ---- material (campos PBR opcionais) ----
-const PBR: Record<'metallic' | 'transmission' | 'ior' | 'emissive', (v: unknown) => boolean> = {
+const PBR: Record<'category' | 'metallic' | 'transmission' | 'ior' | 'emissive', (v: unknown) => boolean> = {
   metallic: (v) => inRange(v, 0, 1),
   transmission: (v) => inRange(v, 0, 1),
   ior: (v) => inRange(v, 1, 3),
+  category: (v) => typeof v === 'string' && /^[a-z0-9_-]{1,32}$/.test(v),
   emissive: (v) => isObj(v) && typeof v.color === 'string' && HEX.test(v.color) && finite(v.intensity) && v.intensity >= 0,
 };
 
@@ -93,14 +94,17 @@ export function siteSanitized(s: SceneSite): SceneSite | undefined {
 /** Normais, quando enviadas, têm um vetor (3 números) por vértice. Problema (texto) ou null. */
 export function meshIssue(m: unknown): string | null {
   if (!isObj(m)) return 'malha precisa ser objeto';
-  if (m.normals === undefined) return null;
-  if (!Array.isArray(m.positions) || !Array.isArray(m.normals) || m.normals.length !== m.positions.length) return 'normals com tamanho diferente de positions';
+  if (m.normals !== undefined && (!Array.isArray(m.positions) || !Array.isArray(m.normals) || m.normals.length !== m.positions.length)) return 'normals com tamanho diferente de positions';
+  if (m.uvs !== undefined && (!Array.isArray(m.positions) || !Array.isArray(m.uvs) || m.uvs.length !== (m.positions.length / 3) * 2)) return 'uvs precisa ter 2 números por vértice';
   return null;
 }
 
-/** Cópia da malha sem normais inválidas (ou sem normais). */
+/** Cópia da malha sem normais/UVs inválidos (a geometria fica). */
 export function meshSanitized(m: SceneMesh): SceneMesh {
-  if (m.normals === undefined || meshIssue(m) === null) return m;
-  const { normals: _drop, ...rest } = m;
-  return rest as SceneMesh;
+  if (meshIssue(m) === null) return m;
+  const out: SceneMesh = { ...m };
+  const n = m.positions.length;
+  if (out.normals !== undefined && (!Array.isArray(out.normals) || out.normals.length !== n)) delete out.normals;
+  if (out.uvs !== undefined && (!Array.isArray(out.uvs) || out.uvs.length !== (n / 3) * 2)) delete out.uvs;
+  return out;
 }

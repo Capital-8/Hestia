@@ -725,3 +725,67 @@ describe('extensão de renderização (protocolo 1.3)', () => {
     expect(d(snap({ entities: [{ mesh: { positions: [0, 0, 0], normals: [0, 1], indices: [], groups: [] } }] }))).toBe(false);
   });
 });
+
+
+describe('categoria do material e UVs (protocolo 1.3)', () => {
+  const TOKEN = 'e'.repeat(64);
+  const comCat = (f: ReturnType<typeof fakePorts>): void => {
+    f.content.materials[0] = { ...f.content.materials[0]!, category: 'brick' };
+    f.content.entities[0]!.mesh!.uvs = [0, 0, 1, 0, 0, 1];
+  };
+  it('1.3 leva category e uvs; 1.1 e 1.2 não levam nenhum dos dois (nem no fio)', async () => {
+    for (const [max, esperado] of [['1.3', true], ['1.2', false], ['1.1', false]] as const) {
+      const wire: string[] = [];
+      const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN, protocolMax: max }, spy: wire });
+      comCat(s.f);
+      s.host.enable('renderer', ALL);
+      await flushAuth();
+      const snap = s.last().snapshot!;
+      expect(snap.materials[0]!.category).toBe(esperado ? 'brick' : undefined);
+      expect(snap.entities[0]!.mesh!.uvs !== undefined).toBe(esperado);
+      expect(wire.join('\n').includes('"category"')).toBe(esperado);
+      expect(wire.join('\n').includes('"uvs"')).toBe(esperado);
+    }
+  });
+  it('plugin 1.0 (sem token) também não recebe category', async () => {
+    const wire: string[] = [];
+    const s = setup({ insecure: true, spy: wire });
+    comCat(s.f);
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(s.last().welcome).toMatchObject({ protocol: '1.0' });
+    expect(wire.join('\n')).not.toMatch(/"category"|"uvs"/);
+  });
+  it('snapshot em partes e deltas material.update/add levam category', async () => {
+    const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN, protocolMax: '1.3' }, chunk: 600 });
+    comCat(s.f);
+    for (let i = 0; i < 6; i++) s.f.content.entities.push(wall(`m${i}`, `h${i}`));
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(s.last().partsReceived).toBeGreaterThan(2);
+    expect(s.last().snapshot!.materials[0]!.category).toBe('brick');
+    s.f.content.materials[0] = { ...s.f.content.materials[0]!, category: 'ceramic' };
+    s.f.changeScene();
+    await flushAuth();
+    expect(s.last().snapshot!.materials[0]!.category).toBe('ceramic');
+    s.f.content.materials.push({ id: 'mat2', name: 'N', color: '#000000', gloss: 0, opacity: 1, category: 'wood' });
+    s.f.changeScene();
+    await flushAuth();
+    expect(s.last().snapshot!.materials.find((m) => m.id === 'mat2')!.category).toBe('wood');
+    expect(s.last().resyncs).toBe(0);
+  });
+  it('validação: category minúscula até 32 caracteres; desconhecida é aceita; uvs com tamanho errado é recusado', () => {
+    const d = (m: unknown): boolean => decode(JSON.stringify(m)).ok;
+    const up = (extra: object): unknown => ({ t: 'scene.delta', seq: 1, delta: { baseRevision: 1, revision: 2, ops: [{ op: 'material.add', material: { id: 'm', name: 'x', color: '#000000', gloss: 0, opacity: 1, ...extra } }] } });
+    expect(d(up({ category: 'wood' }))).toBe(true);
+    expect(d(up({ category: 'categoria_nova_do_futuro' }))).toBe(true);
+    expect(d(up({}))).toBe(true);
+    expect(d(up({ category: 'Wood' }))).toBe(false);
+    expect(d(up({ category: 'a'.repeat(33) }))).toBe(false);
+    expect(d(up({ category: 3 }))).toBe(false);
+    expect(d(up({ category: '' }))).toBe(false);
+    const snap = (mesh: object): unknown => ({ t: 'scene.snapshot', seq: 1, snapshot: { revision: 1, projectId: 'p', materials: [], entities: [{ mesh }] } });
+    expect(d(snap({ positions: [0, 0, 0], uvs: [0, 0], indices: [], groups: [] }))).toBe(true);
+    expect(d(snap({ positions: [0, 0, 0], uvs: [0, 0, 0], indices: [], groups: [] }))).toBe(false);
+  });
+});

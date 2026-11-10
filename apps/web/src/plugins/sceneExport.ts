@@ -93,15 +93,65 @@ export function extractElementMeshes(root: THREE.Object3D): Map<string, SceneMes
       for (const x of tris) indices.push(x);
     }
     const normals = !a.semNormais && a.nor.length === a.pos.length ? a.nor : undefined;
+    const uvs = normals ? uvsCaixa(a.pos, normals) : undefined;
     out.set(id, {
       positions: a.pos,
       ...(normals ? { normals } : {}),
+      ...(uvs ? { uvs } : {}),
       indices,
       groups,
       hash: hashMesh(a.pos, indices, normals ?? [], groups),
     });
   }
   return out;
+}
+
+/** Entidades com mais vértices que isto saem sem UVs (o quadro tem teto; o renderizador projeta sozinho). */
+export const UVS_MAX_VERTICES = 600_000;
+
+/**
+ * UVs por projeção em caixa, em METROS de mundo: o eixo é o da maior componente da normal do vértice (X dominante
+ * → (y, z); Y → (x, z); Z → (x, y)), como o renderizador faz. Precisa de normais; `undefined` para malha grande demais.
+ */
+export function uvsCaixa(pos: number[], nor: number[]): number[] | undefined {
+  const n = pos.length / 3;
+  if (n === 0 || n > UVS_MAX_VERTICES || nor.length !== pos.length) return undefined;
+  const uv = new Array<number>(n * 2);
+  for (let i = 0; i < n; i++) {
+    const ax = Math.abs(nor[i * 3]!), ay = Math.abs(nor[i * 3 + 1]!), az = Math.abs(nor[i * 3 + 2]!);
+    const x = pos[i * 3]!, y = pos[i * 3 + 1]!, z = pos[i * 3 + 2]!;
+    if (ax >= ay && ax >= az) { uv[i * 2] = y; uv[i * 2 + 1] = z; }
+    else if (ay >= az) { uv[i * 2] = x; uv[i * 2 + 1] = z; }
+    else { uv[i * 2] = x; uv[i * 2 + 1] = y; }
+  }
+  return uv;
+}
+
+/**
+ * Categoria dos materiais do catálogo do Hestia, por id (protocolo 1.3). Os blocos são cerâmicos (cor de terracota,
+ * "bloco cerâmico" nas camadas de alvenaria). Material criado pelo usuário usa `Material.category`, que tem prioridade.
+ * Valor desconhecido para o renderizador é ignorado por ele.
+ */
+export const CATEGORIA_CATALOGO: Readonly<Record<string, string>> = {
+  mat_aco: 'metal', mat_aluminio: 'metal', mat_perfil: 'metal', mat_telha_metalica: 'metal',
+  mat_argamassa: 'plaster', mat_gesso: 'plaster', mat_reboco: 'plaster',
+  mat_bloco9: 'brick', mat_bloco14: 'brick', mat_bloco19: 'brick',
+  mat_ceramica: 'ceramic', mat_concreto: 'concrete', mat_madeira: 'wood', mat_pvc: 'plastic',
+  mat_telha_ceramica: 'roof_tile', mat_tinta: 'paint', mat_vidro: 'glass',
+  mat_fibrocimento: 'other', mat_la: 'other',
+};
+
+/** Categoria exportada: a do usuário (válida) ou a do catálogo; `undefined` = sem categoria. */
+export function categoriaDoMaterial(m: { id: string; category?: string }): string | undefined {
+  if (typeof m.category === 'string' && /^[a-z0-9_-]{1,32}$/.test(m.category)) return m.category;
+  return CATEGORIA_CATALOGO[m.id];
+}
+
+/** PBR derivado da categoria: metal → metallic 1; glass → transmission 0.9 e ior 1.5; demais nada. */
+export function pbrDaCategoria(c: string | undefined): Pick<SceneMaterial, 'metallic' | 'transmission' | 'ior'> {
+  if (c === 'metal') return { metallic: 1 };
+  if (c === 'glass') return { transmission: 0.9, ior: 1.5 };
+  return {};
 }
 
 type Typed = { typeId?: string; levelId?: string; kind: string; id: string; name?: string };
@@ -188,7 +238,10 @@ export function buildSceneContent(project: Project, root: THREE.Object3D | null)
     });
   }
   entities.sort((a, b) => (a.id < b.id ? -1 : 1));
-  const materials: SceneMaterial[] = Object.values(project.materials).map((m) => ({ id: m.id, name: m.name, color: m.color, gloss: m.gloss, opacity: m.opacity }));
+  const materials: SceneMaterial[] = Object.values(project.materials).map((m) => {
+    const category = categoriaDoMaterial(m);
+    return { id: m.id, name: m.name, color: m.color, gloss: m.gloss, opacity: m.opacity, ...(category ? { category } : {}), ...pbrDaCategoria(category) };
+  });
   materials.sort((a, b) => (a.id < b.id ? -1 : 1));
   const site = extractSite(project);
   return { projectName: project.name, entities, materials, textures: [], lights: extractLights(project), ...(site ? { site } : {}) };

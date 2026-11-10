@@ -46,6 +46,11 @@ export interface Material {
   cost: number;
   /** Unidade do custo/quantitativo. */
   unit: 'm2' | 'm3' | 'm';
+  /**
+   * Categoria de material para renderização fotorrealista (`wood`, `metal`, `glass`...; texto minúsculo, até 32
+   * caracteres). Opcional: ausente = sem categoria (a exportação usa a tabela do catálogo). Sem migração de esquema.
+   */
+  category?: string;
 }
 
 export interface Layer {

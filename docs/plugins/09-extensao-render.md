@@ -84,7 +84,49 @@ Todos os campos são opcionais. `latitude` -90..90, `longitude` -180..180 (graus
 - **Normais**: copiadas do atributo `normal` da geometria, giradas pela matriz normal do mundo.
 - **Luzes**: o modelo nativo **não tem** família de luminária. Só saem luzes de objetos importados do IFC com classe `IfcLightFixture`: luz pontual no centro da caixa da malha, cor branca, intensidade da propriedade `LuminousIntensity` quando existe, senão 800 cd (`CANDELA_PADRAO`). **Num modelo sem luminárias importadas, `lights` é `[]`** (o contrato existe; a extração é vazia).
 - **Site**: o modelo guarda apenas azimute e elevação do sol da vista 3D (graus), convertidos para radiano em `site.sun`. Latitude, longitude, norte e fuso **não existem** nas configurações do projeto e não são enviados.
-- **PBR**: o modelo de material do Hestia (`color`, `gloss`, `opacity`) não tem metalicidade, emissão, IOR nem transmissão; o contrato aceita os campos, mas a extração ainda não os preenche. Um plugin que gere esses valores deve usar a substituição de visualização (`overrides`).
+- **PBR**: o modelo de material do Hestia não tem metalicidade, emissão, IOR nem transmissão. `metallic`, `transmission` e `ior` são derivados da categoria (seção abaixo); `emissive` não é preenchido.
+
+## Categoria do material, PBR derivado e UVs
+
+### `SceneMaterial.category` (1.3)
+
+```json
+{ "id": "mat_reboco", "name": "Reboco", "color": "#d9d2c5", "gloss": 0.1, "opacity": 1, "category": "plaster" }
+```
+
+Opcional. Texto minúsculo, 1 a 32 caracteres (`[a-z0-9_-]`); campo ausente = sem categoria. Valor desconhecido é válido no contrato e ignorado pelo renderizador. Valores que o renderizador conhece: `wood`, `metal`, `glass`, `ceramic`, `concrete`, `plaster`, `paint`, `brick`, `stone`, `roof_tile`, `fabric`, `leather`, `grass`, `soil`, `asphalt`, `plastic`, `other`. Vai no snapshot, nas partes do snapshot e em `material.add/update`; **não existe** em sessões 1.0 a 1.2 (o host remove o campo, testado, inclusive no fio).
+
+Origem: (1) `Material.category`, escolhido no diálogo de materiais (padrão "Sem categoria"); (2) senão, a tabela do catálogo (`CATEGORIA_CATALOGO` em `sceneExport.ts`):
+
+| Categoria | Ids |
+|---|---|
+| `metal` | `mat_aco`, `mat_aluminio`, `mat_perfil`, `mat_telha_metalica` |
+| `plaster` | `mat_argamassa`, `mat_gesso`, `mat_reboco` |
+| `brick` | `mat_bloco9`, `mat_bloco14`, `mat_bloco19` (bloco cerâmico, cor de terracota) |
+| `ceramic` | `mat_ceramica` |
+| `concrete` | `mat_concreto` |
+| `wood` | `mat_madeira` |
+| `plastic` | `mat_pvc` |
+| `roof_tile` | `mat_telha_ceramica` |
+| `paint` | `mat_tinta` |
+| `glass` | `mat_vidro` |
+| `other` | `mat_fibrocimento`, `mat_la` |
+
+A categoria do usuário tem prioridade; categoria fora do formato é ignorada e cai na tabela. Material de nome livre e sem categoria sai sem o campo.
+
+**Modelo persistido**: `Material.category?: string` é opcional e aditivo, sem mudar `SCHEMA_VERSION`; projetos antigos abrem iguais. O seletor mostra os identificadores das categorias (são do contrato, como as unidades) e traduz só o rótulo e "Sem categoria".
+
+### PBR derivado da categoria (só 1.3)
+
+| Categoria | Campos enviados |
+|---|---|
+| `metal` | `"metallic": 1` |
+| `glass` | `"transmission": 0.9, "ior": 1.5` |
+| demais | nenhum |
+
+### `mesh.uvs` (1.3)
+
+`"uvs": [u, v, u, v, ...]`, 2 números por vértice (`uvs.length == positions.length / 3 * 2`), em **metros de mundo**, por projeção em caixa: eixo da maior componente (valor absoluto) da normal do vértice; X dominante → `(y, z)`, Y → `(x, z)`, Z → `(x, y)`. Só sai quando a entidade tem normais e até 600.000 vértices (`UVS_MAX_VERTICES`); acima disso é omitido, e o host ainda descarta UVs acima de 1.400.000 números. Ausente em 1.0 a 1.2.
 
 ## Testes
 

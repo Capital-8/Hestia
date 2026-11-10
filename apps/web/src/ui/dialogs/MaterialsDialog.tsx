@@ -6,6 +6,9 @@ import { NumField, TextField } from '../fields.tsx';
 import { Dialog } from './Dialog.tsx';
 import { cmpTexto, useT } from '../../editor/i18n.ts';
 
+/** Categorias que o renderizador conhece (protocolo 1.3). */
+const MATERIAL_CATEGORIES = ['wood', 'metal', 'glass', 'ceramic', 'concrete', 'plaster', 'paint', 'brick', 'stone', 'roof_tile', 'fabric', 'leather', 'grass', 'soil', 'asphalt', 'plastic', 'other'];
+
 /** Navegador de materiais único: abre de qualquer campo "material" ou pelo navegador de projeto. */
 export function MaterialsDialog({ pickFor, onPick, onClose }: { pickFor?: string | null; onPick?: (id: string) => void; onClose?: () => void }): ReactElement {
   const { t, lang } = useT();
@@ -89,6 +92,14 @@ export function MaterialsDialog({ pickFor, onPick, onClose }: { pickFor?: string
                 <div className="field-row"><label htmlFor="mat-color">{t('dlt_fld_color')}</label><input id="mat-color" type="color" value={draft.color} onChange={(e) => change({ color: e.target.value })} style={{ width: 54, height: 28, padding: 0, border: '1px solid var(--line-strong)', background: 'none' }} /></div>
                 <div className="field-row"><label htmlFor="mat-gloss">{t('dlt_fld_gloss')}</label><input id="mat-gloss" type="range" min={0} max={1} step={0.05} value={draft.gloss} onChange={(e) => change({ gloss: parseFloat(e.target.value) })} /></div>
                 <div className="field-row"><label htmlFor="mat-op">{t('dlt_fld_opacity')}</label><input id="mat-op" type="range" min={0.05} max={1} step={0.05} value={draft.opacity} onChange={(e) => change({ opacity: parseFloat(e.target.value) })} /></div>
+                <div className="field-row">
+                  <label htmlFor="mat-cat">{t('dlt_mat_category')}</label>
+                  {/* Os nomes das categorias são identificadores do contrato com o renderizador (como as unidades). */}
+                  <select id="mat-cat" className="select" value={draft.category ?? ''} onChange={(e) => { const { category: _c, ...rest } = draft; const v = e.target.value; const next = v ? { ...rest, category: v } : rest; setDraft(next); commit(next); }}>
+                    <option value="">{t('dlt_mat_category_none')}</option>
+                    {MATERIAL_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
               </>
             )}
             {tab === 'graficos' && (

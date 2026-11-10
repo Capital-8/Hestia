@@ -14,6 +14,9 @@ import { lightIssue, materialSanitized, meshSanitized, siteSanitized } from './s
 /** Teto de floats de normais por entidade. Acima disso as normais da entidade saem (o quadro tem teto de 64 MiB). */
 export const NORMALS_MAX_FLOATS = 2_000_000;
 
+/** Teto de floats de UV por entidade (dois por vértice, mesma ordem de grandeza das normais). */
+export const UVS_MAX_FLOATS = 1_400_000;
+
 export function contentForProtocol(c: SceneContent, minor: number): SceneContent {
   return minor >= 3 ? sceneV13(c) : sceneUpTo12(c);
 }
@@ -35,11 +38,16 @@ function sceneV13(c: SceneContent): SceneContent {
 /** Normais dentro do teto por entidade; normais inválidas ou grandes demais saem, o resto da malha fica. */
 function normalsWithinLimit(m: SceneMesh): SceneMesh {
   const limpa = meshSanitized(m);
-  if (limpa.normals && limpa.normals.length > NORMALS_MAX_FLOATS) {
-    const { normals: _drop, ...rest } = limpa;
-    return rest as SceneMesh;
+  let out = limpa;
+  if (out.normals && out.normals.length > NORMALS_MAX_FLOATS) {
+    const { normals: _drop, ...rest } = out;
+    out = rest as SceneMesh;
   }
-  return limpa;
+  if (out.uvs && out.uvs.length > UVS_MAX_FLOATS) {
+    const { uvs: _drop, ...rest } = out;
+    out = rest as SceneMesh;
+  }
+  return out;
 }
 
 /** Cena 1.0 a 1.2: sem nada de 1.3. */
@@ -48,7 +56,7 @@ function sceneUpTo12(c: SceneContent): SceneContent {
     projectName: c.projectName,
     entities: c.entities.map(stripEntity),
     materials: c.materials.map((m) => {
-      const { metallic: _a, emissive: _b, ior: _c, transmission: _d, ...rest } = m;
+      const { metallic: _a, emissive: _b, ior: _c, transmission: _d, category: _e, ...rest } = m;
       return rest;
     }),
     textures: c.textures,
@@ -57,7 +65,7 @@ function sceneUpTo12(c: SceneContent): SceneContent {
 
 function stripEntity(e: SceneEntity): SceneEntity {
   if (!e.mesh) return e;
-  const { normals: _drop, ...rest } = e.mesh;
+  const { normals: _drop, uvs: _uv, ...rest } = e.mesh;
   return { ...e, mesh: { ...rest, groups: e.mesh.groups.map((g) => ({ ...g, materialId: null })) } as SceneMesh };
 }
 

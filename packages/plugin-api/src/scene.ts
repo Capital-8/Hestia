@@ -55,6 +55,12 @@ export interface SceneMaterial {
   opacity: number;
   /** Texturas referenciadas por id (os bytes não viajam neste contrato; ver docs/plugins). */
   textures?: Array<{ slot: 'color' | 'normal' | 'roughness'; textureId: TextureId }>;
+  /**
+   * Protocolo 1.3 (opcional). Categoria do material: texto minúsculo de até 32 caracteres (`wood`, `metal`, `glass`,
+   * `ceramic`, `concrete`, `plaster`, `paint`, `brick`, `stone`, `roof_tile`, `fabric`, `leather`, `grass`, `soil`,
+   * `asphalt`, `plastic`, `other`). Valor desconhecido é válido no contrato e ignorado pelo renderizador.
+   */
+  category?: string;
   /** Protocolo 1.3 (opcional). Metalicidade 0..1. Ausente = o renderizador usa a conversão padrão. */
   metallic?: number;
   /** Protocolo 1.3 (opcional). Emissão: cor `#rrggbb` e intensidade (>= 0, relativa). */
