@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
-import { areaPlanToolAllowed, editor } from '../../editor/controller.ts';
+import { toolAllowedInView } from '@hestia/model';
+import { editor } from '../../editor/controller.ts';
 import { useAtalhos } from '../../editor/shortcutConfig.ts';
 import { t, toolLabel, type Lang } from '../../editor/i18n.ts';
 import { useUi, type ViewKind } from '../../editor/state.ts';
@@ -50,7 +51,7 @@ function faceBase(item: RibbonItem, ctx: RibbonCtx, lang: Lang, view: ViewKind, 
       const label = item.label ? txt(item.label, lang) : toolLabel(item.tool, lang);
       const titulo = sc ? `${label} (${sc})` : label;
       // Planta de área: só anotação (o controlador também recusa, inclusive por atalho).
-      const blocked = ctx.planKind === 'area' && view !== '3d' && !areaPlanToolAllowed(item.tool);
+      const blocked = ctx.planKind === 'area' && view !== '3d' && !toolAllowedInView('area', item.tool);
       const disabled = blocked || toolDisabledOnSheet(view, item.tool);
       const why = t(lang, blocked ? 'shr_area_plan_hint' : 'shr_not_for_sheets');
       return {
