@@ -1,7 +1,8 @@
 import { add, asMulti, dist, dot, intersection, mid, mul, perp, ringArea, sub, type Ring, type Vec2 } from '@hestia/geom';
-import type { StairType } from '@hestia/model';
+import { stairFinishOf, type StairType } from '@hestia/model';
 import type { ResolvedStair, ResolvedStairRiser, ResolvedStairStep } from './stairs.ts';
 import { clipByLevel, ringMoments, type BottomPlane } from './stairBodyGeom.ts';
+import { stairFinishModel } from './stairFinish.ts';
 
 /**
  * Peça do corpo da escada (decisão 0012 §2). `bottom` é o fundo plano: cota z = a·x + b·y + c. Degrau de escada
@@ -46,7 +47,7 @@ export function pieceBottomZ(piece: StairBodyPiece, x: number, y: number): numbe
 /** Volume da peça = área × (topo − fundo no centróide). Exato porque o fundo é um plano. */
 export function pieceVolume(piece: StairBodyPiece): number {
   const { area, cx, cy } = ringMoments(piece.polygon);
-  return area * (piece.zTop - pieceBottomZ(piece, cx, cy));
+  return area * Math.max(0, piece.zTop - pieceBottomZ(piece, cx, cy));
 }
 
 /**
@@ -220,14 +221,16 @@ function postPieces(stair: ResolvedStair, type: StairType): StairBodyPiece[] {
   const treads = stair.steps.filter((st) => st.kind === 'tread');
   if (!(h > 0) || !(t > 0) || treads.length === 0) return [];
   const byNumber = riserByNumber(stair, h);
+  // Acabamento do piso: a estrutura perde a espessura dele no topo (o fundo fica onde estava).
+  const tp = stairFinishOf(type).treadThickness;
   const pieces: StairBodyPiece[] = [];
   for (const st of treads) {
     const num = Math.round((st.z - baseZ) / h);
     const polygon = overlappedTread(stair, st, byNumber, num, ov);
-    pieces.push(...fit('tread', st.componentIndex, st.index, polygon, st.z, { a: 0, b: 0, c: st.z - t }, baseZ));
+    pieces.push(...fit('tread', st.componentIndex, st.index, polygon, st.z - tp, { a: 0, b: 0, c: st.z - t }, baseZ));
   }
   if (stair.spiral) {
-    const top = Math.max(...treads.map((st) => st.z));
+    const top = Math.max(...treads.map((st) => st.z)) - tp;
     pieces.push({
       kind: 'post',
       componentIndex: stair.spiral.componentIndex,
@@ -271,15 +274,20 @@ function monolithicPieces(stair: ResolvedStair, type: StairType & { undersideSty
   };
 
   // Corte pelo piso base vale para todo degrau e patamar: só corta quando o fundo fica abaixo de baseZ (nunca acima).
+  // Acabamentos (piso e espelho): a estrutura perde `tp` no topo (o fundo fica onde estava) e a faixa do espelho de trás
+  // passa ao acabamento do espelho; a planta estrutural de cada degrau vem do modelo dos acabamentos.
+  const finish = stairFinishModel(stair);
+  const tp = stairFinishOf(type).treadThickness;
+  const planOf = (st: ResolvedStairStep): Ring[] => finish?.structure.get(st) ?? [st.polygon];
   const pieces: StairBodyPiece[] = [];
   stair.steps.forEach((st, i) => {
     if (st.kind === 'tread') {
       const t = built[i];
-      if (t) pieces.push(...fit('tread', st.componentIndex, st.index, t.polygon, t.zTop, t.plane, baseZ));
+      if (t) for (const ring of planOf(st)) pieces.push(...fit('tread', st.componentIndex, st.index, ring, t.zTop - tp, t.plane, baseZ));
       return;
     }
     const plane = { a: 0, b: 0, c: st.z - h - rampT(st.componentIndex) };
-    pieces.push(...fit('landing', st.componentIndex, st.index, st.polygon, st.z, plane, baseZ));
+    for (const ring of planOf(st)) pieces.push(...fit('landing', st.componentIndex, st.index, ring, st.z - tp, plane, baseZ));
   });
 
   // Chegada: faixa atrás do último espelho, sob o último degrau (mesmo plano). O topo é `arrivalTop` (decisão 0012 §2);
@@ -289,7 +297,9 @@ function monolithicPieces(stair: ResolvedStair, type: StairType & { undersideSty
   const frame = stairArrivalFrame(stair);
   if (lastTread && frame && arrivalTop > baseZ + EPS) {
     const { a, b, u, length } = frame;
-    const ring: Ring = [a, b, add(b, mul(u, length)), add(a, mul(u, length))];
+    // O acabamento do último espelho ocupa a faixa logo atrás dele: a chegada começa depois dela.
+    const te = Math.min(finish?.riserThickness ?? 0, length);
+    const ring: Ring = [add(a, mul(u, te)), add(b, mul(u, te)), add(b, mul(u, length)), add(a, mul(u, length))];
     const polygon = ringArea(ring) < 0 ? ring.reverse() : ring;
     for (const part of partBelow(polygon, lastTread.plane, arrivalTop)) {
       pieces.push(...fit('arrival', lastStep.componentIndex, 1, part, arrivalTop, lastTread.plane, baseZ));

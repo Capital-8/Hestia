@@ -1,5 +1,5 @@
 import { add, mul, norm, perp, ringArea, sub, type Ring, type Vec2 } from '@hestia/geom';
-import { pieceBottomZ, sampleChain, stairBody, type ResolvedStair, type ResolvedStairRiser, type ResolvedStairStep, type StairBodyPiece } from '@hestia/engine';
+import { pieceBottomZ, sampleChain, stairBody, stairFinishModel, type ResolvedStair, type ResolvedStairRiser, type ResolvedStairStep, type StairBodyPiece } from '@hestia/engine';
 import type { Id, StairLanding, StairRun, StairType } from '@hestia/model';
 import { riserPoints } from '../stairRisers.ts';
 import { extrudeCaps, ofElement, pushWall, type SolidBatch } from './solids.ts';
@@ -324,6 +324,8 @@ export function buildStairSolids(stairs: ResolvedStair[], arrivalTopOf: (s: Reso
           // apagar a escada (o erro continua no painel/validador). Sem erro, a chamada é a mesma de antes.
           monolithicBodies(stairBody({ ...s, issues: s.issues.filter((i) => i.severity !== 'error') }, { arrivalTopZ: arrivalTopOf(s) ?? undefined }).pieces, s.type)
         : assembledBodies(s);
+    // Acabamentos (piso+bocel num só sólido, e espelho): sólidos próprios, cada um no seu material.
+    for (const f of stairFinishModel(s)?.solids ?? []) bodies.push({ polygon: f.polygon, bot: () => f.z0, top: f.z1, materialId: f.materialId });
     // Um lote por material: cada chamada de `extrudeBodies` só pareia paredes entre peças do mesmo material (cada peça fecha o próprio corpo).
     const byBodyMaterial = new Map<Id, Body[]>();
     for (const body of bodies) byBodyMaterial.set(body.materialId, [...(byBodyMaterial.get(body.materialId) ?? []), body]);

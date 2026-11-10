@@ -1,5 +1,5 @@
 import { cross, dist, lerp, norm, sub, type Vec2 } from '@hestia/geom';
-import { stairCalcRuleOf } from '@hestia/model';
+import { stairCalcRuleOf, stairFinishOf } from '@hestia/model';
 import { numLang, t, type Lang } from './i18nMessages.ts';
 import type { ResolvedStair, ResolvedStairRiser } from './stairs.ts';
 import { DEFAULT_STAIR_NORMS, type StairNorms } from './stairNorms.ts';
@@ -319,12 +319,35 @@ function landingChecks(rs: ResolvedStair, norms: StairNorms, out: StairIssueItem
   }
 }
 
+/**
+ * Acabamentos: o bocel acima de `norms.nosingProjectionMax` (1,5 cm) avisa (configurável, não trava), e o acabamento do
+ * piso que não cabe na estrutura (monolítico: profundidade estrutural; poste: espessura do degrau) também. Os avisos de
+ * espelho, pisada e relação 2e+p já usam os valores ACABADOS: a geometria resolvida é a das faces acabadas.
+ */
+function finishChecks(rs: ResolvedStair, norms: StairNorms, out: StairIssueItem[], lang: Lang): void {
+  const fin = stairFinishOf(rs.type);
+  if (!fin.treadOn) return;
+  const num = numIn(lang);
+  if (fin.bocel > norms.nosingProjectionMax + EPS) {
+    out.push(
+      makeStairIssue(rs.id, 'stair-bocel-projection', 'warning', t(lang, 'egb_issue_stair_bocel', { v: num(fin.bocel * 100, 1), max: num(norms.nosingProjectionMax * 100, 1) })),
+    );
+  }
+  const structure = rs.type.runStyle === 'post' ? rs.type.treadThickness : rs.type.structuralDepth;
+  if (fin.treadThickness >= structure - EPS) {
+    out.push(
+      makeStairIssue(rs.id, 'stair-finish-structure', 'warning', t(lang, 'egb_issue_stair_finish_thick', { tp: num(fin.treadThickness * 100, 1), st: num(structure * 100, 1) })),
+    );
+  }
+}
+
 /** Avisos de norma (decisão 0011 §3 e §1 item 10) de uma escada resolvida. Nunca bloqueiam. */
 export function stairNormIssues(rs: ResolvedStair, norms: StairNorms = DEFAULT_STAIR_NORMS, lang: Lang = 'pt'): StairIssueItem[] {
   const out: StairIssueItem[] = [];
   riserChecks(rs, norms, out, lang);
   runChecks(rs, norms, out, lang);
   landingChecks(rs, norms, out, lang);
+  finishChecks(rs, norms, out, lang);
   return out;
 }
 
