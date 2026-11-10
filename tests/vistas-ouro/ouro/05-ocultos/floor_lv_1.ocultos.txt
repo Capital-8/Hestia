@@ -1,0 +1,2 @@
+alcanceECategoria = []
+usuario = ["r_cozinha","r_estar","r_jantar","r_servico"]

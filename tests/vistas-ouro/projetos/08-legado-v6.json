@@ -1,0 +1,999 @@
+{
+ "schemaVersion": 6,
+ "name": "Casa térrea, 2 quartos",
+ "levels": [
+  {
+   "id": "lv_0",
+   "name": "Térreo",
+   "elevation": 0
+  },
+  {
+   "id": "lv_1",
+   "name": "Pavimento 2",
+   "elevation": 3
+  }
+ ],
+ "materials": {
+  "mat_tinta": {
+   "id": "mat_tinta",
+   "name": "Tinta branca",
+   "color": "#f4f1ea",
+   "hatch": "none",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 0,
+   "unit": "m2"
+  },
+  "mat_reboco": {
+   "id": "mat_reboco",
+   "name": "Reboco",
+   "color": "#d9d2c5",
+   "hatch": "dots",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 38,
+   "unit": "m2"
+  },
+  "mat_bloco14": {
+   "id": "mat_bloco14",
+   "name": "Bloco cerâmico 14",
+   "color": "#c0693f",
+   "hatch": "diagonal",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 62,
+   "unit": "m2"
+  },
+  "mat_bloco9": {
+   "id": "mat_bloco9",
+   "name": "Bloco cerâmico 9",
+   "color": "#c9784c",
+   "hatch": "diagonal",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 52,
+   "unit": "m2"
+  },
+  "mat_bloco19": {
+   "id": "mat_bloco19",
+   "name": "Bloco cerâmico 19",
+   "color": "#b45f38",
+   "hatch": "diagonal",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 74,
+   "unit": "m2"
+  },
+  "mat_concreto": {
+   "id": "mat_concreto",
+   "name": "Concreto",
+   "color": "#8f9296",
+   "hatch": "cross",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 640,
+   "unit": "m3"
+  },
+  "mat_argamassa": {
+   "id": "mat_argamassa",
+   "name": "Argamassa",
+   "color": "#cdbfa9",
+   "hatch": "dots",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 30,
+   "unit": "m2"
+  },
+  "mat_ceramica": {
+   "id": "mat_ceramica",
+   "name": "Revestimento cerâmico",
+   "color": "#e9e4da",
+   "hatch": "none",
+   "gloss": 0.6,
+   "opacity": 1,
+   "cost": 85,
+   "unit": "m2"
+  },
+  "mat_gesso": {
+   "id": "mat_gesso",
+   "name": "Placa de gesso",
+   "color": "#ece9e2",
+   "hatch": "none",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 44,
+   "unit": "m2"
+  },
+  "mat_la": {
+   "id": "mat_la",
+   "name": "Lã mineral",
+   "color": "#e5d27a",
+   "hatch": "dots",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 28,
+   "unit": "m2"
+  },
+  "mat_perfil": {
+   "id": "mat_perfil",
+   "name": "Perfil de aço",
+   "color": "#9aa0a6",
+   "hatch": "cross",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 20,
+   "unit": "m2"
+  },
+  "mat_madeira": {
+   "id": "mat_madeira",
+   "name": "Madeira",
+   "color": "#a9794a",
+   "hatch": "diagonal",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 150,
+   "unit": "m2"
+  },
+  "mat_vidro": {
+   "id": "mat_vidro",
+   "name": "Vidro",
+   "color": "#a9d6e5",
+   "hatch": "none",
+   "gloss": 0.9,
+   "opacity": 0.35,
+   "cost": 220,
+   "unit": "m2"
+  },
+  "mat_aluminio": {
+   "id": "mat_aluminio",
+   "name": "Alumínio",
+   "color": "#b8bdc2",
+   "hatch": "solid",
+   "gloss": 0.7,
+   "opacity": 1,
+   "cost": 0,
+   "unit": "m"
+  }
+ },
+ "wallTypes": {
+  "wt_alv14": {
+   "cost": 0,
+   "thermalU": null,
+   "acousticRw": null,
+   "fireRating": null,
+   "manufacturer": "",
+   "strips": [],
+   "wrapInserts": "none",
+   "wrapEnds": "none",
+   "id": "wt_alv14",
+   "name": "Alvenaria 14 + reboco",
+   "code": "PA-14",
+   "description": "Bloco cerâmico 14 cm com reboco e pintura nas duas faces",
+   "layers": [
+    {
+     "function": "finish2",
+     "materialId": "mat_tinta",
+     "thickness": 0.002,
+     "wraps": true
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_reboco",
+     "thickness": 0.02,
+     "wraps": true
+    },
+    {
+     "function": "structure",
+     "materialId": "mat_bloco14",
+     "thickness": 0.14,
+     "wraps": false
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_reboco",
+     "thickness": 0.02,
+     "wraps": true
+    },
+    {
+     "function": "finish2",
+     "materialId": "mat_tinta",
+     "thickness": 0.002,
+     "wraps": true
+    }
+   ]
+  },
+  "wt_alv9": {
+   "cost": 0,
+   "thermalU": null,
+   "acousticRw": null,
+   "fireRating": null,
+   "manufacturer": "",
+   "strips": [],
+   "wrapInserts": "none",
+   "wrapEnds": "none",
+   "id": "wt_alv9",
+   "name": "Alvenaria 9 (divisória)",
+   "code": "PA-09",
+   "description": "Bloco cerâmico 9 cm com reboco e pintura",
+   "layers": [
+    {
+     "function": "finish2",
+     "materialId": "mat_tinta",
+     "thickness": 0.002,
+     "wraps": true
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_reboco",
+     "thickness": 0.015,
+     "wraps": true
+    },
+    {
+     "function": "structure",
+     "materialId": "mat_bloco9",
+     "thickness": 0.09,
+     "wraps": false
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_reboco",
+     "thickness": 0.015,
+     "wraps": true
+    },
+    {
+     "function": "finish2",
+     "materialId": "mat_tinta",
+     "thickness": 0.002,
+     "wraps": true
+    }
+   ]
+  },
+  "wt_ext19": {
+   "cost": 0,
+   "thermalU": null,
+   "acousticRw": null,
+   "fireRating": null,
+   "manufacturer": "",
+   "strips": [],
+   "wrapInserts": "none",
+   "wrapEnds": "none",
+   "id": "wt_ext19",
+   "name": "Externa 19 + cerâmica",
+   "code": "PE-19",
+   "description": "Bloco 19 cm, revestimento cerâmico externo e pintura interna",
+   "layers": [
+    {
+     "function": "finish1",
+     "materialId": "mat_ceramica",
+     "thickness": 0.01,
+     "wraps": true
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_argamassa",
+     "thickness": 0.02,
+     "wraps": true
+    },
+    {
+     "function": "structure",
+     "materialId": "mat_bloco19",
+     "thickness": 0.19,
+     "wraps": false
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_reboco",
+     "thickness": 0.01,
+     "wraps": true
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_reboco",
+     "thickness": 0.02,
+     "wraps": true
+    },
+    {
+     "function": "finish2",
+     "materialId": "mat_madeira",
+     "thickness": 0.02,
+     "wraps": true
+    }
+   ]
+  },
+  "wt_dry": {
+   "cost": 0,
+   "thermalU": null,
+   "acousticRw": null,
+   "fireRating": null,
+   "manufacturer": "",
+   "strips": [],
+   "wrapInserts": "none",
+   "wrapEnds": "none",
+   "id": "wt_dry",
+   "name": "Drywall 7",
+   "code": "DW-07",
+   "description": "Placas de gesso acartonado sobre perfil de aço com lã mineral",
+   "layers": [
+    {
+     "function": "finish1",
+     "materialId": "mat_gesso",
+     "thickness": 0.0125,
+     "wraps": true
+    },
+    {
+     "function": "structure",
+     "materialId": "mat_perfil",
+     "thickness": 0.048,
+     "wraps": false
+    },
+    {
+     "function": "finish1",
+     "materialId": "mat_gesso",
+     "thickness": 0.0125,
+     "wraps": true
+    }
+   ]
+  },
+  "wt_conc15": {
+   "cost": 0,
+   "thermalU": null,
+   "acousticRw": null,
+   "fireRating": null,
+   "manufacturer": "",
+   "strips": [],
+   "wrapInserts": "none",
+   "wrapEnds": "none",
+   "id": "wt_conc15",
+   "name": "Concreto 15",
+   "code": "PC-15",
+   "description": "Parede de concreto armado 15 cm com reboco",
+   "layers": [
+    {
+     "function": "finish2",
+     "materialId": "mat_tinta",
+     "thickness": 0.002,
+     "wraps": true
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_reboco",
+     "thickness": 0.015,
+     "wraps": true
+    },
+    {
+     "function": "structure",
+     "materialId": "mat_concreto",
+     "thickness": 0.15,
+     "wraps": false
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_reboco",
+     "thickness": 0.015,
+     "wraps": true
+    },
+    {
+     "function": "finish2",
+     "materialId": "mat_tinta",
+     "thickness": 0.002,
+     "wraps": true
+    }
+   ]
+  }
+ },
+ "openingTypes": {
+  "ot_p80": {
+   "plan": "swing",
+   "closure": "inherit",
+   "id": "ot_p80",
+   "kind": "door",
+   "name": "Porta 80 x 210",
+   "width": 0.8,
+   "height": 2.1,
+   "sill": 0,
+   "leaves": 1,
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro"
+  },
+  "ot_p90": {
+   "plan": "swing",
+   "closure": "inherit",
+   "id": "ot_p90",
+   "kind": "door",
+   "name": "Porta 90 x 210",
+   "width": 0.9,
+   "height": 2.1,
+   "sill": 0,
+   "leaves": 1,
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro"
+  },
+  "ot_p70": {
+   "plan": "swing",
+   "closure": "inherit",
+   "id": "ot_p70",
+   "kind": "door",
+   "name": "Porta 70 x 210",
+   "width": 0.7,
+   "height": 2.1,
+   "sill": 0,
+   "leaves": 1,
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro"
+  },
+  "ot_p160": {
+   "plan": "double",
+   "closure": "inherit",
+   "id": "ot_p160",
+   "kind": "door",
+   "name": "Porta dupla 160 x 210",
+   "width": 1.6,
+   "height": 2.1,
+   "sill": 0,
+   "leaves": 2,
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro"
+  },
+  "ot_j120": {
+   "plan": "sliding",
+   "closure": "inherit",
+   "id": "ot_j120",
+   "kind": "window",
+   "name": "Janela 120 x 120",
+   "width": 1.2,
+   "height": 1.2,
+   "sill": 1.1,
+   "leaves": 2,
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro"
+  },
+  "ot_j150": {
+   "plan": "sliding",
+   "closure": "inherit",
+   "id": "ot_j150",
+   "kind": "window",
+   "name": "Janela 150 x 100",
+   "width": 1.5,
+   "height": 1,
+   "sill": 1.1,
+   "leaves": 2,
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro"
+  },
+  "ot_j60": {
+   "plan": "casement",
+   "closure": "inherit",
+   "id": "ot_j60",
+   "kind": "window",
+   "name": "Janela 60 x 60",
+   "width": 0.6,
+   "height": 0.6,
+   "sill": 1.5,
+   "leaves": 1,
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro"
+  },
+  "ot_j200": {
+   "plan": "sliding",
+   "closure": "inherit",
+   "id": "ot_j200",
+   "kind": "window",
+   "name": "Janela 200 x 120",
+   "width": 2,
+   "height": 1.2,
+   "sill": 1,
+   "leaves": 2,
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro"
+  }
+ },
+ "elements": {
+  "h_w": {
+   "topProfile": null,
+   "id": "h_w",
+   "kind": "wall",
+   "typeId": "wt_ext19",
+   "levelId": "lv_0",
+   "a": {
+    "x": 0,
+    "y": 0
+   },
+   "b": {
+    "x": 0,
+    "y": 7
+   },
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "mark": "",
+   "comments": "",
+   "order": 1,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0
+  },
+  "h_n": {
+   "topProfile": null,
+   "id": "h_n",
+   "kind": "wall",
+   "typeId": "wt_ext19",
+   "levelId": "lv_0",
+   "a": {
+    "x": 0,
+    "y": 7
+   },
+   "b": {
+    "x": 10,
+    "y": 7
+   },
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "mark": "",
+   "comments": "",
+   "order": 2,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0
+  },
+  "h_e": {
+   "topProfile": null,
+   "id": "h_e",
+   "kind": "wall",
+   "typeId": "wt_ext19",
+   "levelId": "lv_0",
+   "a": {
+    "x": 10,
+    "y": 7
+   },
+   "b": {
+    "x": 10,
+    "y": 0
+   },
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "mark": "",
+   "comments": "",
+   "order": 3,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0
+  },
+  "h_s": {
+   "topProfile": null,
+   "id": "h_s",
+   "kind": "wall",
+   "typeId": "wt_ext19",
+   "levelId": "lv_0",
+   "a": {
+    "x": 10,
+    "y": 0
+   },
+   "b": {
+    "x": 0,
+    "y": 0
+   },
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "mark": "",
+   "comments": "",
+   "order": 4,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0
+  },
+  "h_i1": {
+   "topProfile": null,
+   "id": "h_i1",
+   "kind": "wall",
+   "typeId": "wt_alv9",
+   "levelId": "lv_0",
+   "a": {
+    "x": 4,
+    "y": 0
+   },
+   "b": {
+    "x": 4,
+    "y": 7
+   },
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "mark": "",
+   "comments": "",
+   "order": 5,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0
+  },
+  "h_i2": {
+   "topProfile": null,
+   "id": "h_i2",
+   "kind": "wall",
+   "typeId": "wt_alv9",
+   "levelId": "lv_0",
+   "a": {
+    "x": 0,
+    "y": 2.2760000000000002
+   },
+   "b": {
+    "x": 4,
+    "y": 2.2760000000000002
+   },
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "mark": "",
+   "comments": "",
+   "order": 6,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0
+  },
+  "h_i3": {
+   "topProfile": null,
+   "id": "h_i3",
+   "kind": "wall",
+   "typeId": "wt_alv9",
+   "levelId": "lv_0",
+   "a": {
+    "x": 4,
+    "y": 2.4
+   },
+   "b": {
+    "x": 10,
+    "y": 2.4
+   },
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "mark": "",
+   "comments": "",
+   "order": 7,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0
+  },
+  "h_i4": {
+   "topProfile": null,
+   "id": "h_i4",
+   "kind": "wall",
+   "typeId": "wt_alv9",
+   "levelId": "lv_0",
+   "a": {
+    "x": 7,
+    "y": 0
+   },
+   "b": {
+    "x": 7,
+    "y": 2.4
+   },
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "mark": "",
+   "comments": "",
+   "order": 8,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0
+  },
+  "to_1": {
+   "id": "to_1",
+   "kind": "door",
+   "typeId": "ot_p90",
+   "hostId": "h_s",
+   "offset": 4.5,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": ""
+  },
+  "to_2": {
+   "id": "to_2",
+   "kind": "door",
+   "typeId": "ot_p80",
+   "hostId": "h_i1",
+   "offset": 5.3,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": ""
+  },
+  "to_3": {
+   "id": "to_3",
+   "kind": "door",
+   "typeId": "ot_p80",
+   "hostId": "h_i1",
+   "offset": 1.7,
+   "flipHand": true,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": ""
+  },
+  "to_4": {
+   "id": "to_4",
+   "kind": "door",
+   "typeId": "ot_p70",
+   "hostId": "h_i3",
+   "offset": 4.5,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": ""
+  },
+  "to_5": {
+   "id": "to_5",
+   "kind": "window",
+   "typeId": "ot_j120",
+   "hostId": "h_n",
+   "offset": 2,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": ""
+  },
+  "to_6": {
+   "id": "to_6",
+   "kind": "window",
+   "typeId": "ot_j200",
+   "hostId": "h_n",
+   "offset": 6,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": ""
+  },
+  "to_7": {
+   "id": "to_7",
+   "kind": "window",
+   "typeId": "ot_j150",
+   "hostId": "h_n",
+   "offset": 8.7,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": ""
+  },
+  "to_8": {
+   "id": "to_8",
+   "kind": "window",
+   "typeId": "ot_j120",
+   "hostId": "h_w",
+   "offset": 1.3729396806713814,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": ""
+  },
+  "to_9": {
+   "id": "to_9",
+   "kind": "window",
+   "typeId": "ot_j120",
+   "hostId": "h_w",
+   "offset": 5.3,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": ""
+  },
+  "to_10": {
+   "id": "to_10",
+   "kind": "window",
+   "typeId": "ot_j150",
+   "hostId": "h_e",
+   "offset": 2.6,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": ""
+  },
+  "to_11": {
+   "id": "to_11",
+   "kind": "window",
+   "typeId": "ot_j60",
+   "hostId": "h_e",
+   "offset": 5.8,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": ""
+  },
+  "to_12": {
+   "id": "to_12",
+   "kind": "window",
+   "typeId": "ot_j120",
+   "hostId": "h_s",
+   "offset": 8,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": ""
+  },
+  "d_ce5f4f762": {
+   "id": "d_ce5f4f762",
+   "kind": "door",
+   "typeId": "ot_p80",
+   "hostId": "h_i2",
+   "offset": 0.6875536175059702,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": ""
+  },
+  "w_5eb8a1a71": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": true,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "w_5eb8a1a71",
+   "typeId": "wt_conc15",
+   "levelId": "lv_0",
+   "a": {
+    "x": 10,
+    "y": 10
+   },
+   "b": {
+    "x": 10.244655165592627,
+    "y": 6.836896556271582
+   },
+   "order": 17
+  },
+  "w_bae74db32": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "w_bae74db32",
+   "typeId": "wt_alv14",
+   "levelId": "lv_0",
+   "a": {
+    "x": 12.25,
+    "y": 5.5
+   },
+   "b": {
+    "x": 10,
+    "y": 7
+   },
+   "order": 18
+  }
+ },
+ "nextOrder": 19,
+ "settings": {
+  "joinTolerance": 0.02,
+  "showTags": false,
+  "debugJoins": false,
+  "detail": "medium"
+ },
+ "views": [],
+ "defaults": {
+  "wallTypeId": "wt_alv14",
+  "doorTypeId": "ot_p80",
+  "windowTypeId": "ot_j120",
+  "wallHeight": 2.8
+ }
+}

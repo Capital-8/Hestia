@@ -1,0 +1,2 @@
+alcanceECategoria = []
+usuario = ["J1","J10","J2","J3","J4","J5","J6","J7","J8","J9","T-I-04","T16","T17","T18","T2","T3","T4","T5","dm_prem_a"]
