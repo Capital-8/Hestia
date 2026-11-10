@@ -1,4 +1,4 @@
-import { areaPlanOf, categoryById, type AreaPlan, type ColorScheme, type Id, type Project, type Room } from '@hestia/model';
+import { areaPlanOf, categoryById, planViewOf, planViewsOf, type AreaPlan, type ColorScheme, type Id, type Project, type Room } from '@hestia/model';
 import { t, type Lang } from './i18nMessages.ts';
 import { resolveRooms, type ResolvedRoom } from './rooms.ts';
 
@@ -6,9 +6,17 @@ import { resolveRooms, type ResolvedRoom } from './rooms.ts';
 export const AREA_PALETTE: readonly string[] = ['#dbe7f3', '#f6e3c8', '#e2f0dc', '#e6e1f4', '#f3e7cf', '#e8eef2', '#e4e4e4', '#e7f1e4'];
 
 /** Esquema da planta, se houver. */
-export const schemeOf = (p: Pick<Project, 'colorSchemes'>, plan: Pick<AreaPlan, 'schemeId'>): ColorScheme | null => {
-  if (!plan.schemeId) return null;
-  return (p.colorSchemes ?? []).find((s) => s.id === plan.schemeId) ?? null;
+export const schemeOf = (p: Pick<Project, 'colorSchemes'>, plan: Pick<AreaPlan, 'schemeId'>): ColorScheme | null => schemeById(p, plan.schemeId);
+
+const schemeById = (p: Pick<Project, 'colorSchemes'>, schemeId: Id | undefined): ColorScheme | null => {
+  if (!schemeId) return null;
+  return (p.colorSchemes ?? []).find((s) => s.id === schemeId) ?? null;
+};
+
+/** Esquema de cor da planta de área (vista) pelo id; `null` sem esquema ou se a vista não é de área. */
+export const schemeOfView = (p: Pick<Project, 'colorSchemes' | 'levels' | 'areaPlans'>, viewId: Id): ColorScheme | null => {
+  const v = planViewOf(p, viewId);
+  return v?.kind === 'area' ? schemeById(p, v.area?.schemeId) : null;
 };
 
 const indexIn = <T>(list: readonly T[], id: Id, key: (t: T) => Id): number => Math.max(0, list.findIndex((x) => key(x) === id));
@@ -18,7 +26,10 @@ const indexIn = <T>(list: readonly T[], id: Id, key: (t: T) => Id): number => Ma
  * cor da categoria; por nível usa a paleta (ou o override); por faixa usa a faixa que contém a área.
  */
 export function schemeColor(p: Project, plan: AreaPlan, room: Room, resolved: ResolvedRoom): string | null {
-  const scheme = schemeOf(p, plan);
+  return colorIn(p, schemeOf(p, plan), room, resolved);
+}
+
+function colorIn(p: Project, scheme: ColorScheme | null, room: Room, resolved: ResolvedRoom): string | null {
   if (!scheme) return null;
   if (scheme.by === 'category') {
     if (room.categoryId && scheme.overrides?.[room.categoryId]) return scheme.overrides[room.categoryId]!;
@@ -46,16 +57,26 @@ export interface AreaLegendRow {
 
 /** Linhas da legenda: agrupadas por categoria ou por nível, com quantidade, área e percentual. */
 export function areaLegendRows(p: Project, plan: AreaPlan, lang: Lang = 'pt'): AreaLegendRow[] {
-  const scheme = schemeOf(p, plan);
+  return legendRowsOf(p, plan.levelId, schemeOf(p, plan), lang);
+}
+
+/** Como `areaLegendRows`, pelo id da planta de área (vista): esquema da vista, ambientes do nível dela. */
+export function areaLegendRowsOfView(p: Project, viewId: Id, lang: Lang = 'pt'): AreaLegendRow[] {
+  const v = planViewOf(p, viewId);
+  return v?.kind === 'area' ? legendRowsOf(p, v.levelId, schemeById(p, v.area?.schemeId), lang) : [];
+}
+
+// Ambientes e áreas vêm do NÍVEL (modelo); só o esquema é configuração da planta de área.
+function legendRowsOf(p: Project, levelId: Id, scheme: ColorScheme | null, lang: Lang): AreaLegendRow[] {
   if (!scheme) return [];
-  const rooms = Object.values(p.elements).filter((e): e is Room => e.kind === 'room' && e.levelId === plan.levelId);
-  const resolved = new Map(resolveRooms(p, plan.levelId).map((r) => [r.roomId, r] as const));
+  const rooms = Object.values(p.elements).filter((e): e is Room => e.kind === 'room' && e.levelId === levelId);
+  const resolved = new Map(resolveRooms(p, levelId).map((r) => [r.roomId, r] as const));
   const groups = new Map<string, AreaLegendRow>();
   const total = [...resolved.values()].reduce((s, r) => s + r.area, 0);
   for (const room of rooms) {
     const r = resolved.get(room.id);
     if (!r || r.problem || r.duplicateOf !== undefined) continue;
-    const color = schemeColor(p, plan, room, r);
+    const color = colorIn(p, scheme, room, r);
     if (!color) continue;
     const label = scheme.by === 'level' ? (p.levels.find((l) => l.id === room.levelId)?.name ?? room.levelId) : (categoryById(p, room.categoryId)?.name ?? t(lang, 'egb_area_no_category'));
     const id = scheme.by === 'level' ? room.levelId : (room.categoryId ?? 'none');
@@ -86,10 +107,21 @@ export interface AreaTableRow {
 
 /** Linhas do quadro de áreas da planta: ambientes, subtotal do nível e total. */
 export function areaTableRows(p: Project, plan: AreaPlan, lang: Lang = 'pt'): AreaTableRow[] {
-  const rooms = Object.values(p.elements).filter((e): e is Room => e.kind === 'room' && e.levelId === plan.levelId);
-  const resolved = new Map(resolveRooms(p, plan.levelId).map((r) => [r.roomId, r] as const));
+  return tableRowsOf(p, plan.levelId, lang);
+}
+
+/** Como `areaTableRows`, pelo id da planta de área (vista). Vista inexistente ou de outro tipo: sem linhas. */
+export function areaTableRowsOfView(p: Project, viewId: Id, lang: Lang = 'pt'): AreaTableRow[] {
+  const v = planViewOf(p, viewId);
+  return v?.kind === 'area' ? tableRowsOf(p, v.levelId, lang) : [];
+}
+
+// A tabela depende só do nível (ambientes e separadores são modelo, não vista).
+function tableRowsOf(p: Project, levelId: Id, lang: Lang): AreaTableRow[] {
+  const rooms = Object.values(p.elements).filter((e): e is Room => e.kind === 'room' && e.levelId === levelId);
+  const resolved = new Map(resolveRooms(p, levelId).map((r) => [r.roomId, r] as const));
   const rows: AreaTableRow[] = [];
-  const levelName = p.levels.find((l) => l.id === plan.levelId)?.name ?? '';
+  const levelName = p.levels.find((l) => l.id === levelId)?.name ?? '';
   let total = 0;
   for (const room of rooms) {
     const r = resolved.get(room.id);
@@ -115,20 +147,21 @@ export function areaTableRows(p: Project, plan: AreaPlan, lang: Lang = 'pt'): Ar
   return rows;
 }
 
-/** Planta de área de um id (atalho para a UI). */
+/** Planta de área de um id (atalho para a UI). Devolve o objeto armazenado, por isso lê `areaPlans`: armazenamento (Fase 2). */
 export const planById = (p: Pick<Project, 'areaPlans'>, id: Id): AreaPlan | undefined => areaPlanOf(p, id);
 
 /** Quadro geral de áreas de TODAS as plantas do projeto (usado na prancha geral). */
 export function areaTableAllRows(p: Project, lang: Lang = 'pt'): AreaTableRow[] {
   const out: AreaTableRow[] = [];
   let total = 0;
-  for (const plan of p.areaPlans ?? []) {
-    const rows = areaTableRows(p, plan, lang).filter((r) => r.kind === 'room');
+  for (const view of planViewsOf(p)) {
+    if (view.kind !== 'area') continue;
+    const rows = areaTableRowsOfView(p, view.id, lang).filter((r) => r.kind === 'room');
     if (rows.length === 0) continue;
     out.push(...rows);
     const sum = rows.reduce((s, r) => s + r.area, 0);
     total += sum;
-    const levelName = p.levels.find((l) => l.id === plan.levelId)?.name ?? '';
+    const levelName = p.levels.find((l) => l.id === view.levelId)?.name ?? '';
     out.push({ kind: 'subtotal', number: '', name: t(lang, 'egb_area_subtotal', { level: levelName }), levelName, category: '', area: sum, percent: 0, perimeter: 0, volume: 0 });
   }
   for (const r of out) r.percent = total > 0 ? (r.area / total) * 100 : 0;

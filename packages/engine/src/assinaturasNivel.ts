@@ -47,6 +47,8 @@ export interface AssinaturasProjeto {
 
 /** Assinaturas do projeto para as chaves dos níveis (uma passada sobre os elementos). */
 export function assinaturasDoProjeto(p: Project): AssinaturasProjeto {
+  // ATENÇÃO (Fase 2): `resto` carrega `levels` inteiro, ou seja, intervalo de vista, gráficos, ocultos e anotações de nível
+  // entram aqui. Para separar geometria de vista, ver `assinaturaGeometriaGlobal` e `assinaturaDeVista` (assinaturasVista.ts).
   // Fora da assinatura global: o que não entra na geometria 3D nem na resolução dos níveis. Cortes/elevações (`views`),
   // plantas de área, categorias e esquemas de cor de ambiente, contador de ordem e nome. Antes, apagar um corte ou criar
   // qualquer elemento (o `nextOrder` sobe) mudava a chave de TODOS os pavimentos e remontava o prédio inteiro (~6 s).

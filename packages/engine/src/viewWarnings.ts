@@ -1,4 +1,4 @@
-import type { Id, Project, ViewRange } from '@hestia/model';
+import { planViewOf, planViewRangeOf, type Id, type Project, type ViewRange } from '@hestia/model';
 import { t, type DictKey, type Lang } from './i18nMessages.ts';
 import { classifyLevelEntries, type ViewCategory, type ViewContext } from './viewClass.ts';
 
@@ -57,4 +57,14 @@ export function viewRangeWarnings(p: Project, levelId: Id, range: ViewRange, ctx
     }
   }
   return out;
+}
+
+/**
+ * Avisos de intervalo de uma vista de planta pelo id: o intervalo e o nível vêm da vista (`planViewRangeOf`,
+ * `planViewOf`). Vista inexistente: sem aviso. Mesma saída de `viewRangeWarnings` com o intervalo da vista.
+ */
+export function viewRangeWarningsOfView(p: Project, viewId: Id, ctx?: ViewContext, lang: Lang = 'pt'): ViewRangeWarning[] {
+  const view = planViewOf(p, viewId);
+  if (!view) return [];
+  return viewRangeWarnings(p, view.levelId, planViewRangeOf(p, viewId), ctx, lang);
 }

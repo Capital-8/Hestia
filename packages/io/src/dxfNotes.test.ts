@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ProjectStore, createEmptyProject, angularDimensionData, makeWall } from '@hestia/model';
-import { DXF_LAYER_COTAS, DXF_LAYER_TEXTOS, dxfTextEntity, notesDxfOf } from './dxfNotes.ts';
+import { ProjectStore, createEmptyProject, angularDimensionData, makeWall, DEFAULT_AREA_GRAPHICS, floorViewId, roofViewId } from '@hestia/model';
+import { DXF_LAYER_COTAS, DXF_LAYER_TEXTOS, dxfTextEntity, notesDxfOf, viewNotesDxfOf } from './dxfNotes.ts';
 import { exportDxf, type DxfLevelGeometry } from './dxf.ts';
 
 const LV0 = 'lv_0';
@@ -126,5 +126,46 @@ describe('anotações no DXF da planta', () => {
     const end = notes.lines.at(-3)![1];
     expect(start.y).toBeCloseTo(0, 8);
     expect(end.x * Math.sin(angle) - end.y * Math.cos(angle)).toBeCloseTo(0, 8);
+  });
+});
+
+describe('anotações do DXF por vista (viewNotesDxfOf)', () => {
+  const AP = 'ap_dxf';
+  const plano = () => ({
+    id: AP, name: 'Área', levelId: LV0, scale: 50, graphics: { ...DEFAULT_AREA_GRAPHICS, tagDefault: { ...DEFAULT_AREA_GRAPHICS.tagDefault } }, tags: [],
+  });
+  const comDetalheETag = (s: ProjectStore): void => {
+    s.exec({ type: 'addWall', wall: makeWall({ id: 'wx', typeId: 'wt_alv14', levelId: LV0, a: { x: 0, y: 0 }, b: { x: 4, y: 0 } }) });
+    s.exec({ type: 'addDetailLine', levelId: LV0, item: { id: 'dl', a: { x: 0, y: 1 }, b: { x: 2, y: 1 }, style: 'dashed' } });
+    s.exec({ type: 'addDetailRegion', levelId: LV0, item: { id: 'dr', boundary: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }] } });
+    s.exec({ type: 'addTag', levelId: LV0, item: { id: 'tg', hostId: 'wx', at: { x: 2, y: 2 }, property: 'type' } });
+  };
+
+  it('piso e cobertura: notesDxfOf(nível) é a mesma coisa que a vista (cotas, textos, detalhes, regiões, etiquetas)', () => {
+    const s = comAnotacoes();
+    comDetalheETag(s);
+    const nivel = notesDxfOf(s.project, LV0, 100);
+    expect(nivel.otherLines!.some((l) => l.layer === 'DETALHE')).toBe(true);
+    expect(nivel.texts.some((t) => t.layer === 'ETIQUETAS')).toBe(true);
+    expect(nivel.regions).toHaveLength(1);
+    expect(viewNotesDxfOf(s.project, floorViewId(LV0), 100)).toEqual(nivel);
+    expect(viewNotesDxfOf(s.project, roofViewId(LV0), 100)).toEqual(nivel);
+  });
+
+  it('planta de área sem anotações próprias desenha as do nível; com próprias, só as próprias', () => {
+    const s = comAnotacoes();
+    s.exec({ type: 'addAreaPlan', plan: plano() });
+    expect(viewNotesDxfOf(s.project, AP, 100)).toEqual(notesDxfOf(s.project, LV0, 100));
+    s.exec({ type: 'addText', levelId: LV0, planId: AP, text: { id: 'tp', at: { x: 1, y: 1 }, text: 'Própria', height: 2.5, rotation: 0 } });
+    const notes = viewNotesDxfOf(s.project, AP, 100);
+    expect(notes.texts.map((t) => t.text)).toEqual(['Própria']);
+    expect(notes.lines).toHaveLength(0);
+    expect(notesDxfOf(s.project, LV0, 100).texts.map((t) => t.text)).toContain('Sala');
+  });
+
+  it('vista ou nível inexistente: sem anotações', () => {
+    const p = comAnotacoes().project;
+    expect(viewNotesDxfOf(p, 'nao', 100)).toEqual({ lines: [], texts: [], otherLines: [], regions: [] });
+    expect(notesDxfOf(p, 'lv_nao', 100)).toEqual({ lines: [], texts: [], otherLines: [], regions: [] });
   });
 });

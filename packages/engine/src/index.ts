@@ -96,6 +96,7 @@ export * from './wallPlanes.ts';
 export * from './openingExtents.ts';
 export * from './angularDimension.ts';
 export * from './assinaturasNivel.ts';
+export * from './assinaturasVista.ts';
 export * from './sectionIncremental.ts';
 
 export { t as engineMessageText, type Lang as EngineLang, type DictKey as EngineMessageKey } from './i18nMessages.ts';

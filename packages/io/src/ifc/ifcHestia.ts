@@ -147,7 +147,7 @@ function projectPset(sink: HestiaSink, p: Project, project: number): void {
     property(sink, 'SettingsJSON', longText(JSON.stringify(p.settings))),
     property(sink, 'TypesJSON', longText(JSON.stringify(types))),
     property(sink, 'MaterialsJSON', longText(JSON.stringify(p.materials))),
-    property(sink, 'LevelsJSON', longText(JSON.stringify(p.levels))),
+    property(sink, 'LevelsJSON', longText(JSON.stringify(p.levels))), // armazenamento (Fase 2)
     property(sink, 'DefaultsJSON', longText(JSON.stringify(p.defaults))),
     // Dados de projeto que não têm entidade IFC: voltam pelo pset, não pela geometria.
     property(sink, 'ViewsJSON', longText(JSON.stringify(p.views))),
