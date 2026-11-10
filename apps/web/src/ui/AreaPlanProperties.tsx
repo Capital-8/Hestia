@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { areaPlanOf, planAnnotationsOf, type AreaPlan, type Project } from '@hestia/model';
+import { areaPlanOf, viewOwnAnnotationsOf, type AreaPlan, type Project } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
 import { applyColorSchemeAction, clearColorSchemeAction, recenterTagsAction, seedPlanAnnotationsAction, setPlanGraphicsAction } from '../editor/areaPlanActions.ts';
 import { useUi } from '../editor/state.ts';
@@ -17,7 +17,7 @@ export function AreaProfileGroups({ plan }: { plan: AreaPlan }): ReactElement {
   const { t, lang } = useT();
   // `showGrids`/`showSectionMarks` são opcionais no modelo; ausentes valem desligados.
   const g = plan.graphics;
-  const a = planAnnotationsOf(plan);
+  const a = viewOwnAnnotationsOf(p, plan.id);
   const annotationTotal = a.dimensions.length + a.texts.length + a.detailLines.length + a.detailRegions.length + a.tags.length;
   const rooms = Object.values(p.elements).filter((e) => e.kind === 'room' && e.levelId === plan.levelId).length;
   return (

@@ -1,5 +1,5 @@
 import {
-  areaPlanOf,
+  planViewOf,
   sheetInnerBox,
   viewportAnchor,
   type Id,
@@ -192,7 +192,7 @@ function modelFeatures(
   if (vp.view.kind === 'plan') {
     levelId = vp.view.levelId;
   } else if (vp.view.kind === 'areaPlan') {
-    const plan = areaPlanOf(project, vp.view.planId);
+    const plan = planViewOf(project, vp.view.planId);
     if (!plan) return [];
     levelId = plan.levelId;
   } else {
