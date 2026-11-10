@@ -69,6 +69,34 @@ describe('tipos padrão', () => {
     expect(parede?.corrimaos.map((c) => c.altura)).toEqual([0.92, 0.7]);
   });
 
+  it('famílias com preenchimento de tela, cabo, chapa ou balaústre têm travessa inferior (trilho) a 5 a 10 cm do piso', () => {
+    const porId = new Map(tiposGuardaCorpo('pt').map((t) => [t.id, t]));
+    for (const id of ['gct_balaustres', 'gct_madeira', 'gct_cabos', 'gct_tela', 'gct_chapa_perfurada']) {
+      const tipo = porId.get(id);
+      expect(tipo?.trilhos.length, id).toBeGreaterThanOrEqual(1);
+      const inferior = tipo!.trilhos[0]!;
+      expect(inferior.altura, id).toBeGreaterThanOrEqual(0.05);
+      expect(inferior.altura, id).toBeLessThanOrEqual(0.1);
+    }
+  });
+
+  it('balaústres e painéis de tela, cabo e chapa nascem na travessa inferior; vidro e corrimão de parede ficam como estavam', () => {
+    const porId = new Map(tiposGuardaCorpo('pt').map((t) => [t.id, t]));
+    for (const id of ['gct_balaustres', 'gct_madeira', 'gct_cabos', 'gct_tela', 'gct_chapa_perfurada']) {
+      for (const pr of porId.get(id)!.preenchimentos) expect(pr.base, id).toEqual({ de: 'trilho', indice: 0 });
+    }
+    expect(porId.get('gct_vidro')!.trilhos).toHaveLength(0);
+    expect(porId.get('gct_vidro')!.preenchimentos[0]!.base).toEqual({ de: 'hospedeiro' });
+    expect(porId.get('gct_corrimao_parede')!.trilhos).toHaveLength(0);
+  });
+
+  it('a travessa inferior usa o perfil do material (tubular em metal, 6 cm em madeira)', () => {
+    const porId = new Map(tiposGuardaCorpo('pt').map((t) => [t.id, t]));
+    expect(porId.get('gct_balaustres')!.trilhos[0]!.perfil).toEqual({ forma: 'circular', largura: 0.05, altura: 0 });
+    expect(porId.get('gct_madeira')!.trilhos[0]!.perfil).toEqual({ forma: 'retangular', largura: 0.06, altura: 0.06 });
+    expect(porId.get('gct_madeira')!.trilhos[0]!.materialId).toBe('mat_madeira');
+  });
+
   it('os textos saem no idioma pedido', () => {
     expect(tiposGuardaCorpo('en')[0]?.name).toBe('Metal with balusters');
     expect(tiposGuardaCorpo('pl')[6]?.name).toBe('Poręcz ścienna');
@@ -84,7 +112,7 @@ describe('regras do tipo (tipoGuardaCorpoIssue)', () => {
     ['perfil circular sem diâmetro', (t) => (t.postes.inicio.perfil = { forma: 'circular', largura: 0, altura: 0 })],
     ['retangular sem altura', (t) => (t.postes.inicio.perfil = { forma: 'retangular', largura: 0.05, altura: 0 })],
     ['poligonal com 2 pontos', (t) => (t.postes.inicio.perfil = { forma: 'poligono', largura: 0, altura: 0, pontos: [{ x: 0, y: 0 }, { x: 1, y: 0 }] })],
-    ['referência a trilho inexistente', (t) => (t.preenchimentos[0]!.base = { de: 'trilho', indice: 0 })],
+    ['referência a trilho inexistente', (t) => ((t.trilhos = []), (t.preenchimentos[0]!.base = { de: 'trilho', indice: 0 }))],
     ['referência a corrimão inexistente', (t) => (t.preenchimentos[0]!.topo = { de: 'corrimao', indice: 9 })],
     ['trilho na altura do guarda-corpo', (t) => (t.trilhos = [{ nome: 'T', altura: t.altura, deslocamento: 0, perfil: { forma: 'circular', largura: 0.02, altura: 0 }, materialId: 'mat_aco' }])],
     ['espessura zero em vidro', (t) => (t.preenchimentos[0] = { ...t.preenchimentos[0]!, tipo: 'painel', familia: 'vidro', espessura: 0 } as TipoGuardaCorpo['preenchimentos'][number])],

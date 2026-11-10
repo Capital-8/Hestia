@@ -10,8 +10,10 @@ import {
   type PerfilGC,
   type PosteGC,
   type PostesGC,
+  type RefBaseGC,
   type SuportesGC,
   type TipoGuardaCorpo,
+  type TrilhoGC,
 } from './guardaCorpoTypes.ts';
 
 /** Tipo de guarda-corpo usado por padrão quando o projeto não escolhe outro. */
@@ -95,13 +97,20 @@ function painel(nome: string, p: Omit<PainelGC, 'tipo' | 'nome' | 'base' | 'topo
   };
 }
 
-/** Balaústre redondo em padrão, de topo no corrimão 0. */
-function balaustres(nome: string, perfil: PerfilGC, materialId: string, periodo: number): TipoGuardaCorpo['preenchimentos'][number] {
+/** Travessa inferior (trilho) a 8 cm do piso: onde os balaústres e os painéis de tela, cabo e chapa nascem. */
+const ALTURA_TRAVESSA_INFERIOR = 0.08;
+const BASE_NA_TRAVESSA: RefBaseGC = { de: 'trilho', indice: 0 };
+function travessaInferior(perfil: PerfilGC, materialId: string): TrilhoGC {
+  return { nome: 'Travessa inferior', altura: ALTURA_TRAVESSA_INFERIOR, deslocamento: 0, perfil, materialId };
+}
+
+/** Balaústre redondo em padrão, de topo no corrimão 0. Nasce na travessa inferior (trilho 0) ou no hospedeiro. */
+function balaustres(nome: string, perfil: PerfilGC, materialId: string, periodo: number, base: RefBaseGC = { de: 'hospedeiro' }): TipoGuardaCorpo['preenchimentos'][number] {
   const elemento: ElementoPadraoGC = { modelo: { perfil, materialId }, distanciaAnterior: 0, deslocamentoLateral: 0, deslocamentoBase: 0, deslocamentoTopo: 0 };
   return {
     tipo: 'balaustres',
     nome,
-    base: { de: 'hospedeiro' },
+    base,
     topo: { de: 'corrimao', indice: 0 },
     elementos: [elemento],
     periodo,
@@ -148,7 +157,8 @@ export function tiposGuardaCorpo(lang: Lang = 'pt'): TipoGuardaCorpo[] {
   return [
     base('gct_balaustres', 'GC-01', ['md_gc_type_balaustres', 'md_gc_type_balaustres_desc'], 1.1, {
       corrimaos: [corrimaoPadrao('Travessa superior', 'topo', 'eixo', 1.1, circular(0.05), METAL)],
-      preenchimentos: [balaustres('Balaústres redondos', circular(0.02), METAL, 0.11)],
+      trilhos: [travessaInferior(circular(0.05), METAL)],
+      preenchimentos: [balaustres('Balaústres redondos', circular(0.02), METAL, 0.11, BASE_NA_TRAVESSA)],
       cost: 0,
     }),
     base('gct_vidro', 'GC-02', ['md_gc_type_vidro', 'md_gc_type_vidro_desc'], 1.1, {
@@ -157,27 +167,35 @@ export function tiposGuardaCorpo(lang: Lang = 'pt'): TipoGuardaCorpo[] {
     }),
     base('gct_madeira', 'GC-03', ['md_gc_type_madeira', 'md_gc_type_madeira_desc'], 1.1, {
       corrimaos: [corrimaoPadrao('Corrimão de madeira', 'corrimao', 'eixo', 1.1, retangular(0.06, 0.06), 'mat_madeira')],
-      preenchimentos: [balaustres('Balaústres de madeira', retangular(0.04, 0.04), 'mat_madeira', 0.11)],
+      trilhos: [travessaInferior(retangular(0.06, 0.06), 'mat_madeira')],
+      preenchimentos: [balaustres('Balaústres de madeira', retangular(0.04, 0.04), 'mat_madeira', 0.11, BASE_NA_TRAVESSA)],
       postes: postesPadrao(retangular(0.08, 0.08), 'mat_madeira'),
       materialPadraoId: 'mat_madeira',
     }),
     base('gct_cabos', 'GC-04', ['md_gc_type_cabos', 'md_gc_type_cabos_desc'], 1.1, {
       corrimaos: [topoMetal],
-      preenchimentos: [painel('Cabos de aço', { familia: 'cabo-aco', espessura: 0.005, materialId: METAL, cabos: { diametro: 0.005, espacamento: 0.09, orientacao: 'horizontal' } })],
+      trilhos: [travessaInferior(circular(0.05), METAL)],
+      preenchimentos: [{ ...painel('Cabos de aço', { familia: 'cabo-aco', espessura: 0.005, materialId: METAL, cabos: { diametro: 0.005, espacamento: 0.09, orientacao: 'horizontal' } }), base: BASE_NA_TRAVESSA, deslocamentoBase: 0 }],
     }),
     base('gct_tela', 'GC-05', ['md_gc_type_tela', 'md_gc_type_tela_desc'], 1.1, {
       corrimaos: [topoMetal],
-      preenchimentos: [painel('Tela metálica', { familia: 'tela', espessura: 0.002, materialId: METAL, tela: { larguraMalha: 0.05, alturaMalha: 0.05, diametroFio: 0.002 } })],
+      trilhos: [travessaInferior(circular(0.05), METAL)],
+      preenchimentos: [{ ...painel('Tela metálica', { familia: 'tela', espessura: 0.002, materialId: METAL, tela: { larguraMalha: 0.05, alturaMalha: 0.05, diametroFio: 0.002 } }), base: BASE_NA_TRAVESSA, deslocamentoBase: 0 }],
     }),
     base('gct_chapa_perfurada', 'GC-06', ['md_gc_type_chapa_perfurada', 'md_gc_type_chapa_perfurada_desc'], 1.1, {
       corrimaos: [topoMetal],
+      trilhos: [travessaInferior(circular(0.05), METAL)],
       preenchimentos: [
-        painel('Chapa perfurada', {
-          familia: 'chapa-perfurada',
-          espessura: 0.002,
-          materialId: METAL,
-          perfuracao: { diametro: 0.008, passoX: 0.015, passoY: 0.015, alternado: true },
-        }),
+        {
+          ...painel('Chapa perfurada', {
+            familia: 'chapa-perfurada',
+            espessura: 0.002,
+            materialId: METAL,
+            perfuracao: { diametro: 0.008, passoX: 0.015, passoY: 0.015, alternado: true },
+          }),
+          base: BASE_NA_TRAVESSA,
+          deslocamentoBase: 0,
+        },
       ],
     }),
     base('gct_corrimao_parede', 'GC-07', ['md_gc_type_corrimao_parede', 'md_gc_type_corrimao_parede_desc'], 0.92, {

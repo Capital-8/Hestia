@@ -5,6 +5,8 @@ import { editor, useProject } from '../editor/controller.ts';
 import { useI18n, useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { Check, NumField, Row } from './fields.tsx';
+import { TypeSelector } from './TypeSelector.tsx';
+import { guardaCorpoOptions } from './typeOptions.ts';
 
 type Patch = Partial<Omit<GuardaCorpo, 'id' | 'kind' | 'order'>>;
 
@@ -22,6 +24,7 @@ export function GuardaCorpoProperties({ railings }: { railings: GuardaCorpo[] })
   const first = railings[0]!;
   const h: HospedeiroGC = first.hospedeiro;
   const tipo = p.tiposGuardaCorpo?.[first.typeId];
+  const tipoMisto = new Set(railings.map((g) => g.typeId)).size > 1;
   const ids = new Set(railings.map((g) => g.id));
   const issues = guardaCorpoIssues(p, lang).filter((i) => i.elementId !== undefined && ids.has(i.elementId));
   // Avisos de norma que dependem da geometria (vao, altura real, corrimao): medidos pelo kernel (guarda_avisos); sem kernel pronto, so os de configuracao.
@@ -55,16 +58,17 @@ export function GuardaCorpoProperties({ railings }: { railings: GuardaCorpo[] })
 
   return (
     <div className="props-gc">
-      <Row label={t('gc6b_type')} htmlFor="gc-type">
-        <select id="gc-type" className="select" value={first.typeId} onChange={(e) => apply(t('gc6b_undo_edit'), () => ({ typeId: e.target.value }))}>
-          {Object.values(p.tiposGuardaCorpo ?? {}).map((tp) => (
-            <option key={tp.id} value={tp.id}>{tp.name}</option>
-          ))}
-        </select>
-      </Row>
-      <button type="button" className="link" onClick={() => useUi.setState({ dialog: 'guardaCorpoType', dialogArg: first.typeId })}>
-        {t('gc6b_edit_type')}
-      </button>
+      {/* Cabeçalho de tipo igual ao da parede: família no topo, "Editar" logo abaixo; o resto do painel vem depois. */}
+      <TypeSelector
+        triggerId="prop-gctype"
+        label={t('gc6b_type')}
+        categoryLabel={`${t('cvn_cat_railing')} (${railings.length})`}
+        options={guardaCorpoOptions(p, t('cvn_cat_railing'))}
+        selectedId={tipoMisto ? null : first.typeId}
+        editDisabled={tipoMisto}
+        onSelect={(id) => apply(t('gc6b_undo_edit'), () => ({ typeId: id }))}
+        onEdit={() => useUi.setState({ dialog: 'guardaCorpoType', dialogArg: first.typeId })}
+      />
       <Row label={t('gc6b_host')}>
         <span>{hostLabel}{railings.length > 1 ? ` · ${railings.length}` : ''}</span>
       </Row>
