@@ -564,3 +564,13 @@ Só pode sobrar em `migrate.ts` e nos testes de migração.
    projeto está em `tests/vistas-ouro/adaptador.ts`: é o único arquivo do ouro que as raias podem alterar, e só
    para acompanhar mudança de assinatura, nunca para mudar o que é comparado.
 4. O ouro não cobre: DXF de cobertura (não existe), cortes fora de prancha, e variações de subpavimento.
+
+### 10.3 Insumo da raia G para a Fase 2 (assinaturas de cache)
+
+`assinaturasDoProjeto(...).global` (`packages/engine/src/assinaturasNivel.ts`) faz hash do projeto inteiro menos
+alguns campos, e **inclui `levels` com todos os dados de vista**. Consumidores: `render/src/model3d/chaveNivel3d.ts`
+(malha 3D), `engine/src/sectionIncremental.ts` (corte) e a lista duplicada em `apps/web/src/ui/edicaoDeEsquadrias.ts`.
+Na Fase 2, `Project.planViews` **tem de ficar fora** da assinatura global de geometria (use
+`assinaturaGeometriaGlobal` de `assinaturasVista.ts`); o que depende da vista usa `assinaturaDeVista(p, viewId)`.
+Sem isso, cada cota editada refaria a malha 3D e os cortes. O corte e o 3D que dependem de ocultos/gráficos próprios
+continuam com as suas chaves atuais.
