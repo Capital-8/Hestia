@@ -1,0 +1,7355 @@
+{
+ "schemaVersion": 23,
+ "name": "Casa de alto padrão, 2 pavimentos",
+ "levels": [
+  {
+   "id": "lv_0",
+   "name": "Térreo",
+   "elevation": 0,
+   "viewRange": {
+    "top": 2.3,
+    "cut": 1.2,
+    "bottom": 0,
+    "depth": 0,
+    "direction": "down"
+   },
+   "dimensions": [
+    {
+     "id": "dm_prem_a",
+     "a": {
+      "x": 0,
+      "y": -0.5
+     },
+     "b": {
+      "x": 11.75,
+      "y": -0.5
+     },
+     "offset": -1
+    },
+    {
+     "id": "dm_prem_b",
+     "a": {
+      "x": 12.5,
+      "y": 0
+     },
+     "b": {
+      "x": 12.5,
+      "y": 14
+     },
+     "offset": 0.8
+    }
+   ],
+   "texts": [
+    {
+     "id": "tx_prem",
+     "at": {
+      "x": 8,
+      "y": 12
+     },
+     "text": "VARANDA GOURMET",
+     "height": 3,
+     "rotation": 0
+    }
+   ],
+   "detailLines": [
+    {
+     "id": "dl_prem",
+     "a": {
+      "x": 0,
+      "y": 5.5
+     },
+     "b": {
+      "x": 11.75,
+      "y": 5.5
+     },
+     "style": "dashed"
+    }
+   ]
+  },
+  {
+   "id": "lv_1",
+   "name": "Pavimento 2",
+   "elevation": 3,
+   "viewRange": {
+    "top": 2.3,
+    "cut": 1.2,
+    "bottom": 0,
+    "depth": 0,
+    "direction": "down"
+   }
+  },
+  {
+   "id": "lv_2",
+   "name": "Cobertura",
+   "elevation": 5.8,
+   "viewRange": {
+    "top": 2.3,
+    "cut": 1.2,
+    "bottom": 0,
+    "depth": 0,
+    "direction": "down"
+   }
+  }
+ ],
+ "materials": {
+  "mat_tinta": {
+   "id": "mat_tinta",
+   "name": "Tinta branca",
+   "color": "#f4f1ea",
+   "hatch": "none",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 0,
+   "unit": "m2"
+  },
+  "mat_reboco": {
+   "id": "mat_reboco",
+   "name": "Reboco",
+   "color": "#d9d2c5",
+   "hatch": "dots",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 38,
+   "unit": "m2"
+  },
+  "mat_bloco14": {
+   "id": "mat_bloco14",
+   "name": "Bloco cerâmico 14",
+   "color": "#c0693f",
+   "hatch": "diagonal",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 62,
+   "unit": "m2"
+  },
+  "mat_bloco9": {
+   "id": "mat_bloco9",
+   "name": "Bloco cerâmico 9",
+   "color": "#c9784c",
+   "hatch": "diagonal",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 52,
+   "unit": "m2"
+  },
+  "mat_bloco19": {
+   "id": "mat_bloco19",
+   "name": "Bloco cerâmico 19",
+   "color": "#b45f38",
+   "hatch": "diagonal",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 74,
+   "unit": "m2"
+  },
+  "mat_concreto": {
+   "id": "mat_concreto",
+   "name": "Concreto",
+   "color": "#8f9296",
+   "hatch": "cross",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 640,
+   "unit": "m3"
+  },
+  "mat_argamassa": {
+   "id": "mat_argamassa",
+   "name": "Argamassa",
+   "color": "#cdbfa9",
+   "hatch": "dots",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 30,
+   "unit": "m2"
+  },
+  "mat_ceramica": {
+   "id": "mat_ceramica",
+   "name": "Revestimento cerâmico",
+   "color": "#e9e4da",
+   "hatch": "none",
+   "gloss": 0.6,
+   "opacity": 1,
+   "cost": 85,
+   "unit": "m2"
+  },
+  "mat_gesso": {
+   "id": "mat_gesso",
+   "name": "Placa de gesso",
+   "color": "#ece9e2",
+   "hatch": "none",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 44,
+   "unit": "m2"
+  },
+  "mat_pvc": {
+   "id": "mat_pvc",
+   "name": "PVC",
+   "color": "#e8e6df",
+   "hatch": "none",
+   "gloss": 0.4,
+   "opacity": 1,
+   "cost": 60,
+   "unit": "m2"
+  },
+  "mat_la": {
+   "id": "mat_la",
+   "name": "Lã mineral",
+   "color": "#e5d27a",
+   "hatch": "dots",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 28,
+   "unit": "m2"
+  },
+  "mat_perfil": {
+   "id": "mat_perfil",
+   "name": "Perfil de aço",
+   "color": "#9aa0a6",
+   "hatch": "cross",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 20,
+   "unit": "m2"
+  },
+  "mat_aco": {
+   "id": "mat_aco",
+   "name": "Aço",
+   "color": "#7b8189",
+   "hatch": "solid",
+   "gloss": 0.6,
+   "opacity": 1,
+   "cost": 0,
+   "unit": "m3"
+  },
+  "mat_madeira": {
+   "id": "mat_madeira",
+   "name": "Madeira",
+   "color": "#a9794a",
+   "hatch": "diagonal",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 150,
+   "unit": "m2"
+  },
+  "mat_vidro": {
+   "id": "mat_vidro",
+   "name": "Vidro",
+   "color": "#a9d6e5",
+   "hatch": "none",
+   "gloss": 0.9,
+   "opacity": 0.35,
+   "cost": 220,
+   "unit": "m2"
+  },
+  "mat_aluminio": {
+   "id": "mat_aluminio",
+   "name": "Alumínio",
+   "color": "#b8bdc2",
+   "hatch": "solid",
+   "gloss": 0.7,
+   "opacity": 1,
+   "cost": 0,
+   "unit": "m"
+  },
+  "mat_telha_ceramica": {
+   "id": "mat_telha_ceramica",
+   "name": "Telha cerâmica",
+   "color": "#b5522d",
+   "hatch": "diagonal",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 85,
+   "unit": "m2"
+  },
+  "mat_fibrocimento": {
+   "id": "mat_fibrocimento",
+   "name": "Fibrocimento",
+   "color": "#9ea3a8",
+   "hatch": "cross",
+   "gloss": 0.1,
+   "opacity": 1,
+   "cost": 55,
+   "unit": "m2"
+  },
+  "mat_telha_metalica": {
+   "id": "mat_telha_metalica",
+   "name": "Telha metálica",
+   "color": "#8e99a3",
+   "hatch": "solid",
+   "gloss": 0.6,
+   "opacity": 1,
+   "cost": 140,
+   "unit": "m2"
+  }
+ },
+ "wallTypes": {
+  "wt_alv14": {
+   "id": "wt_alv14",
+   "name": "Alvenaria 14 + reboco",
+   "code": "PA-14",
+   "description": "Bloco cerâmico 14 cm com reboco e pintura nas duas faces",
+   "layers": [
+    {
+     "function": "finish2",
+     "materialId": "mat_tinta",
+     "thickness": 0.002,
+     "wraps": true
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_reboco",
+     "thickness": 0.02,
+     "wraps": true
+    },
+    {
+     "function": "structure",
+     "materialId": "mat_bloco14",
+     "thickness": 0.14,
+     "wraps": false
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_reboco",
+     "thickness": 0.02,
+     "wraps": true
+    },
+    {
+     "function": "finish2",
+     "materialId": "mat_tinta",
+     "thickness": 0.002,
+     "wraps": true
+    }
+   ],
+   "wrapInserts": "both",
+   "wrapEnds": "none",
+   "strips": [],
+   "cost": 0,
+   "thermalU": null,
+   "acousticRw": null,
+   "fireRating": null,
+   "manufacturer": ""
+  },
+  "wt_alv9": {
+   "id": "wt_alv9",
+   "name": "Alvenaria 9 (divisória)",
+   "code": "PA-09",
+   "description": "Bloco cerâmico 9 cm com reboco e pintura",
+   "layers": [
+    {
+     "function": "finish2",
+     "materialId": "mat_tinta",
+     "thickness": 0.002,
+     "wraps": true
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_reboco",
+     "thickness": 0.015,
+     "wraps": true
+    },
+    {
+     "function": "structure",
+     "materialId": "mat_bloco9",
+     "thickness": 0.09,
+     "wraps": false
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_reboco",
+     "thickness": 0.015,
+     "wraps": true
+    },
+    {
+     "function": "finish2",
+     "materialId": "mat_tinta",
+     "thickness": 0.002,
+     "wraps": true
+    }
+   ],
+   "wrapInserts": "both",
+   "wrapEnds": "none",
+   "strips": [],
+   "cost": 0,
+   "thermalU": null,
+   "acousticRw": null,
+   "fireRating": null,
+   "manufacturer": ""
+  },
+  "wt_ext19": {
+   "id": "wt_ext19",
+   "name": "Externa 19 + cerâmica",
+   "code": "PE-19",
+   "description": "Bloco 19 cm, revestimento cerâmico externo e pintura interna",
+   "layers": [
+    {
+     "function": "finish1",
+     "materialId": "mat_ceramica",
+     "thickness": 0.01,
+     "wraps": true
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_argamassa",
+     "thickness": 0.02,
+     "wraps": true
+    },
+    {
+     "function": "structure",
+     "materialId": "mat_bloco19",
+     "thickness": 0.19,
+     "wraps": false
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_reboco",
+     "thickness": 0.02,
+     "wraps": true
+    },
+    {
+     "function": "finish2",
+     "materialId": "mat_tinta",
+     "thickness": 0.002,
+     "wraps": true
+    }
+   ],
+   "wrapInserts": "both",
+   "wrapEnds": "none",
+   "strips": [],
+   "cost": 0,
+   "thermalU": null,
+   "acousticRw": null,
+   "fireRating": null,
+   "manufacturer": ""
+  },
+  "wt_dry": {
+   "id": "wt_dry",
+   "name": "Drywall 7",
+   "code": "DW-07",
+   "description": "Placas de gesso acartonado sobre perfil de aço com lã mineral",
+   "layers": [
+    {
+     "function": "finish1",
+     "materialId": "mat_gesso",
+     "thickness": 0.0125,
+     "wraps": true
+    },
+    {
+     "function": "structure",
+     "materialId": "mat_perfil",
+     "thickness": 0.048,
+     "wraps": false
+    },
+    {
+     "function": "finish1",
+     "materialId": "mat_gesso",
+     "thickness": 0.0125,
+     "wraps": true
+    }
+   ],
+   "wrapInserts": "both",
+   "wrapEnds": "none",
+   "strips": [],
+   "cost": 0,
+   "thermalU": null,
+   "acousticRw": null,
+   "fireRating": null,
+   "manufacturer": ""
+  },
+  "wt_conc15": {
+   "id": "wt_conc15",
+   "name": "Concreto 15",
+   "code": "PC-15",
+   "description": "Parede de concreto armado 15 cm com reboco",
+   "layers": [
+    {
+     "function": "finish2",
+     "materialId": "mat_tinta",
+     "thickness": 0.002,
+     "wraps": true
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_reboco",
+     "thickness": 0.015,
+     "wraps": true
+    },
+    {
+     "function": "structure",
+     "materialId": "mat_concreto",
+     "thickness": 0.15,
+     "wraps": false
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_reboco",
+     "thickness": 0.015,
+     "wraps": true
+    },
+    {
+     "function": "finish2",
+     "materialId": "mat_tinta",
+     "thickness": 0.002,
+     "wraps": true
+    }
+   ],
+   "wrapInserts": "both",
+   "wrapEnds": "none",
+   "strips": [],
+   "cost": 0,
+   "thermalU": null,
+   "acousticRw": null,
+   "fireRating": null,
+   "manufacturer": ""
+  }
+ },
+ "floorTypes": {
+  "ft_ceram": {
+   "id": "ft_ceram",
+   "name": "Cerâmico sobre contrapiso",
+   "code": "PS-01",
+   "description": "Revestimento cerâmico, argamassa colante e contrapiso sobre laje",
+   "layers": [
+    {
+     "function": "finish1",
+     "materialId": "mat_ceramica",
+     "thickness": 0.01,
+     "wraps": false
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_argamassa",
+     "thickness": 0.02,
+     "wraps": false
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_argamassa",
+     "thickness": 0.04,
+     "wraps": false
+    },
+    {
+     "function": "structure",
+     "materialId": "mat_concreto",
+     "thickness": 0.12,
+     "wraps": false
+    }
+   ],
+   "cost": 160
+  },
+  "ft_acab": {
+   "id": "ft_acab",
+   "name": "Acabamento sobre laje",
+   "code": "PS-04",
+   "description": "Revestimento cerâmico, assentamento e contrapiso sobre laje, sem camada estrutural (a laje já tem o concreto)",
+   "layers": [
+    {
+     "function": "finish1",
+     "materialId": "mat_ceramica",
+     "thickness": 0.01,
+     "wraps": false
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_argamassa",
+     "thickness": 0.01,
+     "wraps": false
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_argamassa",
+     "thickness": 0.02,
+     "wraps": false
+    }
+   ],
+   "cost": 90
+  },
+  "ft_laje12": {
+   "id": "ft_laje12",
+   "name": "Laje de concreto 12",
+   "code": "PS-02",
+   "description": "Laje maciça de concreto armado com regularização",
+   "layers": [
+    {
+     "function": "substrate",
+     "materialId": "mat_argamassa",
+     "thickness": 0.03,
+     "wraps": false
+    },
+    {
+     "function": "structure",
+     "materialId": "mat_concreto",
+     "thickness": 0.12,
+     "wraps": false
+    }
+   ],
+   "cost": 120
+  },
+  "ft_madeira": {
+   "id": "ft_madeira",
+   "name": "Madeira sobre contrapiso",
+   "code": "PS-03",
+   "description": "Assoalho de madeira sobre contrapiso e laje",
+   "layers": [
+    {
+     "function": "finish1",
+     "materialId": "mat_madeira",
+     "thickness": 0.02,
+     "wraps": false
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_argamassa",
+     "thickness": 0.04,
+     "wraps": false
+    },
+    {
+     "function": "structure",
+     "materialId": "mat_concreto",
+     "thickness": 0.12,
+     "wraps": false
+    }
+   ],
+   "cost": 260
+  },
+  "ft_unico": {
+   "id": "ft_unico",
+   "name": "Piso único (obra inteira)",
+   "code": "PS-05",
+   "description": "Acabamento, assentamento e contrapiso param na face das paredes; a estrutura de concreto passa por baixo delas. Para um piso que cobre a obra inteira",
+   "layers": [
+    {
+     "function": "finish1",
+     "materialId": "mat_ceramica",
+     "thickness": 0.01,
+     "wraps": false,
+     "termino": "face"
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_argamassa",
+     "thickness": 0.02,
+     "wraps": false,
+     "termino": "face"
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_argamassa",
+     "thickness": 0.04,
+     "wraps": false,
+     "termino": "face"
+    },
+    {
+     "function": "structure",
+     "materialId": "mat_concreto",
+     "thickness": 0.12,
+     "wraps": false,
+     "termino": "passa"
+    }
+   ],
+   "cost": 250
+  }
+ },
+ "slabTypes": {
+  "ls_mac12": {
+   "id": "ls_mac12",
+   "name": "Laje maciça 12",
+   "code": "LJ-12",
+   "description": "Laje maciça de concreto armado, 12 cm",
+   "layers": [
+    {
+     "function": "structure",
+     "materialId": "mat_concreto",
+     "thickness": 0.12,
+     "wraps": false
+    }
+   ],
+   "cost": 190
+  },
+  "ls_mac15": {
+   "id": "ls_mac15",
+   "name": "Laje maciça 15",
+   "code": "LJ-15",
+   "description": "Laje maciça de concreto armado, 15 cm, com regularização",
+   "layers": [
+    {
+     "function": "substrate",
+     "materialId": "mat_argamassa",
+     "thickness": 0.02,
+     "wraps": false
+    },
+    {
+     "function": "structure",
+     "materialId": "mat_concreto",
+     "thickness": 0.15,
+     "wraps": false
+    }
+   ],
+   "cost": 240
+  },
+  "ls_cobertura": {
+   "id": "ls_cobertura",
+   "name": "Laje de cobertura 10",
+   "code": "LJ-10C",
+   "description": "Laje de cobertura com impermeabilização e proteção mecânica",
+   "layers": [
+    {
+     "function": "finish1",
+     "materialId": "mat_argamassa",
+     "thickness": 0.03,
+     "wraps": false
+    },
+    {
+     "function": "membrane",
+     "materialId": "mat_argamassa",
+     "thickness": 0,
+     "wraps": false
+    },
+    {
+     "function": "structure",
+     "materialId": "mat_concreto",
+     "thickness": 0.1,
+     "wraps": false
+    }
+   ],
+   "cost": 210
+  },
+  "ls_unica": {
+   "id": "ls_unica",
+   "name": "Laje única (obra inteira)",
+   "code": "LJ-UN",
+   "description": "Regularização até a face das paredes; a estrutura de concreto passa por baixo delas. Para uma laje que cobre a obra inteira",
+   "layers": [
+    {
+     "function": "substrate",
+     "materialId": "mat_argamassa",
+     "thickness": 0.03,
+     "wraps": false,
+     "termino": "face"
+    },
+    {
+     "function": "structure",
+     "materialId": "mat_concreto",
+     "thickness": 0.12,
+     "wraps": false,
+     "termino": "passa"
+    }
+   ],
+   "cost": 230
+  }
+ },
+ "ceilingTypes": {
+  "ct_gesso": {
+   "id": "ct_gesso",
+   "name": "Forro de gesso 12,5 mm",
+   "code": "FR-01",
+   "description": "Placa de gesso 12,5 mm sobre perfis de aço",
+   "layers": [
+    {
+     "function": "structure",
+     "materialId": "mat_perfil",
+     "thickness": 0.03,
+     "wraps": false
+    },
+    {
+     "function": "finish1",
+     "materialId": "mat_gesso",
+     "thickness": 0.0125,
+     "wraps": false
+    }
+   ],
+   "cost": 70,
+   "hatch": "gesso"
+  },
+  "ct_pvc": {
+   "id": "ct_pvc",
+   "name": "Forro de PVC",
+   "code": "FR-02",
+   "description": "Forro de PVC em réguas sobre travessas de madeira",
+   "layers": [
+    {
+     "function": "structure",
+     "materialId": "mat_madeira",
+     "thickness": 0.02,
+     "wraps": false
+    },
+    {
+     "function": "finish1",
+     "materialId": "mat_pvc",
+     "thickness": 0.01,
+     "wraps": false
+    }
+   ],
+   "cost": 95
+  },
+  "ct_laje": {
+   "id": "ct_laje",
+   "name": "Laje aparente",
+   "code": "FR-03",
+   "description": "Face inferior da laje de concreto, com pintura",
+   "layers": [
+    {
+     "function": "finish1",
+     "materialId": "mat_tinta",
+     "thickness": 0.003,
+     "wraps": false
+    }
+   ],
+   "cost": 25
+  }
+ },
+ "roofTypes": {
+  "rt_ceramica": {
+   "id": "rt_ceramica",
+   "name": "Telha cerâmica sobre madeiramento",
+   "code": "TL-01",
+   "description": "Telha cerâmica, ripas e caibros de madeira",
+   "layers": [
+    {
+     "function": "finish1",
+     "materialId": "mat_telha_ceramica",
+     "thickness": 0.015,
+     "wraps": false
+    },
+    {
+     "function": "substrate",
+     "materialId": "mat_madeira",
+     "thickness": 0.03,
+     "wraps": false
+    },
+    {
+     "function": "structure",
+     "materialId": "mat_madeira",
+     "thickness": 0.05,
+     "wraps": false
+    }
+   ],
+   "cost": 180
+  },
+  "rt_fibro": {
+   "id": "rt_fibro",
+   "name": "Telha de fibrocimento",
+   "code": "TL-02",
+   "description": "Telha ondulada de fibrocimento sobre terças de madeira",
+   "layers": [
+    {
+     "function": "finish1",
+     "materialId": "mat_fibrocimento",
+     "thickness": 0.008,
+     "wraps": false
+    },
+    {
+     "function": "structure",
+     "materialId": "mat_madeira",
+     "thickness": 0.075,
+     "wraps": false
+    }
+   ],
+   "cost": 95
+  },
+  "rt_metalica": {
+   "id": "rt_metalica",
+   "name": "Telha metálica sanduíche",
+   "code": "TL-03",
+   "description": "Telha termoacústica com núcleo isolante sobre estrutura metálica",
+   "layers": [
+    {
+     "function": "finish1",
+     "materialId": "mat_telha_metalica",
+     "thickness": 0.05,
+     "wraps": false
+    },
+    {
+     "function": "structure",
+     "materialId": "mat_perfil",
+     "thickness": 0.1,
+     "wraps": false
+    }
+   ],
+   "cost": 260
+  }
+ },
+ "stairTypes": {
+  "stt_monolitica": {
+   "maxRiser": 0.18,
+   "minRiser": 0.16,
+   "minTread": 0.28,
+   "calcRiserFactor": 2,
+   "calcTreadFactor": 1,
+   "calcTarget": 0.63,
+   "calcMin": 0.63,
+   "calcMax": 0.65,
+   "maxTread": 0.32,
+   "minRunWidth": 0.8,
+   "nosing": 0.015,
+   "landingThickness": 0.15,
+   "minHeadroom": 2.1,
+   "cost": 0,
+   "treadOverlap": 0.025,
+   "postMaterialId": "mat_aco",
+   "id": "stt_monolitica",
+   "name": "Escada monolítica concreto",
+   "code": "ES-01",
+   "description": "Lance monolítico de concreto armado com patamares de concreto",
+   "runStyle": "monolithic",
+   "undersideStyle": "smooth",
+   "structuralDepth": 0.2,
+   "treadThickness": 0,
+   "riserThickness": 0,
+   "materialId": "mat_concreto"
+  },
+  "stt_piso_espelho": {
+   "maxRiser": 0.18,
+   "minRiser": 0.16,
+   "minTread": 0.28,
+   "calcRiserFactor": 2,
+   "calcTreadFactor": 1,
+   "calcTarget": 0.63,
+   "calcMin": 0.63,
+   "calcMax": 0.65,
+   "maxTread": 0.32,
+   "minRunWidth": 0.8,
+   "nosing": 0.015,
+   "landingThickness": 0.15,
+   "minHeadroom": 2.1,
+   "cost": 0,
+   "treadOverlap": 0.025,
+   "postMaterialId": "mat_aco",
+   "id": "stt_piso_espelho",
+   "name": "Escada de piso e espelho",
+   "code": "ES-02",
+   "description": "Lance de degraus de madeira (piso e espelho) sobre estrutura",
+   "runStyle": "assembled",
+   "undersideStyle": "smooth",
+   "structuralDepth": 0,
+   "treadThickness": 0.03,
+   "riserThickness": 0.02,
+   "materialId": "mat_madeira"
+  },
+  "stt_caracol_monolitica": {
+   "maxRiser": 0.18,
+   "minRiser": 0.16,
+   "minTread": 0.28,
+   "calcRiserFactor": 2,
+   "calcTreadFactor": 1,
+   "calcTarget": 0.63,
+   "calcMin": 0.63,
+   "calcMax": 0.65,
+   "maxTread": 0.32,
+   "minRunWidth": 0.8,
+   "nosing": 0.015,
+   "landingThickness": 0.15,
+   "minHeadroom": 2.1,
+   "cost": 0,
+   "treadOverlap": 0.025,
+   "postMaterialId": "mat_aco",
+   "id": "stt_caracol_monolitica",
+   "name": "Escada caracol monolítica",
+   "code": "ES-03",
+   "description": "Caracol monolítico de concreto armado, com face inferior lisa",
+   "runStyle": "monolithic",
+   "undersideStyle": "smooth",
+   "structuralDepth": 0.15,
+   "treadThickness": 0,
+   "riserThickness": 0,
+   "materialId": "mat_concreto"
+  },
+  "stt_caracol_poste": {
+   "maxRiser": 0.18,
+   "minRiser": 0.16,
+   "minTread": 0.28,
+   "calcRiserFactor": 2,
+   "calcTreadFactor": 1,
+   "calcTarget": 0.63,
+   "calcMin": 0.63,
+   "calcMax": 0.65,
+   "maxTread": 0.32,
+   "minRunWidth": 0.6,
+   "nosing": 0.015,
+   "landingThickness": 0.15,
+   "minHeadroom": 2.1,
+   "cost": 0,
+   "treadOverlap": 0.025,
+   "postMaterialId": "mat_aco",
+   "id": "stt_caracol_poste",
+   "name": "Escada caracol com poste central",
+   "code": "ES-04",
+   "description": "Caracol de degraus de aço em balanço presos a poste central de aço, sem espelho",
+   "runStyle": "post",
+   "undersideStyle": "smooth",
+   "structuralDepth": 0,
+   "treadThickness": 0.05,
+   "riserThickness": 0,
+   "materialId": "mat_aco"
+  }
+ },
+ "rampTypes": {
+  "rmt_nbr9050": {
+   "id": "rmt_nbr9050",
+   "name": "Rampa de concreto (NBR 9050)",
+   "code": "RP-01",
+   "description": "Rampa monolítica de concreto, face lisa, limites da NBR 9050 (a conferir)",
+   "materialId": "mat_concreto",
+   "structuralDepth": 0.15,
+   "landingThickness": 0.15,
+   "defaultWidth": 1.5,
+   "minWidth": 1.2,
+   "defaultSlope": 0.08333333333333333,
+   "landingMinLength": 1.2,
+   "minHeadroom": 2.1,
+   "normProfile": "nbr9050",
+   "normChecked": false,
+   "normTable": [
+    {
+     "maxSlope": 0.05,
+     "maxRise": 1.5,
+     "maxFlights": null
+    },
+    {
+     "maxSlope": 0.0625,
+     "maxRise": 1,
+     "maxFlights": null
+    },
+    {
+     "maxSlope": 0.08333333333333333,
+     "maxRise": 0.8,
+     "maxFlights": 15
+    }
+   ],
+   "cost": 0
+  },
+  "rmt_ada": {
+   "id": "rmt_ada",
+   "name": "Rampa de concreto (ADA)",
+   "code": "RP-02",
+   "description": "Rampa monolítica de concreto, limites do ADA (1:12, 30 in por lance)",
+   "materialId": "mat_concreto",
+   "structuralDepth": 0.15,
+   "landingThickness": 0.15,
+   "defaultWidth": 1.2,
+   "minWidth": 0.915,
+   "defaultSlope": 0.08333333333333333,
+   "landingMinLength": 1.525,
+   "minHeadroom": 2.1,
+   "normProfile": "ada",
+   "normChecked": true,
+   "normTable": [
+    {
+     "maxSlope": 0.08333333333333333,
+     "maxRise": 0.762,
+     "maxFlights": null
+    }
+   ],
+   "cost": 0
+  }
+ },
+ "openingTypes": {
+  "ot_p70": {
+   "id": "ot_p70",
+   "kind": "door",
+   "name": "Porta 70 x 210",
+   "code": "P-01",
+   "width": 0.7,
+   "height": 2.1,
+   "sill": 0,
+   "leaves": 1,
+   "plan": "swing",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_p80": {
+   "id": "ot_p80",
+   "kind": "door",
+   "name": "Porta 80 x 210",
+   "code": "P-02",
+   "width": 0.8,
+   "height": 2.1,
+   "sill": 0,
+   "leaves": 1,
+   "plan": "swing",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_p90": {
+   "id": "ot_p90",
+   "kind": "door",
+   "name": "Porta 90 x 210",
+   "code": "P-03",
+   "width": 0.9,
+   "height": 2.1,
+   "sill": 0,
+   "leaves": 1,
+   "plan": "swing",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_p160": {
+   "id": "ot_p160",
+   "kind": "door",
+   "name": "Porta dupla 160 x 210",
+   "code": "P-04",
+   "width": 1.6,
+   "height": 2.1,
+   "sill": 0,
+   "leaves": 2,
+   "plan": "double",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pc160": {
+   "id": "ot_pc160",
+   "kind": "door",
+   "name": "Porta de correr 160 x 210",
+   "code": "P-05",
+   "width": 1.6,
+   "height": 2.1,
+   "sill": 0,
+   "leaves": 2,
+   "plan": "sliding",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pp80": {
+   "id": "ot_pp80",
+   "kind": "door",
+   "name": "Porta pivotante 80 x 210",
+   "code": "P-06",
+   "width": 0.8,
+   "height": 2.1,
+   "sill": 0,
+   "leaves": 1,
+   "plan": "pivot",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_vao90": {
+   "id": "ot_vao90",
+   "kind": "door",
+   "name": "Vão livre 90 x 210",
+   "code": "V-01",
+   "width": 0.9,
+   "height": 2.1,
+   "sill": 0,
+   "leaves": 0,
+   "plan": "swing",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pvv90": {
+   "id": "ot_pvv90",
+   "kind": "door",
+   "name": "Porta vai-e-vem 90 x 210",
+   "code": "P-07",
+   "width": 0.9,
+   "height": 2.1,
+   "sill": 0,
+   "leaves": 1,
+   "plan": "dblact",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pe80": {
+   "id": "ot_pe80",
+   "kind": "door",
+   "name": "Porta de embutir 80 x 210",
+   "code": "P-08",
+   "width": 0.8,
+   "height": 2.1,
+   "sill": 0,
+   "leaves": 1,
+   "plan": "pocket",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pd120": {
+   "id": "ot_pd120",
+   "kind": "door",
+   "name": "Porta dobrável 2 folhas 120 x 210",
+   "code": "P-09",
+   "width": 1.2,
+   "height": 2.1,
+   "sill": 0,
+   "leaves": 2,
+   "plan": "bifold",
+   "angle2d": 55,
+   "angle3d": 70,
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_ps90": {
+   "id": "ot_ps90",
+   "kind": "door",
+   "name": "Porta sanfonada 90 x 210",
+   "code": "P-10",
+   "width": 0.9,
+   "height": 2.1,
+   "sill": 0,
+   "leaves": 1,
+   "plan": "accordion",
+   "angle3d": 75,
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pg300": {
+   "id": "ot_pg300",
+   "kind": "door",
+   "name": "Portão seccionado 300 x 220",
+   "code": "P-11",
+   "width": 3,
+   "height": 2.2,
+   "sill": 0,
+   "leaves": 1,
+   "plan": "garage",
+   "frameMaterialId": "mat_aco",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_j120": {
+   "id": "ot_j120",
+   "kind": "window",
+   "name": "Janela 120 x 120",
+   "code": "J-01",
+   "width": 1.2,
+   "height": 1.2,
+   "sill": 1.1,
+   "leaves": 2,
+   "plan": "sliding",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_j150": {
+   "id": "ot_j150",
+   "kind": "window",
+   "name": "Janela 150 x 100",
+   "code": "J-02",
+   "width": 1.5,
+   "height": 1,
+   "sill": 1.1,
+   "leaves": 2,
+   "plan": "sliding",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_j60": {
+   "id": "ot_j60",
+   "kind": "window",
+   "name": "Janela 60 x 60",
+   "code": "J-03",
+   "width": 0.6,
+   "height": 0.6,
+   "sill": 1.5,
+   "leaves": 1,
+   "plan": "casement",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_j200": {
+   "id": "ot_j200",
+   "kind": "window",
+   "name": "Janela 200 x 120",
+   "code": "J-04",
+   "width": 2,
+   "height": 1.2,
+   "sill": 1,
+   "leaves": 2,
+   "plan": "sliding",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jfixa60": {
+   "id": "ot_jfixa60",
+   "kind": "window",
+   "name": "Janela fixa 60 x 60",
+   "code": "J-05",
+   "width": 0.6,
+   "height": 0.6,
+   "sill": 1.5,
+   "leaves": 1,
+   "plan": "fixed",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_j240": {
+   "id": "ot_j240",
+   "kind": "window",
+   "name": "Janela de correr 240 x 120 (3 folhas)",
+   "code": "J-06",
+   "width": 2.4,
+   "height": 1.2,
+   "sill": 1.1,
+   "leaves": 3,
+   "plan": "sliding",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jv120": {
+   "id": "ot_jv120",
+   "kind": "window",
+   "name": "Vão livre de janela 120 x 120",
+   "code": "V-02",
+   "width": 1.2,
+   "height": 1.2,
+   "sill": 1,
+   "leaves": 0,
+   "plan": "fixed",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_ja120": {
+   "id": "ot_ja120",
+   "kind": "window",
+   "name": "Janela de abrir 120 x 120 (2 folhas)",
+   "code": "J-07",
+   "width": 1.2,
+   "height": 1.2,
+   "sill": 1.1,
+   "leaves": 2,
+   "plan": "hinged",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jg90": {
+   "id": "ot_jg90",
+   "kind": "window",
+   "name": "Janela guilhotina 90 x 150",
+   "code": "J-08",
+   "width": 0.9,
+   "height": 1.5,
+   "sill": 0.9,
+   "leaves": 2,
+   "plan": "hung",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jp80": {
+   "id": "ot_jp80",
+   "kind": "window",
+   "name": "Janela pivotante 80 x 120",
+   "code": "J-09",
+   "width": 0.8,
+   "height": 1.2,
+   "sill": 1,
+   "leaves": 1,
+   "plan": "pivotwin",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jv80": {
+   "id": "ot_jv80",
+   "kind": "window",
+   "name": "Janela veneziana 80 x 60",
+   "code": "J-10",
+   "width": 0.8,
+   "height": 0.6,
+   "sill": 1.5,
+   "leaves": 1,
+   "plan": "louver",
+   "angle3d": 45,
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jb80": {
+   "id": "ot_jb80",
+   "kind": "window",
+   "name": "Janela basculante 80 x 50",
+   "code": "J-11",
+   "width": 0.8,
+   "height": 0.5,
+   "sill": 1.7,
+   "leaves": 1,
+   "plan": "tilt",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pgiro60": {
+   "id": "ot_pgiro60",
+   "code": "P-12",
+   "name": "Porta de giro 1 folha 60 x 210",
+   "width": 0.6,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "handle": "lever",
+   "leafStyle": "flush",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pgiro70": {
+   "id": "ot_pgiro70",
+   "code": "P-13",
+   "name": "Porta de giro 1 folha 70 x 210",
+   "width": 0.7,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "handle": "lever",
+   "leafStyle": "flush",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pgiro80": {
+   "id": "ot_pgiro80",
+   "code": "P-14",
+   "name": "Porta de giro 1 folha 80 x 210",
+   "width": 0.8,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "handle": "lever",
+   "leafStyle": "panel",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pgiro90": {
+   "id": "ot_pgiro90",
+   "code": "P-15",
+   "name": "Porta de giro 1 folha 90 x 210",
+   "width": 0.9,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "handle": "lever",
+   "leafStyle": "panel",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pgiro100": {
+   "id": "ot_pgiro100",
+   "code": "P-16",
+   "name": "Porta de giro 1 folha 100 x 210",
+   "width": 1,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "handle": "lever",
+   "leafStyle": "panel",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pgiro2_120": {
+   "id": "ot_pgiro2_120",
+   "code": "P-17",
+   "name": "Porta de giro 2 folhas 120 x 210",
+   "width": 1.2,
+   "leaves": 2,
+   "plan": "double",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "handle": "lever",
+   "leafStyle": "panel",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pgiro2_140": {
+   "id": "ot_pgiro2_140",
+   "code": "P-18",
+   "name": "Porta de giro 2 folhas 140 x 210",
+   "width": 1.4,
+   "leaves": 2,
+   "plan": "double",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "handle": "lever",
+   "leafStyle": "panel",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pgiro2_160": {
+   "id": "ot_pgiro2_160",
+   "code": "P-19",
+   "name": "Porta de giro 2 folhas 160 x 210",
+   "width": 1.6,
+   "leaves": 2,
+   "plan": "double",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "handle": "lever",
+   "leafStyle": "panel",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pgiro2_180": {
+   "id": "ot_pgiro2_180",
+   "code": "P-20",
+   "name": "Porta de giro 2 folhas 180 x 210",
+   "width": 1.8,
+   "leaves": 2,
+   "plan": "double",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "handle": "lever",
+   "leafStyle": "panel",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pbalcao120": {
+   "id": "ot_pbalcao120",
+   "code": "P-21",
+   "name": "Porta-balcão 2 folhas 120 x 210",
+   "width": 1.2,
+   "leaves": 2,
+   "plan": "double",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "handle": "lever",
+   "leafStyle": "louver",
+   "glassRatio": 0.5,
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pbalcao150": {
+   "id": "ot_pbalcao150",
+   "code": "P-22",
+   "name": "Porta-balcão 2 folhas 150 x 210",
+   "width": 1.5,
+   "leaves": 2,
+   "plan": "double",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "handle": "lever",
+   "leafStyle": "louver",
+   "glassRatio": 0.5,
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pbalcao200": {
+   "id": "ot_pbalcao200",
+   "code": "P-23",
+   "name": "Porta-balcão 2 folhas 200 x 210",
+   "width": 2,
+   "leaves": 2,
+   "plan": "double",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "handle": "lever",
+   "leafStyle": "louver",
+   "glassRatio": 0.5,
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pcorrer160": {
+   "id": "ot_pcorrer160",
+   "code": "P-24",
+   "name": "Porta de correr 2 folhas 160 x 210 (folhas de 80)",
+   "width": 1.6,
+   "leaves": 2,
+   "plan": "sliding",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "leafStyle": "flush",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pcorrer180": {
+   "id": "ot_pcorrer180",
+   "code": "P-25",
+   "name": "Porta de correr 2 folhas 180 x 210 (folhas de 90)",
+   "width": 1.8,
+   "leaves": 2,
+   "plan": "sliding",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "leafStyle": "flush",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pembutir80": {
+   "id": "ot_pembutir80",
+   "code": "P-26",
+   "name": "Porta de embutir 1 folha 80 x 210",
+   "width": 0.8,
+   "leaves": 1,
+   "plan": "pocket",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "leafStyle": "flush",
+   "handle": "pull",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pembutir90": {
+   "id": "ot_pembutir90",
+   "code": "P-27",
+   "name": "Porta de embutir 1 folha 90 x 210",
+   "width": 0.9,
+   "leaves": 1,
+   "plan": "pocket",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "leafStyle": "flush",
+   "handle": "pull",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_ppiv100": {
+   "id": "ot_ppiv100",
+   "code": "P-28",
+   "name": "Porta pivotante 100 x 210",
+   "width": 1,
+   "leaves": 1,
+   "plan": "pivot",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "leafStyle": "flush",
+   "handle": "pull",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_ppiv120": {
+   "id": "ot_ppiv120",
+   "code": "P-29",
+   "name": "Porta pivotante 120 x 210",
+   "width": 1.2,
+   "leaves": 1,
+   "plan": "pivot",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "leafStyle": "flush",
+   "handle": "pull",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pcamarao2_160": {
+   "id": "ot_pcamarao2_160",
+   "code": "P-30",
+   "name": "Porta camarão 2 folhas 160 x 210",
+   "width": 1.6,
+   "leaves": 2,
+   "plan": "bifold",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "leafStyle": "flush",
+   "handle": "pull",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pcamarao4_240": {
+   "id": "ot_pcamarao4_240",
+   "code": "P-31",
+   "name": "Porta camarão 4 folhas 240 x 210",
+   "width": 2.4,
+   "leaves": 4,
+   "plan": "bifold",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "leafStyle": "flush",
+   "handle": "pull",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pvai80": {
+   "id": "ot_pvai80",
+   "code": "P-32",
+   "name": "Porta vai-e-vem 80 x 210",
+   "width": 0.8,
+   "leaves": 1,
+   "plan": "dblact",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "leafStyle": "flush",
+   "handle": "pull",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pvai90": {
+   "id": "ot_pvai90",
+   "code": "P-33",
+   "name": "Porta vai-e-vem 90 x 210",
+   "width": 0.9,
+   "leaves": 1,
+   "plan": "dblact",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "leafStyle": "flush",
+   "handle": "pull",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pvai100": {
+   "id": "ot_pvai100",
+   "code": "P-34",
+   "name": "Porta vai-e-vem 100 x 210",
+   "width": 1,
+   "leaves": 1,
+   "plan": "dblact",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "leafStyle": "flush",
+   "handle": "pull",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_psanf60": {
+   "id": "ot_psanf60",
+   "code": "P-35",
+   "name": "Porta sanfonada PVC 60 x 210",
+   "width": 0.6,
+   "leaves": 1,
+   "plan": "accordion",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "frameMaterialId": "mat_pvc",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_psanf70": {
+   "id": "ot_psanf70",
+   "code": "P-36",
+   "name": "Porta sanfonada PVC 70 x 210",
+   "width": 0.7,
+   "leaves": 1,
+   "plan": "accordion",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "frameMaterialId": "mat_pvc",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_psanf80": {
+   "id": "ot_psanf80",
+   "code": "P-37",
+   "name": "Porta sanfonada PVC 80 x 210",
+   "width": 0.8,
+   "leaves": 1,
+   "plan": "accordion",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "frameMaterialId": "mat_pvc",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_psanf90": {
+   "id": "ot_psanf90",
+   "code": "P-38",
+   "name": "Porta sanfonada PVC 90 x 210",
+   "width": 0.9,
+   "leaves": 1,
+   "plan": "accordion",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "frameMaterialId": "mat_pvc",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pvid72_8": {
+   "id": "ot_pvid72_8",
+   "code": "P-39",
+   "name": "Porta de vidro temperado 8 mm 72 x 210",
+   "width": 0.72,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "leafStyle": "glass",
+   "frameStyle": "block",
+   "glassKind": "tempered",
+   "glassThickness": 0.008,
+   "handle": "pull",
+   "frameMaterialId": "mat_vidro",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pvid72_10": {
+   "id": "ot_pvid72_10",
+   "code": "P-40",
+   "name": "Porta de vidro temperado 10 mm 72 x 210",
+   "width": 0.72,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "leafStyle": "glass",
+   "frameStyle": "block",
+   "glassKind": "tempered",
+   "glassThickness": 0.01,
+   "handle": "pull",
+   "frameMaterialId": "mat_vidro",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pvid82_8": {
+   "id": "ot_pvid82_8",
+   "code": "P-41",
+   "name": "Porta de vidro temperado 8 mm 82 x 210",
+   "width": 0.82,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "leafStyle": "glass",
+   "frameStyle": "block",
+   "glassKind": "tempered",
+   "glassThickness": 0.008,
+   "handle": "pull",
+   "frameMaterialId": "mat_vidro",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pvid82_10": {
+   "id": "ot_pvid82_10",
+   "code": "P-42",
+   "name": "Porta de vidro temperado 10 mm 82 x 210",
+   "width": 0.82,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "leafStyle": "glass",
+   "frameStyle": "block",
+   "glassKind": "tempered",
+   "glassThickness": 0.01,
+   "handle": "pull",
+   "frameMaterialId": "mat_vidro",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pvid92_8": {
+   "id": "ot_pvid92_8",
+   "code": "P-43",
+   "name": "Porta de vidro temperado 8 mm 92 x 210",
+   "width": 0.92,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "leafStyle": "glass",
+   "frameStyle": "block",
+   "glassKind": "tempered",
+   "glassThickness": 0.008,
+   "handle": "pull",
+   "frameMaterialId": "mat_vidro",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pvid92_10": {
+   "id": "ot_pvid92_10",
+   "code": "P-44",
+   "name": "Porta de vidro temperado 10 mm 92 x 210",
+   "width": 0.92,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "leafStyle": "glass",
+   "frameStyle": "block",
+   "glassKind": "tempered",
+   "glassThickness": 0.01,
+   "handle": "pull",
+   "frameMaterialId": "mat_vidro",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pf30_80": {
+   "id": "ot_pf30_80",
+   "code": "PF-30-80",
+   "name": "Porta corta-fogo PF-30 80 x 210",
+   "width": 0.8,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "handle": "lever",
+   "leafStyle": "flush",
+   "fireRating": "PF-30",
+   "frameMaterialId": "mat_aco",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pf30_90": {
+   "id": "ot_pf30_90",
+   "code": "PF-30-90",
+   "name": "Porta corta-fogo PF-30 90 x 210",
+   "width": 0.9,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "handle": "lever",
+   "leafStyle": "flush",
+   "fireRating": "PF-30",
+   "frameMaterialId": "mat_aco",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pf60_80": {
+   "id": "ot_pf60_80",
+   "code": "PF-60-80",
+   "name": "Porta corta-fogo PF-60 80 x 210",
+   "width": 0.8,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "handle": "lever",
+   "leafStyle": "flush",
+   "fireRating": "PF-60",
+   "frameMaterialId": "mat_aco",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pf60_90": {
+   "id": "ot_pf60_90",
+   "code": "PF-60-90",
+   "name": "Porta corta-fogo PF-60 90 x 210",
+   "width": 0.9,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "handle": "lever",
+   "leafStyle": "flush",
+   "fireRating": "PF-60",
+   "frameMaterialId": "mat_aco",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pf90_80": {
+   "id": "ot_pf90_80",
+   "code": "PF-90-80",
+   "name": "Porta corta-fogo PF-90 80 x 210",
+   "width": 0.8,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "handle": "lever",
+   "leafStyle": "flush",
+   "fireRating": "PF-90",
+   "frameMaterialId": "mat_aco",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pf90_90": {
+   "id": "ot_pf90_90",
+   "code": "PF-90-90",
+   "name": "Porta corta-fogo PF-90 90 x 210",
+   "width": 0.9,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "handle": "lever",
+   "leafStyle": "flush",
+   "fireRating": "PF-90",
+   "frameMaterialId": "mat_aco",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pf120_80": {
+   "id": "ot_pf120_80",
+   "code": "PF-120-80",
+   "name": "Porta corta-fogo PF-120 80 x 210",
+   "width": 0.8,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "handle": "lever",
+   "leafStyle": "flush",
+   "fireRating": "PF-120",
+   "frameMaterialId": "mat_aco",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pf120_90": {
+   "id": "ot_pf120_90",
+   "code": "PF-120-90",
+   "name": "Porta corta-fogo PF-120 90 x 210",
+   "width": 0.9,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "handle": "lever",
+   "leafStyle": "flush",
+   "fireRating": "PF-120",
+   "frameMaterialId": "mat_aco",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pbasc250": {
+   "id": "ot_pbasc250",
+   "kind": "door",
+   "name": "Portão de garagem basculante 250 x 210",
+   "code": "P-45",
+   "width": 2.5,
+   "height": 2.1,
+   "sill": 0,
+   "leaves": 1,
+   "plan": "garage",
+   "frameMaterialId": "mat_aco",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_penrol280": {
+   "id": "ot_penrol280",
+   "kind": "door",
+   "name": "Portão de enrolar 280 x 225",
+   "code": "P-46",
+   "width": 2.8,
+   "height": 2.25,
+   "sill": 0,
+   "leaves": 1,
+   "plan": "garage",
+   "frameMaterialId": "mat_aco",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jc2_120x100": {
+   "id": "ot_jc2_120x100",
+   "kind": "window",
+   "name": "Janela de correr 2 folhas 120 x 100",
+   "code": "J-12",
+   "width": 1.2,
+   "height": 1,
+   "sill": 1.1,
+   "leaves": 2,
+   "plan": "sliding",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jc2_150x120": {
+   "id": "ot_jc2_150x120",
+   "kind": "window",
+   "name": "Janela de correr 2 folhas 150 x 120",
+   "code": "J-13",
+   "width": 1.5,
+   "height": 1.2,
+   "sill": 1.1,
+   "leaves": 2,
+   "plan": "sliding",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jc2_120x150": {
+   "id": "ot_jc2_120x150",
+   "kind": "window",
+   "name": "Janela de correr 2 folhas 120 x 150",
+   "code": "J-14",
+   "width": 1.2,
+   "height": 1.5,
+   "sill": 1,
+   "leaves": 2,
+   "plan": "sliding",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jc3_150x100": {
+   "id": "ot_jc3_150x100",
+   "kind": "window",
+   "name": "Janela de correr 3 folhas 150 x 100",
+   "code": "J-15",
+   "width": 1.5,
+   "height": 1,
+   "sill": 1.1,
+   "leaves": 3,
+   "plan": "sliding",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jc3_200x120": {
+   "id": "ot_jc3_200x120",
+   "kind": "window",
+   "name": "Janela de correr 3 folhas 200 x 120",
+   "code": "J-16",
+   "width": 2,
+   "height": 1.2,
+   "sill": 1.1,
+   "leaves": 3,
+   "plan": "sliding",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jc4_200x100": {
+   "id": "ot_jc4_200x100",
+   "kind": "window",
+   "name": "Janela de correr 4 folhas 200 x 100",
+   "code": "J-17",
+   "width": 2,
+   "height": 1,
+   "sill": 1.1,
+   "leaves": 4,
+   "plan": "sliding",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jc4_200x120": {
+   "id": "ot_jc4_200x120",
+   "kind": "window",
+   "name": "Janela de correr 4 folhas 200 x 120",
+   "code": "J-18",
+   "width": 2,
+   "height": 1.2,
+   "sill": 1.1,
+   "leaves": 4,
+   "plan": "sliding",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jc4_240x120": {
+   "id": "ot_jc4_240x120",
+   "kind": "window",
+   "name": "Janela de correr 4 folhas 240 x 120",
+   "code": "J-19",
+   "width": 2.4,
+   "height": 1.2,
+   "sill": 1.1,
+   "leaves": 4,
+   "plan": "sliding",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jm_40x40": {
+   "id": "ot_jm_40x40",
+   "kind": "window",
+   "name": "Janela maxim-ar 40 x 40",
+   "code": "J-20",
+   "width": 0.4,
+   "height": 0.4,
+   "sill": 1.5,
+   "leaves": 1,
+   "plan": "casement",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jm_50x50": {
+   "id": "ot_jm_50x50",
+   "kind": "window",
+   "name": "Janela maxim-ar 50 x 50",
+   "code": "J-21",
+   "width": 0.5,
+   "height": 0.5,
+   "sill": 1.5,
+   "leaves": 1,
+   "plan": "casement",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jm_80x60": {
+   "id": "ot_jm_80x60",
+   "kind": "window",
+   "name": "Janela maxim-ar 80 x 60",
+   "code": "J-22",
+   "width": 0.8,
+   "height": 0.6,
+   "sill": 1.5,
+   "leaves": 1,
+   "plan": "casement",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jm_80x80": {
+   "id": "ot_jm_80x80",
+   "kind": "window",
+   "name": "Janela maxim-ar 80 x 80",
+   "code": "J-23",
+   "width": 0.8,
+   "height": 0.8,
+   "sill": 1.5,
+   "leaves": 1,
+   "plan": "casement",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jm_100x100": {
+   "id": "ot_jm_100x100",
+   "kind": "window",
+   "name": "Janela maxim-ar 100 x 100",
+   "code": "J-24",
+   "width": 1,
+   "height": 1,
+   "sill": 1.5,
+   "leaves": 1,
+   "plan": "casement",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jb_40x40": {
+   "id": "ot_jb_40x40",
+   "kind": "window",
+   "name": "Janela basculante 40 x 40",
+   "code": "J-25",
+   "width": 0.4,
+   "height": 0.4,
+   "sill": 1.5,
+   "leaves": 1,
+   "plan": "tilt",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jb_60x40": {
+   "id": "ot_jb_60x40",
+   "kind": "window",
+   "name": "Janela basculante 60 x 40",
+   "code": "J-26",
+   "width": 0.6,
+   "height": 0.4,
+   "sill": 1.5,
+   "leaves": 1,
+   "plan": "tilt",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jb_80x40": {
+   "id": "ot_jb_80x40",
+   "kind": "window",
+   "name": "Janela basculante 80 x 40",
+   "code": "J-27",
+   "width": 0.8,
+   "height": 0.4,
+   "sill": 1.5,
+   "leaves": 1,
+   "plan": "tilt",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jb_100x40": {
+   "id": "ot_jb_100x40",
+   "kind": "window",
+   "name": "Janela basculante 100 x 40",
+   "code": "J-28",
+   "width": 1,
+   "height": 0.4,
+   "sill": 1.5,
+   "leaves": 1,
+   "plan": "tilt",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jb_60x60": {
+   "id": "ot_jb_60x60",
+   "kind": "window",
+   "name": "Janela basculante 60 x 60",
+   "code": "J-29",
+   "width": 0.6,
+   "height": 0.6,
+   "sill": 1.5,
+   "leaves": 1,
+   "plan": "tilt",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jb_80x60": {
+   "id": "ot_jb_80x60",
+   "kind": "window",
+   "name": "Janela basculante 80 x 60",
+   "code": "J-30",
+   "width": 0.8,
+   "height": 0.6,
+   "sill": 1.5,
+   "leaves": 1,
+   "plan": "tilt",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jb_100x60": {
+   "id": "ot_jb_100x60",
+   "kind": "window",
+   "name": "Janela basculante 100 x 60",
+   "code": "J-31",
+   "width": 1,
+   "height": 0.6,
+   "sill": 1.5,
+   "leaves": 1,
+   "plan": "tilt",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jb_100x100": {
+   "id": "ot_jb_100x100",
+   "kind": "window",
+   "name": "Janela basculante 100 x 100",
+   "code": "J-32",
+   "width": 1,
+   "height": 1,
+   "sill": 1.5,
+   "leaves": 1,
+   "plan": "tilt",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jpv_60x60": {
+   "id": "ot_jpv_60x60",
+   "kind": "window",
+   "name": "Janela pivotante 60 x 60",
+   "code": "J-33",
+   "width": 0.6,
+   "height": 0.6,
+   "sill": 1,
+   "leaves": 1,
+   "plan": "pivotwin",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jpv_80x80": {
+   "id": "ot_jpv_80x80",
+   "kind": "window",
+   "name": "Janela pivotante 80 x 80",
+   "code": "J-34",
+   "width": 0.8,
+   "height": 0.8,
+   "sill": 1,
+   "leaves": 1,
+   "plan": "pivotwin",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jpv_100x100": {
+   "id": "ot_jpv_100x100",
+   "kind": "window",
+   "name": "Janela pivotante 100 x 100",
+   "code": "J-35",
+   "width": 1,
+   "height": 1,
+   "sill": 1,
+   "leaves": 1,
+   "plan": "pivotwin",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jpv_120x120": {
+   "id": "ot_jpv_120x120",
+   "kind": "window",
+   "name": "Janela pivotante 120 x 120",
+   "code": "J-36",
+   "width": 1.2,
+   "height": 1.2,
+   "sill": 1,
+   "leaves": 1,
+   "plan": "pivotwin",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jg_60x120": {
+   "id": "ot_jg_60x120",
+   "kind": "window",
+   "name": "Janela guilhotina 60 x 120",
+   "code": "J-37",
+   "width": 0.6,
+   "height": 1.2,
+   "sill": 0.9,
+   "leaves": 2,
+   "plan": "hung",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jg_80x120": {
+   "id": "ot_jg_80x120",
+   "kind": "window",
+   "name": "Janela guilhotina 80 x 120",
+   "code": "J-38",
+   "width": 0.8,
+   "height": 1.2,
+   "sill": 0.9,
+   "leaves": 2,
+   "plan": "hung",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jg_100x150": {
+   "id": "ot_jg_100x150",
+   "kind": "window",
+   "name": "Janela guilhotina 100 x 150",
+   "code": "J-39",
+   "width": 1,
+   "height": 1.5,
+   "sill": 0.9,
+   "leaves": 2,
+   "plan": "hung",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jab_60x60": {
+   "id": "ot_jab_60x60",
+   "kind": "window",
+   "name": "Janela de abrir 1 folha 60 x 60",
+   "code": "J-40",
+   "width": 0.6,
+   "height": 0.6,
+   "sill": 1.1,
+   "leaves": 1,
+   "plan": "hinged",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jab_80x80": {
+   "id": "ot_jab_80x80",
+   "kind": "window",
+   "name": "Janela de abrir 1 folha 80 x 80",
+   "code": "J-41",
+   "width": 0.8,
+   "height": 0.8,
+   "sill": 1.1,
+   "leaves": 1,
+   "plan": "hinged",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jab_100x100": {
+   "id": "ot_jab_100x100",
+   "kind": "window",
+   "name": "Janela de abrir 1 folha 100 x 100",
+   "code": "J-42",
+   "width": 1,
+   "height": 1,
+   "sill": 1.1,
+   "leaves": 1,
+   "plan": "hinged",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jab2_150x120": {
+   "id": "ot_jab2_150x120",
+   "kind": "window",
+   "name": "Janela de abrir 2 folhas 150 x 120",
+   "code": "J-43",
+   "width": 1.5,
+   "height": 1.2,
+   "sill": 1.1,
+   "leaves": 2,
+   "plan": "hinged",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jf_80x60": {
+   "id": "ot_jf_80x60",
+   "kind": "window",
+   "name": "Janela fixa 80 x 60",
+   "code": "J-44",
+   "width": 0.8,
+   "height": 0.6,
+   "sill": 1.5,
+   "leaves": 1,
+   "plan": "fixed",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jf_120x120": {
+   "id": "ot_jf_120x120",
+   "kind": "window",
+   "name": "Janela fixa 120 x 120",
+   "code": "J-45",
+   "width": 1.2,
+   "height": 1.2,
+   "sill": 1.1,
+   "leaves": 1,
+   "plan": "fixed",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jven_120x100": {
+   "id": "ot_jven_120x100",
+   "kind": "window",
+   "name": "Janela veneziana 120 x 100",
+   "code": "J-46",
+   "width": 1.2,
+   "height": 1,
+   "sill": 1.5,
+   "leaves": 1,
+   "plan": "louver",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jven_150x100": {
+   "id": "ot_jven_150x100",
+   "kind": "window",
+   "name": "Janela veneziana 150 x 100",
+   "code": "J-47",
+   "width": 1.5,
+   "height": 1,
+   "sill": 1.5,
+   "leaves": 1,
+   "plan": "louver",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jban_90x40": {
+   "id": "ot_jban_90x40",
+   "kind": "window",
+   "name": "Bandeira fixa 90 x 40",
+   "code": "J-48",
+   "width": 0.9,
+   "height": 0.4,
+   "sill": 2.1,
+   "leaves": 1,
+   "plan": "fixed",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jban_90x60": {
+   "id": "ot_jban_90x60",
+   "kind": "window",
+   "name": "Bandeira fixa 90 x 60",
+   "code": "J-49",
+   "width": 0.9,
+   "height": 0.6,
+   "sill": 2.1,
+   "leaves": 1,
+   "plan": "fixed",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_jbanh_100x50": {
+   "id": "ot_jbanh_100x50",
+   "kind": "window",
+   "name": "Janela de banheiro (peitoril alto) 100 x 50",
+   "code": "J-50",
+   "width": 1,
+   "height": 0.5,
+   "sill": 1.8,
+   "leaves": 1,
+   "plan": "casement",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_pband40_90": {
+   "id": "ot_pband40_90",
+   "code": "P-47",
+   "name": "Porta de giro 90 x 210 com bandeira fixa 40",
+   "width": 0.9,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "leaf",
+     "width": 0.9,
+     "height": 2.1,
+     "gap": {
+      "w": 0.08,
+      "h": 0.05
+     },
+     "nominalCellId": "folha"
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_mad_batente_5x9"
+     },
+     "depthMode": "wall"
+    },
+    "layout": {
+     "kind": "split",
+     "id": "raiz",
+     "axis": "rows",
+     "divider": {
+      "presetId": "prf_mad_divisor_5x9"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "folha",
+        "content": {
+         "kind": "leaf",
+         "family": "door_swing",
+         "plan": "swing",
+         "leaves": 1,
+         "options": {
+          "handle": "lever",
+          "leafStyle": "panel"
+         }
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.4
+       },
+       "node": {
+        "kind": "cell",
+        "id": "bandeira",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_pband60_90": {
+   "id": "ot_pband60_90",
+   "code": "P-48",
+   "name": "Porta de giro 90 x 210 com bandeira fixa 60",
+   "width": 0.9,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "leaf",
+     "width": 0.9,
+     "height": 2.1,
+     "gap": {
+      "w": 0.08,
+      "h": 0.05
+     },
+     "nominalCellId": "folha"
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_mad_batente_5x9"
+     },
+     "depthMode": "wall"
+    },
+    "layout": {
+     "kind": "split",
+     "id": "raiz",
+     "axis": "rows",
+     "divider": {
+      "presetId": "prf_mad_divisor_5x9"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "folha",
+        "content": {
+         "kind": "leaf",
+         "family": "door_swing",
+         "plan": "swing",
+         "leaves": 1,
+         "options": {
+          "handle": "lever",
+          "leafStyle": "panel"
+         }
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.6
+       },
+       "node": {
+        "kind": "cell",
+        "id": "bandeira",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_plat40e_80": {
+   "id": "ot_plat40e_80",
+   "code": "P-49",
+   "name": "Porta de giro 80 x 210 com lateral fixa esquerda 40",
+   "width": 0.8,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "leaf",
+     "width": 0.8,
+     "height": 2.1,
+     "gap": {
+      "w": 0.08,
+      "h": 0.05
+     },
+     "nominalCellId": "folha"
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_mad_batente_5x9"
+     },
+     "depthMode": "wall",
+     "sill": {
+      "presetId": "prf_mad_divisor_5x9"
+     }
+    },
+    "layout": {
+     "kind": "split",
+     "id": "lat",
+     "axis": "cols",
+     "divider": {
+      "presetId": "prf_mad_divisor_5x9"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.4
+       },
+       "node": {
+        "kind": "cell",
+        "id": "lat-esq",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "folha",
+        "content": {
+         "kind": "leaf",
+         "family": "door_swing",
+         "plan": "swing",
+         "leaves": 1,
+         "options": {
+          "handle": "lever",
+          "leafStyle": "panel"
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_plat40d_80": {
+   "id": "ot_plat40d_80",
+   "code": "P-50",
+   "name": "Porta de giro 80 x 210 com lateral fixa direita 40",
+   "width": 0.8,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "leaf",
+     "width": 0.8,
+     "height": 2.1,
+     "gap": {
+      "w": 0.08,
+      "h": 0.05
+     },
+     "nominalCellId": "folha"
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_mad_batente_5x9"
+     },
+     "depthMode": "wall",
+     "sill": {
+      "presetId": "prf_mad_divisor_5x9"
+     }
+    },
+    "layout": {
+     "kind": "split",
+     "id": "lat",
+     "axis": "cols",
+     "divider": {
+      "presetId": "prf_mad_divisor_5x9"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "folha",
+        "content": {
+         "kind": "leaf",
+         "family": "door_swing",
+         "plan": "swing",
+         "leaves": 1,
+         "options": {
+          "handle": "lever",
+          "leafStyle": "panel"
+         }
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.4
+       },
+       "node": {
+        "kind": "cell",
+        "id": "lat-dir",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_plat40e_90": {
+   "id": "ot_plat40e_90",
+   "code": "P-51",
+   "name": "Porta de giro 90 x 210 com lateral fixa esquerda 40",
+   "width": 0.9,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "leaf",
+     "width": 0.9,
+     "height": 2.1,
+     "gap": {
+      "w": 0.08,
+      "h": 0.05
+     },
+     "nominalCellId": "folha"
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_mad_batente_5x9"
+     },
+     "depthMode": "wall",
+     "sill": {
+      "presetId": "prf_mad_divisor_5x9"
+     }
+    },
+    "layout": {
+     "kind": "split",
+     "id": "lat",
+     "axis": "cols",
+     "divider": {
+      "presetId": "prf_mad_divisor_5x9"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.4
+       },
+       "node": {
+        "kind": "cell",
+        "id": "lat-esq",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "folha",
+        "content": {
+         "kind": "leaf",
+         "family": "door_swing",
+         "plan": "swing",
+         "leaves": 1,
+         "options": {
+          "handle": "lever",
+          "leafStyle": "panel"
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_plat40d_90": {
+   "id": "ot_plat40d_90",
+   "code": "P-52",
+   "name": "Porta de giro 90 x 210 com lateral fixa direita 40",
+   "width": 0.9,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "leaf",
+     "width": 0.9,
+     "height": 2.1,
+     "gap": {
+      "w": 0.08,
+      "h": 0.05
+     },
+     "nominalCellId": "folha"
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_mad_batente_5x9"
+     },
+     "depthMode": "wall",
+     "sill": {
+      "presetId": "prf_mad_divisor_5x9"
+     }
+    },
+    "layout": {
+     "kind": "split",
+     "id": "lat",
+     "axis": "cols",
+     "divider": {
+      "presetId": "prf_mad_divisor_5x9"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "folha",
+        "content": {
+         "kind": "leaf",
+         "family": "door_swing",
+         "plan": "swing",
+         "leaves": 1,
+         "options": {
+          "handle": "lever",
+          "leafStyle": "panel"
+         }
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.4
+       },
+       "node": {
+        "kind": "cell",
+        "id": "lat-dir",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_plat2_80": {
+   "id": "ot_plat2_80",
+   "code": "P-53",
+   "name": "Porta de giro 80 x 210 com 2 laterais fixas 40",
+   "width": 0.8,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "leaf",
+     "width": 0.8,
+     "height": 2.1,
+     "gap": {
+      "w": 0.08,
+      "h": 0.05
+     },
+     "nominalCellId": "folha"
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_mad_batente_5x9"
+     },
+     "depthMode": "wall",
+     "sill": {
+      "presetId": "prf_mad_divisor_5x9"
+     }
+    },
+    "layout": {
+     "kind": "split",
+     "id": "lat",
+     "axis": "cols",
+     "divider": {
+      "presetId": "prf_mad_divisor_5x9"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.4
+       },
+       "node": {
+        "kind": "cell",
+        "id": "lat-esq",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "folha",
+        "content": {
+         "kind": "leaf",
+         "family": "door_swing",
+         "plan": "swing",
+         "leaves": 1,
+         "options": {
+          "handle": "lever",
+          "leafStyle": "panel"
+         }
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.4
+       },
+       "node": {
+        "kind": "cell",
+        "id": "lat-dir",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_plat2_90": {
+   "id": "ot_plat2_90",
+   "code": "P-54",
+   "name": "Porta de giro 90 x 210 com 2 laterais fixas 40",
+   "width": 0.9,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "leaf",
+     "width": 0.9,
+     "height": 2.1,
+     "gap": {
+      "w": 0.08,
+      "h": 0.05
+     },
+     "nominalCellId": "folha"
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_mad_batente_5x9"
+     },
+     "depthMode": "wall",
+     "sill": {
+      "presetId": "prf_mad_divisor_5x9"
+     }
+    },
+    "layout": {
+     "kind": "split",
+     "id": "lat",
+     "axis": "cols",
+     "divider": {
+      "presetId": "prf_mad_divisor_5x9"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.4
+       },
+       "node": {
+        "kind": "cell",
+        "id": "lat-esq",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "folha",
+        "content": {
+         "kind": "leaf",
+         "family": "door_swing",
+         "plan": "swing",
+         "leaves": 1,
+         "options": {
+          "handle": "lever",
+          "leafStyle": "panel"
+         }
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.4
+       },
+       "node": {
+        "kind": "cell",
+        "id": "lat-dir",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_pband_lat2_90": {
+   "id": "ot_pband_lat2_90",
+   "code": "P-55",
+   "name": "Porta de giro 90 x 210 com bandeira fixa 40 e 2 laterais 40",
+   "width": 0.9,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "leaf",
+     "width": 0.9,
+     "height": 2.1,
+     "gap": {
+      "w": 0.08,
+      "h": 0.05
+     },
+     "nominalCellId": "folha"
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_mad_batente_5x9"
+     },
+     "depthMode": "wall",
+     "sill": {
+      "presetId": "prf_mad_divisor_5x9"
+     }
+    },
+    "layout": {
+     "kind": "split",
+     "id": "raiz",
+     "axis": "rows",
+     "divider": {
+      "presetId": "prf_mad_divisor_5x9"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "split",
+        "id": "lat",
+        "axis": "cols",
+        "divider": {
+         "presetId": "prf_mad_divisor_5x9"
+        },
+        "children": [
+         {
+          "size": {
+           "mode": "fixed",
+           "value": 0.4
+          },
+          "node": {
+           "kind": "cell",
+           "id": "lat-esq",
+           "content": {
+            "kind": "glass",
+            "glass": {
+             "kind": "clear",
+             "thickness": 0.012,
+             "mounting": "rebate"
+            }
+           }
+          }
+         },
+         {
+          "size": {
+           "mode": "fill"
+          },
+          "node": {
+           "kind": "cell",
+           "id": "folha",
+           "content": {
+            "kind": "leaf",
+            "family": "door_swing",
+            "plan": "swing",
+            "leaves": 1,
+            "options": {
+             "handle": "lever",
+             "leafStyle": "panel"
+            }
+           }
+          }
+         },
+         {
+          "size": {
+           "mode": "fixed",
+           "value": 0.4
+          },
+          "node": {
+           "kind": "cell",
+           "id": "lat-dir",
+           "content": {
+            "kind": "glass",
+            "glass": {
+             "kind": "clear",
+             "thickness": 0.012,
+             "mounting": "rebate"
+            }
+           }
+          }
+         }
+        ]
+       }
+      },
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.4
+       },
+       "node": {
+        "kind": "cell",
+        "id": "bandeira",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_ppainel_90": {
+   "id": "ot_ppainel_90",
+   "code": "P-56",
+   "name": "Porta de giro 90 x 210 com painel cego lateral 40",
+   "width": 0.9,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "leaf",
+     "width": 0.9,
+     "height": 2.1,
+     "gap": {
+      "w": 0.08,
+      "h": 0.05
+     },
+     "nominalCellId": "folha"
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_mad_batente_5x9"
+     },
+     "depthMode": "wall",
+     "sill": {
+      "presetId": "prf_mad_divisor_5x9"
+     }
+    },
+    "layout": {
+     "kind": "split",
+     "id": "lat",
+     "axis": "cols",
+     "divider": {
+      "presetId": "prf_mad_divisor_5x9"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.4
+       },
+       "node": {
+        "kind": "cell",
+        "id": "painel-esq",
+        "content": {
+         "kind": "panel",
+         "thickness": 0.02
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "folha",
+        "content": {
+         "kind": "leaf",
+         "family": "door_swing",
+         "plan": "swing",
+         "leaves": 1,
+         "options": {
+          "handle": "lever",
+          "leafStyle": "panel"
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_pbalcao_band120": {
+   "id": "ot_pbalcao_band120",
+   "code": "P-57",
+   "name": "Porta-balcão 2 folhas 120 x 210 com bandeira fixa 40",
+   "width": 1.2,
+   "leaves": 2,
+   "plan": "double",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "leaf",
+     "width": 1.2,
+     "height": 2.1,
+     "gap": {
+      "w": 0.08,
+      "h": 0.05
+     },
+     "nominalCellId": "folha"
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_mad_batente_5x9"
+     },
+     "depthMode": "wall"
+    },
+    "layout": {
+     "kind": "split",
+     "id": "raiz",
+     "axis": "rows",
+     "divider": {
+      "presetId": "prf_mad_divisor_5x9"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "folha",
+        "content": {
+         "kind": "leaf",
+         "family": "door_double",
+         "plan": "double",
+         "leaves": 2,
+         "options": {
+          "handle": "lever",
+          "leafStyle": "louver",
+          "glassRatio": 0.5
+         }
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.4
+       },
+       "node": {
+        "kind": "cell",
+        "id": "bandeira",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_pcorrer_band160": {
+   "id": "ot_pcorrer_band160",
+   "code": "P-58",
+   "name": "Porta de correr 2 folhas 160 x 210 com bandeira fixa 40",
+   "width": 1.6,
+   "leaves": 2,
+   "plan": "sliding",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "leaf",
+     "width": 1.6,
+     "height": 2.1,
+     "gap": {
+      "w": 0.08,
+      "h": 0.05
+     },
+     "nominalCellId": "folha"
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_mad_batente_5x9"
+     },
+     "depthMode": "wall"
+    },
+    "layout": {
+     "kind": "split",
+     "id": "raiz",
+     "axis": "rows",
+     "divider": {
+      "presetId": "prf_mad_divisor_5x9"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "folha",
+        "content": {
+         "kind": "leaf",
+         "family": "door_sliding",
+         "plan": "sliding",
+         "leaves": 2,
+         "options": {
+          "handle": "pull",
+          "leafStyle": "flush"
+         }
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.4
+       },
+       "node": {
+        "kind": "cell",
+        "id": "bandeira",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_pband40_alu_90": {
+   "id": "ot_pband40_alu_90",
+   "code": "P-59",
+   "name": "Porta de giro 90 x 210 alumínio com bandeira fixa 40",
+   "width": 0.9,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "leaf",
+     "width": 0.9,
+     "height": 2.1,
+     "gap": {
+      "w": 0.08,
+      "h": 0.05
+     },
+     "nominalCellId": "folha"
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_alu_l25"
+     },
+     "depthMode": "wall"
+    },
+    "layout": {
+     "kind": "split",
+     "id": "raiz",
+     "axis": "rows",
+     "divider": {
+      "presetId": "prf_alu_divisor_25"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "folha",
+        "content": {
+         "kind": "leaf",
+         "family": "door_swing",
+         "plan": "swing",
+         "leaves": 1,
+         "options": {
+          "handle": "lever",
+          "leafStyle": "panel"
+         }
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.4
+       },
+       "node": {
+        "kind": "cell",
+        "id": "bandeira",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_pband40_pvc_90": {
+   "id": "ot_pband40_pvc_90",
+   "code": "P-60",
+   "name": "Porta de giro 90 x 210 PVC 60 com bandeira fixa 40",
+   "width": 0.9,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "frameMaterialId": "mat_pvc",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "leaf",
+     "width": 0.9,
+     "height": 2.1,
+     "gap": {
+      "w": 0.08,
+      "h": 0.05
+     },
+     "nominalCellId": "folha"
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_pvc_60"
+     },
+     "depthMode": "wall"
+    },
+    "layout": {
+     "kind": "split",
+     "id": "raiz",
+     "axis": "rows",
+     "divider": {
+      "presetId": "prf_pvc_divisor_60"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "folha",
+        "content": {
+         "kind": "leaf",
+         "family": "door_swing",
+         "plan": "swing",
+         "leaves": 1,
+         "options": {
+          "handle": "lever",
+          "leafStyle": "panel"
+         }
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.4
+       },
+       "node": {
+        "kind": "cell",
+        "id": "bandeira",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_plat2_alu_90": {
+   "id": "ot_plat2_alu_90",
+   "code": "P-61",
+   "name": "Porta de giro 90 x 210 alumínio com 2 laterais fixas 40",
+   "width": 0.9,
+   "leaves": 1,
+   "plan": "swing",
+   "kind": "door",
+   "height": 2.1,
+   "sill": 0,
+   "nominalRef": "leaf",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "leaf",
+     "width": 0.9,
+     "height": 2.1,
+     "gap": {
+      "w": 0.08,
+      "h": 0.05
+     },
+     "nominalCellId": "folha"
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_alu_l25"
+     },
+     "depthMode": "wall",
+     "sill": {
+      "presetId": "prf_alu_divisor_25"
+     }
+    },
+    "layout": {
+     "kind": "split",
+     "id": "lat",
+     "axis": "cols",
+     "divider": {
+      "presetId": "prf_alu_divisor_25"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.4
+       },
+       "node": {
+        "kind": "cell",
+        "id": "lat-esq",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "folha",
+        "content": {
+         "kind": "leaf",
+         "family": "door_swing",
+         "plan": "swing",
+         "leaves": 1,
+         "options": {
+          "handle": "lever",
+          "leafStyle": "panel"
+         }
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.4
+       },
+       "node": {
+        "kind": "cell",
+        "id": "lat-dir",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_jcomb_fa150x120": {
+   "id": "ot_jcomb_fa150x120",
+   "code": "J-51",
+   "name": "Janela combinada fixa + abrir 1 folha 150 x 120",
+   "width": 1.5,
+   "height": 1.2,
+   "sill": 1,
+   "leaves": 1,
+   "plan": "hinged",
+   "kind": "window",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "opening",
+     "width": 1.5,
+     "height": 1.2
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_alu_l25"
+     },
+     "depthMode": "wall"
+    },
+    "layout": {
+     "kind": "split",
+     "id": "lat",
+     "axis": "cols",
+     "divider": {
+      "presetId": "prf_alu_divisor_25"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.6
+       },
+       "node": {
+        "kind": "cell",
+        "id": "fixa",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "abrir",
+        "content": {
+         "kind": "leaf",
+         "family": "window_hinged",
+         "plan": "hinged",
+         "leaves": 1,
+         "options": {}
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_jcomb_fc180x120": {
+   "id": "ot_jcomb_fc180x120",
+   "code": "J-52",
+   "name": "Janela combinada fixa + correr 2 folhas 180 x 120",
+   "width": 1.8,
+   "height": 1.2,
+   "sill": 1,
+   "leaves": 2,
+   "plan": "sliding",
+   "kind": "window",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "opening",
+     "width": 1.8,
+     "height": 1.2
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_alu_l25"
+     },
+     "depthMode": "wall"
+    },
+    "layout": {
+     "kind": "split",
+     "id": "lat",
+     "axis": "cols",
+     "divider": {
+      "presetId": "prf_alu_divisor_25"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.6
+       },
+       "node": {
+        "kind": "cell",
+        "id": "fixa",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "correr",
+        "content": {
+         "kind": "leaf",
+         "family": "window_sliding",
+         "plan": "sliding",
+         "leaves": 2,
+         "options": {}
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_jabr_fa160x120": {
+   "id": "ot_jabr_fa160x120",
+   "code": "J-53",
+   "name": "Janela de abrir + fixa + abrir (3 módulos) 160 x 120",
+   "width": 1.6,
+   "height": 1.2,
+   "sill": 1,
+   "leaves": 2,
+   "plan": "hinged",
+   "kind": "window",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "opening",
+     "width": 1.6,
+     "height": 1.2
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_alu_l25"
+     },
+     "depthMode": "wall"
+    },
+    "layout": {
+     "kind": "split",
+     "id": "lat",
+     "axis": "cols",
+     "divider": {
+      "presetId": "prf_alu_divisor_25"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.45
+       },
+       "node": {
+        "kind": "cell",
+        "id": "abre-esq",
+        "content": {
+         "kind": "leaf",
+         "family": "window_hinged",
+         "plan": "hinged",
+         "leaves": 1,
+         "options": {}
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "fixa",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.45
+       },
+       "node": {
+        "kind": "cell",
+        "id": "abre-dir",
+        "content": {
+         "kind": "leaf",
+         "family": "window_hinged",
+         "plan": "hinged",
+         "leaves": 1,
+         "options": {}
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_jband_100x150": {
+   "id": "ot_jband_100x150",
+   "code": "J-54",
+   "name": "Janela com bandeira fixa superior 100 x 150",
+   "width": 1,
+   "height": 1.5,
+   "sill": 1,
+   "leaves": 1,
+   "plan": "hinged",
+   "kind": "window",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "opening",
+     "width": 1,
+     "height": 1.5
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_alu_l25"
+     },
+     "depthMode": "wall"
+    },
+    "layout": {
+     "kind": "split",
+     "id": "raiz",
+     "axis": "rows",
+     "divider": {
+      "presetId": "prf_alu_divisor_25"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "abrir",
+        "content": {
+         "kind": "leaf",
+         "family": "window_hinged",
+         "plan": "hinged",
+         "leaves": 1,
+         "options": {}
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.35
+       },
+       "node": {
+        "kind": "cell",
+        "id": "bandeira",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_jcorrer_band200x150": {
+   "id": "ot_jcorrer_band200x150",
+   "code": "J-55",
+   "name": "Janela de correr 2 folhas com bandeira fixa 200 x 150",
+   "width": 2,
+   "height": 1.5,
+   "sill": 1,
+   "leaves": 2,
+   "plan": "sliding",
+   "kind": "window",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "opening",
+     "width": 2,
+     "height": 1.5
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_alu_l25"
+     },
+     "depthMode": "wall"
+    },
+    "layout": {
+     "kind": "split",
+     "id": "raiz",
+     "axis": "rows",
+     "divider": {
+      "presetId": "prf_alu_divisor_25"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "correr",
+        "content": {
+         "kind": "leaf",
+         "family": "window_sliding",
+         "plan": "sliding",
+         "leaves": 2,
+         "options": {}
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.35
+       },
+       "node": {
+        "kind": "cell",
+        "id": "bandeira",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_jalta_80x210": {
+   "id": "ot_jalta_80x210",
+   "code": "J-56",
+   "name": "Janela alta (fixa + abrir embaixo) 80 x 210",
+   "width": 0.8,
+   "height": 2.1,
+   "sill": 0.5,
+   "leaves": 1,
+   "plan": "hinged",
+   "kind": "window",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "opening",
+     "width": 0.8,
+     "height": 2.1
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_alu_l25"
+     },
+     "depthMode": "wall"
+    },
+    "layout": {
+     "kind": "split",
+     "id": "raiz",
+     "axis": "rows",
+     "divider": {
+      "presetId": "prf_alu_divisor_25"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 1
+       },
+       "node": {
+        "kind": "cell",
+        "id": "abrir",
+        "content": {
+         "kind": "leaf",
+         "family": "window_hinged",
+         "plan": "hinged",
+         "leaves": 1,
+         "options": {}
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "fixa",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_jcomb_madeira_150x120": {
+   "id": "ot_jcomb_madeira_150x120",
+   "code": "J-57",
+   "name": "Janela combinada madeira fixa + abrir 1 folha 150 x 120",
+   "width": 1.5,
+   "height": 1.2,
+   "sill": 1,
+   "leaves": 1,
+   "plan": "hinged",
+   "kind": "window",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "opening",
+     "width": 1.5,
+     "height": 1.2
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_mad_batente_5x9"
+     },
+     "depthMode": "wall"
+    },
+    "layout": {
+     "kind": "split",
+     "id": "lat",
+     "axis": "cols",
+     "divider": {
+      "presetId": "prf_mad_divisor_5x9"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.6
+       },
+       "node": {
+        "kind": "cell",
+        "id": "fixa",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "abrir",
+        "content": {
+         "kind": "leaf",
+         "family": "window_hinged",
+         "plan": "hinged",
+         "leaves": 1,
+         "options": {}
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_jcomb_pvc_150x120": {
+   "id": "ot_jcomb_pvc_150x120",
+   "code": "J-58",
+   "name": "Janela combinada PVC 60 fixa + abrir 1 folha 150 x 120",
+   "width": 1.5,
+   "height": 1.2,
+   "sill": 1,
+   "leaves": 1,
+   "plan": "hinged",
+   "kind": "window",
+   "frameMaterialId": "mat_pvc",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "opening",
+     "width": 1.5,
+     "height": 1.2
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_pvc_60"
+     },
+     "depthMode": "wall"
+    },
+    "layout": {
+     "kind": "split",
+     "id": "lat",
+     "axis": "cols",
+     "divider": {
+      "presetId": "prf_pvc_divisor_60"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 0.6
+       },
+       "node": {
+        "kind": "cell",
+        "id": "fixa",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "abrir",
+        "content": {
+         "kind": "leaf",
+         "family": "window_hinged",
+         "plan": "hinged",
+         "leaves": 1,
+         "options": {}
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_jalta_madeira_80x210": {
+   "id": "ot_jalta_madeira_80x210",
+   "code": "J-59",
+   "name": "Janela alta madeira (fixa + abrir embaixo) 80 x 210",
+   "width": 0.8,
+   "height": 2.1,
+   "sill": 0.5,
+   "leaves": 1,
+   "plan": "hinged",
+   "kind": "window",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit",
+   "composition": {
+    "version": 1,
+    "nominal": {
+     "ref": "opening",
+     "width": 0.8,
+     "height": 2.1
+    },
+    "frame": {
+     "style": "rebate",
+     "profile": {
+      "presetId": "prf_mad_batente_5x9"
+     },
+     "depthMode": "wall"
+    },
+    "layout": {
+     "kind": "split",
+     "id": "raiz",
+     "axis": "rows",
+     "divider": {
+      "presetId": "prf_mad_divisor_5x9"
+     },
+     "children": [
+      {
+       "size": {
+        "mode": "fixed",
+        "value": 1
+       },
+       "node": {
+        "kind": "cell",
+        "id": "abrir",
+        "content": {
+         "kind": "leaf",
+         "family": "window_hinged",
+         "plan": "hinged",
+         "leaves": 1,
+         "options": {}
+        }
+       }
+      },
+      {
+       "size": {
+        "mode": "fill"
+       },
+       "node": {
+        "kind": "cell",
+        "id": "fixa",
+        "content": {
+         "kind": "glass",
+         "glass": {
+          "kind": "clear",
+          "thickness": 0.012,
+          "mounting": "rebate"
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  "ot_pv120": {
+   "id": "ot_pv120",
+   "kind": "door",
+   "name": "Porta 120 x 210 pivotante",
+   "width": 1.2,
+   "height": 2.1,
+   "sill": 0,
+   "leaves": 1,
+   "plan": "pivot",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_portao450": {
+   "id": "ot_portao450",
+   "kind": "door",
+   "name": "Portão de garagem 4,50 x 2,20",
+   "width": 4.5,
+   "height": 2.2,
+   "sill": 0,
+   "leaves": 2,
+   "plan": "sliding",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_vao140": {
+   "id": "ot_vao140",
+   "kind": "door",
+   "name": "Vão livre 1,40 x 2,40",
+   "width": 1.4,
+   "height": 2.4,
+   "sill": 0,
+   "leaves": 0,
+   "plan": "swing",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_vao180": {
+   "id": "ot_vao180",
+   "kind": "door",
+   "name": "Vão livre 1,80 x 2,40",
+   "width": 1.8,
+   "height": 2.4,
+   "sill": 0,
+   "leaves": 0,
+   "plan": "swing",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_vao240": {
+   "id": "ot_vao240",
+   "kind": "door",
+   "name": "Vão livre 2,40 x 2,40",
+   "width": 2.4,
+   "height": 2.4,
+   "sill": 0,
+   "leaves": 0,
+   "plan": "swing",
+   "frameMaterialId": "mat_madeira",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_j240x220": {
+   "id": "ot_j240x220",
+   "kind": "window",
+   "name": "Janelão 2,40 x 2,20",
+   "width": 2.4,
+   "height": 2.2,
+   "sill": 0,
+   "leaves": 2,
+   "plan": "sliding",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_j240x160": {
+   "id": "ot_j240x160",
+   "kind": "window",
+   "name": "Janela 2,40 x 1,60",
+   "width": 2.4,
+   "height": 1.6,
+   "sill": 1.1,
+   "leaves": 2,
+   "plan": "sliding",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_j240x140": {
+   "id": "ot_j240x140",
+   "kind": "window",
+   "name": "Janela 2,40 x 1,40",
+   "width": 2.4,
+   "height": 1.4,
+   "sill": 1.1,
+   "leaves": 2,
+   "plan": "sliding",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  },
+  "ot_j60x100": {
+   "id": "ot_j60x100",
+   "kind": "window",
+   "name": "Janela 0,60 x 1,00",
+   "width": 0.6,
+   "height": 1,
+   "sill": 1.5,
+   "leaves": 1,
+   "plan": "casement",
+   "frameMaterialId": "mat_aluminio",
+   "glassMaterialId": "mat_vidro",
+   "closure": "inherit"
+  }
+ },
+ "elements": {
+  "T-EXT-O": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": "lv_1",
+   "height": 2.8,
+   "topOffset": -0.17,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "T-EXT-O",
+   "typeId": "wt_ext19",
+   "levelId": "lv_0",
+   "a": {
+    "x": 0,
+    "y": 0
+   },
+   "b": {
+    "x": 0,
+    "y": 14
+   },
+   "order": 1
+  },
+  "T-EXT-S": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": "lv_1",
+   "height": 2.8,
+   "topOffset": -0.17,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "T-EXT-S",
+   "typeId": "wt_ext19",
+   "levelId": "lv_0",
+   "a": {
+    "x": 11.75,
+    "y": 0
+   },
+   "b": {
+    "x": 0,
+    "y": 0
+   },
+   "order": 2
+  },
+  "T-EXT-L": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": "lv_1",
+   "height": 2.8,
+   "topOffset": -0.17,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "T-EXT-L",
+   "typeId": "wt_ext19",
+   "levelId": "lv_0",
+   "a": {
+    "x": 11.75,
+    "y": 14
+   },
+   "b": {
+    "x": 11.75,
+    "y": 0
+   },
+   "order": 3
+  },
+  "T-EXT-N": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": "lv_1",
+   "height": 2.8,
+   "topOffset": -0.17,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "T-EXT-N",
+   "typeId": "wt_ext19",
+   "levelId": "lv_0",
+   "a": {
+    "x": 0,
+    "y": 14
+   },
+   "b": {
+    "x": 5.5,
+    "y": 14
+   },
+   "order": 4
+  },
+  "T-I-01": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": "lv_1",
+   "height": 2.8,
+   "topOffset": -0.17,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "T-I-01",
+   "typeId": "wt_alv14",
+   "levelId": "lv_0",
+   "a": {
+    "x": 5.5,
+    "y": 0
+   },
+   "b": {
+    "x": 5.5,
+    "y": 14
+   },
+   "order": 5
+  },
+  "T-I-02": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": "lv_1",
+   "height": 2.8,
+   "topOffset": -0.17,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "T-I-02",
+   "typeId": "wt_alv14",
+   "levelId": "lv_0",
+   "a": {
+    "x": 0,
+    "y": 5.5
+   },
+   "b": {
+    "x": 5.5,
+    "y": 5.5
+   },
+   "order": 6
+  },
+  "T-I-03": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": "lv_1",
+   "height": 2.8,
+   "topOffset": -0.17,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "T-I-03",
+   "typeId": "wt_alv9",
+   "levelId": "lv_0",
+   "a": {
+    "x": 0,
+    "y": 9.5
+   },
+   "b": {
+    "x": 5.5,
+    "y": 9.5
+   },
+   "order": 7
+  },
+  "T-I-04": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": "lv_1",
+   "height": 2.8,
+   "topOffset": -0.17,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "T-I-04",
+   "typeId": "wt_alv14",
+   "levelId": "lv_0",
+   "a": {
+    "x": 0,
+    "y": 11.5
+   },
+   "b": {
+    "x": 5.5,
+    "y": 11.5
+   },
+   "order": 8
+  },
+  "T-I-05": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.83,
+   "topOffset": 0,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "T-I-05",
+   "typeId": "wt_alv9",
+   "levelId": "lv_0",
+   "a": {
+    "x": 6.854,
+    "y": 2
+   },
+   "b": {
+    "x": 6.854,
+    "y": 5.9
+   },
+   "order": 9
+  },
+  "T-I-06": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": "lv_1",
+   "height": 2.8,
+   "topOffset": -0.17,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "T-I-06",
+   "typeId": "wt_alv9",
+   "levelId": "lv_0",
+   "a": {
+    "x": 5.5,
+    "y": 6.63
+   },
+   "b": {
+    "x": 8.9,
+    "y": 6.63
+   },
+   "order": 10
+  },
+  "T-I-07": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": "lv_1",
+   "height": 2.8,
+   "topOffset": -0.17,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "T-I-07",
+   "typeId": "wt_alv9",
+   "levelId": "lv_0",
+   "a": {
+    "x": 8.9,
+    "y": 0
+   },
+   "b": {
+    "x": 8.9,
+    "y": 10.4
+   },
+   "order": 11
+  },
+  "T-I-08": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": "lv_1",
+   "height": 2.8,
+   "topOffset": -0.17,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "T-I-08",
+   "typeId": "wt_alv9",
+   "levelId": "lv_0",
+   "a": {
+    "x": 8.9,
+    "y": 2
+   },
+   "b": {
+    "x": 10.8,
+    "y": 2
+   },
+   "order": 12
+  },
+  "T-I-09": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": "lv_1",
+   "height": 2.8,
+   "topOffset": -0.17,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "T-I-09",
+   "typeId": "wt_alv9",
+   "levelId": "lv_0",
+   "a": {
+    "x": 10.8,
+    "y": 0
+   },
+   "b": {
+    "x": 10.8,
+    "y": 2
+   },
+   "order": 13
+  },
+  "T-I-10": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": "lv_1",
+   "height": 2.8,
+   "topOffset": -0.17,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "T-I-10",
+   "typeId": "wt_alv9",
+   "levelId": "lv_0",
+   "a": {
+    "x": 5.5,
+    "y": 10.4
+   },
+   "b": {
+    "x": 8.9,
+    "y": 10.4
+   },
+   "order": 14
+  },
+  "T-I-11": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": "lv_1",
+   "height": 2.8,
+   "topOffset": -0.17,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "T-I-11",
+   "typeId": "wt_alv9",
+   "levelId": "lv_0",
+   "a": {
+    "x": 8.9,
+    "y": 10.4
+   },
+   "b": {
+    "x": 11.75,
+    "y": 10.4
+   },
+   "order": 15
+  },
+  "S-EXT-O": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "S-EXT-O",
+   "typeId": "wt_ext19",
+   "levelId": "lv_1",
+   "a": {
+    "x": 0,
+    "y": 0
+   },
+   "b": {
+    "x": 0,
+    "y": 14
+   },
+   "order": 16
+  },
+  "S-EXT-S": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "S-EXT-S",
+   "typeId": "wt_ext19",
+   "levelId": "lv_1",
+   "a": {
+    "x": 11.75,
+    "y": 0
+   },
+   "b": {
+    "x": 0,
+    "y": 0
+   },
+   "order": 17
+  },
+  "S-EXT-L": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "S-EXT-L",
+   "typeId": "wt_ext19",
+   "levelId": "lv_1",
+   "a": {
+    "x": 11.75,
+    "y": 14
+   },
+   "b": {
+    "x": 11.75,
+    "y": 0
+   },
+   "order": 18
+  },
+  "S-EXT-N": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "S-EXT-N",
+   "typeId": "wt_ext19",
+   "levelId": "lv_1",
+   "a": {
+    "x": 0,
+    "y": 14
+   },
+   "b": {
+    "x": 11.75,
+    "y": 14
+   },
+   "order": 19
+  },
+  "S-I-01": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "S-I-01",
+   "typeId": "wt_alv9",
+   "levelId": "lv_1",
+   "a": {
+    "x": 0,
+    "y": 6.56
+   },
+   "b": {
+    "x": 5.5,
+    "y": 6.56
+   },
+   "order": 20
+  },
+  "S-I-02": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "S-I-02",
+   "typeId": "wt_alv14",
+   "levelId": "lv_1",
+   "a": {
+    "x": 5.5,
+    "y": 0
+   },
+   "b": {
+    "x": 5.5,
+    "y": 6.56
+   },
+   "order": 21
+  },
+  "S-I-03": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "S-I-03",
+   "typeId": "wt_alv14",
+   "levelId": "lv_1",
+   "a": {
+    "x": 5.5,
+    "y": 3.2
+   },
+   "b": {
+    "x": 6.854,
+    "y": 3.2
+   },
+   "order": 22
+  },
+  "S-I-04": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "S-I-04",
+   "typeId": "wt_alv14",
+   "levelId": "lv_1",
+   "a": {
+    "x": 6.854,
+    "y": 3.2
+   },
+   "b": {
+    "x": 8.9,
+    "y": 3.2
+   },
+   "order": 23
+  },
+  "S-I-05": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "S-I-05",
+   "typeId": "wt_alv9",
+   "levelId": "lv_1",
+   "a": {
+    "x": 6.854,
+    "y": 3.2
+   },
+   "b": {
+    "x": 6.854,
+    "y": 6.56
+   },
+   "order": 24
+  },
+  "S-I-06": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "S-I-06",
+   "typeId": "wt_alv14",
+   "levelId": "lv_1",
+   "a": {
+    "x": 8.9,
+    "y": 0
+   },
+   "b": {
+    "x": 8.9,
+    "y": 6.56
+   },
+   "order": 25
+  },
+  "S-I-07": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "S-I-07",
+   "typeId": "wt_alv9",
+   "levelId": "lv_1",
+   "a": {
+    "x": 6.854,
+    "y": 6.56
+   },
+   "b": {
+    "x": 11.75,
+    "y": 6.56
+   },
+   "order": 26
+  },
+  "S-I-08": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "S-I-08",
+   "typeId": "wt_alv9",
+   "levelId": "lv_1",
+   "a": {
+    "x": 0,
+    "y": 7.76
+   },
+   "b": {
+    "x": 11.75,
+    "y": 7.76
+   },
+   "order": 27
+  },
+  "S-I-09": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "S-I-09",
+   "typeId": "wt_alv9",
+   "levelId": "lv_1",
+   "a": {
+    "x": 5.5,
+    "y": 7.76
+   },
+   "b": {
+    "x": 5.5,
+    "y": 14
+   },
+   "order": 28
+  },
+  "S-I-10": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "S-I-10",
+   "typeId": "wt_alv9",
+   "levelId": "lv_1",
+   "a": {
+    "x": 8,
+    "y": 7.76
+   },
+   "b": {
+    "x": 8,
+    "y": 14
+   },
+   "order": 29
+  },
+  "S-I-11": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "S-I-11",
+   "typeId": "wt_alv14",
+   "levelId": "lv_1",
+   "a": {
+    "x": 0,
+    "y": 11.5
+   },
+   "b": {
+    "x": 5.5,
+    "y": 11.5
+   },
+   "order": 30
+  },
+  "S-I-12": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "S-I-12",
+   "typeId": "wt_alv14",
+   "levelId": "lv_1",
+   "a": {
+    "x": 2.8,
+    "y": 11.5
+   },
+   "b": {
+    "x": 2.8,
+    "y": 14
+   },
+   "order": 31
+  },
+  "S-I-13": {
+   "kind": "wall",
+   "baseOffset": 0,
+   "topLevelId": null,
+   "height": 2.8,
+   "topOffset": 0,
+   "attachBottomToFloor": false,
+   "attachTopToFloor": false,
+   "attachTopToRoof": false,
+   "locationLine": "wallCenter",
+   "flipped": false,
+   "noJoinStart": false,
+   "noJoinEnd": false,
+   "joinStart": {
+    "kind": "butt",
+    "flip": false
+   },
+   "joinEnd": {
+    "kind": "butt",
+    "flip": false
+   },
+   "sag": 0,
+   "topProfile": null,
+   "mark": "",
+   "comments": "",
+   "id": "S-I-13",
+   "typeId": "wt_alv9",
+   "levelId": "lv_1",
+   "a": {
+    "x": 5.5,
+    "y": 10
+   },
+   "b": {
+    "x": 8,
+    "y": 10
+   },
+   "order": 32
+  },
+  "T1": {
+   "id": "T1",
+   "kind": "door",
+   "typeId": "ot_pv120",
+   "hostId": "T-EXT-S",
+   "offset": 3.85,
+   "flipHand": false,
+   "flipFacing": true,
+   "sillOverride": null,
+   "mark": "P-01"
+  },
+  "T2": {
+   "id": "T2",
+   "kind": "door",
+   "typeId": "ot_portao450",
+   "hostId": "T-EXT-S",
+   "offset": 9,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "P-06"
+  },
+  "T3": {
+   "id": "T3",
+   "kind": "window",
+   "typeId": "ot_j60x100",
+   "hostId": "T-EXT-S",
+   "offset": 1.85,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "J-01"
+  },
+  "T4": {
+   "id": "T4",
+   "kind": "window",
+   "typeId": "ot_j150",
+   "hostId": "T-EXT-L",
+   "offset": 7,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "J-02"
+  },
+  "T5": {
+   "id": "T5",
+   "kind": "window",
+   "typeId": "ot_j240x220",
+   "hostId": "T-EXT-L",
+   "offset": 10,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "J-03"
+  },
+  "T6": {
+   "id": "T6",
+   "kind": "door",
+   "typeId": "ot_p70",
+   "hostId": "T-I-07",
+   "offset": 1,
+   "flipHand": false,
+   "flipFacing": true,
+   "sillOverride": null,
+   "mark": "P-02"
+  },
+  "T7": {
+   "id": "T7",
+   "kind": "door",
+   "typeId": "ot_p80",
+   "hostId": "T-I-02",
+   "offset": 2,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "P-03"
+  },
+  "T8": {
+   "id": "T8",
+   "kind": "door",
+   "typeId": "ot_vao140",
+   "hostId": "T-I-01",
+   "offset": 8,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "V-01"
+  },
+  "T9": {
+   "id": "T9",
+   "kind": "door",
+   "typeId": "ot_p80",
+   "hostId": "T-I-03",
+   "offset": 2.5,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "P-04"
+  },
+  "T10": {
+   "id": "T10",
+   "kind": "door",
+   "typeId": "ot_p80",
+   "hostId": "T-I-04",
+   "offset": 2.5,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "P-05"
+  },
+  "T11": {
+   "id": "T11",
+   "kind": "door",
+   "typeId": "ot_vao180",
+   "hostId": "T-I-06",
+   "offset": 2.3,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "V-02"
+  },
+  "T12": {
+   "id": "T12",
+   "kind": "door",
+   "typeId": "ot_vao180",
+   "hostId": "T-I-07",
+   "offset": 3.1,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "V-03"
+  },
+  "T13": {
+   "id": "T13",
+   "kind": "door",
+   "typeId": "ot_vao240",
+   "hostId": "T-I-07",
+   "offset": 8.4,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "V-04"
+  },
+  "T14": {
+   "id": "T14",
+   "kind": "door",
+   "typeId": "ot_vao240",
+   "hostId": "T-I-10",
+   "offset": 1.7,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "V-05"
+  },
+  "T15": {
+   "id": "T15",
+   "kind": "door",
+   "typeId": "ot_vao240",
+   "hostId": "T-I-11",
+   "offset": 1.4,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "V-06"
+  },
+  "T16": {
+   "id": "T16",
+   "kind": "window",
+   "typeId": "ot_j240x160",
+   "hostId": "T-EXT-O",
+   "offset": 7.5,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "J-04"
+  },
+  "T17": {
+   "id": "T17",
+   "kind": "window",
+   "typeId": "ot_j120",
+   "hostId": "T-EXT-O",
+   "offset": 12.75,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "J-05"
+  },
+  "T18": {
+   "id": "T18",
+   "kind": "window",
+   "typeId": "ot_j120",
+   "hostId": "T-EXT-N",
+   "offset": 2.75,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "J-06"
+  },
+  "S1": {
+   "id": "S1",
+   "kind": "door",
+   "typeId": "ot_p80",
+   "hostId": "S-I-01",
+   "offset": 2,
+   "flipHand": false,
+   "flipFacing": true,
+   "sillOverride": null,
+   "mark": "P-07"
+  },
+  "S2": {
+   "id": "S2",
+   "kind": "door",
+   "typeId": "ot_p90",
+   "hostId": "S-I-07",
+   "offset": 3.346,
+   "flipHand": false,
+   "flipFacing": true,
+   "sillOverride": null,
+   "mark": "P-08"
+  },
+  "S3": {
+   "id": "S3",
+   "kind": "door",
+   "typeId": "ot_p80",
+   "hostId": "S-I-06",
+   "offset": 1.6,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "P-09"
+  },
+  "S4": {
+   "id": "S4",
+   "kind": "door",
+   "typeId": "ot_p80",
+   "hostId": "S-I-06",
+   "offset": 4.8,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "P-10"
+  },
+  "S5": {
+   "id": "S5",
+   "kind": "door",
+   "typeId": "ot_p80",
+   "hostId": "S-I-08",
+   "offset": 1.5,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "P-11"
+  },
+  "S6": {
+   "id": "S6",
+   "kind": "door",
+   "typeId": "ot_p80",
+   "hostId": "S-I-08",
+   "offset": 9.6,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "P-12"
+  },
+  "S7": {
+   "id": "S7",
+   "kind": "door",
+   "typeId": "ot_p80",
+   "hostId": "S-I-10",
+   "offset": 1.04,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "P-13"
+  },
+  "S8": {
+   "id": "S8",
+   "kind": "door",
+   "typeId": "ot_p70",
+   "hostId": "S-I-10",
+   "offset": 3.99,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "P-14"
+  },
+  "S9": {
+   "id": "S9",
+   "kind": "door",
+   "typeId": "ot_p70",
+   "hostId": "S-I-11",
+   "offset": 1.4,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "P-15"
+  },
+  "S10": {
+   "id": "S10",
+   "kind": "door",
+   "typeId": "ot_p80",
+   "hostId": "S-I-11",
+   "offset": 4,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "P-16"
+  },
+  "J1": {
+   "id": "J1",
+   "kind": "window",
+   "typeId": "ot_j240x140",
+   "hostId": "S-EXT-O",
+   "offset": 1.8,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "J-07"
+  },
+  "J2": {
+   "id": "J2",
+   "kind": "window",
+   "typeId": "ot_j240x140",
+   "hostId": "S-EXT-O",
+   "offset": 4.5,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "J-08"
+  },
+  "J3": {
+   "id": "J3",
+   "kind": "window",
+   "typeId": "ot_j240x160",
+   "hostId": "S-EXT-O",
+   "offset": 9.6,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "J-09"
+  },
+  "J4": {
+   "id": "J4",
+   "kind": "window",
+   "typeId": "ot_j120",
+   "hostId": "S-EXT-S",
+   "offset": 4.55,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": 1.5,
+   "mark": "J-10"
+  },
+  "J5": {
+   "id": "J5",
+   "kind": "window",
+   "typeId": "ot_j240x140",
+   "hostId": "S-EXT-S",
+   "offset": 1.45,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "J-11"
+  },
+  "J6": {
+   "id": "J6",
+   "kind": "window",
+   "typeId": "ot_j240x140",
+   "hostId": "S-EXT-L",
+   "offset": 11,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "J-12"
+  },
+  "J7": {
+   "id": "J7",
+   "kind": "window",
+   "typeId": "ot_j120",
+   "hostId": "S-EXT-N",
+   "offset": 1,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": 1.5,
+   "mark": "J-13"
+  },
+  "J8": {
+   "id": "J8",
+   "kind": "window",
+   "typeId": "ot_j240x140",
+   "hostId": "S-EXT-N",
+   "offset": 9.8,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "J-14"
+  },
+  "J9": {
+   "id": "J9",
+   "kind": "window",
+   "typeId": "ot_j240x140",
+   "hostId": "S-EXT-L",
+   "offset": 4,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": null,
+   "mark": "J-15"
+  },
+  "J10": {
+   "id": "J10",
+   "kind": "window",
+   "typeId": "ot_j120",
+   "hostId": "S-EXT-N",
+   "offset": 6.6,
+   "flipHand": false,
+   "flipFacing": false,
+   "sillOverride": 1.5,
+   "mark": "J-16"
+  },
+  "F-T-01": {
+   "kind": "floor",
+   "holes": [],
+   "heightOffset": 0,
+   "mark": "",
+   "comments": "",
+   "id": "F-T-01",
+   "typeId": "ft_ceram",
+   "levelId": "lv_0",
+   "boundary": [
+    {
+     "x": 5.5,
+     "y": 0
+    },
+    {
+     "x": 11.75,
+     "y": 0
+    },
+    {
+     "x": 11.75,
+     "y": 14
+    },
+    {
+     "x": 0,
+     "y": 14
+    },
+    {
+     "x": 0,
+     "y": 5.5
+    },
+    {
+     "x": 5.5,
+     "y": 5.5
+    }
+   ],
+   "order": 33
+  },
+  "F-T-02": {
+   "kind": "floor",
+   "holes": [],
+   "heightOffset": 0,
+   "mark": "",
+   "comments": "",
+   "id": "F-T-02",
+   "typeId": "ft_laje12",
+   "levelId": "lv_0",
+   "boundary": [
+    {
+     "x": 0,
+     "y": 0
+    },
+    {
+     "x": 5.5,
+     "y": 0
+    },
+    {
+     "x": 5.5,
+     "y": 5.5
+    },
+    {
+     "x": 0,
+     "y": 5.5
+    }
+   ],
+   "order": 34
+  },
+  "L-P2-01": {
+   "kind": "slab",
+   "holes": [],
+   "heightOffset": 0,
+   "slope": null,
+   "mark": "",
+   "comments": "",
+   "id": "L-P2-01",
+   "typeId": "ls_mac15",
+   "levelId": "lv_1",
+   "boundary": [
+    {
+     "x": -0.121,
+     "y": -0.121
+    },
+    {
+     "x": 11.871,
+     "y": -0.121
+    },
+    {
+     "x": 11.871,
+     "y": 14.121
+    },
+    {
+     "x": -0.121,
+     "y": 14.121
+    }
+   ],
+   "order": 35
+  },
+  "R-01": {
+   "kind": "roof",
+   "holes": [],
+   "heightOffset": 0,
+   "shape": "hip",
+   "slopePercent": 30,
+   "dir": {
+    "x": 1,
+    "y": 0
+   },
+   "planes": [],
+   "edgeSlopes": [
+    30,
+    30,
+    30,
+    30
+   ],
+   "edgeOverhangs": [
+    0.6,
+    0.6,
+    0.6,
+    0.6
+   ],
+   "profile": [],
+   "joinOthers": true,
+   "rafterCut": "plumb",
+   "eave": {
+    "fascia": true,
+    "fasciaHeight": 0.2,
+    "gutter": true,
+    "soffit": true
+   },
+   "mark": "",
+   "comments": "",
+   "id": "R-01",
+   "typeId": "rt_ceramica",
+   "levelId": "lv_2",
+   "boundary": [
+    {
+     "x": -0.721,
+     "y": -0.721
+    },
+    {
+     "x": 12.471,
+     "y": -0.721
+    },
+    {
+     "x": 12.471,
+     "y": 14.721
+    },
+    {
+     "x": -0.721,
+     "y": 14.721
+    }
+   ],
+   "order": 36
+  },
+  "ES-01": {
+   "kind": "stair",
+   "topLevelId": null,
+   "baseOffset": 0,
+   "topOffset": 0,
+   "height": 2.8,
+   "components": [
+    {
+     "id": "ES-01-lance",
+     "kind": "run",
+     "boundaryLeft": [
+      {
+       "a": {
+        "x": 5.592,
+        "y": 2
+       },
+       "b": {
+        "x": 5.592,
+        "y": 6.56
+       },
+       "sag": 0
+      }
+     ],
+     "boundaryRight": [
+      {
+       "a": {
+        "x": 6.792,
+        "y": 2
+       },
+       "b": {
+        "x": 6.792,
+        "y": 6.56
+       },
+       "sag": 0
+      }
+     ],
+     "risers": [
+      {
+       "a": {
+        "x": 5.592,
+        "y": 2
+       },
+       "b": {
+        "x": 6.792,
+        "y": 2
+       },
+       "sag": 0
+      },
+      {
+       "a": {
+        "x": 5.592,
+        "y": 2.285
+       },
+       "b": {
+        "x": 6.792,
+        "y": 2.285
+       },
+       "sag": 0
+      },
+      {
+       "a": {
+        "x": 5.592,
+        "y": 2.57
+       },
+       "b": {
+        "x": 6.792,
+        "y": 2.57
+       },
+       "sag": 0
+      },
+      {
+       "a": {
+        "x": 5.592,
+        "y": 2.855
+       },
+       "b": {
+        "x": 6.792,
+        "y": 2.855
+       },
+       "sag": 0
+      },
+      {
+       "a": {
+        "x": 5.592,
+        "y": 3.1399999999999997
+       },
+       "b": {
+        "x": 6.792,
+        "y": 3.1399999999999997
+       },
+       "sag": 0
+      },
+      {
+       "a": {
+        "x": 5.592,
+        "y": 3.425
+       },
+       "b": {
+        "x": 6.792,
+        "y": 3.425
+       },
+       "sag": 0
+      },
+      {
+       "a": {
+        "x": 5.592,
+        "y": 3.71
+       },
+       "b": {
+        "x": 6.792,
+        "y": 3.71
+       },
+       "sag": 0
+      },
+      {
+       "a": {
+        "x": 5.592,
+        "y": 3.995
+       },
+       "b": {
+        "x": 6.792,
+        "y": 3.995
+       },
+       "sag": 0
+      },
+      {
+       "a": {
+        "x": 5.592,
+        "y": 4.279999999999999
+       },
+       "b": {
+        "x": 6.792,
+        "y": 4.279999999999999
+       },
+       "sag": 0
+      },
+      {
+       "a": {
+        "x": 5.592,
+        "y": 4.5649999999999995
+       },
+       "b": {
+        "x": 6.792,
+        "y": 4.5649999999999995
+       },
+       "sag": 0
+      },
+      {
+       "a": {
+        "x": 5.592,
+        "y": 4.85
+       },
+       "b": {
+        "x": 6.792,
+        "y": 4.85
+       },
+       "sag": 0
+      },
+      {
+       "a": {
+        "x": 5.592,
+        "y": 5.135
+       },
+       "b": {
+        "x": 6.792,
+        "y": 5.135
+       },
+       "sag": 0
+      },
+      {
+       "a": {
+        "x": 5.592,
+        "y": 5.42
+       },
+       "b": {
+        "x": 6.792,
+        "y": 5.42
+       },
+       "sag": 0
+      },
+      {
+       "a": {
+        "x": 5.592,
+        "y": 5.705
+       },
+       "b": {
+        "x": 6.792,
+        "y": 5.705
+       },
+       "sag": 0
+      },
+      {
+       "a": {
+        "x": 5.592,
+        "y": 5.99
+       },
+       "b": {
+        "x": 6.792,
+        "y": 5.99
+       },
+       "sag": 0
+      },
+      {
+       "a": {
+        "x": 5.592,
+        "y": 6.2749999999999995
+       },
+       "b": {
+        "x": 6.792,
+        "y": 6.2749999999999995
+       },
+       "sag": 0
+      },
+      {
+       "a": {
+        "x": 5.592,
+        "y": 6.56
+       },
+       "b": {
+        "x": 6.792,
+        "y": 6.56
+       },
+       "sag": 0
+      }
+     ],
+     "path": [],
+     "generatedBy": "straight"
+    }
+   ],
+   "openingMode": "headroom",
+   "openingHeadroom": null,
+   "openingMargin": 0,
+   "openingRect": false,
+   "mark": "ES-01",
+   "comments": "",
+   "id": "ES-01",
+   "typeId": "stt_monolitica",
+   "levelId": "lv_0",
+   "order": 37
+  },
+  "r_estar": {
+   "kind": "room",
+   "heightOffset": 0,
+   "floorFinish": "",
+   "wallFinish": "",
+   "ceilingFinish": "",
+   "id": "r_estar",
+   "levelId": "lv_0",
+   "name": "Estar",
+   "number": "001",
+   "categoryId": "rc_sala",
+   "point": {
+    "x": 2.7,
+    "y": 2.7
+   },
+   "order": 38
+  },
+  "r_jantar": {
+   "kind": "room",
+   "heightOffset": 0,
+   "floorFinish": "",
+   "wallFinish": "",
+   "ceilingFinish": "",
+   "id": "r_jantar",
+   "levelId": "lv_0",
+   "name": "Jantar",
+   "number": "002",
+   "categoryId": "rc_sala",
+   "point": {
+    "x": 2.7,
+    "y": 7.5
+   },
+   "order": 39
+  },
+  "r_cozinha": {
+   "kind": "room",
+   "heightOffset": 0,
+   "floorFinish": "",
+   "wallFinish": "",
+   "ceilingFinish": "",
+   "id": "r_cozinha",
+   "levelId": "lv_0",
+   "name": "Cozinha",
+   "number": "003",
+   "categoryId": "rc_cozinha",
+   "point": {
+    "x": 2.7,
+    "y": 10.5
+   },
+   "order": 40
+  },
+  "r_servico": {
+   "kind": "room",
+   "heightOffset": 0,
+   "floorFinish": "",
+   "wallFinish": "",
+   "ceilingFinish": "",
+   "id": "r_servico",
+   "levelId": "lv_0",
+   "name": "Serviço",
+   "number": "004",
+   "categoryId": "rc_servico",
+   "point": {
+    "x": 2.7,
+    "y": 12.7
+   },
+   "order": 41
+  }
+ },
+ "nextOrder": 42,
+ "settings": {
+  "joinTolerance": 0.02,
+  "showTags": false,
+  "debugJoins": false,
+  "detail": "medium"
+ },
+ "views": [
+  {
+   "id": "V-AA",
+   "name": "Corte AA",
+   "kind": "section",
+   "a": {
+    "x": 6.192,
+    "y": -1
+   },
+   "b": {
+    "x": 6.192,
+    "y": 15
+   },
+   "depth": 17
+  },
+  {
+   "id": "V-BB",
+   "name": "Corte BB",
+   "kind": "section",
+   "a": {
+    "x": -1,
+    "y": 8.5
+   },
+   "b": {
+    "x": 13,
+    "y": 8.5
+   },
+   "depth": 17
+  },
+  {
+   "id": "V-norte",
+   "name": "Norte",
+   "kind": "elevation",
+   "role": "north",
+   "a": {
+    "x": 14.871,
+    "y": 17.121000000000002
+   },
+   "b": {
+    "x": -3.1210000000000004,
+    "y": 17.121000000000002
+   },
+   "depth": 20.242
+  },
+  {
+   "id": "V-sul",
+   "name": "Sul",
+   "kind": "elevation",
+   "role": "south",
+   "a": {
+    "x": -3.1210000000000004,
+    "y": -3.1210000000000004
+   },
+   "b": {
+    "x": 14.871,
+    "y": -3.1210000000000004
+   },
+   "depth": 20.242
+  },
+  {
+   "id": "V-leste",
+   "name": "Leste",
+   "kind": "elevation",
+   "role": "east",
+   "a": {
+    "x": 14.871,
+    "y": -3.1210000000000004
+   },
+   "b": {
+    "x": 14.871,
+    "y": 17.121000000000002
+   },
+   "depth": 17.992
+  },
+  {
+   "id": "V-oeste",
+   "name": "Oeste",
+   "kind": "elevation",
+   "role": "west",
+   "a": {
+    "x": -3.1210000000000004,
+    "y": 17.121000000000002
+   },
+   "b": {
+    "x": -3.1210000000000004,
+    "y": -3.1210000000000004
+   },
+   "depth": 17.992
+  }
+ ],
+ "areaPlans": [
+  {
+   "name": "Planta de área ap_prancha",
+   "scale": 50,
+   "graphics": {
+    "referenceLines": "always",
+    "referenceLinesPrint": true,
+    "fill": "scheme",
+    "fillOpacity": 0.14,
+    "outline": "thin",
+    "showWalls": "light",
+    "showOpenings": false,
+    "showDimensions": true,
+    "showAnnotations": true,
+    "showFloors": false,
+    "showGrids": false,
+    "showSectionMarks": false,
+    "showStairs": true,
+    "showRoofs": true,
+    "showGeneric": false,
+    "showBelowLevel": false,
+    "tagDefault": {
+     "leader": "straight",
+     "fields": [
+      "name",
+      "number",
+      "area"
+     ],
+     "orientation": "horizontal"
+    }
+   },
+   "tags": [
+    {
+     "id": "rt_pr_0",
+     "planId": "ap_prancha",
+     "roomId": "r_estar",
+     "at": {
+      "x": 2.7,
+      "y": 2.7
+     },
+     "orientation": "horizontal",
+     "leader": "straight",
+     "fields": [
+      "name",
+      "number",
+      "area"
+     ],
+     "visible": true
+    },
+    {
+     "id": "rt_pr_1",
+     "planId": "ap_prancha",
+     "roomId": "r_jantar",
+     "at": {
+      "x": 2.7,
+      "y": 7.5
+     },
+     "orientation": "horizontal",
+     "leader": "straight",
+     "fields": [
+      "name",
+      "number",
+      "area"
+     ],
+     "visible": true
+    },
+    {
+     "id": "rt_pr_2",
+     "planId": "ap_prancha",
+     "roomId": "r_cozinha",
+     "at": {
+      "x": 2.7,
+      "y": 10.5
+     },
+     "orientation": "horizontal",
+     "leader": "straight",
+     "fields": [
+      "name",
+      "number",
+      "area"
+     ],
+     "visible": true
+    },
+    {
+     "id": "rt_pr_3",
+     "planId": "ap_prancha",
+     "roomId": "r_servico",
+     "at": {
+      "x": 2.7,
+      "y": 12.7
+     },
+     "orientation": "horizontal",
+     "leader": "straight",
+     "fields": [
+      "name",
+      "number",
+      "area"
+     ],
+     "visible": true
+    }
+   ],
+   "id": "ap_prancha",
+   "levelId": "lv_0",
+   "schemeId": "cs_cat",
+   "table": {
+    "at": {
+     "x": 13,
+     "y": 8
+    },
+    "title": "Quadro",
+    "columns": [
+     "number",
+     "name",
+     "area"
+    ],
+    "groupBy": "none",
+    "totals": "general"
+   }
+  }
+ ],
+ "roomCategories": [
+  {
+   "id": "rc_sala",
+   "name": "Sala",
+   "code": "SL",
+   "color": "#dbe7f3",
+   "hatch": "diagonal"
+  },
+  {
+   "id": "rc_cozinha",
+   "name": "Cozinha",
+   "code": "CZ",
+   "color": "#f6e3c8",
+   "hatch": "cross"
+  },
+  {
+   "id": "rc_quarto",
+   "name": "Quarto",
+   "code": "QT",
+   "color": "#e2f0dc",
+   "hatch": "dots"
+  },
+  {
+   "id": "rc_banho",
+   "name": "Banho",
+   "code": "BH",
+   "color": "#e6e1f4",
+   "hatch": "solid"
+  },
+  {
+   "id": "rc_circulacao",
+   "name": "Circulação",
+   "code": "CR",
+   "color": "#f3e7cf",
+   "hatch": "diagonal"
+  },
+  {
+   "id": "rc_servico",
+   "name": "Serviço",
+   "code": "SV",
+   "color": "#e8eef2",
+   "hatch": "cross"
+  },
+  {
+   "id": "rc_garagem",
+   "name": "Garagem",
+   "code": "GR",
+   "color": "#e4e4e4",
+   "hatch": "solid"
+  },
+  {
+   "id": "rc_varanda",
+   "name": "Varanda",
+   "code": "VR",
+   "color": "#e7f1e4",
+   "hatch": "dots"
+  }
+ ],
+ "colorSchemes": [
+  {
+   "id": "cs_cat",
+   "name": "Por categoria",
+   "by": "category"
+  }
+ ],
+ "defaults": {
+  "wallTypeId": "wt_alv14",
+  "doorTypeId": "ot_p80",
+  "windowTypeId": "ot_j120",
+  "wallHeight": 2.8
+ },
+ "sheets": [
+  {
+   "id": "sh_plantas",
+   "number": "A-01",
+   "name": "Plantas",
+   "size": "A1",
+   "orientation": "landscape",
+   "margin": 10,
+   "titleBlock": {
+    "project": "Projeto do ouro",
+    "client": "Cliente",
+    "author": "Autor",
+    "date": "2026-01-01",
+    "revision": "A"
+   },
+   "viewports": [
+    {
+     "id": "vp_t",
+     "view": {
+      "kind": "plan",
+      "levelId": "lv_0"
+     },
+     "at": {
+      "x": 20,
+      "y": 30
+     },
+     "size": {
+      "w": 260,
+      "h": 260
+     },
+     "scale": 100,
+     "title": "Térreo"
+    },
+    {
+     "id": "vp_p2",
+     "view": {
+      "kind": "plan",
+      "levelId": "lv_1"
+     },
+     "at": {
+      "x": 300,
+      "y": 30
+     },
+     "size": {
+      "w": 260,
+      "h": 260
+     },
+     "scale": 100,
+     "title": "Pavimento 2",
+     "offset": {
+      "x": 5,
+      "y": -3
+     }
+    },
+    {
+     "id": "vp_area",
+     "view": {
+      "kind": "areaPlan",
+      "planId": "ap_prancha"
+     },
+     "at": {
+      "x": 580,
+      "y": 30
+     },
+     "size": {
+      "w": 240,
+      "h": 260
+     },
+     "scale": 100,
+     "title": "Áreas",
+     "label": {
+      "scaleBar": true
+     }
+    }
+   ]
+  },
+  {
+   "id": "sh_cortes",
+   "number": "A-02",
+   "name": "Corte, 3D e áreas",
+   "size": "A1",
+   "orientation": "landscape",
+   "margin": 10,
+   "titleBlock": {
+    "project": "Projeto do ouro",
+    "client": "Cliente",
+    "author": "Autor",
+    "date": "2026-01-01",
+    "revision": "A"
+   },
+   "viewports": [
+    {
+     "id": "vp_corte",
+     "view": {
+      "kind": "section",
+      "sectionId": "V-AA"
+     },
+     "at": {
+      "x": 20,
+      "y": 30
+     },
+     "size": {
+      "w": 300,
+      "h": 240
+     },
+     "scale": 100,
+     "title": "Corte"
+    },
+    {
+     "id": "vp_3d",
+     "view": {
+      "kind": "3d"
+     },
+     "at": {
+      "x": 340,
+      "y": 30
+     },
+     "size": {
+      "w": 260,
+      "h": 240
+     },
+     "scale": 200,
+     "title": "Perspectiva"
+    },
+    {
+     "id": "vp_quadro",
+     "view": {
+      "kind": "areaTable"
+     },
+     "at": {
+      "x": 620,
+      "y": 30
+     },
+     "size": {
+      "w": 200,
+      "h": 240
+     },
+     "scale": 100
+    }
+   ]
+  }
+ ]
+}
