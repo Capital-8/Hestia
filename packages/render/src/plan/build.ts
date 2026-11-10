@@ -1,6 +1,6 @@
 import { add, boxOf, mul, norm, perp, pointInMulti, ringArea, sub, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { buildOpeningModel, cutLevelByJunction, frameOfWall, openingGeometry, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedRoom, type ResolvedSlab } from '@hestia/engine';
-import { openingTypeById, dimensionStyleOf, angularDimensionGeometry, dimensionPoints, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, wallsOnLevel, type AreaPlan, type DetailLevel, type Id, type Material, type Project } from '@hestia/model';
+import { openingTypeById, dimensionStyleOf, angularDimensionGeometry, dimensionPoints, floorViewId, isGeneric, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, viewAnnotationsOf, wallsOnLevel, type AreaPlan, type DetailLevel, type Id, type Material, type Project } from '@hestia/model';
 import { resolveRooms, resolveAngularDimension } from '@hestia/engine';
 import { areaPlanLegendOps, areaPlanRoomOps, areaPlanTableOps, areaPlanTagOps } from './areaPlan.ts';
 import { aberturasDaParede, escadasDoNivel, juncaoDoNivel, paredesDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
@@ -38,6 +38,7 @@ import type { Lang } from '../i18n.ts';
 
 export { buildPlanHoverOverlay, buildPlanLiveOverlay, buildPlanOverlay, buildPlanScreenOverlay, buildPlanSelectionOverlay } from './planOverlay.ts';
 export { planBelowOf, underlayIdOf } from './planContext.ts';
+export { planGeometrySelection } from './planSelecao.ts';
 
 export interface PlanInput {
   project: Project;
@@ -133,28 +134,6 @@ function hachuraDaRegiao(m: Material | undefined, espessura: number, fine: boole
 }
 
 /**
- * Parte da seleção que a geometria do nível usa: as cotas do nível (decisão 0019), as linhas e regiões de detalhe, as
- * grades de eixos e as marcas de corte e elevação selecionadas mudam de cor (e espessura) com a seleção. A geometria
- * depende só desse subconjunto; o resto é da sobreposição. As linhas e regiões de detalhe ficam aqui porque o desenho
- * delas (com o realce 1,7--) é feito por `notes.ts` na geometria -- sem elas, a seleção não chegava ao desenho (achado A2).
- */
-export function planGeometrySelection(p: Project, levelId: Id, selection: readonly Id[], areaPlan?: Pick<AreaPlan, 'annotations'>): Id[] {
-  if (selection.length === 0) return [];
-  const level = p.levels.find((l) => l.id === levelId);
-  const used = new Set<Id>([
-    ...levelDimensions(p, levelId).map((d) => d.id),
-    ...levelRoomSeparators(p, levelId).map((r) => r.id),
-    ...p.views.map((v) => v.id),
-    ...projectGrids(p).map((g) => g.id),
-    ...(level?.detailLines ?? []).map((l) => l.id),
-    ...(level?.detailRegions ?? []).map((r) => r.id),
-    // Anotações da planta de área (cotas, textos, detalhes e etiquetas da vista): a seleção chega ao desenho por aqui.
-    ...(areaPlan ? planAnnotationIds(areaPlan) : []),
-  ]);
-  return selection.filter((id) => used.has(id));
-}
-
-/**
  * Símbolos das aberturas do nível (portas e janelas), no estilo da categoria de cada uma: cortadas, tracejadas acima do
  * corte e leves abaixo. Compartilhado pela planta de piso e pela de área (que o liga pelo perfil), sem duplicar o
  * desenho. Cada símbolo leva o zoom aos limiares da geometria (ver `openingPlanDetail`).
@@ -226,7 +205,7 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   const fillT = input.dark ? 0.5 : 0.58;
 
   // Contexto do nível e da vista (o mesmo que a sobreposição usa): estilo, vista, geometria e ocultos.
-  const { style, rp, view, up, geo, hidden, roofOff, roofHidden, stairs, ramps } = planContext(input);
+  const { viewId, style, rp, view, up, geo, hidden, roofOff, roofHidden, stairs, ramps } = planContext(input);
   // As anotações e as marcas de corte leem o nível: o projeto sem as ocultas é o que elas desenham (Hide in View).
   const pNotas = semAnotacoesOcultas(p, input.levelId, hidden);
   const { detail, paint } = style;
@@ -467,14 +446,15 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
 
   // Cotas e textos do nível (decisão 0019), com o estilo da categoria 'anotação'. Na planta de área valem as
   // anotações da própria vista (ou o fallback do nível, já filtrado por `drawnAnnotations`).
-  const annotations = areaPlan ? anotacoesSemOcultos(drawnAnnotations(p, input.levelId, areaPlan), hidden) : undefined;
-  const notes = noteOps(pNotas, input.levelId, paint.annotation, { ink: theme.ink, select: theme.select, paper: theme.bg, selection: input.selection, dimStyle: dimensionStyleOf(p.settings) }, scale, v, annotations);
+  const annotations = areaPlan ? anotacoesSemOcultos(drawnAnnotations(p, input.levelId, areaPlan, viewId), hidden) : undefined;
+  const notes = noteOps(pNotas, input.levelId, paint.annotation, { ink: theme.ink, select: theme.select, paper: theme.bg, selection: input.selection, dimStyle: dimensionStyleOf(p.settings) }, scale, v, annotations, viewId);
   fills.push(...notes.fills);
   strokes.push(...notes.strokes);
   labels.push(...notes.labels);
 
   if (profile.elementTags) {
-    const tagged = elementTagOps(pNotas, input.levelId, paint.annotation, scale);
+    // As etiquetas do nível saem em toda planta, inclusive na de área (que desenha as próprias em `noteOps`): a de área lê a vista de piso.
+    const tagged = elementTagOps(pNotas, input.levelId, paint.annotation, scale, areaPlan ? floorViewId(input.levelId) : viewId);
     strokes.push(...tagged.strokes);
     labels.push(...tagged.labels);
   }
@@ -555,7 +535,7 @@ export function levelBox(p: Project, levelId: Id): { minX: number; minY: number;
 export function levelFrameBox(p: Project, levelId: Id): { minX: number; minY: number; maxX: number; maxY: number } | null {
   const base = levelBox(p, levelId);
   const pts: Vec2[] = [];
-  for (const d of levelDimensions(p, levelId)) {
+  for (const d of viewAnnotationsOf(p, floorViewId(levelId)).dimensions) {
     if (d.angular) {
       const g = angularDimensionGeometry(resolveAngularDimension(p, levelId, d));
       if (g) pts.push(...g.arc, ...g.extensions.flat());

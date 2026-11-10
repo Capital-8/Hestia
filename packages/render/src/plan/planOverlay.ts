@@ -12,6 +12,7 @@ import { rampFootprint, rampSelectionOps } from './ramps.ts';
 import { guideStrokes, previewOverlay, snapMarker, snapTooltipLabel } from './overlay.ts';
 import { hiddenSelectionOps, planViewOf, type PlanView } from './view.ts';
 import { planContext, type PlanContext } from './planContext.ts';
+import { planViewIdOf } from './viewId.ts';
 import { ambientesDoNivel, lajesDoNivel, pisosDoNivel, telhadosDoNivel } from './resolucao.ts';
 import { labelGhostOps } from './areaPlan.ts';
 import { annotationHighlightOps, blocoEm, drawnAnnotations, textBlockModel } from './notes.ts';
@@ -135,7 +136,7 @@ function revealedOutlineOps(input: PlanInput, ctx: PlanContext): PlanOps {
   // Anotações: caixa em volta do texto (texto, cota) e o próprio traço (linha/região de detalhe e separador de ambiente).
   const scale = input.areaPlan && input.areaPlan.scale > 0 ? input.areaPlan.scale : style.scale;
   const mPerMm = scale / 1000;
-  const annotations = drawnAnnotations(p, levelId, input.areaPlan);
+  const annotations = drawnAnnotations(p, levelId, input.areaPlan, ctx.viewId);
   const sel = new Set(ids);
   const caixa = (at: Vec2, w: number, h: number, rotation: number): void => {
     out.strokes.push({ pts: blocoEm(at, w, h, rotation, REVEAL_FOLGA_MM * mPerMm), closed: true, widthPx: 2, color: REVEAL, alpha: 1 });
@@ -171,13 +172,13 @@ function revealedOutlineOps(input: PlanInput, ctx: PlanContext): PlanOps {
 const vazio = (): PlanOps => ({ fills: [], strokes: [], labels: [] });
 
 /** Anotações que a vista desenha (as da vista, ou as do nível) e a escala de papel em que o bloco do texto é medido. */
-function anotacoesDaVista(input: PlanInput, escala: number): { annotations: ReturnType<typeof drawnAnnotations>; scale: number } {
-  return { annotations: drawnAnnotations(input.project, input.levelId, input.areaPlan), scale: input.areaPlan && input.areaPlan.scale > 0 ? input.areaPlan.scale : escala };
+function anotacoesDaVista(input: PlanInput, escala: number, viewId: Id): { annotations: ReturnType<typeof drawnAnnotations>; scale: number } {
+  return { annotations: drawnAnnotations(input.project, input.levelId, input.areaPlan, viewId), scale: input.areaPlan && input.areaPlan.scale > 0 ? input.areaPlan.scale : escala };
 }
 
 /** Junta o destaque das anotações (caixa, alça do texto e realce do hover) à sobreposição. */
-function comAnotacoes(out: PlanOps, input: PlanInput, escala: number, target: { selection: readonly Id[]; hover: Id | null }): void {
-  const { annotations, scale } = anotacoesDaVista(input, escala);
+function comAnotacoes(out: PlanOps, input: PlanInput, escala: number, target: { selection: readonly Id[]; hover: Id | null }, viewId: Id): void {
+  const { annotations, scale } = anotacoesDaVista(input, escala, viewId);
   const h = annotationHighlightOps(input.project, input.levelId, scale, { select: input.theme.select, paper: input.theme.bg, hoverColor: input.theme.selectHover, dimStyle: dimensionStyleOf(input.project.settings) }, target, annotations);
   out.fills.push(...h.fills);
   out.strokes.push(...h.strokes);
@@ -229,7 +230,7 @@ export function buildPlanSelectionOverlay(input: PlanInput): PlanOps {
     }
   }
   // Anotações (textos e cotas): caixa de seleção, alça do texto e realce leve do hover em camada própria.
-  comAnotacoes(out, input, style.scale, { selection, hover: null });
+  comAnotacoes(out, input, style.scale, { selection, hover: null }, ctx.viewId);
   // Modo Reveal: os ocultos voltam ao desenho (geometria) e ganham esta borda azul, uma vez só, na camada de seleção.
   add(revealedOutlineOps(input, ctx));
   return out;
@@ -238,7 +239,7 @@ export function buildPlanSelectionOverlay(input: PlanInput): PlanOps {
 /** Sobreposição do alvo sob o cursor. Só o elemento em hover (o selecionado não se repete). */
 export function buildPlanHoverOverlay(input: PlanInput): PlanOps {
   const { project: p, theme } = input;
-  const { geo, hidden, up, roofHidden, stairs, ramps, view, style } = planContext(input);
+  const { viewId, geo, hidden, up, roofHidden, stairs, ramps, view, style } = planContext(input);
   const hover = input.hover;
   const aviso = input.aviso ?? null;
   const out = vazio();
@@ -265,7 +266,7 @@ export function buildPlanHoverOverlay(input: PlanInput): PlanOps {
   add(stairSelectionOps(p, stairs, [], hover, theme, input.viewport, alcasDeModelo));
   add(rampSelectionOps(p, ramps, [], hover, theme, input.viewport, alcasDeModelo));
   out.fills.push(...elementHighlight(p, geo, [hover], theme.select, 0.16, view));
-  comAnotacoes(out, input, style.scale, { selection: [], hover });
+  comAnotacoes(out, input, style.scale, { selection: [], hover }, viewId);
   return out;
 }
 
@@ -339,7 +340,7 @@ export function buildPlanOverlay(input: PlanInput): PlanOps {
   }
 
   // Anotações (textos e cotas): caixa de seleção, alça do texto e realce leve do hover.
-  comAnotacoes(out, input, style.scale, { selection, hover });
+  comAnotacoes(out, input, style.scale, { selection, hover }, ctx.viewId);
 
   // Modo Reveal: os ocultos voltam ao desenho (geometria) e ganham esta borda azul, uma vez só, na sobreposição.
   add(revealedOutlineOps(input, ctx));
@@ -361,6 +362,8 @@ export function buildPlanOverlay(input: PlanInput): PlanOps {
  */
 export function buildPlanScreenOverlay(input: PlanInput): PlanOps {
   const o = buildPlanOverlay(input);
-  const ghosts = hiddenSelectionOps(input.project, input.levelId, planViewOf(input.project, input.levelId), input.selection, input.theme);
+  // O fantasma é do intervalo de vista, que a cobertura não usa: nela vale o do nível (vista de piso), como sempre.
+  const idDoIntervalo = planViewIdOf(input.project, input.levelId, { areaPlan: input.areaPlan });
+  const ghosts = hiddenSelectionOps(input.project, input.levelId, planViewOf(input.project, input.levelId, idDoIntervalo), input.selection, input.theme);
   return ghosts.length ? { ...o, strokes: [...o.strokes, ...ghosts] } : o;
 }

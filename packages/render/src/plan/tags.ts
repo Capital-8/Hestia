@@ -1,5 +1,5 @@
 import { levelFrames, pointAt } from '@hestia/engine';
-import { formatQuantity, openingHeight, openingTypeById, openingType, unitsOf, wallHeight, wallType, type ElementTag, type Id, type Project } from '@hestia/model';
+import { floorViewId, formatQuantity, openingHeight, openingTypeById, openingType, unitsOf, viewAnnotationsOf, wallHeight, wallType, type ElementTag, type Id, type Project } from '@hestia/model';
 import type { Vec2 } from '@hestia/geom';
 import { aberturasDaParede } from './resolucao.ts';
 import type { LabelOp, StrokeOp } from './types.ts';
@@ -105,13 +105,21 @@ function tagAnchor(p: Project, tag: ElementTag): Vec2 | null {
   return null;
 }
 
-/** Etiquetas persistentes da vista: rótulo e líder acompanham a posição do elemento associado. */
-export function elementTagOps(p: Project, levelId: Id, paint: PlanPaint, scale: number): { labels: LabelOp[]; strokes: StrokeOp[] } {
+/**
+ * Etiquetas persistentes da vista: rótulo e líder acompanham a posição do elemento associado. Lê as da vista `viewId`
+ * (sem ele, a planta de piso do nível).
+ */
+export function elementTagOps(p: Project, levelId: Id, paint: PlanPaint, scale: number, viewId: Id = floorViewId(levelId)): { labels: LabelOp[]; strokes: StrokeOp[] } {
+  return elementTagOpsOf(p, viewAnnotationsOf(p, viewId).tags, paint, scale);
+}
+
+/** Etiquetas persistentes `tags` (de qualquer vista): o desenho em si, sem decidir de onde elas vêm. */
+export function elementTagOpsOf(p: Project, tags: readonly ElementTag[], paint: PlanPaint, scale: number): { labels: LabelOp[]; strokes: StrokeOp[] } {
   const labels: LabelOp[] = [];
   const strokes: StrokeOp[] = [];
   if (!paint.visible) return { labels, strokes };
   const color = paint.color ?? '#16181c';
-  for (const tag of p.levels.find((l) => l.id === levelId)?.tags ?? []) {
+  for (const tag of tags) {
     const text = elementTagText(p, tag);
     if (!text) continue;
     const anchor = tagAnchor(p, tag);

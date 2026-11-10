@@ -1,8 +1,9 @@
 import type { ResolvedLevel, ResolvedRamp, ResolvedStair } from '@hestia/engine';
-import { isOpening, isWall, type AreaPlanAnnotations, type Id, type Project } from '@hestia/model';
+import { floorViewId, isOpening, isWall, viewAnnotationsOf, type AreaPlanAnnotations, type Id, type Project } from '@hestia/model';
 import { ambientesDoNivel, escadasDoNivel, lajesDoNivel, pisosDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
 import { planStyleOf, type PlanStyle } from './style.ts';
 import { planViewOf, type PlanView } from './view.ts';
+import { planViewIdOf } from './viewId.ts';
 import type { PlanInput } from './build.ts';
 
 /**
@@ -43,13 +44,15 @@ export function semAnotacoesOcultas(p: Project, levelId: Id, hidden: ReadonlySet
   const keep = <T extends { id: Id }>(xs: T[] | undefined): T[] | undefined => xs?.filter((x) => !hidden.has(x.id));
   const levels = p.levels.map((l) => {
     if (l.id !== levelId) return l;
+    // Leitura pela vista de piso (as anotações do nível); a escrita é no projeto DERIVADO, que ainda guarda no nível.
+    const a = viewAnnotationsOf(p, floorViewId(levelId));
     const next = { ...l };
-    if (l.dimensions) next.dimensions = keep(l.dimensions);
-    if (l.texts) next.texts = keep(l.texts);
-    if (l.detailLines) next.detailLines = keep(l.detailLines);
-    if (l.detailRegions) next.detailRegions = keep(l.detailRegions);
+    next.dimensions = keep(a.dimensions);
+    next.texts = keep(a.texts);
+    next.detailLines = keep(a.detailLines);
+    next.detailRegions = keep(a.detailRegions);
     if (l.roomSeparators) next.roomSeparators = keep(l.roomSeparators);
-    if (l.tags) next.tags = keep(l.tags);
+    next.tags = keep(a.tags);
     return next;
   });
   return { ...p, levels, views: p.views.filter((v) => !hidden.has(v.id)) };
@@ -73,10 +76,10 @@ export function semElementosOcultos(p: Project, hidden: ReadonlySet<Id> | undefi
  * hospedado tem visibilidade própria: aqui o estado de cada abertura de parede oculta (corte, projeção, intervalo,
  * categoria) volta da vista do projeto inteiro, para ela ser decidida pelo próprio id e não pelo hospedeiro.
  */
-function comEsquadriasIndependentes(p: Project, view: PlanView, levelId: Id, paredesOcultas: readonly Id[] | undefined): PlanView {
+function comEsquadriasIndependentes(p: Project, view: PlanView, levelId: Id, viewId: Id, paredesOcultas: readonly Id[] | undefined): PlanView {
   if (!paredesOcultas?.length) return view;
   const donas = new Set(paredesOcultas);
-  const cheia = planViewOf(p, levelId);
+  const cheia = planViewOf(p, levelId, viewId);
   const cls = new Map(view.cls);
   const hidden = new Set(view.hidden);
   const categoryHidden = new Set(view.categoryHidden);
@@ -136,6 +139,8 @@ function projetoSemParedes(p: Project, levelId: Id, ids: readonly Id[]): Project
  * redesenhada sem refazer a geometria (ver `PlanFrame`).
  */
 export interface PlanContext {
+  /** Vista que o desenho representa (piso, cobertura ou planta de área), calculada uma vez em `planContext`. */
+  viewId: Id;
   style: PlanStyle;
   /** Planta de cobertura (D6). */
   rp: boolean;
@@ -158,9 +163,10 @@ export interface PlanContext {
 
 export function planContext(input: PlanInput): PlanContext {
   const { project: p, viewport: v } = input;
-  const style = planStyleOf(p, input.levelId, v.zoom, input.areaPlan?.scale);
-  const paint = style.paint;
   const rp = input.roofPlanMode === true;
+  const viewId = planViewIdOf(p, input.levelId, { areaPlan: input.areaPlan, roofPlanMode: rp });
+  const style = planStyleOf(p, input.levelId, v.zoom, input.areaPlan?.scale, viewId);
+  const paint = style.paint;
   const revealed = input.revealed;
   // Hide in View (permanente + temporário) que não está no modo Reveal. O Reveal o desenha de novo, com borda azul.
   const doUsuario = input.hidden ? [...input.hidden].filter((id) => !revealed?.has(id)) : undefined;
@@ -170,7 +176,8 @@ export function planContext(input: PlanInput): PlanContext {
     return isWall(e) && e.levelId === input.levelId;
   });
   const pVis = paredesOcultas?.length ? projetoSemParedes(p, input.levelId, paredesOcultas) : p;
-  const view = rp ? null : comEsquadriasIndependentes(p, planViewOf(pVis, input.levelId), input.levelId, paredesOcultas);
+  // A cobertura não usa intervalo de vista (`view = null`); piso e planta de área leem o da própria vista.
+  const view = rp ? null : comEsquadriasIndependentes(p, planViewOf(pVis, input.levelId, viewId), input.levelId, viewId, paredesOcultas);
   const up = view?.range.direction === 'up';
   const geo: ResolvedLevel = view ? view.geo : input.resolved;
   // `view.hidden` já traz o intervalo e a categoria; ele manda sobre o Reveal (o intervalo não é Hide in View).
@@ -179,5 +186,5 @@ export function planContext(input: PlanInput): PlanContext {
   const roofHidden = view ? hidden : uniaoOcultos(roofOff, doUsuario);
   const stairs = escadasDoNivel(p, input.levelId).filter((s) => !hidden?.has(s.id));
   const ramps = rampasDoNivel(p, input.levelId).filter((r) => !hidden?.has(r.id));
-  return { style, rp, view, up, geo, hidden, roofOff, roofHidden, stairs, ramps };
+  return { viewId, style, rp, view, up, geo, hidden, roofOff, roofHidden, stairs, ramps };
 }

@@ -49,7 +49,8 @@ const anotacoesDaVista: AreaPlanAnnotations = {
 
 /** Entrada do render: o mesmo formato que o app monta (viewport e flags fixos). */
 const entrada = (s: ProjectStore, areaPlan?: AreaPlan): PlanInput => ({
-  project: s.project,
+  // A planta de área vai registrada no projeto: o desenho lê a vista pela API do modelo.
+  project: areaPlan ? { ...s.project, areaPlans: [...(s.project.areaPlans ?? []), areaPlan] } : s.project,
   levelId: 'lv_0',
   resolved: resolveLevel(s.project, 'lv_0'),
   below: null,

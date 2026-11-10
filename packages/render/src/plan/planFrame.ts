@@ -8,6 +8,7 @@ import { effectiveGridStep, gridCovers, gridLayer, type GridLayer } from './grid
 import type { PlanSlot, PlanScene } from './gpuPlan.ts';
 import { buildPlanGeometry, buildPlanHoverOverlay, buildPlanLiveOverlay, buildPlanScreenOverlay, planBelowOf, planGeometrySelection } from './build.ts';
 import { telhadosDoNivel } from './resolucao.ts';
+import { planViewIdOf } from './viewId.ts';
 import { assinaturaDeZoom } from './limiares.ts';
 import { resolverRotulos, resolverZoom } from './zoomOps.ts';
 import { dimPlanOps } from './dim.ts';
@@ -56,7 +57,7 @@ export interface PlanViewState {
   sketch?: PlanSketch | null;
   /**
    * Planta de cobertura (`roofPlanMode`): a geometria lê o nível resolvido (sem intervalo de vista) e os telhados de todos
-   * os níveis abaixo. As chaves incluem o modo, então trocar entre piso e cobertura refaz as camadas.
+   * os níveis abaixo. As chaves incluem o id da vista, então trocar entre piso, cobertura e planta de área refaz as camadas.
    */
   roofPlanMode?: boolean;
   /** Planta de área ativa (ausente = planta normal). */
@@ -80,7 +81,9 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
   const { project: p, levelId, v, theme, dark } = s;
   const lang = s.lang ?? 'pt';
   const rp = s.roofPlanMode === true;
-  const geoSel = planGeometrySelection(p, levelId, s.selection, s.areaPlan);
+  // A vista é calculada UMA vez aqui; as chaves usam o id dela (não mais um sinalizador de modo) e o desenho o recebe por `planContext`.
+  const viewId = planViewIdOf(p, levelId, { areaPlan: s.areaPlan, roofPlanMode: rp });
+  const geoSel = planGeometrySelection(p, levelId, s.selection, s.areaPlan, viewId);
   // A planta normal não usa a resolução do nível atual: `planViewOf` refaz a geometria com o corte (ver `planContext`).
   // Só a planta de cobertura lê `resolved`: o nível atual é resolvido só quando ela é desenhada, nunca na planta de piso.
   // O nível de baixo continua resolvido apenas quando a geometria é refeita (ver `planBelowOf`).
@@ -94,18 +97,17 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
   // Uma resolução por atualização, mesmo com as camadas de sobreposição sendo refeitas na mesma passagem.
   let resolvida: ResolvedLevel | null = null;
   const resolvido = (): ResolvedLevel => (rp ? (resolvida ??= s.resolve(levelId)) : resolucaoVazia(levelId));
-  // O modo de cobertura entra nas chaves: sem isso, trocar piso e cobertura do mesmo nível reaproveitaria as camadas antigas.
-  const modo = rp ? 'cobertura' : 'piso';
+  // O id da vista entra nas chaves: sem isso, trocar piso, cobertura e planta de área do mesmo nível reaproveitaria as camadas antigas.
   return {
     v,
     theme,
     gpu: s.gpu,
     showGrid: s.showGrid,
-    geometryKey: `${s.version}|${levelId}|${modo}|${dark}|${lang}|${s.showUnderlay}|${s.underlayLevel ?? ''}|${s.showRoofProjection}|${s.sketch ? 'dim' : ''}|${geoSel.join(',')}|${s.tagGhost?.roomId ?? ''}|${areaKey}|${visKey}`,
+    geometryKey: `${s.version}|${levelId}|${viewId}|${dark}|${lang}|${s.showUnderlay}|${s.underlayLevel ?? ''}|${s.showRoofProjection}|${s.sketch ? 'dim' : ''}|${geoSel.join(',')}|${s.tagGhost?.roomId ?? ''}|${areaKey}|${visKey}`,
     // Três chaves de sobreposição: a seleção, o alvo do cursor e a camada viva (prévia, guias e captura). Cursor e
     // pré-visualização não refazem os destaques da seleção, e o hover não refaz a geometria do nível.
-    overlayKey: `${s.version}|${levelId}|${modo}|${dark}|${lang}|${s.selection.join(',')}|${areaKey}|${visKey}`,
-    hoverKey: `${s.version}|${levelId}|${modo}|${dark}|${lang}|${s.selection.join(',')}|${s.hover ?? ''}|${s.aviso ?? ''}|${areaKey}|${visKey}`,
+    overlayKey: `${s.version}|${levelId}|${viewId}|${dark}|${lang}|${s.selection.join(',')}|${areaKey}|${visKey}`,
+    hoverKey: `${s.version}|${levelId}|${viewId}|${dark}|${lang}|${s.selection.join(',')}|${s.hover ?? ''}|${s.aviso ?? ''}|${areaKey}|${visKey}`,
     liveKey: `${JSON.stringify(s.preview)}|${JSON.stringify(s.inference)}|${sketchKey(s.sketch, v.zoom)}|${JSON.stringify(s.tagGhost ?? null)}|${areaKey}|${lang}`,
     // Só a geometria lê o nível de baixo: as referências são resolvidas apenas quando ela é refeita.
     geometry: () => {

@@ -70,8 +70,11 @@ const anotacoes = (sufixo: string): AreaPlanAnnotations => ({
 });
 
 /** Entrada da planta para `buildPlanGeometry` (o mesmo formato que o app usa). */
+/** Projeto com a planta de área registrada: o desenho lê a vista (intervalo, gráficos, anotações) pela API do modelo. */
+const comPlanta = (s: ProjectStore, areaPlan?: AreaPlan) => (areaPlan ? { ...s.project, areaPlans: [...(s.project.areaPlans ?? []), areaPlan] } : s.project);
+
 const entrada = (s: ProjectStore, areaPlan?: AreaPlan, selection: string[] = []): PlanInput => ({
-  project: s.project,
+  project: comPlanta(s, areaPlan),
   levelId: 'lv_0',
   resolved: resolveLevel(s.project, 'lv_0'),
   below: null,

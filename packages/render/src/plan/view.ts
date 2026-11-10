@@ -22,10 +22,11 @@ import {
   GRAPHICS_CATEGORIES,
   isOpening,
   isWall,
+  floorViewId,
   levelElevation,
-  levelGraphicsOf,
   openingsOfWall,
-  viewRangeOf,
+  planViewRangeOf,
+  viewGraphicsOf,
   wallsOnLevel,
   type GraphicsCategory,
   type Id,
@@ -50,7 +51,7 @@ interface OutlineShape {
 }
 
 /**
- * Vista da planta de um nível (decisão 0013): o intervalo do nível (`viewRangeOf`), as cotas absolutas do corte e do
+ * Vista da planta de um nível (decisão 0013): o intervalo da vista (`planViewRangeOf`), as cotas absolutas do corte e do
  * topo, o estado de cada elemento na vista e a geometria de planta resolvida com essas opções.
  */
 export interface PlanView {
@@ -80,8 +81,10 @@ export interface PlanView {
 }
 
 /**
- * Vista por projeto, nível, exibição parcial e categorias ocultas: o projeto é imutável (cada edição cria outro objeto),
- * então o cache não envelhece. A chave inclui só o que muda a resolução; pan, zoom e hover reaproveitam a vista.
+ * Vista por projeto, VISTA (`viewId`), exibição parcial e categorias ocultas: o projeto é imutável (cada edição cria
+ * outro objeto), então o cache não envelhece. Depende de intervalo de vista e gráficos, que são da vista: duas vistas do
+ * mesmo nível (piso e planta de área) não dividem entrada. A chave inclui só o que muda a resolução; pan, zoom e hover
+ * reaproveitam a vista.
  */
 const memo = new WeakMap<Project, Map<string, PlanView>>();
 
@@ -109,8 +112,8 @@ function categoryHiddenIds(p: Project, levelId: Id, hiddenCats: HiddenCats): Set
 
 type HiddenCats = ReadonlySet<GraphicsCategory>;
 
-function computePlanView(p: Project, levelId: Id, partial: PartialStructure, hiddenCats: HiddenCats): PlanView {
-  const range = viewRangeOf(p, levelId);
+function computePlanView(p: Project, levelId: Id, viewId: Id, partial: PartialStructure, hiddenCats: HiddenCats): PlanView {
+  const range = planViewRangeOf(p, viewId);
   const elevation = levelElevation(p, levelId);
   const cutZ = elevation + range.cut;
   const cls = new Map<Id, ViewClass>();
@@ -154,11 +157,15 @@ function computePlanView(p: Project, levelId: Id, partial: PartialStructure, hid
   return { range, cutZ, topZ: elevation + range.top, cls, hidden, outlineWalls, outlines, geo, categoryHidden, partial };
 }
 
-/** Vista da planta do nível (memorizada por projeto, nível, exibição parcial e categorias ocultas). */
-export function planViewOf(p: Project, levelId: Id): PlanView {
-  const g = levelGraphicsOf(p, levelId);
+/**
+ * Vista da planta do nível (memorizada por projeto, vista, exibição parcial e categorias ocultas). `viewId` opcional:
+ * sem ele vale a planta de piso do nível (o que as outras pastas sempre pediram). A cobertura não tem vista de planta
+ * (ver `planContext`): quem desenha passa o id do piso ou o da planta de área.
+ */
+export function planViewOf(p: Project, levelId: Id, viewId: Id = floorViewId(levelId)): PlanView {
+  const g = viewGraphicsOf(p, viewId);
   const hiddenCats = new Set(GRAPHICS_CATEGORIES.filter((c) => !g.overrides[c].visible));
-  const key = `${levelId}|${g.partialStructure}|${[...hiddenCats].join(',')}`;
+  const key = `${viewId}|${g.partialStructure}|${[...hiddenCats].join(',')}`;
   let byKey = memo.get(p);
   if (!byKey) {
     byKey = new Map();
@@ -166,7 +173,7 @@ export function planViewOf(p: Project, levelId: Id): PlanView {
   }
   let view = byKey.get(key);
   if (!view) {
-    view = computePlanView(p, levelId, g.partialStructure, hiddenCats);
+    view = computePlanView(p, levelId, viewId, g.partialStructure, hiddenCats);
     byKey.set(key, view);
   }
   return view;

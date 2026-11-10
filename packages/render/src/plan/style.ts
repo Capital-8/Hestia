@@ -4,9 +4,11 @@ import {
   defaultOverride,
   detailOf,
   graphicsOf,
-  levelGraphicsOf,
+  floorViewId,
   lineWeightMm,
   PLAN_VISUAL_STYLES,
+  planViewOf as vistaDoModelo,
+  viewGraphicsOf,
   type CategoryOverride,
   type DetailLevel,
   type GraphicsCategory,
@@ -76,14 +78,15 @@ function paintOf(gp: ProjectGraphics, c: GraphicsCategory, ov: CategoryOverride,
 
 /**
  * Gráficos da planta do nível para o desenho: escala, detalhe, estilo visual e substituições por categoria, com as
- * larguras em px de tela no `zoom` corrente. Sem `Level.graphics` salvo, o detalhe é o do projeto (`settings.detail`),
- * como antes da decisão 0015; com ele, vale `detailOf` (pela escala).
+ * larguras em px de tela no `zoom` corrente. Sem gráficos salvos na vista, o detalhe é o do projeto (`settings.detail`),
+ * como antes da decisão 0015; com eles, vale `detailOf` (pela escala). `viewId` opcional: sem ele vale a planta de piso
+ * do nível. A planta de área usa os gráficos da vista (hoje os do nível) e a escala da planta (`scaleOverride`).
  */
-export function planStyleOf(p: Project, levelId: Id, zoom: number, scaleOverride?: number): PlanStyle {
-  const g = levelGraphicsOf(p, levelId);
+export function planStyleOf(p: Project, levelId: Id, zoom: number, scaleOverride?: number, viewId: Id = floorViewId(levelId)): PlanStyle {
+  const g = viewGraphicsOf(p, viewId);
   const gp = graphicsOf(p);
   const visual: PlanVisual = isPlanVisual(g.style) ? g.style : 'hiddenLine';
-  const saved = p.levels.find((l) => l.id === levelId)?.graphics !== undefined;
+  const saved = vistaDoModelo(p, viewId)?.graphics !== undefined;
   const detail: DetailLevel = saved ? detailOf(g, gp) : (p.settings.detail ?? 'medium');
   const escala = scaleOverride && scaleOverride > 0 ? scaleOverride : g.scale;
   const paint = {} as Record<GraphicsCategory, PlanPaint>;

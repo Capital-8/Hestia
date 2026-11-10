@@ -1,5 +1,5 @@
 import { areaTableAllRows, computeSection, resolveLevel } from '@hestia/engine';
-import { areaPlanOf, levelGraphicsOf, sectionAnnotationsOf, sectionGraphicsOf, sectionPoints, unitsOf, type Id, type Project, type SheetViewport, type SheetViewSource } from '@hestia/model';
+import { areaPlanOf, floorViewId, planViewOf as vistaDoModelo, sectionAnnotationsOf, sectionGraphicsOf, sectionPoints, unitsOf, viewGraphicsOf, type Id, type Project, type SheetViewport, type SheetViewSource } from '@hestia/model';
 import type { Vec2 } from '@hestia/geom';
 import { buildPlanDrawList, levelBox } from '../plan/build.ts';
 import { LIGHT } from '../plan/types.ts';
@@ -14,14 +14,14 @@ import { fmtNumLang as fmtNum, t, type Lang } from '../i18n.ts';
  */
 function withSheetScale(p: Project, view: SheetViewSource, scale: number): Project {
   if (view.kind === 'plan') {
-    const graphics = { ...levelGraphicsOf(p, view.levelId), scale };
+    const graphics = { ...viewGraphicsOf(p, floorViewId(view.levelId)), scale };
     return { ...p, levels: p.levels.map((l) => (l.id === view.levelId ? { ...l, graphics } : l)) };
   }
   if (view.kind === 'section') return { ...p, sectionGraphics: { ...sectionGraphicsOf(p), scale } };
   if (view.kind === 'areaPlan') {
-    const plan = areaPlanOf(p, view.planId);
-    if (!plan) return p;
-    const graphics = { ...levelGraphicsOf(p, plan.levelId), scale };
+    const plan = vistaDoModelo(p, view.planId);
+    if (plan?.kind !== 'area') return p;
+    const graphics = { ...viewGraphicsOf(p, plan.id), scale };
     return { ...p, levels: p.levels.map((l) => (l.id === plan.levelId ? { ...l, graphics } : l)) };
   }
   return p;

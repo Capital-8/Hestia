@@ -109,13 +109,9 @@ export function sectionAnnotationOps(input: SectionInput, opts: SectionAnnotatio
     texts: [...listOf(a.texts)],
     detailLines: [...listOf(a.detailLines)],
     detailRegions: [...listOf(a.detailRegions)],
-    tags,
+    // Sem nível de referência (projeto sem níveis), nenhuma etiqueta é desenhada.
+    tags: levelId ? tags : [],
   };
-  // Projeto derivado só para as etiquetas: o `noteOps` lê `level.tags`, então as etiquetas da seção tomam o lugar das do
-  // nível de referência (sem somar as da planta). Sem nível, nenhuma etiqueta é desenhada.
-  const p: Project = levelId
-    ? { ...input.project, levels: input.project.levels.map((level) => (level.id === levelId ? { ...level, tags } : level)) }
-    : input.project;
   const paint: PlanPaint = opts.paint
     ? { ...opts.paint, color: opts.paint.color ?? input.theme.ink }
     : { ...defaultPaint('annotation', input.viewport.zoom), color: input.theme.ink };
@@ -131,5 +127,5 @@ export function sectionAnnotationOps(input: SectionInput, opts: SectionAnnotatio
   // `annotations` sempre definido: além de substituir as do nível, impede as linhas de separação de ambiente (que são da
   // planta) de entrarem no corte. Sem nível de referência (projeto sem níveis), as cotas/textos/detalhes ainda saem;
   // só as etiquetas ficam de fora, porque dependem do nível para serem encontradas.
-  return noteOps(p, levelId ?? '', paint, look, opts.scale && opts.scale > 0 ? opts.scale : SECTION_ANNOTATION_SCALE, input.viewport, notes);
+  return noteOps(input.project, levelId ?? '', paint, look, opts.scale && opts.scale > 0 ? opts.scale : SECTION_ANNOTATION_SCALE, input.viewport, notes);
 }

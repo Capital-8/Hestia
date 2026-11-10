@@ -1,9 +1,10 @@
-import { angularDimensionGeometry, dimensionFormatStyle, dimensionPoints, dimensionStyleFor, dimensionValue, DIM_TEXT_MM, formatDimension, levelDimensions, levelRoomSeparators, levelTexts, planAnnotationsOf, planOwnsAnnotations, resolveViewProfile, unitsOf, type AreaPlan, type AreaPlanAnnotations, type Dimension, type DimensionStyle, type Id, type Project, type TextNote } from '@hestia/model';
+import { angularDimensionGeometry, dimensionFormatStyle, dimensionPoints, dimensionStyleFor, dimensionValue, DIM_TEXT_MM, floorViewId, formatDimension, levelRoomSeparators, unitsOf, viewAnnotationsOf, viewProfileOf, type AreaPlan, type AreaPlanAnnotations, type Dimension, type DimensionStyle, type Id, type Project, type TextNote } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 import type { Vec2 } from '@hestia/geom';
 import type { Viewport } from '../viewport.ts';
 import { quadradoEm } from './marcadores.ts';
-import { elementTagOps, noteLabel } from './tags.ts';
+import { elementTagOpsOf, noteLabel } from './tags.ts';
+import { planViewIdOf } from './viewId.ts';
 import { drawDimension, layoutDimensions, type DimItem } from './dimDraw.ts';
 import { espessuraDeCorte, espessuraDeProjecao, type PlanPaint } from './style.ts';
 import { espessuraVezes } from './espessura.ts';
@@ -124,13 +125,15 @@ export function blocoEm(at: Vec2, w: number, h: number, rotation: number, folga 
 }
 
 /**
- * Anotações que a vista desenha: as próprias da planta de área (`plan.annotations`) ou, sem elas, as do nível. O perfil
- * da vista filtra o que aparece (a mesma regra de `build.ts`), para o destaque não cercar anotação oculta.
+ * Anotações que a vista desenha (`viewAnnotationsOf`: as próprias da planta de área ou, sem elas, as do nível). O perfil
+ * da vista filtra o que aparece (a mesma regra de `build.ts`), para o destaque não cercar anotação oculta. `viewId`
+ * opcional: quem já o tem (o contexto de desenho) o passa; sem ele sai de `levelId` + `plan`.
  */
-export function drawnAnnotations(p: Project, levelId: Id, plan?: AreaPlan): AreaPlanAnnotations {
-  const all: AreaPlanAnnotations = plan && planOwnsAnnotations(plan) ? planAnnotationsOf(plan) : annotationsOfLevel(p, levelId);
+export function drawnAnnotations(p: Project, levelId: Id, plan?: AreaPlan, viewId?: Id): AreaPlanAnnotations {
+  const vid = viewId ?? planViewIdOf(p, levelId, { areaPlan: plan });
+  const all: AreaPlanAnnotations = viewAnnotationsOf(p, vid);
   if (!plan) return all;
-  const prof = resolveViewProfile(plan).layers;
+  const prof = viewProfileOf(p, vid).layers;
   return {
     dimensions: prof.dimensions ? all.dimensions : [],
     texts: prof.texts ? all.texts : [],
@@ -180,14 +183,7 @@ export function dimensionItems(p: Project, levelId: Id, dims: readonly Dimension
  * não tem anotações próprias. As linhas de separação continuam no nível e não entram neste conjunto.
  */
 export function annotationsOfLevel(p: Project, levelId: Id): AreaPlanAnnotations {
-  const level = p.levels.find((x) => x.id === levelId);
-  return {
-    dimensions: levelDimensions(p, levelId),
-    texts: levelTexts(p, levelId),
-    detailLines: level?.detailLines ?? [],
-    detailRegions: level?.detailRegions ?? [],
-    tags: level?.tags ?? [],
-  };
+  return viewAnnotationsOf(p, floorViewId(levelId));
 }
 
 /**
@@ -198,16 +194,12 @@ export function annotationsOfLevel(p: Project, levelId: Id): AreaPlanAnnotations
  * etiquetas de elemento DA VISTA, sem somar as do nível. Sem ele, o comportamento é o de sempre. As linhas de separação
  * de ambiente não são anotação de vista: continuam vindo do nível (com `annotations`, o chamador as desenha).
  */
-export function noteOps(p: Project, levelId: Id, pt: PlanPaint, look: NoteLook, scale: number, v?: Viewport, annotations?: AreaPlanAnnotations): NoteOps {
+export function noteOps(p: Project, levelId: Id, pt: PlanPaint, look: NoteLook, scale: number, v?: Viewport, annotations?: AreaPlanAnnotations, viewId: Id = floorViewId(levelId)): NoteOps {
   const out: NoteOps = { fills: [], strokes: [], labels: [] };
   if (!pt.visible) return out;
   const color = pt.color ?? look.ink;
   const picked = (id: Id): boolean => look.selection.includes(id);
-  const level = p.levels.find((x) => x.id === levelId);
-  const dimensions = annotations ? annotations.dimensions : levelDimensions(p, levelId);
-  const texts = annotations ? annotations.texts : levelTexts(p, levelId);
-  const detailLines = annotations ? annotations.detailLines : (level?.detailLines ?? []);
-  const detailRegions = annotations ? annotations.detailRegions : (level?.detailRegions ?? []);
+  const { dimensions, texts, detailLines, detailRegions } = annotations ?? viewAnnotationsOf(p, viewId);
   const corte = espessuraDeCorte(pt);
   const projecao = espessuraDeProjecao(pt);
   // Disposição das cotas da vista: o texto que não cabe sai com linha de chamada e os rótulos não se sobrepõem.
@@ -266,8 +258,7 @@ export function noteOps(p: Project, levelId: Id, pt: PlanPaint, look: NoteLook, 
   // Etiquetas de elemento da vista (planta de área): mesmo desenho das etiquetas do nível, com os hóspedes do modelo.
   // Só entram quando a vista traz as suas anotações; sem elas, `build.ts` desenha as do nível à parte (como antes).
   if (annotations) {
-    const comTags: Project = { ...p, levels: p.levels.map((x) => (x.id === levelId ? { ...x, tags: annotations.tags } : x)) };
-    const tags = elementTagOps(comTags, levelId, pt, scale);
+    const tags = elementTagOpsOf(p, annotations.tags, pt, scale);
     out.strokes.push(...tags.strokes);
     out.labels.push(...tags.labels);
   }
