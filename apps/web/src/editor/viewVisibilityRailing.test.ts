@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildTemplate, makeGuardaCorpo, type Project } from '@hestia/model';
 import { useUi } from './state.ts';
-import { categoryIdsOf, visibilityOf } from './viewVisibility.ts';
+import { categoryIdsOf, unhideSelectionInView, visibilityOf } from './viewVisibility.ts';
+import { editor } from './controller.ts';
 
 afterEach(() => useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', areaPlanId: null, sectionId: null, viewTemp: {}, selection: [] }));
 
@@ -72,5 +73,23 @@ describe('visibilidade do guarda-corpo: categoria e elemento (Fase 6c)', () => {
     const v = visibilityOf(p, useUi.getState());
     expect(v.hidden.has(gid)).toBe(false);
     expect(v.revealed.has(gid)).toBe(true);
+  });
+});
+
+describe('Reexibir o guarda-corpo oculto (Hide in View)', () => {
+  it('Reexibir tira o guarda-corpo do oculto da planta, com e sem o modo Reveal', () => {
+    const level = editor.project.levels[0]!;
+    const gid = 'gc_reexibir';
+    editor.store.exec({ type: 'addGuardaCorpo', guardaCorpo: makeGuardaCorpo({ id: gid, levelId: level.id, typeId: Object.keys(editor.project.tiposGuardaCorpo)[0]!, hospedeiro: { tipo: 'manual', uso: 'livre', caminho: [{ x: 0, y: 0, dz: 0 }, { x: 3, y: 0, dz: 0 }], fechado: false, ladoDeslocamento: 'esquerdo' } }) }, 'teste');
+    editor.store.exec({ type: 'setViewHidden', target: { kind: 'plan', levelId: level.id }, hidden: { elements: [gid] } }, 'teste');
+    useUi.setState({ view: 'plan', planKind: 'floor', levelId: level.id, viewTemp: {}, selection: [gid] });
+    expect(visibilityOf(editor.project, useUi.getState()).hidden.has(gid)).toBe(true);
+
+    useUi.setState({ viewTemp: { [`plan:${level.id}`]: { reveal: true } } });
+    expect(visibilityOf(editor.project, useUi.getState()).revealed.has(gid)).toBe(true);
+    unhideSelectionInView();
+    expect(editor.project.levels.find((l) => l.id === level.id)?.hidden?.elements ?? []).not.toContain(gid);
+    expect(visibilityOf(editor.project, useUi.getState()).revealed.has(gid)).toBe(false);
+    expect(visibilityOf(editor.project, useUi.getState()).hidden.has(gid)).toBe(false);
   });
 });

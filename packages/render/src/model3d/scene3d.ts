@@ -686,9 +686,13 @@ export class ModelScene {
 
   private montarGuardaCorpo(p: Project, levelId: Id, chave: string): EntradaGuardaCorpo | null {
     const malhas = servicoGuardaCorpo().malhas(p) ?? [];
-    const visiveis = new Set(Object.values(p.elements).filter((e) => e.kind === 'railing' && e.levelId === levelId && !this.ocultos.has(e.id)).map((e) => e.id));
+    const doNivel = Object.values(p.elements).filter((e) => e.kind === 'railing' && e.levelId === levelId).map((e) => e.id);
+    const visiveis = new Set(doNivel.filter((id) => !this.ocultos.has(id)));
+    // Reveal (mesmo critério das outras peças): o revelado segue no modelo e ganha o contorno azul das arestas do próprio lote.
+    const reveladosIds = new Set(doNivel.filter((id) => this.revelados.has(id) && !this.ocultos.has(id)));
     const lotes = buildGuardaCorpoSolids(malhas, (id) => visiveis.has(id));
-    if (!lotes.length) return null;
+    const bordas = reveladosIds.size ? arestasDosLotes(buildGuardaCorpoSolids(malhas, (id) => reveladosIds.has(id)), EDGE_ANGLE) : null;
+    if (!lotes.length && !bordas) return null;
     const grupo = new THREE.Group();
     grupo.userData = { levelId };
     const picks: PickSource[] = [];
@@ -700,7 +704,18 @@ export class ModelScene {
     this.desenharLotes(grupo, lotes, this.frame.edges, (id) => p.materials[id]);
     this.picks = picksAnt;
     this.mats.noNivel = matsAnt;
+    if (bordas) {
+      const linhasReveladas = new THREE.LineSegments(bordas, this.materialDoReveal());
+      linhasReveladas.renderOrder = 8;
+      linhasReveladas.userData = { reveal: true };
+      grupo.add(linhasReveladas);
+    }
     return { levelId, chave, grupo, picks, mats: [...mats] };
+  }
+
+  /** Material do contorno azul do Reveal (um por cena, do cache de materiais). */
+  private materialDoReveal(): THREE.LineBasicMaterial {
+    return this.mats.cached(`reveal|${REVEAL_COLOR}`, () => new THREE.LineBasicMaterial({ color: REVEAL_COLOR, depthWrite: false }));
   }
 
   private liberarGuardaCorpo(g: EntradaGuardaCorpo): void {
@@ -1083,10 +1098,7 @@ export class ModelScene {
     if (bordas.length) {
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.Float32BufferAttribute(bordas, 3));
-      const linhasReveladas = new THREE.LineSegments(
-        geo,
-        this.mats.cached(`reveal|${REVEAL_COLOR}`, () => new THREE.LineBasicMaterial({ color: REVEAL_COLOR, depthWrite: false })),
-      );
+      const linhasReveladas = new THREE.LineSegments(geo, this.materialDoReveal());
       linhasReveladas.renderOrder = 8;
       linhasReveladas.userData = { reveal: true };
       grupo.add(linhasReveladas);

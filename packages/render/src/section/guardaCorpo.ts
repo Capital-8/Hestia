@@ -4,11 +4,23 @@ import { mix } from '../plan/color.ts';
 import type { PlanPaint } from '../plan/style.ts';
 import type { FillOp, PlanTheme, StrokeOp } from '../plan/types.ts';
 
+type Pt = { x: number; y: number };
+
 /**
  * Guarda-corpos no corte e na elevacao (decisao 0055): as linhas vem do kernel (`guarda_corte`) em coordenadas (s, z) do plano da vista, as mesmas do
  * resto do desenho. Peca cortada: contorno pesado e preenchimento claro; peca projetada: contorno fino. Sem kernel pronto nao desenha.
  */
-export function guardaCorpoCorteOps(p: Project, s: SectionResult, theme: PlanTheme, dark: boolean, hidden: ReadonlySet<Id> | undefined, paint: PlanPaint, fills: FillOp[], strokes: StrokeOp[]): void {
+export function guardaCorpoCorteOps(
+  p: Project,
+  s: SectionResult,
+  theme: PlanTheme,
+  dark: boolean,
+  hidden: ReadonlySet<Id> | undefined,
+  paint: PlanPaint,
+  fills: FillOp[],
+  strokes: StrokeOp[],
+  reveal?: { revelados: ReadonlySet<Id> | undefined; contorno: (pts: Pt[]) => void },
+): void {
   if (!paint.visible || !ServicoGuardaCorpo.temGuardaCorpo(p)) return;
   const plano = planoDaSecao(s);
   if (!plano) return;
@@ -28,6 +40,8 @@ export function guardaCorpoCorteOps(p: Project, s: SectionResult, theme: PlanThe
     } else {
       strokes.push({ pts, closed: true, ...paint.proj, color: fraco, alpha: 1 });
     }
+    // Reveal: o contorno azul do guarda-corpo revelado sai por cima (o desenho normal continua).
+    if (reveal?.revelados?.has(l.guardaId)) reveal.contorno(pts);
   }
 }
 
