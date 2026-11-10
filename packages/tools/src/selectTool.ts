@@ -207,13 +207,13 @@ export class SelectTool extends ToolBase {
     // Desenho CAD importado: clicar na linha do DXF seleciona o desenho (Propriedades, ocultar, mover e excluir).
     const cd = cadAt(pr, lv, at, mpp);
     if (cd) return { id: cd, kind: 'generic' };
+    // Guarda-corpo (antes da escada e da rampa que o hospedam, que estão por baixo do desenho dele): a planta só o acha pelo caminho desenhado (manual) ou pelo gancho do hospedado; oculto não é alvo.
+    const rl = pickRailingAt(pr, lv, at, mpp, this.env.hiddenInView?.());
+    if (rl) return { id: rl, kind: 'railing' };
     const st = pickStairAt(vp, lv, at, mpp);
     if (st) return { id: st, kind: 'stair' };
     const rp = pickRampAt(pr, lv, at, mpp);
     if (rp) return { id: rp, kind: 'ramp' };
-    // Guarda-corpo: a planta só o acha pelo caminho desenhado (manual) ou pelo gancho do hospedado; oculto não é alvo.
-    const rl = pickRailingAt(pr, lv, at, mpp, this.env.hiddenInView?.());
-    if (rl) return { id: rl, kind: 'railing' };
     const f = pickFloorAt(vp, lv, at, mpp);
     if (f) return { id: f, kind: 'floor' };
     const sl = pickSlabAt(pr, lv, at, mpp);
