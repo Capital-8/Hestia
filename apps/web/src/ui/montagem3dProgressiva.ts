@@ -115,7 +115,8 @@ function agendarPadrao(tarefa: () => void): void {
  * uma re-resolução.
  */
 function chavesDoProjeto(p: Project): Map<Id, string> {
-  return chavesDeNivel(p, '');
+  // Sem os guarda-corpos: a resolução do nível (paredes, junções) não os lê; o lote 3D deles tem chave própria na cena.
+  return chavesDeNivel(p, '', undefined, { semGuardaCorpo: true });
 }
 
 /**

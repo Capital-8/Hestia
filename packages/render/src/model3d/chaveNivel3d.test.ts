@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ProjectStore, createEmptyProject, makeLevel, makeRoof, makeWall, type Command, type Id, type Project } from '@hestia/model';
-import { assinaturasDoProjeto, chavesDeNivel, hashTexto } from './chaveNivel3d.ts';
+import { ProjectStore, createEmptyProject, defaultStairTypeId, makeGuardaCorpo, makeLevel, makeStair, makeRoof, makeWall, type Command, type Id, type Project } from '@hestia/model';
+import { assinaturasDoProjeto, chavesDeGuardaCorpo, chavesDeNivel, hashTexto } from './chaveNivel3d.ts';
 
 /** Projeto com `n` pavimentos (cota de 3 m) e quatro paredes por nível, como o gerador do baseline. */
 function predio(n: number): Project {
@@ -180,5 +180,46 @@ describe('chaves de nível (conteúdo do pavimento e dos vizinhos por cota)', ()
     const antes = chaves(p);
     const mudou = chaves(beiral(p, 3.5)).map((k, i) => k !== antes[i]);
     expect(mudou).toEqual([false, false, false, true, true]);
+  });
+});
+
+describe('guarda-corpo: lote 3D e chave próprios', () => {
+  const comEscada = (): Project => {
+    const store = new ProjectStore(predio(2));
+    store.exec({ type: 'addStair', stair: makeStair({ id: 'ch_st', typeId: defaultStairTypeId, levelId: 'lv_0', topLevelId: 'lv_1', components: [] }) });
+    return store.project;
+  };
+  const ligar = (p: Project): Project => {
+    const store = new ProjectStore(p);
+    store.exec({
+      type: 'addGuardaCorpo',
+      guardaCorpo: makeGuardaCorpo({ id: 'ch_gc', levelId: 'lv_0', typeId: 'gct_balaustres', hospedeiro: { tipo: 'escada', escadaId: 'ch_st', lados: { esquerdo: { lance: true, patamar: true }, direito: { lance: true, patamar: true } }, posicaoBase: 'degrau' } }),
+    });
+    return store.project;
+  };
+  const semGC = (p: Project): Map<Id, string> => chavesDeNivel(p, 'm', undefined, { semGuardaCorpo: true });
+
+  it('ligar o guarda-corpo não muda a chave de nenhum nível (paredes, lajes e escadas não são remontados)', () => {
+    const antes = comEscada();
+    const depois = ligar(antes);
+    expect(semGC(depois)).toEqual(semGC(antes));
+    // A chave completa (usada por quem lê o guarda-corpo, como o corte) continua vendo a mudança.
+    expect(chavesDeNivel(depois, 'm').get('lv_0')).not.toBe(chavesDeNivel(antes, 'm').get('lv_0'));
+    expect(chavesDeGuardaCorpo(antes, 'm').size).toBe(0);
+    expect(chavesDeGuardaCorpo(depois, 'm').has('lv_0')).toBe(true);
+  });
+
+  it('editar uma parede muda a chave do nível e não a do guarda-corpo; ocultar o guarda-corpo só muda a dele', () => {
+    const p = ligar(comEscada());
+    const editada = comParede(p, 0, 0, 0.5);
+    expect(semGC(editada).get('lv_0')).not.toBe(semGC(p).get('lv_0'));
+    expect(chavesDeGuardaCorpo(editada, 'm').get('lv_0')).toBe(chavesDeGuardaCorpo(p, 'm').get('lv_0'));
+    const oculto = { ocultos: new Set(['ch_gc']), revelados: new Set<Id>() };
+    expect(semGC(p)).toEqual(chavesDeNivel(p, 'm', oculto, { semGuardaCorpo: true }));
+    expect(chavesDeGuardaCorpo(p, 'm', oculto).get('lv_0')).not.toBe(chavesDeGuardaCorpo(p, 'm').get('lv_0'));
+    // Mexer na escada (hospedeiro) muda a chave do guarda-corpo.
+    const store = new ProjectStore(p);
+    store.exec({ type: 'updateElements', ids: ['ch_st'], patch: { baseOffset: 0.1 } });
+    expect(chavesDeGuardaCorpo(store.project, 'm').get('lv_0')).not.toBe(chavesDeGuardaCorpo(p, 'm').get('lv_0'));
   });
 });

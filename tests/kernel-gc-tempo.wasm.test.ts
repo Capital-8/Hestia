@@ -10,6 +10,10 @@ import { generateLShape } from '../packages/engine/src/stairGenerators.ts';
 import { generateSpiralRun } from '../packages/engine/src/stairSpiral.ts';
 import { montarCenaGC } from '../packages/engine/src/kernelGuardaCorpo.ts';
 import { ServicoGuardaCorpo } from '../packages/engine/src/kernelGuardaCorpoServico.ts';
+import * as THREE from 'three';
+import { resolveLevel } from '../packages/engine/src/resolve.ts';
+import { definirGerenciadorDoGuardaCorpo } from '../packages/engine/src/kernelGuardaCorpoServico.ts';
+import { ModelScene } from '../packages/render/src/model3d/scene3d.ts';
 import { buildGuardaCorpoSolids } from '../packages/render/src/model3d/guardaCorpo3d.ts';
 import { caminhoDoWasm } from '../packages/geom/src/kernel/caminhoWasm.ts';
 import { GerenciadorKernelV2 } from '../packages/geom/src/kernel/v2/gerenciador.ts';
@@ -105,5 +109,43 @@ describe.skipIf(!bytes)('guarda-corpo: tempo e não recálculo', () => {
     expect(m3).not.toBe(m1);
     expect(m3.map((m) => m.guardaId).sort()).toEqual(['gc1', 'gc2']);
     srv.encerrar();
+  });
+
+  it('3D: o guarda-corpo tem lote próprio; editar parede não o refaz e ligar/ocultar o guarda-corpo não remonta os níveis', () => {
+    definirGerenciadorDoGuardaCorpo(() => ger);
+    const s = escadaL();
+    const p1 = ligar(s);
+    const ms = new ModelScene({ instanciar: false });
+    const niveis = (p: Project) => p.levels.map((l) => resolveLevel(p, l.id));
+    const opt = { edges: false, shadows: false, dark: false };
+    const gruposRailing = (): THREE.Object3D[] => {
+      const out: THREE.Object3D[] = [];
+      ms.scene.traverse((o) => {
+        if (o instanceof THREE.Mesh && o.userData['kind'] === 'railing') out.push(o.parent!);
+      });
+      return [...new Set(out)];
+    };
+    const gruposNivel = (): THREE.Object3D[] => (ms['cenaNiveis'] as { grupo: THREE.Object3D }[]).map((e) => e.grupo);
+    // Sem guarda-corpo: nenhum lote. Com: o lote existe e os níveis são os mesmos objetos.
+    const p0 = escadaL().project;
+    ms.update(p0, niveis(p0), opt);
+    expect(gruposRailing()).toHaveLength(0);
+    const niveis0 = gruposNivel();
+    ms.update(p1, niveis(p1), opt);
+    const gc1 = gruposRailing();
+    expect(gc1).toHaveLength(1);
+    expect(gruposNivel()).toEqual(niveis0);
+    // Editar uma parede: o lote do guarda-corpo é o mesmo objeto; o nível editado é refeito.
+    s.exec({ type: 'addWall', wall: makeWall({ id: 'w9', typeId: s.project.defaults.wallTypeId, levelId: 'lv_0', a: { x: -3, y: 4 }, b: { x: 3, y: 4 } }) });
+    const p2 = s.project;
+    ms.update(p2, niveis(p2), opt);
+    expect(gruposRailing()).toEqual(gc1);
+    expect(gruposNivel()[0]).not.toBe(niveis0[0]);
+    // Ocultar o guarda-corpo: o lote some e os níveis seguem os mesmos objetos.
+    const antes = gruposNivel();
+    ms.update(p2, niveis(p2), { ...opt, hidden: new Set(['gc1']) });
+    expect(gruposRailing()).toHaveLength(0);
+    expect(gruposNivel()).toEqual(antes);
+    ms.dispose();
   });
 });

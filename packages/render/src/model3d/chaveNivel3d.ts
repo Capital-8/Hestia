@@ -19,11 +19,13 @@ export { assinaturasDoProjeto, hashTexto, type AssinaturasProjeto } from '@hesti
  * os telhados de TODOS os níveis (`axisRoofs`): a chave deles entra na chave dele, senão editar um telhado de outro
  * nível deixaria a malha antiga na tela.
  */
-export function chavesDeNivel(p: Project, marca: string, visibilidade?: VisibilidadeDaChave): Map<Id, string> {
+export function chavesDeNivel(p: Project, marca: string, visibilidade?: VisibilidadeDaChave, opcoes: { semGuardaCorpo?: boolean } = {}): Map<Id, string> {
   const a = assinaturasDoProjeto(p);
-  const vis = visibilidadePorNivel(p, visibilidade);
+  const semGC = opcoes.semGuardaCorpo === true;
+  const vis = visibilidadePorNivel(p, visibilidade, semGC ? 'sem' : 'todos');
   // Conteúdo + visibilidade do nível: é o que os vizinhos por cota e os telhados leem do nível.
-  const conteudo = (id: Id): string => `${a.nivel.get(id) ?? '-'}#${vis.nivel.get(id) ?? ''}`;
+  const assinatura = semGC ? a.nivelSemGuardaCorpo : a.nivel;
+  const conteudo = (id: Id): string => `${assinatura.get(id) ?? '-'}#${vis.nivel.get(id) ?? ''}`;
   const telhados = a.comTelhado.map((id) => conteudo(id)).join('|');
   const out = new Map<Id, string>();
   a.ordem.forEach((id, i) => {
@@ -32,6 +34,19 @@ export function chavesDeNivel(p: Project, marca: string, visibilidade?: Visibili
     const deTelhado = a.anexadosAoTelhado.has(id) ? telhados : '-';
     out.set(id, hashTexto([marca, a.global, vis.global, abaixo, conteudo(id), acima, deTelhado].join('|')));
   });
+  return out;
+}
+
+/**
+ * Chave de cada nível para o LOTE 3D DOS GUARDA-CORPOS (só dele): a marca da vista, o bloco global (tipos, materiais, cotas), os guarda-corpos do
+ * nível, as escadas e rampas (os hospedeiros) e a visibilidade dos próprios guarda-corpos. Editar paredes, lajes ou o resto do nível não a
+ * muda; a chave do nível sem guarda-corpo (`chavesDeNivel` com `semGuardaCorpo`) também não muda ao editar o guarda-corpo. Só há chave para níveis com guarda-corpo.
+ */
+export function chavesDeGuardaCorpo(p: Project, marca: string, visibilidade?: VisibilidadeDaChave): Map<Id, string> {
+  const a = assinaturasDoProjeto(p);
+  const vis = visibilidadePorNivel(p, visibilidade, 'so');
+  const out = new Map<Id, string>();
+  for (const [id, h] of a.guardaCorpo) out.set(id, hashTexto([marca, a.global, a.hospedeiros, h, vis.nivel.get(id) ?? '', vis.global].join('|')));
   return out;
 }
 
@@ -45,13 +60,16 @@ export interface VisibilidadeDaChave {
  * Assinatura de visibilidade por nível: os ids ocultos/revelados de cada nível, em hash. Id que não é elemento de nível
  * (global, genérico, CAD, vista) vai para a assinatura global, que entra em todas as chaves (conservador, como antes).
  */
-function visibilidadePorNivel(p: Project, v: VisibilidadeDaChave | undefined): { nivel: Map<Id, string>; global: string } {
+function visibilidadePorNivel(p: Project, v: VisibilidadeDaChave | undefined, guardaCorpo: 'todos' | 'sem' | 'so' = 'todos'): { nivel: Map<Id, string>; global: string } {
   const porNivel = new Map<Id, string[]>();
   const globais: string[] = [];
   if (v) {
     for (const [tag, ids] of [['o', v.ocultos], ['r', v.revelados]] as const) {
       for (const id of ids) {
         const e = p.elements[id];
+        // Guarda-corpo tem lote e chave próprios: a visibilidade dele só entra na chave dele ('so'), nunca na do nível ('sem').
+        const gc = e?.kind === 'railing';
+        if ((guardaCorpo === 'sem' && gc) || (guardaCorpo === 'so' && !gc)) continue;
         const nivel = e ? nivelDoElemento(p.elements, e) : null;
         const entrada = `${tag}:${id}`;
         if (nivel === null) globais.push(entrada);

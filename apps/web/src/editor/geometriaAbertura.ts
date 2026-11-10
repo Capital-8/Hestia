@@ -52,7 +52,7 @@ const PREFIXO_VERSAO = `v${VERSAO_ESQUEMA_CACHE}.${VERSAO_MOTOR_GEOMETRIA}`;
  */
 export function chavesDosNiveis(p: Project): Map<Id, string> {
   const out = new Map<Id, string>();
-  for (const [id, c] of chavesDeNivel(p, 'resolucao')) out.set(id, `${PREFIXO_VERSAO}|${c}`);
+  for (const [id, c] of chavesDeNivel(p, 'resolucao', undefined, { semGuardaCorpo: true })) out.set(id, `${PREFIXO_VERSAO}|${c}`);
   return out;
 }
 
