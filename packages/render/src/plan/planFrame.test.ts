@@ -67,13 +67,13 @@ describe('quadro da planta (PlanFrame)', () => {
     expect(count).toEqual({ g: 1, o: 2 });
     const after = slotMeshes(scene);
     expect(sameMeshes(after[1]!, before[1]!)).toBe(true);
-    expect(sameMeshes(after[6]!, before[6]!)).toBe(true);
-    // A seleção é reescrita no mesmo buffer (malha reaproveitada); as outras camadas não são reescritas.
     expect(sameMeshes(after[7]!, before[7]!)).toBe(true);
+    // A seleção é reescrita no mesmo buffer (malha reaproveitada); as outras camadas não são reescritas.
+    expect(sameMeshes(after[8]!, before[8]!)).toBe(true);
     const versoesDepois = versoesDasPosicoes(scene);
     expect(versoesDepois[1]).toEqual(versoesAntes[1]);
-    expect(versoesDepois[6]).toEqual(versoesAntes[6]);
-    expect(versoesDepois[7]![0]).not.toBe(versoesAntes[7]![0]);
+    expect(versoesDepois[7]).toEqual(versoesAntes[7]);
+    expect(versoesDepois[8]![0]).not.toBe(versoesAntes[8]![0]);
     scene.dispose();
   });
 
@@ -100,14 +100,14 @@ describe('quadro da planta (PlanFrame)', () => {
     const depoisHover = versoesDasPosicoes(scene);
     // Seleção (fillsSel, strokesSel) e camada viva ficam como estavam; só o traço do hover é reescrito.
     expect(depoisHover[2]).toEqual(antes[2]);
-    expect(depoisHover[7]).toEqual(antes[7]);
-    expect(depoisHover[9]).toEqual(antes[9]);
-    expect(depoisHover[8]![0]).not.toBe(antes[8]![0]);
+    expect(depoisHover[8]).toEqual(antes[8]);
+    expect(depoisHover[10]).toEqual(antes[10]);
+    expect(depoisHover[9]![0]).not.toBe(antes[9]![0]);
     upd('o', 'h2', 'l2');
     expect(count).toEqual({ g: 1, o: 1, h: 2, l: 2 });
     const depoisViva = versoesDasPosicoes(scene);
-    expect(depoisViva[8]).toEqual(depoisHover[8]);
-    expect(depoisViva[9]![0]).not.toBe(depoisHover[9]![0]);
+    expect(depoisViva[9]).toEqual(depoisHover[9]);
+    expect(depoisViva[10]![0]).not.toBe(depoisHover[10]![0]);
     scene.dispose();
   });
 
@@ -272,7 +272,11 @@ describe('estado da planta para o quadro (planFrameUpdateOf)', () => {
     expect(planFrameUpdateOf(state({ hover: 'w1' })).geometryKey).toBe(base.geometryKey);
     expect(planFrameUpdateOf(state({ selection: ['d1'] })).geometryKey).not.toBe(base.geometryKey);
     expect(planFrameUpdateOf(state({ v: { ...V, zoom: 80 } })).geometryKey).toBe(base.geometryKey);
-    expect(planFrameUpdateOf(state({ version: 2 })).geometryKey).not.toBe(base.geometryKey);
+    // A chave segue o conteúdo do projeto (não o contador de versão): o mesmo projeto não refaz a geometria; um projeto editado refaz.
+    expect(planFrameUpdateOf(state({ version: 2 })).geometryKey).toBe(base.geometryKey);
+    const w1 = p.elements.w1;
+    const editado = { ...p, elements: { ...p.elements, ...(w1?.kind === "wall" ? { w1: { ...w1, b: { x: w1.b.x + 1, y: w1.b.y } } } : {}) } };
+    expect(planFrameUpdateOf(state({ project: editado, version: 2 })).geometryKey).not.toBe(base.geometryKey);
   });
 
   it('abrir a planta não resolve o nível atual (a geometria vem da vista); só o nível de baixo é resolvido', () => {

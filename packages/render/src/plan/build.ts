@@ -1,6 +1,6 @@
 import { add, boxOf, mul, norm, perp, pointInMulti, ringArea, sub, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { buildOpeningModel, cutLevelByJunction, frameOfWall, openingGeometry, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedRoom, type ResolvedSlab } from '@hestia/engine';
-import { openingTypeById, dimensionStyleOf, angularDimensionGeometry, dimensionPoints, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, wallsOnLevel, type AreaPlan, type DetailLevel, type Id, type Material, type Project } from '@hestia/model';
+import { levelElevation, viewRangeOf, openingTypeById, dimensionStyleOf, angularDimensionGeometry, dimensionPoints, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, wallsOnLevel, type AreaPlan, type DetailLevel, type Id, type Material, type Project } from '@hestia/model';
 import { resolveRooms, resolveAngularDimension } from '@hestia/engine';
 import { areaPlanLegendOps, areaPlanRoomOps, areaPlanTableOps, areaPlanTagOps } from './areaPlan.ts';
 import { aberturasDaParede, escadasDoNivel, juncaoDoNivel, paredesDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
@@ -26,7 +26,7 @@ import { drawnAnnotations, noteOps, roomSeparatorStrokes } from './notes.ts';
 import { elementTagOps } from './tags.ts';
 import { openingViewOps, wallOutlineOps, type PlanView } from './view.ts';
 import { openingPlanDetail } from './symbols.ts';
-import { espessuraDeCorte, espessuraDeProjecao, paintOps, surfaceColor, type PlanPaint, type PlanStyle } from './style.ts';
+import { espessuraDeCorte, espessuraDeProjecao, paintOps, planStyleOf, surfaceColor, type PlanPaint, type PlanStyle } from './style.ts';
 import { Limiares, type VistaComLimiares } from './limiares.ts';
 import { tracoEm } from './marcadores.ts';
 import { resolverZoom } from './zoomOps.ts';
@@ -71,6 +71,11 @@ export interface PlanInput {
   hidden?: ReadonlySet<Id>;
   /** Elementos que o modo Reveal mostra com borda azul. */
   revealed?: ReadonlySet<Id>;
+  /**
+   * Guarda-corpo (decisão 0055) tem camada própria na planta: `'sem'` tira os guarda-corpos da geometria do nível (o quadro os desenha à parte,
+   * ver `buildPlanGuardaCorpo`); sem o campo, eles saem junto da geometria, como antes (impressão, captura e testes).
+   */
+  guardaCorpo?: 'sem';
   /** Rótulo em arraste (fantasma) da planta de área: segue o cursor em tempo real. */
   tagGhost?: { roomId: Id; at: Vec2 };
   /** Ambiente cujo rótulo está sendo arrastado: a geometria não o desenha (o fantasma desenha). */
@@ -214,6 +219,36 @@ function openingSymbolStrokes(
 }
 
 /**
+ * Guarda-corpos ocultos na vista: o Hide in View do usuário (menos os revelados) e, com a categoria desligada, todos os do nível. Não vem da
+ * vista do nível (`planViewOf`): o guarda-corpo não entra nela, e a vista é reaproveitada quando só um guarda-corpo muda.
+ */
+function ocultosDoGuardaCorpo(p: Project, levelId: Id, hidden: ReadonlySet<Id> | undefined, revealed: ReadonlySet<Id> | undefined, categoriaVisivel: boolean): ReadonlySet<Id> | undefined {
+  const out = new Set<Id>();
+  if (hidden) for (const id of hidden) if (!revealed?.has(id)) out.add(id);
+  if (!categoriaVisivel) for (const e of Object.values(p.elements)) if (e.kind === 'railing' && e.levelId === levelId) out.add(e.id);
+  return out.size > 0 ? out : undefined;
+}
+
+/**
+ * Camada própria dos guarda-corpos do nível (linhas do kernel, no estilo da categoria de escadas): lê só os guarda-corpos, as escadas e rampas
+ * hospedeiras e as opções da vista, nunca a resolução das paredes. Mesmas linhas e mesmo estilo que saíam dentro de `buildPlanGeometry`.
+ */
+export function buildPlanGuardaCorpo(input: PlanInput): PlanOps {
+  const { project: p, theme } = input;
+  const vazio: PlanOps = { fills: [], strokes: [], labels: [] };
+  const profile: PlanProfile = input.profile ?? (input.areaPlan ? areaPlanProfile(input.areaPlan) : FLOOR_PLAN_PROFILE);
+  if (!profile.stairs || input.roofPlanMode === true) return vazio;
+  const nivel = p.levels.find((l) => l.id === input.levelId);
+  if (!nivel) return vazio;
+  const style = planStyleOf(p, input.levelId, input.viewport.zoom, input.areaPlan?.scale);
+  const fillBase = input.dark ? theme.bg : '#ffffff';
+  const cutZ = levelElevation(p, input.levelId) + viewRangeOf(p, input.levelId).cut;
+  const ocultos = ocultosDoGuardaCorpo(p, input.levelId, input.hidden, input.revealed, style.paint.railing.visible);
+  const o = paintOps(guardaCorpoOps(p, input.levelId, ocultos, theme, input.dark, style.paint.stair, cutZ), style.paint.stair, fillBase);
+  return { fills: o.fills, strokes: o.strokes, labels: o.labels };
+}
+
+/**
  * Geometria do nível (decisão 0013, D1--D6): pisos, lajes, ambientes, escadas, paredes, aberturas, telhados, forros,
  * cotas e etiquetas. Não depende de pan, de seleção (exceto as cotas), de cursor, de ferramenta nem da grade. O zoom só
  * entra nas decisões de detalhe (interface entre materiais), registradas em `limiares`; faixas, marcadores e
@@ -343,7 +378,7 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   // Rampas do nível: junto das escadas, com o mesmo estilo da categoria.
   if (profile.ramps) addOps(rampFills(p, ramps, theme, input.dark, detail, v, view ? { cutZ: view.cutZ, topZ: view.topZ } : undefined, paint.stair, scale), paint.stair, !rp);
   // Guarda-corpos (decisao 0055): linhas do kernel Rust, no estilo da categoria de escadas.
-  if (profile.stairs) addOps(guardaCorpoOps(p, input.levelId, hidden, theme, input.dark, paint.stair, view?.cutZ), paint.stair, !rp);
+  if (profile.stairs && input.guardaCorpo !== 'sem') addOps(guardaCorpoOps(p, input.levelId, ocultosDoGuardaCorpo(p, input.levelId, input.hidden, input.revealed, paint.railing.visible), theme, input.dark, paint.stair, view?.cutZ), paint.stair, !rp);
   // Forros: só na planta de forro (na planta baixa eles estão acima do topo e não saem).
   if (profile.ceilings && up) addOps(ceilingFills(p, input.levelId, theme, input.dark, detail, v, hidden, paint.floor, style.scale), paint.floor, true);
 
