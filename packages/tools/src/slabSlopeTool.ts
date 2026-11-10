@@ -1,6 +1,9 @@
 import { dist, type Vec2 } from '@hestia/geom';
 import { isSlab, type Slab } from '@hestia/model';
 import { ToolBase } from './base.ts';
+import { contextoDeTraco, lerComprimentoDigitado, pontoPorComprimento } from './desenhoPolilinha.ts';
+import { segmentLengthDim } from './dims/providers/wall.ts';
+import type { DimRef, TempDim } from './dims/types.ts';
 import { unitsOf } from '@hestia/model';
 import { parseQuantityText } from './numeric.ts';
 import { selectedSlabs } from './slabPick.ts';
@@ -55,7 +58,7 @@ export class SlopeTool extends ToolBase {
     this.items = [];
     const s = this.target();
     if (!s) return;
-    const inf = this.snap(p, { from: this.origin ?? undefined, extraPoints: s.boundary });
+    const inf = this.snap(p, contextoDeTraco(this.origin, { extraPoints: s.boundary }));
     this.items.push({ kind: 'highlight', ids: [s.id] });
     if (this.origin && this.dirPt) {
       const slope = slopeFrom(this.origin, this.dirPt, this.percent());
@@ -77,7 +80,7 @@ export class SlopeTool extends ToolBase {
       this.env.say(`Enter aplica ${fmtPercent(unitsOf(this.env.project()), this.percent())}; ou digite outro percentual e Enter.`);
       return;
     }
-    const inf = this.snap(p, { from: this.origin ?? undefined, extraPoints: s.boundary });
+    const inf = this.snap(p, contextoDeTraco(this.origin, { extraPoints: s.boundary }));
     if (!this.origin) {
       this.origin = inf.point;
       this.env.say('Agora clique na direção do caimento.');
@@ -92,10 +95,25 @@ export class SlopeTool extends ToolBase {
   }
 
   override inputPrompt(): string | null {
-    return this.dirPt ? this.t('tl_inp_percent') : null;
+    if (this.dirPt) return this.t('tl_inp_percent');
+    return this.origin ? this.t('tl_inp_length') : null;
+  }
+
+  /** Cota dinâmica do trecho origem-cursor (mesmo provedor da parede). */
+  tempDims(_overrides: Readonly<Record<string, DimRef>> = {}): TempDim[] {
+    const c = this.inf?.point;
+    return this.origin && !this.dirPt && c && dist(this.origin, c) > 1e-6 ? [segmentLengthDim(this.origin, c)] : [];
   }
 
   override type(text: string): boolean {
+    if (this.origin && !this.dirPt) {
+      // Comprimento digitado: a direção do caimento fica a essa distância da origem, na direção do cursor (Orto/Polar valem).
+      const v = lerComprimentoDigitado(this.env, text);
+      if (v === null) return false;
+      this.dirPt = pontoPorComprimento(this.origin, this.inf?.point ?? this.raw, v);
+      this.env.say(`Percentual: Enter aplica ${fmtPercent(unitsOf(this.env.project()), this.percent())}; ou digite outro valor e Enter.`);
+      return true;
+    }
     if (!this.dirPt) return false;
     const v = parseQuantityText(text, unitsOf(this.env.project()), 'slope');
     if (v === null) {

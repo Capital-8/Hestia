@@ -109,7 +109,7 @@ describe('ferramenta Definir inclinação (A5, A6)', () => {
     const t = tool('slope', ctx.env);
     clickAt(t, 1, 1);
     clickAt(t, 1, 1);
-    expect(t.inputPrompt()).toBeNull();
+    expect(t.inputPrompt()).not.toBe('Percentual (%)');
     expect(ctx.msgs).toContain('Direção inválida: clique em outro ponto.');
   });
 

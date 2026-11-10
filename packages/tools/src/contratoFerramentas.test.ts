@@ -21,6 +21,15 @@ const LINEARES: Record<string, string> = {
   filledRegion: 'detailRegionTool.ts',
   dimension: 'dimensionTool.ts',
   grid: 'gridTool.ts',
+  // Piso, laje, forro e telhado traçam o contorno pela sessão de perímetro (a faixa desvia a escolha para ela).
+  perimeter: 'perimeterTool.ts',
+  floor: 'perimeterTool.ts',
+  slab: 'perimeterTool.ts',
+  ceiling: 'perimeterTool.ts',
+  roof: 'perimeterTool.ts',
+  roofextrusion: 'roofExtrusionTool.ts',
+  roofarrow: 'roofArrowTool.ts',
+  slope: 'slabSlopeTool.ts',
   section: 'sectionTool.ts',
 };
 
@@ -29,17 +38,9 @@ const LINEARES: Record<string, string> = {
  * da lista (o teste abaixo avisa quando uma exceção passa a usar o núcleo).
  */
 const EXCECOES_TODO: Record<string, string> = {
-  perimeter: 'perimeterTool.ts', // TODO: sessão de perímetro (piso, laje, forro, telhado) tem rastreio próprio
   stair: 'stairTool.ts', // TODO: croqui de escada
   stairrun: 'stairRunTool.ts', // TODO: lance de escada livre
   ramp: 'rampTool.ts', // TODO: croqui de rampa
-  roofarrow: 'roofArrowTool.ts', // TODO: seta de caimento
-  floor: 'floorTool.ts', // TODO: contorno de piso (núcleo de perímetro)
-  slab: 'slabTool.ts', // TODO: contorno de laje (núcleo de perímetro)
-  ceiling: 'ceilingTool.ts', // TODO: contorno de forro (núcleo de perímetro)
-  roof: 'roofTool.ts', // TODO: contorno de telhado (núcleo de perímetro)
-  roofextrusion: 'roofExtrusionTool.ts', // TODO: perfil de telhado por extrusão
-  slope: 'slabSlopeTool.ts', // TODO: inclinação de laje
   angularDimension: 'angularDimensionTool.ts', // TODO: cota angular (picks de retas, não traçado de segmento)
 };
 

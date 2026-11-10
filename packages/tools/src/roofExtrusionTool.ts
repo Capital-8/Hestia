@@ -2,6 +2,9 @@ import { add, mul, type Vec2 } from '@hestia/geom';
 import { formatQuantity, makeRoof, newId, unitsOf, type ResolvedUnits, type RoofProfilePoint } from '@hestia/model';
 import { defaultExtrusionProfile } from '@hestia/engine';
 import { ToolBase } from './base.ts';
+import { contextoDeTraco, lerComprimentoDigitado, pontoPorComprimento } from './desenhoPolilinha.ts';
+import { segmentLengthDim } from './dims/providers/wall.ts';
+import type { DimRef, TempDim } from './dims/types.ts';
 import { roofDirFor, defaultRoofDir, rectRing, roofAutoOffset, roofSlopeError } from './roofGeom.ts';
 import { roofProblem } from './roofCheck.ts';
 import type { PointerInfo } from './types.ts';
@@ -62,7 +65,7 @@ export class RoofExtrusionTool extends ToolBase {
   override move(p: PointerInfo): void {
     this.raw = p.raw;
     this.items = [];
-    const inf = this.snap(p);
+    const inf = this.snap(p, contextoDeTraco(this.startPt));
     if (!this.startPt) {
       this.items.push({ kind: 'point', at: inf.point });
       return;
@@ -79,20 +82,44 @@ export class RoofExtrusionTool extends ToolBase {
 
   override click(p: PointerInfo): void {
     this.raw = p.raw;
-    const inf = this.snap(p);
+    const inf = this.snap(p, contextoDeTraco(this.startPt));
     if (!this.startPt) {
       this.startPt = inf.point;
       this.env.say('Canto inicial marcado: clique no canto oposto. Esc cancela.');
       return;
     }
     const a = this.startPt;
-    const c = inf.point;
+    this.fechar(a, inf.point);
+  }
+
+  private fechar(a: Vec2, c: Vec2): void {
     if (Math.abs(c.x - a.x) < 0.01 || Math.abs(c.y - a.y) < 0.01) {
       this.env.say('Retângulo muito estreito: afaste o canto oposto.');
       return;
     }
     this.commit(rectRing(a, c));
     this.reset();
+  }
+
+  /** Cota dinâmica da diagonal do retângulo em traçado (mesmo provedor da parede). */
+  tempDims(_overrides: Readonly<Record<string, DimRef>> = {}): TempDim[] {
+    const a = this.startPt;
+    const c = this.inf?.point;
+    return a && c && Math.hypot(c.x - a.x, c.y - a.y) > 1e-6 ? [segmentLengthDim(a, c)] : [];
+  }
+
+  override inputPrompt(): string | null {
+    return this.startPt ? this.t('tl_inp_length') : null;
+  }
+
+  /** Comprimento digitado + Enter: o canto oposto fica a essa distância do inicial, na direção do cursor (Orto/Polar valem). */
+  override type(text: string): boolean {
+    const a = this.startPt;
+    if (!a) return false;
+    const v = lerComprimentoDigitado(this.env, text);
+    if (v === null) return false;
+    this.fechar(a, pontoPorComprimento(a, this.inf?.point ?? this.raw, v));
+    return true;
   }
 
   override tab(): void {
