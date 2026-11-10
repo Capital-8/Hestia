@@ -2,8 +2,10 @@ import type { Vec2 } from '@hestia/geom';
 import { formatQuantity, isStair, unitsOf, type Id, type StairCurve } from '@hestia/model';
 import { distributeRisers } from '@hestia/engine';
 import { ToolBase } from './base.ts';
+import { contextoDeTraco, lerComprimentoDigitado, pontoPorComprimento } from './desenhoPolilinha.ts';
+import { segmentLengthDim } from './dims/providers/wall.ts';
+import type { DimRef, TempDim } from './dims/types.ts';
 import type { InferContext } from './infer.ts';
-import { parseQuantityText } from './numeric.ts';
 import { pickStairAt } from './stairPick.ts';
 import { chainItems, curveItems, treadItems, type TreadPreviewContext } from './stairPreview.ts';
 import {
@@ -20,7 +22,7 @@ import {
   type StairSubmode,
   type StairToolOptions,
 } from './stairSketchState.ts';
-import { chainEnd, emptyStroke, strokeBusy, typedPoint } from './stairStroke.ts';
+import { chainEnd, emptyStroke, strokeBusy } from './stairStroke.ts';
 import { createStairFromComponents, draftStair, stairLimits, stairTypeId, updateStairComponents, type StairCreateOptions } from './stairCommands.ts';
 import { clearActive, closeCurrent, cloneParts, drawPoint, partPoints, pickInto, snapToBoundary, undoStroke, type DrawState, type PickOp } from './stairDraw.ts';
 import { chainAt, leftSide, nearestPickLine, offsetChain, PICK_PX, pickLinesOf } from './stairPickLines.ts';
@@ -249,13 +251,18 @@ export class StairTool extends ToolBase {
     if (this.st.pick) return false;
     const from = this.st.stroke.last;
     if (this.st.stroke.prim !== 'line' || from === null || this.st.submode === 'concluir') return false;
-    const v = parseQuantityText(text, unitsOf(this.env.project()), 'length');
-    if (v === null || v <= 0) {
-      this.env.say('Valor inválido. Digite o comprimento em metros.');
-      return false;
-    }
-    this.drawAt(typedPoint(from, this.cursor, v));
+    // Comprimento digitado no núcleo comum: na direção do cursor já com snap, Orto e Polar.
+    const v = lerComprimentoDigitado(this.env, text);
+    if (v === null) return false;
+    this.drawAt(pontoPorComprimento(from, this.cursor, v));
     return true;
+  }
+
+  /** Cota dinâmica do trecho de linha em traçado (mesmo provedor da parede). */
+  tempDims(_overrides: Readonly<Record<string, DimRef>> = {}): TempDim[] {
+    const from = this.st.stroke.last;
+    if (this.st.pick || this.st.stroke.prim !== 'line' || !from || this.st.submode === 'concluir') return [];
+    return from.x === this.cursor.x && from.y === this.cursor.y ? [] : [segmentLengthDim(from, this.cursor)];
   }
 
   override inputPrompt(): string | null {
@@ -448,11 +455,10 @@ export class StairTool extends ToolBase {
     const espelhos = this.st.submode === 'espelhos';
     const draft = this.st.parts.flatMap((part) => (espelhos && part.kind !== 'landing' ? [...part.run.boundaryLeft, ...part.run.boundaryRight].flatMap((c) => [c.a, c.b]) : partPoints(part)));
     const pending = this.st.stroke.chain.flatMap((c) => [c.a, c.b]);
-    return {
-      from: this.st.stroke.last ?? undefined,
+    return contextoDeTraco(this.st.stroke.last, {
       extraPoints: [...draft, ...pending],
       ...(espelhos ? { noGrid: true, snap: { ...DEFAULT_SNAP, ...this.env.options().snap, grid: false } } : {}),
-    };
+    });
   }
 
   /** Limites de cálculo: da escada em edição, ou da escada que a criação faria com as opções. */

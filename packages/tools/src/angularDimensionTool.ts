@@ -13,6 +13,9 @@ import {
 import { alignFeaturesAt, type AlignFeature } from './alignFeatures.ts';
 import { angularReachLinks, frameOfWall, pointAt } from '@hestia/engine';
 import { addSectionDimension, ToolBase, viewPlanId } from './base.ts';
+import { contextoDeTraco, lerComprimentoDigitado, pontoPorComprimento } from './desenhoPolilinha.ts';
+import { segmentLengthDim } from './dims/providers/wall.ts';
+import type { DimRef, TempDim } from './dims/types.ts';
 import { isSectionRef, sectionRefFeatures } from './angularSectionRefs.ts';
 import type { PointerInfo, PreviewItem } from './types.ts';
 
@@ -236,12 +239,39 @@ export class AngularDimensionTool extends ToolBase {
   override move(p: PointerInfo): void {
     this.raw = p.raw;
     if (this.placing) {
-      this.makePreview(p.raw);
+      // Raio pelo cursor com o núcleo comum: snaps, Orto e Polar a partir do vértice (centro) do ângulo.
+      this.makePreview(this.snapRaio(p));
       this.refreshItems();
       return;
     }
     this.updateHover(p.raw);
     this.refreshItems();
+  }
+
+  /** Cursor do posicionamento já capturado, tendo o vértice do ângulo como `from` (Orto, Polar e rastreios). */
+  private snapRaio(p: PointerInfo): Vec2 {
+    return this.snap(p, contextoDeTraco(this.geometry()?.center)).point;
+  }
+
+  /** Cota dinâmica do raio do arco (mesmo provedor da parede): do vértice ao cursor. */
+  tempDims(_overrides: Readonly<Record<string, DimRef>> = {}): TempDim[] {
+    const c = this.geometry()?.center;
+    const to = this.inf?.point;
+    return this.placing && c && to && dist(c, to) > 1e-6 ? [segmentLengthDim(c, to)] : [];
+  }
+
+  override inputPrompt(): string | null {
+    return this.placing ? this.t('tl_inp_length') : null;
+  }
+
+  /** Raio digitado + Enter: posiciona o arco a essa distância do vértice, do lado do cursor. */
+  override type(text: string): boolean {
+    const g = this.placing ? this.geometry() : null;
+    if (!g) return false;
+    const v = lerComprimentoDigitado(this.env, text);
+    if (v === null) return false;
+    this.commitAt(pontoPorComprimento(g.center, this.inf?.point ?? this.raw, v));
+    return true;
   }
 
   override tab(): void {
@@ -258,10 +288,20 @@ export class AngularDimensionTool extends ToolBase {
   override click(p: PointerInfo): void {
     this.raw = p.raw;
     if (this.placing) {
+      this.commitAt(this.snapRaio(p));
+      return;
+    }
+    this.updateHover(p.raw);
+    this.clickReference(p);
+  }
+
+  /** Grava a cota angular com o raio e o lado dados pelo ponto `cursor`. */
+  private commitAt(cursor: Vec2): void {
+    {
       const g = this.geometry();
       if (!g || !this.previewDim?.angular) { this.env.say(this.t('tl_msg_angdim_no_angle')); return; }
-      const radius = this.radiusAt(g, p.raw);
-      const angular = this.angularData(g, radius, p.raw);
+      const radius = this.radiusAt(g, cursor);
+      const angular = this.angularData(g, radius, cursor);
       const o = this.env.options();
       const dimension: Dimension = {
         id: newId('dim'),
@@ -281,9 +321,10 @@ export class AngularDimensionTool extends ToolBase {
       }
       this.reset();
       this.env.say(this.hint);
-      return;
     }
-    this.updateHover(p.raw);
+  }
+
+  private clickReference(p: PointerInfo): void {
     const cand = this.current();
     if (!cand) {
       this.env.say(this.t('tl_msg_click_face_axis_core'));

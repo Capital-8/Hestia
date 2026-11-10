@@ -31,6 +31,10 @@ const LINEARES: Record<string, string> = {
   roofarrow: 'roofArrowTool.ts',
   slope: 'slabSlopeTool.ts',
   section: 'sectionTool.ts',
+  stair: 'stairTool.ts',
+  stairrun: 'stairRunTool.ts',
+  ramp: 'rampTool.ts',
+  angularDimension: 'angularDimensionTool.ts',
 };
 
 /**
@@ -38,10 +42,6 @@ const LINEARES: Record<string, string> = {
  * da lista (o teste abaixo avisa quando uma exceção passa a usar o núcleo).
  */
 const EXCECOES_TODO: Record<string, string> = {
-  stair: 'stairTool.ts', // TODO: croqui de escada
-  stairrun: 'stairRunTool.ts', // TODO: lance de escada livre
-  ramp: 'rampTool.ts', // TODO: croqui de rampa
-  angularDimension: 'angularDimensionTool.ts', // TODO: cota angular (picks de retas, não traçado de segmento)
 };
 
 /** Ferramentas que não traçam elemento linear (seleção, edição, inserção por clique único, anotação pontual). */
