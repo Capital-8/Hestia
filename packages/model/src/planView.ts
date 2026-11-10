@@ -246,6 +246,19 @@ export function viewAnnotationsOf(p: Pick<Project, 'levels' | 'areaPlans'>, view
   return planViewOf(p, viewId)?.annotations ?? EMPTY_ANNOTATIONS;
 }
 
+/**
+ * Anotações que a vista POSSUI (as que a seleção e a edição enxergam). Na Fase 1 difere de `viewAnnotationsOf` só na
+ * planta de área sem conjunto próprio: o desenho herda as do nível, mas elas não são selecionáveis nem editáveis ali
+ * (comportamento atual, gravado no ouro). Piso e cobertura: as do nível. Na Fase 2 as duas funções ficam iguais.
+ */
+export function viewOwnAnnotationsOf(p: Pick<Project, 'levels' | 'areaPlans'>, viewId: Id): PlanAnnotations {
+  const v = planViewOf(p, viewId);
+  if (!v) return EMPTY_ANNOTATIONS;
+  if (v.kind !== 'area') return v.annotations;
+  const a = (p.areaPlans ?? NO_AREA_PLANS).find((x) => x.id === v.id);
+  return a && planOwnsAnnotations(a) ? v.annotations : EMPTY_ANNOTATIONS;
+}
+
 const profileCache = new WeakMap<PlanView, ResolvedProfile>();
 const FLOOR_PROFILE: ResolvedProfile = resolveFloorProfile();
 

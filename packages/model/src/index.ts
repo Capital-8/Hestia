@@ -80,7 +80,7 @@ export * from './sectionLevelExtents.ts';
 // `queries.ts` e `viewHiddenCommands.ts` (assinaturas por nível/alvo): saem com prefixo `planView` até a Fase 1 as unificar.
 export {
   floorViewId, roofViewId, planViewRef, planViewRefOf, planViewsOf, planViewOf, planViewsOfLevel, mainPlanViewOf,
-  viewRangeOf as planViewRangeOf, viewGraphicsOf, viewHiddenOf as planViewHiddenOf, viewAnnotationsOf, viewProfileOf,
+  viewRangeOf as planViewRangeOf, viewGraphicsOf, viewHiddenOf as planViewHiddenOf, viewAnnotationsOf, viewOwnAnnotationsOf, viewProfileOf,
   type PlanViewKind, type PlanAnnotations, type PlanView, type PlanViewRef,
 } from './planView.ts';
 export * from './planViewKinds.ts';

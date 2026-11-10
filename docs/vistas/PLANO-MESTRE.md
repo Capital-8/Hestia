@@ -548,3 +548,19 @@ Só pode sobrar em `migrate.ts` e nos testes de migração.
 5. **Ferramentas na cobertura:** hoje não há restrição; a tabela mantém "todas" até a Fase 3, quando ambiente e
    separação de ambiente passam a ser bloqueados em `roof` (diferença de comportamento prevista da Fase 3).
 6. A decisão 0055 está aceita pelo dono do projeto (execução autorizada sem novos aceites).
+
+### 10.2 Depois da raia 0A (ouro)
+
+1. **Desenho × seleção na planta de área sem anotações próprias:** hoje o desenho e o DXF herdam as anotações do
+   nível, mas a seleção e a edição não as enxergam. Para a Fase 1 não mudar comportamento há duas leituras:
+   `viewAnnotationsOf` (o que a vista **desenha**) e `viewOwnAnnotationsOf` (o que a vista **possui**: seleção,
+   edição, exclusão, ids ocultáveis). Use a segunda onde o código antigo usava `planAnnotationsOf`/`planAnnotationIds`
+   e a primeira onde usava a herança (`drawnAnnotations`). Na Fase 2 as duas ficam iguais e `viewOwnAnnotationsOf`
+   é removida.
+2. **Segunda diferença de ouro prevista da Fase 2:** as anotações copiadas para a planta de área (antes herdadas)
+   passam a ser selecionáveis nela, e seus ids mudam para `<idOriginal>__<idDaVista>` nas saídas `lista`, `dxf`,
+   `selecao` e `ocultos`. O mesmo vale para as cópias da cobertura (10.1.1).
+3. **O ouro:** `npm run test:vistas-ouro` (config própria; `--gravar` regrava). Todo o conhecimento da forma do
+   projeto está em `tests/vistas-ouro/adaptador.ts`: é o único arquivo do ouro que as raias podem alterar, e só
+   para acompanhar mudança de assinatura, nunca para mudar o que é comparado.
+4. O ouro não cobre: DXF de cobertura (não existe), cortes fora de prancha, e variações de subpavimento.
