@@ -85,6 +85,7 @@ function elementsOf(c: ClipBuffer): Element[] {
     ...(c.rooms ?? []),
     ...(c.generics ?? []),
     ...(c.cad ?? []),
+    ...(c.railings ?? []),
   ];
 }
 
@@ -101,6 +102,7 @@ function idsOf(c: ClipBuffer): Id[] {
     ...(c.rooms ?? []).map((e) => e.id),
     ...(c.generics ?? []).map((e) => e.id),
     ...(c.cad ?? []).map((e) => e.id),
+    ...(c.railings ?? []).map((e) => e.id),
   ];
 }
 
@@ -184,7 +186,7 @@ export class PasteTool extends ToolBase {
         notifyWallOverlap(this.env, conflito);
         return;
       }
-      const ids = [...r.wallIds, ...r.openingIds, ...r.floorIds, ...r.slabIds, ...r.ceilingIds, ...r.roofIds, ...r.stairIds, ...r.rampIds, ...r.roomIds, ...r.genericIds, ...r.cadIds];
+      const ids = [...r.wallIds, ...r.openingIds, ...r.floorIds, ...r.slabIds, ...r.ceilingIds, ...r.roofIds, ...r.stairIds, ...r.rampIds, ...r.roomIds, ...r.genericIds, ...r.cadIds, ...r.railingIds];
     this.env.transaction('Colar', () => {
       this.env.exec(r.command);
       if (len(this.delta) > 1e-9) {

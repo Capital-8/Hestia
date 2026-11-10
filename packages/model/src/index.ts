@@ -38,6 +38,7 @@ export * from './rampTransform.ts';
 export * from './validateRamps.ts';
 export * from './guardaCorpoTypes.ts';
 export * from './guardaCorpo.ts';
+export * from './guardaCorpoTransform.ts';
 export * from './guardaCorpoNorma.ts';
 export * from './validateGuardaCorpo.ts';
 export * from './viewRange.ts';

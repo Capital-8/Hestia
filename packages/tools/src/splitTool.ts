@@ -2,6 +2,8 @@ import { pointInRing, type Vec2 } from '@hestia/geom';
 import { formatQuantity, isFloor, isOpening, isRoof, isSlab, isWall, makeFloor, makeSlab, unitsOf, type Floor, type Id, type ResolvedUnits, type Slab, type Wall } from '@hestia/model';
 import { frameOfWall, pointAt, toLocal } from '@hestia/engine';
 import { ToolBase, makeId } from './base.ts';
+import { avisaGuardaCorpoHospedado, dividirCaminho, dividirGuardaCorpo, manualDe } from './guardaCorpoEdicao.ts';
+import { pickRailingAt } from './railingPick.ts';
 import { parseQuantityText } from './numeric.ts';
 import { pickAt } from './pick.ts';
 import { pickFloorAt } from './floorPick.ts';
@@ -134,6 +136,21 @@ export class SplitTool extends ToolBase {
       this.inf = { point: compEdge.at, kind: 'nearest', guides: [] };
       return;
     }
+    const railId = this.withGap ? null : pickRailingAt(this.env.project(), this.env.levelId(), p.raw, this.env.metersPerPixel());
+    const railManual = railId ? manualDe(this.env.project(), railId) : null;
+    if (railId) {
+      this.hoverId = null;
+      this.items.push({ kind: 'highlight', ids: [railId] });
+      if (railManual) {
+        const r = dividirCaminho(railManual.hospedeiro, p.raw);
+        const at = r?.primeiro[r.primeiro.length - 1];
+        if (at) {
+          this.items.push({ kind: 'point', at });
+          this.inf = { point: at, kind: 'nearest', guides: [] };
+        }
+      }
+      return;
+    }
     const w = this.wallAt(p);
     this.hoverId = w?.id ?? null;
     if (!w) {
@@ -189,6 +206,14 @@ export class SplitTool extends ToolBase {
     // A linha da escada/rampa não é aresta de piso: dividir aqui cortaria o piso por baixo sem o usuário ver.
     if (componentUnderCursor(this.env, p.raw)) {
       this.env.say(COMPONENT_EDGE_MSG);
+      return;
+    }
+    const railId = this.withGap ? null : pickRailingAt(this.env.project(), this.env.levelId(), p.raw, this.env.metersPerPixel());
+    if (railId) {
+      if (!manualDe(this.env.project(), railId)) avisaGuardaCorpoHospedado(this.env);
+      else if (dividirGuardaCorpo(this.env, railId, p.raw)) this.env.say(this.t('tl_msg_railing_split'));
+      else this.env.say(this.t('tl_msg_railing_split_end'));
+      this.reset();
       return;
     }
     const w = this.wallAt(p);

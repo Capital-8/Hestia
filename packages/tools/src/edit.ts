@@ -1,6 +1,6 @@
 import { add, applyTransform, dist, dot, norm, openingSymbolPaths, perp, sub, type Transform, type Vec2 } from '@hestia/geom';
 import { frameOfWall, openingGeometry } from '@hestia/engine';
-import { isCad, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, newId, sectionLabelOf, sectionPoints, viewIdsIn, viewTransformCommands, type Command, type Id, type Project } from '@hestia/model';
+import { isCad, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, mapaDeIdsDeGuardaCorpos, newId, sectionLabelOf, sectionPoints, viewIdsIn, viewTransformCommands, type Command, type Id, type Project } from '@hestia/model';
 import { followerCommands, planWallFollowers } from './wallFollow.ts';
 import { cadSnapIndexes } from './snapCad.ts';
 import { execWithHostedLoss } from './hostedGuard.ts';
@@ -12,6 +12,7 @@ import { selectedFloors } from './floorPick.ts';
 import { selectedSlabs } from './slabPick.ts';
 import { selectedRoofs } from './roofPick.ts';
 import { selectedRooms } from './roomPick.ts';
+import { ghostGuardaCorpos, selectedGuardaCorpos } from './guardaCorpoEdicao.ts';
 import type { PreviewItem, ToolEnv } from './types.ts';
 import { langOf, t as translate } from './i18n.ts';
 
@@ -21,7 +22,7 @@ export const selectedOpenings = (p: Project, ids: Id[]): Id[] => ids.filter((id)
 /** Desenhos CAD importados dentro da seleção (movem como um objeto só). */
 export const selectedCads = (p: Project, ids: Id[]): Id[] => ids.filter((id) => isCad(p.elements[id]));
 /** Paredes, pisos, lajes, telhados e CAD: o que o comando 'transform' move, gira, espelha e copia (aberturas seguem o anfitrião). */
-export const selectedMovables = (p: Project, ids: Id[]): Id[] => [...selectedWalls(p, ids), ...selectedFloors(p, ids), ...selectedSlabs(p, ids), ...selectedRoofs(p, ids), ...selectedStairs(p, ids), ...selectedRamps(p, ids), ...selectedRooms(p, ids), ...selectedCads(p, ids)];
+export const selectedMovables = (p: Project, ids: Id[]): Id[] => [...selectedWalls(p, ids), ...selectedFloors(p, ids), ...selectedSlabs(p, ids), ...selectedRoofs(p, ids), ...selectedStairs(p, ids), ...selectedRamps(p, ids), ...selectedRooms(p, ids), ...selectedCads(p, ids), ...selectedGuardaCorpos(p, ids)];
 
 /** Vistas de corte/elevação dentro da seleção. Elas transformam junto com os elementos. */
 export const selectedViews = (p: Project, ids: Id[]): Id[] => viewIdsIn(p, ids);
@@ -66,6 +67,8 @@ export function makeIdMap(p: Project, ids: Id[]): Record<Id, Id> {
   for (const e of Object.values(p.elements)) {
     if (isOpening(e) && ids.includes(e.hostId)) map[e.id] = newId(e.kind === 'door' ? 'd' : 'j');
   }
+  // Guarda-corpos: os manuais selecionados e os hospedados nas escadas e rampas copiadas.
+  mapaDeIdsDeGuardaCorpos(p, ids, map);
   return map;
 }
 
@@ -116,6 +119,7 @@ export function ghostBands(p: Project, wallIds: Id[], t: Transform): PreviewItem
     const sag = f.wall.sag;
     out.push({ kind: 'wallBand', a, b, thickness: f.thickness, sMid: t.kind === 'mirror' ? -f.sMid : f.sMid, sag: t.kind === 'mirror' ? -sag : sag });
   }
+  out.push(...ghostGuardaCorpos(p, wallIds, t));
   return out;
 }
 

@@ -1,6 +1,6 @@
 import { add, cross, dist, dot, intersectLines, mul, norm, perp, sub, type Vec2 } from '@hestia/geom';
 import { frameOfWall } from '@hestia/engine';
-import { openingsOfWall, openingType, type Id, type Project } from '@hestia/model';
+import { isGuardaCorpo, openingsOfWall, openingType, type Id, type Project } from '@hestia/model';
 import type { AlignFeature, AlignLine } from './alignFeatures.ts';
 import type { EdgeRef } from './ringEdge.ts';
 import { ringOps } from './ringOps.ts';
@@ -9,7 +9,7 @@ import { t as translate, type Lang } from './i18n.ts';
 
 /** Deslocamento calculado pelo Alinhar. `nada` = já alinhado; `erro` = recusa com a explicação em português. */
 export type AlignSolution =
-  | { kind: 'transladar'; target: 'parede' | 'escada' | 'rampa' | 'grade'; id: Id; d: Vec2; distance: number }
+  | { kind: 'transladar'; target: 'parede' | 'escada' | 'rampa' | 'grade' | 'guardaCorpo'; id: Id; d: Vec2; distance: number }
   | { kind: 'ponta'; wallId: Id; end: 'a' | 'b'; to: Vec2; distance: number }
   | { kind: 'abertura'; openingId: Id; offset: number; distance: number }
   | { kind: 'anel'; ref: EdgeRef; ring: Vec2[]; distance: number }
@@ -58,6 +58,7 @@ function openingCollides(project: Project, hostId: Id, openingId: Id, offset: nu
  */
 export function solveAlign(ref: AlignLine, feature: AlignFeature, project: Project, lang: Lang = 'pt'): AlignSolution {
   const move = feature.move;
+  if (move.policy === 'nenhum' && isGuardaCorpo(project.elements[feature.ownerId])) return { kind: 'erro', mensagem: translate(lang, 'tl_msg_railing_hosted_locked') };
   if (move.policy === 'nenhum') return { kind: 'erro', mensagem: translate(lang, 'tl_msg_align_feature_ref_only') };
 
   if (move.policy === 'transladar') {

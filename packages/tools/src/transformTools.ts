@@ -3,6 +3,7 @@ import { angleOf, dist, len, mul, norm, sub, v2, type Vec2 } from '@hestia/geom'
 import { frameOfWall } from '@hestia/engine';
 import { annotationIdsIn, annotationMoveCommands, dimensionSettingsOf, formatQuantity, isOpening, isRamp, isStair, isWall, unitsOf, type Id, type ResolvedUnits } from '@hestia/model';
 import { ToolBase } from './base.ts';
+import { avisaGuardaCorpoHospedado, guardaCorposBloqueados } from './guardaCorpoEdicao.ts';
 import { gridGhosts, moveGrids, selectedGrids } from './gridGeom.ts';
 import { copyWalls, ghostBands, ghostOpenings, ghostViews, moveWalls, selectedMovables, selectedOpenings, selectedViews, slideOpenings, transformViews, transformWalls } from './edit.ts';
 import { refuseCopyOverlap, refuseMoveOverlap } from './wallOverlapGuard.ts';
@@ -47,7 +48,8 @@ export abstract class SelectionTool extends ToolBase {
     if (!this.hasSelection()) {
       // Sair para Selecionar põe a dica dela na barra: o aviso vem depois, para não ser apagado.
       this.env.done();
-      this.env.say(`${this.label}: selecione elementos antes (Selecionar) e escolha a ferramenta de novo.`);
+      if (guardaCorposBloqueados(this.env.project(), this.env.selection()).length) avisaGuardaCorpoHospedado(this.env);
+      else this.env.say(`${this.label}: selecione elementos antes (Selecionar) e escolha a ferramenta de novo.`);
       return;
     }
     this.env.say(this.hint);
@@ -97,7 +99,8 @@ export class MoveTool extends SelectionTool {
     this.reset();
     this.session = {};
     this.copies = 0;
-    this.env.say(this.hasSelection() ? this.hint : this.edgeHint);
+    if (!this.hasSelection() && guardaCorposBloqueados(this.env.project(), this.env.selection()).length) avisaGuardaCorpoHospedado(this.env);
+    else this.env.say(this.hasSelection() ? this.hint : this.edgeHint);
   }
 
   /**

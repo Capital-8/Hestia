@@ -81,6 +81,7 @@ import { applyGridCommand, type GridCommand } from './grid.ts';
 import { applyViewCommand } from './viewCommands.ts';
 import { applyCeilingCommand } from './ceilingCommands.ts';
 import { applyGuardaCorpoCommand } from './guardaCorpoCommands.ts';
+import { transformarGuardaCorpos } from './guardaCorpoTransform.ts';
 import type { GuardaCorpo, TipoGuardaCorpo } from './guardaCorpoTypes.ts';
 import type { PerfilNorma } from './guardaCorpoNorma.ts';
 import { applyRoomCommand } from './roomCommands.ts';
@@ -256,6 +257,7 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
       ? { labelRotation: t.kind === 'mirror' ? -(r.labelRotation ?? 0) : (r.labelRotation ?? 0) + (t.kind === 'rotate' ? (t.angle * 180) / Math.PI : 0) }
       : {}),
   }));
+  transformarGuardaCorpos(p, c);
   const walls = c.ids.map((id) => p.elements[id]).filter(isWall);
   const wallIds = new Set(walls.map((w) => w.id));
   for (const w of walls) {

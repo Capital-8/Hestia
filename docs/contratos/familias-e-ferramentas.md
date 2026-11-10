@@ -28,6 +28,23 @@ Todo painel de elemento com família/tipo abre com `TypeSelector` (seletor de ti
 Teste-guarda: `apps/web/src/ui/contratoPaineisFamilia.test.ts` (falha para `*Properties.tsx` novo sem classificação
 ou painel de família sem `TypeSelector` e `onEdit`).
 
+## Regra 3. Todo kind de elemento entra nas ferramentas de modificação
+
+Elemento novo (`kind` em `Element`) tem de funcionar com mover, copiar, girar, espelhar, matriz, alinhar, deslocar,
+aparar/estender, dividir, apagar, copiar/colar entre pavimentos, desfazer/refazer, alças e propriedades em lote, igual
+às paredes. Pelo mecanismo genérico, sem caso especial:
+
+- **Transformar:** o comando `transform` (`packages/model/src/commands.ts`) leva o kind; a seleção entra por
+  `selectedMovables` (`packages/tools/src/edit.ts`), os ids da cópia por `makeIdMap`, o fantasma por `ghostBands`.
+- **Copiar/colar:** campo próprio no `ClipBuffer` (`clipboard.ts`) e no colar por níveis (`pasteLevels/command.ts`).
+- **Alinhar:** feição em `alignFeatures.ts` (política `transladar` para o que se move; `nenhum` para só referência).
+- **Elemento hospedado** (guarda-corpo em escada ou rampa): segue o hospedeiro. Mover, girar, espelhar ou copiar o
+  hospedeiro leva o hospedado junto (a cópia vem com o hospedeiro remapeado). Sozinho ele **não** se move: a
+  ferramenta recusa com a mensagem `tl_msg_railing_hosted_locked` e nada muda (ADR 0055 §25).
+
+Teste-guarda: `packages/tools/src/contratoModificacao.test.ts`. `CLASSIFICACAO` é um `Record<Element['kind'], ...>`:
+um kind novo sem linha **não compila**; cada marca tem de apontar código que existe e `null` exige o motivo (TODO).
+
 ## Exceções vigentes (TODO)
 
 - Ferramentas: nenhuma exceção. Todas as de criação usam o núcleo comum de desenho.
@@ -37,3 +54,8 @@ Migradas para o núcleo comum: perímetro (piso, laje, forro e telhado traçam p
 caimento, inclinação de laje e extrusão de telhado (teste `esbocoNucleo.test.ts`); escada, lance livre, rampa e cota
 angular (teste `contratoEscadaRampaCota.test.ts`). Nas ferramentas de dois pontos o comprimento digitado fixa o 2º
 ponto na direção do cursor. No lance reto e na rampa reta o valor digitado continua sendo o ângulo.
+
+Modificação (regra 3): exceções explícitas no teste-guarda. Ambiente e CAD não têm feição alinhável; o objeto
+importado (`generic`) ainda não é movido pelo `transform` (o Colar translada a malha por conta própria). O Alinhar do
+corte (`SectionAlignTool`) só tem alvo parede e abertura, como para escada, laje e forro; o Mover do corte leva o
+guarda-corpo manual. Não existem "fixar" e "agrupar" no modelo.

@@ -11,11 +11,11 @@ import type { PasteIds, PasteLevelsOptions, PasteLevelsResult, PasteWarning, Pas
 const CATEGORY_ORDER: readonly (keyof PasteIds)[] = ['walls', 'openings', 'floors', 'slabs', 'ceilings', 'roofs', 'stairs', 'ramps', 'rooms', 'generics', 'cad'];
 
 function emptyIds(): PasteIds {
-  return { walls: [], openings: [], floors: [], slabs: [], ceilings: [], roofs: [], stairs: [], ramps: [], rooms: [], generics: [], cad: [] };
+  return { walls: [], openings: [], floors: [], slabs: [], ceilings: [], roofs: [], stairs: [], ramps: [], rooms: [], generics: [], cad: [], railings: [] };
 }
 
 function emptySources(): Record<keyof PasteIds, Id[]> {
-  return { walls: [], openings: [], floors: [], slabs: [], ceilings: [], roofs: [], stairs: [], ramps: [], rooms: [], generics: [], cad: [] };
+  return { walls: [], openings: [], floors: [], slabs: [], ceilings: [], roofs: [], stairs: [], ramps: [], rooms: [], generics: [], cad: [], railings: [] };
 }
 
 /** Ids de um nível na ordem canônica (é a ordem de `sourceIds`/`members` do vínculo). */
@@ -35,7 +35,8 @@ function hasContent(c: ClipBuffer): boolean {
     (c.ramps?.length ?? 0) > 0 ||
     (c.rooms?.length ?? 0) > 0 ||
     (c.generics?.length ?? 0) > 0 ||
-    (c.cad?.length ?? 0) > 0
+    (c.cad?.length ?? 0) > 0 ||
+    (c.railings?.length ?? 0) > 0
   );
 }
 
@@ -52,6 +53,7 @@ function sourceLevelOf(p: Project, c: ClipBuffer): Id {
     ...(c.rooms ?? []).map((e) => e.levelId),
     ...(c.generics ?? []).map((e) => e.levelId),
     ...(c.cad ?? []).map((e) => e.levelId),
+    ...(c.railings ?? []).map((e) => e.levelId),
   ];
   return candidates.find((id) => p.levels.some((l) => l.id === id)) ?? p.levels[0]?.id ?? '';
 }
@@ -262,6 +264,21 @@ function buildLevel(p: Project, clip: ClipBuffer, levelId: Id, srcLevelId: Id, m
     wallsOut.push(wall);
     commands.push({ type: 'addWall', wall });
     fresh.push({ ...wall, order: 0 });
+  }
+
+  // Guarda-corpos: o manual vai com o caminho como estava; o hospedado vai para a escada ou rampa copiada (mesmo buffer).
+  for (const g of clip.railings ?? []) {
+    const { order: _order, ...rest } = g;
+    const h = rest.hospedeiro;
+    const origem = h.tipo === 'escada' ? h.escadaId : h.tipo === 'rampa' ? h.rampaId : null;
+    const novoHost = origem === null ? null : hostMap.get(origem);
+    if (origem !== null && !novoHost) continue;
+    const hospedeiro = h.tipo === 'escada' ? { ...h, escadaId: novoHost! } : h.tipo === 'rampa' ? { ...h, rampaId: novoHost! } : h;
+    const typeId = p.tiposGuardaCorpo?.[g.typeId] ? g.typeId : Object.keys(p.tiposGuardaCorpo ?? {})[0];
+    if (!typeId) continue;
+    const id = mint('gc');
+    ids.railings.push(id);
+    commands.push({ type: 'addGuardaCorpo', guardaCorpo: { ...rest, id, levelId, typeId, hospedeiro } });
   }
 
   // Aberturas sempre na parede copiada do MESMO nível de destino.

@@ -3,6 +3,8 @@ import { dist, intersectCircleLine, intersectCircles, intersectLines, sagFromThr
 import { frameOfWall, pointAt, toLocal, type WallFrame } from '@hestia/engine';
 import { isRamp, isStair, isWall, type Id, type Project } from '@hestia/model';
 import { ToolBase } from './base.ts';
+import { aparaGuardaCorpo, avisaGuardaCorpoHospedado, manualDe, retaDoGuardaCorpo, type RetaRef } from './guardaCorpoEdicao.ts';
+import { pickRailingAt } from './railingPick.ts';
 import { algumMudou, NADA_A_APARAR } from './trimChange.ts';
 import { execWithHostedLoss } from './hostedGuard.ts';
 import { patchCommands, trimPreviewItems, type EndPatch, type TrimPatch } from './trimPreview.ts';
@@ -123,8 +125,11 @@ export class TrimTool extends ToolBase {
   /** Primeira aresta de croqui de escada/rampa escolhida, com o ponto bruto do clique. */
   private firstComp: { pick: ComponentEdgePick; at: Vec2 } | null = null;
   private group: TrimPick[] = [];
+  /** Guarda-corpo manual escolhido para aparar ou estender; o próximo clique é a referência (parede, aresta ou outro guarda-corpo). */
+  private firstRail: { id: Id; at: Vec2 } | null = null;
 
   protected reset(): void {
+    this.firstRail = null;
     this.first = null;
     this.firstEdge = null;
     this.firstComp = null;
@@ -132,7 +137,7 @@ export class TrimTool extends ToolBase {
     this.items = [];
   }
   protected busy(): boolean {
-    return this.first !== null || this.firstEdge !== null || this.firstComp !== null || this.group.length > 0;
+    return this.first !== null || this.firstEdge !== null || this.firstComp !== null || this.group.length > 0 || this.firstRail !== null;
   }
 
   override start(): void {
@@ -147,6 +152,7 @@ export class TrimTool extends ToolBase {
 
   /** Texto do passo atual, por modo. */
   private prompt(): string {
+    if (this.firstRail) return 'Aparar/Estender guarda-corpo: clique na referência (parede, aresta ou outro guarda-corpo).';
     if (this.firstComp) return this.t('tl_msg_trim_prompt_sketch');
     if (this.firstEdge) return this.t('tl_msg_trim_prompt_edge');
     const mode = this.mode();
@@ -167,6 +173,12 @@ export class TrimTool extends ToolBase {
 
   /** Esc volta um passo: grupo, depois primeira parede/aresta; sem passo, sai da ferramenta. */
   override cancel(): void {
+    if (this.firstRail) {
+      this.firstRail = null;
+      this.items = [];
+      this.env.say(this.prompt());
+      return;
+    }
     if (this.firstComp) {
       this.firstComp = null;
       this.items = [];
@@ -195,6 +207,11 @@ export class TrimTool extends ToolBase {
   }
 
   override move(p: PointerInfo): void {
+    const railId = pickRailingAt(this.env.project(), this.env.levelId(), p.raw, this.env.metersPerPixel());
+    if (railId || this.firstRail) {
+      this.items = [{ kind: 'highlight', ids: [...(railId ? [railId] : []), ...(this.firstRail ? [this.firstRail.id] : [])] }];
+      return;
+    }
     const compEdge = componentEdgeAt(this.env, p.raw);
     if (compEdge) {
       this.items = [{ kind: 'highlight', ids: [compEdge.ref.elementId] }, { kind: 'line', a: compEdge.a, b: compEdge.b }, { kind: 'point', at: compEdge.at }];
@@ -452,7 +469,68 @@ export class TrimTool extends ToolBase {
     if (ok) this.env.say(`Canto aplicado. ${this.prompt()}`);
   }
 
+  /** Reta da parede ou da aresta sob o clique, como referência do guarda-corpo. */
+  private refSob(p: PointerInfo, pr: Project): RetaRef | null {
+    const target = pickLineTarget(pr, this.env.levelId(), p.raw, this.env.metersPerPixel());
+    if (!target) return null;
+    if (target.kind === 'edge') return { p: target.pick.a, d: sub(target.pick.b, target.pick.a) };
+    const f = frameOfWall(pr, target.id);
+    if (!f) return null;
+    if (f.arc) {
+      this.env.say('Referência em arco: use uma parede reta.');
+      return null;
+    }
+    return { p: f.a, d: f.u };
+  }
+
+  /** Aparar/Estender com guarda-corpo manual: 1º clique no guarda-corpo (lado que fica), 2º na referência; ou referência primeiro e guarda-corpo depois. */
+  private clickGuardaCorpo(id: Id, p: PointerInfo, pr: Project): void {
+    if (!manualDe(pr, id)) {
+      avisaGuardaCorpoHospedado(this.env);
+      this.reset();
+      return;
+    }
+    if (this.first) {
+      const ref = this.refSob({ ...p, raw: this.first.at }, pr);
+      const done = ref ? aparaGuardaCorpo(this.env, id, p.raw, ref) : false;
+      this.reset();
+      if (done) this.env.say(`Guarda-corpo aparado. ${this.prompt()}`);
+      return;
+    }
+    if (!this.firstRail) {
+      this.firstRail = { id, at: p.raw };
+      this.env.say(this.prompt());
+      return;
+    }
+    if (this.firstRail.id === id) {
+      this.env.say('Escolha outra referência.');
+      return;
+    }
+    const outro = pr.elements[id];
+    const ref = outro && outro.kind === 'railing' ? retaDoGuardaCorpo(pr, outro, p.raw) : null;
+    const first = this.firstRail;
+    this.reset();
+    if (ref && aparaGuardaCorpo(this.env, first.id, first.at, ref)) this.env.say(`Guarda-corpo aparado. ${this.prompt()}`);
+  }
+
   override click(p: PointerInfo): void {
+    const pr0 = this.env.project();
+    const railId = pickRailingAt(pr0, this.env.levelId(), p.raw, this.env.metersPerPixel());
+    if (railId) {
+      this.clickGuardaCorpo(railId, p, pr0);
+      return;
+    }
+    if (this.firstRail) {
+      const first = this.firstRail;
+      const ref = this.refSob(p, pr0);
+      if (!ref) {
+        if (!this.items.length) this.env.say('Clique numa parede, aresta ou guarda-corpo como referência.');
+        return;
+      }
+      this.reset();
+      if (aparaGuardaCorpo(this.env, first.id, first.at, ref)) this.env.say(`Guarda-corpo aparado. ${this.prompt()}`);
+      return;
+    }
     const compEdge = componentEdgeAt(this.env, p.raw);
     if (compEdge) {
       this.clickComponentEdge(compEdge, p);

@@ -27,7 +27,7 @@ export interface CategoryContext {
 
 /** Ids vazios por categoria; evita repetir o literal em cada caminho de erro. */
 export function emptyPasteIds(): PasteIds {
-  return { walls: [], openings: [], floors: [], slabs: [], ceilings: [], roofs: [], stairs: [], ramps: [], rooms: [], generics: [], cad: [] };
+  return { walls: [], openings: [], floors: [], slabs: [], ceilings: [], roofs: [], stairs: [], ramps: [], rooms: [], generics: [], cad: [], railings: [] };
 }
 
 /**
