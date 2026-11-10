@@ -1,16 +1,14 @@
 import { useEffect, useState, type ReactElement } from 'react';
 import {
   DIM_FAMILY_PADRAO,
-  areaPlanOf,
   dimensionFamiliesOf,
   dimensionFormatStyle,
   dimensionStyleFor,
   dimensionStyleOf,
   dimensionValue,
+  floorViewId,
   formatDimension,
-  levelDimensions,
-  levelTexts,
-  planAnnotationsOf,
+  planViewOf,
   sectionAnnotationsOf,
   type AngularDimension,
   type AngularDimensionSide,
@@ -22,6 +20,7 @@ import {
   type Id,
   type Project,
   type TextNote,
+  viewOwnAnnotationsOf,
 } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
 import { resolveAngularDimension } from '@hestia/engine';
@@ -67,9 +66,9 @@ export function selectedNote(p: Project, levelId: Id, ids: Id[], planId?: Id | n
     return tag ? { tag, section: true } : null;
   }
   if (planId) {
-    const plan = areaPlanOf(p, planId);
-    if (!plan) return null;
-    const a = planAnnotationsOf(plan);
+    // Só planta de área (a mesma guarda de `areaPlanOf`): outra vista não tem anotações próprias aqui.
+    if (planViewOf(p, planId)?.kind !== 'area') return null;
+    const a = viewOwnAnnotationsOf(p, planId);
     const dim = a.dimensions.find((d) => d.id === id);
     if (dim) return { dim };
     const text = a.texts.find((t) => t.id === id);
@@ -81,16 +80,16 @@ export function selectedNote(p: Project, levelId: Id, ids: Id[], planId?: Id | n
     const tag = a.tags.find((x) => x.id === id);
     return tag ? { tag } : null;
   }
-  const dim = levelDimensions(p, levelId).find((d) => d.id === id);
+  const nivel = viewOwnAnnotationsOf(p, floorViewId(levelId));
+  const dim = nivel.dimensions.find((d) => d.id === id);
   if (dim) return { dim };
-  const text = levelTexts(p, levelId).find((t) => t.id === id);
+  const text = nivel.texts.find((t) => t.id === id);
   if (text) return { text };
-  const level = p.levels.find((l) => l.id === levelId);
-  const line = level?.detailLines?.find((x) => x.id === id);
+  const line = nivel.detailLines.find((x) => x.id === id);
   if (line) return { line };
-  const region = level?.detailRegions?.find((x) => x.id === id);
+  const region = nivel.detailRegions.find((x) => x.id === id);
   if (region) return { region };
-  const tag = level?.tags?.find((x) => x.id === id);
+  const tag = nivel.tags.find((x) => x.id === id);
   return tag ? { tag } : null;
 }
 

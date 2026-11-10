@@ -1,5 +1,5 @@
 import { useRef, type ReactElement } from 'react';
-import { areaPlanOf, sheetOf, type Project } from '@hestia/model';
+import { planViewOf, sheetOf, type Project } from '@hestia/model';
 import { editor, useProject, useProjectVersion } from '../editor/controller.ts';
 import { openProjectFile } from '../editor/fileActions.ts';
 import { resolveText, t, useT, type Lang } from '../editor/i18n.ts';
@@ -28,7 +28,7 @@ function viewTitle(p: Project, view: string, levelId: string, sectionId: string 
     return t(lang, 'shc_title_sheet', { name: sh ? `${sh.number} ${sh.name}` : '' });
   }
   if (planKind === 'area') {
-    const ap = areaPlanId ? areaPlanOf(p, areaPlanId) : undefined;
+    const ap = areaPlanId ? planViewOf(p, areaPlanId) : undefined;
     return t(lang, 'shc_title_area_plan', { name: ap?.name ?? '' });
   }
   const key = planKind === 'roof' ? 'shc_title_roof_plan' : 'shc_title_floor_plan';

@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { areaPlanOf, isOpeningDimRef, isWallDimRef, type LocationLine } from '@hestia/model';
+import { isOpeningDimRef, isWallDimRef, planViewOf, type LocationLine } from '@hestia/model';
 import { DEFAULT_RAMP_OPTIONS, roofAutoOffset, stairTypeForShape, type ToolId } from '@hestia/tools';
 import { editor, useProject } from '../editor/controller.ts';
 import { clearDimOverride, setDimOverride, useUi } from '../editor/state.ts';
@@ -35,7 +35,7 @@ export function PlacementProperties({ tool }: { tool: ToolId }): ReactElement {
   const levelId = useUi((s) => s.levelId);
   const planKind = useUi((s) => s.planKind);
   const areaPlanId = useUi((s) => s.areaPlanId);
-  const areaPlan = planKind === 'area' && areaPlanId ? areaPlanOf(p, areaPlanId) : undefined;
+  const areaPlan = planKind === 'area' && areaPlanId ? planViewOf(p, areaPlanId) : undefined;
   // Na planta de área, as anotações ficam na vista; a frase abaixo já reflete o destino real.
   const targetName = areaPlan
     ? t('pra_msg_area_plan_target', { name: areaPlan.name })

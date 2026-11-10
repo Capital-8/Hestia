@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { PLAN_VISUAL_STYLES, levelGraphicsOf, sectionGraphicsOf, view3dOf, type View3DSettings, type ViewGraphics } from '@hestia/model';
+import { PLAN_VISUAL_STYLES, floorViewId, sectionGraphicsOf, view3dOf, viewGraphicsOf, type View3DSettings, type ViewGraphics } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
 import { editLevelGraphics, editSectionGraphics, editView3D, showLevelsOn, type GraphicsEdit } from '../editor/graphicsActions.ts';
 import { useT, type Dict } from '../editor/i18n.ts';
@@ -44,7 +44,7 @@ export function ViewControlBar(): ReactElement | null {
   if (view === 'sheet') return null;
 
   const is3d = view === '3d';
-  const g: ViewGraphics | View3DSettings = is3d ? view3dOf(p) : view === 'section' ? sectionGraphicsOf(p) : levelGraphicsOf(p, levelId);
+  const g: ViewGraphics | View3DSettings = is3d ? view3dOf(p) : view === 'section' ? sectionGraphicsOf(p) : viewGraphicsOf(p, floorViewId(levelId));
   const report = (r: GraphicsEdit): void => {
     if (!r.ok) useUi.setState({ status: r.error ?? { key: 'shc_view_error' } });
   };
