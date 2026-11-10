@@ -51,10 +51,14 @@ if (new URLSearchParams(location.search).has('debug')) {
       cutLevelByJunction: e.cutLevelByJunction,
       quantifyLevel: e.quantifyLevel,
       sectionSnapIndex: t.sectionSnapIndex,
-      // Guarda-corpo (decisão 0055, §21): o e2e mede malha, linhas, visibilidade por categoria e IFC no navegador real.
-      servicoGuardaCorpo: e.servicoGuardaCorpo,
-      visibilidade: () => import('./editor/viewVisibility.ts'),
-      ifc: () => import('./editor/ifcExport.ts'),
+      // Guarda-corpo (decisão 0055, §21): só em DEV, fora do build de produção.
+      ...(import.meta.env.DEV
+        ? {
+            servicoGuardaCorpo: e.servicoGuardaCorpo,
+            visibilidade: () => import('./editor/viewVisibility.ts'),
+            ifc: () => import('./editor/ifcExport.ts'),
+          }
+        : {}),
       model: m,
     };
   });
