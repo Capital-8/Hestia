@@ -87,6 +87,8 @@ export function niveisAfetados(antes: Project, depois: Project): NiveisAfetados 
     const a = antes.elements[id];
     const b = depois.elements[id];
     if (a === b) continue;
+    // Guarda-corpo não entra na resolução do nível (paredes, aberturas, pisos, lajes...): ligar ou editar um não recalcula o nível.
+    if ((a === undefined || a.kind === 'railing') && (b === undefined || b.kind === 'railing')) continue;
     for (const e of [a, b]) {
       if (!e) continue;
       const n = nivelDe(e === a ? antes : depois, e);

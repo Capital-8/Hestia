@@ -28,7 +28,7 @@ import { arestasDasCaixas, criarCaixaUnitaria, geometriaDeCaixas } from './caixa
 import { buildCeilingSolids, buildFloorSolids, buildLevelSolids, buildRoofSolids, buildSlabSolids, filtrarParedesDoNivel, type ElementRange, type SolidBatch } from './solids.ts';
 import { Materiais3D } from './materiais3d.ts';
 import { CacheMalhas, bytesDeNivel, disposeNivel, type EntradaNivel, type PickSource } from './cacheMalhas3d.ts';
-import { chavesDeNivel } from './chaveNivel3d.ts';
+import { chavesDeGuardaCorpo, chavesDeNivel } from './chaveNivel3d.ts';
 import { caixaDaSelecao } from './selecao3d.ts';
 
 /** O mínimo do renderer que o gancho de quadro da cena lê (o three chama `scene.onBeforeRender` com o renderer real). */
@@ -126,6 +126,15 @@ type Rampas = ReturnType<typeof resolveRamps>;
  */
 const gcPronto = (p: Project): string => (ServicoGuardaCorpo.temGuardaCorpo(p) ? (servicoGuardaCorpo().pronto() ? 'gc1' : 'gc0') : '-');
 
+/** Lote 3D dos guarda-corpos de um nível (ver `atualizarGuardaCorpo`). */
+interface EntradaGuardaCorpo {
+  readonly levelId: Id;
+  readonly chave: string;
+  readonly grupo: THREE.Group;
+  readonly picks: PickSource[];
+  readonly mats: string[];
+}
+
 /** Cena 3D do modelo: paredes e pisos por camada com material, esquadrias, luz e chão. */
 export class ModelScene {
   readonly scene = new THREE.Scene();
@@ -172,6 +181,8 @@ export class ModelScene {
   private mats = new Materiais3D();
   /** Níveis que a cena mostra agora, e o cache de malhas por nível (ver `update`). */
   private cenaNiveis: EntradaNivel[] = [];
+  /** Lote 3D dos guarda-corpos, um grupo por nível, com chave própria (fora das entradas de nível e do cache por nível). */
+  private guardaCorpoNaCena: EntradaGuardaCorpo[] = [];
   private cache: CacheMalhas;
   private sequencia = 0;
   private frame: Frame3D = { view: view3dOf({}), dark: false, edges: false, shadows: false };
@@ -276,7 +287,7 @@ export class ModelScene {
    * modelo (`pickLayer`), para o modelo continuar sem malhas nesse estilo. As peças vêm dos níveis da cena.
    */
   private buildPickLayer(): void {
-    const fontes = this.cenaNiveis.flatMap((e) => e.picks);
+    const fontes = [...this.cenaNiveis.flatMap((e) => e.picks), ...this.guardaCorpoNaCena.flatMap((g) => g.picks)];
     if (!fontes.length) return;
     this.model.updateMatrixWorld(true);
     const pick = this.mats.cached('pick', () => new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
@@ -345,10 +356,11 @@ export class ModelScene {
         this.frame.edges,
         this.frame.shadows,
         view.style,
-        gcPronto(p),
       ]),
       // A visibilidade entra só na chave do nível que contém o elemento (e na dos vizinhos): ocultar uma parede não remonta o resto.
       { ocultos: this.ocultos, revelados: this.revelados },
+      // Guarda-corpo tem lote e chave próprios (`atualizarGuardaCorpo`): mudar um não remonta o outro.
+      { semGuardaCorpo: true },
     );
     const antes = this.cenaNiveis;
     const atuais: EntradaNivel[] = [];
@@ -380,6 +392,7 @@ export class ModelScene {
     this.detach();
     this.cenaNiveis = atuais;
     for (const e of atuais) this.model.add(e.grupo);
+    this.atualizarGuardaCorpo(p, opt, levels);
     if (this.instanciar) {
       const wireframe = view.style === 'wireframe';
       const res = this.lotes.atualizar(
@@ -628,6 +641,7 @@ export class ModelScene {
     this.realces.soltarTodos();
     this.detach();
     for (const e of this.cenaNiveis) this.model.add(e.grupo);
+    for (const g of this.guardaCorpoNaCena) this.model.add(g.grupo);
     const res = this.lotes.atualizar(this.cenaNiveis, { instanciar: true, arestas: this.frame.edges, sombras: this.frame.shadows }, true);
     for (const m of res.solidas) this.model.add(m);
     for (const m of res.instanciadas) this.model.add(m);
@@ -636,6 +650,62 @@ export class ModelScene {
     this.buildPickLayer();
     this.atualizarNiveis(p);
     return true;
+  }
+
+  /**
+   * Lote 3D dos guarda-corpos (decisão 0055): um grupo por nível com guarda-corpo, com a chave própria de `chavesDeGuardaCorpo`. Mudar uma
+   * parede, laje ou escada não toca nele; ligar, editar ou ocultar um guarda-corpo só refaz este lote (as paredes, lajes e escadas dos níveis
+   * ficam como estão). A malha vem do kernel Rust; sem kernel pronto não há o que desenhar (nunca TypeScript no lugar), e a marca `gc0`/`gc1`
+   * na chave refaz o lote quando o kernel chega.
+   */
+  private atualizarGuardaCorpo(p: Project, opt: Scene3DOptions, levels: readonly ResolvedLevel[]): void {
+    const anteriores = new Map(this.guardaCorpoNaCena.map((g) => [g.levelId, g] as const));
+    const atuais: EntradaGuardaCorpo[] = [];
+    const view = this.frame.view;
+    if (view.overrides.railing.visible && ServicoGuardaCorpo.temGuardaCorpo(p)) {
+      const marca = JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style, gcPronto(p)]);
+      const chaves = chavesDeGuardaCorpo(p, marca, { ocultos: this.ocultos, revelados: this.revelados });
+      const nivelDe = new Set(levels.map((l) => l.levelId));
+      for (const [levelId, chave] of chaves) {
+        if (!nivelDe.has(levelId)) continue;
+        const velha = anteriores.get(levelId);
+        if (velha?.chave === chave) {
+          for (const k of velha.mats) this.mats.used.add(k);
+          atuais.push(velha);
+          anteriores.delete(levelId);
+          continue;
+        }
+        const nova = this.montarGuardaCorpo(p, levelId, chave);
+        if (nova) atuais.push(nova);
+      }
+    }
+    this.guardaCorpoNaCena = atuais;
+    for (const g of anteriores.values()) this.liberarGuardaCorpo(g);
+    for (const g of atuais) this.model.add(g.grupo);
+  }
+
+  private montarGuardaCorpo(p: Project, levelId: Id, chave: string): EntradaGuardaCorpo | null {
+    const malhas = servicoGuardaCorpo().malhas(p) ?? [];
+    const visiveis = new Set(Object.values(p.elements).filter((e) => e.kind === 'railing' && e.levelId === levelId && !this.ocultos.has(e.id)).map((e) => e.id));
+    const lotes = buildGuardaCorpoSolids(malhas, (id) => visiveis.has(id));
+    if (!lotes.length) return null;
+    const grupo = new THREE.Group();
+    grupo.userData = { levelId };
+    const picks: PickSource[] = [];
+    const mats = new Set<string>();
+    const picksAnt = this.picks;
+    const matsAnt = this.mats.noNivel;
+    this.picks = picks;
+    this.mats.noNivel = mats;
+    this.desenharLotes(grupo, lotes, this.frame.edges, (id) => p.materials[id]);
+    this.picks = picksAnt;
+    this.mats.noNivel = matsAnt;
+    return { levelId, chave, grupo, picks, mats: [...mats] };
+  }
+
+  private liberarGuardaCorpo(g: EntradaGuardaCorpo): void {
+    g.grupo.traverse((o) => (o as { geometry?: THREE.BufferGeometry }).geometry?.dispose());
+    for (const s of g.picks) s.geo.dispose();
   }
 
   /** Motivo (número do teste) da última recusa de `atualizarAberturas`; diagnóstico. */
@@ -649,7 +719,7 @@ export class ModelScene {
   /** Chaves de conteúdo dos níveis do projeto, com a marca da vista e a visibilidade desta atualização. */
   private chavesPara(p: Project, opt: Scene3DOptions): Map<Id, string> {
     const view = view3dOf(p);
-    return chavesDeNivel(p, JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style, gcPronto(p)]), { ocultos: this.ocultos, revelados: this.revelados });
+    return chavesDeNivel(p, JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style]), { ocultos: this.ocultos, revelados: this.revelados }, { semGuardaCorpo: true });
   }
 
   /**
@@ -895,9 +965,6 @@ export class ModelScene {
     const escadasNivel = shown('stair') ? escadas.filter((s) => s.levelId === lv.levelId && !oculto(s.id)) : [];
     const rampasNivel = shown('stair') ? rampas.filter((r) => r.levelId === lv.levelId && !oculto(r.id)) : [];
     const genericos = shown('generic') ? buildGenericSolids(pGen, lv.levelId) : [];
-    // Guarda-corpos (decisao 0055): a malha vem do kernel Rust; sem kernel pronto nao ha o que desenhar (nunca TypeScript no lugar).
-    const guardaCorpos = shown('railing') && ServicoGuardaCorpo.temGuardaCorpo(p) ? (servicoGuardaCorpo().malhas(p) ?? []) : [];
-    const idsDoNivel = new Set(Object.values(p.elements).filter((e) => e.kind === 'railing' && e.levelId === lv.levelId && !oculto(e.id)).map((e) => e.id));
     const batches: SolidBatch[] = [
       ...paredes.batches,
       ...buildFloorSolids(floors, juncao),
@@ -907,7 +974,6 @@ export class ModelScene {
       ...eave.batches,
       ...buildStairSolids(escadasNivel, (s) => stairArrivalTop(p, s).top),
       ...buildRampSolids(rampasNivel),
-      ...buildGuardaCorpoSolids(guardaCorpos, (id) => idsDoNivel.has(id)),
       ...genericos,
     ];
     // Reveal: o modelo normal continua desenhado; os elementos revelados ganham só as arestas azuis (sem preenchimento).
@@ -1149,6 +1215,8 @@ export class ModelScene {
     this.lotes.dispose();
     this.caixaUnitaria.dispose();
     this.realces.soltarTodos();
+    for (const g of this.guardaCorpoNaCena) this.liberarGuardaCorpo(g);
+    this.guardaCorpoNaCena = [];
     const todas = new Set([...this.cenaNiveis, ...this.cache.limpar()]);
     this.cenaNiveis = [];
     for (const e of todas) disposeNivel(e);

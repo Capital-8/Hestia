@@ -167,17 +167,21 @@ export class ServicoGuardaCorpo {
     if (this.cena && this.gerDaCena !== ger) this.encerrar();
     if (this.projeto === p && this.cena) return true;
     const nova = montarCenaGC(p, { anterior: this.atual });
+    let mudou: boolean;
     if (!this.cena) {
       this.cena = CenaV2.criar(ger, null);
       this.gerDaCena = ger;
       sincronizarCenaGC(this.cena, null, nova);
+      mudou = true;
     } else {
-      sincronizarCenaGC(this.cena, this.atual, nova);
+      mudou = sincronizarCenaGC(this.cena, this.atual, nova).length > 0;
     }
     this.cena.definirFonte((c) => sincronizarCenaGC(c, null, nova));
     this.atual = nova;
     this.projeto = p;
-    this.memo.clear();
+    // Projeto novo, mas as seções do guarda-corpo idênticas (editou-se uma parede, uma laje...): as malhas, linhas e quantidades continuam
+    // valendo, então a memória fica (nada é recalculado no Rust, e a 3D/planta recebem os mesmos objetos).
+    if (mudou) this.memo.clear();
     return true;
   }
 
