@@ -33,14 +33,14 @@ const nota = (id: string): TextNote => ({ id, at: { x: 1, y: 1 }, text: id, heig
 const piso = { view: 'plan', planKind: 'floor', areaPlanId: null } as const;
 const cobertura = { view: 'plan', planKind: 'roof', areaPlanId: null } as const;
 
-beforeEach(() => useUi.setState({ options: DEFAULT_OPTIONS, tool: 'select', status: null, viewTemp: {}, selection: [] }));
+beforeEach(() => useUi.setState({ options: DEFAULT_OPTIONS, tool: 'select', status: '', viewTemp: {}, selection: [] }));
 afterEach(() => useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', areaPlanId: null, sectionId: null, viewTemp: {}, selection: [] }));
 
 describe('permissão de ferramenta pela tabela (setTool)', () => {
   const ir = (estado: Partial<ReturnType<typeof useUi.getState>>): void => {
     const { project } = montar();
     editor.load(project, 'teste.hestia.json');
-    useUi.setState({ levelId: 'lv_0', selection: [], hover: null, tool: 'select', status: null, ...estado });
+    useUi.setState({ levelId: 'lv_0', selection: [], hover: null, tool: 'select', status: '', ...estado });
   };
 
   it('piso aceita ferramenta de modelo', () => {
@@ -58,7 +58,7 @@ describe('permissão de ferramenta pela tabela (setTool)', () => {
   it('planta de área recusa parede e avisa; aceita anotação e ambiente', () => {
     const { project, planId } = montar();
     editor.load(project, 'teste.hestia.json');
-    useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', areaPlanId: planId, selection: [], tool: 'select', status: null });
+    useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', areaPlanId: planId, selection: [], tool: 'select', status: '' });
     editor.setTool('wall');
     expect(useUi.getState().tool).toBe('select');
     expect(useUi.getState().status).toEqual({ key: 'eds_msg_area_tools_only' });
@@ -71,7 +71,7 @@ describe('permissão de ferramenta pela tabela (setTool)', () => {
   it('3D com planta de área "de fundo" não restringe (só a planta ativa decide)', () => {
     const { project, planId } = montar();
     editor.load(project, 'teste.hestia.json');
-    useUi.setState({ view: '3d', levelId: 'lv_0', planKind: 'area', areaPlanId: planId, selection: [], tool: 'select', status: null });
+    useUi.setState({ view: '3d', levelId: 'lv_0', planKind: 'area', areaPlanId: planId, selection: [], tool: 'select', status: '' });
     editor.setTool('wall');
     expect(useUi.getState().tool).toBe('wall');
   });
@@ -79,7 +79,7 @@ describe('permissão de ferramenta pela tabela (setTool)', () => {
   it('corte com planta de área "de fundo" continua restrito pela tabela da área (comportamento antigo)', () => {
     const { project, planId } = montar();
     editor.load(project, 'teste.hestia.json');
-    useUi.setState({ view: 'section', sectionId: null, levelId: 'lv_0', planKind: 'area', areaPlanId: planId, selection: [], tool: 'select', status: null });
+    useUi.setState({ view: 'section', sectionId: null, levelId: 'lv_0', planKind: 'area', areaPlanId: planId, selection: [], tool: 'select', status: '' });
     editor.setTool('wall');
     expect(useUi.getState().status).toEqual({ key: 'eds_msg_area_tools_only' });
   });
