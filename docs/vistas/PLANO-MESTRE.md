@@ -526,3 +526,25 @@ Só pode sobrar em `migrate.ts` e nos testes de migração.
 - [ ] Decisão escrita em `docs/decisoes/` e `docs/07-STATUS-V1.md` atualizado.
 - [ ] Relatório final em `docs/vistas/RELATORIO.md`: o que foi feito, o que ficou de fora, diferenças de ouro
       aceitas, dúvidas em aberto.
+
+## 10. Adendo do coordenador (decisões tomadas durante a execução; prevalecem sobre o texto acima)
+
+### 10.1 Depois da Fase 0
+
+1. **Planta de cobertura mostra hoje as anotações do nível** (`packages/render/src/plan/build.ts`, `noteOps` sem
+   `areaPlan`). Por isso a projeção da Fase 1 devolve, para `roof`, as mesmas anotações do piso. Na migração da
+   Fase 2 a regra 1 da seção 7 passa a ser:
+   - nível **com** pelo menos um elemento de telhado: `pvr_<levelId>` recebe **cópia** das anotações do nível, com
+     id determinístico `<idOriginal>__pvr_<levelId>`; ids de anotação presentes em `roofHidden.elements` são
+     trocados pelo id da cópia;
+   - nível **sem** telhado: `pvr_<levelId>` nasce com anotações vazias. Essa é uma **diferença de ouro prevista da
+     Fase 2** (a planta de cobertura de um nível sem telhado deixa de repetir as anotações do piso) e só ela.
+2. **Intervalo de vista da cobertura:** `DEFAULT_VIEW_RANGE` (o desenho da cobertura não usa intervalo).
+3. **Nomes exportados pelo `@hestia/model`:** `planViewRangeOf` e `planViewHiddenOf` (os nomes `viewRangeOf` e
+   `viewHiddenOf` já existiam com outra assinatura em `queries.ts` e `viewHiddenCommands.ts`). Os antigos
+   deixam de ser usados fora de `packages/model` na Fase 1 e são removidos na Fase 2.
+4. **Perfil da cobertura:** não há `ProfileLayers` próprio; o render decide por `roofPlanMode`. `viewProfileOf`
+   devolve o perfil de piso para `roof`. As raias passam `kind === 'roof'` onde hoje passam `roofPlanMode`.
+5. **Ferramentas na cobertura:** hoje não há restrição; a tabela mantém "todas" até a Fase 3, quando ambiente e
+   separação de ambiente passam a ser bloqueados em `roof` (diferença de comportamento prevista da Fase 3).
+6. A decisão 0055 está aceita pelo dono do projeto (execução autorizada sem novos aceites).
