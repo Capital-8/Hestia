@@ -32,12 +32,12 @@ export function dropOrphanViewports(p: Project): void {
 
 /** Motivo de recusa de uma fonte de vista (nível ou seção que precisa existir), ou null. */
 export function viewSourceIssue(p: Pick<Project, 'levels' | 'views' | 'planViews'>, view: SheetViewSource, lang: Lang = 'pt'): string | null {
-  // Formas antigas (entrada): mantêm as mensagens de antes. A forma única recusa vista inexistente (ou de forro, ainda sem desenho).
+  // Formas antigas (entrada): mantêm as mensagens de antes. A forma única recusa vista inexistente e as que não são fonte de prancha (cobertura e forro): só piso e área.
   if (view.kind === 'plan' && 'levelId' in view && !p.levels.some((l) => l.id === view.levelId)) return translate(lang, 'md_level_missing');
   if (view.kind === 'areaPlan' && resolvePlanView(p, view.planId)?.kind !== 'area') return translate(lang, 'md_area_plan_missing');
   if (view.kind === 'plan' && 'viewId' in view) {
     const alvo = resolvePlanView(p, view.viewId);
-    if (!alvo || alvo.kind === 'ceiling') return translate(lang, 'md_view_missing');
+    if (!alvo || (alvo.kind !== 'floor' && alvo.kind !== 'area')) return translate(lang, 'md_view_missing');
   }
   if (view.kind === 'section' && !p.views.some((v) => v.id === view.sectionId)) return translate(lang, 'md_cmd_section_missing');
   if (view.kind === '3d' && view.camera !== undefined) return sheetView3DCameraIssue(view.camera);

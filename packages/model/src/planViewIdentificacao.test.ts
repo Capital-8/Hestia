@@ -121,7 +121,16 @@ describe('SheetViewSource por viewId', () => {
     expect(viewSourceIssue(p, { kind: 'areaPlan', planId: 'nada' })).toMatch(/área/i);
     expect(viewSourceIssue(p, { kind: 'plan', viewId: 'nada' })).not.toBeNull();
     expect(viewSourceIssue(p, { kind: 'plan', viewId: 'ap1' })).toBeNull();
-    expect(viewSourceIssue(p, { kind: 'plan', viewId: roofViewId(LV0) })).toBeNull();
+    expect(viewSourceIssue(p, { kind: 'plan', viewId: roofViewId(LV0) })).not.toBeNull();
+  });
+
+  it('cobertura não é fonte de prancha: addViewport e updateViewport recusam; piso e área seguem aceitos', () => {
+    const s = montar();
+    expect(() => s.exec({ type: 'addViewport', sheetId: 'sh1', viewport: vp('vr', { kind: 'plan', viewId: roofViewId(LV0) }) })).toThrow();
+    s.exec({ type: 'addViewport', sheetId: 'sh1', viewport: vp('vf', { kind: 'plan', viewId: floorViewId(LV0) }) });
+    s.exec({ type: 'addViewport', sheetId: 'sh1', viewport: vp('va', { kind: 'plan', viewId: 'ap1' }) });
+    expect(() => s.exec({ type: 'updateViewport', sheetId: 'sh1', id: 'vf', patch: { view: { kind: 'plan', viewId: roofViewId(LV0) } } })).toThrow();
+    expect(s.project.sheets![0]!.viewports).toHaveLength(2);
   });
 
   it('remover a planta de área remove a viewport que a usa (forma nova)', () => {
