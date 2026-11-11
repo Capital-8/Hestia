@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Vec2 } from '@hestia/geom';
-import { areaPlanOf, createEmptyProject, DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS, makeRoom, makeWall, ProjectStore, type AreaPlan } from '@hestia/model';
+import { areaPlanOf, createEmptyProject, floorViewId, viewAnnotationsOf, DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS, makeRoom, makeWall, ProjectStore, type AreaPlan } from '@hestia/model';
 import { addMissingTagsAction, applyColorSchemeAction, createAreaPlanAction, ensureRoomTagAction, moveRoomLabelAction, openAreaPlan, recenterTagsAction, removeRoomTagAction, setPlanGraphicsAction, updateRoomTagAction } from './areaPlanActions.ts';
 
 const ring = (pts: Array<[number, number]>): Vec2[] => pts.map(([x, y]) => ({ x, y }));
@@ -81,8 +81,8 @@ describe('ações da planta de área', () => {
     expect(plan.annotations?.detailLines).toHaveLength(1);
     expect(plan.annotations?.tags).toHaveLength(1);
     // O nível continua com as dele.
-    expect(s.project.levels[0]!.dimensions).toHaveLength(1);
-    expect(s.project.levels[0]!.texts).toHaveLength(1);
+    expect(viewAnnotationsOf(s.project, floorViewId('lv_0')).dimensions).toHaveLength(1);
+    expect(viewAnnotationsOf(s.project, floorViewId('lv_0')).texts).toHaveLength(1);
   });
 
   it('garantir a etiqueta cria uma vez e devolve a mesma nas próximas chamadas', () => {
@@ -119,7 +119,7 @@ describe('ações da planta de área', () => {
     expect(room.labelPosition).toBeUndefined();
     expect(room.labelRotation).toBeUndefined();
     expect(room.labelLeader).toBeUndefined();
-    expect(s.project.levels[0]!.tags ?? []).toHaveLength(0);
+    expect(viewAnnotationsOf(s.project, floorViewId('lv_0')).tags).toHaveLength(0);
   });
 
   it('recusa lista de campos vazia sem criar etiqueta', () => {
@@ -149,7 +149,7 @@ describe('ações da planta de área', () => {
     expect(areaPlanOf(s.project, id)!.tags).toHaveLength(1);
   });
 
-  it('abrir planta antiga (sem annotations) semeia a anotação do nível num passo', () => {
+  it('planta sem annotations já nasce com a cópia da anotação do nível; abrir não semeia nada (a herança acabou)', () => {
     const s = store();
     s.exec({ type: 'addText', levelId: 'lv_0', text: { id: 't1', at: { x: 1, y: 1 }, text: 'Antigo', height: 2.5, rotation: 0 } });
     const plan: AreaPlan = {
@@ -161,15 +161,14 @@ describe('ações da planta de área', () => {
       tags: [],
     };
     s.exec({ type: 'addAreaPlan', plan });
-    expect(areaPlanOf(s.project, 'ap_old')!.annotations).toBeUndefined();
+    // A cópia (id `<id>__<idDaVista>`) é feita na criação: `annotations` projetado nunca é indefinido.
+    expect(areaPlanOf(s.project, 'ap_old')!.annotations?.texts[0]!.text).toBe('Antigo');
+    expect(areaPlanOf(s.project, 'ap_old')!.annotations?.texts[0]!.id).toBe('t1__ap_old');
     const version = s.version;
     openAreaPlan(s, 'ap_old');
-    expect(areaPlanOf(s.project, 'ap_old')!.annotations?.texts[0]!.text).toBe('Antigo');
+    // Abrir não escreve nada (sem passo de desfazer) e o nível continua com a dele.
+    expect(s.version).toBe(version);
     expect(areaPlanOf(s.project, 'ap_old')!.graphics.showAnnotations).toBe(true);
-    // Semear + abrir não mexe no nível e é um só passo de desfazer.
-    expect(s.project.levels[0]!.texts).toHaveLength(1);
-    expect(s.version).toBeGreaterThan(version);
-    s.undo();
-    expect(areaPlanOf(s.project, 'ap_old')!.annotations).toBeUndefined();
+    expect(viewAnnotationsOf(s.project, floorViewId('lv_0')).texts).toHaveLength(1);
   });
 });

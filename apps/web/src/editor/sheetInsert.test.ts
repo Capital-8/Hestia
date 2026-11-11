@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ProjectStore, createEmptyProject, emptyTitleBlock, makeView3DPoint, makeWall, sheetInnerBox, sheetOf, viewportIssue, type Sheet, type SheetViewport } from '@hestia/model';
+import { ProjectStore, createEmptyProject, emptyTitleBlock, floorViewId, patchFloorOfTest, viewOfTest, makeView3DPoint, makeWall, sheetInnerBox, sheetOf, viewportIssue, type Sheet, type SheetViewport } from '@hestia/model';
 import { addSheetAction } from './sheetActions.ts';
 import { addViewportAtAction, addViewsAction, autoScaleForView, contentSizeMm, dragPlacement, naturalScaleOf, sheetsPerLevelAction } from './sheetInsert.ts';
 
@@ -139,7 +139,7 @@ describe('arrastar uma vista do navegador para a prancha', () => {
 
   it('a escala natural da planta é a da vista do nível', () => {
     const p = casa();
-    p.levels[0]!.graphics = { ...(p.levels[0]!.graphics ?? {}), scale: 50 } as never;
+    patchFloorOfTest(p, 'lv_0', { graphics: { ...(viewOfTest(p, floorViewId('lv_0')).graphics ?? {}), scale: 50 } as never });
     expect(naturalScaleOf(p, { kind: 'plan', levelId: 'lv_0' })).toBe(50);
     expect(naturalScaleOf(p, { kind: '3d' })).toBe(100);
   });
@@ -167,7 +167,7 @@ describe('arrastar uma vista do navegador para a prancha', () => {
 
   it('escala natural que não cabe desce para a maior que cabe', () => {
     const p = casa();
-    p.levels[0]!.graphics = { ...(p.levels[0]!.graphics ?? {}), scale: 20 } as never;
+    patchFloorOfTest(p, 'lv_0', { graphics: { ...(viewOfTest(p, floorViewId('lv_0')).graphics ?? {}), scale: 20 } as never });
     const sh: Sheet = { id: 's1', number: 'A-101', name: 'Planta', size: 'A4', orientation: 'portrait', margin: 10, titleBlock: emptyTitleBlock(), viewports: [] };
     const plan = dragPlacement(p, sh, { kind: 'plan', levelId: 'lv_0' }, { x: 105, y: 148 })!;
     expect(plan.adjusted).toBe(true);

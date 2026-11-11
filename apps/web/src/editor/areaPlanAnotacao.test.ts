@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Vec2 } from '@hestia/geom';
-import { areaPlanOf, createEmptyProject, dimensionGeometry, dimensionPoints, makeRoom, makeWall, ProjectStore } from '@hestia/model';
+import { areaPlanOf, createEmptyProject, floorViewId, viewAnnotationsOf, dimensionGeometry, dimensionPoints, makeRoom, makeWall, ProjectStore } from '@hestia/model';
 import { createAreaPlanAction } from './areaPlanActions.ts';
 import { editor } from './controller.ts';
 import { DEFAULT_OPTIONS, useUi } from './state.ts';
@@ -58,7 +58,7 @@ describe('ferramentas de anotação na planta de área', () => {
     editor.pointer('click', clique(2, 3));
     const plan = areaPlanOf(editor.project, planId)!;
     expect(plan.annotations?.dimensions).toHaveLength(1);
-    expect(editor.project.levels[0]!.dimensions ?? []).toHaveLength(0);
+    expect(viewAnnotationsOf(editor.project, floorViewId('lv_0')).dimensions).toHaveLength(0);
   });
 
   it('ferramenta de modelo não entra na planta de área (nem por atalho); ambiente e separador entram', () => {
@@ -91,7 +91,7 @@ describe('ferramentas de anotação na planta de área', () => {
     editor.cotasAutomaticasDaPlanta({});
     const plan = areaPlanOf(editor.project, planId)!;
     expect(plan.annotations?.dimensions.length ?? 0).toBeGreaterThan(0);
-    expect(editor.project.levels[0]!.dimensions ?? []).toHaveLength(0);
+    expect(viewAnnotationsOf(editor.project, floorViewId('lv_0')).dimensions).toHaveLength(0);
   });
 
   it('com Selecionar, o clique pega a cota e o texto de plan.annotations', () => {

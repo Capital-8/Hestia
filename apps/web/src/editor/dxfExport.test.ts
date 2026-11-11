@@ -26,6 +26,10 @@ import {
   type StairRun,
   type ViewGraphics,
   type ViewRange,
+  floorViewId,
+  patchFloorOfTest,
+  planViewRangeOf,
+  withFloorPatchOfTest,
 } from '@hestia/model';
 import { climbWalk, openingPlanWorldPaths, planViewOf, risersInClimbOrder } from '@hestia/render';
 import { arrowOfPath, dxfGeometryOf, dxfLayerTableOf, lineWeightsOf, planDxf, sectionDxf, sectionDxfGeometryOf, sectionLineWeightsOf, stairArrow } from './dxfExport.ts';
@@ -264,7 +268,7 @@ describe('vista da planta no DXF (decisão 0013 §4)', () => {
     store.exec({ type: 'addStair', stair: makeStair({ id: 'st1', typeId: 'stt_monolitica', levelId: 'lv_0', components: [run] }) });
     const p = store.project;
     const s = resolveStairsOnLevel(p, 'lv_0')[0]!;
-    const withRange = (range: Partial<ViewRange>): Project => ({ ...p, levels: p.levels.map((l) => (l.id === 'lv_0' ? { ...l, viewRange: { ...l.viewRange, ...range } } : l)) });
+    const withRange = (range: Partial<ViewRange>): Project => withFloorPatchOfTest(p, 'lv_0', { viewRange: { ...planViewRangeOf(p, floorViewId('lv_0')), ...range } });
 
     // corte 0,50: nenhum degrau fica abaixo do corte; os quatro até o topo (2,30) são tracejados
     const low = planDxf(withRange({ cut: 0.5 }), 'lv_0');
@@ -511,9 +515,7 @@ type SavedLevelGraphics = { scale?: number; thinLines?: boolean; overrides?: Par
 
 /** Cópia do projeto com os gráficos salvos na vista. O comando de edição não faz parte deste teste. */
 function withLevelGraphics(p: Project, levelId: string, g: SavedLevelGraphics): Project {
-  const q = structuredClone(p);
-  q.levels = q.levels.map((l) => (l.id === levelId ? { ...l, graphics: g as ViewGraphics } : l));
-  return q;
+  return patchFloorOfTest(structuredClone(p), levelId, { graphics: g as ViewGraphics });
 }
 
 /** Camadas de material das paredes do tipo padrão (`PAREDE_<material>`). */

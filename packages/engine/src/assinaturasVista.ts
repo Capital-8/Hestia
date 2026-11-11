@@ -2,9 +2,9 @@ import { planViewOf, type Id, type Project } from '@hestia/model';
 import { hashTexto, nivelDoElemento } from './assinaturasNivel.ts';
 
 /**
- * Assinaturas separadas por natureza, para a Fase 2 trocar a mistura de `assinaturasDoProjeto` (o bloco `global` lê o
- * `levels` inteiro, com intervalo, gráficos, ocultos e anotações de vista). Funções NOVAS: não alteram nem substituem
- * `assinaturasDoProjeto`, que continua produzindo o mesmo valor.
+ * Assinaturas separadas por natureza: a de geometria (global) e a de desenho de cada vista. Desde a Fase 2 o
+ * `assinaturasDoProjeto` também deixa `planViews` fora do global, então `assinaturaGeometriaGlobal` dá a mesma separação
+ * para o `levels` reduzido ao modelo.
  */
 
 /**
@@ -24,8 +24,8 @@ export function assinaturaGeometriaGlobal(p: Project): string {
 }
 
 /**
- * Assinatura de DESENHO de uma vista de planta: tipo, nível, intervalo, gráficos, ocultos, anotações (as que a vista
- * desenha, com a herança da planta de área) e a configuração da planta de área. Não inclui o nome nem os elementos do
+ * Assinatura de DESENHO de uma vista de planta: tipo, nível, intervalo, gráficos, ocultos, anotações (sempre
+ * próprias da vista: a herança da planta de área acabou na migração 23 → 24) e a configuração da planta de área. Não inclui o nome nem os elementos do
  * modelo (esses entram pela assinatura por nível). Vista inexistente: `'-'`.
  */
 export function assinaturaDeVista(p: Project, viewId: Id): string {

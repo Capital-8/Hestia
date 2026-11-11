@@ -2,7 +2,7 @@ import { floorViewId, roofViewId, type PlanAnnotations, type PlanView } from './
 import type { Id, Project } from './types.ts';
 
 /**
- * Auxiliar de TESTE (não entra no `index.ts`): monta e altera, pela forma nova (`Project.planViews`), o que os testes
+ * Auxiliar de TESTE (exportado pelo `index.ts` só para os testes dos outros pacotes; nenhum código de produção o usa): monta e altera, pela forma nova (`Project.planViews`), o que os testes
  * antigos montavam à mão em `level.viewRange`, `level.graphics`, `level.hidden`, `level.roofHidden`, `level.dimensions` etc.
  * e em `Project.areaPlans`. Altera o projeto no lugar (use sobre projeto próprio do teste, não sobre o de um `ProjectStore`
  * com histórico).

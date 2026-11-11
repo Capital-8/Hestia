@@ -114,7 +114,7 @@ describe('chaves de nível (conteúdo do pavimento e dos vizinhos por cota)', ()
     expect(escuro.every((k, i) => k !== antes[i])).toBe(true);
   });
 
-  it('o que não vai para a geometria 3D (cortes, plantas de área, esquemas de cor, categorias, contador, nome) não muda nenhuma chave', () => {
+  it('o que não vai para a geometria 3D (cortes, vistas de planta com cota, ocultos, intervalo e gráficos, esquemas de cor, categorias, contador, nome) não muda nenhuma chave', () => {
     const p = predio(4);
     const antes = chaves(p);
     const outro = {
@@ -122,7 +122,7 @@ describe('chaves de nível (conteúdo do pavimento e dos vizinhos por cota)', ()
       name: 'Outro nome',
       nextOrder: p.nextOrder + 50,
       views: [{ id: 'cx', name: 'Corte', kind: 'section', a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, depth: 5 }],
-      areaPlans: [],
+      planViews: p.planViews.map((v) => ({ ...v, viewRange: { ...v.viewRange, cut: 1 }, hidden: { categories: ['wall'] }, annotations: { ...v.annotations, dimensions: [{ id: 'cota_x', a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, offset: 1 }] } })),
       roomCategories: [],
       colorSchemes: [],
     } as unknown as Project;

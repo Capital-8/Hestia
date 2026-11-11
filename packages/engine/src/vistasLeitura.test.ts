@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_AREA_GRAPHICS, DEFAULT_VIEW_RANGE, ProjectStore, createEmptyProject, floorViewId, makeRoom, makeWall, roofViewId, type AreaPlan, type Project, planViewRangeOf } from '@hestia/model';
+import { DEFAULT_AREA_GRAPHICS, DEFAULT_VIEW_RANGE, ProjectStore, createEmptyProject, floorViewId, makeRoom, makeWall, roofViewId, type AreaPlan, type Project, planViewRangeOf, withViewPatchOfTest } from '@hestia/model';
 import {
   areaLegendRows,
   areaLegendRowsOfView,
@@ -94,41 +94,65 @@ describe('avisos de intervalo pelo id da vista', () => {
 describe('assinaturas: geometria separada de vista', () => {
   const comNivel = (p: Project, patch: object): Project => ({ ...p, levels: p.levels.map((l, i) => (i === 0 ? { ...l, ...patch } : l)) });
   const texto = { id: 'tx', at: { x: 0, y: 0 }, text: 'x', height: 2.5, rotation: 0 };
+  const cota = { id: 'dn2', a: { x: 0, y: 1 }, b: { x: 4, y: 1 }, offset: 1 };
+  const piso = floorViewId(LV0);
 
-  it('assinaturasDoProjeto.global continua misturando vista (valor existente preservado)', () => {
+  it('planViews fica fora do global (e das chaves por nível e do corte): editar cota, texto, ocultos e intervalo não muda nada', () => {
     const p = montar();
-    expect(assinaturasDoProjeto(comNivel(p, { texts: [texto] })).global).not.toBe(assinaturasDoProjeto(p).global);
-    expect(assinaturasDoProjeto(comNivel(p, { hidden: { categories: ['wall'] } })).global).not.toBe(assinaturasDoProjeto(p).global);
+    const base = assinaturasDoProjeto(p);
+    const novos = [
+      withViewPatchOfTest(p, piso, { annotations: { dimensions: [cota] } }),
+      withViewPatchOfTest(p, piso, { annotations: { texts: [texto] } }),
+      withViewPatchOfTest(p, piso, { hidden: { categories: ['wall'] } }),
+      withViewPatchOfTest(p, roofViewId(LV0), { hidden: { categories: ['roof'] } }),
+      withViewPatchOfTest(p, piso, { viewRange: { ...DEFAULT_VIEW_RANGE, cut: 1.0 } }),
+      withViewPatchOfTest(p, AP, { annotations: { texts: [texto] } }),
+    ].map((q) => assinaturasDoProjeto(q));
+    for (const a of novos) {
+      expect(a.global).toBe(base.global);
+      expect(a.horizontais).toBe(base.horizontais);
+      expect([...a.nivel]).toEqual([...base.nivel]);
+      expect(a.ordem).toEqual(base.ordem);
+    }
   });
 
-  it('assinaturaGeometriaGlobal ignora intervalo, gráficos, ocultos e anotações; reage a cota e separador', () => {
+  it('o global continua mudando com o que muda geometria (cota do nível, nome, separador, elemento sem nível)', () => {
+    const p = montar();
+    const base = assinaturasDoProjeto(p).global;
+    expect(assinaturasDoProjeto(comNivel(p, { elevation: p.levels[0]!.elevation + 0.5 })).global).not.toBe(base);
+    expect(assinaturasDoProjeto(comNivel(p, { name: 'Outro' })).global).not.toBe(base);
+    expect(assinaturasDoProjeto(comNivel(p, { roomSeparators: [{ id: 'sp', a: { x: 0, y: 0 }, b: { x: 1, y: 0 } }] })).global).not.toBe(base);
+    expect(assinaturasDoProjeto({ ...p, settings: { ...p.settings, showTags: !p.settings.showTags } }).global).not.toBe(base);
+  });
+
+  it('assinaturaGeometriaGlobal ignora o que é de vista; reage a cota, nome e separador', () => {
     const p = montar();
     const base = assinaturaGeometriaGlobal(p);
     expect(assinaturaGeometriaGlobal(montar())).toBe(base);
-    expect(assinaturaGeometriaGlobal(comNivel(p, { viewRange: { ...DEFAULT_VIEW_RANGE, cut: 1.0 } }))).toBe(base);
-    expect(assinaturaGeometriaGlobal(comNivel(p, { hidden: { categories: ['wall'] }, roofHidden: { categories: ['roof'] } }))).toBe(base);
-    expect(assinaturaGeometriaGlobal(comNivel(p, { dimensions: [], texts: [texto] }))).toBe(base);
+    expect(assinaturaGeometriaGlobal(withViewPatchOfTest(p, piso, { viewRange: { ...DEFAULT_VIEW_RANGE, cut: 1.0 } }))).toBe(base);
+    expect(assinaturaGeometriaGlobal(withViewPatchOfTest(p, piso, { hidden: { categories: ['wall'] } }))).toBe(base);
+    expect(assinaturaGeometriaGlobal(withViewPatchOfTest(p, piso, { annotations: { texts: [texto] } }))).toBe(base);
     expect(assinaturaGeometriaGlobal(comNivel(p, { elevation: p.levels[0]!.elevation + 0.5 }))).not.toBe(base);
     expect(assinaturaGeometriaGlobal(comNivel(p, { roomSeparators: [{ id: 'sp', a: { x: 0, y: 0 }, b: { x: 1, y: 0 } }] }))).not.toBe(base);
   });
 
-  it('assinaturaDeVista reage ao que a vista desenha, não ao modelo nem ao nome', () => {
+  it('assinaturaDeVista reage ao que a vista desenha, não ao modelo nem ao nome do nível', () => {
     const p = montar();
-    const piso = floorViewId(LV0);
     const base = assinaturaDeVista(p, piso);
     expect(assinaturaDeVista(montar(), piso)).toBe(base);
     expect(assinaturaDeVista(comNivel(p, { name: 'Outro' }), piso)).toBe(base);
-    expect(assinaturaDeVista(comNivel(p, { viewRange: { ...DEFAULT_VIEW_RANGE, cut: 1.0 } }), piso)).not.toBe(base);
-    expect(assinaturaDeVista(comNivel(p, { hidden: { categories: ['wall'] } }), piso)).not.toBe(base);
-    expect(assinaturaDeVista(comNivel(p, { texts: [texto] }), piso)).not.toBe(base);
+    expect(assinaturaDeVista(withViewPatchOfTest(p, piso, { viewRange: { ...DEFAULT_VIEW_RANGE, cut: 1.0 } }), piso)).not.toBe(base);
+    expect(assinaturaDeVista(withViewPatchOfTest(p, piso, { hidden: { categories: ['wall'] } }), piso)).not.toBe(base);
+    expect(assinaturaDeVista(withViewPatchOfTest(p, piso, { annotations: { texts: [texto] } }), piso)).not.toBe(base);
     expect(assinaturaDeVista(p, 'nao')).toBe('-');
   });
 
-  it('planta de área: herda a anotação do nível; com anotação própria só a própria conta', () => {
+  it('planta de área: anotação própria da vista conta; a do piso do mesmo nível não (cada vista tem a sua)', () => {
     const p = montar();
     const proprias = montar({ proprias: true });
     expect(assinaturaDeVista(p, AP)).not.toBe(assinaturaDeVista(proprias, AP));
-    expect(assinaturaDeVista(comNivel(proprias, { dimensions: [] }), AP)).toBe(assinaturaDeVista(proprias, AP));
-    expect(assinaturaDeVista(comNivel(p, { dimensions: [] }), AP)).not.toBe(assinaturaDeVista(p, AP));
+    // A área guarda as dela: mexer na anotação do PISO não muda a assinatura da área; mexer na da área muda.
+    expect(assinaturaDeVista(withViewPatchOfTest(p, piso, { annotations: { dimensions: [] } }), AP)).toBe(assinaturaDeVista(p, AP));
+    expect(assinaturaDeVista(withViewPatchOfTest(p, AP, { annotations: { dimensions: [cota] } }), AP)).not.toBe(assinaturaDeVista(p, AP));
   });
 });

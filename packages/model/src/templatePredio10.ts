@@ -42,7 +42,6 @@ const niveis = (lang: Lang): Level[] =>
     id: lv(i),
     name: i === 0 ? t(lang, 'md_doc_level_ground') : t(lang, 'md_doc_level_n', { n: i + 1 }),
     elevation: elev(i),
-    viewRange: { top: 2.3, cut: 1.2, bottom: 0, depth: 0, direction: 'down' },
   }));
 
 const lajeType = (lang: Lang): SlabType => ({

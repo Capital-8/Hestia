@@ -8,6 +8,8 @@ import {
   makeRoom,
   makeWall,
   planAnnotationsOf,
+  floorViewId,
+  viewAnnotationsOf,
   type AreaPlan,
 } from '@hestia/model';
 import { clickAt, makeEnv, P, tool } from './testEnv.ts';
@@ -71,10 +73,10 @@ describe('ferramentas de anotação numa planta de área', () => {
 
     expect(levelDimensions(ctx.store.project, LV0)).toHaveLength(0);
     expect(levelTexts(ctx.store.project, LV0)).toHaveLength(0);
-    const level = ctx.store.project.levels.find((l) => l.id === LV0)!;
-    expect(level.detailLines ?? []).toHaveLength(0);
-    expect(level.detailRegions ?? []).toHaveLength(0);
-    expect(level.tags ?? []).toHaveLength(0);
+    const doNivel = viewAnnotationsOf(ctx.store.project, floorViewId(LV0));
+    expect(doNivel.detailLines).toHaveLength(0);
+    expect(doNivel.detailRegions).toHaveLength(0);
+    expect(doNivel.tags).toHaveLength(0);
   });
 
   it('sem planta de área, as ferramentas continuam gravando no nível', () => {
@@ -95,7 +97,7 @@ describe('ferramentas de anotação numa planta de área', () => {
 
     expect(levelDimensions(ctx.store.project, LV0)).toHaveLength(1);
     expect(levelTexts(ctx.store.project, LV0)).toHaveLength(1);
-    expect(ctx.store.project.levels.find((l) => l.id === LV0)!.tags).toHaveLength(1);
+    expect(viewAnnotationsOf(ctx.store.project, floorViewId(LV0)).tags).toHaveLength(1);
     expect(annotationsOf(ctx.store).dimensions).toHaveLength(0);
   });
 });

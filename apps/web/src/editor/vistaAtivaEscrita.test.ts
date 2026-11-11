@@ -9,6 +9,7 @@ import {
   ProjectStore,
   roofViewId,
   viewAnnotationsOf,
+  viewOfTest,
   type Command,
   type Project,
   type TextNote,
@@ -101,7 +102,7 @@ describe('comando de anotação emitido pelo editor, por viewId', () => {
     editor.applyCommand({ type: 'addText', levelId: 'lv_0', text: nota('t1') });
     const velho = esperado(antes, { type: 'addText', levelId: 'lv_0', planId, text: nota('t1') });
     expect(editor.project.levels).toEqual(velho.levels);
-    expect(editor.project.areaPlans).toEqual(velho.areaPlans);
+    expect(editor.project.planViews).toEqual(velho.planViews);
     expect(areaPlanOf(editor.project, planId)!.annotations?.texts.map((t) => t.id)).toEqual(['t1']);
     expect(viewAnnotationsOf(editor.project, floorViewId('lv_0')).texts).toHaveLength(0);
   });
@@ -114,8 +115,8 @@ describe('comando de anotação emitido pelo editor, por viewId', () => {
     editor.applyCommand({ type: 'addText', levelId: 'lv_0', text: nota('t2') });
     const velho = esperado(antes, { type: 'addText', levelId: 'lv_0', text: nota('t2') });
     expect(editor.project.levels).toEqual(velho.levels);
-    expect(editor.project.areaPlans).toEqual(velho.areaPlans);
-    expect(editor.project.levels[0]!.texts?.map((t) => t.id)).toEqual(['t2']);
+    expect(editor.project.planViews).toEqual(velho.planViews);
+    expect(viewAnnotationsOf(editor.project, floorViewId('lv_0')).texts.map((t) => t.id)).toEqual(['t2']);
   });
 
   it('comando que já traz planId ou viewId não é reescrito', () => {
@@ -123,7 +124,7 @@ describe('comando de anotação emitido pelo editor, por viewId', () => {
     editor.load(project, 'teste.hestia.json');
     useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', areaPlanId: planId });
     editor.applyCommand({ type: 'addText', levelId: 'lv_0', viewId: floorViewId('lv_0'), text: nota('t3') });
-    expect(editor.project.levels[0]!.texts?.map((t) => t.id)).toEqual(['t3']);
+    expect(viewAnnotationsOf(editor.project, floorViewId('lv_0')).texts.map((t) => t.id)).toEqual(['t3']);
     expect(areaPlanOf(editor.project, planId)!.annotations?.texts ?? []).toHaveLength(0);
   });
 
@@ -154,16 +155,17 @@ describe('ocultar e reexibir na vista, por viewId', () => {
       expect(viewHiddenTargetOf(useUi.getState())).toEqual(c.alvo);
       hideInView(['w0']);
       expect(planViewHiddenOf(editor.project, c.viewId()).elements).toEqual(['w0']);
-      // Cada vista guarda no seu campo: piso em `hidden`, cobertura em `roofHidden`; a outra não é tocada.
-      const nivel = editor.project.levels[0]!;
-      expect(c.nome === 'piso' ? nivel.hidden?.elements : nivel.roofHidden?.elements).toEqual(['w0']);
-      expect(c.nome === 'piso' ? nivel.roofHidden : nivel.hidden).toBeUndefined();
+      // Cada vista guarda no seu `hidden` (`pv_`/`pvr_`); a outra não é tocada.
+      const doPiso = viewOfTest(editor.project, floorViewId('lv_0'));
+      const daCobertura = viewOfTest(editor.project, roofViewId('lv_0'));
+      expect(c.nome === 'piso' ? doPiso.hidden?.elements : daCobertura.hidden?.elements).toEqual(['w0']);
+      expect(c.nome === 'piso' ? daCobertura.hidden : doPiso.hidden).toBeUndefined();
       unhideInView(['w0']);
       expect(planViewHiddenOf(editor.project, c.viewId()).elements).toBeUndefined();
     });
   }
 
-  it('planta de área: grava em AreaPlan.hidden e não toca no nível', () => {
+  it('planta de área: grava em hidden da vista de área e não toca nas vistas do nível', () => {
     const { project, planId } = montar();
     editor.load(project, 'teste.hestia.json');
     useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', areaPlanId: planId });
@@ -171,7 +173,7 @@ describe('ocultar e reexibir na vista, por viewId', () => {
     hideInView(['w0']);
     expect(areaPlanOf(editor.project, planId)!.hidden?.elements).toEqual(['w0']);
     expect(planViewHiddenOf(editor.project, planId).elements).toEqual(['w0']);
-    expect(editor.project.levels[0]!.hidden).toBeUndefined();
+    expect(viewOfTest(editor.project, floorViewId('lv_0')).hidden).toBeUndefined();
     unhideInView(['w0']);
     expect(areaPlanOf(editor.project, planId)!.hidden).toBeUndefined();
   });
