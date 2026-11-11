@@ -25,6 +25,31 @@ function hashMesh(pos: number[], idx: number[], nor: number[], grupos: SceneMesh
 
 interface Range { id: string; start: number; count: number }
 
+/**
+ * Normais por vértice de uma malha sem o atributo `normal`: soma das normais dos triângulos que usam o vértice
+ * (ponderadas pela área), normalizada. Nas caixas de picking (24 vértices, um por face) isso dá a normal da face.
+ * Triângulo degenerado não contribui; vértice sem triângulo válido recebe +Z.
+ */
+function normaisDoIndice(pos: THREE.BufferAttribute | THREE.InterleavedBufferAttribute, index: THREE.BufferAttribute | null): Float32Array {
+  const out = new Float32Array(pos.count * 3);
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const total = index ? index.count : pos.count;
+  for (let i = 0; i + 2 < total; i += 3) {
+    const ia = index ? index.getX(i) : i, ib = index ? index.getX(i + 1) : i + 1, ic = index ? index.getX(i + 2) : i + 2;
+    a.fromBufferAttribute(pos, ia);
+    b.fromBufferAttribute(pos, ib).sub(a);
+    c.fromBufferAttribute(pos, ic).sub(a);
+    b.cross(c);
+    for (const v of [ia, ib, ic]) { out[v * 3] = (out[v * 3] ?? 0) + b.x; out[v * 3 + 1] = (out[v * 3 + 1] ?? 0) + b.y; out[v * 3 + 2] = (out[v * 3 + 2] ?? 0) + b.z; }
+  }
+  for (let v = 0; v < pos.count; v++) {
+    const x = out[v * 3]!, y = out[v * 3 + 1]!, z = out[v * 3 + 2]!;
+    const l = Math.hypot(x, y, z);
+    if (l > 1e-12) { out[v * 3] = x / l; out[v * 3 + 1] = y / l; out[v * 3 + 2] = z / l; } else { out[v * 3] = 0; out[v * 3 + 1] = 0; out[v * 3 + 2] = 1; }
+  }
+  return out;
+}
+
 interface Acumulo {
   pos: number[];
   nor: number[];
@@ -57,12 +82,15 @@ export function extractElementMeshes(root: THREE.Object3D): Map<string, SceneMes
     const nor = mesh.geometry.getAttribute('normal');
     const index = mesh.geometry.index;
     if (!pos) return;
-    const material: string | null = (mesh.userData.materialId as string | undefined) ?? null;
+    // Variantes internas do material (`mat_madeira#testeira`) saem como o material de origem, que existe no projeto.
+    const material: string | null = ((mesh.userData.materialId as string | undefined)?.split('#')[0]) || null;
     const normalMatrix = new THREE.Matrix3().getNormalMatrix(mesh.matrixWorld);
+    // Malhas só de picking (paredes e esquadrias instanciadas) não têm normais: derivadas dos triângulos, por vértice.
+    const norm: ArrayLike<number> | undefined = nor ? undefined : normaisDoIndice(pos, index);
     for (const r of ranges) {
       let a = acc.get(r.id);
       if (!a) { a = { pos: [], nor: [], semNormais: false, remap: new Map(), grupos: new Map() }; acc.set(r.id, a); }
-      if (!nor) a.semNormais = true;
+      if (!nor && !norm) a.semNormais = true;
       let grupo = a.grupos.get(material);
       if (!grupo) { grupo = []; a.grupos.set(material, grupo); }
       for (let i = r.start; i < r.start + r.count; i++) {
@@ -75,6 +103,9 @@ export function extractElementMeshes(root: THREE.Object3D): Map<string, SceneMes
           a.pos.push(v.x, v.y, v.z);
           if (nor) {
             n.fromBufferAttribute(nor, vi).applyMatrix3(normalMatrix).normalize();
+            a.nor.push(n.x, n.y, n.z);
+          } else if (norm) {
+            n.set(norm[vi * 3]!, norm[vi * 3 + 1]!, norm[vi * 3 + 2]!).applyMatrix3(normalMatrix).normalize();
             a.nor.push(n.x, n.y, n.z);
           }
           a.remap.set(key, to);
@@ -202,6 +233,20 @@ export function extractLights(p: Project): SceneLight[] {
       intensity: prop ? (prop.value as number) : CANDELA_PADRAO,
     });
   }
+  // Luzes declaradas no projeto (`Project.render.lights`, intensidade em candela); o id do IFC tem prefixo `light:`.
+  for (const l of p.render?.lights ?? []) {
+    out.push({
+      id: `render:${l.id}`,
+      kind: l.kind,
+      position: { ...l.position },
+      ...(l.direction ? { direction: { ...l.direction } } : {}),
+      color: l.color,
+      intensity: l.intensity,
+      ...(l.range !== undefined ? { range: l.range } : {}),
+      ...(l.innerAngle !== undefined ? { innerAngle: l.innerAngle } : {}),
+      ...(l.outerAngle !== undefined ? { outerAngle: l.outerAngle } : {}),
+    });
+  }
   return out.sort((a, b) => (a.id < b.id ? -1 : 1));
 }
 
@@ -214,7 +259,14 @@ export function extractSite(p: Project): SceneSite | undefined {
   const v = view3dOf(p);
   if (!Number.isFinite(v.sunAzimuth) || !Number.isFinite(v.sunElevation)) return undefined;
   const rad = (d: number): number => (d * Math.PI) / 180;
-  return { sun: { azimuth: rad(v.sunAzimuth), elevation: rad(v.sunElevation) } };
+  const s = p.render?.site;
+  return {
+    ...(s?.latitude !== undefined ? { latitude: s.latitude } : {}),
+    ...(s?.longitude !== undefined ? { longitude: s.longitude } : {}),
+    ...(s?.northAngle !== undefined ? { northAngle: s.northAngle } : {}),
+    ...(s?.timezone !== undefined ? { timezone: s.timezone } : {}),
+    sun: { azimuth: rad(v.sunAzimuth), elevation: rad(v.sunElevation) },
+  };
 }
 
 /** Projeto + malhas da cena → conteúdo do contrato. Sem cena 3D montada, as entidades vão sem geometria (`mesh: null`). */

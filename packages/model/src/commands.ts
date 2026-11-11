@@ -76,6 +76,7 @@ import { newId } from './ids.ts';
 import { applyAnnotationCommand, type AnnotationCommand } from './annotations.ts';
 import { applySheetCommand, dropOrphanViewports, type SheetCommand } from './sheetCommands.ts';
 import { applyPluginDataCommand, type PluginDataCommand } from './pluginData.ts';
+import { applyRenderSetupCommand, type RenderSetupCommand } from './renderSetup.ts';
 import { applyView3DPointCommand, type View3DPointCommand } from './view3dPoints.ts';
 import { applyGridCommand, type GridCommand } from './grid.ts';
 import { applyViewCommand } from './viewCommands.ts';
@@ -141,6 +142,7 @@ export type Command =
   | SheetCommand
   | View3DPointCommand
   | PluginDataCommand
+  | RenderSetupCommand
   | GridCommand
   | { type: 'deleteLevel'; id: Id }
   | { type: 'setLevelViewRange'; levelId: Id; patch: Partial<ViewRange> }
@@ -494,6 +496,9 @@ export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
     case 'removeViewport':
     case 'setSheetOrder':
       applySheetCommand(p, c, lang);
+      break;
+    case 'setRenderSetup':
+      applyRenderSetupCommand(p, c);
       break;
     case 'ensurePluginProjectUid':
     case 'setPluginViewOverride':

@@ -128,6 +128,17 @@ A categoria do usuário tem prioridade; categoria fora do formato é ignorada e 
 
 `"uvs": [u, v, u, v, ...]`, 2 números por vértice (`uvs.length == positions.length / 3 * 2`), em **metros de mundo**, por projeção em caixa: eixo da maior componente (valor absoluto) da normal do vértice; X dominante → `(y, z)`, Y → `(x, z)`, Z → `(x, y)`. Só sai quando a entidade tem normais e até 600.000 vértices (`UVS_MAX_VERTICES`); acima disso é omitido, e o host ainda descarta UVs acima de 1.400.000 números. Ausente em 1.0 a 1.2.
 
+## Projeto padrão "Casa de Alto Padrão" para o renderizador
+
+Template `house-premium`, pronto sem ajuste manual (teste: `apps/web/src/plugins/casaAltoPadrao.render.test.ts`, monta a cena 3D de verdade com `ModelScene`):
+
+- **Materiais**: 19, todos com `category` válida (catálogo) e PBR derivado em metal e vidro. Nenhum grupo de malha sem material (variantes internas `mat_x#testeira` saem como `mat_x`).
+- **Malhas**: 100% das entidades com geometria enviam normais e `uvs` (antes só 2 de 23). Paredes e esquadrias são instanciadas na tela e só têm caixa de picking: a caixa agora leva `userData.materialId` (`caixasDoNivel3d.ts`) e o exportador deriva normais dos triângulos quando falta o atributo `normal`. Maior entidade bem abaixo de 8 MiB, então o snapshot em partes (1.2) cabe sem divisão de entidade. Só os 6 vãos livres (porta sem folha) ficam sem malha, por não terem geometria.
+- **Local e sol**: novo `Project.render` (opcional, aditivo, sem mudar `SCHEMA_VERSION`; comando `setRenderSetup`, `packages/model/src/renderSetup.ts`) com latitude, longitude, norte, fuso e luzes. O template usa São Paulo (-23,5505; -46,6333; `America/Sao_Paulo`), 15/12/2026 08:45; azimute e elevação do sol da vista 3D são calculados desses dados (`sunPosition`, aproximação NOAA, erro de ~1 grau). `site` passa a levar latitude, longitude, norte e fuso.
+- **Câmera inicial**: ponto de vista salvo "Fachada principal" (sudeste, 30 m, 17 graus). Sem vista 3D aberta, `cameraPort.read` usa o primeiro ponto de vista do projeto.
+- **Luzes**: 27 luzes pontuais declaradas em `Project.render.lights` (23 internas a 2,6 m e 5,6 m, 4 arandelas externas), 50 a 200 cd (lâmpada residencial de 600 a 2.500 lm), cor quente. Saem em `snapshot.lights` com id `render:<id>`.
+- **Medido ponta a ponta** com o renderizador real (`--screenshot`, Vite na porta 5190, token pareado, estado `connected`): imagem `renders/casa-alto-padrao-02.png`.
+
 ## Testes
 
 - `packages/plugin-api/src/plugins.test.ts`, bloco "extensão de renderização (protocolo 1.3)": negociação 1.3 contra 1.2 e 1.1 no mesmo host (o quadro 1.2 não contém nenhuma palavra nova), deltas de luz, `site`, descarte de inválidos, partes e validação de mensagens.

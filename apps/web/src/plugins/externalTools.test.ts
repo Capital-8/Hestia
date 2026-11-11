@@ -121,7 +121,8 @@ describe('exportação de cena (protocolo 1.3)', () => {
     const root = new THREE.Group();
     root.add(l);
     const m = extractElementMeshes(root).get('e')!;
-    expect(m.normals).toBeUndefined();
+    // Sem o atributo `normal` (malha só de picking), as normais saem derivadas dos triângulos.
+    expect(m.normals).toHaveLength(m.positions.length);
     expect(m.groups[0]!.materialId).toBeNull();
   });
 

@@ -9,6 +9,8 @@ import type { Id, Opening, OpeningType, PlanSymbol, SectionRole, SectionView, St
 import { makeWall } from './wall.ts';
 import { openingName, t, type Lang } from './i18n.ts';
 import { sectionRoleLabels } from './sectionView.ts';
+import { compassParaAzimuteHestia, sunPosition, type RenderLight } from './renderSetup.ts';
+import { makeView3DPoint } from './view3dPoints.ts';
 
 /**
  * Casa de alto padrão, 2 pavimentos (docs/projetos/casa-alto-padrao/B-projeto-planta.md, v2, com as alterações do
@@ -345,6 +347,76 @@ const CORTES: SectionView[] = [
   { id: 'V-BB', name: 'Corte BB', kind: 'section', a: { x: -1, y: 8.5 }, b: { x: 13, y: 8.5 }, depth: 17 },
 ];
 
+/**
+ * Local, sol e luzes para renderizadores externos (docs/plugins/09-extensao-render.md). Local: São Paulo (a casa é um
+ * projeto de exemplo brasileiro); o norte do modelo é +Y (a fachada da garagem e da porta de entrada é a sul). Sol: 15 de
+ * dezembro, 08:45 (UTC-3), calculado de latitude, longitude e hora — sol baixo de leste, que acende a fachada leste e
+ * marca o relevo da sul, vista da câmera inicial. A data e o fuso ficam no projeto (`sunLocalTime`).
+ */
+const LOCAL = { latitude: -23.5505, longitude: -46.6333, timezone: 'America/Sao_Paulo', sunLocalTime: '2026-12-15T08:45' };
+
+function solDoProjeto(): { sunAzimuth: number; sunElevation: number } {
+  const [d, h] = LOCAL.sunLocalTime.split('T') as [string, string];
+  const [y, m, dia] = d.split('-').map(Number) as [number, number, number];
+  const [hh, mm] = h.split(':').map(Number) as [number, number];
+  const utc = new Date(Date.UTC(y, m - 1, dia, hh + 3, mm)); // America/Sao_Paulo = UTC-3, sem horário de verão
+  const s = sunPosition(LOCAL.latitude, LOCAL.longitude, utc);
+  const r2 = (n: number): number => Math.round(n * 100) / 100;
+  return { sunAzimuth: r2(compassParaAzimuteHestia(s.compassDeg)), sunElevation: r2(s.elevationDeg) };
+}
+
+/**
+ * Luzes plausíveis, em candela (cd = lúmens / 4π para luz isotrópica): lâmpada de teto residencial de 1.000 a 1.700 lm
+ * dá 80 a 135 cd; plafon grande ou luminária de sala, 150 a 220 cd; arandela externa de 600 lm, 50 cd. Cor 2.700 a 3.000 K
+ * nos ambientes de estar e 3.500 K na garagem e na área de serviço. Teto a 2,6 m acima do piso (pé-direito 2,80 m).
+ */
+const QUENTE = '#ffe2b8';
+const NEUTRA = '#fff0dc';
+function luz(id: string, name: string, x: number, y: number, z: number, intensity: number, color = QUENTE): RenderLight {
+  return { id, name, kind: 'point', position: { x, y, z }, color, intensity };
+}
+const T = 2.6;
+const P2 = 3 + 2.6;
+const LUZES: RenderLight[] = [
+  // Térreo
+  luz('t-garagem', 'Garagem', 2.75, 2.75, T, 150, NEUTRA),
+  luz('t-cozinha', 'Cozinha', 2.75, 7.5, T, 140, NEUTRA),
+  luz('t-despensa', 'Despensa', 2.75, 10.5, T, 60, NEUTRA),
+  luz('t-servico', 'Área de serviço', 2.75, 12.75, T, 80, NEUTRA),
+  luz('t-vestibulo', 'Vestíbulo', 7.2, 1.0, T, 90),
+  luz('t-hall', 'Hall', 7.9, 4.3, T, 100),
+  luz('t-lavabo', 'Lavabo', 9.85, 1.0, T, 60),
+  luz('t-sala-1', 'Sala (sul)', 10.3, 4.0, T, 200),
+  luz('t-sala-2', 'Sala (norte)', 10.3, 8.2, T, 200),
+  luz('t-jantar', 'Jantar', 7.2, 8.5, T, 160),
+  luz('t-varanda', 'Varanda gourmet', 8.6, 12.4, T, 120),
+  // Pavimento 2
+  luz('p-office', 'Home office', 2.75, 3.3, P2, 130, NEUTRA),
+  luz('p-master', 'Suíte master', 10.3, 3.3, P2, 120),
+  luz('p-bwc-master', 'Banheiro master', 7.2, 1.6, P2, 80, NEUTRA),
+  luz('p-closet-master', 'Closet master', 7.8, 4.9, P2, 60),
+  luz('p-corredor-1', 'Corredor oeste', 3.0, 7.16, P2, 60),
+  luz('p-corredor-2', 'Corredor leste', 8.5, 7.16, P2, 60),
+  luz('p-suite2', 'Suíte 2', 2.75, 9.6, P2, 120),
+  luz('p-bwc-2', 'Banheiro 2', 1.4, 12.75, P2, 60, NEUTRA),
+  luz('p-closet-2', 'Closet 2', 4.15, 12.75, P2, 50),
+  luz('p-closet-3', 'Closet 3', 6.75, 8.9, P2, 50),
+  luz('p-bwc-3', 'Banheiro 3', 6.75, 12.0, P2, 60, NEUTRA),
+  luz('p-suite3', 'Suíte 3', 9.9, 10.9, P2, 120),
+  // Externas: arandelas junto à porta de entrada e ao portão (fachada sul, y = 0), 0,25 m à frente da parede
+  luz('e-entrada-1', 'Arandela entrada', 7.0, -0.25, 2.3, 50, '#ffd9a8'),
+  luz('e-entrada-2', 'Arandela entrada', 8.8, -0.25, 2.3, 50, '#ffd9a8'),
+  luz('e-garagem-1', 'Arandela garagem', 0.2, -0.25, 2.5, 50, '#ffd9a8'),
+  luz('e-garagem-2', 'Arandela garagem', 5.3, -0.25, 2.5, 50, '#ffd9a8'),
+];
+
+/**
+ * Câmera inicial para o renderizador (ponto de vista salvo "Fachada principal"): vista de sudeste, que mostra a fachada
+ * sul (garagem e entrada) e a leste; olha para o centro do volume (6, 7, 3,6), distância que cabe a casa e o telhado
+ * (11,99 × 14,24 m, cumeeira perto de 8 m) com folga no campo de visão vertical de 38°.
+ */
+const CAMERA_INICIAL = { azimuth: -0.82, elevation: 0.3, distance: 30, target: { x: 6, y: 7, z: 3.4 }, ortho: false };
+
 /** Monta a casa de alto padrão (2 pavimentos) como uma lista de comandos, no mesmo estilo de `house2`. */
 export function casaAltoPadrao(cmds: Command[], lang: Lang = 'pt'): void {
   for (const t of OPENING_TYPES) cmds.push({ type: 'upsertOpeningType', openingType: { ...t, name: openingName(t.name, lang) } });
@@ -358,4 +430,10 @@ export function casaAltoPadrao(cmds: Command[], lang: Lang = 'pt'): void {
   cmds.push(escada());
   for (const v of CORTES) cmds.push({ type: 'addView', view: { ...v, name: t(lang, 'md_section_name', { code: v.name.slice(-2) }) } });
   for (const v of elevacoes(lang)) cmds.push({ type: 'addView', view: v });
+  cmds.push({ type: 'setView3D', patch: solDoProjeto() });
+  cmds.push({
+    type: 'setRenderSetup',
+    setup: { site: { ...LOCAL, northAngle: 0 }, lights: LUZES },
+  });
+  cmds.push({ type: 'addView3DPoint', point: makeView3DPoint(CAMERA_INICIAL, lang === 'pt' ? 'Fachada principal' : 'Main facade') });
 }
