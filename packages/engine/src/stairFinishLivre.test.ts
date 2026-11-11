@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { asMulti, intersection, multiArea, offsetMulti, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
+import { asMulti, difference, union, intersection, multiArea, offsetMulti, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { DEFAULT_STAIR_TYPES, ProjectStore, createEmptyProject, makeStair, type StairCurve, type StairLanding, type StairRun, type StairType } from '@hestia/model';
 import {
   generateFanRun,
@@ -188,6 +188,22 @@ describe('acabamentos em escada livre: sem interseção de volume', () => {
       it(`${nome} | ${fn}`, () => {
         const s = resolve(build(), f, H);
         expect(overlaps(s)).toEqual([]);
+        // Nada sai da planta da escada além do bocel frontal (piso: bocel; espelho: nada), nem nas laterais e cantos de patamar.
+        const mm = stairFinishModel(s)!;
+        const plan = union(...s.steps.map((x) => asMulti(x.polygon)), ...[...mm.bands.values()].map((b) => asMulti(b)));
+        const fora: string[] = [];
+        for (const q of mm.solids) {
+          const lim = offsetMulti(plan, (q.kind === 'tread' && f.bocel !== null ? f.bocel : 0) + GRID);
+          const out = multiArea(difference(asMulti(q.polygon), lim));
+          if (out > 1e-6) fora.push(`${q.kind}${q.number} fora da planta por ${out.toExponential(2)} m2`);
+          // O que passa da planta é só o bocel: dentro da faixa de largura `bocel` à frente de um degrau, nunca solto num canto.
+          if (q.kind === 'tread' && f.bocel !== null) {
+            const sobra = multiArea(difference(asMulti(q.polygon), plan));
+            const maxSobra = f.bocel * q.edgeLength * 1.05 + 2 * f.te * f.bocel + 1e-6;
+            if (sobra > maxSobra) fora.push(`piso${q.number}: sobra ${sobra.toExponential(2)} > bocel ${maxSobra.toExponential(2)}`);
+          }
+        }
+        expect(fora).toEqual([]);
         // Nada some em silêncio: todo degrau tem piso, todo espelho tem faixa e todo degrau (não patamar) leva bocel.
         const m = stairFinishModel(s)!;
         expect(m.solids.filter((x) => x.kind === 'tread')).toHaveLength(s.steps.length);

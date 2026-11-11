@@ -93,6 +93,12 @@ function alignedBand(pts: Vec2[], side: 1 | -1, t: number, neighbours: Ring[], d
     const clipped = intersection(asMulti(big), neighbours.map((r) => [r]));
     const rings = clipped.map((poly) => poly[0]!).filter((r) => r.length >= 3);
     if (rings.length === 1 && multiArea(asMulti(rings[0]!)) > 0.5 * t * polyLength(pts)) return rings[0]!;
+    // Vários trechos (vizinho em dois pedaços, como patamar + degrau): fica o maior; o resto seria faixa solta no ar.
+    if (rings.length > 1) {
+      const best = rings.reduce((m, r) => (multiArea(asMulti(r)) > multiArea(asMulti(m)) ? r : m));
+      if (multiArea(asMulti(best)) > 0.5 * t * polyLength(pts)) return best;
+    }
+    if (rings.length === 0 && dir === null) return band(pts, side, t);
   }
   if (dir && pts.length === 2) {
     const n = leftNormals(pts)[0]!;
@@ -213,7 +219,11 @@ function buildModel(stair: ResolvedStair): StairFinishModel | null {
         if (ext) polygon = ext;
       }
       if (fin.bocel > 0 && bi) {
-        const strip = alignedBand(bi.pts, bi.side === 1 ? -1 : 1, fin.bocel, stepsAt(bi.r.z0), climb(back));
+        const raw = alignedBand(bi.pts, bi.side === 1 ? -1 : 1, fin.bocel, stepsAt(bi.r.z0), climb(back));
+        // O bocel só existe à frente do degrau de cima: limitado a `bocel` ao redor dele, não avança além do canto do patamar.
+        const near = offsetMulti(stepsAt(bi.r.z1).map((r) => [r]), fin.bocel + 1e-5);
+        const cut = near.length > 0 ? intersection(asMulti(raw), near) : [];
+        const strip: Ring = cut.length === 1 ? cut[0]![0]! : raw;
         const joined = joinAlong(polygon, strip, polyLength(bi.pts));
         if (joined) {
           polygon = joined;
