@@ -1,4 +1,4 @@
-import { add, dot, intersection, mul, norm, perp, sub, type Polygon, type Ring, type Vec2 } from '@hestia/geom';
+import { add, dot, intersection, machineNumber, mul, norm, perp, sub, unionClipper, type Polygon, type Ring, type Vec2 } from '@hestia/geom';
 import type { Id, Project } from '@hestia/model';
 import { stairArrivalTop } from './stairArrival.ts';
 import { stairBodyForDrawing, type StairBodyPiece } from './stairBody.ts';
@@ -82,6 +82,20 @@ export function convexHull(pts: Vec2[]): Ring {
 const bottomAt = (piece: StairBodyPiece, v: Vec2): number => piece.bottom.a * v.x + piece.bottom.b * v.y + piece.bottom.c;
 
 /**
+ * Projeções das peças da estrutura monolítica (degraus, patamares, chegada): as do mesmo material e da mesma profundidade
+ * viram um item só (união), então a elevação mostra o contorno único da estrutura, sem linha vertical entre degraus. Peças
+ * em profundidades diferentes ficam separadas, pois o encobrimento é por profundidade.
+ */
+function fuseProjected(list: SectionBeyond[]): SectionBeyond[] {
+  const byKey = new Map<string, SectionBeyond[]>();
+  for (const b of list) {
+    const key = b.materialId + "|" + machineNumber(b.depth, 6);
+    byKey.set(key, [...(byKey.get(key) ?? []), b]);
+  }
+  return [...byKey.values()].map((g) => (g.length === 1 ? g[0]! : { ...g[0]!, polygons: unionClipper(...g.map((b) => b.polygons)) }));
+}
+
+/**
  * Corte e projeção das escadas do nível para a linha de corte (ou de elevação, com `depth` grande). `p` dá a cota do topo
  * da chegada monolítica (`stairArrivalTop`): a face inferior da laje que cobre o último espelho ou, sem laje nem piso, o
  * próprio nível de topo (`topZ`), com a chegada flush.
@@ -106,6 +120,7 @@ export function sectionOfStairs(stairs: ResolvedStair[], line: SectionLine, p: P
     // convexas). O poste (peça `post`) sai com o material do poste.
     if (s.type.runStyle === 'monolithic' || s.type.runStyle === 'post') {
       const arrivalTopZ = stairArrivalTop(p, s).top;
+      const projected: SectionBeyond[] = [];
       for (const piece of stairBodyForDrawing(s, { arrivalTopZ }).pieces) {
         const pieceMaterial = piece.kind === 'post' ? s.type.postMaterialId : materialId;
         for (const [t0, t1] of lineIntervals([piece.polygon], line.a, d, n)) {
@@ -139,7 +154,7 @@ export function sectionOfStairs(stairs: ResolvedStair[], line: SectionLine, p: P
           if (hull.length < 3) continue;
           out.snapRings.push(...prismSnapRings(s.id, outer, along, () => piece.zTop, (v) => bottomAt(piece, v)));
           const zLow = Math.min(...pts.map((q) => q.y));
-          out.beyond.push({
+          projected.push({
             stairId: s.id,
             materialId: pieceMaterial,
             layerIndex: 0,
@@ -149,6 +164,7 @@ export function sectionOfStairs(stairs: ResolvedStair[], line: SectionLine, p: P
           grow(zLow, piece.zTop);
         }
       }
+      out.beyond.push(...fuseProjected(projected));
     }
 
     // Montado: bloco de degrau ou patamar (espessura do piso e do patamar), como nos pisos.

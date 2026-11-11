@@ -434,3 +434,101 @@ describe('monolítico com face inferior escalonada (3D, decisão 0012 §1 e §2)
     expect(found).toBe(true);
   });
 });
+
+/**
+ * Arestas desenhadas que ficam no INTERIOR de uma face plana: há triângulos coplanares, de mesma normal, dos dois lados da
+ * aresta. É a emenda falsa entre peças contíguas (ex.: a lateral de dois degraus), que a estrutura monolítica não pode ter.
+ * Aresta de contorno (quina real, ponta da lateral) tem a face só de um lado e não conta.
+ */
+function interiorCoplanarEdges(b: SolidBatch): number[][] {
+  type V3 = [number, number, number];
+  const P = (k: number): V3 => [b.positions[k * 3]!, b.positions[k * 3 + 1]!, b.positions[k * 3 + 2]!];
+  const sub3 = (a: V3, c: V3): V3 => [a[0] - c[0], a[1] - c[1], a[2] - c[2]];
+  const cross = (a: V3, c: V3): V3 => [a[1] * c[2] - a[2] * c[1], a[2] * c[0] - a[0] * c[2], a[0] * c[1] - a[1] * c[0]];
+  const dot3 = (a: V3, c: V3): number => a[0] * c[0] + a[1] * c[1] + a[2] * c[2];
+  const unit = (a: V3): V3 => {
+    const l = Math.hypot(...a);
+    return [a[0] / l, a[1] / l, a[2] / l];
+  };
+  const tris = [] as Array<{ a: V3; c: V3; d: V3; n: V3 }>;
+  for (let i = 0; i < b.indices.length; i += 3) {
+    const [a, c, d] = [P(b.indices[i]!), P(b.indices[i + 1]!), P(b.indices[i + 2]!)];
+    const n = cross(sub3(c, a), sub3(d, a));
+    if (Math.hypot(...n) < 1e-12) continue;
+    tris.push({ a, c, d, n: unit(n) });
+  }
+  const inside = (t: (typeof tris)[number], p: V3): boolean => {
+    // Coordenadas baricentricas no plano do triangulo.
+    const v0 = sub3(t.c, t.a);
+    const v1 = sub3(t.d, t.a);
+    const v2 = sub3(p, t.a);
+    const d00 = dot3(v0, v0);
+    const d01 = dot3(v0, v1);
+    const d11 = dot3(v1, v1);
+    const d20 = dot3(v2, v0);
+    const d21 = dot3(v2, v1);
+    const den = d00 * d11 - d01 * d01;
+    const u = (d11 * d20 - d01 * d21) / den;
+    const v = (d00 * d21 - d01 * d20) / den;
+    return u >= -1e-9 && v >= -1e-9 && u + v <= 1 + 1e-9;
+  };
+  const bad: number[][] = [];
+  for (const e of drawnEdges(b)) {
+    const a: V3 = [e[0]!, e[1]!, e[2]!];
+    const c: V3 = [e[3]!, e[4]!, e[5]!];
+    const d = unit(sub3(c, a));
+    const m: V3 = [(a[0] + c[0]) / 2, (a[1] + c[1]) / 2, (a[2] + c[2]) / 2];
+    // Triangulos cujo plano contem a aresta, agrupados pela normal (mesma face plana).
+    const onPlane = tris.filter((t) => Math.abs(dot3(sub3(a, t.a), t.n)) < 1e-6 && Math.abs(dot3(sub3(c, t.a), t.n)) < 1e-6);
+    const groups = new Map<string, typeof tris>();
+    for (const t of onPlane) {
+      const key = t.n.map((q) => Math.round(q * 1e4)).join(',');
+      groups.set(key, [...(groups.get(key) ?? []), t]);
+    }
+    for (const g of groups.values()) {
+      const s = unit(cross(g[0]!.n, d));
+      const side = (sign: number): boolean => {
+        const p: V3 = [m[0] + sign * 1e-3 * s[0], m[1] + sign * 1e-3 * s[1], m[2] + sign * 1e-3 * s[2]];
+        return g.some((t) => inside(t, p));
+      };
+      if (side(1) && side(-1)) bad.push(e);
+    }
+  }
+  return bad;
+}
+
+describe('estrutura monolítica contínua (3D): nenhuma aresta no interior de uma face plana', () => {
+  const finished = { treadFinishEnabled: true, riserFinishEnabled: true, bocelEnabled: true } as const;
+  const cases: Array<[string, () => ResolvedStair]> = [
+    ['reta lisa', () => refStair('smooth')],
+    ['reta escalonada', () => refStair('stepped')],
+    ['reta com base em 0,30 m', () => straightStair({ risers: REF.N, tread: REF.P, riserH: REF.H, width: REF.W, baseZ: 0.3, type: { ...MONO, structuralDepth: REF.sd } })],
+    ['reta com acabamento', () => straightStair({ risers: REF.N, tread: REF.P, riserH: REF.H, width: REF.W, type: { ...MONO, structuralDepth: REF.sd, ...finished } })],
+    ['L com patamar', () => lStair()],
+    ['L escalonada', () => ({ ...lStair(), type: { ...lStair().type, undersideStyle: 'stepped' as const } })],
+    ['L com acabamento', () => ({ ...lStair(), type: { ...lStair().type, ...finished } })],
+  ];
+  for (const [nome, make] of cases) {
+    it(`${nome}: só quinas reais e contorno, nunca emenda entre degraus coplanares`, () => {
+      const stair = make();
+      const structure = buildStairSolids([stair]).filter((b) => b.materialId === stair.type.materialId);
+      expect(structure).toHaveLength(1);
+      for (const b of structure) expect(unmatchedEdges(b)).toBe(0);
+      for (const b of structure) expect(interiorCoplanarEdges(b).map((q) => q.map((w) => +w.toFixed(4)).join(' '))).toEqual([]);
+    });
+  }
+
+  it('o teste enxerga a falha: uma lateral em dois trechos coplanares, com vértice solto na emenda, tem aresta interior', () => {
+    // Parede A (x de 0 a 1) e parede B (x de 1 a 2) no mesmo plano; a aresta de B em x = 1 tem um vértice a meio, então não casa com a de A.
+    const positions = [0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 2, 0, 0, 2, 0, 1, 1, 0, 1, 1, 0, 0.5];
+    // Os triângulos de B repetem o vértice 1 em (1,0,0) e (1,0,1): reaproveita-os pelo valor, e o do meio (1,0,0.5) fica só em B.
+    const b: SolidBatch = { materialId: 'm', category: 'stair', positions, normals: positions.map((_, i) => (i % 3 === 1 ? -1 : 0)), indices: [0, 1, 2, 0, 2, 3, 4, 5, 8, 8, 5, 6, 8, 6, 7, 4, 8, 7], ids: [] };
+    expect(interiorCoplanarEdges(b).length).toBeGreaterThan(0);
+  });
+
+  it('volume inalterado com o acabamento: a malha da estrutura + acabamento = Σ volumes dos sólidos', () => {
+    const s = straightStair({ risers: REF.N, tread: REF.P, riserH: REF.H, width: REF.W, type: { ...MONO, structuralDepth: REF.sd } });
+    const a = total(buildStairSolids([s]));
+    expect(Math.abs(a - piecesVolume(s))).toBeLessThan(1e-9);
+  });
+});

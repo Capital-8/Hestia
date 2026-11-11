@@ -241,7 +241,7 @@ describe('elevação (monolítico)', () => {
     const beyond = r.beyond.filter((b) => b.stairId === 'st1');
     expect(beyond.every((b) => b.materialId === CONCRETE)).toBe(true);
     expect(Math.min(...beyond.map((b) => b.depth))).toBeCloseTo(2.4, 6);
-    const tops = beyond.map((b) => Math.max(...b.polygons.flat(2).map((q) => q.y)));
+    const tops = beyond.flatMap((b) => b.polygons.flat(2).map((q) => q.y));
     const hasTop = (z: number): boolean => tops.some((t) => Math.abs(t - z) < 1e-6);
     for (let k = 1; k <= 15; k++) expect(hasTop(k * H)).toBe(true);
     expect(hasTop(2.8)).toBe(true);
@@ -316,5 +316,58 @@ describe('escada monolítica com erro de norma ainda desenha a estrutura', () =>
     expect(resolveStairs(p)[0]!.issues.some((i) => i.severity === 'error')).toBe(true);
     expect(cut.some((c) => c.materialId === CONCRETE)).toBe(true);
     expect(cut.some((c) => c.materialId === 'mat_ceramica')).toBe(true);
+  });
+});
+
+describe('estrutura monolítica contínua no corte e na elevação: contorno único, sem linhas entre degraus', () => {
+  const treadsOnly = (r: SectionResult): number => r.cut.filter((c) => c.materialId === CONCRETE).reduce((n, c) => n + c.polygons.length, 0);
+  const finished = { treadFinishEnabled: true, treadFinishThickness: 0.03, riserFinishEnabled: true, riserFinishThickness: 0.02, bocelEnabled: true, bocelProjection: 0.02 };
+  const withFinish = (extra: Partial<StairType>): { p: Project; typeId: string } => {
+    const t: StairType = { ...monolithicType(0.15, 'smooth'), id: 'stt_cont', ...extra };
+    return { p: build([runAt(SIXTEEN, { ext0: 0, ext1: 0 })], 'stt_cont', t), typeId: 'stt_cont' };
+  };
+
+  it('corte longitudinal: a região da estrutura é UM polígono, sem furos, vindo pronto do motor (sem depender de união no desenho)', () => {
+    for (const extra of [{}, finished]) {
+      const r = computeSection(withFinish(extra).p, LONG);
+      expect(r.cut.filter((c) => c.materialId === CONCRETE)).toHaveLength(1);
+      expect(treadsOnly(r)).toBe(1);
+      expect(r.cut.find((c) => c.materialId === CONCRETE)!.polygons[0]).toHaveLength(1);
+    }
+  });
+
+  it('corte longitudinal com patamar (L): um polígono só', () => {
+    const run2 = Array.from({ length: 8 }, (_, k) => 3.0 + k * 0.28);
+    const p = build([runAt(SIXTEEN.slice(0, 8), { ext0: 0, ext1: 0 }), landingRect(1.96, 3.0), runAt(run2, { ext0: 0, ext1: 0 })]);
+    const r = computeSection(p, LONG);
+    expect(treadsOnly(r)).toBe(1);
+  });
+
+  it('elevação (sem corte): a estrutura é UM item além do plano, um só polígono sem furos', () => {
+    for (const extra of [{}, finished]) {
+      const r = computeSection(withFinish(extra).p, { a: v(-1, -3), b: v(6, -3), depth: 6 });
+      const structure = r.beyond.filter((b) => b.stairId === 'st1' && b.materialId === CONCRETE);
+      expect(structure).toHaveLength(1);
+      expect(structure[0]!.polygons).toHaveLength(1);
+      expect(structure[0]!.polygons[0]).toHaveLength(1);
+    }
+  });
+
+  it('elevação: o contorno é só o perfil do degrau (cada vértice é quina de degrau ou ponta do fundo), sem segmento vertical interno', () => {
+    const r = computeSection(build([runAt(SIXTEEN, { ext0: 0, ext1: 0 })]), { a: v(-1, -3), b: v(6, -3), depth: 6 });
+    const ring = r.beyond.find((b) => b.stairId === 'st1')!.polygons[0]![0]!;
+    // Segmentos verticais do contorno: cada um é o espelho de um degrau (0,175 m); só as duas pontas (primeiro degrau e chegada) são maiores.
+    const xs = ring.map((q) => q.x);
+    const [x0, x1] = [Math.min(...xs), Math.max(...xs)];
+    for (let i = 0; i < ring.length; i++) {
+      const a = ring[i]!;
+      const b = ring[(i + 1) % ring.length]!;
+      if (Math.abs(a.x - b.x) < 1e-6 && Math.abs(a.x - x0) > 1e-6 && Math.abs(a.x - x1) > 1e-6) expect(Math.abs(a.y - b.y)).toBeLessThanOrEqual(H + 1e-6);
+    }
+  });
+
+  it('elevação: sem sobra de fio no corte longitudinal (a união não deixa resíduo além do plano)', () => {
+    const r = computeSection(build([runAt(SIXTEEN, { ext0: 0, ext1: 0 })]), LONG);
+    expect(r.beyond.filter((b) => b.stairId === 'st1')).toHaveLength(0);
   });
 });
