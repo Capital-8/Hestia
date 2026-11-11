@@ -167,8 +167,8 @@ export interface AddedGridLine {
   pos: number;
   /** `locked`: mantém a posição absoluta ao mudar L ou H. Senão acompanha a fração `pos/L` gravada. */
   locked?: boolean;
-  /** Montante deste tipo em vez do interior do sistema. */
-  mullionTypeId?: Id;
+  /** Montante deste tipo em vez do interior do sistema; null = esta linha sem montante (como em LineOverride). */
+  mullionTypeId?: Id | null;
   /** Linha criada por "Ajustar grade à porta" (§7.4): segue a célula-porta. */
   boundTo?: CellKey;
 }

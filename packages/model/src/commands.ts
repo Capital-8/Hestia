@@ -82,7 +82,8 @@ import { applyViewCommand } from './viewCommands.ts';
 import { applyCeilingCommand } from './ceilingCommands.ts';
 import { applyGuardaCorpoCommand } from './guardaCorpoCommands.ts';
 import { applyCurtainCommand, prepararTipoParede } from './curtainCommands.ts';
-import type { CurtainPanelType, MullionType } from './wallCurtainTypes.ts';
+import type { AddedGridLine, CurtainPanelType, LineRef, MullionType } from './wallCurtainTypes.ts';
+import { ajustarCortinasAlteradas, dimensoesCortinas } from './curtainRemap.ts';
 import { transformarGuardaCorpos } from './guardaCorpoTransform.ts';
 import type { GuardaCorpo, TipoGuardaCorpo } from './guardaCorpoTypes.ts';
 import type { PerfilNorma } from './guardaCorpoNorma.ts';
@@ -154,6 +155,18 @@ export type Command =
   | { type: 'deleteMullionType'; id: Id }
   | { type: 'upsertCurtainPanelType'; panelType: CurtainPanelType }
   | { type: 'deleteCurtainPanelType'; id: Id }
+  // Parede cortina, fase 2 (§4.7): linhas, segmentos, painéis de célula e normalização (curtainCommands.ts).
+  | { type: 'addGridLine'; wallId: Id; line: AddedGridLine }
+  | { type: 'moveGridLine'; wallId: Id; line: LineRef; pos: number }
+  | { type: 'lockGridLine'; wallId: Id; line: LineRef; locked: boolean }
+  | { type: 'removeGridLine'; wallId: Id; line: LineRef }
+  | { type: 'removeSegment'; wallId: Id; line: LineRef; k: number }
+  | { type: 'restoreSegment'; wallId: Id; line: LineRef; k: number }
+  | { type: 'setLineMullion'; wallId: Id; line: LineRef; mullionTypeId: Id | null }
+  | { type: 'clearLineOverride'; wallId: Id; line: LineRef }
+  | { type: 'setCellPanel'; wallId: Id; i: number; j: number; panelTypeId: Id }
+  | { type: 'clearCellOverride'; wallId: Id; i: number; j: number }
+  | { type: 'normalizarSobrescritas'; wallId?: Id }
   | { type: 'upsertMaterial'; material: Material }
   | { type: 'upsertOpeningType'; openingType: OpeningType }
   | { type: 'upsertLevel'; level: Level }
@@ -301,7 +314,24 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
   }
 }
 
+/** Comandos que podem mudar o comprimento ou a altura de uma parede cortina (§4.9: aparar, estender, altura, nível). */
+const COMANDOS_DE_GEOMETRIA = new Set<Command['type']>(['setWallEnds', 'updateElements', 'setElementLevel', 'upsertLevel', 'deleteLevel']);
+
+/**
+ * Aplica um comando ao projeto (único ponto de escrita, docs/01 §5). Depois de um comando que muda L ou H de uma
+ * parede cortina, as sobrescritas são remapeadas e regravadas no mesmo passo de desfazer (decisão 0056, §4.4).
+ */
 export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
+  if (!COMANDOS_DE_GEOMETRIA.has(c.type)) {
+    applyCommandBase(p, c, lang);
+    return;
+  }
+  const antes = dimensoesCortinas(p);
+  applyCommandBase(p, c, lang);
+  if (antes.size > 0) ajustarCortinasAlteradas(p, antes);
+}
+
+function applyCommandBase(p: Project, c: Command, lang: Lang): void {
   if (applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyCurtainCommand(p, c, lang)) return;
   switch (c.type) {
     case 'addWall':

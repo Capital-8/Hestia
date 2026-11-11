@@ -249,6 +249,28 @@ export function labelOf(c: Command): string {
       return 'Editar tipo de painel';
     case 'deleteCurtainPanelType':
       return 'Excluir tipo de painel';
+    case 'addGridLine':
+      return 'Adicionar linha da grade';
+    case 'moveGridLine':
+      return 'Mover linha da grade';
+    case 'lockGridLine':
+      return c.locked ? 'Travar linha da grade' : 'Destravar linha da grade';
+    case 'removeGridLine':
+      return 'Apagar linha da grade';
+    case 'removeSegment':
+      return 'Remover segmento da grade';
+    case 'restoreSegment':
+      return 'Restaurar segmento da grade';
+    case 'setLineMullion':
+      return 'Trocar montante da linha';
+    case 'clearLineOverride':
+      return 'Voltar linha ao padrão';
+    case 'setCellPanel':
+      return 'Trocar painel da célula';
+    case 'clearCellOverride':
+      return 'Voltar célula ao padrão';
+    case 'normalizarSobrescritas':
+      return 'Normalizar sobrescritas da cortina';
     case 'upsertMaterial':
       return 'Editar material';
     case 'upsertOpeningType':
