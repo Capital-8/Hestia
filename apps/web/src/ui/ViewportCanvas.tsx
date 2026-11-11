@@ -1,5 +1,5 @@
 /* eslint-disable max-lines -- a vista reúne planta, 3D, corte e o editor da cota; extrair depois. */
-import { servicoGuardaCorpo } from '@hestia/engine';
+import { servicoCortina, servicoGuardaCorpo } from '@hestia/engine';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
 import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, idsNaCaixaDaTela, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport, sectionLabelsAt } from '@hestia/render';
 import { formatQuantity, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
@@ -270,6 +270,17 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   useEffect(
     () =>
       servicoGuardaCorpo().aoMudarPronto(() => {
+        modelKey.current = '';
+        planFrame.current?.reset();
+        quadroRef.current?.invalidar();
+        useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
+      }),
+    [],
+  );
+  // Idem para a parede cortina: sem o kernel só o eixo aparece; quando ele chega, 3D e planta são refeitos.
+  useEffect(
+    () =>
+      servicoCortina().aoMudarPronto(() => {
         modelKey.current = '';
         planFrame.current?.reset();
         quadroRef.current?.invalidar();

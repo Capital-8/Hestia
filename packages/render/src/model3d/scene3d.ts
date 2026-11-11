@@ -1,6 +1,6 @@
 /* eslint-disable max-lines -- a cena 3D reúne o port GPU (faixas/sombras) e o alizar/esquadrias do plano; extrair depois. */
 import * as THREE from 'three';
-import { servicoGuardaCorpo, ServicoGuardaCorpo, applyPartialStructure, frameOfWall, openingGeometry, junctionOfWalls, pisoOuLajeNaFaixa, type JunctionLevel, type ResolvedWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
+import { servicoCortina, paredesCortina, temCortina, servicoGuardaCorpo, ServicoGuardaCorpo, applyPartialStructure, frameOfWall, openingGeometry, junctionOfWalls, pisoOuLajeNaFaixa, type JunctionLevel, type ResolvedWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
 import { openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, type GraphicsCategory, type Id, type Material, type Opening, type Project, type View3DSettings, type VisualStyle } from '@hestia/model';
 import { DARK, LIGHT } from '../plan/types.ts';
 import { AVISO } from '../aviso.ts';
@@ -16,6 +16,7 @@ import { BITS_PROFUNDIDADE, diagnosticarOrigem, diagnosticarProfundidade, type D
 import { buildEaveSolids } from './eaveSolids.ts';
 import { buildStairSolids } from './stairSolids.ts';
 import { buildGuardaCorpoSolids } from './guardaCorpo3d.ts';
+import { grupoSoEixos, montarGrupoCortina } from './cortinaGrupo3d.ts';
 import { buildGenericSolids } from './genericSolids.ts';
 import { buildCadLines } from './cad3d.ts';
 import { buildLevels, disposeLevels, layoutLevels } from './levels3d.ts';
@@ -28,7 +29,7 @@ import { arestasDasCaixas, criarCaixaUnitaria, geometriaDeCaixas } from './caixa
 import { buildCeilingSolids, buildFloorSolids, buildLevelSolids, buildRoofSolids, buildSlabSolids, filtrarParedesDoNivel, type ElementRange, type SolidBatch } from './solids.ts';
 import { Materiais3D } from './materiais3d.ts';
 import { CacheMalhas, bytesDeNivel, disposeNivel, type EntradaNivel, type PickSource } from './cacheMalhas3d.ts';
-import { chavesDeGuardaCorpo, chavesDeNivel } from './chaveNivel3d.ts';
+import { chavesDeCortina, chavesDeGuardaCorpo, chavesDeNivel } from './chaveNivel3d.ts';
 import { caixaDaSelecao } from './selecao3d.ts';
 
 /** O mínimo do renderer que o gancho de quadro da cena lê (o three chama `scene.onBeforeRender` com o renderer real). */
@@ -126,6 +127,19 @@ type Rampas = ReturnType<typeof resolveRamps>;
  */
 const gcPronto = (p: Project): string => (ServicoGuardaCorpo.temGuardaCorpo(p) ? (servicoGuardaCorpo().pronto() ? 'gc1' : 'gc0') : '-');
 
+/** Lote 3D das paredes cortina de um nível (ver `atualizarCortina`). */
+interface EntradaCortina {
+  readonly levelId: Id;
+  readonly chave: string;
+  readonly grupo: THREE.Group;
+  readonly picks: PickSource[];
+  readonly caixas: Map<Id, THREE.Box3>;
+  readonly mats: string[];
+}
+
+/** Marca de cache das cortinas: um nível montado antes de o kernel carregar só tem o eixo; com a marca k0/k1 ele é refeito quando o kernel chega. */
+const kernelCortina = (p: Project): string => (temCortina(p) ? (servicoCortina().pronto() ? 'k1' : 'k0') : '-');
+
 /** Lote 3D dos guarda-corpos de um nível (ver `atualizarGuardaCorpo`). */
 interface EntradaGuardaCorpo {
   readonly levelId: Id;
@@ -183,6 +197,8 @@ export class ModelScene {
   private cenaNiveis: EntradaNivel[] = [];
   /** Lote 3D dos guarda-corpos, um grupo por nível, com chave própria (fora das entradas de nível e do cache por nível). */
   private guardaCorpoNaCena: EntradaGuardaCorpo[] = [];
+  /** Lote 3D das paredes cortina (instâncias do kernel), um grupo por nível, com chave própria por hash das cortinas. */
+  private cortinaNaCena: EntradaCortina[] = [];
   private cache: CacheMalhas;
   private sequencia = 0;
   private frame: Frame3D = { view: view3dOf({}), dark: false, edges: false, shadows: false };
@@ -287,7 +303,7 @@ export class ModelScene {
    * modelo (`pickLayer`), para o modelo continuar sem malhas nesse estilo. As peças vêm dos níveis da cena.
    */
   private buildPickLayer(): void {
-    const fontes = [...this.cenaNiveis.flatMap((e) => e.picks), ...this.guardaCorpoNaCena.flatMap((g) => g.picks)];
+    const fontes = [...this.cenaNiveis.flatMap((e) => e.picks), ...this.guardaCorpoNaCena.flatMap((g) => g.picks), ...this.cortinaNaCena.flatMap((g) => g.picks)];
     if (!fontes.length) return;
     this.model.updateMatrixWorld(true);
     const pick = this.mats.cached('pick', () => new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
@@ -393,6 +409,7 @@ export class ModelScene {
     this.cenaNiveis = atuais;
     for (const e of atuais) this.model.add(e.grupo);
     this.atualizarGuardaCorpo(p, opt, levels);
+    this.atualizarCortina(p, opt, levels);
     if (this.instanciar) {
       const wireframe = view.style === 'wireframe';
       const res = this.lotes.atualizar(
@@ -642,6 +659,7 @@ export class ModelScene {
     this.detach();
     for (const e of this.cenaNiveis) this.model.add(e.grupo);
     for (const g of this.guardaCorpoNaCena) this.model.add(g.grupo);
+    for (const g of this.cortinaNaCena) this.model.add(g.grupo);
     const res = this.lotes.atualizar(this.cenaNiveis, { instanciar: true, arestas: this.frame.edges, sombras: this.frame.shadows }, true);
     for (const m of res.solidas) this.model.add(m);
     for (const m of res.instanciadas) this.model.add(m);
@@ -711,6 +729,72 @@ export class ModelScene {
       grupo.add(linhasReveladas);
     }
     return { levelId, chave, grupo, picks, mats: [...mats] };
+  }
+
+  /**
+   * Lote 3D das paredes cortina (decisão 0056): um grupo por nível com cortina, com a chave de `chavesDeCortina` (hash das cortinas do nível). A malha vem
+   * do kernel por INSTÂNCIAS (`cortina_malha`): montantes e painéis sólidos no grupo opaco, vidro em lote posterior. Sem o kernel pronto desenha só o
+   * eixo (e o aviso `cortina-sem-kernel` sai pelos avisos do projeto); nunca TypeScript no lugar.
+   */
+  private atualizarCortina(p: Project, opt: Scene3DOptions, levels: readonly ResolvedLevel[]): void {
+    const anteriores = new Map(this.cortinaNaCena.map((g) => [g.levelId, g] as const));
+    const atuais: EntradaCortina[] = [];
+    const view = this.frame.view;
+    if (view.overrides.wall.visible && temCortina(p)) {
+      const marca = JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style, kernelCortina(p)]);
+      const chaves = chavesDeCortina(p, marca, { ocultos: this.ocultos, revelados: this.revelados });
+      const nivelDe = new Set(levels.map((l) => l.levelId));
+      for (const [levelId, chave] of chaves) {
+        if (!nivelDe.has(levelId)) continue;
+        const velha = anteriores.get(levelId);
+        if (velha?.chave === chave) {
+          for (const k of velha.mats) this.mats.used.add(k);
+          atuais.push(velha);
+          anteriores.delete(levelId);
+          continue;
+        }
+        const nova = this.montarCortina(p, levelId, chave);
+        if (nova) atuais.push(nova);
+      }
+    }
+    this.cortinaNaCena = atuais;
+    for (const g of anteriores.values()) this.liberarCortina(g);
+    for (const g of atuais) this.model.add(g.grupo);
+  }
+
+  private montarCortina(p: Project, levelId: Id, chave: string): EntradaCortina | null {
+    const doNivel = paredesCortina(p).filter((c) => c.wall.levelId === levelId && !this.ocultos.has(c.wall.id));
+    if (!doNivel.length) return null;
+    const mats = new Set<string>();
+    const matsAnt = this.mats.noNivel;
+    this.mats.noNivel = mats;
+    const malha = servicoCortina().pronto() ? servicoCortina().malha(p) : null;
+    let montado = malha
+      ? montarGrupoCortina(p, malha, new Set(doNivel.map((c) => c.wall.id)), {
+          view: this.frame.view,
+          edges: this.frame.edges,
+          shadows: this.frame.shadows,
+          anguloAresta: EDGE_ANGLE,
+          mats: this.mats,
+          material: (id) => p.materials[id],
+          visivel: (id) => !this.ocultos.has(id),
+          revelado: (id) => this.revelados.has(id),
+          materialReveal: () => this.materialDoReveal(),
+        })
+      : null;
+    if (!montado && !malha) {
+      const g = grupoSoEixos(doNivel.map((c) => ({ a: c.wall.a, b: c.wall.b, z: wallBaseElevation(p, c.wall) + wallHeight(p, c.wall) / 2 })), this.mats);
+      if (g) montado = { grupo: g, picks: [], caixas: new Map(), mats: [], desenhos: 1, instancias: 0 };
+    }
+    this.mats.noNivel = matsAnt;
+    if (!montado) return null;
+    montado.grupo.userData = { levelId };
+    return { levelId, chave, grupo: montado.grupo, picks: montado.picks, caixas: montado.caixas, mats: [...mats] };
+  }
+
+  private liberarCortina(g: EntradaCortina): void {
+    g.grupo.traverse((o) => (o as { geometry?: THREE.BufferGeometry }).geometry?.dispose());
+    for (const s of g.picks) s.geo.dispose();
   }
 
   /** Material do contorno azul do Reveal (um por cena, do cache de materiais). */
@@ -1204,7 +1288,15 @@ export class ModelScene {
 
   /** Caixa delimitadora (mundo) dos elementos dados (seleção), ou null se vazia/não encontrada. */
   selectionBounds(ids: readonly Id[]): THREE.Box3 | null {
-    return caixaDaSelecao(this.model, ids);
+    // Cortina: o InstancedMesh não tem faixas por elemento; a caixa de cada cortina vem do próprio lote.
+    let box = caixaDaSelecao(this.model, ids);
+    for (const g of this.cortinaNaCena) {
+      for (const id of ids) {
+        const c = g.caixas.get(id);
+        if (c) (box ??= new THREE.Box3()).union(c);
+      }
+    }
+    return box;
   }
 
   fit(): void {
@@ -1229,6 +1321,8 @@ export class ModelScene {
     this.realces.soltarTodos();
     for (const g of this.guardaCorpoNaCena) this.liberarGuardaCorpo(g);
     this.guardaCorpoNaCena = [];
+    for (const g of this.cortinaNaCena) this.liberarCortina(g);
+    this.cortinaNaCena = [];
     const todas = new Set([...this.cenaNiveis, ...this.cache.limpar()]);
     this.cenaNiveis = [];
     for (const e of todas) disposeNivel(e);

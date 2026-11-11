@@ -15,7 +15,7 @@ import { sketchOps, type SketchSelectionBox } from './sketch.ts';
 import type { FillOp, LabelOp, PlanDrawList, PlanOps, PlanTheme, StrokeOp } from './types.ts';
 import type { Lang } from '../i18n.ts';
 import { contadores } from '../perf/registro.ts';
-import { servicoGuardaCorpo, ServicoGuardaCorpo } from '@hestia/engine';
+import { servicoCortina, servicoGuardaCorpo, ServicoGuardaCorpo, temCortina } from '@hestia/engine';
 import { versoesDaPlanta } from './versoesPlanta.ts';
 
 /** Esboço do perímetro em edição (só na planta): o rascunho, a validação dele, a linha sob o cursor e a caixa de seleção. */
@@ -113,7 +113,7 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
     theme,
     gpu: s.gpu,
     showGrid: s.showGrid,
-    geometryKey: `${versoes.resto}|${levelId}|${modo}|${dark}|${lang}|${s.showUnderlay}|${s.underlayLevel ?? ''}|${s.showRoofProjection}|${s.sketch ? 'dim' : ''}|${geoSel.join(',')}|${s.tagGhost?.roomId ?? ''}|${areaKey}|${visKey}`,
+    geometryKey: `${versoes.resto}|${temCortina(p) ? servicoCortina().pronto() : '-'}|${levelId}|${modo}|${dark}|${lang}|${s.showUnderlay}|${s.underlayLevel ?? ''}|${s.showRoofProjection}|${s.sketch ? 'dim' : ''}|${geoSel.join(',')}|${s.tagGhost?.roomId ?? ''}|${areaKey}|${visKey}`,
     guardaKey,
     // Três chaves de sobreposição: a seleção, o alvo do cursor e a camada viva (prévia, guias e captura). Cursor e
     // pré-visualização não refazem os destaques da seleção, e o hover não refaz a geometria do nível.
