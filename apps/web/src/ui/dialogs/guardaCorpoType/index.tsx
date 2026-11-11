@@ -19,8 +19,8 @@ import {
 import { editor, useProject } from '../../../editor/controller.ts';
 import { useI18n, useT } from '../../../editor/i18n.ts';
 import { useUi } from '../../../editor/state.ts';
-import { Check, NumField, TextField } from '../../fields.tsx';
-import { FamilyPair, FamilyRow, FamilySection, FamilyTabs, FamilyTypeDialog } from '../familia/index.ts';
+import { NumField, TextField } from '../../fields.tsx';
+import { FamilyActions, FamilyCheck, FamilyHint, FamilyPair, FamilyRow, FamilySection, FamilySplit, FamilyTabs, FamilyTypeDialog } from '../familia/index.ts';
 import { novoBalaustre, novoCorrimao, novoPainel, novoTrilho } from './novos.ts';
 import { GuardaCorpoPreview } from './preview.tsx';
 
@@ -119,19 +119,19 @@ export function GuardaCorpoTypeDialog({ typeId }: { typeId: string }): ReactElem
     >
       <FamilyTabs tabs={ABAS.map((a) => ({ id: a, label: t(ABA_KEY[a]) }))} value={aba} onChange={setAba} />
       {(issue || erro) && <div className="vr-error" role="alert">{erro ?? issue}</div>}
-      <div className="split">
-        <div style={{ minWidth: 0 }}>
+      <FamilySplit
+        main={<>
       {aba === 'geral' && (
         <>
           <FamilyRow label={t('gc6c_code')} htmlFor="gc-t-code"><TextField id="gc-t-code" value={draft.code} onCommit={(v) => set({ code: v })} /></FamilyRow>
           <FamilyRow label={t('gc6c_description')} htmlFor="gc-t-desc"><TextField id="gc-t-desc" value={draft.description} onCommit={(v) => set({ description: v })} /></FamilyRow>
           <FamilyPair>
-            <FamilyRow label={t('gc6c_height')} htmlFor="gc-t-h"><NumField id="gc-t-h" value={draft.altura} unit="m" min={0.01} onCommit={(v) => set({ altura: v })} /></FamilyRow>
-            <FamilyRow label={t('gc6c_axis_offset')} htmlFor="gc-t-d"><NumField id="gc-t-d" value={draft.deslocamento} unit="m" decimals={3} onCommit={(v) => set({ deslocamento: v })} /></FamilyRow>
+            <FamilyRow label={t('gc6c_height')} htmlFor="gc-t-h"><NumField id="gc-t-h" value={draft.altura} quantity="length" min={0.01} onCommit={(v) => set({ altura: v })} /></FamilyRow>
+            <FamilyRow label={t('gc6c_axis_offset')} htmlFor="gc-t-d"><NumField id="gc-t-d" value={draft.deslocamento} quantity="smallLength" onCommit={(v) => set({ deslocamento: v })} /></FamilyRow>
           </FamilyPair>
           <FamilyPair>
-            <FamilyRow label={t('gc6c_landing_adj')} htmlFor="gc-t-aj"><NumField id="gc-t-aj" value={draft.ajusteAlturaPatamar} unit="m" decimals={3} onCommit={(v) => set({ ajusteAlturaPatamar: v })} /></FamilyRow>
-            <FamilyRow label={t('gc6c_bottom_gap')} htmlFor="gc-t-fi"><NumField id="gc-t-fi" value={draft.folgaInferior} unit="m" min={0} decimals={3} onCommit={(v) => set({ folgaInferior: v })} /></FamilyRow>
+            <FamilyRow label={t('gc6c_landing_adj')} htmlFor="gc-t-aj"><NumField id="gc-t-aj" value={draft.ajusteAlturaPatamar} quantity="smallLength" onCommit={(v) => set({ ajusteAlturaPatamar: v })} /></FamilyRow>
+            <FamilyRow label={t('gc6c_bottom_gap')} htmlFor="gc-t-fi"><NumField id="gc-t-fi" value={draft.folgaInferior} quantity="smallLength" min={0} onCommit={(v) => set({ folgaInferior: v })} /></FamilyRow>
           </FamilyPair>
           <FamilyRow label={t('gc6c_cost')} htmlFor="gc-t-cost"><NumField id="gc-t-cost" value={draft.cost} min={0} onCommit={(v) => set({ cost: v })} /></FamilyRow>
           <FamilyRow label={t('gc6c_norm_type')} htmlFor="gc-t-norma">
@@ -149,13 +149,15 @@ export function GuardaCorpoTypeDialog({ typeId }: { typeId: string }): ReactElem
             <FamilySection key={i} title={tr.nome || `${i + 1}`} actions={<button type="button" className="link" onClick={() => set({ trilhos: draft.trilhos.filter((_, j) => j !== i) })}>{t('gc6c_remove')}</button>}>
               <FamilyRow label={t('gc6c_name')}><TextField value={tr.nome} onCommit={(v) => setTrilho(i, { nome: v })} /></FamilyRow>
               <FamilyPair>
-                <FamilyRow label={t('gc6c_rail_height')}><NumField value={tr.altura} unit="m" min={0} onCommit={(v) => setTrilho(i, { altura: v })} /></FamilyRow>
-                <FamilyRow label={t('gc6c_rail_offset')}><NumField value={tr.deslocamento} unit="m" decimals={3} onCommit={(v) => setTrilho(i, { deslocamento: v })} /></FamilyRow>
+                <FamilyRow label={t('gc6c_rail_height')}><NumField value={tr.altura} quantity="length" min={0} onCommit={(v) => setTrilho(i, { altura: v })} /></FamilyRow>
+                <FamilyRow label={t('gc6c_rail_offset')}><NumField value={tr.deslocamento} quantity="smallLength" onCommit={(v) => setTrilho(i, { deslocamento: v })} /></FamilyRow>
               </FamilyPair>
-              <FamilyRow label={t('gc6c_diameter')}><NumField value={tr.perfil.largura} unit="m" min={0.001} decimals={3} onCommit={(v) => setTrilho(i, { perfil: { ...tr.perfil, largura: v } })} /></FamilyRow>
+              <FamilyRow label={t('gc6c_diameter')}><NumField value={tr.perfil.largura} quantity="smallLength" min={0.001} onCommit={(v) => setTrilho(i, { perfil: { ...tr.perfil, largura: v } })} /></FamilyRow>
             </FamilySection>
           ))}
-          <button type="button" disabled={draft.trilhos.length >= LIMITE.trilhos} onClick={() => set({ trilhos: [...draft.trilhos, novoTrilho(draft, materialId)] })}>{t('gc6c_rail_new')}</button>
+          <FamilyActions>
+            <button type="button" className="btn small" disabled={draft.trilhos.length >= LIMITE.trilhos} onClick={() => set({ trilhos: [...draft.trilhos, novoTrilho(draft, materialId)] })}>{t('gc6c_rail_new')}</button>
+          </FamilyActions>
         </>
       )}
 
@@ -179,10 +181,10 @@ export function GuardaCorpoTypeDialog({ typeId }: { typeId: string }): ReactElem
                 </select>
               </FamilyRow>
               <FamilyPair>
-                <FamilyRow label={t('gc6c_hr_height')}><NumField value={c.altura} unit="m" min={0} onCommit={(v) => setCorrimao(i, { altura: v })} /></FamilyRow>
-                <FamilyRow label={t('gc6c_hr_clear')}><NumField value={c.afastamento} unit="m" min={0} decimals={3} onCommit={(v) => setCorrimao(i, { afastamento: v })} /></FamilyRow>
+                <FamilyRow label={t('gc6c_hr_height')}><NumField value={c.altura} quantity="length" min={0} onCommit={(v) => setCorrimao(i, { altura: v })} /></FamilyRow>
+                <FamilyRow label={t('gc6c_hr_clear')}><NumField value={c.afastamento} quantity="smallLength" min={0} onCommit={(v) => setCorrimao(i, { afastamento: v })} /></FamilyRow>
               </FamilyPair>
-              <FamilyRow label={t('gc6c_diameter')}><NumField value={c.perfil.largura} unit="m" min={0.001} decimals={3} onCommit={(v) => setCorrimao(i, { perfil: { ...c.perfil, largura: v } })} /></FamilyRow>
+              <FamilyRow label={t('gc6c_diameter')}><NumField value={c.perfil.largura} quantity="smallLength" min={0.001} onCommit={(v) => setCorrimao(i, { perfil: { ...c.perfil, largura: v } })} /></FamilyRow>
               <FamilyRow label={t('gc6c_hr_join')}>
                 <select className="select" value={c.juncao} onChange={(e) => setCorrimao(i, { juncao: e.target.value === 'filete' ? 'filete' : 'esquadria' })}>
                   <option value="esquadria">{t('gc6c_join_miter')}</option>
@@ -201,21 +203,23 @@ export function GuardaCorpoTypeDialog({ typeId }: { typeId: string }): ReactElem
               <SuporteCampos suportes={c.suportes} onChange={(s) => setCorrimao(i, { suportes: s })} />
             </FamilySection>
           ))}
-          <button type="button" disabled={draft.corrimaos.length >= LIMITE.corrimaos} onClick={() => set({ corrimaos: [...draft.corrimaos, novoCorrimao(draft, materialId)] })}>{t('gc6c_hr_new')}</button>
+          <FamilyActions>
+            <button type="button" className="btn small" disabled={draft.corrimaos.length >= LIMITE.corrimaos} onClick={() => set({ corrimaos: [...draft.corrimaos, novoCorrimao(draft, materialId)] })}>{t('gc6c_hr_new')}</button>
+          </FamilyActions>
         </>
       )}
 
       {aba === 'postes' && (
         <>
           {(['inicio', 'fim', 'canto'] as const).map((k) => (
-            <Check key={k} id={`gc-p-${k}`} checked={draft.postes[k].ativo} onChange={(v) => setPoste(k, { ativo: v })}>
+            <FamilyCheck key={k} id={`gc-p-${k}`} checked={draft.postes[k].ativo} onChange={(v) => setPoste(k, { ativo: v })}>
               {k === 'inicio' ? t('gc6c_post_start') : k === 'fim' ? t('gc6c_post_end') : t('gc6c_post_corner')}
-            </Check>
+            </FamilyCheck>
           ))}
-          <Check id="gc-p-inter-ativo" checked={draft.postes.intermediario.ativo} onChange={(v) => setInter({ ativo: v })}>{t('gc6c_post_inter')}</Check>
+          <FamilyCheck id="gc-p-inter-ativo" checked={draft.postes.intermediario.ativo} onChange={(v) => setInter({ ativo: v })}>{t('gc6c_post_inter')}</FamilyCheck>
           <FamilyPair>
-            <FamilyRow label={t('gc6c_diameter')}><NumField value={draft.postes.inicio.perfil.largura} unit="m" min={0.001} decimals={3} onCommit={(v) => setTodosPostes(v)} /></FamilyRow>
-            <FamilyRow label={t('gc6c_post_above')}><NumField value={draft.postes.inicio.alturaAcima} unit="m" min={0} decimals={3} onCommit={(v) => setTodosPostes(undefined, v)} /></FamilyRow>
+            <FamilyRow label={t('gc6c_diameter')}><NumField value={draft.postes.inicio.perfil.largura} quantity="smallLength" min={0.001} onCommit={(v) => setTodosPostes(v)} /></FamilyRow>
+            <FamilyRow label={t('gc6c_post_above')}><NumField value={draft.postes.inicio.alturaAcima} quantity="smallLength" min={0} onCommit={(v) => setTodosPostes(undefined, v)} /></FamilyRow>
           </FamilyPair>
           <FamilyRow label={t('gc6c_post_mode')}>
             <select className="select" value={draft.postes.intermediario.modo} onChange={(e) => setInter({ modo: e.target.value as TipoGuardaCorpo['postes']['intermediario']['modo'] })}>
@@ -226,7 +230,7 @@ export function GuardaCorpoTypeDialog({ typeId }: { typeId: string }): ReactElem
             </select>
           </FamilyRow>
           <FamilyPair>
-            <FamilyRow label={t('gc6c_post_spacing')}><NumField value={draft.postes.intermediario.espacamento} unit="m" min={0} decimals={3} onCommit={(v) => setInter({ espacamento: v })} /></FamilyRow>
+            <FamilyRow label={t('gc6c_post_spacing')}><NumField value={draft.postes.intermediario.espacamento} quantity="length" min={0} onCommit={(v) => setInter({ espacamento: v })} /></FamilyRow>
             <FamilyRow label={t('gc6c_post_number')}><NumField value={draft.postes.intermediario.numero} min={0} decimals={0} onCommit={(v) => setInter({ numero: Math.round(v) })} /></FamilyRow>
           </FamilyPair>
           <FamilyRow label={t('gc6c_post_angle')}><NumField value={(draft.postes.anguloCanto * 180) / Math.PI} min={0} decimals={1} onCommit={(v) => set({ postes: { ...draft.postes, anguloCanto: (v * Math.PI) / 180 } })} /></FamilyRow>
@@ -235,7 +239,7 @@ export function GuardaCorpoTypeDialog({ typeId }: { typeId: string }): ReactElem
 
       {aba === 'preenchimento' && (
         <>
-          {draft.preenchimentos.length === 0 && <p className="hint">{t('gc6c_inf_none')}</p>}
+          {draft.preenchimentos.length === 0 && <FamilyHint>{t('gc6c_inf_none')}</FamilyHint>}
           {draft.preenchimentos.map((pr, i) => (
             <FamilySection
               key={i}
@@ -252,18 +256,18 @@ export function GuardaCorpoTypeDialog({ typeId }: { typeId: string }): ReactElem
               {pr.tipo === 'balaustres' ? (
                 <>
                   <FamilyPair>
-                    <FamilyRow label={t('gc6c_inf_period')}><NumField value={pr.periodo} unit="m" min={0.001} decimals={3} onCommit={(v) => setPreench(i, { periodo: v })} /></FamilyRow>
+                    <FamilyRow label={t('gc6c_inf_period')}><NumField value={pr.periodo} quantity="smallLength" min={0.001} onCommit={(v) => setPreench(i, { periodo: v })} /></FamilyRow>
                     <FamilyRow label={t('gc6c_diameter')}>
-                      <NumField value={pr.elementos[0]?.modelo?.perfil.largura ?? null} unit="m" min={0.001} decimals={3} onCommit={(v) => setPreench(i, { elementos: pr.elementos.map((el, j) => (j === 0 && el.modelo ? { ...el, modelo: { ...el.modelo, perfil: { ...el.modelo.perfil, largura: v } } } : el)) })} />
+                      <NumField value={pr.elementos[0]?.modelo?.perfil.largura ?? null} quantity="smallLength" min={0.001} onCommit={(v) => setPreench(i, { elementos: pr.elementos.map((el, j) => (j === 0 && el.modelo ? { ...el, modelo: { ...el.modelo, perfil: { ...el.modelo.perfil, largura: v } } } : el)) })} />
                     </FamilyRow>
                   </FamilyPair>
-                  <Check id={`gc-pd-${i}`} checked={pr.porDegrau.ativo} onChange={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, ativo: v } })}>{t('gc6c_pd_active')}</Check>
-                  <Check id={`gc-pd-auto-${i}`} checked={pr.porDegrau.automatico === true} onChange={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, automatico: v } })}>{t('gc6c_pd_auto')}</Check>
+                  <FamilyCheck id={`gc-pd-${i}`} checked={pr.porDegrau.ativo} onChange={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, ativo: v } })}>{t('gc6c_pd_active')}</FamilyCheck>
+                  <FamilyCheck id={`gc-pd-auto-${i}`} checked={pr.porDegrau.automatico === true} onChange={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, automatico: v } })}>{t('gc6c_pd_auto')}</FamilyCheck>
                   {pr.porDegrau.automatico !== true && <>
                   <FamilyRow label={t('gc6c_pd_qty')}><NumField value={pr.porDegrau.quantidade} min={1} decimals={0} onCommit={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, quantidade: Math.max(1, Math.round(v)) } })} /></FamilyRow>
-                  <Check id={`gc-pd-centro-${i}`} checked={pr.porDegrau.distanciaDoBocel === null} onChange={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, distanciaDoBocel: v ? null : 0.05 } })}>{t('gc6c_pd_center')}</Check>
+                  <FamilyCheck id={`gc-pd-centro-${i}`} checked={pr.porDegrau.distanciaDoBocel === null} onChange={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, distanciaDoBocel: v ? null : 0.05 } })}>{t('gc6c_pd_center')}</FamilyCheck>
                   {pr.porDegrau.distanciaDoBocel !== null && (
-                    <FamilyRow label={t('gc6c_pd_edge')}><NumField value={pr.porDegrau.distanciaDoBocel} unit="m" min={0} decimals={3} onCommit={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, distanciaDoBocel: v } })} /></FamilyRow>
+                    <FamilyRow label={t('gc6c_pd_edge')}><NumField value={pr.porDegrau.distanciaDoBocel} quantity="smallLength" min={0} onCommit={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, distanciaDoBocel: v } })} /></FamilyRow>
                   )}
                   </>}
                 </>
@@ -275,15 +279,17 @@ export function GuardaCorpoTypeDialog({ typeId }: { typeId: string }): ReactElem
                     </select>
                   </FamilyRow>
                   <FamilyPair>
-                    <FamilyRow label={t('gc6c_inf_thickness')}><NumField value={pr.espessura} unit="m" min={0.001} decimals={3} onCommit={(v) => setPreench(i, { espessura: v })} /></FamilyRow>
-                    <FamilyRow label={t('gc6c_inf_max_width')}><NumField value={pr.larguraMaxima} unit="m" min={0} decimals={3} onCommit={(v) => setPreench(i, { larguraMaxima: v })} /></FamilyRow>
+                    <FamilyRow label={t('gc6c_inf_thickness')}><NumField value={pr.espessura} quantity="smallLength" min={0.001} onCommit={(v) => setPreench(i, { espessura: v })} /></FamilyRow>
+                    <FamilyRow label={t('gc6c_inf_max_width')}><NumField value={pr.larguraMaxima} quantity="length" min={0} onCommit={(v) => setPreench(i, { larguraMaxima: v })} /></FamilyRow>
                   </FamilyPair>
                 </>
               )}
             </FamilySection>
           ))}
-          <button type="button" disabled={draft.preenchimentos.length >= LIMITE.preenchimentos} onClick={() => set({ preenchimentos: [...draft.preenchimentos, novoBalaustre(t('gc6c_inf_balusters'), materialId)] })}>{t('gc6c_inf_balusters')}</button>
-          <button type="button" disabled={draft.preenchimentos.length >= LIMITE.preenchimentos} onClick={() => set({ preenchimentos: [...draft.preenchimentos, novoPainel(t('gc6c_inf_panel'), materialId)] })}>{t('gc6c_inf_panel')}</button>
+          <FamilyActions>
+            <button type="button" className="btn small" disabled={draft.preenchimentos.length >= LIMITE.preenchimentos} onClick={() => set({ preenchimentos: [...draft.preenchimentos, novoBalaustre(t('gc6c_inf_balusters'), materialId)] })}>{t('gc6c_inf_balusters')}</button>
+            <button type="button" className="btn small" disabled={draft.preenchimentos.length >= LIMITE.preenchimentos} onClick={() => set({ preenchimentos: [...draft.preenchimentos, novoPainel(t('gc6c_inf_panel'), materialId)] })}>{t('gc6c_inf_panel')}</button>
+          </FamilyActions>
         </>
       )}
 
@@ -319,15 +325,15 @@ export function GuardaCorpoTypeDialog({ typeId }: { typeId: string }): ReactElem
               {Object.values(perfis).map((pf) => <option key={pf.id} value={pf.id}>{pf.name}</option>)}
             </select>
           </FamilyRow>
-          <p className="hint">{normaDe(p, draft).name}</p>
-          <button type="button" className="link" onClick={() => useUi.setState({ dialog: 'normaGuardaCorpo', dialogArg: null })}>{t('gc6c_norm_title')}</button>
+          <FamilyHint>{normaDe(p, draft).name}</FamilyHint>
+          <FamilyActions>
+            <button type="button" className="btn small" onClick={() => useUi.setState({ dialog: 'normaGuardaCorpo', dialogArg: null })}>{t('gc6c_norm_title')}</button>
+          </FamilyActions>
         </>
       )}
-        </div>
-        <div style={{ alignSelf: 'start', position: 'sticky', top: 0, minWidth: 0 }}>
-          <GuardaCorpoPreview tipo={draft} />
-        </div>
-      </div>
+        </>}
+        side={<GuardaCorpoPreview tipo={draft} />}
+      />
     </FamilyTypeDialog>
   );
 
@@ -384,8 +390,8 @@ function ExtensaoCampos({ titulo, ext, onChange }: { titulo: string; ext: Extens
           <option value="poste">{t('gc6c_ext_post')}</option>
         </select>
       </FamilyRow>
-      <FamilyRow label={t('gc6c_ext_length')}><NumField value={ext.comprimento} unit="m" min={0} decimals={3} onCommit={(v) => onChange({ ...ext, comprimento: v })} /></FamilyRow>
-      <Check checked={ext.maisPiso} onChange={(v) => onChange({ ...ext, maisPiso: v })}>{t('gc6c_ext_plus_tread')}</Check>
+      <FamilyRow label={t('gc6c_ext_length')}><NumField value={ext.comprimento} quantity="smallLength" min={0} onCommit={(v) => onChange({ ...ext, comprimento: v })} /></FamilyRow>
+      <FamilyCheck checked={ext.maisPiso} onChange={(v) => onChange({ ...ext, maisPiso: v })}>{t('gc6c_ext_plus_tread')}</FamilyCheck>
     </FamilySection>
   );
 }
@@ -417,7 +423,7 @@ function SuporteCampos({ suportes, onChange }: { suportes: SuportesGC; onChange:
         </select>
       </FamilyRow>
       <FamilyPair>
-        <FamilyRow label={t('gc6c_post_spacing')}><NumField value={suportes.espacamento} unit="m" min={0} decimals={3} onCommit={(v) => onChange({ ...suportes, espacamento: v })} /></FamilyRow>
+        <FamilyRow label={t('gc6c_post_spacing')}><NumField value={suportes.espacamento} quantity="length" min={0} onCommit={(v) => onChange({ ...suportes, espacamento: v })} /></FamilyRow>
         <FamilyRow label={t('gc6c_sup_number')}><NumField value={suportes.numero} min={0} decimals={0} onCommit={(v) => onChange({ ...suportes, numero: Math.round(v) })} /></FamilyRow>
       </FamilyPair>
       <FamilyRow label={t('gc6c_sup_justify')}>
@@ -425,7 +431,7 @@ function SuporteCampos({ suportes, onChange }: { suportes: SuportesGC; onChange:
           {justificacoes.map((j) => <option key={j} value={j}>{t(justKey[j])}</option>)}
         </select>
       </FamilyRow>
-      <FamilyRow label={t('gc6c_sup_length')}><NumField value={suportes.comprimento} unit="m" min={0} decimals={3} onCommit={(v) => onChange({ ...suportes, comprimento: v })} /></FamilyRow>
+      <FamilyRow label={t('gc6c_sup_length')}><NumField value={suportes.comprimento} quantity="smallLength" min={0} onCommit={(v) => onChange({ ...suportes, comprimento: v })} /></FamilyRow>
     </FamilySection>
   );
 }

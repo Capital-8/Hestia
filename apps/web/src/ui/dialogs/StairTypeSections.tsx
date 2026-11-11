@@ -5,7 +5,7 @@ import { NumField, TextField } from '../fields.tsx';
 import { applyPreset, matchPreset, STAIR_DIALOG_PRESETS, type StairPresetId } from './stairTypeCalc.ts';
 import { STAIR_FIELD_LIMITS, type StairFieldName, type StairTypeIssue } from './stairTypeForm.ts';
 import { fieldLabelOverride, isStairFieldVisible } from './stairFieldVisibility.ts';
-import { FamilyHint, FamilyPair, FamilyRow, FamilySection } from './familia/index.ts';
+import { FamilyActions, FamilyCheck, FamilyHint, FamilyPair, FamilyRow, FamilySection } from './familia/index.ts';
 
 type Dict = Record<keyof typeof I18N.pt, string>;
 
@@ -217,17 +217,11 @@ export function StairTypeSections({ draft, set, onStyle, materials, issues, canG
 
   const finishGroup = (on: boolean, flagId: string, flagLabel: string, onFlag: (v: boolean) => void, matId: string, matField: MatField, thickId: string, thickValue: number, onThick: (v: number) => void): ReactElement => (
     <>
-      <FamilyRow label={flagLabel} htmlFor={flagId}>
-        <input id={flagId} type="checkbox" checked={on} onChange={(e) => onFlag(e.target.checked)} />
+      <FamilyCheck id={flagId} checked={on} onChange={onFlag}>{flagLabel}</FamilyCheck>
+      <FamilyRow label={t.stt_finish_material} htmlFor={matId} dim={!on}>{materialSelect(matId, matField)}</FamilyRow>
+      <FamilyRow label={t.stt_finish_thickness} htmlFor={thickId} dim={!on}>
+        <NumField id={thickId} value={thickValue} quantity="smallLength" min={0.001} max={0.1} disabled={!on} onCommit={onThick} />
       </FamilyRow>
-      <div style={{ opacity: on ? 1 : 0.5 }}>
-        <FamilyPair mix>
-          <FamilyRow label={t.stt_finish_material} htmlFor={matId}>{materialSelect(matId, matField)}</FamilyRow>
-          <FamilyRow label={t.stt_finish_thickness} htmlFor={thickId}>
-            <NumField id={thickId} value={thickValue} scale={100} decimals={1} unit="cm" min={0.001} max={0.1} disabled={!on} onCommit={onThick} />
-          </FamilyRow>
-        </FamilyPair>
-      </div>
     </>
   );
 
@@ -242,21 +236,19 @@ export function StairTypeSections({ draft, set, onStyle, materials, issues, canG
       <FamilySection id="stt-sec-2" title={t.stt_sec_calc} defaultOpen={false}>
         <FamilyHint>{t.stt_calc_help_blondel}</FamilyHint>
         <FamilyRow label={t.stt_f_preset} htmlFor="stt-preset">
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <select id="stt-preset" className="select" style={{ flex: 1, minWidth: 0 }} value={presetId} onChange={(e) => applyPresetId(e.target.value as StairPresetId)}>
-              {STAIR_DIALOG_PRESETS.map((p) => <option key={p.id} value={p.id}>{t[PRESET_LABEL[p.id]]}</option>)}
-              {presetId === 'custom' ? <option value="custom">{t.stt_preset_custom}</option> : null}
-            </select>
-            {diverged ? <button className="btn small" type="button" onClick={() => applyPresetId(lastPreset)}>{t.stt_restore_preset}</button> : null}
-          </span>
+          <select id="stt-preset" className="select" value={presetId} onChange={(e) => applyPresetId(e.target.value as StairPresetId)}>
+            {STAIR_DIALOG_PRESETS.map((p) => <option key={p.id} value={p.id}>{t[PRESET_LABEL[p.id]]}</option>)}
+            {presetId === 'custom' ? <option value="custom">{t.stt_preset_custom}</option> : null}
+          </select>
+          {diverged ? <button className="btn small" type="button" onClick={() => applyPresetId(lastPreset)}>{t.stt_restore_preset}</button> : null}
         </FamilyRow>
-        {applied ? <p className="stt-ref" aria-live="polite">{t.stt_preset_applied}</p> : null}
+        {applied ? <FamilyHint tone="faint" role="status">{t.stt_preset_applied}</FamilyHint> : null}
         <FamilyHint>{t.stt_calc_help}</FamilyHint>
         {draft.runStyle === 'post' ? <FamilyHint>{t.stt_note_post_calc}</FamilyHint> : null}
         <FamilyPair>{row('calcRiserFactor')}{row('calcTreadFactor')}</FamilyPair>
         <FamilyPair>{row('calcTarget')}{row('maxTread')}</FamilyPair>
         <FamilyPair>{row('calcMin')}{row('calcMax')}</FamilyPair>
-        <p className="stt-ref" style={{ margin: 0 }}>{t.stt_reference}</p>
+        <FamilyHint tone="faint">{t.stt_reference}</FamilyHint>
       </FamilySection>
 
       <FamilySection id="stt-sec-3" title={t.stt_sec_build}>
@@ -297,23 +289,19 @@ export function StairTypeSections({ draft, set, onStyle, materials, issues, canG
           {draft.runStyle !== 'post'
             ? finishGroup(riserFlag, 'stt-riserFinishEnabled', t.stt_finish_riser, (v) => set({ riserFinishEnabled: v }), 'stt-riserFinishMaterialId', 'riserFinishMaterialId', 'stt-riserFinishThickness', draft.riserFinishThickness ?? DEFAULT_STAIR_FINISH.riserFinishThickness, (v) => set({ riserFinishThickness: v }))
             : null}
-          <div style={{ opacity: bocelDimmed ? 0.5 : 1 }}>
-            <FamilyPair>
-              <FamilyRow label={t.stt_finish_bocel} htmlFor="stt-bocelEnabled">
-                <input id="stt-bocelEnabled" type="checkbox" checked={bocelFlag} disabled={!treadOn} onChange={(e) => set({ bocelEnabled: e.target.checked })} />
-              </FamilyRow>
-              <FamilyRow label={t.stt_bocel_projection} htmlFor="stt-bocelProjection">
-                <NumField id="stt-bocelProjection" value={draft.bocelProjection ?? DEFAULT_STAIR_FINISH.bocelProjection} scale={100} decimals={1} unit="cm" min={0} max={0.1} disabled={bocelDimmed} onCommit={(v) => set({ bocelProjection: v })} />
-              </FamilyRow>
-            </FamilyPair>
-            {!treadOn ? <FamilyHint>{t.stt_bocel_hint}</FamilyHint> : null}
-          </div>
+          <FamilyCheck id="stt-bocelEnabled" checked={bocelFlag} disabled={!treadOn} onChange={(v) => set({ bocelEnabled: v })}>{t.stt_finish_bocel}</FamilyCheck>
+          <FamilyRow label={t.stt_bocel_projection} htmlFor="stt-bocelProjection" dim={bocelDimmed}>
+            <NumField id="stt-bocelProjection" value={draft.bocelProjection ?? DEFAULT_STAIR_FINISH.bocelProjection} quantity="smallLength" min={0} max={0.1} disabled={bocelDimmed} onCommit={(v) => set({ bocelProjection: v })} />
+          </FamilyRow>
+          {!treadOn ? <FamilyHint>{t.stt_bocel_hint}</FamilyHint> : null}
         </FamilySection>
       ) : null}
 
       <FamilySection id="stt-sec-4" title={t.stt_sec_opening} defaultOpen={false}>
         <FamilyHint>{t.stt_opening_text}</FamilyHint>
-        <button className="btn small" type="button" disabled={!canGoProps} onClick={onGoProps}>{t.stt_opening_btn}</button>
+        <FamilyActions>
+          <button className="btn small" type="button" disabled={!canGoProps} onClick={onGoProps}>{t.stt_opening_btn}</button>
+        </FamilyActions>
       </FamilySection>
 
       <FamilySection id="stt-sec-5" title={t.stt_sec_id} defaultOpen={false}>

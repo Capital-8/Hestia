@@ -11,9 +11,9 @@ import { editor, useProject } from '../../editor/controller.ts';
 import { useI18n, dictOf } from '../../editor/i18n.ts';
 import { useUi } from '../../editor/state.ts';
 import { duplicateRampType, rampTypeDeleteBlock, rampTypeError, tryDeleteRampType } from '../../editor/rampTypeActions.ts';
-import { Check, NumField, TextField } from '../fields.tsx';
+import { NumField, TextField } from '../fields.tsx';
 import { Icon } from '../Icon.tsx';
-import { FamilyRow, FamilyTypeDialog } from './familia/index.ts';
+import { FamilyCheck, FamilyRow, FamilyTypeDialog } from './familia/index.ts';
 import { FAMILY } from '../typeFamilies.ts';
 import { RampSectionPreview } from './RampSectionPreview.tsx';
 
@@ -131,17 +131,20 @@ export function RampTypeDialog({ typeId }: { typeId: string }): ReactElement | n
           <select id="rt-profile" className="select" value={draft.normProfile} onChange={(e) => setProfile(e.target.value as RampNormProfile)}>
             {PROFILES.map((k) => <option key={k} value={k}>{profileLabel(k)}</option>)}
           </select>
-          <Check id="rt-normchecked" checked={draft.normChecked} onChange={(v) => set({ normChecked: v })}>{t.ramp_norm_verified}</Check>
-          {!draft.normChecked && (
-            <span
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--warn)', color: 'var(--panel)', padding: '3px 8px', borderRadius: 4, fontWeight: 600 }}
-              role="status"
-            >
+        </FamilyRow>
+        <FamilyCheck
+          id="rt-normchecked"
+          checked={draft.normChecked}
+          onChange={(v) => set({ normChecked: v })}
+          after={!draft.normChecked ? (
+            <span className="fam-badge" role="status">
               <Icon name="soon" size={12} />
               {t.ramp_norm_unverified}
             </span>
-          )}
-        </FamilyRow>
+          ) : null}
+        >
+          {t.ramp_norm_verified}
+        </FamilyCheck>
         <table className="layers">
           <thead>
             <tr>

@@ -48,10 +48,10 @@ export interface GuardaCorpoQuantities {
   postes: number;
   balaustres: number;
   paineis: number;
-  /** Área dos painéis (m², uma face; o Rust soma as duas). */
+  /** Área dos painéis (metros quadrados, uma face; o Rust soma as duas). */
   areaPaineis: number;
   volumeTotal: number;
-  /** Volume por `material_num` (m³). */
+  /** Volume por `material_num` (metros cúbicos). */
   volumePorMaterial: Record<number, number>;
   /** `tipo.cost` × comprimento desenvolvido (informativo). */
   custo: number;

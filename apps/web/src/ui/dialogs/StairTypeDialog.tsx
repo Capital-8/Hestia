@@ -7,7 +7,7 @@ import { saveStairType, stairTypeDeleteBlock, tryDeleteStairType } from '../../e
 import { dictOf, useI18n } from '../../editor/i18n.ts';
 import { safeGet, safeSet } from '../../editor/storage.ts';
 import { Dialog } from './Dialog.tsx';
-import { FamilyTypeDialog } from './familia/index.ts';
+import { FamilyHint, FamilyTypeDialog } from './familia/index.ts';
 import { FAMILY } from '../typeFamilies.ts';
 import { StairSectionPreview } from './StairSectionPreview.tsx';
 import { StairCalculatorPanel } from './StairCalculatorPanel.tsx';
@@ -201,7 +201,7 @@ export function StairTypeDialog({ typeId }: { typeId: string }): ReactElement | 
   if (!draft) {
     return (
       <Dialog title={t.stt_title} onClose={closeNow} size="mid" footer={<button className="btn" onClick={closeNow}>{t.stt_close}</button>}>
-        <p className="hint">{t.stt_missing}</p>
+        <FamilyHint>{t.stt_missing}</FamilyHint>
       </Dialog>
     );
   }
@@ -254,7 +254,7 @@ export function StairTypeDialog({ typeId }: { typeId: string }): ReactElement | 
             ) : (
               <span className="stt-ref">{count}</span>
             )}
-            {disabledReason ? <span className="stt-ref" style={{ maxWidth: 230, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{disabledReason}</span> : null}
+            {disabledReason ? <span className="stt-ref fam-ellipsis">{disabledReason}</span> : null}
           </>
         ),
         onApply: apply,
@@ -265,7 +265,7 @@ export function StairTypeDialog({ typeId }: { typeId: string }): ReactElement | 
       }}
     >
       {saveError ? <div className="vr-error" role="alert">{saveError}</div> : null}
-      {impact ? <p className="hint" role="status" style={{ color: 'var(--warn)' }}>{fill(t.stt_impact, { n: String(usage) })}</p> : null}
+      {impact ? <FamilyHint warn role="status">{fill(t.stt_impact, { n: String(usage) })}</FamilyHint> : null}
       <div className="stt-grid">
         <div className="stt-main">
           <StairTypeSections
@@ -280,7 +280,7 @@ export function StairTypeDialog({ typeId }: { typeId: string }): ReactElement | 
         </div>
         <div className="stt-side">
           <div>
-            <div className="stt-ref" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{t.stt_preview_title}</div>
+            <FamilyHint tone="title">{t.stt_preview_title}</FamilyHint>
             <StairSectionPreview
               type={draft}
               riser={calc?.valid ? calc.riser : undefined}

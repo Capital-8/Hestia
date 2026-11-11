@@ -97,10 +97,10 @@ export function GuardaCorpoProperties({ railings }: { railings: GuardaCorpo[] })
         </Row>
       )}
       <Row label={t('gc6b_offset')} htmlFor="gc-offset">
-        <NumField id="gc-offset" value={first.deslocamento} placeholder={tipo ? String(tipo.deslocamento) : undefined} unit="m" decimals={3} onCommit={(v) => apply(t('gc6b_undo_edit'), () => ({ deslocamento: v }))} onClear={() => apply(t('gc6b_undo_edit'), () => ({ deslocamento: null }))} />
+        <NumField id="gc-offset" value={first.deslocamento} placeholder={tipo ? String(tipo.deslocamento) : undefined} quantity="smallLength" onCommit={(v) => apply(t('gc6b_undo_edit'), () => ({ deslocamento: v }))} onClear={() => apply(t('gc6b_undo_edit'), () => ({ deslocamento: null }))} />
       </Row>
       <Row label={t('gc6b_height')} htmlFor="gc-height">
-        <NumField id="gc-height" value={first.altura} placeholder={tipo ? String(tipo.altura) : undefined} unit="m" min={0.01} onCommit={(v) => apply(t('gc6b_undo_edit'), () => ({ altura: v }))} onClear={() => apply(t('gc6b_undo_edit'), () => ({ altura: null }))} />
+        <NumField id="gc-height" value={first.altura} placeholder={tipo ? String(tipo.altura) : undefined} quantity="length" min={0.01} onCommit={(v) => apply(t('gc6b_undo_edit'), () => ({ altura: v }))} onClear={() => apply(t('gc6b_undo_edit'), () => ({ altura: null }))} />
       </Row>
       <Check id="gc-invert" checked={first.inverter} onChange={(v) => apply(t('gc6b_undo_edit'), () => ({ inverter: v }))}>{t('gc6b_invert')}</Check>
       {h.tipo === 'manual' && <p className="hint">{t('gc6b_path_points', { n: h.caminho.length })}</p>}

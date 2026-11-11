@@ -30,13 +30,13 @@ function tagOf(markup: string, id: string): string {
 }
 
 describe('acabamentos do tipo de escada (seção do modal)', () => {
-  it('monolítico mostra piso, espelho e bocel, com a espessura em cm', () => {
+  it('monolítico mostra piso, espelho e bocel, com a espessura em cm (campo por grandeza: zeros à direita cortados)', () => {
     const m = html(tipo({ runStyle: 'monolithic', treadFinishEnabled: true, treadFinishThickness: 0.02, riserFinishEnabled: false, riserFinishThickness: 0.01 }));
     expect(m).toContain('id="stt-sec-finish"');
     expect(tagOf(m, 'stt-treadFinishEnabled')).toContain('checked=""');
-    expect(tagOf(m, 'stt-treadFinishThickness')).toContain('value="2,0"');
+    expect(tagOf(m, 'stt-treadFinishThickness')).toContain('value="2"');
     expect(tagOf(m, 'stt-riserFinishEnabled')).not.toContain('checked=""');
-    expect(tagOf(m, 'stt-riserFinishThickness')).toContain('value="1,0"');
+    expect(tagOf(m, 'stt-riserFinishThickness')).toContain('value="1"');
     expect(tagOf(m, 'stt-bocelProjection')).toContain('value="1,5"');
     expect(m).toContain('id="stt-treadFinishMaterialId"');
   });
