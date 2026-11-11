@@ -8,7 +8,7 @@ import { straight } from './fixtureGuardaCorpo.ts';
 import { montarCenaGC, type CenaGC, type NomeSecaoGC } from './kernelGuardaCorpo.ts';
 import { acabamentoDosDegraus } from './kernelGuardaCorpoLinhas.ts';
 import { resolveStairs } from './stairs.ts';
-import { pisoDoDegrau } from './guardaCorpoRef/distribuicao.ts';
+import { empurrarParaOPiso, pisoDoDegrau } from './guardaCorpoRef/distribuicao.ts';
 
 const linhas = (c: CenaGC, nome: NomeSecaoGC): Array<Record<string, number>> =>
   Array.from({ length: c.nLinhas[nome] }, (_, i) => Object.fromEntries(Object.entries(c.secoes[nome]).map(([k, col]) => [k, col[i]!])));
@@ -80,5 +80,17 @@ describe('pisoDoDegrau (referência TS)', () => {
     const [bi, pi] = pisoDoDegrau({ s0: 1.4, prof: -0.28, z: 0.5, bocel: 0.02, bocelSeguinte: 0.02 });
     expect(bi).toBeCloseTo(1.42, 12);
     expect(pi).toBeCloseTo(-0.28, 12);
+  });
+});
+
+describe('empurrarParaOPiso (referência TS, espelha o Rust)', () => {
+  it('nunca deixa o centro a menos de meia seção da quina nem do espelho seguinte', () => {
+    const dg = [0, 1, 2].map((i) => ({ s0: 0.28 * i, prof: 0.28, z: 0.17 * (i + 1) }));
+    expect(empurrarParaOPiso(dg, 0.28, 0.01)).toBeCloseTo(0.29, 12);
+    expect(empurrarParaOPiso(dg, 0.275, 0.01)).toBeCloseTo(0.27, 12);
+    expect(empurrarParaOPiso(dg, 0.14, 0.01)).toBeCloseTo(0.14, 12);
+    expect(empurrarParaOPiso(dg, -0.5, 0.01)).toBeCloseTo(-0.5, 12);
+    expect(empurrarParaOPiso([{ s0: 0, prof: 0.015, z: 0.17 }], 0.001, 0.01)).toBeCloseTo(0.0075, 12);
+    expect(empurrarParaOPiso([{ s0: 1, prof: -0.28, z: 0.17 }], 1.0, 0.01)).toBeCloseTo(0.99, 12);
   });
 });

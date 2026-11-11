@@ -338,6 +338,49 @@ fn por_degrau_uma_duas_e_tres_por_degrau() {
     assert!(o.balaustres[0].iter().all(|x| x.elem == Some(0)));
 }
 
+#[test]
+fn empurrar_para_o_piso_respeita_meia_secao_da_quina_e_do_espelho() {
+    let dg: Vec<DegrauP> = (0..3).map(|i| DegrauP::simples(0.28 * i as f64, 0.28, 0.17 * (i + 1) as f64)).collect();
+    let meia = 0.01;
+    // Na quina e a menos de meia seção dela: vai para meia seção da quina.
+    assert!(aproximado(empurrar_para_o_piso(&dg, 0.28, meia), 0.29));
+    assert!(aproximado(empurrar_para_o_piso(&dg, 0.285, meia), 0.29));
+    // Colado no espelho seguinte (fim da pisada): vai para meia seção antes dele.
+    assert!(aproximado(empurrar_para_o_piso(&dg, 0.55, meia), 0.55));
+    assert!(aproximado(empurrar_para_o_piso(&dg, 0.275, meia), 0.27));
+    // Já sobre o piso, não muda; fora de qualquer pisada, também não.
+    assert!(aproximado(empurrar_para_o_piso(&dg, 0.14, meia), 0.14));
+    assert!(aproximado(empurrar_para_o_piso(&dg, -0.5, meia), -0.5));
+    // Pisada menor que a seção: meio da pisada.
+    let estreito = [DegrauP::simples(0.0, 0.015, 0.17)];
+    assert!(aproximado(empurrar_para_o_piso(&estreito, 0.001, meia), 0.0075));
+    // Invertido (pisada para trás): a quina é o maior s.
+    let inv = [DegrauP::simples(1.0, -0.28, 0.17)];
+    assert!(aproximado(empurrar_para_o_piso(&inv, 1.0, meia), 0.99));
+    assert!(aproximado(empurrar_para_o_piso(&inv, 0.725, meia), 0.73));
+}
+
+#[test]
+fn por_espacamento_em_escada_nenhum_balaustre_cai_na_quina() {
+    let t = CadeiaGC::lance_inclinado(1, 2.24, 0.0, 1.4, 0.0).trechos.remove(0);
+    let degraus: Vec<DegrauP> = (0..8).map(|i| DegrauP::simples(0.28 * i as f64, 0.28, 0.175 * (i + 1) as f64)).collect();
+    let mut pad = padrao(0.11, JUSTIF_DISTRIBUIR);
+    pad.elementos[0].perfil = Some(PerfilP::circular(0.02));
+    let mut cfg = config(param_postes(None, None, None, None, MODO_NENHUM, 0.0, 0), vec![pad.clone()]);
+    cfg.degraus = degraus.clone();
+    let o = distribuir(&t, &cfg, 1000).unwrap();
+    assert!(!o.balaustres[0].is_empty());
+    for b in &o.balaustres[0] {
+        // Distância à quina mais próxima (face de cada espelho): pelo menos meia seção (1 cm).
+        let d = degraus.iter().map(|dg| (b.s - dg.s0).abs()).fold(f64::MAX, f64::min).min((b.s - 2.24).abs());
+        assert!(d >= 0.01 - 1e-9, "balaústre em s = {} a {} da quina", b.s, d);
+    }
+    // Sem degraus informados (guarda-corpo fora de escada): o padrão não é tocado.
+    cfg.degraus = vec![];
+    let livre = distribuir(&t, &cfg, 1000).unwrap();
+    assert_eq!(livre.balaustres[0].len(), o.balaustres[0].len());
+}
+
 fn perc_z(t: &TrechoGC, s: f64) -> f64 {
     Percurso::de(t).amostra(s).z
 }

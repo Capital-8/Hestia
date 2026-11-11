@@ -119,7 +119,8 @@ function balaustres(nome: string, perfil: PerfilGC, materialId: string, periodo:
     quebra: 'nunca',
     anguloQuebra: 0.5236,
     escopo: 'vao',
-    porDegrau: { ativo: false, quantidade: 1, distanciaDoBocel: null, modelo: null },
+    // Em escada e rampa com degraus: 2 por degrau, no centro das faixas iguais da pisada (nunca na quina). Fora dos lances, vale o espaçamento.
+    porDegrau: { ativo: true, quantidade: 2, distanciaDoBocel: null, modelo: elemento.modelo },
   };
 }
 

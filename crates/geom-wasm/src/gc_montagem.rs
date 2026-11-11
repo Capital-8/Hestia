@@ -420,9 +420,9 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
                 });
             }
         }
-        // Degraus do lance (só se algum padrão usa "por degrau").
+        // Degraus do lance (qualquer padrão de balaústres os usa: por degrau, ou o espaçamento que não cai na quina).
         let mut degraus: Vec<DegrauP> = Vec::new();
-        if t.origem == OrigemTrecho::Lance && padroes.iter().any(|p| p.por_degrau.ativo) {
+        if t.origem == OrigemTrecho::Lance && !padroes.is_empty() {
             // O lado do trecho vem da ordem: esquerdo primeiro, depois o direito, na ordem dos componentes.
             let n_lance = lances.len().max(1);
             let ordem = ordem_lance.get(&t.trecho).copied().unwrap_or(0);

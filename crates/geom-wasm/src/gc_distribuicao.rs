@@ -570,6 +570,25 @@ pub fn piso_do_degrau(dg: &DegrauP) -> (f64, f64) {
     (dg.s0 - sg * dg.bocel, dg.profundidade + sg * (dg.bocel - dg.bocel_seguinte))
 }
 
+/// Empurra para dentro do piso um montante de centro `s` (meia seção `meia`) que cairia a menos de meia seção da quina (frente do bocel) ou do
+/// espelho do degrau seguinte. Regra determinística: o centro, medido do bocel para a frente (`off`), vai para o ponto mais próximo de
+/// `[meia, pisada - meia]`; se a pisada não comporta a seção inteira (`pisada < 2 * meia`), vai para o meio da pisada. Fora de qualquer
+/// pisada (antes do 1º degrau, depois do último) `s` não muda. Só vale para escada (degraus informados).
+pub fn empurrar_para_o_piso(degraus: &[DegrauP], s: f64, meia: f64) -> f64 {
+    for dg in degraus {
+        let (bocel, pisada) = piso_do_degrau(dg);
+        let sg = if pisada < 0.0 { -1.0 } else { 1.0 };
+        let p = pisada.abs();
+        let off = (s - bocel) * sg;
+        if off < -EPS || off >= p - EPS {
+            continue;
+        }
+        let novo = if p < 2.0 * meia { p / 2.0 } else { off.clamp(meia, p - meia) };
+        return bocel + sg * novo;
+    }
+    s
+}
+
 /// Distâncias, medidas do bocel para a frente, dos centros dos montantes de um degrau de pisada `p` (> 0).
 /// Centro da pisada: N faixas iguais, um montante no meio de cada (N = 1: no meio da pisada).
 /// Distância dada `d`: N = 1 em `d`; N > 1 igualmente espaçados de `d` até `p - d` (simétrico).
@@ -703,9 +722,13 @@ pub fn balaustres(
         let lu = (sb - sa) - a - b;
         let locais = posicoes_no_vao(pad, &cum, lu, sa, avisos);
         for (u, j) in locais {
-            let s = sa + a + u;
+            let mut s = sa + a + u;
             let e = &pad.elementos[j];
             let Some(perfil) = &e.perfil else { continue };
+            // Escada: o balaústre nunca fica sobre a quina nem sobre o espelho; vai para dentro do piso.
+            if matches!(origem, OrigemTrecho::Lance | OrigemTrecho::Caracol) && !degraus.is_empty() {
+                s = empurrar_para_o_piso(degraus, s, perfil.largura_ao_longo() / 2.0);
+            }
             if colide(postes, s, perfil.largura_ao_longo() / 2.0, sa, sb) {
                 continue;
             }

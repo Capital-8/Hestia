@@ -300,6 +300,20 @@ export function pisoDoDegrau(dg: DegrauRef): [number, number] {
   return [dg.s0 - sg * bocel, dg.prof + sg * (bocel - (dg.bocelSeguinte ?? 0))];
 }
 
+/** Empurra para dentro do piso um montante que cairia a menos de meia seção da quina ou do espelho (espelha `empurrar_para_o_piso` do Rust). */
+export function empurrarParaOPiso(degraus: DegrauRef[], s: number, meia: number): number {
+  for (const dg of degraus) {
+    const [bocel, pisada] = pisoDoDegrau(dg);
+    const sg = pisada < 0 ? -1 : 1;
+    const p = Math.abs(pisada);
+    const off = (s - bocel) * sg;
+    if (off < -EPS || off >= p - EPS) continue;
+    const novo = p < 2 * meia ? p / 2 : Math.min(Math.max(off, meia), p - meia);
+    return bocel + sg * novo;
+  }
+  return s;
+}
+
 /** Distâncias do bocel, para a frente, dos centros dos montantes de um degrau de pisada `p` (espelha `deslocamentos_no_piso`). */
 export function deslocamentosNoPiso(pd: PadraoRef['porDegrau'], p: number): number[] {
   const q = Math.max(pd.quantidade, 1);
@@ -381,9 +395,10 @@ export function balaustres(
     const b = mb + wFim / 2;
     const lu = sb - sa - a - b;
     for (const [u, j] of posicoesNoVao(pad, cum, lu, sa, avisos)) {
-      const s = sa + a + u;
+      let s = sa + a + u;
       const e = pad.elementos[j]!;
       if (e.largura === null) continue;
+      if ((origem === ORIGEM_LANCE || origem === ORIGEM_CARACOL) && degraus.length > 0) s = empurrarParaOPiso(degraus, s, e.largura / 2);
       if (colide(ps, s, e.largura / 2, sa, sb)) continue;
       const base = amostra(p, s).z;
       colocar(s, j, base + pad.hBase + e.base, base + pad.hTopo + e.topo, e.lateral);
