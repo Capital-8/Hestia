@@ -5,8 +5,8 @@
  */
 import type { Vec2 } from '@hestia/geom';
 import { resolveAngularDimension, resolveLevel, resolveRoofs } from '@hestia/engine';
-import { areaPlanProfile, buildPlanGeometry, drawnAnnotations, levelBox, LIGHT, resolverZoom, roofFootprint, type PlanOps, type PlanProfile } from '@hestia/render';
-import { angularDimensionGeometry, areaPlanOf, DIM_TEXT_MM, dimensionGeometry, dimensionPoints, dimensionText, unitsOf, type AreaPlan, type DxfLayerLineType, type DxfLayerStyle, type Id, type Project } from '@hestia/model';
+import { areaPlanProfile, buildPlanGeometry, drawnAnnotations, levelBox, LIGHT, resolvedPlanViewOf, resolverZoom, roofFootprint, type PlanOps, type PlanProfile } from '@hestia/render';
+import { angularDimensionGeometry, annotationIdsWithHiddenHostInView, areaPlanOf, DIM_TEXT_MM, dimensionGeometry, dimensionPoints, dimensionText, unitsOf, type AreaPlan, type DxfLayerLineType, type DxfLayerStyle, type Id, type Project } from '@hestia/model';
 import { dxfDocOf, DXF_LINE_WEIGHT_DEFAULT, writeDxf2000, type DxfDoc, type DxfDocEntity, type DxfDocLayer, type DxfLevelGeometry, type DxfUnit } from '@hestia/io';
 import { dxfGeometryOf } from './dxfExport.ts';
 import { t, useI18n, type Lang } from './i18n.ts';
@@ -59,10 +59,12 @@ const samePoint = (a: Vec2, b: Vec2): boolean => Math.abs(a.x - b.x) < 1e-6 && M
 
 /**
  * Entidades R2000 das anotações da planta de área (cotas, textos e detalhes). A geometria da planta já as desenha quando o
- * render da área passou a incluí-las; o que ainda não estiver nas operações entra aqui, sem duplicar.
+ * render da área passou a incluí-las; o que ainda não estiver nas operações entra aqui, sem duplicar. `presas`: as cotas
+ * e etiquetas cujo elemento não aparece na vista (etapa 7 da regra 4.5), que não saem.
  */
-function areaAnnotationEntities(p: Project, plan: AreaPlan, ops: PlanOps): DxfDocEntity[] {
-  const a = drawnAnnotations(p, plan.levelId, plan);
+function areaAnnotationEntities(p: Project, plan: AreaPlan, ops: PlanOps, presas: ReadonlySet<Id>): DxfDocEntity[] {
+  const todas = drawnAnnotations(p, plan.levelId, plan);
+  const a = presas.size === 0 ? todas : { ...todas, dimensions: todas.dimensions.filter((d) => !presas.has(d.id)) };
   if (a.dimensions.length + a.texts.length + a.detailLines.length + a.detailRegions.length === 0) return [];
   const out: DxfDocEntity[] = [];
   const line = (layer: string, start: Vec2, end: Vec2): void => {
@@ -150,12 +152,16 @@ export function areaPlanDxf(p: Project, planId: Id, units?: DxfUnit, lang: Lang 
     generic: false,
     ceilings: false,
   };
+  // Etapa 7 (regra 4.5): cota e etiqueta presas a elemento oculto na vista (ou fora do intervalo dela) não saem. O DXF não
+  // honra `hidden.elements` nos elementos, então só as anotações presas entram em `hidden`.
+  const presas = annotationIdsWithHiddenHostInView(p, plan.id, { outOfRange: resolvedPlanViewOf(p, plan.levelId, plan.id).hidden });
   const ops = resolverZoom(buildPlanGeometry({
     project: p,
     levelId: plan.levelId,
     resolved: resolveLevel(p, plan.levelId),
     below: null,
     areaPlan: plan,
+    ...(presas.size > 0 ? { hidden: presas } : {}),
     profile,
     viewport,
     theme: LIGHT,
@@ -168,7 +174,7 @@ export function areaPlanDxf(p: Project, planId: Id, units?: DxfUnit, lang: Lang 
     lang,
   }), zoom);
   // Cotas/textos/detalhes de `plan.annotations`: o render da área pode já desenhá-los; o que faltar entra aqui.
-  const areaEntities = [...opsDocOf(p, ops, zoom).entities, ...areaAnnotationEntities(p, plan, ops)];
+  const areaEntities = [...opsDocOf(p, ops, zoom).entities, ...areaAnnotationEntities(p, plan, ops, presas)];
   const modelDoc = dxfDocOf(p, plan.levelId, modelGeo);
   const layers = new Map<string, DxfDocLayer>();
   for (const layer of [...modelDoc.layers, ...layersOfEntities(p, areaEntities)]) layers.set(layer.name, layer);

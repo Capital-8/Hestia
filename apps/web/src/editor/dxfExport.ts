@@ -391,7 +391,7 @@ export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true
   // 'anotação': só a 'generic' o desliga. As camadas dele já saem daqui com a cor ACI do arquivo.
   const cad = cadDxfOf(p, levelId, shown('generic'));
   const cadNotes: DxfNotes | undefined = cad.lines.length + cad.texts.length > 0 ? { lines: [], texts: cad.texts, otherLines: cad.lines } : undefined;
-  const notes = mergeNotes(shown('annotation') ? notesDxfOf(p, levelId, vg.scale) : undefined, cadNotes);
+  const notes = mergeNotes(shown('annotation') ? notesDxfOf(p, levelId, vg.scale, hidden) : undefined, cadNotes);
   const withNotes: DxfLevelGeometry = {
     ...geo,
     ...(notes === undefined ? {} : { notes }),
