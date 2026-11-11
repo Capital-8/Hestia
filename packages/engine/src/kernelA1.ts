@@ -10,6 +10,7 @@ import { clusterWalls, levelFrames } from './resolve.ts';
 import { attachTargets } from './attachTargets.ts';
 import { resolveAllRoofs } from './roofs.ts';
 import { wallZRange, type WallZ } from './wallZ.ts';
+import { ehParedeCortina, semCortina } from './cortinaProjeto.ts';
 import { computeEnds, DEFAULT_JOIN_TOL, joinStatus, type JoinStatus, type SideSpec, type WallEnds } from './joins.ts';
 import type { MiterSide } from './joinTypes.ts';
 import type { WallFrame } from './frame.ts';
@@ -26,7 +27,8 @@ const WRAP: Record<WrapMode, number> = { none: 0, exterior: 1, interior: 2, both
  * (A2: a cota depende de pisos, lajes e telhados, que só migram nas fatias B e E).
  */
 export function zDoNivel(p: Project, levelId: Id, flatAttach = false): Map<Id, WallZ> {
-  const walls = wallsOnLevel(p, levelId);
+  // A cortina não passa pelo resolvedor de camadas (ADR 0056 §6.2): ela vai para as seções 100 a 105 (kernelCortina.ts).
+  const walls = semCortina(p, wallsOnLevel(p, levelId));
   const { floors, slabs } = attachTargets(p, walls, flatAttach);
   const roofs = walls.some((w) => w.attachTopToRoof === true) ? resolveAllRoofs(p) : [];
   return new Map(walls.map((w) => [w.id, wallZRange(p, w, floors, slabs, roofs)] as const));
@@ -78,7 +80,7 @@ export function montarCenaA1(p: Project, flatAttach = false): CenaA1 {
   let proximaFaixa = 1;
   let proximoId = 1;
   for (const el of Object.values(p.elements)) {
-    if (el.kind !== 'wall') continue;
+    if (el.kind !== 'wall' || ehParedeCortina(p, el)) continue;
     const nivel = nivelDe.get(el.levelId);
     const tipo = tipoDe(p, el);
     if (nivel === undefined || !tipo) {

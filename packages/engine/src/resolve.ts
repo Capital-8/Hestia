@@ -42,6 +42,7 @@ import { attachTargets } from './attachTargets.ts';
 import { resolveAllRoofs } from './roofs.ts';
 import { wallZRange, type WallZ } from './wallZ.ts';
 import { withWallZ } from './wallFrameZ.ts';
+import { semCortina } from './cortinaProjeto.ts';
 import { round, ringsOfShape, sigCanonica } from './geomSig.ts';
 import type { LayerBand, OpeningGeometry, Region, ResolvedCluster, ResolvedLayer, ResolvedLevel, ResolvedWall } from './types.ts';
 
@@ -402,7 +403,8 @@ export function resolveLevel(p: Project, levelId: Id, cache: ResolveCache = shar
 
 /** O motor TypeScript, sem despacho (a referência do Rust e o retorno de qualquer falha do kernel). */
 export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sharedCache, opts: PlanResolveOptions = {}): ResolvedLevel {
-  const walls = wallsOnLevel(p, levelId);
+  // A parede cortina não tem camadas: o Rust a resolve à parte (kernelCortina.ts, ADR 0056) e o 3D e a planta a desenham dali.
+  const walls = semCortina(p, wallsOnLevel(p, levelId));
   const planOpenSet = opts.planOpenings;
   const planOpen = (id: Id): boolean => !planOpenSet || planOpenSet.has(id);
   // Chave das opções de planta: só o que muda a geometria de planta (o corte já entra pelo `inPlan` dos itens).
