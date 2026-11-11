@@ -62,9 +62,19 @@ const suportesNenhum = (materialId: string): SuportesGC => ({
   materialId,
 });
 
-/** Corrimão padrão: extensões nulas, sem suportes, transição nula, junção por esquadria. */
+/**
+ * Extensão horizontal do corrimão de agarrar nas duas pontas (m): o prolongamento mínimo que a norma pede nas pontas da escada e da rampa
+ * (NBR 9050, 0,30 m, a conferir; ADR 0055 §8). Só vale em guarda-corpo hospedado em escada ou rampa.
+ */
+export const EXTENSAO_CORRIMAO_PADRAO = 0.3;
+
+/**
+ * Corrimão padrão: sem suportes, transição nula, junção por esquadria. O corrimão de agarrar nasce com a extensão mínima da norma nas duas pontas
+ * (a travessa superior, que não é para agarrar, sem extensão).
+ */
 function corrimaoPadrao(nome: string, funcao: CorrimaoGC['funcao'], posicao: CorrimaoGC['posicao'], altura: number, perfil: PerfilGC, materialId: string): CorrimaoGC {
   const nula = { estilo: 'nenhum' as const, comprimento: 0, maisPiso: false };
+  const ponta = funcao === 'corrimao' ? { estilo: 'poste' as const, comprimento: EXTENSAO_CORRIMAO_PADRAO, maisPiso: false } : nula;
   return {
     nome,
     funcao,
@@ -73,8 +83,8 @@ function corrimaoPadrao(nome: string, funcao: CorrimaoGC['funcao'], posicao: Cor
     afastamento: 0,
     perfil,
     materialId,
-    extensaoInicio: nula,
-    extensaoFim: nula,
+    extensaoInicio: ponta,
+    extensaoFim: ponta,
     suportes: suportesNenhum(materialId),
     transicao: 'simples',
     juncao: 'esquadria',
@@ -172,6 +182,8 @@ export function tiposGuardaCorpo(lang: Lang = 'pt'): TipoGuardaCorpo[] {
       trilhos: [travessaInferior(retangular(0.06, 0.06), 'mat_madeira')],
       preenchimentos: [balaustres('Balaústres de madeira', retangular(0.04, 0.04), 'mat_madeira', 0.11, BASE_NA_TRAVESSA)],
       postes: postesPadrao(retangular(0.08, 0.08), 'mat_madeira'),
+      // Metade da largura do poste (4 cm) mais 1 cm: o eixo recua da borda do degrau e o poste fica inteiro sobre o piso (ADR 0055 §4.4, ponto 6).
+      deslocamento: 0.05,
       materialPadraoId: 'mat_madeira',
     }),
     base('gct_cabos', 'GC-04', ['md_gc_type_cabos', 'md_gc_type_cabos_desc'], 1.1, {

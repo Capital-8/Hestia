@@ -106,9 +106,13 @@ describe('montantes do guarda-corpo na escada (tipo de fábrica -> kernel -> mal
           const d = Math.floor(i / q);
           return d * PISADA + frente + ((i % q) + 0.5) * (util(d) / q);
         });
-        // Um montante que encostaria no poste do início (meia seção do poste + meia do montante) é descartado, como sempre foi.
+        // Os postes das pontas ficam inteiros sobre o piso (o centro a meia seção da ponta, já considerando o bocel do primeiro degrau e o fim do último).
+        // O montante que cairia dentro de um poste fica encostado nele, com 5 mm de folga, do lado em que estava (e não some: abriria um vão maior que o da norma).
         const meiaPoste = (p.tiposGuardaCorpo[tipo]!.postes.inicio.perfil.largura ?? 0) / 2;
-        esperados = esperados.filter((x) => x >= meiaPoste + largura / 2 - 1e-9);
+        const ini = frente + meiaPoste;
+        const fim = degraus * PISADA - meiaPoste;
+        const gap = meiaPoste + largura / 2;
+        esperados = esperados.map((x) => (Math.abs(x - ini) < gap - 1e-9 ? ini + gap + 0.005 : Math.abs(x - fim) < gap - 1e-9 ? fim - gap - 0.005 : x));
         expect(b.length).toBe(esperados.length);
         b.forEach((m, i) => expect(m.cx, `balaústre ${i}`).toBeCloseTo(esperados[i]!, 3));
       });

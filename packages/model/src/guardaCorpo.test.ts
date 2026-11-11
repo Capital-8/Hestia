@@ -3,7 +3,7 @@ import { createEmptyProject } from './defaults.ts';
 import { ProjectStore } from './history.ts';
 import { migrateProject } from './migrate.ts';
 import { SCHEMA_VERSION, type Project } from './types.ts';
-import { DEFAULT_TIPO_GUARDA_CORPO_ID, makeGuardaCorpo, tipoGuardaCorpoIssue, tiposGuardaCorpo } from './guardaCorpo.ts';
+import { DEFAULT_TIPO_GUARDA_CORPO_ID, EXTENSAO_CORRIMAO_PADRAO, makeGuardaCorpo, tipoGuardaCorpoIssue, tiposGuardaCorpo } from './guardaCorpo.ts';
 import { LIMITES_GUARDA_CORPO, type GuardaCorpo, type HospedeiroManual, type TipoGuardaCorpo } from './guardaCorpoTypes.ts';
 import { PERFIS_NORMA_PADRAO, normaDe, perfilNormaIssue, perfisNormaPadrao, type PerfilNorma } from './guardaCorpoNorma.ts';
 import { guardaCorpoIssues } from './validateGuardaCorpo.ts';
@@ -61,6 +61,31 @@ describe('tipos padrão', () => {
       'Corrimão de parede',
     ]);
     for (const t of tipos) expect(tipoGuardaCorpoIssue(t, 'pt')).toBeNull();
+  });
+
+  it('todo corrimão de agarrar de fábrica traz a extensão mínima da norma nas duas pontas; a travessa superior não', () => {
+    const minimo = normaDe(createEmptyProject(), null).limites.corrimaoExtensaoMin ?? 0;
+    expect(minimo).toBeGreaterThan(0);
+    expect(EXTENSAO_CORRIMAO_PADRAO).toBeGreaterThanOrEqual(minimo);
+    for (const t of tiposGuardaCorpo('pt')) {
+      for (const c of t.corrimaos) {
+        const ext = c.funcao === 'corrimao' ? EXTENSAO_CORRIMAO_PADRAO : 0;
+        const comp = (e: typeof c.extensaoInicio): number => (e.estilo === 'nenhum' ? 0 : e.comprimento);
+        if (c.funcao === 'corrimao') {
+          expect(comp(c.extensaoInicio), `${t.id} início`).toBeGreaterThanOrEqual(minimo);
+          expect(comp(c.extensaoFim), `${t.id} fim`).toBeGreaterThanOrEqual(minimo);
+        } else {
+          expect(comp(c.extensaoInicio) + comp(c.extensaoFim) + ext).toBe(0);
+        }
+      }
+    }
+  });
+
+  it('o deslocamento de fábrica deixa o poste inteiro sobre o degrau: ao menos meia largura do poste mais 1 cm (ADR 0055 §4.4)', () => {
+    for (const t of tiposGuardaCorpo('pt')) {
+      const maior = Math.max(...[t.postes.inicio, t.postes.fim, t.postes.canto].filter((x) => x.ativo).map((x) => x.perfil.largura));
+      if (Number.isFinite(maior)) expect(t.deslocamento, t.id).toBeGreaterThanOrEqual(maior / 2 + 0.01 - 1e-9);
+    }
   });
 
   it('o corrimão de parede não tem preenchimento e tem duas alturas (0,92 e 0,70)', () => {

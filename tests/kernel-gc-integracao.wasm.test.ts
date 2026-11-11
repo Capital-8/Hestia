@@ -5,7 +5,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { projetoGuardaCorpo } from '../packages/engine/src/fixtureGuardaCorpo.ts';
-import { CODIGO_AVISO_GC, guardaCorpoAvisosDeGeometria } from '../packages/engine/src/guardaCorpoIssues.ts';
+import { CODIGOS_GEOMETRIA_GC, CODIGO_AVISO_GC, guardaCorpoAvisosDeGeometria } from '../packages/engine/src/guardaCorpoIssues.ts';
 import { ProjectStore, createEmptyProject, defaultStairTypeId, makeGuardaCorpo, makeLevel, makeStair, type GuardaCorpo, type Project, type StairLanding, type StairRun } from '@hestia/model';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { generateLShape } from '../packages/engine/src/stairGenerators.ts';
@@ -152,8 +152,8 @@ describe('guarda-corpo: avisos de geometria degenerada sobre o Rust real (ADR 00
       expect(lista.length, lang).toBeGreaterThanOrEqual(2);
       expect(lista.every((i) => i.message.length > 10 && !/\{\w+\}/.test(i.message))).toBe(true);
     }
-    // O projeto sem degeneração continua sem avisos de geometria.
-    expect(guardaCorpoAvisosDeGeometria(p, srv.avisos(p))).toEqual([]);
+    // O projeto sem degeneração continua sem avisos de geometria (os de norma, como altura do corrimão, também vão para a lista do projeto).
+    expect(guardaCorpoAvisosDeGeometria(p, srv.avisos(p)).filter((i) => (CODIGOS_GEOMETRIA_GC as readonly string[]).includes(i.code))).toEqual([]);
     // Todo guarda-corpo (inclusive o degenerado) gera malha de peças válidas.
     expect(srv.malhas(q)!.every((m) => m.partes.every((x) => x.positions.length > 0 && x.indices.length % 3 === 0))).toBe(true);
     srv.encerrar();

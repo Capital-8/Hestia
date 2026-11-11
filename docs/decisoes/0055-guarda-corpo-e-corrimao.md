@@ -1007,3 +1007,48 @@ No Rust, `DegrauP` ganhou `bocel` e `bocel_seguinte` (o `z` passou a ser `z_piso
 - **Bocel padrão da escada 1,5 cm** (ADR 0011 §8), para o aviso de projeção do bocel não disparar no padrão.
 
 **Testes permanentes.** Rust: `quantidade_automatica_e_o_minimo_que_a_norma_exige_e_nao_depende_do_sentido` (pisadas 25 a 32 cm, perfis 2, 3 e 4 cm, bocel 1,5 cm, sentido normal e invertido: vão ≤ esfera, N mínimo porque com N-1 passaria, montantes inteiros sobre o piso, saída espelhada idêntica) e `automatico_fora_da_escada_usa_o_espacamento_maximo_da_norma`; ouro Rust/TS. Wasm (`tests/kernel-gc-montantes.wasm.test.ts`, caminho real do app): para as 24 combinações pisada x perfil o aviso `gc-vao-grande` não dispara no padrão e dispara com N-1; posições dos tipos de fábrica com e sem acabamento.
+
+## 27. Postes inteiros sobre o piso e avisos fora das Propriedades (`fix/gc-postes-avisos`)
+
+### 27.1 Postes e balaústres inteiros sobre o degrau, o patamar e a rampa
+
+**Relato do dono:** "os postes continuam ficando metade dele fora do degrau". **Causas reais** (medidas pela malha, com o tipo de fábrica, no caminho do app):
+
+1. **Postes de ponta e de nó ficavam centrados no nó do caminho.** O nó de início de um lance está na linha do primeiro espelho e o de fim na do último (a chegada no piso de cima); um poste centrado ali tem metade da seção sobre o vazio. O mesmo valia para os nós de canto e de transição e para as pontas de patamar e de rampa. Só o balaústre "por degrau" (§26) já era levado para dentro da pisada.
+2. **O eixo recuava só `deslocamento` da borda lateral** (padrão 3,5 cm), e o poste de madeira de 8 cm de lado tem meia seção de 4 cm (5,7 cm no canto, girado). A seção passava da borda.
+3. **A linha do espelho só valia no ponto médio do espelho.** Espelho oblíquo, em leque ou em caracol cruza o caminho de cada lado longe do ponto médio, então a pisada medida estava deslocada.
+4. **Esquadria em chanfro do lado de dentro da curva.** O deslocamento do caminho cortava em chanfro (limite de 2,5x) também os cantos agudos por dentro, o que joga o ponto para fora do patamar (patamar em leque de 135°). O chanfro só vale por fora.
+
+**O que mudou (todo no Rust, a fonte da verdade):**
+- **Postes** (`gc_distribuicao::postes`, `AjustePostes`): com a base no degrau de escada ou de rampa, cada poste fica com a seção inteira sobre o piso. Nas pontas do trecho o centro recua meia seção para dentro; num lance de escada o centro vai para dentro da pisada útil do degrau (medida do bocel, como o balaústre) e a base apoia no topo do piso acabado; sem degraus (rampa, patamar) recua meia seção da ponta. A última linha de espelho (chegada) não conta como degrau: o poste do fim fica no último degrau. `Poste.s` continua sendo o nó (divide os vãos); `Poste.pos` é o centro real e `Poste.margem` é a folga que balaústres e painéis do vão guardam (meia seção mais o recuo).
+- **Uma ponta, um poste.** Numa sequência soldada (lance, patamar, lance) o poste de fim de um trecho e o de início do seguinte caíam no mesmo ponto. Agora fica o do trecho do lado mais alto (a sequência corre do piso para cima; invertida, ao contrário), então a quantidade de postes é a mesma nos dois sentidos e a posição se espelha.
+- **Recuo lateral** (`gc_caminho::recuo_das_pecas`): com a base no degrau o eixo recua `max(deslocamento, raio da maior peça vertical do tipo)`. O raio é o do menor círculo que contém a seção (poste ativo, elemento do padrão, balaústre por degrau), por isso vale também girada no canto. O `deslocamento` do tipo é o mínimo. A fábrica `gct_madeira` passou a ter `deslocamento` 0,05 m (meia seção mais 1 cm, como a §4.4 diz). A base lateral (poste preso na face, por fora) não muda.
+- **Linha do espelho de verdade** (`gc_montagem::cruzamento_do_espelho`): o degrau vale onde a reta do espelho cruza o caminho do lado, e a pisada é a distância até o cruzamento do seguinte, no mesmo caminho. A seção avança sobre a linha `a + b * obliq` (meia seção ao longo mais meia seção para os lados vezes a obliquidade do espelho), dividido por `1 - b * curvatura` numa curva (`DegrauP::avanco`). Vale para postes e balaústres. O caracol dá degraus só aos postes; os balaústres dele seguem como estavam.
+- **Esquadria** (`gc_caminho::deslocar`): por dentro da curva o ponto da esquadria é sempre exato; o limite de 2,5x e o chanfro valem só por fora.
+
+**Testes permanentes.** `tests/kernel-gc-postes.wasm.test.ts` (caminho real: tipo de fábrica, linhas do kernel, Rust, malha): para cada poste e cada balaústre, todos os vértices da seção ficam dentro da planta da escada acabada (degraus, patamares e pisos acabados com bocel) ou da rampa e do patamar; escadas reta, estreita, L, U, winder, livre em 45, 90 e 135 graus, livre em U e com dois giros, oblíquas de 60 e 120 graus, leque e caracol; todos os tipos de fábrica; com e sem acabamento; sentido normal e invertido; rampa reta, em L e em U. Rust: `postes_das_pontas_de_um_lance_ficam_inteiros_sobre_o_degrau`, `postes_do_lance_invertido_espelham_os_do_normal`, `poste_de_ponta_respeita_o_bocel_e_o_espelho_obliquo`, `ponta_soldada_a_outro_trecho_tem_um_poste_so`, `poste_de_ponta_sem_degraus_recua_meia_secao_para_dentro_do_trecho`, `balaustres_do_vao_nao_encostam_no_poste_recuado`, `eixo_recua_da_borda_o_raio_do_maior_poste` e `esquadria_por_dentro_de_canto_agudo_fica_dentro_e_por_fora_vira_chanfro`. Sem kernel, a referência TS (`guardaCorpoRef`) segue igual: o ajuste ao piso não existe nela e o ouro compartilhado não o usa.
+
+- **Montante por degrau junto do poste.** Com o poste recuado para dentro da pisada, o montante que cairia dentro dele não some (abriria um vão maior que a esfera da norma): fica encostado no poste com 5 mm de folga, do lado em que estava, se continuar inteiro sobre o piso (`FOLGA_MONTANTE_POSTE`). Só vale com os postes sobre o piso; a referência TS e o ouro não mudam.
+- **Trecho curvo** (leque, caracol, arco): o espelho é radial e o caminho concêntrico, então o degrau vale no ponto do caminho mais perto do ponto médio do espelho; em trecho reto vale o cruzamento da reta do espelho (com a primeira e a última aresta prolongadas).
+
+**Fora do alcance (anotado):** (1) poste mais largo que a própria pisada (por exemplo, poste de madeira de 8 cm na ponta de dentro de um caracol com 10 cm de raio interno, onde a cunha tem 5 cm) fica no meio da pisada e a seção passa dela; não há aviso próprio ainda (o `gc-montante-fora-do-piso` fala de montante por degrau). O teste de caracol usa raio interno de 30 cm. (2) Patamar tão estreito que a seção não cabe (faixa de 10 cm entre dois lances em U) segue sem aviso próprio; o teste usa U com vão de 60 cm.
+
+### 27.2 Avisos fora do painel de Propriedades
+
+**Como as famílias mostram os avisos hoje:** a lista de avisos do projeto (`useIssues`, na barra de status "N erros, N avisos") soma `avisosDoProjeto` (validação do modelo, escada, rampa, ambiente...) e os avisos que o kernel mede (`avisosGeometriaGuardaCorpo`), com "Ir para". O painel do guarda-corpo, porém, somava ali os avisos de norma medidos pelo kernel (vão, altura, extensão do corrimão), que não chegavam à lista do projeto.
+
+**O que mudou:**
+- O painel de Propriedades do guarda-corpo não lista mais avisos (saíram o título e a lista; `gc6b_issues` e `gc6b_no_issues` foram removidas dos sete idiomas). Ficou o aviso de hospedeiro ausente com o botão de excluir órfãos, que é uma ação, não uma lista.
+- `guardaCorpoAvisosDeGeometria` (engine) passou a devolver também os avisos de norma medidos pelo kernel, com o texto e o "(norma a conferir)" de sempre, para a lista do projeto e a barra de status.
+- **Sem duplicata.** `agruparAvisosGuardaCorpo` junta os avisos iguais (mesmo guarda-corpo, código e texto) num só, com a contagem no fim da mensagem ("(4 ocorrências)", nos sete idiomas). Os quatro avisos iguais "Extensão do corrimão de 0 m" eram início e fim em cada um dos dois lados do hospedeiro. Problemas distintos (valores diferentes) continuam avisos distintos.
+
+### 27.3 Extensão do corrimão em escada
+
+**Causa real do "extensão de 0 m; o mínimo é 0,3 m":** não era erro de cálculo no trecho hospedado. Os tipos de fábrica nasciam com extensão **zero** nas pontas de qualquer corrimão (`corrimaoPadrao`: "extensões nulas"), e o Rust avisava (correto) que 0 está abaixo do mínimo da norma. Além disso o aviso valia para a travessa superior (que não é para agarrar), repetia por lado e ponta, valia para guarda-corpo manual (varanda não tem ponta de escada) e contava o comprimento mesmo com o estilo "nenhum" (que não estende nada).
+
+**Correção na origem (a norma de 0,30 m ficou como está, e o aviso também):**
+- O corrimão de agarrar (`funcao: 'corrimao'`) dos tipos de fábrica nasce com extensão horizontal de 0,30 m nas duas pontas (`EXTENSAO_CORRIMAO_PADRAO`, estilo `poste`). A travessa superior (`topo`) segue sem extensão.
+- Rust (`gc_montagem`): a extensão do corrimão e o aviso `gc-corrimao-extensao` valem só para guarda-corpo hospedado em escada ou rampa (a extensão é de ponta de escada); só para o corrimão de agarrar; uma vez por corrimão e ponta (o corrimão dos dois lados não repete); e a extensão medida é a realmente aplicada (estilo "nenhum" ou comprimento nulo medem 0).
+- Quem baixar a extensão de um corrimão de escada abaixo do mínimo continua vendo o aviso, agora na lista de avisos do projeto.
+
+**Testes.** `apps/web/src/ui/GuardaCorpoAvisosGeometria.test.ts` (o painel de Propriedades não lista avisos; a lista do projeto leva os de geometria e de norma; o repetido sai uma vez, com a contagem), `packages/engine/src/guardaCorpoIssues.test.ts` (agrupamento e idiomas) e `tests/kernel-gc-postes.wasm.test.ts`.

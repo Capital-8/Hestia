@@ -210,15 +210,47 @@ export function mensagemGeometria(lang: Lang, code: CodigoGeometriaGC, medido: n
   return GEO[lang][code].replace(/\{(\w+)\}/g, (_, n: string) => fmt(n === 'medido' ? medido : limite));
 }
 
-/** Avisos de geometria degenerada medidos pelo kernel, no formato da lista de avisos do projeto. Vazio sem kernel pronto (`medidas` nulo). */
+// Sufixo de contagem quando o mesmo problema se repete (por lado, por ponta ou por trecho): um aviso só, com quantas vezes aparece.
+const REPETICOES: Record<Lang, string> = {
+  pt: ' ({n} ocorrências)',
+  en: ' ({n} occurrences)',
+  es: ' ({n} ocurrencias)',
+  de: ' ({n} Vorkommen)',
+  fr: ' ({n} occurrences)',
+  it: ' ({n} occorrenze)',
+  pl: ' ({n} wystąpień)',
+};
+
+/**
+ * Junta os avisos iguais (mesmo guarda-corpo, mesmo código e mesmo texto) num só, com a contagem no fim da mensagem. Um problema distinto continua
+ * sendo um aviso distinto; a ordem da primeira aparição é mantida.
+ */
+export function agruparAvisosGuardaCorpo(avisos: readonly ValidationIssue[], lang: Lang = 'pt'): ValidationIssue[] {
+  const grupos = new Map<string, { aviso: ValidationIssue; n: number }>();
+  for (const a of avisos) {
+    const chave = `${a.elementId ?? ''}|${a.code}|${a.message}`;
+    const g = grupos.get(chave);
+    if (g) g.n += 1;
+    else grupos.set(chave, { aviso: a, n: 1 });
+  }
+  return [...grupos.values()].map(({ aviso, n }) => (n > 1 ? { ...aviso, message: aviso.message + REPETICOES[lang].replace('{n}', String(n)) } : aviso));
+}
+
+/**
+ * Avisos que o kernel mede (geometria degenerada e norma: vão, altura, corrimão), no formato da lista de avisos do projeto, que é onde o painel de
+ * avisos e a barra de status os mostram. Cada problema distinto sai uma vez, com a contagem quando se repete. Vazio sem kernel pronto (`medidas` nulo).
+ */
 export function guardaCorpoAvisosDeGeometria(p: Project, medidas: readonly MedidaAvisoGC[] | null, lang: Lang = 'pt'): ValidationIssue[] {
   const out: ValidationIssue[] = [];
   for (const m of medidas ?? []) {
-    const code = CODIGO_AVISO_GC[m.codigo];
-    if (!code || !EH_GEOMETRIA.has(code) || !p.elements[m.guardaId]) continue;
-    out.push({ severity: 'warning', code, message: mensagemGeometria(lang, code as CodigoGeometriaGC, m.medido, m.limite), elementId: m.guardaId, ids: [m.guardaId] });
+    const g = p.elements[m.guardaId];
+    if (!g || !isGuardaCorpo(g)) continue;
+    const tipo = p.tiposGuardaCorpo[g.typeId];
+    if (!tipo) continue;
+    const [aviso] = guardaCorpoMedidasParaAvisos([m], normaDe(p, g.sobrescritas?.normaId ? { normaId: g.sobrescritas.normaId } : tipo), lang);
+    if (aviso) out.push({ severity: 'warning', code: aviso.code, message: aviso.message, elementId: m.guardaId, ids: [m.guardaId] });
   }
-  return out;
+  return agruparAvisosGuardaCorpo(out, lang);
 }
 
 /** O limite ainda precisa ser conferido: a fonte do campo não é verificada ou, sem fonte, o perfil inteiro não é. */

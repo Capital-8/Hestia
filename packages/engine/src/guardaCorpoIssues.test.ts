@@ -110,15 +110,38 @@ describe('avisos de geometria degenerada', () => {
     expect(r.every((i) => i.severity === 'warning' && !i.message.includes('a conferir'))).toBe(true);
   });
 
-  it('a lista do projeto leva só os de geometria, de guarda-corpos que existem, e fica vazia sem kernel', () => {
+  it('a lista do projeto leva os avisos de geometria e de norma, de guarda-corpos que existem, e fica vazia sem kernel', () => {
     const p = createEmptyProject();
     p.elements['g1'] = gc() as never;
     const medidas = [{ ...base, codigo: 10, medido: 1, limite: 2 }, { ...base, codigo: 1, medido: 0.12, limite: 0.11 }, { ...base, guardaId: 'fantasma', codigo: 8, medido: 0, limite: 0 }];
     const r = guardaCorpoAvisosDeGeometria(p, medidas, 'en');
-    expect(r).toHaveLength(1);
+    expect(r.map((i) => i.code)).toEqual(['gc-caminho-nulo', 'gc-vao-grande']);
     expect(r[0]).toMatchObject({ code: 'gc-caminho-nulo', severity: 'warning', elementId: 'g1', ids: ['g1'] });
     expect(r[0]!.message).toContain('no segment');
+    expect(r[1]!.message).toContain('0.12');
     expect(guardaCorpoAvisosDeGeometria(p, null)).toEqual([]);
+  });
+
+  it('o mesmo problema medido em vários lados, pontas e trechos sai uma vez só, com a contagem; problemas distintos continuam distintos', () => {
+    const p = createEmptyProject();
+    p.elements['g1'] = gc({ typeId: 'gct_madeira' }) as never;
+    // Extensão curta do corrimão: início e fim, nos dois lados do hospedeiro (4 medidas iguais), mais uma de 0,1 m (outro problema).
+    const ext = (trecho: number, indice: number, medido: number) => ({ ...base, codigo: 4, trecho, indice, medido, limite: 0.3 });
+    const r = guardaCorpoAvisosDeGeometria(p, [ext(0, 0, 0), ext(0, 1, 0), ext(1, 0, 0), ext(1, 1, 0), ext(2, 0, 0.1)], 'pt');
+    expect(r).toHaveLength(2);
+    expect(r[0]!.message).toContain('Extensão do corrimão de 0 m');
+    expect(r[0]!.message).toContain('(4 ocorrências)');
+    expect(r[1]!.message).toContain('0.1 m');
+    expect(r[1]!.message).not.toContain('ocorrências');
+    expect(r.every((i) => i.code === 'gc-corrimao-extensao' && i.elementId === 'g1')).toBe(true);
+  });
+
+  it('a contagem do aviso repetido acompanha o idioma', () => {
+    const p = createEmptyProject();
+    p.elements['g1'] = gc() as never;
+    const v = (trecho: number) => ({ ...base, codigo: 8, trecho, medido: 0, limite: 1e-6 });
+    expect(guardaCorpoAvisosDeGeometria(p, [v(0), v(1)], 'en')[0]!.message).toContain('(2 occurrences)');
+    expect(guardaCorpoAvisosDeGeometria(p, [v(0), v(1), v(2)], 'de')[0]!.message).toContain('(3 Vorkommen)');
   });
 });
 
