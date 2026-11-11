@@ -1,2 +1,3 @@
-# O comparador do ouro das vistas compara texto exato: os arquivos de ouro ficam sempre em LF, também no Windows.
-tests/vistas-ouro/ouro/** text eol=lf
+# O comparador do ouro das vistas compara texto exato. Os arquivos de ouro saem do git byte a byte, sem conversão de
+# fim de linha: a maioria é LF, mas os de DXF (`*.dxf.txt`) são gravados com CRLF e têm de continuar assim.
+tests/vistas-ouro/ouro/** -text
