@@ -1,7 +1,8 @@
 import { add, boxOf, mul, norm, perp, pointInMulti, ringArea, sub, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { buildOpeningModel, cutLevelByJunction, frameOfWall, openingGeometry, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedRoom, type ResolvedSlab } from '@hestia/engine';
-import { levelElevation, viewRangeOf, openingTypeById, dimensionStyleOf, angularDimensionGeometry, dimensionPoints, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, wallsOnLevel, type AreaPlan, type DetailLevel, type Id, type Material, type Project } from '@hestia/model';
+import { levelElevation, viewRangeOf, openingTypeById, dimensionStyleOf, angularDimensionGeometry, dimensionPoints, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, type AreaPlan, type DetailLevel, type Id, type Material, type Project } from '@hestia/model';
 import { resolveRooms, resolveAngularDimension } from '@hestia/engine';
+import { extensaoDoModelo } from './extensaoDoModelo.ts';
 import { areaPlanLegendOps, areaPlanRoomOps, areaPlanTableOps, areaPlanTagOps } from './areaPlan.ts';
 import { aberturasDaParede, escadasDoNivel, juncaoDoNivel, paredesDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
 import type { Inference, PreviewItem } from '@hestia/tools';
@@ -580,11 +581,13 @@ export function buildPlanDrawList(input: PlanInput): PlanDrawList {
   };
 }
 
-/** Caixa de todas as paredes do nível, para "enquadrar tudo". */
+/**
+ * Caixa de tudo o que aparece do nível (paredes, escadas, rampas, guarda-corpos, lajes, pisos, forros, telhados...), com
+ * 0,5 m de folga, para "enquadrar tudo". Vem da extensão do modelo (`extensaoDoModelo`), nunca só das paredes.
+ */
 export function levelBox(p: Project, levelId: Id): { minX: number; minY: number; maxX: number; maxY: number } | null {
-  const pts = wallsOnLevel(p, levelId).flatMap((w) => [w.a, w.b]);
-  if (!pts.length) return null;
-  const b = boxOf(pts);
+  const b = extensaoDoModelo(p, levelId);
+  if (!b) return null;
   const pad = 0.5;
   return { minX: b.minX - pad, minY: b.minY - pad, maxX: b.maxX + pad, maxY: b.maxY + pad };
 }
@@ -611,4 +614,19 @@ export function levelFrameBox(p: Project, levelId: Id): { minX: number; minY: nu
   const b = boxOf(pts);
   const pad = 0.5;
   return { minX: b.minX - pad, minY: b.minY - pad, maxX: b.maxX + pad, maxY: b.maxY + pad };
+}
+
+/**
+ * Caixa em planta para gerar as elevações: a do nível ativo (`levelFrameBox`, com cotas) unida à extensão do MODELO
+ * INTEIRO, porque a elevação desenha todos os pavimentos. Sem parede nenhuma, o que existir (escada, guarda-corpo, laje,
+ * telhado...) define os limites; null só quando não há nada que apareça em elevação.
+ */
+export function elevationFrameBox(p: Project, levelId: Id): { minX: number; minY: number; maxX: number; maxY: number } | null {
+  const nivel = levelFrameBox(p, levelId);
+  const modelo = extensaoDoModelo(p);
+  if (!modelo) return nivel;
+  const pad = 0.5;
+  const m = { minX: modelo.minX - pad, minY: modelo.minY - pad, maxX: modelo.maxX + pad, maxY: modelo.maxY + pad };
+  if (!nivel) return m;
+  return { minX: Math.min(nivel.minX, m.minX), minY: Math.min(nivel.minY, m.minY), maxX: Math.max(nivel.maxX, m.maxX), maxY: Math.max(nivel.maxY, m.maxY) };
 }

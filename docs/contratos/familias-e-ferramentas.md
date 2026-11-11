@@ -45,6 +45,15 @@ aparar/estender, dividir, apagar, copiar/colar entre pavimentos, desfazer/refaze
 Teste-guarda: `packages/tools/src/contratoModificacao.test.ts`. `CLASSIFICACAO` é um `Record<Element['kind'], ...>`:
 um kind novo sem linha **não compila**; cada marca tem de apontar código que existe e `null` exige o motivo (TODO).
 
+**Extensão de elevação (parte da regra 3).** Todo kind novo também entra na **extensão do modelo**: a caixa em planta
+que limita a elevação de edifício, o "enquadrar tudo" da planta e as pranchas. Ela vem de TODOS os elementos que
+aparecem em corte e elevação (`extensaoDoModelo`, `packages/render/src/plan/extensaoDoModelo.ts`), nunca só das
+paredes: um modelo só com escada, guarda-corpo, laje ou telhado gera elevação. `COLETORES` é um
+`Record<Element['kind'], ...>`: kind novo sem linha **não compila**; `entra: true` devolve os pontos do elemento em
+planta, e `entra: false` exige o motivo escrito (hoje: ambiente, CAD e objeto importado, que o corte e a elevação ainda
+não desenham). Teste-guarda: `packages/render/src/plan/extensaoDoModelo.test.ts` (cada kind que entra tem de alargar a
+caixa até o elemento; o que não entra tem de deixar a caixa vazia).
+
 ## Regra 4. Modal de tipo de família usa o esqueleto comum (o da parede)
 
 Todo diálogo de edição de tipo (parede, escada, rampa, piso, laje, forro, telhado, guarda-corpo, cota, esquadria...)

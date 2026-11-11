@@ -31,7 +31,7 @@ export const PT_EDITOR_STATUS = {
   eds_msg_room_tag_drag_hint: 'Arraste o rótulo e solte para posicionar. A chamada liga ao sair do ambiente.',
   eds_msg_room_tag_moved: 'Rótulo reposicionado em todas as vistas. Ctrl+Z desfaz.',
   eds_msg_dim_ref_changed: 'Referência da cota trocada.',
-  eds_msg_no_walls_for_elevations: 'Não há paredes neste nível para gerar elevações.',
+  eds_msg_no_elements_for_elevations: 'O projeto não tem nenhum elemento que apareça em elevação (parede, escada, rampa, guarda-corpo, laje, piso, forro ou telhado). Desenhe algo e gere de novo.',
   eds_msg_elevations_created: 'Elevações Norte, Sul, Leste e Oeste geradas. Ctrl+Z desfaz.',
 
   // Copiar/colar
@@ -253,7 +253,7 @@ export const EN_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_room_tag_drag_hint: 'Drag the tag and release to position it. The leader turns on when you leave the room.',
   eds_msg_room_tag_moved: 'Tag repositioned in all views. Ctrl+Z to undo.',
   eds_msg_dim_ref_changed: 'Dimension reference changed.',
-  eds_msg_no_walls_for_elevations: 'There are no walls on this level to generate elevations.',
+  eds_msg_no_elements_for_elevations: 'The project has nothing that shows in elevation (wall, stair, ramp, railing, slab, floor, ceiling or roof). Draw something and generate again.',
   eds_msg_elevations_created: 'North, South, East and West elevations generated. Ctrl+Z to undo.',
 
   // Copiar/colar
@@ -472,7 +472,7 @@ export const ES_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_room_tag_drag_hint: 'Arrastre la etiqueta y suelte para colocarla. La llamada se activa al salir del ambiente.',
   eds_msg_room_tag_moved: 'Etiqueta reposicionada en todas las vistas. Ctrl+Z deshace.',
   eds_msg_dim_ref_changed: 'Referencia de la cota cambiada.',
-  eds_msg_no_walls_for_elevations: 'No hay muros en este nivel para generar alzados.',
+  eds_msg_no_elements_for_elevations: 'El proyecto no tiene ningún elemento que aparezca en alzado (muro, escalera, rampa, barandilla, losa, suelo, techo o cubierta). Dibuje algo y genere de nuevo.',
   eds_msg_elevations_created: 'Alzados Norte, Sur, Este y Oeste generados. Ctrl+Z deshace.',
 
   eds_msg_cut_not_allowed: 'Recortar solo vale para muros, suelos, losas, tejados, escaleras, rampas, ambientes y aberturas alojadas (con el muro seleccionado).',
@@ -680,7 +680,7 @@ export const DE_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_room_tag_drag_hint: 'Ziehen Sie die Beschriftung und lassen Sie sie zum Platzieren los. Der Hinweis aktiviert sich beim Verlassen des Raums.',
   eds_msg_room_tag_moved: 'Beschriftung in allen Ansichten neu positioniert. Ctrl+Z macht rückgängig.',
   eds_msg_dim_ref_changed: 'Maßreferenz geändert.',
-  eds_msg_no_walls_for_elevations: 'In dieser Ebene gibt es keine Wände zum Erzeugen von Ansichten.',
+  eds_msg_no_elements_for_elevations: 'Das Projekt hat kein Element, das in der Ansicht erscheint (Wand, Treppe, Rampe, Geländer, Decke, Boden, Abhangdecke oder Dach). Zeichnen Sie etwas und erzeugen Sie erneut.',
   eds_msg_elevations_created: 'Ansichten Nord, Süd, Ost und West erzeugt. Ctrl+Z macht rückgängig.',
 
   eds_msg_cut_not_allowed: 'Ausschneiden gilt nur für Wände, Böden, Decken, Dächer, Treppen, Rampen, Räume und gehostete Öffnungen (mit ausgewählter Wand).',
@@ -888,7 +888,7 @@ export const FR_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_room_tag_drag_hint: 'Faites glisser l\'étiquette et relâchez pour la positionner. La ligne de rappel s\'active en quittant la pièce.',
   eds_msg_room_tag_moved: 'Étiquette repositionnée dans toutes les vues. Ctrl+Z annule.',
   eds_msg_dim_ref_changed: 'Référence de la cote modifiée.',
-  eds_msg_no_walls_for_elevations: 'Il n\'y a pas de murs sur ce niveau pour générer des élévations.',
+  eds_msg_no_elements_for_elevations: 'Le projet n\'a aucun élément visible en élévation (mur, escalier, rampe, garde-corps, dalle, sol, plafond ou toit). Dessinez quelque chose et générez à nouveau.',
   eds_msg_elevations_created: 'Élévations Nord, Sud, Est et Ouest générées. Ctrl+Z annule.',
 
   eds_msg_cut_not_allowed: 'Couper ne fonctionne que pour les murs, sols, dalles, toits, escaliers, rampes, pièces et baies hébergées (avec le mur sélectionné).',
@@ -1096,7 +1096,7 @@ export const IT_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_room_tag_drag_hint: 'Trascina l\'etichetta e rilascia per posizionarla. La linea di richiamo si attiva uscendo dal locale.',
   eds_msg_room_tag_moved: 'Etichetta riposizionata in tutte le viste. Ctrl+Z annulla.',
   eds_msg_dim_ref_changed: 'Riferimento della quota cambiato.',
-  eds_msg_no_walls_for_elevations: 'Non ci sono pareti su questo livello per generare prospetti.',
+  eds_msg_no_elements_for_elevations: 'Il progetto non ha alcun elemento visibile nei prospetti (parete, scala, rampa, parapetto, solaio, pavimento, controsoffitto o tetto). Disegna qualcosa e genera di nuovo.',
   eds_msg_elevations_created: 'Prospetti Nord, Sud, Est e Ovest generati. Ctrl+Z annulla.',
 
   eds_msg_cut_not_allowed: 'Taglia vale solo per pareti, pavimenti, solai, tetti, scale, rampe, locali e aperture ospitate (con la parete selezionata).',
@@ -1304,7 +1304,7 @@ export const PL_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_room_tag_drag_hint: 'Przeciągnij etykietę i upuść, aby ją ustawić. Linia odniesienia włącza się po opuszczeniu pomieszczenia.',
   eds_msg_room_tag_moved: 'Etykieta przeniesiona we wszystkich widokach. Ctrl+Z cofa.',
   eds_msg_dim_ref_changed: 'Zmieniono odniesienie wymiaru.',
-  eds_msg_no_walls_for_elevations: 'Na tym poziomie nie ma ścian do wygenerowania elewacji.',
+  eds_msg_no_elements_for_elevations: 'Projekt nie ma żadnego elementu widocznego na elewacji (ściana, schody, rampa, balustrada, strop, podłoga, sufit lub dach). Narysuj coś i wygeneruj ponownie.',
   eds_msg_elevations_created: 'Wygenerowano elewacje północną, południową, wschodnią i zachodnią. Ctrl+Z cofa.',
 
   eds_msg_cut_not_allowed: 'Wycinanie dotyczy tylko ścian, podłóg, stropów, dachów, schodów, ramp, pomieszczeń i osadzonych otworów (z wybraną ścianą).',
