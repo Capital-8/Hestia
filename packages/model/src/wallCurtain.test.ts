@@ -58,7 +58,12 @@ const cortina = (curtain: CurtainSpec = spec(), id = 'wt_ct'): WallType => ({
   wrapEnds: 'none',
 });
 
-const novoProjeto = (): Project => createEmptyProject();
+/** Base da fase 0: sem as predefinições de cortina de fábrica (elas usam os montantes e painéis e mudariam o "em uso"). */
+const novoProjeto = (): Project => {
+  const p = createEmptyProject();
+  for (const id of Object.keys(p.wallTypes)) if (p.wallTypes[id]!.family === 'curtain') delete p.wallTypes[id];
+  return p;
+};
 
 describe('tipos de parede: família, espessura e camada-sombra', () => {
   it('wallThicknessOf: parede básica soma as camadas; cortina devolve a profundidade do sistema', () => {

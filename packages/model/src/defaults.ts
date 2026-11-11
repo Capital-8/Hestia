@@ -6,6 +6,7 @@ import { roofTypes } from './roof.ts';
 import { stairTypes } from './stair.ts';
 import { rampTypes } from './ramp.ts';
 import { tiposGuardaCorpo } from './guardaCorpo.ts';
+import { curtainWallTypes } from './wallCurtainPresets.ts';
 import { makeLevel } from './level.ts';
 import { ot } from './catalogoAberturasBase.ts';
 import { catalogoJanelas } from './catalogoJanelas.ts';
@@ -113,6 +114,8 @@ export function wallTypes(lang: Lang = 'pt'): WallType[] {
       L('substrate', 'mat_reboco', 0.015, true),
       L('finish2', 'mat_tinta', 0.002, true),
     ]),
+    // Parede cortina de fábrica (decisão 0056, §4.5): família 'curtain', no mesmo registro dos tipos padrão.
+    ...curtainWallTypes(lang),
   ];
 }
 

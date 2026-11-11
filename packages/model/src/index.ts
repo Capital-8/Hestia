@@ -7,6 +7,7 @@ export * from './membrane.ts';
 export * from './wallType.ts';
 export * from './wallCurtainTypes.ts';
 export * from './wallCurtain.ts';
+export * from './wallCurtainPresets.ts';
 export * from './curtainCommands.ts';
 export * from './queries.ts';
 export * from './semEsquadrias.ts';
