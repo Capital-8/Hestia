@@ -1056,7 +1056,7 @@ export class Editor {
   selectAllVisibleOfSelectedType(): boolean {
     this.setTool('select');
     const st = useUi.getState();
-    const hidden = visibilityOf(this.project, st).hidden;
+    const hidden = hiddenInActiveView(this.project, st);
     const result = st.view === 'section' && st.sectionId ? this.sectionOf(st.sectionId) : null;
     return transfer.sameTypeVisible(this.project, st.levelId, hidden, result) > 0;
   }

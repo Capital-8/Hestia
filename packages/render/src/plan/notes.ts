@@ -1,4 +1,4 @@
-import { angularDimensionGeometry, dimensionFormatStyle, dimensionPoints, dimensionStyleFor, dimensionValue, DIM_TEXT_MM, floorViewId, formatDimension, levelRoomSeparators, unitsOf, viewAnnotationsOf, viewProfileOf, type AreaPlan, type AreaPlanAnnotations, type Dimension, type DimensionStyle, type Id, type Project, type TextNote } from '@hestia/model';
+import { angularDimensionGeometry, dimensionFormatStyle, dimensionPoints, dimensionStyleFor, dimensionValue, DIM_TEXT_MM, floorViewId, formatDimension, levelRoomSeparators, unitsOf, viewAnnotationsOf, visibleInView, type AreaPlan, type AreaPlanAnnotations, type Dimension, type DimensionStyle, type Id, type Project, type TextNote } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 import type { Vec2 } from '@hestia/geom';
 import type { Viewport } from '../viewport.ts';
@@ -133,14 +133,10 @@ export function drawnAnnotations(p: Project, levelId: Id, plan?: AreaPlan, viewI
   const vid = viewId ?? planViewIdOf(p, levelId, { areaPlan: plan });
   const all: AreaPlanAnnotations = viewAnnotationsOf(p, vid);
   if (!plan) return all;
-  const prof = viewProfileOf(p, vid).layers;
-  return {
-    dimensions: prof.dimensions ? all.dimensions : [],
-    texts: prof.texts ? all.texts : [],
-    detailLines: prof.detail ? all.detailLines : [],
-    detailRegions: prof.detail ? all.detailRegions : [],
-    tags: prof.tags ? all.tags : [],
-  };
+  // Perfil da vista e categoria nos gráficos (etapas 2 e 3 da regra única); `revealing` deixa de fora os ocultos do
+  // usuário, que o desenho trata à parte (`hidden`, e o modo "revelar ocultos" os desenha de novo).
+  const ver = <T extends { id: Id }>(xs: T[]): T[] => xs.filter((x) => visibleInView(p, vid, x.id, { revealing: true }));
+  return { dimensions: ver(all.dimensions), texts: ver(all.texts), detailLines: ver(all.detailLines), detailRegions: ver(all.detailRegions), tags: ver(all.tags) };
 }
 
 export interface NoteOps {
