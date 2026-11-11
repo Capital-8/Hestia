@@ -3,7 +3,7 @@ import { stairCalcRuleOf, stairFinishOf } from '@hestia/model';
 import { numLang, t, type Lang } from './i18nMessages.ts';
 import type { ResolvedStair, ResolvedStairRiser } from './stairs.ts';
 import { DEFAULT_STAIR_NORMS, type StairNorms } from './stairNorms.ts';
-import { stairQuantities } from './stairQuantities.ts';
+import { stairRunQuantities } from './stairQuantities.ts';
 
 /** Aviso ou erro de uma escada. `componentIndex` (posição em `components`) quando o caso é de um lance ou patamar. */
 export interface StairIssueItem {
@@ -230,7 +230,7 @@ function runChecks(rs: ResolvedStair, norms: StairNorms, out: StairIssueItem[], 
   const num = numIn(lang);
   const h = rs.riserHeight;
   const calc = stairCalcRuleOf(rs.type);
-  const quant = stairQuantities(rs);
+  const runsQuant = stairRunQuantities(rs);
   for (const [ci, risers] of risersByRun(rs.risers)) {
     const width = Math.min(...risers.map((r) => polyLength(r.points)));
     if (width < rs.type.minRunWidth - EPS) {
@@ -246,7 +246,7 @@ function runChecks(rs: ResolvedStair, norms: StairNorms, out: StairIssueItem[], 
     }
     evenTreadCheck(rs, ci, risers, out, lang);
     winderTreadCheck(rs, ci, risers, norms, out, lang);
-    const run = quant.runs.find((q) => q.componentIndex === ci);
+    const run = runsQuant.find((q) => q.componentIndex === ci);
     if (risers.length >= 2 && run && run.treadCount > 0) {
       // Piso médio do quantitativo (área dos degraus ÷ largura × nº de degraus): o aviso e a tabela usam a mesma conta.
       // A soma das cordas entre pontos médios subestimava o caracol (0,393 contra 0,395).
