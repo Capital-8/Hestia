@@ -176,7 +176,7 @@ function entradaDoCaso(c: CasoFixture): EntradaCenaCortina {
   return {
     montantes: e.montantes.map((m) => ({ id: m.id, shape: m.profile.shape, width: m.profile.width, depth: m.profile.depth, offset: m.offset, materialId: `m${m.materialNum}` })),
     paineis: e.paineis.map((p) => ({ id: p.id, kind: p.kind, thickness: p.thickness, bite: p.bite, offset: p.offset, materialId: `m${p.materialNum}` })),
-    tipos: [{ id: 't', depth: e.tipo.depth, u: e.tipo.u, v: e.tipo.v, mullions: { corner: null, ...e.tipo.mullions }, defaultPanelTypeId: e.tipo.defaultPanelTypeId, ...(e.tipo.minCell !== undefined ? { minCell: e.tipo.minCell } : {}) }],
+    tipos: [{ id: 't', depth: e.tipo.depth, u: e.tipo.u, v: e.tipo.v, mullions: { corner: null, ...(e.tipo.mullions as object) } as never, defaultPanelTypeId: e.tipo.defaultPanelTypeId, ...(e.tipo.minCell !== undefined ? { minCell: e.tipo.minCell } : {}) }],
     cortinas: [
       {
         id: 'c',
