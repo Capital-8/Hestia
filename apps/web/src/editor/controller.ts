@@ -1056,7 +1056,8 @@ export class Editor {
   selectAllVisibleOfSelectedType(): boolean {
     this.setTool('select');
     const st = useUi.getState();
-    const hidden = hiddenInActiveView(this.project, st);
+    // Planta: a regra única completa (alcance incluído); corte, elevação e 3D seguem o oculto do usuário.
+    const hidden = st.view === 'plan' ? hiddenInActiveView(this.project, st) : visibilityOf(this.project, st).hidden;
     const result = st.view === 'section' && st.sectionId ? this.sectionOf(st.sectionId) : null;
     return transfer.sameTypeVisible(this.project, st.levelId, hidden, result) > 0;
   }
