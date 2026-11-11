@@ -1,5 +1,5 @@
 ﻿import { create } from 'zustand';
-import { floorViewId, type Id, type LocationLine, type OpeningDimRef, type WallDimRef } from '@hestia/model';
+import { floorViewId, type GraphicsCategory, type Id, type LocationLine, type OpeningDimRef, type Project, type WallDimRef } from '@hestia/model';
 import type { Vec2 } from '@hestia/geom';
 import type { Backend } from '@hestia/render';
 import { DEFAULT_DISJOIN, DEFAULT_RAMP_OPTIONS, DEFAULT_SNAP, DEFAULT_STAIR_RUN_OPTIONS, type SnapOptions, type ToolId, type ToolOptions } from '@hestia/tools';
@@ -14,6 +14,20 @@ import type { ProgressoImportacao } from './ifcImport.ts';
 import { fmtNum, useI18n, type TextLike } from './i18n.ts';
 
 export type ViewKind = 'plan' | '3d' | 'section' | 'sheet';
+
+/**
+ * Aviso de criação em categoria oculta (PLANO-MESTRE 4.5: elemento criado numa vista que oculta a categoria é criado e a
+ * interface avisa). Mora na barra de status com as ações "Mostrar categoria nesta vista" e "Desfazer". Vale só para o
+ * `projeto` exato em que foi gerado: qualquer outra mudança do projeto (inclusive o desfazer) o apaga.
+ */
+export interface AvisoOculto {
+  /** Vista de planta em que o elemento foi criado (a ação "Mostrar categoria" age nela e só nela). */
+  viewId: Id;
+  /** Categorias que a vista oculta entre os itens criados. */
+  categories: GraphicsCategory[];
+  /** Projeto logo depois da criação: o aviso só vale enquanto o projeto for este. */
+  projeto: Project;
+}
 export type ThemePref = 'system' | 'light' | 'dark';
 /**
  * Tema ao abrir o app: claro, mesmo que o sistema esteja no escuro (o app não herda a preferência do Windows).
@@ -63,6 +77,8 @@ export interface UiState {
   dialogArg: string | null;
   /** Parede em conflito destacada em amarelo na vista (decisão 0044); null = nenhuma. */
   avisoParede: Id | null;
+  /** Criou algo numa categoria oculta da vista: a barra de status oferece Mostrar categoria e Desfazer; null = nenhum. */
+  avisoOculto: AvisoOculto | null;
   showGrid: boolean;
   /** Intervalo da grade de pontos (m); 0 = automático pelo zoom. Vale para o desenho e para a captura. */
   gridStep: number;
@@ -354,6 +370,7 @@ export const useUi = create<UiState>(() => ({
   dialog: null,
   dialogArg: null,
   avisoParede: null,
+  avisoOculto: null,
   // Os pontos e a captura por grade são uma chave só: abrem como a captura foi deixada (`setSnap({ grid })` mantém os dois juntos).
   showGrid: loadSnap().grid,
   gridStep: loadGridStep(),

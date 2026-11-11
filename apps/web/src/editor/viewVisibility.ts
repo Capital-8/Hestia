@@ -192,6 +192,21 @@ export function unhideInView(elements: readonly Id[], categories: readonly Graph
   useUi.setState({ status: { key: 'eds_msg_unhidden_done' } });
 }
 
+/**
+ * Tira as categorias do ocultar/isolar temporário (sessão) da vista ativa; o que está permanente não é tocado. Quem mostra
+ * categoria "nesta vista" usa isto junto com o comando de vista (aviso de criação em categoria oculta).
+ */
+export function liberarCategoriasTemporarias(categories: readonly GraphicsCategory[]): void {
+  if (categories.length === 0) return;
+  const st = useUi.getState();
+  const key = visibilityKeyOf(st);
+  const temp = key ? st.viewTemp[key] : undefined;
+  if (!key || !temp) return;
+  const remover = { categories: [...categories] };
+  if (temp.hidden) setTemp({ hidden: removeHidden(temp.hidden, remover) });
+  if (temp.isolated) setTemp({ isolated: mergeHidden(temp.isolated, remover) });
+}
+
 /** Limpa toda a ocultação permanente da vista ativa. */
 export function clearViewHidden(): void {
   const st = useUi.getState();

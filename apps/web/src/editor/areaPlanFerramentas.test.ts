@@ -33,17 +33,14 @@ function iniciar(): { planId: string; s: ProjectStore } {
 describe('ferramentas liberadas na planta de área', () => {
   beforeEach(() => { useUi.setState({ options: DEFAULT_OPTIONS }); });
 
-  it('ferramentas de anotação e de área entram; as de modelo ficam de fora', () => {
+  it('ferramentas de anotação, de área e de modelo entram (Fase 3: nada é bloqueado)', () => {
     iniciar();
-    const tools: ToolId[] = ['room', 'dimension', 'text', 'tag', 'roomsep', 'detailLine', 'filledRegion', 'measure'];
+    const tools: ToolId[] = ['room', 'dimension', 'text', 'tag', 'roomsep', 'detailLine', 'filledRegion', 'measure', 'wall', 'door', 'window', 'stair', 'ramp'];
     for (const t of tools) {
-      editor.setTool(t);
-      expect(useUi.getState().tool, t).toBe(t);
-    }
-    for (const t of ['wall', 'door', 'window'] as ToolId[]) {
       editor.setTool('select');
       editor.setTool(t);
-      expect(useUi.getState().tool, t).toBe('select');
+      expect(useUi.getState().tool, t).toBe(t);
+      expect(useUi.getState().status, t).not.toEqual({ key: 'eds_msg_tool_not_in_view' });
     }
   });
 

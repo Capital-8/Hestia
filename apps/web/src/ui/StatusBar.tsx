@@ -4,6 +4,7 @@ import { useUi } from '../editor/state.ts';
 import { useAtalhos } from '../editor/shortcutConfig.ts';
 import { resolveText, useT, type Dict } from '../editor/i18n.ts';
 import { usePerimeter } from '../editor/perimeter.ts';
+import { AvisoOculto } from './AvisoOculto.tsx';
 import { Icon } from './Icon.tsx';
 import { IssuesButton } from './IssuesButton.tsx';
 import { SnapButton } from './SnapButton.tsx';
@@ -42,6 +43,7 @@ export function StatusBar(): ReactElement {
   return (
     <footer className="statusbar" role="status">
       <span className="msg" title={statusText}>{statusText}</span>
+      <AvisoOculto />
       {pendente ? <span className="mono" aria-label={t('shc_sb_shortcut_pending')}>{pendente}…</span> : null}
       {view === 'plan' && cursor ? <span className="mono sb-coords">x {formatQuantity(units, 'length', cursor.x, { lang })}  y {formatQuantity(units, 'length', cursor.y, { lang })}</span> : null}
       {/* Corte/elevação trabalham em (t,z): t é a distância ao longo da linha e z a cota. Não são x/y de planta. */}

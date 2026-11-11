@@ -21,9 +21,9 @@ export interface PlanViewKindInfo {
 }
 
 /**
- * Ferramentas da planta de área HOJE: cópia de `AREA_PLAN_TOOLS` (apps/web/src/editor/controller.ts:65). Anotação e
- * ferramentas de ambiente; o resto (modelo) fica bloqueado. Na Fase 3 a planta de área passa a aceitar TODAS
- * (`{ mode: 'all' }`) e esta lista some junto com `AREA_PLAN_TOOLS`.
+ * Lista antiga das ferramentas da planta de área (cópia de `AREA_PLAN_TOOLS`, apps/web/src/editor/controller.ts).
+ * Desde a raia J da Fase 3 a tabela não a usa mais: a planta de área aceita TODAS (`{ mode: 'all' }`). Fica exportada,
+ * sem uso na tabela, até a raia K apagá-la junto com `AREA_PLAN_TOOLS`.
  */
 export const AREA_VIEW_TOOLS: readonly string[] = ['select', 'measure', 'dimension', 'text', 'tag', 'detailLine', 'filledRegion', 'room', 'roomsep'];
 
@@ -40,7 +40,7 @@ const FLOOR_LIKE = { direction: 'down', defaultRange: DEFAULT_VIEW_RANGE, defaul
 export const PLAN_VIEW_KINDS: Record<PlanViewKind, PlanViewKindInfo> = {
   floor: { ...FLOOR_LIKE, tools: { mode: 'all' } },
   roof: { ...FLOOR_LIKE, tools: { mode: 'all' } },
-  area: { direction: 'down', defaultRange: DEFAULT_VIEW_RANGE, defaultLayers: areaLayersOf(DEFAULT_AREA_GRAPHICS), tools: { mode: 'only', ids: AREA_VIEW_TOOLS } },
+  area: { direction: 'down', defaultRange: DEFAULT_VIEW_RANGE, defaultLayers: areaLayersOf(DEFAULT_AREA_GRAPHICS), tools: { mode: 'all' } },
   // Forro: rascunho da Fase 4 (corte 2,30 m, para cima; sem portas, pisos e mobiliário). Sem comportamento ainda.
   ceiling: {
     direction: 'up',
