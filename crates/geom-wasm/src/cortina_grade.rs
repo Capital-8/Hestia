@@ -257,6 +257,7 @@ impl<'a> IndiceGrades<'a> {
 ///   centro, sem aparo; as bordas contam). `linha` é o índice GLOBAL: U = 0 a nu (0 = borda início, nu = borda fim), V = nu+1 a nu+1+nv (nu+1 =
 ///   borda base, nu+1+nv = borda topo); `k` corre de baixo para cima nas verticais e do início ao fim nas horizontais; `removido` é 0 até a fase 2;
 ///   `montante_tipo_num` é `ID_AUSENTE` quando o papel não tem montante.
+///
 /// Ordem: cortina, U antes de V, índice, depois `i` e `j`. Valores na grade de 1 µm. Cortina de fora (arco, degenerada) não sai.
 pub fn consulta_cortina_grade(cena: &crate::cena::Cena, nivel: u32) -> Result<Vec<crate::consultas::Saida>, u32> {
     use crate::consultas::Saida;
@@ -267,9 +268,9 @@ pub fn consulta_cortina_grade(cena: &crate::cena::Cena, nivel: u32) -> Result<Ve
     for c in &cortinas {
         let Some(g) = &c.g else { continue };
         for (eixo, arestas, origem) in [(EIXO_U, &g.us, g.origem_u), (EIXO_V, &g.vs, g.origem_v)] {
-            for k in 1..arestas.len() - 1 {
+            for (k, &pos) in arestas.iter().enumerate().take(arestas.len() - 1).skip(1) {
                 linhas.extend_from_slice(&[c.id, eixo as u32, k as u32, origem, 0]);
-                linhas_pos.push(na_grade(arestas[k]));
+                linhas_pos.push(na_grade(pos));
             }
         }
         let nv = g.nv() as u32;

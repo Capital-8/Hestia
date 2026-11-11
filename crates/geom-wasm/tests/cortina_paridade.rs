@@ -301,7 +301,6 @@ fn saida_do_caso(e: &Value) -> Value {
 // ───────────── casos ─────────────
 
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::too_many_arguments)]
 fn caso(id: &str, descricao: &str, comprimento: f64, altura: f64, u_: Value, v_: Value, mullions: Value, painel: &str) -> Map<String, Value> {
     let mut m = Map::new();
     m.insert("id".into(), json!(id));
@@ -378,6 +377,7 @@ fn resto(mut a: Value, r: f64) -> Value {
     a
 }
 
+#[allow(clippy::vec_init_then_push)]
 fn casos_curados() -> Vec<Map<String, Value>> {
     let ret = || montantes_todos("mul_ret_50x100", "vertical");
     let mut v = Vec::new();
@@ -622,4 +622,41 @@ fn casos_sao_deterministicos_e_cobrem_o_que_o_adr_pede() {
     // A maioria dos aleatórios passa (os que falham com ENTRADA ou LIMITE são raros).
     let erros = casos.iter().filter(|c| c["saida"].get("erro").is_some()).count();
     assert!(erros <= 12, "{erros} casos com erro");
+}
+
+/// Confere o Rust com o `casos.json` da referência TS (`cortinaRef/casos.json`), se `HESTIA_CASOS_REF` apontar para ele. Lista as divergências por caso e
+/// campo; falha se houver alguma. Sem a variável, não faz nada.
+#[test]
+fn confere_com_o_casos_json_da_referencia_ts() {
+    let Ok(caminho) = std::env::var("HESTIA_CASOS_REF") else { return };
+    let texto = std::fs::read_to_string(&caminho).unwrap_or_else(|_| panic!("não li {caminho}"));
+    let ref_: Value = serde_json::from_str(&texto).expect("JSON da referência");
+    let mut diverge: Vec<String> = Vec::new();
+    let casos = ref_["casos"].as_array().expect("casos");
+    let igual = |a: &Value, b: &Value| -> bool {
+        match (a.as_array(), b.as_array()) {
+            (Some(x), Some(y)) => x.len() == y.len() && x.iter().zip(y).all(|(p, q)| match (p.as_f64(), q.as_f64()) {
+                (Some(m), Some(n)) => (m - n).abs() <= 1.0001e-6,
+                _ => p == q,
+            }),
+            _ => a == b,
+        }
+    };
+    for c in casos {
+        let nome = c["nome"].as_str().unwrap_or("?");
+        let s = saida_do_caso(&c["entrada"]);
+        for (grupo, campos) in [
+            ("cortina_grade", &["linhas", "linhas_pos", "celulas", "celulas_ret", "segmentos", "segmentos_ext"][..]),
+            ("cortina_pecas", &["montantes", "montantes_geo", "paineis", "paineis_geo"][..]),
+            ("quant_cortina", &["linhas", "valores"][..]),
+            ("cortina_avisos", &["avisos", "valores"][..]),
+        ] {
+            for campo in campos {
+                if !igual(&s[grupo][*campo], &c["esperado"][grupo][*campo]) {
+                    diverge.push(format!("{nome} :: {grupo}.{campo}"));
+                }
+            }
+        }
+    }
+    assert!(diverge.is_empty(), "{} divergências em {} casos:\n{}", diverge.len(), casos.len(), diverge.join("\n"));
 }
