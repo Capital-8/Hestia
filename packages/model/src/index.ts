@@ -92,3 +92,4 @@ export { migrateVistasV23 } from './migrateVistas.ts';
 export * from './planViewIdentificacao.ts';
 export * from './testVistas.ts';
 export * from './testVistasArea.ts';
+export * from './planViewVisibility.ts';
