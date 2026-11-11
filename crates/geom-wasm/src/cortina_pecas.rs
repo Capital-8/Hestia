@@ -12,9 +12,11 @@
 
 use crate::cena::Cena;
 use crate::cortina_grade::{arestas, linhas_do_eixo, IndiceGrades};
+use crate::cortina_remap::{fundir, linhas_finais, mapear_celulas, mapear_segmentos, Alvo, CelSob, Escolha, ExtLinha, LinhaFinal, Orfao, SegRemovido, SobLinha};
 use crate::cortina_tipos::*;
 use crate::esquema::{
-    AVISO_CORTINA_ARCO_NAO_SUPORTADO, AVISO_CORTINA_CELULA_PEQUENA, AVISO_CORTINA_MONTANTE_SOBREPOSTO, AVISO_CORTINA_PROFUNDIDADE_MENOR_QUE_PERFIL,
+    AVISO_CORTINA_ARCO_NAO_SUPORTADO, AVISO_CORTINA_CELULA_NAO_RETANGULAR, AVISO_CORTINA_CELULA_PEQUENA, AVISO_CORTINA_MONTANTE_SOBREPOSTO,
+    AVISO_CORTINA_OVERRIDE_ORFAO_CELULA, AVISO_CORTINA_OVERRIDE_ORFAO_LINHA, AVISO_CORTINA_OVERRIDE_ORFAO_SEGMENTO, AVISO_CORTINA_PROFUNDIDADE_MENOR_QUE_PERFIL,
     ENTRADA, ID_AUSENTE, LIMITE, NIVEL_TODOS,
 };
 use crate::secoes_cortina::SecoesCortina;
@@ -80,9 +82,11 @@ pub struct Celula {
     pub s1: f64,
     pub z0: f64,
     pub z1: f64,
-    /// Tipo de painel da célula (sempre há o padrão).
+    /// Tipo de painel da célula (sempre há o padrão; é o da região).
     pub painel: u32,
     pub flags: u32,
+    /// Célula canônica da região a que a célula pertence (`i · nv + j` da de menor `(j, i)`); a célula é a própria região quando não há fusão.
+    pub regiao: u32,
 }
 
 /// Segmento de uma linha, entre duas linhas que a cruzam (ou uma borda), nominal (centro a centro, sem aparo). `linha` é a aresta (0 e `n` são as bordas).
@@ -94,8 +98,10 @@ pub struct Segmento {
     pub de: f64,
     pub ate: f64,
     pub papel: u32,
-    /// `ID_AUSENTE` = sem montante nesse papel.
+    /// `ID_AUSENTE` = sem montante nesse papel (também quando o segmento está inativo).
     pub montante: u32,
+    /// Inativo: removido pelo usuário (`removedSegments`) ou interno a uma região fundida. Não gera peça.
+    pub removido: bool,
 }
 
 /// Peça de montante: um prisma do perfil, uma por segmento. `eixo` `EIXO_U`: vertical na linha de centro `pos` (s), de `de` a `ate` (z).
@@ -216,9 +222,9 @@ pub struct Geom {
     /// Centro de cada montante por aresta: o interior fica na linha; o de borda fica embutido (a meia largura para dentro).
     pub cu: Vec<f64>,
     pub cv: Vec<f64>,
-    /// `ORIGEM_GERADA` ou `ORIGEM_MANUAL`.
-    pub origem_u: u32,
-    pub origem_v: u32,
+    /// Origem de cada aresta (`ORIGEM_GERADA`, `ORIGEM_EXTRA` ou `ORIGEM_MANUAL`); as bordas valem 0.
+    pub origem_u: Vec<u32>,
+    pub origem_v: Vec<u32>,
     pub prioridade: u8,
     pub min_cell: f64,
     /// Montante de cada aresta e o seu papel.
@@ -338,12 +344,44 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
     let ev = grades.efetivo(c.tipo, id, EIXO_V)?;
     let lu = linhas_do_eixo(l, &eu)?;
     let lv = linhas_do_eixo(h, &ev)?;
-    let us = arestas(l, &lu.linhas);
-    let vs = arestas(h, &lv.linhas);
+
+    // Sobrescritas gravadas desta cortina (fase 2), em ordem de id. Cada uma é remapeada contra a grade NOVA (cortina_remap).
+    let sob_linhas = |eixo: u8| -> Vec<SobLinha> {
+        sec.linhas_sobrescritas
+            .iter()
+            .filter(|(_, s)| s.cortina == id && s.eixo == eixo)
+            .map(|(&k, s)| SobLinha { id: k, linha: s.linha, pos_norm: s.pos_norm, n: s.n, travada: s.travada, pos: s.pos, comp: s.comp, modo: s.modo, montante: s.montante })
+            .collect()
+    };
+    let ext_linhas = |eixo: u8| -> Vec<ExtLinha> {
+        sec.extras.iter().filter(|(_, e)| e.cortina == id && e.eixo == eixo).map(|(&k, e)| ExtLinha { id: k, pos: e.pos, travada: e.travada, comp: e.comp, montante: e.montante }).collect()
+    };
+    let (manual_u, manual_v) = (eu.modo == MODO_MANUAL, ev.modo == MODO_MANUAL);
+    let fin_u = linhas_finais(EIXO_U, l, &lu.linhas, manual_u, &sob_linhas(EIXO_U), &ext_linhas(EIXO_U));
+    let fin_v = linhas_finais(EIXO_V, h, &lv.linhas, manual_v, &sob_linhas(EIXO_V), &ext_linhas(EIXO_V));
+    let pos_u: Vec<f64> = fin_u.linhas.iter().map(|f| f.pos).collect();
+    let pos_v: Vec<f64> = fin_v.linhas.iter().map(|f| f.pos).collect();
+    let us = arestas(l, &pos_u);
+    let vs = arestas(h, &pos_v);
     let (nu, nv) = (us.len() - 1, vs.len() - 1);
     if nu.saturating_mul(nv) > LIMITE_CELULAS {
         return Err(LIMITE);
     }
+    let cel_sob: Vec<CelSob> = sec
+        .celulas_sobrescritas
+        .iter()
+        .filter(|(_, x)| x.cortina == id)
+        .map(|(&k, x)| CelSob { id: k, i: x.i, j: x.j, s: x.s, z: x.z, nu: x.nu, nv: x.nv, painel: x.painel })
+        .collect();
+    let celulas_fin = mapear_celulas(&us, &vs, &cel_sob);
+    let seg_ref: Vec<SegRemovido> = sec
+        .segmentos_removidos
+        .iter()
+        .filter(|(_, s)| s.cortina == id)
+        .map(|(&k, s)| SegRemovido { id: k, eixo: s.eixo, extra: s.extra, linha: s.linha, pos_norm: s.pos_norm, n: s.n, k: s.k, nk: s.nk, mid: s.mid })
+        .collect();
+    let (pedidos, orf_seg) = mapear_segmentos(&seg_ref, [fin_u.linhas.as_slice(), fin_v.linhas.as_slice()], [lu.linhas.as_slice(), lv.linhas.as_slice()], [us.as_slice(), vs.as_slice()]);
+    let fus = fundir(nu, nv, &pedidos);
 
     // Quadro: o plano central e o lado de fora (mesma conta de `buildFrame`: sExt = sinal · extOffset, sInt = sExt − sinal · profundidade).
     let ext = match c.loc {
@@ -359,9 +397,31 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
     let (m_iv, m_ih, m_bi, m_bf, m_bb, m_bt) = (m(0)?, m(1)?, m(2)?, m(3)?, m(4)?, m(5)?);
     let painel_padrao = painel_de(sec, if c.painel_padrao != ID_AUSENTE { c.painel_padrao } else { t.painel_padrao })?;
     let min_cell = if t.celula_minima.is_nan() { CELULA_MINIMA_PADRAO } else { t.celula_minima };
-    let mont_u: Vec<Option<Montante>> = (0..=nu).map(|i| if i == 0 { m_bi } else if i == nu { m_bf } else { m_iv }).collect();
+    // Montante de cada aresta: a borda é do papel; a linha interior é a final, com o montante do eixo, o seu próprio ou nenhum.
+    let escolhido = |f: &LinhaFinal, padrao: Option<Montante>| -> Result<Option<Montante>, u32> {
+        match f.montante {
+            Escolha::Padrao => Ok(padrao),
+            Escolha::Sem => Ok(None),
+            Escolha::Tipo(x) => montante_de(sec, x),
+        }
+    };
+    let mut mont_u: Vec<Option<Montante>> = vec![None; nu + 1];
+    let mut origem_u: Vec<u32> = vec![0; nu + 1];
+    mont_u[0] = m_bi;
+    mont_u[nu] = m_bf;
+    for (k, f) in fin_u.linhas.iter().enumerate() {
+        mont_u[k + 1] = escolhido(f, m_iv)?;
+        origem_u[k + 1] = f.origem;
+    }
+    let mut mont_v: Vec<Option<Montante>> = vec![None; nv + 1];
+    let mut origem_v: Vec<u32> = vec![0; nv + 1];
+    mont_v[0] = m_bb;
+    mont_v[nv] = m_bt;
+    for (k, f) in fin_v.linhas.iter().enumerate() {
+        mont_v[k + 1] = escolhido(f, m_ih)?;
+        origem_v[k + 1] = f.origem;
+    }
     let papel_u: Vec<u32> = (0..=nu).map(|i| if i == 0 { PAPEL_BORDA_INI } else if i == nu { PAPEL_BORDA_FIM } else { PAPEL_INT_V }).collect();
-    let mont_v: Vec<Option<Montante>> = (0..=nv).map(|j| if j == 0 { m_bb } else if j == nv { m_bt } else { m_ih }).collect();
     let papel_v: Vec<u32> = (0..=nv).map(|j| if j == 0 { PAPEL_BORDA_BASE } else if j == nv { PAPEL_BORDA_TOPO } else { PAPEL_INT_H }).collect();
     // Centros: os montantes de borda ficam embutidos em [0, L] x [0, H]; os interiores, sobre a linha.
     let centros = |arestas: &[f64], mont: &[Option<Montante>], comprimento: f64| -> Vec<f64> {
@@ -375,7 +435,6 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
             .collect()
     };
     let (cu, cv) = (centros(&us, &mont_u, l), centros(&vs, &mont_v, h));
-    let origem = |e: &crate::cortina_tipos::EixoEfetivo| if e.modo == MODO_MANUAL { ORIGEM_MANUAL } else { ORIGEM_GERADA };
 
     let mut g = Geom {
         l,
@@ -391,8 +450,8 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
         vs,
         cu,
         cv,
-        origem_u: origem(&eu),
-        origem_v: origem(&ev),
+        origem_u,
+        origem_v,
         prioridade: t.prioridade,
         min_cell,
         mont_u,
@@ -406,51 +465,103 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
         paineis: Vec::new(),
     };
 
-    // Segmentos nominais: cada linha de U corre na vertical (um por fileira) e cada linha de V na horizontal (um por coluna).
+    // Segmentos nominais: cada linha de U corre na vertical (um por fileira) e cada linha de V na horizontal (um por coluna). Um segmento fica INATIVO
+    // (sem montante) quando foi removido ou quando as duas células vizinhas são da mesma região fundida: dentro de um painel não há perfil.
+    let regiao_de = &fus.regiao_de;
     for i in 0..=nu {
         for k in 0..nv {
-            g.segmentos.push(Segmento { eixo: EIXO_U, linha: i as u32, k: k as u32, de: g.vs[k], ate: g.vs[k + 1], papel: g.papel_u[i], montante: g.mont_u[i].map(|x| x.tipo).unwrap_or(ID_AUSENTE) });
+            let ina = i > 0 && i < nu && regiao_de[(i - 1) * nv + k] == regiao_de[i * nv + k];
+            let montante = if ina { None } else { g.mont_u[i] };
+            g.segmentos.push(Segmento {
+                eixo: EIXO_U,
+                linha: i as u32,
+                k: k as u32,
+                de: g.vs[k],
+                ate: g.vs[k + 1],
+                papel: g.papel_u[i],
+                montante: montante.map(|x| x.tipo).unwrap_or(ID_AUSENTE),
+                removido: ina,
+            });
         }
     }
     for j in 0..=nv {
         for k in 0..nu {
-            g.segmentos.push(Segmento { eixo: EIXO_V, linha: j as u32, k: k as u32, de: g.us[k], ate: g.us[k + 1], papel: g.papel_v[j], montante: g.mont_v[j].map(|x| x.tipo).unwrap_or(ID_AUSENTE) });
+            let ina = j > 0 && j < nv && regiao_de[k * nv + j - 1] == regiao_de[k * nv + j];
+            let montante = if ina { None } else { g.mont_v[j] };
+            g.segmentos.push(Segmento {
+                eixo: EIXO_V,
+                linha: j as u32,
+                k: k as u32,
+                de: g.us[k],
+                ate: g.us[k + 1],
+                papel: g.papel_v[j],
+                montante: montante.map(|x| x.tipo).unwrap_or(ID_AUSENTE),
+                removido: ina,
+            });
         }
     }
 
-    // Células e painéis (um por célula, mesmo sem área livre).
-    for i in 0..nu {
-        for j in 0..nv {
-            let (fs0, fs1) = (g.cu[i] + g.largura_u(i) / 2.0, g.cu[i + 1] - g.largura_u(i + 1) / 2.0);
-            let (fz0, fz1) = (g.cv[j] + g.largura_v(j) / 2.0, g.cv[j + 1] - g.largura_v(j + 1) / 2.0);
-            let lados = [g.mont_u[i].is_some(), g.mont_u[i + 1].is_some(), g.mont_v[j].is_some(), g.mont_v[j + 1].is_some()];
-            let painel = PainelPeca { i: i as u32, j: j as u32, p: painel_padrao, s0: fs0, s1: fs1, z0: fz0, z1: fz1, lados };
-            let menor = painel.largura_livre().min(painel.altura_livre());
-            let mut flags = 0;
-            if menor < min_cell - EPS_CONTAGEM {
-                flags |= CELULA_PEQUENA;
-                let p = g.mundo((g.us[i] + g.us[i + 1]) / 2.0, 0.0, (g.vs[j] + g.vs[j + 1]) / 2.0);
-                r.avisos.push(AvisoC { codigo: AVISO_CORTINA_CELULA_PEQUENA, i: i as u32, j: j as u32, medido: menor, limite: min_cell, p });
+    // Painel por REGIÃO: a sobrescrita vale para a região inteira (a da célula de menor (j, i) que tenha uma). Região de uma célula = a célula.
+    let mut pan_cel: Vec<Option<u32>> = vec![None; nu * nv];
+    for (i, j, o) in &celulas_fin.adotadas {
+        pan_cel[i * nv + j] = Some(o.painel);
+    }
+    for reg in &fus.regioes {
+        let mut sobre = None;
+        for j in reg.j0..=reg.j1 {
+            for i in reg.i0..=reg.i1 {
+                if sobre.is_none() {
+                    sobre = pan_cel[i * nv + j];
+                }
             }
-            g.paineis.push(painel);
-            g.celulas.push(Celula { i: i as u32, j: j as u32, s0: g.us[i], s1: g.us[i + 1], z0: g.vs[j], z1: g.vs[j + 1], painel: painel_padrao.tipo, flags });
         }
+        let painel = match sobre {
+            Some(pid) => painel_de(sec, pid)?,
+            None => g.painel_padrao,
+        };
+        let (fs0, fs1) = (g.cu[reg.i0] + g.largura_u(reg.i0) / 2.0, g.cu[reg.i1 + 1] - g.largura_u(reg.i1 + 1) / 2.0);
+        let (fz0, fz1) = (g.cv[reg.j0] + g.largura_v(reg.j0) / 2.0, g.cv[reg.j1 + 1] - g.largura_v(reg.j1 + 1) / 2.0);
+        let lados = [g.mont_u[reg.i0].is_some(), g.mont_u[reg.i1 + 1].is_some(), g.mont_v[reg.j0].is_some(), g.mont_v[reg.j1 + 1].is_some()];
+        let p = PainelPeca { i: reg.canon.0 as u32, j: reg.canon.1 as u32, p: painel, s0: fs0, s1: fs1, z0: fz0, z1: fz1, lados };
+        let menor = p.largura_livre().min(p.altura_livre());
+        let mut flags = 0;
+        if menor < min_cell - EPS_CONTAGEM {
+            flags |= CELULA_PEQUENA;
+            let (meio_s, meio_z) = ((g.us[reg.i0] + g.us[reg.i1 + 1]) / 2.0, (g.vs[reg.j0] + g.vs[reg.j1 + 1]) / 2.0);
+            let q = g.mundo(meio_s, 0.0, meio_z);
+            r.avisos.push(AvisoC { codigo: AVISO_CORTINA_CELULA_PEQUENA, i: reg.canon.0 as u32, j: reg.canon.1 as u32, medido: menor, limite: min_cell, p: q });
+        }
+        let canonica = (reg.canon.0 * nv + reg.canon.1) as u32;
+        for j in reg.j0..=reg.j1 {
+            for i in reg.i0..=reg.i1 {
+                g.celulas.push(Celula { i: i as u32, j: j as u32, s0: g.us[i], s1: g.us[i + 1], z0: g.vs[j], z1: g.vs[j + 1], painel: painel.tipo, flags, regiao: canonica });
+            }
+        }
+        g.paineis.push(p);
     }
+    g.celulas.sort_by_key(|x| (x.i, x.j));
 
-    // Montantes por segmento. O contínuo corre de linha a linha (centro a centro); o quebrado para na face do contínuo.
+    // Montantes por segmento. O contínuo corre de linha a linha (centro a centro); o quebrado para na face do contínuo. Segmento inativo não tem peça.
     let vertical_continua = t.prioridade == PRIORIDADE_VERTICAL;
     for i in 0..=nu {
         let Some(mt) = g.mont_u[i] else { continue };
         for k in 0..nv {
+            if g.segmentos[i * nv + k].removido {
+                continue;
+            }
             let (de, ate) = if vertical_continua { (g.vs[k], g.vs[k + 1]) } else { (g.cv[k] + g.largura_v(k) / 2.0, g.cv[k + 1] - g.largura_v(k + 1) / 2.0) };
             if ate - de > TOL_POS {
                 g.pecas.push(PecaMont { eixo: EIXO_U, linha: i as u32, k: k as u32, papel: g.papel_u[i], m: mt, pos: g.cu[i], de, ate, continuo: vertical_continua });
             }
         }
     }
+    let base_v = (nu + 1) * nv;
     for j in 0..=nv {
         let Some(mt) = g.mont_v[j] else { continue };
         for k in 0..nu {
+            if g.segmentos[base_v + j * nu + k].removido {
+                continue;
+            }
             let (de, ate) = if !vertical_continua { (g.us[k], g.us[k + 1]) } else { (g.cu[k] + g.largura_u(k) / 2.0, g.cu[k + 1] - g.largura_u(k + 1) / 2.0) };
             if ate - de > TOL_POS {
                 g.pecas.push(PecaMont { eixo: EIXO_V, linha: j as u32, k: k as u32, papel: g.papel_v[j], m: mt, pos: g.cv[j], de, ate, continuo: !vertical_continua });
@@ -478,6 +589,15 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
             r.avisos.push(AvisoC { codigo: a.codigo, i, j, medido: a.medido, limite: a.limite, p });
         }
     }
+    // Fase 2: órfãs (célula, linha e segmento) e remoções recusadas por região não retangular.
+    let orfaos = fin_u.orfaos.iter().chain(fin_v.orfaos.iter()).chain(celulas_fin.orfaos.iter()).chain(orf_seg.iter());
+    for o in orfaos {
+        r.avisos.push(aviso_orfao(&g, o));
+    }
+    for rc in &fus.recusados {
+        let (cs, cz) = ((g.us[rc.i] + g.us[rc.i + 1]) / 2.0, (g.vs[rc.j] + g.vs[rc.j + 1]) / 2.0);
+        r.avisos.push(AvisoC { codigo: AVISO_CORTINA_CELULA_NAO_RETANGULAR, i: rc.i as u32, j: rc.j as u32, medido: rc.medido, limite: rc.limite, p: g.mundo(cs, 0.0, cz) });
+    }
     // Perfil mais fundo que o sistema: um aviso por tipo de montante usado; `i` leva o `id_num` do tipo.
     let mut fundos: Vec<Montante> = Vec::new();
     for mt in g.mont_u.iter().chain(g.mont_v.iter()).flatten() {
@@ -491,6 +611,19 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
     r.avisos.sort_by(|a, b| a.codigo.cmp(&b.codigo).then(a.i.cmp(&b.i)).then(a.j.cmp(&b.j)).then(a.medido.total_cmp(&b.medido)));
     r.g = Some(g);
     Ok(r)
+}
+
+/// Aviso de uma sobrescrita órfã (fase 2, §4.4 passo 5). A posição (`medido` = s, `limite` = z, em m) é a aproximada, e `p` o ponto no mundo.
+fn aviso_orfao(g: &Geom, o: &Orfao) -> AvisoC {
+    let p = g.mundo(o.s, 0.0, o.z);
+    match o.alvo {
+        Alvo::Celula { i, j } => AvisoC { codigo: AVISO_CORTINA_OVERRIDE_ORFAO_CELULA, i, j, medido: o.s, limite: o.z, p },
+        Alvo::Linha { eixo, indice } => {
+            let (i, j) = if eixo == EIXO_U { (indice, ID_AUSENTE) } else { (ID_AUSENTE, indice) };
+            AvisoC { codigo: AVISO_CORTINA_OVERRIDE_ORFAO_LINHA, i, j, medido: o.s, limite: o.z, p }
+        }
+        Alvo::Segmento { linha, k, .. } => AvisoC { codigo: AVISO_CORTINA_OVERRIDE_ORFAO_SEGMENTO, i: linha, j: k, medido: o.s, limite: o.z, p },
+    }
 }
 
 /// Tabela de PARÂMETROS das peças (o equivalente de `cortinaRef/pecas.ts`), no formato de `cortina_pecas` da referência TS, para a paridade comparar as
@@ -643,7 +776,7 @@ pub(crate) mod testes {
         assert_eq!(g.segmentos.len(), 5 * 3 + 4 * 4);
         assert_eq!(g.segmentos.iter().filter(|s| s.eixo == EIXO_U && s.papel == PAPEL_INT_V).count(), 3 * 3);
         assert_eq!(g.segmentos.iter().filter(|s| s.papel == PAPEL_BORDA_BASE).count(), 4);
-        assert_eq!(g.celulas[0], Celula { i: 0, j: 0, s0: 0.0, s1: 1.5, z0: 0.0, z1: 1.0, painel: P_VIDRO, flags: 0 });
+        assert_eq!(g.celulas[0], Celula { i: 0, j: 0, s0: 0.0, s1: 1.5, z0: 0.0, z1: 1.0, painel: P_VIDRO, flags: 0, regiao: 0 });
         assert_eq!((g.linha_global(EIXO_U, 4), g.linha_global(EIXO_V, 0), g.linha_global(EIXO_V, 3)), (4, 5, 8));
     }
 
@@ -947,5 +1080,172 @@ pub(crate) mod testes {
         assert_eq!(&t.paineis[0..5], &[1, 0, 0, P_VIDRO, PAPEL_PAINEL_VIDRO]);
         // Painel (0,0): livre de 0,05 a 1,975 por 0,05 a 2,95; visível 1,925 x 2,9.
         assert_eq!(&t.paineis_geo[0..6], &[0.05, 1.975, 0.05, 2.95, 5.5825, 5.698876]);
+    }
+}
+
+/// Testes da fase 2 (sobrescritas): a resolução ponta a ponta com regiões, linhas extras e travadas, montantes por linha e órfãs (ADR 0056 §4.4, §5.2).
+#[cfg(test)]
+mod testes_f2 {
+    use super::*;
+    use crate::cortina_pecas::testes::*;
+    use crate::secoes_cortina::*;
+
+    fn resolve(c: &Cena) -> CortinaR {
+        resolver(c, 0).expect("resolver").remove(0)
+    }
+
+    fn igual(a: f64, b: f64) {
+        assert!((a - b).abs() < 1e-9, "{a} != {b}");
+    }
+
+    /// Segmento removido da cortina 1 na grade gerada de `n` células (linha `linha` do eixo, segmento `k` de `nk`).
+    fn remover(c: &mut Cena, id: u32, eixo: u8, linha: u32, n: u32, k: u32, nk: u32) {
+        let mid = (k as f64 + 0.5) / nk as f64;
+        c.cortina.segmentos_removidos.insert(id, SegmentoRemovidoLinha { cortina: 1, eixo, extra: false, linha, pos_norm: linha as f64 / n as f64, n, k, nk, mid });
+    }
+
+    fn painel_sobre(c: &mut Cena, id: u32, i: u32, j: u32, nu: u32, nv: u32, painel: u32) {
+        let (s, z) = ((i as f64 + 0.5) / nu as f64, (j as f64 + 0.5) / nv as f64);
+        c.cortina.celulas_sobrescritas.insert(id, CelulaSobrescritaLinha { cortina: 1, i, j, s, z, nu, nv, painel });
+    }
+
+    #[test]
+    fn remover_um_segmento_funde_as_duas_celulas_num_painel_so_e_tira_o_montante_entre_elas() {
+        // Duas colunas (linha U 1 no meio) e uma fileira. Sem remoção: 2 painéis.
+        let e = Espec::novo(EixoEfetivo::numero(2), EixoEfetivo::numero(1));
+        let mut c = cena_simples(&e, 4.0, 3.0);
+        assert_eq!(resolve(&c).g.expect("g").paineis.len(), 2);
+        remover(&mut c, 1, EIXO_U, 1, 2, 0, 1);
+        let g = resolve(&c).g.expect("g");
+        assert_eq!(g.paineis.len(), 1, "uma região só");
+        let p = g.paineis[0];
+        assert_eq!((p.i, p.j), (0, 0), "o CellKey canônico é a célula de menor (j, i)");
+        // Livre: de 0,05 (borda de início) a 3,95 (borda de fim) por 0,05 a 2,95.
+        igual(p.s0, 0.05);
+        igual(p.s1, 3.95);
+        igual(p.z1 - p.z0, 2.9);
+        assert!(g.celulas.iter().all(|x| x.regiao == 0), "as duas células apontam para a região");
+        let seg = g.segmentos.iter().find(|s| s.eixo == EIXO_U && s.linha == 1 && s.k == 0).expect("segmento");
+        assert!(seg.removido);
+        assert_eq!(seg.montante, ID_AUSENTE);
+        assert!(g.pecas.iter().all(|x| !(x.eixo == EIXO_U && x.linha == 1)), "sem peça na linha removida");
+    }
+
+    #[test]
+    fn remocao_que_deixa_regiao_em_l_e_recusada_com_aviso_10_e_o_segmento_continua() {
+        // Grade 2 x 2: remover U1 seg 0 (une (0,0)+(1,0)) vale; V1 seg 1 (une (1,0)+(1,1)) faria um L e é recusada.
+        let e = Espec::novo(EixoEfetivo::numero(2), EixoEfetivo::numero(2));
+        let mut c = cena_simples(&e, 4.0, 4.0);
+        remover(&mut c, 1, EIXO_U, 1, 2, 0, 2);
+        remover(&mut c, 2, EIXO_V, 1, 2, 1, 2);
+        let r = resolve(&c);
+        let g = r.g.as_ref().expect("g");
+        assert_eq!(g.paineis.len(), 3, "a região 2 x 1 da esquerda, (0,1) e (1,1)");
+        let recusa: Vec<&AvisoC> = r.avisos.iter().filter(|a| a.codigo == AVISO_CORTINA_CELULA_NAO_RETANGULAR).collect();
+        assert_eq!(recusa.len(), 1);
+        assert_eq!((recusa[0].i, recusa[0].j), (1, 0));
+        igual(recusa[0].medido, 3.0);
+        igual(recusa[0].limite, 4.0);
+        // A remoção recusada não tira o montante do segmento V1 seg 1.
+        let seg = g.segmentos.iter().find(|s| s.eixo == EIXO_V && s.linha == 1 && s.k == 1).expect("segmento");
+        assert!(!seg.removido);
+        assert_ne!(seg.montante, ID_AUSENTE);
+    }
+
+    #[test]
+    fn sobrescrita_de_painel_numa_regiao_vale_para_a_regiao_inteira() {
+        let e = Espec::novo(EixoEfetivo::numero(2), EixoEfetivo::numero(1));
+        let mut c = cena_simples(&e, 4.0, 3.0);
+        remover(&mut c, 1, EIXO_U, 1, 2, 0, 1);
+        // Sobrescrita na célula (1,0), a da direita da região: a região inteira vira sólida.
+        painel_sobre(&mut c, 5, 1, 0, 2, 1, P_SOLIDO);
+        let g = resolve(&c).g.expect("g");
+        assert_eq!(g.paineis.len(), 1);
+        assert_eq!(g.paineis[0].p.kind, PAINEL_SOLIDO);
+        assert!(g.celulas.iter().all(|x| x.painel == P_SOLIDO));
+    }
+
+    #[test]
+    fn sobrescrita_de_celula_com_mesma_topologia_adota_o_indice_e_a_duplicada_vira_aviso_7() {
+        let e = Espec::novo(EixoEfetivo::numero(3), EixoEfetivo::numero(1));
+        let mut c = cena_simples(&e, 6.0, 3.0);
+        // Duas sobrescritas na célula (0,0): a 6 (ponto a 1,02 m, a 0,02 do centro) vence a 5 (ponto a 0,6 m, a 0,4 do centro), que vira órfã.
+        c.cortina.celulas_sobrescritas.insert(5, CelulaSobrescritaLinha { cortina: 1, i: 0, j: 0, s: 0.1, z: 0.5, nu: 3, nv: 1, painel: P_SOLIDO });
+        c.cortina.celulas_sobrescritas.insert(6, CelulaSobrescritaLinha { cortina: 1, i: 0, j: 0, s: 0.17, z: 0.5, nu: 3, nv: 1, painel: P_VAZIO });
+        let r = resolve(&c);
+        let g = r.g.expect("g");
+        let p0 = g.paineis.iter().find(|p| (p.i, p.j) == (0, 0)).expect("p");
+        assert_eq!(p0.p.kind, PAINEL_VAZIO);
+        let orfaos: Vec<&AvisoC> = r.avisos.iter().filter(|a| a.codigo == AVISO_CORTINA_OVERRIDE_ORFAO_CELULA).collect();
+        assert_eq!(orfaos.len(), 1);
+        assert_eq!((orfaos[0].i, orfaos[0].j), (0, 0));
+    }
+
+    #[test]
+    fn linha_extra_travada_fora_do_vao_vira_aviso_8_e_nao_entra_na_grade() {
+        let e = Espec::novo(EixoEfetivo::numero(1), EixoEfetivo::numero(1));
+        let mut c = cena_simples(&e, 4.0, 3.0);
+        c.cortina.extras.insert(7, LinhaExtraLinha { cortina: 1, eixo: EIXO_U, pos: 5.0, travada: true, comp: 4.0, montante: ID_AUSENTE });
+        let r = resolve(&c);
+        assert_eq!(r.g.as_ref().expect("g").us.len(), 2, "sem interior");
+        let a: Vec<&AvisoC> = r.avisos.iter().filter(|x| x.codigo == AVISO_CORTINA_OVERRIDE_ORFAO_LINHA).collect();
+        assert_eq!(a.len(), 1);
+        assert_eq!((a[0].i, a[0].j), (7, ID_AUSENTE), "a extra leva o id no lugar do índice");
+    }
+
+    #[test]
+    fn linha_extra_destravada_acompanha_o_comprimento_e_pode_ter_montante_proprio() {
+        let e = Espec::novo(EixoEfetivo::numero(1), EixoEfetivo::numero(1));
+        let mut c = cena_simples(&e, 4.0, 3.0);
+        c.cortina.extras.insert(7, LinhaExtraLinha { cortina: 1, eixo: EIXO_U, pos: 2.0, travada: false, comp: 4.0, montante: M_RED });
+        let g = resolve(&c).g.expect("g");
+        igual(g.us[1], 2.0);
+        assert_eq!(g.mont_u[1].expect("montante próprio").forma, FORMA_REDONDA);
+        assert_eq!(g.origem_u[1], ORIGEM_EXTRA);
+        // Parede esticada para 8 m: a linha fica na mesma fração, em 4 m.
+        let c = com_cortina(c, 1, 8.0, 3.0);
+        igual(resolve(&c).g.expect("g").us[1], 4.0);
+        // Travada não acompanha: fica em 2 m.
+        let mut t = c;
+        t.cortina.extras.get_mut(&7).expect("extra").travada = true;
+        igual(resolve(&t).g.expect("g").us[1], 2.0);
+    }
+
+    #[test]
+    fn linha_gerada_sobrescrita_e_movida_e_sem_montante() {
+        let e = Espec::novo(EixoEfetivo::numero(3), EixoEfetivo::numero(1));
+        let mut c = cena_simples(&e, 6.0, 3.0);
+        // Linha 1 (gerada em 2,0): movida para 2,5 m, travada. Linha 2 (em 4,0): sem montante.
+        c.cortina.linhas_sobrescritas.insert(20, LinhaSobrescritaLinha { cortina: 1, eixo: EIXO_U, linha: 1, pos_norm: 1.0 / 3.0, n: 3, travada: true, pos: 2.5, comp: 6.0, modo: 0, montante: 0 });
+        c.cortina.linhas_sobrescritas.insert(21, LinhaSobrescritaLinha { cortina: 1, eixo: EIXO_U, linha: 2, pos_norm: 2.0 / 3.0, n: 3, travada: false, pos: f64::NAN, comp: 6.0, modo: 1, montante: 0 });
+        let g = resolve(&c).g.expect("g");
+        igual(g.us[1], 2.5);
+        igual(g.us[2], 4.0);
+        assert_eq!(g.mont_u[2], None);
+        assert!(g.pecas.iter().all(|p| !(p.eixo == EIXO_U && p.linha == 2)), "sem peça na linha sem montante");
+        assert!(g.pecas.iter().any(|p| p.eixo == EIXO_U && p.linha == 1), "a linha 1 continua com montante");
+    }
+
+    #[test]
+    fn sobrescritas_de_uma_cortina_nao_vazam_para_outra() {
+        let e = Espec::novo(EixoEfetivo::numero(2), EixoEfetivo::numero(1));
+        let mut c = cena_simples(&e, 4.0, 3.0);
+        c = com_cortina(c, 2, 4.0, 3.0);
+        remover(&mut c, 1, EIXO_U, 1, 2, 0, 1);
+        let rs = resolver(&c, 0).expect("r");
+        let (a, b) = (rs[0].g.as_ref().expect("1"), rs[1].g.as_ref().expect("2"));
+        assert_eq!(a.paineis.len(), 1, "a cortina 1 tem o segmento removido");
+        assert_eq!(b.paineis.len(), 2, "a cortina 2 não tem");
+    }
+
+    #[test]
+    fn remocao_de_borda_e_referencia_quebrada_sao_entrada() {
+        let e = Espec::novo(EixoEfetivo::numero(2), EixoEfetivo::numero(1));
+        let mut c = cena_simples(&e, 4.0, 3.0);
+        remover(&mut c, 1, EIXO_U, 0, 2, 0, 1);
+        assert_eq!(resolver(&c, 0).err(), Some(ENTRADA), "borda não é removível");
+        let mut c = cena_simples(&e, 4.0, 3.0);
+        c.cortina.extras.insert(3, LinhaExtraLinha { cortina: 1, eixo: EIXO_U, pos: 1.0, travada: true, comp: 4.0, montante: 99 });
+        assert_eq!(resolver(&c, 0).err(), Some(ENTRADA), "montante da extra inexistente");
     }
 }
