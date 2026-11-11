@@ -31,7 +31,7 @@ import {
   resolveLevel,
   viewRangeWarnings,
 } from '@hestia/engine';
-import { areaPlansOf, migrateProject, ProjectStore, viewRangeOf, type AreaPlan, type Project } from '@hestia/model';
+import { areaPlansOf, floorViewId, migrateProject, ProjectStore, viewAnnotationsOf, viewRangeOf, type AreaPlan, type Project } from '@hestia/model';
 import { buildSheetDrawList, contextoDaVista, levelFrameBox, LIGHT, planViewOf, resolverZoom } from '@hestia/render';
 import { createTool } from '@hestia/tools';
 import { planFrameUpdateOf } from '../../packages/render/src/plan/planFrame.ts';
@@ -205,7 +205,9 @@ function pontosDeTeste(p: Project, levelId: string, plano?: AreaPlan): Array<{ x
     }
   }
   const doNivel = Object.values(p.elements).filter((e) => (e as { levelId?: string }).levelId === levelId);
-  for (const q of sondasDe([doNivel, p.levels.find((l) => l.id === levelId), plano])) pontos.set(`${q.x},${q.y}`, q);
+  // As anotações moravam no `Level` (e eram sondadas junto com ele); agora moram na vista de piso: mesma fonte de pontos.
+  const nivel = p.levels.find((l) => l.id === levelId);
+  for (const q of sondasDe([doNivel, nivel && { ...nivel, ...viewAnnotationsOf(p, floorViewId(levelId)) }, plano])) pontos.set(`${q.x},${q.y}`, q);
   return [...pontos.values()].sort((a, b) => a.x - b.x || a.y - b.y);
 }
 

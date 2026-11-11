@@ -150,7 +150,7 @@ export function createPlanView(p: Project, nv: NewPlanView, lang: Lang): PlanVie
     if (nv.area?.legend) view.area.legend = plainClone(nv.area.legend);
     if (nv.area?.table) view.area.table = plainClone(nv.area.table);
     const fromLevel = floor?.annotations;
-    view.annotations = nv.annotations ? ownAreaAnnotations(nv.annotations, fromLevel, nv.id, areaGraphics) : inheritedAnnotations(fromLevel, nv.id, areaGraphics);
+    view.annotations = nv.annotations ? ownAreaAnnotations(nv.annotations) : inheritedAnnotations(fromLevel, nv.id, areaGraphics);
   } else if (nv.annotations) view.annotations = plainClone(normalizeAnnotations(nv.annotations));
   p.planViews = [...p.planViews, view];
   return view;

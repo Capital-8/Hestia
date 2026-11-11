@@ -63,13 +63,13 @@ export function inheritedAnnotations(levelAnnotations: Partial<PlanAnnotations> 
 }
 
 /**
- * Conjunto próprio de uma planta de área: as próprias (normalizadas) mais a cópia das etiquetas do nível, porque a planta
- * de área as desenha além das próprias (`profile.elementTags` = `showAnnotations`, `build.ts`; plano §10.4.1).
+ * Conjunto próprio de uma planta de área: as anotações dadas, normalizadas e copiadas. As etiquetas de elemento do NÍVEL
+ * não entram aqui: a planta de área as desenha além das próprias lendo a planta de piso (`elementTagOps` em `build.ts`,
+ * `profile.elementTags`), e o DXF da área as exclui (`elementTags: false`). Copiá-las para o conjunto próprio mudaria o DXF
+ * e duplicaria o desenho (decisão registrada no relatório da etapa 2a-1).
  */
-export function ownAreaAnnotations(own: Partial<PlanAnnotations>, levelAnnotations: Partial<PlanAnnotations> | undefined, viewId: Id, g: { showAnnotations?: boolean } | undefined): PlanAnnotations {
-  const a = plainClone(normalizeAnnotations(own));
-  if (g?.showAnnotations === false) return a;
-  return { ...a, tags: [...a.tags, ...copyAnnotationsToView(levelAnnotations, viewId, { tags: true }).tags] };
+export function ownAreaAnnotations(own: Partial<PlanAnnotations>): PlanAnnotations {
+  return plainClone(normalizeAnnotations(own));
 }
 
 /**

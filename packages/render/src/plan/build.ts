@@ -452,10 +452,9 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   strokes.push(...notes.strokes);
   labels.push(...notes.labels);
 
-  // Na planta de área as etiquetas de elemento do nível já são cópias na própria vista (Fase 2: migração e criação da
-  // planta), desenhadas por `noteOps` junto com as demais anotações; só as outras vistas as desenham aqui.
-  if (profile.elementTags && !areaPlan) {
-    const tagged = elementTagOps(pNotas, input.levelId, paint.annotation, scale, viewId);
+  if (profile.elementTags) {
+    // As etiquetas do nível saem em toda planta, inclusive na de área (que desenha as próprias em `noteOps`): a de área lê a vista de piso.
+    const tagged = elementTagOps(pNotas, input.levelId, paint.annotation, scale, areaPlan ? floorViewId(input.levelId) : viewId);
     strokes.push(...tagged.strokes);
     labels.push(...tagged.labels);
   }

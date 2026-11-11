@@ -57,8 +57,8 @@ function esperadoDaArea(b: Bruto, a: BrutoArea): Anots {
       tags: mostraNotas(a) ? lista(nivel, 'tags') : [],
     };
   }
-  // Conjunto próprio: as próprias + as etiquetas do nível (a planta de área as desenha além das próprias).
-  return { ...a.annotations, tags: [...lista(a.annotations, 'tags'), ...(mostraNotas(a) ? lista(nivel, 'tags') : [])] };
+  // Conjunto próprio: fica como está (as etiquetas do nível continuam sendo lidas da planta de piso na área).
+  return a.annotations;
 }
 
 describe('migração 23 → 24: testes 1 a 8', () => {
@@ -72,7 +72,7 @@ describe('migração 23 → 24: testes 1 a 8', () => {
     }
   });
 
-  it('2. contagem por família: piso = nível; cobertura, área herdada e etiquetas na área conferem com o cálculo independente', () => {
+  it('2. contagem por família: piso = nível; cobertura e área herdada conferem com o cálculo independente', () => {
     for (const f of NOMES) {
       const b = bruto(f);
       const p = migrado(f);
@@ -247,7 +247,8 @@ describe('migração 23 → 24: teste 9 (leituras da API = projeção da Fase 1)
       const doNivel = new Set(todas(nivel).map((x) => x.id));
       const hiddenAntigo = old.hidden;
       const elementos = (hiddenAntigo?.elements ?? []).flatMap((id) => {
-        if (v.kind === 'floor' || !doNivel.has(id)) return [id];
+        const herdada = v.kind === 'area' && raw.areaPlans!.find((a) => a.id === v.id)!.annotations === undefined;
+        if (v.kind === 'floor' || (v.kind === 'area' && !herdada) || !doNivel.has(id)) return [id];
         return noVista.has(`${id}__${v.id}`) ? [`${id}__${v.id}`] : [];
       });
       const esperadoHidden = { ...(elementos.length > 0 ? { elements: elementos } : {}), ...(hiddenAntigo?.categories?.length ? { categories: hiddenAntigo.categories } : {}) };

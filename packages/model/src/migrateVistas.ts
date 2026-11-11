@@ -36,8 +36,8 @@ const levelAnnotations = (l: Raw): PlanAnnotations => normalizeAnnotations(Objec
  *   o intervalo padrão, cópia dos gráficos, `roofHidden` e, se o nível tem telhado, cópia das anotações (D3: nível sem
  *   telhado nasce sem anotações na cobertura);
  * - cada `AreaPlan` vira vista `area` com o mesmo id; a herança de anotações (`annotations === undefined`) vira cópia das
- *   famílias que a planta desenha (D1: id `<id>__<idDaVista>`), e a planta de área recebe cópia das etiquetas do nível
- *   onde hoje as desenha (plano §10.4.1);
+ *   famílias que a planta desenha (D1: id `<id>__<idDaVista>`); o conjunto próprio fica como está (as etiquetas do nível
+ *   continuam sendo lidas da planta de piso na área: ver `ownAreaAnnotations`);
  * - planta de área cujo nível não existe é descartada.
  */
 export function migrateVistasV23(raw: Raw): Raw {
@@ -75,10 +75,12 @@ export function migrateVistasV23(raw: Raw): Raw {
     const id = a.id as string;
     const g = a.graphics as { showDimensions?: boolean; showAnnotations?: boolean } | undefined;
     const fromLevel = levelAnnotations(level);
-    const annotations = a.annotations === undefined ? inheritedAnnotations(fromLevel, id, g) : ownAreaAnnotations(a.annotations as Partial<PlanAnnotations>, fromLevel, id, g);
+    const annotations = a.annotations === undefined ? inheritedAnnotations(fromLevel, id, g) : ownAreaAnnotations(a.annotations as Partial<PlanAnnotations>);
     const view = { id, name: a.name as string, levelId: a.levelId as string, kind: 'area', viewRange: plainClone((level.viewRange as PlanView['viewRange'] | undefined) ?? { ...DEFAULT_VIEW_RANGE }) } as PlanView;
     set(view, 'graphics', plainClone(level.graphics as PlanView['graphics']));
-    set(view, 'hidden', remapHidden(a.hidden as Hidden | undefined, new Set(annotationIdsOf(fromLevel)), id, new Set(annotationIdsOf(annotations))));
+    // Só a planta que herdava tem cópias dos ids do nível; a de conjunto próprio mantém os ocultos como estão.
+    const inherited = a.annotations === undefined;
+    set(view, 'hidden', remapHidden(a.hidden as Hidden | undefined, new Set(inherited ? annotationIdsOf(fromLevel) : []), id, new Set(annotationIdsOf(annotations))));
     view.annotations = annotations;
     const area: NonNullable<PlanView['area']> = { scale: a.scale as number, graphics: plainClone(a.graphics as NonNullable<PlanView['area']>['graphics']), tags: plainClone((a.tags as NonNullable<PlanView['area']>['tags'] | undefined) ?? []) };
     set(area, 'schemeId', a.schemeId as string | undefined);
