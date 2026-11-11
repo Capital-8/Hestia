@@ -79,10 +79,84 @@ export interface CurtainSpec {
   minCell?: number;
 }
 
-/** Fase 1 da instância: só a sobrescrita de eixo e o painel padrão (`setCurtainGrid`, `setCurtainDefaultPanel`). */
+/**
+ * Linha de grade (ADR §4.3). Gerada: eixo, índice 1..n-1 na grade gerada, posição normalizada (s/L ou z/H) e `n` (nº de
+ * células do eixo na gravação). Extra: id da `AddedGridLine`.
+ */
+export type LineRef = { added: string } | { axis: 'u' | 'v'; index: number; pos: number; n: number };
+
+/** Segmento de uma linha, entre duas linhas que a cruzam. `k` 0 = primeiro; `mid` = posição normalizada do meio (0..1). */
+export interface SegmentRef {
+  line: LineRef;
+  k: number;
+  nk: number;
+  mid: number;
+}
+
+/** Chave de célula: índice MAIS posição normalizada do centro na gravação (ADR §4.4). */
+export interface CellKey {
+  i: number;
+  j: number;
+  s: number;
+  z: number;
+  nu: number;
+  nv: number;
+}
+
+/**
+ * Linha extra. `pos` é em metros a partir do início/base, medida quando o eixo tinha `comprimentoGravado` (m).
+ * `locked` = posição absoluta; senão a fração `pos/comprimentoGravado` acompanha o eixo ("esticar com a parede").
+ * Decisão desta referência: o ADR não põe o comprimento da gravação no tipo; sem ele, a posição é absoluta.
+ */
+export interface AddedGridLine {
+  id: string;
+  axis: 'u' | 'v';
+  pos: number;
+  locked?: boolean;
+  mullionTypeId?: string;
+  comprimentoGravado?: number;
+}
+
+/** Sobrescrita de linha. `pos` só vale em linha gerada (em linha extra é ENTRADA). `mullionTypeId: null` = sem montante. */
+export interface LineOverride {
+  line: LineRef;
+  locked?: boolean;
+  pos?: number;
+  mullionTypeId?: string | null;
+  comprimentoGravado?: number;
+}
+
+export interface PanelCellOverride {
+  kind: 'panel';
+  panelTypeId: string;
+}
+
+/** Porta ou janela na célula (fase 5). Só o tipo está aqui; a referência de fase 2 recusa com ENTRADA. */
+export interface OpeningCellOverride {
+  kind: 'opening';
+  openingTypeId: string;
+  flipHand: boolean;
+  flipFacing: boolean;
+}
+
+export type CellOverride = PanelCellOverride | OpeningCellOverride;
+
+export interface CellOverrideEntry {
+  key: CellKey;
+  override: CellOverride;
+}
+
+/**
+ * Instância (ADR §4.3). `grid` sobrescreve o tipo campo a campo; o resto são as edições da fase 2.
+ * A ordem de cada lista é a ordem de gravação: os resultados do remapeamento são por posição nessas listas.
+ */
 export interface CurtainInstanceRef {
   grid?: { u?: Partial<GridAxisSpec>; v?: Partial<GridAxisSpec> };
   defaultPanelTypeId?: string;
+  addedLines?: AddedGridLine[];
+  removedSegments?: SegmentRef[];
+  lineOverrides?: LineOverride[];
+  cells?: CellOverrideEntry[];
 }
 
 /** Um caso completo: o plano da cortina (L × H, de `wallZRange` e do eixo), o tipo, a instância e as tabelas de tipos. */
@@ -111,6 +185,20 @@ export const ID_AUSENTE = 4294967295;
 
 export function erroEntrada(msg: string): Error {
   return new Error(`ENTRADA: ${msg}`);
+}
+
+/** Limites do §4.3 e do §6.4: acima disso o Rust devolve `LIMITE`. */
+export const LIMITES = {
+  addedLines: 128,
+  removedSegments: 1024,
+  lineOverrides: 256,
+  cells: 1024,
+  linhasPorEixo: 128,
+  celulas: 4096,
+} as const;
+
+export function erroLimite(msg: string): Error {
+  return new Error(`LIMITE: ${msg}`);
 }
 
 /** Leitura de vetor sob `noUncheckedIndexedAccess`: o índice é sempre válido por construção. */

@@ -1,15 +1,16 @@
 /**
  * Referência TS das peças da parede cortina (decisão 0056, §5.3 e §5.4): montantes por segmento (papel, prioridade de
- * junção, aparo reto) e painéis por célula (retângulo livre, área visível e bruta). Fase 1: perfis `rect` e `round`
- * (as demais formas são ENTRADA até a fase 3); sem remoção de segmento nem sobrescrita de célula (fase 2).
- * Coordenadas locais do plano da cortina: `s` ao longo do eixo (0..L), `z` de baixo para cima (0..H).
- * O montante de borda é EMBUTIDO em [0, L] × [0, H] (face externa rente à ponta; decisão do dono); o interior é centrado na linha.
+ * junção, aparo reto) e painéis por REGIÃO (retângulo livre, área visível e bruta). Fase 2: perfis `rect` e `round`
+ * (as demais formas são ENTRADA até a fase 3); linhas extras e montante por linha; segmentos removidos e regiões
+ * fundidas; sobrescrita de painel por célula (uma por região). Coordenadas locais do plano da cortina: `s` ao longo do
+ * eixo (0..L), `z` de baixo para cima (0..H). O montante de borda é EMBUTIDO em [0, L] × [0, H]; o interior é centrado.
  */
 import {
   CURTAIN_PANEL_BITE, TOL_SOLDA, at, erroEntrada,
   type CortinaEntrada, type CurtainPanelTypeRef, type MullionTypeRef,
 } from './tipos.ts';
-import type { GradeResolvida } from './grade.ts';
+import type { EixoCompleto, GradeResolvida } from './grade.ts';
+import { ESTADO } from './remap.ts';
 
 /** Papéis de montante (índice na tabela de quantitativos). */
 export const PAPEL_INTERIOR_V = 0;
@@ -56,7 +57,7 @@ export interface Montante {
   areaPerfil: number;
 }
 
-/** Montante de um segmento que não gera peça (papel nulo): só consta da tabela de segmentos. */
+/** Segmento de uma linha, com ou sem montante. `removido` = sem montante por remoção (explícita ou interna a região). */
 export interface SegmentoLinha {
   eixo: 'u' | 'v';
   indiceLinha: number;
@@ -65,11 +66,17 @@ export interface SegmentoLinha {
   de: number;
   ate: number;
   tipoNum: number | null;
+  removido: boolean;
 }
 
+/** Painel de uma região (uma célula, ou várias fundidas). `i`/`j` são os da célula canônica. */
 export interface PainelCelula {
   i: number;
   j: number;
+  /** Índice (i·nv + j) da célula canônica da região. */
+  regiao: number;
+  /** Nº de células da região (1 = célula própria). */
+  celulas: number;
   tipoId: string;
   tipoNum: number;
   materialNum: number;
@@ -78,7 +85,7 @@ export interface PainelCelula {
   espessura: number;
   deslocamento: number;
   bite: number;
-  /** Retângulo livre (a célula menos a meia largura dos montantes que a margeiam). Largura/altura nunca negativas. */
+  /** Retângulo livre (a região menos a meia largura dos montantes que a margeiam). Largura/altura nunca negativas. */
   livre: { s0: number; s1: number; z0: number; z1: number };
   larguraLivre: number;
   alturaLivre: number;
@@ -93,7 +100,10 @@ export interface PainelCelula {
 export interface Pecas {
   montantes: Montante[];
   segmentos: SegmentoLinha[];
+  /** Um painel por região, em ordem de região (= ordem de célula, para a grade sem fusão). */
   paineis: PainelCelula[];
+  /** Painel de cada célula (índice i·nv + j): o da sua região. */
+  painelDaCelula: PainelCelula[];
   /** Largura de montante por linha (0 = sem montante): U e V, bordas incluídas. */
   largurasU: number[];
   largurasV: number[];
@@ -106,7 +116,7 @@ function achaMontante(e: CortinaEntrada, id: string | null): MullionTypeRef | nu
   if (id === null) return null;
   const t = e.montantes.find((m) => m.id === id);
   if (!t) throw erroEntrada(`tipo de montante inexistente (${id})`);
-  if (t.profile.shape !== 'rect' && t.profile.shape !== 'round') throw erroEntrada(`forma de montante não suportada na fase 1 (${t.profile.shape})`);
+  if (t.profile.shape !== 'rect' && t.profile.shape !== 'round') throw erroEntrada(`forma de montante não suportada até a fase 2 (${t.profile.shape})`);
   if (!(t.profile.width > 0) || !(t.profile.depth > 0)) throw erroEntrada(`perfil de montante inválido (${id})`);
   return t;
 }
@@ -127,6 +137,12 @@ export function areaDoPerfil(t: MullionTypeRef): number {
   return t.profile.shape === 'round' ? (Math.PI * t.profile.width * t.profile.width) / 4 : t.profile.width * t.profile.depth;
 }
 
+/** Montante de uma linha por sobrescrita (`undefined` = sem sobrescrita; `null` = sem montante). */
+function sobrescritaDeLinha(eixo: EixoCompleto, li: number): string | null | undefined {
+  if (li < 1 || li > eixo.n - 1) return undefined;
+  return eixo.origens[li - 1]?.mullionTypeId;
+}
+
 export function calcularPecas(e: CortinaEntrada, g: GradeResolvida): Pecas {
   if (!(e.tipo.depth > 0)) throw erroEntrada('profundidade do sistema inválida');
   const m = e.tipo.mullions;
@@ -135,9 +151,17 @@ export function calcularPecas(e: CortinaEntrada, g: GradeResolvida): Pecas {
   const sB = g.u.bordas;
   const zB = g.v.bordas;
 
-  // Tipo de montante por linha (papel): bordas e interiores. Fase 1 não usa `corner`.
-  const tipoU = (li: number): MullionTypeRef | null => achaMontante(e, li === 0 ? m.borderStart : li === nu ? m.borderEnd : m.interiorVertical);
-  const tipoV = (lj: number): MullionTypeRef | null => achaMontante(e, lj === 0 ? m.borderBottom : lj === nv ? m.borderTop : m.interiorHorizontal);
+  // Tipo de montante por linha: a sobrescrita da linha manda; senão o papel (bordas e interiores).
+  const tipoU = (li: number): MullionTypeRef | null => {
+    const sob = sobrescritaDeLinha(g.u, li);
+    if (sob !== undefined) return achaMontante(e, sob);
+    return achaMontante(e, li === 0 ? m.borderStart : li === nu ? m.borderEnd : m.interiorVertical);
+  };
+  const tipoV = (lj: number): MullionTypeRef | null => {
+    const sob = sobrescritaDeLinha(g.v, lj);
+    if (sob !== undefined) return achaMontante(e, sob);
+    return achaMontante(e, lj === 0 ? m.borderBottom : lj === nv ? m.borderTop : m.interiorHorizontal);
+  };
   const papelU = (li: number): number => (li === 0 ? PAPEL_BORDA_INICIO : li === nu ? PAPEL_BORDA_FIM : PAPEL_INTERIOR_V);
   const papelV = (lj: number): number => (lj === 0 ? PAPEL_BORDA_BASE : lj === nv ? PAPEL_BORDA_TOPO : PAPEL_INTERIOR_H);
 
@@ -153,6 +177,14 @@ export function calcularPecas(e: CortinaEntrada, g: GradeResolvida): Pecas {
   const centrosU = sB.map((p, li) => (li === 0 ? p + at(largurasU, li) / 2 : li === nu ? p - at(largurasU, li) / 2 : p));
   const centrosV = zB.map((p, lj) => (lj === 0 ? p + at(largurasV, lj) / 2 : lj === nv ? p - at(largurasV, lj) / 2 : p));
 
+  // Montante presente no segmento: a linha tem tipo e o segmento não foi removido (explícito ou interno a região).
+  const semMontante = (linhaG: number, k: number): boolean => g.remocao.semMontante.has(`${linhaG}:${k}`);
+  const temU = (li: number, k: number): boolean => at(tU, li) !== null && !semMontante(li, k);
+  const temV = (lj: number, k: number): boolean => at(tV, lj) !== null && !semMontante(nu + 1 + lj, k);
+  // Aparo: o montante trimado recua pela face do contínuo só onde esse contínuo tem montante no nó (segmentos adjacentes).
+  const adjV = (lj: number, li: number): boolean => [li - 1, li].some((c) => c >= 0 && c < nu && temV(lj, c));
+  const adjU = (li: number, lj: number): boolean => [lj - 1, lj].some((r) => r >= 0 && r < nv && temU(li, r));
+
   const montantes: Montante[] = [];
   const segmentos: SegmentoLinha[] = [];
   const verticalContinuo = m.joinPriority === 'vertical';
@@ -162,18 +194,20 @@ export function calcularPecas(e: CortinaEntrada, g: GradeResolvida): Pecas {
     de: number, ate: number, deAparado: number, ateAparado: number, continuo: boolean,
   ): void => {
     const linha = eixo === 'u' ? indiceLinha : nu + 1 + indiceLinha;
-    segmentos.push({ eixo, indiceLinha, linha, k, de, ate, tipoNum: t ? t.num : null });
-    if (!t) return;
+    const removido = semMontante(linha, k);
+    const tt = removido ? null : t;
+    segmentos.push({ eixo, indiceLinha, linha, k, de, ate, tipoNum: tt ? tt.num : null, removido });
+    if (!tt) return;
     const comprimento = ateAparado - deAparado;
     if (comprimento <= TOL_SOLDA) return; // nada sobra do segmento depois do aparo
     const vertical = eixo === 'u';
     montantes.push({
-      papel, eixo, indiceLinha, linha, k, tipoId: t.id, tipoNum: t.num, materialNum: t.materialNum,
-      forma: t.profile.shape as 'rect' | 'round', largura: t.profile.width, profundidade: profundidadeDoPerfil(t), deslocamento: t.offset ?? 0,
+      papel, eixo, indiceLinha, linha, k, tipoId: tt.id, tipoNum: tt.num, materialNum: tt.materialNum,
+      forma: tt.profile.shape as 'rect' | 'round', largura: tt.profile.width, profundidade: profundidadeDoPerfil(tt), deslocamento: tt.offset ?? 0,
       vertical,
       s: vertical ? at(centrosU, indiceLinha) : deAparado,
       z: vertical ? deAparado : at(centrosV, indiceLinha),
-      comprimento, de, ate, continuo, areaPerfil: areaDoPerfil(t),
+      comprimento, de, ate, continuo, areaPerfil: areaDoPerfil(tt),
     });
   };
 
@@ -183,8 +217,8 @@ export function calcularPecas(e: CortinaEntrada, g: GradeResolvida): Pecas {
       const de = at(zB, k);
       const ate = at(zB, k + 1);
       const aparar = !verticalContinuo; // vertical é aparado quando o horizontal manda
-      const dA = aparar ? de + recuoV(k) : de;
-      const aA = aparar ? ate - recuoV(k + 1) : ate;
+      const dA = aparar ? de + (adjV(k, li) ? recuoV(k) : 0) : de;
+      const aA = aparar ? ate - (adjV(k + 1, li) ? recuoV(k + 1) : 0) : ate;
       empurra('u', li, k, at(tU, li), papelU(li), de, ate, dA, aA, !aparar);
     }
   }
@@ -194,36 +228,68 @@ export function calcularPecas(e: CortinaEntrada, g: GradeResolvida): Pecas {
       const de = at(sB, k);
       const ate = at(sB, k + 1);
       const aparar = verticalContinuo; // horizontal é aparado quando o vertical manda
-      const dA = aparar ? de + recuoU(k) : de;
-      const aA = aparar ? ate - recuoU(k + 1) : ate;
+      const dA = aparar ? de + (adjU(k, lj) ? recuoU(k) : 0) : de;
+      const aA = aparar ? ate - (adjU(k + 1, lj) ? recuoU(k + 1) : 0) : ate;
       empurra('v', lj, k, at(tV, lj), papelV(lj), de, ate, dA, aA, !aparar);
     }
   }
 
-  // Painéis: um por célula (a fase 2 passa a fundir regiões e a aplicar sobrescritas).
+  // Painéis por região. Sobrescrita de painel: a adotada da região (uma por região, ver `resolverGrade`).
   const padraoId = e.instancia?.defaultPanelTypeId ?? e.tipo.defaultPanelTypeId;
-  const tipoPainel = achaPainel(e, padraoId);
-  const paineis: PainelCelula[] = g.celulas.map((c) => {
-    const s0 = c.s0 + recuoU(c.i);
-    const s1 = c.s1 - recuoU(c.i + 1);
-    const z0 = c.z0 + recuoV(c.j);
-    const z1 = c.z1 - recuoV(c.j + 1);
-    const larguraLivre = Math.max(0, s1 - s0);
-    const alturaLivre = Math.max(0, z1 - z0);
-    const ladosV = (at(largurasU, c.i) > 0 ? 1 : 0) + (at(largurasU, c.i + 1) > 0 ? 1 : 0);
-    const ladosH = (at(largurasV, c.j) > 0 ? 1 : 0) + (at(largurasV, c.j + 1) > 0 ? 1 : 0);
-    const bite = tipoPainel.bite ?? CURTAIN_PANEL_BITE;
-    const areaVisivel = larguraLivre * alturaLivre;
-    const vazio = tipoPainel.kind === 'empty';
-    const areaBruta = vazio || areaVisivel === 0 ? areaVisivel : (larguraLivre + bite * ladosV) * (alturaLivre + bite * ladosH);
-    return {
-      i: c.i, j: c.j, tipoId: tipoPainel.id, tipoNum: tipoPainel.num, materialNum: tipoPainel.materialNum, kind: tipoPainel.kind,
-      papel: tipoPainel.kind === 'glass' ? PAPEL_VIDRO : tipoPainel.kind === 'solid' ? PAPEL_SOLIDO : PAPEL_VAZIO,
-      espessura: vazio ? 0 : tipoPainel.thickness, deslocamento: tipoPainel.offset ?? 0, bite,
-      livre: { s0, s1, z0, z1 }, larguraLivre, alturaLivre, ladosV, ladosH, areaVisivel, areaBruta,
-      volume: vazio ? 0 : areaBruta * tipoPainel.thickness,
-    };
+  const tipoPadrao = achaPainel(e, padraoId);
+  const painelDaRegiao = new Map<number, CurtainPanelTypeRef>();
+  g.remap.celulas.forEach((r, ordem) => {
+    if (r.estado !== ESTADO.adotada) return;
+    const ov = e.instancia?.cells?.[ordem]?.override;
+    if (!ov || ov.kind !== 'panel') return;
+    painelDaRegiao.set(at(g.remocao.regiaoDeCelula, r.a * nv + r.b), achaPainel(e, ov.panelTypeId));
   });
 
-  return { montantes, segmentos, paineis, largurasU, largurasV, centrosU, centrosV };
+  const porCanon = new Map<number, PainelCelula>();
+  const paineis: PainelCelula[] = [];
+  for (const reg of g.remocao.regioes) {
+    const { i0, i1, j0, j1 } = reg;
+    let lE = false;
+    let lD = false;
+    let lB = false;
+    let lT = false;
+    for (let j = j0; j <= j1; j++) {
+      if (temU(i0, j)) lE = true;
+      if (temU(i1 + 1, j)) lD = true;
+    }
+    for (let i = i0; i <= i1; i++) {
+      if (temV(j0, i)) lB = true;
+      if (temV(j1 + 1, i)) lT = true;
+    }
+    const s0 = at(sB, i0) + (lE ? recuoU(i0) : 0);
+    const s1 = at(sB, i1 + 1) - (lD ? recuoU(i1 + 1) : 0);
+    const z0 = at(zB, j0) + (lB ? recuoV(j0) : 0);
+    const z1 = at(zB, j1 + 1) - (lT ? recuoV(j1 + 1) : 0);
+    const larguraLivre = Math.max(0, s1 - s0);
+    const alturaLivre = Math.max(0, z1 - z0);
+    const ladosV = (lE ? 1 : 0) + (lD ? 1 : 0);
+    const ladosH = (lB ? 1 : 0) + (lT ? 1 : 0);
+    const tipo = painelDaRegiao.get(reg.canon) ?? tipoPadrao;
+    const bite = tipo.bite ?? CURTAIN_PANEL_BITE;
+    const areaVisivel = larguraLivre * alturaLivre;
+    const vazio = tipo.kind === 'empty';
+    const areaBruta = vazio || areaVisivel === 0 ? areaVisivel : (larguraLivre + bite * ladosV) * (alturaLivre + bite * ladosH);
+    const painel: PainelCelula = {
+      i: Math.floor(reg.canon / nv), j: reg.canon % nv, regiao: reg.canon, celulas: reg.celulas,
+      tipoId: tipo.id, tipoNum: tipo.num, materialNum: tipo.materialNum, kind: tipo.kind,
+      papel: tipo.kind === 'glass' ? PAPEL_VIDRO : tipo.kind === 'solid' ? PAPEL_SOLIDO : PAPEL_VAZIO,
+      espessura: vazio ? 0 : tipo.thickness, deslocamento: tipo.offset ?? 0, bite,
+      livre: { s0, s1, z0, z1 }, larguraLivre, alturaLivre, ladosV, ladosH, areaVisivel, areaBruta,
+      volume: vazio ? 0 : areaBruta * tipo.thickness,
+    };
+    paineis.push(painel);
+    porCanon.set(reg.canon, painel);
+  }
+  const painelDaCelula = Array.from({ length: nu * nv }, (_, idx) => {
+    const p = porCanon.get(at(g.remocao.regiaoDeCelula, idx));
+    if (!p) throw erroEntrada(`célula sem região (${idx})`);
+    return p;
+  });
+
+  return { montantes, segmentos, paineis, painelDaCelula, largurasU, largurasV, centrosU, centrosV };
 }
