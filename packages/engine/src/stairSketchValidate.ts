@@ -100,11 +100,26 @@ function notSpanning(P: Prepared, g: RiserGeom, side: 'esquerdo' | 'direito', la
  */
 function checkRiserPairs(P: Prepared, out: StairSketchIssue[], turn: Map<number, number> | undefined, lang: Lang): void {
   const spanning = P.risers.filter((g) => g.spans && g.trimmed);
+  // Caixa de cada espelho aparado: dois espelhos só podem estar no mesmo lugar ou se tocar se a distância entre as caixas, em cada
+  // eixo, não passa de TOUCH_TOL (a distância entre as polilinhas nunca é menor que a das caixas). Pula a distância exata dos demais pares.
+  const caixas = spanning.map((g) => {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const q of g.trimmed!) {
+      if (q.x < x0) x0 = q.x;
+      if (q.y < y0) y0 = q.y;
+      if (q.x > x1) x1 = q.x;
+      if (q.y > y1) y1 = q.y;
+    }
+    return { x0, y0, x1, y1 };
+  });
   for (let i = 0; i < spanning.length; i++) {
     for (let j = i + 1; j < spanning.length; j++) {
       const ga = spanning[i]!;
       const gb = spanning[j]!;
       if (turn && turn.get(ga.index) !== turn.get(gb.index)) continue;
+      const ca = caixas[i]!;
+      const cb = caixas[j]!;
+      if (Math.max(ca.x0 - cb.x1, cb.x0 - ca.x1, ca.y0 - cb.y1, cb.y0 - ca.y1) > TOUCH_TOL) continue;
       const A = ga.trimmed!;
       const B = gb.trimmed!;
       const sameA = dist(A[0]!, B[0]!) <= TOUCH_TOL;

@@ -146,8 +146,27 @@ function pushSpan(b: SolidBatch, p: Vec2, q: Vec2, s: { p: [number, number]; q: 
  * arestas idênticas nos trechos em comum, e a parede coplanar entre eles é cancelada em vez de virar face interna com
  * aresta desenhada. O contorno do corpo não muda.
  */
-function splitRingEdges(rings: Ring[]): Ring[] {
+export function splitRingEdges(rings: Ring[]): Ring[] {
   const all = rings.flatMap((r, i) => r.map((p) => ({ p, i })));
+  // Grade dos vértices: cada aresta só olha os vértices das células que a caixa dela (com a tolerância) toca, na MESMA ordem de `all`
+  // (a que decide qual de dois vértices coincidentes fica). Antes a aresta varria todos os vértices da escada (O(V²)).
+  const celula = (v: number): number => Math.floor(v / GRID_CELL);
+  const grade = new Map<string, number[]>();
+  all.forEach((o, k) => {
+    const chave = `${celula(o.p.x)},${celula(o.p.y)}`;
+    const l = grade.get(chave);
+    if (l) l.push(k);
+    else grade.set(chave, [k]);
+  });
+  const candidatos = (p: Vec2, q: Vec2): number[] => {
+    const x0 = celula(Math.min(p.x, q.x) - VERTEX_TOL);
+    const x1 = celula(Math.max(p.x, q.x) + VERTEX_TOL);
+    const y0 = celula(Math.min(p.y, q.y) - VERTEX_TOL);
+    const y1 = celula(Math.max(p.y, q.y) + VERTEX_TOL);
+    const ks: number[] = [];
+    for (let cx = x0; cx <= x1; cx++) for (let cy = y0; cy <= y1; cy++) ks.push(...(grade.get(`${cx},${cy}`) ?? []));
+    return ks.sort((a, b) => a - b);
+  };
   return rings.map((r, i) => {
     const out: Ring = [];
     r.forEach((p, e) => {
@@ -157,7 +176,8 @@ function splitRingEdges(rings: Ring[]): Ring[] {
       const L = Math.hypot(d.x, d.y);
       if (L < VERTEX_TOL) return;
       const found: Array<{ t: number; v: Vec2 }> = [];
-      for (const o of all) {
+      for (const k of candidatos(p, q)) {
+        const o = all[k]!;
         if (o.i === i) continue;
         const w = sub(o.p, p);
         const t = (w.x * d.x + w.y * d.y) / L;

@@ -148,11 +148,24 @@ function joinAlong(a: Ring, b: Ring, shared: number): Ring | null {
 
 const cache = new WeakMap<ResolvedStair, StairFinishModel | null>();
 
+/**
+ * Cópia rasa de uma escada resolvida (ex.: a do desenho, sem os erros de norma) -> a escada original. O modelo dos acabamentos só
+ * depende de tipo, cotas, degraus e espelhos, que a cópia compartilha; sem isto o cache (por identidade) errava a cada cópia e o
+ * modelo, que une e subtrai polígonos por degrau, era refeito várias vezes por vista (corte, elevação, 3D e planta).
+ */
+const origemDaCopia = new WeakMap<ResolvedStair, ResolvedStair>();
+
+/** Declara `copia` como cópia rasa de `original` quanto ao que os acabamentos leem (só vale se o tipo, as cotas, os degraus e os espelhos são os mesmos). */
+export function declararCopiaDeEscada(copia: ResolvedStair, original: ResolvedStair): void {
+  origemDaCopia.set(copia, origemDaCopia.get(original) ?? original);
+}
+
 /** Modelo dos acabamentos da escada resolvida; null sem acabamento (nada ligado, estilo montado ou escada sem degraus). */
 export function stairFinishModel(stair: ResolvedStair): StairFinishModel | null {
-  if (cache.has(stair)) return cache.get(stair)!;
-  const out = buildModel(stair);
-  cache.set(stair, out);
+  const chave = origemDaCopia.get(stair) ?? stair;
+  if (cache.has(chave)) return cache.get(chave)!;
+  const out = buildModel(chave);
+  cache.set(chave, out);
   return out;
 }
 

@@ -2,7 +2,7 @@ import { add, asMulti, difference, dist, dot, intersection, mid, mul, perp, ring
 import { stairFinishOf, type StairType } from '@hestia/model';
 import type { ResolvedStair, ResolvedStairRiser, ResolvedStairStep } from './stairs.ts';
 import { clipByLevel, ringMoments, type BottomPlane } from './stairBodyGeom.ts';
-import { stairFinishModel } from './stairFinish.ts';
+import { declararCopiaDeEscada, stairFinishModel } from './stairFinish.ts';
 
 /**
  * Peça do corpo da escada (decisão 0012 §2). `bottom` é o fundo plano: cota z = a·x + b·y + c. Degrau de escada
@@ -70,12 +70,27 @@ export function stairBody(stair: ResolvedStair, opts: { slabThickness?: number; 
 }
 
 /**
+ * Corpo para desenhar, guardado por escada resolvida (que já é memorizada por projeto) e pelos parâmetros: o corte, a elevação e o 3D
+ * pedem o mesmo corpo da mesma escada várias vezes por edição. A saída é só de leitura (ninguém altera `pieces`).
+ */
+const corposDoDesenho = new WeakMap<ResolvedStair, Map<string, { pieces: StairBodyPiece[] }>>();
+
+/**
  * Peças da escada para DESENHAR (corte, elevação e 3D): como `stairBody`, mas sem apagar a escada por causa de erro de
  * validação (ex.: espelho acima do máximo da norma). O erro continua no painel e no validador; o desenho não é o lugar de
  * sumir com a estrutura enquanto os acabamentos (que não dependem disso) continuam aparecendo.
  */
 export function stairBodyForDrawing(stair: ResolvedStair, opts: { slabThickness?: number; arrivalTopZ?: number } = {}): { pieces: StairBodyPiece[] } {
-  return stairBody({ ...stair, issues: stair.issues.filter((i) => i.severity !== 'error') }, opts);
+  const chave = `${opts.slabThickness ?? ''}|${opts.arrivalTopZ ?? ''}`;
+  const guardado = corposDoDesenho.get(stair)?.get(chave);
+  if (guardado) return guardado;
+  const copia = { ...stair, issues: stair.issues.filter((i) => i.severity !== 'error') };
+  declararCopiaDeEscada(copia, stair);
+  const corpo = stairBody(copia, opts);
+  let porChave = corposDoDesenho.get(stair);
+  if (!porChave) corposDoDesenho.set(stair, (porChave = new Map()));
+  porChave.set(chave, corpo);
+  return corpo;
 }
 
 /**
