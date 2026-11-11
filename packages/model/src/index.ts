@@ -9,6 +9,7 @@ export * from './wallCurtainTypes.ts';
 export * from './wallCurtain.ts';
 export * from './wallCurtainPresets.ts';
 export * from './curtainCommands.ts';
+export * from './curtainRemap.ts';
 export * from './queries.ts';
 export * from './semEsquadrias.ts';
 export * from './hostedOffset.ts';
