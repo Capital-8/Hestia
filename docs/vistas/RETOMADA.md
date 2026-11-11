@@ -8,6 +8,7 @@ Atualize a seção "Onde estamos" a cada etapa integrada.
 |---|---|
 | `vistas/base` | Tronco do trabalho. Só recebe etapa revisada e com a verificação verde. É daqui que se continua. |
 | `vistas/f2a-1` | Etapa 2a-1 (migração 23 → 24). Já integrada em `vistas/base`; pode ser apagado. |
+| `vistas/f2a-2` | Etapa 2a-2 (vista ativa nas ferramentas). Já integrada em `vistas/base`; pode ser apagado. |
 | `vistas/plano-mestre` | Só o plano original. Pode ser apagado. |
 
 `main` não foi tocado. Nenhum pull request foi aberto.
@@ -20,19 +21,11 @@ Atualize a seção "Onde estamos" a cada etapa integrada.
   migração 23 → 24 (`packages/model/src/migrateVistas.ts`), fachadas invertidas. Verificação sobre `vistas/base`:
   tipos e lint sem erro, 886 arquivos / 9.753 testes, ouro 8 de 8. Auditoria do ouro contra o tronco anterior
   (`VISTAS_OURO_BASE=44c31a62 npm run test:vistas-ouro -- --auditar`): só D1, D2 e D3; NÃO PREVISTA = 0.
-- **Fase 2a-2 — EM ANDAMENTO, interrompida no meio (limite de uso em 2026-11-11).** Está no branch
-  `vistas/f2a-2`, num commit `wip` NÃO revisado e NÃO verificado além de `npm run typecheck` (passa). O agente
-  parou sem entregar relatório: não se sabe quais dos itens 1 a 7 da "Etapa 2a-2" de `FASE-2A.md` estão completos.
-  Para retomar, um agente Sonnet, no branch `vistas/f2a-2`:
-  1. lê `git show --stat HEAD` e o diff do `wip` e confere item por item (1 a 7) da Etapa 2a-2 o que está feito,
-     o que está pela metade e o que falta (atenção a `pastePreview.ts`, item 4, que o `wip` não tocou);
-  2. conclui o que falta, com os testes do item 6 (já existem rascunhos: `anotacaoPorVista.test.ts`,
-     `annotationsPorVista.test.ts`, `anotacaoNaVistaAtiva.test.ts`);
-  3. roda `npm run typecheck`, `npm run lint`, `npm run test:rapido -- --maxWorkers=4`,
-     `npm run test:vistas-ouro` (tem de dar 8 de 8 SEM regravar: item 7) e
-     `git diff --stat vistas/base -- crates packages/geom` (vazio);
-  4. entrega relatório. Depois um segundo Sonnet revisa o diff inteiro contra `FASE-2A.md` antes do merge em
-     `vistas/base`.
+- **Fase 2a-2 — concluída, revisada e integrada.** A vista ativa chega às ferramentas e ao editor
+  (`ToolEnv.viewId`, `apps/web/src/editor/vistaDoComando.ts`; exclusão, mover, copiar e etiquetas na vista ativa).
+  Verificação: tipos e lint sem erro, 889 arquivos / 9.783 testes, ouro 8 de 8 sem regravar, diff de `crates` e
+  `packages/geom` vazio. Revisão por um segundo Sonnet: aprovada com ressalvas (pendência 4 abaixo). O commit
+  `8c31afc8` ficou com a mensagem "wip" mas está revisado.
 - **Fase 2b, Fase 3 e fechamento — não iniciadas.**
 
 ### Pendências abertas pela 2a-1 (resolver na Fase 2b/3)
@@ -46,6 +39,11 @@ Atualize a seção "Onde estamos" a cada etapa integrada.
    remover na Fase 3 (raia K).
 3. `setLevelViewRange`/`setLevelGraphics` propagam para as vistas `roof` e `area` do nível (compatibilidade); a
    Fase 3 decide quando parar.
+4. Ressalvas da revisão da 2a-2 (só leem o piso; resolver na Fase 2b/3): `packages/tools/src/alignFeatures.ts` e
+   `anglePreview.ts` (linhas de detalhe da cobertura não servem de referência de snap);
+   `packages/engine/src/angularDimension.ts:53` (cota angular com referência `:detalhe` da cobertura ou da área
+   resolve nulo e não é calculada); `packages/tools/src/dims/providers/line.ts` (cota dinâmica de linha de detalhe
+   em planta de área).
 
 ## Como continuar no computador
 ```bash
@@ -73,7 +71,7 @@ Abra o Claude Code na pasta do repositório e peça:
    (`tests/vistas-ouro/auditoria.ts`): só podem existir as diferenças D1, D2 e D3 de `FASE-2A.md`; "NÃO PREVISTA"
    tem de ser zero. Conferir que o ouro foi regravado **só** depois disso.
 3. Integrar `vistas/f2a-1` em `vistas/base` (merge), rodar a verificação e enviar.
-4. **Etapa 2a-2** de `FASE-2A.md` (a vista ativa chega às ferramentas e ao editor). Um agente Sonnet.
+4. ~~Etapa 2a-2~~ (feita e integrada).
 5. **Fase 2b + Fase 3** (seção 7 do plano e `INSUMOS-FASE-3.md`): forma única de identificar a vista
    (`OpenView`, estado, `SheetViewSource`, `ViewHiddenTarget`, `PlanInput` do render por `viewId`), função única
    de visibilidade, cota e etiqueta somem com o elemento oculto, planta de área aceita todas as ferramentas com
