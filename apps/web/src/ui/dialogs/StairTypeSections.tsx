@@ -220,7 +220,7 @@ export function StairTypeSections({ draft, set, onStyle, materials, issues, canG
       <FamilyCheck id={flagId} checked={on} onChange={onFlag}>{flagLabel}</FamilyCheck>
       <FamilyRow label={t.stt_finish_material} htmlFor={matId} dim={!on}>{materialSelect(matId, matField)}</FamilyRow>
       <FamilyRow label={t.stt_finish_thickness} htmlFor={thickId} dim={!on}>
-        <NumField id={thickId} value={thickValue} scale={100} decimals={1} unit="cm" min={0.001} max={0.1} disabled={!on} onCommit={onThick} />
+        <NumField id={thickId} value={thickValue} quantity="smallLength" min={0.001} max={0.1} disabled={!on} onCommit={onThick} />
       </FamilyRow>
     </>
   );
@@ -291,7 +291,7 @@ export function StairTypeSections({ draft, set, onStyle, materials, issues, canG
             : null}
           <FamilyCheck id="stt-bocelEnabled" checked={bocelFlag} disabled={!treadOn} onChange={(v) => set({ bocelEnabled: v })}>{t.stt_finish_bocel}</FamilyCheck>
           <FamilyRow label={t.stt_bocel_projection} htmlFor="stt-bocelProjection" dim={bocelDimmed}>
-            <NumField id="stt-bocelProjection" value={draft.bocelProjection ?? DEFAULT_STAIR_FINISH.bocelProjection} scale={100} decimals={1} unit="cm" min={0} max={0.1} disabled={bocelDimmed} onCommit={(v) => set({ bocelProjection: v })} />
+            <NumField id="stt-bocelProjection" value={draft.bocelProjection ?? DEFAULT_STAIR_FINISH.bocelProjection} quantity="smallLength" min={0} max={0.1} disabled={bocelDimmed} onCommit={(v) => set({ bocelProjection: v })} />
           </FamilyRow>
           {!treadOn ? <FamilyHint>{t.stt_bocel_hint}</FamilyHint> : null}
         </FamilySection>
