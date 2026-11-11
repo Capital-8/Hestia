@@ -9,6 +9,7 @@ Atualize a seção "Onde estamos" a cada etapa integrada.
 | `vistas/base` | Tronco do trabalho. Só recebe etapa revisada e com a verificação verde. É daqui que se continua. |
 | `vistas/f2a-1` | Etapa 2a-1 (migração 23 → 24). Já integrada em `vistas/base`; pode ser apagado. |
 | `vistas/f2a-2` | Etapa 2a-2 (vista ativa nas ferramentas). Já integrada em `vistas/base`; pode ser apagado. |
+| `vistas/f2b` | Fase 2b (identificação única por viewId). Já integrada em `vistas/base`; pode ser apagado. |
 | `vistas/plano-mestre` | Só o plano original. Pode ser apagado. |
 
 `main` não foi tocado. Nenhum pull request foi aberto.
@@ -26,7 +27,19 @@ Atualize a seção "Onde estamos" a cada etapa integrada.
   Verificação: tipos e lint sem erro, 889 arquivos / 9.783 testes, ouro 8 de 8 sem regravar, diff de `crates` e
   `packages/geom` vazio. Revisão por um segundo Sonnet: aprovada com ressalvas (pendência 4 abaixo). O commit
   `8c31afc8` ficou com a mensagem "wip" mas está revisado.
-- **Fase 2b, Fase 3 e fechamento — não iniciadas.**
+- **Fase 2b — concluída, revisada e integrada.** Identificação única da vista por `viewId`: `OpenView`, estado da
+  interface e sessão (`planViewId`; sessão antiga ainda abre), `SheetViewSource` e `ViewHiddenTarget` (`{kind:'plan',
+  viewId}`, formas antigas aceitas na entrada e normalizadas, inclusive em `migrateProject`), `PlanInput` do render
+  por `viewId` (`plan/planInput.ts`; forma antiga ainda aceita). Esquema continua 24, sem mudança de migração.
+  Verificação: tipos e lint sem erro, 891 arquivos / 9.807 testes, ouro 8 de 8 sem regravar, diff de `crates`,
+  `packages/geom` e `tests/vistas-ouro` vazio. Revisão por um segundo Sonnet: aprovada com ressalvas, os dois
+  defeitos reais corrigidos (cobertura não é fonte de prancha por comando; `perimeterMode` usa `camposDeNivel`).
+  Detalhes que ficam para a Fase 3: formas antigas `@deprecated` em `ViewHiddenTarget`/`SheetViewSource`/`PlanInput`
+  e alias `planViewOf`/`PlanView` em `packages/render/src/index.ts` só existem porque o adaptador e os construtores
+  do ouro (`tests/vistas-ouro`) ainda usam a forma antiga; `hiddenInView` (controller) segue lendo a vista de piso;
+  `visibilityKeyOf` ainda usa chaves por nível; `UiState` guarda `planKind` como cache junto de `planViewId`;
+  `sessaoValida` não checa se `planViewId` existe; faltam testes de prancha com viewport órfã e de v23 com prancha.
+- **Fase 3 e fechamento — não iniciadas.**
 
 ### Pendências abertas pela 2a-1 (resolver na Fase 2b/3)
 1. **Etiquetas de elemento do nível na planta de área.** A migração NÃO copiou as `ElementTag` do nível para a
@@ -72,7 +85,7 @@ Abra o Claude Code na pasta do repositório e peça:
    tem de ser zero. Conferir que o ouro foi regravado **só** depois disso.
 3. Integrar `vistas/f2a-1` em `vistas/base` (merge), rodar a verificação e enviar.
 4. ~~Etapa 2a-2~~ (feita e integrada).
-5. **Fase 2b + Fase 3** (seção 7 do plano e `INSUMOS-FASE-3.md`): forma única de identificar a vista
+5. ~~Fase 2b~~ (feita e integrada). **Fase 3** (seção 7 do plano e `INSUMOS-FASE-3.md`): forma única de identificar a vista
    (`OpenView`, estado, `SheetViewSource`, `ViewHiddenTarget`, `PlanInput` do render por `viewId`), função única
    de visibilidade, cota e etiqueta somem com o elemento oculto, planta de área aceita todas as ferramentas com
    aviso de criação em categoria oculta, e remoção das gambiarras (`AREA_PLAN_TOOLS`, `planKind`, fachadas antigas).
