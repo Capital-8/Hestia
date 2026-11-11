@@ -430,6 +430,8 @@ pub const SECOES: &[Secao] = &[
             col("by", Tipo::F64),
             col("z0", Tipo::F64),
             col("z1", Tipo::F64),
+            col("bocel", Tipo::F64),
+            col("z_piso", Tipo::F64),
         ],
     },
     Secao {

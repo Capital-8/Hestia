@@ -45,7 +45,8 @@ export interface PadraoRef {
   hBase: number; hTopo: number;
   porDegrau: { ativo: boolean; quantidade: number; distQuina: number; centro: boolean; largura: number | null };
 }
-export interface DegrauRef { s0: number; prof: number; z: number }
+/** `s0` e `prof` são das faces ACABADAS dos espelhos; `z` é o topo do piso acabado; `bocel` e `bocelSeguinte` (m, opcionais, padrão 0) vêm do acabamento. */
+export interface DegrauRef { s0: number; prof: number; z: number; bocel?: number; bocelSeguinte?: number }
 export interface PainelRef { larguraMax: number; folga: number }
 export interface ConfigRef { altura: number; postes: ParamPostesRef; padrao: PadraoRef | null; painel: PainelRef | null; degraus: DegrauRef[] }
 
@@ -289,9 +290,14 @@ function posicoesNoVao(pad: PadraoRef, cum: number[], lu: number, sRef: number, 
 const colide = (ps: PosteSaida[], s: number, meia: number, sa: number, sb: number): boolean =>
   ps.some((q) => q.s > sa + EPS_S && q.s < sb - EPS_S && Math.abs(q.s - s) < q.meia + meia - EPS);
 
-/** Referência do degrau: `[s do bocel, pisada]` (espelha `piso_do_degrau` do Rust; ponto de integração com o acabamento da escada). */
+/**
+ * Referência do degrau: `[s da frente do bocel acabado, pisada útil]` (espelha `piso_do_degrau` do Rust). A frente do bocel recua `bocel` da face do
+ * espelho, contra o sentido da pisada; o fundo útil é a face do espelho seguinte menos o bocel dele. Sem acabamento: `[s0, prof]`.
+ */
 export function pisoDoDegrau(dg: DegrauRef): [number, number] {
-  return [dg.s0, dg.prof];
+  const sg = dg.prof < 0 ? -1 : 1;
+  const bocel = dg.bocel ?? 0;
+  return [dg.s0 - sg * bocel, dg.prof + sg * (bocel - (dg.bocelSeguinte ?? 0))];
 }
 
 /** Distâncias do bocel, para a frente, dos centros dos montantes de um degrau de pisada `p` (espelha `deslocamentos_no_piso`). */
@@ -450,7 +456,7 @@ export function casoParaConfig(c: Json): { trecho: TrechoRef; cfg: ConfigRef } {
     };
   }
   const painel = c.painel ? { larguraMax: num(c.painel, 'largura_max', 0), folga: num(c.painel, 'folga', 0) } : null;
-  const degraus: DegrauRef[] = ((c.degraus ?? []) as Json[]).map((d) => ({ s0: num(d, 's0', 0), prof: num(d, 'prof', 0.28), z: num(d, 'z', 0) }));
+  const degraus: DegrauRef[] = ((c.degraus ?? []) as Json[]).map((d) => ({ s0: num(d, 's0', 0), prof: num(d, 'prof', 0.28), z: num(d, 'z', 0), bocel: num(d, 'bocel', 0), bocelSeguinte: num(d, 'bocel_seguinte', 0) }));
   return { trecho, cfg: { altura: num(c, 'altura', 1.1), postes: postesCfg, padrao, painel, degraus } };
 }
 

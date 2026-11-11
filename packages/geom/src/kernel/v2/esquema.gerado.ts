@@ -1156,6 +1156,14 @@ export const SECOES = {
       {
         "nome": "z1",
         "tipo": "f64"
+      },
+      {
+        "nome": "bocel",
+        "tipo": "f64"
+      },
+      {
+        "nome": "z_piso",
+        "tipo": "f64"
       }
     ]
   },

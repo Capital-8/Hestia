@@ -40,7 +40,7 @@ export const COLUNAS: Record<NomeSecaoGC, readonly string[]> = {
   escadas_gc: ['id_num', 'nivel_num', 'z_base', 'z_topo', 'altura_espelho', 'profundidade_piso'],
   escada_componentes_gc: ['id_num', 'escada_num', 'indice', 'tipo', 'caracol', 'centro_x', 'centro_y', 'r_int', 'r_ext'],
   escada_curvas_gc: ['id_num', 'componente_num', 'lado', 'ordem', 'ax', 'ay', 'bx', 'by', 'sag'],
-  escada_espelhos_gc: ['id_num', 'componente_num', 'indice', 'ax', 'ay', 'bx', 'by', 'z0', 'z1'],
+  escada_espelhos_gc: ['id_num', 'componente_num', 'indice', 'ax', 'ay', 'bx', 'by', 'z0', 'z1', 'bocel', 'z_piso'],
   escada_patamares_gc: ['id_num', 'componente_num', 'indice', 'x', 'y', 'z'],
   rampas_gc: ['id_num', 'nivel_num', 'z_base', 'z_topo'],
   rampa_lances_gc: ['id_num', 'rampa_num', 'indice', 'sx', 'sy', 'ex', 'ey', 'ax', 'ay', 'bx', 'by', 'cx', 'cy', 'dx', 'dy', 'z0', 'z1'],

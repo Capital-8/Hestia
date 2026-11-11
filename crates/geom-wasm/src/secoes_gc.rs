@@ -102,6 +102,10 @@ pub struct EspelhoGC {
     pub b: [f64; 2],
     pub z0: f64,
     pub z1: f64,
+    /// Projeção (m) do bocel do piso acabado do degrau que SOBE por este espelho, sobre a face acabada dele. 0 sem acabamento.
+    pub bocel: f64,
+    /// Cota do topo do piso acabado desse degrau (onde o montante se apoia). Sem acabamento é igual a `z1`.
+    pub z_piso: f64,
 }
 
 /// Vértice de um anel de patamar. `dono`: o `componente_num` (escada) ou o `rampa_num` (rampa); `componente`: o índice do patamar na rampa (0 na escada).
@@ -579,6 +583,8 @@ fn decodificar(secao: u32, n_linhas: u32, bytes: &[u8]) -> Result<Lote, u32> {
             b: t.p("bx", "by", i)?,
             z0: t.d("z0", i)?,
             z1: t.d("z1", i)?,
+            bocel: t.dp("bocel", i)?,
+            z_piso: t.d("z_piso", i)?,
         })),
         SECAO_ESCADA_PATAMARES_GC => Lote::patamares_escada(linhas!(i => PontoAnelGC {
             dono: t.u("componente_num", i)?,

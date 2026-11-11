@@ -1209,9 +1209,17 @@
         {
           "nome": "z1",
           "tipo": "f64"
+        },
+        {
+          "nome": "bocel",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z_piso",
+          "tipo": "f64"
         }
       ],
-      "descricao": "Linhas de espelho de um lance, já aparadas (ResolvedStairRiser). componente_num: chave de `escada_componentes_gc`. indice: posição no croqui do lance. z0 e z1: cotas absolutas da base e do topo do espelho."
+      "descricao": "Linhas de espelho de um lance, já aparadas (ResolvedStairRiser). componente_num: chave de `escada_componentes_gc`. indice: posição no croqui do lance. z0 e z1: cotas absolutas da base e do topo do espelho. bocel: projeção (m, >= 0) do bocel do piso acabado do degrau que sobe por este espelho, à frente da face acabada dele; 0 sem acabamento. z_piso: cota do topo do piso acabado desse degrau, onde o montante do guarda-corpo se apoia (sem acabamento, igual a z1). Ambos vêm de stairFinishModel (o acabamento da escada), sem recalcular no Rust."
     },
     {
       "id": 64,

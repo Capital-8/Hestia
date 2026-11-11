@@ -76,7 +76,7 @@ fn curva(c: &mut Cena, comp: u32, lado: u8, ordem: u32, a: [f64; 2], b: [f64; 2]
 
 fn espelho(c: &mut Cena, comp: u32, indice: u32, a: [f64; 2], b: [f64; 2], z1: f64) {
     let id = c.gc.espelhos.len() as u32 + 1;
-    c.gc.espelhos.insert(id, EspelhoGC { componente: comp, indice, a, b, z0: z1 - 0.17, z1 });
+    c.gc.espelhos.insert(id, EspelhoGC { componente: comp, indice, a, b, z0: z1 - 0.17, z1, bocel: 0.0, z_piso: z1 });
 }
 
 /// Lance reto ao longo de +x: espelhos em `x0 + k * 0.28`, largura `w`, `z1` partindo de `zi`; `dy` desloca o lance.

@@ -962,7 +962,7 @@ mod caminho_real {
     }
     fn espelho(c: &mut Cena, comp: u32, indice: u32, a: [f64; 2], b: [f64; 2], z1: f64) {
         let id = c.gc.espelhos.len() as u32 + 1;
-        c.gc.espelhos.insert(id, EspelhoGC { componente: comp, indice, a, b, z0: z1 - 0.17, z1 });
+        c.gc.espelhos.insert(id, EspelhoGC { componente: comp, indice, a, b, z0: z1 - 0.17, z1, bocel: 0.0, z_piso: z1 });
     }
     fn lance_reto(c: &mut Cena, id: u32, indice: u32, x0: f64, n: u32, zi: f64, w: f64) {
         comp(c, id, indice, COMPONENTE_LANCE, false);

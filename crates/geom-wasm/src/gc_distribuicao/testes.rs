@@ -310,7 +310,7 @@ fn pd_cfg(q: u32, dist: Option<f64>, diametro: f64, degraus: &[DegrauP]) -> Conf
 #[test]
 fn por_degrau_uma_duas_e_tres_por_degrau() {
     let t = CadeiaGC::lance_inclinado(1, 0.84, 0.0, 0.5, 0.0).trechos.remove(0);
-    let degraus: Vec<DegrauP> = (0..3).map(|i| DegrauP { s0: 0.28 * i as f64, profundidade: 0.28, z: 0.17 * (i + 1) as f64 }).collect();
+    let degraus: Vec<DegrauP> = (0..3).map(|i| DegrauP::simples(0.28 * i as f64, 0.28, 0.17 * (i + 1) as f64)).collect();
     for q in 1..=3u32 {
         // Distância do bocel dada: N = 1 em `d`; N > 1 igualmente espaçados de `d` até `pisada - d`.
         let cfg = pd_cfg(q, Some(0.04), 0.024, &degraus);
@@ -566,7 +566,7 @@ fn config_json(c: &Value) -> (TrechoGC, ConfigDistribuicao) {
         pn.h_topo = n(d, "h_topo", 1.0);
         paineis.push(pn);
     }
-    let degraus = c["degraus"].as_array().map_or(vec![], |a| a.iter().map(|d| DegrauP { s0: n(d, "s0", 0.0), profundidade: n(d, "prof", 0.28), z: n(d, "z", 0.0) }).collect());
+    let degraus = c["degraus"].as_array().map_or(vec![], |a| a.iter().map(|d| DegrauP { s0: n(d, "s0", 0.0), profundidade: n(d, "prof", 0.28), z: n(d, "z", 0.0), bocel: n(d, "bocel", 0.0), bocel_seguinte: n(d, "bocel_seguinte", 0.0) }).collect());
     (t, ConfigDistribuicao { altura: n(c, "altura", 1.1), postes, padroes, paineis, degraus, gerar_malha: false })
 }
 
@@ -625,7 +625,7 @@ fn montante_por_degrau_fica_inteiro_sobre_o_piso_em_escadas_variadas() {
             let degraus: Vec<DegrauP> = (0..n)
                 .map(|i| {
                     let s0 = if invertido { total - pisada * i as f64 } else { pisada * i as f64 };
-                    DegrauP { s0, profundidade: sg * pisada, z: espelho * (i + 1) as f64 }
+                    DegrauP::simples(s0, sg * pisada, espelho * (i + 1) as f64)
                 })
                 .collect();
             for &d in &diametros {
@@ -658,10 +658,66 @@ fn montante_por_degrau_fica_inteiro_sobre_o_piso_em_escadas_variadas() {
     }
 }
 
+/// Escada com acabamento (piso, espelho, bocel): `s0` e `profundidade` já são das faces acabadas; o montante mede do bocel acabado ao bocel do degrau
+/// seguinte (que passa por cima do piso), nunca invade espelho nem bocel, e a base fica no topo do piso acabado.
+#[test]
+fn montante_por_degrau_com_acabamento_mede_do_bocel_acabado() {
+    let diametros = [0.012, 0.025];
+    let (pisada, espelho, n, bocel) = (0.28, 0.17, 6usize, 0.02);
+    let total = pisada * n as f64;
+    for invertido in [false, true] {
+        let sg = if invertido { -1.0 } else { 1.0 };
+        let t0 = CadeiaGC::lance_inclinado(1, total, 0.0, espelho * n as f64, 0.0).trechos.remove(0);
+        let t = if invertido { TrechoGC { nos: t0.nos.iter().rev().cloned().collect(), ..t0 } } else { t0 };
+        let degraus: Vec<DegrauP> = (0..n)
+            .map(|i| {
+                let s0 = if invertido { total - pisada * i as f64 } else { pisada * i as f64 };
+                // O último degrau não tem seguinte: o bocel dele não avança sobre ninguém.
+                DegrauP { s0, profundidade: sg * pisada, z: espelho * (i + 1) as f64, bocel, bocel_seguinte: if i + 1 < n { bocel } else { 0.0 } }
+            })
+            .collect();
+        for &d in &diametros {
+            for q in 1..=3u32 {
+                let cfg = pd_cfg(q, None, d, &degraus);
+                let o = distribuir(&t, &cfg, 1000).unwrap();
+                let b = &o.balaustres[0];
+                assert_eq!(b.len(), n * q as usize);
+                assert!(o.avisos.is_empty());
+                for (k, x) in b.iter().enumerate() {
+                    let (i, j) = (k / q as usize, k % q as usize);
+                    let dg = &degraus[i];
+                    let (borda, pis) = piso_do_degrau(dg);
+                    // Frente do bocel acabado: recuada `bocel` da face do espelho; a pisada útil vai até o bocel do seguinte (ou o fim, no último).
+                    assert!(aproximado(borda, dg.s0 - sg * bocel));
+                    let off = (x.s - borda) * sg;
+                    // Posição: centro de cada uma de N faixas iguais da pisada útil.
+                    assert!(aproximado(off, (j as f64 + 0.5) * pis.abs() / q as f64), "degrau {i} montante {j}");
+                    let meia = d / 2.0;
+                    // Sem invadir o bocel deste degrau (frente) nem o bocel do seguinte / espelho (fundo).
+                    assert!(off >= meia - 1e-9);
+                    let fundo_s = dg.s0 + sg * (pisada - if i + 1 < n { bocel } else { 0.0 });
+                    assert!((fundo_s - x.s) * sg >= meia - 1e-9, "degrau {i}: montante invade o bocel/espelho seguinte");
+                    // Base sobre o piso acabado (nem afundada nem flutuando).
+                    assert!(aproximado(x.z0, dg.z));
+                }
+            }
+        }
+    }
+}
+
+/// Sem acabamento, `piso_do_degrau` devolve exatamente a quina do espelho e a pisada estrutural.
+#[test]
+fn piso_do_degrau_sem_acabamento_e_a_quina_e_a_pisada() {
+    for sg in [1.0, -1.0] {
+        let dg = DegrauP::simples(1.4, sg * 0.28, 0.51);
+        assert_eq!(piso_do_degrau(&dg), (1.4, sg * 0.28));
+    }
+}
+
 #[test]
 fn montante_que_nao_cabe_no_piso_avisa_e_nao_e_desenhado() {
     let t = CadeiaGC::lance_inclinado(1, 0.84, 0.0, 0.5, 0.0).trechos.remove(0);
-    let degraus: Vec<DegrauP> = (0..3).map(|i| DegrauP { s0: 0.28 * i as f64, profundidade: 0.28, z: 0.17 * (i + 1) as f64 }).collect();
+    let degraus: Vec<DegrauP> = (0..3).map(|i| DegrauP::simples(0.28 * i as f64, 0.28, 0.17 * (i + 1) as f64)).collect();
     // Perfil de 30 cm de largura numa pisada de 28 cm: impossível.
     let o = distribuir(&t, &pd_cfg(1, None, 0.30, &degraus), 100).unwrap();
     assert!(o.balaustres[0].is_empty());

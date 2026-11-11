@@ -2,7 +2,8 @@
  * Linhas por tipo de elemento do adaptador do guarda-corpo (decisão 0055, Fase 2): tipo (trilhos, corrimãos, postes, preenchimentos), escada e rampa.
  * Cada função empurra as linhas nas seções por meio do contexto da montagem (`CtxGC`), que numera as chaves e internam perfis e materiais.
  */
-import type { CorrimaoGC, Id, PerfilGC, Project, RefBaseGC, RefTopoGC, TipoGuardaCorpo } from '@hestia/model';
+import { stairFinishOf, type CorrimaoGC, type Id, type PerfilGC, type Project, type RefBaseGC, type RefTopoGC, type TipoGuardaCorpo } from '@hestia/model';
+import { stairFinishModel } from './stairFinish.ts';
 import type { ResolvedRamp } from './ramps.ts';
 import type { ResolvedStair } from './stairs.ts';
 import { ENUM, ID_AUSENTE_GC, PD_CENTRO_GC, codigo, type NomeSecaoGC } from './kernelGuardaCorpoTabelas.ts';
@@ -36,6 +37,20 @@ export function profundidadeDoDegrau(s: ResolvedStair): number {
   return s.type.minTread;
 }
 
+
+/**
+ * Acabamento de cada degrau da escada para o montante "por degrau", indexado pelo nº global do espelho (o mesmo de `stairFinishModel`). Deriva do
+ * resultado de `stairFinishModel`, sem recalcular nada: `bocel` é a projeção do bocel só nos pisos que o têm (aresta frontal > 0) e `zPiso` é o topo
+ * do piso acabado. Sem acabamento: mapa vazio (bocel 0 e `zPiso` = topo do espelho).
+ */
+export function acabamentoDosDegraus(s: ResolvedStair): Map<number, { bocel: number; zPiso: number }> {
+  const out = new Map<number, { bocel: number; zPiso: number }>();
+  const m = stairFinishModel(s);
+  if (!m) return out;
+  const bocel = stairFinishOf(s.type).bocel;
+  for (const sol of m.solids) if (sol.kind === 'tread') out.set(sol.number, { bocel: sol.edgeLength > 0 ? bocel : 0, zPiso: sol.z1 });
+  return out;
+}
 
 const refBase = (r: RefBaseGC): [number, number] => (r.de === 'trilho' ? [1, r.indice] : [0, 0]);
 const refTopo = (r: RefTopoGC): [number, number] => (r.de === 'trilho' ? [1, r.indice] : r.de === 'corrimao' ? [2, r.indice] : [0, 0]);
@@ -175,6 +190,7 @@ export function linhasDaEscada(c: CtxGC, p: Project, s: ResolvedStair, id: numbe
   const { push, idDe } = c;
   const el = p.elements[s.id];
   const comps = el?.kind === 'stair' ? el.components : [];
+  const acab = acabamentoDosDegraus(s);
   comps.forEach((c, ci) => {
     const chaveC = `${s.id}:${ci}`;
     const compId = idDe('escada_componentes_gc', chaveC);
@@ -199,9 +215,22 @@ export function linhasDaEscada(c: CtxGC, p: Project, s: ResolvedStair, id: numbe
       s.risers
         .filter((r) => r.componentIndex === ci)
         .sort((a, b) => a.index - b.index)
-        .forEach((r) =>
-          push('escada_espelhos_gc', { id_num: idDe('escada_espelhos_gc', `${chaveC}:${r.index}`), componente_num: compId, indice: r.index, ax: r.a.x, ay: r.a.y, bx: r.b.x, by: r.b.y, z0: r.z0, z1: r.z1 }),
-        );
+        .forEach((r) => {
+          const a = acab.get(Math.round((r.z0 - s.baseZ) / s.riserHeight) + 1);
+          push('escada_espelhos_gc', {
+            id_num: idDe('escada_espelhos_gc', `${chaveC}:${r.index}`),
+            componente_num: compId,
+            indice: r.index,
+            ax: r.a.x,
+            ay: r.a.y,
+            bx: r.b.x,
+            by: r.b.y,
+            z0: r.z0,
+            z1: r.z1,
+            bocel: a?.bocel ?? 0,
+            z_piso: a?.zPiso ?? r.z1,
+          });
+        });
     } else {
       let k = 0;
       for (const passo of s.steps.filter((x) => x.kind === 'landing' && x.componentIndex === ci).sort((a, b) => a.index - b.index)) {

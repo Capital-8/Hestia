@@ -430,9 +430,11 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
                 let mut esp: Vec<&EspelhoGC> = cena.gc.espelhos.values().filter(|e| e.componente == comp).collect();
                 esp.sort_by_key(|e| e.indice);
                 let prof = prof_piso;
-                for e in esp {
+                // O bocel do degrau seguinte avança sobre o fundo desta pisada; o último degrau não tem seguinte.
+                for (k, e) in esp.iter().enumerate() {
                     let mid = [(e.a[0] + e.b[0]) / 2.0, (e.a[1] + e.b[1]) / 2.0];
-                    degraus.push(DegrauP { s0: s_da_projecao(&t.nos, mid), profundidade: sentido * prof, z: e.z1 });
+                    let bocel_seguinte = esp.get(k + 1).map_or(0.0, |n| n.bocel);
+                    degraus.push(DegrauP { s0: s_da_projecao(&t.nos, mid), profundidade: sentido * prof, z: e.z_piso, bocel: e.bocel, bocel_seguinte });
                 }
             }
         }

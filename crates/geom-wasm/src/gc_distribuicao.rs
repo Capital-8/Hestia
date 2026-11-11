@@ -470,7 +470,19 @@ pub struct PadraoP {
 pub struct DegrauP {
     pub s0: f64,
     pub profundidade: f64,
+    /// Cota de apoio do montante: topo do piso ACABADO do degrau (sem acabamento, o topo do piso estrutural).
     pub z: f64,
+    /// Projeção do bocel deste degrau à frente da face acabada do espelho `s0` (para o lado oposto ao da pisada). 0 sem bocel.
+    pub bocel: f64,
+    /// Projeção do bocel do degrau seguinte, que avança sobre o fundo desta pisada. 0 sem bocel ou sem degrau seguinte.
+    pub bocel_seguinte: f64,
+}
+
+impl DegrauP {
+    /// Degrau sem acabamento: bocel zero, a pisada vai da face do espelho à do seguinte.
+    pub fn simples(s0: f64, profundidade: f64, z: f64) -> Self {
+        DegrauP { s0, profundidade, z, bocel: 0.0, bocel_seguinte: 0.0 }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -550,10 +562,12 @@ fn posicoes_no_vao(pad: &PadraoP, cum: &[f64], lu: f64, s_ref: f64, avisos: &mut
 }
 
 /// Referência do degrau: `(s do bocel, pisada)`. O bocel é a borda frontal do piso e a pisada corre dele para a frente (sinal = sentido do caminho).
-/// PONTO DE INTEGRAÇÃO com o acabamento da escada (`feat/escada-acabamento`): hoje o bocel é a quina do espelho (`s0`) e a pisada é a do piso
-/// estrutural; quando o piso acabado e o bocel existirem, só esta função muda (bocel acabado e pisada útil acabada), o resto mede a partir dela.
+/// `s0` e `profundidade` já são medidos nas faces ACABADAS dos espelhos. Com acabamento, a borda frontal é a frente do bocel acabado (recuada `bocel`
+/// da face do espelho, contra o sentido da pisada) e o fundo útil é a face do espelho seguinte menos o bocel dele, que passa por cima do piso.
+/// Sem acabamento (`bocel` e `bocel_seguinte` zero) o resultado é `(s0, profundidade)`. O sentido da pisada vem do sinal de `profundidade`.
 pub fn piso_do_degrau(dg: &DegrauP) -> (f64, f64) {
-    (dg.s0, dg.profundidade)
+    let sg = if dg.profundidade < 0.0 { -1.0 } else { 1.0 };
+    (dg.s0 - sg * dg.bocel, dg.profundidade + sg * (dg.bocel - dg.bocel_seguinte))
 }
 
 /// Distâncias, medidas do bocel para a frente, dos centros dos montantes de um degrau de pisada `p` (> 0).

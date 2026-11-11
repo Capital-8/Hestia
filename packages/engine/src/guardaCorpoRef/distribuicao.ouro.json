@@ -4793,6 +4793,282 @@
         "modo": 0,
         "numero": 0
       }
+    },
+    {
+      "degraus": [
+        {
+          "bocel": 0.02,
+          "bocel_seguinte": 0.02,
+          "prof": 0.28,
+          "s0": 0.0,
+          "z": 0.17
+        },
+        {
+          "bocel": 0.02,
+          "bocel_seguinte": 0.02,
+          "prof": 0.28,
+          "s0": 0.28,
+          "z": 0.34
+        },
+        {
+          "bocel": 0.02,
+          "bocel_seguinte": 0.0,
+          "prof": 0.28,
+          "s0": 0.56,
+          "z": 0.51
+        }
+      ],
+      "esperado": {
+        "avisos": [],
+        "balaustres": [
+          [
+            0.026667,
+            0.026667,
+            0.0,
+            0.17,
+            1.180794,
+            -1
+          ],
+          [
+            0.12,
+            0.12,
+            0.0,
+            0.17,
+            1.218571,
+            -1
+          ],
+          [
+            0.213333,
+            0.213333,
+            0.0,
+            0.17,
+            1.256349,
+            -1
+          ],
+          [
+            0.306667,
+            0.306667,
+            0.0,
+            0.34,
+            1.294127,
+            -1
+          ],
+          [
+            0.4,
+            0.4,
+            0.0,
+            0.34,
+            1.331905,
+            -1
+          ],
+          [
+            0.493333,
+            0.493333,
+            0.0,
+            0.34,
+            1.369683,
+            -1
+          ],
+          [
+            0.59,
+            0.59,
+            0.0,
+            0.51,
+            1.40881,
+            -1
+          ],
+          [
+            0.69,
+            0.69,
+            0.0,
+            0.51,
+            1.449286,
+            -1
+          ],
+          [
+            0.79,
+            0.79,
+            0.0,
+            0.51,
+            1.489762,
+            -1
+          ]
+        ],
+        "paineis": [],
+        "postes": []
+      },
+      "nome": "por degrau acabado centro 3",
+      "nos": [
+        [
+          0,
+          0,
+          0.17
+        ],
+        [
+          0.84,
+          0,
+          0.51
+        ]
+      ],
+      "origem": 0,
+      "padrao": {
+        "elementos": [
+          {
+            "dist": 0,
+            "largura": 0.012
+          }
+        ],
+        "escopo": 0,
+        "h_base": 0.1,
+        "h_topo": 1.0,
+        "justif": 3,
+        "periodo": 0.11,
+        "por_degrau": {
+          "ativo": true,
+          "centro": true,
+          "dist_quina": 0.04,
+          "largura": 0.012,
+          "quantidade": 3
+        },
+        "quebra": 2,
+        "sobra": 0
+      },
+      "postes": {
+        "ang_canto": 0.0873,
+        "canto": null,
+        "espacamento": 0,
+        "fim": null,
+        "inicio": null,
+        "intermediario": null,
+        "modo": 0,
+        "numero": 0
+      }
+    },
+    {
+      "degraus": [
+        {
+          "bocel": 0.02,
+          "bocel_seguinte": 0.02,
+          "prof": -0.28,
+          "s0": 0.84,
+          "z": 0.17
+        },
+        {
+          "bocel": 0.02,
+          "bocel_seguinte": 0.02,
+          "prof": -0.28,
+          "s0": 0.5599999999999999,
+          "z": 0.34
+        },
+        {
+          "bocel": 0.02,
+          "bocel_seguinte": 0.0,
+          "prof": -0.28,
+          "s0": 0.2799999999999999,
+          "z": 0.51
+        }
+      ],
+      "esperado": {
+        "avisos": [],
+        "balaustres": [
+          [
+            0.79,
+            0.05,
+            0.0,
+            0.17,
+            1.190238,
+            -1
+          ],
+          [
+            0.65,
+            0.19,
+            0.0,
+            0.17,
+            1.246905,
+            -1
+          ],
+          [
+            0.51,
+            0.33,
+            0.0,
+            0.34,
+            1.303571,
+            -1
+          ],
+          [
+            0.37,
+            0.47,
+            0.0,
+            0.34,
+            1.360238,
+            -1
+          ],
+          [
+            0.225,
+            0.615,
+            0.0,
+            0.51,
+            1.418929,
+            -1
+          ],
+          [
+            0.075,
+            0.765,
+            0.0,
+            0.51,
+            1.479643,
+            -1
+          ]
+        ],
+        "paineis": [],
+        "postes": []
+      },
+      "nome": "por degrau acabado centro invertido",
+      "nos": [
+        [
+          0.84,
+          0,
+          0.51
+        ],
+        [
+          0,
+          0,
+          0.17
+        ]
+      ],
+      "origem": 0,
+      "padrao": {
+        "elementos": [
+          {
+            "dist": 0,
+            "largura": 0.012
+          }
+        ],
+        "escopo": 0,
+        "h_base": 0.1,
+        "h_topo": 1.0,
+        "justif": 3,
+        "periodo": 0.11,
+        "por_degrau": {
+          "ativo": true,
+          "centro": true,
+          "dist_quina": 0.04,
+          "largura": 0.012,
+          "quantidade": 2
+        },
+        "quebra": 2,
+        "sobra": 0
+      },
+      "postes": {
+        "ang_canto": 0.0873,
+        "canto": null,
+        "espacamento": 0,
+        "fim": null,
+        "inicio": null,
+        "intermediario": null,
+        "modo": 0,
+        "numero": 0
+      }
     }
   ],
   "comentario": "Casos de ouro da distribuição (decisão 0055, Fase 3c), lidos pelo teste cargo (gc_distribuicao) e pelo de paridade TS. Entradas à mão; 'esperado' gerado com HESTIA_GC_GERAR_OURO=1 cargo test -p geom-wasm gc_distribuicao e revisado."

@@ -37,7 +37,7 @@ fn cena(lados: u8, pos_base: u8) -> Cena {
 
 fn espelho(c: &mut Cena, comp: u32, indice: u32, a: [f64; 2], b: [f64; 2], z1: f64) {
     let id = c.gc.espelhos.len() as u32 + 1;
-    c.gc.espelhos.insert(id, EspelhoGC { componente: comp, indice, a, b, z0: z1 - 0.17, z1 });
+    c.gc.espelhos.insert(id, EspelhoGC { componente: comp, indice, a, b, z0: z1 - 0.17, z1, bocel: 0.0, z_piso: z1 });
 }
 
 fn curva(c: &mut Cena, comp: u32, lado: u8, a: [f64; 2], b: [f64; 2], sag: f64) {
@@ -102,7 +102,7 @@ fn lance_e_patamar_reais_por_degrau_e_padrao() {
     assert_eq!(cad.trechos.len(), 2);
     assert_eq!(cad.trechos[0].origem, OrigemTrecho::Lance);
     assert_eq!(cad.trechos[1].origem, OrigemTrecho::Patamar);
-    let degraus: Vec<DegrauP> = (0..10).map(|k| DegrauP { s0: 0.28 * k as f64, profundidade: 0.28, z: 0.17 + 0.17 * k as f64 }).collect();
+    let degraus: Vec<DegrauP> = (0..10).map(|k| DegrauP::simples(0.28 * k as f64, 0.28, 0.17 + 0.17 * k as f64)).collect();
     for q in 1..=3u32 {
         let cfg = cfg_por_degrau(q, 0.04, degraus.clone());
         let lance = distribuir(&cad.trechos[0], &cfg, LIMITE_BALAUSTRES).unwrap();
@@ -143,7 +143,7 @@ fn caracol_real_por_degrau_acompanha_a_helice() {
     let ang0 = t.nos[0].y.atan2(t.nos[0].x);
     let raio = t.nos[0].x.hypot(t.nos[0].y);
     let s_de = |k: u32| (th(k) - ang0) * raio;
-    let degraus: Vec<DegrauP> = (0..9).map(|k| DegrauP { s0: s_de(k), profundidade: s_de(k + 1) - s_de(k), z: 0.17 * (k + 1) as f64 }).collect();
+    let degraus: Vec<DegrauP> = (0..9).map(|k| DegrauP::simples(s_de(k), s_de(k + 1) - s_de(k), 0.17 * (k + 1) as f64)).collect();
     let cfg = cfg_por_degrau(2, -1.0, degraus);
     let o = distribuir(t, &cfg, LIMITE_BALAUSTRES).unwrap();
     assert_eq!(o.postes.len(), 2, "caracol: poste só nas pontas");
