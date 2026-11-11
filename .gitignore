@@ -8,3 +8,7 @@ playwright-report
 
 # Alvo de compilação das crates Rust (kernel experimental): não entra no repositório.
 crates/*/target/
+
+# Alvo de compilacao Rust em qualquer pasta e temporarios de trabalho (regra 5 do contrato de agentes).
+target/
+tmp-*

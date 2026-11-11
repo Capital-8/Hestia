@@ -45,10 +45,35 @@ aparar/estender, dividir, apagar, copiar/colar entre pavimentos, desfazer/refaze
 Teste-guarda: `packages/tools/src/contratoModificacao.test.ts`. `CLASSIFICACAO` é um `Record<Element['kind'], ...>`:
 um kind novo sem linha **não compila**; cada marca tem de apontar código que existe e `null` exige o motivo (TODO).
 
+## Regra 4. Modal de tipo de família usa o esqueleto comum (o da parede)
+
+Todo diálogo de edição de tipo (parede, escada, rampa, piso, laje, forro, telhado, guarda-corpo, cota, esquadria...)
+monta-se com os componentes compartilhados de `apps/web/src/ui/dialogs/familia/`:
+
+- `FamilyTypeDialog`: cabeçalho Família/Tipo (Duplicar, Renomear), Nome do tipo na mesma linha do rótulo e rodapé
+  Excluir | Cancelar, Aplicar, OK;
+- `FamilyTabs`, `FamilySection` (recolhível, mesma tipografia), `FamilyRow` (rótulo e campo na mesma linha),
+  `FamilyPair` (dois campos curtos lado a lado) e `FamilyHint` (ajuda compacta).
+
+Nada de CSS ou estrutura própria de seção/linha (`field-row`, `fieldset`, `details`, `dsec`, `Row` da paleta) nos
+diálogos de tipo. Diálogo de tipo novo entra em `MIGRADOS` no teste-guarda; se não der para migrar, vira exceção TODO.
+
+Teste-guarda: `apps/web/src/ui/dialogs/contratoModaisFamilia.test.ts` (classifica todo diálogo de tipo; falha para
+diálogo novo sem classificação, migrado sem o esqueleto ou com seção/linha própria, e para exceção obsoleta).
+
+## Regra 5. Não deixar lixo ao implementar
+
+Build Rust com `CARGO_TARGET_DIR` fora do worktree, temporários só no scratchpad ou em `tmp-*`, limpeza ao concluir.
+Texto completo em `trabalho-de-agentes.md`. Teste-guarda: `tests/contratoLixo.test.ts` (`scripts/check-lixo.mjs`).
+
 ## Exceções vigentes (TODO)
 
 - Ferramentas: nenhuma exceção. Todas as de criação usam o núcleo comum de desenho.
 - Painel: nenhuma exceção (o `GuardaCorpoProperties.tsx` já usa o `TypeSelector` com Editar).
+- Modal de tipo (regra 4), ainda fora do esqueleto comum (TODO no teste-guarda): `GridTypeDialog` (sem cabeçalho
+  Família/Tipo; migrar muda o fluxo do Duplicar), `OpeningTypeDialog` (esquadria: diálogo XL com biblioteca e prévia
+  3D) e `DimensionFamiliesDialog` (famílias de cota: editor de lista próprio). Migrados: parede, escada, rampa, piso,
+  laje, forro, telhado e guarda-corpo.
 
 Migradas para o núcleo comum: perímetro (piso, laje, forro e telhado traçam por `perimeterTool.ts`), seta de
 caimento, inclinação de laje e extrusão de telhado (teste `esbocoNucleo.test.ts`); escada, lance livre, rampa e cota

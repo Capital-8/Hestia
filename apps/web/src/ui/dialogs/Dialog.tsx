@@ -15,7 +15,7 @@ interface DialogProps {
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
-  size?: '' | 'narrow' | 'mid' | 'wide';
+  size?: '' | 'narrow' | 'mid' | 'wide' | 'fam';
   z?: number;
   /** Ctrl+Enter dentro do diálogo (tratado em captura; os campos numéricos param a propagação). */
   onSubmit?: () => void;
@@ -33,7 +33,7 @@ export function Dialog({ title, sub, onClose, children, footer, size = '', z, on
   const submitRef = useRef(onSubmit);
   closeRef.current = onClose;
   submitRef.current = onSubmit;
-  const manage = trapFocus ?? (size === 'wide' || onSubmit !== undefined);
+  const manage = trapFocus ?? (size === 'wide' || size === 'fam' || onSubmit !== undefined);
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const box = root.current;

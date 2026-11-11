@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import type { StairType } from '@hestia/model';
 import { dictOf, fmtNum, useI18n } from '../../editor/i18n.ts';
 import { blondelLive, formulaText } from './stairBlondel.ts';
+import { FamilySection } from './familia/index.ts';
 
 const fill = (s: string, params: Record<string, string>): string => s.replace(/\{(\w+)\}/g, (_, k: string) => params[k] ?? '');
 
@@ -21,11 +22,8 @@ export function StairBlondelCard({ type, heightCm }: { type: StairType; heightCm
   const term = (f: number, value: string): string => (f === 1 ? value : `${factor(f)} × ${value}`);
 
   return (
-    <section className="dsec" aria-labelledby="stt-bl-title" style={{ margin: 0 }}>
-      <div id="stt-bl-title" className="stt-ref" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-        {t.stt_bl_title}
-      </div>
-      <p className="hint">{t.stt_bl_intro}</p>
+    <FamilySection id="stt-bl" title={t.stt_bl_title} defaultOpen={false}>
+      <p className="fam-hint">{t.stt_bl_intro}</p>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 15 }}>
         {formulaText(a, b, lang)} = {cm(type.calcTarget)} cm
       </div>
@@ -85,18 +83,16 @@ export function StairBlondelCard({ type, heightCm }: { type: StairType; heightCm
           </ol>
         </>
       )}
-      <details open>
-        <summary>{t.stt_bl_words_title}</summary>
-        <p className="hint">{t.stt_bl_words}</p>
-      </details>
+      <FamilySection title={t.stt_bl_words_title}>
+        <p className="fam-hint">{t.stt_bl_words}</p>
+      </FamilySection>
       <p className="stt-ref">{t.stt_bl_note_straight}</p>
       {type.runStyle === 'post' ? (
-        <p className="hint" style={{ color: 'var(--warn)' }}>{t.stt_bl_note_curved}</p>
+        <p className="fam-hint" style={{ color: 'var(--warn)' }}>{t.stt_bl_note_curved}</p>
       ) : (
-        <p className="hint">{t.stt_bl_note_curved_short}</p>
+        <p className="fam-hint">{t.stt_bl_note_curved_short}</p>
       )}
-      <details>
-        <summary>{t.stt_bl_presets_title}</summary>
+      <FamilySection title={t.stt_bl_presets_title} defaultOpen={false}>
         <ul>
           <li>{t.stt_bl_p_hestia}</li>
           <li>{t.stt_bl_p_nbr9050}</li>
@@ -104,7 +100,7 @@ export function StairBlondelCard({ type, heightCm }: { type: StairType; heightCm
           <li>{t.stt_bl_p_ibc}</li>
         </ul>
         <p className="stt-ref">{t.stt_bl_p_foot}</p>
-      </details>
-    </section>
+      </FamilySection>
+    </FamilySection>
   );
 }

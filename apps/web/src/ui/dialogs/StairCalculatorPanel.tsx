@@ -3,6 +3,7 @@ import type { StairType } from '@hestia/model';
 import { dictOf, fmtNum, useI18n } from '../../editor/i18n.ts';
 import { NumField } from '../fields.tsx';
 import { computeStairCalc } from './stairTypeCalc.ts';
+import { FamilyRow, FamilySection } from './familia/index.ts';
 
 const fill = (s: string, params: Record<string, string>): string => s.replace(/\{(\w+)\}/g, (_, k: string) => params[k] ?? '');
 
@@ -28,12 +29,10 @@ export function StairCalculatorPanel({ type, heightCm, onHeight }: { type: Stair
       : t.stt_calc_bad;
   const icon = status === 'ok' ? '✓' : status === 'warn' ? '!' : '✕';
   return (
-    <div className="dsec" style={{ margin: 0 }}>
-      <div className="stt-ref" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t.stt_calc_title}</div>
-      <div className="field-row" style={{ gridTemplateColumns: 'minmax(0, 1fr) 104px', marginTop: 6 }}>
-        <label htmlFor="stt-calc-h">{t.stt_calc_height}</label>
+    <FamilySection title={t.stt_calc_title}>
+      <FamilyRow label={t.stt_calc_height} htmlFor="stt-calc-h">
         <NumField id="stt-calc-h" value={heightCm / 100} scale={100} decimals={0} unit="cm" min={0.01} strictRange onCommit={(v) => onHeight(v * 100)} />
-      </div>
+      </FamilyRow>
       {post ? (
         <>
           {calc.valid ? (
@@ -73,6 +72,6 @@ export function StairCalculatorPanel({ type, heightCm, onHeight }: { type: Stair
         </>
       )}
       <p className="stt-ref" style={{ marginBottom: 0 }}>{t.stt_calc_hint}</p>
-    </div>
+    </FamilySection>
   );
 }
