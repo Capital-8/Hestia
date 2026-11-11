@@ -533,10 +533,7 @@ export function sectionDxf(p: Project, sectionId: Id, units?: DxfUnit, lang: Lan
   return exportSectionDxf(p, sectionId, sectionDxfGeometryOf(p, sectionId, units, lang), lang);
 }
 
-/**
- * Vista de planta exportável: a planta de piso do nível ou uma planta de área (perfil + anotações próprias). Forma única:
- * `viewId`. A forma antiga (`levelId` + `areaPlanId`) continua aceita.
- */
+/** Vista de planta exportável: `viewId` (forma única) ou, na forma antiga, `levelId` + `areaPlanId`. */
 export type PlanViewRef = { showRoofProjection?: boolean } & (
   | { viewId: Id }
   | { viewId?: undefined; levelId: Id; areaPlanId?: Id | null }
@@ -545,9 +542,8 @@ export type PlanViewRef = { showRoofProjection?: boolean } & (
 /** Ponto único de exportação do DXF de uma planta: a de área segue o perfil da vista; a de piso é inalterada. */
 export function viewDxf(p: Project, v: PlanViewRef, lang: Lang = activeLang()): string {
   const vista = v.viewId === undefined ? undefined : planViewOf(p, v.viewId);
-  if (v.viewId !== undefined && !vista) throw new Error(`Vista de planta inexistente: ${v.viewId}`);
-  const areaId = vista ? (vista.kind === 'area' ? vista.id : null) : v.viewId === undefined ? (v.areaPlanId ?? null) : null;
-  return areaId ? areaPlanDxfOf(p, areaId) : planDxf(p, vista ? vista.levelId : (v as { levelId: Id }).levelId, v.showRoofProjection ?? true, undefined, lang);
+  const areaId = vista ? (vista.kind === 'area' ? vista.id : null) : ((v as { areaPlanId?: Id | null }).areaPlanId ?? null);
+  return areaId ? areaPlanDxfOf(p, areaId) : planDxf(p, vista?.levelId ?? (v as { levelId: Id }).levelId, v.showRoofProjection ?? true, undefined, lang);
 }
 
 

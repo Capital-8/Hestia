@@ -13,7 +13,7 @@ describe('visibilidade por vista', () => {
   it('chave por vista: piso, cobertura, área, corte e 3D são distintos', () => {
     useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0' });
     expect(visibilityKeyOf(useUi.getState())).toBe('plan:lv_0');
-    useUi.setState({ planKind: 'roof' });
+    useUi.setState({ planKind: 'roof', planViewId: 'pvr_lv_0' });
     expect(visibilityKeyOf(useUi.getState())).toBe('roof:lv_0');
     useUi.setState({ planKind: 'area', planViewId: 'ap1' });
     expect(visibilityKeyOf(useUi.getState())).toBe('area:ap1');

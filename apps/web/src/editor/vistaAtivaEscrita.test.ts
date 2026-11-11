@@ -31,8 +31,8 @@ function montar(): { project: Project; planId: string } {
 
 const nota = (id: string): TextNote => ({ id, at: { x: 1, y: 1 }, text: id, height: 0.2, rotation: 0 });
 
-const piso = { view: 'plan', planKind: 'floor', areaPlanId: null } as const;
-const cobertura = { view: 'plan', planKind: 'roof', areaPlanId: null } as const;
+const piso = { view: 'plan', planKind: 'floor', planViewId: 'pv_lv_0' } as const;
+const cobertura = { view: 'plan', planKind: 'roof', planViewId: 'pvr_lv_0' } as const;
 
 beforeEach(() => useUi.setState({ options: DEFAULT_OPTIONS, tool: 'select', status: '', viewTemp: {}, selection: [] }));
 afterEach(() => useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', planViewId: 'pv_lv_0', sectionId: null, viewTemp: {}, selection: [] }));
@@ -141,8 +141,8 @@ describe('comando de anotação emitido pelo editor, por viewId', () => {
 
 describe('ocultar e reexibir na vista, por viewId', () => {
   const casos = [
-    { nome: 'piso', estado: () => ({ ...piso }), viewId: () => floorViewId('lv_0'), alvo: { kind: 'plan', levelId: 'lv_0' } },
-    { nome: 'cobertura', estado: () => ({ ...cobertura }), viewId: () => roofViewId('lv_0'), alvo: { kind: 'roof', levelId: 'lv_0' } },
+    { nome: 'piso', estado: () => ({ ...piso }), viewId: () => floorViewId('lv_0'), alvo: { kind: 'plan', viewId: 'pv_lv_0' } },
+    { nome: 'cobertura', estado: () => ({ ...cobertura }), viewId: () => roofViewId('lv_0'), alvo: { kind: 'plan', viewId: 'pvr_lv_0' } },
   ] as const;
 
   for (const c of casos) {
@@ -169,7 +169,7 @@ describe('ocultar e reexibir na vista, por viewId', () => {
     const { project, planId } = montar();
     editor.load(project, 'teste.hestia.json');
     useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', planViewId: planId });
-    expect(viewHiddenTargetOf(useUi.getState(), editor.project)).toEqual({ kind: 'area', planId });
+    expect(viewHiddenTargetOf(useUi.getState(), editor.project)).toEqual({ kind: 'plan', viewId: planId });
     hideInView(['w0']);
     expect(areaPlanOf(editor.project, planId)!.hidden?.elements).toEqual(['w0']);
     expect(planViewHiddenOf(editor.project, planId).elements).toEqual(['w0']);
@@ -182,7 +182,7 @@ describe('ocultar e reexibir na vista, por viewId', () => {
     const { project } = montar();
     editor.load(project, 'teste.hestia.json');
     useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', planViewId: 'ap_inexistente' });
-    expect(viewHiddenTargetOf(useUi.getState(), editor.project)).toEqual({ kind: 'area', planId: 'ap_inexistente' });
+    expect(viewHiddenTargetOf(useUi.getState(), editor.project)).toEqual({ kind: 'plan', viewId: 'ap_inexistente' });
   });
 });
 

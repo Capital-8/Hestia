@@ -115,7 +115,7 @@ describe('inserção de vistas: uma prancha por nível', () => {
       expect(sh.titleBlock.date).not.toBe('');
       expect(sh.viewports).toHaveLength(1);
       const vp = sh.viewports[0]!;
-      expect(vp.view).toEqual({ kind: 'plan', levelId: `lv_${i}` });
+      expect(vp.view).toEqual({ kind: "plan", viewId: `pv_lv_${i}` });
       expect(vp.scale).toBe(100);
       const inner = sheetInnerBox(sh);
       expect(vp.at).toEqual({ x: inner.x0 + 10, y: inner.y0 + 10 });

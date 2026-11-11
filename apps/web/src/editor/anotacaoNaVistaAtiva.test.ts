@@ -145,7 +145,7 @@ describe('seleção, exclusão e etiquetas na vista ativa', () => {
     const m = montar();
     ir(null, 'floor', m);
     criarTudo('p');
-    useUi.setState({ planKind: 'roof' });
+    useUi.setState({ planKind: 'roof', planViewId: 'pvr_lv_0' });
     criarTudo('c');
     // Clique na cota da cobertura (a do piso está no mesmo lugar, fora do modelo): seleciona a da cobertura.
     editor.setTool('select');
@@ -170,7 +170,7 @@ describe('seleção, exclusão e etiquetas na vista ativa', () => {
     const m = montar();
     ir(null, 'roof', m);
     criarTudo('c');
-    useUi.setState({ planKind: 'floor', selection: ['dc', 'tc'] });
+    useUi.setState({ planKind: 'floor', planViewId: 'pv_lv_0', selection: ['dc', 'tc'] });
     deleteSelectionIn(editor.store);
     expect(ids(roofViewId('lv_0'))).toEqual(['dc', 'gc', 'lc', 'tc']);
   });
@@ -194,7 +194,7 @@ describe('seleção, exclusão e etiquetas na vista ativa', () => {
     const m = montar();
     ir(null, 'floor', m);
     editor.applyCommand({ type: 'addTag', levelId: 'lv_0', item: { ...etiqueta('piso'), hostId: 'w0' } });
-    useUi.setState({ planKind: 'roof' });
+    useUi.setState({ planKind: 'roof', planViewId: 'pvr_lv_0' });
     // A cobertura não tem etiqueta: etiqueta todas as paredes, inclusive a que já tem no piso.
     const n = tagAllNotTagged();
     const cobertura = viewAnnotationsOf(editor.project, roofViewId('lv_0')).tags;
