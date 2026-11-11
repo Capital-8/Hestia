@@ -27,7 +27,15 @@ Branch `feat/parede-cortina-f2-rust`. Contrato `versao` 15, seções 106 a 109 (
 
 As divergências da referência são só de avisos e de flags. Grade, peças, painéis e quantitativos batem nos 40 casos, exceto a flag do item 4.
 
+## Ligação modelo → adaptador (feita)
+
+- `packages/engine/src/cortinaSobrescritas.ts` traduz `addedLines`, `removedSegments`, `lineOverrides` e `cells` (só painel) para `sobrescritas` de cada cortina. `cortinaProjeto.ts` usa a tradução, inclui na entrada os montantes e painéis que ela referencia e entra na assinatura da cortina (e, por ela, na do nível).
+- `comprimentoGravado` é o comprimento atual do eixo: o modelo não guarda o da gravação, mas já reescreve `pos` a cada mudança de L ou H.
+- Avisos 7 a 10 em `cortinaIssues.ts` (pt e en): `cortina-override-orfao` (7, 8 e 9) e `cortina-celula-nao-retangular` (10).
+- Desvios: linha EXTRA com `mullionTypeId: null` herda o montante do eixo (o contrato não tem "sem montante" para extra); sobrescrita de célula com abertura (fase 5) não entra; montante ou painel inexistente no projeto: a linha herda o montante, a célula sai.
+- Testes: `cortinaSobrescritas.test.ts` (tradução, assinatura, avisos) e `tests/kernel-cortina-sobrescritas.wasm.test.ts` (uma linha extra, um segmento removido e um painel sólido: 26 montantes, 8 vidros, 1 sólido; vidro bruto 15,528933 m², sólido 1,375101 m²).
+
 ## Pendências
 
-- O conversor do modelo (`cortinaProjeto.ts`) ainda não manda `sobrescritas` ao adaptador: a integração com `addedLines`, `removedSegments`, `lineOverrides` e `cells` do modelo é da próxima etapa.
 - Remap de sobrescrita por posição em mudança de topologia cobre o caso testado; o estresse com grades aleatórias não foi feito.
+- "Sem montante" para linha extra: precisa de um modo na seção 106 (emenda ao contrato).
