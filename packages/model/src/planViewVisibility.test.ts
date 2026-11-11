@@ -64,6 +64,13 @@ describe('visibleInView: etapas da regra 4.5', () => {
     expect(visibleInView(p, PISO, 'w2', { temporary: { isolated: { elements: ['w1'] } } })).toBe(false);
   });
 
+  it('etapa 6: isolar categoria sem nenhum elemento na vista não isola (nada é escondido)', () => {
+    const p = base();
+    expect(visibleInView(p, PISO, 'w1', { temporary: { isolated: { categories: ['roof'] } } })).toBe(true);
+    expect(visibleInView(p, PISO, 'w1', { temporary: { isolated: { categories: ['annotation'] } } })).toBe(false);
+    expect(visibleInView(p, PISO, 'd1', { temporary: { isolated: { categories: ['annotation'] } } })).toBe(true);
+  });
+
   it('revelar mostra o que o usuário oculta, mas não o fora do alcance', () => {
     const p = comOcultos(base(), PISO, { elements: ['w1'] });
     expect(visibleInView(p, PISO, 'w1', { revealing: true })).toBe(true);

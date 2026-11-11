@@ -103,6 +103,28 @@ function inHidden(h: ViewHidden | undefined, id: Id, category: GraphicsCategory 
   return !!h && (h.elements?.includes(id) === true || (category !== null && h.categories?.includes(category) === true));
 }
 
+const isolationMemo = new WeakMap<ViewHidden, { p: Project; v: PlanView | undefined; active: boolean }>();
+
+/**
+ * O isolamento temporário vale? Só se isolar algo: elementos listados ou categorias que casam com pelo menos um
+ * elemento do projeto ou anotação da vista (categoria sem elementos não esconde nada, como sempre foi).
+ */
+function isolationActive(p: Project, v: PlanView | undefined, isolated: ViewHidden): boolean {
+  if ((isolated.elements?.length ?? 0) > 0) return true;
+  const cats = isolated.categories;
+  if (!cats?.length) return false;
+  const hit = isolationMemo.get(isolated);
+  if (hit && hit.p === p && hit.v === v) return hit.active;
+  const set = new Set(cats);
+  let active = Object.values(p.elements).some((e) => {
+    const c = categoryOfElement(e);
+    return c !== null && set.has(c);
+  });
+  if (!active && set.has('annotation') && v) active = annotationLayersOf(v).size > 0;
+  isolationMemo.set(isolated, { p, v, active });
+  return active;
+}
+
 /**
  * Ocultação escolhida pelo usuário (etapas 3, só `hidden.categories`, 5 e 6): é o que o "revelar ocultos" mostra de novo
  * e o que vai ao desenho como `hidden`. Com isolamento temporário ativo, só o isolado aparece (e ele manda sobre o
@@ -113,7 +135,7 @@ export function hiddenByUserInView(p: Project, viewId: Id, id: Id, session: Visi
   const { category } = infoOf(p, v, id);
   const t = session.temporary;
   const isolated = t?.isolated;
-  if (isolated && ((isolated.elements?.length ?? 0) > 0 || (isolated.categories?.length ?? 0) > 0)) return !inHidden(isolated, id, category);
+  if (isolated && isolationActive(p, v, isolated)) return !inHidden(isolated, id, category);
   return inHidden(v?.hidden, id, category) || inHidden(t?.hidden, id, category);
 }
 

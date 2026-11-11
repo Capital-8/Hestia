@@ -46,7 +46,7 @@ import { casador } from './shortcutConfig.ts'; import { clearSelectionForTool } 
 import { elevationCommand, type PlanBox } from './elevations.ts';
 import { deleteSelectionIn } from './deleteIds.ts';
 import { deleteSectionAnnotationsIn, sectionAnnotationIdsIn } from './sectionHandles.ts';
-import { hideSelectedCategoryInView, hideSelectionInView, resetAllTemporary, resetTemporaryHidden, temporaryHideSelection, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideSelectedCategoryInView, unhideSelectionInView, hiddenInActiveView, visibilityOf } from './viewVisibility.ts';
+import { hideSelectedCategoryInView, hideSelectionInView, resetAllTemporary, resetTemporaryHidden, temporaryHideSelection, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideSelectedCategoryInView, unhideSelectionInView, hiddenInActiveView, revealingActive, visibilityOf } from './viewVisibility.ts';
 import { deleteViewAction, renameViewAction, updateViewAction } from './sectionViewActions.ts';
 import { entregarArquivo } from './entregarArquivo.ts';
 import { bibliotecaDoAmbiente, type Biblioteca } from './biblioteca/biblioteca.ts';
@@ -191,6 +191,7 @@ export class Editor {
     // Vista de planta exata (piso, cobertura ou área); leitura a cada acesso, o ambiente é criado uma vez só.
     get viewId(): Id | undefined { return planViewIdAtivo(useUi.getState()) ?? undefined; },
     hiddenInView: () => hiddenInActiveView(this.store.project, useUi.getState()),
+    revealingHidden: () => revealingActive(useUi.getState()),
     underlayLevelId: () => { const st = useUi.getState(); return underlayIdOf(this.store.project, st.levelId, st.showUnderlay, st.underlayLevel); },
     selection: () => useUi.getState().selection,
     setSelection: (ids) => useUi.setState({ selection: ids, ...(ids.length ? { selectedLevel: null } : {}) }),

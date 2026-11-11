@@ -147,3 +147,15 @@ describe('hiddenInActiveView (o que as ferramentas não capturam)', () => {
     expect(hiddenInActiveView(p, useUi.getState()).has(w1!.id)).toBe(false);
   });
 });
+
+describe('hiddenInActiveView: chave do cache', () => {
+  it('trocar de planta para 3D com o mesmo projeto não devolve o conjunto em cache da planta', () => {
+    const p = structuredClone(buildTemplate('house2'));
+    const level = p.levels[0]!;
+    patchFloorOfTest(p, level.id, { annotations: { dimensions: [{ id: 'dx', a: { x: 0, y: 0 }, b: { x: 1, y: 0 }, offset: 1, mode: 'aligned' }] }, hidden: { elements: ['dx'] } });
+    useUi.setState({ view: 'plan', planKind: 'floor', levelId: level.id, planViewId: `pv_${level.id}`, viewTemp: {} });
+    expect(hiddenInActiveView(p, useUi.getState()).has('dx')).toBe(true);
+    useUi.setState({ view: '3d' });
+    expect(hiddenInActiveView(p, useUi.getState()).has('dx')).toBe(false);
+  });
+});

@@ -349,12 +349,18 @@ export function temporaryActive(): boolean {
   return !!(t?.hidden || t?.isolated);
 }
 
+/** O modo "revelar ocultos" está ligado na planta aberta? (a seleção deixa de excluir o que o usuário oculta) */
+export function revealingActive(st: ReturnType<typeof useUi.getState>): boolean {
+  const key = st.view === 'plan' ? visibilityKeyOf(st) : null;
+  return !!key && st.viewTemp[key]?.reveal === true;
+}
+
 /** Há hide temporário (não Reveal) ativo na vista atual? */
 export function temporaryHideActive(): boolean {
   return temporaryActive();
 }
 
-let ultimoOcultoDaVista: { p: Project; viewId: Id; levelId: Id; temp: TempViewVisibility | undefined; revelando: boolean; ids: ReadonlySet<Id> } | null = null;
+let ultimoOcultoDaVista: { p: Project; viewId: Id; levelId: Id; view: string; planKind: string; temp: TempViewVisibility | undefined; revelando: boolean; ids: ReadonlySet<Id> } | null = null;
 
 /**
  * Ids que a vista de planta ativa (ou, em 3D, corte e prancha, a planta de fundo) esconde: a regra única
@@ -370,11 +376,11 @@ export function hiddenInActiveView(p: Project, st: ReturnType<typeof useUi.getSt
   const temp = key ? st.viewTemp[key] : undefined;
   const revelando = temp?.reveal === true;
   const c = ultimoOcultoDaVista;
-  if (c && c.p === p && c.viewId === viewId && c.levelId === levelId && c.temp === temp && c.revelando === revelando) return c.ids;
+  if (c && c.p === p && c.viewId === viewId && c.levelId === levelId && c.view === st.view && c.planKind === st.planKind && c.temp === temp && c.revelando === revelando) return c.ids;
   // A cobertura não usa intervalo de vista (o desenho a resolve sem ele): só as vistas com intervalo têm etapa 1.
   const outOfRange = st.planKind === 'roof' ? undefined : resolvedPlanViewOf(p, levelId, viewId).hidden;
   const candidatos = st.view === 'plan' ? [...Object.keys(p.elements), ...annotationIdsOfActiveView(p, st)] : Object.keys(p.elements);
   const ids = hiddenIdsInView(p, viewId, candidatos, { outOfRange, temporary: temp ? { hidden: temp.hidden, isolated: temp.isolated } : undefined, revealing: revelando });
-  ultimoOcultoDaVista = { p, viewId, levelId, temp, revelando, ids };
+  ultimoOcultoDaVista = { p, viewId, levelId, view: st.view, planKind: st.planKind, temp, revelando, ids };
   return ids;
 }

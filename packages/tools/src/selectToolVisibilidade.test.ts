@@ -19,9 +19,9 @@ function projeto(): Project {
 }
 
 /** Clica em `at` com a ferramenta Selecionar sobre `p` e devolve a seleção. */
-function clicar(p: Project, at: { x: number; y: number }, extra: { viewId?: string; areaPlanId?: string; hiddenInView?: () => ReadonlySet<string> } = {}): string[] {
+function clicar(p: Project, at: { x: number; y: number }, extra: { viewId?: string; areaPlanId?: string; hiddenInView?: () => ReadonlySet<string>; revealing?: boolean } = {}): string[] {
   const ctx = makeEnv(new ProjectStore(p));
-  const env = { ...ctx.env, project: () => p, areaPlanId: () => extra.areaPlanId ?? null, ...(extra.hiddenInView ? { hiddenInView: extra.hiddenInView } : {}) };
+  const env = { ...ctx.env, project: () => p, areaPlanId: () => extra.areaPlanId ?? null, ...(extra.hiddenInView ? { hiddenInView: extra.hiddenInView } : {}), ...(extra.revealing ? { revealingHidden: () => true } : {}) };
   const t = new SelectTool(env);
   t.start();
   t.move(P(at.x, at.y));
@@ -50,6 +50,12 @@ describe('seleção e a regra única de visibilidade', () => {
 
   it('etapa 1 e 6: o que o ambiente informa em hiddenInView (alcance, temporário) não é selecionável', () => {
     expect(clicar(projeto(), { x: 2, y: 0 }, { hiddenInView: () => new Set(['w1']) })).toEqual([]);
+  });
+
+  it('modo revelar: o que o usuário oculta volta a ser selecionável (Reexibir tem alvo)', () => {
+    const p = withViewPatchOfTest(projeto(), floorViewId('lv_0'), { hidden: { elements: ['w1'] } });
+    expect(clicar(p, { x: 2, y: 0 })).toEqual([]);
+    expect(clicar(p, { x: 2, y: 0 }, { revealing: true })).toEqual(['w1']);
   });
 
   it('duas vistas do mesmo nível: o oculto de uma não afeta a outra', () => {

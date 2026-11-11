@@ -82,7 +82,7 @@ export class SelectTool extends ToolBase {
   private tagGrip: Id | null = null;
   private tagAt: Vec2 | null = null;
   /** Cache dos ids que a vista esconde e dos projetos "vistos pela vista" (por projeto, vista e conjunto de fora do alcance). */
-  private viewCache: { pr: Project; viewId: Id; fora: ReadonlySet<Id> | undefined; hidden: ReadonlySet<Id>; visible: Project | null; wallPick: Project | null } | null = null;
+  private viewCache: { pr: Project; viewId: Id; fora: ReadonlySet<Id> | undefined; revealing: boolean; hidden: ReadonlySet<Id>; visible: Project | null; wallPick: Project | null } | null = null;
 
   /** Camadas do perfil da planta de área aberta (null na planta de piso: tudo visível). Só para o que não é elemento (grade, marca de corte). */
   private layers(): ProfileLayers | null {
@@ -93,17 +93,18 @@ export class SelectTool extends ToolBase {
 
   /** Sessão de visibilidade da seleção: o alcance e o temporário que o ambiente informa em `hiddenInView`. */
   private session(): VisibilitySession {
-    return { outOfRange: this.env.hiddenInView?.() };
+    return { outOfRange: this.env.hiddenInView?.(), revealing: this.env.revealingHidden?.() === true };
   }
 
   private cache(): NonNullable<SelectTool['viewCache']> {
     const pr = this.env.project();
     const viewId = this.viewId();
     const fora = this.env.hiddenInView?.();
+    const revealing = this.env.revealingHidden?.() === true;
     const c = this.viewCache;
-    if (c && c.pr === pr && c.viewId === viewId && c.fora === fora) return c;
-    const hidden = hiddenIdsInView(pr, viewId, Object.keys(pr.elements), { outOfRange: fora });
-    return (this.viewCache = { pr, viewId, fora, hidden, visible: null, wallPick: null });
+    if (c && c.pr === pr && c.viewId === viewId && c.fora === fora && c.revealing === revealing) return c;
+    const hidden = hiddenIdsInView(pr, viewId, Object.keys(pr.elements), { outOfRange: fora, revealing });
+    return (this.viewCache = { pr, viewId, fora, revealing, hidden, visible: null, wallPick: null });
   }
 
   /** Elementos que a vista não mostra (regra única `visibleInView`): não são alvo de seleção. */
