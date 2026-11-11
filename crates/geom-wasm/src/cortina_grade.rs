@@ -268,8 +268,9 @@ pub fn consulta_cortina_grade(cena: &crate::cena::Cena, nivel: u32) -> Result<Ve
     for c in &cortinas {
         let Some(g) = &c.g else { continue };
         for (eixo, arestas, origens) in [(EIXO_U, &g.us, &g.origem_u), (EIXO_V, &g.vs, &g.origem_v)] {
+            let travadas = if eixo == EIXO_U { &g.travada_u } else { &g.travada_v };
             for (k, &pos) in arestas.iter().enumerate().take(arestas.len() - 1).skip(1) {
-                linhas.extend_from_slice(&[c.id, eixo as u32, k as u32, origens[k], 0]);
+                linhas.extend_from_slice(&[c.id, eixo as u32, k as u32, origens[k], travadas[k]]);
                 linhas_pos.push(na_grade(pos));
             }
         }

@@ -557,8 +557,8 @@ impl SecoesCortina {
                 if !self.extras.get(&s.linha).is_some_and(|x| x.cortina == s.cortina && x.eixo == s.eixo) {
                     return Err(ENTRADA);
                 }
-            } else if s.n < 2 || s.linha < 1 || s.linha >= s.n || !s.pos_norm.is_finite() {
-                // Bordas não são removíveis: só as linhas internas (1 a n−1).
+            } else if s.n < 2 || s.linha > s.n || !s.pos_norm.is_finite() {
+                // Índice 0 ou n é a borda (remoção que só tira o montante da borda); 1 a n−1 é linha interna.
                 return Err(ENTRADA);
             }
             contagem.entry(s.cortina).or_default()[1] += 1;
@@ -576,14 +576,8 @@ impl SecoesCortina {
             contagem.entry(s.cortina).or_default()[2] += 1;
         }
         for c in self.celulas_sobrescritas.values() {
-            let ok = self.cortinas.contains_key(&c.cortina)
-                && self.paineis.contains_key(&c.painel)
-                && c.nu >= 1
-                && c.nv >= 1
-                && c.i < c.nu
-                && c.j < c.nv
-                && c.s.is_finite()
-                && c.z.is_finite();
+            // A chave gravada pode ter índice fora da topologia gravada: o remapeamento a trata como fora da grade (ADR §4.4, passo 4).
+            let ok = self.cortinas.contains_key(&c.cortina) && self.paineis.contains_key(&c.painel) && c.nu >= 1 && c.nv >= 1 && c.s.is_finite() && c.z.is_finite();
             if !ok {
                 return Err(ENTRADA);
             }

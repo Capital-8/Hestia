@@ -10,6 +10,8 @@
 //! a linha (centro a centro, sem aparo; a de borda corre até a ponta) e a quebrada para na face do contínuo (centro do contínuo mais ou menos a meia
 //! largura). `round` usa profundidade = largura. A cortina de fora (arco, degenerada) só devolve o aviso.
 
+use std::collections::BTreeSet;
+
 use crate::cena::Cena;
 use crate::cortina_grade::{arestas, linhas_do_eixo, IndiceGrades};
 use crate::cortina_remap::{fundir, linhas_finais, mapear_celulas, mapear_segmentos, Alvo, CelSob, Escolha, ExtLinha, LinhaFinal, Orfao, SegRemovido, SobLinha};
@@ -225,6 +227,9 @@ pub struct Geom {
     /// Origem de cada aresta (`ORIGEM_GERADA`, `ORIGEM_EXTRA` ou `ORIGEM_MANUAL`); as bordas valem 0.
     pub origem_u: Vec<u32>,
     pub origem_v: Vec<u32>,
+    /// Linha travada (`locked`) de cada aresta: 1 ou 0 (flag bit 0 de `cortina_grade.linhas`); as bordas valem 0.
+    pub travada_u: Vec<u32>,
+    pub travada_v: Vec<u32>,
     pub prioridade: u8,
     pub min_cell: f64,
     /// Montante de cada aresta e o seu papel.
@@ -270,6 +275,26 @@ impl Geom {
 
     pub fn largura_v(&self, j: usize) -> f64 {
         self.mont_v.get(j).copied().flatten().map(|m| m.largura).unwrap_or(0.0)
+    }
+
+    /// Segmento ativo (sem remoção) com montante: `eixo` U (vertical na linha `linha`, fileira `k`) ou V (horizontal).
+    fn seg_com_montante(&self, eixo: u8, linha: usize, k: usize) -> bool {
+        let idx = if eixo == EIXO_U { linha * self.nv() + k } else { (self.nu() + 1) * self.nv() + linha * self.nu() + k };
+        let s = &self.segmentos[idx];
+        !s.removido && s.montante != ID_AUSENTE
+    }
+
+    /// Face que o montante vertical da linha `i` oferece ao nó na fileira `j`: a largura do perfil, se algum segmento vertical que encosta no nó
+    /// (fileira `j - 1` ou `j`) tem montante ativo; senão 0 (um segmento removido não recorta a horizontal, ADR §5.3).
+    pub fn face_u(&self, i: usize, j: usize) -> f64 {
+        let ativo = (j > 0 && self.seg_com_montante(EIXO_U, i, j - 1)) || (j < self.nv() && self.seg_com_montante(EIXO_U, i, j));
+        if ativo { self.largura_u(i) } else { 0.0 }
+    }
+
+    /// Face que o montante horizontal da fileira `j` oferece ao nó na coluna `i` (análogo a `face_u`).
+    pub fn face_v(&self, j: usize, i: usize) -> f64 {
+        let ativo = (i > 0 && self.seg_com_montante(EIXO_V, j, i - 1)) || (i < self.nu() && self.seg_com_montante(EIXO_V, j, i));
+        if ativo { self.largura_v(j) } else { 0.0 }
     }
 }
 
@@ -407,19 +432,23 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
     };
     let mut mont_u: Vec<Option<Montante>> = vec![None; nu + 1];
     let mut origem_u: Vec<u32> = vec![0; nu + 1];
+    let mut travada_u: Vec<u32> = vec![0; nu + 1];
     mont_u[0] = m_bi;
     mont_u[nu] = m_bf;
     for (k, f) in fin_u.linhas.iter().enumerate() {
         mont_u[k + 1] = escolhido(f, m_iv)?;
         origem_u[k + 1] = f.origem;
+        travada_u[k + 1] = u32::from(f.travada);
     }
     let mut mont_v: Vec<Option<Montante>> = vec![None; nv + 1];
     let mut origem_v: Vec<u32> = vec![0; nv + 1];
+    let mut travada_v: Vec<u32> = vec![0; nv + 1];
     mont_v[0] = m_bb;
     mont_v[nv] = m_bt;
     for (k, f) in fin_v.linhas.iter().enumerate() {
         mont_v[k + 1] = escolhido(f, m_ih)?;
         origem_v[k + 1] = f.origem;
+        travada_v[k + 1] = u32::from(f.travada);
     }
     let papel_u: Vec<u32> = (0..=nu).map(|i| if i == 0 { PAPEL_BORDA_INI } else if i == nu { PAPEL_BORDA_FIM } else { PAPEL_INT_V }).collect();
     let papel_v: Vec<u32> = (0..=nv).map(|j| if j == 0 { PAPEL_BORDA_BASE } else if j == nv { PAPEL_BORDA_TOPO } else { PAPEL_INT_H }).collect();
@@ -452,6 +481,8 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
         cv,
         origem_u,
         origem_v,
+        travada_u,
+        travada_v,
         prioridade: t.prioridade,
         min_cell,
         mont_u,
@@ -468,9 +499,12 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
     // Segmentos nominais: cada linha de U corre na vertical (um por fileira) e cada linha de V na horizontal (um por coluna). Um segmento fica INATIVO
     // (sem montante) quando foi removido ou quando as duas células vizinhas são da mesma região fundida: dentro de um painel não há perfil.
     let regiao_de = &fus.regiao_de;
+    // Removidos explicitamente (inclui as bordas): índice da linha final e segmento.
+    let removidos_u: BTreeSet<(usize, usize)> = fus.aceitos.iter().filter(|a| a.0 == EIXO_U).map(|a| (a.1, a.2)).collect();
+    let removidos_v: BTreeSet<(usize, usize)> = fus.aceitos.iter().filter(|a| a.0 == EIXO_V).map(|a| (a.1, a.2)).collect();
     for i in 0..=nu {
         for k in 0..nv {
-            let ina = i > 0 && i < nu && regiao_de[(i - 1) * nv + k] == regiao_de[i * nv + k];
+            let ina = removidos_u.contains(&(i, k)) || (i > 0 && i < nu && regiao_de[(i - 1) * nv + k] == regiao_de[i * nv + k]);
             let montante = if ina { None } else { g.mont_u[i] };
             g.segmentos.push(Segmento {
                 eixo: EIXO_U,
@@ -486,7 +520,7 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
     }
     for j in 0..=nv {
         for k in 0..nu {
-            let ina = j > 0 && j < nv && regiao_de[k * nv + j - 1] == regiao_de[k * nv + j];
+            let ina = removidos_v.contains(&(j, k)) || (j > 0 && j < nv && regiao_de[k * nv + j - 1] == regiao_de[k * nv + j]);
             let montante = if ina { None } else { g.mont_v[j] };
             g.segmentos.push(Segmento {
                 eixo: EIXO_V,
@@ -519,9 +553,21 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
             Some(pid) => painel_de(sec, pid)?,
             None => g.painel_padrao,
         };
-        let (fs0, fs1) = (g.cu[reg.i0] + g.largura_u(reg.i0) / 2.0, g.cu[reg.i1 + 1] - g.largura_u(reg.i1 + 1) / 2.0);
-        let (fz0, fz1) = (g.cv[reg.j0] + g.largura_v(reg.j0) / 2.0, g.cv[reg.j1 + 1] - g.largura_v(reg.j1 + 1) / 2.0);
-        let lados = [g.mont_u[reg.i0].is_some(), g.mont_u[reg.i1 + 1].is_some(), g.mont_v[reg.j0].is_some(), g.mont_v[reg.j1 + 1].is_some()];
+        // Margem só onde a borda da região tem montante ativo (segmento removido de borda não desconta nada).
+        let lados = [
+            (reg.j0..=reg.j1).any(|j| g.seg_com_montante(EIXO_U, reg.i0, j)),
+            (reg.j0..=reg.j1).any(|j| g.seg_com_montante(EIXO_U, reg.i1 + 1, j)),
+            (reg.i0..=reg.i1).any(|i| g.seg_com_montante(EIXO_V, reg.j0, i)),
+            (reg.i0..=reg.i1).any(|i| g.seg_com_montante(EIXO_V, reg.j1 + 1, i)),
+        ];
+        let (fs0, fs1) = (
+            if lados[0] { g.cu[reg.i0] + g.largura_u(reg.i0) / 2.0 } else { g.us[reg.i0] },
+            if lados[1] { g.cu[reg.i1 + 1] - g.largura_u(reg.i1 + 1) / 2.0 } else { g.us[reg.i1 + 1] },
+        );
+        let (fz0, fz1) = (
+            if lados[2] { g.cv[reg.j0] + g.largura_v(reg.j0) / 2.0 } else { g.vs[reg.j0] },
+            if lados[3] { g.cv[reg.j1 + 1] - g.largura_v(reg.j1 + 1) / 2.0 } else { g.vs[reg.j1 + 1] },
+        );
         let p = PainelPeca { i: reg.canon.0 as u32, j: reg.canon.1 as u32, p: painel, s0: fs0, s1: fs1, z0: fz0, z1: fz1, lados };
         let menor = p.largura_livre().min(p.altura_livre());
         let mut flags = 0;
@@ -532,9 +578,12 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
             r.avisos.push(AvisoC { codigo: AVISO_CORTINA_CELULA_PEQUENA, i: reg.canon.0 as u32, j: reg.canon.1 as u32, medido: menor, limite: min_cell, p: q });
         }
         let canonica = (reg.canon.0 * nv + reg.canon.1) as u32;
+        let multi = if (reg.i1 - reg.i0 + 1) * (reg.j1 - reg.j0 + 1) > 1 { CELULA_REGIAO_MULTIPLA } else { 0 };
         for j in reg.j0..=reg.j1 {
             for i in reg.i0..=reg.i1 {
-                g.celulas.push(Celula { i: i as u32, j: j as u32, s0: g.us[i], s1: g.us[i + 1], z0: g.vs[j], z1: g.vs[j + 1], painel: painel.tipo, flags, regiao: canonica });
+                // Bit 1: a célula recebeu uma sobrescrita de painel adotada; bit 2: a região tem mais de uma célula.
+                let adotada = if pan_cel[i * nv + j].is_some() { CELULA_SOBRESCRITA } else { 0 };
+                g.celulas.push(Celula { i: i as u32, j: j as u32, s0: g.us[i], s1: g.us[i + 1], z0: g.vs[j], z1: g.vs[j + 1], painel: painel.tipo, flags: flags | adotada | multi, regiao: canonica });
             }
         }
         g.paineis.push(p);
@@ -549,7 +598,9 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
             if g.segmentos[i * nv + k].removido {
                 continue;
             }
-            let (de, ate) = if vertical_continua { (g.vs[k], g.vs[k + 1]) } else { (g.cv[k] + g.largura_v(k) / 2.0, g.cv[k + 1] - g.largura_v(k + 1) / 2.0) };
+            // Sem face (segmento de borda removido, ou sem montante no nó), a ponta vai à aresta: a borda não recorta nada ali.
+            let (f0, f1) = (g.face_v(k, i), g.face_v(k + 1, i));
+            let (de, ate) = if vertical_continua { (g.vs[k], g.vs[k + 1]) } else { (if f0 == 0.0 { g.vs[k] } else { g.cv[k] + f0 / 2.0 }, if f1 == 0.0 { g.vs[k + 1] } else { g.cv[k + 1] - f1 / 2.0 }) };
             if ate - de > TOL_POS {
                 g.pecas.push(PecaMont { eixo: EIXO_U, linha: i as u32, k: k as u32, papel: g.papel_u[i], m: mt, pos: g.cu[i], de, ate, continuo: vertical_continua });
             }
@@ -562,7 +613,8 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
             if g.segmentos[base_v + j * nu + k].removido {
                 continue;
             }
-            let (de, ate) = if !vertical_continua { (g.us[k], g.us[k + 1]) } else { (g.cu[k] + g.largura_u(k) / 2.0, g.cu[k + 1] - g.largura_u(k + 1) / 2.0) };
+            let (f0, f1) = (g.face_u(k, j), g.face_u(k + 1, j));
+            let (de, ate) = if !vertical_continua { (g.us[k], g.us[k + 1]) } else { (if f0 == 0.0 { g.us[k] } else { g.cu[k] + f0 / 2.0 }, if f1 == 0.0 { g.us[k + 1] } else { g.cu[k + 1] - f1 / 2.0 }) };
             if ate - de > TOL_POS {
                 g.pecas.push(PecaMont { eixo: EIXO_V, linha: j as u32, k: k as u32, papel: g.papel_v[j], m: mt, pos: g.cv[j], de, ate, continuo: !vertical_continua });
             }
@@ -1239,11 +1291,15 @@ mod testes_f2 {
     }
 
     #[test]
-    fn remocao_de_borda_e_referencia_quebrada_sao_entrada() {
+    fn remocao_de_borda_vale_so_sem_montante_e_referencia_quebrada_e_entrada() {
         let e = Espec::novo(EixoEfetivo::numero(2), EixoEfetivo::numero(1));
         let mut c = cena_simples(&e, 4.0, 3.0);
         remover(&mut c, 1, EIXO_U, 0, 2, 0, 1);
-        assert_eq!(resolver(&c, 0).err(), Some(ENTRADA), "borda não é removível");
+        let g = resolver(&c, 0).expect("borda removida").remove(0).g.expect("g");
+        let seg = g.segmentos.iter().find(|s| s.eixo == EIXO_U && s.linha == 0).expect("segmento");
+        assert!(seg.removido && seg.montante == ID_AUSENTE, "a borda sem montante");
+        assert_eq!(g.paineis.len(), 2, "remover a borda não funde células");
+        assert!(g.pecas.iter().all(|p| !(p.eixo == EIXO_U && p.linha == 0)), "sem peça na borda removida");
         let mut c = cena_simples(&e, 4.0, 3.0);
         c.cortina.extras.insert(3, LinhaExtraLinha { cortina: 1, eixo: EIXO_U, pos: 1.0, travada: true, comp: 4.0, montante: 99 });
         assert_eq!(resolver(&c, 0).err(), Some(ENTRADA), "montante da extra inexistente");

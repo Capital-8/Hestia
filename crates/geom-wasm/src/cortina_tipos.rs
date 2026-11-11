@@ -95,8 +95,11 @@ pub const ESTILO_CORTADO: u32 = 0;
 pub const ESTILO_PROJETADO: u32 = 1;
 pub const ESTILO_OCULTO: u32 = 2;
 
-/// Bit 0 de `cortina_grade.celulas.flags`: o menor lado livre é menor que a célula mínima.
+/// Bits de `cortina_grade.celulas.flags`: 0 o menor lado livre é menor que a célula mínima; 1 a célula tem sobrescrita de painel adotada; 2 a região
+/// tem mais de uma célula (fusão por remoção de segmento).
 pub const CELULA_PEQUENA: u32 = 1;
+pub const CELULA_SOBRESCRITA: u32 = 2;
+pub const CELULA_REGIAO_MULTIPLA: u32 = 4;
 
 /// Um eixo da grade com tipo e instância já fundidos (campo a campo, ADR §4.3).
 #[derive(Clone, Debug, PartialEq)]

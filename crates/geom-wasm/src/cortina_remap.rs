@@ -42,6 +42,8 @@ pub struct LinhaFinal {
     /// `ORIGEM_GERADA`, `ORIGEM_EXTRA` ou `ORIGEM_MANUAL` (ver `cortina_tipos`).
     pub origem: u32,
     pub montante: Escolha,
+    /// Travada (`locked`): mantém a posição absoluta. Vale para a extra e para a gerada com sobrescrita travada (flag bit 0 de `cortina_grade`).
+    pub travada: bool,
 }
 
 /// Quem não se aplicou: a célula, a linha ou o segmento gravado. `s` e `z` são a posição aproximada no plano (m), para "Ir para".
@@ -170,6 +172,9 @@ pub fn linhas_finais(eixo: u8, a: f64, gerada: &[f64], manual: bool, sob: &[SobL
     let mut orfaos = Vec::new();
     let mut pos_geradas: Vec<f64> = gerada.to_vec();
     let mut escolhas: Vec<Escolha> = vec![Escolha::Padrao; gerada.len()];
+    let mut travadas: Vec<bool> = vec![false; gerada.len()];
+    // Linha gerada cuja sobrescrita leva a posição para fora do vão: a linha SOME (a referência TS faz o mesmo), e a sobrescrita vira órfã.
+    let mut removidas: Vec<bool> = vec![false; gerada.len()];
     let origem_gerada = if manual { ORIGEM_MANUAL } else { ORIGEM_GERADA };
 
     // Linhas geradas: cada sobrescrita vai para uma linha nova; duas numa mesma linha => vence a mais próxima (empate: menor id).
@@ -201,6 +206,7 @@ pub fn linhas_finais(eixo: u8, a: f64, gerada: &[f64], manual: bool, sob: &[SobL
             if !dentro(a, p) {
                 let (ps, pz) = ponto_da_linha(eixo, p);
                 orfaos.push(Orfao { id: s.id, alvo: Alvo::Linha { eixo, indice: s.linha }, s: ps, z: pz });
+                removidas[k - 1] = true;
                 continue;
             }
             pos_geradas[k - 1] = p;
@@ -210,18 +216,22 @@ pub fn linhas_finais(eixo: u8, a: f64, gerada: &[f64], manual: bool, sob: &[SobL
             2 => Escolha::Tipo(s.montante),
             _ => Escolha::Padrao,
         };
+        travadas[k - 1] = s.travada;
     }
 
     // Todas as linhas: geradas e extras. Ordena por posição; em empate (1e-6), vale a extra.
     let mut todas: Vec<LinhaFinal> = Vec::with_capacity(gerada.len() + ext.len());
     for k in 1..=gerada.len() {
-        todas.push(LinhaFinal { pos: pos_geradas[k - 1], ident: Ident::Gerada(k), origem: origem_gerada, montante: escolhas[k - 1] });
+        if removidas[k - 1] {
+            continue;
+        }
+        todas.push(LinhaFinal { pos: pos_geradas[k - 1], ident: Ident::Gerada(k), origem: origem_gerada, montante: escolhas[k - 1], travada: travadas[k - 1] });
     }
     for e in ext {
         let p = posicao_resolvida(e.pos, e.travada, e.comp, a);
         if dentro(a, p) {
             let montante = if e.montante == ID_AUSENTE { Escolha::Padrao } else { Escolha::Tipo(e.montante) };
-            todas.push(LinhaFinal { pos: p, ident: Ident::Extra(e.id), origem: ORIGEM_EXTRA, montante });
+            todas.push(LinhaFinal { pos: p, ident: Ident::Extra(e.id), origem: ORIGEM_EXTRA, montante, travada: e.travada });
         } else {
             let (ps, pz) = ponto_da_linha(eixo, p);
             orfaos.push(Orfao { id: e.id, alvo: Alvo::Linha { eixo, indice: e.id }, s: ps, z: pz });
@@ -255,6 +265,13 @@ pub struct CelulasFinais {
 fn localiza(p: f64, arestas: &[f64]) -> usize {
     let n = arestas.len() - 1;
     (0..n).find(|&i| p <= arestas[i + 1] + TOL_POS).unwrap_or(n - 1)
+}
+
+/// `true` se o ponto `p` (m) está a no máximo o lado da célula `(i, j)` de distância dela, em cada eixo (§4.4, passo 4).
+fn perto_da_celula(p: (f64, f64), us: &[f64], vs: &[f64], i: usize, j: usize) -> bool {
+    let fora = |x: f64, a: f64, b: f64| if x < a { a - x } else if x > b { x - b } else { 0.0 };
+    let (dx, dz) = (fora(p.0, us[i], us[i + 1]), fora(p.1, vs[j], vs[j + 1]));
+    dx <= (us[i + 1] - us[i]) + TOL_POS && dz <= (vs[j + 1] - vs[j]) + TOL_POS
 }
 
 /// Remapeamento das células sobrescritas (§4.4, passos 1 a 5) sobre a grade final `us` e `vs` (arestas, com 0 e o comprimento).
@@ -321,8 +338,9 @@ pub fn mapear_celulas(us: &[f64], vs: &[f64], sob: &[CelSob]) -> CelulasFinais {
                 }
             }
         }
+        // "Até uma célula de distância": o ponto pode ficar, no máximo, uma célula além da borda da célula escolhida em cada eixo.
         match melhor {
-            Some((i, j, _)) if !ocupada[i * nv + j] => {
+            Some((i, j, _)) if !ocupada[i * nv + j] && perto_da_celula(p, us, vs, i, j) => {
                 ocupada[i * nv + j] = true;
                 adotadas.push((i, j, *o));
             }
@@ -343,7 +361,11 @@ pub fn mapear_segmentos(refs: &[SegRemovido], finais: [&[LinhaFinal]; 2], gerada
         let outro = 1 - e;
         let a = arestas[e][arestas[e].len() - 1];
         let novas_norm: Vec<f64> = gerada[e].iter().map(|p| p / a).collect();
-        let idx = if r.extra {
+        // Borda (índice 0 ou o n gravado): a aresta de início ou de fim, que existe em qualquer grade.
+        let borda = !r.extra && (r.linha == 0 || r.linha == r.n);
+        let idx = if borda {
+            Some(0)
+        } else if r.extra {
             finais[e].iter().position(|f| f.ident == Ident::Extra(r.linha))
         } else {
             mapear_gerada(r.n, r.linha, r.pos_norm, &novas_norm).and_then(|(k, _)| finais[e].iter().position(|f| f.ident == Ident::Gerada(k)))
@@ -382,7 +404,17 @@ pub fn mapear_segmentos(refs: &[SegRemovido], finais: [&[LinhaFinal]; 2], gerada
                 }
             }
         };
-        ok.push((r.eixo, pos + 1, k));
+        // Borda: o índice do segmento de borda é a própria aresta (0 ou o nº de linhas + 1); senão, a linha interna final + 1.
+        let f = if borda {
+            if r.linha == 0 {
+                0
+            } else {
+                arestas[e].len() - 1
+            }
+        } else {
+            pos + 1
+        };
+        ok.push((r.eixo, f, k));
     }
     ok.sort();
     ok.dedup();
@@ -439,15 +471,18 @@ pub fn fundir(nu: usize, nv: usize, pedidos: &[(u8, usize, usize)]) -> Fusao {
     let mut recusados = Vec::new();
     for &(eixo, f, k) in &ordem {
         // Células a e b que a remoção une; só segmento interno (f de 1 a n−1) funde.
+        let (nlinhas, nseg) = if eixo == EIXO_U { (nu, nv) } else { (nv, nu) };
+        if f > nlinhas || k >= nseg {
+            continue;
+        }
+        if f == 0 || f == nlinhas {
+            // Borda: não une células. O segmento some (sem montante) e a borda não tem vizinha do outro lado.
+            aceitos.push((eixo, f, k));
+            continue;
+        }
         let par = if eixo == EIXO_U {
-            if f == 0 || f >= nu || k >= nv {
-                continue;
-            }
             ((f - 1) * nv + k, f * nv + k)
         } else {
-            if f == 0 || f >= nv || k >= nu {
-                continue;
-            }
             (k * nv + f - 1, k * nv + f)
         };
         let mut t = pai.clone();
@@ -703,8 +738,9 @@ mod testes {
 
     #[test]
     fn remocao_repetida_vale_uma_vez_e_borda_nao_funde() {
+        // A borda (U, 0, 0) vale como remoção (segmento sem montante) e não funde; a repetida vale uma vez.
         let f = fundir(2, 1, &[(EIXO_U, 1, 0), (EIXO_U, 1, 0), (EIXO_U, 0, 0)]);
-        assert_eq!(f.aceitos, vec![(EIXO_U, 1, 0)]);
+        assert_eq!(f.aceitos, vec![(EIXO_U, 0, 0), (EIXO_U, 1, 0)]);
         assert_eq!(f.regioes.len(), 1);
     }
 
@@ -721,7 +757,7 @@ mod testes {
         let us = grade(3, 1.0);
         let vs = grade(2, 1.0);
         let fin_u: Vec<LinhaFinal> = vec![];
-        let fin_v = vec![LinhaFinal { pos: 1.0, ident: Ident::Extra(4), origem: ORIGEM_EXTRA, montante: Escolha::Padrao }];
+        let fin_v = vec![LinhaFinal { pos: 1.0, ident: Ident::Extra(4), origem: ORIGEM_EXTRA, montante: Escolha::Padrao, travada: false }];
         let gerada_u: &[f64] = &[];
         let gerada_v: &[f64] = &[1.0];
         let r = SegRemovido { id: 1, eixo: EIXO_V, extra: true, linha: 4, pos_norm: f64::NAN, n: ID_AUSENTE, k: 1, nk: 2, mid: 0.75 };

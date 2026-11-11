@@ -2511,7 +2511,7 @@
           "tipo": "f64"
         }
       ],
-      "descricao": "Segmento removido de uma parede cortina (SegmentRef, ADR 0056 §4.3). eixo: 0 U (linha vertical), 1 V (horizontal). origem: 0 linha gerada (linha_num é o índice 1 a n-1 na gravação, pos_norm = pos / A e n = nº de células do eixo na gravação), 1 linha extra (linha_num é o id dela em cortina_linhas_extras; pos_norm NaN e n ID_AUSENTE). k: índice do segmento ao longo da linha (0 é o primeiro) e nk o total na gravação; mid: posição normalizada do ponto médio do segmento (0 a 1). Remover um segmento funde as duas células vizinhas numa região, que precisa ser retângulo: a remoção que não couber é recusada (aviso 10). Bordas não são removíveis. Fase 2."
+      "descricao": "Segmento removido de uma parede cortina (SegmentRef, ADR 0056 §4.3). eixo: 0 U (linha vertical), 1 V (horizontal). origem: 0 linha gerada (linha_num é o índice 1 a n-1 na gravação, pos_norm = pos / A e n = nº de células do eixo na gravação), 1 linha extra (linha_num é o id dela em cortina_linhas_extras; pos_norm NaN e n ID_AUSENTE). k: índice do segmento ao longo da linha (0 é o primeiro) e nk o total na gravação; mid: posição normalizada do ponto médio do segmento (0 a 1). Remover um segmento funde as duas células vizinhas numa região, que precisa ser retângulo: a remoção que não couber é recusada (aviso 10). Índice 0 ou n é a borda: remover tira só o montante da borda, sem fundir. Fase 2."
     },
     {
       "id": 108,
@@ -2607,7 +2607,7 @@
           "tipo": "u32"
         }
       ],
-      "descricao": "Sobrescrita de painel de uma célula (PanelCellOverride, ADR 0056 §4.3 e §4.4). i, j: índices da célula na gravação; s e z: centro normalizado (0 a 1) na gravação; nu e nv: colunas e fileiras na gravação; painel_num: chave de tipos_painel_cortina. A chave é remapeada pela regra de §4.4 (mesma topologia vale o índice; senão a posição; fusão pela menor distância; órfã sai com o aviso 7). Se a célula faz parte de uma região fundida, a sobrescrita vale para a região inteira (a da célula de menor (j, i) que tenha uma). Fase 2."
+      "descricao": "Sobrescrita de painel de uma célula (PanelCellOverride, ADR 0056 §4.3 e §4.4). i, j: índices da célula na gravação; s e z: centro normalizado (0 a 1) na gravação; nu e nv: colunas e fileiras na gravação; painel_num: chave de tipos_painel_cortina. A chave gravada pode ter índice fora da topologia gravada (aí vale a posição, §4.4 passo 4, e a célula adotada precisa estar a uma célula de distância). A chave é remapeada pela regra de §4.4 (mesma topologia vale o índice; senão a posição; fusão pela menor distância; órfã sai com o aviso 7). Se a célula faz parte de uma região fundida, a sobrescrita vale para a região inteira (a da célula de menor (j, i) que tenha uma). Fase 2."
     }
   ],
   "consultas": [
@@ -3567,7 +3567,7 @@
           "elementos": "2n"
         }
       ],
-      "descricao": "Grade de cada cortina do nível. linhas: [cortina_num, eixo, indice, origem (0 gerada, 1 extra, 2 manual), flags (0)] só das linhas internas (indice 1 a n-1; 0 e n são as bordas); linhas_pos: posição (m) de cada uma. celulas: [cortina_num, i, j, regiao (i · nv + j da célula canônica da região, a de menor (j, i)), painel_tipo_num, flags (bit 0 = menor lado livre menor que a célula mínima)]; celulas_ret: [s0, s1, z0, z1] da célula cheia. segmentos: [cortina_num, linha, k, removido (1 se a remoção vale ou se o segmento fica dentro de uma região fundida, e nesse caso montante_tipo_num é ID_AUSENTE), montante_tipo_num (ID_AUSENTE = sem montante)]; linha é o índice GLOBAL (U = 0..nu com 0 = borda início e nu = borda fim; V = nu+1..nu+1+nv com nu+1 = borda base); k corre de baixo para cima nas verticais e do início ao fim nas horizontais; segmentos_ext: [de, ate] (m), nominal de linha a linha, sem aparo. Ordem: cortina, U antes de V, índice; células por i e depois j. Grade de 1 µm. Fase 1."
+      "descricao": "Grade de cada cortina do nível. linhas: [cortina_num, eixo, indice, origem (0 gerada, 1 extra, 2 manual), flags (bit 0 = travada, linha com sobrescrita travada ou extra travada)] só das linhas internas (indice 1 a n-1; 0 e n são as bordas); linhas_pos: posição (m) de cada uma. celulas: [cortina_num, i, j, regiao (i · nv + j da célula canônica da região, a de menor (j, i)), painel_tipo_num, flags (bit 0 = menor lado livre menor que a célula mínima; bit 1 = célula com sobrescrita de painel adotada; bit 2 = região com mais de uma célula)]; celulas_ret: [s0, s1, z0, z1] da célula cheia. segmentos: [cortina_num, linha, k, removido (1 se a remoção vale ou se o segmento fica dentro de uma região fundida, e nesse caso montante_tipo_num é ID_AUSENTE), montante_tipo_num (ID_AUSENTE = sem montante)]; linha é o índice GLOBAL (U = 0..nu com 0 = borda início e nu = borda fim; V = nu+1..nu+1+nv com nu+1 = borda base); k corre de baixo para cima nas verticais e do início ao fim nas horizontais; segmentos_ext: [de, ate] (m), nominal de linha a linha, sem aparo. Ordem: cortina, U antes de V, índice; células por i e depois j. Grade de 1 µm. Fase 1."
     },
     {
       "id": 101,
