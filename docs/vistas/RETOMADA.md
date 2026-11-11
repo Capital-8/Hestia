@@ -16,9 +16,12 @@ Atualize a seção "Onde estamos" a cada etapa integrada.
 - **Fase 0 — concluída e integrada.** Ouro (`npm run test:vistas-ouro`), API `planView.ts`, decisão 0055.
 - **Fase 1 — concluída e integrada.** Raias A, B, C, D, E, G. Verificação sobre `vistas/base`: tipos e lint sem
   erro, 884 arquivos / 9.729 testes, ouro idêntico.
-- **Fase 2a-1 — em andamento** no branch `vistas/f2a-1` (4 commits: testes da migração, armazenamento em
-  `Project.planViews` com fachadas invertidas, auditoria do ouro e ouro regravado, validação e IFC). O agente foi
-  interrompido pelo limite de uso **antes de entregar o relatório e a verificação final**. Nada disso foi revisado.
+- **Fase 2a-1 — interrompida a pedido, no branch `vistas/f2a-1`** (6 commits). Feito: testes da migração,
+  armazenamento em `Project.planViews` com fachadas invertidas, auditoria do ouro e ouro regravado, validação e
+  IFC, testes do modelo ajustados. O último commit é um **`wip`**: o agente estava ajustando os testes de
+  `packages/engine` e `packages/render` para a forma nova e parou no meio. **Nada do branch foi verificado nem
+  revisado**: tipos, lint e testes não foram rodados no estado final, e o agente não entregou relatório.
+  A nuvem não mexe mais neste branch.
 - **Fase 2a-2, Fase 3 e fechamento — não iniciadas.**
 
 ## Como continuar no computador
