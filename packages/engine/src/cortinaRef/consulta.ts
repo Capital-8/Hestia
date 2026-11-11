@@ -4,7 +4,7 @@
  * É o formato que o teste de paridade compara com o Rust; ver `README.md` desta pasta.
  */
 import { CURTAIN_MIN_CELL, ID_AUSENTE, at, erroEntrada, type CortinaEntrada } from './tipos.ts';
-import { resolverGrade, type GradeResolvida } from './grade.ts';
+import { eixoEfetivo, resolverGrade, type GradeResolvida } from './grade.ts';
 import { calcularPecas, type Pecas } from './pecas.ts';
 import { calcularQuant, type LinhaQuant } from './quant.ts';
 import { calcularAvisos, type AvisoCortina } from './avisos.ts';
@@ -35,7 +35,7 @@ export interface SaidaConsulta {
   cortina_num: number;
   /** `cortina_grade(nivel_num)`. */
   cortina_grade: {
-    /** u32 x5: `[cortina_num, eixo (0 U, 1 V), indice (1..n-1), origem (0 gerada), flags (0)]`. */
+    /** u32 x5: `[cortina_num, eixo (0 U, 1 V), indice (1..n-1), origem (0 gerada, 2 manual), flags (0)]`. */
     linhas: number[];
     /** f64 x1: `[pos]` (m a partir do início/base), uma por linha acima. */
     linhas_pos: number[];
@@ -82,8 +82,10 @@ export function paraConsulta(r: CortinaResolvida): SaidaConsulta {
 
   const linhas: number[] = [];
   const linhasPos: number[] = [];
-  g.u.linhas.forEach((p, k) => { linhas.push(num, 0, k + 1, 0, 0); linhasPos.push(g1um(p)); });
-  g.v.linhas.forEach((p, k) => { linhas.push(num, 1, k + 1, 0, 0); linhasPos.push(g1um(p)); });
+  const oU = eixoEfetivo(r.entrada.tipo.u, r.entrada.instancia?.grid?.u).mode === 'manual' ? 2 : 0;
+  const oV = eixoEfetivo(r.entrada.tipo.v, r.entrada.instancia?.grid?.v).mode === 'manual' ? 2 : 0;
+  g.u.linhas.forEach((p, k) => { linhas.push(num, 0, k + 1, oU, 0); linhasPos.push(g1um(p)); });
+  g.v.linhas.forEach((p, k) => { linhas.push(num, 1, k + 1, oV, 0); linhasPos.push(g1um(p)); });
 
   const celulas: number[] = [];
   const celulasRet: number[] = [];

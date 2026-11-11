@@ -46,7 +46,7 @@ Vetores **planos**, como as consultas do §6.3; a coluna de cada posição está
 
 | Chave de `esperado` | Consulta do ADR | Vetores (colunas) |
 |---|---|---|
-| `cortina_grade` | `cortina_grade` (100) | `linhas` u32x5 `[cortina_num, eixo 0U/1V, indice 1..n-1, origem 0, flags 0]` + `linhas_pos` `[pos]`; `celulas` u32x6 `[cortina_num, i, j, regiao, painel_tipo_num, flags]` + `celulas_ret` `[s0,s1,z0,z1]`; `segmentos` u32x5 `[cortina_num, linha, k, removido 0, montante_tipo_num]` + `segmentos_ext` `[de, ate]` |
+| `cortina_grade` | `cortina_grade` (100) | `linhas` u32x5 `[cortina_num, eixo 0U/1V, indice 1..n-1, origem 0 gerada|2 manual, flags 0]` + `linhas_pos` `[pos]`; `celulas` u32x6 `[cortina_num, i, j, regiao, painel_tipo_num, flags]` + `celulas_ret` `[s0,s1,z0,z1]`; `segmentos` u32x5 `[cortina_num, linha, k, removido 0, montante_tipo_num]` + `segmentos_ext` `[de, ate]` |
 | `cortina_pecas` | instâncias de `cortina_malha` (101), em parâmetros | `montantes` u32x7 `[cortina_num, papel, tipo_num, linha, k, vertical, continuo]` + `montantes_geo` `[s, z, comprimento, largura, profundidade]`; `paineis` u32x5 `[cortina_num, i, j, tipo_num, papel]` + `paineis_geo` `[s0,s1,z0,z1, area_visivel, area_bruta]` |
 | `quant_cortina` | `quant_cortina` (104) | `linhas` u32x5 `[cortina_num, papel, tipo_num, material_num, n]` + `valores` `[comprimento, area, area_liquida, volume]` |
 | `cortina_avisos` | `cortina_avisos` (105) | `avisos` u32x4 `[cortina_num, codigo, i, j]` + `valores` `[medido, limite, x, y, z]` |
