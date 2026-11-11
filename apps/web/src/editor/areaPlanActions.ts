@@ -32,7 +32,7 @@ export const areaPlanName = (p: Pick<Project, 'levels'>, levelId: Id): string =>
  * Cópia das anotações do nível (cotas, textos, linhas/regiões de detalhe e etiquetas) com ids novos.
  * A planta de área nasce com a mesma anotação da planta de piso, mas sem compartilhar objetos com ela.
  */
-export function annotationsFromLevel(p: Pick<Project, 'levels' | 'areaPlans'>, levelId: Id): AreaPlanAnnotations {
+export function annotationsFromLevel(p: Pick<Project, 'planViews'>, levelId: Id): AreaPlanAnnotations {
   // As do nível são as da planta de piso (`floorViewId`), na lista que a vista possui.
   const level = viewAnnotationsOf(p, floorViewId(levelId));
   return {
@@ -324,4 +324,4 @@ export function planBounds(p: Project, levelId: Id): { minX: number; minY: numbe
 }
 
 /** Todas as plantas de área do projeto, na ordem dos níveis. */
-export const allAreaPlans = (p: Pick<Project, 'areaPlans'>): AreaPlan[] => areaPlansOf(p);
+export const allAreaPlans = (p: Pick<Project, 'planViews'>): AreaPlan[] => areaPlansOf(p);

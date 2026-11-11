@@ -1,7 +1,7 @@
 /* eslint-disable max-lines -- a vista reúne planta, 3D, corte e o editor da cota; extrair depois. */
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
 import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, idsNaCaixaDaTela, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, previewOverlay, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport, sectionLabelsAt } from '@hestia/render';
-import { formatQuantity, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
+import { areaPlanOf, formatQuantity, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
 import { useShallow } from 'zustand/react/shallow';
 import { editor } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
@@ -517,7 +517,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     const quadro = (quadroRef.current ??= new QuadroPlanta({ provisorios: editor.provisorios, resolverReferencia: (id) => editor.resolved(id, false), pendente: (id) => editor.fluxo.pendente(id), pedirQuadro: () => useUi.setState((x) => ({ previewTick: x.previewTick + 1 })) }));
     // Grade visível quando o botão de grade está ligado ou quando a captura por grade está ativa (o que se captura, se vê).
     const gridOn = st.showGrid || (st.options.snap?.enabled !== false && !!st.options.snap?.grid);
-    const areaPlan = st.planKind === 'area' && st.areaPlanId ? (p.areaPlans ?? []).find((x) => x.id === st.areaPlanId) : undefined;
+    const areaPlan = st.planKind === 'area' && st.areaPlanId ? areaPlanOf(p, st.areaPlanId) : undefined;
     const visKey = `${[...vis.hidden].sort().join(',')}|${[...vis.revealed].sort().join(',')}`;
     const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showUnderlay, st.underlayLevel, st.showRoofProjection, gridOn, st.gridStep, st.planKind, areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey].join('|'), atualizar: () => { const estado = { project: p, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(p, { levelId: st.levelId }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: editor.activeTool.preview(), inference: editor.activeTool.inference(), resolve: quadro.resolver, sketch, hidden: vis.hidden, revealed: vis.revealed, lang }; return planFrameUpdateOf(estado); } });
     if (g) {

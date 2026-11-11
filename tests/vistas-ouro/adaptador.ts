@@ -31,7 +31,7 @@ import {
   resolveLevel,
   viewRangeWarnings,
 } from '@hestia/engine';
-import { migrateProject, ProjectStore, viewRangeOf, type AreaPlan, type Project } from '@hestia/model';
+import { areaPlansOf, migrateProject, ProjectStore, viewRangeOf, type AreaPlan, type Project } from '@hestia/model';
 import { buildSheetDrawList, contextoDaVista, levelFrameBox, LIGHT, planViewOf, resolverZoom } from '@hestia/render';
 import { createTool } from '@hestia/tools';
 import { planFrameUpdateOf } from '../../packages/render/src/plan/planFrame.ts';
@@ -57,7 +57,7 @@ export function abrirProjeto(json: unknown): Project {
   return migrateProject(structuredClone(json));
 }
 
-const areaPlans = (p: Project): AreaPlan[] => p.areaPlans ?? [];
+const areaPlans = (p: Project): AreaPlan[] => areaPlansOf(p);
 
 /** Chaves lógicas das vistas do projeto, em ordem estável. */
 export function chavesDasVistas(p: Project): string[] {

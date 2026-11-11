@@ -4,7 +4,6 @@ import type { DimensionFamily } from './dimensionFamily.ts';
 import type { Vec2 } from '@hestia/geom';
 import type { Stair, StairType } from './stairTypes.ts';
 import type { Ramp, RampType } from './rampTypes.ts';
-import type { ViewRange } from './viewRange.ts';
 import type { Sheet } from './sheet.ts';
 import type { View3DPoint } from './view3dPoints.ts';
 import type { Grid, GridType } from './grid.ts';
@@ -14,13 +13,14 @@ import type { Opening, OpeningLineConvention, OpeningType } from './openingTypes
 import type { ProfilePreset } from './openingComposition.ts';
 import type { DimensionSettings } from './dimensionSettings.ts';
 import type { UnitsSettings } from './units.ts';
-import type { AreaPlan, ColorScheme, RoomCategory } from './areaPlan.ts';
+import type { ColorScheme, RoomCategory } from './areaPlan.ts';
+import type { PlanView } from './planView.ts';
 import type { DxfLayerStyle } from './dxfLayerStyle.ts';
 import type { CadDrawing } from './cad.ts';
 import type { CopyLink } from './copyLink.ts';
 
 export type Id = string;
-export const SCHEMA_VERSION = 23;
+export const SCHEMA_VERSION = 24;
 
 export type { Stair, StairCurve, StairGenerator, StairLanding, StairRun, StairRunStyle, StairSpiralParams, StairType, StairUndersideStyle } from './stairTypes.ts';
 export type { Ramp, RampInputMode, RampNormProfile, RampNormRow, RampShape, RampType } from './rampTypes.ts';
@@ -163,24 +163,6 @@ export interface Level {
   id: Id;
   name: string;
   elevation: number;
-  /** Intervalo de vista da planta deste nível (decisão 0013). Cotas relativas à elevação. */
-  viewRange: ViewRange;
-  /** Gráficos da planta deste nível (decisão 0015); ausente = padrão. */
-  graphics?: ViewGraphics;
-  /** Elementos/categorias ocultos na planta de piso deste nível (Hide in View). */
-  hidden?: ViewHidden;
-  /** Elementos/categorias ocultos na planta de cobertura deste nível (vista separada da planta de piso). */
-  roofHidden?: ViewHidden;
-  /** Cotas permanentes da planta (decisão 0019); ausente = nenhuma. */
-  dimensions?: Dimension[];
-  /** Textos de anotação da planta (decisão 0019); ausente = nenhum. */
-  texts?: TextNote[];
-  /** Linhas de detalhe independentes do modelo, específicas desta vista. */
-  detailLines?: DetailLine[];
-  /** Regiões preenchidas/de máscara específicas desta vista. */
-  detailRegions?: DetailRegion[];
-  /** Etiquetas associativas de elementos nesta vista. */
-  tags?: ElementTag[];
   /** Linhas de separação de ambiente (decisão 0031 §3; Revit: Room Separation Line); ausente = nenhuma. */
   roomSeparators?: RoomSeparator[];
 }
@@ -837,8 +819,11 @@ export interface Project {
   grids?: Grid[];
   /** Tipos de grade gravados; os padrão (`DEFAULT_GRID_TYPES`) valem sem estar aqui. */
   gridTypes?: Record<Id, GridType>;
-  /** Plantas de área (uma por pavimento); ausente = nenhuma. */
-  areaPlans?: AreaPlan[];
+  /**
+   * Vistas de planta (piso, cobertura, área): intervalo de vista, gráficos, ocultos e anotações moram na vista (decisão
+   * 0055). Todo nível tem uma vista de piso (`pv_<nível>`) e uma de cobertura (`pvr_<nível>`). Ver `planView.ts`.
+   */
+  planViews: PlanView[];
   /** Categorias de ambiente; ausente = as padrão (`DEFAULT_ROOM_CATEGORIES`). */
   roomCategories?: RoomCategory[];
   /** Esquemas de cores das plantas de área; ausente = nenhum. */

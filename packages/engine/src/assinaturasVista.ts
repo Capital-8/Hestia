@@ -13,7 +13,7 @@ import { hashTexto, nivelDoElemento } from './assinaturasNivel.ts';
  * vista não a altera; mudar cota, nome, separador de ambiente, configuração do projeto ou elemento sem nível, sim.
  */
 export function assinaturaGeometriaGlobal(p: Project): string {
-  const { elements, views: _views, areaPlans: _areaPlans, roomCategories: _roomCategories, colorSchemes: _colorSchemes, nextOrder: _nextOrder, name: _name, thumbnail: _thumbnail, ...resto } = p;
+  const { elements, views: _views, planViews: _planViews, roomCategories: _roomCategories, colorSchemes: _colorSchemes, nextOrder: _nextOrder, name: _name, thumbnail: _thumbnail, ...resto } = p;
   const niveis = p.levels.map((l) => ({ id: l.id, name: l.name, elevation: l.elevation, roomSeparators: l.roomSeparators ?? [] }));
   const globais: string[] = [];
   for (const id of Object.keys(elements)) {

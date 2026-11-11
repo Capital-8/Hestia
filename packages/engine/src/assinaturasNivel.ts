@@ -54,7 +54,7 @@ export function assinaturasDoProjeto(p: Project): AssinaturasProjeto {
   // qualquer elemento (o `nextOrder` sobe) mudava a chave de TODOS os pavimentos e remontava o prédio inteiro (~6 s).
   // Os ajustes da vista 3D (`view3d`), `settings`, `defaults`, tipos e materiais continuam dentro. A `thumbnail` também
   // fica fora: é a imagem da tela inicial, refeita a cada salvamento, e não pode mudar a chave de nenhum nível.
-  const { elements, views: _views, areaPlans: _areaPlans, roomCategories: _roomCategories, colorSchemes: _colorSchemes, nextOrder: _nextOrder, name: _name, thumbnail: _thumbnail, ...resto } = p;
+  const { elements, views: _views, planViews: _planViews, roomCategories: _roomCategories, colorSchemes: _colorSchemes, nextOrder: _nextOrder, name: _name, thumbnail: _thumbnail, ...resto } = p;
   const porNivel = new Map<Id, string[]>();
   const globais: string[] = [];
   const anexadosAoTelhado = new Set<Id>();

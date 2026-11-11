@@ -2,7 +2,7 @@ import {
   GRAPHICS_CATEGORIES,
   graphicsIssues,
   graphicsOf,
-  levelGraphicsOf,
+  resolveViewGraphics,
   sectionGraphicsOf,
   view3dOf,
   type CategoryLineStyle,
@@ -14,6 +14,8 @@ import {
   type ViewGraphics,
 } from './graphics.ts';
 import type { Id, Project } from './types.ts';
+import type { PlanView } from './planView.ts';
+import { resolvePlanView } from './planViewResolve.ts';
 import { t, type Lang } from './i18n.ts';
 
 /**
@@ -70,16 +72,42 @@ export function applyProjectGraphics(p: Project, patch: DeepPartial<ProjectGraph
   p.graphics = next;
 }
 
-// Lê o valor efetivo do nível (a base de `viewGraphicsOf`) direto do rascunho: a projeção memorizada pode estar velha dentro de um lote.
-export function applyLevelGraphics(p: Project, levelId: Id, patch: DeepPartial<ViewGraphics>, lang: Lang = 'pt'): void {
-  const l = levelOf(p, levelId, lang);
-  const next = mergeLevel(copy(levelGraphicsOf(p, levelId)), copy(patch));
+/** Mescla o patch nos gráficos da vista (valor efetivo atual lido do rascunho) e grava o objeto completo. */
+function mergeIntoView(v: PlanView, patch: DeepPartial<ViewGraphics>, lang: Lang): void {
+  const next = mergeLevel(copy(resolveViewGraphics(v.graphics)), copy(patch));
   refuse(graphicsIssues(next, lang));
-  l.graphics = next; // armazenamento (Fase 2)
+  v.graphics = next;
 }
 
+/** Gráficos de UMA vista (`updatePlanView`): só a vista pedida muda. */
+export function applyViewGraphics(p: Project, viewId: Id, patch: DeepPartial<ViewGraphics>, lang: Lang = 'pt'): void {
+  const v = resolvePlanView(p, viewId);
+  if (!v) throw new Error(t(lang, 'md_view_missing'));
+  mergeIntoView(v, patch, lang);
+}
+
+/** Restaura os gráficos padrão de UMA vista. */
+export function resetViewGraphics(p: Project, viewId: Id, lang: Lang = 'pt'): void {
+  const v = resolvePlanView(p, viewId);
+  if (!v) throw new Error(t(lang, 'md_view_missing'));
+  delete v.graphics;
+}
+
+/**
+ * Comando antigo `setLevelGraphics`. Antes os gráficos eram do NÍVEL e valiam para piso, cobertura e planta de área;
+ * agora cada vista tem os seus. Para o programa se comportar igual nesta etapa, a alteração é propagada a TODAS as vistas do
+ * nível (cada uma mescla o patch sobre o seu valor). A Fase 3 decide quando parar de propagar; `updatePlanView` altera só a
+ * vista pedida.
+ */
+export function applyLevelGraphics(p: Project, levelId: Id, patch: DeepPartial<ViewGraphics>, lang: Lang = 'pt'): void {
+  levelOf(p, levelId, lang);
+  for (const v of p.planViews) if (v.levelId === levelId) mergeIntoView(v, patch, lang);
+}
+
+/** Comando antigo `resetLevelGraphics`: restaura o padrão em todas as vistas do nível (ver `applyLevelGraphics`). */
 export function resetLevelGraphics(p: Project, levelId: Id, lang: Lang = 'pt'): void {
-  delete levelOf(p, levelId, lang).graphics; // armazenamento (Fase 2)
+  levelOf(p, levelId, lang);
+  for (const v of p.planViews) if (v.levelId === levelId) delete v.graphics;
 }
 
 export function applyView3D(p: Project, patch: DeepPartial<View3DSettings>, lang: Lang = 'pt'): void {
