@@ -7,7 +7,7 @@ Atualize a seção "Onde estamos" a cada etapa integrada.
 | Branch | O que é |
 |---|---|
 | `vistas/base` | Tronco do trabalho. Só recebe etapa revisada e com a verificação verde. É daqui que se continua. |
-| `vistas/f2a-1` | Etapa 2a-1 em andamento (migração 23 → 24). **Ainda não integrada nem revisada.** |
+| `vistas/f2a-1` | Etapa 2a-1 (migração 23 → 24). Já integrada em `vistas/base`; pode ser apagado. |
 | `vistas/plano-mestre` | Só o plano original. Pode ser apagado. |
 
 `main` não foi tocado. Nenhum pull request foi aberto.
@@ -16,13 +16,23 @@ Atualize a seção "Onde estamos" a cada etapa integrada.
 - **Fase 0 — concluída e integrada.** Ouro (`npm run test:vistas-ouro`), API `planView.ts`, decisão 0055.
 - **Fase 1 — concluída e integrada.** Raias A, B, C, D, E, G. Verificação sobre `vistas/base`: tipos e lint sem
   erro, 884 arquivos / 9.729 testes, ouro idêntico.
-- **Fase 2a-1 — interrompida a pedido, no branch `vistas/f2a-1`** (6 commits). Feito: testes da migração,
-  armazenamento em `Project.planViews` com fachadas invertidas, auditoria do ouro e ouro regravado, validação e
-  IFC, testes do modelo ajustados. O último commit é um **`wip`**: o agente estava ajustando os testes de
-  `packages/engine` e `packages/render` para a forma nova e parou no meio. **Nada do branch foi verificado nem
-  revisado**: tipos, lint e testes não foram rodados no estado final, e o agente não entregou relatório.
-  A nuvem não mexe mais neste branch.
-- **Fase 2a-2, Fase 3 e fechamento — não iniciadas.**
+- **Fase 2a-1 — concluída, revisada (ponto de controle 1) e integrada.** Esquema 24, `Project.planViews`,
+  migração 23 → 24 (`packages/model/src/migrateVistas.ts`), fachadas invertidas. Verificação sobre `vistas/base`:
+  tipos e lint sem erro, 886 arquivos / 9.753 testes, ouro 8 de 8. Auditoria do ouro contra o tronco anterior
+  (`VISTAS_OURO_BASE=44c31a62 npm run test:vistas-ouro -- --auditar`): só D1, D2 e D3; NÃO PREVISTA = 0.
+- **Fase 2a-2, Fase 2b, Fase 3 e fechamento — não iniciadas.**
+
+### Pendências abertas pela 2a-1 (resolver na Fase 2b/3)
+1. **Etiquetas de elemento do nível na planta de área.** A migração NÃO copiou as `ElementTag` do nível para a
+   vista de área (desvio do item 3 de `FASE-2A.md` e de 10.4.1 do plano). O desenho da área continua lendo as
+   etiquetas da planta de piso (`packages/render/src/plan/build.ts`, `elementTagOps` com `floorViewId`), e o DXF da
+   área as exclui (`elementTags: false`). Copiar sem mexer no desenho duplicaria o desenho e mudaria o DXF. Fica
+   para a raia de desenho da Fase 2b/3: ou a migração 23 → 24 passa a copiar e o desenho lê só a vista, ou a
+   leitura cruzada é assumida como regra. Enquanto isso, "anotação pertence a uma vista só" não vale para esse caso.
+2. `apps/web/src/editor/areaPlanActions.ts` (`openAreaPlan`): o ramo que semeava anotações nunca executa mais;
+   remover na Fase 3 (raia K).
+3. `setLevelViewRange`/`setLevelGraphics` propagam para as vistas `roof` e `area` do nível (compatibilidade); a
+   Fase 3 decide quando parar.
 
 ## Como continuar no computador
 ```bash
@@ -64,6 +74,10 @@ Abra o Claude Code na pasta do repositório e peça:
   acusar erros falsos: remova os worktrees concluídos (`git worktree remove <pasta>`) antes de rodar o lint na raiz.
 - Cada worktree precisa do seu próprio `npm ci` (não use symlink de `node_modules`).
 - `npm run test:rapido` leva cerca de 6 minutos; um teste de desempenho (`sectionSnapIndex.test.ts`) pode falhar
-  com a máquina carregada e passa isolado.
+  com a máquina carregada e passa isolado. No Windows, com a paralelização padrão, dois ou três arquivos estouram
+  o limite de 5 s (mudam a cada rodada); use `npm run test:rapido -- --maxWorkers=4`.
+- Os arquivos de `tests/vistas-ouro/ouro/` saem do git sem conversão de fim de linha (`.gitattributes`, `-text`):
+  os de DXF são CRLF, os demais LF. Se o ouro falhar por linhas visualmente iguais num checkout antigo, apague a
+  pasta `tests/vistas-ouro/ouro` e rode `git checkout -- tests/vistas-ouro/ouro`.
 - Nunca regrave o ouro para "fazer passar". As únicas regravações previstas estão em `FASE-2A.md` e na Fase 3 do
   plano, sempre depois de auditoria.
