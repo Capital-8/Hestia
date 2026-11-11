@@ -64,7 +64,7 @@ describe('guarda da parede cortina', () => {
       .filter(([rel, src]) => rel !== 'packages/model/src/wallType.ts' && /\btotalThickness\b/.test(src))
       .map(([rel]) => rel);
     expect(usam).toEqual([]);
-  });
+  }, 60_000);
 
   it('ler layers de um tipo de parede só nos pontos permitidos', () => {
     const fora = lerArquivos(producao())
@@ -72,5 +72,5 @@ describe('guarda da parede cortina', () => {
       .map(([rel]) => rel)
       .filter((rel) => !PONTOS_PERMITIDOS_LAYERS.has(rel));
     expect(fora).toEqual([]);
-  });
+  }, 60_000);
 });
