@@ -15,7 +15,7 @@ function setup(): void {
   editor.load(s.project, 'teste.hestia.json');
   trocarPerfil('revit');
   casador.limpar();
-  useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', areaPlanId: null, selection: ['A'], tool: 'select', typed: '', prompt: null, dialog: null, dialogArg: null });
+  useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', planViewId: 'pv_lv_0', selection: ['A'], tool: 'select', typed: '', prompt: null, dialog: null, dialogArg: null });
 }
 
 describe('Ctrl+X recorta e Ctrl+V inicia o Colar com prévia', () => {

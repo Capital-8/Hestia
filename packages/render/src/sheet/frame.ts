@@ -1,5 +1,5 @@
 import type { Project, Sheet, SheetViewport, SheetViewSource } from '@hestia/model';
-import { sectionTitleOf, sheetInnerBox, planViewOf, view3DPointOf, viewportFrameVisible, viewportLabel } from '@hestia/model';
+import { sectionTitleOf, sheetInnerBox, sheetPlanViewId, planViewOf, view3DPointOf, viewportFrameVisible, viewportLabel } from '@hestia/model';
 import { emptyParts, type ViewportParts } from './types.ts';
 import { t as translate, type Lang } from '../i18n.ts';
 
@@ -37,10 +37,11 @@ export function captionOf(p: Project, view: SheetViewSource, vp: SheetViewport, 
 
 function sourceName(p: Project, view: SheetViewSource, lang: Lang): string {
   const missing = translate(lang, 'rn_sheet_view_missing');
-  if (view.kind === 'plan') return p.levels.find((l) => l.id === view.levelId)?.name ?? missing;
-  if (view.kind === 'areaPlan') {
-    const v = planViewOf(p, view.planId);
-    return v?.kind === 'area' ? v.name : missing;
+  if (view.kind === 'plan' || view.kind === 'areaPlan') {
+    const v = planViewOf(p, sheetPlanViewId(view) ?? '');
+    if (v?.kind === 'area') return v.name;
+    // Piso: o nome é o do nível (a vista principal tem o mesmo nome, mas o nível é a fonte).
+    return v ? (p.levels.find((l) => l.id === v.levelId)?.name ?? missing) : missing;
   }
   if (view.kind === 'areaTable') return translate(lang, 'rn_sheet_area_table');
   if (view.kind === 'section') {

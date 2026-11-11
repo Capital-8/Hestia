@@ -1,5 +1,5 @@
 ﻿import { create } from 'zustand';
-import type { Id, LocationLine, OpeningDimRef, WallDimRef } from '@hestia/model';
+import { floorViewId, type Id, type LocationLine, type OpeningDimRef, type WallDimRef } from '@hestia/model';
 import type { Vec2 } from '@hestia/geom';
 import type { Backend } from '@hestia/render';
 import { DEFAULT_DISJOIN, DEFAULT_RAMP_OPTIONS, DEFAULT_SNAP, DEFAULT_STAIR_RUN_OPTIONS, type SnapOptions, type ToolId, type ToolOptions } from '@hestia/tools';
@@ -30,10 +30,13 @@ export interface UiState {
   sectionId: Id | null;
   /** Prancha aberta quando `view` é 'sheet' (decisão 0022). */
   sheetId: Id | null;
-  /** Planta de piso, de cobertura ou de área quando `view` é 'plan' (sessão; a cobertura liga `roofPlanMode`). */
+  /**
+   * Id da vista de planta (a `PlanView`) que a tela mostra quando `view` é 'plan' e para onde ela volta ao sair da
+   * planta. Forma única de identificar a vista; `levelId` e `planKind` acompanham e são gravados junto (ver `vistaAtiva.ts`).
+   */
+  planViewId: Id;
+  /** Tipo da planta de `planViewId` (piso, cobertura ou área), guardado ao lado do id: o estado não tem o projeto. */
   planKind: PlanKind;
-  /** Planta de área ativa quando `planKind` é 'area'. */
-  areaPlanId: Id | null;
   /** Rótulo em arraste (fantasma), compartilhado por qualquer planta. */
   tagDrag: { planId: Id; roomId: Id; at: Vec2 } | null;
   /** Ferramenta Alinhar ativa na prancha (sessão; decisão 0039). */
@@ -323,14 +326,14 @@ export const DEFAULT_OPTIONS: ToolOptions = {
  * Padrão ao abrir o projeto (decisão a confirmar): só o nível ativo fica aberto. Ver o relatório da frente D.
  * Para mudar para "todos os níveis", troque esta constante por uma lista com todas as plantas (ou calcule-a ao carregar).
  */
-export const DEFAULT_OPEN_VIEWS: OpenView[] = [{ kind: 'plan', levelId: 'lv_0' }];
+export const DEFAULT_OPEN_VIEWS: OpenView[] = [{ kind: 'plan', viewId: floorViewId('lv_0') }];
 
 export const useUi = create<UiState>(() => ({
   tool: 'select',
   view: 'plan',
   levelId: 'lv_0',
+  planViewId: floorViewId('lv_0'),
   planKind: 'floor',
-  areaPlanId: null,
   tagDrag: null,
   sheetAlign: false,
   sheetMove: false,
@@ -394,7 +397,7 @@ export function toggleFileMenu(): void {
 }
 
 useUi.subscribe((s, prev) => {
-  if (s.view === prev.view && s.levelId === prev.levelId && s.planKind === prev.planKind && s.areaPlanId === prev.areaPlanId && s.sectionId === prev.sectionId && s.sheetId === prev.sheetId) return;
+  if (s.view === prev.view && s.levelId === prev.levelId && s.planKind === prev.planKind && s.planViewId === prev.planViewId && s.sectionId === prev.sectionId && s.sheetId === prev.sheetId) return;
   const active = activeViewOf(s);
   if (!active) return;
   const next = addView(s.openViews, active);

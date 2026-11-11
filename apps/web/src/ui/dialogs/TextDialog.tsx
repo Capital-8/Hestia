@@ -5,7 +5,7 @@ import { levelFrameBox } from '@hestia/render';
 import { useT } from '../../editor/i18n.ts';
 import { editor } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
-import { planViewIdAtivo } from '../../editor/vistaAtiva.ts';
+import { areaViewIdAtivo, planViewIdAtivo } from '../../editor/vistaAtiva.ts';
 import { Check, NumField, Row } from '../fields.tsx';
 import { Dialog } from './Dialog.tsx';
 
@@ -119,7 +119,7 @@ function FormularioCaixaTexto(): ReactElement {
   const criar = (): void => {
     const st = useUi.getState();
     const viewId = planViewIdAtivo(st);
-    const planId = st.view === 'plan' && st.planKind === 'area' ? st.areaPlanId : null;
+    const planId = areaViewIdAtivo(st);
     const v = editor.viewport();
     const centro = centroDaVista(v ? { cx: v.cx, cy: v.cy } : null, levelFrameBox(editor.project, st.levelId));
     const cmd = comandoCaixaDeTexto({ levelId: st.levelId, viewId }, centro, {

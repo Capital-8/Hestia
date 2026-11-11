@@ -84,7 +84,7 @@ describe('anotações da planta de área no painel', () => {
     const planId = createAreaPlanAction(s, LV0);
     s.exec({ type: 'addText', levelId: LV0, planId, text: { id: 'tp', at: { x: 1, y: 1 }, text: 'Depósito', height: 2.5, rotation: 0 } });
     s.exec({ type: 'addWall', wall: makeWall({ id: 'w1', typeId: 'wt_alv14', levelId: LV0, a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, locationLine: 'finishInterior' }) });
-    useUi.setState({ view: 'plan', planKind: 'area', areaPlanId: planId, levelId: LV0, selection: ['tp', 'w1'] });
+    useUi.setState({ view: 'plan', planKind: 'area', planViewId: planId, levelId: LV0, selection: ['tp', 'w1'] });
     await deleteSelectionIn(s);
     expect(planAnnotationsOf(areaPlanOf(s.project, planId)!).texts).toHaveLength(0);
     expect(s.project.elements['w1']).toBeDefined();

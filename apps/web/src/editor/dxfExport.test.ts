@@ -31,7 +31,7 @@ import {
   planViewRangeOf,
   withFloorPatchOfTest,
 } from '@hestia/model';
-import { climbWalk, openingPlanWorldPaths, planViewOf, risersInClimbOrder } from '@hestia/render';
+import { climbWalk, openingPlanWorldPaths, resolvedPlanViewOf, risersInClimbOrder } from '@hestia/render';
 import { arrowOfPath, dxfGeometryOf, dxfLayerTableOf, lineWeightsOf, planDxf, sectionDxf, sectionDxfGeometryOf, sectionLineWeightsOf, stairArrow } from './dxfExport.ts';
 
 /** Tabela de camadas do diálogo de exportação: a mesma lista que o arquivo leva, com o estilo efetivo. */
@@ -188,7 +188,7 @@ function expectedSymbol(p: Project, o: Opening, f: ReturnType<typeof levelFrames
   const g = openingGeometry(p, o, f);
   const type = p.openingTypes[o.typeId]!;
   const model = buildOpeningModel(p, o, g, f);
-  const view = planViewOf(p, f.wall.levelId);
+  const view = resolvedPlanViewOf(p, f.wall.levelId);
   const cutZ = state === 'cut' ? view.cutZ - (f.z?.z0 ?? 0) - g.sill : model.height / 2;
   return openingPlanWorldPaths(g, model, {
     detail: 'mid',
@@ -451,7 +451,7 @@ describe('caracol no DXF (decisão 0014 §1 item 10)', () => {
   it('volta de baixo em ESCADA e volta de cima em ESCADA_ACIMA, na cota de corte e no topo da vista', () => {
     const p = spiralStore().project;
     const [st] = resolveStairsOnLevel(p, 'lv_0');
-    const view = planViewOf(p, 'lv_0');
+    const view = resolvedPlanViewOf(p, 'lv_0');
     const steps = st!.steps.filter((k) => k.z <= view.topZ + 1e-9);
     const polys = polylinesOf(planDxf(p, 'lv_0'));
     // Com 540° e topo de 2,30 m, há degraus dos dois lados da cota de corte (senão o teste não prova nada).

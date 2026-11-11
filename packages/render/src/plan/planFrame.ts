@@ -8,7 +8,7 @@ import { effectiveGridStep, gridCovers, gridLayer, type GridLayer } from './grid
 import type { PlanSlot, PlanScene } from './gpuPlan.ts';
 import { buildPlanGeometry, buildPlanHoverOverlay, buildPlanLiveOverlay, buildPlanScreenOverlay, planBelowOf, planGeometrySelection } from './build.ts';
 import { telhadosDoNivel } from './resolucao.ts';
-import { planViewIdOf } from './viewId.ts';
+import { resolvePlanTarget, type PlanTarget } from './planInput.ts';
 import { assinaturaDeZoom } from './limiares.ts';
 import { resolverRotulos, resolverZoom } from './zoomOps.ts';
 import { dimPlanOps } from './dim.ts';
@@ -27,10 +27,9 @@ export interface PlanSketch {
 }
 
 /** Estado da planta que o quadro lê: o projeto, o nível, a vista e as opções; `version` é a versão do projeto. */
-export interface PlanViewState {
+export interface PlanViewStateBase {
   project: Project;
   version: number;
-  levelId: Id;
   v: Viewport;
   theme: PlanTheme;
   dark: boolean;
@@ -55,18 +54,18 @@ export interface PlanViewState {
   resolve: (id: Id) => ResolvedLevel;
   /** Esboço do perímetro em edição, desenhado sobre a planta (ausente fora do modo). */
   sketch?: PlanSketch | null;
-  /**
-   * Planta de cobertura (`roofPlanMode`): a geometria lê o nível resolvido (sem intervalo de vista) e os telhados de todos
-   * os níveis abaixo. As chaves incluem o id da vista, então trocar entre piso, cobertura e planta de área refaz as camadas.
-   */
-  roofPlanMode?: boolean;
-  /** Planta de área ativa (ausente = planta normal). */
-  areaPlan?: import('@hestia/model').AreaPlan;
   /** Rótulo em arraste (fantasma). */
   tagGhost?: { roomId: Id; at: Vec2 };
   /** Idioma dos textos fixos da planta (repassado ao `PlanInput`). Padrão `'pt'`. */
   lang?: Lang;
 }
+
+/**
+ * Estado da planta: a vista por `viewId` (piso, cobertura ou planta de área; ver `PlanTarget`). Na cobertura a geometria lê o
+ * nível resolvido (sem intervalo de vista) e os telhados de todos os níveis abaixo. As chaves incluem o id da vista, então
+ * trocar entre piso, cobertura e planta de área refaz as camadas.
+ */
+export type PlanViewState = PlanViewStateBase & PlanTarget;
 
 /** Resolução vazia do nível atual: a planta normal não a lê (ver `planFrameUpdateOf`). */
 export function resolucaoVazia(levelId: Id): ResolvedLevel {
@@ -78,21 +77,20 @@ export function resolucaoVazia(levelId: Id): ResolvedLevel {
  * que aparece sobre ela) e as funções que refazem cada camada, chamadas só quando a chave muda.
  */
 export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
-  const { project: p, levelId, v, theme, dark } = s;
+  const { project: p, v, theme, dark } = s;
   const lang = s.lang ?? 'pt';
-  const rp = s.roofPlanMode === true;
-  // A vista é calculada UMA vez aqui; as chaves usam o id dela (não mais um sinalizador de modo) e o desenho o recebe por `planContext`.
-  const viewId = planViewIdOf(p, levelId, { areaPlan: s.areaPlan, roofPlanMode: rp });
-  const geoSel = planGeometrySelection(p, levelId, s.selection, s.areaPlan, viewId);
+  // A vista é resolvida UMA vez aqui; as chaves usam o id dela (não mais um sinalizador de modo) e o desenho o recebe por `planContext`.
+  const { viewId, levelId, roofPlanMode: rp, areaPlan } = resolvePlanTarget(p, s);
+  const geoSel = planGeometrySelection(p, levelId, s.selection, areaPlan, viewId);
   // A planta normal não usa a resolução do nível atual: `planViewOf` refaz a geometria com o corte (ver `planContext`).
   // Só a planta de cobertura lê `resolved`: o nível atual é resolvido só quando ela é desenhada, nunca na planta de piso.
   // O nível de baixo continua resolvido apenas quando a geometria é refeita (ver `planBelowOf`).
-  const area = s.areaPlan !== undefined;
-  const areaKey = area ? `${JSON.stringify(s.areaPlan)}|${s.tagGhost?.roomId ?? ''}` : '';
+  const area = areaPlan !== undefined;
+  const areaKey = area ? `${JSON.stringify(areaPlan)}|${s.tagGhost?.roomId ?? ''}` : '';
   // A planta de área usa as MESMAS sobreposições da planta de piso. Ela bloqueia as ferramentas de modelo
   // (`AREA_PLAN_TOOLS`), mas o `select` ainda move o elemento selecionado; por isso mantém destaque, alças e fantasmas
   // iguais aos do piso. Se o select virar somente leitura, suprimir as alças de modelo aqui.
-  const base = { project: p, levelId, viewport: v, theme, dark, showGrid: s.showGrid, thinLines: s.thinLines, showRoofProjection: s.showRoofProjection, roofPlanMode: rp, areaPlan: s.areaPlan, tagGhost: s.tagGhost, hidden: s.hidden, revealed: s.revealed, lang };
+  const base = { project: p, levelId, viewport: v, theme, dark, showGrid: s.showGrid, thinLines: s.thinLines, showRoofProjection: s.showRoofProjection, roofPlanMode: rp, areaPlan, viewId, tagGhost: s.tagGhost, hidden: s.hidden, revealed: s.revealed, lang };
   const visKey = s.hidden?.size || s.revealed?.size ? `${[...(s.hidden ?? [])].sort().join(',')}|${[...(s.revealed ?? [])].sort().join(',')}` : '';
   // Uma resolução por atualização, mesmo com as camadas de sobreposição sendo refeitas na mesma passagem.
   let resolvida: ResolvedLevel | null = null;
@@ -112,7 +110,7 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
     // Só a geometria lê o nível de baixo: as referências são resolvidas apenas quando ela é refeita.
     geometry: () => {
       // A planta de área tem a sua própria opção de subpavimento; a planta de piso usa a opção global da vista.
-      const showUnderlay = s.areaPlan ? s.areaPlan.graphics.showBelowLevel : s.showUnderlay;
+      const showUnderlay = areaPlan ? areaPlan.graphics.showBelowLevel : s.showUnderlay;
       const abaixo = planBelowOf(p, levelId, s.resolve, showUnderlay, s.underlayLevel);
       // Cobertura: os telhados de todos os níveis abaixo (`planBelowOf` só dá os do pavimento de referência).
       const telhados = rp ? { belowRoofs: telhadosDosNiveisAbaixo(p, levelId) } : {};

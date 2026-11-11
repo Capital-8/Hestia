@@ -58,7 +58,7 @@ export interface DxfActiveView {
   view: string;
   planKind: string;
   levelId: Id;
-  areaPlanId: Id | null;
+  planViewId: Id;
   sectionId: Id | null;
 }
 

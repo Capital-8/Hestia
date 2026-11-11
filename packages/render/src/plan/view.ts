@@ -54,7 +54,7 @@ interface OutlineShape {
  * Vista da planta de um nível (decisão 0013): o intervalo da vista (`planViewRangeOf`), as cotas absolutas do corte e do
  * topo, o estado de cada elemento na vista e a geometria de planta resolvida com essas opções.
  */
-export interface PlanView {
+export interface ResolvedPlanView {
   range: ViewRange;
   /** Cota absoluta do plano de corte: elevação do nível mais `cut`. */
   cutZ: number;
@@ -86,7 +86,7 @@ export interface PlanView {
  * mesmo nível (piso e planta de área) não dividem entrada. A chave inclui só o que muda a resolução; pan, zoom e hover
  * reaproveitam a vista.
  */
-const memo = new WeakMap<Project, Map<string, PlanView>>();
+const memo = new WeakMap<Project, Map<string, ResolvedPlanView>>();
 
 const OUTLINE_CLASSES: OutlineClass[] = ['projection-above', 'projection-below', 'beyond'];
 
@@ -112,7 +112,7 @@ function categoryHiddenIds(p: Project, levelId: Id, hiddenCats: HiddenCats): Set
 
 type HiddenCats = ReadonlySet<GraphicsCategory>;
 
-function computePlanView(p: Project, levelId: Id, viewId: Id, partial: PartialStructure, hiddenCats: HiddenCats): PlanView {
+function computePlanView(p: Project, levelId: Id, viewId: Id, partial: PartialStructure, hiddenCats: HiddenCats): ResolvedPlanView {
   const range = planViewRangeOf(p, viewId);
   const elevation = levelElevation(p, levelId);
   const cutZ = elevation + range.cut;
@@ -162,7 +162,7 @@ function computePlanView(p: Project, levelId: Id, viewId: Id, partial: PartialSt
  * sem ele vale a planta de piso do nível (o que as outras pastas sempre pediram). A cobertura não tem vista de planta
  * (ver `planContext`): quem desenha passa o id do piso ou o da planta de área.
  */
-export function planViewOf(p: Project, levelId: Id, viewId: Id = floorViewId(levelId)): PlanView {
+export function resolvedPlanViewOf(p: Project, levelId: Id, viewId: Id = floorViewId(levelId)): ResolvedPlanView {
   const g = viewGraphicsOf(p, viewId);
   const hiddenCats = new Set(GRAPHICS_CATEGORIES.filter((c) => !g.overrides[c].visible));
   const key = `${viewId}|${g.partialStructure}|${[...hiddenCats].join(',')}`;
@@ -186,7 +186,7 @@ type OutlineStyle = Omit<StrokeOp, 'pts' | 'closed'>;
  * "além", linha fina clara (a "além", mais clara ainda). Sem preenchimento. A parte que cai sobre a silhueta cortada já
  * saiu em `computePlanView`. `proj`: largura de projeção da parede (decisão 0015 §2.1), em papel ou em px.
  */
-export function wallOutlineOps(view: PlanView, theme: PlanTheme, proj: number | Espessura): StrokeOp[] {
+export function wallOutlineOps(view: ResolvedPlanView, theme: PlanTheme, proj: number | Espessura): StrokeOp[] {
   const e: Espessura = typeof proj === 'number' ? { widthPx: proj } : proj;
   const styles: Record<OutlineClass, OutlineStyle> = {
     'projection-above': { ...e, color: theme.inkSoft, alpha: 1, dash: [6, 3] },
@@ -227,7 +227,7 @@ export function openingViewOps(
  * ocultas, então elas são resolvidas à parte, como contorno); abertura: o vão sobre a parede; piso, laje, telhado e escada:
  * a pegada, a mesma que a planta usa para o destaque. Elementos visíveis ou de outro nível não entram.
  */
-export function hiddenSelectionOps(p: Project, levelId: Id, view: PlanView, selection: readonly Id[], theme: PlanTheme): StrokeOp[] {
+export function hiddenSelectionOps(p: Project, levelId: Id, view: ResolvedPlanView, selection: readonly Id[], theme: PlanTheme): StrokeOp[] {
   // Ocultos pela categoria (substituição da vista) ficam de fora: o fantasma é do intervalo de vista (decisão 0013).
   const ids = selection.filter((id) => view.hidden.has(id) && !view.categoryHidden.has(id));
   if (ids.length === 0) return [];
@@ -245,11 +245,11 @@ export function hiddenSelectionOps(p: Project, levelId: Id, view: PlanView, sele
 }
 
 /** Contornos fantasma por vista (ver `hiddenSelectionOps`): até `GHOST_MEMO_LIMIT` seleções por vista. */
-const ghostMemo = new WeakMap<PlanView, Map<string, StrokeOp[]>>();
+const ghostMemo = new WeakMap<ResolvedPlanView, Map<string, StrokeOp[]>>();
 const GHOST_MEMO_LIMIT = 8;
 
 /** Contorno fantasma dos ocultos `ids` (já filtrados): sem memo, ver `hiddenSelectionOps`. */
-function ghostOps(p: Project, levelId: Id, view: PlanView, ids: Id[], theme: PlanTheme): StrokeOp[] {
+function ghostOps(p: Project, levelId: Id, view: ResolvedPlanView, ids: Id[], theme: PlanTheme): StrokeOp[] {
   const style: OutlineStyle = { widthPx: 1, color: theme.select, alpha: 0.9, dash: [5, 3] };
   const out: StrokeOp[] = [];
   const addRings = (m: MultiPolygon): void => {

@@ -20,10 +20,10 @@ const SESSAO: Sessao = {
   pasta: 'Casa',
   view: 'plan',
   levelId: 'lv_1',
+  planViewId: 'pv_lv_1',
   planKind: 'floor',
-  areaPlanId: null,
   sectionId: null,
-  openViews: [{ kind: 'plan', levelId: 'lv_0' }, { kind: '3d' }],
+  openViews: [{ kind: 'plan', viewId: 'pv_lv_0' }, { kind: '3d' }],
 };
 
 afterEach(() => {
@@ -58,10 +58,63 @@ describe('sessão da aba', () => {
       pasta: null,
       view: 'plan',
       levelId: 'lv_0',
+      planViewId: 'pv_lv_0',
       planKind: 'floor',
-      areaPlanId: null,
       sectionId: null,
       openViews: [],
+    });
+  });
+
+  describe('sessão no formato antigo (levelId + planKind + areaPlanId) abre as mesmas abas', () => {
+    const antiga = {
+      pasta: 'Casa',
+      view: 'plan',
+      levelId: 'lv_1',
+      planKind: 'area',
+      areaPlanId: 'ap_x',
+      sectionId: null,
+      openViews: [
+        { kind: 'plan', levelId: 'lv_0' },
+        { kind: 'plan', levelId: 'lv_0', planKind: 'floor' },
+        { kind: 'plan', levelId: 'lv_1', planKind: 'roof' },
+        { kind: 'plan', levelId: 'lv_1', planKind: 'area', areaPlanId: 'ap_x' },
+        { kind: 'section', viewId: 'sec1' },
+        { kind: 'sheet', sheetId: 'sh1' },
+        { kind: '3d' },
+      ],
+    };
+
+    it('converte a planta de fundo e as abas para viewId', () => {
+      const s = sessaoValida(antiga)!;
+      expect(s.planViewId).toBe('ap_x');
+      expect(s.planKind).toBe('area');
+      expect(s.levelId).toBe('lv_1');
+      expect(s.openViews).toEqual([
+        { kind: 'plan', viewId: 'pv_lv_0' },
+        { kind: 'plan', viewId: 'pv_lv_0' },
+        { kind: 'plan', viewId: 'pvr_lv_1' },
+        { kind: 'plan', viewId: 'ap_x' },
+        { kind: 'section', viewId: 'sec1' },
+        { kind: 'sheet', sheetId: 'sh1' },
+        { kind: '3d' },
+      ]);
+    });
+
+    it('piso e cobertura do estado antigo viram os ids determinísticos', () => {
+      expect(sessaoValida({ ...antiga, planKind: 'floor', areaPlanId: null })!.planViewId).toBe('pv_lv_1');
+      expect(sessaoValida({ ...antiga, planKind: 'roof', areaPlanId: null })!.planViewId).toBe('pvr_lv_1');
+    });
+
+    it('planta de área sem id (estado que não abria nada) cai na planta de piso e a aba é descartada', () => {
+      const s = sessaoValida({ ...antiga, areaPlanId: null, openViews: [{ kind: 'plan', levelId: 'lv_1', planKind: 'area' }, { kind: '3d' }] })!;
+      expect(s.planViewId).toBe('pv_lv_1');
+      expect(s.planKind).toBe('floor');
+      expect(s.openViews).toEqual([{ kind: '3d' }]);
+    });
+
+    it('a sessão antiga relida depois de gravada no formato novo dá a mesma coisa', () => {
+      const s = sessaoValida(antiga)!;
+      expect(sessaoValida(JSON.parse(JSON.stringify(s)))).toEqual(s);
     });
   });
 

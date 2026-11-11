@@ -25,7 +25,7 @@ function iniciar(): { planId: string; s: ProjectStore } {
   s.exec({ type: 'addRoomSeparator', levelId: 'lv_0', separator: { id: 'rs1', a: { x: 1, y: 1 }, b: { x: 3, y: 1 } } });
   const planId = createAreaPlanAction(s, 'lv_0');
   editor.load(s.project, 'teste.hestia.json');
-  useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', areaPlanId: planId, selection: [], hover: null, options: DEFAULT_OPTIONS });
+  useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', planViewId: planId, selection: [], hover: null, options: DEFAULT_OPTIONS });
   editor.setTool('select');
   return { planId, s };
 }

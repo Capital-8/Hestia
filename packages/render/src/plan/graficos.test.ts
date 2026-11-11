@@ -7,7 +7,7 @@ import { mix } from './color.ts';
 import { drawPlanCpu } from './cpuPlan.ts';
 import { PlanScene } from './gpuPlan.ts';
 import { defaultPaint, planStyleOf } from './style.ts';
-import { hiddenSelectionOps, planViewOf } from './view.ts';
+import { hiddenSelectionOps, resolvedPlanViewOf } from './view.ts';
 import { LIGHT, type FillOp, type StrokeOp } from './types.ts';
 import type { Viewport } from '../viewport.ts';
 
@@ -224,7 +224,7 @@ describe('categoria oculta (decisão 0015 §2.4): sai da planta, da seleção e 
     const p = s.project;
     const withTags = draw(p, { selection: ['f'] }, 100);
     expect(withTags.fills.some((f) => f.color === LIGHT.select && f.alpha === 0.26)).toBe(false);
-    expect(hiddenSelectionOps(p, 'lv_0', planViewOf(p, 'lv_0'), ['f'], LIGHT)).toHaveLength(0);
+    expect(hiddenSelectionOps(p, 'lv_0', resolvedPlanViewOf(p, 'lv_0'), ['f'], LIGHT)).toHaveLength(0);
     const tagged = new ProjectStore(p);
     tagged.exec({ type: 'setSettings', patch: { showTags: true } });
     expect(draw(tagged.project).labels.some((l) => l.text.includes('m²'))).toBe(false);
@@ -262,7 +262,7 @@ describe('transparência e meio-tom (decisão 0015 §2.4)', () => {
 describe('exibição parcial de estrutura (decisão 0015 §2.5) na vista', () => {
   it('"noFinishes" e "coreOnly" tiram camadas das paredes na vista; "entire" é o nível como estava', () => {
     const p = scene();
-    const count = (q: Project): number => Object.values(planViewOf(q, 'lv_0').geo.walls).reduce((n, w) => n + w.layers.length, 0);
+    const count = (q: Project): number => Object.values(resolvedPlanViewOf(q, 'lv_0').geo.walls).reduce((n, w) => n + w.layers.length, 0);
     const whole = count(p);
     const a = new ProjectStore(p);
     a.exec({ type: 'setLevelGraphics', levelId: 'lv_0', patch: { partialStructure: 'noFinishes' } });
@@ -275,16 +275,16 @@ describe('exibição parcial de estrutura (decisão 0015 §2.5) na vista', () =>
 
   it('a vista é refeita só quando a exibição parcial ou as categorias ocultas mudam (memo por opções)', () => {
     const p = scene();
-    expect(planViewOf(p, 'lv_0')).toBe(planViewOf(p, 'lv_0'));
+    expect(resolvedPlanViewOf(p, 'lv_0')).toBe(resolvedPlanViewOf(p, 'lv_0'));
     const s = new ProjectStore(p);
     s.exec({ type: 'setLevelGraphics', levelId: 'lv_0', patch: { scale: 50 } });
     // escala não entra na chave da vista (não muda a geometria): o mesmo projeto devolve o mesmo objeto
     const q = s.project;
-    expect(planViewOf(q, 'lv_0')).toBe(planViewOf(q, 'lv_0'));
+    expect(resolvedPlanViewOf(q, 'lv_0')).toBe(resolvedPlanViewOf(q, 'lv_0'));
     const hidden = new ProjectStore(p);
     hidden.exec({ type: 'setLevelGraphics', levelId: 'lv_0', patch: { overrides: { window: { visible: false } } } });
-    expect(planViewOf(hidden.project, 'lv_0').categoryHidden.size).toBeGreaterThan(0);
-    expect(planViewOf(p, 'lv_0').categoryHidden.size).toBe(0);
+    expect(resolvedPlanViewOf(hidden.project, 'lv_0').categoryHidden.size).toBeGreaterThan(0);
+    expect(resolvedPlanViewOf(p, 'lv_0').categoryHidden.size).toBe(0);
   });
 });
 

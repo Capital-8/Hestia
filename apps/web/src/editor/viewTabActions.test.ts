@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createEmptyProject } from '@hestia/model';
+import { createEmptyProject, floorViewId, roofViewId } from '@hestia/model';
 import { editor } from './controller.ts';
 import { DEFAULT_OPTIONS, useUi } from './state.ts';
 import { activateView } from './viewTabActions.ts';
@@ -29,17 +29,17 @@ describe('activateView com o modo de perímetro aberto', () => {
 
   it('abrir a planta de cobertura de um nível põe a aba de cobertura, distinta da de piso', () => {
     const { levelId } = useUi.getState();
-    activateView({ kind: 'plan', levelId });
-    activateView({ kind: 'plan', levelId, planKind: 'roof' });
+    activateView({ kind: 'plan', viewId: floorViewId(levelId) });
+    activateView({ kind: 'plan', viewId: roofViewId(levelId) });
     expect(useUi.getState().planKind).toBe('roof');
-    expect(useUi.getState().openViews).toEqual([{ kind: 'plan', levelId }, { kind: 'plan', levelId, planKind: 'roof' }]);
+    expect(useUi.getState().openViews).toEqual([{ kind: 'plan', viewId: floorViewId(levelId) }, { kind: 'plan', viewId: roofViewId(levelId) }]);
   });
 
   it('reabrir a vista já ativa com o modo aberto ainda garante a aba', () => {
     editor.setTool('floor');
     const { levelId } = useUi.getState();
     useUi.setState({ openViews: [] });
-    activateView({ kind: 'plan', levelId });
-    expect(useUi.getState().openViews).toEqual([{ kind: 'plan', levelId }]);
+    activateView({ kind: 'plan', viewId: floorViewId(levelId) });
+    expect(useUi.getState().openViews).toEqual([{ kind: 'plan', viewId: floorViewId(levelId) }]);
   });
 });

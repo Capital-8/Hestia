@@ -1,4 +1,4 @@
-import { floorViewId, roofViewId, type Id } from '@hestia/model';
+import { floorViewId, planViewRef, roofViewId, type Id } from '@hestia/model';
 
 /**
  * Planta de piso (padrão), de cobertura ou de área. A de cobertura é a planta do nível com o telhado completo
@@ -8,10 +8,11 @@ export type PlanKind = 'floor' | 'roof' | 'area';
 
 /**
  * Vista aberta na barra de vistas. É estado de sessão (não é salvo no projeto): separa "níveis do projeto"
- * de "vistas abertas". Plantas são por nível (`planKind` ausente = piso); corte/elevação por id da vista; prancha por id da folha.
+ * de "vistas abertas". Plantas pelo id da vista (`PlanView`: piso, cobertura ou área); corte/elevação por id da vista;
+ * prancha por id da folha.
  */
 export type OpenView =
-  | { kind: 'plan'; levelId: Id; planKind?: PlanKind; areaPlanId?: Id }
+  | { kind: 'plan'; viewId: Id }
   | { kind: '3d' }
   | { kind: 'section'; viewId: Id }
   | { kind: 'sheet'; sheetId: Id };
@@ -22,9 +23,11 @@ export interface ActiveViewFields {
   levelId: Id;
   sectionId: Id | null;
   sheetId: Id | null;
-  /** Tipo da planta quando `view` é 'plan'; ausente = piso. */
+  /** Vista de planta (forma única); quando falta, o estado é o antigo e a vista sai de `planKind`/`areaPlanId`. */
+  planViewId?: Id | null;
+  /** Tipo da planta; ausente = piso. Só usado com o estado antigo (sem `planViewId`). */
   planKind?: PlanKind;
-  /** Planta de área ativa quando `planKind` é 'area'. */
+  /** @deprecated Estado antigo: planta de área ativa quando `planKind` é 'area'. */
   areaPlanId?: Id | null;
 }
 
@@ -34,26 +37,25 @@ export function planKindOf(v: { planKind?: PlanKind }): PlanKind {
 }
 
 /**
- * Id da vista de planta de uma aba (`floorViewId`, `roofViewId` ou o id da planta de área); `null` na planta de área
- * sem `areaPlanId`. Leitura da forma antiga da aba (Fase 2 troca por `viewId` direto).
+ * Id da vista de planta na FORMA ANTIGA da aba/estado (`levelId` + `planKind` + `areaPlanId`): `floorViewId`,
+ * `roofViewId` ou o id da planta de área; `null` na planta de área sem `areaPlanId`. Serve à sessão salva no formato
+ * antigo; o resto do código usa o `viewId` direto.
  */
-export function planViewIdDaAba(v: { levelId: Id; planKind?: PlanKind; areaPlanId?: Id }): Id | null {
-  const kind = planKindOf(v);
-  if (kind === 'area') return v.areaPlanId ?? null;
-  return kind === 'roof' ? roofViewId(v.levelId) : floorViewId(v.levelId);
+export function planViewIdDaAba(v: { levelId: Id; planKind?: string; areaPlanId?: Id | null }): Id | null {
+  if (v.planKind === 'area') return v.areaPlanId ?? null;
+  return v.planKind === 'roof' ? roofViewId(v.levelId) : floorViewId(v.levelId);
 }
 
 /** Padrão ao abrir um projeto: só o nível ativo, que é o primeiro nível do projeto. */
 export function defaultOpenViews(levelIds: readonly Id[]): OpenView[] {
-  return [{ kind: 'plan', levelId: levelIds[0] ?? 'lv_0' }];
+  return [{ kind: 'plan', viewId: floorViewId(levelIds[0] ?? 'lv_0') }];
 }
 
 /** Chave estável de uma vista (serve de `key` na barra e para comparar vistas). Piso, cobertura e área são distintas. */
 export function viewKey(v: OpenView): string {
   switch (v.kind) {
     case 'plan':
-      if (planKindOf(v) === 'area') return `area:${v.areaPlanId ?? v.levelId}`;
-      return planKindOf(v) === 'roof' ? `roof:${v.levelId}` : `plan:${v.levelId}`;
+      return `plan:${v.viewId}`;
     case '3d':
       return '3d';
     case 'section':
@@ -117,10 +119,12 @@ export function closeView(list: readonly OpenView[], target: OpenView, active: O
 
 /**
  * Nível cuja planta é liberada ao fechar a aba; null para as demais vistas. A de cobertura não libera: usa a mesma
- * resolução do nível que a de piso, que pode estar aberta ao lado. A de área também não libera.
+ * resolução do nível que a de piso, que pode estar aberta ao lado. A de área também não libera. Só a planta de piso
+ * principal (`pv_<nível>`) se reconhece sem o projeto, e é ela que libera.
  */
 export function levelToRelease(v: OpenView): Id | null {
-  return v.kind === 'plan' && planKindOf(v) === 'floor' ? v.levelId : null;
+  const ref = v.kind === 'plan' ? planViewRef(v.viewId) : undefined;
+  return ref?.kind === 'floor' ? ref.levelId : null;
 }
 
 /**
@@ -134,9 +138,10 @@ export function pruneViews(list: readonly OpenView[], exists: (v: OpenView) => b
 export function activeViewOf(ui: ActiveViewFields): OpenView | null {
   switch (ui.view) {
     case 'plan':
-      // forma antiga (Fase 2): a aba é escrita com `planKind`/`areaPlanId`.
-      if (planKindOf(ui) === 'area') return ui.areaPlanId ? { kind: 'plan', levelId: ui.levelId, planKind: 'area', areaPlanId: ui.areaPlanId } : null;
-      return planKindOf(ui) === 'roof' ? { kind: 'plan', levelId: ui.levelId, planKind: 'roof' } : { kind: 'plan', levelId: ui.levelId };
+      {
+        const viewId = ui.planViewId ?? planViewIdDaAba(ui);
+        return viewId ? { kind: 'plan', viewId } : null;
+      }
     case '3d':
       return { kind: '3d' };
     case 'section':

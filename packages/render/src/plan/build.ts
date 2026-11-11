@@ -1,11 +1,9 @@
 import { add, boxOf, mul, norm, perp, pointInMulti, ringArea, sub, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
-import { buildOpeningModel, cutLevelByJunction, frameOfWall, openingGeometry, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedRoom, type ResolvedSlab } from '@hestia/engine';
+import { buildOpeningModel, cutLevelByJunction, frameOfWall, openingGeometry } from '@hestia/engine';
 import { openingTypeById, dimensionStyleOf, angularDimensionGeometry, dimensionPoints, floorViewId, isGeneric, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, viewAnnotationsOf, wallsOnLevel, type AreaPlan, type DetailLevel, type Id, type Material, type Project } from '@hestia/model';
 import { resolveRooms, resolveAngularDimension } from '@hestia/engine';
 import { areaPlanLegendOps, areaPlanRoomOps, areaPlanTableOps, areaPlanTagOps } from './areaPlan.ts';
 import { aberturasDaParede, escadasDoNivel, juncaoDoNivel, paredesDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
-import type { Inference, PreviewItem } from '@hestia/tools';
-import type { Viewport } from '../viewport.ts';
 import { mix } from './color.ts';
 import { thinStrokes } from './thin.ts';
 import { gridStrokes } from './grid.ts';
@@ -23,7 +21,7 @@ import { wallTagLabels } from './tags.ts';
 import { openingTagLabels } from './openingTags.ts';
 import { drawnAnnotations, noteOps, roomSeparatorStrokes } from './notes.ts';
 import { elementTagOps } from './tags.ts';
-import { openingViewOps, wallOutlineOps, type PlanView } from './view.ts';
+import { openingViewOps, wallOutlineOps, type ResolvedPlanView } from './view.ts';
 import { openingPlanDetail } from './symbols.ts';
 import { espessuraDeCorte, espessuraDeProjecao, paintOps, surfaceColor, type PlanPaint, type PlanStyle } from './style.ts';
 import { Limiares, type VistaComLimiares } from './limiares.ts';
@@ -34,70 +32,12 @@ import { cadPlanOps } from './cad.ts';
 import { areaPlanProfile, FLOOR_PLAN_PROFILE, type FillOp, type LabelOp, type PlanDrawList, type PlanOps, type PlanProfile, type PlanTheme, type StrokeOp } from './types.ts';
 
 import { buildPlanOverlay } from './planOverlay.ts';
-import type { Lang } from '../i18n.ts';
 
 export { buildPlanHoverOverlay, buildPlanLiveOverlay, buildPlanOverlay, buildPlanScreenOverlay, buildPlanSelectionOverlay } from './planOverlay.ts';
 export { planBelowOf, underlayIdOf } from './planContext.ts';
 export { planGeometrySelection } from './planSelecao.ts';
-
-export interface PlanInput {
-  project: Project;
-  levelId: Id;
-  /**
-   * Geometria do nível pelo padrão (sem intervalo de vista). A planta normal não a usa: refaz a geometria do nível com o
-   * intervalo de vista (`planViewOf`). Só a planta de cobertura (`roofPlanMode`) a usa, como antes.
-   */
-  resolved: ResolvedLevel;
-  below: ResolvedLevel | null;
-  /** Pisos do nível abaixo (referência apagada, D4); sem ele, só as paredes do subpavimento aparecem. */
-  belowFloors?: ResolvedFloor[];
-  /** Lajes do nível abaixo, apagadas como os pisos (D1/D4); o app preenche, sem ele nada aparece. */
-  belowSlabs?: ResolvedSlab[];
-  /** Telhados do nível abaixo, apagados como as lajes (D4); sem eles, nada aparece. */
-  belowRoofs?: ResolvedRoof[];
-  /** Ambientes do nível abaixo, apagados como os pisos (D3); sem eles, nada aparece. */
-  belowRooms?: ResolvedRoom[];
-  /**
-   * Planta de cobertura (D6): telhados do nível opacos (alpha 1) e os de `belowRoofs` também, só o preenchimento;
-   * paredes só como contorno fino por cima; sem pisos, lajes ou aberturas; cota da cumeeira sempre visível. O app
-   * liga o modo (ex.: uma vista "Cobertura"); sem ele a planta é a de sempre. Não usa o intervalo de vista.
-   */
-  roofPlanMode?: boolean;
-  /** Planta de área: quando presente, o desenho usa o perfil da vista de área. */
-  areaPlan?: import('@hestia/model').AreaPlan;
-  /** Perfil de desenho; sem ele, a vista de área usa `areaPlanProfile` e a planta de piso usa `FLOOR_PLAN_PROFILE`. */
-  profile?: PlanProfile;
-  /** Elementos ocultos nesta vista (Hide in View + temporário). */
-  hidden?: ReadonlySet<Id>;
-  /** Elementos que o modo Reveal mostra com borda azul. */
-  revealed?: ReadonlySet<Id>;
-  /** Rótulo em arraste (fantasma) da planta de área: segue o cursor em tempo real. */
-  tagGhost?: { roomId: Id; at: Vec2 };
-  /** Ambiente cujo rótulo está sendo arrastado: a geometria não o desenha (o fantasma desenha). */
-  hideLabelRoomId?: Id;
-  /**
-   * Projeção da cobertura (decisão 0013 §2): contorno tracejado dos telhados que estão fora do intervalo de vista. Padrão
-   * ligado; independe do topo. Não afeta a planta de cobertura.
-   */
-  showRoofProjection?: boolean;
-  viewport: Viewport;
-  theme: PlanTheme;
-  dark: boolean;
-  selection: Id[];
-  hover: Id | null;
-  /** Parede em conflito (decisão 0044): realçada em amarelo na camada de hover. */
-  aviso?: Id | null;
-  preview: PreviewItem[];
-  inference: Inference | null;
-  showGrid: boolean;
-  /**
-   * Linhas finas só na tela (decisão 0015): todo traço sai com 1 px. Padrão desligado; a composição de pranchas, o PDF e
-   * o DXF não passam a opção, então usam os pesos reais. Não lê o modelo: quem chama decide.
-   */
-  thinLines?: boolean;
-  /** Idioma dos textos fixos da planta (nome padrão de ambiente, "SOBE", cabeçalhos e tooltip de captura). Padrão `'pt'`. */
-  lang?: Lang;
-}
+import { resolvePlanInput, type PlanInput } from './planInput.ts';
+export { resolvePlanInput, resolvePlanTarget, type PlanInput, type PlanInputResolvido, type PlanTarget } from './planInput.ts';
 
 const ringsOf = (m: MultiPolygon): Ring[] => m.flatMap((p) => p);
 
@@ -147,7 +87,7 @@ function openingSymbolStrokes(
   detail: DetailLevel,
   zoom: number,
   limiares: Limiares,
-  view: PlanView | null,
+  view: ResolvedPlanView | null,
   hidden: ReadonlySet<Id> | undefined,
   oculto?: (q: Vec2) => boolean,
 ): StrokeOp[] {
@@ -194,7 +134,8 @@ function openingSymbolStrokes(
  * entra nas decisões de detalhe (interface entre materiais), registradas em `limiares`; faixas, marcadores e
  * rótulos saem em papel e em pixels, e `resolverZoom` os converte (ver `zoomOps.ts`). A sobreposição fica em `buildPlanOverlay`.
  */
-export function buildPlanGeometry(input: PlanInput): PlanOps {
+export function buildPlanGeometry(entrada: PlanInput): PlanOps {
+  const input = resolvePlanInput(entrada);
   const { project: p, theme } = input;
   const areaPlan = input.areaPlan;
   const profile: PlanProfile = input.profile ?? (areaPlan ? areaPlanProfile(areaPlan) : FLOOR_PLAN_PROFILE);
@@ -506,7 +447,8 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
  * Lista de desenho completa (geometria, sobreposição e grade), na ordem de desenho de sempre. A planta de tela não a
  * usa: separa as camadas (ver `PlanFrame`). Continua para a plotagem, o modo CPU e os testes.
  */
-export function buildPlanDrawList(input: PlanInput): PlanDrawList {
+export function buildPlanDrawList(entrada: PlanInput): PlanDrawList {
+  const input = resolvePlanInput(entrada);
   const zoom = input.viewport.zoom;
   const g = resolverZoom(buildPlanGeometry(input), zoom);
   const o = resolverZoom(buildPlanOverlay(input), zoom);

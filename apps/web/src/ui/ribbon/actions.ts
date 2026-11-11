@@ -1,4 +1,5 @@
 /* eslint-disable max-lines -- a faixa concentra as ações pontuais (cada uma com rótulo bilíngue, dica e guarda); dividir depois. */
+import { areaViewIdAtivo } from '../../editor/vistaAtiva.ts';
 import { copyLinkOf, isCeiling, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Element, type Id, type Project, type Ramp } from '@hestia/model';
 import type { PerimeterModifyKind, ShortcutCommand, ToolOptions } from '@hestia/tools';
 import { t as translate, useI18n } from '../../editor/i18n.ts';
@@ -33,7 +34,6 @@ export interface RibbonCtx {
   selection: Id[];
   view: UiState['view'];
   planKind: UiState['planKind'];
-  areaPlanId: Id | null;
   levelId: Id;
   showGrid: boolean;
   showUnderlay: boolean;
@@ -173,8 +173,9 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     run: () => {
       // Na planta de área, "Etiquetar todos" completa as etiquetas de AMBIENTE (Room Tag) da vista.
       const s = useUi.getState();
-      if (s.view === 'plan' && s.planKind === 'area' && s.areaPlanId) {
-        const n = addMissingTagsAction(editor.store, s.areaPlanId);
+      const areaId = areaViewIdAtivo(s);
+      if (areaId) {
+        const n = addMissingTagsAction(editor.store, areaId);
         useUi.setState({
           status: n
             ? { key: n === 1 ? 'shr_status_rooms_tagged_one' : 'shr_status_rooms_tagged_many', args: { n } }
@@ -458,7 +459,7 @@ export function ctxNow(): RibbonCtx {
   const s = useUi.getState();
   const perim = editor.perimetro.view();
   return {
-    tool: s.tool, selection: s.selection, view: s.view, planKind: s.planKind, areaPlanId: s.areaPlanId, levelId: s.levelId,
+    tool: s.tool, selection: s.selection, view: s.view, planKind: s.planKind, levelId: s.levelId,
     showGrid: s.showGrid, showUnderlay: s.showUnderlay,
     showRoofProjection: s.showRoofProjection, propsOpen: s.propsOpen, browserOpen: s.browserOpen, sides: s.dock.sides, options: s.options, p: editor.project,
     perimetro: perim.active ? { modify: perim.modify, selecting: perim.selecting === true } : null,

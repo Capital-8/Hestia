@@ -1,3 +1,4 @@
+import { camposDeNivel } from './vistaAtiva.ts';
 import type { SketchDraft, SketchTarget } from '@hestia/geom';
 import type { PerimeterModifyKind } from '@hestia/tools';
 import { DEFAULT_CEILING_HEIGHT, isFloor, isSlab, type Id, type Project } from '@hestia/model';
@@ -346,7 +347,7 @@ export class PerimeterMode {
 
   private abrir(s: Sessao): void {
     this.sessao = s;
-    useUi.setState({ view: 'plan', sectionId: null, levelId: s.levelId, selection: [], hover: null });
+    useUi.setState((u) => ({ view: 'plan', sectionId: null, ...camposDeNivel(u, s.levelId), selection: [], hover: null }));
     this.porta.ativar(s.tool);
     s.tool.setShape('line');
     this.porta.atualizar();

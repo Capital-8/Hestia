@@ -1,10 +1,10 @@
-import { floorViewId, hiddenTargetOfView, planViewHiddenOf, planViewOf as vistaDoModelo, roofViewId, type GraphicsCategory, type Id, type Project, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
+import { hiddenTargetOfView, normalizeViewHiddenTarget, planViewHiddenOf, planViewOf as vistaDoModelo, type GraphicsCategory, type Id, type Project, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
 import { nivelAtivo, planViewIdAtivo, tipoDeVistaAtivo } from './vistaAtiva.ts';
 import { annotationIdsOfActiveView, selectedAnnotations } from './viewAnnotations.ts';
 
-type ViewState = Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'>;
+type ViewState = Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'planViewId' | 'sectionId'>;
 
 /** Estado temporário de visibilidade de uma vista (não vai para o arquivo do projeto). */
 export interface TempViewVisibility {
@@ -17,7 +17,7 @@ export interface TempViewVisibility {
 }
 
 /** Chave estável da vista ativa (a mesma ideia de `Editor.viewKey`, mas para a visibilidade). */
-export function visibilityKeyOf(st: Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'>): string | null {
+export function visibilityKeyOf(st: Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'planViewId' | 'sectionId'>): string | null {
   if (st.view === 'sheet') return null;
   if (st.view === '3d') return '3d';
   if (st.view === 'section') return st.sectionId ? `section:${st.sectionId}` : null;
@@ -32,26 +32,23 @@ export function visibilityKeyOf(st: Pick<ReturnType<typeof useUi.getState>, 'vie
  * Vista alvo de ocultação permanente para o estado atual; null na prancha ou sem vista. Com `p`, o alvo da planta sai de
  * `hiddenTargetOfView(p, viewId)`; sem `p` (ou com vista que não existe no projeto) o alvo vem do tipo da vista ativa.
  */
-export function viewHiddenTargetOf(st: Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'>, p?: Project): ViewHiddenTarget | null {
+export function viewHiddenTargetOf(st: Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'planViewId' | 'sectionId'>, p?: Project): ViewHiddenTarget | null {
   if (st.view === 'sheet') return null;
   if (st.view === '3d') return { kind: '3d' };
   if (st.view === 'section') return st.sectionId ? { kind: 'section', viewId: st.sectionId } : null;
   const viewId = planViewIdAtivo(st);
   if (!viewId) return null;
-  if (p && vistaDoModelo(p, viewId)) return hiddenTargetOfView(p, viewId);
-  const tipo = tipoDeVistaAtivo(st);
-  if (tipo === 'area') return { kind: 'area', planId: viewId };
-  return tipo === 'roof' ? { kind: 'roof', levelId: nivelAtivo(st) } : { kind: 'plan', levelId: nivelAtivo(st) };
+  // Forma única: a planta é identificada pelo id da vista (com ou sem o projeto).
+  return p && vistaDoModelo(p, viewId) ? hiddenTargetOfView(p, viewId) : { kind: 'plan', viewId };
 }
 
 /** Ocultação permanente da vista atual, já normalizada. */
 export function permanentHiddenOf(p: Project, target: ViewHiddenTarget | null): ViewHidden {
   if (!target) return {};
-  switch (target.kind) {
-    case 'plan': return planViewHiddenOf(p, floorViewId(target.levelId));
-    case 'roof': return planViewHiddenOf(p, roofViewId(target.levelId));
-    case 'area': return planViewHiddenOf(p, target.planId);
-    case 'section': return p.views.find((v) => v.id === target.viewId)?.hidden ?? {};
+  const alvo = normalizeViewHiddenTarget(target);
+  switch (alvo.kind) {
+    case 'plan': return planViewHiddenOf(p, alvo.viewId);
+    case 'section': return p.views.find((v) => v.id === alvo.viewId)?.hidden ?? {};
     case '3d': return p.view3d?.hidden ?? {};
   }
 }

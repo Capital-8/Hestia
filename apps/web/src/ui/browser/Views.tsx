@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactElement } from 'react';
-import { areaPlansOf, formatQuantity, projectSheets, projectView3DPoints, view3DPointOf, view3DPointsUsage, type Element, type SectionView, type SheetViewSource, type View3DPoint } from '@hestia/model';
+import { areaPlansOf, floorViewId, roofViewId, formatQuantity, projectSheets, projectView3DPoints, view3DPointOf, view3DPointsUsage, type Element, type SectionView, type SheetViewSource, type View3DPoint } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
 import { fmtNum, t, useI18n, useT } from '../../editor/i18n.ts';
 import { duplicateSheetCommand, addSheetAction } from '../../editor/sheetActions.ts';
@@ -151,7 +151,7 @@ export function ViewsTree(): ReactElement {
   const view = useUi((s) => s.view);
   const levelId = useUi((s) => s.levelId);
   const planKind = useUi((s) => s.planKind);
-  const areaPlanId = useUi((s) => s.areaPlanId);
+  const planViewId = useUi((s) => s.planViewId);
   const areaPlans = areaPlansOf(p);
   const sections = p.views.filter((v) => v.kind === 'section');
   const elevations = p.views.filter((v) => v.kind === 'elevation');
@@ -174,9 +174,9 @@ export function ViewsTree(): ReactElement {
             icon="plan"
             bold={view === 'plan' && planKind === 'floor' && levelId === l.id}
             title={t('cvn_br_plan_level_title', { value: formatQuantity(units, 'length', l.elevation) })}
-            onOpen={() => activateView({ kind: 'plan', levelId: l.id })}
-            drag={dragView({ kind: 'plan', levelId: l.id }, t('cvn_br_drag_plan', { name: l.name }))}
-            menu={[{ label: t('btn_open'), run: () => activateView({ kind: 'plan', levelId: l.id }) }, { label: t('cvn_br_levels'), run: () => useUi.setState({ dialog: 'levels' }), sep: true }]}
+            onOpen={() => activateView({ kind: 'plan', viewId: floorViewId(l.id) })}
+            drag={dragView({ kind: 'plan', viewId: floorViewId(l.id) }, t('cvn_br_drag_plan', { name: l.name }))}
+            menu={[{ label: t('btn_open'), run: () => activateView({ kind: 'plan', viewId: floorViewId(l.id) }) }, { label: t('cvn_br_levels'), run: () => useUi.setState({ dialog: 'levels' }), sep: true }]}
           />
         ))}
       </Node>
@@ -190,8 +190,8 @@ export function ViewsTree(): ReactElement {
             icon="roof"
             bold={view === 'plan' && planKind === 'roof' && levelId === l.id}
             title={t('cvn_br_roof_plan_title', { level: l.name })}
-            onOpen={() => activateView({ kind: 'plan', levelId: l.id, planKind: 'roof' })}
-            menu={[{ label: t('btn_open'), run: () => activateView({ kind: 'plan', levelId: l.id, planKind: 'roof' }) }, { label: t('cvn_br_levels'), run: () => useUi.setState({ dialog: 'levels' }), sep: true }]}
+            onOpen={() => activateView({ kind: 'plan', viewId: roofViewId(l.id) })}
+            menu={[{ label: t('btn_open'), run: () => activateView({ kind: 'plan', viewId: roofViewId(l.id) }) }, { label: t('cvn_br_levels'), run: () => useUi.setState({ dialog: 'levels' }), sep: true }]}
           />
         ))}
       </Node>
@@ -224,12 +224,12 @@ export function ViewsTree(): ReactElement {
             id={`area:${ap.id}`}
             label={ap.name}
             icon="plan"
-            bold={view === 'plan' && planKind === 'area' && areaPlanId === ap.id}
+            bold={view === 'plan' && planKind === 'area' && planViewId === ap.id}
             title={t('cvn_br_area_plan_title')}
-            onOpen={() => activateView({ kind: 'plan', levelId: ap.levelId, planKind: 'area', areaPlanId: ap.id })}
-            drag={dragView({ kind: 'areaPlan', planId: ap.id }, t('cvn_br_drag_area', { name: ap.name }))}
+            onOpen={() => activateView({ kind: 'plan', viewId: ap.id })}
+            drag={dragView({ kind: 'plan', viewId: ap.id }, t('cvn_br_drag_area', { name: ap.name }))}
             menu={[
-              { label: t('btn_open'), run: () => activateView({ kind: 'plan', levelId: ap.levelId, planKind: 'area', areaPlanId: ap.id }) },
+              { label: t('btn_open'), run: () => activateView({ kind: 'plan', viewId: ap.id }) },
               { label: t('cvn_br_delete'), run: () => editor.store.exec({ type: 'removeAreaPlan', id: ap.id }, t('cvn_br_undo_delete_area')), danger: true, sep: true },
             ]}
           />

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createEmptyProject, DEFAULT_AREA_GRAPHICS, ProjectStore, toolAllowedInView, type AreaPlan } from '@hestia/model';
 import { TOOL_GROUPS, type ToolId } from '@hestia/tools';
 import { AREA_PLAN_TOOLS } from './controller.ts';
-import { nivelAtivo, patchParaAtivarVista, planViewIdAtivo, planViewIdDeFundo, tipoDeVistaAtivo, type CamposDaVista } from './vistaAtiva.ts';
+import { areaViewIdDeFundo, camposDeNivel, nivelAtivo, patchParaAtivarVista, planViewIdAtivo, planViewIdDe, planViewIdDeFundo, tipoDeVistaAtivo, type CamposDaVista } from './vistaAtiva.ts';
 
 const campos = (over: Partial<CamposDaVista>): CamposDaVista => ({ view: 'plan', levelId: 'lv_0', planKind: 'floor', areaPlanId: null, ...over });
 
@@ -63,9 +63,9 @@ describe('patchParaAtivarVista (inverso)', () => {
   const p = s.project;
 
   it('piso, cobertura e área', () => {
-    expect(patchParaAtivarVista(p, 'pv_lv_1')).toEqual({ view: 'plan', levelId: 'lv_1', planKind: 'floor', areaPlanId: null });
-    expect(patchParaAtivarVista(p, 'pvr_lv_0')).toEqual({ view: 'plan', levelId: 'lv_0', planKind: 'roof', areaPlanId: null });
-    expect(patchParaAtivarVista(p, 'ap1')).toEqual({ view: 'plan', levelId: 'lv_1', planKind: 'area', areaPlanId: 'ap1' });
+    expect(patchParaAtivarVista(p, 'pv_lv_1')).toEqual({ view: 'plan', levelId: 'lv_1', planKind: 'floor', planViewId: 'pv_lv_1' });
+    expect(patchParaAtivarVista(p, 'pvr_lv_0')).toEqual({ view: 'plan', levelId: 'lv_0', planKind: 'roof', planViewId: 'pvr_lv_0' });
+    expect(patchParaAtivarVista(p, 'ap1')).toEqual({ view: 'plan', levelId: 'lv_1', planKind: 'area', planViewId: 'ap1' });
   });
 
   it('id inexistente: null', () => {
@@ -77,5 +77,33 @@ describe('patchParaAtivarVista (inverso)', () => {
       const patch = patchParaAtivarVista(p, id)!;
       expect(planViewIdAtivo(patch)).toBe(id);
     }
+  });
+});
+
+describe('estado com planViewId (forma única) e estado no formato antigo', () => {
+  it('planViewId manda; sem ele, a vista sai de levelId/planKind/areaPlanId', () => {
+    expect(planViewIdAtivo({ view: 'plan', levelId: 'lv_0', planKind: 'area', planViewId: 'ap1' })).toBe('ap1');
+    expect(planViewIdAtivo({ view: 'plan', levelId: 'lv_0', planKind: 'roof', planViewId: 'pvr_lv_0' })).toBe('pvr_lv_0');
+    // Formato antigo (sessão antiga, harness do ouro): mesmos ids.
+    expect(planViewIdAtivo({ view: 'plan', levelId: 'lv_0', planKind: 'area', areaPlanId: 'ap1' })).toBe('ap1');
+    expect(planViewIdAtivo({ view: 'plan', levelId: 'lv_0', planKind: 'roof' })).toBe('pvr_lv_0');
+    expect(planViewIdAtivo({ view: 'plan', levelId: 'lv_0', planKind: 'floor' })).toBe('pv_lv_0');
+  });
+
+  it('camposDeNivel: piso e cobertura acompanham o novo nível; área não muda de planta', () => {
+    expect(camposDeNivel({ planKind: 'floor', planViewId: 'pv_lv_0' }, 'lv_1')).toEqual({ levelId: 'lv_1', planViewId: 'pv_lv_1' });
+    expect(camposDeNivel({ planKind: 'roof', planViewId: 'pvr_lv_0' }, 'lv_1')).toEqual({ levelId: 'lv_1', planViewId: 'pvr_lv_1' });
+    expect(camposDeNivel({ planKind: 'area', planViewId: 'ap1' }, 'lv_1')).toEqual({ levelId: 'lv_1', planViewId: 'ap1' });
+  });
+
+  it('planViewIdDe: nível + tipo (+ área) para o id da vista', () => {
+    expect(planViewIdDe('lv_2', 'floor')).toBe('pv_lv_2');
+    expect(planViewIdDe('lv_2', 'roof')).toBe('pvr_lv_2');
+    expect(planViewIdDe('lv_2', 'area', 'ap9')).toBe('ap9');
+  });
+
+  it('areaViewIdDeFundo: só quando a planta de fundo é de área', () => {
+    expect(areaViewIdDeFundo({ levelId: 'lv_0', planKind: 'area', planViewId: 'ap1' })).toBe('ap1');
+    expect(areaViewIdDeFundo({ levelId: 'lv_0', planKind: 'floor', planViewId: 'pv_lv_0' })).toBeNull();
   });
 });

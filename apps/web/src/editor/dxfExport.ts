@@ -1,6 +1,6 @@
 import { openingSymbolPaths, type MultiPolygon, type Vec2 } from '@hestia/geom';
 import { buildOpeningModel, computeSection, junctionLevel, resolveCeilings, levelFrames, openingGeometry, resolveFloors, resolveRoofs, resolveRooms, resolveRampsOnLevel, resolveSlabs, resolveStairsOnLevel, type ResolvedRamp, type ResolvedStair, type JunctionLevel, type SectionOrigin, type ViewClass } from '@hestia/engine';
-import { climbWalk, openingPlanWorldPaths, ownerOf, planViewOf, risersInClimbOrder, roofFootprint, roomFullText, roomLabelAt, spiralByComponent, spiralPostRing, stairCut, type PlanView, type StairCut } from '@hestia/render';
+import { climbWalk, openingPlanWorldPaths, ownerOf, resolvedPlanViewOf, risersInClimbOrder, roofFootprint, roomFullText, roomLabelAt, spiralByComponent, spiralPostRing, stairCut, type ResolvedPlanView, type StairCut } from '@hestia/render';
 import {
   dxfDocOf,
   dxfGenericEntities,
@@ -33,7 +33,7 @@ import {
   type DxfUnit,
   type DxfViewState,
 } from '@hestia/io';
-import { floorViewId, openingTypeById, GRAPHICS_CATEGORIES, formatRampSlope, graphicsOf, isCad, lineWeightMm, openingAngle2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, openingsOfWall, sectionGraphicsOf, sectionPoints, unitsOf, viewGraphicsOf, type CadDrawing, type DxfLayerStyle, type GraphicsCategory, type Id, type Project } from '@hestia/model';
+import { floorViewId, planViewOf, openingTypeById, GRAPHICS_CATEGORIES, formatRampSlope, graphicsOf, isCad, lineWeightMm, openingAngle2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, openingsOfWall, sectionGraphicsOf, sectionPoints, unitsOf, viewGraphicsOf, type CadDrawing, type DxfLayerStyle, type GraphicsCategory, type Id, type Project } from '@hestia/model';
 import { AREA_LAYER_NAMES, areaLayerStyleOf, areaPlanDxf as areaPlanDxfOf } from './dxfAreaPlan.ts';
 import { useI18n, t as tr, type Lang } from './i18n.ts';
 import { vistaDeArea } from './vistaDeArea.ts';
@@ -302,7 +302,7 @@ function mergeNotes(a: DxfNotes | undefined, b: DxfNotes | undefined): DxfNotes 
  * então a montagem fica aqui, no web.
  */
 export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true, units?: DxfUnit): DxfLevelGeometry {
-  const view: PlanView = planViewOf(p, levelId);
+  const view: ResolvedPlanView = resolvedPlanViewOf(p, levelId);
   const { hidden } = view;
   const vg = viewGraphicsOf(p, floorViewId(levelId));
   const shown = (c: GraphicsCategory): boolean => vg.overrides[c].visible !== false;
@@ -533,16 +533,17 @@ export function sectionDxf(p: Project, sectionId: Id, units?: DxfUnit, lang: Lan
   return exportSectionDxf(p, sectionId, sectionDxfGeometryOf(p, sectionId, units, lang), lang);
 }
 
-/** Vista de planta exportável: a planta de piso do nível ou uma planta de área (perfil + anotações próprias). */
-export interface PlanViewRef {
-  levelId: Id;
-  areaPlanId?: Id | null;
-  showRoofProjection?: boolean;
-}
+/** Vista de planta exportável: `viewId` (forma única) ou, na forma antiga, `levelId` + `areaPlanId`. */
+export type PlanViewRef = { showRoofProjection?: boolean } & (
+  | { viewId: Id }
+  | { viewId?: undefined; levelId: Id; areaPlanId?: Id | null }
+);
 
 /** Ponto único de exportação do DXF de uma planta: a de área segue o perfil da vista; a de piso é inalterada. */
 export function viewDxf(p: Project, v: PlanViewRef, lang: Lang = activeLang()): string {
-  return v.areaPlanId ? areaPlanDxfOf(p, v.areaPlanId) : planDxf(p, v.levelId, v.showRoofProjection ?? true, undefined, lang);
+  const vista = v.viewId === undefined ? undefined : planViewOf(p, v.viewId);
+  const areaId = vista ? (vista.kind === 'area' ? vista.id : null) : ((v as { areaPlanId?: Id | null }).areaPlanId ?? null);
+  return areaId ? areaPlanDxfOf(p, areaId) : planDxf(p, vista?.levelId ?? (v as { levelId: Id }).levelId, v.showRoofProjection ?? true, undefined, lang);
 }
 
 

@@ -4,7 +4,7 @@ import { useUi } from './state.ts';
 import { editor } from './controller.ts';
 import { categoryIdsOf, mergeHidden, removeHidden, toggleRevealHidden, unhideInView, visibilityKeyOf, visibilityOf } from './viewVisibility.ts';
 
-afterEach(() => useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', areaPlanId: null, sectionId: null, viewTemp: {}, selection: [] }));
+afterEach(() => useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', planViewId: 'pv_lv_0', sectionId: null, viewTemp: {}, selection: [] }));
 
 const parede = (p: ReturnType<typeof buildTemplate>) => Object.values(p.elements).find((e) => e.kind === 'wall')!;
 const porta = (p: ReturnType<typeof buildTemplate>) => Object.values(p.elements).find((e) => e.kind === 'door')!;
@@ -13,9 +13,9 @@ describe('visibilidade por vista', () => {
   it('chave por vista: piso, cobertura, área, corte e 3D são distintos', () => {
     useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0' });
     expect(visibilityKeyOf(useUi.getState())).toBe('plan:lv_0');
-    useUi.setState({ planKind: 'roof' });
+    useUi.setState({ planKind: 'roof', planViewId: 'pvr_lv_0' });
     expect(visibilityKeyOf(useUi.getState())).toBe('roof:lv_0');
-    useUi.setState({ planKind: 'area', areaPlanId: 'ap1' });
+    useUi.setState({ planKind: 'area', planViewId: 'ap1' });
     expect(visibilityKeyOf(useUi.getState())).toBe('area:ap1');
     useUi.setState({ view: 'section', sectionId: 'sec1' });
     expect(visibilityKeyOf(useUi.getState())).toBe('section:sec1');

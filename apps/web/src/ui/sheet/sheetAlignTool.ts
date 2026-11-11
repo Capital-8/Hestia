@@ -1,5 +1,5 @@
 import {
-  planViewOf,
+  sheetPlanViewOf,
   sheetInnerBox,
   viewportAnchor,
   type Id,
@@ -188,16 +188,10 @@ function modelFeatures(
   prefer: AlignPrefer,
   lang: Lang,
 ): SheetAlignFeature[] {
-  let levelId: Id;
-  if (vp.view.kind === 'plan') {
-    levelId = vp.view.levelId;
-  } else if (vp.view.kind === 'areaPlan') {
-    const plan = planViewOf(project, vp.view.planId);
-    if (!plan) return [];
-    levelId = plan.levelId;
-  } else {
-    return [];
-  }
+  // Planta de piso ou de área (a fonte pode vir na forma antiga); sem vista de planta, nada a alinhar.
+  const plan = sheetPlanViewOf(project, vp.view);
+  if (!plan) return [];
+  const levelId: Id = plan.levelId;
   if (!(vp.scale > 0)) return [];
 
   const m = viewMappingOf(vp, levelCentre(project, levelId));

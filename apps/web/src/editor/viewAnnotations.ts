@@ -11,7 +11,7 @@ export interface ViewAnnotation {
   typeKey: string;
 }
 
-type ViewState = Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'>;
+type ViewState = Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'planViewId' | 'sectionId'>;
 
 /**
  * Anotações da vista ativa: no corte/elevação as da própria vista; na planta de área as dela (ou as do nível, se herda);

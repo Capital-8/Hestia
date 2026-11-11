@@ -10,7 +10,7 @@ export function useRibbonCtx(): RibbonCtx {
   const p = useProject();
   const perim = usePerimeter();
   const ui = useUi(useShallow((s) => ({
-    tool: s.tool, selection: s.selection, view: s.view, planKind: s.planKind, areaPlanId: s.areaPlanId, levelId: s.levelId,
+    tool: s.tool, selection: s.selection, view: s.view, planKind: s.planKind, levelId: s.levelId,
     showGrid: s.showGrid, showUnderlay: s.showUnderlay,
     showRoofProjection: s.showRoofProjection, propsOpen: s.propsOpen, browserOpen: s.browserOpen, sides: s.dock.sides, options: s.options,
   })));

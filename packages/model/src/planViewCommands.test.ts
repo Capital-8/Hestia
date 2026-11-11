@@ -308,9 +308,9 @@ describe('addPlanView e removePlanView', () => {
 describe('hiddenTargetOfView e annotationTarget', () => {
   it('converte os três tipos e recusa id inexistente', () => {
     const p = montar().project;
-    expect(hiddenTargetOfView(p, floorViewId(LV0))).toEqual({ kind: 'plan', levelId: LV0 });
-    expect(hiddenTargetOfView(p, roofViewId(LV0))).toEqual({ kind: 'roof', levelId: LV0 });
-    expect(hiddenTargetOfView(p, 'ap_herda')).toEqual({ kind: 'area', planId: 'ap_herda' });
+    expect(hiddenTargetOfView(p, floorViewId(LV0))).toEqual({ kind: 'plan', viewId: floorViewId(LV0) });
+    expect(hiddenTargetOfView(p, roofViewId(LV0))).toEqual({ kind: 'plan', viewId: roofViewId(LV0) });
+    expect(hiddenTargetOfView(p, 'ap_herda')).toEqual({ kind: 'plan', viewId: 'ap_herda' });
     expect(() => hiddenTargetOfView(p, 'nao_existe')).toThrow();
     expect(() => hiddenTargetOfView(p, floorViewId('lv_fantasma'))).toThrow();
     expect(annotationTarget(p, floorViewId(LV0))).toEqual({ levelId: LV0 });

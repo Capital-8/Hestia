@@ -15,7 +15,7 @@ function setup(): void {
     view: 'plan',
     planKind: 'floor',
     levelId: 'lv_0',
-    areaPlanId: null,
+    planViewId: 'pv_lv_0',
     sectionId: null,
     selection: ['A'],
     dialog: null,

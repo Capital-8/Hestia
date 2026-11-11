@@ -36,10 +36,10 @@ import { AUTOSAVE_KEY, AUTOSAVE_SALVO_KEY, safeGet, safeSet } from './storage.ts
 import { t, useI18n } from './i18n.ts';
 import { pedirConfirmacaoHostedLoss } from './hostedLossPrompt.ts';
 import { pedirAlerta } from './alertaPrompt.ts';
-import { fitBox, levelFrameBox, panBy, planViewOf, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
+import { fitBox, levelFrameBox, panBy, resolvedPlanViewOf, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
 import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
 import { defaultOpenViews, type PlanKind } from './openViews.ts';
-import { areaViewIdAtivo, chaveDeViewportDePlanta, planViewIdAtivo, planViewIdDeFundo, tipoDeVistaDeFundo } from './vistaAtiva.ts';
+import { areaViewIdAtivo, camposDeNivel, chaveDeViewportDePlanta, patchParaAtivarVista, planViewIdAtivo, type PatchDeVista, planViewIdDe, planViewIdDeFundo, tipoDeVistaDeFundo } from './vistaAtiva.ts';
 import { ehAnotacaoDePlanta, vistaAtivaParaComando } from './vistaDoComando.ts';
 import { idsDeAnotacoes, primeiraVistaDeAreaDoNivel, vistaDeArea } from './vistaDeArea.ts';
 import { casador } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
@@ -190,7 +190,7 @@ export class Editor {
     areaPlanId: () => this.areaPlanIdNow(),
     // Vista de planta exata (piso, cobertura ou área); leitura a cada acesso, o ambiente é criado uma vez só.
     get viewId(): Id | undefined { return planViewIdAtivo(useUi.getState()) ?? undefined; },
-    hiddenInView: () => planViewOf(this.store.project, useUi.getState().levelId).hidden,
+    hiddenInView: () => resolvedPlanViewOf(this.store.project, useUi.getState().levelId).hidden,
     underlayLevelId: () => { const st = useUi.getState(); return underlayIdOf(this.store.project, st.levelId, st.showUnderlay, st.underlayLevel); },
     selection: () => useUi.getState().selection,
     setSelection: (ids) => useUi.setState({ selection: ids, ...(ids.length ? { selectedLevel: null } : {}) }),
@@ -782,7 +782,7 @@ export class Editor {
     const keep = sel.filter((id) => p.elements[id] || notes.has(id) || sectionAnnotationIdsIn(p).has(id) || views.has(id) || seps.has(id) || projectGrids(p).some((g) => g.id === id));
     if (keep.length !== sel.length) useUi.setState({ selection: keep });
     const lv = useUi.getState().levelId;
-    if (!p.levels.some((l) => l.id === lv)) useUi.setState({ levelId: p.levels[0]?.id ?? 'lv_0' });
+    if (!p.levels.some((l) => l.id === lv)) useUi.setState((s) => camposDeNivel(s, p.levels[0]?.id ?? 'lv_0'));
     const after = useUi.getState();
     if (after.view === 'section' && !p.views.some((v) => v.id === after.sectionId)) useUi.setState({ view: 'plan', sectionId: null });
   }
@@ -877,8 +877,7 @@ export class Editor {
     }
     // Pré-aquece o 3D atrás do diálogo: quando o usuário clicar em "Pré-visualizar", a cena já está montada.
     const st = useUi.getState();
-    // forma antiga (Fase 2): a origem do colar guarda `planKind`/`areaPlanId`.
-    guardarOrigemDoColar({ view: st.view, levelId: st.levelId, sectionId: st.sectionId, planKind: st.planKind, areaPlanId: st.areaPlanId });
+    guardarOrigemDoColar({ view: st.view, levelId: st.levelId, sectionId: st.sectionId, planKind: st.planKind, planViewId: st.planViewId });
     limparPreviaPreparada();
     // Primeiro o diálogo aparece; o 3D começa a montar atrás dele no quadro seguinte (assim o clique não trava).
     useUi.setState({ dialog: 'selectLevels', dialogArg: null });
@@ -902,10 +901,9 @@ export class Editor {
   /** Restaura planta/corte/elevação de origem (o 3D fica montado em segundo plano). */
   private restaurarVistaDeOrigem(o: OrigemDoColar): void {
     if (o.view === 'section') {
-      useUi.setState({ view: 'section', sectionId: o.sectionId, levelId: o.levelId });
+      useUi.setState((s) => ({ view: 'section', sectionId: o.sectionId, ...camposDeNivel(s, o.levelId) }));
     } else if (o.view === 'plan') {
-      // forma antiga (Fase 2): estado escrito com `planKind`/`areaPlanId`.
-      useUi.setState({ view: 'plan', planKind: o.planKind, areaPlanId: o.areaPlanId, sectionId: null, levelId: o.levelId });
+      useUi.setState({ view: 'plan', planKind: o.planKind, planViewId: o.planViewId, sectionId: null, levelId: o.levelId });
     } else {
       useUi.setState({ view: '3d' });
     }
@@ -947,9 +945,8 @@ export class Editor {
       originView: origem?.view ?? st.view,
       originLevelId: origem?.levelId ?? st.levelId,
       originSectionId: origem?.sectionId ?? st.sectionId,
-      // forma antiga (Fase 2): origem com `planKind`/`areaPlanId`.
       originPlanKind: origem?.planKind ?? st.planKind,
-      originAreaPlanId: origem?.areaPlanId ?? st.areaPlanId,
+      originPlanViewId: origem?.planViewId ?? st.planViewId,
       link,
     };
     performance.mark('colar-vista-inicio');
@@ -997,7 +994,7 @@ export class Editor {
       levelId: preview.originLevelId,
       sectionId: preview.originSectionId,
       planKind: preview.originPlanKind ?? 'floor',
-      areaPlanId: preview.originAreaPlanId ?? null,
+      planViewId: preview.originPlanViewId ?? planViewIdDe(preview.originLevelId, preview.originPlanKind ?? 'floor'),
     });
     useUi.setState({ status: { key: 'eds_msg_paste_cancelled' } });
   }
@@ -1108,10 +1105,24 @@ export class Editor {
     });
   }
 
+  /**
+   * Ativa a planta do nível `id` do tipo `kind` (planta de área: `areaPlanId`). Atalho de `selectPlanView` para quem
+   * ainda pede por nível e tipo; sem `areaPlanId` a planta de área não tem vista e vale a planta de piso.
+   */
   selectLevel(id: Id, kind: PlanKind = 'floor', areaPlanId: Id | null = null): void {
+    const tipo: PlanKind = kind === 'area' && !areaPlanId ? 'floor' : kind;
+    this.ativarPlanta({ view: 'plan', levelId: id, planKind: tipo, planViewId: planViewIdDe(id, tipo, areaPlanId) });
+  }
+
+  /** Ativa a vista de planta `viewId` (piso, cobertura ou área): grava `levelId`, `planKind` e `planViewId` juntos. */
+  selectPlanView(viewId: Id): void {
+    const patch = patchParaAtivarVista(this.store.project, viewId);
+    if (patch) this.ativarPlanta(patch);
+  }
+
+  private ativarPlanta(patch: PatchDeVista): void {
     if (this.perimetro.bloqueiaNavegacao()) return;
-    // forma antiga (Fase 2): ativa a vista escrevendo `levelId`/`planKind`/`areaPlanId`.
-    useUi.setState((s) => ({ levelId: id, planKind: kind, areaPlanId: kind === 'area' ? areaPlanId : null, selection: [], hover: null, view: 'plan', sectionId: null, previewTick: s.previewTick + 1 }));
+    useUi.setState((s) => ({ ...patch, selection: [], hover: null, sectionId: null, previewTick: s.previewTick + 1 }));
     this.setTool('select');
   }
 
@@ -1154,8 +1165,7 @@ export class Editor {
     this.viewports.clear();
     this.sectionCache.clear(); this.sectionPending.clear(); this.sectionToFrame.clear(); this.sectionClient?.cancelarTodos();
     // Abas de vista são da sessão: projeto novo começa só com o nível ativo, sem herdar abas do anterior.
-    // forma antiga (Fase 2): estado escrito com `planKind`/`areaPlanId`.
-    useUi.setState({ selection: [], levelId: p.levels[0]?.id ?? 'lv_0', view: 'plan', planKind: 'floor', areaPlanId: null, sectionId: null, openViews: defaultOpenViews(p.levels.map((l) => l.id)), options: { ...useUi.getState().options, wallTypeId: p.defaults.wallTypeId, doorTypeId: p.defaults.doorTypeId, windowTypeId: p.defaults.windowTypeId, floorTypeId: keptFloorType(p, useUi.getState().options.floorTypeId), slabTypeId: keptSlabType(p, useUi.getState().options.slabTypeId) } });
+    useUi.setState({ selection: [], levelId: p.levels[0]?.id ?? 'lv_0', view: 'plan', planKind: 'floor', planViewId: floorViewId(p.levels[0]?.id ?? 'lv_0'), sectionId: null, openViews: defaultOpenViews(p.levels.map((l) => l.id)), options: { ...useUi.getState().options, wallTypeId: p.defaults.wallTypeId, doorTypeId: p.defaults.doorTypeId, windowTypeId: p.defaults.windowTypeId, floorTypeId: keptFloorType(p, useUi.getState().options.floorTypeId), slabTypeId: keptSlabType(p, useUi.getState().options.slabTypeId) } });
     this.setTool('select');
   }
 

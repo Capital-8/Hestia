@@ -46,7 +46,7 @@ function montar(): { project: Project; ap1: Id; ap2: Id } {
 
 const ir = (viewId: Id | null, planKind: 'floor' | 'roof' | 'area', ap: { ap1: Id; ap2: Id; project: Project }): void => {
   editor.load(ap.project, 'teste.hestia.json');
-  useUi.setState({ view: 'plan', levelId: 'lv_0', planKind, areaPlanId: planKind === 'area' ? viewId : null, selection: [], hover: null, sectionId: null, options: DEFAULT_OPTIONS });
+  useUi.setState({ view: 'plan', levelId: 'lv_0', planKind, planViewId: planKind === 'area' ? (viewId as string) : planKind === 'roof' ? 'pvr_lv_0' : 'pv_lv_0', selection: [], hover: null, sectionId: null, options: DEFAULT_OPTIONS });
 };
 
 const cota = (id: string, y = -6): Dimension => ({ id, a: { x: 0, y }, b: { x: 4, y }, offset: 1, mode: 'aligned' });
@@ -92,7 +92,7 @@ describe('controlador injeta a vista ativa no comando de anotação', () => {
     const m = montar();
     ir(m.ap1, 'area', m);
     criarTudo('1');
-    useUi.setState({ areaPlanId: m.ap2 });
+    useUi.setState({ planViewId: m.ap2 });
     criarTudo('2');
     expect(ids(m.ap1)).toEqual(['d1', 'g1', 'l1', 't1']);
     expect(ids(m.ap2)).toEqual(['d2', 'g2', 'l2', 't2']);
@@ -145,7 +145,7 @@ describe('seleção, exclusão e etiquetas na vista ativa', () => {
     const m = montar();
     ir(null, 'floor', m);
     criarTudo('p');
-    useUi.setState({ planKind: 'roof' });
+    useUi.setState({ planKind: 'roof', planViewId: 'pvr_lv_0' });
     criarTudo('c');
     // Clique na cota da cobertura (a do piso está no mesmo lugar, fora do modelo): seleciona a da cobertura.
     editor.setTool('select');
@@ -170,7 +170,7 @@ describe('seleção, exclusão e etiquetas na vista ativa', () => {
     const m = montar();
     ir(null, 'roof', m);
     criarTudo('c');
-    useUi.setState({ planKind: 'floor', selection: ['dc', 'tc'] });
+    useUi.setState({ planKind: 'floor', planViewId: 'pv_lv_0', selection: ['dc', 'tc'] });
     deleteSelectionIn(editor.store);
     expect(ids(roofViewId('lv_0'))).toEqual(['dc', 'gc', 'lc', 'tc']);
   });
@@ -179,7 +179,7 @@ describe('seleção, exclusão e etiquetas na vista ativa', () => {
     const m = montar();
     ir(m.ap1, 'area', m);
     criarTudo('1');
-    useUi.setState({ areaPlanId: m.ap2 });
+    useUi.setState({ planViewId: m.ap2 });
     criarTudo('2');
     editor.setTool('select');
     cliqueMouse(2, -5);
@@ -194,7 +194,7 @@ describe('seleção, exclusão e etiquetas na vista ativa', () => {
     const m = montar();
     ir(null, 'floor', m);
     editor.applyCommand({ type: 'addTag', levelId: 'lv_0', item: { ...etiqueta('piso'), hostId: 'w0' } });
-    useUi.setState({ planKind: 'roof' });
+    useUi.setState({ planKind: 'roof', planViewId: 'pvr_lv_0' });
     // A cobertura não tem etiqueta: etiqueta todas as paredes, inclusive a que já tem no piso.
     const n = tagAllNotTagged();
     const cobertura = viewAnnotationsOf(editor.project, roofViewId('lv_0')).tags;

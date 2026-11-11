@@ -4,7 +4,7 @@ import { junctionLevel, resolveFloors, resolveSlabs } from '@hestia/engine';
 import { ProjectStore, createEmptyProject, makeFloor, makeSlab, makeWall, type Layer, type Project } from '@hestia/model';
 import { floorOpsOf } from './floors.ts';
 import { slabOpsOf } from './slabs.ts';
-import { planViewOf } from './view.ts';
+import { resolvedPlanViewOf } from './view.ts';
 import { defaultPaint } from './style.ts';
 import { LIGHT } from './types.ts';
 import type { Viewport } from '../viewport.ts';
@@ -46,7 +46,7 @@ describe('planta: parede recortada pela junção (decisão 0023 §10, P7c parte 
   }
 
   it('na cota do plano de corte, cada camada desenha só a região que sobra', () => {
-    const view = planViewOf(wallProject(true), 'lv_0');
+    const view = resolvedPlanViewOf(wallProject(true), 'lv_0');
     expect(view.cutZ).toBeCloseTo(0.01, 9);
     const cut = view.geo.walls.w1!.layers.map((l) => multiArea(l.cut));
     [0.08, 0.48, 0.04].forEach((v, i) => expect(cut[i]!).toBeCloseTo(v, 9));
@@ -56,7 +56,7 @@ describe('planta: parede recortada pela junção (decisão 0023 §10, P7c parte 
 
   it('parede sem sobreposição: a planta sai com as mesmas áreas de antes', () => {
     const p = wallProject(false);
-    const view = planViewOf(p, 'lv_0');
+    const view = resolvedPlanViewOf(p, 'lv_0');
     const cut = view.geo.walls.w1!.layers.map((l) => multiArea(l.cut));
     [0.08, 0.64, 0.08].forEach((v, i) => expect(cut[i]!).toBeCloseTo(v, 9));
     expect(multiArea(view.geo.clusters[0]!.silhouette)).toBeCloseTo(0.8, 9);

@@ -5,7 +5,7 @@ import { planFrameUpdateOf, PlanFrame, type PlanViewState } from './planFrame.ts
 import { planGeometrySelection } from './build.ts';
 import { drawnAnnotations } from './notes.ts';
 import { planStyleOf } from './style.ts';
-import { planViewOf } from './view.ts';
+import { resolvedPlanViewOf } from './view.ts';
 import { LIGHT } from './types.ts';
 import type { Viewport } from '../viewport.ts';
 
@@ -137,17 +137,17 @@ describe('vistas do mesmo nível não se contaminam (piso, cobertura, planta de 
   });
 });
 
-describe('vista da planta (planViewOf do render) por vista', () => {
+describe('vista da planta (resolvedPlanViewOf do render) por vista', () => {
   it('piso e planta de área do mesmo nível têm entradas próprias, estáveis por referência', () => {
-    const piso = planViewOf(p, 'lv_0', floorViewId('lv_0'));
-    const area = planViewOf(p, 'lv_0', AREA.id);
+    const piso = resolvedPlanViewOf(p, 'lv_0', floorViewId('lv_0'));
+    const area = resolvedPlanViewOf(p, 'lv_0', AREA.id);
     expect(area).not.toBe(piso);
     for (let i = 0; i < 3; i++) {
-      expect(planViewOf(p, 'lv_0', floorViewId('lv_0'))).toBe(piso);
-      expect(planViewOf(p, 'lv_0', AREA.id)).toBe(area);
+      expect(resolvedPlanViewOf(p, 'lv_0', floorViewId('lv_0'))).toBe(piso);
+      expect(resolvedPlanViewOf(p, 'lv_0', AREA.id)).toBe(area);
     }
     // Sem `viewId`, vale a planta de piso (o que as outras pastas sempre pediram).
-    expect(planViewOf(p, 'lv_0')).toBe(piso);
+    expect(resolvedPlanViewOf(p, 'lv_0')).toBe(piso);
     // Hoje as duas leem o mesmo intervalo e os mesmos gráficos do nível: o conteúdo é igual.
     expect(area.range).toEqual(piso.range);
     expect([...area.hidden].sort()).toEqual([...piso.hidden].sort());

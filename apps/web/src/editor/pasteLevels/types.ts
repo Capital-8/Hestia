@@ -15,7 +15,7 @@ export interface PastePreviewState {
   originSectionId: Id | null;
   /** Planta de piso/cobertura/área de onde o comando abriu (para restaurar no cancelamento). */
   originPlanKind?: 'floor' | 'roof' | 'area';
-  originAreaPlanId?: Id | null;
+  originPlanViewId?: Id;
   /** Manter cópias vinculadas (andar-tipo). */
   link: boolean;
 }
