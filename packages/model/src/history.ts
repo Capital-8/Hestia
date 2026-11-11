@@ -241,6 +241,14 @@ export function labelOf(c: Command): string {
       return 'Editar tipo de parede';
     case 'deleteWallType':
       return 'Excluir tipo de parede';
+    case 'upsertMullionType':
+      return 'Editar tipo de montante';
+    case 'deleteMullionType':
+      return 'Excluir tipo de montante';
+    case 'upsertCurtainPanelType':
+      return 'Editar tipo de painel';
+    case 'deleteCurtainPanelType':
+      return 'Excluir tipo de painel';
     case 'upsertMaterial':
       return 'Editar material';
     case 'upsertOpeningType':

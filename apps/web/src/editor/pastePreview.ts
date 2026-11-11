@@ -10,7 +10,7 @@ import {
   isSlab,
   isStair,
   isWall,
-  totalThickness,
+  wallThicknessOf,
   type Element,
   type Id,
   type Project,
@@ -259,7 +259,7 @@ function caixaDeElemento(p: Project, e: Element, deltaZ: number): CaixaDaPrevia 
   if (isWall(e)) {
     pontos.push(e.a, e.b);
     const tipo = p.wallTypes[e.typeId];
-    const margem = tipo ? totalThickness(tipo) / 2 : 0;
+    const margem = tipo ? wallThicknessOf(tipo) / 2 : 0;
     z0 = zNivel + e.baseOffset;
     z1 = e.topLevelId ? elevacaoDoNivel(p, e.topLevelId) + deltaZ + e.topOffset : z0 + e.height;
     const b = caixaDosPontos(pontos, z0, z1);

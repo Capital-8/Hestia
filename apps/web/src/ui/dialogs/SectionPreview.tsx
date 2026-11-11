@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { formatQuantity, coreRange, layerSpans, totalThickness, type Material, type WallType } from '@hestia/model';
+import { formatQuantity, coreRange, layerSpans, wallThicknessOf, type Material, type WallType } from '@hestia/model';
 import { useT } from '../../editor/i18n.ts';
 import { useUnits } from '../useUnits.ts';
 
@@ -20,7 +20,7 @@ export function SectionPreview({ type, materials }: { type: WallType; materials:
   const W = 340;
   const H = 150;
   const pad = 22;
-  const total = Math.max(0.01, totalThickness(type));
+  const total = Math.max(0.01, wallThicknessOf(type));
   const k = (W - pad * 2) / total;
   const spans = layerSpans(type);
   const core = coreRange(type);

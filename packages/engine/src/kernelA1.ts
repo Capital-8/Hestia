@@ -5,7 +5,7 @@
  * produz em `quadros_e_juncoes`, na mesma codificação plana (ver `crates/geom-wasm/schema/cena-v11.json`), para o
  * harness e os testes compararem. A referência de correção é o próprio motor; nada aqui reimplementa o algoritmo.
  */
-import { totalThickness, wallBaseElevation, wallMaxHeight, wallsOnLevel, type Id, type LocationLine, type Project, type Wall, type WallType, type WrapMode } from '@hestia/model';
+import { wallThicknessOf, wallBaseElevation, wallMaxHeight, wallsOnLevel, type Id, type LocationLine, type Project, type Wall, type WallType, type WrapMode } from '@hestia/model';
 import { clusterWalls, levelFrames } from './resolve.ts';
 import { attachTargets } from './attachTargets.ts';
 import { resolveAllRoofs } from './roofs.ts';
@@ -124,7 +124,7 @@ export function montarCenaA1(p: Project, flatAttach = false): CenaA1 {
     push(paredes, 'ay', el.a.y);
     push(paredes, 'bx', el.b.x);
     push(paredes, 'by', el.b.y);
-    push(paredes, 'espessura', totalThickness(tipo));
+    push(paredes, 'espessura', wallThicknessOf(tipo));
     const z0 = wallBaseElevation(p, el);
     push(quadro, 'id_num', id);
     push(quadro, 'tipo_num', tn);

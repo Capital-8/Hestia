@@ -17,7 +17,7 @@ import {
   type Vec2,
 } from '@hestia/geom';
 import { frameOfWall, wallFacesCached as facesOf, type WallFaces } from '@hestia/engine';
-import { openingTypeById, openingsOfWall, totalThickness, wallsOnLevel, type Id, type Project, type Wall } from '@hestia/model';
+import { openingTypeById, openingsOfWall, wallThicknessOf, wallsOnLevel, type Id, type Project, type Wall } from '@hestia/model';
 import { closestOnWall, wallMid } from './wallGeom.ts';
 import { addGridSnaps } from './gridSnapPoints.ts';
 import { addCadSnaps, type CadSnapIndex } from './snapCad.ts';
@@ -596,7 +596,7 @@ export function hostUnder(cursor: Vec2, p: Project, levelId: Id, mpp: number, sn
   for (const w of wallsOnLevel(p, levelId)) {
     const near = closestOnWall(w, cursor);
     const type = p.wallTypes[w.typeId];
-    const half = (type ? totalThickness(type) : 0.2) / 2 + (snapOn ? tolPx * mpp : 0);
+    const half = (type ? wallThicknessOf(type) : 0.2) / 2 + (snapOn ? tolPx * mpp : 0);
     if (near.dist > half) continue;
     if (!best || near.dist < best.d) best = { wallId: w.id, offset: near.t, point: near.point, d: near.dist };
   }

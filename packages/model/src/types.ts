@@ -20,9 +20,11 @@ import type { AreaPlan, ColorScheme, RoomCategory } from './areaPlan.ts';
 import type { DxfLayerStyle } from './dxfLayerStyle.ts';
 import type { CadDrawing } from './cad.ts';
 import type { CopyLink } from './copyLink.ts';
+import type { CurtainInstance, CurtainPanelType, CurtainSpec, MullionType } from './wallCurtainTypes.ts';
 
 export type Id = string;
-export const SCHEMA_VERSION = 24;
+/** v25: parede cortina (decisão 0056). Arquivo antigo não tem campos novos: a migração 24 → 25 só avança a versão. */
+export const SCHEMA_VERSION = 25;
 
 export type { Stair, StairCurve, StairGenerator, StairLanding, StairRun, StairRunStyle, StairSpiralParams, StairType, StairUndersideStyle } from './stairTypes.ts';
 export type { Ramp, RampInputMode, RampNormProfile, RampNormRow, RampShape, RampType } from './rampTypes.ts';
@@ -103,13 +105,20 @@ export interface WallStrip {
   z1: number;
 }
 
+/** Família do tipo de parede (decisão 0056). Ausente = 'basic' (todos os arquivos antigos). Fixada na criação do tipo. */
+export type WallFamily = 'basic' | 'curtain';
+
 export interface WallType {
   id: Id;
   name: string;
   description: string;
   code: string;
-  /** Camadas da face EXTERNA para a INTERNA. */
+  /** Camadas da face EXTERNA para a INTERNA. Na cortina é só a camada-sombra (§4.1 da decisão 0056): não é fonte de verdade. */
   layers: Layer[];
+  /** Família do tipo. Ausente = 'basic'. Não muda depois que o tipo é criado (decisão 0056, §4.7). */
+  family?: WallFamily;
+  /** Sistema da parede cortina: obrigatório quando `family === 'curtain'`; ignorado nas demais (decisão 0056, §4.2). */
+  curtain?: CurtainSpec;
   /** Retorno dos acabamentos nos vãos (docs/05 §2); a família da abertura pode substituir. */
   wrapInserts: WrapMode;
   /** Retorno dos acabamentos nas extremidades livres. */
@@ -334,6 +343,8 @@ export interface Wall {
    * topo se mantém na altura do ponto mais próximo. `null` = topo reto por `height`/nível. Só em parede reta.
    */
   topProfile: ProfilePoint[] | null;
+  /** Instância da parede cortina (decisão 0056, §4.3): só intenções (sobrescritas), nunca geometria. Ausente = parede comum. */
+  curtain?: CurtainInstance;
   mark: string;
   comments: string;
   /** Ordem de criação: desempata junções (docs/05 §1, ordem de junção). */
@@ -798,6 +809,10 @@ export interface Project {
   openingProfiles?: Record<Id, ProfilePreset>;
   /** Perfis de norma do guarda-corpo (decisão 0055 §4.3). Ausente = os presets por leitura; a primeira escrita grava o conjunto. */
   perfisNorma?: Record<Id, PerfilNorma>;
+  /** Tipos de montante da parede cortina (decisão 0056, §4.5). Ausente = os padrões por leitura (`mullionTypesOf`); a primeira escrita grava o conjunto completo. */
+  mullionTypes?: Record<Id, MullionType>;
+  /** Tipos de painel da parede cortina (decisão 0056, §4.5). Mesmo regime de `mullionTypes` (`curtainPanelTypesOf`). */
+  curtainPanelTypes?: Record<Id, CurtainPanelType>;
   elements: Record<Id, Element>;
   /**
    * Vínculos de andar-tipo criados pelo "Colar alinhado aos níveis selecionados" com a opção

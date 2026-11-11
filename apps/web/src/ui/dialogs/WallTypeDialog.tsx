@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState, type ReactElement } from 'react';
-import { formatQuantity, functionLabels, FUNCTION_LABEL, coreRange, layerPriority, newId, totalThickness, wallTypeUsage, type Layer, type LayerFunction, type WallType, type WrapMode } from '@hestia/model';
+import { formatQuantity, functionLabels, FUNCTION_LABEL, coreRange, layerPriority, newId, wallThicknessOf, wallTypeUsage, type Layer, type LayerFunction, type WallType, type WrapMode } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
 import { NumField, TextField } from '../fields.tsx';
@@ -178,7 +178,7 @@ export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | n
                 </tbody>
               </table>
               </div>
-              <div className="total"><span>{t('dlt_total_thickness')}</span><strong>{formatQuantity(units, 'smallLength', totalThickness(draft))}</strong></div>
+              <div className="total"><span>{t('dlt_total_thickness')}</span><strong>{formatQuantity(units, 'smallLength', wallThicknessOf(draft))}</strong></div>
               <button className="btn small" onClick={insert}>{t('dlt_add_layer')}</button>
               <div className="field-row" style={{ marginTop: 10 }}>
                 <label htmlFor="wt-wrap-ins" title={t('dlt_tt_wrap_inserts')}>{t('dlt_wrap_inserts')}</label>

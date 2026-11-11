@@ -1,4 +1,4 @@
-import { formatQuantity, totalThickness, unitSymbol, unitsOf, wallType, wallsOnLevel, type Id, type Project, type ResolvedUnits, type Wall, type WallType } from '@hestia/model';
+import { formatQuantity, wallThicknessOf, unitSymbol, unitsOf, wallType, wallsOnLevel, type Id, type Project, type ResolvedUnits, type Wall, type WallType } from '@hestia/model';
 import { csvDocument, csvText } from './csv.ts';
 import { scheduleCsvCell, scheduleCsvHeader } from './scheduleCsv.ts';
 import { collationFor, t, type Lang } from './i18n.ts';
@@ -67,7 +67,7 @@ function rowOf(p: Project, wall: Wall, levelName: string, q: WallQuantity, lang:
     typeName: t.name,
     levelId: wall.levelId,
     levelName,
-    thickness: totalThickness(t),
+    thickness: wallThicknessOf(t),
     length: q.length,
     height: q.height,
     grossFaceArea: q.grossFaceArea,

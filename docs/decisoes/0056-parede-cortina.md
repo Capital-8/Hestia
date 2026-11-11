@@ -1,6 +1,6 @@
 # Decisão 0056 — Parede cortina (família de parede com grade, montantes e painéis; portas e janelas na célula; contrato com o kernel Rust)
 
-Data: 2026-11-10. Estado: **fase 0 (só documento)**. Nenhum código foi escrito; a migração, o `WallType.family` e os tipos entram na própria fase 0 de implementação (§10), depois desta aprovação.
+Data: 2026-11-10. Estado: **fase 0 implementada** (tipos, migração 24 → 25, `wallThicknessOf`, camada-sombra, comandos de montante e painel, validação de tipo e testes em `packages/model`). Grade, geometria, Rust e UI ficam para as fases 1 a 7. Decisões do dono registradas em §14.
 Numeração: o maior número visto no repositório é 0055 (`feat/guarda-corpo`); 0056 estava livre na hora da escrita. Há números duplicados históricos (0046, 0047, 0049); se 0056 colidir na hora de mesclar, renumere.
 
 Marcações de confiança usadas abaixo: **[R4/R5]** = confirmado nas pesquisas internas `docs/aberturas/pesquisa-f0/R4-revit.md` e `R5-archicad.md`, que citam páginas oficiais da Autodesk e da Graphisoft; **[PROVÁVEL]** = a mesma pesquisa marca como fonte técnica ou fórum; **[A CONFIRMAR]** = conhecimento geral dos dois programas, sem página aberta nesta rodada (esta fase 0 não fez busca nova na web). Valores numéricos de norma e de mercado marcados [A CONFIRMAR] entram nos padrões como editáveis e aparecem como "(a conferir)" onde houver mensagem.
@@ -67,7 +67,7 @@ Marcações de confiança usadas abaixo: **[R4/R5]** = confirmado nas pesquisas 
 
 ## 4. Modelo de dados (TS exato)
 
-Arquivos novos em `packages/model/src/`: `wallCurtainTypes.ts` (só tipos e constantes, no molde de `guardaCorpoTypes.ts`), `wallCurtain.ts` (padrões, presets, `wallThicknessOf`, `isCurtainType`, `curtainTypeIssue`) e `curtainCommands.ts` (comandos, fase 1 em diante). Metros e radianos em todo o modelo. Nomes de tipo em inglês, como `WallType`, `OpeningType` e o prompt do dono; textos de tela em PT, no dicionário de i18n.
+Arquivos novos em `packages/model/src/`: `wallCurtainTypes.ts` (só tipos e constantes, no molde de `guardaCorpoTypes.ts`), `wallCurtain.ts` (padrões dos montantes e painéis, leitores com padrão, camada-sombra, `curtainTypeIssue`, `curtainWallIssues`) e `curtainCommands.ts` (comandos de tipo: montante e painel na fase 0; grade e instância a partir da fase 1). `wallThicknessOf` e `isCurtainType` ficam em `wallType.ts`, junto de `totalThickness`, para que a regra de guarda da fase 0 (um único ponto que soma camadas de tipo) seja verificável (§4.10). Metros e radianos em todo o modelo. Nomes de tipo em inglês, como `WallType`, `OpeningType` e o prompt do dono; textos de tela em PT, no dicionário de i18n.
 
 ### 4.1 O tipo de parede
 
@@ -82,7 +82,7 @@ export interface WallType {
   curtain?: CurtainSpec;
 }
 
-/** Fonte ÚNICA da espessura de uma parede. Cortina: profundidade do sistema. Básica: soma das camadas. */
+/** Fonte ÚNICA da espessura de uma parede (em `wallType.ts`). Cortina: profundidade do sistema. Básica: soma das camadas. */
 export function wallThicknessOf(t: WallType): number;
 export const isCurtainType = (t: WallType | undefined): t is WallType & { family: 'curtain'; curtain: CurtainSpec } =>
   t?.family === 'curtain' && t.curtain !== undefined;
@@ -120,10 +120,7 @@ export interface GridAxisSpec {
   offset?: number;
   /** Ângulo das linhas deste eixo em relação à sua direção normal (rad). SÓ 0 até a fase 7; a validação recusa outro valor. */
   angle?: number;
-  /** Sobra menor que isto é fundida à célula vizinha em vez de virar célula (m). Ausente = `CURTAIN_MIN_REMAINDER` (0,05). */
-  minRemainder?: number;
 }
-export const CURTAIN_MIN_REMAINDER = 0.05;
 
 // ───────────── Montantes ─────────────
 
@@ -206,13 +203,20 @@ export interface CurtainSpec {
   mullions: CurtainMullions;
   /** Painel de toda célula sem sobrescrita. */
   defaultPanelTypeId: Id;
-  /** Célula com lado menor que isto gera aviso (m). Ausente = 0,15. */
+  /**
+   * Limiar da sobra (m), do sistema inteiro (decisão do dono, §14.1): sobra de ponta menor que isto é fundida à célula
+   * vizinha em vez de virar célula. Ausente = `CURTAIN_MIN_REMAINDER` (0,05). Configurável no tipo.
+   */
+  minRemainder?: number;
+  /** Célula com lado livre menor que isto gera aviso `cortina-celula-pequena` (m). Ausente = `CURTAIN_MIN_CELL` (0,15). Configurável no tipo. */
   minCell?: number;
   /** Fase 4: lado do painel plano acima do qual o arco é refinado (m de corda). Ausente = deixa a grade mandar. */
   facetMaxChord?: number;
-  /** Fase 4: grade U 'segment' (cada parede da cadeia reparte o seu comprimento) ou 'chain' (a cadeia toda). Ausente = 'segment'. */
-  chainGrid?: 'segment' | 'chain';
 }
+
+/** Valores padrão dos limiares (decisão do dono, §14.1): aceitos como ponto de partida e editáveis em `CurtainSpec`. */
+export const CURTAIN_MIN_REMAINDER = 0.05;
+export const CURTAIN_MIN_CELL = 0.15;
 ```
 
 ### 4.3 Instância: `CurtainInstance`
@@ -362,7 +366,7 @@ Ao salvar tipo (fase 0 em diante, TS puro): `depth > 0`; `family === 'curtain'` 
 
 ### 4.7 Comandos e a mudança de família de uma parede
 
-Em `curtainCommands.ts`, chamado por `applyCommand` (como `applyGuardaCorpoCommand`): `upsertMullionType`, `deleteMullionType` (não apaga em uso nem o último), `upsertCurtainPanelType`, `deleteCurtainPanelType`; fase 1: `setCurtainGrid` (sobrescrita de eixo da instância), `setCurtainDefaultPanel`; fase 2 em diante: `addGridLine`, `moveGridLine`, `lockGridLine`, `removeGridLine`, `removeSegment`, `restoreSegment`, `setLineMullion`, `setCellPanel`, `clearCellOverride`, `normalizarSobrescritas`; fase 5: `placeOpeningInCell`, `removeOpeningFromCell`, `fitGridToOpening`, `placeEmbeddedCurtain`, `syncHostedCurtain`, `promoteCurtain`. Todos com um passo de desfazer. `upsertWallType` mantém a camada-sombra (§4.1).
+Em `curtainCommands.ts`, chamado por `applyCommand` (como `applyGuardaCorpoCommand`): `upsertMullionType`, `deleteMullionType` (não apaga em uso nem o último), `upsertCurtainPanelType`, `deleteCurtainPanelType` (**fase 0**: os quatro entram com os mapas do `Project`; `deleteCurtainPanelType` segue a mesma regra de uso e de último, que o ADR só nomeava para montante); fase 1: `setCurtainGrid` (sobrescrita de eixo da instância), `setCurtainDefaultPanel`; fase 2 em diante: `addGridLine`, `moveGridLine`, `lockGridLine`, `removeGridLine`, `removeSegment`, `restoreSegment`, `setLineMullion`, `setCellPanel`, `clearCellOverride`, `normalizarSobrescritas`; fase 5: `placeOpeningInCell`, `removeOpeningFromCell`, `fitGridToOpening`, `placeEmbeddedCurtain`, `syncHostedCurtain`, `promoteCurtain`. Todos com um passo de desfazer. `upsertWallType` mantém a camada-sombra (§4.1).
 
 **Família não muda em tipo existente** (`family` é fixada na criação; "Novo tipo de cortina" e "Duplicar como cortina" criam outro tipo). **Trocar o tipo de uma parede entre famílias** pelo `TypeSelector` é permitido, com duas travas: (a) parede com `Opening` hospedada não vira cortina sem confirmação (a confirmação apaga ou pede a troca das esquadrias; as portas na cortina nascem da célula, §7); (b) ao voltar para `basic`, `Wall.curtain` fica **dormente** (guardado, ignorado), e uma parede básica com `curtain` dormente não gera aviso.
 
@@ -376,7 +380,7 @@ Em `curtainCommands.ts`, chamado por `applyCommand` (como `applyGuardaCorpoComma
 ```
 
 - **Por que subir a versão mesmo sem converter dados:** é a única proteção de um programa antigo contra um arquivo com cortina (que ele leria como parede de uma camada-sombra). O custo é igual ao da migração 22 → 23.
-- **Colisão:** `feat/familias-interface` também declara 25. Quem mesclar depois renumera (26) e o **teste de migração** (`migrate.test.ts`) cobre "arquivo 24 abre; arquivo 25 desta decisão abre; arquivo de versão maior recusa".
+- **Colisão:** `feat/familias-interface` também declara 25. **Decisão do dono (2026-11-10): quem mesclar por último renumera.** Pela ordem atual, é provavelmente a cortina, que vira 26 (ou o próximo livre na hora da mescla). Quem renumera também atualiza os testes que fixam a versão (`SCHEMA_VERSION` nos testes de `packages/model`). O **teste de migração** (`wallCurtainMigracao.test.ts`) cobre "arquivo 24 abre; arquivo 25 desta decisão abre; arquivo de versão maior recusa".
 - A versão do **contrato do kernel** sobe por fase (§6.1), independente do `SCHEMA_VERSION`.
 
 ### 4.9 Regra 3 (modificação) aplicada ao conteúdo da instância
@@ -406,7 +410,7 @@ Convenções: coordenadas locais do sistema `(s, z)` no plano da cortina, `s` ao
 
 ### 5.1 Linhas da grade num eixo
 
-Dado o comprimento `A` do eixo (`L` em U, `H` em V), o tipo e a sobrescrita da instância fundidos (§4.3) e `r` o limiar `minRemainder` (padrão 0,05 m):
+Dado o comprimento `A` do eixo (`L` em U, `H` em V), o tipo e a sobrescrita da instância fundidos (§4.3) e `r` o limiar `CurtainSpec.minRemainder` (padrão 0,05 m):
 
 - **`fixedNumber` (n):** n células iguais; linhas internas em `A·k/n`, `k = 1 … n−1`.
 - **`maxDistance` (d):** `n = ceil(A / d)` células iguais (nenhuma passa de `d`); linhas em `A·k/n`. (É o *Maximum Spacing* do Revit [A CONFIRMAR].)
@@ -592,7 +596,7 @@ Comportamento do cursor (a **célula** é o alvo, não o ponto):
 ### 7.6 Geometria da esquadria na célula
 
 - O Rust devolve o **vão virtual** (consulta 107): retângulo `s0..s1 × z0..z1` em coordenadas da parede, profundidade do sistema, lado de abertura. O TS monta as peças com o **mesmo código das esquadrias de parede** (`openingParts.ts`/`pecasDoModelo`), posicionado nesse vão virtual: folha, vidro, ferragens, giro, soleira e arco de planta saem **idênticos** aos de uma porta numa parede comum. Nenhum construtor de porta novo.
-- **Um só batente.** Nos lados da célula onde **existe montante**, o batente próprio da esquadria é **omitido** (o montante é o batente, como no Revit [R4/R5]); a folha fecha contra a face do montante com a folga padrão de 4 mm (`LEAF_GAP_DEFAULT`). Onde **não há montante** (célula com borda de tipo `null`, ou segmento removido pela fusão), a esquadria mantém o batente. A omissão é lista de lados que o vão virtual traz; `pecasDoModelo` ganha o parâmetro `omitirLados`. Isso resolve o **batente duplicado** que a pesquisa do ArchiCAD aponta [R5].
+- **Um só batente.** Nos lados da célula onde **existe montante**, o batente próprio da esquadria é **omitido** (o montante é o batente, como no Revit [R4/R5]); a folha fecha contra a face do montante com a folga padrão de 4 mm (`LEAF_GAP_DEFAULT`). Onde **não há montante** (célula com borda de tipo `null`, ou segmento removido pela fusão), a esquadria mantém o batente. A omissão é lista de lados que o vão virtual traz; `pecasDoModelo` ganha o parâmetro `omitirLados`. **Opção de tipo (decisão do dono, §14.3):** `OpeningType.keepOpeningFrame?: boolean` (ausente = `false`, ou seja, omitir) mantém o batente próprio da esquadria também onde há montante; o campo entra em `openingTypes.ts` na fase 5, não na fase 0. Isso resolve o **batente duplicado** que a pesquisa do ArchiCAD aponta [R5].
 - Janela que abre (`kind: 'window'`) segue o mesmo modelo: peitoril = base da célula (`sillOverride` por instância), altura = célula ou nominal conforme `fit`.
 
 ### 7.7 Seleção e edição do subelemento
@@ -668,7 +672,7 @@ Apagar a parede hospedeira **promove a cortina a independente**: o comando `prom
 **Divisão do trabalho:** **Sonnet** (médio) no complexo: algoritmo da grade e da sobra, remapeamento de chaves, junções e aparos, arco e facetas, recorte do hospedeiro, vão virtual da porta, mapeamento IFC, desempenho. **Haiku** no mecânico: tipos TS, migração, i18n nos sete idiomas, campos do diálogo, tabelas e CSV, camadas DXF, testes de contrato derivados, geração do JSON e do `esquema.gerado.ts`, atualização de documentos. O orquestrador **fiscaliza** cada entrega (diff e testes) e não escreve código de motor; motor delicado vai ao Sonnet, nunca ao Haiku.
 
 ### Fase 0 — ADR, migração e `WallType.family` (TS puro; bloqueante)
-- Esta decisão; `wallCurtainTypes.ts` (tipos do §4); `wallThicknessOf` e a troca dos ~18 pontos de `totalThickness` que recebem `WallType`; `SCHEMA_VERSION` 25 e migração 24 → 25; `Project.mullionTypes?`/`curtainPanelTypes?` e leitores com padrão; `curtainTypeIssue`; validação `opening-host-curtain`; testes-guarda (`contratoCortina.test.ts`): nenhum consumidor lê `layers` de tipo cortina fora da lista; nenhum `totalThickness(WallType)` fora de `wallType.ts`.
+- Esta decisão; `wallCurtainTypes.ts` (tipos do §4); `wallThicknessOf` e a troca dos ~18 pontos de `totalThickness` que recebem `WallType`; `SCHEMA_VERSION` 25 e migração 24 → 25; `Project.mullionTypes?`/`curtainPanelTypes?` e leitores com padrão; os quatro comandos de montante e painel (§4.7); `curtainTypeIssue`; validação `opening-host-curtain`; testes-guarda (`contratoCortina.test.ts`): nenhum consumidor lê `layers` de tipo cortina fora da lista; nenhum `totalThickness(WallType)` fora de `wallType.ts`. O campo `keepOpeningFrame` (§7.6) **não** entra na fase 0.
 - **Aceite:** projeto 24 abre e salva como 25; um `WallType` com `family: 'curtain'` e `curtain` válido grava e relê; `wallThicknessOf` devolve `depth`; os três testes de contrato passam **sem editar** a classificação; nenhuma saída muda para arquivo antigo.
 - **Testes:** migração (24 → 25, 25 abre, maior recusa), serialização ida e volta, `curtainTypeIssue` (cada regra), `wallThicknessOf` (básica, cortina, sombra), camada-sombra mantida por `upsertWallType`, guarda dos call sites, `deleteMullionType` em uso recusado, leitor de padrão e primeira escrita grava o conjunto.
 - **Quem:** Haiku (tipos, migração, testes); Sonnet revisa a troca dos call sites.
@@ -707,10 +711,10 @@ Apagar a parede hospedeira **promove a cortina a independente**: o comando `prom
 ### Fase 4 — Arco e cadeia de segmentos
 - **Contrato:** `versao` 17; seção 111; leitura de `sag` já existe em 100.
 - **Referência TS** (barata): `cortinaRef/arco.ts` (comprimento de arco `R·θ`, divisão por arco, ponto e tangente de cada linha, facetas e desvio de seta).
-- **Rust:** grade U por **comprimento de arco**, painéis **facetados**, montantes orientados pela bissetriz, planta em facetas, cadeia (`chainGrid: 'segment' | 'chain'`; nesta fase `'segment'` é o padrão e `'chain'` é a continuidade da grade pelo comprimento desenvolvido da cadeia de cortinas ligadas; com `'chain'` o montante de borda duplo no nó vira um interior).
+- **Rust:** grade U por **comprimento de arco**, painéis **facetados**, montantes orientados pela bissetriz, planta em facetas, **cadeia só de segmentos**: cada cortina reparte o próprio comprimento e a junção entre duas cortinas em ângulo usa o montante de canto (decisão do dono, §14.2). A grade contínua pela cadeia (`chain`) está **fora de escopo**.
 - **Integração:** arco na ferramenta `wall` (por três pontos e por centro/raio, já existentes) com tipo cortina; prévia do arco com as divisões; `facetMaxChord` no diálogo; aviso `cortina-faceta-grande`.
-- **Aceite:** cortina em arco de raio 3 m a 50 m com a grade por comprimento de arco, painéis planos sem fresta visível, montantes radiais (a bissetriz), planta nas facetas; cadeia de três cortinas com `chainGrid: 'chain'` com a grade contínua.
-- **Testes:** paridade (divisão por arco, posição e tangente das linhas, desvio de seta), casos dourados de raio, propriedade (a soma das cordas ≤ comprimento de arco; `sag = 0` reproduz o reto), cadeia, regressão visual.
+- **Aceite:** cortina em arco de raio 3 m a 50 m com a grade por comprimento de arco, painéis planos sem fresta visível, montantes radiais (a bissetriz), planta nas facetas; cadeia de três cortinas ligadas por montante de canto, cada uma com a sua grade.
+- **Testes:** paridade (divisão por arco, posição e tangente das linhas, desvio de seta), casos dourados de raio, propriedade (a soma das cordas ≤ comprimento de arco; `sag = 0` reproduz o reto), cadeia de segmentos com canto, regressão visual.
 - **Quem:** Sonnet (arco, facetas, cadeia); Haiku (diálogo, i18n, dourados).
 - **Depende de:** fase 3.
 
@@ -771,7 +775,7 @@ Dentro de uma fase, **Rust e TS** (UI, quantidades) rodam juntos depois que o JS
 3. **Sobra minúscula e célula pequena.** O limiar de 0,05 m e o `minCell` de 0,15 m são escolhas minhas, não medidas de norma ou de catálogo [A CONFIRMAR com projetista de esquadrias]. Ficam editáveis (`minRemainder`, `minCell`).
 4. **Remapeamento ambíguo.** Dois overrides que caem na mesma célula, ou grade que muda muito, perdem sobrescritas. É a decisão do dono (descarte com aviso); a mitigação é o aviso visível e o desfazer.
 5. **Região fundida não retangular.** Exigir retângulo (§5.2) é restritivo (Revit e ArchiCAD aceitam formas livres [A CONFIRMAR]); evita painel de forma arbitrária na v1. Revisar com uso.
-6. **Batente da porta na célula.** Omitir o batente onde há montante é uma escolha de projeto (§7.6) que desvia da prática do ArchiCAD e iguala a do Revit; em uso real, alguns fabricantes exigem batente próprio dentro do vão. Mitigação: a omissão é por lado e só onde há montante, e o `OpeningType` pode forçar "manter batente" num campo futuro (ponto em aberto 4).
+6. **Batente da porta na célula.** Omitir o batente onde há montante é uma escolha de projeto (§7.6) que desvia da prática do ArchiCAD e iguala a do Revit; em uso real, alguns fabricantes exigem batente próprio dentro do vão. Mitigação: a omissão é por lado e só onde há montante, e o `OpeningType` pode forçar "manter batente" pelo campo `keepOpeningFrame` (§14.3, decidido).
 7. **Vidro transparente.** Ordenação de painéis transparentes por distância não resolve cruzamentos entre painéis grandes; a fase 7 testa transmissão e, se faltar, usa ordenação por pixel (OIT) já prevista no roteiro de ultrarrealismo.
 8. **Colisão de versão.** `SCHEMA_VERSION` 25 coincide com `feat/familias-interface`; `versao` do kernel 14 em diante pode coincidir com as branches 0051 a 0053. Renumera quem mesclar depois.
 9. **Kernel desligado.** A cortina só desenha o eixo e as faces; não pode ser extrudida como parede por nenhum caminho (teste da fase 1).
@@ -782,19 +786,21 @@ Dentro de uma fase, **Rust e TS** (UI, quantidades) rodam juntos depois que o JS
 
 ## 13. O que não entra nesta decisão
 
-Cortina **inclinada** e superfícies livres ou massas conceituais ("curtain system" sobre massa); painéis de **família autoral** (`ComponentFamily` da decisão 0049, ainda fora da main) e **painel sólido com camadas**; padrões repetidos de painel (painéis paramétricos, brises); vidro estrutural com fixação pontual (*spider*); **cálculo** estrutural, térmico ou de vento (só dados declarados: U, fogo); **Adjust for Mullion Size** (grade medida pela face do montante); porta de família arbitrária; seleção de subelemento por filtro de categoria no menu de seleção; cortina em **parede curva por B-spline** (só arco, fase 4); conversão automática de parede básica em cortina com perda de camadas.
+Cortina **inclinada** e superfícies livres ou massas conceituais ("curtain system" sobre massa); grade contínua pela cadeia de cortinas (`chain`, decisão do dono, §14.2); fusão de células não retangular antes da fase 7 (§14.4); painéis de **família autoral** (`ComponentFamily` da decisão 0049, ainda fora da main) e **painel sólido com camadas**; padrões repetidos de painel (painéis paramétricos, brises); vidro estrutural com fixação pontual (*spider*); **cálculo** estrutural, térmico ou de vento (só dados declarados: U, fogo); **Adjust for Mullion Size** (grade medida pela face do montante); porta de família arbitrária; seleção de subelemento por filtro de categoria no menu de seleção; cortina em **parede curva por B-spline** (só arco, fase 4); conversão automática de parede básica em cortina com perda de camadas.
 
 ---
 
 ## 14. Pontos em aberto para o dono
 
-1. **Limiares:** `minRemainder` 0,05 m e `minCell` 0,15 m são chute meu; confirma ou passa os valores de um fabricante?
-2. **Cadeia de cortinas (fase 4):** a grade `chain` (contínua pelo comprimento desenvolvido) vale a complexidade, ou `segment` (cada parede reparte o seu comprimento) basta e a cadeia só carrega o montante de canto?
-3. **Batente da porta na célula (§7.6):** omitir onde há montante ou manter sempre o batente da esquadria? A decisão aqui é omitir.
-4. **Região fundida retangular (§5.2):** aceitar só retângulo na v1?
+Decisões do dono registradas em 2026-11-10 (itens 1 a 4 e 7). Os itens 5, 6 e 8 seguem em aberto.
+
+1. **Limiares: decidido.** `minRemainder` 0,05 m e `minCell` 0,15 m ficam **aceitos** como padrão e **configuráveis no `CurtainSpec`** (campos `minRemainder?` e `minCell?` do §4.2; o `minRemainder` saiu de `GridAxisSpec` e passou ao sistema inteiro). Valores de fabricante, se houver, substituem no tipo; a marcação [A CONFIRMAR] continua valendo para a norma.
+2. **Cadeia de cortinas (fase 4): decidido.** Vale **`segment`**: cada cortina reparte o próprio comprimento e a cadeia só carrega o **montante de canto** na junção. A grade contínua pela cadeia (`chain`) **fica fora de escopo**; o campo `chainGrid` sai do esquema.
+3. **Batente da porta na célula (§7.6): decidido.** Omitir o batente onde há montante é o padrão. A opção de tipo `OpeningType.keepOpeningFrame?: boolean` (ausente = `false`) mantém o batente próprio mesmo onde há montante. Campo implementado na fase 5.
+4. **Região fundida (§5.2): decidido.** Até a fase 7, a fusão de células é **só retangular**. A fusão de forma livre não entra antes disso.
 5. **"Linhas só na esquadria" (§7.4):** entra na fase 5 ou fica depois?
 6. **Sub-estilos gráficos:** montante e vidro como subcategorias de `wall` para pesos de linha e cores (fase 6), ou categorias próprias `mullion`/`curtain-panel`?
-7. **`SCHEMA_VERSION` 25 e `versao` do kernel 14:** colidem com `feat/familias-interface`; quem mescla primeiro?
+7. **`SCHEMA_VERSION` 25 e `versao` do kernel 14: decidido.** Colidem com `feat/familias-interface`. **Quem mesclar por último renumera**, e a expectativa é que seja a cortina (ver §4.8).
 8. **Altura máxima da cortina e painel de vidro máximo:** `cortina-vidro-grande` precisa de limite por tipo de vidro (fornecedor, norma NBR 7199 [A CONFIRMAR]); quer um perfil de norma como o do guarda-corpo?
 
 ## 15. Divergências Revit × ArchiCAD que exigiram escolha

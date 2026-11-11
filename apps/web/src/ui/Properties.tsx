@@ -19,7 +19,7 @@ import {
   type JoinKind,
   openingHeight,
   openingSill,
-  totalThickness,
+  wallThicknessOf,
   viewRangeOf,
   wallLength,
   wallType,
@@ -220,7 +220,7 @@ function WallProps({ walls }: { walls: Wall[] }): ReactElement {
       <Group title={t('prc_pgrp_construction')} stateKey="construction" open={false}>
         {wt ? (
           <>
-            <Row label={t('prc_fld_total_thickness')} readOnly fromType><span className="val">{fmt('smallLength', totalThickness(wt))}</span></Row>
+            <Row label={t('prc_fld_total_thickness')} readOnly fromType><span className="val">{fmt('smallLength', wallThicknessOf(wt))}</span></Row>
             {wt.layers.map((l, i) => (
               <div className="prow ro" key={i}>
                 <span className="lbl" title={fnLabel(l.function, lang)}>{fnLabel(l.function, lang)}</span>

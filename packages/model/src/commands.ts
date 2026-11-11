@@ -81,6 +81,8 @@ import { applyGridCommand, type GridCommand } from './grid.ts';
 import { applyViewCommand } from './viewCommands.ts';
 import { applyCeilingCommand } from './ceilingCommands.ts';
 import { applyGuardaCorpoCommand } from './guardaCorpoCommands.ts';
+import { applyCurtainCommand, prepararTipoParede } from './curtainCommands.ts';
+import type { CurtainPanelType, MullionType } from './wallCurtainTypes.ts';
 import { transformarGuardaCorpos } from './guardaCorpoTransform.ts';
 import type { GuardaCorpo, TipoGuardaCorpo } from './guardaCorpoTypes.ts';
 import type { PerfilNorma } from './guardaCorpoNorma.ts';
@@ -147,6 +149,11 @@ export type Command =
   | { type: 'deleteElements'; ids: Id[] }
   | { type: 'upsertWallType'; wallType: WallType }
   | { type: 'deleteWallType'; id: Id }
+  // Parede cortina (decisão 0056, §4.7): tratados em curtainCommands.ts.
+  | { type: 'upsertMullionType'; mullionType: MullionType }
+  | { type: 'deleteMullionType'; id: Id }
+  | { type: 'upsertCurtainPanelType'; panelType: CurtainPanelType }
+  | { type: 'deleteCurtainPanelType'; id: Id }
   | { type: 'upsertMaterial'; material: Material }
   | { type: 'upsertOpeningType'; openingType: OpeningType }
   | { type: 'upsertLevel'; level: Level }
@@ -295,7 +302,7 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
 }
 
 export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
-  if (applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang)) return;
+  if (applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyCurtainCommand(p, c, lang)) return;
   switch (c.type) {
     case 'addWall':
       p.elements[c.wall.id] = { ...c.wall, order: p.nextOrder++ };
@@ -452,7 +459,8 @@ export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
       prunePlanElementTags(p);
       break;
     case 'upsertWallType':
-      p.wallTypes[c.wallType.id] = c.wallType;
+      // Decisão 0056 §4.1/§4.7: família fixada, camada-sombra da cortina regravada e tipo validado.
+      p.wallTypes[c.wallType.id] = prepararTipoParede(p, c.wallType, lang);
       break;
     case 'deleteWallType': {
       if (Object.values(p.elements).some((e) => isWall(e) && e.typeId === c.id)) throw new Error(t(lang, 'md_cmd_type_in_use'));

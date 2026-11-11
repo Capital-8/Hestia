@@ -1,5 +1,5 @@
 import { arcFromSagitta, arcLocal, arcPointAt, arcTangentAt, dist, dot, intersectLines, len as vlen, norm, perp, sub, type Arc, type Vec2 } from '@hestia/geom';
-import { coreSpan, totalThickness, type LocationLine, type Wall, type WallType } from '@hestia/model';
+import { coreSpan, wallThicknessOf, type LocationLine, type Wall, type WallType } from '@hestia/model';
 
 /**
  * Sistema de coordenadas de uma parede. `t` corre ao longo do eixo a→b; `s` mede para a ESQUERDA
@@ -32,7 +32,7 @@ export interface WallFrame {
 
 /** Distância da face externa até a linha de localização escolhida. */
 export function exteriorOffset(type: WallType, loc: LocationLine): number {
-  const total = totalThickness(type);
+  const total = wallThicknessOf(type);
   const core = coreSpan(type);
   switch (loc) {
     case 'wallCenter':
@@ -59,7 +59,7 @@ export function buildFrame(wall: Wall, type: WallType): WallFrame | null {
   const u = arc ? arcTangentAt(arc, 0) : norm(d);
   const n = perp(u);
   const sign: 1 | -1 = wall.flipped ? -1 : 1;
-  const thickness = totalThickness(type);
+  const thickness = wallThicknessOf(type);
   const extOffset = exteriorOffset(type, wall.locationLine);
   const sExt = sign * extOffset;
   const sInt = sign * (extOffset - thickness);

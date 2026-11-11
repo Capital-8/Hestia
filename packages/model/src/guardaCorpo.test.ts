@@ -289,7 +289,7 @@ describe('validação do modelo', () => {
 
 describe('migração, esquema e serialização', () => {
   it('o esquema vai para 24', () => {
-    expect(SCHEMA_VERSION).toBe(24);
+    expect(SCHEMA_VERSION).toBe(25);
   });
 
   it('projeto 23 ganha os tipos padrão e preserva os do arquivo', () => {
@@ -297,7 +297,7 @@ describe('migração, esquema e serialização', () => {
     delete raw.tiposGuardaCorpo;
     raw.schemaVersion = 23;
     const p = migrateProject(raw);
-    expect(p.schemaVersion).toBe(24);
+    expect(p.schemaVersion).toBe(25);
     expect(Object.keys(p.tiposGuardaCorpo).sort()).toEqual(tiposGuardaCorpo('pt').map((t) => t.id).sort());
     expect(p.elements).toEqual({});
   });

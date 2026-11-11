@@ -268,6 +268,10 @@ const migrations: Record<number, Migration> = {
     ...raw,
     tiposGuardaCorpo: { ...Object.fromEntries(tiposGuardaCorpo('pt').map((x) => [x.id, x])), ...((raw.tiposGuardaCorpo as object) ?? {}) },
   }),
+  // v24 → v25: parede cortina (decisão 0056, §4.8). Arquivo antigo não tem `family`, `curtain`, `Wall.curtain`,
+  // `mullionTypes` nem `curtainPanelTypes`: ausente = parede básica e padrões por leitura. Nada a converter; a migração
+  // só avança a versão, e assim um programa antigo recusa um arquivo com cortina.
+  24: (raw) => ({ ...raw }),
 };
 
 export class SchemaError extends Error {}

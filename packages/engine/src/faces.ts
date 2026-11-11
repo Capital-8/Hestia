@@ -1,5 +1,5 @@
 import type { Vec2 } from '@hestia/geom';
-import { coreSpan, totalThickness, type Id, type Project, type Wall } from '@hestia/model';
+import { coreSpan, wallThicknessOf, type Id, type Project, type Wall } from '@hestia/model';
 import { sAtDepth } from './frame.ts';
 import { computeEnds } from './joins.ts';
 import { endPoint, layerQuad } from './layerGeom.ts';
@@ -66,7 +66,7 @@ export function wallEndCorners(p: Project, w: Wall): { a: Vec2[]; b: Vec2[] } {
   const wf = wallFacesCached(p, w.levelId).find((x) => x.wallId === w.id);
   const type = p.wallTypes[w.typeId];
   if (!wf || !type) return out;
-  const reach = totalThickness(type) * 0.8;
+  const reach = wallThicknessOf(type) * 0.8;
   for (const q of wf.outline) {
     const da = Math.hypot(q.x - w.a.x, q.y - w.a.y);
     const db = Math.hypot(q.x - w.b.x, q.y - w.b.y);

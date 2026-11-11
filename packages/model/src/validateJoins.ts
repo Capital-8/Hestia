@@ -1,5 +1,5 @@
 import { arcFromSagitta, arcLocal, arcTangentAt, cross, dist, dot, len, norm, sub, type Arc, type Vec2 } from '@hestia/geom';
-import { totalThickness } from './wallType.ts';
+import { wallThicknessOf } from './wallType.ts';
 import type { ValidationIssue } from './validate.ts';
 import { unitsOf } from './units.ts';
 import { formatQuantity } from './unitsFormat.ts';
@@ -43,7 +43,7 @@ export function unjoinedEndIssues(p: Project, walls: Wall[]): ValidationIssue[] 
       const pt = end === 'a' ? w.a : w.b;
       for (const o of walls) {
         if (o.id === w.id || o.levelId !== w.levelId) continue;
-        const half = (p.wallTypes[o.typeId] ? totalThickness(p.wallTypes[o.typeId]!) : 0.2) / 2;
+        const half = (p.wallTypes[o.typeId] ? wallThicknessOf(p.wallTypes[o.typeId]!) : 0.2) / 2;
         if (distToSegment(pt, o.a, o.b) > half) continue;
         out.push({
           severity: 'warning',
@@ -183,7 +183,7 @@ export function curveJoinDomainIssues(p: Project, walls: Wall[]): ValidationIssu
       if (dist(e.at, w.a) <= JOIN_TOL || dist(e.at, w.b) <= JOIN_TOL) continue;
       const pos = axisPosition(w, e.at);
       if (pos.t < -JOIN_TOL || pos.t > pos.length + JOIN_TOL) continue;
-      const half = (p.wallTypes[w.typeId] ? totalThickness(p.wallTypes[w.typeId]!) : 0.2) / 2;
+      const half = (p.wallTypes[w.typeId] ? wallThicknessOf(p.wallTypes[w.typeId]!) : 0.2) / 2;
       if (pos.lateral > half + JOIN_TOL) continue;
       const tangent = pos.arc ? arcTangentAt(pos.arc, pos.t) : norm(sub(w.b, w.a));
       const raw = angleBetween(e.dir, tangent);
