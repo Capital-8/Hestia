@@ -52,7 +52,10 @@ export function assinaturasDoProjeto(p: Project): AssinaturasProjeto {
   // qualquer elemento (o `nextOrder` sobe) mudava a chave de TODOS os pavimentos e remontava o prédio inteiro (~6 s).
   // Os ajustes da vista 3D (`view3d`), `settings`, `defaults`, tipos e materiais continuam dentro. A `thumbnail` também
   // fica fora: é a imagem da tela inicial, refeita a cada salvamento, e não pode mudar a chave de nenhum nível.
-  const { elements, views: _views, areaPlans: _areaPlans, roomCategories: _roomCategories, colorSchemes: _colorSchemes, nextOrder: _nextOrder, name: _name, thumbnail: _thumbnail, ...resto } = p;
+  const { elements, views: _views, areaPlans: _areaPlans, roomCategories: _roomCategories, colorSchemes: _colorSchemes, nextOrder: _nextOrder, name: _name, thumbnail: _thumbnail, furniture, ...resto } = p;
+  // Móveis importados: os arrays vivem no projeto como base64 (dezenas de MB). Não entram no JSON da assinatura; basta o hash do
+  // conteúdo de cada asset e os materiais (cor, opacidade, textura) que mudam o desenho.
+  const moveis = Object.values(furniture?.assets ?? {}).map((a) => `${a.id}|${a.contentHash}|${JSON.stringify(a.materials)}`).join('\n');
   const porNivel = new Map<Id, string[]>();
   const globais: string[] = [];
   const anexadosAoTelhado = new Set<Id>();
@@ -80,7 +83,7 @@ export function assinaturasDoProjeto(p: Project): AssinaturasProjeto {
     .map((l) => l.id);
   return {
     horizontais: hashTexto(horizontais.join('\n')),
-    global: hashTexto(`${JSON.stringify(resto)}\u0002${globais.join('\n')}`),
+    global: hashTexto(`${JSON.stringify(resto)}\u0002${globais.join('\n')}\u0002${moveis}`),
     nivel,
     ordem,
     anexadosAoTelhado,
