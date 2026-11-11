@@ -1,84 +1,102 @@
-# cortinaRef: referência TS da parede cortina (decisão 0056, fase 1)
+# cortinaRef: referência TS da parede cortina (decisão 0056, fases 1 e 2)
 
 Referência TS **pura**, usada **só em testes de paridade** com o kernel Rust (`crates/geom-wasm`). O app nunca a chama. Precedente: `../guardaCorpoRef/`.
 
-Cobre o que o ADR 0056 §10 (fase 1) lista como "referência TS barata": linhas da grade (§5.1), células (§5.2), montantes `rect`/`round` com borda, interior e prioridade de junção (§5.3), painéis (§5.4), quantitativos (§5.7) e os avisos da fase 1 (§5.8). Fica de fora: planta (casos dourados), `L`/`trapezoid`/`corner` (fase 3), `removedSegments`, `addedLines`, `lineOverrides` e sobrescrita de célula (fase 2), ângulo (fase 7).
+Fase 1 (ADR 0056 §10): linhas da grade (§5.1), células (§5.2), montantes `rect`/`round` com borda, interior e prioridade de junção (§5.3), painéis (§5.4), quantitativos (§5.7) e avisos (§5.8).
+
+Fase 2 (ADR §4.3, §4.4, §5.2, §6.1): linhas extras (`addedLines`) e travadas, sobrescrita de linha (`lineOverrides`), sobrescrita de célula (`cells`, só painel), segmentos removidos (`removedSegments`) com região fundida retangular, e o remapeamento das sobrescritas quando a grade muda (regras 1 a 6 de §4.4).
+
+Fica de fora: planta (casos dourados), `L`/`trapezoid`/`corner` (fase 3), arco (fase 4), porta/janela na célula (fase 5, recusada com `ENTRADA`), ângulo (fase 7).
 
 ## Arquivos
 
 | Arquivo | Conteúdo |
 |---|---|
-| `tipos.ts` | Tipos **locais** de entrada (espelham `CurtainSpec`, `GridAxisSpec`, `MullionType`, `CurtainPanelType`, `CurtainInstance` do ADR §4). Não importa `@hestia/model`; para trocar pelos oficiais, reexporte os nomes de lá e mantenha `CortinaEntrada`. |
-| `grade.ts` | `linhasDoEixo`, `eixoEfetivo`, `resolverGrade`: linhas e células. |
-| `pecas.ts` | `calcularPecas`: montantes por segmento (aparo reto) e painéis por célula. |
+| `tipos.ts` | Tipos **locais** de entrada (espelham `CurtainSpec`, `GridAxisSpec`, `MullionType`, `CurtainPanelType`, `CurtainInstance` do ADR §4). `LineRef`, `SegmentRef`, `CellKey`, `AddedGridLine`, `LineOverride`, `CellOverrideEntry`. `LIMITES` (§4.3). Não importa `@hestia/model`. |
+| `grade.ts` | `linhasDoEixo` (fase 1, intacta), `resolverEixo` (linhas extras, travadas e sobrescritas de linha), `resolverGrade` (grade inteira com remapeamento). |
+| `remap.ts` | `remapearLinha`, `remapearCelulas`, `remapearSegmentos`, `celulaDoPonto`, `chaveDaCelula`. Regras 1 a 4 e a fusão (regra 3). |
+| `segmentos.ts` | `aplicarRemocoes` (região fundida retangular, segmentos sem montante), `podeRemoverSegmento` (`removeSegment` recusa o não retangular), `restaurarSegmento`. |
+| `normalizar.ts` | `normalizarSobrescritas`: descarta órfãs e regrava as chaves adotadas (regra 6). |
+| `pecas.ts` | `calcularPecas`: montantes por segmento (com tipo por linha, aparo pelos segmentos adjacentes), painéis por **região**. |
 | `quant.ts` | `calcularQuant`: linhas de `quant_cortina`. |
-| `avisos.ts` | `calcularAvisos`: medidas de `cortina_avisos`. |
-| `consulta.ts` | `resolverCortina` (tudo) e `paraConsulta` (formato de saída, abaixo). |
-| `casos.ts` / `casos.json` | Os casos canônicos (41) e o arquivo gerado. |
+| `avisos.ts` | `calcularAvisos`: medidas de `cortina_avisos`, inclusive órfãs e região não retangular. |
+| `consulta.ts` | `resolverCortina` (tudo) e `paraConsulta` (formato de saída). |
+| `casos.ts` / `casos.json` | Os 41 casos canônicos da fase 1. **Não mudam na fase 2.** |
+| `casos2.ts` / `casos2.json` | Os casos da fase 2 (formato abaixo). |
 
-Regenerar `casos.json`: `GERAR_CASOS=1 npx vitest run packages/engine/src/cortinaRef/casos.test.ts` (o teste normal recusa se o arquivo divergir do gerador).
+Regenerar: `GERAR_CASOS=1 npx vitest run packages/engine/src/cortinaRef/casos.test.ts` (fase 1) e `GERAR_CASOS2=1 npx vitest run packages/engine/src/cortinaRef/casos2.test.ts` (fase 2). Os testes normais recusam se o arquivo divergir do gerador.
 
-## `casos.json`
+## Entrada (`CortinaEntrada`, em `tipos.ts`)
+
+```
+L, H            comprimento do eixo e altura do plano (m), > 0
+num?            cortina_num das saídas (padrão 1)
+tipo            { depth, u, v, mullions, defaultPanelTypeId, minCell? }
+instancia?      { grid?: { u?, v? }, defaultPanelTypeId?,
+                  addedLines?: AddedGridLine[], removedSegments?: SegmentRef[],
+                  lineOverrides?: LineOverride[], cells?: CellOverrideEntry[] }
+montantes[]     { id, num, profile {shape, width, depth}, materialId, materialNum, offset? }
+paineis[]       { id, num, kind, thickness, bite?, offset?, materialId, materialNum }
+```
+
+- `LineRef`: `{ added: id }` (linha extra) ou `{ axis: 'u'|'v', index, pos, n }` (gerada). `index` é 1..n-1 para linha interna; **0 ou n** para borda (só vale em `removedSegments`). `pos` = fração (s/L ou z/H) na gravação; `n` = células do eixo na gravação.
+- `SegmentRef`: `{ line, k, nk, mid }`. `k` = índice do segmento ao longo da linha; `nk` = total; `mid` = meio normalizado (0..1).
+- `CellKey`: `{ i, j, s, z, nu, nv }`. `s`/`z` = centro normalizado na gravação; `nu`/`nv` = topologia na gravação.
+- `AddedGridLine`: `{ id, axis, pos (m), locked?, mullionTypeId?, comprimentoGravado? }`.
+- `LineOverride`: `{ line, locked?, pos? (m), mullionTypeId? (null = sem montante), comprimentoGravado? }`.
+- `CellOverrideEntry`: `{ key, override: { kind: 'panel', panelTypeId } }`.
+
+## Regras de remapeamento (ADR §4.4)
+
+1. Mesma topologia (`nu`, `nv` iguais): vale o índice, se o centro novo ficou a até 0,5 da posição gravada.
+2. Topologia diferente, ou falha da 1: vale a posição `(s·L', z·H')`, localizada na grade nova; na fronteira, a célula de menor índice.
+3. Fusão (duas sobrescritas na mesma célula, ou na mesma região): vence a de menor distância ao centro; empate, a primeira na ordem da lista.
+4. Vizinhança: ponto fora da grade, a célula mais próxima se estiver a até uma célula de distância e livre.
+5. Órfã: fora de tudo (estado 2), perdedora na fusão (1) ou sem vizinha livre (3). Sai no aviso `cortina-override-orfao`.
+6. Reescrita: a chave adotada leva o índice e a posição novos (`normalizarSobrescritas`).
+
+Linhas usam o mesmo critério em 1D (índice; senão a linha interna mais próxima, a até uma célula média). Segmentos: a linha pelo critério de linha, depois o segmento pelo índice ou pelo meio.
+
+## Saída de `cortina_grade` e `cortina_avisos` (fase 2)
+
+- `linhas` u32 x5: `[cortina_num, eixo, indice, origem, flags]`. `origem`: 0 gerada, 1 extra, 2 manual (eixo de modo manual). `flags` bit0 = travada.
+- `celulas` u32 x6: `[cortina_num, i, j, regiao, painel_tipo_num, flags]`. `regiao` = índice (i·nv+j) da célula canônica (menor j, depois menor i). `flags`: bit0 menor lado livre < minCell; bit1 célula com sobrescrita adotada; bit2 região com mais de uma célula.
+- `segmentos` u32 x5: `[cortina_num, linha, k, removido (0/1), montante_tipo_num]`. `removido` = 1 para segmento sem montante por remoção (explícita, de borda, ou interno a uma região). `linha` é global: U = 0..nu; V = nu+1..nu+nv+1.
+- `remapeamento` (u32/f64, **só quando a instância tem sobrescritas**; sem ela a saída é a da fase 1):
+  - `sobrescritas` u32 x7: `[cortina_num, tipo (0 célula, 1 linha, 2 segmento), ordem, estado (0 adotada, 1 fusão, 2 fora, 3 ocupada), regra (0, 1, 2, 4), alvo_a, alvo_b]`. Alvo: célula (i, j); linha (índice, eixo 0 U / 1 V); segmento (linha global, k). `ID_AUSENTE` se órfã.
+  - `chaves` f64 x2: `[s, z]` a chave gravada de volta (célula: centro; linha: fração; segmento: meio). 0 se órfã.
+- `cortina_avisos` u32 x4 `[cortina_num, codigo, i, j]`, f64 x5 `[medido, limite, x, y, z]`. Fase 2: 6 órfã de célula (i, j da chave gravada); 7 órfã de linha (i = eixo); 8 órfã de segmento; 9 `cortina-celula-nao-retangular` (i, j = canto da caixa, medido = células, limite = área da caixa).
+
+## `casos2.json`
 
 ```jsonc
-{ "versao": 1, "adr": "0056",
-  "casos": [ { "nome": "...", "entrada": <CortinaEntrada>, "esperado": <SaidaConsulta> }, ... ] }   // um caso por linha
+{ "versao": 1, "adr": "0056", "fase": 2,
+  "casos": [ { "nome": "...", "regra": "regra1", "entrada": <CortinaEntrada>, "normalizado"?: <CurtainInstanceRef>, "esperado": <SaidaConsulta> }, ... ] }   // um caso por linha
 ```
 
-### Entrada (`CortinaEntrada`, em `tipos.ts`)
+- `regra`: `regra1` … `regra6` (a regra de §4.4 que o caso exercita), `linha` (linha extra, travada, sobrescrita de linha) ou `regiao` (remoção de segmento e região retangular ou não).
+- `normalizado`: a instância que a próxima edição gravaria (`normalizarSobrescritas(entrada)`). Presente só quando a entrada tem instância.
+- `esperado`: `paraConsulta(resolverCortina(entrada))`, formato de `SaidaConsulta` acima.
 
-```
-L, H            comprimento do eixo e altura do plano (m), > 0   (o Rust os recebe de `cortinas.altura` e do eixo a→b)
-num?            cortina_num das saídas (padrão 1)
-tipo            { depth, u, v, mullions, defaultPanelTypeId, minCell? }   // = CurtainSpec do ADR §4.2
-  u, v          GridAxisSpec { mode, count?, distance?, justify?, positions?, anchor?, offset?, angle?, minRemainder? }
-  mullions      { interiorVertical, interiorHorizontal, borderStart, borderEnd, borderBottom, borderTop, corner, joinPriority }  // ids ou null
-instancia?      { grid?: { u?: Partial<GridAxisSpec>, v?: ... }, defaultPanelTypeId? }   // o eixo efetivo é { ...tipo, ...instância }
-montantes[]     { id, num, profile {shape, width, depth}, materialId, materialNum, offset? }   // num = id_num da seção 104; materialNum = material_num
-paineis[]       { id, num, kind, thickness, bite?, offset?, materialId, materialNum }          // num = id_num da seção 105
-```
+Os 40 casos cobrem as regras 1 a 6, linhas extras e travadas, sobrescrita de linha, região retangular 1×2, 2×2 e 3×1, região em L e em T (removida), segmento de borda e painel por região.
 
-Padrões: `minRemainder` 0,05 m; `minCell` 0,15 m; `bite` 0,012 m. Os dois primeiros são **configuráveis** (por eixo e por tipo), como decidiu o dono. `count` não inteiro ou < 1, `distance` <= 0, `angle` != 0, tipo inexistente, forma diferente de `rect`/`round` e `L`/`H` <= 0 são `ENTRADA` (a referência lança `Error('ENTRADA: ...')`; o Rust deve devolver o erro `ENTRADA`). Casos de erro não estão em `casos.json`, só nos testes.
+## Decisões e ambiguidades (escolhas desta referência)
 
-### Saída (`esperado`, tipo `SaidaConsulta` em `consulta.ts`)
-
-Vetores **planos**, como as consultas do §6.3; a coluna de cada posição está no comentário do tipo. Todos os `f64` em **grade de 1 µm** (`round(x·1e6)/1e6`, sem `-0`); `u32` exatos. Tolerância de paridade: `f64` 1e-6 (já arredondados, então a diferença esperada é 0 ou 1e-6), `u32` iguais. Ordem fixa (§6.4): por `cortina_num`, `eixo`, `indice`, `papel`, `i`, `j`.
-
-| Chave de `esperado` | Consulta do ADR | Vetores (colunas) |
-|---|---|---|
-| `cortina_grade` | `cortina_grade` (100) | `linhas` u32x5 `[cortina_num, eixo 0U/1V, indice 1..n-1, origem 0 gerada|2 manual, flags 0]` + `linhas_pos` `[pos]`; `celulas` u32x6 `[cortina_num, i, j, regiao, painel_tipo_num, flags]` + `celulas_ret` `[s0,s1,z0,z1]`; `segmentos` u32x5 `[cortina_num, linha, k, removido 0, montante_tipo_num]` + `segmentos_ext` `[de, ate]` |
-| `cortina_pecas` | instâncias de `cortina_malha` (101), em parâmetros | `montantes` u32x7 `[cortina_num, papel, tipo_num, linha, k, vertical, continuo]` + `montantes_geo` `[s, z, comprimento, largura, profundidade]`; `paineis` u32x5 `[cortina_num, i, j, tipo_num, papel]` + `paineis_geo` `[s0,s1,z0,z1, area_visivel, area_bruta]` |
-| `quant_cortina` | `quant_cortina` (104) | `linhas` u32x5 `[cortina_num, papel, tipo_num, material_num, n]` + `valores` `[comprimento, area, area_liquida, volume]` |
-| `cortina_avisos` | `cortina_avisos` (105) | `avisos` u32x4 `[cortina_num, codigo, i, j]` + `valores` `[medido, limite, x, y, z]` |
-
-`cortina_pecas` não existe como consulta: o Rust devolve matrizes 3x4 por instância. Para comparar, derive do Rust (translação e escalas de cada matriz) a mesma tabela de parâmetros, ou compare só `cortina_grade`, `quant_cortina` e `cortina_avisos`, que casam 1 para 1 com o §6.3.
-
-### Convenções que a referência fixou (o ADR deixa em aberto; o Rust deve seguir ou o teste mapeia)
-
-Convenções de coluna:
-
-- **`linha`** (coluna de `segmentos`): índice global; U = `0..nu` (0 = borda início, `nu` = borda fim, os do meio são as linhas internas), V = `nu+1 .. nu+1+nv` (`nu+1` = borda base, `nu+1+nv` = borda topo). `k` = índice do segmento ao longo da linha (U: de baixo para cima; V: do início ao fim). Há **um segmento por (linha, intervalo entre linhas que a cruzam)**, bordas incluídas: `(nu+1)·nv + (nv+1)·nu` segmentos. Uma linha sem montante (`null`) mantém o segmento, com `montante_tipo_num = 4294967295` (`ID_AUSENTE`).
-- **`segmentos_ext`**: extensão **nominal** (de linha a linha, centro a centro), sem aparo. O aparo está em `montantes_geo`.
-- **`regiao`**: índice da célula na ordem de saída (`i·nv + j`); na fase 1 cada célula é a sua própria região.
-- **Ordem das células**: `i` primeiro, `j` depois (i-major), como "..., `i`, `j`" do §6.4.
-- **`flags` de célula**: bit0 = menor lado **livre** < `minCell`. `flags` de linha: 0.
-- **Papéis** (`papel`): montante 0 interior vertical, 1 interior horizontal, 2 borda início, 3 borda fim, 4 borda base, 5 borda topo; painel 10 vidro, 11 sólido, 12 vazio; 20 = o sistema inteiro (só em `quant_cortina`).
-- **`quant_cortina`** (colunas por papel, ver `quant.ts`): montante `area = area_liquida = comprimento × largura vista`, `volume = comprimento × área do perfil` (rect `w·d`; round `πw²/4`); painel `area` = área **bruta** (retângulo livre + `bite` nos lados com montante), `area_liquida` = área **visível** (retângulo livre), `volume = área bruta × espessura`, `comprimento` 0; vazio: `area = area_liquida` = o vão, `volume` 0; sistema: `n 1`, `comprimento L`, `area = area_liquida = L·H`, `tipo_num = material_num = 0`.
-- **Avisos**: `codigo` 1 `cortina-celula-pequena`, 2 `cortina-montante-sobreposto`, 3 `cortina-sobra-fundida`, 4 `cortina-posicao-fora`, 5 `cortina-profundidade-menor-que-perfil` (os valores finais são de `esquema.rs`; casar por nome se divergir). `i`/`j` = índices da célula (ou da coluna/fileira no aviso de eixo; `ID_AUSENTE` onde não se aplica; no código 5, `i` = `num` do tipo de montante). `x` = s e `z` = z no plano da cortina, `y` = 0. Ordem: `codigo`, `i`, `j`, `medido`.
-- **Tolerâncias numéricas**: soldagem 1e-6 m (linhas a menos disto viram uma, a primeira vale; linha a menos disto da borda não existe; peça com comprimento <= 1e-6 não existe); `m = floor(A/d + 1e-9)` e `n = ceil(A/d − 1e-9)` (ruído de ponto flutuante: `0,3/0,1` dá `2,9999999999999996`); limiar de sobra comparado como `x < r − 1e-9`.
-
-Convenções de geometria (escolhas a confirmar; ver o relatório da fase):
-
-- **Decisão do dono (2026-11-11): montante de borda EMBUTIDO** em `[0, L] × [0, H]`: face externa rente à ponta, centro a meia largura para dentro (`montantes_geo.s`/`z` e `s` do centro). O interior é centrado na linha. A linha da borda segue em `0` e `L`/`H` em `segmentos_ext` e `linhas_pos`; só o corpo do montante recua.
-- Painel livre = célula menos o **recuo** de cada lado: largura inteira do montante de borda, meia largura do interior (0 onde o papel é `null`), em qualquer prioridade. Aparo dos montantes usa o mesmo recuo.
-- Prioridade `vertical`: verticais por segmento sem aparo (centro a centro); horizontais aparados em `largura_vertical/2` em cada ponta. `horizontal`: o inverso. Peças são **por segmento**, não por linha (a contagem do §9: ~120 para 60 células).
-- `offset`: em `fixedNumber`/`maxDistance` o padrão de `n` células iguais desliza inteiro (as linhas `k=0` e `k=n` entram ou saem); em `fixedDistance` o padrão **periódico** `p0 + k·d` desliza (offset de um período reproduz a grade). Em `fixedDistance` com `d` maior que o eixo (`m = 0`) há uma célula só e o `offset` é ignorado.
-- Fusão da sobra: `fixedDistance` sempre; `fixedNumber`/`maxDistance` **só quando `offset != 0`**; **`manual` NUNCA funde** (decisão do dono). Cada ponta tem no máximo uma fusão.
-- `manual` (decisão do dono): posições fora de ordem ou duplicadas são aceitas, ordenadas e soldadas (1e-6), sem ENTRADA; `offset` é somado depois da âncora; posição fora de `(1e-6, A−1e-6)` é ignorada com aviso (já com o offset); a sobra nunca é fundida, então uma célula de ponta pode ficar menor que `minRemainder`.
-- Célula mínima mede o **menor lado livre** (não o nominal) e avisa em qualquer tipo de painel, inclusive `empty`.
-- Montante sobreposto: distância entre os CENTROS dos montantes vizinhos (o centro da borda fica a meia largura da ponta) `< (largura_a + largura_b)/2`, só se os dois têm montante; pode dar medido negativo se os centros se cruzam.
-- `round` (decisão do dono): `depth = width` sempre; o `depth` declarado no perfil é ignorado.
+1. **Regra 4 e posição normalizada.** Com `s` e `z` em [0,1], o ponto `(s·L', z·H')` nunca sai da grade, então a regra 4 só dispara com chave inválida (s ou z fora de [0,1]). Está implementada e testada assim; o caso legítimo de "parede encurtou" cai na regra 2 (célula proporcional).
+2. **Comprimento gravado.** O ADR diz que a fração `pos/L` acompanha o eixo quando a linha não está travada, mas `AddedGridLine.pos` é em metros e o tipo não guarda o `L` da gravação. Acrescentei `comprimentoGravado` (opcional) em `AddedGridLine` e `LineOverride`. Ausente = posição absoluta. Trava sem `pos` em linha gerada não tem efeito. Em linha extra, `lineOverride` só troca o montante.
+3. **Região retangular.** Critério: o componente das células ligadas por remoções é um retângulo cheio. Dentro de uma região não há montante (mesmo sem remoção explícita). A remoção é aceita na ordem da lista; a que quebra o retângulo é ignorada com aviso 9. `podeRemoverSegmento` é o que o comando usa para recusar.
+4. **Bordas.** O ADR fixa `index` em 1..n-1, o que não aponta a borda. Estendi só para `removedSegments` (índice 0 ou n: remove o montante da borda, sem fundir). Sobrescrita de linha de borda sai órfã (`fora`), porque o montante da borda vem do tipo.
+5. **Painel de região.** Duas sobrescritas de painel numa mesma região: vale a regra 3 (menor distância ao centro da região); a outra é órfã por fusão.
+6. **Solda de linhas.** Dentro de 1e-6, linha extra vence linha gerada; a gerada perdida vira órfã por fusão. Entre duas do mesmo tipo, vale a primeira.
+7. **Códigos de aviso 6 a 9.** O ADR dá o nome, não o código; os valores estão em `avisos.ts`. Órfãs de célula, linha e segmento têm o mesmo nome (`cortina-override-orfao`).
+8. **Estado 3 (ocupada).** O ADR não nomeia: é a órfã da regra 4 quando a vizinha já foi adotada.
+9. **Linha 1D pela regra 2.** O ADR define a regra 2 para células. Para linha uso a interna mais próxima do ponto, se estiver a até uma célula média; o ADR manda "o mesmo", e isto é a leitura mais simples.
 
 ## Testes
 
-`grade.test.ts` (243: casos de borda de cada modo, `d >= L`, sobra minúscula e no limiar, `count = 1`, `L` muito pequeno, dedupe, offsets, e 200 casos aleatórios com semente 56), `pecas.test.ts` (montantes, prioridade, papéis, painéis, avisos, quantitativos), `casos.test.ts` (o arquivo é o que o gerador produz e a forma dos vetores).
+- `grade.test.ts` (243): casos de borda de cada modo, `d >= L`, sobra minúscula, `count = 1`, dedupe, offsets, e 200 casos aleatórios com semente 56.
+- `pecas.test.ts` (24): montantes, prioridade, papéis, painéis, avisos, quantitativos.
+- `casos.test.ts` (44): os 41 casos da fase 1 (o arquivo é o que o gerador produz e a forma dos vetores).
+- `remap.test.ts` (23): cada regra 1 a 6 com resultado escrito à mão; linhas extras e travadas; sobrescrita de linha.
+- `segmentos.test.ts` (10): região retangular e não retangular (L, T), remoção de borda, painel de região, fusão de sobrescritas.
+- `casos2.test.ts` (44): `casos2.json` é o que `gerarCasos2()` produz; forma dos vetores; cobertura das regras; avisos 6 e 9 nos casos que os exercitam.
