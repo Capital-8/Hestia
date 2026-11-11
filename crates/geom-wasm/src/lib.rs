@@ -86,6 +86,15 @@ pub mod gc_avisos;
 pub mod gc_malha;
 pub mod gc_varredura;
 pub mod gc_caminho;
+// Parede cortina (decisão 0056, fase 1).
+pub mod cortina_avisos;
+pub mod cortina_grade;
+pub mod cortina_malha;
+pub mod cortina_pecas;
+pub mod cortina_planta;
+pub mod cortina_quant;
+pub mod cortina_tipos;
+pub mod secoes_cortina;
 pub mod volume_sobreposicao;
 #[cfg(test)]
 mod teste_util;
