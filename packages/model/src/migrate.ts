@@ -10,6 +10,7 @@ import { DEFAULT_STAIR_CALC_RULE } from './stairTypes.ts';
 import { SCHEMA_VERSION, type PlanSymbol, type Project } from './types.ts';
 import { DEFAULT_VIEW_RANGE } from './viewRange.ts';
 import { migrateVistasV23 } from './migrateVistas.ts';
+import { normalizeSheetSourcesRaw } from './planViewIdentificacao.ts';
 import { compositionOfType } from './openingCompositionOf.ts';
 import { defaultOpeningProfiles } from './openingProfiles.ts';
 import type { OpeningType } from './openingTypes.ts';
@@ -283,6 +284,9 @@ export function migrateProject(raw: unknown): Project {
     v += 1;
     obj.schemaVersion = v;
   }
+  // Fontes de viewport de prancha na forma única (`{ plan, viewId }`): arquivo da 2a/2b antiga ainda traz `levelId`/`areaPlan`.
+  // Idempotente e sem nova versão de esquema (o 24 ainda não foi publicado).
+  obj = normalizeSheetSourcesRaw(obj);
   // Espelho mínimo (NBR 9050): tipos de escada antigos não o têm; recebem 0,16 m (ou o máximo/2 se o máximo for menor).
   // Idempotente e sem nova versão de esquema.
   if (obj.stairTypes && typeof obj.stairTypes === 'object') {

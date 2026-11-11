@@ -18,6 +18,7 @@ import { StairRunOptionsBar } from './StairRunOptionsBar.tsx';
 import { RampOptionsBar } from './RampOptionsBar.tsx';
 import { ArrayOptionsBar } from './ArrayOptionsBar.tsx';
 import { GridOptionsBar } from './GridOptionsBar.tsx';
+import { areaViewIdAtivo } from '../editor/vistaAtiva.ts';
 import { formatQuantity, openingFamilies, openingFamilyOf, DIM_FAMILY_PADRAO, defaultDimensionFamilyIdOf, dimensionFamiliesOf, type LocationLine } from '@hestia/model';
 
 /** Chave do dicionário de cada linha de localização da parede. */
@@ -146,7 +147,7 @@ export function OptionsBar(): ReactElement {
   const { t, lang } = useT();
   // O aviso de distância inválida é identificado por flag, não pelo texto (que muda com o idioma).
   const invalidDistance = useRef(false);
-  const areaPlan = useUi((s) => s.view === 'plan' && s.planKind === 'area' && !!s.areaPlanId);
+  const areaPlan = useUi((s) => areaViewIdAtivo(s) !== null);
   const set = (patch: Partial<typeof o>): void => useUi.setState({ options: { ...o, ...patch } });
   if (perim.active) return <PerimeterOptionsBar target={perim.target} modify={perim.modify} options={perim.options} onChange={perimeterActions.setOptions} />;
   // A paleta Propriedades é a fonte de configuração antes da colocação; a barra superior fica como indicação da ferramenta.

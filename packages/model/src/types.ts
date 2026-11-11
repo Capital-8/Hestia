@@ -765,11 +765,15 @@ export interface SectionView {
 
 /** Vista alvo de uma ocultação permanente (Hide in View). */
 export type ViewHiddenTarget =
-  | { kind: 'plan'; levelId: Id }
-  | { kind: 'roof'; levelId: Id }
-  | { kind: 'area'; planId: Id }
+  | { kind: 'plan'; viewId: Id }
   | { kind: 'section'; viewId: Id }
-  | { kind: '3d' };
+  | { kind: '3d' }
+  /** @deprecated Entrada antiga (piso do nível): aceita e normalizada para `{ kind: 'plan', viewId }`. */
+  | { kind: 'plan'; levelId: Id }
+  /** @deprecated Entrada antiga (cobertura do nível): aceita e normalizada para `{ kind: 'plan', viewId }`. */
+  | { kind: 'roof'; levelId: Id }
+  /** @deprecated Entrada antiga (planta de área): aceita e normalizada para `{ kind: 'plan', viewId }`. */
+  | { kind: 'area'; planId: Id };
 
 export interface Project {
   schemaVersion: number;

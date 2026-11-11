@@ -2,9 +2,8 @@ import type { ResolvedLevel, ResolvedRamp, ResolvedStair } from '@hestia/engine'
 import { isOpening, isWall, type AreaPlanAnnotations, type Id, type Project } from '@hestia/model';
 import { ambientesDoNivel, escadasDoNivel, lajesDoNivel, pisosDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
 import { planStyleOf, type PlanStyle } from './style.ts';
-import { planViewOf, type PlanView } from './view.ts';
-import { planViewIdOf } from './viewId.ts';
-import type { PlanInput } from './build.ts';
+import { resolvedPlanViewOf, type ResolvedPlanView } from './view.ts';
+import type { PlanInput, PlanInputResolvido } from './planInput.ts';
 
 /**
  * Pavimento de baixo como referência apagada (D1–D4): o nível e o que ele tem de desenhar. `on` desliga a referência
@@ -71,10 +70,10 @@ export function semElementosOcultos(p: Project, hidden: ReadonlySet<Id> | undefi
  * hospedado tem visibilidade própria: aqui o estado de cada abertura de parede oculta (corte, projeção, intervalo,
  * categoria) volta da vista do projeto inteiro, para ela ser decidida pelo próprio id e não pelo hospedeiro.
  */
-function comEsquadriasIndependentes(p: Project, view: PlanView, levelId: Id, viewId: Id, paredesOcultas: readonly Id[] | undefined): PlanView {
+function comEsquadriasIndependentes(p: Project, view: ResolvedPlanView, levelId: Id, viewId: Id, paredesOcultas: readonly Id[] | undefined): ResolvedPlanView {
   if (!paredesOcultas?.length) return view;
   const donas = new Set(paredesOcultas);
-  const cheia = planViewOf(p, levelId, viewId);
+  const cheia = resolvedPlanViewOf(p, levelId, viewId);
   const cls = new Map(view.cls);
   const hidden = new Set(view.hidden);
   const categoryHidden = new Set(view.categoryHidden);
@@ -139,7 +138,7 @@ export interface PlanContext {
   style: PlanStyle;
   /** Planta de cobertura (D6). */
   rp: boolean;
-  view: PlanView | null;
+  view: ResolvedPlanView | null;
   /** Planta de forro (decisão 0021): vista para cima. */
   up: boolean;
   /** Geometria do nível que a planta desenha (com o intervalo de vista, ou a padrão). */
@@ -156,10 +155,10 @@ export interface PlanContext {
   ramps: ResolvedRamp[];
 }
 
-export function planContext(input: PlanInput): PlanContext {
+export function planContext(input: PlanInputResolvido): PlanContext {
   const { project: p, viewport: v } = input;
-  const rp = input.roofPlanMode === true;
-  const viewId = planViewIdOf(p, input.levelId, { areaPlan: input.areaPlan, roofPlanMode: rp });
+  const rp = input.roofPlanMode;
+  const viewId = input.viewId;
   const style = planStyleOf(p, input.levelId, v.zoom, input.areaPlan?.scale, viewId);
   const paint = style.paint;
   const revealed = input.revealed;
@@ -172,7 +171,7 @@ export function planContext(input: PlanInput): PlanContext {
   });
   const pVis = paredesOcultas?.length ? projetoSemParedes(p, input.levelId, paredesOcultas) : p;
   // A cobertura não usa intervalo de vista (`view = null`); piso e planta de área leem o da própria vista.
-  const view = rp ? null : comEsquadriasIndependentes(p, planViewOf(pVis, input.levelId, viewId), input.levelId, viewId, paredesOcultas);
+  const view = rp ? null : comEsquadriasIndependentes(p, resolvedPlanViewOf(pVis, input.levelId, viewId), input.levelId, viewId, paredesOcultas);
   const up = view?.range.direction === 'up';
   const geo: ResolvedLevel = view ? view.geo : input.resolved;
   // `view.hidden` já traz o intervalo e a categoria; ele manda sobre o Reveal (o intervalo não é Hide in View).

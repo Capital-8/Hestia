@@ -1,6 +1,6 @@
 import { orientedRect, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { frameOfWall, openingGeometry, resolveAngularDimension, resolveCeilings, wallEndCorners, type ResolvedLevel } from '@hestia/engine';
-import { dimensionStyleOf, angularDimensionGeometry, dimensionGeometry, dimensionPoints, dimensionText, DIM_TEXT_MM, isCad, isGeneric, isOpening, isWall, levelRoomSeparators, unitsOf, type Id, type Project } from '@hestia/model';
+import { floorViewId, dimensionStyleOf, angularDimensionGeometry, dimensionGeometry, dimensionPoints, dimensionText, DIM_TEXT_MM, isCad, isGeneric, isOpening, isWall, levelRoomSeparators, unitsOf, type Id, type Project } from '@hestia/model';
 import { floorSelectionOps } from './floors.ts';
 import { ALCA_PX, quadradoEm } from './marcadores.ts';
 import { slabSelectionOps } from './slabs.ts';
@@ -10,13 +10,12 @@ import { roofFootprint, roofSelectionOps } from './roofs.ts';
 import { planFootprint, stairSelectionOps } from './stairs.ts';
 import { rampFootprint, rampSelectionOps } from './ramps.ts';
 import { guideStrokes, previewOverlay, snapMarker, snapTooltipLabel } from './overlay.ts';
-import { hiddenSelectionOps, planViewOf, type PlanView } from './view.ts';
+import { hiddenSelectionOps, resolvedPlanViewOf, type ResolvedPlanView } from './view.ts';
 import { planContext, type PlanContext } from './planContext.ts';
-import { planViewIdOf } from './viewId.ts';
 import { ambientesDoNivel, lajesDoNivel, pisosDoNivel, telhadosDoNivel } from './resolucao.ts';
 import { labelGhostOps } from './areaPlan.ts';
 import { annotationHighlightOps, blocoEm, drawnAnnotations, textBlockModel } from './notes.ts';
-import type { PlanInput } from './build.ts';
+import { resolvePlanInput, type PlanInput, type PlanInputResolvido } from './planInput.ts';
 import { AVISO, AVISO_ALPHA } from '../aviso.ts';
 import type { FillOp, PlanOps } from './types.ts';
 
@@ -32,7 +31,7 @@ function wallUnion(geo: ResolvedLevel, id: Id, outline = false): MultiPolygon {
   return outline ? union(...rw.layers.map((l) => l.fragment)) : union(...rw.layers.map((l) => l.cut));
 }
 
-function elementHighlight(p: Project, geo: ResolvedLevel, ids: Id[], color: string, alpha: number, view: PlanView | null): FillOp[] {
+function elementHighlight(p: Project, geo: ResolvedLevel, ids: Id[], color: string, alpha: number, view: ResolvedPlanView | null): FillOp[] {
   const out: FillOp[] = [];
   for (const id of ids) {
     if (view?.hidden.has(id)) continue;
@@ -58,7 +57,7 @@ const REVEAL = '#2563eb';
  * Realce amarelo do aviso (decisão 0044): a parede que impede a operação fica preenchida em amarelo translúcido e com
  * contorno firme. Só a parede (ou a abertura, quando o aviso vier de um vão): o resto do desenho não muda.
  */
-function avisoOps(p: Project, geo: ResolvedLevel, id: Id, view: PlanView | null): PlanOps {
+function avisoOps(p: Project, geo: ResolvedLevel, id: Id, view: ResolvedPlanView | null): PlanOps {
   const out: PlanOps = { fills: [], strokes: [], labels: [] };
   if (view?.hidden.has(id)) return out;
   const e = p.elements[id];
@@ -86,7 +85,7 @@ const REVEAL_FOLGA_MM = 0.8;
  * borda de 2 px, por cima. O que o intervalo de vista ou a categoria escondem continua fora (`hidden`), mesmo que o id
  * esteja em `revealed`: o Reveal é do Hide in View, não do intervalo.
  */
-function revealedOutlineOps(input: PlanInput, ctx: PlanContext): PlanOps {
+function revealedOutlineOps(input: PlanInputResolvido, ctx: PlanContext): PlanOps {
   const revealed = input.revealed;
   if (!revealed || revealed.size === 0) return vazio();
   const { project: p, levelId } = input;
@@ -172,12 +171,12 @@ function revealedOutlineOps(input: PlanInput, ctx: PlanContext): PlanOps {
 const vazio = (): PlanOps => ({ fills: [], strokes: [], labels: [] });
 
 /** Anotações que a vista desenha (as da vista, ou as do nível) e a escala de papel em que o bloco do texto é medido. */
-function anotacoesDaVista(input: PlanInput, escala: number, viewId: Id): { annotations: ReturnType<typeof drawnAnnotations>; scale: number } {
+function anotacoesDaVista(input: PlanInputResolvido, escala: number, viewId: Id): { annotations: ReturnType<typeof drawnAnnotations>; scale: number } {
   return { annotations: drawnAnnotations(input.project, input.levelId, input.areaPlan, viewId), scale: input.areaPlan && input.areaPlan.scale > 0 ? input.areaPlan.scale : escala };
 }
 
 /** Junta o destaque das anotações (caixa, alça do texto e realce do hover) à sobreposição. */
-function comAnotacoes(out: PlanOps, input: PlanInput, escala: number, target: { selection: readonly Id[]; hover: Id | null }, viewId: Id): void {
+function comAnotacoes(out: PlanOps, input: PlanInputResolvido, escala: number, target: { selection: readonly Id[]; hover: Id | null }, viewId: Id): void {
   const { annotations, scale } = anotacoesDaVista(input, escala, viewId);
   const h = annotationHighlightOps(input.project, input.levelId, scale, { select: input.theme.select, paper: input.theme.bg, hoverColor: input.theme.selectHover, dimStyle: dimensionStyleOf(input.project.settings) }, target, annotations);
   out.fills.push(...h.fills);
@@ -190,7 +189,8 @@ function comAnotacoes(out: PlanOps, input: PlanInput, escala: number, target: { 
  * camada viva (`buildPlanLiveOverlay`), e mudar o hover refaz só a camada de hover (`buildPlanHoverOverlay`), sem tocar
  * nos destaques da seleção nem na geometria do nível.
  */
-export function buildPlanSelectionOverlay(input: PlanInput): PlanOps {
+export function buildPlanSelectionOverlay(entrada: PlanInput): PlanOps {
+  const input = resolvePlanInput(entrada);
   const { project: p, theme } = input;
   const ctx = planContext(input);
   const { geo, hidden, up, roofHidden, stairs, view, style } = ctx;
@@ -237,7 +237,8 @@ export function buildPlanSelectionOverlay(input: PlanInput): PlanOps {
 }
 
 /** Sobreposição do alvo sob o cursor. Só o elemento em hover (o selecionado não se repete). */
-export function buildPlanHoverOverlay(input: PlanInput): PlanOps {
+export function buildPlanHoverOverlay(entrada: PlanInput): PlanOps {
+  const input = resolvePlanInput(entrada);
   const { project: p, theme } = input;
   const { viewId, geo, hidden, up, roofHidden, stairs, ramps, view, style } = planContext(input);
   const hover = input.hover;
@@ -271,7 +272,8 @@ export function buildPlanHoverOverlay(input: PlanInput): PlanOps {
 }
 
 /** Sobreposição viva da ferramenta: pré-visualização, guias, marcador de captura e o balão de inferência. */
-export function buildPlanLiveOverlay(input: PlanInput): PlanOps {
+export function buildPlanLiveOverlay(entrada: PlanInput): PlanOps {
+  const input = resolvePlanInput(entrada);
   const { project: p, theme } = input;
   const { geo, view, style } = planContext(input);
   const out = vazio();
@@ -299,7 +301,8 @@ export function buildPlanLiveOverlay(input: PlanInput): PlanOps {
  * seleção e hover, pré-visualização e inferência. Na tela, as três partes são camadas separadas da cena (`PlanFrame`),
  * para uma não refazer as outras.
  */
-export function buildPlanOverlay(input: PlanInput): PlanOps {
+export function buildPlanOverlay(entrada: PlanInput): PlanOps {
+  const input = resolvePlanInput(entrada);
   const { project: p, theme, viewport: v } = input;
   const ctx = planContext(input);
   const { geo, hidden, up, roofHidden, stairs, ramps, view, style } = ctx;
@@ -360,10 +363,12 @@ export function buildPlanOverlay(input: PlanInput): PlanOps {
  * Sobreposição da tela: a de `buildPlanOverlay` mais o contorno fantasma dos selecionados que estão fora do intervalo de
  * vista (decisão 0013 §4). A planta não os desenha; o fantasma vai por último, como antes.
  */
-export function buildPlanScreenOverlay(input: PlanInput): PlanOps {
+export function buildPlanScreenOverlay(entrada: PlanInput): PlanOps {
+  const input = resolvePlanInput(entrada);
   const o = buildPlanOverlay(input);
   // O fantasma é do intervalo de vista, que a cobertura não usa: nela vale o do nível (vista de piso), como sempre.
-  const idDoIntervalo = planViewIdOf(input.project, input.levelId, { areaPlan: input.areaPlan });
-  const ghosts = hiddenSelectionOps(input.project, input.levelId, planViewOf(input.project, input.levelId, idDoIntervalo), input.selection, input.theme);
+  // O contorno fantasma dos ocultos lê o intervalo de vista do piso na planta de cobertura (ela não usa intervalo).
+  const idDoIntervalo = input.roofPlanMode ? floorViewId(input.levelId) : input.viewId;
+  const ghosts = hiddenSelectionOps(input.project, input.levelId, resolvedPlanViewOf(input.project, input.levelId, idDoIntervalo), input.selection, input.theme);
   return ghosts.length ? { ...o, strokes: [...o.strokes, ...ghosts] } : o;
 }

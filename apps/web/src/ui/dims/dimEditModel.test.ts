@@ -9,7 +9,7 @@ const mk = (): { s: ProjectStore; d: Dimension } => {
   s.exec({ type: 'addDimension', levelId: 'lv_0', dimension: d });
   return { s, d };
 };
-const scope = { view: 'plan', levelId: 'lv_0', areaPlanId: null, planKind: 'floor', sectionId: null };
+const scope = { view: 'plan', levelId: 'lv_0', planViewId: 'pv_lv_0', planKind: 'floor', sectionId: null };
 
 describe('editor de valor da cota', () => {
   it('acha a cota do nível', () => {

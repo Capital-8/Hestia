@@ -248,7 +248,7 @@ export function App(): ReactElement {
   const vista = useUi((s) => s.view);
   const nivelAtivo = useUi((s) => s.levelId);
   const planKind = useUi((s) => s.planKind);
-  const areaPlanId = useUi((s) => s.areaPlanId);
+  const planViewId = useUi((s) => s.planViewId);
   const sectionId = useUi((s) => s.sectionId);
   const abas = useUi((s) => s.openViews);
   const lang = useI18n((s) => s.lang);
@@ -300,7 +300,7 @@ export function App(): ReactElement {
           view: sessao.view,
           levelId: sessao.levelId,
           planKind: sessao.planKind as PlanKind,
-          areaPlanId: sessao.areaPlanId,
+          planViewId: sessao.planViewId,
           sectionId: sessao.sectionId,
           ...(sessao.openViews.length ? { openViews: sessao.openViews as OpenView[] } : {}),
         });
@@ -314,8 +314,8 @@ export function App(): ReactElement {
   // Guarda a sessão a cada mudança de vista/projeto: é o que o F5 reabre.
   useEffect(() => {
     if (tela !== 'editor') return;
-    guardarSessao({ pasta: editor.pastaNaBiblioteca, view: vista, levelId: nivelAtivo, planKind, areaPlanId, sectionId, openViews: abas });
-  }, [tela, vista, nivelAtivo, planKind, areaPlanId, sectionId, abas]);
+    guardarSessao({ pasta: editor.pastaNaBiblioteca, view: vista, levelId: nivelAtivo, planKind, planViewId, sectionId, openViews: abas });
+  }, [tela, vista, nivelAtivo, planKind, planViewId, sectionId, abas]);
 
   // Voltar de propósito para a tela de projetos encerra a sessão da aba: F5 ali continua na tela de projetos. Durante
   // a retomada o estado ainda é `home`, mas a sessão está sendo usada — não pode ser apagada agora.

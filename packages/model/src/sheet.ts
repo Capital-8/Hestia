@@ -55,11 +55,14 @@ export interface SheetView3DCamera {
 
 /** O que a vista mostra: planta de um nível, planta de área, corte/elevação de uma seção do projeto ou o 3D vetorial. */
 export type SheetViewSource =
-  | { kind: 'plan'; levelId: Id }
-  | { kind: 'areaPlan'; planId: Id }
+  | { kind: 'plan'; viewId: Id }
   | { kind: 'areaTable' }
   | { kind: 'section'; sectionId: Id }
-  | { kind: '3d'; pointId?: Id; camera?: SheetView3DCamera };
+  | { kind: '3d'; pointId?: Id; camera?: SheetView3DCamera }
+  /** @deprecated Entrada antiga (piso do nível): os comandos e a abertura do arquivo normalizam para `{ kind: 'plan', viewId }`. */
+  | { kind: 'plan'; levelId: Id }
+  /** @deprecated Entrada antiga (planta de área): os comandos e a abertura do arquivo normalizam para `{ kind: 'plan', viewId }`. */
+  | { kind: 'areaPlan'; planId: Id };
 
 /** Motivo de recusa de uma câmera 3D, ou null. */
 export function sheetView3DCameraIssue(c: SheetView3DCamera): string | null {

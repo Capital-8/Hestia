@@ -1,4 +1,4 @@
-import { isCad, type CadDrawing, type Project } from '@hestia/model';
+import { floorViewId, isCad, type CadDrawing, type Project } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
 import { activateView } from './viewTabActions.ts';
@@ -42,7 +42,7 @@ export function cadLevelName(p: Project, d: CadDrawing): string {
 
 /** Seleciona o desenho, abrindo a planta do nível dele se preciso (as Propriedades passam a mostrar o CAD). */
 export function selectCad(d: CadDrawing): void {
-  if (useUi.getState().view !== 'plan' || useUi.getState().levelId !== d.levelId) activateView({ kind: 'plan', levelId: d.levelId });
+  if (useUi.getState().view !== 'plan' || useUi.getState().levelId !== d.levelId) activateView({ kind: 'plan', viewId: floorViewId(d.levelId) });
   useUi.setState({ selection: [d.id], selectedLevel: null, dialog: null });
 }
 

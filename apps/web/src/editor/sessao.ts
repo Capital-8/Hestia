@@ -1,4 +1,5 @@
-import type { Id } from '@hestia/model';
+import { floorViewId, type Id } from '@hestia/model';
+import { planViewIdDaAba } from './openViews.ts';
 
 /**
  * Sessão da aba: o que reabrir quando a página é recarregada (F5) e o que NÃO deve sobreviver ao fechamento.
@@ -15,10 +16,12 @@ const CHAVE = 'hestia.sessao';
 
 export type VistaDaSessao = 'plan' | '3d' | 'section' | 'sheet';
 
-/** Aba de vista aberta (mesmo formato de `OpenView`), guardada como JSON simples. */
+/**
+ * Aba de vista aberta (mesmo formato de `OpenView`), guardada como JSON simples. A sessão gravada por versões antigas
+ * leva a planta como `levelId` + `planKind` + `areaPlanId`: `sessaoValida` a converte para `viewId` ao ler.
+ */
 export type AbaDaSessao =
-  // forma antiga (Fase 2): a aba salva leva `planKind`/`areaPlanId` (a sessão antiga continua sendo lida).
-  | { kind: 'plan'; levelId: Id; planKind?: string; areaPlanId?: Id }
+  | { kind: 'plan'; viewId: Id }
   | { kind: '3d' }
   | { kind: 'section'; viewId: Id }
   | { kind: 'sheet'; sheetId: Id };
@@ -29,9 +32,10 @@ export interface Sessao {
   pasta: string | null;
   view: VistaDaSessao;
   levelId: Id;
-  // forma antiga (Fase 2): campos soltos do estado, gravados e lidos assim na sessão.
+  /** Vista de planta de fundo (forma única); a sessão antiga, sem ele, é convertida de `planKind`/`areaPlanId`. */
+  planViewId: Id;
+  /** Tipo da planta de `planViewId` ('floor' | 'roof' | 'area'). */
   planKind: string;
-  areaPlanId: Id | null;
   sectionId: Id | null;
   /** Abas de vista abertas, na ordem. */
   openViews: AbaDaSessao[];
@@ -53,10 +57,13 @@ function abaValida(valor: unknown): AbaDaSessao | null {
   switch (o.kind) {
     case '3d':
       return { kind: '3d' };
-    case 'plan':
-      return typeof o.levelId === 'string'
-        ? { kind: 'plan', levelId: o.levelId, ...(typeof o.planKind === 'string' ? { planKind: o.planKind } : {}), ...(typeof o.areaPlanId === 'string' ? { areaPlanId: o.areaPlanId } : {}) }
-        : null;
+    case 'plan': {
+      // Forma única: `viewId`. Forma antiga: `levelId` + `planKind` + `areaPlanId` (planta de área sem id não tem vista).
+      if (typeof o.viewId === 'string' && o.viewId !== '') return { kind: 'plan', viewId: o.viewId };
+      if (typeof o.levelId !== 'string') return null;
+      const viewId = planViewIdDaAba({ levelId: o.levelId, ...(typeof o.planKind === 'string' ? { planKind: o.planKind } : {}), ...(typeof o.areaPlanId === 'string' ? { areaPlanId: o.areaPlanId } : {}) });
+      return viewId ? { kind: 'plan', viewId } : null;
+    }
     case 'section':
       return typeof o.viewId === 'string' ? { kind: 'section', viewId: o.viewId } : null;
     case 'sheet':
@@ -75,14 +82,19 @@ export function sessaoValida(valor: unknown): Sessao | null {
   if (typeof view !== 'string' || !vistas.includes(view as VistaDaSessao)) return null;
   if (typeof o.levelId !== 'string' || o.levelId === '') return null;
   if (typeof o.planKind !== 'string') return null;
+  // Sem `planViewId` é sessão antiga: a planta de fundo sai de `levelId`/`planKind`/`areaPlanId`. Planta de área sem id
+  // (estado que já não abria nada) cai na planta de piso do nível.
+  const antigaArea = typeof o.areaPlanId === 'string' && o.areaPlanId !== '' ? o.areaPlanId : null;
+  const planViewId = typeof o.planViewId === 'string' && o.planViewId !== '' ? o.planViewId : planViewIdDaAba({ levelId: o.levelId, planKind: o.planKind, areaPlanId: antigaArea }) ?? floorViewId(o.levelId);
+  const planKind = planViewId === floorViewId(o.levelId) && o.planKind === 'area' && typeof o.planViewId !== 'string' ? 'floor' : o.planKind;
   const pasta = typeof o.pasta === 'string' && o.pasta !== '' ? o.pasta : null;
   const abas = Array.isArray(o.openViews) ? o.openViews.map(abaValida).filter((a): a is AbaDaSessao => a !== null) : [];
   return {
     pasta,
     view: view as VistaDaSessao,
     levelId: o.levelId,
-    planKind: o.planKind,
-    areaPlanId: typeof o.areaPlanId === 'string' ? o.areaPlanId : null,
+    planViewId,
+    planKind,
     sectionId: typeof o.sectionId === 'string' ? o.sectionId : null,
     openViews: abas,
   };

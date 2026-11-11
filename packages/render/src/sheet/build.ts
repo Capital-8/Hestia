@@ -1,20 +1,24 @@
-import { sheetDimsMm, sheetOf, viewportClipped, type Id, type Project, type SheetViewport } from '@hestia/model';
+import { normalizeSheetViewSource, planViewOf, sheetDimsMm, sheetOf, viewportClipped, type Id, type Project, type SheetViewport } from '@hestia/model';
 import { furnitureParts } from './frame.ts';
-import { areaTablePartsOf, areaPlanPartsOf, planPartsOf, sectionPartsOf } from './viewports.ts';
+import { areaTablePartsOf, areaPlanPartsOf, planPartsOf, removedViewParts, sectionPartsOf } from './viewports.ts';
 import { vista3dParts } from './vista3d.ts';
 import { type SheetDrawList, type ViewportParts } from './types.ts';
 import type { Lang } from '../i18n.ts';
 
 function partsOfViewport(p: Project, v: SheetViewport, lang: Lang): ViewportParts {
-  switch (v.view.kind) {
-    case 'plan':
-      return planPartsOf(p, v.view.levelId, v, lang);
-    case 'areaPlan':
-      return areaPlanPartsOf(p, v.view.planId, v, lang);
+  const view = normalizeSheetViewSource(v.view);
+  switch (view.kind) {
+    case 'plan': {
+      // Forma única: a vista decide (piso → planta do nível; área → planta de área). Cobertura não entra em prancha.
+      const alvo = planViewOf(p, view.viewId);
+      if (alvo?.kind === 'area') return areaPlanPartsOf(p, alvo.id, v, lang);
+      if (alvo?.kind === 'floor') return planPartsOf(p, alvo.levelId, v, lang);
+      return removedViewParts(v, lang);
+    }
     case 'areaTable':
       return areaTablePartsOf(p, v, lang);
     case 'section':
-      return sectionPartsOf(p, v.view.sectionId, v);
+      return sectionPartsOf(p, view.sectionId, v);
     case '3d':
       return vista3dParts(p, v);
   }

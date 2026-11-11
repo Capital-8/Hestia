@@ -1,5 +1,5 @@
 import { areaTableAllRows, computeSection, resolveLevel } from '@hestia/engine';
-import { areaPlanOf, floorViewId, planViewOf as vistaDoModelo, sectionAnnotationsOf, sectionGraphicsOf, sectionPoints, unitsOf, viewGraphicsOf, type Id, type Project, type SheetViewport, type SheetViewSource } from '@hestia/model';
+import { areaPlanOf, floorViewId, sectionAnnotationsOf, sectionGraphicsOf, sectionPoints, unitsOf, viewGraphicsOf, type AreaPlan, type Id, type Project, type SheetViewport, type SheetViewSourceNormal } from '@hestia/model';
 import type { Vec2 } from '@hestia/geom';
 import { buildPlanDrawList, levelBox } from '../plan/build.ts';
 import { LIGHT } from '../plan/types.ts';
@@ -12,20 +12,20 @@ import { fmtNumLang as fmtNum, t, type Lang } from '../i18n.ts';
  * Projeto com a escala da vista da prancha: os gráficos da vista (ou do corte) passam a usar a escala da própria vista,
  * então os pesos (`lineWeightMm`) e o detalhe saem da escala escolhida na prancha, não da do nível.
  */
-function withSheetScale(p: Project, view: SheetViewSource, scale: number): Project {
+function withSheetScale(p: Project, view: SheetViewSourceNormal, scale: number): Project {
   if (view.kind === 'plan') {
-    const id = floorViewId(view.levelId);
+    const id = view.viewId;
     const graphics = { ...viewGraphicsOf(p, id), scale };
     return { ...p, planViews: p.planViews.map((v) => (v.id === id ? { ...v, graphics } : v)) };
   }
   if (view.kind === 'section') return { ...p, sectionGraphics: { ...sectionGraphicsOf(p), scale } };
-  if (view.kind === 'areaPlan') {
-    const plan = vistaDoModelo(p, view.planId);
-    if (plan?.kind !== 'area') return p;
-    const graphics = { ...viewGraphicsOf(p, plan.id), scale };
-    return { ...p, planViews: p.planViews.map((v) => (v.id === plan.id ? { ...v, graphics } : v)) };
-  }
   return p;
+}
+
+/** Planta de área com a escala da viewport e as linhas de referência pela opção de impressão (a edição é na vista do projeto derivado). */
+function withAreaSheetScale(p: Project, plan: AreaPlan, scale: number): Project {
+  const area = { scale, graphics: { ...plan.graphics, referenceLines: plan.graphics.referenceLinesPrint ? plan.graphics.referenceLines : ('never' as const) } };
+  return { ...p, planViews: p.planViews.map((v) => (v.id === plan.id && v.area ? { ...v, area: { ...v.area, ...area } } : v)) };
 }
 
 const centreOf = (b: { minX: number; minY: number; maxX: number; maxY: number } | null): Vec2 =>
@@ -34,12 +34,13 @@ const centreOf = (b: { minX: number; minY: number; maxX: number; maxY: number } 
 /** Planta de um nível na escala da vista, centrada no conteúdo do nível. Nível inexistente: sem partes. */
 export function planPartsOf(p: Project, levelId: Id, vp: SheetViewport, lang: Lang = 'pt'): ViewportParts {
   if (!p.levels.some((l) => l.id === levelId)) return emptyParts();
-  const pp = withSheetScale(p, { kind: 'plan', levelId }, vp.scale);
+  const viewId = floorViewId(levelId);
+  const pp = withSheetScale(p, { kind: 'plan', viewId }, vp.scale);
   const centre = centreOf(levelBox(p, levelId));
   const m = viewMappingOf(vp, centre);
   const list = buildPlanDrawList({
     project: pp,
-    levelId,
+    viewId,
     resolved: resolveLevel(p, levelId),
     below: null,
     viewport: { cx: m.cx, cy: m.cy, zoom: m.zoom, width: m.width, height: m.height },
@@ -67,15 +68,15 @@ export function areaPlanPartsOf(p: Project, planId: Id, vp: SheetViewport, lang:
   const plan = areaPlanOf(p, planId);
   if (!plan) return removedViewParts(vp, lang);
   if (!p.levels.some((l) => l.id === plan.levelId)) return emptyParts();
-  const pp = withSheetScale(p, { kind: 'plan', levelId: plan.levelId }, vp.scale);
+  // A escala do piso do nível também acompanha a viewport (como sempre foi); a da planta de área vai na própria vista.
+  const pp = withAreaSheetScale(withSheetScale(p, { kind: 'plan', viewId: floorViewId(plan.levelId) }, vp.scale), plan, vp.scale);
   const centre = centreOf(levelBox(p, plan.levelId));
   const m = viewMappingOf(vp, centre);
   const list = buildPlanDrawList({
     project: pp,
-    levelId: plan.levelId,
+    viewId: plan.id,
     resolved: resolveLevel(p, plan.levelId),
     below: null,
-    areaPlan: { ...plan, scale: vp.scale, graphics: { ...plan.graphics, referenceLines: plan.graphics.referenceLinesPrint ? plan.graphics.referenceLines : 'never' } },
     viewport: { cx: m.cx, cy: m.cy, zoom: m.zoom, width: m.width, height: m.height },
     theme: LIGHT,
     dark: false,

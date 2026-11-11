@@ -1,11 +1,11 @@
 import { computeSection } from '@hestia/engine';
 import {
-  floorViewId,
   newViewportId,
   sectionGraphicsOf,
   sectionPoints,
   sheetInnerBox,
   sheetOf,
+  sheetPlanViewOf,
   viewGraphicsOf,
   viewSourceIssue,
   viewportIssue,
@@ -18,7 +18,6 @@ import {
 } from '@hestia/model';
 import { levelBox, sectionBox, STAMP_H, STAMP_W } from '@hestia/render';
 import { t, useI18n } from './i18n.ts';
-import { vistaDeArea } from './vistaDeArea.ts';
 import { defaultViewSize, freeSpot, newSheet, SCALE_OPTIONS } from './sheetActions.ts';
 
 /**
@@ -60,7 +59,7 @@ export function contentSizeMm(p: Project, view: SheetViewSource, scale: number):
   // 1:100 → 10 mm de papel por metro de modelo (a escala é o denominador).
   const mmPerM = 1000 / scale;
   if (view.kind === 'plan' || view.kind === 'areaPlan') {
-    const levelId = view.kind === 'plan' ? view.levelId : vistaDeArea(p, view.planId)?.levelId;
+    const levelId = sheetPlanViewOf(p, view)?.levelId;
     const box = levelId ? levelBox(p, levelId) : null;
     if (!box) return fallbackSize(view);
     return {
@@ -189,8 +188,11 @@ export function sheetsPerLevelAction(store: ProjectStore, scale = 100): Id[] {
 
 /** Escala natural de uma vista (a que ela tem no projeto), usada ao arrastá-la do navegador para a prancha. */
 export function naturalScaleOf(p: Project, view: SheetViewSource): number {
-  if (view.kind === 'plan') return viewGraphicsOf(p, floorViewId(view.levelId)).scale;
-  if (view.kind === 'areaPlan') return vistaDeArea(p, view.planId)?.area?.scale ?? 100;
+  if (view.kind === 'plan' || view.kind === 'areaPlan') {
+    const plan = sheetPlanViewOf(p, view);
+    // Planta de área: a escala dela; piso: a dos gráficos da vista (sem vista, 100).
+    return plan?.kind === 'area' ? (plan.area?.scale ?? 100) : plan ? viewGraphicsOf(p, plan.id).scale : 100;
+  }
   if (view.kind === 'section') return sectionGraphicsOf(p).scale;
   return 100;
 }

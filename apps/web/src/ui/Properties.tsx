@@ -33,7 +33,7 @@ import { editor, useProject } from '../editor/controller.ts';
 import { fmtNum, t as traduz, toolLabel, useT, type Lang } from '../editor/i18n.ts';
 import { editViewRange, restoreViewRangeDefault } from '../editor/viewRangeActions.ts';
 import { setGridStep, setRoofProjection, setSnap, useUi } from '../editor/state.ts';
-import { planViewIdDeFundo } from '../editor/vistaAtiva.ts';
+import { areaViewIdDeFundo, planViewIdDeFundo } from '../editor/vistaAtiva.ts';
 import { avisoSemNivelAcima, proximoNivelAcima, setBaseNoPiso, setTopoNoPiso } from '../editor/wallFloorActions.ts';
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
 import { useFormat } from './useUnits.ts';
@@ -370,7 +370,7 @@ function ViewProps(): ReactElement {
   const section = s.view === 'section' ? p.views.find((v) => v.id === s.sectionId) : undefined;
   // A planta de cobertura mostra as mesmas propriedades da de piso do nível; só o nome do tipo muda.
   const roof = s.view === 'plan' && s.planKind === 'roof';
-  const areaPlan = s.view === 'plan' && s.planKind === 'area' ? activeAreaPlan(p, s.areaPlanId) : undefined;
+  const areaPlan = s.view === 'plan' && s.planKind === 'area' ? activeAreaPlan(p, areaViewIdDeFundo(s)) : undefined;
   const title = s.view === 'plan' ? areaPlan ? `${areaPlan.name} · ${lvl?.name ?? ''}` : `${roof ? t('prc_view_roof_plan') : t('prc_view_plan')} · ${lvl?.name ?? ''}` : s.view === 'section' ? `${section?.kind === 'elevation' ? t('prc_view_elevation') : t('prc_view_section')} · ${section?.name ?? ''}` : t('prc_view_3d');
   const kindLabel = s.view === 'plan' ? (areaPlan ? t('prc_view_area_plan') : roof ? t('prc_view_roof_plan') : t('prc_view_floor_plan')) : s.view === 'section' ? (section?.kind === 'elevation' ? t('prc_view_elevation') : t('prc_view_section')) : t('prc_view_3d');
   return (

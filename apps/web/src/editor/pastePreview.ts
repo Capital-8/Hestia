@@ -102,9 +102,9 @@ export interface OrigemDoColar {
   view: 'plan' | '3d' | 'section' | 'sheet';
   levelId: Id;
   sectionId: Id | null;
-  // forma antiga (Fase 2): cópia dos campos soltos do estado; vira `planViewId` junto com `state.ts`.
+  /** Planta de fundo do estado: `planViewId` e o tipo dela (ver `vistaAtiva.ts`). */
   planKind: 'floor' | 'roof' | 'area';
-  areaPlanId: Id | null;
+  planViewId: Id;
 }
 
 let origemDoDialogo: OrigemDoColar | null = null;

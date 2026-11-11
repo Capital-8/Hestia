@@ -1,19 +1,17 @@
 import { view3dOf, viewHiddenIssues, type ViewHidden } from './graphics.ts';
 import type { Id, Project, ViewHiddenTarget } from './types.ts';
 import { t, type Lang } from './i18n.ts';
-import { floorViewId, planViewOf, roofViewId } from './planView.ts';
-import { resolvePlanView, resolvePlanViewRef } from './planViewResolve.ts';
+import { planViewOf } from './planView.ts';
+import { resolvePlanView } from './planViewResolve.ts';
+import { normalizeViewHiddenTarget } from './planViewIdentificacao.ts';
 
 /**
- * Converte um `viewId` de planta (piso, cobertura ou planta de área) no alvo de ocultação atual:
- * `{plan, levelId}`, `{roof, levelId}` ou `{area, planId}`. `viewId` inexistente lança Error.
- * Recomendado para montar `setViewHidden` a partir de um `viewId` (o alvo muda de forma só na Fase 2).
+ * Alvo de ocultação de uma vista de planta (piso, cobertura ou planta de área): `{ kind: 'plan', viewId }`.
+ * `viewId` inexistente lança Error.
  */
 export function hiddenTargetOfView(p: Pick<Project, 'planViews'>, viewId: Id, lang: Lang = 'pt'): ViewHiddenTarget {
-  const ref = resolvePlanViewRef(p, viewId);
-  if (!ref) throw new Error(t(lang, 'md_view_missing'));
-  if (ref.kind === 'area') return { kind: 'area', planId: viewId };
-  return ref.kind === 'roof' ? { kind: 'roof', levelId: ref.levelId } : { kind: 'plan', levelId: ref.levelId };
+  if (!resolvePlanView(p, viewId)) throw new Error(t(lang, 'md_view_missing'));
+  return { kind: 'plan', viewId };
 }
 
 /**
@@ -38,11 +36,10 @@ export function normalizaViewHidden(hidden: ViewHidden | undefined, lang: Lang =
  * @deprecated Use `planViewHiddenOf(p, viewId)` (planta) com `hiddenTargetOfView` para o alvo; esta fica para corte e 3D.
  */
 export function viewHiddenOf(p: Project, target: ViewHiddenTarget): ViewHidden | undefined {
-  switch (target.kind) {
-    case 'plan': return planViewOf(p, floorViewId(target.levelId))?.hidden;
-    case 'roof': return planViewOf(p, roofViewId(target.levelId))?.hidden;
-    case 'area': return planViewOf(p, target.planId)?.hidden;
-    case 'section': return p.views.find((v) => v.id === target.viewId)?.hidden;
+  const alvo = normalizeViewHiddenTarget(target);
+  switch (alvo.kind) {
+    case 'plan': return planViewOf(p, alvo.viewId)?.hidden;
+    case 'section': return p.views.find((v) => v.id === alvo.viewId)?.hidden;
     case '3d': return view3dOf(p).hidden;
   }
 }
@@ -51,7 +48,7 @@ export function viewHiddenOf(p: Project, target: ViewHiddenTarget): ViewHidden |
  * Grava a ocultação numa vista de planta direto em `p.planViews` (sem memória: roda sobre o rascunho). Vista inexistente
  * recusa com a mensagem do alvo antigo (`md_level_missing` para piso/cobertura, `md_area_plan_missing` para área).
  */
-function setPlanViewHidden(p: Project, viewId: Id, clean: ViewHidden | undefined, missing: 'md_level_missing' | 'md_area_plan_missing', lang: Lang): void {
+function setPlanViewHidden(p: Project, viewId: Id, clean: ViewHidden | undefined, missing: 'md_level_missing' | 'md_area_plan_missing' | 'md_view_missing', lang: Lang): void {
   const v = resolvePlanView(p, viewId);
   if (!v) throw new Error(t(lang, missing));
   if (clean) v.hidden = clean; else delete v.hidden;
@@ -60,16 +57,15 @@ function setPlanViewHidden(p: Project, viewId: Id, clean: ViewHidden | undefined
 /** Aplica a ocultação permanente numa vista. Alvo inexistente recusa; `undefined` limpa a ocultação. */
 export function applyViewHidden(p: Project, target: ViewHiddenTarget, hidden: ViewHidden | undefined, lang: Lang = 'pt'): void {
   const clean = normalizaViewHidden(hidden, lang);
-  switch (target.kind) {
+  // Formas antigas (entrada) mantêm as mensagens de recusa de antes.
+  const faltando = target.kind === 'area' ? 'md_area_plan_missing' : target.kind === 'roof' || (target.kind === 'plan' && 'levelId' in target) ? 'md_level_missing' : 'md_view_missing';
+  const alvo = normalizeViewHiddenTarget(target);
+  switch (alvo.kind) {
     case 'plan':
-      return setPlanViewHidden(p, floorViewId(target.levelId), clean, 'md_level_missing', lang);
-    case 'roof':
-      return setPlanViewHidden(p, roofViewId(target.levelId), clean, 'md_level_missing', lang);
-    case 'area':
-      if (resolvePlanView(p, target.planId)?.kind !== 'area') throw new Error(t(lang, 'md_area_plan_missing'));
-      return setPlanViewHidden(p, target.planId, clean, 'md_area_plan_missing', lang);
+      if (target.kind === 'area' && resolvePlanView(p, alvo.viewId)?.kind !== 'area') throw new Error(t(lang, 'md_area_plan_missing'));
+      return setPlanViewHidden(p, alvo.viewId, clean, faltando, lang);
     case 'section': {
-      const v = p.views.find((x) => x.id === target.viewId);
+      const v = p.views.find((x) => x.id === alvo.viewId);
       if (!v) throw new Error(t(lang, 'md_view_missing'));
       if (clean) v.hidden = clean; else delete v.hidden;
       return;

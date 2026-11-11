@@ -36,7 +36,7 @@ function iniciar(tool: 'select' | 'dimension' | 'text' | 'room' | 'roomsep' = 's
   const s = store();
   const planId = createAreaPlanAction(s, 'lv_0');
   editor.load(s.project, 'teste.hestia.json');
-  useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', areaPlanId: planId, selection: [], hover: null, options: DEFAULT_OPTIONS });
+  useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', planViewId: planId, selection: [], hover: null, options: DEFAULT_OPTIONS });
   editor.setTool(tool);
   return planId;
 }
@@ -127,7 +127,7 @@ describe('ferramentas de anotação na planta de área', () => {
     // Simula o projeto salvo antes das anotações por vista.
     s.exec({ type: 'updateAreaPlan', id: planId, patch: { annotations: undefined } });
     editor.load(s.project, 'teste.hestia.json');
-    activateView({ kind: 'plan', levelId: 'lv_0', planKind: 'area', areaPlanId: planId });
+    activateView({ kind: 'plan', viewId: planId });
     const plan = areaPlanOf(editor.project, planId)!;
     expect(plan.annotations).toBeDefined();
     expect(plan.annotations?.dimensions).toHaveLength(1);

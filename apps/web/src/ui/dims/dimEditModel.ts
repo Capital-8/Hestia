@@ -6,7 +6,7 @@ import { t, type Lang } from '../../editor/i18n.ts';
 export interface DimEditScope {
   view: string;
   levelId: Id;
-  areaPlanId: Id | null;
+  planViewId: Id;
   planKind: string;
   sectionId: Id | null;
 }
@@ -21,7 +21,7 @@ export function findEditDim(project: Project, scope: DimEditScope, id: Id): Foun
     return dim ? { dim, inSection: true, scale: 100 } : null;
   }
   // Vista exata: planta de área, cobertura (`pvr_`) ou, sem id, a planta de piso do nível.
-  const vistaId = scope.planKind === 'area' ? (scope.areaPlanId ?? undefined) : scope.planKind === 'roof' ? roofViewId(scope.levelId) : undefined;
+  const vistaId = scope.planKind === 'area' ? scope.planViewId : scope.planKind === 'roof' ? roofViewId(scope.levelId) : undefined;
   const va = anotacoesSelecionaveis(project, scope.levelId, vistaId);
   const dim = va.dimensions.find((d) => d.id === id);
   return dim ? { dim, inSection: false, scale: va.scale } : null;

@@ -2,16 +2,16 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { activeViewOf, addView, closeView, defaultOpenViews, hasView, levelToRelease, neighborOf, pruneViews, removeView, sameView, viewKey, type OpenView } from './openViews.ts';
 import { DEFAULT_OPEN_VIEWS, useUi } from './state.ts';
 
-const T0: OpenView = { kind: 'plan', levelId: 'lv_0' };
-const T1: OpenView = { kind: 'plan', levelId: 'lv_1' };
-const T2: OpenView = { kind: 'plan', levelId: 'lv_2' };
+const T0: OpenView = { kind: 'plan', viewId: 'pv_lv_0' };
+const T1: OpenView = { kind: 'plan', viewId: 'pv_lv_1' };
+const T2: OpenView = { kind: 'plan', viewId: 'pv_lv_2' };
 const V3D: OpenView = { kind: '3d' };
 const SEC: OpenView = { kind: 'section', viewId: 'sv_1' };
 const SHEET: OpenView = { kind: 'sheet', sheetId: 'sh_1' };
 
 describe('chave e comparação de vistas', () => {
   it('cada tipo de vista tem chave própria', () => {
-    expect(viewKey(T0)).toBe('plan:lv_0');
+    expect(viewKey(T0)).toBe('plan:pv_lv_0');
     expect(viewKey(V3D)).toBe('3d');
     expect(viewKey(SEC)).toBe('section:sv_1');
     expect(viewKey(SHEET)).toBe('sheet:sh_1');
@@ -19,7 +19,7 @@ describe('chave e comparação de vistas', () => {
 
   it('planta de nível diferente não é a mesma vista', () => {
     expect(sameView(T0, T1)).toBe(false);
-    expect(sameView(T0, { kind: 'plan', levelId: 'lv_0' })).toBe(true);
+    expect(sameView(T0, { kind: 'plan', viewId: 'pv_lv_0' })).toBe(true);
   });
 });
 
@@ -117,12 +117,12 @@ describe('vizinha, remoção e possibilidade de fechar', () => {
 
 describe('overflow e limpeza (pruneViews)', () => {
   it('mantém a ordem e tira as vistas que não existem mais', () => {
-    const live = pruneViews([T0, T1, T2, SEC], (v) => !(v.kind === 'plan' && v.levelId === 'lv_1') && v !== SEC);
+    const live = pruneViews([T0, T1, T2, SEC], (v) => !(v.kind === 'plan' && v.viewId === 'pv_lv_1') && v !== SEC);
     expect(live).toEqual([T0, T2]);
   });
 
   it('com muitas plantas, a lista cresce sem limite fixo e cada uma tem chave única', () => {
-    const many: OpenView[] = Array.from({ length: 10 }, (_, i) => ({ kind: 'plan' as const, levelId: `lv_${i}` }));
+    const many: OpenView[] = Array.from({ length: 10 }, (_, i) => ({ kind: 'plan' as const, viewId: `pv_lv_${i}` }));
     const keys = new Set(many.map(viewKey));
     expect(keys.size).toBe(10);
     expect(pruneViews(many, () => true)).toHaveLength(10);
@@ -152,12 +152,12 @@ describe('vista ativa (activeViewOf)', () => {
 });
 
 describe('planta de cobertura (planKind)', () => {
-  const R0: OpenView = { kind: 'plan', levelId: 'lv_0', planKind: 'roof' };
+  const R0: OpenView = { kind: 'plan', viewId: 'pvr_lv_0' };
 
   it('piso e cobertura do mesmo nível têm chaves diferentes; planKind ausente é piso', () => {
-    expect(viewKey(R0)).toBe('roof:lv_0');
-    expect(viewKey(T0)).toBe('plan:lv_0');
-    expect(viewKey({ kind: 'plan', levelId: 'lv_0', planKind: 'floor' })).toBe('plan:lv_0');
+    expect(viewKey(R0)).toBe('plan:pvr_lv_0');
+    expect(viewKey(T0)).toBe('plan:pv_lv_0');
+    expect(viewKey({ kind: 'plan', viewId: 'pv_lv_0' })).toBe('plan:pv_lv_0');
     expect(sameView(R0, T0)).toBe(false);
   });
 
@@ -182,7 +182,7 @@ describe('planta de cobertura (planKind)', () => {
 
 describe('padrão ao abrir o projeto (defaultOpenViews)', () => {
   it('abre só o primeiro nível do projeto', () => {
-    expect(defaultOpenViews(['lv_2', 'lv_0'])).toEqual([{ kind: 'plan', levelId: 'lv_2' }]);
+    expect(defaultOpenViews(['lv_2', 'lv_0'])).toEqual([{ kind: 'plan', viewId: 'pv_lv_2' }]);
   });
 
   it('sem níveis, usa o nível padrão', () => {
@@ -192,12 +192,12 @@ describe('padrão ao abrir o projeto (defaultOpenViews)', () => {
 
 describe('estado de vistas abertas no store (sessão)', () => {
   beforeEach(() => {
-    useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'floor', sectionId: null, sheetId: null, openViews: DEFAULT_OPEN_VIEWS.map((v) => ({ ...v })) });
+    useUi.setState({ view: 'plan', levelId: 'lv_0', planViewId: 'pv_lv_0', planKind: 'floor', sectionId: null, sheetId: null, openViews: DEFAULT_OPEN_VIEWS.map((v) => ({ ...v })) });
   });
 
   it('trocar o tipo da planta do mesmo nível abre a aba de cobertura ao lado da de piso', () => {
-    useUi.setState({ planKind: 'roof' });
-    expect(useUi.getState().openViews).toEqual([T0, { kind: 'plan', levelId: 'lv_0', planKind: 'roof' }]);
+    useUi.setState({ planKind: 'roof', planViewId: 'pvr_lv_0' });
+    expect(useUi.getState().openViews).toEqual([T0, { kind: 'plan', viewId: 'pvr_lv_0' }]);
   });
 
   it('o padrão ao abrir é só o nível ativo', () => {
@@ -205,13 +205,13 @@ describe('estado de vistas abertas no store (sessão)', () => {
   });
 
   it('mudar de nível abre a nova planta sem remover as já abertas', () => {
-    useUi.setState({ levelId: 'lv_1' });
+    useUi.setState({ levelId: 'lv_1', planViewId: 'pv_lv_1' });
     expect(useUi.getState().openViews).toEqual([T0, T1]);
   });
 
   it('voltar a um nível já aberto só ativa (não duplica)', () => {
-    useUi.setState({ levelId: 'lv_1' });
-    useUi.setState({ levelId: 'lv_0' });
+    useUi.setState({ levelId: 'lv_1', planViewId: 'pv_lv_1' });
+    useUi.setState({ levelId: 'lv_0', planViewId: 'pv_lv_0' });
     expect(useUi.getState().openViews).toEqual([T0, T1]);
   });
 

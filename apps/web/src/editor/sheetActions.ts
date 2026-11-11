@@ -1,4 +1,4 @@
-import { newSheetId, newViewportId, projectSheets, sectionPoints, sheetDimsMm, sheetInnerBox, sheetIssue, sheetOf, viewportAnchor, viewportIssue, type Command, type Id, type Project, type ProjectStore, type Sheet, type SheetViewport, type SheetViewSource } from '@hestia/model';
+import { normalizeSheetViewSource, newSheetId, planViewOf, sheetPlanViewOf, newViewportId, projectSheets, sectionPoints, sheetDimsMm, sheetInnerBox, sheetIssue, sheetOf, viewportAnchor, viewportIssue, type Command, type Id, type Project, type ProjectStore, type Sheet, type SheetViewport, type SheetViewSource } from '@hestia/model';
 import { buildSheetDrawList, levelBox, sectionBox, STAMP_W, stampHeightOf, type SheetDrawList } from '@hestia/render';
 import { computeSection } from '@hestia/engine';
 import { exportSheetsPdf } from '@hestia/io';
@@ -121,14 +121,17 @@ export function addViewAction(store: ProjectStore, sheetId: Id, view: SheetViewS
   if (!s) throw new Error(t(lang, 'cvs_sheet_missing_err'));
   const inner = sheetInnerBox(s);
   let vpScale = scale;
-  let size = view.kind === 'areaPlan' ? areaPlanSheetSize(store.project, view.planId, vpScale) : defaultViewSize(s, view);
-  if (view.kind === 'areaPlan' && (size.w > inner.x1 - inner.x0 || size.h > inner.y1 - inner.y0)) {
+  // Forma única: a fonte é normalizada na entrada; planta de área é a vista `area` (tamanho pelo conteúdo do nível).
+  const source = normalizeSheetViewSource(view);
+  const areaId = source.kind === 'plan' && planViewOf(store.project, source.viewId)?.kind === 'area' ? source.viewId : null;
+  let size = areaId ? areaPlanSheetSize(store.project, areaId, vpScale) : defaultViewSize(s, source);
+  if (areaId && (size.w > inner.x1 - inner.x0 || size.h > inner.y1 - inner.y0)) {
     const k = Math.min((inner.x1 - inner.x0) / size.w, (inner.y1 - inner.y0) / size.h);
     vpScale = Math.max(10, Math.round(scale * k));
-    size = areaPlanSheetSize(store.project, view.planId, vpScale);
+    size = areaPlanSheetSize(store.project, areaId, vpScale);
   }
   const at = freeSpot(s, size);
-  const vp: SheetViewport = { id: newViewportId(), view, at, size, scale: vpScale };
+  const vp: SheetViewport = { id: newViewportId(), view: source, at, size, scale: vpScale };
   store.exec({ type: 'addViewport', sheetId, viewport: vp }, t(lang, 'cvs_undo_add_view'));
   return vp.id;
 }
@@ -157,12 +160,8 @@ const LEVEL_BOX_PAD_M = 1;
 
 /** Caixa do conteúdo de uma vista em metros (largura × altura), ou null quando não há modelo a enquadrar. */
 export function viewContentBoxM(p: Project, view: SheetViewSource): { w: number; h: number } | null {
-  if (view.kind === 'plan') {
-    const b = levelBox(p, view.levelId);
-    return b ? { w: Math.max(0.1, b.maxX - b.minX - LEVEL_BOX_PAD_M), h: Math.max(0.1, b.maxY - b.minY - LEVEL_BOX_PAD_M) } : null;
-  }
-  if (view.kind === 'areaPlan') {
-    const plan = vistaDeArea(p, view.planId);
+  if (view.kind === 'plan' || view.kind === 'areaPlan') {
+    const plan = sheetPlanViewOf(p, view);
     const b = plan ? levelBox(p, plan.levelId) : null;
     return b ? { w: Math.max(0.1, b.maxX - b.minX - LEVEL_BOX_PAD_M), h: Math.max(0.1, b.maxY - b.minY - LEVEL_BOX_PAD_M) } : null;
   }

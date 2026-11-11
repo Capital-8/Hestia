@@ -1,10 +1,9 @@
-import { sheetOf, type Id, type Project } from '@hestia/model';
-import { vistaDeArea } from './vistaDeArea.ts';
+import { planViewOf, sheetOf, type Id, type Project } from '@hestia/model';
 import { planViewIdAtivo } from './vistaAtiva.ts';
 import { openAreaPlan } from './areaPlanActions.ts';
 import { editor } from './controller.ts';
 import { t, useI18n } from './i18n.ts';
-import { activeViewOf, addView, closeView, levelToRelease, planKindOf, planViewIdDaAba, removeView, type OpenView } from './openViews.ts';
+import { activeViewOf, addView, closeView, levelToRelease, removeView, type OpenView } from './openViews.ts';
 import { useUi } from './state.ts';
 
 /** Rótulo e ícone de uma aba; null quando a vista não existe mais no projeto (nível, corte ou prancha excluídos). */
@@ -12,14 +11,13 @@ export function tabOf(p: Project, v: OpenView): { icon: 'plan' | 'roof' | 'cube'
   const lang = useI18n.getState().lang;
   switch (v.kind) {
     case 'plan': {
-      const l = p.levels.find((x) => x.id === v.levelId);
-      if (!l) return null;
-      if (planKindOf(v) === 'area') {
-        const ap = vistaDeArea(p, v.areaPlanId);
-        return ap ? { icon: 'plan', label: ap.name } : null;
-      }
+      const pv = planViewOf(p, v.viewId);
+      const l = pv ? p.levels.find((x) => x.id === pv.levelId) : undefined;
+      if (!pv || !l) return null;
+      if (pv.kind === 'area') return { icon: 'plan', label: pv.name };
       // A aba de cobertura leva o nome do tipo, para não confundir com a planta de piso do mesmo nível.
-      return planKindOf(v) === 'roof' ? { icon: 'roof', label: t(lang, 'eds_tab_roof_plan', { name: l.name }) } : { icon: 'plan', label: l.name };
+      if (pv.kind === 'roof') return { icon: 'roof', label: t(lang, 'eds_tab_roof_plan', { name: l.name }) };
+      return pv.kind === 'floor' ? { icon: 'plan', label: l.name } : null;
     }
     case '3d':
       return { icon: 'cube', label: t(lang, 'eds_tab_3d_model') };
@@ -50,14 +48,12 @@ function releaseLevel(levelId: Id): void {
 function navega(v: OpenView): boolean {
   switch (v.kind) {
     case 'plan': {
-      const kind = planKindOf(v);
-      // Abrir pela aba/árvore também semeia as anotações de plantas antigas; sem isso o render mostra as do nível,
-      // mas as ferramentas com `planId` não encontram nada para selecionar.
-      if (kind === 'area' && v.areaPlanId) openAreaPlan(editor.store, v.areaPlanId);
-      else editor.selectLevel(v.levelId, kind, null);
+      const pv = planViewOf(editor.project, v.viewId);
+      // Abrir pela aba/árvore também semeia as anotações de plantas antigas (`openAreaPlan`).
+      if (pv?.kind === 'area') openAreaPlan(editor.store, pv.id);
+      else editor.selectPlanView(v.viewId);
       const s = useUi.getState();
-      const alvo = planViewIdDaAba(v);
-      return alvo !== null && s.view === 'plan' && s.levelId === v.levelId && planViewIdAtivo(s) === alvo;
+      return pv !== undefined && s.view === 'plan' && s.levelId === pv.levelId && planViewIdAtivo(s) === v.viewId;
     }
     case '3d':
       editor.setView('3d');

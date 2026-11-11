@@ -16,7 +16,7 @@ import { useRibbonCtx } from './ribbon/useCtx.ts';
 const QUICK: RibbonItem[] = [tool('measure', 'small'), tool('dimension', 'small'), tool('text', 'small'), act('view3d', 'small'), tool('section', 'small'), act('thinLines', 'small')];
 
 /** "Planta de piso: Térreo", "Planta de cobertura: Cobertura", "Vista 3D: Modelo 3D"… como o Revit mostra na barra de título. */
-function viewTitle(p: Project, view: string, levelId: string, sectionId: string | null, sheetId: string | null, lang: Lang, planKind: PlanKind, areaPlanId: string | null): string {
+function viewTitle(p: Project, view: string, levelId: string, sectionId: string | null, sheetId: string | null, lang: Lang, planKind: PlanKind, planViewId: string): string {
   if (view === '3d') return t(lang, 'shc_title_view_3d');
   if (view === 'section') {
     const v = p.views.find((x) => x.id === sectionId);
@@ -28,7 +28,7 @@ function viewTitle(p: Project, view: string, levelId: string, sectionId: string 
     return t(lang, 'shc_title_sheet', { name: sh ? `${sh.number} ${sh.name}` : '' });
   }
   if (planKind === 'area') {
-    const ap = areaPlanId ? planViewOf(p, areaPlanId) : undefined;
+    const ap = planViewOf(p, planViewId);
     return t(lang, 'shc_title_area_plan', { name: ap?.name ?? '' });
   }
   const key = planKind === 'roof' ? 'shc_title_roof_plan' : 'shc_title_floor_plan';
@@ -48,10 +48,10 @@ export function TitleBar(): ReactElement {
   const sectionId = useUi((s) => s.sectionId);
   const sheetId = useUi((s) => s.sheetId);
   const planKind = useUi((s) => s.planKind);
-  const areaPlanId = useUi((s) => s.areaPlanId);
+  const planViewId = useUi((s) => s.planViewId);
   const fileRef = useRef<HTMLInputElement>(null);
   const store = editor.store;
-  const title = `Hestia - [${project.name}${store.dirty ? ' *' : ''}] - ${viewTitle(project, ctx.view, ctx.levelId, sectionId, sheetId, lang, planKind, areaPlanId)}`;
+  const title = `Hestia - [${project.name}${store.dirty ? ' *' : ''}] - ${viewTitle(project, ctx.view, ctx.levelId, sectionId, sheetId, lang, planKind, planViewId)}`;
   const open = t('btn_open');
   const save = t('btn_save');
   const undo = t('btn_undo');

@@ -35,7 +35,7 @@ function projeto(): ProjectStore {
 /** Abre a planta de piso no controlador, com a ferramenta Selecionar. */
 function iniciarPlanta(): void {
   editor.load(projeto().project, 'teste.hestia.json');
-  useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'floor', areaPlanId: null, selection: [], hover: null, options: DEFAULT_OPTIONS });
+  useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'floor', planViewId: 'pv_lv_0', selection: [], hover: null, options: DEFAULT_OPTIONS });
   editor.setTool('select');
 }
 

@@ -35,7 +35,7 @@ const piso = { view: 'plan', planKind: 'floor', areaPlanId: null } as const;
 const cobertura = { view: 'plan', planKind: 'roof', areaPlanId: null } as const;
 
 beforeEach(() => useUi.setState({ options: DEFAULT_OPTIONS, tool: 'select', status: '', viewTemp: {}, selection: [] }));
-afterEach(() => useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', areaPlanId: null, sectionId: null, viewTemp: {}, selection: [] }));
+afterEach(() => useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', planViewId: 'pv_lv_0', sectionId: null, viewTemp: {}, selection: [] }));
 
 describe('permissão de ferramenta pela tabela (setTool)', () => {
   const ir = (estado: Partial<ReturnType<typeof useUi.getState>>): void => {
@@ -59,7 +59,7 @@ describe('permissão de ferramenta pela tabela (setTool)', () => {
   it('planta de área recusa parede e avisa; aceita anotação e ambiente', () => {
     const { project, planId } = montar();
     editor.load(project, 'teste.hestia.json');
-    useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', areaPlanId: planId, selection: [], tool: 'select', status: '' });
+    useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', planViewId: planId, selection: [], tool: 'select', status: '' });
     editor.setTool('wall');
     expect(useUi.getState().tool).toBe('select');
     expect(useUi.getState().status).toEqual({ key: 'eds_msg_area_tools_only' });
@@ -72,7 +72,7 @@ describe('permissão de ferramenta pela tabela (setTool)', () => {
   it('3D com planta de área "de fundo" não restringe (só a planta ativa decide)', () => {
     const { project, planId } = montar();
     editor.load(project, 'teste.hestia.json');
-    useUi.setState({ view: '3d', levelId: 'lv_0', planKind: 'area', areaPlanId: planId, selection: [], tool: 'select', status: '' });
+    useUi.setState({ view: '3d', levelId: 'lv_0', planKind: 'area', planViewId: planId, selection: [], tool: 'select', status: '' });
     editor.setTool('wall');
     expect(useUi.getState().tool).toBe('wall');
   });
@@ -80,7 +80,7 @@ describe('permissão de ferramenta pela tabela (setTool)', () => {
   it('corte com planta de área "de fundo" continua restrito pela tabela da área (comportamento antigo)', () => {
     const { project, planId } = montar();
     editor.load(project, 'teste.hestia.json');
-    useUi.setState({ view: 'section', sectionId: null, levelId: 'lv_0', planKind: 'area', areaPlanId: planId, selection: [], tool: 'select', status: '' });
+    useUi.setState({ view: 'section', sectionId: null, levelId: 'lv_0', planKind: 'area', planViewId: planId, selection: [], tool: 'select', status: '' });
     editor.setTool('wall');
     expect(useUi.getState().status).toEqual({ key: 'eds_msg_area_tools_only' });
   });
@@ -97,7 +97,7 @@ describe('comando de anotação emitido pelo editor, por viewId', () => {
   it('planta de área: grava em plan.annotations (igual ao comando antigo com planId), não no nível', () => {
     const { project, planId } = montar();
     editor.load(project, 'teste.hestia.json');
-    useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', areaPlanId: planId });
+    useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', planViewId: planId });
     const antes = editor.project;
     editor.applyCommand({ type: 'addText', levelId: 'lv_0', text: nota('t1') });
     const velho = esperado(antes, { type: 'addText', levelId: 'lv_0', planId, text: nota('t1') });
@@ -122,7 +122,7 @@ describe('comando de anotação emitido pelo editor, por viewId', () => {
   it('comando que já traz planId ou viewId não é reescrito', () => {
     const { project, planId } = montar();
     editor.load(project, 'teste.hestia.json');
-    useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', areaPlanId: planId });
+    useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', planViewId: planId });
     editor.applyCommand({ type: 'addText', levelId: 'lv_0', viewId: floorViewId('lv_0'), text: nota('t3') });
     expect(viewAnnotationsOf(editor.project, floorViewId('lv_0')).texts.map((t) => t.id)).toEqual(['t3']);
     expect(areaPlanOf(editor.project, planId)!.annotations?.texts ?? []).toHaveLength(0);
@@ -131,7 +131,7 @@ describe('comando de anotação emitido pelo editor, por viewId', () => {
   it('cotas automáticas na planta de área entram na vista (viewId), no mesmo passo de desfazer', () => {
     const { project, planId } = montar();
     editor.load(project, 'teste.hestia.json');
-    useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', areaPlanId: planId });
+    useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', planViewId: planId });
     editor.cotasAutomaticasDaPlanta();
     const n = areaPlanOf(editor.project, planId)!.annotations?.dimensions.length ?? 0;
     expect(n).toBeGreaterThan(0);
@@ -168,7 +168,7 @@ describe('ocultar e reexibir na vista, por viewId', () => {
   it('planta de área: grava em hidden da vista de área e não toca nas vistas do nível', () => {
     const { project, planId } = montar();
     editor.load(project, 'teste.hestia.json');
-    useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', areaPlanId: planId });
+    useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', planViewId: planId });
     expect(viewHiddenTargetOf(useUi.getState(), editor.project)).toEqual({ kind: 'area', planId });
     hideInView(['w0']);
     expect(areaPlanOf(editor.project, planId)!.hidden?.elements).toEqual(['w0']);
@@ -181,7 +181,7 @@ describe('ocultar e reexibir na vista, por viewId', () => {
   it('vista que não existe no projeto: o alvo cai no tipo da vista ativa, sem lançar', () => {
     const { project } = montar();
     editor.load(project, 'teste.hestia.json');
-    useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', areaPlanId: 'ap_inexistente' });
+    useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', planViewId: 'ap_inexistente' });
     expect(viewHiddenTargetOf(useUi.getState(), editor.project)).toEqual({ kind: 'area', planId: 'ap_inexistente' });
   });
 });
@@ -215,6 +215,6 @@ describe('seletores acrescentados em vistaAtiva e openViews', () => {
   });
 
   it('visibilityKeyOf continua com os mesmos prefixos', () => {
-    expect(visibilityKeyOf({ view: 'plan', levelId: 'lv_0', planKind: 'area', areaPlanId: null, sectionId: null })).toBeNull();
+    expect(visibilityKeyOf({ view: 'plan', levelId: 'lv_0', planKind: 'area', areaPlanId: null, sectionId: null } as never)).toBeNull();
   });
 });

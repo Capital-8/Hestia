@@ -46,7 +46,7 @@ function montar(): { project: Project; ap1: Id; ap2: Id } {
 
 const ir = (viewId: Id | null, planKind: 'floor' | 'roof' | 'area', ap: { ap1: Id; ap2: Id; project: Project }): void => {
   editor.load(ap.project, 'teste.hestia.json');
-  useUi.setState({ view: 'plan', levelId: 'lv_0', planKind, areaPlanId: planKind === 'area' ? viewId : null, selection: [], hover: null, sectionId: null, options: DEFAULT_OPTIONS });
+  useUi.setState({ view: 'plan', levelId: 'lv_0', planKind, planViewId: planKind === 'area' ? (viewId as string) : planKind === 'roof' ? 'pvr_lv_0' : 'pv_lv_0', selection: [], hover: null, sectionId: null, options: DEFAULT_OPTIONS });
 };
 
 const cota = (id: string, y = -6): Dimension => ({ id, a: { x: 0, y }, b: { x: 4, y }, offset: 1, mode: 'aligned' });
@@ -92,7 +92,7 @@ describe('controlador injeta a vista ativa no comando de anotação', () => {
     const m = montar();
     ir(m.ap1, 'area', m);
     criarTudo('1');
-    useUi.setState({ areaPlanId: m.ap2 });
+    useUi.setState({ planViewId: m.ap2 });
     criarTudo('2');
     expect(ids(m.ap1)).toEqual(['d1', 'g1', 'l1', 't1']);
     expect(ids(m.ap2)).toEqual(['d2', 'g2', 'l2', 't2']);
@@ -179,7 +179,7 @@ describe('seleção, exclusão e etiquetas na vista ativa', () => {
     const m = montar();
     ir(m.ap1, 'area', m);
     criarTudo('1');
-    useUi.setState({ areaPlanId: m.ap2 });
+    useUi.setState({ planViewId: m.ap2 });
     criarTudo('2');
     editor.setTool('select');
     cliqueMouse(2, -5);

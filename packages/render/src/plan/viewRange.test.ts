@@ -9,7 +9,7 @@ import { defaultPaint } from './style.ts';
 
 /** Espessura de corte da escada no zoom dos testes (100 px/m, 1:100): antes, 1,4 px fixos. */
 const RISER_PX = defaultPaint('stair', 100).cutPx;
-import { hiddenSelectionOps, planViewOf } from './view.ts';
+import { hiddenSelectionOps, resolvedPlanViewOf } from './view.ts';
 import { DARK, LIGHT, type PlanTheme, type StrokeOp } from './types.ts';
 import type { Viewport } from '../viewport.ts';
 
@@ -295,7 +295,7 @@ describe('seleção de elemento oculto: contorno fantasma (decisão 0013 §4)', 
   /** Planta como a tela a monta: a lista de desenho mais o contorno fantasma dos selecionados fora do intervalo. */
   const drawSel = (p: Project, sel: Id[], theme: PlanTheme = LIGHT) => {
     const dl = draw(p, { selection: sel, theme });
-    return { ...dl, strokes: [...dl.strokes, ...hiddenSelectionOps(p, 'lv_0', planViewOf(p, 'lv_0'), sel, theme)] };
+    return { ...dl, strokes: [...dl.strokes, ...hiddenSelectionOps(p, 'lv_0', resolvedPlanViewOf(p, 'lv_0'), sel, theme)] };
   };
   /** Traços do fantasma: tracejado de 5 px na cor de seleção (o destaque comum não é tracejado). */
   const ghosts = (dl: DrawList): StrokeOp[] => dl.strokes.filter((s) => s.closed && s.dash?.[0] === 5);
@@ -388,7 +388,7 @@ describe('seleção de elemento oculto: contorno fantasma (decisão 0013 §4)', 
     const p = scene();
     const hiddenIds = viewRangeWarnings(p, 'lv_0', viewRangeOf(p, 'lv_0')).filter((w) => w.kind === 'hidden').flatMap((w) => w.ids);
     expect(hiddenIds.sort()).toEqual(['j_240', 'l_alta', 'r', 'w_oculta']);
-    expect(hiddenSelectionOps(p, 'lv_0', planViewOf(p, 'lv_0'), hiddenIds, LIGHT)).toHaveLength(hiddenIds.length);
+    expect(hiddenSelectionOps(p, 'lv_0', resolvedPlanViewOf(p, 'lv_0'), hiddenIds, LIGHT)).toHaveLength(hiddenIds.length);
   });
 
   it('tema escuro: o fantasma usa a cor de seleção do tema escuro', () => {
@@ -398,13 +398,13 @@ describe('seleção de elemento oculto: contorno fantasma (decisão 0013 §4)', 
 
   it('redesenho com o mesmo projeto, vista e seleção: o contorno fantasma não é refeito (memo por vista)', () => {
     const p = scene();
-    const view = planViewOf(p, 'lv_0');
+    const view = resolvedPlanViewOf(p, 'lv_0');
     const first = hiddenSelectionOps(p, 'lv_0', view, ['w_oculta'], LIGHT);
     expect(hiddenSelectionOps(p, 'lv_0', view, ['w_oculta'], LIGHT)).toBe(first);
     // outra seleção ou outra cor é outro resultado; e uma edição (outro projeto, outra vista) não reaproveita
     expect(hiddenSelectionOps(p, 'lv_0', view, ['w_oculta', 'j_240'], LIGHT)).not.toBe(first);
     expect(hiddenSelectionOps(p, 'lv_0', view, ['w_oculta'], DARK)).not.toEqual(first);
     const edited = scene();
-    expect(hiddenSelectionOps(edited, 'lv_0', planViewOf(edited, 'lv_0'), ['w_oculta'], LIGHT)).not.toBe(first);
+    expect(hiddenSelectionOps(edited, 'lv_0', resolvedPlanViewOf(edited, 'lv_0'), ['w_oculta'], LIGHT)).not.toBe(first);
   });
 });

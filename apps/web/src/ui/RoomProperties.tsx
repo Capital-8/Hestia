@@ -1,5 +1,6 @@
 import { useMemo, type ReactElement } from 'react';
 import { resolveRooms, type ResolvedRoom } from '@hestia/engine';
+import { areaViewIdAtivo } from '../editor/vistaAtiva.ts';
 import { areaPlanOf, DEFAULT_ROOM_CATEGORIES, roomCeilingHeight, type AreaPlan, type Id, type Project, type Room, type RoomTag, type TagField } from '@hestia/model';
 import { ensureRoomTagAction, removeRoomTagAction, updateRoomTagAction, type RoomTagPatch } from '../editor/areaPlanActions.ts';
 import { editor, useProject } from '../editor/controller.ts';
@@ -139,7 +140,7 @@ export function RoomProperties({ rooms }: { rooms: Room[] }): ReactElement {
   const { t, lang } = useT();
   const p: Project = useProject();
   // Planta de área ativa: a etiqueta da vista só aparece nesse contexto.
-  const areaPlanId = useUi((s) => (s.view === 'plan' && s.planKind === 'area' ? s.areaPlanId : null));
+  const areaPlanId = useUi((s) => areaViewIdAtivo(s));
   const areaPlan = areaPlanId ? areaPlanOf(p, areaPlanId) : undefined;
   const ids = rooms.map((r) => r.id);
   const name = common(rooms, (r) => r.name);
