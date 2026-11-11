@@ -1,0 +1,342 @@
+[
+  {
+    "pt": "Modelo",
+    "en": "Model"
+  },
+  {
+    "pt": "Texto do modelo",
+    "en": "Model Text"
+  },
+  {
+    "pt": "Linha de modelo",
+    "en": "Model Line"
+  },
+  {
+    "pt": "Grupo de modelo",
+    "en": "Model Group"
+  },
+  {
+    "pt": "Ambiente e área",
+    "en": "Room & Area"
+  },
+  {
+    "pt": "Etiquetar ambiente",
+    "en": "Tag Room"
+  },
+  {
+    "pt": "Abertura",
+    "en": "Opening"
+  },
+  {
+    "pt": "Por face",
+    "en": "By Face"
+  },
+  {
+    "pt": "Poço",
+    "en": "Shaft"
+  },
+  {
+    "pt": "Parede",
+    "en": "Wall"
+  },
+  {
+    "pt": "Vertical",
+    "en": "Vertical"
+  },
+  {
+    "pt": "Água-furtada",
+    "en": "Dormer"
+  },
+  {
+    "pt": "Referência",
+    "en": "Datum"
+  },
+  {
+    "pt": "Plano de trabalho",
+    "en": "Work Plane"
+  },
+  {
+    "pt": "Definir",
+    "en": "Set"
+  },
+  {
+    "pt": "Exibir",
+    "en": "Show"
+  },
+  {
+    "pt": "Plano de referência",
+    "en": "Ref Plane"
+  },
+  {
+    "pt": "Visualizador",
+    "en": "Viewer"
+  },
+  {
+    "pt": "Anotar",
+    "en": "Annotate"
+  },
+  {
+    "pt": "Cota",
+    "en": "Dimension"
+  },
+  {
+    "pt": "Alinhada",
+    "en": "Aligned"
+  },
+  {
+    "pt": "Angular",
+    "en": "Angular"
+  },
+  {
+    "pt": "Cota de elevação",
+    "en": "Spot Elevation"
+  },
+  {
+    "pt": "Coordenada de ponto",
+    "en": "Spot Coordinate"
+  },
+  {
+    "pt": "Detalhe",
+    "en": "Detail"
+  },
+  {
+    "pt": "Componente de detalhe",
+    "en": "Detail Component"
+  },
+  {
+    "pt": "Nuvem de revisão",
+    "en": "Revision Cloud"
+  },
+  {
+    "pt": "Texto",
+    "en": "Text"
+  },
+  {
+    "pt": "Verificar ortografia",
+    "en": "Spelling"
+  },
+  {
+    "pt": "Localizar/substituir",
+    "en": "Find/Replace"
+  },
+  {
+    "pt": "Etiqueta",
+    "en": "Tag"
+  },
+  {
+    "pt": "Etiquetar por categoria",
+    "en": "Tag by Category"
+  },
+  {
+    "pt": "Símbolo",
+    "en": "Symbol"
+  },
+  {
+    "pt": "Seta norte",
+    "en": "North Arrow"
+  },
+  {
+    "pt": "Caminho da escada",
+    "en": "Stair Path"
+  },
+  {
+    "pt": "Gráficos",
+    "en": "Graphics"
+  },
+  {
+    "pt": "Modelos de vista",
+    "en": "View Templates"
+  },
+  {
+    "pt": "Filtros",
+    "en": "Filters"
+  },
+  {
+    "pt": "Mostrar linhas ocultas",
+    "en": "Show Hidden Lines"
+  },
+  {
+    "pt": "Remover linhas ocultas",
+    "en": "Remove Hidden Lines"
+  },
+  {
+    "pt": "Apresentação",
+    "en": "Presentation"
+  },
+  {
+    "pt": "Renderizar",
+    "en": "Render"
+  },
+  {
+    "pt": "Galeria de renderização",
+    "en": "Render Gallery"
+  },
+  {
+    "pt": "Chamada",
+    "en": "Callout"
+  },
+  {
+    "pt": "Gerar 4 elevações",
+    "en": "Generate 4 Elevations"
+  },
+  {
+    "pt": "Elevação (quadro)",
+    "en": "Elevation (Frame)"
+  },
+  {
+    "pt": "Vistas de planta",
+    "en": "Plan Views"
+  },
+  {
+    "pt": "Vista de desenho",
+    "en": "Drafting View"
+  },
+  {
+    "pt": "Legendas",
+    "en": "Legends"
+  },
+  {
+    "pt": "Tabelas",
+    "en": "Schedules"
+  },
+  {
+    "pt": "Composição de pranchas",
+    "en": "Sheet Composition"
+  },
+  {
+    "pt": "Linhas de correspondência",
+    "en": "Matchline"
+  },
+  {
+    "pt": "Alternar janelas",
+    "en": "Switch Windows"
+  },
+  {
+    "pt": "Fechar ocultas",
+    "en": "Close Hidden"
+  },
+  {
+    "pt": "Janelas em cascata",
+    "en": "Cascade"
+  },
+  {
+    "pt": "Lado a lado",
+    "en": "Tile"
+  },
+  {
+    "pt": "Interface do usuário",
+    "en": "User Interface"
+  },
+  {
+    "pt": "Gerenciar",
+    "en": "Manage"
+  },
+  {
+    "pt": "Configurações",
+    "en": "Settings"
+  },
+  {
+    "pt": "Estilos de objeto",
+    "en": "Object Styles"
+  },
+  {
+    "pt": "Informações do projeto",
+    "en": "Project Information"
+  },
+  {
+    "pt": "Parâmetros do projeto",
+    "en": "Project Parameters"
+  },
+  {
+    "pt": "Transferir padrões",
+    "en": "Transfer Standards"
+  },
+  {
+    "pt": "Limpar não usados",
+    "en": "Purge Unused"
+  },
+  {
+    "pt": "Gerenciar projeto",
+    "en": "Manage Project"
+  },
+  {
+    "pt": "Gerenciar links",
+    "en": "Manage Links"
+  },
+  {
+    "pt": "Gerenciar imagens",
+    "en": "Manage Images"
+  },
+  {
+    "pt": "Vista inicial",
+    "en": "Starting View"
+  },
+  {
+    "pt": "Fases",
+    "en": "Phasing"
+  },
+  {
+    "pt": "Consulta",
+    "en": "Inquiry"
+  },
+  {
+    "pt": "Selecionar por ID",
+    "en": "Select by ID"
+  },
+  {
+    "pt": "Macros",
+    "en": "Macros"
+  },
+  {
+    "pt": "Gerenciador de macros",
+    "en": "Macro Manager"
+  },
+  {
+    "pt": "Inserir",
+    "en": "Insert"
+  },
+  {
+    "pt": "Vincular",
+    "en": "Link"
+  },
+  {
+    "pt": "Vincular Revit",
+    "en": "Link Revit"
+  },
+  {
+    "pt": "Vincular IFC",
+    "en": "Link IFC"
+  },
+  {
+    "pt": "Vincular CAD",
+    "en": "Link CAD"
+  },
+  {
+    "pt": "Topografia",
+    "en": "Topography"
+  },
+  {
+    "pt": "Nuvem de pontos",
+    "en": "Point Cloud"
+  },
+  {
+    "pt": "Importar",
+    "en": "Import"
+  },
+  {
+    "pt": "Importar PDF",
+    "en": "Import PDF"
+  },
+  {
+    "pt": "Imagem",
+    "en": "Image"
+  },
+  {
+    "pt": "Carregar da biblioteca",
+    "en": "Load from Library"
+  },
+  {
+    "pt": "Carregar família",
+    "en": "Load Family"
+  }
+]

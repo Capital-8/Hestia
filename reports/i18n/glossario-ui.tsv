@@ -1,0 +1,90 @@
+pt	en	es	de	fr	it	pl
+Arquivo	File	Archivo	Datei	Fichier	File	Plik
+Nível	Level	Nivel	Ebene	Niveau	Livello	Poziom
+Prancha	Sheet	Plano	Plan	Feuille	Foglio	Arkusz
+Vista	View	Vista	Ansicht	Vue	Vista	Widok
+Ambiente	Room	Ambiente	Raum	Pièce	Locale	Pomieszczenie
+Área	Area	Área	Fläche	Surface	Area	Powierzchnia
+Parede	Wall	Pared	Wand	Mur	Parete	Ściana
+Porta	Door	Puerta	Tür	Porte	Porta	Drzwi
+Janela	Window	Ventana	Fenster	Fenêtre	Finestra	Okno
+Piso	Floor	Suelo	Boden	Sol	Pavimento	Podłoga
+Laje	Slab	Losa	Decke	Dalle	Soletta	Strop
+Forro	Ceiling	Techo	Decke	Plafond	Soffitto	Sufit
+Telhado	Roof	Tejado	Dach	Toit	Tetto	Dach
+Escada	Stair	Escalera	Treppe	Escalier	Scala	Schody
+Rampa	Ramp	Rampa	Rampe	Rampe	Rampa	Rampa
+Grade	Grid	Rejilla	Raster	Grille	Griglia	Siatka
+Cota	Dimension	Cota	Maß	Cote	Quota	Wymiar
+Etiqueta	Tag	Etiqueta	Beschriftung	Étiquette	Etichetta	Etykieta
+Texto	Text	Texto	Text	Texte	Testo	Tekst
+Material	Material	Material	Material	Matériau	Materiale	Materiał
+Tipo	Type	Tipo	Typ	Type	Tipo	Typ
+Instância	Instance	Instancia	Exemplar	Occurrence	Istanza	Egzemplarz
+Família	Family	Familia	Familie	Famille	Famiglia	Rodzina
+Categoria	Category	Categoría	Kategorie	Catégorie	Categoria	Kategoria
+Propriedades	Properties	Propiedades	Eigenschaften	Propriétés	Proprietà	Właściwości
+Configurações	Settings	Configuración	Einstellungen	Paramètres	Impostazioni	Ustawienia
+Opções	Options	Opciones	Optionen	Options	Opzioni	Opcje
+Cancelar	Cancel	Cancelar	Abbrechen	Annuler	Annulla	Anuluj
+Aplicar	Apply	Aplicar	Anwenden	Appliquer	Applica	Zastosuj
+Fechar	Close	Cerrar	Schließen	Fermer	Chiudi	Zamknij
+Salvar	Save	Guardar	Speichern	Enregistrer	Salva	Zapisz
+Abrir	Open	Abrir	Öffnen	Ouvrir	Apri	Otwórz
+Exportar	Export	Exportar	Exportieren	Exporter	Esporta	Eksportuj
+Importar	Import	Importar	Importieren	Importer	Importa	Importuj
+Mover	Move	Mover	Verschieben	Déplacer	Sposta	Przenieś
+Copiar	Copy	Copiar	Kopieren	Copier	Copia	Kopiuj
+Colar	Paste	Pegar	Einfügen	Coller	Incolla	Wklej
+Rotacionar	Rotate	Rotar	Drehen	Faire pivoter	Ruota	Obróć
+Espelhar	Mirror	Simetría	Spiegeln	Symétrie	Simmetria	Lustrzane odbicie
+Alinhar	Align	Alinear	Ausrichten	Aligner	Allinea	Wyrównaj
+Agrupar	Group	Agrupar	Gruppieren	Grouper	Raggruppa	Grupuj
+Desfazer	Undo	Deshacer	Rückgängig	Annuler	Annulla	Cofnij
+Refazer	Redo	Rehacer	Wiederholen	Rétablir	Ripeti	Ponów
+Excluir	Delete	Eliminar	Löschen	Supprimer	Elimina	Usuń
+Selecionar	Select	Seleccionar	Auswählen	Sélectionner	Seleziona	Wybierz
+Duplicar	Duplicate	Duplicar	Duplizieren	Dupliquer	Duplica	Duplikuj
+Medir	Measure	Medir	Messen	Mesurer	Misura	Zmierz
+Desenhar	Draw	Dibujar	Zeichnen	Dessiner	Disegna	Rysuj
+Concluir	Finish	Finalizar	Fertig stellen	Terminer	Fine	Zakończ
+Altura	Height	Altura	Höhe	Hauteur	Altezza	Wysokość
+Largura	Width	Anchura	Breite	Largeur	Larghezza	Szerokość
+Comprimento	Length	Longitud	Länge	Longueur	Lunghezza	Długość
+Espessura	Thickness	Espesor	Dicke	Épaisseur	Spessore	Grubość
+Ângulo	Angle	Ángulo	Winkel	Angle	Angolo	Kąt
+Volume	Volume	Volumen	Volumen	Volume	Volume	Objętość
+Perímetro	Perimeter	Perímetro	Umfang	Périmètre	Perimetro	Obwód
+Projeto	Project	Proyecto	Projekt	Projet	Progetto	Projekt
+Planta	Plan	Planta	Plan	Plan	Pianta	Rzut
+Corte	Section	Sección	Schnitt	Coupe	Sezione	Przekrój
+Elevação	Elevation	Alzado	Ansicht	Élévation	Prospetto	Elewacja
+Vista 3D	3D View	Vista 3D	3D-Ansicht	Vue 3D	Vista 3D	Widok 3D
+Tabela	Schedule	Tabla	Tabelle	Tableau	Tabella	Zestawienie
+Escala	Scale	Escala	Maßstab	Échelle	Scala	Skala
+Norte	North	Norte	Norden	Nord	Nord	Północ
+Orientação	Orientation	Orientación	Ausrichtung	Orientation	Orientamento	Orientacja
+Prévia	Preview	Vista previa	Vorschau	Aperçu	Anteprima	Podgląd
+Modo	Mode	Modo	Modus	Mode	Modalità	Tryb
+Destino	Target	Destino	Ziel	Destination	Destinazione	Docelowy
+Total	Total	Total	Gesamt	Total	Totale	Razem
+Cópias	Copies	Copias	Kopien	Copies	Copie	Kopie
+Em breve	Soon	Próximamente	Demnächst	Bientôt	Presto	Wkrótce
+Não disponível	Not available	No disponible	Nicht verfügbar	Non disponible	Non disponibile	Niedostępne
+Não se aplica	Not applicable	No se aplica	Nicht zutreffend	Non applicable	Non applicabile	Nie dotyczy
+Inverter sentido	Flip Facing	Invertir orientación	Ausrichtung umkehren	Inverser le sens	Inverti orientamento	Odwróć orientację
+Inverter dobradiça	Flip Hand	Invertir mano	Seite wechseln	Inverser la main	Inverti mano	Odwróć stronę
+Faixa	Ribbon	Cinta de opciones	Multifunktionsleiste	Ruban	Barra multifunzione	Wstęga
+Aba	Tab	Pestaña	Registerkarte	Onglet	Scheda	Karta
+Painel	Panel	Panel	Bereich	Panneau	Riquadro	Panel
+Ocultar	Hide	Ocultar	Ausblenden	Masquer	Nascondi	Ukryj
+Reexibir	Unhide	Mostrar	Einblenden	Afficher	Mostra	Pokaż
+Isolar	Isolate	Aislar	Isolieren	Isoler	Isola	Izoluj
+Restaurar	Reset	Restablecer	Zurücksetzen	Réinitialiser	Reimposta	Resetuj
+Seleção	Selection	Selección	Auswahl	Sélection	Selezione	Wybór
+Nenhum	None	Ninguno	Keine	Aucun	Nessuno	Brak
+Criar	Create	Crear	Erstellen	Créer	Crea	Utwórz
+Novo	New	Nuevo	Neu	Nouveau	Nuovo	Nowy
+Adicionar	Add	Añadir	Hinzufügen	Ajouter	Aggiungi	Dodaj
+Remover	Remove	Quitar	Entfernen	Supprimer	Rimuovi	Usuń
+Editar	Edit	Editar	Bearbeiten	Modifier	Modifica	Edytuj

@@ -1,0 +1,461 @@
+[
+  {
+    "pt": "Porta 120 x 210 pivotante",
+    "en": "Pivot Door 120 x 210",
+    "es": "Puerta pivotante 120 x 210",
+    "de": "Drehtür mit Drehpunkt 120 x 210",
+    "fr": "Porte pivotante 120 x 210",
+    "it": "Porta a perno 120 x 210",
+    "pl": "Drzwi obrotowe 120 x 210"
+  },
+  {
+    "pt": "Janela de abrir + fixa + abrir",
+    "en": "Casement + Fixed + Casement",
+    "es": "Practicable + fija + practicable",
+    "de": "Drehfenster + fest + Drehfenster",
+    "fr": "Ouvrant + fixe + ouvrant",
+    "it": "Battente + fisso + battente",
+    "pl": "Rozwierne + stałe + rozwierne"
+  },
+  {
+    "pt": "Janela com bandeira fixa superior",
+    "en": "Window with Fixed Transom",
+    "es": "Ventana con banderola fija superior",
+    "de": "Fenster mit festem Oberlicht",
+    "fr": "Fenêtre avec imposte fixe",
+    "it": "Finestra con sopraluce fisso",
+    "pl": "Okno z naświetlem stałym"
+  },
+  {
+    "pt": "Janela de banheiro (peitoril alto)",
+    "en": "Bathroom Window (High Sill)",
+    "es": "Ventana de baño (alféizar alto)",
+    "de": "Badezimmerfenster (hohe Brüstung)",
+    "fr": "Fenêtre de salle de bain (allège haute)",
+    "it": "Finestra del bagno (davanzale alto)",
+    "pl": "Okno łazienkowe (wysoki parapet)"
+  },
+  {
+    "pt": "fixa + abrir embaixo",
+    "en": "Fixed + Bottom Casement",
+    "es": "fija + practicable inferior",
+    "de": "fest + unterer Drehflügel",
+    "fr": "fixe + ouvrant inférieur",
+    "it": "fisso + battente inferiore",
+    "pl": "stałe + rozwierne dolne"
+  },
+  {
+    "pt": "fixa + abrir",
+    "en": "Fixed + Casement",
+    "es": "fija + practicable",
+    "de": "fest + Drehflügel",
+    "fr": "fixe + ouvrant",
+    "it": "fisso + battente",
+    "pl": "stałe + rozwierne"
+  },
+  {
+    "pt": "fixa + correr",
+    "en": "Fixed + Sliding",
+    "es": "fija + corredera",
+    "de": "fest + Schiebeflügel",
+    "fr": "fixe + coulissant",
+    "it": "fisso + scorrevole",
+    "pl": "stałe + przesuwne"
+  },
+  {
+    "pt": "com bandeira fixa",
+    "en": "with Fixed Transom",
+    "es": "con banderola fija",
+    "de": "mit festem Oberlicht",
+    "fr": "avec imposte fixe",
+    "it": "con sopraluce fisso",
+    "pl": "z naświetlem stałym"
+  },
+  {
+    "pt": "e 2 laterais",
+    "en": "and 2 Sidelights",
+    "es": "y 2 laterales",
+    "de": "und 2 Seitenteile",
+    "fr": "et 2 panneaux latéraux",
+    "it": "e 2 laterali",
+    "pl": "i 2 doświetla boczne"
+  },
+  {
+    "pt": "com lateral fixa esquerda",
+    "en": "with Fixed Left Sidelight",
+    "es": "con lateral fijo izquierdo",
+    "de": "mit festem linkem Seitenteil",
+    "fr": "avec panneau latéral fixe gauche",
+    "it": "con laterale fisso sinistro",
+    "pl": "z lewym stałym doświetlem"
+  },
+  {
+    "pt": "com lateral fixa direita",
+    "en": "with Fixed Right Sidelight",
+    "es": "con lateral fijo derecho",
+    "de": "mit festem rechtem Seitenteil",
+    "fr": "avec panneau latéral fixe droit",
+    "it": "con laterale fisso destro",
+    "pl": "z prawym stałym doświetlem"
+  },
+  {
+    "pt": "com 2 laterais fixas",
+    "en": "with 2 Fixed Sidelights",
+    "es": "con 2 laterales fijos",
+    "de": "mit 2 festen Seitenteilen",
+    "fr": "avec 2 panneaux latéraux fixes",
+    "it": "con 2 laterali fissi",
+    "pl": "z 2 stałymi doświetlami"
+  },
+  {
+    "pt": "com painel cego lateral",
+    "en": "with Blank Side Panel",
+    "es": "con panel ciego lateral",
+    "de": "mit blindem Seitenteil",
+    "fr": "avec panneau latéral plein",
+    "it": "con pannello cieco laterale",
+    "pl": "z bocznym panelem pełnym"
+  },
+  {
+    "pt": "Porta corta-fogo",
+    "en": "Fire Door",
+    "es": "Puerta cortafuegos",
+    "de": "Brandschutztür",
+    "fr": "Porte coupe-feu",
+    "it": "Porta tagliafuoco",
+    "pl": "Drzwi przeciwpożarowe"
+  },
+  {
+    "pt": "Porta-balcão",
+    "en": "Balcony Door",
+    "es": "Puerta balconera",
+    "de": "Balkontür",
+    "fr": "Porte-fenêtre",
+    "it": "Portafinestra",
+    "pl": "Drzwi balkonowe"
+  },
+  {
+    "pt": "Porta de vidro temperado",
+    "en": "Tempered Glass Door",
+    "es": "Puerta de vidrio templado",
+    "de": "Hartglastür",
+    "fr": "Porte en verre trempé",
+    "it": "Porta in vetro temperato",
+    "pl": "Drzwi ze szkła hartowanego"
+  },
+  {
+    "pt": "Porta de giro",
+    "en": "Hinged Door",
+    "es": "Puerta batiente",
+    "de": "Drehtür",
+    "fr": "Porte à battant",
+    "it": "Porta a battente",
+    "pl": "Drzwi skrzydłowe"
+  },
+  {
+    "pt": "Porta de correr",
+    "en": "Sliding Door",
+    "es": "Puerta corredera",
+    "de": "Schiebetür",
+    "fr": "Porte coulissante",
+    "it": "Porta scorrevole",
+    "pl": "Drzwi przesuwne"
+  },
+  {
+    "pt": "Porta de embutir",
+    "en": "Pocket Door",
+    "es": "Puerta de bolsillo",
+    "de": "Taschenschiebetür",
+    "fr": "Porte coulissante à galandage",
+    "it": "Porta scorrevole a scomparsa",
+    "pl": "Drzwi przesuwne chowane w ścianie"
+  },
+  {
+    "pt": "Porta dobrável",
+    "en": "Bi-Fold Door",
+    "es": "Puerta plegable",
+    "de": "Faltür",
+    "fr": "Porte pliante",
+    "it": "Porta pieghevole",
+    "pl": "Drzwi składane"
+  },
+  {
+    "pt": "Porta sanfonada",
+    "en": "Accordion Door",
+    "es": "Puerta acordeón",
+    "de": "Harmonikatür",
+    "fr": "Porte accordéon",
+    "it": "Porta a fisarmonica",
+    "pl": "Drzwi harmonijkowe"
+  },
+  {
+    "pt": "Porta camarão",
+    "en": "Bi-Fold Door",
+    "es": "Puerta plegable",
+    "de": "Faltür",
+    "fr": "Porte pliante",
+    "it": "Porta pieghevole",
+    "pl": "Drzwi składane"
+  },
+  {
+    "pt": "Porta pivotante",
+    "en": "Pivot Door",
+    "es": "Puerta pivotante",
+    "de": "Drehtür mit Drehpunkt",
+    "fr": "Porte pivotante",
+    "it": "Porta a perno",
+    "pl": "Drzwi obrotowe"
+  },
+  {
+    "pt": "Porta vai-e-vem",
+    "en": "Double-Acting Door",
+    "es": "Puerta vaivén",
+    "de": "Pendeltür",
+    "fr": "Porte va-et-vient",
+    "it": "Porta a va e vieni",
+    "pl": "Drzwi wahadłowe"
+  },
+  {
+    "pt": "Porta dupla",
+    "en": "Double Door",
+    "es": "Puerta doble",
+    "de": "Doppeltür",
+    "fr": "Porte double",
+    "it": "Porta doppia",
+    "pl": "Drzwi dwuskrzydłowe"
+  },
+  {
+    "pt": "Portão seccionado",
+    "en": "Sectional Garage Door",
+    "es": "Puerta de garaje seccional",
+    "de": "Sektionaltor",
+    "fr": "Porte de garage sectionnelle",
+    "it": "Porta sezionale",
+    "pl": "Brama segmentowa"
+  },
+  {
+    "pt": "Portão de garagem basculante",
+    "en": "Tilt Garage Door",
+    "es": "Puerta de garaje basculante",
+    "de": "Kipptor",
+    "fr": "Porte de garage basculante",
+    "it": "Porta basculante",
+    "pl": "Brama uchylna"
+  },
+  {
+    "pt": "Portão de garagem",
+    "en": "Garage Door",
+    "es": "Puerta de garaje",
+    "de": "Garagentor",
+    "fr": "Porte de garage",
+    "it": "Porta da garage",
+    "pl": "Brama garażowa"
+  },
+  {
+    "pt": "Portão de enrolar",
+    "en": "Roll-Up Door",
+    "es": "Puerta de enrollar",
+    "de": "Rolltor",
+    "fr": "Porte roulante",
+    "it": "Porta avvolgibile",
+    "pl": "Brama rolowana"
+  },
+  {
+    "pt": "Vão livre de janela",
+    "en": "Window Opening",
+    "es": "Hueco libre de ventana",
+    "de": "Fensteröffnung",
+    "fr": "Baie de fenêtre",
+    "it": "Vano finestra",
+    "pl": "Otwór okienny"
+  },
+  {
+    "pt": "Vão livre",
+    "en": "Opening",
+    "es": "Hueco",
+    "de": "Öffnung",
+    "fr": "Ouverture",
+    "it": "Vano",
+    "pl": "Otwór"
+  },
+  {
+    "pt": "Janela de correr",
+    "en": "Sliding Window",
+    "es": "Ventana corredera",
+    "de": "Schiebefenster",
+    "fr": "Fenêtre coulissante",
+    "it": "Finestra scorrevole",
+    "pl": "Okno przesuwne"
+  },
+  {
+    "pt": "Janela maxim-ar",
+    "en": "Awning Window",
+    "es": "Ventana proyectante",
+    "de": "Ausstellfenster",
+    "fr": "Fenêtre à soufflet",
+    "it": "Finestra a vasistas",
+    "pl": "Okno odchylne"
+  },
+  {
+    "pt": "Janela basculante",
+    "en": "Tilt Window",
+    "es": "Ventana basculante",
+    "de": "Kippfenster",
+    "fr": "Fenêtre oscillo-battante",
+    "it": "Finestra a ribalta",
+    "pl": "Okno uchylne"
+  },
+  {
+    "pt": "Janela pivotante",
+    "en": "Pivot Window",
+    "es": "Ventana pivotante",
+    "de": "Pivotfenster",
+    "fr": "Fenêtre pivotante",
+    "it": "Finestra a perno",
+    "pl": "Okno obrotowe"
+  },
+  {
+    "pt": "Janela guilhotina",
+    "en": "Double-Hung Window",
+    "es": "Ventana de guillotina",
+    "de": "Doppelhängefenster",
+    "fr": "Fenêtre à guillotine",
+    "it": "Finestra a ghigliottina",
+    "pl": "Okno podnoszone"
+  },
+  {
+    "pt": "Janela de abrir",
+    "en": "Casement Window",
+    "es": "Ventana practicable",
+    "de": "Drehflügelfenster",
+    "fr": "Fenêtre à la française",
+    "it": "Finestra a battente",
+    "pl": "Okno rozwierne"
+  },
+  {
+    "pt": "Janela fixa",
+    "en": "Fixed Window",
+    "es": "Ventana fija",
+    "de": "Festfenster",
+    "fr": "Fenêtre fixe",
+    "it": "Finestra fissa",
+    "pl": "Okno stałe"
+  },
+  {
+    "pt": "Janela veneziana",
+    "en": "Louvered Window",
+    "es": "Ventana veneciana",
+    "de": "Jalousiefenster",
+    "fr": "Fenêtre à persiennes",
+    "it": "Finestra a lamelle",
+    "pl": "Okno żaluzjowe"
+  },
+  {
+    "pt": "Janela combinada",
+    "en": "Combined Window",
+    "es": "Ventana combinada",
+    "de": "Kombinationsfenster",
+    "fr": "Fenêtre combinée",
+    "it": "Finestra combinata",
+    "pl": "Okno kombinowane"
+  },
+  {
+    "pt": "Janela alta",
+    "en": "Tall Window",
+    "es": "Ventana alta",
+    "de": "Hohes Fenster",
+    "fr": "Fenêtre haute",
+    "it": "Finestra alta",
+    "pl": "Okno wysokie"
+  },
+  {
+    "pt": "Bandeira fixa",
+    "en": "Fixed Transom",
+    "es": "Banderola fija",
+    "de": "Festes Oberlicht",
+    "fr": "Imposte fixe",
+    "it": "Sopraluce fisso",
+    "pl": "Naświetle stałe"
+  },
+  {
+    "pt": "(3 módulos)",
+    "en": "(3 Modules)",
+    "es": "(3 módulos)",
+    "de": "(3 Module)",
+    "fr": "(3 modules)",
+    "it": "(3 moduli)",
+    "pl": "(3 moduły)"
+  },
+  {
+    "pt": "folhas",
+    "en": "Leaves",
+    "es": "hojas",
+    "de": "Flügel",
+    "fr": "vantaux",
+    "it": "ante",
+    "pl": "skrzydła"
+  },
+  {
+    "pt": "folha",
+    "en": "Leaf",
+    "es": "hoja",
+    "de": "Flügel",
+    "fr": "vantail",
+    "it": "anta",
+    "pl": "skrzydło"
+  },
+  {
+    "pt": "madeira",
+    "en": "Wood",
+    "es": "madera",
+    "de": "Holz",
+    "fr": "bois",
+    "it": "legno",
+    "pl": "drewno"
+  },
+  {
+    "pt": "alumínio",
+    "en": "Aluminum",
+    "es": "aluminio",
+    "de": "Aluminium",
+    "fr": "aluminium",
+    "it": "alluminio",
+    "pl": "aluminium"
+  },
+  {
+    "pt": "pivotante",
+    "en": "Pivot",
+    "es": "pivotante",
+    "de": "drehbar",
+    "fr": "pivotant",
+    "it": "pivotante",
+    "pl": "obrotowe"
+  },
+  {
+    "pt": "Janelão",
+    "en": "Large Window",
+    "es": "Ventanal",
+    "de": "Großfenster",
+    "fr": "Grande fenêtre",
+    "it": "Finestrone",
+    "pl": "Okno wielkoformatowe"
+  },
+  {
+    "pt": "Janela",
+    "en": "Window",
+    "es": "Ventana",
+    "de": "Fenster",
+    "fr": "Fenêtre",
+    "it": "Finestra",
+    "pl": "Okno"
+  },
+  {
+    "pt": "Porta",
+    "en": "Door",
+    "es": "Puerta",
+    "de": "Tür",
+    "fr": "Porte",
+    "it": "Porta",
+    "pl": "Drzwi"
+  }
+]

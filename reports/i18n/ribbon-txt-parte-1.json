@@ -1,0 +1,342 @@
+[
+  {
+    "pt": "Selecione elementos primeiro.",
+    "en": "Select elements first."
+  },
+  {
+    "pt": "Cotas automáticas",
+    "en": "Auto Dimensions"
+  },
+  {
+    "pt": "Cotas automáticas do nível ativo: escolha o que cotar, por onde medir e em quais lados.",
+    "en": "Automatic dimensions for the active level."
+  },
+  {
+    "pt": "Famílias de cotas",
+    "en": "Dimension Types"
+  },
+  {
+    "pt": "Aparência nomeada das cotas (marcador, texto, leitura e formato); a família padrão é a da cota nova.",
+    "en": "Named dimension appearance (marker, text, read convention and format); the default family is used for new dimensions."
+  },
+  {
+    "pt": "Propriedades de tipo",
+    "en": "Type Properties"
+  },
+  {
+    "pt": "Abre o tipo do elemento selecionado (ou o que a ferramenta ativa vai criar).",
+    "en": "Opens the type of the selected element or of the active tool."
+  },
+  {
+    "pt": "Selecione um elemento com tipo, ou ative uma ferramenta de criação.",
+    "en": "Select an element with a type."
+  },
+  {
+    "pt": "Propriedades",
+    "en": "Properties"
+  },
+  {
+    "pt": "Mostra ou oculta a paleta de propriedades.",
+    "en": "Show or hide the Properties palette."
+  },
+  {
+    "pt": "Navegador de projeto",
+    "en": "Project Browser"
+  },
+  {
+    "pt": "Mostra ou oculta o navegador de projeto.",
+    "en": "Show or hide the Project Browser."
+  },
+  {
+    "pt": "Propriedades à direita",
+    "en": "Properties on the Right"
+  },
+  {
+    "pt": "Alterna o lado das propriedades entre a esquerda (padrão do Revit) e a direita.",
+    "en": "Switch the Properties palette between the left and right sides."
+  },
+  {
+    "pt": "Etiquetar todos",
+    "en": "Tag All"
+  },
+  {
+    "pt": "Etiqueta todos os elementos sem etiqueta desta vista.",
+    "en": "Tag every untagged element in this view."
+  },
+  {
+    "pt": "Códigos de parede",
+    "en": "Wall Type Codes"
+  },
+  {
+    "pt": "Mostra ou oculta as etiquetas de elementos na vista.",
+    "en": "Show or hide element labels in the view."
+  },
+  {
+    "pt": "Navegador à direita",
+    "en": "Project Browser on the Right"
+  },
+  {
+    "pt": "Alterna o lado do navegador de projeto entre a esquerda (padrão do Revit) e a direita.",
+    "en": "Switch the Project Browser between the left and right sides."
+  },
+  {
+    "pt": "Restaurar disposição dos painéis",
+    "en": "Reset Panel Layout"
+  },
+  {
+    "pt": "Volta Propriedades e Navegador ao padrão: à esquerda, com as propriedades em cima.",
+    "en": "Put Properties and Project Browser back in the default layout."
+  },
+  {
+    "pt": "Mesmo tipo",
+    "en": "Same Type"
+  },
+  {
+    "pt": "Seleciona todas as instâncias do tipo do elemento selecionado.",
+    "en": "Select all instances of the type."
+  },
+  {
+    "pt": "Mesmo nome",
+    "en": "Same Name"
+  },
+  {
+    "pt": "Seleciona todos os ambientes do nível com o mesmo nome (hoje só ambientes).",
+    "en": "Select all rooms with the same name."
+  },
+  {
+    "pt": "Selecione um ambiente primeiro.",
+    "en": "Select a room first."
+  },
+  {
+    "pt": "Criar semelhante",
+    "en": "Create Similar"
+  },
+  {
+    "pt": "Ativa a ferramenta do elemento selecionado, já com o tipo dele.",
+    "en": "Starts the tool of the selected element with its type."
+  },
+  {
+    "pt": "Selecione um elemento de um só tipo (parede, porta, janela, piso, laje, forro ou telhado).",
+    "en": "Select one element of a single type (wall, door, window, floor, slab, ceiling or roof)."
+  },
+  {
+    "pt": "Nível…",
+    "en": "Level…"
+  },
+  {
+    "pt": "Move a seleção para outro nível.",
+    "en": "Move the selection to another level."
+  },
+  {
+    "pt": "Editar perímetro",
+    "en": "Edit Perimeter"
+  },
+  {
+    "pt": "Reabre o contorno do elemento selecionado na planta, para ajustar linhas, inclinação e balanço.",
+    "en": "Reopens the outline of the selected element on the plan, to adjust lines, slope and overhang."
+  },
+  {
+    "pt": "Selecione um telhado, piso, laje ou forro",
+    "en": "Select a roof, floor, slab or ceiling"
+  },
+  {
+    "pt": "Copiar",
+    "en": "Copy"
+  },
+  {
+    "pt": "Copia a seleção; Ctrl+V cola seguindo o cursor.",
+    "en": "Copies the selection; Ctrl+V pastes following the cursor."
+  },
+  {
+    "pt": "Recortar",
+    "en": "Cut"
+  },
+  {
+    "pt": "Copia e apaga a seleção; Ctrl+V cola seguindo o cursor.",
+    "en": "Copies and deletes the selection; Ctrl+V pastes following the cursor."
+  },
+  {
+    "pt": "Colar",
+    "en": "Paste"
+  },
+  {
+    "pt": "Cola o copiado seguindo o cursor; clique para posicionar.",
+    "en": "Pastes what was copied following the cursor; click to place it."
+  },
+  {
+    "pt": "Não vale para pranchas.",
+    "en": "Not available for sheets."
+  },
+  {
+    "pt": "Só em planta.",
+    "en": "Plan views only."
+  },
+  {
+    "pt": "Nada copiado ainda. Use Copiar ou Ctrl+C.",
+    "en": "Nothing copied yet. Use Copy or Ctrl+C."
+  },
+  {
+    "pt": "Sincronizar",
+    "en": "Sync"
+  },
+  {
+    "pt": "Sincroniza o andar-tipo inteiro (paredes, aberturas, pisos, forros...) a partir do nível selecionado, num passo de desfazer.",
+    "en": "Syncs the whole typical floor (walls, openings, floors, ceilings...) from the selected level, in one undo step."
+  },
+  {
+    "pt": "Selecione um elemento de andar-tipo.",
+    "en": "Select a typical-floor linked element."
+  },
+  {
+    "pt": "Desvincular",
+    "en": "Unlink"
+  },
+  {
+    "pt": "Desfaz o vínculo: as cópias ficam no projeto, mas não sincronizam mais.",
+    "en": "Removes the link: copies stay but stop syncing."
+  },
+  {
+    "pt": "Alinhado aos níveis selecionados",
+    "en": "Aligned to Selected Levels"
+  },
+  {
+    "pt": "Copia o que está copiado para os níveis escolhidos, mantendo o X/Y e os offsets do nível (vale em planta, 3D, corte e elevação).",
+    "en": "Copies what was copied to the chosen levels, keeping X/Y and level offsets (works in plan, 3D, section and elevation)."
+  },
+  {
+    "pt": "Excluir",
+    "en": "Delete"
+  },
+  {
+    "pt": "Enquadrar tudo",
+    "en": "Zoom to Fit"
+  },
+  {
+    "pt": "Linhas finas",
+    "en": "Thin Lines"
+  },
+  {
+    "pt": "Mostra todas as linhas da vista com 1 px de espessura na tela.",
+    "en": "Show all lines at 1 px on screen."
+  },
+  {
+    "pt": "Só em planta ou corte.",
+    "en": "Plan or section views only."
+  },
+  {
+    "pt": "Grade",
+    "en": "Grid"
+  },
+  {
+    "pt": "Grade de pontos na planta: mostra os pontos e o cursor os captura.",
+    "en": "Dot grid in plan: shows the dots and the cursor snaps to them."
+  },
+  {
+    "pt": "Subpavimento",
+    "en": "Underlay"
+  },
+  {
+    "pt": "Mostra o pavimento abaixo, apagado.",
+    "en": "Show the level below, faded."
+  },
+  {
+    "pt": "Projeção da cobertura",
+    "en": "Roof Projection"
+  },
+  {
+    "pt": "Visibilidade/Gráficos",
+    "en": "Visibility/Graphics"
+  },
+  {
+    "pt": "Visibilidade por categoria e gráficos da vista ativa.",
+    "en": "Category visibility and graphics of the active view."
+  },
+  {
+    "pt": "Vista 3D",
+    "en": "3D View"
+  },
+  {
+    "pt": "Elevação",
+    "en": "Elevation"
+  },
+  {
+    "pt": "Cria Norte, Sul, Leste e Oeste em volta das paredes do nível ativo (substitui as de mesmo nome).",
+    "en": "Creates North, South, East and West elevations around the walls."
+  },
+  {
+    "pt": "Prancha",
+    "en": "Sheet"
+  },
+  {
+    "pt": "Adicionar vista",
+    "en": "Add View"
+  },
+  {
+    "pt": "Adiciona plantas, cortes ou o 3D à prancha aberta.",
+    "en": "Adds plans, sections or the 3D to the open sheet."
+  },
+  {
+    "pt": "Publicar pranchas",
+    "en": "Publish Sheets"
+  },
+  {
+    "pt": "Escolhe as pranchas, a ordem e um PDF por prancha.",
+    "en": "Pick sheets, order and one PDF per sheet."
+  },
+  {
+    "pt": "Prancha por nível",
+    "en": "Sheet per Level"
+  },
+  {
+    "pt": "Cria uma prancha A3 com a planta de cada nível do projeto.",
+    "en": "Creates an A3 sheet with each level plan."
+  },
+  {
+    "pt": "Materiais",
+    "en": "Materials"
+  },
+  {
+    "pt": "Importar CAD (DXF)",
+    "en": "Import CAD"
+  },
+  {
+    "pt": "Insere um desenho DXF no nível, como um objeto só, com as camadas do arquivo.",
+    "en": "Insert a DXF drawing on the level as a single object, with the file layers."
+  },
+  {
+    "pt": "Gerenciar CAD",
+    "en": "Manage CAD"
+  },
+  {
+    "pt": "Lista os desenhos DXF importados: visibilidade, enquadramento, renomear e excluir.",
+    "en": "Lists imported DXF drawings: visibility, framing, rename and delete."
+  },
+  {
+    "pt": "Gerenciar níveis",
+    "en": "Manage Levels"
+  },
+  {
+    "pt": "Cria e edita os níveis do projeto.",
+    "en": "Create and edit project levels."
+  },
+  {
+    "pt": "Nível (LL)",
+    "en": "Level (LL)"
+  },
+  {
+    "pt": "Cria um nível no corte ou elevação: clique no início e no fim da linha horizontal.",
+    "en": "Creates a level in a section or elevation."
+  },
+  {
+    "pt": "Espessuras de linha",
+    "en": "Line Weights"
+  },
+  {
+    "pt": "Pesos de linha por escala, por categoria e limites de detalhe.",
+    "en": "Line weights by scale and category."
+  },
+  {
+    "pt": "Unidades do projeto",
+    "en": "Project Units"
+  }
+]

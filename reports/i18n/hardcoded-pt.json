@@ -1,0 +1,156 @@
+[
+  {
+    "arquivo": "apps/web/src/ui/dialogs/DxfExportDialog.tsx",
+    "linha": 62,
+    "tipo": "string",
+    "texto": "{tipo}-{nome}",
+    "fonte": "const [pattern, setPattern] = useState('{tipo}-{nome}');"
+  },
+  {
+    "arquivo": "apps/web/src/ui/dims/dimEditModel.ts",
+    "linha": 37,
+    "tipo": "string",
+    "texto": "Cota de corte é só anotação: não move elementos.",
+    "fonte": "export const SECTION_REFUSAL = 'Cota de corte é só anotação: não move elementos.';"
+  },
+  {
+    "arquivo": "apps/web/src/ui/gridUi.ts",
+    "linha": 43,
+    "tipo": "string",
+    "texto": "(cópia)",
+    "fonte": "export function copiaDoTipo(t: GridType, suffix = '(cópia)'): GridType {"
+  },
+  {
+    "arquivo": "apps/web/src/ui/OutlineGroup.tsx",
+    "linha": 17,
+    "tipo": "string",
+    "texto": "núcleo",
+    "fonte": "'walls-core': 'núcleo',"
+  },
+  {
+    "arquivo": "apps/web/src/ui/OutlineGroup.tsx",
+    "linha": 18,
+    "tipo": "string",
+    "texto": "perímetro externo",
+    "fonte": "perimeter: 'perímetro externo',"
+  },
+  {
+    "arquivo": "apps/web/src/ui/Properties.tsx",
+    "linha": 332,
+    "tipo": "template",
+    "texto": "avisos-vista|",
+    "fonte": "const warnings = useAdiadoEmSegundoPlano(p, `avisos-vista|${levelId}|${JSON.stringify(range)}`, () => viewRangeWarnings(p, levelId, range, contextoDaVista(p, levelId), lang), () =>"
+  },
+  {
+    "arquivo": "apps/web/src/ui/RampProperties.tsx",
+    "linha": 61,
+    "tipo": "template",
+    "texto": "rampa-quant|",
+    "fonte": "useAdiado(p, `rampa-quant|${single?.id ?? ''}`, () => {"
+  },
+  {
+    "arquivo": "apps/web/src/ui/RampProperties.tsx",
+    "linha": 66,
+    "tipo": "template",
+    "texto": "rampa-avisos|",
+    "fonte": "const issues = useAdiado(p, `rampa-avisos|${single?.id ?? ''}`, () => (single ? issuesOf(p, single.id, lang) : []), 150) ?? [];"
+  },
+  {
+    "arquivo": "apps/web/src/ui/ribbon/context.ts",
+    "linha": 103,
+    "tipo": "string",
+    "texto": "Editar perímetro do telhado",
+    "fonte": "roof: { pt: 'Editar perímetro do telhado', en: 'Edit Roof Perimeter' },"
+  },
+  {
+    "arquivo": "apps/web/src/ui/ribbon/context.ts",
+    "linha": 104,
+    "tipo": "string",
+    "texto": "Editar perímetro do piso",
+    "fonte": "floor: { pt: 'Editar perímetro do piso', en: 'Edit Floor Perimeter' },"
+  },
+  {
+    "arquivo": "apps/web/src/ui/ribbon/context.ts",
+    "linha": 105,
+    "tipo": "string",
+    "texto": "Editar perímetro da laje",
+    "fonte": "slab: { pt: 'Editar perímetro da laje', en: 'Edit Slab Perimeter' },"
+  },
+  {
+    "arquivo": "apps/web/src/ui/ribbon/context.ts",
+    "linha": 106,
+    "tipo": "string",
+    "texto": "Editar perímetro do forro",
+    "fonte": "ceiling: { pt: 'Editar perímetro do forro', en: 'Edit Ceiling Perimeter' },"
+  },
+  {
+    "arquivo": "apps/web/src/ui/ribbon/tabs.ts",
+    "linha": 14,
+    "tipo": "template",
+    "texto": "aba da faixa sem definição:",
+    "fonte": "if (!tb) throw new Error(`aba da faixa sem definição: ${id}`);"
+  },
+  {
+    "arquivo": "apps/web/src/ui/schematic/geometry.ts",
+    "linha": 138,
+    "tipo": "string",
+    "texto": "bboxOf: nenhum ponto",
+    "fonte": "if (!(x0 <= x1 && y0 <= y1)) throw new RangeError('bboxOf: nenhum ponto');"
+  },
+  {
+    "arquivo": "apps/web/src/ui/StairProperties.tsx",
+    "linha": 120,
+    "tipo": "template",
+    "texto": "escada-quant|",
+    "fonte": "useAdiado(p, `escada-quant|${single?.id ?? ''}`, () => {"
+  },
+  {
+    "arquivo": "apps/web/src/ui/StairProperties.tsx",
+    "linha": 125,
+    "tipo": "template",
+    "texto": "escada-avisos|",
+    "fonte": "const issues = useAdiado(p, `escada-avisos|${single?.id ?? ''}`, () => (single ? issuesOf(p, single.id, lang) : []), 150) ?? [];"
+  },
+  {
+    "arquivo": "apps/web/src/editor/aberturaProjeto.ts",
+    "linha": 93,
+    "tipo": "template",
+    "texto": "planta:",
+    "fonte": "preparo.priorizar(`planta:${alvo.nivel}`);"
+  },
+  {
+    "arquivo": "apps/web/src/editor/aberturaProjeto.ts",
+    "linha": 120,
+    "tipo": "template",
+    "texto": "planta:",
+    "fonte": "id: `planta:${id}`,"
+  },
+  {
+    "arquivo": "apps/web/src/editor/atualizacao/auto.ts",
+    "linha": 21,
+    "tipo": "string",
+    "texto": "Tradução PT/EN, importação IFC rápida, cotas no padrão CAD, seleção no 3D e casca desktop Tauri com atualização pelo GitHub Releases.",
+    "fonte": "pt: 'Tradução PT/EN, importação IFC rápida, cotas no padrão CAD, seleção no 3D e casca desktop Tauri com atualização pelo GitHub Releases.',"
+  },
+  {
+    "arquivo": "apps/web/src/editor/atualizacao/auto.ts",
+    "linha": 25,
+    "tipo": "string",
+    "texto": "Marca de corte com bolha, bandeira tangente e número da prancha; novo ícone da ferramenta.",
+    "fonte": "pt: 'Marca de corte com bolha, bandeira tangente e número da prancha; novo ícone da ferramenta.',"
+  },
+  {
+    "arquivo": "apps/web/src/editor/avisosWorker.ts",
+    "linha": 89,
+    "tipo": "string",
+    "texto": "sem worker",
+    "fonte": "if (!w) return Promise.reject(new Error('sem worker'));"
+  },
+  {
+    "arquivo": "apps/web/src/editor/dxfBatch.ts",
+    "linha": 94,
+    "tipo": "string",
+    "texto": "{tipo}-{nome}",
+    "fonte": "const modelo = options.pattern.trim() || '{tipo}-{nome}';"
+  }
+]

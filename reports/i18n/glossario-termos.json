@@ -1,0 +1,1092 @@
+[
+  {
+    "termo_pt": "nível",
+    "en": "level",
+    "es": "nivel",
+    "de": "Ebene",
+    "fr": "niveau",
+    "it": "livello",
+    "pl": "poziom",
+    "contexto": "Elevação de referência; não confundir com camada (layer)."
+  },
+  {
+    "termo_pt": "parede",
+    "en": "wall",
+    "es": "pared",
+    "de": "Wand",
+    "fr": "mur",
+    "it": "parete",
+    "pl": "ściana",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "porta",
+    "en": "door",
+    "es": "puerta",
+    "de": "Tür",
+    "fr": "porte",
+    "it": "porta",
+    "pl": "drzwi",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "janela",
+    "en": "window",
+    "es": "ventana",
+    "de": "Fenster",
+    "fr": "fenêtre",
+    "it": "finestra",
+    "pl": "okno",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "piso",
+    "en": "floor",
+    "es": "piso",
+    "de": "Boden",
+    "fr": "sol",
+    "it": "pavimentazione",
+    "pl": "posadzka",
+    "contexto": "Superfície ou acabamento do chão; para andar use pavimento."
+  },
+  {
+    "termo_pt": "laje",
+    "en": "slab",
+    "es": "losa",
+    "de": "Decke",
+    "fr": "dalle",
+    "it": "soletta",
+    "pl": "strop",
+    "contexto": "Elemento estrutural horizontal; forro é o acabamento inferior."
+  },
+  {
+    "termo_pt": "forro",
+    "en": "ceiling",
+    "es": "cielo raso",
+    "de": "Unterdecke",
+    "fr": "faux plafond",
+    "it": "controsoffitto",
+    "pl": "sufit podwieszany",
+    "contexto": "Acabamento inferior da laje, muitas vezes suspenso."
+  },
+  {
+    "termo_pt": "telhado",
+    "en": "roof",
+    "es": "tejado",
+    "de": "Dach",
+    "fr": "toit",
+    "it": "tetto",
+    "pl": "dach",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "escada",
+    "en": "stair",
+    "es": "escalera",
+    "de": "Treppe",
+    "fr": "escalier",
+    "it": "scala",
+    "pl": "schody",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "rampa",
+    "en": "ramp",
+    "es": "rampa",
+    "de": "Rampe",
+    "fr": "rampe",
+    "it": "rampa",
+    "pl": "rampa",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "vista",
+    "en": "view",
+    "es": "vista",
+    "de": "Ansicht",
+    "fr": "vue",
+    "it": "vista",
+    "pl": "widok",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "planta",
+    "en": "plan",
+    "es": "planta",
+    "de": "Grundriss",
+    "fr": "plan",
+    "it": "pianta",
+    "pl": "rzut",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "cota",
+    "en": "dimension",
+    "es": "cota",
+    "de": "Maß",
+    "fr": "cote",
+    "it": "quota",
+    "pl": "wymiar",
+    "contexto": "Medida anotada no desenho."
+  },
+  {
+    "termo_pt": "ambiente",
+    "en": "room",
+    "es": "ambiente",
+    "de": "Raum",
+    "fr": "pièce",
+    "it": "ambiente",
+    "pl": "pomieszczenie",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "material",
+    "en": "material",
+    "es": "material",
+    "de": "Material",
+    "fr": "matériau",
+    "it": "materiale",
+    "pl": "materiał",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "projeto",
+    "en": "project",
+    "es": "proyecto",
+    "de": "Projekt",
+    "fr": "projet",
+    "it": "progetto",
+    "pl": "projekt",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "arquivo",
+    "en": "file",
+    "es": "archivo",
+    "de": "Datei",
+    "fr": "fichier",
+    "it": "file",
+    "pl": "plik",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "exportar",
+    "en": "export",
+    "es": "exportar",
+    "de": "exportieren",
+    "fr": "exporter",
+    "it": "esportare",
+    "pl": "eksportować",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "importar",
+    "en": "import",
+    "es": "importar",
+    "de": "importieren",
+    "fr": "importer",
+    "it": "importare",
+    "pl": "importować",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "configurações",
+    "en": "settings",
+    "es": "configuración",
+    "de": "Einstellungen",
+    "fr": "paramètres",
+    "it": "impostazioni",
+    "pl": "ustawienia",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "propriedades",
+    "en": "properties",
+    "es": "propiedades",
+    "de": "Eigenschaften",
+    "fr": "propriétés",
+    "it": "proprietà",
+    "pl": "właściwości",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "ferramenta",
+    "en": "tool",
+    "es": "herramienta",
+    "de": "Werkzeug",
+    "fr": "outil",
+    "it": "strumento",
+    "pl": "narzędzie",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "selecionado",
+    "en": "selected",
+    "es": "seleccionado",
+    "de": "ausgewählt",
+    "fr": "sélectionné",
+    "it": "selezionato",
+    "pl": "zaznaczony",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "nenhum",
+    "en": "none",
+    "es": "ninguno",
+    "de": "Keine",
+    "fr": "aucun",
+    "it": "nessuno",
+    "pl": "żaden",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "mover",
+    "en": "move",
+    "es": "mover",
+    "de": "verschieben",
+    "fr": "déplacer",
+    "it": "spostare",
+    "pl": "przenieść",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "copiar",
+    "en": "copy",
+    "es": "copiar",
+    "de": "kopieren",
+    "fr": "copier",
+    "it": "copiare",
+    "pl": "kopiować",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "colar",
+    "en": "paste",
+    "es": "pegar",
+    "de": "einfügen",
+    "fr": "coller",
+    "it": "incollare",
+    "pl": "wkleić",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "medir",
+    "en": "measure",
+    "es": "medir",
+    "de": "messen",
+    "fr": "mesurer",
+    "it": "misurare",
+    "pl": "mierzyć",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "desenhar",
+    "en": "draw",
+    "es": "dibujar",
+    "de": "zeichnen",
+    "fr": "dessiner",
+    "it": "disegnare",
+    "pl": "rysować",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "concluir",
+    "en": "finish",
+    "es": "finalizar",
+    "de": "abschließen",
+    "fr": "terminer",
+    "it": "completare",
+    "pl": "zakończyć",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "altura",
+    "en": "height",
+    "es": "altura",
+    "de": "Höhe",
+    "fr": "hauteur",
+    "it": "altezza",
+    "pl": "wysokość",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "largura",
+    "en": "width",
+    "es": "anchura",
+    "de": "Breite",
+    "fr": "largeur",
+    "it": "larghezza",
+    "pl": "szerokość",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "comprimento",
+    "en": "length",
+    "es": "longitud",
+    "de": "Länge",
+    "fr": "longueur",
+    "it": "lunghezza",
+    "pl": "długość",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "espessura",
+    "en": "thickness",
+    "es": "espesor",
+    "de": "Dicke",
+    "fr": "épaisseur",
+    "it": "spessore",
+    "pl": "grubość",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "número",
+    "en": "number",
+    "es": "número",
+    "de": "Nummer",
+    "fr": "numéro",
+    "it": "numero",
+    "pl": "numer",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "ângulo",
+    "en": "angle",
+    "es": "ángulo",
+    "de": "Winkel",
+    "fr": "angle",
+    "it": "angolo",
+    "pl": "kąt",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "opções",
+    "en": "options",
+    "es": "opciones",
+    "de": "Optionen",
+    "fr": "options",
+    "it": "opzioni",
+    "pl": "opcje",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "definir",
+    "en": "set",
+    "es": "establecer",
+    "de": "festlegen",
+    "fr": "définir",
+    "it": "definire",
+    "pl": "ustawić",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "alterar",
+    "en": "change",
+    "es": "modificar",
+    "de": "ändern",
+    "fr": "modifier",
+    "it": "modificare",
+    "pl": "zmienić",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "restaurar",
+    "en": "restore",
+    "es": "restaurar",
+    "de": "wiederherstellen",
+    "fr": "restaurer",
+    "it": "ripristinare",
+    "pl": "przywrócić",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "padrão",
+    "en": "default",
+    "es": "predeterminado",
+    "de": "Standard",
+    "fr": "par défaut",
+    "it": "predefinito",
+    "pl": "domyślny",
+    "contexto": "Valor predefinido; não confundir com norma ou modelo."
+  },
+  {
+    "termo_pt": "vão",
+    "en": "opening",
+    "es": "vano",
+    "de": "Öffnung",
+    "fr": "ouverture",
+    "it": "vano",
+    "pl": "otwór",
+    "contexto": "Abertura em parede ou distância livre entre apoios."
+  },
+  {
+    "termo_pt": "viga",
+    "en": "beam",
+    "es": "viga",
+    "de": "Träger",
+    "fr": "poutre",
+    "it": "trave",
+    "pl": "belka",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "pilar",
+    "en": "column",
+    "es": "pilar",
+    "de": "Stütze",
+    "fr": "poteau",
+    "it": "pilastro",
+    "pl": "słup",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "fundação",
+    "en": "foundation",
+    "es": "cimentación",
+    "de": "Fundament",
+    "fr": "fondation",
+    "it": "fondazione",
+    "pl": "fundament",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "telha",
+    "en": "roof tile",
+    "es": "teja",
+    "de": "Dachziegel",
+    "fr": "tuile",
+    "it": "tegola",
+    "pl": "dachówka",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "beiral",
+    "en": "eaves",
+    "es": "alero",
+    "de": "Dachüberstand",
+    "fr": "avant-toit",
+    "it": "gronda",
+    "pl": "okap",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "platibanda",
+    "en": "parapet",
+    "es": "pretil",
+    "de": "Attika",
+    "fr": "acrotère",
+    "it": "muretto di coronamento",
+    "pl": "attyka",
+    "contexto": "Mureta no topo da fachada; distinta de guarda-corpo."
+  },
+  {
+    "termo_pt": "rodapé",
+    "en": "baseboard",
+    "es": "zócalo",
+    "de": "Sockelleiste",
+    "fr": "plinthe",
+    "it": "battiscopa",
+    "pl": "listwa przypodłogowa",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "batente",
+    "en": "door frame",
+    "es": "marco",
+    "de": "Zarge",
+    "fr": "dormant",
+    "it": "telaio",
+    "pl": "ościeżnica",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "soleira",
+    "en": "threshold",
+    "es": "umbral",
+    "de": "Schwelle",
+    "fr": "seuil",
+    "it": "soglia",
+    "pl": "próg",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "verga",
+    "en": "lintel",
+    "es": "dintel",
+    "de": "Sturz",
+    "fr": "linteau",
+    "it": "architrave",
+    "pl": "nadproże",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "contramarco",
+    "en": "subframe",
+    "es": "contramarco",
+    "de": "Blendrahmen",
+    "fr": "contre-châssis",
+    "it": "controtelaio",
+    "pl": "ramka montażowa",
+    "contexto": "Moldura fixada no vão, onde assenta o marco."
+  },
+  {
+    "termo_pt": "guarda-corpo",
+    "en": "guardrail",
+    "es": "barandilla",
+    "de": "Geländer",
+    "fr": "garde-corps",
+    "it": "parapetto",
+    "pl": "balustrada",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "corrimão",
+    "en": "handrail",
+    "es": "pasamanos",
+    "de": "Handlauf",
+    "fr": "main courante",
+    "it": "corrimano",
+    "pl": "poręcz",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "patamar",
+    "en": "landing",
+    "es": "descansillo",
+    "de": "Podest",
+    "fr": "palier",
+    "it": "pianerottolo",
+    "pl": "spocznik",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "lance",
+    "en": "flight",
+    "es": "tramo",
+    "de": "Treppenlauf",
+    "fr": "volée",
+    "it": "rampa",
+    "pl": "bieg",
+    "contexto": "Trecho contínuo de degraus entre patamares."
+  },
+  {
+    "termo_pt": "espelho",
+    "en": "riser",
+    "es": "contrahuella",
+    "de": "Setzstufe",
+    "fr": "contremarche",
+    "it": "alzata",
+    "pl": "podstopnica",
+    "contexto": "Altura do degrau; não confundir com superfície refletora."
+  },
+  {
+    "termo_pt": "piso-tipo",
+    "en": "typical floor",
+    "es": "planta tipo",
+    "de": "Regelgeschoss",
+    "fr": "étage courant",
+    "it": "piano tipo",
+    "pl": "kondygnacja powtarzalna",
+    "contexto": "Pavimento com planta repetida nos andares."
+  },
+  {
+    "termo_pt": "pavimento",
+    "en": "storey",
+    "es": "planta",
+    "de": "Geschoss",
+    "fr": "étage",
+    "it": "piano",
+    "pl": "kondygnacja",
+    "contexto": "Andar ou nível da edificação; não confundir com piso."
+  },
+  {
+    "termo_pt": "mezanino",
+    "en": "mezzanine",
+    "es": "entreplanta",
+    "de": "Zwischengeschoss",
+    "fr": "mezzanine",
+    "it": "soppalco",
+    "pl": "antresola",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "sótão",
+    "en": "attic",
+    "es": "desván",
+    "de": "Dachboden",
+    "fr": "grenier",
+    "it": "soffitta",
+    "pl": "strych",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "porão",
+    "en": "basement",
+    "es": "sótano",
+    "de": "Keller",
+    "fr": "sous-sol",
+    "it": "seminterrato",
+    "pl": "piwnica",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "terreno",
+    "en": "terrain",
+    "es": "terreno",
+    "de": "Gelände",
+    "fr": "terrain",
+    "it": "terreno",
+    "pl": "teren",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "lote",
+    "en": "plot",
+    "es": "parcela",
+    "de": "Grundstück",
+    "fr": "lot",
+    "it": "lotto",
+    "pl": "działka",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "perímetro",
+    "en": "perimeter",
+    "es": "perímetro",
+    "de": "Umfang",
+    "fr": "périmètre",
+    "it": "perimetro",
+    "pl": "obwód",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "área construída",
+    "en": "built area",
+    "es": "superficie construida",
+    "de": "Bruttogeschossfläche",
+    "fr": "surface construite",
+    "it": "superficie costruita",
+    "pl": "powierzchnia całkowita",
+    "contexto": "Soma das áreas de todos os pavimentos."
+  },
+  {
+    "termo_pt": "taxa de ocupação",
+    "en": "lot coverage ratio",
+    "es": "coeficiente de ocupación del suelo",
+    "de": "Grundflächenzahl",
+    "fr": "coefficient d'occupation des sols",
+    "it": "indice di copertura",
+    "pl": "wskaźnik zabudowy",
+    "contexto": "Relação entre a projeção da edificação e a área do lote."
+  },
+  {
+    "termo_pt": "escala",
+    "en": "scale",
+    "es": "escala",
+    "de": "Maßstab",
+    "fr": "échelle",
+    "it": "scala",
+    "pl": "skala",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "legenda",
+    "en": "legend",
+    "es": "leyenda",
+    "de": "Legende",
+    "fr": "légende",
+    "it": "legenda",
+    "pl": "legenda",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "carimbo",
+    "en": "title block",
+    "es": "cajetín",
+    "de": "Schriftfeld",
+    "fr": "cartouche",
+    "it": "cartiglio",
+    "pl": "tabela rysunkowa",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "camada (layer)",
+    "en": "layer",
+    "es": "capa",
+    "de": "Ebene",
+    "fr": "calque",
+    "it": "livello",
+    "pl": "warstwa",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "bloco",
+    "en": "block",
+    "es": "bloque",
+    "de": "Block",
+    "fr": "bloc",
+    "it": "blocco",
+    "pl": "blok",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "cota linear",
+    "en": "linear dimension",
+    "es": "cota lineal",
+    "de": "lineares Maß",
+    "fr": "cote linéaire",
+    "it": "quota lineare",
+    "pl": "wymiar liniowy",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "cota angular",
+    "en": "angular dimension",
+    "es": "cota angular",
+    "de": "Winkelmaß",
+    "fr": "cote angulaire",
+    "it": "quota angolare",
+    "pl": "wymiar kątowy",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "cota de nível",
+    "en": "level dimension",
+    "es": "cota de nivel",
+    "de": "Höhenmaß",
+    "fr": "cote de niveau",
+    "it": "quota di livello",
+    "pl": "wymiar wysokościowy",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "norte",
+    "en": "north",
+    "es": "norte",
+    "de": "Norden",
+    "fr": "nord",
+    "it": "nord",
+    "pl": "północ",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "orientação",
+    "en": "orientation",
+    "es": "orientación",
+    "de": "Ausrichtung",
+    "fr": "orientation",
+    "it": "orientamento",
+    "pl": "orientacja",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "malha (grid)",
+    "en": "grid",
+    "es": "retícula",
+    "de": "Raster",
+    "fr": "grille",
+    "it": "griglia",
+    "pl": "siatka",
+    "contexto": "Grade de eixos estruturais do projeto."
+  },
+  {
+    "termo_pt": "snap",
+    "en": "snap",
+    "es": "enganche",
+    "de": "Objektfang",
+    "fr": "accrochage",
+    "it": "aggancio",
+    "pl": "przyciąganie",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "grade",
+    "en": "grid",
+    "es": "cuadrícula",
+    "de": "Gitter",
+    "fr": "grille",
+    "it": "griglia",
+    "pl": "siatka",
+    "contexto": "Grade auxiliar de desenho; distinta da malha estrutural."
+  },
+  {
+    "termo_pt": "seção",
+    "en": "section",
+    "es": "sección",
+    "de": "Schnitt",
+    "fr": "coupe",
+    "it": "sezione",
+    "pl": "przekrój",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "elevação",
+    "en": "elevation",
+    "es": "alzado",
+    "de": "Ansicht",
+    "fr": "élévation",
+    "it": "prospetto",
+    "pl": "elewacja",
+    "contexto": "Vista vertical da edificação."
+  },
+  {
+    "termo_pt": "fachada",
+    "en": "facade",
+    "es": "fachada",
+    "de": "Fassade",
+    "fr": "façade",
+    "it": "facciata",
+    "pl": "fasada",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "telhado de duas águas",
+    "en": "gable roof",
+    "es": "tejado a dos aguas",
+    "de": "Satteldach",
+    "fr": "toit à deux pans",
+    "it": "tetto a due falde",
+    "pl": "dach dwuspadowy",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "telhado de quatro águas",
+    "en": "hipped roof",
+    "es": "tejado a cuatro aguas",
+    "de": "Walmdach",
+    "fr": "toit à quatre pans",
+    "it": "tetto a padiglione",
+    "pl": "dach czterospadowy",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "cumeeira",
+    "en": "ridge",
+    "es": "cumbrera",
+    "de": "First",
+    "fr": "faîtage",
+    "it": "colmo",
+    "pl": "kalenica",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "rufo",
+    "en": "flashing",
+    "es": "babero",
+    "de": "Verwahrung",
+    "fr": "solin",
+    "it": "scossalina",
+    "pl": "obróbka blacharska",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "calha",
+    "en": "gutter",
+    "es": "canalón",
+    "de": "Dachrinne",
+    "fr": "gouttière",
+    "it": "grondaia",
+    "pl": "rynna",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "esquadria",
+    "en": "joinery",
+    "es": "carpintería",
+    "de": "Rahmen",
+    "fr": "menuiserie",
+    "it": "serramenti",
+    "pl": "stolarka",
+    "contexto": "Conjunto de caixilhos de portas e janelas."
+  },
+  {
+    "termo_pt": "vidro",
+    "en": "glass",
+    "es": "vidrio",
+    "de": "Glas",
+    "fr": "verre",
+    "it": "vetro",
+    "pl": "szkło",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "revestimento",
+    "en": "cladding",
+    "es": "revestimiento",
+    "de": "Verblendung",
+    "fr": "revêtement",
+    "it": "rivestimento",
+    "pl": "okładzina",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "acabamento",
+    "en": "finish",
+    "es": "acabado",
+    "de": "Ausbau",
+    "fr": "finition",
+    "it": "finitura",
+    "pl": "wykończenie",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "textura",
+    "en": "texture",
+    "es": "textura",
+    "de": "Textur",
+    "fr": "texture",
+    "it": "texture",
+    "pl": "tekstura",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "hachura",
+    "en": "hatch",
+    "es": "trama",
+    "de": "Schraffur",
+    "fr": "hachure",
+    "it": "tratteggio",
+    "pl": "kreskowanie",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "render",
+    "en": "render",
+    "es": "renderizado",
+    "de": "Rendering",
+    "fr": "rendu",
+    "it": "rendering",
+    "pl": "renderowanie",
+    "contexto": "Renderização 3D da cena."
+  },
+  {
+    "termo_pt": "exportação DXF",
+    "en": "DXF export",
+    "es": "exportación DXF",
+    "de": "DXF-Export",
+    "fr": "export DXF",
+    "it": "esportazione DXF",
+    "pl": "eksport DXF",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "exportação IFC",
+    "en": "IFC export",
+    "es": "exportación IFC",
+    "de": "IFC-Export",
+    "fr": "export IFC",
+    "it": "esportazione IFC",
+    "pl": "eksport IFC",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "catálogo",
+    "en": "catalog",
+    "es": "catálogo",
+    "de": "Katalog",
+    "fr": "catalogue",
+    "it": "catalogo",
+    "pl": "katalog",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "biblioteca",
+    "en": "library",
+    "es": "biblioteca",
+    "de": "Bibliothek",
+    "fr": "bibliothèque",
+    "it": "libreria",
+    "pl": "biblioteka",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "tipo de elemento",
+    "en": "element type",
+    "es": "tipo de elemento",
+    "de": "Elementtyp",
+    "fr": "type d'élément",
+    "it": "tipo di elemento",
+    "pl": "typ elementu",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "instância",
+    "en": "instance",
+    "es": "instancia",
+    "de": "Instanz",
+    "fr": "instance",
+    "it": "istanza",
+    "pl": "instancja",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "duplicar",
+    "en": "duplicate",
+    "es": "duplicar",
+    "de": "duplizieren",
+    "fr": "dupliquer",
+    "it": "duplicare",
+    "pl": "duplikować",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "espelhar (mirror)",
+    "en": "mirror",
+    "es": "reflejar",
+    "de": "spiegeln",
+    "fr": "symétrie",
+    "it": "specchiare",
+    "pl": "odbicie lustrzane",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "girar (rotate)",
+    "en": "rotate",
+    "es": "girar",
+    "de": "drehen",
+    "fr": "pivoter",
+    "it": "ruotare",
+    "pl": "obrócić",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "alinhar",
+    "en": "align",
+    "es": "alinear",
+    "de": "ausrichten",
+    "fr": "aligner",
+    "it": "allineare",
+    "pl": "wyrównać",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "agrupar",
+    "en": "group",
+    "es": "agrupar",
+    "de": "gruppieren",
+    "fr": "grouper",
+    "it": "raggruppare",
+    "pl": "grupować",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "desfazer",
+    "en": "undo",
+    "es": "deshacer",
+    "de": "Rückgängig",
+    "fr": "annuler",
+    "it": "annulla",
+    "pl": "cofnij",
+    "contexto": ""
+  },
+  {
+    "termo_pt": "refazer",
+    "en": "redo",
+    "es": "rehacer",
+    "de": "Wiederholen",
+    "fr": "rétablir",
+    "it": "ripeti",
+    "pl": "ponów",
+    "contexto": ""
+  }
+]

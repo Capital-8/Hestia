@@ -1,0 +1,342 @@
+[
+  {
+    "pt": "Unidades de comprimento, área, volume, ângulo e inclinação do projeto.",
+    "en": "Project units for length, area, volume, angle and slope."
+  },
+  {
+    "pt": "Atalhos de teclado…",
+    "en": "Keyboard Shortcuts…"
+  },
+  {
+    "pt": "Lista de atalhos",
+    "en": "Shortcut List"
+  },
+  {
+    "pt": "Tabela de paredes",
+    "en": "Wall Schedule"
+  },
+  {
+    "pt": "Tabela de pisos",
+    "en": "Floor Schedule"
+  },
+  {
+    "pt": "Tabela de lajes",
+    "en": "Slab Schedule"
+  },
+  {
+    "pt": "Tabela de forros",
+    "en": "Ceiling Schedule"
+  },
+  {
+    "pt": "Tabela de telhados",
+    "en": "Roof Schedule"
+  },
+  {
+    "pt": "Tabela de escadas",
+    "en": "Stair Schedule"
+  },
+  {
+    "pt": "Tabela de rampas",
+    "en": "Ramp Schedule"
+  },
+  {
+    "pt": "Tabela de ambientes",
+    "en": "Room Schedule"
+  },
+  {
+    "pt": "Tabela de portas e janelas",
+    "en": "Door/Window Schedule"
+  },
+  {
+    "pt": "Editar croqui",
+    "en": "Edit Sketch"
+  },
+  {
+    "pt": "Edita o croqui da escada selecionada.",
+    "en": "Edit the sketch of the selected stair."
+  },
+  {
+    "pt": "Selecione uma única escada.",
+    "en": "Select a single stair."
+  },
+  {
+    "pt": "Tipos de escada",
+    "en": "Stair Types"
+  },
+  {
+    "pt": "Selecione uma escada.",
+    "en": "Select a stair."
+  },
+  {
+    "pt": "Tipos de rampa",
+    "en": "Ramp Types"
+  },
+  {
+    "pt": "Selecione uma rampa.",
+    "en": "Select a ramp."
+  },
+  {
+    "pt": "Desenhar",
+    "en": "Draw"
+  },
+  {
+    "pt": "Linha",
+    "en": "Line"
+  },
+  {
+    "pt": "Arco (3 pontos)",
+    "en": "Arc (3 points)"
+  },
+  {
+    "pt": "Retângulo",
+    "en": "Rectangle"
+  },
+  {
+    "pt": "Perímetro",
+    "en": "Perimeter"
+  },
+  {
+    "pt": "Paredes",
+    "en": "Walls"
+  },
+  {
+    "pt": "Modificar parede",
+    "en": "Modify Wall"
+  },
+  {
+    "pt": "Editar perfil",
+    "en": "Edit Profile"
+  },
+  {
+    "pt": "Portas",
+    "en": "Doors"
+  },
+  {
+    "pt": "Hospedeiro",
+    "en": "Host"
+  },
+  {
+    "pt": "Janelas",
+    "en": "Windows"
+  },
+  {
+    "pt": "Pisos",
+    "en": "Floors"
+  },
+  {
+    "pt": "Lajes",
+    "en": "Slabs"
+  },
+  {
+    "pt": "Editar forma",
+    "en": "Shape Editing"
+  },
+  {
+    "pt": "Forros",
+    "en": "Ceilings"
+  },
+  {
+    "pt": "Telhados",
+    "en": "Roofs"
+  },
+  {
+    "pt": "Modificar telhado",
+    "en": "Modify Roof"
+  },
+  {
+    "pt": "Escadas",
+    "en": "Stairs"
+  },
+  {
+    "pt": "Escada",
+    "en": "Stair"
+  },
+  {
+    "pt": "Rampas",
+    "en": "Ramps"
+  },
+  {
+    "pt": "Rampa",
+    "en": "Ramp"
+  },
+  {
+    "pt": "Ambientes",
+    "en": "Rooms"
+  },
+  {
+    "pt": "Ambiente",
+    "en": "Room"
+  },
+  {
+    "pt": "Modificar | Seleção múltipla",
+    "en": "Modify | Multi-Select"
+  },
+  {
+    "pt": "Modificar | Elementos",
+    "en": "Modify | Elements"
+  },
+  {
+    "pt": "Modificar | Colar alinhado",
+    "en": "Modify | Paste Aligned"
+  },
+  {
+    "pt": "Editar perímetro do telhado",
+    "en": "Edit Roof Perimeter"
+  },
+  {
+    "pt": "Editar perímetro do piso",
+    "en": "Edit Floor Perimeter"
+  },
+  {
+    "pt": "Editar perímetro da laje",
+    "en": "Edit Slab Perimeter"
+  },
+  {
+    "pt": "Editar perímetro do forro",
+    "en": "Edit Ceiling Perimeter"
+  },
+  {
+    "pt": "Selecionar",
+    "en": "Select"
+  },
+  {
+    "pt": "Modificar",
+    "en": "Modify"
+  },
+  {
+    "pt": "Escala",
+    "en": "Scale"
+  },
+  {
+    "pt": "Fixar",
+    "en": "Pin"
+  },
+  {
+    "pt": "Desafixar",
+    "en": "Unpin"
+  },
+  {
+    "pt": "Medir",
+    "en": "Measure"
+  },
+  {
+    "pt": "Cota alinhada",
+    "en": "Aligned"
+  },
+  {
+    "pt": "Área de transferência",
+    "en": "Clipboard"
+  },
+  {
+    "pt": "Corresp. tipo",
+    "en": "Match Type"
+  },
+  {
+    "pt": "Geometria",
+    "en": "Geometry"
+  },
+  {
+    "pt": "Cortar",
+    "en": "Cope"
+  },
+  {
+    "pt": "Cortar geometria",
+    "en": "Cut"
+  },
+  {
+    "pt": "Entalhar",
+    "en": "Notch"
+  },
+  {
+    "pt": "Vista",
+    "en": "View"
+  },
+  {
+    "pt": "Ocultar em vista",
+    "en": "Hide in View"
+  },
+  {
+    "pt": "Substituir gráficos",
+    "en": "Override Graphics"
+  },
+  {
+    "pt": "Seleção e nível",
+    "en": "Selection & Level"
+  },
+  {
+    "pt": "Criar",
+    "en": "Create"
+  },
+  {
+    "pt": "Criar grupo",
+    "en": "Create Group"
+  },
+  {
+    "pt": "Arquitetura",
+    "en": "Architecture"
+  },
+  {
+    "pt": "Construir",
+    "en": "Build"
+  },
+  {
+    "pt": "Componente",
+    "en": "Component"
+  },
+  {
+    "pt": "Pilar",
+    "en": "Column"
+  },
+  {
+    "pt": "Telhado",
+    "en": "Roof"
+  },
+  {
+    "pt": "Telhado por perímetro",
+    "en": "Roof by Footprint"
+  },
+  {
+    "pt": "Telhado por face",
+    "en": "Roof by Face"
+  },
+  {
+    "pt": "Piso",
+    "en": "Floor"
+  },
+  {
+    "pt": "Piso: Arquitetônico",
+    "en": "Floor: Architectural"
+  },
+  {
+    "pt": "Piso: Estrutural (Laje)",
+    "en": "Floor: Structural (Slab)"
+  },
+  {
+    "pt": "Piso por face",
+    "en": "Floor by Face"
+  },
+  {
+    "pt": "Sistema de fachada cortina",
+    "en": "Curtain System"
+  },
+  {
+    "pt": "Grade de fachada cortina",
+    "en": "Curtain Grid"
+  },
+  {
+    "pt": "Montante",
+    "en": "Mullion"
+  },
+  {
+    "pt": "Circulação",
+    "en": "Circulation"
+  },
+  {
+    "pt": "Guarda-corpo",
+    "en": "Railing"
+  },
+  {
+    "pt": "Escada por lances",
+    "en": "Stair by Run"
+  }
+]

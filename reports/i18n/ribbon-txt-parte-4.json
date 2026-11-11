@@ -1,0 +1,342 @@
+[
+  {
+    "pt": "Carregar como grupo",
+    "en": "Load as Group"
+  },
+  {
+    "pt": "Estrutura",
+    "en": "Structure"
+  },
+  {
+    "pt": "Conexão",
+    "en": "Connection"
+  },
+  {
+    "pt": "Viga",
+    "en": "Beam"
+  },
+  {
+    "pt": "Contraventamento",
+    "en": "Brace"
+  },
+  {
+    "pt": "Sistema de vigas",
+    "en": "Beam System"
+  },
+  {
+    "pt": "Treliça",
+    "en": "Truss"
+  },
+  {
+    "pt": "Emenda",
+    "en": "Splice"
+  },
+  {
+    "pt": "Fundação",
+    "en": "Foundation"
+  },
+  {
+    "pt": "Isolada",
+    "en": "Isolated"
+  },
+  {
+    "pt": "Laje",
+    "en": "Slab"
+  },
+  {
+    "pt": "Reforço",
+    "en": "Reinforcement"
+  },
+  {
+    "pt": "Armadura",
+    "en": "Rebar"
+  },
+  {
+    "pt": "Cobrimento",
+    "en": "Cover"
+  },
+  {
+    "pt": "Área",
+    "en": "Area"
+  },
+  {
+    "pt": "Malha",
+    "en": "Fabric"
+  },
+  {
+    "pt": "Modelo analítico",
+    "en": "Analytical Model"
+  },
+  {
+    "pt": "Cargas",
+    "en": "Loads"
+  },
+  {
+    "pt": "Condições de contorno",
+    "en": "Boundary Conditions"
+  },
+  {
+    "pt": "Nível",
+    "en": "Level"
+  },
+  {
+    "pt": "Aço",
+    "en": "Steel"
+  },
+  {
+    "pt": "Conexões",
+    "en": "Connections"
+  },
+  {
+    "pt": "Chapa",
+    "en": "Plate"
+  },
+  {
+    "pt": "Ancoragem",
+    "en": "Anchor"
+  },
+  {
+    "pt": "Elementos de aço",
+    "en": "Steel Elements"
+  },
+  {
+    "pt": "Parafuso",
+    "en": "Bolt"
+  },
+  {
+    "pt": "Solda",
+    "en": "Weld"
+  },
+  {
+    "pt": "Pino",
+    "en": "Stud"
+  },
+  {
+    "pt": "Entalhe",
+    "en": "Cope"
+  },
+  {
+    "pt": "Corte",
+    "en": "Cut"
+  },
+  {
+    "pt": "Chanfro",
+    "en": "Chamfer"
+  },
+  {
+    "pt": "Pré-moldado",
+    "en": "Precast"
+  },
+  {
+    "pt": "Peças",
+    "en": "Parts"
+  },
+  {
+    "pt": "Painel",
+    "en": "Panel"
+  },
+  {
+    "pt": "Divisão",
+    "en": "Divide"
+  },
+  {
+    "pt": "Dividir peça",
+    "en": "Divide Part"
+  },
+  {
+    "pt": "Juntas",
+    "en": "Joints"
+  },
+  {
+    "pt": "Sistemas",
+    "en": "Systems"
+  },
+  {
+    "pt": "HVAC",
+    "en": "HVAC"
+  },
+  {
+    "pt": "Duto",
+    "en": "Duct"
+  },
+  {
+    "pt": "Tubo flexível",
+    "en": "Flex Duct"
+  },
+  {
+    "pt": "Difusor",
+    "en": "Air Terminal"
+  },
+  {
+    "pt": "Mecânico",
+    "en": "Mechanical"
+  },
+  {
+    "pt": "Equipamento",
+    "en": "Equipment"
+  },
+  {
+    "pt": "Hidráulica e tubulação",
+    "en": "Plumbing & Piping"
+  },
+  {
+    "pt": "Tubo",
+    "en": "Pipe"
+  },
+  {
+    "pt": "Aparelho sanitário",
+    "en": "Fixture"
+  },
+  {
+    "pt": "Elétrico",
+    "en": "Electrical"
+  },
+  {
+    "pt": "Eletroduto",
+    "en": "Conduit"
+  },
+  {
+    "pt": "Bandeja",
+    "en": "Cable Tray"
+  },
+  {
+    "pt": "Luminária",
+    "en": "Lighting"
+  },
+  {
+    "pt": "Analisar",
+    "en": "Analyze"
+  },
+  {
+    "pt": "Espaços e zonas",
+    "en": "Spaces & Zones"
+  },
+  {
+    "pt": "Espaço",
+    "en": "Space"
+  },
+  {
+    "pt": "Zona",
+    "en": "Zone"
+  },
+  {
+    "pt": "Relatórios e tabelas",
+    "en": "Reports & Schedules"
+  },
+  {
+    "pt": "Relatório de carga",
+    "en": "Load Report"
+  },
+  {
+    "pt": "Tabela de carga",
+    "en": "Load Schedule"
+  },
+  {
+    "pt": "Energia",
+    "en": "Energy"
+  },
+  {
+    "pt": "Otimização de energia",
+    "en": "Energy Optimization"
+  },
+  {
+    "pt": "Verificação",
+    "en": "Check"
+  },
+  {
+    "pt": "Verificar sistemas",
+    "en": "Check Systems"
+  },
+  {
+    "pt": "Massa e terreno",
+    "en": "Massing & Site"
+  },
+  {
+    "pt": "Modelo de massa",
+    "en": "Conceptual Mass"
+  },
+  {
+    "pt": "Mostrar massa",
+    "en": "Show Mass"
+  },
+  {
+    "pt": "Massa no local",
+    "en": "In-Place Mass"
+  },
+  {
+    "pt": "Colocar massa",
+    "en": "Place Mass"
+  },
+  {
+    "pt": "Modelo por massa",
+    "en": "Model by Face"
+  },
+  {
+    "pt": "Parede por face",
+    "en": "Wall by Face"
+  },
+  {
+    "pt": "Forro por face",
+    "en": "Ceiling by Face"
+  },
+  {
+    "pt": "Terreno",
+    "en": "Site Modeling"
+  },
+  {
+    "pt": "Subdivisão",
+    "en": "Subregion"
+  },
+  {
+    "pt": "Plataforma",
+    "en": "Building Pad"
+  },
+  {
+    "pt": "Componente de terreno",
+    "en": "Site Component"
+  },
+  {
+    "pt": "Linhas de propriedade",
+    "en": "Property Line"
+  },
+  {
+    "pt": "Colaborar",
+    "en": "Collaborate"
+  },
+  {
+    "pt": "Comunicar",
+    "en": "Communicate"
+  },
+  {
+    "pt": "Gerenciar colaboração",
+    "en": "Manage Collaboration"
+  },
+  {
+    "pt": "Conjuntos de trabalho",
+    "en": "Worksets"
+  },
+  {
+    "pt": "Opções de design",
+    "en": "Design Options"
+  },
+  {
+    "pt": "Coordenar",
+    "en": "Coordinate"
+  },
+  {
+    "pt": "Copiar/monitorar",
+    "en": "Copy/Monitor"
+  },
+  {
+    "pt": "Verificar interferências",
+    "en": "Interference Check"
+  },
+  {
+    "pt": "Suplementos",
+    "en": "Add-Ins"
+  },
+  {
+    "pt": "Ferramentas externas",
+    "en": "External Tools"
+  }
+]
