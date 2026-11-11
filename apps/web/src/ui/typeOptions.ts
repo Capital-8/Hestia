@@ -1,12 +1,19 @@
 import type { Project } from '@hestia/model';
-import { useI18n, type Lang } from '../editor/i18n.ts';
+import { t as traduzir, useI18n, type Lang } from '../editor/i18n.ts';
 import { familyName, openingFamilyName } from './typeFamilies.ts';
 import type { TypeOption } from './TypeSelector.tsx';
 
 /** Opções do seletor de tipo de cada categoria: a lista, a família de agrupamento e o que a prévia desenha. */
 
+/** Paredes: o grupo é "Parede básica" ou "Parede cortina", conforme a família do tipo (decisão 0056, §4.7). */
 export function wallOptions(p: Project, lang: Lang = useI18n.getState().lang): TypeOption[] {
-  return Object.values(p.wallTypes).map((t) => ({ id: t.id, name: t.name, code: t.code, family: familyName('wall', lang), subject: { kind: 'wall', type: t, materials: p.materials } }));
+  return Object.values(p.wallTypes).map((t) => ({
+    id: t.id,
+    name: t.name,
+    code: t.code,
+    family: t.family === 'curtain' ? traduzir(lang, 'pct_fam_curtain') : familyName('wall', lang),
+    subject: { kind: 'wall', type: t, materials: p.materials },
+  }));
 }
 
 export function floorOptions(p: Project, lang: Lang = useI18n.getState().lang): TypeOption[] {

@@ -499,6 +499,12 @@ const PT = {
   md_cmd_mullion_last: 'Não é possível apagar o último tipo de montante.',
   md_cmd_panel_in_use: 'Tipo de painel em uso por uma parede cortina.',
   md_cmd_panel_last: 'Não é possível apagar o último tipo de painel.',
+  md_ct_preset_vitrine: 'Vidraça de fachada',
+  md_ct_preset_vitrine_desc: 'Vidro de 10 mm em módulos de até 1,20 m, montantes retangulares 50 × 100 mm, sistema de 10 cm.',
+  md_ct_preset_fachada: 'Fachada modular',
+  md_ct_preset_fachada_desc: 'Módulos de 1,50 × 3,60 m com vidro duplo de 24 mm e montantes retangulares 50 × 150 mm.',
+  md_ct_preset_vidro_colado: 'Vidro colado',
+  md_ct_preset_vidro_colado_desc: 'Vidros de 1,20 × 2,40 m unidos por juntas de vidro colado de 12 mm.',
 } as const;
 
 type Key = keyof typeof PT;
@@ -963,6 +969,12 @@ const EN: Record<Key, string> = {
   md_cmd_mullion_last: 'The last mullion type cannot be deleted.',
   md_cmd_panel_in_use: 'Panel type is in use by a curtain wall.',
   md_cmd_panel_last: 'The last panel type cannot be deleted.',
+  md_ct_preset_vitrine: 'Storefront glazing',
+  md_ct_preset_vitrine_desc: '10 mm glass in modules up to 1.20 m, 50 × 100 mm rectangular mullions, 10 cm system.',
+  md_ct_preset_fachada: 'Modular facade',
+  md_ct_preset_fachada_desc: 'Modules of 1.50 × 3.60 m with 24 mm double glazing and 50 × 150 mm rectangular mullions.',
+  md_ct_preset_vidro_colado: 'Butt-glazed',
+  md_ct_preset_vidro_colado_desc: 'Glass panes of 1.20 × 2.40 m joined by 12 mm structural glazing joints.',
 };
 
 /** Texto de uma chave no idioma pedido, com interpolação `{nome}`. */
@@ -1543,6 +1555,12 @@ const ES: Record<Key, string> = {
   md_cmd_mullion_last: 'No se puede borrar el último tipo de montante.',
   md_cmd_panel_in_use: 'Tipo de panel en uso por un muro cortina.',
   md_cmd_panel_last: 'No se puede borrar el último tipo de panel.',
+  md_ct_preset_vitrine: 'Escaparate',
+  md_ct_preset_vitrine_desc: 'Vidrio de 10 mm en módulos de hasta 1,20 m, montantes rectangulares 50 × 100 mm, sistema de 10 cm.',
+  md_ct_preset_fachada: 'Fachada modular',
+  md_ct_preset_fachada_desc: 'Módulos de 1,50 × 3,60 m con doble vidrio de 24 mm y montantes rectangulares 50 × 150 mm.',
+  md_ct_preset_vidro_colado: 'Vidrio pegado',
+  md_ct_preset_vidro_colado_desc: 'Paños de 1,20 × 2,40 m unidos por juntas de vidrio pegado de 12 mm.',
 };
 
 const DE: Record<Key, string> = {
@@ -2033,6 +2051,12 @@ const DE: Record<Key, string> = {
   md_cmd_mullion_last: 'Der letzte Pfostentyp kann nicht gelöscht werden.',
   md_cmd_panel_in_use: 'Feldtyp wird von einer Vorhangfassade verwendet.',
   md_cmd_panel_last: 'Der letzte Feldtyp kann nicht gelöscht werden.',
+  md_ct_preset_vitrine: 'Schaufensterfront',
+  md_ct_preset_vitrine_desc: 'Glas 10 mm in Modulen bis 1,20 m, rechteckige Pfosten 50 × 100 mm, System 10 cm.',
+  md_ct_preset_fachada: 'Modulare Fassade',
+  md_ct_preset_fachada_desc: 'Module 1,50 × 3,60 m mit 24 mm Isolierglas und rechteckigen Pfosten 50 × 150 mm.',
+  md_ct_preset_vidro_colado: 'Stoßverglasung',
+  md_ct_preset_vidro_colado_desc: 'Scheiben 1,20 × 2,40 m, verbunden durch 12 mm Klebefugen.',
 };
 
 const FR: Record<Key, string> = {
@@ -2523,6 +2547,12 @@ const FR: Record<Key, string> = {
   md_cmd_mullion_last: 'Impossible de supprimer le dernier type de montant.',
   md_cmd_panel_in_use: 'Type de panneau utilisé par un mur-rideau.',
   md_cmd_panel_last: 'Impossible de supprimer le dernier type de panneau.',
+  md_ct_preset_vitrine: 'Vitrine de façade',
+  md_ct_preset_vitrine_desc: 'Verre de 10 mm en modules jusqu\'à 1,20 m, montants rectangulaires 50 × 100 mm, système de 10 cm.',
+  md_ct_preset_fachada: 'Façade modulaire',
+  md_ct_preset_fachada_desc: 'Modules de 1,50 × 3,60 m avec double vitrage de 24 mm et montants rectangulaires 50 × 150 mm.',
+  md_ct_preset_vidro_colado: 'Vitrage collé',
+  md_ct_preset_vidro_colado_desc: 'Panneaux de 1,20 × 2,40 m reliés par joints de vitrage collé de 12 mm.',
 };
 
 const IT: Record<Key, string> = {
@@ -3013,6 +3043,12 @@ const IT: Record<Key, string> = {
   md_cmd_mullion_last: 'Non è possibile eliminare l\'ultimo tipo di montante.',
   md_cmd_panel_in_use: 'Tipo di pannello in uso da una parete continua.',
   md_cmd_panel_last: 'Non è possibile eliminare l\'ultimo tipo di pannello.',
+  md_ct_preset_vitrine: 'Vetrina di facciata',
+  md_ct_preset_vitrine_desc: 'Vetro da 10 mm in moduli fino a 1,20 m, montanti rettangolari 50 × 100 mm, sistema da 10 cm.',
+  md_ct_preset_fachada: 'Facciata modulare',
+  md_ct_preset_fachada_desc: 'Moduli da 1,50 × 3,60 m con doppio vetro da 24 mm e montanti rettangolari 50 × 150 mm.',
+  md_ct_preset_vidro_colado: 'Vetro incollato',
+  md_ct_preset_vidro_colado_desc: 'Lastre da 1,20 × 2,40 m unite da giunti di vetro incollato da 12 mm.',
 };
 
 /** Dicionário do idioma, com fallback EN→PT aplicado em 	. */
@@ -3516,4 +3552,10 @@ const PL: Record<Key, string> = {
   md_cmd_mullion_last: 'Nie można usunąć ostatniego typu słupka.',
   md_cmd_panel_in_use: 'Typ panelu jest używany przez ścianę osłonową.',
   md_cmd_panel_last: 'Nie można usunąć ostatniego typu panelu.',
+  md_ct_preset_vitrine: 'Witryna fasadowa',
+  md_ct_preset_vitrine_desc: 'Szkło 10 mm w modułach do 1,20 m, słupki prostokątne 50 × 100 mm, system 10 cm.',
+  md_ct_preset_fachada: 'Fasada modułowa',
+  md_ct_preset_fachada_desc: 'Moduły 1,50 × 3,60 m z szybą zespoloną 24 mm i słupkami prostokątnymi 50 × 150 mm.',
+  md_ct_preset_vidro_colado: 'Szkło klejone',
+  md_ct_preset_vidro_colado_desc: 'Tafle 1,20 × 2,40 m połączone spoinami klejonymi 12 mm.',
 };

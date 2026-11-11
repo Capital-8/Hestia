@@ -7,6 +7,9 @@ const projetoV24 = (): Record<string, unknown> => {
   const p = JSON.parse(JSON.stringify(createEmptyProject())) as Record<string, unknown>;
   delete p.mullionTypes;
   delete p.curtainPanelTypes;
+  // Arquivo da versão 24 não tinha as predefinições de cortina (elas entraram na fase 1).
+  const tipos = p.wallTypes as Record<string, { family?: string }>;
+  for (const id of Object.keys(tipos)) if (tipos[id]!.family === 'curtain') delete tipos[id];
   return { ...p, schemaVersion: 24 };
 };
 
