@@ -22,6 +22,19 @@ export const OCCLUSION_RANK = { cut: 0, opening: 1, beyond: 2 } as const;
 /** Área (metros quadrados) abaixo da qual uma parte visível é descartada: resíduo numérico de contato, não superfície. */
 export const MIN_VISIBLE_AREA = 1e-6;
 
+/**
+ * Largura equivalente (m) abaixo da qual uma parte visível é só fresta numérica de contato (ex.: o fio de ~1 µm que sobra
+ * ao longo da face inferior de uma escada quando as peças são unidas): 2·área ÷ perímetro, a largura de uma faixa fina.
+ */
+export const MIN_VISIBLE_WIDTH = 1e-5;
+
+/** Perímetro total (contornos e furos) de um multipolígono. */
+function multiPerimeter(m: MultiPolygon): number {
+  let sum = 0;
+  for (const poly of m) for (const ring of poly) for (let i = 0; i < ring.length; i++) sum += Math.hypot(ring[(i + 1) % ring.length]!.x - ring[i]!.x, ring[(i + 1) % ring.length]!.y - ring[i]!.y);
+  return sum;
+}
+
 /** Tolerância de cota (m) nas comparações de topo, base e contenção. */
 const COTA_EPS = 1e-6;
 
@@ -94,7 +107,9 @@ export function visibleParts(items: OcclusionItem[]): MultiPolygon[] {
     const hits: MultiPolygon[] = [];
     for (const o of occluders) if (boxesOverlap(o.box, box, 1e-9)) hits.push(o.polygons);
     const visible = hits.length > 0 ? differenceClipper(item.polygons, ...hits) : item.polygons;
-    if (visible.length === 0 || multiArea(visible) < MIN_VISIBLE_AREA) continue;
+    if (visible.length === 0) continue;
+    const area = multiArea(visible);
+    if (area < MIN_VISIBLE_AREA || (2 * area) / multiPerimeter(visible) < MIN_VISIBLE_WIDTH) continue;
     out[i] = visible;
     occluders.push({ box: boxOf(multiPoints(visible)), polygons: visible });
   }

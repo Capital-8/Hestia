@@ -95,22 +95,13 @@ interface Body {
   materialId: Id;
 }
 
-/** Trechos de [loA, hiA] fora de [loB, hiB], para cotas de um mesmo ponto da aresta: a parte de baixo e a de cima. */
-function uncovered(loA: number, hiA: number, loB: number, hiB: number): Array<[number, number]> {
-  const out: Array<[number, number]> = [];
-  if (Math.min(hiA, loB) > loA + EPS) out.push([loA, Math.min(hiA, loB)]);
-  if (hiA > Math.max(loA, hiB) + EPS) out.push([Math.max(loA, hiB), hiA]);
-  return out;
-}
-
-/** Sinais das seis comparações entre as cotas de duas peças. Se forem iguais nos dois extremos, não há cruzamento. */
-const orderOf = (loA: number, hiA: number, loB: number, hiB: number): string =>
-  [loA - hiA, loA - loB, loA - hiB, hiA - loB, hiA - hiB, loB - hiB].map(sgn).join(',');
-
 /**
  * Faixas da parede de `a` na aresta p→q que ficam expostas: a parede inteira menos o trecho que coincide com a parede
- * da peça vizinha `b` (a mesma aresta, no sentido oposto). Cada faixa tem a cota de fundo e de topo em p e em q. Se a
- * ordem das cotas muda entre p e q (o encontro não é um prisma), nada é cortado e as duas paredes ficam inteiras.
+ * da peça vizinha `b` (a mesma aresta, no sentido oposto). Cada faixa tem a cota de fundo e de topo em p e em q. Em cada
+ * ponta, o que sobra é o trecho de baixo (do fundo de `a` até o fundo de `b`) e o de cima (do topo de `b` até o topo de
+ * `a`), cada um com altura zero quando `b` cobre até a borda de `a`; assim as faixas viram quadriláteros, ou triângulos
+ * quando as faces se tocam numa ponta (ex.: dois fundos que se encontram exatamente na aresta). Se a ordem das cotas
+ * muda de verdade entre p e q (as superfícies se cruzam), nada é cortado e as duas paredes ficam inteiras.
  */
 function exposedSpans(a: Body, b: Body | undefined, p: Vec2, q: Vec2): Array<{ p: [number, number]; q: [number, number] }> {
   const loP = a.bot(p.x, p.y);
@@ -118,10 +109,66 @@ function exposedSpans(a: Body, b: Body | undefined, p: Vec2, q: Vec2): Array<{ p
   if (!b) return [{ p: [loP, a.top], q: [loQ, a.top] }];
   const bP = b.bot(p.x, p.y);
   const bQ = b.bot(q.x, q.y);
-  if (orderOf(loP, a.top, bP, b.top) !== orderOf(loQ, a.top, bQ, b.top)) return [{ p: [loP, a.top], q: [loQ, a.top] }];
-  const sp = uncovered(loP, a.top, bP, b.top);
-  const sq = uncovered(loQ, a.top, bQ, b.top);
-  return sp.map((s, i) => ({ p: s, q: sq[i]! }));
+  const sp = [loP - a.top, loP - bP, loP - b.top, a.top - bP, a.top - b.top, bP - b.top].map(sgn);
+  const sq = [loQ - a.top, loQ - bQ, loQ - b.top, a.top - bQ, a.top - b.top, bQ - b.top].map(sgn);
+  if (sp.some((s, i) => s * sq[i]! < 0)) return [{ p: [loP, a.top], q: [loQ, a.top] }];
+  const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
+  const out: Array<{ p: [number, number]; q: [number, number] }> = [];
+  // Baixo: do fundo de `a` até o fundo de `b` (limitado ao topo de `a`); cima: do topo de `b` (limitado ao fundo de `a`) até o topo de `a`.
+  const lowP = clamp(bP, loP, a.top);
+  const lowQ = clamp(bQ, loQ, a.top);
+  if (lowP - loP > EPS || lowQ - loQ > EPS) out.push({ p: [loP, lowP], q: [loQ, lowQ] });
+  const upP = clamp(b.top, loP, a.top);
+  const upQ = clamp(b.top, loQ, a.top);
+  if (a.top - upP > EPS || a.top - upQ > EPS) out.push({ p: [upP, a.top], q: [upQ, a.top] });
+  return out;
+}
+
+/** Parede de uma faixa: quadrilátero, ou triângulo quando a altura é zero numa das pontas (sem triângulo degenerado). */
+function pushSpan(b: SolidBatch, p: Vec2, q: Vec2, s: { p: [number, number]; q: [number, number] }): void {
+  const hp = s.p[1] - s.p[0];
+  const hq = s.q[1] - s.q[0];
+  if (hp > EPS && hq > EPS) return pushWall(b, p, q, s.p[0], s.q[0], s.p[1], s.q[1]);
+  const dx = q.x - p.x;
+  const dy = q.y - p.y;
+  const L = Math.hypot(dx, dy);
+  if (L < EPS) return;
+  const pts = hp > EPS ? [p.x, p.y, s.p[0], q.x, q.y, s.q[0], p.x, p.y, s.p[1]] : [p.x, p.y, s.p[0], q.x, q.y, s.q[0], q.x, q.y, s.q[1]];
+  const at = b.positions.length / 3;
+  b.positions.push(...pts);
+  for (let i = 0; i < 3; i++) b.normals.push(dy / L, -dx / L, 0);
+  b.indices.push(at, at + 1, at + 2);
+}
+
+/**
+ * Insere em cada aresta dos anéis os vértices de OUTROS anéis que caem sobre ela (T-junction na planta). Dois corpos que
+ * dividem só parte de uma aresta (ex.: o patamar e o degrau vizinho, com a faixa do acabamento no meio) passam a ter
+ * arestas idênticas nos trechos em comum, e a parede coplanar entre eles é cancelada em vez de virar face interna com
+ * aresta desenhada. O contorno do corpo não muda.
+ */
+function splitRingEdges(rings: Ring[]): Ring[] {
+  const all = rings.flatMap((r, i) => r.map((p) => ({ p, i })));
+  return rings.map((r, i) => {
+    const out: Ring = [];
+    r.forEach((p, e) => {
+      out.push(p);
+      const q = r[(e + 1) % r.length]!;
+      const d = sub(q, p);
+      const L = Math.hypot(d.x, d.y);
+      if (L < VERTEX_TOL) return;
+      const found: Array<{ t: number; v: Vec2 }> = [];
+      for (const o of all) {
+        if (o.i === i) continue;
+        const w = sub(o.p, p);
+        const t = (w.x * d.x + w.y * d.y) / L;
+        if (t <= VERTEX_TOL || t >= L - VERTEX_TOL) continue;
+        if (Math.abs(w.x * d.y - w.y * d.x) / L < VERTEX_TOL && !found.some((f) => Math.abs(f.t - t) < VERTEX_TOL)) found.push({ t, v: o.p });
+      }
+      found.sort((a, b) => a.t - b.t);
+      for (const f of found) out.push(f.v);
+    });
+    return out;
+  });
 }
 
 /**
@@ -132,7 +179,7 @@ function exposedSpans(a: Body, b: Body | undefined, p: Vec2, q: Vec2): Array<{ p
 function extrudeBodies(b: SolidBatch, input: Body[]): void {
   // Corpo sem espessura não entra: não deve cortar a parede de vizinho.
   const bodies = input.filter((c) => c.top - Math.min(...c.polygon.map((p) => c.bot(p.x, p.y))) > 1e-6);
-  const rings = bodies.map((c) => counterClockwise(c.polygon));
+  const rings = splitRingEdges(bodies.map((c) => counterClockwise(c.polygon)));
   // Aresta p→q de cada corpo; a do corpo vizinho aparece no sentido oposto, q→p.
   const owner = new Map<string, number>();
   rings.forEach((r, i) => r.forEach((p, e) => owner.set(`${planKey(p)}>${planKey(r[(e + 1) % r.length]!)}`, i)));
@@ -143,7 +190,7 @@ function extrudeBodies(b: SolidBatch, input: Body[]): void {
     r.forEach((p, e) => {
       const q = r[(e + 1) % r.length]!;
       const j = owner.get(`${planKey(q)}>${planKey(p)}`);
-      for (const s of exposedSpans(c, j === undefined ? undefined : bodies[j], p, q)) pushWall(b, p, q, s.p[0], s.q[0], s.p[1], s.q[1]);
+      for (const s of exposedSpans(c, j === undefined ? undefined : bodies[j], p, q)) pushSpan(b, p, q, s);
     });
   });
 }
