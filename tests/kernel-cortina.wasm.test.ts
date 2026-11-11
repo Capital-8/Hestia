@@ -262,7 +262,7 @@ describe('parede cortina, fase 2 (sobrescritas) no Rust real', () => {
   // Base de `entradaBasica`: c1 com U de 6,5 m (linhas em 0,25; 1,75; 3,25; 4,75; 6,25 => 6 colunas) e V manual de 3 m (1 e 2,4 => 3 fileiras).
   const comSobrescritas = (s: NonNullable<EntradaCenaCortina['cortinas'][number]['sobrescritas']>): EntradaCenaCortina => {
     const e = entradaBasica();
-    e.cortinas[0] = { ...e.cortinas[0]!, sobrescritas: s };
+    e.cortinas = [{ ...e.cortinas[0]!, sobrescritas: s }, ...e.cortinas.slice(1)];
     return e;
   };
 
