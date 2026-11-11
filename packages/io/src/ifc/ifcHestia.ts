@@ -8,7 +8,7 @@
  *   inteiro, menos a geometria derivada — o `mesh`/`outline` do genérico, que já está no arquivo).
  * - `Pset_Hestia_Project`, ligado ao `IfcProject`: `HestiaVersion` (1), `SchemaVersion`, `NextOrder`, `SettingsJSON`,
  *   `TypesJSON` (mapas de tipo do projeto), `MaterialsJSON`, `LevelsJSON`, `DefaultsJSON` e os dados que não têm
- *   entidade IFC (`ViewsJSON`, `SheetsJSON`, `GridsJSON`, `GraphicsJSON`, `View3DJSON`, `SectionGraphicsJSON`).
+ *   entidade IFC (`ViewsJSON`, `PlanViewsJSON`, `SheetsJSON`, `GridsJSON`, `GraphicsJSON`, `View3DJSON`, `SectionGraphicsJSON`).
  *
  * O GlobalId do pset e o da relação são derivados do id do elemento (`hestia:<id>` / `hestiarel:<id>`), então o
  * arquivo continua determinístico.
@@ -147,7 +147,8 @@ function projectPset(sink: HestiaSink, p: Project, project: number): void {
     property(sink, 'SettingsJSON', longText(JSON.stringify(p.settings))),
     property(sink, 'TypesJSON', longText(JSON.stringify(types))),
     property(sink, 'MaterialsJSON', longText(JSON.stringify(p.materials))),
-    property(sink, 'LevelsJSON', longText(JSON.stringify(p.levels))), // armazenamento (Fase 2)
+    property(sink, 'LevelsJSON', longText(JSON.stringify(p.levels))),
+    property(sink, 'PlanViewsJSON', longText(JSON.stringify(p.planViews))),
     property(sink, 'DefaultsJSON', longText(JSON.stringify(p.defaults))),
     // Dados de projeto que não têm entidade IFC: voltam pelo pset, não pela geometria.
     property(sink, 'ViewsJSON', longText(JSON.stringify(p.views))),

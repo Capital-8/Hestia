@@ -41,6 +41,8 @@ const levelAnnotations = (l: Raw): PlanAnnotations => normalizeAnnotations(Objec
  * - planta de área cujo nível não existe é descartada.
  */
 export function migrateVistasV23(raw: Raw): Raw {
+  // Defesa: dados que já estão no formato novo (um IFC importado carrega a versão de esquema do arquivo antigo) passam como estão.
+  if (Array.isArray(raw.planViews) && !Array.isArray(raw.areaPlans)) return raw;
   const levels = Array.isArray(raw.levels) ? (raw.levels as Raw[]) : [];
   const elements = Object.values((raw.elements as Record<string, Raw> | undefined) ?? {});
   const withRoof = new Set(elements.filter((e) => e.kind === 'roof').map((e) => e.levelId as string));

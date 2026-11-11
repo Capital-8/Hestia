@@ -443,7 +443,7 @@ export function importIfc(text: string, base?: Project, onProgress?: IfcProgress
   for (const [opening, filler] of rel.fillerOf) ctx.openingOf.set(filler, opening);
   aviso('relations', 1, 1);
   const zs = file.byType('IFCBUILDINGSTOREY').length ? [] : levelCandidates(ctx);
-  ctx.levels = applyHestiaLevels(p, hestia.project?.levels, readLevels(file, p, report, zs, lang));
+  ctx.levels = applyHestiaLevels(p, hestia.project?.levels, readLevels(file, p, report, zs, lang), hestia.project?.planViews);
   aviso('levels', 1, 1);
   // Extensão Hestia: os elementos do registro entram antes do resto do arquivo e não passam pela heurística.
   ctx.order = Math.max(ctx.order, applyHestiaElements(ctx, hestia.elements) + 1);
