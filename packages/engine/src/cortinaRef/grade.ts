@@ -52,6 +52,8 @@ export interface OrigemLinha {
 export interface EixoCompleto extends EixoResolvido {
   origens: OrigemLinha[];
   gerado: EixoResolvido;
+  /** Linhas extras deste eixo que saíram do vão (órfãs de linha): `id` e a posição resolvida (m). */
+  foraDoVao: Array<{ id: string; pos: number }>;
 }
 
 /** Eixo efetivo = `{ ...tipo, ...instância }` campo a campo; campo `undefined` da instância herda do tipo. */
@@ -175,7 +177,8 @@ interface ItemLinha {
 /**
  * Resolve um eixo com as linhas extras e as sobrescritas de linha (ADR §4.3 e §4.4). Sobrescritas de linha gerada são
  * remapeadas pela grade gerada; duas na mesma linha: vence a mais perto. Linhas a até 1e-6 uma da outra viram uma (vale a
- * extra). Linha que sai do vão (por sobrescrita ou extra) some com aviso `posicao-fora`.
+ * extra). Linha que sai do vão some: a extra vai a `foraDoVao` e a sobrescrita de linha gerada fica `fora` com a posição
+ * resolvida em `px` (ambas viram órfãs de linha, aviso 8; sem `posicao-fora`, que é só de posição manual).
  * Devolve o resultado do remapeamento de cada sobrescrita deste eixo, por `ordem` (o campo `b` é o eixo: 0 U, 1 V).
  */
 export function resolverEixo(
@@ -259,9 +262,10 @@ export function resolverEixo(
   }
 
   const dentroDoVao: ItemLinha[] = [];
+  const foraDoVao: Array<{ id: string; pos: number }> = [];
   for (const it of itens) {
     if (dentro(it.pos, A)) dentroDoVao.push(it);
-    else avisos.push({ codigo: 'posicao-fora', medido: it.pos, limite: A, pos: it.pos, indice: 0 });
+    else if (it.id !== undefined) foraDoVao.push({ id: it.id, pos: it.pos });
   }
 
   // Ordena e solda (1e-6): entre uma gerada e uma extra, vale a extra; entre iguais, a primeira.
@@ -298,7 +302,13 @@ export function resolverEixo(
     if (idx >= 0) {
       remap.set(p.ordem, resultado(ESTADO.adotada, p.r.regra, idx + 1, code, at(linhas, idx) / A, 0, at(linhas, idx), 0));
     } else {
-      remap.set(p.ordem, { ...p.r, estado: perdidas.has(p.genIdx) ? ESTADO.fusao : ESTADO.fora, a: ID_AUSENTE, b: code });
+      // Fora do vão: a posição resolvida (m) é a da órfã; perdida numa fusão, fica a da linha gerada que perdeu.
+      const it = itens.find((x) => x.genIdx === p.genIdx);
+      const fora = !perdidas.has(p.genIdx) && it !== undefined && !dentroDoVao.includes(it);
+      remap.set(p.ordem, {
+        ...p.r, estado: perdidas.has(p.genIdx) ? ESTADO.fusao : ESTADO.fora, a: ID_AUSENTE, b: code,
+        px: fora && it ? it.pos : p.r.px, pz: 0,
+      });
     }
   }
   for (const [id, { ordem }] of ovExtra) {
@@ -309,7 +319,7 @@ export function resolverEixo(
   }
 
   return {
-    eixo: { comprimento: A, linhas, bordas: [0, ...linhas, A], n: linhas.length + 1, avisos, origens, gerado: gen },
+    eixo: { comprimento: A, linhas, bordas: [0, ...linhas, A], n: linhas.length + 1, avisos, origens, gerado: gen, foraDoVao },
     remap,
   };
 }
@@ -392,33 +402,5 @@ export function resolverGrade(e: CortinaEntrada): GradeResolvida {
   const lista = g.remap.segmentos.flatMap((r, ordem) => (r.estado === ESTADO.adotada ? [{ ordem, a: r.a, b: r.b }] : []));
   g.remocao = aplicarRemocoes(g, lista);
 
-  // Duas sobrescritas de célula numa mesma região (fusão por remoção de segmento): vence a de menor distância ao centro.
-  const regiaoPorCanon = new Map(g.remocao.regioes.map((r) => [r.canon, r]));
-  const porRegiao = new Map<number, number[]>();
-  g.remap.celulas.forEach((r, ordem) => {
-    if (r.estado !== ESTADO.adotada) return;
-    const canon = at(g.remocao.regiaoDeCelula, r.a * nv + r.b);
-    const l = porRegiao.get(canon);
-    if (l) l.push(ordem);
-    else porRegiao.set(canon, [ordem]);
-  });
-  for (const [canon, ordens] of porRegiao) {
-    if (ordens.length < 2) continue;
-    const reg = regiaoPorCanon.get(canon);
-    if (!reg) continue;
-    const cx = (at(U.eixo.bordas, reg.i0) + at(U.eixo.bordas, reg.i1 + 1)) / 2;
-    const cz = (at(V.eixo.bordas, reg.j0) + at(V.eixo.bordas, reg.j1 + 1)) / 2;
-    const dist = (ordem: number): number => {
-      const r = g.remap.celulas[ordem] as Remap;
-      return Math.hypot(r.px - cx, r.pz - cz);
-    };
-    let vence = ordens[0] as number;
-    for (const o of ordens) if (dist(o) < dist(vence)) vence = o;
-    for (const o of ordens) {
-      if (o === vence) continue;
-      const r = g.remap.celulas[o] as Remap;
-      g.remap.celulas[o] = { ...r, estado: ESTADO.fusao, a: ID_AUSENTE, b: ID_AUSENTE };
-    }
-  }
   return g;
 }

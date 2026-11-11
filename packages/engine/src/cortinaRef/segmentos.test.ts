@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { MONTANTES, PAINEIS } from './casos.ts';
 import { resolverCortina } from './consulta.ts';
 import { resolverGrade, type GradeResolvida } from './grade.ts';
-import { AVISO_CELULA_NAO_RETANGULAR } from './avisos.ts';
+import { AVISO_CELULA_NAO_RETANGULAR, AVISO_ORFA_CELULA } from './avisos.ts';
 import { ESTADO } from './remap.ts';
 import { aplicarRemocoes, podeRemoverSegmento, restaurarSegmento } from './segmentos.ts';
 import type { CortinaEntrada, CurtainInstanceRef, GridAxisSpec } from './tipos.ts';
@@ -103,7 +103,7 @@ describe('remoção na resolução da cortina', () => {
     expect(fundido?.tipoId).toBe('pnl_solido_alu_4');
   });
 
-  it('duas sobrescritas de painel numa mesma região: uma adotada, a outra órfã por fusão', () => {
+  it('duas sobrescritas de painel numa mesma região: as duas são adotadas (como o Rust) e o painel é o da menor (j, i)', () => {
     const e = ent(4, 2, F(2), F(2), {
       removedSegments: [{ line: { axis: 'u', index: 1, pos: 0.5, n: 2 }, k: 0, nk: 2, mid: 0.25 }],
       cells: [
@@ -113,6 +113,9 @@ describe('remoção na resolução da cortina', () => {
     });
     const r = resolverCortina(e);
     const estados = r.grade.remap.celulas.map((x) => x.estado).sort();
-    expect(estados).toEqual([ESTADO.adotada, ESTADO.fusao]);
+    expect(estados).toEqual([ESTADO.adotada, ESTADO.adotada]);
+    expect(r.avisos.some((x) => x.codigo === AVISO_ORFA_CELULA)).toBe(false);
+    // a região (0,0)+(1,0): o painel vem da célula de menor (j, i), que é (0,0): sólido
+    expect(r.pecas.paineis.find((p) => p.celulas === 2)?.tipoId).toBe('pnl_solido_alu_4');
   });
 });

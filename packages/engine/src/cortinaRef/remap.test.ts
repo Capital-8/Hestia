@@ -8,7 +8,7 @@ import { resolverCortina } from './consulta.ts';
 import { resolverGrade } from './grade.ts';
 import { normalizarSobrescritas } from './normalizar.ts';
 import { ESTADO, chaveDaCelula, remapearCelulas, celulaDoPonto } from './remap.ts';
-import { AVISO_ORFA_CELULA, AVISO_POSICAO_FORA } from './avisos.ts';
+import { AVISO_ORFA_CELULA, AVISO_ORFA_LINHA, AVISO_POSICAO_FORA } from './avisos.ts';
 import type { CellKey, CortinaEntrada, CurtainInstanceRef, GridAxisSpec, LineOverride } from './tipos.ts';
 
 const MUL = { interiorVertical: 'mul_ret_50x100', interiorHorizontal: 'mul_ret_50x100', borderStart: 'mul_ret_50x100', borderEnd: 'mul_ret_50x100', borderBottom: 'mul_ret_50x100', borderTop: 'mul_ret_50x100', corner: null, joinPriority: 'vertical' as const };
@@ -176,10 +176,12 @@ describe('linhas extras (addedLines) e travadas', () => {
     expect(g.u.origens[0]?.origem).toBe('extra');
   });
 
-  it('linha extra fora do vão some com o aviso posicao-fora', () => {
+  it('linha extra fora do vão some e vira órfã de linha (aviso 8, i = posição da extra em addedLines), sem posicao-fora', () => {
     const r = resolverCortina(ent(4, 3, UM, UM, { addedLines: [extra(5)] }));
     expect(r.grade.u.linhas).toEqual([]);
-    expect(r.avisos.some((x) => x.codigo === AVISO_POSICAO_FORA)).toBe(true);
+    expect(r.avisos.some((x) => x.codigo === AVISO_POSICAO_FORA)).toBe(false);
+    const orfa = r.avisos.find((x) => x.codigo === AVISO_ORFA_LINHA);
+    expect(orfa).toMatchObject({ i: 1, j: 4294967295, medido: 5, limite: 0 });
   });
 });
 

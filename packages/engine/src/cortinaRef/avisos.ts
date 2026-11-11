@@ -1,8 +1,8 @@
 /**
  * Referência TS dos avisos da parede cortina (decisão 0056, §5.8): são MEDIDAS, não texto.
- * Códigos numéricos definidos aqui (o ADR deixa os valores para `esquema.rs`): alinhar com `AVISO_CORTINA_*` ou casar por nome.
- * Fase 1: 1 a 5. Fase 2: 6 (sobrescrita de célula órfã), 7 (de linha), 8 (de segmento), 9 (remoção que daria região não
- * retangular). Os quatro de órfã têm o mesmo nome do ADR (`cortina-override-orfao`), o código diz o tipo.
+ * Códigos numéricos iguais aos de `esquema.rs` (`AVISO_CORTINA_*`). Fase 1: 1 a 5; 6 é `arco-nao-suportado` (reservado: a
+ * referência não o emite). Fase 2: 7 (órfã de célula), 8 (órfã de linha), 9 (órfã de segmento), 10 (remoção que daria região
+ * não retangular). Os três de órfã têm o mesmo nome do ADR (`cortina-override-orfao`), o código diz o tipo.
  * `cortina-sem-kernel` e `cortina-angulo-nao-suportado` não entram: o primeiro é do TS, o segundo é ENTRADA aqui.
  */
 import { CURTAIN_MIN_CELL, EPS_CMP, ID_AUSENTE, at, type CortinaEntrada } from './tipos.ts';
@@ -15,10 +15,11 @@ export const AVISO_MONTANTE_SOBREPOSTO = 2;
 export const AVISO_SOBRA_FUNDIDA = 3;
 export const AVISO_POSICAO_FORA = 4;
 export const AVISO_PROFUNDIDADE_MENOR_QUE_PERFIL = 5;
-export const AVISO_ORFA_CELULA = 6;
-export const AVISO_ORFA_LINHA = 7;
-export const AVISO_ORFA_SEGMENTO = 8;
-export const AVISO_CELULA_NAO_RETANGULAR = 9;
+export const AVISO_ARCO_NAO_SUPORTADO = 6;
+export const AVISO_ORFA_CELULA = 7;
+export const AVISO_ORFA_LINHA = 8;
+export const AVISO_ORFA_SEGMENTO = 9;
+export const AVISO_CELULA_NAO_RETANGULAR = 10;
 
 export const NOMES_AVISO: Record<number, string> = {
   [AVISO_CELULA_PEQUENA]: 'cortina-celula-pequena',
@@ -33,8 +34,10 @@ export const NOMES_AVISO: Record<number, string> = {
 };
 
 /**
- * `i`/`j`: índices de célula; `ID_AUSENTE` onde não se aplica (aviso de eixo U traz só `i`, de eixo V só `j`).
- * Órfã de linha: `i` = eixo (0 U, 1 V). Órfã de segmento e remoção não retangular: ver `calcularAvisos`.
+ * `i`/`j`: índices; `ID_AUSENTE` onde não se aplica (aviso de eixo U traz só `i`, de eixo V só `j`). Órfã de linha: o índice
+ * da linha gerada gravada, ou a posição (1 a n) da extra em `addedLines`, em `i` (eixo U) ou `j` (eixo V). Órfã de célula: a
+ * chave gravada (`i`, `j`). Órfã de segmento: `i` = a linha gravada, `j` = `k`. Remoção não retangular: a célula do par.
+ * Nas órfãs, `medido` = `s` e `limite` = `z` (m), como o Rust (`aviso_orfao` em `cortina_pecas.rs`).
  */
 export interface AvisoCortina {
   codigo: number;
@@ -103,26 +106,57 @@ export function calcularAvisos(e: CortinaEntrada, g: GradeResolvida, p: Pecas): 
     if (prof > e.tipo.depth + EPS_CMP) out.push({ codigo: AVISO_PROFUNDIDADE_MENOR_QUE_PERFIL, i: t.num, j: ID_AUSENTE, medido: prof, limite: e.tipo.depth, s: 0, z: 0 });
   }
 
-  // Sobrescritas órfãs (ADR §4.4, passo 5): célula com a chave gravada; linha com o eixo; segmento só com a posição.
+  // Sobrescritas órfãs (ADR §4.4, passo 5). Célula: a chave gravada, no ponto gravado (m).
   g.remap.celulas.forEach((r, ordem) => {
     if (r.estado === ESTADO.adotada) return;
     const chave = e.instancia?.cells?.[ordem]?.key;
-    out.push({ codigo: AVISO_ORFA_CELULA, i: chave?.i ?? ID_AUSENTE, j: chave?.j ?? ID_AUSENTE, medido: 0, limite: 0, s: r.px, z: r.pz });
+    out.push({ codigo: AVISO_ORFA_CELULA, i: chave?.i ?? ID_AUSENTE, j: chave?.j ?? ID_AUSENTE, medido: r.px, limite: r.pz, s: r.px, z: r.pz });
   });
-  g.remap.linhas.forEach((r) => {
-    if (r.estado === ESTADO.adotada) return;
-    out.push({ codigo: AVISO_ORFA_LINHA, i: r.b, j: ID_AUSENTE, medido: 0, limite: 0, s: r.px, z: 0 });
+  // Linha: a sobrescrita de linha gerada que não se aplicou (fora do vão, ou perdeu uma disputa) e a linha extra que saiu do
+  // vão. O índice da extra é a sua posição em `addedLines` (1 a n), como o Rust numera.
+  const ordemDaExtra = (id: string): number => (e.instancia?.addedLines ?? []).findIndex((a) => a.id === id) + 1;
+  const orfaLinha = (eixo: 'u' | 'v', indice: number, pos: number): AvisoCortina => ({
+    codigo: AVISO_ORFA_LINHA, i: eixo === 'u' ? indice : ID_AUSENTE, j: eixo === 'v' ? indice : ID_AUSENTE,
+    medido: eixo === 'u' ? pos : 0, limite: eixo === 'v' ? pos : 0, s: eixo === 'u' ? pos : 0, z: eixo === 'v' ? pos : 0,
   });
-  g.remap.segmentos.forEach((r) => {
+  (e.instancia?.lineOverrides ?? []).forEach((ov, ordem) => {
+    const r = g.remap.linhas[ordem];
+    if (!r || r.estado === ESTADO.adotada || 'added' in ov.line) return; // sobrescrita de linha extra: a órfã sai pela extra
+    out.push(orfaLinha(ov.line.axis, ov.line.index, r.px));
+  });
+  for (const [eixo, ex] of [['u', g.u], ['v', g.v]] as const) {
+    for (const x of ex.foraDoVao) out.push(orfaLinha(eixo, ordemDaExtra(x.id), x.pos));
+  }
+  // Segmento: a linha gravada (índice, ou a posição da extra) e o k. A posição segue o Rust: a linha em m, e o meio do
+  // segmento no outro eixo.
+  g.remap.segmentos.forEach((r, ordem) => {
     if (r.estado === ESTADO.adotada) return;
-    out.push({ codigo: AVISO_ORFA_SEGMENTO, i: ID_AUSENTE, j: ID_AUSENTE, medido: 0, limite: 0, s: r.px, z: 0 });
+    const ref = e.instancia?.removedSegments?.[ordem];
+    if (!ref) return;
+    let eixo: 'u' | 'v';
+    let indice: number;
+    let posLinha: number;
+    if ('added' in ref.line) {
+      const idExtra = ref.line.added;
+      eixo = (e.instancia?.addedLines ?? []).find((a) => a.id === idExtra)?.axis ?? 'u';
+      indice = ordemDaExtra(idExtra);
+      posLinha = 0;
+    } else {
+      eixo = ref.line.axis;
+      indice = ref.line.index;
+      posLinha = ref.line.pos * (eixo === 'u' ? g.L : g.H);
+    }
+    const meio = ref.mid * (eixo === 'u' ? g.H : g.L);
+    const s = eixo === 'u' ? posLinha : meio;
+    const z = eixo === 'u' ? meio : posLinha;
+    out.push({ codigo: AVISO_ORFA_SEGMENTO, i: indice, j: ref.k, medido: s, limite: z, s, z });
   });
 
-  // Remoção que daria região não retangular: ignorada (ADR §5.2). Ponto = canto da caixa da região.
+  // Remoção que daria região não retangular: ignorada (ADR §5.2). Ponto = centro da célula do par (como o Rust).
   for (const x of g.remocao.naoRetangulares) {
     out.push({
-      codigo: AVISO_CELULA_NAO_RETANGULAR, i: x.i0, j: x.j0, medido: x.celulas, limite: x.area,
-      s: at(g.u.bordas, x.i0), z: at(g.v.bordas, x.j0),
+      codigo: AVISO_CELULA_NAO_RETANGULAR, i: x.i, j: x.j, medido: x.celulas, limite: x.area,
+      s: (at(g.u.bordas, x.i) + at(g.u.bordas, x.i + 1)) / 2, z: (at(g.v.bordas, x.j) + at(g.v.bordas, x.j + 1)) / 2,
     });
   }
 

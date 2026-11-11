@@ -182,7 +182,7 @@ export function gerarCasos2(): CasoFase2[] {
     removedSegments: [segU(1, 2, 0, 2)],
     cells: [painel(chave(ent(4, 2, F(2), F(2)), 1, 0))],
   }));
-  add('duas sobrescritas de painel numa região: uma adotada, a outra órfã por fusão', 'regiao', ent(4, 2, F(2), F(2), {
+  add('duas sobrescritas de painel numa região: as duas adotadas, o painel é o da célula de menor (j, i)', 'regiao', ent(4, 2, F(2), F(2), {
     removedSegments: [segU(1, 2, 0, 2)],
     cells: [painel(chave(ent(4, 2, F(2), F(2)), 0, 0)), painel(chave(ent(4, 2, F(2), F(2)), 1, 0), 'pnl_vazio')],
   }));

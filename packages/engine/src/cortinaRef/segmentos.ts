@@ -33,8 +33,12 @@ export interface Remocao {
   regioes: RegiaoFundida[];
   /** Segmentos sem montante, chave `${linhaGlobal}:${k}`: remoção aceita, borda removida, ou interno a uma região. */
   semMontante: Set<string>;
-  /** Remoções que dariam região não retangular: ignoradas (aviso `cortina-celula-nao-retangular`). */
-  naoRetangulares: Array<{ ordem: number; i0: number; j0: number; celulas: number; area: number }>;
+  /**
+   * Remoções que dariam região não retangular: ignoradas (aviso `cortina-celula-nao-retangular`). `i`/`j` = a célula de
+   * um lado do segmento recusado (a de menor índice do par, como o Rust); `celulas` = membros da região que a remoção daria,
+   * `area` = área da caixa dela.
+   */
+  naoRetangulares: Array<{ ordem: number; i: number; j: number; celulas: number; area: number }>;
 }
 
 /** Par de células que um segmento interno separa (índice i·nv + j), ou `null` se é de borda ou está fora. */
@@ -95,7 +99,7 @@ export function aplicarRemocoes(g: { nu: number; nv: number }, lista: readonly P
     const lab = rotular(n, [...aceitas, ar]);
     const c = caixa(nv, lab, at(lab, ar[0]));
     if (c.celulas === c.area) aceitas.push(ar);
-    else naoRetangulares.push({ ordem: it.ordem, i0: c.i0, j0: c.j0, celulas: c.celulas, area: c.area });
+    else naoRetangulares.push({ ordem: it.ordem, i: Math.floor(ar[0] / nv), j: ar[0] % nv, celulas: c.celulas, area: c.area });
   }
 
   const lab = rotular(n, aceitas);

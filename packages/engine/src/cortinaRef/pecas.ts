@@ -234,16 +234,22 @@ export function calcularPecas(e: CortinaEntrada, g: GradeResolvida): Pecas {
     }
   }
 
-  // Painéis por região. Sobrescrita de painel: a adotada da região (uma por região, ver `resolverGrade`).
+  // Painéis por região. Sobrescrita de painel: uma região pode ter várias células com sobrescrita adotada; vale a da célula
+  // de menor (j, i) (como o Rust, `cortina_pecas`).
   const padraoId = e.instancia?.defaultPanelTypeId ?? e.tipo.defaultPanelTypeId;
   const tipoPadrao = achaPainel(e, padraoId);
   const painelDaRegiao = new Map<number, CurtainPanelTypeRef>();
+  const primeiraDaRegiao = new Map<number, { i: number; j: number; ordem: number }>();
   g.remap.celulas.forEach((r, ordem) => {
     if (r.estado !== ESTADO.adotada) return;
-    const ov = e.instancia?.cells?.[ordem]?.override;
-    if (!ov || ov.kind !== 'panel') return;
-    painelDaRegiao.set(at(g.remocao.regiaoDeCelula, r.a * nv + r.b), achaPainel(e, ov.panelTypeId));
+    const canon = at(g.remocao.regiaoDeCelula, r.a * nv + r.b);
+    const atual = primeiraDaRegiao.get(canon);
+    if (!atual || r.b < atual.j || (r.b === atual.j && r.a < atual.i)) primeiraDaRegiao.set(canon, { i: r.a, j: r.b, ordem });
   });
+  for (const [canon, { ordem }] of primeiraDaRegiao) {
+    const ov = e.instancia?.cells?.[ordem]?.override;
+    if (ov && ov.kind === 'panel') painelDaRegiao.set(canon, achaPainel(e, ov.panelTypeId));
+  }
 
   const porCanon = new Map<number, PainelCelula>();
   const paineis: PainelCelula[] = [];
