@@ -1,7 +1,8 @@
-import { hiddenTargetOfView, normalizeViewHiddenTarget, planViewHiddenOf, planViewOf as vistaDoModelo, type GraphicsCategory, type Id, type Project, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
+import { categoryOfElement, hiddenByUserInView, hiddenIdsInView, hiddenTargetOfView, normalizeViewHiddenTarget, planViewHiddenOf, planViewOf as vistaDoModelo, type GraphicsCategory, type Id, type Project, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
-import { nivelAtivo, planViewIdAtivo, tipoDeVistaAtivo } from './vistaAtiva.ts';
+import { resolvedPlanViewOf } from '@hestia/render';
+import { nivelAtivo, planViewIdAtivo, planViewIdDeFundo, tipoDeVistaAtivo } from './vistaAtiva.ts';
 import { annotationIdsOfActiveView, selectedAnnotations } from './viewAnnotations.ts';
 
 type ViewState = Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'planViewId' | 'sectionId'>;
@@ -56,30 +57,6 @@ export function permanentHiddenOf(p: Project, target: ViewHiddenTarget | null): 
 const uniq = (xs: readonly string[]): string[] => [...new Set(xs)];
 const redesenhar = (): void => useUi.setState((s) => ({ previewTick: s.previewTick + 1 }));
 
-/** Categoria gráfica de um elemento do modelo (o que "Ocultar categoria" atinge). */
-function categoriaDoElemento(e: { kind: string }): GraphicsCategory | null {
-  switch (e.kind) {
-    case 'wall': return 'wall';
-    case 'door': return 'door';
-    case 'window': return 'window';
-    case 'floor': return 'floor';
-    case 'slab': return 'slab';
-    case 'ceiling': return 'floor';
-    case 'roof': return 'roof';
-    case 'stair':
-    case 'ramp': return 'stair';
-    case 'room': return 'room';
-    case 'cad':
-    case 'generic': return 'generic';
-    case 'dimension':
-    case 'text':
-    case 'detailLine':
-    case 'detailRegion':
-    case 'tag':
-    case 'roomSeparator': return 'annotation';
-    default: return null;
-  }
-}
 
 /**
  * Ids dos elementos que pertencem às categorias dadas. Com `st`, a categoria 'annotation' também alcança as anotações
@@ -90,7 +67,7 @@ export function categoryIdsOf(p: Project, categories: readonly GraphicsCategory[
   const cats = new Set(categories);
   const doModelo = Object.values(p.elements)
     .filter((e) => {
-      const c = categoriaDoElemento(e);
+      const c = categoryOfElement(e);
       return c !== null && cats.has(c);
     })
     .map((e) => e.id);
@@ -125,21 +102,31 @@ export interface ViewVisibilitySets {
 
 const VAZIO: ViewVisibilitySets = { hidden: new Set(), revealed: new Set(), reveal: false, temporary: false };
 
+/** Corte e 3D (fora da regra de planta): ocultação permanente + temporária expandida em ids, com isolamento. */
+function hiddenForaDePlanta(p: Project, st: ReturnType<typeof useUi.getState>, target: ViewHiddenTarget, temp: TempViewVisibility, allIds: readonly Id[]): Id[] {
+  const permanent = permanentHiddenOf(p, target);
+  const permanentIds = uniq([...(permanent.elements ?? []), ...categoryIdsOf(p, permanent.categories, st)]);
+  const tempIds = uniq([...(temp.hidden?.elements ?? []), ...categoryIdsOf(p, temp.hidden?.categories, st)]);
+  const isolate = temp.isolated;
+  const isolateIds = uniq([...(isolate?.elements ?? []), ...categoryIdsOf(p, isolate?.categories, st)]);
+  const isolateSet = new Set(isolateIds);
+  return isolateIds.length > 0 ? allIds.filter((id) => !isolateSet.has(id)) : uniq([...permanentIds, ...tempIds]);
+}
+
 /** Resolve permanente + temporário + Reveal para a vista ativa. */
 export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>): ViewVisibilitySets {
   const target = viewHiddenTargetOf(st, p);
   const key = visibilityKeyOf(st);
   if (!target || !key) return VAZIO;
   const temp = st.viewTemp[key] ?? {};
-  const permanent = permanentHiddenOf(p, target);
-  const permanentIds = uniq([...(permanent.elements ?? []), ...categoryIdsOf(p, permanent.categories, st)]);
-  const tempIds = uniq([...(temp.hidden?.elements ?? []), ...categoryIdsOf(p, temp.hidden?.categories, st)]);
-  const isolate = temp.isolated;
-  const isolateIds = uniq([...(isolate?.elements ?? []), ...categoryIdsOf(p, isolate?.categories, st)]);
   const reveal = temp.reveal === true;
   const allIds = [...Object.keys(p.elements), ...annotationIdsOfActiveView(p, st)];
-  const isolateSet = new Set(isolateIds);
-  const baseHidden = isolateIds.length > 0 ? allIds.filter((id) => !isolateSet.has(id)) : uniq([...permanentIds, ...tempIds]);
+  // Planta: a regra única (`hiddenByUserInView`: categoria oculta, Hide in View, ocultar/isolar temporário). Corte e 3D
+  // não são vistas de planta (a regra 4.5 é de planta) e seguem pelo caminho antigo.
+  const alvo = normalizeViewHiddenTarget(target);
+  const baseHidden = alvo.kind === 'plan'
+    ? allIds.filter((id) => hiddenByUserInView(p, alvo.viewId, id, { temporary: { hidden: temp.hidden, isolated: temp.isolated } }))
+    : hiddenForaDePlanta(p, st, alvo, temp, allIds);
   // Reveal mostra tudo o que está fora da vista: ocultos (permanente/temporário), isolados-fora e categorias.
   const revealedIds = reveal ? baseHidden : [];
   const revealed = new Set(revealedIds);
@@ -290,7 +277,7 @@ export function selectedCategories(p: Project, ids: readonly Id[] = useUi.getSta
   const out = new Set<GraphicsCategory>();
   for (const id of ids) {
     const e = p.elements[id];
-    const c = e ? categoriaDoElemento(e) : null;
+    const c = e ? categoryOfElement(e) : null;
     if (c) out.add(c);
   }
   // Anotações (cotas, textos, etiquetas...) da vista ativa pertencem à categoria 'annotation'.
@@ -365,4 +352,28 @@ export function temporaryActive(): boolean {
 /** Há hide temporário (não Reveal) ativo na vista atual? */
 export function temporaryHideActive(): boolean {
   return temporaryActive();
+}
+
+let ultimoOcultoDaVista: { p: Project; viewId: Id; levelId: Id; temp: TempViewVisibility | undefined; revelando: boolean; ids: ReadonlySet<Id> } | null = null;
+
+/**
+ * Ids que a vista de planta ativa (ou, em 3D, corte e prancha, a planta de fundo) esconde: a regra única
+ * (`hiddenIdsInView`, etapas 1 a 6) sobre todos os elementos do projeto. É o que as ferramentas usam para não capturar
+ * nem selecionar o que a vista não mostra (`ToolEnv.hiddenInView`). Ocultar temporário só vale na planta aberta. Modo
+ * "revelar ocultos": o que o usuário oculta volta a valer como alvo (o alcance da vista continua escondendo).
+ */
+export function hiddenInActiveView(p: Project, st: ReturnType<typeof useUi.getState>): ReadonlySet<Id> {
+  const viewId = planViewIdDeFundo(st);
+  if (!viewId) return new Set();
+  const levelId = nivelAtivo(st);
+  const key = st.view === 'plan' ? visibilityKeyOf(st) : null;
+  const temp = key ? st.viewTemp[key] : undefined;
+  const revelando = temp?.reveal === true;
+  const c = ultimoOcultoDaVista;
+  if (c && c.p === p && c.viewId === viewId && c.levelId === levelId && c.temp === temp && c.revelando === revelando) return c.ids;
+  // A cobertura não usa intervalo de vista (o desenho a resolve sem ele): só as vistas com intervalo têm etapa 1.
+  const outOfRange = st.planKind === 'roof' ? undefined : resolvedPlanViewOf(p, levelId, viewId).hidden;
+  const ids = hiddenIdsInView(p, viewId, Object.keys(p.elements), { outOfRange, temporary: temp ? { hidden: temp.hidden, isolated: temp.isolated } : undefined, revealing: revelando });
+  ultimoOcultoDaVista = { p, viewId, levelId, temp, revelando, ids };
+  return ids;
 }

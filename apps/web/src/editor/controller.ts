@@ -36,7 +36,7 @@ import { AUTOSAVE_KEY, AUTOSAVE_SALVO_KEY, safeGet, safeSet } from './storage.ts
 import { t, useI18n } from './i18n.ts';
 import { pedirConfirmacaoHostedLoss } from './hostedLossPrompt.ts';
 import { pedirAlerta } from './alertaPrompt.ts';
-import { fitBox, levelFrameBox, panBy, resolvedPlanViewOf, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
+import { fitBox, levelFrameBox, panBy, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
 import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
 import { defaultOpenViews, type PlanKind } from './openViews.ts';
 import { areaViewIdAtivo, camposDeNivel, chaveDeViewportDePlanta, patchParaAtivarVista, planViewIdAtivo, type PatchDeVista, planViewIdDe, planViewIdDeFundo, tipoDeVistaDeFundo } from './vistaAtiva.ts';
@@ -46,7 +46,7 @@ import { casador } from './shortcutConfig.ts'; import { clearSelectionForTool } 
 import { elevationCommand, type PlanBox } from './elevations.ts';
 import { deleteSelectionIn } from './deleteIds.ts';
 import { deleteSectionAnnotationsIn, sectionAnnotationIdsIn } from './sectionHandles.ts';
-import { hideSelectedCategoryInView, hideSelectionInView, resetAllTemporary, resetTemporaryHidden, temporaryHideSelection, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideSelectedCategoryInView, unhideSelectionInView, visibilityOf } from './viewVisibility.ts';
+import { hideSelectedCategoryInView, hideSelectionInView, resetAllTemporary, resetTemporaryHidden, temporaryHideSelection, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideSelectedCategoryInView, unhideSelectionInView, hiddenInActiveView, visibilityOf } from './viewVisibility.ts';
 import { deleteViewAction, renameViewAction, updateViewAction } from './sectionViewActions.ts';
 import { entregarArquivo } from './entregarArquivo.ts';
 import { bibliotecaDoAmbiente, type Biblioteca } from './biblioteca/biblioteca.ts';
@@ -190,7 +190,7 @@ export class Editor {
     areaPlanId: () => this.areaPlanIdNow(),
     // Vista de planta exata (piso, cobertura ou área); leitura a cada acesso, o ambiente é criado uma vez só.
     get viewId(): Id | undefined { return planViewIdAtivo(useUi.getState()) ?? undefined; },
-    hiddenInView: () => resolvedPlanViewOf(this.store.project, useUi.getState().levelId).hidden,
+    hiddenInView: () => hiddenInActiveView(this.store.project, useUi.getState()),
     underlayLevelId: () => { const st = useUi.getState(); return underlayIdOf(this.store.project, st.levelId, st.showUnderlay, st.underlayLevel); },
     selection: () => useUi.getState().selection,
     setSelection: (ids) => useUi.setState({ selection: ids, ...(ids.length ? { selectedLevel: null } : {}) }),
