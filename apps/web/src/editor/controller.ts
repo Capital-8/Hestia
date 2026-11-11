@@ -37,7 +37,7 @@ import { AUTOSAVE_KEY, AUTOSAVE_SALVO_KEY, safeGet, safeSet } from './storage.ts
 import { t, useI18n } from './i18n.ts';
 import { pedirConfirmacaoHostedLoss } from './hostedLossPrompt.ts';
 import { pedirAlerta } from './alertaPrompt.ts';
-import { fitBox, levelFrameBox, panBy, planViewOf, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
+import { elevationFrameBox, fitBox, levelFrameBox, panBy, planViewOf, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
 import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
 import { defaultOpenViews, type PlanKind } from './openViews.ts';
 import { casador } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
@@ -814,9 +814,9 @@ export class Editor {
 
   /** Gera (ou atualiza) as quatro elevações do nível ativo, em um único passo de desfazer. */
   generateElevations(): void {
-    const box = levelFrameBox(this.project, useUi.getState().levelId);
+    const box = elevationFrameBox(this.project, useUi.getState().levelId);
     if (!box) {
-      useUi.setState({ status: { key: 'eds_msg_no_walls_for_elevations' } });
+      useUi.setState({ status: { key: 'eds_msg_no_elements_for_elevations' } });
       return;
     }
     this.store.exec(elevationCommand(this.project.views, box, newId), 'eds_undo_elevations');

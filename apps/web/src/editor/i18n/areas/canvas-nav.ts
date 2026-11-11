@@ -66,7 +66,7 @@ export const PT_CANVAS_NAV = {
   cvn_br_drag_3d: '3D · {name}',
   cvn_br_default_3d_name: 'Vista 3D',
   cvn_br_generate_elevations: 'Gerar elevações (Norte, Sul, Leste, Oeste)',
-  cvn_br_generate_elevations_hint: 'Cria as quatro em volta das paredes do nível ativo; substitui as de mesmo nome.',
+  cvn_br_generate_elevations_hint: 'Cria as quatro em volta de tudo o que está no projeto (paredes, escadas, guarda-corpos, lajes, telhados...); substitui as de mesmo nome.',
   cvn_br_status_saved: 'Ponto de vista 3D "{name}" salvo. Botão direito no ponto: renomear.',
   cvn_vp_operation_refused: 'Operação recusada.',
 
@@ -251,7 +251,7 @@ export const EN_CANVAS_NAV: Record<keyof typeof PT_CANVAS_NAV, string> = {
   cvn_br_drag_3d: '3D · {name}',
   cvn_br_default_3d_name: '3D View',
   cvn_br_generate_elevations: 'Generate Elevations (North, South, East, West)',
-  cvn_br_generate_elevations_hint: 'Creates the four around the active level walls; replaces same-named ones.',
+  cvn_br_generate_elevations_hint: 'Creates the four around everything in the project (walls, stairs, railings, slabs, roofs...); replaces same-named ones.',
   cvn_br_status_saved: '3D view point "{name}" saved. Right-click the point to rename.',
   cvn_vp_operation_refused: 'Operation refused.',
 
@@ -432,7 +432,7 @@ export const ES_CANVAS_NAV: Record<keyof typeof PT_CANVAS_NAV, string> = {
   cvn_br_drag_3d: '3D · {name}',
   cvn_br_default_3d_name: 'Vista 3D',
   cvn_br_generate_elevations: 'Generar alzados (Norte, Sur, Este, Oeste)',
-  cvn_br_generate_elevations_hint: 'Crea los cuatro alrededor de los muros del nivel activo; sustituye los del mismo nombre.',
+  cvn_br_generate_elevations_hint: 'Crea los cuatro alrededor de todo lo que hay en el proyecto (muros, escaleras, barandillas, losas, cubiertas...); sustituye los del mismo nombre.',
   cvn_br_status_saved: 'Punto de vista 3D "{name}" guardado. Botón derecho en el punto: renombrar.',
   cvn_vp_operation_refused: 'Operación rechazada.',
 
@@ -607,7 +607,7 @@ export const DE_CANVAS_NAV: Record<keyof typeof PT_CANVAS_NAV, string> = {
   cvn_br_drag_3d: '3D · {name}',
   cvn_br_default_3d_name: '3D-Ansicht',
   cvn_br_generate_elevations: 'Ansichten erzeugen (Nord, Süd, Ost, West)',
-  cvn_br_generate_elevations_hint: 'Erzeugt die vier um die Wände der aktiven Ebene; ersetzt gleichnamige.',
+  cvn_br_generate_elevations_hint: 'Erzeugt die vier um alles im Projekt (Wände, Treppen, Geländer, Decken, Dächer ...); ersetzt gleichnamige.',
   cvn_br_status_saved: '3D-Blickpunkt "{name}" gespeichert. Rechtsklick auf den Punkt: umbenennen.',
   cvn_vp_operation_refused: 'Vorgang abgelehnt.',
 
@@ -782,7 +782,7 @@ export const FR_CANVAS_NAV: Record<keyof typeof PT_CANVAS_NAV, string> = {
   cvn_br_drag_3d: '3D · {name}',
   cvn_br_default_3d_name: 'Vue 3D',
   cvn_br_generate_elevations: 'Générer les élévations (Nord, Sud, Est, Ouest)',
-  cvn_br_generate_elevations_hint: 'Crée les quatre autour des murs du niveau actif ; remplace celles de même nom.',
+  cvn_br_generate_elevations_hint: 'Crée les quatre autour de tout le projet (murs, escaliers, garde-corps, dalles, toits...) ; remplace celles de même nom.',
   cvn_br_status_saved: 'Point de vue 3D « {name} » enregistré. Clic droit sur le point : renommer.',
   cvn_vp_operation_refused: 'Opération refusée.',
 
@@ -957,7 +957,7 @@ export const IT_CANVAS_NAV: Record<keyof typeof PT_CANVAS_NAV, string> = {
   cvn_br_drag_3d: '3D · {name}',
   cvn_br_default_3d_name: 'Vista 3D',
   cvn_br_generate_elevations: 'Genera prospetti (Nord, Sud, Est, Ovest)',
-  cvn_br_generate_elevations_hint: 'Crea i quattro attorno alle pareti del livello attivo; sostituisce quelli con lo stesso nome.',
+  cvn_br_generate_elevations_hint: 'Crea i quattro attorno a tutto il progetto (pareti, scale, parapetti, solai, tetti...); sostituisce quelli con lo stesso nome.',
   cvn_br_status_saved: 'Punto di vista 3D "{name}" salvato. Tasto destro sul punto: rinomina.',
   cvn_vp_operation_refused: 'Operazione rifiutata.',
 
@@ -1132,7 +1132,7 @@ export const PL_CANVAS_NAV: Record<keyof typeof PT_CANVAS_NAV, string> = {
   cvn_br_drag_3d: '3D · {name}',
   cvn_br_default_3d_name: 'Widok 3D',
   cvn_br_generate_elevations: 'Generuj elewacje (północ, południe, wschód, zachód)',
-  cvn_br_generate_elevations_hint: 'Tworzy cztery wokół ścian aktywnego poziomu; zastępuje te o tej samej nazwie.',
+  cvn_br_generate_elevations_hint: 'Tworzy cztery wokół całego projektu (ściany, schody, balustrady, stropy, dachy...); zastępuje te o tej samej nazwie.',
   cvn_br_status_saved: 'Punkt widzenia 3D "{name}" zapisany. Prawy przycisk na punkcie: zmień nazwę.',
   cvn_vp_operation_refused: 'Operacja odrzucona.',
 

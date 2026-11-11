@@ -6,6 +6,7 @@ export * from './i18n.ts';
 export * from './perf/index.ts';
 export * from './plan/types.ts';
 export * from './plan/build.ts';
+export { extensaoDoModelo, pontosDaExtensao, KINDS_NA_EXTENSAO, type CaixaPlano } from './plan/extensaoDoModelo.ts';
 export * from './plan/zoomOps.ts';
 export * from './plan/grid.ts';
 export * from './plan/cpuPlan.ts';
