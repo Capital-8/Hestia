@@ -285,3 +285,36 @@ describe('sem escadas', () => {
     expect(r.cut.some((c) => c.materialId === CONCRETE)).toBe(false);
   });
 });
+
+describe('escada monolítica com e sem acabamento no corte', () => {
+  const xc = 4 * 0.28 + 0.14;
+  const lineAlong = { a: v(-1, 0), b: v(5, 0), depth: 2 };
+  const finished = { treadFinishEnabled: true, treadFinishThickness: 0.03, treadFinishMaterialId: 'mat_ceramica', riserFinishEnabled: true, riserFinishThickness: 0.02, riserFinishMaterialId: 'mat_ceramica', bocelEnabled: true, bocelProjection: 0.02 };
+  const cutOf = (extra: Partial<StairType>, line = lineAlong) => {
+    const t: StairType = { ...monolithicType(0.15, 'smooth'), id: 'stt_fin', ...extra };
+    return computeSection(build([runAt(SIXTEEN, { ext0: 0, ext1: 0 })], 'stt_fin', t), line).cut;
+  };
+  for (const [nome, line] of [['longitudinal', lineAlong], ['transversal', { a: v(xc, -1), b: v(xc, 1), depth: 2 }]] as const) {
+    it(`${nome}: sem acabamento tem só a estrutura`, () => {
+      const cut = cutOf({}, line);
+      expect(cut.some((c) => c.materialId === CONCRETE)).toBe(true);
+      expect(cut.some((c) => c.materialId === 'mat_ceramica')).toBe(false);
+    });
+    it(`${nome}: com acabamento tem a estrutura e os acabamentos`, () => {
+      const cut = cutOf(finished, line);
+      expect(cut.some((c) => c.materialId === CONCRETE)).toBe(true);
+      expect(cut.some((c) => c.materialId === 'mat_ceramica')).toBe(true);
+    });
+  }
+});
+
+describe('escada monolítica com erro de norma ainda desenha a estrutura', () => {
+  it('espelho acima do máximo: o corte tem a estrutura e os acabamentos', () => {
+    const t: StairType = { ...monolithicType(0.15, 'smooth'), id: 'stt_err', treadFinishEnabled: true, treadFinishThickness: 0.03, riserFinishEnabled: true, riserFinishThickness: 0.02, bocelEnabled: true, bocelProjection: 0.02, maxRiser: 0.15 };
+    const p = build([runAt(SIXTEEN, { ext0: 0, ext1: 0 })], 'stt_err', t);
+    const cut = computeSection(p, { a: v(-1, 0), b: v(5, 0), depth: 2 }).cut;
+    expect(resolveStairs(p)[0]!.issues.some((i) => i.severity === 'error')).toBe(true);
+    expect(cut.some((c) => c.materialId === CONCRETE)).toBe(true);
+    expect(cut.some((c) => c.materialId === 'mat_ceramica')).toBe(true);
+  });
+});

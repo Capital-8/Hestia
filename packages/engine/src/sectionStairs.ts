@@ -1,7 +1,7 @@
 import { add, dot, intersection, mul, norm, perp, sub, type Polygon, type Ring, type Vec2 } from '@hestia/geom';
 import type { Id, Project } from '@hestia/model';
 import { stairArrivalTop } from './stairArrival.ts';
-import { stairBody, type StairBodyPiece } from './stairBody.ts';
+import { stairBodyForDrawing, type StairBodyPiece } from './stairBody.ts';
 import { stairFinishModel } from './stairFinish.ts';
 import type { ResolvedStair, ResolvedStairRiser } from './stairs.ts';
 import type { SectionBeyond } from './section.ts';
@@ -106,7 +106,7 @@ export function sectionOfStairs(stairs: ResolvedStair[], line: SectionLine, p: P
     // convexas). O poste (peça `post`) sai com o material do poste.
     if (s.type.runStyle === 'monolithic' || s.type.runStyle === 'post') {
       const arrivalTopZ = stairArrivalTop(p, s).top;
-      for (const piece of stairBody(s, { arrivalTopZ }).pieces) {
+      for (const piece of stairBodyForDrawing(s, { arrivalTopZ }).pieces) {
         const pieceMaterial = piece.kind === 'post' ? s.type.postMaterialId : materialId;
         for (const [t0, t1] of lineIntervals([piece.polygon], line.a, d, n)) {
           const lo = Math.max(0, t0);
