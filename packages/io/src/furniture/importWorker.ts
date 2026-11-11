@@ -22,10 +22,17 @@ export type WorkerOutbound =
 
 /**
  * Leitores por extensao, carregados sob demanda (so o necessario entra no Worker).
- * TODO ao juntar as branches: acrescentar gltf/glb, obj, dae, fbx e zip aqui (cada um e `() => import('./x').then(m => m.importX)`).
+ * Todos os formatos sao registrados aqui; `readAny` despacha os que nao sao .skp por extensao.
  */
+const viaReadAny = (): Promise<ImportFn> => import('./readAny').then((m) => m.importFurnitureFile);
 export const IMPORTERS: Record<string, () => Promise<ImportFn>> = {
   skp: () => import('./skp').then((m) => m.importSkp),
+  glb: viaReadAny,
+  gltf: viaReadAny,
+  obj: viaReadAny,
+  dae: viaReadAny,
+  fbx: viaReadAny,
+  zip: viaReadAny,
 };
 
 export function extensionOf(name: string): string {
