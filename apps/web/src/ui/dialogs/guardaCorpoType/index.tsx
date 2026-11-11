@@ -1,4 +1,4 @@
-import { useState, type ReactElement, type ReactNode } from 'react';
+import { useState, type ReactElement } from 'react';
 import {
   newId,
   normaDe,
@@ -19,8 +19,9 @@ import {
 import { editor, useProject } from '../../../editor/controller.ts';
 import { useI18n, useT } from '../../../editor/i18n.ts';
 import { useUi } from '../../../editor/state.ts';
-import { Check, NumField, Row, TextField } from '../../fields.tsx';
-import { Dialog } from '../Dialog.tsx';
+import { Check, NumField, TextField } from '../../fields.tsx';
+import { FamilyPair, FamilyRow, FamilySection, FamilyTabs, FamilyTypeDialog } from '../familia/index.ts';
+import { novoBalaustre, novoCorrimao, novoPainel, novoTrilho } from './novos.ts';
 import { GuardaCorpoPreview } from './preview.tsx';
 
 const LIMITE = { trilhos: 12, corrimaos: 4, preenchimentos: 8 };
@@ -43,9 +44,6 @@ const FAMILIA_KEY: Record<FamiliaPainelGC, 'gc6c_fam_glass' | 'gc6c_fam_sheet' |
   tela: 'gc6c_fam_mesh',
   'cabo-aco': 'gc6c_fam_cable',
 };
-
-/** Perfil circular de diâmetro d (m); sem forma retangular nas listas, que só trocam o diâmetro. */
-const circ = (d: number): { forma: 'circular'; largura: number; altura: number } => ({ forma: 'circular', largura: d, altura: 0 });
 
 /**
  * Editor de tipo de guarda-corpo (decisão 0055, Fase 6c): geral, trilhos, corrimãos, postes, preenchimento (balaústres
@@ -106,56 +104,56 @@ export function GuardaCorpoTypeDialog({ typeId }: { typeId: string }): ReactElem
     }
   };
 
-  const footer: ReactNode = (
-    <>
-      <button type="button" className="link" onClick={remove}>{t('gc6c_delete_type')}</button>
-      <button type="button" className="link" onClick={duplicate}>{t('gc6c_duplicate')}</button>
-      <span style={{ flex: 1 }} />
-      <button type="button" onClick={close}>{t('gc6c_cancel')}</button>
-      <button type="button" onClick={() => save(false)} disabled={!!issue}>{t('gc6c_save')}</button>
-      <button type="button" className="apply" onClick={() => save(true)} disabled={!!issue}>OK</button>
-    </>
-  );
-
   return (
-    <Dialog title={t('gc6c_dlg_type')} sub={draft.name} onClose={close} footer={footer} size="wide">
-      <div role="tablist" className="gc-tabs">
-        {ABAS.map((a) => (
-          <button key={a} type="button" role="tab" aria-selected={aba === a} className={aba === a ? 'on' : 'link'} onClick={() => setAba(a)}>{t(ABA_KEY[a])}</button>
-        ))}
-      </div>
-      {(issue || erro) && <p className="hint" role="alert">{erro ?? issue}</p>}
-      <GuardaCorpoPreview tipo={draft} />
-
+    <FamilyTypeDialog
+      title={t('gc6c_dlg_type')}
+      sub={draft.name}
+      onClose={close}
+      size="fam"
+      family={t('cvn_cat_railing')}
+      types={Object.values(p.tiposGuardaCorpo ?? {})}
+      currentId={draft.id}
+      onDuplicate={duplicate}
+      name={{ id: 'gc-t-name', value: draft.name, onCommit: (v) => set({ name: v }) }}
+      footer={{ onDelete: remove, onApply: () => save(false), onOk: () => save(true), saveDisabled: !!issue, saveTitle: issue ?? undefined }}
+    >
+      <FamilyTabs tabs={ABAS.map((a) => ({ id: a, label: t(ABA_KEY[a]) }))} value={aba} onChange={setAba} />
+      {(issue || erro) && <div className="vr-error" role="alert">{erro ?? issue}</div>}
+      <div className="split">
+        <div style={{ minWidth: 0 }}>
       {aba === 'geral' && (
         <>
-          <Row label={t('gc6c_name')} htmlFor="gc-t-name"><TextField id="gc-t-name" value={draft.name} onCommit={(v) => set({ name: v })} /></Row>
-          <Row label={t('gc6c_code')} htmlFor="gc-t-code"><TextField id="gc-t-code" value={draft.code} onCommit={(v) => set({ code: v })} /></Row>
-          <Row label={t('gc6c_description')} htmlFor="gc-t-desc"><TextField id="gc-t-desc" value={draft.description} onCommit={(v) => set({ description: v })} /></Row>
-          <Row label={t('gc6c_height')} htmlFor="gc-t-h"><NumField id="gc-t-h" value={draft.altura} unit="m" min={0.01} onCommit={(v) => set({ altura: v })} /></Row>
-          <Row label={t('gc6c_axis_offset')} htmlFor="gc-t-d"><NumField id="gc-t-d" value={draft.deslocamento} unit="m" decimals={3} onCommit={(v) => set({ deslocamento: v })} /></Row>
-          <Row label={t('gc6c_landing_adj')} htmlFor="gc-t-aj"><NumField id="gc-t-aj" value={draft.ajusteAlturaPatamar} unit="m" decimals={3} onCommit={(v) => set({ ajusteAlturaPatamar: v })} /></Row>
-          <Row label={t('gc6c_bottom_gap')} htmlFor="gc-t-fi"><NumField id="gc-t-fi" value={draft.folgaInferior} unit="m" min={0} decimals={3} onCommit={(v) => set({ folgaInferior: v })} /></Row>
-          <Row label={t('gc6c_cost')} htmlFor="gc-t-cost"><NumField id="gc-t-cost" value={draft.cost} min={0} onCommit={(v) => set({ cost: v })} /></Row>
-          <Row label={t('gc6c_norm_type')} htmlFor="gc-t-norma">
+          <FamilyRow label={t('gc6c_code')} htmlFor="gc-t-code"><TextField id="gc-t-code" value={draft.code} onCommit={(v) => set({ code: v })} /></FamilyRow>
+          <FamilyRow label={t('gc6c_description')} htmlFor="gc-t-desc"><TextField id="gc-t-desc" value={draft.description} onCommit={(v) => set({ description: v })} /></FamilyRow>
+          <FamilyPair>
+            <FamilyRow label={t('gc6c_height')} htmlFor="gc-t-h"><NumField id="gc-t-h" value={draft.altura} unit="m" min={0.01} onCommit={(v) => set({ altura: v })} /></FamilyRow>
+            <FamilyRow label={t('gc6c_axis_offset')} htmlFor="gc-t-d"><NumField id="gc-t-d" value={draft.deslocamento} unit="m" decimals={3} onCommit={(v) => set({ deslocamento: v })} /></FamilyRow>
+          </FamilyPair>
+          <FamilyPair>
+            <FamilyRow label={t('gc6c_landing_adj')} htmlFor="gc-t-aj"><NumField id="gc-t-aj" value={draft.ajusteAlturaPatamar} unit="m" decimals={3} onCommit={(v) => set({ ajusteAlturaPatamar: v })} /></FamilyRow>
+            <FamilyRow label={t('gc6c_bottom_gap')} htmlFor="gc-t-fi"><NumField id="gc-t-fi" value={draft.folgaInferior} unit="m" min={0} decimals={3} onCommit={(v) => set({ folgaInferior: v })} /></FamilyRow>
+          </FamilyPair>
+          <FamilyRow label={t('gc6c_cost')} htmlFor="gc-t-cost"><NumField id="gc-t-cost" value={draft.cost} min={0} onCommit={(v) => set({ cost: v })} /></FamilyRow>
+          <FamilyRow label={t('gc6c_norm_type')} htmlFor="gc-t-norma">
             <select id="gc-t-norma" className="select" value={draft.normaId ?? ''} onChange={(e) => set({ normaId: e.target.value || null })}>
               <option value="">{t('gc6c_norm_project')}</option>
               {Object.values(perfis).map((pf) => <option key={pf.id} value={pf.id}>{pf.name}</option>)}
             </select>
-          </Row>
+          </FamilyRow>
         </>
       )}
 
       {aba === 'trilhos' && (
         <>
           {draft.trilhos.map((tr, i) => (
-            <fieldset key={i} className="gc-item">
-              <Row label={t('gc6c_name')}><TextField value={tr.nome} onCommit={(v) => setTrilho(i, { nome: v })} /></Row>
-              <Row label={t('gc6c_rail_height')}><NumField value={tr.altura} unit="m" min={0} onCommit={(v) => setTrilho(i, { altura: v })} /></Row>
-              <Row label={t('gc6c_rail_offset')}><NumField value={tr.deslocamento} unit="m" decimals={3} onCommit={(v) => setTrilho(i, { deslocamento: v })} /></Row>
-              <Row label={t('gc6c_diameter')}><NumField value={tr.perfil.largura} unit="m" min={0.001} decimals={3} onCommit={(v) => setTrilho(i, { perfil: { ...tr.perfil, largura: v } })} /></Row>
-              <button type="button" className="link" onClick={() => set({ trilhos: draft.trilhos.filter((_, j) => j !== i) })}>{t('gc6c_remove')}</button>
-            </fieldset>
+            <FamilySection key={i} title={tr.nome || `${i + 1}`} actions={<button type="button" className="link" onClick={() => set({ trilhos: draft.trilhos.filter((_, j) => j !== i) })}>{t('gc6c_remove')}</button>}>
+              <FamilyRow label={t('gc6c_name')}><TextField value={tr.nome} onCommit={(v) => setTrilho(i, { nome: v })} /></FamilyRow>
+              <FamilyPair>
+                <FamilyRow label={t('gc6c_rail_height')}><NumField value={tr.altura} unit="m" min={0} onCommit={(v) => setTrilho(i, { altura: v })} /></FamilyRow>
+                <FamilyRow label={t('gc6c_rail_offset')}><NumField value={tr.deslocamento} unit="m" decimals={3} onCommit={(v) => setTrilho(i, { deslocamento: v })} /></FamilyRow>
+              </FamilyPair>
+              <FamilyRow label={t('gc6c_diameter')}><NumField value={tr.perfil.largura} unit="m" min={0.001} decimals={3} onCommit={(v) => setTrilho(i, { perfil: { ...tr.perfil, largura: v } })} /></FamilyRow>
+            </FamilySection>
           ))}
           <button type="button" disabled={draft.trilhos.length >= LIMITE.trilhos} onClick={() => set({ trilhos: [...draft.trilhos, novoTrilho(draft, materialId)] })}>{t('gc6c_rail_new')}</button>
         </>
@@ -164,43 +162,44 @@ export function GuardaCorpoTypeDialog({ typeId }: { typeId: string }): ReactElem
       {aba === 'corrimaos' && (
         <>
           {draft.corrimaos.map((c, i) => (
-            <fieldset key={i} className="gc-item">
-              <Row label={t('gc6c_name')}><TextField value={c.nome} onCommit={(v) => setCorrimao(i, { nome: v })} /></Row>
-              <Row label={t('gc6c_hr_func')}>
+            <FamilySection key={i} title={c.nome || `${i + 1}`} actions={<button type="button" className="link" onClick={() => set({ corrimaos: draft.corrimaos.filter((_, j) => j !== i) })}>{t('gc6c_remove')}</button>}>
+              <FamilyRow label={t('gc6c_name')}><TextField value={c.nome} onCommit={(v) => setCorrimao(i, { nome: v })} /></FamilyRow>
+              <FamilyRow label={t('gc6c_hr_func')}>
                 <select className="select" value={c.funcao} onChange={(e) => setCorrimao(i, { funcao: e.target.value === 'topo' ? 'topo' : 'corrimao' })}>
                   <option value="topo">{t('gc6c_func_top')}</option>
                   <option value="corrimao">{t('gc6c_func_handrail')}</option>
                 </select>
-              </Row>
-              <Row label={t('gc6c_side')}>
+              </FamilyRow>
+              <FamilyRow label={t('gc6c_side')}>
                 <select className="select" value={c.posicao} onChange={(e) => setCorrimao(i, { posicao: e.target.value as CorrimaoGC['posicao'] })}>
                   <option value="eixo">{t('gc6c_pos_axis')}</option>
                   <option value="esquerda">{t('gc6c_pos_left')}</option>
                   <option value="direita">{t('gc6c_pos_right')}</option>
                   <option value="ambas">{t('gc6c_pos_both')}</option>
                 </select>
-              </Row>
-              <Row label={t('gc6c_hr_height')}><NumField value={c.altura} unit="m" min={0} onCommit={(v) => setCorrimao(i, { altura: v })} /></Row>
-              <Row label={t('gc6c_hr_clear')}><NumField value={c.afastamento} unit="m" min={0} decimals={3} onCommit={(v) => setCorrimao(i, { afastamento: v })} /></Row>
-              <Row label={t('gc6c_diameter')}><NumField value={c.perfil.largura} unit="m" min={0.001} decimals={3} onCommit={(v) => setCorrimao(i, { perfil: { ...c.perfil, largura: v } })} /></Row>
-              <Row label={t('gc6c_hr_join')}>
+              </FamilyRow>
+              <FamilyPair>
+                <FamilyRow label={t('gc6c_hr_height')}><NumField value={c.altura} unit="m" min={0} onCommit={(v) => setCorrimao(i, { altura: v })} /></FamilyRow>
+                <FamilyRow label={t('gc6c_hr_clear')}><NumField value={c.afastamento} unit="m" min={0} decimals={3} onCommit={(v) => setCorrimao(i, { afastamento: v })} /></FamilyRow>
+              </FamilyPair>
+              <FamilyRow label={t('gc6c_diameter')}><NumField value={c.perfil.largura} unit="m" min={0.001} decimals={3} onCommit={(v) => setCorrimao(i, { perfil: { ...c.perfil, largura: v } })} /></FamilyRow>
+              <FamilyRow label={t('gc6c_hr_join')}>
                 <select className="select" value={c.juncao} onChange={(e) => setCorrimao(i, { juncao: e.target.value === 'filete' ? 'filete' : 'esquadria' })}>
                   <option value="esquadria">{t('gc6c_join_miter')}</option>
                   <option value="filete">{t('gc6c_join_fillet')}</option>
                 </select>
-              </Row>
-              <Row label={t('gc6c_hr_transition')}>
+              </FamilyRow>
+              <FamilyRow label={t('gc6c_hr_transition')}>
                 <select className="select" value={c.transicao} onChange={(e) => setCorrimao(i, { transicao: e.target.value as CorrimaoGC['transicao'] })}>
                   <option value="nenhuma">{t('gc6c_tr_none')}</option>
                   <option value="simples">{t('gc6c_tr_simple')}</option>
                   <option value="pescoco-de-ganso">{t('gc6c_tr_gooseneck')}</option>
                 </select>
-              </Row>
+              </FamilyRow>
               <ExtensaoCampos titulo={t('gc6c_ext_start')} ext={c.extensaoInicio} onChange={(e) => setCorrimao(i, { extensaoInicio: e })} />
               <ExtensaoCampos titulo={t('gc6c_ext_end')} ext={c.extensaoFim} onChange={(e) => setCorrimao(i, { extensaoFim: e })} />
               <SuporteCampos suportes={c.suportes} onChange={(s) => setCorrimao(i, { suportes: s })} />
-              <button type="button" className="link" onClick={() => set({ corrimaos: draft.corrimaos.filter((_, j) => j !== i) })}>{t('gc6c_remove')}</button>
-            </fieldset>
+            </FamilySection>
           ))}
           <button type="button" disabled={draft.corrimaos.length >= LIMITE.corrimaos} onClick={() => set({ corrimaos: [...draft.corrimaos, novoCorrimao(draft, materialId)] })}>{t('gc6c_hr_new')}</button>
         </>
@@ -214,19 +213,23 @@ export function GuardaCorpoTypeDialog({ typeId }: { typeId: string }): ReactElem
             </Check>
           ))}
           <Check id="gc-p-inter-ativo" checked={draft.postes.intermediario.ativo} onChange={(v) => setInter({ ativo: v })}>{t('gc6c_post_inter')}</Check>
-          <Row label={t('gc6c_diameter')}><NumField value={draft.postes.inicio.perfil.largura} unit="m" min={0.001} decimals={3} onCommit={(v) => setTodosPostes(v)} /></Row>
-          <Row label={t('gc6c_post_above')}><NumField value={draft.postes.inicio.alturaAcima} unit="m" min={0} decimals={3} onCommit={(v) => setTodosPostes(undefined, v)} /></Row>
-          <Row label={t('gc6c_post_mode')}>
+          <FamilyPair>
+            <FamilyRow label={t('gc6c_diameter')}><NumField value={draft.postes.inicio.perfil.largura} unit="m" min={0.001} decimals={3} onCommit={(v) => setTodosPostes(v)} /></FamilyRow>
+            <FamilyRow label={t('gc6c_post_above')}><NumField value={draft.postes.inicio.alturaAcima} unit="m" min={0} decimals={3} onCommit={(v) => setTodosPostes(undefined, v)} /></FamilyRow>
+          </FamilyPair>
+          <FamilyRow label={t('gc6c_post_mode')}>
             <select className="select" value={draft.postes.intermediario.modo} onChange={(e) => setInter({ modo: e.target.value as TipoGuardaCorpo['postes']['intermediario']['modo'] })}>
               <option value="nenhum">{t('gc6c_pm_none')}</option>
               <option value="espacamento-maximo">{t('gc6c_pm_max')}</option>
               <option value="espacamento-fixo">{t('gc6c_pm_fixed')}</option>
               <option value="numero-fixo">{t('gc6c_pm_count')}</option>
             </select>
-          </Row>
-          <Row label={t('gc6c_post_spacing')}><NumField value={draft.postes.intermediario.espacamento} unit="m" min={0} decimals={3} onCommit={(v) => setInter({ espacamento: v })} /></Row>
-          <Row label={t('gc6c_post_number')}><NumField value={draft.postes.intermediario.numero} min={0} decimals={0} onCommit={(v) => setInter({ numero: Math.round(v) })} /></Row>
-          <Row label={t('gc6c_post_angle')}><NumField value={(draft.postes.anguloCanto * 180) / Math.PI} min={0} decimals={1} onCommit={(v) => set({ postes: { ...draft.postes, anguloCanto: (v * Math.PI) / 180 } })} /></Row>
+          </FamilyRow>
+          <FamilyPair>
+            <FamilyRow label={t('gc6c_post_spacing')}><NumField value={draft.postes.intermediario.espacamento} unit="m" min={0} decimals={3} onCommit={(v) => setInter({ espacamento: v })} /></FamilyRow>
+            <FamilyRow label={t('gc6c_post_number')}><NumField value={draft.postes.intermediario.numero} min={0} decimals={0} onCommit={(v) => setInter({ numero: Math.round(v) })} /></FamilyRow>
+          </FamilyPair>
+          <FamilyRow label={t('gc6c_post_angle')}><NumField value={(draft.postes.anguloCanto * 180) / Math.PI} min={0} decimals={1} onCommit={(v) => set({ postes: { ...draft.postes, anguloCanto: (v * Math.PI) / 180 } })} /></FamilyRow>
         </>
       )}
 
@@ -234,39 +237,50 @@ export function GuardaCorpoTypeDialog({ typeId }: { typeId: string }): ReactElem
         <>
           {draft.preenchimentos.length === 0 && <p className="hint">{t('gc6c_inf_none')}</p>}
           {draft.preenchimentos.map((pr, i) => (
-            <fieldset key={i} className="gc-item">
-              <Row label={t('gc6c_name')}><TextField value={pr.nome} onCommit={(v) => setPreench(i, { nome: v })} /></Row>
+            <FamilySection
+              key={i}
+              title={pr.nome || `${i + 1}`}
+              actions={
+                <>
+                  <button type="button" className="link" disabled={i === 0} onClick={() => moverPreench(i, -1)}>{t('gc6c_move_up')}</button>
+                  <button type="button" className="link" disabled={i === draft.preenchimentos.length - 1} onClick={() => moverPreench(i, 1)}>{t('gc6c_move_down')}</button>
+                  <button type="button" className="link" onClick={() => set({ preenchimentos: draft.preenchimentos.filter((_, j) => j !== i) })}>{t('gc6c_remove')}</button>
+                </>
+              }
+            >
+              <FamilyRow label={t('gc6c_name')}><TextField value={pr.nome} onCommit={(v) => setPreench(i, { nome: v })} /></FamilyRow>
               {pr.tipo === 'balaustres' ? (
                 <>
-                  <Row label={t('gc6c_inf_period')}><NumField value={pr.periodo} unit="m" min={0.001} decimals={3} onCommit={(v) => setPreench(i, { periodo: v })} /></Row>
-                  <Row label={t('gc6c_diameter')}>
-                    <NumField value={pr.elementos[0]?.modelo?.perfil.largura ?? null} unit="m" min={0.001} decimals={3} onCommit={(v) => setPreench(i, { elementos: pr.elementos.map((el, j) => (j === 0 && el.modelo ? { ...el, modelo: { ...el.modelo, perfil: { ...el.modelo.perfil, largura: v } } } : el)) })} />
-                  </Row>
+                  <FamilyPair>
+                    <FamilyRow label={t('gc6c_inf_period')}><NumField value={pr.periodo} unit="m" min={0.001} decimals={3} onCommit={(v) => setPreench(i, { periodo: v })} /></FamilyRow>
+                    <FamilyRow label={t('gc6c_diameter')}>
+                      <NumField value={pr.elementos[0]?.modelo?.perfil.largura ?? null} unit="m" min={0.001} decimals={3} onCommit={(v) => setPreench(i, { elementos: pr.elementos.map((el, j) => (j === 0 && el.modelo ? { ...el, modelo: { ...el.modelo, perfil: { ...el.modelo.perfil, largura: v } } } : el)) })} />
+                    </FamilyRow>
+                  </FamilyPair>
                   <Check id={`gc-pd-${i}`} checked={pr.porDegrau.ativo} onChange={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, ativo: v } })}>{t('gc6c_pd_active')}</Check>
                   <Check id={`gc-pd-auto-${i}`} checked={pr.porDegrau.automatico === true} onChange={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, automatico: v } })}>{t('gc6c_pd_auto')}</Check>
                   {pr.porDegrau.automatico !== true && <>
-                  <Row label={t('gc6c_pd_qty')}><NumField value={pr.porDegrau.quantidade} min={1} decimals={0} onCommit={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, quantidade: Math.max(1, Math.round(v)) } })} /></Row>
+                  <FamilyRow label={t('gc6c_pd_qty')}><NumField value={pr.porDegrau.quantidade} min={1} decimals={0} onCommit={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, quantidade: Math.max(1, Math.round(v)) } })} /></FamilyRow>
                   <Check id={`gc-pd-centro-${i}`} checked={pr.porDegrau.distanciaDoBocel === null} onChange={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, distanciaDoBocel: v ? null : 0.05 } })}>{t('gc6c_pd_center')}</Check>
                   {pr.porDegrau.distanciaDoBocel !== null && (
-                    <Row label={t('gc6c_pd_edge')}><NumField value={pr.porDegrau.distanciaDoBocel} unit="m" min={0} decimals={3} onCommit={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, distanciaDoBocel: v } })} /></Row>
+                    <FamilyRow label={t('gc6c_pd_edge')}><NumField value={pr.porDegrau.distanciaDoBocel} unit="m" min={0} decimals={3} onCommit={(v) => setPreench(i, { porDegrau: { ...pr.porDegrau, distanciaDoBocel: v } })} /></FamilyRow>
                   )}
                   </>}
                 </>
               ) : (
                 <>
-                  <Row label={t('gc6c_inf_family')}>
+                  <FamilyRow label={t('gc6c_inf_family')}>
                     <select className="select" value={pr.familia} onChange={(e) => setPreench(i, { familia: e.target.value as FamiliaPainelGC })}>
                       {FAMILIAS.map((f) => <option key={f} value={f}>{t(FAMILIA_KEY[f])}</option>)}
                     </select>
-                  </Row>
-                  <Row label={t('gc6c_inf_thickness')}><NumField value={pr.espessura} unit="m" min={0.001} decimals={3} onCommit={(v) => setPreench(i, { espessura: v })} /></Row>
-                  <Row label={t('gc6c_inf_max_width')}><NumField value={pr.larguraMaxima} unit="m" min={0} decimals={3} onCommit={(v) => setPreench(i, { larguraMaxima: v })} /></Row>
+                  </FamilyRow>
+                  <FamilyPair>
+                    <FamilyRow label={t('gc6c_inf_thickness')}><NumField value={pr.espessura} unit="m" min={0.001} decimals={3} onCommit={(v) => setPreench(i, { espessura: v })} /></FamilyRow>
+                    <FamilyRow label={t('gc6c_inf_max_width')}><NumField value={pr.larguraMaxima} unit="m" min={0} decimals={3} onCommit={(v) => setPreench(i, { larguraMaxima: v })} /></FamilyRow>
+                  </FamilyPair>
                 </>
               )}
-              <button type="button" className="link" disabled={i === 0} onClick={() => moverPreench(i, -1)}>{t('gc6c_move_up')}</button>
-              <button type="button" className="link" disabled={i === draft.preenchimentos.length - 1} onClick={() => moverPreench(i, 1)}>{t('gc6c_move_down')}</button>
-              <button type="button" className="link" onClick={() => set({ preenchimentos: draft.preenchimentos.filter((_, j) => j !== i) })}>{t('gc6c_remove')}</button>
-            </fieldset>
+            </FamilySection>
           ))}
           <button type="button" disabled={draft.preenchimentos.length >= LIMITE.preenchimentos} onClick={() => set({ preenchimentos: [...draft.preenchimentos, novoBalaustre(t('gc6c_inf_balusters'), materialId)] })}>{t('gc6c_inf_balusters')}</button>
           <button type="button" disabled={draft.preenchimentos.length >= LIMITE.preenchimentos} onClick={() => set({ preenchimentos: [...draft.preenchimentos, novoPainel(t('gc6c_inf_panel'), materialId)] })}>{t('gc6c_inf_panel')}</button>
@@ -275,41 +289,46 @@ export function GuardaCorpoTypeDialog({ typeId }: { typeId: string }): ReactElem
 
       {aba === 'juncoes' && (
         <>
-          <Row label={t('gc6c_join_angular')}>
+          <FamilyRow label={t('gc6c_join_angular')}>
             <select className="select" value={draft.juncaoAngular} onChange={(e) => set({ juncaoAngular: e.target.value === 'segmento-vertical' ? 'segmento-vertical' : 'nenhum' })}>
               <option value="nenhum">{t('gc6c_tr_none')}</option>
               <option value="segmento-vertical">{t('gc6c_join_segment')}</option>
             </select>
-          </Row>
-          <Row label={t('gc6c_join_tangent')}>
+          </FamilyRow>
+          <FamilyRow label={t('gc6c_join_tangent')}>
             <select className="select" value={draft.juncaoTangente} onChange={(e) => set({ juncaoTangente: e.target.value as TipoGuardaCorpo['juncaoTangente'] })}>
               <option value="nenhum">{t('gc6c_tr_none')}</option>
               <option value="segmento-vertical">{t('gc6c_join_segment')}</option>
               <option value="estender-trilhos">{t('gc6c_join_extend')}</option>
             </select>
-          </Row>
-          <Row label={t('gc6c_join_conn')}>
+          </FamilyRow>
+          <FamilyRow label={t('gc6c_join_conn')}>
             <select className="select" value={draft.conexaoTrilho} onChange={(e) => set({ conexaoTrilho: e.target.value === 'soldar' ? 'soldar' : 'cortar' })}>
               <option value="cortar">{t('gc6c_conn_cut')}</option>
               <option value="soldar">{t('gc6c_conn_weld')}</option>
             </select>
-          </Row>
+          </FamilyRow>
         </>
       )}
 
       {aba === 'norma' && (
         <>
-          <Row label={t('gc6c_norm_type')} htmlFor="gc-n-tipo">
+          <FamilyRow label={t('gc6c_norm_type')} htmlFor="gc-n-tipo">
             <select id="gc-n-tipo" className="select" value={draft.normaId ?? ''} onChange={(e) => set({ normaId: e.target.value || null })}>
               <option value="">{t('gc6c_norm_project')}</option>
               {Object.values(perfis).map((pf) => <option key={pf.id} value={pf.id}>{pf.name}</option>)}
             </select>
-          </Row>
+          </FamilyRow>
           <p className="hint">{normaDe(p, draft).name}</p>
           <button type="button" className="link" onClick={() => useUi.setState({ dialog: 'normaGuardaCorpo', dialogArg: null })}>{t('gc6c_norm_title')}</button>
         </>
       )}
-    </Dialog>
+        </div>
+        <div style={{ alignSelf: 'start', position: 'sticky', top: 0, minWidth: 0 }}>
+          <GuardaCorpoPreview tipo={draft} />
+        </div>
+      </div>
+    </FamilyTypeDialog>
   );
 
   /** Troca um trilho pelo índice. */
@@ -356,19 +375,18 @@ export function GuardaCorpoTypeDialog({ typeId }: { typeId: string }): ReactElem
 function ExtensaoCampos({ titulo, ext, onChange }: { titulo: string; ext: ExtensaoGC; onChange: (e: ExtensaoGC) => void }): ReactElement {
   const { t } = useT();
   return (
-    <fieldset className="gc-item">
-      <legend>{titulo}</legend>
-      <Row label={t('gc6c_ext_style')}>
+    <FamilySection title={titulo} defaultOpen={false}>
+      <FamilyRow label={t('gc6c_ext_style')}>
         <select className="select" value={ext.estilo} onChange={(e) => onChange({ ...ext, estilo: e.target.value as ExtremidadeEstiloGC })}>
           <option value="nenhum">{t('gc6c_ext_none')}</option>
           <option value="parede">{t('gc6c_ext_wall')}</option>
           <option value="piso">{t('gc6c_ext_floor')}</option>
           <option value="poste">{t('gc6c_ext_post')}</option>
         </select>
-      </Row>
-      <Row label={t('gc6c_ext_length')}><NumField value={ext.comprimento} unit="m" min={0} decimals={3} onCommit={(v) => onChange({ ...ext, comprimento: v })} /></Row>
+      </FamilyRow>
+      <FamilyRow label={t('gc6c_ext_length')}><NumField value={ext.comprimento} unit="m" min={0} decimals={3} onCommit={(v) => onChange({ ...ext, comprimento: v })} /></FamilyRow>
       <Check checked={ext.maisPiso} onChange={(v) => onChange({ ...ext, maisPiso: v })}>{t('gc6c_ext_plus_tread')}</Check>
-    </fieldset>
+    </FamilySection>
   );
 }
 
@@ -392,81 +410,22 @@ function SuporteCampos({ suportes, onChange }: { suportes: SuportesGC; onChange:
     distribuir: 'gc6c_just_distribute',
   };
   return (
-    <fieldset className="gc-item">
-      <legend>{t('gc6c_sup_layout')}</legend>
-      <Row label={t('gc6c_sup_layout')}>
+    <FamilySection title={t('gc6c_sup_layout')} defaultOpen={false}>
+      <FamilyRow label={t('gc6c_sup_layout')}>
         <select className="select" value={suportes.layout} onChange={(e) => onChange({ ...suportes, layout: e.target.value as LayoutSuporteGC })}>
           {layouts.map((l) => <option key={l} value={l}>{t(layoutKey[l])}</option>)}
         </select>
-      </Row>
-      <Row label={t('gc6c_post_spacing')}><NumField value={suportes.espacamento} unit="m" min={0} decimals={3} onCommit={(v) => onChange({ ...suportes, espacamento: v })} /></Row>
-      <Row label={t('gc6c_sup_number')}><NumField value={suportes.numero} min={0} decimals={0} onCommit={(v) => onChange({ ...suportes, numero: Math.round(v) })} /></Row>
-      <Row label={t('gc6c_sup_justify')}>
+      </FamilyRow>
+      <FamilyPair>
+        <FamilyRow label={t('gc6c_post_spacing')}><NumField value={suportes.espacamento} unit="m" min={0} decimals={3} onCommit={(v) => onChange({ ...suportes, espacamento: v })} /></FamilyRow>
+        <FamilyRow label={t('gc6c_sup_number')}><NumField value={suportes.numero} min={0} decimals={0} onCommit={(v) => onChange({ ...suportes, numero: Math.round(v) })} /></FamilyRow>
+      </FamilyPair>
+      <FamilyRow label={t('gc6c_sup_justify')}>
         <select className="select" value={suportes.justificacao} onChange={(e) => onChange({ ...suportes, justificacao: e.target.value as JustificacaoGC })}>
           {justificacoes.map((j) => <option key={j} value={j}>{t(justKey[j])}</option>)}
         </select>
-      </Row>
-      <Row label={t('gc6c_sup_length')}><NumField value={suportes.comprimento} unit="m" min={0} decimals={3} onCommit={(v) => onChange({ ...suportes, comprimento: v })} /></Row>
-    </fieldset>
+      </FamilyRow>
+      <FamilyRow label={t('gc6c_sup_length')}><NumField value={suportes.comprimento} unit="m" min={0} decimals={3} onCommit={(v) => onChange({ ...suportes, comprimento: v })} /></FamilyRow>
+    </FamilySection>
   );
-}
-
-/** Trilho novo, abaixo do corrimão e com o material padrão. */
-function novoTrilho(draft: TipoGuardaCorpo, materialId: string): TrilhoGC {
-  return { nome: `Trilho ${draft.trilhos.length + 1}`, altura: draft.altura / 2, deslocamento: 0, perfil: circ(0.02), materialId };
-}
-
-/** Corrimão novo, sobre o eixo na altura do tipo. */
-function novoCorrimao(draft: TipoGuardaCorpo, materialId: string): CorrimaoGC {
-  const nula = { estilo: 'nenhum' as const, comprimento: 0, maisPiso: false };
-  return {
-    nome: `Corrimão ${draft.corrimaos.length + 1}`,
-    funcao: 'corrimao',
-    posicao: 'eixo',
-    altura: draft.altura,
-    afastamento: 0,
-    perfil: circ(0.045),
-    materialId,
-    extensaoInicio: nula,
-    extensaoFim: nula,
-    suportes: { layout: 'nenhum', espacamento: 0, numero: 0, justificacao: 'distribuir', perfil: circ(0.02), comprimento: 0.05, materialId },
-    transicao: 'simples',
-    juncao: 'esquadria',
-    raioFilete: 0.05,
-  };
-}
-
-/** Padrão de balaústres novo, com um balaústre redondo de 2 cm a cada 11 cm. */
-function novoBalaustre(nome: string, materialId: string): PreenchimentoGC {
-  return {
-    tipo: 'balaustres',
-    nome,
-    base: { de: 'hospedeiro' },
-    topo: { de: 'corrimao', indice: 0 },
-    elementos: [{ modelo: { perfil: circ(0.02), materialId }, distanciaAnterior: 0, deslocamentoLateral: 0, deslocamentoBase: 0, deslocamentoTopo: 0 }],
-    periodo: 0.11,
-    justificacao: 'distribuir',
-    sobra: 'nenhuma',
-    quebra: 'nunca',
-    anguloQuebra: 0.5236,
-    escopo: 'vao',
-    porDegrau: { ativo: false, quantidade: 1, distanciaDoBocel: null, modelo: null },
-  };
-}
-
-/** Painel novo de vidro entre postes. */
-function novoPainel(nome: string, materialId: string): PainelGC {
-  return {
-    tipo: 'painel',
-    nome,
-    familia: 'vidro',
-    base: { de: 'hospedeiro' },
-    topo: { de: 'corrimao', indice: 0 },
-    deslocamentoBase: 0.01,
-    deslocamentoTopo: 0,
-    espessura: 0.012,
-    folgaLateral: 0.005,
-    larguraMaxima: 0,
-    materialId,
-  };
 }

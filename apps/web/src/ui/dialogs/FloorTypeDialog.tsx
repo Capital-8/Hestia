@@ -6,8 +6,7 @@ import { duplicateFloorType, floorTypeDeleteBlock, floorTypeError, floorTypeUsag
 import { NumField, TextField } from '../fields.tsx';
 import { Icon } from '../Icon.tsx';
 import { coreHint } from './coreHint.ts';
-import { Dialog } from './Dialog.tsx';
-import { TypeDialogHeader } from './TypeDialogHeader.tsx';
+import { FamilyRow, FamilyTypeDialog } from './familia/index.ts';
 import { FAMILY } from '../typeFamilies.ts';
 import { FloorSectionPreview } from './FloorSectionPreview.tsx';
 import { LayerAdvanced } from './LayerAdvanced.tsx';
@@ -88,26 +87,18 @@ export function FloorTypeDialog({ typeId }: { typeId: string }): ReactElement | 
   const picked = pick !== null ? draft.layers[pick] : undefined;
   return (
     <>
-      <Dialog
+      <FamilyTypeDialog
         title={t('dlt_floor_title')}
         sub={t(usage === 1 ? 'dlt_floor_sub_one' : 'dlt_floor_sub_many', { n: usage })}
         onClose={close}
         size="mid"
-        footer={
-          <>
-            <button className="btn danger" disabled={blocked !== null} title={blocked ?? t('dlt_tt_delete_type')} onClick={del}>{t('stt_delete')}</button>
-            <span style={{ flex: 1 }} />
-            <button className="btn" onClick={close}>{t('stt_cancel')}</button>
-            <button className="btn" onClick={apply} disabled={error !== null}>{t('stt_apply')}</button>
-            <button className="btn primary" onClick={ok} disabled={error !== null} title={error ?? undefined}>{t('stt_ok')}</button>
-          </>
-        }
+        family={FAMILY.floor}
+        types={Object.values(p.floorTypes)}
+        currentId={draft.id}
+        onDuplicate={duplicate}
+        name={{ id: 'ft-name', value: draft.name, onCommit: (v) => setDraft({ ...draft, name: v }) }}
+        footer={{ onDelete: del, deleteDisabled: blocked !== null, deleteTitle: blocked ?? t('dlt_tt_delete_type'), onApply: apply, onOk: ok, saveDisabled: error !== null, saveTitle: error ?? undefined }}
       >
-        <TypeDialogHeader family={FAMILY.floor} types={Object.values(p.floorTypes)} currentId={draft.id} nameFieldId="ft-name" onDuplicate={duplicate} />
-        <div className="field-row">
-          <label htmlFor="ft-name">{t('stt_f_name')}</label>
-          <TextField id="ft-name" value={draft.name} onCommit={(v) => setDraft({ ...draft, name: v })} />
-        </div>
         <div className="split">
           <div style={{ minWidth: 0 }}>
             <table className="layers layers-cards cols-5">
@@ -171,10 +162,10 @@ export function FloorTypeDialog({ typeId }: { typeId: string }): ReactElement | 
             <p className="hint" style={{ padding: '8px 2px' }}>{t('dlt_floor_help')}</p>
           </div>
         </div>
-        <div className="field-row"><label htmlFor="ft-code">{t('dlt_col_code')}</label><TextField id="ft-code" value={draft.code} onCommit={(v) => setDraft({ ...draft, code: v })} /></div>
-        <div className="field-row"><label htmlFor="ft-desc">{t('stt_f_description')}</label><TextField id="ft-desc" value={draft.description} onCommit={(v) => setDraft({ ...draft, description: v })} /></div>
-        <div className="field-row"><label htmlFor="ft-cost" title={t('dlt_tt_cost_per_area')}>{t('dlt_cost_per_area')}</label><NumField id="ft-cost" value={draft.cost} quantity="currency" min={0} onCommit={(v) => setDraft({ ...draft, cost: v })} /></div>
-      </Dialog>
+        <FamilyRow label={t('dlt_col_code')} htmlFor="ft-code"><TextField id="ft-code" value={draft.code} onCommit={(v) => setDraft({ ...draft, code: v })} /></FamilyRow>
+        <FamilyRow label={t('stt_f_description')} htmlFor="ft-desc"><TextField id="ft-desc" value={draft.description} onCommit={(v) => setDraft({ ...draft, description: v })} /></FamilyRow>
+        <FamilyRow label={t('dlt_cost_per_area')} htmlFor="ft-cost" title={t('dlt_tt_cost_per_area')}><NumField id="ft-cost" value={draft.cost} quantity="currency" min={0} onCommit={(v) => setDraft({ ...draft, cost: v })} /></FamilyRow>
+      </FamilyTypeDialog>
       {pick !== null && picked && (
         <MaterialsDialog
           pickFor={picked.materialId}

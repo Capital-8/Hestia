@@ -4,8 +4,7 @@ import { editor, useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
 import { NumField, TextField } from '../fields.tsx';
 import { Icon } from '../Icon.tsx';
-import { Dialog } from './Dialog.tsx';
-import { TypeDialogHeader } from './TypeDialogHeader.tsx';
+import { FamilyRow, FamilyTabs, FamilyTypeDialog } from './familia/index.ts';
 import { FAMILY } from '../typeFamilies.ts';
 import { LayerAdvanced } from './LayerAdvanced.tsx';
 import { MaterialsDialog } from './MaterialsDialog.tsx';
@@ -92,36 +91,37 @@ export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | n
       useUi.setState({ status: e instanceof Error ? e.message : { key: 'dlt_err_delete_generic' } });
     }
   };
-  const tabBtn = (t: Tab, label: string): ReactElement => (
-    <button className={`dtab${tab === t ? ' on' : ''}`} onClick={() => setTab(t)}>{label}</button>
-  );
   return (
     <>
-      <Dialog
+      <FamilyTypeDialog
         title={t('dlt_wall_title')}
         sub={t(usage === 1 ? 'dlt_wall_sub_one' : 'dlt_wall_sub_many', { n: usage })}
         onClose={close}
-        footer={
-          <>
-            <button className="btn danger" disabled={usage > 0 || draft.id === p.defaults.wallTypeId} title={usage > 0 ? t('dlt_wall_in_use') : t('dlt_tt_delete_type')} onClick={del}>{t('stt_delete')}</button>
-            <span style={{ flex: 1 }} />
-            <button className="btn" onClick={close}>{t('stt_cancel')}</button>
-            <button className="btn" onClick={apply} disabled={stripsInvalid}>{t('stt_apply')}</button>
-            <button className="btn primary" onClick={ok} disabled={stripsInvalid} title={stripsInvalid ? t('dlt_wall_fix_strips') : undefined}>{t('stt_ok')}</button>
-          </>
-        }
+        family={FAMILY.wall}
+        types={Object.values(p.wallTypes)}
+        currentId={draft.id}
+        onDuplicate={duplicate}
+        name={{ id: 'wt-name', value: draft.name, onCommit: (v) => setDraft({ ...draft, name: v }) }}
+        footer={{
+          onDelete: del,
+          deleteDisabled: usage > 0 || draft.id === p.defaults.wallTypeId,
+          deleteTitle: usage > 0 ? t('dlt_wall_in_use') : t('dlt_tt_delete_type'),
+          onApply: apply,
+          onOk: ok,
+          saveDisabled: stripsInvalid,
+          saveTitle: stripsInvalid ? t('dlt_wall_fix_strips') : undefined,
+        }}
       >
-        <TypeDialogHeader family={FAMILY.wall} types={Object.values(p.wallTypes)} currentId={draft.id} nameFieldId="wt-name" onDuplicate={duplicate} />
-        <div className="field-row">
-          <label htmlFor="wt-name">{t('stt_f_name')}</label>
-          <TextField id="wt-name" value={draft.name} onCommit={(v) => setDraft({ ...draft, name: v })} />
-        </div>
-        <div className="dtabs">
-          {tabBtn('estrutura', t('dlt_tab_structure'))}
-          {tabBtn('faixas', t('dlt_tab_strips'))}
-          {tabBtn('graficos', t('dlt_tab_graphics'))}
-          {tabBtn('identidade', t('dlt_tab_identity'))}
-        </div>
+        <FamilyTabs
+          tabs={[
+            { id: 'estrutura', label: t('dlt_tab_structure') },
+            { id: 'faixas', label: t('dlt_tab_strips') },
+            { id: 'graficos', label: t('dlt_tab_graphics') },
+            { id: 'identidade', label: t('dlt_tab_identity') },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
         {tab === 'estrutura' && (
           <div className="split">
             <div style={{ minWidth: 0 }}>
@@ -180,18 +180,17 @@ export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | n
               </div>
               <div className="total"><span>{t('dlt_total_thickness')}</span><strong>{formatQuantity(units, 'smallLength', totalThickness(draft))}</strong></div>
               <button className="btn small" onClick={insert}>{t('dlt_add_layer')}</button>
-              <div className="field-row" style={{ marginTop: 10 }}>
-                <label htmlFor="wt-wrap-ins" title={t('dlt_tt_wrap_inserts')}>{t('dlt_wrap_inserts')}</label>
+              <div style={{ marginTop: 10 }} />
+              <FamilyRow label={t('dlt_wrap_inserts')} htmlFor="wt-wrap-ins" title={t('dlt_tt_wrap_inserts')}>
                 <select id="wt-wrap-ins" className="select" value={draft.wrapInserts} onChange={(e) => setDraft({ ...draft, wrapInserts: e.target.value as WrapMode })}>
                   {WRAP_OPTIONS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                 </select>
-              </div>
-              <div className="field-row">
-                <label htmlFor="wt-wrap-end" title={t('dlt_tt_wrap_ends')}>{t('dlt_wrap_ends')}</label>
+              </FamilyRow>
+              <FamilyRow label={t('dlt_wrap_ends')} htmlFor="wt-wrap-end" title={t('dlt_tt_wrap_ends')}>
                 <select id="wt-wrap-end" className="select" value={draft.wrapEnds} onChange={(e) => setDraft({ ...draft, wrapEnds: e.target.value as WrapMode })}>
                   {WRAP_OPTIONS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                 </select>
-              </div>
+              </FamilyRow>
             </div>
             <div>
               <SectionPreview type={draft} materials={p.materials} />
@@ -227,12 +226,12 @@ export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | n
         )}
         {tab === 'identidade' && (
           <>
-            <div className="field-row"><label htmlFor="wt-code">{t('dlt_col_code')}</label><TextField id="wt-code" value={draft.code} onCommit={(v) => setDraft({ ...draft, code: v })} /></div>
-            <div className="field-row"><label htmlFor="wt-desc">{t('stt_f_description')}</label><TextField id="wt-desc" value={draft.description} onCommit={(v) => setDraft({ ...draft, description: v })} /></div>
+            <FamilyRow label={t('dlt_col_code')} htmlFor="wt-code"><TextField id="wt-code" value={draft.code} onCommit={(v) => setDraft({ ...draft, code: v })} /></FamilyRow>
+            <FamilyRow label={t('stt_f_description')} htmlFor="wt-desc"><TextField id="wt-desc" value={draft.description} onCommit={(v) => setDraft({ ...draft, description: v })} /></FamilyRow>
             <TypeParams type={draft} onChange={(patch) => setDraft({ ...draft, ...patch })} />
           </>
         )}
-      </Dialog>
+      </FamilyTypeDialog>
       {pick !== null && (
         <MaterialsDialog
           pickFor={draft.layers[pick]?.materialId ?? null}

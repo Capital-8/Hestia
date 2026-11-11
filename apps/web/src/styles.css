@@ -385,6 +385,8 @@ svg { display: block; }
 .split { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(220px, 1fr); gap: 14px; }
 /* Modal do tipo de escada: ocupa a altura da tela; o corpo rola e a calculadora/prévia acompanham (sticky). */
 .dialog.wide { width: min(940px, 100%); height: calc(100vh - 32px); max-height: calc(100vh - 32px); }
+/* Diálogo de tipo com prévia ao lado (escada, guarda-corpo): mesma largura do wide, mas a altura segue o conteúdo. */
+.dialog.fam { width: min(940px, 100%); max-height: calc(100vh - 32px); }
 .stt-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr); gap: 14px; align-items: start; }
 .stt-main { min-width: 0; padding-right: 4px; }
 .stt-side { position: sticky; top: 0; align-self: start; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
@@ -392,6 +394,31 @@ svg { display: block; }
 .dsec > legend, .dsec > summary { padding: 0 4px; color: var(--fg-soft); font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
 .dsec > summary { cursor: pointer; }
 .dsec > summary:hover { color: var(--accent); }
+/* Esqueleto comum dos diálogos de tipo (ui/dialogs/familia): seção recolhível, campos curtos em pares e ajuda compacta.
+   A seção "fixa" tem o mesmo visual do bloco de parâmetros da parede. */
+.fam-sec { min-width: 0; margin: 0 0 6px; padding: 0; border: 0; border-bottom: 1px solid var(--line); }
+.fam-sec.fixed { margin: 12px 0 0; border-bottom: 0; }
+.fam-sec.fixed > legend { padding: 0; color: var(--fg-faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; }
+.fam-sec > summary { display: flex; align-items: center; gap: 6px; padding: 3px 0 5px; color: var(--fg-faint); font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; cursor: pointer; list-style: none; }
+.fam-sec > summary::-webkit-details-marker { display: none; }
+.fam-sec > summary::before { content: ''; width: 5px; height: 5px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform .1s; flex: none; }
+.fam-sec[open] > summary::before { transform: rotate(45deg); }
+.fam-sec > summary:hover { color: var(--accent); }
+.fam-sec-title { flex: 1; min-width: 0; }
+.fam-sec-actions { display: inline-flex; gap: 6px; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.fam-sec-body { padding: 0 0 4px; }
+.fam-sec-body .field-row { margin-bottom: 5px; }
+.fam-sec-body > .fam-row > .field-row { grid-template-columns: 150px minmax(0, 1fr); }
+.fam-row .field-row input[type='checkbox'] { justify-self: start; }
+.fam-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 14px; }
+.fam-pair .field-row { grid-template-columns: minmax(0, 1fr) 102px; }
+.fam-pair.mix .field-row { grid-template-columns: 64px minmax(0, 1fr); }
+.fam-pair.mix .field-row .select { width: 100%; }
+.fam-hint { margin: 0 0 5px; color: var(--fg-soft); font-size: 11px; line-height: 1.4; }
+@media (max-width: 760px) {
+  .fam-pair { grid-template-columns: minmax(0, 1fr); }
+  .fam-pair .field-row, .fam-pair.mix .field-row, .fam-sec-body > .fam-row > .field-row { grid-template-columns: minmax(0, 1fr); }
+}
 .calc-badge { display: inline-flex; align-items: center; gap: 6px; border: 1px solid currentColor; border-radius: 2px; padding: 2px 8px; font-size: 11.5px; line-height: 1.5; }
 .calc-badge.ok { color: var(--ok); }
 .calc-badge.warn { color: var(--warn); }
@@ -740,7 +767,7 @@ svg { display: block; }
 }
 @media (max-width: 700px) {
   .overlay { padding: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
-  .dialog, .dialog.narrow, .dialog.mid, .dialog.wide, .dialog.xl {
+  .dialog, .dialog.narrow, .dialog.mid, .dialog.wide, .dialog.fam, .dialog.xl {
     width: 100%;
     height: 100%;
     max-height: 100%;

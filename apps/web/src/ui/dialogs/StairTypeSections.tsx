@@ -1,10 +1,11 @@
-import { Fragment, useState, type ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import { DEFAULT_STAIR_FINISH, stairFinishOf, type StairRunStyle, type StairType, type StairUndersideStyle } from '@hestia/model';
 import { dictOf, fmtNum, I18N, useI18n } from '../../editor/i18n.ts';
 import { NumField, TextField } from '../fields.tsx';
 import { applyPreset, matchPreset, STAIR_DIALOG_PRESETS, type StairPresetId } from './stairTypeCalc.ts';
 import { STAIR_FIELD_LIMITS, type StairFieldName, type StairTypeIssue } from './stairTypeForm.ts';
 import { fieldLabelOverride, isStairFieldVisible } from './stairFieldVisibility.ts';
+import { FamilyHint, FamilyPair, FamilyRow, FamilySection } from './familia/index.ts';
 
 type Dict = Record<keyof typeof I18N.pt, string>;
 
@@ -154,36 +155,35 @@ export function StairTypeSections({ draft, set, onStyle, materials, issues, canG
     const override = fieldLabelOverride(draft.runStyle, field);
     const label = override ? t[override] : t[FIELD_LABEL[field]];
     return (
-      <Fragment key={field}>
-        <div className="field-row">
-          <label htmlFor={`stt-${field}`}>{label}</label>
-          <NumField
-            id={`stt-${field}`}
-            value={draft[field]}
-            scale={lim.scale}
-            decimals={lim.decimals}
-            unit={lim.unit || undefined}
-            min={lim.min}
-            max={Number.isFinite(lim.max) ? lim.max : undefined}
-            strictRange
-            onCommit={(v) => setNum(field, v)}
-            onInvalid={() => setRanges((r) => ({ ...r, [field]: rangeText(lim) }))}
-            onValid={() => setRanges((r) => {
-              if (!(field in r)) return r;
-              const next = { ...r };
-              delete next[field];
-              return next;
-            })}
-            invalid={msgs.length > 0}
-            describedBy={msgs.length ? `stt-${field}-err` : undefined}
-          />
-        </div>
-        {msgs.length > 0 ? (
-          <div className="vr-error" id={`stt-${field}-err`} style={{ color: msgs[0]!.error ? undefined : 'var(--warn)' }}>
-            {msgs.map((m) => m.text).join(' ')}
-          </div>
-        ) : null}
-      </Fragment>
+      <FamilyRow
+        key={field}
+        label={label}
+        htmlFor={`stt-${field}`}
+        message={msgs.length > 0 ? msgs.map((m) => m.text).join(' ') : undefined}
+        messageId={`stt-${field}-err`}
+        messageWarn={msgs.length > 0 && !msgs[0]!.error}
+      >
+        <NumField
+          id={`stt-${field}`}
+          value={draft[field]}
+          scale={lim.scale}
+          decimals={lim.decimals}
+          unit={lim.unit || undefined}
+          min={lim.min}
+          max={Number.isFinite(lim.max) ? lim.max : undefined}
+          strictRange
+          onCommit={(v) => setNum(field, v)}
+          onInvalid={() => setRanges((r) => ({ ...r, [field]: rangeText(lim) }))}
+          onValid={() => setRanges((r) => {
+            if (!(field in r)) return r;
+            const next = { ...r };
+            delete next[field];
+            return next;
+          })}
+          invalid={msgs.length > 0}
+          describedBy={msgs.length ? `stt-${field}-err` : undefined}
+        />
+      </FamilyRow>
     );
   };
 
@@ -215,144 +215,112 @@ export function StairTypeSections({ draft, set, onStyle, materials, issues, canG
     );
   };
 
+  const finishGroup = (on: boolean, flagId: string, flagLabel: string, onFlag: (v: boolean) => void, matId: string, matField: MatField, thickId: string, thickValue: number, onThick: (v: number) => void): ReactElement => (
+    <>
+      <FamilyRow label={flagLabel} htmlFor={flagId}>
+        <input id={flagId} type="checkbox" checked={on} onChange={(e) => onFlag(e.target.checked)} />
+      </FamilyRow>
+      <div style={{ opacity: on ? 1 : 0.5 }}>
+        <FamilyPair mix>
+          <FamilyRow label={t.stt_finish_material} htmlFor={matId}>{materialSelect(matId, matField)}</FamilyRow>
+          <FamilyRow label={t.stt_finish_thickness} htmlFor={thickId}>
+            <NumField id={thickId} value={thickValue} scale={100} decimals={1} unit="cm" min={0.001} max={0.1} disabled={!on} onCommit={onThick} />
+          </FamilyRow>
+        </FamilyPair>
+      </div>
+    </>
+  );
+
   return (
     <>
-      <fieldset className="dsec" id="stt-sec-1">
-        <legend>{t.stt_sec_dims}</legend>
-        {row('maxRiser')}
-        {row('minRiser')}
-        {row('minTread')}
-        {row('minRunWidth')}
-        {row('minHeadroom')}
-        {row('nosing')}
-      </fieldset>
+      <FamilySection id="stt-sec-1" title={t.stt_sec_dims}>
+        <FamilyPair>{row('maxRiser')}{row('minRiser')}</FamilyPair>
+        <FamilyPair>{row('minTread')}{row('minRunWidth')}</FamilyPair>
+        <FamilyPair>{row('minHeadroom')}{row('nosing')}</FamilyPair>
+      </FamilySection>
 
-      <fieldset className="dsec" id="stt-sec-2">
-        <legend>{t.stt_sec_calc}</legend>
-        <p className="hint">{t.stt_calc_help_blondel}</p>
-        <div className="field-row">
-          <label htmlFor="stt-preset">{t.stt_f_preset}</label>
-          <select id="stt-preset" className="select" value={presetId} onChange={(e) => applyPresetId(e.target.value as StairPresetId)}>
-            {STAIR_DIALOG_PRESETS.map((p) => <option key={p.id} value={p.id}>{t[PRESET_LABEL[p.id]]}</option>)}
-            {presetId === 'custom' ? <option value="custom">{t.stt_preset_custom}</option> : null}
-          </select>
-        </div>
-        {diverged ? (
-          <div className="field-row">
-            <span />
-            <button className="btn small" type="button" onClick={() => applyPresetId(lastPreset)}>{t.stt_restore_preset}</button>
-          </div>
-        ) : null}
+      <FamilySection id="stt-sec-2" title={t.stt_sec_calc} defaultOpen={false}>
+        <FamilyHint>{t.stt_calc_help_blondel}</FamilyHint>
+        <FamilyRow label={t.stt_f_preset} htmlFor="stt-preset">
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <select id="stt-preset" className="select" style={{ flex: 1, minWidth: 0 }} value={presetId} onChange={(e) => applyPresetId(e.target.value as StairPresetId)}>
+              {STAIR_DIALOG_PRESETS.map((p) => <option key={p.id} value={p.id}>{t[PRESET_LABEL[p.id]]}</option>)}
+              {presetId === 'custom' ? <option value="custom">{t.stt_preset_custom}</option> : null}
+            </select>
+            {diverged ? <button className="btn small" type="button" onClick={() => applyPresetId(lastPreset)}>{t.stt_restore_preset}</button> : null}
+          </span>
+        </FamilyRow>
         {applied ? <p className="stt-ref" aria-live="polite">{t.stt_preset_applied}</p> : null}
-        <p className="hint">{t.stt_calc_help}</p>
-        {draft.runStyle === 'post' ? <p className="hint">{t.stt_note_post_calc}</p> : null}
-        {row('calcRiserFactor')}
-        {row('calcTreadFactor')}
-        {row('calcTarget')}
-        {row('calcMin')}
-        {row('calcMax')}
-        {row('maxTread')}
-        <p className="stt-ref">{t.stt_reference}</p>
-      </fieldset>
+        <FamilyHint>{t.stt_calc_help}</FamilyHint>
+        {draft.runStyle === 'post' ? <FamilyHint>{t.stt_note_post_calc}</FamilyHint> : null}
+        <FamilyPair>{row('calcRiserFactor')}{row('calcTreadFactor')}</FamilyPair>
+        <FamilyPair>{row('calcTarget')}{row('maxTread')}</FamilyPair>
+        <FamilyPair>{row('calcMin')}{row('calcMax')}</FamilyPair>
+        <p className="stt-ref" style={{ margin: 0 }}>{t.stt_reference}</p>
+      </FamilySection>
 
-      <fieldset className="dsec" id="stt-sec-3">
-        <legend>{t.stt_sec_build}</legend>
-        <div className="field-row">
-          <label htmlFor="stt-runStyle">{t.stt_f_runStyle}</label>
+      <FamilySection id="stt-sec-3" title={t.stt_sec_build}>
+        <FamilyRow label={t.stt_f_runStyle} htmlFor="stt-runStyle">
           <select id="stt-runStyle" className="select" value={draft.runStyle} onChange={(e) => onStyle(e.target.value as StairRunStyle)}>
             {(Object.keys(STYLE_LABEL) as StairRunStyle[]).map((k) => <option key={k} value={k}>{t[STYLE_LABEL[k]]}</option>)}
           </select>
-        </div>
-        <p className="hint">{t[STYLE_DESC[draft.runStyle]]}</p>
+        </FamilyRow>
+        <FamilyHint>{t[STYLE_DESC[draft.runStyle]]}</FamilyHint>
         {isStairFieldVisible(draft.runStyle, 'materialId') ? (
-          <div className="field-row">
-            <label htmlFor="stt-materialId">{t[fieldLabelOverride(draft.runStyle, 'materialId') ?? 'stt_f_materialId']}</label>
+          <FamilyRow label={t[fieldLabelOverride(draft.runStyle, 'materialId') ?? 'stt_f_materialId']} htmlFor="stt-materialId">
             {materialSelect('stt-materialId', 'materialId')}
-          </div>
+          </FamilyRow>
         ) : null}
         {noMats ? <div className="vr-error" id="stt-materialId-err">{t.stt_err_no_materials}</div> : null}
-        {row('structuralDepth')}
-        {isStairFieldVisible(draft.runStyle, 'undersideStyle') ? (
-          <div className="field-row">
-            <label htmlFor="stt-undersideStyle">{t.stt_f_undersideStyle}</label>
-            <select id="stt-undersideStyle" className="select" value={draft.undersideStyle} onChange={(e) => set({ undersideStyle: e.target.value as StairUndersideStyle })}>
-              {(Object.keys(UNDER_LABEL) as StairUndersideStyle[]).map((k) => <option key={k} value={k}>{t[UNDER_LABEL[k]]}</option>)}
-            </select>
-          </div>
-        ) : null}
-        {row('treadThickness')}
-        {row('riserThickness')}
-        {row('treadOverlap')}
+        <FamilyPair>
+          {row('structuralDepth')}
+          {isStairFieldVisible(draft.runStyle, 'undersideStyle') ? (
+            <FamilyRow label={t.stt_f_undersideStyle} htmlFor="stt-undersideStyle">
+              <select id="stt-undersideStyle" className="select" value={draft.undersideStyle} onChange={(e) => set({ undersideStyle: e.target.value as StairUndersideStyle })}>
+                {(Object.keys(UNDER_LABEL) as StairUndersideStyle[]).map((k) => <option key={k} value={k}>{t[UNDER_LABEL[k]]}</option>)}
+              </select>
+            </FamilyRow>
+          ) : null}
+        </FamilyPair>
+        <FamilyPair>{row('treadThickness')}{row('riserThickness')}</FamilyPair>
+        <FamilyPair>{row('treadOverlap')}{row('landingThickness')}</FamilyPair>
         {isStairFieldVisible(draft.runStyle, 'postMaterialId') ? (
-          <div className="field-row">
-            <label htmlFor="stt-postMaterialId">{t[fieldLabelOverride(draft.runStyle, 'postMaterialId') ?? 'stt_f_postMaterialId']}</label>
+          <FamilyRow label={t[fieldLabelOverride(draft.runStyle, 'postMaterialId') ?? 'stt_f_postMaterialId']} htmlFor="stt-postMaterialId">
             {materialSelect('stt-postMaterialId', 'postMaterialId')}
-          </div>
+          </FamilyRow>
         ) : null}
-        {row('landingThickness')}
-      </fieldset>
+      </FamilySection>
 
       {draft.runStyle !== 'assembled' ? (
-        <fieldset className="dsec" id="stt-sec-finish">
-          <legend>{t.stt_sec_finish}</legend>
-          <div className="field-row">
-            <label htmlFor="stt-treadFinishEnabled">{t.stt_finish_tread}</label>
-            <input id="stt-treadFinishEnabled" type="checkbox" checked={treadFlag} onChange={(e) => set({ treadFinishEnabled: e.target.checked })} />
-          </div>
-          <div style={{ opacity: treadFlag ? 1 : 0.5 }}>
-            <div className="field-row">
-              <label htmlFor="stt-treadFinishMaterialId">{t.stt_finish_material}</label>
-              {materialSelect('stt-treadFinishMaterialId', 'treadFinishMaterialId')}
-            </div>
-            <div className="field-row">
-              <label htmlFor="stt-treadFinishThickness">{t.stt_finish_thickness}</label>
-              <NumField id="stt-treadFinishThickness" value={draft.treadFinishThickness ?? DEFAULT_STAIR_FINISH.treadFinishThickness} scale={100} decimals={1} unit="cm" min={0.001} max={0.1} disabled={!treadFlag} onCommit={(v) => set({ treadFinishThickness: v })} />
-            </div>
-          </div>
-          {draft.runStyle !== 'post' ? (
-            <>
-              <div className="field-row">
-                <label htmlFor="stt-riserFinishEnabled">{t.stt_finish_riser}</label>
-                <input id="stt-riserFinishEnabled" type="checkbox" checked={riserFlag} onChange={(e) => set({ riserFinishEnabled: e.target.checked })} />
-              </div>
-              <div style={{ opacity: riserFlag ? 1 : 0.5 }}>
-                <div className="field-row">
-                  <label htmlFor="stt-riserFinishMaterialId">{t.stt_finish_material}</label>
-                  {materialSelect('stt-riserFinishMaterialId', 'riserFinishMaterialId')}
-                </div>
-                <div className="field-row">
-                  <label htmlFor="stt-riserFinishThickness">{t.stt_finish_thickness}</label>
-                  <NumField id="stt-riserFinishThickness" value={draft.riserFinishThickness ?? DEFAULT_STAIR_FINISH.riserFinishThickness} scale={100} decimals={1} unit="cm" min={0.001} max={0.1} disabled={!riserFlag} onCommit={(v) => set({ riserFinishThickness: v })} />
-                </div>
-              </div>
-            </>
-          ) : null}
+        <FamilySection id="stt-sec-finish" title={t.stt_sec_finish}>
+          {finishGroup(treadFlag, 'stt-treadFinishEnabled', t.stt_finish_tread, (v) => set({ treadFinishEnabled: v }), 'stt-treadFinishMaterialId', 'treadFinishMaterialId', 'stt-treadFinishThickness', draft.treadFinishThickness ?? DEFAULT_STAIR_FINISH.treadFinishThickness, (v) => set({ treadFinishThickness: v }))}
+          {draft.runStyle !== 'post'
+            ? finishGroup(riserFlag, 'stt-riserFinishEnabled', t.stt_finish_riser, (v) => set({ riserFinishEnabled: v }), 'stt-riserFinishMaterialId', 'riserFinishMaterialId', 'stt-riserFinishThickness', draft.riserFinishThickness ?? DEFAULT_STAIR_FINISH.riserFinishThickness, (v) => set({ riserFinishThickness: v }))
+            : null}
           <div style={{ opacity: bocelDimmed ? 0.5 : 1 }}>
-            <div className="field-row">
-              <label htmlFor="stt-bocelEnabled">{t.stt_finish_bocel}</label>
-              <input id="stt-bocelEnabled" type="checkbox" checked={bocelFlag} disabled={!treadOn} onChange={(e) => set({ bocelEnabled: e.target.checked })} />
-            </div>
-            <div className="field-row">
-              <label htmlFor="stt-bocelProjection">{t.stt_bocel_projection}</label>
-              <NumField id="stt-bocelProjection" value={draft.bocelProjection ?? DEFAULT_STAIR_FINISH.bocelProjection} scale={100} decimals={1} unit="cm" min={0} max={0.1} disabled={bocelDimmed} onCommit={(v) => set({ bocelProjection: v })} />
-            </div>
-            {!treadOn ? <p className="hint">{t.stt_bocel_hint}</p> : null}
+            <FamilyPair>
+              <FamilyRow label={t.stt_finish_bocel} htmlFor="stt-bocelEnabled">
+                <input id="stt-bocelEnabled" type="checkbox" checked={bocelFlag} disabled={!treadOn} onChange={(e) => set({ bocelEnabled: e.target.checked })} />
+              </FamilyRow>
+              <FamilyRow label={t.stt_bocel_projection} htmlFor="stt-bocelProjection">
+                <NumField id="stt-bocelProjection" value={draft.bocelProjection ?? DEFAULT_STAIR_FINISH.bocelProjection} scale={100} decimals={1} unit="cm" min={0} max={0.1} disabled={bocelDimmed} onCommit={(v) => set({ bocelProjection: v })} />
+              </FamilyRow>
+            </FamilyPair>
+            {!treadOn ? <FamilyHint>{t.stt_bocel_hint}</FamilyHint> : null}
           </div>
-        </fieldset>
+        </FamilySection>
       ) : null}
 
-      <fieldset className="dsec" id="stt-sec-4">
-        <legend>{t.stt_sec_opening}</legend>
-        <p className="hint">{t.stt_opening_text}</p>
+      <FamilySection id="stt-sec-4" title={t.stt_sec_opening} defaultOpen={false}>
+        <FamilyHint>{t.stt_opening_text}</FamilyHint>
         <button className="btn small" type="button" disabled={!canGoProps} onClick={onGoProps}>{t.stt_opening_btn}</button>
-      </fieldset>
+      </FamilySection>
 
-      <details className="dsec" id="stt-sec-5">
-        <summary>{t.stt_sec_id}</summary>
-        <div className="field-row"><label htmlFor="stt-code">{t.stt_f_code}</label><TextField id="stt-code" value={draft.code} onCommit={(v) => set({ code: v })} /></div>
-        <div className="field-row"><label htmlFor="stt-description">{t.stt_f_description}</label><TextField id="stt-description" value={draft.description} onCommit={(v) => set({ description: v })} /></div>
+      <FamilySection id="stt-sec-5" title={t.stt_sec_id} defaultOpen={false}>
+        <FamilyRow label={t.stt_f_code} htmlFor="stt-code"><TextField id="stt-code" value={draft.code} onCommit={(v) => set({ code: v })} /></FamilyRow>
+        <FamilyRow label={t.stt_f_description} htmlFor="stt-description"><TextField id="stt-description" value={draft.description} onCommit={(v) => set({ description: v })} /></FamilyRow>
         {row('cost')}
-      </details>
+      </FamilySection>
     </>
   );
 }

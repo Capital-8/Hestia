@@ -13,8 +13,7 @@ import { useUi } from '../../editor/state.ts';
 import { duplicateRampType, rampTypeDeleteBlock, rampTypeError, tryDeleteRampType } from '../../editor/rampTypeActions.ts';
 import { Check, NumField, TextField } from '../fields.tsx';
 import { Icon } from '../Icon.tsx';
-import { Dialog } from './Dialog.tsx';
-import { TypeDialogHeader } from './TypeDialogHeader.tsx';
+import { FamilyRow, FamilyTypeDialog } from './familia/index.ts';
 import { FAMILY } from '../typeFamilies.ts';
 import { RampSectionPreview } from './RampSectionPreview.tsx';
 
@@ -89,44 +88,35 @@ export function RampTypeDialog({ typeId }: { typeId: string }): ReactElement | n
     else set({ normProfile: profile });
   };
   return (
-    <Dialog
+    <FamilyTypeDialog
       title={t.dlt_ramp_title}
       sub={fill(t[usage === 1 ? 'dlt_ramp_sub_one' : 'dlt_ramp_sub_many'], { n: String(usage) })}
       onClose={close}
       size="wide"
-      footer={
-        <>
-          <button className="btn danger" disabled={blocked !== null} title={blocked ?? t.stt_delete_type_tip} onClick={del}>{t.stt_delete}</button>
-          <span style={{ flex: 1 }} />
-          <button className="btn" onClick={close}>{t.stt_cancel}</button>
-          <button className="btn" onClick={apply} disabled={error !== null}>{t.stt_apply}</button>
-          <button className="btn primary" onClick={ok} disabled={error !== null} title={error ?? undefined}>{t.stt_ok}</button>
-        </>
-      }
+      family={FAMILY.stair}
+      types={Object.values(p.rampTypes)}
+      currentId={draft.id}
+      onDuplicate={duplicate}
+      name={{ id: 'rt-name', value: draft.name, onCommit: (v) => set({ name: v }) }}
+      footer={{ onDelete: del, deleteDisabled: blocked !== null, deleteTitle: blocked ?? t.stt_delete_type_tip, onApply: apply, onOk: ok, saveDisabled: error !== null, saveTitle: error ?? undefined }}
     >
-      <TypeDialogHeader family={FAMILY.stair} types={Object.values(p.rampTypes)} currentId={draft.id} nameFieldId="rt-name" onDuplicate={duplicate} />
-      <div className="field-row">
-        <label htmlFor="rt-name">{t.stt_f_name}</label>
-        <TextField id="rt-name" value={draft.name} onCommit={(v) => set({ name: v })} />
-      </div>
       <div className="rtt-grid">
         <div className="rtt-main">
-          <div className="field-row"><label htmlFor="rt-code">{t.dlt_col_code}</label><TextField id="rt-code" value={draft.code} onCommit={(v) => set({ code: v })} /></div>
-          <div className="field-row"><label htmlFor="rt-desc">{t.stt_f_description}</label><TextField id="rt-desc" value={draft.description} onCommit={(v) => set({ description: v })} /></div>
-          <div className="field-row"><label htmlFor="rt-cost" title={t.dlt_ramp_tt_cost}>{t.dlt_ramp_cost}</label><NumField id="rt-cost" value={draft.cost} decimals={2} min={0} onCommit={(v) => set({ cost: v })} /></div>
-          <div className="field-row"><label htmlFor="rt-depth">{t.dlt_ramp_structural_depth}</label><NumField id="rt-depth" value={draft.structuralDepth} scale={100} unit="cm" decimals={1} min={0.01} onCommit={(v) => set({ structuralDepth: v })} /></div>
-          <div className="field-row"><label htmlFor="rt-landth">{t.stt_f_landingThickness}</label><NumField id="rt-landth" value={draft.landingThickness} scale={100} unit="cm" decimals={1} min={0.01} onCommit={(v) => set({ landingThickness: v })} /></div>
-          <div className="field-row"><label htmlFor="rt-width">{t.dlt_ramp_default_width}</label><NumField id="rt-width" value={draft.defaultWidth} unit="m" decimals={2} min={0.01} onCommit={(v) => set({ defaultWidth: v })} /></div>
-          <div className="field-row"><label htmlFor="rt-minwidth">{t.dlt_ramp_min_width}</label><NumField id="rt-minwidth" value={draft.minWidth} unit="m" decimals={2} min={0.01} onCommit={(v) => set({ minWidth: v })} /></div>
-          <div className="field-row"><label htmlFor="rt-landsize">{t.dlt_ramp_landing_min}</label><NumField id="rt-landsize" value={draft.landingMinLength} unit="m" decimals={2} min={0.01} onCommit={(v) => set({ landingMinLength: v })} /></div>
-          <div className="field-row"><label htmlFor="rt-head">{t.stt_f_minHeadroom}</label><NumField id="rt-head" value={draft.minHeadroom} unit="m" decimals={2} min={0.01} onCommit={(v) => set({ minHeadroom: v })} /></div>
-          <div className="field-row"><label htmlFor="rt-slope">{t.dlt_ramp_default_slope}</label><NumField id="rt-slope" value={draft.defaultSlope} scale={100} unit="%" decimals={2} min={0.1} onCommit={(v) => set({ defaultSlope: v })} /></div>
-          <div className="field-row">
-            <label htmlFor="rt-mat">{t.stt_f_materialId}</label>
+          <FamilyRow label={t.dlt_col_code} htmlFor="rt-code"><TextField id="rt-code" value={draft.code} onCommit={(v) => set({ code: v })} /></FamilyRow>
+          <FamilyRow label={t.stt_f_description} htmlFor="rt-desc"><TextField id="rt-desc" value={draft.description} onCommit={(v) => set({ description: v })} /></FamilyRow>
+          <FamilyRow label={t.dlt_ramp_cost} htmlFor="rt-cost" title={t.dlt_ramp_tt_cost}><NumField id="rt-cost" value={draft.cost} decimals={2} min={0} onCommit={(v) => set({ cost: v })} /></FamilyRow>
+          <FamilyRow label={t.dlt_ramp_structural_depth} htmlFor="rt-depth"><NumField id="rt-depth" value={draft.structuralDepth} scale={100} unit="cm" decimals={1} min={0.01} onCommit={(v) => set({ structuralDepth: v })} /></FamilyRow>
+          <FamilyRow label={t.stt_f_landingThickness} htmlFor="rt-landth"><NumField id="rt-landth" value={draft.landingThickness} scale={100} unit="cm" decimals={1} min={0.01} onCommit={(v) => set({ landingThickness: v })} /></FamilyRow>
+          <FamilyRow label={t.dlt_ramp_default_width} htmlFor="rt-width"><NumField id="rt-width" value={draft.defaultWidth} unit="m" decimals={2} min={0.01} onCommit={(v) => set({ defaultWidth: v })} /></FamilyRow>
+          <FamilyRow label={t.dlt_ramp_min_width} htmlFor="rt-minwidth"><NumField id="rt-minwidth" value={draft.minWidth} unit="m" decimals={2} min={0.01} onCommit={(v) => set({ minWidth: v })} /></FamilyRow>
+          <FamilyRow label={t.dlt_ramp_landing_min} htmlFor="rt-landsize"><NumField id="rt-landsize" value={draft.landingMinLength} unit="m" decimals={2} min={0.01} onCommit={(v) => set({ landingMinLength: v })} /></FamilyRow>
+          <FamilyRow label={t.stt_f_minHeadroom} htmlFor="rt-head"><NumField id="rt-head" value={draft.minHeadroom} unit="m" decimals={2} min={0.01} onCommit={(v) => set({ minHeadroom: v })} /></FamilyRow>
+          <FamilyRow label={t.dlt_ramp_default_slope} htmlFor="rt-slope"><NumField id="rt-slope" value={draft.defaultSlope} scale={100} unit="%" decimals={2} min={0.1} onCommit={(v) => set({ defaultSlope: v })} /></FamilyRow>
+          <FamilyRow label={t.stt_f_materialId} htmlFor="rt-mat">
             <select id="rt-mat" className="select" value={draft.materialId} onChange={(e) => set({ materialId: e.target.value })}>
               {Object.values(p.materials).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
-          </div>
+          </FamilyRow>
           {error && <p className="hint" role="alert" style={{ color: 'var(--danger, #b42318)', marginTop: 8 }}>{error}</p>}
         </div>
         <div className="rtt-side">
@@ -137,8 +127,7 @@ export function RampTypeDialog({ typeId }: { typeId: string }): ReactElement | n
         </div>
       </div>
       <div className="rtt-norm">
-        <div className="field-row">
-          <label htmlFor="rt-profile">{t.dlt_ramp_norm_profile}</label>
+        <FamilyRow label={t.dlt_ramp_norm_profile} htmlFor="rt-profile">
           <select id="rt-profile" className="select" value={draft.normProfile} onChange={(e) => setProfile(e.target.value as RampNormProfile)}>
             {PROFILES.map((k) => <option key={k} value={k}>{profileLabel(k)}</option>)}
           </select>
@@ -152,7 +141,7 @@ export function RampTypeDialog({ typeId }: { typeId: string }): ReactElement | n
               {t.ramp_norm_unverified}
             </span>
           )}
-        </div>
+        </FamilyRow>
         <table className="layers">
           <thead>
             <tr>
@@ -188,6 +177,6 @@ export function RampTypeDialog({ typeId }: { typeId: string }): ReactElement | n
         </div>
         <p className="hint" style={{ marginTop: 8 }}>{t.dlt_ramp_norm_footnote}</p>
       </div>
-    </Dialog>
+    </FamilyTypeDialog>
   );
 }
