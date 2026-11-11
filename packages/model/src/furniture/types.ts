@@ -90,6 +90,14 @@ export interface FurnitureStats {
   assetBytes: number;
 }
 
+/** Peca do bloco: uma definicao de malha posicionada no espaco local do asset (como as instancias de dentro de um .skp). */
+export interface FurniturePart {
+  defId: Id;
+  name?: string;
+  /** 16 numeros, ordem de colunas, local da definicao -> local do asset, metros, Z para cima. Pode ter determinante negativo (espelhada). */
+  transform: number[];
+}
+
 export interface FurnitureAsset {
   id: Id;
   name: string;
@@ -99,6 +107,8 @@ export interface FurnitureAsset {
   /** SHA-256 hex do conteudo do asset (geometria + texturas); detecta reimportacao do mesmo arquivo. */
   contentHash: string;
   defs: FurnitureMeshDef[];
+  /** Composicao do bloco. Ausente (assets antigos) = cada definicao na origem. Use `assetParts`. */
+  parts?: FurniturePart[];
   materials: FurnitureMaterial[];
   textures: FurnitureTexture[];
   /** Caixa do asset no espaco local, metros (todas as definicoes). */

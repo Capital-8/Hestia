@@ -1,6 +1,6 @@
 import type { Project } from '../types.ts';
 import type { Id } from '../types.ts';
-import type { Furniture, FurnitureAsset, FurnitureBBox } from './types.ts';
+import type { Furniture, FurnitureAsset, FurnitureBBox, FurniturePart } from './types.ts';
 
 /** Matriz 4x4 em colunas (16 numeros), local -> mundo, metros, Z para cima. */
 export type FurnitureMat4 = number[];
@@ -66,4 +66,34 @@ export function assetUsage(project: Project, assetId: Id): AssetUsage {
     }
   }
   return { count: instanceIds.length, instanceIds, levelIds: [...levels] };
+}
+
+const IDENT: number[] = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+
+/** Produto de matrizes 4x4 em colunas: `a * b` (aplica `b` primeiro). */
+export function mat4Mul(a: FurnitureMat4, b: FurnitureMat4): FurnitureMat4 {
+  const o = new Array<number>(16).fill(0);
+  for (let c = 0; c < 4; c++) {
+    for (let r = 0; r < 4; r++) {
+      let v = 0;
+      for (let k = 0; k < 4; k++) v += a[k * 4 + r]! * b[c * 4 + k]!;
+      o[c * 4 + r] = v;
+    }
+  }
+  return o;
+}
+
+/** Determinante da parte 3x3 (negativo = espelhada: inverter a ordem dos vertices dos triangulos). */
+export function mat4Det3(m: FurnitureMat4): number {
+  return m[0]! * (m[5]! * m[10]! - m[9]! * m[6]!) - m[4]! * (m[1]! * m[10]! - m[9]! * m[2]!) + m[8]! * (m[1]! * m[6]! - m[5]! * m[2]!);
+}
+
+/** Pecas do bloco; assets antigos (sem `parts`) devolvem cada definicao na origem. */
+export function assetParts(asset: FurnitureAsset): FurniturePart[] {
+  return asset.parts?.length ? asset.parts : asset.defs.map((d) => ({ defId: d.id, transform: IDENT }));
+}
+
+/** Local da definicao -> mundo para uma peca de uma instancia: `mundo(instancia) * peca`. */
+export function furniturePartWorldTransform(inst: Furniture, part: FurniturePart, asset?: FurnitureAsset, levelElevation = 0): FurnitureMat4 {
+  return mat4Mul(furnitureWorldTransform(inst, asset, levelElevation), part.transform);
 }

@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   ProjectStore,
+  applyMat4,
+  assetParts,
   assetUsage,
+  furniturePartWorldTransform,
+  mat4Det3,
   base64ToBytes,
   buildFurnitureAsset,
   bytesToBase64,
@@ -245,5 +249,50 @@ describe('transformacao e limites', () => {
     expect(b.max[0]).toBeCloseTo(10 + 3.5);
     expect(b.min[1]).toBeCloseTo(10);
     expect(b.max[1]).toBeCloseTo(11);
+  });
+});
+
+describe('pecas do bloco (instancias de dentro do arquivo)', () => {
+  const quad = (): FurnitureImportInput['defs'][number] => ({
+    id: 'q',
+    name: 'Placa',
+    positions: new Float32Array([0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0]),
+    normals: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1]),
+    uvs: new Float32Array([]),
+    indices: new Uint32Array([0, 1, 2, 0, 2, 3]),
+    groups: [{ start: 0, count: 6, materialIndex: 0 }],
+  });
+  const T = (x: number, y: number, z: number) => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, x, y, z, 1];
+  it('guarda a composicao e calcula a caixa com as transformacoes', () => {
+    const base = input();
+    const a = buildFurnitureAsset(
+      { ...base, defs: [quad()], materials: [base.materials[1]!], textures: [], instances: [{ defId: 'q', transform: T(0, 0, 0) }, { defId: 'q', transform: T(2, 0, 0.5) }, { defId: 'q', name: 'espelhada', transform: [-1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 5, 0, 0, 1] }] },
+      'fa2',
+    );
+    expect(a.parts).toHaveLength(3);
+    expect(a.bbox.min).toEqual([0, 0, 0]);
+    expect(a.bbox.max[0]).toBe(5);
+    expect(furnitureAssetIssue(a)).toBeNull();
+    expect(assetParts(a)[2]!.name).toBe('espelhada');
+    expect(mat4Det3(assetParts(a)[2]!.transform)).toBeLessThan(0);
+  });
+  it('sem instancias, cada definicao fica na origem; assets antigos sem parts funcionam', () => {
+    const base = input();
+    const a = buildFurnitureAsset({ ...base, defs: [quad()], materials: [base.materials[1]!], textures: [] }, 'fa3');
+    expect(a.parts).toHaveLength(1);
+    expect(assetParts({ ...a, parts: undefined })).toHaveLength(1);
+    expect(a.bbox.max).toEqual([1, 1, 0]);
+  });
+  it('transformacao do mundo compoe instancia e peca', () => {
+    const base = input();
+    const a = buildFurnitureAsset({ ...base, defs: [quad()], materials: [base.materials[1]!], textures: [], instances: [{ defId: 'q', transform: T(2, 0, 0) }] }, 'fa4');
+    const inst = { id: 'f1', kind: 'furniture', assetId: 'fa4', levelId: 'l', x: 10, y: 0, z: 0, rotation: 0, scale: 1, mirrored: false, name: 'n', order: 0 } as Furniture;
+    const m = furniturePartWorldTransform(inst, assetParts(a)[0]!, a);
+    expect(applyMat4(m, [0, 0, 0])).toEqual([12, 0, 0]);
+  });
+  it('recusa peca que aponta para definicao inexistente', () => {
+    const base = input();
+    const a = buildFurnitureAsset({ ...base, defs: [quad()], materials: [base.materials[1]!], textures: [] }, 'fa5');
+    expect(furnitureAssetIssue({ ...a, parts: [{ defId: 'x', transform: T(0, 0, 0) }] })).toMatch(/inexistente/);
   });
 });

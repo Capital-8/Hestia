@@ -7,9 +7,12 @@ import type {
   FurnitureCategory,
   FurnitureMaterial,
   FurnitureMeshDef,
+  FurniturePart,
   FurnitureSourceFormat,
   FurnitureTexture,
 } from './types.ts';
+
+export const IDENTITY_MAT4: number[] = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 
 /** Limites por asset (alinhados ao contrato 1.4 do renderizador). */
 export const FURNITURE_LIMITS = {
@@ -49,6 +52,8 @@ export interface FurnitureImportInput {
     roughness?: number;
     transmission?: number;
   }>;
+  /** Instancias de definicoes dentro do bloco (ex.: as do .skp). Ausente = cada definicao na origem. */
+  instances?: Array<{ defId: string; name?: string; transform: number[] }>;
   textures: Array<{ fileName: string; mime: 'image/png' | 'image/jpeg'; bytes: Uint8Array; width?: number; height?: number }>;
   stats?: { sourceBytes?: number };
 }
@@ -71,15 +76,19 @@ export function buildFurnitureAsset(input: FurnitureImportInput, id: string = ne
   let vertices = 0;
   let triangles = 0;
   let assetBytes = 0;
+  const defBox = new Map<string, { lo: [number, number, number]; hi: [number, number, number] }>();
   const defs: FurnitureMeshDef[] = input.defs.map((d) => {
     const p = d.positions;
+    const lo: [number, number, number] = [Infinity, Infinity, Infinity];
+    const hi: [number, number, number] = [-Infinity, -Infinity, -Infinity];
     for (let i = 0; i + 2 < p.length; i += 3) {
       for (let k = 0; k < 3; k++) {
         const v = p[i + k]!;
-        if (v < min[k]!) min[k] = v;
-        if (v > max[k]!) max[k] = v;
+        if (v < lo[k]!) lo[k] = v;
+        if (v > hi[k]!) hi[k] = v;
       }
     }
+    defBox.set(d.id, { lo, hi });
     vertices += p.length / 3;
     triangles += d.indices.length / 3;
     assetBytes += p.byteLength + d.normals.byteLength + d.uvs.byteLength + d.indices.byteLength;
@@ -97,10 +106,31 @@ export function buildFurnitureAsset(input: FurnitureImportInput, id: string = ne
     hashParts.push(enc.encode(`${def.id}|${def.name}|${def.positions}|${def.normals}|${def.uvs}|${def.indices}|${JSON.stringify(def.groups)}`));
     return def;
   });
+  const parts: FurniturePart[] = (input.instances?.length ? input.instances : defs.map((d) => ({ defId: d.id, transform: IDENTITY_MAT4 }))).map((q) => ({
+    defId: q.defId,
+    ...(q.name ? { name: q.name } : {}),
+    transform: q.transform.slice(0, 16),
+  }));
+  for (const part of parts) {
+    const b = defBox.get(part.defId);
+    if (!b || b.lo[0] === Infinity) continue;
+    for (let i = 0; i < 8; i++) {
+      const x = i & 1 ? b.hi[0] : b.lo[0];
+      const y = i & 2 ? b.hi[1] : b.lo[1];
+      const z = i & 4 ? b.hi[2] : b.lo[2];
+      const m = part.transform;
+      const w = [m[0]! * x + m[4]! * y + m[8]! * z + m[12]!, m[1]! * x + m[5]! * y + m[9]! * z + m[13]!, m[2]! * x + m[6]! * y + m[10]! * z + m[14]!];
+      for (let k = 0; k < 3; k++) {
+        if (w[k]! < min[k]!) min[k] = w[k]!;
+        if (w[k]! > max[k]!) max[k] = w[k]!;
+      }
+    }
+  }
   if (!defs.length || min[0] === Infinity) {
     min = [0, 0, 0];
     max = [0, 0, 0];
   }
+  hashParts.push(enc.encode(`parts|${JSON.stringify(parts)}`));
   const textures: FurnitureTexture[] = input.textures.map((t) => {
     assetBytes += t.bytes.byteLength;
     const sha = sha256Hex(t.bytes);
@@ -140,6 +170,7 @@ export function buildFurnitureAsset(input: FurnitureImportInput, id: string = ne
     sourceFormat: input.sourceFormat,
     contentHash: sha256Hex(hashParts),
     defs,
+    parts,
     materials,
     textures,
     bbox,
@@ -224,6 +255,10 @@ export function furnitureAssetIssue(a: FurnitureAsset): string | null {
       if (g.start < 0 || g.count < 0 || g.start % 3 !== 0 || g.count % 3 !== 0 || g.start + g.count > arr.indices.length) return `Grupo invalido em ${d.name}.`;
       if (!Number.isInteger(g.materialIndex) || g.materialIndex < 0 || g.materialIndex >= a.materials.length) return `Grupo com material inexistente em ${d.name}.`;
     }
+  }
+  for (const p of a.parts ?? []) {
+    if (!defIds.has(p.defId)) return `Peca aponta para definicao inexistente: ${p.defId}`;
+    if (!Array.isArray(p.transform) || p.transform.length !== 16 || !p.transform.every(finite)) return 'Peca com transformacao invalida (16 numeros finitos).';
   }
   const matIds = new Set<string>();
   for (const m of a.materials) {
