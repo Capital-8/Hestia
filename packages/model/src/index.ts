@@ -77,3 +77,4 @@ export * from './viewHiddenCommands.ts';
 export * from './sectionAnnotations.ts';
 export * from './sectionAnnotationCommands.ts';
 export * from './sectionLevelExtents.ts';
+export * from './furniture/index.ts';

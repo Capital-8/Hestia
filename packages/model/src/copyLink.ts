@@ -262,6 +262,8 @@ function syncOne(
       };
       return { type: 'updateGeneric', id: target.id, patch };
     }
+    case 'furniture':
+      return null; // movel importado nao entra no vinculo de andar-tipo (ainda)
   }
 }
 

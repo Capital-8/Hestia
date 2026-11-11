@@ -18,6 +18,7 @@ import type { AreaPlan, ColorScheme, RoomCategory } from './areaPlan.ts';
 import type { DxfLayerStyle } from './dxfLayerStyle.ts';
 import type { CadDrawing } from './cad.ts';
 import type { CopyLink } from './copyLink.ts';
+import type { Furniture, FurnitureProjectData } from './furniture/types.ts';
 
 export type Id = string;
 export const SCHEMA_VERSION = 23;
@@ -666,7 +667,7 @@ export interface Generic {
   ifcProperties?: IfcProperty[];
 }
 
-export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | Room | Generic | CadDrawing;
+export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | Room | Generic | CadDrawing | Furniture;
 
 export interface ProjectDefaults {
   wallTypeId: Id;
@@ -813,6 +814,8 @@ export interface Project {
   plugins?: import('./pluginData.ts').PluginProjectData;
   /** Local, fuso e luzes para renderizadores externos (renderSetup.ts); ausente = nenhum. */
   render?: import('./renderSetup.ts').RenderSetup;
+  /** Moveis importados (assets de malha; instancias sao elementos `furniture`). Ausente = nenhum. Sem migracao. */
+  furniture?: FurnitureProjectData;
   /**
    * Pontos de vista 3D salvos (decisão 0040): catálogo do projeto, referenciado pelas pranchas. Ausente = nenhum.
    * Ver `view3dPoints.ts`.
