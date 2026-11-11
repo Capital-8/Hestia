@@ -193,6 +193,12 @@ export function remapearSegmentos(refs: readonly SegmentRef[], g: GradeResolvida
         out[k] = orfa(ESTADO.fora, 0, r.mid, 0);
         return;
       }
+    } else if (r.line.index === 0 || r.line.index === r.line.n) {
+      // Borda (índice 0 = início/base; índice n = fim/topo): tem identidade fixa, não se remapeia pela posição.
+      const ln = r.line;
+      const fim = ln.index !== 0;
+      eixo = ln.axis;
+      linhaFinal = fim ? (eixo === 'u' ? g.nu : g.nv) : 0; // número local da linha; a global sai abaixo
     } else {
       const ln = r.line;
       const gen = ln.axis === 'u' ? g.u.gerado : g.v.gerado;

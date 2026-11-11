@@ -14,11 +14,18 @@ function segmentoGravado(g: GradeResolvida, a: number, b: number): SegmentRef {
   const eixoNome = a <= g.nu ? 'u' : 'v';
   const eixo = eixoNome === 'u' ? g.u : g.v;
   const outro = eixoNome === 'u' ? g.v : g.u;
-  // Linha interna: U = a (1..nu-1); V = a - nu - 1 (1..nv-1). A origem é indexada a partir de 0.
-  const o = eixo.origens[eixoNome === 'u' ? a - 1 : a - g.nu - 2];
-  const linha: LineRef = o?.origem === 'extra' && o.id !== undefined
-    ? { added: o.id }
-    : refDaLinhaGerada(eixoNome, o?.indiceGerado ?? 1, eixo.gerado);
+  const local = eixoNome === 'u' ? a : a - g.nu - 1; // número da linha no eixo (0 = início/base; n = fim/topo)
+  const fimDoEixo = eixoNome === 'u' ? g.nu : g.nv;
+  let linha: LineRef;
+  if (local === 0 || local === fimDoEixo) {
+    linha = { axis: eixoNome, index: local === 0 ? 0 : eixo.gerado.n, pos: local === 0 ? 0 : 1, n: eixo.gerado.n };
+  } else {
+    // Linha interna: a origem é indexada a partir de 0 (a linha 1 é a origem 0).
+    const o = eixo.origens[local - 1];
+    linha = o?.origem === 'extra' && o.id !== undefined
+      ? { added: o.id }
+      : refDaLinhaGerada(eixoNome, o?.indiceGerado ?? 1, eixo.gerado);
+  }
   return { line: linha, k: b, nk: outro.n, mid: centroNorm(outro.bordas, b) };
 }
 

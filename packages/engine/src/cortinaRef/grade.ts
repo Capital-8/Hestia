@@ -208,6 +208,11 @@ export function resolverEixo(
       continue;
     }
     if (ln.axis !== eixo) continue;
+    if (ln.index <= 0 || ln.index >= ln.n) {
+      // Sobrescrita de linha de borda não tem campo no ADR (o montante da borda vem do tipo): sai órfã.
+      remap.set(ordem, { ...orfa(ESTADO.fora, 0, 0, 0), b: code });
+      continue;
+    }
     const r = remapearLinha(ln, gen);
     if (r.estado !== ESTADO.adotada) {
       remap.set(ordem, { ...r, b: code });
