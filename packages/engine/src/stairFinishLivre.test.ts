@@ -203,6 +203,12 @@ describe('acabamentos em escada livre: sem interseção de volume', () => {
             if (sobra > maxSobra) fora.push(`piso${q.number}: sobra ${sobra.toExponential(2)} > bocel ${maxSobra.toExponential(2)}`);
           }
         }
+        // A estrutura também: nenhuma peça (fora a chegada, que avança atrás do último espelho) sai da planta dos degraus.
+        for (const piece of stairBody(s).pieces) {
+          if (piece.kind === 'arrival') continue;
+          const out = multiArea(difference(asMulti(piece.polygon), offsetMulti(plan, GRID)));
+          if (out > 1e-6) fora.push(`estrutura(${piece.kind} ${piece.index}) fora da planta por ${out.toExponential(2)} m2`);
+        }
         expect(fora).toEqual([]);
         // Nada some em silêncio: todo degrau tem piso, todo espelho tem faixa e todo degrau (não patamar) leva bocel.
         const m = stairFinishModel(s)!;
