@@ -5,5 +5,9 @@
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
-  "dependencies": { "@hestia/engine": "*", "@hestia/model": "*" }
+  "dependencies": {
+    "@hestia/engine": "*",
+    "@hestia/model": "*",
+    "openskp": "1.3.0"
+  }
 }
