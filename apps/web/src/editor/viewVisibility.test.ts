@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { buildTemplate, patchFloorOfTest } from '@hestia/model';
 import { useUi } from './state.ts';
 import { editor } from './controller.ts';
-import { categoryIdsOf, mergeHidden, removeHidden, toggleRevealHidden, unhideInView, visibilityKeyOf, visibilityOf } from './viewVisibility.ts';
+import { categoryIdsOf, mergeHidden, removeHidden, toggleRevealHidden, unhideInView, hiddenInActiveView, visibilityKeyOf, visibilityOf } from './viewVisibility.ts';
 
 afterEach(() => useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', planViewId: 'pv_lv_0', sectionId: null, viewTemp: {}, selection: [] }));
 
@@ -128,4 +128,22 @@ describe('visibilidade por vista', () => {
       });
     });
   }
+});
+
+describe('hiddenInActiveView (o que as ferramentas não capturam)', () => {
+  it('inclui o Hide in View e o temporário da vista ativa e não vaza para outra vista do nível', () => {
+    const p = structuredClone(buildTemplate('house2'));
+    const [w1, w2] = Object.values(p.elements).filter((e) => e.kind === 'wall');
+    const level = p.levels[0]!;
+    patchFloorOfTest(p, level.id, { hidden: { elements: [w1!.id] } });
+    useUi.setState({ view: 'plan', planKind: 'floor', levelId: level.id, planViewId: `pv_${level.id}`, viewTemp: {} });
+    expect(hiddenInActiveView(p, useUi.getState()).has(w1!.id)).toBe(true);
+    expect(hiddenInActiveView(p, useUi.getState()).has(w2!.id)).toBe(false);
+    const k = visibilityKeyOf(useUi.getState())!;
+    useUi.setState({ viewTemp: { [k]: { hidden: { elements: [w2!.id] } } } });
+    expect(hiddenInActiveView(p, useUi.getState()).has(w2!.id)).toBe(true);
+    // A cobertura do mesmo nível não herda o oculto do piso (vista própria, sem temporário).
+    useUi.setState({ planKind: 'roof', planViewId: `pvr_${level.id}`, viewTemp: {} });
+    expect(hiddenInActiveView(p, useUi.getState()).has(w1!.id)).toBe(false);
+  });
 });
