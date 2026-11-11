@@ -23,7 +23,11 @@ import { coverUnderside } from './stairOpenings.ts';
 const FUNCAO: Record<string, number> = { structure: 0, substrate: 1, thermal: 2, membrane: 3, finish1: 4, finish2: 5 };
 const MODO: Record<string, number> = { 'walls-finish': 1, 'walls-core': 2, perimeter: 3 };
 const PROBLEMA: Record<string, number> = { aberto: 1, fora: 2 };
-const TERMINO = { auto: 0, face: 1, nucleo: 2, passa: 3, ate: 4, cm: 5 } as const;
+const TERMINO = { auto: 0, face: 1, nucleo: 2, passa: 3, ate: 4, cm: 5, camada: 6 } as const;
+/** Referência do término por camada: `funcao + 7 * (lado + 2 * face)` (esquema v13, coluna `termino_ref`). */
+const FUNCAO_REF: Record<string, number> = { ...FUNCAO, eixo: 6 };
+const LADO_REF: Record<string, number> = { proximo: 0, distante: 1 };
+const FACE_REF: Record<string, number> = { proxima: 0, meio: 1, distante: 2 };
 const LIMITE_EXTERNO: Record<string, number> = { parede: 1, nucleo: 2 };
 /** `papel` de `contornos_vinculados`. */
 const PAPEL = { circuitoAcabamento: 0, circuitoNucleo: 1, perimetroAcabamento: 2, perimetroNucleo: 3 } as const;
@@ -56,8 +60,8 @@ const COLUNAS: Record<NomeSecaoB1, readonly string[]> = {
   lajes: ['id_num', 'nivel_num', 'tipo_num', 'ordem', 'cota_nivel', 'desloc', 'modo', 'vinculado', 'tem_semente', 'extend_nucleo', 'problema', 'tem_inclinacao', 'inc_ox', 'inc_oy', 'inc_dx', 'inc_dy', 'inc_percentual'],
   tipos_piso: ['id_num', 'n_camadas'],
   tipos_laje: ['id_num', 'n_camadas'],
-  camadas_piso: ['id_num', 'tipo_num', 'indice', 'espessura', 'funcao', 'tem_prioridade', 'prioridade', 'material_num', 'termino', 'termino_valor', 'limite_externo'],
-  camadas_laje: ['id_num', 'tipo_num', 'indice', 'espessura', 'funcao', 'tem_prioridade', 'prioridade', 'material_num', 'termino', 'termino_valor', 'limite_externo'],
+  camadas_piso: ['id_num', 'tipo_num', 'indice', 'espessura', 'funcao', 'tem_prioridade', 'prioridade', 'material_num', 'termino', 'termino_valor', 'limite_externo', 'termino_ref'],
+  camadas_laje: ['id_num', 'tipo_num', 'indice', 'espessura', 'funcao', 'tem_prioridade', 'prioridade', 'material_num', 'termino', 'termino_valor', 'limite_externo', 'termino_ref'],
   contornos_estaticos: ['id_num', 'tipo_el', 'elemento_num', 'anel', 'indice', 'x', 'y'],
   contornos_vinculados: ['id_num', 'tipo_el', 'elemento_num', 'papel', 'anel', 'indice', 'x', 'y'],
   furos_nivel: ['id_num', 'tipo_el', 'elemento_num', 'poligono', 'anel', 'indice', 'x', 'y'],
@@ -65,11 +69,12 @@ const COLUNAS: Record<NomeSecaoB1, readonly string[]> = {
 };
 
 /** Término da camada no esquema: o código e o valor (prioridade de `ate`, cm de `cm`). */
-function codificarTermino(l: Layer): [number, number] {
+function codificarTermino(l: Layer): [number, number, number] {
   const t = l.termino ?? 'auto';
-  if (typeof t === 'string') return [TERMINO[t], 0];
-  if ('ate' in t) return [TERMINO.ate, t.ate.prioridade];
-  return [TERMINO.cm, t.cm];
+  if (typeof t === 'string') return [TERMINO[t], 0, 0];
+  if ('ate' in t) return [TERMINO.ate, t.ate.prioridade, 0];
+  if ('camada' in t) return [TERMINO.camada, t.camada.cm, FUNCAO_REF[t.camada.funcao]! + 7 * (LADO_REF[t.camada.lado]! + 2 * FACE_REF[t.camada.face]!)];
+  return [TERMINO.cm, t.cm, 0];
 }
 
 /**
@@ -127,7 +132,7 @@ export function montarCenaB1(p: Project, materialDe: Map<Id, number> = new Map()
       tipos.set(tipo.id, tn);
       push(laje ? 'tipos_laje' : 'tipos_piso', { id_num: tn, n_camadas: tipo.layers.length });
       tipo.layers.forEach((l, i) => {
-        const [termino, valor] = codificarTermino(l);
+        const [termino, valor, ref] = codificarTermino(l);
         push(laje ? 'camadas_laje' : 'camadas_piso', {
           id_num: laje ? proximaCamada.laje++ : proximaCamada.piso++,
           tipo_num: tn!,
@@ -140,6 +145,7 @@ export function montarCenaB1(p: Project, materialDe: Map<Id, number> = new Map()
           termino,
           termino_valor: valor,
           limite_externo: l.limiteExterno ? LIMITE_EXTERNO[l.limiteExterno]! : 0,
+          termino_ref: ref,
         });
       });
     }
@@ -210,6 +216,8 @@ export interface CamadaB1 {
   nucleo: boolean;
   membrana: boolean;
   explicita: boolean;
+  /** Término por camada da parede (decisão 0054): a camada vence as de parede onde se cruzam (a coluna `explicita` do Rust vale 2). */
+  venceParede: boolean;
   /** Só na saída do Rust: o término da camada depende das paredes do nível (B2); a referência TS não tem esse campo. */
   pedeParedes?: boolean;
   poligono: MultiPolygon;
@@ -268,7 +276,7 @@ export function referenciaDeResultados(pisos: readonly ResolvedFloor[], lajes: r
       topoZ: f.topZ,
       baseZ: f.bottomZ,
       poligono: f.polygon,
-      camadas: f.layers.map((l) => ({ indice: l.layerIndex, material: numeroDe(cena.materialDe, l.materialId, 'material'), z0: l.z0, z1: l.z1, prioridade: l.priority, nucleo: l.core, membrana: l.membrane, explicita: l.explicit, poligono: l.polygon })),
+      camadas: f.layers.map((l) => ({ indice: l.layerIndex, material: numeroDe(cena.materialDe, l.materialId, 'material'), z0: l.z0, z1: l.z1, prioridade: l.priority, nucleo: l.core, membrana: l.membrane, explicita: l.explicit, venceParede: l.venceParede, poligono: l.polygon })),
     });
   }
   for (const s of lajes) {
@@ -281,7 +289,7 @@ export function referenciaDeResultados(pisos: readonly ResolvedFloor[], lajes: r
       topoZ: s.topZ,
       baseZ: s.bottomZ,
       poligono: s.polygon,
-      camadas: s.layers.map((l) => ({ indice: l.layerIndex, material: numeroDe(cena.materialDe, l.materialId, 'material'), z0: l.z0, z1: l.z1, prioridade: l.priority, nucleo: l.core, membrana: l.membrane, explicita: l.explicit, poligono: l.polygon })),
+      camadas: s.layers.map((l) => ({ indice: l.layerIndex, material: numeroDe(cena.materialDe, l.materialId, 'material'), z0: l.z0, z1: l.z1, prioridade: l.priority, nucleo: l.core, membrana: l.membrane, explicita: l.explicit, venceParede: l.venceParede, poligono: l.polygon })),
     });
   }
   return out;
@@ -317,7 +325,8 @@ export function decodificarB1(s: Record<string, ArrayLike<number>>, comFlag = tr
         material: cam[passo * c + 1]!,
         nucleo: cam[passo * c + 2] === 1,
         membrana: cam[passo * c + 3] === 1,
-        explicita: cam[passo * c + 4] === 1,
+        explicita: cam[passo * c + 4]! >= 1,
+        venceParede: cam[passo * c + 4] === 2,
         ...(comFlag ? { pedeParedes: cam[passo * c + 5] === 1 } : {}),
         z0: camNum[3 * c]!,
         z1: camNum[3 * c + 1]!,

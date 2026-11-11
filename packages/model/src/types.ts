@@ -84,7 +84,25 @@ export type LayerLimiteExterno = 'parede' | 'nucleo';
  * primeira camada da parede de prioridade efetiva ≤ N, 1 a 9) ou `{ cm }` (deslocamento a partir da face de acabamento,
  * positivo avança sobre a parede, negativo recua).
  */
-export type LayerTermino = 'auto' | 'nucleo' | 'face' | 'passa' | { cm: number } | { ate: { prioridade: number } };
+export type LayerTermino = 'auto' | 'nucleo' | 'face' | 'passa' | { cm: number } | { ate: { prioridade: number } } | { camada: TerminoCamada };
+
+/**
+ * Função de camada de parede que o término por camada de piso ou de laje pode apontar (decisão 0054): as funções reais
+ * (`LayerFunction`) mais `eixo`, a linha de eixo da parede (centro da espessura total).
+ */
+export type FuncaoRefParede = 'structure' | 'substrate' | 'thermal' | 'membrane' | 'finish1' | 'finish2' | 'eixo';
+
+/**
+ * Término por camada da parede (decisão 0054): a camada do piso ou da laje para na camada da parede de função `funcao`, no
+ * `lado` pedido da parede em relação ao lado da laje (`proximo` = o mesmo lado, `distante` = o lado oposto), na `face` dela
+ * (`proxima` = a voltada para a laje, `meio`, `distante`), mais `cm` (positivo avança para dentro da parede, negativo recua).
+ */
+export interface TerminoCamada {
+  funcao: FuncaoRefParede;
+  lado: 'proximo' | 'distante';
+  face: 'proxima' | 'meio' | 'distante';
+  cm: number;
+}
 
 /** Em que lados os acabamentos "envolvem" (retornam) nos vãos e nas extremidades da parede. */
 export type WrapMode = 'none' | 'interior' | 'exterior' | 'both';

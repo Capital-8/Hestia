@@ -39,6 +39,7 @@ function camada(c: CamadaB1, material: ReadonlyMap<number, Id>): ResolvedFloorLa
     core: c.nucleo,
     membrane: c.membrana,
     explicit: c.explicita,
+    venceParede: c.venceParede,
     polygon: c.poligono,
   };
 }

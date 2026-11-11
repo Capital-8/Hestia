@@ -170,6 +170,23 @@ export function annotationAt(p: Project, levelId: Id, at: Vec2, mpp: number, pla
 /** Anotações da vista dentro da janela de seleção (esquerda→direita contém; direita→esquerda cruza). */
 export function annotationIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2, _mpp: number, planId?: Id): Id[] {
   const a0 = viewAnnotationsOf(p, levelId, planId);
+  return annotationIdsInBoxOf(a0, a, b, {
+    linear: (d) => { const pts = dimensionPoints(p, d); return dimHitGeometry(p, d, pts.a, pts.b, a0.scale); },
+    angular: (d) => angularDimensionGeometry(resolveAngularDimension(p, levelId, d)),
+  });
+}
+
+/** Como a geometria de cada cota é obtida: a planta resolve `refs` no projeto; o corte usa os pontos gravados. */
+export interface DimensionBoxSource {
+  linear(d: Dimension): DimensionGeometry;
+  angular(d: Dimension): ReturnType<typeof angularDimensionGeometry>;
+}
+
+/**
+ * Regra única de caixa (janela contém, cruzamento toca) sobre as anotações de qualquer vista: a planta passa as do nível
+ * ou da planta de área; o corte passa as dele, em (t,z). Só muda de onde vem a geometria da cota.
+ */
+export function annotationIdsInBoxOf(a0: Pick<ViewAnnotations, 'scale' | 'dimensions' | 'texts' | 'detailLines' | 'detailRegions' | 'tags'>, a: Vec2, b: Vec2, src: DimensionBoxSource): Id[] {
   const box = boxOf([a, b]);
   const crossing = b.x < a.x;
   const dentro = (q: Vec2): boolean => q.x >= box.minX && q.x <= box.maxX && q.y >= box.minY && q.y <= box.maxY;
@@ -185,14 +202,13 @@ export function annotationIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2, _m
   const ids: Id[] = [];
   for (const d of a0.dimensions) {
     if (d.angular) {
-      const g = angularDimensionGeometry(resolveAngularDimension(p, levelId, d));
+      const g = src.angular(d);
       if (!g) continue;
       const pontos = [...g.arc, g.textAt];
       if (pontos.every(dentro) || (crossing && boxesOverlap(boxOf(pontos), box))) ids.push(d.id);
       continue;
     }
-    const pts = dimensionPoints(p, d);
-    const g = dimHitGeometry(p, d, pts.a, pts.b, a0.scale);
+    const g = src.linear(d);
     const pontos = [g.line[0], g.line[1], ...g.extensions.flat(), ...(d.textAt ? [d.textAt] : [])];
     if (pontos.every(dentro) || [g.line, ...g.extensions].some(([s, e]) => segmento(s!, e!))) ids.push(d.id);
   }

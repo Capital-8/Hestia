@@ -546,7 +546,7 @@ Cada trilho, corrimão e suporte é a **varredura** de um `PerfilGC` ao longo da
 
 ## 6. Contrato TS ↔ Rust
 
-Novas seções e consultas em `crates/geom-wasm/schema/cena-v11.json`. `versao` 12 → 13, `abi` continua 2. Os ids de seção e de consulta **começam em 60** (reservado para o guarda-corpo, para não colidir com as fatias C a E em andamento, que usam a faixa de 26 em diante); a colisão com as branches 0051 a 0053 deve ser conferida pela Fase 2 antes de congelar. Mesmo esquema: coluna `id_num` (`u32`) como chave de upsert.
+Novas seções e consultas em `crates/geom-wasm/schema/cena-v11.json`. `versao` 12 → 14 (a 13 é do término por camada, que entrou na main com a coluna `termino_ref`; ao mesclar a main nesta branch, o guarda-corpo passou a ser a 14), `abi` continua 2. Os ids de seção e de consulta **começam em 60** (reservado para o guarda-corpo, para não colidir com as fatias C a E em andamento, que usam a faixa de 26 em diante); a colisão com as branches 0051 a 0053 deve ser conferida pela Fase 2 antes de congelar. Mesmo esquema: coluna `id_num` (`u32`) como chave de upsert.
 
 ### 6.1 Seções de entrada (TS → Rust)
 
@@ -760,7 +760,7 @@ Estado: **Fase 1 implementada** (modelo, tipos padrão, perfis de norma, comando
 
 **Ganchos entregues para as fases seguintes** (arquivos compartilhados já mesclados na Fase 1):
 - `packages/model`: `guardaCorpoTypes.ts` (tipos da §4, `LIMITES_GUARDA_CORPO`), `guardaCorpo.ts` (`makeGuardaCorpo`, `tiposGuardaCorpo(lang)`, `tipoGuardaCorpoIssue`), `guardaCorpoNorma.ts` (`PerfilNorma`, `PERFIS_NORMA_PADRAO`, `perfisNormaPadrao(lang)`, `normaDe`, `perfilNormaIssue`), `validateGuardaCorpo.ts` (`guardaCorpoIssues`), `guardaCorpoCommands.ts` (`applyGuardaCorpoCommand`, chamado por `applyCommand`). `types.ts` (união `Element`, `Project.tiposGuardaCorpo`, `Project.perfisNorma?`, `ProjectSettings.normaGuardaCorpoId?`, `isGuardaCorpo`, esquema 24), `migrate.ts`, `defaults.ts`, `elementLevel.ts`, `graphics.ts` (categoria `railing`), `validate.ts`, `history.ts`, `copyLink.ts`, `index.ts`, `i18n.ts` (chaves `md_gc_*`, `md_cmd_gc_*`, `md_cat_railing` nos sete idiomas).
-- `crates/geom-wasm`: `schema/cena-v11.json` (v13: seções 60 a 81, consultas 60 a 65), `src/esquema.rs` (constantes `SECAO_*` e `CONSULTA_*`, entradas de `SECOES` e `CONSULTAS`, `VERSAO_ESQUEMA` 13). `packages/geom/src/kernel/v2/esquema.gerado.ts` regenerado.
+- `crates/geom-wasm`: `schema/cena-v11.json` (v14: seções 60 a 81, consultas 60 a 65), `src/esquema.rs` (constantes `SECAO_*` e `CONSULTA_*`, entradas de `SECOES` e `CONSULTAS`, `VERSAO_ESQUEMA` 14). `packages/geom/src/kernel/v2/esquema.gerado.ts` regenerado.
 - Esqueletos vazios: `packages/engine/src/kernelGuardaCorpo.ts`, `packages/engine/src/guardaCorpoRef/index.ts` (exportado por `engine/src/index.ts`), `packages/render/src/model3d/guardaCorpo3d.ts`, `packages/tools/src/guardaCorpoTool.ts` (ver escolha 8).
 - `apps/web`: `graphicsLabels.ts`, `editor/typeActions.ts` e `i18n/areas/canvas-nav.ts` (`cvn_cat_railing`). `packages/io`: categoria `railing` em `dxf.ts` (cor 9), `dxfSection.ts` (camada `CORTE_GUARDA_CORPO`) e `ifc/ifcHestia.ts`.
 

@@ -1,7 +1,8 @@
 import { boxOf, type Box, type Vec2 } from '@hestia/geom';
 import type { SectionResult } from '@hestia/engine';
-import { ownerOf, sectionItems, type SectionItem, type SectionPick } from '@hestia/render';
-import type { Id } from '@hestia/model';
+import { ownerOf, sectionDimensionPoints, sectionItems, type SectionItem, type SectionPick } from '@hestia/render';
+import { angularDimensionGeometry, dimensionGeometry, type Id, type Project, type SectionAnnotations } from '@hestia/model';
+import { annotationIdsInBoxOf } from '@hestia/tools';
 
 /**
  * Caixa de seleção na vista de corte, como na planta (`idsInBox` / `selectTool`): arrastar da esquerda para a direita
@@ -47,17 +48,17 @@ function candidatosDoItem(item: SectionItem): Candidato[] {
 
 /**
  * Elementos do corte que a caixa seleciona (coordenadas (t,z)). Usa os mesmos itens visíveis do clique (`sectionItems`),
- * então o que está oculto não é selecionado. Na janela, um elemento vale se todos os seus pedaços estão inteiros dentro;
+ * então o que está oculto na vista (`hidden`) não é selecionado. Na janela, um elemento vale se todos os seus pedaços estão inteiros dentro;
  * no cruzamento, se algum pedaço toca a caixa. Devolve ids sem repetição, na ordem da primeira aparição.
  */
-export function idsNaCaixaDoCorte(s: SectionResult, a: Vec2, b: Vec2): Id[] {
+export function idsNaCaixaDoCorte(s: SectionResult, a: Vec2, b: Vec2, hidden?: ReadonlySet<Id>): Id[] {
   const caixa = boxOf([a, b]);
   const janela = modoDaCaixa(a, b) === 'janela';
   const dentro = (q: Box): boolean => q.minX >= caixa.minX && q.maxX <= caixa.maxX && q.minY >= caixa.minY && q.maxY <= caixa.maxY;
   const toca = (q: Box): boolean => q.minX <= caixa.maxX && q.maxX >= caixa.minX && q.minY <= caixa.maxY && q.maxY >= caixa.minY;
 
   const porDono = new Map<string, { id: Id; ok: boolean }>();
-  for (const item of sectionItems(s)) {
+  for (const item of sectionItems(s, hidden)) {
     for (const c of candidatosDoItem(item)) {
       const chave = `${c.dono.kind}|${c.dono.id}`;
       const passa = janela ? dentro(c.box) : toca(c.box);
@@ -72,4 +73,28 @@ export function idsNaCaixaDoCorte(s: SectionResult, a: Vec2, b: Vec2): Id[] {
 /** Seleção depois da caixa: Shift/Ctrl somam à seleção atual; sem eles, a caixa substitui (como na planta). */
 export function selecaoComCaixa(atual: readonly Id[], ids: readonly Id[], somar: boolean): Id[] {
   return somar ? [...new Set([...atual, ...ids])] : [...ids];
+}
+
+/**
+ * Cotas e demais anotações do corte dentro da caixa (coordenadas (t,z)): a MESMA regra de janela e cruzamento da planta
+ * (`annotationIdsInBoxOf`, em tools). No corte as cotas não resolvem `refs`: vale o `a`/`b` gravado, como no clique.
+ */
+export function anotacoesNaCaixaDoCorte(an: SectionAnnotations, a: Vec2, b: Vec2, escala: number): Id[] {
+  return annotationIdsInBoxOf({ scale: escala, ...an }, a, b, {
+    linear: (d) => {
+      const pts = sectionDimensionPoints(d);
+      return dimensionGeometry(pts.a, pts.b, d.offset, escala / 1000, d.textHeight, d.textAt);
+    },
+    angular: (d) => angularDimensionGeometry(d),
+  });
+}
+
+/**
+ * "Selecionar todas as instâncias → Visíveis na vista" no corte: os elementos do tipo dado que aparecem no desenho
+ * (itens visíveis, sem os ocultos da vista), de qualquer pavimento. Ordem da primeira aparição, sem repetição.
+ */
+export function idsVisiveisDoTipoNoCorte(p: Project, s: SectionResult, typeId: Id, hidden?: ReadonlySet<Id>): Id[] {
+  const vistos = new Set<Id>();
+  for (const item of sectionItems(s, hidden)) for (const c of candidatosDoItem(item)) vistos.add(c.dono.id);
+  return [...vistos].filter((id) => (p.elements[id] as { typeId?: Id } | undefined)?.typeId === typeId);
 }

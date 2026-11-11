@@ -54,9 +54,21 @@ export function ownerOf(o: SectionOrigin): SectionPick | null {
  * vão e vão antes do além; por fim, a ordem da lista do motor. É a ordem de oclusão do motor, então o que está na
  * frente vem primeiro (a pintura faz o inverso: o mais longe primeiro e o corte por último).
  */
-export function sectionItems(s: SectionResult): SectionItem[] {
+export function sectionItems(s: SectionResult, hidden?: ReadonlySet<Id>): SectionItem[] {
   const items: Array<SectionItem & { order: number }> = [];
-  const push = (depth: number, rank: number, polygons: MultiPolygon, owners: SectionPick[], parts?: SectionPart[]): void => {
+  const push = (depth: number, rank: number, polygons0: MultiPolygon, owners0: SectionPick[], parts0?: SectionPart[]): void => {
+    let polygons = polygons0;
+    let owners = owners0;
+    let parts = parts0;
+    // Oculto na vista (Hide in View/Isolar): quem não é desenhado também não é selecionável, como na planta.
+    if (hidden && hidden.size > 0) {
+      owners = owners0.filter((o) => !hidden.has(o.id));
+      if (parts0) {
+        parts = parts0.filter((pt) => { const d = ownerOf(pt.origin); return !d || !hidden.has(d.id); });
+        // A área do item passa a ser só a dos pedaços que sobraram.
+        if (parts.length !== parts0.length) polygons = parts.flatMap((pt) => pt.polygons);
+      }
+    }
     if (polygons.length === 0 || owners.length === 0) return;
     items.push({ depth, rank, polygons, owners, box: boxOf(polygons.flatMap((p) => p.flatMap((r) => r))), order: items.length, parts });
   };
@@ -145,8 +157,8 @@ function ownerNear(it: SectionItem, p: Vec2, tolerance: number): SectionPick {
  * Corte unido (decisão 0016 §7): com `parts`, o dono é o da peça cujo polígono contém o ponto (interior) ou, na
  * segunda passagem, o da peça mais próxima da borda dentro da tolerância. Sem `parts`, vale o primeiro de `sources`.
  */
-export function pickSection(s: SectionResult, point: Vec2, tolerance = 0): SectionPick | null {
-  const items = sectionItems(s);
+export function pickSection(s: SectionResult, point: Vec2, tolerance = 0, hidden?: ReadonlySet<Id>): SectionPick | null {
+  const items = sectionItems(s, hidden);
   for (const it of items) if (containsPoint(it, point)) return ownerInside(it, point);
   if (tolerance <= 0) return null;
   for (const it of items) {

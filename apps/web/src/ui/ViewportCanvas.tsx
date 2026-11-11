@@ -1,17 +1,17 @@
 /* eslint-disable max-lines -- a vista reúne planta, 3D, corte e o editor da cota; extrair depois. */
 import { servicoGuardaCorpo } from '@hestia/engine';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
-import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, idsNaCaixaDaTela, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport, sectionLabelsAt } from '@hestia/render';
+import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, idsNaCaixaDaTela, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, previewOverlay, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport, sectionLabelsAt } from '@hestia/render';
 import { formatQuantity, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
 import { useShallow } from 'zustand/react/shallow';
 import { editor } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
 import { transfer } from '../editor/transfer.ts';
 import { consumirManterCameraDaPrevia, guardarCamera, limparPreviaPreparada, montarPrevia, previaPreparada, restaurarCamera, type CameraDaPrevia } from '../editor/pastePreview.ts';
-import { visibilityOf } from '../editor/viewVisibility.ts';
+import { visibilityKeyOf, visibilityOf } from '../editor/viewVisibility.ts';
 import { usePerimeter } from '../editor/perimeter.ts';
 import { hoverSectionAt, sectionPickAt } from '../editor/sectionPick.ts';
-import { gestoDoBotaoNoCorte, idsNaCaixaDoCorte, modoDaCaixa, selecaoComCaixa } from '../editor/sectionBoxSelect.ts';
+import { anotacoesNaCaixaDoCorte, gestoDoBotaoNoCorte, idsNaCaixaDoCorte, modoDaCaixa, selecaoComCaixa } from '../editor/sectionBoxSelect.ts';
 import { sectionDimensionGripAt, sectionDimensionGripCommand, sectionHandleAt, sectionHandleCommand, sectionOpeningValues } from '../editor/sectionHandles.ts';
 import { cotaParaEditar, ehDuploClique, type CliqueAnterior } from '../editor/dimDoubleClick.ts';
 import { dimensionFormatStyle, dimensionGeometry, dimensionStyleFor, dimensionText, sectionAnnotationsOf } from '@hestia/model';
@@ -130,6 +130,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   // Só o que a própria tela lê: a mudança de outros campos não re-renderiza a planta (o redesenho sai do agendamento abaixo).
   const ui = useUi(useShallow((s) => ({ view: s.view, gpu: s.gpu, prompt: s.prompt, typed: s.typed, hover: s.hover, tool: s.tool })));
   const selection = useUi((s) => s.selection);
+  const revealing = useUi((s) => { const k = visibilityKeyOf(s); return k ? s.viewTemp[k]?.reveal === true : false; });
   /** Prévia do Colar alinhado (só reage ao estado; quem o preenche é o controlador). */
   const previewState = useUi((s) => s.pastePreview);
   const frame = useRef(0);
@@ -421,7 +422,9 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       const liveStrokes: PlanDrawList['strokes'] = [];
       const liveLabels: PlanDrawList['labels'] = [];
       for (const it of editor.activeTool.preview()) {
-        if (it.kind === 'line') liveStrokes.push({ pts: [it.a, it.b], closed: false, widthPx: 1, color: theme.ink, alpha: 1, ...(it.dashed ? { dash: [4, 3] } : {}) });
+        // Linha de destaque (halo): o MESMO desenho da planta (`previewOverlay`), para o Alinhar ficar igual nas duas vistas.
+        if (it.kind === 'line' && it.halo) liveStrokes.push(...previewOverlay([it], theme, () => []).strokes);
+        else if (it.kind === 'line') liveStrokes.push({ pts: [it.a, it.b], closed: false, widthPx: 1, color: theme.ink, alpha: 1, ...(it.dashed ? { dash: [4, 3] } : {}) });
         else if (it.kind === 'polygon') liveStrokes.push({ pts: it.ring, closed: true, widthPx: 1, color: theme.ink, alpha: 1 });
         else if (it.kind === 'label' && it.dimensionStyle) {
           // Prévia de cota no corte: texto de papel com a fonte da família (sem a caixa do rótulo de interface).
@@ -585,7 +588,14 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     const st = useUi.getState();
     const result = st.sectionId ? editor.sectionOf(st.sectionId) : null;
     if (!v || !result) return;
-    const ids = idsNaCaixaDoCorte(result, screenToWorld(v, a), screenToWorld(v, b));
+    const wa = screenToWorld(v, a);
+    const wb = screenToWorld(v, b);
+    const view = st.sectionId ? editor.project.views.find((x) => x.id === st.sectionId) : undefined;
+    const ids = [
+      ...idsNaCaixaDoCorte(result, wa, wb, visibilityOf(editor.project, st).hidden),
+      // Cotas e demais anotações do corte entram com a mesma regra janela×cruzamento.
+      ...anotacoesNaCaixaDoCorte(sectionAnnotationsOf(view), wa, wb, editor.viewScale()),
+    ];
     useUi.setState({ selection: selecaoComCaixa(st.selection, ids, somar), selectedLevel: null });
   };
   /** Caixa da seleção na 3D (arrasto com Selecionar): pontas da tela viram NDC, como `elementAt3d`; janela ou cruzamento pelo sentido. */
@@ -1166,7 +1176,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   return (
     <div
       ref={host}
-      className="canvas-wrap"
+      className={revealing ? 'canvas-wrap revealing' : 'canvas-wrap'}
       style={{ cursor: cursorCss }}
       onPointerDown={onDown}
       onPointerMove={onMove}

@@ -10,6 +10,7 @@ import { FamilyRow, FamilyTypeDialog } from './familia/index.ts';
 import { FAMILY } from '../typeFamilies.ts';
 import { FloorSectionPreview } from './FloorSectionPreview.tsx';
 import { LayerAdvanced } from './LayerAdvanced.tsx';
+import { aplicarPredefinicao } from './terminoForm.ts';
 import { MaterialsDialog } from './MaterialsDialog.tsx';
 import { useUnits } from '../useUnits.ts';
 import { useT } from '../../editor/i18n.ts';
@@ -141,7 +142,7 @@ export function FloorTypeDialog({ typeId }: { typeId: string }): ReactElement | 
                       {adv === i && (
                         <tr id={`ft-layer-${i}-adv`} className="adv">
                           <td colSpan={5}>
-                            <LayerAdvanced id={`ft-layer-${i}`} layer={l} onChange={(next) => replaceLayer(i, next)} termino />
+                            <LayerAdvanced id={`ft-layer-${i}`} layer={l} onChange={(next) => replaceLayer(i, next)} termino onPreset={(pid) => setDraft({ ...draft, layers: aplicarPredefinicao(pid, draft.layers) })} />
                           </td>
                         </tr>
                       )}

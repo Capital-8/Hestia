@@ -158,7 +158,7 @@ export const TIPO_B3 = { wall: 0, floor: 1, slab: 2 } as const;
 
 /** Uma peça (`SolidPiece`) na codificação do esquema; `span` é a função de cota da peça. */
 export interface PecaB3 {
-  meta: { tipo: number; prioridade: number; nucleo: boolean; explicita: boolean; dono: number; camada: number; banda: number | null } | null;
+  meta: { tipo: number; prioridade: number; nucleo: boolean; explicita: boolean; venceParede: boolean; dono: number; camada: number; banda: number | null } | null;
   externa: boolean;
   plana: boolean;
   poligono: MultiPolygon;
@@ -214,7 +214,7 @@ export function referenciaB3De(set: LevelCutters, jl: JunctionLevel, cena: CenaB
   const dono = (tipo: string, id: Id): number => numero(tipo === 'wall' ? a1.idDe : tipo === 'floor' ? cena.pisoDe : cena.lajeDe, id, tipo);
   const peca = (sp: SolidPiece): PecaB3 => ({
     meta: sp.meta
-      ? { tipo: TIPO_B3[sp.meta.kind], prioridade: sp.meta.priority, nucleo: sp.meta.core, explicita: sp.meta.explicit === true, dono: dono(sp.meta.kind, sp.meta.owner), camada: sp.meta.layerIndex ?? -1, banda: sp.meta.bandIndex ?? null }
+      ? { tipo: TIPO_B3[sp.meta.kind], prioridade: sp.meta.priority, nucleo: sp.meta.core, explicita: sp.meta.explicit === true, venceParede: sp.meta.venceParede === true, dono: dono(sp.meta.kind, sp.meta.owner), camada: sp.meta.layerIndex ?? -1, banda: sp.meta.bandIndex ?? null }
       : null,
     externa: sp.external === true,
     plana: sp.flat,
@@ -270,7 +270,7 @@ export function decodificarB3(s: Record<string, ArrayLike<number>>): JuncaoB3 {
       const o = 16 * k;
       const plana = u(6) === 1;
       pecas.push({
-        meta: u(0) === 1 ? { tipo: u(1), prioridade: pecasN[o + 1]!, nucleo: u(4) === 1, explicita: u(3) === 1, dono: u(2), camada: pecasN[o]!, banda: u(7) === 1 ? u(8) : null } : null,
+        meta: u(0) === 1 ? { tipo: u(1), prioridade: pecasN[o + 1]!, nucleo: u(4) === 1, explicita: u(3) >= 1, venceParede: u(3) === 2, dono: u(2), camada: pecasN[o]!, banda: u(7) === 1 ? u(8) : null } : null,
         externa: u(5) === 1,
         plana,
         poligono: forma(u(9), u(10)),

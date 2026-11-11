@@ -1,7 +1,7 @@
 // ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v11.json.
 // Não edite à mão: mude o JSON e rode `node scripts/gerar-esquema-kernel.mjs`.
 
-export const ESQUEMA_VERSAO = 13;
+export const ESQUEMA_VERSAO = 14;
 export const ABI_VERSAO = 2;
 export const NIVEL_TODOS = 4294967295;
 
@@ -598,6 +598,10 @@ export const SECOES = {
       {
         "nome": "limite_externo",
         "tipo": "u8"
+      },
+      {
+        "nome": "termino_ref",
+        "tipo": "u8"
       }
     ]
   },
@@ -647,6 +651,10 @@ export const SECOES = {
       },
       {
         "nome": "limite_externo",
+        "tipo": "u8"
+      },
+      {
+        "nome": "termino_ref",
         "tipo": "u8"
       }
     ]

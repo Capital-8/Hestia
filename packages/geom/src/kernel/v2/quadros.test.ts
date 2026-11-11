@@ -23,7 +23,7 @@ const secoes = (): SecoesDaCena => ({
 
 describe('esquema v11 (A1, A2, A3a, A3b, A3c, A3d, B1, B2 e B3) no lado TypeScript', () => {
   it('versão 11, seções novas e as consultas quadros_e_juncoes, itens_pintados, aberturas_geom, retornos_geom, cluster_resolvido, resolver_nivel, pisos_lajes_nivel, pisos_lajes_com_paredes e junction_nivel no esquema', () => {
-    expect(ESQUEMA_VERSAO).toBe(13);
+    expect(ESQUEMA_VERSAO).toBe(14);
     expect(Object.keys(SECOES)).toEqual(['paredes', 'paredes_quadro', 'tipos_parede', 'camadas', 'faixas', 'paredes_z', 'tipos_abertura', 'aberturas', 'perfis_z', 'pisos', 'lajes', 'tipos_piso', 'tipos_laje', 'camadas_piso', 'camadas_laje', 'contornos_estaticos', 'contornos_vinculados', 'furos_nivel', 'niveis', 'paredes_z_juncao', 'perfis_z_juncao', 'faixas_juncao', 'pontos_faixas_juncao', 'camadas_forro', 'pontos_forro', 'escadas_gc', 'escada_componentes_gc', 'escada_curvas_gc', 'escada_espelhos_gc', 'escada_patamares_gc', 'rampas_gc', 'rampa_lances_gc', 'rampa_patamares_gc', 'guardas_corpo', 'guarda_caminhos_manuais', 'tipos_guarda', 'perfis_guarda', 'perfis_guarda_pontos', 'trilhos_guarda', 'corrimaos_guarda', 'postes_guarda', 'padroes_guarda', 'padrao_elementos_guarda', 'paineis_guarda', 'normas_guarda']);
     expect(CONSULTAS.pisos_lajes_nivel.id).toBe(10);
     expect([...CONSULTAS.pisos_lajes_nivel.args]).toEqual(['nivel_num']);

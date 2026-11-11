@@ -2,8 +2,9 @@
  * Referência TS do caminho hospedado do guarda-corpo (decisão 0055, Fase 3a). Reproduz `crates/geom-wasm/src/gc_caminho.rs` a partir das colunas de `CenaGC`
  * e devolve as mesmas quatro saídas planas de `guarda_caminhos`. Usada SÓ pelos testes de paridade; o app não a chama (o Rust é a verdade).
  */
-import { arcFromSagitta, arcPointAt, type Vec2 } from '@hestia/geom';
+import type { Vec2 } from '@hestia/geom';
 import type { CenaGC } from '../kernelGuardaCorpo.ts';
+import { type P3, v, add, sub, mul, cross, dist, grade, pontoSegmento, amostrarCurva, acumulado, projetar, pontoEm, semColineares, semRepetidos, deslocar } from './caminhoGeometria.ts';
 
 export const AVISO_HOSPEDEIRO_DESCONTINUO = 1;
 export const AVISO_DESLOCAMENTO_EXCEDE = 2;
@@ -17,12 +18,11 @@ export const AVISO_CAMINHO_NULO = 5;
 export const AVISO_SEM_BORDA = 6;
 /** Comprimento (m) abaixo do qual um trecho vira ponto. */
 export const COMPRIMENTO_MIN_TRECHO = 1e-6;
-export const LIMITE_ESQUADRIA = 2.5;
+export { LIMITE_ESQUADRIA } from './caminhoGeometria.ts';
 export const FLAG_CURVO = 1;
 export const FLAG_FECHADO = 2;
 export const FLAG_SOLDADO = 4;
 export const FLAG_DIREITO = 8;
-const GRADE = 1e-6;
 const NIVEL_TODOS = 0xffffffff;
 
 export interface SaidaCaminhos {
@@ -32,7 +32,6 @@ export interface SaidaCaminhos {
   valores: number[];
 }
 
-type P3 = [number, number, number];
 interface Peca {
   origem: number;
   curvo: boolean;
@@ -48,118 +47,6 @@ interface Item {
   anel: { pts: Vec2[]; z: number } | null;
 }
 type Linha = Record<string, number>;
-
-const v = (x: number, y: number): Vec2 => ({ x, y });
-const add = (a: Vec2, b: Vec2): Vec2 => v(a.x + b.x, a.y + b.y);
-const sub = (a: Vec2, b: Vec2): Vec2 => v(a.x - b.x, a.y - b.y);
-const mul = (a: Vec2, k: number): Vec2 => v(a.x * k, a.y * k);
-const dot = (a: Vec2, b: Vec2): number => a.x * b.x + a.y * b.y;
-const cross = (a: Vec2, b: Vec2): number => a.x * b.y - a.y * b.x;
-const perp = (a: Vec2): Vec2 => v(-a.y, a.x);
-const dist = (a: Vec2, b: Vec2): number => Math.hypot(b.x - a.x, b.y - a.y);
-const grade = (x: number): number => Math.round(x / GRADE) * GRADE;
-const normalizado = (a: Vec2): Vec2 => {
-  const l = Math.hypot(a.x, a.y);
-  return l < 1e-12 ? v(0, 0) : v(a.x / l, a.y / l);
-};
-
-function pontoSegmento(p: Vec2, a: Vec2, b: Vec2): [number, number] {
-  const ab = sub(b, a);
-  const l2 = dot(ab, ab);
-  const t = l2 < 1e-18 ? 0 : Math.min(1, Math.max(0, dot(sub(p, a), ab) / l2));
-  return [dist(p, add(a, mul(ab, t))), t];
-}
-
-function amostrarCurva(a: Vec2, b: Vec2, sag: number, tol: number): [Vec2[], boolean] {
-  const arc = Math.abs(sag) < 1e-6 || dist(a, b) < 1e-6 ? null : arcFromSagitta(a, b, sag);
-  if (!arc) return [[a, b], false];
-  const passo = 2 * Math.acos(Math.max(0, 1 - tol / arc.radius));
-  const porCorda = passo > 1e-9 ? Math.ceil(Math.abs(arc.sweep) / passo) : 720;
-  const porQuarto = Math.ceil((Math.abs(arc.sweep) / (Math.PI / 2)) * 8);
-  const n = Math.min(720, Math.max(2, porCorda, porQuarto));
-  const out: Vec2[] = [];
-  for (let i = 0; i <= n; i++) out.push(arcPointAt(arc, (arc.length * i) / n, 0));
-  out[0] = a;
-  out[n] = b;
-  return [out, true];
-}
-
-const acumulado = (p: Vec2[]): number[] => {
-  const c = [0];
-  for (let i = 0; i + 1 < p.length; i++) c.push(c[c.length - 1]! + dist(p[i]!, p[i + 1]!));
-  return c;
-};
-
-function projetar(p: Vec2[], cum: number[], q: Vec2): [number, number] {
-  let melhor: [number, number] = [0, Infinity];
-  for (let i = 0; i + 1 < p.length; i++) {
-    const [d, t] = pontoSegmento(q, p[i]!, p[i + 1]!);
-    if (d < melhor[1]) melhor = [cum[i]! + t * (cum[i + 1]! - cum[i]!), d];
-  }
-  return melhor;
-}
-
-function pontoEm(p: Vec2[], cum: number[], s: number): Vec2 {
-  for (let i = 0; i + 1 < p.length; i++) {
-    if (s <= cum[i + 1]! || i === p.length - 2) {
-      const l = cum[i + 1]! - cum[i]!;
-      const t = l < 1e-18 ? 0 : Math.min(1, Math.max(0, (s - cum[i]!) / l));
-      return add(p[i]!, mul(sub(p[i + 1]!, p[i]!), t));
-    }
-  }
-  return p[0]!;
-}
-
-function semColineares(nos: P3[]): P3[] {
-  if (nos.length < 3) return nos;
-  const out: P3[] = [nos[0]!];
-  for (let k = 1; k < nos.length - 1; k++) {
-    const a = out[out.length - 1]!;
-    const u = normalizado(v(nos[k]![0] - a[0], nos[k]![1] - a[1]));
-    const w = normalizado(v(nos[k + 1]![0] - nos[k]![0], nos[k + 1]![1] - nos[k]![1]));
-    if (Math.abs(cross(u, w)) > 1e-9 || dot(u, w) < 0) out.push(nos[k]!);
-  }
-  out.push(nos[nos.length - 1]!);
-  return out;
-}
-
-const semRepetidos = (p: Vec2[]): Vec2[] => {
-  const out: Vec2[] = [];
-  for (const q of p) if (out.length === 0 || dist(out[out.length - 1]!, q) > 1e-9) out.push(q);
-  return out;
-};
-
-function deslocar(p: Vec2[], d: number, fechado: boolean): Array<[Vec2, number]> | null {
-  const n = p.length;
-  if (d === 0 || n < 2) return p.map((q, i) => [q, i]);
-  const m = fechado ? n : n - 1;
-  const nor = Array.from({ length: m }, (_, i) => perp(normalizado(sub(p[(i + 1) % n]!, p[i]!))));
-  const out: Array<[Vec2, number]> = [];
-  for (let k = 0; k < n; k++) {
-    let n1: Vec2;
-    let n2: Vec2;
-    if (fechado) [n1, n2] = [nor[(k + m - 1) % m]!, nor[k % m]!];
-    else if (k === 0) [n1, n2] = [nor[0]!, nor[0]!];
-    else if (k === n - 1) [n1, n2] = [nor[m - 1]!, nor[m - 1]!];
-    else [n1, n2] = [nor[k - 1]!, nor[k]!];
-    const den = 1 + dot(n1, n2);
-    const w = den > 1e-9 ? mul(add(n1, n2), d / den) : null;
-    if (w && Math.hypot(w.x, w.y) <= LIMITE_ESQUADRIA * Math.abs(d)) out.push([add(p[k]!, w), k]);
-    else {
-      out.push([add(p[k]!, mul(n1, d)), k]);
-      out.push([add(p[k]!, mul(n2, d)), k]);
-    }
-  }
-  const total = fechado ? out.length : out.length - 1;
-  for (let k = 0; k < total; k++) {
-    const a = out[k]!;
-    const b = out[(k + 1) % out.length]!;
-    if (b[1] === (a[1] + 1) % n && b[1] !== a[1]) {
-      if (dot(sub(b[0], a[0]), sub(p[b[1]]!, p[a[1]]!)) < 0) return null;
-    }
-  }
-  return out;
-}
 
 function linhas(c: CenaGC, nome: keyof CenaGC['secoes']): Linha[] {
   const sec = c.secoes[nome];

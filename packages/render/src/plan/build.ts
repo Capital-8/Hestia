@@ -1,8 +1,7 @@
-import { add, boxOf, mul, norm, perp, pointInMulti, ringArea, sub, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
+import { pointInMulti, ringArea, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { buildOpeningModel, cutLevelByJunction, frameOfWall, openingGeometry, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedRoom, type ResolvedSlab } from '@hestia/engine';
-import { levelElevation, viewRangeOf, openingTypeById, dimensionStyleOf, angularDimensionGeometry, dimensionPoints, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, type AreaPlan, type DetailLevel, type Id, type Material, type Project } from '@hestia/model';
-import { resolveRooms, resolveAngularDimension } from '@hestia/engine';
-import { extensaoDoModelo } from './extensaoDoModelo.ts';
+import { openingTypeById, dimensionStyleOf, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, type AreaPlan, type DetailLevel, type Id, type Material, type Project } from '@hestia/model';
+import { resolveRooms } from '@hestia/engine';
 import { areaPlanLegendOps, areaPlanRoomOps, areaPlanTableOps, areaPlanTagOps } from './areaPlan.ts';
 import { aberturasDaParede, escadasDoNivel, juncaoDoNivel, paredesDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
 import type { Inference, PreviewItem } from '@hestia/tools';
@@ -20,6 +19,7 @@ import { roofEdgeColor, roofFills, roofFootprint, roofOps } from './roofs.ts';
 import { belowStairOps, stairFills } from './stairs.ts';
 import { belowRampOps, rampFills } from './ramps.ts';
 import { guardaCorpoOps } from './guardaCorpo.ts';
+import { ocultosDoGuardaCorpo } from './guardaCorpoCamada.ts';
 import { joinDebugLabels } from './joinDebug.ts';
 import { wallTagLabels } from './tags.ts';
 import { openingTagLabels } from './openingTags.ts';
@@ -27,7 +27,7 @@ import { drawnAnnotations, noteOps, roomSeparatorStrokes } from './notes.ts';
 import { elementTagOps } from './tags.ts';
 import { openingViewOps, wallOutlineOps, type PlanView } from './view.ts';
 import { openingPlanDetail } from './symbols.ts';
-import { espessuraDeCorte, espessuraDeProjecao, paintOps, planStyleOf, surfaceColor, type PlanPaint, type PlanStyle } from './style.ts';
+import { espessuraDeCorte, espessuraDeProjecao, paintOps, surfaceColor, type PlanPaint, type PlanStyle } from './style.ts';
 import { Limiares, type VistaComLimiares } from './limiares.ts';
 import { tracoEm } from './marcadores.ts';
 import { resolverZoom } from './zoomOps.ts';
@@ -74,7 +74,7 @@ export interface PlanInput {
   revealed?: ReadonlySet<Id>;
   /**
    * Guarda-corpo (decisão 0055) tem camada própria na planta: `'sem'` tira os guarda-corpos da geometria do nível (o quadro os desenha à parte,
-   * ver `buildPlanGuardaCorpo`); sem o campo, eles saem junto da geometria, como antes (impressão, captura e testes).
+   * ver `buildPlanGuardaCorpo`, em guardaCorpoCamada.ts); sem o campo, eles saem junto da geometria, como antes (impressão, captura e testes).
    */
   guardaCorpo?: 'sem';
   /** Rótulo em arraste (fantasma) da planta de área: segue o cursor em tempo real. */
@@ -177,15 +177,12 @@ function openingSymbolStrokes(
   limiares: Limiares,
   view: PlanView | null,
   hidden: ReadonlySet<Id> | undefined,
-  hiddenWalls: ReadonlySet<Id> | undefined,
   oculto?: (q: Vec2) => boolean,
 ): StrokeOp[] {
   if (detail === 'coarse') return [];
   const out: StrokeOp[] = [];
   for (const w of paredesDoNivel(p, levelId)) {
-    // A parede oculta pelo Hide in View leva as aberturas junto (a vista foi resolvida sem ela). A oculta pela categoria
-    // não: a categoria da abertura é outra (a janela continua, como antes).
-    if (hiddenWalls?.has(w.id)) continue;
+    // A visibilidade da abertura é dela (`hidden.has(o.id)`), não do hospedeiro: parede oculta não oculta a esquadria.
     const f = frameOfWall(p, w.id);
     if (!f) continue;
     for (const o of aberturasDaParede(p, w.id)) {
@@ -220,36 +217,6 @@ function openingSymbolStrokes(
 }
 
 /**
- * Guarda-corpos ocultos na vista: o Hide in View do usuário (menos os revelados) e, com a categoria desligada, todos os do nível. Não vem da
- * vista do nível (`planViewOf`): o guarda-corpo não entra nela, e a vista é reaproveitada quando só um guarda-corpo muda.
- */
-function ocultosDoGuardaCorpo(p: Project, levelId: Id, hidden: ReadonlySet<Id> | undefined, revealed: ReadonlySet<Id> | undefined, categoriaVisivel: boolean): ReadonlySet<Id> | undefined {
-  const out = new Set<Id>();
-  if (hidden) for (const id of hidden) if (!revealed?.has(id)) out.add(id);
-  if (!categoriaVisivel) for (const e of Object.values(p.elements)) if (e.kind === 'railing' && e.levelId === levelId) out.add(e.id);
-  return out.size > 0 ? out : undefined;
-}
-
-/**
- * Camada própria dos guarda-corpos do nível (linhas do kernel, no estilo da categoria de escadas): lê só os guarda-corpos, as escadas e rampas
- * hospedeiras e as opções da vista, nunca a resolução das paredes. Mesmas linhas e mesmo estilo que saíam dentro de `buildPlanGeometry`.
- */
-export function buildPlanGuardaCorpo(input: PlanInput): PlanOps {
-  const { project: p, theme } = input;
-  const vazio: PlanOps = { fills: [], strokes: [], labels: [] };
-  const profile: PlanProfile = input.profile ?? (input.areaPlan ? areaPlanProfile(input.areaPlan) : FLOOR_PLAN_PROFILE);
-  if (!profile.stairs || input.roofPlanMode === true) return vazio;
-  const nivel = p.levels.find((l) => l.id === input.levelId);
-  if (!nivel) return vazio;
-  const style = planStyleOf(p, input.levelId, input.viewport.zoom, input.areaPlan?.scale);
-  const fillBase = input.dark ? theme.bg : '#ffffff';
-  const cutZ = levelElevation(p, input.levelId) + viewRangeOf(p, input.levelId).cut;
-  const ocultos = ocultosDoGuardaCorpo(p, input.levelId, input.hidden, input.revealed, style.paint.railing.visible);
-  const o = paintOps(guardaCorpoOps(p, input.levelId, ocultos, theme, input.dark, style.paint.stair, cutZ), style.paint.stair, fillBase);
-  return { fills: o.fills, strokes: o.strokes, labels: o.labels };
-}
-
-/**
  * Geometria do nível (decisão 0013, D1--D6): pisos, lajes, ambientes, escadas, paredes, aberturas, telhados, forros,
  * cotas e etiquetas. Não depende de pan, de seleção (exceto as cotas), de cursor, de ferramenta nem da grade. O zoom só
  * entra nas decisões de detalhe (interface entre materiais), registradas em `limiares`; faixas, marcadores e
@@ -266,7 +233,7 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   const fillT = input.dark ? 0.5 : 0.58;
 
   // Contexto do nível e da vista (o mesmo que a sobreposição usa): estilo, vista, geometria e ocultos.
-  const { style, rp, view, up, geo, hidden, hiddenWalls, roofOff, roofHidden, stairs, ramps } = planContext(input);
+  const { style, rp, view, up, geo, hidden, roofOff, roofHidden, stairs, ramps } = planContext(input);
   // As anotações e as marcas de corte leem o nível: o projeto sem as ocultas é o que elas desenham (Hide in View).
   const pNotas = semAnotacoesOcultas(p, input.levelId, hidden);
   const { detail, paint } = style;
@@ -451,7 +418,7 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
 
   // Símbolos das aberturas (fora do grosseiro): cortadas, tracejadas acima do corte, leves abaixo; as ocultas saem.
   // Cada um com o estilo da sua categoria (porta ou janela) e a espessura de corte ou de projeção.
-  if (profile.openings && !rp) strokes.push(...openingSymbolStrokes(p, input.levelId, paint, theme, fillBase, detail, input.viewport.zoom, limiares, view, hidden, hiddenWalls, sobCobertura));
+  if (profile.openings && !rp) strokes.push(...openingSymbolStrokes(p, input.levelId, paint, theme, fillBase, detail, input.viewport.zoom, limiares, view, hidden, sobCobertura));
 
   // Telhados (D1): por cima das paredes e dos pisos (semitransparentes); as linhas notáveis saem por último.
   if (profile.roofs !== 'hidden') {
@@ -581,52 +548,4 @@ export function buildPlanDrawList(input: PlanInput): PlanDrawList {
   };
 }
 
-/**
- * Caixa de tudo o que aparece do nível (paredes, escadas, rampas, guarda-corpos, lajes, pisos, forros, telhados...), com
- * 0,5 m de folga, para "enquadrar tudo". Vem da extensão do modelo (`extensaoDoModelo`), nunca só das paredes.
- */
-export function levelBox(p: Project, levelId: Id): { minX: number; minY: number; maxX: number; maxY: number } | null {
-  const b = extensaoDoModelo(p, levelId);
-  if (!b) return null;
-  const pad = 0.5;
-  return { minX: b.minX - pad, minY: b.minY - pad, maxX: b.maxX + pad, maxY: b.maxY + pad };
-}
-
-/**
- * Caixa para enquadrar a planta na vista: a de `levelBox` mais as cotas. A linha de cota fica deslocada das paredes
- * (`offset`), então sem ela o "Enquadrar" cortava as cotas da borda e deixava a barra de escala por cima delas.
- */
-export function levelFrameBox(p: Project, levelId: Id): { minX: number; minY: number; maxX: number; maxY: number } | null {
-  const base = levelBox(p, levelId);
-  const pts: Vec2[] = [];
-  for (const d of levelDimensions(p, levelId)) {
-    if (d.angular) {
-      const g = angularDimensionGeometry(resolveAngularDimension(p, levelId, d));
-      if (g) pts.push(...g.arc, ...g.extensions.flat());
-      continue;
-    }
-    const { a, b } = dimensionPoints(p, d);
-    const n = perp(norm(sub(b, a)));
-    pts.push(a, b, add(a, mul(n, d.offset)), add(b, mul(n, d.offset)));
-  }
-  if (!pts.length) return base;
-  if (base) pts.push({ x: base.minX, y: base.minY }, { x: base.maxX, y: base.maxY });
-  const b = boxOf(pts);
-  const pad = 0.5;
-  return { minX: b.minX - pad, minY: b.minY - pad, maxX: b.maxX + pad, maxY: b.maxY + pad };
-}
-
-/**
- * Caixa em planta para gerar as elevações: a do nível ativo (`levelFrameBox`, com cotas) unida à extensão do MODELO
- * INTEIRO, porque a elevação desenha todos os pavimentos. Sem parede nenhuma, o que existir (escada, guarda-corpo, laje,
- * telhado...) define os limites; null só quando não há nada que apareça em elevação.
- */
-export function elevationFrameBox(p: Project, levelId: Id): { minX: number; minY: number; maxX: number; maxY: number } | null {
-  const nivel = levelFrameBox(p, levelId);
-  const modelo = extensaoDoModelo(p);
-  if (!modelo) return nivel;
-  const pad = 0.5;
-  const m = { minX: modelo.minX - pad, minY: modelo.minY - pad, maxX: modelo.maxX + pad, maxY: modelo.maxY + pad };
-  if (!nivel) return m;
-  return { minX: Math.min(nivel.minX, m.minX), minY: Math.min(nivel.minY, m.minY), maxX: Math.max(nivel.maxX, m.maxX), maxY: Math.max(nivel.maxY, m.maxY) };
-}
+export { elevationFrameBox, levelBox, levelFrameBox } from './molduraDoNivel.ts';

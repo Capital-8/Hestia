@@ -4,7 +4,8 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { casoParaConfig, distribuir, saidaParaJson } from './distribuicao.ts';
+import { distribuir } from './distribuicao.ts';
+import { casoParaConfig, saidaParaJson } from './distribuicaoJson.ts';
 
 const ouro = JSON.parse(readFileSync(new URL('./distribuicao.ouro.json', import.meta.url), 'utf8')) as { casos: Array<Record<string, any>> }; // eslint-disable-line @typescript-eslint/no-explicit-any
 

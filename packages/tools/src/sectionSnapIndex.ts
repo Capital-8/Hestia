@@ -56,9 +56,9 @@ const EPS = 1e-9;
 /** Tolerância para considerar uma aresta horizontal/vertical (o motor pode devolver diferenças de arredondamento). */
 const AXIS_EPS = 1e-7;
 
-/** Id do elemento de origem, quando há um só (para `ignore`/`hidden` e para o tooltip). */
+/** Id do elemento de origem (a esquadria tem id próprio, não o da parede hospedeira: ocultar a parede não esconde o vão) (para `ignore`/`hidden` e para o tooltip). */
 export function sectionOriginId(o: SectionOrigin): Id | undefined {
-  return o.wallId ?? o.floorId ?? o.slabId ?? o.ceilingId ?? o.roofId ?? o.stairId ?? o.rampId ?? o.openingId;
+  return o.openingId ?? o.wallId ?? o.floorId ?? o.slabId ?? o.ceilingId ?? o.roofId ?? o.stairId ?? o.rampId;
 }
 
 const finite = (p: Vec2): boolean => Number.isFinite(p.x) && Number.isFinite(p.y);

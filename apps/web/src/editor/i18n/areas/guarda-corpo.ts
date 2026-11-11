@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- tabela de tradução (7 idiomas); a paridade é garantida pelo tipo. */
 /* Textos da interface do guarda-corpo (decisão 0055, Fases 6a a 6c). Chaves gc6a_, gc6b_ e gc6c_. */
 export const PT_GUARDA_CORPO = {
   gc6a_undo_create: 'Criar guarda-corpo',

@@ -1,6 +1,9 @@
 import type { GraphicsCategory, Id, Project, ViewHiddenTarget, ViewHidden } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
+import { annotationIdsOfActiveView, selectedAnnotations } from './viewAnnotations.ts';
+
+type ViewState = Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'>;
 
 /** Estado temporário de visibilidade de uma vista (não vai para o arquivo do projeto). */
 export interface TempViewVisibility {
@@ -73,16 +76,20 @@ function categoriaDoElemento(e: { kind: string }): GraphicsCategory | null {
   }
 }
 
-/** Ids dos elementos que pertencem às categorias dadas. */
-export function categoryIdsOf(p: Project, categories: readonly GraphicsCategory[] | undefined): Id[] {
+/**
+ * Ids dos elementos que pertencem às categorias dadas. Com `st`, a categoria 'annotation' também alcança as anotações
+ * da vista ativa (cotas, textos, etiquetas...), que não são elementos do modelo.
+ */
+export function categoryIdsOf(p: Project, categories: readonly GraphicsCategory[] | undefined, st?: ViewState): Id[] {
   if (!categories?.length) return [];
   const cats = new Set(categories);
-  return Object.values(p.elements)
+  const doModelo = Object.values(p.elements)
     .filter((e) => {
       const c = categoriaDoElemento(e);
       return c !== null && cats.has(c);
     })
     .map((e) => e.id);
+  return cats.has('annotation') && st ? [...doModelo, ...annotationIdsOfActiveView(p, st)] : doModelo;
 }
 
 /** Junta duas ocultações (elementos e categorias, sem repetição). */
@@ -120,15 +127,16 @@ export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>):
   if (!target || !key) return VAZIO;
   const temp = st.viewTemp[key] ?? {};
   const permanent = permanentHiddenOf(p, target);
-  const permanentIds = uniq([...(permanent.elements ?? []), ...categoryIdsOf(p, permanent.categories)]);
-  const tempIds = uniq([...(temp.hidden?.elements ?? []), ...categoryIdsOf(p, temp.hidden?.categories)]);
+  const permanentIds = uniq([...(permanent.elements ?? []), ...categoryIdsOf(p, permanent.categories, st)]);
+  const tempIds = uniq([...(temp.hidden?.elements ?? []), ...categoryIdsOf(p, temp.hidden?.categories, st)]);
   const isolate = temp.isolated;
-  const isolateIds = uniq([...(isolate?.elements ?? []), ...categoryIdsOf(p, isolate?.categories)]);
+  const isolateIds = uniq([...(isolate?.elements ?? []), ...categoryIdsOf(p, isolate?.categories, st)]);
   const reveal = temp.reveal === true;
-  const allIds = Object.keys(p.elements);
+  const allIds = [...Object.keys(p.elements), ...annotationIdsOfActiveView(p, st)];
   const isolateSet = new Set(isolateIds);
   const baseHidden = isolateIds.length > 0 ? allIds.filter((id) => !isolateSet.has(id)) : uniq([...permanentIds, ...tempIds]);
-  const revealedIds = reveal ? uniq([...permanentIds, ...tempIds]) : [];
+  // Reveal mostra tudo o que está fora da vista: ocultos (permanente/temporário), isolados-fora e categorias.
+  const revealedIds = reveal ? baseHidden : [];
   const revealed = new Set(revealedIds);
   const hidden = new Set(baseHidden.filter((id) => !revealed.has(id)));
   const temporary = !!(temp.hidden || temp.isolated || temp.reveal);
@@ -175,11 +183,19 @@ export function unhideInView(elements: readonly Id[], categories: readonly Graph
   const target = viewHiddenTargetOf(st);
   if (!target) return;
   const atual = permanentHiddenOf(editor.project, target);
-  const hidden = removeHidden(atual, {
+  const remover = {
     ...(elements.length ? { elements: [...elements] } : {}),
     ...(categories.length ? { categories: [...categories] } : {}),
-  });
-  editor.store.exec({ type: 'setViewHidden', target, hidden }, 'eds_undo_unhide_view');
+  };
+  const hidden = removeHidden(atual, remover);
+  // Oculto temporário (HH) e isolamento (HI): o elemento reexibido sai do oculto, sem tocar no modo Reveal.
+  const key = visibilityKeyOf(st);
+  const temp = key ? st.viewTemp[key] : undefined;
+  if (key && temp?.hidden) setTemp({ hidden: removeHidden(temp.hidden, remover) });
+  if (key && temp?.isolated) setTemp({ isolated: mergeHidden(temp.isolated, remover) });
+  if (JSON.stringify(hidden ?? {}) !== JSON.stringify(atual)) {
+    editor.store.exec({ type: 'setViewHidden', target, hidden }, 'eds_undo_unhide_view');
+  }
   redesenhar();
   useUi.setState({ status: { key: 'eds_msg_unhidden_done' } });
 }
@@ -272,6 +288,8 @@ export function selectedCategories(p: Project, ids: readonly Id[] = useUi.getSta
     const c = e ? categoriaDoElemento(e) : null;
     if (c) out.add(c);
   }
+  // Anotações (cotas, textos, etiquetas...) da vista ativa pertencem à categoria 'annotation'.
+  if (selectedAnnotations(p, useUi.getState(), ids).length > 0) out.add('annotation');
   return [...out];
 }
 

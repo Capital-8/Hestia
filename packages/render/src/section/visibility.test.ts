@@ -207,3 +207,38 @@ describe('Hide in View com o motor real', () => {
     expect(semNada.fills).toHaveLength(0);
   });
 });
+
+describe('Elemento hospedado tem visibilidade própria (corte/elevação)', () => {
+  const store = new ProjectStore(createEmptyProject());
+  store.exec({ type: 'addWall', wall: makeWall({ id: 'frente', typeId: 'wt_alv14', levelId: 'lv_0', a: v(0, 0), b: v(6, 0), height: 3 }) });
+  store.exec({ type: 'addOpening', opening: { id: 'j1', kind: 'window', typeId: 'ot_j120', hostId: 'frente', offset: 3, flipHand: false, flipFacing: false, sillOverride: null, mark: '' } });
+  const p = store.project;
+  const section = computeSection(p, { a: v(0, -2), b: v(6, -2), depth: 8 });
+  const base: SectionInput = { project: p, section, viewport: { cx: 3, cy: 1.5, zoom: 60, width: 800, height: 600 }, theme: LIGHT, dark: false, showGrid: false };
+  const normal = buildSectionDrawList(base);
+
+  it('ocultar a parede mantém a janela', () => {
+    const d = buildSectionDrawList({ ...base, hidden: new Set(['frente']) });
+    expect(d.strokes.length).toBeGreaterThan(0);
+    expect(d.fills.length).toBeLessThan(normal.fills.length);
+  });
+
+  it('isolar a janela mostra só a janela; isolar a parede mostra a parede sem a janela', () => {
+    const soJanela = buildSectionDrawList({ ...base, hidden: new Set(['frente']) });
+    const soParede = buildSectionDrawList({ ...base, hidden: new Set(['j1']) });
+    const nada = buildSectionDrawList({ ...base, hidden: new Set(['frente', 'j1']) });
+    expect(nada.fills).toHaveLength(0);
+    expect(soJanela.strokes.length + soJanela.fills.length).toBeGreaterThan(0);
+    expect(soParede.fills.length).toBeGreaterThan(0);
+    expect(soJanela.strokes).not.toEqual(soParede.strokes);
+  });
+
+  it('tipo hospedado genérico (abertura sintética de outro id) segue a mesma regra', () => {
+    const s = sectionResult({ beyond: [beyond({ wallId: 'w1' })], openings: [windowOpening('hospedado_novo')] });
+    const soHospedado = buildSectionDrawList(input(s, { hidden: new Set(['w1']) }));
+    expect(soHospedado.fills.length + soHospedado.strokes.length).toBeGreaterThan(0);
+    const soHospedeiro = buildSectionDrawList(input(s, { hidden: new Set(['hospedado_novo']) }));
+    expect(soHospedeiro.fills.length).toBeGreaterThan(0);
+    expect(buildSectionDrawList(input(s, { hidden: new Set(['w1', 'hospedado_novo']) })).fills).toHaveLength(0);
+  });
+});

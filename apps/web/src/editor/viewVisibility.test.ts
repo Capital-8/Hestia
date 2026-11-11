@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildTemplate } from '@hestia/model';
 import { useUi } from './state.ts';
-import { categoryIdsOf, mergeHidden, removeHidden, visibilityKeyOf, visibilityOf } from './viewVisibility.ts';
+import { editor } from './controller.ts';
+import { categoryIdsOf, mergeHidden, removeHidden, toggleRevealHidden, unhideInView, visibilityKeyOf, visibilityOf } from './viewVisibility.ts';
 
 afterEach(() => useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', areaPlanId: null, sectionId: null, viewTemp: {}, selection: [] }));
 
@@ -64,4 +65,67 @@ describe('visibilidade por vista', () => {
     useUi.setState({ viewTemp: {} });
     expect(visibilityOf(p, useUi.getState()).hidden.size).toBe(0);
   });
+
+  const VISTAS: Array<[string, Partial<ReturnType<typeof useUi.getState>>, string]> = [
+    ['planta', { view: 'plan', planKind: 'floor', levelId: 'lv_0', sectionId: null }, 'plan:lv_0'],
+    ['3D', { view: '3d' }, '3d'],
+    ['corte', { view: 'section', sectionId: 'sec1' }, 'section:sec1'],
+  ];
+
+  for (const [nome, estado, chave] of VISTAS) {
+    describe(`Revelar ocultos na vista ${nome}`, () => {
+      it('desligado o oculto não aparece; ligado aparece como revelado; desligar não altera o oculto', () => {
+        const p = structuredClone(buildTemplate('house2'));
+        const w = parede(p);
+        const lv = p.levels[0]!;
+        useUi.setState({ ...estado, levelId: lv.id, viewTemp: { [chave]: { hidden: { elements: [w.id] } } } });
+        const key = visibilityKeyOf(useUi.getState())!;
+        const k = key.startsWith('plan:') ? `plan:${lv.id}` : key;
+        useUi.setState({ viewTemp: { [k]: { hidden: { elements: [w.id] } } } });
+        if (key.startsWith('plan:')) lv.hidden = { elements: [w.id] };
+        const off = visibilityOf(p, useUi.getState());
+        expect(off.hidden.has(w.id)).toBe(true);
+        expect(off.revealed.has(w.id)).toBe(false);
+        toggleRevealHidden();
+        const on = visibilityOf(p, useUi.getState());
+        expect(on.reveal).toBe(true);
+        expect(on.hidden.has(w.id)).toBe(false);
+        expect(on.revealed.has(w.id)).toBe(true);
+        expect(useUi.getState().viewTemp[k]?.hidden?.elements).toEqual([w.id]);
+        toggleRevealHidden();
+        const volta = visibilityOf(p, useUi.getState());
+        expect(volta.reveal).toBe(false);
+        expect(volta.hidden.has(w.id)).toBe(true);
+        expect(useUi.getState().viewTemp[k]?.hidden?.elements).toEqual([w.id]);
+      });
+
+      it('isolar: o que ficou fora aparece revelado no modo', () => {
+        const p = structuredClone(buildTemplate('house2'));
+        const w = parede(p);
+        const d = porta(p);
+        useUi.setState({ ...estado, levelId: p.levels[0]!.id });
+        const k = visibilityKeyOf(useUi.getState())!;
+        useUi.setState({ viewTemp: { [k]: { isolated: { elements: [d.id] }, reveal: true } } });
+        const v = visibilityOf(p, useUi.getState());
+        expect(v.revealed.has(w.id)).toBe(true);
+        expect(v.hidden.has(w.id)).toBe(false);
+      });
+
+      it('Reexibir tira o elemento do oculto temporário e a borda só vale na vista com o modo', () => {
+        editor.newProject('house2');
+        const p = editor.project;
+        const w = parede(p);
+        useUi.setState({ ...estado, levelId: p.levels[0]!.id });
+        const k = visibilityKeyOf(useUi.getState())!;
+        useUi.setState({ viewTemp: { [k]: { hidden: { elements: [w.id] }, reveal: true } } });
+        unhideInView([w.id]);
+        const v = visibilityOf(p, useUi.getState());
+        expect(v.hidden.has(w.id)).toBe(false);
+        expect(v.revealed.has(w.id)).toBe(false);
+        expect(useUi.getState().viewTemp[k]?.reveal).toBe(true);
+        const outras = { ...useUi.getState(), view: nome === '3D' ? ('plan' as const) : ('3d' as const) };
+        expect(visibilityOf(p, outras).reveal).toBe(false);
+      });
+    });
+  }
 });
