@@ -15,6 +15,7 @@ import {
 import { createAreaPlanAction } from './areaPlanActions.ts';
 import { desfazerCriacaoDoAviso, mostrarCategoriaDoAviso } from './avisoOcultoActions.ts';
 import { editor } from './controller.ts';
+import { I18N } from './i18n.ts';
 import { DEFAULT_OPTIONS, useUi } from './state.ts';
 import { visibilityOf } from './viewVisibility.ts';
 
@@ -233,5 +234,24 @@ describe('aviso: perfil da planta de área e categorias de cada tipo', () => {
     expect(useUi.getState().avisoOculto?.categories).toEqual(['wall']);
     mostrarCategoriaDoAviso();
     expect(useUi.getState().viewTemp['plan:lv_0']?.hidden?.categories ?? []).not.toContain('wall');
+  });
+});
+
+describe('textos novos nos sete idiomas', () => {
+  const CHAVES = ['edc_hidden_creation', 'edc_hidden_show_category', 'eds_msg_category_shown', 'eds_undo_show_category_view', 'eds_msg_tool_not_in_view', 'btn_undo'] as const;
+  const IDIOMAS = ['pt', 'en', 'es', 'de', 'fr', 'it', 'pl'] as const;
+
+  it('cada chave existe, não está vazia e, fora do português, difere do português', () => {
+    for (const k of CHAVES) {
+      for (const lang of IDIOMAS) {
+        const texto = (I18N[lang] as Record<string, string>)[k];
+        expect(texto, `${lang}.${k}`).toBeTruthy();
+        if (lang !== 'pt' && k !== 'btn_undo') expect(texto, `${lang}.${k}`).not.toBe((I18N.pt as Record<string, string>)[k]);
+      }
+    }
+  });
+
+  it('a mensagem de criação oculta leva a lista de categorias em todos os idiomas', () => {
+    for (const lang of IDIOMAS) expect((I18N[lang] as Record<string, string>).edc_hidden_creation).toContain('{layers}');
   });
 });
