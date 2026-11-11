@@ -18,6 +18,7 @@ import {
   type ElementTag,
   type TextNote,
 } from './index.ts';
+import { areaPlansOf, floorViewId, viewAnnotationsOf } from './index.ts';
 
 const LV0 = 'lv_0';
 
@@ -46,7 +47,7 @@ function withPlan(extraPlans: AreaPlan[] = []): ProjectStore {
   return s;
 }
 
-const planById = (s: ProjectStore, id: string): AreaPlan => s.project.areaPlans!.find((p) => p.id === id)!;
+const planById = (s: ProjectStore, id: string): AreaPlan => areaPlansOf(s.project).find((p) => p.id === id)!;
 
 describe('anotações por vista (planta de área)', () => {
   it('com planId, cota, texto, detalhe e etiqueta ficam na planta e o nível fica limpo', () => {
@@ -66,10 +67,10 @@ describe('anotações por vista (planta de área)', () => {
 
     expect(levelDimensions(s.project, LV0)).toHaveLength(0);
     expect(levelTexts(s.project, LV0)).toHaveLength(0);
-    const level = s.project.levels.find((l) => l.id === LV0)!;
-    expect(level.detailLines ?? []).toHaveLength(0);
-    expect(level.detailRegions ?? []).toHaveLength(0);
-    expect(level.tags ?? []).toHaveLength(0);
+    const piso = viewAnnotationsOf(s.project, floorViewId(LV0));
+    expect(piso.detailLines).toHaveLength(0);
+    expect(piso.detailRegions).toHaveLength(0);
+    expect(piso.tags).toHaveLength(0);
   });
 
   it('sem planId, a anotação continua no nível (planta de piso)', () => {
@@ -80,7 +81,7 @@ describe('anotações por vista (planta de área)', () => {
 
     expect(levelDimensions(s.project, LV0).map((x) => x.id)).toEqual(['d1']);
     expect(levelTexts(s.project, LV0).map((x) => x.id)).toEqual(['t1']);
-    expect(s.project.levels.find((l) => l.id === LV0)!.tags!.map((x) => x.id)).toEqual(['tag1']);
+    expect(viewAnnotationsOf(s.project, floorViewId(LV0)).tags.map((x) => x.id)).toEqual(['tag1']);
     const a = planAnnotationsOf(planById(s, 'ap1'));
     expect([...a.dimensions, ...a.texts, ...a.tags]).toHaveLength(0);
   });
@@ -111,8 +112,8 @@ describe('anotações por vista (planta de área)', () => {
 
   it('recusa planta inexistente e planta de outro nível', () => {
     const s = new ProjectStore(createEmptyProject());
-    s.exec({ type: 'upsertLevel', level: { id: 'lv_1', name: 'Pav. 1', elevation: 3, viewRange: s.project.levels[0]!.viewRange } });
-    s.exec({ type: 'addAreaPlan', plan: plan('ap1', { levelId: 'lv_1' }) });
+    s.exec({ type: 'upsertLevel', level: { id: 'lv_9', name: 'Pav. 9', elevation: 9 } });
+    s.exec({ type: 'addAreaPlan', plan: plan('ap1', { levelId: 'lv_9' }) });
     expect(() => s.exec({ type: 'addDimension', levelId: LV0, planId: 'ap1', dimension: dim('d1') })).toThrow('não pertence ao nível');
     expect(() => s.exec({ type: 'addDimension', levelId: LV0, planId: 'ap_nao', dimension: dim('d1') })).toThrow('Planta de área inexistente');
   });

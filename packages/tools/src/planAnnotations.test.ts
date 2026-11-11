@@ -11,6 +11,7 @@ import {
   type AreaPlan,
 } from '@hestia/model';
 import { clickAt, makeEnv, P, tool } from './testEnv.ts';
+import { areaPlansOf } from '@hestia/model';
 
 const LV0 = 'lv_0';
 
@@ -32,7 +33,7 @@ function withAreaPlan(areaPlanId: string | null) {
   return ctx;
 }
 
-const annotationsOf = (s: ProjectStore) => planAnnotationsOf(s.project.areaPlans!.find((p) => p.id === 'ap1')!);
+const annotationsOf = (s: ProjectStore) => planAnnotationsOf(areaPlansOf(s.project).find((p) => p.id === 'ap1')!);
 
 describe('ferramentas de anotação numa planta de área', () => {
   it('cota, texto, detalhe e etiqueta vão para a planta quando areaPlanId existe', () => {

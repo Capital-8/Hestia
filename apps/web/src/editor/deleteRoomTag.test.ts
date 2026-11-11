@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_AREA_GRAPHICS, ProjectStore, createEmptyProject, makeRoom } from '@hestia/model';
 import { deleteSelectionIn } from './deleteIds.ts';
 import { useUi } from './state.ts';
+import { areaPlansOf } from '@hestia/model';
 
 describe('Delete de RoomTag na planta de área', () => {
   it('remove a etiqueta e um único undo a restaura', () => {
@@ -11,8 +12,8 @@ describe('Delete de RoomTag na planta de área', () => {
     store.exec({ type: 'addRoomTag', planId: 'ap1', tag: { id: 'rt1', planId: 'ap1', roomId: 'r1', at: { x: 1, y: 1 }, orientation: 'horizontal', leader: 'none', fields: ['name'], visible: true } });
     useUi.setState({ selection: ['rt1'], levelId: 'lv_0', view: 'plan', planKind: 'area', areaPlanId: 'ap1' });
     deleteSelectionIn(store);
-    expect(store.project.areaPlans![0]!.tags).toHaveLength(0);
+    expect(areaPlansOf(store.project)[0]!.tags).toHaveLength(0);
     store.undo();
-    expect(store.project.areaPlans![0]!.tags).toHaveLength(1);
+    expect(areaPlansOf(store.project)[0]!.tags).toHaveLength(1);
   });
 });

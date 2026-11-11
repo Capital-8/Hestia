@@ -21,6 +21,7 @@ import {
   type View3DSettings,
   type ViewGraphics,
 } from './index.ts';
+import { patchFloorOfTest } from './testVistas.ts';
 
 const LV0 = 'lv_0';
 const CODE = 'graphics-invalid';
@@ -49,7 +50,7 @@ describe('padrões e arquivos sem os campos de gráficos', () => {
     const antigo = migrateProject(JSON.parse(JSON.stringify(createEmptyProject())));
     expect(antigo.graphics).toBeUndefined();
     expect(antigo.view3d).toBeUndefined();
-    expect(antigo.levels[0]!.graphics).toBeUndefined();
+    expect(antigo.planViews[0]!.graphics).toBeUndefined();
     expect(levelGraphicsOf(antigo, LV0)).toEqual(DEFAULT_VIEW_GRAPHICS);
   });
 
@@ -112,7 +113,7 @@ describe('setLevelGraphics', () => {
     const s = new ProjectStore(createEmptyProject());
     s.exec(lg({ scale: 50 }));
     expect(levelGraphicsOf(s.project, LV0)).toEqual({ ...DEFAULT_VIEW_GRAPHICS, scale: 50 });
-    expect(s.project.levels[0]!.graphics).toEqual({ ...DEFAULT_VIEW_GRAPHICS, scale: 50 });
+    expect(s.project.planViews[0]!.graphics).toEqual({ ...DEFAULT_VIEW_GRAPHICS, scale: 50 });
   });
 
   it('overrides mesclam por categoria', () => {
@@ -141,7 +142,7 @@ describe('setLevelGraphics', () => {
     s.undo();
     expect(levelGraphicsOf(s.project, LV0)).toEqual({ ...DEFAULT_VIEW_GRAPHICS, scale: 50 });
     s.undo();
-    expect(s.project.levels[0]!.graphics).toBeUndefined();
+    expect(s.project.planViews[0]!.graphics).toBeUndefined();
     s.redo();
     s.redo();
     expect(levelGraphicsOf(s.project, LV0)).toEqual({ ...DEFAULT_VIEW_GRAPHICS, scale: 50, style: 'shaded' });
@@ -211,7 +212,7 @@ describe('reset', () => {
     const s = new ProjectStore(createEmptyProject());
     s.exec(lg({ scale: 50 }));
     s.exec({ type: 'resetLevelGraphics', levelId: LV0 });
-    expect(s.project.levels[0]!.graphics).toBeUndefined();
+    expect(s.project.planViews[0]!.graphics).toBeUndefined();
     expect(levelGraphicsOf(s.project, LV0)).toEqual(DEFAULT_VIEW_GRAPHICS);
     expect(s.undoLabel).toBe('Restaurar gráficos da vista');
     s.undo();
@@ -309,7 +310,7 @@ describe('recusas: mensagem pt-BR, sem alterar o projeto nem entrar no históric
 describe('validação de arquivo com gráficos inválidos', () => {
   it('cada violação vira um erro graphics-invalid, com o nome do nível ou "Vista 3D"', () => {
     const p = createEmptyProject();
-    p.levels[0] = { ...p.levels[0]!, graphics: bad<ViewGraphics>({ scale: 0 }) };
+    patchFloorOfTest(p, 'lv_0', { graphics: bad<ViewGraphics>({ scale: 0 }) });
     p.graphics = bad<ProjectGraphics>({ lineWeights: [] });
     p.view3d = bad<View3DSettings>({ sunElevation: 120 });
     expect(issuesOf(p)).toEqual([
@@ -366,7 +367,7 @@ describe('linhas finas (decisão 0015, só na tela)', () => {
     const s = new ProjectStore(createEmptyProject());
     expect(levelGraphicsOf(s.project, LV0).thinLines).toBe(true);
     expect(sectionGraphicsOf(s.project).thinLines).toBe(true);
-    expect(s.project.levels[0]!.graphics).toBeUndefined();
+    expect(s.project.planViews[0]!.graphics).toBeUndefined();
   });
 
   it('desliga na planta e no corte, grava no projeto e desfaz', () => {
@@ -385,7 +386,7 @@ describe('linhas finas (decisão 0015, só na tela)', () => {
   it('recusa valor que não é sim ou não, com mensagem pt-BR, e não grava', () => {
     const s = new ProjectStore(createEmptyProject());
     expect(() => s.exec(lg({ thinLines: 'sim' as unknown as boolean }))).toThrow('Linhas finas deve ser sim ou não.');
-    expect(s.project.levels[0]!.graphics).toBeUndefined();
+    expect(s.project.planViews[0]!.graphics).toBeUndefined();
     expect(graphicsIssues({ ...DEFAULT_VIEW_GRAPHICS, thinLines: 1 as unknown as boolean })).toContain('Linhas finas deve ser sim ou não.');
   });
 });

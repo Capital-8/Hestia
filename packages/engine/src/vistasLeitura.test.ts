@@ -25,6 +25,7 @@ import {
   viewRangeWarnings,
   viewRangeWarningsOfView,
 } from './index.ts';
+import { areaPlansOf } from '@hestia/model';
 
 const LV0 = 'lv_0';
 const AP = 'ap_t';
@@ -59,7 +60,7 @@ function montar(opcoes: { proprias?: boolean } = {}): Project {
 describe('leitura de planta de área pelo id da vista', () => {
   it.each([false, true])('legenda e tabela por vista igualam as por AreaPlan (anotações próprias: %s)', (proprias) => {
     const p = montar({ proprias });
-    const ap = p.areaPlans!.find((x) => x.id === AP)!;
+    const ap = areaPlansOf(p).find((x) => x.id === AP)!;
     expect(areaLegendRowsOfView(p, AP).length).toBeGreaterThan(0);
     expect(areaLegendRowsOfView(p, AP)).toEqual(areaLegendRows(p, ap));
     expect(areaTableRowsOfView(p, AP).filter((r) => r.kind === 'room')).toHaveLength(1);
@@ -71,7 +72,7 @@ describe('leitura de planta de área pelo id da vista', () => {
     const p = montar();
     const rows = areaTableAllRows(p);
     expect(rows.map((r) => r.kind)).toEqual(['room', 'subtotal', 'total']);
-    const sala = areaTableRows(p, p.areaPlans![0]!).find((r) => r.kind === 'room')!;
+    const sala = areaTableRows(p, areaPlansOf(p)[0]!).find((r) => r.kind === 'room')!;
     expect(rows[0]).toEqual({ ...sala, percent: 100 });
     expect(rows[2]!.area).toBeCloseTo(sala.area, 9);
   });
