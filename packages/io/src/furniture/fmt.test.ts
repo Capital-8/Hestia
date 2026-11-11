@@ -244,7 +244,7 @@ describe('OBJ sintetico', () => {
 describe('ZIP e leitura por extensao', () => {
   it('recusa caminho com .. (zip-slip)', async () => {
     const zip = zipSync({ '../evil.obj': enc('v 0 0 0\n'), 'ok.obj': enc('v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n') });
-    await expect(readZip({ name: 'mau.zip', bytes: zip })).rejects.toThrow(/inseguro/);
+    await expect(readZip({ name: 'mau.zip', bytes: zip }, undefined)).rejects.toThrow(/inseguro/);
   });
 
   it('acha o GLB dentro do ZIP com o .bin vizinho', async () => {
