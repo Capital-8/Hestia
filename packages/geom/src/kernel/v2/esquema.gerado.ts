@@ -1,7 +1,7 @@
 // ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v11.json.
 // Não edite à mão: mude o JSON e rode `node scripts/gerar-esquema-kernel.mjs`.
 
-export const ESQUEMA_VERSAO = 14;
+export const ESQUEMA_VERSAO = 15;
 export const ABI_VERSAO = 2;
 export const NIVEL_TODOS = 4294967295;
 
@@ -2328,6 +2328,178 @@ export const SECOES = {
       {
         "nome": "vidro_tipo",
         "tipo": "u8"
+      }
+    ]
+  },
+  "cortina_linhas_extras": {
+    "id": 106,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "cortina_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "eixo",
+        "tipo": "u8"
+      },
+      {
+        "nome": "pos",
+        "tipo": "f64"
+      },
+      {
+        "nome": "travada",
+        "tipo": "u8"
+      },
+      {
+        "nome": "comp_gravado",
+        "tipo": "f64"
+      },
+      {
+        "nome": "montante_num",
+        "tipo": "u32"
+      }
+    ]
+  },
+  "cortina_segmentos_removidos": {
+    "id": 107,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "cortina_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "eixo",
+        "tipo": "u8"
+      },
+      {
+        "nome": "origem",
+        "tipo": "u8"
+      },
+      {
+        "nome": "linha_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "pos_norm",
+        "tipo": "f64"
+      },
+      {
+        "nome": "n",
+        "tipo": "u32"
+      },
+      {
+        "nome": "k",
+        "tipo": "u32"
+      },
+      {
+        "nome": "nk",
+        "tipo": "u32"
+      },
+      {
+        "nome": "mid",
+        "tipo": "f64"
+      }
+    ]
+  },
+  "cortina_linhas_sobrescritas": {
+    "id": 108,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "cortina_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "eixo",
+        "tipo": "u8"
+      },
+      {
+        "nome": "linha_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "pos_norm",
+        "tipo": "f64"
+      },
+      {
+        "nome": "n",
+        "tipo": "u32"
+      },
+      {
+        "nome": "travada",
+        "tipo": "u8"
+      },
+      {
+        "nome": "pos",
+        "tipo": "f64"
+      },
+      {
+        "nome": "comp_gravado",
+        "tipo": "f64"
+      },
+      {
+        "nome": "montante_modo",
+        "tipo": "u8"
+      },
+      {
+        "nome": "montante_num",
+        "tipo": "u32"
+      }
+    ]
+  },
+  "cortina_celulas_sobrescritas": {
+    "id": 109,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "cortina_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "i",
+        "tipo": "u32"
+      },
+      {
+        "nome": "j",
+        "tipo": "u32"
+      },
+      {
+        "nome": "s",
+        "tipo": "f64"
+      },
+      {
+        "nome": "z",
+        "tipo": "f64"
+      },
+      {
+        "nome": "nu",
+        "tipo": "u32"
+      },
+      {
+        "nome": "nv",
+        "tipo": "u32"
+      },
+      {
+        "nome": "painel_num",
+        "tipo": "u32"
       }
     ]
   }

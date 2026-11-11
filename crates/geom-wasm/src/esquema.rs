@@ -5,7 +5,7 @@
 //! Mudou o JSON => sobe `VERSAO_ESQUEMA` e este arquivo.
 
 /// `versao` de `cena-v11.json`.
-pub const VERSAO_ESQUEMA: u32 = 14;
+pub const VERSAO_ESQUEMA: u32 = 15;
 /// `abi` de `cena-v11.json`.
 pub const VERSAO_ABI2: u32 = 2;
 
@@ -120,6 +120,11 @@ pub const SECAO_GRADES_CORTINA: u32 = 102;
 pub const SECAO_GRADE_POSICOES_CORTINA: u32 = 103;
 pub const SECAO_TIPOS_MONTANTE_CORTINA: u32 = 104;
 pub const SECAO_TIPOS_PAINEL_CORTINA: u32 = 105;
+/// Parede cortina, fase 2 (esquema v15): sobrescritas de grade e de célula (ADR 0056 §4.3 e §6.1).
+pub const SECAO_CORTINA_LINHAS_EXTRAS: u32 = 106;
+pub const SECAO_CORTINA_SEGMENTOS_REMOVIDOS: u32 = 107;
+pub const SECAO_CORTINA_LINHAS_SOBRESCRITAS: u32 = 108;
+pub const SECAO_CORTINA_CELULAS_SOBRESCRITAS: u32 = 109;
 
 const fn col(nome: &'static str, tipo: Tipo) -> Coluna {
     Coluna { nome, tipo }
@@ -848,6 +853,71 @@ pub const SECOES: &[Secao] = &[
             col("vidro_tipo", Tipo::U8),
         ],
     },
+    Secao {
+        id: SECAO_CORTINA_LINHAS_EXTRAS,
+        nome: "cortina_linhas_extras",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("cortina_num", Tipo::U32),
+            col("eixo", Tipo::U8),
+            col("pos", Tipo::F64),
+            col("travada", Tipo::U8),
+            col("comp_gravado", Tipo::F64),
+            col("montante_num", Tipo::U32),
+        ],
+    },
+    Secao {
+        id: SECAO_CORTINA_SEGMENTOS_REMOVIDOS,
+        nome: "cortina_segmentos_removidos",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("cortina_num", Tipo::U32),
+            col("eixo", Tipo::U8),
+            col("origem", Tipo::U8),
+            col("linha_num", Tipo::U32),
+            col("pos_norm", Tipo::F64),
+            col("n", Tipo::U32),
+            col("k", Tipo::U32),
+            col("nk", Tipo::U32),
+            col("mid", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_CORTINA_LINHAS_SOBRESCRITAS,
+        nome: "cortina_linhas_sobrescritas",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("cortina_num", Tipo::U32),
+            col("eixo", Tipo::U8),
+            col("linha_num", Tipo::U32),
+            col("pos_norm", Tipo::F64),
+            col("n", Tipo::U32),
+            col("travada", Tipo::U8),
+            col("pos", Tipo::F64),
+            col("comp_gravado", Tipo::F64),
+            col("montante_modo", Tipo::U8),
+            col("montante_num", Tipo::U32),
+        ],
+    },
+    Secao {
+        id: SECAO_CORTINA_CELULAS_SOBRESCRITAS,
+        nome: "cortina_celulas_sobrescritas",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("cortina_num", Tipo::U32),
+            col("i", Tipo::U32),
+            col("j", Tipo::U32),
+            col("s", Tipo::F64),
+            col("z", Tipo::F64),
+            col("nu", Tipo::U32),
+            col("nv", Tipo::U32),
+            col("painel_num", Tipo::U32),
+        ],
+    },
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -914,6 +984,13 @@ pub const AVISO_CORTINA_SOBRA_FUNDIDA: u32 = 3;
 pub const AVISO_CORTINA_POSICAO_FORA: u32 = 4;
 pub const AVISO_CORTINA_PROFUNDIDADE_MENOR_QUE_PERFIL: u32 = 5;
 pub const AVISO_CORTINA_ARCO_NAO_SUPORTADO: u32 = 6;
+/// Fase 2 (§4.4 e §5.2). Órfã: a sobrescrita de célula (7), de linha (8) ou de segmento (9) não se aplica à grade nova e sai do modelo na próxima
+/// edição (`normalizarSobrescritas`). Os três são o aviso `cortina-override-orfao` do ADR; o código separa o alvo para "Ir para".
+pub const AVISO_CORTINA_OVERRIDE_ORFAO_CELULA: u32 = 7;
+pub const AVISO_CORTINA_OVERRIDE_ORFAO_LINHA: u32 = 8;
+pub const AVISO_CORTINA_OVERRIDE_ORFAO_SEGMENTO: u32 = 9;
+/// Remoção de segmento recusada: a região fundida deixaria de ser retângulo (ADR §5.2). `i` e `j` são a célula de referência.
+pub const AVISO_CORTINA_CELULA_NAO_RETANGULAR: u32 = 10;
 
 pub const CONSULTAS: &[Consulta] = &[
     Consulta {

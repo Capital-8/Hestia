@@ -6,6 +6,11 @@ pub const LIMITE_CELULAS: usize = 4096;
 pub const LIMITE_LINHAS_EIXO: usize = 128;
 pub const LIMITE_POSICOES_MANUAIS: usize = 128;
 pub const LIMITE_INSTANCIAS: usize = 20_000;
+/// Fase 2 (ADR §4.3): sobrescritas por cortina. Acima disso o Rust devolve `LIMITE`.
+pub const LIMITE_LINHAS_EXTRAS: usize = 128;
+pub const LIMITE_SEGMENTOS_REMOVIDOS: usize = 1024;
+pub const LIMITE_LINHAS_SOBRESCRITAS: usize = 256;
+pub const LIMITE_CELULAS_SOBRESCRITAS: usize = 1024;
 
 /// Sobra fundida (m): sobra de ponta menor que isto é absorvida pela célula vizinha (ADR §5.1; configurável por eixo em `resto_minimo`).
 pub const SOBRA_FUNDIDA_PADRAO: f64 = 0.05;
