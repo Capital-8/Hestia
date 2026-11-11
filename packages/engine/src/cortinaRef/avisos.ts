@@ -48,7 +48,8 @@ export function calcularAvisos(e: CortinaEntrada, g: GradeResolvida, p: Pecas): 
 
   // cortina-montante-sobreposto: duas linhas vizinhas (bordas contam) cujos montantes se sobrepõem em largura.
   const sobrepostos = (eixo: 'u' | 'v'): void => {
-    const bordas = eixo === 'u' ? g.u.bordas : g.v.bordas;
+    // posição do CENTRO de cada montante (a borda é embutida, então o centro dela fica a meia largura da ponta)
+    const bordas = eixo === 'u' ? p.centrosU : p.centrosV;
     const w = eixo === 'u' ? p.largurasU : p.largurasV;
     for (let k = 0; k + 1 < bordas.length; k++) {
       if (!(at(w, k) > 0) || !(at(w, k + 1) > 0)) continue;

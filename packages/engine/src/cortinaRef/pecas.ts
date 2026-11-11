@@ -3,7 +3,7 @@
  * junção, aparo reto) e painéis por célula (retângulo livre, área visível e bruta). Fase 1: perfis `rect` e `round`
  * (as demais formas são ENTRADA até a fase 3); sem remoção de segmento nem sobrescrita de célula (fase 2).
  * Coordenadas locais do plano da cortina: `s` ao longo do eixo (0..L), `z` de baixo para cima (0..H).
- * O montante de borda é centrado na linha da borda (§5.3): metade dele sai de [0, L] × [0, H].
+ * O montante de borda é EMBUTIDO em [0, L] × [0, H] (face externa rente à ponta; decisão do dono); o interior é centrado na linha.
  */
 import {
   CURTAIN_PANEL_BITE, TOL_SOLDA, at, erroEntrada,
@@ -97,6 +97,9 @@ export interface Pecas {
   /** Largura de montante por linha (0 = sem montante): U e V, bordas incluídas. */
   largurasU: number[];
   largurasV: number[];
+  /** Posição do CENTRO de cada montante (s para U, z para V): interior na linha; borda embutida (centro a meia largura da ponta). */
+  centrosU: number[];
+  centrosV: number[];
 }
 
 function achaMontante(e: CortinaEntrada, id: string | null): MullionTypeRef | null {
@@ -142,6 +145,13 @@ export function calcularPecas(e: CortinaEntrada, g: GradeResolvida): Pecas {
   const tV = Array.from({ length: nv + 1 }, (_, lj) => tipoV(lj));
   const largurasU = tU.map((t) => (t ? t.profile.width : 0));
   const largurasV = tV.map((t) => (t ? t.profile.width : 0));
+  // Recuo da face interna do montante em relação à linha: o interior é centrado (meia largura); a borda é EMBUTIDA
+  // em [0, L] × [0, H] (largura inteira, face externa rente à ponta).
+  const recuo = (w: number[], li: number): number => (li === 0 || li === w.length - 1 ? at(w, li) : at(w, li) / 2);
+  const recuoU = (li: number): number => recuo(largurasU, li);
+  const recuoV = (lj: number): number => recuo(largurasV, lj);
+  const centrosU = sB.map((p, li) => (li === 0 ? p + at(largurasU, li) / 2 : li === nu ? p - at(largurasU, li) / 2 : p));
+  const centrosV = zB.map((p, lj) => (lj === 0 ? p + at(largurasV, lj) / 2 : lj === nv ? p - at(largurasV, lj) / 2 : p));
 
   const montantes: Montante[] = [];
   const segmentos: SegmentoLinha[] = [];
@@ -161,8 +171,8 @@ export function calcularPecas(e: CortinaEntrada, g: GradeResolvida): Pecas {
       papel, eixo, indiceLinha, linha, k, tipoId: t.id, tipoNum: t.num, materialNum: t.materialNum,
       forma: t.profile.shape as 'rect' | 'round', largura: t.profile.width, profundidade: profundidadeDoPerfil(t), deslocamento: t.offset ?? 0,
       vertical,
-      s: vertical ? at(sB, indiceLinha) : deAparado,
-      z: vertical ? deAparado : at(zB, indiceLinha),
+      s: vertical ? at(centrosU, indiceLinha) : deAparado,
+      z: vertical ? deAparado : at(centrosV, indiceLinha),
       comprimento, de, ate, continuo, areaPerfil: areaDoPerfil(t),
     });
   };
@@ -173,8 +183,8 @@ export function calcularPecas(e: CortinaEntrada, g: GradeResolvida): Pecas {
       const de = at(zB, k);
       const ate = at(zB, k + 1);
       const aparar = !verticalContinuo; // vertical é aparado quando o horizontal manda
-      const dA = aparar ? de + at(largurasV, k) / 2 : de;
-      const aA = aparar ? ate - at(largurasV, k + 1) / 2 : ate;
+      const dA = aparar ? de + recuoV(k) : de;
+      const aA = aparar ? ate - recuoV(k + 1) : ate;
       empurra('u', li, k, at(tU, li), papelU(li), de, ate, dA, aA, !aparar);
     }
   }
@@ -184,8 +194,8 @@ export function calcularPecas(e: CortinaEntrada, g: GradeResolvida): Pecas {
       const de = at(sB, k);
       const ate = at(sB, k + 1);
       const aparar = verticalContinuo; // horizontal é aparado quando o vertical manda
-      const dA = aparar ? de + at(largurasU, k) / 2 : de;
-      const aA = aparar ? ate - at(largurasU, k + 1) / 2 : ate;
+      const dA = aparar ? de + recuoU(k) : de;
+      const aA = aparar ? ate - recuoU(k + 1) : ate;
       empurra('v', lj, k, at(tV, lj), papelV(lj), de, ate, dA, aA, !aparar);
     }
   }
@@ -194,10 +204,10 @@ export function calcularPecas(e: CortinaEntrada, g: GradeResolvida): Pecas {
   const padraoId = e.instancia?.defaultPanelTypeId ?? e.tipo.defaultPanelTypeId;
   const tipoPainel = achaPainel(e, padraoId);
   const paineis: PainelCelula[] = g.celulas.map((c) => {
-    const s0 = c.s0 + at(largurasU, c.i) / 2;
-    const s1 = c.s1 - at(largurasU, c.i + 1) / 2;
-    const z0 = c.z0 + at(largurasV, c.j) / 2;
-    const z1 = c.z1 - at(largurasV, c.j + 1) / 2;
+    const s0 = c.s0 + recuoU(c.i);
+    const s1 = c.s1 - recuoU(c.i + 1);
+    const z0 = c.z0 + recuoV(c.j);
+    const z1 = c.z1 - recuoV(c.j + 1);
     const larguraLivre = Math.max(0, s1 - s0);
     const alturaLivre = Math.max(0, z1 - z0);
     const ladosV = (at(largurasU, c.i) > 0 ? 1 : 0) + (at(largurasU, c.i + 1) > 0 ? 1 : 0);
@@ -215,5 +225,5 @@ export function calcularPecas(e: CortinaEntrada, g: GradeResolvida): Pecas {
     };
   });
 
-  return { montantes, segmentos, paineis, largurasU, largurasV };
+  return { montantes, segmentos, paineis, largurasU, largurasV, centrosU, centrosV };
 }

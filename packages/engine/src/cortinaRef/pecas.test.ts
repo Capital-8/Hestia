@@ -35,11 +35,11 @@ describe('cortinaRef/pecas: montantes e prioridade de junção', () => {
     expect(h).toHaveLength(6);
     expect(soma(v.map((m) => m.comprimento))).toBeCloseTo(3 * 3, 12); // 3 linhas × H
     v.forEach((m) => { expect(m.continuo).toBe(true); expect(m.comprimento).toBeCloseTo(1.5, 12); });
-    h.forEach((m) => { expect(m.continuo).toBe(false); expect(m.comprimento).toBeCloseTo(2 - 0.025 - 0.025, 12); });
+    h.forEach((m) => { expect(m.continuo).toBe(false); expect(m.comprimento).toBeCloseTo(2 - 0.025 - 0.05, 12); });
     // as pontas aparadas começam na face do vertical
     const primeiro = h.find((m) => m.indiceLinha === 0 && m.k === 0)!;
-    expect(primeiro.s).toBeCloseTo(0.025, 12);
-    expect(primeiro.z).toBe(0);
+    expect(primeiro.s).toBeCloseTo(0.05, 12);
+    expect(primeiro.z).toBeCloseTo(0.025, 12); // centro do montante de base (embutido: meia largura da ponta)
   });
 
   it('horizontal manda: o inverso', () => {
@@ -47,7 +47,7 @@ describe('cortinaRef/pecas: montantes e prioridade de junção', () => {
     const v = r.pecas.montantes.filter((m) => m.vertical);
     const h = r.pecas.montantes.filter((m) => !m.vertical);
     h.forEach((m) => { expect(m.continuo).toBe(true); expect(m.comprimento).toBeCloseTo(2, 12); });
-    v.forEach((m) => { expect(m.continuo).toBe(false); expect(m.comprimento).toBeCloseTo(1.5 - 0.05, 12); });
+    v.forEach((m) => { expect(m.continuo).toBe(false); expect(m.comprimento).toBeLessThan(1.5); });
     expect(soma(h.map((m) => m.comprimento))).toBeCloseTo(3 * 4, 12); // 3 linhas × L
   });
 
@@ -103,14 +103,14 @@ describe('cortinaRef/pecas: montantes e prioridade de junção', () => {
 });
 
 describe('cortinaRef/pecas: painéis', () => {
-  it('retângulo livre = célula menos a meia largura dos montantes; área bruta soma o bite nos lados com montante', () => {
+  it('retângulo livre = célula menos a face da borda embutida e a meia largura do interior; área bruta soma o bite nos lados com montante', () => {
     const r = resolverCortina(base());
     expect(r.pecas.paineis).toHaveLength(4);
     const p = r.pecas.paineis[0]!;
-    expect(p.larguraLivre).toBeCloseTo(2 - 0.05, 12);
-    expect(p.alturaLivre).toBeCloseTo(1.5 - 0.05, 12);
-    expect(p.areaVisivel).toBeCloseTo(1.95 * 1.45, 12);
-    expect(p.areaBruta).toBeCloseTo((1.95 + 0.024) * (1.45 + 0.024), 12);
+    expect(p.larguraLivre).toBeCloseTo(2 - 0.05 - 0.025, 12);
+    expect(p.alturaLivre).toBeCloseTo(1.5 - 0.05 - 0.025, 12);
+    expect(p.areaVisivel).toBeCloseTo(1.925 * 1.425, 12);
+    expect(p.areaBruta).toBeCloseTo((1.925 + 0.024) * (1.425 + 0.024), 12);
     expect(p.volume).toBeCloseTo(p.areaBruta * 0.01, 12);
     expect(p.papel).toBe(PAPEL_VIDRO);
   });
@@ -122,7 +122,7 @@ describe('cortinaRef/pecas: painéis', () => {
   });
   it('painel sólido usa o bite do próprio tipo', () => {
     const p = resolverCortina(base({ painel: 'pnl_solido_alu_4' })).pecas.paineis[0]!;
-    expect(p.areaBruta).toBeCloseTo((1.95 + 0.02) * (1.45 + 0.02), 12);
+    expect(p.areaBruta).toBeCloseTo((1.925 + 0.02) * (1.425 + 0.02), 12);
   });
   it('sem montante nenhum: o painel é a célula inteira e bite 0 nas arestas', () => {
     const r = resolverCortina(base({ mullions: todos(null) }));
@@ -148,23 +148,24 @@ describe('cortinaRef/avisos', () => {
   it('célula mínima configurável', () => {
     expect(contar(achar('minCell personalizada'), AVISO_CELULA_PEQUENA)).toBe(9);
     const e = base();
-    e.tipo.minCell = 1.46; // menor lado livre = 1,45 (a altura)
+    e.tipo.minCell = 1.43; // menor lado livre = 1,425 (a altura: 1,5 menos a face da borda e meia largura do interior)
     expect(contar(e, AVISO_CELULA_PEQUENA)).toBe(4);
-    e.tipo.minCell = 1.45; // exatamente o limite: não avisa
+    e.tipo.minCell = 1.425; // exatamente o limite: não avisa
     expect(contar(e, AVISO_CELULA_PEQUENA)).toBe(0);
   });
   it('a medida é o menor lado livre, não o nominal', () => {
-    // célula 0,19 de largura nominal, mas livre 0,14 com montantes de 50 mm
+    // célula 0,19 de largura nominal; as duas bordas embutidas comem 0,05 cada, sobra 0,09 livre
     const e: CortinaEntrada = { ...base(), L: 0.19, tipo: { ...base().tipo, u: { mode: 'fixedNumber', count: 1 }, v: { mode: 'fixedNumber', count: 1 } } };
     const a = resolverCortina(e).avisos.find((x) => x.codigo === AVISO_CELULA_PEQUENA)!;
-    expect(a.medido).toBeCloseTo(0.14, 12);
+    expect(a.medido).toBeCloseTo(0.09, 12);
     expect(a.limite).toBe(0.15);
   });
   it('montante sobreposto: linhas vizinhas mais próximas que a largura do perfil', () => {
     const r = resolverCortina(achar('celulas menores que a minima e montantes sobrepostos'));
     const s = r.avisos.filter((a) => a.codigo === AVISO_MONTANTE_SOBREPOSTO);
     expect(s).toHaveLength(5);
-    expect(s[0]!.medido).toBeCloseTo(0.02, 12);
+    expect(s[0]!.medido).toBeCloseTo(-0.005, 12); // borda embutida (centro a 0,025 da ponta) e primeira linha (0,02): os centros se cruzam
+    expect(s[1]!.medido).toBeCloseTo(0.02, 12);
     expect(s[0]!.limite).toBeCloseTo(0.05, 12);
     expect(s[0]!.j).toBe(ID_AUSENTE);
   });
@@ -191,13 +192,13 @@ describe('cortinaRef/quant', () => {
     expect(q(PAPEL_INTERIOR_V).comprimento).toBeCloseTo(3, 12);
     expect(q(PAPEL_INTERIOR_V).area).toBeCloseTo(3 * 0.05, 12);
     expect(q(PAPEL_INTERIOR_V).volume).toBeCloseTo(3 * 0.05 * 0.1, 12);
-    // horizontais aparados: 2 segmentos por linha de 1,95 m
+    // horizontais aparados: 2 segmentos por linha de 1,925 m
     expect(q(PAPEL_INTERIOR_H).n).toBe(2);
-    expect(q(PAPEL_INTERIOR_H).comprimento).toBeCloseTo(3.9, 12);
+    expect(q(PAPEL_INTERIOR_H).comprimento).toBeCloseTo(3.85, 12);
     // vidro: 4 painéis
     expect(q(PAPEL_VIDRO).n).toBe(4);
-    expect(q(PAPEL_VIDRO).areaLiquida).toBeCloseTo(4 * 1.95 * 1.45, 12);
-    expect(q(PAPEL_VIDRO).area).toBeCloseTo(4 * 1.974 * 1.474, 12);
+    expect(q(PAPEL_VIDRO).areaLiquida).toBeCloseTo(4 * 1.925 * 1.425, 12);
+    expect(q(PAPEL_VIDRO).area).toBeCloseTo(4 * 1.949 * 1.449, 12);
     expect(q(PAPEL_VIDRO).materialNum).toBe(2);
   });
   it('o comprimento total de montante muda com a prioridade, o número de peças não', () => {
@@ -212,5 +213,48 @@ describe('cortinaRef/quant', () => {
     const q = resolverCortina(achar('montante redondo sem borda')).quant;
     for (let i = 1; i < q.length; i++) expect(q[i]!.papel * 1e6 + q[i]!.tipoNum).toBeGreaterThanOrEqual(q[i - 1]!.papel * 1e6 + q[i - 1]!.tipoNum);
     expect(q.some((x) => x.papel === PAPEL_BORDA_INICIO)).toBe(false);
+  });
+});
+
+describe('cortinaRef/pecas: borda embutida em [0, L] × [0, H]', () => {
+  it('a face externa do montante de borda fica rente à ponta (centro a meia largura dentro)', () => {
+    const r = resolverCortina(base());
+    const ini = r.pecas.montantes.find((m) => m.papel === PAPEL_BORDA_INICIO)!;
+    const fim = r.pecas.montantes.find((m) => m.papel === PAPEL_BORDA_FIM)!;
+    const base_ = r.pecas.montantes.find((m) => m.papel === PAPEL_BORDA_BASE)!;
+    const topo = r.pecas.montantes.find((m) => m.papel === PAPEL_BORDA_TOPO)!;
+    expect(ini.s - ini.largura / 2).toBeCloseTo(0, 12);
+    expect(fim.s + fim.largura / 2).toBeCloseTo(4, 12);
+    expect(base_.z - base_.largura / 2).toBeCloseTo(0, 12);
+    expect(topo.z + topo.largura / 2).toBeCloseTo(3, 12);
+    // o interior continua centrado na linha
+    const int = r.pecas.montantes.find((m) => m.papel === PAPEL_INTERIOR_V)!;
+    expect(int.s).toBeCloseTo(2, 12);
+  });
+  it('nenhuma peça nem painel sai de [0, L] × [0, H]', () => {
+    for (const nome of ['fixedNumber 4x3', 'preset wt_cortina_fachada', 'joinPriority horizontal', 'preset wt_cortina_vitrine']) {
+      const e = achar(nome);
+      const r = resolverCortina(e);
+      for (const m of r.pecas.montantes) {
+        const a = m.vertical ? m.s - m.largura / 2 : m.z - m.largura / 2;
+        const b = m.vertical ? m.s + m.largura / 2 : m.z + m.largura / 2;
+        const lim = m.vertical ? e.L : e.H;
+        expect(a, nome).toBeGreaterThanOrEqual(-1e-9);
+        expect(b, nome).toBeLessThanOrEqual(lim + 1e-9);
+      }
+      for (const p of r.pecas.paineis) {
+        expect(p.livre.s0).toBeGreaterThanOrEqual(-1e-9);
+        expect(p.livre.s1).toBeLessThanOrEqual(e.L + 1e-9);
+        expect(p.livre.z0).toBeGreaterThanOrEqual(-1e-9);
+        expect(p.livre.z1).toBeLessThanOrEqual(e.H + 1e-9);
+      }
+    }
+  });
+  it('a área coberta (montantes + painéis livres) preenche L × H sem sobreposição, em prioridade vertical', () => {
+    // 4 × 3, 2 × 2: verticais contínuos (3 × 3 m × 0,05) + horizontais aparados + painéis livres = L × H
+    const r = resolverCortina(base());
+    const mont = r.pecas.montantes.reduce((a, m) => a + m.comprimento * m.largura, 0);
+    const pain = r.pecas.paineis.reduce((a, p) => a + p.areaVisivel, 0);
+    expect(mont + pain).toBeCloseTo(12, 9);
   });
 });

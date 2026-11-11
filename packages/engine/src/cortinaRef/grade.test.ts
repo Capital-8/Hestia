@@ -111,9 +111,9 @@ describe('cortinaRef/grade: manual', () => {
   });
   it('posição desordenada é aceita (ordena)', () => perto(L(6, { mode: 'manual', positions: [4, 1, 2] }), [1, 2, 4]));
   it('vazio: uma célula', () => expect(L(6, { mode: 'manual', positions: [] })).toEqual([]));
-  it('offset desloca as posições; o que sai do vão sai com aviso e a ponta minúscula é fundida', () => {
+  it('offset desloca as posições; fora do vão sai com aviso; manual NUNCA funde sobra', () => {
     perto(L(6, { mode: 'manual', positions: [1, 2], offset: 0.5 }), [1.5, 2.5]);
-    perto(L(6, { mode: 'manual', positions: [0.01, 2], offset: 0.02 }), [2.02]);
+    perto(L(6, { mode: 'manual', positions: [0.01, 2], offset: 0.02 }), [0.03, 2.02]);
   });
   it('sem positions é ENTRADA', () => expect(() => L(6, { mode: 'manual' })).toThrow('ENTRADA'));
 });

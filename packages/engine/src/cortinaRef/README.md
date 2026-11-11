@@ -69,14 +69,15 @@ Convenções de coluna:
 
 Convenções de geometria (escolhas a confirmar; ver o relatório da fase):
 
-- Montante **centrado na linha**, inclusive o de borda: metade dele sai de `[0, L] × [0, H]` (§5.3 literal).
-- Painel livre = célula menos a **meia** largura do montante de cada lado (0 onde o papel é `null`), em qualquer prioridade.
+- **Decisão do dono (2026-11-11): montante de borda EMBUTIDO** em `[0, L] × [0, H]`: face externa rente à ponta, centro a meia largura para dentro (`montantes_geo.s`/`z` e `s` do centro). O interior é centrado na linha. A linha da borda segue em `0` e `L`/`H` em `segmentos_ext` e `linhas_pos`; só o corpo do montante recua.
+- Painel livre = célula menos o **recuo** de cada lado: largura inteira do montante de borda, meia largura do interior (0 onde o papel é `null`), em qualquer prioridade. Aparo dos montantes usa o mesmo recuo.
 - Prioridade `vertical`: verticais por segmento sem aparo (centro a centro); horizontais aparados em `largura_vertical/2` em cada ponta. `horizontal`: o inverso. Peças são **por segmento**, não por linha (a contagem do §9: ~120 para 60 células).
 - `offset`: em `fixedNumber`/`maxDistance` o padrão de `n` células iguais desliza inteiro (as linhas `k=0` e `k=n` entram ou saem); em `fixedDistance` o padrão **periódico** `p0 + k·d` desliza (offset de um período reproduz a grade). Em `fixedDistance` com `d` maior que o eixo (`m = 0`) há uma célula só e o `offset` é ignorado.
-- Fusão da sobra: `fixedDistance` sempre; os demais modos **só quando `offset != 0`**. Cada ponta tem no máximo uma fusão.
-- `manual`: posições desordenadas são aceitas (ordenam); `offset` é somado depois da âncora; posição fora de `(1e-6, A−1e-6)` é ignorada com aviso (já com o offset).
+- Fusão da sobra: `fixedDistance` sempre; `fixedNumber`/`maxDistance` **só quando `offset != 0`**; **`manual` NUNCA funde** (decisão do dono). Cada ponta tem no máximo uma fusão.
+- `manual` (decisão do dono): posições fora de ordem ou duplicadas são aceitas, ordenadas e soldadas (1e-6), sem ENTRADA; `offset` é somado depois da âncora; posição fora de `(1e-6, A−1e-6)` é ignorada com aviso (já com o offset); a sobra nunca é fundida, então uma célula de ponta pode ficar menor que `minRemainder`.
 - Célula mínima mede o **menor lado livre** (não o nominal) e avisa em qualquer tipo de painel, inclusive `empty`.
-- Montante sobreposto: distância entre linhas vizinhas (bordas contam) `< (largura_a + largura_b)/2`, só se os dois têm montante.
+- Montante sobreposto: distância entre os CENTROS dos montantes vizinhos (o centro da borda fica a meia largura da ponta) `< (largura_a + largura_b)/2`, só se os dois têm montante; pode dar medido negativo se os centros se cruzam.
+- `round` (decisão do dono): `depth = width` sempre; o `depth` declarado no perfil é ignorado.
 
 ## Testes
 

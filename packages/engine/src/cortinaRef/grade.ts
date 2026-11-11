@@ -55,8 +55,8 @@ export function linhasDoEixo(A: number, spec: GridAxisSpec): EixoResolvido {
   let bruto: number[] = [];
   /** Lado nominal da célula (para o aviso de sobra fundida); 0 = sem nominal (manual). */
   let nominal = 0;
-  /** Funde as pontas? fixedDistance sempre; os demais só com offset diferente de 0. */
-  let fundir = o !== 0;
+  /** Funde as pontas? fixedDistance sempre; fixedNumber/maxDistance só com offset diferente de 0; manual nunca. */
+  let fundir = o !== 0 && spec.mode !== 'manual'; // manual: as linhas são do usuário, nunca se funde sobra
 
   switch (spec.mode) {
     case 'fixedNumber':
