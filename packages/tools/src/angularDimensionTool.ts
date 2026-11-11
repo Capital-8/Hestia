@@ -12,7 +12,8 @@ import {
 } from '@hestia/model';
 import { alignFeaturesAt, type AlignFeature } from './alignFeatures.ts';
 import { angularReachLinks, frameOfWall, pointAt } from '@hestia/engine';
-import { addSectionDimension, ToolBase, viewPlanId } from './base.ts';
+import { addSectionDimension, ToolBase, vistaDoComando } from './base.ts';
+import { viewIdOfEnv } from './vistaDoAmbiente.ts';
 import { isSectionRef, sectionRefFeatures } from './angularSectionRefs.ts';
 import type { PointerInfo, PreviewItem } from './types.ts';
 
@@ -94,7 +95,7 @@ export class AngularDimensionTool extends ToolBase {
       prefer: this.env.options().alignPrefer ?? 'faces',
       hidden: this.env.hiddenInView?.(),
       referenceOnly: true,
-      planId: this.env.areaPlanId?.() ?? undefined,
+      planId: viewIdOfEnv(this.env),
     }).filter((f) => LINE_REFERENCE_KINDS.has(f.kind));
   }
 
@@ -277,7 +278,7 @@ export class AngularDimensionTool extends ToolBase {
       if (this.env.section?.()) {
         if (!addSectionDimension(this.env, dimension)) { this.env.say(this.t('tl_msg_dim_section_save_fail')); return; }
       } else {
-        this.env.exec({ type: 'addDimension', levelId: this.env.levelId(), planId: viewPlanId(this.env), dimension });
+        this.env.exec({ type: 'addDimension', levelId: this.env.levelId(), ...vistaDoComando(this.env), dimension });
       }
       this.reset();
       this.env.say(this.hint);

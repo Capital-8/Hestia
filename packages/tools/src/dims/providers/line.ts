@@ -1,5 +1,5 @@
 import { add, arcFromSagitta, dist, mul, norm, sub, type Vec2 } from '@hestia/geom';
-import { floorViewId, viewAnnotationsOf, type Id, type Project } from '@hestia/model';
+import { floorViewId, roofViewId, viewAnnotationsOf, type DetailLine, type Id, type Project } from '@hestia/model';
 import { NON_POSITIVE_MSG, gapTranslation, segFrame, segPoint, segmentGaps, type ParallelGap, type SegFrame } from '../parallel.ts';
 import type { DimContext, DimEditResult, DimEnd, DimProvider, TempDim } from '../types.ts';
 
@@ -49,9 +49,25 @@ export function detailLinePreviewDim(a: Vec2, b: Vec2): TempDim {
   };
 }
 
-function findLine(project: Project, levelId: Id, id: Id) {
-  return viewAnnotationsOf(project, floorViewId(levelId)).detailLines.find((x) => x.id === id) ?? null;
+/**
+ * Linhas de detalhe da vista que tem a linha `id`: a planta de piso do nível (a de sempre) ou a de cobertura, que tem as
+ * suas. As linhas vizinhas para a cota paralela são da MESMA vista. Sem a linha, null.
+ */
+function linhasDaVistaDe(project: Project, levelId: Id, id: Id): DetailLine[] | null {
+  for (const viewId of [floorViewId(levelId), roofViewId(levelId)]) {
+    const linhas = viewAnnotationsOf(project, viewId).detailLines;
+    if (linhas.some((x) => x.id === id)) return linhas;
+  }
+  return null;
 }
+
+function findLine(project: Project, levelId: Id, id: Id): DetailLine | null {
+  return linhasDaVistaDe(project, levelId, id)?.find((x) => x.id === id) ?? null;
+}
+
+/** Destino do comando de edição: a linha da cobertura leva o `viewId` dela; a do piso, a forma de sempre (sem vista). */
+const destinoDaLinha = (project: Project, levelId: Id, id: Id): { viewId?: Id } =>
+  viewAnnotationsOf(project, roofViewId(levelId)).detailLines.some((x) => x.id === id) ? { viewId: roofViewId(levelId) } : {};
 
 /** Cota lateral até a linha de detalhe paralela vizinha: editar translada a linha inteira na normal. */
 function lateralDim(ctx: DimContext, lineId: Id, f: SegFrame, a: Vec2, b: Vec2, gap: ParallelGap): TempDim {
@@ -61,7 +77,7 @@ function lateralDim(ctx: DimContext, lineId: Id, f: SegFrame, a: Vec2, b: Vec2, 
   const edit = (value: number): DimEditResult => {
     if (!(value > 0)) return { error: NON_POSITIVE_MSG };
     const d = gapTranslation(f.n, gap, value);
-    return { commands: [{ type: 'updateDetailLine', levelId: ctx.levelId, id: lineId, patch: { a: add(a, d), b: add(b, d) } }] };
+    return { commands: [{ type: 'updateDetailLine', levelId: ctx.levelId, ...destinoDaLinha(ctx.project, ctx.levelId, lineId), id: lineId, patch: { a: add(a, d), b: add(b, d) } }] };
   };
   return {
     key: `${DETAIL_ID}:${lineId}:${slot}`,
@@ -86,13 +102,13 @@ export const detailLineDimProvider: DimProvider<DetailLineDimSubject> = {
     const length = dist(line.a, line.b);
     if (length < MIN_LENGTH) return [];
     const f = segFrame(line.a, line.b);
-    const others = viewAnnotationsOf(ctx.project, floorViewId(ctx.levelId)).detailLines.filter((x) => x.id !== lineId);
+    const others = (linhasDaVistaDe(ctx.project, ctx.levelId, lineId) ?? []).filter((x) => x.id !== lineId);
     const gaps = f ? segmentGaps(f, others) : [];
     if (f && gaps.length > 0) return gaps.map((g) => lateralDim(ctx, lineId, f, line.a, line.b, g));
     const edit = (value: number): DimEditResult => {
       if (!(value > 0)) return { error: 'Digite um comprimento maior que zero.' };
       const u = norm(sub(line.b, line.a));
-      return { commands: [{ type: 'updateDetailLine', levelId: ctx.levelId, id: lineId, patch: { b: add(line.a, mul(u, value)) } }] };
+      return { commands: [{ type: 'updateDetailLine', levelId: ctx.levelId, ...destinoDaLinha(ctx.project, ctx.levelId, lineId), id: lineId, patch: { b: add(line.a, mul(u, value)) } }] };
     };
     return [{
       key: `${DETAIL_ID}:${lineId}:length`,

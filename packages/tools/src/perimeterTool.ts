@@ -16,6 +16,7 @@ import { ModifyFlow } from './perimeterToolModify.ts';
 import { BoxSelection, type SelectionBox } from './perimeterToolSelect.ts';
 import { perimeterDraftDims } from './perimeterToolDims.ts';
 import { draftAngleItemsForDraft } from './anglePreview.ts';
+import { viewIdOfEnv } from './vistaDoAmbiente.ts';
 import type { DimRef, TempDim } from './dims/types.ts';
 
 /** Forma escolhida na barra: uma forma de SHAPE_KINDS, ou um dos dois modos de contorno por referência. */
@@ -444,7 +445,7 @@ export class PerimeterTool extends ToolBase {
       value = angleOf(sub(p.raw, anchor));
     }
     this.items.push(...stepPreview(st, value, anchor, cursor, this.flags));
-    if (this.line === 'boundary' && st.shape.id === 'line' && anchor && this.inf) this.items.push(...draftAngleItemsForDraft(this.env.project(), this.env.levelId(), this.env.areaPlanId?.(), this.d.segs, anchor, this.inf.point, this.env.metersPerPixel(), unitsOf(this.env.project())));
+    if (this.line === 'boundary' && st.shape.id === 'line' && anchor && this.inf) this.items.push(...draftAngleItemsForDraft(this.env.project(), this.env.levelId(), viewIdOfEnv(this.env), this.d.segs, anchor, this.inf.point, this.env.metersPerPixel(), unitsOf(this.env.project())));
     this.env.say(this.t('tl_msg_shape_prompt', { shape: shapeName(st.shape, this.uiLang()), prompt: promptOf(st, this.uiLang()) }));
   }
 

@@ -13,6 +13,7 @@ import { hoverSectionAt, sectionPickAt } from '../editor/sectionPick.ts';
 import { anotacoesNaCaixaDoCorte, gestoDoBotaoNoCorte, idsNaCaixaDoCorte, modoDaCaixa, selecaoComCaixa } from '../editor/sectionBoxSelect.ts';
 import { sectionDimensionGripAt, sectionDimensionGripCommand, sectionHandleAt, sectionHandleCommand, sectionOpeningValues } from '../editor/sectionHandles.ts';
 import { cotaParaEditar, ehDuploClique, type CliqueAnterior } from '../editor/dimDoubleClick.ts';
+import { planViewIdAtivo } from '../editor/vistaAtiva.ts';
 import { dimensionFormatStyle, dimensionGeometry, dimensionStyleFor, dimensionText, sectionAnnotationsOf } from '@hestia/model';
 import { sectionDimensionPoints, type SectionDimensionGrip } from '@hestia/render';
 import { clickSelect3d, useUi } from '../editor/state.ts';
@@ -1081,7 +1082,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
         if (vv) {
           const alvo = st2.view === 'section'
             ? ({ vista: 'section', sectionId: st2.sectionId, hitId: sectionPickAt(s)?.id ?? null } as const)
-            : ({ vista: 'plan', levelId: st2.levelId, planId: st2.planKind === 'area' ? (st2.areaPlanId ?? undefined) : undefined, mpp: 1 / vv.zoom } as const);
+            : ({ vista: 'plan', levelId: st2.levelId, viewId: planViewIdAtivo(st2) ?? undefined, mpp: 1 / vv.zoom } as const);
           const id = cotaParaEditar(editor.project, alvo, screenToWorld(vv, s));
           if (id) useUi.setState({ dimEditId: id });
         }

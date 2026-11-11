@@ -162,6 +162,13 @@ export const makeId = newId;
 export const viewPlanId = (env: ToolEnv): Id | undefined => env.areaPlanId?.() ?? undefined;
 
 /**
+ * Destino de um comando de anotação de planta: a vista exata (`viewId`, piso, cobertura ou área) quando o ambiente a
+ * informa; senão a forma antiga (`planId` da área, ou nada = piso do nível).
+ */
+export const vistaDoComando = (env: ToolEnv): { viewId: Id } | { planId?: Id } =>
+  env.viewId ? { viewId: env.viewId } : { planId: viewPlanId(env) };
+
+/**
  * Acrescenta uma anotação na vista de corte/elevação ativa, pelo MESMO comando por item da planta (`sectionId`), com
  * validação do modelo e rótulo de desfazer certos. Falso quando a vista ativa não é corte.
  */

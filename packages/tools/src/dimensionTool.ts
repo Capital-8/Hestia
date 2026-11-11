@@ -15,8 +15,9 @@ import {
   type DimensionElementRef,
   type DimensionRef,
 } from '@hestia/model';
-import { addSectionDimension, ToolBase, viewPlanId } from './base.ts';
-import { signedOffset, viewAnnotationsOf } from './annotationPick.ts';
+import { addSectionDimension, ToolBase, vistaDoComando } from './base.ts';
+import { anotacoesSelecionaveis, signedOffset } from './annotationPick.ts';
+import { viewIdOfEnv } from './vistaDoAmbiente.ts';
 import { lengthUnitName, parseQuantityText } from './numeric.ts';
 import type { PointerInfo, PreviewItem, ToolOptions } from './types.ts';
 
@@ -108,7 +109,7 @@ export class DimensionTool extends ToolBase {
     const sec = this.env.section?.();
     const dims = sec
       ? sec.annotations().dimensions
-      : viewAnnotationsOf(this.env.project(), this.env.levelId(), viewPlanId(this.env)).dimensions;
+      : anotacoesSelecionaveis(this.env.project(), this.env.levelId(), viewIdOfEnv(this.env)).dimensions;
     const out = dims.map((d) => d.offset).filter((o) => Number.isFinite(o) && Math.abs(o) > 1e-6);
     const last = this.env.options().dimensionOffset;
     if (last !== undefined && Number.isFinite(last) && Math.abs(last) > 1e-6) out.push(last);
@@ -341,7 +342,7 @@ export class DimensionTool extends ToolBase {
       for (const d of pairs) {
         const refs = { ...(d.ra ? { a: d.ra } : {}), ...(d.rb ? { b: d.rb } : {}) };
         const dimension: Dimension = { id: newId('dim'), a: d.a, b: d.b, offset: d.offset, mode: d.mode, ...styleOverrides(opts), ...(opts.dimensionPrefix ? { prefix: opts.dimensionPrefix } : {}), ...(opts.dimensionSuffix ? { suffix: opts.dimensionSuffix } : {}), ...(Object.keys(refs).length ? { refs } : {}), ...this.familyPatch() };
-        if (!addSectionDimension(this.env, dimension)) this.env.exec({ type: 'addDimension', levelId: this.env.levelId(), planId: viewPlanId(this.env), dimension });
+        if (!addSectionDimension(this.env, dimension)) this.env.exec({ type: 'addDimension', levelId: this.env.levelId(), ...vistaDoComando(this.env), dimension });
       }
     });
     this.env.setOptions?.({ dimensionOffset: offset });
@@ -365,7 +366,7 @@ export class DimensionTool extends ToolBase {
     const refs = { ...(this.refA ? { a: this.refA } : {}), ...(this.refB ? { b: this.refB } : {}) };
     const o = this.env.options();
     const dimension: Dimension = { id: newId('dim'), a, b, offset, mode: this.modeFor(a, b), ...styleOverrides(o), ...(o.dimensionPrefix ? { prefix: o.dimensionPrefix } : {}), ...(o.dimensionSuffix ? { suffix: o.dimensionSuffix } : {}), ...(Object.keys(refs).length ? { refs } : {}), ...this.familyPatch() };
-    if (!addSectionDimension(this.env, dimension)) this.env.exec({ type: 'addDimension', levelId: this.env.levelId(), planId: viewPlanId(this.env), dimension });
+    if (!addSectionDimension(this.env, dimension)) this.env.exec({ type: 'addDimension', levelId: this.env.levelId(), ...vistaDoComando(this.env), dimension });
     this.env.setOptions?.({ dimensionOffset: offset });
     this.reset();
     this.env.say(this.hint);

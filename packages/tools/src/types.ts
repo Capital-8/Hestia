@@ -77,6 +77,11 @@ export interface ToolEnv {
   hiddenInView?(): ReadonlySet<Id>;
   /** Planta de área aberta na vista, quando a planta ativa é uma planta de área; null/ausente na planta de piso. */
   areaPlanId?(): Id | null;
+  /**
+   * Id da vista de planta ativa (piso `pv_`, cobertura `pvr_` ou planta de área). Ausente fora da planta (3D, corte,
+   * prancha) e nos ambientes que não informam a vista: aí `viewIdOfEnv` cai na planta de área ou na de piso do nível.
+   */
+  viewId?: Id;
   /** Pavimento de referência visível na planta (o de baixo, com Subpavimento ligado), ou null. A captura usa o que se vê. */
   underlayLevelId?(): Id | null;
   gridStep(): number;

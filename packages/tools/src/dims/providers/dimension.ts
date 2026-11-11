@@ -3,23 +3,35 @@ import type { DimContext, DimEditResult, DimEnd, DimProvider, TempDim } from '..
 import { drivenEditCommands } from '../driven.ts';
 import { t as translate, type Lang } from '../../i18n.ts';
 
-/** Onde a cota mora: no nível (planta de piso) ou numa planta de área (`planId`). */
+/**
+ * Onde a cota mora: na planta de piso do nível (só `levelId`), numa planta de área (`planId`) ou numa vista que a forma
+ * antiga não alcança, como a cobertura (`viewId`).
+ */
 export interface CotaVista {
   levelId: Id;
   planId?: Id;
+  viewId?: Id;
 }
 
-/** Cotas da vista: as do nível, ou as da planta de área. */
+/** Cotas da vista: as do nível, as da planta de área ou as da vista exata (`viewId`). */
 function dimsDaVista(p: Project, v: CotaVista): Dimension[] {
+  if (v.viewId) return viewOwnAnnotationsOf(p, v.viewId).dimensions;
   if (!v.planId) return levelDimensions(p, v.levelId);
   return viewOwnAnnotationsOf(p, v.planId).dimensions;
 }
 
-/** Vista que contém a cota: procura no nível e depois nas plantas de área do nível. Sem ela, null. */
+/** Destino de escrita da cota: só os campos de vista (nunca o `dimId` do sujeito). */
+const destinoDaCota = (v: CotaVista): CotaVista => ({
+  levelId: v.levelId,
+  ...(v.viewId ? { viewId: v.viewId } : v.planId ? { planId: v.planId } : {}),
+});
+
+/** Vista que contém a cota: procura na planta de piso do nível e depois nas outras vistas dele. Sem ela, null. */
 export function vistaDaCota(p: Project, levelId: Id, dimId: Id): CotaVista | null {
   if (levelDimensions(p, levelId).some((d) => d.id === dimId)) return { levelId };
-  for (const plan of planViewsOfLevel(p, levelId, 'area')) {
-    if (viewOwnAnnotationsOf(p, plan.id).dimensions.some((d) => d.id === dimId)) return { levelId, planId: plan.id };
+  for (const plan of planViewsOfLevel(p, levelId)) {
+    if (plan.kind === 'floor' || !viewOwnAnnotationsOf(p, plan.id).dimensions.some((d) => d.id === dimId)) continue;
+    return plan.kind === 'area' ? { levelId, planId: plan.id } : { levelId, viewId: plan.id };
   }
   return null;
 }
@@ -99,7 +111,7 @@ export const permanentDimProvider: DimProvider<PermanentDimSubject> = {
   id: PERMANENT_DIM_ID,
 
   compute(ctx: DimContext, subject: PermanentDimSubject): TempDim[] {
-    const vista: CotaVista = subject.planId ? { levelId: subject.levelId, planId: subject.planId } : { levelId: subject.levelId };
+    const vista: CotaVista = destinoDaCota(subject);
     const d = dimsDaVista(ctx.project, vista).find((x) => x.id === subject.dimId);
     if (!d || d.angular) return [];
     const pts = dimensionPoints(ctx.project, d);

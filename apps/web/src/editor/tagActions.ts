@@ -1,6 +1,7 @@
 import { floorViewId, isOpening, isWall, newId, viewAnnotationsOf, type Element, type ElementTag, type Id, type Project } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
+import { planViewIdAtivo } from './vistaAtiva.ts';
 
 function levelOf(p: Project, element: Element): Id | null {
   if ('levelId' in element) return element.levelId;
@@ -23,8 +24,9 @@ function center(p: Project, element: Element): { x: number; y: number } {
 export function tagAllNotTagged(): number {
   const p = editor.project;
   const levelId = useUi.getState().levelId;
-  // Etiquetas de elemento da planta de piso do nível (onde `addTag` sem `viewId` grava).
-  const existing = new Set(viewAnnotationsOf(p, floorViewId(levelId)).tags.map((x) => x.hostId));
+  const viewId = planViewIdAtivo(useUi.getState()) ?? floorViewId(levelId);
+  // Etiquetas de elemento da vista de planta ativa (piso, cobertura ou área): é onde as novas etiquetas entram.
+  const existing = new Set(viewAnnotationsOf(p, viewId).tags.map((x) => x.hostId));
   const property = useUi.getState().options.tagProperty ?? 'type';
   const orientation = useUi.getState().options.tagOrientation ?? 'horizontal';
   const items: ElementTag[] = Object.values(p.elements)
@@ -32,7 +34,7 @@ export function tagAllNotTagged(): number {
     .map((e) => ({ id: newId('tag'), hostId: e.id, at: center(p, e), property, orientation, leader: false }));
   if (!items.length) { useUi.setState({ status: { key: 'edc_all_tagged' } }); return 0; }
   editor.store.transaction('edc_undo_tag_all', () => {
-    for (const item of items) editor.store.exec({ type: 'addTag', levelId, item });
+    for (const item of items) editor.store.exec({ type: 'addTag', levelId, viewId, item });
   });
   const key = items.length === 1 ? 'edc_tags_created_one' : 'edc_tags_created_many';
   useUi.setState({ status: { key, args: { n: items.length } } });

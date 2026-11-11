@@ -337,9 +337,13 @@ export function annotationRemovals(p: Pick<Project, 'planViews'>, levelId: Id, i
   return out;
 }
 
-/** Ids das anotações do nível que estão em `ids`. */
-export function annotationIdsIn(p: Pick<Project, 'planViews'>, levelId: Id, ids: Id[]): Id[] {
-  const have = new Set(annotationIdsInView(p, levelId));
+/**
+ * Ids das anotações da vista de planta que estão em `ids`. Sem `viewId`: as da planta de piso do nível. Com `viewId`
+ * (cobertura ou área): só as dessa vista, que não enxerga as das outras.
+ */
+export function annotationIdsIn(p: Pick<Project, 'planViews'>, levelId: Id, ids: Id[], viewId?: Id): Id[] {
+  const own = viewId ? viewAnnotationsOf(p, viewId) : undefined;
+  const have = new Set(own ? [...own.dimensions, ...own.texts, ...own.detailLines, ...own.detailRegions, ...own.tags].map((a) => a.id) : annotationIdsInView(p, levelId));
   return ids.filter((id) => have.has(id));
 }
 
@@ -357,39 +361,43 @@ export function annotationIdsInView(p: Pick<Project, 'planViews'>, levelId: Id, 
 
 /**
  * Comandos que movem por `d` as cotas e os textos de `ids` (ou, com `copy`, criam cópias com ids novos). Uma cota movida
- * perde as referências às paredes: a posição passa a ser livre.
+ * perde as referências às paredes: a posição passa a ser livre. Sem `viewId`, opera na planta de piso do nível; com
+ * `viewId` (cobertura ou área), só nas anotações dessa vista e os comandos levam o `viewId`.
  */
-export function annotationMoveCommands(p: Pick<Project, 'planViews'>, levelId: Id, ids: Id[], d: Vec2, copy: boolean): AnnotationCommand[] {
+export function annotationMoveCommands(p: Pick<Project, 'planViews'>, levelId: Id, ids: Id[], d: Vec2, copy: boolean, viewId?: Id): AnnotationCommand[] {
+  const piso = floorViewId(levelId);
+  const fonte = viewAnnotationsOf(p, viewId ?? piso);
+  const destino: { viewId?: Id } = viewId && viewId !== piso ? { viewId } : {};
   const want = new Set(ids);
   const shift = (v: Vec2): Vec2 => ({ x: v.x + d.x, y: v.y + d.y });
   const out: AnnotationCommand[] = [];
-  for (const dim of levelDimensions(p, levelId)) {
+  for (const dim of fonte.dimensions) {
     if (!want.has(dim.id)) continue;
     const moved = { ...dim, a: shift(dim.a), b: shift(dim.b), ...(dim.textAt ? { textAt: shift(dim.textAt) } : {}), ...(dim.angular ? { angular: { ...dim.angular, center: shift(dim.angular.center) } } : {}) };
-    if (copy) out.push({ type: 'addDimension', levelId, dimension: { ...moved, id: newId('dim'), refs: undefined } });
-    else out.push({ type: 'updateDimension', levelId, id: dim.id, patch: { ...moved, refs: undefined } });
+    if (copy) out.push({ type: 'addDimension', levelId, ...destino, dimension: { ...moved, id: newId('dim'), refs: undefined } });
+    else out.push({ type: 'updateDimension', levelId, ...destino, id: dim.id, patch: { ...moved, refs: undefined } });
   }
-  for (const t of levelTexts(p, levelId)) {
+  for (const t of fonte.texts) {
     if (!want.has(t.id)) continue;
     const movedLeader = t.leader?.map(shift);
-    if (copy) out.push({ type: 'addText', levelId, text: { ...t, id: newId('txt'), at: shift(t.at), leader: movedLeader } });
-    else out.push({ type: 'updateText', levelId, id: t.id, patch: { at: shift(t.at), leader: movedLeader } });
+    if (copy) out.push({ type: 'addText', levelId, ...destino, text: { ...t, id: newId('txt'), at: shift(t.at), leader: movedLeader } });
+    else out.push({ type: 'updateText', levelId, ...destino, id: t.id, patch: { at: shift(t.at), leader: movedLeader } });
   }
-  const level = viewAnnotationsOf(p, floorViewId(levelId));
+  const level = fonte;
   for (const item of level.detailLines) if (want.has(item.id)) {
     const moved = { a: shift(item.a), b: shift(item.b) };
-    if (copy) out.push({ type: 'addDetailLine', levelId, item: { ...item, id: newId('dl'), ...moved } });
-    else out.push({ type: 'updateDetailLine', levelId, id: item.id, patch: moved });
+    if (copy) out.push({ type: 'addDetailLine', levelId, ...destino, item: { ...item, id: newId('dl'), ...moved } });
+    else out.push({ type: 'updateDetailLine', levelId, ...destino, id: item.id, patch: moved });
   }
   for (const item of level.detailRegions) if (want.has(item.id)) {
     const boundary = item.boundary.map(shift);
-    if (copy) out.push({ type: 'addDetailRegion', levelId, item: { ...item, id: newId('dr'), boundary } });
-    else out.push({ type: 'updateDetailRegion', levelId, id: item.id, patch: { boundary } });
+    if (copy) out.push({ type: 'addDetailRegion', levelId, ...destino, item: { ...item, id: newId('dr'), boundary } });
+    else out.push({ type: 'updateDetailRegion', levelId, ...destino, id: item.id, patch: { boundary } });
   }
   for (const item of level.tags) if (want.has(item.id)) {
     const at = shift(item.at);
-    if (copy) out.push({ type: 'addTag', levelId, item: { ...item, id: newId('tag'), at } });
-    else out.push({ type: 'updateTag', levelId, id: item.id, patch: { at } });
+    if (copy) out.push({ type: 'addTag', levelId, ...destino, item: { ...item, id: newId('tag'), at } });
+    else out.push({ type: 'updateTag', levelId, ...destino, id: item.id, patch: { at } });
   }
   return out;
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { arcFromSagitta } from '@hestia/geom';
-import { createEmptyProject, dimensionSettingsOf, ProjectStore } from '@hestia/model';
+import { createEmptyProject, dimensionSettingsOf, floorViewId, ProjectStore, roofViewId, viewAnnotationsOf } from '@hestia/model';
 import { detailLineDimProvider, perimeterLineDimProvider } from './line.ts';
 import type { DimContext } from '../types.ts';
 
@@ -90,5 +90,31 @@ describe('linha de detalhe: distância lateral até a paralela', () => {
       expect(detailLineDimProvider.compute(ctxOf(s), { lineId: 'dl' })[0]!.value).toBeCloseTo(v, 9);
       expect(dim.edit!(0)).toEqual({ error: expect.stringContaining('maior que zero') });
     }
+  });
+});
+
+describe('linha de detalhe da cobertura', () => {
+  it('é achada na vista da cobertura, a edição leva o viewId e o piso não é tocado', () => {
+    const s = projectWithLine();
+    s.exec({ type: 'addDetailLine', levelId: 'lv_0', viewId: roofViewId('lv_0'), item: { id: 'dlc', a: { x: 0, y: 0 }, b: { x: 3, y: 0 } } });
+    expect(detailLineDimProvider.selectionSubject!(s.project, 'dlc', 'lv_0')).toEqual({ lineId: 'dlc' });
+    const [dim] = detailLineDimProvider.compute(ctxOf(s), { lineId: 'dlc' });
+    expect(dim?.value).toBeCloseTo(3, 9);
+    const r = dim!.edit!(5);
+    if (!('commands' in r)) throw new Error('sem comandos');
+    expect(r.commands[0]).toMatchObject({ type: 'updateDetailLine', levelId: 'lv_0', viewId: roofViewId('lv_0'), id: 'dlc' });
+    s.exec(r.commands[0]!);
+    expect(viewAnnotationsOf(s.project, roofViewId('lv_0')).detailLines[0]!.b).toEqual({ x: 5, y: 0 });
+    expect(viewAnnotationsOf(s.project, floorViewId('lv_0')).detailLines[0]!.b).toEqual({ x: 4, y: 6 });
+  });
+
+  it('a cota paralela só considera as linhas da mesma vista', () => {
+    const s = projectWithLine();
+    s.exec({ type: 'addDetailLine', levelId: 'lv_0', viewId: roofViewId('lv_0'), item: { id: 'c1', a: { x: 0, y: 0 }, b: { x: 3, y: 0 } } });
+    s.exec({ type: 'addDetailLine', levelId: 'lv_0', item: { id: 'p1', a: { x: 0, y: 1 }, b: { x: 3, y: 1 } } });
+    // c1 está sozinha na cobertura (p1 é do piso): sem paralela vizinha, cai no comprimento da própria linha.
+    const dims = detailLineDimProvider.compute(ctxOf(s), { lineId: 'c1' });
+    expect(dims).toHaveLength(1);
+    expect(dims[0]!.key).toContain(':length');
   });
 });

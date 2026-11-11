@@ -23,13 +23,14 @@ export const tempRefs = (a: DimensionElementRef | undefined, b: DimensionElement
  * Converte cotas dinâmicas em cotas permanentes (ícone "I"): um `addDimension` por `TempDim`, com os mesmos pontos,
  * afastamento e medida. Sem `unit`/`precision`/`prefix`: a leitura segue as unidades do projeto. Pontas que o provedor
  * identificou como feição de elemento (`TempDim.refs`) gravam `Dimension.refs` e a cota acompanha o elemento; as demais
- * ficam livres. Com `planId`, a cota mora na planta de área (senão no nível).
+ * ficam livres. Com `viewId`, a cota mora nessa vista de planta (piso, cobertura ou área); com `planId`, na planta de
+ * área; sem nenhum dos dois, na planta de piso do nível.
  */
-export function toPermanent(levelId: Id, dims: readonly TempDim[], planId?: Id): Command[] {
+export function toPermanent(levelId: Id, dims: readonly TempDim[], planId?: Id, viewId?: Id): Command[] {
   return dims.map((d) => ({
     type: 'addDimension' as const,
     levelId,
-    ...(planId ? { planId } : {}),
+    ...(viewId ? { viewId } : planId ? { planId } : {}),
     dimension: {
       id: newId('dim'),
       a: { ...d.a },

@@ -2,7 +2,8 @@ import { annotationRemovals, isRoom, levelRoomSeparators, projectGrids, viewOwnA
 import { areaMergePreview, removesCircuit, roomsToRemove } from './areaMerge.ts';
 import { pedirConfirmacaoAreaMerge } from './areaMergePrompt.ts';
 import { useUi } from './state.ts';
-import { areaViewIdAtivo } from './vistaAtiva.ts';
+import { areaViewIdAtivo, planViewIdAtivo, tipoDeVistaAtivo } from './vistaAtiva.ts';
+import { remocoesNaVista } from './vistaDoComando.ts';
 import { vistaDeArea } from './vistaDeArea.ts';
 
 /**
@@ -90,7 +91,10 @@ export function deleteSelectionIn(store: ProjectStore): void | Promise<void> {
   if (!ids.length) return;
   const areaId = areaViewIdAtivo(ui);
   if (areaId) return deletePlanSelectionIn(store, areaId, ids);
-  const notes = annotationRemovals(store.project, levelId, ids);
+  // Cobertura tem anotações próprias: exclui da vista ativa. Na planta de piso, as do nível (`pv_`), como sempre.
+  const notes = tipoDeVistaAtivo(ui) === 'roof'
+    ? remocoesNaVista(store.project, planViewIdAtivo(ui)!, ids)
+    : annotationRemovals(store.project, levelId, ids);
   const views = viewRemovals(store.project, ids);
   const separators = levelRoomSeparators(store.project, levelId).filter((r) => ids.includes(r.id)).map((r) => r.id);
   // Grades pertencem ao projeto (fora de project.elements e dos níveis): removeGrid.

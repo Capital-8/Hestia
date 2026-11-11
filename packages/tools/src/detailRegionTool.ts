@@ -1,6 +1,6 @@
 import { dist, type Vec2 } from '@hestia/geom';
 import { newId } from '@hestia/model';
-import { addSectionDetailRegion, ToolBase, viewPlanId } from './base.ts';
+import { addSectionDetailRegion, ToolBase, vistaDoComando } from './base.ts';
 import type { PointerInfo } from './types.ts';
 
 /** Região de detalhe poligonal; Enter fecha o contorno. */
@@ -29,7 +29,7 @@ export class DetailRegionTool extends ToolBase {
     if (this.points.length < 3) { this.env.say('A região precisa de pelo menos três pontos.'); return; }
     const levelId = this.env.levelId();
     const item = { id: newId('dr'), boundary: this.points.map((p) => ({ ...p })), color: this.env.options().regionColor ?? '#f5d782', mask: this.env.options().regionMask === true };
-    if (!addSectionDetailRegion(this.env, item)) this.env.exec({ type: 'addDetailRegion', levelId, planId: viewPlanId(this.env), item });
+    if (!addSectionDetailRegion(this.env, item)) this.env.exec({ type: 'addDetailRegion', levelId, ...vistaDoComando(this.env), item });
     this.reset();
     this.env.say(this.hint);
   }
