@@ -1,16 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  DEFAULT_AREA_GRAPHICS,
-  DEFAULT_VIEW_RANGE,
-  ProjectStore,
-  createEmptyProject,
-  floorViewId,
-  makeRoom,
-  makeWall,
-  roofViewId,
-  type AreaPlan,
-  type Project,
-} from '@hestia/model';
+import { DEFAULT_AREA_GRAPHICS, DEFAULT_VIEW_RANGE, ProjectStore, createEmptyProject, floorViewId, makeRoom, makeWall, roofViewId, type AreaPlan, type Project, planViewRangeOf } from '@hestia/model';
 import {
   areaLegendRows,
   areaLegendRowsOfView,
@@ -89,7 +78,7 @@ describe('leitura de planta de área pelo id da vista', () => {
 describe('avisos de intervalo pelo id da vista', () => {
   it.each([false, true])('planta de piso e planta de área: igual a viewRangeWarnings com o intervalo do nível (próprias: %s)', (proprias) => {
     const p = montar({ proprias });
-    const esperado = viewRangeWarnings(p, LV0, p.levels[0]!.viewRange);
+    const esperado = viewRangeWarnings(p, LV0, planViewRangeOf(p, floorViewId(LV0)));
     expect(esperado.length).toBeGreaterThan(0);
     expect(viewRangeWarningsOfView(p, floorViewId(LV0))).toEqual(esperado);
     expect(viewRangeWarningsOfView(p, AP)).toEqual(esperado);

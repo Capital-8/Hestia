@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { pointInMulti, type Vec2 } from '@hestia/geom';
 import { resolveLevel } from '@hestia/engine';
-import { ProjectStore, createEmptyProject, makeFloor, makeWall, paperMmToPx, type Opening, type Project } from '@hestia/model';
+import { ProjectStore, createEmptyProject, makeFloor, makeWall, paperMmToPx, type Opening, type Project, withFloorPatchOfTest } from '@hestia/model';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { mix } from './color.ts';
 import { drawPlanCpu } from './cpuPlan.ts';
@@ -190,8 +190,8 @@ describe('estilo visual da planta (decisão 0015 §2.3)', () => {
 
   it('estilo do 3D guardado numa planta cai em linha oculta (o comando recusa, mas o dado antigo não quebra)', () => {
     const p = scene();
-    const g = { ...(p.levels[0]!.graphics ?? {}), style: 'realistic' } as NonNullable<Project['levels'][number]['graphics']>;
-    const q: Project = { ...p, levels: p.levels.map((l) => (l.id === 'lv_0' ? { ...l, graphics: g } : l)) };
+    const g = { ...(p.planViews[0]!.graphics ?? {}), style: 'realistic' } as NonNullable<Project['planViews'][number]['graphics']>;
+    const q: Project = withFloorPatchOfTest(p, 'lv_0', { graphics: g });
     expect(planStyleOf(q, 'lv_0', 100).visual).toBe('hiddenLine');
   });
 });

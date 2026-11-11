@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Vec2 } from '@hestia/geom';
-import { DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS, ProjectStore, createEmptyProject, defaultStairTypeId, makeFloor, makeLevel, makeRoom, makeRoof, makeStair, makeWall, type AreaPlan, type Project, type StairRun } from '@hestia/model';
+import { DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS, ProjectStore, createEmptyProject, defaultStairTypeId, makeFloor, makeLevel, makeRoom, makeRoof, makeStair, makeWall, type AreaPlan, type Project, type StairRun, withFloorPatchOfTest, planViewRangeOf } from '@hestia/model';
 import { resolveLevel } from '@hestia/engine';
 import { buildPlanGeometry, type PlanInput } from './build.ts';
 import { planFrameUpdateOf, type PlanViewState } from './planFrame.ts';
@@ -78,7 +78,7 @@ describe('planta de área · geometria do motor único (A2)', () => {
   it('mostra contorno de parede fora do corte', () => {
     const s = new ProjectStore(createEmptyProject());
     s.exec({ type: 'addWall', wall: makeWall({ id: 'w0', typeId: 'wt_alv14', levelId: 'lv_0', a: { x: 0, y: 0 }, b: { x: 4, y: 0 } }) });
-    const p = { ...s.project, levels: s.project.levels.map((l) => (l.id === 'lv_0' ? { ...l, viewRange: { ...l.viewRange, cut: -1 } } : l)) };
+    const p = withFloorPatchOfTest(s.project, 'lv_0', { viewRange: { ...planViewRangeOf(s.project, 'pv_lv_0'), cut: -1 } });
     expect(buildPlanGeometry(entrada(p, plan())).strokes.length).toBeGreaterThan(0);
   });
 
