@@ -1,7 +1,7 @@
 // ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v11.json.
 // Não edite à mão: mude o JSON e rode `node scripts/gerar-esquema-kernel.mjs`.
 
-export const ESQUEMA_VERSAO = 13;
+export const ESQUEMA_VERSAO = 14;
 export const ABI_VERSAO = 2;
 export const NIVEL_TODOS = 4294967295;
 
@@ -2050,6 +2050,286 @@ export const SECOES = {
         "tipo": "f64"
       }
     ]
+  },
+  "cortinas": {
+    "id": 100,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "nivel_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "tipo_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "ax",
+        "tipo": "f64"
+      },
+      {
+        "nome": "ay",
+        "tipo": "f64"
+      },
+      {
+        "nome": "bx",
+        "tipo": "f64"
+      },
+      {
+        "nome": "by",
+        "tipo": "f64"
+      },
+      {
+        "nome": "z_base",
+        "tipo": "f64"
+      },
+      {
+        "nome": "altura",
+        "tipo": "f64"
+      },
+      {
+        "nome": "sag",
+        "tipo": "f64"
+      },
+      {
+        "nome": "flipped",
+        "tipo": "u8"
+      },
+      {
+        "nome": "loc",
+        "tipo": "u8"
+      },
+      {
+        "nome": "flags",
+        "tipo": "u8"
+      },
+      {
+        "nome": "painel_padrao_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "hosp_num",
+        "tipo": "u32"
+      }
+    ]
+  },
+  "tipos_cortina": {
+    "id": 101,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "profundidade",
+        "tipo": "f64"
+      },
+      {
+        "nome": "painel_padrao_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "mont_int_v",
+        "tipo": "u32"
+      },
+      {
+        "nome": "mont_int_h",
+        "tipo": "u32"
+      },
+      {
+        "nome": "mont_borda_ini",
+        "tipo": "u32"
+      },
+      {
+        "nome": "mont_borda_fim",
+        "tipo": "u32"
+      },
+      {
+        "nome": "mont_borda_base",
+        "tipo": "u32"
+      },
+      {
+        "nome": "mont_borda_topo",
+        "tipo": "u32"
+      },
+      {
+        "nome": "mont_canto",
+        "tipo": "u32"
+      },
+      {
+        "nome": "prioridade",
+        "tipo": "u8"
+      },
+      {
+        "nome": "celula_minima",
+        "tipo": "f64"
+      },
+      {
+        "nome": "faceta_max",
+        "tipo": "f64"
+      },
+      {
+        "nome": "cadeia_grade",
+        "tipo": "u8"
+      }
+    ]
+  },
+  "grades_cortina": {
+    "id": 102,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "dono",
+        "tipo": "u8"
+      },
+      {
+        "nome": "dono_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "eixo",
+        "tipo": "u8"
+      },
+      {
+        "nome": "modo",
+        "tipo": "u8"
+      },
+      {
+        "nome": "numero",
+        "tipo": "u32"
+      },
+      {
+        "nome": "distancia",
+        "tipo": "f64"
+      },
+      {
+        "nome": "justificacao",
+        "tipo": "u8"
+      },
+      {
+        "nome": "ancora",
+        "tipo": "u8"
+      },
+      {
+        "nome": "deslocamento",
+        "tipo": "f64"
+      },
+      {
+        "nome": "angulo",
+        "tipo": "f64"
+      },
+      {
+        "nome": "resto_minimo",
+        "tipo": "f64"
+      }
+    ]
+  },
+  "grade_posicoes_cortina": {
+    "id": 103,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "grade_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "ordem",
+        "tipo": "u32"
+      },
+      {
+        "nome": "pos",
+        "tipo": "f64"
+      }
+    ]
+  },
+  "tipos_montante_cortina": {
+    "id": 104,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "forma",
+        "tipo": "u8"
+      },
+      {
+        "nome": "largura",
+        "tipo": "f64"
+      },
+      {
+        "nome": "profundidade",
+        "tipo": "f64"
+      },
+      {
+        "nome": "espessura",
+        "tipo": "f64"
+      },
+      {
+        "nome": "largura2",
+        "tipo": "f64"
+      },
+      {
+        "nome": "deslocamento",
+        "tipo": "f64"
+      },
+      {
+        "nome": "posicao",
+        "tipo": "u8"
+      },
+      {
+        "nome": "material_num",
+        "tipo": "u32"
+      }
+    ]
+  },
+  "tipos_painel_cortina": {
+    "id": 105,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "tipo",
+        "tipo": "u8"
+      },
+      {
+        "nome": "espessura",
+        "tipo": "f64"
+      },
+      {
+        "nome": "deslocamento",
+        "tipo": "f64"
+      },
+      {
+        "nome": "encaixe",
+        "tipo": "f64"
+      },
+      {
+        "nome": "material_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "vidro_tipo",
+        "tipo": "u8"
+      }
+    ]
   }
 } as const;
 
@@ -2797,6 +3077,149 @@ export const CONSULTAS = {
     "args": [
       "nivel_num",
       "norma_num"
+    ],
+    "saidas": [
+      {
+        "nome": "avisos",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "valores",
+        "tipo": "f64",
+        "elementos": "5n"
+      }
+    ]
+  },
+  "cortina_grade": {
+    "id": 100,
+    "args": [
+      "nivel_num"
+    ],
+    "saidas": [
+      {
+        "nome": "linhas",
+        "tipo": "u32",
+        "elementos": "5n"
+      },
+      {
+        "nome": "linhas_pos",
+        "tipo": "f64",
+        "elementos": "n"
+      },
+      {
+        "nome": "celulas",
+        "tipo": "u32",
+        "elementos": "6n"
+      },
+      {
+        "nome": "celulas_ret",
+        "tipo": "f64",
+        "elementos": "4n"
+      },
+      {
+        "nome": "segmentos",
+        "tipo": "u32",
+        "elementos": "5n"
+      },
+      {
+        "nome": "segmentos_ext",
+        "tipo": "f64",
+        "elementos": "2n"
+      }
+    ]
+  },
+  "cortina_malha": {
+    "id": 101,
+    "args": [
+      "nivel_num",
+      "lod"
+    ],
+    "saidas": [
+      {
+        "nome": "prototipos",
+        "tipo": "u32",
+        "elementos": "8n"
+      },
+      {
+        "nome": "vertices",
+        "tipo": "f64",
+        "elementos": "3n"
+      },
+      {
+        "nome": "indices",
+        "tipo": "u32",
+        "elementos": "n"
+      },
+      {
+        "nome": "instancias",
+        "tipo": "u32",
+        "elementos": "6n"
+      },
+      {
+        "nome": "matrizes",
+        "tipo": "f64",
+        "elementos": "12n"
+      },
+      {
+        "nome": "grupos",
+        "tipo": "u32",
+        "elementos": "6n"
+      },
+      {
+        "nome": "vertices_av",
+        "tipo": "f64",
+        "elementos": "3n"
+      },
+      {
+        "nome": "indices_av",
+        "tipo": "u32",
+        "elementos": "n"
+      }
+    ]
+  },
+  "cortina_planta": {
+    "id": 102,
+    "args": [
+      "nivel_num",
+      "corte_z",
+      "detalhe"
+    ],
+    "saidas": [
+      {
+        "nome": "linhas",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "pontos",
+        "tipo": "f64",
+        "elementos": "2n"
+      }
+    ]
+  },
+  "quant_cortina": {
+    "id": 104,
+    "args": [
+      "nivel_num"
+    ],
+    "saidas": [
+      {
+        "nome": "linhas",
+        "tipo": "u32",
+        "elementos": "5n"
+      },
+      {
+        "nome": "valores",
+        "tipo": "f64",
+        "elementos": "4n"
+      }
+    ]
+  },
+  "cortina_avisos": {
+    "id": 105,
+    "args": [
+      "nivel_num"
     ],
     "saidas": [
       {
