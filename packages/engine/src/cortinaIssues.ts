@@ -19,6 +19,11 @@ export const CODIGO_AVISO_CORTINA: Record<number, string> = {
   [AVISO_CORTINA.posicaoFora]: 'cortina-posicao-fora',
   [AVISO_CORTINA.profundidadeMenorQuePerfil]: 'cortina-profundidade-menor-que-perfil',
   [AVISO_CORTINA.arcoNaoSuportado]: 'cortina-arco-nao-suportado',
+  // Fase 2: as três órfãs (célula, linha, segmento) são um só código para o usuário; a posição aproximada vai no texto.
+  [AVISO_CORTINA.orfaoCelula]: 'cortina-override-orfao',
+  [AVISO_CORTINA.orfaoLinha]: 'cortina-override-orfao',
+  [AVISO_CORTINA.orfaoSegmento]: 'cortina-override-orfao',
+  [AVISO_CORTINA.celulaNaoRetangular]: 'cortina-celula-nao-retangular',
 };
 
 /** Informativos (a cortina continua correta): sobra fundida e posição manual fora do vão. Os demais são avisos. */
@@ -35,6 +40,8 @@ const MSG = {
     'cortina-profundidade-menor-que-perfil': 'Parede cortina: o perfil do montante tem {medido} m de profundidade e o sistema tem só {limite} m.',
     'cortina-arco-nao-suportado': 'Parede cortina em arco: o arco ainda não é suportado nesta versão; só o eixo é mostrado.',
     'cortina-sem-kernel': 'Parede cortina: o kernel de geometria não está ligado; só o eixo é mostrado.',
+    'cortina-override-orfao': 'Parede cortina: uma sobrescrita (célula, linha ou segmento) ficou sem lugar depois de mudar a grade, perto de {medido} m do início e {limite} m da base. Foi ignorada; a próxima edição da parede a remove.',
+    'cortina-celula-nao-retangular': 'Parede cortina: remover este segmento deixaria uma região de {medido} células que não é retângulo (o retângulo teria {limite}). A remoção foi ignorada.',
   },
   en: {
     'cortina-celula-pequena': 'Curtain wall: a cell has a free side of {medido} m, smaller than the {limite} m minimum.',
@@ -44,6 +51,8 @@ const MSG = {
     'cortina-profundidade-menor-que-perfil': 'Curtain wall: the mullion profile is {medido} m deep and the system is only {limite} m.',
     'cortina-arco-nao-suportado': 'Arched curtain wall: arcs are not supported in this version yet; only the axis is shown.',
     'cortina-sem-kernel': 'Curtain wall: the geometry kernel is off; only the axis is shown.',
+    'cortina-override-orfao': 'Curtain wall: an override (cell, line or segment) has no place after the grid changed, near {medido} m from the start and {limite} m from the base. It was ignored; the next edit of the wall removes it.',
+    'cortina-celula-nao-retangular': 'Curtain wall: removing this segment would leave a {medido}-cell region that is not a rectangle (the rectangle would have {limite}). The removal was ignored.',
   },
 } as const;
 

@@ -5,8 +5,10 @@
  * Cortina = parede cujo tipo tem `family: 'curtain'` e `curtain` preenchido (`isCurtainType`). Ela NÃO entra no resolvedor de camadas da seção 1
  * (`paredesDeCamadasDoNivel` a exclui) e vai só para as seções 100 a 105.
  *
- * Assinatura (ADR §9): `hashTexto` do que altera a geometria da cortina (eixo, flecha, cota e altura JÁ resolvidas pelas anexações, tipo, tipos de
- * montante e de painel referenciados, instância). A chave de cache é sempre o hash, nunca a serialização da grade.
+ * Fase 2: a instância entra com as sobrescritas JÁ traduzidas para o adaptador (`cortinaSobrescritas.ts`): linhas extras, segmentos removidos, linhas
+ * sobrescritas e painéis por célula. Assinatura (ADR §9): `hashTexto` do que altera a geometria da cortina (eixo, flecha, cota e altura JÁ resolvidas
+ * pelas anexações, tipo, tipos de montante e de painel referenciados, instância e sobrescritas). Mudar uma sobrescrita muda o hash da cortina e o do
+ * nível; a chave de cache é sempre o hash, nunca a serialização da grade.
  */
 import {
   curtainPanelTypesOf,
@@ -14,6 +16,7 @@ import {
   isWall,
   mullionTypesOf,
   papeisDeMontante,
+  wallLength,
   type CurtainPanelType,
   type CurtainSpec,
   type Id,
@@ -28,6 +31,7 @@ import { resolveAllRoofs } from './roofs.ts';
 import { wallZRange, type WallZ } from './wallZ.ts';
 import type { CortinaKernel, EixoGradeKernel, EntradaCenaCortina, MontanteKernel, PainelKernel, TipoCortinaKernel } from './kernelCortina.ts';
 import { ID_AUSENTE_CORTINA } from './kernelCortinaTabelas.ts';
+import { sobrescritasDaInstancia } from './cortinaSobrescritas.ts';
 
 /** Parede cortina do projeto com o tipo já resolvido. */
 export interface ParedeCortina {
@@ -206,6 +210,10 @@ export function entradaCortinaDoProjeto(p: Project, materiaisAnteriores?: Readon
     const painelDaInstancia = inst?.defaultPanelTypeId;
     if (painelDaInstancia && pain[painelDaInstancia]) painUsados.set(painelDaInstancia, pain[painelDaInstancia]!);
     const zz = z.get(w.id)!;
+    // Sobrescritas (fase 2): a referência a montante ou painel ausente sai, e os tipos que elas usam entram na entrada.
+    const sob = sobrescritasDaInstancia(inst, { u: wallLength(w), v: zz.height }, mont, pain);
+    for (const id of sob.montantes) montUsados.set(id, mont[id]!);
+    for (const id of sob.paineis) painUsados.set(id, pain[id]!);
     const k: CortinaKernel = {
       id: w.id,
       levelNum: nivelDe.get(w.levelId)!,
@@ -219,6 +227,7 @@ export function entradaCortinaDoProjeto(p: Project, materiaisAnteriores?: Readon
       locationLine: w.locationLine,
       ...(inst?.grid && (inst.grid.u || inst.grid.v) ? { grid: { ...(inst.grid.u ? { u: inst.grid.u } : {}), ...(inst.grid.v ? { v: inst.grid.v } : {}) } } : {}),
       ...(painelDaInstancia && pain[painelDaInstancia] ? { defaultPanelTypeId: painelDaInstancia } : {}),
+      ...(sob.sobrescritas ? { sobrescritas: sob.sobrescritas } : {}),
     };
     cortinas.push(k);
     assinaturas.set(
