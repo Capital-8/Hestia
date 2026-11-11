@@ -37,7 +37,7 @@ describe('acabamentos do tipo de escada (seção do modal)', () => {
     expect(tagOf(m, 'stt-treadFinishThickness')).toContain('value="2,0"');
     expect(tagOf(m, 'stt-riserFinishEnabled')).not.toContain('checked=""');
     expect(tagOf(m, 'stt-riserFinishThickness')).toContain('value="1,0"');
-    expect(tagOf(m, 'stt-bocelProjection')).toContain('value="2,0"');
+    expect(tagOf(m, 'stt-bocelProjection')).toContain('value="1,5"');
     expect(m).toContain('id="stt-treadFinishMaterialId"');
   });
 

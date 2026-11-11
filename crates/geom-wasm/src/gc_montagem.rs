@@ -438,7 +438,7 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
                 }
             }
         }
-        let cfg = ConfigDistribuicao { altura: h_t, postes: params.clone(), padroes: padroes.clone(), paineis: paineis.clone(), degraus, gerar_malha: com_malha };
+        let cfg = ConfigDistribuicao { altura: h_t, postes: params.clone(), padroes: padroes.clone(), paineis: paineis.clone(), degraus, esfera: lim(limite::ESFERA_MAXIMA), gerar_malha: com_malha };
         let tr = TrechoGC { guarda: gid, indice: t.trecho, origem: t.origem, curvo: t.curvo, fechado: t.fechado, nos: t.nos.clone() };
         let saida = dist::distribuir(&tr, &cfg, restante)?;
         postes_xy.insert(t.trecho, saida.postes.iter().map(|p| [p.x, p.y]).collect());

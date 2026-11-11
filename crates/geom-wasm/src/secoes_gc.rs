@@ -268,6 +268,7 @@ pub struct PadraoLinha {
     pub ang_quebra: f64,
     pub escopo: u8,
     pub pd_ativo: bool,
+    /// Quantidade por degrau; 0 = automática (mínimo que a norma exige, ver `QTD_AUTOMATICA` em `gc_distribuicao`).
     pub pd_qtd: u32,
     /// Distância do bocel ao centro do montante (m) ou `PD_CENTRO`.
     pub pd_dist: f64,
@@ -906,7 +907,7 @@ impl SecoesGC {
             if !self.tipos.contains_key(&p.tipo) || !ref_ok(p.tipo, p.base_tipo, p.base_idx, false) || !ref_ok(p.tipo, p.topo_tipo, p.topo_idx, true) {
                 return Err(ENTRADA);
             }
-            if p.pd_ativo && (p.pd_qtd == 0 || (p.pd_perfil != ID_AUSENTE && !perfil_existe(p.pd_perfil))) {
+            if p.pd_ativo && p.pd_perfil != ID_AUSENTE && !perfil_existe(p.pd_perfil) {
                 return Err(ENTRADA);
             }
             let ne = n_elementos.get(id).copied().unwrap_or(0);

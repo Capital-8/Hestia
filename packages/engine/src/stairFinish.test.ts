@@ -68,16 +68,16 @@ const treads = (m: StairFinishSolid[]): StairFinishSolid[] => m.filter((s) => s.
 const risers = (m: StairFinishSolid[]): StairFinishSolid[] => m.filter((s) => s.kind === 'riser').sort((a, b) => a.number - b.number);
 
 describe('acabamentos da escada: padrões e migração', () => {
-  it('tipo sem os campos (projeto antigo) = tudo desligado; tipos novos nascem desligados com bocel de 2 cm', () => {
+  it('tipo sem os campos (projeto antigo) = tudo desligado; tipos novos nascem desligados com bocel de 1,5 cm (o limite do aviso)', () => {
     const antigo = { ...DEFAULT_STAIR_TYPES[0]! } as StairType;
     for (const k of ['treadFinishEnabled', 'riserFinishEnabled', 'bocelEnabled', 'bocelProjection'] as const) delete antigo[k];
     expect(stairFinishOf(antigo)).toMatchObject({ treadOn: false, riserOn: false, bocel: 0 });
     for (const t of DEFAULT_STAIR_TYPES) {
-      expect(t).toMatchObject({ treadFinishEnabled: false, riserFinishEnabled: false, bocelEnabled: true, bocelProjection: 0.02 });
+      expect(t).toMatchObject({ treadFinishEnabled: false, riserFinishEnabled: false, bocelEnabled: true, bocelProjection: 0.015 });
       expect(stairFinishOf(t).treadOn).toBe(false);
     }
     // O bocel só vale com o piso acabado ligado.
-    expect(stairFinishOf({ ...antigo, treadFinishEnabled: true }).bocel).toBeCloseTo(0.02, 12);
+    expect(stairFinishOf({ ...antigo, treadFinishEnabled: true }).bocel).toBeCloseTo(0.015, 12);
     expect(stairFinishOf({ ...antigo, riserFinishEnabled: true }).bocel).toBe(0);
   });
 

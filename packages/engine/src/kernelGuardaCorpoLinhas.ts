@@ -134,7 +134,8 @@ export function linhasDoTipo(c: CtxGC, t: TipoGuardaCorpo, id: number): void {
         ang_quebra: pr.anguloQuebra,
         escopo: codigo(ENUM.escopo, pr.escopo, 'escopo do padrão'),
         pd_ativo: pd.ativo ? 1 : 0,
-        pd_qtd: pd.quantidade,
+        // 0 = automática (o Rust resolve pela esfera da norma do tipo).
+        pd_qtd: pd.ativo && pd.automatico ? 0 : pd.quantidade,
         // `null` (ou ausente, em tipo antigo) = centro da pisada; o Rust lê -1 como centro.
         pd_dist: pd.distanciaDoBocel ?? PD_CENTRO_GC,
         pd_perfil_num: pd.modelo ? perfil(pd.modelo.perfil) : ID_AUSENTE_GC,

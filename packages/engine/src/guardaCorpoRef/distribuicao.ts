@@ -48,7 +48,7 @@ export interface PadraoRef {
 /** `s0` e `prof` são das faces ACABADAS dos espelhos; `z` é o topo do piso acabado; `bocel` e `bocelSeguinte` (m, opcionais, padrão 0) vêm do acabamento. */
 export interface DegrauRef { s0: number; prof: number; z: number; bocel?: number; bocelSeguinte?: number }
 export interface PainelRef { larguraMax: number; folga: number }
-export interface ConfigRef { altura: number; postes: ParamPostesRef; padrao: PadraoRef | null; painel: PainelRef | null; degraus: DegrauRef[] }
+export interface ConfigRef { altura: number; postes: ParamPostesRef; padrao: PadraoRef | null; painel: PainelRef | null; degraus: DegrauRef[]; esfera?: number | null }
 
 export interface Percurso { nos: No3[]; s: number[]; n: number; total: number; fechado: boolean }
 export interface Amostra { x: number; y: number; z: number; ux: number; uy: number }
@@ -324,6 +324,42 @@ export function deslocamentosNoPiso(pd: PadraoRef['porDegrau'], p: number): numb
   return Array.from({ length: q }, (_, j) => d + j * passo);
 }
 
+/** `porDegrau.quantidade` com este valor = quantidade automática (espelha `QTD_AUTOMATICA` do Rust). */
+export const QTD_AUTOMATICA = 0;
+const QTD_AUTOMATICA_SEM_NORMA = 2;
+const QTD_AUTOMATICA_MAX = 64;
+
+/**
+ * Menor quantidade de montantes por degrau (centros de N faixas iguais da pisada útil) para que nenhum vão livre horizontal passe de `esfera`:
+ * dentro do degrau e do último deste ao primeiro do seguinte (espelha `quantidade_automatica` do Rust). Um só N para o lance inteiro.
+ */
+export function quantidadeAutomatica(degraus: DegrauRef[], largura: number, esfera: number): number {
+  const util = degraus.map((dg) => {
+    const [bocel, pisada] = pisoDoDegrau(dg);
+    return { b: bocel, sg: pisada < 0 ? -1 : 1, p: Math.abs(pisada) };
+  });
+  const cabe = (n: number): boolean =>
+    util.every(({ b, sg, p }, i) => {
+      if (n > 1 && p / n - largura > esfera + EPS) return false;
+      const seg = util[i + 1];
+      if (!seg) return true;
+      const ultimo = b + sg * (p - p / (2 * n));
+      const primeiro = seg.b + sg * (seg.p / (2 * n));
+      return Math.abs((primeiro - ultimo) * sg) - largura <= esfera + EPS;
+    });
+  for (let n = 1; n <= QTD_AUTOMATICA_MAX; n++) if (cabe(n)) return n;
+  return QTD_AUTOMATICA_MAX;
+}
+
+/** Padrão com o modo automático resolvido (espelha `resolver_automatico` do Rust). */
+function resolverAutomatico(pad: PadraoRef, degraus: DegrauRef[], esfera: number | null): PadraoRef {
+  const larguraPd = pad.porDegrau.largura ?? 0;
+  const porDegrau = { ...pad.porDegrau, centro: true };
+  if (esfera === null || !(esfera > EPS)) return { ...pad, porDegrau: { ...porDegrau, quantidade: QTD_AUTOMATICA_SEM_NORMA } };
+  const periodo = pad.elementos.length === 1 ? esfera + (pad.elementos[0]!.largura ?? larguraPd) : pad.periodo;
+  return { ...pad, periodo, porDegrau: { ...porDegrau, quantidade: quantidadeAutomatica(degraus, larguraPd, esfera) } };
+}
+
 export function balaustres(
   p: Percurso, curvo: boolean, origem: number, ps: PosteSaida[], pad: PadraoRef, degraus: DegrauRef[], avisos: AvisoSaida[],
 ): BalaustreSaida[] {
@@ -433,7 +469,8 @@ export function distribuir(t: TrechoRef, cfg: ConfigRef): SaidaRef {
   const p = percurso(t);
   const avisos: AvisoSaida[] = [];
   const ps = postes(p, t.curvo, cfg.postes, cfg.altura, avisos);
-  const bal = cfg.padrao ? balaustres(p, t.curvo, t.origem, ps, cfg.padrao, cfg.degraus, avisos) : [];
+  const padrao = cfg.padrao && cfg.padrao.porDegrau.ativo && cfg.padrao.porDegrau.quantidade === QTD_AUTOMATICA ? resolverAutomatico(cfg.padrao, cfg.degraus, cfg.esfera ?? null) : cfg.padrao;
+  const bal = padrao ? balaustres(p, t.curvo, t.origem, ps, padrao, cfg.degraus, avisos) : [];
   const pan = cfg.painel ? paineis(p, ps, cfg.painel, avisos) : [];
   return { postes: ps, balaustres: bal, paineis: pan, avisos };
 }
@@ -472,7 +509,7 @@ export function casoParaConfig(c: Json): { trecho: TrechoRef; cfg: ConfigRef } {
   }
   const painel = c.painel ? { larguraMax: num(c.painel, 'largura_max', 0), folga: num(c.painel, 'folga', 0) } : null;
   const degraus: DegrauRef[] = ((c.degraus ?? []) as Json[]).map((d) => ({ s0: num(d, 's0', 0), prof: num(d, 'prof', 0.28), z: num(d, 'z', 0), bocel: num(d, 'bocel', 0), bocelSeguinte: num(d, 'bocel_seguinte', 0) }));
-  return { trecho, cfg: { altura: num(c, 'altura', 1.1), postes: postesCfg, padrao, painel, degraus } };
+  return { trecho, cfg: { altura: num(c, 'altura', 1.1), postes: postesCfg, padrao, painel, degraus, esfera: typeof c.esfera === 'number' ? c.esfera : null } };
 }
 
 /** Saída no mesmo formato (e na mesma ordem de colunas) que o teste cargo grava em `esperado`. */

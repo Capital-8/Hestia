@@ -35,7 +35,7 @@ pub(super) fn padrao(periodo: f64, justif: u8) -> PadraoP {
 }
 
 pub(super) fn config(postes: ParamPostes, padroes: Vec<PadraoP>) -> ConfigDistribuicao {
-    ConfigDistribuicao { altura: 1.1, postes, padroes, paineis: vec![], degraus: vec![], gerar_malha: false }
+    ConfigDistribuicao { altura: 1.1, postes, padroes, paineis: vec![], degraus: vec![], esfera: None, gerar_malha: false }
 }
 
 fn reta(comp: f64) -> TrechoGC {
@@ -610,7 +610,7 @@ fn config_json(c: &Value) -> (TrechoGC, ConfigDistribuicao) {
         paineis.push(pn);
     }
     let degraus = c["degraus"].as_array().map_or(vec![], |a| a.iter().map(|d| DegrauP { s0: n(d, "s0", 0.0), profundidade: n(d, "prof", 0.28), z: n(d, "z", 0.0), bocel: n(d, "bocel", 0.0), bocel_seguinte: n(d, "bocel_seguinte", 0.0) }).collect());
-    (t, ConfigDistribuicao { altura: n(c, "altura", 1.1), postes, padroes, paineis, degraus, gerar_malha: false })
+    (t, ConfigDistribuicao { altura: n(c, "altura", 1.1), postes, padroes, paineis, degraus, esfera: c.get("esfera").and_then(Value::as_f64), gerar_malha: false })
 }
 
 fn arred(x: f64) -> f64 {
@@ -775,4 +775,111 @@ fn montante_que_nao_cabe_no_piso_avisa_e_nao_e_desenhado() {
     // Só o do meio de cada degrau cabe (faixa central), e o aviso é dado.
     assert_eq!(o.balaustres[0].len(), 3);
     assert_eq!(o.avisos.len(), 1);
+}
+
+/// Vãos livres horizontais entre obstáculos verticais consecutivos de uma saída (postes e balaústres de `larg`); as pontas do trecho ficam de fora.
+fn vaos_livres(o: &SaidaDistribuicao, larg: f64) -> Vec<f64> {
+    let mut obst: Vec<(f64, f64)> = o.postes.iter().map(|p| (p.s - p.meia, p.s + p.meia)).collect();
+    obst.extend(o.balaustres[0].iter().map(|b| (b.s - larg / 2.0, b.s + larg / 2.0)));
+    obst.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+    let mut fim = obst.first().map_or(0.0, |o| o.0);
+    let mut vaos = Vec::new();
+    for (a, b) in obst {
+        if a > fim + 1e-9 {
+            vaos.push(a - fim);
+        }
+        fim = fim.max(b);
+    }
+    vaos
+}
+
+/// Modo automático (decisão do dono): com a esfera da norma (11 cm), pisadas de 25 a 32 cm, perfis de 2 a 4 cm e bocel de 1,5 cm, o vão livre nunca passa da
+/// esfera, N é o mínimo (com N-1 passaria), os montantes ficam inteiros sobre o piso e inverter o sentido não muda nada.
+#[test]
+fn quantidade_automatica_e_o_minimo_que_a_norma_exige_e_nao_depende_do_sentido() {
+    let esfera = 0.11;
+    let bocel = 0.015;
+    let n = 6usize;
+    for cm in 25..=32 {
+        let pisada = cm as f64 / 100.0;
+        for larg_cm in [2.0, 3.0, 4.0] {
+            let larg = larg_cm / 100.0;
+            let total = pisada * n as f64;
+            let mut resultado: Vec<Vec<f64>> = Vec::new();
+            for invertido in [false, true] {
+                let sg = if invertido { -1.0 } else { 1.0 };
+                let t0 = CadeiaGC::lance_inclinado(1, total, 0.0, 0.17 * n as f64, 0.0).trechos.remove(0);
+                let t = if invertido { TrechoGC { nos: t0.nos.iter().rev().cloned().collect(), ..t0 } } else { t0 };
+                let degraus: Vec<DegrauP> = (0..n)
+                    .map(|i| {
+                        let s0 = if invertido { total - pisada * i as f64 } else { pisada * i as f64 };
+                        DegrauP { s0, profundidade: sg * pisada, z: 0.17 * (i + 1) as f64, bocel, bocel_seguinte: if i + 1 < n { bocel } else { 0.0 } }
+                    })
+                    .collect();
+                let mut cfg = pd_cfg(QTD_AUTOMATICA, None, larg, &degraus);
+                cfg.esfera = Some(esfera);
+
+                let o = distribuir(&t, &cfg, 1000).unwrap();
+                assert!(o.avisos.is_empty(), "pisada {pisada} perfil {larg}: aviso de montante fora do piso");
+                let q = o.balaustres[0].len() / n;
+                assert_eq!(q * n, o.balaustres[0].len());
+                // Nenhum vão livre passa da esfera (mesmo critério do aviso de vão).
+                let maior = vaos_livres(&o, larg).into_iter().fold(0.0_f64, f64::max);
+                assert!(maior <= esfera + 1e-9, "pisada {pisada} perfil {larg} N {q}: vão de {maior} passa da esfera");
+                // N é o mínimo: com N-1 o critério falha.
+                assert_eq!(q as u32, quantidade_automatica(&degraus, larg, esfera));
+                if q > 1 {
+                    let menos = pd_cfg(q as u32 - 1, None, larg, &degraus);
+
+                    let om = distribuir(&t, &menos, 1000).unwrap();
+                    let maior_menos = vaos_livres(&om, larg).into_iter().fold(0.0_f64, f64::max);
+                    assert!(maior_menos > esfera + 1e-9, "pisada {pisada} perfil {larg}: N-1 = {} também servia", q - 1);
+                }
+                // Montantes inteiros sobre o piso.
+                for x in &o.balaustres[0] {
+                    let dg = degraus.iter().find(|g| {
+                        let (b, p) = piso_do_degrau(g);
+                        let off = (x.s - b) * sg;
+                        off >= -1e-9 && off <= p.abs() + 1e-9
+                    });
+                    let dg = dg.expect("sobre algum degrau");
+                    let (b, p) = piso_do_degrau(dg);
+                    let off = (x.s - b) * sg;
+                    assert!(off >= larg / 2.0 - 1e-9 && off <= p.abs() - larg / 2.0 + 1e-9);
+                }
+                // Espelhada em torno do meio da escada, a saída da escada invertida tem de ser a mesma da escada normal.
+                resultado.push(o.balaustres[0].iter().map(|b| if invertido { total - b.s } else { b.s }).collect());
+            }
+            resultado[1].sort_by(|p, q| p.partial_cmp(q).unwrap());
+            resultado[0].sort_by(|p, q| p.partial_cmp(q).unwrap());
+            assert_eq!(resultado[0].len(), resultado[1].len(), "pisada {pisada} perfil {larg}: quantidade muda com o sentido");
+            for (a, b) in resultado[0].iter().zip(&resultado[1]) {
+                assert!(aproximado(*a, *b), "pisada {pisada} perfil {larg}: posição muda com o sentido");
+            }
+        }
+    }
+}
+
+/// Fora da escada (patamar, trecho livre) o modo automático espaça no máximo permitido: esfera + largura, centro a centro, sem passar da esfera.
+#[test]
+fn automatico_fora_da_escada_usa_o_espacamento_maximo_da_norma() {
+    let t = reta(3.0);
+    for larg in [0.02, 0.04] {
+        let mut pad = padrao(0.05, JUSTIF_DISTRIBUIR);
+        pad.elementos = vec![elem(Some(larg), 0.0)];
+        pad.por_degrau = PorDegrauP { ativo: true, quantidade: QTD_AUTOMATICA, dist_quina: 0.0, centro: true, perfil: Some(PerfilP::circular(larg)), material: 5 };
+        let mut cfg = config(param_postes(Some(0.05), Some(0.05), None, None, MODO_NENHUM, 0.0, 0), vec![pad]);
+        cfg.esfera = Some(0.11);
+        let o = distribuir(&t, &cfg, 1000).unwrap();
+        let vaos = vaos_livres(&o, larg);
+        let maior = vaos.iter().cloned().fold(0.0_f64, f64::max);
+        assert!(maior <= 0.11 + 1e-9, "vão de {maior}");
+        // Quase no máximo: o vão maior fica a menos de um passo da esfera.
+        assert!(maior > 0.11 / 2.0, "espaçamento muito apertado: {maior}");
+        let n = o.balaustres[0].len();
+        let passo_max = 0.11 + larg;
+        // Comprimento útil: do centro do primeiro ao centro do último, descontadas as meias larguras dos postes e dos balaústres das pontas.
+        let lu = 3.0 - 0.05 - larg;
+        assert_eq!(n, ((lu / passo_max) - 1e-9).ceil() as usize + 1, "quantidade");
+    }
 }

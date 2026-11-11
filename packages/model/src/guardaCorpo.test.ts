@@ -126,7 +126,7 @@ describe('regras do tipo (tipoGuardaCorpoIssue)', () => {
     }],
     ['balaústres por degrau sem quantidade', (t) => {
       const pr = t.preenchimentos[0];
-      if (pr?.tipo === 'balaustres') pr.porDegrau = { ...pr.porDegrau, ativo: true, quantidade: 0 };
+      if (pr?.tipo === 'balaustres') pr.porDegrau = { ...pr.porDegrau, ativo: true, automatico: false, quantidade: 0 };
     }],
   ];
   for (const [nome, altera] of casos) {
@@ -136,6 +136,13 @@ describe('regras do tipo (tipoGuardaCorpoIssue)', () => {
       expect(tipoGuardaCorpoIssue(t, 'pt')).not.toBeNull();
     });
   }
+  it('balaústres por degrau automático não exige quantidade e é o padrão de fábrica', () => {
+    const t = tipoBase();
+    const pr = t.preenchimentos.find((p) => p.tipo === 'balaustres');
+    expect(pr?.tipo === 'balaustres' && pr.porDegrau.automatico).toBe(true);
+    if (pr?.tipo === 'balaustres') pr.porDegrau = { ...pr.porDegrau, quantidade: 0 };
+    expect(tipoGuardaCorpoIssue(t, 'pt')).toBeNull();
+  });
   it('aceita o tipo padrão sem alteração', () => {
     expect(tipoGuardaCorpoIssue(tipoBase(), 'pt')).toBeNull();
   });

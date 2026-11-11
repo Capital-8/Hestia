@@ -1867,7 +1867,7 @@
           "tipo": "u32"
         }
       ],
-      "descricao": "Padrões de balaústres do tipo; `indice` é a posição na lista `preenchimentos` (padrões e painéis do mesmo tipo dividem a numeração, no máximo 8 no total). base_tipo: 0 hospedeiro, 1 trilho (base_idx = índice do trilho). topo_tipo: 0 altura, 1 trilho, 2 corrimão (topo_idx). justif: 0 inicio, 1 fim, 2 centro, 3 distribuir. sobra: 0 nenhuma, 1 balaustre-extra, 2 folga-nas-pontas. quebra: 0 cada-segmento, 1 angulo, 2 nunca. escopo: 0 vao, 1 segmento. pd_*: porDegrau (ativo, quantidade por degrau, distância da quina, perfil e material do balaústre; perfil ID_AUSENTE = vazio)."
+      "descricao": "Padrões de balaústres do tipo; `indice` é a posição na lista `preenchimentos` (padrões e painéis do mesmo tipo dividem a numeração, no máximo 8 no total). base_tipo: 0 hospedeiro, 1 trilho (base_idx = índice do trilho). topo_tipo: 0 altura, 1 trilho, 2 corrimão (topo_idx). justif: 0 inicio, 1 fim, 2 centro, 3 distribuir. sobra: 0 nenhuma, 1 balaustre-extra, 2 folga-nas-pontas. quebra: 0 cada-segmento, 1 angulo, 2 nunca. escopo: 0 vao, 1 segmento. pd_*: porDegrau (ativo, quantidade por degrau (0 = automática: o mínimo que a norma exige), distância da quina, perfil e material do balaústre; perfil ID_AUSENTE = vazio)."
     },
     {
       "id": 79,

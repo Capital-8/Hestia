@@ -605,6 +605,61 @@ pub fn deslocamentos_no_piso(pd: &PorDegrauP, p: f64) -> Vec<f64> {
     (0..q).map(|j| d + j as f64 * passo).collect()
 }
 
+/// `PorDegrauP::quantidade` com este valor = quantidade automática (o mínimo que a norma exige; ver `quantidade_automatica`).
+pub const QTD_AUTOMATICA: u32 = 0;
+/// Quantidade por degrau usada no modo automático quando a norma não informa esfera máxima.
+const QTD_AUTOMATICA_SEM_NORMA: u32 = 2;
+const QTD_AUTOMATICA_MAX: u32 = 64;
+
+/// Menor quantidade `N` de montantes por degrau (centros de N faixas iguais da pisada útil) para que nenhum vão livre entre montantes passe de `esfera`:
+/// dentro do degrau (`pisada / N - largura`) e do último deste ao primeiro do seguinte (centro a centro, menos a largura). Mesmo critério horizontal do
+/// aviso `gc-vao-grande`. Um só `N` para o lance inteiro (o maior que algum degrau exige).
+pub fn quantidade_automatica(degraus: &[DegrauP], largura: f64, esfera: f64) -> u32 {
+    let util: Vec<(f64, f64, f64)> = degraus
+        .iter()
+        .map(|dg| {
+            let (bocel, pisada) = piso_do_degrau(dg);
+            (bocel, if pisada < 0.0 { -1.0 } else { 1.0 }, pisada.abs())
+        })
+        .collect();
+    let cabe = |n: u32| -> bool {
+        let nf = n as f64;
+        for (i, &(b, sg, p)) in util.iter().enumerate() {
+            if n > 1 && p / nf - largura > esfera + EPS {
+                return false;
+            }
+            if let Some(&(b2, _, p2)) = util.get(i + 1) {
+                let ultimo = b + sg * (p - p / (2.0 * nf));
+                let primeiro = b2 + sg * (p2 / (2.0 * nf));
+                if ((primeiro - ultimo) * sg).abs() - largura > esfera + EPS {
+                    return false;
+                }
+            }
+        }
+        true
+    };
+    (1..=QTD_AUTOMATICA_MAX).find(|&n| cabe(n)).unwrap_or(QTD_AUTOMATICA_MAX)
+}
+
+/// Padrão com o modo automático resolvido: quantidade por degrau mínima para a norma e, fora dos degraus (patamar, trecho livre), o espaçamento
+/// máximo permitido (`esfera + largura` do balaústre, centro a centro). Sem esfera na norma: 2 por degrau e o período do tipo.
+fn resolver_automatico(pad: &PadraoP, degraus: &[DegrauP], esfera: Option<f64>) -> PadraoP {
+    let mut r = pad.clone();
+    r.por_degrau.centro = true;
+    let larg_pd = pad.por_degrau.perfil.as_ref().map_or(0.0, |p| p.largura_ao_longo());
+    match esfera.filter(|e| *e > EPS) {
+        Some(e) => {
+            r.por_degrau.quantidade = quantidade_automatica(degraus, larg_pd, e);
+            if pad.elementos.len() == 1 {
+                let w = pad.elementos[0].perfil.as_ref().map_or(larg_pd, |p| p.largura_ao_longo());
+                r.periodo = e + w;
+            }
+        }
+        None => r.por_degrau.quantidade = QTD_AUTOMATICA_SEM_NORMA,
+    }
+    r
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn balaustres(
     perc: &Percurso,
@@ -1006,6 +1061,8 @@ pub struct ConfigDistribuicao {
     pub padroes: Vec<PadraoP>,
     pub paineis: Vec<PainelP>,
     pub degraus: Vec<DegrauP>,
+    /// Maior esfera permitida pela norma do tipo (m). Só o modo automático do balaústre por degrau a usa (`QTD_AUTOMATICA`); `None` = sem limite conhecido.
+    pub esfera: Option<f64>,
     /// `false` = só posições e avisos (sem malha), para as consultas de contagem.
     pub gerar_malha: bool,
 }
@@ -1030,6 +1087,13 @@ pub fn distribuir(trecho: &TrechoGC, cfg: &ConfigDistribuicao, restante: usize) 
     saida.postes = postes(&perc, trecho.curvo, &cfg.postes, cfg.altura, &mut saida.avisos);
     let mut resta = restante;
     for pad in &cfg.padroes {
+        let resolvido;
+        let pad = if pad.por_degrau.ativo && pad.por_degrau.quantidade == QTD_AUTOMATICA {
+            resolvido = resolver_automatico(pad, &cfg.degraus, cfg.esfera);
+            &resolvido
+        } else {
+            pad
+        };
         let v = balaustres(&perc, trecho.curvo, trecho.origem, &saida.postes, pad, &cfg.degraus, resta, &mut saida.avisos)?;
         resta -= v.len();
         saida.balaustres.push(v);

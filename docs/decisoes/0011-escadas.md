@@ -170,7 +170,7 @@ piso). Tab alterna linha e arco e sai de "Pegar linhas", como qualquer escolha d
 
 ## 8 · Acabamentos da escada: piso, espelho e bocel (engine: `stairFinish.ts`)
 
-Campos opcionais do **tipo** de escada (`StairType`), todos em metros. Campo ausente = desligado, então os tipos e as escadas de projetos antigos não mudam e **não houve mudança na versão do esquema** (`stairFinishOf` aplica os padrões). Tipos novos nascem com os acabamentos desligados e o bocel ligado com 2 cm.
+Campos opcionais do **tipo** de escada (`StairType`), todos em metros. Campo ausente = desligado, então os tipos e as escadas de projetos antigos não mudam e **não houve mudança na versão do esquema** (`stairFinishOf` aplica os padrões). Tipos novos nascem com os acabamentos desligados e o bocel ligado com 1,5 cm (decisão do dono de 2026-11-10: é o limite do aviso `stair-bocel-projection`, então o padrão nunca dispara o aviso; o que era 2 cm passou a 1,5 cm). Tipos já gravados com `bocelProjection` explícito não mudam; sem o campo o piso acabado está desligado, então nada muda na geometria.
 
 | Campo | Tipo | Padrão (tipo novo) |
 |---|---|---|
@@ -181,7 +181,7 @@ Campos opcionais do **tipo** de escada (`StairType`), todos em metros. Campo aus
 | `riserFinishMaterialId` | id de material | `mat_ceramica` |
 | `riserFinishThickness` | m | `0.01` |
 | `bocelEnabled` | boolean | `true` |
-| `bocelProjection` | m | `0.02` |
+| `bocelProjection` | m | `0.015` |
 
 O bocel só tem efeito com o acabamento do piso ligado. Os acabamentos valem nos estilos **monolítico** e **poste** (o poste não tem espelho, então só piso). No estilo **montado** são ignorados: piso e espelho do próprio tipo já são o acabamento. Rampas não têm esse modelo e ficam fora desta frente.
 

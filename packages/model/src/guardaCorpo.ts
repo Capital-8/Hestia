@@ -119,8 +119,9 @@ function balaustres(nome: string, perfil: PerfilGC, materialId: string, periodo:
     quebra: 'nunca',
     anguloQuebra: 0.5236,
     escopo: 'vao',
-    // Em escada e rampa com degraus: 2 por degrau, no centro das faixas iguais da pisada (nunca na quina). Fora dos lances, vale o espaçamento.
-    porDegrau: { ativo: true, quantidade: 2, distanciaDoBocel: null, modelo: elemento.modelo },
+    // Automático (norma): em escada e rampa com degraus, o mínimo de balaústres por degrau para o vão livre não passar da esfera da norma, no centro de
+    // faixas iguais da pisada (nunca na quina); fora dos lances, o espaçamento máximo da norma. `quantidade` só vale se o usuário desligar o automático.
+    porDegrau: { ativo: true, quantidade: 2, automatico: true, distanciaDoBocel: null, modelo: elemento.modelo },
   };
 }
 
@@ -268,6 +269,6 @@ function preenchimentoIssue(tipo: TipoGuardaCorpo, pr: TipoGuardaCorpo['preenchi
   }
   const soma = pr.elementos.reduce((acc, e) => acc + e.distanciaAnterior, 0);
   if (!(pr.periodo > soma)) return t(lang, 'md_gc_periodo');
-  if (pr.porDegrau.ativo && !(pr.porDegrau.quantidade >= 1)) return t(lang, 'md_gc_pordegrau');
+  if (pr.porDegrau.ativo && !pr.porDegrau.automatico && !(pr.porDegrau.quantidade >= 1)) return t(lang, 'md_gc_pordegrau');
   return null;
 }
