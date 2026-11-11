@@ -108,6 +108,21 @@ export interface CortinaKernel {
   locationLine?: keyof typeof ENUM_CORTINA.locationLine;
   grid?: { u?: EixoGradeParcialKernel; v?: EixoGradeParcialKernel };
   defaultPanelTypeId?: string | null;
+  /** Sobrescritas da fase 2 (ADR 0056 §4.3), na forma que o kernel recebe. */
+  sobrescritas?: SobrescritasCortinaKernel;
+}
+
+/**
+ * Sobrescritas de uma cortina (fase 2). `comprimentoGravado` é o comprimento do eixo na gravação (m): a posição de uma linha não travada acompanha a
+ * fração `pos / comprimentoGravado`. Segmento de linha gerada: `linha` é o índice gravado (0 ou `n` é a borda), `posNorm` a posição normalizada da linha
+ * e `n` o nº de células do eixo na gravação. Segmento de linha extra: `linha` é o `id` da extra.
+ */
+export interface SobrescritasCortinaKernel {
+  linhasExtras?: readonly { id: string; eixo: 'u' | 'v'; pos: number; travada?: boolean; comprimentoGravado: number; montante?: string }[];
+  segmentosRemovidos?: readonly { eixo: 'u' | 'v'; origem: 'gerada' | 'extra'; linha: number | string; posNorm?: number; n?: number; k: number; nk: number; mid: number }[];
+  /** `montante`: ausente = herda do eixo; `null` = sem montante; um id = o tipo. */
+  linhasSobrescritas?: readonly { eixo: 'u' | 'v'; linha: number; n: number; posNorm: number; pos?: number; travada?: boolean; comprimentoGravado: number; montante?: string | null }[];
+  celulasSobrescritas?: readonly { i: number; j: number; nu: number; nv: number; s: number; z: number; painel: string }[];
 }
 
 export interface EntradaCenaCortina {
@@ -277,6 +292,70 @@ export function montarCenaCortina(e: EntradaCenaCortina, anterior?: CenaCortina)
     (a.positions ?? []).forEach((pos, k) => push('grade_posicoes_cortina', { id_num: idDe('grade_posicoes_cortina', `${chave}:${k}`), grade_num: id, ordem: k, pos }));
   }
 
+  /** Sobrescritas da fase 2 de uma cortina: linhas extras (106), segmentos removidos (107), linhas geradas sobrescritas (108) e painéis por célula (109). */
+  function sobrescrever(cortina: number, chaveCortina: string, s: SobrescritasCortinaKernel): void {
+    const extras = new Map<string, number>();
+    for (const x of s.linhasExtras ?? []) {
+      const id = idDe('cortina_linhas_extras', `${chaveCortina}:${x.id}`);
+      extras.set(x.id, id);
+      push('cortina_linhas_extras', {
+        id_num: id,
+        cortina_num: cortina,
+        eixo: ENUM_CORTINA.eixo[x.eixo],
+        pos: x.pos,
+        travada: x.travada ? 1 : 0,
+        comp_gravado: x.comprimentoGravado,
+        montante_num: x.montante === undefined ? ID_AUSENTE_CORTINA : montante(x.montante),
+      });
+    }
+    (s.segmentosRemovidos ?? []).forEach((x, k) => {
+      const extra = x.origem === 'extra';
+      const linha = extra ? extras.get(String(x.linha)) : Number(x.linha);
+      if (linha === undefined) throw new Error(`kernelCortina: segmento removido de linha extra inexistente "${String(x.linha)}"`);
+      if (!extra && (x.posNorm === undefined || x.n === undefined)) throw new Error('kernelCortina: segmento de linha gerada sem posNorm e n');
+      push('cortina_segmentos_removidos', {
+        id_num: idDe('cortina_segmentos_removidos', `${chaveCortina}:${k}`),
+        cortina_num: cortina,
+        eixo: ENUM_CORTINA.eixo[x.eixo],
+        origem: extra ? 1 : 0,
+        linha_num: linha,
+        pos_norm: extra ? NAN : x.posNorm!,
+        n: extra ? ID_AUSENTE_CORTINA : x.n!,
+        k: x.k,
+        nk: x.nk,
+        mid: x.mid,
+      });
+    });
+    (s.linhasSobrescritas ?? []).forEach((x, k) =>
+      push('cortina_linhas_sobrescritas', {
+        id_num: idDe('cortina_linhas_sobrescritas', `${chaveCortina}:${k}`),
+        cortina_num: cortina,
+        eixo: ENUM_CORTINA.eixo[x.eixo],
+        linha_num: x.linha,
+        pos_norm: x.posNorm,
+        n: x.n,
+        travada: x.travada ? 1 : 0,
+        pos: ouNaN(x.pos),
+        comp_gravado: x.comprimentoGravado,
+        montante_modo: x.montante === undefined ? 0 : x.montante === null ? 1 : 2,
+        montante_num: x.montante ? montante(x.montante) : ID_AUSENTE_CORTINA,
+      }),
+    );
+    (s.celulasSobrescritas ?? []).forEach((x, k) =>
+      push('cortina_celulas_sobrescritas', {
+        id_num: idDe('cortina_celulas_sobrescritas', `${chaveCortina}:${k}`),
+        cortina_num: cortina,
+        i: x.i,
+        j: x.j,
+        s: x.s,
+        z: x.z,
+        nu: x.nu,
+        nv: x.nv,
+        painel_num: painel(x.painel),
+      }),
+    );
+  }
+
   const ordenadas = [...e.cortinas].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   for (const c of ordenadas) {
     const n = idDe('cortinas', c.id);
@@ -302,6 +381,7 @@ export function montarCenaCortina(e: EntradaCenaCortina, anterior?: CenaCortina)
       hosp_num: ID_AUSENTE_CORTINA,
     });
     for (const [eixo, a] of [[ENUM_CORTINA.eixo.u, c.grid?.u], [ENUM_CORTINA.eixo.v, c.grid?.v]] as const) if (a) grade(n, ENUM_CORTINA.dono.instancia, `c:${c.id}`, eixo, a);
+    if (c.sobrescritas) sobrescrever(n, c.id, c.sobrescritas);
   }
 
   return { secoes, nLinhas, internadores, cortinaDe, tipoDe, montanteDe, painelDe };
