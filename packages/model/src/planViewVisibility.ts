@@ -127,6 +127,20 @@ export function visibleInView(p: Project, viewId: Id, id: Id, session: Visibilit
   return session.revealing ? true : !hiddenByUserInView(p, viewId, id, session);
 }
 
+/**
+ * Ids que o usuário oculta na vista (`hiddenByUserInView`) entre todos os elementos do projeto e as anotações da vista.
+ * É o `hidden` que o desenho recebe. Sem `session.temporary`, é o que vale para prancha, PDF e DXF (etapa 6 nunca vale ali).
+ */
+export function hiddenByUserIdsInView(p: Project, viewId: Id, session: VisibilitySession = {}, extra: Iterable<Id> = []): Set<Id> {
+  const out = new Set<Id>();
+  const v = planViewOf(p, viewId);
+  const temTemporario = !!session.temporary?.hidden || !!session.temporary?.isolated;
+  if (!temTemporario && !v?.hidden?.elements?.length && !v?.hidden?.categories?.length) return out;
+  const ids = [...Object.keys(p.elements), ...(v ? annotationLayersOf(v).keys() : []), ...extra];
+  for (const id of ids) if (hiddenByUserInView(p, viewId, id, session)) out.add(id);
+  return out;
+}
+
 /** Ids, dentre `ids`, que a regra única esconde na vista. */
 export function hiddenIdsInView(p: Project, viewId: Id, ids: Iterable<Id>, session: VisibilitySession = {}): Set<Id> {
   const out = new Set<Id>();

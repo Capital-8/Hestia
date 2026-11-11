@@ -1,5 +1,5 @@
 import { areaTableAllRows, computeSection, resolveLevel } from '@hestia/engine';
-import { areaPlanOf, floorViewId, sectionAnnotationsOf, sectionGraphicsOf, sectionPoints, unitsOf, viewGraphicsOf, type AreaPlan, type Id, type Project, type SheetViewport, type SheetViewSourceNormal } from '@hestia/model';
+import { areaPlanOf, floorViewId, hiddenByUserIdsInView, levelRoomSeparators, sectionAnnotationsOf, sectionGraphicsOf, sectionPoints, unitsOf, viewGraphicsOf, type AreaPlan, type Id, type Project, type SheetViewport, type SheetViewSourceNormal } from '@hestia/model';
 import type { Vec2 } from '@hestia/geom';
 import { buildPlanDrawList, levelBox } from '../plan/build.ts';
 import { LIGHT } from '../plan/types.ts';
@@ -51,6 +51,7 @@ export function planPartsOf(p: Project, levelId: Id, vp: SheetViewport, lang: La
     preview: [],
     inference: null,
     showGrid: false,
+    hidden: hiddenByUserIdsInView(p, viewId, {}, levelRoomSeparators(p, levelId).map((s) => s.id)),
     lang,
   });
   return partsOf(list, toPaper(vp, m), LIGHT);
@@ -85,6 +86,7 @@ export function areaPlanPartsOf(p: Project, planId: Id, vp: SheetViewport, lang:
     preview: [],
     inference: null,
     showGrid: false,
+    hidden: hiddenByUserIdsInView(p, plan.id),
     lang,
   });
   return partsOf(list, toPaper(vp, m), LIGHT);
