@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { areaPlanOf, createEmptyProject, DEFAULT_AREA_GRAPHICS, dimensionPoints, dimensionValue, levelDimensions, makeWall, newId, planAnnotationsOf, ProjectStore, type Dimension } from '@hestia/model';
+import { areaPlanOf, createEmptyProject, DEFAULT_AREA_GRAPHICS, dimensionPoints, dimensionValue, floorViewId, levelDimensions, makeWall, newId, planAnnotationsOf, ProjectStore, roofViewId, viewAnnotationsOf, type Dimension } from '@hestia/model';
 import { registerBuiltinDimProviders } from '../registry.ts';
 import { selectionDims } from '../registry.ts';
 import { permanentDimProvider, pickRefCommands, vistaDaCota } from './dimension.ts';
@@ -146,5 +146,31 @@ describe('cota permanente selecionada (provedor dimension)', () => {
     if (!('commands' in r)) return;
     s.exec(r.commands[0]!);
     expect((s.project.elements.d1 as { offset: number }).offset).toBeCloseTo(2, 6);
+  });
+});
+
+describe('cota permanente da cobertura', () => {
+  it('é achada na vista da cobertura (viewId) e a troca de referência grava nela, sem tocar o piso', () => {
+    registerBuiltinDimProviders();
+    const { s } = cena();
+    s.exec({ type: 'addWall', wall: makeWall({ id: 'p2', typeId: 'wt_alv14', levelId: 'lv_0', a: { x: 0, y: 3 }, b: { x: 6, y: 3 } }) });
+    const dimCob: Dimension = {
+      id: 'dm_cob',
+      a: { x: 0, y: 0 },
+      b: { x: 3, y: 0 },
+      offset: 0.5,
+      refs: { a: { elementId: 'h', feature: 'wall-axis-a' }, b: { elementId: 'd1', feature: 'opening-center' } } as never,
+    };
+    s.exec({ type: 'addDimension', levelId: 'lv_0', viewId: roofViewId('lv_0'), dimension: dimCob });
+    expect(vistaDaCota(s.project, 'lv_0', 'dm_cob')).toEqual({ levelId: 'lv_0', viewId: roofViewId('lv_0') });
+    const dims = selectionDims(ctx(s), ['dm_cob']);
+    expect(dims).toHaveLength(1);
+    expect(dims[0]!.value).toBeCloseTo(3, 6);
+    const r = pickRefCommands(s.project, 'lv_0', 'dm_cob', 'a', { x: 0, y: 3 }, 0.05);
+    if ('error' in r) throw new Error(r.error);
+    expect(r.commands[0]).toMatchObject({ type: 'updateDimension', viewId: roofViewId('lv_0'), id: 'dm_cob' });
+    s.exec(r.commands[0]!);
+    expect(viewAnnotationsOf(s.project, roofViewId('lv_0')).dimensions[0]!.refs?.a).toMatchObject({ elementId: 'p2', feature: 'wall-axis-a' });
+    expect(viewAnnotationsOf(s.project, floorViewId('lv_0')).dimensions[0]!.refs?.a).toMatchObject({ elementId: 'h', feature: 'wall-axis-a' });
   });
 });

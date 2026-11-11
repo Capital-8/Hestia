@@ -33,6 +33,7 @@ import { editor, useProject } from '../editor/controller.ts';
 import { fmtNum, t as traduz, toolLabel, useT, type Lang } from '../editor/i18n.ts';
 import { editViewRange, restoreViewRangeDefault } from '../editor/viewRangeActions.ts';
 import { setGridStep, setRoofProjection, setSnap, useUi } from '../editor/state.ts';
+import { planViewIdDeFundo } from '../editor/vistaAtiva.ts';
 import { avisoSemNivelAcima, proximoNivelAcima, setBaseNoPiso, setTopoNoPiso } from '../editor/wallFloorActions.ts';
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
 import { useFormat } from './useUnits.ts';
@@ -430,7 +431,7 @@ export function Properties(): ReactElement {
   const sel = useDeferredValue(useUi((s) => s.selection));
   // Na planta de área, cotas/textos vivem em `plan.annotations`; no corte/elevação, em `SectionView.annotations`: a
   // seleção precisa procurar na vista certa, não no nível.
-  const planId = useUi((s) => (s.planKind === 'area' ? s.areaPlanId : null));
+  const planId = useUi((s) => (s.planKind === 'floor' ? null : planViewIdDeFundo(s)));
   const sectionId = useUi((s) => (s.view === 'section' ? s.sectionId : null));
   const note = selectedNote(p, useUi((s) => s.levelId), sel, planId, sectionId);
   const view = selectedView(p, sel);

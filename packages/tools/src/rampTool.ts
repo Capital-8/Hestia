@@ -5,6 +5,7 @@ import { ToolBase } from './base.ts';
 import { parseNumber } from './numeric.ts';
 import { createRampFromPlan, draftRamp, rampRise, rampTypeId, type RampCommandResult } from './rampCommands.ts';
 import { connectedLineAt, draftAngleItems } from './anglePreview.ts';
+import { viewIdOfEnv } from './vistaDoAmbiente.ts';
 import { rotuloInclinacao, textoResultaInclinacao } from './rampLiveMessages.ts';
 import { DEFAULT_RAMP_OPTIONS, type RampToolOptions } from './rampOptions.ts';
 import { RampLiveSession, type LiveEvent, type RampLiveConfig } from './rampLiveSession.ts';
@@ -167,7 +168,7 @@ export class RampTool extends ToolBase {
       text: this.labelText(plan, len(dir)),
     };
     this.items = [...rampPartsPreview(plan), label];
-    const previous = connectedLineAt(this.env.project(), this.env.levelId(), this.origin, this.env.metersPerPixel(), this.env.areaPlanId?.());
+    const previous = connectedLineAt(this.env.project(), this.env.levelId(), this.origin, this.env.metersPerPixel(), viewIdOfEnv(this.env));
     this.items.push(...draftAngleItems({ previous, joint: this.origin, current: inf.point, mpp: this.env.metersPerPixel(), units: unitsOf(this.env.project()), avoid: [inf.point] }));
   }
 

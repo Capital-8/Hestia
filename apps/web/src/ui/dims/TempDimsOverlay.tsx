@@ -4,6 +4,7 @@ import { toPermanent, type TempDim, type Tool, type ToolId } from '@hestia/tools
 import type { Id, Project } from '@hestia/model';
 import { editor } from '../../editor/controller.ts';
 import { useT } from '../../editor/i18n.ts';
+import { planViewIdAtivo } from '../../editor/vistaAtiva.ts';
 import { setDimOverride, suspendSelectionDims, useUi, type ViewKind } from '../../editor/state.ts';
 import { currentUnits, useFormat } from '../useUnits.ts';
 import { INVALID_FLASH_MS, resolveDimEdit, suspensionAfterConversion } from './dimsActions.ts';
@@ -150,7 +151,7 @@ export function TempDimsOverlay(): ReactElement | null {
 
   const makePermanent = (): void => {
     const st = useUi.getState();
-    const cmds = toPermanent(ctx.levelId, dims, st.planKind === 'area' ? st.areaPlanId ?? undefined : undefined);
+    const cmds = toPermanent(ctx.levelId, dims, undefined, planViewIdAtivo(st) ?? undefined);
     const before = editor.store.version;
     editor.store.transaction(t('cvv_dim_undo_make_permanent'), () => cmds.forEach((c) => editor.store.exec(c)));
     const suspended = suspensionAfterConversion(before, editor.store.version);

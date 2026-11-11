@@ -1,5 +1,5 @@
-import { dimensionGeometry, dimensionPoints, formatQuantity, sectionAnnotationsOf, type Command, type Dimension, type Id, type Project, type ResolvedUnits } from '@hestia/model';
-import { drivenEditCommands, parseQuantityText, viewAnnotationsOf } from '@hestia/tools';
+import { dimensionGeometry, dimensionPoints, formatQuantity, roofViewId, sectionAnnotationsOf, type Command, type Dimension, type Id, type Project, type ResolvedUnits } from '@hestia/model';
+import { anotacoesSelecionaveis, drivenEditCommands, parseQuantityText } from '@hestia/tools';
 import type { Vec2 } from '@hestia/geom';
 import { t, type Lang } from '../../editor/i18n.ts';
 
@@ -20,7 +20,9 @@ export function findEditDim(project: Project, scope: DimEditScope, id: Id): Foun
     const dim = sectionAnnotationsOf(v as never).dimensions.find((d) => d.id === id);
     return dim ? { dim, inSection: true, scale: 100 } : null;
   }
-  const va = viewAnnotationsOf(project, scope.levelId, scope.planKind === 'area' ? (scope.areaPlanId ?? undefined) : undefined);
+  // Vista exata: planta de área, cobertura (`pvr_`) ou, sem id, a planta de piso do nível.
+  const vistaId = scope.planKind === 'area' ? (scope.areaPlanId ?? undefined) : scope.planKind === 'roof' ? roofViewId(scope.levelId) : undefined;
+  const va = anotacoesSelecionaveis(project, scope.levelId, vistaId);
   const dim = va.dimensions.find((d) => d.id === id);
   return dim ? { dim, inSection: false, scale: va.scale } : null;
 }

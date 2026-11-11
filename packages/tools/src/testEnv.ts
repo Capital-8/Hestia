@@ -6,6 +6,7 @@ export function makeEnv(store = new ProjectStore(createEmptyProject())) {
   let selection: Id[] = [];
   let finished = 0;
   let areaPlan: Id | null = null;
+  let viewId: Id | undefined;
   const alerts: string[] = [];
   const alertIds: Id[][] = [];
   const options: ToolOptions = {
@@ -24,6 +25,7 @@ export function makeEnv(store = new ProjectStore(createEmptyProject())) {
     transaction: (l, fn, session) => store.transaction(l, fn, session),
     metersPerPixel: () => 0.01,
     areaPlanId: () => areaPlan,
+    get viewId() { return viewId; },
     gridStep: () => 0.1,
     say: () => {},
     alert: (message: string, ids?: readonly Id[]) => { alerts.push(message); alertIds.push([...(ids ?? [])]); },
@@ -31,7 +33,7 @@ export function makeEnv(store = new ProjectStore(createEmptyProject())) {
     options: () => options,
     setOptions: (patch) => { Object.assign(options, patch); },
   };
-  return { store, env, options, done: () => finished, sel: () => selection, areaPlanId: () => areaPlan, setAreaPlanId: (id: Id | null) => { areaPlan = id; }, alertas: () => alerts, alertIds: () => alertIds };
+  return { store, env, options, done: () => finished, sel: () => selection, areaPlanId: () => areaPlan, setAreaPlanId: (id: Id | null) => { areaPlan = id; }, setViewId: (id: Id | undefined) => { viewId = id; }, alertas: () => alerts, alertIds: () => alertIds };
 }
 
 export const P = (x: number, y: number, extra: Partial<PointerInfo> = {}): PointerInfo => ({ raw: { x, y }, shift: false, ctrl: false, alt: false, ...extra });

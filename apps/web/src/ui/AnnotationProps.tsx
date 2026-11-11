@@ -66,8 +66,8 @@ export function selectedNote(p: Project, levelId: Id, ids: Id[], planId?: Id | n
     return tag ? { tag, section: true } : null;
   }
   if (planId) {
-    // Só planta de área (a mesma guarda de `areaPlanOf`): outra vista não tem anotações próprias aqui.
-    if (planViewOf(p, planId)?.kind !== 'area') return null;
+    // Vista de planta que não é a de piso (cobertura ou área): cada uma tem as anotações próprias; id sem vista não acha nada.
+    if (!planViewOf(p, planId)) return null;
     const a = viewOwnAnnotationsOf(p, planId);
     const dim = a.dimensions.find((d) => d.id === id);
     if (dim) return { dim };
@@ -98,7 +98,7 @@ export function selectedNote(p: Project, levelId: Id, ids: Id[], planId?: Id | n
  * sem nenhum, a anotação mora no nível. Exportado para os testes conferirem o destino sem depender do DOM.
  */
 export function comVista<T extends AnnotationCommand>(c: T, planId?: Id | null, sectionId?: Id | null): T {
-  const withPlan = planId ? ({ ...c, planId } as T) : c;
+  const withPlan = planId ? ({ ...c, viewId: planId } as T) : c;
   return sectionId ? ({ ...withPlan, sectionId } as T) : withPlan;
 }
 

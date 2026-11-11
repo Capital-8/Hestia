@@ -1,6 +1,6 @@
 import type { Vec2 } from '@hestia/geom';
 import { sectionAnnotationsOf, type Id, type Project } from '@hestia/model';
-import { annotationAt, viewAnnotationsOf } from '@hestia/tools';
+import { annotationAt, anotacoesSelecionaveis } from '@hestia/tools';
 
 /** Janela (ms) e distância (px) entre dois cliques para valer como duplo clique. */
 export const DUPLO_CLIQUE_MS = 400;
@@ -15,7 +15,7 @@ export function ehDuploClique(anterior: CliqueAnterior | null, agora: CliqueAnte
 }
 
 export type AlvoDeCota =
-  | { vista: 'plan'; levelId: Id; planId?: Id; mpp: number }
+  | { vista: 'plan'; levelId: Id; planId?: Id; viewId?: Id; mpp: number }
   | { vista: 'section'; sectionId: Id | null; hitId: Id | null };
 
 /**
@@ -24,9 +24,10 @@ export type AlvoDeCota =
  */
 export function cotaParaEditar(p: Project, alvo: AlvoDeCota, world: Vec2): Id | null {
   if (alvo.vista === 'plan') {
-    const hit = annotationAt(p, alvo.levelId, world, alvo.mpp, alvo.planId);
+    const vistaId = alvo.viewId ?? alvo.planId;
+    const hit = annotationAt(p, alvo.levelId, world, alvo.mpp, vistaId);
     if (!hit || hit.kind !== 'dimension') return null;
-    const d = viewAnnotationsOf(p, alvo.levelId, alvo.planId).dimensions.find((x) => x.id === hit.id);
+    const d = anotacoesSelecionaveis(p, alvo.levelId, vistaId).dimensions.find((x) => x.id === hit.id);
     return d && !d.angular ? d.id : null;
   }
   if (!alvo.hitId) return null;

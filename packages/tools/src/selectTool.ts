@@ -22,7 +22,7 @@ import { refuseMoveOverlap } from './wallOverlapGuard.ts';
 import { gripHoldAt, annotationGripHoldAt, ringHandlePreview, type GripFocus, type GripHold } from './selectGrips.ts';
 import { pickStairAt, stairEndpoints, stairIdsInBox } from './stairPick.ts';
 import { pickRampAt, rampEndpoints, rampIdsInBox } from './rampPick.ts';
-import { annotationAt, annotationIdsInBox, detailItemAt, dimGripAt, dimTextGripAt, roomTagAt, roomTagIdsInBox, roomTagRing, signedOffset, textGripAt, viewAnnotationsOf } from './annotationPick.ts';
+import { annotationAt, annotationIdsInBox, detailItemAt, dimGripAt, dimTextGripAt, roomTagAt, roomTagIdsInBox, roomTagRing, signedOffset, textGripAt, anotacoesSelecionaveis } from './annotationPick.ts';
 import { sectionMarkAt, sectionMarkIdsInBox } from './sectionMarkPick.ts';
 import { DIM_MIN_LENGTH, dimensionGeometry, dimensionPoints, sectionPoints } from '@hestia/model';
 import { gridGhosts, gridHandlePreview, gridIdsInBox, moveGrids, pickGridAt, selectedGrids } from './gridGeom.ts';
@@ -31,6 +31,7 @@ import { stairFreeHandlePreview } from './stairFreeGrips.ts';
 import { spiralHandlePreview } from './stairSpiralGrips.ts';
 import { rampHandlePreview } from './rampGrips.ts';
 import type { PointerInfo } from './types.ts';
+import { viewIdOfEnv } from './vistaDoAmbiente.ts';
 
 type Mode = 'idle' | 'pending' | 'window' | 'grip' | 'dragwait' | 'moving' | 'opening' | 'dimgrip' | 'dimtext' | 'textmove' | 'tagmove';
 
@@ -133,6 +134,17 @@ export class SelectTool extends ToolBase {
     return this.env.areaPlanId?.() ?? undefined;
   }
 
+  /** Vista de planta exata (piso, cobertura ou área): é de onde saem as anotações selecionáveis e as alças. */
+  private viewId(): Id {
+    return viewIdOfEnv(this.env);
+  }
+
+  /** Destino dos comandos de edição de anotação: a vista exata quando o ambiente a informa; senão a forma antiga. */
+  private destino(): { viewId: Id } | { planId?: Id } {
+    const planId = this.planId();
+    return this.env.viewId ? { viewId: this.env.viewId } : planId ? { planId } : {};
+  }
+
   /** Planta de área: elementos de modelo não se movem nem mostram alças (a vista é de análise/anotação). */
   private get somenteLeitura(): boolean {
     return this.planId() !== undefined;
@@ -141,7 +153,7 @@ export class SelectTool extends ToolBase {
   /** Arrasto da alça da cota: o deslocamento é a distância do cursor à linha a–b, no lado do cursor. */
   private dragDimGrip(p: PointerInfo): void {
     const pr = this.env.project();
-    const d = viewAnnotationsOf(pr, this.env.levelId(), this.planId()).dimensions.find((x) => x.id === this.dimGrip);
+    const d = anotacoesSelecionaveis(pr, this.env.levelId(), this.viewId()).dimensions.find((x) => x.id === this.dimGrip);
     if (!d) return;
     const pts = dimensionPoints(pr, d);
     const off = signedOffset(pts.a, pts.b, p.raw);
@@ -183,13 +195,13 @@ export class SelectTool extends ToolBase {
     const planId = this.planId();
     const ly = this.layers();
     const vp = this.visibleProject();
-    const detail = detailItemAt(pr, lv, at, mpp, planId);
+    const detail = detailItemAt(pr, lv, at, mpp, this.viewId());
     if (detail) return { id: detail, kind: 'annotation' };
     // Na planta de área as anotações são o alvo da vista e ficam por cima do modelo desenhado (paredes claras, piso,
     // ambiente): elas vêm antes do modelo para não ficarem inalcançáveis sob um ambiente. Na planta de piso a ordem
     // continua a de sempre (o elemento ganha da anotação).
     if (planId) {
-      const an = annotationAt(pr, lv, at, mpp, planId);
+      const an = annotationAt(pr, lv, at, mpp, this.viewId());
       if (an) return { id: an.id, kind: 'annotation' };
       const rt = roomTagAt(pr, at, mpp, planId);
       if (rt) return { id: rt, kind: 'annotation' };
@@ -226,7 +238,7 @@ export class SelectTool extends ToolBase {
     if (rm) return { id: rm, kind: 'room' };
     // Cotas e textos de anotação (decisão 0019) e marcas de corte/elevação: por último, para não roubar o clique de um
     // elemento. A marca é uma anotação de primeira classe e também pode ser selecionada e transformada.
-    const an = annotationAt(pr, lv, at, mpp, planId);
+    const an = annotationAt(pr, lv, at, mpp, this.viewId());
     if (an) return { id: an.id, kind: 'annotation' };
     const vm = ly && !ly.sectionMarks ? null : sectionMarkAt(pr, lv, at, mpp);
     return vm ? { id: vm, kind: 'view' } : null;
@@ -259,7 +271,7 @@ export class SelectTool extends ToolBase {
       if (!this.somenteLeitura) this.items.push(...stairHandlePreview(pr, this.env.selection()), ...stairFreeHandlePreview(pr, this.env.selection()), ...spiralHandlePreview(pr, this.env.selection()), ...gridHandlePreview(pr, this.env.selection()), ...rampHandlePreview(pr, this.env.selection()));
     }
     // Alça da cota selecionada: sob o cursor, a cota destaca-se (arrastar muda o deslocamento).
-    const dgHover = this.mode === 'idle' ? dimGripAt(pr, this.env.levelId(), this.env.selection(), p.raw, this.env.metersPerPixel(), this.planId()) : null;
+    const dgHover = this.mode === 'idle' ? dimGripAt(pr, this.env.levelId(), this.env.selection(), p.raw, this.env.metersPerPixel(), this.viewId()) : null;
     if (dgHover) this.items.push({ kind: 'highlight', ids: [dgHover] });
   }
 
@@ -351,11 +363,11 @@ export class SelectTool extends ToolBase {
       this.mode = 'grip';
       return;
     }
-    const dt = dimTextGripAt(pr, this.env.levelId(), sel, p.raw, mpp, planId);
+    const dt = dimTextGripAt(pr, this.env.levelId(), sel, p.raw, mpp, this.viewId());
     if (dt) { this.dimTextGrip = dt; this.dimTextAt = null; this.mode = 'dimtext'; return; }
-    const dg = dimGripAt(pr, this.env.levelId(), sel, p.raw, mpp, planId);
+    const dg = dimGripAt(pr, this.env.levelId(), sel, p.raw, mpp, this.viewId());
     if (dg) { this.dimGrip = dg; this.dimOffset = null; this.mode = 'dimgrip'; return; }
-    const tg = textGripAt(pr, this.env.levelId(), sel, p.raw, mpp, planId);
+    const tg = textGripAt(pr, this.env.levelId(), sel, p.raw, mpp, this.viewId());
     if (tg) { this.textGrip = tg; this.textAt = null; this.mode = 'textmove'; return; }
     const tagHit = planId ? roomTagAt(pr, p.raw, mpp, planId) : null;
     if (tagHit && sel.includes(tagHit) && !this.annotationUnder(p.raw)) { this.tagGrip = tagHit; this.tagAt = null; this.mode = 'tagmove'; return; }
@@ -379,7 +391,7 @@ export class SelectTool extends ToolBase {
   private annotationUnder(at: Vec2): boolean {
     const pr = this.env.project();
     const mpp = this.env.metersPerPixel();
-    return !!detailItemAt(pr, this.env.levelId(), at, mpp, this.planId()) || !!annotationAt(pr, this.env.levelId(), at, mpp, this.planId());
+    return !!detailItemAt(pr, this.env.levelId(), at, mpp, this.viewId()) || !!annotationAt(pr, this.env.levelId(), at, mpp, this.viewId());
   }
 
   drag(p: PointerInfo): void {
@@ -393,7 +405,7 @@ export class SelectTool extends ToolBase {
     if (this.mode === 'dimgrip') this.dragDimGrip(p);
     if (this.mode === 'dimtext') {
       this.dimTextAt = p.raw;
-      const d = viewAnnotationsOf(pr, this.env.levelId(), this.planId()).dimensions.find((x) => x.id === this.dimTextGrip);
+      const d = anotacoesSelecionaveis(pr, this.env.levelId(), this.viewId()).dimensions.find((x) => x.id === this.dimTextGrip);
       if (d) {
         if (d.angular) {
           const g = angularDimensionGeometry(resolveAngularDimension(pr, this.env.levelId(), d));
@@ -411,7 +423,7 @@ export class SelectTool extends ToolBase {
         break;
       }
       case 'textmove': {
-        const t = this.textGrip ? viewAnnotationsOf(pr, this.env.levelId(), this.planId()).texts.find((x) => x.id === this.textGrip) : undefined;
+        const t = this.textGrip ? anotacoesSelecionaveis(pr, this.env.levelId(), this.viewId()).texts.find((x) => x.id === this.textGrip) : undefined;
         if (!t) break;
         // A prévia mostra a âncora original e o ponto de destino; o modelo só muda ao soltar (um passo de desfazer).
         this.textAt = add(t.at, sub(p.raw, this.downPt));
@@ -469,20 +481,17 @@ export class SelectTool extends ToolBase {
         break;
       }
       case 'dimgrip': {
-        const planId = this.planId();
-        if (this.dimGrip && this.dimOffset !== null) this.env.exec({ type: 'updateDimension', levelId: this.env.levelId(), id: this.dimGrip, patch: { offset: this.dimOffset }, ...(planId ? { planId } : {}) });
+        if (this.dimGrip && this.dimOffset !== null) this.env.exec({ type: 'updateDimension', levelId: this.env.levelId(), id: this.dimGrip, patch: { offset: this.dimOffset }, ...this.destino() });
         break;
       }
       case 'dimtext': {
-        const planId = this.planId();
-        if (this.dimTextGrip && this.dimTextAt) this.env.exec({ type: 'updateDimension', levelId: this.env.levelId(), id: this.dimTextGrip, patch: { textAt: this.dimTextAt }, ...(planId ? { planId } : {}) });
+        if (this.dimTextGrip && this.dimTextAt) this.env.exec({ type: 'updateDimension', levelId: this.env.levelId(), id: this.dimTextGrip, patch: { textAt: this.dimTextAt }, ...this.destino() });
         this.dimTextGrip = null;
         this.dimTextAt = null;
         break;
       }
       case 'textmove': {
-        const planId = this.planId();
-        if (this.textGrip && this.textAt) this.env.exec({ type: 'updateText', levelId: this.env.levelId(), id: this.textGrip, patch: { at: this.textAt }, ...(planId ? { planId } : {}) });
+        if (this.textGrip && this.textAt) this.env.exec({ type: 'updateText', levelId: this.env.levelId(), id: this.textGrip, patch: { at: this.textAt }, ...this.destino() });
         this.textGrip = null;
         this.textAt = null;
         break;
@@ -527,7 +536,7 @@ export class SelectTool extends ToolBase {
           ...(ly && !ly.grids ? [] : gridIdsInBox(pr, this.downPt, p.raw)),
           ...(ly && !ly.sectionMarks ? [] : sectionMarkIdsInBox(pr, this.env.levelId(), this.downPt, p.raw)),
           ...roomTagIdsInBox(pr, this.downPt, p.raw, this.planId()),
-          ...annotationIdsInBox(pr, this.env.levelId(), this.downPt, p.raw, this.env.metersPerPixel(), this.planId()),
+          ...annotationIdsInBox(pr, this.env.levelId(), this.downPt, p.raw, this.env.metersPerPixel(), this.viewId()),
         ];
         const cur = this.env.selection();
         this.env.setSelection(soma(p) ? [...new Set([...cur, ...ids])] : ids);

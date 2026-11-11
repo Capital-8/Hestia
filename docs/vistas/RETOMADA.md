@@ -20,7 +20,20 @@ Atualize a seção "Onde estamos" a cada etapa integrada.
   migração 23 → 24 (`packages/model/src/migrateVistas.ts`), fachadas invertidas. Verificação sobre `vistas/base`:
   tipos e lint sem erro, 886 arquivos / 9.753 testes, ouro 8 de 8. Auditoria do ouro contra o tronco anterior
   (`VISTAS_OURO_BASE=44c31a62 npm run test:vistas-ouro -- --auditar`): só D1, D2 e D3; NÃO PREVISTA = 0.
-- **Fase 2a-2, Fase 2b, Fase 3 e fechamento — não iniciadas.**
+- **Fase 2a-2 — EM ANDAMENTO, interrompida no meio (limite de uso em 2026-11-11).** Está no branch
+  `vistas/f2a-2`, num commit `wip` NÃO revisado e NÃO verificado além de `npm run typecheck` (passa). O agente
+  parou sem entregar relatório: não se sabe quais dos itens 1 a 7 da "Etapa 2a-2" de `FASE-2A.md` estão completos.
+  Para retomar, um agente Sonnet, no branch `vistas/f2a-2`:
+  1. lê `git show --stat HEAD` e o diff do `wip` e confere item por item (1 a 7) da Etapa 2a-2 o que está feito,
+     o que está pela metade e o que falta (atenção a `pastePreview.ts`, item 4, que o `wip` não tocou);
+  2. conclui o que falta, com os testes do item 6 (já existem rascunhos: `anotacaoPorVista.test.ts`,
+     `annotationsPorVista.test.ts`, `anotacaoNaVistaAtiva.test.ts`);
+  3. roda `npm run typecheck`, `npm run lint`, `npm run test:rapido -- --maxWorkers=4`,
+     `npm run test:vistas-ouro` (tem de dar 8 de 8 SEM regravar: item 7) e
+     `git diff --stat vistas/base -- crates packages/geom` (vazio);
+  4. entrega relatório. Depois um segundo Sonnet revisa o diff inteiro contra `FASE-2A.md` antes do merge em
+     `vistas/base`.
+- **Fase 2b, Fase 3 e fechamento — não iniciadas.**
 
 ### Pendências abertas pela 2a-1 (resolver na Fase 2b/3)
 1. **Etiquetas de elemento do nível na planta de área.** A migração NÃO copiou as `ElementTag` do nível para a

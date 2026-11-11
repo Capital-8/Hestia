@@ -10,7 +10,7 @@ import {
   type AreaPlan,
   type Command,
 } from '@hestia/model';
-import { annotationAt, annotationIdsInBox, dimGripAt, dimHitGeometry, dimTextGripAt, textGripAt, viewAnnotationsOf } from './annotationPick.ts';
+import { annotationAt, annotationIdsInBox, dimGripAt, dimHitGeometry, dimTextGripAt, textGripAt, anotacoesSelecionaveis } from './annotationPick.ts';
 import { P, clickAt, makeEnv, tool } from './testEnv.ts';
 import { areaPlansOf } from '@hestia/model';
 
@@ -139,7 +139,7 @@ describe('seleção de anotações na planta de área', () => {
     const ctx = withAreaPlan();
     const { dimId } = criaAnotacoes(ctx);
     // O texto fica na posição desenhada (mesma geometria do render: estilo e escala da planta de área).
-    const aberta = viewAnnotationsOf(ctx.store.project, LV0, 'ap1');
+    const aberta = anotacoesSelecionaveis(ctx.store.project, LV0, 'ap1');
     const dim = aberta.dimensions[0]!;
     const texto = dimHitGeometry(ctx.store.project, dim, dim.a, dim.b, aberta.scale).textAt;
     expect(dimTextGripAt(ctx.store.project, LV0, [dimId], texto, MPP, 'ap1')).toBe(dimId);

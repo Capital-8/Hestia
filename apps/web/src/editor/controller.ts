@@ -6,7 +6,7 @@ import {
   ProjectStore,
   copyLinkOf, syncWholeLinkCommand,
   annotationIdsIn, projectGrids, DEFAULT_AREA_GRAPHICS, isRoom,
-  viewOwnAnnotationsOf, viewGraphicsOf, floorViewId, toolAllowedInView,
+  viewOwnAnnotationsOf, viewGraphicsOf, floorViewId, toolAllowedInView, planViewOf as vistaDoModelo,
   levelRoomSeparators,
   sectionGraphicsOf,
   buildTemplate,
@@ -39,7 +39,8 @@ import { pedirAlerta } from './alertaPrompt.ts';
 import { fitBox, levelFrameBox, panBy, planViewOf, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
 import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
 import { defaultOpenViews, type PlanKind } from './openViews.ts';
-import { areaViewIdAtivo, chaveDeViewportDePlanta, planViewIdDeFundo, tipoDeVistaDeFundo } from './vistaAtiva.ts';
+import { areaViewIdAtivo, chaveDeViewportDePlanta, planViewIdAtivo, planViewIdDeFundo, tipoDeVistaDeFundo } from './vistaAtiva.ts';
+import { ehAnotacaoDePlanta, vistaAtivaParaComando } from './vistaDoComando.ts';
 import { idsDeAnotacoes, primeiraVistaDeAreaDoNivel, vistaDeArea } from './vistaDeArea.ts';
 import { casador } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
 import { elevationCommand, type PlanBox } from './elevations.ts';
@@ -67,17 +68,6 @@ export const AREA_PLAN_TOOLS: readonly ToolId[] = ['select', 'measure', 'dimensi
 
 /** A ferramenta pode rodar na planta de área? */
 export const areaPlanToolAllowed = (id: ToolId): boolean => toolAllowedInView('area', id);
-
-/** Comandos de anotação que, na planta de área, moram em `plan.annotations` (não no nível). */
-const PLAN_ANNOTATION_TYPES = new Set<Command['type']>([
-  'addDimension', 'updateDimension', 'removeDimension',
-  'addText', 'updateText', 'removeText',
-  'addDetailLine', 'updateDetailLine', 'removeDetailLine',
-  'addDetailRegion', 'updateDetailRegion', 'removeDetailRegion',
-  'addTag', 'updateTag', 'removeTag',
-]);
-
-const isPlanAnnotation = (c: Command): c is AnnotationCommand => PLAN_ANNOTATION_TYPES.has(c.type);
 
 /** Id da seção ativa, quando a vista atual é corte/elevação. */
 const activeSectionId = (): Id | null => {
@@ -198,6 +188,8 @@ export class Editor {
     },
     // Contrato do ToolEnv (subagente de modelo): as ferramentas de anotação gravam com `planId` quando há planta de área.
     areaPlanId: () => this.areaPlanIdNow(),
+    // Vista de planta exata (piso, cobertura ou área); leitura a cada acesso, o ambiente é criado uma vez só.
+    get viewId(): Id | undefined { return planViewIdAtivo(useUi.getState()) ?? undefined; },
     hiddenInView: () => planViewOf(this.store.project, useUi.getState().levelId).hidden,
     underlayLevelId: () => { const st = useUi.getState(); return underlayIdOf(this.store.project, st.levelId, st.showUnderlay, st.underlayLevel); },
     selection: () => useUi.getState().selection,
@@ -268,13 +260,13 @@ export class Editor {
     // Anotação criada/editada com uma vista de corte aberta mora na vista (SectionView.annotations), pelo MESMO comando
     // por item da planta. Rede de segurança para comandos antigos/sem `sectionId` explícito.
     const sectionId = activeSectionId();
-    if (sectionId && isPlanAnnotation(c) && (!('sectionId' in c) || c.sectionId === undefined)) {
+    if (sectionId && ehAnotacaoDePlanta(c) && (!('sectionId' in c) || c.sectionId === undefined)) {
       this.store.exec({ ...c, sectionId } as AnnotationCommand);
       return;
     }
-    // Planta de área ativa: a anotação vai para a vista (`viewId`); piso e cobertura seguem no nível, como sempre.
-    const viewId = this.areaPlanIdNow();
-    if (viewId && isPlanAnnotation(c) && (!('planId' in c) || c.planId === undefined) && (!('viewId' in c) || c.viewId === undefined)) {
+    // Planta ativa (piso, cobertura ou área): a anotação vai para a vista exata (`viewId`), cada uma com as suas.
+    const viewId = vistaAtivaParaComando(this.store.project, useUi.getState(), c);
+    if (viewId) {
       this.store.exec({ ...c, viewId } as AnnotationCommand);
       return;
     }
@@ -779,11 +771,12 @@ export class Editor {
   private pruneSelection(): void {
     const sel = useUi.getState().selection;
     const p = this.store.project;
-    // A seleção guarda ids de elementos, cotas/textos (do nível ou da planta de área) e vistas: só sai o que sumiu.
+    // A seleção guarda ids de elementos, cotas/textos (da vista de planta ativa: piso, cobertura ou área) e vistas: só
+    // sai o que sumiu.
     const st = useUi.getState();
-    const areaId = areaViewIdAtivo(st);
-    const proprias = areaId && vistaDeArea(p, areaId) ? idsDeAnotacoes(viewOwnAnnotationsOf(p, areaId)) : [];
-    const notes = new Set([...annotationIdsIn(p, st.levelId, sel), ...proprias.filter((id) => sel.includes(id))]);
+    const ativa = planViewIdAtivo(st);
+    const daVista = ativa && vistaDoModelo(p, ativa) ? idsDeAnotacoes(viewOwnAnnotationsOf(p, ativa)) : [];
+    const notes = new Set([...annotationIdsIn(p, st.levelId, sel), ...daVista.filter((id) => sel.includes(id))]);
     const views = new Set(p.views.map((v) => v.id));
     const seps = new Set(levelRoomSeparators(p, st.levelId).map((r) => r.id));
     const keep = sel.filter((id) => p.elements[id] || notes.has(id) || sectionAnnotationIdsIn(p).has(id) || views.has(id) || seps.has(id) || projectGrids(p).some((g) => g.id === id));
@@ -1095,11 +1088,13 @@ export class Editor {
     const levelId = st.levelId;
     const areaId = areaViewIdAtivo(st);
     const plan = areaId ? vistaDeArea(this.store.project, areaId) : undefined;
+    // Planta de área órfã (sem a vista): cai na planta de piso, como sempre.
+    const viewId = areaId && !plan ? undefined : (planViewIdAtivo(st) ?? undefined);
     const cotas = cotasAutomaticas(this.store.project, levelId, opts);
-    // Na planta de área, as cotas são anotações da vista (`plan.annotations`): entram com `planId`, não no nível.
+    // As cotas são anotações da vista de planta ativa (piso, cobertura ou área): entram com `viewId`, cada vista com as suas.
     // Todas as cotas geradas entram num só passo de desfazer (Ctrl+Z desfaz o lote inteiro).
     this.store.transaction('eds_undo_auto_dimensions', () => {
-      for (const dimension of cotas) this.store.exec({ type: 'addDimension', levelId, ...(plan ? { viewId: plan.id } : {}), dimension });
+      for (const dimension of cotas) this.store.exec({ type: 'addDimension', levelId, ...(viewId ? { viewId } : {}), dimension });
     });
     useUi.setState({
       status: cotas.length > 0

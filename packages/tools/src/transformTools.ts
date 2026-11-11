@@ -40,7 +40,7 @@ export abstract class SelectionTool extends ToolBase {
     return selectedViews(this.env.project(), this.env.selection());
   }
   protected hasSelection(): boolean {
-    return this.movables().length + this.openings().length + this.views().length + annotationIdsIn(this.env.project(), this.env.levelId(), this.env.selection()).length + selectedGrids(this.env.project(), this.env.selection()).length > 0;
+    return this.movables().length + this.openings().length + this.views().length + annotationIdsIn(this.env.project(), this.env.levelId(), this.env.selection(), this.env.viewId).length + selectedGrids(this.env.project(), this.env.selection()).length > 0;
   }
   override start(): void {
     this.reset();
@@ -280,7 +280,7 @@ export class MoveTool extends SelectionTool {
     }
     const seps = movableSeparatorIds(this.env, this.copy);
     // Cotas, textos (decisão 0019) e marcas de corte/elevação seguem a seleção e entram no mesmo passo de desfazer.
-    const notes = annotationMoveCommands(this.env.project(), this.env.levelId(), this.env.selection(), d, this.copy);
+    const notes = annotationMoveCommands(this.env.project(), this.env.levelId(), this.env.selection(), d, this.copy, this.env.viewId);
     // Desconectar (opção ou Alt na confirmação): a parede se solta das vizinhas em vez de esticá-las.
     const disjoin = (this.env.options().moveDisjoin ?? DEFAULT_DISJOIN.move) !== this.alt;
     // Copiar: a sessão junta as cópias num só passo de desfazer; Mover segue num passo próprio.
