@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { asMulti, multiArea, pointInRing, ringArea, type Ring, type Vec2 } from '@hestia/geom';
+import { asMulti, intersection, multiArea, pointInRing, ringArea, type Ring, type Vec2 } from '@hestia/geom';
 import { DEFAULT_STAIR_TYPES, ProjectStore, createEmptyProject, makeStair, stairFinishOf, type StairCurve, type StairLanding, type StairRun, type StairType } from '@hestia/model';
 import {
   DEFAULT_STAIR_NORMS,
@@ -141,12 +141,12 @@ describe('acabamentos: alturas acabadas', () => {
     });
   }
 
-  it('o espelho apoia sobre o fundo do piso de baixo; o piso apoia no topo do espelho', () => {
+  it('o espelho nasce em cima do piso acabado de baixo; o piso de cima passa por cima do topo do espelho', () => {
     const s = resolve([straight(N, P)], FIN_ON);
     const m = stairFinishModel(s)!;
     const t = treads(m.solids);
     const r = risers(m.solids);
-    for (let k = 2; k <= N; k++) expect(r[k - 1]!.z0).toBeCloseTo(t[k - 2]!.z0, 12);
+    for (let k = 2; k <= N; k++) expect(r[k - 1]!.z0).toBeCloseTo(t[k - 2]!.z1, 12);
     for (let k = 1; k <= N - 1; k++) {
       expect(t[k - 1]!.z0).toBeCloseTo(r[k - 1]!.z1, 12);
       expect(t[k - 1]!.z1 - t[k - 1]!.z0).toBeCloseTo(0.015, 12);
@@ -156,15 +156,57 @@ describe('acabamentos: alturas acabadas', () => {
     body.forEach((p, i) => expect(p.zTop).toBeCloseTo(t[i]!.z0, 12));
   });
 
-  it('degraus compensados: primeiro e último espelho (material) diferem do acabado pela espessura do piso', () => {
+  it('espelho acabado: do topo do piso de baixo ao fundo do piso de cima (H − tp); o último chega ao nível de cima (H)', () => {
     const tp = 0.015;
     const s = resolve([straight(N, P)], FIN_ON);
     const r = risers(stairFinishModel(s)!.solids);
-    expect(r[0]!.z1 - r[0]!.z0).toBeCloseTo(H - tp, 12);
-    expect(r[N - 1]!.z1 - r[N - 1]!.z0).toBeCloseTo(H + tp, 12);
-    for (let k = 1; k < N - 1; k++) expect(r[k]!.z1 - r[k]!.z0).toBeCloseTo(H, 12);
-    // A soma das alturas dos espelhos acabados (material) é a altura total.
-    expect(r.reduce((a, x) => a + (x.z1 - x.z0), 0)).toBeCloseTo(TOP, 12);
+    for (let k = 0; k < N - 1; k++) expect(r[k]!.z1 - r[k]!.z0).toBeCloseTo(H - tp, 12);
+    expect(r[N - 1]!.z1 - r[N - 1]!.z0).toBeCloseTo(H, 12);
+    expect(r[N - 1]!.z1).toBeCloseTo(s.topZ, 12);
+  });
+
+  it('o piso acabado encosta na estrutura do espelho de cima (sem vão) e nenhum volume acabado ou estrutural se interpenetra', () => {
+    const te = 0.01;
+    const s = resolve([straight(N, P)], FIN_ON);
+    const m = stairFinishModel(s)!;
+    const t = treads(m.solids);
+    const r = risers(m.solids);
+    // O piso do degrau k avança até a face da estrutura do espelho k+1: a faixa do espelho acabado fica DENTRO da planta do piso.
+    t.forEach((p, i) => {
+      const k = i + 1;
+      expect(bbox(p.polygon).x1).toBeCloseTo(k * P + te, 6);
+      const faixa = r[k]!; // espelho k+1
+      expect(multiArea(intersection(asMulti(p.polygon), asMulti(faixa.polygon)))).toBeCloseTo(multiArea(asMulti(faixa.polygon)), 9);
+      // Base do espelho = topo do piso de baixo; topo do espelho = fundo do piso de cima.
+      expect(faixa.z0).toBeCloseTo(p.z1, 12);
+      if (k < N - 1) expect(faixa.z1).toBeCloseTo(t[k]!.z0, 12);
+    });
+    // Nenhuma interseção de volume entre os acabados (par a par)...
+    const all = m.solids;
+    for (let i = 0; i < all.length; i++) {
+      for (let j = i + 1; j < all.length; j++) {
+        const a = all[i]!;
+        const b = all[j]!;
+        const area = multiArea(intersection(asMulti(a.polygon), asMulti(b.polygon)));
+        if (area > 1e-9) expect(Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0)).toBeLessThanOrEqual(1e-9);
+      }
+    }
+    // ... nem com a estrutura (o topo da estrutura ou o fundo da peça separam os volumes em todo o trecho comum).
+    for (const f of all) {
+      for (const piece of stairBody(s).pieces) {
+        const inter = intersection(asMulti(f.polygon), asMulti(piece.polygon));
+        if (multiArea(inter) <= 1e-9) continue;
+        const bottoms = inter.flatMap((poly) => poly[0]!.map((q) => pieceBottomZ(piece, q.x, q.y)));
+        const separado = f.z0 >= piece.zTop - 1e-9 || f.z1 <= Math.min(...bottoms) + 1e-9;
+        expect(separado).toBe(true);
+      }
+    }
+  });
+
+  it('sem acabamento idêntico: nenhum par de sólidos acabados com a mesma planta e as mesmas cotas', () => {
+    const m = stairFinishModel(resolve([straight(N, P)], FIN_ON))!;
+    const key = (f: StairFinishSolid): string => [f.z0.toFixed(9), f.z1.toFixed(9), JSON.stringify(bbox(f.polygon))].join('|');
+    expect(new Set(m.solids.map(key)).size).toBe(m.solids.length);
   });
 });
 
@@ -179,8 +221,8 @@ describe('acabamentos: piso + bocel em um sólido e alinhamento lateral', () => 
       const b = bbox(p.polygon);
       // Um anel só, com o ressalto de 2 cm antes da face do espelho e o fim na face do espelho da frente.
       expect(b.x0).toBeCloseTo(x - 0.02, 6);
-      expect(b.x1).toBeCloseTo(x + P, 6);
-      expect(multiArea(asMulti(p.polygon))).toBeCloseTo(W * (P + 0.02), 6);
+      expect(b.x1).toBeCloseTo(x + P + 0.01, 6); // corre até a estrutura, por baixo do espelho acabado de cima (te = 1 cm)
+      expect(multiArea(asMulti(p.polygon))).toBeCloseTo(W * (P + 0.02 + 0.01), 6);
       expect(p.edgeLength).toBeCloseTo(W, 6);
     });
     // Planta (degraus resolvidos) intacta: medida entre as faces acabadas dos espelhos.
@@ -191,7 +233,7 @@ describe('acabamentos: piso + bocel em um sólido e alinhamento lateral', () => 
     for (const extra of [{ ...FIN_ON, bocelEnabled: false }, { ...FIN_ON, bocelProjection: 0 }]) {
       const m = stairFinishModel(resolve([straight(N, P)], extra))!;
       treads(m.solids).forEach((p) => {
-        expect(multiArea(asMulti(p.polygon))).toBeCloseTo(W * P, 6);
+        expect(multiArea(asMulti(p.polygon))).toBeCloseTo(W * (P + 0.01), 6); // sem bocel, ainda corre sob o espelho
         expect(p.edgeLength).toBe(0);
       });
     }
@@ -246,7 +288,7 @@ describe('acabamentos: quantidades e avisos', () => {
   it('quantidades separadas: área de piso (com bocel), área de espelho e metros de bocel', () => {
     const s = resolve([straight(N, P)], FIN_ON);
     const q = stairFinishQuantities(s);
-    expect(q.treadArea).toBeCloseTo((N - 1) * W * (P + 0.02), 6);
+    expect(q.treadArea).toBeCloseTo((N - 1) * W * (P + 0.02 + 0.01), 6);
     expect(q.bocelLength).toBeCloseTo((N - 1) * W, 6);
     const r = risers(stairFinishModel(s)!.solids);
     expect(q.riserArea).toBeCloseTo(W * r.reduce((a, x) => a + (x.z1 - x.z0), 0), 6);
@@ -333,7 +375,7 @@ describe('acabamentos: corte', () => {
     const sec = sectionOfStairs([s], { a: v(-0.2, 0), b: v(N * P, 0), depth: 2 }, store.project);
     const area = (m: string): number => sec.cut.filter((c) => c.materialId === m).reduce((a, c) => a + Math.abs(ringArea(c.polygon[0]!)), 0);
     // Piso: (N−1) faixas de (pisada + bocel) × espessura; espelho: espessura × soma das alturas (= altura total).
-    expect(area('mat_ceramica')).toBeCloseTo((N - 1) * (P + 0.02) * 0.015, 9);
-    expect(area('mat_madeira')).toBeCloseTo(0.01 * TOP, 9);
+    expect(area('mat_ceramica')).toBeCloseTo((N - 1) * (P + 0.02 + 0.01) * 0.015, 9);
+    expect(area('mat_madeira')).toBeCloseTo(0.01 * (TOP - (N - 1) * 0.015), 9);
   });
 });

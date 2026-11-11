@@ -1,5 +1,5 @@
 import { add, mul, norm, perp, ringArea, sub, type Ring, type Vec2 } from '@hestia/geom';
-import { pieceBottomZ, sampleChain, stairBody, stairFinishModel, type ResolvedStair, type ResolvedStairRiser, type ResolvedStairStep, type StairBodyPiece } from '@hestia/engine';
+import { pieceBottomZ, sampleChain, stairBodyForDrawing, stairFinishModel, type ResolvedStair, type ResolvedStairRiser, type ResolvedStairStep, type StairBodyPiece } from '@hestia/engine';
 import type { Id, StairLanding, StairRun, StairType } from '@hestia/model';
 import { riserPoints } from '../stairRisers.ts';
 import { extrudeCaps, ofElement, pushWall, type SolidBatch } from './solids.ts';
@@ -320,9 +320,8 @@ export function buildStairSolids(stairs: ResolvedStair[], arrivalTopOf: (s: Reso
     }
     const bodies =
       s.type.runStyle === 'monolithic' || s.type.runStyle === 'post'
-        ? // `stairBody` devolve peças vazias quando há erro; pedimos as peças sem os erros: a malha não é o lugar de
-          // apagar a escada (o erro continua no painel/validador). Sem erro, a chamada é a mesma de antes.
-          monolithicBodies(stairBody({ ...s, issues: s.issues.filter((i) => i.severity !== 'error') }, { arrivalTopZ: arrivalTopOf(s) ?? undefined }).pieces, s.type)
+        ? // `stairBodyForDrawing`: a malha não é o lugar de apagar a escada com erro (o erro continua no painel/validador).
+          monolithicBodies(stairBodyForDrawing(s, { arrivalTopZ: arrivalTopOf(s) ?? undefined }).pieces, s.type)
         : assembledBodies(s);
     // Acabamentos (piso+bocel num só sólido, e espelho): sólidos próprios, cada um no seu material.
     for (const f of stairFinishModel(s)?.solids ?? []) bodies.push({ polygon: f.polygon, bot: () => f.z0, top: f.z1, materialId: f.materialId });
