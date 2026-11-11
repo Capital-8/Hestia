@@ -373,7 +373,8 @@ export function hiddenInActiveView(p: Project, st: ReturnType<typeof useUi.getSt
   if (c && c.p === p && c.viewId === viewId && c.levelId === levelId && c.temp === temp && c.revelando === revelando) return c.ids;
   // A cobertura não usa intervalo de vista (o desenho a resolve sem ele): só as vistas com intervalo têm etapa 1.
   const outOfRange = st.planKind === 'roof' ? undefined : resolvedPlanViewOf(p, levelId, viewId).hidden;
-  const ids = hiddenIdsInView(p, viewId, Object.keys(p.elements), { outOfRange, temporary: temp ? { hidden: temp.hidden, isolated: temp.isolated } : undefined, revealing: revelando });
+  const candidatos = st.view === 'plan' ? [...Object.keys(p.elements), ...annotationIdsOfActiveView(p, st)] : Object.keys(p.elements);
+  const ids = hiddenIdsInView(p, viewId, candidatos, { outOfRange, temporary: temp ? { hidden: temp.hidden, isolated: temp.isolated } : undefined, revealing: revelando });
   ultimoOcultoDaVista = { p, viewId, levelId, temp, revelando, ids };
   return ids;
 }

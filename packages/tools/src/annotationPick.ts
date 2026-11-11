@@ -1,5 +1,5 @@
 import { boxOf, boxesOverlap, dist, dot, intersectSegments, len, sub, type Vec2 } from '@hestia/geom';
-import { angularDimensionGeometry, dimensionGeometry, dimensionStyleFor, DIM_TEXT_MM, type DimensionGeometry, dimensionPoints, floorViewId, planViewOf, viewAnnotationsOf as anotacoesDaVista, viewGraphicsOf, viewOwnAnnotationsOf, viewProfileOf, wallsOnLevel, type DetailLine, type DetailRegion, type Dimension, type DimensionRef, type ElementTag, type Id, type Project, type RoomTag, type TextNote } from '@hestia/model';
+import { angularDimensionGeometry, dimensionGeometry, dimensionStyleFor, DIM_TEXT_MM, type DimensionGeometry, dimensionPoints, floorViewId, planViewOf, viewAnnotationsOf as anotacoesDaVista, viewGraphicsOf, visibleInView, wallsOnLevel, type VisibilitySession, type DetailLine, type DetailRegion, type Dimension, type DimensionRef, type ElementTag, type Id, type Project, type RoomTag, type TextNote } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 
 /** Tolerância (m) para dizer que um ponto é a extremidade de uma parede. */
@@ -93,37 +93,29 @@ export interface ViewAnnotations {
 /**
  * Anotações que a vista de planta oferece à seleção. `viewId` é a vista exata (piso `pv_`, cobertura `pvr_` ou planta de
  * área); ausente (ou desconhecida), a planta de piso do nível. Cada vista só enxerga as próprias: as do piso não vazam
- * para a cobertura nem para a área, e vice-versa. Na planta de área o perfil da vista decide o que aparece (categoria
- * oculta não é alvo de seleção nem de alça); piso e cobertura entregam o conjunto inteiro.
+ * para a cobertura nem para a área, e vice-versa. O que a vista não mostra (regra única `visibleInView`: perfil da vista,
+ * categoria oculta, Hide in View e, na sessão, o ocultar temporário) não é alvo de seleção nem de alça.
  */
-export function anotacoesSelecionaveis(p: Project, levelId: Id, viewId?: Id): ViewAnnotations {
+export function anotacoesSelecionaveis(p: Project, levelId: Id, viewId?: Id, session?: VisibilitySession): ViewAnnotations {
   const vista = viewId ? planViewOf(p, viewId) : undefined;
-  if (vista && vista.kind === 'area') {
-    const a = { ...viewOwnAnnotationsOf(p, vista.id) };
-    const ly = viewProfileOf(p, vista.id).layers;
-    if (!ly.dimensions) a.dimensions = [];
-    if (!ly.texts) a.texts = [];
-    if (!ly.detail) { a.detailLines = []; a.detailRegions = []; }
-    if (!ly.tags) a.tags = [];
-    const escala = vista.area?.scale ?? NaN;
-    const scale = Number.isFinite(escala) && escala > 0 ? escala : viewGraphicsOf(p, floorViewId(levelId)).scale;
-    return { scale, ...a };
-  }
   const id = vista ? vista.id : floorViewId(levelId);
-  const nivel = anotacoesDaVista(p, id);
+  const todas = anotacoesDaVista(p, id);
+  const ver = <T extends { id: Id }>(xs: T[]): T[] => xs.filter((x) => visibleInView(p, id, x.id, session));
+  const escala = vista?.kind === 'area' ? (vista.area?.scale ?? NaN) : NaN;
+  const scale = Number.isFinite(escala) && escala > 0 ? escala : viewGraphicsOf(p, vista?.kind === 'area' ? floorViewId(levelId) : id).scale;
   return {
-    scale: viewGraphicsOf(p, id).scale,
-    dimensions: nivel.dimensions,
-    texts: nivel.texts,
-    detailLines: nivel.detailLines,
-    detailRegions: nivel.detailRegions,
-    tags: nivel.tags,
+    scale,
+    dimensions: ver(todas.dimensions),
+    texts: ver(todas.texts),
+    detailLines: ver(todas.detailLines),
+    detailRegions: ver(todas.detailRegions),
+    tags: ver(todas.tags),
   };
 }
 
 /** Detalhes desenhados por cima do modelo têm prioridade de seleção quando suas áreas se sobrepõem. */
-export function detailItemAt(p: Project, levelId: Id, at: Vec2, mpp: number, viewId?: Id): Id | null {
-  const a = anotacoesSelecionaveis(p, levelId, viewId);
+export function detailItemAt(p: Project, levelId: Id, at: Vec2, mpp: number, viewId?: Id, session?: VisibilitySession): Id | null {
+  const a = anotacoesSelecionaveis(p, levelId, viewId, session);
   for (const region of [...a.detailRegions].reverse()) {
     let inside = false;
     for (let i = 0, j = region.boundary.length - 1; i < region.boundary.length; j = i++) {
@@ -137,8 +129,8 @@ export function detailItemAt(p: Project, levelId: Id, at: Vec2, mpp: number, vie
 }
 
 /** Cota, etiqueta, texto ou detalhe sob o cursor (tolerância de 6 px; o texto vale pelo retângulo, não só pela âncora). */
-export function annotationAt(p: Project, levelId: Id, at: Vec2, mpp: number, viewId?: Id): { id: Id; kind: 'dimension' | 'text' } | null {
-  const a = anotacoesSelecionaveis(p, levelId, viewId);
+export function annotationAt(p: Project, levelId: Id, at: Vec2, mpp: number, viewId?: Id, session?: VisibilitySession): { id: Id; kind: 'dimension' | 'text' } | null {
+  const a = anotacoesSelecionaveis(p, levelId, viewId, session);
   for (const tag of a.tags) if (dist(at, tag.at) <= 14 * mpp) return { id: tag.id, kind: 'text' };
   for (const t of a.texts) {
     if (textHit(t, a.scale, at, 6 * mpp)) return { id: t.id, kind: 'text' };
@@ -171,8 +163,8 @@ export function annotationAt(p: Project, levelId: Id, at: Vec2, mpp: number, vie
 }
 
 /** Anotações da vista dentro da janela de seleção (esquerda→direita contém; direita→esquerda cruza). */
-export function annotationIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2, _mpp: number, viewId?: Id): Id[] {
-  const a0 = anotacoesSelecionaveis(p, levelId, viewId);
+export function annotationIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2, _mpp: number, viewId?: Id, session?: VisibilitySession): Id[] {
+  const a0 = anotacoesSelecionaveis(p, levelId, viewId, session);
   return annotationIdsInBoxOf(a0, a, b, {
     linear: (d) => { const pts = dimensionPoints(p, d); return dimHitGeometry(p, d, pts.a, pts.b, a0.scale); },
     angular: (d) => angularDimensionGeometry(resolveAngularDimension(p, levelId, d)),
