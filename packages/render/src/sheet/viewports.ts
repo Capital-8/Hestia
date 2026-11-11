@@ -9,20 +9,21 @@ import { emptyParts, type ViewportParts } from './types.ts';
 import { fmtNumLang as fmtNum, t, type Lang } from '../i18n.ts';
 
 /**
- * Projeto com a escala da vista da prancha: os gráficos do nível (ou do corte) passam a usar a escala da própria vista,
+ * Projeto com a escala da vista da prancha: os gráficos da vista (ou do corte) passam a usar a escala da própria vista,
  * então os pesos (`lineWeightMm`) e o detalhe saem da escala escolhida na prancha, não da do nível.
  */
 function withSheetScale(p: Project, view: SheetViewSource, scale: number): Project {
   if (view.kind === 'plan') {
-    const graphics = { ...viewGraphicsOf(p, floorViewId(view.levelId)), scale };
-    return { ...p, levels: p.levels.map((l) => (l.id === view.levelId ? { ...l, graphics } : l)) };
+    const id = floorViewId(view.levelId);
+    const graphics = { ...viewGraphicsOf(p, id), scale };
+    return { ...p, planViews: p.planViews.map((v) => (v.id === id ? { ...v, graphics } : v)) };
   }
   if (view.kind === 'section') return { ...p, sectionGraphics: { ...sectionGraphicsOf(p), scale } };
   if (view.kind === 'areaPlan') {
     const plan = vistaDoModelo(p, view.planId);
     if (plan?.kind !== 'area') return p;
     const graphics = { ...viewGraphicsOf(p, plan.id), scale };
-    return { ...p, levels: p.levels.map((l) => (l.id === plan.levelId ? { ...l, graphics } : l)) };
+    return { ...p, planViews: p.planViews.map((v) => (v.id === plan.id ? { ...v, graphics } : v)) };
   }
   return p;
 }

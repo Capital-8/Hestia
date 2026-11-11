@@ -12,6 +12,7 @@ import {
 } from '@hestia/model';
 import { annotationAt, annotationIdsInBox, dimGripAt, dimHitGeometry, dimTextGripAt, textGripAt, viewAnnotationsOf } from './annotationPick.ts';
 import { P, clickAt, makeEnv, tool } from './testEnv.ts';
+import { areaPlansOf } from '@hestia/model';
 
 const LV0 = 'lv_0';
 const MPP = 0.01;
@@ -34,7 +35,7 @@ function withAreaPlan() {
   return ctx;
 }
 
-const annotationsOf = (s: ProjectStore) => planAnnotationsOf(s.project.areaPlans!.find((p) => p.id === 'ap1')!);
+const annotationsOf = (s: ProjectStore) => planAnnotationsOf(areaPlansOf(s.project).find((p) => p.id === 'ap1')!);
 
 /** Grava as anotações da planta pelas ferramentas e devolve o id de cada uma. */
 function criaAnotacoes(ctx: ReturnType<typeof withAreaPlan>) {

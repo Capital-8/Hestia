@@ -14,7 +14,8 @@ import { graphicsIssues, graphicsOf, sectionGraphicsOf, view3dOf } from './graph
 import { sectionRefIssues, sectionViewIssue } from './sectionView.ts';
 import { projectSheets } from './sheet.ts';
 import { viewSourceIssue } from './sheetCommands.ts';
-import { floorViewId, planViewOf, planViewsOf, viewGraphicsOf, viewOwnAnnotationsOf } from './planView.ts';
+import { floorViewId, planViewOf, planViewsOf, viewAnnotationsOf, viewGraphicsOf } from './planView.ts';
+import { planViewProblems } from './validatePlanViews.ts';
 import { isOpening, isWall, type Element, type Id, type Level, type Opening, type Project, type Wall } from './types.ts';
 import { openingTypeById } from './openingNominal.ts';
 import { formatQuantity } from './unitsFormat.ts';
@@ -282,7 +283,7 @@ function areaPlanProblems(p: Project): ValidationIssue[] {
   const out: ValidationIssue[] = [];
   for (const view of planViewsOf(p)) {
     if (view.kind !== 'area') continue;
-    for (const tag of viewOwnAnnotationsOf(p, view.id).tags) {
+    for (const tag of viewAnnotationsOf(p, view.id).tags) {
       if (p.elements[tag.hostId]) continue;
       out.push({
         severity: 'warning',
@@ -304,6 +305,7 @@ export function validateProject(p: Project): ValidationIssue[] {
     ...graphicsProblems(p),
     ...viewProblems(p),
     ...sheetProblems(p),
+    ...planViewProblems(p),
     ...areaPlanProblems(p),
     ...p.levels.flatMap((l) => levelIssues(p, l)),
     ...walls.flatMap((w) => wallIssues(p, w)),

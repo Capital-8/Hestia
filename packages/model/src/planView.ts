@@ -1,14 +1,17 @@
-import type { AreaLegend, AreaPlan, AreaPlanGraphics, AreaTable, RoomTag } from './areaPlan.ts';
-import { planAnnotationsOf, planOwnsAnnotations } from './areaPlan.ts';
-import { levelGraphicsOf, type ViewGraphics, type ViewHidden } from './graphics.ts';
-import type { DetailLine, DetailRegion, Dimension, ElementTag, Id, Level, Project, TextNote } from './types.ts';
+import { isDraft } from 'immer';
+import type { AreaLegend, AreaPlanGraphics, AreaTable, RoomTag } from './areaPlan.ts';
+import { resolveViewGraphics, type ViewGraphics, type ViewHidden } from './graphics.ts';
+import { floorViewId, mainViewRef, roofViewId } from './planViewIds.ts';
+import type { DetailLine, DetailRegion, Dimension, ElementTag, Id, Project, TextNote } from './types.ts';
 import { resolveFloorProfile, resolveViewProfile, type ResolvedProfile } from './viewProfile.ts';
 import { DEFAULT_VIEW_RANGE, type ViewRange } from './viewRange.ts';
 
 /**
- * Vista de planta como entidade (docs/vistas/PLANO-MESTRE.md §4). FASE 0/1: os dados continuam no armazenamento
- * antigo (`Level` e `Project.areaPlans`); `planViewsOf` devolve uma PROJEÇÃO estável por referência. Na Fase 2 a
- * projeção vira leitura direta de `Project.planViews`.
+ * Vista de planta como entidade (docs/vistas/PLANO-MESTRE.md §4). Desde a Fase 2 o armazenamento é
+ * `Project.planViews`: as leituras daqui são leitura direta, com memória por identidade onde há custo.
+ *
+ * Dentro de aplicação de comando (rascunho do immer) NÃO se lê por aqui: use `resolvePlanView` (`planViewResolve.ts`),
+ * que lê direto de `p.planViews`. As memórias abaixo ignoram rascunhos (`isDraft`) por segurança.
  */
 export type PlanViewKind = 'floor' | 'roof' | 'area' | 'ceiling';
 
@@ -31,9 +34,9 @@ export interface PlanView {
   /** Ausente = padrão do tipo de vista. */
   graphics?: ViewGraphics;
   hidden?: ViewHidden;
-  /** Sempre próprias na entidade final (Fase 2); na projeção da Fase 1 pode ser a do nível (herança, ver abaixo). */
+  /** Sempre próprias: não existe herança de anotações entre vistas. */
   annotations: PlanAnnotations;
-  /** Só quando `kind === 'area'`: o que hoje é específico de `AreaPlan`. */
+  /** Só quando `kind === 'area'`: o que é específico da planta de área. */
   area?: {
     schemeId?: Id;
     scale: number;
@@ -44,17 +47,9 @@ export interface PlanView {
   };
 }
 
-// ── Ids determinísticos ──────────────────────────────────────────────────────────────────────────────────────────
+export { floorViewId, roofViewId };
 
-const FLOOR_PREFIX = 'pv_';
-const ROOF_PREFIX = 'pvr_';
-
-/** Id da planta de piso principal do nível. */
-export const floorViewId = (levelId: Id): Id => `${FLOOR_PREFIX}${levelId}`;
-/** Id da planta de cobertura principal do nível. */
-export const roofViewId = (levelId: Id): Id => `${ROOF_PREFIX}${levelId}`;
-
-/** Quem é a vista no armazenamento antigo: nível + tipo (+ planta de área). */
+/** Quem é a vista no formato antigo: nível + tipo (+ planta de área). */
 export interface PlanViewRef {
   kind: PlanViewKind;
   levelId: Id;
@@ -67,121 +62,41 @@ export interface PlanViewRef {
  * Sem ambiguidade: `pv_` (3.º caractere `_`) e `pvr_` (3.º caractere `r`) nunca se confundem.
  */
 export function planViewRef(viewId: Id): PlanViewRef | undefined {
-  if (viewId.startsWith(ROOF_PREFIX) && viewId.length > ROOF_PREFIX.length) return { kind: 'roof', levelId: viewId.slice(ROOF_PREFIX.length) };
-  if (viewId.startsWith(FLOOR_PREFIX) && viewId.length > FLOOR_PREFIX.length) return { kind: 'floor', levelId: viewId.slice(FLOOR_PREFIX.length) };
-  return undefined;
+  return mainViewRef(viewId);
 }
 
-/** Como `planViewRef`, mas também resolve o id de uma planta de área (precisa do projeto). */
-export function planViewRefOf(p: Project, viewId: Id): PlanViewRef | undefined {
+/** Como `planViewRef`, mas lê a vista no projeto (qualquer tipo; para área devolve também `areaPlanId`). */
+export function planViewRefOf(p: PlanViewsHost, viewId: Id): PlanViewRef | undefined {
   const v = planViewOf(p, viewId);
   if (!v) return undefined;
   return v.kind === 'area' ? { kind: 'area', levelId: v.levelId, areaPlanId: v.id } : { kind: v.kind, levelId: v.levelId };
 }
 
-// ── Projeção (Fase 1) ────────────────────────────────────────────────────────────────────────────────────────────
+/** O que as leituras precisam do projeto. */
+export type PlanViewsHost = Pick<Project, 'planViews'>;
 
+const NO_VIEWS: PlanView[] = [];
 const NO_ITEMS: readonly never[] = Object.freeze([]) as readonly never[];
-const NO_AREA_PLANS: readonly AreaPlan[] = Object.freeze([]) as readonly AreaPlan[];
 const EMPTY_ANNOTATIONS: PlanAnnotations = Object.freeze({ dimensions: NO_ITEMS as never[], texts: NO_ITEMS as never[], detailLines: NO_ITEMS as never[], detailRegions: NO_ITEMS as never[], tags: NO_ITEMS as never[] }) as PlanAnnotations;
 const EMPTY_HIDDEN: ViewHidden = Object.freeze({}) as ViewHidden;
 
-/** Anotações do nível, memorizadas pelo `Level` (mesmos arrays do nível; ausente = lista vazia compartilhada). */
-const levelAnnotationsCache = new WeakMap<Level, PlanAnnotations>();
-function annotationsOfLevelStore(l: Level): PlanAnnotations {
-  let a = levelAnnotationsCache.get(l);
-  if (!a) {
-    a = {
-      dimensions: l.dimensions ?? (NO_ITEMS as never[]),
-      texts: l.texts ?? (NO_ITEMS as never[]),
-      detailLines: l.detailLines ?? (NO_ITEMS as never[]),
-      detailRegions: l.detailRegions ?? (NO_ITEMS as never[]),
-      tags: l.tags ?? (NO_ITEMS as never[]),
-    };
-    levelAnnotationsCache.set(l, a);
-  }
-  return a;
-}
-
-const floorCache = new WeakMap<Level, PlanView>();
-function floorViewOfLevel(l: Level): PlanView {
-  let v = floorCache.get(l);
-  if (!v) {
-    v = { id: floorViewId(l.id), name: l.name, levelId: l.id, kind: 'floor', viewRange: l.viewRange, graphics: l.graphics, hidden: l.hidden, annotations: annotationsOfLevelStore(l) };
-    floorCache.set(l, v);
-  }
-  return v;
-}
+/** Anotações vazias compartilhadas (só leitura). */
+export const emptyViewAnnotations = (): PlanAnnotations => EMPTY_ANNOTATIONS;
 
 /**
- * Planta de cobertura do nível. Tirado do render (packages/render/src/plan/planContext.ts:163-179 e build.ts:221-471):
- * - intervalo de vista: a cobertura NÃO o usa (`rp` => `view = null`, a geometria vem do nível resolvido sem corte).
- *   Como o campo é obrigatório, a projeção usa o padrão (`DEFAULT_VIEW_RANGE`), desacoplado do `Level`;
- * - gráficos: os do nível (`planStyleOf` -> `levelGraphicsOf`), iguais aos da planta de piso;
- * - ocultos: `Level.roofHidden` (apps/web/src/editor/viewVisibility.ts:43);
- * - anotações: as do NÍVEL (build.ts:470-471 chama `noteOps` sem `areaPlan`, logo lê o nível) — a mesma referência da
- *   planta de piso. O contrato da §4.1 previa vazio; o comportamento atual manda (afeta a migração da Fase 2).
+ * Todas as vistas de planta, na ordem do armazenamento: por nível (na ordem de `levels`) o piso e a cobertura, depois as
+ * demais. Estável: o mesmo `p.planViews` devolve o MESMO array.
  */
-const roofCache = new WeakMap<Level, PlanView>();
-function roofViewOfLevel(l: Level): PlanView {
-  let v = roofCache.get(l);
-  if (!v) {
-    v = { id: roofViewId(l.id), name: l.name, levelId: l.id, kind: 'roof', viewRange: DEFAULT_VIEW_RANGE, graphics: l.graphics, hidden: l.roofHidden, annotations: annotationsOfLevelStore(l) };
-    roofCache.set(l, v);
-  }
-  return v;
+export function planViewsOf(p: PlanViewsHost): PlanView[] {
+  return p.planViews ?? NO_VIEWS;
 }
 
-/**
- * Planta de área: depende do `AreaPlan` e do `Level`; a entrada vale enquanto os DOIS objetos forem os mesmos.
- * `viewRange` e `graphics` são os do nível (é o que `planStyleOf` e `planViewOf` leem hoje; só a escala é da planta,
- * em `area.scale`). Herança: `annotations === undefined` devolve as anotações do nível (mesmo objeto da planta de piso).
- */
-const areaCache = new WeakMap<AreaPlan, { level: Level; view: PlanView }>();
-function areaViewOf(a: AreaPlan, l: Level): PlanView {
-  const hit = areaCache.get(a);
-  if (hit && hit.level === l) return hit.view;
-  const view: PlanView = {
-    id: a.id, name: a.name, levelId: a.levelId, kind: 'area', viewRange: l.viewRange, graphics: l.graphics, hidden: a.hidden,
-    annotations: planOwnsAnnotations(a) ? planAnnotationsOf(a) : annotationsOfLevelStore(l),
-    area: { schemeId: a.schemeId, scale: a.scale, graphics: a.graphics, tags: a.tags, legend: a.legend, table: a.table },
-  };
-  areaCache.set(a, { level: l, view });
-  return view;
-}
-
-const listCache = new WeakMap<readonly Level[], WeakMap<readonly AreaPlan[], PlanView[]>>();
 const indexCache = new WeakMap<PlanView[], Map<Id, PlanView>>();
 
-/**
- * Todas as vistas de planta: por nível (na ordem de `levels`) o piso e a cobertura, depois as plantas de área.
- * Planta de área cujo nível não existe é omitida (dado inconsistente; a validação a aponta).
- * Estável: o mesmo `p.levels` e `p.areaPlans` devolvem o MESMO array; `Level`/`AreaPlan` iguais devolvem a mesma vista.
- */
-export function planViewsOf(p: Pick<Project, 'levels' | 'areaPlans'>): PlanView[] {
-  const areas: readonly AreaPlan[] = p.areaPlans ?? NO_AREA_PLANS;
-  let byAreas = listCache.get(p.levels);
-  if (!byAreas) listCache.set(p.levels, (byAreas = new WeakMap()));
-  let list = byAreas.get(areas);
-  if (!list) {
-    list = [];
-    const levels = new Map<Id, Level>();
-    for (const l of p.levels) {
-      levels.set(l.id, l);
-      list.push(floorViewOfLevel(l), roofViewOfLevel(l));
-    }
-    for (const a of areas) {
-      const l = levels.get(a.levelId);
-      if (l) list.push(areaViewOf(a, l));
-    }
-    byAreas.set(areas, list);
-  }
-  return list;
-}
-
 /** Vista pelo id; `undefined` se não existe. */
-export function planViewOf(p: Pick<Project, 'levels' | 'areaPlans'>, viewId: Id): PlanView | undefined {
+export function planViewOf(p: PlanViewsHost, viewId: Id): PlanView | undefined {
   const list = planViewsOf(p);
+  if (isDraft(list)) return list.find((v) => v.id === viewId);
   let idx = indexCache.get(list);
   if (!idx) indexCache.set(list, (idx = new Map(list.map((v) => [v.id, v] as const))));
   return idx.get(viewId);
@@ -190,73 +105,72 @@ export function planViewOf(p: Pick<Project, 'levels' | 'areaPlans'>, viewId: Id)
 const byLevelCache = new WeakMap<PlanView[], Map<Id, PlanView[]>>();
 
 /** Vistas do nível, na ordem de `planViewsOf`, opcionalmente só de um tipo. Nível inexistente: lista vazia. */
-export function planViewsOfLevel(p: Pick<Project, 'levels' | 'areaPlans'>, levelId: Id, kind?: PlanViewKind): PlanView[] {
+export function planViewsOfLevel(p: PlanViewsHost, levelId: Id, kind?: PlanViewKind): PlanView[] {
   const list = planViewsOf(p);
-  let m = byLevelCache.get(list);
-  if (!m) {
-    m = new Map();
-    for (const v of list) {
-      const xs = m.get(v.levelId);
-      if (xs) xs.push(v);
-      else m.set(v.levelId, [v]);
+  let all: PlanView[];
+  if (isDraft(list)) all = list.filter((v) => v.levelId === levelId);
+  else {
+    let m = byLevelCache.get(list);
+    if (!m) {
+      m = new Map();
+      for (const v of list) {
+        const xs = m.get(v.levelId);
+        if (xs) xs.push(v);
+        else m.set(v.levelId, [v]);
+      }
+      byLevelCache.set(list, m);
     }
-    byLevelCache.set(list, m);
+    all = m.get(levelId) ?? [];
   }
-  const all = m.get(levelId) ?? [];
   return kind ? all.filter((v) => v.kind === kind) : all;
 }
 
-/** Vista principal (piso ou cobertura) do nível. Lança erro claro se o nível não existe. */
-export function mainPlanViewOf(p: Pick<Project, 'levels' | 'areaPlans'>, levelId: Id, kind: 'floor' | 'roof'): PlanView {
-  const l = p.levels.find((x) => x.id === levelId);
-  if (!l) throw new Error(`Nível "${levelId}" não existe: não há vista principal de ${kind === 'floor' ? 'piso' : 'cobertura'}.`);
-  return kind === 'floor' ? floorViewOfLevel(l) : roofViewOfLevel(l);
+/** Vista principal (piso ou cobertura) do nível. Lança erro claro se ela não existe (nível inexistente). */
+export function mainPlanViewOf(p: PlanViewsHost, levelId: Id, kind: 'floor' | 'roof'): PlanView {
+  const v = planViewOf(p, kind === 'floor' ? floorViewId(levelId) : roofViewId(levelId));
+  if (!v) throw new Error(`Nível "${levelId}" não existe: não há vista principal de ${kind === 'floor' ? 'piso' : 'cobertura'}.`);
+  return v;
 }
 
 // ── Leituras ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** Intervalo de vista. Id inexistente: `DEFAULT_VIEW_RANGE` (padrão do projeto). */
-export function viewRangeOf(p: Pick<Project, 'levels' | 'areaPlans'>, viewId: Id): ViewRange {
+export function viewRangeOf(p: PlanViewsHost, viewId: Id): ViewRange {
   return planViewOf(p, viewId)?.viewRange ?? DEFAULT_VIEW_RANGE;
 }
 
 const graphicsCache = new WeakMap<PlanView, ViewGraphics>();
-const DEFAULT_RESOLVED_GRAPHICS: ViewGraphics = levelGraphicsOf({ levels: [] }, '');
+const DEFAULT_RESOLVED_GRAPHICS: ViewGraphics = resolveViewGraphics(undefined);
 
 /**
- * Gráficos resolvidos contra o padrão (mesma função do código antigo: `levelGraphicsOf`). Na planta de área a escala
- * da planta fica em `area.scale` (o desenho a sobrepõe como hoje, `planStyleOf(..., areaPlan.scale)`).
- * Id inexistente: o padrão.
+ * Gráficos resolvidos contra o padrão. Na planta de área a escala da planta fica em `area.scale` (o desenho a sobrepõe
+ * como sempre, `planStyleOf(..., areaPlan.scale)`). Id inexistente: o padrão.
  */
-export function viewGraphicsOf(p: Pick<Project, 'levels' | 'areaPlans'>, viewId: Id): ViewGraphics {
+export function viewGraphicsOf(p: PlanViewsHost, viewId: Id): ViewGraphics {
   const v = planViewOf(p, viewId);
   if (!v) return DEFAULT_RESOLVED_GRAPHICS;
+  if (isDraft(v)) return resolveViewGraphics(v.graphics);
   let g = graphicsCache.get(v);
-  if (!g) graphicsCache.set(v, (g = levelGraphicsOf({ levels: [{ id: v.levelId, graphics: v.graphics } as Level] }, v.levelId)));
+  if (!g) graphicsCache.set(v, (g = resolveViewGraphics(v.graphics)));
   return g;
 }
 
 /** Ocultos da vista; ausente = `{}` (objeto compartilhado, só leitura). */
-export function viewHiddenOf(p: Pick<Project, 'levels' | 'areaPlans'>, viewId: Id): ViewHidden {
+export function viewHiddenOf(p: PlanViewsHost, viewId: Id): ViewHidden {
   return planViewOf(p, viewId)?.hidden ?? EMPTY_HIDDEN;
 }
 
 /** Anotações da vista. Id inexistente: conjunto vazio compartilhado (só leitura). */
-export function viewAnnotationsOf(p: Pick<Project, 'levels' | 'areaPlans'>, viewId: Id): PlanAnnotations {
+export function viewAnnotationsOf(p: PlanViewsHost, viewId: Id): PlanAnnotations {
   return planViewOf(p, viewId)?.annotations ?? EMPTY_ANNOTATIONS;
 }
 
 /**
- * Anotações que a vista POSSUI (as que a seleção e a edição enxergam). Na Fase 1 difere de `viewAnnotationsOf` só na
- * planta de área sem conjunto próprio: o desenho herda as do nível, mas elas não são selecionáveis nem editáveis ali
- * (comportamento atual, gravado no ouro). Piso e cobertura: as do nível. Na Fase 2 as duas funções ficam iguais.
+ * Anotações que a vista possui (seleção e edição).
+ * @deprecated Desde a Fase 2 não há herança: é igual a `viewAnnotationsOf`. Removida na Fase 3.
  */
-export function viewOwnAnnotationsOf(p: Pick<Project, 'levels' | 'areaPlans'>, viewId: Id): PlanAnnotations {
-  const v = planViewOf(p, viewId);
-  if (!v) return EMPTY_ANNOTATIONS;
-  if (v.kind !== 'area') return v.annotations;
-  const a = (p.areaPlans ?? NO_AREA_PLANS).find((x) => x.id === v.id);
-  return a && planOwnsAnnotations(a) ? v.annotations : EMPTY_ANNOTATIONS;
+export function viewOwnAnnotationsOf(p: PlanViewsHost, viewId: Id): PlanAnnotations {
+  return viewAnnotationsOf(p, viewId);
 }
 
 const profileCache = new WeakMap<PlanView, ResolvedProfile>();
@@ -269,10 +183,11 @@ const FLOOR_PROFILE: ResolvedProfile = resolveFloorProfile();
  * `ProfileLayers` equivalente. Devolve o perfil de piso, que é o que o render passa hoje.
  * `ceiling` (Fase 4) também cai no de piso. Id inexistente: perfil de piso.
  */
-export function viewProfileOf(p: Pick<Project, 'levels' | 'areaPlans'>, viewId: Id): ResolvedProfile {
+export function viewProfileOf(p: PlanViewsHost, viewId: Id): ResolvedProfile {
   const v = planViewOf(p, viewId);
   if (!v) return FLOOR_PROFILE;
   if (v.kind !== 'area' || !v.area) return FLOOR_PROFILE;
+  if (isDraft(v)) return resolveViewProfile({ graphics: v.area.graphics, scale: v.area.scale });
   let r = profileCache.get(v);
   if (!r) profileCache.set(v, (r = resolveViewProfile({ graphics: v.area.graphics, scale: v.area.scale })));
   return r;

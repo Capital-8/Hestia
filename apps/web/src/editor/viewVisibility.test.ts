@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildTemplate } from '@hestia/model';
+import { buildTemplate, patchFloorOfTest } from '@hestia/model';
 import { useUi } from './state.ts';
 import { editor } from './controller.ts';
 import { categoryIdsOf, mergeHidden, removeHidden, toggleRevealHidden, unhideInView, visibilityKeyOf, visibilityOf } from './viewVisibility.ts';
@@ -34,7 +34,7 @@ describe('visibilidade por vista', () => {
     const w = parede(p);
     const d = porta(p);
     const level = p.levels[0]!;
-    level.hidden = { elements: [w.id], categories: ['door'] };
+    patchFloorOfTest(p, level.id, { hidden: { elements: [w.id], categories: ['door'] } });
     useUi.setState({ view: 'plan', planKind: 'floor', levelId: level.id, viewTemp: {} });
     const normal = visibilityOf(p, useUi.getState());
     expect(normal.hidden.has(w.id)).toBe(true);
@@ -82,7 +82,7 @@ describe('visibilidade por vista', () => {
         const key = visibilityKeyOf(useUi.getState())!;
         const k = key.startsWith('plan:') ? `plan:${lv.id}` : key;
         useUi.setState({ viewTemp: { [k]: { hidden: { elements: [w.id] } } } });
-        if (key.startsWith('plan:')) lv.hidden = { elements: [w.id] };
+        if (key.startsWith('plan:')) patchFloorOfTest(p, lv.id, { hidden: { elements: [w.id] } });
         const off = visibilityOf(p, useUi.getState());
         expect(off.hidden.has(w.id)).toBe(true);
         expect(off.revealed.has(w.id)).toBe(false);

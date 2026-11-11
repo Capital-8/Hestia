@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ProjectStore, createEmptyProject, makeRoom } from './index.ts';
 import { DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS, type AreaPlan, type RoomTag } from './areaPlan.ts';
 import { roomIssues } from './validateRooms.ts';
+import { areaPlansOf } from './index.ts';
 
 const plan = (over: Partial<AreaPlan> = {}): AreaPlan => ({
   id: 'ap1',
@@ -35,7 +36,7 @@ describe('planta de área · modelo e comandos', () => {
   it('cria a planta com os gráficos padrão e sem cor', () => {
     const s = withRoom();
     s.exec({ type: 'addAreaPlan', plan: plan({ graphics: undefined as never }) });
-    const p = s.project.areaPlans![0]!;
+    const p = areaPlansOf(s.project)[0]!;
     expect(p.graphics.fill).toBe('none');
     expect(p.graphics.referenceLines).toBe('always');
     expect(p.graphics.tagDefault.leader).toBe('straight');
@@ -45,7 +46,7 @@ describe('planta de área · modelo e comandos', () => {
     const s = withRoom();
     s.exec({ type: 'addAreaPlan', plan: plan() });
     s.exec({ type: 'addRoomTag', planId: 'ap1', tag: tag() });
-    expect(s.project.areaPlans![0]!.tags).toHaveLength(1);
+    expect(areaPlansOf(s.project)[0]!.tags).toHaveLength(1);
     expect(() => s.exec({ type: 'addRoomTag', planId: 'ap1', tag: tag({ id: 'tag2' }) })).toThrow('já tem etiqueta');
   });
 
@@ -58,7 +59,7 @@ describe('planta de área · modelo e comandos', () => {
     s.exec({ type: 'addAreaPlan', plan: plan() });
     s.exec({ type: 'addRoomTag', planId: 'ap1', tag: tag() });
     s.exec({ type: 'removeRoom', id: 'r1' });
-    expect(s.project.areaPlans![0]!.tags).toHaveLength(0);
+    expect(areaPlansOf(s.project)[0]!.tags).toHaveLength(0);
   });
 
   it('move a etiqueta e muda o líder sem tocar no ponto do ambiente', () => {
@@ -66,7 +67,7 @@ describe('planta de área · modelo e comandos', () => {
     s.exec({ type: 'addAreaPlan', plan: plan() });
     s.exec({ type: 'addRoomTag', planId: 'ap1', tag: tag() });
     s.exec({ type: 'updateRoomTag', planId: 'ap1', id: 'tag1', patch: { at: { x: 8, y: 8 }, leader: 'kinked' } });
-    expect(s.project.areaPlans![0]!.tags[0]!.at).toEqual({ x: 8, y: 8 });
+    expect(areaPlansOf(s.project)[0]!.tags[0]!.at).toEqual({ x: 8, y: 8 });
     expect((s.project.elements.r1 as { point: { x: number; y: number } }).point).toEqual({ x: 2, y: 1.5 });
   });
 
@@ -108,7 +109,7 @@ describe('planta de área · modelo e comandos', () => {
     s.exec({ type: 'addAreaPlan', plan: plan() });
     s.exec({ type: 'addRoomTag', planId: 'ap1', tag: tag() });
     const round = JSON.parse(JSON.stringify(s.project));
-    expect(round.areaPlans[0].tags[0].roomId).toBe('r1');
+    expect(round.planViews.find((v: { id: string }) => v.id === 'ap1').area.tags[0].roomId).toBe('r1');
     expect(round.elements.r1.referencePoint).toEqual({ x: 3, y: 2 });
   });
 });

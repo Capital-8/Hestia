@@ -3,6 +3,7 @@ import {
   DEFAULT_AREA_GRAPHICS, FLOOR_PROFILE_LAYERS, ProjectStore, createEmptyProject, emptyTitleBlock, migrateProject, planAnnotationIds, planOwnsAnnotations,
   resolveFloorProfile, resolveViewProfile, validateProject, type AreaPlan, type AreaPlanGraphics, type Project, type Sheet,
 } from './index.ts';
+import { areaPlansOf } from './index.ts';
 
 const plan = (id: string, over: Partial<AreaPlan> = {}): AreaPlan => ({ id, name: id, levelId: 'lv_0', scale: 50, graphics: { ...DEFAULT_AREA_GRAPHICS }, tags: [], ...over });
 const sheet = (viewports: Sheet['viewports'], id = 'sh1'): Sheet => ({ id, number: 'A-1', name: 'P', size: 'A3', orientation: 'landscape', margin: 10, titleBlock: emptyTitleBlock(), viewports });
@@ -58,30 +59,31 @@ describe('migração v21 → v22', () => {
 
   it('completa graphics, scale e tags, preserva annotations e é idempotente', () => {
     const p = migrateProject(v21());
-    const a1 = p.areaPlans![0]!;
-    const a2 = p.areaPlans![1]!;
-    expect(p.schemaVersion).toBe(23);
+    const a1 = areaPlansOf(p)[0]!;
+    const a2 = areaPlansOf(p)[1]!;
+    expect(p.schemaVersion).toBe(24);
     expect(a1.graphics.fill).toBe('scheme');
     expect(a1.graphics.tagDefault).toEqual({ leader: 'none', fields: DEFAULT_AREA_GRAPHICS.tagDefault.fields, orientation: 'horizontal' });
     expect(a1.scale).toBe(50);
     expect(a1.tags).toEqual([]);
-    expect(a1.annotations).toBeUndefined();
-    expect('annotations' in a1).toBe(false);
-    expect(a2.annotations).toEqual({});
+    // Esquema 24: não há herança; a vista tem sempre o conjunto próprio (a1 herdava do nível, que não tem anotações).
+    expect(a1.annotations).toEqual({ dimensions: [], texts: [], detailLines: [], detailRegions: [], tags: [] });
+    expect(a2.annotations).toEqual({ dimensions: [], texts: [], detailLines: [], detailRegions: [], tags: [] });
     expect(a2.scale).toBe(100);
-    expect(migrateProject(JSON.parse(JSON.stringify(p))).areaPlans).toEqual(p.areaPlans);
+    expect(migrateProject(JSON.parse(JSON.stringify(p))).planViews).toEqual(p.planViews);
   });
 
   it('projeto sem areaPlans migra sem erro', () => {
     const b = v21();
     delete b.areaPlans;
-    expect(migrateProject(b).areaPlans).toEqual([]);
+    expect(areaPlansOf(migrateProject(b))).toEqual([]);
   });
 });
 
 describe('regra única de anotações', () => {
-  it('undefined herda; {} é próprio; planAnnotationIds({}) não lança', () => {
-    expect(planOwnsAnnotations({ annotations: undefined })).toBe(false);
+  it('sem herança (v24): todo conjunto é próprio; planAnnotationIds({}) não lança', () => {
+    // Esquema 24: não há herança, a regra antiga vale sempre (função @deprecated).
+    expect(planOwnsAnnotations({ annotations: undefined })).toBe(true);
     expect(planOwnsAnnotations({ annotations: {} as never })).toBe(true);
     expect(planAnnotationIds({ annotations: {} as never })).toEqual([]);
     expect(planAnnotationIds({ annotations: { texts: [{ id: 't' }] } as never })).toEqual(['t']);
@@ -107,7 +109,7 @@ describe('pranchas e vistas de área', () => {
     expect(s.project.sheets![0]!.viewports.map((v) => v.id)).toEqual(['v2']);
     s.undo();
     expect(s.project.sheets![0]!.viewports.map((v) => v.id)).toEqual(['v1', 'v2']);
-    expect(s.project.areaPlans!.map((a) => a.id)).toEqual(['ap1', 'ap2']);
+    expect(areaPlansOf(s.project).map((a) => a.id)).toEqual(['ap1', 'ap2']);
   });
 
   it('deleteLevel leva planta de área e viewports (de piso e de área) num só undo', () => {
@@ -120,7 +122,7 @@ describe('pranchas e vistas de área', () => {
     expect(s.project.sheets![0]!.viewports.map((v) => v.id)).toEqual(['v3']);
     s.undo();
     expect(s.project.sheets![0]!.viewports).toHaveLength(3);
-    expect(s.project.areaPlans!.map((a) => a.id)).toContain('apx');
+    expect(areaPlansOf(s.project).map((a) => a.id)).toContain('apx');
   });
 
   it('arquivo com viewport órfã abre sem lançar e a validação reporta', () => {

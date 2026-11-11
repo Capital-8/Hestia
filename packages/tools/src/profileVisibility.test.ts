@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_AREA_GRAPHICS, ProjectStore, createEmptyProject, makeRoom, type AreaPlan, type RoomTag } from '@hestia/model';
 import { P, drawWall, makeEnv, tool, walls } from './testEnv.ts';
+import { areaPlansOf } from '@hestia/model';
 
 const plan = (g: Partial<typeof DEFAULT_AREA_GRAPHICS> = {}): AreaPlan => ({
   id: 'ap1', name: 'A', levelId: 'lv_0', scale: 50,
@@ -66,7 +67,7 @@ describe('etiqueta de ambiente (RoomTag) da vista', () => {
     t.down?.(P(5, 5));
     t.drag?.(P(6, 7));
     t.up?.(P(6, 7));
-    const tag = c.store.project.areaPlans![0]!.tags[0]!;
+    const tag = areaPlansOf(c.store.project)[0]!.tags[0]!;
     expect(tag.at.x).toBeCloseTo(6);
     expect(tag.at.y).toBeCloseTo(7);
   });

@@ -1,4 +1,5 @@
 import { t, type Lang } from './i18n.ts';
+import { floorViewId } from './planViewIds.ts';
 import type { DetailLevel, Id, Project } from './types.ts';
 
 /**
@@ -254,10 +255,14 @@ export function graphicsOf(p: Pick<Project, 'graphics'>): ProjectGraphics {
   };
 }
 
-/** Gráficos da planta de um nível com os padrões aplicados. Nível inexistente: o padrão. */
-export function levelGraphicsOf(p: Pick<Project, 'levels'>, levelId: Id): ViewGraphics {
-  const g = p.levels.find((l) => l.id === levelId)?.graphics;
+/** Gráficos de uma vista com os padrões aplicados (qualquer subconjunto salvo vale; ausente = o padrão). */
+export function resolveViewGraphics(g: ViewGraphics | undefined): ViewGraphics {
   return { ...DEFAULT_VIEW_GRAPHICS, ...(g ?? {}), overrides: mergeOverrides(g?.overrides) };
+}
+
+/** Gráficos da planta de piso de um nível com os padrões aplicados. Nível/vista inexistente: o padrão. */
+export function levelGraphicsOf(p: Pick<Project, 'planViews'>, levelId: Id): ViewGraphics {
+  return resolveViewGraphics(p.planViews?.find((v) => v.id === floorViewId(levelId))?.graphics);
 }
 
 /** Gráficos do corte/elevação com os padrões aplicados (não há nível natural: a vista cruza níveis). */

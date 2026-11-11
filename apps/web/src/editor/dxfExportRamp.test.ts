@@ -12,6 +12,10 @@ import {
   type StairRun,
   type ViewGraphics,
   type ViewRange,
+  floorViewId,
+  patchFloorOfTest,
+  planViewRangeOf,
+  withFloorPatchOfTest,
 } from '@hestia/model';
 import { planDxf, rampDxf } from './dxfExport.ts';
 
@@ -43,16 +47,12 @@ function straightRamp(): Project {
   return s.project;
 }
 
-const withRange = (p: Project, range: Partial<ViewRange>): Project => ({
-  ...p,
-  levels: p.levels.map((l) => (l.id === 'lv_0' ? { ...l, viewRange: { ...l.viewRange, ...range } } : l)),
-});
+const withRange = (p: Project, range: Partial<ViewRange>): Project =>
+  withFloorPatchOfTest(p, 'lv_0', { viewRange: { ...planViewRangeOf(p, floorViewId('lv_0')), ...range } });
 
 /** Cópia com os gráficos salvos da vista (a categoria `stair` cobre escada e rampa). */
 function withGraphics(p: Project, overrides: Partial<Record<GraphicsCategory, Partial<CategoryOverride>>>): Project {
-  const q = structuredClone(p);
-  q.levels = q.levels.map((l) => (l.id === 'lv_0' ? { ...l, graphics: { overrides } as ViewGraphics } : l));
-  return q;
+  return patchFloorOfTest(structuredClone(p), 'lv_0', { graphics: { overrides } as ViewGraphics });
 }
 
 /** Existe entidade do tipo na camada pedida? (O R2000 põe handle e dono entre o tipo e a camada.) */

@@ -1,0 +1,2 @@
+# O comparador do ouro das vistas compara texto exato: os arquivos de ouro ficam sempre em LF, também no Windows.
+tests/vistas-ouro/ouro/** text eol=lf

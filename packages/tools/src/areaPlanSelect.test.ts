@@ -11,6 +11,7 @@ import {
 } from '@hestia/model';
 import { makeEnv, P, tool, walls } from './testEnv.ts';
 import type { SelectTool } from './selectTool.ts';
+import { areaPlansOf } from '@hestia/model';
 
 /**
  * Regra da planta de área (F0): a vista é de análise/anotação. Elementos de modelo continuam selecionáveis (clique e
@@ -35,7 +36,7 @@ function comPlantaDeArea() {
 }
 
 const textAt = (store: ProjectStore) =>
-  planAnnotationsOf(store.project.areaPlans!.find((p) => p.id === 'ap1')!).texts;
+  planAnnotationsOf(areaPlansOf(store.project).find((p) => p.id === 'ap1')!).texts;
 
 describe('planta de área · o select é somente leitura para o modelo', () => {
   it('arrastar uma parede selecionada não move o modelo', () => {

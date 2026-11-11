@@ -6,6 +6,7 @@ import { roofTypes } from './roof.ts';
 import { stairTypes } from './stair.ts';
 import { rampTypes } from './ramp.ts';
 import { makeLevel } from './level.ts';
+import { mainViewsOf } from './levelViews.ts';
 import { ot } from './catalogoAberturasBase.ts';
 import { catalogoJanelas } from './catalogoJanelas.ts';
 import { catalogoPortas } from './catalogoPortas.ts';
@@ -194,13 +195,14 @@ export function createEmptyProject(nameOrLang?: string | Lang, lang: Lang = 'pt'
   const byLang = typeof nameOrLang === 'string' && LANGS.includes(nameOrLang as Lang);
   const activeLang: Lang = byLang ? (nameOrLang as Lang) : lang;
   const name = byLang ? undefined : nameOrLang;
+  const levels = [
+    makeLevel({ id: 'lv_0', name: t(activeLang, 'md_doc_level_ground'), elevation: 0 }),
+    makeLevel({ id: 'lv_1', name: t(activeLang, 'md_doc_level_n', { n: 2 }), elevation: 3 }),
+  ];
   return {
     schemaVersion: SCHEMA_VERSION,
     name: name ?? t(activeLang, 'md_doc_untitled_project'),
-    levels: [
-      makeLevel({ id: 'lv_0', name: t(activeLang, 'md_doc_level_ground'), elevation: 0 }),
-      makeLevel({ id: 'lv_1', name: t(activeLang, 'md_doc_level_n', { n: 2 }), elevation: 3 }),
-    ],
+    levels,
     materials: toRecord(materials(activeLang)),
     wallTypes: toRecord(wallTypes(activeLang)),
     floorTypes: toRecord(floorTypes(activeLang)),
@@ -214,7 +216,7 @@ export function createEmptyProject(nameOrLang?: string | Lang, lang: Lang = 'pt'
     nextOrder: 1,
     settings: { joinTolerance: 0.02, showTags: false, debugJoins: false, detail: 'medium' },
     views: [],
-    areaPlans: [],
+    planViews: levels.flatMap((l) => mainViewsOf(l)),
     roomCategories: roomCategories(activeLang),
     colorSchemes: [],
     defaults: { wallTypeId: 'wt_alv14', doorTypeId: 'ot_p80', windowTypeId: 'ot_j120', wallHeight: 2.8 },

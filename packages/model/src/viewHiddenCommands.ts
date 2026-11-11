@@ -2,14 +2,14 @@ import { view3dOf, viewHiddenIssues, type ViewHidden } from './graphics.ts';
 import type { Id, Project, ViewHiddenTarget } from './types.ts';
 import { t, type Lang } from './i18n.ts';
 import { floorViewId, planViewOf, roofViewId } from './planView.ts';
-import { resolvePlanViewRef } from './planViewResolve.ts';
+import { resolvePlanView, resolvePlanViewRef } from './planViewResolve.ts';
 
 /**
  * Converte um `viewId` de planta (piso, cobertura ou planta de área) no alvo de ocultação atual:
  * `{plan, levelId}`, `{roof, levelId}` ou `{area, planId}`. `viewId` inexistente lança Error.
  * Recomendado para montar `setViewHidden` a partir de um `viewId` (o alvo muda de forma só na Fase 2).
  */
-export function hiddenTargetOfView(p: Pick<Project, 'levels' | 'areaPlans'>, viewId: Id, lang: Lang = 'pt'): ViewHiddenTarget {
+export function hiddenTargetOfView(p: Pick<Project, 'planViews'>, viewId: Id, lang: Lang = 'pt'): ViewHiddenTarget {
   const ref = resolvePlanViewRef(p, viewId);
   if (!ref) throw new Error(t(lang, 'md_view_missing'));
   if (ref.kind === 'area') return { kind: 'area', planId: viewId };
@@ -47,29 +47,27 @@ export function viewHiddenOf(p: Project, target: ViewHiddenTarget): ViewHidden |
   }
 }
 
+/**
+ * Grava a ocultação numa vista de planta direto em `p.planViews` (sem memória: roda sobre o rascunho). Vista inexistente
+ * recusa com a mensagem do alvo antigo (`md_level_missing` para piso/cobertura, `md_area_plan_missing` para área).
+ */
+function setPlanViewHidden(p: Project, viewId: Id, clean: ViewHidden | undefined, missing: 'md_level_missing' | 'md_area_plan_missing', lang: Lang): void {
+  const v = resolvePlanView(p, viewId);
+  if (!v) throw new Error(t(lang, missing));
+  if (clean) v.hidden = clean; else delete v.hidden;
+}
+
 /** Aplica a ocultação permanente numa vista. Alvo inexistente recusa; `undefined` limpa a ocultação. */
-// armazenamento (Fase 2): os casos plan/roof/area gravam em Level.hidden, Level.roofHidden e AreaPlan.hidden.
 export function applyViewHidden(p: Project, target: ViewHiddenTarget, hidden: ViewHidden | undefined, lang: Lang = 'pt'): void {
   const clean = normalizaViewHidden(hidden, lang);
   switch (target.kind) {
-    case 'plan': {
-      const l = p.levels.find((x) => x.id === target.levelId);
-      if (!l) throw new Error(t(lang, 'md_level_missing'));
-      if (clean) l.hidden = clean; else delete l.hidden;
-      return;
-    }
-    case 'roof': {
-      const l = p.levels.find((x) => x.id === target.levelId);
-      if (!l) throw new Error(t(lang, 'md_level_missing'));
-      if (clean) l.roofHidden = clean; else delete l.roofHidden;
-      return;
-    }
-    case 'area': {
-      const a = p.areaPlans?.find((x) => x.id === target.planId);
-      if (!a) throw new Error(t(lang, 'md_area_plan_missing'));
-      if (clean) a.hidden = clean; else delete a.hidden;
-      return;
-    }
+    case 'plan':
+      return setPlanViewHidden(p, floorViewId(target.levelId), clean, 'md_level_missing', lang);
+    case 'roof':
+      return setPlanViewHidden(p, roofViewId(target.levelId), clean, 'md_level_missing', lang);
+    case 'area':
+      if (resolvePlanView(p, target.planId)?.kind !== 'area') throw new Error(t(lang, 'md_area_plan_missing'));
+      return setPlanViewHidden(p, target.planId, clean, 'md_area_plan_missing', lang);
     case 'section': {
       const v = p.views.find((x) => x.id === target.viewId);
       if (!v) throw new Error(t(lang, 'md_view_missing'));

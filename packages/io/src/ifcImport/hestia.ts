@@ -8,7 +8,7 @@
  * Sem os psets, nada aqui muda o resultado: `readHestia` devolve vazio e a importação segue o caminho atual.
  */
 
-import type { Element, Generic, Id, IfcProperty, Level, Project } from '@hestia/model';
+import { mainViewsOf, migrateVistasV23, sortPlanViews, type Element, type Generic, type Id, type IfcProperty, type Level, type Project } from '@hestia/model';
 import { t as tr, type Lang } from '../i18n.ts';
 import { HESTIA_ELEMENT_PSET, HESTIA_PROJECT_PSET, HESTIA_VERSION, isHestiaPset, type HestiaElementRecord } from '../ifc/ifcHestia.ts';
 import { bodyOf } from './geometry.ts';
@@ -30,6 +30,8 @@ export interface HestiaProjectData {
   types?: ProjectTypes;
   materials?: Project['materials'];
   levels?: Level[];
+  /** Vistas de planta (esquema 24). Ausente em IFC antigo: as vistas saem da migração dos níveis. */
+  planViews?: Project['planViews'];
   defaults?: Project['defaults'];
   /** Vistas, pranchas e gráficos do projeto: não têm entidade IFC, voltam do pset. */
   views?: Project['views'];
@@ -155,10 +157,12 @@ function projectDataOf(f: IfcFile, pset: StepEntity): HestiaProjectData {
   if (types) data.types = types;
   const materials = parseJson<Project['materials']>(values.get('MaterialsJSON'));
   if (materials) data.materials = materials;
-  const levels = parseJson<Level[]>(values.get('LevelsJSON')); // armazenamento (Fase 2)
+  const levels = parseJson<Level[]>(values.get('LevelsJSON'));
   if (Array.isArray(levels) && levels.length > 0 && levels.every((l) => typeof l?.id === 'string' && finite(l.elevation))) {
     data.levels = levels;
   }
+  const planViews = parseJson<Project['planViews']>(values.get('PlanViewsJSON'));
+  if (Array.isArray(planViews) && planViews.every((v) => typeof v?.id === 'string' && typeof v?.levelId === 'string' && typeof v?.kind === 'string')) data.planViews = planViews;
   const defaults = parseJson<Project['defaults']>(values.get('DefaultsJSON'));
   if (defaults) data.defaults = defaults;
   const views = parseJson<Project['views']>(values.get('ViewsJSON'));
@@ -218,9 +222,22 @@ export function applyHestiaProject(p: Project, data: HestiaProjectData | null): 
  * Níveis do `LevelsJSON` no lugar dos níveis deduzidos do IFC, mantendo o vínculo pavimento → nível pela cota mais
  * próxima (o caminho heurístico continua usando `LevelRef` para os elementos que não têm pset).
  */
-export function applyHestiaLevels(p: Project, levels: Level[] | undefined, refs: LevelRef[]): LevelRef[] {
-  if (!levels || levels.length === 0) return refs;
-  p.levels = levels; // armazenamento (Fase 2)
+export function applyHestiaLevels(p: Project, levels: Level[] | undefined, refs: LevelRef[], planViews?: Project['planViews']): LevelRef[] {
+  if (!levels || levels.length === 0) {
+    // Níveis deduzidos do IFC: cada um nasce com as suas vistas principais.
+    p.planViews = p.levels.flatMap((l) => mainViewsOf(l));
+    return refs;
+  }
+  // `LevelsJSON` de um IFC antigo (esquema ≤ 23) ainda traz intervalo, gráficos, ocultos e anotações no nível: passa pela
+  // mesma migração dos arquivos (sem elementos ainda, as cópias da cobertura ficam vazias). Do esquema 24 em diante as
+  // vistas viajam em `PlanViewsJSON`; nível sem vista principal ganha a dele.
+  const migrated = migrateVistasV23({ levels, elements: {} }) as { levels: Level[]; planViews: Project['planViews'] };
+  p.levels = migrated.levels;
+  const known = new Set(p.levels.map((l) => l.id));
+  p.planViews = planViews ? planViews.filter((v) => known.has(v.levelId)) : migrated.planViews;
+  const have = new Set(p.planViews.map((v) => v.id));
+  for (const l of p.levels) p.planViews.push(...mainViewsOf(l).filter((v) => !have.has(v.id)));
+  sortPlanViews(p);
   return refs.map((ref) => {
     let best = p.levels[0]!;
     for (const level of p.levels) if (Math.abs(level.elevation - ref.elevation) < Math.abs(best.elevation - ref.elevation)) best = level;

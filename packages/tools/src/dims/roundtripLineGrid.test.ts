@@ -4,11 +4,13 @@ import {
   createEmptyProject,
   DEFAULT_GRID_TYPE_ID,
   dimensionSettingsOf,
+  floorViewId,
   makeCeiling,
   makeFloor,
   makeRoof,
   makeSlab,
   ProjectStore,
+  viewAnnotationsOf,
   type Project,
 } from '@hestia/model';
 import { detailLineDimProvider, perimeterLineDimProvider } from './providers/line.ts';
@@ -31,7 +33,7 @@ function lineScene(angle: number): Fixture {
   const control = along(along(ORIGIN, u, 3), n, 2);
   s.exec({ type: 'addDetailLine', levelId: 'lv_0', item: { id: 'dl', a: ORIGIN, b: along(ORIGIN, u, 6) } });
   s.exec({ type: 'addDetailLine', levelId: 'lv_0', item: { id: 'ctrl', a: control, b: along(control, n, 6) } });
-  const line = (p: Project) => p.levels.find((l) => l.id === 'lv_0')?.detailLines?.find((x) => x.id === 'dl');
+  const line = (p: Project) => viewAnnotationsOf(p, floorViewId('lv_0')).detailLines.find((x) => x.id === 'dl');
   return {
     store: s,
     dims: () => detailLineDimProvider.compute(ctxOf(s.project), { lineId: 'dl' }),
@@ -41,7 +43,7 @@ function lineScene(angle: number): Fixture {
       const l = line(p);
       return l ? dist(l.a, l.b) : Number.NaN;
     },
-    rest: (p) => JSON.stringify({ elements: p.elements, lines: p.levels.find((l) => l.id === 'lv_0')?.detailLines?.filter((x) => x.id !== 'dl') }),
+    rest: (p) => JSON.stringify({ elements: p.elements, lines: viewAnnotationsOf(p, floorViewId('lv_0')).detailLines.filter((x) => x.id !== 'dl') }),
   };
 }
 
@@ -52,7 +54,7 @@ function lateralLineScene(angle: number): Fixture {
   const n = normalOf(u);
   s.exec({ type: 'addDetailLine', levelId: 'lv_0', item: { id: 'dl', a: ORIGIN, b: along(ORIGIN, u, 6) } });
   s.exec({ type: 'addDetailLine', levelId: 'lv_0', item: { id: 'ctrl', a: along(along(ORIGIN, n, 2), u, -2), b: along(along(ORIGIN, n, 2), u, 8) } });
-  const line = (p: Project) => p.levels.find((l) => l.id === 'lv_0')?.detailLines?.find((x) => x.id === 'dl');
+  const line = (p: Project) => viewAnnotationsOf(p, floorViewId('lv_0')).detailLines.find((x) => x.id === 'dl');
   return {
     store: s,
     dims: () => detailLineDimProvider.compute(ctxOf(s.project), { lineId: 'dl' }),
@@ -62,7 +64,7 @@ function lateralLineScene(angle: number): Fixture {
       const l = line(p);
       return l ? dist(l.a, l.b) : Number.NaN;
     },
-    rest: (p) => JSON.stringify({ elements: p.elements, lines: p.levels.find((l) => l.id === 'lv_0')?.detailLines?.filter((x) => x.id !== 'dl') }),
+    rest: (p) => JSON.stringify({ elements: p.elements, lines: viewAnnotationsOf(p, floorViewId('lv_0')).detailLines.filter((x) => x.id !== 'dl') }),
   };
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Vec2 } from '@hestia/geom';
-import { ProjectStore, createEmptyProject, makeRoom, makeWall, type AreaPlan, type AreaPlanAnnotations } from '@hestia/model';
+import { ProjectStore, createEmptyProject, makeRoom, makeWall, type AreaPlan, type AreaPlanAnnotations, withAreaPlansOfTest } from '@hestia/model';
 import { resolveRooms, resolveLevel, type ResolvedRoom } from '@hestia/engine';
 import { buildPlanGeometry, buildPlanSelectionOverlay, planGeometrySelection, type PlanInput } from './build.ts';
 import { DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS } from '@hestia/model';
@@ -71,7 +71,7 @@ const anotacoes = (sufixo: string): AreaPlanAnnotations => ({
 
 /** Entrada da planta para `buildPlanGeometry` (o mesmo formato que o app usa). */
 /** Projeto com a planta de área registrada: o desenho lê a vista (intervalo, gráficos, anotações) pela API do modelo. */
-const comPlanta = (s: ProjectStore, areaPlan?: AreaPlan) => (areaPlan ? { ...s.project, areaPlans: [...(s.project.areaPlans ?? []), areaPlan] } : s.project);
+const comPlanta = (s: ProjectStore, areaPlan?: AreaPlan) => (areaPlan ? withAreaPlansOfTest(s.project, [areaPlan]) : s.project);
 
 const entrada = (s: ProjectStore, areaPlan?: AreaPlan, selection: string[] = []): PlanInput => ({
   project: comPlanta(s, areaPlan),

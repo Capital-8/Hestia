@@ -9,6 +9,7 @@ import { DEFAULT_RAMP_TYPES } from './ramp.ts';
 import { DEFAULT_STAIR_CALC_RULE } from './stairTypes.ts';
 import { SCHEMA_VERSION, type PlanSymbol, type Project } from './types.ts';
 import { DEFAULT_VIEW_RANGE } from './viewRange.ts';
+import { migrateVistasV23 } from './migrateVistas.ts';
 import { compositionOfType } from './openingCompositionOf.ts';
 import { defaultOpeningProfiles } from './openingProfiles.ts';
 import type { OpeningType } from './openingTypes.ts';
@@ -261,6 +262,9 @@ const migrations: Record<number, Migration> = {
   // v22 → v23: vínculo de andar-tipo (copyLink). Arquivo antigo não tem `copyLinks`, o que significa nenhum vínculo:
   // nada a converter, a migração só avança a versão e preserva o restante do arquivo.
   22: (raw) => ({ ...raw }),
+  // v23 → v24: vistas de planta como entidade (docs/vistas/FASE-2A.md): `Level` perde os campos de vista e `areaPlans` some;
+  // `planViews` entra. Ver `migrateVistas.ts`.
+  23: migrateVistasV23,
 };
 
 export class SchemaError extends Error {}

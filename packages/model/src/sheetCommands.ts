@@ -24,7 +24,7 @@ export function dropOrphanViewports(p: Project): void {
 }
 
 /** Motivo de recusa de uma fonte de vista (nível ou seção que precisa existir), ou null. */
-export function viewSourceIssue(p: Pick<Project, 'levels' | 'views'> & Partial<Pick<Project, 'areaPlans'>>, view: SheetViewSource, lang: Lang = 'pt'): string | null {
+export function viewSourceIssue(p: Pick<Project, 'levels' | 'views' | 'planViews'>, view: SheetViewSource, lang: Lang = 'pt'): string | null {
   if (view.kind === 'plan' && !p.levels.some((l) => l.id === view.levelId)) return translate(lang, 'md_level_missing');
   if (view.kind === 'areaPlan' && resolvePlanViewRef(p, view.planId)?.kind !== 'area') return translate(lang, 'md_area_plan_missing');
   if (view.kind === 'section' && !p.views.some((v) => v.id === view.sectionId)) return translate(lang, 'md_cmd_section_missing');

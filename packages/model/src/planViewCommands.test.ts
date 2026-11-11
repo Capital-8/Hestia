@@ -15,6 +15,9 @@ import {
   viewHiddenOf,
   viewRangeOf,
   planViewRangeOf,
+  planViewsOf,
+  viewAnnotationsOf,
+  viewGraphicsOf,
   type AnnotationCommand,
   type AreaPlan,
   type Command,
@@ -24,6 +27,7 @@ import {
   type ElementTag,
   type TextNote,
 } from './index.ts';
+import { areaPlansOf } from './index.ts';
 
 const LV0 = 'lv_0';
 
@@ -50,7 +54,6 @@ const snap = (s: ProjectStore) => JSON.parse(JSON.stringify(s.project));
 describe('comandos de anotação por viewId = forma antiga', () => {
   const casos: Array<{ nome: string; viewId: string; antigo: { levelId: string; planId?: string } }> = [
     { nome: 'piso', viewId: floorViewId(LV0), antigo: { levelId: LV0 } },
-    { nome: 'cobertura', viewId: roofViewId(LV0), antigo: { levelId: LV0 } },
     { nome: 'área com conjunto próprio', viewId: 'ap_propria', antigo: { levelId: LV0, planId: 'ap_propria' } },
     { nome: 'área sem conjunto próprio', viewId: 'ap_herda', antigo: { levelId: LV0, planId: 'ap_herda' } },
   ];
@@ -95,8 +98,9 @@ describe('comandos de anotação por viewId = forma antiga', () => {
     const s = montar();
     const antes = snap(s);
     s.exec({ type: 'addDimension', levelId: LV0, planId: 'ap_herda', viewId: 'ap_propria', dimension: dim('d1') });
-    expect(s.project.areaPlans!.find((a) => a.id === 'ap_propria')!.annotations!.dimensions.map((d) => d.id)).toEqual(['d1']);
-    expect(s.project.areaPlans!.find((a) => a.id === 'ap_herda')!.annotations).toBeUndefined();
+    expect(areaPlansOf(s.project).find((a) => a.id === 'ap_propria')!.annotations!.dimensions.map((d) => d.id)).toEqual(['d1']);
+    // Esquema 24: não há herança; a planta que nasceu sem `annotations` tem o conjunto próprio (aqui vazio, o nível não tinha nada).
+    expect(areaPlansOf(s.project).find((a) => a.id === 'ap_herda')!.annotations!.dimensions).toEqual([]);
     s.undo();
     expect(snap(s)).toEqual(antes);
 
@@ -113,7 +117,18 @@ describe('comandos de anotação por viewId = forma antiga', () => {
       { type: 'upsertLevel', level: makeLevel({ id: 'lv_9', name: 'Novo', elevation: 9 }) },
       { type: 'addDimension', levelId: 'lv_9', viewId: floorViewId('lv_9'), dimension: dim('d1') },
     ] });
-    expect(s.project.levels.find((l) => l.id === 'lv_9')!.dimensions!.map((d) => d.id)).toEqual(['d1']);
+    expect(viewAnnotationsOf(s.project, floorViewId('lv_9')).dimensions.map((d) => d.id)).toEqual(['d1']);
+  });
+
+  it('com viewId de cobertura a anotação fica na cobertura e não aparece no piso (a forma antiga grava no piso)', () => {
+    const s = montar();
+    s.exec({ type: 'addDimension', levelId: LV0, viewId: roofViewId(LV0), dimension: dim('dr') });
+    expect(viewAnnotationsOf(s.project, roofViewId(LV0)).dimensions.map((d) => d.id)).toEqual(['dr']);
+    expect(viewAnnotationsOf(s.project, floorViewId(LV0)).dimensions).toEqual([]);
+    s.exec({ type: 'addDimension', levelId: LV0, dimension: dim('df') });
+    expect(viewAnnotationsOf(s.project, floorViewId(LV0)).dimensions.map((d) => d.id)).toEqual(['df']);
+    s.exec({ type: 'removeDimension', levelId: LV0, viewId: roofViewId(LV0), id: 'dr' });
+    expect(viewAnnotationsOf(s.project, roofViewId(LV0)).dimensions).toEqual([]);
   });
 });
 
@@ -133,42 +148,60 @@ describe('updatePlanView = comando antigo equivalente', () => {
   };
   const upd = (viewId: string, patch: Extract<Command, { type: 'updatePlanView' }>['patch']): Command => ({ type: 'updatePlanView', viewId, patch });
 
-  it('piso: viewRange, graphics, hidden e reset de graphics', () => {
-    igual(floorViewId(LV0), { viewRange: { cut: 1.0 } }, [{ type: 'setLevelViewRange', levelId: LV0, patch: { cut: 1.0 } }]);
-    igual(floorViewId(LV0), { graphics: { scale: 50 } }, [{ type: 'setLevelGraphics', levelId: LV0, patch: { scale: 50 } }]);
+  const range = (s: ProjectStore, id: string) => planViewRangeOf(s.project, id);
+  const escala = (s: ProjectStore, id: string): number => viewGraphicsOf(s.project, id).scale;
+
+  it('piso: hidden = setViewHidden; reset de graphics só na vista', () => {
     igual(floorViewId(LV0), { hidden: { elements: ['e1'], categories: ['door'] } }, [{ type: 'setViewHidden', target: { kind: 'plan', levelId: LV0 }, hidden: { elements: ['e1'], categories: ['door'] } }]);
-    const base = montar();
-    base.exec(upd(floorViewId(LV0), { graphics: { scale: 50 } }));
-    base.exec(upd(floorViewId(LV0), { graphics: null }));
-    const ref = montar();
-    ref.exec({ type: 'setLevelGraphics', levelId: LV0, patch: { scale: 50 } });
-    ref.exec({ type: 'resetLevelGraphics', levelId: LV0 });
-    expect(snap(base)).toEqual(snap(ref));
+    const s = montar();
+    s.exec(upd(floorViewId(LV0), { graphics: { scale: 50 } }));
+    s.exec(upd(floorViewId(LV0), { graphics: null }));
+    expect(escala(s, floorViewId(LV0))).toBe(escala(montar(), floorViewId(LV0)));
   });
 
-  it('piso: vários campos no mesmo comando e nome do nível', () => {
-    igual(
-      floorViewId(LV0),
-      { viewRange: { top: 2.5 }, graphics: { scale: 25 }, hidden: { categories: ['wall'] } },
-      [
-        { type: 'setLevelViewRange', levelId: LV0, patch: { top: 2.5 } },
-        { type: 'setLevelGraphics', levelId: LV0, patch: { scale: 25 } },
-        { type: 'setViewHidden', target: { kind: 'plan', levelId: LV0 }, hidden: { categories: ['wall'] } },
-      ],
-    );
+  it('updatePlanView altera SÓ a vista pedida; os comandos antigos por nível propagam à cobertura (gráficos) e à área', () => {
+    const base = montar();
+    const padrao = range(base, floorViewId(LV0));
+    // updatePlanView: só o piso.
+    const s = montar();
+    s.exec(upd(floorViewId(LV0), { viewRange: { cut: 1.0 }, graphics: { scale: 25 } }));
+    expect(range(s, floorViewId(LV0)).cut).toBe(1.0);
+    expect(escala(s, floorViewId(LV0))).toBe(25);
+    for (const id of [roofViewId(LV0), 'ap_herda', 'ap_propria']) {
+      expect(range(s, id), id).toEqual(padrao);
+      expect(escala(s, id), id).toBe(escala(base, id));
+    }
+    // comandos antigos: piso e áreas recebem o intervalo (a cobertura não o usa e fica no padrão); os gráficos vão a todas.
+    const t = montar();
+    t.exec({ type: 'setLevelViewRange', levelId: LV0, patch: { cut: 1.0 } });
+    t.exec({ type: 'setLevelGraphics', levelId: LV0, patch: { scale: 25 } });
+    for (const id of [floorViewId(LV0), 'ap_herda', 'ap_propria']) expect(range(t, id).cut, id).toBe(1.0);
+    expect(range(t, roofViewId(LV0))).toEqual(padrao);
+    for (const id of [floorViewId(LV0), roofViewId(LV0), 'ap_herda', 'ap_propria']) expect(escala(t, id), id).toBe(25);
+    // O outro nível não muda.
+    expect(range(t, floorViewId('lv_1'))).toEqual(padrao);
+    t.exec({ type: 'resetLevelGraphics', levelId: LV0 });
+    for (const id of [floorViewId(LV0), roofViewId(LV0), 'ap_herda']) expect(escala(t, id), id).toBe(escala(base, id));
+  });
+
+  it('piso: nome da vista principal = nome do nível', () => {
+    igual(floorViewId(LV0), { hidden: { categories: ['wall'] } }, [{ type: 'setViewHidden', target: { kind: 'plan', levelId: LV0 }, hidden: { categories: ['wall'] } }]);
     const s = montar();
     s.exec(upd(floorViewId(LV0), { name: 'Pavimento Térreo' }));
     expect(s.project.levels[0]!.name).toBe('Pavimento Térreo');
     expect(planViewOf(s.project, floorViewId(LV0))!.name).toBe('Pavimento Térreo');
+    // O nome da vista principal é o do nível: a cobertura acompanha.
+    expect(planViewOf(s.project, roofViewId(LV0))!.name).toBe('Pavimento Térreo');
   });
 
-  it('cobertura: hidden vai para roofHidden; graphics é o do nível', () => {
+  it('cobertura: hidden fica na vista de cobertura; gráficos só nela', () => {
     igual(roofViewId(LV0), { hidden: { elements: ['e1'] } }, [{ type: 'setViewHidden', target: { kind: 'roof', levelId: LV0 }, hidden: { elements: ['e1'] } }]);
-    igual(roofViewId(LV0), { graphics: { scale: 200 } }, [{ type: 'setLevelGraphics', levelId: LV0, patch: { scale: 200 } }]);
     const s = montar();
-    s.exec(upd(roofViewId(LV0), { hidden: { elements: ['e1'] } }));
-    expect(s.project.levels[0]!.roofHidden).toEqual({ elements: ['e1'] });
-    expect(s.project.levels[0]!.hidden).toBeUndefined();
+    s.exec(upd(roofViewId(LV0), { hidden: { elements: ['e1'] }, graphics: { scale: 200 } }));
+    expect(planViewHiddenOf(s.project, roofViewId(LV0))).toEqual({ elements: ['e1'] });
+    expect(planViewOf(s.project, floorViewId(LV0))!.hidden).toBeUndefined();
+    expect(escala(s, roofViewId(LV0))).toBe(200);
+    expect(escala(s, floorViewId(LV0))).toBe(escala(montar(), floorViewId(LV0)));
   });
 
   it('cobertura recusa intervalo de vista e não altera o projeto', () => {
@@ -178,13 +211,17 @@ describe('updatePlanView = comando antigo equivalente', () => {
     expect(snap(s)).toEqual(antes);
   });
 
-  it('área: campos comuns e de area = updateAreaPlan; hidden = setViewHidden', () => {
+  it('área: campos comuns e de area = updateAreaPlan; hidden = setViewHidden; intervalo só da vista', () => {
     for (const id of ['ap_propria', 'ap_herda']) {
       igual(id, { name: 'Renomeada' }, [{ type: 'updateAreaPlan', id, patch: { name: 'Renomeada' } }]);
       igual(id, { area: { scale: 100, schemeId: 'sc1' } }, [{ type: 'updateAreaPlan', id, patch: { scale: 100, schemeId: 'sc1' } }]);
       igual(id, { area: { graphics: { showWalls: 'hidden' } } }, [{ type: 'updateAreaPlan', id, patch: { graphics: { ...DEFAULT_AREA_GRAPHICS, showWalls: 'hidden' } } }]);
       igual(id, { hidden: { elements: ['e1'] } }, [{ type: 'setViewHidden', target: { kind: 'area', planId: id }, hidden: { elements: ['e1'] } }]);
-      igual(id, { viewRange: { cut: 1.1 } }, [{ type: 'setLevelViewRange', levelId: LV0, patch: { cut: 1.1 } }]);
+      // O intervalo é da vista: o piso e a outra planta de área não mudam.
+      const s = montar();
+      s.exec(upd(id, { viewRange: { cut: 1.1 } }));
+      expect(planViewRangeOf(s.project, id).cut).toBe(1.1);
+      expect(planViewRangeOf(s.project, floorViewId(LV0)).cut).toBe(1.2);
     }
   });
 
@@ -223,19 +260,48 @@ describe('addPlanView e removePlanView', () => {
     b.exec({ type: 'removeAreaPlan', id: 'ap_nova' });
     expect(snap(a)).toEqual(snap(b));
     a.undo();
-    expect(a.project.areaPlans!.some((x) => x.id === 'ap_nova')).toBe(true);
+    expect(areaPlansOf(a.project).some((x) => x.id === 'ap_nova')).toBe(true);
   });
 
-  it('só aceita kind area: piso, cobertura e forro são recusados; remover piso/cobertura/inexistente também', () => {
+  it('aceita qualquer kind; a vista nasce com cópia do intervalo e dos gráficos do piso; remover principal/inexistente é recusado', () => {
     const s = montar();
-    const antes = snap(s);
+    s.exec({ type: 'setLevelGraphics', levelId: LV0, patch: { scale: 25 } });
     for (const kind of ['floor', 'roof', 'ceiling'] as const) {
-      expect(() => s.exec({ type: 'addPlanView', view: { id: 'v1', kind, levelId: LV0, name: 'X' } })).toThrow();
+      s.exec({ type: 'addPlanView', view: { id: `v_${kind}`, kind, levelId: LV0, name: `V ${kind}` } });
+      expect(planViewOf(s.project, `v_${kind}`)).toMatchObject({ kind, levelId: LV0, name: `V ${kind}` });
+      expect(viewGraphicsOf(s.project, `v_${kind}`).scale).toBe(25);
+      expect(planViewRangeOf(s.project, `v_${kind}`)).toEqual(planViewRangeOf(s.project, floorViewId(LV0)));
     }
-    expect(() => s.exec({ type: 'removePlanView', viewId: floorViewId(LV0) })).toThrow();
-    expect(() => s.exec({ type: 'removePlanView', viewId: roofViewId(LV0) })).toThrow();
+    s.exec({ type: 'removePlanView', viewId: 'v_floor' });
+    expect(planViewOf(s.project, 'v_floor')).toBeUndefined();
+    const antes = snap(s);
+    expect(() => s.exec({ type: 'addPlanView', view: { id: 'v_roof', kind: 'floor', levelId: LV0, name: 'repetida' } })).toThrow();
+    expect(() => s.exec({ type: 'addPlanView', view: { id: 'vx', kind: 'floor', levelId: 'lv_fantasma', name: 'X' } })).toThrow();
+    expect(() => s.exec({ type: 'removePlanView', viewId: floorViewId(LV0) })).toThrow('principal');
+    expect(() => s.exec({ type: 'removePlanView', viewId: roofViewId(LV0) })).toThrow('principal');
     expect(() => s.exec({ type: 'removePlanView', viewId: 'nao_existe' })).toThrow();
     expect(snap(s)).toEqual(antes);
+  });
+
+  it('criar nível cria pv_/pvr_; remover nível remove todas as vistas dele (e as dos outros ficam)', () => {
+    const s = montar();
+    s.exec({ type: 'upsertLevel', level: makeLevel({ id: 'lv_9', name: 'Novo', elevation: 9 }) });
+    s.exec({ type: 'addAreaPlan', plan: area('ap9', { levelId: 'lv_9' }) });
+    expect(planViewsOf(s.project).map((v) => v.id)).toEqual([floorViewId(LV0), roofViewId(LV0), floorViewId('lv_1'), roofViewId('lv_1'), floorViewId('lv_9'), roofViewId('lv_9'), 'ap_herda', 'ap_propria', 'ap9']);
+    s.exec({ type: 'deleteLevel', id: 'lv_9' });
+    expect(planViewsOf(s.project).map((v) => v.id)).toEqual([floorViewId(LV0), roofViewId(LV0), floorViewId('lv_1'), roofViewId('lv_1'), 'ap_herda', 'ap_propria']);
+    s.undo();
+    expect(planViewsOf(s.project).some((v) => v.levelId === 'lv_9')).toBe(true);
+  });
+
+  it('renomear o nível por upsertLevel acompanha o nome das vistas principais e a elevação reordena sem perder dados', () => {
+    const s = montar();
+    s.exec({ type: 'setViewHidden', target: { kind: 'plan', levelId: LV0 }, hidden: { elements: ['e1'] } });
+    s.exec({ type: 'upsertLevel', level: { ...s.project.levels[0]!, name: 'Embaixo', elevation: 20 } });
+    expect(planViewOf(s.project, floorViewId(LV0))!.name).toBe('Embaixo');
+    expect(planViewOf(s.project, roofViewId(LV0))!.name).toBe('Embaixo');
+    expect(planViewHiddenOf(s.project, floorViewId(LV0))).toEqual({ elements: ['e1'] });
+    expect(planViewsOf(s.project).slice(0, 4).map((v) => v.id)).toEqual([floorViewId('lv_1'), roofViewId('lv_1'), floorViewId(LV0), roofViewId(LV0)]);
   });
 });
 

@@ -86,3 +86,8 @@ export {
 export * from './planViewKinds.ts';
 export * from './planViewCommands.ts';
 export { resolvePlanViewRef } from './planViewResolve.ts';
+export * from './planViewAnnotations.ts';
+export * from './levelViews.ts';
+export { migrateVistasV23 } from './migrateVistas.ts';
+export * from './testVistas.ts';
+export * from './testVistasArea.ts';

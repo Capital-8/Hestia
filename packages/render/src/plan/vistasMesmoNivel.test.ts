@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveLevel } from '@hestia/engine';
-import { DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS, ProjectStore, createEmptyProject, floorViewId, makeRoof, makeWall, roofViewId, type AreaPlan, type Project } from '@hestia/model';
+import { DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS, ProjectStore, createEmptyProject, floorViewId, makeRoof, makeWall, roofViewId, withAreaPlansOfTest, type AreaPlan, type Project } from '@hestia/model';
 import { planFrameUpdateOf, PlanFrame, type PlanViewState } from './planFrame.ts';
 import { planGeometrySelection } from './build.ts';
 import { drawnAnnotations } from './notes.ts';
@@ -40,7 +40,7 @@ function projeto(): Project {
   pts.forEach((a, i) => s.exec({ type: 'addWall', wall: makeWall({ id: `w${i}`, typeId: 'wt_alv14', levelId: 'lv_0', a, b: pts[(i + 1) % 4]!, locationLine: 'finishInterior' }) }));
   s.exec({ type: 'addRoof', roof: makeRoof({ id: 'r', typeId: 'rt_ceramica', levelId: 'lv_0', boundary: [{ x: -0.3, y: -0.3 }, { x: 8.3, y: -0.3 }, { x: 8.3, y: 6.3 }, { x: -0.3, y: 6.3 }], heightOffset: 2.8, shape: 'gable', slopePercent: 30, dir: { x: 1, y: 0 } }) });
   s.exec({ type: 'addText', levelId: 'lv_0', text: { id: 'tn', at: { x: 2, y: 3 }, text: 'NOTA DO NIVEL', height: 3, rotation: 0 } });
-  return { ...s.project, areaPlans: [AREA] };
+  return withAreaPlansOfTest(s.project, [AREA]);
 }
 
 const p = projeto();
@@ -155,20 +155,22 @@ describe('vista da planta (planViewOf do render) por vista', () => {
 });
 
 describe('parâmetros opcionais de vista nas entradas exportadas', () => {
-  it('planGeometrySelection com viewId: as anotações que a planta de área POSSUI chegam à geometria; sem conjunto próprio, não', () => {
+  it('planGeometrySelection com viewId: as anotações que a planta de área POSSUI chegam à geometria (as copiadas do nível agora também: D2)', () => {
     expect(planGeometrySelection(p, 'lv_0', ['tA', 'tn', 'w0'], AREA, AREA.id)).toEqual(['tA']);
     const herdeira: AreaPlan = { ...AREA, id: 'ap2', annotations: undefined };
-    const q: Project = { ...p, areaPlans: [AREA, herdeira] };
+    const q: Project = withAreaPlansOfTest(p, [AREA, herdeira]);
+    // O id do nível não é da vista; a cópia (`tn__ap2`) é.
     expect(planGeometrySelection(q, 'lv_0', ['tA', 'tn'], herdeira, herdeira.id)).toEqual([]);
+    expect(planGeometrySelection(q, 'lv_0', ['tA', 'tn', 'tn__ap2'], herdeira, herdeira.id)).toEqual(['tn__ap2']);
     // Sem viewId o comportamento é o de sempre.
     expect(planGeometrySelection(p, 'lv_0', ['tA', 'tn', 'w0'], AREA)).toEqual(['tA']);
   });
 
-  it('drawnAnnotations: a planta de área desenha as dela; sem conjunto próprio, herda as do nível', () => {
+  it('drawnAnnotations: a planta de área desenha as dela; a que nasceu sem conjunto próprio desenha as cópias das do nível', () => {
     expect(drawnAnnotations(p, 'lv_0', AREA, AREA.id).texts.map((t) => t.id)).toEqual(['tA']);
     const herdeira: AreaPlan = { ...AREA, id: 'ap2', annotations: undefined };
-    const q: Project = { ...p, areaPlans: [AREA, herdeira] };
-    expect(drawnAnnotations(q, 'lv_0', herdeira, herdeira.id).texts.map((t) => t.id)).toEqual(['tn']);
+    const q: Project = withAreaPlansOfTest(p, [AREA, herdeira]);
+    expect(drawnAnnotations(q, 'lv_0', herdeira, herdeira.id).texts.map((t) => t.id)).toEqual(['tn__ap2']);
     expect(drawnAnnotations(q, 'lv_0').texts.map((t) => t.id)).toEqual(['tn']);
   });
 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { dist, type Vec2 } from '@hestia/geom';
-import { DEFAULT_GRID_TYPE_ID, ProjectStore, createEmptyProject, dimensionSettingsOf, type Id } from '@hestia/model';
+import { DEFAULT_GRID_TYPE_ID, ProjectStore, createEmptyProject, dimensionSettingsOf, floorViewId, viewAnnotationsOf, type Id } from '@hestia/model';
 import { clearDimProviders, registerDimProvider, selectionDims, subjectDims } from './registry.ts';
 import type { DimContext, DimEnd, DimProvider, TempDim } from './types.ts';
 
@@ -20,11 +20,10 @@ const ctxOf = (store: ProjectStore, levelId = 'lv_0'): DimContext => ({
 const detailLineProvider: DimProvider<{ lineId: Id }> = {
   id: 'line',
   selectionSubject(project, id, levelId) {
-    const level = project.levels.find((l) => l.id === levelId);
-    return level?.detailLines?.some((x) => x.id === id) ? { lineId: id } : null;
+    return viewAnnotationsOf(project, floorViewId(levelId ?? 'lv_0')).detailLines.some((x) => x.id === id) ? { lineId: id } : null;
   },
   compute(ctx, { lineId }) {
-    const line = ctx.project.levels.find((l) => l.id === ctx.levelId)?.detailLines?.find((x) => x.id === lineId);
+    const line = viewAnnotationsOf(ctx.project, floorViewId(ctx.levelId)).detailLines.find((x) => x.id === lineId);
     return line ? [dimOf(`line:${lineId}:len`, line.a, line.b)] : [];
   },
 };

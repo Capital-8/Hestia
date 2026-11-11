@@ -141,7 +141,7 @@ describe('anotações do DXF por vista (viewNotesDxfOf)', () => {
     s.exec({ type: 'addTag', levelId: LV0, item: { id: 'tg', hostId: 'wx', at: { x: 2, y: 2 }, property: 'type' } });
   };
 
-  it('piso e cobertura: notesDxfOf(nível) é a mesma coisa que a vista (cotas, textos, detalhes, regiões, etiquetas)', () => {
+  it('piso: notesDxfOf(nível) é a mesma coisa que a vista; cobertura tem anotações próprias (vazias num nível novo)', () => {
     const s = comAnotacoes();
     comDetalheETag(s);
     const nivel = notesDxfOf(s.project, LV0, 100);
@@ -149,18 +149,20 @@ describe('anotações do DXF por vista (viewNotesDxfOf)', () => {
     expect(nivel.texts.some((t) => t.layer === 'ETIQUETAS')).toBe(true);
     expect(nivel.regions).toHaveLength(1);
     expect(viewNotesDxfOf(s.project, floorViewId(LV0), 100)).toEqual(nivel);
-    expect(viewNotesDxfOf(s.project, roofViewId(LV0), 100)).toEqual(nivel);
+    // A cobertura deixou de repetir as anotações do piso (D3 da etapa 2a-1): cada vista tem as suas.
+    expect(viewNotesDxfOf(s.project, roofViewId(LV0), 100)).toEqual({ lines: [], texts: [], otherLines: [], regions: [] });
   });
 
-  it('planta de área sem anotações próprias desenha as do nível; com próprias, só as próprias', () => {
+  it('planta de área nasce com cópia das anotações do nível (a herança acabou); o que se acrescenta nela não vai para o nível', () => {
     const s = comAnotacoes();
     s.exec({ type: 'addAreaPlan', plan: plano() });
     expect(viewNotesDxfOf(s.project, AP, 100)).toEqual(notesDxfOf(s.project, LV0, 100));
     s.exec({ type: 'addText', levelId: LV0, planId: AP, text: { id: 'tp', at: { x: 1, y: 1 }, text: 'Própria', height: 2.5, rotation: 0 } });
     const notes = viewNotesDxfOf(s.project, AP, 100);
-    expect(notes.texts.map((t) => t.text)).toEqual(['Própria']);
-    expect(notes.lines).toHaveLength(0);
-    expect(notesDxfOf(s.project, LV0, 100).texts.map((t) => t.text)).toContain('Sala');
+    // A cota e o texto copiados continuam na vista, mais o que foi acrescentado só nela.
+    expect(notes.texts.map((t) => t.text)).toEqual(['4,00 m', 'Sala', 'Própria']);
+    expect(notes.lines).toHaveLength(5);
+    expect(notesDxfOf(s.project, LV0, 100).texts.map((t) => t.text)).not.toContain('Própria');
   });
 
   it('vista ou nível inexistente: sem anotações', () => {

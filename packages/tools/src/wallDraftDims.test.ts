@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyProject, makeWall, ProjectStore } from '@hestia/model';
+import { createEmptyProject, floorViewId, makeWall, ProjectStore, viewAnnotationsOf } from '@hestia/model';
 import { P, makeEnv, tool } from './testEnv.ts';
 import { connectedLineAt } from './anglePreview.ts';
 
@@ -35,7 +35,7 @@ describe('cota dinâmica do trecho reto da parede', () => {
     t.move(P(2, 1));
     const labels = t.preview().filter((i) => i.kind === 'label');
     expect(labels.some((l) => l.text.includes('90'))).toBe(true);
-    expect(store.project.levels[0]?.dimensions ?? []).toHaveLength(0);
+    expect(viewAnnotationsOf(store.project, floorViewId('lv_0')).dimensions).toHaveLength(0);
   });
 
   it.each(['wallCenter', 'finishExterior', 'finishInterior'] as const)('a prévia angular vai de eixo a eixo com linha de localização %s', (locationLine) => {

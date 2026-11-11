@@ -84,7 +84,8 @@ import { applyRoomCommand } from './roomCommands.ts';
 import { applyOutlineCommand } from './outlineCommands.ts';
 import { applyCopyLinkCommand } from './copyLinkCommands.ts';
 import type { CopyLink } from './copyLink.ts';
-import { applyAreaPlanCommand, dropAreaPlansOfLevel, dropRoomTags, prunePlanElementTags } from './areaPlanCommands.ts';
+import { applyAreaPlanCommand, dropElementTags, dropRoomTags, pruneOrphanElementTags } from './areaPlanCommands.ts';
+import { dropViewsOfLevel, syncLevelViews } from './levelViews.ts';
 import { applyLevelViewRange, applyPlanViewCommand, type PlanViewCommand } from './planViewCommands.ts';
 import type { AreaPlan, ColorScheme, RoomCategory, RoomTag } from './areaPlan.ts';
 import type { Lang } from './i18n.ts';
@@ -137,7 +138,8 @@ export type Command =
   | { type: 'deleteWallType'; id: Id }
   | { type: 'upsertMaterial'; material: Material }
   | { type: 'upsertOpeningType'; openingType: OpeningType }
-  | { type: 'upsertLevel'; level: Level }
+  /** Nível novo ganha as vistas principais (piso e cobertura); `viewRange` (opcional) é o intervalo da planta de piso nova. */
+  | { type: 'upsertLevel'; level: Level; viewRange?: ViewRange }
   | AnnotationCommand
   | SheetCommand
   | View3DPointCommand
@@ -430,14 +432,12 @@ export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
       break;
     case 'splitWall':
       splitWall(p, c, lang);
-      for (const level of p.levels) if (level.tags?.length) level.tags = level.tags.filter((tag) => Boolean(p.elements[tag.hostId])); // armazenamento (Fase 2)
-      prunePlanElementTags(p);
+      pruneOrphanElementTags(p);
       break;
     case 'deleteElements':
       removeIds(p, c.ids);
       dropRoomTags(p, c.ids);
-      for (const level of p.levels) if (level.tags?.length) level.tags = level.tags.filter((tag) => !c.ids.includes(tag.hostId)); // armazenamento (Fase 2)
-      prunePlanElementTags(p);
+      dropElementTags(p, c.ids);
       break;
     case 'upsertWallType':
       p.wallTypes[c.wallType.id] = c.wallType;
@@ -463,6 +463,7 @@ export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
       if (i >= 0) p.levels[i] = c.level;
       else p.levels.push(c.level);
       p.levels.sort((x, y) => x.elevation - y.elevation);
+      syncLevelViews(p, c.level, i < 0, c.viewRange);
       break;
     }
     case 'deleteLevel': {
@@ -470,7 +471,7 @@ export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
       // Escada também conta pelo nível de topo explícito; o topo automático segue o nível acima e não prende o nível.
       if (Object.values(p.elements).some((e) => (hasLevel(e) && e.levelId === c.id) || (isStair(e) && e.topLevelId === c.id) || (isRamp(e) && e.topLevelId === c.id))) throw new Error(t(lang, 'md_cmd_level_in_use'));
       p.levels = p.levels.filter((l) => l.id !== c.id);
-      dropAreaPlansOfLevel(p, c.id);
+      dropViewsOfLevel(p, c.id);
       dropOrphanViewports(p);
       break;
     }

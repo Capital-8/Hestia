@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyProject, emptyPlanAnnotations, migrateProject, planAnnotationIds, planAnnotationsOf, SCHEMA_VERSION, DEFAULT_AREA_GRAPHICS, type AreaPlan, type AreaPlanAnnotations } from './index.ts';
+import { areaPlanOf, createEmptyProject, emptyPlanAnnotations, migrateProject, planAnnotationIds, planAnnotationsOf, SCHEMA_VERSION, DEFAULT_AREA_GRAPHICS, type AreaPlan, type AreaPlanAnnotations } from './index.ts';
 
 /**
  * Caracterização do modelo (golden): trava o comportamento ATUAL de migração de planta de área e da regra
@@ -32,27 +32,27 @@ function projetoV21ComGraficosParciais(): Record<string, unknown> {
 
 describe('caracterização do modelo: migração v21 com planta de área parcial', () => {
   it('(c) migrateProject abre o arquivo sem exceção e sem alterar a versão', () => {
-    expect(SCHEMA_VERSION).toBe(23);
+    expect(SCHEMA_VERSION).toBe(24);
     expect(() => migrateProject(projetoV21ComGraficosParciais())).not.toThrow();
     const p = migrateProject(projetoV21ComGraficosParciais());
-    expect(p.schemaVersion).toBe(23);
+    expect(p.schemaVersion).toBe(24);
   });
 
-  it('(c) v22: a migração completa graphics (merge profundo); annotations segue undefined', () => {
+  it('(c) v22: a migração completa graphics (merge profundo); annotations vira conjunto próprio na v24', () => {
     const p = migrateProject(projetoV21ComGraficosParciais());
-    const parcial = p.areaPlans!.find((x) => x.id === 'ap_parcial')!;
+    const parcial = areaPlanOf(p, 'ap_parcial')!;
     expect(parcial.graphics).toEqual(DEFAULT_AREA_GRAPHICS);
-    const semGraficos = p.areaPlans!.find((x) => x.id === 'ap_sem_graficos')!;
+    const semGraficos = areaPlanOf(p, 'ap_sem_graficos')!;
     expect(semGraficos.graphics).toEqual(DEFAULT_AREA_GRAPHICS);
     expect(semGraficos.scale).toBe(100);
-    // Sem annotations no arquivo: continua undefined (herda do nível na regra de render).
-    expect(parcial.annotations).toBeUndefined();
+    // Sem annotations no arquivo (herdava do nível): desde o esquema 24 a vista tem o conjunto próprio (cópia, aqui vazia).
+    expect(parcial.annotations).toEqual({ dimensions: [], texts: [], detailLines: [], detailRegions: [], tags: [] });
   });
 
   it('(c) o projeto migrado pode ser salvo e reaberto sem perder a forma', () => {
     const p1 = migrateProject(projetoV21ComGraficosParciais());
     const p2 = migrateProject(JSON.parse(JSON.stringify(p1)));
-    expect(p2.areaPlans).toEqual(p1.areaPlans);
+    expect(p2.planViews).toEqual(p1.planViews);
   });
 });
 

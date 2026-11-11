@@ -14,7 +14,7 @@ const schemeById = (p: Pick<Project, 'colorSchemes'>, schemeId: Id | undefined):
 };
 
 /** Esquema de cor da planta de área (vista) pelo id; `null` sem esquema ou se a vista não é de área. */
-export const schemeOfView = (p: Pick<Project, 'colorSchemes' | 'levels' | 'areaPlans'>, viewId: Id): ColorScheme | null => {
+export const schemeOfView = (p: Pick<Project, 'colorSchemes' | 'planViews'>, viewId: Id): ColorScheme | null => {
   const v = planViewOf(p, viewId);
   return v?.kind === 'area' ? schemeById(p, v.area?.schemeId) : null;
 };
@@ -147,8 +147,8 @@ function tableRowsOf(p: Project, levelId: Id, lang: Lang): AreaTableRow[] {
   return rows;
 }
 
-/** Planta de área de um id (atalho para a UI). Devolve o objeto armazenado, por isso lê `areaPlans`: armazenamento (Fase 2). */
-export const planById = (p: Pick<Project, 'areaPlans'>, id: Id): AreaPlan | undefined => areaPlanOf(p, id);
+/** Planta de área de um id (atalho para a UI): projeção da vista `area` (`areaPlanOf`). */
+export const planById = (p: Pick<Project, 'planViews'>, id: Id): AreaPlan | undefined => areaPlanOf(p, id);
 
 /** Quadro geral de áreas de TODAS as plantas do projeto (usado na prancha geral). */
 export function areaTableAllRows(p: Project, lang: Lang = 'pt'): AreaTableRow[] {

@@ -1,18 +1,23 @@
 import type { Vec2 } from '@hestia/geom';
-import { areaPlanIssue, areaPlanOf, copyPlanAnnotations, DEFAULT_AREA_GRAPHICS, DEFAULT_ROOM_CATEGORIES, planAnnotationsOf, roomTagIssue, type AreaPlan, type RoomCategory, type RoomTag } from './areaPlan.ts';
+import { areaPlanIssue, DEFAULT_ROOM_CATEGORIES, roomTagIssue, type AreaPlan, type RoomCategory, type RoomTag } from './areaPlan.ts';
 import type { Command } from './commands.ts';
-import { dropOrphanViewports } from './sheetCommands.ts';
+import { createPlanView, deletePlanView } from './planViewCommands.ts';
+import type { PlanView } from './planView.ts';
+import { normalizeAnnotations, plainClone } from './planViewAnnotations.ts';
+import { resolvePlanView } from './planViewResolve.ts';
 import { isRoom, type Id, type Project } from './types.ts';
 import { t as translate, type Lang } from './i18n.ts';
 
 /** Comandos da planta de área e da etiqueta de ambiente (fora do `switch` grande de `commands.ts`). */
-// armazenamento (Fase 2): este arquivo inteiro escreve em `Project.areaPlans` (a Fase 2 o move para `planViews`).
+// Desde a Fase 2 a planta de área é uma `PlanView` de `kind: 'area'`: estes comandos antigos escrevem em `Project.planViews`.
 export type AreaPlanCommand = Extract<Command, { type: 'addAreaPlan' | 'updateAreaPlan' | 'removeAreaPlan' | 'addRoomTag' | 'updateRoomTag' | 'removeRoomTag' | 'setRoomReference' | 'upsertRoomCategory' | 'removeRoomCategory' | 'upsertColorScheme' | 'removeColorScheme' }>;
 
-const planOf = (p: Project, id: Id, lang: Lang): AreaPlan => {
-  const plan = areaPlanOf(p, id);
-  if (!plan) throw new Error(translate(lang, 'md_area_plan_missing'));
-  return plan;
+/** Vista de planta de área (com o bloco `area`) lida direto de `p.planViews`; recusa se não existe ou não é de área. */
+type AreaView = PlanView & { area: NonNullable<PlanView['area']> };
+const planOf = (p: Project, id: Id, lang: Lang): AreaView => {
+  const v = resolvePlanView(p, id);
+  if (v?.kind !== 'area' || !v.area) throw new Error(translate(lang, 'md_area_plan_missing'));
+  return v as AreaView;
 };
 
 const roomOf = (p: Project, id: Id, lang: Lang) => {
@@ -27,53 +32,63 @@ const finite = (v: Vec2): boolean => Number.isFinite(v.x) && Number.isFinite(v.y
 export function applyAreaPlanCommand(p: Project, c: Command, lang: Lang = 'pt'): boolean {
   switch (c.type) {
     case 'addAreaPlan': {
-      const issue = areaPlanIssue(p, c.plan);
-      if (issue) throw new Error(issue);
-      if (areaPlanOf(p, c.plan.id)) throw new Error(translate(lang, 'md_cmd_plan_id_exists'));
-      const plan: AreaPlan = { ...c.plan, graphics: { ...DEFAULT_AREA_GRAPHICS, ...c.plan.graphics }, tags: [...c.plan.tags] };
-      if (c.plan.annotations) plan.annotations = copyPlanAnnotations(c.plan.annotations);
-      p.areaPlans = [...(p.areaPlans ?? []), plan];
+      const pl = c.plan;
+      createPlanView(p, {
+        id: pl.id, kind: 'area', levelId: pl.levelId, name: pl.name,
+        area: { ...(pl.schemeId !== undefined ? { schemeId: pl.schemeId } : {}), scale: pl.scale, graphics: pl.graphics, tags: pl.tags, ...(pl.legend ? { legend: pl.legend } : {}), ...(pl.table ? { table: pl.table } : {}) },
+        ...(pl.annotations ? { annotations: normalizeAnnotations(pl.annotations) } : {}),
+        ...(pl.hidden ? { hidden: pl.hidden } : {}),
+      }, lang);
       return true;
     }
     case 'updateAreaPlan': {
-      const plan = planOf(p, c.id, lang);
-      const next: AreaPlan = { ...plan, ...c.patch, id: plan.id };
+      const v = planOf(p, c.id, lang);
+      const patch = c.patch;
+      const next: AreaPlan = { id: v.id, name: v.name, levelId: v.levelId, scale: v.area.scale, graphics: v.area.graphics, tags: v.area.tags, ...patch };
       const issue = areaPlanIssue(p, next);
       if (issue) throw new Error(issue);
-      p.areaPlans = (p.areaPlans ?? []).map((x) => (x.id === plan.id ? next : x));
+      v.name = next.name;
+      v.levelId = next.levelId;
+      const area = { ...v.area, scale: next.scale, graphics: next.graphics };
+      for (const k of ['schemeId', 'legend', 'table'] as const) {
+        if (!(k in patch)) continue;
+        if (next[k] === undefined) delete area[k]; else (area as Record<string, unknown>)[k] = plainClone(next[k]);
+      }
+      v.area = area;
+      if (patch.annotations) v.annotations = plainClone(normalizeAnnotations(patch.annotations));
+      if ('hidden' in patch) { if (patch.hidden) v.hidden = patch.hidden; else delete v.hidden; }
       return true;
     }
     case 'removeAreaPlan': {
       planOf(p, c.id, lang);
-      p.areaPlans = (p.areaPlans ?? []).filter((x) => x.id !== c.id);
-      dropOrphanViewports(p);
+      deletePlanView(p, c.id, lang);
       return true;
     }
     case 'addRoomTag': {
-      const plan = planOf(p, c.planId, lang);
+      const v = planOf(p, c.planId, lang);
       roomOf(p, c.tag.roomId, lang);
       const issue = roomTagIssue(c.tag);
       if (issue) throw new Error(issue);
       if (c.tag.planId !== c.planId) throw new Error(translate(lang, 'md_cmd_tag_wrong_plan'));
-      if (plan.tags.some((t) => t.id === c.tag.id)) throw new Error(translate(lang, 'md_cmd_tag_id_exists'));
-      if (plan.tags.some((t) => t.roomId === c.tag.roomId)) throw new Error(translate(lang, 'md_cmd_room_tag_exists'));
-      plan.tags = [...plan.tags, { ...c.tag, fields: [...c.tag.fields] }];
+      if (v.area.tags.some((t) => t.id === c.tag.id)) throw new Error(translate(lang, 'md_cmd_tag_id_exists'));
+      if (v.area.tags.some((t) => t.roomId === c.tag.roomId)) throw new Error(translate(lang, 'md_cmd_room_tag_exists'));
+      v.area.tags = [...v.area.tags, { ...c.tag, fields: [...c.tag.fields] }];
       return true;
     }
     case 'updateRoomTag': {
-      const plan = planOf(p, c.planId, lang);
-      const tag = plan.tags.find((t) => t.id === c.id);
+      const v = planOf(p, c.planId, lang);
+      const tag = v.area.tags.find((t) => t.id === c.id);
       if (!tag) throw new Error(translate(lang, 'md_cmd_tag_missing'));
       const next: RoomTag = { ...tag, ...c.patch, id: tag.id, planId: tag.planId, roomId: tag.roomId };
       const issue = roomTagIssue(next);
       if (issue) throw new Error(issue);
-      plan.tags = plan.tags.map((t) => (t.id === tag.id ? next : t));
+      v.area.tags = v.area.tags.map((t) => (t.id === tag.id ? next : t));
       return true;
     }
     case 'removeRoomTag': {
-      const plan = planOf(p, c.planId, lang);
-      if (!plan.tags.some((t) => t.id === c.id)) throw new Error(translate(lang, 'md_cmd_tag_missing'));
-      plan.tags = plan.tags.filter((t) => t.id !== c.id);
+      const v = planOf(p, c.planId, lang);
+      if (!v.area.tags.some((t) => t.id === c.id)) throw new Error(translate(lang, 'md_cmd_tag_missing'));
+      v.area.tags = v.area.tags.filter((t) => t.id !== c.id);
       return true;
     }
     case 'setRoomReference': {
@@ -121,7 +136,7 @@ export function applyAreaPlanCommand(p: Project, c: Command, lang: Lang = 'pt'):
     }
     case 'removeColorScheme': {
       p.colorSchemes = (p.colorSchemes ?? []).filter((x) => x.id !== c.id);
-      for (const plan of p.areaPlans ?? []) if (plan.schemeId === c.id) delete plan.schemeId;
+      for (const v of p.planViews) if (v.area?.schemeId === c.id) delete v.area.schemeId;
       return true;
     }
     default:
@@ -131,29 +146,30 @@ export function applyAreaPlanCommand(p: Project, c: Command, lang: Lang = 'pt'):
 
 /** Remove das plantas as etiquetas de ambientes apagados (chamado por `removeRoom`/`deleteElements`). */
 export function dropRoomTags(p: Project, ids: readonly Id[]): void {
-  if (!p.areaPlans?.length) return;
   const doomed = new Set(ids);
-  for (const plan of p.areaPlans) if (plan.tags.some((t) => doomed.has(t.roomId))) plan.tags = plan.tags.filter((t) => !doomed.has(t.roomId));
+  for (const v of p.planViews) if (v.area?.tags.some((t) => doomed.has(t.roomId))) v.area.tags = v.area.tags.filter((t) => !doomed.has(t.roomId));
 }
 
-/**
- * Remove das anotações das plantas de área as etiquetas de elementos que não existem mais. Arquivos antigos
- * com etiqueta órfã continuam abrindo: a validação só avisa, e a próxima exclusão limpa a lista.
- */
-export function prunePlanElementTags(p: Project): void {
-  if (!p.areaPlans?.length) return;
-  for (const plan of p.areaPlans) {
-    const a = planAnnotationsOf(plan);
-    const tags = a.tags.filter((t) => Boolean(p.elements[t.hostId]));
-    if (tags.length !== a.tags.length) plan.annotations = { ...a, tags };
+/** Etiquetas de elemento (`ElementTag`) das anotações de todas as vistas que cumprem `drop`. */
+function pruneElementTags(p: Project, drop: (v: PlanView, hostId: Id) => boolean): void {
+  for (const v of p.planViews) {
+    const tags = v.annotations.tags.filter((t) => !drop(v, t.hostId));
+    if (tags.length !== v.annotations.tags.length) v.annotations = { ...v.annotations, tags };
   }
 }
 
-/** Remove as plantas de área de um nível apagado. */
-export function dropAreaPlansOfLevel(p: Project, levelId: Id): void {
-  if (!p.areaPlans?.length) return;
-  p.areaPlans = p.areaPlans.filter((x) => x.levelId !== levelId);
+/**
+ * Remove das anotações de TODAS as vistas as etiquetas de elementos que não existem mais (cópias e vistas extras
+ * incluídas). Arquivos antigos com etiqueta órfã continuam abrindo: a validação só avisa, e a próxima exclusão limpa.
+ */
+export function pruneOrphanElementTags(p: Project): void {
+  pruneElementTags(p, (_v, hostId) => !p.elements[hostId]);
 }
 
+/** `deleteElements`: remove de todas as vistas as etiquetas dos elementos apagados e, nas plantas de área, as órfãs. */
+export function dropElementTags(p: Project, ids: readonly Id[]): void {
+  const doomed = new Set(ids);
+  pruneElementTags(p, (v, hostId) => doomed.has(hostId) || (v.kind === 'area' && !p.elements[hostId]));
+}
 
 export const areaPlanCategories = (p: Pick<Project, 'roomCategories'>): RoomCategory[] => p.roomCategories ?? [];

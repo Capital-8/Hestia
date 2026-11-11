@@ -1,26 +1,25 @@
-import { copyPlanAnnotations, DEFAULT_AREA_GRAPHICS, type AreaLegend, type AreaPlan, type AreaPlanGraphics, type AreaTable } from './areaPlan.ts';
-import { applyAreaPlanCommand } from './areaPlanCommands.ts';
+import { areaPlanIssue, DEFAULT_AREA_GRAPHICS, type AreaLegend, type AreaPlan, type AreaPlanGraphics, type AreaTable, type RoomTag } from './areaPlan.ts';
 import type { Command } from './commands.ts';
-import { applyLevelGraphics, resetLevelGraphics } from './graphicsCommands.ts';
+import { applyViewGraphics, resetViewGraphics } from './graphicsCommands.ts';
 import type { DeepPartial, ViewGraphics, ViewHidden } from './graphics.ts';
 import { t, type Lang } from './i18n.ts';
-import type { PlanAnnotations, PlanViewKind } from './planView.ts';
-import { resolvePlanViewRef } from './planViewResolve.ts';
+import { isMainView } from './levelViews.ts';
+import { inheritedAnnotations, newAnnotations, normalizeAnnotations, ownAreaAnnotations, plainClone } from './planViewAnnotations.ts';
+import { floorViewId, type PlanAnnotations, type PlanView, type PlanViewKind } from './planView.ts';
+import { resolvePlanView } from './planViewResolve.ts';
+import { dropOrphanViewports } from './sheetCommands.ts';
 import type { Id, Project } from './types.ts';
-import { applyViewHidden, hiddenTargetOfView } from './viewHiddenCommands.ts';
+import { normalizaViewHidden } from './viewHiddenCommands.ts';
 import { PROFILE_PRESETS } from './viewProfile.ts';
-import { viewRangeIssues, type ViewRange } from './viewRange.ts';
+import { DEFAULT_VIEW_RANGE, viewRangeIssues, type ViewRange } from './viewRange.ts';
 
 /**
- * Comandos da vista de planta como entidade (docs/vistas/PLANO-MESTRE.md §4.3), FACHADA sobre o armazenamento atual
- * (`Level` e `Project.areaPlans`): cada um traduz para o mesmo caminho dos comandos antigos (que continuam valendo).
- * Na Fase 2 a tradução some e eles gravam em `Project.planViews`.
+ * Comandos da vista de planta como entidade (docs/vistas/PLANO-MESTRE.md §4.3). Desde a Fase 2 gravam em
+ * `Project.planViews`; os comandos antigos (`setLevelViewRange`, `updateAreaPlan`, ...) continuam aceitos e passam pelas
+ * mesmas funções. Leem DIRETO de `p.planViews` (`resolvePlanView`): rodam sobre o rascunho do immer.
  *
- * Onde cada campo cai HOJE (espelha o que `planViewsOf` projeta):
- * - `viewRange` e `graphics` (de `ViewGraphics`): do NÍVEL, nos três tipos (a cobertura não usa intervalo: recusa);
- * - `hidden`: piso => `Level.hidden`; cobertura => `Level.roofHidden`; área => `AreaPlan.hidden`;
- * - `name`: piso e cobertura => nome do nível (é o nome que a projeção mostra); área => `AreaPlan.name`;
- * - `area`: só planta de área, via `updateAreaPlan`.
+ * `updatePlanView` altera SÓ a vista pedida. Os comandos antigos por nível (`setLevelViewRange`, `setLevelGraphics`)
+ * propagam às outras vistas do nível, porque antes eram do nível inteiro (ver `applyLevelViewRange`).
  */
 export interface PlanViewPatch {
   name?: string;
@@ -34,16 +33,21 @@ export interface PlanViewPatch {
   area?: { schemeId?: Id | null; scale?: number; graphics?: Partial<AreaPlanGraphics>; legend?: AreaLegend | null; table?: AreaTable | null };
 }
 
-/** Vista nova. Nesta fase só `kind: 'area'` é aceito (traduz para `addAreaPlan`). */
+/** Vista nova, de qualquer tipo. Sem `viewRange`/`graphics` a vista nasce com cópia dos da planta de piso do nível. */
 export interface NewPlanView {
   id: Id;
   kind: PlanViewKind;
   levelId: Id;
   name: string;
-  /** Escala ausente: a padrão da planta de área. */
-  area?: { schemeId?: Id; scale?: number; graphics?: Partial<AreaPlanGraphics>; legend?: AreaLegend; table?: AreaTable };
+  viewRange?: ViewRange;
+  graphics?: ViewGraphics;
+  /** Só `kind: 'area'`; escala ausente: a padrão da planta de área. */
+  area?: { schemeId?: Id; scale?: number; graphics?: Partial<AreaPlanGraphics>; legend?: AreaLegend; table?: AreaTable; tags?: RoomTag[] };
   hidden?: ViewHidden;
-  /** Ausente = a planta herda as anotações do nível (como `addAreaPlan` sem `annotations`). */
+  /**
+   * Conjunto próprio. Ausente: planta de área nasce com cópia das anotações do nível que ela desenha (a herança de antes,
+   * materializada, ids `<id>__<idDaVista>`); os outros tipos nascem sem anotações.
+   */
   annotations?: PlanAnnotations;
 }
 
@@ -52,53 +56,113 @@ export type PlanViewCommand =
   | { type: 'addPlanView'; view: NewPlanView }
   | { type: 'removePlanView'; viewId: Id };
 
-/** Aplica o intervalo de vista no nível (extraído de `setLevelViewRange`; mesma validação). */
-export function applyLevelViewRange(p: Project, levelId: Id, patch: Partial<ViewRange>, lang: Lang = 'pt'): void {
-  const l = p.levels.find((x) => x.id === levelId);
-  if (!l) throw new Error(t(lang, 'md_level_missing'));
+function applyViewRange(v: PlanView, patch: Partial<ViewRange>): void {
   // Sem normalização silenciosa: um valor que quebra a ordem topo ≥ corte ≥ base ≥ profundidade é recusado.
-  const next: ViewRange = { ...l.viewRange, ...patch };
+  const next: ViewRange = { ...v.viewRange, ...patch };
   const issues = viewRangeIssues(next);
   if (issues.length > 0) throw new Error(issues.join(' '));
-  l.viewRange = next; // armazenamento (Fase 2)
+  v.viewRange = next;
+}
+
+/**
+ * Comando antigo `setLevelViewRange`. Antes o intervalo era do NÍVEL e valia para a planta de piso e para as plantas de
+ * área; agora cada vista tem o seu. Para o programa se comportar igual nesta etapa a alteração vai para a planta de piso e
+ * para as plantas de área do nível (a cobertura não usa intervalo e guarda o padrão: não é propagado, o que também evita
+ * recusar por conflito com um padrão que o usuário nunca editou). A Fase 3 decide quando parar de propagar.
+ */
+export function applyLevelViewRange(p: Project, levelId: Id, patch: Partial<ViewRange>, lang: Lang = 'pt'): void {
+  if (!p.levels.some((x) => x.id === levelId)) throw new Error(t(lang, 'md_level_missing'));
+  for (const v of p.planViews) if (v.levelId === levelId && v.kind !== 'roof') applyViewRange(v, patch);
 }
 
 const nullToUndefined = <T>(v: T | null | undefined): T | undefined => (v === null ? undefined : v);
 
+/** A planta de área como `AreaPlan` (para validar com `areaPlanIssue`), lida direto da vista. */
+const areaPlanOfView = (v: PlanView): AreaPlan => ({
+  id: v.id, name: v.name, levelId: v.levelId, scale: v.area!.scale, graphics: v.area!.graphics, tags: v.area!.tags,
+});
+
 function updatePlanView(p: Project, viewId: Id, patch: PlanViewPatch, lang: Lang): void {
-  const ref = resolvePlanViewRef(p, viewId);
-  if (!ref) throw new Error(t(lang, 'md_view_missing'));
-  const isArea = ref.kind === 'area';
+  const v = resolvePlanView(p, viewId);
+  if (!v) throw new Error(t(lang, 'md_view_missing'));
+  const isArea = v.kind === 'area' && v.area !== undefined;
   if (patch.area && !isArea) throw new Error(t(lang, 'md_cmd_planview_area_only'));
-  if (patch.viewRange && ref.kind === 'roof') throw new Error(t(lang, 'md_cmd_planview_roof_range'));
+  if (patch.viewRange && v.kind === 'roof') throw new Error(t(lang, 'md_cmd_planview_roof_range'));
   if (patch.name !== undefined && !patch.name.trim()) throw new Error(t(lang, 'md_cmd_planview_name_empty'));
 
-  if (patch.viewRange) applyLevelViewRange(p, ref.levelId, patch.viewRange, lang);
+  if (patch.viewRange) applyViewRange(v, patch.viewRange);
   if (patch.graphics !== undefined) {
-    if (patch.graphics === null) resetLevelGraphics(p, ref.levelId, lang);
-    else applyLevelGraphics(p, ref.levelId, patch.graphics, lang);
+    if (patch.graphics === null) resetViewGraphics(p, viewId, lang);
+    else applyViewGraphics(p, viewId, patch.graphics, lang);
   }
-  if (patch.hidden !== undefined) applyViewHidden(p, hiddenTargetOfView(p, viewId, lang), nullToUndefined(patch.hidden), lang);
+  if (patch.hidden !== undefined) {
+    const clean = normalizaViewHidden(nullToUndefined(patch.hidden), lang);
+    if (clean) v.hidden = clean; else delete v.hidden;
+  }
+  if (patch.name !== undefined) renameView(p, v, patch.name);
 
-  if (isArea) {
-    const plan = (p.areaPlans ?? []).find((x) => x.id === viewId)!; // armazenamento (Fase 2)
+  if (isArea && patch.area) {
     const a = patch.area;
-    const next: Partial<Omit<AreaPlan, 'id' | 'tags'>> = {};
-    if (patch.name !== undefined) next.name = patch.name;
-    if (a?.schemeId !== undefined) next.schemeId = nullToUndefined(a.schemeId);
-    if (a?.scale !== undefined) next.scale = a.scale;
-    if (a?.graphics) next.graphics = { ...plan.graphics, ...a.graphics };
-    if (a?.legend !== undefined) next.legend = nullToUndefined(a.legend);
-    if (a?.table !== undefined) next.table = nullToUndefined(a.table);
-    if (Object.keys(next).length > 0) applyAreaPlanCommand(p, { type: 'updateAreaPlan', id: viewId, patch: next }, lang);
-  } else if (patch.name !== undefined) {
-    const level = p.levels.find((l) => l.id === ref.levelId)!; // armazenamento (Fase 2)
-    level.name = patch.name;
+    const next = { ...v.area! };
+    if (a.schemeId !== undefined) { const s = nullToUndefined(a.schemeId); if (s === undefined) delete next.schemeId; else next.schemeId = s; }
+    if (a.scale !== undefined) next.scale = a.scale;
+    if (a.graphics) next.graphics = { ...next.graphics, ...a.graphics };
+    if (a.legend !== undefined) { const x = nullToUndefined(a.legend); if (x === undefined) delete next.legend; else next.legend = x; }
+    if (a.table !== undefined) { const x = nullToUndefined(a.table); if (x === undefined) delete next.table; else next.table = x; }
+    const issue = areaPlanIssue(p, { ...areaPlanOfView(v), scale: next.scale, graphics: next.graphics });
+    if (issue) throw new Error(issue);
+    v.area = next;
   }
 }
 
-function onlyArea(v: NewPlanView, lang: Lang): void {
-  if (v.kind !== 'area') throw new Error(t(lang, 'md_cmd_planview_only_area'));
+/** O nome da vista principal é o nome do nível (as duas principais e o nível andam juntos); nas demais só a vista muda. */
+function renameView(p: Project, v: PlanView, name: string): void {
+  if (!isMainView(p, v)) {
+    v.name = name;
+    return;
+  }
+  const level = p.levels.find((l) => l.id === v.levelId)!;
+  level.name = name;
+  for (const x of p.planViews) if (x.levelId === level.id && isMainView(p, x)) x.name = name;
+}
+
+/**
+ * Cria uma vista de planta (de qualquer tipo). Valida nome, nível, id livre e, na planta de área, escala e etiquetas
+ * (`areaPlanIssue`). `viewRange` e `graphics` ausentes são copiados da planta de piso do nível, como a planta de área
+ * sempre usou os do nível.
+ */
+export function createPlanView(p: Project, nv: NewPlanView, lang: Lang): PlanView {
+  const isArea = nv.kind === 'area';
+  const areaGraphics: AreaPlanGraphics = { ...DEFAULT_AREA_GRAPHICS, ...nv.area?.graphics };
+  const candidate: AreaPlan = { id: nv.id, name: nv.name, levelId: nv.levelId, scale: nv.area?.scale ?? PROFILE_PRESETS.area.scale, graphics: areaGraphics, tags: nv.area?.tags ?? [] };
+  const issue = isArea ? areaPlanIssue(p, candidate) : !nv.name.trim() ? t(lang, 'md_cmd_planview_name_empty') : !p.levels.some((l) => l.id === nv.levelId) ? t(lang, 'md_level_missing') : null;
+  if (issue) throw new Error(issue);
+  if (resolvePlanView(p, nv.id)) throw new Error(t(lang, 'md_cmd_plan_id_exists'));
+
+  const floor = resolvePlanView(p, floorViewId(nv.levelId));
+  const view: PlanView = { id: nv.id, name: nv.name, levelId: nv.levelId, kind: nv.kind, viewRange: plainClone(nv.viewRange ?? floor?.viewRange ?? DEFAULT_VIEW_RANGE), annotations: newAnnotations() };
+  const graphics = nv.graphics ?? floor?.graphics;
+  if (graphics) view.graphics = plainClone(graphics);
+  if (nv.hidden) view.hidden = plainClone(nv.hidden);
+  if (isArea) {
+    view.area = { scale: candidate.scale, graphics: areaGraphics, tags: plainClone(candidate.tags) };
+    if (nv.area?.schemeId !== undefined) view.area.schemeId = nv.area.schemeId;
+    if (nv.area?.legend) view.area.legend = plainClone(nv.area.legend);
+    if (nv.area?.table) view.area.table = plainClone(nv.area.table);
+    const fromLevel = floor?.annotations;
+    view.annotations = nv.annotations ? ownAreaAnnotations(nv.annotations) : inheritedAnnotations(fromLevel, nv.id, areaGraphics);
+  } else if (nv.annotations) view.annotations = plainClone(normalizeAnnotations(nv.annotations));
+  p.planViews = [...p.planViews, view];
+  return view;
+}
+
+/** Remove uma vista. A vista principal (piso ou cobertura) de um nível que existe não pode ser removida. */
+export function deletePlanView(p: Project, viewId: Id, lang: Lang): void {
+  const v = resolvePlanView(p, viewId);
+  if (!v) throw new Error(t(lang, 'md_view_missing'));
+  if (isMainView(p, v)) throw new Error(t(lang, 'md_cmd_planview_main_undeletable'));
+  p.planViews = p.planViews.filter((x) => x.id !== viewId);
+  dropOrphanViewports(p);
 }
 
 /** Aplica um comando de vista de planta. Devolve false quando o comando não é desta família. */
@@ -107,30 +171,12 @@ export function applyPlanViewCommand(p: Project, c: Command, lang: Lang = 'pt'):
     case 'updatePlanView':
       updatePlanView(p, c.viewId, c.patch, lang);
       return true;
-    case 'addPlanView': {
-      const v = c.view;
-      onlyArea(v, lang);
-      const plan: AreaPlan = {
-        id: v.id, name: v.name, levelId: v.levelId,
-        ...(v.area?.schemeId !== undefined ? { schemeId: v.area.schemeId } : {}),
-        scale: v.area?.scale ?? PROFILE_PRESETS.area.scale,
-        graphics: { ...DEFAULT_AREA_GRAPHICS, ...v.area?.graphics },
-        tags: [],
-        ...(v.area?.legend ? { legend: v.area.legend } : {}),
-        ...(v.area?.table ? { table: v.area.table } : {}),
-        ...(v.annotations ? { annotations: copyPlanAnnotations(v.annotations) } : {}),
-        ...(v.hidden ? { hidden: v.hidden } : {}),
-      };
-      applyAreaPlanCommand(p, { type: 'addAreaPlan', plan }, lang);
+    case 'addPlanView':
+      createPlanView(p, c.view, lang);
       return true;
-    }
-    case 'removePlanView': {
-      const ref = resolvePlanViewRef(p, c.viewId);
-      if (!ref) throw new Error(t(lang, 'md_view_missing'));
-      if (ref.kind !== 'area') throw new Error(t(lang, 'md_cmd_planview_only_area'));
-      applyAreaPlanCommand(p, { type: 'removeAreaPlan', id: c.viewId }, lang);
+    case 'removePlanView':
+      deletePlanView(p, c.viewId, lang);
       return true;
-    }
     default:
       return false;
   }

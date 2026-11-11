@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_CATEGORY_STYLES, DEFAULT_LINE_WEIGHTS, DEFAULT_VIEW_3D, DEFAULT_VIEW_GRAPHICS, ProjectStore, createEmptyProject, graphicsOf, levelGraphicsOf, view3dOf } from '@hestia/model';
+import { DEFAULT_CATEGORY_STYLES, DEFAULT_LINE_WEIGHTS, DEFAULT_VIEW_3D, DEFAULT_VIEW_GRAPHICS, ProjectStore, createEmptyProject, graphicsOf, levelGraphicsOf, view3dOf, floorViewId, viewOfTest } from '@hestia/model';
 import { alreadyApplied, editLevelGraphics, editProjectGraphics, editThinLines, editView3D, restoreLevelGraphicsDefault, restoreProjectGraphicsDefault, restoreView3DDefault, showLevelsOn, thinLinesOn } from './graphicsActions.ts';
 import { resolveText } from './i18n.ts';
 
@@ -70,7 +70,7 @@ describe('editLevelGraphics (planta do nível)', () => {
     const label = s.undoLabel;
     expect(editLevelGraphics(s, 'lv_0', { scale: DEFAULT_VIEW_GRAPHICS.scale, style: DEFAULT_VIEW_GRAPHICS.style })).toEqual({ ok: true, error: null });
     expect(s.undoLabel).toBe(label);
-    expect(s.project.levels[0]!.graphics).toBeUndefined();
+    expect(viewOfTest(s.project, floorViewId('lv_0')).graphics).toBeUndefined();
   });
 
   it('substituição por categoria: visível = false oculta; peso undefined volta a valer o do projeto', () => {
@@ -226,7 +226,7 @@ describe('editThinLines (linhas finas da vista ativa, só na tela)', () => {
     expect(thinLinesOn(s.project, { levelId: 'lv_0' })).toBe(true);
     expect(editThinLines(s, { levelId: 'lv_0' }, false)).toEqual({ ok: true, error: null });
     expect(thinLinesOn(s.project, { levelId: 'lv_0' })).toBe(false);
-    expect(s.project.levels[0]!.graphics?.thinLines).toBe(false);
+    expect(viewOfTest(s.project, floorViewId('lv_0')).graphics?.thinLines).toBe(false);
     expect(resolveText(s.undoLabel!, 'pt')).toBe('Alternar linhas finas da planta');
     s.undo();
     expect(thinLinesOn(s.project, { levelId: 'lv_0' })).toBe(true);

@@ -1,5 +1,5 @@
 import type { ResolvedLevel, ResolvedRamp, ResolvedStair } from '@hestia/engine';
-import { floorViewId, isOpening, isWall, viewAnnotationsOf, type AreaPlanAnnotations, type Id, type Project } from '@hestia/model';
+import { isOpening, isWall, type AreaPlanAnnotations, type Id, type Project } from '@hestia/model';
 import { ambientesDoNivel, escadasDoNivel, lajesDoNivel, pisosDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
 import { planStyleOf, type PlanStyle } from './style.ts';
 import { planViewOf, type PlanView } from './view.ts';
@@ -36,26 +36,21 @@ export function anotacoesSemOcultos(a: AreaPlanAnnotations, hidden: ReadonlySet<
 
 /**
  * Projeto do nível sem as anotações ocultas (cotas, textos, linhas/regiões de detalhe, separadores e etiquetas) e sem as
- * marcas de corte ocultas: `noteOps` e as etiquetas leem o nível, não recebem um conjunto de ocultos, então o filtro
- * entra antes do desenho. Sem ocultos, o mesmo projeto (o caminho comum não cria objeto novo).
+ * marcas de corte ocultas: `noteOps` e as etiquetas leem a vista, não recebem um conjunto de ocultos, então o filtro
+ * entra antes do desenho. O projeto DERIVADO guarda as anotações filtradas nas vistas do nível (Fase 2: `planViews`); a
+ * vista que não perde nada mantém a identidade. Sem ocultos, o mesmo projeto (o caminho comum não cria objeto novo).
  */
 export function semAnotacoesOcultas(p: Project, levelId: Id, hidden: ReadonlySet<Id> | undefined): Project {
   if (!hidden?.size) return p;
-  const keep = <T extends { id: Id }>(xs: T[] | undefined): T[] | undefined => xs?.filter((x) => !hidden.has(x.id));
-  const levels = p.levels.map((l) => {
-    if (l.id !== levelId) return l;
-    // Leitura pela vista de piso (as anotações do nível); a escrita é no projeto DERIVADO, que ainda guarda no nível.
-    const a = viewAnnotationsOf(p, floorViewId(levelId));
-    const next = { ...l };
-    next.dimensions = keep(a.dimensions);
-    next.texts = keep(a.texts);
-    next.detailLines = keep(a.detailLines);
-    next.detailRegions = keep(a.detailRegions);
-    if (l.roomSeparators) next.roomSeparators = keep(l.roomSeparators);
-    next.tags = keep(a.tags);
-    return next;
+  const keep = <T extends { id: Id }>(xs: T[]): T[] => (xs.some((x) => hidden.has(x.id)) ? xs.filter((x) => !hidden.has(x.id)) : xs);
+  const planViews = p.planViews.map((v) => {
+    if (v.levelId !== levelId) return v;
+    const a = v.annotations;
+    const next = { dimensions: keep(a.dimensions), texts: keep(a.texts), detailLines: keep(a.detailLines), detailRegions: keep(a.detailRegions), tags: keep(a.tags) };
+    return Object.keys(next).every((k) => next[k as keyof typeof next] === a[k as keyof typeof next]) ? v : { ...v, annotations: next };
   });
-  return { ...p, levels, views: p.views.filter((v) => !hidden.has(v.id)) };
+  const levels = p.levels.map((l) => (l.id === levelId && l.roomSeparators ? { ...l, roomSeparators: l.roomSeparators.filter((x) => !hidden.has(x.id)) } : l));
+  return { ...p, levels, planViews, views: p.views.filter((v) => !hidden.has(v.id)) };
 }
 
 /** Projeto sem os elementos ocultos (o CAD importado é desenhado pelo projeto inteiro, sem receber `hidden`). */

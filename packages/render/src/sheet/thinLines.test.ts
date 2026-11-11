@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_VIEW_GRAPHICS, createEmptyProject, emptyTitleBlock, makeWall, type Project, type Sheet, type Wall } from '@hestia/model';
+import { DEFAULT_VIEW_GRAPHICS, createEmptyProject, emptyTitleBlock, makeWall, patchFloorOfTest, type Project, type Sheet, type Wall } from '@hestia/model';
 import { buildSheetDrawList } from './build.ts';
 
 /*
@@ -31,7 +31,7 @@ function projectWith(thinLines: boolean): Project {
   const w = makeWall({ id: 'w1', typeId: 'wt_alv14', levelId: 'lv_0', a: { x: 0, y: 0 }, b: { x: 4, y: 0 } });
   p.elements[w.id] = { ...w, order: 1 } as Wall;
   p.nextOrder = 2;
-  p.levels = p.levels.map((l) => (l.id === 'lv_0' ? { ...l, graphics: { ...DEFAULT_VIEW_GRAPHICS, thinLines } } : l));
+  patchFloorOfTest(p, 'lv_0', { graphics: { ...DEFAULT_VIEW_GRAPHICS, thinLines } });
   p.sheets = [sheet];
   return p;
 }

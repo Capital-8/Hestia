@@ -16,6 +16,7 @@ import {
   planViewsOf,
   planViewsOfLevel,
   ProjectStore,
+  validateProject,
   resolveFloorProfile,
   resolveViewProfile,
   roofViewId,
@@ -27,6 +28,7 @@ import {
   type Project,
   type TextNote,
 } from './index.ts';
+import { areaPlansOf } from './index.ts';
 
 const dim = (id: string): Dimension => ({ id, a: { x: 0, y: 0 }, b: { x: 3, y: 0 }, offset: 0.8 });
 const txt = (id: string): TextNote => ({ id, at: { x: 1, y: 1 }, text: 'Sala', height: 2.5, rotation: 0 });
@@ -72,7 +74,7 @@ describe('ids determinísticos', () => {
   });
 });
 
-describe('projeção igual ao armazenamento antigo', () => {
+describe('leitura direta de Project.planViews', () => {
   const p = montar().project;
 
   it('cada nível gera piso e cobertura, e cada planta de área gera a sua vista', () => {
@@ -87,15 +89,18 @@ describe('projeção igual ao armazenamento antigo', () => {
 
   it('piso: intervalo, gráficos, ocultos e anotações do nível', () => {
     const l = p.levels.find((x) => x.id === 'lv_0')!;
-    const f = planViewOf(p, 'pv_lv_0')!;
+    const f = p.planViews.find((x) => x.id === 'pv_lv_0')!;
+    expect(planViewOf(p, f.id)).toBe(f);
     expect(f.name).toBe(l.name);
-    expect(planViewRangeOf(p, f.id)).toEqual(l.viewRange);
-    expect(planViewRangeOf(p, f.id)).toBe(l.viewRange);
+    expect(planViewRangeOf(p, f.id)).toBe(f.viewRange);
+    expect(planViewRangeOf(p, f.id).cut).toBe(1.0);
     expect(viewGraphicsOf(p, f.id)).toEqual(levelGraphicsOf(p, 'lv_0'));
-    expect(planViewHiddenOf(p, f.id)).toEqual(l.hidden);
+    expect(planViewHiddenOf(p, f.id)).toBe(f.hidden);
+    expect(planViewHiddenOf(p, f.id)).toEqual({ elements: ['w1'], categories: ['door'] });
     const a = viewAnnotationsOf(p, f.id);
-    expect(a.dimensions).toBe(l.dimensions);
-    expect(a.texts).toBe(l.texts);
+    expect(a).toBe(f.annotations);
+    expect(a.dimensions.map((d) => d.id)).toEqual(['d1']);
+    expect(a.texts.map((t) => t.id)).toEqual(['t1']);
     expect(a.detailLines).toEqual([]);
     expect(a.tags).toEqual([]);
   });
@@ -107,39 +112,40 @@ describe('projeção igual ao armazenamento antigo', () => {
     expect(viewAnnotationsOf(p, f.id)).toEqual({ dimensions: [], texts: [], detailLines: [], detailRegions: [], tags: [] });
   });
 
-  it('cobertura: ocultos = roofHidden; gráficos e anotações do nível; intervalo padrão (a cobertura não o usa)', () => {
-    const l = p.levels.find((x) => x.id === 'lv_0')!;
-    expect(planViewHiddenOf(p, 'pvr_lv_0')).toEqual(l.roofHidden);
+  it('cobertura: ocultos próprios; gráficos propagados do nível; intervalo padrão; anotações próprias (vazias aqui)', () => {
+    expect(planViewHiddenOf(p, 'pvr_lv_0')).toEqual({ categories: ['stair'] });
     expect(planViewHiddenOf(p, 'pvr_lv_0')).not.toEqual(planViewHiddenOf(p, 'pv_lv_0'));
     expect(viewGraphicsOf(p, 'pvr_lv_0')).toEqual(levelGraphicsOf(p, 'lv_0'));
     expect(planViewRangeOf(p, 'pvr_lv_0')).toEqual(DEFAULT_VIEW_RANGE);
-    expect(viewAnnotationsOf(p, 'pvr_lv_0')).toBe(viewAnnotationsOf(p, 'pv_lv_0'));
+    // Esquema 24: a cobertura não repete as anotações do piso.
+    expect(viewAnnotationsOf(p, 'pvr_lv_0')).toEqual({ dimensions: [], texts: [], detailLines: [], detailRegions: [], tags: [] });
+    expect(viewAnnotationsOf(p, 'pvr_lv_0')).not.toBe(viewAnnotationsOf(p, 'pv_lv_0'));
   });
 
-  it('área sem anotações próprias herda as do nível; com próprias usa as dela; com {} é próprio e vazio', () => {
-    const l0 = p.levels.find((x) => x.id === 'lv_0')!;
-    expect(viewAnnotationsOf(p, 'ap_herda')).toBe(viewAnnotationsOf(p, 'pv_lv_0'));
-    expect(viewAnnotationsOf(p, 'ap_herda').dimensions).toBe(l0.dimensions);
-    const propria = p.areaPlans!.find((a) => a.id === 'ap_propria')!;
+  it('área criada sem anotações recebe CÓPIAS das do nível (ids com sufixo); com próprias usa as dela; com {} é próprio e vazio', () => {
+    expect(viewAnnotationsOf(p, 'ap_herda')).not.toBe(viewAnnotationsOf(p, 'pv_lv_0'));
+    expect(viewAnnotationsOf(p, 'ap_herda').dimensions.map((d) => d.id)).toEqual(['d1__ap_herda']);
+    expect(viewAnnotationsOf(p, 'ap_herda').texts.map((d) => d.id)).toEqual(['t1__ap_herda']);
+    const propria = areaPlansOf(p).find((a) => a.id === 'ap_propria')!;
     expect(viewAnnotationsOf(p, 'ap_propria')).toEqual(planAnnotationsOf(propria));
-    expect(viewAnnotationsOf(p, 'ap_propria').dimensions.map((d) => d.id)).toEqual(['d2']);
+    expect(viewAnnotationsOf(p, 'ap_propria').dimensions.map((d) => d.id)).toEqual(['d1__ap_propria', 'd2']);
     expect(viewAnnotationsOf(p, 'ap_vazia')).toEqual({ dimensions: [], texts: [], detailLines: [], detailRegions: [], tags: [] });
   });
 
   it('área: campos próprios, ocultos da planta e intervalo/gráficos do nível', () => {
-    const ap = p.areaPlans!.find((a) => a.id === 'ap_propria')!;
+    const ap = areaPlansOf(p).find((a) => a.id === 'ap_propria')!;
     const v = planViewOf(p, 'ap_propria')!;
     expect(v.levelId).toBe('lv_0');
     expect(v.name).toBe(ap.name);
     expect(v.area).toEqual({ schemeId: 'cs1', scale: 75, graphics: ap.graphics, tags: ap.tags, legend: undefined, table: undefined });
     expect(planViewHiddenOf(p, v.id)).toEqual(ap.hidden);
-    expect(planViewRangeOf(p, v.id)).toBe(p.levels[0]!.viewRange);
+    expect(planViewRangeOf(p, v.id)).toEqual(planViewRangeOf(p, 'pv_lv_0'));
     expect(viewGraphicsOf(p, v.id)).toEqual(levelGraphicsOf(p, 'lv_0'));
-    expect(planViewRangeOf(p, 'ap_vazia')).toBe(p.levels[1]!.viewRange);
+    expect(planViewRangeOf(p, 'ap_vazia')).toEqual(planViewRangeOf(p, 'pv_lv_1'));
   });
 
   it('perfis: piso, área (resolveViewProfile) e cobertura (piso, lacuna documentada)', () => {
-    const ap = p.areaPlans!.find((a) => a.id === 'ap_propria')!;
+    const ap = areaPlansOf(p).find((a) => a.id === 'ap_propria')!;
     expect(viewProfileOf(p, 'pv_lv_0')).toEqual(resolveFloorProfile());
     expect(viewProfileOf(p, 'pvr_lv_0')).toEqual(resolveFloorProfile());
     expect(viewProfileOf(p, 'ap_propria')).toEqual(resolveViewProfile(ap));
@@ -151,13 +157,14 @@ describe('projeção igual ao armazenamento antigo', () => {
     expect(planViewRangeOf(p, 'nada')).toEqual(DEFAULT_VIEW_RANGE);
     expect(planViewHiddenOf(p, 'nada')).toEqual({});
     expect(viewAnnotationsOf(p, 'nada').dimensions).toEqual([]);
-    expect(viewGraphicsOf(p, 'nada')).toEqual(levelGraphicsOf({ levels: [] }, ''));
+    expect(viewGraphicsOf(p, 'nada')).toEqual(levelGraphicsOf({ planViews: [] }, ''));
     expect(viewProfileOf(p, 'nada')).toEqual(resolveFloorProfile());
   });
 
-  it('planta de área de nível inexistente é omitida', () => {
-    const q: Project = { ...p, areaPlans: [...p.areaPlans!, area('orfa', 'lv_x')] };
-    expect(planViewOf(q, 'orfa')).toBeUndefined();
+  it('vista de nível inexistente é apontada pela validação', () => {
+    const q = structuredClone(p);
+    q.planViews.push({ ...structuredClone(q.planViews.find((v) => v.id === 'ap_herda')!), id: 'orfa', levelId: 'lv_x' });
+    expect(validateProject(q).some((i) => i.code === 'plan-view-level-missing')).toBe(true);
   });
 
   it('mainPlanViewOf: devolve a principal e lança erro claro para nível inexistente', () => {
@@ -166,9 +173,10 @@ describe('projeção igual ao armazenamento antigo', () => {
     expect(() => mainPlanViewOf(p, 'lv_x', 'floor')).toThrow(/lv_x/);
   });
 
-  it('projeto sem areaPlans (campo ausente)', () => {
-    const q = { ...p, areaPlans: undefined };
-    expect(planViewsOf(q).map((v) => v.kind)).toEqual(['floor', 'roof', 'floor', 'roof', 'floor', 'roof']);
+  it('projeto sem planViews (campo ausente): nenhuma vista, sem lançar', () => {
+    const q = { ...p, planViews: undefined as unknown as Project['planViews'] };
+    expect(planViewsOf(q)).toEqual([]);
+    expect(planViewOf(q, 'pv_lv_0')).toBeUndefined();
   });
 });
 
@@ -194,22 +202,28 @@ describe('estabilidade de referência', () => {
     expect(depois).not.toBe(antes);
     const vb = planViewsOf(depois);
     const mesmo = (id: string): boolean => va.find((v) => v.id === id) === vb.find((v) => v.id === id);
-    // lv_1 mudou: piso e cobertura novos; a área de lv_1 depende do nível, então também.
+    // Só a planta de piso de lv_1 recebeu a cota; as demais vistas continuam o mesmo objeto (inclusive a cobertura e a área do nível).
     expect(mesmo('pv_lv_1')).toBe(false);
-    expect(mesmo('pvr_lv_1')).toBe(false);
-    expect(mesmo('ap_vazia')).toBe(false);
-    // Os demais continuam o mesmo objeto.
-    for (const id of ['pv_lv_0', 'pvr_lv_0', 'pv_lv_2', 'pvr_lv_2', 'ap_herda', 'ap_propria']) expect(mesmo(id)).toBe(true);
+    for (const id of ['pvr_lv_1', 'ap_vazia', 'pv_lv_0', 'pvr_lv_0', 'pv_lv_2', 'pvr_lv_2', 'ap_herda', 'ap_propria']) expect(mesmo(id), id).toBe(true);
     expect(viewAnnotationsOf(depois, 'pv_lv_1').dimensions.map((d) => d.id)).toEqual(['d9']);
   });
 
-  it('a vista de área invalida quando o nível dela muda (herança de anotações)', () => {
+  it('a vista de área NÃO muda quando se anota o piso do nível dela (não há herança)', () => {
     const s = montar();
     const antes = planViewOf(s.project, 'ap_herda')!;
     s.exec({ type: 'addDimension', levelId: 'lv_0', dimension: dim('d7') });
     const depois = planViewOf(s.project, 'ap_herda')!;
-    expect(depois).not.toBe(antes);
-    expect(depois.annotations.dimensions.map((d) => d.id)).toEqual(['d1', 'd7']);
+    expect(depois).toBe(antes);
+    expect(depois.annotations.dimensions.map((d) => d.id)).toEqual(['d1__ap_herda']);
+  });
+
+  it('dentro de um lote (rascunho do immer) as leituras veem as mudanças do próprio lote', () => {
+    const s = montar();
+    s.exec({ type: 'batch', commands: [
+      { type: 'addDimension', levelId: 'lv_1', viewId: 'pvr_lv_1', dimension: dim('dr1') },
+      { type: 'addDimension', levelId: 'lv_1', viewId: 'pvr_lv_1', dimension: dim('dr2') },
+    ] });
+    expect(viewAnnotationsOf(s.project, 'pvr_lv_1').dimensions.map((d) => d.id)).toEqual(['dr1', 'dr2']);
   });
 
   it('a vista de área invalida quando só o AreaPlan muda, e os níveis não', () => {

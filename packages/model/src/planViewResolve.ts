@@ -1,18 +1,18 @@
-import { planViewRef, type PlanViewRef } from './planView.ts';
+import type { PlanView, PlanViewRef } from './planView.ts';
 import type { Id, Project } from './types.ts';
 
 /**
- * Resolve um `viewId` de planta (piso, cobertura ou planta de área) para o armazenamento atual SEM memória:
- * serve ao código que roda sobre o RASCUNHO do projeto (comandos), onde a projeção memorizada de `planViewsOf`
- * pode ficar velha se um comando anterior do mesmo lote mexeu no `Level`/`AreaPlan` no lugar. Mesma regra de
- * `planViewRefOf` (piso e cobertura pelo id determinístico; o resto é o id de uma planta de área; o nível precisa existir).
- * Fora de comandos, prefira `planViewRefOf`/`planViewOf`.
+ * Busca de vista SEM memória: serve ao código que roda sobre o RASCUNHO do projeto (comandos), onde as leituras
+ * memorizadas por identidade (`planViewOf`) podem ficar velhas se um comando anterior do mesmo lote mexeu em `p.planViews`
+ * no lugar. Lê direto de `p.planViews`. Fora de comandos, prefira `planViewOf`.
  */
-// armazenamento (Fase 2): vira busca em `Project.planViews`.
-export function resolvePlanViewRef(p: Pick<Project, 'levels' | 'areaPlans'>, viewId: Id): PlanViewRef | undefined {
-  const decoded = planViewRef(viewId);
-  if (decoded && p.levels.some((l) => l.id === decoded.levelId)) return decoded;
-  const plan = (p.areaPlans ?? []).find((a) => a.id === viewId);
-  if (plan && p.levels.some((l) => l.id === plan.levelId)) return { kind: 'area', levelId: plan.levelId, areaPlanId: plan.id };
-  return undefined;
+export function resolvePlanView(p: Pick<Project, 'planViews'>, viewId: Id): PlanView | undefined {
+  return (p.planViews ?? []).find((v) => v.id === viewId);
+}
+
+/** Como `resolvePlanView`, no formato `PlanViewRef` (tipo, nível e, na planta de área, o id dela). Id inexistente: `undefined`. */
+export function resolvePlanViewRef(p: Pick<Project, 'planViews'>, viewId: Id): PlanViewRef | undefined {
+  const v = resolvePlanView(p, viewId);
+  if (!v) return undefined;
+  return v.kind === 'area' ? { kind: 'area', levelId: v.levelId, areaPlanId: v.id } : { kind: v.kind, levelId: v.levelId };
 }

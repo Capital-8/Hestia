@@ -10,9 +10,12 @@ import {
   validateProject,
   viewRangeIssues,
   viewRangeOf,
-  type Level,
+  floorViewId,
+  planViewRangeOf,
+  type PlanView,
   type Project,
 } from './index.ts';
+import { patchFloorOfTest, viewOfTest } from './testVistas.ts';
 
 const LV0 = 'lv_0';
 const CODE = 'level-view-range-invalid';
@@ -34,21 +37,25 @@ function legacyV14(): Record<string, unknown> {
 const roundTrip = (p: Project): Project => migrateProject(JSON.parse(JSON.stringify(p)));
 
 describe('makeLevel e padrão do intervalo de vista', () => {
-  it('sem viewRange, usa o padrão (topo 2,30; corte 1,20; base 0) sem compartilhar o objeto', () => {
+  it('makeLevel cria só o nível; as vistas nascem no comando (usa o padrão, sem compartilhar o objeto)', () => {
     const l = makeLevel({ id: 'lv_x', name: 'X', elevation: 4 });
-    expect(l).toEqual({ id: 'lv_x', name: 'X', elevation: 4, viewRange: DEFAULT_VIEW_RANGE });
-    expect(l.viewRange).not.toBe(DEFAULT_VIEW_RANGE);
-    l.viewRange.cut = 9;
-    expect(DEFAULT_VIEW_RANGE.cut).toBe(1.2);
+    expect(l).toEqual({ id: 'lv_x', name: 'X', elevation: 4 });
+    const s = new ProjectStore(createEmptyProject());
+    s.exec({ type: 'upsertLevel', level: l });
+    expect(planViewRangeOf(s.project, floorViewId('lv_x'))).toEqual(DEFAULT_VIEW_RANGE);
+    expect(planViewRangeOf(s.project, floorViewId('lv_x'))).not.toBe(DEFAULT_VIEW_RANGE);
   });
 
-  it('com viewRange, usa o informado', () => {
+  it('com viewRange no comando, a planta de piso nova usa o informado', () => {
     const vr = { top: 3, cut: 1, bottom: 0, depth: 0, direction: 'down' as const };
-    expect(makeLevel({ id: 'lv_x', name: 'X', elevation: 0, viewRange: vr }).viewRange).toEqual(vr);
+    const s = new ProjectStore(createEmptyProject());
+    s.exec({ type: 'upsertLevel', level: makeLevel({ id: 'lv_x', name: 'X', elevation: 9 }), viewRange: vr });
+    expect(planViewRangeOf(s.project, floorViewId('lv_x'))).toEqual(vr);
   });
 
-  it('todo nível de projeto novo tem o padrão', () => {
-    for (const l of createEmptyProject().levels) expect(l.viewRange).toEqual(DEFAULT_VIEW_RANGE);
+  it('toda planta de piso de projeto novo tem o padrão', () => {
+    const p = createEmptyProject();
+    for (const l of p.levels) expect(planViewRangeOf(p, floorViewId(l.id))).toEqual(DEFAULT_VIEW_RANGE);
   });
 
   it('viewRangeIssues: o padrão é válido', () => {
@@ -56,8 +63,7 @@ describe('makeLevel e padrão do intervalo de vista', () => {
   });
 
   it('viewRangeOf devolve o intervalo do nível e, sem o nível, o padrão', () => {
-    const p = createEmptyProject();
-    p.levels[0] = { ...p.levels[0]!, viewRange: { ...DEFAULT_VIEW_RANGE, cut: 1.0 } };
+    const p = patchFloorOfTest(createEmptyProject(), LV0, { viewRange: { ...DEFAULT_VIEW_RANGE, cut: 1.0 } });
     expect(viewRangeOf(p, LV0).cut).toBe(1.0);
     expect(viewRangeOf(p, 'lv_nao_existe')).toEqual(DEFAULT_VIEW_RANGE);
   });
@@ -67,11 +73,14 @@ describe('migração 14 → 15 (intervalo de vista)', () => {
   it('todo nível antigo ganha o padrão e preserva id, nome e cota', () => {
     const m = migrateProject(legacyV14());
     expect(m.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(SCHEMA_VERSION).toBe(23);
+    expect(SCHEMA_VERSION).toBe(24);
     expect(m.levels).toEqual([
-      { id: 'lv_0', name: 'Térreo', elevation: 0, viewRange: DEFAULT_VIEW_RANGE },
-      { id: 'lv_m', name: 'Mezanino', elevation: 1.5, viewRange: DEFAULT_VIEW_RANGE },
+      { id: 'lv_0', name: 'Térreo', elevation: 0 },
+      { id: 'lv_m', name: 'Mezanino', elevation: 1.5 },
     ]);
+    // O intervalo agora mora na planta de piso (v24).
+    expect(planViewRangeOf(m, floorViewId('lv_0'))).toEqual(DEFAULT_VIEW_RANGE);
+    expect(planViewRangeOf(m, floorViewId('lv_m'))).toEqual(DEFAULT_VIEW_RANGE);
   });
 
   it('não altera o restante do projeto (elementos, tipos, nome)', () => {
@@ -88,8 +97,8 @@ describe('migração 14 → 15 (intervalo de vista)', () => {
     const raw = legacyV14();
     (raw.levels as Array<Record<string, unknown>>)[0]!.viewRange = { ...DEFAULT_VIEW_RANGE, cut: 1.0 };
     const m = migrateProject(raw);
-    expect(m.levels[0]!.viewRange.cut).toBe(1.0);
-    expect(m.levels[1]!.viewRange).toEqual(DEFAULT_VIEW_RANGE);
+    expect(planViewRangeOf(m, floorViewId('lv_0')).cut).toBe(1.0);
+    expect(planViewRangeOf(m, floorViewId('lv_m'))).toEqual(DEFAULT_VIEW_RANGE);
   });
 });
 
@@ -158,8 +167,7 @@ describe('validação do intervalo de vista', () => {
   });
 
   it('nível com topo abaixo do corte vira erro do projeto, com o nome do nível', () => {
-    const p = createEmptyProject();
-    p.levels[0] = { ...p.levels[0]!, viewRange: { ...DEFAULT_VIEW_RANGE, top: 1 } };
+    const p = patchFloorOfTest(createEmptyProject(), LV0, { viewRange: { ...DEFAULT_VIEW_RANGE, top: 1 } });
     expect(validateProject(p).filter((i) => i.code === CODE)).toEqual([
       {
         severity: 'error',
@@ -171,9 +179,7 @@ describe('validação do intervalo de vista', () => {
 
   it('nível sem intervalo de vista vira erro', () => {
     const p = createEmptyProject();
-    const semVista: Partial<Level> = { ...p.levels[1] };
-    delete semVista.viewRange;
-    p.levels[1] = semVista as Level;
+    delete (viewOfTest(p, floorViewId('lv_1')) as Partial<PlanView>).viewRange;
     const msgs = validateProject(p).filter((i) => i.code === CODE).map((i) => i.message);
     expect(msgs).toEqual(['Nível "Pavimento 2" (lv_1): Falta o intervalo de vista do nível.']);
   });
@@ -185,11 +191,13 @@ describe('serialização do intervalo de vista (abrir e salvar)', () => {
     s.exec({ type: 'setLevelViewRange', levelId: LV0, patch: { top: 2.8, cut: 1.1, bottom: -0.2, depth: -1, direction: 'up' } });
     s.exec({
       type: 'upsertLevel',
-      level: makeLevel({ id: 'lv_2', name: 'Cobertura', elevation: 6, viewRange: { top: 1.5, cut: 1.0, bottom: 0.5, depth: 0, direction: 'down' } }),
+      level: makeLevel({ id: 'lv_2', name: 'Cobertura', elevation: 6 }),
+      viewRange: { top: 1.5, cut: 1.0, bottom: 0.5, depth: 0, direction: 'down' },
     });
     const volta = roundTrip(s.project);
     expect(volta.schemaVersion).toBe(SCHEMA_VERSION);
     expect(volta.levels).toEqual(s.project.levels);
+    expect(volta.planViews).toEqual(s.project.planViews);
     expect(validateProject(volta).filter((i) => i.code === CODE)).toEqual([]);
   });
 
@@ -197,7 +205,7 @@ describe('serialização do intervalo de vista (abrir e salvar)', () => {
     const s = new ProjectStore(migrateProject(legacyV14()));
     s.exec({ type: 'setLevelViewRange', levelId: LV0, patch: { cut: 1.0 } });
     const volta = roundTrip(s.project);
-    expect(volta.schemaVersion).toBe(23);
+    expect(volta.schemaVersion).toBe(24);
     expect(viewRangeOf(volta, LV0)).toEqual({ ...DEFAULT_VIEW_RANGE, cut: 1.0 });
     expect(viewRangeOf(volta, 'lv_m')).toEqual(DEFAULT_VIEW_RANGE);
   });

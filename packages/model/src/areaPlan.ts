@@ -1,7 +1,9 @@
 import type { Vec2 } from '@hestia/geom';
 import { t, type Lang } from './i18n.ts';
+import { isDraft } from 'immer';
 import type { DetailLine, DetailRegion, Dimension, ElementTag, TextNote, Id, Project } from './types.ts';
 import type { ViewHidden } from './graphics.ts';
+import type { PlanView } from './planView.ts';
 
 /** Anotações de uma planta de área (mesmas estruturas da planta de piso, guardadas por vista). */
 export interface AreaPlanAnnotations {
@@ -172,19 +174,58 @@ export const DEFAULT_ROOM_CATEGORIES: RoomCategory[] = roomCategories('pt');
 export const categoryById = (p: Pick<Project, 'roomCategories'>, id: Id | undefined): RoomCategory | undefined =>
   id ? (p.roomCategories ?? DEFAULT_ROOM_CATEGORIES).find((c) => c.id === id) : undefined;
 
-export const areaPlansOf = (p: Pick<Project, 'areaPlans'>): AreaPlan[] => p.areaPlans ?? [];
+/**
+ * FACHADA (Fase 2): a planta de área é uma `PlanView` de `kind: 'area'`. Estes objetos `AreaPlan` são PROJETADOS a partir
+ * das vistas, estáveis por referência (memorizados pela `PlanView`): a mesma vista devolve o mesmo objeto. Fora de comandos.
+ * Não importa `planView.ts` (ciclo com `viewProfile.ts`): lê `p.planViews` direto.
+ */
+const projectedAreaPlan = new WeakMap<PlanView, AreaPlan>();
+function areaPlanOfView(v: PlanView): AreaPlan | undefined {
+  if (v.kind !== 'area' || !v.area) return undefined;
+  const cached = isDraft(v) ? undefined : projectedAreaPlan.get(v);
+  if (cached) return cached;
+  const a = v.area;
+  const plan: AreaPlan = {
+    id: v.id, name: v.name, levelId: v.levelId,
+    ...(a.schemeId !== undefined ? { schemeId: a.schemeId } : {}),
+    scale: a.scale, graphics: a.graphics, tags: a.tags,
+    ...(a.legend ? { legend: a.legend } : {}),
+    ...(a.table ? { table: a.table } : {}),
+    annotations: v.annotations,
+    ...(v.hidden ? { hidden: v.hidden } : {}),
+  };
+  if (!isDraft(v)) projectedAreaPlan.set(v, plan);
+  return plan;
+}
 
-export const areaPlanOf = (p: Pick<Project, 'areaPlans'>, id: Id): AreaPlan | undefined => areaPlansOf(p).find((x) => x.id === id);
+const NO_AREA_PLANS: AreaPlan[] = [];
+const areaListCache = new WeakMap<PlanView[], AreaPlan[]>();
 
-export const areaPlansOfLevel = (p: Pick<Project, 'areaPlans'>, levelId: Id): AreaPlan[] => areaPlansOf(p).filter((x) => x.levelId === levelId);
+/** Plantas de área do projeto (projeção das vistas `area`), na ordem de `planViews`. Estável por referência. */
+export const areaPlansOf = (p: Pick<Project, 'planViews'>): AreaPlan[] => {
+  const views = p.planViews ?? [];
+  if (views.length === 0) return NO_AREA_PLANS;
+  const hit = isDraft(views) ? undefined : areaListCache.get(views);
+  if (hit) return hit;
+  const list = views.flatMap((v) => areaPlanOfView(v) ?? []);
+  if (!isDraft(views)) areaListCache.set(views, list);
+  return list;
+};
+
+export const areaPlanOf = (p: Pick<Project, 'planViews'>, id: Id): AreaPlan | undefined => areaPlansOf(p).find((x) => x.id === id);
+
+export const areaPlansOfLevel = (p: Pick<Project, 'planViews'>, levelId: Id): AreaPlan[] => areaPlansOf(p).filter((x) => x.levelId === levelId);
 
 export const tagsOfPlan = (plan: Pick<AreaPlan, 'tags'>): RoomTag[] => plan.tags;
 
 /** Anotações vazias de uma planta de área. */
 export const emptyPlanAnnotations = (): AreaPlanAnnotations => ({ dimensions: [], texts: [], detailLines: [], detailRegions: [], tags: [] });
 
-/** Regra única de anotações: `annotations === undefined` herda as do nível; definido (inclusive `{}`) é conjunto próprio. */
-export const planOwnsAnnotations = (plan: Pick<AreaPlan, 'annotations'>): boolean => plan.annotations !== undefined;
+/**
+ * Regra antiga de anotações (`annotations === undefined` herdava as do nível).
+ * @deprecated Desde a Fase 2 não há herança: a planta de área sempre tem conjunto próprio. Removida na Fase 3.
+ */
+export const planOwnsAnnotations = (_plan: Pick<AreaPlan, 'annotations'>): boolean => true;
 
 /**
  * Anotações da planta normalizadas: listas ausentes viram `[]` (então `{}` é "próprio e vazio"). Devolve a mesma
@@ -212,10 +253,10 @@ export const planAnnotationIds = (plan: Pick<AreaPlan, 'annotations'>): Id[] => 
   return [...a.dimensions.map((x) => x.id), ...a.texts.map((x) => x.id), ...a.detailLines.map((x) => x.id), ...a.detailRegions.map((x) => x.id), ...a.tags.map((x) => x.id)];
 };
 
-export const roomTagsOf = (p: Pick<Project, 'areaPlans'>, roomId: Id): RoomTag[] => areaPlansOf(p).flatMap((x) => x.tags.filter((t) => t.roomId === roomId));
+export const roomTagsOf = (p: Pick<Project, 'planViews'>, roomId: Id): RoomTag[] => areaPlansOf(p).flatMap((x) => x.tags.filter((t) => t.roomId === roomId));
 
 /** Motivo de recusa de uma planta de área, ou null. */
-export function areaPlanIssue(p: Pick<Project, 'levels' | 'areaPlans'>, plan: AreaPlan): string | null {
+export function areaPlanIssue(p: Pick<Project, 'levels'>, plan: AreaPlan): string | null {
   if (!plan.name.trim()) return 'A planta de área precisa de nome.';
   if (!p.levels.some((l) => l.id === plan.levelId)) return 'A planta de área aponta para um nível inexistente.';
   if (!(Number.isFinite(plan.scale) && plan.scale > 0)) return 'A escala da planta precisa ser maior que zero.';

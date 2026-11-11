@@ -1,7 +1,7 @@
 import type { Id, Project } from '@hestia/model';
 
 /** Campos do projeto que não entram na geometria 3D (mesma lista de `assinaturasDoProjeto`). */
-const CAMPOS_FORA_DA_GEOMETRIA = new Set(['elements', 'views', 'areaPlans', 'roomCategories', 'colorSchemes', 'nextOrder', 'name']);
+const CAMPOS_FORA_DA_GEOMETRIA = new Set(['elements', 'views', 'planViews', 'roomCategories', 'colorSchemes', 'nextOrder', 'name']);
 
 /**
  * Edição só de esquadrias? Compara os elementos dos dois projetos por identidade: se tudo o que mudou é janela ou porta
