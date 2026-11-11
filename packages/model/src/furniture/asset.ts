@@ -106,7 +106,8 @@ export function buildFurnitureAsset(input: FurnitureImportInput, id: string = ne
     hashParts.push(enc.encode(`${def.id}|${def.name}|${def.positions}|${def.normals}|${def.uvs}|${def.indices}|${JSON.stringify(def.groups)}`));
     return def;
   });
-  const parts: FurniturePart[] = (input.instances?.length ? input.instances : defs.map((d) => ({ defId: d.id, transform: IDENTITY_MAT4 }))).map((q) => ({
+  const partSource: Array<{ defId: string; name?: string; transform: number[] }> = input.instances?.length ? input.instances : defs.map((d) => ({ defId: d.id, transform: IDENTITY_MAT4 }));
+  const parts: FurniturePart[] = partSource.map((q) => ({
     defId: q.defId,
     ...(q.name ? { name: q.name } : {}),
     transform: q.transform.slice(0, 16),

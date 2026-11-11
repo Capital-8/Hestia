@@ -66,6 +66,7 @@ const PRODUCT_PREFIXES: Record<Element['kind'], readonly string[]> = {
   generic: ['generic'],
   // O CAD importado não vira produto IFC (é desenho de referência, como no Revit).
   cad: [],
+  furniture: [],
 };
 
 /** Destino de entidades: o `StepWriter` na exportação normal e o injetor de texto do `withHestiaPsets`. */
