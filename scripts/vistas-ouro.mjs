@@ -12,6 +12,7 @@ const auditar = args.includes('--auditar');
 const resto = args.filter((a) => a !== '--gravar' && a !== '--auditar');
 const r = spawnSync('npx', ['vitest', 'run', '--config', 'vitest.vistas-ouro.config.ts', ...(auditar ? ['tests/vistas-ouro/auditoria.spec.ts'] : []), ...resto], {
   stdio: 'inherit',
+  shell: process.platform === 'win32',
   env: { ...process.env, ...(gravar ? { VISTAS_OURO_GRAVAR: '1' } : {}), ...(auditar ? { VISTAS_OURO_AUDITAR: '1' } : {}) },
 });
 process.exit(r.status ?? 1);
