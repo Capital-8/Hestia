@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CURTAIN_PRESET_ID, createEmptyProject, makeWall, type Element, type Project } from '@hestia/model';
-import { buildCurtainSchedule, buildWallSchedule, entradaCortinasDoProjeto, somar } from './index.ts';
+import { buildCurtainSchedule, buildWallSchedule, entradaCortinaDoProjeto, somar } from './index.ts';
 import { montarCenaCortina } from './kernelCortina.ts';
 
 /** Projeto de partida com uma parede cortina (tipo de fábrica "fachada") e uma parede básica, no primeiro nível. */
@@ -53,7 +53,7 @@ describe('tabela de quantitativos da parede cortina (decisão 0056, §5.7)', () 
 describe('entrada do kernel a partir do projeto (adaptador da fase 1)', () => {
   it('leva cada parede cortina, com o tipo, a grade e o nível, e o adaptador a monta sem erro', () => {
     const p = projetoComCortina();
-    const e = entradaCortinasDoProjeto(p);
+    const e = entradaCortinaDoProjeto(p).entrada;
     expect(e.cortinas.map((c) => c.id)).toEqual(['w_ct']);
     expect(e.cortinas[0]!.levelNum).toBe(0);
     expect(e.cortinas[0]!.typeId).toBe(CURTAIN_PRESET_ID.fachada);
@@ -65,15 +65,17 @@ describe('entrada do kernel a partir do projeto (adaptador da fase 1)', () => {
     expect(cena.nLinhas.cortinas).toBe(1);
   });
 
-  it('material sem número no projeto vira ID ausente, sem quebrar a numeração', () => {
-    const e = entradaCortinasDoProjeto(projetoComCortina());
-    expect(e.materialNum!('material_que_nao_existe')).toBe(0xffffffff);
+  it('material nulo vira ID ausente; os demais ganham número estável', () => {
+    const e = entradaCortinaDoProjeto(projetoComCortina()).entrada;
+    const desconhecido = e.materialNum!('material_que_nao_existe');
+    expect(desconhecido).toBeGreaterThan(0);
+    expect(e.materialNum!('material_que_nao_existe')).toBe(desconhecido);
     expect(e.materialNum!(null)).toBe(0xffffffff);
     expect(e.materialNum!('mat_vidro')).toBeGreaterThan(0);
   });
 
   it('projeto sem cortina gera entrada vazia', () => {
-    const e = entradaCortinasDoProjeto(createEmptyProject());
+    const e = entradaCortinaDoProjeto(createEmptyProject()).entrada;
     expect(e.cortinas).toEqual([]);
     expect(e.tipos).toEqual([]);
   });

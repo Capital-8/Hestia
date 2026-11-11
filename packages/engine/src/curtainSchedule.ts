@@ -6,7 +6,7 @@ import { CenaV2 } from '@hestia/geom';
 import { curtainPanelTypesOf, isCurtainType, isWall, mullionTypesOf, wallType, type Id, type Project, type Wall } from '@hestia/model';
 import { gerenciadorDoKernel } from './kernelDespacho.ts';
 import { enviarCenaCortina, lerQuantCortina, montarCenaCortina, type LinhaQuantCortina } from './kernelCortina.ts';
-import { entradaCortinasDoProjeto } from './curtainKernelEntrada.ts';
+import { entradaCortinaDoProjeto } from './cortinaProjeto.ts';
 import { resumirCortinas, type ResumoCortina } from './curtainQuantities.ts';
 
 /** `NIVEL_TODOS` do esquema (todas as paredes cortina do projeto). */
@@ -71,7 +71,7 @@ const TOTAIS_VAZIOS: CurtainScheduleTotals = { count: 0, comprimento: 0, areaBru
 function consultarKernel(p: Project): { linhas: LinhaQuantCortina[]; cortinaDe: Map<string, number>; montanteDe: Map<string, number>; painelDe: Map<string, number> } | { motivo: MotivoSemQuantidades; erro: string | null } {
   const ger = gerenciadorDoKernel();
   if (!ger) return { motivo: 'sem-kernel', erro: null };
-  const entrada = entradaCortinasDoProjeto(p);
+  const entrada = entradaCortinaDoProjeto(p).entrada;
   const cena0 = montarCenaCortina(entrada);
   let cena: CenaV2 | null = null;
   try {
