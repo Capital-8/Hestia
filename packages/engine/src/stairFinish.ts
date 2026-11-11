@@ -6,10 +6,10 @@ import type { ResolvedStair, ResolvedStairRiser, ResolvedStairStep } from './sta
  * Acabamentos da escada (piso, espelho e bocel), medidos na face ACABADA. A geometria resolvida (`steps`, `risers`, cotas
  * `z = base + k·h`) já é a acabada: o espelho acabado é `h = H ÷ N` em todos os degraus e a pisada é medida entre as
  * faces acabadas dos espelhos. A estrutura é que desconta as espessuras:
- * - o piso acabado do degrau k é o sólido de `z_k − tp` a `z_k`, com a planta do degrau mais a faixa do bocel sobre a
- *   face do espelho k (UM sólido: piso + bocel). O bocel é medido a partir da face acabada do espelho e não muda a planta;
- * - o espelho acabado k é a faixa de espessura `te` ATRÁS da face (para o lado do degrau de cima), de `z_(k−1) − tp`
- *   (o fundo do piso acabado de baixo, topo da estrutura) até `z_k − tp` (o fundo do piso acabado de cima). O 1º espelho
+ * - o piso acabado do degrau k é o sólido de `z_k − tp` a `z_k`, com a planta do degrau, mais a faixa do bocel sobre a
+ *   face do espelho k, mais a faixa sob o espelho acabado de cima (o piso corre até encostar na estrutura; UM sólido). O bocel é medido a partir da face acabada do espelho e não muda a planta;
+ * - o espelho acabado k é a faixa de espessura `te` ATRÁS da face (para o lado do degrau de cima), de `z_(k−1)`
+ *   (o topo do piso acabado de baixo, que corre por baixo dele) até `z_k − tp` (o fundo do piso acabado de cima). O 1º espelho
  *   nasce no piso de baixo (`baseZ`) e o último chega ao nível de cima (`topZ`): são os degraus compensados;
  * - a estrutura de cada degrau perde `tp` no topo e troca a faixa do espelho de trás (que passa a ser acabamento) pela
  *   faixa do espelho da frente, onde o acabamento do espelho se apoia.
@@ -121,7 +121,7 @@ function buildModel(stair: ResolvedStair): StairFinishModel | null {
         componentIndex: i.r.componentIndex,
         number: k,
         polygon: bandUp.get(k)!,
-        z0: k === 1 ? baseZ : i.r.z0 - tp,
+        z0: k === 1 ? baseZ : fin.treadOn ? i.r.z0 : i.r.z0 - tp,
         z1: k === N ? i.r.z1 : i.r.z1 - tp,
         materialId: fin.riserMaterialId,
         edgeLength: polyLength(i.pts),
@@ -137,9 +137,15 @@ function buildModel(stair: ResolvedStair): StairFinishModel | null {
       const bi = info.get(back);
       let polygon = st.polygon;
       let edgeLength = 0;
+      // O piso corre por baixo do espelho acabado de cima, até encostar na estrutura (a faixa do espelho da frente).
+      const underRiser = fin.riserOn && front && Math.abs(front.r.z0 - st.z) < Z_TOL ? bandUp.get(back + 1) : undefined;
+      if (underRiser) {
+        const ext = union(asMulti(st.polygon), asMulti(underRiser));
+        if (ext.length === 1) polygon = ext[0]![0]!;
+      }
       if (fin.bocel > 0 && bi) {
         const strip = band(bi.pts, bi.side === 1 ? -1 : 1, fin.bocel);
-        const joined = union(asMulti(st.polygon), asMulti(strip));
+        const joined = union(asMulti(polygon), asMulti(strip));
         if (joined.length === 1) {
           polygon = joined[0]![0]!;
           edgeLength = polyLength(bi.pts);
