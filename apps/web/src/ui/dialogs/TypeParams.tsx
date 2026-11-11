@@ -19,14 +19,12 @@ function OptionalNum({ id, label, value, decimals, suffix, min, onChange }: Opti
   const { t } = useT();
   return (
     <FamilyRow label={label} htmlFor={id}>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <input type="checkbox" aria-label={t('dlt_a11y_value_informed', { label })} checked={value !== null} onChange={(e) => onChange(e.target.checked ? 0 : null)} />
-        {value !== null ? (
-          <NumField id={id} value={value} decimals={decimals} suffix={suffix} min={min} onCommit={(v) => onChange(v)} />
-        ) : (
-          <span className="hint">{t('dlt_value_not_set')}</span>
-        )}
-      </span>
+      <input type="checkbox" aria-label={t('dlt_a11y_value_informed', { label })} checked={value !== null} onChange={(e) => onChange(e.target.checked ? 0 : null)} />
+      {value !== null ? (
+        <NumField id={id} value={value} decimals={decimals} suffix={suffix} min={min} onCommit={(v) => onChange(v)} />
+      ) : (
+        <span className="hint">{t('dlt_value_not_set')}</span>
+      )}
     </FamilyRow>
   );
 }

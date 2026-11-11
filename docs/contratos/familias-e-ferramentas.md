@@ -53,13 +53,37 @@ monta-se com os componentes compartilhados de `apps/web/src/ui/dialogs/familia/`
 - `FamilyTypeDialog`: cabeçalho Família/Tipo (Duplicar, Renomear), Nome do tipo na mesma linha do rótulo e rodapé
   Excluir | Cancelar, Aplicar, OK;
 - `FamilyTabs`, `FamilySection` (recolhível, mesma tipografia), `FamilyRow` (rótulo e campo na mesma linha),
-  `FamilyPair` (dois campos curtos lado a lado) e `FamilyHint` (ajuda compacta).
+  `FamilyCheck` (caixa de seleção), `FamilyPair` (dois campos curtos lado a lado), `FamilyHint` (ajuda compacta),
+  `FamilyActions` (fileira de botões), `FamilyReadout` (resultado calculado) e `FamilySplit` (campos e prévia).
 
 Nada de CSS ou estrutura própria de seção/linha (`field-row`, `fieldset`, `details`, `dsec`, `Row` da paleta) nos
 diálogos de tipo. Diálogo de tipo novo entra em `MIGRADOS` no teste-guarda; se não der para migrar, vira exceção TODO.
 
 Teste-guarda: `apps/web/src/ui/dialogs/contratoModaisFamilia.test.ts` (classifica todo diálogo de tipo; falha para
 diálogo novo sem classificação, migrado sem o esqueleto ou com seção/linha própria, e para exceção obsoleta).
+
+### Alinhamento (uma só grade, definida no CSS `.fam-form` e `.fam-pair`)
+
+- Rótulo numa coluna de largura fixa (`--fam-l`) e controle na coluna ao lado, sempre no mesmo x. O cabeçalho
+  Família/Tipo, o Nome do tipo e toda linha usam a mesma coluna de rótulo. Nada de largura de rótulo por diálogo.
+- Texto e seletor ocupam a coluna do controle. Número usa a largura padrão do `NumField` (72 px) com a unidade logo ao
+  lado; a unidade vem do `NumField` (`unit`), nunca solta no rótulo ou em `<span>` próprio.
+- Par (`FamilyPair`): o 1º campo cai no mesmo x das linhas simples; o 2º tem rótulo de largura fixa (`--fam-l2`), então
+  todo par tem os controles nos mesmos dois x. Seletor longo (ex.: material) não entra em par: empilhe as linhas.
+- Caixa de seleção só por `FamilyCheck`: a caixa fica na coluna do controle (mesmo x dos campos), o texto vai ao lado e a
+  coluna do rótulo fica vazia. Nunca `<input type="checkbox">` nem `Check` soltos nos modais de tipo (exceção: caixa dentro
+  de célula de tabela, como "Envolve" das camadas). Texto longo quebra dentro da coluna do controle.
+- Campo ligado a outro (desligado por um check) usa `dim` na linha (`FamilyRow dim`); o campo também recebe `disabled`.
+  Uma só opacidade: nada de `opacity` inline nem `div` envolvendo.
+- Toda linha tem a mesma altura mínima (`--fam-rowh`) e o mesmo espaço abaixo. Seção dentro de seção mantém o x das linhas
+  (só o título fica mais discreto). Botões do corpo usam `FamilyActions` com `btn small`.
+- Escada e guarda-corpo (e as peças deles) não usam `style={{ ... }}`, `<input>`, `<label>` nem classe de linha própria.
+  Cor de aviso, negrito e fonte mono vêm de classe (`FamilyHint tone`, `fam-tone`, `fam-mono`).
+
+Teste-guarda: `apps/web/src/ui/dialogs/contratoModaisFamilia.test.ts` (classifica todo diálogo de tipo; falha para
+diálogo novo sem classificação, migrado sem o esqueleto ou com seção/linha própria, e para exceção obsoleta) e
+`apps/web/src/ui/dialogs/alinhamentoModaisFamilia.test.ts` (alinhamento: sem `style` inline, caixa solta ou linha
+própria nos dois modais; grade do CSS; estrutura renderizada de FamilyRow, FamilyCheck e dos modais).
 
 ## Regra 5. Não deixar lixo ao implementar
 

@@ -3,6 +3,7 @@ import { useT } from '../../../editor/i18n.ts';
 import { TextField } from '../../fields.tsx';
 import { Dialog } from '../Dialog.tsx';
 import { TypeDialogHeader } from '../TypeDialogHeader.tsx';
+import { FamilyRow } from './FamilyRow.tsx';
 
 interface NameField {
   id: string;
@@ -68,7 +69,7 @@ export function FamilyTypeDialog({ title, sub, onClose, onSubmit, size, family, 
         <>
           <button className="btn danger" disabled={footer.deleteDisabled} title={footer.deleteTitle ?? t('dlt_tt_delete_type')} onClick={footer.onDelete}>{t('stt_delete')}</button>
           {footer.afterDelete}
-          <span style={{ flex: 1 }} />
+          <span className="fam-grow" />
           {footer.beforeCancel}
           <button className="btn" onClick={onClose}>{t('stt_cancel')}</button>
           <button className="btn" onClick={footer.onApply} disabled={footer.saveDisabled} aria-disabled={footer.saveDisabled} title={footer.saveTitle}>{t('stt_apply')}</button>
@@ -77,13 +78,13 @@ export function FamilyTypeDialog({ title, sub, onClose, onSubmit, size, family, 
         </>
       }
     >
-      <TypeDialogHeader family={family} types={types} currentId={currentId} nameFieldId={name.id} onDuplicate={onDuplicate} onSelect={onSelectType} />
-      <div className="field-row">
-        <label htmlFor={name.id}>{t('stt_f_name')}</label>
-        <TextField id={name.id} value={name.value} onCommit={name.onCommit} invalid={Boolean(name.error)} describedBy={name.error ? errId : undefined} dataAutofocus={name.autofocus} />
+      <div className="fam-form">
+        <TypeDialogHeader family={family} types={types} currentId={currentId} nameFieldId={name.id} onDuplicate={onDuplicate} onSelect={onSelectType} />
+        <FamilyRow label={t('stt_f_name')} htmlFor={name.id} message={name.error} messageId={errId}>
+          <TextField id={name.id} value={name.value} onCommit={name.onCommit} invalid={Boolean(name.error)} describedBy={name.error ? errId : undefined} dataAutofocus={name.autofocus} />
+        </FamilyRow>
+        {children}
       </div>
-      {name.error ? <div className="vr-error" id={errId}>{name.error}</div> : null}
-      {children}
     </Dialog>
   );
 }

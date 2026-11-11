@@ -394,8 +394,41 @@ svg { display: block; }
 .dsec > legend, .dsec > summary { padding: 0 4px; color: var(--fg-soft); font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
 .dsec > summary { cursor: pointer; }
 .dsec > summary:hover { color: var(--accent); }
-/* Esqueleto comum dos diálogos de tipo (ui/dialogs/familia): seção recolhível, campos curtos em pares e ajuda compacta.
-   A seção "fixa" tem o mesmo visual do bloco de parâmetros da parede. */
+/* Esqueleto comum dos diálogos de tipo (ui/dialogs/familia). UMA grade para tudo (contrato, regra 4):
+   - rótulo numa coluna de largura fixa (--fam-l) e controle na coluna seguinte, sempre no mesmo x;
+   - texto e seletor ocupam a coluna toda; número tem largura padrão (72 px) com a unidade logo ao lado;
+   - par de campos: o 1º campo cai no mesmo x das linhas simples; o 2º tem rótulo de largura fixa (--fam-l2), então
+     todo par do diálogo tem os controles nos mesmos dois x;
+   - caixa de seleção no x do controle, com o texto ao lado (rótulo vazio); linha esmaecida = .dim (uma só opacidade);
+   - toda linha tem a mesma altura mínima (--fam-rowh) e o mesmo espaço abaixo.
+   Cabeçalho Família/Tipo, Nome do tipo e todas as linhas ficam dentro de .fam-form e usam a mesma coluna de rótulo. */
+.fam-form { --fam-l: 140px; --fam-l2: 140px; --fam-c: 104px; --fam-gap: 8px; --fam-rowh: 24px; }
+.fam-form .field-row { grid-template-columns: var(--fam-l) minmax(0, 1fr); column-gap: var(--fam-gap); min-height: var(--fam-rowh); margin-bottom: 5px; }
+.fam-form .field-row > label { line-height: 1.25; }
+.fam-ctl { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.fam-ctl > .select, .fam-ctl > .input.wide { flex: 1 1 0; width: auto; min-width: 0; }
+.fam-ctl > .numwrap { flex: none; }
+.fam-ctl input[type='checkbox'] { flex: none; margin: 0; }
+.fam-ctl .check { align-items: flex-start; line-height: 16px; }
+.fam-ctl .check input { margin-top: 1px; }
+.fam-row.dim { opacity: 0.5; }
+.fam-row > .vr-error { padding: 0 0 4px; margin: -2px 0 3px calc(var(--fam-l) + var(--fam-gap)); }
+.fam-check .field-row > span { display: block; }
+.fam-pair { display: grid; grid-template-columns: calc(var(--fam-l) + var(--fam-gap) + var(--fam-c)) minmax(0, 1fr); column-gap: 14px; }
+.fam-pair > .fam-row:first-child .field-row { grid-template-columns: var(--fam-l) var(--fam-c); }
+.fam-pair > .fam-row + .fam-row .field-row { grid-template-columns: minmax(0, var(--fam-l2)) var(--fam-c); }
+.fam-pair > .fam-row + .fam-row > .vr-error { margin-left: calc(var(--fam-l2) + var(--fam-gap)); }
+.fam-grow { flex: 1; }
+.fam-form .dtabs { margin-top: 8px; }
+.gc-preview { margin: 0 0 8px; }
+.gc-preview h3 { margin: 0 0 4px; color: var(--fg-faint); font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+.gc-preview svg { display: block; width: 100%; max-width: 320px; }
+.fam-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 4px; }
+.fam-readout { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; min-height: 22px; padding: 0 8px; border-bottom: 1px solid var(--line); background: var(--ro); }
+.fam-readout > .val { font-family: var(--font-mono); font-size: 11px; text-align: right; white-space: nowrap; }
+.fam-split { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(220px, 1fr); gap: 14px; align-items: start; }
+.fam-split-main { min-width: 0; }
+.fam-split-side { position: sticky; top: 0; align-self: start; min-width: 0; }
 .fam-sec { min-width: 0; margin: 0 0 6px; padding: 0; border: 0; border-bottom: 1px solid var(--line); }
 .fam-sec.fixed { margin: 12px 0 0; border-bottom: 0; }
 .fam-sec.fixed > legend { padding: 0; color: var(--fg-faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; }
@@ -407,17 +440,28 @@ svg { display: block; }
 .fam-sec-title { flex: 1; min-width: 0; }
 .fam-sec-actions { display: inline-flex; gap: 6px; text-transform: none; letter-spacing: 0; font-weight: 400; }
 .fam-sec-body { padding: 0 0 4px; }
-.fam-sec-body .field-row { margin-bottom: 5px; }
-.fam-sec-body > .fam-row > .field-row { grid-template-columns: 150px minmax(0, 1fr); }
-.fam-row .field-row input[type='checkbox'] { justify-self: start; }
-.fam-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 14px; }
-.fam-pair .field-row { grid-template-columns: minmax(0, 1fr) 102px; }
-.fam-pair.mix .field-row { grid-template-columns: 64px minmax(0, 1fr); }
-.fam-pair.mix .field-row .select { width: 100%; }
+/* Seção dentro de seção: mesmo x das linhas, só título mais discreto (sem caixa alta). */
+.fam-sec-body .fam-sec { margin: 0 0 2px; border-bottom: 0; }
+.fam-sec-body .fam-sec > summary { color: var(--fg-soft); font-size: 11.5px; text-transform: none; letter-spacing: 0; }
 .fam-hint { margin: 0 0 5px; color: var(--fg-soft); font-size: 11px; line-height: 1.4; }
+.fam-hint.faint { color: var(--fg-faint); }
+.fam-hint.strong { color: var(--fg); font-weight: 600; }
+.fam-hint.warn, .vr-error.warn { color: var(--warn); }
+.fam-hint.title { margin-bottom: 4px; color: var(--fg-faint); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+.fam-formula { margin: 0 0 5px; font-family: var(--font-mono); font-size: 15px; }
+.fam-mono { font-family: var(--font-mono); }
+.fam-tone.ok { color: var(--ok); }
+.fam-tone.warn { color: var(--warn); }
+.fam-tone.bad { color: var(--danger); }
+.fam-badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 4px; background: var(--warn); color: var(--panel); font-weight: 600; }
+.fam-ellipsis { max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 760px) {
   .fam-pair { grid-template-columns: minmax(0, 1fr); }
-  .fam-pair .field-row, .fam-pair.mix .field-row, .fam-sec-body > .fam-row > .field-row { grid-template-columns: minmax(0, 1fr); }
+  .fam-form .field-row, .fam-pair > .fam-row:first-child .field-row, .fam-pair > .fam-row + .fam-row .field-row { grid-template-columns: minmax(0, 1fr); }
+  .fam-row > .vr-error, .fam-pair > .fam-row + .fam-row > .vr-error { margin-left: 0; }
+  .fam-check .field-row > span { display: none; }
+  .fam-split { grid-template-columns: minmax(0, 1fr); }
+  .fam-split-side { position: static; }
 }
 .calc-badge { display: inline-flex; align-items: center; gap: 6px; border: 1px solid currentColor; border-radius: 2px; padding: 2px 8px; font-size: 11.5px; line-height: 1.5; }
 .calc-badge.ok { color: var(--ok); }
@@ -450,6 +494,8 @@ svg { display: block; }
 .tdlg-bar .in { min-width: 0; border: 1px solid var(--line-strong); background: var(--ro); border-radius: var(--r); padding: 3px 6px; height: 24px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tdlg-bar .in.pick { padding: 0 4px; }
 .tdlg-bar .btns { display: flex; gap: 6px; }
+/* Mesma coluna de rótulo do resto do diálogo de tipo (--fam-l vem de .fam-form). */
+.type-head { grid-template-columns: var(--fam-l, 110px) minmax(0, 1fr) auto; }
 .tdlg-mid { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 0; margin: -12px -14px; min-height: 0; }
 .tdlg-params { min-width: 0; padding: 12px 14px; }
 .tdlg-pv { display: flex; flex-direction: column; gap: 8px; padding: 10px; background: var(--panel); border-left: 1px solid var(--line-strong); }

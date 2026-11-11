@@ -2,7 +2,7 @@ import type { ReactElement } from 'react';
 import type { StairType } from '@hestia/model';
 import { dictOf, fmtNum, useI18n } from '../../editor/i18n.ts';
 import { blondelLive, formulaText } from './stairBlondel.ts';
-import { FamilySection } from './familia/index.ts';
+import { FamilyHint, FamilySection } from './familia/index.ts';
 
 const fill = (s: string, params: Record<string, string>): string => s.replace(/\{(\w+)\}/g, (_, k: string) => params[k] ?? '');
 
@@ -23,19 +23,17 @@ export function StairBlondelCard({ type, heightCm }: { type: StairType; heightCm
 
   return (
     <FamilySection id="stt-bl" title={t.stt_bl_title} defaultOpen={false}>
-      <p className="fam-hint">{t.stt_bl_intro}</p>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 15 }}>
+      <FamilyHint>{t.stt_bl_intro}</FamilyHint>
+      <p className="fam-formula">
         {formulaText(a, b, lang)} = {cm(type.calcTarget)} cm
-      </div>
-      <p className="stt-ref">{fill(t.stt_bl_range, range)}</p>
-      <p className="stt-ref">{t.stt_bl_legend}</p>
+      </p>
+      <FamilyHint tone="faint">{fill(t.stt_bl_range, range)}</FamilyHint>
+      <FamilyHint tone="faint">{t.stt_bl_legend}</FamilyHint>
       {!live.valid ? (
-        <p className="stt-ref">{t.stt_bl_invalid}</p>
+        <FamilyHint tone="faint">{t.stt_bl_invalid}</FamilyHint>
       ) : (
         <>
-          <p className="stt-ref" style={{ fontWeight: 600 }}>
-            {fill(t.stt_bl_live_title, { h: fmtNum(heightCm, 0, lang) })}
-          </p>
+          <FamilyHint tone="strong">{fill(t.stt_bl_live_title, { h: fmtNum(heightCm, 0, lang) })}</FamilyHint>
           <ol>
             <li>
               {fill(t.stt_bl_step_n, {
@@ -66,16 +64,16 @@ export function StairBlondelCard({ type, heightCm }: { type: StairType; heightCm
                   ? fill(t.stt_bl_step_t_max, { max: cm(type.maxTread), T: cm(live.tread) })
                   : null}
             </li>
-            <li style={{ fontFamily: 'var(--font-mono)' }} role="status" aria-live="polite">
+            <li className="fam-mono" role="status" aria-live="polite">
               <div>{`${term(a, cm(live.riserShown))} + ${term(b, cm(live.tread))} = ${cm(live.sum)} cm`}</div>
               {live.status === 'ok' ? (
-                <div style={{ color: 'var(--ok)' }}>{`✓ ${fill(t.stt_bl_ok, range)}`}</div>
+                <div className="fam-tone ok">{`✓ ${fill(t.stt_bl_ok, range)}`}</div>
               ) : live.status === 'warn' ? (
-                <div style={{ color: 'var(--warn)' }}>
+                <div className="fam-tone warn">
                   {`! ${fill(live.side === 'below' ? t.stt_bl_warn_below : t.stt_bl_warn_above, { d: cm(live.delta), ...range })}`}
                 </div>
               ) : (
-                <div style={{ color: 'var(--danger)' }}>
+                <div className="fam-tone bad">
                   {`✕ ${fill(t.stt_bl_bad, { d: cm(live.delta), ...range })}`}
                 </div>
               )}
@@ -84,13 +82,13 @@ export function StairBlondelCard({ type, heightCm }: { type: StairType; heightCm
         </>
       )}
       <FamilySection title={t.stt_bl_words_title}>
-        <p className="fam-hint">{t.stt_bl_words}</p>
+        <FamilyHint>{t.stt_bl_words}</FamilyHint>
       </FamilySection>
-      <p className="stt-ref">{t.stt_bl_note_straight}</p>
+      <FamilyHint tone="faint">{t.stt_bl_note_straight}</FamilyHint>
       {type.runStyle === 'post' ? (
-        <p className="fam-hint" style={{ color: 'var(--warn)' }}>{t.stt_bl_note_curved}</p>
+        <FamilyHint warn>{t.stt_bl_note_curved}</FamilyHint>
       ) : (
-        <p className="fam-hint">{t.stt_bl_note_curved_short}</p>
+        <FamilyHint>{t.stt_bl_note_curved_short}</FamilyHint>
       )}
       <FamilySection title={t.stt_bl_presets_title} defaultOpen={false}>
         <ul>
@@ -99,7 +97,7 @@ export function StairBlondelCard({ type, heightCm }: { type: StairType; heightCm
           <li>{t.stt_bl_p_nbr9077}</li>
           <li>{t.stt_bl_p_ibc}</li>
         </ul>
-        <p className="stt-ref">{t.stt_bl_p_foot}</p>
+        <FamilyHint tone="faint">{t.stt_bl_p_foot}</FamilyHint>
       </FamilySection>
     </FamilySection>
   );
