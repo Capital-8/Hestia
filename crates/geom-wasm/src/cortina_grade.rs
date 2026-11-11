@@ -267,19 +267,19 @@ pub fn consulta_cortina_grade(cena: &crate::cena::Cena, nivel: u32) -> Result<Ve
     let (mut segmentos, mut segmentos_ext) = (Vec::new(), Vec::new());
     for c in &cortinas {
         let Some(g) = &c.g else { continue };
-        for (eixo, arestas, origem) in [(EIXO_U, &g.us, g.origem_u), (EIXO_V, &g.vs, g.origem_v)] {
+        for (eixo, arestas, origens) in [(EIXO_U, &g.us, &g.origem_u), (EIXO_V, &g.vs, &g.origem_v)] {
+            let travadas = if eixo == EIXO_U { &g.travada_u } else { &g.travada_v };
             for (k, &pos) in arestas.iter().enumerate().take(arestas.len() - 1).skip(1) {
-                linhas.extend_from_slice(&[c.id, eixo as u32, k as u32, origem, 0]);
+                linhas.extend_from_slice(&[c.id, eixo as u32, k as u32, origens[k], travadas[k]]);
                 linhas_pos.push(na_grade(pos));
             }
         }
-        let nv = g.nv() as u32;
         for x in &g.celulas {
-            celulas.extend_from_slice(&[c.id, x.i, x.j, x.i * nv + x.j, x.painel, x.flags]);
+            celulas.extend_from_slice(&[c.id, x.i, x.j, x.regiao, x.painel, x.flags]);
             celulas_ret.extend_from_slice(&[na_grade(x.s0), na_grade(x.s1), na_grade(x.z0), na_grade(x.z1)]);
         }
         for s in &g.segmentos {
-            segmentos.extend_from_slice(&[c.id, g.linha_global(s.eixo, s.linha), s.k, 0, s.montante]);
+            segmentos.extend_from_slice(&[c.id, g.linha_global(s.eixo, s.linha), s.k, u32::from(s.removido), s.montante]);
             segmentos_ext.extend_from_slice(&[na_grade(s.de), na_grade(s.ate)]);
         }
     }

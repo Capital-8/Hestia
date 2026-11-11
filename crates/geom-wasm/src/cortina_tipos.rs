@@ -6,6 +6,11 @@ pub const LIMITE_CELULAS: usize = 4096;
 pub const LIMITE_LINHAS_EIXO: usize = 128;
 pub const LIMITE_POSICOES_MANUAIS: usize = 128;
 pub const LIMITE_INSTANCIAS: usize = 20_000;
+/// Fase 2 (ADR §4.3): sobrescritas por cortina. Acima disso o Rust devolve `LIMITE`.
+pub const LIMITE_LINHAS_EXTRAS: usize = 128;
+pub const LIMITE_SEGMENTOS_REMOVIDOS: usize = 1024;
+pub const LIMITE_LINHAS_SOBRESCRITAS: usize = 256;
+pub const LIMITE_CELULAS_SOBRESCRITAS: usize = 1024;
 
 /// Sobra fundida (m): sobra de ponta menor que isto é absorvida pela célula vizinha (ADR §5.1; configurável por eixo em `resto_minimo`).
 pub const SOBRA_FUNDIDA_PADRAO: f64 = 0.05;
@@ -90,8 +95,11 @@ pub const ESTILO_CORTADO: u32 = 0;
 pub const ESTILO_PROJETADO: u32 = 1;
 pub const ESTILO_OCULTO: u32 = 2;
 
-/// Bit 0 de `cortina_grade.celulas.flags`: o menor lado livre é menor que a célula mínima.
+/// Bits de `cortina_grade.celulas.flags`: 0 o menor lado livre é menor que a célula mínima; 1 a célula tem sobrescrita de painel adotada; 2 a região
+/// tem mais de uma célula (fusão por remoção de segmento).
 pub const CELULA_PEQUENA: u32 = 1;
+pub const CELULA_SOBRESCRITA: u32 = 2;
+pub const CELULA_REGIAO_MULTIPLA: u32 = 4;
 
 /// Um eixo da grade com tipo e instância já fundidos (campo a campo, ADR §4.3).
 #[derive(Clone, Debug, PartialEq)]

@@ -1,5 +1,6 @@
-//! Seções da parede cortina (decisão 0056, fase 1; esquema v14): `cortinas`, `tipos_cortina`, `grades_cortina`, `grade_posicoes_cortina`, `tipos_montante_cortina`
-//! e `tipos_painel_cortina` (ids 100 a 105).
+//! Seções da parede cortina (decisão 0056; esquema v14 na fase 1 e v15 na fase 2): `cortinas`, `tipos_cortina`, `grades_cortina`, `grade_posicoes_cortina`,
+//! `tipos_montante_cortina` e `tipos_painel_cortina` (ids 100 a 105), e as sobrescritas da fase 2: `cortina_linhas_extras`, `cortina_segmentos_removidos`,
+//! `cortina_linhas_sobrescritas` e `cortina_celulas_sobrescritas` (ids 106 a 109).
 //!
 //! Mesmo molde de `secoes_gc`: `BTreeMap` por chave (ordem canônica = id crescente) e decodificação que valida antes de tocar a cena (atômica): tamanho,
 //! chave ausente ou duplicada, valores não finitos e enums fora do domínio (`ENTRADA`). As referências ENTRE seções (tipo, montante, painel, grade) não
@@ -12,9 +13,66 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::cena::{decodificar_colunas, Coluna, COORD_MAX};
 use crate::cortina_tipos::*;
 use crate::esquema::{
-    self, Secao, ENTRADA, ID_AUSENTE, INTERNO, LIMITE, LIMITE_LINHAS_POR_SECAO, SECAO_CORTINAS, SECAO_GRADES_CORTINA, SECAO_GRADE_POSICOES_CORTINA, SECAO_TIPOS_CORTINA,
-    SECAO_TIPOS_MONTANTE_CORTINA, SECAO_TIPOS_PAINEL_CORTINA,
+    self, Secao, ENTRADA, ID_AUSENTE, INTERNO, LIMITE, LIMITE_LINHAS_POR_SECAO, SECAO_CORTINAS, SECAO_CORTINA_CELULAS_SOBRESCRITAS,
+    SECAO_CORTINA_LINHAS_EXTRAS, SECAO_CORTINA_LINHAS_SOBRESCRITAS, SECAO_CORTINA_SEGMENTOS_REMOVIDOS, SECAO_GRADES_CORTINA, SECAO_GRADE_POSICOES_CORTINA,
+    SECAO_TIPOS_CORTINA, SECAO_TIPOS_MONTANTE_CORTINA, SECAO_TIPOS_PAINEL_CORTINA,
 };
+
+/// Linha extra da grade (`cortina_linhas_extras`, fase 2). `comp` é o comprimento do eixo na gravação (usado quando não é `travada`); `montante` `ID_AUSENTE`
+/// = o interior do sistema.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LinhaExtraLinha {
+    pub cortina: u32,
+    pub eixo: u8,
+    pub pos: f64,
+    pub travada: bool,
+    pub comp: f64,
+    pub montante: u32,
+}
+
+/// Segmento removido (`cortina_segmentos_removidos`, fase 2). `extra`: a linha é uma extra (`linha` é o id dela); senão, `linha` é o índice gerado na
+/// gravação, com `pos_norm` e `n` para remapear. `k` e `nk`: o segmento ao longo da linha e o total; `mid`: o ponto médio normalizado.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SegmentoRemovidoLinha {
+    pub cortina: u32,
+    pub eixo: u8,
+    pub extra: bool,
+    pub linha: u32,
+    pub pos_norm: f64,
+    pub n: u32,
+    pub k: u32,
+    pub nk: u32,
+    pub mid: f64,
+}
+
+/// Linha GERADA sobrescrita (`cortina_linhas_sobrescritas`, fase 2). `modo` 0 herda o montante do eixo, 1 sem montante, 2 o tipo `montante`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LinhaSobrescritaLinha {
+    pub cortina: u32,
+    pub eixo: u8,
+    pub linha: u32,
+    pub pos_norm: f64,
+    pub n: u32,
+    pub travada: bool,
+    /// `NaN` = sem posição nova.
+    pub pos: f64,
+    pub comp: f64,
+    pub modo: u8,
+    pub montante: u32,
+}
+
+/// Painel sobrescrito de uma célula (`cortina_celulas_sobrescritas`, fase 2).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CelulaSobrescritaLinha {
+    pub cortina: u32,
+    pub i: u32,
+    pub j: u32,
+    pub s: f64,
+    pub z: f64,
+    pub nu: u32,
+    pub nv: u32,
+    pub painel: u32,
+}
 
 /// Uma parede cortina (instância). `painel_padrao` = `ID_AUSENTE`: o painel do tipo.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -174,6 +232,10 @@ tabelas! {
     posicoes: GradePosicaoLinha = SECAO_GRADE_POSICOES_CORTINA,
     montantes: MontanteTipoLinha = SECAO_TIPOS_MONTANTE_CORTINA,
     paineis: PainelTipoLinha = SECAO_TIPOS_PAINEL_CORTINA,
+    extras: LinhaExtraLinha = SECAO_CORTINA_LINHAS_EXTRAS,
+    segmentos_removidos: SegmentoRemovidoLinha = SECAO_CORTINA_SEGMENTOS_REMOVIDOS,
+    linhas_sobrescritas: LinhaSobrescritaLinha = SECAO_CORTINA_LINHAS_SOBRESCRITAS,
+    celulas_sobrescritas: CelulaSobrescritaLinha = SECAO_CORTINA_CELULAS_SOBRESCRITAS,
 }
 
 /// As colunas decodificadas de uma seção, lidas por nome.
@@ -363,6 +425,47 @@ fn decodificar(secao: u32, n_linhas: u32, bytes: &[u8]) -> Result<Lote, u32> {
             material: t.u("material_num", i)?,
             vidro_tipo: t.e("vidro_tipo", i, 255, None)?,
         })),
+        SECAO_CORTINA_LINHAS_EXTRAS => Lote::extras(linhas!(i => LinhaExtraLinha {
+            cortina: t.u("cortina_num", i)?,
+            eixo: t.e("eixo", i, EIXO_V, None)?,
+            pos: t.d("pos", i)?,
+            travada: t.b("travada", i)?,
+            comp: t.dp("comp_gravado", i)?,
+            montante: t.u("montante_num", i)?,
+        })),
+        SECAO_CORTINA_SEGMENTOS_REMOVIDOS => Lote::segmentos_removidos(linhas!(i => SegmentoRemovidoLinha {
+            cortina: t.u("cortina_num", i)?,
+            eixo: t.e("eixo", i, EIXO_V, None)?,
+            extra: t.e("origem", i, 1, None)? == 1,
+            linha: t.u("linha_num", i)?,
+            pos_norm: t.dn("pos_norm", i)?,
+            n: t.u("n", i)?,
+            k: t.u("k", i)?,
+            nk: t.u("nk", i)?,
+            mid: t.dn("mid", i)?,
+        })),
+        SECAO_CORTINA_LINHAS_SOBRESCRITAS => Lote::linhas_sobrescritas(linhas!(i => LinhaSobrescritaLinha {
+            cortina: t.u("cortina_num", i)?,
+            eixo: t.e("eixo", i, EIXO_V, None)?,
+            linha: t.u("linha_num", i)?,
+            pos_norm: t.dn("pos_norm", i)?,
+            n: t.u("n", i)?,
+            travada: t.b("travada", i)?,
+            pos: t.dn("pos", i)?,
+            comp: t.dp("comp_gravado", i)?,
+            modo: t.e("montante_modo", i, 2, None)?,
+            montante: t.u("montante_num", i)?,
+        })),
+        SECAO_CORTINA_CELULAS_SOBRESCRITAS => Lote::celulas_sobrescritas(linhas!(i => CelulaSobrescritaLinha {
+            cortina: t.u("cortina_num", i)?,
+            i: t.u("i", i)?,
+            j: t.u("j", i)?,
+            s: t.d("s", i)?,
+            z: t.d("z", i)?,
+            nu: t.u("nu", i)?,
+            nv: t.u("nv", i)?,
+            painel: t.u("painel_num", i)?,
+        })),
         _ => return Err(ENTRADA),
     })
 }
@@ -432,6 +535,60 @@ impl SecoesCortina {
                 return Err(ENTRADA);
             }
         }
+        self.validar_sobrescritas()?;
+        Ok(())
+    }
+
+    /// Fase 2: cada sobrescrita aponta para uma cortina, um eixo válido e referências que existem; `LIMITE` acima dos máximos por cortina (ADR §4.3).
+    fn validar_sobrescritas(&self) -> Result<(), u32> {
+        let montante_ok = |m: u32| m == ID_AUSENTE || self.montantes.contains_key(&m);
+        let mut contagem: BTreeMap<u32, [usize; 4]> = BTreeMap::new();
+        for e in self.extras.values() {
+            if !self.cortinas.contains_key(&e.cortina) || e.eixo > EIXO_V || !e.pos.is_finite() || (!e.travada && e.comp <= 0.0) || !montante_ok(e.montante) {
+                return Err(ENTRADA);
+            }
+            contagem.entry(e.cortina).or_default()[0] += 1;
+        }
+        for s in self.segmentos_removidos.values() {
+            if !self.cortinas.contains_key(&s.cortina) || s.eixo > EIXO_V || s.nk == 0 || s.k >= s.nk || !s.mid.is_finite() {
+                return Err(ENTRADA);
+            }
+            if s.extra {
+                if !self.extras.get(&s.linha).is_some_and(|x| x.cortina == s.cortina && x.eixo == s.eixo) {
+                    return Err(ENTRADA);
+                }
+            } else if s.n < 2 || s.linha > s.n || !s.pos_norm.is_finite() {
+                // Índice 0 ou n é a borda (remoção que só tira o montante da borda); 1 a n−1 é linha interna.
+                return Err(ENTRADA);
+            }
+            contagem.entry(s.cortina).or_default()[1] += 1;
+        }
+        for s in self.linhas_sobrescritas.values() {
+            if !self.cortinas.contains_key(&s.cortina) || s.eixo > EIXO_V || s.n < 2 || s.linha < 1 || s.linha >= s.n || !s.pos_norm.is_finite() {
+                return Err(ENTRADA);
+            }
+            if s.modo > 2 || (s.modo == 2 && !self.montantes.contains_key(&s.montante)) || (!s.pos.is_nan() && !s.pos.is_finite()) {
+                return Err(ENTRADA);
+            }
+            if s.pos.is_finite() && !s.travada && s.comp <= 0.0 {
+                return Err(ENTRADA);
+            }
+            contagem.entry(s.cortina).or_default()[2] += 1;
+        }
+        for c in self.celulas_sobrescritas.values() {
+            // A chave gravada pode ter índice fora da topologia gravada: o remapeamento a trata como fora da grade (ADR §4.4, passo 4).
+            let ok = self.cortinas.contains_key(&c.cortina) && self.paineis.contains_key(&c.painel) && c.nu >= 1 && c.nv >= 1 && c.s.is_finite() && c.z.is_finite();
+            if !ok {
+                return Err(ENTRADA);
+            }
+            contagem.entry(c.cortina).or_default()[3] += 1;
+        }
+        let limites = [LIMITE_LINHAS_EXTRAS, LIMITE_SEGMENTOS_REMOVIDOS, LIMITE_LINHAS_SOBRESCRITAS, LIMITE_CELULAS_SOBRESCRITAS];
+        for n in contagem.values() {
+            if n.iter().zip(limites).any(|(&x, l)| x > l) {
+                return Err(LIMITE);
+            }
+        }
         Ok(())
     }
 }
@@ -469,8 +626,8 @@ pub(crate) mod testes {
 
     #[test]
     fn toda_secao_da_cortina_tem_dono_e_decodifica_zeros_ou_recusa_com_codigo() {
-        let ids: Vec<u32> = esquema::SECOES.iter().map(|s| s.id).filter(|&i| (100..=105).contains(&i)).collect();
-        assert_eq!(ids, vec![100, 101, 102, 103, 104, 105]);
+        let ids: Vec<u32> = esquema::SECOES.iter().map(|s| s.id).filter(|&i| (100..=109).contains(&i)).collect();
+        assert_eq!(ids, vec![100, 101, 102, 103, 104, 105, 106, 107, 108, 109]);
         for id in ids {
             assert!(SecoesCortina::e_minha(id), "seção {id}");
             let mut s = SecoesCortina::default();
@@ -480,7 +637,7 @@ pub(crate) mod testes {
         }
         assert!(!SecoesCortina::e_minha(81));
         assert!(!SecoesCortina::e_minha(99));
-        assert!(!SecoesCortina::e_minha(106));
+        assert!(!SecoesCortina::e_minha(110));
     }
 
     #[test]

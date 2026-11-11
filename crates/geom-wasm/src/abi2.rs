@@ -411,7 +411,7 @@ mod testes {
     #[test]
     fn versoes() {
         assert_eq!(abi2_versao(), 2);
-        assert_eq!(abi2_esquema_versao(), 14);
+        assert_eq!(abi2_esquema_versao(), 15);
     }
 
     #[test]

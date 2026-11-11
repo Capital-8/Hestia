@@ -257,3 +257,53 @@ describe('paridade do adaptador TS com o arquivo do Rust', () => {
   });
 });
 
+
+describe('parede cortina, fase 2 (sobrescritas) no Rust real', () => {
+  // Base de `entradaBasica`: c1 com U de 6,5 m (linhas em 0,25; 1,75; 3,25; 4,75; 6,25 => 6 colunas) e V manual de 3 m (1 e 2,4 => 3 fileiras).
+  const comSobrescritas = (s: NonNullable<EntradaCenaCortina['cortinas'][number]['sobrescritas']>): EntradaCenaCortina => {
+    const e = entradaBasica();
+    e.cortinas = [{ ...e.cortinas[0]!, sobrescritas: s }, ...e.cortinas.slice(1)];
+    return e;
+  };
+
+  it.skipIf(!bytes)('remover um segmento funde duas células numa região, e a sobrescrita de painel vale para ela', () => {
+    const e = comSobrescritas({
+      segmentosRemovidos: [{ eixo: 'u', origem: 'gerada', linha: 1, posNorm: 0.25 / 6.5, n: 6, k: 0, nk: 3, mid: 1 / 6 }],
+      celulasSobrescritas: [{ i: 1, j: 0, nu: 6, nv: 3, s: 1.5 / 6, z: 0.5 / 3, painel: 'solido' }],
+    });
+    const { cena } = criar(montarCenaCortina(e));
+    const g = lerGradeCortina(cena.consultar('cortina_grade', [0]));
+    const seg = g.segmentos.find((s) => s.linha === 1 && s.k === 0)!;
+    expect(seg.removido).toBe(true);
+    expect(seg.montante).toBeNull();
+    expect(new Set(g.celulas.map((c) => c.regiao)).size).toBe(17);
+    const pa = g.celulas.find((c) => c.i === 0 && c.j === 0)!;
+    const pb = g.celulas.find((c) => c.i === 1 && c.j === 0)!;
+    const pc = g.celulas.find((c) => c.i === 2 && c.j === 0)!;
+    expect(pa.regiao).toBe(pb.regiao);
+    expect(pb.painel).not.toBe(pc.painel);
+    expect(pa.painel).toBe(pb.painel);
+    expect(pb.flags & 2).toBe(2);
+    cena.destruir();
+  });
+
+  it.skipIf(!bytes)('chave de célula que cai fora da grade e sem vizinha livre vira órfã com o aviso 7', () => {
+    const e = comSobrescritas({
+      celulasSobrescritas: [{ i: 5, j: 2, nu: 6, nv: 3, s: 1.6, z: 0.5 / 3, painel: 'vidro' }],
+    });
+    const { cena } = criar(montarCenaCortina(e));
+    const avisos = lerAvisosCortina(cena.consultar('cortina_avisos', [0]));
+    expect(avisos.some((a) => a.codigo === 7)).toBe(true);
+    cena.destruir();
+  });
+
+  it.skipIf(!bytes)('linha extra travada entra na grade com origem extra e flag de travada', () => {
+    const e = comSobrescritas({ linhasExtras: [{ id: 'x1', eixo: 'u', pos: 3, travada: true, comprimentoGravado: 6.5 }] });
+    const { cena } = criar(montarCenaCortina(e));
+    const g = lerGradeCortina(cena.consultar('cortina_grade', [0]));
+    const extra = g.linhas.find((l) => l.eixo === 'u' && l.origem === 1)!;
+    expect(extra.pos).toBeCloseTo(3, 9);
+    expect(extra.flags & 1).toBe(1);
+    cena.destruir();
+  });
+});
