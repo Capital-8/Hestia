@@ -237,7 +237,309 @@ fn montar_cena(e: &Value) -> Cena {
         ],
     );
     c.definir_secao(esquema::SECAO_CORTINAS, 1, &b).expect("cortina");
+
+    // Fase 2 (ADR 0056 §4.4 e §5.2): as sobrescritas da cortina, em `sobrescritas` (opcional; os casos da fase 1 não têm).
+    let sobre: Option<Value> = e.get("sobrescritas").cloned().filter(|v| !v.is_null()).or_else(|| converter_instancia(e));
+    if let Some(s) = sobre.as_ref() {
+        let col = |nome: &'static str, v: Vec<f64>| (nome, v);
+        let comp_do = |v: &Value, eixo: f64| num(v, "comp").unwrap_or(if eixo == 0.0 { num(e, "L").expect("L") } else { num(e, "H").expect("H") });
+        let lista = |chave: &str| s.get(chave).and_then(Value::as_array).cloned().unwrap_or_default();
+        let ex = lista("linhasExtras");
+        let eixos: Vec<f64> = ex.iter().map(eixo_num).collect();
+        let n = ex.len();
+        let b = bytes(
+            esquema::SECAO_CORTINA_LINHAS_EXTRAS,
+            n,
+            &[
+                col("id_num", ex.iter().map(|x| num(x, "id").expect("id")).collect()),
+                col("cortina_num", vec![cnum as f64; n]),
+                col("eixo", eixos.clone()),
+                col("pos", ex.iter().map(|x| num(x, "pos").expect("pos")).collect()),
+                col("travada", ex.iter().map(|x| f64::from(u8::from(x.get("locked").and_then(Value::as_bool).unwrap_or(false)))).collect()),
+                col("comp_gravado", ex.iter().zip(&eixos).map(|(x, &q)| comp_do(x, q)).collect()),
+                col("montante_num", ex.iter().map(|x| num_montante(texto(x, "mullion"))).collect()),
+            ],
+        );
+        c.definir_secao(esquema::SECAO_CORTINA_LINHAS_EXTRAS, n as u32, &b).expect("linhas extras");
+
+        let sr = lista("segmentosRemovidos");
+        let n = sr.len();
+        let extra = |x: &Value| texto(x, "origem") == Some("extra");
+        let b = bytes(
+            esquema::SECAO_CORTINA_SEGMENTOS_REMOVIDOS,
+            n,
+            &[
+                col("id_num", sr.iter().map(|x| num(x, "id").expect("id")).collect()),
+                col("cortina_num", vec![cnum as f64; n]),
+                col("eixo", sr.iter().map(eixo_num).collect()),
+                col("origem", sr.iter().map(|x| f64::from(u8::from(extra(x)))).collect()),
+                col("linha_num", sr.iter().map(|x| num(x, "linha").expect("linha")).collect()),
+                col("pos_norm", sr.iter().map(|x| if extra(x) { NAN } else { num(x, "posNorm").unwrap_or(num(x, "linha").expect("linha") / num(x, "n").expect("n")) }).collect()),
+                col("n", sr.iter().map(|x| if extra(x) { ID_AUSENTE as f64 } else { num(x, "n").expect("n") }).collect()),
+                col("k", sr.iter().map(|x| num(x, "k").expect("k")).collect()),
+                col("nk", sr.iter().map(|x| num(x, "nk").expect("nk")).collect()),
+                col("mid", sr.iter().map(|x| num(x, "mid").unwrap_or((num(x, "k").expect("k") + 0.5) / num(x, "nk").expect("nk"))).collect()),
+            ],
+        );
+        c.definir_secao(esquema::SECAO_CORTINA_SEGMENTOS_REMOVIDOS, n as u32, &b).expect("segmentos removidos");
+
+        let lo = lista("linhasSobrescritas");
+        let n = lo.len();
+        // `mullion` ausente = herda (0); `null` = sem montante (1); um id = o tipo (2).
+        let modo = |x: &Value| match x.get("mullion") {
+            None => 0.0,
+            Some(v) if v.is_null() => 1.0,
+            Some(_) => 2.0,
+        };
+        let eixos: Vec<f64> = lo.iter().map(eixo_num).collect();
+        let b = bytes(
+            esquema::SECAO_CORTINA_LINHAS_SOBRESCRITAS,
+            n,
+            &[
+                col("id_num", lo.iter().map(|x| num(x, "id").expect("id")).collect()),
+                col("cortina_num", vec![cnum as f64; n]),
+                col("eixo", eixos.clone()),
+                col("linha_num", lo.iter().map(|x| num(x, "linha").expect("linha")).collect()),
+                col("pos_norm", lo.iter().map(|x| num(x, "posNorm").unwrap_or(num(x, "linha").expect("linha") / num(x, "n").expect("n"))).collect()),
+                col("n", lo.iter().map(|x| num(x, "n").expect("n")).collect()),
+                col("travada", lo.iter().map(|x| f64::from(u8::from(x.get("locked").and_then(Value::as_bool).unwrap_or(false)))).collect()),
+                col("pos", lo.iter().map(|x| num(x, "pos").unwrap_or(NAN)).collect()),
+                col("comp_gravado", lo.iter().zip(&eixos).map(|(x, &q)| comp_do(x, q)).collect()),
+                col("montante_modo", lo.iter().map(modo).collect()),
+                col("montante_num", lo.iter().map(|x| num_montante(texto(x, "mullion"))).collect()),
+            ],
+        );
+        c.definir_secao(esquema::SECAO_CORTINA_LINHAS_SOBRESCRITAS, n as u32, &b).expect("linhas sobrescritas");
+
+        let cs = lista("celulasSobrescritas");
+        let n = cs.len();
+        let b = bytes(
+            esquema::SECAO_CORTINA_CELULAS_SOBRESCRITAS,
+            n,
+            &[
+                col("id_num", cs.iter().map(|x| num(x, "id").expect("id")).collect()),
+                col("cortina_num", vec![cnum as f64; n]),
+                col("i", cs.iter().map(|x| num(x, "i").expect("i")).collect()),
+                col("j", cs.iter().map(|x| num(x, "j").expect("j")).collect()),
+                col("s", cs.iter().map(|x| num(x, "s").unwrap_or((num(x, "i").expect("i") + 0.5) / num(x, "nu").expect("nu"))).collect()),
+                col("z", cs.iter().map(|x| num(x, "z").unwrap_or((num(x, "j").expect("j") + 0.5) / num(x, "nv").expect("nv"))).collect()),
+                col("nu", cs.iter().map(|x| num(x, "nu").expect("nu")).collect()),
+                col("nv", cs.iter().map(|x| num(x, "nv").expect("nv")).collect()),
+                col("painel_num", cs.iter().map(|x| num_painel(texto(x, "panel").expect("panel"))).collect()),
+            ],
+        );
+        c.definir_secao(esquema::SECAO_CORTINA_CELULAS_SOBRESCRITAS, n as u32, &b).expect("células sobrescritas");
+    }
     c
+}
+
+/// A instância no formato da referência TS (`CurtainInstance` de `cortinaRef/tipos.ts`: `addedLines`, `removedSegments`, `lineOverrides`, `cells`) vira o
+/// formato `sobrescritas` deste arquivo. Ids de linha e célula são numerados na ordem da lista (a referência não os traz).
+fn converter_instancia(e: &Value) -> Option<Value> {
+    let inst = e.get("instancia").filter(|v| !v.is_null())?;
+    if !["addedLines", "removedSegments", "lineOverrides", "cells"].iter().any(|k| inst.get(*k).is_some()) {
+        return None;
+    }
+    let (l, h) = (num(e, "L").expect("L"), num(e, "H").expect("H"));
+    let arr = |k: &str| inst.get(k).and_then(Value::as_array).cloned().unwrap_or_default();
+    let comp_padrao = |eixo: &str| if eixo == "v" { h } else { l };
+    // Id da linha extra (texto na referência) => (número, eixo).
+    let mut extras: std::collections::BTreeMap<String, (u32, String)> = std::collections::BTreeMap::new();
+    let mut linhas_extras = Vec::new();
+    for (k, x) in arr("addedLines").iter().enumerate() {
+        let n = k as u32 + 1;
+        let eixo = texto(x, "axis").expect("axis").to_string();
+        extras.insert(x["id"].to_string(), (n, eixo.clone()));
+        let mut o = json!({ "id": n, "eixo": eixo, "pos": x["pos"], "locked": x.get("locked").and_then(Value::as_bool).unwrap_or(false), "comp": num(x, "comprimentoGravado").unwrap_or(comp_padrao(&eixo)) });
+        if let Some(m) = x.get("mullionTypeId").filter(|m| !m.is_null()) {
+            o["mullion"] = m.clone();
+        }
+        linhas_extras.push(o);
+    }
+    let mut segmentos = Vec::new();
+    for (k, s) in arr("removedSegments").iter().enumerate() {
+        let lin = &s["line"];
+        let base = json!({ "id": k + 1, "k": s["k"], "nk": s["nk"], "mid": s["mid"] });
+        let mut o = base.clone();
+        if let Some(id) = lin.get("added") {
+            let (n, eixo) = extras.get(&id.to_string()).expect("linha extra da referência").clone();
+            o.as_object_mut().expect("obj").extend([("eixo".to_string(), json!(eixo)), ("origem".to_string(), json!("extra")), ("linha".to_string(), json!(n))]);
+        } else {
+            o.as_object_mut().expect("obj").extend([
+                ("eixo".to_string(), lin["axis"].clone()),
+                ("origem".to_string(), json!("gerada")),
+                ("linha".to_string(), lin["index"].clone()),
+                ("n".to_string(), lin["n"].clone()),
+                ("posNorm".to_string(), lin["pos"].clone()),
+            ]);
+        }
+        segmentos.push(o);
+    }
+    let mut linhas_sob = Vec::new();
+    for (k, x) in arr("lineOverrides").iter().enumerate() {
+        let lin = &x["line"];
+        let eixo = texto(lin, "axis").expect("axis").to_string();
+        let mut o = json!({
+            "id": k + 1, "eixo": eixo, "linha": lin["index"], "n": lin["n"], "posNorm": lin["pos"],
+            "locked": x.get("locked").and_then(Value::as_bool).unwrap_or(false), "comp": num(x, "comprimentoGravado").unwrap_or(comp_padrao(&eixo)),
+        });
+        if let Some(p) = x.get("pos") {
+            o["pos"] = p.clone();
+        }
+        if let Some(m) = x.get("mullionTypeId") {
+            o["mullion"] = m.clone();
+        }
+        linhas_sob.push(o);
+    }
+    let mut celulas = Vec::new();
+    for (k, c) in arr("cells").iter().enumerate() {
+        let key = &c["key"];
+        celulas.push(json!({ "id": k + 1, "i": key["i"], "j": key["j"], "s": key["s"], "z": key["z"], "nu": key["nu"], "nv": key["nv"], "panel": c["override"]["panelTypeId"] }));
+    }
+    Some(json!({ "linhasExtras": linhas_extras, "segmentosRemovidos": segmentos, "linhasSobrescritas": linhas_sob, "celulasSobrescritas": celulas }))
+}
+
+/// 0 para `u` e 1 para `v` (o `eixo` do JSON).
+fn eixo_num(v: &Value) -> f64 {
+    if texto(v, "eixo") == Some("v") {
+        1.0
+    } else {
+        0.0
+    }
+}
+
+// ───────────── fase 2: sobrescritas (ADR 0056 §4.4 e §5.2) ─────────────
+
+const CAMINHO_F2: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/cortina_paridade_f2.json");
+
+/// Cinco grades-base, uma por modo de grade e prioridade de junção, todas com pelo menos duas colunas e duas fileiras.
+fn bases_f2() -> Vec<Map<String, Value>> {
+    vec![
+        caso("b1-numero", "três colunas e duas fileiras", 6.0, 3.0, numero(3), numero(2), montantes_todos("mul_ret_50x100", "vertical"), "pnl_vidro_10"),
+        caso("b2-fixa", "distância fixa justificada no início e no centro", 6.0, 3.0, fixa(1.5, "start"), fixa(1.0, "center"), montantes_todos("mul_ret_50x100", "horizontal"), "pnl_vidro_10"),
+        caso("b3-maxima", "distância máxima e fileiras de número fixo", 5.2, 2.8, maxima(1.25), numero(4), montantes_todos("mul_ret_50x150", "vertical"), "pnl_vidro_10"),
+        caso("b4-manual", "posições manuais e montante redondo", 4.0, 3.0, manual(&[1.0, 2.5], "start"), numero(2), montantes_todos("mul_red_50", "vertical"), "pnl_vidro_10"),
+        caso("b5-fim", "distância fixa justificada no fim e prioridade horizontal", 8.0, 3.5, numero(4), fixa(1.2, "end"), montantes_todos("mul_ret_50x100", "horizontal"), "pnl_vidro_10"),
+    ]
+}
+
+/// As sobrescritas de uma base, medidas na grade atual (a gravação usa a grade atual; as variantes de "outra grade" gravam contagens diferentes).
+fn variantes_f2(base: &Map<String, Value>) -> Vec<(&'static str, Value)> {
+    let e = &base["entrada"];
+    let g = geom_wasm::cortina_pecas::resolver(&montar_cena(e), 0).expect("resolver").remove(0).g.expect("geometria");
+    let (nu, nv, l, h) = (g.nu() as u32, g.nv() as u32, g.l, g.h);
+    let seg_u = |id: u32, linha: u32, k: u32| json!({ "id": id, "eixo": "u", "origem": "gerada", "linha": linha, "n": nu, "k": k, "nk": nv });
+    let seg_v = |id: u32, linha: u32, k: u32| json!({ "id": id, "eixo": "v", "origem": "gerada", "linha": linha, "n": nv, "k": k, "nk": nu });
+    vec![
+        ("remove-u", json!({ "segmentosRemovidos": [seg_u(1, 1, 0)] })),
+        ("remove-v", json!({ "segmentosRemovidos": [seg_v(1, 1, 0)] })),
+        ("remove-u-duas", json!({ "segmentosRemovidos": [seg_u(1, 1, 0), seg_u(2, 1, 1)] })),
+        ("nao-retangular", json!({ "segmentosRemovidos": [seg_u(1, 1, 0), seg_v(2, 1, 1)] })),
+        ("extra-travada", json!({ "linhasExtras": [{ "id": 1, "eixo": "u", "pos": l / 2.0, "locked": true }] })),
+        ("extra-destravada-redondo", json!({ "linhasExtras": [{ "id": 1, "eixo": "v", "pos": h / 3.0, "locked": false, "comp": h, "mullion": "mul_red_50" }] })),
+        ("extra-fora", json!({ "linhasExtras": [{ "id": 1, "eixo": "u", "pos": l + 1.0, "locked": true }] })),
+        ("linha-movida", json!({ "linhasSobrescritas": [{ "id": 1, "eixo": "u", "linha": 1, "n": nu, "pos": g.us[1] + 0.2, "locked": true, "comp": l }] })),
+        ("linha-sem-montante", json!({ "linhasSobrescritas": [{ "id": 1, "eixo": "u", "linha": 1, "n": nu, "mullion": null }] })),
+        ("painel-celula", json!({ "celulasSobrescritas": [{ "id": 1, "i": 0, "j": 0, "nu": nu, "nv": nv, "panel": "pnl_solido_alu_4" }] })),
+        ("celula-outra-grade", json!({ "celulasSobrescritas": [{ "id": 1, "i": 1, "j": 0, "nu": nu + 1, "nv": nv, "s": 0.3, "z": 0.5, "panel": "pnl_vazio" }] })),
+        // Duas sobrescritas na mesma célula: a de menor distância vale e a outra sai como órfã (aviso 7).
+        (
+            "celula-duplicada",
+            json!({ "celulasSobrescritas": [
+                { "id": 1, "i": 0, "j": 0, "nu": nu, "nv": nv, "s": 0.05, "z": 0.5, "panel": "pnl_solido_alu_4" },
+                { "id": 2, "i": 0, "j": 0, "nu": nu, "nv": nv, "s": 0.2, "z": 0.5, "panel": "pnl_vazio" }
+            ] }),
+        ),
+        ("segmento-outra-grade", json!({ "segmentosRemovidos": [{ "id": 1, "eixo": "u", "origem": "gerada", "linha": 1, "n": nu + 1, "k": 0, "nk": nv }] })),
+        // A extra cai sobre a linha gerada 1 e a absorve (vale a extra): o segmento que a citava fica órfão (aviso 9).
+        ("segmento-absorvido", json!({ "linhasExtras": [{ "id": 1, "eixo": "u", "pos": g.us[1], "locked": true }], "segmentosRemovidos": [seg_u(1, 1, 0)] })),
+        (
+            "combinada",
+            json!({
+                "segmentosRemovidos": [seg_u(1, 1, 0)],
+                "celulasSobrescritas": [{ "id": 1, "i": 0, "j": 0, "nu": nu, "nv": nv, "panel": "pnl_solido_alu_4" }],
+                "linhasExtras": [{ "id": 1, "eixo": "u", "pos": l / 2.0, "locked": true }]
+            }),
+        ),
+    ]
+}
+
+/// Casos de erro da fase 2: borda removida e extra destravada sem comprimento gravado.
+fn erros_f2() -> Vec<(&'static str, Value)> {
+    vec![
+        ("erro-borda", json!({ "segmentosRemovidos": [{ "id": 1, "eixo": "u", "origem": "gerada", "linha": 0, "n": 3, "k": 0, "nk": 2 }] })),
+        ("erro-extra-sem-comprimento", json!({ "linhasExtras": [{ "id": 1, "eixo": "u", "pos": 1.0, "locked": false, "comp": 0.0 }] })),
+    ]
+}
+
+fn gerar_f2() -> Value {
+    let mut casos: Vec<Value> = Vec::new();
+    for base in bases_f2() {
+        let nome = texto(&base["entrada"], "nome").expect("nome").to_string();
+        let mut todas = variantes_f2(&base);
+        todas.extend(erros_f2());
+        for (variante, sobre) in todas {
+            let mut c = com(base.clone(), "sobrescritas", sobre);
+            c.insert("id".into(), json!(format!("{nome}/{variante}")));
+            c.insert("variante".into(), json!(variante));
+            let saida = saida_do_caso(&c["entrada"]);
+            c.insert("saida".into(), saida);
+            casos.push(Value::Object(c));
+        }
+    }
+    json!({
+        "descricao": "Casos de paridade da parede cortina, fase 2 (ADR 0056 §4.4 e §5.2): sobrescritas de grade (linhas extras e travadas, linhas geradas movidas e sem montante), segmentos removidos com regiões retangulares e recusas, painel por célula com remapeamento e órfãs. Entradas no formato de cortinaRef com o campo `sobrescritas`; saídas geradas pelo Rust (crates/geom-wasm/tests/cortina_paridade.rs).",
+        "contrato": { "esquemaVersao": esquema::VERSAO_ESQUEMA, "consultas": ["cortina_grade", "quant_cortina", "cortina_avisos"], "tabelaDePecas": "cortina_pecas::tabela_pecas (função de teste, não é consulta)" },
+        "tolerancias": { "posicaoEArea": 1e-6, "contagens": "exatas" },
+        "legenda": {
+            "sobrescritas": "linhasExtras [{id, eixo u|v, pos, locked, comp (comprimento na gravação, obrigatório se não travada), mullion (id do montante)}]; segmentosRemovidos [{id, eixo, origem gerada|extra, linha (índice gerado ou id da extra), n (células do eixo na gravação), k, nk}]; linhasSobrescritas [{id, eixo, linha, n, pos, locked, comp, mullion (ausente = herda, null = sem montante, id = tipo)}]; celulasSobrescritas [{id, i, j, nu, nv, s, z (opcionais: o centro normalizado da gravação), panel}]",
+            "avisos": "1 celula-pequena, 2 montante-sobreposto, 3 sobra-fundida, 4 posicao-fora, 5 profundidade-menor-que-perfil, 6 arco-nao-suportado, 7 override-orfao (célula), 8 override-orfao (linha; i é o índice ou o id da extra), 9 override-orfao (segmento), 10 celula-nao-retangular",
+            "regras": "Órfã e região não retangular seguem cortina_remap (ADR 0056 §4.4 passos 1 a 5 e §5.2). Região: o painel é o da célula de menor (j, i) que tenha sobrescrita; segmento interno a uma região fica inativo (sem montante).",
+        },
+        "casos": casos,
+    })
+}
+
+#[test]
+fn fixture_f2_de_paridade_esta_atualizada() {
+    let gerado = gerar_f2();
+    if std::env::var("HESTIA_GERAR_FIXTURES").is_ok() {
+        std::fs::write(CAMINHO_F2, texto_do_arquivo(&gerado)).expect("gravar");
+        return;
+    }
+    let texto = std::fs::read_to_string(CAMINHO_F2).unwrap_or_else(|_| panic!("falta {CAMINHO_F2}: rode `HESTIA_GERAR_FIXTURES=1 cargo test -p geom-wasm --test cortina_paridade`"));
+    let lido: Value = serde_json::from_str(&texto).expect("JSON válido");
+    assert_eq!(lido, gerado, "o fixture da fase 2 está defasado: rode `HESTIA_GERAR_FIXTURES=1 cargo test -p geom-wasm --test cortina_paridade` e revise o diff");
+}
+
+#[test]
+fn casos_f2_sao_deterministicos_cobrem_as_regras_e_tem_no_minimo_30() {
+    let a = gerar_f2();
+    assert_eq!(a, gerar_f2());
+    let casos = a["casos"].as_array().expect("casos");
+    assert!(casos.len() >= 30, "{} casos", casos.len());
+    // Os avisos vêm como quádruplas `[cortina, codigo, i, j]`: o código é o 2º elemento de cada uma.
+    let mut cods = std::collections::BTreeSet::new();
+    for c in casos {
+        if let Some(v) = c["saida"]["cortina_avisos"]["avisos"].as_array() {
+            for q in v.chunks(4) {
+                if let Some(k) = q.get(1).and_then(Value::as_u64) {
+                    cods.insert(k);
+                }
+            }
+        }
+    }
+    for k in [7u64, 8, 9, 10] {
+        assert!(cods.contains(&k), "aviso {k} não aparece em nenhum caso");
+    }
+    assert!(casos.iter().any(|c| c["saida"]["erro"] == "ENTRADA"));
+    // Uma remoção que vale tira um painel da base b1 (3 x 2 = 6 painéis => 5); a recusada não tira nenhum.
+    let paineis_de = |id: &str| -> usize {
+        let c = casos.iter().find(|c| c["id"] == id).expect("caso");
+        c["saida"]["cortina_pecas"]["paineis"].as_array().map(|p| p.len() / 5).unwrap_or(0)
+    };
+    assert_eq!(paineis_de("b1-numero/remove-u"), 5);
+    assert_eq!(paineis_de("b1-numero/nao-retangular"), 5, "a segunda remoção é recusada: só uma tira um painel");
 }
 
 // ───────────── saídas ─────────────
@@ -659,4 +961,50 @@ fn confere_com_o_casos_json_da_referencia_ts() {
         }
     }
     assert!(diverge.is_empty(), "{} divergências em {} casos:\n{}", diverge.len(), casos.len(), diverge.join("\n"));
+}
+
+/// Confere o Rust com o `casos2.json` da referência TS da fase 2 (`HESTIA_CASOS2_REF`), caso por caso e campo por campo, como o teste da fase 1. Não
+/// para no primeiro erro: grava TODAS as divergências em `target/divergencias_f2.txt` (ignorado pelo git) e falha se houver alguma.
+#[test]
+fn confere_f2_com_o_casos2_da_referencia_ts() {
+    let Ok(caminho) = std::env::var("HESTIA_CASOS2_REF") else { return };
+    let texto = std::fs::read_to_string(&caminho).unwrap_or_else(|_| panic!("não li {caminho}"));
+    let ref_: Value = serde_json::from_str(&texto).expect("JSON da referência");
+    let casos = ref_["casos"].as_array().expect("casos");
+    let igual = |a: &Value, b: &Value| -> bool {
+        match (a.as_array(), b.as_array()) {
+            (Some(x), Some(y)) => x.len() == y.len() && x.iter().zip(y).all(|(p, q)| match (p.as_f64(), q.as_f64()) {
+                (Some(m), Some(n)) => (m - n).abs() <= 1.0001e-6,
+                _ => p == q,
+            }),
+            _ => a == b,
+        }
+    };
+    let mut diverge: Vec<String> = Vec::new();
+    // HESTIA_DUMP_F2=<nome>: imprime o Rust e a referência desse caso (diagnóstico).
+    if let Ok(alvo) = std::env::var("HESTIA_DUMP_F2") {
+        for c in casos.iter().filter(|c| c["nome"].as_str() == Some(alvo.as_str())) {
+            eprintln!("ENTRADA {}", c["entrada"]);
+            eprintln!("RUST {}", saida_do_caso(&c["entrada"]));
+            eprintln!("REF {}", c["esperado"]);
+        }
+    }
+    for c in casos {
+        let nome = c["nome"].as_str().unwrap_or("?");
+        let s = saida_do_caso(&c["entrada"]);
+        for (grupo, campos) in [
+            ("cortina_grade", &["linhas", "linhas_pos", "celulas", "celulas_ret", "segmentos", "segmentos_ext"][..]),
+            ("cortina_pecas", &["montantes", "montantes_geo", "paineis", "paineis_geo"][..]),
+            ("quant_cortina", &["linhas", "valores"][..]),
+            ("cortina_avisos", &["avisos", "valores"][..]),
+        ] {
+            for campo in campos {
+                if !igual(&s[grupo][*campo], &c["esperado"][grupo][*campo]) {
+                    diverge.push(format!("{nome} :: {grupo}.{campo}"));
+                }
+            }
+        }
+    }
+    let _ = std::fs::write(concat!(env!("CARGO_MANIFEST_DIR"), "/target/divergencias_f2.txt"), diverge.join("\n"));
+    assert!(diverge.is_empty(), "{} divergências em {} casos (ver target/divergencias_f2.txt)", diverge.len(), casos.len());
 }
