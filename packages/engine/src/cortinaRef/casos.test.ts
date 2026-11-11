@@ -33,7 +33,8 @@ describe('cortinaRef/casos.json', () => {
   });
 
   it('é exatamente o que gerarCasos() produz (rode com GERAR_CASOS=1 se mudou de propósito)', () => {
-    expect(readFileSync(CAMINHO, 'utf8')).toBe(serializar(montar()));
+    const lido = readFileSync(CAMINHO, 'utf8').replace(/\r\n/g, '\n'); // o checkout no Windows pode trazer CRLF
+    expect(lido).toBe(serializar(montar()));
   });
 
   for (const c of arq.casos) {
