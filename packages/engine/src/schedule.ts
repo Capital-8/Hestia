@@ -1,4 +1,4 @@
-import { formatQuantity, wallThicknessOf, unitSymbol, unitsOf, wallType, wallsOnLevel, type Id, type Project, type ResolvedUnits, type Wall, type WallType } from '@hestia/model';
+import { formatQuantity, isCurtainType, wallThicknessOf, unitSymbol, unitsOf, wallType, wallsOnLevel, type Id, type Project, type ResolvedUnits, type Wall, type WallType } from '@hestia/model';
 import { csvDocument, csvText } from './csv.ts';
 import { scheduleCsvCell, scheduleCsvHeader } from './scheduleCsv.ts';
 import { collationFor, t, type Lang } from './i18n.ts';
@@ -101,6 +101,8 @@ export function buildWallSchedule(p: Project, lang: Lang = 'pt'): WallSchedule {
     const q = quantifyLevel(p, resolveLevel(p, level.id));
     const byWall = new Map<Id, WallQuantity>(q.walls.map((x) => [x.wallId, x]));
     for (const wall of wallsOnLevel(p, level.id)) {
+      // Paredes cortina têm tabela própria (curtainSchedule.ts): a camada-sombra não é espessura de parede de camadas.
+      if (isCurtainType(p.wallTypes[wall.typeId])) continue;
       const wq = byWall.get(wall.id);
       if (wq) rows.push(rowOf(p, wall, level.name, wq, lang));
     }
