@@ -145,3 +145,17 @@ Template `house-premium`, pronto sem ajuste manual (teste: `apps/web/src/plugins
 - `apps/web/src/plugins/externalTools.test.ts`: grupos por material, normais, luzes e site.
 
 Rodar: `npx vitest run packages/plugin-api apps/web/src/plugins`.
+
+## Móveis importados (`kind: 'furniture'`) para o renderizador
+
+Implementação: `apps/web/src/plugins/furnitureScene.ts` (testes: `furnitureScene.test.ts`). Compatível com o renderizador de hoje (malha própria por entidade, protocolo até 1.3) e preparada para a 1.4 (`meshDefs/meshRef`, texturas embutidas).
+
+- **Fonte**: o MODELO (`Project.furniture` + instâncias `Furniture`), não a cena three. `buildSceneContent` ignora elementos `furniture` da cena 3D e acrescenta `furnitureEntities(project)`. Sempre a malha COMPLETA (a versão leve é só da vista).
+- **Geometria**: metros, Z para cima, espaço de mundo. Posições por `furniturePartWorldTransform` (nível + instância + peça); normais pela inversa transposta (cofatores) e renormalizadas; com `mat4Det3 < 0` (espelhada, inclusive peça espelhada do `.skp`) a ordem dos triângulos é invertida. Posições arredondadas a 1e-6 m, normais e UVs a 1e-5 (reduz o JSON).
+- **UVs em metros**: `uv_m = uv_repeticoes * sizeM` por material; sem `sizeM` (ou sem UVs na definição), projeção em caixa em metros de mundo, como o resto da cena. Vértice usado por materiais diferentes é duplicado.
+- **Material por triângulo**: `groups[].materialId` = material do projeto; `materialIds` da entidade lista os usados. Materiais saem em `materials[]` como os demais (`category`, cor, `gloss`, PBR derivado de metal e vidro); opacidade 0 de material de móvel (alfa 0 do `.skp`) sai 1.
+- **Divisão**: cada entidade fica com no máximo ~7 MiB de JSON (estimativa conservadora por vértice e por índice; real medido 4 a 6 MiB) e dentro de `NORMALS_MAX_FLOATS`/`UVS_MAX_FLOATS`. Materiais pequenos ficam juntos numa entidade (um grupo cada); acima do teto divide por material e depois por blocos de triângulos. Ids: `<id>` quando cabe numa entidade, senão `<id>#1`, `<id>#2`... Nunca se parte uma entidade entre partes do snapshot (regra do repo).
+- **Deltas**: mover/girar/escalar/espelhar gera `entity.update` só da instância (o hash da malha muda), adicionar `entity.add`, excluir `entity.remove`, cor de material `material.update`. Cache por objeto do asset e pose: ler a cena de novo não refaz malhas que não mudaram.
+- **Orçamento**: `furnitureBudget(project)` (pura) soma os triângulos enviados (cada cópia repete a malha; peças do bloco contam). Acima de 2 milhões (`TRIANGULOS_AVISO`) devolve nível `aviso`; acima de 7 milhões (`TRIANGULOS_CRITICO`), `critico` recomendando modo leve ou menos cópias. A exportação registra o último resultado (`ultimoOrcamentoMoveis()`, `aoMudarOrcamentoMoveis(cb)`) para a interface mostrar `messages`; a interface ainda precisa ler isso.
+- **Texturas embutidas**: NÃO são enviadas (`textures: []`, `FURNITURE_TEXTURES_ENABLED = false`). `furnitureTexturesFor(project)` já devolve `{ hash (SHA-256), mime, bytes, width, height, size_m, materialIds }` sem repetir, respeitando `useEmbeddedTexture`; a Fase 2 (1.4) liga isso.
+- **Custo conhecido**: sem `meshRef`, 20 cópias de um sofá de 90 mil triângulos viram 80 entidades e ~390 MiB de JSON. É o que a 1.4 (instâncias) elimina.
