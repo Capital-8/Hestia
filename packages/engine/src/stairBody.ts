@@ -1,4 +1,4 @@
-import { add, asMulti, dist, dot, intersection, mid, mul, perp, ringArea, sub, type Ring, type Vec2 } from '@hestia/geom';
+import { add, asMulti, difference, dist, dot, intersection, mid, mul, perp, ringArea, sub, type Ring, type Vec2 } from '@hestia/geom';
 import { stairFinishOf, type StairType } from '@hestia/model';
 import type { ResolvedStair, ResolvedStairRiser, ResolvedStairStep } from './stairs.ts';
 import { clipByLevel, ringMoments, type BottomPlane } from './stairBodyGeom.ts';
@@ -306,12 +306,16 @@ function monolithicPieces(stair: ResolvedStair, type: StairType & { undersideSty
   const frame = stairArrivalFrame(stair);
   if (lastTread && frame && arrivalTop > baseZ + EPS) {
     const { a, b, u, length } = frame;
-    // O acabamento do último espelho ocupa a faixa logo atrás dele: a chegada começa depois dela.
-    const te = Math.min(finish?.riserThickness ?? 0, length);
-    const ring: Ring = [add(a, mul(u, te)), add(b, mul(u, te)), add(b, mul(u, length)), add(a, mul(u, length))];
+    // O acabamento do último espelho ocupa a faixa logo atrás dele (a própria faixa do modelo, medida na normal da face):
+    // a chegada é o que sobra dela, sem vão nem sobreposição em espelho oblíquo ou radial.
+    const ring: Ring = [a, b, add(b, mul(u, length)), add(a, mul(u, length))];
     const polygon = ringArea(ring) < 0 ? ring.reverse() : ring;
-    for (const part of partBelow(polygon, lastTread.plane, arrivalTop)) {
-      pieces.push(...fit('arrival', lastStep.componentIndex, 1, part, arrivalTop, lastTread.plane, baseZ));
+    const topBand = finish?.bands.get(stair.riserCount);
+    const regions = topBand ? difference(asMulti(polygon), asMulti(topBand)).map((poly) => poly[0]!) : [polygon];
+    for (const region of regions) {
+      for (const part of partBelow(region, lastTread.plane, arrivalTop)) {
+        pieces.push(...fit('arrival', lastStep.componentIndex, 1, part, arrivalTop, lastTread.plane, baseZ));
+      }
     }
   }
   return pieces;
