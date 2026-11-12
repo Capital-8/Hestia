@@ -74,12 +74,49 @@ Atualize a seção "Onde estamos" a cada etapa integrada.
   Suíte completa: 3 rodadas com falhas diferentes por timeout sob carga (4 arquivos, 31 testes, passam isolados);
   nenhuma rodada completa verde ainda. Busca 8.2: restam só módulos e testes de migração (`migrateVistas`,
   `migrateSessao`, `roofHidden` ali). `planViewOf` é a consulta legítima do model.
-- **Próximos passos (retomada em casa):** (1) o usuário testa à mão em `vistas/f3-k2` (`npm run dev`) e relata o que
-  estranhar; (2) revisão independente dos commits da K2; (3) merge de `vistas/f3-k2` em `vistas/base` e suíte completa
-  sozinha, sem processos concorrentes, para ver os timeouts sumirem; (4) `npm run test:visual`; (5) limpar
-  `tests/e2e/colar-niveis.mjs` e `tests/e2e/cotas.mjs` (ainda gravam `planKind`/`areaPlanId`); (6) fechamento: buscas
-  8.1/8.2, v23 → v24, `docs/vistas/RELATORIO.md`, decisão em `docs/decisoes/`, `docs/07-STATUS-V1.md`. PR para `main`
-  só quando o usuário pedir. `autoCotas.ts` tem 3 `@deprecated` de cotas, fora do escopo de vistas.
+- **ESTADO EM 2026-11-12 (fim do dia, limite de uso de 5 h atingido às ~12h45; reseta às 13h):**
+  FASE 3 VALIDADA PELO USUÁRIO. `vistas/f3-k2` (K2 + gráficos/faixa por vista + correções da revisão + cobertura
+  desabilitada + e2e limpos) foi integrada em `vistas/base` (merge `3278d6f3`, no GitHub). Verificação da K2: tipos ok,
+  ouro 8 de 8, 21 testes v23 → v24 ok; suíte completa NÃO fecha limpa por timeout de 5 s (30 e depois 10 falhas, sem
+  asserção; os mesmos arquivos passam com `--maxWorkers=4`); `test:visual` não rodou (ambiente Windows: wasm por
+  `file://` e tela inicial "Projetos" que o helper `tests/e2e/helpers.mjs` não atravessa); busca 8.1 é falso positivo em
+  massa (regex larga). DECISÕES ACEITAS pelo usuário (executar no fechamento): (a) `testTimeout` 15–20 s e `maxWorkers`
+  ~8 em `vitest.config.ts`; (b) ajustar o helper do `test:visual` para Windows se for pouco trabalho, senão registrar
+  como pendente; (c) refinar a 8.1 para `level\.(…)` e `\.areaPlans\b` e registrar no relatório. Fechamento ainda por
+  fazer: aplicar (a)–(c), suíte completa sozinha, `test:visual`, `docs/vistas/RELATORIO.md`, decisão em
+  `docs/decisoes/`, `docs/07-STATUS-V1.md`. Pendências para o relatório: DXF não honra ocultos; snap de linha de detalhe;
+  aviso de criação oculta não cobre "etiquetar todos"/ambiente/escada/rampa; avisos da faixa por nível; Fase 4 (abaixo).
+- **FASE 4, raia 0 "Cobertura como planta comum" — EM ANDAMENTO** (plano em PLANO-MESTRE, bloco "Detalhamento da Fase 4").
+  Decisões do usuário: opção A (faixa editável mas ignorada pelo desenho enquanto `showRoofOnTop` ligado; render não
+  muda); todas as ferramentas na cobertura; nome migrado "Cobertura: <nível>" só se idêntico ao do nível; manter todas as
+  coberturas na migração; esquema v25 (migração 24 → 25). Branches (todos no GitHub, cada um em worktree em
+  `.claude/worktrees/<nome>`; os worktrees só existem nesta máquina, em outra basta `git switch`):
+  - `vistas/f4-0a` (de `vistas/base`): modelo + migração v25, 3 commits, `67c08ff7`. Revisada: migração sem achado
+    grave; DOIS DEFEITOS MÉDIOS AINDA SEM CORREÇÃO (o agente caiu no limite): `applyLevelViewRange`
+    (`packages/model/src/planViewCommands.ts` ~64-79) propaga a faixa à cobertura migrada: (1) `{direction:'up'}` grava
+    'up' na `pvr_` com a flag e invalida o projeto; (2) `DEFAULT_VIEW_RANGE` da `pvr_` (topo 2,30) diverge do piso e
+    faz `setLevelViewRange {cut:2.6}` lançar. Correção: a propagação do comando legado pula vistas com `showRoofOnTop`;
+    testes (a) up não altera a pvr_, (b) piso top 3.0 + cut 2.6 funciona, (c) `updatePlanView` edita a faixa da
+    cobertura. Efeito aceito: ordem das abas das `pvr_` vai para depois dos pisos após `upsertLevel`.
+  - `vistas/f4-0b` (de f4-0a): render. COMMIT WIP `fdf6649e`, NÃO REVISADO, sem typecheck/testes: `roofPlanMode` vem de
+    `showRoofOnTop === true && kind === 'floor'` (`planInput.ts`), `viewId.ts`, e `sheetCommands.ts` (fonte de prancha:
+    manter a regra "cobertura não é fonte de prancha por comando" recusando vista com `showRoofOnTop`). O agente avisou
+    que um `sed` estragou um arquivo e o reescreveu: REVISAR o diff inteiro. Os dois `.snap` de render apareciam
+    modificados (só fim de linha, sem conteúdo): foram revertidos; se algum snapshot divergir de verdade, NÃO regravar
+    sem auditoria.
+  - `vistas/f4-0e` (de f4-0a): ouro/adaptador, commit `8da774b4` (adaptador, auditoria D3 e casos pela forma nova com
+    `legacyRoofViewId`/`showRoofOnTop`). Faltou a prova: aplicar TEMPORARIAMENTE a troca do render e rodar
+    `npm run test:vistas-ouro` (esperado 8 de 8 sem regravar); sem a troca, divergem só os 21 `roof_*.lista.txt`.
+  - Ordem: corrigir 0a → integrar 0a, 0b, 0e juntas e rodar o ouro (deve voltar a 8 de 8 SEM regravar) → raia 0c
+    (editor: `vistaAtiva`, `viewVisibility`, `deleteIds`, `controller`, `viewTabActions`, `viewRangeActions`,
+    `migrateSessao`, `openViews`, nova `roofPlanActions.ts`; chaves `roof:<nível>` viram por vista; `sessaoValida` passa a
+    checar se `planViewId` existe) → raia 0d (UI: `Properties.tsx` com a caixa "Mostrar telhado por cima", faixa
+    editável com aviso, `TitleBar`, árvore `Views.tsx` com "Nova planta de cobertura…" e convite "Nenhuma. Criar…",
+    i18n em 7 idiomas) → suíte completa sozinha. Typecheck só fecha depois de 0b–0d (42 erros esperados de
+    `roofViewId`/`'roof'` removidos). Vistas novas usam `userViewId()` (prefixo `pvc_`).
+- **Próximos passos, em ordem:** (1) retomar/corrigir 0a e integrar 0a+0b+0e; (2) 0c e 0d; (3) fechamento da Fase 3
+  (decisões aceitas acima); (4) usuário testa à mão a cobertura comum; (5) PR para `main` SÓ quando o usuário pedir; sem
+  release até o usuário decidir. `autoCotas.ts` tem 3 `@deprecated` de cotas, fora do escopo de vistas.
   Regravar o ouro: regra local `Bash(npm run test:vistas-ouro -- --gravar)` em `.claude/settings.local.json` (só nesta
   máquina); só regrave após auditar o diff. O stash `antes-das-vistas` é só local; não apagar.
   Decisões do usuário: E = copiar as etiquetas na migração e o desenho ler só a vista; DXF honrar ocultos fica para
