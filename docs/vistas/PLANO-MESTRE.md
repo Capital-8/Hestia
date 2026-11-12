@@ -493,7 +493,46 @@ Saída da fase: verificação verde, a busca 8.2 sem resultado.
 | Q | Sonnet | Planta de forro: tipo `ceiling` da tabela 4.6 |
 
 Campos novos (`templateId`, `crop`, `parentId`, filtros) exigem nova versão de esquema: uma raia só sobe a versão e
-as outras dependem dela. Detalhar esta fase quando ela for aceita.
+as outras dependem dela.
+
+#### Detalhamento da Fase 4 (decisões do usuário em 2026-11-12)
+
+Base: pesquisa à documentação pública do Revit (ajuda da Autodesk e `RevitAPI.xml` do Revit 2025). Só nomes e
+documentação públicos; nenhuma engenharia reversa. Nada disto vira release até o usuário decidir.
+
+**Ordem recomendada:** (0) cobertura como planta comum, (1) L, (2) Q, (3) N. M, O e P seguem independentes. Sem release.
+
+1. **Nova raia "Cobertura como planta comum"** (antes de L e N). Hoje o tipo `roof` tem modo de desenho próprio:
+   `roofPlanMode` ignora a faixa de vista, `viewProfileOf` devolve perfil de piso e a faixa é recusada na cobertura
+   por limitação do render, não por decisão de produto. Proposta:
+   - "modo cobertura" (mostrar telhado em vista superior) passa a ser propriedade de qualquer planta;
+   - a faixa de vista passa a ser editável nessas plantas;
+   - o usuário cria e apaga essas plantas no nível que escolher; deixa de existir uma cobertura automática por nível
+     (migração v24 → v25 para os `pvr_<nível>` existentes; atenção a pranchas, ocultos e anotações que referenciam `pvr_`);
+   - depois, com modelo de vista (raia N), salvar "Planta de cobertura" como modelo.
+   No Revit não existe tipo `Roof`: `ViewPlanType` = `FloorPlan` e `CeilingPlan`; cobertura é planta de piso de um
+   nível alto.
+2. **Raia L, duplicar vista em 3 modos** (como `ViewDuplicateOption` do Revit): `Duplicate` (sem anotações);
+   `WithDetailing` (copia anotações com ids novos; reaproveitar `copyAnnotationsToView`); `AsDependent` (ligada à
+   original; deixar por último ou evitar no começo, por ferir a independência das vistas). Pergunta prévia "pode
+   duplicar?" (`CanViewBeDuplicated`) antes de oferecer a ação.
+3. **Raia Q, planta de forro como vista própria** (`ViewType.CeilingPlan`): direção Up, corte coincidente com a base,
+   profundidade de vista definida para cima. Resolve a inconsistência do tipo `ceiling`, que existe na tabela e nunca
+   é criado, e do forro que hoje só aparece invertendo a direção da faixa do piso (decisão 0021).
+4. **Raia N, modelo de vista:** a vista guarda `templateId`; o modelo guarda a lista de propriedades incluídas;
+   propriedade incluída fica bloqueada na vista. Distinguir ATRIBUIR (ligação mantida; mudar o modelo muda as vistas)
+   de APLICAR (cópia única, sem manter ligação). Modelo criável a partir de uma vista.
+5. **Painel de propriedades da vista** (com nada selecionado) como lugar de editar faixa, escala, detalhe e gráficos
+   (raia M), no estilo Revit.
+
+**Inconsistências conhecidas (entram no relatório):**
+- dois modelos mentais do forro (tipo `ceiling` nunca criado versus faixa do piso invertida);
+- a cobertura guarda uma faixa de vista inerte;
+- escala duplicada na área (`area.scale` versus `graphics.scale`), com heranças diferentes: escala 50 fixa, mas
+  `viewRange` e `graphics` herdados do piso;
+- mensagens de `viewRangeIssues` (`packages/model/src/viewRange.ts`) fixas em pt-BR, fora do i18n;
+- código redundante `plan.tags = []` duas vezes em `createAreaPlanAction` (`apps/web/src/editor/areaPlanActions.ts`);
+- comandos legados `setLevelViewRange`, `setLevelGraphics` e `updateAreaPlan` ainda propagam por nível.
 
 ## 8. Buscas de conferência
 

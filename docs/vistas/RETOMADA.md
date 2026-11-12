@@ -150,3 +150,4 @@ Abra o Claude Code na pasta do repositório e peça:
   pasta `tests/vistas-ouro/ouro` e rode `git checkout -- tests/vistas-ouro/ouro`.
 - Nunca regrave o ouro para "fazer passar". As únicas regravações previstas estão em `FASE-2A.md` e na Fase 3 do
   plano, sempre depois de auditoria.
+- Fase 4 detalhada no `PLANO-MESTRE.md` (decisões de 2026-11-12); o grupo "Intervalo de vista" fica desabilitado na cobertura até a Fase 4.
