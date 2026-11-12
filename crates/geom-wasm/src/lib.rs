@@ -93,6 +93,7 @@ pub mod cortina_juncao;
 pub mod cortina_malha;
 pub mod cortina_pecas;
 pub mod cortina_planta;
+pub mod cortina_porta;
 pub mod cortina_quant;
 pub mod cortina_remap;
 pub mod cortina_tipos;

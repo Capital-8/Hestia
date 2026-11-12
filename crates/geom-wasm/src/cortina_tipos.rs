@@ -82,17 +82,28 @@ pub const PAPEL_PAINEL_VIDRO: u32 = 10;
 pub const PAPEL_PAINEL_SOLIDO: u32 = 11;
 pub const PAPEL_PAINEL_VAZIO: u32 = 12;
 pub const PAPEL_SISTEMA: u32 = 20;
+/// Fase 5: esquadria na célula (30: n e área do vão), folha e batente (31: volume) e vidro da esquadria (32: área e volume). O vidro da esquadria NÃO entra
+/// no vidro de fachada (papel 10).
+pub const PAPEL_ESQUADRIA: u32 = 30;
+pub const PAPEL_ESQUADRIA_FOLHA: u32 = 31;
+pub const PAPEL_ESQUADRIA_VIDRO: u32 = 32;
 
 /// `papel` das peças em `cortina_malha` (protótipos, instâncias e grupos).
 pub const MALHA_MONTANTE: u32 = 0;
 pub const MALHA_VIDRO: u32 = 1;
 pub const MALHA_SOLIDO: u32 = 2;
+/// Fase 5: folha e batente da esquadria (opaco) e vidro da esquadria (transparente); só em `grupos`.
+pub const MALHA_ESQUADRIA: u32 = 3;
+pub const MALHA_VIDRO_ESQUADRIA: u32 = 4;
 
 /// `papel` das linhas de `cortina_planta`.
 pub const PLANTA_CONTORNO: u32 = 0;
 pub const PLANTA_VIDRO: u32 = 1;
 pub const PLANTA_MONTANTE: u32 = 2;
 pub const PLANTA_SOLIDO: u32 = 3;
+/// Fase 5: contorno do vão da esquadria (4) e giro, arco ou traço da folha (5).
+pub const PLANTA_ESQUADRIA: u32 = 4;
+pub const PLANTA_GIRO: u32 = 5;
 pub const ESTILO_CORTADO: u32 = 0;
 pub const ESTILO_PROJETADO: u32 = 1;
 pub const ESTILO_OCULTO: u32 = 2;
@@ -102,6 +113,8 @@ pub const ESTILO_OCULTO: u32 = 2;
 pub const CELULA_PEQUENA: u32 = 1;
 pub const CELULA_SOBRESCRITA: u32 = 2;
 pub const CELULA_REGIAO_MULTIPLA: u32 = 4;
+/// Bit 3 (fase 5): a região é uma esquadria (porta ou janela), sem painel.
+pub const CELULA_ESQUADRIA: u32 = 8;
 
 /// Um eixo da grade com tipo e instância já fundidos (campo a campo, ADR §4.3).
 #[derive(Clone, Debug, PartialEq)]

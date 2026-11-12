@@ -10,7 +10,7 @@
 //! a linha (centro a centro, sem aparo; a de borda corre até a ponta) e a quebrada para na face do contínuo (centro do contínuo mais ou menos a meia
 //! largura). `round` usa profundidade = largura. A cortina de fora (arco, degenerada) só devolve o aviso.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::cena::Cena;
 use crate::cortina_grade::{arestas, linhas_do_eixo, IndiceGrades};
@@ -23,6 +23,8 @@ use crate::esquema::{
     AVISO_CORTINA_OVERRIDE_ORFAO_CELULA, AVISO_CORTINA_OVERRIDE_ORFAO_LINHA, AVISO_CORTINA_OVERRIDE_ORFAO_SEGMENTO, AVISO_CORTINA_PROFUNDIDADE_MENOR_QUE_PERFIL,
     ENTRADA, ID_AUSENTE, LIMITE, NIVEL_TODOS,
 };
+use crate::cortina_porta::{linhas_do_ajuste, montar_esquadria, peitoril_efetivo, soleira_derivada, Esquadria, Pedido};
+use crate::secoes_a3::SecoesA3;
 use crate::secoes_cortina::SecoesCortina;
 
 /// Um tipo de montante já conferido. `espessura` (L: abas; canto: chapa) e `largura2` (trapézio: face interna) valem 0 onde não se aplicam.
@@ -291,6 +293,8 @@ pub struct Geom {
     /// Montantes de canto que esta cortina emite (fase 3): zero ou um por ponta.
     pub cantos: Vec<PecaCanto>,
     pub paineis: Vec<PainelPeca>,
+    /// Esquadrias nas células (fase 5): uma por região com esquadria, em ordem de célula canônica; a região não tem painel.
+    pub esquadrias: Vec<Esquadria>,
 }
 
 impl Geom {
@@ -421,12 +425,12 @@ pub fn resolver(cena: &Cena, nivel: u32) -> Result<Vec<CortinaR>, u32> {
         if nivel != NIVEL_TODOS && sec.cortinas.get(&id).map(|c| c.nivel) != Some(nivel) {
             continue;
         }
-        out.push(resolver_uma(sec, &grades, id)?);
+        out.push(resolver_uma(sec, &cena.a3, &grades, id)?);
     }
     Ok(out)
 }
 
-fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<CortinaR, u32> {
+fn resolver_uma(sec: &SecoesCortina, a3: &SecoesA3, grades: &IndiceGrades, id: u32) -> Result<CortinaR, u32> {
     let c = sec.cortinas.get(&id).ok_or(ENTRADA)?;
     let t = sec.tipos.get(&c.tipo).ok_or(ENTRADA)?;
     let mut r = CortinaR { id, nivel: c.nivel, tipo: c.tipo, g: None, avisos: Vec::new() };
@@ -587,11 +591,13 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
         pecas_esq: Vec::new(),
         cantos: Vec::new(),
         paineis: Vec::new(),
+        esquadrias: Vec::new(),
     };
 
     // Segmentos nominais: cada linha de U corre na vertical (um por fileira) e cada linha de V na horizontal (um por coluna). Um segmento fica INATIVO
     // (sem montante) quando foi removido ou quando as duas células vizinhas são da mesma região fundida: dentro de um painel não há perfil.
     let regiao_de = &fus.regiao_de;
+    let base_v_seg = (nu + 1) * nv;
     // Removidos explicitamente (inclui as bordas): índice da linha final e segmento.
     let removidos_u: BTreeSet<(usize, usize)> = fus.aceitos.iter().filter(|a| a.0 == EIXO_U).map(|a| (a.1, a.2)).collect();
     let removidos_v: BTreeSet<(usize, usize)> = fus.aceitos.iter().filter(|a| a.0 == EIXO_V).map(|a| (a.1, a.2)).collect();
@@ -628,6 +634,39 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
         }
     }
 
+    // Esquadrias nas células (fase 5, ADR §7): remapeadas como as sobrescritas de painel. Uma por região; a região com esquadria não tem painel, e a porta
+    // sem peitoril omite o segmento horizontal da base sob ela (soleira derivada, §7.5.1: recalculada a cada resolução, nunca gravada).
+    let cel_ab: Vec<CelSob> = sec
+        .aberturas_celula
+        .iter()
+        .filter(|(_, x)| x.cortina == id)
+        .map(|(&k, x)| CelSob { id: k, i: x.i, j: x.j, s: x.s, z: x.z, nu: x.nu, nv: x.nv, painel: x.tipo })
+        .collect();
+    let ab_fin = mapear_celulas(&g.us, &g.vs, &cel_ab);
+    let mut ab_de_regiao: BTreeMap<usize, u32> = BTreeMap::new();
+    let mut orf_ab: Vec<Orfao> = ab_fin.orfaos.clone();
+    for (i, j, o) in &ab_fin.adotadas {
+        // Duas esquadrias na mesma região fundida: vale a de menor id, a outra é órfã.
+        match ab_de_regiao.entry(regiao_de[i * nv + j]) {
+            std::collections::btree_map::Entry::Vacant(v) => {
+                v.insert(o.id);
+            }
+            std::collections::btree_map::Entry::Occupied(_) => orf_ab.push(Orfao { id: o.id, alvo: Alvo::Celula { i: *i as u32, j: *j as u32 }, s: o.s * l, z: o.z * h }),
+        }
+    }
+    for (&ri, &k) in &ab_de_regiao {
+        let (row, reg) = (&sec.aberturas_celula[&k], &fus.regioes[ri]);
+        let ta = a3.tipos.get(&row.tipo).ok_or(ENTRADA)?;
+        if soleira_derivada(ta, row.soleira) {
+            for kk in reg.i0..=reg.i1 {
+                let s = &mut g.segmentos[base_v_seg + reg.j0 * nu + kk];
+                s.removido = true;
+                s.montante = ID_AUSENTE;
+            }
+        }
+    }
+    let mut esquadrias: Vec<Esquadria> = Vec::new();
+
     // Painel por REGIÃO: a sobrescrita vale para a região inteira (a da célula de menor (j, i) que tenha uma). Região de uma célula = a célula.
     let mut pan_cel: Vec<Option<u32>> = vec![None; nu * nv];
     for (i, j, o) in &celulas_fin.adotadas {
@@ -661,6 +700,29 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
             if lados[2] { g.cv[reg.j0] + g.largura_v(reg.j0) / 2.0 } else { g.vs[reg.j0] },
             if lados[3] { g.cv[reg.j1 + 1] - g.largura_v(reg.j1 + 1) / 2.0 } else { g.vs[reg.j1 + 1] },
         );
+        let ri = fus.regiao_de[reg.canon.0 * nv + reg.canon.1];
+        if let Some(&k) = ab_de_regiao.get(&ri) {
+            // Região com esquadria: sem painel (nem vidro de fachada); o vão e os avisos vêm de `montar_esquadria`.
+            let (row, ta) = (&sec.aberturas_celula[&k], &a3.tipos[&sec.aberturas_celula[&k].tipo]);
+            let ped = Pedido { tipo_num: row.tipo, tipo: ta, flip_mao: row.flip_mao, flip_sentido: row.flip_sentido, grade: row.grade, alinhamento: row.alinhamento, soleira: row.soleira, limiar: eu.resto_minimo.max(min_cell) };
+            let bruta = (g.us[reg.i0], g.us[reg.i1 + 1], g.vs[reg.j0], g.vs[reg.j1 + 1]);
+            let mut e = montar_esquadria(&g, reg, &ped, (fs0, fs1, fz0, fz1), lados, bruta, &mut r.avisos);
+            e.mat_folha = [t.montantes[2], t.montantes[0], t.montantes[1]].into_iter().find_map(|m| montante_de(sec, m).ok().flatten()).map_or(ID_AUSENTE, |m| m.material);
+            e.mat_vidro = g.painel_padrao.material;
+            if row.grade {
+                let limiar = eu.resto_minimo.max(min_cell);
+                let (exu, exv): (Vec<f64>, Vec<f64>) = (g.us[1..g.us.len() - 1].to_vec(), g.vs[1..g.vs.len() - 1].to_vec());
+                e.linhas = linhas_do_ajuste(bruta, ta, peitoril_efetivo(row.soleira), row.alinhamento, limiar, &exu, &exv, l, h);
+            }
+            esquadrias.push(e);
+            let multi = if (reg.i1 - reg.i0 + 1) * (reg.j1 - reg.j0 + 1) > 1 { CELULA_REGIAO_MULTIPLA } else { 0 };
+            for j in reg.j0..=reg.j1 {
+                for i in reg.i0..=reg.i1 {
+                    g.celulas.push(Celula { i: i as u32, j: j as u32, s0: g.us[i], s1: g.us[i + 1], z0: g.vs[j], z1: g.vs[j + 1], painel: g.painel_padrao.tipo, flags: multi | CELULA_ESQUADRIA, regiao: (reg.canon.0 * nv + reg.canon.1) as u32 });
+                }
+            }
+            continue;
+        }
         let p = PainelPeca { i: reg.canon.0 as u32, j: reg.canon.1 as u32, p: painel, s0: fs0, s1: fs1, z0: fz0, z1: fz1, lados };
         let menor = p.largura_livre().min(p.altura_livre());
         let mut flags = 0;
@@ -682,6 +744,8 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
         g.paineis.push(p);
     }
     g.celulas.sort_by_key(|x| (x.i, x.j));
+    esquadrias.sort_by_key(|e| (e.i, e.j));
+    g.esquadrias = esquadrias;
 
     // Montantes de canto que esta cortina emite (ADR §6.5): um prisma de altura total por ponta com canto, o da cortina de menor id.
     for p in pontas.iter().flatten() {
@@ -769,7 +833,7 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
         }
     }
     // Fase 2: órfãs (célula, linha e segmento) e remoções recusadas por região não retangular.
-    let orfaos = fin_u.orfaos.iter().chain(fin_v.orfaos.iter()).chain(celulas_fin.orfaos.iter()).chain(orf_seg.iter());
+    let orfaos = fin_u.orfaos.iter().chain(fin_v.orfaos.iter()).chain(celulas_fin.orfaos.iter()).chain(orf_ab.iter()).chain(orf_seg.iter());
     for o in orfaos {
         r.avisos.push(aviso_orfao(&g, o));
     }

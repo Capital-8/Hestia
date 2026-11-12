@@ -649,11 +649,11 @@ pub fn montar(cortinas: &[CortinaR], lod: u32) -> Result<Malha, u32> {
         }
     }
     // Peças de esquadria: uma malha no mundo por cortina e material.
-    let mut grupos: BTreeMap<(u32, u32), GrupoAv> = BTreeMap::new();
+    let mut grupos: BTreeMap<(u32, u32, u32, u32), GrupoAv> = BTreeMap::new();
     for (c, g) in &geoms {
         for p in &g.pecas_esq {
             let tris = solido(&secao(&p.m, 2), &p.lo, &p.hi);
-            let grupo = grupos.entry((c.id, p.m.material)).or_insert_with(|| GrupoAv { cortina: c.id, papel: MALHA_MONTANTE, material: p.m.material, transparente: 0, vertices: Vec::new(), triangulos: Vec::new() });
+            let grupo = grupos.entry((c.id, MALHA_MONTANTE, p.m.material, 0)).or_insert_with(|| GrupoAv { cortina: c.id, papel: MALHA_MONTANTE, material: p.m.material, transparente: 0, vertices: Vec::new(), triangulos: Vec::new() });
             for t in &tris {
                 let b = grupo.vertices.len() as u32;
                 grupo.vertices.extend(t.iter().map(|&v| ponto_esq(g, p, v)));
@@ -665,10 +665,35 @@ pub fn montar(cortinas: &[CortinaR], lod: u32) -> Result<Malha, u32> {
     for (c, g) in &geoms {
         for k in &g.cantos {
             let (v, t) = prisma_simples(&k.poligono, k.z0, k.z1);
-            let grupo = grupos.entry((c.id, k.m.material)).or_insert_with(|| GrupoAv { cortina: c.id, papel: MALHA_MONTANTE, material: k.m.material, transparente: 0, vertices: Vec::new(), triangulos: Vec::new() });
+            let grupo = grupos.entry((c.id, MALHA_MONTANTE, k.m.material, 0)).or_insert_with(|| GrupoAv { cortina: c.id, papel: MALHA_MONTANTE, material: k.m.material, transparente: 0, vertices: Vec::new(), triangulos: Vec::new() });
             let b = grupo.vertices.len() as u32;
             grupo.vertices.extend(v.iter().map(|q| [na_grade(q[0]), na_grade(q[1]), na_grade(q[2])]));
             grupo.triangulos.extend(t.iter().map(|x| [x[0] + b, x[1] + b, x[2] + b]));
+        }
+    }
+    // Esquadrias nas células (fase 5): folha e batente num grupo opaco por material, e o vidro da esquadria noutro, transparente. O vidro da esquadria sai
+    // em `grupos` (papel 4) e nunca em instância, para não contar como vidro de fachada.
+    for (c, g) in &geoms {
+        for e in &g.esquadrias {
+            for cx in crate::cortina_porta::caixas(e, g.d) {
+                let (papel, material, transp) = if cx.vidro { (MALHA_VIDRO_ESQUADRIA, e.mat_vidro, 1) } else { (MALHA_ESQUADRIA, e.mat_folha, 0) };
+                let mut poli: Vec<[f64; 2]> = [(cx.t0, cx.y0), (cx.t1, cx.y0), (cx.t1, cx.y1), (cx.t0, cx.y1)]
+                    .iter()
+                    .map(|&(t, y)| {
+                        let q = g.mundo(t, y, 0.0);
+                        [q[0], q[1]]
+                    })
+                    .collect();
+                let area2: f64 = (0..4).map(|k| poli[k][0] * poli[(k + 1) % 4][1] - poli[(k + 1) % 4][0] * poli[k][1]).sum();
+                if area2 < 0.0 {
+                    poli.reverse();
+                }
+                let (v, t) = prisma_simples(&poli, g.z_base + cx.z0, g.z_base + cx.z1);
+                let grupo = grupos.entry((c.id, papel, material, transp)).or_insert_with(|| GrupoAv { cortina: c.id, papel, material, transparente: transp, vertices: Vec::new(), triangulos: Vec::new() });
+                let b = grupo.vertices.len() as u32;
+                grupo.vertices.extend(v.iter().map(|q| [na_grade(q[0]), na_grade(q[1]), na_grade(q[2])]));
+                grupo.triangulos.extend(t.iter().map(|x| [x[0] + b, x[1] + b, x[2] + b]));
+            }
         }
     }
     Ok(Malha { protos: ordem.iter().filter_map(|k| protos.remove(k)).collect(), instancias, grupos: grupos.into_values().collect() })

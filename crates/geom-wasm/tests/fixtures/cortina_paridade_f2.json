@@ -5,7 +5,7 @@
       "quant_cortina",
       "cortina_avisos"
     ],
-    "esquemaVersao": 16,
+    "esquemaVersao": 17,
     "tabelaDePecas": "cortina_pecas::tabela_pecas (função de teste, não é consulta)"
   },
   "descricao": "Casos de paridade da parede cortina, fase 2 (ADR 0056 §4.4 e §5.2): sobrescritas de grade (linhas extras e travadas, linhas geradas movidas e sem montante), segmentos removidos com regiões retangulares e recusas, painel por célula com remapeamento e órfãs. Entradas no formato de cortinaRef com o campo `sobrescritas`; saídas geradas pelo Rust (crates/geom-wasm/tests/cortina_paridade.rs).",

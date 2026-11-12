@@ -109,6 +109,17 @@ fn canto_em_planta(out: &mut Vec<LinhaPlanta>, cortina: u32, g: &Geom, corte_z: 
     }
 }
 
+/// Símbolo das esquadrias nas células (fase 5): contorno do vão (papel 4) e giro, arco ou traço da folha (papel 5), nos três detalhes. O estilo segue a
+/// faixa de cotas do vão.
+fn esquadrias_em_planta(out: &mut Vec<LinhaPlanta>, cortina: u32, g: &Geom, corte_z: f64) {
+    for e in &g.esquadrias {
+        let est = estilo(g.z_base + e.z0, g.z_base + e.z1, corte_z);
+        for (fechada, giro, pontos) in crate::cortina_porta::simbolo_planta(g, e) {
+            out.push(LinhaPlanta { cortina, papel: if giro || !fechada { PLANTA_GIRO } else { PLANTA_ESQUADRIA }, estilo: est, fechada, pontos });
+        }
+    }
+}
+
 pub fn planta(cortinas: &[CortinaR], corte_z: f64, detalhe: u8) -> Vec<LinhaPlanta> {
     let mut out = Vec::new();
     for c in cortinas {
@@ -178,6 +189,7 @@ pub fn planta(cortinas: &[CortinaR], corte_z: f64, detalhe: u8) -> Vec<LinhaPlan
                 }
             }
         }
+        esquadrias_em_planta(&mut out, c.id, g, corte_z);
     }
     out
 }

@@ -87,6 +87,23 @@ pub fn quant_cortina(cortinas: &[CortinaR]) -> Vec<LinhaQuant> {
                 l.volume += p.area_bruta() * p.p.espessura;
             }
         }
+        // Esquadrias nas células (fase 5), à parte do vidro de fachada: o vão (n e área), a folha e o batente (volume) e o vidro da esquadria (área e volume).
+        for e in &g.esquadrias {
+            let cs = crate::cortina_porta::caixas(e, g.d);
+            let l = entrada(&mut grupos, c.id, PAPEL_ESQUADRIA, e.tipo_num, 0);
+            l.n += 1;
+            l.area += e.largura() * e.altura();
+            l.area_liquida += e.largura() * e.altura();
+            let l = entrada(&mut grupos, c.id, PAPEL_ESQUADRIA_FOLHA, e.tipo_num, e.mat_folha);
+            l.n += 1;
+            l.volume += cs.iter().filter(|x| !x.vidro).map(|x| x.volume()).sum::<f64>();
+            let l = entrada(&mut grupos, c.id, PAPEL_ESQUADRIA_VIDRO, e.tipo_num, e.mat_vidro);
+            l.n += 1;
+            let a = crate::cortina_porta::area_vidro(&cs);
+            l.area += a;
+            l.area_liquida += a;
+            l.volume += cs.iter().filter(|x| x.vidro).map(|x| x.volume()).sum::<f64>();
+        }
         let l = entrada(&mut grupos, c.id, PAPEL_SISTEMA, 0, 0);
         l.n = 1;
         l.comprimento = g.l;
