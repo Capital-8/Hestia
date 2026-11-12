@@ -271,3 +271,88 @@ function arestasVivas(pos: ArrayLike<number>, nr: ArrayLike<number>, indices: Ar
   }
   return out;
 }
+
+/**
+ * Centro (mundo) da instância `k` do lote: o centro da caixa do protótipo (vértices em coordenadas locais) levado pela matriz da instância. Escrito em
+ * `saida`. Usado para dizer em que célula cai um painel, sem desenhar nada.
+ */
+export function centroDaInstancia(l: LoteCortina3d, k: number, saida: number[]): void {
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let z0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  let z1 = -Infinity;
+  for (let i = 0; i < l.vertices.length; i += 3) {
+    const x = l.vertices[i]!;
+    const y = l.vertices[i + 1]!;
+    const z = l.vertices[i + 2]!;
+    if (x < x0) x0 = x;
+    if (x > x1) x1 = x;
+    if (y < y0) y0 = y;
+    if (y > y1) y1 = y;
+    if (z < z0) z0 = z;
+    if (z > z1) z1 = z;
+  }
+  const cx = (x0 + x1) / 2;
+  const cy = (y0 + y1) / 2;
+  const cz = (z0 + z1) / 2;
+  const e = l.matrizes;
+  const o = 16 * k;
+  saida[0] = e[o]! * cx + e[o + 4]! * cy + e[o + 8]! * cz + e[o + 12]!;
+  saida[1] = e[o + 1]! * cx + e[o + 5]! * cy + e[o + 9]! * cz + e[o + 13]!;
+  saida[2] = e[o + 2]! * cx + e[o + 6]! * cy + e[o + 10]! * cz + e[o + 14]!;
+}
+
+/**
+ * Subconjunto dos lotes: só as instâncias para as quais `aceita(dono, centro)` é verdadeiro (centro em mundo). Lote sem instância aceita some. Os
+ * matrizes e os donos são cópias do subconjunto (o lote original não muda); a geometria do protótipo é a mesma.
+ */
+export function subconjuntoDeLotes(lotes: readonly LoteCortina3d[], aceita: (dono: Id, centro: readonly number[]) => boolean): LoteCortina3d[] {
+  const out: LoteCortina3d[] = [];
+  const centro: number[] = [0, 0, 0];
+  for (const l of lotes) {
+    const ks: number[] = [];
+    for (let k = 0; k < l.n; k++) {
+      centroDaInstancia(l, k, centro);
+      if (aceita(l.donos[k]!, centro)) ks.push(k);
+    }
+    if (!ks.length) continue;
+    const matrizes = new Float32Array(16 * ks.length);
+    const donos: Id[] = [];
+    ks.forEach((k, j) => {
+      matrizes.set(l.matrizes.subarray(16 * k, 16 * k + 16), 16 * j);
+      donos.push(l.donos[k]!);
+    });
+    out.push({ ...l, matrizes, donos, n: ks.length });
+  }
+  return out;
+}
+
+/**
+ * A célula (`s0..s1`, `z0..z1`, em metros a partir do início e da base da parede) contém o ponto `centro` (mundo)? A parede é o eixo `a`-`b` de
+ * comprimento `L`; `profundidade` é a espessura da cortina (o ponto tem de estar entre as duas faces). A folga exclui pontos sobre a borda: os
+ * montantes ficam sobre as linhas da grade, e um painel fica estritamente dentro da célula.
+ */
+export function celulaContemCentro(
+  centro: readonly number[],
+  parede: { a: { x: number; y: number }; b: { x: number; y: number }; L: number; zBase: number; profundidade: number },
+  celula: { s0: number; s1: number; z0: number; z1: number },
+  folga = 1e-4,
+): boolean {
+  if (!(parede.L > 0)) return false;
+  const ux = (parede.b.x - parede.a.x) / parede.L;
+  const uy = (parede.b.y - parede.a.y) / parede.L;
+  const dx = centro[0]! - parede.a.x;
+  const dy = centro[1]! - parede.a.y;
+  const s = dx * ux + dy * uy;
+  const n = -dx * uy + dy * ux;
+  const z = centro[2]! - parede.zBase;
+  return (
+    s > celula.s0 + folga &&
+    s < celula.s1 - folga &&
+    z > celula.z0 + folga &&
+    z < celula.z1 - folga &&
+    Math.abs(n) <= parede.profundidade / 2 + folga
+  );
+}
