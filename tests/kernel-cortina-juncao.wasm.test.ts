@@ -37,9 +37,10 @@ function extensoes(p: Project): Map<number, { x0: number; x1: number; y0: number
   return out;
 }
 
-const com = (paredes: Parameters<typeof makeWall>[0][], base: Project = projetoComCortina()): Project => {
+type ParedeNova = Omit<Parameters<typeof makeWall>[0], 'levelId'>;
+const com = (paredes: ParedeNova[], base: Project = projetoComCortina()): Project => {
   const s = new ProjectStore(base);
-  for (const w of paredes) s.exec({ type: 'addWall', wall: makeWall({ height: 3, levelId: 'lv_0', ...w }) });
+  for (const w of paredes) s.exec({ type: 'addWall', wall: makeWall({ height: 3, ...w, levelId: 'lv_0' }) });
   return s.project;
 };
 
