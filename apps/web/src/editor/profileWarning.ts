@@ -42,9 +42,13 @@ export function hiddenCreationWarning(before: Project, after: Project, viewId: I
     }
   }
   // Anotações novas desta vista (cota, texto, detalhe, etiqueta): categoria `annotation`, camadas do perfil.
-  const antes = planViewOf(before, viewId) ? new Set(idsDeAnotacoes(viewAnnotationsOf(before, viewId))) : new Set<Id>();
-  for (const id of idsDeAnotacoes(viewAnnotationsOf(after, viewId))) {
-    if (!antes.has(id) && !visibleInView(after, viewId, id, session)) achadas.add('annotation');
+  const anotDepois = viewAnnotationsOf(after, viewId);
+  const anotAntes = planViewOf(before, viewId) ? viewAnnotationsOf(before, viewId) : undefined;
+  if (anotDepois !== anotAntes) {
+    const antes = new Set<Id>(anotAntes ? idsDeAnotacoes(anotAntes) : []);
+    for (const id of idsDeAnotacoes(anotDepois)) {
+      if (!antes.has(id) && !visibleInView(after, viewId, id, session)) achadas.add('annotation');
+    }
   }
   return achadas.size ? GRAPHICS_CATEGORIES.filter((c) => achadas.has(c)) : null;
 }

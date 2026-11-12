@@ -61,10 +61,10 @@ describe('ferramentas de anotação na planta de área', () => {
     expect(viewAnnotationsOf(editor.project, floorViewId('lv_0')).dimensions).toHaveLength(0);
   });
 
-  it('ferramenta de modelo não entra na planta de área (nem por atalho); ambiente e separador entram', () => {
+  it('ferramenta de modelo entra na planta de área (Fase 3: sem bloqueio); ambiente e separador também', () => {
     iniciar('select');
     editor.setTool('wall');
-    expect(useUi.getState().tool).toBe('select');
+    expect(useUi.getState().tool).toBe('wall');
     editor.setTool('room');
     expect(useUi.getState().tool).toBe('room');
     editor.setTool('roomsep');
