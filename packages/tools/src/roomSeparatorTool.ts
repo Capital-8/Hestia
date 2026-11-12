@@ -2,6 +2,7 @@ import { dist, type Vec2 } from '@hestia/geom';
 import { formatQuantity, unitsOf, type ResolvedUnits } from '@hestia/model';
 import { ToolBase, makeId } from './base.ts';
 import { draftAngleItemsForConnection } from './anglePreview.ts';
+import { contextoDeTraco, lerComprimentoDigitado, pontoPorComprimento } from './desenhoPolilinha.ts';
 import type { PointerInfo } from './types.ts';
 
 const fmt = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length', m);
@@ -29,7 +30,7 @@ export class RoomSeparatorTool extends ToolBase {
   }
 
   override move(p: PointerInfo): void {
-    const inf = this.snap(p);
+    const inf = this.snap(p, contextoDeTraco(this.a));
     if (!this.a) return;
     const b = inf.point;
     this.items = [
@@ -40,15 +41,28 @@ export class RoomSeparatorTool extends ToolBase {
     ];
   }
 
+  /** Comprimento digitado + Enter, pelo núcleo comum de desenho (igual à parede). */
+  override type(text: string): boolean {
+    if (!this.a) return false;
+    const v = lerComprimentoDigitado(this.env, text);
+    if (v === null) return false;
+    this.fim(pontoPorComprimento(this.a, this.inf?.point ?? this.raw, v));
+    return true;
+  }
+
   override click(p: PointerInfo): void {
-    const inf = this.snap(p);
+    const inf = this.snap(p, contextoDeTraco(this.a));
     if (!this.a) {
       this.a = inf.point;
       this.env.say(this.t('tl_msg_roomsep_end'));
       return;
     }
+    this.fim(inf.point);
+  }
+
+  private fim(b: Vec2): void {
+    if (!this.a) return;
     const a = this.a;
-    const b = inf.point;
     try {
       this.env.transaction('Criar linha de separação', () => {
         this.env.exec({ type: 'addRoomSeparator', levelId: this.env.levelId(), separator: { id: makeId('rs'), a, b } });

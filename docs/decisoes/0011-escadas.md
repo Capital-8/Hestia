@@ -167,3 +167,33 @@ pontas ou até fechar o laço; só entram curvas do mesmo grupo (cada limite, a 
 piso). Tab alterna linha e arco e sai de "Pegar linhas", como qualquer escolha de primitiva. Delete e Ctrl+Z desfazem a última pegada
 (`undoPick`); Ctrl+Y refaz (`redoPick`). Pegar não valida: o erro de croqui é o de `analyzeDraft`, como no desenho. Código:
 `packages/tools/src/stairPickLines.ts` (`pickLinesOf`, `chainAt`, `offsetChain`), `stairTool.ts` e `stairDraw.ts`.
+
+## 8 · Acabamentos da escada: piso, espelho e bocel (engine: `stairFinish.ts`)
+
+Campos opcionais do **tipo** de escada (`StairType`), todos em metros. Campo ausente = desligado, então os tipos e as escadas de projetos antigos não mudam e **não houve mudança na versão do esquema** (`stairFinishOf` aplica os padrões). Tipos novos nascem com os acabamentos desligados e o bocel ligado com 1,5 cm (decisão do dono de 2026-11-10: é o limite do aviso `stair-bocel-projection`, então o padrão nunca dispara o aviso; o que era 2 cm passou a 1,5 cm). Tipos já gravados com `bocelProjection` explícito não mudam; sem o campo o piso acabado está desligado, então nada muda na geometria.
+
+| Campo | Tipo | Padrão (tipo novo) |
+|---|---|---|
+| `treadFinishEnabled` | boolean | `false` |
+| `treadFinishMaterialId` | id de material | `mat_ceramica` |
+| `treadFinishThickness` | m | `0.015` |
+| `riserFinishEnabled` | boolean | `false` |
+| `riserFinishMaterialId` | id de material | `mat_ceramica` |
+| `riserFinishThickness` | m | `0.01` |
+| `bocelEnabled` | boolean | `true` |
+| `bocelProjection` | m | `0.015` |
+
+O bocel só tem efeito com o acabamento do piso ligado. Os acabamentos valem nos estilos **monolítico** e **poste** (o poste não tem espelho, então só piso). No estilo **montado** são ignorados: piso e espelho do próprio tipo já são o acabamento. Rampas não têm esse modelo e ficam fora desta frente.
+
+**Medidas acabadas mandam.** A geometria resolvida (`steps`, `risers`, cotas `z = base + k·h`) já é a das faces acabadas: o espelho acabado é `h = H ÷ N`, igual em todos os degraus, a soma dos N espelhos é a altura entre os pisos acabados (os níveis do projeto) e o último piso acabado coincide com o nível de cima. A pisada é medida entre as faces acabadas dos espelhos e o bocel não muda a planta. Quem desconta as espessuras é a estrutura.
+
+**Ordem de baixo para cima** (tp = espessura do piso, te = do espelho, b = bocel):
+- piso acabado do degrau k: sólido único de `z_k − tp` a `z_k`, com a planta do degrau, mais a faixa de `b` à frente da face do espelho k, mais a faixa de `te` sob o espelho acabado de cima (piso + bocel num anel só). O piso corre do bocel até **encostar na estrutura** (face estrutural do espelho k+1), por baixo do espelho acabado de cima, como no assentamento de obra (granito, de baixo para cima). O bocel é medido a partir da face acabada do espelho;
+- espelho acabado k: faixa de espessura `te` atrás da face (lado do degrau de cima), que **nasce em cima do piso acabado de baixo** (`z_(k−1)`, encostado na estrutura) e sobe até `z_k − tp` (fundo do piso acabado de cima, que passa por cima do topo do espelho e forma o bocel). Altura `h − tp`. O 1º espelho nasce no piso de baixo (`baseZ`, altura `h − tp`) e o último chega ao nível de cima (`topZ`, altura `h`). Piso e espelho acabados não se interpenetram nem invadem a estrutura;
+- estrutura: cada degrau perde `tp` no topo (o fundo fica onde estava) e troca a faixa do espelho de trás pela da frente, onde o espelho acabado se apoia; a chegada começa depois da faixa do último espelho;
+- lateral: as faixas saem da linha do espelho já aparada pelos limites do lance, então piso e espelho terminam alinhados à borda lateral.
+- **espelho oblíquo, leque, curva e caracol:** a faixa do espelho NÃO é uma faixa perpendicular solta. A faixa (espelho de cima e bocel de baixo) é a faixa perpendicular prolongada e **recortada pela planta do degrau vizinho do mesmo lado** (o de cima para o espelho; o de baixo para o bocel), então as laterais seguem a borda real do degrau, em qualquer ângulo, e a estrutura (planta do degrau menos a faixa) é o complemento exato. Sem degrau vizinho (1º bocel e último espelho), a faixa é inclinada para a direção de subida (espessura medida na normal). A chegada é o que sobra da faixa do último espelho (`StairFinishModel.bands`), sem depender de um recuo `te` na direção da subida, que não é a normal da face quando o espelho é oblíquo. Teste permanente: `stairFinishLivre.test.ts` (ângulos de 30° a 135°, leque, balanceada, caracol, L, U, sentido invertido, com e sem bocel, três espessuras): nenhum par de sólidos acabados nem acabado × estrutura se interpenetra (a penetração é medida com a grade de 3 µm que a biblioteca de polígonos já adota).
+
+**Avisos** (`stairIssues.ts`): espelho 16–18 cm, pisada 28–32 cm e relação 2e+p da regra do tipo já usam os valores acabados (a geometria resolvida é a acabada). Novos: `stair-bocel-projection` (bocel acima de `StairNorms.nosingProjectionMax`, padrão 1,5 cm; configurável, não trava) e `stair-finish-structure` (acabamento do piso não cabe na estrutura). A faixa 2e+p padrão do tipo continua 63–65 cm (NBR 9050); 63–64 cm é a predefinição NBR 9077.
+
+**Quantidades** (`StairQuantities`): `treadFinishArea` (planta do piso acabado, com o bocel e o trecho sob o espelho de cima), `riserFinishArea` (comprimento × altura dos espelhos acabados, já com a altura `h − tp`), `bocelLength` e `volumeFinish`, somados em `volume` e em `volumeByMaterial`. 3D, planta e corte desenham os acabamentos com o material próprio. O motor das escadas é TypeScript (`packages/engine`), não o kernel Rust. Fora desta frente: IFC, DXF e colunas do quadro de escadas.

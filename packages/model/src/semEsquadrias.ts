@@ -5,6 +5,7 @@ import type { Project } from './types.ts';
  * paredes). A validade é a identidade, elemento por elemento, de tudo o que o projeto tem exceto as esquadrias: editar,
  * mover ou apagar uma janela ou porta deixa a lista igual e o resultado guardado vale. Qualquer outra edição troca ao
  * menos um objeto e recalcula.
+ * Guarda-corpo também fica de fora: nenhuma dessas resoluções o lê (ligar ou editar um não as refaz).
  */
 const listaPorElementos = new WeakMap<object, readonly unknown[]>();
 const listaSemJanelasPorElementos = new WeakMap<object, readonly unknown[]>();
@@ -17,7 +18,7 @@ export function fontesSemEsquadrias(p: Project, soJanelas = false): readonly unk
   const mapa = soJanelas ? listaSemJanelasPorElementos : listaPorElementos;
   let lista = mapa.get(p.elements);
   if (!lista) {
-    lista = Object.values(p.elements).filter((e) => e.kind !== 'window' && (soJanelas || e.kind !== 'door'));
+    lista = Object.values(p.elements).filter((e) => e.kind !== 'window' && e.kind !== 'railing' && (soJanelas || e.kind !== 'door'));
     mapa.set(p.elements, lista);
   }
   return [...p.levels, p.settings, p.defaults, p.wallTypes, p.openingTypes, p.floorTypes, p.slabTypes, p.roofTypes, p.stairTypes, p.rampTypes, p.materials, ...lista];

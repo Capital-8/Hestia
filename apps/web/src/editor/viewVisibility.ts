@@ -62,6 +62,7 @@ function categoriaDoElemento(e: { kind: string }): GraphicsCategory | null {
     case 'roof': return 'roof';
     case 'stair':
     case 'ramp': return 'stair';
+    case 'railing': return 'railing';
     case 'room': return 'room';
     case 'cad':
     case 'generic': return 'generic';

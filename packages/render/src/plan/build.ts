@@ -1,7 +1,7 @@
-import { add, boxOf, mul, norm, perp, pointInMulti, ringArea, sub, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
+import { pointInMulti, ringArea, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { buildOpeningModel, cutLevelByJunction, frameOfWall, openingGeometry, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedRoom, type ResolvedSlab } from '@hestia/engine';
-import { openingTypeById, dimensionStyleOf, angularDimensionGeometry, dimensionPoints, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, wallsOnLevel, type AreaPlan, type DetailLevel, type Id, type Material, type Project } from '@hestia/model';
-import { resolveRooms, resolveAngularDimension } from '@hestia/engine';
+import { openingTypeById, dimensionStyleOf, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, type AreaPlan, type DetailLevel, type Id, type Material, type Project } from '@hestia/model';
+import { resolveRooms } from '@hestia/engine';
 import { areaPlanLegendOps, areaPlanRoomOps, areaPlanTableOps, areaPlanTagOps } from './areaPlan.ts';
 import { aberturasDaParede, escadasDoNivel, juncaoDoNivel, paredesDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
 import type { Inference, PreviewItem } from '@hestia/tools';
@@ -18,6 +18,8 @@ import { ceilingFills } from './ceilings.ts';
 import { roofEdgeColor, roofFills, roofFootprint, roofOps } from './roofs.ts';
 import { belowStairOps, stairFills } from './stairs.ts';
 import { belowRampOps, rampFills } from './ramps.ts';
+import { guardaCorpoOps } from './guardaCorpo.ts';
+import { ocultosDoGuardaCorpo } from './guardaCorpoCamada.ts';
 import { joinDebugLabels } from './joinDebug.ts';
 import { wallTagLabels } from './tags.ts';
 import { openingTagLabels } from './openingTags.ts';
@@ -70,6 +72,11 @@ export interface PlanInput {
   hidden?: ReadonlySet<Id>;
   /** Elementos que o modo Reveal mostra com borda azul. */
   revealed?: ReadonlySet<Id>;
+  /**
+   * Guarda-corpo (decisão 0055) tem camada própria na planta: `'sem'` tira os guarda-corpos da geometria do nível (o quadro os desenha à parte,
+   * ver `buildPlanGuardaCorpo`, em guardaCorpoCamada.ts); sem o campo, eles saem junto da geometria, como antes (impressão, captura e testes).
+   */
+  guardaCorpo?: 'sem';
   /** Rótulo em arraste (fantasma) da planta de área: segue o cursor em tempo real. */
   tagGhost?: { roomId: Id; at: Vec2 };
   /** Ambiente cujo rótulo está sendo arrastado: a geometria não o desenha (o fantasma desenha). */
@@ -338,6 +345,8 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   if (profile.stairs) addOps(stairFills(p, stairs, theme, input.dark, detail, v, view ? { cutZ: view.cutZ, topZ: view.topZ } : undefined, paint.stair, scale, input.lang), paint.stair, !rp);
   // Rampas do nível: junto das escadas, com o mesmo estilo da categoria.
   if (profile.ramps) addOps(rampFills(p, ramps, theme, input.dark, detail, v, view ? { cutZ: view.cutZ, topZ: view.topZ } : undefined, paint.stair, scale), paint.stair, !rp);
+  // Guarda-corpos (decisao 0055): linhas do kernel Rust, no estilo da categoria de escadas.
+  if (profile.stairs && input.guardaCorpo !== 'sem') addOps(guardaCorpoOps(p, input.levelId, ocultosDoGuardaCorpo(p, input.levelId, input.hidden, input.revealed, paint.railing.visible), theme, input.dark, paint.stair, view?.cutZ), paint.stair, !rp);
   // Forros: só na planta de forro (na planta baixa eles estão acima do topo e não saem).
   if (profile.ceilings && up) addOps(ceilingFills(p, input.levelId, theme, input.dark, detail, v, hidden, paint.floor, style.scale), paint.floor, true);
 
@@ -539,35 +548,4 @@ export function buildPlanDrawList(input: PlanInput): PlanDrawList {
   };
 }
 
-/** Caixa de todas as paredes do nível, para "enquadrar tudo". */
-export function levelBox(p: Project, levelId: Id): { minX: number; minY: number; maxX: number; maxY: number } | null {
-  const pts = wallsOnLevel(p, levelId).flatMap((w) => [w.a, w.b]);
-  if (!pts.length) return null;
-  const b = boxOf(pts);
-  const pad = 0.5;
-  return { minX: b.minX - pad, minY: b.minY - pad, maxX: b.maxX + pad, maxY: b.maxY + pad };
-}
-
-/**
- * Caixa para enquadrar a planta na vista: a de `levelBox` mais as cotas. A linha de cota fica deslocada das paredes
- * (`offset`), então sem ela o "Enquadrar" cortava as cotas da borda e deixava a barra de escala por cima delas.
- */
-export function levelFrameBox(p: Project, levelId: Id): { minX: number; minY: number; maxX: number; maxY: number } | null {
-  const base = levelBox(p, levelId);
-  const pts: Vec2[] = [];
-  for (const d of levelDimensions(p, levelId)) {
-    if (d.angular) {
-      const g = angularDimensionGeometry(resolveAngularDimension(p, levelId, d));
-      if (g) pts.push(...g.arc, ...g.extensions.flat());
-      continue;
-    }
-    const { a, b } = dimensionPoints(p, d);
-    const n = perp(norm(sub(b, a)));
-    pts.push(a, b, add(a, mul(n, d.offset)), add(b, mul(n, d.offset)));
-  }
-  if (!pts.length) return base;
-  if (base) pts.push({ x: base.minX, y: base.minY }, { x: base.maxX, y: base.maxY });
-  const b = boxOf(pts);
-  const pad = 0.5;
-  return { minX: b.minX - pad, minY: b.minY - pad, maxX: b.maxX + pad, maxY: b.maxY + pad };
-}
+export { elevationFrameBox, levelBox, levelFrameBox } from './molduraDoNivel.ts';

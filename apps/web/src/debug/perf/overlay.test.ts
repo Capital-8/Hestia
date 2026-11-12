@@ -19,7 +19,7 @@ const snapshot = (): SnapshotPerf => ({
     rebuilds: null,
   },
   total: { quadros: 10, drawCalls: 1280, triangulos: 15000, uploads: 20, uploadBytes: 2_000_000, rebuilds: 3, commitsReact: 5 },
-  camadas: { geometria: 1, sobreposicao: 1, grade: 1 },
+  camadas: { geometria: 1, sobreposicao: 1, grade: 1, guardaCorpo: 0 },
   gpu: { timer: 'disponivel', ms: 4.2 },
   indisponiveis: [],
 });

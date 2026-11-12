@@ -22,6 +22,8 @@ import { closestOnWall, wallMid } from './wallGeom.ts';
 import { addGridSnaps } from './gridSnapPoints.ts';
 import { addCadSnaps, type CadSnapIndex } from './snapCad.ts';
 import { addExtraPoints, addExtraSegments, addExtraTracks } from './snapExtras.ts';
+import { addIndexedPoints, addIndexedSegments, cruzamentosDePlanta, indexedAlignmentRefs, type SnapIndexado } from './snapIndexado.ts';
+import { arestasPerto, pontosNasFaixas } from './snapAccel.ts';
 import { orthoPoint, polarPoint } from './angleSnap.ts';
 import { DEFAULT_SNAP, type Guide, type Inference, type SnapKind, type SnapOptions } from './types.ts';
 
@@ -61,6 +63,13 @@ export interface InferContext {
   onWallsOnly?: boolean;
   /** Pontos extras de captura (vértices de pisos, contorno em construção). */
   extraPoints?: SnapPoint[];
+  /**
+   * Conjuntos grandes e estáveis já indexados (escadas, rampas e guarda-corpos do nível): a consulta custa só o que está perto do
+   * cursor. Candidatos iguais aos de `extraPoints`/`extraSegments`; ver `snapIndexado.ts`.
+   */
+  indexed?: readonly SnapIndexado[];
+  /** Elementos ocultos na vista: pontos e arestas indexados deles não são alvo (os não indexados já vêm filtrados). */
+  hiddenIds?: ReadonlySet<Id>;
   /** Capturas ligadas (padrão: DEFAULT_SNAP). */
   snap?: SnapOptions;
   /** Arestas de captura (contornos de pisos e lajes, ombreiras de aberturas): o pé da perpendicular sobre a aresta vira captura. */
@@ -241,7 +250,8 @@ function addSectionCrossings(ctx: InferContext, sn: SnapOptions, cursor: Vec2, t
   const reach = tol * Math.SQRT2;
   const reach2 = reach * reach;
   const near: Array<{ a: Vec2; b: Vec2; hostId?: Id }> = [];
-  for (const e of ctx.extraSegments ?? []) {
+  // Vista com milhares de arestas: só as da vizinhança do cursor chegam ao teste de caixa (ver `snapAccel`).
+  for (const e of arestasPerto(ctx.extraSegments, cursor, reach)) {
     if (e.hostId !== undefined && ctx.ignore?.has(e.hostId)) continue;
     if (dist2(e.a, e.b) < 1e-18) continue;
     // Caixa expandida: aresta longe do cursor não entra no par a par (a vista pode ter milhares delas).
@@ -339,10 +349,14 @@ export function infer(rawCursor: Vec2, ctx: InferContext): Inference {
   }
   // Pontos extras (vértices de pisos, contorno em construção, aberturas) não entram na captura exclusiva de paredes.
   addExtraPoints(ctx, sn, cursor, tol, add);
+  addIndexedPoints(ctx, sn, cursor, tol, add);
   // Arestas de pisos e lajes e ombreiras de aberturas: o pé sobre a aresta é captura de aresta, com o dono para o ignore.
   if (!ctx.onWallsOnly) addExtraSegments(ctx, sn, cursor, tol, add);
+  addIndexedSegments(ctx, sn, cursor, tol, add);
   // Seção: os cruzamentos entre as arestas da vista (contornos, aberturas, membranas e níveis) são captura própria.
   if (!ctx.onWallsOnly && ctx.section) addSectionCrossings(ctx, sn, cursor, tol, add);
+  // Planta: o cruzamento entre arestas de escada, rampa, guarda-corpo, piso e laje fora dos vértices também é captura.
+  if (!ctx.onWallsOnly && !ctx.section && sn.intersections) cruzamentosDePlanta(ctx, cursor, tol, add);
   // Orto/Polar: onde a reta travada cruza uma aresta (contorno de peça, esquadria, nível, eixo ou face de parede) é uma
   // interseção; o usuário mira ali para continuar a linha sem sair da direção.
   if (lock && ctx.from && sn.intersections && !ctx.onWallsOnly) {
@@ -352,9 +366,14 @@ export function infer(rawCursor: Vec2, ctx: InferContext): Inference {
       const p = intersectSegments(probe[0], probe[1], e0, e1);
       if (p && dist(cursor, p) <= tol && dist(p, lockFrom) > 1e-6) add(p, 'intersection', [], hostId);
     };
-    for (const e of ctx.extraSegments ?? []) {
+    for (const e of arestasPerto(ctx.extraSegments, cursor, tol * 2)) {
       if (e.hostId !== undefined && ctx.ignore?.has(e.hostId)) continue;
       cross(e.a, e.b, e.hostId);
+    }
+    for (const ix of ctx.indexed ?? []) {
+      ix.pertoDe(cursor, tol * 1.5, (e) => {
+        if (e.hostId === undefined || (!ctx.ignore?.has(e.hostId) && !ctx.hiddenIds?.has(e.hostId))) cross(e.a, e.b, e.hostId);
+      });
     }
     for (const w of walls) if (!curveOf(w)) cross(w.a, w.b, w.id);
     if (sn.faces) {
@@ -467,13 +486,15 @@ export function infer(rawCursor: Vec2, ctx: InferContext): Inference {
     addExtraTracks(ctx, faceTracks, refs, cursor, tol);
   }
   if (!ctx.onWallsOnly && ctx.extraPoints) {
-    for (const q of ctx.extraPoints) {
+    // Só entram como referência de alinhamento os pontos com x ou y a até `tol` do cursor: o laço de baixo descarta o resto.
+    for (const q of pontosNasFaixas(ctx.extraPoints, cursor, tol)) {
       if (q.hostId !== undefined && ctx.ignore?.has(q.hostId)) continue;
       // Na seção o midpoint é captura de ponto, mas não vira eixo de alinhamento: o x/y dele cruzaria com outra
       // linha e criaria um ponto flutuante (ex.: z=2,30) no lugar da aresta real sob o cursor.
       if (ctx.section && q.kind === 'midpoint') continue;
       refs.push(v2(q.x, q.y));
     }
+    if (sn.alignment) indexedAlignmentRefs(ctx, cursor, tol, (q) => refs.push(q));
   }
 
   if (sn.alignment) {

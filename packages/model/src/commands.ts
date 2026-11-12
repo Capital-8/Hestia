@@ -80,6 +80,10 @@ import { applyView3DPointCommand, type View3DPointCommand } from './view3dPoints
 import { applyGridCommand, type GridCommand } from './grid.ts';
 import { applyViewCommand } from './viewCommands.ts';
 import { applyCeilingCommand } from './ceilingCommands.ts';
+import { applyGuardaCorpoCommand } from './guardaCorpoCommands.ts';
+import { transformarGuardaCorpos } from './guardaCorpoTransform.ts';
+import type { GuardaCorpo, TipoGuardaCorpo } from './guardaCorpoTypes.ts';
+import type { PerfilNorma } from './guardaCorpoNorma.ts';
 import { applyRoomCommand } from './roomCommands.ts';
 import { applyOutlineCommand } from './outlineCommands.ts';
 import { applyCopyLinkCommand } from './copyLinkCommands.ts';
@@ -118,6 +122,15 @@ export type Command =
   | { type: 'upsertStairType'; stairType: StairType }
   | { type: 'deleteStairType'; id: Id }
   | { type: 'addRamp'; ramp: Omit<Ramp, 'order'> } | { type: 'upsertRampType'; rampType: RampType } | { type: 'deleteRampType'; id: Id }
+  // Guarda-corpo (decisão 0055 §4.4): tratados em guardaCorpoCommands.ts.
+  | { type: 'addGuardaCorpo'; guardaCorpo: Omit<GuardaCorpo, 'order'> }
+  | { type: 'updateGuardaCorpo'; id: Id; patch: Partial<Omit<GuardaCorpo, 'id' | 'kind' | 'order'>> }
+  | { type: 'deleteGuardaCorpo'; id: Id }
+  | { type: 'upsertTipoGuardaCorpo'; tipo: TipoGuardaCorpo }
+  | { type: 'deleteTipoGuardaCorpo'; id: Id }
+  | { type: 'upsertPerfilNorma'; perfil: PerfilNorma }
+  | { type: 'deletePerfilNorma'; id: Id }
+  | { type: 'setNormaGuardaCorpo'; id: Id }
   | { type: 'upsertSlabType'; slabType: SlabType }
   | { type: 'deleteSlabType'; id: Id }
   | { type: 'upsertFloorType'; floorType: FloorType }
@@ -244,6 +257,7 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
       ? { labelRotation: t.kind === 'mirror' ? -(r.labelRotation ?? 0) : (r.labelRotation ?? 0) + (t.kind === 'rotate' ? (t.angle * 180) / Math.PI : 0) }
       : {}),
   }));
+  transformarGuardaCorpos(p, c);
   const walls = c.ids.map((id) => p.elements[id]).filter(isWall);
   const wallIds = new Set(walls.map((w) => w.id));
   for (const w of walls) {
@@ -281,7 +295,7 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
 }
 
 export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
-  if (applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c)) return;
+  if (applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang)) return;
   switch (c.type) {
     case 'addWall':
       p.elements[c.wall.id] = { ...c.wall, order: p.nextOrder++ };

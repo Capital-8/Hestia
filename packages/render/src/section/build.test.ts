@@ -60,12 +60,12 @@ describe('desenho do corte com escada', () => {
     expect(draw.strokes.some((s) => s.closed && s.widthPx === 2.2)).toBe(true);
   });
 
-  it('a elevação mostra cada degrau como contorno além do plano, sem hachura', () => {
+  it('a elevação mostra a estrutura da escada como um contorno único além do plano, sem hachura e sem linha entre degraus', () => {
     const draw = buildSectionDrawList(input({ a: v(-1, -3), b: v(6, -3), depth: 6 }));
     expect(draw.fills.filter((f) => f.hatch)).toHaveLength(0);
-    // 15 degraus além do plano: cada um com preenchimento e contorno fino
+    // Os 15 degraus formam um só sólido: um preenchimento e um contorno fino fechado (o perfil dentado), sem linha vertical entre degraus.
     const thin = draw.strokes.filter((s) => s.closed && s.widthPx === 1);
-    expect(thin.length).toBeGreaterThanOrEqual(15);
+    expect(thin).toHaveLength(1);
   });
 });
 

@@ -60,7 +60,7 @@ describe('migração v21 → v22', () => {
     const p = migrateProject(v21());
     const a1 = p.areaPlans![0]!;
     const a2 = p.areaPlans![1]!;
-    expect(p.schemaVersion).toBe(23);
+    expect(p.schemaVersion).toBe(24);
     expect(a1.graphics.fill).toBe('scheme');
     expect(a1.graphics.tagDefault).toEqual({ leader: 'none', fields: DEFAULT_AREA_GRAPHICS.tagDefault.fields, orientation: 'horizontal' });
     expect(a1.scale).toBe(50);

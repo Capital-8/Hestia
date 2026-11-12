@@ -317,6 +317,7 @@ export const DXF_CATEGORY_COLORS: Record<GraphicsCategory, number> = {
   slab: 4,
   roof: 3,
   stair: 6,
+  railing: 9,
   room: 7,
   annotation: 7,
   generic: 8,

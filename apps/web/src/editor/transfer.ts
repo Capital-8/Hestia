@@ -7,7 +7,7 @@ import { useUi } from './state.ts';
 import { annotationIdsOfType, annotationTypeOf, selectedAnnotations } from './viewAnnotations.ts';
 
 /** Ordem canônica de exibição/seleção das categorias coladas (a mesma do motor). */
-const PASTE_ORDER: readonly (keyof PasteIds)[] = ['walls', 'openings', 'floors', 'slabs', 'ceilings', 'roofs', 'stairs', 'ramps', 'rooms', 'generics', 'cad'];
+const PASTE_ORDER: readonly (keyof PasteIds)[] = ['walls', 'openings', 'floors', 'slabs', 'ceilings', 'roofs', 'stairs', 'ramps', 'rooms', 'generics', 'cad', 'railings'];
 
 /** Achata os ids de um nível na ordem canônica. */
 const idsOfPaste = (ids: PasteIds): Id[] => PASTE_ORDER.flatMap((key) => ids[key]);
@@ -24,6 +24,7 @@ const counts = (c: ClipBuffer): Counts => ({
   rooms: c.rooms?.length ?? 0,
   generics: c.generics?.length ?? 0,
   cad: c.cad?.length ?? 0,
+  railings: c.railings?.length ?? 0,
 });
 
 /** Contagem por categoria do que foi copiado ou colado. */
@@ -38,6 +39,7 @@ interface Counts {
   rooms: number;
   generics: number;
   cad: number;
+  railings: number;
 }
 
 /** Chaves do singular/plural de cada categoria na frase de cópia. */
@@ -52,6 +54,7 @@ const COUNT_KEYS: Record<keyof Counts, readonly [keyof Dict, keyof Dict]> = {
   rooms: ['edc_count_room_one', 'edc_count_room_many'],
   generics: ['edc_count_generic_one', 'edc_count_generic_many'],
   cad: ['edc_count_cad_one', 'edc_count_cad_many'],
+  railings: ['edc_count_railing_one', 'edc_count_railing_many'],
 };
 
 /** "2 paredes, 1 piso, 1 laje e 1 escada": frase do status para o que foi copiado ou colado. */
@@ -79,6 +82,7 @@ function originLevelIdsOf(c: ClipBuffer): Id[] {
     ...(c.rooms ?? []),
     ...(c.generics ?? []),
     ...(c.cad ?? []),
+    ...(c.railings ?? []),
   ];
   return [...new Set(elements.map((e) => e.levelId))];
 }
@@ -96,7 +100,8 @@ function elementCountOf(c: ClipBuffer): number {
     (c.ramps?.length ?? 0) +
     (c.rooms?.length ?? 0) +
     (c.generics?.length ?? 0) +
-    (c.cad?.length ?? 0)
+    (c.cad?.length ?? 0) +
+    (c.railings?.length ?? 0)
   );
 }
 
@@ -178,8 +183,9 @@ export class Transfer {
       rooms: r.roomIds.length,
       generics: r.genericIds.length,
       cad: r.cadIds.length,
+      railings: r.railingIds.length,
     };
-    const ids = [...r.wallIds, ...r.openingIds, ...r.floorIds, ...r.slabIds, ...r.ceilingIds, ...r.roofIds, ...r.stairIds, ...r.rampIds, ...r.roomIds, ...r.genericIds, ...r.cadIds];
+    const ids = [...r.wallIds, ...r.openingIds, ...r.floorIds, ...r.slabIds, ...r.ceilingIds, ...r.roofIds, ...r.stairIds, ...r.rampIds, ...r.roomIds, ...r.genericIds, ...r.cadIds, ...r.railingIds];
     useUi.setState({ selection: ids, status: { key: 'edc_pasted_in_place', args: { description: describe(pasted, lang) } } });
     return true;
   }

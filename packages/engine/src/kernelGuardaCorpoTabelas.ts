@@ -1,0 +1,221 @@
+/**
+ * Tabelas do adaptador do guarda-corpo (decisão 0055, Fase 2): nomes e colunas das seções 60 a 81, códigos dos enums e a ordem dos limites de norma.
+ * Espelha `crates/geom-wasm/schema/cena-v11.json`; o teste do wasm (`tests/kernel-gc2.wasm.test.ts`) confere contra o Rust real.
+ */
+import type { LimitesNormaGC, PerfilGC } from '@hestia/model';
+
+/** `ID_AUSENTE` do esquema: "nenhum" onde o contrato permite (norma do projeto, elemento vazio do padrão). */
+export const ID_AUSENTE_GC = 0xffffffff;
+/** `pd_dist` = -1: montante no centro da pisada (igual a `PD_CENTRO` de `secoes_gc.rs`). */
+export const PD_CENTRO_GC = -1;
+/** Flecha de corda padrão (m) das curvas: o modelo ainda não tem o campo (ADR 0055 §14, Fase 2). */
+export const TOL_CORDA_PADRAO_GC = 0.002;
+
+export const NOMES_SECOES_GC = [
+  'escadas_gc',
+  'escada_componentes_gc',
+  'escada_curvas_gc',
+  'escada_espelhos_gc',
+  'escada_patamares_gc',
+  'rampas_gc',
+  'rampa_lances_gc',
+  'rampa_patamares_gc',
+  'guardas_corpo',
+  'guarda_caminhos_manuais',
+  'tipos_guarda',
+  'perfis_guarda',
+  'perfis_guarda_pontos',
+  'trilhos_guarda',
+  'corrimaos_guarda',
+  'postes_guarda',
+  'padroes_guarda',
+  'padrao_elementos_guarda',
+  'paineis_guarda',
+  'normas_guarda',
+] as const;
+export type NomeSecaoGC = (typeof NOMES_SECOES_GC)[number];
+export type ColunasGC = Record<string, number[]>;
+
+export const COLUNAS: Record<NomeSecaoGC, readonly string[]> = {
+  escadas_gc: ['id_num', 'nivel_num', 'z_base', 'z_topo', 'altura_espelho', 'profundidade_piso'],
+  escada_componentes_gc: ['id_num', 'escada_num', 'indice', 'tipo', 'caracol', 'centro_x', 'centro_y', 'r_int', 'r_ext'],
+  escada_curvas_gc: ['id_num', 'componente_num', 'lado', 'ordem', 'ax', 'ay', 'bx', 'by', 'sag'],
+  escada_espelhos_gc: ['id_num', 'componente_num', 'indice', 'ax', 'ay', 'bx', 'by', 'z0', 'z1', 'bocel', 'z_piso'],
+  escada_patamares_gc: ['id_num', 'componente_num', 'indice', 'x', 'y', 'z'],
+  rampas_gc: ['id_num', 'nivel_num', 'z_base', 'z_topo'],
+  rampa_lances_gc: ['id_num', 'rampa_num', 'indice', 'sx', 'sy', 'ex', 'ey', 'ax', 'ay', 'bx', 'by', 'cx', 'cy', 'dx', 'dy', 'z0', 'z1'],
+  rampa_patamares_gc: ['id_num', 'rampa_num', 'componente', 'indice', 'x', 'y', 'z'],
+  guardas_corpo: ['id_num', 'nivel_num', 'tipo_num', 'hosp', 'hosp_num', 'lados', 'pos_base', 'desloc', 'altura', 'inverter', 'fechado', 'lado_desloc', 'cota_base', 'flags'],
+  guarda_caminhos_manuais: ['id_num', 'guarda_num', 'indice', 'x', 'y', 'dz'],
+  tipos_guarda: ['id_num', 'altura', 'desloc', 'ajuste_patamar', 'folga_inferior', 'junc_angular', 'junc_tangente', 'conexao', 'tol_corda', 'norma_num'],
+  perfis_guarda: ['id_num', 'forma', 'largura', 'altura', 'n_pontos', 'lados'],
+  perfis_guarda_pontos: ['id_num', 'perfil_num', 'indice', 'x', 'y'],
+  trilhos_guarda: ['id_num', 'tipo_num', 'indice', 'altura', 'desloc', 'perfil_num', 'material_num'],
+  corrimaos_guarda: [
+    'id_num',
+    'tipo_num',
+    'indice',
+    'funcao',
+    'posicao',
+    'altura',
+    'afastamento',
+    'perfil_num',
+    'material_num',
+    'ext_ini_estilo',
+    'ext_ini_comp',
+    'ext_ini_mais_piso',
+    'ext_fim_estilo',
+    'ext_fim_comp',
+    'ext_fim_mais_piso',
+    'sup_layout',
+    'sup_espac',
+    'sup_numero',
+    'sup_justif',
+    'sup_perfil_num',
+    'sup_comp',
+    'transicao',
+    'juncao',
+    'raio_filete',
+  ],
+  postes_guarda: ['id_num', 'tipo_num', 'papel', 'ativo', 'perfil_num', 'material_num', 'acima', 'abaixo', 'ang_canto', 'modo', 'espacamento', 'numero'],
+  padroes_guarda: [
+    'id_num',
+    'tipo_num',
+    'indice',
+    'base_tipo',
+    'base_idx',
+    'topo_tipo',
+    'topo_idx',
+    'periodo',
+    'justif',
+    'sobra',
+    'quebra',
+    'ang_quebra',
+    'escopo',
+    'pd_ativo',
+    'pd_qtd',
+    'pd_dist',
+    'pd_perfil_num',
+    'pd_material_num',
+  ],
+  padrao_elementos_guarda: ['id_num', 'padrao_num', 'indice', 'perfil_num', 'material_num', 'dist_anterior', 'desloc_lateral', 'desloc_base', 'desloc_topo'],
+  paineis_guarda: [
+    'id_num',
+    'tipo_num',
+    'indice',
+    'familia',
+    'base_tipo',
+    'base_idx',
+    'topo_tipo',
+    'topo_idx',
+    'desl_base',
+    'desl_topo',
+    'espessura',
+    'folga_lateral',
+    'largura_max',
+    'material_num',
+    'perf_diam',
+    'perf_passo_x',
+    'perf_passo_y',
+    'perf_alternado',
+    'tela_larg',
+    'tela_alt',
+    'tela_fio',
+    'cabo_diam',
+    'cabo_espac',
+    'cabo_orient',
+  ],
+  normas_guarda: [
+    'id_num',
+    'n_flags',
+    'desnivel_exige_guarda',
+    'altura_minima',
+    'altura_minima_escada_interna',
+    'altura_alta_acima',
+    'altura_alta_altura',
+    'esfera_maxima',
+    'esfera_maxima_triangulo',
+    'folga_inferior_maxima',
+    'carga_linear_horizontal',
+    'carga_area_horizontal',
+    'carga_pontual_guarda',
+    'corrimao_altura_min',
+    'corrimao_altura_max',
+    'corrimao_altura_adicional_1',
+    'corrimao_altura_adicional_2',
+    'corrimao_altura_adicional_3',
+    'corrimao_altura_adicional_4',
+    'corrimao_diametro_min',
+    'corrimao_diametro_max',
+    'corrimao_afastamento_min',
+    'corrimao_extensao_min',
+    'corrimao_dois_lados',
+    'corrimao_continuo',
+    'corrimao_intermediario_largura',
+    'corrimao_intermediario_espacamento',
+    'carga_corrimao',
+  ],
+};
+
+export const ENUM = {
+  juncAngular: ['segmento-vertical', 'nenhum'],
+  juncTangente: ['segmento-vertical', 'nenhum', 'estender-trilhos'],
+  conexao: ['cortar', 'soldar'],
+  funcao: ['topo', 'corrimao'],
+  posicao: ['eixo', 'esquerda', 'direita', 'ambas'],
+  estilo: ['nenhum', 'parede', 'piso', 'poste'],
+  layout: ['nenhum', 'distancia-fixa', 'alinhar-postes', 'numero-fixo', 'espacamento-maximo', 'espacamento-minimo'],
+  justif: ['inicio', 'fim', 'centro', 'distribuir'],
+  transicao: ['nenhuma', 'simples', 'pescoco-de-ganso'],
+  juncao: ['esquadria', 'filete'],
+  modoPoste: ['nenhum', 'espacamento-maximo', 'espacamento-fixo', 'numero-fixo'],
+  sobra: ['nenhuma', 'balaustre-extra', 'folga-nas-pontas'],
+  quebra: ['cada-segmento', 'angulo', 'nunca'],
+  escopo: ['vao', 'segmento'],
+  familia: ['vidro', 'chapa', 'chapa-perfurada', 'tela', 'cabo-aco'],
+  forma: ['circular', 'retangular', 'poligono'],
+  orientacao: ['horizontal', 'vertical'],
+} as const;
+
+export function codigo(lista: readonly string[], valor: string, campo: string): number {
+  const k = lista.indexOf(valor);
+  if (k < 0) throw new Error(`guarda-corpo: ${campo} desconhecido (${valor})`);
+  return k;
+}
+
+/** Ordem dos limites em `normas_guarda` (o bit `k` de `n_flags` é a coluna `k + 2`). Cada entrada lê o valor do `LimitesNormaGC`. */
+export const LIMITES_NORMA: ReadonlyArray<readonly [string, (l: LimitesNormaGC) => number | boolean | undefined]> = [
+  ['desnivel_exige_guarda', (l) => l.desnivelExigeGuarda],
+  ['altura_minima', (l) => l.alturaMinima],
+  ['altura_minima_escada_interna', (l) => l.alturaMinimaEscadaInterna],
+  ['altura_alta_acima', (l) => l.alturaMinimaAlta?.acimaDe],
+  ['altura_alta_altura', (l) => l.alturaMinimaAlta?.altura],
+  ['esfera_maxima', (l) => l.esferaMaxima],
+  ['esfera_maxima_triangulo', (l) => l.esferaMaximaTriangulo],
+  ['folga_inferior_maxima', (l) => l.folgaInferiorMaxima],
+  ['carga_linear_horizontal', (l) => l.cargaLinearHorizontal],
+  ['carga_area_horizontal', (l) => l.cargaAreaHorizontal],
+  ['carga_pontual_guarda', (l) => l.cargaPontualGuarda],
+  ['corrimao_altura_min', (l) => l.corrimaoAlturaMin],
+  ['corrimao_altura_max', (l) => l.corrimaoAlturaMax],
+  ['corrimao_altura_adicional_1', (l) => l.corrimaoAlturasAdicionais?.[0]],
+  ['corrimao_altura_adicional_2', (l) => l.corrimaoAlturasAdicionais?.[1]],
+  ['corrimao_altura_adicional_3', (l) => l.corrimaoAlturasAdicionais?.[2]],
+  ['corrimao_altura_adicional_4', (l) => l.corrimaoAlturasAdicionais?.[3]],
+  ['corrimao_diametro_min', (l) => l.corrimaoDiametroMin],
+  ['corrimao_diametro_max', (l) => l.corrimaoDiametroMax],
+  ['corrimao_afastamento_min', (l) => l.corrimaoAfastamentoMin],
+  ['corrimao_extensao_min', (l) => l.corrimaoExtensaoMin],
+  ['corrimao_dois_lados', (l) => l.corrimaoDoisLados],
+  ['corrimao_continuo', (l) => l.corrimaoContinuo],
+  ['corrimao_intermediario_largura', (l) => l.corrimaoIntermediarioLargura],
+  ['corrimao_intermediario_espacamento', (l) => l.corrimaoIntermediarioEspacamento],
+  ['carga_corrimao', (l) => l.cargaCorrimao],
+];
+
+/** Chave canônica de um perfil, para internar perfis iguais uma vez só. */
+export const chavePerfil = (p: PerfilGC): string => JSON.stringify([p.forma, p.largura, p.forma === 'retangular' ? p.altura : 0, p.forma === 'poligono' ? (p.pontos ?? []).map((q) => [q.x, q.y]) : null]);
+
+/** Lados da discretização do perfil circular (ADR 0055 §5.8): 16, ou 24 acima de 80 mm de diâmetro. */
+export const ladosDoCirculo = (diametro: number): number => (diametro > 0.08 ? 24 : 16);
+

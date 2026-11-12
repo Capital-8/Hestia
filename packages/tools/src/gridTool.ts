@@ -1,3 +1,4 @@
+import { contextoDeTraco } from './desenhoPolilinha.ts';
 import { add, dist, mul, norm, sub, v2, type Vec2 } from '@hestia/geom';
 import { DEFAULT_GRID_TYPE_ID, GRID_MIN_SEGMENT, formatQuantity, isWall, nextGridName, newId, unitsOf, type Grid, type ResolvedUnits } from '@hestia/model';
 import { ToolBase } from './base.ts';
@@ -101,7 +102,7 @@ export class GridTool extends ToolBase {
       return;
     }
     const last = this.pts[this.pts.length - 1];
-    const inf = this.snap(p, last ? { from: last } : {});
+    const inf = this.snap(p, contextoDeTraco(last));
     const at = inf.point;
     this.last = at;
     if (!last) {
@@ -143,7 +144,7 @@ export class GridTool extends ToolBase {
       return;
     }
     const last = this.pts[this.pts.length - 1];
-    const at = this.snap(p, last ? { from: last } : {}).point;
+    const at = this.snap(p, contextoDeTraco(last)).point;
     if (mode === 'arc' && this.pts.length === 2) {
       this.commit(this.pts, this.sagFor(at));
       return;

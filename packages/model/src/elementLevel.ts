@@ -1,7 +1,7 @@
 import { levelElevation } from './queries.ts';
 import { stairFitPatch } from './stairFit.ts';
 import { isCad, type CadDrawing } from './cad.ts';
-import { isCeiling, isFloor, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Ceiling, type Element, type Floor, type Id, type Project, type Ramp, type Roof, type Room, type Slab, type Stair, type Wall } from './types.ts';
+import { isCeiling, isFloor, isGuardaCorpo, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Ceiling, type Element, type Floor, type GuardaCorpo, type Id, type Project, type Ramp, type Roof, type Room, type Slab, type Stair, type Wall } from './types.ts';
 import { t, type Lang } from './i18n.ts';
 
 /**
@@ -17,8 +17,8 @@ export interface SetElementLevel {
 }
 
 /** Elementos com nível próprio. Aberturas não têm: acompanham a parede anfitriã. */
-export const hasLevel = (e: Element | undefined): e is Wall | Floor | Slab | Ceiling | Roof | Stair | Ramp | Room | CadDrawing =>
-  isWall(e) || isFloor(e) || isSlab(e) || isCeiling(e) || isRoof(e) || isStair(e) || isRamp(e) || isRoom(e) || isCad(e);
+export const hasLevel = (e: Element | undefined): e is Wall | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Room | CadDrawing =>
+  isWall(e) || isFloor(e) || isSlab(e) || isCeiling(e) || isRoof(e) || isStair(e) || isRamp(e) || isGuardaCorpo(e) || isRoom(e) || isCad(e);
 
 /** Nível de um elemento com nível próprio; null para abertura ou id inexistente. */
 export function elementLevelId(e: Element | undefined): Id | null {
@@ -47,7 +47,10 @@ export function applyElementLevel(p: Project, c: SetElementLevel, lang: Lang = '
     const delta = c.keep === 'elevation' ? levelElevation(p, e.levelId) - target.elevation : 0;
     e.levelId = target.id;
     if (isWall(e) || isStair(e) || isRamp(e)) e.baseOffset += delta;
-    else if (isRoom(e)) e.heightOffset = (e.heightOffset ?? 0) + delta;
+    // Guarda-corpo hospedado segue a cota do hospedeiro (o nível vem dele); só o manual tem cota própria.
+    else if (isGuardaCorpo(e)) {
+      if (e.hospedeiro.tipo === 'manual') e.cotaBase += delta;
+    } else if (isRoom(e)) e.heightOffset = (e.heightOffset ?? 0) + delta;
     else if (isCad(e)) e.offsetZ = (e.offsetZ ?? 0) + delta;
     else e.heightOffset += delta;
   }

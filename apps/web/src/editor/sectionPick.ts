@@ -1,4 +1,4 @@
-import { pickSection, pickSectionAnnotation, screenToWorld, type SectionAnnotationPick, type SectionPick } from '@hestia/render';
+import { pickGuardaCorpoNoCorte, pickSection, pickSectionAnnotation, screenToWorld, type SectionAnnotationPick, type SectionPick } from '@hestia/render';
 import { sectionAnnotationsOf } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
@@ -38,6 +38,9 @@ export function sectionPickAt(s: ScreenPt): SectionHit | null {
   const hidden = visibilityOf(editor.project, useUi.getState()).hidden;
   const note = pickSectionAnnotation(anotacoesSemOcultas(sectionAnnotationsOf(view), hidden), point, NOTE_LINE_PX / v.zoom, editor.viewScale(), NOTE_TEXT_PX / v.zoom);
   if (note) return note;
+  // Guarda-corpo: as mesmas linhas que o corte desenha (kernel); oculto ou fora do isolamento nao e alvo.
+  const guarda = pickGuardaCorpoNoCorte(editor.project, result, hidden, point, TOLERANCE_PX / v.zoom);
+  if (guarda) return { id: guarda, kind: 'railing' };
   return pickSection(result, point, TOLERANCE_PX / v.zoom, hidden);
 }
 

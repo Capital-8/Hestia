@@ -24,8 +24,10 @@ import { IT_EDITOR_CONTEXT } from '../../areas/editor-context.ts';
 import { IT_PROPS_OPTIONS } from '../../areas/props-options.ts';
 import { IT_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { IT_BIBLIOTECA } from '../../areas/biblioteca.ts';
+import { IT_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
 
 export const IT_ALL = {
+  ...IT_GUARDA_CORPO,
   ...IT_SHELL_RIBBON,
   ...IT_MISC_UI,
   ...IT_SCHEDULES_EXTRA,

@@ -137,4 +137,28 @@ export interface IfcGeometry {
   stairs: IfcStairGeo[];
   /** Rampas resolvidas. Ausente = nenhuma (mantém os montadores antigos de geometria válidos). */
   ramps?: IfcRampGeo[];
+  /** Guarda-corpos resolvidos pelo kernel (malha por parte). Ausente = nenhum. */
+  railings?: IfcGuardaCorpoGeo[];
+}
+
+/** Papel de uma parte do guarda-corpo, como em `guarda_malha` (ADR 0055 §6.2). */
+export type IfcPapelGC = 'poste' | 'balaustre' | 'trilho' | 'corrimao' | 'suporte' | 'painel' | 'cabo' | 'travessa';
+
+/** Grupo de malha de um guarda-corpo (papel + material): posições em metros, cota absoluta, índices 0-based de triângulos. */
+export interface IfcParteGC {
+  papel: IfcPapelGC;
+  materialId: Id;
+  mesh: { positions: readonly number[]; indices: readonly number[] };
+  /** Painel de vidro (`CURTAIN_PANEL`); os demais painéis saem `SHEET`. */
+  vidro?: boolean;
+  /** Número de peças no grupo (balaústres, painéis...), só para o nome. */
+  pecas?: number;
+}
+
+/** Guarda-corpo resolvido pelo kernel: a malha de `guarda_malha` já separada por guarda-corpo, mais o comprimento. */
+export interface IfcGuardaCorpoGeo {
+  guardaId: Id;
+  partes: IfcParteGC[];
+  /** Comprimento desenvolvido (m) de `quant_guarda`; ausente = sem `Qto_RailingBaseQuantities`. */
+  comprimentoDesenvolvido?: number;
 }

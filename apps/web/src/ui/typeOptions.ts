@@ -40,6 +40,11 @@ export function openingOptions(p: Project, kind: 'door' | 'window', lang: Lang =
     .map((t) => ({ id: t.id, name: t.name, code: t.code ?? '', family: openingFamilyName(t, lang), subject: { kind, type: t } }));
 }
 
+/** Tipos de guarda-corpo: a lista do seletor, todos no grupo `family` (o rótulo vem de quem chama, no idioma ativo). */
+export function guardaCorpoOptions(p: Project, family: string): TypeOption[] {
+  return Object.values(p.tiposGuardaCorpo ?? {}).map((t) => ({ id: t.id, name: t.name, code: t.code, family, subject: { kind: 'railing', type: t } }));
+}
+
 /** Famílias de cota (a Padrão inclusa): a lista do seletor, todas no grupo da categoria `family`. */
 export function dimensionOptions(familias: ReadonlyArray<{ id: string; name: string } & DimensionStyle>, family: string): TypeOption[] {
   return familias.map((f) => ({ id: f.id, name: f.name, code: '', family, subject: { kind: 'dimension', style: f } }));

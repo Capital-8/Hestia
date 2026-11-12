@@ -11,8 +11,8 @@ export { PlanFrame, planFrameUpdateOf, sameView } from './planFrame.ts';
  * sobreposição provisória; a grade; e os traços das mesmas camadas. Cada uma tem o seu grupo e as suas malhas: refazer a
  * seleção, o hover ou o cursor não toca as outras.
  */
-export type PlanSlot = 'fillsBase' | 'fillsSel' | 'fillsHover' | 'fillsLive' | 'fillsOver' | 'grid' | 'strokesBase' | 'strokesSel' | 'strokesHover' | 'strokesLive' | 'strokesOver';
-export const PLAN_SLOTS: readonly PlanSlot[] = ['grid', 'fillsBase', 'fillsSel', 'fillsHover', 'fillsLive', 'fillsOver', 'strokesBase', 'strokesSel', 'strokesHover', 'strokesLive', 'strokesOver'];
+export type PlanSlot = 'fillsBase' | 'fillsSel' | 'fillsHover' | 'fillsLive' | 'fillsOver' | 'grid' | 'strokesGuarda' | 'strokesBase' | 'strokesSel' | 'strokesHover' | 'strokesLive' | 'strokesOver';
+export const PLAN_SLOTS: readonly PlanSlot[] = ['grid', 'fillsBase', 'fillsSel', 'fillsHover', 'fillsLive', 'fillsOver', 'strokesGuarda', 'strokesBase', 'strokesSel', 'strokesHover', 'strokesLive', 'strokesOver'];
 /** Faixa de `renderOrder` por camada: a ordem dentro de uma camada não alcança a seguinte. */
 const SLOT_STRIDE = 1_000_000;
 

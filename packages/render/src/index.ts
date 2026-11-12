@@ -6,6 +6,7 @@ export * from './i18n.ts';
 export * from './perf/index.ts';
 export * from './plan/types.ts';
 export * from './plan/build.ts';
+export { extensaoDoModelo, pontosDaExtensao, KINDS_NA_EXTENSAO, type CaixaPlano } from './plan/extensaoDoModelo.ts';
 export * from './plan/zoomOps.ts';
 export * from './plan/grid.ts';
 export * from './plan/cpuPlan.ts';
@@ -63,3 +64,4 @@ export { areaPlanLegendOps, areaPlanRoomOps, areaPlanTableOps, areaPlanTagOps, l
 export * from './plan/sketch.ts';
 // Anotações (textos e cotas): desenho, caixa do texto, moldura e destaque de seleção/hover.
 export { annotationHighlightOps, annotationsOfLevel, blocoEm, drawnAnnotations, linhasDoTexto, noteOps, roomSeparatorStrokes, textBlockModel, type NoteLook, type NoteOps, type NoteTarget, type TextBlockModel } from './plan/notes.ts';
+export * from './section/guardaCorpo.ts';

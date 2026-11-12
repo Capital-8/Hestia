@@ -1,4 +1,4 @@
-import { isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Id, type Project, type ValidationIssue, type ValidationSeverity } from '@hestia/model';
+import { isFloor, isGuardaCorpo, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Id, type Project, type ValidationIssue, type ValidationSeverity } from '@hestia/model';
 import { t, useI18n } from './i18n.ts';
 import { rampBox, rampPoints } from './rampActions.ts';
 import { stairBox, stairPoints } from './stairActions.ts';
@@ -88,6 +88,24 @@ export function issueTarget(p: Project, issue: ValidationIssue): IssueTarget | n
       elementId: id,
       levelId: p.levels.some((l) => l.id === el.levelId) ? el.levelId : null,
       center: pts.length ? center : null,
+      ...(box ? { box } : {}),
+    };
+  }
+  // Guarda-corpo: enquadra o caminho manual, ou a escada ou rampa que o hospeda.
+  if (isGuardaCorpo(el)) {
+    const h = el.hospedeiro;
+    const hosp = h.tipo === 'escada' ? p.elements[h.escadaId] : h.tipo === 'rampa' ? p.elements[h.rampaId] : undefined;
+    let box: IssueTarget['box'] | null = null;
+    if (h.tipo === 'manual' && h.caminho.length > 0) {
+      const xs = h.caminho.map((q) => q.x);
+      const ys = h.caminho.map((q) => q.y);
+      box = { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
+    } else if (isStair(hosp)) box = stairBox(hosp);
+    else if (isRamp(hosp)) box = rampBox(hosp);
+    return {
+      elementId: id,
+      levelId: p.levels.some((l) => l.id === el.levelId) ? el.levelId : null,
+      center: box ? { x: (box.minX + box.maxX) / 2, y: (box.minY + box.maxY) / 2 } : null,
       ...(box ? { box } : {}),
     };
   }

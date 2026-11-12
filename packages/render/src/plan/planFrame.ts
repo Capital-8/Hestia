@@ -7,6 +7,7 @@ import type { Viewport } from '../viewport.ts';
 import { effectiveGridStep, gridCovers, gridLayer, type GridLayer } from './grid.ts';
 import type { PlanSlot, PlanScene } from './gpuPlan.ts';
 import { buildPlanGeometry, buildPlanHoverOverlay, buildPlanLiveOverlay, buildPlanScreenOverlay, planBelowOf, planGeometrySelection } from './build.ts';
+import { buildPlanGuardaCorpo } from './guardaCorpoCamada.ts';
 import { telhadosDoNivel } from './resolucao.ts';
 import { assinaturaDeZoom } from './limiares.ts';
 import { resolverRotulos, resolverZoom } from './zoomOps.ts';
@@ -15,6 +16,8 @@ import { sketchOps, type SketchSelectionBox } from './sketch.ts';
 import type { FillOp, LabelOp, PlanDrawList, PlanOps, PlanTheme, StrokeOp } from './types.ts';
 import type { Lang } from '../i18n.ts';
 import { contadores } from '../perf/registro.ts';
+import { servicoGuardaCorpo, ServicoGuardaCorpo } from '@hestia/engine';
+import { versoesDaPlanta } from './versoesPlanta.ts';
 
 /** Esboço do perímetro em edição (só na planta): o rascunho, a validação dele, a linha sob o cursor e a caixa de seleção. */
 export interface PlanSketch {
@@ -90,7 +93,17 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
   // (`AREA_PLAN_TOOLS`), mas o `select` ainda move o elemento selecionado; por isso mantém destaque, alças e fantasmas
   // iguais aos do piso. Se o select virar somente leitura, suprimir as alças de modelo aqui.
   const base = { project: p, levelId, viewport: v, theme, dark, showGrid: s.showGrid, thinLines: s.thinLines, showRoofProjection: s.showRoofProjection, roofPlanMode: rp, areaPlan: s.areaPlan, tagGhost: s.tagGhost, hidden: s.hidden, revealed: s.revealed, lang };
-  const visKey = s.hidden?.size || s.revealed?.size ? `${[...(s.hidden ?? [])].sort().join(',')}|${[...(s.revealed ?? [])].sort().join(',')}` : '';
+  // Guarda-corpo tem camada e chave próprias: os ocultos/revelados dele ficam fora da chave do resto da planta, e a versão do projeto que a
+  // geometria vê não muda quando só um guarda-corpo muda (ver `versoesDaPlanta`).
+  const ehGuarda = (id: Id): boolean => p.elements[id]?.kind === 'railing';
+  const idsDe = (c: ReadonlySet<Id> | undefined, guarda: boolean): string => (c?.size ? [...c].filter((id) => ehGuarda(id) === guarda).sort().join(',') : '');
+  const par = (guarda: boolean): string => { const h = idsDe(s.hidden, guarda); const r = idsDe(s.revealed, guarda); return h || r ? `${h}|${r}` : ''; };
+  const visKey = par(false);
+  const visGuarda = par(true);
+  const versoes = versoesDaPlanta(p);
+  const temGuarda = ServicoGuardaCorpo.temGuardaCorpo(p);
+  // Sem guarda-corpo no projeto a camada é vazia e a chave não muda (nem a prontidão do kernel entra).
+  const guardaKey = temGuarda ? `${versoes.global}|${versoes.porNivel.get(levelId) ?? 0}|${levelId}|${modo0(rp)}|${dark}|${lang}|${servicoGuardaCorpo().pronto()}|${s.areaPlan ? 'area' : ''}|${visGuarda}` : `vazio|${levelId}|${modo0(rp)}`;
   // Uma resolução por atualização, mesmo com as camadas de sobreposição sendo refeitas na mesma passagem.
   let resolvida: ResolvedLevel | null = null;
   const resolvido = (): ResolvedLevel => (rp ? (resolvida ??= s.resolve(levelId)) : resolucaoVazia(levelId));
@@ -101,7 +114,8 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
     theme,
     gpu: s.gpu,
     showGrid: s.showGrid,
-    geometryKey: `${s.version}|${levelId}|${modo}|${dark}|${lang}|${s.showUnderlay}|${s.underlayLevel ?? ''}|${s.showRoofProjection}|${s.sketch ? 'dim' : ''}|${geoSel.join(',')}|${s.tagGhost?.roomId ?? ''}|${areaKey}|${visKey}`,
+    geometryKey: `${versoes.resto}|${levelId}|${modo}|${dark}|${lang}|${s.showUnderlay}|${s.underlayLevel ?? ''}|${s.showRoofProjection}|${s.sketch ? 'dim' : ''}|${geoSel.join(',')}|${s.tagGhost?.roomId ?? ''}|${areaKey}|${visKey}`,
+    guardaKey,
     // Três chaves de sobreposição: a seleção, o alvo do cursor e a camada viva (prévia, guias e captura). Cursor e
     // pré-visualização não refazem os destaques da seleção, e o hover não refaz a geometria do nível.
     overlayKey: `${s.version}|${levelId}|${modo}|${dark}|${lang}|${s.selection.join(',')}|${areaKey}|${visKey}`,
@@ -114,8 +128,12 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
       const abaixo = planBelowOf(p, levelId, s.resolve, showUnderlay, s.underlayLevel);
       // Cobertura: os telhados de todos os níveis abaixo (`planBelowOf` só dá os do pavimento de referência).
       const telhados = rp ? { belowRoofs: telhadosDosNiveisAbaixo(p, levelId) } : {};
-      const g = buildPlanGeometry({ ...base, hideLabelRoomId: s.tagGhost?.roomId, resolved: resolvido(), ...abaixo, ...telhados, selection: geoSel, hover: null, preview: [], inference: null });
+      const g = buildPlanGeometry({ ...base, guardaCorpo: 'sem', hideLabelRoomId: s.tagGhost?.roomId, resolved: resolvido(), ...abaixo, ...telhados, selection: geoSel, hover: null, preview: [], inference: null });
       // Com o esboço de perímetro aberto, o resto do desenho fica em cinza bem claro e as linhas do esboço se destacam.
+      return s.sketch ? dimPlanOps(g, theme.bg) : g;
+    },
+    guarda: () => {
+      const g = buildPlanGuardaCorpo({ ...base, resolved: resolucaoVazia(levelId), below: null, selection: [], hover: null, preview: [], inference: null });
       return s.sketch ? dimPlanOps(g, theme.bg) : g;
     },
     overlay: () => buildPlanScreenOverlay({ ...base, resolved: resolvido(), below: null, selection: s.selection, hover: null, preview: [], inference: null }),
@@ -123,6 +141,9 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
     live: () => comEsboco(buildPlanLiveOverlay({ ...base, resolved: resolvido(), below: null, selection: s.selection, hover: null, preview: s.preview, inference: s.inference }), s.sketch, theme, v, unitsOf(p)),
   };
 }
+
+/** Modo da planta nas chaves (piso ou cobertura). */
+const modo0 = (rp: boolean): string => (rp ? 'cobertura' : 'piso');
 
 /** Telhados de todos os níveis abaixo do atual (planta de cobertura). Sem níveis abaixo, nenhum. */
 function telhadosDosNiveisAbaixo(p: Project, levelId: Id): ResolvedRoof[] {
@@ -158,6 +179,11 @@ export interface PlanFrameUpdate {
    */
   geometryKey: string;
   /**
+   * Chave da camada dos guarda-corpos (própria, para a geometria do nível não ser refeita quando só um guarda-corpo muda): os guarda-corpos do
+   * nível, as escadas e rampas hospedeiras, a vista, a visibilidade deles e a prontidão do kernel. Editar paredes não a muda.
+   */
+  guardaKey?: string;
+  /**
    * Chave da sobreposição de seleção: projeto, nível, tema e seleção. Pan, zoom, cursor, prévia e ferramenta ficam fora
    * dela. Hover tem chave própria (`hoverKey`) e a camada viva (cursor, prévia, captura) tem `liveKey`.
    */
@@ -167,6 +193,7 @@ export interface PlanFrameUpdate {
   /** Chave da camada viva: pré-visualização, inferência/captura e esboço (o cursor não refaz seleção nem hover). */
   liveKey?: string;
   geometry: () => PlanOps;
+  guarda?: () => PlanOps;
   overlay: () => PlanOps;
   hover?: () => PlanOps;
   live?: () => PlanOps;
@@ -211,6 +238,7 @@ export function sameLabels(a: readonly LabelOp[], b: readonly LabelOp[]): boolea
  */
 export class PlanFrame {
   private geomKey: string | null = null;
+  private guardKey: string | null = null;
   private ovKey: string | null = null;
   private hovKey: string | null = null;
   private livKey: string | null = null;
@@ -218,6 +246,7 @@ export class PlanFrame {
   private grid: GridLayer | null = null;
   private gridOn = false;
   private geom: PlanOps = EMPTY;
+  private guard: PlanOps = EMPTY;
   private ov: PlanOps = EMPTY;
   private hov: PlanOps = EMPTY;
   private liv: PlanOps = EMPTY;
@@ -233,7 +262,7 @@ export class PlanFrame {
   private zoom = Number.NaN;
   private zoomRotulos = Number.NaN;
   /** Camadas resolvidas para o zoom (modo CPU e conferência), guardadas por camada e zoom. */
-  private resolvidas: { geom: PlanOps; ov: PlanOps; hov: PlanOps; liv: PlanOps; zoom: number; geomRes: PlanOps; ovRes: PlanOps; hovRes: PlanOps; livRes: PlanOps } | null = null;
+  private resolvidas: { guard: PlanOps; geom: PlanOps; ov: PlanOps; hov: PlanOps; liv: PlanOps; zoom: number; guardRes: PlanOps; geomRes: PlanOps; ovRes: PlanOps; hovRes: PlanOps; livRes: PlanOps } | null = null;
 
   constructor(private readonly scene: PlanSceneSink) {}
 
@@ -245,6 +274,8 @@ export class PlanFrame {
   /** Esquece o que está na cena (por exemplo ao sair da vista de corte): o próximo quadro refaz tudo. */
   reset(): void {
     this.geomKey = null;
+    this.guardKey = null;
+    this.guard = EMPTY;
     this.ovKey = null;
     this.hovKey = null;
     this.livKey = null;
@@ -303,6 +334,13 @@ export class PlanFrame {
       contadores.contarRebuild('geometria');
       labelsChanged = true;
     }
+    // Guarda-corpos: camada e chave próprias. Só linhas (sem rótulos), então não mexem nos rótulos.
+    if (u.guardaKey !== undefined && u.guardaKey !== this.guardKey) {
+      this.guardKey = u.guardaKey;
+      this.guard = u.guarda?.() ?? EMPTY;
+      this.setSlot(sink, 'strokesGuarda', [], this.guard.strokes, v);
+      contadores.contarRebuild('guardaCorpo');
+    }
     // Seleção, hover e camada viva: três chaves e três pares de lotes. Rótulos iguais aos de antes mantêm a referência.
     if (u.overlayKey !== this.ovKey) {
       this.ovKey = u.overlayKey;
@@ -347,17 +385,17 @@ export class PlanFrame {
   drawList(theme: PlanTheme): PlanDrawList {
     // Faixas e marcadores saem do zoom do último quadro; o resultado fica guardado enquanto as camadas e o zoom não mudam.
     let r = this.resolvidas;
-    if (!r || r.geom !== this.geom || r.ov !== this.ov || r.hov !== this.hov || r.liv !== this.liv || r.zoom !== this.zoom) {
+    if (!r || r.guard !== this.guard || r.geom !== this.geom || r.ov !== this.ov || r.hov !== this.hov || r.liv !== this.liv || r.zoom !== this.zoom) {
       r = {
-        geom: this.geom, ov: this.ov, hov: this.hov, liv: this.liv, zoom: this.zoom,
-        geomRes: resolverZoom(this.geom, this.zoom), ovRes: resolverZoom(this.ov, this.zoom), hovRes: resolverZoom(this.hov, this.zoom), livRes: resolverZoom(this.liv, this.zoom),
+        guard: this.guard, geom: this.geom, ov: this.ov, hov: this.hov, liv: this.liv, zoom: this.zoom,
+        guardRes: resolverZoom(this.guard, this.zoom), geomRes: resolverZoom(this.geom, this.zoom), ovRes: resolverZoom(this.ov, this.zoom), hovRes: resolverZoom(this.hov, this.zoom), livRes: resolverZoom(this.liv, this.zoom),
       };
       this.resolvidas = r;
     }
     return {
       background: theme.bg,
       fills: [...r.geomRes.fills, ...r.ovRes.fills, ...r.hovRes.fills, ...r.livRes.fills],
-      strokes: [...(this.gridOn && this.grid ? this.grid.strokes : []), ...r.geomRes.strokes, ...r.ovRes.strokes, ...r.hovRes.strokes, ...r.livRes.strokes],
+      strokes: [...(this.gridOn && this.grid ? this.grid.strokes : []), ...r.guardRes.strokes, ...r.geomRes.strokes, ...r.ovRes.strokes, ...r.hovRes.strokes, ...r.livRes.strokes],
       labels: this.labelsValue,
     };
   }

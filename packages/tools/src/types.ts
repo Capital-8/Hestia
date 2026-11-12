@@ -233,6 +233,8 @@ export interface ToolOptions {
   regionMask?: boolean;
   regionColor?: string;
   detailLineStyle?: 'solid' | 'dashed' | 'dotted';
+  /** Guarda-corpo: tipo usado pela ferramenta ao criar. Ausente = o padrão do projeto. */
+  railingTypeId?: Id;
   orthoLock: boolean;
   /** Grupo Orto/Polar; ausente usa `orthoLock` para compatibilidade. */
   angleMode?: AngleMode;

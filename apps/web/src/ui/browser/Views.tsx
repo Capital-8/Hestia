@@ -260,6 +260,7 @@ export function SchedulesTree(): ReactElement {
     { label: t('cvn_br_sched_rooms'), dialog: 'roomSchedule', n: count('room') },
     { label: t('cvn_br_sched_stairs'), dialog: 'stairSchedule', n: count('stair') },
     { label: t('cvn_br_sched_ramps'), dialog: 'rampSchedule', n: count('ramp') },
+    { label: lang === 'en' ? 'Railings' : 'Guarda-corpos', dialog: 'guardaCorpoSchedule', n: count('railing') },
     { label: t('cvn_br_sched_ceilings'), dialog: 'ceilingSchedule', n: count('ceiling') },
     { label: t('cvn_br_sched_slabs'), dialog: 'slabSchedule', n: count('slab') },
     { label: t('cvn_br_sched_walls'), dialog: 'schedule', n: count('wall') },

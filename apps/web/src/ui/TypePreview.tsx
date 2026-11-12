@@ -15,6 +15,7 @@ import {
   type RoofType,
   type SlabType,
   type StairType,
+  type TipoGuardaCorpo,
   type WallType,
 } from '@hestia/model';
 import { FloorSectionPreview } from './dialogs/FloorSectionPreview.tsx';
@@ -37,6 +38,8 @@ export type PreviewSubject =
   | { kind: 'stair'; type: StairType }
   | { kind: 'ramp'; type: RampType }
   | { kind: 'door' | 'window'; type: OpeningType }
+  /** Tipo de guarda-corpo: a miniatura desenha a elevação do tipo (altura, trilhos, corrimãos e preenchimento). */
+  | { kind: 'railing'; type: TipoGuardaCorpo }
   /** Família de cota: a miniatura desenha a cota com o estilo da família (sem tipo nem código). */
   | { kind: 'dimension'; style: DimensionStyle };
 
@@ -67,6 +70,7 @@ function dimsOf(s: PreviewSubject, units: ResolvedUnits): string | null {
       return formatQuantity(units, 'smallLength', roofTypeThickness(s.type));
     case 'stair':
     case 'ramp':
+    case 'railing':
     case 'dimension':
       return null;
   }
@@ -91,6 +95,8 @@ function Drawing({ subject }: { subject: PreviewSubject }): ReactElement {
       return <StairSectionPreview type={subject.type} />;
     case 'ramp':
       return <RampSectionPreview type={subject.type} />;
+    case 'railing':
+      return <RailingThumb type={subject.type} />;
     case 'dimension':
       return <DimensionStylePreview style={subject.style} />;
     case 'door':
@@ -120,6 +126,44 @@ export function TypeThumb({ subject }: { subject: PreviewSubject }): ReactElemen
     <span className="rv-thumb" aria-hidden="true">
       <Drawing subject={subject} />
     </span>
+  );
+}
+
+/** Elevação esquemática do guarda-corpo para a miniatura: um vão com postes, trilhos, corrimãos e preenchimento. */
+function RailingThumb({ type }: { type: TipoGuardaCorpo }): ReactElement {
+  const W = 120;
+  const H = 80;
+  const BASE = 74;
+  const X0 = 8;
+  const X1 = 112;
+  const s = (BASE - 6) / Math.max(type.altura, 0.3);
+  const sx = (X1 - X0) / 2.4;
+  const y = (h: number): number => BASE - h * s;
+  const painel = type.preenchimentos.some((p) => p.tipo === 'painel');
+  const balaustre = type.preenchimentos.find((p) => p.tipo === 'balaustres');
+  const passo = balaustre && balaustre.tipo === 'balaustres' ? Math.max(3, balaustre.periodo * sx) : 0;
+  const balaustres: ReactElement[] = [];
+  if (balaustre && balaustre.tipo === 'balaustres') {
+    for (let x = X0 + passo, n = 0; x < X1 && n < 80; x += passo, n++) {
+      balaustres.push(<line key={`b-${n}`} x1={x} y1={BASE} x2={x} y2={y(type.altura)} strokeWidth={1} />);
+    }
+  }
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
+      <g stroke="currentColor" fill="none">
+        <line x1={0} y1={BASE} x2={W} y2={BASE} strokeOpacity={0.5} />
+        {painel ? <rect x={X0} y={y(type.altura)} width={X1 - X0} height={BASE - y(type.altura)} fill="currentColor" fillOpacity={0.12} strokeOpacity={0.4} /> : null}
+        {balaustres}
+        {type.trilhos.map((tr, i) => (
+          <line key={`t-${i}`} x1={X0} y1={y(tr.altura)} x2={X1} y2={y(tr.altura)} strokeWidth={1.5} strokeDasharray="3 2" />
+        ))}
+        {type.corrimaos.map((c, i) => (
+          <line key={`c-${i}`} x1={X0} y1={y(c.altura)} x2={X1} y2={y(c.altura)} strokeWidth={2.5} strokeLinecap="round" />
+        ))}
+        <line x1={X0} y1={BASE} x2={X0} y2={y(type.altura)} strokeWidth={2.5} />
+        <line x1={X1} y1={BASE} x2={X1} y2={y(type.altura)} strokeWidth={2.5} />
+      </g>
+    </svg>
   );
 }
 

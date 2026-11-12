@@ -14,13 +14,30 @@ import {
   type Dimension,
   type DimensionElementRef,
   type DimensionRef,
+  type SectionDimRef,
 } from '@hestia/model';
+import { contextoDeTraco, lerComprimentoDigitado, pontoPorComprimento } from './desenhoPolilinha.ts';
+import { segmentLengthDim } from './dims/providers/wall.ts';
+import { sectionDimRefAt } from './sectionDimRefs.ts';
+import { sectionSnapIndexDoProjeto } from './sectionSnapComGuardaCorpo.ts';
+import type { DimRef, TempDim } from './dims/types.ts';
 import { addSectionDimension, ToolBase, viewPlanId } from './base.ts';
 import { signedOffset, viewAnnotationsOf } from './annotationPick.ts';
 import { lengthUnitName, parseQuantityText } from './numeric.ts';
 import type { PointerInfo, PreviewItem, ToolOptions } from './types.ts';
 
-type AnyRef = DimensionRef | DimensionElementRef;
+type AnyRef = DimensionRef | DimensionElementRef | SectionDimRef;
+
+const isSectionRef = (r: AnyRef): r is SectionDimRef => 'hostId' in r;
+
+/** Separa as pontas: as da planta vão em `refs`, as de ponto de elemento da vista de corte em `secRefs`. */
+function refsOf(a: AnyRef | undefined, b: AnyRef | undefined): Pick<Dimension, 'refs' | 'secRefs'> {
+  const refs: NonNullable<Dimension['refs']> = {};
+  const secRefs: NonNullable<Dimension['secRefs']> = {};
+  if (a) { if (isSectionRef(a)) secRefs.a = a; else refs.a = a; }
+  if (b) { if (isSectionRef(b)) secRefs.b = b; else refs.b = b; }
+  return { ...(Object.keys(refs).length ? { refs } : {}), ...(Object.keys(secRefs).length ? { secRefs } : {}) };
+}
 /** Tolerância (m) entre o ponto capturado e a feição do elemento. */
 const REF_TOL = 0.005;
 /** Afastamento (mm de papel) em que a cota nova "encosta" numa linha de cota existente: cadeias alinhadas como no Revit. */
@@ -75,11 +92,19 @@ export class DimensionTool extends ToolBase {
   private mPerMm(): number { return this.scale() / 1000; }
 
   /**
-   * Ref associativa da feição que coincide com o ponto capturado (planta). No corte/elevação não há refs: o par gravado é
-   * `(t,z)` e as referências de parede da planta não valem (uma coincidência numérica gravaria uma ref falsa).
+   * Ref associativa da feição que coincide com o ponto capturado. Na planta é a feição da parede/laje/escada; no corte/elevação é o
+   * ponto de captura do elemento NA VISTA (`SectionDimRef`): as referências de planta não valem aqui (uma coincidência numérica
+   * gravaria uma ref falsa), então o par `(t,z)` só se liga a um elemento quando o ponto é de fato um ponto dele no índice da vista.
    */
   private refAt(point: Vec2): AnyRef | undefined {
-    if (this.env.section?.()) return undefined;
+    const sec = this.env.section?.();
+    if (sec) {
+      try {
+        return sectionDimRefAt(sectionSnapIndexDoProjeto(sec.result(), this.env.project()), point);
+      } catch {
+        return undefined;
+      }
+    }
     return dimRefAt(this.env.project(), this.env.levelId(), point, REF_TOL)?.ref;
   }
 
@@ -156,7 +181,8 @@ export class DimensionTool extends ToolBase {
   }
 
   override inputPrompt(): string | null {
-    return (this.a && this.b) || this.offsetStage ? this.t('tl_inp_offset') : null;
+    if ((this.a && this.b) || this.offsetStage) return this.t('tl_inp_offset');
+    return this.pontoDeTraco() ? this.t('tl_inp_length') : null;
   }
 
   override confirm(): void {
@@ -178,7 +204,7 @@ export class DimensionTool extends ToolBase {
 
   override move(p: PointerInfo): void {
     this.raw = p.raw;
-    const inf = this.snap(p, { from: this.anchor() });
+    const inf = this.snap(p, contextoDeTraco(this.anchor()));
     if (this.chain.length && !this.a) {
       this.items = this.offsetStage ? this.chainPreview(this.snapOffset(this.side(p.raw) * roundMm(this.distanceToLine(p.raw)))) : [{ kind: 'point', at: this.chain[0]! }, { kind: 'line', a: this.chain[this.chain.length - 1]!, b: inf.point, dashed: true }];
       return;
@@ -188,10 +214,15 @@ export class DimensionTool extends ToolBase {
   }
 
   override click(p: PointerInfo): void {
-    const inf = this.snap(p, { from: this.anchor() });
-    const point = inf.point;
+    const inf = this.snap(p, contextoDeTraco(this.anchor()));
+    if (this.offsetStage) { this.commitChain(this.snapOffset(this.side(p.raw) * roundMm(this.distanceToLine(p.raw)))); return; }
+    if (this.a && this.b) { this.commit(this.snapOffset(this.side(p.raw) * roundMm(this.distanceToLine(p.raw)))); return; }
+    this.acceptPoint(inf.point);
+  }
+
+  /** Aceita um ponto de referência (clique ou comprimento digitado): 1º/2º ponto da cota ou ponto da sequência. */
+  private acceptPoint(point: Vec2): void {
     if ((this.env.options().dimensionString ?? 'single') !== 'single') {
-      if (this.offsetStage) { this.commitChain(this.snapOffset(this.side(p.raw) * roundMm(this.distanceToLine(p.raw)))); return; }
       if (!this.chain.length) {
         this.chain = [point];
         this.chainRefs = [this.refAt(point)];
@@ -221,9 +252,19 @@ export class DimensionTool extends ToolBase {
       this.b = point;
       this.refB = this.refAt(point);
       this.env.say(this.t('tl_msg_click_dim_side'));
-      return;
     }
-    this.commit(this.snapOffset(this.side(p.raw) * roundMm(this.distanceToLine(p.raw))));
+  }
+
+  /** Cota dinâmica do trecho em traçado (mesmo provedor da parede): último ponto de referência até o cursor. */
+  tempDims(_overrides: Readonly<Record<string, DimRef>> = {}): TempDim[] {
+    const from = this.pontoDeTraco();
+    const to = this.inf?.point;
+    return from && to && !this.offsetStage && !(this.a && this.b) && dist(from, to) > 1e-6 ? [segmentLengthDim(from, to)] : [];
+  }
+
+  /** Último ponto de referência já confirmado (origem do próximo trecho), ou null. */
+  private pontoDeTraco(): Vec2 | null {
+    return this.chain.length && !this.a ? this.chain[this.chain.length - 1]! : this.a;
   }
 
   override type(text: string): boolean {
@@ -233,7 +274,16 @@ export class DimensionTool extends ToolBase {
       this.commitChain(this.side(this.raw) * value);
       return true;
     }
-    if (!this.a || !this.b) return false;
+    if (!this.b) {
+      // Comprimento digitado: o próximo ponto sai a essa distância do último, na direção do cursor (com Orto/Polar).
+      const from = this.pontoDeTraco();
+      if (!from) return false;
+      const len = lerComprimentoDigitado(this.env, text);
+      if (len === null) return false;
+      this.acceptPoint(pontoPorComprimento(from, this.inf?.point ?? this.raw, len));
+      return true;
+    }
+    if (!this.a) return false;
     const v = parseQuantityText(text, unitsOf(this.env.project()), 'length');
     if (v === null || v === 0) {
       this.env.say(this.t('tl_msg_type_displacement_unit', { unit: lengthUnitName(unitsOf(this.env.project()), this.uiLang()) }));
@@ -339,8 +389,7 @@ export class DimensionTool extends ToolBase {
     if (!pairs.length) { this.env.say(this.t('tl_msg_chain_no_segments')); return; }
     this.env.transaction(this.t('tl_undo_create_dim_chain'), () => {
       for (const d of pairs) {
-        const refs = { ...(d.ra ? { a: d.ra } : {}), ...(d.rb ? { b: d.rb } : {}) };
-        const dimension: Dimension = { id: newId('dim'), a: d.a, b: d.b, offset: d.offset, mode: d.mode, ...styleOverrides(opts), ...(opts.dimensionPrefix ? { prefix: opts.dimensionPrefix } : {}), ...(opts.dimensionSuffix ? { suffix: opts.dimensionSuffix } : {}), ...(Object.keys(refs).length ? { refs } : {}), ...this.familyPatch() };
+        const dimension: Dimension = { id: newId('dim'), a: d.a, b: d.b, offset: d.offset, mode: d.mode, ...styleOverrides(opts), ...(opts.dimensionPrefix ? { prefix: opts.dimensionPrefix } : {}), ...(opts.dimensionSuffix ? { suffix: opts.dimensionSuffix } : {}), ...refsOf(d.ra, d.rb), ...this.familyPatch() };
         if (!addSectionDimension(this.env, dimension)) this.env.exec({ type: 'addDimension', levelId: this.env.levelId(), planId: viewPlanId(this.env), dimension });
       }
     });
@@ -362,9 +411,8 @@ export class DimensionTool extends ToolBase {
       this.env.say(this.t('tl_msg_dim_offset_zero'));
       return;
     }
-    const refs = { ...(this.refA ? { a: this.refA } : {}), ...(this.refB ? { b: this.refB } : {}) };
     const o = this.env.options();
-    const dimension: Dimension = { id: newId('dim'), a, b, offset, mode: this.modeFor(a, b), ...styleOverrides(o), ...(o.dimensionPrefix ? { prefix: o.dimensionPrefix } : {}), ...(o.dimensionSuffix ? { suffix: o.dimensionSuffix } : {}), ...(Object.keys(refs).length ? { refs } : {}), ...this.familyPatch() };
+    const dimension: Dimension = { id: newId('dim'), a, b, offset, mode: this.modeFor(a, b), ...styleOverrides(o), ...(o.dimensionPrefix ? { prefix: o.dimensionPrefix } : {}), ...(o.dimensionSuffix ? { suffix: o.dimensionSuffix } : {}), ...refsOf(this.refA, this.refB), ...this.familyPatch() };
     if (!addSectionDimension(this.env, dimension)) this.env.exec({ type: 'addDimension', levelId: this.env.levelId(), planId: viewPlanId(this.env), dimension });
     this.env.setOptions?.({ dimensionOffset: offset });
     this.reset();

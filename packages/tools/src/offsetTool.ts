@@ -2,6 +2,8 @@ import { cross, mul, offsetArc, sub, type Vec2 } from '@hestia/geom';
 import { frameOfWall, normalAt, toLocal } from '@hestia/engine';
 import { formatQuantity, isRamp, isStair, isWall, unitsOf, type Id, type ResolvedUnits, type StairCurve } from '@hestia/model';
 import { ToolBase } from './base.ts';
+import { avisaGuardaCorpoHospedado, deslocarCaminho, deslocarGuardaCorpo, ladoDoCursor, manualDe } from './guardaCorpoEdicao.ts';
+import { pickRailingAt } from './railingPick.ts';
 import { copyWalls, ghostBands, moveWalls } from './edit.ts';
 import { commitRingEdit, edgeAtCursor, ringOfRef } from './ringTarget.ts';
 import { COMPONENT_EDGE_MSG, componentUnderCursor } from './componentTarget.ts';
@@ -76,9 +78,31 @@ export class OffsetTool extends ToolBase {
     return { id: best.id, d: mul(best.n, sign * dist0), arc };
   }
 
+  /** Guarda-corpo sob o cursor: manual (com o deslocamento assinado) ou hospedado (só aviso). */
+  private railing(at: Vec2): { id: Id; manual: boolean; signed: number } | null {
+    const pr = this.env.project();
+    const id = pickRailingAt(pr, this.env.levelId(), at, this.env.metersPerPixel());
+    if (!id) return null;
+    const g = manualDe(pr, id);
+    if (!g) return { id, manual: false, signed: 0 };
+    const lado = ladoDoCursor(g.hospedeiro.caminho, g.hospedeiro.fechado, at);
+    return { id, manual: true, signed: lado * this.env.options().offsetDistance };
+  }
+
   override move(p: PointerInfo): void {
     this.items = [];
     this.raw = p.raw;
+    const rail = this.railing(p.raw);
+    if (rail) {
+      this.items.push({ kind: 'highlight', ids: [rail.id] });
+      const g = rail.manual ? manualDe(this.env.project(), rail.id) : null;
+      if (g) {
+        const pts = deslocarCaminho(g.hospedeiro.caminho, rail.signed, g.hospedeiro.fechado);
+        const n = g.hospedeiro.fechado ? pts.length : pts.length - 1;
+        for (let i = 0; i < n; i++) this.items.push({ kind: 'line', a: pts[i]!, b: pts[(i + 1) % pts.length]!, dashed: true });
+      }
+      return;
+    }
     const compEdge = componentEdgeAt(this.env, p.raw);
     if (compEdge) {
       this.items.push({ kind: 'highlight', ids: [compEdge.ref.elementId] });
@@ -116,6 +140,12 @@ export class OffsetTool extends ToolBase {
   }
 
   override click(p: PointerInfo): void {
+    const rail = this.railing(p.raw);
+    if (rail) {
+      if (!rail.manual) avisaGuardaCorpoHospedado(this.env);
+      else deslocarGuardaCorpo(this.env, rail.id, rail.signed, this.env.options().offsetCopy);
+      return;
+    }
     const compEdge = componentEdgeAt(this.env, p.raw);
     if (compEdge) {
       if (this.env.options().offsetCopy) {

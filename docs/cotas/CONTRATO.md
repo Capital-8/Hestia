@@ -44,3 +44,18 @@ Testes: cada frente roda só seus arquivos; a suíte completa é do orquestrador
 - **Cotas automáticas:** a geração só adiciona cotas (`addDimension`); não apaga nem sobrescreve as existentes.
 - **Fora do escopo:** corte e elevação (sem alça de referência nem edição de valor), cota angular editando valor, e a trava não impede mover o elemento pela ferramenta Mover (só bloqueia a edição de valor).
 - **Testes:** `packages/tools/src/dims` (392 testes) e `tests/e2e/cotas-permanentes.mjs` (7 passos no navegador). Suíte completa: 822 arquivos de teste passando.
+
+## Cota ligada a escada, rampa e guarda-corpo: dois mecanismos, duas vistas (integração)
+
+Duas frentes entregaram a mesma ideia ("a cota acompanha o elemento") para vistas diferentes. Os dois mecanismos coexistem e **não se misturam**:
+
+| | Planta (`part`) | Corte e elevação (`secRefs`) |
+| --- | --- | --- |
+| Onde grava | `Dimension.refs.{a,b}`: `DimensionElementRef` com `feature: 'part'` e `key` | `Dimension.secRefs.{a,b}`: `SectionDimRef` (`hostId`, `kind`, `ord`) |
+| O que identifica | chave estável do ponto de apoio (`d0.t3.v1`), nomeada pelo motor | tipo e ordem do ponto de captura do elemento na vista |
+| Resolvedor | `definirProvedorDeApoio` (`dimensionRefs.ts`, o motor se registra) e `resolveDimRef` | `setSectionDimensionResolver` (`sectionAnnotations.ts`, o app liga) e `sectionDimRefs.ts` |
+| Quem lê | só a planta; a vista em corte ignora `refs` | só `sectionAnnotationsOf`; a planta ignora `secRefs` |
+
+- Mudança no modelo **aditiva**: `'part'` é mais um membro de `DimFeature`, `key?` e `secRefs?` são campos opcionais. As feições antigas (`wall-*`, `opening-*`, `vertex`, `edge`) e `DimensionRef` ficam intactas. `SCHEMA_VERSION` não muda e projeto antigo abre e salva idêntico.
+- Teste da convivência (abrir e salvar com `part` na planta e `secRefs` no corte, no mesmo projeto): `packages/model/src/dimensionPartSecRefs.test.ts`; `sectionDimSecRefs.test.ts` e `dimensionRefs.test.ts` cobrem cada lado.
+- Captura (snap): a planta usa `SnapIndexado` (`ctx.indexed`, conjuntos do nível indexados uma vez, com `hiddenIds`); o corte usa `snapAccel.ts` (grade espacial por identidade do array de `extraPoints`, `extraSegments` e `extraTracks`). Não foram fundidos porque o primeiro recebe um índice explícito e filtrado por elementos ocultos, e o segundo é um cache transparente sobre listas já montadas; juntar os dois exigiria reescrever a consulta das duas vistas ao mesmo tempo, sem ganho. Cada uma atende listas diferentes dentro de `infer` e o resultado de cada vista continua o da varredura completa (testes de cada frente).

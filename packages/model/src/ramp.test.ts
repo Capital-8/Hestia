@@ -141,7 +141,7 @@ describe('migração para a rampa', () => {
     raw.schemaVersion = 20;
     delete raw.rampTypes;
     const p: Project = migrateProject(raw);
-    expect(p.schemaVersion).toBe(23);
+    expect(p.schemaVersion).toBe(24);
     expect(Object.keys(p.rampTypes).sort()).toEqual(['rmt_ada', 'rmt_nbr9050']);
     expect(ramps(p)).toHaveLength(0);
   });

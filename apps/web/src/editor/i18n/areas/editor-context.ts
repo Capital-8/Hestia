@@ -281,6 +281,8 @@ export const PT_EDITOR_CONTEXT = {
   edc_count_generic_one: '{n} objeto importado',
   edc_count_generic_many: '{n} objetos importados',
   edc_count_cad_one: '{n} desenho CAD',
+  edc_count_railing_one: '{n} guarda-corpo',
+  edc_count_railing_many: '{n} guarda-corpos',
   edc_count_cad_many: '{n} desenhos CAD',
   edc_list_and: '{list} e {last}',
 
@@ -631,6 +633,8 @@ export const EN_EDITOR_CONTEXT: Record<keyof typeof PT_EDITOR_CONTEXT, string> =
   edc_count_generic_one: '{n} imported object',
   edc_count_generic_many: '{n} imported objects',
   edc_count_cad_one: '{n} CAD drawing',
+  edc_count_railing_one: '{n} railing',
+  edc_count_railing_many: '{n} railings',
   edc_count_cad_many: '{n} CAD drawings',
   edc_list_and: '{list} and {last}',
 
@@ -973,6 +977,8 @@ export const ES_EDITOR_CONTEXT: Record<keyof typeof PT_EDITOR_CONTEXT, string> =
   edc_count_generic_one: '{n} objeto importado',
   edc_count_generic_many: '{n} objetos importados',
   edc_count_cad_one: '{n} dibujo CAD',
+  edc_count_railing_one: '{n} barandilla',
+  edc_count_railing_many: '{n} barandillas',
   edc_count_cad_many: '{n} dibujos CAD',
   edc_list_and: '{list} y {last}',
 
@@ -1314,6 +1320,8 @@ export const DE_EDITOR_CONTEXT: Record<keyof typeof PT_EDITOR_CONTEXT, string> =
   edc_count_generic_one: '{n} importiertes Objekt',
   edc_count_generic_many: '{n} importierte Objekte',
   edc_count_cad_one: '{n} CAD-Zeichnung',
+  edc_count_railing_one: '{n} Geländer',
+  edc_count_railing_many: '{n} Geländer',
   edc_count_cad_many: '{n} CAD-Zeichnungen',
   edc_list_and: '{list} und {last}',
 
@@ -1655,6 +1663,8 @@ export const FR_EDITOR_CONTEXT: Record<keyof typeof PT_EDITOR_CONTEXT, string> =
   edc_count_generic_one: '{n} objet importé',
   edc_count_generic_many: '{n} objets importés',
   edc_count_cad_one: '{n} dessin CAD',
+  edc_count_railing_one: '{n} garde-corps',
+  edc_count_railing_many: '{n} garde-corps',
   edc_count_cad_many: '{n} dessins CAD',
   edc_list_and: '{list} et {last}',
 
@@ -1996,6 +2006,8 @@ export const IT_EDITOR_CONTEXT: Record<keyof typeof PT_EDITOR_CONTEXT, string> =
   edc_count_generic_one: '{n} oggetto importato',
   edc_count_generic_many: '{n} oggetti importati',
   edc_count_cad_one: '{n} disegno CAD',
+  edc_count_railing_one: '{n} parapetto',
+  edc_count_railing_many: '{n} parapetti',
   edc_count_cad_many: '{n} disegni CAD',
   edc_list_and: '{list} e {last}',
 
@@ -2337,6 +2349,8 @@ export const PL_EDITOR_CONTEXT: Record<keyof typeof PT_EDITOR_CONTEXT, string> =
   edc_count_generic_one: '{n} obiekt importowany',
   edc_count_generic_many: '{n} obiekty importowane',
   edc_count_cad_one: '{n} rysunek CAD',
+  edc_count_railing_one: '{n} balustrada',
+  edc_count_railing_many: '{n} balustrady',
   edc_count_cad_many: '{n} rysunki CAD',
   edc_list_and: '{list} i {last}',
 

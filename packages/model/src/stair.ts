@@ -1,5 +1,5 @@
 import { t, type Lang } from './i18n.ts';
-import { DEFAULT_STAIR_CALC_RULE, type StairCalcRule } from './stairTypes.ts';
+import { DEFAULT_STAIR_CALC_RULE, DEFAULT_STAIR_FINISH, type StairCalcRule } from './stairTypes.ts';
 import type { Id, Stair, StairRunStyle, StairType } from './types.ts';
 
 /** Estilos de lance aceitos (decisão 0014 §8). */
@@ -48,6 +48,7 @@ const COMMON = {
   cost: 0,
   treadOverlap: DEFAULT_STAIR_TREAD_OVERLAP,
   postMaterialId: DEFAULT_STAIR_POST_MATERIAL_ID,
+  ...DEFAULT_STAIR_FINISH,
 } as const;
 
 /**

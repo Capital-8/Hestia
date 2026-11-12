@@ -1,3 +1,4 @@
+import { contextoDeTraco } from './desenhoPolilinha.ts';
 import { dist, mid, type Vec2 } from '@hestia/geom';
 import { formatQuantity, unitsOf, type ResolvedUnits, type SectionView } from '@hestia/model';
 import { endRefAt } from './annotationPick.ts';
@@ -45,7 +46,7 @@ export class SectionTool extends ToolBase {
   }
 
   override move(p: PointerInfo): void {
-    const inf = this.snap(p, { from: this.first ?? undefined });
+    const inf = this.snap(p, contextoDeTraco(this.first));
     this.items = [];
     if (!this.first) {
       this.items.push({ kind: 'point', at: inf.point });
@@ -62,7 +63,7 @@ export class SectionTool extends ToolBase {
   }
 
   override click(p: PointerInfo): void {
-    const inf = this.snap(p, { from: this.first ?? undefined });
+    const inf = this.snap(p, contextoDeTraco(this.first));
     if (!this.first) {
       this.first = inf.point;
       this.env.say('Clique no fim da linha de corte. Esc cancela.');

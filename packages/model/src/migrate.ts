@@ -6,6 +6,7 @@ import { DEFAULT_ROOF_TYPES } from './roof.ts';
 import { DEFAULT_STAIR_OPENING_MARGIN, DEFAULT_STAIR_POST_MATERIAL_ID, DEFAULT_STAIR_TREAD_OVERLAP, DEFAULT_STAIR_TYPES } from './stair.ts';
 import { DEFAULT_AREA_SCALE, mergeAreaGraphics } from './viewProfile.ts';
 import { DEFAULT_RAMP_TYPES } from './ramp.ts';
+import { tiposGuardaCorpo } from './guardaCorpo.ts';
 import { DEFAULT_STAIR_CALC_RULE } from './stairTypes.ts';
 import { SCHEMA_VERSION, type PlanSymbol, type Project } from './types.ts';
 import { DEFAULT_VIEW_RANGE } from './viewRange.ts';
@@ -261,6 +262,12 @@ const migrations: Record<number, Migration> = {
   // v22 → v23: vínculo de andar-tipo (copyLink). Arquivo antigo não tem `copyLinks`, o que significa nenhum vínculo:
   // nada a converter, a migração só avança a versão e preserva o restante do arquivo.
   22: (raw) => ({ ...raw }),
+  // v23 → v24: guarda-corpo e corrimão (decisão 0055). Projetos antigos ganham os tipos padrão (sem sobrescrever os do
+  // arquivo) e nenhum guarda-corpo. `perfisNorma` e `settings.normaGuardaCorpoId` são opcionais: sem migração.
+  23: (raw) => ({
+    ...raw,
+    tiposGuardaCorpo: { ...Object.fromEntries(tiposGuardaCorpo('pt').map((x) => [x.id, x])), ...((raw.tiposGuardaCorpo as object) ?? {}) },
+  }),
 };
 
 export class SchemaError extends Error {}

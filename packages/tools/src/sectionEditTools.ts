@@ -1,9 +1,10 @@
 /* eslint-disable max-lines -- o Alinhar do corte concentra pick, features, guias e patches; dividir depois. */
 import { closestOnSegment, dist, dot, norm, pointInMulti, sub, type MultiPolygon, type Vec2 } from '@hestia/geom';
 import { frameOfWall, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
-import { formatQuantity, isOpening, isWall, levelElevation, openingHeight, openingSill, openingType, unitsOf, wallBaseElevation, wallLength, wallTopElevation, type Command, type Id, type Opening, type Project } from '@hestia/model';
+import { formatQuantity, hospedeiroDoGuardaCorpo, isGuardaCorpo, isOpening, isWall, levelElevation, openingHeight, openingSill, openingType, unitsOf, wallBaseElevation, wallLength, wallTopElevation, type Command, type Id, type Opening, type Project } from '@hestia/model';
 import { alignFeatureItems } from './alignTool.ts';
 import { ToolBase } from './base.ts';
+import { avisaGuardaCorpoHospedado, guardaCorposBloqueados } from './guardaCorpoEdicao.ts';
 import type { Guide, Inference, PointerInfo, PreviewItem, SectionToolContext, SnapKind, ToolEnv } from './types.ts';
 import { t as translate, type DictKey, type Lang } from './i18n.ts';
 
@@ -104,6 +105,16 @@ export class SectionMoveTool extends ToolBase {
     if (wallIds.length && Math.abs(dt) > 1e-6) {
       commands.push({ type: 'transform', ids: wallIds, transform: { kind: 'translate', d: { x: u.x * dt, y: u.y * dt } } });
     }
+    // Guarda-corpo manual: anda ao longo do corte (planta) e sobe ou desce pela cota base. O hospedado segue a escada ou rampa.
+    const railings = selection.filter((id) => { const e = p0.elements[id]; return isGuardaCorpo(e) && hospedeiroDoGuardaCorpo(e) === null; });
+    const hospedados = guardaCorposBloqueados(p0, selection);
+    if (railings.length && Math.abs(dt) > 1e-6) commands.push({ type: 'transform', ids: railings, transform: { kind: 'translate', d: { x: u.x * dt, y: u.y * dt } } });
+    if (Math.abs(dz) > 1e-6) {
+      for (const id of railings) {
+        const g = p0.elements[id];
+        if (isGuardaCorpo(g)) commands.push({ type: 'updateGuardaCorpo', id, patch: { cotaBase: g.cotaBase + dz } });
+      }
+    }
     for (const o of openings) {
       const f = frameOfWall(p0, o.hostId);
       if (!f) continue;
@@ -113,6 +124,7 @@ export class SectionMoveTool extends ToolBase {
       if (Object.keys(patch).length) commands.push({ type: 'updateElements', ids: [o.id], patch });
     }
     commands.push(...notes);
+    if (!commands.length && hospedados.length) { avisaGuardaCorpoHospedado(this.env); return; }
     if (!commands.length) {
       this.env.say(wallIds.length ? this.t('tl_msg_section_move_vertical') : 'Selecione uma parede, abertura ou anotação para mover.');
       return;

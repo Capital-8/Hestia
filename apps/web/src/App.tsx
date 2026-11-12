@@ -57,7 +57,10 @@ import { WallTypeDialog } from './ui/dialogs/WallTypeDialog.tsx';
 import { StairTypeDialog } from './ui/dialogs/StairTypeDialog.tsx';
 import { StairScheduleDialog } from './ui/dialogs/StairScheduleDialog.tsx';
 import { RampTypeDialog } from './ui/dialogs/RampTypeDialog.tsx';
+import { GuardaCorpoTypeDialog } from './ui/dialogs/guardaCorpoType/index.tsx';
+import { NormaGuardaCorpoDialog } from './ui/dialogs/normaGuardaCorpo/index.tsx';
 import { RampScheduleDialog } from './ui/dialogs/RampScheduleDialog.tsx';
+import { GuardaCorpoScheduleDialog } from './ui/dialogs/GuardaCorpoScheduleDialog.tsx';
 import { OpeningScheduleDialog } from './ui/dialogs/OpeningScheduleDialog.tsx';
 import { GraphicsVisibilityDialog } from './ui/dialogs/GraphicsVisibilityDialog.tsx';
 import { LineWeightsDialog } from './ui/dialogs/LineWeightsDialog.tsx';
@@ -138,8 +141,14 @@ function Dialogs(): ReactElement | null {
       return <StairScheduleDialog />;
     case 'rampType':
       return arg ? <RampTypeDialog typeId={arg} /> : null;
+    case 'guardaCorpoType':
+      return arg ? <GuardaCorpoTypeDialog typeId={arg} /> : null;
+    case 'normaGuardaCorpo':
+      return <NormaGuardaCorpoDialog />;
     case 'rampSchedule':
       return <RampScheduleDialog />;
+    case 'guardaCorpoSchedule':
+      return <GuardaCorpoScheduleDialog />;
     case 'openingSchedule':
       return <OpeningScheduleDialog />;
     case 'openingType':

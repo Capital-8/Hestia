@@ -1,7 +1,8 @@
-import { add, asMulti, dist, dot, intersection, mid, mul, perp, ringArea, sub, type Ring, type Vec2 } from '@hestia/geom';
-import type { StairType } from '@hestia/model';
+import { add, asMulti, difference, dist, dot, intersection, mid, mul, perp, ringArea, sub, type Ring, type Vec2 } from '@hestia/geom';
+import { stairFinishOf, type StairType } from '@hestia/model';
 import type { ResolvedStair, ResolvedStairRiser, ResolvedStairStep } from './stairs.ts';
 import { clipByLevel, ringMoments, type BottomPlane } from './stairBodyGeom.ts';
+import { declararCopiaDeEscada, stairFinishModel } from './stairFinish.ts';
 
 /**
  * Peça do corpo da escada (decisão 0012 §2). `bottom` é o fundo plano: cota z = a·x + b·y + c. Degrau de escada
@@ -46,7 +47,7 @@ export function pieceBottomZ(piece: StairBodyPiece, x: number, y: number): numbe
 /** Volume da peça = área × (topo − fundo no centróide). Exato porque o fundo é um plano. */
 export function pieceVolume(piece: StairBodyPiece): number {
   const { area, cx, cy } = ringMoments(piece.polygon);
-  return area * (piece.zTop - pieceBottomZ(piece, cx, cy));
+  return area * Math.max(0, piece.zTop - pieceBottomZ(piece, cx, cy));
 }
 
 /**
@@ -66,6 +67,30 @@ export function stairBody(stair: ResolvedStair, opts: { slabThickness?: number; 
   if (type.runStyle !== 'monolithic') return { pieces: assembledPieces(stair) };
   const arrivalTop = opts.arrivalTopZ ?? stair.topZ - (opts.slabThickness ?? STAIR_ARRIVAL_SLAB_DEFAULT);
   return { pieces: monolithicPieces(stair, type, arrivalTop) };
+}
+
+/**
+ * Corpo para desenhar, guardado por escada resolvida (que já é memorizada por projeto) e pelos parâmetros: o corte, a elevação e o 3D
+ * pedem o mesmo corpo da mesma escada várias vezes por edição. A saída é só de leitura (ninguém altera `pieces`).
+ */
+const corposDoDesenho = new WeakMap<ResolvedStair, Map<string, { pieces: StairBodyPiece[] }>>();
+
+/**
+ * Peças da escada para DESENHAR (corte, elevação e 3D): como `stairBody`, mas sem apagar a escada por causa de erro de
+ * validação (ex.: espelho acima do máximo da norma). O erro continua no painel e no validador; o desenho não é o lugar de
+ * sumir com a estrutura enquanto os acabamentos (que não dependem disso) continuam aparecendo.
+ */
+export function stairBodyForDrawing(stair: ResolvedStair, opts: { slabThickness?: number; arrivalTopZ?: number } = {}): { pieces: StairBodyPiece[] } {
+  const chave = `${opts.slabThickness ?? ''}|${opts.arrivalTopZ ?? ''}`;
+  const guardado = corposDoDesenho.get(stair)?.get(chave);
+  if (guardado) return guardado;
+  const copia = { ...stair, issues: stair.issues.filter((i) => i.severity !== 'error') };
+  declararCopiaDeEscada(copia, stair);
+  const corpo = stairBody(copia, opts);
+  let porChave = corposDoDesenho.get(stair);
+  if (!porChave) corposDoDesenho.set(stair, (porChave = new Map()));
+  porChave.set(chave, corpo);
+  return corpo;
 }
 
 /**
@@ -220,14 +245,16 @@ function postPieces(stair: ResolvedStair, type: StairType): StairBodyPiece[] {
   const treads = stair.steps.filter((st) => st.kind === 'tread');
   if (!(h > 0) || !(t > 0) || treads.length === 0) return [];
   const byNumber = riserByNumber(stair, h);
+  // Acabamento do piso: a estrutura perde a espessura dele no topo (o fundo fica onde estava).
+  const tp = stairFinishOf(type).treadThickness;
   const pieces: StairBodyPiece[] = [];
   for (const st of treads) {
     const num = Math.round((st.z - baseZ) / h);
     const polygon = overlappedTread(stair, st, byNumber, num, ov);
-    pieces.push(...fit('tread', st.componentIndex, st.index, polygon, st.z, { a: 0, b: 0, c: st.z - t }, baseZ));
+    pieces.push(...fit('tread', st.componentIndex, st.index, polygon, st.z - tp, { a: 0, b: 0, c: st.z - t }, baseZ));
   }
   if (stair.spiral) {
-    const top = Math.max(...treads.map((st) => st.z));
+    const top = Math.max(...treads.map((st) => st.z)) - tp;
     pieces.push({
       kind: 'post',
       componentIndex: stair.spiral.componentIndex,
@@ -271,15 +298,20 @@ function monolithicPieces(stair: ResolvedStair, type: StairType & { undersideSty
   };
 
   // Corte pelo piso base vale para todo degrau e patamar: só corta quando o fundo fica abaixo de baseZ (nunca acima).
+  // Acabamentos (piso e espelho): a estrutura perde `tp` no topo (o fundo fica onde estava) e a faixa do espelho de trás
+  // passa ao acabamento do espelho; a planta estrutural de cada degrau vem do modelo dos acabamentos.
+  const finish = stairFinishModel(stair);
+  const tp = stairFinishOf(type).treadThickness;
+  const planOf = (st: ResolvedStairStep): Ring[] => finish?.structure.get(st) ?? [st.polygon];
   const pieces: StairBodyPiece[] = [];
   stair.steps.forEach((st, i) => {
     if (st.kind === 'tread') {
       const t = built[i];
-      if (t) pieces.push(...fit('tread', st.componentIndex, st.index, t.polygon, t.zTop, t.plane, baseZ));
+      if (t) for (const ring of planOf(st)) pieces.push(...fit('tread', st.componentIndex, st.index, ring, t.zTop - tp, t.plane, baseZ));
       return;
     }
     const plane = { a: 0, b: 0, c: st.z - h - rampT(st.componentIndex) };
-    pieces.push(...fit('landing', st.componentIndex, st.index, st.polygon, st.z, plane, baseZ));
+    for (const ring of planOf(st)) pieces.push(...fit('landing', st.componentIndex, st.index, ring, st.z - tp, plane, baseZ));
   });
 
   // Chegada: faixa atrás do último espelho, sob o último degrau (mesmo plano). O topo é `arrivalTop` (decisão 0012 §2);
@@ -289,10 +321,16 @@ function monolithicPieces(stair: ResolvedStair, type: StairType & { undersideSty
   const frame = stairArrivalFrame(stair);
   if (lastTread && frame && arrivalTop > baseZ + EPS) {
     const { a, b, u, length } = frame;
+    // O acabamento do último espelho ocupa a faixa logo atrás dele (a própria faixa do modelo, medida na normal da face):
+    // a chegada é o que sobra dela, sem vão nem sobreposição em espelho oblíquo ou radial.
     const ring: Ring = [a, b, add(b, mul(u, length)), add(a, mul(u, length))];
     const polygon = ringArea(ring) < 0 ? ring.reverse() : ring;
-    for (const part of partBelow(polygon, lastTread.plane, arrivalTop)) {
-      pieces.push(...fit('arrival', lastStep.componentIndex, 1, part, arrivalTop, lastTread.plane, baseZ));
+    const topBand = finish?.bands.get(stair.riserCount);
+    const regions = topBand ? difference(asMulti(polygon), asMulti(topBand)).map((poly) => poly[0]!) : [polygon];
+    for (const region of regions) {
+      for (const part of partBelow(region, lastTread.plane, arrivalTop)) {
+        pieces.push(...fit('arrival', lastStep.componentIndex, 1, part, arrivalTop, lastTread.plane, baseZ));
+      }
     }
   }
   return pieces;

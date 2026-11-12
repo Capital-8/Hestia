@@ -13,6 +13,7 @@ import { adjustStairFree, applyStairFreeRegen, patchStairFree } from '../editor/
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
 import { useFormat } from './useUnits.ts';
 import { useAdiado } from './useAdiado.ts';
+import { GuardaCorpoDoHospedeiro } from './GuardaCorpoDoHospedeiro.tsx';
 import { LevelField } from './LevelField.tsx';
 import { TypeSelector } from './TypeSelector.tsx';
 import { stairOptions } from './typeOptions.ts';
@@ -232,6 +233,7 @@ export function StairProperties({ stairs }: { stairs: Stair[] }): ReactElement {
         <Row label={t('prb_fld_side_clearance')} htmlFor="p-sopenm"><NumField id="p-sopenm" value={openingMargin.value} mixed={openingMargin.mixed} disabled={noOpening} min={0} quantity="length" onCommit={(v) => patch(ids, { openingMargin: v })} /></Row>
         <Row label={t('prb_fld_rectangular_opening')} htmlFor="p-sopenrect"><Check id="p-sopenrect" checked={openingRect.value} mixed={openingRect.mixed} disabled={noOpening} onChange={(v) => patch(ids, { openingRect: v })} /></Row>
       </Group>
+      {single && <Group title={t('gc_host_toggle')}><GuardaCorpoDoHospedeiro hostId={single.id} htmlFor="p-sgc" /></Group>}
       {freePath && single && (
         <Group title={t('stair_free_group')}>
           <Row label={t('stair_free_group')} readOnly><span className="val">{freeInfo}</span></Row>

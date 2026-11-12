@@ -7,6 +7,8 @@ import type { Id, Project } from '@hestia/model';
  */
 
 /** Hash de 53 bits (cyrb53) de um texto: chave curta e estável. A colisão é desprezível para comparar conteúdos de nível. */
+const NL = String.fromCharCode(10);
+
 export function hashTexto(s: string): string {
   let h1 = 0xdeadbeef;
   let h2 = 0x41c6ce57;
@@ -37,6 +39,12 @@ export interface AssinaturasProjeto {
   /** Hash dos pisos, lajes, escadas, rampas e telhados do projeto inteiro: os cortadores de qualquer nível os leem. */
   horizontais: string;
   nivel: Map<Id, string>;
+  /** Como `nivel`, sem os guarda-corpos: a malha 3D das paredes, lajes e escadas não depende deles (eles têm lote e chave próprios). */
+  nivelSemGuardaCorpo: Map<Id, string>;
+  /** Hash dos guarda-corpos de cada nível (só dos níveis que têm). */
+  guardaCorpo: Map<Id, string>;
+  /** Hash das escadas e rampas do projeto: os hospedeiros de que o caminho do guarda-corpo depende. */
+  hospedeiros: string;
   /** Ids dos níveis do mais baixo ao mais alto (cota; empate pela ordem do projeto). */
   ordem: Id[];
   /** Níveis com parede de topo anexado ao telhado: a malha do nível depende dos telhados de qualquer nível. */
@@ -54,6 +62,9 @@ export function assinaturasDoProjeto(p: Project): AssinaturasProjeto {
   // fica fora: é a imagem da tela inicial, refeita a cada salvamento, e não pode mudar a chave de nenhum nível.
   const { elements, views: _views, areaPlans: _areaPlans, roomCategories: _roomCategories, colorSchemes: _colorSchemes, nextOrder: _nextOrder, name: _name, thumbnail: _thumbnail, ...resto } = p;
   const porNivel = new Map<Id, string[]>();
+  const porNivelSemGuarda = new Map<Id, string[]>();
+  const guardas = new Map<Id, string[]>();
+  const hospedeiros: string[] = [];
   const globais: string[] = [];
   const anexadosAoTelhado = new Set<Id>();
   const comTelhado = new Set<Id>();
@@ -63,17 +74,26 @@ export function assinaturasDoProjeto(p: Project): AssinaturasProjeto {
     const linha = `${id}:${JSON.stringify(e)}`;
     const nivel = nivelDoElemento(elements, e);
     if (e.kind === 'floor' || e.kind === 'slab' || e.kind === 'stair' || e.kind === 'ramp' || e.kind === 'roof') horizontais.push(linha);
+    if (e.kind === 'stair' || e.kind === 'ramp') hospedeiros.push(linha);
     if (nivel === null) globais.push(linha);
     else {
       const lista = porNivel.get(nivel);
       if (lista) lista.push(linha);
       else porNivel.set(nivel, [linha]);
+      const alvo = e.kind === 'railing' ? guardas : porNivelSemGuarda;
+      const l2 = alvo.get(nivel);
+      if (l2) l2.push(linha);
+      else alvo.set(nivel, [linha]);
       if (e.kind === 'wall' && e.attachTopToRoof === true) anexadosAoTelhado.add(nivel);
       if (e.kind === 'roof') comTelhado.add(nivel);
     }
   }
   const nivel = new Map<Id, string>();
   for (const l of p.levels) nivel.set(l.id, hashTexto((porNivel.get(l.id) ?? []).join('\n')));
+  const nivelSemGuardaCorpo = new Map<Id, string>();
+  for (const l of p.levels) nivelSemGuardaCorpo.set(l.id, hashTexto((porNivelSemGuarda.get(l.id) ?? []).join(NL)));
+  const guardaCorpo = new Map<Id, string>();
+  for (const [id, lista] of guardas) guardaCorpo.set(id, hashTexto(lista.join(NL)));
   const ordem = p.levels
     .map((l, i) => ({ id: l.id, cota: l.elevation, i }))
     .sort((a, b) => a.cota - b.cota || a.i - b.i)
@@ -82,6 +102,9 @@ export function assinaturasDoProjeto(p: Project): AssinaturasProjeto {
     horizontais: hashTexto(horizontais.join('\n')),
     global: hashTexto(`${JSON.stringify(resto)}\u0002${globais.join('\n')}`),
     nivel,
+    nivelSemGuardaCorpo,
+    guardaCorpo,
+    hospedeiros: hashTexto(hospedeiros.join(NL)),
     ordem,
     anexadosAoTelhado,
     comTelhado: p.levels.filter((l) => comTelhado.has(l.id)).map((l) => l.id),

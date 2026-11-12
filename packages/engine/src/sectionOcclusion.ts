@@ -22,6 +22,19 @@ export const OCCLUSION_RANK = { cut: 0, opening: 1, beyond: 2 } as const;
 /** Área (metros quadrados) abaixo da qual uma parte visível é descartada: resíduo numérico de contato, não superfície. */
 export const MIN_VISIBLE_AREA = 1e-6;
 
+/**
+ * Largura equivalente (m) abaixo da qual uma parte visível é só fresta numérica de contato (ex.: o fio de ~1 µm que sobra
+ * ao longo da face inferior de uma escada quando as peças são unidas): 2·área ÷ perímetro, a largura de uma faixa fina.
+ */
+export const MIN_VISIBLE_WIDTH = 1e-5;
+
+/** Perímetro total (contornos e furos) de um multipolígono. */
+function multiPerimeter(m: MultiPolygon): number {
+  let sum = 0;
+  for (const poly of m) for (const ring of poly) for (let i = 0; i < ring.length; i++) sum += Math.hypot(ring[(i + 1) % ring.length]!.x - ring[i]!.x, ring[(i + 1) % ring.length]!.y - ring[i]!.y);
+  return sum;
+}
+
 /** Tolerância de cota (m) nas comparações de topo, base e contenção. */
 const COTA_EPS = 1e-6;
 
@@ -77,6 +90,102 @@ export function cotaKeys(items: OcclusionItem[]): Array<number | undefined> {
 }
 
 /**
+ * Índice espacial das partes visíveis já processadas: grade uniforme sobre (t, z) que devolve, em ordem de inserção, só as
+ * caixas que encostam na consulta. Antes cada item varria TODAS as partes anteriores (O(n²) em caixas); numa elevação com
+ * dezenas de escadas acabadas são milhares de peças e a varredura passava de 100 ms. O conjunto devolvido é o mesmo (a grade só
+ * descarta quem não pode encostar), e a ordem é a de inserção, então a diferença de polígonos sai igual à varredura completa.
+ * Caixa que cobre muitas células (parede comprida, laje) fica numa lista à parte, varrida sempre.
+ */
+class GradeDeCaixas<T extends { box: Box }> {
+  private readonly celulas = new Map<number, number[]>();
+  private readonly grandes: number[] = [];
+  private readonly lista: T[] = [];
+  private visto: Int32Array = new Int32Array(0);
+  private carimbo = 0;
+
+  constructor(
+    private readonly x0: number,
+    private readonly y0: number,
+    private readonly lado: number,
+    private readonly colunas: number,
+  ) {}
+
+  private faixa(min: number, max: number, origem: number, n: number): [number, number] {
+    const i0 = Math.max(0, Math.min(n - 1, Math.floor((min - origem) / this.lado)));
+    const i1 = Math.max(0, Math.min(n - 1, Math.floor((max - origem) / this.lado)));
+    return [i0, i1];
+  }
+
+  add(item: T): void {
+    const k = this.lista.length;
+    this.lista.push(item);
+    if (this.visto.length <= k) {
+      const maior = new Int32Array(Math.max(64, this.visto.length * 2));
+      maior.set(this.visto);
+      this.visto = maior;
+    }
+    const b = item.box;
+    const [i0, i1] = this.faixa(b.minX, b.maxX, this.x0, this.colunas);
+    const [j0, j1] = this.faixa(b.minY, b.maxY, this.y0, this.colunas);
+    if ((i1 - i0 + 1) * (j1 - j0 + 1) > MAX_CELULAS_POR_CAIXA) {
+      this.grandes.push(k);
+      return;
+    }
+    for (let i = i0; i <= i1; i++) {
+      for (let j = j0; j <= j1; j++) {
+        const chave = i * this.colunas + j;
+        const c = this.celulas.get(chave);
+        if (c) c.push(k);
+        else this.celulas.set(chave, [k]);
+      }
+    }
+  }
+
+  /** Os itens cuja caixa encosta em `box` (folga `eps`), na ordem em que entraram. */
+  consultar(box: Box, eps: number): T[] {
+    this.carimbo++;
+    const achados: number[] = [];
+    const ver = (k: number): void => {
+      if (this.visto[k] === this.carimbo) return;
+      this.visto[k] = this.carimbo;
+      if (boxesOverlap(this.lista[k]!.box, box, eps)) achados.push(k);
+    };
+    const [i0, i1] = this.faixa(box.minX - eps, box.maxX + eps, this.x0, this.colunas);
+    const [j0, j1] = this.faixa(box.minY - eps, box.maxY + eps, this.y0, this.colunas);
+    for (let i = i0; i <= i1; i++) {
+      for (let j = j0; j <= j1; j++) {
+        const c = this.celulas.get(i * this.colunas + j);
+        if (c) for (const k of c) ver(k);
+      }
+    }
+    for (const k of this.grandes) ver(k);
+    achados.sort((p, q) => p - q);
+    return achados.map((k) => this.lista[k]!);
+  }
+}
+
+/** Acima de tantos oclusores, a subtração vai em lotes (ver `subtrairEmLotes`). */
+const MAX_OCLUSORES_POR_PASSADA = 8;
+/** Tamanho do lote da subtração. */
+const LOTE_DE_OCLUSORES = 4;
+
+/**
+ * `item − (o1 ∪ o2 ∪ ...)`. Com poucos oclusores é uma passada só. Com muitos, vai em lotes de 4: a passada única do kernel pagava dezenas de milissegundos por
+ * peça quando os oclusores eram muitos e cheios de frestas finas (acabamentos de escada vistos de frente, projetados uns sobre os outros: uma elevação de
+ * prédio com escadas em vários níveis levava 8 s, e os mesmos oclusores em lotes levam poucos ms). A região resultante é a mesma (a diferença não depende da
+ * ordem nem do agrupamento); só a ordem dos vértices pode mudar. Para quando a peça some.
+ */
+function subtrairEmLotes(poligonos: MultiPolygon, oclusores: MultiPolygon[]): MultiPolygon {
+  if (oclusores.length <= MAX_OCLUSORES_POR_PASSADA) return differenceClipper(poligonos, ...oclusores);
+  let resto = poligonos;
+  for (let i = 0; i < oclusores.length && resto.length > 0; i += LOTE_DE_OCLUSORES) resto = differenceClipper(resto, ...oclusores.slice(i, i + LOTE_DE_OCLUSORES));
+  return resto;
+}
+
+/** Mais células que isto numa só caixa: ela vai para a lista de grandes. */
+const MAX_CELULAS_POR_CAIXA = 64;
+
+/**
  * Parte visível de cada item, alinhada a `items` (multipolígono vazio quando o item está oculto ou é residual).
  */
 export function visibleParts(items: OcclusionItem[]): MultiPolygon[] {
@@ -87,16 +196,31 @@ export function visibleParts(items: OcclusionItem[]): MultiPolygon[] {
     .filter((i) => items[i]!.polygons.length > 0)
     .sort((i, j) => items[i]!.depth - items[j]!.depth || items[i]!.rank - items[j]!.rank || (keys[j] ?? 0) - (keys[i] ?? 0) || i - j);
 
-  const occluders: Array<{ box: Box; polygons: MultiPolygon }> = [];
+  // A parte visível de um item está dentro da caixa dele, então a grade usa as caixas dos itens para dimensionar.
+  const caixas = new Map<number, Box>();
+  const total: Box = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+  for (const i of order) {
+    const b = boxOf(multiPoints(items[i]!.polygons));
+    caixas.set(i, b);
+    total.minX = Math.min(total.minX, b.minX);
+    total.minY = Math.min(total.minY, b.minY);
+    total.maxX = Math.max(total.maxX, b.maxX);
+    total.maxY = Math.max(total.maxY, b.maxY);
+  }
+  const n = order.length;
+  const colunas = Math.max(1, Math.min(512, Math.ceil(Math.sqrt(n))));
+  const lado = Math.max((total.maxX - total.minX) / colunas, (total.maxY - total.minY) / colunas, 1e-6);
+  const grade = new GradeDeCaixas<{ box: Box; polygons: MultiPolygon }>(total.minX, total.minY, lado, colunas + 1);
   for (const i of order) {
     const item = items[i]!;
-    const box = boxOf(multiPoints(item.polygons));
-    const hits: MultiPolygon[] = [];
-    for (const o of occluders) if (boxesOverlap(o.box, box, 1e-9)) hits.push(o.polygons);
-    const visible = hits.length > 0 ? differenceClipper(item.polygons, ...hits) : item.polygons;
-    if (visible.length === 0 || multiArea(visible) < MIN_VISIBLE_AREA) continue;
+    const box = caixas.get(i)!;
+    const hits = grade.consultar(box, 1e-9).map((o) => o.polygons);
+    const visible = hits.length > 0 ? subtrairEmLotes(item.polygons, hits) : item.polygons;
+    if (visible.length === 0) continue;
+    const area = multiArea(visible);
+    if (area < MIN_VISIBLE_AREA || (2 * area) / multiPerimeter(visible) < MIN_VISIBLE_WIDTH) continue;
     out[i] = visible;
-    occluders.push({ box: boxOf(multiPoints(visible)), polygons: visible });
+    grade.add({ box: boxOf(multiPoints(visible)), polygons: visible });
   }
   return out;
 }

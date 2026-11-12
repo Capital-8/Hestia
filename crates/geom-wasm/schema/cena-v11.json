@@ -1,6 +1,6 @@
 {
-  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`. v3 (sub-etapa A2): colunas novas em `camadas` (material_num, envolve) e `tipos_parede` (wrap_ends, n_faixas), seções `faixas` e `paredes_z` e a consulta `itens_pintados`; as demais seções e consultas não mudaram. v4 (sub-etapa A3a, vãos): seções `tipos_abertura` e `aberturas` e a consulta `aberturas_geom`; as demais não mudaram. Os perfis de topo e base de `wallZRange` NÃO entram em `paredes_z` nesta versão (nenhuma consulta da A3a os lê; entram na A3d, onde `withProfile`/`withBottomProfile` os consomem). v5 (sub-etapa A3b, retornos de acabamento nos vãos): `tipos_parede.wrap_inserts`; `tipos_abertura` ganha janela, fechamento, tem_alizar, estilo_batente, modo_prof, prof_pedida, larg_batente e esp_folha (tudo o que `insertMode` e `insertReturns` leem do tipo da abertura, já resolvido pelo JS); consulta `retornos_geom`; as demais seções e consultas não mudaram. v6 (sub-etapa A3c, faixas verticais e solveCluster): nenhuma seção nova; consulta `cluster_resolvido` (a lista de aberturas que furam a planta, `planOpenings`, viaja como argumento variável). v7 (sub-etapa A3d, ResolvedLevel completo): seção `perfis_z` (pontos dos perfis de topo e de base de `wallZRange`, mais o `topProfile` do modelo, que o JS calcula e envia; uma lista por parede é uma lista de linhas, por isso é uma seção à parte e não colunas de `paredes_z`) e consulta `resolver_nivel` (tudo o que `resolveLevel` devolve: campos de ResolvedWall, camadas com faixas já recortadas pelos perfis, membranas, regiões e silhueta). As demais seções e consultas não mudaram. v8 (sub-etapa B1 da fatia B, decisão 0050): seções pisos, lajes, tipos_piso, tipos_laje, camadas_piso, camadas_laje, contornos_estaticos, contornos_vinculados e furos_nivel e a consulta pisos_lajes_nivel (resolveFloors e resolveSlabs; os circuitos dos vinculados e os furos de escada e rampa chegam do JS já calculados; os términos que dependem de paredes ficam para a B2). As demais seções e consultas não mudaram. v9 (sub-etapa B2 da fatia B, decisão 0050): seção `niveis` (cota de cada nível, para a adjacência de níveis acima e abaixo que as lajes usam) e consulta `pisos_lajes_com_paredes` (resolveFloors e resolveSlabs COM as paredes do projeto: o Rust aplica regionMinusWalls e regionPlusWalls com as paredes resolvidas do nível, por dentro, sem precisa_paredes; a consulta pisos_lajes_nivel da B1 segue igual). As demais seções e consultas não mudaram. v10 (sub-etapa B3 da fatia B, decisão 0050): seções `paredes_z_juncao` e `perfis_z_juncao` (a cota e os perfis das paredes na variante da JUNÇÃO, sem flatAttach: a junção usa `resolveLevel(p, nivel)` padrão para as faixas de parede, enquanto o término por camada de piso e laje usa `flatAttach`) e a consulta `junction_nivel` (levelCutterSet e junctionLevel: cortadores por nível e junção resolvida de camadas de piso, laje e faixas de parede). As demais seções e consultas não mudaram. v11 (sub-etapa B3, saída 3 da 0050): seções `faixas_juncao` (22) e `pontos_faixas_juncao` (23), a partição vertical das faixas de parede já resolvida pelo JS (`resolveLevel` padrão, DEPOIS do perfil superior e do perfil de base: as faixas que `wallLayerBandsAfterJunction` devolve), com a região de cada faixa; o Rust da consulta `junction_nivel` usa essas faixas no lugar de recalcular os pontos de quebra quando a seção `faixas_juncao` está definida, e só executa os recortes de piso e laje. Sem a seção, vale o cálculo anterior (`paredes_z_juncao`, `perfis_z_juncao`). As demais seções e consultas não mudaram. v12 (quantidades): seções `camadas_forro` (24) e `pontos_forro` (25) (os forros chegam do JS já resolvidos: contorno e espessura de cada camada) e as consultas `quant_paredes` (13), `quant_pisos` (14), `quant_lajes` (15) e `quant_forros` (16): bruto, cortado, líquido, área de face e altura de cada camada (volume líquido = max(0, bruto - cortado), o zero uma vez por camada). As demais seções e consultas não mudaram.",
-  "versao": 13,
+  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`. v3 (sub-etapa A2): colunas novas em `camadas` (material_num, envolve) e `tipos_parede` (wrap_ends, n_faixas), seções `faixas` e `paredes_z` e a consulta `itens_pintados`; as demais seções e consultas não mudaram. v4 (sub-etapa A3a, vãos): seções `tipos_abertura` e `aberturas` e a consulta `aberturas_geom`; as demais não mudaram. Os perfis de topo e base de `wallZRange` NÃO entram em `paredes_z` nesta versão (nenhuma consulta da A3a os lê; entram na A3d, onde `withProfile`/`withBottomProfile` os consomem). v5 (sub-etapa A3b, retornos de acabamento nos vãos): `tipos_parede.wrap_inserts`; `tipos_abertura` ganha janela, fechamento, tem_alizar, estilo_batente, modo_prof, prof_pedida, larg_batente e esp_folha (tudo o que `insertMode` e `insertReturns` leem do tipo da abertura, já resolvido pelo JS); consulta `retornos_geom`; as demais seções e consultas não mudaram. v6 (sub-etapa A3c, faixas verticais e solveCluster): nenhuma seção nova; consulta `cluster_resolvido` (a lista de aberturas que furam a planta, `planOpenings`, viaja como argumento variável). v7 (sub-etapa A3d, ResolvedLevel completo): seção `perfis_z` (pontos dos perfis de topo e de base de `wallZRange`, mais o `topProfile` do modelo, que o JS calcula e envia; uma lista por parede é uma lista de linhas, por isso é uma seção à parte e não colunas de `paredes_z`) e consulta `resolver_nivel` (tudo o que `resolveLevel` devolve: campos de ResolvedWall, camadas com faixas já recortadas pelos perfis, membranas, regiões e silhueta). As demais seções e consultas não mudaram. v8 (sub-etapa B1 da fatia B, decisão 0050): seções pisos, lajes, tipos_piso, tipos_laje, camadas_piso, camadas_laje, contornos_estaticos, contornos_vinculados e furos_nivel e a consulta pisos_lajes_nivel (resolveFloors e resolveSlabs; os circuitos dos vinculados e os furos de escada e rampa chegam do JS já calculados; os términos que dependem de paredes ficam para a B2). As demais seções e consultas não mudaram. v9 (sub-etapa B2 da fatia B, decisão 0050): seção `niveis` (cota de cada nível, para a adjacência de níveis acima e abaixo que as lajes usam) e consulta `pisos_lajes_com_paredes` (resolveFloors e resolveSlabs COM as paredes do projeto: o Rust aplica regionMinusWalls e regionPlusWalls com as paredes resolvidas do nível, por dentro, sem precisa_paredes; a consulta pisos_lajes_nivel da B1 segue igual). As demais seções e consultas não mudaram. v10 (sub-etapa B3 da fatia B, decisão 0050): seções `paredes_z_juncao` e `perfis_z_juncao` (a cota e os perfis das paredes na variante da JUNÇÃO, sem flatAttach: a junção usa `resolveLevel(p, nivel)` padrão para as faixas de parede, enquanto o término por camada de piso e laje usa `flatAttach`) e a consulta `junction_nivel` (levelCutterSet e junctionLevel: cortadores por nível e junção resolvida de camadas de piso, laje e faixas de parede). As demais seções e consultas não mudaram. v11 (sub-etapa B3, saída 3 da 0050): seções `faixas_juncao` (22) e `pontos_faixas_juncao` (23), a partição vertical das faixas de parede já resolvida pelo JS (`resolveLevel` padrão, DEPOIS do perfil superior e do perfil de base: as faixas que `wallLayerBandsAfterJunction` devolve), com a região de cada faixa; o Rust da consulta `junction_nivel` usa essas faixas no lugar de recalcular os pontos de quebra quando a seção `faixas_juncao` está definida, e só executa os recortes de piso e laje. Sem a seção, vale o cálculo anterior (`paredes_z_juncao`, `perfis_z_juncao`). As demais seções e consultas não mudaram. v12 (quantidades): seções `camadas_forro` (24) e `pontos_forro` (25) (os forros chegam do JS já resolvidos: contorno e espessura de cada camada) e as consultas `quant_paredes` (13), `quant_pisos` (14), `quant_lajes` (15) e `quant_forros` (16): bruto, cortado, líquido, área de face e altura de cada camada (volume líquido = max(0, bruto - cortado), o zero uma vez por camada). As demais seções e consultas não mudaram. v13 (término por camada): coluna `termino_ref` em `camadas_piso` e `camadas_laje` e o término 6 (camada). v14 (decisão 0055, guarda-corpo): seções 60 a 81 e consultas 60 a 65, declaradas para o contrato do guarda-corpo e ainda não implementadas no Rust (seção ainda sem implementação: definir/upsert devolvem ENTRADA; consulta: NAO_IMPLEMENTADO).",
+  "versao": 14,
   "abi": 2,
   "tipos": {
     "u32": {
@@ -1056,6 +1056,1094 @@
           "tipo": "f64"
         }
       ]
+    },
+    {
+      "id": 60,
+      "nome": "escadas_gc",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "nivel_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "z_base",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z_topo",
+          "tipo": "f64"
+        },
+        {
+          "nome": "altura_espelho",
+          "tipo": "f64"
+        },
+        {
+          "nome": "profundidade_piso",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Escada hospedeira do guarda-corpo (ADR 0055 §6.1), enviada pronta pelo TS a partir de ResolvedStair; o Rust não conhece o Project. nivel_num: índice do nível de base em p.levels. z_base e z_topo: cotas absolutas. altura_espelho: espelho real h. profundidade_piso: profundidade do degrau (m), usada na extensão 'maisPiso' do corrimão."
+    },
+    {
+      "id": 61,
+      "nome": "escada_componentes_gc",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "escada_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "caracol",
+          "tipo": "u8"
+        },
+        {
+          "nome": "centro_x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "centro_y",
+          "tipo": "f64"
+        },
+        {
+          "nome": "r_int",
+          "tipo": "f64"
+        },
+        {
+          "nome": "r_ext",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Componentes da escada na ordem de `components`. escada_num: chave de `escadas_gc`. indice: posição em `components` (0..). tipo: 0 lance, 1 patamar. caracol: 0 ou 1 (lance caracol); centro_x, centro_y, r_int e r_ext só valem com caracol=1 (0 nos demais)."
+    },
+    {
+      "id": 62,
+      "nome": "escada_curvas_gc",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "componente_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "lado",
+          "tipo": "u8"
+        },
+        {
+          "nome": "ordem",
+          "tipo": "u32"
+        },
+        {
+          "nome": "ax",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ay",
+          "tipo": "f64"
+        },
+        {
+          "nome": "bx",
+          "tipo": "f64"
+        },
+        {
+          "nome": "by",
+          "tipo": "f64"
+        },
+        {
+          "nome": "sag",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Bordas de um lance, uma StairCurve por linha (reta ou arco por flecha). componente_num: chave de `escada_componentes_gc`. lado: 0 esquerdo (boundaryLeft), 1 direito (boundaryRight), visto de quem sobe. ordem: posição na cadeia do lado (0..), contínua. sag: flecha do arco, positiva à esquerda de a->b; 0 = reta."
+    },
+    {
+      "id": 63,
+      "nome": "escada_espelhos_gc",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "componente_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "ax",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ay",
+          "tipo": "f64"
+        },
+        {
+          "nome": "bx",
+          "tipo": "f64"
+        },
+        {
+          "nome": "by",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z0",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z1",
+          "tipo": "f64"
+        },
+        {
+          "nome": "bocel",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z_piso",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Linhas de espelho de um lance, já aparadas (ResolvedStairRiser). componente_num: chave de `escada_componentes_gc`. indice: posição no croqui do lance. z0 e z1: cotas absolutas da base e do topo do espelho. bocel: projeção (m, >= 0) do bocel do piso acabado do degrau que sobe por este espelho, à frente da face acabada dele; 0 sem acabamento. z_piso: cota do topo do piso acabado desse degrau, onde o montante do guarda-corpo se apoia (sem acabamento, igual a z1). Ambos vêm de stairFinishModel (o acabamento da escada), sem recalcular no Rust."
+    },
+    {
+      "id": 64,
+      "nome": "escada_patamares_gc",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "componente_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "y",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Anel de um patamar, um vértice por linha, em ordem de `indice` (o anel de 6 pontos [aIn, inner, bIn, bOut, outer, aOut] no patamar de giro). componente_num: chave de `escada_componentes_gc`. z: cota absoluta do patamar."
+    },
+    {
+      "id": 65,
+      "nome": "rampas_gc",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "nivel_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "z_base",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z_topo",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Rampa hospedeira do guarda-corpo, enviada pronta pelo TS a partir de ResolvedRamp. nivel_num: índice do nível de base em p.levels. z_base e z_topo: cotas absolutas."
+    },
+    {
+      "id": 66,
+      "nome": "rampa_lances_gc",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "rampa_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "sx",
+          "tipo": "f64"
+        },
+        {
+          "nome": "sy",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ex",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ey",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ax",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ay",
+          "tipo": "f64"
+        },
+        {
+          "nome": "bx",
+          "tipo": "f64"
+        },
+        {
+          "nome": "by",
+          "tipo": "f64"
+        },
+        {
+          "nome": "cx",
+          "tipo": "f64"
+        },
+        {
+          "nome": "cy",
+          "tipo": "f64"
+        },
+        {
+          "nome": "dx",
+          "tipo": "f64"
+        },
+        {
+          "nome": "dy",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z0",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z1",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Lances inclinados da rampa. rampa_num: chave de `rampas_gc`. indice: ResolvedRampFlight.componentIndex. sx, sy e ex, ey: centro da borda de início e de fim. (ax, ay)-(bx, by): borda de início; (cx, cy)-(dx, dy): borda de fim, na ordem de startEdge e endEdge. z0 e z1: cotas absolutas no início e no fim."
+    },
+    {
+      "id": 67,
+      "nome": "rampa_patamares_gc",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "rampa_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "componente",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "y",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Anel de um patamar de rampa, um vértice por linha. rampa_num: chave de `rampas_gc`. componente: ResolvedRampLanding.componentIndex (identifica o patamar; a ADR 0055 §6.1 não tinha esta coluna e a Fase 2 a acrescentou). indice: ordem do vértice no anel. z: cota absoluta do patamar."
+    },
+    {
+      "id": 70,
+      "nome": "guardas_corpo",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "nivel_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "hosp",
+          "tipo": "u8"
+        },
+        {
+          "nome": "hosp_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "lados",
+          "tipo": "u8"
+        },
+        {
+          "nome": "pos_base",
+          "tipo": "u8"
+        },
+        {
+          "nome": "desloc",
+          "tipo": "f64"
+        },
+        {
+          "nome": "altura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "inverter",
+          "tipo": "u8"
+        },
+        {
+          "nome": "fechado",
+          "tipo": "u8"
+        },
+        {
+          "nome": "lado_desloc",
+          "tipo": "u8"
+        },
+        {
+          "nome": "cota_base",
+          "tipo": "f64"
+        },
+        {
+          "nome": "flags",
+          "tipo": "u8"
+        }
+      ],
+      "descricao": "Um guarda-corpo por linha. nivel_num: índice em p.levels. tipo_num: chave de `tipos_guarda`. hosp: 0 manual, 1 escada, 2 rampa. hosp_num: chave de `escadas_gc` ou `rampas_gc` (ID_AUSENTE no manual). lados: bit0 esquerdo-lance, bit1 esquerdo-patamar, bit2 direito-lance, bit3 direito-patamar (ignorado no manual). pos_base: 0 degrau, 1 lateral. desloc: deslocamento lateral do eixo (m). altura: altura da instância (m); NaN = a do tipo. inverter e fechado: 0 ou 1. lado_desloc: 0 esquerdo, 1 direito, 2 centro (só manual). cota_base: cota do ponto de partida (m, só manual). flags: bit0 postes intermediários, bit1 preenchimento, bit2 corrimão (1 = ativo)."
+    },
+    {
+      "id": 71,
+      "nome": "guarda_caminhos_manuais",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "guarda_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "y",
+          "tipo": "f64"
+        },
+        {
+          "nome": "dz",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Vértices do caminho manual, em ordem de `indice` (0..n-1; mínimo 2 e máximo 512 por guarda-corpo, senão ENTRADA e LIMITE na consulta). guarda_num: chave de `guardas_corpo`. dz: desnível sobre cota_base (m)."
+    },
+    {
+      "id": 72,
+      "nome": "tipos_guarda",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "altura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "desloc",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ajuste_patamar",
+          "tipo": "f64"
+        },
+        {
+          "nome": "folga_inferior",
+          "tipo": "f64"
+        },
+        {
+          "nome": "junc_angular",
+          "tipo": "u8"
+        },
+        {
+          "nome": "junc_tangente",
+          "tipo": "u8"
+        },
+        {
+          "nome": "conexao",
+          "tipo": "u8"
+        },
+        {
+          "nome": "tol_corda",
+          "tipo": "f64"
+        },
+        {
+          "nome": "norma_num",
+          "tipo": "u32"
+        }
+      ],
+      "descricao": "Parâmetros escalares do TipoGuardaCorpo. altura, desloc, ajuste_patamar e folga_inferior em metros. junc_angular: 0 segmento-vertical, 1 nenhum. junc_tangente: 0 segmento-vertical, 1 nenhum, 2 estender-trilhos. conexao: 0 cortar, 1 soldar. tol_corda: flecha máxima de corda na discretização de arcos (m, de 0,0005 a 0,01). norma_num: chave de `normas_guarda` ou ID_AUSENTE (usa a norma do argumento da consulta)."
+    },
+    {
+      "id": 73,
+      "nome": "perfis_guarda",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "forma",
+          "tipo": "u8"
+        },
+        {
+          "nome": "largura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "altura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "n_pontos",
+          "tipo": "u32"
+        },
+        {
+          "nome": "lados",
+          "tipo": "u32"
+        }
+      ],
+      "descricao": "Perfis de varredura ou extrusão, internados pelo TS (um por uso distinto). forma: 0 circular, 1 retangular, 2 polígono. largura: diâmetro (circular) ou largura (m). altura: altura do retangular (ignorada no circular). n_pontos: número de linhas em `perfis_guarda_pontos` (3 a 64 no polígono, 0 nos demais). lados: lados da discretização do circular (3 a 256; 16 ou 24 pela regra da §5.8), 0 nos demais."
+    },
+    {
+      "id": 74,
+      "nome": "perfis_guarda_pontos",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "perfil_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "y",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Vértices anti-horários do perfil poligonal. perfil_num: chave de `perfis_guarda`. indice: 0..n_pontos-1."
+    },
+    {
+      "id": 75,
+      "nome": "trilhos_guarda",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "altura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "desloc",
+          "tipo": "f64"
+        },
+        {
+          "nome": "perfil_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "material_num",
+          "tipo": "u32"
+        }
+      ],
+      "descricao": "Trilhos do tipo (no máximo 12 por tipo), na ordem de `indice` (0..n-1). tipo_num: chave de `tipos_guarda`. altura: do eixo sobre o hospedeiro (m). desloc: deslocamento lateral (m). perfil_num: chave de `perfis_guarda`. material_num: material interno pelo TS (só identidade)."
+    },
+    {
+      "id": 76,
+      "nome": "corrimaos_guarda",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "funcao",
+          "tipo": "u8"
+        },
+        {
+          "nome": "posicao",
+          "tipo": "u8"
+        },
+        {
+          "nome": "altura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "afastamento",
+          "tipo": "f64"
+        },
+        {
+          "nome": "perfil_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "material_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "ext_ini_estilo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "ext_ini_comp",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ext_ini_mais_piso",
+          "tipo": "u8"
+        },
+        {
+          "nome": "ext_fim_estilo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "ext_fim_comp",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ext_fim_mais_piso",
+          "tipo": "u8"
+        },
+        {
+          "nome": "sup_layout",
+          "tipo": "u8"
+        },
+        {
+          "nome": "sup_espac",
+          "tipo": "f64"
+        },
+        {
+          "nome": "sup_numero",
+          "tipo": "u32"
+        },
+        {
+          "nome": "sup_justif",
+          "tipo": "u8"
+        },
+        {
+          "nome": "sup_perfil_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "sup_comp",
+          "tipo": "f64"
+        },
+        {
+          "nome": "transicao",
+          "tipo": "u8"
+        },
+        {
+          "nome": "juncao",
+          "tipo": "u8"
+        },
+        {
+          "nome": "raio_filete",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Corrimãos e travessas superiores do tipo (no máximo 4 por tipo), em ordem de `indice`. funcao: 0 topo, 1 corrimao. posicao: 0 eixo, 1 esquerda, 2 direita, 3 ambas. altura: do TOPO sobre o hospedeiro (m). ext_*_estilo: 0 nenhum, 1 parede, 2 piso, 3 poste. ext_*_mais_piso: 0 ou 1. sup_layout: 0 nenhum, 1 distancia-fixa, 2 alinhar-postes, 3 numero-fixo, 4 espacamento-maximo, 5 espacamento-minimo. sup_justif: 0 inicio, 1 fim, 2 centro, 3 distribuir. transicao: 0 nenhuma, 1 simples, 2 pescoco-de-ganso. juncao: 0 esquadria, 1 filete."
+    },
+    {
+      "id": 77,
+      "nome": "postes_guarda",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "papel",
+          "tipo": "u8"
+        },
+        {
+          "nome": "ativo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "perfil_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "material_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "acima",
+          "tipo": "f64"
+        },
+        {
+          "nome": "abaixo",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ang_canto",
+          "tipo": "f64"
+        },
+        {
+          "nome": "modo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "espacamento",
+          "tipo": "f64"
+        },
+        {
+          "nome": "numero",
+          "tipo": "u32"
+        }
+      ],
+      "descricao": "Quatro linhas por tipo, uma por papel. papel: 0 inicio, 1 fim, 2 canto, 3 intermediario. ativo: 0 ou 1. acima e abaixo: quanto o poste passa da altura e desce abaixo da base (m, >= 0). ang_canto: giro mínimo em planta para poste de canto (rad; vale na linha do papel canto). modo (só intermediario): 0 nenhum, 1 espacamento-maximo, 2 espacamento-fixo, 3 numero-fixo. espacamento (m) e numero valem só no intermediario."
+    },
+    {
+      "id": 78,
+      "nome": "padroes_guarda",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "base_tipo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "base_idx",
+          "tipo": "u32"
+        },
+        {
+          "nome": "topo_tipo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "topo_idx",
+          "tipo": "u32"
+        },
+        {
+          "nome": "periodo",
+          "tipo": "f64"
+        },
+        {
+          "nome": "justif",
+          "tipo": "u8"
+        },
+        {
+          "nome": "sobra",
+          "tipo": "u8"
+        },
+        {
+          "nome": "quebra",
+          "tipo": "u8"
+        },
+        {
+          "nome": "ang_quebra",
+          "tipo": "f64"
+        },
+        {
+          "nome": "escopo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "pd_ativo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "pd_qtd",
+          "tipo": "u32"
+        },
+        {
+          "nome": "pd_dist",
+          "tipo": "f64"
+        },
+        {
+          "nome": "pd_perfil_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "pd_material_num",
+          "tipo": "u32"
+        }
+      ],
+      "descricao": "Padrões de balaústres do tipo; `indice` é a posição na lista `preenchimentos` (padrões e painéis do mesmo tipo dividem a numeração, no máximo 8 no total). base_tipo: 0 hospedeiro, 1 trilho (base_idx = índice do trilho). topo_tipo: 0 altura, 1 trilho, 2 corrimão (topo_idx). justif: 0 inicio, 1 fim, 2 centro, 3 distribuir. sobra: 0 nenhuma, 1 balaustre-extra, 2 folga-nas-pontas. quebra: 0 cada-segmento, 1 angulo, 2 nunca. escopo: 0 vao, 1 segmento. pd_*: porDegrau (ativo, quantidade por degrau (0 = automática: o mínimo que a norma exige), distância da quina, perfil e material do balaústre; perfil ID_AUSENTE = vazio)."
+    },
+    {
+      "id": 79,
+      "nome": "padrao_elementos_guarda",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "padrao_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "perfil_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "material_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "dist_anterior",
+          "tipo": "f64"
+        },
+        {
+          "nome": "desloc_lateral",
+          "tipo": "f64"
+        },
+        {
+          "nome": "desloc_base",
+          "tipo": "f64"
+        },
+        {
+          "nome": "desloc_topo",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Elementos do padrão (1 a 16 por padrão), na ordem de `indice`. padrao_num: chave de `padroes_guarda`. perfil_num: chave de `perfis_guarda`; ID_AUSENTE = elemento vazio (só ocupa espaço). dist_anterior: distância horizontal ao anterior (0 no primeiro)."
+    },
+    {
+      "id": 80,
+      "nome": "paineis_guarda",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "indice",
+          "tipo": "u32"
+        },
+        {
+          "nome": "familia",
+          "tipo": "u8"
+        },
+        {
+          "nome": "base_tipo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "base_idx",
+          "tipo": "u32"
+        },
+        {
+          "nome": "topo_tipo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "topo_idx",
+          "tipo": "u32"
+        },
+        {
+          "nome": "desl_base",
+          "tipo": "f64"
+        },
+        {
+          "nome": "desl_topo",
+          "tipo": "f64"
+        },
+        {
+          "nome": "espessura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "folga_lateral",
+          "tipo": "f64"
+        },
+        {
+          "nome": "largura_max",
+          "tipo": "f64"
+        },
+        {
+          "nome": "material_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "perf_diam",
+          "tipo": "f64"
+        },
+        {
+          "nome": "perf_passo_x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "perf_passo_y",
+          "tipo": "f64"
+        },
+        {
+          "nome": "perf_alternado",
+          "tipo": "u8"
+        },
+        {
+          "nome": "tela_larg",
+          "tipo": "f64"
+        },
+        {
+          "nome": "tela_alt",
+          "tipo": "f64"
+        },
+        {
+          "nome": "tela_fio",
+          "tipo": "f64"
+        },
+        {
+          "nome": "cabo_diam",
+          "tipo": "f64"
+        },
+        {
+          "nome": "cabo_espac",
+          "tipo": "f64"
+        },
+        {
+          "nome": "cabo_orient",
+          "tipo": "u8"
+        }
+      ],
+      "descricao": "Painéis do tipo; `indice` é a posição na lista `preenchimentos` (mesma numeração dos padrões). familia: 0 vidro, 1 chapa, 2 chapa-perfurada, 3 tela, 4 cabo-aco. base_tipo e topo_tipo como em `padroes_guarda`. cabo_orient: 0 horizontal, 1 vertical. Os campos perf_*, tela_* e cabo_* só valem na família correspondente (0 nas demais). perf_alternado: 0 ou 1."
+    },
+    {
+      "id": 81,
+      "nome": "normas_guarda",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "n_flags",
+          "tipo": "u32"
+        },
+        {
+          "nome": "desnivel_exige_guarda",
+          "tipo": "f64"
+        },
+        {
+          "nome": "altura_minima",
+          "tipo": "f64"
+        },
+        {
+          "nome": "altura_minima_escada_interna",
+          "tipo": "f64"
+        },
+        {
+          "nome": "altura_alta_acima",
+          "tipo": "f64"
+        },
+        {
+          "nome": "altura_alta_altura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "esfera_maxima",
+          "tipo": "f64"
+        },
+        {
+          "nome": "esfera_maxima_triangulo",
+          "tipo": "f64"
+        },
+        {
+          "nome": "folga_inferior_maxima",
+          "tipo": "f64"
+        },
+        {
+          "nome": "carga_linear_horizontal",
+          "tipo": "f64"
+        },
+        {
+          "nome": "carga_area_horizontal",
+          "tipo": "f64"
+        },
+        {
+          "nome": "carga_pontual_guarda",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_altura_min",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_altura_max",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_altura_adicional_1",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_altura_adicional_2",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_altura_adicional_3",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_altura_adicional_4",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_diametro_min",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_diametro_max",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_afastamento_min",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_extensao_min",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_dois_lados",
+          "tipo": "u8"
+        },
+        {
+          "nome": "corrimao_continuo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "corrimao_intermediario_largura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "corrimao_intermediario_espacamento",
+          "tipo": "f64"
+        },
+        {
+          "nome": "carga_corrimao",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Perfil de norma (LimitesNormaGC). n_flags: máscara dos limites definidos; o bit k corresponde à k-ésima coluna depois de n_flags, na ordem desta seção (bit0 desnivel_exige_guarda ... bit25 carga_corrimao). Coluna com bit zerado é ignorada (use 0); com bit ligado precisa ser finita. corrimao_dois_lados e corrimao_continuo: 0 ou 1. altura_alta_acima e altura_alta_altura formam o par `alturaMinimaAlta` e valem juntos (os dois bits ligados ou os dois desligados)."
     }
   ],
   "consultas": [
@@ -1826,6 +2914,156 @@
           "descricao": "5 valores por camada: bruto, cortado, liquido = max(0, bruto - cortado), area_de_face, altura (altura média da parede; 0 nas demais)"
         }
       ]
+    },
+    {
+      "id": 60,
+      "nome": "guarda_caminhos",
+      "args": [
+        "nivel_num",
+        "tol_juncao"
+      ],
+      "saidas": [
+        {
+          "nome": "trechos",
+          "tipo": "u32",
+          "elementos": "5n"
+        },
+        {
+          "nome": "nos",
+          "tipo": "f64",
+          "elementos": "3n"
+        },
+        {
+          "nome": "avisos",
+          "tipo": "u32",
+          "elementos": "4n"
+        },
+        {
+          "nome": "valores",
+          "tipo": "f64",
+          "elementos": "5n"
+        }
+      ],
+      "descricao": "Cadeias 3D do eixo de cada guarda-corpo do nível, por lado ligado. trechos: [guarda_num, trecho, origem (0 lance, 1 patamar, 2 manual, 3 caracol), n_nos, flags]; nos: x, y, z de todos os trechos em sequência. avisos: [guarda_num, codigo, trecho, indice]; valores: [medido, limite, x, y, z]. Fase 3a."
+    },
+    {
+      "id": 61,
+      "nome": "guarda_malha",
+      "args": [
+        "nivel_num",
+        "lod"
+      ],
+      "saidas": [
+        {
+          "nome": "grupos",
+          "tipo": "u32",
+          "elementos": "5n"
+        },
+        {
+          "nome": "vertices",
+          "tipo": "f64",
+          "elementos": "3n"
+        },
+        {
+          "nome": "indices",
+          "tipo": "u32",
+          "elementos": "n"
+        }
+      ],
+      "descricao": "Malha triangulada por peça lógica. grupos: [guarda_num, papel (0 poste, 1 balaustre, 2 trilho, 3 corrimao, 4 suporte, 5 painel, 6 cabo, 7 travessa superior), material_num, primeiro_indice, n_indices]; vertices: x, y, z; indices: 3 por triângulo. lod: 0 grosso, 1 médio, 2 fino. Fase 3."
+    },
+    {
+      "id": 62,
+      "nome": "guarda_planta",
+      "args": [
+        "nivel_num",
+        "corte_z",
+        "detalhe"
+      ],
+      "saidas": [
+        {
+          "nome": "linhas",
+          "tipo": "u32",
+          "elementos": "4n"
+        },
+        {
+          "nome": "pontos",
+          "tipo": "f64",
+          "elementos": "2n"
+        }
+      ],
+      "descricao": "Linhas de planta. linhas: [guarda_num, papel, estilo (0 cortado, 1 projetado, 2 oculto), n_pontos]; pontos: x, y. Fase 4a."
+    },
+    {
+      "id": 63,
+      "nome": "guarda_corte",
+      "args": [
+        "nivel_num",
+        "ox",
+        "oy",
+        "dx",
+        "dy",
+        "profundidade"
+      ],
+      "saidas": [
+        {
+          "nome": "linhas",
+          "tipo": "u32",
+          "elementos": "4n"
+        },
+        {
+          "nome": "pontos",
+          "tipo": "f64",
+          "elementos": "2n"
+        },
+        {
+          "nome": "poligonos",
+          "tipo": "f64",
+          "elementos": "livre"
+        }
+      ],
+      "descricao": "Linhas de um plano de corte vertical (origem ox, oy; direção dx, dy; profundidade). linhas e pontos como em guarda_planta, em (s, z); poligonos: polígonos cortados em formato livre, definido na Fase 4a."
+    },
+    {
+      "id": 64,
+      "nome": "quant_guarda",
+      "args": [
+        "nivel_num"
+      ],
+      "saidas": [
+        {
+          "nome": "linhas",
+          "tipo": "u32",
+          "elementos": "5n"
+        },
+        {
+          "nome": "valores",
+          "tipo": "f64",
+          "elementos": "4n"
+        }
+      ],
+      "descricao": "Quantidades por guarda-corpo, papel, perfil e material. linhas: [guarda_num, papel, perfil_num, material_num, n_pecas]; valores: comprimento, area, volume, area_projetada. Fase 4a."
+    },
+    {
+      "id": 65,
+      "nome": "guarda_avisos",
+      "args": [
+        "nivel_num",
+        "norma_num"
+      ],
+      "saidas": [
+        {
+          "nome": "avisos",
+          "tipo": "u32",
+          "elementos": "4n"
+        },
+        {
+          "nome": "valores",
+          "tipo": "f64",
+          "elementos": "5n"
+        }
+      ],
+      "descricao": "Medidas para os avisos de norma (ADR 0055 §8). norma_num: chave de `normas_guarda` (ID_AUSENTE = a de cada tipo). avisos: [guarda_num, codigo, trecho, indice]; valores: [medido, limite, x, y, z]. Fase 4a."
     }
   ],
   "args": {

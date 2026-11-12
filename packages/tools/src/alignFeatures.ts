@@ -17,6 +17,7 @@ import {
   coreSpan,
   isCeiling,
   isFloor,
+  isGuardaCorpo,
   isRoof,
   isSlab,
   levelRoomSeparators,
@@ -33,6 +34,7 @@ import type { EdgeRef } from './ringEdge.ts';
 import { componentCurvesOf, type ComponentPartKey } from './componentEdge.ts';
 import { planComponentsInLevel, type PlanComponent } from './componentLevels.ts';
 import { distToCurve } from './stairPickLines.ts';
+import { railingPolylines } from './railingPick.ts';
 import { gridPath } from './gridGeom.ts';
 import type { AlignPrefer } from './types.ts';
 
@@ -48,6 +50,7 @@ export type AlignKind =
   | 'linhaEsboco'
   | 'arestaEscada'
   | 'arestaRampa'
+  | 'caminhoGuardaCorpo'
   | 'linhaGrade'
   | 'linhaDetalhe'
   | 'separador';
@@ -64,7 +67,7 @@ export interface AlignLine {
  * vizinhos acompanham); `esboco` move a linha do esboço; `nenhum` serve só como referência.
  */
 export type AlignMove =
-  | { policy: 'transladar'; target: 'parede' | 'escada' | 'rampa' | 'grade'; id: Id }
+  | { policy: 'transladar'; target: 'parede' | 'escada' | 'rampa' | 'grade' | 'guardaCorpo'; id: Id }
   | { policy: 'ponta'; wallId: Id; end: 'a' | 'b' }
   | { policy: 'abertura'; openingId: Id; hostId: Id; anchor: 'inicio' | 'fim' | 'centro'; width: number }
   | { policy: 'anel'; ref: EdgeRef }
@@ -367,6 +370,31 @@ function stairRampFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, hidde
   return out;
 }
 
+/**
+ * Caminho do guarda-corpo, segmento a segmento. O manual se move (transladar, como uma parede); o hospedado serve de
+ * referência, mas não se move sozinho: ele acompanha a escada ou rampa (ADR 0055 §25).
+ */
+function railingFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, hidden?: ReadonlySet<Id>, lang: Lang = 'pt'): AlignFeature[] {
+  const tol = TOL_PX * mpp;
+  const out: AlignFeature[] = [];
+  for (const e of Object.values(p.elements)) {
+    if (!isGuardaCorpo(e) || e.levelId !== levelId || hidden?.has(e.id)) continue;
+    const manual = e.hospedeiro.tipo === 'manual';
+    railingPolylines(p, e).forEach((pl, k) => {
+      for (let i = 1; i < pl.length; i++) {
+        const a = pl[i - 1]!;
+        const b = pl[i]!;
+        if (degenerate(a, b)) continue;
+        const d = segmentDistance(at, a, b);
+        if (d > tol) continue;
+        const move: AlignMove = manual ? { policy: 'transladar', target: 'guardaCorpo', id: e.id } : { policy: 'nenhum' };
+        out.push(feature(`${e.id}:gc:${k}:${i}`, 'caminhoGuardaCorpo', translate(lang, 'tl_af_railing'), e.id, line(a, sub(b, a)), move, d, { a, b }));
+      }
+    });
+  }
+  return out;
+}
+
 /** Linhas do esboço do perímetro em edição (retas; arcos ficam de fora do Alinhar). */
 function draftFeatures(draft: SketchDraft | undefined, at: Vec2, mpp: number): AlignFeature[] {
   if (!draft) return [];
@@ -440,6 +468,7 @@ export function alignFeaturesAt(q: AlignQuery): AlignFeature[] {
   }
   out.push(...ringFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
   out.push(...stairRampFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
+  out.push(...railingFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
   if (q.referenceOnly) out.push(...referenceLineFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.planId));
   out.push(...draftFeatures(q.draft, q.at, q.metersPerPixel));
   return out.sort((a, b) => a.distance - b.distance);

@@ -75,6 +75,17 @@ pub mod quadro;
 pub mod secoes_a1;
 pub mod secoes_a3;
 pub mod secoes_b;
+pub mod secoes_gc;
+pub mod gc_tipos;
+pub mod gc_distribuicao;
+pub mod gc_montagem;
+pub mod gc_planta;
+pub mod gc_corte;
+pub mod gc_quant;
+pub mod gc_avisos;
+pub mod gc_malha;
+pub mod gc_varredura;
+pub mod gc_caminho;
 pub mod volume_sobreposicao;
 #[cfg(test)]
 mod teste_util;

@@ -1,9 +1,10 @@
 /* eslint-disable max-lines -- a faixa concentra as ações pontuais (cada uma com rótulo bilíngue, dica e guarda); dividir depois. */
 import { copyLinkOf, isCeiling, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Element, type Id, type Project, type Ramp } from '@hestia/model';
-import type { PerimeterModifyKind, ShortcutCommand, ToolOptions } from '@hestia/tools';
+import { criarGuardaCorpoDeEscada, criarGuardaCorpoDeRampa, mensagensDeGuardaCorpo, type PerimeterModifyKind, type ShortcutCommand, type ToolOptions } from '@hestia/tools';
 import { t as translate, useI18n } from '../../editor/i18n.ts';
 import { tagAllNotTagged } from '../../editor/tagActions.ts';
 import { addMissingTagsAction } from '../../editor/areaPlanActions.ts';
+import { pedirAlerta } from '../../editor/alertaPrompt.ts';
 import { editor } from '../../editor/controller.ts';
 import { createSimilarTarget, startCreateSimilar } from '../../editor/createSimilar.ts';
 import { resetDock, setDock } from '../../editor/dockActions.ts';
@@ -337,7 +338,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   genElevations: {
     label: t('Elevação', 'Elevation'),
     icon: 'plan',
-    hint: t('Cria Norte, Sul, Leste e Oeste em volta das paredes do nível ativo (substitui as de mesmo nome).', 'Creates North, South, East and West elevations around the walls.'),
+    hint: t('Cria Norte, Sul, Leste e Oeste em volta de tudo o que está no projeto: paredes, escadas, guarda-corpos, lajes, telhados... (substitui as de mesmo nome).', 'Creates North, South, East and West elevations around everything in the project: walls, stairs, railings, slabs, roofs...'),
     run: () => editor.generateElevations(),
   },
   newSheet: {
@@ -450,6 +451,26 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
       if (r) useUi.setState({ dialog: 'rampType', dialogArg: r.typeId });
     },
     disabled: (c) => (rampsIn(c).length > 0 ? false : t('Selecione uma rampa.', 'Select a ramp.')),
+  },
+  railingForHost: {
+    label: t('Guarda-corpo da escada ou rampa', 'Railing for stair or ramp'),
+    icon: 'railing',
+    hint: t('Cria um guarda-corpo nos dois lados da escada ou rampa selecionada.', 'Creates a railing on both sides of the selected stair or ramp.'),
+    run: () => {
+      const c = ctxNow();
+      const lang = useI18n.getState().lang;
+      const host = c.selection.map((id) => c.p.elements[id]).find((e) => isStair(e) || isRamp(e));
+      if (!host) return;
+      const env = {
+        project: () => editor.project,
+        exec: (cmd: Parameters<typeof editor.store.exec>[0]) => editor.store.exec(cmd, translate(lang, 'gc6a_undo_create')),
+        setSelection: (ids: Id[]) => useUi.setState({ selection: ids }),
+      };
+      const msgs = mensagensDeGuardaCorpo(lang);
+      const r = isStair(host) ? criarGuardaCorpoDeEscada(env, host.id, msgs) : criarGuardaCorpoDeRampa(env, host.id, msgs);
+      if ('error' in r) pedirAlerta(r.error);
+    },
+    disabled: (c) => (c.selection.some((id) => isStair(c.p.elements[id]) || isRamp(c.p.elements[id])) ? false : t('Selecione uma escada ou uma rampa.', 'Select a stair or a ramp.')),
   },
 };
 

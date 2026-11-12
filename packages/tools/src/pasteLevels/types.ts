@@ -22,6 +22,8 @@ export interface PasteIds {
   rooms: Id[];
   generics: Id[];
   cad: Id[];
+  /** Guarda-corpos colados (fora do vínculo de andar-tipo, decisão 0055 §11). */
+  railings: Id[];
 }
 
 /**

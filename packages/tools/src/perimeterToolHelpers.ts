@@ -1,5 +1,6 @@
 import type { SketchDraft, SketchSeg, Vec2 } from '@hestia/geom';
 import type { InferContext } from './infer.ts';
+import { contextoDeTraco } from './desenhoPolilinha.ts';
 import { addSegs } from './perimeterSession.ts';
 import { draftEdges, draftPoints } from './perimeterToolPick.ts';
 import { facePreview } from './perimeterToolInput.ts';
@@ -18,11 +19,10 @@ export function applySegs(d: SketchDraft, segs: SketchSeg[]): SketchDraft {
 /** Captura para os pontos: vértices e linhas do rascunho, mais os pontos do passo, e o ponto anterior da forma. */
 export function snapExtraOf(d: SketchDraft, st: ShapeStep | null): Partial<InferContext> {
   const anchor = anchorOf(st);
-  return {
-    ...(anchor ? { from: anchor } : {}),
+  return contextoDeTraco(anchor, {
     extraPoints: [...draftPoints(d.segs), ...pointsOf(st)],
     extraSegments: draftEdges(d.segs),
-  };
+  });
 }
 
 /** Id de uma forma de desenho; null nos modos de referência (face, caixa, ambiente) e na seleção. */

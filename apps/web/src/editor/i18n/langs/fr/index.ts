@@ -24,8 +24,10 @@ import { FR_EDITOR_CONTEXT } from '../../areas/editor-context.ts';
 import { FR_PROPS_OPTIONS } from '../../areas/props-options.ts';
 import { FR_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { FR_BIBLIOTECA } from '../../areas/biblioteca.ts';
+import { FR_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
 
 export const FR_ALL = {
+  ...FR_GUARDA_CORPO,
   ...FR_SHELL_RIBBON,
   ...FR_MISC_UI,
   ...FR_SCHEDULES_EXTRA,

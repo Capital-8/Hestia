@@ -1,6 +1,7 @@
 import { dist, multiArea, ringArea, type Vec2 } from '@hestia/geom';
 import type { Id, StairRunStyle } from '@hestia/model';
 import { pieceVolume, stairBody, type StairBodyPiece } from './stairBody.ts';
+import { stairFinishQuantities } from './stairFinish.ts';
 import type { ResolvedStair, ResolvedStairRiser, ResolvedStairStep } from './stairs.ts';
 
 /** Quantitativos de um lance (componente de tipo lance, agrupado pelo índice do componente). */
@@ -61,8 +62,16 @@ export interface StairQuantities {
   postPlanArea: number;
   /** Volume total (metros cúbicos): degraus + espelhos + patamares + poste. */
   volume: number;
-  /** Volume por material (metros cúbicos). Degraus, patamares e espelhos no material do tipo; poste no `postMaterialId`. */
+  /** Volume por material (metros cúbicos). Degraus, patamares e espelhos no material do tipo; poste no `postMaterialId`; acabamentos nos seus materiais. */
   volumeByMaterial: Record<Id, number>;
+  /** Acabamento do piso: área em planta do piso acabado, com o bocel (metros quadrados). 0 sem acabamento. */
+  treadFinishArea: number;
+  /** Acabamento do espelho: comprimento × altura dos espelhos acabados (metros quadrados). 0 sem acabamento. */
+  riserFinishArea: number;
+  /** Bocel: comprimento total da aresta com ressalto (m). 0 sem acabamento do piso ou com o bocel desligado. */
+  bocelLength: number;
+  /** Volume dos acabamentos (metros cúbicos), já somado em `volume` e em `volumeByMaterial`. */
+  volumeFinish: number;
   runs: StairRunQuantity[];
 }
 
@@ -75,6 +84,22 @@ const riserLen = (r: ResolvedStairRiser): number => (r.points.length >= 2 ? poly
 /** Área em planta de um conjunto de degraus ou patamares. */
 const areaOf = (steps: ResolvedStairStep[]): number => steps.reduce((s, x) => s + multiArea([[x.polygon]]), 0);
 
+/**
+ * Quantitativos de cada lance (nº de degraus, largura, área e piso médio). Só lê degraus e espelhos: o validador de norma usa isto sem
+ * pagar o volume do corpo e dos acabamentos, que `stairQuantities` também calcula.
+ */
+export function stairRunQuantities(s: ResolvedStair): StairRunQuantity[] {
+  const treads = s.steps.filter((x) => x.kind === 'tread');
+  const indexes = [...new Set(treads.map((t) => t.componentIndex))].sort((a, b) => a - b);
+  return indexes.map<StairRunQuantity>((ci) => {
+    const ts = treads.filter((t) => t.componentIndex === ci);
+    const rs = s.risers.filter((r) => r.componentIndex === ci);
+    const w = rs.length ? Math.min(...rs.map(riserLen)) : 0;
+    const area = areaOf(ts);
+    return { componentIndex: ci, treadCount: ts.length, width: w, treadArea: area, treadMean: w > 0 ? area / (w * ts.length) : 0 };
+  });
+}
+
 /** Quantitativos de uma escada resolvida. Escada sem geometria (erro no croqui) sai com tudo zero. */
 export function stairQuantities(s: ResolvedStair): StairQuantities {
   const treads = s.steps.filter((x) => x.kind === 'tread');
@@ -84,14 +109,7 @@ export function stairQuantities(s: ResolvedStair): StairQuantities {
   const riserLength = s.risers.reduce((acc, r) => acc + riserLen(r), 0);
   const width = s.risers.length ? Math.min(...s.risers.map(riserLen)) : 0;
 
-  const indexes = [...new Set(treads.map((t) => t.componentIndex))].sort((a, b) => a - b);
-  const runs = indexes.map<StairRunQuantity>((ci) => {
-    const ts = treads.filter((t) => t.componentIndex === ci);
-    const rs = s.risers.filter((r) => r.componentIndex === ci);
-    const w = rs.length ? Math.min(...rs.map(riserLen)) : 0;
-    const area = areaOf(ts);
-    return { componentIndex: ci, treadCount: ts.length, width: w, treadArea: area, treadMean: w > 0 ? area / (w * ts.length) : 0 };
-  });
+  const runs = stairRunQuantities(s);
   const treadCount = treads.length;
   const treadMean = treadCount ? runs.reduce((acc, r) => acc + r.treadMean * r.treadCount, 0) / treadCount : 0;
 
@@ -109,6 +127,13 @@ export function stairQuantities(s: ResolvedStair): StairQuantities {
   const volumeByMaterial: Record<Id, number> = {};
   volumeByMaterial[s.type.materialId] = volumeRun + volumeRisers + volumeLandings;
   if (post) volumeByMaterial[s.type.postMaterialId] = (volumeByMaterial[s.type.postMaterialId] ?? 0) + volumePost;
+  // Acabamentos: sólidos próprios, nos materiais deles. A estrutura (acima) já perdeu a espessura que eles ocupam.
+  const finish = stairFinishQuantities(s);
+  let volumeFinish = 0;
+  for (const [m, v] of Object.entries(finish.volumeByMaterial)) {
+    volumeByMaterial[m] = (volumeByMaterial[m] ?? 0) + v;
+    volumeFinish += v;
+  }
 
   return {
     stairId: s.id,
@@ -128,8 +153,12 @@ export function stairQuantities(s: ResolvedStair): StairQuantities {
     volumeLandings,
     volumePost,
     postPlanArea,
-    volume: volumeRun + volumeRisers + volumeLandings + volumePost,
+    volume: volumeRun + volumeRisers + volumeLandings + volumePost + volumeFinish,
     volumeByMaterial,
+    treadFinishArea: finish.treadArea,
+    riserFinishArea: finish.riserArea,
+    bocelLength: finish.bocelLength,
+    volumeFinish,
     runs,
   };
 }

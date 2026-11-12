@@ -22,7 +22,7 @@ function snapshot(over: { frameMs?: number; drawCalls?: number; triangulos?: num
       rebuilds: stats(over.rebuilds ?? 0),
     },
     total: { quadros: 1, drawCalls: 32, triangulos: 6000, uploads: 0, uploadBytes: 0, rebuilds: 0, commitsReact: 0 },
-    camadas: { geometria: 0, sobreposicao: 0, grade: 0 },
+    camadas: { geometria: 0, sobreposicao: 0, grade: 0, guardaCorpo: 0 },
     gpu: { timer: 'disponivel', ms: 1 },
     indisponiveis: [],
   };

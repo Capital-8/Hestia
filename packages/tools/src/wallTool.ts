@@ -1,4 +1,4 @@
-import { add, arcFromSagitta, cross, dist, len, mul, norm, sagFromThreePoints, sub, v2, type Vec2 } from '@hestia/geom';
+import { add, arcFromSagitta, cross, dist, mul, norm, sagFromThreePoints, sub, v2, type Vec2 } from '@hestia/geom';
 import { exteriorOffset } from '@hestia/engine';
 import { formatQuantity, makeWall, totalThickness, unitsOf, type ResolvedUnits, type Wall } from '@hestia/model';
 import { ToolBase, makeId } from './base.ts';
@@ -6,6 +6,7 @@ import { draftAngleItemsForConnection } from './anglePreview.ts';
 import { segmentLengthDim } from './dims/providers/wall.ts';
 import type { DimRef, TempDim } from './dims/types.ts';
 import type { InferContext } from './infer.ts';
+import { pontoPorComprimento } from './desenhoPolilinha.ts';
 import { lengthUnitName, parseQuantityText } from './numeric.ts';
 import type { PointerInfo } from './types.ts';
 import { refuseWallOverlap } from './wallOverlapGuard.ts';
@@ -284,9 +285,7 @@ export class WallTool extends ToolBase {
       this.env.say(`Valor inválido. Digite o comprimento em ${lengthUnitName(unitsOf(this.env.project()))}.`);
       return false;
     }
-    const dir = norm(sub(this.inf?.point ?? this.raw, this.startPt));
-    const d = len(dir) < 1e-9 ? v2(1, 0) : dir;
-    const b = add(this.startPt, mul(d, v));
+    const b = pontoPorComprimento(this.startPt, this.inf?.point ?? this.raw, v);
     if (this.isArc()) {
       this.chordEnd = b;
       return true;

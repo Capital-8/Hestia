@@ -1,4 +1,5 @@
 /* eslint-disable max-lines -- a vista reúne planta, 3D, corte e o editor da cota; extrair depois. */
+import { servicoGuardaCorpo } from '@hestia/engine';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
 import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, idsNaCaixaDaTela, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, previewOverlay, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport, sectionLabelsAt } from '@hestia/render';
 import { formatQuantity, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
@@ -265,6 +266,18 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     montagem.current.atualizar(p, { edges: v3.edges, shadows: v3.shadows, dark: darkAgora, hidden: vis.hidden, revealed: vis.revealed }, st.levelId);
     return true;
   }, []);
+  // Kernel Rust carregado depois da primeira montagem: o que foi desenhado sem os guarda-corpos (3D, planta, corte) é invalidado e refeito
+  // (mesmo padrão do "calculando…" das paredes). A chave do nível na cena 3D também muda (marca `gc0` -> `gc1`).
+  useEffect(
+    () =>
+      servicoGuardaCorpo().aoMudarPronto(() => {
+        modelKey.current = '';
+        planFrame.current?.reset();
+        quadroRef.current?.invalidar();
+        useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
+      }),
+    [],
+  );
   useEffect(() => {
     registrarPreparo3d(() => {
       iniciarMontagem3d(darkRef.current, useUi.getState());
