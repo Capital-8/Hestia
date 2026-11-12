@@ -11,6 +11,8 @@ export * from './plan/grid.ts';
 export * from './plan/cpuPlan.ts';
 export * from './plan/gpuPlan.ts';
 export * from './model3d/solids.ts';
+export { furnitureViewBudget, AVISO_TRIANGULOS_MOVEIS, type OrcamentoDeMoveis, type OpcoesOrcamento } from './model3d/furnitureBudget.ts';
+export { moveisIdDaInstancia, type OpcoesMoveis } from './model3d/furnitureSolids.ts';
 export * from './model3d/orbit.ts';
 export * from './model3d/scene3d.ts';
 export * from './model3d/pick3d.ts';

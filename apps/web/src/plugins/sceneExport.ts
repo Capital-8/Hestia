@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { view3dOf, type Generic, type Project } from '@hestia/model';
 import type { SceneContent, SceneEntity, SceneLight, SceneMaterial, SceneMesh, SceneSite } from '@hestia/plugin-api';
 import { IDENTITY_MATRIX } from '@hestia/plugin-api';
+import { furnitureBudget, furnitureEntities, registrarOrcamentoMoveis } from './furnitureScene.ts';
 
 /**
  * Hash FNV-1a de 32 bits sobre posições, índices, normais e grupos (com o material de cada grupo): qualquer mudança que
@@ -275,6 +276,7 @@ export function buildSceneContent(project: Project, root: THREE.Object3D | null)
   const entities: SceneEntity[] = [];
   for (const el of Object.values(project.elements)) {
     const e = el as unknown as Typed;
+    if (e.kind === 'furniture') continue; // móveis saem do modelo (furnitureScene.ts), não da cena 3D
     const mesh = meshes.get(e.id) ?? null;
     if (!mesh && e.kind === 'room') continue; // ambientes são anotação, não sólido
     const mats = materialIdsOf(project, e);
@@ -289,10 +291,16 @@ export function buildSceneContent(project: Project, root: THREE.Object3D | null)
       visible: true,
     });
   }
+  // Móveis importados: malha completa direto do modelo, em metros, Z para cima (protocolo até 1.3: malha por entidade).
+  registrarOrcamentoMoveis(furnitureBudget(project));
+  entities.push(...furnitureEntities(project).entities);
   entities.sort((a, b) => (a.id < b.id ? -1 : 1));
+  const materiaisDeMovel = new Set(Object.values(project.furniture?.assets ?? {}).flatMap((a) => a.materials.map((x) => x.id)));
   const materials: SceneMaterial[] = Object.values(project.materials).map((m) => {
     const category = categoriaDoMaterial(m);
-    return { id: m.id, name: m.name, color: m.color, gloss: m.gloss, opacity: m.opacity, ...(category ? { category } : {}), ...pbrDaCategoria(category) };
+    // Opacidade 0 num material de móvel vem de alfa 0 do .skp (não é transparência): o renderizador recebe 1.
+    const opacity = m.opacity <= 0 && materiaisDeMovel.has(m.id) ? 1 : m.opacity;
+    return { id: m.id, name: m.name, color: m.color, gloss: m.gloss, opacity, ...(category ? { category } : {}), ...pbrDaCategoria(category) };
   });
   materials.sort((a, b) => (a.id < b.id ? -1 : 1));
   const site = extractSite(project);

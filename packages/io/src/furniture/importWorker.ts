@@ -1,6 +1,7 @@
 // Executa um `ImportFn` dentro de um Web Worker. A parte pura (`runImportRequest`, `collectTransferables`) roda em Node
 // sem Worker, para teste. O ponto de entrada do Worker (no fim do arquivo) so liga quando o codigo roda num Worker.
 import type { ImportFn, ImportedModel } from './types';
+import { applyAverageTextureColors } from './imageColor';
 
 export interface ImportRequest {
   type: 'import';
@@ -8,6 +9,8 @@ export interface ImportRequest {
   name: string;
   bytes: Uint8Array;
   scale?: number;
+  /** Para testes: nao calcula a cor media das texturas. */
+  skipAverageColor?: boolean;
 }
 export interface CancelRequest {
   type: 'cancel';
@@ -74,6 +77,7 @@ export async function runImportRequest(
         onProgress: (fraction, label) => post({ type: 'progress', id: req.id, fraction, label }),
       },
     );
+    if (!req.skipAverageColor) await applyAverageTextureColors(model);
     post({ type: 'done', id: req.id, model }, collectTransferables(model));
   } catch (e) {
     const err = e instanceof Error ? e : new Error(String(e));

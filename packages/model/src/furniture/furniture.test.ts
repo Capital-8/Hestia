@@ -76,8 +76,13 @@ describe('asset', () => {
     const a = buildFurnitureAsset(input(), 'fa1');
     expect(a.sourceFileName).toBe('poltrona.glb');
     expect(a.textures[0]!.fileName).toBe('madeira.png');
-    expect(a.bbox.min).toEqual([0, -3.5, 0]);
-    expect(a.bbox.max[1]).toBe(2);
+    // recentrado: centro da base na origem (a caixa do arquivo era x 0..1, y -3.5..2)
+    expect(a.bbox.min[0]).toBeCloseTo(-0.5);
+    expect(a.bbox.min[1]).toBeCloseTo(-2.75);
+    expect(a.bbox.min[2]).toBe(0);
+    expect(a.bbox.max[1]).toBeCloseTo(2.75);
+    expect(buildFurnitureAsset(input(), 'fa1b', ).bbox).toEqual(a.bbox);
+    expect(buildFurnitureAsset({ ...input(), recenter: false }, 'fa1c').bbox.min[1]).toBeCloseTo(-3.5);
     expect(a.materials[0]!.color).toBe('#80401a');
     expect(a.materials[0]!.useEmbeddedTexture).toBe(true);
     expect(a.contentHash).toMatch(/^[0-9a-f]{64}$/);
@@ -244,11 +249,11 @@ describe('transformacao e limites', () => {
   it('bounds do asset girado', () => {
     const a = buildFurnitureAsset(input(), 'fa1');
     const b = furnitureBounds(f({ x: 10, y: 10, z: 0, rotation: Math.PI / 2 }), a);
-    // bbox local x 0..1, y -3.5..2 -> girado 90: x = -y local
-    expect(b.min[0]).toBeCloseTo(10 - 2);
-    expect(b.max[0]).toBeCloseTo(10 + 3.5);
-    expect(b.min[1]).toBeCloseTo(10);
-    expect(b.max[1]).toBeCloseTo(11);
+    // bbox local recentrada x -0.5..0.5, y -2.75..2.75 -> girado 90: x = -y local, y = x local
+    expect(b.min[0]).toBeCloseTo(10 - 2.75);
+    expect(b.max[0]).toBeCloseTo(10 + 2.75);
+    expect(b.min[1]).toBeCloseTo(10 - 0.5);
+    expect(b.max[1]).toBeCloseTo(10 + 0.5);
   });
 });
 
@@ -270,8 +275,9 @@ describe('pecas do bloco (instancias de dentro do arquivo)', () => {
       'fa2',
     );
     expect(a.parts).toHaveLength(3);
-    expect(a.bbox.min).toEqual([0, 0, 0]);
-    expect(a.bbox.max[0]).toBe(5);
+    expect(a.bbox.min).toEqual([-2.5, -0.5, 0]);
+    expect(a.bbox.max).toEqual([2.5, 0.5, 0.5]);
+    expect(buildFurnitureAsset({ ...base, defs: [quad()], materials: [base.materials[1]!], textures: [], recenter: false, instances: [{ defId: 'q', transform: T(0, 0, 0) }, { defId: 'q', transform: T(2, 0, 0.5) }] }, 'fa2b').bbox.min).toEqual([0, 0, 0]);
     expect(furnitureAssetIssue(a)).toBeNull();
     expect(assetParts(a)[2]!.name).toBe('espelhada');
     expect(mat4Det3(assetParts(a)[2]!.transform)).toBeLessThan(0);
@@ -281,14 +287,15 @@ describe('pecas do bloco (instancias de dentro do arquivo)', () => {
     const a = buildFurnitureAsset({ ...base, defs: [quad()], materials: [base.materials[1]!], textures: [] }, 'fa3');
     expect(a.parts).toHaveLength(1);
     expect(assetParts({ ...a, parts: undefined })).toHaveLength(1);
-    expect(a.bbox.max).toEqual([1, 1, 0]);
+    expect(a.bbox.min).toEqual([-0.5, -0.5, 0]);
+    expect(a.bbox.max).toEqual([0.5, 0.5, 0]);
   });
   it('transformacao do mundo compoe instancia e peca', () => {
     const base = input();
     const a = buildFurnitureAsset({ ...base, defs: [quad()], materials: [base.materials[1]!], textures: [], instances: [{ defId: 'q', transform: T(2, 0, 0) }] }, 'fa4');
     const inst = { id: 'f1', kind: 'furniture', assetId: 'fa4', levelId: 'l', x: 10, y: 0, z: 0, rotation: 0, scale: 1, mirrored: false, name: 'n', order: 0 } as Furniture;
     const m = furniturePartWorldTransform(inst, assetParts(a)[0]!, a);
-    expect(applyMat4(m, [0, 0, 0])).toEqual([12, 0, 0]);
+    expect(applyMat4(m, [0, 0, 0])).toEqual([9.5, -0.5, 0]);
   });
   it('recusa peca que aponta para definicao inexistente', () => {
     const base = input();
