@@ -100,10 +100,29 @@ describe('etapa 7: cota some quando um elemento referenciado está oculto', () =
     expect(visibleInView(oculto, PISO, 'd_w1', { revealing: true })).toBe(true);
   });
 
-  it('isolar só a cota (sem a parede) esconde a cota; isolar a cota e a parede mantém as duas', () => {
+  it('cenário A: isolar temporário (HI) só a cota presa deixa a cota visível e esconde a parede (a planta não fica vazia)', () => {
     const p = base();
-    expect(visibleInView(p, PISO, 'd_w1', { temporary: { isolated: { elements: ['d_w1'] } } })).toBe(false);
+    const HI = { temporary: { isolated: { elements: ['d_w1'] } } };
+    expect(visibleInView(p, PISO, 'd_w1', HI)).toBe(true);
+    expect(visibleInView(p, PISO, 'w1', HI)).toBe(false);
+    expect(hiddenByUserInView(p, PISO, 'd_w1', HI)).toBe(false);
     expect(visibleInView(p, PISO, 'd_w1', { temporary: { isolated: { elements: ['d_w1', 'w1'] } } })).toBe(true);
+  });
+
+  it('cenário B: isolar a categoria "anotação" (IC) mantém as cotas e etiquetas presas a parede', () => {
+    const p = base();
+    const IC = { temporary: { isolated: { categories: ['annotation' as const] } } };
+    for (const id of ['livre', 'd_w1', 'd_w1_w2', 'd_porta', 'tg_w1', 'tg_w2']) expect(visibleInView(p, PISO, id, IC)).toBe(true);
+    expect(visibleInView(p, PISO, 'w1', IC)).toBe(false);
+    expect([...hiddenIdsInView(p, PISO, ['w1', 'w2', 'dr1', 'd_w1', 'tg_w1'], IC)].sort()).toEqual(['dr1', 'w1', 'w2']);
+  });
+
+  it('o isolamento não perdoa a ocultação: parede oculta (permanente ou HH) esconde a cota mesmo isolada', () => {
+    const oculta = ocultar(base(), PISO, ['w1']);
+    expect(visibleInView(oculta, PISO, 'd_w1', { temporary: { isolated: { elements: ['d_w1'] } } })).toBe(false);
+    expect(visibleInView(oculta, PISO, 'tg_w1', { temporary: { isolated: { categories: ['annotation'] } } })).toBe(false);
+    expect(visibleInView(base(), PISO, 'd_w1', { temporary: { hidden: { elements: ['w1'] }, isolated: { elements: ['d_w1'] } } })).toBe(false);
+    expect(visibleInView(base(), PISO, 'd_w1', { outOfRange: new Set(['w1']), temporary: { isolated: { elements: ['d_w1'] } } })).toBe(false);
   });
 
   it('cota cujo elemento não existe mais continua a aparecer (guarda a geometria gravada)', () => {

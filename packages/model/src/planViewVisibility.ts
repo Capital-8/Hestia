@@ -164,7 +164,9 @@ function isolationActive(p: Project, v: PlanView | undefined, isolated: ViewHidd
 /**
  * Ocultação escolhida pelo usuário (etapas 3, só `hidden.categories`, 5, 6 e a 7 sobre elas): é o que o "revelar ocultos"
  * mostra de novo e o que vai ao desenho como `hidden`. Com isolamento temporário ativo, só o isolado aparece (e ele manda
- * sobre o oculto permanente, como no Revit). A cota ou etiqueta cujo elemento o usuário oculta também conta (etapa 7).
+ * sobre o oculto permanente, como no Revit). A cota ou etiqueta cujo elemento o usuário oculta também conta (etapa 7), mas só
+ * a OCULTAÇÃO do elemento: o isolamento temporário não esconde a anotação por causa do hospedeiro (isolar uma cota, ou a
+ * categoria "anotação", mantém as cotas e etiquetas presas a parede).
  */
 export function hiddenByUserInView(p: Project, viewId: Id, id: Id, session: VisibilitySession = {}): boolean {
   const v = planViewOf(p, viewId);
@@ -176,13 +178,23 @@ export function hiddenByUserInView(p: Project, viewId: Id, id: Id, session: Visi
     : inHidden(v?.hidden, id, category) || inHidden(t?.hidden, id, category);
   if (proprio) return true;
   const hosts = v ? annotationInfosOf(v).get(id)?.hosts : undefined;
-  return !!hosts?.length && hosts.some((h) => hiddenByUserInView(p, viewId, h, session));
+  if (!hosts?.length) return false;
+  const ocultacao = semIsolamento(session);
+  return hosts.some((h) => hiddenByUserInView(p, viewId, h, ocultacao));
+}
+
+/** A sessão sem o isolamento temporário: a etapa 7 olha o hospedeiro só pela ocultação (permanente, categoria, alcance, HH). */
+function semIsolamento(session: VisibilitySession): VisibilitySession {
+  const t = session.temporary;
+  return t?.isolated ? { ...session, temporary: { hidden: t.hidden } } : session;
 }
 
 /** Etapa 7: algum elemento de que a anotação depende (cota: `refs`; etiqueta: `hostId`) não aparece na vista? */
 function hostHidden(p: Project, v: PlanView | undefined, viewId: Id, id: Id, session: VisibilitySession): boolean {
   const hosts = v ? annotationInfosOf(v).get(id)?.hosts : undefined;
-  return !!hosts?.length && hosts.some((h) => !visibleInView(p, viewId, h, session));
+  if (!hosts?.length) return false;
+  const ocultacao = semIsolamento(session);
+  return hosts.some((h) => !visibleInView(p, viewId, h, ocultacao));
 }
 
 /** A regra única: o item aparece na vista? (etapas 1 a 7; ver o cabeçalho do arquivo). */
