@@ -1,5 +1,5 @@
 import { add, dot, mul, norm, sub, type Vec2 } from '@hestia/geom';
-import { angularDimensionData, coreSpan, floorViewId, levelRoomSeparators, projectGrids, viewAnnotationsOf, type Dimension, type Id, type Project } from '@hestia/model';
+import { angularDimensionData, coreSpan, levelRoomSeparators, planViewsOfLevel, projectGrids, type Dimension, type Id, type Project } from '@hestia/model';
 import { frameOfWall } from './resolve.ts';
 import { pointAt, tangentAt } from './frame.ts';
 
@@ -49,9 +49,13 @@ function refLine(p: Project, levelId: Id, key: string): WallRefLine | null {
   }
   const detail = /^(.+):detalhe$/.exec(key);
   if (detail) {
-    // Linha de detalhe é anotação da vista: hoje a da planta de piso do nível (a mesma lista que o nível guarda).
-    const l = viewAnnotationsOf(p, floorViewId(levelId)).detailLines.find((x) => x.id === detail[1]);
-    return l ? segmentRef(l.a, l.b) : null;
+    // Linha de detalhe é anotação de UMA vista de planta do nível (piso, cobertura ou planta de área). O id é único no
+    // projeto (as cópias levam o id da vista no sufixo), então basta achá-la na vista do nível que a possui.
+    for (const v of planViewsOfLevel(p, levelId)) {
+      const l = v.annotations.detailLines.find((x) => x.id === detail[1]);
+      if (l) return segmentRef(l.a, l.b);
+    }
+    return null;
   }
   const sep = /^(.+):separador$/.exec(key);
   if (sep) {

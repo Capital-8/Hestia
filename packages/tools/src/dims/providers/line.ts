@@ -1,9 +1,9 @@
 import { add, arcFromSagitta, dist, mul, norm, sub, type Vec2 } from '@hestia/geom';
-import { floorViewId, roofViewId, viewAnnotationsOf, type DetailLine, type Id, type Project } from '@hestia/model';
+import { floorViewId, planViewsOfLevel, type DetailLine, type Id, type PlanView, type Project } from '@hestia/model';
 import { NON_POSITIVE_MSG, gapTranslation, segFrame, segPoint, segmentGaps, type ParallelGap, type SegFrame } from '../parallel.ts';
 import type { DimContext, DimEditResult, DimEnd, DimProvider, TempDim } from '../types.ts';
 
-/** Linha de detalhe a cotar (mora na planta de piso do nível, que é o que o nível guarda). */
+/** Linha de detalhe a cotar (mora numa vista de planta do nível: piso, cobertura ou planta de área). */
 export interface DetailLineDimSubject {
   lineId: Id;
 }
@@ -50,24 +50,27 @@ export function detailLinePreviewDim(a: Vec2, b: Vec2): TempDim {
 }
 
 /**
- * Linhas de detalhe da vista que tem a linha `id`: a planta de piso do nível (a de sempre) ou a de cobertura, que tem as
- * suas. As linhas vizinhas para a cota paralela são da MESMA vista. Sem a linha, null.
+ * Vista de planta do nível que tem a linha `id`: a de piso, a de cobertura ou qualquer planta de área (cada uma tem as
+ * suas anotações; o id da linha é único no projeto). Sem a linha, `undefined`.
  */
+function vistaDaLinha(project: Project, levelId: Id, id: Id): PlanView | undefined {
+  return planViewsOfLevel(project, levelId).find((v) => v.annotations.detailLines.some((x) => x.id === id));
+}
+
+/** Linhas de detalhe da vista que tem a linha `id`. As vizinhas para a cota paralela são da MESMA vista. Sem a linha, null. */
 function linhasDaVistaDe(project: Project, levelId: Id, id: Id): DetailLine[] | null {
-  for (const viewId of [floorViewId(levelId), roofViewId(levelId)]) {
-    const linhas = viewAnnotationsOf(project, viewId).detailLines;
-    if (linhas.some((x) => x.id === id)) return linhas;
-  }
-  return null;
+  return vistaDaLinha(project, levelId, id)?.annotations.detailLines ?? null;
 }
 
 function findLine(project: Project, levelId: Id, id: Id): DetailLine | null {
   return linhasDaVistaDe(project, levelId, id)?.find((x) => x.id === id) ?? null;
 }
 
-/** Destino do comando de edição: a linha da cobertura leva o `viewId` dela; a do piso, a forma de sempre (sem vista). */
-const destinoDaLinha = (project: Project, levelId: Id, id: Id): { viewId?: Id } =>
-  viewAnnotationsOf(project, roofViewId(levelId)).detailLines.some((x) => x.id === id) ? { viewId: roofViewId(levelId) } : {};
+/** Destino do comando de edição: a linha da cobertura ou da planta de área leva o `viewId` dela; a do piso, a forma de sempre (sem vista). */
+const destinoDaLinha = (project: Project, levelId: Id, id: Id): { viewId?: Id } => {
+  const v = vistaDaLinha(project, levelId, id);
+  return v && v.id !== floorViewId(levelId) ? { viewId: v.id } : {};
+};
 
 /** Cota lateral até a linha de detalhe paralela vizinha: editar translada a linha inteira na normal. */
 function lateralDim(ctx: DimContext, lineId: Id, f: SegFrame, a: Vec2, b: Vec2, gap: ParallelGap): TempDim {
