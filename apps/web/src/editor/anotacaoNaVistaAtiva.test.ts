@@ -44,9 +44,9 @@ function montar(): { project: Project; ap1: Id; ap2: Id } {
   return { project: s.project, ap1, ap2 };
 }
 
-const ir = (viewId: Id | null, planKind: 'floor' | 'roof' | 'area', ap: { ap1: Id; ap2: Id; project: Project }): void => {
+const ir = (viewId: Id | null, tipo: 'floor' | 'roof' | 'area', ap: { ap1: Id; ap2: Id; project: Project }): void => {
   editor.load(ap.project, 'teste.hestia.json');
-  useUi.setState({ view: 'plan', levelId: 'lv_0', planViewId: planKind === 'area' ? (viewId as string) : planKind === 'roof' ? 'pvr_lv_0' : 'pv_lv_0', selection: [], hover: null, sectionId: null, options: DEFAULT_OPTIONS });
+  useUi.setState({ view: 'plan', levelId: 'lv_0', planViewId: tipo === 'area' ? (viewId as string) : tipo === 'roof' ? 'pvr_lv_0' : 'pv_lv_0', selection: [], hover: null, sectionId: null, options: DEFAULT_OPTIONS });
 };
 
 const cota = (id: string, y = -6): Dimension => ({ id, a: { x: 0, y }, b: { x: 4, y }, offset: 1, mode: 'aligned' });

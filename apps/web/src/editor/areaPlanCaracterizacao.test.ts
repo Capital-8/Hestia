@@ -130,7 +130,7 @@ describe('caracterização do DXF da planta de área (golden)', () => {
   it('ponto único viewDxf: piso igual a planDxf, área igual a areaPlanDxf', () => {
     const s = projetoPequeno();
     s.exec({ type: 'addAreaPlan', plan: planaArea() });
-    expect(viewDxf(s.project, { levelId: 'lv_0' })).toBe(planDxf(s.project, 'lv_0'));
-    expect(viewDxf(s.project, { levelId: 'lv_0', areaPlanId: 'ap1' })).toBe(areaPlanDxf(s.project, 'ap1'));
+    expect(viewDxf(s.project, { viewId: 'pv_lv_0' })).toBe(planDxf(s.project, 'lv_0'));
+    expect(viewDxf(s.project, { viewId: 'ap1' })).toBe(areaPlanDxf(s.project, 'ap1'));
   });
 });

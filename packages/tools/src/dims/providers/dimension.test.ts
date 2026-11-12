@@ -121,13 +121,13 @@ describe('cota permanente selecionada (provedor dimension)', () => {
         annotations: { dimensions: [dimArea], texts: [], detailLines: [], detailRegions: [], tags: [] },
       },
     } as never);
-    expect(vistaDaCota(s.project, 'lv_0', 'dm_area')).toEqual({ levelId: 'lv_0', planId: 'ap1' });
+    expect(vistaDaCota(s.project, 'lv_0', 'dm_area')).toEqual({ levelId: 'lv_0', viewId: 'ap1' });
     const dims = selectionDims(ctx(s), ['dm_area']);
     expect(dims).toHaveLength(1);
     expect(dims[0]!.value).toBeCloseTo(3, 6);
     const r = pickRefCommands(s.project, 'lv_0', 'dm_area', 'a', { x: 0, y: 3 }, 0.05);
     if ('error' in r) throw new Error(r.error);
-    expect(r.commands[0]).toMatchObject({ type: 'updateDimension', planId: 'ap1', id: 'dm_area' });
+    expect(r.commands[0]).toMatchObject({ type: 'updateDimension', viewId: 'ap1', id: 'dm_area' });
     s.exec(r.commands[0]!);
     const plano = areaPlanOf(s.project, 'ap1')!;
     expect(planAnnotationsOf(plano).dimensions[0]!.refs?.a).toMatchObject({ elementId: 'p2', feature: 'wall-axis-a' });
