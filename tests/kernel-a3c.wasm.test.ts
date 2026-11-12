@@ -53,13 +53,6 @@ const cenaDe = (p: Project) => {
   return { cena, a1, a3 };
 };
 
-/** Perímetro de uma forma (soma dos anéis): a escala do ruído de grade de 1 µm (critério 0049: o erro de área é proporcional ao contorno). */
-function perimetroDaForma(forma: MultiPolygon): number {
-  let t = 0;
-  for (const poly of forma) for (const anel of poly) for (let i = 0; i < anel.length; i++) t += Math.hypot(anel[(i + 1) % anel.length]!.x - anel[i]!.x, anel[(i + 1) % anel.length]!.y - anel[i]!.y);
-  return t;
-}
-
 /** Trechos de [0, altura] que nenhuma faixa cobre (maiores que 2e-6, o arredondamento das faixas a 1e-6). */
 function lacunasDeAltura(faixas: ReadonlyArray<{ z0: number; z1: number }>, altura: number): Array<[number, number]> {
   const out: Array<[number, number]> = [];
@@ -290,9 +283,8 @@ describe.skipIf(!bytes)('A3c: cluster_resolvido do Rust x motor TypeScript', () 
               if (!c.faixa && f.poly.length && c.raw.length) {
                 const fora = difference(f.poly, c.raw);
                 const sobra = fora.length ? difference(fora, ...(vaos.get(c.parede) ?? [])) : fora;
-                // ruído de grade de 1 µm (0049): fiapo ao longo de uma borda diagonal comprida; o erro de área escala com o contorno da faixa (K = área / perímetro / 1e-6 < 1).
                 // Medido na semente 405 (parede 14, TS e Rust idênticos): 1,59e-6 m² em 4,5 m de borda, K = 0,35.
-                expect(areaDaForma(sobra), `faixa [${f.z0}, ${f.z1}] fora do bruto`).toBeLessThanOrEqual(1e-6 * Math.max(1, perimetroDaForma(f.poly)));
+                expect(areaDaForma(sobra), `faixa [${f.z0}, ${f.z1}] fora do bruto`).toBeLessThanOrEqual(1e-6);
               }
               verificadas++;
             }
