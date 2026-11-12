@@ -8,8 +8,8 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ProjectStore, openingTypeById, view3dOf } from '@hestia/model';
-import { FLAGS_ESQUADRIA, ServicoCortina, definirGerenciadorDaCortina, esquadriaDaCelula, esquadriasDaCortina, idEsquadriaCortina, lerIdEsquadriaCortina, modeloDaEsquadriaCortina } from '../packages/engine/src/index.ts';
+import { ProjectStore, makeWall, openingTypeById, view3dOf } from '@hestia/model';
+import { FLAGS_ESQUADRIA, PAPEL_MALHA_CORTINA, ServicoCortina, servicoCortina, definirGerenciadorDaCortina, esquadriaDaCelula, esquadriasDaCortina, idEsquadriaCortina, lerIdEsquadriaCortina, modeloDaEsquadriaCortina } from '../packages/engine/src/index.ts';
 import { projetoComCortina } from '../packages/engine/src/fixtureCortina.ts';
 import { caminhoDoWasm } from '../packages/geom/src/kernel/caminhoWasm.ts';
 import { GerenciadorKernelV2 } from '../packages/geom/src/kernel/v2/gerenciador.ts';
@@ -170,5 +170,26 @@ describe('parede cortina: consulta 107 e esquadria virtual no Rust real', () => 
     expect(view3dOf(s.project).openOpenings).toBeFalsy();
     s.exec({ type: 'removeCellOpening', wallId: 'ct1', i: 1, j: 0 });
     expect(esquadriasDaCortina(s.project)).toHaveLength(0);
+  });
+
+  it.skipIf(!bytes)('junção: a ponta recuada desloca o início do sistema, e o vão virtual fica onde a folha simples do próprio kernel está', () => {
+    // Uma parede comum de 14 cm sobe de (0, 0): a cortina encosta nela e começa depois do recuo (o nó é meia espessura da vizinha para dentro).
+    const s = new ProjectStore(projetoComCortina());
+    s.exec({ type: 'addWall', wall: makeWall({ id: 'vizinha', typeId: 'wt_alv14', levelId: 'lv_0', a: { x: 0, y: 0 }, b: { x: 0, y: 4 }, height: 3 }) });
+    const porta = Object.values(s.project.openingTypes).find((t) => t.kind === 'door')!;
+    s.exec({ type: 'setCellOpening', wallId: 'ct1', i: 1, j: 0, openingTypeId: porta.id, flipHand: false, flipFacing: false, mark: 'P1', fit: 'cell', fundir: true });
+    const [e] = esquadriasDaCortina(s.project);
+    expect(e).toBeDefined();
+    const m = servicoCortina().malha(s.project)!;
+    const folha = m.grupos.filter((g) => g.wallId === 'ct1' && g.papel >= PAPEL_MALHA_CORTINA.esquadria);
+    expect(folha.length).toBeGreaterThan(0);
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    for (const g of folha) for (let k = 0; k < g.vertices.length; k += 3) { x0 = Math.min(x0, g.vertices[k]!); x1 = Math.max(x1, g.vertices[k]!); }
+    // O kernel desenhou a folha dele dentro do vão; o centro do vão virtual (em x, a cortina corre ao longo de x) é o centro da faixa dele.
+    expect(e!.geometria.center.x).toBeCloseTo((x0 + x1) / 2, 2);
+    expect(x1 - x0).toBeCloseTo(e!.geometria.width, 2);
+    // E há recuo de fato: sem a vizinha o centro seria s0/s1 puros; com ela, o início do sistema passa de 0.
+    expect(e!.opening.offset).toBeGreaterThan((e!.porta.s0 + e!.porta.s1) / 2 + 0.01);
   });
 });
