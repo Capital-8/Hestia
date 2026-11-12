@@ -196,3 +196,56 @@ describe('parede cortina: sem o kernel', () => {
     cena.dispose();
   });
 });
+
+/** Duas cortinas em canto de 90° (ct1 de (0,0) a (6,0); ct2 de (6,0) a (6,4)): o montante de canto sai em `grupos` (fase 3). */
+const cantoDe90 = (): Project => {
+  const s = new ProjectStore(projetoComCortina(especCortinaTeste({ mullions: { ...especCortinaTeste().mullions, corner: 'mul_ret_50x100' } })));
+  s.exec({ type: 'addWall', wall: makeWall({ id: 'ct2', typeId: 'wt_ct', levelId: 'lv_0', a: { x: 6, y: 0 }, b: { x: 6, y: 4 }, height: 3 }) });
+  return s.project;
+};
+
+describe('parede cortina: montante de canto (grupos) no 3D', () => {
+  it.skipIf(!bytes)('o canto sai em grupos e o 3D gera a malha dele dentro da caixa do encontro; planta e quantidades não o repetem', () => {
+    const srv = new ServicoCortina(() => ger);
+    const p = cantoDe90();
+    const m = srv.malha(p)!;
+    // O canto é emitido pela cortina de menor id (ct1), num grupo próprio do montante.
+    expect(m.grupos.length).toBeGreaterThan(0);
+    expect(m.grupos.every((g) => g.wallId === 'ct1' && g.papel === 0 && !g.transparente)).toBe(true);
+    expect(m.grupos.reduce((s, g) => s + g.indices.length / 3, 0)).toBeGreaterThan(0);
+    // Quantidades: o canto aparece uma vez (papel 6), com o volume do prisma de 0,1 m x 0,1 m x 3 m (não vem de `grupos`).
+    const cantos = srv.quantidades(p)!.filter((q) => q.papel === 6);
+    expect(cantos).toHaveLength(1);
+    expect(cantos[0]!.n).toBe(1);
+    expect(cantos[0]!.volume).toBeCloseTo(0.1 * 0.1 * 3, 5);
+    srv.encerrar();
+
+    definirGerenciadorDaCortina(() => ger);
+    const cena = new ModelScene();
+    cena.update(p, niveis(p), opcoes);
+    const avulsas: THREE.Mesh[] = [];
+    cena.scene.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh && o.userData.avulsa === true) avulsas.push(o as THREE.Mesh);
+    });
+    expect(avulsas).toHaveLength(m.grupos.length);
+    const malhaCanto = avulsas[0]!;
+    const geo = malhaCanto.geometry;
+    const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+    expect(pos.count).toBeGreaterThan(0);
+    expect(geo.getIndex()!.count / 3).toBeGreaterThan(0);
+    // Vértices no mundo dentro da caixa do encontro: x perto de 6 m, y perto da linha da parede, z de 0 à altura.
+    malhaCanto.updateWorldMatrix(true, false);
+    const v = new THREE.Vector3();
+    const caixa = new THREE.Box3();
+    for (let i = 0; i < pos.count; i++) caixa.expandByPoint(v.fromBufferAttribute(pos, i).applyMatrix4(malhaCanto.matrixWorld));
+    expect(caixa.min.x).toBeGreaterThan(5.9);
+    expect(caixa.max.x).toBeLessThan(6.1);
+    expect(caixa.min.y).toBeGreaterThan(-0.1);
+    expect(caixa.max.y).toBeLessThan(0.1);
+    expect(caixa.min.z).toBeGreaterThanOrEqual(-1e-6);
+    expect(caixa.max.z).toBeLessThanOrEqual(3 + 1e-6);
+    // A caixa da cortina ct1 (picking e enquadramento) inclui o canto: vai até x = 6,05.
+    expect(cena.selectionBounds(['ct1'])!.max.x).toBeGreaterThan(6.04);
+    cena.dispose();
+  });
+});
