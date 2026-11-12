@@ -10,6 +10,7 @@ Atualize a seção "Onde estamos" a cada etapa integrada.
 | `vistas/f2a-1` | Etapa 2a-1 (migração 23 → 24). Já integrada em `vistas/base`; pode ser apagado. |
 | `vistas/f2a-2` | Etapa 2a-2 (vista ativa nas ferramentas). Já integrada em `vistas/base`; pode ser apagado. |
 | `vistas/f2b` | Fase 2b (identificação única por viewId). Já integrada em `vistas/base`; pode ser apagado. |
+| `vistas/f3-h`, `vistas/f3-i`, `vistas/f3-j` | Fase 3, raias H, I e J. Já integradas em `vistas/base` (locais; não enviadas); podem ser apagadas. |
 | `vistas/plano-mestre` | Só o plano original. Pode ser apagado. |
 
 `main` não foi tocado. Nenhum pull request foi aberto.
@@ -39,7 +40,21 @@ Atualize a seção "Onde estamos" a cada etapa integrada.
   do ouro (`tests/vistas-ouro`) ainda usam a forma antiga; `hiddenInView` (controller) segue lendo a vista de piso;
   `visibilityKeyOf` ainda usa chaves por nível; `UiState` guarda `planKind` como cache junto de `planViewId`;
   `sessaoValida` não checa se `planViewId` existe; faltam testes de prancha com viewport órfã e de v23 com prancha.
-- **Fase 3 e fechamento — não iniciadas.**
+- **Fase 3, raias H, I e J — concluídas, revisadas e integradas** (merges `0d895c3f` e `bdd75c26`). Verificação no
+  tronco: tipos e lint sem erro, 905 arquivos / 9.936 testes, ouro 8 de 8, diff de `crates` e `packages/geom` vazio.
+  - **H** (`packages/model/src/planViewVisibility.ts`): `visibleInView` é a decisão única de visibilidade (etapas 1,
+    2, 3, 5, 6 do 4.5, mais revelar/isolar) em desenho, seleção, captura, DXF e prancha. Ouro regravado em 2026-11-12,
+    só 5 arquivos `*.selecao.txt` (05-ocultos e 06-faixa-e-graficos), auditados id a id (regra 1: item não visível
+    deixa de ser selecionável). A prancha agora honra ocultos permanentes (commit `6de3cb50`).
+  - **I**: etapa 7 (cota e etiqueta somem com o elemento oculto; cota nova só referencia o visível; cota angular e
+    cota de linha de detalhe funcionam em cobertura e planta de área). O ouro atual não exercita a etapa 7: ela só
+    é coberta pelos testes novos. O DXF não honra `hidden.elements`/categorias (decisão: fica fora da Fase 3).
+  - **J**: planta de área aceita todas as ferramentas (`PLAN_VIEW_KINDS.area.tools = all`), exclusão de modelo na
+    área, aviso de criação em categoria oculta por vista ("Mostrar categoria nesta vista" e "Desfazer").
+- **Raia E (etiquetas do nível na planta de área), raia K (remoção das gambiarras) e fechamento — não iniciadas.**
+  Decisões do usuário: E = copiar as etiquetas na migração e o desenho ler só a vista (muda o ouro da área, auditar
+  antes de regravar); DXF honrar ocultos fica para depois da Fase 3; K pode editar o adaptador/construtores de
+  `tests/vistas-ouro` desde que os arquivos gravados fiquem byte a byte iguais.
 
 ### Pendências abertas pela 2a-1 (resolver na Fase 2b/3)
 1. **Etiquetas de elemento do nível na planta de área.** A migração NÃO copiou as `ElementTag` do nível para a
