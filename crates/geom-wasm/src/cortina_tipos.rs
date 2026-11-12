@@ -75,6 +75,8 @@ pub const PAPEL_BORDA_INI: u32 = 2;
 pub const PAPEL_BORDA_FIM: u32 = 3;
 pub const PAPEL_BORDA_BASE: u32 = 4;
 pub const PAPEL_BORDA_TOPO: u32 = 5;
+/// Montante de canto entre duas cortinas (fase 3, junção de cortinas).
+pub const PAPEL_CANTO: u32 = 6;
 /// Papéis de `quant_cortina` que não são montante: painéis por tipo e o sistema inteiro.
 pub const PAPEL_PAINEL_VIDRO: u32 = 10;
 pub const PAPEL_PAINEL_SOLIDO: u32 = 11;

@@ -51,6 +51,16 @@ pub fn quant_cortina(cortinas: &[CortinaR]) -> Vec<LinhaQuant> {
             l.area_liquida += len * p.m.largura;
             l.volume += len * p.m.area_secao();
         }
+        // Montante de canto entre cortinas (fase 3): uma peça de altura total; o volume é a área em planta do encontro × altura.
+        for k in &g.cantos {
+            let l = entrada(&mut grupos, c.id, PAPEL_CANTO, k.m.tipo, k.m.material);
+            let len = k.z1 - k.z0;
+            l.n += 1;
+            l.comprimento += len;
+            l.area += len * k.m.largura;
+            l.area_liquida += len * k.m.largura;
+            l.volume += k.area_planta() * len;
+        }
         // Esquadria: o volume é o da malha (a ponta não é plana); o comprimento é o equivalente, volume ÷ área da seção discretizada.
         for p in &g.pecas_esq {
             let sec = secao(&p.m, 2);
