@@ -78,6 +78,15 @@ export function destaqueSubelementoPlanta(p: Project, sub: SubelementoCortina, c
   const par = subelementosDaCortina(p, sub.wallId);
   const item = par ? itemDoSubelemento(par, sub) : undefined;
   if (!par || !item) return [];
-  const widthPx = item.geo.kind === 'cell' ? 2 : 3;
-  return tracosDoSubelementoPlanta(par, item).map((t) => ({ pts: t.pts.map((q) => ({ x: q.x, y: q.y })), closed: t.fechado, widthPx, color: cor, alpha: 1 }));
+  // Esquadria: contorno tracejado de 2 px (a porta ou janela da célula, não a célula cheia). Hoje o retângulo é o da região (ver `geometriaDaEsquadria`).
+  const esquadria = sub.kind === 'opening';
+  const widthPx = esquadria ? 2 : item.geo.kind === 'cell' ? 2 : 3;
+  return tracosDoSubelementoPlanta(par, item).map((t) => ({
+    pts: t.pts.map((q) => ({ x: q.x, y: q.y })),
+    closed: t.fechado,
+    widthPx,
+    color: cor,
+    alpha: 1,
+    ...(esquadria ? { dash: STAIR_DASH } : {}),
+  }));
 }

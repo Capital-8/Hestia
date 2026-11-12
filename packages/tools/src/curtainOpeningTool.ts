@@ -27,7 +27,7 @@ const FILEIRA_BASE = 0.001;
 
 /** Célula da grade sob `s` (m ao longo da parede) e `zr` (m acima da base da cortina), ou undefined. */
 function celulaSob(par: ParedeSubelementos, s: number, zr: number): ItemSubelementoCortina | undefined {
-  return par.itens.find((it) => it.geo.kind === 'cell' && s >= it.geo.s0 && s <= it.geo.s1 && zr >= it.geo.z0 && zr <= it.geo.z1);
+  return par.itens.find((it) => it.sub.kind === 'cell' && it.geo.kind === 'cell' && s >= it.geo.s0 && s <= it.geo.s1 && zr >= it.geo.z0 && zr <= it.geo.z1);
 }
 
 /** Medidas da esquadria na célula: se cabe no modo atual, a folga livre e a folha mínima do tipo. `null` sem grade. */

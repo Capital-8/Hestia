@@ -7,10 +7,11 @@
  * do eixo; a linha extra é `{ added: id }`; as bordas são `index` 0 e `n`. `CellKey.nu`/`nv` contam todas as células (extras incluídas).
  *
  * Ordem do Tab (`proximoSubelemento`): parede, depois as linhas internas (U antes de V), os segmentos (todos, removidos inclusive, por linha e por k)
- * e as células, e volta à parede. Clique (`subelementoEmPonto`): primeiro a linha mais perto (dentro da tolerância), depois a célula que contém o
- * ponto. Segmento não é alvo de clique: só se chega a ele pelo Tab.
+ * e as células, e volta à parede. A célula com esquadria (porta ou janela) tem, logo depois dela, a parada `opening` (esquadria). Clique
+ * (`subelementoEmPonto`): primeiro a linha mais perto (dentro da tolerância), depois a célula que contém o ponto, que vira a esquadria se ela tem
+ * uma (`subelementoDaCelula`). Segmento não é alvo de clique: só se chega a ele pelo Tab.
  */
-import { isCurtainType, isWall, wallLength, type CellKey, type CurtainSpec, type Id, type LineOverride, type LineRef, type Project, type SegmentRef, type SubelementoCortina, type Wall } from '@hestia/model';
+import { isCurtainType, isWall, resolverParede, wallLength, type CellKey, type CurtainSpec, type Id, type LineOverride, type LineRef, type Project, type SegmentRef, type SubelementoCortina, type Wall } from '@hestia/model';
 import { servicoCortina } from './kernelCortinaServico.ts';
 import { zDaCortina } from './cortinaProjeto.ts';
 import { ORIGEM_LINHA } from './kernelCortinaTabelas.ts';
@@ -66,6 +67,16 @@ export interface ContextoParede {
   zBase: number;
   profundidade: number;
   extras: readonly ExtraEfetiva[];
+  /** Células (i, j) que têm porta ou janela (sobrescrita `opening`, já na grade de hoje). Cada uma ganha uma parada extra, logo depois da célula. */
+  esquadrias?: ReadonlyArray<{ i: number; j: number }>;
+}
+
+/**
+ * Geometria do subelemento de esquadria. Hoje é o retângulo da região da célula (a mesma da célula); quando o kernel der o vão virtual (consulta 107),
+ * é aqui que ele entra, no lugar do retângulo. Planta e 3D leem a geometria do item, então a troca não mexe nelas.
+ */
+export function geometriaDaEsquadria(celula: GeoSubelementoCortina & { kind: 'cell' }): GeoSubelementoCortina {
+  return { kind: 'cell', s0: celula.s0, s1: celula.s1, z0: celula.z0, z1: celula.z1 };
 }
 
 // ───────────── referências ─────────────
@@ -83,7 +94,8 @@ export function mesmoSubelemento(a: SubelementoCortina | null, b: SubelementoCor
   if (a.wallId !== b.wallId) return false;
   if (a.kind === 'line') return b.kind === 'line' && mesmaLinha(a.line, b.line);
   if (a.kind === 'segment') return b.kind === 'segment' && mesmaLinha(a.segment.line, b.segment.line) && a.segment.k === b.segment.k;
-  return b.kind === 'cell' && a.cell.i === b.cell.i && a.cell.j === b.cell.j;
+  // Célula e esquadria da mesma célula são subelementos diferentes (o Tab para em cada uma).
+  return (a.kind === 'cell' || a.kind === 'opening') && b.kind === a.kind && a.cell.i === b.cell.i && a.cell.j === b.cell.j;
 }
 
 /** Item da lista que corresponde ao subelemento dado (ou `undefined`). */
@@ -146,7 +158,8 @@ export function montarParedeSubelementos(g: GradeCortina, ctx: ContextoParede): 
     itens.push({ sub: { wallId, kind: 'segment', segment }, geo: { kind: 'segment', axis: eixo, pos, de: s.de, ate: s.ate }, removido: s.removido });
   }
 
-  // Células: a grade já traz a célula cheia (sem descontar montantes), em metros.
+  // Células: a grade já traz a célula cheia (sem descontar montantes), em metros. Célula com esquadria ganha a parada da esquadria logo depois.
+  const comEsquadria = new Set((ctx.esquadrias ?? []).map((e) => `${e.i},${e.j}`));
   for (const c of g.celulas) {
     const cell: CellKey = {
       i: c.i,
@@ -156,7 +169,9 @@ export function montarParedeSubelementos(g: GradeCortina, ctx: ContextoParede): 
       nu: nKernel.u,
       nv: nKernel.v,
     };
-    itens.push({ sub: { wallId, kind: 'cell', cell }, geo: { kind: 'cell', s0: c.s0, s1: c.s1, z0: c.z0, z1: c.z1 }, removido: false });
+    const geo = { kind: 'cell' as const, s0: c.s0, s1: c.s1, z0: c.z0, z1: c.z1 };
+    itens.push({ sub: { wallId, kind: 'cell', cell }, geo, removido: false });
+    if (comEsquadria.has(`${c.i},${c.j}`)) itens.push({ sub: { wallId, kind: 'opening', cell }, geo: geometriaDaEsquadria(geo), removido: false });
   }
 
   return { wallId, a: ctx.a, b: ctx.b, L, H, zBase: ctx.zBase, profundidade: ctx.profundidade, itens };
@@ -216,9 +231,20 @@ export function subelementoEmPonto(parede: ParedeSubelementos, s: number, z: num
   if (melhor) return melhor;
   for (const it of parede.itens) {
     const g = it.geo;
-    if (g.kind === 'cell' && s >= g.s0 && s <= g.s1 && zr >= g.z0 && zr <= g.z1) return it.sub;
+    if (it.sub.kind === 'cell' && g.kind === 'cell' && s >= g.s0 && s <= g.s1 && zr >= g.z0 && zr <= g.z1) return subelementoDaCelula(parede, it.sub.cell.i, it.sub.cell.j);
   }
   return null;
+}
+
+/**
+ * Subelemento de UMA célula (i, j) da parede: a esquadria, se a célula tem porta ou janela; senão a própria célula; `null` se a célula não está na lista.
+ * É o que o clique (planta e 3D) usa depois de achar a célula sob o ponto: célula com esquadria seleciona a esquadria, não a célula.
+ */
+export function subelementoDaCelula(parede: ParedeSubelementos, i: number, j: number): SubelementoCortina | null {
+  const doMesmo = (it: ItemSubelementoCortina): boolean => (it.sub.kind === 'cell' || it.sub.kind === 'opening') && it.sub.cell.i === i && it.sub.cell.j === j;
+  const esquadria = parede.itens.find((it) => it.sub.kind === 'opening' && doMesmo(it));
+  if (esquadria) return esquadria.sub;
+  return parede.itens.find((it) => it.sub.kind === 'cell' && doMesmo(it))?.sub ?? null;
 }
 
 // ───────────── geometria do destaque ─────────────
@@ -312,7 +338,22 @@ export function subelementosDaCortina(p: Project, wallId: Id): ParedeSubelemento
     zBase: z.z0,
     profundidade: tipo.curtain.depth,
     extras: extrasEfetivas(w.curtain),
+    esquadrias: esquadriasDaCortina(p, w),
   });
+}
+
+/**
+ * Células da cortina que têm porta ou janela, na grade de hoje. A esquadria vale para a REGIÃO inteira (uma célula canônica, §5.2): toda célula
+ * da região conta, não só a canônica que guarda a chave.
+ */
+function esquadriasDaCortina(p: Project, w: Wall): Array<{ i: number; j: number }> {
+  const r = resolverParede(p, w);
+  if (!r) return [];
+  const regioes = new Set<number>();
+  for (const c of r.celulas) if (c.override.kind === 'opening') regioes.add(r.canon[c.key.i * r.nv + c.key.j]!);
+  const out: Array<{ i: number; j: number }> = [];
+  for (let i = 0; i < r.nu; i++) for (let j = 0; j < r.nv; j++) if (regioes.has(r.canon[i * r.nv + j]!)) out.push({ i, j });
+  return out;
 }
 
 /** Cota de corte da planta de cortinas do nível (m, absoluta): a mesma do desenho. */
