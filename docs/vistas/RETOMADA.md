@@ -51,7 +51,22 @@ Atualize a seção "Onde estamos" a cada etapa integrada.
     é coberta pelos testes novos. O DXF não honra `hidden.elements`/categorias (decisão: fica fora da Fase 3).
   - **J**: planta de área aceita todas as ferramentas (`PLAN_VIEW_KINDS.area.tools = all`), exclusão de modelo na
     área, aviso de criação em categoria oculta por vista ("Mostrar categoria nesta vista" e "Desfazer").
-- **Raia E (etiquetas do nível na planta de área), raia K (remoção das gambiarras) e fechamento — não iniciadas.**
+- **Raia K, parte 1 — concluída, revisada e integrada** (merge `32680eda`). Removidos em `apps/web`, `packages/tools`
+  e `planViewKinds.ts`: `AREA_PLAN_TOOLS`, `areaPlanToolAllowed`, `AREA_VIEW_TOOLS`, `areaPlanIdNow`, `UiState.planKind`
+  (o tipo vem do projeto via `tipoDeVistaDeFundo(p, ui)` em `editor/vistaAtiva.ts`), `selectLevel(id, kind, areaPlanId)`;
+  destino único das anotações por `viewId`. Verificação no tronco: tipos e lint sem erro, 905 arquivos / 9.935 testes,
+  ouro 8 de 8. Sobrou de propósito (parte 2): `ToolEnv.areaPlanId` `@deprecated`, `CamposDaVista.planKind/areaPlanId`
+  e fallback de `viewIdOfEnv`, porque `tests/vistas-ouro/adaptador.ts` os usa; formato antigo da sessão (`sessao.ts`).
+  Comportamento: planta de área órfã passa a valer piso no estado.
+- **Raia E (etiquetas do nível na planta de área) — implementada e revisada (aprovada com ressalvas) em
+  `vistas/f3-e`, NÃO integrada.** Aguarda duas coisas do usuário: aceitar a mudança do DXF das áreas de conjunto
+  próprio (passam a incluir as etiquetas copiadas, +2 entidades) e regravar o ouro de `03-area-herda-anotacoes`
+  (lista: some a etiqueta desenhada em duplicata) e `04-area-anotacoes-proprias` (2 DXF + 1 seleção). O auditor não
+  cobre esse caso (só D1–D3): conferir o diff bruto, como feito na revisão.
+- **Raia K parte 2 e fechamento — não iniciadas.** K2: `planOwnsAnnotations`, `viewOwnAnnotationsOf`, `roofHidden`,
+  formas `@deprecated` de `ViewHiddenTarget`/`SheetViewSource`/`PlanInput`, alias `planViewOf`/`PlanView` do render, e
+  migrar o adaptador/construtores de `tests/vistas-ouro` para `viewId` (autorizado, com os arquivos gravados byte a
+  byte iguais), depois a busca 8.2.
   Decisões do usuário: E = copiar as etiquetas na migração e o desenho ler só a vista (muda o ouro da área, auditar
   antes de regravar); DXF honrar ocultos fica para depois da Fase 3; K pode editar o adaptador/construtores de
   `tests/vistas-ouro` desde que os arquivos gravados fiquem byte a byte iguais.
