@@ -161,7 +161,7 @@ const planaComPorta = () => page.evaluate(() => {
   const doors = Object.values(p.elements).filter((e) => e.kind === 'door');
   const door = doors.find((d) => p.elements[d.hostId]?.levelId === 'lv_0') ?? doors[0];
   if (!door) return null;
-  useUi.setState({ view: 'plan', planKind: 'floor', levelId: p.elements[door.hostId].levelId, areaPlanId: null, sectionId: null, selection: [], dialog: null });
+  useUi.setState({ view: 'plan', planViewId: 'pv_' + p.elements[door.hostId].levelId, levelId: p.elements[door.hostId].levelId, sectionId: null, selection: [], dialog: null });
   const wall = p.elements[door.hostId];
   editor.zoomExtents();
   return { doorId: door.id, wallId: wall.id, levelId: wall.levelId };
@@ -298,7 +298,7 @@ await r.step('(f) snap de escada no corte: o índice contém vértices da escada
   const info = await page.evaluate(() => {
     const { editor, useUi } = window.__hestia;
     editor.newProject('house2');
-    useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', areaPlanId: null, sectionId: null, selection: [], dialog: null });
+    useUi.setState({ view: 'plan', planViewId: 'pv_lv_0', levelId: 'lv_0', sectionId: null, selection: [], dialog: null });
     return true;
   });
   void info;
