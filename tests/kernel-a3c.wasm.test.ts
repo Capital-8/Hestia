@@ -4,7 +4,7 @@
  * Roda só em `npm run test:wasm`. Identidade e `raw` exatos; o resto como região pelo critério da 0048.
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { ProjectStore, createEmptyProject, makeWall, migrateProject, type Command, type Project } from '@hestia/model';
+import { ProjectStore, createEmptyProject, makeWall, migrateProject, type Command, type OpeningType, type Project } from '@hestia/model';
 import { difference, type MultiPolygon } from '@hestia/geom';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { montarCenaA1, zDoNivel } from '../packages/engine/src/kernelA1.ts';
@@ -52,6 +52,25 @@ const cenaDe = (p: Project) => {
   );
   return { cena, a1, a3 };
 };
+
+/** Perímetro de uma forma (soma dos anéis): a escala do ruído de grade de 1 µm (critério 0049: o erro de área é proporcional ao contorno). */
+function perimetroDaForma(forma: MultiPolygon): number {
+  let t = 0;
+  for (const poly of forma) for (const anel of poly) for (let i = 0; i < anel.length; i++) t += Math.hypot(anel[(i + 1) % anel.length]!.x - anel[i]!.x, anel[(i + 1) % anel.length]!.y - anel[i]!.y);
+  return t;
+}
+
+/** Trechos de [0, altura] que nenhuma faixa cobre (maiores que 2e-6, o arredondamento das faixas a 1e-6). */
+function lacunasDeAltura(faixas: ReadonlyArray<{ z0: number; z1: number }>, altura: number): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  let cursor = 0;
+  for (const f of faixas) {
+    if (f.z0 - cursor > 2e-6) out.push([cursor, f.z0]);
+    cursor = Math.max(cursor, f.z1);
+  }
+  if (altura - cursor > 2e-6) out.push([cursor, altura]);
+  return out;
+}
 
 /** Modo de MEDIÇÃO (A3D_MEDIR=1): junta as divergências em vez de reprovar e imprime o resumo no fim (ver kernel-a3d.wasm.test.ts). */
 const MEDIR = process.env['A3D_MEDIR'] === '1';
@@ -253,7 +272,11 @@ describe.skipIf(!bytes)('A3c: cluster_resolvido do Rust x motor TypeScript', () 
           for (const [id, w] of z) zPorParede.set(a1.idDe.get(id)!, { z0: w.z0, altura: w.height });
           const r = decodificarA3c(cena.consultar('cluster_resolvido', argumentosA3c(p, l.id, a1, a3)));
           const vaos = new Map<number, MultiPolygon[]>();
-          for (const g of decodificarA3a(cena.consultar('aberturas_geom', argumentosA3(a1, l.id)))) vaos.set(g.parede, [...(vaos.get(g.parede) ?? []), g.retangulo]);
+          const vaosZ = new Map<number, Array<{ z0: number; z1: number; retangulo: MultiPolygon }>>();
+          for (const g of decodificarA3a(cena.consultar('aberturas_geom', argumentosA3(a1, l.id)))) {
+            vaos.set(g.parede, [...(vaos.get(g.parede) ?? []), g.retangulo]);
+            vaosZ.set(g.parede, [...(vaosZ.get(g.parede) ?? []), { z0: g.peitoril, z1: g.peitoril + g.vaoAltura, retangulo: g.retangulo }]);
+          }
           for (const c of r.camadas) {
             const altura = zPorParede.get(c.parede)!.altura;
             let anterior = -Infinity;
@@ -267,15 +290,21 @@ describe.skipIf(!bytes)('A3c: cluster_resolvido do Rust x motor TypeScript', () 
               if (!c.faixa && f.poly.length && c.raw.length) {
                 const fora = difference(f.poly, c.raw);
                 const sobra = fora.length ? difference(fora, ...(vaos.get(c.parede) ?? [])) : fora;
-                expect(areaDaForma(sobra), `faixa [${f.z0}, ${f.z1}] fora do bruto`).toBeLessThanOrEqual(1e-6);
+                // ruído de grade de 1 µm (0049): fiapo ao longo de uma borda diagonal comprida; o erro de área escala com o contorno da faixa (K = área / perímetro / 1e-6 < 1).
+                // Medido na semente 405 (parede 14, TS e Rust idênticos): 1,59e-6 m² em 4,5 m de borda, K = 0,35.
+                expect(areaDaForma(sobra), `faixa [${f.z0}, ${f.z1}] fora do bruto`).toBeLessThanOrEqual(1e-6 * Math.max(1, perimetroDaForma(f.poly)));
               }
               verificadas++;
             }
-            // parede isolada, camada do tipo: as faixas cobrem a altura inteira sem lacuna
+            // parede isolada, camada do tipo: as faixas cobrem a altura inteira, e toda lacuna (inclusive nas pontas) é um trecho em que
+            // os vãos que o atravessam consomem a camada inteira (um vão mais largo que a parede esvazia a camada naquela altura)
             if (isolada && !c.faixa && c.faixas.length) {
-              expect(c.faixas[0]!.z0).toBeCloseTo(0, 6);
-              expect(c.faixas[c.faixas.length - 1]!.z1).toBeCloseTo(altura, 6);
-              for (let k = 1; k < c.faixas.length; k++) expect(Math.abs(c.faixas[k]!.z0 - c.faixas[k - 1]!.z1), 'lacuna entre faixas').toBeLessThan(1e-6);
+              const lacunas = lacunasDeAltura(c.faixas, altura);
+              for (const [a, b] of lacunas) {
+                const cortes = (vaosZ.get(c.parede) ?? []).filter((v) => v.z0 <= a + 2e-6 && v.z1 >= b - 2e-6).map((v) => v.retangulo);
+                const sobra = difference(c.raw, ...cortes);
+                expect(areaDaForma(sobra), `lacuna [${a}, ${b}] sem vão que a explique`).toBeLessThanOrEqual(1e-6);
+              }
               isoladas++;
             }
           }
@@ -349,6 +378,54 @@ describe.skipIf(!bytes)('A3c: cluster_resolvido do Rust x motor TypeScript', () 
       expect(compararProjeto(p, {}, [{}]).camadas).toBeGreaterThan(0);
     } finally {
       cena.destruir();
+    }
+  });
+
+  it('vão mais largo que a parede esvazia a camada na altura do vão: a lacuna entre faixas é correta (Rust = TS)', () => {
+    if (pula()) return;
+    // Parede de 1,5 m e vão de 1,6 m (peitoril 5 cm, altura 2,1 m): entre 0,05 e 2,15 m o vão consome o miolo inteiro, então a camada
+    // estrutural tem duas faixas separadas (abaixo e acima) e nada entre elas. Regressão da falha "lacuna entre faixas: 1,02" que os tipos de
+    // correr 160/180 do catálogo (P-74 etc.) trouxeram ao estresse; com um tipo antigo de vão mais largo que a parede dá o mesmo.
+    const monta = (largura: number): Project => {
+      const p = createEmptyProject('vao-largo');
+      const base = Object.values(p.openingTypes)[0]!;
+      const t = { ...base, id: 'ot_caso', code: 'caso', name: 'caso', kind: 'door', plan: 'swing', leaves: 1, width: largura, height: 2.1, sill: 0.05 } as OpeningType;
+      p.openingTypes[t.id] = t;
+      const store = new ProjectStore(p);
+      store.exec({
+        type: 'batch',
+        commands: [
+          { type: 'addWall', wall: makeWall({ id: 'W', typeId: p.defaults.wallTypeId, levelId: p.levels[0]!.id, a: { x: 0, y: 0 }, b: { x: 1.5, y: 0 }, locationLine: 'wallCenter', flipped: false, sag: 0, height: 2.8 }) },
+          { type: 'addOpening', opening: { id: 'O', kind: t.kind, typeId: t.id, hostId: 'W', offset: 0.75, flipHand: false, flipFacing: false, sillOverride: null, mark: '' } },
+        ],
+      });
+      return store.project;
+    };
+    for (const [largura, esvazia] of [[1.6, true], [0.9, false]] as const) {
+      const p = monta(largura);
+      expect(compararProjeto(p, {}, [{}]).camadas).toBeGreaterThan(0); // Rust = TS
+      const { cena, a1, a3 } = cenaDe(p);
+      try {
+        const l = p.levels[0]!;
+        const r = decodificarA3c(cena.consultar('cluster_resolvido', argumentosA3c(p, l.id, a1, a3)));
+        const estrutura = r.camadas.filter((c) => !c.faixa && c.faixas.length);
+        expect(estrutura.length).toBeGreaterThan(0);
+        // a camada de maior área (a estrutura): com o vão largo há uma lacuna [0,05; 2,15] coberta pelo vão; com o estreito, nenhuma
+        const miolo = [...estrutura].sort((a, b) => areaDaForma(b.raw) - areaDaForma(a.raw))[0]!;
+        const lacunas = lacunasDeAltura(miolo.faixas, 2.8);
+        if (esvazia) {
+          expect(lacunas.length, 'o vão largo abre uma lacuna na estrutura').toBe(1);
+          expect(lacunas[0]![0]).toBeCloseTo(0.05, 5);
+          expect(lacunas[0]![1]).toBeCloseTo(2.15, 5);
+          expect(areaDaForma(difference(miolo.raw, ...decodificarA3a(cena.consultar('aberturas_geom', argumentosA3(a1, l.id))).map((g) => g.retangulo)))).toBeLessThanOrEqual(1e-6);
+        } else {
+          // vão estreito: a parede não é esvaziada, as faixas da estrutura têm área ao lado do vão em toda a altura do vão
+          expect(miolo.faixas.every((f) => areaDaForma(f.poly) > 0)).toBe(true);
+          expect(lacunas.length).toBe(0);
+        }
+      } finally {
+        cena.destruir();
+      }
     }
   });
 
