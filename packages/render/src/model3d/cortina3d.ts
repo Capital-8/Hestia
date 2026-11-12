@@ -48,14 +48,29 @@ export function matriz16(m12: ArrayLike<number>, de: number, saida: Float32Array
   saida[desde + 15] = 1;
 }
 
+/** Malha de peça avulsa no 3D: triângulo a triângulo (sem vértice compartilhado), em coordenadas do mundo, com a normal de cada face. */
+export interface LoteAvulsoCortina3d {
+  cortina: Id;
+  papel: number;
+  materialId: Id | null;
+  transparente: boolean;
+  vertices: Float32Array;
+  normais: Float32Array;
+  indices: Uint32Array;
+}
+
 /** Normal de cada vértice = normal do triângulo a que pertence (o Rust dá vértices próprios por face: sombreamento chapado). */
 export function normaisDoProto(p: PrototipoCortina): Float32Array {
-  const v = p.vertices;
+  return normaisDaMalha(p.vertices, p.indices);
+}
+
+/** Normal de cada vértice de uma malha = normal do triângulo a que o vértice pertence. Vértice compartilhado por faces toma a da última (use soup). */
+export function normaisDaMalha(v: ArrayLike<number>, indices: ArrayLike<number>): Float32Array {
   const n = new Float32Array(v.length);
-  for (let t = 0; t + 2 < p.indices.length; t += 3) {
-    const ia = p.indices[t]! * 3;
-    const ib = p.indices[t + 1]! * 3;
-    const ic = p.indices[t + 2]! * 3;
+  for (let t = 0; t + 2 < indices.length; t += 3) {
+    const ia = indices[t]! * 3;
+    const ib = indices[t + 1]! * 3;
+    const ic = indices[t + 2]! * 3;
     const ux = v[ib]! - v[ia]!;
     const uy = v[ib + 1]! - v[ia + 1]!;
     const uz = v[ib + 2]! - v[ia + 2]!;
@@ -77,6 +92,28 @@ export function normaisDoProto(p: PrototipoCortina): Float32Array {
     }
   }
   return n;
+}
+
+/**
+ * Peças avulsas (`grupos` do kernel) das cortinas visíveis, uma malha por grupo. Os triângulos são copiados para soup (cada face com os próprios
+ * vértices), de modo que a normal sai chapada mesmo onde o Rust compartilha vértices entre as tampas. Opacas primeiro, vidro depois.
+ */
+export function avulsosDaCortina(malha: MalhaCortinaProjeto, visivel: (wallId: Id) => boolean = () => true): LoteAvulsoCortina3d[] {
+  const out: LoteAvulsoCortina3d[] = [];
+  for (const g of malha.grupos) {
+    if (!visivel(g.wallId) || g.indices.length === 0) continue;
+    const k = g.indices.length;
+    const v = new Float32Array(3 * k);
+    for (let q = 0; q < k; q++) {
+      const de = 3 * g.indices[q]!;
+      v[3 * q] = g.vertices[de]!;
+      v[3 * q + 1] = g.vertices[de + 1]!;
+      v[3 * q + 2] = g.vertices[de + 2]!;
+    }
+    const idx = Uint32Array.from({ length: k }, (_, q) => q);
+    out.push({ cortina: g.wallId, papel: g.papel, materialId: g.materialId, transparente: g.transparente, vertices: v, normais: normaisDaMalha(v, idx), indices: idx });
+  }
+  return out.sort((a, b) => Number(a.transparente) - Number(b.transparente));
 }
 
 /**
@@ -126,22 +163,36 @@ function aoMundo(l: LoteCortina3d, i: number, k: number, saida: number[]): void 
   saida[2] = e[o + 2]! * x + e[o + 6]! * y + e[o + 10]! * z + e[o + 14]!;
 }
 
-/** Caixa (mundo) de cada cortina: de todos os vértices de todas as suas instâncias. */
-export function caixasDasCortinas(lotes: readonly LoteCortina3d[]): Map<Id, { min: [number, number, number]; max: [number, number, number] }> {
+/** Caixa (mundo) de cada cortina: de todos os vértices de todas as suas instâncias e peças avulsas (o montante de canto entra no picking). */
+export function caixasDasCortinas(
+  lotes: readonly LoteCortina3d[],
+  avulsos: readonly LoteAvulsoCortina3d[] = [],
+): Map<Id, { min: [number, number, number]; max: [number, number, number] }> {
   const out = new Map<Id, { min: [number, number, number]; max: [number, number, number] }>();
+  const caixa = (id: Id) => {
+    let c = out.get(id);
+    if (!c) out.set(id, (c = { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] }));
+    return c;
+  };
+  const estende = (c: { min: [number, number, number]; max: [number, number, number] }, p: number[]): void => {
+    for (let a = 0; a < 3; a++) {
+      if (p[a]! < c.min[a]!) c.min[a] = p[a]!;
+      if (p[a]! > c.max[a]!) c.max[a] = p[a]!;
+    }
+  };
   const p = [0, 0, 0];
   for (const l of lotes) {
     for (let k = 0; k < l.n; k++) {
-      let c = out.get(l.donos[k]!);
-      if (!c) out.set(l.donos[k]!, (c = { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] }));
+      const c = caixa(l.donos[k]!);
       for (let i = 0; i < l.vertices.length / 3; i++) {
         aoMundo(l, i, k, p);
-        for (let a = 0; a < 3; a++) {
-          if (p[a]! < c.min[a]!) c.min[a] = p[a]!;
-          if (p[a]! > c.max[a]!) c.max[a] = p[a]!;
-        }
+        estende(c, p);
       }
     }
+  }
+  for (const a of avulsos) {
+    const c = caixa(a.cortina);
+    for (let i = 0; i < a.vertices.length / 3; i++) estende(c, [a.vertices[3 * i]!, a.vertices[3 * i + 1]!, a.vertices[3 * i + 2]!]);
   }
   return out;
 }
@@ -174,12 +225,12 @@ export function malhaDePickCortina(caixas: ReadonlyMap<Id, { min: readonly numbe
  * Arestas vivas (ângulo entre faces acima de `anguloRad`) de todas as instâncias, em pares de pontos de mundo, para os estilos de linhas. As arestas do
  * protótipo são calculadas uma vez por protótipo e depois levadas ao mundo por cada matriz.
  */
-export function arestasDaCortina(lotes: readonly LoteCortina3d[], anguloRad: number): Float32Array {
+export function arestasDaCortina(lotes: readonly LoteCortina3d[], anguloRad: number, avulsos: readonly LoteAvulsoCortina3d[] = []): Float32Array {
   const corte = Math.cos(anguloRad);
   const saida: number[] = [];
   const p = [0, 0, 0];
   for (const l of lotes) {
-    const seg = arestasVivasDoProto(l, corte);
+    const seg = arestasVivas(l.vertices, l.normais, l.indices, corte);
     for (let k = 0; k < l.n; k++) {
       for (const i of seg) {
         aoMundo(l, i, k, p);
@@ -187,18 +238,19 @@ export function arestasDaCortina(lotes: readonly LoteCortina3d[], anguloRad: num
       }
     }
   }
+  for (const a of avulsos) {
+    for (const i of arestasVivas(a.vertices, a.normais, a.indices, corte)) saida.push(a.vertices[3 * i]!, a.vertices[3 * i + 1]!, a.vertices[3 * i + 2]!);
+  }
   return Float32Array.from(saida);
 }
 
-/** Índices de vértice (de dois em dois = um segmento) das arestas do protótipo em que as normais das duas faces se afastam mais que `cosCorte`. */
-function arestasVivasDoProto(l: LoteCortina3d, cosCorte: number): number[] {
-  const pos = l.vertices;
-  const nr = l.normais;
+/** Índices de vértice (de dois em dois = um segmento) das arestas de uma malha em que as normais das duas faces se afastam mais que `cosCorte`. */
+function arestasVivas(pos: ArrayLike<number>, nr: ArrayLike<number>, indices: ArrayLike<number>, cosCorte: number): number[] {
   // Aresta = par de posições (as faces têm vértices próprios: junta pela posição, não pelo índice).
   const chave = (i: number): string => `${Math.round(pos[3 * i]! * 1e6)},${Math.round(pos[3 * i + 1]! * 1e6)},${Math.round(pos[3 * i + 2]! * 1e6)}`;
   const arestas = new Map<string, { a: number; b: number; normais: number[][] }>();
-  for (let t = 0; t + 2 < l.indices.length; t += 3) {
-    const tri = [l.indices[t]!, l.indices[t + 1]!, l.indices[t + 2]!];
+  for (let t = 0; t + 2 < indices.length; t += 3) {
+    const tri = [indices[t]!, indices[t + 1]!, indices[t + 2]!];
     for (let e = 0; e < 3; e++) {
       const a = tri[e]!;
       const b = tri[(e + 1) % 3]!;

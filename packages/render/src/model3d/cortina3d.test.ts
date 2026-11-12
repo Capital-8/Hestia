@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MalhaCortinaProjeto } from '@hestia/engine';
-import { arestasDaCortina, caixasDasCortinas, lotesDaCortina, malhaDePickCortina, matriz16, normaisDoProto } from './cortina3d.ts';
+import { arestasDaCortina, avulsosDaCortina, caixasDasCortinas, lotesDaCortina, malhaDePickCortina, matriz16, normaisDaMalha, normaisDoProto } from './cortina3d.ts';
 
 /** Caixa unitária com 24 vértices (4 por face), como o Rust entrega (vértices próprios por face). */
 function caixa(): { vertices: Float32Array; indices: Uint32Array } {
@@ -36,7 +36,15 @@ function malha(): MalhaCortinaProjeto {
       { wallId: 'a', proto: 2, papel: 1, materialId: 'mat_vidro', transparente: true, matrizes: Float32Array.from(m12(1, 0.01, 3, 0.5, 0, 0)), n: 1 },
       { wallId: 'b', proto: 1, papel: 0, materialId: 'mat_aluminio', transparente: false, matrizes: Float32Array.from(m12(0.05, 0.1, 3, 0, 10, 0)), n: 1 },
     ],
+    grupos: [],
   };
+}
+
+/** Peça avulsa de uma cortina: a caixa unitária deslocada em `x` (vértices do mundo, índices locais). */
+function grupo(wallId: string, x: number, transparente: boolean, materialId: string | null): MalhaCortinaProjeto['grupos'][number] {
+  const c = caixa();
+  const v = Float32Array.from(c.vertices, (q, k) => (k % 3 === 0 ? q + x : q));
+  return { wallId, papel: 0, materialId, transparente, vertices: v, indices: c.indices };
 }
 
 describe('cortina3d: contas puras da malha por instâncias', () => {
@@ -89,5 +97,53 @@ describe('cortina3d: contas puras da malha por instâncias', () => {
     const a = arestasDaCortina(l, (28 * Math.PI) / 180);
     expect(a.length / 6).toBe(12);
     expect(Math.min(...Array.from({ length: a.length / 3 }, (_, i) => a[3 * i + 1]!))).toBeCloseTo(10, 6);
+  });
+});
+
+describe('cortina3d: peças avulsas (grupos) como malha própria', () => {
+  const comGrupos = (): MalhaCortinaProjeto => ({ ...malha(), grupos: [grupo('a', 5, true, 'mat_vidro'), grupo('a', 5, false, 'mat_aluminio'), grupo('b', 20, false, null)] });
+
+  it('avulsosDaCortina: uma malha por grupo, em soup (12 triângulos por caixa), normal chapada e opacas antes do vidro', () => {
+    const av = avulsosDaCortina(comGrupos(), (id) => id !== 'b');
+    expect(av.map((a) => a.transparente)).toEqual([false, true]);
+    const [opaca] = av;
+    expect(opaca!.cortina).toBe('a');
+    expect(opaca!.materialId).toBe('mat_aluminio');
+    expect(opaca!.indices.length).toBe(36);
+    expect(opaca!.vertices.length).toBe(108);
+    // Cada triângulo tem os seus três vértices e a mesma normal nos três, de módulo 1.
+    for (let t = 0; t < 12; t++) {
+      const n = [0, 1, 2].map((k) => Array.from(opaca!.normais.slice(9 * t + 3 * k, 9 * t + 3 * k + 3)));
+      expect(n[0]).toEqual(n[1]);
+      expect(n[1]).toEqual(n[2]);
+      expect(Math.hypot(...n[0]!)).toBeCloseTo(1, 5);
+    }
+  });
+
+  it('normaisDaMalha: triângulo no plano z = 0 com a orientação anti-horária tem normal +z', () => {
+    const n = normaisDaMalha([0, 0, 0, 1, 0, 0, 0, 1, 0], [0, 1, 2]);
+    expect([...n]).toEqual([0, 0, 1, 0, 0, 1, 0, 0, 1]);
+    expect(normaisDoProto({ proto: 9, papel: 0, tipoId: null, vertices: Float32Array.from([0, 0, 0, 1, 0, 0, 0, 1, 0]), indices: Uint32Array.from([0, 1, 2]) })[2]).toBe(1);
+  });
+
+  it('caixas da cortina incluem as peças avulsas: o montante de canto entra no picking', () => {
+    const m = comGrupos();
+    const cx = caixasDasCortinas(lotesDaCortina(m, (id) => id === 'a'), avulsosDaCortina(m, (id) => id === 'a'));
+    expect(cx.get('a')!.max[0]).toBeCloseTo(6, 6);
+    expect(cx.get('a')!.min[0]).toBeCloseTo(0, 6);
+    // Sem as peças, a caixa da cortina ficaria em x ≤ 2,05.
+    expect(caixasDasCortinas(lotesDaCortina(m, (id) => id === 'a')).get('a')!.max[0]).toBeCloseTo(2.05, 5);
+  });
+
+  it('arestas vivas das peças avulsas: 12 segmentos por caixa, no mundo', () => {
+    const m = comGrupos();
+    const a = arestasDaCortina([], (28 * Math.PI) / 180, avulsosDaCortina(m, (id) => id === 'a').filter((x) => !x.transparente));
+    expect(a.length / 6).toBe(12);
+    expect(Math.min(...Array.from({ length: a.length / 3 }, (_, i) => a[3 * i]!))).toBeCloseTo(5, 6);
+  });
+
+  it('peça de cortina oculta (visivel = false) não entra', () => {
+    expect(avulsosDaCortina(comGrupos(), (id) => id === 'b')).toHaveLength(1);
+    expect(avulsosDaCortina(comGrupos(), () => false)).toEqual([]);
   });
 });

@@ -3,7 +3,7 @@ import type { Id, Material, Project, View3DSettings } from '@hestia/model';
 import type { MalhaCortinaProjeto } from '@hestia/engine';
 import type { Materiais3D } from './materiais3d.ts';
 import type { PickSource } from './cacheMalhas3d.ts';
-import { arestasDaCortina, caixasDasCortinas, lotesDaCortina, malhaDePickCortina, type LoteCortina3d } from './cortina3d.ts';
+import { arestasDaCortina, avulsosDaCortina, caixasDasCortinas, lotesDaCortina, malhaDePickCortina, type LoteAvulsoCortina3d, type LoteCortina3d } from './cortina3d.ts';
 
 /** Ordem de desenho do vidro: depois dos opacos (ADR 0056 §9). */
 export const ORDEM_VIDRO = 4;
@@ -15,7 +15,7 @@ export interface GrupoCortina {
   /** Caixa (mundo) de cada cortina, para o "Ir para" e o enquadramento da seleção. */
   caixas: Map<Id, THREE.Box3>;
   mats: string[];
-  /** Quantas desenhos (InstancedMesh) o nível tem: uma por (protótipo, material, transparência). */
+  /** Quantos desenhos o nível tem: um InstancedMesh por (protótipo, material, transparência) e uma malha por peça avulsa. */
   desenhos: number;
   /** Quantas instâncias no total. */
   instancias: number;
@@ -43,7 +43,7 @@ function materialDoVidro(mats: Materiais3D, base: THREE.Material): THREE.Materia
   });
 }
 
-function geometriaDoLote(l: LoteCortina3d): THREE.BufferGeometry {
+function geometriaDoLote(l: LoteCortina3d | LoteAvulsoCortina3d): THREE.BufferGeometry {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(l.vertices, 3));
   g.setAttribute('normal', new THREE.BufferAttribute(l.normais, 3));
@@ -58,8 +58,9 @@ function geometriaDoLote(l: LoteCortina3d): THREE.BufferGeometry {
  */
 export function montarGrupoCortina(p: Project, malha: MalhaCortinaProjeto, donos: ReadonlySet<Id>, o: OpcoesGrupoCortina): GrupoCortina | null {
   const lotes = lotesDaCortina(malha, (id) => donos.has(id) && o.visivel(id));
+  const avulsos = avulsosDaCortina(malha, (id) => donos.has(id) && o.visivel(id));
   const reveladas = [...donos].filter((id) => o.visivel(id) && o.revelado(id));
-  if (!lotes.length) return null;
+  if (!lotes.length && !avulsos.length) return null;
   const grupo = new THREE.Group();
   const geometrias = new Map<number, THREE.BufferGeometry>();
   let instancias = 0;
@@ -82,8 +83,20 @@ export function montarGrupoCortina(p: Project, malha: MalhaCortinaProjeto, donos
     instancias += l.n;
     grupo.add(mesh);
   }
+  // Peças avulsas (esquadria, montante de canto): malha própria, com o mesmo material e a mesma regra de vidro dos lotes.
+  for (const a of avulsos) {
+    const mat = a.materialId ? o.material(a.materialId) : undefined;
+    const base = o.mats.face(mat, 'wall');
+    const mesh = new THREE.Mesh(geometriaDoLote(a), a.transparente ? materialDoVidro(o.mats, base) : base);
+    mesh.castShadow = o.shadows && !a.transparente;
+    mesh.receiveShadow = o.shadows && !a.transparente;
+    mesh.renderOrder = a.transparente ? ORDEM_VIDRO : 0;
+    mesh.userData = { kind: 'wall', semPick: true, cortina: true, avulsa: true, transparente: a.transparente };
+    mesh.visible = o.view.style !== 'wireframe';
+    grupo.add(mesh);
+  }
   if (o.edges || o.view.style === 'wireframe') {
-    const a = arestasDaCortina(lotes, (o.anguloAresta * Math.PI) / 180);
+    const a = arestasDaCortina(lotes, (o.anguloAresta * Math.PI) / 180, avulsos);
     if (a.length) {
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.BufferAttribute(a, 3));
@@ -93,7 +106,8 @@ export function montarGrupoCortina(p: Project, malha: MalhaCortinaProjeto, donos
     }
   }
   if (reveladas.length) {
-    const rev = arestasDaCortina(lotesDaCortina(malha, (id) => reveladas.includes(id)), (o.anguloAresta * Math.PI) / 180);
+    const sel = (id: Id) => reveladas.includes(id);
+    const rev = arestasDaCortina(lotesDaCortina(malha, sel), (o.anguloAresta * Math.PI) / 180, avulsosDaCortina(malha, sel));
     if (rev.length) {
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.BufferAttribute(rev, 3));
@@ -105,14 +119,14 @@ export function montarGrupoCortina(p: Project, malha: MalhaCortinaProjeto, donos
     }
   }
   const caixas = new Map<Id, THREE.Box3>();
-  for (const [id, c] of caixasDasCortinas(lotes)) caixas.set(id, new THREE.Box3(new THREE.Vector3(...c.min), new THREE.Vector3(...c.max)));
+  for (const [id, c] of caixasDasCortinas(lotes, avulsos)) caixas.set(id, new THREE.Box3(new THREE.Vector3(...c.min), new THREE.Vector3(...c.max)));
   const pk = malhaDePickCortina(new Map([...caixas].map(([id, b]) => [id, { min: [b.min.x, b.min.y, b.min.z], max: [b.max.x, b.max.y, b.max.z] }])));
   const pickGeo = new THREE.BufferGeometry();
   pickGeo.setAttribute('position', new THREE.Float32BufferAttribute(pk.positions, 3));
   pickGeo.setIndex(pk.indices);
   const picks: PickSource[] = [{ geo: pickGeo, owner: grupo, kind: 'wall', ranges: pk.ranges }];
   void p;
-  return { grupo, picks, caixas, mats: [], desenhos: lotes.length, instancias };
+  return { grupo, picks, caixas, mats: [], desenhos: lotes.length + avulsos.length, instancias };
 }
 
 /** O que a cena desenha de uma cortina sem kernel: só o eixo (linha na altura média da parede). */
