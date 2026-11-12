@@ -7,7 +7,6 @@ import {
   withBridgedComposition,
   type CellNode,
   type CompositionNode,
-  type Id,
   type ProfilePreset,
   type OpeningFamily,
   type OpeningFrameStyle,
