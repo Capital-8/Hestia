@@ -1,6 +1,6 @@
 //! Seções da parede cortina (decisão 0056; esquema v14 na fase 1 e v15 na fase 2): `cortinas`, `tipos_cortina`, `grades_cortina`, `grade_posicoes_cortina`,
 //! `tipos_montante_cortina` e `tipos_painel_cortina` (ids 100 a 105), e as sobrescritas da fase 2: `cortina_linhas_extras`, `cortina_segmentos_removidos`,
-//! `cortina_linhas_sobrescritas` e `cortina_celulas_sobrescritas` (ids 106 a 109), e a vizinhança das pontas da fase 3: `cortina_extremidades` (id 110).
+//! `cortina_linhas_sobrescritas` e `cortina_celulas_sobrescritas` (ids 106 a 109), e a vizinhança das pontas da fase 3: `cortina_extremidades` (id 110), e a esquadria na célula e a cortina embutida da fase 5: `cortina_celulas_abertura` e `cortina_hospedes` (ids 112 e 113).
 //!
 //! Mesmo molde de `secoes_gc`: `BTreeMap` por chave (ordem canônica = id crescente) e decodificação que valida antes de tocar a cena (atômica): tamanho,
 //! chave ausente ou duplicada, valores não finitos e enums fora do domínio (`ENTRADA`). As referências ENTRE seções (tipo, montante, painel, grade) não
@@ -14,7 +14,7 @@ use crate::cena::{decodificar_colunas, Coluna, COORD_MAX};
 use crate::cortina_tipos::*;
 use crate::esquema::{
     self, Secao, ENTRADA, ID_AUSENTE, INTERNO, LIMITE, LIMITE_LINHAS_POR_SECAO, SECAO_CORTINAS, SECAO_CORTINA_CELULAS_SOBRESCRITAS,
-    SECAO_CORTINA_EXTREMIDADES, SECAO_CORTINA_LINHAS_EXTRAS, SECAO_CORTINA_LINHAS_SOBRESCRITAS, SECAO_CORTINA_SEGMENTOS_REMOVIDOS, SECAO_GRADES_CORTINA,
+    SECAO_CORTINA_CELULAS_ABERTURA, SECAO_CORTINA_EXTREMIDADES, SECAO_CORTINA_HOSPEDES, SECAO_CORTINA_LINHAS_EXTRAS, SECAO_CORTINA_LINHAS_SOBRESCRITAS, SECAO_CORTINA_SEGMENTOS_REMOVIDOS, SECAO_GRADES_CORTINA,
     SECAO_GRADE_POSICOES_CORTINA, SECAO_TIPOS_CORTINA, SECAO_TIPOS_MONTANTE_CORTINA, SECAO_TIPOS_PAINEL_CORTINA,
 };
 
@@ -91,6 +91,38 @@ pub struct ExtremidadeLinha {
     pub face1: [f64; 4],
     pub face2: [f64; 4],
     pub espessura: f64,
+}
+
+/// Esquadria numa célula (`cortina_celulas_abertura`, fase 5; ADR §7). A chave da célula (`i, j, s, z, nu, nv`) é a da seção 109. `tipo` é o `id_num` de uma linha da
+/// seção 7. `grade`: o ajuste 1 (tamanho nominal do tipo, grade ajustada); senão preenche a célula. `alinhamento` (só no ajuste 1): 0 centro, 1 início, 2 fim.
+/// `soleira` `NaN` = a base da região na janela e o peitoril do tipo na porta.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CelulaAberturaLinha {
+    pub cortina: u32,
+    pub i: u32,
+    pub j: u32,
+    pub s: f64,
+    pub z: f64,
+    pub nu: u32,
+    pub nv: u32,
+    pub tipo: u32,
+    pub flip_mao: bool,
+    pub flip_sentido: bool,
+    pub grade: bool,
+    pub alinhamento: u8,
+    pub soleira: f64,
+}
+
+/// Cortina embutida (`cortina_hospedes`, fase 5; ADR §8). `cortina` é só informativo no kernel das paredes. `deslocamento` é o centro do vão ao longo do
+/// hospedeiro a partir de `a`; `peitoril` a base do vão sobre a base do hospedeiro.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HospedeLinha {
+    pub cortina: u32,
+    pub hospedeiro: u32,
+    pub deslocamento: f64,
+    pub largura: f64,
+    pub peitoril: f64,
+    pub altura: f64,
 }
 
 /// Uma parede cortina (instância). `painel_padrao` = `ID_AUSENTE`: o painel do tipo.
@@ -256,6 +288,8 @@ tabelas! {
     linhas_sobrescritas: LinhaSobrescritaLinha = SECAO_CORTINA_LINHAS_SOBRESCRITAS,
     celulas_sobrescritas: CelulaSobrescritaLinha = SECAO_CORTINA_CELULAS_SOBRESCRITAS,
     extremidades: ExtremidadeLinha = SECAO_CORTINA_EXTREMIDADES,
+    aberturas_celula: CelulaAberturaLinha = SECAO_CORTINA_CELULAS_ABERTURA,
+    hospedes: HospedeLinha = SECAO_CORTINA_HOSPEDES,
 }
 
 /// As colunas decodificadas de uma seção, lidas por nome.
@@ -498,6 +532,29 @@ fn decodificar(secao: u32, n_linhas: u32, bytes: &[u8]) -> Result<Lote, u32> {
             face2: [t.dn("face2_ax", i)?, t.dn("face2_ay", i)?, t.dn("face2_bx", i)?, t.dn("face2_by", i)?],
             espessura: t.dn("espessura_vizinha", i)?,
         })),
+        SECAO_CORTINA_CELULAS_ABERTURA => Lote::aberturas_celula(linhas!(i => CelulaAberturaLinha {
+            cortina: t.u("cortina_num", i)?,
+            i: t.u("i", i)?,
+            j: t.u("j", i)?,
+            s: t.d("s", i)?,
+            z: t.d("z", i)?,
+            nu: t.u("nu", i)?,
+            nv: t.u("nv", i)?,
+            tipo: t.u("tipo_abertura_num", i)?,
+            flip_mao: t.b("flip_mao", i)?,
+            flip_sentido: t.b("flip_sentido", i)?,
+            grade: t.e("ajuste", i, 1, None)? == 1,
+            alinhamento: t.e("alinhamento", i, 2, None)?,
+            soleira: t.dn("soleira", i)?,
+        })),
+        SECAO_CORTINA_HOSPEDES => Lote::hospedes(linhas!(i => HospedeLinha {
+            cortina: t.u("cortina_num", i)?,
+            hospedeiro: t.u("hospedeiro_num", i)?,
+            deslocamento: t.d("deslocamento", i)?,
+            largura: t.dp("largura", i)?,
+            peitoril: t.dp("peitoril", i)?,
+            altura: t.dp("altura", i)?,
+        })),
         _ => return Err(ENTRADA),
     })
 }
@@ -569,6 +626,27 @@ impl SecoesCortina {
         }
         self.validar_sobrescritas()?;
         self.validar_extremidades()?;
+        self.validar_aberturas()?;
+        Ok(())
+    }
+
+    /// Fase 5: a esquadria aponta para uma cortina existente, com topologia e medidas finitas; o vão do hospedeiro tem largura e altura positivas. A existência
+    /// do tipo de abertura (seção 7) e do hospedeiro (seção 1) é conferida por quem os lê, porque as seções moram em outra parte da cena.
+    fn validar_aberturas(&self) -> Result<(), u32> {
+        let mut por_cortina: BTreeMap<u32, usize> = BTreeMap::new();
+        for a in self.aberturas_celula.values() {
+            let ok = self.cortinas.contains_key(&a.cortina) && a.nu >= 1 && a.nv >= 1 && a.s.is_finite() && a.z.is_finite() && (a.soleira.is_nan() || a.soleira >= 0.0);
+            if !ok {
+                return Err(ENTRADA);
+            }
+            *por_cortina.entry(a.cortina).or_insert(0) += 1;
+        }
+        if por_cortina.values().any(|&n| n > LIMITE_CELULAS_SOBRESCRITAS) {
+            return Err(LIMITE);
+        }
+        if self.hospedes.values().any(|h| h.largura <= 0.0 || h.altura <= 0.0) {
+            return Err(ENTRADA);
+        }
         Ok(())
     }
 
@@ -681,8 +759,8 @@ pub(crate) mod testes {
 
     #[test]
     fn toda_secao_da_cortina_tem_dono_e_decodifica_zeros_ou_recusa_com_codigo() {
-        let ids: Vec<u32> = esquema::SECOES.iter().map(|s| s.id).filter(|&i| (100..=110).contains(&i)).collect();
-        assert_eq!(ids, vec![100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110]);
+        let ids: Vec<u32> = esquema::SECOES.iter().map(|s| s.id).filter(|&i| (100..=113).contains(&i)).collect();
+        assert_eq!(ids, vec![100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 112, 113]);
         for id in ids {
             assert!(SecoesCortina::e_minha(id), "seção {id}");
             let mut s = SecoesCortina::default();
@@ -692,7 +770,8 @@ pub(crate) mod testes {
         }
         assert!(!SecoesCortina::e_minha(81));
         assert!(!SecoesCortina::e_minha(99));
-        assert!(!SecoesCortina::e_minha(111));
+        assert!(!SecoesCortina::e_minha(111), "a 111 é das cadeias (fase 4)");
+        assert!(!SecoesCortina::e_minha(114));
     }
 
     #[test]

@@ -5,7 +5,7 @@
 //! Mudou o JSON => sobe `VERSAO_ESQUEMA` e este arquivo.
 
 /// `versao` de `cena-v11.json`.
-pub const VERSAO_ESQUEMA: u32 = 16;
+pub const VERSAO_ESQUEMA: u32 = 17;
 /// `abi` de `cena-v11.json`.
 pub const VERSAO_ABI2: u32 = 2;
 
@@ -127,6 +127,9 @@ pub const SECAO_CORTINA_LINHAS_SOBRESCRITAS: u32 = 108;
 pub const SECAO_CORTINA_CELULAS_SOBRESCRITAS: u32 = 109;
 /// Parede cortina, fase 3 (esquema v16): a vizinhança de cada ponta (ADR 0056 §6.1 e §6.5).
 pub const SECAO_CORTINA_EXTREMIDADES: u32 = 110;
+/// Parede cortina, fase 5 (esquema v17): esquadria na célula e cortina embutida (ADR 0056 §6.1, §7 e §8). A 111 (`cortina_cadeias`) fica para a fase 4.
+pub const SECAO_CORTINA_CELULAS_ABERTURA: u32 = 112;
+pub const SECAO_CORTINA_HOSPEDES: u32 = 113;
 
 const fn col(nome: &'static str, tipo: Tipo) -> Coluna {
     Coluna { nome, tipo }
@@ -944,6 +947,41 @@ pub const SECOES: &[Secao] = &[
             col("espessura_vizinha", Tipo::F64),
         ],
     },
+    Secao {
+        id: SECAO_CORTINA_CELULAS_ABERTURA,
+        nome: "cortina_celulas_abertura",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("cortina_num", Tipo::U32),
+            col("i", Tipo::U32),
+            col("j", Tipo::U32),
+            col("s", Tipo::F64),
+            col("z", Tipo::F64),
+            col("nu", Tipo::U32),
+            col("nv", Tipo::U32),
+            col("tipo_abertura_num", Tipo::U32),
+            col("flip_mao", Tipo::U8),
+            col("flip_sentido", Tipo::U8),
+            col("ajuste", Tipo::U8),
+            col("alinhamento", Tipo::U8),
+            col("soleira", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_CORTINA_HOSPEDES,
+        nome: "cortina_hospedes",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("cortina_num", Tipo::U32),
+            col("hospedeiro_num", Tipo::U32),
+            col("deslocamento", Tipo::F64),
+            col("largura", Tipo::F64),
+            col("peitoril", Tipo::F64),
+            col("altura", Tipo::F64),
+        ],
+    },
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1002,6 +1040,9 @@ pub const CONSULTA_CORTINA_MALHA: u32 = 101;
 pub const CONSULTA_CORTINA_PLANTA: u32 = 102;
 pub const CONSULTA_QUANT_CORTINA: u32 = 104;
 pub const CONSULTA_CORTINA_AVISOS: u32 = 105;
+/// Fase 5 (esquema v17): recorte da cortina embutida no hospedeiro e vão virtual da esquadria na célula.
+pub const CONSULTA_CORTINA_RECORTE_HOSPEDEIRO: u32 = 106;
+pub const CONSULTA_CORTINA_CELULA_PORTA: u32 = 107;
 
 /// Códigos de `cortina_avisos.avisos[1]` (ADR 0056 §5.8): o TS decide o texto e a severidade.
 pub const AVISO_CORTINA_CELULA_PEQUENA: u32 = 1;
@@ -1017,6 +1058,12 @@ pub const AVISO_CORTINA_OVERRIDE_ORFAO_LINHA: u32 = 8;
 pub const AVISO_CORTINA_OVERRIDE_ORFAO_SEGMENTO: u32 = 9;
 /// Remoção de segmento recusada: a região fundida deixaria de ser retângulo (ADR §5.2). `i` e `j` são a célula de referência.
 pub const AVISO_CORTINA_CELULA_NAO_RETANGULAR: u32 = 10;
+/// Fase 5 (§7.5): a largura livre da célula é menor que a folha mínima do tipo (11); porta sem soleira numa fileira acima do piso (12); a esquadria nominal
+/// (`ajuste` grid) é maior que a célula livre e o vão foi limitado a ela (13). `i`, `j` = a célula. Os dois primeiros são o `cortina-porta-folha-minima` e o
+/// `cortina-porta-fora-do-piso` do ADR.
+pub const AVISO_CORTINA_PORTA_FOLHA_MINIMA: u32 = 11;
+pub const AVISO_CORTINA_PORTA_FORA_DO_PISO: u32 = 12;
+pub const AVISO_CORTINA_ESQUADRIA_MAIOR_QUE_CELULA: u32 = 13;
 
 pub const CONSULTAS: &[Consulta] = &[
     Consulta {
@@ -1356,6 +1403,30 @@ pub const CONSULTAS: &[Consulta] = &[
         saidas: &[
             SaidaDef { nome: "avisos", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
             SaidaDef { nome: "valores", tipo: Tipo::F64, elementos: Elementos::Multiplo(5) },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_CORTINA_RECORTE_HOSPEDEIRO,
+        nome: "cortina_recorte_hospedeiro",
+        args: &["nivel_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "recortes", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "retangulos", tipo: Tipo::F64, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "colisoes", tipo: Tipo::U32, elementos: Elementos::Multiplo(3) },
+            SaidaDef { nome: "colisoes_ret", tipo: Tipo::F64, elementos: Elementos::Multiplo(4) },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_CORTINA_CELULA_PORTA,
+        nome: "cortina_celula_porta",
+        args: &["nivel_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "portas", tipo: Tipo::U32, elementos: Elementos::Multiplo(10) },
+            SaidaDef { nome: "vaos", tipo: Tipo::F64, elementos: Elementos::Multiplo(10) },
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "linhas_pos", tipo: Tipo::F64, elementos: Elementos::N },
         ],
     },
 ];
