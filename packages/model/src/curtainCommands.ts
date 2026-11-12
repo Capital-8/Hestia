@@ -87,7 +87,7 @@ function paredeDe(p: Project, wallId: Id, lang: Lang): Wall {
 }
 
 /** Resolução da parede do comando (a grade atual e as sobrescritas já remapeadas). */
-function resolucaoDe(p: Project, wallId: Id, lang: Lang): { w: Wall; res: ParedeResolvida } {
+export function resolucaoDe(p: Project, wallId: Id, lang: Lang): { w: Wall; res: ParedeResolvida } {
   const w = paredeDe(p, wallId, lang);
   const res = resolverParede(p, w);
   if (!res) throw new Error(t(lang, 'md_ct_not_curtain'));
@@ -95,7 +95,7 @@ function resolucaoDe(p: Project, wallId: Id, lang: Lang): { w: Wall; res: Parede
 }
 
 /** Instância da parede, criada se ainda não existe. */
-function instanciaDe(w: Wall): CurtainInstance {
+export function instanciaDe(w: Wall): CurtainInstance {
   if (!w.curtain) w.curtain = {};
   return w.curtain;
 }
@@ -206,8 +206,6 @@ export function applyCurtainCommand(p: Project, c: Command, lang: Lang = 'pt'): 
       return clearLineOverride(p, c, lang);
     case 'setCellPanel':
       return setCellPanel(p, c, lang);
-    case 'clearCellOverride':
-      return clearCellOverride(p, c, lang);
     case 'normalizarSobrescritas': {
       if (c.wallId !== undefined) {
         paredeDe(p, c.wallId, lang);
@@ -290,17 +288,26 @@ function removeGridLine(p: Project, c: Extract<Command, { type: 'removeGridLine'
 }
 
 function removeSegment(p: Project, c: Extract<Command, { type: 'removeSegment' }>, lang: Lang): true {
-  const { w, res } = resolucaoDe(p, c.wallId, lang);
-  const alvo = alvoDaLinha(res, c.line, lang);
-  const nk = alvo.eixo === 'u' ? res.nv : res.nu;
-  if (!Number.isInteger(c.k) || c.k < 0 || c.k >= nk) throw new Error(t(lang, 'md_ct_segment_invalid'));
-  const inst = instanciaDe(w);
-  if (segmentosDaLinha(res, inst, alvo.chave).some((sg) => sg.k === c.k)) throw new Error(t(lang, 'md_ct_segment_invalid'));
-  const bp = alvo.eixo === 'u' ? res.bv : res.bu;
-  const comp = alvo.eixo === 'u' ? res.H : res.L;
-  inst.removedSegments = [...(inst.removedSegments ?? []), { line: alvo.ref, k: c.k, nk, mid: centroEntre(bp, c.k) / comp }];
+  if (!marcarSegmentoBruto(p, c.wallId, c.line, c.k, lang)) throw new Error(t(lang, 'md_ct_segment_invalid'));
   normalizarParede(p, c.wallId);
   if (!regioesRetangulares(resolucaoDe(p, c.wallId, lang).res)) throw new Error(t(lang, 'md_ct_regiao_nao_retangular'));
+  return true;
+}
+
+/**
+ * Marca o segmento `k` da linha como removido, SEM conferir a região (quem chama confere: a fusão de esquadria faz a
+ * conferência uma vez, no fim). Devolve false se o segmento não existe ou já estava removido.
+ */
+export function marcarSegmentoBruto(p: Project, wallId: Id, line: LineRef, k: number, lang: Lang): boolean {
+  const { w, res } = resolucaoDe(p, wallId, lang);
+  const alvo = alvoDaLinha(res, line, lang);
+  const nk = alvo.eixo === 'u' ? res.nv : res.nu;
+  if (!Number.isInteger(k) || k < 0 || k >= nk) return false;
+  const inst = instanciaDe(w);
+  if (segmentosDaLinha(res, inst, alvo.chave).some((sg) => sg.k === k)) return false;
+  const bp = alvo.eixo === 'u' ? res.bv : res.bu;
+  const comp = alvo.eixo === 'u' ? res.H : res.L;
+  inst.removedSegments = [...(inst.removedSegments ?? []), { line: alvo.ref, k, nk, mid: centroEntre(bp, k) / comp }];
   return true;
 }
 
@@ -352,7 +359,7 @@ function clearLineOverride(p: Project, c: Extract<Command, { type: 'clearLineOve
 }
 
 /** Índice (i, j) da célula, dentro da grade atual. */
-function celulaDe(res: ParedeResolvida, i: number, j: number, lang: Lang): number {
+export function celulaDe(res: ParedeResolvida, i: number, j: number, lang: Lang): number {
   if (!Number.isInteger(i) || !Number.isInteger(j) || i < 0 || j < 0 || i >= res.nu || j >= res.nv) throw new Error(t(lang, 'md_ct_cell_missing'));
   return i * res.nv + j;
 }
@@ -368,6 +375,8 @@ function setCellPanel(p: Project, c: Extract<Command, { type: 'setCellPanel' }>,
   normalizarParede(p, c.wallId);
   // A normalização troca `w.curtain` por um objeto novo: a instância é lida de novo depois dela.
   const inst = instanciaDe(w);
+  // Célula-porta não recebe painel (§7.5.5): a esquadria substitui o painel, não o contrário.
+  if ((inst.cells ?? []).some((e) => e.override.kind === 'opening' && res.canon[e.key.i * res.nv + e.key.j] === rc)) throw new Error(t(lang, 'md_ct_cell_has_opening'));
   const demaisDaRegiao = (inst.cells ?? []).filter((e) => res.canon[e.key.i * res.nv + e.key.j] !== rc);
   inst.cells = [
     ...demaisDaRegiao,
@@ -380,12 +389,3 @@ function setCellPanel(p: Project, c: Extract<Command, { type: 'setCellPanel' }>,
   return true;
 }
 
-function clearCellOverride(p: Project, c: Extract<Command, { type: 'clearCellOverride' }>, lang: Lang): true {
-  const { w, res } = resolucaoDe(p, c.wallId, lang);
-  const rc = res.canon[celulaDe(res, c.i, c.j, lang)] as number;
-  normalizarParede(p, c.wallId);
-  const inst = instanciaDe(w);
-  inst.cells = (inst.cells ?? []).filter((e) => res.canon[e.key.i * res.nv + e.key.j] !== rc);
-  normalizarParede(p, c.wallId);
-  return true;
-}

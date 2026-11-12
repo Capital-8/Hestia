@@ -271,6 +271,16 @@ export function labelOf(c: Command): string {
       return 'Voltar célula ao padrão';
     case 'normalizarSobrescritas':
       return 'Normalizar sobrescritas da cortina';
+    case 'setCellOpening':
+      return 'Colocar esquadria na célula';
+    case 'updateCellOpening':
+      return 'Editar esquadria da célula';
+    case 'removeCellOpening':
+      return 'Remover esquadria da célula';
+    case 'setCurtainHost':
+      return 'Embutir cortina na parede';
+    case 'clearCurtainHost':
+      return 'Tirar cortina da parede hospedeira';
     case 'upsertMaterial':
       return 'Editar material';
     case 'upsertOpeningType':

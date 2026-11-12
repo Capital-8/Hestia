@@ -17,7 +17,7 @@ import { t } from './i18n.ts';
 import type { ValidationIssue } from './validate.ts';
 import { isWall, type Id, type Project, type Wall } from './types.ts';
 import { isCurtainType } from './wallType.ts';
-import { CURTAIN_MIN_REMAINDER, type AddedGridLine, type CellOverrideEntry, type CurtainInstance, type GridAxisSpec, type LineOverride, type LineRef, type SegmentRef } from './wallCurtainTypes.ts';
+import { CURTAIN_MIN_REMAINDER, type AddedGridLine, type CellOverride, type CellOverrideEntry, type CurtainInstance, type GridAxisSpec, type LineOverride, type LineRef, type OpeningCellOverride, type SegmentRef } from './wallCurtainTypes.ts';
 import {
   TOL_SOLDA,
   bordasDe,
@@ -31,6 +31,20 @@ import {
   type Eixo,
   type LinhaGrade,
 } from './curtainGrade.ts';
+
+/**
+ * Esquadria da célula sem as linhas presas que não existem mais (§4.4, passo 5): cada uma vira órfã (aviso
+ * `cortina-override-orfao`) e sai da lista. A esquadria em si segue na célula.
+ */
+function ligacoesVivas(ov: CellOverride, extras: Map<Id, AddedGridLine>, orfas: Orfa[], x: number, z: number): CellOverride {
+  if (ov.kind !== 'opening' || !ov.linkedLines) return ov;
+  for (const id of ov.linkedLines) if (!extras.has(id)) orfas.push({ tipo: 'linha', x, z });
+  const vivas = ov.linkedLines.filter((id) => extras.has(id));
+  const copia: OpeningCellOverride = { ...ov };
+  if (vivas.length > 0) copia.linkedLines = vivas;
+  else delete copia.linkedLines;
+  return copia;
+}
 
 /** Distância máxima (em fração do eixo) entre a posição gravada e o centro novo para valer o índice (passo 1). */
 const LIMITE_INDICE = 0.5;
@@ -330,7 +344,7 @@ export function resolverParede(p: Project, w: Wall): ParedeResolvida | null {
     }
     const ci = Math.floor(cd.alvo / nv);
     const cj = cd.alvo - ci * nv;
-    celulas.push({ key: { i: ci, j: cj, s: centroEntre(bu, ci) / L, z: centroEntre(bv, cj) / H, nu, nv }, override: cd.e.override });
+    celulas.push({ key: { i: ci, j: cj, s: centroEntre(bu, ci) / L, z: centroEntre(bv, cj) / H, nu, nv }, override: ligacoesVivas(cd.e.override, extraPorId, orfas, cd.ps, cd.pz) });
   }
 
   return {
@@ -433,12 +447,11 @@ export function partirInstanciaCortina(p: Project, w: Wall, lo: number, hi: numb
   const ladoDe = (x: number): 'esq' | 'dir' | null => (x < lo - TOL_SOLDA ? 'esq' : x > hi + TOL_SOLDA ? 'dir' : null);
   const eixoDeExtra = new Map<Id, Eixo>((inst.addedLines ?? []).map((l): [Id, Eixo] => [l.id, l.axis]));
 
-  /** Campos que valem para as duas partes (tipo da grade, painel padrão e hospedagem). */
+  /** Campos que valem para as duas partes (tipo da grade e painel padrão). A hospedagem não passa: cada parte fica independente. */
   const comum = (): CurtainInstance => {
     const out: CurtainInstance = {};
     if (inst.grid !== undefined) out.grid = inst.grid;
     if (inst.defaultPanelTypeId !== undefined) out.defaultPanelTypeId = inst.defaultPanelTypeId;
-    if (inst.host !== undefined) out.host = inst.host;
     return out;
   };
   const esq = comum();

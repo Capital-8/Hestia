@@ -247,6 +247,25 @@ export type SubelementoCortina =
   | { wallId: Id; kind: 'segment'; segment: SegmentRef }
   | { wallId: Id; kind: 'cell'; cell: CellKey };
 
+/** Folga (m) de cada lado da folha até a face do montante (§7.6, LEAF_GAP_DEFAULT). */
+export const CURTAIN_LEAF_GAP = 0.004;
+
+/** Folha mínima (m) por tipo de esquadria (§7.5.3) [A CONFIRMAR]: porta de giro, porta de correr e janela. */
+export const CURTAIN_MIN_LEAF = { hinged: 0.6, sliding: 0.5, window: 0.3 } as const;
+
+/** Patch de uma esquadria na célula (updateCellOpening): só os campos que mudam. */
+export interface CellOpeningPatch {
+  openingTypeId?: Id;
+  flipHand?: boolean;
+  flipFacing?: boolean;
+  mark?: string;
+  sillOverride?: number | null;
+  fit?: 'cell' | 'grid';
+  align?: 'center' | 'start' | 'end';
+  /** Confirmação do app para fundir células vizinhas quando a esquadria não cabe (§7.5.2). */
+  fundir?: boolean;
+}
+
 /** Limites do §4.3: acima disso o Rust devolve `LIMITE` e o app avisa. */
 export const CURTAIN_LIMITS = {
   addedLines: 128,
