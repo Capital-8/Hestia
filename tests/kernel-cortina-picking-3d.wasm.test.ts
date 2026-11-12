@@ -124,7 +124,7 @@ describe('parede cortina: picking depois de porta, canto e troca de tipo (kernel
     it.skipIf(!bytes)(`${comCanto ? 'com' : 'sem'} canto: painel, montante, porta e outra cortina são pegos certo a cada troca de tipo, com a cena refeita`, () => {
       const s = cenarioInicial(comCanto);
       const ms = new ModelScene();
-      const tipos = ['ot_p90', 'ot_pp80', 'ot_pe80', 'ot_p70', 'ot_p80', 'ot_p90'];
+      const tipos = ['ot_p90', 'ot_pp80', 'ot_pcorrer160', 'ot_p70', 'ot_p80', 'ot_p90'];
       const esperado = { painel: 'ct1', montante: 'ct1', porta: `esq:ct1`, outra: comCanto ? 'ct2' : null };
       // Antes de qualquer troca: a porta acabou de entrar e a cortina foi encostada.
       let p = s.project;
@@ -173,7 +173,7 @@ describe('parede cortina: picking depois de porta, canto e troca de tipo (kernel
   it.skipIf(!bytes)('nenhuma esquadria antiga sobra no picking: só a esquadria atual tem faixa de picking depois de cada troca', () => {
     const s = cenarioInicial(true);
     const ms = new ModelScene();
-    for (const tipo of ['ot_p90', 'ot_pp80', 'ot_pe80', 'ot_p80']) {
+    for (const tipo of ['ot_p90', 'ot_pp80', 'ot_pcorrer160', 'ot_p80']) {
       trocarTipo(s, tipo);
       const p = s.project;
       ms.update(p, niveis(p), OPCOES);
