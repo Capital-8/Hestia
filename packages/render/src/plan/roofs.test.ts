@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { resolverZoom } from './zoomOps.ts';
 import { multiArea, type Vec2 } from '@hestia/geom';
 import { resolveLevel, resolveRoofs, type ResolvedRoof, type ResolvedRoofLayer, type ViewClass } from '@hestia/engine';
-import { DEFAULT_VIEW_3D, ProjectStore, createEmptyProject, floorViewId, makeRoof, makeWall, roofViewId, type DetailLevel, type Id, type Project } from '@hestia/model';
+import { DEFAULT_VIEW_3D, ProjectStore, projetoComCoberturaDeTeste, floorViewId, makeRoof, makeWall, legacyRoofViewId as roofViewId, type DetailLevel, type Id, type Project } from '@hestia/model';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { mix } from './color.ts';
 import { labelPoint } from './floors.ts';
@@ -46,11 +46,11 @@ function gable(extra: Partial<ResolvedRoof> = {}): ResolvedRoof {
   };
 }
 
-const ops = (rs: ResolvedRoof[], detail: DetailLevel = 'medium', zoom = 100, dark = false, p: Project = createEmptyProject()) =>
+const ops = (rs: ResolvedRoof[], detail: DetailLevel = 'medium', zoom = 100, dark = false, p: Project = projetoComCoberturaDeTeste()) =>
   resolverZoom(roofOps(rs, p, dark ? DARK : LIGHT, dark, detail, VIEW(zoom)), zoom);
 
 function projectWithRoof(showTags = false): Project {
-  const s = new ProjectStore(createEmptyProject());
+  const s = new ProjectStore(projetoComCoberturaDeTeste());
   s.exec({
     type: 'addRoof',
     roof: makeRoof({ id: 'r', typeId: 'rt_ceramica', levelId: 'lv_0', boundary: [P(-0.3, -0.3), P(8.3, -0.3), P(8.3, 6.3), P(-0.3, 6.3)], heightOffset: 2.8, shape: 'gable', slopePercent: 30, dir: P(1, 0) }),
@@ -99,7 +99,7 @@ describe('telhado na planta (D1)', () => {
 
   it('o azimute do sol pode vir da vista 3D do projeto (contexto da planta)', () => {
     const r = gable();
-    const p = { ...createEmptyProject(), view3d: { ...DEFAULT_VIEW_3D, sunAzimuth: 0 } };
+    const p = { ...projetoComCoberturaDeTeste(), view3d: { ...DEFAULT_VIEW_3D, sunAzimuth: 0 } };
     const base = mix(TILE, '#ffffff', 0.25);
     const fills = ops([r], 'medium', 100, false, p).fills.filter((f) => f.alpha === 0.98);
     expect(fills[0]!.color).toBe(tomDaAgua(base, P(0, 1), 30, 0));
@@ -121,9 +121,9 @@ describe('telhado na planta (D1)', () => {
     // rt_ceramica: telha com hachura diagonal
     expect(ops([gable()], 'medium', 10).fills[0]!.hatch).toBeUndefined();
     // O zoom mínimo vai na hachura (o shader e o `resolverZoom` escondem abaixo dele): a geometria não muda com o zoom.
-    const media = roofOps([gable()], createEmptyProject(), LIGHT, false, 'medium', VIEW(10));
+    const media = roofOps([gable()], projetoComCoberturaDeTeste(), LIGHT, false, 'medium', VIEW(10));
     expect(media.fills[0]!.hatch?.zoomMin).toBe(40);
-    const fina = roofOps([gable()], createEmptyProject(), LIGHT, false, 'fine', VIEW(10));
+    const fina = roofOps([gable()], projetoComCoberturaDeTeste(), LIGHT, false, 'fine', VIEW(10));
     expect(fina.fills[0]!.hatch?.zoomMin).toBeUndefined();
     expect(ops([gable()], 'medium', 100).fills[0]!.hatch?.kind).toBe('diagonal');
     expect(ops([gable()], 'medium', 100).fills[0]!.hatch?.alpha).toBeGreaterThanOrEqual(0.22);
@@ -258,7 +258,7 @@ describe('subpavimento com telhados (D4)', () => {
 
 /** Telhado por contorno (forma 'edges') com as inclinações por aresta, resolvido pelo motor real. */
 function edgesProject(boundary: Vec2[], edgeSlopes: Array<number | null>): Project {
-  const s = new ProjectStore(createEmptyProject());
+  const s = new ProjectStore(projetoComCoberturaDeTeste());
   s.exec({ type: 'addRoof', roof: makeRoof({ id: 'r', typeId: 'rt_ceramica', levelId: 'lv_0', boundary, heightOffset: 2.8, shape: 'edges', edgeSlopes }) });
   return s.project;
 }
@@ -309,13 +309,13 @@ describe('cota da cumeeira e planta de cobertura (D6)', () => {
   });
 
   it('planta de cobertura: água opaca (alpha 1) e cota da cumeeira mesmo sem etiquetas', () => {
-    const o = roofOps([gable()], createEmptyProject(), LIGHT, false, 'medium', VIEW(100), { planMode: true });
+    const o = roofOps([gable()], projetoComCoberturaDeTeste(), LIGHT, false, 'medium', VIEW(100), { planMode: true });
     expect(o.fills.filter((f) => f.alpha !== 1)).toHaveLength(0);
     expect(o.labels.map((l) => l.text)).toContain('▲ +3,70');
   });
 
   it('roofPlanMode na lista: telhado opaco, paredes só como contorno fino por cima, sem traços de piso por baixo', () => {
-    const s = new ProjectStore(createEmptyProject());
+    const s = new ProjectStore(projetoComCoberturaDeTeste());
     s.exec({ type: 'addWall', wall: makeWall({ id: 'a', typeId: 'wt_alv14', levelId: 'lv_0', a: P(0, 0), b: P(8, 0) }) });
     s.exec({ type: 'addWall', wall: makeWall({ id: 'b', typeId: 'wt_alv14', levelId: 'lv_0', a: P(8, 0), b: P(8, 6) }) });
     s.exec({ type: 'addRoof', roof: makeRoof({ id: 'r', typeId: 'rt_ceramica', levelId: 'lv_0', boundary: [P(-0.3, -0.3), P(8.3, -0.3), P(8.3, 6.3), P(-0.3, 6.3)], heightOffset: 2.8, shape: 'gable', slopePercent: 30, dir: P(1, 0) }) });
@@ -351,7 +351,7 @@ describe('beiral e pegada pelo intervalo de vista', () => {
   const FOOT = [P(0, 0), P(4, 0), P(4, 2), P(0, 2)];
   const EAVE = [P(-0.5, -0.5), P(4.5, -0.5), P(4.5, 2.5), P(-0.5, 2.5)];
   function comBalanco(): { p: Project; r: ResolvedRoof } {
-    const s = new ProjectStore(createEmptyProject());
+    const s = new ProjectStore(projetoComCoberturaDeTeste());
     s.exec({ type: 'addRoof', roof: makeRoof({ id: 'r', typeId: 'rt_ceramica', levelId: 'lv_0', boundary: EAVE, footprint: FOOT, edgeOverhangs: [0.5, 0.5, 0.5, 0.5], heightOffset: 2.8, shape: 'gable', slopePercent: 30, dir: P(1, 0) }) });
     const p = s.project;
     return { p, r: resolveRoofs(p, 'lv_0')[0]! };
@@ -392,7 +392,7 @@ describe('beiral e pegada pelo intervalo de vista', () => {
   });
 
   it('sem balanço não há pegada rosa; a projeção tracejada do beiral continua', () => {
-    const s = new ProjectStore(createEmptyProject());
+    const s = new ProjectStore(projetoComCoberturaDeTeste());
     s.exec({ type: 'addRoof', roof: makeRoof({ id: 'r', typeId: 'rt_ceramica', levelId: 'lv_0', boundary: EAVE, edgeOverhangs: [0, 0, 0, 0], heightOffset: 2.8, shape: 'gable', slopePercent: 30, dir: P(1, 0) }) });
     const p = s.project;
     const o = roofOps(resolveRoofs(p, 'lv_0'), p, LIGHT, false, 'medium', VIEW(100), { classes: new Map<Id, ViewClass>([['r', 'projection-above']]) });
@@ -418,7 +418,7 @@ describe('beiral e pegada pelo intervalo de vista', () => {
 
 describe('anotações numa só camada, sem sobreposição', () => {
   function quatroAguas(): { p: Project; r: ResolvedRoof } {
-    const s = new ProjectStore(createEmptyProject());
+    const s = new ProjectStore(projetoComCoberturaDeTeste());
     s.exec({ type: 'addRoof', roof: makeRoof({ id: 'r', typeId: 'rt_ceramica', levelId: 'lv_0', boundary: RECT_BOUNDARY, heightOffset: 2.8, shape: 'hip', slopePercent: 30 }) });
     s.exec({ type: 'setSettings', patch: { showTags: true } });
     const p = s.project;
@@ -456,7 +456,7 @@ describe('anotações numa só camada, sem sobreposição', () => {
 describe('telhado com trecho em arco (pegada amostrada)', () => {
   it('as geratrizes entre facetas do mesmo arco não viram espigão; a cumeeira entre as águas do arco e a divisa com a outra água fica', () => {
     const boundary = arcBoundary(24);
-    const s = new ProjectStore(createEmptyProject());
+    const s = new ProjectStore(projetoComCoberturaDeTeste());
     s.exec({ type: 'addRoof', roof: makeRoof({ id: 'r', typeId: 'rt_ceramica', levelId: 'lv_0', boundary, heightOffset: 2.8, shape: 'edges', edgeSlopes: boundary.map(() => 30), edgeOverhangs: boundary.map(() => 0) }) });
     const p = s.project;
     const [r] = resolveRoofs(p, 'lv_0');
@@ -472,7 +472,7 @@ describe('telhado com trecho em arco (pegada amostrada)', () => {
 
   it('o contorno de um arco não gera cumeeira nem espigão para cada lado amostrado (o beiral sai como faixa suave)', () => {
     const boundary = arcBoundary(24);
-    const s = new ProjectStore(createEmptyProject());
+    const s = new ProjectStore(projetoComCoberturaDeTeste());
     s.exec({ type: 'addRoof', roof: makeRoof({ id: 'r', typeId: 'rt_ceramica', levelId: 'lv_0', boundary, heightOffset: 2.8, shape: 'edges', edgeSlopes: boundary.map(() => 30), edgeOverhangs: boundary.map(() => 0) }) });
     const o = roofFills(s.project, 'lv_0', LIGHT, false, 'medium', VIEW(100));
     const beiral = o.fills.filter((f) => f.contour);

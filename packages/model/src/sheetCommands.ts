@@ -25,10 +25,10 @@ export function dropOrphanViewports(p: Project): void {
 
 /** Motivo de recusa de uma fonte de vista (nível ou seção que precisa existir), ou null. */
 export function viewSourceIssue(p: Pick<Project, 'levels' | 'views' | 'planViews'>, view: SheetViewSource, lang: Lang = 'pt'): string | null {
-  // Recusa vista inexistente e as que não são fonte de prancha (cobertura e forro): só piso e área.
+  // Recusa vista inexistente e as que não são fonte de prancha (cobertura, que é piso com showRoofOnTop, e forro): só piso e área.
   if (view.kind === 'plan') {
     const alvo = resolvePlanView(p, view.viewId);
-    if (!alvo || (alvo.kind !== 'floor' && alvo.kind !== 'area')) return translate(lang, 'md_view_missing');
+    if (!alvo || (alvo.kind !== 'floor' && alvo.kind !== 'area') || alvo.showRoofOnTop === true) return translate(lang, 'md_view_missing');
   }
   if (view.kind === 'section' && !p.views.some((v) => v.id === view.sectionId)) return translate(lang, 'md_cmd_section_missing');
   if (view.kind === '3d' && view.camera !== undefined) return sheetView3DCameraIssue(view.camera);

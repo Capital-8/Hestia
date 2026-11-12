@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { pointInMulti, type Vec2 } from '@hestia/geom';
 import { resolveLevel, viewRangeWarnings } from '@hestia/engine';
-import { ProjectStore, createEmptyProject, defaultStairTypeId, floorViewId, roofViewId, makeFloor, makeRoof, makeSlab, makeStair, makeWall, planViewRangeOf, type Id, type Opening, type Project, type ViewRange } from '@hestia/model';
+import { ProjectStore, projetoComCoberturaDeTeste, defaultStairTypeId, floorViewId, legacyRoofViewId as roofViewId, makeFloor, makeRoof, makeSlab, makeStair, makeWall, planViewRangeOf, type Id, type Opening, type Project, type ViewRange } from '@hestia/model';
 import { straightStair } from '../stairFixture.helper.ts';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { stairFills } from './stairs.ts';
@@ -22,7 +22,7 @@ const P = (x: number, y: number): Vec2 => ({ x, y });
  * 2,40 e porta. Mais paredes baixas e altas (y = 8 a 14) e um telhado, uma laje e um piso fora da faixa de x de paredes.
  */
 function scene(range: Partial<ViewRange> = {}): Project {
-  const s = new ProjectStore(createEmptyProject());
+  const s = new ProjectStore(projetoComCoberturaDeTeste());
   const wall = (id: string, y: number, extra: Partial<Parameters<typeof makeWall>[0]> = {}) =>
     makeWall({ id, typeId: 'wt_alv14', levelId: 'lv_0', a: P(0, y), b: P(3, y), height: 2.8, ...extra });
   const opening = (id: string, hostId: string, typeId: string, kind: 'door' | 'window', extra: Partial<Opening> = {}): Opening => ({
@@ -248,7 +248,7 @@ describe('escada na vista (decisão 0013 §4): cota de corte e topo da vista', (
   const H = 0.175;
   const ZOOM = 100;
   const VZ: Viewport = { cx: 0.5, cy: 1.5, zoom: ZOOM, width: 800, height: 600 };
-  const PROJECT = createEmptyProject();
+  const PROJECT = projetoComCoberturaDeTeste();
   const stair = () => straightStair({ risers: N, tread: 0.28, riserH: H, width: 1 });
   const ops = (view?: { cutZ: number; topZ: number }) => stairFills(PROJECT, [stair()], LIGHT, false, 'medium', VZ, view);
   const risers = (o: ReturnType<typeof ops>) => o.strokes.filter((s) => !s.closed && s.pts.length === 2 && !s.dash && s.widthPx === RISER_PX);
@@ -281,7 +281,7 @@ describe('escada na vista (decisão 0013 §4): cota de corte e topo da vista', (
   });
 
   it('laje no nível de topo cobrindo o último espelho: a chegada não é degrau e não entra na planta', () => {
-    const s = new ProjectStore(createEmptyProject());
+    const s = new ProjectStore(projetoComCoberturaDeTeste());
     s.exec({ type: 'addSlab', slab: makeSlab({ id: 'laje', typeId: 'ls_mac15', levelId: 'lv_1', boundary: [P(-1, -1), P(2, -1), P(2, 5), P(-1, 5)] }) });
     const o = stairFills(s.project, [stair()], LIGHT, false, 'medium', VZ, { cutZ: 0.5, topZ: 1.0 });
     // Só os N−1 degraus da escada (a chegada é o piso do nível): k = 3..9 acima do corte, k = 1 e 2 abaixo.
@@ -365,7 +365,7 @@ describe('seleção de elemento oculto: contorno fantasma (decisão 0013 §4)', 
   });
 
   it('escada oculta (base a 2,50 m): pegada tracejada, sem preenchimento', () => {
-    const s = new ProjectStore(createEmptyProject());
+    const s = new ProjectStore(projetoComCoberturaDeTeste());
     s.exec({ type: 'addStair', stair: makeStair({ id: 'st_alta', typeId: defaultStairTypeId, levelId: 'lv_0', baseOffset: 2.5, components: [run()] }) });
     const dl = drawSel(s.project, ['st_alta']);
     const g = ghosts(dl);

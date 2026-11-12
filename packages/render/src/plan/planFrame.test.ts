@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type * as THREE from 'three';
 import { resolveLevel } from '@hestia/engine';
-import { ProjectStore, createEmptyProject, floorViewId, makeLevel, makeRoof, makeWall, roofViewId, type Project } from '@hestia/model';
+import { ProjectStore, projetoComCoberturaDeTeste, floorViewId, makeLevel, makeRoof, makeWall, legacyRoofViewId as roofViewId, type Project } from '@hestia/model';
 import { buildPlanGeometry, buildPlanOverlay, planGeometrySelection, type PlanInput } from './build.ts';
 import { PlanFrame, planFrameUpdateOf, sameLabels, type PlanViewState } from './planFrame.ts';
 import { PlanScene } from './gpuPlan.ts';
@@ -183,7 +183,7 @@ describe('grade com área coberta (gridLayer)', () => {
 
 describe('geometria e sobreposição separadas (build)', () => {
   function proj(): Project {
-    const s = new ProjectStore(createEmptyProject());
+    const s = new ProjectStore(projetoComCoberturaDeTeste());
     s.exec({ type: 'addWall', wall: makeWall({ id: 'w1', typeId: 'wt_alv14', levelId: 'lv_0', a: { x: 0, y: 0 }, b: { x: 4, y: 0 } }) });
     s.exec({ type: 'addDimension', levelId: 'lv_0', dimension: { id: 'd1', a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, offset: 1 } });
     s.exec({ type: 'addDetailLine', levelId: 'lv_0', item: { id: 'dl1', a: { x: 0, y: 2 }, b: { x: 4, y: 2 }, style: 'dashed' } });
@@ -242,7 +242,7 @@ describe('geometria e sobreposição separadas (build)', () => {
 
 describe('estado da planta para o quadro (planFrameUpdateOf)', () => {
   const p = (() => {
-    const s = new ProjectStore(createEmptyProject());
+    const s = new ProjectStore(projetoComCoberturaDeTeste());
     s.exec({ type: 'addWall', wall: makeWall({ id: 'w1', typeId: 'wt_alv14', levelId: 'lv_0', a: { x: 0, y: 0 }, b: { x: 4, y: 0 } }) });
     s.exec({ type: 'addDimension', levelId: 'lv_0', dimension: { id: 'd1', a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, offset: 1 } });
     return s.project;
@@ -352,11 +352,11 @@ describe('estado da planta para o quadro (planFrameUpdateOf)', () => {
 
   it('cobertura: o telhado do nível abaixo entra na planta, só com a referência de baixo ligada', () => {
     const comTelhadoBaixo = (): Project => {
-      const s = new ProjectStore(createEmptyProject());
+      const s = new ProjectStore(projetoComCoberturaDeTeste());
       s.exec({ type: 'addRoof', roof: makeRoof({ id: 'r0', typeId: 'rt_ceramica', levelId: 'lv_0', boundary: [{ x: -0.3, y: -0.3 }, { x: 8.3, y: -0.3 }, { x: 8.3, y: 6.3 }, { x: -0.3, y: 6.3 }], heightOffset: 2.8, shape: 'gable', slopePercent: 30, dir: { x: 1, y: 0 } }) });
       return s.project;
     };
-    const semTelhadoBaixo = createEmptyProject();
+    const semTelhadoBaixo = projetoComCoberturaDeTeste();
     const fills = (proj: Project, showUnderlay: boolean): number =>
       planFrameUpdateOf(state({ project: proj, viewId: roofViewId('lv_1'), levelId: 'lv_1', showUnderlay, resolve: (id) => resolveLevel(proj, id, new Map()) })).geometry().fills.length;
     expect(fills(comTelhadoBaixo(), true)).toBeGreaterThan(fills(semTelhadoBaixo, true));
@@ -365,7 +365,7 @@ describe('estado da planta para o quadro (planFrameUpdateOf)', () => {
 
   it('cobertura: o telhado de um nível mais abaixo (não o de referência) também entra', () => {
     const tres = (com: boolean): Project => {
-      const s = new ProjectStore(createEmptyProject());
+      const s = new ProjectStore(projetoComCoberturaDeTeste());
       s.exec({ type: 'upsertLevel', level: makeLevel({ id: 'lv_2', name: 'Cobertura', elevation: 6 }) });
       if (com) s.exec({ type: 'addRoof', roof: makeRoof({ id: 'r0', typeId: 'rt_ceramica', levelId: 'lv_0', boundary: [{ x: -0.3, y: -0.3 }, { x: 8.3, y: -0.3 }, { x: 8.3, y: 6.3 }, { x: -0.3, y: 6.3 }], heightOffset: 2.8, shape: 'gable', slopePercent: 30, dir: { x: 1, y: 0 } }) });
       return s.project;

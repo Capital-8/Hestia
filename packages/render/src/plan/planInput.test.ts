@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyProject, roofViewId } from '@hestia/model';
+import { projetoComCoberturaDeTeste, legacyRoofViewId as roofViewId } from '@hestia/model';
 import { resolvePlanTarget } from './planInput.ts';
 
 describe('resolvePlanTarget', () => {
-  const p = createEmptyProject();
+  const p = projetoComCoberturaDeTeste();
   it('viewId inexistente com levelId cai na planta de piso do nível', () => {
     expect(resolvePlanTarget(p, { viewId: 'nada', levelId: 'lv_0' })).toEqual({ viewId: 'pv_lv_0', levelId: 'lv_0', roofPlanMode: false });
   });

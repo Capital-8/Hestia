@@ -73,8 +73,8 @@ export interface PlanTarget {
 export type PlanInput = PlanInputBase & PlanTarget;
 
 /**
- * Alvo já resolvido: tudo que o desenho precisa saber da vista, consistente entre si. `roofPlanMode` é derivado do tipo
- * da vista. Planta de cobertura (D6): telhados do nível opacos (alpha 1) e os de `belowRoofs` também, só o preenchimento;
+ * Alvo já resolvido: tudo que o desenho precisa saber da vista, consistente entre si. `roofPlanMode` é derivado da vista
+ * (planta de piso com `showRoofOnTop`). Planta de cobertura (D6): telhados do nível opacos (alpha 1) e os de `belowRoofs` também, só o preenchimento;
  * paredes só como contorno fino por cima; sem pisos, lajes ou aberturas; cota da cumeeira sempre visível. Não usa o
  * intervalo de vista.
  */
@@ -102,7 +102,7 @@ export function resolvePlanTarget(p: Pick<Project, 'planViews'>, t: PlanTarget):
   }
   // Idempotente: um alvo já resolvido (com planta de área alternativa) resolve de novo para o mesmo alvo.
   const areaPlan = t.areaPlan ?? (vista.kind === 'area' ? areaPlanOf(p, vista.id) : undefined);
-  return { viewId: vista.id, levelId: vista.levelId, roofPlanMode: vista.kind === 'roof', ...(areaPlan ? { areaPlan } : {}) };
+  return { viewId: vista.id, levelId: vista.levelId, roofPlanMode: vista.kind === 'floor' && vista.showRoofOnTop === true, ...(areaPlan ? { areaPlan } : {}) };
 }
 
 /** Resolve o alvo de um `PlanInput` (ver `resolvePlanTarget`). */

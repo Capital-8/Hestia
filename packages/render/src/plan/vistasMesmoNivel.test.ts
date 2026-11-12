@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveLevel } from '@hestia/engine';
-import { DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS, ProjectStore, createEmptyProject, floorViewId, makeRoof, makeWall, roofViewId, withAreaPlansOfTest, type AreaPlan, type Project } from '@hestia/model';
+import { DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS, ProjectStore, projetoComCoberturaDeTeste, floorViewId, makeRoof, makeWall, legacyRoofViewId as roofViewId, withAreaPlansOfTest, type AreaPlan, type Project } from '@hestia/model';
 import { planFrameUpdateOf, PlanFrame, type PlanViewState } from './planFrame.ts';
 import { planGeometrySelection } from './build.ts';
 import { drawnAnnotations } from './notes.ts';
@@ -35,7 +35,7 @@ const AREA: AreaPlan = {
 };
 
 function projeto(): Project {
-  const s = new ProjectStore(createEmptyProject());
+  const s = new ProjectStore(projetoComCoberturaDeTeste());
   const pts = [{ x: 0, y: 0 }, { x: 0, y: 6 }, { x: 8, y: 6 }, { x: 8, y: 0 }];
   pts.forEach((a, i) => s.exec({ type: 'addWall', wall: makeWall({ id: `w${i}`, typeId: 'wt_alv14', levelId: 'lv_0', a, b: pts[(i + 1) % 4]!, locationLine: 'finishInterior' }) }));
   s.exec({ type: 'addRoof', roof: makeRoof({ id: 'r', typeId: 'rt_ceramica', levelId: 'lv_0', boundary: [{ x: -0.3, y: -0.3 }, { x: 8.3, y: -0.3 }, { x: 8.3, y: 6.3 }, { x: -0.3, y: 6.3 }], heightOffset: 2.8, shape: 'gable', slopePercent: 30, dir: { x: 1, y: 0 } }) });
