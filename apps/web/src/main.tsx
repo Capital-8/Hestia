@@ -51,6 +51,7 @@ if (new URLSearchParams(location.search).has('debug')) {
       cutLevelByJunction: e.cutLevelByJunction,
       quantifyLevel: e.quantifyLevel,
       sectionSnapIndex: t.sectionSnapIndex,
+      sectionSnapIndexDoProjeto: t.sectionSnapIndexDoProjeto,
       // Guarda-corpo (decisão 0055, §21): só em DEV, fora do build de produção.
       ...(import.meta.env.DEV
         ? {

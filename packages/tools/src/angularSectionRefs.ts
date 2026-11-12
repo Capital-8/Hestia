@@ -1,7 +1,7 @@
 import { closestOnSegment, dist, norm, sub, type Vec2 } from '@hestia/geom';
-import type { Id } from '@hestia/model';
+import type { Id, Project } from '@hestia/model';
 import type { AlignFeature } from './alignFeatures.ts';
-import { sectionSnapIndex } from './sectionSnapIndex.ts';
+import { sectionSnapIndexDoProjeto } from './sectionSnapComGuardaCorpo.ts';
 import type { SectionToolContext } from './types.ts';
 import { t as translate, type Lang } from './i18n.ts';
 
@@ -26,10 +26,10 @@ const pt = (p: Vec2): string => `${r6(p.x)},${r6(p.y)}`;
  * Arestas da vista sob o cursor, da mais próxima para a mais distante. Só lê o índice (`sectionSnapIndex`); sem
  * resultado de corte devolve lista vazia. Elementos ocultos na vista não são referência.
  */
-export function sectionRefFeatures(sec: SectionToolContext, at: Vec2, mpp: number, hidden?: ReadonlySet<Id>, lang: Lang = 'pt'): AlignFeature[] {
+export function sectionRefFeatures(sec: SectionToolContext, at: Vec2, mpp: number, hidden?: ReadonlySet<Id>, lang: Lang = 'pt', project?: Project): AlignFeature[] {
   let index;
   try {
-    index = sectionSnapIndex(sec.result());
+    index = sectionSnapIndexDoProjeto(sec.result(), project);
   } catch {
     return [];
   }
