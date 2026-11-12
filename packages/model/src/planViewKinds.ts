@@ -21,17 +21,13 @@ export interface PlanViewKindInfo {
 }
 
 /**
- * Cobertura HOJE: nenhuma restrição de ferramenta. O PLANO §4.6 pede sem ambiente/separação na cobertura; fica para a
- * fase que mudar o comportamento.
- *
- * Intervalo e camadas da cobertura: o render não usa intervalo de vista (planContext.ts: `rp` => `view = null`) e
- * parte de `FLOOR_PLAN_PROFILE`; por isso o padrão é o de piso (lacuna relatada em `viewProfileOf`).
+ * Planta de piso (inclusive com `showRoofOnTop`): nenhuma restrição de ferramenta. O PLANO §4.6 pede sem ambiente/separação
+ * na cobertura; fica para a fase que mudar o comportamento.
  */
 const FLOOR_LIKE = { direction: 'down', defaultRange: DEFAULT_VIEW_RANGE, defaultLayers: FLOOR_PROFILE_LAYERS } as const;
 
 export const PLAN_VIEW_KINDS: Record<PlanViewKind, PlanViewKindInfo> = {
   floor: { ...FLOOR_LIKE, tools: { mode: 'all' } },
-  roof: { ...FLOOR_LIKE, tools: { mode: 'all' } },
   area: { direction: 'down', defaultRange: DEFAULT_VIEW_RANGE, defaultLayers: areaLayersOf(DEFAULT_AREA_GRAPHICS), tools: { mode: 'all' } },
   // Forro: rascunho da Fase 4 (corte 2,30 m, para cima; sem portas, pisos e mobiliário). Sem comportamento ainda.
   ceiling: {

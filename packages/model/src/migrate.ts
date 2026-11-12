@@ -11,6 +11,7 @@ import { SCHEMA_VERSION, type PlanSymbol, type Project } from './types.ts';
 import { DEFAULT_VIEW_RANGE } from './viewRange.ts';
 import { migrateVistasV23 } from './migrateVistas.ts';
 import { normalizeSheetSourcesRaw } from './migrateSheetSources.ts';
+import { migrateCoberturaV24, normalizeCobertura } from './migrateCoberturaV24.ts';
 import { compositionOfType } from './openingCompositionOf.ts';
 import { defaultOpeningProfiles } from './openingProfiles.ts';
 import type { OpeningType } from './openingTypes.ts';
@@ -266,6 +267,8 @@ const migrations: Record<number, Migration> = {
   // v23 → v24: vistas de planta como entidade (docs/vistas/FASE-2A.md): `Level` perde os campos de vista e `areaPlans` some;
   // `planViews` entra. Ver `migrateVistas.ts`.
   23: migrateVistasV23,
+  // v24 → v25: cobertura como planta comum (`kind: 'roof'` sai; `showRoofOnTop` entra). Ver `migrateCoberturaV24.ts`.
+  24: migrateCoberturaV24,
 };
 
 export class SchemaError extends Error {}
@@ -287,6 +290,8 @@ export function migrateProject(raw: unknown): Project {
   // Fontes de viewport de prancha na forma única (`{ plan, viewId }`): arquivo da 2a/2b antiga ainda traz `levelId`/`areaPlan`.
   // Idempotente e sem nova versão de esquema (o 24 ainda não foi publicado).
   obj = normalizeSheetSourcesRaw(obj);
+  // Vista `kind: 'roof'` solta (IFC importado, rascunho) na forma do 25. Idempotente.
+  obj = normalizeCobertura(obj);
   // Espelho mínimo (NBR 9050): tipos de escada antigos não o têm; recebem 0,16 m (ou o máximo/2 se o máximo for menor).
   // Idempotente e sem nova versão de esquema.
   if (obj.stairTypes && typeof obj.stairTypes === 'object') {

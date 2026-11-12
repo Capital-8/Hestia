@@ -79,10 +79,12 @@ export * from './sectionLevelExtents.ts';
 // Vistas de planta como entidade (docs/vistas/PLANO-MESTRE.md §4). Os nomes públicos de intervalo e ocultos levam o
 // prefixo `planView` (`planViewRangeOf`, `planViewHiddenOf`).
 export {
-  floorViewId, roofViewId, planViewRef, planViewRefOf, planViewsOf, planViewOf, planViewsOfLevel, mainPlanViewOf,
+  floorViewId, planViewRef, planViewRefOf, planViewsOf, planViewOf, planViewsOfLevel, mainPlanViewOf,
   viewRangeOf as planViewRangeOf, viewGraphicsOf, viewHiddenOf as planViewHiddenOf, viewAnnotationsOf,viewProfileOf,
   type PlanViewKind, type PlanAnnotations, type PlanView, type PlanViewRef,
 } from './planView.ts';
+export { USER_VIEW_PREFIX, userViewId, legacyRoofViewId } from './planViewIds.ts';
+export { normalizeCobertura, migrateCoberturaV24 } from './migrateCoberturaV24.ts';
 export * from './planViewKinds.ts';
 export * from './planViewCommands.ts';
 export { resolvePlanViewRef } from './planViewResolve.ts';

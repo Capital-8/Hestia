@@ -1,5 +1,5 @@
 import { annotationIdsOf, copyAnnotationsToView, inheritedAnnotations, newAnnotations, normalizeAnnotations, ownAreaAnnotations, plainClone, remapHiddenElements, ANNOTATION_FAMILIES } from './planViewAnnotations.ts';
-import { floorViewId, roofViewId } from './planViewIds.ts';
+import { floorViewId, legacyRoofViewId } from './planViewIds.ts';
 import type { PlanAnnotations, PlanView } from './planView.ts';
 import type { ViewHidden } from './graphics.ts';
 import { DEFAULT_VIEW_RANGE } from './viewRange.ts';
@@ -64,9 +64,9 @@ export function migrateVistasV23(raw: Raw): Raw {
     set(floor, 'hidden', plainClone(l.hidden as PlanView['hidden']));
     floor.annotations = annotations;
 
-    const roofId = roofViewId(id);
+    const roofId = legacyRoofViewId(id);
     const roofAnnotations = withRoof.has(id) ? copyAnnotationsToView(annotations, roofId, Object.fromEntries(ANNOTATION_FAMILIES.map((f) => [f, true]))) : newAnnotations();
-    const roof: PlanView = { id: roofId, name, levelId: id, kind: 'roof', viewRange: { ...DEFAULT_VIEW_RANGE } } as PlanView;
+    const roof: PlanView = { id: roofId, name, levelId: id, kind: 'roof', viewRange: { ...DEFAULT_VIEW_RANGE } } as unknown as PlanView;
     set(roof, 'graphics', plainClone(l.graphics as PlanView['graphics']));
     set(roof, 'hidden', remapHidden(l.roofHidden as Hidden | undefined, levelIds, roofId, new Set(annotationIdsOf(roofAnnotations))));
     roof.annotations = roofAnnotations;

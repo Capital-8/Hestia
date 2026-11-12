@@ -1,4 +1,5 @@
-import { floorViewId, roofViewId, type PlanAnnotations, type PlanView } from './planView.ts';
+import { legacyRoofViewId } from './planViewIds.ts';
+import { floorViewId, type PlanAnnotations, type PlanView } from './planView.ts';
 import type { Id, Project } from './types.ts';
 
 /**
@@ -31,5 +32,5 @@ export function patchViewOfTest(p: Project, viewId: Id, patch: ViewPatch): Proje
 /** Atalho: a planta de piso do nível (o que antes era "o nível"). */
 export const patchFloorOfTest = (p: Project, levelId: Id, patch: ViewPatch): Project => patchViewOfTest(p, floorViewId(levelId), patch);
 
-/** Atalho: a planta de cobertura do nível. */
-export const patchRoofOfTest = (p: Project, levelId: Id, patch: ViewPatch): Project => patchViewOfTest(p, roofViewId(levelId), patch);
+/** Atalho: a cobertura migrada do nível (`pvr_<nível>`, só existe em projeto vindo da migração). */
+export const patchRoofOfTest = (p: Project, levelId: Id, patch: ViewPatch): Project => patchViewOfTest(p, legacyRoofViewId(levelId), patch);

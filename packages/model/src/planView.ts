@@ -1,7 +1,7 @@
 import { isDraft } from 'immer';
 import type { AreaLegend, AreaPlanGraphics, AreaTable, RoomTag } from './areaPlan.ts';
 import { resolveViewGraphics, type ViewGraphics, type ViewHidden } from './graphics.ts';
-import { floorViewId, mainViewRef, roofViewId } from './planViewIds.ts';
+import { floorViewId, mainViewRef } from './planViewIds.ts';
 import type { DetailLine, DetailRegion, Dimension, ElementTag, Id, Project, TextNote } from './types.ts';
 import { resolveFloorProfile, resolveViewProfile, type ResolvedProfile } from './viewProfile.ts';
 import { DEFAULT_VIEW_RANGE, type ViewRange } from './viewRange.ts';
@@ -13,7 +13,7 @@ import { DEFAULT_VIEW_RANGE, type ViewRange } from './viewRange.ts';
  * Dentro de aplicação de comando (rascunho do immer) NÃO se lê por aqui: use `resolvePlanView` (`planViewResolve.ts`),
  * que lê direto de `p.planViews`. As memórias abaixo ignoram rascunhos (`isDraft`) por segurança.
  */
-export type PlanViewKind = 'floor' | 'roof' | 'area' | 'ceiling';
+export type PlanViewKind = 'floor' | 'area' | 'ceiling';
 
 /** As cinco famílias de anotação de uma vista de planta. */
 export interface PlanAnnotations {
@@ -34,6 +34,11 @@ export interface PlanView {
   /** Ausente = padrão do tipo de vista. */
   graphics?: ViewGraphics;
   hidden?: ViewHidden;
+  /**
+   * Só `kind: 'floor'`: mostra o telhado em vista superior (a antiga planta de cobertura). Ausente = desligado. Ligado, o
+   * desenho ainda ignora a faixa de vista (a raia de render muda isso depois).
+   */
+  showRoofOnTop?: boolean;
   /** Sempre próprias: não existe herança de anotações entre vistas. */
   annotations: PlanAnnotations;
   /** Só quando `kind === 'area'`: o que é específico da planta de área. */
@@ -47,7 +52,7 @@ export interface PlanView {
   };
 }
 
-export { floorViewId, roofViewId };
+export { floorViewId };
 
 /** Nível e tipo de uma vista de planta. */
 export interface PlanViewRef {
@@ -56,9 +61,8 @@ export interface PlanViewRef {
 }
 
 /**
- * Inverso dos ids determinísticos de piso e cobertura, sem consultar o projeto. Id de planta de área não é
- * decodificável pela forma (é o id do próprio `AreaPlan`): use `planViewRefOf`. Devolve `undefined` se não casa.
- * Sem ambiguidade: `pv_` (3.º caractere `_`) e `pvr_` (3.º caractere `r`) nunca se confundem.
+ * Inverso do id determinístico do piso (`pv_<nível>`), sem consultar o projeto. Id de outra vista não é
+ * decodificável pela forma: use `planViewRefOf`. Devolve `undefined` se não casa.
  */
 export function planViewRef(viewId: Id): PlanViewRef | undefined {
   return mainViewRef(viewId);
@@ -124,10 +128,10 @@ export function planViewsOfLevel(p: PlanViewsHost, levelId: Id, kind?: PlanViewK
   return kind ? all.filter((v) => v.kind === kind) : all;
 }
 
-/** Vista principal (piso ou cobertura) do nível. Lança erro claro se ela não existe (nível inexistente). */
-export function mainPlanViewOf(p: PlanViewsHost, levelId: Id, kind: 'floor' | 'roof'): PlanView {
-  const v = planViewOf(p, kind === 'floor' ? floorViewId(levelId) : roofViewId(levelId));
-  if (!v) throw new Error(`Nível "${levelId}" não existe: não há vista principal de ${kind === 'floor' ? 'piso' : 'cobertura'}.`);
+/** Vista principal (planta de piso) do nível. Lança erro claro se ela não existe (nível inexistente). */
+export function mainPlanViewOf(p: PlanViewsHost, levelId: Id, _kind: 'floor' = 'floor'): PlanView {
+  const v = planViewOf(p, floorViewId(levelId));
+  if (!v) throw new Error(`Nível "${levelId}" não existe: não há vista principal de piso.`);
   return v;
 }
 
@@ -169,9 +173,9 @@ const FLOOR_PROFILE: ResolvedProfile = resolveFloorProfile();
 
 /**
  * Perfil resolvido. `area`: `resolveViewProfile`; `floor`: `resolveFloorProfile`.
- * LACUNA (cobertura): o render usa `FLOOR_PLAN_PROFILE` e muda o comportamento por `roofPlanMode` no código
- * (paredes só como contorno por cima, sem linhas de pisos/ambientes, telhados opacos; build.ts `rp`), sem
- * `ProfileLayers` equivalente. Devolve o perfil de piso, que é o que o render passa hoje.
+ * LACUNA (`showRoofOnTop`): com a propriedade ligada o render usa `roofPlanMode` no código (paredes só como contorno
+ * por cima, sem linhas de pisos/ambientes, telhados opacos; build.ts `rp`), sem `ProfileLayers` equivalente, e ignora a
+ * faixa de vista. Devolve o perfil de piso, que é o que o render passa hoje.
  * `ceiling` (Fase 4) também cai no de piso. Id inexistente: perfil de piso.
  */
 export function viewProfileOf(p: PlanViewsHost, viewId: Id): ResolvedProfile {

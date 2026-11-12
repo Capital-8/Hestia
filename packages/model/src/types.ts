@@ -20,7 +20,7 @@ import type { CadDrawing } from './cad.ts';
 import type { CopyLink } from './copyLink.ts';
 
 export type Id = string;
-export const SCHEMA_VERSION = 24;
+export const SCHEMA_VERSION = 25;
 
 export type { Stair, StairCurve, StairGenerator, StairLanding, StairRun, StairRunStyle, StairSpiralParams, StairType, StairUndersideStyle } from './stairTypes.ts';
 export type { Ramp, RampInputMode, RampNormProfile, RampNormRow, RampShape, RampType } from './rampTypes.ts';
@@ -818,8 +818,8 @@ export interface Project {
   /** Tipos de grade gravados; os padrão (`DEFAULT_GRID_TYPES`) valem sem estar aqui. */
   gridTypes?: Record<Id, GridType>;
   /**
-   * Vistas de planta (piso, cobertura, área): intervalo de vista, gráficos, ocultos e anotações moram na vista (decisão
-   * 0055). Todo nível tem uma vista de piso (`pv_<nível>`) e uma de cobertura (`pvr_<nível>`). Ver `planView.ts`.
+   * Vistas de planta (piso, área, forro): intervalo de vista, gráficos, ocultos e anotações moram na vista (decisão
+   * 0055). Todo nível tem uma vista de piso (`pv_<nível>`); a cobertura é planta de piso com `showRoofOnTop`. Ver `planView.ts`.
    */
   planViews: PlanView[];
   /** Categorias de ambiente; ausente = as padrão (`DEFAULT_ROOM_CATEGORIES`). */

@@ -7,7 +7,7 @@ export interface LevelInput {
 }
 
 /**
- * Cria um nível. As vistas dele (piso `pv_<id>` e cobertura `pvr_<id>`, com o intervalo de vista padrão da decisão 0013)
+ * Cria um nível. As vistas dele (piso `pv_<id>`, com o intervalo de vista padrão da decisão 0013)
  * nascem junto, quando o comando `upsertLevel` o cria (`levelViews.ts`).
  */
 export function makeLevel(l: LevelInput): Level {

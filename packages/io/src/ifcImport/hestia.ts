@@ -8,7 +8,7 @@
  * Sem os psets, nada aqui muda o resultado: `readHestia` devolve vazio e a importação segue o caminho atual.
  */
 
-import { mainViewsOf, migrateVistasV23, sortPlanViews, type Element, type Generic, type Id, type IfcProperty, type Level, type Project } from '@hestia/model';
+import { mainViewsOf, migrateVistasV23, normalizeCobertura, sortPlanViews, type Element, type Generic, type Id, type IfcProperty, type Level, type Project } from '@hestia/model';
 import { t as tr, type Lang } from '../i18n.ts';
 import { HESTIA_ELEMENT_PSET, HESTIA_PROJECT_PSET, HESTIA_VERSION, isHestiaPset, type HestiaElementRecord } from '../ifc/ifcHestia.ts';
 import { bodyOf } from './geometry.ts';
@@ -230,11 +230,13 @@ export function applyHestiaLevels(p: Project, levels: Level[] | undefined, refs:
   }
   // `LevelsJSON` de um IFC antigo (esquema ≤ 23) ainda traz intervalo, gráficos, ocultos e anotações no nível: passa pela
   // mesma migração dos arquivos (sem elementos ainda, as cópias da cobertura ficam vazias). Do esquema 24 em diante as
-  // vistas viajam em `PlanViewsJSON`; nível sem vista principal ganha a dele.
+  // vistas viajam em `PlanViewsJSON`; nível sem vista principal ganha a dele. `kind: 'roof'` (esquema ≤ 24) passa pela
+  // normalização do 25 (planta de piso com `showRoofOnTop`, mesmo id).
   const migrated = migrateVistasV23({ levels, elements: {} }) as { levels: Level[]; planViews: Project['planViews'] };
   p.levels = migrated.levels;
   const known = new Set(p.levels.map((l) => l.id));
-  p.planViews = planViews ? planViews.filter((v) => known.has(v.levelId)) : migrated.planViews;
+  const fonte = normalizeCobertura({ levels: p.levels, planViews: planViews ?? migrated.planViews }).planViews as Project['planViews'];
+  p.planViews = planViews ? fonte.filter((v) => known.has(v.levelId)) : fonte;
   const have = new Set(p.planViews.map((v) => v.id));
   for (const l of p.levels) p.planViews.push(...mainViewsOf(l).filter((v) => !have.has(v.id)));
   sortPlanViews(p);

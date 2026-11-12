@@ -23,12 +23,14 @@ import { DEFAULT_VIEW_RANGE, viewRangeIssues, type ViewRange } from './viewRange
  */
 export interface PlanViewPatch {
   name?: string;
-  /** Mescla no intervalo atual (como `setLevelViewRange`). Recusado na cobertura. */
+  /** Mescla no intervalo atual (como `setLevelViewRange`). */
   viewRange?: Partial<ViewRange>;
   /** Mescla nos gráficos (como `setLevelGraphics`); `null` restaura o padrão (como `resetLevelGraphics`). */
   graphics?: DeepPartial<ViewGraphics> | null;
   /** Substitui a ocultação (como `setViewHidden`); `null` limpa. */
   hidden?: ViewHidden | null;
+  /** Só planta de piso; `false` apaga o campo. */
+  showRoofOnTop?: boolean;
   /** Campos próprios da planta de área (como `updateAreaPlan`); `null` apaga o campo opcional. */
   area?: { schemeId?: Id | null; scale?: number; graphics?: Partial<AreaPlanGraphics>; legend?: AreaLegend | null; table?: AreaTable | null };
 }
@@ -44,6 +46,8 @@ export interface NewPlanView {
   /** Só `kind: 'area'`; escala ausente: a padrão da planta de área. */
   area?: { schemeId?: Id; scale?: number; graphics?: Partial<AreaPlanGraphics>; legend?: AreaLegend; table?: AreaTable; tags?: RoomTag[] };
   hidden?: ViewHidden;
+  /** Só `kind: 'floor'`, sem faixa para cima; `false` não grava o campo. */
+  showRoofOnTop?: boolean;
   /**
    * Conjunto próprio. Ausente: planta de área nasce com cópia das anotações do nível que ela desenha (a herança de antes,
    * materializada, ids `<id>__<idDaVista>`); os outros tipos nascem sem anotações.
@@ -67,12 +71,11 @@ function applyViewRange(v: PlanView, patch: Partial<ViewRange>): void {
 /**
  * Comando antigo `setLevelViewRange`. Antes o intervalo era do NÍVEL e valia para a planta de piso e para as plantas de
  * área; agora cada vista tem o seu. Para o programa se comportar igual nesta etapa a alteração vai para a planta de piso e
- * para as plantas de área do nível (a cobertura não usa intervalo e guarda o padrão: não é propagado, o que também evita
- * recusar por conflito com um padrão que o usuário nunca editou). A Fase 3 decide quando parar de propagar.
+ * para as plantas de área do nível (e, desde o esquema 25, para a cobertura migrada, que é planta de piso comum). A Fase 3 decide quando parar de propagar.
  */
 export function applyLevelViewRange(p: Project, levelId: Id, patch: Partial<ViewRange>, lang: Lang = 'pt'): void {
   if (!p.levels.some((x) => x.id === levelId)) throw new Error(t(lang, 'md_level_missing'));
-  for (const v of p.planViews) if (v.levelId === levelId && v.kind !== 'roof') applyViewRange(v, patch);
+  for (const v of p.planViews) if (v.levelId === levelId) applyViewRange(v, patch);
 }
 
 const nullToUndefined = <T>(v: T | null | undefined): T | undefined => (v === null ? undefined : v);
@@ -87,10 +90,13 @@ function updatePlanView(p: Project, viewId: Id, patch: PlanViewPatch, lang: Lang
   if (!v) throw new Error(t(lang, 'md_view_missing'));
   const isArea = v.kind === 'area' && v.area !== undefined;
   if (patch.area && !isArea) throw new Error(t(lang, 'md_cmd_planview_area_only'));
-  if (patch.viewRange && v.kind === 'roof') throw new Error(t(lang, 'md_cmd_planview_roof_range'));
   if (patch.name !== undefined && !patch.name.trim()) throw new Error(t(lang, 'md_cmd_planview_name_empty'));
 
   if (patch.viewRange) applyViewRange(v, patch.viewRange);
+  if (patch.showRoofOnTop !== undefined) {
+    if (patch.showRoofOnTop) v.showRoofOnTop = true; else delete v.showRoofOnTop;
+  }
+  if (v.showRoofOnTop && (v.kind !== 'floor' || v.viewRange.direction === 'up')) throw new Error(t(lang, 'md_cmd_planview_roof_on_top'));
   if (patch.graphics !== undefined) {
     if (patch.graphics === null) resetViewGraphics(p, viewId, lang);
     else applyViewGraphics(p, viewId, patch.graphics, lang);
@@ -138,9 +144,15 @@ export function createPlanView(p: Project, nv: NewPlanView, lang: Lang): PlanVie
   const issue = isArea ? areaPlanIssue(p, candidate) : !nv.name.trim() ? t(lang, 'md_cmd_planview_name_empty') : !p.levels.some((l) => l.id === nv.levelId) ? t(lang, 'md_level_missing') : null;
   if (issue) throw new Error(issue);
   if (resolvePlanView(p, nv.id)) throw new Error(t(lang, 'md_cmd_plan_id_exists'));
+  // O prefixo `pv_` é do piso principal do nível: id de vista nova nunca pode começar com ele.
+  if (nv.id.startsWith('pv_')) throw new Error(t(lang, 'md_cmd_planview_id_reserved'));
 
   const floor = resolvePlanView(p, floorViewId(nv.levelId));
   const view: PlanView = { id: nv.id, name: nv.name, levelId: nv.levelId, kind: nv.kind, viewRange: plainClone(nv.viewRange ?? floor?.viewRange ?? DEFAULT_VIEW_RANGE), annotations: newAnnotations() };
+  if (nv.showRoofOnTop) {
+    if (nv.kind !== 'floor' || view.viewRange.direction === 'up') throw new Error(t(lang, 'md_cmd_planview_roof_on_top'));
+    view.showRoofOnTop = true;
+  }
   const graphics = nv.graphics ?? floor?.graphics;
   if (graphics) view.graphics = plainClone(graphics);
   if (nv.hidden) view.hidden = plainClone(nv.hidden);
@@ -156,7 +168,7 @@ export function createPlanView(p: Project, nv: NewPlanView, lang: Lang): PlanVie
   return view;
 }
 
-/** Remove uma vista. A vista principal (piso ou cobertura) de um nível que existe não pode ser removida. */
+/** Remove uma vista. A planta de piso principal de um nível que existe não pode ser removida (a cobertura migrada pode). */
 export function deletePlanView(p: Project, viewId: Id, lang: Lang): void {
   const v = resolvePlanView(p, viewId);
   if (!v) throw new Error(t(lang, 'md_view_missing'));
