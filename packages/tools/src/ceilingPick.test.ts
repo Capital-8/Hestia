@@ -22,3 +22,11 @@ describe('captura de forro', () => {
     expect(pickCeilingAt(store('down'), 'lv_0', { x: 2, y: 1 }, 0.01)).toBeNull();
   });
 });
+
+describe('captura de forro segue a vista informada', () => {
+  it('direção up só no piso: o forro é clicável nele e não na cobertura', () => {
+    const p = store('up');
+    expect(pickCeilingAt(p, 'lv_0', { x: 2, y: 1 }, 0.01, 'pv_lv_0')).toBe('c');
+    expect(pickCeilingAt(p, 'lv_0', { x: 2, y: 1 }, 0.01, 'pvr_lv_0')).toBeNull();
+  });
+});

@@ -237,7 +237,7 @@ export class SelectTool extends ToolBase {
     if (f) return { id: f, kind: 'floor' };
     const sl = pickSlabAt(vp, lv, at, mpp);
     if (sl) return { id: sl, kind: 'slab' };
-    const cl = pickCeilingAt(vp, lv, at, mpp);
+    const cl = pickCeilingAt(vp, lv, at, mpp, this.viewId());
     if (cl) return { id: cl, kind: 'ceiling' };
     const rf = pickRoofAt(vp, lv, at, mpp);
     if (rf) return { id: rf, kind: 'roof' };
@@ -251,7 +251,7 @@ export class SelectTool extends ToolBase {
     // elemento. A marca é uma anotação de primeira classe e também pode ser selecionada e transformada.
     const an = annotationAt(pr, lv, at, mpp, this.viewId(), this.session());
     if (an) return { id: an.id, kind: 'annotation' };
-    const vm = ly && !ly.sectionMarks ? null : sectionMarkAt(pr, lv, at, mpp);
+    const vm = ly && !ly.sectionMarks ? null : sectionMarkAt(pr, lv, at, mpp, this.viewId());
     return vm ? { id: vm, kind: 'view' } : null;
   }
 
@@ -545,7 +545,7 @@ export class SelectTool extends ToolBase {
           ...roomIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...cadIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...(ly && !ly.grids ? [] : gridIdsInBox(pr, this.downPt, p.raw)),
-          ...(ly && !ly.sectionMarks ? [] : sectionMarkIdsInBox(pr, this.env.levelId(), this.downPt, p.raw)),
+          ...(ly && !ly.sectionMarks ? [] : sectionMarkIdsInBox(pr, this.env.levelId(), this.downPt, p.raw, this.viewId())),
           ...roomTagIdsInBox(pr, this.downPt, p.raw, this.planId()),
           ...annotationIdsInBox(pr, this.env.levelId(), this.downPt, p.raw, this.env.metersPerPixel(), this.viewId(), this.session()),
         ];

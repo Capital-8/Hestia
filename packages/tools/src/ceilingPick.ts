@@ -7,8 +7,8 @@ import { isCeiling, planViewRangeOf, floorViewId, type Id, type Project } from '
  * borda do contorno efetivo (o do ambiente, quando acompanha). O mais recente vence. Na planta baixa forro não é desenhado,
  * então não é clicável (decisão 0021).
  */
-export function pickCeilingAt(p: Project, levelId: Id, at: Vec2, mpp: number): Id | null {
-  if (planViewRangeOf(p, floorViewId(levelId)).direction !== 'up') return null;
+export function pickCeilingAt(p: Project, levelId: Id, at: Vec2, mpp: number, viewId?: Id): Id | null {
+  if (planViewRangeOf(p, viewId ?? floorViewId(levelId)).direction !== 'up') return null;
   const tol = 4 * mpp;
   const list = resolveCeilings(p, levelId);
   const rooms = roomsById(p, levelId);

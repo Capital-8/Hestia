@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyProject, sectionMarkGeometry, type SectionView } from '@hestia/model';
+import { createEmptyProject, floorViewId, ProjectStore, roofViewId, sectionMarkGeometry, type SectionView } from '@hestia/model';
 import { sectionMarkAt, sectionMarkIdsInBox } from './sectionMarkPick.ts';
 
 const view = (patch: Partial<SectionView> = {}): SectionView => ({
@@ -31,5 +31,31 @@ describe('seleção da marca de corte/elevação', () => {
     expect(sectionMarkIdsInBox(p, 'lv_0', { x: -1, y: -1 }, { x: 5, y: 1 })).toEqual([]);
     p.views[0]!.mark = { visible: true };
     expect(sectionMarkIdsInBox(p, 'lv_0', { x: -1, y: -1 }, { x: 1, y: 1 })).toEqual(['v1']);
+  });
+});
+
+describe('seleção da marca segue a vista ativa', () => {
+  it('categoria annotation oculta só na cobertura: o piso seleciona, a cobertura não', () => {
+    const p = createEmptyProject();
+    p.views = [view({ label: 'A' })];
+    const s = new ProjectStore(p);
+    s.exec({ type: 'updatePlanView', viewId: roofViewId('lv_0'), patch: { graphics: { overrides: { annotation: { visible: false } } } } });
+    const q = s.project;
+    expect(sectionMarkAt(q, 'lv_0', { x: 2, y: 0 }, 0.01, floorViewId('lv_0'))).toBe('v1');
+    expect(sectionMarkAt(q, 'lv_0', { x: 2, y: 0 }, 0.01, roofViewId('lv_0'))).toBeNull();
+    expect(sectionMarkAt(q, 'lv_0', { x: 2, y: 0 }, 0.01)).toBe('v1');
+    expect(sectionMarkIdsInBox(q, 'lv_0', { x: -1, y: -1 }, { x: 5, y: 1 }, floorViewId('lv_0'))).toEqual(['v1']);
+    expect(sectionMarkIdsInBox(q, 'lv_0', { x: -1, y: -1 }, { x: 5, y: 1 }, roofViewId('lv_0'))).toEqual([]);
+  });
+
+  it('escala só na cobertura muda a tolerância do rótulo apenas nela', () => {
+    const p = createEmptyProject();
+    p.views = [view({ label: 'A' })];
+    const s = new ProjectStore(p);
+    s.exec({ type: 'updatePlanView', viewId: roofViewId('lv_0'), patch: { graphics: { scale: 1000 } } });
+    const rotulo = sectionMarkGeometry({ x: 0, y: 0 }, { x: 4, y: 0 }, 'section', 'A', 0.1, undefined).labels[0]!.at;
+    // Escala 1:100 (padrão do piso): o rótulo calculado a 1:100 é pego; a 1:1000 a marca encolhe e o ponto cai fora.
+    expect(sectionMarkAt(s.project, 'lv_0', rotulo, 0.01, floorViewId('lv_0'))).toBe('v1');
+    expect(sectionMarkAt(s.project, 'lv_0', rotulo, 0.01, roofViewId('lv_0'))).toBeNull();
   });
 });
