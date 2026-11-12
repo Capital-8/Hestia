@@ -27,16 +27,23 @@ export function alreadyApplied(patch: unknown, current: unknown): boolean {
   return Object.entries(patch as Record<string, unknown>).every(([k, v]) => alreadyApplied(v, (current as Record<string, unknown>)[k]));
 }
 
-/** Aplica os gráficos de uma planta (um nível). O comando valida; a mensagem dele vira o erro. */
-export function editLevelGraphics(store: ProjectStore, levelId: Id, patch: LevelGraphicsPatch, label = 'eds_undo_change_view_graphics'): GraphicsEdit {
+/**
+ * Aplica os gráficos de UMA vista de planta (piso, cobertura ou planta de área), por `viewId`: as outras vistas do mesmo
+ * nível não mudam (vistas independentes). Grava pelo comando `updatePlanView`; o comando valida e a mensagem vira o erro.
+ */
+export function editViewGraphics(store: ProjectStore, viewId: Id, patch: LevelGraphicsPatch, label = 'eds_undo_change_view_graphics'): GraphicsEdit {
   try {
-    const exists = store.project.levels.some((l) => l.id === levelId);
-    if (exists && alreadyApplied(patch, viewGraphicsOf(store.project, floorViewId(levelId)))) return OK;
-    store.exec({ type: 'setLevelGraphics', levelId, patch }, label, useI18n.getState().lang);
+    if (planViewOf(store.project, viewId) && alreadyApplied(patch, viewGraphicsOf(store.project, viewId))) return OK;
+    store.exec({ type: 'updatePlanView', viewId, patch: { graphics: patch } }, label, useI18n.getState().lang);
     return OK;
   } catch (e) {
     return failed(e);
   }
+}
+
+/** Atalho da planta de piso de um nível (equivale a `editViewGraphics(store, floorViewId(levelId), ...)`). */
+export function editLevelGraphics(store: ProjectStore, levelId: Id, patch: LevelGraphicsPatch, label = 'eds_undo_change_view_graphics'): GraphicsEdit {
+  return editViewGraphics(store, floorViewId(levelId), patch, label);
 }
 
 /** Aplica os gráficos da vista 3D (também sombras, arestas, sol e fundo). */
@@ -61,16 +68,21 @@ export function editProjectGraphics(store: ProjectStore, patch: ProjectGraphicsP
   }
 }
 
-/** Volta os gráficos da planta do nível ao padrão (apaga o que o nível guardou). Sem nada guardado, não faz nada. */
-export function restoreLevelGraphicsDefault(store: ProjectStore, levelId: Id): GraphicsEdit {
+/** Volta os gráficos de UMA vista de planta ao padrão (apaga o que ela guardou). Sem nada guardado, não faz nada. */
+export function restoreViewGraphicsDefault(store: ProjectStore, viewId: Id): GraphicsEdit {
   try {
-    const lv = store.project.levels.find((l) => l.id === levelId);
-    if (lv && !planViewOf(store.project, floorViewId(levelId))?.graphics) return OK;
-    store.exec({ type: 'resetLevelGraphics', levelId }, 'eds_undo_restore_view_graphics', useI18n.getState().lang);
+    const v = planViewOf(store.project, viewId);
+    if (v && !v.graphics) return OK;
+    store.exec({ type: 'updatePlanView', viewId, patch: { graphics: null } }, 'eds_undo_restore_view_graphics', useI18n.getState().lang);
     return OK;
   } catch (e) {
     return failed(e);
   }
+}
+
+/** Atalho da planta de piso de um nível. */
+export function restoreLevelGraphicsDefault(store: ProjectStore, levelId: Id): GraphicsEdit {
+  return restoreViewGraphicsDefault(store, floorViewId(levelId));
 }
 
 /** Volta a vista 3D ao padrão (estilo, sol, fundo, sombras e arestas). Sem nada guardado, não faz nada. */
@@ -120,11 +132,11 @@ export function restoreProjectGraphicsDefault(store: ProjectStore): GraphicsEdit
 }
 
 /** Alvo das linhas finas (decisão 0015): a planta de um nível, ou o corte/elevação aberto (um conjunto para todos os cortes). */
-export type ThinLinesTarget = { levelId: Id } | 'section';
+export type ThinLinesTarget = { viewId: Id } | 'section';
 
 /** Linhas finas da vista ativa ligadas? Sem o campo salvo, ligadas (padrão do Hestia). */
 export function thinLinesOn(p: Project, target: ThinLinesTarget): boolean {
-  return (target === 'section' ? sectionGraphicsOf(p) : viewGraphicsOf(p, floorViewId(target.levelId))).thinLines === true;
+  return (target === 'section' ? sectionGraphicsOf(p) : viewGraphicsOf(p, target.viewId)).thinLines === true;
 }
 
 /** Níveis de referência (datum) ligados no 3D? Sem o campo salvo, ligados (padrão do Hestia). */
@@ -136,5 +148,5 @@ export function showLevelsOn(v3: Pick<View3DSettings, 'showLevels'> | undefined 
 export function editThinLines(store: ProjectStore, target: ThinLinesTarget, on: boolean): GraphicsEdit {
   return target === 'section'
     ? editSectionGraphics(store, { thinLines: on }, 'eds_undo_toggle_section_thin_lines')
-    : editLevelGraphics(store, target.levelId, { thinLines: on }, 'eds_undo_toggle_plan_thin_lines');
+    : editViewGraphics(store, target.viewId, { thinLines: on }, 'eds_undo_toggle_plan_thin_lines');
 }

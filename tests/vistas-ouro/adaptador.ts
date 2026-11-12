@@ -147,7 +147,7 @@ function listaDeDesenho(p: Project, tipo: 'floor' | 'roof' | 'area', levelId: st
     underlayLevel: null,
     showUnderlay: true,
     showRoofProjection: true,
-    thinLines: thinLinesOn(p, { levelId }),
+    thinLines: thinLinesOn(p, { viewId: floorViewId(levelId) }),
     selection: [],
     hover: null,
     aviso: null,

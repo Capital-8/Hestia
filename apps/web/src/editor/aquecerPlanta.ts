@@ -23,7 +23,7 @@ export function aquecerPlanta(p: Project, levelId: Id, versao: number, resolve: 
     showUnderlay: opcoes.showUnderlay,
     underlayLevel: opcoes.underlayLevel,
     showRoofProjection: opcoes.showRoofProjection,
-    thinLines: thinLinesOn(p, { levelId }),
+    thinLines: thinLinesOn(p, { viewId: floorViewId(levelId) }),
     selection: [],
     hover: null,
     preview: [],
