@@ -32,6 +32,8 @@ import { wallZRange, type WallZ } from './wallZ.ts';
 import type { CortinaKernel, EixoGradeKernel, EntradaCenaCortina, MontanteKernel, PainelKernel, TipoCortinaKernel } from './kernelCortina.ts';
 import { ID_AUSENTE_CORTINA } from './kernelCortinaTabelas.ts';
 import { sobrescritasDaInstancia } from './cortinaSobrescritas.ts';
+import { extremidadesDaCortina, quadrosDosNiveis } from './cortinaExtremidades.ts';
+import { DEFAULT_JOIN_TOL } from './joins.ts';
 
 /** Parede cortina do projeto com o tipo já resolvido. */
 export interface ParedeCortina {
@@ -200,6 +202,15 @@ export function entradaCortinaDoProjeto(p: Project, materiaisAnteriores?: Readon
     return ok;
   });
   const z = zDasCortinas(p, validas);
+  // Junção entre paredes (fase 3, seção 110): a vizinhança de cada ponta, com a tolerância de junção do projeto. Só os níveis que têm cortina entram.
+  const zDeCortina = new Map<Id, { profundidade: number; z: { z0: number; top: number } }>(
+    validas.map(({ wall, tipo }) => {
+      const zz = z.get(wall.id)!;
+      return [wall.id, { profundidade: tipo.curtain.depth, z: { z0: zz.z0, top: zz.z0 + zz.height } }] as const;
+    }),
+  );
+  const quadros = quadrosDosNiveis(p, new Set(validas.map((c) => c.wall.levelId)), zDeCortina);
+  const tolJuncao = p.settings?.joinTolerance ?? DEFAULT_JOIN_TOL;
   const tipos = new Map<Id, TipoCortinaKernel>();
   const montUsados = new Map<Id, MullionType>();
   const painUsados = new Map<Id, CurtainPanelType>();
@@ -219,6 +230,8 @@ export function entradaCortinaDoProjeto(p: Project, materiaisAnteriores?: Readon
     const sob = sobrescritasDaInstancia(inst, { u: wallLength(w), v: zz.height }, mont, pain);
     for (const id of sob.montantes) montUsados.set(id, mont[id]!);
     for (const id of sob.paineis) painUsados.set(id, pain[id]!);
+    const meu = quadros.get(w.levelId)?.find((q) => q.id === w.id);
+    const ext = meu ? extremidadesDaCortina(meu, w, quadros.get(w.levelId)!, tolJuncao) : null;
     const k: CortinaKernel = {
       id: w.id,
       levelNum: nivelDe.get(w.levelId)!,
@@ -233,6 +246,7 @@ export function entradaCortinaDoProjeto(p: Project, materiaisAnteriores?: Readon
       ...(inst?.grid && (inst.grid.u || inst.grid.v) ? { grid: { ...(inst.grid.u ? { u: inst.grid.u } : {}), ...(inst.grid.v ? { v: inst.grid.v } : {}) } } : {}),
       ...(painelDaInstancia && pain[painelDaInstancia] ? { defaultPanelTypeId: painelDaInstancia } : {}),
       ...(sob.sobrescritas ? { sobrescritas: sob.sobrescritas } : {}),
+      ...(ext && ext.some((x) => x.vizinhaId !== null || x.noJoin) ? { extremidades: ext } : {}),
     };
     cortinas.push(k);
     assinaturas.set(

@@ -1,6 +1,6 @@
 //! Seções da parede cortina (decisão 0056; esquema v14 na fase 1 e v15 na fase 2): `cortinas`, `tipos_cortina`, `grades_cortina`, `grade_posicoes_cortina`,
 //! `tipos_montante_cortina` e `tipos_painel_cortina` (ids 100 a 105), e as sobrescritas da fase 2: `cortina_linhas_extras`, `cortina_segmentos_removidos`,
-//! `cortina_linhas_sobrescritas` e `cortina_celulas_sobrescritas` (ids 106 a 109).
+//! `cortina_linhas_sobrescritas` e `cortina_celulas_sobrescritas` (ids 106 a 109), e a vizinhança das pontas da fase 3: `cortina_extremidades` (id 110).
 //!
 //! Mesmo molde de `secoes_gc`: `BTreeMap` por chave (ordem canônica = id crescente) e decodificação que valida antes de tocar a cena (atômica): tamanho,
 //! chave ausente ou duplicada, valores não finitos e enums fora do domínio (`ENTRADA`). As referências ENTRE seções (tipo, montante, painel, grade) não
@@ -14,8 +14,8 @@ use crate::cena::{decodificar_colunas, Coluna, COORD_MAX};
 use crate::cortina_tipos::*;
 use crate::esquema::{
     self, Secao, ENTRADA, ID_AUSENTE, INTERNO, LIMITE, LIMITE_LINHAS_POR_SECAO, SECAO_CORTINAS, SECAO_CORTINA_CELULAS_SOBRESCRITAS,
-    SECAO_CORTINA_LINHAS_EXTRAS, SECAO_CORTINA_LINHAS_SOBRESCRITAS, SECAO_CORTINA_SEGMENTOS_REMOVIDOS, SECAO_GRADES_CORTINA, SECAO_GRADE_POSICOES_CORTINA,
-    SECAO_TIPOS_CORTINA, SECAO_TIPOS_MONTANTE_CORTINA, SECAO_TIPOS_PAINEL_CORTINA,
+    SECAO_CORTINA_EXTREMIDADES, SECAO_CORTINA_LINHAS_EXTRAS, SECAO_CORTINA_LINHAS_SOBRESCRITAS, SECAO_CORTINA_SEGMENTOS_REMOVIDOS, SECAO_GRADES_CORTINA,
+    SECAO_GRADE_POSICOES_CORTINA, SECAO_TIPOS_CORTINA, SECAO_TIPOS_MONTANTE_CORTINA, SECAO_TIPOS_PAINEL_CORTINA,
 };
 
 /// Linha extra da grade (`cortina_linhas_extras`, fase 2). `comp` é o comprimento do eixo na gravação (usado quando não é `travada`); `montante` `ID_AUSENTE`
@@ -72,6 +72,25 @@ pub struct CelulaSobrescritaLinha {
     pub nu: u32,
     pub nv: u32,
     pub painel: u32,
+}
+
+/// Vizinhança de uma ponta da cortina (`cortina_extremidades`, fase 3; ADR §6.2 e §6.5). `vizinha` `ID_AUSENTE` = nenhuma parede no nó (a cortina termina no
+/// eixo, como antes). `vizinha_cortina`: a vizinha é outra cortina (id em `vizinha`, uma cortina da seção 100); senão é uma parede comum (id do TS, só
+/// informativo). `lado` (0 esquerda, 1 direita, 2 atravessa o nó) é calculado pelo TS e conferido na validação. `angulo` (rad, 0 a π) é o ângulo entre as
+/// direções que SAEM do nó, uma para cada parede. `face1` e `face2` são os dois segmentos de face da vizinha (`ax, ay, bx, by`, no mundo); `espessura` a dela.
+/// Flags: bit 0 = junção desligada nesta ponta (`noJoin`); bit 2 = a vizinha atravessa o nó (T). Bit 1 reservado.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ExtremidadeLinha {
+    pub cortina: u32,
+    pub fim: u8,
+    pub vizinha: u32,
+    pub vizinha_cortina: bool,
+    pub lado: u8,
+    pub flags: u8,
+    pub angulo: f64,
+    pub face1: [f64; 4],
+    pub face2: [f64; 4],
+    pub espessura: f64,
 }
 
 /// Uma parede cortina (instância). `painel_padrao` = `ID_AUSENTE`: o painel do tipo.
@@ -236,6 +255,7 @@ tabelas! {
     segmentos_removidos: SegmentoRemovidoLinha = SECAO_CORTINA_SEGMENTOS_REMOVIDOS,
     linhas_sobrescritas: LinhaSobrescritaLinha = SECAO_CORTINA_LINHAS_SOBRESCRITAS,
     celulas_sobrescritas: CelulaSobrescritaLinha = SECAO_CORTINA_CELULAS_SOBRESCRITAS,
+    extremidades: ExtremidadeLinha = SECAO_CORTINA_EXTREMIDADES,
 }
 
 /// As colunas decodificadas de uma seção, lidas por nome.
@@ -466,6 +486,18 @@ fn decodificar(secao: u32, n_linhas: u32, bytes: &[u8]) -> Result<Lote, u32> {
             nv: t.u("nv", i)?,
             painel: t.u("painel_num", i)?,
         })),
+        SECAO_CORTINA_EXTREMIDADES => Lote::extremidades(linhas!(i => ExtremidadeLinha {
+            cortina: t.u("cortina_num", i)?,
+            fim: t.e("fim", i, 1, None)?,
+            vizinha: t.u("vizinha_num", i)?,
+            vizinha_cortina: t.e("vizinha_tipo", i, 1, None)? == 1,
+            lado: t.e("lado", i, 2, None)?,
+            flags: t.e("flags", i, 7, None)?,
+            angulo: t.dn("angulo", i)?,
+            face1: [t.dn("face1_ax", i)?, t.dn("face1_ay", i)?, t.dn("face1_bx", i)?, t.dn("face1_by", i)?],
+            face2: [t.dn("face2_ax", i)?, t.dn("face2_ay", i)?, t.dn("face2_bx", i)?, t.dn("face2_by", i)?],
+            espessura: t.dn("espessura_vizinha", i)?,
+        })),
         _ => return Err(ENTRADA),
     })
 }
@@ -536,6 +568,29 @@ impl SecoesCortina {
             }
         }
         self.validar_sobrescritas()?;
+        self.validar_extremidades()?;
+        Ok(())
+    }
+
+    /// Fase 3: cada ponta aponta para uma cortina, uma só linha por ponta; vizinha presente traz ângulo, faces e espessura finitos (e, se é cortina, uma
+    /// cortina da seção 100 que não seja a própria).
+    fn validar_extremidades(&self) -> Result<(), u32> {
+        let mut vistas: BTreeSet<(u32, u8)> = BTreeSet::new();
+        for e in self.extremidades.values() {
+            if !self.cortinas.contains_key(&e.cortina) || !vistas.insert((e.cortina, e.fim)) {
+                return Err(ENTRADA);
+            }
+            if e.vizinha == ID_AUSENTE {
+                continue;
+            }
+            let finitos = e.angulo.is_finite() && e.espessura.is_finite() && e.face1.iter().chain(e.face2.iter()).all(|x| x.is_finite());
+            if !finitos || !(0.0..=std::f64::consts::PI + 1e-9).contains(&e.angulo) || e.espessura <= 0.0 {
+                return Err(ENTRADA);
+            }
+            if e.vizinha_cortina && (e.vizinha == e.cortina || !self.cortinas.contains_key(&e.vizinha)) {
+                return Err(ENTRADA);
+            }
+        }
         Ok(())
     }
 
@@ -626,8 +681,8 @@ pub(crate) mod testes {
 
     #[test]
     fn toda_secao_da_cortina_tem_dono_e_decodifica_zeros_ou_recusa_com_codigo() {
-        let ids: Vec<u32> = esquema::SECOES.iter().map(|s| s.id).filter(|&i| (100..=109).contains(&i)).collect();
-        assert_eq!(ids, vec![100, 101, 102, 103, 104, 105, 106, 107, 108, 109]);
+        let ids: Vec<u32> = esquema::SECOES.iter().map(|s| s.id).filter(|&i| (100..=110).contains(&i)).collect();
+        assert_eq!(ids, vec![100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110]);
         for id in ids {
             assert!(SecoesCortina::e_minha(id), "seção {id}");
             let mut s = SecoesCortina::default();
@@ -637,7 +692,7 @@ pub(crate) mod testes {
         }
         assert!(!SecoesCortina::e_minha(81));
         assert!(!SecoesCortina::e_minha(99));
-        assert!(!SecoesCortina::e_minha(110));
+        assert!(!SecoesCortina::e_minha(111));
     }
 
     #[test]
@@ -703,6 +758,81 @@ pub(crate) mod testes {
         s.remover(SECAO_TIPOS_PAINEL_CORTINA, &[1, 99]);
         assert_eq!(s.paineis.len(), 2);
         assert_eq!(s.total_linhas(), 2);
+    }
+
+    fn cortina_nua(tipo: u32) -> CortinaLinha {
+        CortinaLinha { nivel: 0, tipo, a: [0.0, 0.0], b: [3.0, 0.0], z_base: 0.0, altura: 3.0, sag: 0.0, invertida: false, loc: 0, flags: 0, painel_padrao: ID_AUSENTE, hosp: ID_AUSENTE }
+    }
+
+    #[test]
+    fn extremidades_ida_e_volta_e_validacao() {
+        let mut s = SecoesCortina::default();
+        let n = f64::NAN;
+        let b = bytes(
+            SECAO_CORTINA_EXTREMIDADES,
+            2,
+            &[
+                ("id_num", v(&[1.0, 2.0])),
+                ("cortina_num", v(&[10.0, 10.0])),
+                ("fim", v(&[0.0, 1.0])),
+                ("vizinha_num", v(&[11.0, ID_AUSENTE as f64])),
+                ("vizinha_tipo", v(&[1.0, 0.0])),
+                ("lado", v(&[1.0, 0.0])),
+                ("flags", v(&[4.0, 1.0])),
+                ("angulo", v(&[1.5, n])),
+                ("face1_ax", v(&[0.0, n])),
+                ("face1_ay", v(&[0.0, n])),
+                ("face1_bx", v(&[0.0, n])),
+                ("face1_by", v(&[3.0, n])),
+                ("face2_ax", v(&[0.2, n])),
+                ("face2_ay", v(&[0.0, n])),
+                ("face2_bx", v(&[0.2, n])),
+                ("face2_by", v(&[3.0, n])),
+                ("espessura_vizinha", v(&[0.2, n])),
+            ],
+        );
+        s.definir(SECAO_CORTINA_EXTREMIDADES, 2, &b).expect("extremidades");
+        assert_eq!(s.extremidades.keys().copied().collect::<Vec<_>>(), vec![1, 2]);
+        let e = s.extremidades[&1];
+        assert_eq!((e.cortina, e.fim, e.vizinha, e.vizinha_cortina, e.lado, e.flags), (10, 0, 11, true, 1, 4));
+        assert_eq!(e.face2, [0.2, 0.0, 0.2, 3.0]);
+        assert!(s.extremidades[&2].face1[0].is_nan() && s.extremidades[&2].flags == 1, "NaN vale onde não há vizinha");
+        // Enum fora do domínio é ENTRADA e não toca na seção.
+        let ruim = bytes(SECAO_CORTINA_EXTREMIDADES, 1, &[("id_num", v(&[3.0])), ("lado", v(&[3.0]))]);
+        assert_eq!(s.definir(SECAO_CORTINA_EXTREMIDADES, 1, &ruim), Err(ENTRADA));
+        assert_eq!(s.extremidades.len(), 2);
+
+        // Referências: cortina existente, uma linha por ponta, vizinha cortina existente e diferente, e vizinha com ângulo, faces e espessura finitos.
+        let mut s = SecoesCortina::default();
+        s.cortinas.insert(10, cortina_nua(1));
+        s.cortinas.insert(11, cortina_nua(1));
+        let ext = |cortina: u32, fim: u8, vizinha: u32, cortina_viz: bool, angulo: f64, espessura: f64| ExtremidadeLinha {
+            cortina,
+            fim,
+            vizinha,
+            vizinha_cortina: cortina_viz,
+            lado: 0,
+            flags: 0,
+            angulo,
+            face1: [0.0, 0.0, 0.0, 1.0],
+            face2: [0.1, 0.0, 0.1, 1.0],
+            espessura,
+        };
+        let confere = |s: &SecoesCortina| s.validar_extremidades();
+        s.extremidades.insert(1, ext(10, 0, 11, true, 1.0, 0.1));
+        assert_eq!(confere(&s), Ok(()));
+        s.extremidades.insert(2, ext(10, 0, ID_AUSENTE, false, f64::NAN, f64::NAN));
+        assert_eq!(confere(&s), Err(ENTRADA), "duas linhas para a mesma ponta");
+        s.extremidades.remove(&2);
+        s.extremidades.insert(3, ext(99, 0, ID_AUSENTE, false, f64::NAN, f64::NAN));
+        assert_eq!(confere(&s), Err(ENTRADA), "cortina inexistente");
+        s.extremidades.remove(&3);
+        for ruim in [ext(10, 1, 10, true, 1.0, 0.1), ext(10, 1, 77, true, 1.0, 0.1), ext(10, 1, 5, false, 4.0, 0.1), ext(10, 1, 5, false, 1.0, 0.0), ext(10, 1, 5, false, f64::NAN, 0.1)] {
+            s.extremidades.insert(4, ruim);
+            assert_eq!(confere(&s), Err(ENTRADA), "{ruim:?}");
+        }
+        s.extremidades.insert(4, ext(10, 1, 5, false, 1.0, 0.1));
+        assert_eq!(confere(&s), Ok(()), "parede comum: o id é só informativo");
     }
 
     #[test]

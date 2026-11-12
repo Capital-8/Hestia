@@ -10,9 +10,11 @@
  * número e as novas ganham o próximo; assim editar uma cortina só muda as linhas dela. O envio e a diferença por linhas ficam em `kernelCortinaEnvio.ts`; as
  * tabelas, em `kernelCortinaTabelas.ts`; a leitura das saídas das consultas, em `kernelCortinaConsultas.ts`.
  */
+import type { ExtremidadeCortinaKernel } from './cortinaExtremidades.ts';
 import {
   COLUNAS_CORTINA,
   ENUM_CORTINA,
+  FLAGS_EXTREMIDADE,
   HERDA_CORTINA,
   ID_AUSENTE_CORTINA,
   NOMES_SECOES_CORTINA,
@@ -110,6 +112,11 @@ export interface CortinaKernel {
   defaultPanelTypeId?: string | null;
   /** Sobrescritas da fase 2 (ADR 0056 §4.3), na forma que o kernel recebe. */
   sobrescritas?: SobrescritasCortinaKernel;
+  /**
+   * Vizinhança das duas pontas (fase 3, seção 110): início e fim. Ausente = nenhuma vizinha nas duas (a cortina termina no eixo do nó, como na fase 2).
+   * `noJoin` de cada ponta vem do modelo (`Wall.noJoinStart/End`).
+   */
+  extremidades?: readonly ExtremidadeCortinaKernel[];
 }
 
 /**
@@ -124,6 +131,8 @@ export interface SobrescritasCortinaKernel {
   linhasSobrescritas?: readonly { eixo: 'u' | 'v'; linha: number; n: number; posNorm: number; pos?: number; travada?: boolean; comprimentoGravado: number; montante?: string | null }[];
   celulasSobrescritas?: readonly { i: number; j: number; nu: number; nv: number; s: number; z: number; painel: string }[];
 }
+
+export type { ExtremidadeCortinaKernel } from './cortinaExtremidades.ts';
 
 export interface EntradaCenaCortina {
   montantes: readonly MontanteKernel[];
@@ -357,9 +366,44 @@ export function montarCenaCortina(e: EntradaCenaCortina, anterior?: CenaCortina)
   }
 
   const ordenadas = [...e.cortinas].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  // Os números de todas as cortinas antes das linhas: a seção 110 aponta para a vizinha, que pode vir depois na ordem.
+  for (const c of ordenadas) cortinaDe.set(c.id, idDe('cortinas', c.id));
+
+  /** Seção 110: uma linha por ponta (início e fim); sem `extremidades`, as duas pontas ficam sem vizinha. */
+  function extremidades(cortina: number, c: CortinaKernel): void {
+    for (const fim of ['start', 'end'] as const) {
+      const x = c.extremidades?.find((y) => y.fim === fim);
+      const vizinha = x?.vizinhaId ?? null;
+      const cortinaVizinha = vizinha !== null && x!.vizinhaCortina ? cortinaDe.get(vizinha) : undefined;
+      // Cortina vizinha que não está na cena (tipo inválido, outro nível): a ponta fica livre, como parede comum ausente.
+      const ok = vizinha !== null && (!x!.vizinhaCortina || cortinaVizinha !== undefined);
+      const id = idDe('cortina_extremidades', `${c.id}:${fim}`);
+      const f = (i: number, face: 'face1' | 'face2'): number => (ok ? x![face][i]! : NAN);
+      push('cortina_extremidades', {
+        id_num: id,
+        cortina_num: cortina,
+        fim: fim === 'start' ? 0 : 1,
+        // Parede comum: o número é só informativo (o Rust não a consulta), mas nunca pode ser `ID_AUSENTE`.
+        vizinha_num: !ok ? ID_AUSENTE_CORTINA : cortinaVizinha ?? idDe('cortina_extremidades', `viz:${vizinha}`),
+        vizinha_tipo: ok && x!.vizinhaCortina ? 1 : 0,
+        lado: ok ? x!.lado : 2,
+        flags: (x?.noJoin ? FLAGS_EXTREMIDADE.semJuncao : 0) | (ok && x!.atravessa ? FLAGS_EXTREMIDADE.atravessa : 0),
+        angulo: ok ? x!.angulo : NAN,
+        face1_ax: f(0, 'face1'),
+        face1_ay: f(1, 'face1'),
+        face1_bx: f(2, 'face1'),
+        face1_by: f(3, 'face1'),
+        face2_ax: f(0, 'face2'),
+        face2_ay: f(1, 'face2'),
+        face2_bx: f(2, 'face2'),
+        face2_by: f(3, 'face2'),
+        espessura_vizinha: ok ? x!.espessura : NAN,
+      });
+    }
+  }
+
   for (const c of ordenadas) {
-    const n = idDe('cortinas', c.id);
-    cortinaDe.set(c.id, n);
+    const n = cortinaDe.get(c.id)!;
     const tipo = tiposPorId.get(c.typeId);
     if (!tipo) throw new Error(`kernelCortina: tipo de cortina inexistente "${c.typeId}"`);
     const sobrescreveGrade = (c.grid?.u !== undefined || c.grid?.v !== undefined) ? 1 : 0;
@@ -376,12 +420,14 @@ export function montarCenaCortina(e: EntradaCenaCortina, anterior?: CenaCortina)
       sag: c.sag ?? 0,
       flipped: c.flipped ? 1 : 0,
       loc: codigoCortina(ENUM_CORTINA.locationLine, c.locationLine ?? 'wallCenter', 'linha de localização'),
-      flags: sobrescreveGrade,
+      // Bit 0: há sobrescrita de grade; bits 2 e 3: junção desligada no início e no fim (ADR §6.2; o Rust lê a de cada ponta da seção 110).
+      flags: sobrescreveGrade | (c.extremidades?.some((x) => x.fim === 'start' && x.noJoin) ? 4 : 0) | (c.extremidades?.some((x) => x.fim === 'end' && x.noJoin) ? 8 : 0),
       painel_padrao_num: c.defaultPanelTypeId ? painel(c.defaultPanelTypeId) : ID_AUSENTE_CORTINA,
       hosp_num: ID_AUSENTE_CORTINA,
     });
     for (const [eixo, a] of [[ENUM_CORTINA.eixo.u, c.grid?.u], [ENUM_CORTINA.eixo.v, c.grid?.v]] as const) if (a) grade(n, ENUM_CORTINA.dono.instancia, `c:${c.id}`, eixo, a);
     if (c.sobrescritas) sobrescrever(n, c.id, c.sobrescritas);
+    extremidades(n, c);
   }
 
   return { secoes, nLinhas, internadores, cortinaDe, tipoDe, montanteDe, painelDe };

@@ -14,6 +14,7 @@ use std::collections::BTreeSet;
 
 use crate::cena::Cena;
 use crate::cortina_grade::{arestas, linhas_do_eixo, IndiceGrades};
+use crate::cortina_juncao::resolver_ponta;
 use crate::cortina_malha::{faixa_plana, faixas_do_vizinho, secao, valor_em, varia, Faixas};
 use crate::cortina_remap::{fundir, linhas_finais, mapear_celulas, mapear_segmentos, Alvo, CelSob, Escolha, ExtLinha, LinhaFinal, Orfao, SegRemovido, SobLinha};
 use crate::cortina_tipos::*;
@@ -152,6 +153,25 @@ pub struct PecaEsq {
     pub continuo: bool,
 }
 
+/// Montante de canto entre duas cortinas (fase 3, ADR §6.5): um prisma de altura total sobre o polígono do encontro (no mundo, anti-horário). Só a cortina
+/// de menor id das duas o emite, então a peça existe uma vez só. `papel` é `PAPEL_CANTO`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PecaCanto {
+    pub m: Montante,
+    pub poligono: Vec<[f64; 2]>,
+    /// Cotas absolutas de baixo e de cima.
+    pub z0: f64,
+    pub z1: f64,
+}
+
+impl PecaCanto {
+    /// Área do polígono em planta (m²).
+    pub fn area_planta(&self) -> f64 {
+        let p = &self.poligono;
+        (0..p.len()).map(|k| p[k][0] * p[(k + 1) % p.len()][1] - p[(k + 1) % p.len()][0] * p[k][1]).sum::<f64>().abs() / 2.0
+    }
+}
+
 /// Painel de uma célula: o retângulo livre (a célula menos a meia largura dos montantes que a margeiam). Há um por célula, mesmo sem área.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PainelPeca {
@@ -268,6 +288,8 @@ pub struct Geom {
     pub pecas: Vec<PecaMont>,
     /// Peças com esquadria (ver `PecaEsq`); as demais, prismas, estão em `pecas`.
     pub pecas_esq: Vec<PecaEsq>,
+    /// Montantes de canto que esta cortina emite (fase 3): zero ou um por ponta.
+    pub cantos: Vec<PecaCanto>,
     pub paineis: Vec<PainelPeca>,
 }
 
@@ -422,6 +444,25 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
         r.avisos.push(AvisoC { codigo: AVISO_CORTINA_ARCO_NAO_SUPORTADO, i: ID_AUSENTE, j: ID_AUSENTE, medido: c.sag, limite: 0.0, p });
         return Ok(r);
     }
+    // Quadro: o plano central e o lado de fora (mesma conta de `buildFrame`: sExt = sinal · extOffset, sInt = sExt − sinal · profundidade).
+    let ext = match c.loc {
+        0 | 1 => d / 2.0,
+        2 | 4 => 0.0,
+        _ => d,
+    };
+    let sigma = if c.invertida { -1.0 } else { 1.0 };
+    let s_mid = sigma * (ext - d / 2.0);
+
+    // Junção (fase 3, ADR §6.5): cada ponta com vizinha recua do nó (encosto reto ou canto), e a cortina passa a medir `l − recuos`, a partir do ponto
+    // recuado. A grade, as sobrescritas e as peças usam essa cortina encurtada; sem junção, `recuo = 0` e nada muda.
+    let mut pontas = [resolver_ponta(sec, id, c, t, 0), resolver_ponta(sec, id, c, t, 1)];
+    let recuo = |p: &Option<crate::cortina_juncao::Ponta>| p.as_ref().map_or(0.0, |x| x.recuo);
+    if l - recuo(&pontas[0]) - recuo(&pontas[1]) < 10.0 * COMPRIMENTO_MIN {
+        pontas = [None, None]; // a junção comeria a cortina inteira: fica como se não houvesse
+    }
+    let (r0, r1) = (recuo(&pontas[0]), recuo(&pontas[1]));
+    let a_cortina = [c.a[0] + u[0] * r0, c.a[1] + u[1] * r0];
+    let l = l - r0 - r1;
     let eu = grades.efetivo(c.tipo, id, EIXO_U)?;
     let ev = grades.efetivo(c.tipo, id, EIXO_V)?;
     let lu = linhas_do_eixo(l, &eu)?;
@@ -465,18 +506,11 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
     let (pedidos, orf_seg) = mapear_segmentos(&seg_ref, [fin_u.linhas.as_slice(), fin_v.linhas.as_slice()], [lu.linhas.as_slice(), lv.linhas.as_slice()], [us.as_slice(), vs.as_slice()]);
     let fus = fundir(nu, nv, &pedidos);
 
-    // Quadro: o plano central e o lado de fora (mesma conta de `buildFrame`: sExt = sinal · extOffset, sInt = sExt − sinal · profundidade).
-    let ext = match c.loc {
-        0 | 1 => d / 2.0,
-        2 | 4 => 0.0,
-        _ => d,
-    };
-    let sigma = if c.invertida { -1.0 } else { 1.0 };
-    let s_mid = sigma * (ext - d / 2.0);
-
     // Montantes por papel e painel padrão.
     let m = |k: usize| montante_de(sec, t.montantes[k]);
     let (m_iv, m_ih, m_bi, m_bf, m_bb, m_bt) = (m(0)?, m(1)?, m(2)?, m(3)?, m(4)?, m(5)?);
+    // O montante de canto substitui o de borda da ponta (o canto é um só, entre as duas cortinas).
+    let (m_bi, m_bf) = (if pontas[0].as_ref().is_some_and(|x| x.canto.is_some()) { None } else { m_bi }, if pontas[1].as_ref().is_some_and(|x| x.canto.is_some()) { None } else { m_bf });
     let painel_padrao = painel_de(sec, if c.painel_padrao != ID_AUSENTE { c.painel_padrao } else { t.painel_padrao })?;
     let min_cell = if t.celula_minima.is_nan() { CELULA_MINIMA_PADRAO } else { t.celula_minima };
     // Montante de cada aresta: a borda é do papel; a linha interior é a final, com o montante do eixo, o seu próprio ou nenhum.
@@ -527,7 +561,7 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
         h,
         d,
         z_base: c.z_base,
-        a: c.a,
+        a: a_cortina,
         u,
         n,
         sigma,
@@ -551,6 +585,7 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
         segmentos: Vec::new(),
         pecas: Vec::new(),
         pecas_esq: Vec::new(),
+        cantos: Vec::new(),
         paineis: Vec::new(),
     };
 
@@ -647,6 +682,15 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
         g.paineis.push(p);
     }
     g.celulas.sort_by_key(|x| (x.i, x.j));
+
+    // Montantes de canto que esta cortina emite (ADR §6.5): um prisma de altura total por ponta com canto, o da cortina de menor id.
+    for p in pontas.iter().flatten() {
+        if let Some(cn) = p.canto.as_ref().filter(|x| x.emite) {
+            if let Some(mt) = montante_de(sec, cn.montante)? {
+                g.cantos.push(PecaCanto { m: mt, poligono: cn.poligono.clone(), z0: c.z_base, z1: c.z_base + h });
+            }
+        }
+    }
 
     // Montantes por segmento. O contínuo corre de linha a linha (centro a centro); o quebrado para na face do contínuo. Segmento inativo não tem peça.
     // A ponta do quebrado é a envoltória do contínuo vizinho (fase 3): plano para `rect`/`round`, como antes; perfil exato para L e trapézio. Peça cuja

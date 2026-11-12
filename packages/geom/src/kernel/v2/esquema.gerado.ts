@@ -1,7 +1,7 @@
 // ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v11.json.
 // Não edite à mão: mude o JSON e rode `node scripts/gerar-esquema-kernel.mjs`.
 
-export const ESQUEMA_VERSAO = 15;
+export const ESQUEMA_VERSAO = 16;
 export const ABI_VERSAO = 2;
 export const NIVEL_TODOS = 4294967295;
 
@@ -2500,6 +2500,80 @@ export const SECOES = {
       {
         "nome": "painel_num",
         "tipo": "u32"
+      }
+    ]
+  },
+  "cortina_extremidades": {
+    "id": 110,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "cortina_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "fim",
+        "tipo": "u8"
+      },
+      {
+        "nome": "vizinha_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "vizinha_tipo",
+        "tipo": "u8"
+      },
+      {
+        "nome": "lado",
+        "tipo": "u8"
+      },
+      {
+        "nome": "flags",
+        "tipo": "u8"
+      },
+      {
+        "nome": "angulo",
+        "tipo": "f64"
+      },
+      {
+        "nome": "face1_ax",
+        "tipo": "f64"
+      },
+      {
+        "nome": "face1_ay",
+        "tipo": "f64"
+      },
+      {
+        "nome": "face1_bx",
+        "tipo": "f64"
+      },
+      {
+        "nome": "face1_by",
+        "tipo": "f64"
+      },
+      {
+        "nome": "face2_ax",
+        "tipo": "f64"
+      },
+      {
+        "nome": "face2_ay",
+        "tipo": "f64"
+      },
+      {
+        "nome": "face2_bx",
+        "tipo": "f64"
+      },
+      {
+        "nome": "face2_by",
+        "tipo": "f64"
+      },
+      {
+        "nome": "espessura_vizinha",
+        "tipo": "f64"
       }
     ]
   }

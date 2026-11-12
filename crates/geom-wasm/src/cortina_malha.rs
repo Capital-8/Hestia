@@ -478,6 +478,53 @@ pub fn prisma(poligono: &[[f64; 2]]) -> (Vec<[f64; 3]>, Vec<[u32; 3]>) {
     (v, t)
 }
 
+/// Triangulação por orelhas de um polígono simples anti-horário (índices em `p`). Cobre exatamente o polígono, também com vértices reflexos.
+pub fn orelhas(p: &[[f64; 2]]) -> Vec<[usize; 3]> {
+    let cruz = |a: [f64; 2], b: [f64; 2], c: [f64; 2]| (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+    let mut ix: Vec<usize> = (0..p.len()).collect();
+    let mut out = Vec::new();
+    while ix.len() > 3 {
+        let n = ix.len();
+        let achou = (0..n).find(|&k| {
+            let (a, b, c) = (p[ix[(k + n - 1) % n]], p[ix[k]], p[ix[(k + 1) % n]]);
+            cruz(a, b, c) > 1e-14 && !ix.iter().any(|&j| {
+                let q = p[j];
+                j != ix[(k + n - 1) % n] && j != ix[k] && j != ix[(k + 1) % n] && cruz(a, b, q) >= -1e-14 && cruz(b, c, q) >= -1e-14 && cruz(c, a, q) >= -1e-14
+            })
+        });
+        let Some(k) = achou else { break };
+        out.push([ix[(k + n - 1) % n], ix[k], ix[(k + 1) % n]]);
+        ix.remove(k);
+    }
+    if ix.len() == 3 {
+        out.push([ix[0], ix[1], ix[2]]);
+    }
+    out
+}
+
+/// Prisma de `poligono` (simples, anti-horário, pode ter vértice reflexo) entre as cotas `z0` e `z1`, com vértices próprios por face. As tampas usam
+/// `orelhas`; as faces laterais e a orientação são as de `prisma`.
+pub fn prisma_simples(poligono: &[[f64; 2]], z0: f64, z1: f64) -> (Vec<[f64; 3]>, Vec<[u32; 3]>) {
+    let n = poligono.len();
+    let mut v: Vec<[f64; 3]> = Vec::with_capacity(6 * n);
+    let mut t: Vec<[u32; 3]> = Vec::new();
+    for k in 0..n {
+        let (p, q) = (poligono[k], poligono[(k + 1) % n]);
+        let b = v.len() as u32;
+        v.extend_from_slice(&[[p[0], p[1], z0], [q[0], q[1], z0], [q[0], q[1], z1], [p[0], p[1], z1]]);
+        t.extend_from_slice(&[[b, b + 1, b + 2], [b, b + 2, b + 3]]);
+    }
+    let base = v.len() as u32;
+    v.extend(poligono.iter().map(|p| [p[0], p[1], z0]));
+    let topo = v.len() as u32;
+    v.extend(poligono.iter().map(|p| [p[0], p[1], z1]));
+    for [a, b, c] in orelhas(poligono) {
+        t.push([base + a as u32, base + c as u32, base + b as u32]);
+        t.push([topo + a as u32, topo + b as u32, topo + c as u32]);
+    }
+    (v, t)
+}
+
 fn poligono_retangular(x0: f64, x1: f64, y0: f64, y1: f64) -> Vec<[f64; 2]> {
     vec![[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
 }
@@ -556,7 +603,7 @@ pub fn montar(cortinas: &[CortinaR], lod: u32) -> Result<Malha, u32> {
     let mut chaves: BTreeSet<(u32, u32)> = BTreeSet::new();
     let mut protos: BTreeMap<(u32, u32), Proto> = BTreeMap::new();
     for (_, g) in &geoms {
-        n += g.pecas.len() + g.pecas_esq.len();
+        n += g.pecas.len() + g.pecas_esq.len() + g.cantos.len();
         for p in &g.pecas {
             if chaves.insert((MALHA_MONTANTE, p.m.tipo)) {
                 protos.insert((MALHA_MONTANTE, p.m.tipo), proto_montante(&p.m, lod));
@@ -612,6 +659,16 @@ pub fn montar(cortinas: &[CortinaR], lod: u32) -> Result<Malha, u32> {
                 grupo.vertices.extend(t.iter().map(|&v| ponto_esq(g, p, v)));
                 grupo.triangulos.push([b, b + 1, b + 2]);
             }
+        }
+    }
+    // Montantes de canto (fase 3): um prisma no mundo por cortina emissora e material.
+    for (c, g) in &geoms {
+        for k in &g.cantos {
+            let (v, t) = prisma_simples(&k.poligono, k.z0, k.z1);
+            let grupo = grupos.entry((c.id, k.m.material)).or_insert_with(|| GrupoAv { cortina: c.id, papel: MALHA_MONTANTE, material: k.m.material, transparente: 0, vertices: Vec::new(), triangulos: Vec::new() });
+            let b = grupo.vertices.len() as u32;
+            grupo.vertices.extend(v.iter().map(|q| [na_grade(q[0]), na_grade(q[1]), na_grade(q[2])]));
+            grupo.triangulos.extend(t.iter().map(|x| [x[0] + b, x[1] + b, x[2] + b]));
         }
     }
     Ok(Malha { protos: ordem.iter().filter_map(|k| protos.remove(k)).collect(), instancias, grupos: grupos.into_values().collect() })
@@ -671,7 +728,7 @@ pub fn consulta_cortina_malha(cena: &crate::cena::Cena, nivel: u32, lod: u32) ->
 }
 
 #[cfg(test)]
-mod testes {
+pub(crate) mod testes {
     use super::*;
     use crate::cortina_pecas::testes::*;
     use std::collections::HashMap;

@@ -102,6 +102,13 @@ fn papel_painel(kind: u8) -> u32 {
     }
 }
 
+/// Montantes de canto que a cortina emite (fase 3): o polígono do encontro, cortado pelo plano se o cruza.
+fn canto_em_planta(out: &mut Vec<LinhaPlanta>, cortina: u32, g: &Geom, corte_z: f64) {
+    for k in &g.cantos {
+        out.push(LinhaPlanta { cortina, papel: PLANTA_MONTANTE, estilo: estilo(k.z0, k.z1, corte_z), fechada: true, pontos: k.poligono.clone() });
+    }
+}
+
 pub fn planta(cortinas: &[CortinaR], corte_z: f64, detalhe: u8) -> Vec<LinhaPlanta> {
     let mut out = Vec::new();
     for c in cortinas {
@@ -138,6 +145,7 @@ pub fn planta(cortinas: &[CortinaR], corte_z: f64, detalhe: u8) -> Vec<LinhaPlan
                 for (p, lo, hi) in linhas.values() {
                     out.push(LinhaPlanta { cortina: c.id, papel: PLANTA_MONTANTE, estilo: estilo(zb + lo, zb + hi, corte_z), fechada: true, pontos: perfil_vertical(g, p) });
                 }
+                canto_em_planta(&mut out, c.id, g, corte_z);
                 // Verticais com esquadria: um perfil por peça, com a faixa de cotas dela.
                 for p in g.pecas_esq.iter().filter(|p| p.eixo == EIXO_U) {
                     let (lo, hi) = faixa_z_esq(p);
@@ -145,6 +153,7 @@ pub fn planta(cortinas: &[CortinaR], corte_z: f64, detalhe: u8) -> Vec<LinhaPlan
                 }
             }
             _ => {
+                canto_em_planta(&mut out, c.id, g, corte_z);
                 for p in g.paineis.iter().filter(|p| p.p.kind != PAINEL_VAZIO) {
                     let (y0, y1) = (p.p.desloc - p.p.espessura / 2.0, p.p.desloc + p.p.espessura / 2.0);
                     out.push(LinhaPlanta { cortina: c.id, papel: papel_painel(p.p.kind), estilo: estilo(zb + p.z0, zb + p.z1, corte_z), fechada: true, pontos: retangulo(g, p.s0, p.s1, y0, y1) });

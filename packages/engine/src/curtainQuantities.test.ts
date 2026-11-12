@@ -14,6 +14,13 @@ const linha = (over: Partial<LinhaQuantCortina> & Pick<LinhaQuantCortina, 'corti
 });
 
 describe('resumirCortinas (quant_cortina agregada, decisão 0056 §5.7)', () => {
+  it('o montante de canto entre cortinas (papel 6, fase 3) conta como montante', () => {
+    const [r] = resumirCortinas([linha({ cortina: 1, papel: 6, tipo: 9, n: 1, comprimento: 3, area: 0.18, volume: 0.04 })]);
+    expect(r!.quantidadeMontantes).toBe(1);
+    expect(r!.metrosPorPapel.get(6)).toBeCloseTo(3, 9);
+    expect(r!.volumeMontantes).toBeCloseTo(0.04, 9);
+  });
+
   it('soma montantes por papel e por tipo, com contagem e volume', () => {
     const [r] = resumirCortinas([
       linha({ cortina: 1, papel: 0, tipo: 7, n: 2, comprimento: 2.4, area: 0.24, volume: 0.024 }),

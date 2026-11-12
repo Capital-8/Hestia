@@ -5,7 +5,7 @@
 //! Mudou o JSON => sobe `VERSAO_ESQUEMA` e este arquivo.
 
 /// `versao` de `cena-v11.json`.
-pub const VERSAO_ESQUEMA: u32 = 15;
+pub const VERSAO_ESQUEMA: u32 = 16;
 /// `abi` de `cena-v11.json`.
 pub const VERSAO_ABI2: u32 = 2;
 
@@ -125,6 +125,8 @@ pub const SECAO_CORTINA_LINHAS_EXTRAS: u32 = 106;
 pub const SECAO_CORTINA_SEGMENTOS_REMOVIDOS: u32 = 107;
 pub const SECAO_CORTINA_LINHAS_SOBRESCRITAS: u32 = 108;
 pub const SECAO_CORTINA_CELULAS_SOBRESCRITAS: u32 = 109;
+/// Parede cortina, fase 3 (esquema v16): a vizinhança de cada ponta (ADR 0056 §6.1 e §6.5).
+pub const SECAO_CORTINA_EXTREMIDADES: u32 = 110;
 
 const fn col(nome: &'static str, tipo: Tipo) -> Coluna {
     Coluna { nome, tipo }
@@ -916,6 +918,30 @@ pub const SECOES: &[Secao] = &[
             col("nu", Tipo::U32),
             col("nv", Tipo::U32),
             col("painel_num", Tipo::U32),
+        ],
+    },
+    Secao {
+        id: SECAO_CORTINA_EXTREMIDADES,
+        nome: "cortina_extremidades",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("cortina_num", Tipo::U32),
+            col("fim", Tipo::U8),
+            col("vizinha_num", Tipo::U32),
+            col("vizinha_tipo", Tipo::U8),
+            col("lado", Tipo::U8),
+            col("flags", Tipo::U8),
+            col("angulo", Tipo::F64),
+            col("face1_ax", Tipo::F64),
+            col("face1_ay", Tipo::F64),
+            col("face1_bx", Tipo::F64),
+            col("face1_by", Tipo::F64),
+            col("face2_ax", Tipo::F64),
+            col("face2_ay", Tipo::F64),
+            col("face2_bx", Tipo::F64),
+            col("face2_by", Tipo::F64),
+            col("espessura_vizinha", Tipo::F64),
         ],
     },
 ];
