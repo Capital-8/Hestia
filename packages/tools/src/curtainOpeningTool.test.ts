@@ -314,3 +314,14 @@ describe('Esc e saída', () => {
     expect(c.sub()).toBeNull();
   });
 });
+
+describe('porta de embutir na cortina: a barra recusa e nada muda', () => {
+  it('clique com tipo de embutir: nenhuma esquadria, o projeto fica igual e a barra mostra md_ct_opening_pocket', () => {
+    const c = ambiente({ opcoes: { doorTypeId: 'ot_pe80' } });
+    const antes = JSON.stringify(c.store.project.elements.ct1);
+    ferramenta(c.env).click(P(1, 0.02));
+    expect(esquadriasDe(c.store)).toHaveLength(0);
+    expect(JSON.stringify(c.store.project.elements.ct1)).toBe(antes);
+    expect(c.sala.say.at(-1)).toBe(tDoModelo('pt', 'md_ct_opening_pocket'));
+  });
+});

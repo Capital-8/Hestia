@@ -23,7 +23,7 @@ import { editor, useProject } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { SubelementoCortina } from './CurtainSubelementProps.tsx';
-import { openingOptions } from './typeOptions.ts';
+import { openingOptionsDaCortina } from './typeOptions.ts';
 
 type Eixo = 'u' | 'v';
 
@@ -206,7 +206,7 @@ export function CurtainSubelementPanel(): ReactElement | null {
           i={dados.i}
           j={dados.j}
           {...dados.esquadria}
-          tipos={openingOptions(p, dados.esquadria.tipo)}
+          tipos={openingOptionsDaCortina(p, dados.esquadria.tipo)}
           favoritos={p.settings.favoriteOpeningTypes ?? []}
           onEditarTipo={() => useUi.setState({ dialog: 'openingType', dialogArg: dados.esquadria.openingTypeId })}
           onSelecionarCelula={irParaCelula}

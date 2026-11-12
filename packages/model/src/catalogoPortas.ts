@@ -44,6 +44,41 @@ const giro = (cm: number, code: string): OpeningType =>
 /** Giro de duas folhas (símbolo `double`). A largura é o conjunto das duas folhas. */
 const giroDupla = (b: Base, extra: Extra = {}): OpeningType => porta(b, { handle: 'lever', leafStyle: 'panel', ...extra });
 
+/*
+ * Variações de material dos layouts principais (alumínio, PVC e vidro temperado com ferragem), nos mesmos tamanhos da
+ * madeira. Códigos a seguir do último (P-62 a P-85; P-47 a P-61 são de composição). Os ids seguem `ot_<layout>_<material>`.
+ */
+const MATERIAIS_VARIANTES: ReadonlyArray<{ sigla: string; frame: string; nome: string; extra: Extra }> = [
+  { sigla: 'alu', frame: 'mat_aluminio', nome: ' alumínio', extra: {} },
+  { sigla: 'pvc', frame: 'mat_pvc', nome: ' PVC', extra: {} },
+  {
+    sigla: 'vid',
+    frame: 'mat_vidro',
+    nome: ' vidro temperado 10 mm com ferragem',
+    extra: { frameStyle: 'block', leafStyle: 'glass', glassKind: 'tempered', glassThickness: 0.01, handle: 'pull' },
+  },
+];
+const LAYOUTS_VARIANTES: ReadonlyArray<{ id: string; nome: string; plan: OpeningType['plan']; leaves: 1 | 2; cm: number[]; extra: Extra }> = [
+  { id: 'pgiro', nome: 'Porta de giro 1 folha', plan: 'swing', leaves: 1, cm: [80, 90], extra: { handle: 'lever', leafStyle: 'panel' } },
+  { id: 'pgiro2', nome: 'Porta de giro 2 folhas', plan: 'double', leaves: 2, cm: [140, 160], extra: { handle: 'lever', leafStyle: 'panel' } },
+  { id: 'pcorrer', nome: 'Porta de correr 2 folhas', plan: 'sliding', leaves: 2, cm: [160, 180], extra: { handle: 'pull', leafStyle: 'flush' } },
+  { id: 'ppiv', nome: 'Porta pivotante', plan: 'pivot', leaves: 1, cm: [100, 120], extra: { handle: 'pull', leafStyle: 'flush' } },
+];
+const variantesDeMaterial: OpeningType[] = (() => {
+  let n = 62;
+  return LAYOUTS_VARIANTES.flatMap((l) =>
+    l.cm.flatMap((cm) =>
+      MATERIAIS_VARIANTES.map((m) =>
+        porta(
+          { id: `ot_${l.id}_${cm}_${m.sigla}`, code: `P-${n++}`, name: `${l.nome} ${cm} x 210${m.nome}`, width: cm / 100, leaves: l.leaves, plan: l.plan },
+          { ...l.extra, ...m.extra },
+          m.frame,
+        ),
+      ),
+    ),
+  );
+})();
+
 const CATALOGO_PORTAS_BR_PT: OpeningType[] = [
   giro(60, 'P-12'),
   giro(70, 'P-13'),
@@ -95,6 +130,7 @@ const CATALOGO_PORTAS_BR_PT: OpeningType[] = [
   // Portões de garagem: medida do vão (sem `nominalRef`). Basculante e enrolar usam a família do seccionado (símbolo garage).
   ot({ id: 'ot_pbasc250', kind: 'door', name: 'Portão de garagem basculante 250 x 210', code: 'P-45', width: 2.5, height: 2.1, sill: 0, leaves: 1, plan: 'garage' }, 'mat_aco'),
   ot({ id: 'ot_penrol280', kind: 'door', name: 'Portão de enrolar 280 x 225', code: 'P-46', width: 2.8, height: 2.25, sill: 0, leaves: 1, plan: 'garage' }, 'mat_aco'),
+  ...variantesDeMaterial,
 ];
 
 /** Catálogo de portas no idioma pedido (nomes são gerados na criação). */

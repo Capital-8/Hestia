@@ -1,4 +1,4 @@
-import type { Project } from '@hestia/model';
+import { embutirNaCortina, type OpeningType, type Project } from '@hestia/model';
 import { t as traduzir, useI18n, type Lang } from '../editor/i18n.ts';
 import { familyName, openingFamilyName } from './typeFamilies.ts';
 import type { TypeOption } from './TypeSelector.tsx';
@@ -41,10 +41,15 @@ export function rampOptions(p: Project, lang: Lang = useI18n.getState().lang): T
 }
 
 /** Portas (kind `door`) ou janelas (`window`), com a família do símbolo de planta (Porta de giro, Janela de correr…). */
-export function openingOptions(p: Project, kind: 'door' | 'window', lang: Lang = useI18n.getState().lang): TypeOption[] {
+export function openingOptions(p: Project, kind: 'door' | 'window', lang: Lang = useI18n.getState().lang, aceita: (t: OpeningType) => boolean = () => true): TypeOption[] {
   return Object.values(p.openingTypes)
-    .filter((t) => t.kind === kind)
+    .filter((t) => t.kind === kind && aceita(t))
     .map((t) => ({ id: t.id, name: t.name, code: t.code ?? '', family: openingFamilyName(t, lang), subject: { kind, type: t } }));
+}
+
+/** Esquadrias oferecidas numa célula de parede cortina: sem as de embutir (a cavidade de parede não existe na cortina). */
+export function openingOptionsDaCortina(p: Project, kind: 'door' | 'window', lang: Lang = useI18n.getState().lang): TypeOption[] {
+  return openingOptions(p, kind, lang, (t) => !embutirNaCortina(t));
 }
 
 /** Tipos de guarda-corpo: a lista do seletor, todos no grupo `family` (o rótulo vem de quem chama, no idioma ativo). */

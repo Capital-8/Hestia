@@ -1,6 +1,7 @@
 import { cotaDeCorteCortina, sNaParede, type ItemSubelementoCortina, type ParedeSubelementos } from '@hestia/engine';
 import {
   ErroEsquadriaCelula,
+  embutirNaCortina,
   folgasDaRegiao,
   folhaMinima,
   isCurtainType,
@@ -159,6 +160,7 @@ export class CurtainOpeningTool extends ToolBase {
   /** Linha da barra de status para a célula: se cabe (ou precisa fundir) e o aviso de folha mínima quando a célula é estreita. */
   private resumo(pr: Project, wall: Wall, i: number, j: number): string {
     const tipo = this.tipoAtual(pr);
+    if (tipo && embutirNaCortina(tipo)) return tDoModelo(this.uiLang(), 'md_ct_opening_pocket');
     const c = tipo ? this.caber(pr, wall, i, j, tipo) : null;
     if (!tipo || !c) return this.t('tl_msg_curtain_no_type');
     if (c.minimo > 0 && c.larguraLivre < c.minimo - TOL) {

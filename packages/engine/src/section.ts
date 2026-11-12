@@ -109,6 +109,8 @@ export interface SectionOpening {
   /** Materiais do tipo, para a cor e a hachura das peças do modelo. */
   frameMaterialId: Id;
   glassMaterialId: Id;
+  /** Material da folha do tipo (ausente = o do batente): a peça de papel `leaf` usa este material. */
+  leafMaterialId?: Id;
 }
 
 export interface SectionLevelMark {
@@ -364,6 +366,7 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
         cutT: (line.a.x - g.center.x) * g.u.x + (line.a.y - g.center.y) * g.u.y,
         frameMaterialId: ot.frameMaterialId,
         glassMaterialId: ot.glassMaterialId,
+        leafMaterialId: ot.leafMaterialId,
       });
     }
   }

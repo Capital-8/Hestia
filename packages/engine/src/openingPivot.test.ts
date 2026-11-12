@@ -6,7 +6,8 @@ import { openingPlanPaths } from './openingPlan.ts';
 import type { OpeningModel, PartBox } from './openingModelTypes.ts';
 
 /* Porta pivotante: a folha ocupa quase todo o vão, nunca varre a ombreira ao girar e os arcos da planta chegam ao batente. */
-const PIVOTANTES = DEFAULT_OPENING_TYPES.filter((t) => t.kind === 'door' && openingFamilyOf(t)?.id === 'door_pivot');
+// Pivotante de vidro (`frameStyle` 'block', sem caixilho) não tem ombreira: a folga e os arcos contra o batente não se aplicam.
+const PIVOTANTES = DEFAULT_OPENING_TYPES.filter((t) => t.kind === 'door' && openingFamilyOf(t)?.id === 'door_pivot' && t.frameStyle !== 'block');
 
 function modelo(typeId: string, flipHand: boolean, flipFacing: boolean): OpeningModel {
   const t = DEFAULT_OPENING_TYPES.find((x) => x.id === typeId)!;

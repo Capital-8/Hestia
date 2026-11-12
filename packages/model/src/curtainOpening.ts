@@ -101,9 +101,18 @@ function esquadriasDaParede(res: ParedeResolvida): Array<{ i: number; j: number;
 }
 
 /**
- * Problemas de projeto das esquadrias na célula: tipo inexistente (erro), célula com largura livre menor que a folha
- * mínima (aviso, não bloqueia) e porta sem soleira fora do piso da cortina (aviso). `opening-host-curtain` já é da
- * `curtainWallIssues`.
+ * Porta de embutir (plano `pocket`) não serve à cortina: a cavidade que ela ocupa na parede não existe numa célula de
+ * cortina, então as peças sairiam do vão. A oferta e os comandos recusam esse tipo; projetos antigos que já o tenham
+ * abrem com um aviso de validação.
+ */
+export function embutirNaCortina(tipo: Pick<OpeningType, 'plan'>): boolean {
+  return tipo.plan === 'pocket';
+}
+
+/**
+ * Problemas de projeto das esquadrias na célula: tipo inexistente (erro), porta de embutir numa cortina (aviso: o
+ * projeto abre, a esquadria precisa de outro tipo), célula com largura livre menor que a folha mínima (aviso, não
+ * bloqueia) e porta sem soleira fora do piso da cortina (aviso). `opening-host-curtain` já é da `curtainWallIssues`.
  */
 export function curtainOpeningIssues(p: Project, lang: Lang = 'pt'): ValidationIssue[] {
   const out: ValidationIssue[] = [];
@@ -121,6 +130,14 @@ export function curtainOpeningIssues(p: Project, lang: Lang = 'pt'): ValidationI
           elementId: e.id,
         });
         continue;
+      }
+      if (embutirNaCortina(tipo)) {
+        out.push({
+          severity: 'warning',
+          code: 'cortina-embutir',
+          message: t(lang, 'md_ct_w_embutir', { i, j }),
+          elementId: e.id,
+        });
       }
       const r = retanguloDaRegiao(res, i, j);
       const f = folgasDaRegiao(p, e, res, r);
