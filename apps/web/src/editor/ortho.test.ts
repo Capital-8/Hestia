@@ -7,7 +7,7 @@ const tecla = (key: string): KeyboardEvent => ({ key, ctrlKey: false, metaKey: f
 
 describe('F8 — modo ortogonal global', () => {
   it('alterna o modo e avisa na barra de status', () => {
-    useUi.setState({ view: 'plan', planKind: 'floor', options: { ...useUi.getState().options, orthoLock: false, angleMode: { ortho: false, polar: false, polarIncrementDeg: 15 } } });
+    useUi.setState({ view: 'plan', planViewId: 'pv_lv_0', options: { ...useUi.getState().options, orthoLock: false, angleMode: { ortho: false, polar: false, polarIncrementDeg: 15 } } });
     expect(editor.key(tecla('F8'))).toBe(true);
     expect(useUi.getState().options.orthoLock).toBe(true);
     expect(resolveText(useUi.getState().status, 'pt')).toContain('F8');
@@ -16,7 +16,7 @@ describe('F8 — modo ortogonal global', () => {
   });
 
   it('F10 alterna o polar sem desligar o orto', () => {
-    useUi.setState({ view: 'plan', planKind: 'floor', options: { ...useUi.getState().options, orthoLock: false, angleMode: { ortho: false, polar: false, polarIncrementDeg: 30 } } });
+    useUi.setState({ view: 'plan', planViewId: 'pv_lv_0', options: { ...useUi.getState().options, orthoLock: false, angleMode: { ortho: false, polar: false, polarIncrementDeg: 30 } } });
     expect(editor.key(tecla('F10'))).toBe(true);
     expect(useUi.getState().options.angleMode?.polar).toBe(true);
     expect(resolveText(useUi.getState().status, 'pt')).toContain('F10');

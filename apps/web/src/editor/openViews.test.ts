@@ -192,11 +192,11 @@ describe('padrão ao abrir o projeto (defaultOpenViews)', () => {
 
 describe('estado de vistas abertas no store (sessão)', () => {
   beforeEach(() => {
-    useUi.setState({ view: 'plan', levelId: 'lv_0', planViewId: 'pv_lv_0', planKind: 'floor', sectionId: null, sheetId: null, openViews: DEFAULT_OPEN_VIEWS.map((v) => ({ ...v })) });
+    useUi.setState({ view: 'plan', levelId: 'lv_0', planViewId: 'pv_lv_0', sectionId: null, sheetId: null, openViews: DEFAULT_OPEN_VIEWS.map((v) => ({ ...v })) });
   });
 
   it('trocar o tipo da planta do mesmo nível abre a aba de cobertura ao lado da de piso', () => {
-    useUi.setState({ planKind: 'roof', planViewId: 'pvr_lv_0' });
+    useUi.setState({ planViewId: 'pvr_lv_0' });
     expect(useUi.getState().openViews).toEqual([T0, { kind: 'plan', viewId: 'pvr_lv_0' }]);
   });
 

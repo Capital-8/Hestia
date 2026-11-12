@@ -31,7 +31,7 @@ function setup(view: 'plan' | '3d', selection: string[]): void {
   editor.load(s.project, 'teste.hestia.json');
   trocarPerfil('revit');
   casador.limpar();
-  useUi.setState({ view, planKind: 'floor', levelId: 'lv_0', planViewId: 'pv_lv_0', sectionId: null, selection, selectedLevel: null, tool: 'select', typed: '', prompt: null, dialog: null, dialogArg: null, viewTemp: {} });
+  useUi.setState({ view, levelId: 'lv_0', planViewId: 'pv_lv_0', sectionId: null, selection, selectedLevel: null, tool: 'select', typed: '', prompt: null, dialog: null, dialogArg: null, viewTemp: {} });
 }
 
 const selecao = (): string[] => [...useUi.getState().selection].sort();

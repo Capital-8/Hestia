@@ -32,7 +32,7 @@ describe('ocultar um elemento na vista de planta esconde a cota e a etiqueta pre
   beforeEach(() => {
     editor.load(novoProjeto().project, 'teste.hestia.json');
     editor.closeSection();
-    useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0' });
+    useUi.setState({ view: 'plan', planViewId: 'pv_lv_0', levelId: 'lv_0' });
     editor.ensureViewport(800, 600);
     useUi.setState({ viewTemp: {}, selection: [], tool: 'select' });
   });
@@ -79,7 +79,7 @@ describe('cotas automáticas só se prendem ao que a vista mostra', () => {
     c.forEach((a, i) => i % 2 === 0 && store.exec({ type: 'addWall', wall: makeWall({ id: `r${i}`, typeId: 'wt_alv14', levelId: 'lv_0', a, b: c[(i + 1) % 4]!, locationLine: 'finishInterior' }) }));
     editor.load(store.project, 'teste.hestia.json');
     editor.closeSection();
-    useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0' });
+    useUi.setState({ view: 'plan', planViewId: 'pv_lv_0', levelId: 'lv_0' });
     editor.ensureViewport(800, 600);
     useUi.setState({ viewTemp: {}, selection: [], tool: 'select' });
   });

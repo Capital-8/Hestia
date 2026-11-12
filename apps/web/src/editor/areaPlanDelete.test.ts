@@ -21,7 +21,7 @@ function store(): ProjectStore {
 
 function abrirPlanta(s: ProjectStore): string {
   const planId = createAreaPlanAction(s, 'lv_0');
-  useUi.setState({ view: 'plan', planKind: 'area', planViewId: planId, levelId: 'lv_0', selection: [] });
+  useUi.setState({ view: 'plan', planViewId: planId, levelId: 'lv_0', selection: [] });
   return planId;
 }
 

@@ -18,7 +18,7 @@ function store(): ProjectStore {
   }
   s.exec({ type: 'addRoom', room: makeRoom({ id: 'r1', levelId: 'lv_0', name: 'Depósito', number: '101', point: { x: 1.5, y: 2.5 } }) });
   s.exec({ type: 'addRoom', room: makeRoom({ id: 'r2', levelId: 'lv_0', name: 'Sala', number: '102', point: { x: 5.5, y: 2.5 } }) });
-  useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', selection: ['wmid'] });
+  useUi.setState({ view: 'plan', planViewId: 'pv_lv_0', levelId: 'lv_0', selection: ['wmid'] });
   return s;
 }
 

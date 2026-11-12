@@ -36,7 +36,7 @@ function iniciar(tool: 'select' | 'dimension' | 'text' | 'room' | 'roomsep' = 's
   const s = store();
   const planId = createAreaPlanAction(s, 'lv_0');
   editor.load(s.project, 'teste.hestia.json');
-  useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', planViewId: planId, selection: [], hover: null, options: DEFAULT_OPTIONS });
+  useUi.setState({ view: 'plan', levelId: 'lv_0', planViewId: planId, selection: [], hover: null, options: DEFAULT_OPTIONS });
   editor.setTool(tool);
   return planId;
 }

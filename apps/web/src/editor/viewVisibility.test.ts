@@ -1,22 +1,26 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildTemplate, patchFloorOfTest } from '@hestia/model';
+import { buildTemplate, createEmptyProject, DEFAULT_AREA_GRAPHICS, patchFloorOfTest, ProjectStore, type AreaPlan } from '@hestia/model';
 import { useUi } from './state.ts';
 import { editor } from './controller.ts';
 import { categoryIdsOf, mergeHidden, removeHidden, toggleRevealHidden, unhideInView, hiddenInActiveView, visibilityKeyOf, visibilityOf } from './viewVisibility.ts';
 
-afterEach(() => useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', planViewId: 'pv_lv_0', sectionId: null, viewTemp: {}, selection: [] }));
+afterEach(() => useUi.setState({ view: 'plan', levelId: 'lv_0', planViewId: 'pv_lv_0', sectionId: null, viewTemp: {}, selection: [] }));
 
 const parede = (p: ReturnType<typeof buildTemplate>) => Object.values(p.elements).find((e) => e.kind === 'wall')!;
 const porta = (p: ReturnType<typeof buildTemplate>) => Object.values(p.elements).find((e) => e.kind === 'door')!;
 
 describe('visibilidade por vista', () => {
   it('chave por vista: piso, cobertura, área, corte e 3D são distintos', () => {
-    useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0' });
-    expect(visibilityKeyOf(useUi.getState())).toBe('plan:lv_0');
-    useUi.setState({ planKind: 'roof', planViewId: 'pvr_lv_0' });
-    expect(visibilityKeyOf(useUi.getState())).toBe('roof:lv_0');
-    useUi.setState({ planKind: 'area', planViewId: 'ap1' });
-    expect(visibilityKeyOf(useUi.getState())).toBe('area:ap1');
+    // O prefixo da planta sai do tipo da vista, lido do projeto: a planta de área `ap1` existe nele.
+    const s = new ProjectStore(createEmptyProject());
+    const area: AreaPlan = { id: 'ap1', name: 'A', levelId: 'lv_0', scale: 50, graphics: { ...DEFAULT_AREA_GRAPHICS }, tags: [] };
+    s.exec({ type: 'addAreaPlan', plan: area });
+    useUi.setState({ view: 'plan', levelId: 'lv_0', planViewId: 'pv_lv_0' });
+    expect(visibilityKeyOf(useUi.getState(), s.project)).toBe('plan:lv_0');
+    useUi.setState({ planViewId: 'pvr_lv_0' });
+    expect(visibilityKeyOf(useUi.getState(), s.project)).toBe('roof:lv_0');
+    useUi.setState({ planViewId: 'ap1' });
+    expect(visibilityKeyOf(useUi.getState(), s.project)).toBe('area:ap1');
     useUi.setState({ view: 'section', sectionId: 'sec1' });
     expect(visibilityKeyOf(useUi.getState())).toBe('section:sec1');
     useUi.setState({ view: '3d' });
@@ -35,7 +39,7 @@ describe('visibilidade por vista', () => {
     const d = porta(p);
     const level = p.levels[0]!;
     patchFloorOfTest(p, level.id, { hidden: { elements: [w.id], categories: ['door'] } });
-    useUi.setState({ view: 'plan', planKind: 'floor', levelId: level.id, viewTemp: {} });
+    useUi.setState({ view: 'plan', planViewId: `pv_${level.id}`, levelId: level.id, viewTemp: {} });
     const normal = visibilityOf(p, useUi.getState());
     expect(normal.hidden.has(w.id)).toBe(true);
     expect(normal.hidden.has(d.id)).toBe(true);
@@ -56,7 +60,7 @@ describe('visibilidade por vista', () => {
     const d = porta(p);
     const level = p.levels[0]!;
     const key = `plan:${level.id}`;
-    useUi.setState({ view: 'plan', planKind: 'floor', levelId: level.id, viewTemp: { [key]: { hidden: { elements: [w.id] } } } });
+    useUi.setState({ view: 'plan', planViewId: `pv_${level.id}`, levelId: level.id, viewTemp: { [key]: { hidden: { elements: [w.id] } } } });
     expect(visibilityOf(p, useUi.getState()).hidden.has(w.id)).toBe(true);
     useUi.setState({ viewTemp: { [key]: { isolated: { elements: [d.id] } } } });
     const iso = visibilityOf(p, useUi.getState());
@@ -67,7 +71,7 @@ describe('visibilidade por vista', () => {
   });
 
   const VISTAS: Array<[string, Partial<ReturnType<typeof useUi.getState>>, string]> = [
-    ['planta', { view: 'plan', planKind: 'floor', levelId: 'lv_0', sectionId: null }, 'plan:lv_0'],
+    ['planta', { view: 'plan', planViewId: 'pv_lv_0', levelId: 'lv_0', sectionId: null }, 'plan:lv_0'],
     ['3D', { view: '3d' }, '3d'],
     ['corte', { view: 'section', sectionId: 'sec1' }, 'section:sec1'],
   ];
@@ -136,14 +140,14 @@ describe('hiddenInActiveView (o que as ferramentas não capturam)', () => {
     const [w1, w2] = Object.values(p.elements).filter((e) => e.kind === 'wall');
     const level = p.levels[0]!;
     patchFloorOfTest(p, level.id, { hidden: { elements: [w1!.id] } });
-    useUi.setState({ view: 'plan', planKind: 'floor', levelId: level.id, planViewId: `pv_${level.id}`, viewTemp: {} });
+    useUi.setState({ view: 'plan', levelId: level.id, planViewId: `pv_${level.id}`, viewTemp: {} });
     expect(hiddenInActiveView(p, useUi.getState()).has(w1!.id)).toBe(true);
     expect(hiddenInActiveView(p, useUi.getState()).has(w2!.id)).toBe(false);
     const k = visibilityKeyOf(useUi.getState())!;
     useUi.setState({ viewTemp: { [k]: { hidden: { elements: [w2!.id] } } } });
     expect(hiddenInActiveView(p, useUi.getState()).has(w2!.id)).toBe(true);
     // A cobertura do mesmo nível não herda o oculto do piso (vista própria, sem temporário).
-    useUi.setState({ planKind: 'roof', planViewId: `pvr_${level.id}`, viewTemp: {} });
+    useUi.setState({ planViewId: `pvr_${level.id}`, viewTemp: {} });
     expect(hiddenInActiveView(p, useUi.getState()).has(w1!.id)).toBe(false);
   });
 });
@@ -153,7 +157,7 @@ describe('hiddenInActiveView: chave do cache', () => {
     const p = structuredClone(buildTemplate('house2'));
     const level = p.levels[0]!;
     patchFloorOfTest(p, level.id, { annotations: { dimensions: [{ id: 'dx', a: { x: 0, y: 0 }, b: { x: 1, y: 0 }, offset: 1, mode: 'aligned' }] }, hidden: { elements: ['dx'] } });
-    useUi.setState({ view: 'plan', planKind: 'floor', levelId: level.id, planViewId: `pv_${level.id}`, viewTemp: {} });
+    useUi.setState({ view: 'plan', levelId: level.id, planViewId: `pv_${level.id}`, viewTemp: {} });
     expect(hiddenInActiveView(p, useUi.getState()).has('dx')).toBe(true);
     useUi.setState({ view: '3d' });
     expect(hiddenInActiveView(p, useUi.getState()).has('dx')).toBe(false);
