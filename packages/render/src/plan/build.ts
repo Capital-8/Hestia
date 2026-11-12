@@ -1,6 +1,6 @@
 import { add, boxOf, mul, norm, perp, pointInMulti, ringArea, sub, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { buildOpeningModel, cutLevelByJunction, frameOfWall, openingGeometry } from '@hestia/engine';
-import { openingTypeById, dimensionStyleOf, angularDimensionGeometry, dimensionPoints, floorViewId, isGeneric, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, viewAnnotationsOf, wallsOnLevel, type AreaPlan, type DetailLevel, type Id, type Material, type Project } from '@hestia/model';
+import { categoryVisibleInView, openingTypeById, dimensionStyleOf, angularDimensionGeometry, dimensionPoints, floorViewId, isGeneric, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, viewAnnotationsOf, wallsOnLevel, type AreaPlan, type DetailLevel, type Id, type Material, type Project } from '@hestia/model';
 import { resolveRooms, resolveAngularDimension } from '@hestia/engine';
 import { areaPlanLegendOps, areaPlanRoomOps, areaPlanTableOps, areaPlanTagOps } from './areaPlan.ts';
 import { aberturasDaParede, escadasDoNivel, juncaoDoNivel, paredesDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
@@ -264,7 +264,7 @@ export function buildPlanGeometry(entrada: PlanInput): PlanOps {
   // Paredes: conjuntos (silhueta e regiões por material) e contornos fora do corte, com o estilo da categoria parede.
   // Parede oculta pela categoria: a geometria do nível já sai vazia (ver `planViewOf`), e os conjuntos não entram.
   const wallOps: FloorOps = { fills: [], strokes: [], labels: [] };
-  if (profile.walls !== 'hidden' && !rp && paint.wall.visible) {
+  if (profile.walls !== 'hidden' && !rp && categoryVisibleInView(p, viewId, 'wall')) {
     if (profile.walls === 'light') {
       // Planta de área: silhueta clara, mas ainda sujeita às sobrescritas da categoria (cor, arame, meio-tom, transparência).
       const wallFill = mix(paint.wall.color ?? theme.inkSoft, fillBase, 0.88);
@@ -347,7 +347,7 @@ export function buildPlanGeometry(entrada: PlanInput): PlanOps {
   }
   // Planta de cobertura: as paredes voltam por cima dos telhados só como contorno fino. Com parede oculta no Hide in
   // View, os clusters (que agrupam paredes da junção) não servem: o contorno sai parede a parede, só das visíveis.
-  if (rp && paint.wall.visible) {
+  if (rp && categoryVisibleInView(p, viewId, 'wall')) {
     const temParedeOculta = hidden !== undefined && Object.keys(geo.walls).some((id) => hidden.has(id));
     for (const [, w] of temParedeOculta ? Object.entries(geo.walls).filter(([id]) => !hidden?.has(id)) : []) {
       for (const ring of union(...w.layers.map((l) => l.cut)).flat()) strokes.push({ pts: ring, closed: true, ...paint.wall.proj, color: theme.inkSoft, alpha: 0.8 });
@@ -357,7 +357,7 @@ export function buildPlanGeometry(entrada: PlanInput): PlanOps {
   // Telhado acima do corte (projeção): o preenchimento quase opaco esconderia as paredes do nível. Os contornos finos,
   // tracejados e esmaecidos, voltam por cima só para o usuário localizar as paredes; a grade continua atrás dos
   // preenchimentos (não sobe com eles).
-  if (!rp && view && paint.wall.visible && telhadosAcima.length > 0) {
+  if (!rp && view && categoryVisibleInView(p, viewId, 'wall') && telhadosAcima.length > 0) {
     const cor = mix(roofEdgeColor(p, telhadosAcima[0]!, theme, input.dark, paint.roof), theme.ink, input.dark ? 0.55 : 0.25);
     const esp = espessuraDeProjecao(paint.roof);
     for (const w of Object.values(geo.walls)) {
@@ -407,7 +407,7 @@ export function buildPlanGeometry(entrada: PlanInput): PlanOps {
   if (!areaPlan && p.settings.debugJoins) labels.push(...joinDebugLabels(p, input.levelId));
 
   // Objetos importados (viga, pilar, mobiliário...): na v1 só o contorno aproximado em planta, tracejado e fino.
-  if (profile.generic && paint.generic.visible) {
+  if (profile.generic && categoryVisibleInView(p, viewId, 'generic')) {
     for (const e of Object.values(p.elements)) {
       if (!isGeneric(e) || e.levelId !== input.levelId || !e.outline?.length || hidden?.has(e.id)) continue;
       strokes.push({ pts: e.outline, closed: true, widthPx: 1, color: theme.inkSoft, alpha: 0.8, dash: [5, 3] });

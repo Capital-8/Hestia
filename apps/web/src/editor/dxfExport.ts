@@ -33,7 +33,7 @@ import {
   type DxfUnit,
   type DxfViewState,
 } from '@hestia/io';
-import { floorViewId, planViewOf, openingTypeById, GRAPHICS_CATEGORIES, formatRampSlope, graphicsOf, isCad, lineWeightMm, openingAngle2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, openingsOfWall, sectionGraphicsOf, sectionPoints, unitsOf, viewGraphicsOf, type CadDrawing, type DxfLayerStyle, type GraphicsCategory, type Id, type Project } from '@hestia/model';
+import { categoryVisibleInView, floorViewId, planViewOf, openingTypeById, GRAPHICS_CATEGORIES, formatRampSlope, graphicsOf, isCad, lineWeightMm, openingAngle2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, openingsOfWall, sectionGraphicsOf, sectionPoints, unitsOf, viewGraphicsOf, type CadDrawing, type DxfLayerStyle, type GraphicsCategory, type Id, type Project } from '@hestia/model';
 import { AREA_LAYER_NAMES, areaLayerStyleOf, areaPlanDxf as areaPlanDxfOf } from './dxfAreaPlan.ts';
 import { useI18n, t as tr, type Lang } from './i18n.ts';
 import { vistaDeArea } from './vistaDeArea.ts';
@@ -305,7 +305,7 @@ export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true
   const view: ResolvedPlanView = resolvedPlanViewOf(p, levelId);
   const { hidden } = view;
   const vg = viewGraphicsOf(p, floorViewId(levelId));
-  const shown = (c: GraphicsCategory): boolean => vg.overrides[c].visible !== false;
+  const shown = (c: GraphicsCategory): boolean => categoryVisibleInView(p, floorViewId(levelId), c);
   const openings: DxfOpening[] = levelFrames(p, levelId).flatMap((f) =>
     openingsOfWall(p, f.wall.id).flatMap((o) => {
       const state = shown(o.kind) ? dxfStateOf(view.cls.get(o.id)) : null;
@@ -414,7 +414,7 @@ export { areaPlanDxf } from './dxfAreaPlan.ts';
 
 export function planDxf(p: Project, levelId: Id, showRoofProjection = true, units?: DxfUnit, lang: Lang = activeLang()): string {
   const doc = dxfDocOf(p, levelId, dxfGeometryOf(p, levelId, showRoofProjection, units), lang);
-  const shown = viewGraphicsOf(p, floorViewId(levelId)).overrides.generic.visible !== false;
+  const shown = categoryVisibleInView(p, floorViewId(levelId), 'generic');
   const generics = shown ? dxfGenericEntities(p, levelId, dxfLayerName(DXF_LAYER_GENERIC, lang)) : [];
   // A camada dos importados entra com a cor da categoria (cinza), como as do nível.
   const genericLayer = dxfLayerName(DXF_LAYER_GENERIC, lang);
@@ -448,7 +448,7 @@ export function dxfLayerTableOf(p: Project, target: DxfExportTarget, lang: Lang 
       return { name, style: geo.layerStyles?.[canonical] ?? dxfLayerStyleOf(name, geo.lineWeights?.[canonical]) };
     });
     // A camada dos importados só entra no arquivo quando há `Generic` no nível e a categoria está visível.
-    const generic = viewGraphicsOf(p, floorViewId(target.levelId)).overrides.generic.visible !== false
+    const generic = categoryVisibleInView(p, floorViewId(target.levelId), 'generic')
       && Object.values(p.elements).some((e) => e.kind === 'generic' && e.levelId === target.levelId);
     if (generic && !rows.some((r) => r.name === dxfLayerName(DXF_LAYER_GENERIC, lang))) {
       rows.push({ name: dxfLayerName(DXF_LAYER_GENERIC, lang), style: p.dxfLayers?.[DXF_LAYER_GENERIC] ?? dxfLayerStyleOf(DXF_LAYER_GENERIC) });

@@ -50,10 +50,10 @@ function faceBase(item: RibbonItem, ctx: RibbonCtx, lang: Lang, view: ViewKind, 
     case 'tool': {
       const label = item.label ? txt(item.label, lang) : toolLabel(item.tool, lang);
       const titulo = sc ? `${label} (${sc})` : label;
-      // Planta de área: só anotação (o controlador também recusa, inclusive por atalho).
-      const blocked = ctx.planKind === 'area' && view !== '3d' && !toolAllowedInView('area', item.tool);
+      // Tabela por tipo de vista: hoje piso, cobertura e área aceitam todas; o controlador também recusa, inclusive por atalho.
+      const blocked = view !== '3d' && !toolAllowedInView(ctx.planKind, item.tool);
       const disabled = blocked || toolDisabledOnSheet(view, item.tool);
-      const why = t(lang, blocked ? 'shr_area_plan_hint' : 'shr_not_for_sheets');
+      const why = t(lang, blocked ? 'eds_msg_tool_not_in_view' : 'shr_not_for_sheets');
       return {
         icon: item.icon ?? item.tool, label,
         title: disabled ? `${titulo} — ${why}` : titulo,

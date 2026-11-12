@@ -1,7 +1,7 @@
 /* eslint-disable max-lines -- seleção reúne alças, arrastes e as etiquetas de ambiente da vista (decisão 0039). */
 import { add, boxOf, dist, dot, sub, type Vec2 } from '@hestia/geom';
 import { ceilingOutline, frameOfWall } from '@hestia/engine';
-import { angularDimensionGeometry, formatQuantity, isCeiling, isFloor, isOpening, isRamp, isRoof, isSlab, isStair, isWall, planViewOf, unitsOf, viewProfileOf, type Id, type ProfileLayers, type Project, type ResolvedUnits } from '@hestia/model';
+import { angularDimensionGeometry, formatQuantity, isCeiling, isFloor, isOpening, isRamp, isRoof, isSlab, isStair, isWall, hiddenIdsInView, planViewOf, unitsOf, viewProfileOf, visibleInView, type VisibilitySession, type Id, type ProfileLayers, type Project, type ResolvedUnits } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 import { ToolBase } from './base.ts';
 import { ghostBands, ghostViews, moveWalls, selectedMovables, selectedOpenings, selectedViews, slideOpenings, transformViews } from './edit.ts';
@@ -81,52 +81,63 @@ export class SelectTool extends ToolBase {
   /** Etiqueta de ambiente (RoomTag) da vista pressionada: arrastar move a etiqueta (grava em RoomTag.at, só desta vista). */
   private tagGrip: Id | null = null;
   private tagAt: Vec2 | null = null;
-  /** Cache do projeto sem os elementos que o perfil da vista oculta (planta de área). */
-  private viewCache: { pr: Project; key: string; view: Project } | null = null;
+  /** Cache dos ids que a vista esconde e dos projetos "vistos pela vista" (por projeto, vista e conjunto de fora do alcance). */
+  private viewCache: { pr: Project; viewId: Id; fora: ReadonlySet<Id> | undefined; revealing: boolean; hidden: ReadonlySet<Id>; visible: Project | null; wallPick: Project | null } | null = null;
 
-  /** Camadas do perfil da planta de área aberta (null na planta de piso: tudo visível). */
+  /** Camadas do perfil da planta de área aberta (null na planta de piso: tudo visível). Só para o que não é elemento (grade, marca de corte). */
   private layers(): ProfileLayers | null {
     const planId = this.planId();
     const plan = planId ? planViewOf(this.env.project(), planId) : undefined;
     return plan ? viewProfileOf(this.env.project(), plan.id).layers : null;
   }
 
-  /**
-   * Projeto "visto pela vista": sem as paredes, aberturas e pisos que o perfil oculta, para que o hit-test e a janela
-   * não os selecionem (e não os deixem tapando o que está por baixo). Planta de piso: o próprio projeto.
-   */
-  private visibleProject(): Project {
+  /** Sessão de visibilidade da seleção: o alcance e o temporário que o ambiente informa em `hiddenInView`. */
+  private session(): VisibilitySession {
+    return { outOfRange: this.env.hiddenInView?.(), revealing: this.env.revealingHidden?.() === true };
+  }
+
+  private cache(): NonNullable<SelectTool['viewCache']> {
     const pr = this.env.project();
-    const ly = this.layers();
-    if (!ly || (ly.walls !== 'hidden' && ly.openings && ly.floors)) return pr;
-    const key = `${ly.walls}|${ly.openings}|${ly.floors}`;
-    if (this.viewCache && this.viewCache.pr === pr && this.viewCache.key === key) return this.viewCache.view;
-    const elements: Project['elements'] = {};
-    for (const [id, e] of Object.entries(pr.elements)) {
-      if (ly.walls === 'hidden' && isWall(e)) continue;
-      if (!ly.openings && isOpening(e)) continue;
-      if (!ly.floors && isFloor(e)) continue;
-      elements[id] = e;
-    }
-    const view = { ...pr, elements };
-    this.viewCache = { pr, key, view };
-    return view;
+    const viewId = this.viewId();
+    const fora = this.env.hiddenInView?.();
+    const revealing = this.env.revealingHidden?.() === true;
+    const c = this.viewCache;
+    if (c && c.pr === pr && c.viewId === viewId && c.fora === fora && c.revealing === revealing) return c;
+    const hidden = hiddenIdsInView(pr, viewId, Object.keys(pr.elements), { outOfRange: fora, revealing });
+    return (this.viewCache = { pr, viewId, fora, revealing, hidden, visible: null, wallPick: null });
+  }
+
+  /** Elementos que a vista não mostra (regra única `visibleInView`): não são alvo de seleção. */
+  private hiddenIds(): ReadonlySet<Id> {
+    return this.cache().hidden;
   }
 
   /**
-   * Projeto para o hit-test de parede/abertura: as aberturas são indexadas pela parede hospedeira, então com as paredes
-   * ocultas e as aberturas visíveis a parede continua no índice (o chamador descarta os acertos de parede).
+   * Projeto "visto pela vista": sem os elementos que ela não mostra (perfil, categoria, Hide in View, alcance), para que o
+   * hit-test e a janela não os selecionem (e não os deixem tapando o que está por baixo).
+   */
+  private visibleProject(): Project {
+    const c = this.cache();
+    if (c.hidden.size === 0) return c.pr;
+    if (c.visible) return c.visible;
+    const elements: Project['elements'] = {};
+    for (const [id, e] of Object.entries(c.pr.elements)) if (!c.hidden.has(id)) elements[id] = e;
+    return (c.visible = { ...c.pr, elements });
+  }
+
+  /**
+   * Projeto para o hit-test de parede/abertura: as aberturas são indexadas pela parede hospedeira, então uma parede oculta
+   * que hospeda abertura visível continua no índice (o chamador descarta os acertos dessa parede via `hiddenIds`).
    */
   private wallPickProject(): Project {
-    const ly = this.layers();
-    if (!ly || ly.walls !== 'hidden' || !ly.openings) return this.visibleProject();
-    const pr = this.env.project();
+    const c = this.cache();
+    if (c.hidden.size === 0) return c.pr;
+    if (c.wallPick) return c.wallPick;
+    const hospedeiras = new Set<Id>();
+    for (const e of Object.values(c.pr.elements)) if (isOpening(e) && !c.hidden.has(e.id)) hospedeiras.add(e.hostId);
     const elements: Project['elements'] = {};
-    for (const [id, e] of Object.entries(pr.elements)) {
-      if (!ly.floors && isFloor(e)) continue;
-      elements[id] = e;
-    }
-    return { ...pr, elements };
+    for (const [id, e] of Object.entries(c.pr.elements)) if (!c.hidden.has(id) || (isWall(e) && hospedeiras.has(id))) elements[id] = e;
+    return (c.wallPick = { ...c.pr, elements });
   }
 
   /** Planta de área da vista (null/ausente = planta de piso): as anotações e as alças dela são as da planta. */
@@ -195,50 +206,50 @@ export class SelectTool extends ToolBase {
     const planId = this.planId();
     const ly = this.layers();
     const vp = this.visibleProject();
-    const detail = detailItemAt(pr, lv, at, mpp, this.viewId());
+    const detail = detailItemAt(pr, lv, at, mpp, this.viewId(), this.session());
     if (detail) return { id: detail, kind: 'annotation' };
     // Na planta de área as anotações são o alvo da vista e ficam por cima do modelo desenhado (paredes claras, piso,
     // ambiente): elas vêm antes do modelo para não ficarem inalcançáveis sob um ambiente. Na planta de piso a ordem
     // continua a de sempre (o elemento ganha da anotação).
     if (planId) {
-      const an = annotationAt(pr, lv, at, mpp, this.viewId());
+      const an = annotationAt(pr, lv, at, mpp, this.viewId(), this.session());
       if (an) return { id: an.id, kind: 'annotation' };
       const rt = roomTagAt(pr, at, mpp, planId);
       if (rt) return { id: rt, kind: 'annotation' };
     }
     const hit = pickAt(this.wallPickProject(), lv, at, mpp);
-    if (hit && !(ly?.walls === 'hidden' && hit.kind === 'wall')) return hit;
+    if (hit && !(hit.kind === 'wall' && this.hiddenIds().has(hit.id))) return hit;
     // Linha de separação de ambiente (guardada no nível, fora de project.elements): tem prioridade sobre piso, laje, forro,
     // telhado e escada que estejam embaixo dela, como no Revit. Parede e abertura continuam ganhando o clique.
     const rs = pickRoomSeparatorAt(pr, lv, at, mpp);
-    if (rs) return { id: rs.id, kind: 'roomSeparator' };
+    if (rs && visibleInView(pr, this.viewId(), rs.id, this.session())) return { id: rs.id, kind: 'roomSeparator' };
     // Grade (do projeto, fora de project.elements): acima de escada, piso e demais áreas; abaixo de parede e abertura.
     const gr = ly && !ly.grids ? null : pickGridAt(pr, at, mpp);
     if (gr) return { id: gr, kind: 'grid' };
     // Desenho CAD importado: clicar na linha do DXF seleciona o desenho (Propriedades, ocultar, mover e excluir).
-    const cd = cadAt(pr, lv, at, mpp);
+    const cd = cadAt(vp, lv, at, mpp);
     if (cd) return { id: cd, kind: 'generic' };
     const st = pickStairAt(vp, lv, at, mpp);
     if (st) return { id: st, kind: 'stair' };
-    const rp = pickRampAt(pr, lv, at, mpp);
+    const rp = pickRampAt(vp, lv, at, mpp);
     if (rp) return { id: rp, kind: 'ramp' };
     const f = pickFloorAt(vp, lv, at, mpp);
     if (f) return { id: f, kind: 'floor' };
-    const sl = pickSlabAt(pr, lv, at, mpp);
+    const sl = pickSlabAt(vp, lv, at, mpp);
     if (sl) return { id: sl, kind: 'slab' };
-    const cl = pickCeilingAt(pr, lv, at, mpp);
+    const cl = pickCeilingAt(vp, lv, at, mpp);
     if (cl) return { id: cl, kind: 'ceiling' };
-    const rf = pickRoofAt(pr, lv, at, mpp);
+    const rf = pickRoofAt(vp, lv, at, mpp);
     if (rf) return { id: rf, kind: 'roof' };
     // Objeto importado (viga, pilar, mobiliário...): contorno em planta; abaixo de piso/laje/telhado e acima de ambiente.
-    const gn = genericAt(pr, lv, at, mpp);
+    const gn = genericAt(vp, lv, at, mpp);
     if (gn) return { id: gn, kind: 'generic' };
     // Ambiente: por último entre os elementos de planta (o piso e a parede sob o cursor ganham o clique).
-    const rm = pickRoomAt(pr, lv, at);
+    const rm = pickRoomAt(vp, lv, at);
     if (rm) return { id: rm, kind: 'room' };
     // Cotas e textos de anotação (decisão 0019) e marcas de corte/elevação: por último, para não roubar o clique de um
     // elemento. A marca é uma anotação de primeira classe e também pode ser selecionada e transformada.
-    const an = annotationAt(pr, lv, at, mpp, this.viewId());
+    const an = annotationAt(pr, lv, at, mpp, this.viewId(), this.session());
     if (an) return { id: an.id, kind: 'annotation' };
     const vm = ly && !ly.sectionMarks ? null : sectionMarkAt(pr, lv, at, mpp);
     return vm ? { id: vm, kind: 'view' } : null;
@@ -525,18 +536,18 @@ export class SelectTool extends ToolBase {
         const vp = this.visibleProject();
         const ly = this.layers();
         const ids = [
-          ...idsInBox(this.wallPickProject(), this.env.levelId(), this.downPt, p.raw).filter((id) => !(ly?.walls === 'hidden' && isWall(pr.elements[id]))),
+          ...idsInBox(this.wallPickProject(), this.env.levelId(), this.downPt, p.raw).filter((id) => !(isWall(pr.elements[id]) && this.hiddenIds().has(id))),
           ...floorIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...slabIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...roofIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...stairIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...rampIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
-          ...roomIdsInBox(pr, this.env.levelId(), this.downPt, p.raw),
-          ...cadIdsInBox(pr, this.env.levelId(), this.downPt, p.raw),
+          ...roomIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
+          ...cadIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...(ly && !ly.grids ? [] : gridIdsInBox(pr, this.downPt, p.raw)),
           ...(ly && !ly.sectionMarks ? [] : sectionMarkIdsInBox(pr, this.env.levelId(), this.downPt, p.raw)),
           ...roomTagIdsInBox(pr, this.downPt, p.raw, this.planId()),
-          ...annotationIdsInBox(pr, this.env.levelId(), this.downPt, p.raw, this.env.metersPerPixel(), this.viewId()),
+          ...annotationIdsInBox(pr, this.env.levelId(), this.downPt, p.raw, this.env.metersPerPixel(), this.viewId(), this.session()),
         ];
         const cur = this.env.selection();
         this.env.setSelection(soma(p) ? [...new Set([...cur, ...ids])] : ids);

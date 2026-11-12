@@ -56,13 +56,12 @@ describe('permissão de ferramenta pela tabela (setTool)', () => {
     expect(useUi.getState().tool).toBe('wall');
   });
 
-  it('planta de área recusa parede e avisa; aceita anotação e ambiente', () => {
+  it('planta de área aceita parede (Fase 3: sem bloqueio de ferramenta de modelo), anotação e ambiente', () => {
     const { project, planId } = montar();
     editor.load(project, 'teste.hestia.json');
     useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'area', planViewId: planId, selection: [], tool: 'select', status: '' });
     editor.setTool('wall');
-    expect(useUi.getState().tool).toBe('select');
-    expect(useUi.getState().status).toEqual({ key: 'eds_msg_area_tools_only' });
+    expect(useUi.getState().tool).toBe('wall');
     for (const id of ['dimension', 'text', 'room', 'roomsep', 'detailLine'] as const) {
       editor.setTool(id);
       expect(useUi.getState().tool, id).toBe(id);
@@ -77,12 +76,13 @@ describe('permissão de ferramenta pela tabela (setTool)', () => {
     expect(useUi.getState().tool).toBe('wall');
   });
 
-  it('corte com planta de área "de fundo" continua restrito pela tabela da área (comportamento antigo)', () => {
+  it('corte com planta de área "de fundo": só a regra do corte restringe (a área não bloqueia mais)', () => {
     const { project, planId } = montar();
     editor.load(project, 'teste.hestia.json');
     useUi.setState({ view: 'section', sectionId: null, levelId: 'lv_0', planKind: 'area', planViewId: planId, selection: [], tool: 'select', status: '' });
     editor.setTool('wall');
-    expect(useUi.getState().status).toEqual({ key: 'eds_msg_area_tools_only' });
+    expect(useUi.getState().tool).toBe('select');
+    expect(useUi.getState().status).toEqual({ key: 'eds_msg_section_tools_only' });
   });
 });
 

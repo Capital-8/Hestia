@@ -73,8 +73,10 @@ export interface ToolEnv {
    * medidas de papel (cota, texto, marca) em metros do desenho, igual na tela, na prancha e no DXF. Ausente = 100.
    */
   viewScale?(): number;
-  /** Elementos ocultos na planta atual (fora do intervalo de vista ou categoria oculta): não são alvo de captura (S-07). Ausente = nenhum. */
+  /** Ids que a vista ativa não mostra (regra única `visibleInView`: alcance, perfil, categoria, Hide in View e ocultar/isolar temporário): não são alvo de captura nem de seleção (S-07). Ausente = nenhum. */
   hiddenInView?(): ReadonlySet<Id>;
+  /** Modo "revelar ocultos" ligado na vista: o que o usuário oculta (Hide in View, temporário) volta a ser alvo de seleção. Ausente = desligado. */
+  revealingHidden?(): boolean;
   /** Planta de área aberta na vista, quando a planta ativa é uma planta de área; null/ausente na planta de piso. */
   areaPlanId?(): Id | null;
   /**

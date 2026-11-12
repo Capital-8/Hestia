@@ -20,6 +20,7 @@ import {
 } from '@hestia/engine';
 import {
   GRAPHICS_CATEGORIES,
+  categoryVisibleInView,
   isOpening,
   isWall,
   floorViewId,
@@ -164,7 +165,7 @@ function computePlanView(p: Project, levelId: Id, viewId: Id, partial: PartialSt
  */
 export function resolvedPlanViewOf(p: Project, levelId: Id, viewId: Id = floorViewId(levelId)): ResolvedPlanView {
   const g = viewGraphicsOf(p, viewId);
-  const hiddenCats = new Set(GRAPHICS_CATEGORIES.filter((c) => !g.overrides[c].visible));
+  const hiddenCats = new Set(GRAPHICS_CATEGORIES.filter((c) => !categoryVisibleInView(p, viewId, c)));
   const key = `${viewId}|${g.partialStructure}|${[...hiddenCats].join(',')}`;
   let byKey = memo.get(p);
   if (!byKey) {

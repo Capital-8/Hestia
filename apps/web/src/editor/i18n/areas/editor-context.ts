@@ -284,12 +284,9 @@ export const PT_EDITOR_CONTEXT = {
   edc_count_cad_many: '{n} desenhos CAD',
   edc_list_and: '{list} e {last}',
 
-  // Aviso de perfil da vista (profileWarning.ts)
-  edc_hidden_by_profile:
-    'Criado, mas esta vista oculta {layers} (perfil da vista). Ajuste a visibilidade para vê-lo.',
-  edc_cat_walls: 'paredes',
-  edc_cat_openings: 'aberturas',
-  edc_cat_floors: 'pisos',
+  // Aviso de criação em categoria oculta da vista (profileWarning.ts, barra de status)
+  edc_hidden_creation: 'Criado, mas esta vista oculta: {layers}.',
+  edc_hidden_show_category: 'Mostrar categoria nesta vista',
 
   // Mudança de cota do nível (levelMovePlan.ts)
   edc_undo_pin_stair_tops: 'Fixar topo das escadas e rampas',
@@ -635,11 +632,8 @@ export const EN_EDITOR_CONTEXT: Record<keyof typeof PT_EDITOR_CONTEXT, string> =
   edc_list_and: '{list} and {last}',
 
   // View profile warning
-  edc_hidden_by_profile:
-    'Created, but this view hides {layers} (view profile). Adjust visibility to see it.',
-  edc_cat_walls: 'walls',
-  edc_cat_openings: 'openings',
-  edc_cat_floors: 'floors',
+  edc_hidden_creation: 'Created, but this view hides: {layers}.',
+  edc_hidden_show_category: 'Show category in this view',
 
   // Level elevation change
   edc_undo_pin_stair_tops: 'Pin Stair and Ramp Tops',
@@ -977,10 +971,8 @@ export const ES_EDITOR_CONTEXT: Record<keyof typeof PT_EDITOR_CONTEXT, string> =
   edc_list_and: '{list} y {last}',
 
   // Aviso de perfil de la vista
-  edc_hidden_by_profile: 'Creado, pero esta vista oculta {layers} (perfil de la vista). Ajuste la visibilidad para verlo.',
-  edc_cat_walls: 'paredes',
-  edc_cat_openings: 'huecos',
-  edc_cat_floors: 'suelos',
+  edc_hidden_creation: 'Creado, pero esta vista oculta: {layers}.',
+  edc_hidden_show_category: 'Mostrar categoría en esta vista',
 
   // Cambio de cota del nivel
   edc_undo_pin_stair_tops: 'Fijar la parte superior de escaleras y rampas',
@@ -1318,10 +1310,8 @@ export const DE_EDITOR_CONTEXT: Record<keyof typeof PT_EDITOR_CONTEXT, string> =
   edc_list_and: '{list} und {last}',
 
   // Hinweis zum Ansichtsprofil
-  edc_hidden_by_profile: 'Erstellt, aber diese Ansicht blendet {layers} aus (Ansichtsprofil). Passen Sie die Sichtbarkeit an, um es zu sehen.',
-  edc_cat_walls: 'Wände',
-  edc_cat_openings: 'Öffnungen',
-  edc_cat_floors: 'Böden',
+  edc_hidden_creation: 'Erstellt, aber diese Ansicht blendet aus: {layers}.',
+  edc_hidden_show_category: 'Kategorie in dieser Ansicht anzeigen',
 
   // Änderung der Ebenenhöhe
   edc_undo_pin_stair_tops: 'Oberkanten von Treppen und Rampen fixieren',
@@ -1659,10 +1649,8 @@ export const FR_EDITOR_CONTEXT: Record<keyof typeof PT_EDITOR_CONTEXT, string> =
   edc_list_and: '{list} et {last}',
 
   // Avertissement de profil de vue
-  edc_hidden_by_profile: 'Créé, mais cette vue masque {layers} (profil de la vue). Ajustez la visibilité pour le voir.',
-  edc_cat_walls: 'murs',
-  edc_cat_openings: 'ouvertures',
-  edc_cat_floors: 'sols',
+  edc_hidden_creation: 'Créé, mais cette vue masque : {layers}.',
+  edc_hidden_show_category: 'Afficher la catégorie dans cette vue',
 
   // Changement de cote du niveau
   edc_undo_pin_stair_tops: 'Fixer le sommet des escaliers et des rampes',
@@ -2000,10 +1988,8 @@ export const IT_EDITOR_CONTEXT: Record<keyof typeof PT_EDITOR_CONTEXT, string> =
   edc_list_and: '{list} e {last}',
 
   // Avviso sul profilo della vista
-  edc_hidden_by_profile: 'Creato, ma questa vista nasconde {layers} (profilo della vista). Regola la visibilità per vederlo.',
-  edc_cat_walls: 'pareti',
-  edc_cat_openings: 'vani',
-  edc_cat_floors: 'pavimenti',
+  edc_hidden_creation: 'Creato, ma questa vista nasconde: {layers}.',
+  edc_hidden_show_category: 'Mostra categoria in questa vista',
 
   // Modifica della quota del livello
   edc_undo_pin_stair_tops: 'Blocca sommità di scale e rampe',
@@ -2341,10 +2327,8 @@ export const PL_EDITOR_CONTEXT: Record<keyof typeof PT_EDITOR_CONTEXT, string> =
   edc_list_and: '{list} i {last}',
 
   // Ostrzeżenie o profilu widoku
-  edc_hidden_by_profile: 'Utworzono, ale ten widok ukrywa {layers} (profil widoku). Dostosuj widoczność, aby go zobaczyć.',
-  edc_cat_walls: 'ściany',
-  edc_cat_openings: 'otwory',
-  edc_cat_floors: 'podłogi',
+  edc_hidden_creation: 'Utworzono, ale ten widok ukrywa: {layers}.',
+  edc_hidden_show_category: 'Pokaż kategorię w tym widoku',
 
   // Zmiana rzędnej poziomu
   edc_undo_pin_stair_tops: 'Zablokuj szczyty schodów i ramp',

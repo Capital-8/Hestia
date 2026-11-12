@@ -18,9 +18,9 @@ function executar(store: ProjectStore, commands: readonly Command[]): void {
 }
 
 /**
- * Na planta de área, a exclusão alcança as anotações da vista (cotas, textos, detalhes e etiquetas), os ambientes
- * (áreas) e as linhas de separação de ambiente/área. Paredes, portas, pisos e demais elementos de modelo continuam
- * bloqueados nela.
+ * Na planta de área, a exclusão alcança as anotações da própria vista (cotas, textos, detalhes e etiquetas), as etiquetas
+ * de ambiente, as linhas de separação e os elementos de modelo (parede, porta, piso, ambiente...) como no piso: o
+ * elemento é do nível e some de todas as vistas; as anotações das outras vistas não são tocadas.
  */
 function deletePlanSelectionIn(store: ProjectStore, planId: Id, ids: Id[]): void | Promise<void> {
   const vista = vistaDeArea(store.project, planId);
@@ -46,21 +46,22 @@ function deletePlanSelectionIn(store: ProjectStore, planId: Id, ids: Id[]): void
   // Etiquetas de ambiente (RoomTag) são da vista e ficam em `plan.tags`, fora de `annotations`.
   const tags = vista.area.tags.filter((t) => want.has(t.id)).map((t) => t.id);
   const rooms = ids.filter((id) => isRoom(store.project.elements[id]));
+  // Elementos de modelo (inclui os ambientes): `deleteElements`, que leva junto o que depende deles (aberturas da parede).
+  const elems = ids.filter((id) => store.project.elements[id] !== undefined);
   const separators = levelRoomSeparators(store.project, levelId).filter((r) => want.has(r.id)).map((r) => r.id);
-  if (removedAnnotations === 0 && tags.length === 0 && rooms.length === 0 && separators.length === 0) {
-    useUi.setState({ status: { key: 'eds_msg_area_delete_blocked' } });
-    return;
-  }
+  if (removedAnnotations === 0 && tags.length === 0 && elems.length === 0 && separators.length === 0) return;
   const commands: Command[] = [];
   if (removedAnnotations > 0) commands.push({ type: 'updateAreaPlan', id: planId, patch: { annotations: next } });
   for (const id of tags) commands.push({ type: 'removeRoomTag', planId, id });
-  if (rooms.length > 0) commands.push({ type: 'deleteElements', ids: rooms });
+  if (elems.length > 0) commands.push({ type: 'deleteElements', ids: elems });
   for (const id of separators) commands.push({ type: 'removeRoomSeparator', levelId, id });
   const preview = areaMergePreview(store.project, levelId, commands, removesCircuit(store.project, levelId, ids));
   if (!preview) {
     executar(store, commands);
     useUi.setState({
-      status: rooms.length > 0
+      status: elems.length > rooms.length
+        ? { key: 'eds_msg_selection_deleted' }
+        : rooms.length > 0
         ? { key: 'eds_msg_area_deleted_room' }
         : separators.length > 0
           ? { key: 'eds_msg_area_deleted_separator' }
@@ -73,9 +74,9 @@ function deletePlanSelectionIn(store: ProjectStore, planId: Id, ids: Id[]): void
   return (async () => {
     if (!(await pedirConfirmacaoAreaMerge(preview))) return;
     const extras = roomsToRemove(preview);
-    const allRooms = [...new Set([...rooms, ...extras])];
+    const allElems = [...new Set([...elems, ...extras])];
     const finalCommands = commands.filter((c) => c.type !== 'deleteElements') as Command[];
-    if (allRooms.length > 0) finalCommands.push({ type: 'deleteElements', ids: allRooms });
+    if (allElems.length > 0) finalCommands.push({ type: 'deleteElements', ids: allElems });
     executar(store, finalCommands);
     useUi.setState({ status: { key: 'eds_msg_area_merged_deleted' } });
   })();

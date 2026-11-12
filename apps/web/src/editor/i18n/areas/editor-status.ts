@@ -26,7 +26,9 @@ export const PT_EDITOR_STATUS = {
 
   // Ferramentas e vistas
   eds_msg_shortcut_buffer: 'Atalho: {seq}…',
-  eds_msg_area_tools_only: 'Na planta de área ficam disponíveis só as ferramentas de anotação (medir, cota, texto, etiqueta e detalhe).',
+  eds_msg_tool_not_in_view: 'Esta ferramenta não está disponível neste tipo de vista.',
+  eds_msg_category_shown: 'Categoria exibida nesta vista.',
+  eds_undo_show_category_view: 'Mostrar categoria na vista',
   eds_msg_section_tools_only: 'Esta ferramenta é da planta. No corte use Medir, Cota, Texto, Detalhe, Alinhar ou Mover.',
   eds_msg_room_tag_drag_hint: 'Arraste o rótulo e solte para posicionar. A chamada liga ao sair do ambiente.',
   eds_msg_room_tag_moved: 'Rótulo reposicionado em todas as vistas. Ctrl+Z desfaz.',
@@ -71,7 +73,6 @@ export const PT_EDITOR_STATUS = {
 
   // Exclusão
   eds_undo_delete: 'Excluir',
-  eds_msg_area_delete_blocked: 'Na planta de área dá para excluir ambientes, separadores, etiquetas e anotações; paredes e demais elementos de modelo continuam bloqueados.',
   eds_msg_area_deleted_room: 'Ambiente excluído.',
   eds_msg_area_deleted_separator: 'Separador excluído.',
   eds_msg_area_deleted_tag: 'Etiqueta excluída.',
@@ -248,7 +249,9 @@ export const EN_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
 
   // Ferramentas e vistas
   eds_msg_shortcut_buffer: 'Shortcut: {seq}…',
-  eds_msg_area_tools_only: 'Only annotation tools (measure, dimension, text, tag and detail) are available in the area plan.',
+  eds_msg_tool_not_in_view: 'This tool is not available in this type of view.',
+  eds_msg_category_shown: 'Category shown in this view.',
+  eds_undo_show_category_view: 'Show category in view',
   eds_msg_section_tools_only: 'This is a plan tool. In a section use Measure, Dimension, Text, Detail, Align or Move.',
   eds_msg_room_tag_drag_hint: 'Drag the tag and release to position it. The leader turns on when you leave the room.',
   eds_msg_room_tag_moved: 'Tag repositioned in all views. Ctrl+Z to undo.',
@@ -293,7 +296,6 @@ export const EN_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
 
   // Exclusão
   eds_undo_delete: 'Delete',
-  eds_msg_area_delete_blocked: 'In an area plan you can delete rooms, separators, tags and annotations; walls and other model elements remain blocked.',
   eds_msg_area_deleted_room: 'Room deleted.',
   eds_msg_area_deleted_separator: 'Separator deleted.',
   eds_msg_area_deleted_tag: 'Tag deleted.',
@@ -467,7 +469,9 @@ export const ES_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_undo_auto_dimensions: 'Cotas automáticas',
 
   eds_msg_shortcut_buffer: 'Atajo: {seq}…',
-  eds_msg_area_tools_only: 'En la planta de área solo están disponibles las herramientas de anotación (medir, cota, texto, etiqueta y detalle).',
+  eds_msg_tool_not_in_view: 'Esta herramienta no está disponible en este tipo de vista.',
+  eds_msg_category_shown: 'Categoría mostrada en esta vista.',
+  eds_undo_show_category_view: 'Mostrar categoría en la vista',
   eds_msg_section_tools_only: 'Esta herramienta es de la planta. En la sección use Medir, Cota, Texto, Detalle, Alinear o Mover.',
   eds_msg_room_tag_drag_hint: 'Arrastre la etiqueta y suelte para colocarla. La llamada se activa al salir del ambiente.',
   eds_msg_room_tag_moved: 'Etiqueta reposicionada en todas las vistas. Ctrl+Z deshace.',
@@ -507,7 +511,6 @@ export const ES_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_file_generated: 'Archivo {name} generado.',
 
   eds_undo_delete: 'Eliminar',
-  eds_msg_area_delete_blocked: 'En la planta de área se pueden eliminar ambientes, separadores, etiquetas y anotaciones; los muros y demás elementos de modelo siguen bloqueados.',
   eds_msg_area_deleted_room: 'Ambiente eliminado.',
   eds_msg_area_deleted_separator: 'Separador eliminado.',
   eds_msg_area_deleted_tag: 'Etiqueta eliminada.',
@@ -675,7 +678,9 @@ export const DE_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_undo_auto_dimensions: 'Automatische Maße',
 
   eds_msg_shortcut_buffer: 'Tastenkürzel: {seq}…',
-  eds_msg_area_tools_only: 'Im Flächenplan sind nur Beschriftungswerkzeuge verfügbar (Messen, Maß, Text, Beschriftung und Detail).',
+  eds_msg_tool_not_in_view: 'Dieses Werkzeug ist in diesem Ansichtstyp nicht verfügbar.',
+  eds_msg_category_shown: 'Kategorie in dieser Ansicht angezeigt.',
+  eds_undo_show_category_view: 'Kategorie in Ansicht anzeigen',
   eds_msg_section_tools_only: 'Dieses Werkzeug gehört zum Grundriss. Verwenden Sie im Schnitt Messen, Maß, Text, Detail, Ausrichten oder Verschieben.',
   eds_msg_room_tag_drag_hint: 'Ziehen Sie die Beschriftung und lassen Sie sie zum Platzieren los. Der Hinweis aktiviert sich beim Verlassen des Raums.',
   eds_msg_room_tag_moved: 'Beschriftung in allen Ansichten neu positioniert. Ctrl+Z macht rückgängig.',
@@ -715,7 +720,6 @@ export const DE_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_file_generated: 'Datei {name} erzeugt.',
 
   eds_undo_delete: 'Löschen',
-  eds_msg_area_delete_blocked: 'Im Flächenplan können Räume, Trennlinien, Beschriftungen und Anmerkungen gelöscht werden; Wände und andere Modellelemente bleiben gesperrt.',
   eds_msg_area_deleted_room: 'Raum gelöscht.',
   eds_msg_area_deleted_separator: 'Trennlinie gelöscht.',
   eds_msg_area_deleted_tag: 'Beschriftung gelöscht.',
@@ -883,7 +887,9 @@ export const FR_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_undo_auto_dimensions: 'Cotes automatiques',
 
   eds_msg_shortcut_buffer: 'Raccourci : {seq}…',
-  eds_msg_area_tools_only: 'Dans le plan de surface, seuls les outils d\'annotation sont disponibles (mesurer, cote, texte, étiquette et détail).',
+  eds_msg_tool_not_in_view: 'Cet outil n\'est pas disponible dans ce type de vue.',
+  eds_msg_category_shown: 'Catégorie affichée dans cette vue.',
+  eds_undo_show_category_view: 'Afficher la catégorie dans la vue',
   eds_msg_section_tools_only: 'Cet outil est un outil de plan. Dans une coupe, utilisez Mesurer, Cote, Texte, Détail, Aligner ou Déplacer.',
   eds_msg_room_tag_drag_hint: 'Faites glisser l\'étiquette et relâchez pour la positionner. La ligne de rappel s\'active en quittant la pièce.',
   eds_msg_room_tag_moved: 'Étiquette repositionnée dans toutes les vues. Ctrl+Z annule.',
@@ -923,7 +929,6 @@ export const FR_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_file_generated: 'Fichier {name} généré.',
 
   eds_undo_delete: 'Supprimer',
-  eds_msg_area_delete_blocked: 'Dans un plan de surface, vous pouvez supprimer des pièces, séparateurs, étiquettes et annotations ; les murs et autres éléments de modèle restent bloqués.',
   eds_msg_area_deleted_room: 'Pièce supprimée.',
   eds_msg_area_deleted_separator: 'Séparateur supprimé.',
   eds_msg_area_deleted_tag: 'Étiquette supprimée.',
@@ -1091,7 +1096,9 @@ export const IT_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_undo_auto_dimensions: 'Quote automatiche',
 
   eds_msg_shortcut_buffer: 'Scorciatoia: {seq}…',
-  eds_msg_area_tools_only: 'Nella pianta delle aree sono disponibili solo gli strumenti di annotazione (misura, quota, testo, etichetta e dettaglio).',
+  eds_msg_tool_not_in_view: 'Questo strumento non è disponibile in questo tipo di vista.',
+  eds_msg_category_shown: 'Categoria mostrata in questa vista.',
+  eds_undo_show_category_view: 'Mostra categoria nella vista',
   eds_msg_section_tools_only: 'Questo è uno strumento da pianta. Nella sezione usa Misura, Quota, Testo, Dettaglio, Allinea o Sposta.',
   eds_msg_room_tag_drag_hint: 'Trascina l\'etichetta e rilascia per posizionarla. La linea di richiamo si attiva uscendo dal locale.',
   eds_msg_room_tag_moved: 'Etichetta riposizionata in tutte le viste. Ctrl+Z annulla.',
@@ -1131,7 +1138,6 @@ export const IT_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_file_generated: 'File {name} generato.',
 
   eds_undo_delete: 'Elimina',
-  eds_msg_area_delete_blocked: 'Nella pianta delle aree puoi eliminare locali, separatori, etichette e annotazioni; pareti e altri elementi del modello restano bloccati.',
   eds_msg_area_deleted_room: 'Locale eliminato.',
   eds_msg_area_deleted_separator: 'Separatore eliminato.',
   eds_msg_area_deleted_tag: 'Etichetta eliminata.',
@@ -1299,7 +1305,9 @@ export const PL_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_undo_auto_dimensions: 'Automatyczne wymiary',
 
   eds_msg_shortcut_buffer: 'Skrót: {seq}…',
-  eds_msg_area_tools_only: 'W rzucie powierzchni dostępne są tylko narzędzia adnotacji (pomiar, wymiar, tekst, etykieta i szczegół).',
+  eds_msg_tool_not_in_view: 'To narzędzie nie jest dostępne w tym typie widoku.',
+  eds_msg_category_shown: 'Kategoria pokazana w tym widoku.',
+  eds_undo_show_category_view: 'Pokaż kategorię w widoku',
   eds_msg_section_tools_only: 'To narzędzie należy do rzutu. W przekroju użyj Pomiar, Wymiar, Tekst, Szczegół, Wyrównaj lub Przenieś.',
   eds_msg_room_tag_drag_hint: 'Przeciągnij etykietę i upuść, aby ją ustawić. Linia odniesienia włącza się po opuszczeniu pomieszczenia.',
   eds_msg_room_tag_moved: 'Etykieta przeniesiona we wszystkich widokach. Ctrl+Z cofa.',
@@ -1339,7 +1347,6 @@ export const PL_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_file_generated: 'Wygenerowano plik {name}.',
 
   eds_undo_delete: 'Usuń',
-  eds_msg_area_delete_blocked: 'W rzucie powierzchni można usuwać pomieszczenia, separatory, etykiety i adnotacje; ściany i pozostałe elementy modelu pozostają zablokowane.',
   eds_msg_area_deleted_room: 'Pomieszczenie usunięte.',
   eds_msg_area_deleted_separator: 'Separator usunięty.',
   eds_msg_area_deleted_tag: 'Etykieta usunięta.',

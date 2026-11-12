@@ -36,7 +36,7 @@ import { AUTOSAVE_KEY, AUTOSAVE_SALVO_KEY, safeGet, safeSet } from './storage.ts
 import { t, useI18n } from './i18n.ts';
 import { pedirConfirmacaoHostedLoss } from './hostedLossPrompt.ts';
 import { pedirAlerta } from './alertaPrompt.ts';
-import { fitBox, levelFrameBox, panBy, resolvedPlanViewOf, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
+import { fitBox, levelFrameBox, panBy, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
 import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
 import { defaultOpenViews, type PlanKind } from './openViews.ts';
 import { areaViewIdAtivo, camposDeNivel, chaveDeViewportDePlanta, patchParaAtivarVista, planViewIdAtivo, type PatchDeVista, planViewIdDe, planViewIdDeFundo, tipoDeVistaDeFundo } from './vistaAtiva.ts';
@@ -46,7 +46,7 @@ import { casador } from './shortcutConfig.ts'; import { clearSelectionForTool } 
 import { elevationCommand, type PlanBox } from './elevations.ts';
 import { deleteSelectionIn } from './deleteIds.ts';
 import { deleteSectionAnnotationsIn, sectionAnnotationIdsIn } from './sectionHandles.ts';
-import { hideSelectedCategoryInView, hideSelectionInView, resetAllTemporary, resetTemporaryHidden, temporaryHideSelection, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideSelectedCategoryInView, unhideSelectionInView, visibilityOf } from './viewVisibility.ts';
+import { hideSelectedCategoryInView, hideSelectionInView, resetAllTemporary, resetTemporaryHidden, temporaryHideSelection, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideSelectedCategoryInView, unhideSelectionInView, hiddenInActiveView, revealingActive, visibilityKeyOf, visibilityOf } from './viewVisibility.ts';
 import { deleteViewAction, renameViewAction, updateViewAction } from './sectionViewActions.ts';
 import { entregarArquivo } from './entregarArquivo.ts';
 import { bibliotecaDoAmbiente, type Biblioteca } from './biblioteca/biblioteca.ts';
@@ -61,12 +61,12 @@ import { aceitaCaractereNumerico } from './entradaNumerica.ts';
 
 
 /**
- * Ferramentas que continuam disponíveis na planta de área: anotação e as ferramentas de área (ambiente e separador).
- * O resto (parede, porta, piso, laje, forro, telhado, escada, grade...) é do modelo e fica bloqueado nela.
+ * Lista ANTIGA das ferramentas da planta de área (anotação, ambiente e separador). SEM USO desde a raia J da Fase 3: a
+ * planta de área aceita todas as ferramentas (`toolAllowedInView`). Fica exportada até a raia K apagá-la.
  */
 export const AREA_PLAN_TOOLS: readonly ToolId[] = ['select', 'measure', 'dimension', 'text', 'tag', 'detailLine', 'filledRegion', 'room', 'roomsep'];
 
-/** A ferramenta pode rodar na planta de área? */
+/** @deprecated Sem uso (a planta de área aceita todas). Sai na raia K. */
 export const areaPlanToolAllowed = (id: ToolId): boolean => toolAllowedInView('area', id);
 
 /** Id da seção ativa, quando a vista atual é corte/elevação. */
@@ -155,6 +155,7 @@ export class Editor {
   constructor() {
     this.tool = createTool('select', this.env);
     this.store.subscribe(() => {
+      this.limparAvisoOcultoVelho();
       this.pruneSelection();
       this.scheduleAutosave(); this.fluxo.atualizar(this.project, this.store.version);
       useUi.setState((s) => ({ previewTick: s.previewTick + 1 }));
@@ -190,7 +191,8 @@ export class Editor {
     areaPlanId: () => this.areaPlanIdNow(),
     // Vista de planta exata (piso, cobertura ou área); leitura a cada acesso, o ambiente é criado uma vez só.
     get viewId(): Id | undefined { return planViewIdAtivo(useUi.getState()) ?? undefined; },
-    hiddenInView: () => resolvedPlanViewOf(this.store.project, useUi.getState().levelId).hidden,
+    hiddenInView: () => hiddenInActiveView(this.store.project, useUi.getState()),
+    revealingHidden: () => revealingActive(useUi.getState()),
     underlayLevelId: () => { const st = useUi.getState(); return underlayIdOf(this.store.project, st.levelId, st.showUnderlay, st.underlayLevel); },
     selection: () => useUi.getState().selection,
     setSelection: (ids) => useUi.setState({ selection: ids, ...(ids.length ? { selectedLevel: null } : {}) }),
@@ -246,14 +248,38 @@ export class Editor {
     this.exec(c);
   }
 
-  /** Política R1: criar na planta de área algo que o perfil oculta não bloqueia a ferramenta, mas avisa na barra de status. */
+  /** Profundidade de `avisandoOculto`: transação com `exec` dentro, ou comando que dispara outro, avisa uma vez só (a de fora). */
+  private nivelAvisoOculto = 0;
+
+  /**
+   * Política R1, por vista (qualquer planta: piso, cobertura ou área): criar algo que a vista oculta (perfil, categoria
+   * oculta, ocultar/isolar temporário) não bloqueia a ferramenta, mas deixa um aviso na barra de status, com as ações
+   * "Mostrar categoria nesta vista" e "Desfazer" (`UiState.avisoOculto`). A pergunta é a regra única `visibleInView`.
+   */
   private avisandoOculto(run: () => void): void {
-    const planId = this.areaPlanIdNow();
-    if (!planId) { run(); return; }
+    const st = useUi.getState();
+    const viewId = st.view === 'plan' && this.nivelAvisoOculto === 0 ? planViewIdAtivo(st) : null;
+    if (!viewId) {
+      // Dentro de outro aviso (nível > 0) ou fora de planta: só executa.
+      this.nivelAvisoOculto++;
+      try { run(); } finally { this.nivelAvisoOculto--; }
+      return;
+    }
     const antes = this.store.project;
-    run();
-    const aviso = hiddenCreationWarning(antes, this.store.project, planId);
-    if (aviso) useUi.setState({ status: aviso });
+    this.nivelAvisoOculto++;
+    try { run(); } finally { this.nivelAvisoOculto--; }
+    const depois = this.store.project;
+    if (depois === antes) return;
+    const key = visibilityKeyOf(st);
+    const temp = key ? st.viewTemp[key] : undefined;
+    const categories = hiddenCreationWarning(antes, depois, viewId, { temporary: temp ? { hidden: temp.hidden, isolated: temp.isolated } : undefined, revealing: temp?.reveal === true });
+    if (categories) useUi.setState({ avisoOculto: { viewId, categories, projeto: depois } });
+  }
+
+  /** O aviso de criação oculta só vale para o projeto em que nasceu: qualquer outra mudança (ou o desfazer) o apaga. */
+  private limparAvisoOcultoVelho(): void {
+    const a = useUi.getState().avisoOculto;
+    if (a && a.projeto !== this.store.project) useUi.setState({ avisoOculto: null });
   }
 
   private exec1(c: Command): void {
@@ -526,10 +552,11 @@ export class Editor {
     // Trocar de ferramenta encerra qualquer arraste de rótulo em andamento (inclusive nos retornos antecipados abaixo).
     this.limparArrasteRotulo();
     const st = useUi.getState();
-    // A planta de área é de anotação: ferramentas de modelo não entram nela (nem por atalho, nem ao voltar de um corte).
-    // Tabela por tipo de vista (`toolAllowedInView`). Vale com a planta "de fundo" também em corte e prancha; só o 3D não restringe.
+    // Tabela por tipo de vista (`toolAllowedInView`): hoje piso, cobertura e área aceitam todas (a planta de área deixou de
+    // bloquear as ferramentas de modelo na Fase 3: criar onde a categoria está oculta avisa, ver `avisandoOculto`). A consulta
+    // fica para os tipos que restringirem (forro, Fase 4). Vale com a planta "de fundo" em corte e prancha; o 3D não restringe.
     if (st.view !== '3d' && !toolAllowedInView(tipoDeVistaDeFundo(st), id)) {
-      useUi.setState({ status: { key: 'eds_msg_area_tools_only' } });
+      useUi.setState({ status: { key: 'eds_msg_tool_not_in_view' } });
       return;
     }
     if (this.perimetro.intercepta(id)) return;
@@ -1056,7 +1083,8 @@ export class Editor {
   selectAllVisibleOfSelectedType(): boolean {
     this.setTool('select');
     const st = useUi.getState();
-    const hidden = visibilityOf(this.project, st).hidden;
+    // Planta: a regra única completa (alcance incluído); corte, elevação e 3D seguem o oculto do usuário.
+    const hidden = st.view === 'plan' ? hiddenInActiveView(this.project, st) : visibilityOf(this.project, st).hidden;
     const result = st.view === 'section' && st.sectionId ? this.sectionOf(st.sectionId) : null;
     return transfer.sameTypeVisible(this.project, st.levelId, hidden, result) > 0;
   }

@@ -79,7 +79,7 @@ describe('anotações da planta de área no painel', () => {
     expect(levelTexts(s.project, LV0)).toHaveLength(0);
   });
 
-  it('excluir na planta de área remove a anotação da planta e não apaga o modelo', async () => {
+  it('excluir na planta de área remove a anotação da planta e o elemento de modelo (como no piso); desfazer devolve os dois', async () => {
     const s = new ProjectStore(createEmptyProject());
     const planId = createAreaPlanAction(s, LV0);
     s.exec({ type: 'addText', levelId: LV0, planId, text: { id: 'tp', at: { x: 1, y: 1 }, text: 'Depósito', height: 2.5, rotation: 0 } });
@@ -87,10 +87,11 @@ describe('anotações da planta de área no painel', () => {
     useUi.setState({ view: 'plan', planKind: 'area', planViewId: planId, levelId: LV0, selection: ['tp', 'w1'] });
     await deleteSelectionIn(s);
     expect(planAnnotationsOf(areaPlanOf(s.project, planId)!).texts).toHaveLength(0);
-    expect(s.project.elements['w1']).toBeDefined();
+    expect(s.project.elements['w1']).toBeUndefined();
     expect(useUi.getState().selection).toEqual([]);
     s.undo();
     expect(planAnnotationsOf(areaPlanOf(s.project, planId)!).texts).toHaveLength(1);
+    expect(s.project.elements['w1']).toBeDefined();
   });
 
   it('o valor da cota e a unidade seguem as unidades do projeto', () => {

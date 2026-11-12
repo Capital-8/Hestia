@@ -1,5 +1,5 @@
 import type { ResolvedLevel, ResolvedRamp, ResolvedStair } from '@hestia/engine';
-import { isOpening, isWall, type AreaPlanAnnotations, type Id, type Project } from '@hestia/model';
+import { categoryVisibleInView, isOpening, isWall, type AreaPlanAnnotations, type Id, type Project } from '@hestia/model';
 import { ambientesDoNivel, escadasDoNivel, lajesDoNivel, pisosDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
 import { planStyleOf, type PlanStyle } from './style.ts';
 import { resolvedPlanViewOf, type ResolvedPlanView } from './view.ts';
@@ -160,7 +160,6 @@ export function planContext(input: PlanInputResolvido): PlanContext {
   const rp = input.roofPlanMode;
   const viewId = input.viewId;
   const style = planStyleOf(p, input.levelId, v.zoom, input.areaPlan?.scale, viewId);
-  const paint = style.paint;
   const revealed = input.revealed;
   // Hide in View (permanente + temporário) que não está no modo Reveal. O Reveal o desenha de novo, com borda azul.
   const doUsuario = input.hidden ? [...input.hidden].filter((id) => !revealed?.has(id)) : undefined;
@@ -176,7 +175,7 @@ export function planContext(input: PlanInputResolvido): PlanContext {
   const geo: ResolvedLevel = view ? view.geo : input.resolved;
   // `view.hidden` já traz o intervalo e a categoria; ele manda sobre o Reveal (o intervalo não é Hide in View).
   const hidden = uniaoOcultos(view?.hidden, doUsuario);
-  const roofOff: ReadonlySet<Id> | undefined = view ? view.categoryHidden : paint.roof.visible ? undefined : new Set(telhadosDoNivel(p, input.levelId).map((r) => r.roofId));
+  const roofOff: ReadonlySet<Id> | undefined = view ? view.categoryHidden : categoryVisibleInView(p, viewId, 'roof') ? undefined : new Set(telhadosDoNivel(p, input.levelId).map((r) => r.roofId));
   const roofHidden = view ? hidden : uniaoOcultos(roofOff, doUsuario);
   const stairs = escadasDoNivel(p, input.levelId).filter((s) => !hidden?.has(s.id));
   const ramps = rampasDoNivel(p, input.levelId).filter((r) => !hidden?.has(r.id));

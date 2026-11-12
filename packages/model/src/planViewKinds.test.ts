@@ -4,14 +4,15 @@ import { AREA_VIEW_TOOLS, DEFAULT_VIEW_RANGE, FLOOR_PROFILE_LAYERS, PLAN_VIEW_KI
 const TODAS = ['select', 'wall', 'door', 'room', 'roomsep', 'tag', 'dimension', 'roof', 'paste', 'qualquer'];
 
 describe('tabela por tipo de vista', () => {
-  it('piso e cobertura aceitam todas as ferramentas (a cobertura não tem restrição hoje)', () => {
-    for (const k of ['floor', 'roof'] as PlanViewKind[]) for (const id of TODAS) expect(toolAllowedInView(k, id)).toBe(true);
+  it('piso, cobertura e área aceitam todas as ferramentas (a área deixou de bloquear as de modelo na Fase 3)', () => {
+    for (const k of ['floor', 'roof', 'area'] as PlanViewKind[]) for (const id of TODAS) expect(toolAllowedInView(k, id)).toBe(true);
+    expect(PLAN_VIEW_KINDS.area.tools).toEqual({ mode: 'all' });
   });
 
-  it('área: exatamente a lista atual', () => {
-    for (const id of TODAS) expect(toolAllowedInView('area', id)).toBe(AREA_VIEW_TOOLS.includes(id));
-    expect(toolAllowedInView('area', 'wall')).toBe(false);
-    expect(toolAllowedInView('area', 'room')).toBe(true);
+  it('a lista antiga da área segue exportada (sai com a raia K), mas a tabela não a usa', () => {
+    expect(AREA_VIEW_TOOLS).toContain('room');
+    expect(AREA_VIEW_TOOLS).not.toContain('wall');
+    expect(toolAllowedInView('area', 'wall')).toBe(true);
   });
 
   it('forro: todas menos ambiente e separação', () => {

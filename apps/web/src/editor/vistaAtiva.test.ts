@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createEmptyProject, DEFAULT_AREA_GRAPHICS, ProjectStore, toolAllowedInView, type AreaPlan } from '@hestia/model';
-import { TOOL_GROUPS, type ToolId } from '@hestia/tools';
-import { AREA_PLAN_TOOLS } from './controller.ts';
+import { TOOL_GROUPS } from '@hestia/tools';
 import { areaViewIdDeFundo, camposDeNivel, nivelAtivo, patchParaAtivarVista, planViewIdAtivo, planViewIdDe, planViewIdDeFundo, tipoDeVistaAtivo, type CamposDaVista } from './vistaAtiva.ts';
 
 const campos = (over: Partial<CamposDaVista>): CamposDaVista => ({ view: 'plan', levelId: 'lv_0', planKind: 'floor', areaPlanId: null, ...over });
@@ -10,14 +9,11 @@ describe('permissão de ferramenta por tipo de vista', () => {
   // Todos os ids que a interface conhece (grupos da faixa) mais os que ficam fora dela.
   const ids: string[] = [...new Set<string>([...TOOL_GROUPS.flatMap((g) => g.tools), 'select', 'perimeter', 'paste', 'section', 'grid', 'roomsep', 'angularDimension', 'measure', 'inexistente'])];
 
-  it('a planta de área é igual a AREA_PLAN_TOOLS para todo id de ferramenta', () => {
-    for (const id of ids) expect(toolAllowedInView('area', id), id).toBe((AREA_PLAN_TOOLS as readonly string[]).includes(id as ToolId));
-  });
-
-  it('piso e cobertura aceitam todas (a cobertura não tem restrição hoje)', () => {
+  it('piso, cobertura e planta de área aceitam todas as ferramentas (a área deixou de bloquear na Fase 3)', () => {
     for (const id of ids) {
       expect(toolAllowedInView('floor', id)).toBe(true);
       expect(toolAllowedInView('roof', id)).toBe(true);
+      expect(toolAllowedInView('area', id), id).toBe(true);
     }
   });
 });

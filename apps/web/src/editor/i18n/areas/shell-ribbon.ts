@@ -19,7 +19,6 @@ export const PT_SHELL_RIBBON = {
   shr_minimize_ribbon: 'Recolher a faixa',
 
   // Botões e tooltips dos itens da faixa (parts.tsx).
-  shr_area_plan_hint: 'Na planta de área, use as ferramentas de anotação.',
   shr_not_for_sheets: 'não se aplica à prancha',
   shr_soon_unavailable: 'ainda não disponível',
   shr_soon_tag: 'a criar',
@@ -63,7 +62,6 @@ export const EN_SHELL_RIBBON: Record<keyof typeof PT_SHELL_RIBBON, string> = {
   shr_expand_ribbon: 'Expand ribbon',
   shr_minimize_ribbon: 'Minimize ribbon',
 
-  shr_area_plan_hint: 'In an area plan, use the annotation tools.',
   shr_not_for_sheets: 'not available for sheets',
   shr_soon_unavailable: 'not available yet',
   shr_soon_tag: 'soon',
@@ -105,7 +103,6 @@ export const ES_SHELL_RIBBON: Record<keyof typeof PT_SHELL_RIBBON, string> = {
   shr_expand_ribbon: 'Expandir la cinta',
   shr_minimize_ribbon: 'Minimizar la cinta',
 
-  shr_area_plan_hint: 'En el plano de área, use las herramientas de anotación.',
   shr_not_for_sheets: 'no se aplica a planos',
   shr_soon_unavailable: 'aún no disponible',
   shr_soon_tag: 'próximamente',
@@ -147,7 +144,6 @@ export const DE_SHELL_RIBBON: Record<keyof typeof PT_SHELL_RIBBON, string> = {
   shr_expand_ribbon: 'Multifunktionsleiste erweitern',
   shr_minimize_ribbon: 'Multifunktionsleiste minimieren',
 
-  shr_area_plan_hint: 'Im Flächenplan die Beschriftungswerkzeuge verwenden.',
   shr_not_for_sheets: 'gilt nicht für Pläne',
   shr_soon_unavailable: 'noch nicht verfügbar',
   shr_soon_tag: 'Demnächst',
@@ -189,7 +185,6 @@ export const FR_SHELL_RIBBON: Record<keyof typeof PT_SHELL_RIBBON, string> = {
   shr_expand_ribbon: 'Développer le ruban',
   shr_minimize_ribbon: 'Réduire le ruban',
 
-  shr_area_plan_hint: 'Dans le plan de zones, utilisez les outils d\'annotation.',
   shr_not_for_sheets: 'ne s\'applique pas aux feuilles',
   shr_soon_unavailable: 'pas encore disponible',
   shr_soon_tag: 'à venir',
@@ -231,7 +226,6 @@ export const IT_SHELL_RIBBON: Record<keyof typeof PT_SHELL_RIBBON, string> = {
   shr_expand_ribbon: 'Espandi la barra multifunzione',
   shr_minimize_ribbon: 'Comprimi la barra multifunzione',
 
-  shr_area_plan_hint: 'Nel piano aree, usa gli strumenti di annotazione.',
   shr_not_for_sheets: 'non si applica ai fogli',
   shr_soon_unavailable: 'non ancora disponibile',
   shr_soon_tag: 'in arrivo',
@@ -273,7 +267,6 @@ export const PL_SHELL_RIBBON: Record<keyof typeof PT_SHELL_RIBBON, string> = {
   shr_expand_ribbon: 'Rozwiń wstęgę',
   shr_minimize_ribbon: 'Zwiń wstęgę',
 
-  shr_area_plan_hint: 'W rzucie powierzchni użyj narzędzi adnotacji.',
   shr_not_for_sheets: 'nie dotyczy arkuszy',
   shr_soon_unavailable: 'jeszcze niedostępne',
   shr_soon_tag: 'wkrótce',

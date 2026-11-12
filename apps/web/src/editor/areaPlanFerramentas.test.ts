@@ -33,17 +33,14 @@ function iniciar(): { planId: string; s: ProjectStore } {
 describe('ferramentas liberadas na planta de área', () => {
   beforeEach(() => { useUi.setState({ options: DEFAULT_OPTIONS }); });
 
-  it('ferramentas de anotação e de área entram; as de modelo ficam de fora', () => {
+  it('ferramentas de anotação, de área e de modelo entram (Fase 3: nada é bloqueado)', () => {
     iniciar();
-    const tools: ToolId[] = ['room', 'dimension', 'text', 'tag', 'roomsep', 'detailLine', 'filledRegion', 'measure'];
+    const tools: ToolId[] = ['room', 'dimension', 'text', 'tag', 'roomsep', 'detailLine', 'filledRegion', 'measure', 'wall', 'door', 'window', 'stair', 'ramp'];
     for (const t of tools) {
-      editor.setTool(t);
-      expect(useUi.getState().tool, t).toBe(t);
-    }
-    for (const t of ['wall', 'door', 'window'] as ToolId[]) {
       editor.setTool('select');
       editor.setTool(t);
-      expect(useUi.getState().tool, t).toBe('select');
+      expect(useUi.getState().tool, t).toBe(t);
+      expect(useUi.getState().status, t).not.toEqual({ key: 'eds_msg_tool_not_in_view' });
     }
   });
 
@@ -58,13 +55,14 @@ describe('ferramentas liberadas na planta de área', () => {
     expect(useUi.getState().selection).toEqual(['rs1']);
   });
 
-  it('Delete remove anotação da vista e separador num único undo; o modelo fica', () => {
+  it('Delete remove anotação da vista, parede (modelo, como no piso) e separador num único undo', () => {
     const { planId } = iniciar();
     editor.store.exec({ type: 'addText', levelId: 'lv_0', planId, text: { id: 'tx1', at: { x: 2, y: 3.5 }, text: 'Nota', height: 2.5, rotation: 0 } });
     useUi.setState({ selection: ['tx1', 'w0', 'rs1'] });
     editor.deleteSelection();
     const p = editor.project;
-    expect(p.elements['w0']).toBeDefined();
+    expect(p.elements['w0']).toBeUndefined();
+    expect(p.elements['w1']).toBeDefined();
     expect(areaPlanOf(p, planId)!.annotations?.texts ?? []).toHaveLength(0);
     expect(levelRoomSeparators(p, 'lv_0')).toHaveLength(0);
     editor.undo();
