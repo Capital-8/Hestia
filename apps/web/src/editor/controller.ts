@@ -1090,7 +1090,9 @@ export class Editor {
     const plan = areaId ? vistaDeArea(this.store.project, areaId) : undefined;
     // Planta de área órfã (sem a vista): cai na planta de piso, como sempre.
     const viewId = areaId && !plan ? undefined : (planViewIdAtivo(st) ?? undefined);
-    const cotas = cotasAutomaticas(this.store.project, levelId, opts);
+    // Regra 4.5: cota nova só referencia o que a vista mostra; a que se prenderia a elemento oculto não é criada.
+    const ocultos = hiddenInActiveView(this.store.project, st);
+    const cotas = cotasAutomaticas(this.store.project, levelId, opts).filter((d) => !dimensionRefIds(d).some((id) => ocultos.has(id)));
     // As cotas são anotações da vista de planta ativa (piso, cobertura ou área): entram com `viewId`, cada vista com as suas.
     // Todas as cotas geradas entram num só passo de desfazer (Ctrl+Z desfaz o lote inteiro).
     this.store.transaction('eds_undo_auto_dimensions', () => {

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ProjectStore, createEmptyProject, makeWall, type Dimension } from '@hestia/model';
+import { ProjectStore, createEmptyProject, dimensionRefIds, levelDimensions, makeWall, type Dimension } from '@hestia/model';
 import { executaComandoDoMenu } from '../ui/useCanvasContextMenu.ts';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
@@ -66,5 +66,35 @@ describe('ocultar um elemento na vista de planta esconde a cota e a etiqueta pre
     useUi.setState({ selection: ['d_livre'] });
     executaComandoDoMenu('selectAllVisible', 'plan', camera, centro);
     expect(ids(new Set(useUi.getState().selection))).toEqual(['d_livre']);
+  });
+});
+
+describe('cotas automáticas só se prendem ao que a vista mostra', () => {
+  const refsDe = (): string[] => levelDimensions(editor.project, 'lv_0').flatMap((d) => dimensionRefIds(d));
+
+  beforeEach(() => {
+    const store = new ProjectStore(createEmptyProject());
+    const c = [{ x: 0, y: 0 }, { x: 6, y: 0 }, { x: 6, y: 4 }, { x: 0, y: 4 }];
+    // Duas paredes soltas (sem junção): as pontas livres viram `refs` das cotas automáticas.
+    c.forEach((a, i) => i % 2 === 0 && store.exec({ type: 'addWall', wall: makeWall({ id: `r${i}`, typeId: 'wt_alv14', levelId: 'lv_0', a, b: c[(i + 1) % 4]!, locationLine: 'finishInterior' }) }));
+    editor.load(store.project, 'teste.hestia.json');
+    editor.closeSection();
+    useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0' });
+    editor.ensureViewport(800, 600);
+    useUi.setState({ viewTemp: {}, selection: [], tool: 'select' });
+  });
+
+  it('sem ocultos, as cotas automáticas referenciam as paredes', () => {
+    editor.cotasAutomaticasDaPlanta();
+    expect(refsDe().length).toBeGreaterThan(0);
+  });
+
+  it('parede oculta: nenhuma cota automática se prende a ela', () => {
+    useUi.setState({ selection: ['r0'] });
+    executaComandoDoMenu('hideElements', 'plan', camera, centro);
+    editor.cotasAutomaticasDaPlanta();
+    const refs = refsDe();
+    expect(refs).not.toContain('r0');
+    expect(refs.length).toBeGreaterThan(0);
   });
 });
