@@ -146,7 +146,7 @@ describe('migração 19 → 20', () => {
   it('arquivo v19 abre em v20 com composição em cada tipo e os 18 presets', () => {
     const m = migrateProject(arquivoV19());
     expect(m.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(SCHEMA_VERSION).toBe(24);
+    expect(SCHEMA_VERSION).toBe(25);
     const ids = Object.keys(m.openingTypes);
     expect(ids.length).toBe(130);
     for (const t of Object.values(m.openingTypes)) {

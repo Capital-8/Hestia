@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_AREA_GRAPHICS, DEFAULT_VIEW_RANGE, ProjectStore, createEmptyProject, floorViewId, makeRoom, makeWall, roofViewId, type AreaPlan, type Project, planViewRangeOf, withViewPatchOfTest } from '@hestia/model';
+import { DEFAULT_AREA_GRAPHICS, DEFAULT_VIEW_RANGE, ProjectStore, projetoComCoberturaDeTeste, floorViewId, makeRoom, makeWall, legacyRoofViewId as roofViewId, type AreaPlan, type Project, planViewRangeOf, withViewPatchOfTest } from '@hestia/model';
 import {
   areaLegendRows,
   areaLegendRowsOfView,
@@ -31,7 +31,7 @@ const plan = (id: string, over: Partial<AreaPlan> = {}): AreaPlan => ({
 
 /** Sala 4 × 5 fechada, um esquema por categoria e uma planta de área; parede alta fora do intervalo para gerar aviso. */
 function montar(opcoes: { proprias?: boolean } = {}): Project {
-  const s = new ProjectStore(createEmptyProject());
+  const s = new ProjectStore(projetoComCoberturaDeTeste());
   const pts = [{ x: 0, y: 0 }, { x: 0, y: 5 }, { x: 4, y: 5 }, { x: 4, y: 0 }];
   pts.forEach((a, i) => {
     const b = pts[(i + 1) % pts.length]!;
@@ -84,9 +84,9 @@ describe('avisos de intervalo pelo id da vista', () => {
     expect(viewRangeWarningsOfView(p, AP)).toEqual(esperado);
   });
 
-  it('cobertura usa o intervalo padrão; vista inexistente não avisa', () => {
+  it('cobertura migrada usa a faixa dela (planta comum); vista inexistente não avisa', () => {
     const p = montar();
-    expect(viewRangeWarningsOfView(p, roofViewId(LV0))).toEqual(viewRangeWarnings(p, LV0, DEFAULT_VIEW_RANGE));
+    expect(viewRangeWarningsOfView(p, roofViewId(LV0))).toEqual(viewRangeWarnings(p, LV0, planViewRangeOf(p, roofViewId(LV0))));
     expect(viewRangeWarningsOfView(p, 'nao')).toEqual([]);
   });
 });

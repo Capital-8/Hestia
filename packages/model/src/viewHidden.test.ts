@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyProject, floorViewId, ProjectStore, roofViewId } from '@hestia/model';
+import { floorViewId, ProjectStore, projetoComCoberturaDeTeste, legacyRoofViewId as roofViewId } from '@hestia/model';
 import type { SectionView } from '@hestia/model';
 
 describe('setViewHidden', () => {
   it('guarda e limpa ocultação da planta de piso com um undo', () => {
-    const s = new ProjectStore(createEmptyProject());
+    const s = new ProjectStore(projetoComCoberturaDeTeste());
     s.exec({ type: 'setViewHidden', target: { kind: 'plan', viewId: floorViewId('lv_0') }, hidden: { elements: ['w1'], categories: ['door'] } });
     expect(s.project.planViews[0]!.hidden).toEqual({ elements: ['w1'], categories: ['door'] });
     s.undo();
@@ -14,7 +14,7 @@ describe('setViewHidden', () => {
   });
 
   it('separa planta de piso, cobertura, área, corte e 3D', () => {
-    const s = new ProjectStore(createEmptyProject());
+    const s = new ProjectStore(projetoComCoberturaDeTeste());
     const p = s.project;
     const view: SectionView = { id: 'sec1', name: 'Corte', kind: 'section', a: { x: 0, y: 0 }, b: { x: 1, y: 0 }, depth: 3 };
     p.views.push(view);
@@ -31,7 +31,7 @@ describe('setViewHidden', () => {
   });
 
   it('remove a entrada quando a lista fica vazia e recusa categoria inválida', () => {
-    const s = new ProjectStore(createEmptyProject());
+    const s = new ProjectStore(projetoComCoberturaDeTeste());
     s.exec({ type: 'setViewHidden', target: { kind: '3d' }, hidden: { elements: ['a'] } });
     s.exec({ type: 'setViewHidden', target: { kind: '3d' }, hidden: undefined });
     expect(s.project.view3d?.hidden).toBeUndefined();

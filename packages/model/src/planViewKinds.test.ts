@@ -5,7 +5,7 @@ const TODAS = ['select', 'wall', 'door', 'room', 'roomsep', 'tag', 'dimension', 
 
 describe('tabela por tipo de vista', () => {
   it('piso, cobertura e área aceitam todas as ferramentas (a área deixou de bloquear as de modelo na Fase 3)', () => {
-    for (const k of ['floor', 'roof', 'area'] as PlanViewKind[]) for (const id of TODAS) expect(toolAllowedInView(k, id)).toBe(true);
+    for (const k of ['floor', 'area'] as PlanViewKind[]) for (const id of TODAS) expect(toolAllowedInView(k, id)).toBe(true);
     expect(PLAN_VIEW_KINDS.area.tools).toEqual({ mode: 'all' });
   });
 

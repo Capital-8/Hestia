@@ -32,10 +32,10 @@ function projetoV21ComGraficosParciais(): Record<string, unknown> {
 
 describe('caracterização do modelo: migração v21 com planta de área parcial', () => {
   it('(c) migrateProject abre o arquivo sem exceção e sem alterar a versão', () => {
-    expect(SCHEMA_VERSION).toBe(24);
+    expect(SCHEMA_VERSION).toBe(25);
     expect(() => migrateProject(projetoV21ComGraficosParciais())).not.toThrow();
     const p = migrateProject(projetoV21ComGraficosParciais());
-    expect(p.schemaVersion).toBe(24);
+    expect(p.schemaVersion).toBe(25);
   });
 
   it('(c) v22: a migração completa graphics (merge profundo); annotations vira conjunto próprio na v24', () => {

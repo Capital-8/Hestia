@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { createEmptyProject, emptyTitleBlock, floorViewId, migrateProject, roofViewId, type Project } from './index.ts';
+import { createEmptyProject, emptyTitleBlock, floorViewId, migrateProject, legacyRoofViewId as roofViewId, type Project } from './index.ts';
 import { normalizeSheetSourcesRaw } from './migrateSheetSources.ts';
 
 /**

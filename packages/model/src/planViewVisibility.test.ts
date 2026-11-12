@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_AREA_GRAPHICS, ProjectStore, createEmptyProject, floorViewId, hiddenByUserInView, hiddenIdsInView, makeWall, resolveViewGraphics, roofViewId,
+  DEFAULT_AREA_GRAPHICS, ProjectStore, createEmptyProject, floorViewId, hiddenByUserInView, hiddenIdsInView, makeWall, resolveViewGraphics, legacyRoofViewId as roofViewId,
   visibleInView, withAreaPlansOfTest, withViewPatchOfTest, type AreaPlan, type Dimension, type Project,
 } from './index.ts';
 

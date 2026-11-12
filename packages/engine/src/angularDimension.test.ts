@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_AREA_GRAPHICS, ProjectStore, createEmptyProject, makeWall, roofViewId, withAreaPlansOfTest, withViewPatchOfTest, type AreaPlan, type DetailLine, type Dimension, type Id, type Project } from '@hestia/model';
+import { DEFAULT_AREA_GRAPHICS, ProjectStore, projetoComCoberturaDeTeste, makeWall, legacyRoofViewId as roofViewId, withAreaPlansOfTest, withViewPatchOfTest, type AreaPlan, type DetailLine, type Dimension, type Id, type Project } from '@hestia/model';
 import { resolveAngularDimension } from './angularDimension.ts';
 
 /**
@@ -17,7 +17,7 @@ const cota = (): Dimension => ({
 });
 
 function base(): Project {
-  const s = new ProjectStore(createEmptyProject());
+  const s = new ProjectStore(projetoComCoberturaDeTeste());
   s.exec({ type: 'addWall', wall: makeWall({ id: 'w1', typeId: 'wt_alv14', levelId: LV, a: { x: -3, y: 0 }, b: { x: 3, y: 0 } }) });
   return s.project;
 }

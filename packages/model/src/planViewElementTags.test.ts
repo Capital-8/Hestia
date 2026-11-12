@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_AREA_GRAPHICS,
   ProjectStore,
-  createEmptyProject,
+  projetoComCoberturaDeTeste,
   floorViewId,
   makeWall,
-  roofViewId,
+  legacyRoofViewId as roofViewId,
   viewAnnotationsOf,
   type AreaPlan,
   type ElementTag,
@@ -23,7 +23,7 @@ const VISTAS = [floorViewId(LV0), roofViewId(LV0), AP];
 
 /** Duas paredes e, em cada uma das três vistas, uma etiqueta da parede `wa` e outra da parede `wb`. */
 function montar(): ProjectStore {
-  const s = new ProjectStore(createEmptyProject());
+  const s = new ProjectStore(projetoComCoberturaDeTeste());
   s.exec({ type: 'addWall', wall: makeWall({ id: 'wa', typeId: 'wt_alv14', levelId: LV0, a: { x: 0, y: 0 }, b: { x: 6, y: 0 } }) });
   s.exec({ type: 'addWall', wall: makeWall({ id: 'wb', typeId: 'wt_alv14', levelId: LV0, a: { x: 0, y: 3 }, b: { x: 6, y: 3 } }) });
   s.exec({ type: 'addAreaPlan', plan: area });

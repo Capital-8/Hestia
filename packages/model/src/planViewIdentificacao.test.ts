@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
-  createEmptyProject,
   DEFAULT_AREA_GRAPHICS,
   emptyTitleBlock,
   floorViewId,
   hiddenTargetOfView,
   planViewHiddenOf,
   ProjectStore,
-  roofViewId,
+  projetoComCoberturaDeTeste,
+  legacyRoofViewId as roofViewId,
   sheetPlanViewId,
   viewSourceIssue,
   type AreaPlan,
@@ -26,7 +26,7 @@ const folha = (): Sheet => ({ id: 'sh1', number: 'A-01', name: 'Plantas', size: 
 const vp = (id: string, view: SheetViewSource): SheetViewport => ({ id, view, at: { x: 20, y: 20 }, size: { w: 100, h: 80 }, scale: 100 });
 
 function montar(): ProjectStore {
-  const s = new ProjectStore(createEmptyProject());
+  const s = new ProjectStore(projetoComCoberturaDeTeste());
   s.exec({ type: 'addAreaPlan', plan: area('ap1') });
   s.exec({ type: 'addSheet', sheet: folha() });
   return s;
@@ -83,15 +83,18 @@ describe('SheetViewSource por viewId', () => {
     const p = montar().project;
     expect(viewSourceIssue(p, { kind: 'plan', viewId: 'nada' })).not.toBeNull();
     expect(viewSourceIssue(p, { kind: 'plan', viewId: 'ap1' })).toBeNull();
-    expect(viewSourceIssue(p, { kind: 'plan', viewId: roofViewId(LV0) })).not.toBeNull();
+    // A cobertura migrada é planta de piso comum: passa a ser fonte válida.
+    expect(viewSourceIssue(p, { kind: 'plan', viewId: roofViewId(LV0) })).toBeNull();
   });
 
-  it('cobertura não é fonte de prancha: addViewport e updateViewport recusam; piso e área seguem aceitos', () => {
+  it('cobertura migrada (planta de piso) é fonte de prancha como o piso; forro segue recusado', () => {
     const s = montar();
-    expect(() => s.exec({ type: 'addViewport', sheetId: 'sh1', viewport: vp('vr', { kind: 'plan', viewId: roofViewId(LV0) }) })).toThrow();
+    s.exec({ type: 'addViewport', sheetId: 'sh1', viewport: vp('vr', { kind: 'plan', viewId: roofViewId(LV0) }) });
+    s.exec({ type: 'removeViewport', sheetId: 'sh1', id: 'vr' });
     s.exec({ type: 'addViewport', sheetId: 'sh1', viewport: vp('vf', { kind: 'plan', viewId: floorViewId(LV0) }) });
     s.exec({ type: 'addViewport', sheetId: 'sh1', viewport: vp('va', { kind: 'plan', viewId: 'ap1' }) });
-    expect(() => s.exec({ type: 'updateViewport', sheetId: 'sh1', id: 'vf', patch: { view: { kind: 'plan', viewId: roofViewId(LV0) } } })).toThrow();
+    s.exec({ type: 'addPlanView', view: { id: 'pvc_forro', kind: 'ceiling', levelId: LV0, name: 'Forro' } });
+    expect(() => s.exec({ type: 'updateViewport', sheetId: 'sh1', id: 'vf', patch: { view: { kind: 'plan', viewId: 'pvc_forro' } } })).toThrow();
     expect(s.project.sheets![0]!.viewports).toHaveLength(2);
   });
 

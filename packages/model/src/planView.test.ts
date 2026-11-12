@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  createEmptyProject,
+  projetoComCoberturaDeTeste,
   DEFAULT_AREA_GRAPHICS,
   DEFAULT_VIEW_RANGE,
   floorViewId,
@@ -19,7 +19,7 @@ import {
   validateProject,
   resolveFloorProfile,
   resolveViewProfile,
-  roofViewId,
+  legacyRoofViewId as roofViewId,
   viewAnnotationsOf,
   viewGraphicsOf,
   viewProfileOf,
@@ -38,8 +38,9 @@ const area = (id: string, levelId: string, over: Partial<AreaPlan> = {}): AreaPl
 
 /** lv_0 (anotações, graphics, hidden da cobertura, intervalo próprio), lv_1 padrão, lv_2 padrão; três plantas de área. */
 function montar(): ProjectStore {
-  const s = new ProjectStore(createEmptyProject());
+  const s = new ProjectStore(projetoComCoberturaDeTeste());
   s.exec({ type: 'upsertLevel', level: makeLevel({ id: 'lv_2', name: 'Cobertura', elevation: 6 }) });
+  s.exec({ type: 'addPlanView', view: { id: roofViewId('lv_2'), kind: 'floor', levelId: 'lv_2', name: 'Cobertura: Cobertura', showRoofOnTop: true } });
   s.exec({ type: 'setLevelViewRange', levelId: 'lv_0', patch: { cut: 1.0, top: 2.0 } });
   s.exec({ type: 'setLevelGraphics', levelId: 'lv_0', patch: { scale: 50, overrides: { wall: { halftone: true } } } });
   s.exec({ type: 'setViewHidden', target: { kind: 'plan', viewId: floorViewId('lv_0') }, hidden: { elements: ['w1'], categories: ['door'] } });
@@ -56,11 +57,12 @@ function montar(): ProjectStore {
 }
 
 describe('ids determinísticos', () => {
-  it('piso, cobertura e o inverso', () => {
+  it('piso e o inverso; pvr_ não decodifica mais como tipo', () => {
     expect(floorViewId('lv_0')).toBe('pv_lv_0');
     expect(roofViewId('lv_0')).toBe('pvr_lv_0');
     expect(planViewRef('pv_lv_0')).toEqual({ kind: 'floor', levelId: 'lv_0' });
-    expect(planViewRef('pvr_lv_0')).toEqual({ kind: 'roof', levelId: 'lv_0' });
+    expect(planViewRef('pvr_lv_0')).toBeUndefined();
+    expect(planViewRef('pvc_x')).toBeUndefined();
     expect(planViewRef('ap1')).toBeUndefined();
     expect(planViewRef('pv_')).toBeUndefined();
     expect(planViewRef(floorViewId('r_x'))).toEqual({ kind: 'floor', levelId: 'r_x' });
@@ -69,7 +71,7 @@ describe('ids determinísticos', () => {
   it('planViewRefOf resolve também a planta de área', () => {
     const p = montar().project;
     expect(planViewRefOf(p, 'ap_propria')).toEqual({ kind: 'area', levelId: 'lv_0' });
-    expect(planViewRefOf(p, 'pvr_lv_1')).toEqual({ kind: 'roof', levelId: 'lv_1' });
+    expect(planViewRefOf(p, 'pvr_lv_1')).toEqual({ kind: 'floor', levelId: 'lv_1' });
     expect(planViewRefOf(p, 'nada')).toBeUndefined();
   });
 });
@@ -77,9 +79,9 @@ describe('ids determinísticos', () => {
 describe('leitura direta de Project.planViews', () => {
   const p = montar().project;
 
-  it('cada nível gera piso e cobertura, e cada planta de área gera a sua vista', () => {
+  it('cada nível gera o piso (a cobertura migrada é planta de piso comum), e cada planta de área gera a sua vista', () => {
     expect(planViewsOf(p).map((v) => [v.id, v.kind])).toEqual([
-      ['pv_lv_0', 'floor'], ['pvr_lv_0', 'roof'], ['pv_lv_1', 'floor'], ['pvr_lv_1', 'roof'], ['pv_lv_2', 'floor'], ['pvr_lv_2', 'roof'],
+      ['pv_lv_0', 'floor'], ['pv_lv_1', 'floor'], ['pv_lv_2', 'floor'], ['pvr_lv_0', 'floor'], ['pvr_lv_1', 'floor'], ['pvr_lv_2', 'floor'],
       ['ap_herda', 'area'], ['ap_propria', 'area'], ['ap_vazia', 'area'],
     ]);
     expect(planViewsOfLevel(p, 'lv_0').map((v) => v.id)).toEqual(['pv_lv_0', 'pvr_lv_0', 'ap_herda', 'ap_propria']);
@@ -112,11 +114,11 @@ describe('leitura direta de Project.planViews', () => {
     expect(viewAnnotationsOf(p, f.id)).toEqual({ dimensions: [], texts: [], detailLines: [], detailRegions: [], tags: [] });
   });
 
-  it('cobertura: ocultos próprios; gráficos propagados do nível; intervalo padrão; anotações próprias (vazias aqui)', () => {
+  it('cobertura migrada: ocultos próprios; gráficos propagados do nível; faixa propagada pelo comando antigo; anotações próprias (vazias aqui)', () => {
     expect(planViewHiddenOf(p, 'pvr_lv_0')).toEqual({ categories: ['stair'] });
     expect(planViewHiddenOf(p, 'pvr_lv_0')).not.toEqual(planViewHiddenOf(p, 'pv_lv_0'));
     expect(viewGraphicsOf(p, 'pvr_lv_0')).toEqual(levelGraphicsOf(p, 'lv_0'));
-    expect(planViewRangeOf(p, 'pvr_lv_0')).toEqual(DEFAULT_VIEW_RANGE);
+    expect(planViewRangeOf(p, 'pvr_lv_0')).toEqual(planViewRangeOf(p, 'pv_lv_0'));
     // Esquema 24: a cobertura não repete as anotações do piso.
     expect(viewAnnotationsOf(p, 'pvr_lv_0')).toEqual({ dimensions: [], texts: [], detailLines: [], detailRegions: [], tags: [] });
     expect(viewAnnotationsOf(p, 'pvr_lv_0')).not.toBe(viewAnnotationsOf(p, 'pv_lv_0'));
@@ -169,7 +171,6 @@ describe('leitura direta de Project.planViews', () => {
 
   it('mainPlanViewOf: devolve a principal e lança erro claro para nível inexistente', () => {
     expect(mainPlanViewOf(p, 'lv_1', 'floor')).toBe(planViewOf(p, 'pv_lv_1'));
-    expect(mainPlanViewOf(p, 'lv_1', 'roof')).toBe(planViewOf(p, 'pvr_lv_1'));
     expect(() => mainPlanViewOf(p, 'lv_x', 'floor')).toThrow(/lv_x/);
   });
 

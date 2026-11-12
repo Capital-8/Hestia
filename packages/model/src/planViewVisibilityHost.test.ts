@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_AREA_GRAPHICS, ProjectStore, annotationHostsInView, annotationIdsOnHiddenHosts, annotationIdsWithHiddenHostInView, createEmptyProject,
-  dimensionRefIds, floorViewId, hiddenByUserIdsInView, hiddenByUserInView, hiddenIdsInView, makeWall, planViewsOfLevel, roofViewId,
+  dimensionRefIds, floorViewId, hiddenByUserIdsInView, hiddenByUserInView, hiddenIdsInView, makeWall, planViewsOfLevel, legacyRoofViewId as roofViewId,
   visibleInView, withAreaPlansOfTest, withViewPatchOfTest, type AreaPlan, type Dimension, type ElementTag, type Project,
 } from './index.ts';
 

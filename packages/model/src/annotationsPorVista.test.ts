@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ProjectStore, annotationIdsIn, annotationMoveCommands, createEmptyProject, floorViewId, roofViewId, viewAnnotationsOf, type Dimension, type TextNote } from './index.ts';
+import { ProjectStore, projetoComCoberturaDeTeste, annotationIdsIn, annotationMoveCommands, floorViewId, legacyRoofViewId as roofViewId, viewAnnotationsOf, type Dimension, type TextNote } from './index.ts';
 
 const LV0 = 'lv_0';
 const dim = (id: string): Dimension => ({ id, a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, offset: 1, mode: 'aligned' });
@@ -7,7 +7,7 @@ const texto = (id: string): TextNote => ({ id, at: { x: 1, y: 1 }, text: id, hei
 
 /** Uma cota e um texto no piso e outros na cobertura. */
 function montar(): ProjectStore {
-  const s = new ProjectStore(createEmptyProject());
+  const s = new ProjectStore(projetoComCoberturaDeTeste());
   s.exec({ type: 'addDimension', levelId: LV0, dimension: dim('dp') });
   s.exec({ type: 'addText', levelId: LV0, text: texto('tp') });
   s.exec({ type: 'addDimension', levelId: LV0, viewId: roofViewId(LV0), dimension: dim('dc') });

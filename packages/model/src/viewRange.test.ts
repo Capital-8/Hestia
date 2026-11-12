@@ -72,7 +72,7 @@ describe('migração 14 → 15 (intervalo de vista)', () => {
   it('todo nível antigo ganha o padrão e preserva id, nome e cota', () => {
     const m = migrateProject(legacyV14());
     expect(m.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(SCHEMA_VERSION).toBe(24);
+    expect(SCHEMA_VERSION).toBe(25);
     expect(m.levels).toEqual([
       { id: 'lv_0', name: 'Térreo', elevation: 0 },
       { id: 'lv_m', name: 'Mezanino', elevation: 1.5 },
@@ -204,7 +204,7 @@ describe('serialização do intervalo de vista (abrir e salvar)', () => {
     const s = new ProjectStore(migrateProject(legacyV14()));
     s.exec({ type: 'setLevelViewRange', levelId: LV0, patch: { cut: 1.0 } });
     const volta = roundTrip(s.project);
-    expect(volta.schemaVersion).toBe(24);
+    expect(volta.schemaVersion).toBe(25);
     expect(planViewRangeOf(volta, floorViewId(LV0))).toEqual({ ...DEFAULT_VIEW_RANGE, cut: 1.0 });
     expect(planViewRangeOf(volta, floorViewId('lv_m'))).toEqual(DEFAULT_VIEW_RANGE);
   });

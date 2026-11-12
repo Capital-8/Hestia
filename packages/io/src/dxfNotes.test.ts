@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ProjectStore, createEmptyProject, angularDimensionData, makeWall, DEFAULT_AREA_GRAPHICS, floorViewId, roofViewId } from '@hestia/model';
+import { ProjectStore, createEmptyProject, angularDimensionData, makeWall, DEFAULT_AREA_GRAPHICS, floorViewId, legacyRoofViewId as roofViewId } from '@hestia/model';
 import { DXF_LAYER_COTAS, DXF_LAYER_TEXTOS, dxfTextEntity, notesDxfOf, viewNotesDxfOf } from './dxfNotes.ts';
 import { exportDxf, type DxfLevelGeometry } from './dxf.ts';
 

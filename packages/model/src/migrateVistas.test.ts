@@ -26,6 +26,9 @@ const NOMES = readdirSync(DIR).filter((f) => f.endsWith('.json')).sort();
 const bruto = (f: string): Bruto => JSON.parse(readFileSync(new URL(f, DIR), 'utf8')) as Bruto;
 const migrado = (f: string): Project => migrateProject(bruto(f));
 
+/** Desde o esquema 25 a antiga cobertura é planta de piso `pvr_<nível>` com `showRoofOnTop`. */
+const ehCobertura = (v: { id: string; kind: string; showRoofOnTop?: boolean }): boolean => v.id.startsWith('pvr_') && v.kind === 'floor' && v.showRoofOnTop === true;
+
 const FAMILIAS = ['dimensions', 'texts', 'detailLines', 'detailRegions', 'tags'] as const;
 type Familia = (typeof FAMILIAS)[number];
 type Item = { id: string; [k: string]: unknown };
@@ -66,8 +69,8 @@ describe('migração 23 → 24: testes 1 a 8', () => {
   it('1. cada projeto do ouro migra sem erro e passa na validação', () => {
     for (const f of NOMES) {
       const p = migrado(f);
-      expect(p.schemaVersion, f).toBe(24);
-      expect(SCHEMA_VERSION).toBe(24);
+      expect(p.schemaVersion, f).toBe(25);
+      expect(SCHEMA_VERSION).toBe(25);
       expect(validateProject(p).filter((i) => i.severity === 'error'), f).toEqual([]);
       expect(validateProject(p).filter((i) => i.code.startsWith('plan-view')), f).toEqual([]);
     }
@@ -79,9 +82,9 @@ describe('migração 23 → 24: testes 1 a 8', () => {
       const p = migrado(f);
       const noivel = (fam: Familia): number => b.levels.reduce((n, l) => n + lista(l, fam).length, 0);
       for (const fam of FAMILIAS) {
-        const piso = planViewsOf(p).filter((v) => v.kind === 'floor').reduce((n, v) => n + comoAnots(v.annotations)[fam]!.length, 0);
+        const piso = planViewsOf(p).filter((v) => v.kind === 'floor' && !ehCobertura(v)).reduce((n, v) => n + comoAnots(v.annotations)[fam]!.length, 0);
         expect(piso, `${f} piso ${fam}`).toBe(noivel(fam));
-        const cobertura = planViewsOf(p).filter((v) => v.kind === 'roof').reduce((n, v) => n + comoAnots(v.annotations)[fam]!.length, 0);
+        const cobertura = planViewsOf(p).filter(ehCobertura).reduce((n, v) => n + comoAnots(v.annotations)[fam]!.length, 0);
         expect(cobertura, `${f} cobertura ${fam}`).toBe(b.levels.filter((l) => temTelhado(b, l.id)).reduce((n, l) => n + lista(l, fam).length, 0));
         const area = planViewsOf(p).filter((v) => v.kind === 'area').reduce((n, v) => n + comoAnots(v.annotations)[fam]!.length, 0);
         const esperadaArea = (b.areaPlans ?? []).filter((a) => b.levels.some((l) => l.id === a.levelId)).reduce((n, a) => n + lista(esperadoDaArea(b, a), fam).length, 0);
@@ -130,9 +133,9 @@ describe('migração 23 → 24: testes 1 a 8', () => {
       for (const v of planViewsOf(p)) expect(niveis.has(v.levelId), `${f} ${v.id}`).toBe(true);
       for (const l of p.levels) {
         expect(planViewsOf(p).filter((v) => v.id === `pv_${l.id}` && v.kind === 'floor' && v.levelId === l.id), `${f} ${l.id}`).toHaveLength(1);
-        expect(planViewsOf(p).filter((v) => v.id === `pvr_${l.id}` && v.kind === 'roof' && v.levelId === l.id), `${f} ${l.id}`).toHaveLength(1);
-        expect(planViewsOf(p).filter((v) => v.levelId === l.id && v.kind === 'floor'), `${f} ${l.id}`).toHaveLength(1);
-        expect(planViewsOf(p).filter((v) => v.levelId === l.id && v.kind === 'roof'), `${f} ${l.id}`).toHaveLength(1);
+        expect(planViewsOf(p).filter((v) => v.id === `pvr_${l.id}` && ehCobertura(v) && v.levelId === l.id), `${f} ${l.id}`).toHaveLength(1);
+        expect(planViewsOf(p).filter((v) => v.levelId === l.id && v.kind === 'floor' && !ehCobertura(v)), `${f} ${l.id}`).toHaveLength(1);
+        expect(planViewsOf(p).filter((v) => v.levelId === l.id && ehCobertura(v)), `${f} ${l.id}`).toHaveLength(1);
       }
       // Ordem: por nível (piso e cobertura), depois as plantas de área na ordem original.
       const esperada = [...p.levels.flatMap((l) => [`pv_${l.id}`, `pvr_${l.id}`]), ...(b(f).areaPlans ?? []).filter((a) => niveis.has(a.levelId)).map((a) => a.id)];
@@ -187,11 +190,11 @@ describe('migração 23 → 24: testes 1 a 8', () => {
     }
   });
 
-  it('8. o arquivo de esquema antigo (projeto 08, v6) percorre a cadeia até a 24', () => {
+  it('8. o arquivo de esquema antigo (projeto 08, v6) percorre a cadeia até a 25', () => {
     const raw = bruto('08-legado-v6.json');
     expect(raw.schemaVersion).toBe(6);
     const p = migrateProject(raw);
-    expect(p.schemaVersion).toBe(24);
+    expect(p.schemaVersion).toBe(25);
     expect(planViewsOf(p).map((v) => v.id)).toEqual(p.levels.flatMap((l) => [`pv_${l.id}`, `pvr_${l.id}`]));
     expect(planViewRangeOf(p, `pv_${p.levels[0]!.id}`)).toEqual(expect.objectContaining({ top: expect.any(Number), cut: expect.any(Number) }));
     expect(validateProject(p).filter((i) => i.severity === 'error')).toEqual([]);
@@ -222,9 +225,11 @@ describe('migração 23 → 24: teste 9 (leituras da API = projeção da Fase 1)
     for (const v of planViewsOf(p)) {
       const old = antigo.views[v.id]!;
       const rotulo = `${f} ${v.id}`;
-      expect(v.kind, rotulo).toBe(old.kind);
+      // A projeção congelada é da Fase 1 (tipo `roof`); no esquema 25 a cobertura é planta de piso com `showRoofOnTop`.
+      expect(v.kind, rotulo).toBe(old.kind === 'roof' ? 'floor' : old.kind);
+      expect(ehCobertura(v), rotulo).toBe(old.kind === 'roof');
       expect(v.levelId, rotulo).toBe(old.levelId);
-      expect(v.name, rotulo).toBe(old.name);
+      expect(v.name, rotulo).toBe(old.kind === 'roof' && old.name === p.levels.find((l) => l.id === v.levelId)!.name ? `Cobertura: ${old.name}` : old.name);
       expect(json(planViewRangeOf(p, v.id)), rotulo).toEqual(old.viewRange);
       expect(json(viewGraphicsOf(p, v.id)), rotulo).toEqual(old.graphics);
       expect(json(viewProfileOf(p, v.id)), rotulo).toEqual(old.profile);
@@ -234,8 +239,8 @@ describe('migração 23 → 24: teste 9 (leituras da API = projeção da Fase 1)
       // e de famílias que a planta de área não desenha (agora a cópia só existe onde era desenhada).
       const nivel = raw.levels.find((l) => l.id === v.levelId)!;
       let esperado: Anots;
-      if (v.kind === 'floor') esperado = old.annotations;
-      else if (v.kind === 'roof') esperado = temTelhado(raw, v.levelId) ? old.annotations : {};
+      if (ehCobertura(v)) esperado = temTelhado(raw, v.levelId) ? old.annotations : {};
+      else if (v.kind === 'floor') esperado = old.annotations;
       else esperado = esperadoDaArea(raw, raw.areaPlans!.find((a) => a.id === v.id)!);
       for (const fam of FAMILIAS) {
         const atual = json(comoAnots(v.annotations)[fam]!).map((x) => ({ ...x, id: semSufixo(x.id, v.id) }));
