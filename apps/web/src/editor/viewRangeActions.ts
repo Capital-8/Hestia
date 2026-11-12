@@ -1,7 +1,12 @@
-import { DEFAULT_VIEW_RANGE, floorViewId, planViewOf, planViewRangeOf, type Id, type ProjectStore, type ViewRange } from '@hestia/model';
+import { DEFAULT_VIEW_RANGE, floorViewId, planViewOf, planViewRangeOf, type Id, type Project, type ProjectStore, type ViewRange } from '@hestia/model';
 import { t, useI18n } from './i18n.ts';
 
 /** Resultado de uma edição do intervalo de vista: `error` traz a mensagem pt-BR de quem recusou (nada é gravado). */
+/** A planta de cobertura não usa intervalo de vista (o model recusa a edição): a interface mostra o grupo desabilitado. */
+export function viewRangeEditable(p: Project, viewId: Id): boolean {
+  return planViewOf(p, viewId)?.kind !== 'roof';
+}
+
 export interface ViewRangeEdit {
   ok: boolean;
   error: string | null;

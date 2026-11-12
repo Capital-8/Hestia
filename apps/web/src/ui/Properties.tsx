@@ -32,7 +32,7 @@ import {
 } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
 import { fmtNum, t as traduz, toolLabel, useT, type Lang } from '../editor/i18n.ts';
-import { editPlanViewRange, restorePlanViewRangeDefault } from '../editor/viewRangeActions.ts';
+import { editPlanViewRange, restorePlanViewRangeDefault, viewRangeEditable } from '../editor/viewRangeActions.ts';
 import { setGridStep, setRoofProjection, setSnap, useUi } from '../editor/state.ts';
 import { areaViewIdDeFundo, planViewIdDeFundo, tipoDeVistaDeFundo } from '../editor/vistaAtiva.ts';
 import { avisoSemNivelAcima, proximoNivelAcima, setBaseNoPiso, setTopoNoPiso } from '../editor/wallFloorActions.ts';
@@ -331,24 +331,26 @@ function ViewRangeGroup({ levelId, viewId }: { levelId: Id; viewId?: Id }): Reac
   const p = useProject();
   const vid = viewId || floorViewId(levelId);
   const range = planViewRangeOf(p, vid);
+  const editable = viewRangeEditable(p, vid);
   // Classificar o nível resolve pisos, lajes e telhados do projeto: fica fora do clique e em cache por projeto.
   const warnings = useAdiadoEmSegundoPlano(p, `avisos-vista|${levelId}|${JSON.stringify(range)}`, () => viewRangeWarnings(p, levelId, range, contextoDaVista(p, levelId), lang), () => { const c = clienteAvisosCompartilhado('vista'); return c.disponivel ? c.vista(p, levelId, range, lang) : null; }) ?? [];
   const [error, setError] = useState<string | null>(null);
-  const edit = (patch: Partial<ViewRange>): void => setError(editPlanViewRange(editor.store, vid, patch).error);
+  const edit = (patch: Partial<ViewRange>): void => { if (editable) setError(editPlanViewRange(editor.store, vid, patch).error); };
   return (
     <Group title={t('prc_pgrp_view_range')} stateKey="view-range">
-      <Row label={t('prc_fld_top')} htmlFor="vr-top"><NumField id="vr-top" value={range.top} quantity="length" onCommit={(v) => edit({ top: v })} /></Row>
-      <Row label={t('prc_fld_cut_plane')} htmlFor="vr-cut"><NumField id="vr-cut" value={range.cut} quantity="length" onCommit={(v) => edit({ cut: v })} /></Row>
-      <Row label={t('prc_fld_bottom')} htmlFor="vr-bottom"><NumField id="vr-bottom" value={range.bottom} quantity="length" onCommit={(v) => edit({ bottom: v })} /></Row>
-      <Row label={t('prc_fld_depth')} htmlFor="vr-depth"><NumField id="vr-depth" value={range.depth} quantity="length" onCommit={(v) => edit({ depth: v })} /></Row>
+      <Row label={t('prc_fld_top')} htmlFor="vr-top"><NumField id="vr-top" disabled={!editable} value={range.top} quantity="length" onCommit={(v) => edit({ top: v })} /></Row>
+      <Row label={t('prc_fld_cut_plane')} htmlFor="vr-cut"><NumField id="vr-cut" disabled={!editable} value={range.cut} quantity="length" onCommit={(v) => edit({ cut: v })} /></Row>
+      <Row label={t('prc_fld_bottom')} htmlFor="vr-bottom"><NumField id="vr-bottom" disabled={!editable} value={range.bottom} quantity="length" onCommit={(v) => edit({ bottom: v })} /></Row>
+      <Row label={t('prc_fld_depth')} htmlFor="vr-depth"><NumField id="vr-depth" disabled={!editable} value={range.depth} quantity="length" onCommit={(v) => edit({ depth: v })} /></Row>
       <Row label={t('prc_fld_view_direction')} htmlFor="vr-dir">
-        <select id="vr-dir" className="select" value={range.direction} onChange={(e) => edit({ direction: e.target.value as ViewRange['direction'] })}>
+        <select id="vr-dir" className="select" disabled={!editable} value={range.direction} onChange={(e) => edit({ direction: e.target.value as ViewRange['direction'] })}>
           <option value="down">{t('prc_opt_view_down')}</option>
           <option value="up">{t('prc_opt_view_up_ceiling')}</option>
         </select>
       </Row>
+      {!editable && <div className="hint">{t('prc_msg_roof_plan_no_view_range')}</div>}
       {error && <div className="vr-error" role="alert">{error}</div>}
-      <div className="prow"><span /><button className="btn small" onClick={() => setError(restorePlanViewRangeDefault(editor.store, vid).error)}>{t('prc_btn_restore_view_range')}</button></div>
+      <div className="prow"><span /><button className="btn small" disabled={!editable} onClick={() => setError(restorePlanViewRangeDefault(editor.store, vid).error)}>{t('prc_btn_restore_view_range')}</button></div>
       {warnings.length === 0 ? (
         <div className="hint">{t('prc_msg_no_elements_outside_range')}</div>
       ) : (

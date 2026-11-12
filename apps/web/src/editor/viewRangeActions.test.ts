@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_VIEW_RANGE, ProjectStore, createEmptyProject, makeWall, planViewRangeOf, floorViewId, type Wall } from '@hestia/model';
+import { DEFAULT_VIEW_RANGE, ProjectStore, createEmptyProject, makeWall, planViewRangeOf, floorViewId, roofViewId, type Wall } from '@hestia/model';
 import { viewRangeWarnings } from '@hestia/engine';
-import { editViewRange, restoreViewRangeDefault } from './viewRangeActions.ts';
+import { editViewRange, restoreViewRangeDefault, viewRangeEditable } from './viewRangeActions.ts';
 import { resolveText } from './i18n.ts';
 
 function store(): ProjectStore {
@@ -129,5 +129,13 @@ describe('avisos do intervalo (viewRangeWarnings) na edição', () => {
     const ids = viewRangeWarnings(s.project, 'lv_0', planViewRangeOf(s.project, floorViewId('lv_0'))).flatMap((w) => w.ids);
     expect(ids).not.toContain('w2');
     expect((s.project.elements.w2 as Wall).levelId).toBe('lv_1');
+  });
+});
+
+describe('planta de cobertura não oferece edição do intervalo de vista', () => {
+  it('viewRangeEditable: só a planta de cobertura é desabilitada', () => {
+    const s = store();
+    expect(viewRangeEditable(s.project, floorViewId('lv_0'))).toBe(true);
+    expect(viewRangeEditable(s.project, roofViewId('lv_0'))).toBe(false);
   });
 });
