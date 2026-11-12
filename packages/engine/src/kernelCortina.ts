@@ -14,7 +14,10 @@ import type { ExtremidadeCortinaKernel } from './cortinaExtremidades.ts';
 import {
   COLUNAS_CORTINA,
   ENUM_CORTINA,
+  AJUSTE_ESQUADRIA,
+  ALINHAMENTO_ESQUADRIA,
   FLAGS_EXTREMIDADE,
+  FLAG_CORTINA_HOSPEDADA,
   HERDA_CORTINA,
   ID_AUSENTE_CORTINA,
   NOMES_SECOES_CORTINA,
@@ -117,6 +120,41 @@ export interface CortinaKernel {
    * `noJoin` de cada ponta vem do modelo (`Wall.noJoinStart/End`).
    */
   extremidades?: readonly ExtremidadeCortinaKernel[];
+  /** Cortina embutida numa parede comum (fase 5, seção 113): o vão no hospedeiro. A posição da cortina (a, b, zBase, height) já é o espelho dele. */
+  hospedeiro?: HospedeiroCortinaKernel;
+}
+
+/** Vão da cortina embutida no hospedeiro (`CurtainHost` do modelo): centro ao longo do hospedeiro a partir de `a`, largura, peitoril sobre a base e altura (m). */
+export interface HospedeiroCortinaKernel {
+  wallId: string;
+  offset: number;
+  width: number;
+  sill: number;
+  height: number;
+}
+
+/** Esquadria numa célula (fase 5, seção 112): a chave da célula é a de `celulasSobrescritas`; `tipoAbertura` é o id de um tipo de `EntradaCenaCortina.tiposAbertura`. */
+export interface EsquadriaCelulaKernel {
+  i: number;
+  j: number;
+  nu: number;
+  nv: number;
+  s: number;
+  z: number;
+  tipoAbertura: string;
+  flipHand: boolean;
+  flipFacing: boolean;
+  /** 'cell' (padrão) preenche a célula; 'grid' = a grade foi ajustada ao tamanho nominal. */
+  fit?: 'cell' | 'grid';
+  align?: 'center' | 'start' | 'end';
+  /** Peitoril por instância (m). Ausente ou null = a base da região. */
+  sillOverride?: number | null;
+}
+
+/** Tipo de abertura da seção 7 (`tipos_abertura`), sem `id_num`: as colunas por nome (ver `colunasDoTipoAbertura` de `kernelA3.ts`). */
+export interface TipoAberturaKernel {
+  id: string;
+  valores: Readonly<Record<string, number>>;
 }
 
 /**
@@ -130,6 +168,8 @@ export interface SobrescritasCortinaKernel {
   /** `montante`: ausente = herda do eixo; `null` = sem montante; um id = o tipo. */
   linhasSobrescritas?: readonly { eixo: 'u' | 'v'; linha: number; n: number; posNorm: number; pos?: number; travada?: boolean; comprimentoGravado: number; montante?: string | null }[];
   celulasSobrescritas?: readonly { i: number; j: number; nu: number; nv: number; s: number; z: number; painel: string }[];
+  /** Esquadrias nas células (fase 5, seção 112). */
+  esquadrias?: readonly EsquadriaCelulaKernel[];
 }
 
 export type { ExtremidadeCortinaKernel } from './cortinaExtremidades.ts';
@@ -139,6 +179,10 @@ export interface EntradaCenaCortina {
   paineis: readonly PainelKernel[];
   tipos: readonly TipoCortinaKernel[];
   cortinas: readonly CortinaKernel[];
+  /** Tipos de abertura (seção 7) que as esquadrias das células referenciam; só os usados. */
+  tiposAbertura?: readonly TipoAberturaKernel[];
+  /** `hospedeiro_num` (a `id_num` da parede hospedeira na seção 1 do kernel das paredes) de uma cortina embutida; ausente ou sem resposta = `ID_AUSENTE`. */
+  hospedeiroNum?: (wallId: string) => number | undefined;
   /** `material_num` de um material do modelo (o mesmo mapa da cena das paredes, se houver); `null` ou ausente = `ID_AUSENTE`. */
   materialNum?: (id: string | null | undefined) => number;
 }
@@ -160,6 +204,8 @@ export interface CenaCortina {
   tipoDe: Map<string, number>;
   montanteDe: Map<string, number>;
   painelDe: Map<string, number>;
+  /** id do tipo de abertura -> `id_num` na seção 7 (fase 5). */
+  tipoAberturaDe: Map<string, number>;
 }
 
 const novoInternador = (): Internador => ({ mapa: new Map(), proximo: 1 });
@@ -191,7 +237,7 @@ function linhaDeGrade(id: number, dono: number, donoNum: number, eixo: number, a
 }
 
 /**
- * Monta as seções 100 a 105. Entram só os tipos de cortina usados por alguma cortina e, deles, os montantes e painéis referenciados; cortina de tipo
+ * Monta as seções 100 a 113 (mais a 7, os tipos de abertura das esquadrias). Entram só os tipos de cortina usados por alguma cortina e, deles, os montantes e painéis referenciados; cortina de tipo
  * inexistente é um erro de quem chama (o validador do modelo já aponta o tipo ausente).
  */
 export function montarCenaCortina(e: EntradaCenaCortina, anterior?: CenaCortina): CenaCortina {
@@ -217,6 +263,12 @@ export function montarCenaCortina(e: EntradaCenaCortina, anterior?: CenaCortina)
   };
   const material = (id: string | null | undefined): number => (e.materialNum ? e.materialNum(id) : ID_AUSENTE_CORTINA);
 
+  const tipoAberturaDe = new Map<string, number>();
+  for (const t of [...(e.tiposAbertura ?? [])].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))) {
+    const n = idDe('tipos_abertura', t.id);
+    tipoAberturaDe.set(t.id, n);
+    push('tipos_abertura', { id_num: n, ...t.valores });
+  }
   const tiposPorId = new Map(e.tipos.map((t) => [t.id, t]));
   const montantesPorId = new Map(e.montantes.map((m) => [m.id, m]));
   const paineisPorId = new Map(e.paineis.map((p) => [p.id, p]));
@@ -365,6 +417,30 @@ export function montarCenaCortina(e: EntradaCenaCortina, anterior?: CenaCortina)
     );
   }
 
+  /** Esquadrias das células (seção 112): a chave da célula e o tipo da seção 7; tipo desconhecido não entra. */
+  function esquadrias(cortina: number, chaveCortina: string, lista: readonly EsquadriaCelulaKernel[]): void {
+    lista.forEach((x, k) => {
+      const tipo = tipoAberturaDe.get(x.tipoAbertura);
+      if (tipo === undefined) return;
+      push('cortina_celulas_abertura', {
+        id_num: idDe('cortina_celulas_abertura', `${chaveCortina}:${k}`),
+        cortina_num: cortina,
+        i: x.i,
+        j: x.j,
+        s: x.s,
+        z: x.z,
+        nu: x.nu,
+        nv: x.nv,
+        tipo_abertura_num: tipo,
+        flip_mao: x.flipHand ? 1 : 0,
+        flip_sentido: x.flipFacing ? 1 : 0,
+        ajuste: x.fit === 'grid' ? AJUSTE_ESQUADRIA.grade : AJUSTE_ESQUADRIA.preencher,
+        alinhamento: ALINHAMENTO_ESQUADRIA[x.align ?? 'center'],
+        soleira: typeof x.sillOverride === 'number' ? Math.max(0, x.sillOverride) : NAN,
+      });
+    });
+  }
+
   const ordenadas = [...e.cortinas].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   // Os números de todas as cortinas antes das linhas: a seção 110 aponta para a vizinha, que pode vir depois na ordem.
   for (const c of ordenadas) cortinaDe.set(c.id, idDe('cortinas', c.id));
@@ -421,14 +497,26 @@ export function montarCenaCortina(e: EntradaCenaCortina, anterior?: CenaCortina)
       flipped: c.flipped ? 1 : 0,
       loc: codigoCortina(ENUM_CORTINA.locationLine, c.locationLine ?? 'wallCenter', 'linha de localização'),
       // Bit 0: há sobrescrita de grade; bits 2 e 3: junção desligada no início e no fim (ADR §6.2; o Rust lê a de cada ponta da seção 110).
-      flags: sobrescreveGrade | (c.extremidades?.some((x) => x.fim === 'start' && x.noJoin) ? 4 : 0) | (c.extremidades?.some((x) => x.fim === 'end' && x.noJoin) ? 8 : 0),
+      flags: sobrescreveGrade | (c.hospedeiro ? FLAG_CORTINA_HOSPEDADA : 0) | (c.extremidades?.some((x) => x.fim === 'start' && x.noJoin) ? 4 : 0) | (c.extremidades?.some((x) => x.fim === 'end' && x.noJoin) ? 8 : 0),
       painel_padrao_num: c.defaultPanelTypeId ? painel(c.defaultPanelTypeId) : ID_AUSENTE_CORTINA,
       hosp_num: ID_AUSENTE_CORTINA,
     });
     for (const [eixo, a] of [[ENUM_CORTINA.eixo.u, c.grid?.u], [ENUM_CORTINA.eixo.v, c.grid?.v]] as const) if (a) grade(n, ENUM_CORTINA.dono.instancia, `c:${c.id}`, eixo, a);
     if (c.sobrescritas) sobrescrever(n, c.id, c.sobrescritas);
+    if (c.sobrescritas?.esquadrias) esquadrias(n, c.id, c.sobrescritas.esquadrias);
+    if (c.hospedeiro) {
+      push('cortina_hospedes', {
+        id_num: idDe('cortina_hospedes', c.id),
+        cortina_num: n,
+        hospedeiro_num: e.hospedeiroNum?.(c.hospedeiro.wallId) ?? ID_AUSENTE_CORTINA,
+        deslocamento: c.hospedeiro.offset,
+        largura: c.hospedeiro.width,
+        peitoril: c.hospedeiro.sill,
+        altura: c.hospedeiro.height,
+      });
+    }
     extremidades(n, c);
   }
 
-  return { secoes, nLinhas, internadores, cortinaDe, tipoDe, montanteDe, painelDe };
+  return { secoes, nLinhas, internadores, cortinaDe, tipoDe, montanteDe, painelDe, tipoAberturaDe };
 }

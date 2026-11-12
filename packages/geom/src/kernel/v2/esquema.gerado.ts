@@ -1,7 +1,7 @@
 // ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v11.json.
 // Não edite à mão: mude o JSON e rode `node scripts/gerar-esquema-kernel.mjs`.
 
-export const ESQUEMA_VERSAO = 16;
+export const ESQUEMA_VERSAO = 17;
 export const ABI_VERSAO = 2;
 export const NIVEL_TODOS = 4294967295;
 
@@ -2576,6 +2576,102 @@ export const SECOES = {
         "tipo": "f64"
       }
     ]
+  },
+  "cortina_celulas_abertura": {
+    "id": 112,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "cortina_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "i",
+        "tipo": "u32"
+      },
+      {
+        "nome": "j",
+        "tipo": "u32"
+      },
+      {
+        "nome": "s",
+        "tipo": "f64"
+      },
+      {
+        "nome": "z",
+        "tipo": "f64"
+      },
+      {
+        "nome": "nu",
+        "tipo": "u32"
+      },
+      {
+        "nome": "nv",
+        "tipo": "u32"
+      },
+      {
+        "nome": "tipo_abertura_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "flip_mao",
+        "tipo": "u8"
+      },
+      {
+        "nome": "flip_sentido",
+        "tipo": "u8"
+      },
+      {
+        "nome": "ajuste",
+        "tipo": "u8"
+      },
+      {
+        "nome": "alinhamento",
+        "tipo": "u8"
+      },
+      {
+        "nome": "soleira",
+        "tipo": "f64"
+      }
+    ]
+  },
+  "cortina_hospedes": {
+    "id": 113,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "cortina_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "hospedeiro_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "deslocamento",
+        "tipo": "f64"
+      },
+      {
+        "nome": "largura",
+        "tipo": "f64"
+      },
+      {
+        "nome": "peitoril",
+        "tipo": "f64"
+      },
+      {
+        "nome": "altura",
+        "tipo": "f64"
+      }
+    ]
   }
 } as const;
 
@@ -3477,6 +3573,62 @@ export const CONSULTAS = {
         "nome": "valores",
         "tipo": "f64",
         "elementos": "5n"
+      }
+    ]
+  },
+  "cortina_recorte_hospedeiro": {
+    "id": 106,
+    "args": [
+      "nivel_num"
+    ],
+    "saidas": [
+      {
+        "nome": "recortes",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "retangulos",
+        "tipo": "f64",
+        "elementos": "4n"
+      },
+      {
+        "nome": "colisoes",
+        "tipo": "u32",
+        "elementos": "3n"
+      },
+      {
+        "nome": "colisoes_ret",
+        "tipo": "f64",
+        "elementos": "4n"
+      }
+    ]
+  },
+  "cortina_celula_porta": {
+    "id": 107,
+    "args": [
+      "nivel_num"
+    ],
+    "saidas": [
+      {
+        "nome": "portas",
+        "tipo": "u32",
+        "elementos": "10n"
+      },
+      {
+        "nome": "vaos",
+        "tipo": "f64",
+        "elementos": "10n"
+      },
+      {
+        "nome": "linhas",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "linhas_pos",
+        "tipo": "f64",
+        "elementos": "n"
       }
     ]
   }

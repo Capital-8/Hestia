@@ -10,7 +10,8 @@
  *   sobrescrita de cada extra vale; a repetida não. Posição, travamento e montante da sobrescrita substituem os da extra quando vêm.
  * - Montante que não existe no projeto: a linha herda o do eixo (a posição e o travamento continuam valendo). Painel de célula que não existe:
  *   a célula sai (o validador do modelo já aponta a referência quebrada).
- * - Célula com abertura (porta ou janela, fase 5): não entra; a fase 2 só tem painel por célula.
+ * - Célula com abertura (porta ou janela, fase 5): entra como esquadria (seção 112) quando o chamador diz que o tipo existe (`tipoAberturaExiste`);
+ *   sem a função, não entra (comportamento da fase 2). Painel e esquadria na mesma célula: o Rust deixa a esquadria vencer.
  * - Desvio: o kernel não tem "sem montante" para uma linha EXTRA (só para a gerada). Extra com `mullionTypeId: null` herda o montante do
  *   eixo até o contrato ganhar o modo para extras. A linha gerada com `null` vai como "sem montante" normalmente.
  *
@@ -29,6 +30,8 @@ export interface SobrescritasDaInstancia {
   sobrescritas?: SobrescritasCortinaKernel;
   montantes: Id[];
   paineis: Id[];
+  /** Tipos de abertura referenciados pelas esquadrias das células (fase 5): o adaptador precisa deles na seção 7. */
+  aberturas: Id[];
 }
 
 /**
@@ -40,9 +43,12 @@ export function sobrescritasDaInstancia(
   comprimento: { u: number; v: number },
   mont: Readonly<Record<Id, MullionType>>,
   pain: Readonly<Record<Id, CurtainPanelType>>,
+  /** O tipo de abertura existe no projeto? Sem a função, as esquadrias das células não entram (como na fase 2). */
+  tipoAberturaExiste?: (id: Id) => boolean,
 ): SobrescritasDaInstancia {
   const montantes = new Set<Id>();
   const paineis = new Set<Id>();
+  const aberturas = new Set<Id>();
   const montanteValido = (id: Id | undefined): Id | undefined => {
     if (id === undefined || !mont[id]) return undefined;
     montantes.add(id);
@@ -107,7 +113,29 @@ export function sobrescritasDaInstancia(
   }
 
   const celulasSobrescritas: NonNullable<SobrescritasCortinaKernel['celulasSobrescritas']>[number][] = [];
+  const esquadrias: NonNullable<SobrescritasCortinaKernel['esquadrias']>[number][] = [];
   for (const e of inst?.cells ?? []) {
+    if (e.override.kind === 'opening') {
+      // Esquadria na célula (fase 5): referencia um tipo de abertura do projeto; tipo ausente não entra (o validador do modelo o aponta).
+      const o = e.override;
+      if (!tipoAberturaExiste?.(o.openingTypeId)) continue;
+      aberturas.add(o.openingTypeId);
+      esquadrias.push({
+        i: e.key.i,
+        j: e.key.j,
+        nu: e.key.nu,
+        nv: e.key.nv,
+        s: e.key.s,
+        z: e.key.z,
+        tipoAbertura: o.openingTypeId,
+        flipHand: o.flipHand,
+        flipFacing: o.flipFacing,
+        fit: o.fit ?? 'cell',
+        ...(o.align ? { align: o.align } : {}),
+        ...(typeof o.sillOverride === 'number' ? { sillOverride: o.sillOverride } : {}),
+      });
+      continue;
+    }
     if (e.override.kind !== 'panel') continue;
     const painel = e.override.panelTypeId;
     if (!pain[painel]) continue;
@@ -120,6 +148,7 @@ export function sobrescritasDaInstancia(
   if (segmentosRemovidos.length > 0) sob.segmentosRemovidos = segmentosRemovidos;
   if (linhasSobrescritas.length > 0) sob.linhasSobrescritas = linhasSobrescritas;
   if (celulasSobrescritas.length > 0) sob.celulasSobrescritas = celulasSobrescritas;
+  if (esquadrias.length > 0) sob.esquadrias = esquadrias;
   const algo = Object.keys(sob).length > 0;
-  return { ...(algo ? { sobrescritas: sob } : {}), montantes: [...montantes], paineis: [...paineis] };
+  return { ...(algo ? { sobrescritas: sob } : {}), montantes: [...montantes], paineis: [...paineis], aberturas: [...aberturas] };
 }

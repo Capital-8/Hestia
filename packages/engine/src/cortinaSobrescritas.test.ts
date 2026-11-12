@@ -14,8 +14,8 @@ const conv = (inst: CurtainInstance | undefined) => sobrescritasDaInstancia(inst
 
 describe('sobrescritasDaInstancia: tradução do modelo para o adaptador', () => {
   it('instância vazia ou sem sobrescrita não manda nada (nem a chave)', () => {
-    expect(conv(undefined)).toEqual({ montantes: [], paineis: [] });
-    expect(conv({ grid: { u: { count: 3 } } })).toEqual({ montantes: [], paineis: [] });
+    expect(conv(undefined)).toEqual({ montantes: [], paineis: [], aberturas: [] });
+    expect(conv({ grid: { u: { count: 3 } } })).toEqual({ montantes: [], paineis: [], aberturas: [] });
     expect('sobrescritas' in conv({})).toBe(false);
   });
 
@@ -96,6 +96,34 @@ describe('sobrescritasDaInstancia: tradução do modelo para o adaptador', () =>
   });
 });
 
+describe('esquadrias nas células (fase 5)', () => {
+  const chave = { i: 1, j: 0, nu: 4, nv: 2, s: 0.375, z: 0.25 };
+  const existe = (id: string): boolean => id === 'ot_p80';
+  const comTipo = (inst: CurtainInstance) => sobrescritasDaInstancia(inst, COMP, mont, pain, existe);
+
+  it('célula com abertura vira esquadria com a chave da célula, as inversões, o ajuste, o alinhamento e a soleira', () => {
+    const r = comTipo({
+      cells: [
+        { key: chave, override: { kind: 'opening', openingTypeId: 'ot_p80', flipHand: true, flipFacing: false, mark: 'P1' } },
+        { key: { ...chave, i: 2 }, override: { kind: 'opening', openingTypeId: 'ot_p80', flipHand: false, flipFacing: true, fit: 'grid', align: 'end', sillOverride: 0.9, mark: 'P2' } },
+        { key: { ...chave, i: 3 }, override: { kind: 'opening', openingTypeId: 'nao_existe', flipHand: false, flipFacing: false, mark: 'P3' } },
+      ],
+    });
+    expect(r.sobrescritas!.esquadrias).toEqual([
+      { ...chave, tipoAbertura: 'ot_p80', flipHand: true, flipFacing: false, fit: 'cell' },
+      { ...chave, i: 2, tipoAbertura: 'ot_p80', flipHand: false, flipFacing: true, fit: 'grid', align: 'end', sillOverride: 0.9 },
+    ]);
+    expect(r.aberturas).toEqual(['ot_p80']);
+    expect('celulasSobrescritas' in r.sobrescritas!).toBe(false);
+  });
+
+  it('sem a função de existência a esquadria não entra (como na fase 2)', () => {
+    const r = conv({ cells: [{ key: chave, override: { kind: 'opening', openingTypeId: 'ot_p80', flipHand: false, flipFacing: false, mark: 'P1' } }] });
+    expect(r.sobrescritas).toBeUndefined();
+    expect(r.aberturas).toEqual([]);
+  });
+});
+
 describe('entrada do adaptador com as sobrescritas', () => {
   it('a cortina sai com as sobrescritas e os tipos que elas usam entram na entrada', () => {
     const s = new ProjectStore(projetoComCortina());
@@ -158,5 +186,35 @@ describe('avisos 7 a 10 traduzidos com texto pt e en', () => {
     expect(r[3]!.message).toContain('4');
     expect(cortinaAvisosDeGeometria([{ ...base, codigo: AVISO_CORTINA.orfaoCelula }], 'en')[0]!.message).toContain('1.25 m');
     expect(cortinaAvisosDeGeometria([{ ...base, codigo: AVISO_CORTINA.celulaNaoRetangular, medido: 3, limite: 4 }], 'en')[0]!.message).toContain('3-cell');
+  });
+});
+
+describe('esquadria e hospedeiro do modelo até a entrada do adaptador (fase 5)', () => {
+  it('a esquadria da célula entra com o tipo de abertura da seção 7 e muda a assinatura; o hospedeiro vira o vão da seção 113', () => {
+    const s = new ProjectStore(projetoComCortina());
+    const porta = Object.values(s.project.openingTypes).find((t) => t.kind === 'door')!;
+    const antes = entradaCortinaDoProjeto(s.project);
+    s.exec({ type: 'setCellOpening', wallId: 'ct1', i: 1, j: 0, openingTypeId: porta.id, flipHand: false, flipFacing: false, mark: 'P1', fit: 'cell', fundir: true });
+    const e = entradaCortinaDoProjeto(s.project);
+    const c = e.entrada.cortinas.find((x) => x.id === 'ct1')!;
+    expect(c.sobrescritas!.esquadrias).toHaveLength(1);
+    expect(c.sobrescritas!.esquadrias![0]!.tipoAbertura).toBe(porta.id);
+    expect(e.entrada.tiposAbertura!.map((t) => t.id)).toEqual([porta.id]);
+    expect(e.entrada.tiposAbertura![0]!.valores.janela).toBe(0);
+    expect(e.assinaturas.get('ct1')).not.toBe(antes.assinaturas.get('ct1'));
+    const cena = montarCenaCortina(e.entrada);
+    expect(cena.nLinhas.cortina_celulas_abertura).toBe(1);
+    // Removida a esquadria, nada dela fica na entrada (a fusão das células, gravada como segmento removido, permanece, como no comando do modelo).
+    s.exec({ type: 'removeCellOpening', wallId: 'ct1', i: 1, j: 0 });
+    const depois = entradaCortinaDoProjeto(s.project).entrada;
+    expect(depois.tiposAbertura).toEqual([]);
+    expect(depois.cortinas.find((x) => x.id === 'ct1')!.sobrescritas!.esquadrias).toBeUndefined();
+    // Cortina embutida: o vão do hospedeiro vai à entrada e à seção 113.
+    s.exec({ type: 'setCurtainHost', wallId: 'ct1', host: { wallId: 'w1', offset: 3, width: 2, sill: 0.1, height: 2.5 } });
+    const emb = entradaCortinaDoProjeto(s.project);
+    expect(emb.entrada.cortinas.find((x) => x.id === 'ct1')!.hospedeiro).toEqual({ wallId: 'w1', offset: 3, width: 2, sill: 0.1, height: 2.5 });
+    const cn = montarCenaCortina(emb.entrada);
+    expect(cn.nLinhas.cortina_hospedes).toBe(1);
+    expect(cn.secoes.cortina_hospedes.largura).toEqual([2]);
   });
 });

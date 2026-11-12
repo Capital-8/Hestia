@@ -15,6 +15,7 @@ import {
   isCurtainType,
   isWall,
   mullionTypesOf,
+  openingTypeById,
   papeisDeMontante,
   wallLength,
   type CurtainPanelType,
@@ -32,6 +33,7 @@ import { wallZRange, type WallZ } from './wallZ.ts';
 import type { CortinaKernel, EixoGradeKernel, EntradaCenaCortina, MontanteKernel, PainelKernel, TipoCortinaKernel } from './kernelCortina.ts';
 import { ID_AUSENTE_CORTINA } from './kernelCortinaTabelas.ts';
 import { sobrescritasDaInstancia } from './cortinaSobrescritas.ts';
+import { colunasDoTipoAbertura } from './kernelA3.ts';
 import { extremidadesDaCortina, quadrosDosNiveis } from './cortinaExtremidades.ts';
 import { DEFAULT_JOIN_TOL } from './joins.ts';
 
@@ -214,6 +216,7 @@ export function entradaCortinaDoProjeto(p: Project, materiaisAnteriores?: Readon
   const tipos = new Map<Id, TipoCortinaKernel>();
   const montUsados = new Map<Id, MullionType>();
   const painUsados = new Map<Id, CurtainPanelType>();
+  const aberturasUsadas = new Set<Id>();
   const cortinas: CortinaKernel[] = [];
   const assinaturas = new Map<Id, string>();
   for (const { wall: w, tipo } of validas) {
@@ -227,9 +230,10 @@ export function entradaCortinaDoProjeto(p: Project, materiaisAnteriores?: Readon
     if (painelDaInstancia && pain[painelDaInstancia]) painUsados.set(painelDaInstancia, pain[painelDaInstancia]!);
     const zz = z.get(w.id)!;
     // Sobrescritas (fase 2): a referência a montante ou painel ausente sai, e os tipos que elas usam entram na entrada.
-    const sob = sobrescritasDaInstancia(inst, { u: wallLength(w), v: zz.height }, mont, pain);
+    const sob = sobrescritasDaInstancia(inst, { u: wallLength(w), v: zz.height }, mont, pain, (id) => openingTypeById(p, id) !== undefined);
     for (const id of sob.montantes) montUsados.set(id, mont[id]!);
     for (const id of sob.paineis) painUsados.set(id, pain[id]!);
+    for (const id of sob.aberturas) aberturasUsadas.add(id);
     const meu = quadros.get(w.levelId)?.find((q) => q.id === w.id);
     const ext = meu ? extremidadesDaCortina(meu, w, quadros.get(w.levelId)!, tolJuncao) : null;
     const k: CortinaKernel = {
@@ -246,12 +250,13 @@ export function entradaCortinaDoProjeto(p: Project, materiaisAnteriores?: Readon
       ...(inst?.grid && (inst.grid.u || inst.grid.v) ? { grid: { ...(inst.grid.u ? { u: inst.grid.u } : {}), ...(inst.grid.v ? { v: inst.grid.v } : {}) } } : {}),
       ...(painelDaInstancia && pain[painelDaInstancia] ? { defaultPanelTypeId: painelDaInstancia } : {}),
       ...(sob.sobrescritas ? { sobrescritas: sob.sobrescritas } : {}),
+      ...(inst?.host ? { hospedeiro: { wallId: inst.host.wallId, offset: inst.host.offset, width: inst.host.width, sill: inst.host.sill, height: inst.host.height } } : {}),
       ...(ext && ext.some((x) => x.vizinhaId !== null || x.noJoin) ? { extremidades: ext } : {}),
     };
     cortinas.push(k);
     assinaturas.set(
       w.id,
-      hashTexto(JSON.stringify([k, tipo.curtain, doTipo.map((id) => mont[id]), pain[c.defaultPanelTypeId], painelDaInstancia ? pain[painelDaInstancia] : null, inst ?? null])),
+      hashTexto(JSON.stringify([k, tipo.curtain, doTipo.map((id) => mont[id]), pain[c.defaultPanelTypeId], painelDaInstancia ? pain[painelDaInstancia] : null, inst ?? null, sob.aberturas.map((id) => openingTypeById(p, id) ?? null)])),
     );
   }
   const assinatura = hashTexto([...assinaturas].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([id, h]) => `${id}:${h}`).join('|') + `#${p.levels.map((l) => l.id).join(',')}`);
@@ -261,6 +266,7 @@ export function entradaCortinaDoProjeto(p: Project, materiaisAnteriores?: Readon
       paineis: [...painUsados.values()].map(painelDe),
       tipos: [...tipos.values()],
       cortinas,
+      tiposAbertura: [...aberturasUsadas].sort().map((id) => ({ id, valores: colunasDoTipoAbertura(openingTypeById(p, id)!) })),
       materialNum,
     },
     nivelDe,

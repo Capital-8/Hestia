@@ -1,5 +1,5 @@
 /**
- * Tabelas do adaptador da parede cortina (decisão 0056; fase 1 esquema v14, fase 2 esquema v15, fase 3 esquema v16): nomes e colunas das seções 100 a 110, códigos dos enums e
+ * Tabelas do adaptador da parede cortina (decisão 0056; fase 1 esquema v14, fase 2 esquema v15, fase 3 esquema v16, fase 5 esquema v17): nomes e colunas das seções 100 a 110, 112 e 113 e a 7 (`tipos_abertura`, o catálogo de esquadrias que a célula referencia), códigos dos enums e
  * das saídas das consultas 100, 101, 102, 104 e 105. Espelha `crates/geom-wasm/schema/cena-v11.json`; o teste `kernelCortina.test.ts` confere contra o esquema gerado e
  * o teste do wasm (`tests/kernel-cortina.wasm.test.ts`), contra o Rust real.
  */
@@ -27,6 +27,10 @@ export const NOMES_SECOES_CORTINA = [
   'cortina_linhas_sobrescritas',
   'cortina_celulas_sobrescritas',
   'cortina_extremidades',
+  /** Fase 5: seção 7 (`tipos_abertura`, a mesma das paredes comuns), esquadria na célula (112) e cortina embutida (113). */
+  'tipos_abertura',
+  'cortina_celulas_abertura',
+  'cortina_hospedes',
 ] as const;
 export type NomeSecaoCortina = (typeof NOMES_SECOES_CORTINA)[number];
 export type ColunasCortina = Record<string, number[]>;
@@ -61,6 +65,9 @@ export const COLUNAS_CORTINA: Record<NomeSecaoCortina, readonly string[]> = {
     'face2_by',
     'espessura_vizinha',
   ],
+  tipos_abertura: ['id_num', 'largura', 'altura', 'peitoril', 'folga_w', 'folga_h', 'folhas', 'plano', 'janela', 'fechamento', 'tem_alizar', 'estilo_batente', 'modo_prof', 'prof_pedida', 'larg_batente', 'esp_folha'],
+  cortina_celulas_abertura: ['id_num', 'cortina_num', 'i', 'j', 's', 'z', 'nu', 'nv', 'tipo_abertura_num', 'flip_mao', 'flip_sentido', 'ajuste', 'alinhamento', 'soleira'],
+  cortina_hospedes: ['id_num', 'cortina_num', 'hospedeiro_num', 'deslocamento', 'largura', 'peitoril', 'altura'],
 };
 
 /** Valor de "herda do tipo" nas colunas `u8` da grade da instância (`modo`, `justificacao`, `ancora`). Nas `u32` é `ID_AUSENTE_CORTINA`; nas `f64`, NaN. */
@@ -98,15 +105,26 @@ export const PAPEL_QUANT_CORTINA = {
   painelSolido: 11,
   painelVazio: 12,
   sistema: 20,
+  /** Fase 5: esquadria na célula (n e área do vão), folha e batente (volume) e vidro da esquadria (área e volume); o vidro da esquadria NÃO é vidro de fachada. */
+  esquadria: 30,
+  esquadriaFolha: 31,
+  esquadriaVidro: 32,
 } as const;
 
 /** `papel` das peças em `cortina_malha`. */
-export const PAPEL_MALHA_CORTINA = { montante: 0, vidro: 1, solido: 2 } as const;
+export const PAPEL_MALHA_CORTINA = { montante: 0, vidro: 1, solido: 2, /** Fase 5, só em `grupos`: folha e batente (opaco) e vidro da esquadria (transparente). */ esquadria: 3, vidroEsquadria: 4 } as const;
 /** `papel` e `estilo` das linhas de `cortina_planta`. */
-export const PAPEL_PLANTA_CORTINA = { contorno: 0, vidro: 1, montante: 2, solido: 3 } as const;
+export const PAPEL_PLANTA_CORTINA = { contorno: 0, vidro: 1, montante: 2, solido: 3, /** Fase 5: contorno do vão da esquadria e giro, arco ou traço da folha. */ esquadria: 4, giro: 5 } as const;
 export const ESTILO_PLANTA_CORTINA = { cortado: 0, projetado: 1, oculto: 2 } as const;
 /** Bits de `cortina_grade.celulas.flags`: menor lado livre menor que a célula mínima; célula com sobrescrita adotada; região com mais de uma célula. */
-export const FLAGS_CELULA = { pequena: 1, sobrescrita: 2, regiaoMultipla: 4 } as const;
+export const FLAGS_CELULA = { pequena: 1, sobrescrita: 2, regiaoMultipla: 4, /** Fase 5: a região é uma esquadria, sem painel. */ esquadria: 8 } as const;
+/** `ajuste` e `alinhamento` de `cortina_celulas_abertura` (fase 5). */
+export const AJUSTE_ESQUADRIA = { preencher: 0, grade: 1 } as const;
+export const ALINHAMENTO_ESQUADRIA = { center: 0, start: 1, end: 2 } as const;
+/** Bits de `flags` das esquadrias em `cortina_celula_porta.portas` (fase 5). */
+export const FLAGS_ESQUADRIA = { soleiraDerivada: 1, limitada: 2, folhaMinima: 4, foraDoPiso: 8, regiaoMultipla: 16 } as const;
+/** Bit 1 de `cortinas.flags`: a cortina é embutida num hospedeiro (fase 5). */
+export const FLAG_CORTINA_HOSPEDADA = 2;
 /** Bits de `cortina_extremidades.flags`: junção desligada nesta ponta (`noJoin`); (bit 1 reservado); a vizinha atravessa o nó (T). */
 export const FLAGS_EXTREMIDADE = { semJuncao: 1, atravessa: 4 } as const;
 /** Bit 0 de `cortina_grade.linhas.flags`: linha travada. */
@@ -128,6 +146,10 @@ export const AVISO_CORTINA = {
   orfaoSegmento: 9,
   /** Fase 2: remoção de segmento recusada, a região fundida deixaria de ser retângulo. */
   celulaNaoRetangular: 10,
+  /** Fase 5: largura livre menor que a folha mínima (`cortina-porta-folha-minima`), porta sem soleira acima do piso (`cortina-porta-fora-do-piso`) e esquadria nominal maior que a célula. */
+  portaFolhaMinima: 11,
+  portaForaDoPiso: 12,
+  esquadriaMaiorQueCelula: 13,
 } as const;
 
 /** Código de um enum, ou erro claro com o nome do campo (o contrato não aceita valor fora do domínio). */

@@ -18,7 +18,7 @@ import {
   type NomeSecaoCortina,
 } from './kernelCortina.ts';
 
-const IDS_SECAO: Record<NomeSecaoCortina, number> = { cortinas: 100, tipos_cortina: 101, grades_cortina: 102, grade_posicoes_cortina: 103, tipos_montante_cortina: 104, tipos_painel_cortina: 105, cortina_linhas_extras: 106, cortina_segmentos_removidos: 107, cortina_linhas_sobrescritas: 108, cortina_celulas_sobrescritas: 109, cortina_extremidades: 110 };
+const IDS_SECAO: Record<NomeSecaoCortina, number> = { cortinas: 100, tipos_cortina: 101, grades_cortina: 102, grade_posicoes_cortina: 103, tipos_montante_cortina: 104, tipos_painel_cortina: 105, cortina_linhas_extras: 106, cortina_segmentos_removidos: 107, cortina_linhas_sobrescritas: 108, cortina_celulas_sobrescritas: 109, cortina_extremidades: 110, tipos_abertura: 7, cortina_celulas_abertura: 112, cortina_hospedes: 113 };
 
 const entrada = (): EntradaCenaCortina => ({
   montantes: [
@@ -60,9 +60,9 @@ const entrada = (): EntradaCenaCortina => ({
 });
 
 describe('contrato da parede cortina', () => {
-  it('as seções 100 a 110 e as colunas conferem com o esquema gerado do JSON', () => {
-    expect(ESQUEMA_VERSAO).toBe(16);
-    expect(NOMES_SECOES_CORTINA).toHaveLength(11);
+  it('as seções 100 a 113 (mais a 7) e as colunas conferem com o esquema gerado do JSON', () => {
+    expect(ESQUEMA_VERSAO).toBe(17);
+    expect(NOMES_SECOES_CORTINA).toHaveLength(14);
     for (const nome of NOMES_SECOES_CORTINA) {
       const s = SECOES[nome];
       expect(s.id, nome).toBe(IDS_SECAO[nome]);
@@ -70,13 +70,15 @@ describe('contrato da parede cortina', () => {
     }
   });
 
-  it('as consultas 100, 101, 102, 104 e 105 existem e a 103 (corte) fica para a fase 6', () => {
+  it('as consultas 100 a 102, 104 a 107 existem e a 103 (corte) fica para a fase 6', () => {
     expect(CONSULTAS.cortina_grade.id).toBe(100);
     expect(CONSULTAS.cortina_malha.id).toBe(101);
     expect(CONSULTAS.cortina_planta.id).toBe(102);
     expect(CONSULTAS.quant_cortina.id).toBe(104);
     expect(CONSULTAS.cortina_avisos.id).toBe(105);
-    expect(Object.keys(CONSULTAS).filter((n) => n.startsWith('cortina_') || n.endsWith('_cortina'))).toHaveLength(5);
+    expect(Object.keys(CONSULTAS).filter((n) => n.startsWith('cortina_') || n.endsWith('_cortina'))).toHaveLength(7);
+    expect(CONSULTAS.cortina_recorte_hospedeiro.id).toBe(106);
+    expect(CONSULTAS.cortina_celula_porta.id).toBe(107);
     expect(CONSULTAS.cortina_malha.args).toEqual(['nivel_num', 'lod']);
     expect(CONSULTAS.cortina_planta.args).toEqual(['nivel_num', 'corte_z', 'detalhe']);
     expect(NIVEL_TODOS).toBe(0xffffffff);
@@ -86,7 +88,49 @@ describe('contrato da parede cortina', () => {
     expect(ENUM_CORTINA.modo).toEqual({ fixedNumber: 0, fixedDistance: 1, maxDistance: 2, manual: 3 });
     expect(ENUM_CORTINA.justificacao).toEqual({ start: 0, center: 1, end: 2 });
     expect(ENUM_CORTINA.painel).toEqual({ glass: 0, solid: 1, empty: 2 });
-    expect(Object.values(AVISO_CORTINA)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(Object.values(AVISO_CORTINA)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+  });
+});
+
+describe('montarCenaCortina: esquadria na célula e cortina embutida (fase 5)', () => {
+  const valores = { largura: 0.8, altura: 2.1, peitoril: 0, folga_w: 0, folga_h: 0, folhas: 1, plano: 0, janela: 0, fechamento: 0, tem_alizar: 0, estilo_batente: 0, modo_prof: 0, prof_pedida: 0, larg_batente: 0.05, esp_folha: 0.04 };
+  const com = (mexe: (e: EntradaCenaCortina) => EntradaCenaCortina): EntradaCenaCortina => mexe(entrada());
+
+  it('a esquadria vai à seção 112 com o tipo da seção 7 e a soleira NaN quando ausente; a cortina embutida vai à 113 e marca o bit 1', () => {
+    const e = com((b) => ({
+      ...b,
+      tiposAbertura: [{ id: 'ot_p80', valores }],
+      hospedeiroNum: (id) => (id === 'w9' ? 4 : undefined),
+      cortinas: b.cortinas.map((c) =>
+        c.id === 'c1'
+          ? {
+              ...c,
+              hospedeiro: { wallId: 'w9', offset: 2, width: 3, sill: 0.1, height: 2.8 },
+              sobrescritas: { esquadrias: [{ i: 1, j: 0, nu: 3, nv: 2, s: 0.5, z: 0.25, tipoAbertura: 'ot_p80', flipHand: true, flipFacing: false, fit: 'grid', align: 'start' }, { i: 0, j: 0, nu: 3, nv: 2, s: 0.1, z: 0.2, tipoAbertura: 'inexistente', flipHand: false, flipFacing: false }] },
+            }
+          : c,
+      ),
+    }));
+    const c = montarCenaCortina(e);
+    expect(c.nLinhas.tipos_abertura).toBe(1);
+    expect(c.secoes.tipos_abertura.largura).toEqual([0.8]);
+    expect(c.nLinhas.cortina_celulas_abertura).toBe(1);
+    const a = c.secoes.cortina_celulas_abertura;
+    expect([a.i![0], a.j![0], a.tipo_abertura_num![0], a.flip_mao![0], a.flip_sentido![0], a.ajuste![0], a.alinhamento![0]]).toEqual([1, 0, c.tipoAberturaDe.get('ot_p80'), 1, 0, 1, 1]);
+    expect(Number.isNaN(a.soleira![0])).toBe(true);
+    expect(a.cortina_num![0]).toBe(c.cortinaDe.get('c1'));
+    expect(c.nLinhas.cortina_hospedes).toBe(1);
+    const h = c.secoes.cortina_hospedes;
+    expect([h.hospedeiro_num![0], h.deslocamento![0], h.largura![0], h.peitoril![0], h.altura![0]]).toEqual([4, 2, 3, 0.1, 2.8]);
+    const flags = c.secoes.cortinas.flags!;
+    expect(flags[c.secoes.cortinas.id_num!.indexOf(c.cortinaDe.get('c1')!)]! & 2).toBe(2);
+    expect(flags[c.secoes.cortinas.id_num!.indexOf(c.cortinaDe.get('c2')!)]! & 2).toBe(0);
+  });
+
+  it('sem esquadria nem hospedeiro as seções novas saem vazias e a diferença entre duas montagens iguais é nula', () => {
+    const c = montarCenaCortina(entrada());
+    expect([c.nLinhas.tipos_abertura, c.nLinhas.cortina_celulas_abertura, c.nLinhas.cortina_hospedes]).toEqual([0, 0, 0]);
+    expect(diferencaCortina(c, montarCenaCortina(entrada(), c))).toEqual([]);
   });
 });
 
