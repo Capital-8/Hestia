@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { pointInMulti, type Vec2 } from '@hestia/geom';
 import { resolveLevel } from '@hestia/engine';
-import { ProjectStore, createEmptyProject, makeCeiling, makeFloor, makeWall, type Project } from '@hestia/model';
+import { ProjectStore, createEmptyProject, floorViewId, makeCeiling, makeFloor, makeWall, type Project } from '@hestia/model';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { ceilingFillMaterial, ceilingFills, ceilingSelectionOps } from './ceilings.ts';
 import { defaultPaint } from './style.ts';
@@ -26,6 +26,7 @@ function project(direction: 'down' | 'up'): Project {
 function draw(p: Project, over: Partial<PlanInput> = {}) {
   const input: PlanInput = {
     project: p,
+    viewId: floorViewId('lv_0'),
     levelId: 'lv_0',
     resolved: resolveLevel(p, 'lv_0', new Map()),
     below: null,

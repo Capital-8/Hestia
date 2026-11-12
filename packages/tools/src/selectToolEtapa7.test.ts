@@ -24,9 +24,9 @@ function projeto(): Project {
   return s.project;
 }
 
-function clicar(p: Project, at: { x: number; y: number }, extra: { areaPlanId?: string; hiddenInView?: () => ReadonlySet<string>; revealing?: boolean } = {}): string[] {
+function clicar(p: Project, at: { x: number; y: number }, extra: { viewId?: string; hiddenInView?: () => ReadonlySet<string>; revealing?: boolean } = {}): string[] {
   const ctx = makeEnv(new ProjectStore(p));
-  const env = { ...ctx.env, project: () => p, areaPlanId: () => extra.areaPlanId ?? null, ...(extra.hiddenInView ? { hiddenInView: extra.hiddenInView } : {}), ...(extra.revealing ? { revealingHidden: () => true } : {}) };
+  const env = { ...ctx.env, project: () => p, viewId: extra.viewId, ...(extra.hiddenInView ? { hiddenInView: extra.hiddenInView } : {}), ...(extra.revealing ? { revealingHidden: () => true } : {}) };
   const t = new SelectTool(env);
   t.start();
   t.move(P(at.x, at.y));
@@ -96,7 +96,7 @@ describe('seleção por janela e lista de anotações', () => {
     p = withViewPatchOfTest(p, floorViewId(LV), { hidden: { elements: ['w1'] } });
     expect(anotacoesSelecionaveis(p, LV).dimensions.map((d) => d.id)).toEqual(['d_livre']);
     expect(anotacoesSelecionaveis(p, LV, 'ap1').dimensions.map((d) => d.id)).toEqual(['a_w1']);
-    expect(clicar(p, naCotaPresa, { areaPlanId: 'ap1' })).toEqual(['a_w1']);
+    expect(clicar(p, naCotaPresa, { viewId: 'ap1' })).toEqual(['a_w1']);
     p = withViewPatchOfTest(p, 'ap1', { hidden: { elements: ['w1'] } });
     expect(anotacoesSelecionaveis(p, LV, 'ap1').dimensions).toEqual([]);
   });

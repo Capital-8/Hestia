@@ -148,7 +148,7 @@ export interface PlanContext {
   /** Telhados ocultos pela categoria. */
   roofOff: ReadonlySet<Id> | undefined;
   /** Telhados ocultos para a seleção e o realce (a vista, a categoria ou o Hide in View). */
-  roofHidden: ReadonlySet<Id> | undefined;
+  hiddenRoofs: ReadonlySet<Id> | undefined;
   /** Escadas do nível que a planta mostra (sem as ocultas pela vista). */
   stairs: ResolvedStair[];
   /** Rampas do nível que a planta mostra (sem as ocultas pela vista). */
@@ -182,8 +182,8 @@ export function planContext(input: PlanInputResolvido): PlanContext {
   const presas = efetivos?.size && vistaDesenhada ? annotationIdsOnHiddenHosts([vistaDesenhada], efetivos) : undefined;
   const hidden = uniaoOcultos(efetivos, presas);
   const roofOff: ReadonlySet<Id> | undefined = view ? view.categoryHidden : categoryVisibleInView(p, viewId, 'roof') ? undefined : new Set(telhadosDoNivel(p, input.levelId).map((r) => r.roofId));
-  const roofHidden = view ? hidden : uniaoOcultos(roofOff, doUsuario);
+  const hiddenRoofs = view ? hidden : uniaoOcultos(roofOff, doUsuario);
   const stairs = escadasDoNivel(p, input.levelId).filter((s) => !hidden?.has(s.id));
   const ramps = rampasDoNivel(p, input.levelId).filter((r) => !hidden?.has(r.id));
-  return { viewId, style, rp, view, up, geo, hidden, roofOff, roofHidden, stairs, ramps };
+  return { viewId, style, rp, view, up, geo, hidden, roofOff, hiddenRoofs, stairs, ramps };
 }

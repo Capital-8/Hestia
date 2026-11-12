@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveLevel } from '@hestia/engine';
-import { createEmptyProject, DEFAULT_GRID_TYPE_ID, type Grid, type GridType, type Project } from '@hestia/model';
+import { createEmptyProject, DEFAULT_GRID_TYPE_ID, floorViewId, type Grid, type GridType, type Project } from '@hestia/model';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { comprimento, eixoDaGrade, gridOps, pedacos, trecho } from './grids.ts';
 import { DARK, LIGHT } from './types.ts';
@@ -160,6 +160,7 @@ describe('grade: desenho', () => {
     const p = { ...projeto(grade({ typeId: DEFAULT_GRID_TYPE_ID, bubbleEnd: true })), gridTypes: undefined };
     const input: PlanInput = {
       project: p,
+      viewId: floorViewId('lv_0'),
       levelId: 'lv_0',
       resolved: resolveLevel(p, 'lv_0', new Map()),
       below: null,
@@ -174,7 +175,7 @@ describe('grade: desenho', () => {
     };
     const dl = buildPlanDrawList(input);
     expect(dl.labels.some((l) => l.text === '1' && l.center)).toBe(true);
-    const outro = buildPlanDrawList({ ...input, levelId: 'lv_1', resolved: resolveLevel(p, 'lv_1', new Map()) });
+    const outro = buildPlanDrawList({ ...input, viewId: floorViewId('lv_1'), levelId: 'lv_1', resolved: resolveLevel(p, 'lv_1', new Map()) });
     expect(outro.labels.some((l) => l.text === '1' && l.center)).toBe(true);
   });
 });

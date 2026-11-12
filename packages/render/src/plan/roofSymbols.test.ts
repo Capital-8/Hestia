@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resolveLevel } from '@hestia/engine';
 import { boundaryKindsOf } from '@hestia/engine/src/roofShapes.ts';
-import { ProjectStore, createEmptyProject, makeRoof, type Project, type Roof } from '@hestia/model';
+import { ProjectStore, createEmptyProject, floorViewId, makeRoof, type Project, type Roof } from '@hestia/model';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { roofFills, roofSelectionOps } from './roofs.ts';
 import { DARK, LIGHT, type StrokeOp } from './types.ts';
@@ -21,6 +21,7 @@ function projetoCom(roof: ReturnType<typeof makeRoof>): Project {
 function input(p: Project, over: Partial<PlanInput> = {}): PlanInput {
   return {
     project: p,
+    viewId: floorViewId('lv_0'),
     levelId: 'lv_0',
     resolved: resolveLevel(p, 'lv_0', new Map()),
     below: null,

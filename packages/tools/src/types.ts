@@ -78,13 +78,8 @@ export interface ToolEnv {
   /** Modo "revelar ocultos" ligado na vista: o que o usuário oculta (Hide in View, temporário) volta a ser alvo de seleção. Ausente = desligado. */
   revealingHidden?(): boolean;
   /**
-   * @deprecated O editor informa `viewId`. Só `viewIdOfEnv` ainda o lê, para ambientes que não informam a vista (testes
-   * das ferramentas e o harness do ouro, `tests/vistas-ouro`): planta de área aberta, ou null/ausente = planta de piso.
-   */
-  areaPlanId?(): Id | null;
-  /**
    * Id da vista de planta ativa (piso `pv_`, cobertura `pvr_` ou planta de área). Ausente fora da planta (3D, corte,
-   * prancha) e nos ambientes que não informam a vista: aí `viewIdOfEnv` cai na planta de área ou na de piso do nível.
+   * prancha) e nos ambientes que não informam a vista: aí `viewIdOfEnv` cai na planta de piso do nível.
    */
   viewId?: Id;
   /** Pavimento de referência visível na planta (o de baixo, com Subpavimento ligado), ou null. A captura usa o que se vê. */

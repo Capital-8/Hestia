@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resolverZoom } from './zoomOps.ts';
 import { resolveLevel, resolveRooms, type ResolvedRoom } from '@hestia/engine';
-import { ProjectStore, createEmptyProject, makeRoom, makeWall, type Project } from '@hestia/model';
+import { ProjectStore, createEmptyProject, floorViewId, makeRoom, makeWall, type Project } from '@hestia/model';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { belowRoomOps, roomNameText, roomOps, roomSelectionOps } from './rooms.ts';
 import { DARK, LIGHT } from './types.ts';
@@ -23,6 +23,7 @@ function sala(name = 'Sala', number = '101', extra: Partial<Parameters<typeof ma
 function input(p: Project, over: Partial<PlanInput> = {}): PlanInput {
   return {
     project: p,
+    viewId: floorViewId('lv_0'),
     levelId: 'lv_0',
     resolved: resolveLevel(p, 'lv_0', new Map()),
     below: null,
@@ -101,6 +102,7 @@ describe('ambientes do subpavimento (D3)', () => {
   /** Planta do pavimento 2 (lv_1) com o térreo (lv_0) logo abaixo, como o app monta. */
   const acima = (p: Project, belowRooms?: ResolvedRoom[]) =>
     input(p, {
+      viewId: floorViewId('lv_1'),
       levelId: 'lv_1',
       resolved: resolveLevel(p, 'lv_1', new Map()),
       below: { ...resolveLevel(p, 'lv_0', new Map()), levelId: 'lv_0' },

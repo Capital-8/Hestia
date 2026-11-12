@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { junctionLevel, resolveFloors, resolveLevel, resolveRooms, resolveRoofs, resolveSlabs, resolveStairsOnLevel } from '@hestia/engine';
-import { ProjectStore, createEmptyProject, makeFloor, makeSlab, makeWall, openingsOfWall, wallsOnLevel, type Project } from '@hestia/model';
+import { ProjectStore, createEmptyProject, floorViewId, makeFloor, makeSlab, makeWall, openingsOfWall, wallsOnLevel, type Project } from '@hestia/model';
 import { buildPlanDrawList, planBelowOf, type PlanInput } from './build.ts';
 import { aberturasDaParede, ambientesDoNivel, escadasDoNivel, juncaoDoNivel, lajesDoNivel, paredesDoNivel, pisosDoNivel, telhadosDoNivel } from './resolucao.ts';
 import { LIGHT } from './types.ts';
@@ -32,6 +32,7 @@ function entrada(p: Project, levelId: string, zoom: number): PlanInput {
   return {
     project: p,
     levelId,
+    viewId: floorViewId(levelId),
     resolved: resolveLevel(p, levelId, new Map()),
     ...planBelowOf(p, levelId, (id) => resolveLevel(p, id, new Map()), true),
     viewport: { cx: 4, cy: 3, zoom, width: 800, height: 600 },

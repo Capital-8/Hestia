@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type * as THREE from 'three';
 import { resolveLevel } from '@hestia/engine';
-import { ProjectStore, createEmptyProject, makeLevel, makeRoof, makeWall, type Project } from '@hestia/model';
+import { ProjectStore, createEmptyProject, floorViewId, makeLevel, makeRoof, makeWall, roofViewId, type Project } from '@hestia/model';
 import { buildPlanGeometry, buildPlanOverlay, planGeometrySelection, type PlanInput } from './build.ts';
 import { PlanFrame, planFrameUpdateOf, sameLabels, type PlanViewState } from './planFrame.ts';
 import { PlanScene } from './gpuPlan.ts';
@@ -192,6 +192,7 @@ describe('geometria e sobreposição separadas (build)', () => {
   }
   const input = (p: Project, selection: string[], hover: string | null = null): PlanInput => ({
     project: p,
+    viewId: floorViewId('lv_0'),
     levelId: 'lv_0',
     resolved: resolveLevel(p, 'lv_0', new Map()),
     below: null,
@@ -249,6 +250,7 @@ describe('estado da planta para o quadro (planFrameUpdateOf)', () => {
   const state = (over: Partial<PlanViewState> = {}): PlanViewState => ({
     project: p,
     version: 1,
+    viewId: floorViewId('lv_0'),
     levelId: 'lv_0',
     v: V,
     theme: LIGHT,
@@ -281,10 +283,10 @@ describe('estado da planta para o quadro (planFrameUpdateOf)', () => {
       chamadas.push(id);
       return resolveLevel(p, id, new Map());
     };
-    planFrameUpdateOf(state({ levelId: 'lv_1', showUnderlay: true, resolve })).geometry();
+    planFrameUpdateOf(state({ viewId: floorViewId('lv_1'), levelId: 'lv_1', showUnderlay: true, resolve })).geometry();
     expect(chamadas).toEqual(['lv_0']);
     chamadas.length = 0;
-    planFrameUpdateOf(state({ levelId: 'lv_0', showUnderlay: true, resolve })).geometry();
+    planFrameUpdateOf(state({ viewId: floorViewId('lv_0'), levelId: 'lv_0', showUnderlay: true, resolve })).geometry();
     expect(chamadas).toEqual([]);
   });
 
@@ -306,11 +308,11 @@ describe('estado da planta para o quadro (planFrameUpdateOf)', () => {
 
   it('planta de cobertura tem chaves próprias: a geometria de piso do mesmo nível não é reaproveitada', () => {
     const piso = planFrameUpdateOf(state());
-    const cob = planFrameUpdateOf(state({ roofPlanMode: true }));
+    const cob = planFrameUpdateOf(state({ viewId: roofViewId('lv_0') }));
     expect(cob.geometryKey).not.toBe(piso.geometryKey);
     expect(cob.overlayKey).not.toBe(piso.overlayKey);
     expect(cob.hoverKey).not.toBe(piso.hoverKey);
-    expect(planFrameUpdateOf(state({ roofPlanMode: false })).geometryKey).toBe(piso.geometryKey);
+    expect(planFrameUpdateOf(state({ viewId: floorViewId('lv_0') })).geometryKey).toBe(piso.geometryKey);
   });
 
   it('planta de cobertura resolve o nível atual; a de piso não o resolve (só o de baixo, se houver)', () => {
@@ -319,7 +321,7 @@ describe('estado da planta para o quadro (planFrameUpdateOf)', () => {
       chamadas.push(id);
       return resolveLevel(p, id, new Map());
     };
-    planFrameUpdateOf(state({ roofPlanMode: true, resolve })).geometry();
+    planFrameUpdateOf(state({ viewId: roofViewId('lv_0'), resolve })).geometry();
     expect(chamadas).toContain('lv_0');
   });
 
@@ -329,7 +331,7 @@ describe('estado da planta para o quadro (planFrameUpdateOf)', () => {
       chamadas.push(id);
       return resolveLevel(p, id, new Map());
     };
-    const u = planFrameUpdateOf(state({ roofPlanMode: true, resolve }));
+    const u = planFrameUpdateOf(state({ viewId: roofViewId('lv_0'), resolve }));
     u.geometry();
     u.overlay();
     u.hover!();
@@ -342,7 +344,7 @@ describe('estado da planta para o quadro (planFrameUpdateOf)', () => {
     const atualiza = (over: Partial<PlanViewState>): void => quadro.update({ ...planFrameUpdateOf(state(over)), gpu: false });
     atualiza({});
     const piso = JSON.stringify(quadro.drawList(LIGHT));
-    atualiza({ roofPlanMode: true });
+    atualiza({ viewId: roofViewId('lv_0') });
     expect(JSON.stringify(quadro.drawList(LIGHT))).not.toBe(piso);
     atualiza({});
     expect(JSON.stringify(quadro.drawList(LIGHT))).toBe(piso);
@@ -356,7 +358,7 @@ describe('estado da planta para o quadro (planFrameUpdateOf)', () => {
     };
     const semTelhadoBaixo = createEmptyProject();
     const fills = (proj: Project, showUnderlay: boolean): number =>
-      planFrameUpdateOf(state({ project: proj, levelId: 'lv_1', roofPlanMode: true, showUnderlay, resolve: (id) => resolveLevel(proj, id, new Map()) })).geometry().fills.length;
+      planFrameUpdateOf(state({ project: proj, viewId: roofViewId('lv_1'), levelId: 'lv_1', showUnderlay, resolve: (id) => resolveLevel(proj, id, new Map()) })).geometry().fills.length;
     expect(fills(comTelhadoBaixo(), true)).toBeGreaterThan(fills(semTelhadoBaixo, true));
     expect(fills(comTelhadoBaixo(), false)).toBe(fills(semTelhadoBaixo, false));
   });
@@ -369,7 +371,7 @@ describe('estado da planta para o quadro (planFrameUpdateOf)', () => {
       return s.project;
     };
     const fills = (proj: Project): number =>
-      planFrameUpdateOf(state({ project: proj, levelId: 'lv_2', roofPlanMode: true, showUnderlay: true, resolve: (id) => resolveLevel(proj, id, new Map()) })).geometry().fills.length;
+      planFrameUpdateOf(state({ project: proj, viewId: roofViewId('lv_2'), levelId: 'lv_2', showUnderlay: true, resolve: (id) => resolveLevel(proj, id, new Map()) })).geometry().fills.length;
     expect(fills(tres(true))).toBeGreaterThan(fills(tres(false)));
   });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { pointInMulti, type Vec2 } from '@hestia/geom';
 import { resolveLevel } from '@hestia/engine';
-import { ProjectStore, createEmptyProject, makeFloor, makeWall, paperMmToPx, type Opening, type Project, withFloorPatchOfTest } from '@hestia/model';
+import { ProjectStore, createEmptyProject, floorViewId, makeFloor, makeWall, paperMmToPx, type Opening, type Project, withFloorPatchOfTest } from '@hestia/model';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { mix } from './color.ts';
 import { drawPlanCpu } from './cpuPlan.ts';
@@ -47,6 +47,7 @@ type DrawList = ReturnType<typeof draw>;
 function draw(p: Project, over: Partial<PlanInput> = {}, zoom = 100) {
   const input: PlanInput = {
     project: p,
+    viewId: floorViewId('lv_0'),
     levelId: 'lv_0',
     resolved: resolveLevel(p, 'lv_0', new Map()),
     below: null,

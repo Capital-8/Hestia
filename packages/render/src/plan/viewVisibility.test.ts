@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { pointInMulti, type Vec2 } from '@hestia/geom';
 import { resolveLevel } from '@hestia/engine';
-import { ProjectStore, createEmptyProject, makeFloor, makeRoom, makeWall, type Id, type Opening, type Project } from '@hestia/model';
+import { ProjectStore, createEmptyProject, floorViewId, makeFloor, makeRoom, makeWall, type Id, type Opening, type Project } from '@hestia/model';
 import { buildPlanGeometry, buildPlanScreenOverlay, buildPlanSelectionOverlay, type PlanInput } from './build.ts';
 import { planFrameUpdateOf, type PlanViewState } from './planFrame.ts';
 import { LIGHT } from './types.ts';
@@ -31,6 +31,7 @@ function entrada(p: Project, over: Partial<PlanInput> = {}): PlanInput {
   return {
     project: p,
     levelId: 'lv_0',
+    viewId: floorViewId('lv_0'),
     resolved: resolveLevel(p, 'lv_0', new Map()),
     below: null,
     viewport: VIEW,
@@ -125,6 +126,7 @@ describe('PlanFrame: hidden/revealed entram na chave das camadas', () => {
     project: p,
     version: 1,
     levelId: 'lv_0',
+    viewId: floorViewId('lv_0'),
     v: VIEW,
     theme: LIGHT,
     dark: false,

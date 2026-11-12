@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Vec2 } from '@hestia/geom';
-import { DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS, ProjectStore, createEmptyProject, makeFloor, makeRoof, makeRoom, makeWall, type AreaPlan, type Project } from '@hestia/model';
+import { DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS, ProjectStore, createEmptyProject, floorViewId, makeFloor, makeRoof, makeRoom, makeWall, type AreaPlan, type Project } from '@hestia/model';
 import { resolveLevel } from '@hestia/engine';
 import { buildPlanHoverOverlay, buildPlanLiveOverlay, buildPlanSelectionOverlay, type PlanInput } from './build.ts';
 import { planFrameUpdateOf, type PlanViewState } from './planFrame.ts';
@@ -32,6 +32,7 @@ const plan = (over: Partial<AreaPlan> = {}): AreaPlan => ({
 
 const entrada = (p: Project, areaPlan?: AreaPlan, selection: string[] = [], hover: string | null = null): PlanInput => ({
   project: p,
+  viewId: areaPlan?.id ?? floorViewId('lv_0'),
   levelId: 'lv_0',
   resolved: resolveLevel(p, 'lv_0'),
   below: null,
@@ -116,6 +117,7 @@ describe('planta de área · sobreposição compartilhada (A1/F0)', () => {
     const estado = (over: Partial<PlanViewState> = {}): PlanViewState => ({
       project: s.project,
       version: 1,
+      viewId: floorViewId('lv_0'),
       levelId: 'lv_0',
       v: { cx: 2, cy: 2.5, zoom: 100, width: 600, height: 400 },
       theme: LIGHT,

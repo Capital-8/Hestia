@@ -19,9 +19,9 @@ function projeto(): Project {
 }
 
 /** Clica em `at` com a ferramenta Selecionar sobre `p` e devolve a seleção. */
-function clicar(p: Project, at: { x: number; y: number }, extra: { viewId?: string; areaPlanId?: string; hiddenInView?: () => ReadonlySet<string>; revealing?: boolean } = {}): string[] {
+function clicar(p: Project, at: { x: number; y: number }, extra: { viewId?: string; hiddenInView?: () => ReadonlySet<string>; revealing?: boolean } = {}): string[] {
   const ctx = makeEnv(new ProjectStore(p));
-  const env = { ...ctx.env, project: () => p, areaPlanId: () => extra.areaPlanId ?? null, ...(extra.hiddenInView ? { hiddenInView: extra.hiddenInView } : {}), ...(extra.revealing ? { revealingHidden: () => true } : {}) };
+  const env = { ...ctx.env, project: () => p, viewId: extra.viewId, ...(extra.hiddenInView ? { hiddenInView: extra.hiddenInView } : {}), ...(extra.revealing ? { revealingHidden: () => true } : {}) };
   const t = new SelectTool(env);
   t.start();
   t.move(P(at.x, at.y));
@@ -65,6 +65,6 @@ describe('seleção e a regra única de visibilidade', () => {
     // Piso: w1 oculta. Área: w1 visível (a ocultação é da vista do piso).
     expect(clicar(p, { x: 2, y: 0 })).toEqual([]);
     // Na planta de área o modelo é só leitura, mas continua sendo o alvo do clique de seleção.
-    expect(clicar(p, { x: 2, y: 0 }, { areaPlanId: 'ap1' })).toEqual(['w1']);
+    expect(clicar(p, { x: 2, y: 0 }, { viewId: 'ap1' })).toEqual(['w1']);
   });
 });

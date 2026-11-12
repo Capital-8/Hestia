@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Vec2 } from '@hestia/geom';
-import { DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS, ProjectStore, createEmptyProject, defaultStairTypeId, makeFloor, makeLevel, makeRoom, makeRoof, makeStair, makeWall, type AreaPlan, type Project, type StairRun, withFloorPatchOfTest, planViewRangeOf } from '@hestia/model';
+import { DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS, ProjectStore, createEmptyProject, defaultStairTypeId, floorViewId, makeFloor, makeLevel, makeRoom, makeRoof, makeStair, makeWall, type AreaPlan, type Project, type StairRun, withFloorPatchOfTest, planViewRangeOf } from '@hestia/model';
 import { resolveLevel } from '@hestia/engine';
 import { buildPlanGeometry, type PlanInput } from './build.ts';
 import { planFrameUpdateOf, type PlanViewState } from './planFrame.ts';
@@ -20,6 +20,7 @@ const plan = (over: Partial<AreaPlan> = {}): AreaPlan => ({
 
 const entrada = (p: Project, areaPlan?: AreaPlan): PlanInput => ({
   project: p,
+  viewId: areaPlan?.id ?? floorViewId('lv_0'),
   levelId: 'lv_0',
   resolved: resolveLevel(p, 'lv_0'),
   below: null,
@@ -115,7 +116,7 @@ describe('planta de área · geometria do motor único (A2)', () => {
     s.exec({ type: 'addWall', wall: makeWall({ id: 'w1', typeId: 'wt_alv14', levelId: 'lv_1', a: { x: 0, y: 0 }, b: { x: 4, y: 0 } }) });
     const p = s.project;
     const estado = (showBelowLevel: boolean): PlanViewState => ({
-      project: p, version: 1, levelId: 'lv_1',
+      project: p, version: 1, viewId: plan().id, levelId: 'lv_1',
       v: { cx: 2, cy: 2.5, zoom: 100, width: 600, height: 400 },
       theme: LIGHT, dark: false, gpu: false, showGrid: false,
       showUnderlay: false, showRoofProjection: true, thinLines: false,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Vec2 } from '@hestia/geom';
 import { resolveLevel, resolveRoofs, type ResolvedRoof } from '@hestia/engine';
-import { ProjectStore, createEmptyProject, makeRoof, type Project } from '@hestia/model';
+import { ProjectStore, createEmptyProject, floorViewId, makeRoof, type Project } from '@hestia/model';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { roofFillBase, roofFills, roofFootprint, roofOps } from './roofs.ts';
 import { corDaAresta } from './roofsAgua.ts';
@@ -36,6 +36,7 @@ const mesmaLinha = (s: StrokeOp, a: Vec2, b: Vec2): boolean => !s.closed && s.pt
 function input(p: Project, over: Partial<PlanInput> = {}): PlanInput {
   return {
     project: p,
+    viewId: floorViewId('lv_0'),
     levelId: 'lv_0',
     resolved: resolveLevel(p, 'lv_0', new Map()),
     below: null,

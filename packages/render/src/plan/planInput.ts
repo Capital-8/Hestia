@@ -4,7 +4,6 @@ import { areaPlanOf, planViewOf as vistaDoModelo, floorViewId, type AreaPlan, ty
 import type { Inference, PreviewItem } from '@hestia/tools';
 import type { Viewport } from '../viewport.ts';
 import type { Lang } from '../i18n.ts';
-import { planViewIdOf } from './viewId.ts';
 import type { PlanProfile, PlanTheme } from './types.ts';
 
 /** Campos de `PlanInput` que não dizem QUAL vista se desenha (isso é o `PlanTarget`). */
@@ -59,39 +58,26 @@ export interface PlanInputBase {
 }
 
 /**
- * Qual vista se desenha. Forma única: `viewId` (id da `PlanView`: piso, cobertura ou planta de área); nível, modo de
- * cobertura e planta de área saem dela. Forma antiga, aceita na entrada: `levelId` + `areaPlan` (objeto) + `roofPlanMode`
- * (só o harness do ouro e os testes antigos). Com `viewId`, os campos antigos, se vierem, só refinam: `areaPlan`
- * substitui a planta de área derivada da vista (pré-visualização) e `roofPlanMode` não muda a vista.
+ * Qual vista se desenha: `viewId` (id da `PlanView`: piso, cobertura ou planta de área); nível, modo de cobertura e
+ * planta de área saem dela.
  */
-export type PlanTarget =
-  | {
-      viewId: Id;
-      /** @deprecated Derivado da vista; só vale se a vista não existir (ver `resolvePlanInput`). */
-      levelId?: Id;
-      /** Planta de área alternativa (ex.: com edição em curso); sem ela, a derivada da vista. */
-      areaPlan?: AreaPlan;
-      /** @deprecated Derivado do tipo da vista. */
-      roofPlanMode?: boolean;
-    }
-  | {
-      viewId?: undefined;
-      /** @deprecated Forma antiga: passe `viewId`. */
-      levelId: Id;
-      /** @deprecated Forma antiga: passe `viewId` da planta de área. */
-      areaPlan?: AreaPlan;
-      /**
-       * @deprecated Forma antiga: passe o `viewId` da cobertura. Planta de cobertura (D6): telhados do nível opacos (alpha 1)
-       * e os de `belowRoofs` também, só o preenchimento; paredes só como contorno fino por cima; sem pisos, lajes ou
-       * aberturas; cota da cumeeira sempre visível. Não usa o intervalo de vista.
-       */
-      roofPlanMode?: boolean;
-    };
+export interface PlanTarget {
+  viewId: Id;
+  /** Nível de reserva: se `viewId` não existir no projeto (vista apagada com a tela ainda aberta), desenha a planta de piso dele. */
+  levelId?: Id;
+  /** Planta de área alternativa (ex.: com edição em curso); sem ela, a derivada da vista. */
+  areaPlan?: AreaPlan;
+}
 
 /** Entrada do desenho da planta. */
 export type PlanInput = PlanInputBase & PlanTarget;
 
-/** Alvo já resolvido: tudo que o desenho precisa saber da vista, consistente entre si. */
+/**
+ * Alvo já resolvido: tudo que o desenho precisa saber da vista, consistente entre si. `roofPlanMode` é derivado do tipo
+ * da vista. Planta de cobertura (D6): telhados do nível opacos (alpha 1) e os de `belowRoofs` também, só o preenchimento;
+ * paredes só como contorno fino por cima; sem pisos, lajes ou aberturas; cota da cumeeira sempre visível. Não usa o
+ * intervalo de vista.
+ */
 export interface PlanTargetResolvido {
   viewId: Id;
   levelId: Id;
@@ -105,30 +91,23 @@ export interface PlanTargetResolvido {
 export type PlanInputResolvido = PlanInputBase & PlanTargetResolvido;
 
 /**
- * Resolve o alvo UMA vez na entrada do desenho. Com `viewId`, a vista manda: nível, cobertura e planta de área saem
- * dela. Sem `viewId` (forma antiga), o id é calculado de `levelId` + `areaPlan` + `roofPlanMode` como sempre foi
- * (planta de área não registrada no projeto cai na vista do nível). `viewId` que não existe no projeto cai na planta de
- * piso do `levelId`, se ele veio, e senão é erro de quem chamou.
+ * Resolve o alvo UMA vez na entrada do desenho: a vista manda, e dela saem o nível, a cobertura e a planta de área.
+ * `viewId` que não existe no projeto cai na planta de piso do `levelId`, se ele veio, e senão é erro de quem chamou.
  */
 export function resolvePlanTarget(p: Pick<Project, 'planViews'>, t: PlanTarget): PlanTargetResolvido {
-  if (t.viewId === undefined) {
-    const roofPlanMode = t.roofPlanMode === true;
-    const viewId = planViewIdOf(p, t.levelId, { areaPlan: t.areaPlan, roofPlanMode });
-    return { viewId, levelId: t.levelId, roofPlanMode, ...(t.areaPlan ? { areaPlan: t.areaPlan } : {}) };
-  }
   const vista = vistaDoModelo(p, t.viewId);
   if (!vista) {
     if (t.levelId === undefined) throw new Error(`Vista de planta inexistente: ${t.viewId}`);
-    return { viewId: floorViewId(t.levelId), levelId: t.levelId, roofPlanMode: false };
+    return { viewId: floorViewId(t.levelId), levelId: t.levelId, roofPlanMode: false, ...(t.areaPlan ? { areaPlan: t.areaPlan } : {}) };
   }
   // Idempotente: um alvo já resolvido (com planta de área alternativa) resolve de novo para o mesmo alvo.
   const areaPlan = t.areaPlan ?? (vista.kind === 'area' ? areaPlanOf(p, vista.id) : undefined);
   return { viewId: vista.id, levelId: vista.levelId, roofPlanMode: vista.kind === 'roof', ...(areaPlan ? { areaPlan } : {}) };
 }
 
-/** Resolve o alvo de um `PlanInput` (ver `resolvePlanTarget`). Já resolvido, devolve o próprio objeto. */
+/** Resolve o alvo de um `PlanInput` (ver `resolvePlanTarget`). */
 export function resolvePlanInput(input: PlanInput): PlanInputResolvido {
-  const { levelId: _l, areaPlan: _a, roofPlanMode: _r, viewId: _v, ...base } = input;
-  void _l; void _a; void _r; void _v;
+  const { levelId: _l, areaPlan: _a, viewId: _v, ...base } = input;
+  void _l; void _a; void _v;
   return { ...base, ...resolvePlanTarget(input.project, input) };
 }

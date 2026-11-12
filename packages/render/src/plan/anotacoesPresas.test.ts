@@ -34,7 +34,7 @@ function cena(): Project {
 }
 
 function entrada(p: Project, over: Partial<PlanInput> = {}): PlanInput {
-  return { project: p, levelId: LV, resolved: resolveLevel(p, LV, new Map()), below: null, viewport: V, theme: LIGHT, dark: false, selection: [], hover: null, preview: [], inference: null, showGrid: false, ...over };
+  return { project: p, viewId: floorViewId(LV), levelId: LV, resolved: resolveLevel(p, LV, new Map()), below: null, viewport: V, theme: LIGHT, dark: false, selection: [], hover: null, preview: [], inference: null, showGrid: false, ...over };
 }
 
 const desenho = (p: Project, over: Partial<PlanInput> = {}): string => JSON.stringify(buildPlanDrawList(entrada(p, over)));

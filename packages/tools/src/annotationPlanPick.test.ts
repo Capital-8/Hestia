@@ -32,7 +32,7 @@ function withAreaPlan() {
   const store = new ProjectStore(createEmptyProject());
   store.exec({ type: 'addAreaPlan', plan: plan('ap1') });
   const ctx = makeEnv(store);
-  ctx.setAreaPlanId('ap1');
+  ctx.setViewId('ap1');
   return ctx;
 }
 
@@ -151,7 +151,7 @@ describe('seleção de anotações na planta de área', () => {
     store.exec({ type: 'addRoom', room: makeRoom({ id: 'r1', levelId: LV0, name: 'Sala', number: '101', point: { x: 2, y: 1.5 } }) });
     store.exec({ type: 'addAreaPlan', plan: plan('ap1') });
     const ctx = makeEnv(store);
-    ctx.setAreaPlanId('ap1');
+    ctx.setViewId('ap1');
 
     const text = tool('text', ctx.env);
     clickAt(text, 2, 1.5);

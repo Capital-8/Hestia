@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { resolverZoom } from './zoomOps.ts';
 import { multiArea, pointInPolygon, type Vec2 } from '@hestia/geom';
 import { resolveFloors, resolveLevel } from '@hestia/engine';
-import { ProjectStore, createEmptyProject, makeFloor, makeWall, type DetailLevel, type Project } from '@hestia/model';
+import { ProjectStore, createEmptyProject, floorViewId, makeFloor, makeWall, type DetailLevel, type Project } from '@hestia/model';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { belowFloorOps, floorFills, floorSelectionOps, labelPoint } from './floors.ts';
 import { mix } from './color.ts';
@@ -25,6 +25,7 @@ const VIEW = (zoom: number): Viewport => ({ cx: 3, cy: 2, zoom, width: 800, heig
 function input(p: Project, over: Partial<PlanInput> = {}): PlanInput {
   return {
     project: p,
+    viewId: floorViewId('lv_0'),
     levelId: 'lv_0',
     resolved: resolveLevel(p, 'lv_0', new Map()),
     below: null,

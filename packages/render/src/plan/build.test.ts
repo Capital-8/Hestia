@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveLevel } from '@hestia/engine';
-import { ProjectStore, createEmptyProject, makeWall, type Project } from '@hestia/model';
+import { ProjectStore, createEmptyProject, floorViewId, makeWall, type Project } from '@hestia/model';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { LIGHT } from './types.ts';
 
@@ -17,6 +17,7 @@ function draw(p: Project, zoom: number) {
   const resolved = resolveLevel(p, 'lv_0', new Map());
   const input: PlanInput = {
     project: p,
+    viewId: floorViewId('lv_0'),
     levelId: 'lv_0',
     resolved,
     below: null,

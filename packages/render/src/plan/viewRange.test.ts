@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { pointInMulti, type Vec2 } from '@hestia/geom';
 import { resolveLevel, viewRangeWarnings } from '@hestia/engine';
-import { ProjectStore, createEmptyProject, defaultStairTypeId, makeFloor, makeRoof, makeSlab, makeStair, makeWall, viewRangeOf, type Id, type Opening, type Project, type ViewRange } from '@hestia/model';
+import { ProjectStore, createEmptyProject, defaultStairTypeId, floorViewId, roofViewId, makeFloor, makeRoof, makeSlab, makeStair, makeWall, viewRangeOf, type Id, type Opening, type Project, type ViewRange } from '@hestia/model';
 import { straightStair } from '../stairFixture.helper.ts';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { stairFills } from './stairs.ts';
@@ -71,6 +71,7 @@ function draw(p: Project, over: Partial<PlanInput> = {}) {
   const input: PlanInput = {
     project: p,
     levelId: 'lv_0',
+    viewId: floorViewId('lv_0'),
     resolved: resolveLevel(p, 'lv_0', new Map()),
     below: null,
     viewport: VIEW,
@@ -234,7 +235,7 @@ describe('telhado, laje e piso no intervalo de vista', () => {
   });
 
   it('planta de cobertura: o mesmo desenho com qualquer intervalo de vista (roofPlanMode não muda)', () => {
-    const roofPlan = { roofPlanMode: true };
+    const roofPlan = { viewId: roofViewId('lv_0') };
     const a = draw(scene(), roofPlan);
     const b = draw(scene({ top: 3.5, cut: 0.5 }), roofPlan);
     expect(b).toEqual(a);

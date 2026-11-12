@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Vec2 } from '@hestia/geom';
-import { createEmptyProject, DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS, makeRoom, makeWall, ProjectStore, type AreaPlan, type AreaPlanAnnotations, withAreaPlansOfTest } from '@hestia/model';
+import { createEmptyProject, DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS, floorViewId, makeRoom, makeWall, ProjectStore, type AreaPlan, type AreaPlanAnnotations, withAreaPlansOfTest } from '@hestia/model';
 import { resolveLevel } from '@hestia/engine';
 import { buildPlanGeometry, type PlanInput } from './build.ts';
 import { LIGHT } from './types.ts';
@@ -51,6 +51,7 @@ const anotacoesDaVista: AreaPlanAnnotations = {
 const entrada = (s: ProjectStore, areaPlan?: AreaPlan): PlanInput => ({
   // A planta de área vai registrada no projeto: o desenho lê a vista pela API do modelo.
   project: areaPlan ? withAreaPlansOfTest(s.project, [areaPlan]) : s.project,
+  viewId: areaPlan?.id ?? floorViewId('lv_0'),
   levelId: 'lv_0',
   resolved: resolveLevel(s.project, 'lv_0'),
   below: null,

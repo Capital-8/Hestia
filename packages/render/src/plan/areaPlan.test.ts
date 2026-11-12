@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Vec2 } from '@hestia/geom';
-import { ProjectStore, createEmptyProject, makeRoom, makeWall, type AreaPlan, type AreaPlanAnnotations, withAreaPlansOfTest } from '@hestia/model';
+import { ProjectStore, createEmptyProject, floorViewId, makeRoom, makeWall, type AreaPlan, type AreaPlanAnnotations, withAreaPlansOfTest } from '@hestia/model';
 import { resolveRooms, resolveLevel, type ResolvedRoom } from '@hestia/engine';
 import { buildPlanGeometry, buildPlanSelectionOverlay, planGeometrySelection, type PlanInput } from './build.ts';
 import { DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS } from '@hestia/model';
@@ -75,6 +75,7 @@ const comPlanta = (s: ProjectStore, areaPlan?: AreaPlan) => (areaPlan ? withArea
 
 const entrada = (s: ProjectStore, areaPlan?: AreaPlan, selection: string[] = []): PlanInput => ({
   project: comPlanta(s, areaPlan),
+  viewId: areaPlan?.id ?? floorViewId('lv_0'),
   levelId: 'lv_0',
   resolved: resolveLevel(s.project, 'lv_0'),
   below: null,
@@ -217,6 +218,7 @@ describe('planta de área · desenho', () => {
     const p = s.project;
     const ops = buildPlanGeometry({
       project: p,
+      viewId: plan().id,
       levelId: 'lv_0',
       resolved: resolveLevel(p, 'lv_0'),
       below: null,

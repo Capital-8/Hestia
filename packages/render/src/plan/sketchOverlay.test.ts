@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyProject, type Id } from '@hestia/model';
+import { createEmptyProject, floorViewId, type Id } from '@hestia/model';
 import { validateSketch, type SketchDraft } from '@hestia/geom';
 import type { Viewport } from '../viewport.ts';
 import { planFrameUpdateOf, resolucaoVazia, type PlanSketch, type PlanViewState } from './planFrame.ts';
@@ -23,7 +23,7 @@ const draft: SketchDraft = {
 
 function estado(levelId: Id, sketch: PlanSketch | null): PlanViewState {
   return {
-    project: createEmptyProject('vazio'), version: 1, levelId, v: V, theme: LIGHT, dark: false, gpu: false, showGrid: false,
+    project: createEmptyProject('vazio'), version: 1, levelId, viewId: floorViewId(levelId), v: V, theme: LIGHT, dark: false, gpu: false, showGrid: false,
     showUnderlay: false, showRoofProjection: false, thinLines: false, selection: [], hover: null, preview: [], inference: null,
     resolve: () => resolucaoVazia(levelId), sketch,
   };

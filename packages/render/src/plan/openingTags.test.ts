@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveLevel } from '@hestia/engine';
-import { createEmptyProject, makeWall, type Opening, type Project, type Wall } from '@hestia/model';
+import { createEmptyProject, floorViewId, makeWall, type Opening, type Project, type Wall } from '@hestia/model';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { openingTagLabels } from './openingTags.ts';
 import { defaultPaint } from './style.ts';
@@ -67,6 +67,7 @@ describe('etiquetas de portas e janelas', () => {
     p.nextOrder = 2;
     const input: PlanInput = {
       project: p,
+      viewId: floorViewId('lv_0'),
       levelId: 'lv_0',
       resolved: resolveLevel(p, 'lv_0', new Map()),
       below: null,

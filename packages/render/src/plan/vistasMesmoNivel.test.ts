@@ -49,6 +49,7 @@ const estado = (over: Partial<PlanViewState>): PlanViewState => ({
   project: p,
   version: 1,
   levelId: 'lv_0',
+  viewId: floorViewId('lv_0'),
   v: V,
   theme: LIGHT,
   dark: false,
@@ -68,8 +69,8 @@ const estado = (over: Partial<PlanViewState>): PlanViewState => ({
 /** As três vistas do nível 0, cada uma com os seus ocultos. */
 const VISTAS = {
   piso: estado({ hidden: new Set(['w0']) }),
-  area: estado({ areaPlan: AREA, hidden: new Set() }),
-  cobertura: estado({ roofPlanMode: true, hidden: new Set(['r']) }),
+  area: estado({ viewId: AREA.id, areaPlan: AREA, hidden: new Set() }),
+  cobertura: estado({ viewId: roofViewId('lv_0'), hidden: new Set(['r']) }),
 };
 type Nome = keyof typeof VISTAS;
 
@@ -121,7 +122,7 @@ describe('vistas do mesmo nível não se contaminam (piso, cobertura, planta de 
   });
 
   it('sem nenhum oculto em nenhuma delas, só o id da vista separa as camadas (piso, área e cobertura alternados)', () => {
-    const limpas: Record<Nome, PlanViewState> = { piso: estado({}), area: estado({ areaPlan: AREA }), cobertura: estado({ roofPlanMode: true }) };
+    const limpas: Record<Nome, PlanViewState> = { piso: estado({}), area: estado({ viewId: AREA.id, areaPlan: AREA }), cobertura: estado({ viewId: roofViewId('lv_0') }) };
     const esperado = Object.fromEntries((Object.keys(limpas) as Nome[]).map((n) => [n, desenhar(new PlanFrame(NULL_SINK), limpas[n])])) as Record<Nome, string>;
     const quadro = new PlanFrame(NULL_SINK);
     for (const nome of ['piso', 'cobertura', 'area', 'piso', 'area', 'cobertura', 'cobertura', 'piso'] as Nome[]) expect(desenhar(quadro, limpas[nome])).toBe(esperado[nome]);
