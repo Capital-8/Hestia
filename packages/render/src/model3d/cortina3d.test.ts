@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MalhaCortinaProjeto } from '@hestia/engine';
-import { arestasDaCortina, avulsosDaCortina, caixasDasCortinas, lotesDaCortina, malhaDePickCortina, matriz16, normaisDaMalha, normaisDoProto } from './cortina3d.ts';
+import { arestasDaCortina, avulsosDaCortina, caixasDasCortinas, celulaContemCentro, lotesDaCortina, malhaDePickCortina, matriz16, normaisDaMalha, normaisDoProto, subconjuntoDeLotes } from './cortina3d.ts';
 
 /** Caixa unitária com 24 vértices (4 por face), como o Rust entrega (vértices próprios por face). */
 function caixa(): { vertices: Float32Array; indices: Uint32Array } {
@@ -145,5 +145,61 @@ describe('cortina3d: peças avulsas (grupos) como malha própria', () => {
   it('peça de cortina oculta (visivel = false) não entra', () => {
     expect(avulsosDaCortina(comGrupos(), (id) => id === 'b')).toHaveLength(1);
     expect(avulsosDaCortina(comGrupos(), () => false)).toEqual([]);
+  });
+});
+
+describe('cortina3d: subconjunto de instâncias para o realce (sem caixa)', () => {
+  it('subconjuntoDeLotes: só as instâncias do dono, com as matrizes originais (cópia, o lote não muda)', () => {
+    const l = lotesDaCortina(malha());
+    const sub = subconjuntoDeLotes(l, (dono) => dono === 'a');
+    expect(sub.map((x) => [x.proto, x.n, x.donos])).toEqual([
+      [1, 2, ['a', 'a']],
+      [2, 1, ['a']],
+    ]);
+    expect([...sub[0]!.matrizes]).toEqual([...l[0]!.matrizes.subarray(0, 32)]);
+    expect(l[0]!.n).toBe(3);
+  });
+
+  it('subconjuntoDeLotes: o critério de posição usa o centro da caixa do protótipo no mundo', () => {
+    // Centro da instância de `a` em x = 0: (0,025; 0,05; 1,5); a de x = 2: (2,025; 0,05; 1,5); o vidro em x = 0,5 tem centro em x = 1,0.
+    const sub = subconjuntoDeLotes(lotesDaCortina(malha()), (dono, c) => dono === 'a' && c[0]! > 1);
+    expect(sub).toHaveLength(1);
+    expect(sub[0]!.n).toBe(1);
+    expect(sub[0]!.donos).toEqual(['a']);
+    expect(sub[0]!.matrizes[12]).toBeCloseTo(2, 6);
+  });
+
+  it('subconjuntoDeLotes sem instância aceita: nenhum lote', () => {
+    expect(subconjuntoDeLotes(lotesDaCortina(malha()), () => false)).toEqual([]);
+  });
+
+  it('arestas do subconjunto são as do protótipo levadas pela matriz de cada instância', () => {
+    const sub = subconjuntoDeLotes(lotesDaCortina(malha()), (dono) => dono === 'a');
+    const a = arestasDaCortina(sub, (28 * Math.PI) / 180);
+    // 12 arestas por caixa e 3 instâncias (2 montantes e 1 vidro).
+    expect(a.length / 6).toBe(36);
+    // O canto (1, 1, 1) do protótipo, na instância de x = 2, vai a (2 + 0,05; 0,1; 3).
+    const pontos: string[] = [];
+    for (let i = 0; i < a.length; i += 3) pontos.push([a[i]!, a[i + 1]!, a[i + 2]!].map((v) => v.toFixed(4)).join(','));
+    expect(pontos).toContain('2.0500,0.1000,3.0000');
+    expect(pontos).toContain('0.0000,0.0000,0.0000');
+  });
+
+  it('celulaContemCentro: o centro de um painel estritamente dentro da célula', () => {
+    const parede = { a: { x: 0, y: 0 }, b: { x: 6, y: 0 }, L: 6, zBase: 0, profundidade: 0.1 };
+    const celula = { s0: 2, s1: 4, z0: 0, z1: 3 };
+    expect(celulaContemCentro([3, 0, 1.5], parede, celula)).toBe(true);
+    // Montante sobre a linha da grade (s = 2) fica de fora; o mesmo vale para a borda de cima.
+    expect(celulaContemCentro([2, 0, 1.5], parede, celula)).toBe(false);
+    expect(celulaContemCentro([3, 0, 3], parede, celula)).toBe(false);
+    // Fora da espessura da cortina, e de outra célula, não.
+    expect(celulaContemCentro([3, 0.5, 1.5], parede, celula)).toBe(false);
+    expect(celulaContemCentro([5, 0, 1.5], parede, celula)).toBe(false);
+  });
+
+  it('celulaContemCentro: parede inclinada usa o eixo a-b (s) e a normal (n)', () => {
+    const parede = { a: { x: 0, y: 0 }, b: { x: 0, y: 6 }, L: 6, zBase: 1, profundidade: 0.1 };
+    expect(celulaContemCentro([0, 3, 2.5], parede, { s0: 2, s1: 4, z0: 0, z1: 3 })).toBe(true);
+    expect(celulaContemCentro([0.5, 3, 2.5], parede, { s0: 2, s1: 4, z0: 0, z1: 3 })).toBe(false);
   });
 });

@@ -15,6 +15,8 @@ export interface PickSource {
   owner: Object3D;
   kind: GraphicsCategory;
   ranges: ElementRange[];
+  /** Só para o raio (caixa de picking de uma cortina): não entra no realce de seleção/cursor, que segue a geometria real. */
+  semRealce?: boolean;
 }
 
 /**

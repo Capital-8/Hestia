@@ -184,7 +184,8 @@ export class RealcesDaCena {
       const mesh = o as THREE.Mesh;
       const faixas = mesh.userData.ranges as ElementRange[] | undefined;
       const geo = mesh.geometry as THREE.BufferGeometry | undefined;
-      if (!mesh.isMesh || !faixas || !geo?.index) return;
+      // A caixa de picking de uma cortina (`semRealce`) fica fora do realce: a cortina realça as próprias instâncias (`realceCortina3d.ts`).
+      if (!mesh.isMesh || !faixas || !geo?.index || mesh.userData.semRealce) return;
       for (const id of mapaDaMalha(faixas).keys()) {
         const l = out.get(id);
         if (l) l.push(mesh);
