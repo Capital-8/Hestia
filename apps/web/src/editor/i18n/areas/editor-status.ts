@@ -1241,8 +1241,7 @@ export const IT_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
 
   eds_msg_graphics_invalid: 'Grafica non valida.',
   eds_undo_change_view_graphics: 'Modifica grafica della vista',
-
-  eds_undo_change_view_range: 'undefined',
+  eds_undo_change_view_range: 'Modifica intervallo di vista',
   eds_undo_change_3d_graphics: 'Modifica grafica 3D',
   eds_undo_change_line_weights: 'Modifica spessori di linea',
   eds_undo_restore_view_graphics: 'Ripristina grafica della vista',
@@ -1451,8 +1450,7 @@ export const PL_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
 
   eds_msg_graphics_invalid: 'Nieprawidłowa grafika.',
   eds_undo_change_view_graphics: 'Zmień grafikę widoku',
-
-  eds_undo_change_view_range: 'undefined',
+  eds_undo_change_view_range: 'Zmień zakres widoku',
   eds_undo_change_3d_graphics: 'Zmień grafikę 3D',
   eds_undo_change_line_weights: 'Zmień grubości linii',
   eds_undo_restore_view_graphics: 'Przywróć grafikę widoku',
