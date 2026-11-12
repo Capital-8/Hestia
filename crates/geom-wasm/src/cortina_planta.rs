@@ -13,8 +13,8 @@
 use std::collections::BTreeMap;
 
 use crate::consultas::Saida;
-use crate::cortina_malha::lados_redondo;
-use crate::cortina_pecas::{CortinaR, Geom, PecaMont};
+use crate::cortina_malha::{lados_redondo, secao, valor_em, Faixas, Secao};
+use crate::cortina_pecas::{CortinaR, Geom, PecaEsq, PecaMont};
 use crate::cortina_tipos::*;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -46,7 +46,7 @@ fn retangulo(g: &Geom, t0: f64, t1: f64, y0: f64, y1: f64) -> Vec<[f64; 2]> {
     vec![xy(g, t0, y0), xy(g, t1, y0), xy(g, t1, y1), xy(g, t0, y1)]
 }
 
-/// Perfil de uma peça vertical em planta (retângulo ou círculo) centrado em `t`.
+/// Perfil de uma peça vertical em planta (retângulo ou círculo) centrado em `t`. L, trapézio e canto: o contorno externo da seção, com `t = pos + σ·x`.
 fn perfil_vertical(g: &Geom, p: &PecaMont) -> Vec<[f64; 2]> {
     let m = &p.m;
     if m.forma == FORMA_REDONDA {
@@ -57,9 +57,41 @@ fn perfil_vertical(g: &Geom, p: &PecaMont) -> Vec<[f64; 2]> {
                 xy(g, p.pos + r * a.cos(), m.desloc + r * a.sin())
             })
             .collect()
+    } else if matches!(m.forma, FORMA_L | FORMA_TRAPEZIO | FORMA_CORNER) {
+        perfil_secao(g, p.pos, &secao(m, 1))
     } else {
         retangulo(g, p.pos - m.largura / 2.0, p.pos + m.largura / 2.0, m.desloc - m.profundidade / 2.0, m.desloc + m.profundidade / 2.0)
     }
+}
+
+/// Contorno externo de uma seção de montante vertical em planta, centrada na linha `pos`.
+fn perfil_secao(g: &Geom, pos: f64, sec: &Secao) -> Vec<[f64; 2]> {
+    sec.aneis[0].iter().map(|q| xy(g, pos + g.sigma * q[0], q[1])).collect()
+}
+
+/// Pegada em planta de uma peça horizontal com esquadria: o limite de um lado (`lo`) desce pela profundidade e o do outro (`hi`) sobe. Os degraus
+/// aparecem como arestas paralelas a `t`.
+fn pegada(g: &Geom, p: &PecaEsq) -> Vec<[f64; 2]> {
+    let (ymin, ymax) = (p.m.desloc - p.m.prof() / 2.0, p.m.desloc + p.m.prof() / 2.0);
+    let borda = |f: &Faixas| -> Vec<(f64, f64)> {
+        let mut v = Vec::new();
+        for b in f {
+            let (u, w) = (b.y0.max(ymin), b.y1.min(ymax));
+            if u <= w {
+                v.push((b.a + b.b * u, u));
+                v.push((b.a + b.b * w, w));
+            }
+        }
+        v
+    };
+    let (esq, dir) = (borda(&p.lo), borda(&p.hi));
+    esq.iter().map(|&(t, y)| xy(g, t, y)).chain(dir.iter().rev().map(|&(t, y)| xy(g, t, y))).collect()
+}
+
+/// Faixa de cotas (z relativo à base) de uma peça de esquadria vertical, no meio da profundidade.
+fn faixa_z_esq(p: &PecaEsq) -> (f64, f64) {
+    let ym = p.m.desloc;
+    (valor_em(&p.lo, ym), valor_em(&p.hi, ym))
 }
 
 fn papel_painel(kind: u8) -> u32 {
@@ -106,6 +138,11 @@ pub fn planta(cortinas: &[CortinaR], corte_z: f64, detalhe: u8) -> Vec<LinhaPlan
                 for (p, lo, hi) in linhas.values() {
                     out.push(LinhaPlanta { cortina: c.id, papel: PLANTA_MONTANTE, estilo: estilo(zb + lo, zb + hi, corte_z), fechada: true, pontos: perfil_vertical(g, p) });
                 }
+                // Verticais com esquadria: um perfil por peça, com a faixa de cotas dela.
+                for p in g.pecas_esq.iter().filter(|p| p.eixo == EIXO_U) {
+                    let (lo, hi) = faixa_z_esq(p);
+                    out.push(LinhaPlanta { cortina: c.id, papel: PLANTA_MONTANTE, estilo: estilo(zb + lo, zb + hi, corte_z), fechada: true, pontos: perfil_secao(g, p.pos, &secao(&p.m, 1)) });
+                }
             }
             _ => {
                 for p in g.paineis.iter().filter(|p| p.p.kind != PAINEL_VAZIO) {
@@ -119,6 +156,15 @@ pub fn planta(cortinas: &[CortinaR], corte_z: f64, detalhe: u8) -> Vec<LinhaPlan
                         let (lo, hi) = (p.pos - p.m.largura / 2.0, p.pos + p.m.largura / 2.0);
                         let pf = p.m.prof();
                         out.push(LinhaPlanta { cortina: c.id, papel: PLANTA_MONTANTE, estilo: estilo(zb + lo, zb + hi, corte_z), fechada: true, pontos: retangulo(g, p.de, p.ate, p.m.desloc - pf / 2.0, p.m.desloc + pf / 2.0) });
+                    }
+                }
+                for p in &g.pecas_esq {
+                    if p.eixo == EIXO_U {
+                        let (lo, hi) = faixa_z_esq(p);
+                        out.push(LinhaPlanta { cortina: c.id, papel: PLANTA_MONTANTE, estilo: estilo(zb + lo, zb + hi, corte_z), fechada: true, pontos: perfil_secao(g, p.pos, &secao(&p.m, 1)) });
+                    } else {
+                        let (lo, hi) = (p.pos - p.m.largura / 2.0, p.pos + p.m.largura / 2.0);
+                        out.push(LinhaPlanta { cortina: c.id, papel: PLANTA_MONTANTE, estilo: estilo(zb + lo, zb + hi, corte_z), fechada: true, pontos: pegada(g, p) });
                     }
                 }
             }
@@ -243,5 +289,24 @@ mod testes {
         let l = planta(&resolver(&cena, 0).expect("r"), 1.5, 0);
         let xs: Vec<f64> = l[0].pontos.iter().map(|p| p[0]).collect();
         assert!(xs.iter().all(|x| (x.abs() - 0.06).abs() < 1e-9), "faces em x = ±0,06: {xs:?}");
+    }
+}
+
+#[cfg(test)]
+mod testes_f3 {
+    use super::*;
+    use crate::cortina_pecas::resolver;
+    use crate::cortina_pecas::testes::*;
+
+    #[test]
+    fn detalhe_medio_desenha_o_contorno_de_cada_forma_no_lugar_do_retangulo() {
+        // A vertical interior com a forma pedida sai com o contorno externo da seção (L: 6 pontos; trapézio e canto: 4); as de borda seguem retângulos.
+        for (forma, n) in [(M_L, 6usize), (M_TRAP, 4), (M_CANTO, 4)] {
+            let mut e = Espec::novo(EixoEfetivo::numero(2), EixoEfetivo::numero(1));
+            e.mont = [forma, M_RET, M_RET, M_RET, M_RET, M_RET];
+            let l = planta(&resolver(&cena_simples(&e, 4.0, 3.0), 0).expect("r"), 1.5, 1);
+            let verticais: Vec<&LinhaPlanta> = l.iter().filter(|x| x.papel == PLANTA_MONTANTE).collect();
+            assert!(verticais.iter().any(|x| x.pontos.len() == n), "forma {forma}: nenhum contorno de {n} pontos");
+        }
     }
 }

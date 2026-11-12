@@ -14,6 +14,7 @@ use std::collections::BTreeSet;
 
 use crate::cena::Cena;
 use crate::cortina_grade::{arestas, linhas_do_eixo, IndiceGrades};
+use crate::cortina_malha::{faixa_plana, faixas_do_vizinho, secao, valor_em, varia, Faixas};
 use crate::cortina_remap::{fundir, linhas_finais, mapear_celulas, mapear_segmentos, Alvo, CelSob, Escolha, ExtLinha, LinhaFinal, Orfao, SegRemovido, SobLinha};
 use crate::cortina_tipos::*;
 use crate::esquema::{
@@ -23,13 +24,15 @@ use crate::esquema::{
 };
 use crate::secoes_cortina::SecoesCortina;
 
-/// Um tipo de montante já conferido (só as formas retas valem na fase 1).
+/// Um tipo de montante já conferido. `espessura` (L: abas; canto: chapa) e `largura2` (trapézio: face interna) valem 0 onde não se aplicam.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Montante {
     pub tipo: u32,
     pub forma: u8,
     pub largura: f64,
     pub profundidade: f64,
+    pub espessura: f64,
+    pub largura2: f64,
     /// Deslocamento do perfil na profundidade (m, positivo para fora).
     pub desloc: f64,
     pub material: u32,
@@ -45,21 +48,28 @@ impl Montante {
         }
     }
 
-    /// Área da seção reta (m²).
+    /// Área da seção reta (m²), pela fórmula de cada perfil (ADR §4.2): `rect` w·d; `round` πw²/4; `L` t(w + d − t); `trapezoid` (w + wb)/2·d;
+    /// `corner` w·d − (w − 2t)(d − 2t).
     pub fn area_secao(&self) -> f64 {
-        if self.forma == FORMA_REDONDA {
-            std::f64::consts::PI * self.largura * self.largura / 4.0
-        } else {
-            self.largura * self.profundidade
+        let (w, d, t) = (self.largura, self.profundidade, self.espessura);
+        match self.forma {
+            FORMA_REDONDA => std::f64::consts::PI * w * w / 4.0,
+            FORMA_L => t * (w + d - t),
+            FORMA_TRAPEZIO => (w + self.largura2) / 2.0 * d,
+            FORMA_CORNER => w * d - (w - 2.0 * t) * (d - 2.0 * t),
+            _ => w * d,
         }
     }
 
-    /// Perímetro da seção (m).
+    /// Perímetro externo da seção (m). O canto soma o contorno interno, que é um furo.
     pub fn perimetro(&self) -> f64 {
-        if self.forma == FORMA_REDONDA {
-            std::f64::consts::PI * self.largura
-        } else {
-            2.0 * (self.largura + self.profundidade)
+        let (w, d, t) = (self.largura, self.profundidade, self.espessura);
+        match self.forma {
+            FORMA_REDONDA => std::f64::consts::PI * w,
+            FORMA_L => 2.0 * (w + d),
+            FORMA_TRAPEZIO => w + self.largura2 + 2.0 * (((w - self.largura2) / 2.0).powi(2) + d * d).sqrt(),
+            FORMA_CORNER => 2.0 * (w + d) + 2.0 * ((w - 2.0 * t) + (d - 2.0 * t)),
+            _ => 2.0 * (w + d),
         }
     }
 }
@@ -125,6 +135,21 @@ impl PecaMont {
     pub fn comprimento(&self) -> f64 {
         self.ate - self.de
     }
+}
+
+/// Peça de montante com ESQUADRIA (fase 3): a ponta encosta no contorno de um vizinho contínuo que varia com a profundidade (perfil L ou trapézio), então
+/// não é prisma. `lo` e `hi` são os limites da peça no eixo dela (`t` para horizontal; `z` para vertical), em função da profundidade `y`. Sai em `grupos`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PecaEsq {
+    pub eixo: u8,
+    pub linha: u32,
+    pub k: u32,
+    pub papel: u32,
+    pub m: Montante,
+    pub pos: f64,
+    pub lo: Faixas,
+    pub hi: Faixas,
+    pub continuo: bool,
 }
 
 /// Painel de uma célula: o retângulo livre (a célula menos a meia largura dos montantes que a margeiam). Há um por célula, mesmo sem área.
@@ -241,6 +266,8 @@ pub struct Geom {
     pub celulas: Vec<Celula>,
     pub segmentos: Vec<Segmento>,
     pub pecas: Vec<PecaMont>,
+    /// Peças com esquadria (ver `PecaEsq`); as demais, prismas, estão em `pecas`.
+    pub pecas_esq: Vec<PecaEsq>,
     pub paineis: Vec<PainelPeca>,
 }
 
@@ -313,11 +340,41 @@ fn montante_de(sec: &SecoesCortina, id: u32) -> Result<Option<Montante>, u32> {
         return Ok(None);
     }
     let m = sec.montantes.get(&id).ok_or(ENTRADA)?;
-    // L, trapézio e canto chegam na fase 3.
-    if m.forma > FORMA_REDONDA || m.largura <= 0.0 || m.profundidade <= 0.0 {
+    if m.forma > FORMA_CORNER || m.largura <= 0.0 || m.profundidade <= 0.0 {
         return Err(ENTRADA);
     }
-    Ok(Some(Montante { tipo: id, forma: m.forma, largura: m.largura, profundidade: m.profundidade, desloc: m.deslocamento, material: m.material }))
+    // Geometria de cada forma (ADR §4.2): a alma e as abas de L cabem na seção; a chapa do canto é um tubo (furo com folga); o trapézio precisa de
+    // face interna positiva. Valores ausentes (NaN) contam como zero.
+    let (esp, wb) = (if m.espessura.is_nan() { 0.0 } else { m.espessura }, if m.largura2.is_nan() { 0.0 } else { m.largura2 });
+    let menor = m.largura.min(m.profundidade);
+    let valido = match m.forma {
+        FORMA_L => esp > 0.0 && esp < menor,
+        FORMA_TRAPEZIO => wb > 0.0,
+        FORMA_CORNER => esp > 0.0 && 2.0 * esp < menor,
+        _ => true,
+    };
+    if !valido {
+        return Err(ENTRADA);
+    }
+    Ok(Some(Montante { tipo: id, forma: m.forma, largura: m.largura, profundidade: m.profundidade, espessura: esp, largura2: wb, desloc: m.deslocamento, material: m.material }))
+}
+
+/// Limite de uma ponta de montante contra o vizinho na linha: `coef` e `c` dão a coordenada `c + coef·x` do vizinho (x na face); `maximo` diz se a ponta
+/// fica além do máximo (vizinho do lado de menor coordenada) ou do mínimo. Vizinho de plano (retangular ou redondo, ou `None` sem o vizinho ativo) dá a
+/// face de largura do perfil, como sempre; o perfil L e o trapézio dão a envoltória exata por faixa de profundidade.
+fn limite_vizinho(vizinho: Option<&Montante>, face: f64, c: f64, coef: f64, maximo: bool, nominal: f64) -> Faixas {
+    if face == 0.0 {
+        return faixa_plana(nominal);
+    }
+    match vizinho {
+        Some(m) if matches!(m.forma, FORMA_L | FORMA_TRAPEZIO | FORMA_CORNER) => faixas_do_vizinho(&secao(m, 2), c, coef, maximo),
+        _ => faixa_plana(if maximo { c + face / 2.0 } else { c - face / 2.0 }),
+    }
+}
+
+/// Faixa de profundidade do perfil (`[y0, y1]` do sistema de referência da cortina).
+fn faixa_y(m: &Montante) -> (f64, f64) {
+    (m.desloc - m.prof() / 2.0, m.desloc + m.prof() / 2.0)
 }
 
 fn painel_de(sec: &SecoesCortina, id: u32) -> Result<PainelTipo, u32> {
@@ -493,6 +550,7 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
         celulas: Vec::new(),
         segmentos: Vec::new(),
         pecas: Vec::new(),
+        pecas_esq: Vec::new(),
         paineis: Vec::new(),
     };
 
@@ -591,16 +649,29 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
     g.celulas.sort_by_key(|x| (x.i, x.j));
 
     // Montantes por segmento. O contínuo corre de linha a linha (centro a centro); o quebrado para na face do contínuo. Segmento inativo não tem peça.
+    // A ponta do quebrado é a envoltória do contínuo vizinho (fase 3): plano para `rect`/`round`, como antes; perfil exato para L e trapézio. Peça cuja
+    // ponta varia com a profundidade vai a `pecas_esq` (esquadria); as demais são prismas com `de`/`ate` constantes.
     let vertical_continua = t.prioridade == PRIORIDADE_VERTICAL;
     for i in 0..=nu {
         let Some(mt) = g.mont_u[i] else { continue };
+        let (ymin, ymax) = faixa_y(&mt);
         for k in 0..nv {
             if g.segmentos[i * nv + k].removido {
                 continue;
             }
             // Sem face (segmento de borda removido, ou sem montante no nó), a ponta vai à aresta: a borda não recorta nada ali.
             let (f0, f1) = (g.face_v(k, i), g.face_v(k + 1, i));
-            let (de, ate) = if vertical_continua { (g.vs[k], g.vs[k + 1]) } else { (if f0 == 0.0 { g.vs[k] } else { g.cv[k] + f0 / 2.0 }, if f1 == 0.0 { g.vs[k + 1] } else { g.cv[k + 1] - f1 / 2.0 }) };
+            let (lo, hi) = if vertical_continua {
+                (faixa_plana(g.vs[k]), faixa_plana(g.vs[k + 1]))
+            } else {
+                (limite_vizinho(g.mont_v[k].as_ref(), f0, g.cv[k], -g.sigma, true, g.vs[k]), limite_vizinho(g.mont_v[k + 1].as_ref(), f1, g.cv[k + 1], -g.sigma, false, g.vs[k + 1]))
+            };
+            if varia(&lo, ymin, ymax) || varia(&hi, ymin, ymax) {
+                g.pecas_esq.push(PecaEsq { eixo: EIXO_U, linha: i as u32, k: k as u32, papel: g.papel_u[i], m: mt, pos: g.cu[i], lo, hi, continuo: vertical_continua });
+                continue;
+            }
+            let ym = (ymin + ymax) / 2.0;
+            let (de, ate) = (valor_em(&lo, ym), valor_em(&hi, ym));
             if ate - de > TOL_POS {
                 g.pecas.push(PecaMont { eixo: EIXO_U, linha: i as u32, k: k as u32, papel: g.papel_u[i], m: mt, pos: g.cu[i], de, ate, continuo: vertical_continua });
             }
@@ -609,12 +680,24 @@ fn resolver_uma(sec: &SecoesCortina, grades: &IndiceGrades, id: u32) -> Result<C
     let base_v = (nu + 1) * nv;
     for j in 0..=nv {
         let Some(mt) = g.mont_v[j] else { continue };
+        let (ymin, ymax) = faixa_y(&mt);
         for k in 0..nu {
             if g.segmentos[base_v + j * nu + k].removido {
                 continue;
             }
             let (f0, f1) = (g.face_u(k, j), g.face_u(k + 1, j));
-            let (de, ate) = if !vertical_continua { (g.us[k], g.us[k + 1]) } else { (if f0 == 0.0 { g.us[k] } else { g.cu[k] + f0 / 2.0 }, if f1 == 0.0 { g.us[k + 1] } else { g.cu[k + 1] - f1 / 2.0 }) };
+            let (lo, hi) = if !vertical_continua {
+                (faixa_plana(g.us[k]), faixa_plana(g.us[k + 1]))
+            } else {
+                // Coordenada t = pos + σ·x do vizinho: o início encosta no máximo, o fim no mínimo.
+                (limite_vizinho(g.mont_u[k].as_ref(), f0, g.cu[k], g.sigma, true, g.us[k]), limite_vizinho(g.mont_u[k + 1].as_ref(), f1, g.cu[k + 1], g.sigma, false, g.us[k + 1]))
+            };
+            if varia(&lo, ymin, ymax) || varia(&hi, ymin, ymax) {
+                g.pecas_esq.push(PecaEsq { eixo: EIXO_V, linha: j as u32, k: k as u32, papel: g.papel_v[j], m: mt, pos: g.cv[j], lo, hi, continuo: !vertical_continua });
+                continue;
+            }
+            let ym = (ymin + ymax) / 2.0;
+            let (de, ate) = (valor_em(&lo, ym), valor_em(&hi, ym));
             if ate - de > TOL_POS {
                 g.pecas.push(PecaMont { eixo: EIXO_V, linha: j as u32, k: k as u32, papel: g.papel_v[j], m: mt, pos: g.cv[j], de, ate, continuo: !vertical_continua });
             }
@@ -725,6 +808,10 @@ pub(crate) mod testes {
     pub(crate) const TIPO: u32 = 1;
     pub(crate) const M_RET: u32 = 1; // retangular 50 x 100 mm
     pub(crate) const M_RED: u32 = 2; // redondo 50 mm
+    pub(crate) const M_L: u32 = 3; // L 80 × 120 mm, abas de 10 mm (face interna, como o TS)
+    pub(crate) const M_R12: u32 = 4; // retangular 50 × 120 mm (profundidade do sistema)
+    pub(crate) const M_TRAP: u32 = 5; // trapézio 80 / 40 × 120 mm
+    pub(crate) const M_CANTO: u32 = 6; // canto: tubo de chapa 60 × 120 mm, chapa de 4 mm
     pub(crate) const P_VIDRO: u32 = 1; // vidro 10 mm
     pub(crate) const P_SOLIDO: u32 = 2; // sólido 4 mm
     pub(crate) const P_VAZIO: u32 = 3;
@@ -769,6 +856,10 @@ pub(crate) mod testes {
         let s = &mut c.cortina;
         s.montantes.insert(M_RET, MontanteTipoLinha { forma: FORMA_RETANGULAR, largura: 0.05, profundidade: 0.1, espessura: 0.0, largura2: 0.0, deslocamento: 0.0, posicao: 0, material: 11 });
         s.montantes.insert(M_RED, MontanteTipoLinha { forma: FORMA_REDONDA, largura: 0.05, profundidade: 0.05, espessura: 0.0, largura2: 0.0, deslocamento: 0.0, posicao: 0, material: 12 });
+        s.montantes.insert(M_L, MontanteTipoLinha { forma: FORMA_L, largura: 0.08, profundidade: 0.12, espessura: 0.01, largura2: 0.0, deslocamento: 0.0, posicao: 0, material: 13 });
+        s.montantes.insert(M_R12, MontanteTipoLinha { forma: FORMA_RETANGULAR, largura: 0.05, profundidade: 0.12, espessura: 0.0, largura2: 0.0, deslocamento: 0.0, posicao: 0, material: 11 });
+        s.montantes.insert(M_TRAP, MontanteTipoLinha { forma: FORMA_TRAPEZIO, largura: 0.08, profundidade: 0.12, espessura: 0.0, largura2: 0.04, deslocamento: 0.0, posicao: 0, material: 14 });
+        s.montantes.insert(M_CANTO, MontanteTipoLinha { forma: FORMA_CORNER, largura: 0.06, profundidade: 0.12, espessura: 0.004, largura2: 0.0, deslocamento: 0.0, posicao: 0, material: 15 });
         s.paineis.insert(P_VIDRO, PainelTipoLinha { tipo: PAINEL_VIDRO, espessura: 0.01, deslocamento: 0.0, encaixe: f64::NAN, material: 21, vidro_tipo: 0 });
         s.paineis.insert(P_SOLIDO, PainelTipoLinha { tipo: PAINEL_SOLIDO, espessura: 0.004, deslocamento: 0.0, encaixe: 0.01, material: 22, vidro_tipo: 0 });
         s.paineis.insert(P_VAZIO, PainelTipoLinha { tipo: PAINEL_VAZIO, espessura: 0.0, deslocamento: 0.0, encaixe: f64::NAN, material: ID_AUSENTE, vidro_tipo: 0 });
@@ -1082,7 +1173,10 @@ pub(crate) mod testes {
         let e = Espec::novo(EixoEfetivo::numero(2), EixoEfetivo::numero(1));
         let mut c = cena_simples(&e, 4.0, 3.0);
         c.cortina.montantes.get_mut(&M_RET).expect("m").forma = FORMA_L;
-        assert_eq!(resolver(&c, 0).err(), Some(ENTRADA), "L só na fase 3");
+        assert_eq!(resolver(&c, 0).err(), Some(ENTRADA), "L sem espessura da aba");
+        let mut c = cena_simples(&e, 4.0, 3.0);
+        c.cortina.montantes.get_mut(&M_RET).expect("m").forma = 5;
+        assert_eq!(resolver(&c, 0).err(), Some(ENTRADA), "forma fora do domínio");
         let mut c = cena_simples(&e, 4.0, 3.0);
         c.cortina.tipos.get_mut(&TIPO).expect("t").painel_padrao = 99;
         assert_eq!(resolver(&c, 0).err(), Some(ENTRADA), "painel do tipo inexistente");
@@ -1303,5 +1397,184 @@ mod testes_f2 {
         let mut c = cena_simples(&e, 4.0, 3.0);
         c.cortina.extras.insert(3, LinhaExtraLinha { cortina: 1, eixo: EIXO_U, pos: 1.0, travada: true, comp: 4.0, montante: 99 });
         assert_eq!(resolver(&c, 0).err(), Some(ENTRADA), "montante da extra inexistente");
+    }
+}
+
+#[cfg(test)]
+mod testes_f3 {
+    use super::testes::*;
+    use super::*;
+    use crate::cortina_malha::{secao, solido, volume_malha};
+    use std::collections::HashMap;
+
+    fn igual(a: f64, b: f64) {
+        assert!((a - b).abs() < 1e-9, "{a} != {b}");
+    }
+
+    /// Malha fechada e orientada (cada aresta orientada aparece uma vez, e a inversa também), com soldagem a 1 µm.
+    fn fechada(v: &[[f64; 3]], t: &[[u32; 3]]) -> bool {
+        let q = |x: f64| (x * 1e6).round() as i64;
+        let mut ids: HashMap<[i64; 3], u32> = HashMap::new();
+        let id: Vec<u32> = v
+            .iter()
+            .map(|p| {
+                let n = ids.len() as u32;
+                *ids.entry([q(p[0]), q(p[1]), q(p[2])]).or_insert(n)
+            })
+            .collect();
+        let mut dir: HashMap<(u32, u32), u32> = HashMap::new();
+        for t in t {
+            for k in 0..3 {
+                *dir.entry((id[t[k] as usize], id[t[(k + 1) % 3] as usize])).or_insert(0) += 1;
+            }
+        }
+        dir.iter().all(|(&(a, b), &n)| n == 1 && dir.get(&(b, a)) == Some(&1))
+    }
+
+    /// Cortina de 2 m × 2 m em grade 2 × 2, com a ordem de montantes `mont` (int_v, int_h, borda_ini, borda_fim, borda_base, borda_topo).
+    fn cortina_2x2(mont: [u32; 6], prioridade: u8) -> Geom {
+        let mut e = Espec::novo(EixoEfetivo::numero(2), EixoEfetivo::numero(2));
+        e.mont = mont;
+        e.prioridade = prioridade;
+        resolver(&cena_simples(&e, 2.0, 2.0), 0).expect("r").remove(0).g.expect("g")
+    }
+
+    fn vertical(g: &Geom, linha: u32, k: u32) -> &PecaMont {
+        g.pecas.iter().find(|p| p.eixo == EIXO_U && p.linha == linha && p.k == k).expect("vertical")
+    }
+
+    fn horizontal(g: &Geom, linha: u32, k: u32) -> &PecaMont {
+        g.pecas.iter().find(|p| p.eixo == EIXO_V && p.linha == linha && p.k == k).expect("horizontal")
+    }
+
+    #[test]
+    fn perfis_novos_validam_como_o_modelo_e_devolvem_entrada() {
+        let e = Espec::novo(EixoEfetivo::numero(2), EixoEfetivo::numero(1));
+        // Cena: M_RET com largura 0,05 e profundidade 0,10. L: espessura < 0,05; canto: 2t < 0,05; trapézio: face interna > 0.
+        let com = |forma: u8, esp: f64, wb: f64| {
+            let mut c = cena_simples(&e, 4.0, 3.0);
+            let m = c.cortina.montantes.get_mut(&M_RET).expect("m");
+            m.forma = forma;
+            m.espessura = esp;
+            m.largura2 = wb;
+            resolver(&c, 0).map(|_| ())
+        };
+        assert_eq!(com(FORMA_L, 0.05, 0.0).err(), Some(ENTRADA), "L com t = min(w, d)");
+        assert_eq!(com(FORMA_L, 0.0, 0.0).err(), Some(ENTRADA), "L sem espessura");
+        assert!(com(FORMA_L, 0.04, 0.0).is_ok(), "L válido");
+        assert_eq!(com(FORMA_CORNER, 0.025, 0.0).err(), Some(ENTRADA), "canto com 2t = min(w, d)");
+        assert!(com(FORMA_CORNER, 0.02, 0.0).is_ok(), "canto válido");
+        assert_eq!(com(FORMA_TRAPEZIO, 0.0, 0.0).err(), Some(ENTRADA), "trapézio sem face interna");
+        assert!(com(FORMA_TRAPEZIO, 0.0, 0.03).is_ok(), "trapézio válido");
+    }
+
+    #[test]
+    fn quatro_intersecoes_com_prioridade_vertical_e_horizontal() {
+        // Grade 2 × 2 de 2 m: cu = [0,025; 1; 1,975] e cv iguais. Com prioridade vertical, as verticais (de borda e interiores) correm de 0 a 2 m e as
+        // horizontais param na face de cada vertical: borda/borda (0,0), borda/interior (linha 1 com a vertical de borda), interior/borda (linha 0 com a
+        // interior) e cruz (1,1).
+        let g = cortina_2x2([M_RET; 6], PRIORIDADE_VERTICAL);
+        for p in g.pecas.iter().filter(|p| p.eixo == EIXO_U) {
+            // Contínua por segmento: o segmento k vai de k a k + 1 metro, de ponta a ponta.
+            igual(p.de, p.k as f64);
+            igual(p.ate, p.k as f64 + 1.0);
+            assert!(p.continuo);
+        }
+        igual(horizontal(&g, 0, 0).de, 0.05); // borda/borda: a face da vertical de borda (0,025 + 0,025)
+        igual(horizontal(&g, 1, 0).de, 0.05); // borda/interior
+        igual(horizontal(&g, 0, 0).ate, 0.975); // interior/borda: a face da vertical interior (1 − 0,025)
+        igual(horizontal(&g, 1, 0).ate, 0.975); // cruz (horizontal interior com vertical interior)
+        igual(horizontal(&g, 1, 1).de, 1.025);
+        igual(horizontal(&g, 1, 1).ate, 1.95);
+        for p in g.pecas.iter().filter(|p| p.eixo == EIXO_V) {
+            assert!(!p.continuo);
+        }
+        // Com prioridade horizontal, as horizontais correm inteiras e as verticais param nas faces delas.
+        let g = cortina_2x2([M_RET; 6], PRIORIDADE_HORIZONTAL);
+        for p in g.pecas.iter().filter(|p| p.eixo == EIXO_V) {
+            igual(p.de, p.k as f64);
+            igual(p.ate, p.k as f64 + 1.0);
+            assert!(p.continuo);
+        }
+        igual(vertical(&g, 0, 0).de, 0.05); // borda/borda: a face da horizontal de base (0,025 + 0,025)
+        igual(vertical(&g, 1, 0).de, 0.05); // interior/borda
+        igual(vertical(&g, 0, 0).ate, 0.975);
+        igual(vertical(&g, 1, 0).ate, 0.975); // cruz
+        igual(vertical(&g, 1, 1).de, 1.025);
+        igual(vertical(&g, 1, 1).ate, 1.95);
+        assert_eq!(g.pecas.len(), 12, "3 linhas × 2 segmentos nos dois eixos, sem remoção");
+        assert!(g.pecas_esq.is_empty(), "retângulos não geram esquadria");
+    }
+
+    #[test]
+    fn borda_horizontal_contra_l_continuo_tem_esquadria_com_volume_analitico() {
+        // Interior vertical em L (aba na face interna, y ∈ [−0,06; −0,05]). As horizontais à direita dele encostam na envoltória:
+        // lo(y) = 1,04 na aba e 0,97 na alma; hi = 1,95 (borda de fim, plana). Volume = 0,05·[0,01·(1,95 − 1,04) + 0,11·(1,95 − 0,97)].
+        let g = cortina_2x2([M_L, M_R12, M_R12, M_R12, M_R12, M_R12], PRIORIDADE_VERTICAL);
+        let mitradas: Vec<&PecaEsq> = g.pecas_esq.iter().filter(|p| p.eixo == EIXO_V && p.k == 1).collect();
+        // Base, interior (linha 1) e topo: as três horizontais que saem do L pela direita.
+        assert_eq!(mitradas.len(), 3, "uma por linha horizontal que encosta no L");
+        let esperado = 0.05 * (0.01 * (1.95 - 1.04) + 0.11 * (1.95 - 0.97));
+        for p in &mitradas {
+            let tris = solido(&secao(&p.m, 2), &p.lo, &p.hi);
+            let vol = volume_malha(&tris);
+            assert!((vol - esperado).abs() < 1e-9, "linha {}: {vol} vs {esperado}", p.linha);
+            let v: Vec<[f64; 3]> = tris.iter().flat_map(|t| t.iter().copied()).collect();
+            let t: Vec<[u32; 3]> = (0..tris.len() as u32).map(|k| [3 * k, 3 * k + 1, 3 * k + 2]).collect();
+            assert!(fechada(&v, &t), "esquadria aberta na linha {}", p.linha);
+        }
+        // A horizontal da base de 0 a 0,96 encosta no L pela esquerda, onde o mínimo de x é −0,04 em toda profundidade: é prisma.
+        igual(horizontal(&g, 0, 0).ate, 0.96);
+    }
+
+    #[test]
+    fn borda_contra_trapezio_continuo_tem_esquadria_linear_com_volume_analitico() {
+        // Trapézio contínuo: a envoltória à direita é a semilargura, linear de wb/2 (y = −0,06) a w/2 (y = +0,06). Volume de uma horizontal 50 × 120 de 1,0
+        // a 1,95: h · [(1,95 − 1,0)·d − d·(w + wb)/4] = 0,05 · [0,95·0,12 − 0,12·0,03].
+        let g = cortina_2x2([M_TRAP, M_R12, M_R12, M_R12, M_R12, M_R12], PRIORIDADE_VERTICAL);
+        let mitradas: Vec<&PecaEsq> = g.pecas_esq.iter().filter(|p| p.eixo == EIXO_V && p.k == 1).collect();
+        assert_eq!(mitradas.len(), 3);
+        let esperado = 0.05 * (0.95 * 0.12 - 0.12 * 0.03);
+        for p in &mitradas {
+            let vol = volume_malha(&solido(&secao(&p.m, 2), &p.lo, &p.hi));
+            assert!((vol - esperado).abs() < 1e-9, "{vol} vs {esperado}");
+        }
+    }
+
+    #[test]
+    fn canto_contra_horizontal_nao_gera_esquadria() {
+        // O canto é um tubo com a mesma face externa em todas as profundidades: a envoltória é constante e a peça é prisma.
+        let g = cortina_2x2([M_CANTO, M_R12, M_R12, M_R12, M_R12, M_R12], PRIORIDADE_VERTICAL);
+        assert!(g.pecas_esq.is_empty());
+        igual(horizontal(&g, 0, 1).de, 1.03); // a face do canto de 60 mm: 1 + 0,03
+    }
+
+    #[test]
+    fn invertida_nao_muda_o_volume_de_perfil_simetrico() {
+        // A invertida gira cada perfil 180° no próprio eixo (a mesma peça vista do outro lado). Perfil simétrico em x (trapézio, canto, retângulo) dá o
+        // mesmo volume total; o L não é simétrico e muda o lado da alma em relação às horizontais (convenção a confirmar com o dono).
+        let vol = |inv: bool, prio: u8| {
+            let mut e = Espec::novo(EixoEfetivo::numero(3), EixoEfetivo::numero(2));
+            e.mont = [M_TRAP, M_R12, M_CANTO, M_CANTO, M_TRAP, M_R12];
+            e.prioridade = prio;
+            let mut c = cena_simples(&e, 3.0, 2.0);
+            c.cortina.cortinas.get_mut(&1).expect("c").invertida = inv;
+            let g = resolver(&c, 0).expect("r").remove(0).g.expect("g");
+            let pr: f64 = g.pecas.iter().map(|p| p.comprimento() * p.m.area_secao()).sum();
+            let esq: f64 = g.pecas_esq.iter().map(|p| volume_malha(&solido(&secao(&p.m, 2), &p.lo, &p.hi))).sum();
+            pr + esq
+        };
+        for prio in [PRIORIDADE_VERTICAL, PRIORIDADE_HORIZONTAL] {
+            let (a, b) = (vol(false, prio), vol(true, prio));
+            assert!((a - b).abs() < 1e-9, "prioridade {prio}: {a} vs {b}");
+        }
+        // Convenção do L invertido: a alma passa para o lado de t mínimo. A horizontal da direita (k = 1) deixa de ter esquadria e a da esquerda (k = 0) ganha.
+        let mut e = Espec::novo(EixoEfetivo::numero(2), EixoEfetivo::numero(2));
+        e.mont = [M_L, M_R12, M_R12, M_R12, M_R12, M_R12];
+        let mut c = cena_simples(&e, 2.0, 2.0);
+        c.cortina.cortinas.get_mut(&1).expect("c").invertida = true;
+        let g = resolver(&c, 0).expect("r").remove(0).g.expect("g");
+        assert!(g.pecas_esq.iter().all(|p| p.k == 0), "só a esquerda ganha esquadria");
+        assert_eq!(g.pecas_esq.len(), 3);
     }
 }
