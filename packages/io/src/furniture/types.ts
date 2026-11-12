@@ -13,6 +13,12 @@ export interface ImportedMeshGroup {
   count: number;
   /** Indice em `ImportedModel.materials`. */
   materialIndex: number;
+  /**
+   * Os dois lados das faces do grupo devem aparecer (sem descarte de faces traseiras). Vem do arquivo quando ele diz
+   * (skp: frente e verso do mesmo material; glTF: `doubleSided`) ou da analise da malha (obj, dae, fbx: so as malhas
+   * fechadas e voltadas para fora ficam de um lado). Ausente = um lado.
+   */
+  doubleSided?: boolean;
 }
 
 export interface ImportedMeshDef {

@@ -10,6 +10,9 @@ import { simplifyMesh } from '@hestia/io/src/furniture/simplify.ts';
 /** Meta de triângulos DESENHADOS por bloco na versão leve (somando as peças do bloco). */
 export const META_TRIANGULOS_LEVE = 30_000;
 
+/** Definições com no máximo este número de triângulos não são simplificadas na versão leve. */
+export const PISO_SEM_SIMPLIFICAR = 600;
+
 /** Malha pronta para a GPU: arrays tipados (compartilhados entre todas as instâncias) e grupos de material. */
 export interface MalhaDeDefinicao {
   positions: Float32Array;
@@ -32,12 +35,22 @@ export function metasLeves(asset: FurnitureAsset, meta: number = META_TRIANGULOS
   const uso = new Map<string, number>();
   for (const p of assetParts(asset)) uso.set(p.defId, (uso.get(p.defId) ?? 0) + 1);
   let desenhado = 0;
-  for (const d of asset.defs) desenhado += triangulosDaDefinicao(d) * (uso.get(d.id) ?? 0);
-  const razao = desenhado > meta ? meta / desenhado : 1;
+  let protegido = 0; // triângulos desenhados das definições pequenas, que não se simplificam
+  for (const d of asset.defs) {
+    const t = triangulosDaDefinicao(d);
+    const n = t * (uso.get(d.id) ?? 0);
+    desenhado += n;
+    if (t <= PISO_SEM_SIMPLIFICAR) protegido += n;
+  }
+  // Definições pequenas (chapas finas, bases, pés) ficam completas: com poucos triângulos a agrupamento em grade funde os
+  // dois lados de uma chapa e a peça some ou perde o lado (medido: base de 74 triângulos perdia 55% da área vista de lado).
+  // O custo é pequeno e a meta das grandes desconta o que elas ocupam. Se as pequenas já passam de metade da meta, vale a razão única.
+  const poupar = desenhado > meta && protegido > 0 && protegido < meta * 0.5;
+  const razao = desenhado > meta ? (poupar ? (meta - protegido) / (desenhado - protegido) : meta / desenhado) : 1;
   const out = new Map<string, number>();
   for (const d of asset.defs) {
     const t = triangulosDaDefinicao(d);
-    out.set(d.id, razao >= 1 ? t : Math.min(t, Math.max(4, Math.floor(t * razao))));
+    out.set(d.id, razao >= 1 || (poupar && t <= PISO_SEM_SIMPLIFICAR) ? t : Math.min(t, Math.max(4, Math.floor(t * razao))));
   }
   return out;
 }

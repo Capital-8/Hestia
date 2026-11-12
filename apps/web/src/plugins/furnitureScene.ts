@@ -48,6 +48,7 @@ function hashMesh(m: Omit<SceneMesh, 'hash'>): string {
     mix(g.count);
     const s = g.materialId ?? '';
     for (let i = 0; i < s.length; i++) mix(s.charCodeAt(i));
+    if (g.doubleSided) mix(0x2d);
     mix(0x2c);
   }
   return (h >>> 0).toString(16) + ':' + m.positions.length;
@@ -72,7 +73,7 @@ interface Bloco {
   normals: number[];
   uvs: number[];
   indices: number[];
-  groups: Array<{ start: number; count: number; materialId: string | null }>;
+  groups: Array<{ start: number; count: number; materialId: string | null; doubleSided?: boolean }>;
 }
 
 export interface MeshDoMovel { mesh: SceneMesh; materialIds: string[] }
@@ -113,19 +114,22 @@ export function furnitureMeshes(inst: Furniture, asset: FurnitureAsset, levelEle
     pecas.push({ def, m, cof, espelhada: det < 0, pos: arr.positions, nor, uv: arr.uvs, idx: arr.indices });
   }
 
-  // Grupos por material (índice no asset; -1 = material desconhecido).
+  // Grupos por (material, dois lados): índice do material no asset (-1 = desconhecido). Grupos de dois lados saem separados
+  // (`doubleSided` no grupo da malha) para o renderizador desenhar as duas faces só onde o bloco precisa.
   const grupos: Array<Array<{ peca: number; start: number; count: number }>> = [];
-  const materiaisUsados = new Map<number, number>();
+  const slotsUsados = new Map<string, { mi: number; ds: boolean; slot: number }>();
   pecas.forEach((p, pi) => {
-    const gs = p.def.groups.length ? p.def.groups : [{ start: 0, count: p.idx.length, materialIndex: -1 }];
+    const gs: Array<{ start: number; count: number; materialIndex: number; doubleSided?: boolean }> = p.def.groups.length ? p.def.groups : [{ start: 0, count: p.idx.length, materialIndex: -1 }];
     for (const g of gs) {
       const mi = g.materialIndex >= 0 && g.materialIndex < asset.materials.length ? g.materialIndex : -1;
-      let slot = materiaisUsados.get(mi);
-      if (slot === undefined) { slot = grupos.length; materiaisUsados.set(mi, slot); grupos.push([]); }
-      grupos[slot]!.push({ peca: pi, start: g.start, count: g.count });
+      const ds = g.doubleSided === true;
+      const chave = `${mi}|${ds ? 1 : 0}`;
+      let s = slotsUsados.get(chave);
+      if (!s) { s = { mi, ds, slot: grupos.length }; slotsUsados.set(chave, s); grupos.push([]); }
+      grupos[s.slot]!.push({ peca: pi, start: g.start, count: g.count });
     }
   });
-  const ordem = [...materiaisUsados.entries()].sort((a, b) => a[0] - b[0]);
+  const ordem = [...slotsUsados.values()].sort((a, b) => a.mi - b.mi || Number(a.ds) - Number(b.ds));
 
   const saida: MeshDoMovel[] = [];
   let cur = novoBloco();
@@ -139,13 +143,13 @@ export function furnitureMeshes(inst: Furniture, asset: FurnitureAsset, levelEle
   };
   const caracteres = (): number => (cur.positions.length / 3) * CHARS_POR_VERTICE + cur.indices.length * CHARS_POR_INDICE + cur.groups.length * 60;
 
-  for (const [mi, slot] of ordem) {
+  for (const { mi, ds, slot } of ordem) {
     const mat = mi >= 0 ? asset.materials[mi]! : null;
     const matId = mat?.id ?? null;
     const sizeM = mat?.sizeM && mat.sizeM[0] > 0 && mat.sizeM[1] > 0 ? mat.sizeM : null;
     let remap = new Map<number, Int32Array>();
     // O último grupo de `cur` é sempre o aberto: `count` é fechado ao trocar de bloco e ao fim do material.
-    const abre = (): void => { cur.groups.push({ start: cur.indices.length, count: 0, materialId: matId }); if (matId) curMats.add(matId); };
+    const abre = (): void => { cur.groups.push({ start: cur.indices.length, count: 0, materialId: matId, ...(ds ? { doubleSided: true } : {}) }); if (matId) curMats.add(matId); };
     const encerra = (): void => { const g = cur.groups[cur.groups.length - 1]; if (g) g.count = cur.indices.length - g.start; };
     abre();
     for (const gr of grupos[slot]!) {

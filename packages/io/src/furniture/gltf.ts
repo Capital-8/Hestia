@@ -220,6 +220,8 @@ interface Ctx {
   textureMap: Map<number, number>;
   materials: ImportedMaterial[];
   materialMap: Map<number, number>;
+  /** Materiais (indices em `materials`) com `doubleSided: true` no glTF. */
+  doubleSidedMats: Set<number>;
   defaultMat?: number;
 }
 
@@ -289,6 +291,7 @@ function buildMaterials(ctx: Ctx, reader: ReaderContext): void {
     if (typeof transmission === 'number' && transmission > 0) mat.transmission = transmission;
     ctx.materials.push(mat);
     ctx.materialMap.set(i, ctx.materials.length - 1);
+    if (m.doubleSided === true) ctx.doubleSidedMats.add(ctx.materials.length - 1);
   }
 }
 
@@ -360,7 +363,10 @@ function buildMesh(ctx: Ctx, meshIndex: number, id: string): ImportedMeshDef | u
     }
     if (prim.targets) ctx.warnings.push(`Malha "${mesh.name ?? meshIndex}": morph targets ignorados (usa a forma base).`);
   }
-  return mb.build(id, mesh.name || `malha-${meshIndex}`);
+  const def = mb.build(id, mesh.name || `malha-${meshIndex}`);
+  // `doubleSided` do material (glTF: padrao falso). Dizer explicitamente (true/false) evita a analise de malha do buildModel.
+  if (def) for (const g of def.groups) g.doubleSided = ctx.doubleSidedMats.has(g.materialIndex);
+  return def;
 }
 
 /** Matriz local de um no (matrix ou TRS), no formato de colunas. */
@@ -383,7 +389,7 @@ export async function readGltf(file: { name: string; bytes: Uint8Array }, opts: 
   const warnings: string[] = [];
   if (json.skins) warnings.push('Esqueleto (skin) ignorado: a malha sai na pose de repouso.');
   if (json.animations?.length) warnings.push('Animações ignoradas: o modelo sai parado.');
-  const ctx: Ctx = { json, buffers, warnings, textures: [], textureMap: new Map(), materials: [], materialMap: new Map() };
+  const ctx: Ctx = { json, buffers, warnings, textures: [], textureMap: new Map(), materials: [], materialMap: new Map(), doubleSidedMats: new Set() };
   buildMaterials(ctx, reader);
 
   // Nos raiz da cena escolhida (ou todos os nos sem pai, quando nao ha cena).

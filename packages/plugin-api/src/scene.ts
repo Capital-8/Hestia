@@ -25,7 +25,13 @@ export interface SceneMesh {
   /** Coordenadas de textura por vértice (opcional). */
   uvs?: number[];
   indices: number[];
-  groups: Array<{ start: number; count: number; materialId: MaterialId | null }>;
+  groups: Array<{
+    start: number;
+    count: number;
+    materialId: MaterialId | null;
+    /** Desenhar as duas faces do grupo (sem descarte de faces traseiras): chapas, tecidos, folhas e blocos cuja origem manda. Ausente = um lado so. */
+    doubleSided?: boolean;
+  }>;
   /** Hash de conteúdo: igual = geometria igual, o plugin pode reaproveitar o que já tem. */
   hash: string;
 }

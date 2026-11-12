@@ -12,7 +12,7 @@ Contrato do renderizador: `docs/plugins/09-extensao-render.md` e o contrato 1.4 
 
 ## Asset
 `FurnitureAsset = { id, name, sourceFileName (so o nome), sourceFormat, contentHash, defs, materials, textures, bbox, stats }`.
-- `defs[]`: `{ id, name, positions, normals, uvs, indices, vertexCount, indexCount, groups[{start,count,materialIndex}] }`,
+- `defs[]`: `{ id, name, positions, normals, uvs, indices, vertexCount, indexCount, groups[{start,count,materialIndex,doubleSided?}] }` (`doubleSided`: desenhar as duas faces do grupo; ausente = um lado),
   metros, Z para cima, espaco local da definicao. UVs em repeticoes da textura (como no `ImportedModel` do importador).
 - `materials[]`: `{ id (Material do projeto), name, color #rrggbb, opacity, category, metallic?, roughness?, transmission?,
   textureIndex?, sizeM?, useEmbeddedTexture (padrao true) }`. `addFurnitureAsset` cria tambem os `Material` do projeto

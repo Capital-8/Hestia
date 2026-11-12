@@ -4,6 +4,7 @@
  * `ImportedModel`. Versao local minima: sera unificada depois com `common.ts` do outro ramo.
  */
 import { IMPORT_LIMITS, type ImportCategory, type ImportedInstance, type ImportedMaterial, type ImportedMeshDef, type ImportedMeshGroup, type ImportedModel, type ImportedTexture, type ImportOptions, type Mat4 } from './types.ts';
+import { markDoubleSided } from './orientation.ts';
 
 /** Erro de leitura com mensagem pronta para o usuario (portugues). */
 export class ImportError extends Error {
@@ -384,6 +385,8 @@ export interface ModelParts {
 export function buildModel(p: ModelParts): ImportedModel {
   const warnings = [...p.warnings];
   const instances = p.instances.map((i) => ({ ...i, transform: scaleWorld(i.transform, p.scale ?? 1) }));
+  // Faces vistas de tras: grupos que o arquivo nao classifica (obj, dae, fbx) ganham `doubleSided` pela analise da malha.
+  for (const d of p.defs) markDoubleSided(d);
   if (p.defs.length === 0 || instances.length === 0) throw new ImportError('Nenhuma malha encontrada no arquivo.');
   const vertices = p.defs.reduce((s, d) => s + d.positions.length / 3, 0);
   const triangles = p.defs.reduce((s, d) => s + d.indices.length / 3, 0);
