@@ -181,11 +181,16 @@ describe.each(VISTAS)('aviso ao criar em categoria oculta: %s', (_nome, vista) =
     expect(editor.project).toEqual(antes);
   });
 
-  it('o aviso some quando o projeto muda por outro caminho (outra criação sem categoria oculta, desfazer)', () => {
+  it('o aviso some quando o projeto muda por outro caminho: desfazer ou edição não relacionada', () => {
     abrir(vista, ['wall']);
     desenharParede([0, 0], [4, 0]);
     expect(useUi.getState().avisoOculto).not.toBeNull();
     editor.undo();
+    expect(useUi.getState().avisoOculto).toBeNull();
+    // Refaz a criação (novo aviso) e muda o nome de outra vista: edição sem relação com o aviso.
+    desenharParede([0, 2], [4, 2]);
+    expect(useUi.getState().avisoOculto).not.toBeNull();
+    editor.store.exec({ type: 'updatePlanView', viewId: floorViewId('lv_0'), patch: { name: 'Renomeada' } });
     expect(useUi.getState().avisoOculto).toBeNull();
   });
 });
@@ -217,14 +222,61 @@ describe('aviso: perfil da planta de área e categorias de cada tipo', () => {
     expect(planViewOf(editor.project, area)!.area!.graphics.showFloors).toBe(true);
   });
 
-  it('o aviso não aparece nem some fora da planta de origem: trocar de vista esconde o aviso da outra', () => {
+  it('o aviso não age fora da planta de origem: com outra vista ativa, Mostrar e Desfazer não mudam nada', () => {
     const { outraPiso } = abrir(PISO, ['wall']);
     desenharParede([0, 0], [4, 0]);
-    expect(useUi.getState().avisoOculto?.viewId).toBe(floorViewId('lv_0'));
-    // O aviso é da vista em que se criou: a outra vista não herda a ação.
+    const aviso = useUi.getState().avisoOculto;
+    expect(aviso?.viewId).toBe(floorViewId('lv_0'));
+    const antes = editor.project;
+    // O aviso é da vista em que se criou (e a barra só o mostra nela): outra vista ativa não herda as ações.
     useUi.setState({ planViewId: outraPiso });
     mostrarCategoriaDoAviso();
+    desfazerCriacaoDoAviso();
+    expect(editor.project).toBe(antes);
+    expect(planViewHiddenOf(editor.project, floorViewId('lv_0')).categories).toEqual(['wall']);
     expect(planViewHiddenOf(editor.project, outraPiso).categories).toEqual(['wall']);
+    expect(Object.values(editor.project.elements).filter((e) => e.kind === 'wall')).toHaveLength(1);
+    expect(useUi.getState().avisoOculto).toBe(aviso);
+  });
+
+  it('"Desfazer" com o modo perímetro reaberto desfaz a criação, não o rascunho do esboço', () => {
+    abrir(PISO, ['wall']);
+    desenharParede([0, 0], [4, 0]);
+    expect(useUi.getState().avisoOculto).not.toBeNull();
+    editor.setTool('floor');
+    expect(editor.perimetro.ativo).toBe(true);
+    (editor.activeTool as PerimeterTool).setShape('rectangle');
+    clicar(0, 0);
+    desfazerCriacaoDoAviso();
+    expect(Object.values(editor.project.elements).filter((e) => e.kind === 'wall')).toHaveLength(0);
+    expect(useUi.getState().avisoOculto).toBeNull();
+    editor.perimetro.cancel();
+  });
+
+  it('"Desfazer" com o projeto já mudado só limpa o aviso (não desfaz outra coisa)', () => {
+    abrir(PISO, ['wall']);
+    desenharParede([0, 0], [4, 0]);
+    const aviso = useUi.getState().avisoOculto!;
+    // Estado em que o aviso ficou velho sem o assinante limpá-lo.
+    editor.store.exec({ type: 'updatePlanView', viewId: floorViewId('lv_0'), patch: { name: 'Outro' } });
+    useUi.setState({ avisoOculto: aviso });
+    desfazerCriacaoDoAviso();
+    expect(planViewOf(editor.project, floorViewId('lv_0'))!.name).toBe('Outro');
+    expect(Object.values(editor.project.elements).filter((e) => e.kind === 'wall')).toHaveLength(1);
+    expect(useUi.getState().avisoOculto).toBeNull();
+  });
+
+  it('"Mostrar categoria" sem nada a mostrar (temporário já resetado) não diz "Categoria exibida"', () => {
+    abrir(PISO);
+    useUi.setState({ viewTemp: { 'plan:lv_0': { hidden: { categories: ['wall'] } } } });
+    desenharParede([0, 0], [4, 0]);
+    expect(useUi.getState().avisoOculto).not.toBeNull();
+    useUi.setState({ viewTemp: {}, status: '' });
+    const antes = editor.project;
+    mostrarCategoriaDoAviso();
+    expect(editor.project).toBe(antes);
+    expect(useUi.getState().avisoOculto).toBeNull();
+    expect(useUi.getState().status).not.toEqual({ key: 'eds_msg_category_shown' });
   });
 
   it('categoria oculta temporariamente (HC) também avisa, e "Mostrar" a libera na sessão', () => {
