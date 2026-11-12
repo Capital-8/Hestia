@@ -30,7 +30,7 @@ const tracos = (p: Project): number => buildSheetDrawList(p, 'sh1')!.groups.redu
 describe('ocultos permanentes na prancha', () => {
   it('elemento em hidden.elements e categoria em hidden.categories não saem na planta da prancha', () => {
     const base = projeto();
-    base.sheets = [folha([viewport('v1', { kind: 'plan', levelId: 'lv_0' }, 20)])];
+    base.sheets = [folha([viewport('v1', { kind: 'plan', viewId: floorViewId('lv_0') }, 20)])];
     const cheio = tracos(base);
     const comElemento = projeto();
     comElemento.sheets = base.sheets;

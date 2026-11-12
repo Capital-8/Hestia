@@ -1,4 +1,4 @@
-import { categoryOfElement, hiddenByUserInView, hiddenIdsInView, hiddenTargetOfView, normalizeViewHiddenTarget, planViewHiddenOf, planViewOf as vistaDoModelo, type GraphicsCategory, type Id, type Project, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
+import { categoryOfElement, hiddenByUserInView, hiddenIdsInView, hiddenTargetOfView, planViewHiddenOf, planViewOf as vistaDoModelo, type GraphicsCategory, type Id, type Project, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
 import { resolvedPlanViewOf } from '@hestia/render';
@@ -49,7 +49,7 @@ export function viewHiddenTargetOf(st: Pick<ReturnType<typeof useUi.getState>, '
 /** Ocultação permanente da vista atual, já normalizada. */
 export function permanentHiddenOf(p: Project, target: ViewHiddenTarget | null): ViewHidden {
   if (!target) return {};
-  const alvo = normalizeViewHiddenTarget(target);
+  const alvo = target;
   switch (alvo.kind) {
     case 'plan': return planViewHiddenOf(p, alvo.viewId);
     case 'section': return p.views.find((v) => v.id === alvo.viewId)?.hidden ?? {};
@@ -126,7 +126,7 @@ export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>):
   const allIds = [...Object.keys(p.elements), ...annotationIdsOfActiveView(p, st)];
   // Planta: a regra única (`hiddenByUserInView`: categoria oculta, Hide in View, ocultar/isolar temporário). Corte e 3D
   // não são vistas de planta (a regra 4.5 é de planta) e seguem pelo caminho antigo.
-  const alvo = normalizeViewHiddenTarget(target);
+  const alvo = target;
   const baseHidden = alvo.kind === 'plan'
     ? allIds.filter((id) => hiddenByUserInView(p, alvo.viewId, id, { temporary: { hidden: temp.hidden, isolated: temp.isolated } }))
     : hiddenForaDePlanta(p, st, alvo, temp, allIds);

@@ -1,4 +1,4 @@
-import { normalizeSheetViewSource, planViewOf, sheetDimsMm, sheetOf, viewportClipped, type Id, type Project, type SheetViewport } from '@hestia/model';
+import { planViewOf, sheetDimsMm, sheetOf, viewportClipped, type Id, type Project, type SheetViewport } from '@hestia/model';
 import { furnitureParts } from './frame.ts';
 import { areaTablePartsOf, areaPlanPartsOf, planPartsOf, removedViewParts, sectionPartsOf } from './viewports.ts';
 import { vista3dParts } from './vista3d.ts';
@@ -6,7 +6,7 @@ import { type SheetDrawList, type ViewportParts } from './types.ts';
 import type { Lang } from '../i18n.ts';
 
 function partsOfViewport(p: Project, v: SheetViewport, lang: Lang): ViewportParts {
-  const view = normalizeSheetViewSource(v.view);
+  const view = v.view;
   switch (view.kind) {
     case 'plan': {
       // Forma única: a vista decide (piso → planta do nível; área → planta de área). Cobertura não entra em prancha.

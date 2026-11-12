@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { makeRoom, type Command, type ProjectStore } from '@hestia/model';
+import { floorViewId, makeRoom, roofViewId, type Command, type ProjectStore } from '@hestia/model';
 import { ambientesDaCasa2, ambientesDaCasaPremium, casa2ComAmbientes, etiquetaDeAmbiente, lojaDoModelo, plantaDeArea, rodar } from './base.ts';
 import { pranchas } from './pranchas.ts';
 
@@ -80,18 +80,18 @@ export function areaComAnotacoesProprias(): ProjectStore {
   return s;
 }
 
-/** 5. `hidden` (categoria e elemento), `roofHidden` e planta de área que oculta o id de uma anotação herdada do nível. */
+/** 5. `hidden` (categoria e elemento), ocultos da cobertura e planta de área que oculta o id de uma anotação herdada do nível. */
 export function ocultos(): ProjectStore {
   const s = casaDeVariosNiveis();
   rodar(s, [...ambientesDaCasaPremium(), ...anotacoesPremium()]);
   rodar(s, [
     { type: 'addAreaPlan', plan: plantaDeArea({ id: 'ap_oculta', levelId: 'lv_0' }) },
-    { type: 'setViewHidden', target: { kind: 'plan', levelId: 'lv_0' }, hidden: { categories: ['window'], elements: ['T-I-04', 'T2', 'dm_prem_a'] } },
-    { type: 'setViewHidden', target: { kind: 'plan', levelId: 'lv_1' }, hidden: { categories: ['room', 'annotation'] } },
-    { type: 'setViewHidden', target: { kind: 'roof', levelId: 'lv_2' }, hidden: { elements: roofIds(s) } },
-    { type: 'setViewHidden', target: { kind: 'roof', levelId: 'lv_0' }, hidden: { categories: ['stair'] } },
+    { type: 'setViewHidden', target: { kind: 'plan', viewId: floorViewId('lv_0') }, hidden: { categories: ['window'], elements: ['T-I-04', 'T2', 'dm_prem_a'] } },
+    { type: 'setViewHidden', target: { kind: 'plan', viewId: floorViewId('lv_1') }, hidden: { categories: ['room', 'annotation'] } },
+    { type: 'setViewHidden', target: { kind: 'plan', viewId: roofViewId('lv_2') }, hidden: { elements: roofIds(s) } },
+    { type: 'setViewHidden', target: { kind: 'plan', viewId: roofViewId('lv_0') }, hidden: { categories: ['stair'] } },
     // A planta de área herda as anotações do nível: ocultar o id da cota herdada precisa continuar valendo.
-    { type: 'setViewHidden', target: { kind: 'area', planId: 'ap_oculta' }, hidden: { elements: ['dm_prem_a', 'r_jantar'], categories: ['floor'] } },
+    { type: 'setViewHidden', target: { kind: 'plan', viewId: 'ap_oculta' }, hidden: { elements: ['dm_prem_a', 'r_jantar'], categories: ['floor'] } },
   ]);
   return s;
 }

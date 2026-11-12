@@ -10,7 +10,7 @@ import { DEFAULT_STAIR_CALC_RULE } from './stairTypes.ts';
 import { SCHEMA_VERSION, type PlanSymbol, type Project } from './types.ts';
 import { DEFAULT_VIEW_RANGE } from './viewRange.ts';
 import { migrateVistasV23 } from './migrateVistas.ts';
-import { normalizeSheetSourcesRaw } from './planViewIdentificacao.ts';
+import { normalizeSheetSourcesRaw } from './migrateSheetSources.ts';
 import { compositionOfType } from './openingCompositionOf.ts';
 import { defaultOpeningProfiles } from './openingProfiles.ts';
 import type { OpeningType } from './openingTypes.ts';

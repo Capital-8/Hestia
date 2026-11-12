@@ -1,5 +1,5 @@
 import { areaTableAllRows, computeSection, resolveLevel } from '@hestia/engine';
-import { areaPlanOf, floorViewId, hiddenByUserIdsInView, levelRoomSeparators, sectionAnnotationsOf, sectionGraphicsOf, sectionPoints, unitsOf, viewGraphicsOf, type AreaPlan, type Id, type Project, type SheetViewport, type SheetViewSourceNormal } from '@hestia/model';
+import { areaPlanOf, floorViewId, hiddenByUserIdsInView, levelRoomSeparators, sectionAnnotationsOf, sectionGraphicsOf, sectionPoints, unitsOf, viewGraphicsOf, type AreaPlan, type Id, type Project, type SheetViewport, type SheetViewSource } from '@hestia/model';
 import type { Vec2 } from '@hestia/geom';
 import { buildPlanDrawList, levelBox } from '../plan/build.ts';
 import { LIGHT } from '../plan/types.ts';
@@ -12,7 +12,7 @@ import { fmtNumLang as fmtNum, t, type Lang } from '../i18n.ts';
  * Projeto com a escala da vista da prancha: os gráficos da vista (ou do corte) passam a usar a escala da própria vista,
  * então os pesos (`lineWeightMm`) e o detalhe saem da escala escolhida na prancha, não da do nível.
  */
-function withSheetScale(p: Project, view: SheetViewSourceNormal, scale: number): Project {
+function withSheetScale(p: Project, view: SheetViewSource, scale: number): Project {
   if (view.kind === 'plan') {
     const id = view.viewId;
     const graphics = { ...viewGraphicsOf(p, id), scale };

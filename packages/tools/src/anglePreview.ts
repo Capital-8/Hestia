@@ -12,7 +12,6 @@ import {
   projectGrids,
   unitsOf,
   viewAnnotationsOf,
-  viewOwnAnnotationsOf,
   wallsOnLevel,
   type Id,
   type Project,
@@ -113,7 +112,7 @@ export function connectedLineAt(p: Project, levelId: Id, at: Vec2, mpp: number, 
     for (const seg of segs) addCandidate(seg);
   }
   const plan = planId ? planViewOf(p, planId) : undefined;
-  const annotations = plan ? viewOwnAnnotationsOf(p, plan.id) : null;
+  const annotations = plan ? viewAnnotationsOf(p, plan.id) : null;
   for (const l of annotations?.detailLines ?? viewAnnotationsOf(p, floorViewId(levelId)).detailLines) addCandidate({ a: l.a, b: l.b });
   for (const r of levelRoomSeparators(p, levelId)) addCandidate({ a: r.a, b: r.b });
   for (const e of Object.values(p.elements)) {

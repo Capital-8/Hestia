@@ -1,5 +1,6 @@
 import { computeSection } from '@hestia/engine';
 import {
+  floorViewId,
   newViewportId,
   sectionGraphicsOf,
   sectionPoints,
@@ -58,7 +59,7 @@ const fallbackSize = (view: SheetViewSource): Size => defaultViewSize(FALLBACK_S
 export function contentSizeMm(p: Project, view: SheetViewSource, scale: number): Size {
   // 1:100 → 10 mm de papel por metro de modelo (a escala é o denominador).
   const mmPerM = 1000 / scale;
-  if (view.kind === 'plan' || view.kind === 'areaPlan') {
+  if (view.kind === 'plan') {
     const levelId = sheetPlanViewOf(p, view)?.levelId;
     const box = levelId ? levelBox(p, levelId) : null;
     if (!box) return fallbackSize(view);
@@ -168,7 +169,7 @@ export function sheetsPerLevelAction(store: ProjectStore, scale = 100): Id[] {
     for (const level of levels) {
       const sheet: Sheet = { ...newSheet(store.project), name: t(lang, 'cvs_plan_sheet_name', { level: level.name }) };
       const inner = sheetInnerBox(sheet);
-      const view: SheetViewSource = { kind: 'plan', levelId: level.id };
+      const view: SheetViewSource = { kind: 'plan', viewId: floorViewId(level.id) };
       const want = contentSizeMm(store.project, view, scale);
       const size: Size = {
         w: Math.max(1, Math.min(want.w, inner.x1 - inner.x0 - 2 * SPACING_MM)),
@@ -188,7 +189,7 @@ export function sheetsPerLevelAction(store: ProjectStore, scale = 100): Id[] {
 
 /** Escala natural de uma vista (a que ela tem no projeto), usada ao arrastá-la do navegador para a prancha. */
 export function naturalScaleOf(p: Project, view: SheetViewSource): number {
-  if (view.kind === 'plan' || view.kind === 'areaPlan') {
+  if (view.kind === 'plan') {
     const plan = sheetPlanViewOf(p, view);
     // Planta de área: a escala dela; piso: a dos gráficos da vista (sem vista, 100).
     return plan?.kind === 'area' ? (plan.area?.scale ?? 100) : plan ? viewGraphicsOf(p, plan.id).scale : 100;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Sheet, SheetViewport } from '@hestia/model';
+import { floorViewId, type Sheet, type SheetViewport } from '@hestia/model';
 import type { SheetDrawList, SheetGroup, SheetPath } from '@hestia/render';
 import {
   MAX_SNAP_POINTS,
@@ -27,7 +27,7 @@ function sheetWith(viewports: SheetViewport[] = []): Sheet {
 
 const vp: SheetViewport = {
   id: 'vp1',
-  view: { kind: 'plan', levelId: 'lv_0' },
+  view: { kind: 'plan', viewId: floorViewId('lv_0') },
   at: { x: 20, y: 20 },
   size: { w: 180, h: 130 },
   scale: 100,

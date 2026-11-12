@@ -49,11 +49,10 @@ export interface PlanView {
 
 export { floorViewId, roofViewId };
 
-/** Quem é a vista no formato antigo: nível + tipo (+ planta de área). */
+/** Nível e tipo de uma vista de planta. */
 export interface PlanViewRef {
   kind: PlanViewKind;
   levelId: Id;
-  areaPlanId?: Id;
 }
 
 /**
@@ -65,11 +64,11 @@ export function planViewRef(viewId: Id): PlanViewRef | undefined {
   return mainViewRef(viewId);
 }
 
-/** Como `planViewRef`, mas lê a vista no projeto (qualquer tipo; para área devolve também `areaPlanId`). */
+/** Como `planViewRef`, mas lê a vista no projeto (qualquer tipo). */
 export function planViewRefOf(p: PlanViewsHost, viewId: Id): PlanViewRef | undefined {
   const v = planViewOf(p, viewId);
   if (!v) return undefined;
-  return v.kind === 'area' ? { kind: 'area', levelId: v.levelId, areaPlanId: v.id } : { kind: v.kind, levelId: v.levelId };
+  return { kind: v.kind, levelId: v.levelId };
 }
 
 /** O que as leituras precisam do projeto. */
@@ -163,14 +162,6 @@ export function viewHiddenOf(p: PlanViewsHost, viewId: Id): ViewHidden {
 /** Anotações da vista. Id inexistente: conjunto vazio compartilhado (só leitura). */
 export function viewAnnotationsOf(p: PlanViewsHost, viewId: Id): PlanAnnotations {
   return planViewOf(p, viewId)?.annotations ?? EMPTY_ANNOTATIONS;
-}
-
-/**
- * Anotações que a vista possui (seleção e edição).
- * @deprecated Desde a Fase 2 não há herança: é igual a `viewAnnotationsOf`. Removida na Fase 3.
- */
-export function viewOwnAnnotationsOf(p: PlanViewsHost, viewId: Id): PlanAnnotations {
-  return viewAnnotationsOf(p, viewId);
 }
 
 const profileCache = new WeakMap<PlanView, ResolvedProfile>();

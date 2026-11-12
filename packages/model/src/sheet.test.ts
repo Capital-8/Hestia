@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LABEL_DEFAULT_MM, ProjectStore, createEmptyProject, emptyTitleBlock, projectSheets, sheetDimsMm, sheetInnerBox, sheetIssue, sheetOf, viewportAnchor, viewportBox, viewportClipped, viewportFrameVisible, viewportIssue, viewportLabel, viewportOffset, type Sheet, type SheetViewport } from './index.ts';
+import { floorViewId, LABEL_DEFAULT_MM, ProjectStore, createEmptyProject, emptyTitleBlock, projectSheets, sheetDimsMm, sheetInnerBox, sheetIssue, sheetOf, viewportAnchor, viewportBox, viewportClipped, viewportFrameVisible, viewportIssue, viewportLabel, viewportOffset, type Sheet, type SheetViewport } from './index.ts';
 
 const LV0 = 'lv_0';
 const titleBlock = emptyTitleBlock();
@@ -16,7 +16,7 @@ const sheet = (id: string, over: Partial<Sheet> = {}): Sheet => ({
 });
 const vp = (id: string, over: Partial<SheetViewport> = {}): SheetViewport => ({
   id,
-  view: { kind: 'plan', levelId: LV0 },
+  view: { kind: 'plan', viewId: floorViewId(LV0) },
   at: { x: 20, y: 20 },
   size: { w: 150, h: 100 },
   scale: 100,
@@ -77,7 +77,7 @@ describe('comandos de prancha', () => {
     const s = new ProjectStore(createEmptyProject());
     s.exec({ type: 'addSheet', sheet: sheet('sh1') });
     expect(() => s.exec({ type: 'addViewport', sheetId: 'sh1', viewport: vp('v1', { at: { x: 0, y: 0 } }) })).toThrow(/sai da folha/);
-    expect(() => s.exec({ type: 'addViewport', sheetId: 'sh1', viewport: vp('v1', { view: { kind: 'plan', levelId: 'nope' } }) })).toThrow(/Nível inexistente/);
+    expect(() => s.exec({ type: 'addViewport', sheetId: 'sh1', viewport: vp('v1', { view: { kind: 'plan', viewId: floorViewId('nope') } }) })).toThrow(/Vista inexistente/);
     expect(() => s.exec({ type: 'updateViewport', sheetId: 'sh1', id: 'x', patch: {} })).toThrow(/inexistente/);
     expect(() => s.exec({ type: 'updateSheet', id: 'sh1', patch: { size: 'A4', orientation: 'landscape' } })).not.toThrow();
     expect(sheetOf(s.project, 'sh1')!.viewports).toHaveLength(0);

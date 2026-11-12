@@ -3,7 +3,7 @@ import { ProjectStore, createEmptyProject, emptyTitleBlock, floorViewId, patchFl
 import { addSheetAction } from './sheetActions.ts';
 import { addViewportAtAction, addViewsAction, autoScaleForView, contentSizeMm, dragPlacement, naturalScaleOf, sheetsPerLevelAction } from './sheetInsert.ts';
 
-const PLAN: { kind: 'plan'; levelId: string } = { kind: 'plan', levelId: 'lv_0' };
+const PLAN: { kind: 'plan'; viewId: string } = { kind: 'plan', viewId: floorViewId('lv_0') };
 
 /** Projeto com uma parede reta no térreo: é o conteúdo que dá tamanho à planta. */
 function storeWithWall(length: number, levelId = 'lv_0'): ProjectStore {
@@ -140,14 +140,14 @@ describe('arrastar uma vista do navegador para a prancha', () => {
   it('a escala natural da planta é a da vista do nível', () => {
     const p = casa();
     patchFloorOfTest(p, 'lv_0', { graphics: { ...(viewOfTest(p, floorViewId('lv_0')).graphics ?? {}), scale: 50 } as never });
-    expect(naturalScaleOf(p, { kind: 'plan', levelId: 'lv_0' })).toBe(50);
+    expect(naturalScaleOf(p, { kind: 'plan', viewId: floorViewId('lv_0') })).toBe(50);
     expect(naturalScaleOf(p, { kind: '3d' })).toBe(100);
   });
 
   it('coloca a vista centrada no ponto solto, na escala natural, e cabe na folha', () => {
     const p = casa();
     const sh: Sheet = { id: 's1', number: 'A-101', name: 'Planta', size: 'A3', orientation: 'landscape', margin: 10, titleBlock: emptyTitleBlock(), viewports: [] };
-    const plan = dragPlacement(p, sh, { kind: 'plan', levelId: 'lv_0' }, { x: 210, y: 150 })!;
+    const plan = dragPlacement(p, sh, { kind: 'plan', viewId: floorViewId('lv_0') }, { x: 210, y: 150 })!;
     expect(plan.scale).toBe(100);
     expect(plan.adjusted).toBe(false);
     // parede 4 × 3 m a 1:100 → 40 × 30 mm + 30 mm de folga
@@ -160,7 +160,7 @@ describe('arrastar uma vista do navegador para a prancha', () => {
   it('perto da borda, encaixa na área de desenho sem sair da folha', () => {
     const p = casa();
     const sh: Sheet = { id: 's1', number: 'A-101', name: 'Planta', size: 'A3', orientation: 'landscape', margin: 10, titleBlock: emptyTitleBlock(), viewports: [] };
-    const plan = dragPlacement(p, sh, { kind: 'plan', levelId: 'lv_0' }, { x: 0, y: 0 })!;
+    const plan = dragPlacement(p, sh, { kind: 'plan', viewId: floorViewId('lv_0') }, { x: 0, y: 0 })!;
     expect(plan.at.x).toBe(10);
     expect(plan.at.y).toBe(10);
   });
@@ -169,7 +169,7 @@ describe('arrastar uma vista do navegador para a prancha', () => {
     const p = casa();
     patchFloorOfTest(p, 'lv_0', { graphics: { ...(viewOfTest(p, floorViewId('lv_0')).graphics ?? {}), scale: 20 } as never });
     const sh: Sheet = { id: 's1', number: 'A-101', name: 'Planta', size: 'A4', orientation: 'portrait', margin: 10, titleBlock: emptyTitleBlock(), viewports: [] };
-    const plan = dragPlacement(p, sh, { kind: 'plan', levelId: 'lv_0' }, { x: 105, y: 148 })!;
+    const plan = dragPlacement(p, sh, { kind: 'plan', viewId: floorViewId('lv_0') }, { x: 105, y: 148 })!;
     expect(plan.adjusted).toBe(true);
     expect(plan.scale).toBeGreaterThan(20);
     expect(plan.size.w).toBeLessThanOrEqual(190 + 1e-6);
@@ -180,12 +180,12 @@ describe('arrastar uma vista do navegador para a prancha', () => {
     const s = new ProjectStore(casa());
     const id = addSheetAction(s);
     const sh = sheetOf(s.project, id)!;
-    const plan = dragPlacement(s.project, sh, { kind: 'plan', levelId: 'lv_0' }, { x: 200, y: 150 })!;
-    const vpId = addViewportAtAction(s, id, { kind: 'plan', levelId: 'lv_0' }, plan);
+    const plan = dragPlacement(s.project, sh, { kind: 'plan', viewId: floorViewId('lv_0') }, { x: 200, y: 150 })!;
+    const vpId = addViewportAtAction(s, id, { kind: 'plan', viewId: floorViewId('lv_0') }, plan);
     expect(sheetOf(s.project, id)!.viewports).toHaveLength(1);
     expect(sheetOf(s.project, id)!.viewports[0]!.id).toBe(vpId);
     s.undo();
     expect(sheetOf(s.project, id)!.viewports).toHaveLength(0);
-    expect(() => addViewportAtAction(s, id, { kind: 'plan', levelId: 'nope' }, plan)).toThrow(/Nível inexistente/);
+    expect(() => addViewportAtAction(s, id, { kind: 'plan', viewId: floorViewId('nope') }, plan)).toThrow(/Vista inexistente/);
   });
 });

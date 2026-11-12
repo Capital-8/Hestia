@@ -6,7 +6,7 @@ import {
   ProjectStore,
   copyLinkOf, syncWholeLinkCommand,
   annotationIdsIn, projectGrids, DEFAULT_AREA_GRAPHICS, isRoom,
-  viewOwnAnnotationsOf, viewGraphicsOf, floorViewId, roofViewId, toolAllowedInView, planViewOf as vistaDoModelo,
+  viewAnnotationsOf, viewGraphicsOf, floorViewId, roofViewId, toolAllowedInView, planViewOf as vistaDoModelo,
   levelRoomSeparators,
   sectionGraphicsOf,
   buildTemplate,
@@ -786,7 +786,7 @@ export class Editor {
     // sai o que sumiu.
     const st = useUi.getState();
     const ativa = planViewIdAtivo(st);
-    const daVista = ativa && vistaDoModelo(p, ativa) ? idsDeAnotacoes(viewOwnAnnotationsOf(p, ativa)) : [];
+    const daVista = ativa && vistaDoModelo(p, ativa) ? idsDeAnotacoes(viewAnnotationsOf(p, ativa)) : [];
     const notes = new Set([...annotationIdsIn(p, st.levelId, sel), ...daVista.filter((id) => sel.includes(id))]);
     const views = new Set(p.views.map((v) => v.id));
     const seps = new Set(levelRoomSeparators(p, st.levelId).map((r) => r.id));

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyProject, emptyTitleBlock, makeWall, type Project, type Sheet, type SheetViewport, type Wall } from '@hestia/model';
+import { floorViewId, createEmptyProject, emptyTitleBlock, makeWall, type Project, type Sheet, type SheetViewport, type Wall } from '@hestia/model';
 import { buildSheetDrawList } from './build.ts';
 import { STAMP_H, STAMP_ROW, stampHeightOf } from './frame.ts';
 
@@ -31,7 +31,7 @@ function projectWithWall(): Project {
 
 const planVp = (over: Partial<SheetViewport> = {}): SheetViewport => ({
   id: 'v1',
-  view: { kind: 'plan', levelId: 'lv_0' },
+  view: { kind: 'plan', viewId: floorViewId('lv_0') },
   at: { x: 20, y: 20 },
   size: { w: 200, h: 150 },
   scale: 100,

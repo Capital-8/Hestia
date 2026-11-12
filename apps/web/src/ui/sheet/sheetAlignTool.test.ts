@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyProject, makeWall, type Project, type Sheet, type SheetViewport } from '@hestia/model';
+import { floorViewId, createEmptyProject, makeWall, type Project, type Sheet, type SheetViewport } from '@hestia/model';
 import type { SheetDrawList, SheetGroup, SheetPath } from '@hestia/render';
 import {
   alignDelta,
@@ -45,7 +45,7 @@ function drawListFor(viewports: SheetViewport[]): SheetDrawList {
 }
 
 function planVp(id: string, at: PaperPoint, extra: Partial<SheetViewport> = {}): SheetViewport {
-  return { id, view: { kind: 'plan', levelId: LV0 }, at, size: { w: 180, h: 130 }, scale: 100, ...extra };
+  return { id, view: { kind: 'plan', viewId: floorViewId(LV0) }, at, size: { w: 180, h: 130 }, scale: 100, ...extra };
 }
 
 const ownedBy = (f: SheetAlignFeature, id: string): boolean => f.owner.type === 'viewport' && f.owner.id === id;

@@ -10,9 +10,9 @@ export function resolvePlanView(p: Pick<Project, 'planViews'>, viewId: Id): Plan
   return (p.planViews ?? []).find((v) => v.id === viewId);
 }
 
-/** Como `resolvePlanView`, no formato `PlanViewRef` (tipo, nível e, na planta de área, o id dela). Id inexistente: `undefined`. */
+/** Como `resolvePlanView`, no formato `PlanViewRef` (tipo e nível). Id inexistente: `undefined`. */
 export function resolvePlanViewRef(p: Pick<Project, 'planViews'>, viewId: Id): PlanViewRef | undefined {
   const v = resolvePlanView(p, viewId);
   if (!v) return undefined;
-  return v.kind === 'area' ? { kind: 'area', levelId: v.levelId, areaPlanId: v.id } : { kind: v.kind, levelId: v.levelId };
+  return { kind: v.kind, levelId: v.levelId };
 }
