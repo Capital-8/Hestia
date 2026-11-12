@@ -535,7 +535,7 @@ const PT = {
   md_ct_preset_vidro_colado_desc: 'Vidros de 1,20 × 2,40 m unidos por juntas de vidro colado de 12 mm.',
 } as const;
 
-type Key = keyof typeof PT;
+export type Key = keyof typeof PT;
 
 const EN: Record<Key, string> = {
   md_doc_untitled_project: 'Untitled Project',

@@ -4,7 +4,7 @@
 // A confirmação da fusão é do app: o comando recebe `fundir` explícito e, sem ele, recusa se a esquadria não couber.
 
 import type { Command } from './commands.ts';
-import { t, type Lang } from './i18n.ts';
+import { t, type Key, type Lang } from './i18n.ts';
 import { type Id, type Project, type Wall } from './types.ts';
 import { openingTypeById } from './openingNominal.ts';
 import { TOL_SOLDA, celulaEm, centroEntre, regiaoRetangular, type Eixo } from './curtainGrade.ts';
@@ -24,6 +24,19 @@ import {
 } from './wallCurtainTypes.ts';
 
 type Alinhamento = 'center' | 'start' | 'end';
+
+/**
+ * Erro de esquadria na célula. `chave` é a chave `md_ct_*` do dicionário do modelo: a ferramenta reconhece o caso de
+ * fusão (`md_ct_opening_no_fit`) pela chave, não pelo texto, e traduz a mensagem no idioma da interface.
+ */
+export class ErroEsquadriaCelula extends Error {
+  readonly chave: Key;
+  constructor(chave: Key, lang: Lang) {
+    super(t(lang, chave));
+    this.name = 'ErroEsquadriaCelula';
+    this.chave = chave;
+  }
+}
 
 /** O que a esquadria pede à célula (vindo do comando novo ou do patch de um comando de troca). */
 interface Pedido {
@@ -201,13 +214,13 @@ function colocar(p: Project, wallId: Id, x: number, z: number, ped: Pedido, lang
     const largura = ped.fit === 'grid' ? f.larguraBruta : f.larguraLivre;
     const altura = ped.fit === 'grid' ? f.alturaBruta : f.alturaLivre;
     if (W <= largura + TOL_SOLDA && sill + H <= altura + TOL_SOLDA) break;
-    if (!ped.fundir) throw new Error(t(lang, 'md_ct_opening_no_fit'));
+    if (!ped.fundir) throw new ErroEsquadriaCelula('md_ct_opening_no_fit', lang);
     const vizinho = passo <= res.nu + res.nv ? escolherVizinho(res, r, W > largura + TOL_SOLDA) : null;
-    if (!vizinho) throw new Error(t(lang, 'md_ct_opening_no_fit'));
+    if (!vizinho) throw new ErroEsquadriaCelula('md_ct_opening_no_fit', lang);
     fundirPara(p, wallId, res, r, vizinho, lang);
     normalizarParede(p, wallId);
     ({ w, res } = resolucaoDe(p, wallId, lang));
-    if (!todasRetangulares(res)) throw new Error(t(lang, 'md_ct_opening_funde_nao_retangular'));
+    if (!todasRetangulares(res)) throw new ErroEsquadriaCelula('md_ct_opening_funde_nao_retangular', lang);
   }
 
   const r = retanguloDaRegiao(res, i, j);

@@ -91,6 +91,11 @@ export interface ToolEnv {
    * Síncrono nos testes; na interface abre o diálogo e resolve quando o usuário escolhe.
    */
   confirmHostedLoss?(losses: readonly HostedLoss[], message: string): boolean | Promise<boolean>;
+  /**
+   * Pergunta de sim ou não genérica (ex.: fundir células vizinhas para caber uma porta). Ausente = recusa. Síncrono nos
+   * testes; na interface abre o diálogo de confirmação e resolve quando o usuário escolhe.
+   */
+  confirm?(message: string): boolean | Promise<boolean>;
   /** Pede à interface para voltar à ferramenta de seleção. */
   done(): void;
   /** Abre uma vista de corte/elevação na área de desenho. Ausente = a interface não abre a vista sozinha. */
@@ -191,6 +196,9 @@ export interface ToolOptions {
   wallShape: 'line' | 'arc' | 'rect';
   doorTypeId: Id;
   windowTypeId: Id;
+  /** Porta/janela na cortina: "preencher célula" (`cell`, padrão) ou "ajustar grade à porta" (`grid`), e o alinhamento da grade. */
+  curtainFit?: 'cell' | 'grid';
+  curtainAlign?: 'center' | 'start' | 'end';
   openingFlipHand?: boolean;
   openingFlipFacing?: boolean;
   /** Sentido da abertura na colocação: pelo lado do cursor (padrão) ou manual (`openingFlipFacing`). */
@@ -303,6 +311,8 @@ export interface PointerInfo {
    * ferramenta acha o elemento pelo ponto (`raw`).
    */
   hit3d?: Id | null;
+  /** Vista 3D: altura absoluta (m) do ponto da superfície sob o cursor (com `hit3d`). Ausente na planta. */
+  hitZ?: number;
 }
 
 /** Contrato único de ferramenta (docs/01 §7). A ferramenta nunca altera o modelo: ela emite comandos. */
@@ -321,6 +331,8 @@ export interface Tool {
   readonly hint: string;
   /** Aceita clique na vista 3D: o ponto entregue é o (x, y) da superfície sob o cursor (`pickModelPoint`). */
   readonly pick3d?: boolean;
+  /** Recebe o elemento e a altura sob o cursor também no movimento (vista 3D), não só no clique. */
+  readonly hover3d?: boolean;
   /** Campo de valor aceita texto livre (letras e espaços), não só números. */
   readonly freeText?: boolean;
   start(): void;
