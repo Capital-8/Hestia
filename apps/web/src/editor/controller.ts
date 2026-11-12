@@ -751,7 +751,7 @@ export class Editor {
       useUi.setState({ typed: ui.typed + k });
       return true;
     }
-    if (k === ' ' && (this.tool.id === 'door' || this.tool.id === 'window')) {
+    if (k === ' ' && (this.tool.id === 'door' || this.tool.id === 'window' || this.tool.id === 'furniture')) {
       this.tool.space?.(); this.bump();
       return true;
     }

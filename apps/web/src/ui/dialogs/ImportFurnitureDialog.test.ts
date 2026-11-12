@@ -92,6 +92,6 @@ describe('o que o diálogo entrega vira comando', () => {
     store.exec({ type: 'addFurnitureAsset', asset });
     const salvo = store.project.furniture!.assets[asset.id]!;
     expect(salvo.materials[0]!.category).toBe('leather');
-    expect(salvo.bbox.max[0]).toBeCloseTo(0.018, 6);
+    expect(salvo.bbox.max[0]).toBeCloseTo(0.004, 6); // 0,8 cm / 2: recentrado, em cm
   });
 });

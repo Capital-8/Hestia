@@ -94,6 +94,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   const pickSize = useRef({ w: 0, h: 0 });
   const plan = useRef(new PlanScene());
   const model = useRef(new ModelScene());
+  // Móveis (texturas e malhas leves chegam aos poucos): pede um quadro quando a cena de móveis termina de atualizar.
+  useEffect(() => { const m = model.current; m.moveis.aoAtualizar = () => useUi.setState((x) => ({ previewTick: x.previewTick + 1 })); return () => { m.moveis.aoAtualizar = null; }; }, []);
   // Prévia do Colar alinhado: camada de fantasmas, rascunho em cache e a câmera de antes do comando.
   const fantasmas = useRef<CamadaFantasmas | null>(null);
   const previaProjeto = useRef<{ chave: string; projeto: Project } | null>(null);

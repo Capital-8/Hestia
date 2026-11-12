@@ -43,7 +43,10 @@ describe('ferramenta Móvel', () => {
     t.click(P(10, 10));
     const [f] = items(ctx);
     expect(f).toMatchObject({ assetId: ctx.a.id, levelId: 'lv_0', rotation: 0, scale: 1, mirrored: false, name: 'Mesa' });
-    expect(f!.z).toBeCloseTo(-0.25, 6);
+    // o bloco vem recentrado (centro da base na origem): a instância fica em z = 0 e x,y = ponto do clique
+    expect(f!.z).toBeCloseTo(0, 6);
+    expect(f!.x).toBeCloseTo(10, 6);
+    expect(f!.y).toBeCloseTo(10, 6);
     expect(furnitureFootprint(f!, ctx.a)).toEqual(poly.ring.map((q) => ({ x: expect.closeTo(q.x, 6), y: expect.closeTo(q.y, 6) })));
   });
 

@@ -1,7 +1,4 @@
-import { assetParts, isFurniture, type FurnitureAsset, type Project } from '@hestia/model';
-
-/** Triângulos de móveis acima dos quais a vista 3D pode ficar lenta (aviso discreto, não bloqueia). */
-export const FURNITURE_TRIANGLE_BUDGET = 2_000_000;
+import { assetParts, type FurnitureAsset } from '@hestia/model';
 
 const perAsset = new WeakMap<FurnitureAsset, number>();
 
@@ -14,29 +11,6 @@ export function assetTriangles(a: FurnitureAsset): number {
     perAsset.set(a, n);
   }
   return n;
-}
-
-export interface FurnitureBudget {
-  triangles: number;
-  instances: number;
-  over: boolean;
-}
-
-/** Função pura: total de triângulos de todas as instâncias de móveis do projeto contra o teto de ~2 milhões. */
-export function furnitureBudget(p: Project, limit = FURNITURE_TRIANGLE_BUDGET): FurnitureBudget {
-  let triangles = 0;
-  let instances = 0;
-  const assets = p.furniture?.assets;
-  if (assets) {
-    for (const e of Object.values(p.elements)) {
-      if (!isFurniture(e)) continue;
-      const a = assets[e.assetId];
-      if (!a) continue;
-      instances++;
-      triangles += assetTriangles(a);
-    }
-  }
-  return { triangles, instances, over: triangles > limit };
 }
 
 /** Tamanho aproximado do projeto salvo, em MB, quando passa de 40 MB; senão null (aviso ao salvar). */

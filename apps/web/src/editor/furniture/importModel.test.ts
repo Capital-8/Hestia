@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { assetParts, createEmptyProject, ProjectStore, newId, type Furniture } from '@hestia/model';
-import { assetTriangles, furnitureBudget, saveSizeWarningMb, FURNITURE_TRIANGLE_BUDGET } from './budget.ts';
+import { furnitureViewBudget, AVISO_TRIANGULOS_MOVEIS } from '@hestia/render';
+import { assetTriangles, saveSizeWarningMb } from './budget.ts';
 import { buildAssetFromModel, FURNITURE_CATEGORIES, hexToRgb, initialMaterialEdits, modelDims, rgbToHex, summarizeModel, toFurnitureInput, UNIT_FACTOR, vertexLevel, fileTooBig } from './importModel.ts';
 import { boxModel } from './testFixtures.ts';
 
@@ -12,9 +13,12 @@ describe('ImportedModel -> asset -> comando', () => {
     const a = buildAssetFromModel(m, opts(m));
     expect(a.name).toBe('Mesa');
     expect(assetParts(a)).toHaveLength(1);
-    expect(a.parts?.[0]?.transform[12]).toBe(1);
-    expect(a.bbox.min).toEqual([1, 2, 0]);
-    expect(a.bbox.max[0]).toBeCloseTo(1.8, 5);
+    // bloco recentrado: centro da base na origem
+    expect(a.parts?.[0]?.transform[12]).toBeCloseTo(-0.4, 5);
+    expect(a.bbox.min[0]).toBeCloseTo(-0.4, 5);
+    expect(a.bbox.min[1]).toBeCloseTo(-0.2, 5);
+    expect(a.bbox.min[2]).toBeCloseTo(0, 5);
+    expect(a.bbox.max[0]).toBeCloseTo(0.4, 5);
     expect(modelDims(m)).toEqual([expect.closeTo(0.8, 5), expect.closeTo(0.4, 5), expect.closeTo(0.5, 5)]);
     expect(a.stats.triangles).toBe(12);
   });
@@ -78,9 +82,12 @@ describe('orçamento de triângulos e tamanho de salvamento', () => {
     const put = (x: number): Omit<Furniture, 'order'> => ({ id: newId('fu'), kind: 'furniture', assetId: a.id, levelId: lv, x, y: 0, z: 0, rotation: 0, scale: 1, mirrored: false, name: 'm' });
     s.exec({ type: 'addFurniture', furniture: put(0) });
     s.exec({ type: 'addFurniture', furniture: put(2) });
-    expect(furnitureBudget(s.project)).toEqual({ triangles: 72, instances: 2, over: false });
-    expect(furnitureBudget(s.project, 71).over).toBe(true);
-    expect(FURNITURE_TRIANGLE_BUDGET).toBe(2_000_000);
+    const b = furnitureViewBudget(s.project, { qualidadePadrao: 'completo' });
+    expect(b.instancias).toBe(2);
+    expect(b.triangulos).toBe(72);
+    expect(b.excede).toBe(false);
+    expect(furnitureViewBudget(s.project, { qualidadePadrao: 'completo', limite: 71 }).excede).toBe(true);
+    expect(AVISO_TRIANGULOS_MOVEIS).toBe(2_000_000);
   });
 
   it('aviso de salvamento só acima de 40 MB', () => {
