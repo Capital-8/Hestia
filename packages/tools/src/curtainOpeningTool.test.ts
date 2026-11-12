@@ -164,6 +164,19 @@ describe('destaque da célula ao passar o cursor', () => {
     expect(c.sala.say.at(-1)).toContain('Grade da cortina indisponível');
   });
 
+  it('célula estreita demais para a folha mínima do tipo: a barra mostra o aviso de folha mínima (o clique não bloqueia)', () => {
+    // 12 colunas de 0,5 m: a folha livre (0,44 m) fica abaixo da folha mínima de porta de giro (0,60 m).
+    const c = ambiente({ projeto: projetoComCortina(especCortinaTeste({ u: { mode: 'fixedNumber', count: 12 } })), nu: 12, nv: 2 });
+    // Porta de 0,40 m: cabe na célula de 0,44 m livres, mas fica abaixo da folha mínima (0,60 m).
+    c.store.exec({ type: 'upsertOpeningType', openingType: { ...createEmptyProject().openingTypes.ot_p80!, id: 'ot_fino', name: 'Porta fina', code: 'PF', width: 0.4, height: 1.2, sill: 0 } });
+    c.env.setOptions!({ doorTypeId: 'ot_fino' });
+    const t = ferramenta(c.env);
+    t.move(P(0.25, 0.02));
+    expect(c.sala.say.at(-1)).toContain('folha mínima');
+    t.click(P(0.25, 0.02));
+    expect(esquadriasDe(c.store)).toHaveLength(1);
+  });
+
   it('a barra diz se a porta cabe na célula ou precisa fundir vizinhas', () => {
     const c = ambiente();
     const t = ferramenta(c.env);
@@ -215,7 +228,7 @@ describe('Espaço e Tab invertem o giro e o sentido antes do clique', () => {
   it('Espaço inverte o giro e o clique grava flipHand', () => {
     const c = ambiente();
     const t = ferramenta(c.env);
-    t.space();
+    t.space?.();
     expect(c.env.options().openingFlipHand).toBe(true);
     t.click(P(1, 0.02));
     expect(esquadriasDe(c.store)[0]!.override).toMatchObject({ flipHand: true, flipFacing: false });
@@ -233,7 +246,7 @@ describe('Espaço e Tab invertem o giro e o sentido antes do clique', () => {
   it('Espaço sem setOptions na interface não quebra (a inversão só não se grava)', () => {
     const c = ambiente();
     const env = { ...c.env, setOptions: undefined };
-    expect(() => ferramenta(env).space()).not.toThrow();
+    expect(() => ferramenta(env).space?.()).not.toThrow();
   });
 });
 

@@ -206,7 +206,11 @@ export class CurtainOpeningTool extends ToolBase {
       this.env.exec(cmd);
       this.env.say(this.t('tl_msg_curtain_placed', { type: tipo.name }));
     } catch (e) {
-      if (!(e instanceof ErroEsquadriaCelula)) throw e;
+      if (!(e instanceof ErroEsquadriaCelula)) {
+        // Erro fora do modelo de esquadria: sai na barra de status, sem derrubar o gesto do ponteiro.
+        this.env.say(e instanceof Error ? e.message : String(e));
+        return;
+      }
       if (e.chave === 'md_ct_opening_no_fit' && !fundir && this.env.confirm) {
         const pergunta = this.t('tl_msg_curtain_confirm_fuse', { type: tipo.name, w: tipo.width.toFixed(2), h: tipo.height.toFixed(2) });
         void Promise.resolve(this.env.confirm(pergunta)).then((ok) => {

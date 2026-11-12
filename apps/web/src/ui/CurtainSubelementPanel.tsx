@@ -99,7 +99,7 @@ export function dadosDoSubelemento(p: Project, sub: SubelementoSelecionado): Dad
       flipHand: ov.flipHand,
       flipFacing: ov.flipFacing,
       mark: ov.mark,
-      fit: ov.fit,
+      fit: ov.fit ?? 'cell',
       align: ov.align ?? 'center',
     };
     return { kind: 'cell', wallId: sub.wallId, i, j, painel, sobrescrita: false, esquadria };
