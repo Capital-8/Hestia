@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_OPENING_TYPES, openingFamilyOf, openingLeaves, openingTypeIssue, type OpeningType } from './index.ts';
+import { createEmptyProject, DEFAULT_OPENING_TYPES, openingFamilyOf, openingLeaves, openingTypeIssue, type OpeningType } from './index.ts';
+import { catalogoPortas } from './catalogoPortas.ts';
 
 /** Os 24 tipos de antes do catálogo brasileiro: ids, códigos, nomes e medidas (projetos salvos referenciam os ids). */
 const ANTIGOS: Array<[id: string, code: string, name: string, kind: OpeningType['kind'], width: number, height: number, sill: number, leaves: number, plan: string]> = [
@@ -150,7 +151,8 @@ describe('catálogo brasileiro: corta-fogo e vidro temperado', () => {
   });
 
   it('blindex: 72, 82 e 92 cm com vidro temperado de 8 mm e de 10 mm, sem caixilho', () => {
-    const bl = NOVOS.filter((t) => t.glassKind === 'tempered');
+    // As variantes de vidro temperado com ferragem (`_vid`, ver "variações de material") não são blindex de catálogo antigo.
+    const bl = NOVOS.filter((t) => t.glassKind === 'tempered' && !/_vid$/.test(t.id));
     expect(bl).toHaveLength(6);
     expect(new Set(bl.map((t) => t.width))).toEqual(new Set([0.72, 0.82, 0.92]));
     expect(new Set(bl.map((t) => t.glassThickness))).toEqual(new Set([0.008, 0.01]));
@@ -205,5 +207,73 @@ describe('catálogo brasileiro: medidas pedidas', () => {
   it('bandeiras fixas têm peitoril acima da porta (2,10 m)', () => {
     expect(porCodigo('J-48').sill).toBe(2.1);
     expect(porCodigo('J-49').sill).toBe(2.1);
+  });
+});
+
+describe('catálogo brasileiro: variações de material das portas', () => {
+  const VARIANTES = DEFAULT_OPENING_TYPES.filter((t) => /_(alu|pvc|vid)$/.test(t.id));
+  const tipo = (id: string): OpeningType => VARIANTES.find((t) => t.id === id)!;
+
+  it('24 variantes: 4 layouts × 2 tamanhos × 3 materiais, com códigos seguidos de P-62 a P-85', () => {
+    expect(VARIANTES).toHaveLength(24);
+    expect(VARIANTES.map((t) => t.code)).toEqual(Array.from({ length: 24 }, (_, i) => `P-${62 + i}`));
+    expect(new Set(VARIANTES.map((t) => t.id)).size).toBe(24);
+  });
+
+  it('materiais de batente e vidro existem no projeto novo', () => {
+    const materiais = createEmptyProject().materials;
+    for (const t of VARIANTES) {
+      expect(materiais[t.frameMaterialId], t.id).toBeDefined();
+      expect(materiais[t.glassMaterialId], t.id).toBeDefined();
+    }
+    expect(new Set(VARIANTES.map((t) => t.frameMaterialId))).toEqual(new Set(['mat_aluminio', 'mat_pvc', 'mat_vidro']));
+  });
+
+  it('layouts: giro 1 folha (swing), giro 2 folhas (double), correr 2 folhas (sliding) e pivotante (pivot)', () => {
+    const esperado: Array<[string, string, number]> = [
+      ['ot_pgiro_80', 'swing', 1],
+      ['ot_pgiro_90', 'swing', 1],
+      ['ot_pgiro2_140', 'double', 2],
+      ['ot_pgiro2_160', 'double', 2],
+      ['ot_pcorrer_160', 'sliding', 2],
+      ['ot_pcorrer_180', 'sliding', 2],
+      ['ot_ppiv_100', 'pivot', 1],
+      ['ot_ppiv_120', 'pivot', 1],
+    ];
+    for (const [base, plan, leaves] of esperado) {
+      for (const sigla of ['alu', 'pvc', 'vid']) {
+        const t = tipo(`${base}_${sigla}`);
+        expect(t.plan, t.id).toBe(plan);
+        expect(t.leaves, t.id).toBe(leaves);
+        expect(t.kind, t.id).toBe('door');
+        expect(t.nominalRef, t.id).toBe('leaf');
+        expect(openingFamilyOf(t), t.id).not.toBeNull();
+      }
+    }
+    expect(tipo('ot_pgiro_80_alu').width).toBe(0.8);
+    expect(tipo('ot_pgiro2_140_vid').width).toBe(1.4);
+  });
+
+  it('alumínio e PVC: folha do batente (sem vidro); vidro: batente de vidro, folha de vidro temperado com ferragem', () => {
+    for (const t of VARIANTES.filter((x) => !x.id.endsWith('_vid'))) expect(t.leafStyle, t.id).not.toBe('glass');
+    for (const t of VARIANTES.filter((x) => x.id.endsWith('_vid'))) {
+      expect(t.frameMaterialId, t.id).toBe('mat_vidro');
+      expect(t.frameStyle, t.id).toBe('block');
+      expect(t.leafStyle, t.id).toBe('glass');
+      expect(t.glassKind, t.id).toBe('tempered');
+      expect(t.glassThickness, t.id).toBe(0.01);
+      expect(t.handle, t.id).toBe('pull');
+    }
+    expect(tipo('ot_pgiro_80_alu').frameMaterialId).toBe('mat_aluminio');
+    expect(tipo('ot_pcorrer_160_pvc').frameMaterialId).toBe('mat_pvc');
+  });
+
+  it('nomes em inglês traduzem alumínio e vidro temperado (sem texto em português)', () => {
+    const en = catalogoPortas('en').filter((t) => /_(alu|pvc|vid)$/.test(t.id));
+    const vid = en.find((t) => t.id === 'ot_pgiro_80_vid')!;
+    expect(vid.name).toContain('tempered glass');
+    expect(vid.name).toContain('with hardware');
+    expect(en.find((t) => t.id === 'ot_pgiro_80_alu')!.name).toContain('Aluminum');
+    expect(en.some((t) => /alumínio|vidro temperado|com ferragem/.test(t.name))).toBe(false);
   });
 });

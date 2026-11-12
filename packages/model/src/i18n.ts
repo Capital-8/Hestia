@@ -1071,6 +1071,8 @@ const OPENING_NAME_BLOCKS: ReadonlyArray<readonly [string, string, string, strin
   ["Porta corta-fogo", "Fire Door", "Puerta cortafuegos", "Brandschutztür", "Porte coupe-feu", "Porta tagliafuoco", "Drzwi przeciwpożarowe"],
   ["Porta-balcão", "Balcony Door", "Puerta balconera", "Balkontür", "Porte-fenêtre", "Portafinestra", "Drzwi balkonowe"],
   ["Porta de vidro temperado", "Tempered Glass Door", "Puerta de vidrio templado", "Hartglastür", "Porte en verre trempé", "Porta in vetro temperato", "Drzwi ze szkła hartowanego"],
+  ["vidro temperado", "tempered glass", "vidrio templado", "Einscheibensicherheitsglas", "verre trempé", "vetro temperato", "szkło hartowane"],
+  ["com ferragem", "with hardware", "con herrajes", "mit Beschlägen", "avec quincaillerie", "con ferramenta", "z okuciami"],
   ["Porta de giro", "Hinged Door", "Puerta batiente", "Drehtür", "Porte à battant", "Porta a battente", "Drzwi skrzydłowe"],
   ["Porta de correr", "Sliding Door", "Puerta corredera", "Schiebetür", "Porte coulissante", "Porta scorrevole", "Drzwi przesuwne"],
   ["Porta de embutir", "Pocket Door", "Puerta de bolsillo", "Taschenschiebetür", "Porte coulissante à galandage", "Porta scorrevole a scomparsa", "Drzwi przesuwne chowane w ścianie"],

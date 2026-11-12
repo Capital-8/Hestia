@@ -172,8 +172,8 @@ describe('exportIfc: catálogo completo no mostruário', () => {
     expect(text.startsWith('ISO-10303-21;')).toBe(true);
     expect(danglingRefs(text)).toEqual([]);
     expect(p.levels).toHaveLength(1);
-    // Uma abertura por tipo do catálogo: 70 portas (12 antigas + 43 brasileiras + 15 composições) e 60 janelas (12 antigas + 39 + 9 composições).
-    expect(portas.length).toBe(70);
+    // Uma abertura por tipo do catálogo: 94 portas (12 antigas + 67 brasileiras, das quais 24 variantes de material, + 15 composições) e 60 janelas (12 antigas + 39 + 9 composições).
+    expect(portas.length).toBe(94);
     expect(janelas.length).toBe(60);
     expect(count(text, 'IFCDOOR')).toBe(portas.length);
     expect(count(text, 'IFCWINDOW')).toBe(janelas.length);
