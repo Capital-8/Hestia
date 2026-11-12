@@ -107,7 +107,7 @@ describe('realce da cortina: instâncias e arestas, nunca a caixa', () => {
     expect(sobre).toHaveLength(2);
     expect(sobre.every((o) => o instanceof THREE.InstancedMesh)).toBe(true);
     // A sobreposição usa a matriz de instância da malha de origem (o mesmo buffer, nada copiado).
-    const origens = grupo.desenhos.map((d) => d.malha.instanceMatrix);
+    const origens = grupo.desenhos.map((d) => (d.malha as THREE.InstancedMesh).instanceMatrix);
     expect(sobre.map((o) => (o as THREE.InstancedMesh).instanceMatrix).every((m) => origens.includes(m))).toBe(true);
     // Nenhum objeto de caixa (BoxHelper/Box3Helper) entra na camada.
     r.camada.traverse((o) => expect(o.type).not.toMatch(/Box/));
