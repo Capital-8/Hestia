@@ -67,6 +67,17 @@ function soltarLinhas(inst: CurtainInstance, ids: Id[]): void {
   }
 }
 
+/** Distância (m) acima da base da região para o ponto que a identifica ao reler a grade (1 mm). */
+const PONTO_NA_REGIAO = 0.001;
+
+/** Célula (i, j) da grade que contém o ponto (x, z), em metros. Erro se o ponto está fora da parede. */
+function celulaNoPonto(res: ParedeResolvida, x: number, z: number, lang: Lang): { i: number; j: number } {
+  const i = celulaEm(res.bu, x);
+  const j = celulaEm(res.bv, z);
+  if (i < 0 || j < 0) throw new Error(t(lang, 'md_ct_cell_missing'));
+  return { i, j };
+}
+
 /** Entrada da célula (i, j) na grade atual (normalizada): a região inteira, com a sua chave canônica. */
 function entradaDaCelula(p: Project, wallId: Id, i: number, j: number, lang: Lang): { rc: number; entrada?: CellOverrideEntry } {
   normalizarParede(p, wallId);
@@ -166,17 +177,24 @@ function linhasDoAjuste(
  * antigas; funde as vizinhas se preciso (com `fundir`); no modo "ajustar grade", cria as linhas presas; e grava a
  * sobrescrita na célula canônica da região que contém o centro da esquadria.
  */
-function colocar(p: Project, wallId: Id, i: number, j: number, ped: Pedido, lang: Lang): void {
+function colocar(p: Project, wallId: Id, x: number, z: number, ped: Pedido, lang: Lang): void {
   const tipo = openingTypeById(p, ped.openingTypeId);
   if (!tipo) throw new Error(t(lang, 'md_ct_opening_type_missing'));
-  const { rc } = entradaDaCelula(p, wallId, i, j, lang);
-  apagarNaRegiao(p, wallId, rc, lang);
+  // A célula é a que contém o ponto (x, z), lida na grade atual. Apagar a esquadria antiga pode tirar linhas presas e
+  // mudar os índices, então a célula é lida de novo depois da remoção.
+  normalizarParede(p, wallId);
+  {
+    const antes = resolucaoDe(p, wallId, lang).res;
+    const c0 = celulaNoPonto(antes, x, z, lang);
+    apagarNaRegiao(p, wallId, antes.canon[c0.i * antes.nv + c0.j] as number, lang);
+  }
 
   const W = tipo.width;
   const H = tipo.height;
   // Altura do peitoril: a base da célula, ou o valor por instância (janela). Porta sem peitoril fica no piso.
   const sill = typeof ped.sillOverride === 'number' ? ped.sillOverride : 0;
   let { w, res } = resolucaoDe(p, wallId, lang);
+  const { i, j } = celulaNoPonto(res, x, z, lang);
   for (let passo = 0; ; passo++) {
     const r = retanguloDaRegiao(res, i, j);
     const f = folgasDaRegiao(p, w, res, r);
@@ -248,11 +266,14 @@ function atualizar(p: Project, c: Extract<Command, { type: 'updateCellOpening' }
   if (!entrada || entrada.override.kind !== 'opening') throw new Error(t(lang, 'md_ct_opening_missing'));
   const ov = entrada.override;
   const pt = c.patch;
+  // Ponto dentro da região da esquadria (perto da base, no meio da largura): a colocação relê a célula depois de apagar.
+  const { w, res } = resolucaoDe(p, c.wallId, lang);
+  const f = folgasDaRegiao(p, w, res, retanguloDaRegiao(res, c.i, c.j));
   colocar(
     p,
     c.wallId,
-    c.i,
-    c.j,
+    (f.s0 + f.s1) / 2,
+    f.z0 + PONTO_NA_REGIAO,
     {
       openingTypeId: pt.openingTypeId ?? ov.openingTypeId,
       flipHand: pt.flipHand ?? ov.flipHand,
@@ -270,16 +291,19 @@ function atualizar(p: Project, c: Extract<Command, { type: 'updateCellOpening' }
 /** Aplica um comando de esquadria na célula. Devolve false quando o comando não é desta família. */
 export function applyCurtainOpeningCommand(p: Project, c: Command, lang: Lang = 'pt'): boolean {
   switch (c.type) {
-    case 'setCellOpening':
+    case 'setCellOpening': {
+      const { res } = resolucaoDe(p, c.wallId, lang);
+      celulaDe(res, c.i, c.j, lang);
       colocar(
         p,
         c.wallId,
-        c.i,
-        c.j,
+        centroEntre(res.bu, c.i),
+        centroEntre(res.bv, c.j),
         { openingTypeId: c.openingTypeId, flipHand: c.flipHand, flipFacing: c.flipFacing, mark: c.mark, fit: c.fit, align: c.align, fundir: c.fundir },
         lang,
       );
       return true;
+    }
     case 'updateCellOpening':
       atualizar(p, c, lang);
       return true;
