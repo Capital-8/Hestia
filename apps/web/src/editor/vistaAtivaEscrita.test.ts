@@ -16,7 +16,6 @@ import {
 } from '@hestia/model';
 import { createAreaPlanAction } from './areaPlanActions.ts';
 import { editor } from './controller.ts';
-import { planViewIdDaAba } from './openViews.ts';
 import { DEFAULT_OPTIONS, useUi } from './state.ts';
 import { hideInView, unhideInView, viewHiddenTargetOf, visibilityKeyOf } from './viewVisibility.ts';
 import { areaViewIdAtivo, chaveDeViewportDePlanta, tipoDeVistaDeFundo } from './vistaAtiva.ts';
@@ -187,7 +186,7 @@ describe('ocultar e reexibir na vista, por viewId', () => {
 });
 
 describe('seletores acrescentados em vistaAtiva e openViews', () => {
-  it('tipoDeVistaDeFundo lê o tipo da vista no projeto; o formato antigo (planKind) vale quando não há projeto', () => {
+  it('tipoDeVistaDeFundo lê o tipo da vista no projeto', () => {
     const { project, planId } = montar();
     expect(tipoDeVistaDeFundo(project, { levelId: 'lv_0', planViewId: 'pv_lv_0' })).toBe('floor');
     expect(tipoDeVistaDeFundo(project, { levelId: 'lv_0', planViewId: 'pvr_lv_0' })).toBe('roof');
@@ -195,38 +194,23 @@ describe('seletores acrescentados em vistaAtiva e openViews', () => {
     // Sem o projeto, piso e cobertura se reconhecem pelo id; a planta de área não (cai em piso).
     expect(tipoDeVistaDeFundo(undefined, { levelId: 'lv_0', planViewId: 'pvr_lv_0' })).toBe('roof');
     expect(tipoDeVistaDeFundo(undefined, { levelId: 'lv_0', planViewId: planId })).toBe('floor');
-    // Formato antigo (sessão antiga, harness do ouro): o tipo vem de `planKind`.
-    expect(tipoDeVistaDeFundo(undefined, { levelId: 'lv_0', planKind: 'roof' })).toBe('roof');
-    expect(tipoDeVistaDeFundo(undefined, { levelId: 'lv_0', planKind: 'area' })).toBe('area');
   });
 
   it('areaViewIdAtivo só na planta de área ativa', () => {
-    const ui = { view: 'plan', levelId: 'lv_0', planKind: 'area', areaPlanId: 'ap1' } as const;
-    expect(areaViewIdAtivo(undefined, ui)).toBe('ap1');
-    expect(areaViewIdAtivo(undefined, { ...ui, view: '3d' })).toBeNull();
-    expect(areaViewIdAtivo(undefined, { ...ui, areaPlanId: null })).toBeNull();
-    expect(areaViewIdAtivo(undefined, { ...ui, planKind: 'floor' })).toBeNull();
-    // Forma atual: o tipo sai do projeto.
     const { project, planId } = montar();
+    expect(areaViewIdAtivo(project, { view: '3d', levelId: 'lv_0', planViewId: planId })).toBeNull();
     expect(areaViewIdAtivo(project, { view: 'plan', levelId: 'lv_0', planViewId: planId })).toBe(planId);
     expect(areaViewIdAtivo(project, { view: 'plan', levelId: 'lv_0', planViewId: 'pv_lv_0' })).toBeNull();
   });
 
   it('chaveDeViewportDePlanta: piso é o nível; cobertura e área têm prefixo', () => {
-    expect(chaveDeViewportDePlanta(undefined, { levelId: 'lv_0', planKind: 'floor', areaPlanId: null })).toBe('lv_0');
-    expect(chaveDeViewportDePlanta(undefined, { levelId: 'lv_0', planKind: 'roof', areaPlanId: null })).toBe('roof:lv_0');
-    expect(chaveDeViewportDePlanta(undefined, { levelId: 'lv_0', planKind: 'area', areaPlanId: 'ap1' })).toBe('area:ap1');
-    expect(chaveDeViewportDePlanta(undefined, { levelId: 'lv_0', planKind: 'area', areaPlanId: null })).toBe('area:lv_0');
-  });
-
-  it('planViewIdDaAba: id da vista da aba', () => {
-    expect(planViewIdDaAba({ levelId: 'lv_0' })).toBe(floorViewId('lv_0'));
-    expect(planViewIdDaAba({ levelId: 'lv_0', planKind: 'roof' })).toBe(roofViewId('lv_0'));
-    expect(planViewIdDaAba({ levelId: 'lv_0', planKind: 'area', areaPlanId: 'ap1' })).toBe('ap1');
-    expect(planViewIdDaAba({ levelId: 'lv_0', planKind: 'area' })).toBeNull();
+    const { project, planId } = montar();
+    expect(chaveDeViewportDePlanta(project, { levelId: 'lv_0', planViewId: 'pv_lv_0' })).toBe('lv_0');
+    expect(chaveDeViewportDePlanta(project, { levelId: 'lv_0', planViewId: 'pvr_lv_0' })).toBe('roof:lv_0');
+    expect(chaveDeViewportDePlanta(project, { levelId: 'lv_0', planViewId: planId })).toBe(`area:${planId}`);
   });
 
   it('visibilityKeyOf continua com os mesmos prefixos', () => {
-    expect(visibilityKeyOf({ view: 'plan', levelId: 'lv_0', planKind: 'area', areaPlanId: null, sectionId: null } as never)).toBeNull();
+    expect(visibilityKeyOf({ view: 'plan', levelId: 'lv_0', planViewId: 'pv_lv_0', sectionId: null } as never)).toBe('plan:lv_0');
   });
 });

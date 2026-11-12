@@ -1,10 +1,4 @@
-import { floorViewId, planViewRef, roofViewId, type Id } from '@hestia/model';
-
-/**
- * Planta de piso (padrão), de cobertura ou de área. A de cobertura é a planta do nível com o telhado completo
- * e opaco; a de área é uma vista própria (`AreaPlan`) com linhas de referência, etiquetas e quadro.
- */
-export type PlanKind = 'floor' | 'roof' | 'area';
+import { floorViewId, planViewRef, type Id } from '@hestia/model';
 
 /**
  * Vista aberta na barra de vistas. É estado de sessão (não é salvo no projeto): separa "níveis do projeto"
@@ -25,16 +19,6 @@ export interface ActiveViewFields {
   sheetId: Id | null;
   /** Vista de planta de fundo (forma única); é a ativa quando `view` é 'plan'. */
   planViewId: Id;
-}
-
-/**
- * Id da vista de planta na FORMA ANTIGA da aba/estado (`levelId` + `planKind` + `areaPlanId`): `floorViewId`,
- * `roofViewId` ou o id da planta de área; `null` na planta de área sem `areaPlanId`. Serve à sessão salva no formato
- * antigo; o resto do código usa o `viewId` direto.
- */
-export function planViewIdDaAba(v: { levelId: Id; planKind?: string; areaPlanId?: Id | null }): Id | null {
-  if (v.planKind === 'area') return v.areaPlanId ?? null;
-  return v.planKind === 'roof' ? roofViewId(v.levelId) : floorViewId(v.levelId);
 }
 
 /** Padrão ao abrir um projeto: só o nível ativo, que é o primeiro nível do projeto. */

@@ -1,5 +1,5 @@
-import { floorViewId, type Id } from '@hestia/model';
-import { planViewIdDaAba } from './openViews.ts';
+import type { Id } from '@hestia/model';
+import { planViewIdDaSessaoAntiga, viewIdDaAbaAntiga } from './migrateSessao.ts';
 
 /**
  * Sessão da aba: o que reabrir quando a página é recarregada (F5) e o que NÃO deve sobreviver ao fechamento.
@@ -18,7 +18,7 @@ export type VistaDaSessao = 'plan' | '3d' | 'section' | 'sheet';
 
 /**
  * Aba de vista aberta (mesmo formato de `OpenView`), guardada como JSON simples. A sessão gravada por versões antigas
- * leva a planta como `levelId` + `planKind` + `areaPlanId`: `sessaoValida` a converte para `viewId` ao ler.
+ * leva a planta por nível e tipo: `sessaoValida` a converte para `viewId` ao ler (ver `migrateSessao.ts`).
  */
 export type AbaDaSessao =
   | { kind: 'plan'; viewId: Id }
@@ -32,10 +32,8 @@ export interface Sessao {
   pasta: string | null;
   view: VistaDaSessao;
   levelId: Id;
-  /** Vista de planta de fundo (forma única); a sessão antiga, sem ele, é convertida de `planKind`/`areaPlanId`. */
+  /** Vista de planta de fundo (forma única); a sessão antiga, sem ele, é convertida em `migrateSessao.ts`. */
   planViewId: Id;
-  /** Tipo da planta de `planViewId` ('floor' | 'roof' | 'area'). */
-  planKind: string;
   sectionId: Id | null;
   /** Abas de vista abertas, na ordem. */
   openViews: AbaDaSessao[];
@@ -58,10 +56,9 @@ function abaValida(valor: unknown): AbaDaSessao | null {
     case '3d':
       return { kind: '3d' };
     case 'plan': {
-      // Forma única: `viewId`. Forma antiga: `levelId` + `planKind` + `areaPlanId` (planta de área sem id não tem vista).
+      // Forma única: `viewId`. A forma antiga (planta por nível e tipo) é lida em `migrateSessao.ts`.
       if (typeof o.viewId === 'string' && o.viewId !== '') return { kind: 'plan', viewId: o.viewId };
-      if (typeof o.levelId !== 'string') return null;
-      const viewId = planViewIdDaAba({ levelId: o.levelId, ...(typeof o.planKind === 'string' ? { planKind: o.planKind } : {}), ...(typeof o.areaPlanId === 'string' ? { areaPlanId: o.areaPlanId } : {}) });
+      const viewId = viewIdDaAbaAntiga(o);
       return viewId ? { kind: 'plan', viewId } : null;
     }
     case 'section':
@@ -81,12 +78,9 @@ export function sessaoValida(valor: unknown): Sessao | null {
   const vistas: VistaDaSessao[] = ['plan', '3d', 'section', 'sheet'];
   if (typeof view !== 'string' || !vistas.includes(view as VistaDaSessao)) return null;
   if (typeof o.levelId !== 'string' || o.levelId === '') return null;
-  if (typeof o.planKind !== 'string') return null;
-  // Sem `planViewId` é sessão antiga: a planta de fundo sai de `levelId`/`planKind`/`areaPlanId`. Planta de área sem id
-  // (estado que já não abria nada) cai na planta de piso do nível.
-  const antigaArea = typeof o.areaPlanId === 'string' && o.areaPlanId !== '' ? o.areaPlanId : null;
-  const planViewId = typeof o.planViewId === 'string' && o.planViewId !== '' ? o.planViewId : planViewIdDaAba({ levelId: o.levelId, planKind: o.planKind, areaPlanId: antigaArea }) ?? floorViewId(o.levelId);
-  const planKind = planViewId === floorViewId(o.levelId) && o.planKind === 'area' && typeof o.planViewId !== 'string' ? 'floor' : o.planKind;
+  // Sem `planViewId` é sessão antiga: a planta de fundo é lida em `migrateSessao.ts`.
+  const planViewId = typeof o.planViewId === 'string' && o.planViewId !== '' ? o.planViewId : planViewIdDaSessaoAntiga(o);
+  if (!planViewId) return null;
   const pasta = typeof o.pasta === 'string' && o.pasta !== '' ? o.pasta : null;
   const abas = Array.isArray(o.openViews) ? o.openViews.map(abaValida).filter((a): a is AbaDaSessao => a !== null) : [];
   return {
@@ -94,7 +88,6 @@ export function sessaoValida(valor: unknown): Sessao | null {
     view: view as VistaDaSessao,
     levelId: o.levelId,
     planViewId,
-    planKind,
     sectionId: typeof o.sectionId === 'string' ? o.sectionId : null,
     openViews: abas,
   };
