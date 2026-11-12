@@ -147,7 +147,7 @@ export function OptionsBar(): ReactElement {
   const { t, lang } = useT();
   // O aviso de distância inválida é identificado por flag, não pelo texto (que muda com o idioma).
   const invalidDistance = useRef(false);
-  const areaPlan = useUi((s) => areaViewIdAtivo(s) !== null);
+  const areaPlan = useUi((s) => areaViewIdAtivo(p, s) !== null);
   const set = (patch: Partial<typeof o>): void => useUi.setState({ options: { ...o, ...patch } });
   if (perim.active) return <PerimeterOptionsBar target={perim.target} modify={perim.modify} options={perim.options} onChange={perimeterActions.setOptions} />;
   // A paleta Propriedades é a fonte de configuração antes da colocação; a barra superior fica como indicação da ferramenta.

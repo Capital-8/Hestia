@@ -16,8 +16,11 @@ const canvasWrap = page.locator('.canvas-wrap');
 const shot = (name) => canvasWrap.screenshot({ path: path.join(OUT, name) });
 const ui = () => page.evaluate(() => {
   const s = window.__hestia.useUi.getState();
-  return { view: s.view, planKind: s.planKind, levelId: s.levelId, tabs: s.openViews.map((v) => `${v.kind}:${v.levelId ?? v.viewId ?? ''}${v.planKind === 'roof' ? ':roof' : ''}`) };
+  return { view: s.view, planViewId: s.planViewId, levelId: s.levelId, tabs: s.openViews.map((v) => `${v.kind}:${v.levelId ?? v.viewId ?? ''}${String(v.viewId ?? '').startsWith('pvr_') ? ':roof' : ''}`) };
 });
+/** Tipo da vista de planta a partir do id da vista ativa: cobertura ('pvr_'), piso ('pv_'); planta de área não tem prefixo. */
+const ehCobertura = (s) => (s.planViewId ?? '').startsWith('pvr_');
+const ehPiso = (s) => (s.planViewId ?? '').startsWith('pv_') && !ehCobertura(s);
 /** Duplo clique no item do Navegador da cobertura (o título do item identifica o nível). */
 const abrirCobertura = async (nivel) => {
   await page.locator(`[title^="Planta de cobertura do nível ${nivel}."]`).dblclick();
@@ -72,7 +75,7 @@ try {
   await rep.step('2 · Abrir a cobertura do nível "Cobertura": aba própria, título e estado', async () => {
     await abrirCobertura('Cobertura');
     const s = await ui();
-    rep.check('vista de planta de cobertura do lv_2', s.view === 'plan' && s.planKind === 'roof' && s.levelId === 'lv_2', JSON.stringify(s));
+    rep.check('vista de planta de cobertura do lv_2', s.view === 'plan' && ehCobertura(s) && s.levelId === 'lv_2', JSON.stringify(s));
     rep.check('aba "Planta de cobertura: Cobertura" aberta', await page.getByRole('tab', { name: /Planta de cobertura: Cobertura/ }).count() === 1);
     const titulo = await page.locator('.tb-title').textContent();
     rep.check('título da janela "Planta de cobertura: Cobertura"', titulo.includes('Planta de cobertura: Cobertura'), titulo);
@@ -96,7 +99,7 @@ try {
     await pisoTerreo.click();
     await page.waitForTimeout(500);
     const s1 = await ui();
-    rep.check('aba de piso do Térreo ativa', s1.view === 'plan' && s1.planKind === 'floor' && s1.levelId === 'lv_0', JSON.stringify(s1));
+    rep.check('aba de piso do Térreo ativa', s1.view === 'plan' && ehPiso(s1) && s1.levelId === 'lv_0', JSON.stringify(s1));
     await shot('03-piso-terreo.png');
     await page.getByRole('tab', { name: /Planta de cobertura: Cobertura/ }).click();
     await page.waitForTimeout(500);
@@ -104,13 +107,13 @@ try {
     const [dentro, fora] = await coresEm([DENTRO, FORA]);
     rep.check('voltar à cobertura: o telhado continua opaco', !clara(dentro) && clara(fora), `dentro rgb(${dentro}), fora rgb(${fora})`);
     const s2 = await ui();
-    rep.check('voltar à cobertura: estado roof no lv_2', s2.planKind === 'roof' && s2.levelId === 'lv_2', JSON.stringify(s2));
+    rep.check('voltar à cobertura: estado roof no lv_2', ehCobertura(s2) && s2.levelId === 'lv_2', JSON.stringify(s2));
   });
 
   await rep.step('5 · Pavimento 2: a cobertura do nível de baixo não tem telhado próprio (confere o que aparece em cada nível)', async () => {
     await abrirCobertura('Pavimento 2');
     const s = await ui();
-    rep.check('aba de cobertura do lv_1 ativa', s.planKind === 'roof' && s.levelId === 'lv_1', JSON.stringify(s));
+    rep.check('aba de cobertura do lv_1 ativa', ehCobertura(s) && s.levelId === 'lv_1', JSON.stringify(s));
     const telhadoAqui = await page.evaluate(() => Object.values(window.__hestia.editor.project.elements).filter((e) => e.kind === 'roof' && e.levelId === 'lv_1').length);
     rep.check('nenhum telhado no lv_1', telhadoAqui === 0, `${telhadoAqui}`);
     await shot('05-cobertura-pavimento2.png');

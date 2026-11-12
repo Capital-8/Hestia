@@ -47,9 +47,8 @@ function abrir(v: Vista, esconder?: GraphicsCategory[]): { area: Id; outraPiso: 
       editor.store.exec({ type: 'updatePlanView', viewId: id, patch: { hidden: { categories: esconder } } });
     }
   }
-  const planKind = v.kind;
   const planViewId = v.kind === 'area' ? m.area : v.id;
-  useUi.setState({ view: 'plan', levelId: 'lv_0', planKind, planViewId, selection: [], hover: null, options: DEFAULT_OPTIONS, viewTemp: {}, avisoOculto: null, tool: 'select' });
+  useUi.setState({ view: 'plan', levelId: 'lv_0', planViewId, selection: [], hover: null, options: DEFAULT_OPTIONS, viewTemp: {}, avisoOculto: null, tool: 'select' });
   editor.setTool('select');
   return m;
 }
@@ -80,7 +79,7 @@ function desenharPiso(): void {
 const viewIdAtivo = (): Id => useUi.getState().planViewId;
 
 beforeEach(() => useUi.setState({ options: DEFAULT_OPTIONS, tool: 'select', status: '', viewTemp: {}, selection: [], avisoOculto: null }));
-afterEach(() => useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', planViewId: 'pv_lv_0', sectionId: null, viewTemp: {}, selection: [], avisoOculto: null }));
+afterEach(() => useUi.setState({ view: 'plan', levelId: 'lv_0', planViewId: 'pv_lv_0', sectionId: null, viewTemp: {}, selection: [], avisoOculto: null }));
 
 describe('planta de área aceita todas as ferramentas', () => {
   it('toda ferramenta da faixa se comporta na área como no piso (setTool não recusa nem avisa de bloqueio)', () => {

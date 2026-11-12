@@ -130,9 +130,9 @@ describe('overflow e limpeza (pruneViews)', () => {
 });
 
 describe('vista ativa (activeViewOf)', () => {
-  const base = { view: 'plan' as const, levelId: 'lv_0', sectionId: null, sheetId: null };
+  const base = { view: 'plan' as const, levelId: 'lv_0', planViewId: 'pv_lv_0', sectionId: null, sheetId: null };
 
-  it('planta usa o nível ativo', () => {
+  it('planta usa a vista de planta ativa (planViewId)', () => {
     expect(activeViewOf(base)).toEqual(T0);
   });
 
@@ -151,21 +151,20 @@ describe('vista ativa (activeViewOf)', () => {
   });
 });
 
-describe('planta de cobertura (planKind)', () => {
+describe('planta de cobertura (viewId)', () => {
   const R0: OpenView = { kind: 'plan', viewId: 'pvr_lv_0' };
 
-  it('piso e cobertura do mesmo nível têm chaves diferentes; planKind ausente é piso', () => {
+  it('piso e cobertura do mesmo nível têm chaves diferentes', () => {
     expect(viewKey(R0)).toBe('plan:pvr_lv_0');
     expect(viewKey(T0)).toBe('plan:pv_lv_0');
     expect(viewKey({ kind: 'plan', viewId: 'pv_lv_0' })).toBe('plan:pv_lv_0');
     expect(sameView(R0, T0)).toBe(false);
   });
 
-  it('activeViewOf: a cobertura só aparece quando o tipo da planta é roof', () => {
+  it('activeViewOf: a cobertura só aparece quando a vista de planta é a de cobertura', () => {
     const base = { view: 'plan' as const, levelId: 'lv_0', sectionId: null, sheetId: null };
-    expect(activeViewOf({ ...base, planKind: 'roof' })).toEqual(R0);
-    expect(activeViewOf({ ...base, planKind: 'floor' })).toEqual(T0);
-    expect(activeViewOf(base)).toEqual(T0);
+    expect(activeViewOf({ ...base, planViewId: 'pvr_lv_0' })).toEqual(R0);
+    expect(activeViewOf({ ...base, planViewId: 'pv_lv_0' })).toEqual(T0);
   });
 
   it('levelToRelease: a cobertura não libera o nível (a planta de piso pode estar aberta ao lado)', () => {
@@ -192,11 +191,11 @@ describe('padrão ao abrir o projeto (defaultOpenViews)', () => {
 
 describe('estado de vistas abertas no store (sessão)', () => {
   beforeEach(() => {
-    useUi.setState({ view: 'plan', levelId: 'lv_0', planViewId: 'pv_lv_0', planKind: 'floor', sectionId: null, sheetId: null, openViews: DEFAULT_OPEN_VIEWS.map((v) => ({ ...v })) });
+    useUi.setState({ view: 'plan', levelId: 'lv_0', planViewId: 'pv_lv_0', sectionId: null, sheetId: null, openViews: DEFAULT_OPEN_VIEWS.map((v) => ({ ...v })) });
   });
 
   it('trocar o tipo da planta do mesmo nível abre a aba de cobertura ao lado da de piso', () => {
-    useUi.setState({ planKind: 'roof', planViewId: 'pvr_lv_0' });
+    useUi.setState({ planViewId: 'pvr_lv_0' });
     expect(useUi.getState().openViews).toEqual([T0, { kind: 'plan', viewId: 'pvr_lv_0' }]);
   });
 

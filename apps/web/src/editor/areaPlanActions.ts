@@ -211,16 +211,11 @@ export function createAreaPlansForLevels(store: ProjectStore, levelIds: readonly
   return ids;
 }
 
-/**
- * Abre a planta de área na área de desenho. Plantas criadas antes das anotações por vista não têm `annotations`:
- * ao abrir, elas recebem uma cópia das anotações do nível (um passo de desfazer), para as ferramentas de anotação
- * já encontrarem a planta na mesma condição da planta de piso.
- */
+/** Abre a planta de área na área de desenho (abrir não escreve no projeto: toda planta já nasce com as próprias anotações). */
 export function openAreaPlan(store: ProjectStore, planId: Id): void {
   const plan = areaPlanOf(store.project, planId);
   if (!plan) return;
-  editor.selectLevel(plan.levelId, 'area', plan.id);
-  if (plan.annotations === undefined) seedPlanAnnotationsAction(store, planId, 'eds_undo_seed_area_annotations');
+  editor.selectPlanView(plan.id);
   useUi.setState({ selection: [], hover: null });
 }
 

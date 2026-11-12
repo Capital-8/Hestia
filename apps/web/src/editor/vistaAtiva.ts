@@ -1,18 +1,24 @@
-import { floorViewId, planViewRefOf, roofViewId, type Id, type PlanViewKind, type Project } from '@hestia/model';
+import { floorViewId, planViewRef, planViewRefOf, roofViewId, type Id, type PlanViewKind, type Project } from '@hestia/model';
 import { useUi, type UiState } from './state.ts';
 import type { PlanKind } from './openViews.ts';
 
+/** O que as consultas de tipo precisam do projeto. */
+type ProjetoComVistas = Pick<Project, 'planViews'>;
+
 /**
  * Seletores da vista de planta ativa. O estado da interface guarda `planViewId` (o id da `PlanView`, forma única de
- * identificar a vista: docs/vistas/PLANO-MESTRE.md §4.4) junto com `levelId` e `planKind`, que acompanham a vista
- * (`planKind` é o tipo dela guardado ao lado do id porque o estado não tem o projeto para consultá-lo). Os três são
- * escritos SEMPRE juntos, por `PatchDeVista` (`patchParaAtivarVista`, `patchDeNivel`). O resto do editor lê a vista por aqui.
+ * identificar a vista: docs/vistas/PLANO-MESTRE.md §4.4) junto com `levelId`, que acompanha a vista. Os dois são
+ * escritos SEMPRE juntos, por `PatchDeVista` (`patchParaAtivarVista`, `camposDeNivel`). O TIPO da vista não é guardado:
+ * sai do projeto (`tipoDeVistaDeFundo`, `tipoDeVistaAtivo`) e as decisões por tipo vêm da tabela `PLAN_VIEW_KINDS`.
+ * O resto do editor lê a vista por aqui.
  *
- * Estado no formato antigo (sem `planViewId`, com `areaPlanId`) continua sendo lido: a vista sai de `levelId`,
- * `planKind` e `areaPlanId`. Serve a sessões antigas e ao harness do ouro.
+ * Estado no formato antigo (sem `planViewId`, com `planKind` e `areaPlanId`) continua sendo lido: a vista sai de
+ * `levelId`, `planKind` e `areaPlanId`. Serve a sessões antigas e ao harness do ouro (`tests/vistas-ouro`).
  */
-export type CamposDaVista = Pick<UiState, 'view' | 'levelId' | 'planKind'> & {
+export type CamposDaVista = Pick<UiState, 'view' | 'levelId'> & {
   planViewId?: Id | null;
+  /** @deprecated Forma antiga do estado: só lida quando não há `planViewId` (e como tipo, se o projeto não tem a vista). */
+  planKind?: PlanKind;
   /** @deprecated Forma antiga do estado: só lida quando não há `planViewId`. */
   areaPlanId?: Id | null;
 };
@@ -38,8 +44,7 @@ export function planViewIdAtivo(ui: CamposDaVista): Id | null {
 /**
  * Planta "de fundo": a que `planViewId` aponta, qualquer que seja `view`. É a planta para onde o editor volta ao sair do
  * 3D, do corte ou da prancha, e a que as ferramentas de nível (ex.: nível de referência do 3D) usam. Nota: o controlador
- * só bloqueia ferramentas pela planta de área quando `view !== '3d'`, ou seja, no 3D a planta de fundo não restringe
- * nada: quem decide permissão usa `planViewIdAtivo`.
+ * só restringe ferramentas pelo tipo da planta quando `view !== '3d'`: quem decide permissão usa `planViewIdAtivo`.
  */
 export function planViewIdDeFundo(ui: Omit<CamposDaVista, 'view'>): Id | null {
   return idDaPlanta(ui);
@@ -48,31 +53,38 @@ export function planViewIdDeFundo(ui: Omit<CamposDaVista, 'view'>): Id | null {
 /** Nível ativo (sempre definido; em corte e prancha é o último nível usado). */
 export const nivelAtivo = (ui: Pick<UiState, 'levelId'>): Id => ui.levelId;
 
-/** Tipo da vista de planta ativa; `null` fora da planta (e, no estado antigo, na planta de área sem `areaPlanId`). */
-export function tipoDeVistaAtivo(ui: CamposDaVista): PlanViewKind | null {
-  return planViewIdAtivo(ui) === null ? null : ui.planKind;
+/**
+ * Tipo da planta "de fundo" (qualquer que seja `view`), lido da vista no projeto: a consulta única do tipo, de onde sai
+ * a decisão por tipo (`PLAN_VIEW_KINDS`). Piso e cobertura principais se reconhecem pelo próprio id (`planViewRef`), mesmo
+ * sem o projeto ou depois de o nível sair dele; a planta de área precisa do projeto. Vista que não se reconhece vale `floor`,
+ * ou o `planKind` do estado no formato antigo.
+ */
+export function tipoDeVistaDeFundo(p: ProjetoComVistas | undefined, ui: Omit<CamposDaVista, 'view'>): PlanViewKind {
+  const id = idDaPlanta(ui);
+  const ref = id ? ((p ? planViewRefOf(p, id) : undefined) ?? planViewRef(id)) : undefined;
+  return ref ? ref.kind : (ui.planKind ?? 'floor');
 }
 
-/**
- * Tipo da planta "de fundo" (o que `planKind` guarda, qualquer que seja `view`). Só para o código antigo que valia
- * também fora da planta (ex.: a permissão de ferramenta, que só desliga no 3D).
- */
-export const tipoDeVistaDeFundo = (ui: Pick<UiState, 'planKind'>): PlanViewKind => ui.planKind;
+/** Tipo da vista de planta ativa; `null` fora da planta (e, no estado antigo, na planta de área sem `areaPlanId`). */
+export function tipoDeVistaAtivo(p: ProjetoComVistas | undefined, ui: CamposDaVista): PlanViewKind | null {
+  return planViewIdAtivo(ui) === null ? null : tipoDeVistaDeFundo(p, ui);
+}
 
 /** Id da planta de ÁREA ativa (só em `view === 'plan'`); `null` em piso, cobertura, 3D, corte e prancha. */
-export function areaViewIdAtivo(ui: CamposDaVista): Id | null {
-  return tipoDeVistaAtivo(ui) === 'area' ? planViewIdAtivo(ui) : null;
+export function areaViewIdAtivo(p: ProjetoComVistas | undefined, ui: CamposDaVista): Id | null {
+  return tipoDeVistaAtivo(p, ui) === 'area' ? planViewIdAtivo(ui) : null;
 }
 
 /** Id da planta de ÁREA "de fundo" (qualquer que seja `view`); `null` quando a planta de fundo não é de área. */
-export function areaViewIdDeFundo(ui: Omit<CamposDaVista, 'view'>): Id | null {
-  return ui.planKind === 'area' ? idDaPlanta(ui) : null;
+export function areaViewIdDeFundo(p: ProjetoComVistas | undefined, ui: Omit<CamposDaVista, 'view'>): Id | null {
+  return tipoDeVistaDeFundo(p, ui) === 'area' ? idDaPlanta(ui) : null;
 }
 
 /** Chave do viewport da planta de fundo: nível (piso), `roof:<nível>` ou `area:<planta>` (cada planta tem o seu). */
-export function chaveDeViewportDePlanta(ui: Omit<CamposDaVista, 'view'>): Id {
-  if (ui.planKind === 'roof') return `roof:${ui.levelId}`;
-  if (ui.planKind === 'area') return `area:${idDaPlanta(ui) ?? ui.levelId}`;
+export function chaveDeViewportDePlanta(p: ProjetoComVistas | undefined, ui: Omit<CamposDaVista, 'view'>): Id {
+  const tipo = tipoDeVistaDeFundo(p, ui);
+  if (tipo === 'roof') return `roof:${ui.levelId}`;
+  if (tipo === 'area') return `area:${idDaPlanta(ui) ?? ui.levelId}`;
   return ui.levelId;
 }
 
@@ -80,18 +92,16 @@ export function chaveDeViewportDePlanta(ui: Omit<CamposDaVista, 'view'>): Id {
 export const usePlanViewIdAtivo = (): Id | null => useUi((s) => planViewIdAtivo(s));
 export const usePlanViewIdDeFundo = (): Id | null => useUi((s) => planViewIdDeFundo(s));
 export const useNivelAtivo = (): Id => useUi((s) => nivelAtivo(s));
-export const useTipoDeVistaAtivo = (): PlanViewKind | null => useUi((s) => tipoDeVistaAtivo(s));
 
 /** Patch de estado que ativa uma vista de planta (o inverso de `planViewIdAtivo`). */
 export interface PatchDeVista {
   view: 'plan';
   levelId: Id;
-  planKind: PlanKind;
   planViewId: Id;
 }
 
-/** Campos da planta de fundo sem a tela (`levelId`, `planKind`, `planViewId`): o que se grava junto, sem mudar `view`. */
-export type CamposDaPlanta = Pick<PatchDeVista, 'levelId' | 'planKind' | 'planViewId'>;
+/** Campos da planta de fundo sem a tela (`levelId`, `planViewId`): o que se grava junto, sem mudar `view`. */
+export type CamposDaPlanta = Pick<PatchDeVista, 'levelId' | 'planViewId'>;
 
 /**
  * Campos do estado para ativar a vista `viewId`: `useUi.setState(patch)`. `null` se a vista não existe ou é de um tipo
@@ -100,20 +110,15 @@ export type CamposDaPlanta = Pick<PatchDeVista, 'levelId' | 'planKind' | 'planVi
 export function patchParaAtivarVista(p: Project, viewId: Id): PatchDeVista | null {
   const ref = planViewRefOf(p, viewId);
   if (!ref || ref.kind === 'ceiling') return null;
-  return { view: 'plan', levelId: ref.levelId, planKind: ref.kind, planViewId: viewId };
+  return { view: 'plan', levelId: ref.levelId, planViewId: viewId };
 }
 
 /**
  * Campos da planta para o nível `levelId` mantendo o tipo da planta de fundo: piso e cobertura passam a ser os do novo
- * nível (o estado antigo derivava isso de `levelId`); a planta de área não é do novo nível e continua a mesma.
+ * nível; a planta de área não é do novo nível e continua a mesma.
  */
-export function camposDeNivel(ui: Pick<UiState, 'planKind' | 'planViewId'>, levelId: Id): Pick<CamposDaPlanta, 'levelId' | 'planViewId'> {
-  if (ui.planKind === 'area') return { levelId, planViewId: ui.planViewId };
-  return { levelId, planViewId: ui.planKind === 'roof' ? roofViewId(levelId) : floorViewId(levelId) };
-}
-
-/** Id da vista de planta para `levelId` + `planKind` (+ planta de área), na forma antiga de pedir (ex.: `selectLevel`). */
-export function planViewIdDe(levelId: Id, kind: PlanKind, areaPlanId: Id | null = null): Id {
-  if (kind === 'area' && areaPlanId) return areaPlanId;
-  return kind === 'roof' ? roofViewId(levelId) : floorViewId(levelId);
+export function camposDeNivel(p: ProjetoComVistas | undefined, ui: Omit<CamposDaVista, 'view'>, levelId: Id): CamposDaPlanta {
+  const tipo = tipoDeVistaDeFundo(p, ui);
+  if (tipo === 'area') return { levelId, planViewId: idDaPlanta(ui) ?? floorViewId(levelId) };
+  return { levelId, planViewId: tipo === 'roof' ? roofViewId(levelId) : floorViewId(levelId) };
 }

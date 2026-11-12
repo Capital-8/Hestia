@@ -10,7 +10,7 @@ describe('Delete de RoomTag na planta de área', () => {
     store.exec({ type: 'addRoom', room: makeRoom({ id: 'r1', levelId: 'lv_0', name: 'Sala', number: '1', point: { x: 2, y: 1.5 } }) });
     store.exec({ type: 'addAreaPlan', plan: { id: 'ap1', name: 'A', levelId: 'lv_0', scale: 50, graphics: { ...DEFAULT_AREA_GRAPHICS }, tags: [] } });
     store.exec({ type: 'addRoomTag', planId: 'ap1', tag: { id: 'rt1', planId: 'ap1', roomId: 'r1', at: { x: 1, y: 1 }, orientation: 'horizontal', leader: 'none', fields: ['name'], visible: true } });
-    useUi.setState({ selection: ['rt1'], levelId: 'lv_0', view: 'plan', planKind: 'area', planViewId: 'ap1' });
+    useUi.setState({ selection: ['rt1'], levelId: 'lv_0', view: 'plan', planViewId: 'ap1' });
     deleteSelectionIn(store);
     expect(areaPlansOf(store.project)[0]!.tags).toHaveLength(0);
     store.undo();

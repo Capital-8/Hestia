@@ -4,7 +4,7 @@ import { hiddenInActiveView } from '../../editor/viewVisibility.ts';
 import { useUi } from '../../editor/state.ts';
 
 /**
- * `useDimContext` calcula `hidden` com `hiddenInActiveView` a partir de `view`, `planKind`, `planViewId`, `levelId` e
+ * `useDimContext` calcula `hidden` com `hiddenInActiveView` a partir de `view`, `planViewId`, `levelId` e
  * `viewTemp`; estes testes fixam por que cada um deles tem de estar nas dependências do hook: piso, cobertura e planta de
  * área do mesmo nível têm ocultos diferentes.
  */
@@ -25,8 +25,8 @@ describe('o que a vista ativa oculta depende de qual vista do nível está ativa
   const p = projeto();
 
   it('piso oculta a parede; a planta de área e a cobertura do mesmo nível não', () => {
-    expect(hiddenInActiveView(p, estado({ planKind: 'floor', planViewId: floorViewId('lv_0') })).has('w1')).toBe(true);
-    expect(hiddenInActiveView(p, estado({ planKind: 'area', planViewId: 'ap1' })).has('w1')).toBe(false);
-    expect(hiddenInActiveView(p, estado({ planKind: 'roof', planViewId: roofViewId('lv_0') })).has('w1')).toBe(false);
+    expect(hiddenInActiveView(p, estado({ planViewId: floorViewId('lv_0') })).has('w1')).toBe(true);
+    expect(hiddenInActiveView(p, estado({ planViewId: 'ap1' })).has('w1')).toBe(false);
+    expect(hiddenInActiveView(p, estado({ planViewId: roofViewId('lv_0') })).has('w1')).toBe(false);
   });
 });

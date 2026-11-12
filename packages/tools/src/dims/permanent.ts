@@ -23,18 +23,18 @@ export const tempRefs = (a: DimensionElementRef | undefined, b: DimensionElement
  * Converte cotas dinâmicas em cotas permanentes (ícone "I"): um `addDimension` por `TempDim`, com os mesmos pontos,
  * afastamento e medida. Sem `unit`/`precision`/`prefix`: a leitura segue as unidades do projeto. Pontas que o provedor
  * identificou como feição de elemento (`TempDim.refs`) gravam `Dimension.refs` e a cota acompanha o elemento; as demais
- * ficam livres. Com `viewId`, a cota mora nessa vista de planta (piso, cobertura ou área); com `planId`, na planta de
- * área; sem nenhum dos dois, na planta de piso do nível. `hidden` (regra 4.5: cota nova só referencia o que a vista
+ * ficam livres. Com `viewId`, a cota mora nessa vista de planta (piso, cobertura ou área); sem ele, na planta de piso
+ * do nível. `hidden` (regra 4.5: cota nova só referencia o que a vista
  * mostra): a ponta presa a elemento oculto nasce livre, no ponto medido.
  */
-export function toPermanent(levelId: Id, dims: readonly TempDim[], planId?: Id, viewId?: Id, hidden?: ReadonlySet<Id>): Command[] {
+export function toPermanent(levelId: Id, dims: readonly TempDim[], viewId?: Id, hidden?: ReadonlySet<Id>): Command[] {
   return dims.map((d) => {
     const a = d.refs?.a && !hidden?.has(d.refs.a.elementId) ? d.refs.a : undefined;
     const b = d.refs?.b && !hidden?.has(d.refs.b.elementId) ? d.refs.b : undefined;
     return {
       type: 'addDimension' as const,
       levelId,
-      ...(viewId ? { viewId } : planId ? { planId } : {}),
+      ...(viewId ? { viewId } : {}),
       dimension: {
         id: newId('dim'),
         a: { ...d.a },

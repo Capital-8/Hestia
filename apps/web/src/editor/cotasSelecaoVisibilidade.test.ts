@@ -43,7 +43,7 @@ describe.each(['plan', 'section'] as const)('cotas e anotações na vista (%s): 
       await editor.sectionReady('v1');
     } else {
       editor.closeSection();
-      useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0' });
+      useUi.setState({ view: 'plan', planViewId: 'pv_lv_0', levelId: 'lv_0' });
     }
     editor.ensureViewport(800, 600);
     useUi.setState({ viewTemp: {}, selection: [], tool: 'select' });

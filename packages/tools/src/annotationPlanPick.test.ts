@@ -3,6 +3,7 @@ import {
   DEFAULT_AREA_GRAPHICS,
   ProjectStore,
   createEmptyProject,
+  floorViewId,
   levelDimensions,
   levelTexts,
   makeRoom,
@@ -92,7 +93,7 @@ describe('seleção de anotações na planta de área', () => {
     expect(textGripAt(p, LV0, [], text.at, MPP, 'ap1')).toBeNull();
   });
 
-  it('arrastar a âncora move o texto da planta e emite updateText com planId', () => {
+  it('arrastar a âncora move o texto da planta e emite updateText com viewId', () => {
     const ctx = withAreaPlan();
     const { textId, text } = criaAnotacoes(ctx);
     const cmds = gravaComandos(ctx.env);
@@ -108,12 +109,12 @@ describe('seleção de anotações na planta de área', () => {
     sel.drag!(P(dest.x, dest.y));
     sel.up!(P(dest.x, dest.y));
 
-    expect(cmds).toContainEqual({ type: 'updateText', levelId: LV0, planId: 'ap1', id: textId, patch: { at: dest } });
+    expect(cmds).toContainEqual({ type: 'updateText', levelId: LV0, viewId: 'ap1', id: textId, patch: { at: dest } });
     expect(annotationsOf(ctx.store).texts[0]!.at).toEqual(dest);
     expect(levelTexts(ctx.store.project, LV0)).toHaveLength(0);
   });
 
-  it('arrastar a alça da cota da planta emite updateDimension com planId', () => {
+  it('arrastar a alça da cota da planta emite updateDimension com viewId', () => {
     const ctx = withAreaPlan();
     const { dimId } = criaAnotacoes(ctx);
     const cmds = gravaComandos(ctx.env);
@@ -130,7 +131,7 @@ describe('seleção de anotações na planta de área', () => {
     sel.drag!(P(2, -1.5));
     sel.up!(P(2, -1.5));
 
-    expect(cmds.some((c) => c.type === 'updateDimension' && c.planId === 'ap1' && c.id === dimId)).toBe(true);
+    expect(cmds.some((c) => c.type === 'updateDimension' && c.viewId === 'ap1' && c.id === dimId)).toBe(true);
     expect(annotationsOf(ctx.store).dimensions[0]!.offset).toBeCloseTo(-1.5, 9);
     expect(levelDimensions(ctx.store.project, LV0)).toHaveLength(0);
   });
@@ -166,7 +167,7 @@ describe('seleção de anotações na planta de área', () => {
 });
 
 describe('sem planta de área, a seleção continua no nível', () => {
-  it('annotationAt e textGripAt leem o nível; mover texto não manda planId', () => {
+  it('annotationAt e textGripAt leem o nível; mover texto vai para a vista de piso', () => {
     const ctx = makeEnv();
     const text = tool('text', ctx.env);
     clickAt(text, 1, 2);
@@ -187,7 +188,7 @@ describe('sem planta de área, a seleção continua no nível', () => {
     sel.up!(P(dest.x, dest.y));
 
     const movido = cmds.find((c) => c.type === 'updateText');
-    expect(movido).toEqual({ type: 'updateText', levelId: LV0, id: t.id, patch: { at: dest } });
+    expect(movido).toEqual({ type: 'updateText', levelId: LV0, viewId: floorViewId(LV0), id: t.id, patch: { at: dest } });
     expect(levelTexts(ctx.store.project, LV0)[0]!.at).toEqual(dest);
   });
 

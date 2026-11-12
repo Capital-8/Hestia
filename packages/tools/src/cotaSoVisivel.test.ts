@@ -118,8 +118,8 @@ describe('troca de referência, alternativas e conversão em cota permanente', (
       ends: [fim(0), fim(3)],
     };
     const refsDe = (c: unknown): unknown => (c as { dimension: { refs?: unknown } }).dimension.refs;
-    expect(refsDe(toPermanent('lv_0', [dim], undefined, undefined, new Set(['d1']))[0])).toEqual({ a: { elementId: 'w1', feature: 'wall-axis-a' } });
-    expect(refsDe(toPermanent('lv_0', [{ ...dim, refs: { b: dim.refs!.b } }], undefined, undefined, new Set(['d1']))[0])).toBeUndefined();
+    expect(refsDe(toPermanent('lv_0', [dim], undefined, new Set(['d1']))[0])).toEqual({ a: { elementId: 'w1', feature: 'wall-axis-a' } });
+    expect(refsDe(toPermanent('lv_0', [{ ...dim, refs: { b: dim.refs!.b } }], undefined, new Set(['d1']))[0])).toBeUndefined();
     expect(refsDe(toPermanent('lv_0', [dim])[0])).toEqual(dim.refs);
   });
 });

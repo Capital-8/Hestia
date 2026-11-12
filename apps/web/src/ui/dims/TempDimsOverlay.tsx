@@ -153,7 +153,7 @@ export function TempDimsOverlay(): ReactElement | null {
   const makePermanent = (): void => {
     const st = useUi.getState();
     // Regra 4.5: a cota nova só referencia o que a vista mostra (ponta presa a elemento oculto nasce livre).
-    const cmds = toPermanent(ctx.levelId, dims, undefined, planViewIdAtivo(st) ?? undefined, hiddenInActiveView(editor.project, st));
+    const cmds = toPermanent(ctx.levelId, dims, planViewIdAtivo(st) ?? undefined, hiddenInActiveView(editor.project, st));
     const before = editor.store.version;
     editor.store.transaction(t('cvv_dim_undo_make_permanent'), () => cmds.forEach((c) => editor.store.exec(c)));
     const suspended = suspensionAfterConversion(before, editor.store.version);
