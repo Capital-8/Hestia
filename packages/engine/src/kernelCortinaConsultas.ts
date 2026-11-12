@@ -99,13 +99,64 @@ export interface InstanciaCortina {
   matriz: Float64Array;
 }
 
+/**
+ * Peça avulsa (`grupos`, fase 3): esquadria de montante L, trapézio e canto, e o montante de canto entre cortinas. Uma malha no MUNDO por
+ * (cortina, papel, material, transparência). Os vértices são só os da peça (cópia) e os índices são LOCAIS a ela.
+ */
+export interface PecaAvulsaCortina {
+  cortina: number;
+  /** 0 montante (é o único papel que sai em `grupos` hoje). */
+  papel: number;
+  /** `material_num` do montante ou da esquadria; `null` = sem material. */
+  material: number | null;
+  /** Vidro de esquadria (o contrato já prevê; hoje sai 0). */
+  transparente: boolean;
+  /** Vértices `x, y, z` do MUNDO e índices LOCAIS (3 por triângulo). */
+  vertices: Float64Array;
+  indices: Uint32Array;
+}
+
 export interface MalhaCortina {
   protos: ProtoCortina[];
   instancias: InstanciaCortina[];
+  grupos: PecaAvulsaCortina[];
+}
+
+/** Lê `grupos` (6 valores por grupo), `vertices_av` e `indices_av` (índices ABSOLUTOS) e devolve cada grupo com vértices e índices próprios. */
+function lerPecasAvulsas(s: SaidasCortina): PecaAvulsaCortina[] {
+  const [g, va, ia] = ['grupos', 'vertices_av', 'indices_av'].map((n) => get(s, n));
+  if (g!.length % 6 !== 0) throw new Error('kernelCortina: a saída "grupos" não tem 6 valores por grupo');
+  if (va!.length % 3 !== 0) throw new Error('kernelCortina: a saída "vertices_av" não tem 3 valores por vértice');
+  const nv = va!.length / 3;
+  const out: PecaAvulsaCortina[] = [];
+  for (let k = 0; k < g!.length / 6; k++) {
+    const [cortina, papel, material, primeiro, n, transp] = [0, 1, 2, 3, 4, 5].map((o) => g![6 * k + o]!);
+    if (transp! > 1) throw new Error(`kernelCortina: o grupo ${k} tem "transparente" fora de 0 e 1`);
+    if (n! % 3 !== 0 || primeiro! + n! > ia!.length) throw new Error(`kernelCortina: o grupo ${k} aponta índices fora de "indices_av"`);
+    // Vértices de cada peça são contíguos no Rust: a faixa vai do menor ao maior índice que ela usa.
+    const abs: number[] = [];
+    for (let q = 0; q < n!; q++) {
+      const i = ia![primeiro! + q]!;
+      if (i >= nv) throw new Error(`kernelCortina: o grupo ${k} usa o vértice ${i} de ${nv}`);
+      abs.push(i);
+    }
+    const base = abs.length ? abs.reduce((a, b) => Math.min(a, b), Infinity) : 0;
+    const topo = abs.length ? abs.reduce((a, b) => Math.max(a, b), 0) : -1;
+    out.push({
+      cortina: cortina!,
+      papel: papel!,
+      material: ausente(material!),
+      transparente: transp! === 1,
+      vertices: Float64Array.from({ length: 3 * (topo - base + 1) }, (_, q) => va![3 * base + q]!),
+      indices: Uint32Array.from(abs, (i) => i - base),
+    });
+  }
+  return out;
 }
 
 export function lerMalhaCortina(s: SaidasCortina): MalhaCortina {
   const [p, v, ix, inst, m] = ['prototipos', 'vertices', 'indices', 'instancias', 'matrizes'].map((n) => get(s, n));
+  const grupos = lerPecasAvulsas(s);
   const protos: ProtoCortina[] = [];
   for (let k = 0; k < p!.length / 8; k++) {
     const r = (o: number) => p![8 * k + o]!;
@@ -130,7 +181,7 @@ export function lerMalhaCortina(s: SaidasCortina): MalhaCortina {
       matriz: Float64Array.from(Array.from({ length: 12 }, (_, q) => m![12 * k + q]!)),
     });
   }
-  return { protos, instancias };
+  return { protos, instancias, grupos };
 }
 
 // ───────────── 102 cortina_planta ─────────────

@@ -198,6 +198,9 @@ describe('leitura das saídas das consultas', () => {
       indices: Uint32Array.from([0, 1, 1, 0, 0, 0]),
       instancias: Uint32Array.from([1, 1, 1, 0, 0, 1]),
       matrizes: Float64Array.from([1, 0, 0, 2, 0, 1, 0, 3, 0, 0, 1, 4]),
+      grupos: Uint32Array.from([]),
+      vertices_av: Float64Array.from([]),
+      indices_av: Uint32Array.from([]),
     });
     expect(m.protos).toHaveLength(2);
     expect([...m.protos[0]!.vertices]).toEqual([0, 0, 0, 1, 0, 0]);
@@ -206,6 +209,44 @@ describe('leitura das saídas das consultas', () => {
     expect(m.protos[1]!.material).toBeNull();
     expect(m.instancias[0]).toMatchObject({ cortina: 1, proto: 1, papel: 1, transparente: true });
     expect([...m.instancias[0]!.matriz]).toEqual([1, 0, 0, 2, 0, 1, 0, 3, 0, 0, 1, 4]);
+  });
+
+  it('cortina_malha: grupos levam vértices próprios no mundo e índices locais (os absolutos viram locais à peça)', () => {
+    const m = lerMalhaCortina({
+      prototipos: Uint32Array.from([]),
+      vertices: Float64Array.from([]),
+      indices: Uint32Array.from([]),
+      instancias: Uint32Array.from([]),
+      matrizes: Float64Array.from([]),
+      // Grupo 0: cortina 1, montante 4, um triângulo nos vértices 0 a 2. Grupo 1: cortina 2, sem material, vidro, dois triângulos nos vértices 4 a 6.
+      grupos: Uint32Array.from([1, 0, 4, 0, 3, 0, 2, 0, ID_AUSENTE_CORTINA, 3, 6, 1]),
+      vertices_av: Float64Array.from([0, 0, 0, 1, 0, 0, 0, 1, 0, 9, 9, 9, 5, 5, 5, 6, 5, 5, 5, 6, 5]),
+      indices_av: Uint32Array.from([0, 1, 2, 4, 5, 6, 4, 6, 5]),
+    });
+    expect(m.grupos).toHaveLength(2);
+    expect(m.grupos[0]).toMatchObject({ cortina: 1, papel: 0, material: 4, transparente: false });
+    expect([...m.grupos[0]!.vertices]).toEqual([0, 0, 0, 1, 0, 0, 0, 1, 0]);
+    expect([...m.grupos[0]!.indices]).toEqual([0, 1, 2]);
+    expect(m.grupos[1]).toMatchObject({ cortina: 2, material: null, transparente: true });
+    expect([...m.grupos[1]!.vertices]).toEqual([5, 5, 5, 6, 5, 5, 5, 6, 5]);
+    expect([...m.grupos[1]!.indices]).toEqual([0, 1, 2, 0, 2, 1]);
+  });
+
+  it('cortina_malha: grupos inconsistentes são ENTRADA (não viram geometria torta)', () => {
+    const base = () => ({
+      prototipos: Uint32Array.from([]),
+      vertices: Float64Array.from([]),
+      indices: Uint32Array.from([]),
+      instancias: Uint32Array.from([]),
+      matrizes: Float64Array.from([]),
+      vertices_av: Float64Array.from([0, 0, 0, 1, 0, 0, 0, 1, 0]),
+      indices_av: Uint32Array.from([0, 1, 2]),
+    });
+    expect(() => lerMalhaCortina({ ...base(), grupos: Uint32Array.from([1, 0, 0]) })).toThrow(/6 valores/);
+    expect(() => lerMalhaCortina({ ...base(), grupos: Uint32Array.from([1, 0, 0, 0, 4, 0]) })).toThrow(/índices fora/);
+    expect(() => lerMalhaCortina({ ...base(), grupos: Uint32Array.from([1, 0, 0, 0, 3, 2]) })).toThrow(/transparente/);
+    expect(() => lerMalhaCortina({ ...base(), indices_av: Uint32Array.from([0, 1, 7]), grupos: Uint32Array.from([1, 0, 0, 0, 3, 0]) })).toThrow(/vértice 7/);
+    expect(() => lerMalhaCortina({ ...base(), grupos: undefined as never })).toThrow(/não veio/);
   });
 
   it('cortina_planta, quant_cortina e cortina_avisos', () => {

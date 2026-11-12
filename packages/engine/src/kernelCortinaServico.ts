@@ -52,10 +52,27 @@ export interface InstanciasDeProtoCortina {
   n: number;
 }
 
+/**
+ * Peça avulsa de uma cortina (esquadria, montante de canto entre cortinas): malha no MUNDO, uma por (parede, material, transparência). Não é
+ * instanciada: o 3D a desenha como malha própria. A planta e as quantidades NÃO a leem (vêm de `cortina_planta` e `quant_cortina`).
+ */
+export interface PecaAvulsaCortinaProjeto {
+  wallId: Id;
+  /** 0 montante (`PAPEL_MALHA_CORTINA`). */
+  papel: number;
+  materialId: Id | null;
+  transparente: boolean;
+  /** Vértices `x, y, z` do mundo e índices locais à peça. */
+  vertices: Float32Array;
+  indices: Uint32Array;
+}
+
 export interface MalhaCortinaProjeto {
   protos: Map<number, PrototipoCortina>;
   /** Uma entrada por (cortina, protótipo, material); ordenadas por cortina e protótipo. */
   instancias: InstanciasDeProtoCortina[];
+  /** Peças avulsas (`grupos` da consulta 101), na ordem do Rust: uma por (cortina, material, transparência). */
+  grupos: PecaAvulsaCortinaProjeto[];
 }
 
 export interface LinhaPlantaCortinaProjeto {
@@ -107,7 +124,13 @@ export function decodificarMalhaCortina(
       const mat = material.get(g.proto);
       return { wallId: g.wallId, proto: g.proto, papel: g.papel, materialId: mat === null || mat === undefined ? null : materialIdDe(mat), transparente: g.transparente, matrizes: Float32Array.from(g.ms), n: g.ms.length / 12 };
     });
-  return { protos, instancias };
+  const avulsas: PecaAvulsaCortinaProjeto[] = [];
+  for (const g of m.grupos) {
+    const wallId = wallIdDe(g.cortina);
+    if (wallId === undefined) continue;
+    avulsas.push({ wallId, papel: g.papel, materialId: g.material === null ? null : materialIdDe(g.material), transparente: g.transparente, vertices: Float32Array.from(g.vertices), indices: g.indices });
+  }
+  return { protos, instancias, grupos: avulsas };
 }
 
 export class ServicoCortina {
