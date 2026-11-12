@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ProjectStore, createEmptyProject, curtainPanelTypesOf, type SubelementoCortina } from '@hestia/model';
+import { ProjectStore, createEmptyProject, curtainPanelTypesOf, refGerada, resolverParede, type SubelementoCortina, type Wall } from '@hestia/model';
 import { projetoComCortina } from '../../../../packages/engine/src/fixtureCortina.ts';
 import { celulaDaEsquadria, celulaDoSubelemento, dadosDoSubelemento } from './CurtainSubelementPanel.tsx';
 import {
@@ -20,6 +20,29 @@ describe('painel do subelemento da cortina (dados)', () => {
     const d = dadosDoSubelemento(s.project, { wallId: 'ct1', kind: 'line', line: { axis: 'u', index: 1, pos: 0, n: 1 } });
     // a posição gravada não casa com nenhuma linha se a grade tem uma só coluna: o painel não inventa dados
     expect(d === null || (d.kind === 'line' && d.travada === false)).toBe(true);
+  });
+
+  it('linha extra: os dados trazem a posição, extra verdadeiro e sem sobrescrita', () => {
+    const s = comCortina();
+    s.exec({ type: 'addGridLine', wallId: 'ct1', line: { id: 'x1', axis: 'u', pos: 1.7 } });
+    const d = dadosDoSubelemento(s.project, { wallId: 'ct1', kind: 'line', line: { added: 'x1' } });
+    expect(d && d.kind === 'line' && d.extra).toBe(true);
+    expect(d && d.kind === 'line' && d.pos).toBeCloseTo(1.7, 6);
+    expect(d && d.kind === 'line' && d.sobrescrita).toBe(false);
+  });
+
+  it('linha gerada: a posição vem da grade; com sobrescrita (posição movida) "Voltar ao padrão" fica ativo', () => {
+    const s = comCortina();
+    const w = s.project.elements.ct1 as Wall;
+    const r = resolverParede(s.project, w)!;
+    const gerada = r.u.find((l) => l.added === undefined)!;
+    const ref = refGerada('u', gerada.gerada as number, r.L, r.geradasU);
+    const semSobrescrita = dadosDoSubelemento(s.project, { wallId: 'ct1', kind: 'line', line: ref });
+    expect(semSobrescrita && semSobrescrita.kind === 'line' && semSobrescrita.extra).toBe(false);
+    expect(semSobrescrita && semSobrescrita.kind === 'line' && semSobrescrita.sobrescrita).toBe(false);
+    s.exec({ type: 'moveGridLine', wallId: 'ct1', line: ref, pos: gerada.pos * 0.5 });
+    const comSobrescrita = dadosDoSubelemento(s.project, { wallId: 'ct1', kind: 'line', line: ref });
+    expect(comSobrescrita && comSobrescrita.kind === 'line' && comSobrescrita.sobrescrita).toBe(true);
   });
 
   it('célula: sem sobrescrita segue o painel padrão', () => {

@@ -21,7 +21,7 @@ import { lengthUnitName, parseQuantityText } from './numeric.ts';
 import { resizeWallCommands } from './lengthEdit.ts';
 import { execWithHostedLoss } from './hostedGuard.ts';
 import { refuseMoveOverlap } from './wallOverlapGuard.ts';
-import { gripHoldAt, annotationGripHoldAt, ringHandlePreview, type GripFocus, type GripHold } from './selectGrips.ts';
+import { gripHoldAt, annotationGripHoldAt, previasDeAlcas, ringHandlePreview, type GripFocus, type GripHold } from './selectGrips.ts';
 import { pickStairAt, stairEndpoints, stairIdsInBox } from './stairPick.ts';
 import { pickRampAt, rampEndpoints, rampIdsInBox } from './rampPick.ts';
 import { annotationAt, annotationIdsInBox, detailItemAt, dimGripAt, dimTextGripAt, roomTagAt, roomTagIdsInBox, roomTagRing, signedOffset, textGripAt, viewAnnotationsOf } from './annotationPick.ts';
@@ -263,6 +263,7 @@ export class SelectTool extends ToolBase {
     // área ficam só as alças do separador de ambiente (as de modelo não são desenhadas).
     if (this.mode === 'idle') {
       this.items.push(...ringHandlePreview(pr, this.env.selection(), this.focus, !this.somenteLeitura));
+      for (const previa of previasDeAlcas) this.items.push(...previa(this.env));
       if (!this.somenteLeitura) this.items.push(...stairHandlePreview(pr, this.env.selection()), ...stairFreeHandlePreview(pr, this.env.selection()), ...spiralHandlePreview(pr, this.env.selection()), ...gridHandlePreview(pr, this.env.selection()), ...rampHandlePreview(pr, this.env.selection()));
     }
     // Alça da cota selecionada: sob o cursor, a cota destaca-se (arrastar muda o deslocamento).

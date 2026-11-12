@@ -5,6 +5,7 @@ import { PerimeterTool } from './perimeterTool.ts';
 import { WallTool } from './wallTool.ts';
 import { OpeningTool } from './openingTool.ts';
 import { CurtainOpeningTool } from './curtainOpeningTool.ts';
+import { CurtainGridLineTool } from './curtainGridLineTool.ts';
 import { SelectTool } from './selectTool.ts';
 import { MirrorTool, MoveTool, RotateTool } from './transformTools.ts';
 import { SectionAlignTool, SectionMoveTool } from './sectionEditTools.ts';
@@ -42,10 +43,10 @@ import { GridTool } from './gridTool.ts';
 import { LevelTool } from './levelTool.ts';
 import { PasteTool } from './pasteTool.ts';
 
-export type ToolId = 'select' | 'wall' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'curtainDoor' | 'curtainWindow' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'railing' | 'dimension' | 'angularDimension' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste';
+export type ToolId = 'select' | 'wall' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'curtainDoor' | 'curtainWindow' | 'curtainGridLine' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'railing' | 'dimension' | 'angularDimension' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste';
 
 export const TOOL_GROUPS: Array<{ title: string; tools: ToolId[] }> = [
-  { title: 'Construir', tools: ['wall', 'door', 'window', 'curtainDoor', 'curtainWindow', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'stairrun', 'ramp', 'railing', 'room'] },
+  { title: 'Construir', tools: ['wall', 'door', 'window', 'curtainDoor', 'curtainWindow', 'curtainGridLine', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'stairrun', 'ramp', 'railing', 'room'] },
   { title: 'Modificar', tools: ['move', 'copy', 'rotate', 'mirror', 'array', 'offset', 'parallel', 'trim', 'align', 'joins', 'split', 'rehost', 'slope', 'attachroof', 'detachroof'] },
   { title: 'Anotar', tools: ['level', 'dimension', 'angularDimension', 'text', 'detailLine', 'filledRegion', 'tag'] },
   { title: 'Medir', tools: ['measure'] },
@@ -128,6 +129,8 @@ export function createTool(id: ToolId, env: ToolEnv, perimeterTarget: SketchTarg
       return new CurtainOpeningTool(env, 'curtainDoor');
     case 'curtainWindow':
       return new CurtainOpeningTool(env, 'curtainWindow');
+    case 'curtainGridLine':
+      return new CurtainGridLineTool(env);
     case 'move':
       return env.section?.() ? new SectionMoveTool(env) : new MoveTool(env, false);
     case 'copy':
@@ -176,6 +179,7 @@ export const TOOL_LABEL: Record<ToolId, string> = {
   window: 'Janela',
   curtainDoor: 'Porta na cortina',
   curtainWindow: 'Janela na cortina',
+  curtainGridLine: 'Linha de grade na cortina',
   move: 'Mover',
   copy: 'Copiar',
   rotate: 'Rotacionar',

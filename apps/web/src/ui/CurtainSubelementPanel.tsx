@@ -65,7 +65,7 @@ export interface DadosEsquadriaCelula {
 
 /** Dados que o painel mostra do subelemento, ou null se ele deixou de existir (parede apagada, grade mudou). */
 export type DadosSubelemento =
-  | { kind: 'line'; wallId: Id; line: LineRef; montante: Id | null | undefined; travada: boolean }
+  | { kind: 'line'; wallId: Id; line: LineRef; montante: Id | null | undefined; travada: boolean; pos: number; extra: boolean; sobrescrita: boolean }
   | { kind: 'segment'; wallId: Id; line: LineRef; k: number; removido: boolean }
   | { kind: 'cell'; wallId: Id; i: number; j: number; painel: Id; sobrescrita: boolean; comEsquadria: boolean }
   | { kind: 'opening'; wallId: Id; i: number; j: number; esquadria: DadosEsquadriaCelula };
@@ -105,7 +105,17 @@ export function dadosDoSubelemento(p: Project, sub: SubelementoSelecionado): Dad
     const lr = linhaResolvida(r, sub.line);
     if (!lr) return null;
     const linha = r[lr.eixo][lr.indice]!;
-    return { kind: 'line', wallId: sub.wallId, line: sub.line, montante: linha.montante, travada: linha.locked === true };
+    const sobrescrita = (w.curtain?.lineOverrides ?? []).some((ov) => mesmaLinha(r, ov.line, sub.line));
+    return {
+      kind: 'line',
+      wallId: sub.wallId,
+      line: sub.line,
+      montante: linha.montante,
+      travada: linha.locked === true,
+      pos: linha.pos,
+      extra: linha.added !== undefined,
+      sobrescrita,
+    };
   }
   if (sub.kind === 'segment') {
     const { line, k } = sub.segment;

@@ -14,7 +14,7 @@ export const TAB_ARQUITETURA: RibbonTab = {
       tool('wall'),
       // Porta e janela na cortina ficam no menu das esquadrias (o mesmo ícone), como o Revit tem a porta de cortina.
       split(tool('door'), [tool('curtainDoor', 'small', { icon: 'door' })]),
-      split(tool('window'), [tool('curtainWindow', 'small', { icon: 'window' })]),
+      split(tool('window'), [tool('curtainWindow', 'small', { icon: 'window' }), tool('curtainGridLine', 'small', { icon: 'grid' })]),
       soon(t('Componente', 'Component'), 'component'),
       soon(t('Pilar', 'Column'), 'column'),
       split(tool('roof', 'large', { label: t('Telhado', 'Roof'), icon: 'roof' }), [

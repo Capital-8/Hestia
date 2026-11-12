@@ -309,6 +309,15 @@ const railingGrip: GripProvider = (env, at) => {
 /** Registro de provedores de alça, em ordem de prioridade (o primeiro que acerta vence). */
 export const gripProviders: GripProvider[] = [roomSeparatorGrip, gridGripProvider, wallGrip, spiralGrip, stairFreeGrip, stairGrip, rampGrip, railingGrip, floorGrip, slabGrip, roofGrip, ceilingGrip];
 
+/** Prévias extras das alças (cada uma devolve os itens desenhados quando a seleção está ociosa), acrescentadas pelo app. */
+export const previasDeAlcas: Array<(env: ToolEnv) => PreviewItem[]> = [];
+
+/** Acrescenta um elemento com alças próprias (provedor e prévia), antes dos padrões: o app usa para a linha de grade da cortina. */
+export function registrarAlcasDeElemento(provedor: GripProvider, previa: (env: ToolEnv) => PreviewItem[]): void {
+  gripProviders.unshift(provedor);
+  previasDeAlcas.push(previa);
+}
+
 /** Alça sob o cursor entre os elementos selecionados, por ordem de `gripProviders`. */
 export function gripHoldAt(env: ToolEnv, at: Vec2): GripHold | null {
   for (const provide of gripProviders) {

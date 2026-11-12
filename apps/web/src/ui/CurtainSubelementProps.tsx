@@ -5,7 +5,7 @@
 import type { ReactElement } from 'react';
 import type { Command, CurtainPanelType, Id, LineRef, MullionType } from '@hestia/model';
 import { useT } from '../editor/i18n.ts';
-import { Check, Row } from './fields.tsx';
+import { Check, NumField, Row } from './fields.tsx';
 import { TypeSelector, type TypeOption } from './TypeSelector.tsx';
 
 /** Valor do seletor de montante quando a linha herda o tipo de montante do sistema (sem sobrescrita). */
@@ -30,6 +30,21 @@ export function comandoDoMontante(wallId: Id, line: LineRef, valor: string): Com
 /** Comando de travar ou destravar a linha (`locked` é o estado novo). */
 export function comandoDaTrava(wallId: Id, line: LineRef, locked: boolean): Command {
   return { type: 'lockGridLine', wallId, line, locked };
+}
+
+/** Comando da posição (m) de uma linha extra ou gerada (`moveGridLine`). */
+export function comandoPosicaoDaLinha(wallId: Id, line: LineRef, pos: number): Command {
+  return { type: 'moveGridLine', wallId, line, pos };
+}
+
+/** Comando "Apagar linha" (só linha extra): tira a linha e o que ficou preso a ela. */
+export function comandoApagarLinha(wallId: Id, line: LineRef): Command {
+  return { type: 'removeGridLine', wallId, line };
+}
+
+/** Comando "Voltar ao padrão" de uma linha gerada: tira a sobrescrita dela (posição, trava e montante). */
+export function comandoVoltarPadraoDaLinha(wallId: Id, line: LineRef): Command {
+  return { type: 'clearLineOverride', wallId, line };
 }
 
 /** Comando do segmento: restaurar quando está removido; remover quando não está. */
@@ -101,6 +116,12 @@ export type SubelementoCortinaProps =
       /** Montante da linha na grade final (undefined = herda do sistema, null = sem montante). */
       montante: Id | null | undefined;
       travada: boolean;
+      /** Posição (m) da linha na grade final, a partir do início (U) ou da base (V). */
+      pos: number;
+      /** Linha extra (apaga-se) ou gerada do tipo (volta-se ao padrão). */
+      extra: boolean;
+      /** Linha gerada com sobrescrita própria (posição, trava ou montante): "Voltar ao padrão" fica ativo. */
+      sobrescrita: boolean;
       montantes: MullionType[];
       onCommand: (c: Command) => void;
     }
@@ -223,10 +244,21 @@ export function SubelementoCortina(props: SubelementoCortinaProps): ReactElement
     );
   }
   if (props.kind === 'line') {
-    const { wallId, line, montante, travada, montantes, onCommand } = props;
+    const { wallId, line, montante, travada, pos, extra, sobrescrita, montantes, onCommand } = props;
     return (
       <div>
         <div className="hint">{t('pct_sub_line_title')}</div>
+        <Row label={t('pct_inst_extra_pos')} htmlFor="sub-linha-pos">
+          <NumField
+            id="sub-linha-pos"
+            value={pos}
+            quantity="length"
+            decimals={3}
+            onCommit={(v) => {
+              if (Math.abs(v - pos) > 1e-9) onCommand(comandoPosicaoDaLinha(wallId, line, v));
+            }}
+          />
+        </Row>
         <Row label={t('pct_sub_line_mullion')} htmlFor="sub-linha-montante">
           <select id="sub-linha-montante" className="select" value={valorDoMontante(montante)} onChange={(e) => onCommand(comandoDoMontante(wallId, line, e.target.value))}>
             <option value={MONTANTE_HERDA}>{t('pct_sub_line_inherit')}</option>
@@ -239,6 +271,15 @@ export function SubelementoCortina(props: SubelementoCortinaProps): ReactElement
         <Row label={t('pct_sub_line_locked')} htmlFor="sub-linha-trava">
           <Check id="sub-linha-trava" checked={travada} onChange={(v) => onCommand(comandoDaTrava(wallId, line, v))} />
         </Row>
+        {extra ? (
+          <button id="sub-linha-apagar" type="button" className="btn small" onClick={() => onCommand(comandoApagarLinha(wallId, line))}>
+            {t('pct_inst_extra_delete')}
+          </button>
+        ) : (
+          <button id="sub-linha-padrao" type="button" className="btn small" disabled={!sobrescrita} onClick={() => onCommand(comandoVoltarPadraoDaLinha(wallId, line))}>
+            {t('pct_sub_cell_default')}
+          </button>
+        )}
       </div>
     );
   }

@@ -10,7 +10,10 @@ import {
   comandoAlinhamentoEsquadria,
   comandoDaTrava,
   comandoDoMontante,
+  comandoApagarLinha,
   comandoDoPainel,
+  comandoPosicaoDaLinha,
+  comandoVoltarPadraoDaLinha,
   comandoDoSegmento,
   comandoInverterEsquadria,
   comandoMarcaEsquadria,
@@ -62,9 +65,17 @@ describe('construtores de comando do subelemento (decisão 0056, §4.7)', () => 
   });
 });
 
+describe('comandos da linha: posição, apagar e voltar ao padrão', () => {
+  it('a posição vira moveGridLine; apagar (extra) é removeGridLine; voltar ao padrão (gerada) é clearLineOverride', () => {
+    expect(comandoPosicaoDaLinha('w1', LINHA, 1.25)).toEqual({ type: 'moveGridLine', wallId: 'w1', line: LINHA, pos: 1.25 });
+    expect(comandoApagarLinha('w1', { added: 'x1' })).toEqual({ type: 'removeGridLine', wallId: 'w1', line: { added: 'x1' } });
+    expect(comandoVoltarPadraoDaLinha('w1', LINHA)).toEqual({ type: 'clearLineOverride', wallId: 'w1', line: LINHA });
+  });
+});
+
 describe('seção do subelemento (componente puro)', () => {
   it('linha: seletor de montante com "Do sistema", "Sem montante" e os tipos; trava marcada quando travada', () => {
-    const html = render({ kind: 'line', wallId: 'w1', line: LINHA, montante: 'mul_ret_50x100', travada: true, montantes: [montante], onCommand: () => {} });
+    const html = render({ kind: 'line', wallId: 'w1', line: LINHA, montante: 'mul_ret_50x100', travada: true, pos: 0.5, extra: false, sobrescrita: false, montantes: [montante], onCommand: () => {} });
     expect(html).toContain('id="sub-linha-montante"');
     expect(html).toContain(t('pt', 'pct_sub_line_inherit'));
     expect(html).toContain(t('pt', 'pct_sub_line_none'));
@@ -73,9 +84,29 @@ describe('seção do subelemento (componente puro)', () => {
   });
 
   it('linha sem sobrescrita de montante mostra "Do sistema" selecionado', () => {
-    const html = render({ kind: 'line', wallId: 'w1', line: LINHA, montante: undefined, travada: false, montantes: [montante], onCommand: () => {} });
+    const html = render({ kind: 'line', wallId: 'w1', line: LINHA, montante: undefined, travada: false, pos: 0.5, extra: false, sobrescrita: false, montantes: [montante], onCommand: () => {} });
     expect(html).toMatch(new RegExp(`<option value="${MONTANTE_HERDA}" selected=""`));
     expect(html).not.toMatch(/id="sub-linha-trava"[^>]*checked/);
+  });
+
+  it('linha: mostra o campo de posição (m) com o id do subelemento', () => {
+    const html = render({ kind: 'line', wallId: 'w1', line: LINHA, montante: undefined, travada: false, pos: 1.5, extra: false, sobrescrita: false, montantes: [montante], onCommand: () => {} });
+    expect(html).toContain('id="sub-linha-pos"');
+    expect(html).toContain(t('pt', 'pct_inst_extra_pos'));
+  });
+
+  it('linha extra mostra "Apagar linha" e não o "Voltar ao padrão"', () => {
+    const html = render({ kind: 'line', wallId: 'w1', line: { added: 'x1' }, montante: undefined, travada: false, pos: 1, extra: true, sobrescrita: false, montantes: [montante], onCommand: () => {} });
+    expect(html).toContain(t('pt', 'pct_inst_extra_delete'));
+    expect(html).not.toContain('id="sub-linha-padrao"');
+  });
+
+  it('linha gerada: "Voltar ao padrão" desativado sem sobrescrita e ativo com ela; sem "Apagar linha"', () => {
+    const sem = render({ kind: 'line', wallId: 'w1', line: LINHA, montante: undefined, travada: false, pos: 0.5, extra: false, sobrescrita: false, montantes: [montante], onCommand: () => {} });
+    expect(sem).toMatch(/<button[^>]*id="sub-linha-padrao"[^>]*disabled=""/);
+    expect(sem).not.toContain(t('pt', 'pct_inst_extra_delete'));
+    const com = render({ kind: 'line', wallId: 'w1', line: LINHA, montante: undefined, travada: true, pos: 0.7, extra: false, sobrescrita: true, montantes: [montante], onCommand: () => {} });
+    expect(com).not.toMatch(/<button[^>]*id="sub-linha-padrao"[^>]*disabled=""/);
   });
 
   it('segmento removido mostra "Restaurar segmento"; presente mostra "Remover segmento"', () => {

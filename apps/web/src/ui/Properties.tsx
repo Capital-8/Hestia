@@ -63,7 +63,6 @@ import { gradeDaSelecao } from './gridUi.ts';
 import { LabelScroll } from './LabelScroll.tsx';
 import { PanelHead } from './PanelHead.tsx';
 import { TypeSelector } from './TypeSelector.tsx';
-import { CurtainLinhasExtras } from './CurtainInstanceProps.tsx';
 import { CurtainSubelementPanel } from './CurtainSubelementPanel.tsx';
 import { openingOptions, wallOptions } from './typeOptions.ts';
 import { ToolTypeProps, isToolTypeKind } from './ToolTypeProps.tsx';
@@ -183,7 +182,6 @@ function WallProps({ walls }: { walls: Wall[] }): ReactElement {
         onEdit={() => useUi.setState({ dialog: 'wallType', dialogArg: typeId.value })}
       />
       {single && isCurtainType(wt ?? undefined) && <CurtainSubelementPanel />}
-      {single && isCurtainType(wt ?? undefined) && <CurtainLinhasExtras wall={single} />}
       <Group title={t('prc_pgrp_constraints')} stateKey="constraints">
         <LevelField ids={ids} label={t('prc_fld_base_level')} />
         <Row label={t('prc_fld_base_offset')} htmlFor="p-base"><NumField id="p-base" value={base.value} mixed={base.mixed} onCommit={(v) => patch(ids, { baseOffset: v })} quantity="length" /></Row>

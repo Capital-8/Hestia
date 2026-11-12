@@ -57,6 +57,7 @@ import { hiddenCreationWarning } from './profileWarning.ts';
 import { CacheGeometria } from './geometryCache.ts';
 import { abrirComCache, agendarGravacao, limparCacheDeGeometria, TETO_GEOMETRIA_BYTES, type PortasAbertura, type RestauradoDoCache } from './geometriaAbertura.ts';
 import { aceitaCaractereNumerico } from './entradaNumerica.ts';
+import './curtainLineGrip.ts'; // alças da linha de grade da cortina (registra no select)
 
 
 /**
