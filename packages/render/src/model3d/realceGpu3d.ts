@@ -185,7 +185,12 @@ void main() {
     gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
     return;
   }
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  // Malha instanciada (cortina): a matriz da instância entra aqui; nas malhas comuns o bloco não existe.
+  vec4 posicao = vec4(position, 1.0);
+  #ifdef USE_INSTANCING
+  posicao = instanceMatrix * posicao;
+  #endif
+  gl_Position = projectionMatrix * modelViewMatrix * posicao;
   // Viés de profundidade (ver VIES_DE_PROFUNDIDADE): a sobreposição vence as faces coplanares que ela cobre.
   gl_Position.z -= gl_Position.w * ${VIES_DE_PROFUNDIDADE.toExponential()};
 }

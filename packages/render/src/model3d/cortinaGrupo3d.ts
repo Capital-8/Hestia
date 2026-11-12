@@ -4,6 +4,7 @@ import type { MalhaCortinaProjeto } from '@hestia/engine';
 import type { Materiais3D } from './materiais3d.ts';
 import type { PickSource } from './cacheMalhas3d.ts';
 import { arestasDaCortina, avulsosDaCortina, caixasDasCortinas, lotesDaCortina, malhaDePickCortina, type LoteAvulsoCortina3d, type LoteCortina3d } from './cortina3d.ts';
+import type { DesenhoDeCortina, GrupoDeRealceCortina } from './realceCortina3d.ts';
 
 /** Ordem de desenho do vidro: depois dos opacos (ADR 0056 §9). */
 export const ORDEM_VIDRO = 4;
@@ -19,6 +20,8 @@ export interface GrupoCortina {
   desenhos: number;
   /** Quantas instâncias no total. */
   instancias: number;
+  /** O que o realce de seleção/cursor precisa deste nível (desenhos e ângulo das arestas); ver `realceCortina3d.ts`. */
+  realce: GrupoDeRealceCortina;
 }
 
 export interface OpcoesGrupoCortina {
@@ -63,6 +66,7 @@ export function montarGrupoCortina(p: Project, malha: MalhaCortinaProjeto, donos
   if (!lotes.length && !avulsos.length) return null;
   const grupo = new THREE.Group();
   const geometrias = new Map<number, THREE.BufferGeometry>();
+  const desenhos: DesenhoDeCortina[] = [];
   let instancias = 0;
   for (const l of lotes) {
     let geo = geometrias.get(l.proto);
@@ -81,6 +85,7 @@ export function montarGrupoCortina(p: Project, malha: MalhaCortinaProjeto, donos
     // Wireframe não desenha a face (só as linhas e a peça de picking).
     mesh.visible = o.view.style !== 'wireframe';
     instancias += l.n;
+    desenhos.push({ malha: mesh, lote: l });
     grupo.add(mesh);
   }
   // Peças avulsas (esquadria, montante de canto): malha própria, com o mesmo material e a mesma regra de vidro dos lotes.
@@ -93,6 +98,7 @@ export function montarGrupoCortina(p: Project, malha: MalhaCortinaProjeto, donos
     mesh.renderOrder = a.transparente ? ORDEM_VIDRO : 0;
     mesh.userData = { kind: 'wall', semPick: true, cortina: true, avulsa: true, transparente: a.transparente };
     mesh.visible = o.view.style !== 'wireframe';
+    desenhos.push({ malha: mesh, avulso: a });
     grupo.add(mesh);
   }
   if (o.edges || o.view.style === 'wireframe') {
@@ -124,9 +130,10 @@ export function montarGrupoCortina(p: Project, malha: MalhaCortinaProjeto, donos
   const pickGeo = new THREE.BufferGeometry();
   pickGeo.setAttribute('position', new THREE.Float32BufferAttribute(pk.positions, 3));
   pickGeo.setIndex(pk.indices);
-  const picks: PickSource[] = [{ geo: pickGeo, owner: grupo, kind: 'wall', ranges: pk.ranges }];
+  // A caixa é só do raio (e do enquadramento): `semRealce` a tira do realce, que segue a geometria das instâncias.
+  const picks: PickSource[] = [{ geo: pickGeo, owner: grupo, kind: 'wall', ranges: pk.ranges, semRealce: true }];
   void p;
-  return { grupo, picks, caixas, mats: [], desenhos: lotes.length + avulsos.length, instancias };
+  return { grupo, picks, caixas, mats: [], desenhos: lotes.length + avulsos.length, instancias, realce: { desenhos, anguloRad: (o.anguloAresta * Math.PI) / 180 } };
 }
 
 /** O que a cena desenha de uma cortina sem kernel: só o eixo (linha na altura média da parede). */

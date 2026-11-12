@@ -24,6 +24,7 @@ import { buildLevels, disposeLevels, layoutLevels } from './levels3d.ts';
 import { LEVEL_LINE_OFFSET, levelProjectBox } from './levelsData.ts';
 import { buildRampSolids } from './rampSolids.ts';
 import { RealcesDaCena } from './realceDaCena3d.ts';
+import { GRUPO_DE_REALCE_VAZIO, RealceDaCortina, type GrupoDeRealceCortina } from './realceCortina3d.ts';
 import { buildLevelSolidsComCaixas } from './paredesInstanciadas3d.ts';
 import { CaixasDoNivel, chaveDaColecao, faixasDosIds, type ColecaoCaixas } from './caixasDoNivel3d.ts';
 import { arestasDasCaixas, criarCaixaUnitaria, geometriaDeCaixas } from './caixas3d.ts';
@@ -136,6 +137,8 @@ interface EntradaCortina {
   readonly picks: PickSource[];
   readonly caixas: Map<Id, THREE.Box3>;
   readonly mats: string[];
+  /** Desenhos do nível para o realce de seleção (sem a caixa de picking). */
+  readonly realce: GrupoDeRealceCortina;
 }
 
 /** Marca de cache das cortinas: um nível montado antes de o kernel carregar só tem o eixo; com a marca k0/k1 ele é refeito quando o kernel chega. */
@@ -157,6 +160,10 @@ export class ModelScene {
   private model = new THREE.Group();
   /** Sobreposições de realce, fora do modelo: não entram nas malhas do modelo nem no picking por faixas. */
   private realces = new RealcesDaCena(this.scene);
+  /** Realce das paredes cortina: as instâncias e as arestas delas (nunca a caixa de picking; ver `realceCortina3d.ts`). */
+  private realceCortina = new RealceDaCortina();
+  /** Desenhos de realce dos níveis com cortina (na ordem de `cortinaNaCena`). */
+  private grupoRealceCortina: GrupoDeRealceCortina[] = [];
   /** Realce do subelemento de cortina (Tab ou clique, ADR 0056 fase 2): traços sobre o modelo. */
   private realceSub = new RealceSubelementoCortina();
   private conjuntoDaSelecao: { ref: readonly Id[]; ids: Set<Id> } | null = null;
@@ -256,6 +263,7 @@ export class ModelScene {
     this.niveis3d.userData = { levels: true };
     this.scene.add(this.niveis3d);
     this.scene.add(this.realces.camada);
+    this.scene.add(this.realceCortina.camada);
     this.scene.add(this.realceSub.camada);
     // Gancho de quadro do three (antes da lista de desenho e antes do passe de sombra): é onde o orçamento de sombra e o
     // enquadramento do sol acontecem, com a câmera do quadro. Sem ele, a vista teria de chamar a cena a cada rAF.
@@ -315,7 +323,7 @@ export class ModelScene {
       const mesh = new THREE.Mesh(s.geo, pick);
       mesh.matrixAutoUpdate = false;
       mesh.matrix.copy(s.owner.matrixWorld);
-      mesh.userData = { kind: s.kind, ranges: s.ranges };
+      mesh.userData = { kind: s.kind, ranges: s.ranges, semRealce: s.semRealce === true };
       this.pickLayer.add(mesh);
     }
   }
@@ -333,14 +341,22 @@ export class ModelScene {
    */
   highlight(selection: readonly Id[], hover: Id | null, aviso: readonly Id[] = []): void {
     const color = this.frame.dark ? DARK.select : LIGHT.select;
-    this.realces.definir('sel', selection, { color, fill: 0.35, edges: 1 });
-    this.realces.definir('hov', hover && !this.naSelecao(selection, hover) ? [hover] : [], { color, fill: 0.15, edges: 0.6 });
-    this.realces.definir('aviso', aviso, { color: AVISO, fill: 0.4, edges: 1 });
+    const hovIds = hover && !this.naSelecao(selection, hover) ? [hover] : [];
+    const sel = { color, fill: 0.35, edges: 1 };
+    const hovEstilo = { color, fill: 0.15, edges: 0.6 };
+    const avisoEstilo = { color: AVISO, fill: 0.4, edges: 1 };
+    this.realces.definir('sel', selection, sel);
+    this.realces.definir('hov', hovIds, hovEstilo);
+    this.realces.definir('aviso', aviso, avisoEstilo);
+    // Cortina: o mesmo realce, nas instâncias da própria cortina (a caixa de picking não entra).
+    this.realceCortina.definir('sel', selection, sel);
+    this.realceCortina.definir('hov', hovIds, hovEstilo);
+    this.realceCortina.definir('aviso', aviso, avisoEstilo);
   }
 
   /** Realce do subelemento da parede cortina selecionada (linha, segmento ou célula; `null` tira). ADR 0056, fase 2. */
   highlightSubelemento(p: Project, sub: SubelementoCortina | null): void {
-    this.realceSub.definir(p, sub, this.frame.dark ? DARK.select : LIGHT.select);
+    this.realceSub.definir(p, sub, this.frame.dark ? DARK.select : LIGHT.select, this.grupoRealceCortina);
   }
 
   /** `selection` tem `id`? Com seleção grande o conjunto é montado uma vez por referência do array, não a cada quadro. */
@@ -769,6 +785,9 @@ export class ModelScene {
     this.cortinaNaCena = atuais;
     for (const g of anteriores.values()) this.liberarCortina(g);
     for (const g of atuais) this.model.add(g.grupo);
+    // Os realces de cortina seguem os níveis desta montagem (os anteriores saíram com as malhas).
+    this.grupoRealceCortina = atuais.map((g) => g.realce);
+    this.realceCortina.trocarGrupos(this.grupoRealceCortina);
   }
 
   private montarCortina(p: Project, levelId: Id, chave: string): EntradaCortina | null {
@@ -793,12 +812,12 @@ export class ModelScene {
       : null;
     if (!montado && !malha) {
       const g = grupoSoEixos(doNivel.map((c) => ({ a: c.wall.a, b: c.wall.b, z: wallBaseElevation(p, c.wall) + wallHeight(p, c.wall) / 2 })), this.mats);
-      if (g) montado = { grupo: g, picks: [], caixas: new Map(), mats: [], desenhos: 1, instancias: 0 };
+      if (g) montado = { grupo: g, picks: [], caixas: new Map(), mats: [], desenhos: 1, instancias: 0, realce: GRUPO_DE_REALCE_VAZIO };
     }
     this.mats.noNivel = matsAnt;
     if (!montado) return null;
     montado.grupo.userData = { levelId };
-    return { levelId, chave, grupo: montado.grupo, picks: montado.picks, caixas: montado.caixas, mats: [...mats] };
+    return { levelId, chave, grupo: montado.grupo, picks: montado.picks, caixas: montado.caixas, mats: [...mats], realce: montado.realce };
   }
 
   private liberarCortina(g: EntradaCortina): void {
@@ -1332,6 +1351,9 @@ export class ModelScene {
     this.guardaCorpoNaCena = [];
     for (const g of this.cortinaNaCena) this.liberarCortina(g);
     this.cortinaNaCena = [];
+    this.grupoRealceCortina = [];
+    this.realceCortina.dispose();
+    this.realceSub.dispose();
     const todas = new Set([...this.cenaNiveis, ...this.cache.limpar()]);
     this.cenaNiveis = [];
     for (const e of todas) disposeNivel(e);

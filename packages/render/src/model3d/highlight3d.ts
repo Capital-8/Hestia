@@ -42,7 +42,8 @@ export function highlightOf(model: THREE.Object3D, ids: readonly Id[], style: Hi
     const faixas = mesh.userData.ranges as ElementRange[] | undefined;
     const geo = mesh.geometry as THREE.BufferGeometry | undefined;
     const index = geo?.index;
-    if (!mesh.isMesh || !faixas || !index || !geo) return;
+    // Malha só de picking (a caixa de uma cortina) não é realçada: o realce segue a geometria real.
+    if (!mesh.isMesh || !faixas || !index || !geo || mesh.userData.semRealce) return;
     const encontradas = faixasDosIds(faixas, queridos);
     if (!encontradas.length) return;
     const matriz = mesh.matrixWorld;
