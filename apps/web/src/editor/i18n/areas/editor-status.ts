@@ -73,7 +73,6 @@ export const PT_EDITOR_STATUS = {
 
   // Exclusão
   eds_undo_delete: 'Excluir',
-  eds_msg_area_delete_blocked: 'Na planta de área dá para excluir ambientes, separadores, etiquetas e anotações; paredes e demais elementos de modelo continuam bloqueados.',
   eds_msg_area_deleted_room: 'Ambiente excluído.',
   eds_msg_area_deleted_separator: 'Separador excluído.',
   eds_msg_area_deleted_tag: 'Etiqueta excluída.',
@@ -297,7 +296,6 @@ export const EN_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
 
   // Exclusão
   eds_undo_delete: 'Delete',
-  eds_msg_area_delete_blocked: 'In an area plan you can delete rooms, separators, tags and annotations; walls and other model elements remain blocked.',
   eds_msg_area_deleted_room: 'Room deleted.',
   eds_msg_area_deleted_separator: 'Separator deleted.',
   eds_msg_area_deleted_tag: 'Tag deleted.',
@@ -513,7 +511,6 @@ export const ES_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_file_generated: 'Archivo {name} generado.',
 
   eds_undo_delete: 'Eliminar',
-  eds_msg_area_delete_blocked: 'En la planta de área se pueden eliminar ambientes, separadores, etiquetas y anotaciones; los muros y demás elementos de modelo siguen bloqueados.',
   eds_msg_area_deleted_room: 'Ambiente eliminado.',
   eds_msg_area_deleted_separator: 'Separador eliminado.',
   eds_msg_area_deleted_tag: 'Etiqueta eliminada.',
@@ -723,7 +720,6 @@ export const DE_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_file_generated: 'Datei {name} erzeugt.',
 
   eds_undo_delete: 'Löschen',
-  eds_msg_area_delete_blocked: 'Im Flächenplan können Räume, Trennlinien, Beschriftungen und Anmerkungen gelöscht werden; Wände und andere Modellelemente bleiben gesperrt.',
   eds_msg_area_deleted_room: 'Raum gelöscht.',
   eds_msg_area_deleted_separator: 'Trennlinie gelöscht.',
   eds_msg_area_deleted_tag: 'Beschriftung gelöscht.',
@@ -933,7 +929,6 @@ export const FR_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_file_generated: 'Fichier {name} généré.',
 
   eds_undo_delete: 'Supprimer',
-  eds_msg_area_delete_blocked: 'Dans un plan de surface, vous pouvez supprimer des pièces, séparateurs, étiquettes et annotations ; les murs et autres éléments de modèle restent bloqués.',
   eds_msg_area_deleted_room: 'Pièce supprimée.',
   eds_msg_area_deleted_separator: 'Séparateur supprimé.',
   eds_msg_area_deleted_tag: 'Étiquette supprimée.',
@@ -1143,7 +1138,6 @@ export const IT_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_file_generated: 'File {name} generato.',
 
   eds_undo_delete: 'Elimina',
-  eds_msg_area_delete_blocked: 'Nella pianta delle aree puoi eliminare locali, separatori, etichette e annotazioni; pareti e altri elementi del modello restano bloccati.',
   eds_msg_area_deleted_room: 'Locale eliminato.',
   eds_msg_area_deleted_separator: 'Separatore eliminato.',
   eds_msg_area_deleted_tag: 'Etichetta eliminata.',
@@ -1353,7 +1347,6 @@ export const PL_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_file_generated: 'Wygenerowano plik {name}.',
 
   eds_undo_delete: 'Usuń',
-  eds_msg_area_delete_blocked: 'W rzucie powierzchni można usuwać pomieszczenia, separatory, etykiety i adnotacje; ściany i pozostałe elementy modelu pozostają zablokowane.',
   eds_msg_area_deleted_room: 'Pomieszczenie usunięte.',
   eds_msg_area_deleted_separator: 'Separator usunięty.',
   eds_msg_area_deleted_tag: 'Etykieta usunięta.',

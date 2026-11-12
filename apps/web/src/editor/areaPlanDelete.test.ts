@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Vec2 } from '@hestia/geom';
-import { areaPlanOf, createEmptyProject, levelRoomSeparators, makeRoom, makeWall, ProjectStore } from '@hestia/model';
+import { areaPlanOf, createEmptyProject, floorViewId, levelRoomSeparators, makeRoom, makeWall, ProjectStore, viewAnnotationsOf } from '@hestia/model';
 import { createAreaPlanAction } from './areaPlanActions.ts';
 import { deleteSelectionIn } from './deleteIds.ts';
 import { resolveText } from './i18n.ts';
@@ -47,13 +47,33 @@ describe('excluir na planta de área', () => {
     expect(levelRoomSeparators(s.project, 'lv_0')).toHaveLength(0);
   });
 
-  it('continua bloqueando parede e mostra o motivo', async () => {
+  it('apaga parede (modelo) como no piso, num passo de desfazer, e a planta de piso continua com a anotação dela', async () => {
     const s = store();
-    abrirPlanta(s);
+    const planId = abrirPlanta(s);
+    s.exec({ type: 'addText', levelId: 'lv_0', text: { id: 'tpiso', at: { x: 1, y: 1 }, text: 'No piso', height: 2.5, rotation: 0 } });
     useUi.setState({ selection: ['w0'] });
     await deleteSelectionIn(s);
+    expect(s.project.elements.w0).toBeUndefined();
+    expect(s.project.elements.w1).toBeDefined();
+    expect(viewAnnotationsOf(s.project, floorViewId('lv_0')).texts.map((t) => t.id)).toEqual(['tpiso']);
+    expect(areaPlanOf(s.project, planId)).toBeDefined();
+    expect(resolveText(useUi.getState().status, 'pt')).not.toContain('bloqueados');
+    s.undo();
     expect(s.project.elements.w0).toBeDefined();
-    expect(resolveText(useUi.getState().status, 'pt')).toContain('paredes');
+  });
+
+  it('apaga porta junto com parede e anotação da área, sem apagar a anotação de outra vista', async () => {
+    const s = store();
+    const planId = abrirPlanta(s);
+    s.exec({ type: 'addOpening', opening: { id: 'd1', kind: 'door', typeId: 'ot_p90', hostId: 'w0', offset: 2, flipHand: false, flipFacing: false, sillOverride: null, mark: '' } });
+    s.exec({ type: 'addText', levelId: 'lv_0', planId, text: { id: 'ta', at: { x: 1, y: 1 }, text: 'Area', height: 2.5, rotation: 0 } });
+    s.exec({ type: 'addText', levelId: 'lv_0', text: { id: 'tpiso', at: { x: 1, y: 1 }, text: 'No piso', height: 2.5, rotation: 0 } });
+    useUi.setState({ selection: ['d1', 'ta'] });
+    await deleteSelectionIn(s);
+    expect(s.project.elements.d1).toBeUndefined();
+    expect(s.project.elements.w0).toBeDefined();
+    expect(areaPlanOf(s.project, planId)!.annotations?.texts).toHaveLength(0);
+    expect(viewAnnotationsOf(s.project, floorViewId('lv_0')).texts).toHaveLength(1);
   });
 
   it('apaga anotação da vista junto com ambiente, sem tocar no nível', async () => {
