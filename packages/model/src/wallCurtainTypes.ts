@@ -238,6 +238,15 @@ export interface CurtainInstance {
   host?: CurtainHost;
 }
 
+/**
+ * Subelemento da parede cortina escolhido com o Tab (ADR 0056, fase 2, §10): a parede continua sendo a seleção comum e isto é o que está
+ * dentro dela (linha de grade, segmento de uma linha ou célula). Vive no estado do editor, não no projeto: nada aqui é gravado.
+ */
+export type SubelementoCortina =
+  | { wallId: Id; kind: 'line'; line: LineRef }
+  | { wallId: Id; kind: 'segment'; segment: SegmentRef }
+  | { wallId: Id; kind: 'cell'; cell: CellKey };
+
 /** Limites do §4.3: acima disso o Rust devolve `LIMITE` e o app avisa. */
 export const CURTAIN_LIMITS = {
   addedLines: 128,

@@ -111,6 +111,11 @@ function zDasCortinas(p: Project, cortinas: readonly ParedeCortina[]): Map<Id, W
   return out;
 }
 
+/** Base e altura (z) de UMA parede cortina, a mesma que o adaptador manda ao kernel (`zBase`, `height`). */
+export function zDaCortina(p: Project, w: Wall): WallZ | undefined {
+  return zDasCortinas(p, [{ wall: w, tipo: p.wallTypes[w.typeId] as ParedeCortina['tipo'] }]).get(w.id);
+}
+
 const VIDRO = ['clear', 'ribbed', 'smoke', 'green', 'bronze', 'frosted', 'wired', 'laminated', 'tempered'];
 
 const montanteDe = (m: MullionType): MontanteKernel => ({

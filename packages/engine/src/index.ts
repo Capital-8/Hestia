@@ -110,5 +110,6 @@ export * from './cortinaProjeto.ts';
 export * from './kernelCortina.ts';
 export * from './kernelCortinaServico.ts';
 export * from './cortinaIssues.ts';
+export * from './cortinaSubelementos.ts';
 export * from './curtainQuantities.ts';
 export * from './curtainSchedule.ts';

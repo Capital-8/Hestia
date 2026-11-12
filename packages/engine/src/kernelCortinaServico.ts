@@ -14,6 +14,7 @@ import { gerenciadorDoKernel } from './kernelDespacho.ts';
 import { aoMudarKernelPendente } from './kernelPendente.ts';
 import {
   lerAvisosCortina,
+  lerGradeCortina,
   lerMalhaCortina,
   lerPlantaCortina,
   lerQuantCortina,
@@ -21,6 +22,7 @@ import {
   sincronizarCenaCortina,
   type AvisoCortina,
   type CenaCortina,
+  type GradeCortina,
   type LinhaQuantCortina,
 } from './kernelCortina.ts';
 
@@ -229,6 +231,29 @@ export class ServicoCortina {
         const { cortina: _c, material, ...resto } = q;
         out.push({ ...resto, wallId, materialId: material === null ? null : (mats.get(material) ?? null) });
       }
+      return out;
+    });
+  }
+
+  /**
+   * Grade de cada cortina de um nível (consulta 100): linhas internas, células e segmentos, separados por id da parede (fase 2, seleção de
+   * subelemento). `null` = kernel indisponível.
+   */
+  grade(p: Project, nivelId: Id): Map<Id, GradeCortina> | null {
+    return this.memoizar(p, `grade|${nivelId}`, () => {
+      const g = lerGradeCortina(this.cena!.consultar('cortina_grade', [this.nivel(nivelId)]));
+      const idDe = this.wallIdDe();
+      const out = new Map<Id, GradeCortina>();
+      const de = (n: number): GradeCortina | undefined => {
+        const id = idDe(n);
+        if (id === undefined) return undefined;
+        let x = out.get(id);
+        if (!x) out.set(id, (x = { linhas: [], celulas: [], segmentos: [] }));
+        return x;
+      };
+      for (const l of g.linhas) de(l.cortina)?.linhas.push(l);
+      for (const c of g.celulas) de(c.cortina)?.celulas.push(c);
+      for (const s of g.segmentos) de(s.cortina)?.segmentos.push(s);
       return out;
     });
   }
