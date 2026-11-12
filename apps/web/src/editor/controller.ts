@@ -1,7 +1,7 @@
 /* eslint-disable max-lines */
 import { useSyncExternalStore } from 'react';
 import type { Vec2 } from '@hestia/geom';
-import { cotasAutomaticas, LevelResolveCache, resolveRooms, type AutoCotaOptions, type ResolvedLevel, type SectionResult } from '@hestia/engine';
+import { cotasAutomaticas, LevelResolveCache, resolveRooms, subelementosDaCortina, type AutoCotaOptions, type ResolvedLevel, type SectionResult } from '@hestia/engine';
 import {
   ProjectStore,
   copyLinkOf, syncWholeLinkCommand,
@@ -199,6 +199,10 @@ export class Editor {
     underlayLevelId: () => { const st = useUi.getState(); return underlayIdOf(this.store.project, st.levelId, st.showUnderlay, st.underlayLevel); },
     selection: () => useUi.getState().selection,
     setSelection: (ids) => useUi.setState({ selection: ids, ...(ids.length ? { selectedLevel: null } : {}) }),
+    // Subelementos da cortina (fase 2): só na planta e na 3D; no corte e na prancha a parede é só a parede.
+    subelementos: (wallId) => (useUi.getState().view === 'plan' || useUi.getState().view === '3d' ? subelementosDaCortina(this.store.project, wallId) : null),
+    subelemento: () => useUi.getState().subElemento,
+    setSubelemento: (sub) => useUi.setState({ subElemento: sub }),
     exec: (c) => this.exec(c),
     transaction: (l, fn, session) => this.avisandoOculto(() => this.store.transaction(l, fn, session)),
     metersPerPixel: () => 1 / (this.viewport()?.zoom ?? 60),
@@ -702,7 +706,14 @@ export class Editor {
       if (k === 'Delete' || k === 'Backspace') return key3d(k, ui.selection, () => this.deleteSelection());
     }
     // Na 3D, Esc segue o da planta (cancela a operação, senão volta à Selecionar; decisão 0016 §5). Ferramenta de escolha (Anexar topo): Enter e Tab seguem para a planta, senão a etapa não avança.
-    if (ui.view === '3d' && k !== 'Escape' && !(this.tool.pick3d && (k === 'Enter' || k === 'Tab'))) return key3d(k, ui.selection, () => this.deleteSelection());
+    // Tab com a Selecionar passa ao da planta (percorre o subelemento da cortina também na 3D).
+    if (ui.view === '3d' && k !== 'Escape' && !(this.tool.pick3d && (k === 'Enter' || k === 'Tab')) && !(k === 'Tab' && this.tool.id === 'select')) return key3d(k, ui.selection, () => this.deleteSelection());
+    // Esc sai do subelemento da cortina (fica a parede selecionada); só o Esc seguinte limpa a seleção.
+    if (k === 'Escape' && ui.subElemento) {
+      useUi.setState({ subElemento: null });
+      this.bump();
+      return true;
+    }
     if (k === 'Escape') {
       if (ui.dimRefPick) useUi.setState({ dimRefPick: null, status: '' });
       casador.limpar(); if (ui.typed) useUi.setState({ typed: '' });
@@ -736,7 +747,7 @@ export class Editor {
     }
     if (/^a$/i.test(k) && !ui.typed && this.tool.adjust?.()) { this.bump(); return true; } // A ajusta a rampa livre em andamento
     if (k === 'Tab') {
-      this.tool.tab();
+      this.tool.tab(e.shiftKey);
       this.bump();
       return true;
     }
