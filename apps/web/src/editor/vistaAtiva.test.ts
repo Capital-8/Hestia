@@ -3,7 +3,7 @@ import { createEmptyProject, DEFAULT_AREA_GRAPHICS, ProjectStore, toolAllowedInV
 import { TOOL_GROUPS } from '@hestia/tools';
 import { areaViewIdDeFundo, camposDeNivel, nivelAtivo, patchParaAtivarVista, planViewIdAtivo, planViewIdDeFundo, tipoDeVistaAtivo, type CamposDaVista } from './vistaAtiva.ts';
 
-const campos = (over: Partial<CamposDaVista>): CamposDaVista => ({ view: 'plan', levelId: 'lv_0', planKind: 'floor', areaPlanId: null, ...over });
+const campos = (over: Partial<CamposDaVista>): CamposDaVista => ({ view: 'plan', levelId: 'lv_0', ...over });
 
 describe('permissão de ferramenta por tipo de vista', () => {
   // Todos os ids que a interface conhece (grupos da faixa) mais os que ficam fora dela.
@@ -46,13 +46,6 @@ describe('seletores da vista ativa', () => {
     expect(tipoDeVistaAtivo(comArea, ui)).toBe('area');
   });
 
-  it('formato antigo: sem areaPlanId a planta de área não tem vista', () => {
-    expect(planViewIdAtivo(campos({ planKind: 'area', areaPlanId: null }))).toBeNull();
-    expect(tipoDeVistaAtivo(undefined, campos({ planKind: 'area', areaPlanId: null }))).toBeNull();
-    expect(tipoDeVistaAtivo(undefined, campos({ planKind: 'area', areaPlanId: 'ap1' }))).toBe('area');
-    expect(tipoDeVistaAtivo(undefined, campos({ planKind: 'roof' }))).toBe('roof');
-  });
-
   it('3D, corte e prancha: nenhuma vista de planta ativa, mas a de fundo continua', () => {
     for (const view of ['3d', 'section', 'sheet'] as const) {
       const ui = campos({ view, planViewId: 'pvr_lv_0' });
@@ -89,14 +82,10 @@ describe('patchParaAtivarVista (inverso)', () => {
   });
 });
 
-describe('estado com planViewId (forma única) e estado no formato antigo', () => {
-  it('planViewId manda; sem ele, a vista sai de levelId/planKind/areaPlanId', () => {
+describe('estado com planViewId (forma única)', () => {
+  it('a vista ativa é o planViewId', () => {
     expect(planViewIdAtivo({ view: 'plan', levelId: 'lv_0', planViewId: 'ap1' })).toBe('ap1');
     expect(planViewIdAtivo({ view: 'plan', levelId: 'lv_0', planViewId: 'pvr_lv_0' })).toBe('pvr_lv_0');
-    // Formato antigo (sessão antiga, harness do ouro): mesmos ids.
-    expect(planViewIdAtivo({ view: 'plan', levelId: 'lv_0', planKind: 'area', areaPlanId: 'ap1' })).toBe('ap1');
-    expect(planViewIdAtivo({ view: 'plan', levelId: 'lv_0', planKind: 'roof' })).toBe('pvr_lv_0');
-    expect(planViewIdAtivo({ view: 'plan', levelId: 'lv_0', planKind: 'floor' })).toBe('pv_lv_0');
   });
 
   it('camposDeNivel: piso e cobertura acompanham o novo nível; área não muda de planta', () => {

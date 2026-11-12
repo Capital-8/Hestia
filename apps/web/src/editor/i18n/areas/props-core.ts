@@ -95,6 +95,7 @@ export const PT_PROPS_CORE = {
   prc_opt_view_down: 'Para baixo',
   prc_opt_view_up_ceiling: 'Para cima (planta de forro)',
   prc_btn_restore_view_range: 'Restaurar intervalo padrão',
+  prc_msg_roof_plan_no_view_range: 'A planta de cobertura não usa intervalo de vista.',
   prc_msg_no_elements_outside_range: 'Nenhum elemento fora do intervalo de vista.',
   prc_btn_select: 'Selecionar',
 
@@ -342,6 +343,7 @@ export const EN_PROPS_CORE: Record<keyof typeof PT_PROPS_CORE, string> = {
   prc_opt_view_down: 'Down',
   prc_opt_view_up_ceiling: 'Up (Ceiling Plan)',
   prc_btn_restore_view_range: 'Restore View Range',
+  prc_msg_roof_plan_no_view_range: 'The roof plan does not use a view range.',
   prc_msg_no_elements_outside_range: 'No elements outside the view range.',
   prc_btn_select: 'Select',
 
@@ -577,6 +579,7 @@ export const ES_PROPS_CORE: Record<keyof typeof PT_PROPS_CORE, string> = {
   prc_opt_view_down: 'Hacia abajo',
   prc_opt_view_up_ceiling: 'Hacia arriba (planta de techo)',
   prc_btn_restore_view_range: 'Restaurar intervalo predeterminado',
+  prc_msg_roof_plan_no_view_range: 'La planta de cubierta no usa rango de vista.',
   prc_msg_no_elements_outside_range: 'Ningún elemento fuera del intervalo de vista.',
   prc_btn_select: 'Seleccionar',
 
@@ -812,6 +815,7 @@ export const DE_PROPS_CORE: Record<keyof typeof PT_PROPS_CORE, string> = {
   prc_opt_view_down: 'Nach unten',
   prc_opt_view_up_ceiling: 'Nach oben (Deckengrundriss)',
   prc_btn_restore_view_range: 'Standardansichtsbereich wiederherstellen',
+  prc_msg_roof_plan_no_view_range: 'Der Dachplan verwendet keinen Ansichtsbereich.',
   prc_msg_no_elements_outside_range: 'Keine Elemente außerhalb des Ansichtsbereichs.',
   prc_btn_select: 'Auswählen',
 
@@ -1047,6 +1051,7 @@ export const FR_PROPS_CORE: Record<keyof typeof PT_PROPS_CORE, string> = {
   prc_opt_view_down: 'Vers le bas',
   prc_opt_view_up_ceiling: 'Vers le haut (plan de plafond)',
   prc_btn_restore_view_range: 'Restaurer la plage de vue',
+  prc_msg_roof_plan_no_view_range: 'Le plan de toiture n\'utilise pas de plage de vue.',
   prc_msg_no_elements_outside_range: 'Aucun élément hors de la plage de vue.',
   prc_btn_select: 'Sélectionner',
 
@@ -1282,6 +1287,7 @@ export const IT_PROPS_CORE: Record<keyof typeof PT_PROPS_CORE, string> = {
   prc_opt_view_down: 'Verso il basso',
   prc_opt_view_up_ceiling: 'Verso l\'alto (pianta del soffitto)',
   prc_btn_restore_view_range: 'Ripristina intervallo di vista',
+  prc_msg_roof_plan_no_view_range: 'La pianta della copertura non usa un intervallo di vista.',
   prc_msg_no_elements_outside_range: 'Nessun elemento fuori dall\'intervallo di vista.',
   prc_btn_select: 'Seleziona',
 
@@ -1517,6 +1523,7 @@ export const PL_PROPS_CORE: Record<keyof typeof PT_PROPS_CORE, string> = {
   prc_opt_view_down: 'W dół',
   prc_opt_view_up_ceiling: 'W górę (rzut sufitu)',
   prc_btn_restore_view_range: 'Przywróć zakres widoku',
+  prc_msg_roof_plan_no_view_range: 'Plan dachu nie używa zakresu widoku.',
   prc_msg_no_elements_outside_range: 'Brak elementów poza zakresem widoku.',
   prc_btn_select: 'Wybierz',
 

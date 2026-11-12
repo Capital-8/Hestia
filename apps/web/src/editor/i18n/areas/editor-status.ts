@@ -176,6 +176,8 @@ export const PT_EDITOR_STATUS = {
   // Gráficos
   eds_msg_graphics_invalid: 'Gráficos inválidos.',
   eds_undo_change_view_graphics: 'Alterar gráficos da vista',
+
+  eds_undo_change_view_range: 'Alterar intervalo de vista',
   eds_undo_change_3d_graphics: 'Alterar gráficos do 3D',
   eds_undo_change_line_weights: 'Alterar pesos de linha',
   eds_undo_restore_view_graphics: 'Restaurar gráficos da vista',
@@ -398,6 +400,8 @@ export const EN_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   // Gráficos
   eds_msg_graphics_invalid: 'Invalid graphics.',
   eds_undo_change_view_graphics: 'Change View Graphics',
+
+  eds_undo_change_view_range: 'Change View Range',
   eds_undo_change_3d_graphics: 'Change 3D Graphics',
   eds_undo_change_line_weights: 'Change Line Weights',
   eds_undo_restore_view_graphics: 'Restore View Graphics',
@@ -607,6 +611,8 @@ export const ES_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
 
   eds_msg_graphics_invalid: 'Gráficos no válidos.',
   eds_undo_change_view_graphics: 'Cambiar gráficos de la vista',
+
+  eds_undo_change_view_range: 'Cambiar rango de vista',
   eds_undo_change_3d_graphics: 'Cambiar gráficos del 3D',
   eds_undo_change_line_weights: 'Cambiar grosores de línea',
   eds_undo_restore_view_graphics: 'Restaurar gráficos de la vista',
@@ -815,6 +821,8 @@ export const DE_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
 
   eds_msg_graphics_invalid: 'Ungültige Grafik.',
   eds_undo_change_view_graphics: 'Ansichtsgrafik ändern',
+
+  eds_undo_change_view_range: 'Ansichtsbereich ändern',
   eds_undo_change_3d_graphics: '3D-Grafik ändern',
   eds_undo_change_line_weights: 'Linienstärken ändern',
   eds_undo_restore_view_graphics: 'Ansichtsgrafik wiederherstellen',
@@ -1023,6 +1031,8 @@ export const FR_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
 
   eds_msg_graphics_invalid: 'Graphismes non valides.',
   eds_undo_change_view_graphics: 'Modifier les graphismes de la vue',
+
+  eds_undo_change_view_range: 'Modifier la plage de vue',
   eds_undo_change_3d_graphics: 'Modifier les graphismes 3D',
   eds_undo_change_line_weights: 'Modifier les épaisseurs de ligne',
   eds_undo_restore_view_graphics: 'Restaurer les graphismes de la vue',
@@ -1231,6 +1241,7 @@ export const IT_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
 
   eds_msg_graphics_invalid: 'Grafica non valida.',
   eds_undo_change_view_graphics: 'Modifica grafica della vista',
+  eds_undo_change_view_range: 'Modifica intervallo di vista',
   eds_undo_change_3d_graphics: 'Modifica grafica 3D',
   eds_undo_change_line_weights: 'Modifica spessori di linea',
   eds_undo_restore_view_graphics: 'Ripristina grafica della vista',
@@ -1439,6 +1450,7 @@ export const PL_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
 
   eds_msg_graphics_invalid: 'Nieprawidłowa grafika.',
   eds_undo_change_view_graphics: 'Zmień grafikę widoku',
+  eds_undo_change_view_range: 'Zmień zakres widoku',
   eds_undo_change_3d_graphics: 'Zmień grafikę 3D',
   eds_undo_change_line_weights: 'Zmień grubości linii',
   eds_undo_restore_view_graphics: 'Przywróć grafikę widoku',

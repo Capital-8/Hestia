@@ -1,6 +1,6 @@
 import { buildOpeningModel, computeSection, frameOfWall, openingGeometry, resolveLevel, type OpeningGeometry, type OpeningModel, type SectionLine, type SectionResult } from '@hestia/engine';
 import { buildPlanDrawList, buildSectionDrawList, DARK, LIGHT, sectionBox, type PlanDrawList, type PlanTheme } from '@hestia/render';
-import { openingAngle2d, openingDetail2d, type Opening, type OpeningLineConvention, type OpeningType, type Project } from '@hestia/model';
+import { floorViewId, openingAngle2d, openingDetail2d, type Opening, type OpeningLineConvention, type OpeningType, type Project } from '@hestia/model';
 import { t, type Lang } from '../../../editor/i18n.ts';
 import { drawListToSvg, expandDrawBox, type DrawBox } from './drawListToSvg.ts';
 import { previewOpening, previewProject, previewWall } from './previewProject.ts';
@@ -102,6 +102,7 @@ export function previewPlanDrawList(type: OpeningType, options: PreviewViewOptio
   const drawList = buildPlanDrawList({
     project: p,
     levelId,
+    viewId: floorViewId(levelId),
     resolved: resolveLevel(p, levelId),
     below: null,
     viewport,

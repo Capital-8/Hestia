@@ -37,7 +37,7 @@ export function captionOf(p: Project, view: SheetViewSource, vp: SheetViewport, 
 
 function sourceName(p: Project, view: SheetViewSource, lang: Lang): string {
   const missing = translate(lang, 'rn_sheet_view_missing');
-  if (view.kind === 'plan' || view.kind === 'areaPlan') {
+  if (view.kind === 'plan') {
     const v = planViewOf(p, sheetPlanViewId(view) ?? '');
     if (v?.kind === 'area') return v.name;
     // Piso: o nome é o do nível (a vista principal tem o mesmo nome, mas o nível é a fonte).

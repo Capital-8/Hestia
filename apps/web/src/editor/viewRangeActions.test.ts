@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_VIEW_RANGE, ProjectStore, createEmptyProject, makeWall, viewRangeOf, type Wall } from '@hestia/model';
+import { DEFAULT_VIEW_RANGE, ProjectStore, createEmptyProject, makeWall, planViewRangeOf, floorViewId, roofViewId, type Wall } from '@hestia/model';
 import { viewRangeWarnings } from '@hestia/engine';
-import { editViewRange, restoreViewRangeDefault } from './viewRangeActions.ts';
+import { editViewRange, restoreViewRangeDefault, viewRangeEditable } from './viewRangeActions.ts';
+import { resolveText } from './i18n.ts';
 
 function store(): ProjectStore {
   const s = new ProjectStore(createEmptyProject());
@@ -17,19 +18,19 @@ describe('editViewRange (intervalo de vista, decisão 0013 §5)', () => {
     const s = store();
     const r = editViewRange(s, 'lv_0', { cut: 1.1 });
     expect(r).toEqual({ ok: true, error: null });
-    expect(viewRangeOf(s.project, 'lv_0')).toEqual({ ...DEFAULT_VIEW_RANGE, cut: 1.1 });
-    expect(s.undoLabel).toBe('Alterar intervalo de vista');
+    expect(planViewRangeOf(s.project, floorViewId('lv_0'))).toEqual({ ...DEFAULT_VIEW_RANGE, cut: 1.1 });
+    expect(resolveText(s.undoLabel!, 'pt')).toBe('Alterar intervalo de vista');
     s.undo();
-    expect(viewRangeOf(s.project, 'lv_0')).toEqual(DEFAULT_VIEW_RANGE);
+    expect(planViewRangeOf(s.project, floorViewId('lv_0'))).toEqual(DEFAULT_VIEW_RANGE);
     s.redo();
-    expect(viewRangeOf(s.project, 'lv_0').cut).toBe(1.1);
+    expect(planViewRangeOf(s.project, floorViewId('lv_0')).cut).toBe(1.1);
   });
 
   it('cada nível guarda o próprio intervalo', () => {
     const s = store();
     editViewRange(s, 'lv_1', { top: 3.5 });
-    expect(viewRangeOf(s.project, 'lv_1').top).toBe(3.5);
-    expect(viewRangeOf(s.project, 'lv_0')).toEqual(DEFAULT_VIEW_RANGE);
+    expect(planViewRangeOf(s.project, floorViewId('lv_1')).top).toBe(3.5);
+    expect(planViewRangeOf(s.project, floorViewId('lv_0'))).toEqual(DEFAULT_VIEW_RANGE);
   });
 
   it('recusa valor que quebra topo ≥ corte: devolve a mensagem e não grava nem entra no histórico', () => {
@@ -40,7 +41,7 @@ describe('editViewRange (intervalo de vista, decisão 0013 §5)', () => {
     expect(r).toEqual({ ok: false, error: 'O topo do intervalo de vista deve estar acima ou no plano de corte.' });
     expect(s.project).toBe(before);
     expect(s.undoLabel).toBe(label);
-    expect(viewRangeOf(s.project, 'lv_0')).toEqual(DEFAULT_VIEW_RANGE);
+    expect(planViewRangeOf(s.project, floorViewId('lv_0'))).toEqual(DEFAULT_VIEW_RANGE);
   });
 
   it('recusa profundidade acima da base e informa a regra', () => {
@@ -48,7 +49,7 @@ describe('editViewRange (intervalo de vista, decisão 0013 §5)', () => {
     const r = editViewRange(s, 'lv_0', { depth: 0.5 });
     expect(r.ok).toBe(false);
     expect(r.error).toBe('A profundidade de vista deve estar abaixo ou na base do intervalo de vista.');
-    expect(viewRangeOf(s.project, 'lv_0').depth).toBe(0);
+    expect(planViewRangeOf(s.project, floorViewId('lv_0')).depth).toBe(0);
   });
 
   it('recusa cota não finita sem gravar', () => {
@@ -56,18 +57,18 @@ describe('editViewRange (intervalo de vista, decisão 0013 §5)', () => {
     const r = editViewRange(s, 'lv_0', { top: Number.NaN });
     expect(r.ok).toBe(false);
     expect(r.error).toBe('As cotas do intervalo de vista devem ser números finitos, em metros.');
-    expect(viewRangeOf(s.project, 'lv_0')).toEqual(DEFAULT_VIEW_RANGE);
+    expect(planViewRangeOf(s.project, floorViewId('lv_0'))).toEqual(DEFAULT_VIEW_RANGE);
   });
 
   it('nível inexistente é recusado com a mensagem do comando', () => {
     const s = store();
-    expect(editViewRange(s, 'lv_nao_existe', { cut: 1 })).toEqual({ ok: false, error: 'Nível inexistente' });
+    expect(editViewRange(s, 'lv_nao_existe', { cut: 1 })).toEqual({ ok: false, error: 'Vista inexistente' });
   });
 
   it('a direção "up" é aceita pelo comando (guardada para o futuro), mas a interface não a oferece', () => {
     const s = store();
     expect(editViewRange(s, 'lv_0', { direction: 'up' })).toEqual({ ok: true, error: null });
-    expect(viewRangeOf(s.project, 'lv_0').direction).toBe('up');
+    expect(planViewRangeOf(s.project, floorViewId('lv_0')).direction).toBe('up');
   });
 
   it('sem mudança real não cria passo de desfazer', () => {
@@ -83,10 +84,10 @@ describe('restoreViewRangeDefault (Restaurar padrão)', () => {
     const s = store();
     editViewRange(s, 'lv_0', { top: 3.1, cut: 1.0, bottom: -0.5, depth: -1, direction: 'up' });
     expect(restoreViewRangeDefault(s, 'lv_0')).toEqual({ ok: true, error: null });
-    expect(viewRangeOf(s.project, 'lv_0')).toEqual(DEFAULT_VIEW_RANGE);
-    expect(viewRangeOf(s.project, 'lv_0').direction).toBe('down');
+    expect(planViewRangeOf(s.project, floorViewId('lv_0'))).toEqual(DEFAULT_VIEW_RANGE);
+    expect(planViewRangeOf(s.project, floorViewId('lv_0')).direction).toBe('down');
     s.undo();
-    expect(viewRangeOf(s.project, 'lv_0')).toMatchObject({ top: 3.1, cut: 1.0, bottom: -0.5, depth: -1, direction: 'up' });
+    expect(planViewRangeOf(s.project, floorViewId('lv_0'))).toMatchObject({ top: 3.1, cut: 1.0, bottom: -0.5, depth: -1, direction: 'up' });
   });
 
   it('já no padrão: nada muda e não há passo de desfazer novo', () => {
@@ -101,15 +102,15 @@ describe('restoreViewRangeDefault (Restaurar padrão)', () => {
     editViewRange(s, 'lv_0', { cut: 1.0 });
     editViewRange(s, 'lv_1', { cut: 1.5 });
     restoreViewRangeDefault(s, 'lv_0');
-    expect(viewRangeOf(s.project, 'lv_0')).toEqual(DEFAULT_VIEW_RANGE);
-    expect(viewRangeOf(s.project, 'lv_1').cut).toBe(1.5);
+    expect(planViewRangeOf(s.project, floorViewId('lv_0'))).toEqual(DEFAULT_VIEW_RANGE);
+    expect(planViewRangeOf(s.project, floorViewId('lv_1')).cut).toBe(1.5);
   });
 });
 
 describe('avisos do intervalo (viewRangeWarnings) na edição', () => {
   it('parede acima do topo padrão aparece como oculta; ao subir o topo, o aviso some', () => {
     const s = store();
-    const warnAt = () => viewRangeWarnings(s.project, 'lv_1', viewRangeOf(s.project, 'lv_1'));
+    const warnAt = () => viewRangeWarnings(s.project, 'lv_1', planViewRangeOf(s.project, floorViewId('lv_1')));
     expect(warnAt()).toEqual([]);
 
     editViewRange(s, 'lv_1', { top: 1.9, cut: 1.2 });
@@ -125,8 +126,16 @@ describe('avisos do intervalo (viewRangeWarnings) na edição', () => {
   it('elementos de outro nível não entram nos avisos do nível', () => {
     const s = store();
     editViewRange(s, 'lv_0', { top: 1.0, cut: 0.5 });
-    const ids = viewRangeWarnings(s.project, 'lv_0', viewRangeOf(s.project, 'lv_0')).flatMap((w) => w.ids);
+    const ids = viewRangeWarnings(s.project, 'lv_0', planViewRangeOf(s.project, floorViewId('lv_0'))).flatMap((w) => w.ids);
     expect(ids).not.toContain('w2');
     expect((s.project.elements.w2 as Wall).levelId).toBe('lv_1');
+  });
+});
+
+describe('planta de cobertura não oferece edição do intervalo de vista', () => {
+  it('viewRangeEditable: só a planta de cobertura é desabilitada', () => {
+    const s = store();
+    expect(viewRangeEditable(s.project, floorViewId('lv_0'))).toBe(true);
+    expect(viewRangeEditable(s.project, roofViewId('lv_0'))).toBe(false);
   });
 });

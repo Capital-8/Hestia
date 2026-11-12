@@ -1,6 +1,6 @@
 /* eslint-disable max-lines -- a faixa concentra as ações pontuais (cada uma com rótulo bilíngue, dica e guarda); dividir depois. */
 import { areaViewIdAtivo } from '../../editor/vistaAtiva.ts';
-import { copyLinkOf, isCeiling, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Element, type Id, type Project, type Ramp } from '@hestia/model';
+import { copyLinkOf, floorViewId, isCeiling, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Element, type Id, type Project, type Ramp } from '@hestia/model';
 import type { PerimeterModifyKind, ShortcutCommand, ToolOptions } from '@hestia/tools';
 import { t as translate, useI18n } from '../../editor/i18n.ts';
 import { tagAllNotTagged } from '../../editor/tagActions.ts';
@@ -115,9 +115,9 @@ const naoTransferivel = (verbo: 'Copiar' | 'Recortar'): Txt =>
 const stairsIn = (c: RibbonCtx): Array<{ typeId: Id }> => c.selection.map((id) => c.p.elements[id]).filter(isStair);
 const rampsIn = (c: RibbonCtx): Ramp[] => c.selection.map((id) => c.p.elements[id]).filter(isRamp);
 
-function thinTarget(): { levelId: Id } | 'section' {
+function thinTarget(): { viewId: Id } | 'section' {
   const ui = useUi.getState();
-  return ui.view === 'section' ? 'section' : { levelId: ui.levelId };
+  return ui.view === 'section' ? 'section' : { viewId: ui.planViewId || floorViewId(ui.levelId) };
 }
 
 const sched = (label: Txt, dialog: DialogKind): ActionDef => ({ label, icon: 'schedule', run: openDialog(dialog) });
@@ -318,7 +318,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
       const r = editThinLines(editor.store, target, !thinLinesOn(editor.project, target));
       if (!r.ok) useUi.setState({ status: r.error ?? { key: 'shr_status_thin_lines_error' } });
     },
-    pressed: (c) => planOrSection(c) && thinLinesOn(c.p, c.view === 'section' ? 'section' : { levelId: c.levelId }),
+    pressed: (c) => planOrSection(c) && thinLinesOn(c.p, c.view === 'section' ? 'section' : { viewId: c.planViewId || floorViewId(c.levelId) }),
     disabled: (c) => (planOrSection(c) ? false : t('Só em planta ou corte.', 'Plan or section views only.')),
   },
   grid: { label: t('Grade', 'Grid'), icon: 'grid', hint: t('Grade de pontos na planta: mostra os pontos e o cursor os captura.', 'Dot grid in plan: shows the dots and the cursor snaps to them.'), run: () => setSnap({ grid: !useUi.getState().showGrid }), pressed: (c) => c.showGrid },

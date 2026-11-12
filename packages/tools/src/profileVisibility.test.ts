@@ -16,7 +16,7 @@ function setup(g: Partial<typeof DEFAULT_AREA_GRAPHICS>, withTag = false) {
   drawWall(ctx.env, [0, 0], [4, 0]);
   store.exec({ type: 'addAreaPlan', plan: plan(g) });
   if (withTag) store.exec({ type: 'addRoomTag', planId: 'ap1', tag: roomTag() });
-  ctx.setAreaPlanId('ap1');
+  ctx.setViewId('ap1');
   return ctx;
 }
 
@@ -43,7 +43,7 @@ describe('seleção respeita o perfil da vista (planta de área)', () => {
   });
   it('planta de piso fica inalterada: seleciona a parede mesmo com o perfil da área oculto', () => {
     const c = setup({ showWalls: 'hidden' });
-    c.setAreaPlanId(null);
+    c.setViewId(undefined);
     const t = tool('select', c.env);
     click(t, 2, 0);
     expect(c.sel()).toEqual([walls(c.store)[0]!.id]);
@@ -79,7 +79,7 @@ describe('etiqueta de ambiente (RoomTag) da vista', () => {
   });
   it('na planta de piso a etiqueta não é alvo', () => {
     const c = setup({}, true);
-    c.setAreaPlanId(null);
+    c.setViewId(undefined);
     const t = tool('select', c.env);
     click(t, 5, 5);
     expect(c.sel()).toEqual([]);

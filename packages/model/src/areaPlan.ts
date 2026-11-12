@@ -222,12 +222,6 @@ export const tagsOfPlan = (plan: Pick<AreaPlan, 'tags'>): RoomTag[] => plan.tags
 export const emptyPlanAnnotations = (): AreaPlanAnnotations => ({ dimensions: [], texts: [], detailLines: [], detailRegions: [], tags: [] });
 
 /**
- * Regra antiga de anotações (`annotations === undefined` herdava as do nível).
- * @deprecated Desde a Fase 2 não há herança: a planta de área sempre tem conjunto próprio. Removida na Fase 3.
- */
-export const planOwnsAnnotations = (_plan: Pick<AreaPlan, 'annotations'>): boolean => true;
-
-/**
  * Anotações da planta normalizadas: listas ausentes viram `[]` (então `{}` é "próprio e vazio"). Devolve a mesma
  * referência quando já está completo. Sem conjunto próprio devolve vazio (o chamador decide se cai nas do nível).
  */

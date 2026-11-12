@@ -10,7 +10,7 @@ import {
   stairBody,
   type StairComponentSketch,
 } from '@hestia/engine';
-import { ProjectStore, createEmptyProject, defaultStairTypeId, makeSlab, makeStair, type Project, type StairLanding, type StairRun } from '@hestia/model';
+import { ProjectStore, createEmptyProject, defaultStairTypeId, floorViewId, makeSlab, makeStair, type Project, type StairLanding, type StairRun } from '@hestia/model';
 import { pointInMulti } from '@hestia/geom';
 import { buildStairSolids } from '../model3d/stairSolids.ts';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
@@ -61,6 +61,7 @@ function draw(p: Project, levelId: string, opts: Partial<PlanInput> = {}) {
   const input: PlanInput = {
     project: p,
     levelId,
+    viewId: floorViewId(levelId),
     resolved: resolveLevel(p, levelId, new Map()),
     below: null,
     viewport: VIEW,

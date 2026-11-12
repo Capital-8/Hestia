@@ -12,8 +12,6 @@ import {
   planViewOf,
   ProjectStore,
   roofViewId,
-  viewHiddenOf,
-  viewRangeOf,
   planViewRangeOf,
   planViewsOf,
   viewAnnotationsOf,
@@ -152,7 +150,7 @@ describe('updatePlanView = comando antigo equivalente', () => {
   const escala = (s: ProjectStore, id: string): number => viewGraphicsOf(s.project, id).scale;
 
   it('piso: hidden = setViewHidden; reset de graphics só na vista', () => {
-    igual(floorViewId(LV0), { hidden: { elements: ['e1'], categories: ['door'] } }, [{ type: 'setViewHidden', target: { kind: 'plan', levelId: LV0 }, hidden: { elements: ['e1'], categories: ['door'] } }]);
+    igual(floorViewId(LV0), { hidden: { elements: ['e1'], categories: ['door'] } }, [{ type: 'setViewHidden', target: { kind: 'plan', viewId: floorViewId(LV0) }, hidden: { elements: ['e1'], categories: ['door'] } }]);
     const s = montar();
     s.exec(upd(floorViewId(LV0), { graphics: { scale: 50 } }));
     s.exec(upd(floorViewId(LV0), { graphics: null }));
@@ -185,7 +183,7 @@ describe('updatePlanView = comando antigo equivalente', () => {
   });
 
   it('piso: nome da vista principal = nome do nível', () => {
-    igual(floorViewId(LV0), { hidden: { categories: ['wall'] } }, [{ type: 'setViewHidden', target: { kind: 'plan', levelId: LV0 }, hidden: { categories: ['wall'] } }]);
+    igual(floorViewId(LV0), { hidden: { categories: ['wall'] } }, [{ type: 'setViewHidden', target: { kind: 'plan', viewId: floorViewId(LV0) }, hidden: { categories: ['wall'] } }]);
     const s = montar();
     s.exec(upd(floorViewId(LV0), { name: 'Pavimento Térreo' }));
     expect(s.project.levels[0]!.name).toBe('Pavimento Térreo');
@@ -195,7 +193,7 @@ describe('updatePlanView = comando antigo equivalente', () => {
   });
 
   it('cobertura: hidden fica na vista de cobertura; gráficos só nela', () => {
-    igual(roofViewId(LV0), { hidden: { elements: ['e1'] } }, [{ type: 'setViewHidden', target: { kind: 'roof', levelId: LV0 }, hidden: { elements: ['e1'] } }]);
+    igual(roofViewId(LV0), { hidden: { elements: ['e1'] } }, [{ type: 'setViewHidden', target: { kind: 'plan', viewId: roofViewId(LV0) }, hidden: { elements: ['e1'] } }]);
     const s = montar();
     s.exec(upd(roofViewId(LV0), { hidden: { elements: ['e1'] }, graphics: { scale: 200 } }));
     expect(planViewHiddenOf(s.project, roofViewId(LV0))).toEqual({ elements: ['e1'] });
@@ -216,7 +214,7 @@ describe('updatePlanView = comando antigo equivalente', () => {
       igual(id, { name: 'Renomeada' }, [{ type: 'updateAreaPlan', id, patch: { name: 'Renomeada' } }]);
       igual(id, { area: { scale: 100, schemeId: 'sc1' } }, [{ type: 'updateAreaPlan', id, patch: { scale: 100, schemeId: 'sc1' } }]);
       igual(id, { area: { graphics: { showWalls: 'hidden' } } }, [{ type: 'updateAreaPlan', id, patch: { graphics: { ...DEFAULT_AREA_GRAPHICS, showWalls: 'hidden' } } }]);
-      igual(id, { hidden: { elements: ['e1'] } }, [{ type: 'setViewHidden', target: { kind: 'area', planId: id }, hidden: { elements: ['e1'] } }]);
+      igual(id, { hidden: { elements: ['e1'] } }, [{ type: 'setViewHidden', target: { kind: 'plan', viewId: id }, hidden: { elements: ['e1'] } }]);
       // O intervalo é da vista: o piso e a outra planta de área não mudam.
       const s = montar();
       s.exec(upd(id, { viewRange: { cut: 1.1 } }));
@@ -296,7 +294,7 @@ describe('addPlanView e removePlanView', () => {
 
   it('renomear o nível por upsertLevel acompanha o nome das vistas principais e a elevação reordena sem perder dados', () => {
     const s = montar();
-    s.exec({ type: 'setViewHidden', target: { kind: 'plan', levelId: LV0 }, hidden: { elements: ['e1'] } });
+    s.exec({ type: 'setViewHidden', target: { kind: 'plan', viewId: floorViewId(LV0) }, hidden: { elements: ['e1'] } });
     s.exec({ type: 'upsertLevel', level: { ...s.project.levels[0]!, name: 'Embaixo', elevation: 20 } });
     expect(planViewOf(s.project, floorViewId(LV0))!.name).toBe('Embaixo');
     expect(planViewOf(s.project, roofViewId(LV0))!.name).toBe('Embaixo');
@@ -324,19 +322,11 @@ describe('hiddenTargetOfView e annotationTarget', () => {
     for (const id of [floorViewId(LV0), roofViewId(LV0), 'ap_herda']) {
       s.exec({ type: 'setViewHidden', target: hiddenTargetOfView(s.project, id), hidden: { elements: [`e_${id}`] } });
       expect(planViewHiddenOf(s.project, id)).toEqual({ elements: [`e_${id}`] });
-      expect(viewHiddenOf(s.project, hiddenTargetOfView(s.project, id))).toEqual({ elements: [`e_${id}`] });
     }
   });
 });
 
-describe('leituras antigas por cima da API', () => {
-  it('viewRangeOf(p, levelId) dá o do piso e o padrão para nível inexistente', () => {
-    const s = montar();
-    s.exec({ type: 'setLevelViewRange', levelId: LV0, patch: { cut: 1.0 } });
-    expect(viewRangeOf(s.project, LV0)).toEqual(planViewRangeOf(s.project, floorViewId(LV0)));
-    expect(viewRangeOf(s.project, 'lv_fantasma')).toEqual(planViewRangeOf(s.project, 'nao_existe'));
-  });
-
+describe('comandos sobre rascunho', () => {
   it('applyCommand sobre rascunho rejeita comando fora da família (retorna sem efeito para tipos conhecidos)', () => {
     const p = montar().project;
     expect(() => applyCommand(structuredClone(p), { type: 'removePlanView', viewId: 'nao_existe' })).toThrow();

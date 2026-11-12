@@ -2,7 +2,7 @@ import { useState, type ReactElement } from 'react';
 import { GRAPHICS_CATEGORIES, PARTIAL_STRUCTURES, PLAN_VISUAL_STYLES, VISUAL_STYLES, floorViewId, sectionGraphicsOf, view3dOf, viewGraphicsOf, type DetailLevel, type Id, type View3DSettings, type ViewGraphics } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
-import { editLevelGraphics, editSectionGraphics, editView3D, restoreLevelGraphicsDefault, restoreSectionGraphicsDefault, restoreView3DDefault, type LevelGraphicsPatch, type SectionGraphicsPatch, type View3DPatch } from '../editor/graphicsActions.ts';
+import { editViewGraphics, editSectionGraphics, editView3D, restoreViewGraphicsDefault, restoreSectionGraphicsDefault, restoreView3DDefault, type LevelGraphicsPatch, type SectionGraphicsPatch, type View3DPatch } from '../editor/graphicsActions.ts';
 import { useUi } from '../editor/state.ts';
 import { Check, Group, NumField, Row } from './fields.tsx';
 import { categoryLabel, detailLabel, partialLabel, PLAN_SCALES, visualStyleLabel } from './graphicsLabels.ts';
@@ -11,12 +11,13 @@ import { categoryLabel, detailLabel, partialLabel, PLAN_SCALES, visualStyleLabel
 const DETAILS: readonly (DetailLevel | 'byScale')[] = ['byScale', 'coarse', 'medium', 'fine'];
 
 /** Gráficos da planta do nível (decisão 0015 §3): escala, detalhe, estilo visual e exibição parcial. Recusas aparecem aqui. */
-export function LevelGraphicsGroup({ levelId }: { levelId: Id }): ReactElement {
+export function LevelGraphicsGroup({ levelId, viewId }: { levelId: Id; viewId?: Id }): ReactElement {
   const { t, lang } = useT();
   const p = useProject();
-  const g = viewGraphicsOf(p, floorViewId(levelId));
+  const vid = viewId || floorViewId(levelId);
+  const g = viewGraphicsOf(p, vid);
   const [error, setError] = useState<string | null>(null);
-  const edit = (patch: LevelGraphicsPatch): void => setError(editLevelGraphics(editor.store, levelId, patch).error);
+  const edit = (patch: LevelGraphicsPatch): void => setError(editViewGraphics(editor.store, vid, patch).error);
   const hidden = GRAPHICS_CATEGORIES.filter((c) => !g.overrides[c].visible);
   const isPreset = PLAN_SCALES.includes(g.scale);
   return (
@@ -50,7 +51,7 @@ export function LevelGraphicsGroup({ levelId }: { levelId: Id }): ReactElement {
       <div className="hint">{t('prd_msg_plot_keeps_line_weights')}</div>
       {error && <div className="vr-error" role="alert">{error}</div>}
       <div className="prow"><span /><button className="btn small" onClick={() => useUi.setState({ dialog: 'graphicsVisibility', dialogArg: levelId })}>{t('prd_btn_visibility_graphics')}</button></div>
-      <div className="prow"><span /><button className="btn small" onClick={() => setError(restoreLevelGraphicsDefault(editor.store, levelId).error)}>{t('prd_btn_restore_default')}</button></div>
+      <div className="prow"><span /><button className="btn small" onClick={() => setError(restoreViewGraphicsDefault(editor.store, vid).error)}>{t('prd_btn_restore_default')}</button></div>
       {hidden.length > 0 ? (
         <div className="hint">{t('prd_msg_hidden_in_view', { list: hidden.map((c) => categoryLabel(c, lang).toLowerCase()).join(', ') })}</div>
       ) : null}

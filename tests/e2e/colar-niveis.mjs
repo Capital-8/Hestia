@@ -28,7 +28,7 @@ await r.step('preparar: casa de exemplo + 3º nível + parede selecionada', asyn
     });
     const wall = Object.values(editor.store.project.elements).find((e) => e.kind === 'wall' && e.levelId === editor.store.project.levels[0].id);
     window.__e2e = { wallId: wall.id, origem: wall.levelId };
-    useUi.setState({ view: 'plan', planKind: 'floor', levelId: wall.levelId, areaPlanId: null, sectionId: null, selection: [wall.id], tool: 'select', dialog: null, dialogArg: null, pastePreview: null });
+    useUi.setState({ view: 'plan', planViewId: 'pv_' + wall.levelId, levelId: wall.levelId, sectionId: null, selection: [wall.id], tool: 'select', dialog: null, dialogArg: null, pastePreview: null });
     editor.copySelection();
   });
   r.check('nível de origem', await page.evaluate(() => window.__e2e.origem === 'lv_0'), await page.evaluate(() => window.__e2e.origem));
@@ -100,7 +100,7 @@ await r.step('um undo desfaz as duas cópias', async () => {
 await r.step('X cancela e volta para a planta de origem', async () => {
   await page.evaluate(() => {
     const { editor, useUi } = window.__hestia;
-    useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', selection: [window.__e2e.wallId], dialog: null, dialogArg: null, pastePreview: null });
+    useUi.setState({ view: 'plan', planViewId: 'pv_lv_0', levelId: 'lv_0', selection: [window.__e2e.wallId], dialog: null, dialogArg: null, pastePreview: null });
     editor.copySelection();
     editor.openPasteLevelsDialog();
   });

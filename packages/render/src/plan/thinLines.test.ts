@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Vec2 } from '@hestia/geom';
 import { resolveLevel } from '@hestia/engine';
-import { ProjectStore, createEmptyProject, makeWall, type Project } from '@hestia/model';
+import { ProjectStore, createEmptyProject, floorViewId, makeWall, type Project } from '@hestia/model';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { thinStrokes } from './thin.ts';
 import { LIGHT, type StrokeOp } from './types.ts';
@@ -23,6 +23,7 @@ function draw(p: Project, over: Partial<PlanInput> = {}) {
   const input: PlanInput = {
     project: p,
     levelId: 'lv_0',
+    viewId: floorViewId('lv_0'),
     resolved: resolveLevel(p, 'lv_0', new Map()),
     below: null,
     viewport: { cx: 1.5, cy: 0, zoom: 100, width: 800, height: 600 },

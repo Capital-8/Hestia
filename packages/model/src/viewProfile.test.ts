@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_AREA_GRAPHICS, FLOOR_PROFILE_LAYERS, ProjectStore, createEmptyProject, emptyTitleBlock, migrateProject, planAnnotationIds, planOwnsAnnotations,
+  DEFAULT_AREA_GRAPHICS, FLOOR_PROFILE_LAYERS, floorViewId, ProjectStore, createEmptyProject, emptyTitleBlock, migrateProject, planAnnotationIds,
   resolveFloorProfile, resolveViewProfile, validateProject, type AreaPlan, type AreaPlanGraphics, type Project, type Sheet,
 } from './index.ts';
 import { areaPlansOf } from './index.ts';
 
 const plan = (id: string, over: Partial<AreaPlan> = {}): AreaPlan => ({ id, name: id, levelId: 'lv_0', scale: 50, graphics: { ...DEFAULT_AREA_GRAPHICS }, tags: [], ...over });
 const sheet = (viewports: Sheet['viewports'], id = 'sh1'): Sheet => ({ id, number: 'A-1', name: 'P', size: 'A3', orientation: 'landscape', margin: 10, titleBlock: emptyTitleBlock(), viewports });
-const vpArea = (id: string, planId: string): Sheet['viewports'][number] => ({ id, view: { kind: 'areaPlan', planId }, at: { x: 20, y: 20 }, size: { w: 100, h: 80 }, scale: 100 });
+const vpArea = (id: string, planId: string): Sheet['viewports'][number] => ({ id, view: { kind: 'plan', viewId: planId }, at: { x: 20, y: 20 }, size: { w: 100, h: 80 }, scale: 100 });
 
 describe('resolveViewProfile', () => {
   it('preset area equivale ao comportamento atual (padrão)', () => {
@@ -82,9 +82,6 @@ describe('migração v21 → v22', () => {
 
 describe('regra única de anotações', () => {
   it('sem herança (v24): todo conjunto é próprio; planAnnotationIds({}) não lança', () => {
-    // Esquema 24: não há herança, a regra antiga vale sempre (função @deprecated).
-    expect(planOwnsAnnotations({ annotations: undefined })).toBe(true);
-    expect(planOwnsAnnotations({ annotations: {} as never })).toBe(true);
     expect(planAnnotationIds({ annotations: {} as never })).toEqual([]);
     expect(planAnnotationIds({ annotations: { texts: [{ id: 't' }] } as never })).toEqual(['t']);
   });
@@ -95,7 +92,7 @@ describe('pranchas e vistas de área', () => {
     const s = new ProjectStore(createEmptyProject());
     s.exec({ type: 'addAreaPlan', plan: plan('ap1') });
     s.exec({ type: 'addSheet', sheet: sheet([]) });
-    expect(() => s.exec({ type: 'addViewport', sheetId: 'sh1', viewport: vpArea('v0', 'nada') })).toThrow(/Planta de área inexistente/);
+    expect(() => s.exec({ type: 'addViewport', sheetId: 'sh1', viewport: vpArea('v0', 'nada') })).toThrow(/Vista inexistente/);
     s.exec({ type: 'addViewport', sheetId: 'sh1', viewport: vpArea('v1', 'ap1') });
     expect(s.project.sheets![0]!.viewports).toHaveLength(1);
   });
@@ -116,7 +113,7 @@ describe('pranchas e vistas de área', () => {
     const s = new ProjectStore(createEmptyProject());
     s.exec({ type: 'upsertLevel', level: { ...s.project.levels[0]!, id: 'lv_x', name: 'X', elevation: 3 } });
     s.exec({ type: 'addAreaPlan', plan: plan('apx', { levelId: 'lv_x' }) });
-    const planV = (id: string, levelId: string): Sheet['viewports'][number] => ({ ...vpArea(id, 'x'), view: { kind: 'plan', levelId } });
+    const planV = (id: string, levelId: string): Sheet['viewports'][number] => ({ ...vpArea(id, 'x'), view: { kind: 'plan', viewId: floorViewId(levelId) } });
     s.exec({ type: 'addSheet', sheet: sheet([vpArea('v1', 'apx'), planV('v2', 'lv_x'), planV('v3', 'lv_0')]) });
     s.exec({ type: 'deleteLevel', id: 'lv_x' });
     expect(s.project.sheets![0]!.viewports.map((v) => v.id)).toEqual(['v3']);

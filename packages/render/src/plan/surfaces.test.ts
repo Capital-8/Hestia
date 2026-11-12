@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Vec2 } from '@hestia/geom';
 import { resolveFloors, resolveLevel, resolveSlabs } from '@hestia/engine';
-import { ProjectStore, createEmptyProject, makeFloor, makeSlab, type Project } from '@hestia/model';
+import { ProjectStore, createEmptyProject, floorViewId, makeFloor, makeSlab, type Project } from '@hestia/model';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { floorAndSlabOps, contourMid } from './surfaces.ts';
 import { defaultPaint } from './style.ts';
@@ -26,6 +26,7 @@ function drawOf(p: Project) {
   const input: PlanInput = {
     project: p,
     levelId: 'lv_0',
+    viewId: floorViewId('lv_0'),
     resolved: resolveLevel(p, 'lv_0', new Map()),
     below: null,
     viewport: VIEW,

@@ -767,13 +767,7 @@ export interface SectionView {
 export type ViewHiddenTarget =
   | { kind: 'plan'; viewId: Id }
   | { kind: 'section'; viewId: Id }
-  | { kind: '3d' }
-  /** @deprecated Entrada antiga (piso do nível): aceita e normalizada para `{ kind: 'plan', viewId }`. */
-  | { kind: 'plan'; levelId: Id }
-  /** @deprecated Entrada antiga (cobertura do nível): aceita e normalizada para `{ kind: 'plan', viewId }`. */
-  | { kind: 'roof'; levelId: Id }
-  /** @deprecated Entrada antiga (planta de área): aceita e normalizada para `{ kind: 'plan', viewId }`. */
-  | { kind: 'area'; planId: Id };
+  | { kind: '3d' };
 
 export interface Project {
   schemaVersion: number;

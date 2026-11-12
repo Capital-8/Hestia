@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { resolverZoom } from './zoomOps.ts';
 import { multiArea, type Vec2 } from '@hestia/geom';
 import { resolveLevel, resolveRoofs, type ResolvedRoof, type ResolvedRoofLayer, type ViewClass } from '@hestia/engine';
-import { DEFAULT_VIEW_3D, ProjectStore, createEmptyProject, makeRoof, makeWall, type DetailLevel, type Id, type Project } from '@hestia/model';
+import { DEFAULT_VIEW_3D, ProjectStore, createEmptyProject, floorViewId, makeRoof, makeWall, roofViewId, type DetailLevel, type Id, type Project } from '@hestia/model';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { mix } from './color.ts';
 import { labelPoint } from './floors.ts';
@@ -62,6 +62,7 @@ function projectWithRoof(showTags = false): Project {
 function input(p: Project, over: Partial<PlanInput> = {}): PlanInput {
   return {
     project: p,
+    viewId: floorViewId('lv_0'),
     levelId: 'lv_0',
     resolved: resolveLevel(p, 'lv_0', new Map()),
     below: null,
@@ -319,7 +320,7 @@ describe('cota da cumeeira e planta de cobertura (D6)', () => {
     s.exec({ type: 'addWall', wall: makeWall({ id: 'b', typeId: 'wt_alv14', levelId: 'lv_0', a: P(8, 0), b: P(8, 6) }) });
     s.exec({ type: 'addRoof', roof: makeRoof({ id: 'r', typeId: 'rt_ceramica', levelId: 'lv_0', boundary: [P(-0.3, -0.3), P(8.3, -0.3), P(8.3, 6.3), P(-0.3, 6.3)], heightOffset: 2.8, shape: 'gable', slopePercent: 30, dir: P(1, 0) }) });
     const p = s.project;
-    const dl = buildPlanDrawList(input(p, { roofPlanMode: true }));
+    const dl = buildPlanDrawList(input(p, { viewId: roofViewId('lv_0') }));
     expect(dl.fills.filter((f) => f.alpha < 1)).toHaveLength(0);
     expect(dl.labels.some((l) => /^▲ \+\d,\d\d$/.test(l.text))).toBe(true);
     // paredes: contorno fino de 1 px, e nenhum contorno grosso de parede (2,2 px fechado) sobra
@@ -330,7 +331,7 @@ describe('cota da cumeeira e planta de cobertura (D6)', () => {
   it('roofPlanMode: os telhados de baixo entram opacos, só o preenchimento (sem a faixa apagada)', () => {
     const p = projectWithRoof();
     const below = gable();
-    const dl = buildPlanDrawList(input(p, { roofPlanMode: true, below: resolveLevel(p, 'lv_0', new Map()), belowRoofs: [below] }));
+    const dl = buildPlanDrawList(input(p, { viewId: roofViewId('lv_0'), below: resolveLevel(p, 'lv_0', new Map()), belowRoofs: [below] }));
     const planeFill = dl.fills.find((f) => JSON.stringify(f.polygons) === JSON.stringify(below.planes[0]!.polygon));
     expect(planeFill?.alpha).toBe(1);
     expect(dl.fills.some((f) => f.color === LIGHT.underlay && f.alpha === 0.22)).toBe(false);

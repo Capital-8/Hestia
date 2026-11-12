@@ -26,19 +26,19 @@ const plan = (id: string): AreaPlan => ({
   tags: [],
 });
 
-function withAreaPlan(areaPlanId: string | null) {
+function withAreaPlan(planId: string | null) {
   const store = new ProjectStore(createEmptyProject());
   store.exec({ type: 'addRoom', room: makeRoom({ id: 'r1', levelId: LV0, name: 'Sala', number: '101', point: { x: 2, y: 1.5 } }) });
   store.exec({ type: 'addAreaPlan', plan: plan('ap1') });
   const ctx = makeEnv(store);
-  ctx.setAreaPlanId(areaPlanId);
+  ctx.setViewId(planId ?? undefined);
   return ctx;
 }
 
 const annotationsOf = (s: ProjectStore) => planAnnotationsOf(areaPlansOf(s.project).find((p) => p.id === 'ap1')!);
 
 describe('ferramentas de anotação numa planta de área', () => {
-  it('cota, texto, detalhe e etiqueta vão para a planta quando areaPlanId existe', () => {
+  it('cota, texto, detalhe e etiqueta vão para a planta quando a vista é uma planta de área', () => {
     const ctx = withAreaPlan('ap1');
 
     const dim = tool('dimension', ctx.env);

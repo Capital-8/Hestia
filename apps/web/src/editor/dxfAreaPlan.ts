@@ -160,6 +160,7 @@ export function areaPlanDxf(p: Project, planId: Id, units?: DxfUnit, lang: Lang 
   const ops = resolverZoom(buildPlanGeometry({
     project: p,
     levelId: plan.levelId,
+    viewId: plan.id,
     resolved: resolveLevel(p, plan.levelId),
     below: null,
     areaPlan: plan,

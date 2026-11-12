@@ -1,5 +1,5 @@
 import { useState, type ReactElement } from 'react';
-import { projectView3DPoints, sectionTitleOf, sheetInnerBox, sheetOf, type SheetViewSource } from '@hestia/model';
+import { floorViewId, projectView3DPoints, sectionTitleOf, sheetInnerBox, sheetOf, type SheetViewSource } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
 import { SCALE_OPTIONS } from '../../editor/sheetActions.ts';
 import { addViewsAction, autoScaleForView, type InsertRequest } from '../../editor/sheetInsert.ts';
@@ -20,7 +20,7 @@ interface Source {
  */
 function sourcesOf(p: ReturnType<typeof useProject>, lang: Lang): Source[] {
   return [
-    ...p.levels.map((l) => ({ key: `plan:${l.id}`, label: translate(lang, 'dlc_src_plan', { name: l.name }), view: { kind: 'plan' as const, levelId: l.id } })),
+    ...p.levels.map((l) => ({ key: `plan:${l.id}`, label: translate(lang, 'dlc_src_plan', { name: l.name }), view: { kind: 'plan' as const, viewId: floorViewId(l.id) } })),
     ...p.views.map((v) => ({ key: `section:${v.id}`, label: `${translate(lang, v.kind === 'elevation' ? 'dlc_kind_elevation' : 'dlc_kind_section')} · ${sectionTitleOf(v)}`, view: { kind: 'section' as const, sectionId: v.id } })),
     ...projectView3DPoints(p).map((ponto) => ({
       key: `3d:${ponto.id}`,

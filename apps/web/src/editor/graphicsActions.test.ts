@@ -62,7 +62,7 @@ describe('editLevelGraphics (planta do nível)', () => {
 
   it('nível inexistente é recusado com a mensagem do comando', () => {
     const s = store();
-    expect(editLevelGraphics(s, 'lv_nao_existe', { scale: 50 })).toEqual({ ok: false, error: 'Nível inexistente' });
+    expect(editLevelGraphics(s, 'lv_nao_existe', { scale: 50 })).toEqual({ ok: false, error: 'Vista inexistente' });
   });
 
   it('sem mudança real não chama o comando (sem passo de desfazer)', () => {
@@ -223,13 +223,13 @@ describe('restauração (planta, 3D)', () => {
 describe('editThinLines (linhas finas da vista ativa, só na tela)', () => {
   it('desliga na planta, grava no projeto, desfaz e volta a ligada', () => {
     const s = store();
-    expect(thinLinesOn(s.project, { levelId: 'lv_0' })).toBe(true);
-    expect(editThinLines(s, { levelId: 'lv_0' }, false)).toEqual({ ok: true, error: null });
-    expect(thinLinesOn(s.project, { levelId: 'lv_0' })).toBe(false);
+    expect(thinLinesOn(s.project, { viewId: floorViewId('lv_0') })).toBe(true);
+    expect(editThinLines(s, { viewId: floorViewId('lv_0') }, false)).toEqual({ ok: true, error: null });
+    expect(thinLinesOn(s.project, { viewId: floorViewId('lv_0') })).toBe(false);
     expect(viewOfTest(s.project, floorViewId('lv_0')).graphics?.thinLines).toBe(false);
     expect(resolveText(s.undoLabel!, 'pt')).toBe('Alternar linhas finas da planta');
     s.undo();
-    expect(thinLinesOn(s.project, { levelId: 'lv_0' })).toBe(true);
+    expect(thinLinesOn(s.project, { viewId: floorViewId('lv_0') })).toBe(true);
   });
 
   it('no corte, grava no conjunto do projeto (não no nível) e tem o próprio rótulo de desfazer', () => {
@@ -237,7 +237,7 @@ describe('editThinLines (linhas finas da vista ativa, só na tela)', () => {
     expect(editThinLines(s, 'section', false).ok).toBe(true);
     expect(thinLinesOn(s.project, 'section')).toBe(false);
     expect(s.project.sectionGraphics?.thinLines).toBe(false);
-    expect(thinLinesOn(s.project, { levelId: 'lv_0' })).toBe(true);
+    expect(thinLinesOn(s.project, { viewId: floorViewId('lv_0') })).toBe(true);
     expect(resolveText(s.undoLabel!, 'pt')).toBe('Alternar linhas finas do corte');
   });
 });

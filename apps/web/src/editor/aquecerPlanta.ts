@@ -1,6 +1,6 @@
 import { LIGHT, planFrameUpdateOf } from '@hestia/render';
 import type { ResolvedLevel } from '@hestia/engine';
-import type { Id, Project } from '@hestia/model';
+import { floorViewId, type Id, type Project } from '@hestia/model';
 import { thinLinesOn } from './graphicsActions.ts';
 
 /**
@@ -14,6 +14,7 @@ export function aquecerPlanta(p: Project, levelId: Id, versao: number, resolve: 
     project: p,
     version: versao,
     levelId,
+    viewId: floorViewId(levelId),
     v: { cx: 0, cy: 0, zoom: 50, width: 1200, height: 800 },
     theme: LIGHT,
     dark: false,
@@ -22,7 +23,7 @@ export function aquecerPlanta(p: Project, levelId: Id, versao: number, resolve: 
     showUnderlay: opcoes.showUnderlay,
     underlayLevel: opcoes.underlayLevel,
     showRoofProjection: opcoes.showRoofProjection,
-    thinLines: thinLinesOn(p, { levelId }),
+    thinLines: thinLinesOn(p, { viewId: floorViewId(levelId) }),
     selection: [],
     hover: null,
     preview: [],

@@ -122,6 +122,14 @@ describe('t() e helpers de idioma', () => {
     expect(cmpTexto('ênfase', 'fase', 'pt')).toBeLessThan(0);
   });
 
+  it('nenhum idioma tem valor vazio ou literalmente "undefined"', () => {
+    for (const lang of Object.keys(I18N) as Array<keyof typeof I18N>) {
+      const dict = I18N[lang] as unknown as Record<string, string>;
+      const ruins = Object.entries(dict).filter(([, v]) => typeof v !== 'string' || v.trim() === '' || v.trim() === 'undefined').map(([k]) => k);
+      expect({ lang, ruins }).toEqual({ lang, ruins: [] });
+    }
+  });
+
   it('Dict tem paridade entre PT e EN (chaves e valores string)', () => {
     const pt = Object.keys(I18N.pt) as Array<keyof Dict>;
     const en = Object.keys(I18N.en) as Array<keyof Dict>;

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { resolverZoom } from './zoomOps.ts';
 import { multiArea, pointInPolygon, type Vec2 } from '@hestia/geom';
 import { resolveLevel, resolveSlabs } from '@hestia/engine';
-import { ProjectStore, createEmptyProject, makeFloor, makeSlab, type DetailLevel, type Project, type Slab } from '@hestia/model';
+import { ProjectStore, createEmptyProject, floorViewId, makeFloor, makeSlab, type DetailLevel, type Project, type Slab } from '@hestia/model';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { mix } from './color.ts';
 import { slabFills, slabSelectionOps, structuralLayer } from './slabs.ts';
@@ -29,6 +29,7 @@ function input(p: Project, over: Partial<PlanInput> = {}): PlanInput {
   return {
     project: p,
     levelId: 'lv_0',
+    viewId: floorViewId('lv_0'),
     resolved: resolveLevel(p, 'lv_0', new Map()),
     below: null,
     viewport: VIEW(100),

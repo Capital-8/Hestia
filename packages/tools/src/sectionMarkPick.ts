@@ -20,9 +20,9 @@ function inTriangle(p: Vec2, a: Vec2, b: Vec2, c: Vec2): boolean {
   return !(hasNeg && hasPos);
 }
 
-/** Vistas cujas extremidades caem na janela de seleção. */
-export function sectionMarkIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2): Id[] {
-  if (viewGraphicsOf(p, floorViewId(levelId)).overrides.annotation.visible === false) return [];
+/** Vistas cujas extremidades caem na janela de seleção. `viewId`: a vista de planta ativa (categoria annotation oculta nela); sem ele, o piso do nível. */
+export function sectionMarkIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2, viewId?: Id): Id[] {
+  if (viewGraphicsOf(p, viewId ?? floorViewId(levelId)).overrides.annotation.visible === false) return [];
   const x0 = Math.min(a.x, b.x);
   const x1 = Math.max(a.x, b.x);
   const y0 = Math.min(a.y, b.y);
@@ -41,8 +41,8 @@ export function sectionMarkIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2): 
  * Vista de corte/elevação sob o cursor. A marca é desenhada em mm de papel, então a tolerância acompanha o zoom e a
  * escala da vista; o rótulo e os triângulos das setas também são clicáveis. Categoria `annotation` oculta não seleciona.
  */
-export function sectionMarkAt(p: Project, levelId: Id, at: Vec2, mpp: number): Id | null {
-  const g = viewGraphicsOf(p, floorViewId(levelId));
+export function sectionMarkAt(p: Project, levelId: Id, at: Vec2, mpp: number, viewId?: Id): Id | null {
+  const g = viewGraphicsOf(p, viewId ?? floorViewId(levelId));
   if (g.overrides.annotation.visible === false) return null;
   const mPerMm = g.scale / 1000;
   const tol = Math.max(3 * mpp, 0.02);

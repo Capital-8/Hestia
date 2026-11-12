@@ -1,14 +1,14 @@
 import { dist, pointInMulti, type Vec2 } from '@hestia/geom';
 import { ceilingOutline, resolveCeilings, roomsById, type RoomsById } from '@hestia/engine';
-import { isCeiling, viewRangeOf, type Id, type Project } from '@hestia/model';
+import { isCeiling, planViewRangeOf, floorViewId, type Id, type Project } from '@hestia/model';
 
 /**
  * Forro sob o cursor, só na planta de forro (direção 'up'): dentro da geometria do forro (contorno menos furos) ou sobre a
  * borda do contorno efetivo (o do ambiente, quando acompanha). O mais recente vence. Na planta baixa forro não é desenhado,
  * então não é clicável (decisão 0021).
  */
-export function pickCeilingAt(p: Project, levelId: Id, at: Vec2, mpp: number): Id | null {
-  if (viewRangeOf(p, levelId).direction !== 'up') return null;
+export function pickCeilingAt(p: Project, levelId: Id, at: Vec2, mpp: number, viewId?: Id): Id | null {
+  if (planViewRangeOf(p, viewId ?? floorViewId(levelId)).direction !== 'up') return null;
   const tol = 4 * mpp;
   const list = resolveCeilings(p, levelId);
   const rooms = roomsById(p, levelId);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { emptyTitleBlock, type Sheet, type SheetViewport, type View3DPoint } from '@hestia/model';
+import { emptyTitleBlock, floorViewId, type Sheet, type SheetViewport, type View3DPoint } from '@hestia/model';
 import { SheetControlBar, type SheetControlBarProps } from './SheetControlBar.tsx';
 
 /** Câmera de exemplo dos pontos de vista 3D do projeto. */
@@ -79,7 +79,7 @@ describe('barra da prancha: ponto de vista 3D', () => {
   });
 
   it('vista que não é 3D não mostra o campo Ponto', () => {
-    const html = render([vista({ kind: 'plan', levelId: 'lv_0' })]);
+    const html = render([vista({ kind: 'plan', viewId: floorViewId('lv_0') })]);
     expect(html).not.toContain('Ponto de vista 3D');
     expect(html).not.toContain('>Ponto<');
     expect(trocarButton(html)).toBe('');

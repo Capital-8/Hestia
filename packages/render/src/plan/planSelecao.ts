@@ -1,4 +1,4 @@
-import { floorViewId, levelRoomSeparators, planAnnotationIds, projectGrids, viewAnnotationsOf, viewOwnAnnotationsOf, type AreaPlan, type Id, type Project } from '@hestia/model';
+import { floorViewId, levelRoomSeparators, planAnnotationIds, projectGrids, viewAnnotationsOf, type AreaPlan, type Id, type Project } from '@hestia/model';
 
 /**
  * Parte da seleção que a geometria do nível usa: as cotas do nível (decisão 0019), as linhas e regiões de detalhe, as
@@ -13,7 +13,7 @@ export function planGeometrySelection(p: Project, levelId: Id, selection: readon
   const doNivel = areaPlan ? { dimensions: [], detailLines: [], detailRegions: [] } : viewAnnotationsOf(p, floorViewId(levelId));
   const proprias = (): Id[] => {
     if (viewId === undefined) return areaPlan ? planAnnotationIds(areaPlan) : [];
-    const a = viewOwnAnnotationsOf(p, viewId);
+    const a = viewAnnotationsOf(p, viewId);
     return [...a.dimensions.map((x) => x.id), ...a.texts.map((x) => x.id), ...a.detailLines.map((x) => x.id), ...a.detailRegions.map((x) => x.id), ...a.tags.map((x) => x.id)];
   };
   const used = new Set<Id>([

@@ -1,4 +1,4 @@
-import { annotationRemovals, isRoom, levelRoomSeparators, projectGrids, viewOwnAnnotationsOf, viewRemovals, type Command, type Id, type ProjectStore } from '@hestia/model';
+import { annotationRemovals, isRoom, levelRoomSeparators, projectGrids, viewAnnotationsOf, viewRemovals, type Command, type Id, type ProjectStore } from '@hestia/model';
 import { areaMergePreview, removesCircuit, roomsToRemove } from './areaMerge.ts';
 import { pedirConfirmacaoAreaMerge } from './areaMergePrompt.ts';
 import { useUi } from './state.ts';
@@ -27,7 +27,7 @@ function deletePlanSelectionIn(store: ProjectStore, planId: Id, ids: Id[]): void
   if (!vista?.area) return;
   const levelId = vista.levelId;
   const want = new Set(ids);
-  const a = viewOwnAnnotationsOf(store.project, planId);
+  const a = viewAnnotationsOf(store.project, planId);
   const next = {
     dimensions: a.dimensions.filter((x) => !want.has(x.id)),
     texts: a.texts.filter((x) => !want.has(x.id)),

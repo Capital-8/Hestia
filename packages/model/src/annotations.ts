@@ -188,7 +188,7 @@ const sectionScope = (view: SectionView): AnnotationScope => {
 export function annotationTarget(p: Pick<Project, 'planViews'>, viewId: Id, lang: Lang = 'pt'): { levelId: Id; planId?: Id } {
   const ref = resolvePlanViewRef(p, viewId);
   if (!ref) throw new Error(translate(lang, 'md_view_missing'));
-  return ref.kind === 'area' ? { levelId: ref.levelId, planId: ref.areaPlanId } : { levelId: ref.levelId };
+  return ref.kind === 'area' ? { levelId: ref.levelId, planId: viewId } : { levelId: ref.levelId };
 }
 
 /** Aplica um comando de anotação sobre o rascunho do projeto. Lança Error em texto pt-BR se recusar. */

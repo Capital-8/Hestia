@@ -33,7 +33,7 @@ function project(): ProjectStore {
     margin: 10,
     titleBlock: { project: 'Teste', client: '', author: '', date: '29/10/2026', revision: '0' },
     viewports: [
-      { id: 'v1', view: { kind: 'areaPlan', planId: 'ap1' }, at: { x: 20, y: 120 }, size: { w: 200, h: 150 }, scale: 50 },
+      { id: 'v1', view: { kind: 'plan', viewId: 'ap1' }, at: { x: 20, y: 120 }, size: { w: 200, h: 150 }, scale: 50 },
       { id: 'v2', view: { kind: 'areaTable' }, at: { x: 240, y: 120 }, size: { w: 150, h: 150 }, scale: 50 },
     ],
   };
@@ -69,7 +69,7 @@ describe('prancha de área', () => {
         },
       },
     });
-    const parts = areaPlanPartsOf(s.project, 'ap1', { id: 'v1', view: { kind: 'areaPlan', planId: 'ap1' }, at: { x: 20, y: 20 }, size: { w: 200, h: 150 }, scale: 50 });
+    const parts = areaPlanPartsOf(s.project, 'ap1', { id: 'v1', view: { kind: 'plan', viewId: 'ap1' }, at: { x: 20, y: 20 }, size: { w: 200, h: 150 }, scale: 50 });
     const nota = parts.texts.find((t) => t.text === 'Nota da vista');
     expect(nota).toBeTruthy();
     expect(nota!.sizeMm).toBeCloseTo(3, 9);

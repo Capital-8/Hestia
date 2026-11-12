@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { classifyLevelEntries, junctionLevel, resolveRoofs, viewContextOf } from '@hestia/engine';
-import { ProjectStore, createEmptyProject, makeFloor, makeLevel, makeRoof, makeSlab, makeWall, viewRangeOf, type Project } from '@hestia/model';
+import { ProjectStore, createEmptyProject, makeFloor, makeLevel, makeRoof, makeSlab, makeWall, planViewRangeOf, floorViewId, type Project } from '@hestia/model';
 import { contextoDaVista, projetoDaJuncao } from './viewContext.ts';
 
 const BOX = [{ x: 0, y: 0 }, { x: 6, y: 0 }, { x: 6, y: 6 }, { x: 0, y: 6 }];
@@ -19,8 +19,8 @@ function projeto(anexada: boolean): Project {
 }
 
 /** Entradas da classificação em ordem (a de `classifyLevelEntries` já vem ordenada por id). */
-const entradas = (p: Project, levelId: string) => classifyLevelEntries(p, levelId, viewRangeOf(p, levelId), contextoDaVista(p, levelId));
-const entradasPadrao = (p: Project, levelId: string) => classifyLevelEntries(p, levelId, viewRangeOf(p, levelId));
+const entradas = (p: Project, levelId: string) => classifyLevelEntries(p, levelId, planViewRangeOf(p, floorViewId(levelId)), contextoDaVista(p, levelId));
+const entradasPadrao = (p: Project, levelId: string) => classifyLevelEntries(p, levelId, planViewRangeOf(p, floorViewId(levelId)));
 
 describe('contexto de cotas da vista (contextoDaVista)', () => {
   it('sem parede anexada, a classificação do nível é a mesma que com o projeto inteiro', () => {

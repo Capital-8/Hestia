@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_VIEW_GRAPHICS, createEmptyProject, emptyTitleBlock, makeWall, patchFloorOfTest, type Project, type Sheet, type Wall } from '@hestia/model';
+import { floorViewId, DEFAULT_VIEW_GRAPHICS, createEmptyProject, emptyTitleBlock, makeWall, patchFloorOfTest, type Project, type Sheet, type Wall } from '@hestia/model';
 import { buildSheetDrawList } from './build.ts';
 
 /*
@@ -18,7 +18,7 @@ const sheet: Sheet = {
   viewports: [
     {
       id: 'v1',
-      view: { kind: 'plan', levelId: 'lv_0' },
+      view: { kind: 'plan', viewId: floorViewId('lv_0') },
       at: { x: 20, y: 20 },
       size: { w: 200, h: 150 },
       scale: 100,

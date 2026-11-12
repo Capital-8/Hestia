@@ -8,7 +8,6 @@ import { atalhoAtual } from './editor/shortcutConfig.ts';
 import { guardarSessao, lerSessao, limparSessao } from './editor/sessao.ts';
 import { tabOf } from './editor/viewTabActions.ts';
 import type { OpenView } from './editor/openViews.ts';
-import { tipoDeVistaDeFundo } from './editor/vistaAtiva.ts';
 import { dockWidths } from './editor/dockLayout.ts';
 import { Dock } from './ui/Dock.tsx';
 import { FileMenu } from './ui/FileMenu.tsx';
@@ -313,9 +312,7 @@ export function App(): ReactElement {
   // Guarda a sessão a cada mudança de vista/projeto: é o que o F5 reabre.
   useEffect(() => {
     if (tela !== 'editor') return;
-    // A sessão grava o tipo da planta ao lado do id (o formato guardado o inclui); o estado da interface não o guarda.
-    const planKind = tipoDeVistaDeFundo(editor.project, { levelId: nivelAtivo, planViewId });
-    guardarSessao({ pasta: editor.pastaNaBiblioteca, view: vista, levelId: nivelAtivo, planKind, planViewId, sectionId, openViews: abas });
+    guardarSessao({ pasta: editor.pastaNaBiblioteca, view: vista, levelId: nivelAtivo, planViewId, sectionId, openViews: abas });
   }, [tela, vista, nivelAtivo, planViewId, sectionId, abas]);
 
   // Voltar de propósito para a tela de projetos encerra a sessão da aba: F5 ali continua na tela de projetos. Durante

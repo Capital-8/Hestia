@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveLevel } from '@hestia/engine';
-import { createEmptyProject, makeWall, ProjectStore } from '@hestia/model';
+import { createEmptyProject, floorViewId, makeWall, ProjectStore } from '@hestia/model';
 import type { PreviewItem } from '@hestia/tools';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { previewOverlay, snapTooltipLabel } from './overlay.ts';
@@ -75,6 +75,7 @@ describe('prévia da escada por tom (decisão 0011 · interface)', () => {
     const p = createEmptyProject();
     const input: PlanInput = {
       project: p,
+      viewId: floorViewId('lv_0'),
       levelId: 'lv_0',
       resolved: resolveLevel(p, 'lv_0', new Map()),
       below: null,
@@ -118,6 +119,7 @@ describe('realce do aviso (decisão 0044)', () => {
     const p = store.project;
     const input: PlanInput = {
       project: p,
+      viewId: floorViewId('lv_0'),
       levelId: 'lv_0',
       resolved: resolveLevel(p, 'lv_0', new Map()),
       below: null,

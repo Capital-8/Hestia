@@ -1,4 +1,4 @@
-import { normalizeSheetViewSource, newSheetId, planViewOf, sheetPlanViewOf, newViewportId, projectSheets, sectionPoints, sheetDimsMm, sheetInnerBox, sheetIssue, sheetOf, viewportAnchor, viewportIssue, type Command, type Id, type Project, type ProjectStore, type Sheet, type SheetViewport, type SheetViewSource } from '@hestia/model';
+import { floorViewId, newSheetId, planViewOf, sheetPlanViewOf, newViewportId, projectSheets, sectionPoints, sheetDimsMm, sheetInnerBox, sheetIssue, sheetOf, viewportAnchor, viewportIssue, type Command, type Id, type Project, type ProjectStore, type Sheet, type SheetViewport, type SheetViewSource } from '@hestia/model';
 import { buildSheetDrawList, levelBox, sectionBox, STAMP_W, stampHeightOf, type SheetDrawList } from '@hestia/render';
 import { computeSection } from '@hestia/engine';
 import { exportSheetsPdf } from '@hestia/io';
@@ -13,7 +13,7 @@ import { vistaDeArea } from './vistaDeArea.ts';
 /** Passo da grade para procurar lugar livre (mm). */
 const SPOT_STEP = 10;
 /** Tamanho padrão de uma vista nova (mm de papel); encolhe se não couber na área de desenho. */
-const DEFAULT_SIZE: Record<SheetViewSource['kind'], { w: number; h: number }> = { plan: { w: 180, h: 130 }, areaPlan: { w: 180, h: 130 }, areaTable: { w: 120, h: 120 }, section: { w: 180, h: 100 }, '3d': { w: 180, h: 130 } };
+const DEFAULT_SIZE: Record<SheetViewSource['kind'], { w: number; h: number }> = { plan: { w: 180, h: 130 }, areaTable: { w: 120, h: 120 }, section: { w: 180, h: 100 }, '3d': { w: 180, h: 130 } };
 export const SCALE_OPTIONS = [20, 25, 50, 100, 200, 500] as const;
 
 /** Número seguinte da prancha: A-101, A-102, … a partir do que já existe. */
@@ -122,7 +122,7 @@ export function addViewAction(store: ProjectStore, sheetId: Id, view: SheetViewS
   const inner = sheetInnerBox(s);
   let vpScale = scale;
   // Forma única: a fonte é normalizada na entrada; planta de área é a vista `area` (tamanho pelo conteúdo do nível).
-  const source = normalizeSheetViewSource(view);
+  const source = view;
   const areaId = source.kind === 'plan' && planViewOf(store.project, source.viewId)?.kind === 'area' ? source.viewId : null;
   let size = areaId ? areaPlanSheetSize(store.project, areaId, vpScale) : defaultViewSize(s, source);
   if (areaId && (size.w > inner.x1 - inner.x0 || size.h > inner.y1 - inner.y0)) {
@@ -160,7 +160,7 @@ const LEVEL_BOX_PAD_M = 1;
 
 /** Caixa do conteúdo de uma vista em metros (largura × altura), ou null quando não há modelo a enquadrar. */
 export function viewContentBoxM(p: Project, view: SheetViewSource): { w: number; h: number } | null {
-  if (view.kind === 'plan' || view.kind === 'areaPlan') {
+  if (view.kind === 'plan') {
     const plan = sheetPlanViewOf(p, view);
     const b = plan ? levelBox(p, plan.levelId) : null;
     return b ? { w: Math.max(0.1, b.maxX - b.minX - LEVEL_BOX_PAD_M), h: Math.max(0.1, b.maxY - b.minY - LEVEL_BOX_PAD_M) } : null;
@@ -349,7 +349,7 @@ export function pranchaDaPlantaAtual(store: ProjectStore, levelId: Id): Id {
   let id = '';
   store.transaction(t(useI18n.getState().lang, 'cvs_undo_create_sheet_plan'), () => {
     id = addSheetAction(store);
-    addViewAction(store, id, { kind: 'plan', levelId }, 100);
+    addViewAction(store, id, { kind: 'plan', viewId: floorViewId(levelId) }, 100);
   });
   return id;
 }

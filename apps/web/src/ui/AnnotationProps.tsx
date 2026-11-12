@@ -20,7 +20,7 @@ import {
   type Id,
   type Project,
   type TextNote,
-  viewOwnAnnotationsOf,
+  viewAnnotationsOf,
 } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
 import { resolveAngularDimension } from '@hestia/engine';
@@ -68,7 +68,7 @@ export function selectedNote(p: Project, levelId: Id, ids: Id[], planId?: Id | n
   if (planId) {
     // Vista de planta que não é a de piso (cobertura ou área): cada uma tem as anotações próprias; id sem vista não acha nada.
     if (!planViewOf(p, planId)) return null;
-    const a = viewOwnAnnotationsOf(p, planId);
+    const a = viewAnnotationsOf(p, planId);
     const dim = a.dimensions.find((d) => d.id === id);
     if (dim) return { dim };
     const text = a.texts.find((t) => t.id === id);
@@ -80,7 +80,7 @@ export function selectedNote(p: Project, levelId: Id, ids: Id[], planId?: Id | n
     const tag = a.tags.find((x) => x.id === id);
     return tag ? { tag } : null;
   }
-  const nivel = viewOwnAnnotationsOf(p, floorViewId(levelId));
+  const nivel = viewAnnotationsOf(p, floorViewId(levelId));
   const dim = nivel.dimensions.find((d) => d.id === id);
   if (dim) return { dim };
   const text = nivel.texts.find((t) => t.id === id);

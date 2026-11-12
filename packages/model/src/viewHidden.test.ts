@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyProject, ProjectStore } from '@hestia/model';
+import { createEmptyProject, floorViewId, ProjectStore, roofViewId } from '@hestia/model';
 import type { SectionView } from '@hestia/model';
 
 describe('setViewHidden', () => {
   it('guarda e limpa ocultação da planta de piso com um undo', () => {
     const s = new ProjectStore(createEmptyProject());
-    s.exec({ type: 'setViewHidden', target: { kind: 'plan', levelId: 'lv_0' }, hidden: { elements: ['w1'], categories: ['door'] } });
+    s.exec({ type: 'setViewHidden', target: { kind: 'plan', viewId: floorViewId('lv_0') }, hidden: { elements: ['w1'], categories: ['door'] } });
     expect(s.project.planViews[0]!.hidden).toEqual({ elements: ['w1'], categories: ['door'] });
     s.undo();
     expect(s.project.planViews[0]!.hidden).toBeUndefined();
@@ -19,8 +19,8 @@ describe('setViewHidden', () => {
     const view: SectionView = { id: 'sec1', name: 'Corte', kind: 'section', a: { x: 0, y: 0 }, b: { x: 1, y: 0 }, depth: 3 };
     p.views.push(view);
     s.exec({ type: 'batch', commands: [
-      { type: 'setViewHidden', target: { kind: 'plan', levelId: 'lv_0' }, hidden: { elements: ['a'] } },
-      { type: 'setViewHidden', target: { kind: 'roof', levelId: 'lv_0' }, hidden: { elements: ['b'] } },
+      { type: 'setViewHidden', target: { kind: 'plan', viewId: floorViewId('lv_0') }, hidden: { elements: ['a'] } },
+      { type: 'setViewHidden', target: { kind: 'plan', viewId: roofViewId('lv_0') }, hidden: { elements: ['b'] } },
       { type: 'setViewHidden', target: { kind: 'section', viewId: 'sec1' }, hidden: { elements: ['c'] } },
       { type: 'setViewHidden', target: { kind: '3d' }, hidden: { categories: ['wall'] } },
     ] });
@@ -35,6 +35,6 @@ describe('setViewHidden', () => {
     s.exec({ type: 'setViewHidden', target: { kind: '3d' }, hidden: { elements: ['a'] } });
     s.exec({ type: 'setViewHidden', target: { kind: '3d' }, hidden: undefined });
     expect(s.project.view3d?.hidden).toBeUndefined();
-    expect(() => s.exec({ type: 'setViewHidden', target: { kind: 'plan', levelId: 'lv_0' }, hidden: { categories: ['nope' as never] } })).toThrow(/categorias/);
+    expect(() => s.exec({ type: 'setViewHidden', target: { kind: 'plan', viewId: floorViewId('lv_0') }, hidden: { categories: ['nope' as never] } })).toThrow(/categorias/);
   });
 });

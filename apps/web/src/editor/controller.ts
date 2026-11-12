@@ -6,7 +6,7 @@ import {
   ProjectStore,
   copyLinkOf, syncWholeLinkCommand,
   annotationIdsIn, projectGrids, DEFAULT_AREA_GRAPHICS, isRoom,
-  viewOwnAnnotationsOf, viewGraphicsOf, floorViewId, roofViewId, toolAllowedInView, planViewOf as vistaDoModelo,
+  viewAnnotationsOf, viewGraphicsOf, floorViewId, roofViewId, toolAllowedInView, planViewOf as vistaDoModelo,
   levelRoomSeparators,
   sectionGraphicsOf,
   buildTemplate,
@@ -210,11 +210,11 @@ export class Editor {
       const s = sectionGraphicsOf(this.project).scale;
       return Number.isFinite(s) && s > 0 ? s : 100;
     }
-    // A escala própria é da planta de área (`area.scale`); piso e cobertura usam a do nível.
+    // A escala própria é da planta de área (`area.scale`); piso e cobertura usam a escala gráfica da vista ativa.
     const ativaId = planViewIdAtivo(st);
     const propria = ativaId ? vistaDoModelo(this.project, ativaId)?.area?.scale : undefined;
     if (propria !== undefined && Number.isFinite(propria) && propria > 0) return propria;
-    const s = viewGraphicsOf(this.project, floorViewId(st.levelId)).scale;
+    const s = viewGraphicsOf(this.project, ativaId ?? floorViewId(st.levelId)).scale;
     return Number.isFinite(s) && s > 0 ? s : 100;
   }
 
@@ -786,7 +786,7 @@ export class Editor {
     // sai o que sumiu.
     const st = useUi.getState();
     const ativa = planViewIdAtivo(st);
-    const daVista = ativa && vistaDoModelo(p, ativa) ? idsDeAnotacoes(viewOwnAnnotationsOf(p, ativa)) : [];
+    const daVista = ativa && vistaDoModelo(p, ativa) ? idsDeAnotacoes(viewAnnotationsOf(p, ativa)) : [];
     const notes = new Set([...annotationIdsIn(p, st.levelId, sel), ...daVista.filter((id) => sel.includes(id))]);
     const views = new Set(p.views.map((v) => v.id));
     const seps = new Set(levelRoomSeparators(p, st.levelId).map((r) => r.id));

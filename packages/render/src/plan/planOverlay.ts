@@ -193,7 +193,7 @@ export function buildPlanSelectionOverlay(entrada: PlanInput): PlanOps {
   const input = resolvePlanInput(entrada);
   const { project: p, theme } = input;
   const ctx = planContext(input);
-  const { geo, hidden, up, roofHidden, stairs, view, style } = ctx;
+  const { geo, hidden, up, hiddenRoofs, stairs, view, style } = ctx;
   const selection = input.selection;
   const out = vazio();
   const add = (o: PlanOps): void => {
@@ -211,7 +211,7 @@ export function buildPlanSelectionOverlay(entrada: PlanInput): PlanOps {
   out.strokes.push(...rmsel.strokes);
   add(slabSelectionOps(p, input.levelId, selection, null, theme, input.viewport, hidden, alcasDeModelo));
   if (up) add(ceilingSelectionOps(p, input.levelId, selection, null, theme, input.viewport, hidden, alcasDeModelo));
-  add(roofSelectionOps(p, input.levelId, selection, null, theme, input.viewport, roofHidden, style.paint.roof, alcasDeModelo));
+  add(roofSelectionOps(p, input.levelId, selection, null, theme, input.viewport, hiddenRoofs, style.paint.roof, alcasDeModelo));
   add(stairSelectionOps(p, stairs, selection, null, theme, input.viewport, alcasDeModelo));
   if (selection.length) {
     out.fills.push(...elementHighlight(p, geo, selection, theme.select, 0.26, view));
@@ -240,7 +240,7 @@ export function buildPlanSelectionOverlay(entrada: PlanInput): PlanOps {
 export function buildPlanHoverOverlay(entrada: PlanInput): PlanOps {
   const input = resolvePlanInput(entrada);
   const { project: p, theme } = input;
-  const { viewId, geo, hidden, up, roofHidden, stairs, ramps, view, style } = planContext(input);
+  const { viewId, geo, hidden, up, hiddenRoofs, stairs, ramps, view, style } = planContext(input);
   const hover = input.hover;
   const aviso = input.aviso ?? null;
   const out = vazio();
@@ -263,7 +263,7 @@ export function buildPlanHoverOverlay(entrada: PlanInput): PlanOps {
   out.strokes.push(...rmsel.strokes);
   add(slabSelectionOps(p, input.levelId, [], hover, theme, input.viewport, hidden, alcasDeModelo));
   if (up) add(ceilingSelectionOps(p, input.levelId, [], hover, theme, input.viewport, hidden, alcasDeModelo));
-  add(roofSelectionOps(p, input.levelId, [], hover, theme, input.viewport, roofHidden, style.paint.roof, alcasDeModelo));
+  add(roofSelectionOps(p, input.levelId, [], hover, theme, input.viewport, hiddenRoofs, style.paint.roof, alcasDeModelo));
   add(stairSelectionOps(p, stairs, [], hover, theme, input.viewport, alcasDeModelo));
   add(rampSelectionOps(p, ramps, [], hover, theme, input.viewport, alcasDeModelo));
   out.fills.push(...elementHighlight(p, geo, [hover], theme.select, 0.16, view));
@@ -305,7 +305,7 @@ export function buildPlanOverlay(entrada: PlanInput): PlanOps {
   const input = resolvePlanInput(entrada);
   const { project: p, theme, viewport: v } = input;
   const ctx = planContext(input);
-  const { geo, hidden, up, roofHidden, stairs, ramps, view, style } = ctx;
+  const { geo, hidden, up, hiddenRoofs, stairs, ramps, view, style } = ctx;
   const { selection, hover } = input;
   const out = vazio();
   const alcasDeModelo = input.areaPlan === undefined;
@@ -322,7 +322,7 @@ export function buildPlanOverlay(entrada: PlanInput): PlanOps {
   out.strokes.push(...rmsel.strokes);
   add(slabSelectionOps(p, input.levelId, selection, hover, theme, v, hidden, alcasDeModelo));
   if (up) add(ceilingSelectionOps(p, input.levelId, selection, hover, theme, v, hidden, alcasDeModelo));
-  add(roofSelectionOps(p, input.levelId, selection, hover, theme, v, roofHidden, style.paint.roof, alcasDeModelo));
+  add(roofSelectionOps(p, input.levelId, selection, hover, theme, v, hiddenRoofs, style.paint.roof, alcasDeModelo));
   add(stairSelectionOps(p, stairs, selection, hover, theme, v, alcasDeModelo));
   add(rampSelectionOps(p, ramps, selection, hover, theme, v, alcasDeModelo));
   if (hover && !selection.includes(hover)) out.fills.push(...elementHighlight(p, geo, [hover], theme.select, 0.16, view));

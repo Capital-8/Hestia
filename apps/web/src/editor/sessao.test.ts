@@ -21,7 +21,6 @@ const SESSAO: Sessao = {
   view: 'plan',
   levelId: 'lv_1',
   planViewId: 'pv_lv_1',
-  planKind: 'floor',
   sectionId: null,
   openViews: [{ kind: 'plan', viewId: 'pv_lv_0' }, { kind: '3d' }],
 };
@@ -59,7 +58,6 @@ describe('sessão da aba', () => {
       view: 'plan',
       levelId: 'lv_0',
       planViewId: 'pv_lv_0',
-      planKind: 'floor',
       sectionId: null,
       openViews: [],
     });
@@ -87,7 +85,6 @@ describe('sessão da aba', () => {
     it('converte a planta de fundo e as abas para viewId', () => {
       const s = sessaoValida(antiga)!;
       expect(s.planViewId).toBe('ap_x');
-      expect(s.planKind).toBe('area');
       expect(s.levelId).toBe('lv_1');
       expect(s.openViews).toEqual([
         { kind: 'plan', viewId: 'pv_lv_0' },
@@ -108,7 +105,6 @@ describe('sessão da aba', () => {
     it('planta de área sem id (estado que não abria nada) cai na planta de piso e a aba é descartada', () => {
       const s = sessaoValida({ ...antiga, areaPlanId: null, openViews: [{ kind: 'plan', levelId: 'lv_1', planKind: 'area' }, { kind: '3d' }] })!;
       expect(s.planViewId).toBe('pv_lv_1');
-      expect(s.planKind).toBe('floor');
       expect(s.openViews).toEqual([{ kind: '3d' }]);
     });
 

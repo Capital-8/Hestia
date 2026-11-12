@@ -146,7 +146,7 @@ export function buildPlanGeometry(entrada: PlanInput): PlanOps {
   const fillT = input.dark ? 0.5 : 0.58;
 
   // Contexto do nível e da vista (o mesmo que a sobreposição usa): estilo, vista, geometria e ocultos.
-  const { viewId, style, rp, view, up, geo, hidden, roofOff, roofHidden, stairs, ramps } = planContext(input);
+  const { viewId, style, rp, view, up, geo, hidden, roofOff, hiddenRoofs, stairs, ramps } = planContext(input);
   // As anotações e as marcas de corte leem o nível: o projeto sem as ocultas é o que elas desenham (Hide in View).
   const pNotas = semAnotacoesOcultas(p, input.levelId, hidden);
   const { detail, paint } = style;
@@ -174,7 +174,7 @@ export function buildPlanGeometry(entrada: PlanInput): PlanOps {
 
   // Telhados visíveis acima do plano de corte: a cobertura esconde as paredes por baixo. Elas voltam no fim, só como
   // contorno esmaecido; as linhas e os símbolos das paredes sob a cobertura não sobem por cima do telhado.
-  const telhadosAcima = areaPlan ? [] : rp || !view ? [] : telhadosDoNivel(p, input.levelId).filter((r) => !roofHidden?.has(r.roofId) && view.cls.get(r.roofId) === 'projection-above');
+  const telhadosAcima = areaPlan ? [] : rp || !view ? [] : telhadosDoNivel(p, input.levelId).filter((r) => !hiddenRoofs?.has(r.roofId) && view.cls.get(r.roofId) === 'projection-above');
   const coberturaAcima: MultiPolygon = telhadosAcima.length > 0 ? union(...telhadosAcima.map((r) => roofFootprint(r))) : [];
   const sobCobertura = (q: Vec2): boolean => coberturaAcima.length > 0 && pointInMulti(q, coberturaAcima);
   const meioDoTraco = (s: StrokeOp): Vec2 => {
@@ -335,7 +335,7 @@ export function buildPlanGeometry(entrada: PlanInput): PlanOps {
   if (profile.roofs !== 'hidden') {
     const rf = roofFills(p, input.levelId, theme, input.dark, detail, v, {
       planMode: rp,
-      hidden: roofHidden,
+      hidden: hiddenRoofs,
       categoryHidden: roofOff,
       showProjection: profile.roofs === 'projection' ? true : input.showRoofProjection !== false,
       projectionOnly: profile.roofs === 'projection',

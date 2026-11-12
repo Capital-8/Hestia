@@ -1,6 +1,5 @@
 import { floorViewId, planViewRef, planViewRefOf, roofViewId, type Id, type PlanViewKind, type Project } from '@hestia/model';
 import { useUi, type UiState } from './state.ts';
-import type { PlanKind } from './openViews.ts';
 
 /** O que as consultas de tipo precisam do projeto. */
 type ProjetoComVistas = Pick<Project, 'planViews'>;
@@ -11,26 +10,16 @@ type ProjetoComVistas = Pick<Project, 'planViews'>;
  * escritos SEMPRE juntos, por `PatchDeVista` (`patchParaAtivarVista`, `camposDeNivel`). O TIPO da vista não é guardado:
  * sai do projeto (`tipoDeVistaDeFundo`, `tipoDeVistaAtivo`) e as decisões por tipo vêm da tabela `PLAN_VIEW_KINDS`.
  * O resto do editor lê a vista por aqui.
- *
- * Estado no formato antigo (sem `planViewId`, com `planKind` e `areaPlanId`) continua sendo lido: a vista sai de
- * `levelId`, `planKind` e `areaPlanId`. Serve a sessões antigas e ao harness do ouro (`tests/vistas-ouro`).
  */
 export type CamposDaVista = Pick<UiState, 'view' | 'levelId'> & {
   planViewId?: Id | null;
-  /** @deprecated Forma antiga do estado: só lida quando não há `planViewId` (e como tipo, se o projeto não tem a vista). */
-  planKind?: PlanKind;
-  /** @deprecated Forma antiga do estado: só lida quando não há `planViewId`. */
-  areaPlanId?: Id | null;
 };
 
 /**
- * Id da vista de planta dos campos do estado, SEM olhar `view`. Estado antigo com planta de área sem `areaPlanId`
- * não tem vista (`null`).
+ * Id da vista de planta dos campos do estado, SEM olhar `view`; `null` quando o estado não tem `planViewId`.
  */
 function idDaPlanta(ui: Omit<CamposDaVista, 'view'>): Id | null {
-  if (ui.planViewId) return ui.planViewId;
-  if (ui.planKind === 'area') return ui.areaPlanId ?? null;
-  return ui.planKind === 'roof' ? roofViewId(ui.levelId) : floorViewId(ui.levelId);
+  return ui.planViewId || null;
 }
 
 /**
@@ -56,16 +45,15 @@ export const nivelAtivo = (ui: Pick<UiState, 'levelId'>): Id => ui.levelId;
 /**
  * Tipo da planta "de fundo" (qualquer que seja `view`), lido da vista no projeto: a consulta única do tipo, de onde sai
  * a decisão por tipo (`PLAN_VIEW_KINDS`). Piso e cobertura principais se reconhecem pelo próprio id (`planViewRef`), mesmo
- * sem o projeto ou depois de o nível sair dele; a planta de área precisa do projeto. Vista que não se reconhece vale `floor`,
- * ou o `planKind` do estado no formato antigo.
+ * sem o projeto ou depois de o nível sair dele; a planta de área precisa do projeto. Vista que não se reconhece vale `floor`.
  */
 export function tipoDeVistaDeFundo(p: ProjetoComVistas | undefined, ui: Omit<CamposDaVista, 'view'>): PlanViewKind {
   const id = idDaPlanta(ui);
   const ref = id ? ((p ? planViewRefOf(p, id) : undefined) ?? planViewRef(id)) : undefined;
-  return ref ? ref.kind : (ui.planKind ?? 'floor');
+  return ref ? ref.kind : 'floor';
 }
 
-/** Tipo da vista de planta ativa; `null` fora da planta (e, no estado antigo, na planta de área sem `areaPlanId`). */
+/** Tipo da vista de planta ativa; `null` fora da planta. */
 export function tipoDeVistaAtivo(p: ProjetoComVistas | undefined, ui: CamposDaVista): PlanViewKind | null {
   return planViewIdAtivo(ui) === null ? null : tipoDeVistaDeFundo(p, ui);
 }

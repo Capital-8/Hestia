@@ -36,14 +36,14 @@ const area = (id: string, levelId: string, over: Partial<AreaPlan> = {}): AreaPl
   id, name: `Área ${id}`, levelId, scale: 75, graphics: { ...DEFAULT_AREA_GRAPHICS, tagDefault: { ...DEFAULT_AREA_GRAPHICS.tagDefault }, showWalls: 'normal' }, tags: [], ...over,
 });
 
-/** lv_0 (anotações, graphics, hidden, roofHidden, intervalo próprio), lv_1 padrão, lv_2 padrão; três plantas de área. */
+/** lv_0 (anotações, graphics, hidden da cobertura, intervalo próprio), lv_1 padrão, lv_2 padrão; três plantas de área. */
 function montar(): ProjectStore {
   const s = new ProjectStore(createEmptyProject());
   s.exec({ type: 'upsertLevel', level: makeLevel({ id: 'lv_2', name: 'Cobertura', elevation: 6 }) });
   s.exec({ type: 'setLevelViewRange', levelId: 'lv_0', patch: { cut: 1.0, top: 2.0 } });
   s.exec({ type: 'setLevelGraphics', levelId: 'lv_0', patch: { scale: 50, overrides: { wall: { halftone: true } } } });
-  s.exec({ type: 'setViewHidden', target: { kind: 'plan', levelId: 'lv_0' }, hidden: { elements: ['w1'], categories: ['door'] } });
-  s.exec({ type: 'setViewHidden', target: { kind: 'roof', levelId: 'lv_0' }, hidden: { categories: ['stair'] } });
+  s.exec({ type: 'setViewHidden', target: { kind: 'plan', viewId: floorViewId('lv_0') }, hidden: { elements: ['w1'], categories: ['door'] } });
+  s.exec({ type: 'setViewHidden', target: { kind: 'plan', viewId: roofViewId('lv_0') }, hidden: { categories: ['stair'] } });
   s.exec({ type: 'addDimension', levelId: 'lv_0', dimension: dim('d1') });
   s.exec({ type: 'addText', levelId: 'lv_0', text: txt('t1') });
   s.exec({ type: 'addAreaPlan', plan: area('ap_herda', 'lv_0') });
@@ -68,7 +68,7 @@ describe('ids determinísticos', () => {
 
   it('planViewRefOf resolve também a planta de área', () => {
     const p = montar().project;
-    expect(planViewRefOf(p, 'ap_propria')).toEqual({ kind: 'area', levelId: 'lv_0', areaPlanId: 'ap_propria' });
+    expect(planViewRefOf(p, 'ap_propria')).toEqual({ kind: 'area', levelId: 'lv_0' });
     expect(planViewRefOf(p, 'pvr_lv_1')).toEqual({ kind: 'roof', levelId: 'lv_1' });
     expect(planViewRefOf(p, 'nada')).toBeUndefined();
   });

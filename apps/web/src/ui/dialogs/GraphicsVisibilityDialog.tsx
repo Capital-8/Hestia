@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react';
-import { GRAPHICS_CATEGORIES, floorViewId, graphicsOf, sectionGraphicsOf, view3dOf, viewGraphicsOf, type CategoryOverride, type GraphicsCategory } from '@hestia/model';
+import { GRAPHICS_CATEGORIES, floorViewId, planViewOf, graphicsOf, sectionGraphicsOf, view3dOf, viewGraphicsOf, type CategoryOverride, type GraphicsCategory } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
-import { editLevelGraphics, editSectionGraphics, editView3D, type GraphicsEdit } from '../../editor/graphicsActions.ts';
+import { editViewGraphics, editSectionGraphics, editView3D, type GraphicsEdit } from '../../editor/graphicsActions.ts';
 import { useUi } from '../../editor/state.ts';
 import { categoryLabel, WEIGHTS } from '../graphicsLabels.ts';
 import { Check, NumField } from '../fields.tsx';
@@ -41,16 +41,19 @@ function ColorCell({ id, label, value, onCommit }: { id: string; label: string; 
 export function GraphicsVisibilityDialog({ target }: { target: string }): ReactElement | null {
   const { t, lang } = useT();
   const p = useProject();
+  const planViewId = useUi((s) => s.planViewId);
   const is3d = target === '3d';
   const isSection = target === 'section';
+  // Vista de planta ativa (a do nível do diálogo); sem ela, a planta de piso. Grava só nela, não no nível inteiro.
+  const viewId = planViewId && planViewOf(p, planViewId)?.levelId === target ? planViewId : floorViewId(target);
   const lvl = is3d || isSection ? undefined : p.levels.find((l) => l.id === target);
   const [errors, setErrors] = useState<Partial<Record<GraphicsCategory, string>>>({});
   if (!is3d && !isSection && !lvl) return null;
-  const g = is3d ? view3dOf(p) : isSection ? sectionGraphicsOf(p) : viewGraphicsOf(p, floorViewId(target));
+  const g = is3d ? view3dOf(p) : isSection ? sectionGraphicsOf(p) : viewGraphicsOf(p, viewId);
   const pg = graphicsOf(p);
   const close = (): void => useUi.setState({ dialog: null, dialogArg: null });
   const run = (c: GraphicsCategory, o: Override): void => {
-    const r: GraphicsEdit = is3d ? editView3D(editor.store, one(c, o)) : isSection ? editSectionGraphics(editor.store, one(c, o)) : editLevelGraphics(editor.store, target, one(c, o));
+    const r: GraphicsEdit = is3d ? editView3D(editor.store, one(c, o)) : isSection ? editSectionGraphics(editor.store, one(c, o)) : editViewGraphics(editor.store, viewId, one(c, o));
     setErrors((prev) => ({ ...prev, [c]: r.error ?? undefined }));
   };
   const failed = GRAPHICS_CATEGORIES.filter((c) => errors[c]);

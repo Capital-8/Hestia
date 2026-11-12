@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyProject, emptyTitleBlock, makeWall, type Project, type Sheet, type SheetViewport, type Wall } from '@hestia/model';
+import { floorViewId, createEmptyProject, emptyTitleBlock, makeWall, type Project, type Sheet, type SheetViewport, type Wall } from '@hestia/model';
 import { buildSheetDrawList } from './build.ts';
 import { partsOf, toPaper, viewMappingOf } from './convert.ts';
 import { LIGHT, type PlanDrawList } from '../plan/types.ts';
@@ -26,7 +26,7 @@ function projectWithWall(): Project {
 
 const planVp = (over: Partial<SheetViewport> = {}): SheetViewport => ({
   id: 'v1',
-  view: { kind: 'plan', levelId: 'lv_0' },
+  view: { kind: 'plan', viewId: floorViewId('lv_0') },
   at: { x: 20, y: 20 },
   size: { w: 200, h: 150 },
   scale: 100,
@@ -144,7 +144,7 @@ describe('composição da prancha', () => {
 
   it('nível inexistente não quebra: a vista fica vazia com a legenda "Vista inexistente"', () => {
     const p = projectWithWall();
-    p.sheets = [sheet([planVp({ view: { kind: 'plan', levelId: 'nope' } })])];
+    p.sheets = [sheet([planVp({ view: { kind: 'plan', viewId: floorViewId('nope') } })])];
     const list = buildSheetDrawList(p, 'sh1')!;
     expect(list.groups[0]!.fills).toHaveLength(0);
     expect(list.groups[1]!.texts.map((t) => t.text)).toContain('Vista inexistente · 1:100');

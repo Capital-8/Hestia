@@ -4,14 +4,14 @@
  * chaves lógicas de vista e em textos. Quando a API interna mudar (vistas como entidade), é este arquivo que se reescreve,
  * sem tocar nos JSON nem no ouro.
  *
- * Chaves lógicas (sobrevivem à mudança de esquema): `floor:<levelId>`, `roof:<levelId>`, `area:<areaPlanId>`, `sheet:<sheetId>`.
+ * Chaves lógicas (sobrevivem à mudança de esquema): `floor:<levelId>`, `roof:<levelId>`, `area:<id da planta de área>`, `sheet:<sheetId>`.
  *
  * Cada saída é gerada pela MESMA função de produção que o programa usa:
  *  - lista de desenho da planta: `planFrameUpdateOf(...).geometry()` + `resolverZoom` (packages/render/src/plan/planFrame.ts, zoomOps.ts);
  *  - DXF: `planDxf` e `areaPlanDxf` (apps/web/src/editor/dxfExport.ts, dxfAreaPlan.ts) e `sheetDxf` (dxfSheet.ts);
  *  - prancha: `buildSheetDrawList` (packages/render/src/sheet/build.ts);
  *  - seleção: `SelectTool` (packages/tools/src/selectTool.ts), com clique numa grade de pontos;
- *  - ocultos: `visibilityOf` (apps/web/src/editor/viewVisibility.ts) e `planViewOf(...).hidden` (packages/render/src/plan/view.ts);
+ *  - ocultos: `visibilityOf` (apps/web/src/editor/viewVisibility.ts) e `resolvedPlanViewOf(...).hidden` (packages/render/src/plan/view.ts);
  *  - avisos: `viewRangeWarnings` (packages/engine/src/viewWarnings.ts);
  *  - quantitativos: `quantifyLevel`, `build*Schedule`, `areaTableRows`, `areaLegendRows` (packages/engine/src).
  */
@@ -31,8 +31,8 @@ import {
   resolveLevel,
   viewRangeWarnings,
 } from '@hestia/engine';
-import { areaPlansOf, floorViewId, migrateProject, ProjectStore, viewAnnotationsOf, viewRangeOf, type AreaPlan, type Project } from '@hestia/model';
-import { buildSheetDrawList, contextoDaVista, levelFrameBox, LIGHT, planViewOf, resolverZoom } from '@hestia/render';
+import { areaPlansOf, floorViewId, migrateProject, ProjectStore, roofViewId, viewAnnotationsOf, planViewRangeOf, type AreaPlan, type Project } from '@hestia/model';
+import { buildSheetDrawList, contextoDaVista, levelFrameBox, LIGHT, resolvedPlanViewOf, resolverZoom } from '@hestia/render';
 import { createTool } from '@hestia/tools';
 import { planFrameUpdateOf } from '../../packages/render/src/plan/planFrame.ts';
 import { makeEnv, P } from '../../packages/tools/src/testEnv.ts';
@@ -98,7 +98,7 @@ function saidasDePlanta(p: Project, tipo: 'floor' | 'roof' | 'area', levelId: st
   };
   if (tipo === 'floor') out.dxf = protegido(() => planDxf(p, levelId, true, undefined, LANG));
   if (tipo === 'area') out.dxf = protegido(() => areaPlanDxf(p, plano!.id, undefined, LANG));
-  if (tipo !== 'roof') out.avisos = protegido(() => texto(viewRangeWarnings(p, levelId, viewRangeOf(p, levelId), contextoDaVista(p, levelId), LANG), 2));
+  if (tipo !== 'roof') out.avisos = protegido(() => texto(viewRangeWarnings(p, levelId, planViewRangeOf(p, floorViewId(levelId)), contextoDaVista(p, levelId), LANG), 2));
   if (tipo === 'area') out.quantitativos = protegido(() => texto({ tabela: areaTableRows(p, plano!, LANG), legenda: areaLegendRows(p, plano!, LANG) }, 3));
   return out;
 }
@@ -112,9 +112,14 @@ function protegido(f: () => string): string {
   }
 }
 
+/** Id da vista de planta de uma chave lógica: piso, cobertura ou a própria planta de área. */
+function idDaVista(tipo: 'floor' | 'roof' | 'area', levelId: string, plano?: AreaPlan): string {
+  return plano ? plano.id : tipo === 'roof' ? roofViewId(levelId) : floorViewId(levelId);
+}
+
 /** Estado de interface mínimo que `visibilityOf` lê (`view`, tipo de planta, nível, planta de área, corte, temporários). */
 function estadoDeInterface(tipo: 'floor' | 'roof' | 'area', levelId: string, plano?: AreaPlan): Parameters<typeof visibilityOf>[1] {
-  return { view: 'plan', planKind: tipo, levelId, areaPlanId: plano?.id ?? null, sectionId: null, viewTemp: {} } as unknown as Parameters<typeof visibilityOf>[1];
+  return { view: 'plan', levelId, planViewId: idDaVista(tipo, levelId, plano), sectionId: null, viewTemp: {} } as unknown as Parameters<typeof visibilityOf>[1];
 }
 
 /** Enquadramento fixo (mesmo para todas as vistas do projeto): caixa de todos os níveis, zoom 100 px/m. */
@@ -142,7 +147,7 @@ function listaDeDesenho(p: Project, tipo: 'floor' | 'roof' | 'area', levelId: st
     underlayLevel: null,
     showUnderlay: true,
     showRoofProjection: true,
-    thinLines: thinLinesOn(p, { levelId }),
+    thinLines: thinLinesOn(p, { viewId: floorViewId(levelId) }),
     selection: [],
     hover: null,
     aviso: null,
@@ -151,7 +156,7 @@ function listaDeDesenho(p: Project, tipo: 'floor' | 'roof' | 'area', levelId: st
     hidden: vis.hidden,
     revealed: vis.revealed,
     resolve: (id) => resolveLevel(p, id),
-    roofPlanMode: tipo === 'roof',
+    viewId: idDaVista(tipo, levelId, plano),
     areaPlan: plano,
     lang: LANG,
   });
@@ -162,7 +167,7 @@ function listaDeDesenho(p: Project, tipo: 'floor' | 'roof' | 'area', levelId: st
 /** Ids que a vista esconde: pelo usuário (Hide in View, categorias) e pelo alcance/categoria da vista (captura). */
 function ocultos(p: Project, tipo: 'floor' | 'roof' | 'area', levelId: string, plano?: AreaPlan): string {
   const vis = visibilityOf(p, estadoDeInterface(tipo, levelId, plano));
-  const alcance = tipo === 'roof' ? new Set<string>() : planViewOf(p, levelId).hidden;
+  const alcance = tipo === 'roof' ? new Set<string>() : resolvedPlanViewOf(p, levelId).hidden;
   return texto({ usuario: [...vis.hidden].sort(), alcanceECategoria: [...alcance].sort() }, 1);
 }
 
@@ -218,10 +223,10 @@ function selecao(p: Project, levelId: string, plano?: AreaPlan): string {
     ...ctx.env,
     project: () => p,
     levelId: () => levelId,
-    areaPlanId: () => plano?.id ?? null,
+    viewId: plano?.id ?? floorViewId(levelId),
     metersPerPixel: () => MPP,
     viewScale: () => plano?.scale ?? 100,
-    hiddenInView: () => planViewOf(p, levelId).hidden,
+    hiddenInView: () => resolvedPlanViewOf(p, levelId).hidden,
   };
   const ferramenta = createTool('select', env);
   ferramenta.start();

@@ -31,7 +31,7 @@ function comPlantaDeArea() {
   const store = new ProjectStore(createEmptyProject());
   store.exec({ type: 'addAreaPlan', plan: plan() });
   const ctx = makeEnv(store);
-  ctx.setAreaPlanId('ap1');
+  ctx.setViewId('ap1');
   return ctx;
 }
 

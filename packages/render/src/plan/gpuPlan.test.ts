@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type * as THREE from 'three';
 import { resolveLevel } from '@hestia/engine';
-import { buildTemplate } from '@hestia/model';
+import { buildTemplate, floorViewId } from '@hestia/model';
 import { PlanScene } from './gpuPlan.ts';
 import { PlanFrame, planFrameUpdateOf, type PlanViewState } from './planFrame.ts';
 import { rasterizarCena } from './rasterSoftware.ts';
@@ -23,6 +23,7 @@ describe('PlanScene: poucas malhas por quadro (draw calls)', () => {
     const estado: PlanViewState = {
       project: p,
       version: 1,
+      viewId: floorViewId('lv_5'),
       levelId: 'lv_5',
       v: { cx: 10, cy: 6.5, zoom: 60, width: 1200, height: 800 },
       theme: LIGHT,
@@ -55,6 +56,7 @@ describe('PlanScene: atualização incremental igual à recriação completa', (
     const base: PlanViewState = {
       project: p,
       version: 1,
+      viewId: floorViewId('lv_5'),
       levelId: 'lv_5',
       v: { cx: 10, cy: 6.5, zoom: 60, width: 1200, height: 800 },
       theme: LIGHT,
@@ -75,8 +77,8 @@ describe('PlanScene: atualização incremental igual à recriação completa', (
       { ...base, hover: paredeLv5 },
       { ...base, hover: paredeLv5, selection: [paredeLv5] },
       { ...base, selection: [paredeLv5], v: { ...base.v, zoom: 80 } },
-      { ...base, selection: [paredeLv5], v: { ...base.v, zoom: 80 }, levelId: 'lv_4', resolve: (id) => resolveLevel(p, id, new Map()) },
-      { ...base, selection: [paredeLv5], v: { ...base.v, zoom: 80 }, levelId: 'lv_4', showGrid: false },
+      { ...base, selection: [paredeLv5], v: { ...base.v, zoom: 80 }, viewId: floorViewId('lv_4'), levelId: 'lv_4', resolve: (id) => resolveLevel(p, id, new Map()) },
+      { ...base, selection: [paredeLv5], v: { ...base.v, zoom: 80 }, viewId: floorViewId('lv_4'), levelId: 'lv_4', showGrid: false },
       { ...base, levelId: 'lv_5', version: 2, v: { ...base.v, zoom: 40 } },
     ];
     const incremental = new PlanScene();
