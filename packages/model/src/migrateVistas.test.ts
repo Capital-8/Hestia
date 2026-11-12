@@ -57,8 +57,9 @@ function esperadoDaArea(b: Bruto, a: BrutoArea): Anots {
       tags: mostraNotas(a) ? lista(nivel, 'tags') : [],
     };
   }
-  // Conjunto próprio: fica como está (as etiquetas do nível continuam sendo lidas da planta de piso na área).
-  return a.annotations;
+  // Conjunto próprio: as próprias e, depois, uma cópia de cada etiqueta de elemento do nível quando a planta as desenhava
+  // (`showAnnotations` ligado: antes elas eram lidas da planta de piso na hora de desenhar). As outras famílias ficam.
+  return { ...a.annotations, tags: [...lista(a.annotations, 'tags'), ...(a.graphics?.showAnnotations === true ? lista(nivel, 'tags') : [])] };
 }
 
 describe('migração 23 → 24: testes 1 a 8', () => {
