@@ -340,7 +340,7 @@ export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
   }
   const antes = dimensoesCortinas(p);
   applyCommandBase(p, c, lang);
-  sincronizarCortinasEmbutidas(p, lang);
+  sincronizarCortinasEmbutidas(p);
   if (antes.size > 0) ajustarCortinasAlteradas(p, antes);
 }
 
