@@ -46,6 +46,8 @@ function entrada(): FurnitureImportInput {
   const b = esfera(20);
   return {
     name: 'Sofa',
+    // estes testes verificam a matematica de transformacao com o bloco na origem do arquivo; o recentramento tem teste proprio no modelo
+    recenter: false,
     sourceFileName: 'sofa.skp',
     sourceFormat: 'skp',
     defs: [{ id: 'dA', name: 'A', ...a }, { id: 'dB', name: 'B', ...b }],

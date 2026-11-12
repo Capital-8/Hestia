@@ -74,7 +74,8 @@ function grade(w: number): FurnitureImportInput {
 function projetoCom(inputs: FurnitureImportInput[]): { store: ProjectStore; assets: FurnitureAsset[]; levelId: string } {
   const p = createEmptyProject();
   const store = new ProjectStore(p);
-  const assets = inputs.map((i) => buildFurnitureAsset(i));
+  // transformacao testada com o bloco na origem do arquivo; o recentramento tem teste proprio no modelo
+  const assets = inputs.map((i) => buildFurnitureAsset({ ...i, recenter: false }));
   for (const a of assets) store.exec({ type: 'addFurnitureAsset', asset: a });
   return { store, assets, levelId: p.levels[0]!.id };
 }
