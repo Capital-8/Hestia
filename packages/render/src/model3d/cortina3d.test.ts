@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MalhaCortinaProjeto } from '@hestia/engine';
-import { arestasDaCortina, avulsosDaCortina, caixasDasCortinas, celulaContemCentro, lotesDaCortina, malhaDePickCortina, matriz16, normaisDaMalha, normaisDoProto, subconjuntoDeLotes } from './cortina3d.ts';
+import { arestasDaCortina, avulsosDaCortina, caixaDoRetangulo, caixasDasCortinas, celulaContemCentro, lotesDaCortina, malhaDePickCortina, malhaDePickCortinaPorCaixas, matriz16, normaisDaMalha, normaisDoProto, subconjuntoDeLotes, subtraiRetangulo } from './cortina3d.ts';
 
 /** Caixa unitária com 24 vértices (4 por face), como o Rust entrega (vértices próprios por face). */
 function caixa(): { vertices: Float32Array; indices: Uint32Array } {
@@ -85,9 +85,9 @@ describe('cortina3d: contas puras da malha por instâncias', () => {
     expect(cx.get('b')!.min[1]).toBeCloseTo(10, 6);
   });
 
-  it('picking: uma caixa de 12 triângulos por cortina, com a faixa dela', () => {
+  it('picking: uma caixa de 12 triângulos por cortina, com a faixa dela em POSIÇÕES DE ÍNDICE (36 por caixa, como ElementRange)', () => {
     const pk = malhaDePickCortina(caixasDasCortinas(lotesDaCortina(malha())));
-    expect(pk.ranges).toEqual([{ id: 'a', start: 0, count: 12 }, { id: 'b', start: 12, count: 12 }]);
+    expect(pk.ranges).toEqual([{ id: 'a', start: 0, count: 36 }, { id: 'b', start: 36, count: 36 }]);
     expect(pk.positions.length).toBe(2 * 8 * 3);
     expect(pk.indices.length).toBe(2 * 36);
   });
@@ -201,5 +201,50 @@ describe('cortina3d: subconjunto de instâncias para o realce (sem caixa)', () =
     const parede = { a: { x: 0, y: 0 }, b: { x: 0, y: 6 }, L: 6, zBase: 1, profundidade: 0.1 };
     expect(celulaContemCentro([0, 3, 2.5], parede, { s0: 2, s1: 4, z0: 0, z1: 3 })).toBe(true);
     expect(celulaContemCentro([0.5, 3, 2.5], parede, { s0: 2, s1: 4, z0: 0, z1: 3 })).toBe(false);
+  });
+});
+
+describe('cortina3d: picking sem o vão da esquadria', () => {
+  const r = (s0: number, s1: number, z0: number, z1: number) => ({ s0, s1, z0, z1 });
+  const area = (rs: Array<{ s0: number; s1: number; z0: number; z1: number }>) => rs.reduce((t, q) => t + (q.s1 - q.s0) * (q.z1 - q.z0), 0);
+
+  it('subtraiRetangulo: o vão no meio da célula sobra em quatro retângulos que somam a área de fora, sem sobreposição', () => {
+    const celula = r(1.5, 3, 0, 3);
+    const vao = r(1.529, 2.971, 0, 2.95);
+    const sobra = subtraiRetangulo(celula, vao);
+    expect(sobra).toHaveLength(3); // esquerda, direita e acima (abaixo não sobra: o vão encosta na base)
+    expect(area(sobra)).toBeCloseTo(1.5 * 3 - 1.442 * 2.95, 9);
+    for (const q of sobra) expect(q.s0 >= vao.s0 && q.s1 <= vao.s1 && q.z0 >= vao.z0 && q.z1 <= vao.z1).toBe(false);
+  });
+
+  it('subtraiRetangulo: sem interseção devolve o próprio retângulo; vão que cobre a célula inteira não deixa nada', () => {
+    expect(subtraiRetangulo(r(0, 1, 0, 1), r(2, 3, 0, 1))).toEqual([r(0, 1, 0, 1)]);
+    expect(subtraiRetangulo(r(0, 1, 0, 1), r(-1, 2, -1, 2))).toEqual([]);
+  });
+
+  it('caixaDoRetangulo: a caixa do retângulo na parede a→b, com a espessura centrada no plano', () => {
+    const parede = { a: { x: 0, y: 0 }, b: { x: 6, y: 0 }, L: 6, zBase: 10, profundidade: 0.1 };
+    const c = caixaDoRetangulo(parede, r(1.5, 3, 0, 1.5));
+    expect(c.min[0]).toBeCloseTo(1.5, 9);
+    expect(c.max[0]).toBeCloseTo(3, 9);
+    expect(c.min[1]).toBeCloseTo(-0.05, 9);
+    expect(c.max[1]).toBeCloseTo(0.05, 9);
+    expect(c.min[2]).toBeCloseTo(10, 9);
+    expect(c.max[2]).toBeCloseTo(11.5, 9);
+  });
+
+  it('malhaDePickCortinaPorCaixas: uma faixa de 36 índices por caixa, mesmo id em caixas diferentes, sem sobrepor os índices', () => {
+    const pk = malhaDePickCortinaPorCaixas([
+      { id: 'ct1', min: [0, 0, 0], max: [1, 1, 1] },
+      { id: 'ct1', min: [2, 0, 0], max: [3, 1, 1] },
+      { id: 'ct2', min: [6, 0, 0], max: [6.1, 4, 3] },
+    ]);
+    expect(pk.ranges).toEqual([
+      { id: 'ct1', start: 0, count: 36 },
+      { id: 'ct1', start: 36, count: 36 },
+      { id: 'ct2', start: 72, count: 36 },
+    ]);
+    expect(pk.indices.length).toBe(108);
+    expect(pk.positions.length).toBe(3 * 24);
   });
 });
