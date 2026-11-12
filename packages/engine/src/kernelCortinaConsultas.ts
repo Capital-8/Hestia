@@ -1,5 +1,5 @@
 /**
- * Leitura das saídas das consultas da parede cortina (decisão 0056, fase 1; consultas 100, 101, 102, 104 e 105). Cada função recebe o que `CenaV2.consultar`
+ * Leitura das saídas das consultas da parede cortina (decisão 0056, fase 1; consultas 100, 101, 102, 104, 105 e, da fase 5, a 107). Cada função recebe o que `CenaV2.consultar`
  * devolve (um array tipado por nome de saída) e devolve objetos nomeados; nada aqui calcula geometria. O formato de cada saída está no JSON do contrato
  * (`crates/geom-wasm/schema/cena-v11.json`).
  */
@@ -270,4 +270,105 @@ export function lerAvisosCortina(s: SaidasCortina): AvisoCortina[] {
     y: v[5 * k + 3]!,
     z: v[5 * k + 4]!,
   }));
+}
+
+// ───────────── 107 cortina_celula_porta ─────────────
+
+/** Esquadria numa célula (vão virtual) como o kernel a devolve: coordenadas da cortina (`s` ao longo do eixo a partir do início da própria cortina, `z` acima da base dela). */
+export interface PortaCortina {
+  cortina: number;
+  /** Célula canônica da região (a de menor índice). */
+  i: number;
+  j: number;
+  /** `id_num` do tipo na seção 7 (`tipos_abertura`). */
+  tipoAbertura: number;
+  /** Ajuste da grade (`ajuste` 1) em vez de preencher a célula. */
+  grade: boolean;
+  flipMao: boolean;
+  flipSentido: boolean;
+  /** O tipo é janela (senão, porta). */
+  janela: boolean;
+  /** Lados em que existe montante (o batente próprio da esquadria é omitido ali, ADR §7.6). */
+  lados: { esquerda: boolean; direita: boolean; base: boolean; topo: boolean };
+  /** `FLAGS_ESQUADRIA` (soleira derivada, vão limitado, folha mínima, fora do piso, região de mais de uma célula). */
+  flags: number;
+  /** O vão: `s0..s1 × z0..z1`. */
+  s0: number;
+  s1: number;
+  z0: number;
+  z1: number;
+  /** Profundidade do sistema (m). */
+  profundidade: number;
+  /** Peitoril efetivo (m acima da base livre da região). */
+  soleira: number;
+  larguraLivre: number;
+  alturaLivre: number;
+  folhaMinima: number;
+  /** Base da região, em z acima da base da cortina. */
+  zRegiao: number;
+}
+
+/** Linha de grade que o ajuste à esquadria pede (`linhas` e `linhas_pos`). */
+export interface LinhaAjusteCortina {
+  cortina: number;
+  i: number;
+  j: number;
+  eixo: 'u' | 'v';
+  /** Posição em metros. */
+  pos: number;
+}
+
+export interface PortasCortina {
+  portas: PortaCortina[];
+  linhas: LinhaAjusteCortina[];
+}
+
+/** Lê `portas`, `vaos`, `linhas` e `linhas_pos`; recusa tamanho incoerente, booleano fora de 0 e 1, `lados` fora de 4 bits e vão não finito ou invertido. */
+export function lerPortasCortina(s: SaidasCortina): PortasCortina {
+  const [p, v, l, lp] = ['portas', 'vaos', 'linhas', 'linhas_pos'].map((n) => get(s, n));
+  if (p!.length % 10 !== 0) throw new Error('kernelCortina: a saída "portas" não tem 10 valores por esquadria');
+  const n = p!.length / 10;
+  if (v!.length !== 10 * n) throw new Error(`kernelCortina: a saída "vaos" tem ${v!.length} valores e "portas" pede ${10 * n}`);
+  if (l!.length % 4 !== 0) throw new Error('kernelCortina: a saída "linhas" não tem 4 valores por linha');
+  if (lp!.length !== l!.length / 4) throw new Error(`kernelCortina: "linhas_pos" tem ${lp!.length} posições e "linhas" pede ${l!.length / 4}`);
+  const portas: PortaCortina[] = [];
+  for (let k = 0; k < n; k++) {
+    const r = (o: number) => p![10 * k + o]!;
+    const x = (o: number) => v![10 * k + o]!;
+    for (const [o, nome] of [[4, 'ajuste'], [5, 'flip_mao'], [6, 'flip_sentido'], [7, 'janela']] as const) {
+      if (r(o) > 1) throw new Error(`kernelCortina: a esquadria ${k} tem "${nome}" fora de 0 e 1`);
+    }
+    if (r(8) > 15) throw new Error(`kernelCortina: a esquadria ${k} tem "lados" fora dos 4 bits`);
+    for (let q = 0; q < 10; q++) if (!Number.isFinite(x(q))) throw new Error(`kernelCortina: a esquadria ${k} tem um valor de vão que não é número`);
+    if (x(1) < x(0) || x(3) < x(2)) throw new Error(`kernelCortina: a esquadria ${k} tem o vão invertido`);
+    const lados = r(8);
+    portas.push({
+      cortina: r(0),
+      i: r(1),
+      j: r(2),
+      tipoAbertura: r(3),
+      grade: r(4) === 1,
+      flipMao: r(5) === 1,
+      flipSentido: r(6) === 1,
+      janela: r(7) === 1,
+      lados: { esquerda: (lados & 1) !== 0, direita: (lados & 2) !== 0, base: (lados & 4) !== 0, topo: (lados & 8) !== 0 },
+      flags: r(9),
+      s0: x(0),
+      s1: x(1),
+      z0: x(2),
+      z1: x(3),
+      profundidade: x(4),
+      soleira: x(5),
+      larguraLivre: x(6),
+      alturaLivre: x(7),
+      folhaMinima: x(8),
+      zRegiao: x(9),
+    });
+  }
+  const linhas: LinhaAjusteCortina[] = [];
+  for (let k = 0; k < l!.length / 4; k++) {
+    if (l![4 * k + 3]! > 1) throw new Error(`kernelCortina: a linha de ajuste ${k} tem "eixo" fora de 0 e 1`);
+    linhas.push({ cortina: l![4 * k]!, i: l![4 * k + 1]!, j: l![4 * k + 2]!, eixo: eixoDe(l![4 * k + 3]!), pos: lp![k]! });
+  }
+  return { portas, linhas };
 }

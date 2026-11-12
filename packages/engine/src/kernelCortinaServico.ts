@@ -17,13 +17,16 @@ import {
   lerGradeCortina,
   lerMalhaCortina,
   lerPlantaCortina,
+  lerPortasCortina,
   lerQuantCortina,
   montarCenaCortina,
   sincronizarCenaCortina,
   type AvisoCortina,
   type CenaCortina,
   type GradeCortina,
+  type LinhaAjusteCortina,
   type LinhaQuantCortina,
+  type PortaCortina,
 } from './kernelCortina.ts';
 
 const NIVEL_TODOS = 4294967295;
@@ -91,6 +94,18 @@ export interface AvisoCortinaProjeto extends Omit<AvisoCortina, 'cortina'> {
 export interface QuantCortinaProjeto extends Omit<LinhaQuantCortina, 'cortina' | 'material'> {
   wallId: Id;
   materialId: Id | null;
+}
+
+/** Esquadria de uma célula (consulta 107) já traduzida para ids do projeto. `openingTypeId` é o tipo de abertura do projeto; `null` se o número não casa (dado inconsistente). */
+export interface PortaCortinaProjeto extends Omit<PortaCortina, 'cortina' | 'tipoAbertura'> {
+  wallId: Id;
+  openingTypeId: Id | null;
+}
+
+export interface PortasCortinaProjeto {
+  portas: PortaCortinaProjeto[];
+  /** Linhas de grade que o ajuste à esquadria pede (modo "ajustar grade"). */
+  linhas: Array<Omit<LinhaAjusteCortina, 'cortina'> & { wallId: Id }>;
 }
 
 const inverso = <T>(m: ReadonlyMap<Id, T>): Map<T, Id> => new Map([...m].map(([k, v]) => [v, k] as const));
@@ -287,6 +302,33 @@ export class ServicoCortina {
       for (const c of g.celulas) de(c.cortina)?.celulas.push(c);
       for (const s of g.segmentos) de(s.cortina)?.segmentos.push(s);
       return out;
+    });
+  }
+
+  /**
+   * Esquadrias das células de todas as cortinas (consulta 107): o vão virtual de cada uma, em coordenadas da cortina. O 3D e a planta desenham a esquadria
+   * com o mesmo código das esquadrias comuns (`cortinaEsquadrias.ts`). `null` = kernel indisponível.
+   */
+  portas(p: Project): PortasCortinaProjeto | null {
+    return this.memoizar(p, 'portas', () => {
+      const r = lerPortasCortina(this.cena!.consultar('cortina_celula_porta', [NIVEL_TODOS]));
+      const idDe = this.wallIdDe();
+      const tipos = inverso(this.atual!.tipoAberturaDe);
+      const portas: PortaCortinaProjeto[] = [];
+      for (const q of r.portas) {
+        const wallId = idDe(q.cortina);
+        if (wallId === undefined) continue;
+        const { cortina: _c, tipoAbertura, ...resto } = q;
+        portas.push({ ...resto, wallId, openingTypeId: tipos.get(tipoAbertura) ?? null });
+      }
+      const linhas: PortasCortinaProjeto['linhas'] = [];
+      for (const l of r.linhas) {
+        const wallId = idDe(l.cortina);
+        if (wallId === undefined) continue;
+        const { cortina: _c, ...resto } = l;
+        linhas.push({ ...resto, wallId });
+      }
+      return { portas, linhas };
     });
   }
 

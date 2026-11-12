@@ -1,6 +1,8 @@
 import * as THREE from 'three';
-import { itemDoSubelemento, segmentosDoSubelemento3d, servicoCortina, subelementosDaCortina } from '@hestia/engine';
-import type { Project, SubelementoCortina } from '@hestia/model';
+import { esquadriaDaCelula, itemDoSubelemento, modeloDaEsquadriaCortina, segmentosDoSubelemento3d, servicoCortina, subelementosDaCortina } from '@hestia/engine';
+import { view3dOf, type Project, type SubelementoCortina } from '@hestia/model';
+import { caixasEPrismasDoModelo } from './aberturas3d.ts';
+import { arestasDasCaixas } from './caixas3d.ts';
 import { arestasDaCortina, celulaContemCentro, subconjuntoDeLotes } from './cortina3d.ts';
 import type { GrupoDeRealceCortina } from './realceCortina3d.ts';
 
@@ -13,6 +15,7 @@ type GeoCelula = { kind: 'cell'; s0: number; s1: number; z0: number; z1: number 
  * - Célula: os painéis que estão dentro dela, com o mesmo realce da geometria real (preenchimento e arestas levadas pelas matrizes das
  *   instâncias). Sem caixa: a caixa da célula é só a região em que se procuram os painéis, e nunca é desenhada.
  * A geometria vem da grade do kernel (`segmentosDoSubelemento3d`); sem kernel ou sem o subelemento, a camada fica vazia.
+ * A esquadria da célula (`kind: 'opening'`) é realçada pelo contorno das peças dela (folha, batente, vidro e ferragens, as mesmas do desenho), sem caixa.
  */
 export class RealceSubelementoCortina {
   readonly camada = new THREE.Group();
@@ -33,12 +36,38 @@ export class RealceSubelementoCortina {
     this.grupos = grupos;
     this.limpar();
     if (!sub) return;
-    const par = subelementosDaCortina(p, sub.wallId);
-    const item = par ? itemDoSubelemento(par, sub) : undefined;
-    if (!par || !item) return;
-    const geo = item.geo;
-    this.atual = geo.kind === 'cell' ? this.celula(par, geo, cor, grupos) : this.traco(par, item, cor);
+    if (sub.kind === 'opening') {
+      this.atual = this.esquadria(p, sub, cor);
+    } else {
+      const par = subelementosDaCortina(p, sub.wallId);
+      const item = par ? itemDoSubelemento(par, sub) : undefined;
+      if (!par || !item) return;
+      const geo = item.geo;
+      this.atual = geo.kind === 'cell' ? this.celula(par, geo, cor, grupos) : this.traco(par, item, cor);
+    }
     if (this.atual) this.camada.add(this.atual);
+  }
+
+  /** Contorno das peças da esquadria virtual da célula: caixas pela matriz e prismas pela geometria, o mesmo que o Reveal faz com as esquadrias comuns. */
+  private esquadria(p: Project, sub: Extract<SubelementoCortina, { kind: 'opening' }>, cor: string): THREE.LineSegments | null {
+    const e = esquadriaDaCelula(p, sub.wallId, sub.cell);
+    if (!e) return null;
+    const a = caixasEPrismasDoModelo(p, e.opening, e.geometria, e.baseZ, modeloDaEsquadriaCortina(p, e), view3dOf(p));
+    if (!a) return null;
+    const pos: number[] = [];
+    for (const c of a.caixas) arestasDasCaixas(c.matriz, pos);
+    for (const pr of a.prismas) {
+      const g = new THREE.EdgesGeometry(pr.geometry, 28);
+      for (const x of g.getAttribute('position').array) pos.push(x);
+      g.dispose();
+      pr.geometry.dispose();
+    }
+    if (!pos.length) return null;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    const linhas = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: cor, depthTest: false, transparent: true }));
+    linhas.renderOrder = 999;
+    return linhas;
   }
 
   /** Solta a geometria do realce atual. */

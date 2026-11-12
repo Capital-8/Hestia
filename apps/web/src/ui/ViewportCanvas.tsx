@@ -1,5 +1,5 @@
 /* eslint-disable max-lines -- a vista reúne planta, 3D, corte e o editor da cota; extrair depois. */
-import { servicoCortina, servicoGuardaCorpo, subelementoDaCortinaEm } from '@hestia/engine';
+import { idDoProjetoDoPick, lerIdEsquadriaCortina, servicoCortina, servicoGuardaCorpo, subelementoDaCortinaEm, subelementoDaEsquadriaCortina } from '@hestia/engine';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
 import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, idsNaCaixaDaTela, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport, sectionLabelsAt } from '@hestia/render';
 import { formatQuantity, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
@@ -687,10 +687,13 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     return pickModelPoint(model.current.scene, model.current.orbit.camera, { x: (s.x / r.width) * 2 - 1, y: 1 - (s.y / r.height) * 2 }, pickGpu.current ?? undefined);
   };
   /** Elemento (parede, abertura, piso, laje, telhado, escada) sob o cursor na vista 3D; null no vazio (decisão 0016). */
-  const elementAt3d = (s: Pt) => {
+  const elementBrutoAt3d = (s: Pt) => {
     const r = host.current!.getBoundingClientRect();
     return pickElement(model.current.scene, model.current.orbit.camera, { x: (s.x / r.width) * 2 - 1, y: 1 - (s.y / r.height) * 2 }, pickGpu.current ?? undefined);
   };
+  /** A esquadria virtual da parede cortina (ADR 0056 §7.6) conta como a própria parede para quem só entende elementos do projeto (hover, menu, ferramentas). */
+  const comoElementoDoProjeto = <T extends { id: string } | null>(el: T): T => (el && lerIdEsquadriaCortina(el.id) ? { ...el, id: idDoProjetoDoPick(el.id) } : el);
+  const elementAt3d = (s: Pt) => comoElementoDoProjeto(elementBrutoAt3d(s));
   /**
    * Realce ao passar o cursor sobre o 3D. Um raio por quadro (não por evento de ponteiro): o último ponto ganha.
    */
@@ -1078,7 +1081,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     // Clique no vazio deseleciona.
     if (!d.moved && d.pick && useUi.getState().view === '3d') {
       const hit = pick3dAt(s);
-      const el = elementAt3d(s);
+      const bruto = elementBrutoAt3d(s);
+      const el = comoElementoDoProjeto(bruto);
       if (editor.activeTool.pick3d) {
         if (hit || el) {
           editor.pointer('click', { raw: hit ?? { x: 0, y: 0 }, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey, alt: e.altKey, hit3d: el?.id ?? null, hitZ: el?.point.z });
@@ -1094,8 +1098,10 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
           const antes = useUi.getState().selection;
           const comum = !(e.shiftKey || e.ctrlKey || e.metaKey);
           clickSelect3d(el.id, !comum);
+          // Esquadria da célula da cortina: o clique nela escolhe a esquadria (subelemento `opening`) de uma vez, sem a parede antes.
           // Parede cortina já selecionada sozinha: o clique sobre a linha ou o painel escolhe o subelemento (sem nada, a parede inteira).
-          useUi.setState({ subElemento: comum && antes.length === 1 && antes[0] === el.id ? subelementoDaCortinaEm(editor.project, el.id, el.point, TOLERANCIA_SUB_3D) : null });
+          const daEsquadria = comum && bruto ? subelementoDaEsquadriaCortina(editor.project, bruto.id) : null;
+          useUi.setState({ subElemento: daEsquadria ?? (comum && antes.length === 1 && antes[0] === el.id ? subelementoDaCortinaEm(editor.project, el.id, el.point, TOLERANCIA_SUB_3D) : null) });
         }
         else if (!selecionarNivelNoClique(model.current, host.current!.getBoundingClientRect(), s)) clickSelect3d(null, e.shiftKey || e.ctrlKey || e.metaKey);
       }

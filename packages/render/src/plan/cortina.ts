@@ -56,6 +56,9 @@ export function cortinaOps(p: Project, levelId: Id, hidden: ReadonlySet<Id> | un
   const corMontante = mix(theme.ink, base, 0.25);
   for (const l of linhas) {
     if (!visiveis.has(l.wallId) || l.pontos.length < 2) continue;
+    // Contorno do vão e giro da folha simples do kernel (papéis 4 e 5): a esquadria da célula é desenhada pela `Opening` virtual (`cortinaEsquadrias.ts`), com o
+    // mesmo símbolo das esquadrias comuns (ver `openingSymbolStrokes` em `build.ts`).
+    if (l.papel === PAPEL_PLANTA_CORTINA.esquadria || l.papel === PAPEL_PLANTA_CORTINA.giro) continue;
     const pts = l.pontos.map((q) => ({ x: q.x, y: q.y }));
     // Só a linha do eixo do vidro do detalhe grosso é aberta; os demais contornos repetem o primeiro ponto no fim.
     const fechado = l.pontos.length > 3 && Math.hypot(pts[0]!.x - pts[pts.length - 1]!.x, pts[0]!.y - pts[pts.length - 1]!.y) < 1e-9;

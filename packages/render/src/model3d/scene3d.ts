@@ -1,13 +1,13 @@
 /* eslint-disable max-lines -- a cena 3D reúne o port GPU (faixas/sombras) e o alizar/esquadrias do plano; extrair depois. */
 import * as THREE from 'three';
-import { servicoCortina, paredesCortina, temCortina, servicoGuardaCorpo, ServicoGuardaCorpo, applyPartialStructure, frameOfWall, openingGeometry, junctionOfWalls, pisoOuLajeNaFaixa, type JunctionLevel, type ResolvedWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
+import { servicoCortina, esquadriasDaCortina, modeloDaEsquadriaCortina, paredesCortina, temCortina, servicoGuardaCorpo, ServicoGuardaCorpo, applyPartialStructure, frameOfWall, openingGeometry, junctionOfWalls, pisoOuLajeNaFaixa, type JunctionLevel, type ResolvedWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
 import { openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, type GraphicsCategory, type Id, type Material, type Opening, type Project, type SubelementoCortina, type View3DSettings, type VisualStyle } from '@hestia/model';
 import { DARK, LIGHT } from '../plan/types.ts';
 import { AVISO } from '../aviso.ts';
 import { projetoDaJuncao } from '../plan/viewContext.ts';
 import { OrbitCamera, cameraBasis } from './orbit.ts';
 import { firstSurfaceDistance } from './pick3d.ts';
-import { caixasEPrismasDaAbertura, montarAbertura } from './aberturas3d.ts';
+import { caixasEPrismasDaAbertura, montarAbertura, montarAberturaDoModelo } from './aberturas3d.ts';
 import { arestasDaSilhuetaDeCaixas } from './silhuetaCaixas3d.ts';
 import { arestasDosLotes, geometriaDoLote, juntarLotes, loteDeGeometria } from './lotesMalha3d.ts';
 import { SombrasDaCena, SOMBRA_MAX_TRIANGULOS, prepararSombraDoQuadro, type FaixaDeSombra } from './sombras3d.ts';
@@ -814,10 +814,34 @@ export class ModelScene {
       const g = grupoSoEixos(doNivel.map((c) => ({ a: c.wall.a, b: c.wall.b, z: wallBaseElevation(p, c.wall) + wallHeight(p, c.wall) / 2 })), this.mats);
       if (g) montado = { grupo: g, picks: [], caixas: new Map(), mats: [], desenhos: 1, instancias: 0, realce: GRUPO_DE_REALCE_VAZIO };
     }
+    if (montado && malha) this.esquadriasDaCortina(p, levelId, montado);
     this.mats.noNivel = matsAnt;
     if (!montado) return null;
     montado.grupo.userData = { levelId };
     return { levelId, chave, grupo: montado.grupo, picks: montado.picks, caixas: montado.caixas, mats: [...mats], realce: montado.realce };
+  }
+
+  /**
+   * Esquadrias das células das cortinas do nível (ADR 0056 §7.6): `Opening` virtual no vão do kernel, desenhada com o mesmo código das esquadrias comuns
+   * (folha, batente, ferragens, vidro, giro e "abrir vãos"). A folha simples do kernel (papéis 3 e 4) não é desenhada (ver `avulsosDaCortina`). O picking
+   * leva o id da esquadria virtual (`idEsquadriaCortina`).
+   */
+  private esquadriasDaCortina(p: Project, levelId: Id, montado: { grupo: THREE.Group; picks: PickSource[] }): void {
+    const view = this.frame.view;
+    const linhas = isLineStyle(view.style);
+    const picksAnt = this.picks;
+    this.picks = montado.picks;
+    for (const e of esquadriasDaCortina(p, levelId)) {
+      if (this.ocultos.has(e.wallId)) continue;
+      const m = montarAberturaDoModelo(p, e.opening, e.geometria, e.baseZ, modeloDaEsquadriaCortina(p, e), view, linhas, (parent, geo, mat, cat, edges, ranges) => this.draw(parent, geo, mat, cat, edges, ranges));
+      if (!m) continue;
+      this.desenharLotes(m.grupo, m.lotes, linhas, (id) => p.materials[id], m.arestasGrupos);
+      m.grupo.traverse((c) => {
+        c.userData.elementId = e.id;
+      });
+      montado.grupo.add(m.grupo);
+    }
+    this.picks = picksAnt;
   }
 
   private liberarCortina(g: EntradaCortina): void {
