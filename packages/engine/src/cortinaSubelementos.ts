@@ -49,6 +49,8 @@ export interface ParedeSubelementos {
   zBase: number;
   profundidade: number;
   itens: ItemSubelementoCortina[];
+  /** Células com esquadria e a célula canônica da região de cada uma (ver `ContextoParede.esquadrias`). */
+  esquadrias: ReadonlyArray<{ i: number; j: number; canon: { i: number; j: number } }>;
 }
 
 /** Linha extra da cortina com a posição já efetiva (a sobrescrita, se houver), para casar com a linha que o kernel devolve. */
@@ -67,8 +69,12 @@ export interface ContextoParede {
   zBase: number;
   profundidade: number;
   extras: readonly ExtraEfetiva[];
-  /** Células (i, j) que têm porta ou janela (sobrescrita `opening`, já na grade de hoje). Cada uma ganha uma parada extra, logo depois da célula. */
-  esquadrias?: ReadonlyArray<{ i: number; j: number }>;
+  /**
+   * Células (i, j) que têm porta ou janela (sobrescrita `opening`, já na grade de hoje). `canon` é a célula canônica da REGIÃO da esquadria (uma
+   * esquadria fundida vale para várias células); sem `canon`, a própria célula. Cada região ganha UMA parada `opening`, com a célula canônica,
+   * logo depois da primeira célula dela.
+   */
+  esquadrias?: ReadonlyArray<{ i: number; j: number; canon?: { i: number; j: number } }>;
 }
 
 /**
@@ -88,13 +94,16 @@ export function mesmaLinha(a: LineRef, b: LineRef): boolean {
   return a.axis === b.axis && a.index === b.index;
 }
 
-/** Mesmo subelemento (mesma parede, mesmo tipo e mesma referência). `null` = a própria parede. */
+/**
+ * Mesmo subelemento (mesma parede, mesmo tipo e mesma referência). `null` = a própria parede. A esquadria (`opening`) carrega a célula CANÔNICA
+ * da região (a mesma para qualquer célula da região fundida), então compara-se a célula dela e não a célula clicada. Célula e esquadria da mesma
+ * célula são subelementos diferentes (o Tab para em cada uma).
+ */
 export function mesmoSubelemento(a: SubelementoCortina | null, b: SubelementoCortina | null): boolean {
   if (a === null || b === null) return a === b;
   if (a.wallId !== b.wallId) return false;
   if (a.kind === 'line') return b.kind === 'line' && mesmaLinha(a.line, b.line);
   if (a.kind === 'segment') return b.kind === 'segment' && mesmaLinha(a.segment.line, b.segment.line) && a.segment.k === b.segment.k;
-  // Célula e esquadria da mesma célula são subelementos diferentes (o Tab para em cada uma).
   return (a.kind === 'cell' || a.kind === 'opening') && b.kind === a.kind && a.cell.i === b.cell.i && a.cell.j === b.cell.j;
 }
 
@@ -158,23 +167,37 @@ export function montarParedeSubelementos(g: GradeCortina, ctx: ContextoParede): 
     itens.push({ sub: { wallId, kind: 'segment', segment }, geo: { kind: 'segment', axis: eixo, pos, de: s.de, ate: s.ate }, removido: s.removido });
   }
 
-  // Células: a grade já traz a célula cheia (sem descontar montantes), em metros. Célula com esquadria ganha a parada da esquadria logo depois.
-  const comEsquadria = new Set((ctx.esquadrias ?? []).map((e) => `${e.i},${e.j}`));
+  // Células: a grade já traz a célula cheia (sem descontar montantes), em metros. A região com esquadria ganha UMA parada `opening`, com a célula
+  // canônica dela, logo depois da primeira célula da região (as outras células da região seguem como células). Sem isso, a mesma esquadria
+  // apareceria duas vezes na lista e o Tab travaria entre elas.
+  const esquadrias = (ctx.esquadrias ?? []).map((e) => ({ i: e.i, j: e.j, canon: e.canon ?? { i: e.i, j: e.j } }));
+  const canonDe = new Map<string, { i: number; j: number }>(esquadrias.map((e) => [`${e.i},${e.j}`, e.canon] as const));
+  const celulaDe = new Map<string, (typeof g.celulas)[number]>(g.celulas.map((c) => [`${c.i},${c.j}`, c] as const));
+  const chaveDaCelula = (c: { i: number; j: number; s0: number; s1: number; z0: number; z1: number }): CellKey => ({
+    i: c.i,
+    j: c.j,
+    s: L > 0 ? (c.s0 + c.s1) / 2 / L : 0,
+    z: H > 0 ? (c.z0 + c.z1) / 2 / H : 0,
+    nu: nKernel.u,
+    nv: nKernel.v,
+  });
+  const regiaoAberta = new Set<string>();
   for (const c of g.celulas) {
-    const cell: CellKey = {
-      i: c.i,
-      j: c.j,
-      s: L > 0 ? (c.s0 + c.s1) / 2 / L : 0,
-      z: H > 0 ? (c.z0 + c.z1) / 2 / H : 0,
-      nu: nKernel.u,
-      nv: nKernel.v,
-    };
-    const geo = { kind: 'cell' as const, s0: c.s0, s1: c.s1, z0: c.z0, z1: c.z1 };
-    itens.push({ sub: { wallId, kind: 'cell', cell }, geo, removido: false });
-    if (comEsquadria.has(`${c.i},${c.j}`)) itens.push({ sub: { wallId, kind: 'opening', cell }, geo: geometriaDaEsquadria(geo), removido: false });
+    itens.push({ sub: { wallId, kind: 'cell', cell: chaveDaCelula(c) }, geo: { kind: 'cell', s0: c.s0, s1: c.s1, z0: c.z0, z1: c.z1 }, removido: false });
+    const canon = canonDe.get(`${c.i},${c.j}`);
+    if (!canon) continue;
+    const chave = `${canon.i},${canon.j}`;
+    if (regiaoAberta.has(chave)) continue;
+    regiaoAberta.add(chave);
+    const cc = celulaDe.get(chave) ?? c;
+    itens.push({
+      sub: { wallId, kind: 'opening', cell: chaveDaCelula(cc) },
+      geo: geometriaDaEsquadria({ kind: 'cell', s0: cc.s0, s1: cc.s1, z0: cc.z0, z1: cc.z1 }),
+      removido: false,
+    });
   }
 
-  return { wallId, a: ctx.a, b: ctx.b, L, H, zBase: ctx.zBase, profundidade: ctx.profundidade, itens };
+  return { wallId, a: ctx.a, b: ctx.b, L, H, zBase: ctx.zBase, profundidade: ctx.profundidade, itens, esquadrias };
 }
 
 /** Eixo, referência e posição de um segmento a partir do índice global da linha; `null` se a linha não está na grade. */
@@ -241,10 +264,11 @@ export function subelementoEmPonto(parede: ParedeSubelementos, s: number, z: num
  * É o que o clique (planta e 3D) usa depois de achar a célula sob o ponto: célula com esquadria seleciona a esquadria, não a célula.
  */
 export function subelementoDaCelula(parede: ParedeSubelementos, i: number, j: number): SubelementoCortina | null {
-  const doMesmo = (it: ItemSubelementoCortina): boolean => (it.sub.kind === 'cell' || it.sub.kind === 'opening') && it.sub.cell.i === i && it.sub.cell.j === j;
-  const esquadria = parede.itens.find((it) => it.sub.kind === 'opening' && doMesmo(it));
+  // A esquadria de uma região fundida é uma só, na célula canônica: qualquer célula da região devolve essa parada.
+  const canon = parede.esquadrias.find((e) => e.i === i && e.j === j)?.canon ?? { i, j };
+  const esquadria = parede.itens.find((it) => it.sub.kind === 'opening' && it.sub.cell.i === canon.i && it.sub.cell.j === canon.j);
   if (esquadria) return esquadria.sub;
-  return parede.itens.find((it) => it.sub.kind === 'cell' && doMesmo(it))?.sub ?? null;
+  return parede.itens.find((it) => it.sub.kind === 'cell' && it.sub.cell.i === i && it.sub.cell.j === j)?.sub ?? null;
 }
 
 // ───────────── geometria do destaque ─────────────
@@ -343,16 +367,23 @@ export function subelementosDaCortina(p: Project, wallId: Id): ParedeSubelemento
 }
 
 /**
- * Células da cortina que têm porta ou janela, na grade de hoje. A esquadria vale para a REGIÃO inteira (uma célula canônica, §5.2): toda célula
- * da região conta, não só a canônica que guarda a chave.
+ * Células da cortina que têm porta ou janela, na grade de hoje, com a canônica da região de cada uma. A esquadria vale para a REGIÃO inteira (uma
+ * célula canônica, §5.2): toda célula da região conta, não só a canônica que guarda a chave.
  */
-function esquadriasDaCortina(p: Project, w: Wall): Array<{ i: number; j: number }> {
+function esquadriasDaCortina(p: Project, w: Wall): Array<{ i: number; j: number; canon: { i: number; j: number } }> {
   const r = resolverParede(p, w);
   if (!r) return [];
   const regioes = new Set<number>();
   for (const c of r.celulas) if (c.override.kind === 'opening') regioes.add(r.canon[c.key.i * r.nv + c.key.j]!);
-  const out: Array<{ i: number; j: number }> = [];
-  for (let i = 0; i < r.nu; i++) for (let j = 0; j < r.nv; j++) if (regioes.has(r.canon[i * r.nv + j]!)) out.push({ i, j });
+  const out: Array<{ i: number; j: number; canon: { i: number; j: number } }> = [];
+  for (let i = 0; i < r.nu; i++) {
+    for (let j = 0; j < r.nv; j++) {
+      const rc = r.canon[i * r.nv + j]!;
+      if (!regioes.has(rc)) continue;
+      const ci = Math.floor(rc / r.nv);
+      out.push({ i, j, canon: { i: ci, j: rc - ci * r.nv } });
+    }
+  }
   return out;
 }
 

@@ -258,3 +258,35 @@ describe('geometria do destaque (puro)', () => {
     expect(segmentosDoSubelemento3d(p, p.itens[9]!)).toHaveLength(12);
   });
 });
+
+describe('esquadria fundida: uma parada na célula canônica, e o clique em qualquer célula da região a devolve', () => {
+  // Porta na célula (0, 0) fundida com a de cima (0, 1): a região é a das duas, e a canônica é (0, 0).
+  const fundida = montarParedeSubelementos(gradeReferencia(), { ...ctx, esquadrias: [{ i: 0, j: 0 }, { i: 0, j: 1, canon: { i: 0, j: 0 } }] });
+  const esquadrias = fundida.itens.filter((it) => it.sub.kind === 'opening');
+
+  it('a região ganha uma parada só (na canônica), não uma por célula', () => {
+    expect(esquadrias).toHaveLength(1);
+    expect(esquadrias[0]!.sub).toMatchObject({ kind: 'opening', cell: { i: 0, j: 0 } });
+    expect(fundida.itens.length).toBe(parede().itens.length + 1);
+  });
+
+  it('clicar na célula de cima da região devolve a esquadria canônica (a mesma parada que a de baixo)', () => {
+    const emCima = subelementoDaCelula(fundida, 0, 1);
+    expect(emCima).toEqual(esquadrias[0]!.sub);
+    expect(mesmoSubelemento(emCima, subelementoDaCelula(fundida, 0, 0))).toBe(true);
+    // Clique no ponto da célula de cima (z = 2, acima do meio da grade): também é a esquadria.
+    expect(subelementoEmPonto(fundida, 0.5, 10 + 2, 0.05)).toEqual(esquadrias[0]!.sub);
+  });
+
+  it('o Tab passa por cada subelemento uma vez, sem voltar à esquadria (a identidade é a da canônica)', () => {
+    const visitados = [];
+    let atual: SubelementoCortina | null = null;
+    for (let k = 0; k < fundida.itens.length + 2; k++) {
+      atual = proximoSubelemento(fundida, atual);
+      if (atual === null) break;
+      visitados.push(atual);
+    }
+    expect(visitados).toHaveLength(fundida.itens.length);
+    expect(visitados.filter((s) => s.kind === 'opening')).toHaveLength(1);
+  });
+});

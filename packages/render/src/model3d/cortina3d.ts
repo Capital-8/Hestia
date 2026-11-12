@@ -202,25 +202,115 @@ export function caixasDasCortinas(
 /** Os 12 triângulos de uma caixa (8 vértices, anti-horário visto de fora). */
 const TRI_CAIXA = [0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 3, 7, 6, 3, 6, 2, 0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5];
 
+/** Caixa (mundo) com os cantos mínimo e máximo. */
+export interface CaixaCortina {
+  min: [number, number, number];
+  max: [number, number, number];
+}
+
+/** Retângulo de célula ou de vão no plano da parede: `s` ao longo da parede a partir de `a`, `z` a partir da base (metros). */
+export interface RetanguloCortina {
+  s0: number;
+  s1: number;
+  z0: number;
+  z1: number;
+}
+
+/** Geometria da parede para levar um retângulo ao mundo: eixo a→b, comprimento, base e profundidade do sistema. */
+export interface ParedeCortinaPick {
+  a: { x: number; y: number };
+  b: { x: number; y: number };
+  L: number;
+  zBase: number;
+  profundidade: number;
+}
+
 /**
- * Malha de picking: a caixa de cada cortina como 12 triângulos em coordenadas de mundo, com a faixa de índices de cada uma (`ranges` no formato do picking,
- * em triângulos). Só para o raio e o realce; nunca é desenhada (cor e profundidade desligadas).
+ * Partes de `r` que sobram fora de `v`: até quatro retângulos (à esquerda, à direita, acima e abaixo da interseção). Sem interseção, `r` inteiro.
+ * É o que tira o vão de uma esquadria da superfície de picking da cortina: a célula com porta fica só com o que está fora do vão.
  */
-export function malhaDePickCortina(caixas: ReadonlyMap<Id, { min: readonly number[]; max: readonly number[] }>): { positions: number[]; indices: number[]; ranges: Array<{ id: Id; start: number; count: number }> } {
+export function subtraiRetangulo(r: RetanguloCortina, v: RetanguloCortina): RetanguloCortina[] {
+  const s0 = Math.max(r.s0, v.s0);
+  const s1 = Math.min(r.s1, v.s1);
+  const z0 = Math.max(r.z0, v.z0);
+  const z1 = Math.min(r.z1, v.z1);
+  if (!(s0 < s1 && z0 < z1)) return [r];
+  const out: RetanguloCortina[] = [];
+  if (r.s0 < s0) out.push({ s0: r.s0, s1: s0, z0: r.z0, z1: r.z1 });
+  if (s1 < r.s1) out.push({ s0: s1, s1: r.s1, z0: r.z0, z1: r.z1 });
+  if (r.z0 < z0) out.push({ s0, s1, z0: r.z0, z1: z0 });
+  if (z1 < r.z1) out.push({ s0, s1, z0: z1, z1: r.z1 });
+  return out;
+}
+
+/** Caixa (mundo) de um retângulo da parede, com a espessura do sistema (`profundidade`, centrada no plano). */
+export function caixaDoRetangulo(p: ParedeCortinaPick, r: RetanguloCortina): CaixaCortina {
+  const ux = p.L > 0 ? (p.b.x - p.a.x) / p.L : 0;
+  const uy = p.L > 0 ? (p.b.y - p.a.y) / p.L : 0;
+  const h = p.profundidade / 2;
+  const c: CaixaCortina = { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };
+  for (const s of [r.s0, r.s1]) {
+    for (const n of [-h, h]) {
+      for (const z of [r.z0, r.z1]) {
+        const q = [p.a.x + ux * s - uy * n, p.a.y + uy * s + ux * n, p.zBase + z];
+        for (let k = 0; k < 3; k++) {
+          if (q[k]! < c.min[k]!) c.min[k] = q[k]!;
+          if (q[k]! > c.max[k]!) c.max[k] = q[k]!;
+        }
+      }
+    }
+  }
+  return c;
+}
+
+/** Caixa (mundo) de cada instância do dono (montante ou painel) nos lotes: de todos os vértices da instância levados pela matriz. */
+export function caixasDasInstancias(lotes: readonly LoteCortina3d[], dono: Id): CaixaCortina[] {
+  const out: CaixaCortina[] = [];
+  const p = [0, 0, 0];
+  for (const l of lotes) {
+    for (let k = 0; k < l.n; k++) {
+      if (l.donos[k] !== dono) continue;
+      const c: CaixaCortina = { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };
+      for (let i = 0; i < l.vertices.length / 3; i++) {
+        aoMundo(l, i, k, p);
+        for (let a = 0; a < 3; a++) {
+          if (p[a]! < c.min[a]!) c.min[a] = p[a]!;
+          if (p[a]! > c.max[a]!) c.max[a] = p[a]!;
+        }
+      }
+      out.push(c);
+    }
+  }
+  return out;
+}
+
+/**
+ * Malha de picking a partir de caixas com dono: 12 triângulos por caixa, em coordenadas de mundo, com a faixa de cada uma (`ranges` no formato do
+ * picking, `ElementRange`: `start` e `count` em POSIÇÕES DO ARRAY DE ÍNDICES, 36 por caixa, como `faixasDosIds`). Só para o raio e o realce; nunca é
+ * desenhada (cor e profundidade desligadas). Em triângulos a faixa cairia na caixa vizinha: o raio lê a face `f` como o índice `3f` (`pick3d.ts`).
+ */
+export function malhaDePickCortinaPorCaixas(caixas: ReadonlyArray<CaixaCortina & { id: Id }>): { positions: number[]; indices: number[]; ranges: Array<{ id: Id; start: number; count: number }> } {
   const positions: number[] = [];
   const indices: number[] = [];
   const ranges: Array<{ id: Id; start: number; count: number }> = [];
-  for (const [id, c] of [...caixas].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
-    const [x0, y0, z0] = c.min as [number, number, number];
-    const [x1, y1, z1] = c.max as [number, number, number];
+  for (const { id, min, max } of caixas) {
+    const [x0, y0, z0] = min;
+    const [x1, y1, z1] = max;
     if (!(Number.isFinite(x0) && Number.isFinite(x1))) continue;
     const base = positions.length / 3;
     positions.push(x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0, x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1);
-    const ini = indices.length / 3;
+    const ini = indices.length;
     for (const t of TRI_CAIXA) indices.push(base + t);
-    ranges.push({ id, start: ini, count: TRI_CAIXA.length / 3 });
+    ranges.push({ id, start: ini, count: TRI_CAIXA.length });
   }
   return { positions, indices, ranges };
+}
+
+/** Uma caixa por cortina (a caixa inteira, sem vão): o caminho de antes, usado quando não há grade do kernel para dividir a parede. */
+export function malhaDePickCortina(caixas: ReadonlyMap<Id, { min: readonly number[]; max: readonly number[] }>): { positions: number[]; indices: number[]; ranges: Array<{ id: Id; start: number; count: number }> } {
+  return malhaDePickCortinaPorCaixas(
+    [...caixas].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([id, c]) => ({ id, min: [c.min[0]!, c.min[1]!, c.min[2]!], max: [c.max[0]!, c.max[1]!, c.max[2]!] })),
+  );
 }
 
 /**

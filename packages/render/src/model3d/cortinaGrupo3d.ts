@@ -1,9 +1,22 @@
 import * as THREE from 'three';
 import type { Id, Material, Project, View3DSettings } from '@hestia/model';
-import type { MalhaCortinaProjeto } from '@hestia/engine';
+import { esquadriaDaCelula, subelementosDaCortina, type MalhaCortinaProjeto } from '@hestia/engine';
 import type { Materiais3D } from './materiais3d.ts';
 import type { PickSource } from './cacheMalhas3d.ts';
-import { arestasDaCortina, avulsosDaCortina, caixasDasCortinas, lotesDaCortina, malhaDePickCortina, type LoteAvulsoCortina3d, type LoteCortina3d } from './cortina3d.ts';
+import {
+  arestasDaCortina,
+  avulsosDaCortina,
+  caixaDoRetangulo,
+  caixasDasCortinas,
+  caixasDasInstancias,
+  lotesDaCortina,
+  malhaDePickCortinaPorCaixas,
+  subtraiRetangulo,
+  type CaixaCortina,
+  type LoteAvulsoCortina3d,
+  type LoteCortina3d,
+  type RetanguloCortina,
+} from './cortina3d.ts';
 import type { DesenhoDeCortina, GrupoDeRealceCortina } from './realceCortina3d.ts';
 
 /** Ordem de desenho do vidro: depois dos opacos (ADR 0056 §9). */
@@ -57,7 +70,8 @@ function geometriaDoLote(l: LoteCortina3d | LoteAvulsoCortina3d): THREE.BufferGe
 /**
  * Monta o grupo 3D das cortinas de UM nível a partir da malha do kernel: um `InstancedMesh` por (protótipo, material, transparência), de modo que uma
  * cortina de 60 células custa ~4 desenhos e não 250. Montantes e painéis sólidos são opacos; o vidro vai em lote próprio (`renderOrder` maior, sem
- * escrita de profundidade, sem sombra). A peça de picking é a caixa de cada cortina (o InstancedMesh não entra no raio: `semPick`).
+ * escrita de profundidade, sem sombra). A peça de picking são as caixas da parede (células menos o vão das esquadrias, montantes e avulsos; ver
+ * `pecasDePickDaCortina`): o InstancedMesh não entra no raio (`semPick`), e o vão da porta fica sem superfície de cortina.
  */
 export function montarGrupoCortina(p: Project, malha: MalhaCortinaProjeto, donos: ReadonlySet<Id>, o: OpcoesGrupoCortina): GrupoCortina | null {
   const lotes = lotesDaCortina(malha, (id) => donos.has(id) && o.visivel(id));
@@ -124,16 +138,39 @@ export function montarGrupoCortina(p: Project, malha: MalhaCortinaProjeto, donos
       grupo.add(linhas);
     }
   }
+  const caixasMundo = caixasDasCortinas(lotes, avulsos);
   const caixas = new Map<Id, THREE.Box3>();
-  for (const [id, c] of caixasDasCortinas(lotes, avulsos)) caixas.set(id, new THREE.Box3(new THREE.Vector3(...c.min), new THREE.Vector3(...c.max)));
-  const pk = malhaDePickCortina(new Map([...caixas].map(([id, b]) => [id, { min: [b.min.x, b.min.y, b.min.z], max: [b.max.x, b.max.y, b.max.z] }])));
+  for (const [id, c] of caixasMundo) caixas.set(id, new THREE.Box3(new THREE.Vector3(...c.min), new THREE.Vector3(...c.max)));
+  const pecas = [...caixasMundo].flatMap(([id, c]) => pecasDePickDaCortina(p, id, lotes, avulsos, c).map((pc) => ({ id, ...pc })));
+  const pk = malhaDePickCortinaPorCaixas(pecas);
   const pickGeo = new THREE.BufferGeometry();
   pickGeo.setAttribute('position', new THREE.Float32BufferAttribute(pk.positions, 3));
   pickGeo.setIndex(pk.indices);
   // A caixa é só do raio (e do enquadramento): `semRealce` a tira do realce, que segue a geometria das instâncias.
   const picks: PickSource[] = [{ geo: pickGeo, owner: grupo, kind: 'wall', ranges: pk.ranges, semRealce: true }];
-  void p;
   return { grupo, picks, caixas, mats: [], desenhos: lotes.length + avulsos.length, instancias, realce: { desenhos, anguloRad: (o.anguloAresta * Math.PI) / 180 } };
+}
+
+/**
+ * Peças de picking de UMA cortina: o retângulo de cada célula menos o vão da esquadria que a ocupa (o vão não tem superfície de cortina, então o raio
+ * na porta acha a porta, e não a parede), mais as caixas dos montantes e das peças avulsas (o montante de canto, por exemplo). Sem grade do kernel,
+ * a caixa inteira da cortina (`caixaInteira`).
+ */
+function pecasDePickDaCortina(p: Project, id: Id, lotes: readonly LoteCortina3d[], avulsos: readonly LoteAvulsoCortina3d[], caixaInteira: CaixaCortina): CaixaCortina[] {
+  const par = subelementosDaCortina(p, id);
+  if (!par) return [caixaInteira];
+  const parede = { a: par.a, b: par.b, L: par.L, zBase: par.zBase, profundidade: par.profundidade };
+  const out: CaixaCortina[] = [];
+  for (const it of par.itens) {
+    if (it.sub.kind !== 'cell' || it.geo.kind !== 'cell') continue;
+    const r: RetanguloCortina = { s0: it.geo.s0, s1: it.geo.s1, z0: it.geo.z0, z1: it.geo.z1 };
+    const vao = esquadriaDaCelula(p, id, it.sub.cell)?.porta;
+    for (const pc of vao ? subtraiRetangulo(r, vao) : [r]) out.push(caixaDoRetangulo(parede, pc));
+  }
+  out.push(...caixasDasInstancias(lotes.filter((l) => l.papel === 0), id));
+  const avulsosDaCortina = avulsos.filter((a) => a.cortina === id);
+  if (avulsosDaCortina.length) out.push(...caixasDasCortinas([], avulsosDaCortina).values());
+  return out;
 }
 
 /** O que a cena desenha de uma cortina sem kernel: só o eixo (linha na altura média da parede). */
