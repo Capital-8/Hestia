@@ -206,3 +206,18 @@ describe('cortina embutida: validação (§4.6, §8.2)', () => {
     expect(validateProject(p).find((i) => i.code === 'opening-host-curtain')?.severity).toBe('error');
   });
 });
+
+describe('cortina embutida: desfazer de embutir e tirar o hospedeiro', () => {
+  it('embutir e tirar voltam, cada um, com um desfazer', () => {
+    const s = cenario();
+    const antes = JSON.parse(JSON.stringify(parede(s, 'w_ct')));
+    embutir(s);
+    s.undo();
+    expect(JSON.parse(JSON.stringify(parede(s, 'w_ct')))).toEqual(antes);
+    embutir(s);
+    const embutida = JSON.parse(JSON.stringify(parede(s, 'w_ct')));
+    s.exec({ type: 'clearCurtainHost', wallId: 'w_ct' });
+    s.undo();
+    expect(JSON.parse(JSON.stringify(parede(s, 'w_ct')))).toEqual(embutida);
+  });
+});

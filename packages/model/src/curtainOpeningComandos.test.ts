@@ -294,3 +294,28 @@ describe('esquadria na célula: validação (§5.8, §7.5)', () => {
     expect(issues.length).toBeGreaterThan(0);
   });
 });
+
+describe('esquadria na célula: desfazer de cada comando (um passo)', () => {
+  it('troca, remoção e limpeza voltam ao estado anterior com um desfazer cada', () => {
+    const s = cenario();
+    s.exec(colocar({ openingTypeId: 'ot_t50', fit: 'grid', align: 'center', fundir: true }));
+    const antes = JSON.parse(JSON.stringify(instanciaDe(s)));
+    s.exec({ type: 'updateCellOpening', wallId: 'w_ct', i: 2, j: 0, patch: { openingTypeId: 'ot_t60', fundir: true } });
+    s.undo();
+    expect(JSON.parse(JSON.stringify(instanciaDe(s)))).toEqual(antes);
+    s.exec({ type: 'removeCellOpening', wallId: 'w_ct', i: 2, j: 0 });
+    s.undo();
+    expect(JSON.parse(JSON.stringify(instanciaDe(s)))).toEqual(antes);
+    s.exec({ type: 'clearCellOverride', wallId: 'w_ct', i: 2, j: 0 });
+    s.undo();
+    expect(JSON.parse(JSON.stringify(instanciaDe(s)))).toEqual(antes);
+  });
+
+  it('a fusão de células vizinhas também sai com o desfazer da colocação', () => {
+    const s = cenario();
+    const antes = JSON.parse(JSON.stringify(instanciaDe(s)));
+    s.exec(colocar({ fundir: true }));
+    s.undo();
+    expect(JSON.parse(JSON.stringify(instanciaDe(s)))).toEqual(antes);
+  });
+});
