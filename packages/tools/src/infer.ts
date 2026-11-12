@@ -22,6 +22,7 @@ import { closestOnWall, wallMid } from './wallGeom.ts';
 import { addGridSnaps } from './gridSnapPoints.ts';
 import { addCadSnaps, type CadSnapIndex } from './snapCad.ts';
 import { addExtraPoints, addExtraSegments, addExtraTracks } from './snapExtras.ts';
+import { addIndexedPoints, addIndexedSegments, cruzamentosDePlanta, indexedAlignmentRefs, type SnapIndexado } from './snapIndexado.ts';
 import { orthoPoint, polarPoint } from './angleSnap.ts';
 import { DEFAULT_SNAP, type Guide, type Inference, type SnapKind, type SnapOptions } from './types.ts';
 
@@ -61,6 +62,13 @@ export interface InferContext {
   onWallsOnly?: boolean;
   /** Pontos extras de captura (vértices de pisos, contorno em construção). */
   extraPoints?: SnapPoint[];
+  /**
+   * Conjuntos grandes e estáveis já indexados (escadas, rampas e guarda-corpos do nível): a consulta custa só o que está perto do
+   * cursor. Candidatos iguais aos de `extraPoints`/`extraSegments`; ver `snapIndexado.ts`.
+   */
+  indexed?: readonly SnapIndexado[];
+  /** Elementos ocultos na vista: pontos e arestas indexados deles não são alvo (os não indexados já vêm filtrados). */
+  hiddenIds?: ReadonlySet<Id>;
   /** Capturas ligadas (padrão: DEFAULT_SNAP). */
   snap?: SnapOptions;
   /** Arestas de captura (contornos de pisos e lajes, ombreiras de aberturas): o pé da perpendicular sobre a aresta vira captura. */
@@ -339,10 +347,14 @@ export function infer(rawCursor: Vec2, ctx: InferContext): Inference {
   }
   // Pontos extras (vértices de pisos, contorno em construção, aberturas) não entram na captura exclusiva de paredes.
   addExtraPoints(ctx, sn, cursor, tol, add);
+  addIndexedPoints(ctx, sn, cursor, tol, add);
   // Arestas de pisos e lajes e ombreiras de aberturas: o pé sobre a aresta é captura de aresta, com o dono para o ignore.
   if (!ctx.onWallsOnly) addExtraSegments(ctx, sn, cursor, tol, add);
+  addIndexedSegments(ctx, sn, cursor, tol, add);
   // Seção: os cruzamentos entre as arestas da vista (contornos, aberturas, membranas e níveis) são captura própria.
   if (!ctx.onWallsOnly && ctx.section) addSectionCrossings(ctx, sn, cursor, tol, add);
+  // Planta: o cruzamento entre arestas de escada, rampa, guarda-corpo, piso e laje fora dos vértices também é captura.
+  if (!ctx.onWallsOnly && !ctx.section && sn.intersections) cruzamentosDePlanta(ctx, cursor, tol, add);
   // Orto/Polar: onde a reta travada cruza uma aresta (contorno de peça, esquadria, nível, eixo ou face de parede) é uma
   // interseção; o usuário mira ali para continuar a linha sem sair da direção.
   if (lock && ctx.from && sn.intersections && !ctx.onWallsOnly) {
@@ -355,6 +367,11 @@ export function infer(rawCursor: Vec2, ctx: InferContext): Inference {
     for (const e of ctx.extraSegments ?? []) {
       if (e.hostId !== undefined && ctx.ignore?.has(e.hostId)) continue;
       cross(e.a, e.b, e.hostId);
+    }
+    for (const ix of ctx.indexed ?? []) {
+      ix.pertoDe(cursor, tol * 1.5, (e) => {
+        if (e.hostId === undefined || (!ctx.ignore?.has(e.hostId) && !ctx.hiddenIds?.has(e.hostId))) cross(e.a, e.b, e.hostId);
+      });
     }
     for (const w of walls) if (!curveOf(w)) cross(w.a, w.b, w.id);
     if (sn.faces) {
@@ -474,6 +491,7 @@ export function infer(rawCursor: Vec2, ctx: InferContext): Inference {
       if (ctx.section && q.kind === 'midpoint') continue;
       refs.push(v2(q.x, q.y));
     }
+    if (sn.alignment) indexedAlignmentRefs(ctx, cursor, tol, (q) => refs.push(q));
   }
 
   if (sn.alignment) {

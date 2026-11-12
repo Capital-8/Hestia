@@ -12,7 +12,8 @@ export type DimFeature =
   | 'wall-face-lo' | 'wall-face-hi'        // faces da parede (perpendicular ao eixo)
   | 'opening-edge-a' | 'opening-edge-b'    // bordas da esquadria ao longo da parede
   | 'opening-center'
-  | 'vertex' | 'edge';                     // vértice/aresta genérico (laje, escada, rampa...) indexado por `index`
+  | 'vertex' | 'edge'                      // vértice/aresta genérico (laje, escada, rampa...) indexado por `index`
+  | 'part';                                // ponto de apoio de escada, rampa ou guarda-corpo, nomeado por `key` (ver dimensionRefs.ts)
 
 /** Referência genérica a um elemento. Convive com o `DimensionRef` antigo (parede+ponta), distinto por `elementId`. */
 export interface DimensionElementRef {
@@ -20,6 +21,8 @@ export interface DimensionElementRef {
   feature: DimFeature;
   /** Índice do vértice/aresta quando `feature` é 'vertex' | 'edge'. */
   index?: number;
+  /** Nome do ponto de apoio quando `feature` é 'part' (ex.: `d0.t3.v1` = vértice 1 do degrau 3 do lance 0). */
+  key?: string;
 }
 
 /** Marcador de ponta de cota. */

@@ -6,6 +6,7 @@ import {
   isWall,
   openingTypeById,
   openingsOfWall,
+  resolveDimRef,
   type Command,
   type Dimension,
   type DrivenEdit,
@@ -71,6 +72,8 @@ interface LooseRef {
   elementId?: Id;
   feature?: string;
   index?: number;
+  /** Nome do ponto de apoio (feição part). */
+  key?: string;
   wallId?: Id;
   end?: 'a' | 'b';
   axis?: 'x' | 'y';
@@ -120,6 +123,11 @@ function featureInfo(p: Project, ref: LooseRef, fallback: Vec2, lang: Lang = 'pt
     const ext = openingExtents(p, el, fr, el.flipFacing ? -1 : 1);
     const t = f === 'opening-edge-a' ? el.offset - ext.frame : f === 'opening-edge-b' ? el.offset + ext.frame : el.offset;
     return { point: withAlong(fallback, fr.a, fr.u, t), mover: { t: 'opening', o: el }, elementId: el.id };
+  }
+  // Ponto de apoio de escada, rampa ou guarda-corpo: a posição atual vem do motor (a cota guarda só o último ponto). A cota dirigida
+  // ainda não move estes elementos pelo valor: a edição é recusada com o motivo, sem alterar nada.
+  if (f === 'part' && ref.key !== undefined) {
+    return { point: resolveDimRef(p, { elementId: ref.elementId, feature: 'part', key: ref.key }) ?? { ...fallback }, mover: { t: 'other', el }, elementId: el.id };
   }
   const boundary = (el as { boundary?: Vec2[] }).boundary;
   if (Array.isArray(boundary) && (f === 'vertex' || f === 'edge')) {

@@ -34,6 +34,8 @@ export interface StairFinishSolid {
    * face acabada (m), para a área.
    */
   edgeLength: number;
+  /** Piso: a planta da faixa do bocel (à frente do espelho de baixo), que já está unida em ; ausente sem bocel. */
+  bocelPolygon?: Ring;
 }
 
 export interface StairFinishModel {
@@ -225,6 +227,7 @@ function buildModel(stair: ResolvedStair): StairFinishModel | null {
       const bi = info.get(back);
       let polygon = st.polygon;
       let edgeLength = 0;
+      let bocelPolygon: Ring | undefined;
       // O piso corre por baixo do espelho acabado de cima, até encostar na estrutura (a faixa do espelho da frente).
       const underRiser = fin.riserOn && front && Math.abs(front.r.z0 - st.z) < Z_TOL ? bandUp.get(back + 1) : undefined;
       if (underRiser) {
@@ -241,6 +244,7 @@ function buildModel(stair: ResolvedStair): StairFinishModel | null {
         if (joined) {
           polygon = joined;
           edgeLength = polyLength(bi.pts);
+          bocelPolygon = strip;
         }
       }
       solids.push({
@@ -253,6 +257,7 @@ function buildModel(stair: ResolvedStair): StairFinishModel | null {
         z1: st.z,
         materialId: fin.treadMaterialId,
         edgeLength,
+        ...(bocelPolygon ? { bocelPolygon } : {}),
       });
     }
     if (fin.riserOn) {

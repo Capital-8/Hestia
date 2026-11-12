@@ -66,7 +66,9 @@ describe('captura de escadas e rampas (componentSnap)', () => {
     // A rampa sem bordas válidas cai no croqui: as pontas do lance continuam na captura.
     expect(g.points).toContainEqual({ ...v(10, 0.5), hostId: rampId, kind: 'endpoint' });
     expect(g.points).toContainEqual({ ...v(14, -0.5), hostId: rampId, kind: 'endpoint' });
-    expect(g.points.every((q) => q.kind === 'endpoint')).toBe(true);
+    // A escada resolvida também dá meio das arestas e centro dos degraus; a rampa do croqui só tem as pontas.
+    expect(new Set(g.points.filter((q) => q.hostId === stairId).map((q) => q.kind))).toEqual(new Set(['endpoint', 'midpoint', 'center']));
+    expect(g.points.filter((q) => q.hostId === rampId).every((q) => q.kind === 'endpoint')).toBe(true);
   });
 
   it('as arestas resolvidas viram "nearest" com o hostId do elemento', () => {
