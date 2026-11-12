@@ -107,7 +107,7 @@ const nota = (xs: string[], n = 2): string => xs.slice(0, n).map((x) => (x.lengt
 function comD3Restaurado(p: Project, semTelhado: ReadonlySet<string>): Project {
   const q = structuredClone(p);
   for (const v of q.planViews) {
-    if (v.kind !== 'roof' || !semTelhado.has(v.levelId)) continue;
+    if (v.showRoofOnTop !== true || !semTelhado.has(v.levelId)) continue;
     const piso = q.planViews.find((x) => x.id === `pv_${v.levelId}`)!;
     v.annotations = copyAnnotationsToView(piso.annotations, v.id, Object.fromEntries(ANNOTATION_FAMILIES.map((f) => [f, true])));
   }

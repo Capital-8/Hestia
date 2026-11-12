@@ -31,7 +31,7 @@ import {
   resolveLevel,
   viewRangeWarnings,
 } from '@hestia/engine';
-import { areaPlansOf, floorViewId, migrateProject, ProjectStore, roofViewId, viewAnnotationsOf, planViewRangeOf, type AreaPlan, type Project } from '@hestia/model';
+import { areaPlansOf, floorViewId, migrateProject, ProjectStore, legacyRoofViewId, viewAnnotationsOf, planViewRangeOf, type AreaPlan, type Project } from '@hestia/model';
 import { buildSheetDrawList, contextoDaVista, levelFrameBox, LIGHT, resolvedPlanViewOf, resolverZoom } from '@hestia/render';
 import { createTool } from '@hestia/tools';
 import { planFrameUpdateOf } from '../../packages/render/src/plan/planFrame.ts';
@@ -114,7 +114,7 @@ function protegido(f: () => string): string {
 
 /** Id da vista de planta de uma chave lógica: piso, cobertura ou a própria planta de área. */
 function idDaVista(tipo: 'floor' | 'roof' | 'area', levelId: string, plano?: AreaPlan): string {
-  return plano ? plano.id : tipo === 'roof' ? roofViewId(levelId) : floorViewId(levelId);
+  return plano ? plano.id : tipo === 'roof' ? legacyRoofViewId(levelId) : floorViewId(levelId);
 }
 
 /** Estado de interface mínimo que `visibilityOf` lê (`view`, tipo de planta, nível, planta de área, corte, temporários). */

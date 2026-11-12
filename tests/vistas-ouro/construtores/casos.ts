@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { floorViewId, makeRoom, roofViewId, type Command, type ProjectStore } from '@hestia/model';
+import { floorViewId, legacyRoofViewId as roofViewId, makeRoom, type Command, type ProjectStore } from '@hestia/model';
 import { ambientesDaCasa2, ambientesDaCasaPremium, casa2ComAmbientes, etiquetaDeAmbiente, lojaDoModelo, plantaDeArea, rodar } from './base.ts';
 import { pranchas } from './pranchas.ts';
 
