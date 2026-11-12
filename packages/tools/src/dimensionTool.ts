@@ -77,11 +77,13 @@ export class DimensionTool extends ToolBase {
 
   /**
    * Ref associativa da feição que coincide com o ponto capturado (planta). No corte/elevação não há refs: o par gravado é
-   * `(t,z)` e as referências de parede da planta não valem (uma coincidência numérica gravaria uma ref falsa).
+   * `(t,z)` e as referências de parede da planta não valem (uma coincidência numérica gravaria uma ref falsa). Regra 4.5: o
+   * que a vista oculta (`ToolEnv.hiddenInView`) não vira referência: o ponto é medido, mas a ponta fica livre.
    */
   private refAt(point: Vec2): AnyRef | undefined {
     if (this.env.section?.()) return undefined;
-    return dimRefAt(this.env.project(), this.env.levelId(), point, REF_TOL)?.ref;
+    const hidden = this.env.hiddenInView?.();
+    return dimRefAt(this.env.project(), this.env.levelId(), point, REF_TOL, hidden?.size ? (id) => !hidden.has(id) : undefined)?.ref;
   }
 
   /** Direção efetiva da cota entre dois pontos: `auto` infere horizontal/vertical quando os pontos compartilham um eixo. */

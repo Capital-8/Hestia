@@ -1,5 +1,5 @@
 import type { ResolvedLevel, ResolvedRamp, ResolvedStair } from '@hestia/engine';
-import { categoryVisibleInView, isOpening, isWall, type AreaPlanAnnotations, type Id, type Project } from '@hestia/model';
+import { annotationIdsOnHiddenHosts, categoryVisibleInView, isOpening, isWall, planViewsOfLevel, type AreaPlanAnnotations, type Id, type Project } from '@hestia/model';
 import { ambientesDoNivel, escadasDoNivel, lajesDoNivel, pisosDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
 import { planStyleOf, type PlanStyle } from './style.ts';
 import { resolvedPlanViewOf, type ResolvedPlanView } from './view.ts';
@@ -174,7 +174,12 @@ export function planContext(input: PlanInputResolvido): PlanContext {
   const up = view?.range.direction === 'up';
   const geo: ResolvedLevel = view ? view.geo : input.resolved;
   // `view.hidden` já traz o intervalo e a categoria; ele manda sobre o Reveal (o intervalo não é Hide in View).
-  const hidden = uniaoOcultos(view?.hidden, doUsuario);
+  const efetivos = uniaoOcultos(view?.hidden, doUsuario);
+  // Etapa 7 (regra 4.5): a cota e a etiqueta somem com o elemento que referenciam. O editor já traz as do Hide in View em
+  // `input.hidden`; as presas a elemento fora do intervalo ou de categoria desligada saem daqui. Vale para as anotações de
+  // todas as vistas do nível, porque a planta de área também desenha as etiquetas de elemento da planta de piso.
+  const presas = efetivos?.size ? annotationIdsOnHiddenHosts(planViewsOfLevel(p, input.levelId), efetivos) : undefined;
+  const hidden = uniaoOcultos(efetivos, presas);
   const roofOff: ReadonlySet<Id> | undefined = view ? view.categoryHidden : categoryVisibleInView(p, viewId, 'roof') ? undefined : new Set(telhadosDoNivel(p, input.levelId).map((r) => r.roofId));
   const roofHidden = view ? hidden : uniaoOcultos(roofOff, doUsuario);
   const stairs = escadasDoNivel(p, input.levelId).filter((s) => !hidden?.has(s.id));

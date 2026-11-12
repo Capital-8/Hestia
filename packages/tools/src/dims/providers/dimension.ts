@@ -39,13 +39,14 @@ export function vistaDaCota(p: Project, levelId: Id, dimId: Id): CotaVista | nul
 /**
  * Troca de referência para o elemento clicado (Shift+clique na alça, depois um clique na planta): a feição mais próxima
  * de `at` (dentro de `tol`, em metros) passa a ser a ponta `slot`. Recusa se não houver feição ali ou se a outra
- * ponta já usa a mesma feição. Pura: devolve os comandos (um único `updateDimension`).
+ * ponta já usa a mesma feição. Pura: devolve os comandos (um único `updateDimension`). `hidden` (regra 4.5): elemento que
+ * a vista oculta não é alvo da nova referência.
  */
-export function pickRefCommands(project: Project, levelId: Id, dimId: Id, slot: 'a' | 'b', at: { x: number; y: number }, tol: number, lang: Lang = 'pt'): { commands: Command[] } | { error: string } {
+export function pickRefCommands(project: Project, levelId: Id, dimId: Id, slot: 'a' | 'b', at: { x: number; y: number }, tol: number, lang: Lang = 'pt', hidden?: ReadonlySet<Id>): { commands: Command[] } | { error: string } {
   const vista = vistaDaCota(project, levelId, dimId);
   const d = vista ? dimsDaVista(project, vista).find((x) => x.id === dimId) : undefined;
   if (!vista || !d) return { error: translate(lang, 'tl_msg_dim_not_found') };
-  const hit = dimRefAt(project, levelId, at, tol);
+  const hit = dimRefAt(project, levelId, at, tol, hidden?.size ? (id) => !hidden.has(id) : undefined);
   if (!hit || !isElementRef(hit.ref)) return { error: translate(lang, 'tl_msg_no_feature_near') };
   const outra = d.refs?.[slot === 'a' ? 'b' : 'a'];
   if (isElementRef(outra) && outra.elementId === hit.ref.elementId && outra.feature === hit.ref.feature && (outra.index ?? 0) === (hit.ref.index ?? 0)) {
@@ -76,15 +77,16 @@ const sameRef = (x: DimensionElementRef, y: DimensionElementRef): boolean =>
 
 /**
  * Alternativas de referência de uma ponta permanente: as feições do próprio elemento da ponta (de parede, a parede
- * inteira; de esquadria, a parede hospedeira com as aberturas dela). Sem elemento, sem alternativa.
+ * inteira; de esquadria, a parede hospedeira com as aberturas dela). Sem elemento, sem alternativa. `hidden` (regra 4.5):
+ * feições de elemento que a vista oculta não são oferecidas (a atual fica, seja qual for).
  */
-export function endAltOf(project: Project, vista: CotaVista, d: Dimension, which: 'a' | 'b', ref: DimensionElementRef | undefined): DimEnd['alt'] {
+export function endAltOf(project: Project, vista: CotaVista, d: Dimension, which: 'a' | 'b', ref: DimensionElementRef | undefined, hidden?: ReadonlySet<Id>): DimEnd['alt'] {
   if (!ref) return undefined;
   const el = project.elements[ref.elementId];
   if (!el) return undefined;
   const base = isOpening(el) ? project.elements[el.hostId] : el;
   if (!base) return undefined;
-  const options = dimRefCandidates(project, base).map((c) => c.ref);
+  const options = dimRefCandidates(project, base).map((c) => c.ref).filter((o) => !hidden?.has(o.elementId) || sameRef(o, ref));
   const current = options.findIndex((o) => sameRef(o, ref));
   if (current < 0 || options.length < 2) return undefined;
   return {
@@ -117,7 +119,7 @@ export const permanentDimProvider: DimProvider<PermanentDimSubject> = {
     const pts = dimensionPoints(ctx.project, d);
     const end = (at: { x: number; y: number }, which: 'a' | 'b'): DimEnd => {
       const ref = d.refs?.[which];
-      const alt = endAltOf(ctx.project, vista, d, which, isElementRef(ref) ? ref : undefined);
+      const alt = endAltOf(ctx.project, vista, d, which, isElementRef(ref) ? ref : undefined, ctx.hidden);
       // Com alternativas, a ponta não usa `options` de cota dinâmica de parede/esquadria (que ficam vazias aqui).
       return alt
         ? { at, slot: which, kind: 'wall', current: 'axis', options: [], alt }

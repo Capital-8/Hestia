@@ -11,6 +11,7 @@ import {
   sectionGraphicsOf,
   buildTemplate,
   createEmptyProject,
+  dimensionRefIds,
   migrateProject,
   newId,
   sectionAnnotationsOf,
@@ -461,7 +462,7 @@ export class Editor {
 
   /** Grava a feição clicada como nova referência da ponta da cota (ver `pickRefCommands`). */
   private escolherReferenciaCota(pick: { dimId: string; slot: 'a' | 'b' }, info: PointerInfo): void {
-    const r = pickRefCommands(this.project, useUi.getState().levelId, pick.dimId, pick.slot, info.raw, this.env.metersPerPixel() * 12, useI18n.getState().lang);
+    const r = pickRefCommands(this.project, useUi.getState().levelId, pick.dimId, pick.slot, info.raw, this.env.metersPerPixel() * 12, useI18n.getState().lang, hiddenInActiveView(this.project, useUi.getState()));
     if ('error' in r) { useUi.setState({ status: r.error }); return; }
     const applied = this.applyCommands('eds_undo_dim_ref', r.commands);
     useUi.setState({ dimRefPick: null, status: applied.status === 'cancelled' ? '' : { key: 'eds_msg_dim_ref_changed' } });
@@ -1115,7 +1116,9 @@ export class Editor {
     const plan = areaId ? vistaDeArea(this.store.project, areaId) : undefined;
     // Planta de área órfã (sem a vista): cai na planta de piso, como sempre.
     const viewId = areaId && !plan ? undefined : (planViewIdAtivo(st) ?? undefined);
-    const cotas = cotasAutomaticas(this.store.project, levelId, opts);
+    // Regra 4.5: cota nova só referencia o que a vista mostra; a que se prenderia a elemento oculto não é criada.
+    const ocultos = hiddenInActiveView(this.store.project, st);
+    const cotas = cotasAutomaticas(this.store.project, levelId, opts).filter((d) => !dimensionRefIds(d).some((id) => ocultos.has(id)));
     // As cotas são anotações da vista de planta ativa (piso, cobertura ou área): entram com `viewId`, cada vista com as suas.
     // Todas as cotas geradas entram num só passo de desfazer (Ctrl+Z desfaz o lote inteiro).
     this.store.transaction('eds_undo_auto_dimensions', () => {

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { dimensionSettingsOf } from '@hestia/model';
 import { registerBuiltinDimProviders, selectionDims, type DimContext, type TempDim } from '@hestia/tools';
 import { editor, useProject } from '../../editor/controller.ts';
+import { hiddenInActiveView } from '../../editor/viewVisibility.ts';
 import { useUi } from '../../editor/state.ts';
 import { selectionDimsSuspended } from './dimsActions.ts';
 
@@ -13,7 +14,22 @@ export function useDimContext(): DimContext {
   const project = useProject();
   const levelId = useUi((s) => s.levelId);
   const overrides = useUi((s) => s.dimOverrides);
-  return useMemo(() => ({ project, levelId, settings: dimensionSettingsOf(project), overrides }), [project, levelId, overrides]);
+  const viewTemp = useUi((s) => s.viewTemp);
+  const view = useUi((s) => s.view);
+  const planKind = useUi((s) => s.planKind);
+  const planViewId = useUi((s) => s.planViewId);
+  // `hidden`: o que a vista ativa não mostra não é oferecido como referência de cota (regra 4.5). Depende da vista (piso,
+  // cobertura ou área do mesmo nível têm ocultos próprios) e do ocultar temporário: tudo isso entra nas dependências.
+  return useMemo(
+    () => ({
+      project,
+      levelId,
+      settings: dimensionSettingsOf(project),
+      overrides,
+      hidden: hiddenInActiveView(project, { ...useUi.getState(), levelId, view, planKind, planViewId, viewTemp }),
+    }),
+    [project, levelId, overrides, viewTemp, view, planKind, planViewId],
+  );
 }
 
 /**

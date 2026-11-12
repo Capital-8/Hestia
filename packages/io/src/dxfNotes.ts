@@ -1,4 +1,4 @@
-import { openingHeight, openingTypeById, angularDimensionGeometry, dimensionFormatStyle, dimensionGeometry, dimensionPoints, dimensionStyleFor, dimensionText, isOpening, isWall, floorViewId, planViewOf, unitsOf, viewAnnotationsOf, wallHeight, wallType, type Dimension, type DimensionStyle, type DimTick, type ElementTag, type Id, type Project } from '@hestia/model';
+import { annotationIdsWithHiddenHostInView, openingHeight, openingTypeById, angularDimensionGeometry, dimensionFormatStyle, dimensionGeometry, dimensionPoints, dimensionStyleFor, dimensionText, isOpening, isWall, floorViewId, planViewOf, unitsOf, viewAnnotationsOf, wallHeight, wallType, type Dimension, type DimensionStyle, type DimTick, type ElementTag, type Id, type Project } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 import type { DxfPoint } from './dxf.ts';
 import type { DxfTextEntity } from './dxfDoc.ts';
@@ -115,20 +115,26 @@ export function tagValueText(p: Project, tag: ElementTag): string {
 /**
  * Anotações da planta de piso do nível em metros de desenho. `scale` é o denominador da vista (1:100 → 100): 1 mm de
  * papel = scale/1000 m. Quem chama decide a visibilidade da categoria (a geometria sai inteira aqui). Converte o nível
- * para a vista de piso uma vez, aqui, e segue por `viewNotesDxfOf`.
+ * para a vista de piso uma vez, aqui, e segue por `viewNotesDxfOf` (`outOfRange`: ver lá).
  */
-export function notesDxfOf(p: Project, levelId: Id, scale: number): DxfNotes {
-  return viewNotesDxfOf(p, floorViewId(levelId), scale);
+export function notesDxfOf(p: Project, levelId: Id, scale: number, outOfRange?: ReadonlySet<Id>): DxfNotes {
+  return viewNotesDxfOf(p, floorViewId(levelId), scale, outOfRange);
 }
 
 /**
  * Anotações que uma vista de planta DESENHA (`viewAnnotationsOf`, já com a herança da planta de área), em metros de
  * desenho. Vista inexistente: sem nada. A referência de parede das cotas angulares é a do nível da vista.
+ *
+ * Etapa 7 da regra 4.5: a cota e a etiqueta cujo elemento não aparece na vista (`hidden` da vista, categoria, camada do
+ * perfil e, em `outOfRange`, o que o chamador sabe estar fora do intervalo) não saem. O elemento em si segue a decisão
+ * de quem monta a geometria (o DXF não honra `hidden.elements`).
  */
-export function viewNotesDxfOf(p: Project, viewId: Id, scale: number): DxfNotes {
+export function viewNotesDxfOf(p: Project, viewId: Id, scale: number, outOfRange?: ReadonlySet<Id>): DxfNotes {
   const mPerMm = scale / 1000;
   const out: DxfNotes = { lines: [], texts: [], otherLines: [] };
-  const notes = viewAnnotationsOf(p, viewId);
+  const all = viewAnnotationsOf(p, viewId);
+  const presas = annotationIdsWithHiddenHostInView(p, viewId, { outOfRange });
+  const notes = presas.size === 0 ? all : { ...all, dimensions: all.dimensions.filter((d) => !presas.has(d.id)), tags: all.tags.filter((t) => !presas.has(t.id)) };
   dimensionLinesDxfOf(p, planViewOf(p, viewId)?.levelId ?? null, notes.dimensions, scale, out);
   for (const t of notes.texts) {
     if (t.leader) for (let i = 1; i < t.leader.length; i++) out.otherLines!.push({ a: t.leader[i - 1]!, b: t.leader[i]!, layer: DXF_LAYER_TEXTOS });
