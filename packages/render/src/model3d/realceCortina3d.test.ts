@@ -2,16 +2,21 @@ import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { resolveLevel, type MalhaCortinaProjeto } from '@hestia/engine';
 import { projetoComCortina } from '@hestia/engine/src/fixtureCortina.ts';
+import type { SubelementoCortina } from '@hestia/model';
 import { avulsosDaCortina, lotesDaCortina } from './cortina3d.ts';
+import { RealceSubelementoCortina } from './cortinaSub3d.ts';
 import { RealceDaCortina, type DesenhoDeCortina, type GrupoDeRealceCortina } from './realceCortina3d.ts';
 import { ModelScene } from './scene3d.ts';
 
 // Kernel simulado: a cena monta a cortina com a malha que o teste entrega (sem o wasm).
-const kernel = vi.hoisted(() => ({ malha: null as MalhaCortinaProjeto | null }));
+const kernel = vi.hoisted(() => ({ malha: null as MalhaCortinaProjeto | null, par: null as unknown, item: null as unknown }));
 vi.mock('@hestia/engine', async (importOriginal) => {
   const real = await importOriginal<typeof import('@hestia/engine')>();
   return {
     ...real,
+    // Grade do subelemento de uma parede (o teste da célula entrega a parede e o item prontos).
+    subelementosDaCortina: () => kernel.par,
+    itemDoSubelemento: () => kernel.item,
     servicoCortina: () => ({
       pronto: () => true,
       malha: () => kernel.malha,
@@ -188,6 +193,50 @@ describe('realce da cortina: instâncias e arestas, nunca a caixa', () => {
     const mat = r.arestasNoAr('sel')!.material as THREE.LineBasicMaterial;
     expect(mat.color.getHex()).toBe(0xff0000);
     expect(mat.opacity).toBe(0.5);
+  });
+});
+
+describe('subelemento de célula: os painéis dentro da célula, sem a caixa dela', () => {
+  it('realça só o painel cujo centro cai na célula (com a geometria real), e não o montante nem a caixa da célula', () => {
+    const c = caixa();
+    const m: MalhaCortinaProjeto = {
+      protos: new Map([
+        [1, { proto: 1, papel: 0, tipoId: null, ...c }],
+        [2, { proto: 2, papel: 1, tipoId: null, ...c }],
+      ]),
+      instancias: [
+        // Painel de vidro em x de 0,5 a 1,5 (centro em x = 1, dentro da célula de 0 a 3 m).
+        { wallId: 'ct1', proto: 2, papel: 1, materialId: 'mat_vidro', transparente: true, matrizes: Float32Array.from(m12(1, 0.01, 3, 0.5, 0, 0)), n: 1 },
+        // Montante no meio da célula (papel 0): não entra no realce da célula.
+        { wallId: 'ct1', proto: 1, papel: 0, materialId: 'mat_aluminio', transparente: false, matrizes: Float32Array.from(m12(0.05, 0.1, 3, 1.5, 0, 0)), n: 1 },
+      ],
+      grupos: [],
+    };
+    const par = { wallId: 'ct1', a: { x: 0, y: 0 }, b: { x: 6, y: 0 }, L: 6, H: 3, zBase: 0, profundidade: 0.1, itens: [] };
+    const sub = { wallId: 'ct1', kind: 'cell', cell: { i: 0, j: 0 } } as SubelementoCortina;
+    kernel.par = par;
+    kernel.item = { sub, geo: { kind: 'cell', s0: 0, s1: 3, z0: 0, z1: 3 }, removido: false };
+    const r = new RealceSubelementoCortina();
+    r.definir(projetoComCortina(), sub, '#00aaff', [grupoDe(m)]);
+
+    const fill: THREE.InstancedMesh[] = [];
+    const linhas: THREE.LineSegments[] = [];
+    r.camada.traverse((o) => {
+      if (o instanceof THREE.InstancedMesh) fill.push(o);
+      if (o instanceof THREE.LineSegments) linhas.push(o);
+    });
+    // Preenchimento: uma instância só (o painel). Arestas: só as do painel, em x de 0,5 a 1,5; nem a caixa da célula (x de 0 a 3).
+    expect(fill.map((f) => f.count)).toEqual([1]);
+    expect(linhas).toHaveLength(1);
+    const pos = linhas[0]!.geometry.getAttribute('position').array as Float32Array;
+    expect(pos.length).toBeGreaterThan(0);
+    for (let i = 0; i < pos.length; i += 3) {
+      expect(pos[i]).toBeGreaterThanOrEqual(0.5 - 1e-5);
+      expect(pos[i]).toBeLessThanOrEqual(1.5 + 1e-5);
+    }
+    // Sair da célula desfaz tudo.
+    r.definir(projetoComCortina(), null, '#00aaff', [grupoDe(m)]);
+    expect(r.camada.children).toHaveLength(0);
   });
 });
 
