@@ -89,6 +89,7 @@ pub mod gc_caminho;
 // Parede cortina (decisão 0056, fase 1).
 pub mod cortina_avisos;
 pub mod cortina_grade;
+pub mod cortina_hosp;
 pub mod cortina_juncao;
 pub mod cortina_malha;
 pub mod cortina_pecas;
