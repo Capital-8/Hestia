@@ -11,7 +11,7 @@
  */
 import { isWall, openingTypeById, resolverParede, type CellKey, type Id, type Opening, type Project, type SubelementoCortina, type Wall, type WallType } from '@hestia/model';
 import { buildFrame, normalAt, pointAt, tangentAt, type WallFrame } from './frame.ts';
-import { zDaCortina } from './cortinaProjeto.ts';
+import { temCortina, zDaCortina } from './cortinaProjeto.ts';
 import { servicoCortina, type PortaCortinaProjeto } from './kernelCortinaServico.ts';
 import { PAPEL_PLANTA_CORTINA } from './kernelCortinaTabelas.ts';
 import { buildOpeningModel } from './openingModel.ts';
@@ -79,8 +79,7 @@ const memo = new WeakMap<Project, EsquadriaCortina[]>();
  * ou sem esquadria. O resultado é memorizado por projeto (o serviço já memoriza a consulta).
  */
 export function esquadriasDaCortina(p: Project, nivelId?: Id | null): EsquadriaCortina[] {
-  const svc = servicoCortina();
-  if (!svc.pronto()) return [];
+  if (!temCortina(p) || !servicoCortina().pronto()) return [];
   let todas = memo.get(p);
   if (!todas) {
     todas = montar(p);
