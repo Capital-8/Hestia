@@ -210,11 +210,11 @@ export class Editor {
       const s = sectionGraphicsOf(this.project).scale;
       return Number.isFinite(s) && s > 0 ? s : 100;
     }
-    // A escala própria é da planta de área (`area.scale`); piso e cobertura usam a do nível.
+    // A escala própria é da planta de área (`area.scale`); piso e cobertura usam a escala gráfica da vista ativa.
     const ativaId = planViewIdAtivo(st);
     const propria = ativaId ? vistaDoModelo(this.project, ativaId)?.area?.scale : undefined;
     if (propria !== undefined && Number.isFinite(propria) && propria > 0) return propria;
-    const s = viewGraphicsOf(this.project, floorViewId(st.levelId)).scale;
+    const s = viewGraphicsOf(this.project, ativaId ?? floorViewId(st.levelId)).scale;
     return Number.isFinite(s) && s > 0 ? s : 100;
   }
 
