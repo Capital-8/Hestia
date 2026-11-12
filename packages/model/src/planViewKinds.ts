@@ -21,15 +21,7 @@ export interface PlanViewKindInfo {
 }
 
 /**
- * Lista antiga das ferramentas da planta de área (cópia de `AREA_PLAN_TOOLS`, apps/web/src/editor/controller.ts).
- * Desde a raia J da Fase 3 a tabela não a usa mais: a planta de área aceita TODAS (`{ mode: 'all' }`). Fica exportada,
- * sem uso na tabela, até a raia K apagá-la junto com `AREA_PLAN_TOOLS`.
- */
-export const AREA_VIEW_TOOLS: readonly string[] = ['select', 'measure', 'dimension', 'text', 'tag', 'detailLine', 'filledRegion', 'room', 'roomsep'];
-
-/**
- * Cobertura HOJE: nenhuma restrição de ferramenta (nenhum `planKind === 'roof'` em controller.ts, nem em
- * ui/ribbon/parts.tsx; só `'area'` bloqueia). O PLANO §4.6 pede sem ambiente/separação na cobertura; fica para a
+ * Cobertura HOJE: nenhuma restrição de ferramenta. O PLANO §4.6 pede sem ambiente/separação na cobertura; fica para a
  * fase que mudar o comportamento.
  *
  * Intervalo e camadas da cobertura: o render não usa intervalo de vista (planContext.ts: `rp` => `view = null`) e

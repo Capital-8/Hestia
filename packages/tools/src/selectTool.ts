@@ -140,9 +140,10 @@ export class SelectTool extends ToolBase {
     return (c.wallPick = { ...c.pr, elements });
   }
 
-  /** Planta de área da vista (null/ausente = planta de piso): as anotações e as alças dela são as da planta. */
+  /** Id da vista quando ela é uma planta de área (undefined em piso e cobertura): as etiquetas de ambiente e a leitura só-anotação são dela. */
   private planId(): Id | undefined {
-    return this.env.areaPlanId?.() ?? undefined;
+    const id = this.viewId();
+    return planViewOf(this.env.project(), id)?.kind === 'area' ? id : undefined;
   }
 
   /** Vista de planta exata (piso, cobertura ou área): é de onde saem as anotações selecionáveis e as alças. */
@@ -150,10 +151,9 @@ export class SelectTool extends ToolBase {
     return viewIdOfEnv(this.env);
   }
 
-  /** Destino dos comandos de edição de anotação: a vista exata quando o ambiente a informa; senão a forma antiga. */
-  private destino(): { viewId: Id } | { planId?: Id } {
-    const planId = this.planId();
-    return this.env.viewId ? { viewId: this.env.viewId } : planId ? { planId } : {};
+  /** Destino dos comandos de edição de anotação: a vista exata. */
+  private destino(): { viewId: Id } {
+    return { viewId: this.viewId() };
   }
 
   /** Planta de área: elementos de modelo não se movem nem mostram alças (a vista é de análise/anotação). */

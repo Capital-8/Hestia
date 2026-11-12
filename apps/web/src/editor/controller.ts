@@ -61,15 +61,6 @@ import { abrirComCache, agendarGravacao, limparCacheDeGeometria, TETO_GEOMETRIA_
 import { aceitaCaractereNumerico } from './entradaNumerica.ts';
 
 
-/**
- * Lista ANTIGA das ferramentas da planta de área (anotação, ambiente e separador). SEM USO desde a raia J da Fase 3: a
- * planta de área aceita todas as ferramentas (`toolAllowedInView`). Fica exportada até a raia K apagá-la.
- */
-export const AREA_PLAN_TOOLS: readonly ToolId[] = ['select', 'measure', 'dimension', 'text', 'tag', 'detailLine', 'filledRegion', 'room', 'roomsep'];
-
-/** @deprecated Sem uso (a planta de área aceita todas). Sai na raia K. */
-export const areaPlanToolAllowed = (id: ToolId): boolean => toolAllowedInView('area', id);
-
 /** Id da seção ativa, quando a vista atual é corte/elevação. */
 const activeSectionId = (): Id | null => {
   const st = useUi.getState();
@@ -188,8 +179,6 @@ export class Editor {
         result: () => result,
       };
     },
-    // Contrato do ToolEnv (subagente de modelo): as ferramentas de anotação gravam com `planId` quando há planta de área.
-    areaPlanId: () => this.areaPlanIdNow(),
     // Vista de planta exata (piso, cobertura ou área); leitura a cada acesso, o ambiente é criado uma vez só.
     get viewId(): Id | undefined { return planViewIdAtivo(useUi.getState()) ?? undefined; },
     hiddenInView: () => hiddenInActiveView(this.store.project, useUi.getState()),
@@ -210,11 +199,6 @@ export class Editor {
   };
 
   get project(): Project { return this.store.project; }
-
-  /** Planta de área ativa (só quando a vista atual é a planta de área), ou null. */
-  private areaPlanIdNow(): Id | null {
-    return areaViewIdAtivo(useUi.getState());
-  }
 
   /**
    * Escala de impressão (1:N) da vista ativa: a da planta de área, a do nível ou a do corte/elevação. É a escala que

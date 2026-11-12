@@ -1,6 +1,7 @@
 import { newId, type DetailLine, type DetailRegion, type Dimension, type ElementTag, type Id, type SectionAnnotations, type TextNote, type Wall } from '@hestia/model';
 import type { Inference, PointerInfo, PreviewItem, Tool, ToolEnv } from './types.ts';
 import { infer, type InferContext } from './infer.ts';
+import { viewIdOfEnv } from './vistaDoAmbiente.ts';
 import { floorEdges, floorVertices } from './floorPick.ts';
 import { openingSnapGeometry } from './openingSnapPoints.ts';
 import { componentSnapGeometry } from './componentSnap.ts';
@@ -155,18 +156,8 @@ export abstract class ToolBase implements Tool {
 
 export const makeId = newId;
 
-/**
- * Planta de área aberta na vista, quando há uma. As ferramentas de anotação passam este id no comando para
- * gravar a anotação na planta (vista) e não no nível; `undefined` mantém a anotação na planta de piso.
- */
-export const viewPlanId = (env: ToolEnv): Id | undefined => env.areaPlanId?.() ?? undefined;
-
-/**
- * Destino de um comando de anotação de planta: a vista exata (`viewId`, piso, cobertura ou área) quando o ambiente a
- * informa; senão a forma antiga (`planId` da área, ou nada = piso do nível).
- */
-export const vistaDoComando = (env: ToolEnv): { viewId: Id } | { planId?: Id } =>
-  env.viewId ? { viewId: env.viewId } : { planId: viewPlanId(env) };
+/** Destino de um comando de anotação de planta: a vista exata (`viewId`, piso, cobertura ou área) do ambiente. */
+export const vistaDoComando = (env: ToolEnv): { viewId: Id } => ({ viewId: viewIdOfEnv(env) });
 
 /**
  * Acrescenta uma anotação na vista de corte/elevação ativa, pelo MESMO comando por item da planta (`sectionId`), com
