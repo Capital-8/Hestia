@@ -219,9 +219,9 @@ export class Editor {
   }
 
   /**
-   * Roteia um comando: na planta de área, as anotações recebem `planId` e o modelo as guarda em `plan.annotations`
-   * (não no nível). As ferramentas já mandam `planId`; o preenchimento aqui é a rede de segurança para comandos
-   * antigos e para o modo de compatibilidade sem o contrato novo.
+   * Roteia um comando: na planta de área, as anotações recebem `viewId` (via `vistaAtivaParaComando`) e o modelo as
+   * guarda em `plan.annotations` (não no nível). As ferramentas já mandam `viewId`; o preenchimento aqui é a rede de
+   * segurança para comandos antigos e para o modo de compatibilidade sem o contrato novo.
    */
   private exec(c: Command): void {
     this.avisandoOculto(() => this.exec1(c));

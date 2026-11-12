@@ -87,8 +87,8 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
   // O nível de baixo continua resolvido apenas quando a geometria é refeita (ver `planBelowOf`).
   const area = areaPlan !== undefined;
   const areaKey = area ? `${JSON.stringify(areaPlan)}|${s.tagGhost?.roomId ?? ''}` : '';
-  // A planta de área usa as MESMAS sobreposições da planta de piso. Ela bloqueia as ferramentas de modelo
-  // (`AREA_PLAN_TOOLS`), mas o `select` ainda move o elemento selecionado; por isso mantém destaque, alças e fantasmas
+  // A planta de área usa as MESMAS sobreposições da planta de piso. Ela bloqueia as ferramentas de modelo,
+  // mas o `select` ainda move o elemento selecionado; por isso mantém destaque, alças e fantasmas
   // iguais aos do piso. Se o select virar somente leitura, suprimir as alças de modelo aqui.
   const base = { project: p, levelId, viewport: v, theme, dark, showGrid: s.showGrid, thinLines: s.thinLines, showRoofProjection: s.showRoofProjection, roofPlanMode: rp, areaPlan, viewId, tagGhost: s.tagGhost, hidden: s.hidden, revealed: s.revealed, lang };
   const visKey = s.hidden?.size || s.revealed?.size ? `${[...(s.hidden ?? [])].sort().join(',')}|${[...(s.revealed ?? [])].sort().join(',')}` : '';
