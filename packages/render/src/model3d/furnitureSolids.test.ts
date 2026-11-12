@@ -187,6 +187,22 @@ describe('móveis: versão leve e completa', () => {
     expect(leve.stats.triangulos).toBeLessThan(completo.stats.triangulos / 3);
   });
 
+  it('definições pequenas (até o piso) não são simplificadas e a meta das grandes desconta o que elas ocupam', () => {
+    const g = esfera(40);
+    const m = esfera(7); // 98 triângulos: chapas finas e peças pequenas somem se agrupadas em grade
+    const input = entrada();
+    input.defs = [
+      { id: 'grande', name: 'g', ...g },
+      { id: 'pequena', name: 'p', ...m },
+    ];
+    input.instances = [{ defId: 'grande', transform: M(0) }, { defId: 'pequena', transform: M(2) }];
+    const a = buildFurnitureAsset({ ...input, recenter: false }, 'fa_piso');
+    const metas = metasLeves(a, 1000);
+    expect(metas.get('pequena')).toBe(98);
+    expect(metas.get('grande')! + 98).toBeLessThanOrEqual(1000);
+    expect(metas.get('grande')!).toBeGreaterThan(800);
+  });
+
   it('por instância: quality completo vence o padrão leve; bloco que cabe na meta fica completo', () => {
     const p = projetoCom(asset, 2, (i) => (i === 0 ? { quality: 'completo' } : {}));
     const r = buildFurnitureLevel(p, 'lv_0', ctx(), { sincrono: true, metaLeve: 1000 })!;
