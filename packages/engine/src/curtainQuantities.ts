@@ -29,7 +29,7 @@ export interface ResumoCortina {
   volumePaineis: number;
 }
 
-const ehMontante = (papel: number): boolean => papel <= PAPEL_QUANT_CORTINA.bordaTopo;
+const ehMontante = (papel: number): boolean => papel <= PAPEL_QUANT_CORTINA.canto;
 const ehPainel = (papel: number): boolean => papel === PAPEL_QUANT_CORTINA.painelVidro || papel === PAPEL_QUANT_CORTINA.painelSolido || papel === PAPEL_QUANT_CORTINA.painelVazio;
 
 const vazio = (cortina: number): ResumoCortina => ({

@@ -5,7 +5,7 @@ Itens marcados **(bloqueante)** precisam estar feitos antes de abrir o próximo 
 Fonte do comportamento: [docs/05](../05-REFERENCIA-REVIT-ARCHICAD.md). Item sem fonte lá vira `[?]` no 05 antes de ser codificado.
 
 ## A · Geometria
-- [x] A1 Parede reta por dois pontos, encadeada, com medida digitada
+- [x] A1 Parede reta por dois pontos, encadeada, com medida digitada (a parede cortina entra aqui como família de parede, decisão 0056; ela não passa pelo resolvedor de camadas)
 - [x] A2 Altura livre ou até um nível, com deslocamentos de base e topo
 - [x] A3 Linha de localização (6 opções) e lado externo/invertido
 - [x] A4 Parede em arco (centro/raio/ângulos e por três pontos) **(bloqueante)**
@@ -43,7 +43,7 @@ Fonte do comportamento: [docs/05](../05-REFERENCIA-REVIT-ARCHICAD.md). Item sem 
 - [x] C13 Junção com parede em arco **(bloqueante)** — L, T e correntes tangentes dentro do domínio suportado: raio ≥ 3 m e quina de 60° a 120° (23 testes em `curvas.test.ts`; corte plano pelas faces, 0010 #7; docs/08 §6.5). Fora desse domínio (R < 3 m, quina de 30° ou 150°) a junção é de melhor esforço: pode sobrar ponta de poucos centímetros ou anel extra (CV-2, docs/08 §6.5)
 - [x] C14 Paredes sobrepostas detectadas, com aviso
 - [x] C15 Parede empilhada sobre outra (níveis diferentes)
-- [-] C16 Junção com pilar, viga e cortina de vidro: depende desses elementos, que têm checklists próprios
+- [~] C16 Junção com pilar, viga e cortina de vidro: cortina feita (decisão 0056, fase 3, esquema v16, seção 110) — encosto reto no montante de borda com parede comum em L e em T (a cortina recua até a face da vizinha; a parede comum termina em corte reto no eixo, sem mudar o resultado do resolvedor de camadas), montante de canto entre cortinas de 30° a 150° com profundidades diferentes e continuidade quando colineares, e `noJoinStart/End` desligam a ponta; testes de propriedade e dourados de planta em `cortina_juncao_testes.rs`. Pilar e viga seguem pendentes (checklists próprios)
 - [-] C17 Divisão automática ao cruzar: o Revit também não divide sozinho
 - [x] C18 Quina em encosto pareia por face, em degraus, sem aviso nem lote de correção (docs/08 §5.7; decisão 0009 #11). O esquadro, que pareava do mesmo jeito, foi removido (0010 #1)
 - [x] C19 Junção oblíqua em L e T (30° a 150°) sem triângulo vazio; 90° igual ao caso reto anterior (`obliquas.test.ts`; 0010 #2)

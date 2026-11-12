@@ -84,7 +84,7 @@ export const ENUM_CORTINA = {
 /** `origem` de `cortina_grade.linhas`. */
 export const ORIGEM_LINHA = { gerada: 0, extra: 1, manual: 2 } as const;
 
-/** Papel das peças em `quant_cortina`: montantes 0 a 5, painéis 10 a 12 e o sistema 20 (convenção da referência TS `cortinaRef`). */
+/** Papel das peças em `quant_cortina`: montantes 0 a 6, painéis 10 a 12 e o sistema 20 (convenção da referência TS `cortinaRef`). */
 export const PAPEL_QUANT_CORTINA = {
   interiorVertical: 0,
   interiorHorizontal: 1,
@@ -92,6 +92,8 @@ export const PAPEL_QUANT_CORTINA = {
   bordaFim: 3,
   bordaBase: 4,
   bordaTopo: 5,
+  /** Montante de canto entre duas cortinas (fase 3): uma peça de altura total, emitida pela cortina de menor id. */
+  canto: 6,
   painelVidro: 10,
   painelSolido: 11,
   painelVazio: 12,
