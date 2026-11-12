@@ -750,5 +750,13 @@
     "fr": "Liste les blocs du projet pour placer d’autres copies.",
     "it": "Elenca i blocchi del progetto per posizionare altre copie.",
     "pl": "Wyświetla bloki projektu, aby umieścić kolejne kopie."
+  },
+  {
+    "pt": "Colocar móvel",
+    "es": "Colocar mueble",
+    "de": "Möbel platzieren",
+    "fr": "Placer un meuble",
+    "it": "Posiziona arredo",
+    "pl": "Umieść mebel"
   }
 ]

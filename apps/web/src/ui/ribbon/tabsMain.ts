@@ -170,7 +170,7 @@ export const TAB_INSERIR: RibbonTab = {
       soon(t('Importar PDF', 'Import PDF'), 'sheet'),
       soon(t('Imagem', 'Image'), 'sheet'),
     ),
-    panel('ins-moveis', t('Móveis', 'Furniture'), act('importFurniture', 'large'), act('myBlocks', 'large')),
+    panel('ins-moveis', t('Móveis', 'Furniture'), act('importFurniture', 'large'), act('myBlocks', 'large'), tool('furniture', 'large', { label: t('Colocar móvel', 'Place furniture'), icon: 'component' })),
     panel(
       'ins-biblioteca',
       t('Carregar da biblioteca', 'Load from Library'),
