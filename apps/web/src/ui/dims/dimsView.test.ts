@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { defaultUnits, formatQuantity } from '@hestia/model';
 import type { DimEnd, TempDim } from '@hestia/tools';
-import { dimAcionavel, dimText, gripOf, nextRef, providerOf, refLabel, viewOfDim } from './dimsView.ts';
+import { dimAcionavel, dimText, gripOf, nextRef, podeConverter, providerOf, refLabel, viewOfDim } from './dimsView.ts';
 
 const end = (slot: string, current: DimEnd['current'], options: DimEnd['options'], x = 0): DimEnd => ({ at: { x, y: 0 }, slot, kind: 'wall', current, options });
 const dim = (over: Partial<TempDim> = {}): TempDim => ({
@@ -83,5 +83,12 @@ describe('dimsView', () => {
     expect(viewOfDim(d, toScreen, 0.01, null).grips.map((g) => g.slot)).toEqual(['openLeft']);
     const only = dim({ ends: [end('a', 'axis', ['axis']), end('b', 'axis', ['axis'], 2)] });
     expect(viewOfDim(only, toScreen, 0.01, null).grips).toEqual([]);
+  });
+
+  it('o botão "I" só converte cota dinâmica de elemento; o rascunho da Cota e a cota permanente não o oferecem', () => {
+    expect(podeConverter(dim())).toBe(true);
+    // O "I" sob o cursor engolia o clique do 2º ponto e criava a cota sozinha, sem a posição final.
+    expect(podeConverter(dim({ key: 'wall:draft:length', conversivel: false }))).toBe(false);
+    expect(podeConverter(dim({ key: 'dimension:d1:a' }))).toBe(false);
   });
 });

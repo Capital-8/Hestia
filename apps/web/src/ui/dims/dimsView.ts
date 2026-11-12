@@ -67,6 +67,12 @@ export const providerOf = (dim: TempDim): string => dim.key.split(':')[0] ?? '';
 export const dimAcionavel = (dim: TempDim): boolean => dim.edit !== undefined;
 
 /**
+ * O botão "I" pode converter esta cota? Só a dinâmica de elemento ou de seleção: a cota permanente já é permanente e o
+ * rascunho de uma ferramenta que cria a cota sozinha (`conversivel: false`) nunca oferece o botão.
+ */
+export const podeConverter = (dim: TempDim): boolean => !ehPermanente(dim) && dim.conversivel !== false;
+
+/**
  * Texto mostrado no campo da cota: valor principal e, quando houver, a medida informativa (ex.: "5,00 · 53,1°").
  * Comprimentos vão sem unidade (o campo já pertence à grandeza); ângulos levam o símbolo, que os distingue do número.
  */

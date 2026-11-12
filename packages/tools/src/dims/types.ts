@@ -72,6 +72,12 @@ export interface TempDim {
   /** Pontas na ordem de `a` e `b`. */
   ends: [DimEnd, DimEnd];
   tone?: 'valid' | 'invalid';
+  /**
+   * `false` = rascunho de ferramenta que já cria a cota permanente por conta própria (Cota, Cota angular): sem botão
+   * "I". O "I" sob o cursor engolia o clique do ponto e criava a cota sozinha, com o afastamento padrão. Ausente =
+   * a cota dinâmica pode virar permanente (parede, esquadria, seleção...).
+   */
+  conversivel?: false;
   /** Ausente = só leitura. Pura: devolve comandos, nunca os executa. */
   edit?: (valueSI: number) => DimEditResult;
 }
