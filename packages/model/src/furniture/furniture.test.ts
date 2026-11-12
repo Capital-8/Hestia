@@ -113,6 +113,21 @@ describe('asset', () => {
   });
 });
 
+describe('grupos de dois lados', () => {
+  it('doubleSided do grupo vai para o asset (so quando verdadeiro), entra no hash e sobrevive ao JSON', () => {
+    const a = input();
+    const normal = buildFurnitureAsset(a, 'fa_a');
+    const b = input();
+    b.defs[0]!.groups = [{ start: 0, count: 6, materialIndex: 0, doubleSided: true }, { start: 6, count: 3, materialIndex: 1, doubleSided: false }];
+    const dois = buildFurnitureAsset(b, 'fa_b');
+    expect(dois.defs[0]!.groups[0]).toEqual({ start: 0, count: 6, materialIndex: 0, doubleSided: true });
+    expect('doubleSided' in dois.defs[0]!.groups[1]!).toBe(false);
+    expect(dois.contentHash).not.toBe(normal.contentHash);
+    const volta = JSON.parse(JSON.stringify(dois)) as typeof dois;
+    expect(volta.defs[0]!.groups[0]!.doubleSided).toBe(true);
+  });
+});
+
 describe('comandos e historico', () => {
   it('addFurnitureAsset cria materiais com categoria; desfazer e refazer', () => {
     const { store } = fresh();

@@ -22,6 +22,8 @@ export interface FurnitureMeshGroup {
   count: number;
   /** Indice em `FurnitureAsset.materials`. */
   materialIndex: number;
+  /** Desenhar as duas faces do grupo (sem descarte de faces traseiras). Ausente = um lado so. */
+  doubleSided?: boolean;
 }
 
 export interface FurnitureMeshDef {

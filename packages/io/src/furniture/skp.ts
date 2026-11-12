@@ -55,6 +55,7 @@ function det3(m: readonly number[]): number {
 // ---- materiais --------------------------------------------------------------------------------------------------
 
 interface GltfMat {
+  doubleSided?: boolean;
   pbrMetallicRoughness?: { baseColorFactor?: number[]; baseColorTexture?: { index: number } };
 }
 
@@ -302,7 +303,10 @@ export const importSkp: ImportFn = async (file, opts: ImportOptions = {}) => {
       }
       if (anyTex) uvs.set(p.uvs, vo * 2);
       for (let i = 0; i < p.indices.length; i++) indices[io + i] = (p.indices[i] as number) + vo;
-      groups.push({ start: io, count: p.indices.length, materialIndex: materialFor(p.materialIndex) });
+      // O OpenSKP marca `doubleSided` quando frente e verso da face tem a mesma cor (e entao emite so um lado). Sem isto
+      // as faces com a frente voltada para dentro sumiam (descarte de faces traseiras).
+      const ds = gltfMats[p.materialIndex]?.doubleSided === true;
+      groups.push({ start: io, count: p.indices.length, materialIndex: materialFor(p.materialIndex), ...(ds ? { doubleSided: true } : {}) });
       vo += pv;
       io += p.indices.length;
     }

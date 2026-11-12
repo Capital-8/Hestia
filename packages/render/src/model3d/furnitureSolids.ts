@@ -170,6 +170,8 @@ export function assinaturaDeMoveis(p: Project, levelId: Id, opt: OpcoesMoveis = 
 
 interface ParteGpu {
   materialIndex: number;
+  /** Desenhar as duas faces (grupo `doubleSided` do bloco). */
+  doubleSided: boolean;
   index: THREE.BufferAttribute;
   /** Índices com a ordem invertida, para instâncias espelhadas (criados sob demanda). */
   invertido?: THREE.BufferAttribute;
@@ -208,7 +210,7 @@ function conjuntoDe(m: MalhaDeDefinicao): ConjuntoGpu {
     uv: m.uvs.length === n * 2 && n > 0 ? new THREE.BufferAttribute(m.uvs, 2) : null,
     partes: m.groups
       .filter((g) => g.count > 0)
-      .map((g) => ({ materialIndex: g.materialIndex, index: new THREE.BufferAttribute(m.indices.subarray(g.start, g.start + g.count), 1) })),
+      .map((g) => ({ materialIndex: g.materialIndex, doubleSided: g.doubleSided === true, index: new THREE.BufferAttribute(m.indices.subarray(g.start, g.start + g.count), 1) })),
     caixa: caixaDosVertices(m.positions),
     triangulos: m.indices.length / 3,
   };
@@ -226,7 +228,7 @@ function conjuntoDeCaixa(d: FurnitureMeshDef, malha: MalhaDeDefinicao): Conjunto
     position: new THREE.BufferAttribute(positions, 3),
     normal: new THREE.BufferAttribute(normals, 3),
     uv: null,
-    partes: [{ materialIndex: malha.groups[0]?.materialIndex ?? 0, index: new THREE.BufferAttribute(indices, 1) }],
+    partes: [{ materialIndex: malha.groups[0]?.materialIndex ?? 0, doubleSided: false, index: new THREE.BufferAttribute(indices, 1) }],
     caixa: box,
     triangulos: 12,
   };
@@ -284,7 +286,7 @@ function indiceInvertido(p: ParteGpu): THREE.BufferAttribute {
 
 export interface ContextoMoveis {
   /** Material do grupo de material `materialIndex` do asset, na qualidade desenhada. */
-  material(asset: FurnitureAsset, materialIndex: number, qualidade: QualidadeDesenhada): THREE.Material;
+  material(asset: FurnitureAsset, materialIndex: number, qualidade: QualidadeDesenhada, doubleSided?: boolean): THREE.Material;
   /** Material invisível das caixas de picking. */
   pick: THREE.Material;
   /** Material das linhas (wireframe). */
@@ -379,7 +381,7 @@ export function buildFurnitureLevel(p: Project, levelId: Id, ctx: ContextoMoveis
         geo.boundingBox = c.caixa.clone();
         geo.boundingSphere = c.caixa.getBoundingSphere(new THREE.Sphere());
         stats.geometrias++;
-        const mesh = new THREE.InstancedMesh(geo, ctx.material(g.asset, parte.materialIndex, g.qualidade), n);
+        const mesh = new THREE.InstancedMesh(geo, ctx.material(g.asset, parte.materialIndex, g.qualidade, parte.doubleSided), n);
         (mesh.instanceMatrix.array as Float32Array).set(g.matrizes);
         mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
         mesh.instanceMatrix.needsUpdate = true;

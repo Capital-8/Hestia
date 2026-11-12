@@ -452,3 +452,56 @@ describe.skipIf(!temBlocos)('móveis: blocos reais do usuário (somente leitura)
     }, 300_000);
   }
 });
+
+describe('móveis: grupos de dois lados (doubleSided) até o renderizador', () => {
+  /** Cubo com a madeira (faces 0 a 2) de dois lados e o tecido de um lado. */
+  const comLados = (): FurnitureImportInput => {
+    const i = cuboInput();
+    i.defs[0]!.groups = [{ start: 0, count: 18, materialIndex: 0, doubleSided: true }, { start: 18, count: 18, materialIndex: 1 }];
+    return i;
+  };
+  const { store, assets, levelId } = projetoCom([comLados()]);
+  colocar(store, 'n', assets[0]!.id, levelId, { x: 0 });
+  colocar(store, 'e', assets[0]!.id, levelId, { x: 5, mirrored: true, rotation: 0.4 });
+  const madeira = assets[0]!.materials[0]!.id;
+  const tecido = assets[0]!.materials[1]!.id;
+
+  it('o asset guarda doubleSided só nos grupos que o têm', () => {
+    expect(assets[0]!.defs[0]!.groups.map((g) => g.doubleSided ?? false)).toEqual([true, false]);
+  });
+  it('a malha exportada separa os grupos de dois lados e marca doubleSided; nenhum triângulo se perde (normal e espelhada)', () => {
+    const { entities, triangles } = furnitureEntities(store.project);
+    expect(triangles).toBe(24);
+    for (const e of entities) {
+      const gs = e.mesh!.groups;
+      const dois = gs.filter((g) => g.doubleSided === true);
+      expect(dois.map((g) => g.materialId), e.id).toEqual([madeira]);
+      expect(dois.reduce((s, g) => s + g.count, 0) / 3).toBe(6);
+      expect(gs.filter((g) => !g.doubleSided).map((g) => g.materialId), e.id).toEqual([tecido]);
+      expect(gs.reduce((s, g) => s + g.count, 0)).toBe(e.mesh!.indices.length);
+    }
+  });
+  it('mesmo material de um lado e de dois lados no mesmo bloco: grupos distintos (não se fundem)', () => {
+    const inp = cuboInput();
+    inp.defs[0]!.groups = [{ start: 0, count: 18, materialIndex: 0, doubleSided: true }, { start: 18, count: 18, materialIndex: 0 }];
+    const { store: s2, assets: a2, levelId: l2 } = projetoCom([inp]);
+    colocar(s2, 'x', a2[0]!.id, l2);
+    const g = furnitureEntities(s2.project).entities[0]!.mesh!.groups;
+    expect(g.length).toBe(2);
+    expect(g.map((x) => x.doubleSided === true).sort()).toEqual([false, true]);
+    expect(new Set(g.map((x) => x.materialId)).size).toBe(1);
+  });
+  it('o hash da malha muda com doubleSided', () => {
+    const a = furnitureEntities(store.project).entities.find((e) => e.id === 'n')!.mesh!.hash;
+    const { store: s3, assets: a3, levelId: l3 } = projetoCom([cuboInput()]);
+    colocar(s3, 'n', a3[0]!.id, l3, { x: 0 });
+    const b = furnitureEntities(s3.project).entities[0]!.mesh!.hash;
+    expect(a).not.toBe(b);
+  });
+  it('protocolo 1.3 leva doubleSided; 1.0 a 1.2 saem exatamente como antes (sem o campo)', () => {
+    const bruto = buildSceneContent(store.project, null);
+    const grupos = (c: SceneContent) => c.entities.filter((e) => e.kind === 'furniture').flatMap((e) => e.mesh!.groups);
+    expect(grupos(contentForProtocol(bruto, 3)).some((g) => g.doubleSided === true)).toBe(true);
+    expect(grupos(contentForProtocol(bruto, 2)).some((g) => 'doubleSided' in g)).toBe(false);
+  });
+});

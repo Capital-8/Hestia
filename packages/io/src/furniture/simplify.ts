@@ -85,7 +85,7 @@ function cluster(def: ImportedMeshDef, min: [number, number, number], cell: numb
     }
     if (build) {
       const count = out.indices.length - firstIndexOfGroup;
-      if (count > 0) out.groups.push({ start: firstIndexOfGroup, count, materialIndex: g.materialIndex });
+      if (count > 0) out.groups.push({ start: firstIndexOfGroup, count, materialIndex: g.materialIndex, ...(g.doubleSided ? { doubleSided: true } : {}) });
     }
   }
   if (build) {
@@ -178,7 +178,7 @@ function finish(def: ImportedMeshDef, b: Built): ImportedMeshDef {
         nrm[v * 3 + 2] = (nrm[v * 3 + 2] as number) + nz;
       }
     }
-    if (keep.length > start) groups.push({ start, count: keep.length - start, materialIndex: g.materialIndex });
+    if (keep.length > start) groups.push({ start, count: keep.length - start, materialIndex: g.materialIndex, ...(g.doubleSided ? { doubleSided: true } : {}) });
   }
 
   // Compacta vertices realmente usados.

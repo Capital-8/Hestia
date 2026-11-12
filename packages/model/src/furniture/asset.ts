@@ -38,7 +38,7 @@ export interface FurnitureImportInput {
     normals: Float32Array;
     uvs: Float32Array;
     indices: Uint32Array;
-    groups: Array<{ start: number; count: number; materialIndex: number }>;
+    groups: Array<{ start: number; count: number; materialIndex: number; doubleSided?: boolean }>;
   }>;
   materials: Array<{
     name: string;
@@ -103,7 +103,7 @@ export function buildFurnitureAsset(input: FurnitureImportInput, id: string = ne
       indices: uint32ToBase64(d.indices),
       vertexCount: p.length / 3,
       indexCount: d.indices.length,
-      groups: d.groups.map((g) => ({ start: g.start, count: g.count, materialIndex: g.materialIndex })),
+      groups: d.groups.map((g) => ({ start: g.start, count: g.count, materialIndex: g.materialIndex, ...(g.doubleSided ? { doubleSided: true } : {}) })),
     };
     hashParts.push(enc.encode(`${def.id}|${def.name}|${def.positions}|${def.normals}|${def.uvs}|${def.indices}|${JSON.stringify(def.groups)}`));
     return def;

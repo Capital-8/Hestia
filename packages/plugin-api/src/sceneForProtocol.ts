@@ -66,7 +66,7 @@ function sceneUpTo12(c: SceneContent): SceneContent {
 function stripEntity(e: SceneEntity): SceneEntity {
   if (!e.mesh) return e;
   const { normals: _drop, uvs: _uv, ...rest } = e.mesh;
-  return { ...e, mesh: { ...rest, groups: e.mesh.groups.map((g) => ({ ...g, materialId: null })) } as SceneMesh };
+  return { ...e, mesh: { ...rest, groups: e.mesh.groups.map(({ doubleSided: _ds, ...g }) => ({ ...g, materialId: null })) } as SceneMesh };
 }
 
 /** Campos de 1.3 do snapshot (cabeçalho). Vazio para 1.0 a 1.2. */

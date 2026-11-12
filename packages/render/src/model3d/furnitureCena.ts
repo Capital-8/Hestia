@@ -30,8 +30,20 @@ function materialDoProjeto(p: Project, asset: FurnitureAsset, materialIndex: num
   );
 }
 
-function materialDoMovel(mats: Materiais3D, p: Project, asset: FurnitureAsset, materialIndex: number, q: QualidadeDesenhada, aoCarregar: () => void): THREE.Material {
-  const base = mats.face(materialDoProjeto(p, asset, materialIndex), 'generic');
+/** Cópia do material com as duas faces visíveis (grupos `doubleSided`: chapas, tecidos, faces do .skp com frente e verso iguais). */
+function comDuasFaces(mats: Materiais3D, base: THREE.Material): THREE.Material {
+  if (base.side === THREE.DoubleSide) return base;
+  return mats.cached(`ds|${base.uuid}`, () => {
+    const m = base.clone();
+    m.side = THREE.DoubleSide;
+    return m;
+  });
+}
+
+function materialDoMovel(mats: Materiais3D, p: Project, asset: FurnitureAsset, materialIndex: number, q: QualidadeDesenhada, aoCarregar: () => void, doubleSided = false): THREE.Material {
+  const um = mats.face(materialDoProjeto(p, asset, materialIndex), 'generic');
+  // A variante de dois lados sai ANTES da textura: o clone com textura (que o retorno da imagem tinge de branco) e dela.
+  const base = doubleSided ? comDuasFaces(mats, um) : um;
   const fm = asset.materials[materialIndex];
   const estilo = mats.marco.view.style;
   if (q !== 'leve' || !fm || fm.textureIndex === undefined || fm.useEmbeddedTexture === false || estilo === 'hiddenLine' || estilo === 'wireframe') return base;
@@ -58,7 +70,7 @@ export function moveisParaCena(mats: Materiais3D, p: Project, levelId: Id, opt: 
     p,
     levelId,
     {
-      material: (asset, mi, q) => materialDoMovel(mats, p, asset, mi, q, aoCarregarTextura),
+      material: (asset, mi, q, ds) => materialDoMovel(mats, p, asset, mi, q, aoCarregarTextura, ds === true),
       pick: mats.cached('pick', () => new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false })),
       linha: wireframe ? mats.edge() : undefined,
       wireframe,
