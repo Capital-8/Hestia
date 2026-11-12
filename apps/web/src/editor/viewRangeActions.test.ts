@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_VIEW_RANGE, ProjectStore, createEmptyProject, makeWall, planViewRangeOf, floorViewId, type Wall } from '@hestia/model';
 import { viewRangeWarnings } from '@hestia/engine';
 import { editViewRange, restoreViewRangeDefault } from './viewRangeActions.ts';
+import { resolveText } from './i18n.ts';
 
 function store(): ProjectStore {
   const s = new ProjectStore(createEmptyProject());
@@ -18,7 +19,7 @@ describe('editViewRange (intervalo de vista, decisão 0013 §5)', () => {
     const r = editViewRange(s, 'lv_0', { cut: 1.1 });
     expect(r).toEqual({ ok: true, error: null });
     expect(planViewRangeOf(s.project, floorViewId('lv_0'))).toEqual({ ...DEFAULT_VIEW_RANGE, cut: 1.1 });
-    expect(s.undoLabel).toBe('Alterar intervalo de vista');
+    expect(resolveText(s.undoLabel!, 'pt')).toBe('Alterar intervalo de vista');
     s.undo();
     expect(planViewRangeOf(s.project, floorViewId('lv_0'))).toEqual(DEFAULT_VIEW_RANGE);
     s.redo();
@@ -61,7 +62,7 @@ describe('editViewRange (intervalo de vista, decisão 0013 §5)', () => {
 
   it('nível inexistente é recusado com a mensagem do comando', () => {
     const s = store();
-    expect(editViewRange(s, 'lv_nao_existe', { cut: 1 })).toEqual({ ok: false, error: 'Nível inexistente' });
+    expect(editViewRange(s, 'lv_nao_existe', { cut: 1 })).toEqual({ ok: false, error: 'Vista inexistente' });
   });
 
   it('a direção "up" é aceita pelo comando (guardada para o futuro), mas a interface não a oferece', () => {
