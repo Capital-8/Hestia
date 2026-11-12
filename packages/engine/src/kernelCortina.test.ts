@@ -18,7 +18,7 @@ import {
   type NomeSecaoCortina,
 } from './kernelCortina.ts';
 
-const IDS_SECAO: Record<NomeSecaoCortina, number> = { cortinas: 100, tipos_cortina: 101, grades_cortina: 102, grade_posicoes_cortina: 103, tipos_montante_cortina: 104, tipos_painel_cortina: 105, cortina_linhas_extras: 106, cortina_segmentos_removidos: 107, cortina_linhas_sobrescritas: 108, cortina_celulas_sobrescritas: 109 };
+const IDS_SECAO: Record<NomeSecaoCortina, number> = { cortinas: 100, tipos_cortina: 101, grades_cortina: 102, grade_posicoes_cortina: 103, tipos_montante_cortina: 104, tipos_painel_cortina: 105, cortina_linhas_extras: 106, cortina_segmentos_removidos: 107, cortina_linhas_sobrescritas: 108, cortina_celulas_sobrescritas: 109, cortina_extremidades: 110 };
 
 const entrada = (): EntradaCenaCortina => ({
   montantes: [
@@ -60,9 +60,9 @@ const entrada = (): EntradaCenaCortina => ({
 });
 
 describe('contrato da parede cortina', () => {
-  it('as seções 100 a 109 e as colunas conferem com o esquema gerado do JSON', () => {
-    expect(ESQUEMA_VERSAO).toBe(15);
-    expect(NOMES_SECOES_CORTINA).toHaveLength(10);
+  it('as seções 100 a 110 e as colunas conferem com o esquema gerado do JSON', () => {
+    expect(ESQUEMA_VERSAO).toBe(16);
+    expect(NOMES_SECOES_CORTINA).toHaveLength(11);
     for (const nome of NOMES_SECOES_CORTINA) {
       const s = SECOES[nome];
       expect(s.id, nome).toBe(IDS_SECAO[nome]);

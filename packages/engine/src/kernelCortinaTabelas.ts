@@ -1,5 +1,5 @@
 /**
- * Tabelas do adaptador da parede cortina (decisão 0056; fase 1 esquema v14, fase 2 esquema v15): nomes e colunas das seções 100 a 109, códigos dos enums e
+ * Tabelas do adaptador da parede cortina (decisão 0056; fase 1 esquema v14, fase 2 esquema v15, fase 3 esquema v16): nomes e colunas das seções 100 a 110, códigos dos enums e
  * das saídas das consultas 100, 101, 102, 104 e 105. Espelha `crates/geom-wasm/schema/cena-v11.json`; o teste `kernelCortina.test.ts` confere contra o esquema gerado e
  * o teste do wasm (`tests/kernel-cortina.wasm.test.ts`), contra o Rust real.
  */
@@ -26,6 +26,7 @@ export const NOMES_SECOES_CORTINA = [
   'cortina_segmentos_removidos',
   'cortina_linhas_sobrescritas',
   'cortina_celulas_sobrescritas',
+  'cortina_extremidades',
 ] as const;
 export type NomeSecaoCortina = (typeof NOMES_SECOES_CORTINA)[number];
 export type ColunasCortina = Record<string, number[]>;
@@ -41,6 +42,25 @@ export const COLUNAS_CORTINA: Record<NomeSecaoCortina, readonly string[]> = {
   cortina_segmentos_removidos: ['id_num', 'cortina_num', 'eixo', 'origem', 'linha_num', 'pos_norm', 'n', 'k', 'nk', 'mid'],
   cortina_linhas_sobrescritas: ['id_num', 'cortina_num', 'eixo', 'linha_num', 'pos_norm', 'n', 'travada', 'pos', 'comp_gravado', 'montante_modo', 'montante_num'],
   cortina_celulas_sobrescritas: ['id_num', 'cortina_num', 'i', 'j', 's', 'z', 'nu', 'nv', 'painel_num'],
+  cortina_extremidades: [
+    'id_num',
+    'cortina_num',
+    'fim',
+    'vizinha_num',
+    'vizinha_tipo',
+    'lado',
+    'flags',
+    'angulo',
+    'face1_ax',
+    'face1_ay',
+    'face1_bx',
+    'face1_by',
+    'face2_ax',
+    'face2_ay',
+    'face2_bx',
+    'face2_by',
+    'espessura_vizinha',
+  ],
 };
 
 /** Valor de "herda do tipo" nas colunas `u8` da grade da instância (`modo`, `justificacao`, `ancora`). Nas `u32` é `ID_AUSENTE_CORTINA`; nas `f64`, NaN. */
@@ -85,6 +105,8 @@ export const PAPEL_PLANTA_CORTINA = { contorno: 0, vidro: 1, montante: 2, solido
 export const ESTILO_PLANTA_CORTINA = { cortado: 0, projetado: 1, oculto: 2 } as const;
 /** Bits de `cortina_grade.celulas.flags`: menor lado livre menor que a célula mínima; célula com sobrescrita adotada; região com mais de uma célula. */
 export const FLAGS_CELULA = { pequena: 1, sobrescrita: 2, regiaoMultipla: 4 } as const;
+/** Bits de `cortina_extremidades.flags`: junção desligada nesta ponta (`noJoin`); (bit 1 reservado); a vizinha atravessa o nó (T). */
+export const FLAGS_EXTREMIDADE = { semJuncao: 1, atravessa: 4 } as const;
 /** Bit 0 de `cortina_grade.linhas.flags`: linha travada. */
 export const FLAGS_LINHA = { travada: 1 } as const;
 /** `montante_modo` de `cortina_linhas_sobrescritas`: herda do eixo, sem montante (null), ou um tipo. */
