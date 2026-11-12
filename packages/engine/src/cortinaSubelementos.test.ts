@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { SubelementoCortina } from '@hestia/model';
 import {
+  geometriaDaEsquadria,
   itemDoSubelemento,
   montarParedeSubelementos,
   mesmoSubelemento,
   proximoSubelemento,
   segmentosDoSubelemento3d,
+  subelementoDaCelula,
   subelementoEmPonto,
   tracosDoSubelementoPlanta,
   type ContextoParede,
@@ -182,6 +184,57 @@ describe('identidade e busca', () => {
     // Ponto sobre a borda de início (x = 0), longe de qualquer linha interna: a célula ainda ganha.
     const hit = subelementoEmPonto(p, 0.01, 10.5, 0.005);
     expect(hit?.kind).toBe('cell');
+  });
+});
+
+describe('esquadria da célula (fase 5, §7.7): parada própria logo depois da célula', () => {
+  // Célula (0, 0) da grade de referência com porta: a esquadria entra na lista logo depois da célula.
+  const comEsq = montarParedeSubelementos(gradeReferencia(), { ...ctx, esquadrias: [{ i: 0, j: 0 }] });
+  const celulaCentro = { i: 0, j: 0, s: 0.125, z: 0.25, nu: 3, nv: 2 };
+
+  it('uma parada `opening` a mais, logo depois da célula com esquadria; a geometria é a da célula', () => {
+    expect(comEsq.itens.length).toBe(parede().itens.length + 1);
+    expect(comEsq.itens[9]!.sub).toEqual({ wallId: 'w', kind: 'cell', cell: celulaCentro });
+    expect(comEsq.itens[10]!.sub).toEqual({ wallId: 'w', kind: 'opening', cell: celulaCentro });
+    expect(comEsq.itens[10]!.geo).toEqual(comEsq.itens[9]!.geo);
+    expect(comEsq.itens[10]!.removido).toBe(false);
+  });
+
+  it('sem esquadria na lista, não há parada extra (a cortina de antes não muda)', () => {
+    expect(parede().itens.some((it) => it.sub.kind === 'opening')).toBe(false);
+    const semEsq = montarParedeSubelementos(gradeReferencia(), { ...ctx, esquadrias: [{ i: 2, j: 2 }] });
+    expect(semEsq.itens.length).toBe(parede().itens.length);
+  });
+
+  it('Tab avança célula → esquadria → próxima célula; Shift+Tab da próxima volta à esquadria e depois à célula', () => {
+    expect(proximoSubelemento(comEsq, comEsq.itens[9]!.sub)).toEqual(comEsq.itens[10]!.sub);
+    expect(proximoSubelemento(comEsq, comEsq.itens[10]!.sub)).toEqual(comEsq.itens[11]!.sub);
+    expect(proximoSubelemento(comEsq, comEsq.itens[11]!.sub, true)).toEqual(comEsq.itens[10]!.sub);
+    expect(proximoSubelemento(comEsq, comEsq.itens[10]!.sub, true)).toEqual(comEsq.itens[9]!.sub);
+  });
+
+  it('mesmo subelemento: a esquadria e a célula da mesma célula são paradas diferentes', () => {
+    const cel = comEsq.itens[9]!.sub;
+    const op = comEsq.itens[10]!.sub;
+    expect(mesmoSubelemento(op, cel)).toBe(false);
+    expect(mesmoSubelemento(op, { wallId: 'w', kind: 'opening', cell: { ...celulaCentro, s: 0.9 } })).toBe(true);
+  });
+
+  it('clique: célula com esquadria devolve a esquadria; célula vizinha sem esquadria, a célula', () => {
+    expect(subelementoEmPonto(comEsq, 0.5, 10 + 0.5, 0.05)).toEqual(comEsq.itens[10]!.sub);
+    expect(subelementoEmPonto(comEsq, 0.5, 10 + 2, 0.05)?.kind).toBe('cell');
+    expect(subelementoEmPonto(comEsq, 3.5, 10 + 0.5, 0.05)?.kind).toBe('cell');
+  });
+
+  it('subelementoDaCelula (puro, para a 3D): esquadria se houver; senão a célula; null se a célula não está na lista', () => {
+    expect(subelementoDaCelula(comEsq, 0, 0)).toEqual(comEsq.itens[10]!.sub);
+    expect(subelementoDaCelula(comEsq, 0, 1)).toEqual(comEsq.itens.find((it) => it.sub.kind === 'cell' && it.sub.cell.i === 0 && it.sub.cell.j === 1)!.sub);
+    expect(subelementoDaCelula(comEsq, 9, 9)).toBeNull();
+  });
+
+  it('geometriaDaEsquadria (ponto de extensão): hoje o retângulo da célula; a 3D desenha a caixa dela', () => {
+    expect(geometriaDaEsquadria({ kind: 'cell', s0: 0, s1: 1, z0: 0, z1: 1.5 })).toEqual({ kind: 'cell', s0: 0, s1: 1, z0: 0, z1: 1.5 });
+    expect(segmentosDoSubelemento3d(comEsq, comEsq.itens[10]!)).toHaveLength(12);
   });
 });
 

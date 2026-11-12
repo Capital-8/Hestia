@@ -245,7 +245,8 @@ export interface CurtainInstance {
 export type SubelementoCortina =
   | { wallId: Id; kind: 'line'; line: LineRef }
   | { wallId: Id; kind: 'segment'; segment: SegmentRef }
-  | { wallId: Id; kind: 'cell'; cell: CellKey };
+  | { wallId: Id; kind: 'cell'; cell: CellKey }
+  | { wallId: Id; kind: 'opening'; cell: CellKey };
 
 /** Folga (m) de cada lado da folha até a face do montante (§7.6, LEAF_GAP_DEFAULT). */
 export const CURTAIN_LEAF_GAP = 0.004;

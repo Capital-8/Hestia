@@ -22,8 +22,20 @@ const grade: GradeCortina = {
   segmentos: [],
 };
 const parede: ParedeSubelementos = montarParedeSubelementos(grade, { wallId: 'ct1', a: { x: 0, y: 0 }, b: { x: 6, y: 0 }, L: 6, H: 3, zBase: 0, profundidade: 0.1, extras: [] });
+/** A mesma cortina com uma porta na célula (0, 0): a esquadria é uma parada própria logo depois dela. */
+const paredeComEsquadria: ParedeSubelementos = montarParedeSubelementos(grade, {
+  wallId: 'ct1',
+  a: { x: 0, y: 0 },
+  b: { x: 6, y: 0 },
+  L: 6,
+  H: 3,
+  zBase: 0,
+  profundidade: 0.1,
+  extras: [],
+  esquadrias: [{ i: 0, j: 0 }],
+});
 
-function makeEnv(opts: { kernel?: boolean } = {}) {
+function makeEnv(opts: { kernel?: boolean; esquadria?: boolean } = {}) {
   const store = new ProjectStore(projetoComCortina());
   let selection: Id[] = [];
   let sub: SubelementoCortina | null = null;
@@ -41,7 +53,7 @@ function makeEnv(opts: { kernel?: boolean } = {}) {
     say: () => {},
     done: () => {},
     options: () => ({}) as ToolOptions,
-    subelementos: (wallId) => (opts.kernel === false ? null : wallId === 'ct1' ? parede : null),
+    subelementos: (wallId) => (opts.kernel === false ? null : wallId === 'ct1' ? (opts.esquadria ? paredeComEsquadria : parede) : null),
     subelemento: () => sub,
     setSubelemento: (s) => {
       sub = s;
@@ -143,5 +155,49 @@ describe('clique sobre a cortina já selecionada', () => {
     clickAt(t, 20, 20);
     expect(ctx.sub()).toBeNull();
     expect(ctx.sel()).toEqual([]);
+  });
+});
+
+describe('esquadria na célula (fase 5, §7.7): Tab e clique', () => {
+  it('Tab: a esquadria é a parada logo depois da célula com ela; Shift+Tab da esquadria volta à célula', () => {
+    const ctx = makeEnv({ esquadria: true });
+    ctx.setSel(['ct1']);
+    const t = tool(ctx.env);
+    const itens = paredeComEsquadria.itens.map((it) => it.sub);
+    // Ordem: linha U, linha V, célula (0,0), esquadria (0,0), célula (0,1), (1,0), (1,1).
+    for (let k = 0; k < 3; k++) t.tab();
+    expect(ctx.sub()).toEqual(itens[2]);
+    t.tab();
+    expect(ctx.sub()?.kind).toBe('opening');
+    expect(ctx.sub()).toEqual(itens[3]);
+    t.tab();
+    expect(ctx.sub()).toEqual(itens[4]);
+    t.tab(true);
+    expect(ctx.sub()).toEqual(itens[3]);
+    t.tab(true);
+    expect(ctx.sub()).toEqual(itens[2]);
+  });
+
+  it('o ciclo completo passa pela esquadria e volta à parede depois do último subelemento', () => {
+    const ctx = makeEnv({ esquadria: true });
+    ctx.setSel(['ct1']);
+    const t = tool(ctx.env);
+    const itens = paredeComEsquadria.itens;
+    for (let k = 0; k < itens.length; k++) t.tab();
+    expect(ctx.sub()).toEqual(itens[itens.length - 1]!.sub);
+    t.tab();
+    expect(ctx.sub()).toBeNull();
+  });
+
+  it('clique sobre a célula com esquadria seleciona a esquadria; a célula vizinha sem esquadria, a célula', () => {
+    const ctx = makeEnv({ esquadria: true });
+    const t = tool(ctx.env);
+    clickAt(t, 3.02, 0);
+    clickAt(t, 1, 0);
+    expect(ctx.sub()).toEqual(paredeComEsquadria.itens[3]!.sub);
+    expect(ctx.sub()?.kind).toBe('opening');
+    clickAt(t, 4.5, 0);
+    expect(ctx.sub()).toEqual(paredeComEsquadria.itens[5]!.sub);
+    expect(ctx.sub()?.kind).toBe('cell');
   });
 });
