@@ -40,7 +40,18 @@ aparar/estender, dividir, apagar, copiar/colar entre pavimentos, desfazer/refaze
 - **Alinhar:** feição em `alignFeatures.ts` (política `transladar` para o que se move; `nenhum` para só referência).
 - **Elemento hospedado** (guarda-corpo em escada ou rampa): segue o hospedeiro. Mover, girar, espelhar ou copiar o
   hospedeiro leva o hospedado junto (a cópia vem com o hospedeiro remapeado). Sozinho ele **não** se move: a
-  ferramenta recusa com a mensagem `tl_msg_railing_hosted_locked` e nada muda (ADR 0055 §25).
+  ferramenta recusa com a mensagem `tl_msg_railing_hosted_locked`, que aparece na barra de status em todas as vistas
+  (planta, corte e elevação; no Mover e no Copiar já ao escolher a ferramenta e de novo ao concluir o gesto), e nada
+  muda (ADR 0055 §25).
+- **Corte e elevação:** Mover, Copiar e Alinhar da vista (`SectionMoveTool`, `SectionAlignTool`) levam o kind pelo mesmo
+  mecanismo, `comandosMoverNoCorte` (`sectionMoverElementos.ts`): o deslocamento ao longo da linha do corte vira um
+  `transform` de translação em planta (o mesmo comando da planta; a cópia vem com as aberturas e os guarda-corpos
+  hospedados) e o vertical vira a cota do próprio elemento (`baseOffset` e `topOffset` na escada e na rampa,
+  `heightOffset` em piso, laje e telhado, `cotaBase` no guarda-corpo manual). O Alinhar escolhe o alvo pelo desenho da
+  vista (`pickAt`); o guarda-corpo, que o kernel desenha fora do resultado do corte, entra com as MESMAS linhas
+  (`guardaCorpoPieces`, a partir de `corteGuardaCorpoDaSecao`), e a seleção, o realce de cursor e a caixa dele
+  saem dessa mesma camada (`guardaCorpoCorteOps`, `guardaCorposNaCaixa`). Sem seleção, Mover e Copiar pegam o elemento
+  sob o arraste.
 
 Teste-guarda: `packages/tools/src/contratoModificacao.test.ts`. `CLASSIFICACAO` é um `Record<Element['kind'], ...>`:
 um kind novo sem linha **não compila**; cada marca tem de apontar código que existe e `null` exige o motivo (TODO).
@@ -135,6 +146,8 @@ ponto na direção do cursor. No lance reto e na rampa reta o valor digitado con
 Snaps (regra 6): forro, telhado, ambiente e objeto importado ainda não fornecem pontos de captura (motivos no teste-guarda).
 
 Modificação (regra 3): exceções explícitas no teste-guarda. Ambiente e CAD não têm feição alinhável; o objeto
-importado (`generic`) ainda não é movido pelo `transform` (o Colar translada a malha por conta própria). O Alinhar do
-corte (`SectionAlignTool`) só tem alvo parede e abertura, como para escada, laje e forro; o Mover do corte leva o
-guarda-corpo manual. Não existem "fixar" e "agrupar" no modelo.
+importado (`generic`) ainda não é movido pelo `transform` (o Colar translada a malha por conta própria). No corte e na
+elevação (`CORTE` no teste-guarda): parede, piso, laje, escada, rampa e guarda-corpo movem, copiam e alinham (a abertura move e alinha; a cópia dela vem com a parede);
+ficam de fora (TODO com motivo) o forro (nem `selectedMovables` o leva), o telhado no Alinhar (a água é inclinada) e
+ambiente, objeto importado e CAD, que não aparecem na vista. Girar, Espelhar, Matriz, Deslocar, Aparar e Dividir seguem só na
+planta (a barra de status explica ao escolhê-los no corte). Não existem "fixar" e "agrupar" no modelo.

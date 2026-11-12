@@ -126,7 +126,7 @@ export function createTool(id: ToolId, env: ToolEnv, perimeterTarget: SketchTarg
     case 'move':
       return env.section?.() ? new SectionMoveTool(env) : new MoveTool(env, false);
     case 'copy':
-      return new MoveTool(env, true);
+      return env.section?.() ? new SectionMoveTool(env, true) : new MoveTool(env, true);
     case 'rotate':
       return new RotateTool(env);
     case 'mirror':

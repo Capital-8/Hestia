@@ -221,7 +221,9 @@ export class MoveTool extends SelectionTool {
       const found = edgeAtCursor(this.env, p.raw);
       if (!found) {
         this.env.done();
-        this.env.say(`${this.label}: selecione elementos antes (Selecionar) e escolha a ferramenta de novo.`);
+        // Só guarda-corpo hospedado selecionado: a explicação dele vale mais que o aviso genérico de "selecione".
+        if (guardaCorposBloqueados(this.env.project(), this.env.selection()).length) avisaGuardaCorpoHospedado(this.env);
+        else this.env.say(`${this.label}: selecione elementos antes (Selecionar) e escolha a ferramenta de novo.`);
         return;
       }
       if (this.copy) {
