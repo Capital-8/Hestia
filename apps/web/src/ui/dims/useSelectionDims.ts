@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { dimensionSettingsOf } from '@hestia/model';
 import { registerBuiltinDimProviders, selectionDims, type DimContext, type TempDim } from '@hestia/tools';
 import { editor, useProject } from '../../editor/controller.ts';
+import { hiddenInActiveView } from '../../editor/viewVisibility.ts';
 import { useUi } from '../../editor/state.ts';
 import { selectionDimsSuspended } from './dimsActions.ts';
 
@@ -13,7 +14,13 @@ export function useDimContext(): DimContext {
   const project = useProject();
   const levelId = useUi((s) => s.levelId);
   const overrides = useUi((s) => s.dimOverrides);
-  return useMemo(() => ({ project, levelId, settings: dimensionSettingsOf(project), overrides }), [project, levelId, overrides]);
+  const viewTemp = useUi((s) => s.viewTemp);
+  // `hidden`: o que a vista não mostra não é oferecido como referência de cota (regra 4.5); `viewTemp` (ocultar temporário)
+  // só invalida a memória: o conjunto em si é lido do estado.
+  return useMemo(
+    () => ({ project, levelId, settings: dimensionSettingsOf(project), overrides, hidden: hiddenInActiveView(project, useUi.getState()) }),
+    [project, levelId, overrides, viewTemp],
+  );
 }
 
 /**

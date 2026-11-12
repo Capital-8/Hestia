@@ -24,20 +24,25 @@ export const tempRefs = (a: DimensionElementRef | undefined, b: DimensionElement
  * afastamento e medida. Sem `unit`/`precision`/`prefix`: a leitura segue as unidades do projeto. Pontas que o provedor
  * identificou como feição de elemento (`TempDim.refs`) gravam `Dimension.refs` e a cota acompanha o elemento; as demais
  * ficam livres. Com `viewId`, a cota mora nessa vista de planta (piso, cobertura ou área); com `planId`, na planta de
- * área; sem nenhum dos dois, na planta de piso do nível.
+ * área; sem nenhum dos dois, na planta de piso do nível. `hidden` (regra 4.5: cota nova só referencia o que a vista
+ * mostra): a ponta presa a elemento oculto nasce livre, no ponto medido.
  */
-export function toPermanent(levelId: Id, dims: readonly TempDim[], planId?: Id, viewId?: Id): Command[] {
-  return dims.map((d) => ({
-    type: 'addDimension' as const,
-    levelId,
-    ...(viewId ? { viewId } : planId ? { planId } : {}),
-    dimension: {
-      id: newId('dim'),
-      a: { ...d.a },
-      b: { ...d.b },
-      offset: d.offset,
-      mode: 'aligned' as const,
-      ...(d.refs ? { refs: { ...(d.refs.a ? { a: { ...d.refs.a } } : {}), ...(d.refs.b ? { b: { ...d.refs.b } } : {}) } } : {}),
-    },
-  }));
+export function toPermanent(levelId: Id, dims: readonly TempDim[], planId?: Id, viewId?: Id, hidden?: ReadonlySet<Id>): Command[] {
+  return dims.map((d) => {
+    const a = d.refs?.a && !hidden?.has(d.refs.a.elementId) ? d.refs.a : undefined;
+    const b = d.refs?.b && !hidden?.has(d.refs.b.elementId) ? d.refs.b : undefined;
+    return {
+      type: 'addDimension' as const,
+      levelId,
+      ...(viewId ? { viewId } : planId ? { planId } : {}),
+      dimension: {
+        id: newId('dim'),
+        a: { ...d.a },
+        b: { ...d.b },
+        offset: d.offset,
+        mode: 'aligned' as const,
+        ...(a || b ? { refs: { ...(a ? { a: { ...a } } : {}), ...(b ? { b: { ...b } } : {}) } } : {}),
+      },
+    };
+  });
 }

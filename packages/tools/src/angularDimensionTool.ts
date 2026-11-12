@@ -87,16 +87,19 @@ export class AngularDimensionTool extends ToolBase {
     // Corte/elevação: as referências são as arestas da vista (t, z); a planta não entra.
     const sec = this.env.section?.();
     if (sec) return sectionRefFeatures(sec, at, this.env.metersPerPixel(), this.env.hiddenInView?.(), this.uiLang());
+    const hidden = this.env.hiddenInView?.();
+    // Regra 4.5: cota nova só referencia o que a vista mostra. As paredes ocultas já ficam de fora de `alignFeaturesAt`; as
+    // linhas de detalhe (e o resto que a vista oculta) saem aqui, pelo dono da feição.
     return alignFeaturesAt({
       project: this.env.project(),
       levelId: this.env.levelId(),
       at,
       metersPerPixel: this.env.metersPerPixel(),
       prefer: this.env.options().alignPrefer ?? 'faces',
-      hidden: this.env.hiddenInView?.(),
+      hidden,
       referenceOnly: true,
       planId: viewIdOfEnv(this.env),
-    }).filter((f) => LINE_REFERENCE_KINDS.has(f.kind));
+    }).filter((f) => LINE_REFERENCE_KINDS.has(f.kind) && !hidden?.has(f.ownerId));
   }
 
   private updateHover(at: Vec2): void {

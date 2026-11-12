@@ -84,6 +84,8 @@ export interface DimContext {
   overrides: Readonly<Record<string, DimRef>>;
   /** Idioma das mensagens do provedor (ausente = português). */
   lang?: Lang;
+  /** Ids que a vista ativa não mostra (regra 4.5): não entram como alternativa de referência de uma cota. Ausente = nenhum. */
+  hidden?: ReadonlySet<Id>;
 }
 
 /**

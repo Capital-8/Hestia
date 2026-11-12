@@ -11,6 +11,7 @@ import {
   sectionGraphicsOf,
   buildTemplate,
   createEmptyProject,
+  dimensionRefIds,
   migrateProject,
   newId,
   sectionAnnotationsOf,
@@ -436,7 +437,7 @@ export class Editor {
 
   /** Grava a feição clicada como nova referência da ponta da cota (ver `pickRefCommands`). */
   private escolherReferenciaCota(pick: { dimId: string; slot: 'a' | 'b' }, info: PointerInfo): void {
-    const r = pickRefCommands(this.project, useUi.getState().levelId, pick.dimId, pick.slot, info.raw, this.env.metersPerPixel() * 12, useI18n.getState().lang);
+    const r = pickRefCommands(this.project, useUi.getState().levelId, pick.dimId, pick.slot, info.raw, this.env.metersPerPixel() * 12, useI18n.getState().lang, hiddenInActiveView(this.project, useUi.getState()));
     if ('error' in r) { useUi.setState({ status: r.error }); return; }
     const applied = this.applyCommands('eds_undo_dim_ref', r.commands);
     useUi.setState({ dimRefPick: null, status: applied.status === 'cancelled' ? '' : { key: 'eds_msg_dim_ref_changed' } });

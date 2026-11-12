@@ -157,12 +157,14 @@ export function dimRefCandidates(p: Project, el: Project['elements'][string]): A
 
 /**
  * Feição de elemento do nível mais próxima de `at` (dentro de `tol`), para criar cotas associativas. Desempate pela
- * ordem de prioridade (esquadria, eixo, faces, vértices, arestas). Sem candidato: null.
+ * ordem de prioridade (esquadria, eixo, faces, vértices, arestas). Sem candidato: null. `visible` (regra 4.5: cota nova só
+ * referencia o que a vista mostra): quando dado, só entram feições de elementos para os quais devolve verdadeiro.
  */
-export function dimRefAt(p: Project, levelId: Id, point: Vec2, tol: number): { ref: DimensionElementRef | DimensionRef; point: Vec2 } | null {
+export function dimRefAt(p: Project, levelId: Id, point: Vec2, tol: number, visible?: (elementId: Id) => boolean): { ref: DimensionElementRef | DimensionRef; point: Vec2 } | null {
   let best: { ref: DimensionElementRef; point: Vec2 } | null = null;
   let bestD = Infinity;
   const consider = (c: { ref: DimensionElementRef; point: Vec2 }): void => {
+    if (visible && !visible(c.ref.elementId)) return;
     const d = dist(c.point, point);
     if (d <= tol && d < bestD - 1e-9) { best = c; bestD = d; }
   };
