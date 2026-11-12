@@ -64,6 +64,7 @@ import { LabelScroll } from './LabelScroll.tsx';
 import { PanelHead } from './PanelHead.tsx';
 import { TypeSelector } from './TypeSelector.tsx';
 import { CurtainInstanceGroup } from './CurtainInstanceProps.tsx';
+import { CurtainSubelementPanel } from './CurtainSubelementPanel.tsx';
 import { openingOptions, wallOptions } from './typeOptions.ts';
 import { ToolTypeProps, isToolTypeKind } from './ToolTypeProps.tsx';
 import { changeOpeningType } from '../editor/openingTypeActions.ts';
@@ -181,6 +182,7 @@ function WallProps({ walls }: { walls: Wall[] }): ReactElement {
         onSelect={(id) => patch(ids, { typeId: id })}
         onEdit={() => useUi.setState({ dialog: 'wallType', dialogArg: typeId.value })}
       />
+      {single && isCurtainType(wt ?? undefined) && <CurtainSubelementPanel />}
       {single && isCurtainType(wt ?? undefined) && <CurtainInstanceGroup wall={single} />}
       <Group title={t('prc_pgrp_constraints')} stateKey="constraints">
         <LevelField ids={ids} label={t('prc_fld_base_level')} />
