@@ -23,17 +23,8 @@ export interface ActiveViewFields {
   levelId: Id;
   sectionId: Id | null;
   sheetId: Id | null;
-  /** Vista de planta (forma única); quando falta, o estado é o antigo e a vista sai de `planKind`/`areaPlanId`. */
-  planViewId?: Id | null;
-  /** Tipo da planta; ausente = piso. Só usado com o estado antigo (sem `planViewId`). */
-  planKind?: PlanKind;
-  /** @deprecated Estado antigo: planta de área ativa quando `planKind` é 'area'. */
-  areaPlanId?: Id | null;
-}
-
-/** Tipo da planta de uma vista: 'floor' para qualquer vista que não seja de cobertura ou de área. */
-export function planKindOf(v: { planKind?: PlanKind }): PlanKind {
-  return v.planKind === 'roof' ? 'roof' : v.planKind === 'area' ? 'area' : 'floor';
+  /** Vista de planta de fundo (forma única); é a ativa quando `view` é 'plan'. */
+  planViewId: Id;
 }
 
 /**
@@ -138,10 +129,7 @@ export function pruneViews(list: readonly OpenView[], exists: (v: OpenView) => b
 export function activeViewOf(ui: ActiveViewFields): OpenView | null {
   switch (ui.view) {
     case 'plan':
-      {
-        const viewId = ui.planViewId ?? planViewIdDaAba(ui);
-        return viewId ? { kind: 'plan', viewId } : null;
-      }
+      return ui.planViewId ? { kind: 'plan', viewId: ui.planViewId } : null;
     case '3d':
       return { kind: '3d' };
     case 'section':

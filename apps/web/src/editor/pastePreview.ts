@@ -102,8 +102,7 @@ export interface OrigemDoColar {
   view: 'plan' | '3d' | 'section' | 'sheet';
   levelId: Id;
   sectionId: Id | null;
-  /** Planta de fundo do estado: `planViewId` e o tipo dela (ver `vistaAtiva.ts`). */
-  planKind: 'floor' | 'roof' | 'area';
+  /** Planta de fundo do estado (ver `vistaAtiva.ts`). */
   planViewId: Id;
 }
 

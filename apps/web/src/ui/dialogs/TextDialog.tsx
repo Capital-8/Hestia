@@ -119,7 +119,7 @@ function FormularioCaixaTexto(): ReactElement {
   const criar = (): void => {
     const st = useUi.getState();
     const viewId = planViewIdAtivo(st);
-    const planId = areaViewIdAtivo(st);
+    const planId = areaViewIdAtivo(editor.project, st);
     const v = editor.viewport();
     const centro = centroDaVista(v ? { cx: v.cx, cy: v.cy } : null, levelFrameBox(editor.project, st.levelId));
     const cmd = comandoCaixaDeTexto({ levelId: st.levelId, viewId }, centro, {

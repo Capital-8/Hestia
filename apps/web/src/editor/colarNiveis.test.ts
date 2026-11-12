@@ -13,7 +13,6 @@ function setup(): void {
   editor.load(s.project, 'teste.hestia.json');
   useUi.setState({
     view: 'plan',
-    planKind: 'floor',
     levelId: 'lv_0',
     planViewId: 'pv_lv_0',
     sectionId: null,

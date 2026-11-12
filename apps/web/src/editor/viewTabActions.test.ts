@@ -31,7 +31,7 @@ describe('activateView com o modo de perímetro aberto', () => {
     const { levelId } = useUi.getState();
     activateView({ kind: 'plan', viewId: floorViewId(levelId) });
     activateView({ kind: 'plan', viewId: roofViewId(levelId) });
-    expect(useUi.getState().planKind).toBe('roof');
+    expect(useUi.getState().planViewId).toBe(roofViewId(levelId));
     expect(useUi.getState().openViews).toEqual([{ kind: 'plan', viewId: floorViewId(levelId) }, { kind: 'plan', viewId: roofViewId(levelId) }]);
   });
 

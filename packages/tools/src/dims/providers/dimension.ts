@@ -4,26 +4,22 @@ import { drivenEditCommands } from '../driven.ts';
 import { t as translate, type Lang } from '../../i18n.ts';
 
 /**
- * Onde a cota mora: na planta de piso do nível (só `levelId`), numa planta de área (`planId`) ou numa vista que a forma
- * antiga não alcança, como a cobertura (`viewId`).
+ * Onde a cota mora: na planta de piso do nível (só `levelId`) ou na vista exata (`viewId`: cobertura ou planta de área).
  */
 export interface CotaVista {
   levelId: Id;
-  planId?: Id;
   viewId?: Id;
 }
 
-/** Cotas da vista: as do nível, as da planta de área ou as da vista exata (`viewId`). */
+/** Cotas da vista: as do nível ou as da vista exata (`viewId`). */
 function dimsDaVista(p: Project, v: CotaVista): Dimension[] {
-  if (v.viewId) return viewOwnAnnotationsOf(p, v.viewId).dimensions;
-  if (!v.planId) return levelDimensions(p, v.levelId);
-  return viewOwnAnnotationsOf(p, v.planId).dimensions;
+  return v.viewId ? viewOwnAnnotationsOf(p, v.viewId).dimensions : levelDimensions(p, v.levelId);
 }
 
 /** Destino de escrita da cota: só os campos de vista (nunca o `dimId` do sujeito). */
 const destinoDaCota = (v: CotaVista): CotaVista => ({
   levelId: v.levelId,
-  ...(v.viewId ? { viewId: v.viewId } : v.planId ? { planId: v.planId } : {}),
+  ...(v.viewId ? { viewId: v.viewId } : {}),
 });
 
 /** Vista que contém a cota: procura na planta de piso do nível e depois nas outras vistas dele. Sem ela, null. */
@@ -31,7 +27,7 @@ export function vistaDaCota(p: Project, levelId: Id, dimId: Id): CotaVista | nul
   if (levelDimensions(p, levelId).some((d) => d.id === dimId)) return { levelId };
   for (const plan of planViewsOfLevel(p, levelId)) {
     if (plan.kind === 'floor' || !viewOwnAnnotationsOf(p, plan.id).dimensions.some((d) => d.id === dimId)) continue;
-    return plan.kind === 'area' ? { levelId, planId: plan.id } : { levelId, viewId: plan.id };
+    return { levelId, viewId: plan.id };
   }
   return null;
 }

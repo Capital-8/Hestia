@@ -140,8 +140,8 @@ export function RoomProperties({ rooms }: { rooms: Room[] }): ReactElement {
   const { t, lang } = useT();
   const p: Project = useProject();
   // Planta de área ativa: a etiqueta da vista só aparece nesse contexto.
-  const areaPlanId = useUi((s) => areaViewIdAtivo(s));
-  const areaPlan = areaPlanId ? areaPlanOf(p, areaPlanId) : undefined;
+  const areaViewId = useUi((s) => areaViewIdAtivo(p, s));
+  const areaPlan = areaViewId ? areaPlanOf(p, areaViewId) : undefined;
   const ids = rooms.map((r) => r.id);
   const name = common(rooms, (r) => r.name);
   const number = common(rooms, (r) => r.number);

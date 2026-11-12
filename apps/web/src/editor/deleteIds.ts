@@ -90,10 +90,10 @@ export function deleteSelectionIn(store: ProjectStore): void | Promise<void> {
   const ui = useUi.getState();
   const { selection: ids, levelId } = ui;
   if (!ids.length) return;
-  const areaId = areaViewIdAtivo(ui);
+  const areaId = areaViewIdAtivo(store.project, ui);
   if (areaId) return deletePlanSelectionIn(store, areaId, ids);
   // Cobertura tem anotações próprias: exclui da vista ativa. Na planta de piso, as do nível (`pv_`), como sempre.
-  const notes = tipoDeVistaAtivo(ui) === 'roof'
+  const notes = tipoDeVistaAtivo(store.project, ui) === 'roof'
     ? remocoesNaVista(store.project, planViewIdAtivo(ui)!, ids)
     : annotationRemovals(store.project, levelId, ids);
   const views = viewRemovals(store.project, ids);

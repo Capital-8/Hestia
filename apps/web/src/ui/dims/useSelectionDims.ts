@@ -16,7 +16,6 @@ export function useDimContext(): DimContext {
   const overrides = useUi((s) => s.dimOverrides);
   const viewTemp = useUi((s) => s.viewTemp);
   const view = useUi((s) => s.view);
-  const planKind = useUi((s) => s.planKind);
   const planViewId = useUi((s) => s.planViewId);
   // `hidden`: o que a vista ativa não mostra não é oferecido como referência de cota (regra 4.5). Depende da vista (piso,
   // cobertura ou área do mesmo nível têm ocultos próprios) e do ocultar temporário: tudo isso entra nas dependências.
@@ -26,9 +25,9 @@ export function useDimContext(): DimContext {
       levelId,
       settings: dimensionSettingsOf(project),
       overrides,
-      hidden: hiddenInActiveView(project, { ...useUi.getState(), levelId, view, planKind, planViewId, viewTemp }),
+      hidden: hiddenInActiveView(project, { ...useUi.getState(), levelId, view, planViewId, viewTemp }),
     }),
-    [project, levelId, overrides, viewTemp, view, planKind, planViewId],
+    [project, levelId, overrides, viewTemp, view, planViewId],
   );
 }
 

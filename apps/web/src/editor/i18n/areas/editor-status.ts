@@ -128,7 +128,6 @@ export const PT_EDITOR_STATUS = {
   // Plantas de área
   eds_def_area_plan_name: 'Planta de área — {level}',
   eds_undo_copy_level_annotations: 'Copiar anotações do nível',
-  eds_undo_seed_area_annotations: 'Semear anotações da planta de área',
   eds_msg_tag_needs_field: 'A etiqueta precisa de ao menos um campo.',
   eds_undo_edit_area_tag: 'Editar etiqueta da planta de área',
   eds_undo_reset_area_tag: 'Voltar etiqueta ao padrão da planta',
@@ -351,7 +350,6 @@ export const EN_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   // Plantas de área
   eds_def_area_plan_name: 'Area Plan — {level}',
   eds_undo_copy_level_annotations: 'Copy Level Annotations',
-  eds_undo_seed_area_annotations: 'Seed Area Plan Annotations',
   eds_msg_tag_needs_field: 'The tag needs at least one field.',
   eds_undo_edit_area_tag: 'Edit Area Plan Tag',
   eds_undo_reset_area_tag: 'Reset Tag to Plan Default',
@@ -564,7 +562,6 @@ export const ES_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
 
   eds_def_area_plan_name: 'Plano de área — {level}',
   eds_undo_copy_level_annotations: 'Copiar anotaciones del nivel',
-  eds_undo_seed_area_annotations: 'Sembrar anotaciones de la planta de área',
   eds_msg_tag_needs_field: 'La etiqueta necesita al menos un campo.',
   eds_undo_edit_area_tag: 'Editar etiqueta de la planta de área',
   eds_undo_reset_area_tag: 'Restablecer etiqueta al valor predeterminado de la planta',
@@ -773,7 +770,6 @@ export const DE_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
 
   eds_def_area_plan_name: 'Flächenplan — {level}',
   eds_undo_copy_level_annotations: 'Ebenenbeschriftungen kopieren',
-  eds_undo_seed_area_annotations: 'Flächenplan-Beschriftungen initialisieren',
   eds_msg_tag_needs_field: 'Die Beschriftung benötigt mindestens ein Feld.',
   eds_undo_edit_area_tag: 'Flächenplan-Beschriftung bearbeiten',
   eds_undo_reset_area_tag: 'Beschriftung auf Planstandard zurücksetzen',
@@ -982,7 +978,6 @@ export const FR_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
 
   eds_def_area_plan_name: 'Plan de surface — {level}',
   eds_undo_copy_level_annotations: 'Copier les annotations du niveau',
-  eds_undo_seed_area_annotations: 'Initialiser les annotations du plan de surface',
   eds_msg_tag_needs_field: 'L\'étiquette a besoin d\'au moins un champ.',
   eds_undo_edit_area_tag: 'Modifier l\'étiquette du plan de surface',
   eds_undo_reset_area_tag: 'Rétablir l\'étiquette par défaut du plan',
@@ -1191,7 +1186,6 @@ export const IT_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
 
   eds_def_area_plan_name: 'Pianta delle aree — {level}',
   eds_undo_copy_level_annotations: 'Copia annotazioni del livello',
-  eds_undo_seed_area_annotations: 'Inizializza annotazioni della pianta delle aree',
   eds_msg_tag_needs_field: 'L\'etichetta richiede almeno un campo.',
   eds_undo_edit_area_tag: 'Modifica etichetta della pianta delle aree',
   eds_undo_reset_area_tag: 'Ripristina etichetta predefinita della pianta',
@@ -1400,7 +1394,6 @@ export const PL_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
 
   eds_def_area_plan_name: 'Rzut powierzchni — {level}',
   eds_undo_copy_level_annotations: 'Kopiuj adnotacje poziomu',
-  eds_undo_seed_area_annotations: 'Zainicjuj adnotacje rzutu powierzchni',
   eds_msg_tag_needs_field: 'Etykieta wymaga co najmniej jednego pola.',
   eds_undo_edit_area_tag: 'Edytuj etykietę rzutu powierzchni',
   eds_undo_reset_area_tag: 'Przywróć domyślną etykietę rzutu',

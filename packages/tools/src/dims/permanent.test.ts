@@ -44,7 +44,7 @@ describe('toPermanent com refs', () => {
     expect(dimensionValue(s.project, got)).toBe(6);
     expect(toPermanent('lv_0', [dim('x', 0, 1, 0)])[0]).not.toHaveProperty('dimension.refs');
   });
-  it('planId vai no comando', () => {
-    expect(toPermanent('lv_0', [dim('a', 0, 1, 0)], 'ap1')[0]).toMatchObject({ planId: 'ap1' });
+  it('viewId vai no comando', () => {
+    expect(toPermanent('lv_0', [dim('a', 0, 1, 0)], 'ap1')[0]).toMatchObject({ viewId: 'ap1' });
   });
 });

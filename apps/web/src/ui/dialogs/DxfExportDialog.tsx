@@ -56,7 +56,7 @@ export function DxfExportDialog(): ReactElement {
   const ui = useUi();
   const targets = dxfBatchTargetsOf(p);
   const groups = dxfGroupRows(targets);
-  const [selected, setSelected] = useState<string[]>(() => defaultDxfSelection(targets, activeDxfTargetKey(ui)));
+  const [selected, setSelected] = useState<string[]>(() => defaultDxfSelection(targets, activeDxfTargetKey(p, ui)));
   const [units, setUnits] = useState(() => defaultDxfUnitOf(p));
   const [prefix, setPrefix] = useState(() => p.name.trim() || t('dlc_fallback_project_name'));
   const [pattern, setPattern] = useState('{tipo}-{nome}');

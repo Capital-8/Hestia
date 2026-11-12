@@ -5,7 +5,7 @@ import type { Backend } from '@hestia/render';
 import { DEFAULT_DISJOIN, DEFAULT_RAMP_OPTIONS, DEFAULT_SNAP, DEFAULT_STAIR_RUN_OPTIONS, type SnapOptions, type ToolId, type ToolOptions } from '@hestia/tools';
 import { safeGet, safeSet } from './storage.ts';
 import { selectionAfterClick } from './selectionClick.ts';
-import { activeViewOf, addView, type OpenView, type PlanKind } from './openViews.ts';
+import { activeViewOf, addView, type OpenView } from './openViews.ts';
 import type { RibbonTabId } from '../ui/ribbon/model.ts';
 import { loadDock, type DockLayout } from './dockLayout.ts';
 import type { TempViewVisibility } from './viewVisibility.ts';
@@ -46,11 +46,9 @@ export interface UiState {
   sheetId: Id | null;
   /**
    * Id da vista de planta (a `PlanView`) que a tela mostra quando `view` é 'plan' e para onde ela volta ao sair da
-   * planta. Forma única de identificar a vista; `levelId` e `planKind` acompanham e são gravados junto (ver `vistaAtiva.ts`).
+   * planta. Forma única de identificar a vista; `levelId` acompanha e é gravado junto; o tipo da vista sai do projeto (ver `vistaAtiva.ts`).
    */
   planViewId: Id;
-  /** Tipo da planta de `planViewId` (piso, cobertura ou área), guardado ao lado do id: o estado não tem o projeto. */
-  planKind: PlanKind;
   /** Rótulo em arraste (fantasma), compartilhado por qualquer planta. */
   tagDrag: { planId: Id; roomId: Id; at: Vec2 } | null;
   /** Ferramenta Alinhar ativa na prancha (sessão; decisão 0039). */
@@ -349,7 +347,6 @@ export const useUi = create<UiState>(() => ({
   view: 'plan',
   levelId: 'lv_0',
   planViewId: floorViewId('lv_0'),
-  planKind: 'floor',
   tagDrag: null,
   sheetAlign: false,
   sheetMove: false,
@@ -414,7 +411,7 @@ export function toggleFileMenu(): void {
 }
 
 useUi.subscribe((s, prev) => {
-  if (s.view === prev.view && s.levelId === prev.levelId && s.planKind === prev.planKind && s.planViewId === prev.planViewId && s.sectionId === prev.sectionId && s.sheetId === prev.sheetId) return;
+  if (s.view === prev.view && s.levelId === prev.levelId && s.planViewId === prev.planViewId && s.sectionId === prev.sectionId && s.sheetId === prev.sheetId) return;
   const active = activeViewOf(s);
   if (!active) return;
   const next = addView(s.openViews, active);

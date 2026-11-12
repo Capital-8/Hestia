@@ -13,8 +13,7 @@ export interface PastePreviewState {
   originView: 'plan' | '3d' | 'section' | 'sheet';
   originLevelId: Id;
   originSectionId: Id | null;
-  /** Planta de piso/cobertura/área de onde o comando abriu (para restaurar no cancelamento). */
-  originPlanKind?: 'floor' | 'roof' | 'area';
+  /** Planta (piso, cobertura ou área) de onde o comando abriu, para restaurar no cancelamento. */
   originPlanViewId?: Id;
   /** Manter cópias vinculadas (andar-tipo). */
   link: boolean;

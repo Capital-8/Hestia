@@ -33,7 +33,7 @@ export interface RibbonCtx {
   tool: UiState['tool'];
   selection: Id[];
   view: UiState['view'];
-  planKind: UiState['planKind'];
+  planViewId: Id;
   levelId: Id;
   showGrid: boolean;
   showUnderlay: boolean;
@@ -173,7 +173,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     run: () => {
       // Na planta de área, "Etiquetar todos" completa as etiquetas de AMBIENTE (Room Tag) da vista.
       const s = useUi.getState();
-      const areaId = areaViewIdAtivo(s);
+      const areaId = areaViewIdAtivo(editor.project, s);
       if (areaId) {
         const n = addMissingTagsAction(editor.store, areaId);
         useUi.setState({
@@ -459,7 +459,7 @@ export function ctxNow(): RibbonCtx {
   const s = useUi.getState();
   const perim = editor.perimetro.view();
   return {
-    tool: s.tool, selection: s.selection, view: s.view, planKind: s.planKind, levelId: s.levelId,
+    tool: s.tool, selection: s.selection, view: s.view, planViewId: s.planViewId, levelId: s.levelId,
     showGrid: s.showGrid, showUnderlay: s.showUnderlay,
     showRoofProjection: s.showRoofProjection, propsOpen: s.propsOpen, browserOpen: s.browserOpen, sides: s.dock.sides, options: s.options, p: editor.project,
     perimetro: perim.active ? { modify: perim.modify, selecting: perim.selecting === true } : null,

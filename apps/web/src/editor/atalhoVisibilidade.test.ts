@@ -16,7 +16,7 @@ function setup(): void {
   editor.load(s.project, 'teste.hestia.json');
   trocarPerfil('revit');
   casador.limpar();
-  useUi.setState({ view: '3d', planKind: 'floor', levelId: 'lv_0', planViewId: 'pv_lv_0', sectionId: null, selection: ['A'], tool: 'select', typed: '', prompt: null, dialog: null, dialogArg: null, viewTemp: {} });
+  useUi.setState({ view: '3d', levelId: 'lv_0', planViewId: 'pv_lv_0', sectionId: null, selection: ['A'], tool: 'select', typed: '', prompt: null, dialog: null, dialogArg: null, viewTemp: {} });
 }
 
 const atalho = (...keys: string[]): void => { for (const k of keys) editor.key(tecla(k)); };
