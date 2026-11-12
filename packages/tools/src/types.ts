@@ -1,8 +1,8 @@
 import type { DimRef, TempDim } from './dims/types.ts';
 import type { HostedLoss } from './hostedLoss.ts';
 import type { Vec2 } from '@hestia/geom';
-import type { SectionResult } from '@hestia/engine';
-import type { Command, Id, LocationLine, Project, SectionAnnotations } from '@hestia/model';
+import type { ParedeSubelementos, SectionResult } from '@hestia/engine';
+import type { Command, Id, LocationLine, Project, SectionAnnotations, SubelementoCortina } from '@hestia/model';
 import type { InferContext } from './infer.ts';
 import type { StairToolOptions, StairTone } from './stairSketchState.ts';
 import type { StairRunToolOptions } from './stairRunPlan.ts';
@@ -101,6 +101,11 @@ export interface ToolEnv {
   setOptions?(patch: Partial<ToolOptions>): void;
   /** Idioma da interface: as mensagens traduzíveis das ferramentas (ex.: Matriz) saem nele. Ausente = português. */
   lang?(): Lang;
+  /** Subelementos (linhas, segmentos e células) de uma parede cortina, lidos da grade do kernel; null sem kernel ou se não for cortina. Ausente = nenhum. */
+  subelementos?(wallId: Id): ParedeSubelementos | null;
+  /** Subelemento de cortina escolhido com o Tab (null = a parede inteira). Ausente = sempre a parede. */
+  subelemento?(): SubelementoCortina | null;
+  setSubelemento?(sub: SubelementoCortina | null): void;
 }
 
 /** Tipo da ferramenta Matriz: linear (repete pelo espaçamento) ou radial (gira em torno de um centro). */
@@ -325,7 +330,7 @@ export interface Tool {
   /** Valor digitado (medida em metros, ângulo em graus ou contagem), confirmado com Enter. */
   type(text: string): boolean;
   /** Tab alterna uma opção da ferramenta. */
-  tab(): void;
+  tab(reverso?: boolean): void;
   /** Espaço alterna uma opção secundária quando a ferramenta declara suporte. */
   space?(): void;
   /** Esc: cancela o passo; segundo Esc sai da ferramenta. */
