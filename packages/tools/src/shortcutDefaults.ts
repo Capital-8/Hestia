@@ -59,7 +59,7 @@ export function perfilNome(profile: ShortcutProfile, lang: Lang = 'pt'): string 
 /** Todos os comandos que podem ter atalho (exceto Selecionar, que não tem tecla). */
 export const COMANDOS_COM_ATALHO: ShortcutCommand[] = [
   // Colar é um modo transitório (Ctrl+V ou o botão Colar), não uma ferramenta da faixa: não recebe sequência de letras.
-  ...(Object.keys(TOOL_LABEL) as ToolId[]).filter((id) => id !== 'select' && id !== 'paste'),
+  ...(Object.keys(TOOL_LABEL) as ToolId[]).filter((id) => id !== 'select' && id !== 'paste' && id !== 'furniture'),
   'atalhos',
   'unidades',
   'createSimilar',

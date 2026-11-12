@@ -24,6 +24,7 @@ import { FR_EDITOR_CONTEXT } from '../../areas/editor-context.ts';
 import { FR_PROPS_OPTIONS } from '../../areas/props-options.ts';
 import { FR_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { FR_BIBLIOTECA } from '../../areas/biblioteca.ts';
+import { FR_FURNITURE } from '../../areas/furniture.ts';
 
 export const FR_ALL = {
   ...FR_SHELL_RIBBON,
@@ -51,4 +52,5 @@ export const FR_ALL = {
   ...FR_PROPS_OPTIONS,
   ...FR_PACKAGES_IO,
   ...FR_BIBLIOTECA,
+  ...FR_FURNITURE,
 };

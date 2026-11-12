@@ -24,6 +24,7 @@ import { IT_EDITOR_CONTEXT } from '../../areas/editor-context.ts';
 import { IT_PROPS_OPTIONS } from '../../areas/props-options.ts';
 import { IT_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { IT_BIBLIOTECA } from '../../areas/biblioteca.ts';
+import { IT_FURNITURE } from '../../areas/furniture.ts';
 
 export const IT_ALL = {
   ...IT_SHELL_RIBBON,
@@ -51,4 +52,5 @@ export const IT_ALL = {
   ...IT_PROPS_OPTIONS,
   ...IT_PACKAGES_IO,
   ...IT_BIBLIOTECA,
+  ...IT_FURNITURE,
 };

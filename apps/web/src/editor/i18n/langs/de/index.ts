@@ -24,6 +24,7 @@ import { DE_EDITOR_CONTEXT } from '../../areas/editor-context.ts';
 import { DE_PROPS_OPTIONS } from '../../areas/props-options.ts';
 import { DE_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { DE_BIBLIOTECA } from '../../areas/biblioteca.ts';
+import { DE_FURNITURE } from '../../areas/furniture.ts';
 
 export const DE_ALL = {
   ...DE_SHELL_RIBBON,
@@ -51,4 +52,5 @@ export const DE_ALL = {
   ...DE_PROPS_OPTIONS,
   ...DE_PACKAGES_IO,
   ...DE_BIBLIOTECA,
+  ...DE_FURNITURE,
 };

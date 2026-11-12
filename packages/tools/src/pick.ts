@@ -1,9 +1,10 @@
 import { dist, boxesOverlap, boxOf, intersectSegments, type Vec2 } from '@hestia/geom';
 import { wallMid } from './wallGeom.ts';
-import { isGeneric, wallsOnLevel, type Id, type Project } from '@hestia/model';
+import { isFurniture, isGeneric, wallsOnLevel, type Id, type Project } from '@hestia/model';
 import { toLocal, wallEndCorners } from '@hestia/engine';
 import { cadDrawingIdsInBox as cadBoxIds, cadNear, cadSnapIndexes } from './snapCad.ts';
 import { candidatesAt, wallIndexOf } from './pickIndex.ts';
+import { furnitureFootprint } from './furnitureFootprint.ts';
 
 export interface Hit {
   id: Id;
@@ -178,3 +179,22 @@ function ringArea(ring: readonly Vec2[]): number {
   return s / 2;
 }
 
+
+/**
+ * Móvel importado sob o ponto: o contorno em planta (base da caixa do bloco, girada/escalada) na mesma tolerância do
+ * resto da seleção; entre dois sobrepostos vence o de menor área.
+ */
+export function furnitureAt(p: Project, levelId: Id, at: Vec2, mpp: number): Id | null {
+  const tol = 4 * mpp;
+  let best: { id: Id; area: number } | null = null;
+  for (const e of Object.values(p.elements)) {
+    if (!isFurniture(e) || e.levelId !== levelId) continue;
+    const asset = p.furniture?.assets[e.assetId];
+    if (!asset) continue;
+    const ring = furnitureFootprint(e, asset);
+    if (!insideOrNear(ring, at, tol)) continue;
+    const area = Math.abs(ringArea(ring));
+    if (!best || area < best.area) best = { id: e.id, area };
+  }
+  return best?.id ?? null;
+}
