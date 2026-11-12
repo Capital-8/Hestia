@@ -92,6 +92,8 @@ export function lookupFile(ctx: ReaderContext, rel: string): Uint8Array | undefi
 
 /** Nome de arquivo seguro para textura: so o nome, sem caminho, sem caracteres problematicos. */
 export function safeFileName(raw: string): string {
+  // Remover caracteres de controle de nomes de arquivo e proposital.
+  // eslint-disable-next-line no-control-regex
   const b = baseName(raw.replace(/\\/g, '/')).replace(/[\u0000-\u001f<>:"|?*]/g, '_').trim();
   return b || 'textura';
 }
@@ -386,9 +388,11 @@ export function buildModel(p: ModelParts): ImportedModel {
   const vertices = p.defs.reduce((s, d) => s + d.positions.length / 3, 0);
   const triangles = p.defs.reduce((s, d) => s + d.indices.length / 3, 0);
   if (vertices > IMPORT_LIMITS.refuseVerticesPerBlock) {
+    // units-ok: contagem de vertices, nao e medida do projeto
     throw new ImportError(`Bloco com ${vertices.toLocaleString('pt-BR')} vértices; o limite é ${IMPORT_LIMITS.refuseVerticesPerBlock.toLocaleString('pt-BR')}. Simplifique o modelo antes de importar.`);
   }
   if (vertices > IMPORT_LIMITS.warnVerticesPerBlock) {
+    // units-ok: contagem de vertices, nao e medida do projeto
     warnings.push(`Bloco pesado (${vertices.toLocaleString('pt-BR')} vértices): a importação funciona, mas pode ficar lenta.`);
   }
   return {
@@ -427,5 +431,5 @@ export function base64ToBytes(b64: string): Uint8Array {
 
 /** Texto UTF-8 de bytes (sem BOM). */
 export function decodeText(bytes: Uint8Array): string {
-  return new TextDecoder('utf-8').decode(bytes).replace(/^﻿/, '');
+  return new TextDecoder('utf-8').decode(bytes).replace(/^\uFEFF/, '');
 }

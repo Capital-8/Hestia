@@ -33,6 +33,8 @@ import {
 } from './fmtCommon.ts';
 import type { ImportedInstance, ImportedMaterial, ImportedMeshDef, ImportedModel, ImportedTexture, ImportFn, ImportOptions, Mat4 } from './types.ts';
 
+// O glTF e JSON externo de forma livre: o leitor valida cada campo que usa.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Json = Record<string, any>;
 
 const GLB_MAGIC = 0x46546c67;

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- os objetos do FBXLoader do three (Group, Mesh, Material) nao tem tipos estaveis; o leitor valida cada campo antes de usar. */
 /**
  * Leitor de FBX usando o FBXLoader do three (ja no repo, via packages/render).
  *

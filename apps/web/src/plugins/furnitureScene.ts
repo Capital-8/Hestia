@@ -281,6 +281,7 @@ export function furnitureInstanceTriangles(asset: FurnitureAsset): number {
   return n;
 }
 
+// units-ok: contagem de triangulos em milhoes, nao e medida do projeto
 const milhoes = (n: number): string => (n / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 });
 
 /** Função pura: triângulos totais enviados ao renderizador e o aviso (2 milhões = aviso; 7 milhões = recomenda modo leve). */
