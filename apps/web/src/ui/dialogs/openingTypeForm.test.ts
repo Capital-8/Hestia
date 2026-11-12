@@ -125,6 +125,28 @@ describe('bandeiras e variantes do formulário', () => {
     expect(porta.leafStyle).toBe('panel');
     expect(porta.frameMaterialId).toBe('mat_madeira');
   });
+
+  it('variante de porta muda o layout e mantém o material de alumínio (batente, folha e vidro)', () => {
+    const aluminio = { ...newOpeningTypeFromFamily(familia('door', 'door_swing')), frameMaterialId: 'mat_aluminio', leafMaterialId: 'mat_pvc', glassMaterialId: 'mat_vidro' };
+    for (const v of openingVariants('door')) {
+      const r = applyVariant(aluminio, v);
+      expect(r.frameMaterialId, v.id).toBe('mat_aluminio');
+      expect(r.leafMaterialId, v.id).toBe('mat_pvc');
+      expect(r.glassMaterialId, v.id).toBe('mat_vidro');
+    }
+    const painel = applyVariant(aluminio, openingVariants('door').find((v) => v.id === 'painel')!);
+    expect(painel.leafStyle).toBe('panel');
+    expect(painel.frameMaterialId).toBe('mat_aluminio');
+  });
+
+  it('nenhuma variante (porta ou janela) troca o material do tipo', () => {
+    const pvc = { ...base, frameMaterialId: 'mat_pvc' };
+    for (const v of [...openingVariants('door'), ...openingVariants('window')]) {
+      expect(applyVariant(pvc, v).frameMaterialId, v.id).toBe('mat_pvc');
+    }
+    const tresPorUm = applyVariant(base, openingVariants('window').find((v) => v.id === '3x1')!);
+    expect(tresPorUm.frameMaterialId).toBe('mat_aluminio');
+  });
 });
 
 describe('tipo novo pelo comando', () => {

@@ -160,24 +160,23 @@ export interface OpeningVariant {
   leafStyle?: OpeningLeafStyle;
   grid?: { cols: number; rows: number };
   frameStyle?: OpeningFrameStyle;
-  frameMaterialId?: Id;
 }
 
 const DOOR_VARIANTS: readonly OpeningVariant[] = [
-  { id: 'lisa', nameKey: 'dlo_o_leaf_flush', leafStyle: 'flush', frameMaterialId: 'mat_madeira' },
-  { id: 'painel', nameKey: 'dlo_o_leaf_panel', leafStyle: 'panel', frameMaterialId: 'mat_madeira' },
-  { id: 'vidro', nameKey: 'dlo_o_leaf_glass', leafStyle: 'glass', frameMaterialId: 'mat_madeira' },
-  { id: 'veneziana', nameKey: 'dlo_o_leaf_louver', leafStyle: 'louver', frameMaterialId: 'mat_madeira' },
-  { id: 'grade', nameKey: 'dlo_o_leaf_grille', leafStyle: 'grille', frameMaterialId: 'mat_madeira' },
+  { id: 'lisa', nameKey: 'dlo_o_leaf_flush', leafStyle: 'flush' },
+  { id: 'painel', nameKey: 'dlo_o_leaf_panel', leafStyle: 'panel' },
+  { id: 'vidro', nameKey: 'dlo_o_leaf_glass', leafStyle: 'glass' },
+  { id: 'veneziana', nameKey: 'dlo_o_leaf_louver', leafStyle: 'louver' },
+  { id: 'grade', nameKey: 'dlo_o_leaf_grille', leafStyle: 'grille' },
 ];
 
 const WINDOW_VARIANTS: readonly OpeningVariant[] = [
-  { id: '1x1', name: '1 × 1', leafStyle: 'glass', grid: { cols: 1, rows: 1 }, frameMaterialId: 'mat_aluminio' },
-  { id: '2x1', name: '2 × 1', leafStyle: 'glass', grid: { cols: 2, rows: 1 }, frameMaterialId: 'mat_aluminio' },
-  { id: '2x2', name: '2 × 2', leafStyle: 'glass', grid: { cols: 2, rows: 2 }, frameMaterialId: 'mat_aluminio' },
-  { id: '3x1', name: '3 × 1', leafStyle: 'glass', grid: { cols: 3, rows: 1 }, frameMaterialId: 'mat_aluminio' },
-  { id: 'veneziana', nameKey: 'dlo_o_leaf_louver', leafStyle: 'louver', frameMaterialId: 'mat_aluminio' },
-  { id: 'perfil-simples', nameKey: 'dlo_o_variant_simple', frameStyle: 'simple', frameMaterialId: 'mat_aluminio' },
+  { id: '1x1', name: '1 × 1', leafStyle: 'glass', grid: { cols: 1, rows: 1 } },
+  { id: '2x1', name: '2 × 1', leafStyle: 'glass', grid: { cols: 2, rows: 1 } },
+  { id: '2x2', name: '2 × 2', leafStyle: 'glass', grid: { cols: 2, rows: 2 } },
+  { id: '3x1', name: '3 × 1', leafStyle: 'glass', grid: { cols: 3, rows: 1 } },
+  { id: 'veneziana', nameKey: 'dlo_o_leaf_louver', leafStyle: 'louver' },
+  { id: 'perfil-simples', nameKey: 'dlo_o_variant_simple', frameStyle: 'simple' },
 ];
 
 /** Variantes oferecidas para a categoria (porta: estilo da folha; janela: divisões e perfil). */
@@ -185,13 +184,15 @@ export function openingVariants(kind: OpeningType['kind']): readonly OpeningVari
   return kind === 'door' ? DOOR_VARIANTS : WINDOW_VARIANTS;
 }
 
-/** Aplica a variante ao rascunho: grava o estilo, o grid, o perfil e o material que ela define. */
+/**
+ * Aplica a variante ao rascunho: grava o estilo da folha, o grid e o perfil. A variante muda o layout, não o material:
+ * batente, folha e vidro ficam como estão (quem troca o material é o campo de material do diálogo).
+ */
 export function applyVariant(t: OpeningType, variant: OpeningVariant): OpeningType {
   const next: OpeningType = { ...t };
   if (variant.leafStyle !== undefined) next.leafStyle = variant.leafStyle;
   if (variant.grid !== undefined) next.grid = { ...variant.grid };
   if (variant.frameStyle !== undefined) next.frameStyle = variant.frameStyle;
-  if (variant.frameMaterialId !== undefined) next.frameMaterialId = variant.frameMaterialId;
   return next;
 }
 
