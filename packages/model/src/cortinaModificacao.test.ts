@@ -147,3 +147,69 @@ describe('§4.9: tabela de modificação da parede cortina', () => {
     expect(instanciaDe(s)).toEqual(antes);
   });
 });
+
+// Mesma tabela (§4.9) com uma porta na célula (1, 0), no modo "preencher célula" (a porta de 2,10 m funde a célula de cima).
+// A esquadria é uma sobrescrita de célula: a tabela tem de tratá-la como o painel (chave que segue a célula).
+describe('§4.9: tabela de modificação com esquadria na célula', () => {
+  const comPorta = (): ProjectStore => {
+    const s = cenario();
+    s.exec({ type: 'setCellOpening', wallId: 'w_ct', i: 1, j: 0, openingTypeId: 'ot_p80', flipHand: true, flipFacing: false, mark: 'P-01', fit: 'cell', fundir: true });
+    return s;
+  };
+  const porta = (s: ProjectStore) => instanciaDe(s).cells!.find((e) => e.override.kind === 'opening')!;
+
+  it('mover e girar: a instância (com a porta) não muda', () => {
+    const s = comPorta();
+    const antes = copia(instanciaDe(s));
+    s.exec({ type: 'transform', ids: ['w_ct'], transform: { kind: 'translate', d: { x: 2, y: 5 } } });
+    expect(instanciaDe(s)).toEqual(antes);
+    s.exec({ type: 'transform', ids: ['w_ct'], transform: { kind: 'rotate', about: { x: 0, y: 0 }, angle: Math.PI / 2 } });
+    expect(instanciaDe(s)).toEqual(antes);
+  });
+
+  it('copiar: a cópia leva a porta idêntica e a original não muda', () => {
+    const s = comPorta();
+    const antes = copia(instanciaDe(s));
+    s.exec({ type: 'transform', ids: ['w_ct'], transform: { kind: 'translate', d: { x: 0, y: 3 } }, copy: { idMap: { w_ct: 'w_cp' } } });
+    expect(instanciaDe(s, 'w_cp')).toEqual(antes);
+    expect(instanciaDe(s)).toEqual(antes);
+  });
+
+  it('espelhar: a porta segue a célula física no lugar espelhado e mantém o tipo e a marca', () => {
+    const s = comPorta();
+    s.exec({ type: 'transform', ids: ['w_ct'], transform: { kind: 'mirror', a: { x: 2, y: 0 }, b: { x: 2, y: 1 } } });
+    const w = paredeDe(s);
+    const c = porta(s);
+    expect(c.key.i).toBe(1);
+    expect(w.a.x + c.key.s * (w.b.x - w.a.x)).toBeCloseTo(2.5, 9);
+    expect(c.override).toMatchObject({ openingTypeId: 'ot_p80', mark: 'P-01' });
+  });
+
+  it('aparar e estender: a grade recalcula e a porta segue a célula de mesmo índice', () => {
+    const s = comPorta();
+    s.exec({ type: 'setWallEnds', id: 'w_ct', b: { x: 3, y: 0 } });
+    expect(porta(s).key.i).toBe(1);
+    expect(porta(s).key.nu).toBe(4);
+    expect(porta(s).key.s).toBeCloseTo(1.125 / 3, 9);
+  });
+
+  it('alterar altura: a grade V recalcula e a porta continua na fileira de baixo', () => {
+    const s = comPorta();
+    s.exec({ type: 'updateElements', ids: ['w_ct'], patch: { height: 3.6 } });
+    expect(porta(s).key.j).toBe(0);
+    expect(porta(s).override).toMatchObject({ openingTypeId: 'ot_p80' });
+  });
+
+  it('dividir: a porta vai para a parte que contém o seu centro (x = 1,5)', () => {
+    const s = comPorta();
+    s.exec({ type: 'splitWall', id: 'w_ct', newId: 'w_dir', t: 2.4 });
+    expect(instanciaDe(s, 'w_ct').cells!.some((e) => e.override.kind === 'opening')).toBe(true);
+    expect(instanciaDe(s, 'w_dir').cells!.some((e) => e.override.kind === 'opening')).toBe(false);
+  });
+
+  it('apagar: a parede e a porta saem juntas', () => {
+    const s = comPorta();
+    s.exec({ type: 'deleteElements', ids: ['w_ct'] });
+    expect(s.project.elements.w_ct).toBeUndefined();
+  });
+});
