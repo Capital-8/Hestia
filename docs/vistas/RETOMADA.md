@@ -66,14 +66,25 @@ Atualize a seção "Onde estamos" a cada etapa integrada.
   Ouro regravado em 2026-11-12 só em `03` (lista) e `04` (2 DXF + 1 seleção), diff bruto conferido. Verificação no
   tronco: tipos sem erro, 909 arquivos / 9.958 testes, ouro 8 de 8. Limite conhecido: arquivo salvo como v24 por um
   build anterior à E não ganha as cópias (o 24 não foi publicado; `main` está em 23).
-- **Raia K parte 2 (em andamento, `vistas/f3-k2`) e fechamento — não concluídos.** K2: `planOwnsAnnotations`,
-  `viewOwnAnnotationsOf`, `roofHidden`, formas `@deprecated` de `ViewHiddenTarget`/`SheetViewSource`/`PlanInput`, alias
-  `planViewOf`/`PlanView` do render, e migrar o adaptador/construtores de `tests/vistas-ouro` para `viewId`
-  (autorizado, com `ouro/` e `projetos/` byte a byte iguais), depois a busca 8.2. Regravar o ouro: o usuário liberou
-  `Bash(npm run test:vistas-ouro -- --gravar)` em `.claude/settings.local.json` (local); só regrave após auditar o diff.
-  Decisões do usuário: E = copiar as etiquetas na migração e o desenho ler só a vista (muda o ouro da área, auditar
-  antes de regravar); DXF honrar ocultos fica para depois da Fase 3; K pode editar o adaptador/construtores de
-  `tests/vistas-ouro` desde que os arquivos gravados fiquem byte a byte iguais.
+- **Raia K parte 2 — implementada em `vistas/f3-k2` (no GitHub), AINDA NÃO REVISTA NEM INTEGRADA** (2026-11-12).
+  Commits `6ba0e13b`, `708db828`, `3da21ad4` e mais um (remoção de `viewRangeOf`/`viewHiddenOf`). Saíram
+  `planOwnsAnnotations`, `viewOwnAnnotationsOf`, formas antigas de `ViewHiddenTarget`/`SheetViewSource`/`PlanInput`,
+  `ToolEnv.areaPlanId`, alias do render e `planKind` da sessão (leitura da sessão antiga isolada em
+  `apps/web/src/editor/migrateSessao.ts`). Adaptador do ouro por `viewId`; ouro 8 de 8 SEM regravar. Tipos sem erro.
+  Suíte completa: 3 rodadas com falhas diferentes por timeout sob carga (4 arquivos, 31 testes, passam isolados);
+  nenhuma rodada completa verde ainda. Busca 8.2: restam só módulos e testes de migração (`migrateVistas`,
+  `migrateSessao`, `roofHidden` ali). `planViewOf` é a consulta legítima do model.
+- **Próximos passos (retomada em casa):** (1) o usuário testa à mão em `vistas/f3-k2` (`npm run dev`) e relata o que
+  estranhar; (2) revisão independente dos commits da K2; (3) merge de `vistas/f3-k2` em `vistas/base` e suíte completa
+  sozinha, sem processos concorrentes, para ver os timeouts sumirem; (4) `npm run test:visual`; (5) limpar
+  `tests/e2e/colar-niveis.mjs` e `tests/e2e/cotas.mjs` (ainda gravam `planKind`/`areaPlanId`); (6) fechamento: buscas
+  8.1/8.2, v23 → v24, `docs/vistas/RELATORIO.md`, decisão em `docs/decisoes/`, `docs/07-STATUS-V1.md`. PR para `main`
+  só quando o usuário pedir. `autoCotas.ts` tem 3 `@deprecated` de cotas, fora do escopo de vistas.
+  Regravar o ouro: regra local `Bash(npm run test:vistas-ouro -- --gravar)` em `.claude/settings.local.json` (só nesta
+  máquina); só regrave após auditar o diff. O stash `antes-das-vistas` é só local; não apagar.
+  Decisões do usuário: E = copiar as etiquetas na migração e o desenho ler só a vista; DXF honrar ocultos fica para
+  depois da Fase 3; K pode editar o adaptador/construtores de `tests/vistas-ouro` desde que os arquivos gravados
+  fiquem byte a byte iguais.
 
 ### Pendências abertas pela 2a-1 (resolver na Fase 2b/3)
 1. **Etiquetas de elemento do nível na planta de área.** A migração NÃO copiou as `ElementTag` do nível para a
