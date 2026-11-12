@@ -15,11 +15,20 @@ export function useDimContext(): DimContext {
   const levelId = useUi((s) => s.levelId);
   const overrides = useUi((s) => s.dimOverrides);
   const viewTemp = useUi((s) => s.viewTemp);
-  // `hidden`: o que a vista não mostra não é oferecido como referência de cota (regra 4.5); `viewTemp` (ocultar temporário)
-  // só invalida a memória: o conjunto em si é lido do estado.
+  const view = useUi((s) => s.view);
+  const planKind = useUi((s) => s.planKind);
+  const planViewId = useUi((s) => s.planViewId);
+  // `hidden`: o que a vista ativa não mostra não é oferecido como referência de cota (regra 4.5). Depende da vista (piso,
+  // cobertura ou área do mesmo nível têm ocultos próprios) e do ocultar temporário: tudo isso entra nas dependências.
   return useMemo(
-    () => ({ project, levelId, settings: dimensionSettingsOf(project), overrides, hidden: hiddenInActiveView(project, useUi.getState()) }),
-    [project, levelId, overrides, viewTemp],
+    () => ({
+      project,
+      levelId,
+      settings: dimensionSettingsOf(project),
+      overrides,
+      hidden: hiddenInActiveView(project, { ...useUi.getState(), levelId, view, planKind, planViewId, viewTemp }),
+    }),
+    [project, levelId, overrides, viewTemp, view, planKind, planViewId],
   );
 }
 
