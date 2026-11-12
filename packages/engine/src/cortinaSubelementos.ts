@@ -7,8 +7,9 @@
  * do eixo; a linha extra é `{ added: id }`; as bordas são `index` 0 e `n`. `CellKey.nu`/`nv` contam todas as células (extras incluídas).
  *
  * Ordem do Tab (`proximoSubelemento`): parede, depois as linhas internas (U antes de V), os segmentos (todos, removidos inclusive, por linha e por k)
- * e as células, e volta à parede. Clique (`subelementoEmPonto`): primeiro a linha mais perto (dentro da tolerância), depois a célula que contém o
- * ponto. Segmento não é alvo de clique: só se chega a ele pelo Tab.
+ * e as células, e volta à parede. A célula com esquadria (porta ou janela) tem, logo depois dela, a parada `opening` (esquadria). Clique
+ * (`subelementoEmPonto`): primeiro a linha mais perto (dentro da tolerância), depois a célula que contém o ponto, que vira a esquadria se ela tem
+ * uma (`subelementoDaCelula`). Segmento não é alvo de clique: só se chega a ele pelo Tab.
  */
 import { isCurtainType, isWall, resolverParede, wallLength, type CellKey, type CurtainSpec, type Id, type LineOverride, type LineRef, type Project, type SegmentRef, type SubelementoCortina, type Wall } from '@hestia/model';
 import { servicoCortina } from './kernelCortinaServico.ts';
