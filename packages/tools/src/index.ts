@@ -108,3 +108,5 @@ export * from './perimeterModifyKind.ts';
 export * from './dims/index.ts';
 export { sectionInferContext, type SectionInferOptions } from './sectionContext.ts';
 export { sectionSnapIndex, type SectionSnapIndex } from './sectionSnapIndex.ts';
+export { sectionSnapIndexDoProjeto } from './sectionSnapComGuardaCorpo.ts';
+export { resolveSectionAnnotations, resolveSectionDimensions, resolveSectionDimRef, sectionDimRefAt } from './sectionDimRefs.ts';

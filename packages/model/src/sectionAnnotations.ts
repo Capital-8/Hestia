@@ -1,6 +1,25 @@
 import type { DetailLine, DetailRegion, Dimension, ElementTag, Id, SectionView, TextNote } from './types.ts';
 
 /**
+ * Ponta associativa de uma cota de corte/elevação: um ponto de captura de um elemento (parede, laje, escada, guarda-corpo...) na vista.
+ * `ord` é a posição do ponto entre os do mesmo tipo (`kind`) do elemento, na ordem em que a vista os gera (a ordem não muda quando o
+ * elemento só é movido ou redimensionado). O valor de `a`/`b` da cota é a última leitura; a vista refaz a leitura a cada mudança.
+ */
+export interface SectionDimRef {
+  hostId: Id;
+  kind: 'endpoint' | 'midpoint';
+  ord: number;
+}
+
+/** Quem recalcula as pontas associativas (o app liga; precisa do resultado do corte, do índice de captura e do guarda-corpo). */
+export type SectionDimensionResolver = (view: Pick<SectionView, 'annotations'> & { id?: Id }, annotations: SectionAnnotations) => SectionAnnotations | null;
+let sectionDimensionResolver: SectionDimensionResolver | null = null;
+
+export function setSectionDimensionResolver(f: SectionDimensionResolver | null): void {
+  sectionDimensionResolver = f;
+}
+
+/**
  * Anotações de uma vista de corte/elevação. São da vista, não do nível: a mesma cota existe só naquele corte e na
  * prancha onde ele for colocado. Reaproveita os mesmos tipos geométricos da planta.
  */
@@ -20,9 +39,14 @@ export const EMPTY_SECTION_ANNOTATIONS: SectionAnnotations = {
   tags: [],
 };
 
-/** Anotações efetivas da vista (nunca devolve undefined). */
-export function sectionAnnotationsOf(v: Pick<SectionView, 'annotations'> | undefined): SectionAnnotations {
-  return v?.annotations ?? EMPTY_SECTION_ANNOTATIONS;
+/**
+ * Anotações efetivas da vista (nunca devolve undefined). Cotas com ponta associativa (`secRefs`) saem com as pontas relidas da vista
+ * atual: o desenho, a seleção, o DXF e a prancha leem todos por aqui.
+ */
+export function sectionAnnotationsOf(v: (Pick<SectionView, 'annotations'> & { id?: Id }) | undefined): SectionAnnotations {
+  const a = v?.annotations ?? EMPTY_SECTION_ANNOTATIONS;
+  if (!v || !sectionDimensionResolver || !a.dimensions.some((d) => d.secRefs)) return a;
+  return sectionDimensionResolver(v, a) ?? a;
 }
 
 /** Normaliza listas e remove ids repetidos; devolve undefined quando não sobra nada. */

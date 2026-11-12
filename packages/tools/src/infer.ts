@@ -23,6 +23,7 @@ import { addGridSnaps } from './gridSnapPoints.ts';
 import { addCadSnaps, type CadSnapIndex } from './snapCad.ts';
 import { addExtraPoints, addExtraSegments, addExtraTracks } from './snapExtras.ts';
 import { addIndexedPoints, addIndexedSegments, cruzamentosDePlanta, indexedAlignmentRefs, type SnapIndexado } from './snapIndexado.ts';
+import { arestasPerto, pontosNasFaixas } from './snapAccel.ts';
 import { orthoPoint, polarPoint } from './angleSnap.ts';
 import { DEFAULT_SNAP, type Guide, type Inference, type SnapKind, type SnapOptions } from './types.ts';
 
@@ -249,7 +250,8 @@ function addSectionCrossings(ctx: InferContext, sn: SnapOptions, cursor: Vec2, t
   const reach = tol * Math.SQRT2;
   const reach2 = reach * reach;
   const near: Array<{ a: Vec2; b: Vec2; hostId?: Id }> = [];
-  for (const e of ctx.extraSegments ?? []) {
+  // Vista com milhares de arestas: só as da vizinhança do cursor chegam ao teste de caixa (ver `snapAccel`).
+  for (const e of arestasPerto(ctx.extraSegments, cursor, reach)) {
     if (e.hostId !== undefined && ctx.ignore?.has(e.hostId)) continue;
     if (dist2(e.a, e.b) < 1e-18) continue;
     // Caixa expandida: aresta longe do cursor não entra no par a par (a vista pode ter milhares delas).
@@ -364,7 +366,7 @@ export function infer(rawCursor: Vec2, ctx: InferContext): Inference {
       const p = intersectSegments(probe[0], probe[1], e0, e1);
       if (p && dist(cursor, p) <= tol && dist(p, lockFrom) > 1e-6) add(p, 'intersection', [], hostId);
     };
-    for (const e of ctx.extraSegments ?? []) {
+    for (const e of arestasPerto(ctx.extraSegments, cursor, tol * 2)) {
       if (e.hostId !== undefined && ctx.ignore?.has(e.hostId)) continue;
       cross(e.a, e.b, e.hostId);
     }
@@ -484,7 +486,8 @@ export function infer(rawCursor: Vec2, ctx: InferContext): Inference {
     addExtraTracks(ctx, faceTracks, refs, cursor, tol);
   }
   if (!ctx.onWallsOnly && ctx.extraPoints) {
-    for (const q of ctx.extraPoints) {
+    // Só entram como referência de alinhamento os pontos com x ou y a até `tol` do cursor: o laço de baixo descarta o resto.
+    for (const q of pontosNasFaixas(ctx.extraPoints, cursor, tol)) {
       if (q.hostId !== undefined && ctx.ignore?.has(q.hostId)) continue;
       // Na seção o midpoint é captura de ponto, mas não vira eixo de alinhamento: o x/y dele cruzaria com outra
       // linha e criaria um ponto flutuante (ex.: z=2,30) no lugar da aresta real sob o cursor.

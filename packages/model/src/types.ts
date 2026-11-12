@@ -11,7 +11,7 @@ import type { Sheet } from './sheet.ts';
 import type { View3DPoint } from './view3dPoints.ts';
 import type { Grid, GridType } from './grid.ts';
 import type { ProjectGraphics, View3DSettings, ViewGraphics, ViewHidden } from './graphics.ts';
-import type { SectionAnnotations } from './sectionAnnotations.ts';
+import type { SectionAnnotations, SectionDimRef } from './sectionAnnotations.ts';
 import type { Opening, OpeningLineConvention, OpeningType } from './openingTypes.ts';
 import type { ProfilePreset } from './openingComposition.ts';
 import type { DimensionSettings } from './dimensionSettings.ts';
@@ -250,6 +250,8 @@ export interface Dimension {
   offset: number;
   /** Pontas associativas: `DimensionRef` (parede+ponta) ou `DimensionElementRef` (elemento+feição, ver dimensionRefs.ts). */
   refs?: { a?: DimensionRef | DimensionElementRef; b?: DimensionRef | DimensionElementRef };
+  /** Pontas associativas de uma cota de corte/elevação (ponto de captura de um elemento na vista); só vale em `SectionAnnotations`. A planta ignora. */
+  secRefs?: { a?: SectionDimRef; b?: SectionDimRef };
   /** Quando presente, a cota é angular e `a`/`b` guardam o centro e um ponto de apoio. */
   angular?: AngularDimension;
   /** Texto fixo que substitui o valor medido no desenho; vazio ou ausente mostra o valor medido. */

@@ -14,6 +14,10 @@ import type { SnapKind, SnapOptions } from './types.ts';
  * - Pontos: ordenados por x e por y. A faixa `|x - cursor.x| <= tol` serve à captura (o ponto está perto do cursor) e ao
  *   alinhamento vertical (qualquer ponto na faixa dá uma linha x = ref); a faixa em y, ao alinhamento horizontal.
  * - Arestas: grade de células de 1 m; cada aresta fica em todas as células que sua caixa toca.
+ *
+ * Convive com `snapAccel.ts` (corte e elevação), que acelera por identidade do array as listas `extraPoints`, `extraSegments`
+ * e `extraTracks`. Aqui o índice é explícito (`InferContext.indexed`) e filtra elementos ocultos (`hiddenIds`); lá é um cache
+ * transparente. As duas estruturas atendem partes diferentes de `infer` e não se sobrepõem (ver `docs/cotas/CONTRATO.md`).
  */
 export interface PontoIndexado extends Vec2 {
   hostId?: Id;
