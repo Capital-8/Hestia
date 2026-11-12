@@ -13,7 +13,7 @@ export * from './curtainCommands.ts';
 export * from './curtainRemap.ts';
 // Esquadria na célula (fase 5): a ferramenta reconhece o erro pela chave e mostra a mensagem do modelo no idioma pedido.
 export { ErroEsquadriaCelula } from './curtainOpeningCommands.ts';
-export { folgasDaRegiao, folhaMinima, retanguloDaRegiao, type FolgasRegiao, type Retangulo } from './curtainOpening.ts';
+export { embutirNaCortina, folgasDaRegiao, folhaMinima, retanguloDaRegiao, type FolgasRegiao, type Retangulo } from './curtainOpening.ts';
 export { t as tDoModelo, type Key as ChaveModelo } from './i18n.ts';
 export * from './queries.ts';
 export * from './semEsquadrias.ts';

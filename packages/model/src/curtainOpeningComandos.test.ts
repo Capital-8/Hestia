@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { embutirNaCortina } from './curtainOpening.ts';
 import { ProjectStore, createEmptyProject, makeWall, resolverParede, validateProject, type CurtainInstance, type CurtainSpec, type OpeningType, type Project, type Wall, type WallType } from './index.ts';
 import { applyCommand, type Command } from './commands.ts';
 import { t } from './i18n.ts';
@@ -317,5 +318,59 @@ describe('esquadria na célula: desfazer de cada comando (um passo)', () => {
     s.exec(colocar({ fundir: true }));
     s.undo();
     expect(JSON.parse(JSON.stringify(instanciaDe(s)))).toEqual(antes);
+  });
+});
+
+describe('esquadria de embutir numa célula de cortina: recusada no comando, aviso na validação', () => {
+  const EMBUTIR = tipoDe('ot_emb50', 'ot_pe80', { name: 'Embutir 50', width: 0.5, height: 2.1, sill: 0, leaves: 1, plan: 'pocket' });
+
+  it('embutirNaCortina só vale para o plano de embutir', () => {
+    expect(embutirNaCortina(EMBUTIR)).toBe(true);
+    expect(embutirNaCortina(PORTA_50)).toBe(false);
+    expect(embutirNaCortina({ plan: 'pivot' })).toBe(false);
+  });
+
+  it('colocar um tipo de embutir é recusado com md_ct_opening_pocket, e o projeto não muda', () => {
+    const s = cenario();
+    s.exec({ type: 'upsertOpeningType', openingType: EMBUTIR });
+    const antes = JSON.stringify(instanciaDe(s));
+    expect(() => s.exec(colocar({ openingTypeId: 'ot_emb50', i: 1, j: 1 }))).toThrow(t('pt', 'md_ct_opening_pocket'));
+    expect(aberturas(s)).toHaveLength(0);
+    expect(JSON.stringify(instanciaDe(s))).toBe(antes);
+  });
+
+  it('a recusa de embutir tem texto próprio nos 7 idiomas (não cai na chave)', () => {
+    for (const lang of ['pt', 'en', 'es', 'de', 'fr', 'it', 'pl'] as const) {
+      const msg = t(lang, 'md_ct_opening_pocket');
+      expect(msg, lang).not.toBe('md_ct_opening_pocket');
+      expect(msg.length, lang).toBeGreaterThan(20);
+      expect(t(lang, 'md_ct_w_embutir', { i: 1, j: 2 }), lang).toContain('(1, 2)');
+    }
+  });
+
+  it('trocar uma esquadria da célula para embutir é recusado; a esquadria antiga continua', () => {
+    const s = cenario();
+    s.exec({ type: 'upsertOpeningType', openingType: EMBUTIR });
+    s.exec(colocar({ openingTypeId: 'ot_baixa', i: 1, j: 1 }));
+    expect(() => s.exec({ type: 'updateCellOpening', wallId: 'w_ct', i: 1, j: 1, patch: { openingTypeId: 'ot_emb50' } })).toThrow(t('pt', 'md_ct_opening_pocket'));
+    expect(aberturas(s)[0]!.override).toMatchObject({ openingTypeId: 'ot_baixa' });
+  });
+
+  it('projeto que já tem embutir numa célula abre: a validação dá aviso cortina-embutir, sem erro na parede', () => {
+    // Projeto simples (sem a pilha de desfazer): a célula guarda o tipo de embutir, como um arquivo antigo.
+    const p = novoProjeto();
+    applyCommand(p, { type: 'upsertWallType', wallType: { ...base(), id: 'wt_ct', name: 'Cortina teste', family: 'curtain', curtain: grade(), layers: [], strips: [], wrapInserts: 'none', wrapEnds: 'none' } });
+    applyCommand(p, { type: 'addWall', wall: { ...makeWall({ id: 'w_ct', typeId: 'wt_ct', levelId: 'lv_0', a: { x: 0, y: 0 }, b: { x: 4, y: 0 } }), curtain: {} } });
+    for (const o of [PORTA_BAIXA, EMBUTIR]) applyCommand(p, { type: 'upsertOpeningType', openingType: o });
+    applyCommand(p, colocar({ openingTypeId: 'ot_baixa', i: 1, j: 1 }));
+    const w = p.elements.w_ct as Wall;
+    (w.curtain!.cells![0]!.override as { openingTypeId: string }).openingTypeId = 'ot_emb50';
+    const issues = validateProject(p);
+    const aviso = issues.find((i) => i.code === 'cortina-embutir');
+    expect(aviso?.severity).toBe('warning');
+    expect(aviso?.message).toContain('(1, 1)');
+    expect(issues.filter((i) => i.elementId === 'w_ct' && i.severity === 'error')).toEqual([]);
+    expect(resolverParede(p, w)).not.toBeNull();
+    expect(w.curtain!.cells).toHaveLength(1);
   });
 });

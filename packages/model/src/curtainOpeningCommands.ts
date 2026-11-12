@@ -10,7 +10,7 @@ import { openingTypeById } from './openingNominal.ts';
 import { TOL_SOLDA, celulaEm, centroEntre, regiaoRetangular, type Eixo } from './curtainGrade.ts';
 import { normalizarParede, refGerada, type ParedeResolvida } from './curtainRemap.ts';
 import { celulaDe, instanciaDe, marcarSegmentoBruto, resolucaoDe } from './curtainCommands.ts';
-import { folgasDaRegiao, retanguloDaRegiao, type FolgasRegiao, type Retangulo } from './curtainOpening.ts';
+import { embutirNaCortina, folgasDaRegiao, retanguloDaRegiao, type FolgasRegiao, type Retangulo } from './curtainOpening.ts';
 import {
   CURTAIN_LIMITS,
   CURTAIN_MIN_CELL,
@@ -301,10 +301,18 @@ function atualizar(p: Project, c: Extract<Command, { type: 'updateCellOpening' }
   );
 }
 
+/** Recusa a porta de embutir numa célula de cortina (ver `embutirNaCortina`), antes de qualquer mudança no projeto. */
+function recusarEmbutir(p: Project, openingTypeId: Id | undefined, lang: Lang): void {
+  if (openingTypeId === undefined) return;
+  const tipo = openingTypeById(p, openingTypeId);
+  if (tipo && embutirNaCortina(tipo)) throw new ErroEsquadriaCelula('md_ct_opening_pocket', lang);
+}
+
 /** Aplica um comando de esquadria na célula. Devolve false quando o comando não é desta família. */
 export function applyCurtainOpeningCommand(p: Project, c: Command, lang: Lang = 'pt'): boolean {
   switch (c.type) {
     case 'setCellOpening': {
+      recusarEmbutir(p, c.openingTypeId, lang);
       const { res } = resolucaoDe(p, c.wallId, lang);
       celulaDe(res, c.i, c.j, lang);
       colocar(
@@ -318,6 +326,7 @@ export function applyCurtainOpeningCommand(p: Project, c: Command, lang: Lang = 
       return true;
     }
     case 'updateCellOpening':
+      recusarEmbutir(p, c.patch.openingTypeId, lang);
       atualizar(p, c, lang);
       return true;
     case 'removeCellOpening': {
