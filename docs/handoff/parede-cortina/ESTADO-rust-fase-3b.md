@@ -41,7 +41,7 @@ descreve as regras como foram feitas.
 
 ## Pendências
 
-- O TS ainda NÃO lê `grupos` de `cortina_malha`: o montante de canto e as peças com esquadria (fase 3, parte 1) saem em `grupos` e só aparecem no 3D quando a
+- (Atualizado: o TS já lê `grupos` e os desenha no 3D desde a integração da fase 3b.) O TS NÃO lia `grupos` de `cortina_malha`: o montante de canto e as peças com esquadria (fase 3, parte 1) saem em `grupos` e só aparecem no 3D quando a
   integração do render ler `vertices_av`/`indices_av`. Até lá, no 3D, o canto entre cortinas mostra a fresta do montante (as cortinas já recuaram). A planta e
   as quantidades já usam o canto.
 - Aviso `cortina-juncao-sem-vizinha` (§5.8): não implementado.

@@ -221,6 +221,16 @@ export const CURTAIN_MIN_CELL = 0.15;
 
 ### 4.3 Instância: `CurtainInstance`
 
+> **Emenda (2026-11-12, decisão do dono após o primeiro teste no app).** A edição de uma parede cortina específica é feita **no desenho**,
+> selecionando o subelemento (Tab ou clique): linha, segmento, célula ou esquadria. O painel de Propriedades mostra as propriedades do
+> subelemento selecionado, e não há mais painel "Grade da instância". A grade (modo, valor, justificação, deslocamento) é do **tipo**, na
+> aba Cortina do editar tipo; uma variante de grade para uma parede se faz **duplicando o tipo**. As linhas extras nascem da ferramenta
+> "Linha de grade na cortina" (clique em planta ou 3D) e se movem pela alça ou pela posição digitada no painel da linha. O campo
+> `grid` da instância continua no modelo (leitura e compatibilidade de arquivos), mas **sem interface de edição**. Deslocamento e
+> justificação por instância, como no Revit, podem voltar como um campo pequeno se houver demanda.
+> Também fica registrado: `n` em `LineRef` conta as linhas GERADAS mais um (as extras não contam), e não o número de células; o `CellKey`
+> `nu`/`nv` conta todas as células. A convenção do espelho é identidade da chave (a posição física espelha junto com a parede).
+
 ```ts
 /** Linha de grade. Gerada (pelo índice na grade resolvida) ou extra (por id). */
 export type LineRef =
