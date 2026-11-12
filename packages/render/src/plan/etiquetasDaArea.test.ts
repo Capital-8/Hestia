@@ -1,11 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { resolveLevel } from '@hestia/engine';
-import { floorViewId, migrateProject, ProjectStore, withViewPatchOfTest, type Project } from '@hestia/model';
+import { DEFAULT_AREA_GRAPHICS, floorViewId, migrateProject, ProjectStore, withViewPatchOfTest, type Project } from '@hestia/model';
 import { buildPlanGeometry, type PlanInput } from './build.ts';
-import { areaPlanProfile } from './types.ts';
-import { FLOOR_PLAN_PROFILE, LIGHT } from './types.ts';
-import { DEFAULT_AREA_GRAPHICS } from '@hestia/model';
+import { areaPlanProfile, FLOOR_PLAN_PROFILE, LIGHT } from './types.ts';
 
 /**
  * Raia E: a planta de área desenha as etiquetas de elemento (`ElementTag`) SÓ da própria vista. A migração 23 → 24 copiou
