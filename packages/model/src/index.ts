@@ -76,8 +76,8 @@ export * from './viewHiddenCommands.ts';
 export * from './sectionAnnotations.ts';
 export * from './sectionAnnotationCommands.ts';
 export * from './sectionLevelExtents.ts';
-// Vistas de planta como entidade (docs/vistas/PLANO-MESTRE.md §4). `viewRangeOf` e `viewHiddenOf` já existem em
-// `queries.ts` e `viewHiddenCommands.ts` (assinaturas por nível/alvo): saem com prefixo `planView` até a Fase 1 as unificar.
+// Vistas de planta como entidade (docs/vistas/PLANO-MESTRE.md §4). Os nomes públicos de intervalo e ocultos levam o
+// prefixo `planView` (`planViewRangeOf`, `planViewHiddenOf`).
 export {
   floorViewId, roofViewId, planViewRef, planViewRefOf, planViewsOf, planViewOf, planViewsOfLevel, mainPlanViewOf,
   viewRangeOf as planViewRangeOf, viewGraphicsOf, viewHiddenOf as planViewHiddenOf, viewAnnotationsOf,viewProfileOf,

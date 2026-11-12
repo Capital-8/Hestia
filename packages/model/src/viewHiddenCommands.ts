@@ -1,7 +1,6 @@
 import { view3dOf, viewHiddenIssues, type ViewHidden } from './graphics.ts';
 import type { Id, Project, ViewHiddenTarget } from './types.ts';
 import { t, type Lang } from './i18n.ts';
-import { planViewOf } from './planView.ts';
 import { resolvePlanView } from './planViewResolve.ts';
 
 /**
@@ -28,18 +27,6 @@ export function normalizaViewHidden(hidden: ViewHidden | undefined, lang: Lang =
     ...(elements && elements.length > 0 ? { elements } : {}),
     ...(categories && categories.length > 0 ? { categories } : {}),
   };
-}
-
-/**
- * Ocultação permanente atual de uma vista (para o comando fazer união/remoção).
- * @deprecated Use `planViewHiddenOf(p, viewId)` (planta) com `hiddenTargetOfView` para o alvo; esta fica para corte e 3D.
- */
-export function viewHiddenOf(p: Project, target: ViewHiddenTarget): ViewHidden | undefined {
-  switch (target.kind) {
-    case 'plan': return planViewOf(p, target.viewId)?.hidden;
-    case 'section': return p.views.find((v) => v.id === target.viewId)?.hidden;
-    case '3d': return view3dOf(p).hidden;
-  }
 }
 
 /**

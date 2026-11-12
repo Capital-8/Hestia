@@ -12,8 +12,6 @@ import {
   planViewOf,
   ProjectStore,
   roofViewId,
-  viewHiddenOf,
-  viewRangeOf,
   planViewRangeOf,
   planViewsOf,
   viewAnnotationsOf,
@@ -324,19 +322,11 @@ describe('hiddenTargetOfView e annotationTarget', () => {
     for (const id of [floorViewId(LV0), roofViewId(LV0), 'ap_herda']) {
       s.exec({ type: 'setViewHidden', target: hiddenTargetOfView(s.project, id), hidden: { elements: [`e_${id}`] } });
       expect(planViewHiddenOf(s.project, id)).toEqual({ elements: [`e_${id}`] });
-      expect(viewHiddenOf(s.project, hiddenTargetOfView(s.project, id))).toEqual({ elements: [`e_${id}`] });
     }
   });
 });
 
-describe('leituras antigas por cima da API', () => {
-  it('viewRangeOf(p, levelId) dá o do piso e o padrão para nível inexistente', () => {
-    const s = montar();
-    s.exec({ type: 'setLevelViewRange', levelId: LV0, patch: { cut: 1.0 } });
-    expect(viewRangeOf(s.project, LV0)).toEqual(planViewRangeOf(s.project, floorViewId(LV0)));
-    expect(viewRangeOf(s.project, 'lv_fantasma')).toEqual(planViewRangeOf(s.project, 'nao_existe'));
-  });
-
+describe('comandos sobre rascunho', () => {
   it('applyCommand sobre rascunho rejeita comando fora da família (retorna sem efeito para tipos conhecidos)', () => {
     const p = montar().project;
     expect(() => applyCommand(structuredClone(p), { type: 'removePlanView', viewId: 'nao_existe' })).toThrow();

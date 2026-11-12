@@ -31,7 +31,7 @@ import {
   resolveLevel,
   viewRangeWarnings,
 } from '@hestia/engine';
-import { areaPlansOf, floorViewId, migrateProject, ProjectStore, roofViewId, viewAnnotationsOf, viewRangeOf, type AreaPlan, type Project } from '@hestia/model';
+import { areaPlansOf, floorViewId, migrateProject, ProjectStore, roofViewId, viewAnnotationsOf, planViewRangeOf, type AreaPlan, type Project } from '@hestia/model';
 import { buildSheetDrawList, contextoDaVista, levelFrameBox, LIGHT, resolvedPlanViewOf, resolverZoom } from '@hestia/render';
 import { createTool } from '@hestia/tools';
 import { planFrameUpdateOf } from '../../packages/render/src/plan/planFrame.ts';
@@ -98,7 +98,7 @@ function saidasDePlanta(p: Project, tipo: 'floor' | 'roof' | 'area', levelId: st
   };
   if (tipo === 'floor') out.dxf = protegido(() => planDxf(p, levelId, true, undefined, LANG));
   if (tipo === 'area') out.dxf = protegido(() => areaPlanDxf(p, plano!.id, undefined, LANG));
-  if (tipo !== 'roof') out.avisos = protegido(() => texto(viewRangeWarnings(p, levelId, viewRangeOf(p, levelId), contextoDaVista(p, levelId), LANG), 2));
+  if (tipo !== 'roof') out.avisos = protegido(() => texto(viewRangeWarnings(p, levelId, planViewRangeOf(p, floorViewId(levelId)), contextoDaVista(p, levelId), LANG), 2));
   if (tipo === 'area') out.quantitativos = protegido(() => texto({ tabela: areaTableRows(p, plano!, LANG), legenda: areaLegendRows(p, plano!, LANG) }, 3));
   return out;
 }

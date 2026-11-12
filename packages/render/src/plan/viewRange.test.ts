@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { pointInMulti, type Vec2 } from '@hestia/geom';
 import { resolveLevel, viewRangeWarnings } from '@hestia/engine';
-import { ProjectStore, createEmptyProject, defaultStairTypeId, floorViewId, roofViewId, makeFloor, makeRoof, makeSlab, makeStair, makeWall, viewRangeOf, type Id, type Opening, type Project, type ViewRange } from '@hestia/model';
+import { ProjectStore, createEmptyProject, defaultStairTypeId, floorViewId, roofViewId, makeFloor, makeRoof, makeSlab, makeStair, makeWall, planViewRangeOf, type Id, type Opening, type Project, type ViewRange } from '@hestia/model';
 import { straightStair } from '../stairFixture.helper.ts';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { stairFills } from './stairs.ts';
@@ -387,7 +387,7 @@ describe('seleção de elemento oculto: contorno fantasma (decisão 0013 §4)', 
 
   it('"Selecionar" do aviso: cada elemento oculto da vista ganha o seu contorno', () => {
     const p = scene();
-    const hiddenIds = viewRangeWarnings(p, 'lv_0', viewRangeOf(p, 'lv_0')).filter((w) => w.kind === 'hidden').flatMap((w) => w.ids);
+    const hiddenIds = viewRangeWarnings(p, 'lv_0', planViewRangeOf(p, floorViewId('lv_0'))).filter((w) => w.kind === 'hidden').flatMap((w) => w.ids);
     expect(hiddenIds.sort()).toEqual(['j_240', 'l_alta', 'r', 'w_oculta']);
     expect(hiddenSelectionOps(p, 'lv_0', resolvedPlanViewOf(p, 'lv_0'), hiddenIds, LIGHT)).toHaveLength(hiddenIds.length);
   });

@@ -19,7 +19,8 @@ import {
   openingHeight,
   openingSill,
   totalThickness,
-  viewRangeOf,
+  planViewRangeOf,
+  floorViewId,
   wallLength,
   wallType,
   type Id,
@@ -328,7 +329,7 @@ function OpeningProps({ items }: { items: Opening[] }): ReactElement {
 function ViewRangeGroup({ levelId }: { levelId: Id }): ReactElement {
   const { t, lang } = useT();
   const p = useProject();
-  const range = viewRangeOf(p, levelId);
+  const range = planViewRangeOf(p, floorViewId(levelId));
   // Classificar o nível resolve pisos, lajes e telhados do projeto: fica fora do clique e em cache por projeto.
   const warnings = useAdiadoEmSegundoPlano(p, `avisos-vista|${levelId}|${JSON.stringify(range)}`, () => viewRangeWarnings(p, levelId, range, contextoDaVista(p, levelId), lang), () => { const c = clienteAvisosCompartilhado('vista'); return c.disponivel ? c.vista(p, levelId, range, lang) : null; }) ?? [];
   const [error, setError] = useState<string | null>(null);
