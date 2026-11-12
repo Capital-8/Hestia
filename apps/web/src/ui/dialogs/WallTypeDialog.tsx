@@ -15,9 +15,10 @@ import { TypeParams } from './TypeParams.tsx';
 import { useUnits } from '../useUnits.ts';
 import { useT } from '../../editor/i18n.ts';
 import { AbaCortina } from './CurtainTab.tsx';
+import { AbaMontantes } from './MontantesTab.tsx';
 
 const FUNCTIONS = Object.keys(FUNCTION_LABEL) as LayerFunction[];
-type Tab = 'estrutura' | 'faixas' | 'graficos' | 'identidade' | 'cortina';
+type Tab = 'estrutura' | 'faixas' | 'graficos' | 'identidade' | 'cortina' | 'montantes';
 
 export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | null {
   const units = useUnits();
@@ -47,9 +48,11 @@ export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | n
   const close = (): void => useUi.setState({ dialog: null, dialogArg: null });
   const core = coreRange(draft);
   const stripsInvalid = draft.strips.some((s) => stripError(s, lang) !== null);
-  // Tipo cortina (decisão 0056): tem aba própria e não tem camadas, faixas nem gráficos de camada.
+  // Tipo cortina (decisão 0056): tem as abas Cortina e Montantes, e não tem camadas, faixas nem gráficos de camada.
   const curtainDraft = isCurtainType(draft) ? draft : null;
-  const aba: Tab = curtainDraft && (tab === 'estrutura' || tab === 'faixas' || tab === 'graficos') ? 'cortina' : tab;
+  const aba: Tab = curtainDraft
+    ? (tab === 'identidade' || tab === 'montantes' ? tab : 'cortina')
+    : (tab === 'cortina' || tab === 'montantes' ? 'estrutura' : tab);
   const setLayer = (i: number, patch: Partial<Layer>): void => setDraft({ ...draft, layers: draft.layers.map((l, k) => (k === i ? { ...l, ...patch } : l)) });
   const replaceLayer = (i: number, next: Layer): void => setDraft({ ...draft, layers: draft.layers.map((l, k) => (k === i ? next : l)) });
   const move = (i: number, d: -1 | 1): void => {
@@ -136,7 +139,12 @@ export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | n
           <TextField id="wt-name" value={draft.name} onCommit={(v) => setDraft({ ...draft, name: v })} />
         </div>
         <div className="dtabs">
-          {curtainDraft ? tabBtn('cortina', t('pct_tab_curtain')) : (
+          {curtainDraft ? (
+            <>
+              {tabBtn('cortina', t('pct_tab_curtain'))}
+              {tabBtn('montantes', t('pct_tab_mullions'))}
+            </>
+          ) : (
             <>
               {tabBtn('estrutura', t('dlt_tab_structure'))}
               {tabBtn('faixas', t('dlt_tab_strips'))}
@@ -148,6 +156,7 @@ export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | n
         {aba === 'cortina' && curtainDraft?.curtain && (
           <AbaCortina curtain={curtainDraft.curtain} project={p} onChange={(curtain) => setDraft({ ...draft, curtain })} />
         )}
+        {aba === 'montantes' && <AbaMontantes project={p} />}
         {aba === 'estrutura' && (
           <div className="split">
             <div style={{ minWidth: 0 }}>

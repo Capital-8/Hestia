@@ -42,7 +42,7 @@ export type CurtainCommand = Extract<
 >;
 
 /** Montante usado por alguma parede cortina, no tipo (papel) ou numa linha da instância. */
-function montanteEmUso(p: Project, id: Id): boolean {
+export function montanteEmUso(p: Project, id: Id): boolean {
   const emTipo = Object.values(p.wallTypes).some((w) => w.family === 'curtain' && !!w.curtain && papeisDeMontante(w.curtain.mullions).includes(id));
   if (emTipo) return true;
   return Object.values(p.elements).some(
