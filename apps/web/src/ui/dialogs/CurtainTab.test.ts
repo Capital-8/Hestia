@@ -1,7 +1,41 @@
 import { describe, expect, it } from 'vitest';
-import { CURTAIN_PRESET_ID, createEmptyProject, curtainWallTypes, isCurtainType } from '@hestia/model';
-import { lerPosicoes, trocarModoEixo } from './CurtainTab.tsx';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { CURTAIN_PRESET_ID, createEmptyProject, curtainWallTypes, isCurtainType, type CurtainSpec } from '@hestia/model';
+import { AbaCortina, lerPosicoes, trocarModoEixo } from './CurtainTab.tsx';
 import { wallOptions } from '../typeOptions.ts';
+import { t } from '../../editor/i18n.ts';
+
+const grade: CurtainSpec = {
+  depth: 0.1,
+  u: { mode: 'fixedNumber', count: 4 },
+  v: { mode: 'fixedNumber', count: 2 },
+  mullions: {
+    interiorVertical: 'mul_ret_50x100',
+    interiorHorizontal: 'mul_ret_50x100',
+    borderStart: 'mul_ret_50x100',
+    borderEnd: 'mul_ret_50x100',
+    borderBottom: 'mul_ret_50x100',
+    borderTop: 'mul_ret_50x100',
+    corner: null,
+    joinPriority: 'vertical',
+  },
+  defaultPanelTypeId: 'pnl_vidro_10',
+};
+
+describe('aba Cortina: montantes por papel (decisão 0056, §4.2 e fase 3)', () => {
+  it('tem o papel de canto, com "Usa a borda" quando vazio, e a dica da prioridade de junção', () => {
+    const html = renderToStaticMarkup(createElement(AbaCortina, { curtain: grade, project: createEmptyProject(), onChange: () => undefined }));
+    expect(html).toContain('id="ct-m-corner"');
+    expect(html).toContain(t('pt', 'pct_mullion_corner_fallback'));
+    expect(html).toContain(t('pt', 'pct_join_hint'));
+  });
+
+  it('a aba não tem mais o editor de perfil antigo: os campos de forma ficam na aba Montantes', () => {
+    const html = renderToStaticMarkup(createElement(AbaCortina, { curtain: grade, project: createEmptyProject(), onChange: () => undefined }));
+    expect(html).not.toContain('aria-label="Forma ');
+  });
+});
 
 describe('aba Cortina: modo da grade (decisão 0056, §4.2)', () => {
   it('trocar para número de células põe contagem padrão e mantém o deslocamento', () => {

@@ -12,8 +12,6 @@ import {
   type GridAxisSpec,
   type GridJustify,
   type GridLayoutMode,
-  type MullionProfile,
-  type MullionType,
   type Project,
 } from '@hestia/model';
 import { editor } from '../../editor/controller.ts';
@@ -35,14 +33,15 @@ export const JUSTIFICA_CHAVE: Record<GridJustify, Chave> ={ start: 'pct_justify_
 const PAINEIS_TIPO: CurtainPanelKind[] = ['glass', 'solid', 'empty'];
 const PAINEL_CHAVE: Record<CurtainPanelKind, Chave> = { glass: 'pct_panel_glass', solid: 'pct_panel_solid', empty: 'pct_panel_empty' };
 
-/** Papéis de montante do sistema, na ordem da tela. O canto (fase 3) não aparece nesta fase. */
-const PAPEIS: Array<{ campo: Exclude<keyof CurtainMullions, 'corner' | 'joinPriority'>; chave: Chave }> = [
+/** Papéis de montante do sistema, na ordem da tela. O canto só vale entre duas cortinas em ângulo (decisão 0056, §4.2). */
+const PAPEIS: Array<{ campo: Exclude<keyof CurtainMullions, 'joinPriority'>; chave: Chave }> = [
   { campo: 'interiorVertical', chave: 'pct_mullion_int_v' },
   { campo: 'interiorHorizontal', chave: 'pct_mullion_int_h' },
   { campo: 'borderStart', chave: 'pct_mullion_border_start' },
   { campo: 'borderEnd', chave: 'pct_mullion_border_end' },
   { campo: 'borderBottom', chave: 'pct_mullion_border_bottom' },
   { campo: 'borderTop', chave: 'pct_mullion_border_top' },
+  { campo: 'corner', chave: 'pct_mullion_corner' },
 ];
 
 /** Troca o modo da grade e preenche só o que o novo modo exige (o resto da grade fica). */
@@ -77,7 +76,6 @@ export function AbaCortina({ curtain, project, onChange }: AbaCortinaProps): Rea
   const predefinicoes = curtainWallTypes(lang);
   const mullions = Object.values(mullionTypesOf(project));
   const paineis = Object.values(curtainPanelTypesOf(project));
-  const usados = [...new Set(PAPEIS.map((x) => curtain.mullions[x.campo]).filter((id): id is string => id !== null))];
   const set = (patch: Partial<CurtainSpec>): void => onChange({ ...curtain, ...patch });
 
   return (
@@ -111,7 +109,7 @@ export function AbaCortina({ curtain, project, onChange }: AbaCortinaProps): Rea
             value={curtain.mullions[x.campo] ?? ''}
             onChange={(e) => set({ mullions: { ...curtain.mullions, [x.campo]: e.target.value || null } })}
           >
-            <option value="">{t('pct_none')}</option>
+            <option value="">{x.campo === 'corner' ? t('pct_mullion_corner_fallback') : t('pct_none')}</option>
             {mullions.map((mt) => (
               <option key={mt.id} value={mt.id}>{mt.name}</option>
             ))}
@@ -124,10 +122,7 @@ export function AbaCortina({ curtain, project, onChange }: AbaCortinaProps): Rea
           <option value="horizontal">{t('pct_join_horizontal')}</option>
         </select>
       </Row>
-      {usados.map((id) => {
-        const mt = project.mullionTypes?.[id] ?? mullions.find((m) => m.id === id);
-        return mt ? <PerfilMontante key={id} mt={mt} /> : null;
-      })}
+      <p className="hint">{t('pct_join_hint')}</p>
 
       <h3 className="wsched-h">{t('pct_panels')}</h3>
       <Row label={t('pct_panel_default')} htmlFor="ct-painel">
@@ -202,38 +197,6 @@ function Eixo({ prefixo, eixo, onChange }: { prefixo: string; eixo: GridAxisSpec
         <NumField id={`${prefixo}-off`} value={eixo.offset ?? 0} quantity="length" decimals={3} onCommit={(v) => set({ offset: v })} />
       </Row>
     </>
-  );
-}
-
-/** Perfil de um tipo de montante em uso no sistema (forma, largura e profundidade). Grava o tipo do projeto na hora. */
-function PerfilMontante({ mt }: { mt: MullionType }): ReactElement {
-  const { t } = useT();
-  const [erro, setErro] = useState<string | null>(null);
-  const perfil = mt.profile;
-  const salvar = (novo: Partial<MullionProfile>): void => {
-    const profile: MullionProfile = { ...perfil, ...novo };
-    if (profile.shape === 'round') profile.depth = profile.width;
-    try {
-      editor.store.exec({ type: 'upsertMullionType', mullionType: { ...mt, profile } }, 'undo_edit_wall_type');
-      setErro(null);
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : String(e));
-    }
-  };
-  return (
-    <div className="prow">
-      <label title={mt.name}>{mt.name}</label>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-        <select aria-label={`${t('pct_shape')} ${mt.name}`} className="select" value={perfil.shape} onChange={(e) => salvar({ shape: e.target.value as MullionProfile['shape'] })}>
-          <option value="rect">{t('pct_shape_rect')}</option>
-          <option value="round">{t('pct_shape_round')}</option>
-          {perfil.shape !== 'rect' && perfil.shape !== 'round' && <option value={perfil.shape}>{perfil.shape}</option>}
-        </select>
-        <NumField value={perfil.width} quantity="smallLength" min={0.001} onCommit={(v) => salvar({ width: v })} />
-        <NumField value={perfil.depth} quantity="smallLength" min={0.001} disabled={perfil.shape === 'round'} onCommit={(v) => salvar({ depth: v })} />
-        {erro && <span className="hint" role="alert">{erro}</span>}
-      </div>
-    </div>
   );
 }
 
