@@ -251,8 +251,8 @@ export function noteOps(p: Project, levelId: Id, pt: PlanPaint, look: NoteLook, 
   // Sem anotações de vista, as linhas de separação saem daqui (como sempre). Com elas (planta de área), o chamador as
   // desenha no lugar e na cor de sempre: separador não é anotação da vista.
   if (!annotations) out.strokes.push(...roomSeparatorStrokes(p, levelId, pt, color, new Set(look.selection), look.select));
-  // Etiquetas de elemento da vista (planta de área): mesmo desenho das etiquetas do nível, com os hóspedes do modelo.
-  // Só entram quando a vista traz as suas anotações; sem elas, `build.ts` desenha as do nível à parte (como antes).
+  // Etiquetas de elemento da vista (planta de área): mesmo desenho das do piso, com os hóspedes do modelo. Só entram quando
+  // a vista traz as suas anotações; sem elas (piso e cobertura), `build.ts` desenha as etiquetas da vista à parte.
   if (annotations) {
     const tags = elementTagOpsOf(p, annotations.tags, pt, scale);
     out.strokes.push(...tags.strokes);

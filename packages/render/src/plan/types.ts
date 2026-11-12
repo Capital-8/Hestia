@@ -177,7 +177,7 @@ export interface PlanProfile {
   ramps: boolean;
   /** Telhados: cheios (planta de piso), só projeção (planta de área) ou ocultos. */
   roofs: 'full' | 'projection' | 'hidden';
-  /** Etiquetas persistentes do nível (`Level.tags`), além das etiquetas de parede/abertura. */
+  /** Etiquetas persistentes da vista de piso e de cobertura (`ElementTag`), além das etiquetas de parede/abertura. A planta de área as desenha com as outras anotações dela. */
   elementTags: boolean;
   /** Objetos importados (viga, pilar, mobiliário...). */
   generic: boolean;
@@ -255,7 +255,9 @@ export function areaPlanProfile(plan: Pick<AreaPlan, 'graphics'>): PlanProfile {
     stairs: g.showStairs !== false,
     ramps: g.showStairs !== false,
     roofs: g.showRoofs === false ? 'hidden' : 'projection',
-    elementTags: g.showAnnotations,
+    // As etiquetas de elemento da planta de área são anotações da própria vista (camada `tags`, desenhadas em `noteOps`):
+    // não há mais leitura das etiquetas do nível.
+    elementTags: false,
     generic: g.showGeneric === true,
     ceilings: false,
   };

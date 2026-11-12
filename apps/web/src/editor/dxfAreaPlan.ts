@@ -148,6 +148,8 @@ export function areaPlanDxf(p: Project, planId: Id, units?: DxfUnit, lang: Lang 
     ramps: false,
     roofs: 'hidden',
     underlay: false,
+    // As etiquetas de elemento da área são anotações da própria vista e saem com as outras (o perfil da área já não pede
+    // as do nível: `elementTags` é falso).
     elementTags: false,
     generic: false,
     ceilings: false,
