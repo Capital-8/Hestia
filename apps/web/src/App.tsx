@@ -37,6 +37,7 @@ import { MaterialsDialog } from './ui/dialogs/MaterialsDialog.tsx';
 import { LevelsDialog, OpeningTypeDialog, ShortcutsDialog, StartDialog } from './ui/dialogs/OtherDialogs.tsx';
 import { UnitsDialog } from './ui/dialogs/UnitsDialog.tsx';
 import { HostedLossDialog } from './ui/dialogs/HostedLossDialog.tsx';
+import { ConfirmacaoDialog } from './ui/dialogs/ConfirmacaoDialog.tsx';
 import { AlertaDialog } from './ui/dialogs/AlertaDialog.tsx';
 import { AreaMergeDialog } from './ui/dialogs/AreaMergeDialog.tsx';
 import { DimensionSettingsDialog } from './ui/dialogs/DimensionSettingsDialog.tsx';
@@ -161,6 +162,8 @@ function Dialogs(): ReactElement | null {
       return <UnitsDialog />;
     case 'hostedLoss':
       return <HostedLossDialog />;
+    case 'confirmacao':
+      return <ConfirmacaoDialog />;
     case 'alerta':
       return <AlertaDialog />;
     case 'areaMerge':

@@ -106,8 +106,8 @@ describe('ferramenta Porta/Janela na cortina: identidade e registro', () => {
     expect(porta.label).toBe('Porta na cortina');
     expect(janela.label).toBe('Janela na cortina');
     expect(porta.hint).toContain('Porta na cortina');
-    expect(porta.pick3d).toBeFalsy();
-    expect((porta as Tool & { hover3d?: boolean }).hover3d).toBe(true);
+    expect(porta.pick3d).toBe(true);
+    expect(porta.hover3d).toBe(true);
   });
 });
 

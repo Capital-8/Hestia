@@ -710,7 +710,14 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey, alt: e.altKey,
   });
   /** `info` a partir de ponto e modificadores já capturados (o `down` adiado sai depois do evento original). */
-  const infoDe = (s: Pt, m: Mods) => ({ raw: screenToWorld(editor.viewport() as Viewport, s), ...m });
+  // Ferramenta que declara `hover3d` (Porta na cortina) recebe, na 3D, o ponto e a altura da superfície sob o cursor.
+  const infoDe = (s: Pt, m: Mods) => {
+    if (useUi.getState().view === '3d' && editor.activeTool.hover3d) {
+      const el = elementAt3d(s);
+      return { raw: el ? { x: el.point.x, y: el.point.y } : { x: 0, y: 0 }, ...m, hit3d: el?.id ?? null, hitZ: el?.point.z };
+    }
+    return { raw: screenToWorld(editor.viewport() as Viewport, s), ...m };
+  };
   const info = (e: RPointerEvent, s: Pt) => infoDe(s, modsDe(e));
 
   const cancelarDownAdiado = (): void => {
@@ -1074,7 +1081,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       const el = elementAt3d(s);
       if (editor.activeTool.pick3d) {
         if (hit || el) {
-          editor.pointer('click', { raw: hit ?? { x: 0, y: 0 }, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey, alt: e.altKey, hit3d: el?.id ?? null });
+          editor.pointer('click', { raw: hit ?? { x: 0, y: 0 }, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey, alt: e.altKey, hit3d: el?.id ?? null, hitZ: el?.point.z });
         } else {
           // Clique no vazio cancela/sai para a ferramenta de seleção
           editor.activeTool.cancel();

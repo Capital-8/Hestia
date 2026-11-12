@@ -41,6 +41,7 @@ import { fitBox, levelFrameBox, panBy, planViewOf, referenceAt, roomTagLines, se
 import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
 import { defaultOpenViews, type PlanKind } from './openViews.ts';
 import { casador } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
+import { pedirConfirmacao } from './confirmacaoPrompt.ts';
 import { elevationCommand, type PlanBox } from './elevations.ts';
 import { deleteSelectionIn } from './deleteIds.ts';
 import { deleteSectionAnnotationsIn, sectionAnnotationIdsIn } from './sectionHandles.ts';
@@ -203,6 +204,8 @@ export class Editor {
     subelementos: (wallId) => (useUi.getState().view === 'plan' || useUi.getState().view === '3d' ? subelementosDaCortina(this.store.project, wallId) : null),
     subelemento: () => useUi.getState().subElemento,
     setSubelemento: (sub) => useUi.setState({ subElemento: sub }),
+    // Porta/janela na cortina: a pergunta de fundir células vizinhas abre o diálogo de confirmação e resolve com a escolha.
+    confirm: (message) => pedirConfirmacao(message),
     exec: (c) => this.exec(c),
     transaction: (l, fn, session) => this.avisandoOculto(() => this.store.transaction(l, fn, session)),
     metersPerPixel: () => 1 / (this.viewport()?.zoom ?? 60),
@@ -708,8 +711,9 @@ export class Editor {
     // Na 3D, Esc segue o da planta (cancela a operação, senão volta à Selecionar; decisão 0016 §5). Ferramenta de escolha (Anexar topo): Enter e Tab seguem para a planta, senão a etapa não avança.
     // Tab com a Selecionar passa ao da planta (percorre o subelemento da cortina também na 3D).
     if (ui.view === '3d' && k !== 'Escape' && !(this.tool.pick3d && (k === 'Enter' || k === 'Tab')) && !(k === 'Tab' && this.tool.id === 'select')) return key3d(k, ui.selection, () => this.deleteSelection());
-    // Esc sai do subelemento da cortina (fica a parede selecionada); só o Esc seguinte limpa a seleção.
-    if (k === 'Escape' && ui.subElemento) {
+    // Esc sai do subelemento da cortina (fica a parede selecionada); só o Esc seguinte limpa a seleção. Com outra ferramenta
+    // ativa (a porta na cortina destaca a célula sob o cursor), o Esc é dela: cancela.
+    if (k === 'Escape' && ui.subElemento && this.tool.id === 'select') {
       useUi.setState({ subElemento: null });
       this.bump();
       return true;
@@ -761,7 +765,7 @@ export class Editor {
       useUi.setState({ typed: ui.typed + k });
       return true;
     }
-    if (k === ' ' && (this.tool.id === 'door' || this.tool.id === 'window')) {
+    if (k === ' ' && (this.tool.id === 'door' || this.tool.id === 'window' || this.tool.id === 'curtainDoor' || this.tool.id === 'curtainWindow')) {
       this.tool.space?.(); this.bump();
       return true;
     }

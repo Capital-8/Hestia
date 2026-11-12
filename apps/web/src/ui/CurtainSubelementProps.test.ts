@@ -7,10 +7,16 @@ import {
   MONTANTE_HERDA,
   MONTANTE_NENHUM,
   SubelementoCortina,
+  comandoAlinhamentoEsquadria,
   comandoDaTrava,
   comandoDoMontante,
   comandoDoPainel,
   comandoDoSegmento,
+  comandoInverterEsquadria,
+  comandoMarcaEsquadria,
+  comandoModoEsquadria,
+  comandoRemoverEsquadria,
+  comandoTipoEsquadria,
   comandoVoltarPadrao,
   valorDoMontante,
   type SubelementoCortinaProps,
@@ -89,5 +95,66 @@ describe('seção do subelemento (componente puro)', () => {
     const html = render({ kind: 'cell', wallId: 'w1', i: 0, j: 0, painel: 'pnl_vidro_10', sobrescrita: true, paineis: [painel], onCommand: () => {} });
     expect(html).toContain(t('pt', 'pct_sub_cell_own'));
     expect(html).not.toMatch(/<button[^>]*disabled=""/);
+  });
+});
+
+describe('construtores da porta ou janela na célula (fase 5, §7.7)', () => {
+  it('trocar tipo, inverter, marca, modo, alinhamento e remover viram updateCellOpening/removeCellOpening na célula', () => {
+    expect(comandoTipoEsquadria('ct1', 0, 1, 'ot_pq')).toEqual({ type: 'updateCellOpening', wallId: 'ct1', i: 0, j: 1, patch: { openingTypeId: 'ot_pq' } });
+    expect(comandoInverterEsquadria('ct1', 0, 1, 'flipHand', true)).toEqual({ type: 'updateCellOpening', wallId: 'ct1', i: 0, j: 1, patch: { flipHand: true } });
+    expect(comandoInverterEsquadria('ct1', 0, 1, 'flipFacing', false)).toEqual({ type: 'updateCellOpening', wallId: 'ct1', i: 0, j: 1, patch: { flipFacing: false } });
+    expect(comandoMarcaEsquadria('ct1', 0, 1, 'P-01')).toEqual({ type: 'updateCellOpening', wallId: 'ct1', i: 0, j: 1, patch: { mark: 'P-01' } });
+    expect(comandoModoEsquadria('ct1', 0, 1, 'grid')).toEqual({ type: 'updateCellOpening', wallId: 'ct1', i: 0, j: 1, patch: { fit: 'grid' } });
+    expect(comandoAlinhamentoEsquadria('ct1', 0, 1, 'end')).toEqual({ type: 'updateCellOpening', wallId: 'ct1', i: 0, j: 1, patch: { align: 'end' } });
+    expect(comandoRemoverEsquadria('ct1', 0, 1)).toEqual({ type: 'removeCellOpening', wallId: 'ct1', i: 0, j: 1 });
+  });
+});
+
+describe('seção da porta ou janela na célula (componente puro)', () => {
+  const tipos = [{ id: 'ot_pq', name: 'Porta pequena', code: 'PQ', family: 'Giro', subject: { kind: 'door' as const, type: {} as never } }];
+  const base = {
+    kind: 'opening' as const,
+    wallId: 'ct1',
+    i: 0,
+    j: 1,
+    tipo: 'door' as const,
+    openingTypeId: 'ot_pq',
+    flipHand: false,
+    flipFacing: false,
+    mark: 'P-01',
+    fit: 'cell' as const,
+    align: 'center' as const,
+    tipos,
+    favoritos: [],
+    onEditarTipo: () => {},
+    onCommand: () => {},
+  };
+
+  it('mostra o tipo, as inversões, a marca, o modo e o botão de remover; sem "Voltar ao padrão" nem seletor de painel', () => {
+    const html = render(base);
+    expect(html).toContain(t('pt', 'pct_opening_title'));
+    expect(html).toContain('id="sub-opening-hand"');
+    expect(html).toContain('id="sub-opening-facing"');
+    expect(html).toContain('value="P-01"');
+    expect(html).toContain('id="sub-opening-fit"');
+    expect(html).toContain('id="sub-opening-remove"');
+    expect(html).toContain(t('pt', 'pct_remove_opening'));
+    expect(html).not.toContain(t('pt', 'pct_sub_cell_default'));
+    expect(html).not.toContain('id="sub-celula-painel"');
+  });
+
+  it('inversão marcada aparece como pressionada (aria-pressed="true")', () => {
+    const html = render({ ...base, flipHand: true });
+    expect(html).toMatch(/id="sub-opening-hand"[^>]*aria-pressed="true"/);
+    expect(html).toMatch(/id="sub-opening-facing"[^>]*aria-pressed="false"/);
+  });
+
+  it('modo "ajustar grade" mostra o alinhamento; "preencher célula" não mostra', () => {
+    expect(render(base)).not.toContain('id="sub-opening-align"');
+    expect(render({ ...base, fit: 'grid' })).toContain('id="sub-opening-align"');
+  });
+
+  it('janela usa o rótulo de janela no cabeçalho de tipo', () => {
+    expect(render({ ...base, tipo: 'window' })).toContain(t('pt', 'prb_place_window'));
   });
 });

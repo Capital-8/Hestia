@@ -1,11 +1,12 @@
-// Seção do subelemento da parede cortina (decisão 0056, §10 fase 2): linha (tipo de montante e travar), segmento (remover e
-// restaurar) e célula (tipo de painel e "Voltar ao padrão"). Componente PURO: recebe o `kind` e os dados por props e devolve
-// cada ação por `onCommand`; não lê nem grava o estado do editor (a ligação ao subelemento selecionado fica para depois).
-// Os construtores de comando são exportados para teste.
+// Seção do subelemento da parede cortina (decisão 0056, §10 fase 2 e fase 5): linha (tipo de montante e travar), segmento (remover e
+// restaurar), célula (tipo de painel e "Voltar ao padrão") e célula com porta ou janela (tipo, inversões, marca, modo, alinhamento
+// e remover). Componente PURO: recebe o `kind` e os dados por props e devolve cada ação por `onCommand`; não lê nem grava o estado
+// do editor. Os construtores de comando são exportados para teste.
 import type { ReactElement } from 'react';
 import type { Command, CurtainPanelType, Id, LineRef, MullionType } from '@hestia/model';
 import { useT } from '../editor/i18n.ts';
 import { Check, Row } from './fields.tsx';
+import { TypeSelector, type TypeOption } from './TypeSelector.tsx';
 
 /** Valor do seletor de montante quando a linha herda o tipo de montante do sistema (sem sobrescrita). */
 export const MONTANTE_HERDA = 'herda';
@@ -46,6 +47,36 @@ export function comandoVoltarPadrao(wallId: Id, i: number, j: number): Command {
   return { type: 'clearCellOverride', wallId, i, j };
 }
 
+/** Trocar o tipo da porta ou janela da célula (i, j). Se o novo tipo não cabe, o modelo recusa e o app avisa. */
+export function comandoTipoEsquadria(wallId: Id, i: number, j: number, openingTypeId: Id): Command {
+  return { type: 'updateCellOpening', wallId, i, j, patch: { openingTypeId } };
+}
+
+/** Inverter o giro (`flipHand`) ou o sentido (`flipFacing`) da esquadria da célula. */
+export function comandoInverterEsquadria(wallId: Id, i: number, j: number, campo: 'flipHand' | 'flipFacing', valor: boolean): Command {
+  return { type: 'updateCellOpening', wallId, i, j, patch: campo === 'flipHand' ? { flipHand: valor } : { flipFacing: valor } };
+}
+
+/** Marca da esquadria da célula (etiqueta e tabela). */
+export function comandoMarcaEsquadria(wallId: Id, i: number, j: number, mark: string): Command {
+  return { type: 'updateCellOpening', wallId, i, j, patch: { mark } };
+}
+
+/** Modo da esquadria da célula: preencher a célula (`cell`) ou ajustar a grade à porta (`grid`). */
+export function comandoModoEsquadria(wallId: Id, i: number, j: number, fit: 'cell' | 'grid'): Command {
+  return { type: 'updateCellOpening', wallId, i, j, patch: { fit } };
+}
+
+/** Alinhamento da grade ajustada à porta (centro, início ou fim da célula). */
+export function comandoAlinhamentoEsquadria(wallId: Id, i: number, j: number, align: 'center' | 'start' | 'end'): Command {
+  return { type: 'updateCellOpening', wallId, i, j, patch: { align } };
+}
+
+/** Remover a porta ou janela da célula: a célula volta ao padrão e as linhas presas que sobrarem saem. */
+export function comandoRemoverEsquadria(wallId: Id, i: number, j: number): Command {
+  return { type: 'removeCellOpening', wallId, i, j };
+}
+
 export type SubelementoCortinaProps =
   | {
       kind: 'line';
@@ -76,11 +107,79 @@ export type SubelementoCortinaProps =
       sobrescrita: boolean;
       paineis: CurtainPanelType[];
       onCommand: (c: Command) => void;
+    }
+  | {
+      /** Célula com porta ou janela (fase 5): o cabeçalho de tipo é o das esquadrias de parede. */
+      kind: 'opening';
+      wallId: Id;
+      i: number;
+      j: number;
+      tipo: 'door' | 'window';
+      openingTypeId: Id;
+      flipHand: boolean;
+      flipFacing: boolean;
+      mark: string;
+      fit: 'cell' | 'grid';
+      align: 'center' | 'start' | 'end';
+      /** Tipos de esquadria do seletor (os de porta ou de janela, conforme `tipo`) e os favoritos. */
+      tipos: TypeOption[];
+      favoritos: readonly Id[];
+      onEditarTipo: () => void;
+      onCommand: (c: Command) => void;
     };
 
-/** Subelemento selecionado da parede cortina: linha, segmento ou célula, conforme `kind`. */
+/** Subelemento selecionado da parede cortina: linha, segmento, célula ou célula com esquadria, conforme `kind`. */
 export function SubelementoCortina(props: SubelementoCortinaProps): ReactElement {
   const { t } = useT();
+  if (props.kind === 'opening') {
+    const { wallId, i, j, tipo, openingTypeId, flipHand, flipFacing, mark, fit, align, tipos, favoritos, onEditarTipo, onCommand } = props;
+    return (
+      <div>
+        <div className="hint">{t('pct_opening_title')}</div>
+        <TypeSelector
+          categoryLabel={t(tipo === 'door' ? 'prb_place_door' : 'prb_place_window')}
+          triggerId="sub-opening-type"
+          label={t('prb_prop_type_opening')}
+          options={tipos}
+          selectedId={openingTypeId}
+          favoriteIds={favoritos}
+          onSelect={(id) => onCommand(comandoTipoEsquadria(wallId, i, j, id))}
+          onEdit={onEditarTipo}
+        />
+        <div>
+          <button id="sub-opening-hand" type="button" className="btn small" aria-pressed={flipHand} onClick={() => onCommand(comandoInverterEsquadria(wallId, i, j, 'flipHand', !flipHand))}>
+            {t('pct_flip_hand')}
+          </button>
+          <button id="sub-opening-facing" type="button" className="btn small" aria-pressed={flipFacing} onClick={() => onCommand(comandoInverterEsquadria(wallId, i, j, 'flipFacing', !flipFacing))}>
+            {t('pct_flip_facing')}
+          </button>
+        </div>
+        <Row label={t('pct_mark')} htmlFor="sub-opening-mark">
+          <input id="sub-opening-mark" className="input" defaultValue={mark} onBlur={(e) => {
+            if (e.target.value !== mark) onCommand(comandoMarcaEsquadria(wallId, i, j, e.target.value));
+          }} />
+        </Row>
+        <Row label={t('pct_mode')} htmlFor="sub-opening-fit">
+          <select id="sub-opening-fit" className="select" value={fit} onChange={(e) => onCommand(comandoModoEsquadria(wallId, i, j, e.target.value as 'cell' | 'grid'))}>
+            <option value="cell">{t('pct_fit_cell')}</option>
+            <option value="grid">{t('pct_fit_grid')}</option>
+          </select>
+        </Row>
+        {fit === 'grid' && (
+          <Row label={t('pct_justify')} htmlFor="sub-opening-align">
+            <select id="sub-opening-align" className="select" value={align} onChange={(e) => onCommand(comandoAlinhamentoEsquadria(wallId, i, j, e.target.value as 'center' | 'start' | 'end'))}>
+              <option value="center">{t('pct_justify_center')}</option>
+              <option value="start">{t('pct_justify_start')}</option>
+              <option value="end">{t('pct_justify_end')}</option>
+            </select>
+          </Row>
+        )}
+        <button id="sub-opening-remove" type="button" className="btn small" onClick={() => onCommand(comandoRemoverEsquadria(wallId, i, j))}>
+          {t('pct_remove_opening')}
+        </button>
+      </div>
+    );
+  }
   if (props.kind === 'line') {
     const { wallId, line, montante, travada, montantes, onCommand } = props;
     return (

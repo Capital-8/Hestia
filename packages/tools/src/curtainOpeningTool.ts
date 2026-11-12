@@ -47,7 +47,8 @@ interface Caber {
 export class CurtainOpeningTool extends ToolBase {
   readonly id: 'curtainDoor' | 'curtainWindow';
   readonly label: string;
-  /** Na 3D, o elemento e a altura sob o cursor chegam também no movimento. */
+  /** Na 3D, o clique chega com o ponto da superfície; o movimento também recebe o elemento e a altura sob o cursor. */
+  readonly pick3d = true;
   readonly hover3d = true;
   override get hint(): string {
     return this.t('tl_hint_curtain_opening', { label: this.t(this.id === 'curtainDoor' ? 'tl_tool_curtain_door' : 'tl_tool_curtain_window') });
