@@ -1,5 +1,5 @@
 import { openingSymbolPaths, type MultiPolygon, type Vec2 } from '@hestia/geom';
-import { buildOpeningModel, computeSection, junctionLevel, resolveCeilings, levelFrames, openingGeometry, resolveFloors, resolveRoofs, resolveRooms, resolveRampsOnLevel, resolveSlabs, resolveStairsOnLevel, type ResolvedRamp, type ResolvedStair, type JunctionLevel, type SectionOrigin, type ViewClass } from '@hestia/engine';
+import { buildOpeningModel, computeSection, junctionLevel, resolveCeilings, levelFrames, openingGeometry, resolveFloors, resolveRoofs, resolveRooms, resolveRampsOnLevel, resolveSlabs, resolveStairsOnLevel, servicoCortina, temCortina, ESTILO_PLANTA_CORTINA, PAPEL_PLANTA_CORTINA, type ResolvedRamp, type ResolvedStair, type JunctionLevel, type SectionOrigin, type ViewClass } from '@hestia/engine';
 import { climbWalk, openingPlanWorldPaths, ownerOf, planViewOf, risersInClimbOrder, roofFootprint, roomFullText, roomLabelAt, spiralByComponent, spiralPostRing, stairCut, type PlanView, type StairCut } from '@hestia/render';
 import {
   dxfDocOf,
@@ -13,6 +13,9 @@ import {
   DXF_LAYER_RAMP_TEXT,
   DXF_LAYER_ROOM_TEXT,
   DXF_LAYER_GENERIC,
+  DXF_LAYER_CURTAIN_GLASS,
+  DXF_LAYER_CURTAIN_MULLION,
+  DXF_LAYER_CURTAIN_SOLID,
   dxfLineWeight,
   dxfSectionLayersOf,
   dxfSectionLayerStyleOf,
@@ -292,6 +295,32 @@ function mergeNotes(a: DxfNotes | undefined, b: DxfNotes | undefined): DxfNotes 
 }
 
 /**
+ * Cortinas do nível para o DXF (decisão 0056, §11): as linhas de `cortina_planta` no detalhe médio, na mesma cota de corte da vista, sem as paredes
+ * ocultas na vista. Cada linha vai à camada da peça (`CORTINA-MONTANTE` para o montante e o contorno do sistema, `CORTINA-VIDRO` para o vidro,
+ * `CORTINA-SOLIDO` para o painel sólido); o oculto sai tracejado. Sem kernel pronto ou sem cortina no nível, `undefined`; com a categoria de
+ * parede oculta, `undefined` também (nenhuma camada de cortina sai).
+ */
+function curtainDxfOf(p: Project, levelId: Id, cutZ: number, hidden: ReadonlySet<Id>, visible: boolean): DxfLevelGeometry['curtains'] {
+  if (!visible || !temCortina(p)) return undefined;
+  const s = servicoCortina();
+  if (!s.pronto()) return undefined;
+  const linhas = s.planta(p, levelId, cutZ, 1);
+  if (!linhas) return undefined;
+  const camada = (papel: number): string =>
+    papel === PAPEL_PLANTA_CORTINA.vidro ? DXF_LAYER_CURTAIN_GLASS : papel === PAPEL_PLANTA_CORTINA.solido ? DXF_LAYER_CURTAIN_SOLID : DXF_LAYER_CURTAIN_MULLION;
+  return linhas
+    .filter((l) => !hidden.has(l.wallId) && l.pontos.length >= 2)
+    .map((l) => {
+      const pts = l.pontos.map((q) => ({ x: q.x, y: q.y }));
+      // Contorno fechado repete o primeiro ponto no fim (como a planta da tela); a linha aberta do eixo do vidro não.
+      const first = pts[0]!;
+      const last = pts[pts.length - 1]!;
+      const closed = pts.length > 3 && Math.abs(first.x - last.x) < EPS && Math.abs(first.y - last.y) < EPS;
+      return { layer: camada(l.papel), pts: closed ? pts.slice(0, -1) : pts, closed, ...(l.estilo === ESTILO_PLANTA_CORTINA.oculto ? { dashed: true } : {}) };
+    });
+}
+
+/**
  * Geometria do nível para o DXF, na mesma vista da planta na tela (decisão 0013 §4, `planViewOf`): paredes e aberturas
  * pela geometria com o plano de corte da vista, paredes fora do corte como contorno de projeção, pisos, lajes, telhados e
  * escadas com a cota de corte e o topo do intervalo. O que está fora do intervalo não sai, exceto a projeção do telhado
@@ -334,7 +363,9 @@ export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true
   const jl = junctionLevel(p, levelId);
   // Ambientes (decisão 0018, 0037): contorno em AMBIENTES e rótulo completo (nome, número, área) em AMBIENTES_TEXTO; sem circuito, nada sai.
   const rooms = shown('room') ? resolveRooms(p, levelId).filter((r) => r.polygon && !hidden.has(r.roomId)) : [];
+  const curtains = curtainDxfOf(p, levelId, view.cutZ, hidden, shown('wall'));
   const geo: DxfLevelGeometry = {
+    ...(curtains === undefined ? {} : { curtains }),
     rooms: rooms.map((r) => ({ outline: r.polygon![0] ?? [], holes: r.polygon!.slice(1) })),
     roomTexts: rooms.flatMap((r) => {
       const at = roomLabelAt(r);

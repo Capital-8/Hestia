@@ -140,6 +140,32 @@ export interface DxfLevelGeometry {
   roomTexts?: DxfNoteText[];
   /** Camadas extras que o arquivo declara na tabela LAYER (ex.: camadas de área acrescentadas fora do exportador). */
   extraLayers?: string[];
+  /**
+   * Cortinas do nível (decisão 0056, §11): linhas de `cortina_planta` no detalhe médio, cada uma na camada da peça (`CORTINA-MONTANTE`,
+   * `CORTINA-VIDRO`, `CORTINA-SOLIDO`). `dashed` no estilo oculto. Ausente = nenhuma cortina resolvida pelo kernel (ou categoria oculta): nenhuma
+   * camada `CORTINA-*` sai. Presente, mesmo vazio, = as quatro camadas entram na tabela LAYER (a `CORTINA-ESQUADRIA` fica vazia até a fase 5).
+   */
+  curtains?: DxfCurtainPath[];
+}
+
+/** Polilinha de cortina em planta: a camada da peça e os pontos (em metros); `closed` fecha o contorno e `dashed` põe o tracejado. */
+export interface DxfCurtainPath {
+  layer: string;
+  pts: DxfPoint[];
+  closed: boolean;
+  dashed?: boolean;
+}
+
+/** Camadas da parede cortina no DXF (decisão 0056, §11). A `CORTINA-ESQUADRIA` é a da esquadria na célula (fase 5) e fica vazia até lá. */
+export const DXF_LAYER_CURTAIN_MULLION = 'CORTINA-MONTANTE';
+export const DXF_LAYER_CURTAIN_GLASS = 'CORTINA-VIDRO';
+export const DXF_LAYER_CURTAIN_SOLID = 'CORTINA-SOLIDO';
+export const DXF_LAYER_CURTAIN_OPENING = 'CORTINA-ESQUADRIA';
+const CURTAIN_LAYERS: readonly string[] = [DXF_LAYER_CURTAIN_MULLION, DXF_LAYER_CURTAIN_GLASS, DXF_LAYER_CURTAIN_SOLID, DXF_LAYER_CURTAIN_OPENING];
+
+/** Camadas da cortina que entram na tabela LAYER: as quatro quando o nível tem cortina resolvida pelo kernel; nenhuma sem ela. */
+function curtainLayersOf(geo: DxfLevelGeometry): string[] {
+  return geo.curtains === undefined ? [] : [...CURTAIN_LAYERS];
 }
 
 export const DXF_LAYER_CONTOUR = 'PAREDE_CONTORNO';
@@ -379,6 +405,11 @@ const FIXED_LINE_ROLE = new Map<string, DxfLineRole>([
   [DXF_LAYER_ELEVACOES, cut('annotation')],
   // Objetos importados: cinza, sem peso próprio (a espessura fica a padrão).
   [DXF_LAYER_GENERIC, cut('generic')],
+  // Cortina: montante e painel sólido com o peso de corte da parede; vidro com o de projeção (como a planta); esquadria com o de vão.
+  [DXF_LAYER_CURTAIN_MULLION, cut('wall')],
+  [DXF_LAYER_CURTAIN_GLASS, projection('window')],
+  [DXF_LAYER_CURTAIN_SOLID, cut('wall')],
+  [DXF_LAYER_CURTAIN_OPENING, cut('window')],
 ]);
 
 /** Papel de uma camada pelo nome. `undefined` = sem categoria (sai com -3). `PAREDE_<material>` é corte de parede. */
@@ -465,6 +496,7 @@ function shapesOf(project: Project, geo: DxfLevelGeometry): Shape[] {
     for (const s of o.symbol) out.push({ layer, pts: s.pts, closed: s.closed, dashed: s.dashed === true });
   }
   for (const boundary of geo.notes?.regions ?? []) if (boundary.length >= 3) push(DXF_LAYER_DETALHE, [[boundary]]);
+  for (const c of geo.curtains ?? []) out.push({ layer: c.layer, pts: c.pts, closed: c.closed, ...(c.dashed === true ? { dashed: true } : {}) });
   return out;
 }
 
@@ -483,7 +515,7 @@ function layerNamesOf(shapes: Shape[], lines: Line[], texts: DxfNoteText[]): str
 
 /** Nomes das camadas que `exportDxf` põe na tabela LAYER para esta geometria (a base de `lineWeights`). */
 export function dxfLayersOf(project: Project, geo: DxfLevelGeometry, lang: Lang = 'pt'): string[] {
-  return [...new Set([...layerNamesOf(shapesOf(project, geo), linesOf(geo), textsOf(geo)), ...(geo.extraLayers ?? [])])]
+  return [...new Set([...layerNamesOf(shapesOf(project, geo), linesOf(geo), textsOf(geo)), ...curtainLayersOf(geo), ...(geo.extraLayers ?? [])])]
     .map((name) => dxfLayerName(name, lang))
     .sort();
 }
@@ -501,7 +533,7 @@ export function dxfDocOf(project: Project, levelId: Id, geo: DxfLevelGeometry, l
   const shapes = shapesOf(project, geo);
   const lines = linesOf(geo);
   const texts = textsOf(geo);
-  const layers: DxfDocLayer[] = [...new Set([...layerNamesOf(shapes, lines, texts), ...(geo.extraLayers ?? [])])].sort().map((name) => {
+  const layers: DxfDocLayer[] = [...new Set([...layerNamesOf(shapes, lines, texts), ...curtainLayersOf(geo), ...(geo.extraLayers ?? [])])].sort().map((name) => {
     const style = geo.layerStyles?.[name] ?? dxfLayerStyleOf(name, geo.lineWeights?.[name] ?? DXF_LINE_WEIGHT_DEFAULT);
     return { name: dxfLayerName(name, lang), color: style.color, linetype: style.linetype, lineWeight: style.lineWeight };
   });
