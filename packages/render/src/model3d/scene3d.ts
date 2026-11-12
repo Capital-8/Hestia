@@ -1,7 +1,7 @@
 /* eslint-disable max-lines -- a cena 3D reúne o port GPU (faixas/sombras) e o alizar/esquadrias do plano; extrair depois. */
 import * as THREE from 'three';
 import { servicoCortina, paredesCortina, temCortina, servicoGuardaCorpo, ServicoGuardaCorpo, applyPartialStructure, frameOfWall, openingGeometry, junctionOfWalls, pisoOuLajeNaFaixa, type JunctionLevel, type ResolvedWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
-import { openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, type GraphicsCategory, type Id, type Material, type Opening, type Project, type View3DSettings, type VisualStyle } from '@hestia/model';
+import { openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, type GraphicsCategory, type Id, type Material, type Opening, type Project, type SubelementoCortina, type View3DSettings, type VisualStyle } from '@hestia/model';
 import { DARK, LIGHT } from '../plan/types.ts';
 import { AVISO } from '../aviso.ts';
 import { projetoDaJuncao } from '../plan/viewContext.ts';
@@ -17,6 +17,7 @@ import { buildEaveSolids } from './eaveSolids.ts';
 import { buildStairSolids } from './stairSolids.ts';
 import { buildGuardaCorpoSolids } from './guardaCorpo3d.ts';
 import { grupoSoEixos, montarGrupoCortina } from './cortinaGrupo3d.ts';
+import { RealceSubelementoCortina } from './cortinaSub3d.ts';
 import { buildGenericSolids } from './genericSolids.ts';
 import { buildCadLines } from './cad3d.ts';
 import { buildLevels, disposeLevels, layoutLevels } from './levels3d.ts';
@@ -156,6 +157,8 @@ export class ModelScene {
   private model = new THREE.Group();
   /** Sobreposições de realce, fora do modelo: não entram nas malhas do modelo nem no picking por faixas. */
   private realces = new RealcesDaCena(this.scene);
+  /** Realce do subelemento de cortina (Tab ou clique, ADR 0056 fase 2): traços sobre o modelo. */
+  private realceSub = new RealceSubelementoCortina();
   private conjuntoDaSelecao: { ref: readonly Id[]; ids: Set<Id> } | null = null;
   /** Malhas só de picking no wireframe (fora do modelo; ver `buildPickLayer`). */
   private pickLayer = new THREE.Object3D();
@@ -253,6 +256,7 @@ export class ModelScene {
     this.niveis3d.userData = { levels: true };
     this.scene.add(this.niveis3d);
     this.scene.add(this.realces.camada);
+    this.scene.add(this.realceSub.camada);
     // Gancho de quadro do three (antes da lista de desenho e antes do passe de sombra): é onde o orçamento de sombra e o
     // enquadramento do sol acontecem, com a câmera do quadro. Sem ele, a vista teria de chamar a cena a cada rAF.
     this.scene.onBeforeRender = (renderer) => this.antesDeDesenhar(renderer as unknown as RendererDeQuadro);
@@ -332,6 +336,11 @@ export class ModelScene {
     this.realces.definir('sel', selection, { color, fill: 0.35, edges: 1 });
     this.realces.definir('hov', hover && !this.naSelecao(selection, hover) ? [hover] : [], { color, fill: 0.15, edges: 0.6 });
     this.realces.definir('aviso', aviso, { color: AVISO, fill: 0.4, edges: 1 });
+  }
+
+  /** Realce do subelemento da parede cortina selecionada (linha, segmento ou célula; `null` tira). ADR 0056, fase 2. */
+  highlightSubelemento(p: Project, sub: SubelementoCortina | null): void {
+    this.realceSub.definir(p, sub, this.frame.dark ? DARK.select : LIGHT.select);
   }
 
   /** `selection` tem `id`? Com seleção grande o conjunto é montado uma vez por referência do array, não a cada quadro. */

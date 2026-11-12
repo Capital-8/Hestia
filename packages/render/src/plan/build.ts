@@ -93,6 +93,8 @@ export interface PlanInput {
   hover: Id | null;
   /** Parede em conflito (decisão 0044): realçada em amarelo na camada de hover. */
   aviso?: Id | null;
+  /** Subelemento da parede cortina selecionada (ADR 0056, fase 2): realçado na camada de seleção. */
+  subelemento?: import('@hestia/model').SubelementoCortina | null;
   preview: PreviewItem[];
   inference: Inference | null;
   showGrid: boolean;

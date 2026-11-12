@@ -17,7 +17,7 @@ import { labelGhostOps } from './areaPlan.ts';
 import { annotationHighlightOps, blocoEm, drawnAnnotations, textBlockModel } from './notes.ts';
 import type { PlanInput } from './build.ts';
 import { linhasGuardaCorpoPlanta } from './guardaCorpo.ts';
-import { contornoDaCortina } from './cortina.ts';
+import { contornoDaCortina, destaqueSubelementoPlanta } from './cortina.ts';
 import { AVISO, AVISO_ALPHA } from '../aviso.ts';
 import { areaPlanProfile, FLOOR_PLAN_PROFILE, type FillOp, type PlanOps } from './types.ts';
 
@@ -354,6 +354,8 @@ export function buildPlanOverlay(input: PlanInput): PlanOps {
   }
 
   // Anotações (textos e cotas): caixa de seleção, alça do texto e realce leve do hover.
+  // Subelemento da cortina selecionada (Tab ou clique, ADR 0056 fase 2): traço ou contorno realçado sobre a parede.
+  if (input.subelemento && !hidden?.has(input.subelemento.wallId)) out.strokes.push(...destaqueSubelementoPlanta(p, input.subelemento, theme.select));
   comAnotacoes(out, input, style.scale, { selection, hover });
 
   // Modo Reveal: os ocultos voltam ao desenho (geometria) e ganham esta borda azul, uma vez só, na sobreposição.

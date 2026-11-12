@@ -1,12 +1,12 @@
-import { paredesCortina, servicoCortina, temCortina, ESTILO_PLANTA_CORTINA, PAPEL_PLANTA_CORTINA, type LinhaPlantaCortinaProjeto } from '@hestia/engine';
-import type { Id, Project } from '@hestia/model';
+import { paredesCortina, servicoCortina, temCortina, subelementosDaCortina, itemDoSubelemento, tracosDoSubelementoPlanta, ESTILO_PLANTA_CORTINA, PAPEL_PLANTA_CORTINA, type LinhaPlantaCortinaProjeto } from '@hestia/engine';
+import type { Id, Project, SubelementoCortina } from '@hestia/model';
 import type { MultiPolygon } from '@hestia/geom';
 import { mix } from './color.ts';
 import { STAIR_DASH } from './stairs.ts';
 import { espessuraDeCorte, espessuraDeProjecao, type PlanPaint } from './style.ts';
 import type { FloorOps } from './floors.ts';
 import type { DetailLevel } from '@hestia/model';
-import type { PlanTheme } from './types.ts';
+import type { PlanTheme, StrokeOp } from './types.ts';
 
 /** Cota de corte padrão da planta (m acima do nível) quando a vista não traz uma (a mesma das paredes). */
 export const CORTINA_CORTE_PADRAO = 1.2;
@@ -68,4 +68,16 @@ export function cortinaOps(p: Project, levelId: Id, hidden: ReadonlySet<Id> | un
     else out.strokes.push({ pts, closed: fechado, ...projecao, color: suave, alpha: 1, dash: STAIR_DASH });
   }
   return out;
+}
+
+/**
+ * Destaque do subelemento de uma parede cortina na planta (ADR 0056, fase 2): o traço da linha ou do trecho de montante, ou o contorno da faixa e da
+ * célula, na cor de seleção. Sem kernel, ou se o subelemento não está na grade, nada.
+ */
+export function destaqueSubelementoPlanta(p: Project, sub: SubelementoCortina, cor: string): StrokeOp[] {
+  const par = subelementosDaCortina(p, sub.wallId);
+  const item = par ? itemDoSubelemento(par, sub) : undefined;
+  if (!par || !item) return [];
+  const widthPx = item.geo.kind === 'cell' ? 2 : 3;
+  return tracosDoSubelementoPlanta(par, item).map((t) => ({ pts: t.pts.map((q) => ({ x: q.x, y: q.y })), closed: t.fechado, widthPx, color: cor, alpha: 1 }));
 }
