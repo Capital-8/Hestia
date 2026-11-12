@@ -7,10 +7,12 @@ import {
   ProjectStore,
   type CellNode,
   type OpeningComposition,
+  type Project,
   type OpeningType,
   type SplitNode,
 } from '@hestia/model';
 import { LIGHT } from '../plan/types.ts';
+import { mix } from '../plan/color.ts';
 import { buildSectionDrawList, type SectionInput } from './build.ts';
 
 /* Elevação e corte de uma composição (porta + bandeira de vidro): vidro com a cor de vidro, travessa com a profundidade
@@ -130,5 +132,51 @@ describe('corte transversal · travessa da composição', () => {
     const [h0, h1] = faixa(cabeceira!.polygons, 'x');
     expect(x1 - x0).toBeGreaterThan(0.05);
     expect(x1 - x0).toBeCloseTo(h1 - h0, 6);
+  });
+});
+
+describe('folha com material próprio (leafMaterialId) na seção', () => {
+  const corte = (p: Project): SectionInput => ({
+    project: p,
+    section: computeSection(p, { a: v(3, -1), b: v(3, 1), depth: 3 }),
+    viewport: { cx: 0, cy: 1.5, zoom: 60, width: 800, height: 600 },
+    theme: LIGHT,
+    dark: false,
+    showGrid: false,
+  });
+  /** Porta da composição com o material de folha dado (undefined = o tipo não informa). */
+  const comFolha = (leafMaterialId: string | undefined): Project => {
+    const s = store();
+    const base = s.project.openingTypes.ot_comp!;
+    return { ...s.project, openingTypes: { ...s.project.openingTypes, ot_comp: { ...base, leafMaterialId } } };
+  };
+  const hachuras = (p: Project): string[] => buildSectionDrawList(corte(p)).fills.flatMap((f) => (f.hatch ? [f.hatch.color] : []));
+
+  it('corte: a folha de alumínio leva a hachura do alumínio, e o batente segue com a de madeira', () => {
+    const p = comFolha('mat_aluminio');
+    const cores = hachuras(p);
+    expect(cores).toContain(mix(p.materials['mat_aluminio']!.color, '#000000', 0.45));
+    expect(cores).toContain(mix(p.materials['mat_madeira']!.color, '#000000', 0.45));
+  });
+
+  it('sem leafMaterialId, a folha segue o batente: nenhuma hachura de alumínio (regressão)', () => {
+    const semCampo = hachuras(comFolha(undefined));
+    expect(semCampo).not.toContain(mix(comFolha(undefined).materials['mat_aluminio']!.color, '#000000', 0.45));
+    expect(semCampo).toEqual(hachuras(comFolha('mat_madeira')));
+  });
+
+  it('elevação de janela: a folha com material próprio muda a cor da folha; sem o campo, a cor é a do batente', () => {
+    const cores = (leafMaterialId: string | undefined): string[] => {
+      const s = store();
+      const base = s.project.openingTypes.ot_j150!;
+      s.exec({ type: 'upsertOpeningType', openingType: { ...base, id: 'ot_wl', leafMaterialId } });
+      s.exec({ type: 'addOpening', opening: { id: 'jan', kind: 'window', typeId: 'ot_wl', hostId: 'frente', offset: 5, flipHand: false, flipFacing: false, sillOverride: null, mark: '' } });
+      const p = s.project;
+      const draw = buildSectionDrawList({ ...corte(p), section: computeSection(p, { a: v(0, -2), b: v(6, -2), depth: 8 }) });
+      return [...new Set(draw.fills.map((f) => f.color))].sort();
+    };
+    // A porta da cena já é de madeira: a janela usa PVC, que só aparece se a folha dela mudar de cor.
+    expect(cores('mat_pvc')).not.toEqual(cores(undefined));
+    expect(cores(undefined)).toEqual(cores('mat_aluminio'));
   });
 });
