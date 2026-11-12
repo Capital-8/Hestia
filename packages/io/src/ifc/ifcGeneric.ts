@@ -44,7 +44,8 @@ export function faceSetOf(w: StepWriter, mesh: { positions: readonly number[]; i
   const points: string[] = [];
   for (let i = 0; i < positions.length; i += 3) points.push(localPoint(positions, i, elev));
   const coords = w.add('IFCCARTESIANPOINTLIST3D', [list(points)]);
-  return w.add('IFCTRIANGULATEDFACESET', [ref(coords), OMIT, OMIT, list(triples)]);
+  // Os cinco atributos do IFC4 (Coordinates, Normals, Closed, CoordIndex, PnIndex) saem explícitos: o ISO 10303-21 não aceita omitir o final.
+  return w.add('IFCTRIANGULATEDFACESET', [ref(coords), OMIT, OMIT, list(triples), OMIT]);
 }
 
 /** Representação do corpo em malha: `IFCSHAPEREPRESENTATION` `Tessellation` dentro de `IFCPRODUCTDEFINITIONSHAPE`. */
