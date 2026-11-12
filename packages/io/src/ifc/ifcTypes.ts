@@ -139,6 +139,61 @@ export interface IfcGeometry {
   ramps?: IfcRampGeo[];
   /** Guarda-corpos resolvidos pelo kernel (malha por parte). Ausente = nenhum. */
   railings?: IfcGuardaCorpoGeo[];
+  /**
+   * Paredes cortina resolvidas pelo kernel (decisão 0056, §11). Ausente = nenhuma resolvida (sem kernel): a cortina sai como parede
+   * genérica (`IFCWALL`, em `walls`) e o exportador registra o aviso.
+   */
+  curtains?: IfcCurtainGeo;
+}
+
+/** Protótipo de montante ou de painel do kernel: uma geometria de comprimento unitário, compartilhada por todas as instâncias dele. */
+export interface IfcCurtainPrototypeGeo {
+  /** Número do protótipo na malha (chave das instâncias). */
+  proto: number;
+  /** 0 montante, 1 painel de vidro, 2 painel sólido (`PAPEL_MALHA_CORTINA`). */
+  papel: 0 | 1 | 2;
+  /** Tipo de montante (papel 0) ou de painel do modelo; `null` quando o kernel não o resolveu. */
+  typeId: Id | null;
+  /** Forma do perfil do montante (`corner` vira `USERDEFINED` com `ObjectType` `CORNER`); ausente nos painéis. */
+  shape?: string;
+  materialId: Id | null;
+  /** Malha do protótipo em coordenadas locais (metros, comprimento unitário): posições em triplas x, y, z e índices de triângulos. */
+  mesh: { positions: readonly number[]; indices: readonly number[] };
+}
+
+/** Instância de um protótipo: a matriz 3 × 4 (12 números, linha-maior, `[r0 r1 r2 t]`) que leva o protótipo ao mundo (cota absoluta). */
+export interface IfcCurtainInstanceGeo {
+  proto: number;
+  matrix: readonly number[];
+}
+
+/** Quantitativos da cortina do motor (`quant_cortina`), já agregados por parede. */
+export interface IfcCurtainQuantities {
+  /** Comprimento do eixo (m). */
+  length: number;
+  /** Área bruta do sistema, L × H (m²). */
+  grossArea: number;
+  /** Área de vidro visível (m²), soma dos painéis de vidro. */
+  glassArea: number;
+  /** Área do painel sólido visível (m²). */
+  solidArea: number;
+  /** Comprimento de montante somado (m), todos os papéis de montante. */
+  mullionLength: number;
+}
+
+/** Parede cortina resolvida pelo kernel: contorno em planta (para a face externa), instâncias e quantitativos. */
+export interface IfcCurtainWallGeo {
+  wallId: Id;
+  /** Contorno da cortina em planta (um polígono: [contorno]), para decidir se a face dá para fora. */
+  footprint: IfcPolygon;
+  instances: IfcCurtainInstanceGeo[];
+  quantities: IfcCurtainQuantities;
+}
+
+/** Cortinas do projeto resolvidas pelo kernel: os protótipos (globais, um por tipo de montante ou de painel) e as paredes. */
+export interface IfcCurtainGeo {
+  prototypes: IfcCurtainPrototypeGeo[];
+  walls: IfcCurtainWallGeo[];
 }
 
 /** Papel de uma parte do guarda-corpo, como em `guarda_malha` (ADR 0055 §6.2). */

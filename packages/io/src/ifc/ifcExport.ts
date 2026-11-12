@@ -1,4 +1,5 @@
 import {
+  isCurtainType,
   isOpening,
   isWall,
   levelElevation,
@@ -15,6 +16,7 @@ import {
   type WallType,
 } from '@hestia/model';
 import { addPlates, addRamps, addRoofs, addStairs } from './ifcElements.ts';
+import { addCurtainWalls, avisoCortinaSemKernel } from './ifcCurtainWall.ts';
 import { addRailings } from './ifcGuardaCorpo.ts';
 import { addGenerics } from './ifcGeneric.ts';
 import { addHestiaPsets } from './ifcHestia.ts';
@@ -38,6 +40,8 @@ export interface IfcExportOptions {
   timestamp?: string;
   /** Idioma dos nomes padrão gravados no arquivo; padrão `'pt'` (comportamento anterior). */
   lang?: Lang;
+  /** Recebe os avisos de exportação (uma frase por ocorrência, no idioma da exportação). Ausente = nenhum aviso é coletado. */
+  avisos?: string[];
 }
 
 /** Retângulo `width` × `thickness` centrado na origem do sistema local (x ao longo do eixo do vão, y na espessura). */
@@ -171,6 +175,8 @@ function addWalls(c: IfcCtx, walls: readonly IfcWallGeo[]): void {
     const st = storeyOf(c, wall.levelId);
     if (!st || g.footprints.length === 0) continue;
     const type = c.p.wallTypes[wall.typeId];
+    // Cortina sem geometria do kernel: sai como parede genérica (IFCWALL) e o aviso diz por quê.
+    if (isCurtainType(type)) avisoCortinaSemKernel(c, wall.mark || type.name);
     const name = stepString(type?.name ?? t(langOf(c), 'io_ifc_default_wall'));
     const solids = wallSolids(c, st, wall, g);
     if (solids.length === 0) continue;
@@ -438,6 +444,10 @@ function registerTypeMaterials(c: IfcCtx): void {
 /** Exporta o projeto como IFC4 (texto STEP): IfcProject > IfcSite > IfcBuilding > IfcBuildingStorey (um por nível) e os elementos. */
 export { externalWalls } from './ifcExterior.ts';
 
+/** Contorno das cortinas do kernel para decidir a face externa: as paredes comuns e as cortinas entram juntas no teste de vizinhança. */
+const footprintsDaCortina = (geo: IfcGeometry): IfcWallGeo[] =>
+  (geo.curtains?.walls ?? []).map((w) => ({ wallId: w.wallId, footprints: [w.footprint], baseZ: 0, height: 0 }));
+
 export function exportIfc(p: Project, geo: IfcGeometry, opts: IfcExportOptions = {}): string {
   const lang = opts.lang ?? 'pt';
   const w = new StepWriter();
@@ -466,9 +476,10 @@ export function exportIfc(p: Project, geo: IfcGeometry, opts: IfcExportOptions =
     layerSets: new Map(),
     openingTypes: new Map(),
     openingTypeMembers: new Map(),
-    external: externalWalls(p, geo.walls),
+    external: externalWalls(p, [...geo.walls, ...footprintsDaCortina(geo)]),
     styles: new Map(),
     itemStyles: [],
+    ...(opts.avisos ? { avisos: opts.avisos } : {}),
   };
   const storeyIds: number[] = [];
   for (const lv of p.levels) {
@@ -482,6 +493,7 @@ export function exportIfc(p: Project, geo: IfcGeometry, opts: IfcExportOptions =
   w.add('IFCRELAGGREGATES', [gid('agg:site'), OMIT, OMIT, OMIT, ref(site), list([ref(building)])]);
   if (storeyIds.length > 0) w.add('IFCRELAGGREGATES', [gid('agg:building'), OMIT, OMIT, OMIT, ref(building), list(storeyIds.map(ref))]);
   addWalls(c, geo.walls);
+  if (geo.curtains) addCurtainWalls(c, geo.curtains);
   addOpenings(c, geo.openings);
   addPlates(c, geo);
   addRoofs(c, geo);
