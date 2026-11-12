@@ -8,6 +8,7 @@ export * from './wallType.ts';
 export * from './wallCurtainTypes.ts';
 export * from './wallCurtain.ts';
 export * from './wallCurtainPresets.ts';
+export * from './curtainMullionProfile.ts';
 export * from './curtainCommands.ts';
 export * from './curtainRemap.ts';
 export * from './queries.ts';

@@ -87,17 +87,25 @@ function eixoInvalido(eixo: GridAxisSpec, lang: Lang): string | null {
   return null;
 }
 
-/** Seção do montante: largura e profundidade positivas, e a forma pede o seu parâmetro (trapézio, L). */
-function perfilInvalido(perfil: MullionProfile): boolean {
-  if (!(perfil.width > 0) || !(perfil.depth > 0)) return true;
-  if (perfil.shape === 'trapezoid' && !((perfil.widthBack ?? 0) > 0)) return true;
-  if (perfil.shape === 'L' && !((perfil.thickness ?? 0) > 0)) return true;
-  return false;
+/**
+ * Seção do montante: largura e profundidade positivas, e a forma pede o seu parâmetro (trapézio, L, canto). Quem
+ * contém o problema de geometria (espessura que não cabe na seção) devolve `'espessura'`, para ter mensagem própria.
+ */
+function perfilInvalido(perfil: MullionProfile): 'forma' | 'espessura' | null {
+  if (!(perfil.width > 0) || !(perfil.depth > 0)) return 'forma';
+  if (perfil.shape === 'trapezoid' && !((perfil.widthBack ?? 0) > 0)) return 'forma';
+  if ((perfil.shape === 'L' || perfil.shape === 'corner') && !((perfil.thickness ?? 0) > 0)) return 'forma';
+  const menor = Math.min(perfil.width, perfil.depth);
+  if (perfil.shape === 'L' && !(perfil.thickness! < menor)) return 'espessura';
+  if (perfil.shape === 'corner' && !(2 * perfil.thickness! < menor)) return 'espessura';
+  return null;
 }
 
 /** Problema de um tipo de montante (usado pelo comando e pela validação do tipo de parede). */
 export function montanteIssue(mt: MullionType, lang: Lang = 'pt'): string | null {
-  return perfilInvalido(mt.profile) ? t(lang, 'md_ct_mullion_profile') : null;
+  const erro = perfilInvalido(mt.profile);
+  if (erro === 'espessura') return t(lang, 'md_ct_mullion_thickness');
+  return erro ? t(lang, 'md_ct_mullion_profile') : null;
 }
 
 /** Problema de um tipo de painel (espessura não negativa; vidro e chapa com espessura positiva). */
