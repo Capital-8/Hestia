@@ -525,6 +525,50 @@ documentação públicos; nenhuma engenharia reversa. Nada disto vira release at
 5. **Painel de propriedades da vista** (com nada selecionado) como lugar de editar faixa, escala, detalhe e gráficos
    (raia M), no estilo Revit.
 
+##### Criação de vistas, convite na árvore e migração v24 → v25 (ideias do usuário e propostas, 2026-11-12)
+
+Legenda: **[Ideia do usuário]** veio do usuário; **[Proposta]** é do coordenador e ainda não foi decidida.
+
+**A. Criação por clique direito, inteligente.**
+- **[Ideia do usuário]** Hoje a criação de plantas de área cria para todos os níveis, em vez de só onde faz sentido.
+  A conferir na interface: o levantamento do código dizia que `createAreaPlansForLevels` pula níveis que já têm
+  planta.
+- **[Proposta]** Um assistente único na árvore de vistas:
+  - clique direito num nível: "Nova vista aqui…", com a lista do que cabe (área, forro, piso extra, duplicar) e o
+    nível já escolhido;
+  - clique direito no grupo (ex.: "Plantas de área"): "Nova planta de área…", com a lista de níveis marcáveis, cada
+    um mostrando se já tem planta e quantas;
+  - inteligência: níveis que já têm planta vêm desmarcados; níveis sem nenhum elemento relevante (sem ambientes para
+    área; sem forros para forro) vêm desmarcados, com aviso;
+  - um só componente serve a todos os tipos, para a regra ficar em um lugar.
+
+**B. Planta de forro só quando o usuário pede, com indicação de que pode criar.**
+- **[Ideia do usuário]** A planta de forro não nasce sozinha; o usuário a cria quando quer, mas a interface indica que
+  é possível.
+- **[Proposta]** Formas de indicar:
+  - (a) nós vazios da árvore com convite clicável ("Nenhuma. Criar…");
+  - (b) dica contextual quando surge o primeiro forro ou os primeiros ambientes ("Este nível tem forro. Criar planta
+    de forro?");
+  - (c) selo discreto "+" no nível quando há planta possível não criada; some ao criar ou dispensar;
+  - (d) dispensar a dica com um clique.
+  Sugestão: fazer (a) e (b) primeiro; (c) e (d) só se a árvore não ficar poluída. Validar com protótipo.
+
+**C. Migração v24 → v25 para "cobertura como planta comum".** **[Proposta]**, depende da decisão pendente abaixo.
+- Mais um passo da cadeia de migração existente (23 → 24), com testes por projeto de ouro.
+- A cobertura existente vira planta comum com uma propriedade nova (ex.: "mostrar telhado em vista superior"). O id
+  `pvr_<nível>` é MANTIDO, para pranchas, ocultos, anotações e abas da sessão continuarem apontando para ele.
+- O tipo `roof` sai da tabela. A faixa de vista guardada (hoje inerte, valor padrão) passa a ser editável, e a
+  propriedade nova decide se vale, sem mudar o desenho existente.
+- Apagar coberturas vazias só com segurança: sem anotações, ocultos ou gráficos próprios; sem prancha que a use; e
+  sem telhado desenhado no nível. Falhando qualquer condição, mantém.
+- Sessão salva: aba que aponta para cobertura apagada cai na planta de piso do nível (como a área sem id).
+- **Decisão pendente do usuário:** apagar as vazias automaticamente, ou manter todas e deixar o usuário apagar.
+  Recomendação do coordenador: manter todas na primeira versão.
+- Cuidados:
+  - o ouro muda; regravar só após auditoria, como na raia E;
+  - arquivo salvo como v25 não abre em build antigo (avisar ao salvar);
+  - sem release até decisão.
+
 **Inconsistências conhecidas (entram no relatório):**
 - dois modelos mentais do forro (tipo `ceiling` nunca criado versus faixa do piso invertida);
 - a cobertura guarda uma faixa de vista inerte;
