@@ -1,4 +1,4 @@
-import type { InstanciasDeProtoCortina, MalhaCortinaProjeto, PrototipoCortina } from '@hestia/engine';
+import { PAPEL_MALHA_CORTINA, type InstanciasDeProtoCortina, type MalhaCortinaProjeto, type PrototipoCortina } from '@hestia/engine';
 import type { Id } from '@hestia/model';
 
 /**
@@ -97,11 +97,13 @@ export function normaisDaMalha(v: ArrayLike<number>, indices: ArrayLike<number>)
 /**
  * Peças avulsas (`grupos` do kernel) das cortinas visíveis, uma malha por grupo. Os triângulos são copiados para soup (cada face com os próprios
  * vértices), de modo que a normal sai chapada mesmo onde o Rust compartilha vértices entre as tampas. Opacas primeiro, vidro depois.
+ * A folha simples da esquadria (papéis 3 e 4) NÃO entra: a esquadria da célula é desenhada pela `Opening` virtual (`cortinaEsquadrias.ts`), com o mesmo
+ * código das esquadrias comuns. Os quantitativos dela (papéis 30 a 32 de `quant_cortina`) continuam valendo.
  */
 export function avulsosDaCortina(malha: MalhaCortinaProjeto, visivel: (wallId: Id) => boolean = () => true): LoteAvulsoCortina3d[] {
   const out: LoteAvulsoCortina3d[] = [];
   for (const g of malha.grupos) {
-    if (!visivel(g.wallId) || g.indices.length === 0) continue;
+    if (!visivel(g.wallId) || g.indices.length === 0 || g.papel >= PAPEL_MALHA_CORTINA.esquadria) continue;
     const k = g.indices.length;
     const v = new Float32Array(3 * k);
     for (let q = 0; q < k; q++) {

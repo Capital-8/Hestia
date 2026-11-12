@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { idDoProjetoDoPick } from '@hestia/engine';
 import type { Id } from '@hestia/model';
 import type { ElementRange } from './solids.ts';
 
@@ -266,7 +267,8 @@ export function idsNaCaixaDaTela(
 
   const pv = new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse).elements;
   const dentroDe = indicesNaCaixaDaTela(acumulado.mundo, acumulado.quantidade, pv, normalizado(retanguloNdc), modo);
-  return dentroDe.map((i) => acumulado.ids[i]!);
+  // A esquadria virtual da cortina (ADR 0056 §7.6) conta como a parede dela: a seleção só guarda ids do projeto.
+  return [...new Set(dentroDe.map((i) => idDoProjetoDoPick(acumulado.ids[i]!)))];
 }
 
 function ehIdentidade(e: ArrayLike<number>): boolean {

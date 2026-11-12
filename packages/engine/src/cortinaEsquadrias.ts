@@ -9,7 +9,7 @@
  * vão da célula não são as nominais do tipo no modo "preencher"). O quadro da parede é o da cortina com uma camada de estrutura de uma profundidade só
  * (`curtain.depth`), de modo que o núcleo é o sistema inteiro e o plano central (`sMid`) é o mesmo do kernel.
  */
-import { isWall, openingTypeById, resolverParede, type CellKey, type Id, type Opening, type Project, type Wall, type WallType } from '@hestia/model';
+import { isWall, openingTypeById, resolverParede, type CellKey, type Id, type Opening, type Project, type SubelementoCortina, type Wall, type WallType } from '@hestia/model';
 import { buildFrame, normalAt, pointAt, tangentAt, type WallFrame } from './frame.ts';
 import { zDaCortina } from './cortinaProjeto.ts';
 import { servicoCortina, type PortaCortinaProjeto } from './kernelCortinaServico.ts';
@@ -168,3 +168,17 @@ export function esquadriaDaCelula(p: Project, wallId: Id, celula: Pick<CellKey, 
   const rc = res.canon[celula.i * res.nv + celula.j];
   return lista.find((e) => res.canon[e.i * res.nv + e.j] === rc);
 }
+
+/**
+ * Subelemento `opening` de uma esquadria virtual (o que um clique no 3D ou na planta escolhe): a parede e a chave da célula da sobrescrita. `null` se o id não é
+ * de esquadria virtual ou a esquadria não existe mais.
+ */
+export function subelementoDaEsquadriaCortina(p: Project, id: Id): SubelementoCortina | null {
+  const ref = lerIdEsquadriaCortina(id);
+  if (!ref) return null;
+  const e = esquadriasDaCortina(p).find((x) => x.id === id);
+  return e ? { wallId: e.wallId, kind: 'opening', cell: e.celula } : null;
+}
+
+/** O id de elemento do 3D é o de uma esquadria virtual? Devolve o id da parede (para quem só entende elementos do projeto); outros ids passam sem mudar. */
+export const idDoProjetoDoPick = (id: Id): Id => lerIdEsquadriaCortina(id)?.wallId ?? id;

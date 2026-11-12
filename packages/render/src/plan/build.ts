@@ -1,6 +1,6 @@
 import { add, boxOf, mul, norm, perp, pointInMulti, ringArea, sub, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
-import { buildOpeningModel, cutLevelByJunction, frameOfWall, openingGeometry, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedRoom, type ResolvedSlab } from '@hestia/engine';
-import { levelElevation, viewRangeOf, openingTypeById, dimensionStyleOf, angularDimensionGeometry, dimensionPoints, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, wallsOnLevel, type AreaPlan, type DetailLevel, type Id, type Material, type Project } from '@hestia/model';
+import { buildOpeningModel, cutLevelByJunction, esquadriasDaCortina, frameOfWall, modeloDaEsquadriaCortina, openingGeometry, viewClassOf, type OpeningGeometry, type OpeningModel, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedRoom, type ResolvedSlab, type ViewClass } from '@hestia/engine';
+import { levelElevation, viewRangeOf, openingTypeById, dimensionStyleOf, angularDimensionGeometry, dimensionPoints, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, wallsOnLevel, type AreaPlan, type DetailLevel, type Id, type Material, type Opening, type Project } from '@hestia/model';
 import { resolveRooms, resolveAngularDimension } from '@hestia/engine';
 import { areaPlanLegendOps, areaPlanRoomOps, areaPlanTableOps, areaPlanTagOps } from './areaPlan.ts';
 import { aberturasDaParede, escadasDoNivel, juncaoDoNivel, paredesDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
@@ -184,6 +184,7 @@ function openingSymbolStrokes(
 ): StrokeOp[] {
   if (detail === 'coarse') return [];
   const out: StrokeOp[] = [];
+  const ctx: ContextoSimbolo = { paint, theme, fillBase, zoom, limiares, view };
   for (const w of paredesDoNivel(p, levelId)) {
     // A parede oculta pelo Hide in View leva as aberturas junto (a vista foi resolvida sem ela). A oculta pela categoria
     // não: a categoria da abertura é outra (a janela continua, como antes).
@@ -194,31 +195,55 @@ function openingSymbolStrokes(
       if (hidden?.has(o.id)) continue;
       const g = openingGeometry(p, o, f);
       if (oculto?.(g.center)) continue;
-      const type = openingTypeById(p, o.typeId);
-      if (!type) continue;
-      const pt = paint[g.kind];
       const model = buildOpeningModel(p, o, g, f);
-      // O nível de detalhe pelo zoom entra nos limiares da geometria: o quadro só a refaz quando cruza 1 px = 0,012 m
-      // ou 1 px = 0,004 m (ver `limiares.ts`), e a lista de desenho continua a mesma entre os limiares.
-      const detail2d = openingPlanDetail(openingDetail2d(type), zoom, limiares);
-      const cls = view?.cls.get(o.id);
-      // A cota do corte é absoluta na vista; o modelo usa z local (soleira = 0, base da parede descontada). Fora do
-      // corte (projeção), o símbolo mostra o vão inteiro e corta no meio do modelo.
-      const cutLocal = view ? view.cutZ - (f.z?.z0 ?? 0) - g.sill : model.height / 2;
-      const sym = openingViewOps(g, cls, theme, { cut: espessuraDeCorte(pt), proj: espessuraDeProjecao(pt) }, {
-        model,
-        detail: detail2d,
-        angle: (openingAngle2d(type) * Math.PI) / 180,
-        planDisplay: openingPlanDisplay(type),
-        showSwing: openingShowSwing(type),
-        swingStyle: openingSwingStyle(type),
-        leafPlan: openingLeafPlan(type),
-        cutZ: cls === undefined || cls === 'cut' ? cutLocal : model.height / 2,
-      });
-      out.push(...paintOps({ fills: [], strokes: sym, labels: [] }, pt, fillBase).strokes);
+      out.push(...tracosDaAbertura(p, o, g, model, f.z?.z0 ?? 0, view?.cls.get(o.id), ctx));
     }
   }
+  // Esquadrias das células das paredes cortina (ADR 0056 §7.6): `Opening` virtual no vão do kernel, com o mesmo desenho das esquadrias comuns.
+  for (const e of esquadriasDaCortina(p, levelId)) {
+    if (hiddenWalls?.has(e.wallId) || hidden?.has(e.wallId) || oculto?.(e.geometria.center)) continue;
+    const cls = view ? viewClassOf(view.range, levelElevation(p, levelId), e.baseZ + e.geometria.sill, e.baseZ + e.geometria.sill + e.geometria.height) : undefined;
+    out.push(...tracosDaAbertura(p, e.opening, e.geometria, modeloDaEsquadriaCortina(p, e), e.baseZ, cls, ctx));
+  }
   return out;
+}
+
+/** O que o símbolo de uma abertura lê da planta: o estilo, o zoom (para o detalhe) e a vista. */
+interface ContextoSimbolo {
+  paint: PlanStyle['paint'];
+  theme: PlanTheme;
+  fillBase: string;
+  zoom: number;
+  limiares: Limiares;
+  view: PlanView | null;
+}
+
+/**
+ * Traços do símbolo de UMA abertura (comum ou virtual de cortina), no estilo da categoria dela. `baseZ` é a cota absoluta da base da parede que a hospeda
+ * (o corte é absoluto na vista; o modelo usa z local: soleira = 0).
+ */
+function tracosDaAbertura(p: Project, o: Opening, g: OpeningGeometry, model: OpeningModel, baseZ: number, cls: ViewClass | undefined, c: ContextoSimbolo): StrokeOp[] {
+  const { paint, theme, fillBase, zoom, limiares, view } = c;
+  const type = openingTypeById(p, o.typeId);
+  if (!type) return [];
+  const pt = paint[g.kind];
+  // O nível de detalhe pelo zoom entra nos limiares da geometria: o quadro só a refaz quando cruza 1 px = 0,012 m
+  // ou 1 px = 0,004 m (ver `limiares.ts`), e a lista de desenho continua a mesma entre os limiares.
+  const detail2d = openingPlanDetail(openingDetail2d(type), zoom, limiares);
+  // A cota do corte é absoluta na vista; o modelo usa z local (soleira = 0, base da parede descontada). Fora do
+  // corte (projeção), o símbolo mostra o vão inteiro e corta no meio do modelo.
+  const cutLocal = view ? view.cutZ - baseZ - g.sill : model.height / 2;
+  const sym = openingViewOps(g, cls, theme, { cut: espessuraDeCorte(pt), proj: espessuraDeProjecao(pt) }, {
+    model,
+    detail: detail2d,
+    angle: (openingAngle2d(type) * Math.PI) / 180,
+    planDisplay: openingPlanDisplay(type),
+    showSwing: openingShowSwing(type),
+    swingStyle: openingSwingStyle(type),
+    leafPlan: openingLeafPlan(type),
+    cutZ: cls === undefined || cls === 'cut' ? cutLocal : model.height / 2,
+  });
+  return paintOps({ fills: [], strokes: sym, labels: [] }, pt, fillBase).strokes;
 }
 
 /**
