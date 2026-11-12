@@ -23,15 +23,15 @@ import type { PT_PAREDE_CORTINA } from '../../editor/i18n/areas/parede-cortina.t
 
 type Chave = keyof typeof PT_PAREDE_CORTINA;
 
-const MODOS: GridLayoutMode[] = ['fixedNumber', 'fixedDistance', 'maxDistance', 'manual'];
-const MODO_CHAVE: Record<GridLayoutMode, Chave> = {
+export const MODOS: GridLayoutMode[] = ['fixedNumber', 'fixedDistance', 'maxDistance', 'manual'];
+export const MODO_CHAVE: Record<GridLayoutMode, Chave> = {
   fixedNumber: 'pct_mode_fixed_number',
   fixedDistance: 'pct_mode_fixed_distance',
   maxDistance: 'pct_mode_max_distance',
   manual: 'pct_mode_manual',
 };
-const JUSTIFICA: GridJustify[] = ['start', 'center', 'end'];
-const JUSTIFICA_CHAVE: Record<GridJustify, Chave> = { start: 'pct_justify_start', center: 'pct_justify_center', end: 'pct_justify_end' };
+export const JUSTIFICA: GridJustify[] = ['start', 'center', 'end'];
+export const JUSTIFICA_CHAVE: Record<GridJustify, Chave> ={ start: 'pct_justify_start', center: 'pct_justify_center', end: 'pct_justify_end' };
 const PAINEIS_TIPO: CurtainPanelKind[] = ['glass', 'solid', 'empty'];
 const PAINEL_CHAVE: Record<CurtainPanelKind, Chave> = { glass: 'pct_panel_glass', solid: 'pct_panel_solid', empty: 'pct_panel_empty' };
 
