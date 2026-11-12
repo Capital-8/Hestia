@@ -82,8 +82,10 @@ import { applyViewCommand } from './viewCommands.ts';
 import { applyCeilingCommand } from './ceilingCommands.ts';
 import { applyGuardaCorpoCommand } from './guardaCorpoCommands.ts';
 import { applyCurtainCommand, prepararTipoParede } from './curtainCommands.ts';
-import type { AddedGridLine, CurtainPanelType, LineRef, MullionType } from './wallCurtainTypes.ts';
+import type { AddedGridLine, CellOpeningPatch, CurtainHost, CurtainPanelType, LineRef, MullionType } from './wallCurtainTypes.ts';
 import { ajustarCortinasAlteradas, dimensoesCortinas } from './curtainRemap.ts';
+import { applyCurtainOpeningCommand } from './curtainOpeningCommands.ts';
+import { applyCurtainHostCommand, sincronizarCortinasEmbutidas, temCortinaEmbutida, transformarHospedados } from './curtainHost.ts';
 import { transformarGuardaCorpos } from './guardaCorpoTransform.ts';
 import type { GuardaCorpo, TipoGuardaCorpo } from './guardaCorpoTypes.ts';
 import type { PerfilNorma } from './guardaCorpoNorma.ts';
@@ -167,6 +169,12 @@ export type Command =
   | { type: 'setCellPanel'; wallId: Id; i: number; j: number; panelTypeId: Id }
   | { type: 'clearCellOverride'; wallId: Id; i: number; j: number }
   | { type: 'normalizarSobrescritas'; wallId?: Id }
+  // Parede cortina, fase 5 (§7, §8): esquadria na célula e cortina embutida (curtainOpeningCommands.ts, curtainHost.ts).
+  | { type: 'setCellOpening'; wallId: Id; i: number; j: number; openingTypeId: Id; flipHand: boolean; flipFacing: boolean; mark: string; fit: 'cell' | 'grid'; align?: 'center' | 'start' | 'end'; fundir: boolean }
+  | { type: 'updateCellOpening'; wallId: Id; i: number; j: number; patch: CellOpeningPatch }
+  | { type: 'removeCellOpening'; wallId: Id; i: number; j: number }
+  | { type: 'setCurtainHost'; wallId: Id; host: CurtainHost }
+  | { type: 'clearCurtainHost'; wallId: Id }
   | { type: 'upsertMaterial'; material: Material }
   | { type: 'upsertOpeningType'; openingType: OpeningType }
   | { type: 'upsertLevel'; level: Level }
@@ -290,6 +298,8 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
       p.elements[w.id] = next;
     }
   }
+  // Cortina embutida (§8.4, regra 3): acompanha o hospedeiro (espelho inverte o offset; cópia leva a cortina junto).
+  transformarHospedados(p, c.transform.kind === 'mirror', c.ids, idMap);
   if (!idMap) {
     // Espelhar troca a face para onde a folha abre (`flipFacing`); a mão da dobradiça (`flipHand`) fica.
     // Só as aberturas das paredes realmente transformadas mudam.
@@ -322,17 +332,20 @@ const COMANDOS_DE_GEOMETRIA = new Set<Command['type']>(['setWallEnds', 'updateEl
  * parede cortina, as sobrescritas são remapeadas e regravadas no mesmo passo de desfazer (decisão 0056, §4.4).
  */
 export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
-  if (!COMANDOS_DE_GEOMETRIA.has(c.type)) {
+  // Cortina embutida (§8.1): depois de qualquer comando, a posição da cortina volta a vir do hospedeiro (e as órfãs de
+  // hospedeiro apagado são promovidas). Sem cortina embutida, o caminho é o de sempre.
+  if (!COMANDOS_DE_GEOMETRIA.has(c.type) && !temCortinaEmbutida(p)) {
     applyCommandBase(p, c, lang);
     return;
   }
   const antes = dimensoesCortinas(p);
   applyCommandBase(p, c, lang);
+  sincronizarCortinasEmbutidas(p, lang);
   if (antes.size > 0) ajustarCortinasAlteradas(p, antes);
 }
 
 function applyCommandBase(p: Project, c: Command, lang: Lang): void {
-  if (applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyCurtainCommand(p, c, lang)) return;
+  if (applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyCurtainCommand(p, c, lang) || applyCurtainOpeningCommand(p, c, lang) || applyCurtainHostCommand(p, c, lang)) return;
   switch (c.type) {
     case 'addWall':
       p.elements[c.wall.id] = { ...c.wall, order: p.nextOrder++ };

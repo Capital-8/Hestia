@@ -7,6 +7,7 @@ import { openingTypeById } from './openingNominal.ts';
 import { t, type Lang } from './i18n.ts';
 import { isCurtainType } from './wallType.ts';
 import { normalizarParede, partirInstanciaCortina } from './curtainRemap.ts';
+import { reassociarNoCorte } from './curtainHost.ts';
 
 const EPS = 1e-9;
 /** Largura usada quando o tipo de abertura não existe (mesmo padrão de clampOffset). */
@@ -42,6 +43,8 @@ export function splitWall(p: Project, c: Extract<Command, { type: 'splitWall' }>
   const newLen = L - hi;
   // Cortina (§4.9): a instância é repartida pela posição do corte ANTES de a parede mudar (a resolução usa a geometria atual).
   const cortina = isCurtainType(p.wallTypes[w.typeId]) ? partirInstanciaCortina(p, w, lo, hi) : null;
+  // Cortina embutida nesta parede (§8.4): fica com a parte que contém o vão dela; corte dentro do vão é recusado.
+  reassociarNoCorte(p, w, c.newId, lo, hi, lang);
 
   for (const o of Object.values(p.elements).filter(isOpening).filter((x) => x.hostId === w.id)) {
     const half = (openingTypeById(p, o.typeId)?.width ?? DEFAULT_WIDTH) / 2;
