@@ -10,7 +10,7 @@ import { codificarSecao, definicaoDaSecao } from './codec.ts';
 import { CenaV2 } from './cena.ts';
 import { criarInstanciaFalsa } from './falso.ts';
 import { ErroKernelLeve } from './erros.ts';
-import { CODIGOS, CONSULTAS, NIVEL_TODOS } from './esquema.gerado.ts';
+import { CODIGOS, CONSULTAS, ESQUEMA_VERSAO, NIVEL_TODOS } from './esquema.gerado.ts';
 import { criarInstanciadorDoWasm, GerenciadorKernelV2, type InstanciaAbi2 } from './gerenciador.ts';
 import { colunasDeParedes, fonteDeParedes, paredesDeTeste } from './paredes.ts';
 import {
@@ -66,7 +66,7 @@ describe.skipIf(modulo === null)('kernel v2: wasm real contra a referência', ()
   });
 
   it('versões do ABI e do esquema', () => {
-    expect(ger.estado()).toMatchObject({ ligado: true, versaoAbi: 2, versaoEsquema: 14 });
+    expect(ger.estado()).toMatchObject({ ligado: true, versaoAbi: 2, versaoEsquema: ESQUEMA_VERSAO });
   });
 
   it('as 3 consultas batem com a referência (aleatório, 3 níveis)', () => {

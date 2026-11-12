@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CenaV2 } from './cena.ts';
 import { ErroKernelGrave } from './erros.ts';
-import { CODIGOS } from './esquema.gerado.ts';
+import { CODIGOS, ESQUEMA_VERSAO } from './esquema.gerado.ts';
 import { criarInstanciaFalsa, gerenciadorFalso } from './falso.ts';
 import { GerenciadorKernelV2, JANELA_RECRIACAO_MS } from './gerenciador.ts';
 import { fonteDeParedes, paredesDeTeste } from './paredes.ts';
@@ -22,7 +22,7 @@ describe('GerenciadorKernelV2', () => {
       expect((e as ErroKernelGrave).codigo).toBe(CODIGOS.VERSAO);
     }
     const { ger } = gerenciadorFalso();
-    expect(ger.estado()).toMatchObject({ ligado: true, versaoAbi: 2, versaoEsquema: 14, recriacoesTotal: 0 });
+    expect(ger.estado()).toMatchObject({ ligado: true, versaoAbi: 2, versaoEsquema: ESQUEMA_VERSAO, recriacoesTotal: 0 });
   });
 
   it('recriar reenvia a cena pela fonte e troca a instância', () => {
