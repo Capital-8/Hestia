@@ -15,10 +15,12 @@ import {
   comandoInverterEsquadria,
   comandoMarcaEsquadria,
   comandoModoEsquadria,
+  comandoPeitoril,
   comandoRemoverEsquadria,
   comandoTipoEsquadria,
   comandoVoltarPadrao,
   valorDoMontante,
+  valorDoPeitoril,
   type SubelementoCortinaProps,
 } from './CurtainSubelementProps.tsx';
 
@@ -124,15 +126,18 @@ describe('seção da porta ou janela na célula (componente puro)', () => {
     mark: 'P-01',
     fit: 'cell' as const,
     align: 'center' as const,
+    peitoril: null,
     tipos,
     favoritos: [],
     onEditarTipo: () => {},
+    onSelecionarCelula: () => {},
     onCommand: () => {},
   };
 
-  it('mostra o tipo, as inversões, a marca, o modo e o botão de remover; sem "Voltar ao padrão" nem seletor de painel', () => {
+  it('mostra o título "Esquadria da cortina", o tipo, as inversões, a marca, o modo e o botão de remover; sem "Voltar ao padrão" nem seletor de painel', () => {
     const html = render(base);
-    expect(html).toContain(t('pt', 'pct_opening_title'));
+    expect(html).toContain(t('pt', 'pct_sub_opening_title'));
+    expect(html).toContain('Esquadria da cortina');
     expect(html).toContain('id="sub-opening-hand"');
     expect(html).toContain('id="sub-opening-facing"');
     expect(html).toContain('value="P-01"');
@@ -156,5 +161,44 @@ describe('seção da porta ou janela na célula (componente puro)', () => {
 
   it('janela usa o rótulo de janela no cabeçalho de tipo', () => {
     expect(render({ ...base, tipo: 'window' })).toContain(t('pt', 'prb_place_window'));
+  });
+
+  it('peitoril: campo com o valor por instância; sem valor, o campo fica vazio com a dica de padrão da célula', () => {
+    expect(render({ ...base, peitoril: 0.9 })).toMatch(/id="sub-opening-sill"[^>]*value="0\.9"/);
+    expect(render(base)).toContain(t('pt', 'pct_sub_opening_sill_default'));
+  });
+
+  it('botões "Selecionar célula" e "Remover esquadria" aparecem juntos', () => {
+    const html = render(base);
+    expect(html).toContain('id="sub-opening-cell"');
+    expect(html).toContain(t('pt', 'pct_sub_opening_select_cell'));
+    expect(html).toContain('id="sub-opening-remove"');
+  });
+});
+
+describe('peitoril e valores digitados', () => {
+  it('comandoPeitoril grava só o sillOverride pelo updateCellOpening (null = padrão da célula)', () => {
+    expect(comandoPeitoril('ct1', 0, 1, 0.9)).toEqual({ type: 'updateCellOpening', wallId: 'ct1', i: 0, j: 1, patch: { sillOverride: 0.9 } });
+    expect(comandoPeitoril('ct1', 0, 1, null)).toEqual({ type: 'updateCellOpening', wallId: 'ct1', i: 0, j: 1, patch: { sillOverride: null } });
+  });
+
+  it('valorDoPeitoril: vazio = padrão; vírgula ou ponto; negativo e texto são inválidos (undefined)', () => {
+    expect(valorDoPeitoril('')).toBeNull();
+    expect(valorDoPeitoril('  ')).toBeNull();
+    expect(valorDoPeitoril('0,9')).toBe(0.9);
+    expect(valorDoPeitoril('1.1')).toBe(1.1);
+    expect(valorDoPeitoril('-0.2')).toBeUndefined();
+    expect(valorDoPeitoril('abc')).toBeUndefined();
+  });
+});
+
+describe('célula com esquadria no componente puro', () => {
+  it('o painel fica desativado, mostra o botão "Selecionar esquadria" e não tem "Voltar ao padrão" (que apagaria a esquadria)', () => {
+    const html = render({ kind: 'cell', wallId: 'w1', i: 0, j: 0, painel: 'pnl_vidro_10', sobrescrita: false, paineis: [painel], comEsquadria: true, onCommand: () => {} });
+    expect(html).toMatch(/id="sub-celula-painel"[^>]*disabled=""/);
+    expect(html).toContain('id="sub-celula-esquadria"');
+    expect(html).toContain(t('pt', 'pct_sub_cell_select_opening'));
+    expect(html).toContain(t('pt', 'pct_sub_cell_under_opening'));
+    expect(html).not.toContain(t('pt', 'pct_sub_cell_default'));
   });
 });

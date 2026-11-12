@@ -13,6 +13,7 @@ import {
   type Command,
   type Id,
   type LineRef,
+  type OpeningCellOverride,
   type ParedeResolvida,
   type Project,
   type SegmentRef,
@@ -58,13 +59,42 @@ export interface DadosEsquadriaCelula {
   mark: string;
   fit: 'cell' | 'grid';
   align: 'center' | 'start' | 'end';
+  /** Peitoril por instância (m); `null` = a base da célula. */
+  peitoril: number | null;
 }
 
 /** Dados que o painel mostra do subelemento, ou null se ele deixou de existir (parede apagada, grade mudou). */
 export type DadosSubelemento =
   | { kind: 'line'; wallId: Id; line: LineRef; montante: Id | null | undefined; travada: boolean }
   | { kind: 'segment'; wallId: Id; line: LineRef; k: number; removido: boolean }
-  | { kind: 'cell'; wallId: Id; i: number; j: number; painel: Id; sobrescrita: boolean; esquadria?: DadosEsquadriaCelula };
+  | { kind: 'cell'; wallId: Id; i: number; j: number; painel: Id; sobrescrita: boolean; comEsquadria: boolean }
+  | { kind: 'opening'; wallId: Id; i: number; j: number; esquadria: DadosEsquadriaCelula };
+
+/** Esquadria (sobrescrita `opening`) da região que contém a célula (i, j); a região inteira conta (§5.2). */
+function esquadriaDaRegiao(r: ParedeResolvida, i: number, j: number): OpeningCellOverride | undefined {
+  const rc = r.canon[i * r.nv + j];
+  const entrada = r.celulas.find((c) => c.override.kind === 'opening' && r.canon[c.key.i * r.nv + c.key.j] === rc);
+  return entrada && entrada.override.kind === 'opening' ? entrada.override : undefined;
+}
+
+/** Dados da esquadria para o painel (tipo de porta ou de janela, inversões, marca, modo, alinhamento e peitoril). */
+function dadosDaEsquadria(p: Project, ov: OpeningCellOverride): DadosEsquadriaCelula {
+  return {
+    tipo: p.openingTypes[ov.openingTypeId]?.kind === 'window' ? 'window' : 'door',
+    openingTypeId: ov.openingTypeId,
+    flipHand: ov.flipHand,
+    flipFacing: ov.flipFacing,
+    mark: ov.mark,
+    fit: ov.fit ?? 'cell',
+    align: ov.align ?? 'center',
+    peitoril: ov.sillOverride ?? null,
+  };
+}
+
+/** Célula do subelemento de célula ou de esquadria (a chave que o estado guarda); `null` para linha e segmento. */
+export function celulaDoSubelemento(sub: SubelementoSelecionado): CellKey | null {
+  return sub.kind === 'cell' || sub.kind === 'opening' ? sub.cell : null;
+}
 
 export function dadosDoSubelemento(p: Project, sub: SubelementoSelecionado): DadosSubelemento | null {
   const w = p.elements[sub.wallId];
@@ -85,26 +115,14 @@ export function dadosDoSubelemento(p: Project, sub: SubelementoSelecionado): Dad
   }
   const { i, j } = sub.cell;
   if (i < 0 || j < 0 || i >= r.nu || j >= r.nv) return null;
+  // A esquadria da célula (se houver) é o próprio subelemento `opening`: o painel dela não tem painel de vidro ou sólido.
+  const esquadria = esquadriaDaRegiao(r, i, j);
+  if (sub.kind === 'opening') return esquadria ? { kind: 'opening', wallId: sub.wallId, i, j, esquadria: dadosDaEsquadria(p, esquadria) } : null;
   const proprio = r.celulas.find((c) => c.key.i === i && c.key.j === j && c.override.kind === 'panel');
   const padrao = (w.curtain?.defaultPanelTypeId ?? (p.wallTypes[w.typeId] as { curtain?: { defaultPanelTypeId: Id } }).curtain?.defaultPanelTypeId) as Id;
   const painel = proprio && proprio.override.kind === 'panel' ? proprio.override.panelTypeId : padrao;
-  // Célula com porta ou janela: o painel mostra a esquadria (tipo, inversões, marca, modo e alinhamento).
-  const aberta = r.celulas.find((c) => c.key.i === i && c.key.j === j && c.override.kind === 'opening');
-  if (aberta && aberta.override.kind === 'opening') {
-    const ov = aberta.override;
-    const tipo = p.openingTypes[ov.openingTypeId]?.kind === 'window' ? 'window' : 'door';
-    const esquadria: DadosEsquadriaCelula = {
-      tipo,
-      openingTypeId: ov.openingTypeId,
-      flipHand: ov.flipHand,
-      flipFacing: ov.flipFacing,
-      mark: ov.mark,
-      fit: ov.fit ?? 'cell',
-      align: ov.align ?? 'center',
-    };
-    return { kind: 'cell', wallId: sub.wallId, i, j, painel, sobrescrita: false, esquadria };
-  }
-  return { kind: 'cell', wallId: sub.wallId, i, j, painel, sobrescrita: proprio !== undefined };
+  if (esquadria) return { kind: 'cell', wallId: sub.wallId, i, j, painel, sobrescrita: false, comEsquadria: true };
+  return { kind: 'cell', wallId: sub.wallId, i, j, painel, sobrescrita: proprio !== undefined, comEsquadria: false };
 }
 
 /**
@@ -129,39 +147,59 @@ export function CurtainSubelementPanel(): ReactElement | null {
   if (!sub) return null;
   const dados = dadosDoSubelemento(p, sub);
   if (!dados) return null;
+  const cell = celulaDoSubelemento(sub);
+  // Troca o subelemento entre a célula e a esquadria da mesma célula (botões do painel).
+  const irParaCelula = (): void => {
+    if (cell) useUi.setState({ subElemento: { wallId: dados.wallId, kind: 'cell', cell } });
+  };
+  const irParaEsquadria = (): void => {
+    if (cell) useUi.setState({ subElemento: { wallId: dados.wallId, kind: 'opening', cell } });
+  };
   // Um comando recusado pelo modelo (ex.: trocar para um tipo que não cabe na célula) sai na barra de status, no idioma pedido.
   const onCommand = (c: Command): void => {
-    const antes = dados.kind === 'cell' ? dados.esquadria : undefined;
+    const antes = dados.kind === 'opening' ? dados.esquadria : undefined;
     try {
       editor.store.exec(c, undefined, lang);
     } catch (e) {
       useUi.setState({ status: e instanceof Error ? e.message : String(e) });
       return;
     }
-    // A grade pode ter mudado (modo ou alinhamento): o destaque vai para a célula nova da mesma esquadria.
-    if (c.type === 'updateCellOpening' && antes && dados.kind === 'cell') {
-      const nova = celulaDaEsquadria(editor.store.project, dados.wallId, antes.openingTypeId, antes.mark);
-      if (nova && (nova.i !== dados.i || nova.j !== dados.j)) useUi.setState({ subElemento: { wallId: dados.wallId, kind: 'cell', cell: nova } });
+    // Remover a esquadria: o subelemento volta à célula, que agora é normal.
+    if (c.type === 'removeCellOpening' && dados.kind === 'opening') {
+      irParaCelula();
+      return;
+    }
+    // A grade pode ter mudado (tipo, modo ou alinhamento): o destaque vai para a célula nova da mesma esquadria.
+    if (c.type === 'updateCellOpening' && antes && dados.kind === 'opening') {
+      const nova = celulaDaEsquadria(editor.store.project, dados.wallId, c.patch.openingTypeId ?? antes.openingTypeId, c.patch.mark ?? antes.mark);
+      if (nova && (nova.i !== dados.i || nova.j !== dados.j)) useUi.setState({ subElemento: { wallId: dados.wallId, kind: 'opening', cell: nova } });
     }
   };
   const montantes = Object.values(mullionTypesOf(p));
   const paineis = Object.values(curtainPanelTypesOf(p));
-  const esquadria = dados.kind === 'cell' ? dados.esquadria : undefined;
   return (
     <div className="group">
       {dados.kind === 'line' && <SubelementoCortina {...dados} montantes={montantes} onCommand={onCommand} />}
       {dados.kind === 'segment' && <SubelementoCortina {...dados} onCommand={onCommand} />}
-      {dados.kind === 'cell' && !esquadria && <SubelementoCortina {...dados} paineis={paineis} onCommand={onCommand} />}
-      {dados.kind === 'cell' && esquadria && (
+      {dados.kind === 'cell' && (
+        <SubelementoCortina
+          {...dados}
+          paineis={paineis}
+          onSelecionarEsquadria={irParaEsquadria}
+          onCommand={onCommand}
+        />
+      )}
+      {dados.kind === 'opening' && (
         <SubelementoCortina
           kind="opening"
           wallId={dados.wallId}
           i={dados.i}
           j={dados.j}
-          {...esquadria}
-          tipos={openingOptions(p, esquadria.tipo)}
+          {...dados.esquadria}
+          tipos={openingOptions(p, dados.esquadria.tipo)}
           favoritos={p.settings.favoriteOpeningTypes ?? []}
-          onEditarTipo={() => useUi.setState({ dialog: 'openingType', dialogArg: esquadria.openingTypeId })}
+          onEditarTipo={() => useUi.setState({ dialog: 'openingType', dialogArg: dados.esquadria.openingTypeId })}
+          onSelecionarCelula={irParaCelula}
           onCommand={onCommand}
         />
       )}

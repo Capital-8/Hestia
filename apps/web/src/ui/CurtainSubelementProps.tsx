@@ -72,6 +72,22 @@ export function comandoAlinhamentoEsquadria(wallId: Id, i: number, j: number, al
   return { type: 'updateCellOpening', wallId, i, j, patch: { align } };
 }
 
+/** Peitoril da janela na célula (m; `null` = a base da célula). Só o campo do patch muda; o modelo refaz a colocação. */
+export function comandoPeitoril(wallId: Id, i: number, j: number, sillOverride: number | null): Command {
+  return { type: 'updateCellOpening', wallId, i, j, patch: { sillOverride } };
+}
+
+/**
+ * Valor digitado do peitoril (m) para o comando: vazio = a base da célula (`null`); número (vírgula ou ponto) não negativo; `undefined` se não
+ * é um valor válido (o campo volta ao que estava).
+ */
+export function valorDoPeitoril(texto: string): number | null | undefined {
+  const limpo = texto.trim();
+  if (limpo === '') return null;
+  const n = Number(limpo.replace(',', '.'));
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
+}
+
 /** Remover a porta ou janela da célula: a célula volta ao padrão e as linhas presas que sobrarem saem. */
 export function comandoRemoverEsquadria(wallId: Id, i: number, j: number): Command {
   return { type: 'removeCellOpening', wallId, i, j };
@@ -106,10 +122,13 @@ export type SubelementoCortinaProps =
       /** A célula tem sobrescrita de painel própria. */
       sobrescrita: boolean;
       paineis: CurtainPanelType[];
+      /** A célula tem porta ou janela: o painel fica sob ela (só leitura) e o botão leva à esquadria. */
+      comEsquadria?: boolean;
+      onSelecionarEsquadria?: () => void;
       onCommand: (c: Command) => void;
     }
   | {
-      /** Célula com porta ou janela (fase 5): o cabeçalho de tipo é o das esquadrias de parede. */
+      /** Esquadria da célula (fase 5): tipo, inversões, marca, modo, alinhamento, peitoril e remover. */
       kind: 'opening';
       wallId: Id;
       i: number;
@@ -121,10 +140,13 @@ export type SubelementoCortinaProps =
       mark: string;
       fit: 'cell' | 'grid';
       align: 'center' | 'start' | 'end';
+      /** Peitoril por instância (m); `null` = a base da célula. */
+      peitoril: number | null;
       /** Tipos de esquadria do seletor (os de porta ou de janela, conforme `tipo`) e os favoritos. */
       tipos: TypeOption[];
       favoritos: readonly Id[];
       onEditarTipo: () => void;
+      onSelecionarCelula: () => void;
       onCommand: (c: Command) => void;
     };
 
@@ -132,10 +154,10 @@ export type SubelementoCortinaProps =
 export function SubelementoCortina(props: SubelementoCortinaProps): ReactElement {
   const { t } = useT();
   if (props.kind === 'opening') {
-    const { wallId, i, j, tipo, openingTypeId, flipHand, flipFacing, mark, fit, align, tipos, favoritos, onEditarTipo, onCommand } = props;
+    const { wallId, i, j, tipo, openingTypeId, flipHand, flipFacing, mark, fit, align, peitoril, tipos, favoritos, onEditarTipo, onSelecionarCelula, onCommand } = props;
     return (
       <div>
-        <div className="hint">{t('pct_opening_title')}</div>
+        <div className="hint">{t('pct_sub_opening_title')}</div>
         <TypeSelector
           categoryLabel={t(tipo === 'door' ? 'prb_place_door' : 'prb_place_window')}
           triggerId="sub-opening-type"
@@ -174,9 +196,29 @@ export function SubelementoCortina(props: SubelementoCortinaProps): ReactElement
             </select>
           </Row>
         )}
-        <button id="sub-opening-remove" type="button" className="btn small" onClick={() => onCommand(comandoRemoverEsquadria(wallId, i, j))}>
-          {t('pct_remove_opening')}
-        </button>
+        <Row label={t('pct_sub_opening_sill')} htmlFor="sub-opening-sill">
+          <input
+            key={`sill-${peitoril ?? 'padrao'}`}
+            id="sub-opening-sill"
+            className="input"
+            type="text"
+            inputMode="decimal"
+            defaultValue={peitoril ?? ''}
+            placeholder={t('pct_sub_opening_sill_default')}
+            onBlur={(e) => {
+              const valor = valorDoPeitoril(e.target.value);
+              if (valor !== undefined && valor !== peitoril) onCommand(comandoPeitoril(wallId, i, j, valor));
+            }}
+          />
+        </Row>
+        <div>
+          <button id="sub-opening-cell" type="button" className="btn small" onClick={onSelecionarCelula}>
+            {t('pct_sub_opening_select_cell')}
+          </button>
+          <button id="sub-opening-remove" type="button" className="btn small" onClick={() => onCommand(comandoRemoverEsquadria(wallId, i, j))}>
+            {t('pct_remove_opening')}
+          </button>
+        </div>
       </div>
     );
   }
@@ -212,21 +254,33 @@ export function SubelementoCortina(props: SubelementoCortinaProps): ReactElement
       </div>
     );
   }
-  const { wallId, i, j, painel, sobrescrita, paineis, onCommand } = props;
+  const { wallId, i, j, painel, sobrescrita, paineis, comEsquadria = false, onSelecionarEsquadria, onCommand } = props;
+  // Célula com esquadria: o painel fica sob ela (só leitura: o modelo recusa trocar) e "Voltar ao padrão" não aparece, pois apagaria a esquadria.
   return (
     <div>
       <div className="hint">{t('pct_sub_cell_title')}</div>
       <Row label={t('pct_sub_cell_panel')} htmlFor="sub-celula-painel">
-        <select id="sub-celula-painel" className="select" value={painel} onChange={(e) => onCommand(comandoDoPainel(wallId, i, j, e.target.value))}>
+        <select id="sub-celula-painel" className="select" value={painel} disabled={comEsquadria} onChange={(e) => onCommand(comandoDoPainel(wallId, i, j, e.target.value))}>
           {paineis.map((pn) => (
             <option key={pn.id} value={pn.id}>{pn.name}</option>
           ))}
         </select>
       </Row>
-      <div className="hint">{sobrescrita ? t('pct_sub_cell_own') : t('pct_sub_cell_follows')}</div>
-      <button type="button" className="btn small" disabled={!sobrescrita} onClick={() => onCommand(comandoVoltarPadrao(wallId, i, j))}>
-        {t('pct_sub_cell_default')}
-      </button>
+      {comEsquadria ? (
+        <>
+          <div className="hint">{t('pct_sub_cell_under_opening')}</div>
+          <button id="sub-celula-esquadria" type="button" className="btn small" onClick={onSelecionarEsquadria}>
+            {t('pct_sub_cell_select_opening')}
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="hint">{sobrescrita ? t('pct_sub_cell_own') : t('pct_sub_cell_follows')}</div>
+          <button type="button" className="btn small" disabled={!sobrescrita} onClick={() => onCommand(comandoVoltarPadrao(wallId, i, j))}>
+            {t('pct_sub_cell_default')}
+          </button>
+        </>
+      )}
     </div>
   );
 }
