@@ -56,6 +56,8 @@ export interface FurnitureImportInput {
   instances?: Array<{ defId: string; name?: string; transform: number[] }>;
   textures: Array<{ fileName: string; mime: 'image/png' | 'image/jpeg'; bytes: Uint8Array; width?: number; height?: number }>;
   stats?: { sourceBytes?: number };
+  /** Padrao true: recentra o bloco (centro da base na origem). Falso mantem a origem do arquivo. */
+  recenter?: boolean;
 }
 
 const hex2 = (v: number) => Math.max(0, Math.min(255, Math.round(v * 255))).toString(16).padStart(2, '0');
@@ -130,6 +132,19 @@ export function buildFurnitureAsset(input: FurnitureImportInput, id: string = ne
   if (!defs.length || min[0] === Infinity) {
     min = [0, 0, 0];
     max = [0, 0, 0];
+  } else if (input.recenter !== false) {
+    // O ponto de insercao do bloco passa a ser o centro da base: x,y no centro da caixa e z no ponto mais baixo.
+    // As origens dos arquivos (.skp, .glb...) sao arbitrarias e deixariam o movel longe do lugar clicado.
+    const dx = -(min[0] + max[0]) / 2;
+    const dy = -(min[1] + max[1]) / 2;
+    const dz = -min[2];
+    for (const part of parts) {
+      part.transform[12] = part.transform[12]! + dx;
+      part.transform[13] = part.transform[13]! + dy;
+      part.transform[14] = part.transform[14]! + dz;
+    }
+    min = [min[0] + dx, min[1] + dy, 0];
+    max = [max[0] + dx, max[1] + dy, max[2] + dz];
   }
   hashParts.push(enc.encode(`parts|${JSON.stringify(parts)}`));
   const textures: FurnitureTexture[] = input.textures.map((t) => {
