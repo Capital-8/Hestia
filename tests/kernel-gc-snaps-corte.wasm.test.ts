@@ -11,6 +11,7 @@ import { DEFAULT_STAIR_TYPES, ProjectStore, createEmptyProject, defaultStairType
 import { computeSection, planoDaSecao, resolveStairs, servicoGuardaCorpo, stairFinishModel, type SectionResult } from '@hestia/engine';
 import { infer, sectionInferContext, sectionSnapIndex, sectionSnapIndexDoProjeto, type SectionSnapIndex } from '@hestia/tools';
 import { straight } from '../packages/engine/src/fixtureGuardaCorpo.ts';
+import { aceleracaoLigadaParaTeste } from '../packages/tools/src/snapAccel.ts';
 import { generateLShape } from '../packages/engine/src/stairGenerators.ts';
 import { planStairFree } from '../packages/engine/src/stairFree.ts';
 import { definirGerenciadorDoGuardaCorpo } from '../packages/engine/src/kernelGuardaCorpoServico.ts';
@@ -167,15 +168,30 @@ describe.skipIf(!bytes).each(CASOS)('guarda-corpo no índice de snap: %s', (_nom
     // cruzamento a 2 cm pode ganhar pelo peso do tipo; isso é a escolha normal do motor, não falta de candidato.)
     const outros = new Set([...c.index.byHost.keys()].filter((k) => k !== host));
     const soGC = (extra: Record<string, unknown> = {}) => sectionInferContext(c.section, c.p, 'lv_0', 0.01, 0.1, { line: c.line, grids: false, hidden: outros }, extra);
-    const noVertice = infer(a, soGC());
-    expect(noVertice.kind).not.toBe('none');
-    // Ou o próprio ponto, ou um cruzamento/extremidade do guarda-corpo ao alcance da tolerância (peso do tipo): nunca um ponto fora da peça.
-    const bateu = (r: { kind: string; point: Vec2 }, alvo: Vec2): boolean => Math.hypot(r.point.x - alvo.x, r.point.y - alvo.y) < 1e-6 || (['intersection', 'endpoint', 'midpoint'].includes(r.kind) && Math.hypot(r.point.x - alvo.x, r.point.y - alvo.y) <= 0.08);
-    expect(bateu(noVertice, a)).toBe(true);
+    // Cada tipo isolado (só ele ligado): o ponto devolvido é EXATAMENTE o do tipo, sem tolerância extra.
+    const so = (tipo: 'endpoint' | 'midpoint') => ({ enabled: true, perpendicular: false, faces: false, endpoint: tipo === 'endpoint', midpoint: tipo === 'midpoint', intersections: false, alignment: false, axis: false, core: false, grid: false }) as never;
+    const noVertice = infer(a, soGC({ snap: so('endpoint') }));
+    expect(noVertice.kind).toBe('endpoint');
+    expect(Math.hypot(noVertice.point.x - a.x, noVertice.point.y - a.y)).toBeLessThan(1e-6);
     const meio = v((a.x + b.x) / 2, (a.y + b.y) / 2);
-    const noMeio = infer(meio, soGC());
-    expect(noMeio.kind).not.toBe('none');
-    expect(bateu(noMeio, meio)).toBe(true);
+    const noMeio = infer(meio, soGC({ snap: so('midpoint') }));
+    expect(noMeio.kind).toBe('midpoint');
+    expect(Math.hypot(noMeio.point.x - meio.x, noMeio.point.y - meio.y)).toBeLessThan(1e-6);
+    // Com TODOS os snaps ligados o motor escolhe pelo peso do tipo (um cruzamento próximo pode vencer a extremidade ou o meio): é o comportamento
+    // do motor, e a estrutura espacial não pode mudar a escolha. Resultado com e sem ela é idêntico, ponto a ponto.
+    const todos = (cur: Vec2) => {
+      const r = infer(cur, soGC());
+      return { kind: r.kind, x: r.point.x, y: r.point.y, host: r.hostId ?? null, guides: r.guides.length };
+    };
+    for (const cur of [a, meio, v(a.x + 0.004, a.y + 0.003), v(meio.x + 0.004, meio.y + 0.003)]) {
+      aceleracaoLigadaParaTeste(true);
+      const com = todos(cur);
+      aceleracaoLigadaParaTeste(false);
+      const sem = todos(cur);
+      aceleracaoLigadaParaTeste(true);
+      expect(com).toEqual(sem);
+      expect(com.kind).not.toBe('none');
+    }
     // Mais próximo: a 27% da aresta.
     const quarto = v(a.x + (b.x - a.x) * 0.27, a.y + (b.y - a.y) * 0.27);
     const noQuarto = infer(v(quarto.x + 0.003, quarto.y + 0.002), soGC());
