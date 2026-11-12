@@ -372,3 +372,41 @@ fn linhas_do_ajuste_absorve_a_sobra_pequena_e_nao_repete_linha_existente() {
     let l = linhas_do_ajuste((1.0, 2.0, 0.0, 2.15), &t, 0.0, 1, 0.15, &[], &[], 4.0, 2.15);
     assert_eq!(l, vec![(EIXO_U, 1.8)]);
 }
+
+#[test]
+fn casos_do_fixture_conferidos_a_mao() {
+    use serde_json::Value;
+    let j: Value = serde_json::from_str(include_str!("../tests/fixtures/cortina_porta_f5.json")).expect("json");
+    let casos = j["casos"].as_array().expect("casos");
+    assert!(casos.len() >= 9);
+    for caso in casos {
+        let id = caso["id"].as_str().expect("id");
+        let n = |v: &Value| v.as_f64().expect("número");
+        let (nu, nv) = (n(&caso["nu"]) as u32, n(&caso["nv"]) as u32);
+        let t = &caso["tipo"];
+        let mut c = cena(nu, nv);
+        c.a3.tipos.insert(T_PORTA, ta(n(&t["largura"]), n(&t["altura"]), t["janela"].as_bool().expect("janela"), n(&t["folhas"]) as u8, n(&t["plano"]) as u8));
+        let a = &caso["abertura"];
+        let soleira = a["soleira"].as_f64().unwrap_or(f64::NAN);
+        linha(&mut c, 1, n(&a["i"]) as u32, n(&a["j"]) as u32, nu, nv, T_PORTA, n(&a["ajuste"]) == 1.0, n(&a["alinhamento"]) as u8, soleira);
+        let r = resolver(&c, 0).expect("resolver").remove(0);
+        let e = &r.g.as_ref().expect("g").esquadrias[0];
+        let esperado = &caso["esperado"];
+        let vao: Vec<f64> = esperado["vao"].as_array().expect("vao").iter().map(n).collect();
+        for (k, (obtido, certo)) in [e.s0, e.s1, e.z0, e.z1].iter().zip(&vao).enumerate() {
+            assert!((obtido - certo).abs() < 1e-9, "{id}: vão[{k}] {obtido} != {certo}");
+        }
+        let lados = e.lados.iter().enumerate().fold(0u32, |acc, (k, &b)| acc | (u32::from(b) << k));
+        assert_eq!(f64::from(lados), n(&esperado["lados"]), "{id}: lados");
+        assert_eq!(f64::from(e.flags), n(&esperado["flags"]), "{id}: flags");
+        let linhas: Vec<(u8, f64)> = esperado["linhas"].as_array().expect("linhas").iter().map(|l| (n(&l[0]) as u8, n(&l[1]))).collect();
+        assert_eq!(e.linhas.len(), linhas.len(), "{id}: linhas {:?}", e.linhas);
+        for (obtida, certa) in e.linhas.iter().zip(&linhas) {
+            assert!(obtida.0 == certa.0 && (obtida.1 - certa.1).abs() < 1e-9, "{id}: linha {obtida:?} != {certa:?}");
+        }
+        let mut avisos: Vec<u32> = r.avisos.iter().map(|a| a.codigo).filter(|&k| (11..=13).contains(&k)).collect();
+        avisos.sort_unstable();
+        let certos: Vec<u32> = esperado["avisos"].as_array().expect("avisos").iter().map(|v| n(v) as u32).collect();
+        assert_eq!(avisos, certos, "{id}: avisos");
+    }
+}
