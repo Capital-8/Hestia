@@ -1,6 +1,6 @@
 import { current, isDraft } from 'immer';
 import type { PlanAnnotations } from './planView.ts';
-import type { Id } from './types.ts';
+import type { ElementTag, Id } from './types.ts';
 
 /** As cinco famílias de anotação de uma vista de planta, na ordem em que são guardadas. */
 export const ANNOTATION_FAMILIES = ['dimensions', 'texts', 'detailLines', 'detailRegions', 'tags'] as const;
@@ -63,13 +63,16 @@ export function inheritedAnnotations(levelAnnotations: Partial<PlanAnnotations> 
 }
 
 /**
- * Conjunto próprio de uma planta de área: as anotações dadas, normalizadas e copiadas. As etiquetas de elemento do NÍVEL
- * não entram aqui: a planta de área as desenha além das próprias lendo a planta de piso (`elementTagOps` em `build.ts`,
- * `profile.elementTags`), e o DXF da área as exclui (`elementTags: false`). Copiá-las para o conjunto próprio mudaria o DXF
- * e duplicaria o desenho (decisão registrada no relatório da etapa 2a-1).
+ * Conjunto próprio de uma planta de área: as anotações dadas, normalizadas e copiadas.
+ *
+ * `levelTags` (migração 23 → 24, raia E): a planta de área desenhava as etiquetas de elemento do NÍVEL além das próprias,
+ * lendo a planta de piso na hora de desenhar. Agora cada uma vira cópia na vista (id `<id>__<idDaVista>`, `hostId`
+ * mantido), depois das próprias, e o desenho lê só a vista. Sem `levelTags`, o conjunto sai como foi dado.
  */
-export function ownAreaAnnotations(own: Partial<PlanAnnotations>): PlanAnnotations {
-  return plainClone(normalizeAnnotations(own));
+export function ownAreaAnnotations(own: Partial<PlanAnnotations>, levelTags?: { tags: readonly ElementTag[]; viewId: Id }): PlanAnnotations {
+  const out = plainClone(normalizeAnnotations(own));
+  if (levelTags?.tags.length) out.tags = [...out.tags, ...copyAnnotationsToView({ tags: [...levelTags.tags] }, levelTags.viewId, { tags: true }).tags];
+  return out;
 }
 
 /**

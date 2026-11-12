@@ -36,8 +36,9 @@ const levelAnnotations = (l: Raw): PlanAnnotations => normalizeAnnotations(Objec
  *   o intervalo padrão, cópia dos gráficos, `roofHidden` e, se o nível tem telhado, cópia das anotações (D3: nível sem
  *   telhado nasce sem anotações na cobertura);
  * - cada `AreaPlan` vira vista `area` com o mesmo id; a herança de anotações (`annotations === undefined`) vira cópia das
- *   famílias que a planta desenha (D1: id `<id>__<idDaVista>`); o conjunto próprio fica como está (as etiquetas do nível
- *   continuam sendo lidas da planta de piso na área: ver `ownAreaAnnotations`);
+ *   famílias que a planta desenha (D1: id `<id>__<idDaVista>`); o conjunto próprio fica como está e, com
+ *   `showAnnotations` ligado, recebe depois dele uma cópia de cada etiqueta de elemento do nível (a planta as desenhava
+ *   lendo a de piso; agora o desenho lê só a vista: ver `ownAreaAnnotations`);
  * - planta de área cujo nível não existe é descartada.
  */
 export function migrateVistasV23(raw: Raw): Raw {
@@ -78,12 +79,17 @@ export function migrateVistasV23(raw: Raw): Raw {
     const id = a.id as string;
     const g = a.graphics as { showDimensions?: boolean; showAnnotations?: boolean } | undefined;
     const fromLevel = levelAnnotations(level);
-    const annotations = a.annotations === undefined ? inheritedAnnotations(fromLevel, id, g) : ownAreaAnnotations(a.annotations as Partial<PlanAnnotations>);
+    const inherited = a.annotations === undefined;
+    // Etiquetas de elemento do nível: a planta de conjunto próprio as desenhava (lendo a planta de piso) quando
+    // `showAnnotations` estava ligado (`profile.elementTags`); a que herdava já as recebe na família `tags` acima.
+    const levelTags = !inherited && Boolean(g?.showAnnotations) ? fromLevel.tags : [];
+    const annotations = inherited ? inheritedAnnotations(fromLevel, id, g) : ownAreaAnnotations(a.annotations as Partial<PlanAnnotations>, { tags: levelTags, viewId: id });
     const view = { id, name: a.name as string, levelId: a.levelId as string, kind: 'area', viewRange: plainClone((level.viewRange as PlanView['viewRange'] | undefined) ?? { ...DEFAULT_VIEW_RANGE }) } as PlanView;
     set(view, 'graphics', plainClone(level.graphics as PlanView['graphics']));
-    // Só a planta que herdava tem cópias dos ids do nível; a de conjunto próprio mantém os ocultos como estão.
-    const inherited = a.annotations === undefined;
-    set(view, 'hidden', remapHidden(a.hidden as Hidden | undefined, new Set(inherited ? annotationIdsOf(fromLevel) : []), id, new Set(annotationIdsOf(annotations))));
+    // Ids de anotação do nível que viraram cópia na vista (todas as famílias na que herdava; só as etiquetas na própria)
+    // são trocados pelos das cópias nos ocultos; os demais ficam como estão.
+    const copiados = inherited ? annotationIdsOf(fromLevel) : levelTags.map((x) => x.id);
+    set(view, 'hidden', remapHidden(a.hidden as Hidden | undefined, new Set(copiados), id, new Set(annotationIdsOf(annotations))));
     view.annotations = annotations;
     const area: NonNullable<PlanView['area']> = { scale: a.scale as number, graphics: plainClone(a.graphics as NonNullable<PlanView['area']>['graphics']), tags: plainClone((a.tags as NonNullable<PlanView['area']>['tags'] | undefined) ?? []) };
     set(area, 'schemeId', a.schemeId as string | undefined);

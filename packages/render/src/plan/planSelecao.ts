@@ -8,8 +8,9 @@ import { floorViewId, levelRoomSeparators, planAnnotationIds, projectGrids, view
  */
 export function planGeometrySelection(p: Project, levelId: Id, selection: readonly Id[], areaPlan?: Pick<AreaPlan, 'annotations'>, viewId?: Id): Id[] {
   if (selection.length === 0) return [];
-  // O desenho do nível lê as anotações da vista de piso; as da planta de área (as que ela POSSUI) vêm de `viewId`.
-  const doNivel = viewAnnotationsOf(p, floorViewId(levelId));
+  // A planta de piso desenha as anotações da vista de piso; a planta de área, só as que ela POSSUI (`viewId`): nada é lido
+  // da planta de piso para a área.
+  const doNivel = areaPlan ? { dimensions: [], detailLines: [], detailRegions: [] } : viewAnnotationsOf(p, floorViewId(levelId));
   const proprias = (): Id[] => {
     if (viewId === undefined) return areaPlan ? planAnnotationIds(areaPlan) : [];
     const a = viewOwnAnnotationsOf(p, viewId);
