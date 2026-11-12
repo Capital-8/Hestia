@@ -8,6 +8,9 @@
  *    compila (o `tsc` falha). Foi assim que o guarda-corpo ficou de fora das ferramentas de modificação.
  * 2. Execução: cada marca (`mover`, `colar`, `alinhar`) aponta um símbolo que tem de existir no código da ferramenta;
  *    `null` exige o motivo escrito (exceção explícita, com TODO).
+ *
+ * A mesma regra vale para o CORTE e a ELEVAÇÃO (`CORTE`): Mover, Copiar e Alinhar da vista levam o kind pelo mecanismo único
+ * `comandosMoverNoCorte` (`sectionMoverElementos.ts`), e o Alinhar escolhe o alvo pelo desenho da vista.
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -46,7 +49,35 @@ const CLASSIFICACAO: Record<Element['kind'], Marca> = {
   cad: { mover: 'selectedCads', colar: 'cad', alinhar: null, motivo: 'TODO: o desenho CAD é um objeto só; alinhar pelas linhas dele ainda não existe.' },
 };
 
+/**
+ * Corte e elevação. `mover`: símbolo que leva o kind no Mover e no Copiar da vista; `alinhar`: símbolo que trata o kind como
+ * alvo do Alinhar da vista. `null` exige o motivo (TODO).
+ */
+interface MarcaCorte {
+  mover: string | null;
+  alinhar: string | null;
+  motivo?: string;
+}
+
+const CORTE: Record<Element['kind'], MarcaCorte> = {
+  wall: { mover: 'isWall', alinhar: 'applyWall' },
+  door: { mover: 'selectedOpenings', alinhar: 'applyOpening' },
+  window: { mover: 'selectedOpenings', alinhar: 'applyOpening' },
+  floor: { mover: 'isFloor', alinhar: 'isFloor' },
+  slab: { mover: 'isSlab', alinhar: 'isSlab' },
+  ceiling: { mover: null, alinhar: null, motivo: 'TODO: o forro não está em `selectedMovables` (planta) e o corte ainda não o leva; mover e alinhar o forro no corte ficam para depois.' },
+  roof: { mover: 'isRoof', alinhar: null, motivo: 'TODO: a água do telhado é inclinada e não oferece linha horizontal ou vertical segura para alinhar; no corte ele só se move.' },
+  stair: { mover: 'isStair', alinhar: 'isStair' },
+  ramp: { mover: 'isRamp', alinhar: 'isRamp' },
+  railing: { mover: 'isGuardaCorpo', alinhar: 'guardaCorpoPieces' },
+  room: { mover: null, alinhar: null, motivo: 'TODO: o ambiente não aparece no desenho do corte nem da elevação.' },
+  generic: { mover: null, alinhar: null, motivo: 'TODO: o objeto importado não aparece no corte (e o `transform` ainda não o move).' },
+  cad: { mover: null, alinhar: null, motivo: 'TODO: o desenho CAD não aparece no corte nem na elevação.' },
+};
+
 const CODIGO_MOVER = ['edit.ts', 'arrayRadial.ts'].map(lerTools).join('\n');
+const CODIGO_CORTE_MOVER = ['sectionMoverElementos.ts', 'sectionEditTools.ts'].map(lerTools).join('\n');
+const CODIGO_CORTE_ALINHAR = lerTools('sectionEditTools.ts');
 const CODIGO_COLAR = lerTools('clipboard.ts');
 const CODIGO_ALINHAR = lerTools('alignFeatures.ts');
 
@@ -59,6 +90,23 @@ describe('contrato: todo kind de elemento está classificado nas ferramentas de 
       if (m.mover === null || m.colar === null || m.alinhar === null) expect(m.motivo, `${kind}: marca null exige motivo`).toBeTruthy();
     });
   }
+
+  for (const [kind, m] of Object.entries(CORTE)) {
+    it(`${kind}: Mover, Copiar e Alinhar do corte e da elevação apontam código que existe`, () => {
+      if (m.mover) expect(CODIGO_CORTE_MOVER, `${kind}: Mover/Copiar do corte não tem ${m.mover}`).toContain(m.mover);
+      if (m.alinhar) expect(CODIGO_CORTE_ALINHAR, `${kind}: Alinhar do corte não tem ${m.alinhar}`).toContain(m.alinhar);
+      if (m.mover === null || m.alinhar === null) expect(m.motivo, `${kind}: marca null exige motivo`).toBeTruthy();
+    });
+  }
+
+  it('Mover, Copiar e Alinhar estão entre as ferramentas permitidas na vista de corte e elevação, e o registro escolhe a ferramenta do corte', () => {
+    const controlador = readFileSync(join(aqui, '..', '..', '..', 'apps', 'web', 'src', 'editor', 'controller.ts'), 'utf8');
+    const linha = controlador.split('\n').find((l) => l.includes('const SECTION_TOOLS')) ?? '';
+    for (const id of ['move', 'copy', 'align']) expect(linha, `SECTION_TOOLS sem '${id}'`).toContain(`'${id}'`);
+    const registro = lerTools('registry.ts');
+    expect(registro).toMatch(/case 'copy':\s*return env\.section\?\.\(\) \? new SectionMoveTool\(env, true\)/);
+    expect(registro).toMatch(/case 'move':\s*return env\.section\?\.\(\) \? new SectionMoveTool\(env\)/);
+  });
 
   it('o comando `transform` do modelo trata os kinds marcados como móveis', () => {
     const cmd = lerModel('commands.ts') + lerModel('guardaCorpoTransform.ts');

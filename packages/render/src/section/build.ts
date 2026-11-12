@@ -353,7 +353,7 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   if (revealStrokes.length > 0) strokes.push(...revealStrokes);
   // Guarda-corpo revelado: a borda azul sai depois do desenho dele (como as outras reveladas, sem o `thinStrokes`).
   const revealGC: StrokeOp[] = [];
-  guardaCorpoCorteOps(p, s, theme, input.dark, hidden, paint.railing, fills, strokes, { revelados: revealed, contorno: (pts) => revealGC.push({ pts, closed: true, widthPx: REVEAL_WIDTH, color: REVEAL_COLOR, alpha: 1 }) });
+  guardaCorpoCorteOps(p, s, theme, input.dark, hidden, paint.railing, fills, strokes, { revelados: revealed, contorno: (pts) => revealGC.push({ pts, closed: true, widthPx: REVEAL_WIDTH, color: REVEAL_COLOR, alpha: 1 }) }, input.highlight);
   strokes.push(...revealGC);
   if (input.highlight) highlightOps(s, input.highlight, theme, fills, strokes);
 

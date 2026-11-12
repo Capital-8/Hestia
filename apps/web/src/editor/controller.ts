@@ -125,7 +125,7 @@ const VIS_SEQUENCES: Record<string, ShortcutCommand> = {
 };
 
 /** Ferramentas que fazem sentido na vista de corte/elevação. As demais continuam exclusivas da planta. */
-const SECTION_TOOLS = new Set<ToolId>(['select', 'measure', 'level', 'dimension', 'angularDimension', 'text', 'detailLine', 'filledRegion', 'tag', 'align', 'move']);
+const SECTION_TOOLS = new Set<ToolId>(['select', 'measure', 'level', 'dimension', 'angularDimension', 'text', 'detailLine', 'filledRegion', 'tag', 'align', 'move', 'copy']);
 
 export class Editor {
   readonly store = new ProjectStore(createEmptyProject(useI18n.getState().lang));
@@ -194,6 +194,7 @@ export class Editor {
           ...extra,
         }),
         result: () => result,
+        hidden: () => visibilityOf(this.project, useUi.getState()).hidden,
       };
     },
     // Contrato do ToolEnv (subagente de modelo): as ferramentas de anotação gravam com `planId` quando há planta de área.
