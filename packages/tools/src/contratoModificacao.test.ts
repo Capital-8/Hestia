@@ -10,7 +10,9 @@
  *    `null` exige o motivo escrito (exceção explícita, com TODO).
  *
  * A mesma regra vale para o CORTE e a ELEVAÇÃO (`CORTE`): Mover, Copiar e Alinhar da vista levam o kind pelo mecanismo único
- * `comandosMoverNoCorte` (`sectionMoverElementos.ts`), e o Alinhar escolhe o alvo pelo desenho da vista.
+ * `comandosMoverNoCorte` (`sectionMoverElementos.ts`), e o Alinhar escolhe o alvo pelo desenho da vista. O fluxo do Mover e do Copiar
+ * da vista é o MESMO da planta (ponto base e destino com os snaps do índice da vista, Orto/Polar, distância digitada + Enter, prévia
+ * com o contorno do elemento, cota do deslocamento, Esc, várias cópias): ver `CORTE.previa` e o teste do núcleo comum abaixo.
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -51,32 +53,35 @@ const CLASSIFICACAO: Record<Element['kind'], Marca> = {
 
 /**
  * Corte e elevação. `mover`: símbolo que leva o kind no Mover e no Copiar da vista; `alinhar`: símbolo que trata o kind como
- * alvo do Alinhar da vista. `null` exige o motivo (TODO).
+ * alvo do Alinhar da vista; `previa`: símbolo de `sectionMoverPrevia.ts` que desenha o fantasma (contorno deslocado) do kind no Mover e
+ * no Copiar. `null` exige o motivo (TODO).
  */
 interface MarcaCorte {
   mover: string | null;
   alinhar: string | null;
+  previa: string | null;
   motivo?: string;
 }
 
 const CORTE: Record<Element['kind'], MarcaCorte> = {
-  wall: { mover: 'isWall', alinhar: 'applyWall' },
-  door: { mover: 'selectedOpenings', alinhar: 'applyOpening' },
-  window: { mover: 'selectedOpenings', alinhar: 'applyOpening' },
-  floor: { mover: 'isFloor', alinhar: 'isFloor' },
-  slab: { mover: 'isSlab', alinhar: 'isSlab' },
-  ceiling: { mover: null, alinhar: null, motivo: 'TODO: o forro não está em `selectedMovables` (planta) e o corte ainda não o leva; mover e alinhar o forro no corte ficam para depois.' },
-  roof: { mover: 'isRoof', alinhar: null, motivo: 'TODO: a água do telhado é inclinada e não oferece linha horizontal ou vertical segura para alinhar; no corte ele só se move.' },
-  stair: { mover: 'isStair', alinhar: 'isStair' },
-  ramp: { mover: 'isRamp', alinhar: 'isRamp' },
-  railing: { mover: 'isGuardaCorpo', alinhar: 'guardaCorpoPieces' },
-  room: { mover: null, alinhar: null, motivo: 'TODO: o ambiente não aparece no desenho do corte nem da elevação.' },
-  generic: { mover: null, alinhar: null, motivo: 'TODO: o objeto importado não aparece no corte (e o `transform` ainda não o move).' },
-  cad: { mover: null, alinhar: null, motivo: 'TODO: o desenho CAD não aparece no corte nem na elevação.' },
+  wall: { mover: 'isWall', alinhar: 'applyWall', previa: 'isWall' },
+  door: { mover: 'selectedOpenings', alinhar: 'applyOpening', previa: 'aberturas' },
+  window: { mover: 'selectedOpenings', alinhar: 'applyOpening', previa: 'aberturas' },
+  floor: { mover: 'isFloor', alinhar: 'isFloor', previa: 'movidos' },
+  slab: { mover: 'isSlab', alinhar: 'isSlab', previa: 'movidos' },
+  ceiling: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o forro não está em `selectedMovables` (planta) e o corte ainda não o leva; mover e alinhar o forro no corte ficam para depois.' },
+  roof: { mover: 'isRoof', alinhar: null, previa: 'movidos', motivo: 'TODO: a água do telhado é inclinada e não oferece linha horizontal ou vertical segura para alinhar; no corte ele só se move.' },
+  stair: { mover: 'isStair', alinhar: 'isStair', previa: 'movidos' },
+  ramp: { mover: 'isRamp', alinhar: 'isRamp', previa: 'movidos' },
+  railing: { mover: 'isGuardaCorpo', alinhar: 'guardaCorpoPieces', previa: 'isGuardaCorpo' },
+  room: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o ambiente não aparece no desenho do corte nem da elevação.' },
+  generic: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o objeto importado não aparece no corte (e o `transform` ainda não o move).' },
+  cad: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o desenho CAD não aparece no corte nem na elevação.' },
 };
 
 const CODIGO_MOVER = ['edit.ts', 'arrayRadial.ts'].map(lerTools).join('\n');
-const CODIGO_CORTE_MOVER = ['sectionMoverElementos.ts', 'sectionEditTools.ts'].map(lerTools).join('\n');
+const CODIGO_CORTE_MOVER = ['sectionMoverElementos.ts', 'sectionEditTools.ts', 'sectionMoveTool.ts'].map(lerTools).join('\n');
+const CODIGO_CORTE_PREVIA = lerTools('sectionMoverPrevia.ts');
 const CODIGO_CORTE_ALINHAR = lerTools('sectionEditTools.ts');
 const CODIGO_COLAR = lerTools('clipboard.ts');
 const CODIGO_ALINHAR = lerTools('alignFeatures.ts');
@@ -95,7 +100,8 @@ describe('contrato: todo kind de elemento está classificado nas ferramentas de 
     it(`${kind}: Mover, Copiar e Alinhar do corte e da elevação apontam código que existe`, () => {
       if (m.mover) expect(CODIGO_CORTE_MOVER, `${kind}: Mover/Copiar do corte não tem ${m.mover}`).toContain(m.mover);
       if (m.alinhar) expect(CODIGO_CORTE_ALINHAR, `${kind}: Alinhar do corte não tem ${m.alinhar}`).toContain(m.alinhar);
-      if (m.mover === null || m.alinhar === null) expect(m.motivo, `${kind}: marca null exige motivo`).toBeTruthy();
+      if (m.previa) expect(CODIGO_CORTE_PREVIA, `${kind}: o fantasma do Mover/Copiar do corte não tem ${m.previa}`).toContain(m.previa);
+      if (m.mover === null || m.alinhar === null || m.previa === null) expect(m.motivo, `${kind}: marca null exige motivo`).toBeTruthy();
     });
   }
 
@@ -106,6 +112,23 @@ describe('contrato: todo kind de elemento está classificado nas ferramentas de 
     const registro = lerTools('registry.ts');
     expect(registro).toMatch(/case 'copy':\s*return env\.section\?\.\(\) \? new SectionMoveTool\(env, true\)/);
     expect(registro).toMatch(/case 'move':\s*return env\.section\?\.\(\) \? new SectionMoveTool\(env\)/);
+  });
+
+  it('Mover e Copiar do corte usam o núcleo comum da planta: ponto base e destino por snap, digitado, cota do deslocamento e sessão de cópias', () => {
+    const corte = lerTools('sectionMoveTool.ts');
+    const planta = lerTools('transformTools.ts');
+    // O mesmo módulo de gesto nas duas vistas (nada de cópia do fluxo): estender o núcleo, não duplicar (regra 1).
+    for (const [nome, codigo] of [['corte', corte], ['planta', planta]] as const) {
+      expect(codigo, `${nome}: não usa o núcleo do gesto`).toContain("from './gestoDeslocamento.ts'");
+      for (const simbolo of ['deslocamentoDigitado', 'cotaDoDeslocamento', 'SessaoDeCopias']) expect(codigo, `${nome}: sem ${simbolo}`).toContain(simbolo);
+    }
+    // Snaps do índice da vista com o ponto base como origem do Orto, Polar e rastreios, e ponto de destino capturado do mesmo jeito.
+    expect(corte).toMatch(/this\.snap\(travado, \{ from \}\)/);
+    expect(corte).toContain('tempDims(');
+    expect(corte).toContain('inputPrompt(');
+    expect(corte).toContain('fantasmaDoMover(');
+    // Nada de arraste: o fluxo é por clique, como na planta.
+    expect(corte).not.toMatch(/\bdown\(|\bdrag\(|\bup\(/);
   });
 
   it('o comando `transform` do modelo trata os kinds marcados como móveis', () => {

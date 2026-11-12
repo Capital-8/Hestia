@@ -617,7 +617,8 @@ export class Editor {
     switch (kind) {
       case 'move':
         t.move(info);
-        if (t.id === 'select') {
+        // No corte, Mover, Copiar e Alinhar sem seleção realçam o elemento que o clique vai escolher (o mesmo realce do Selecionar).
+        if (t.id === 'select' || (ui.view === 'section' && (t.id === 'move' || t.id === 'copy' || t.id === 'align'))) {
           const first = t.preview().find((i) => i.kind === 'highlight');
           useUi.setState({ hover: first && first.kind === 'highlight' ? (first.ids[0] ?? null) : null });
         }

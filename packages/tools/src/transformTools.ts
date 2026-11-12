@@ -1,7 +1,7 @@
 ﻿/* eslint-disable max-lines -- Mover/Copiar/Girar/Espelhar compartilham a mesma base de seleção, prévia e aresta; dividir perderia a coesão do estado */
-import { angleOf, dist, len, mul, norm, sub, v2, type Vec2 } from '@hestia/geom';
+import { angleOf, dist, len, sub, type Vec2 } from '@hestia/geom';
 import { frameOfWall } from '@hestia/engine';
-import { annotationIdsIn, annotationMoveCommands, dimensionSettingsOf, formatQuantity, isOpening, isRamp, isStair, isWall, unitsOf, type Id, type ResolvedUnits } from '@hestia/model';
+import { annotationIdsIn, annotationMoveCommands, formatQuantity, isOpening, isRamp, isStair, isWall, unitsOf, type Id } from '@hestia/model';
 import { ToolBase } from './base.ts';
 import { avisaGuardaCorpoHospedado, guardaCorposBloqueados } from './guardaCorpoEdicao.ts';
 import { gridGhosts, moveGrids, selectedGrids } from './gridGeom.ts';
@@ -18,14 +18,11 @@ import { componentEdgeAt, componentEdgeCurve, type ComponentEdgePick } from './c
 import { moveComponentEdge } from './componentOps.ts';
 import { moveEdge as moveComponentEdgeCommand } from './componentEdit.ts';
 import { COMPONENT_MOVE_MSG, componentUnderCursor } from './componentTarget.ts';
-import { displacementDimProvider } from './dims/providers/displacement.ts';
+import { cotaDoDeslocamento, deslocamentoDigitado, fmtDisplacement, fmtM, SessaoDeCopias } from './gestoDeslocamento.ts';
 import type { DimRef, TempDim } from './dims/types.ts';
 
-export const fmtM = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length', m);
-
-/** Rótulo do gesto de mover/copiar: distância e ângulo (direção do deslocamento em relação ao eixo X). */
-export const fmtDisplacement = (u: ResolvedUnits, d: Vec2): string =>
-  `${fmtM(u, len(d))} · ${formatQuantity(u, 'angle', angleOf(d))}`;
+// O gesto de Mover/Copiar (digitado, cota do deslocamento, sessão de cópias) é o núcleo comum com o corte: `gestoDeslocamento.ts`.
+export { fmtDisplacement, fmtM };
 
 /** Base das ferramentas que exigem seleção prévia. */
 export abstract class SelectionTool extends ToolBase {
@@ -77,10 +74,8 @@ export class MoveTool extends SelectionTool {
   private compPick: ComponentEdgePick | null = null;
   /** Ponto de apoio da aresta do croqui (o ponto clicado, projetado nela). */
   private compBase: Vec2 | null = null;
-  /** Chave da sessão: todas as cópias de um mesmo Copiar entram num só passo de desfazer. */
-  private session: object = {};
-  /** Quantas cópias a sessão já fez (Esc, com cópias feitas, encerra a sessão). */
-  private copies = 0;
+  /** Sessão de cópias: todas as cópias de um mesmo Copiar entram num só passo de desfazer (Esc, com cópias feitas, a encerra). */
+  private sessao = new SessaoDeCopias();
   /** Alt segurado: alterna o "Desconectar" na hora de confirmar o Mover (como no Archicad). */
   private alt = false;
 
@@ -97,8 +92,7 @@ export class MoveTool extends SelectionTool {
   /** Sem seleção a ferramenta continua ativa, à espera de um clique em aresta. */
   override start(): void {
     this.reset();
-    this.session = {};
-    this.copies = 0;
+    this.sessao.reinicia();
     if (!this.hasSelection() && guardaCorposBloqueados(this.env.project(), this.env.selection()).length) avisaGuardaCorpoHospedado(this.env);
     else this.env.say(this.hasSelection() ? this.hint : this.edgeHint);
   }
@@ -108,7 +102,7 @@ export class MoveTool extends SelectionTool {
    * Sem cópias, Esc cancela o ponto-base; o próximo Esc sai para Modificar, como nas demais ferramentas.
    */
   override cancel(): void {
-    if (this.copy && this.copies > 0) {
+    if (this.sessao.encerraComEsc(this.copy)) {
       this.reset();
       this.env.done();
       return;
@@ -265,12 +259,7 @@ export class MoveTool extends SelectionTool {
 
   /** Cota do deslocamento (ponto-base → cursor), pelo provedor do sistema único. */
   tempDims(overrides: Readonly<Record<string, DimRef>> = {}): TempDim[] {
-    if (!this.base || !this.cursor) return [];
-    const project = this.env.project();
-    return displacementDimProvider.compute(
-      { project, levelId: this.env.levelId(), settings: dimensionSettingsOf(project), overrides },
-      { from: this.base, to: this.cursor },
-    );
+    return cotaDoDeslocamento(this.env, this.base, this.cursor, overrides);
   }
 
   private apply(d: Vec2): void {
@@ -302,8 +291,8 @@ export class MoveTool extends SelectionTool {
       for (const c of notes) this.env.exec(c);
       // Grades são do projeto: movem ou copiam (nome automático novo) junto.
       moveGrids(this.env, selectedGrids(this.env.project(), this.env.selection()), d, this.copy);
-    }, this.copy ? this.session : undefined);
-    if (this.copy && (els.length || views.length)) this.copies += 1;
+    }, this.copy ? this.sessao.chave : undefined);
+    if (this.copy && (els.length || views.length)) this.sessao.registra();
   }
 
   override click(p: PointerInfo): void {
@@ -326,11 +315,9 @@ export class MoveTool extends SelectionTool {
   override type(text: string): boolean {
     const from = this.compBase ?? this.base;
     if (!from) return false;
-    const v = parseQuantityText(text, unitsOf(this.env.project()), 'length');
-    if (v === null) return false;
-    const dir = norm(sub(this.inf?.point ?? this.raw, from));
+    const step = deslocamentoDigitado(this.env, text, from, this.inf?.point ?? this.raw);
+    if (step === null) return false;
     if (!this.hasSelection()) {
-      const step = mul(len(dir) < 1e-9 ? v2(1, 0) : dir, v);
       if (this.compPick) {
         const r = moveComponentEdgeCommand(this.env, this.compPick.ref, step);
         if (!r.ok) this.env.say(r.error);
@@ -344,7 +331,7 @@ export class MoveTool extends SelectionTool {
       this.env.done();
       return true;
     }
-    this.apply(mul(len(dir) < 1e-9 ? v2(1, 0) : dir, v));
+    this.apply(step);
     if (!this.copy) {
       this.reset();
       this.env.done();

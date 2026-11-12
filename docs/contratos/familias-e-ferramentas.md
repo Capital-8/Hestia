@@ -50,8 +50,21 @@ aparar/estender, dividir, apagar, copiar/colar entre pavimentos, desfazer/refaze
   `heightOffset` em piso, laje e telhado, `cotaBase` no guarda-corpo manual). O Alinhar escolhe o alvo pelo desenho da
   vista (`pickAt`); o guarda-corpo, que o kernel desenha fora do resultado do corte, entra com as MESMAS linhas
   (`guardaCorpoPieces`, a partir de `corteGuardaCorpoDaSecao`), e a seleção, o realce de cursor e a caixa dele
-  saem dessa mesma camada (`guardaCorpoCorteOps`, `guardaCorposNaCaixa`). Sem seleção, Mover e Copiar pegam o elemento
-  sob o arraste.
+  saem dessa mesma camada (`guardaCorpoCorteOps`, `guardaCorposNaCaixa`).
+- **Fluxo do Mover e do Copiar na vista: o MESMO da planta** (`SectionMoveTool`, `sectionMoveTool.ts`), no plano (t, z). Nada de arraste:
+  (1) clique no **ponto base** com todos os snaps do índice da vista (vértice, extremidade, ponto médio, interseção, perpendicular,
+  mais próximo, arestas de parede, laje, escada, acabamentos, guarda-corpo e esquadria, rastreios, Orto e Polar), pelo mesmo
+  `this.snap` e com os mesmos marcadores e rótulos da Cota e do Medir de corte; (2) prévia com o contorno que a vista desenha
+  para cada elemento selecionado, deslocado (`fantasmaDoMover`, `sectionMoverPrevia.ts`; escada leva o guarda-corpo hospedado
+  junto), a linha do ponto base ao cursor e a cota dinâmica do deslocamento (`tempDims`, mesmo provedor da planta); (3) clique no
+  **destino** com snaps (o deslocamento é exatamente base até o ponto capturado) ou distância digitada + Enter, na direção do
+  cursor (dt ao longo do corte, dz na vertical); Esc cancela sem alterar, Mover termina e volta a Selecionar, Copiar fica com a
+  mesma base para várias cópias (um só desfazer; Esc encerra a sessão). O gesto (digitado, cota do deslocamento, sessão de cópias)
+  vem do núcleo comum `gestoDeslocamento.ts`, usado também pelo `MoveTool` da planta: estender o núcleo, não copiar (regra 1).
+  Com elementos já selecionados o primeiro clique é o ponto base; sem seleção, o elemento sob o cursor aparece realçado e o
+  clique o seleciona e vira o ponto base. O que não anda na vertical (parede, sozinha na seleção) já tem a prévia restrita à
+  horizontal do ponto base e a barra de status diz o porquê (`tl_msg_section_move_vertical`), sem reação muda. O Alinhar da vista
+  mostra o snap e o destaque do elemento e da linha escolhida, também na referência.
 
 Teste-guarda: `packages/tools/src/contratoModificacao.test.ts`. `CLASSIFICACAO` é um `Record<Element['kind'], ...>`:
 um kind novo sem linha **não compila**; cada marca tem de apontar código que existe e `null` exige o motivo (TODO).

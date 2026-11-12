@@ -151,14 +151,18 @@ const pontosDe = () => page.evaluate(async () => {
   return out;
 });
 const meioDe = (a) => a[Math.floor(a.length / 2)];
-async function arrasta(x, y, dx, dy) {
+// Mover e Copiar no corte seguem o fluxo da planta: clique no ponto base e depois no destino (os snaps têm roteiro próprio em
+// mover-corte-snaps.mjs; aqui ficam desligados para o deslocamento ser exatamente o do cursor).
+async function desloca(x, y, dx, dy) {
   await page.mouse.move(x, y);
-  await page.mouse.down();
+  await page.mouse.click(x, y);
   await page.mouse.move(x + dx / 2, y + dy / 2, { steps: 4 });
   await page.mouse.move(x + dx, y + dy, { steps: 4 });
-  await page.mouse.up();
+  await page.mouse.click(x + dx, y + dy);
   await page.waitForTimeout(500);
 }
+const snapLigado = () => page.evaluate(() => (window.__hestia.useUi.getState().options.snap ?? {}).enabled !== false);
+const snapAlterna = async (ligado) => { if ((await snapLigado()) !== ligado) { await page.keyboard.press('F3'); await page.waitForTimeout(150); } };
 const zoomAtual = () => page.evaluate(() => window.__hestia.editor.viewport().zoom);
 const esperaVista = () => page.waitForTimeout(3000);
 
@@ -311,6 +315,7 @@ for (const vista of ['corte1', 'elev1']) {
   await step(`${nome}: Mover (e Copiar) escada e guarda-corpo, com undo e redo`, async () => {
     await montar();
     await abreVista(vista);
+    await snapAlterna(false);
     const pts = await pontosDe();
     const zoom = await zoomAtual();
     const dx = 90, dy = -60;
@@ -321,7 +326,7 @@ for (const vista of ['corte1', 'elev1']) {
     await page.evaluate(() => window.__hestia.editor.setTool('move'));
     const [x, y] = meioDe(pts.st1);
     await shot(`${vista}-mover-escada-antes.png`);
-    await arrasta(x, y, dx, dy);
+    await desloca(x, y, dx, dy);
     const e1 = await estado();
     check('Mover escada: anda dt ao longo do corte e sobe dz (base e topo)', num(st('st1', e1).x, st('st1', e0).x + dt, 0.02) && num(st('st1', e1).b, dz, 0.02) && num(st('st1', e1).t, dz, 0.02), `x ${st('st1', e0).x}→${st('st1', e1).x} b=${st('st1', e1).b} (esperado dz=${dz.toFixed(3)})`);
     check('Mover escada: o guarda-corpo hospedado continua hospedado na mesma escada (segue sozinho)', gc('gc1', e1).host === 'st1' && gc('gc1', e1).cb === gc('gc1', e0).cb && JSON.stringify(gc('gc2', e1)) === JSON.stringify(gc('gc2', e0)));
@@ -339,35 +344,35 @@ for (const vista of ['corte1', 'elev1']) {
     await setSel(['gc2']);
     await page.evaluate(() => window.__hestia.editor.setTool('move'));
     const [mx, my] = meioDe(pts.gc2);
-    await arrasta(mx, my, dx, dy);
+    await desloca(mx, my, dx, dy);
     const e2 = await estado();
     check('Mover guarda-corpo manual: anda dt e sobe dz (cota base)', num(gc('gc2', e2).x, 28 + dt, 0.02) && num(gc('gc2', e2).cb, dz, 0.02), `x=${gc('gc2', e2).x} cb=${gc('gc2', e2).cb}`);
     await desfaz();
-    // --- sem seleção: o arraste sobre o elemento o seleciona e move
+    // --- sem seleção: o clique sobre o elemento o seleciona e vira o ponto base
     await setSel([]);
     await page.evaluate(() => window.__hestia.editor.setTool('move'));
-    await arrasta(x, y, dx, dy);
-    check('Mover sem seleção: o elemento sob o clique (escada) vira a seleção e anda', (await selecao()).join() === 'st1' && mudou(await estado(), e0));
+    await desloca(x, y, dx, dy);
+    check('Mover sem seleção: o elemento sob o clique (escada) vira a seleção, o clique é o ponto base e o destino o move', (await selecao()).join() === 'st1' && mudou(await estado(), e0));
     await desfaz();
     // --- guarda-corpo hospedado sozinho
     await setSel(['gc1']);
     await page.evaluate(() => window.__hestia.editor.setTool('move'));
     check('hospedado sozinho: a barra já explica ao escolher Mover', /hospedado/.test(await status()) && /escada/.test(await status()), await status());
     const [hx, hy] = meioDe(pts.gc1);
-    await arrasta(hx, hy, dx, dy);
+    await desloca(hx, hy, dx, dy);
     await shot(`${vista}-mover-hospedado-recusa.png`);
     check('hospedado sozinho: nada muda e a mensagem fica na barra de status', !mudou(await estado(), e0) && /hospedado/.test(await status()) && /escada/.test(await status()) && /Nada foi alterado/.test(await status()), await status());
     // --- escada e guarda-corpo hospedado juntos
     await setSel(['st1', 'gc1']);
     await page.evaluate(() => window.__hestia.editor.setTool('move'));
-    await arrasta(x, y, dx, dy);
+    await desloca(x, y, dx, dy);
     check('escada + hospedado selecionados: anda como um', num(st('st1', await estado()).x, st('st1', e0).x + dt, 0.02) && (await estado()).railings.length === 2);
     await desfaz();
     // --- Copiar
     await setSel(['st1']);
     await page.evaluate(() => window.__hestia.editor.setTool('copy'));
     check('Copiar entra no corte (ferramenta disponível)', (await page.evaluate(() => window.__hestia.useUi.getState().tool)) === 'copy');
-    await arrasta(x, y, dx, dy);
+    await desloca(x, y, dx, dy);
     const e3 = await estado();
     check('Copiar escada: nasce uma escada com o guarda-corpo hospedado dela; a original fica', e3.stairs.length === 2 && e3.railings.length === 3 && num(st('st1', e3).x, st('st1', e0).x) && e3.railings.some((g) => g.host && g.host !== 'st1'));
     const nova = e3.stairs.find((s) => s.id !== 'st1');
@@ -379,14 +384,15 @@ for (const vista of ['corte1', 'elev1']) {
     await desfaz();
     await setSel(['gc2']);
     await page.evaluate(() => window.__hestia.editor.setTool('copy'));
-    await arrasta(mx, my, dx, dy);
+    await desloca(mx, my, dx, dy);
     check('Copiar guarda-corpo manual: nasce outro na posição nova', (await estado()).railings.length === 3 && num(gc('gc2', await estado()).x, 28));
     await desfaz();
     // --- Copiar hospedado sozinho
     await setSel(['gc1']);
     await page.evaluate(() => window.__hestia.editor.setTool('copy'));
-    await arrasta(hx, hy, dx, dy);
+    await desloca(hx, hy, dx, dy);
     check('Copiar hospedado sozinho: recusa com a mensagem e nada nasce', (await estado()).railings.length === 2 && /hospedado/.test(await status()), await status());
+    await snapAlterna(true);
   });
 
   await step(`${nome}: Alinhar com escada e guarda-corpo (referência e alvo)`, async () => {

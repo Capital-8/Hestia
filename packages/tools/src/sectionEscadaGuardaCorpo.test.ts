@@ -76,7 +76,8 @@ const stairX = (p: Project): number => (stair(p).components[0] as StairRun).boun
 const rail = (p: Project, id: string) => { const g = p.elements[id]; if (!isGuardaCorpo(g)) throw new Error('sem guarda-corpo'); return g; };
 const manualX = (p: Project): number => { const h = rail(p, 'gc_m').hospedeiro; if (h.tipo !== 'manual') throw new Error('não é manual'); return h.caminho[0]!.x; };
 const LOCKED = translate('pt', 'tl_msg_railing_hosted_locked');
-const arrasta = (t: ReturnType<typeof tool>, de: [number, number], para: [number, number]) => { t.down?.(P(...de)); t.drag?.(P(...para)); t.up?.(P(...para)); };
+/** Ponto base e depois destino, por clique (o mesmo fluxo da planta). */
+const arrasta = (t: ReturnType<typeof tool>, de: [number, number], para: [number, number]) => { t.move(P(...de)); t.click(P(...de)); t.move(P(...para)); t.click(P(...para)); };
 const click = (t: ReturnType<typeof tool>, x: number, y: number) => { t.move(P(x, y)); t.click(P(x, y)); };
 
 describe('Mover no corte: escada, guarda-corpo manual e guarda-corpo hospedado', () => {
