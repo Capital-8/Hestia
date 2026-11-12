@@ -5,7 +5,8 @@
 //! Linhas `(cortina, papel, tipo, material)` em ordem de chave; números na grade de 1 µm. Papéis: 0 a 5 montante (interior vertical, interior horizontal,
 //! borda início, borda fim, borda base, borda topo), 10 painel de vidro, 11 sólido, 12 vazio, 20 sistema.
 //! - montante: `n` peças (uma por segmento, já aparadas); `comprimento` soma o comprimento das peças; `area` = `area_liquida` = comprimento × largura vista;
-//!   `volume` = comprimento × área do perfil (rect `w·d`; round `πw²/4`);
+//!   `volume` = comprimento × área do perfil (rect `w·d`; round `πw²/4`; L, trapézio e canto pela fórmula de cada um). Peça com esquadria (fase 3):
+//!   `volume` é o da malha, e `comprimento` é o volume ÷ área da seção (comprimento equivalente);
 //! - painel: `n` painéis (um por célula, mesmo sem área); `comprimento` 0; `area` = área BRUTA (retângulo livre mais o encaixe nos lados com montante);
 //!   `area_liquida` = área VISÍVEL (retângulo livre); `volume` = bruta × espessura; vazio: `area` = `area_liquida` = o vão, `volume` 0;
 //! - sistema: `n` 1, `comprimento` L, `area` = `area_liquida` = L × H, `tipo` = `material` = 0, `volume` 0.
@@ -15,6 +16,7 @@
 use std::collections::BTreeMap;
 
 use crate::consultas::Saida;
+use crate::cortina_malha::{area_da_secao, secao, solido, volume_malha};
 use crate::cortina_pecas::CortinaR;
 use crate::cortina_tipos::*;
 
@@ -48,6 +50,18 @@ pub fn quant_cortina(cortinas: &[CortinaR]) -> Vec<LinhaQuant> {
             l.area += len * p.m.largura;
             l.area_liquida += len * p.m.largura;
             l.volume += len * p.m.area_secao();
+        }
+        // Esquadria: o volume é o da malha (a ponta não é plana); o comprimento é o equivalente, volume ÷ área da seção discretizada.
+        for p in &g.pecas_esq {
+            let sec = secao(&p.m, 2);
+            let vol = volume_malha(&solido(&sec, &p.lo, &p.hi));
+            let comp = vol / area_da_secao(&sec);
+            let l = entrada(&mut grupos, c.id, p.papel, p.m.tipo, p.m.material);
+            l.n += 1;
+            l.comprimento += comp;
+            l.area += comp * p.m.largura;
+            l.area_liquida += comp * p.m.largura;
+            l.volume += vol;
         }
         for p in &g.paineis {
             let papel = match p.p.kind {
@@ -205,5 +219,33 @@ mod testes {
         assert!(ids.contains(&1) && ids.contains(&5) && !ids.contains(&3));
         let Saida::U32(a) = &achatar(&v)[0] else { panic!() };
         assert_eq!(a.len(), 5 * v.len());
+    }
+}
+
+#[cfg(test)]
+mod testes_f3 {
+    use super::*;
+    use crate::cortina_pecas::resolver;
+    use crate::cortina_pecas::testes::*;
+
+    /// Grade 4 × 3 de 6 × 3 m: as três verticais interiores, contínuas, somam 9 m; o volume é 9 m × a área da seção pela fórmula do TS.
+    #[test]
+    fn volume_de_cada_perfil_novo_e_comprimento_vezes_a_formula_do_ts() {
+        let casos = [
+            // L: w·d − (w − t)(d − t) = 0,08·0,12 − 0,07·0,11.
+            (M_L, 0.08 * 0.12 - 0.07 * 0.11),
+            // Trapézio: (w + wb)/2 · d = (0,08 + 0,04)/2 · 0,12.
+            (M_TRAP, (0.08 + 0.04) / 2.0 * 0.12),
+            // Canto: w·d − (w − 2t)(d − 2t) = 0,06·0,12 − 0,052·0,112.
+            (M_CANTO, 0.06 * 0.12 - 0.052 * 0.112),
+        ];
+        for (forma, area) in casos {
+            let mut e = Espec::novo(EixoEfetivo::numero(4), EixoEfetivo::numero(3));
+            e.mont = [forma, M_RET, M_RET, M_RET, M_RET, M_RET];
+            let v = quant_cortina(&resolver(&cena_simples(&e, 6.0, 3.0), 0).expect("r"));
+            let iv = v.iter().find(|x| x.papel == PAPEL_INT_V).expect("interior vertical");
+            assert!((iv.comprimento - 9.0).abs() < 1e-6, "forma {forma}: comprimento {}", iv.comprimento);
+            assert!((iv.volume - 9.0 * area).abs() < 1e-9, "forma {forma}: volume {} vs {}", iv.volume, 9.0 * area);
+        }
     }
 }
