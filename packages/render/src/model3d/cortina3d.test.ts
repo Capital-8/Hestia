@@ -28,8 +28,8 @@ function malha(): MalhaCortinaProjeto {
   const c = caixa();
   return {
     protos: new Map([
-      [1, { proto: 1, papel: 0, ...c }],
-      [2, { proto: 2, papel: 1, ...c }],
+      [1, { proto: 1, papel: 0, tipoId: null, ...c }],
+      [2, { proto: 2, papel: 1, tipoId: null, ...c }],
     ]),
     instancias: [
       { wallId: 'a', proto: 1, papel: 0, materialId: 'mat_aluminio', transparente: false, matrizes: Float32Array.from([...m12(0.05, 0.1, 3, 0, 0, 0), ...m12(0.05, 0.1, 3, 2, 0, 0)]), n: 2 },
@@ -62,7 +62,7 @@ describe('cortina3d: contas puras da malha por instâncias', () => {
 
   it('normais por face apontam para fora', () => {
     const c = caixa();
-    const n = normaisDoProto({ proto: 1, papel: 0, ...c });
+    const n = normaisDoProto({ proto: 1, papel: 0, tipoId: null, ...c });
     // Face de baixo (vértices 0..3): normal -z; face de cima (4..7): +z.
     expect([n[2], n[5], n[8], n[11]]).toEqual([-1, -1, -1, -1]);
     expect([n[14], n[17], n[20], n[23]]).toEqual([1, 1, 1, 1]);

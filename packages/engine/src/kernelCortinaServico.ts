@@ -33,6 +33,8 @@ export interface PrototipoCortina {
   proto: number;
   /** 0 montante, 1 painel de vidro, 2 painel sólido (`PAPEL_MALHA_CORTINA`). */
   papel: number;
+  /** Tipo de montante (papel 0) ou de painel (papéis 1 e 2) do modelo; `null` sem a resolução de tipos. */
+  tipoId: Id | null;
   vertices: Float32Array;
   indices: Uint32Array;
 }
@@ -77,12 +79,17 @@ export interface QuantCortinaProjeto extends Omit<LinhaQuantCortina, 'cortina' |
 const inverso = <T>(m: ReadonlyMap<Id, T>): Map<T, Id> => new Map([...m].map(([k, v]) => [v, k] as const));
 
 /** Decodifica `cortina_malha` agrupando as instâncias por (cortina, protótipo, material). */
-export function decodificarMalhaCortina(s: Record<string, ArrayLike<number>>, wallIdDe: (n: number) => Id | undefined, materialIdDe: (n: number) => Id | null): MalhaCortinaProjeto {
+export function decodificarMalhaCortina(
+  s: Record<string, ArrayLike<number>>,
+  wallIdDe: (n: number) => Id | undefined,
+  materialIdDe: (n: number) => Id | null,
+  tipoIdDe: (papel: number, tipo: number) => Id | null = () => null,
+): MalhaCortinaProjeto {
   const m = lerMalhaCortina(s);
   const protos = new Map<number, PrototipoCortina>();
   const material = new Map<number, number | null>();
   for (const p of m.protos) {
-    protos.set(p.proto, { proto: p.proto, papel: p.papel, vertices: Float32Array.from(p.vertices), indices: p.indices });
+    protos.set(p.proto, { proto: p.proto, papel: p.papel, tipoId: tipoIdDe(p.papel, p.tipo), vertices: Float32Array.from(p.vertices), indices: p.indices });
     material.set(p.proto, p.material);
   }
   const grupos = new Map<string, { wallId: Id; proto: number; papel: number; transparente: boolean; ms: number[] }>();
@@ -200,7 +207,9 @@ export class ServicoCortina {
     return this.memoizar(p, `malha${lod}`, () => {
       const s = this.cena!.consultar('cortina_malha', [NIVEL_TODOS, lod]);
       const mats = inverso(this.entrada!.materialDe);
-      return decodificarMalhaCortina(s, this.wallIdDe(), (n) => mats.get(n) ?? null);
+      const montantes = inverso(this.atual!.montanteDe);
+      const paineis = inverso(this.atual!.painelDe);
+      return decodificarMalhaCortina(s, this.wallIdDe(), (n) => mats.get(n) ?? null, (papel, tipo) => (papel === 0 ? montantes : paineis).get(tipo) ?? null);
     });
   }
 
