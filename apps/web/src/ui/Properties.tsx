@@ -33,7 +33,7 @@ import { editor, useProject } from '../editor/controller.ts';
 import { fmtNum, t as traduz, toolLabel, useT, type Lang } from '../editor/i18n.ts';
 import { editViewRange, restoreViewRangeDefault } from '../editor/viewRangeActions.ts';
 import { setGridStep, setRoofProjection, setSnap, useUi } from '../editor/state.ts';
-import { areaViewIdDeFundo, planViewIdDeFundo } from '../editor/vistaAtiva.ts';
+import { areaViewIdDeFundo, planViewIdDeFundo, tipoDeVistaDeFundo } from '../editor/vistaAtiva.ts';
 import { avisoSemNivelAcima, proximoNivelAcima, setBaseNoPiso, setTopoNoPiso } from '../editor/wallFloorActions.ts';
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
 import { useFormat } from './useUnits.ts';
@@ -369,8 +369,9 @@ function ViewProps(): ReactElement {
   const lvl = p.levels.find((l) => l.id === s.levelId);
   const section = s.view === 'section' ? p.views.find((v) => v.id === s.sectionId) : undefined;
   // A planta de cobertura mostra as mesmas propriedades da de piso do nível; só o nome do tipo muda.
-  const roof = s.view === 'plan' && s.planKind === 'roof';
-  const areaPlan = s.view === 'plan' && s.planKind === 'area' ? activeAreaPlan(p, areaViewIdDeFundo(s)) : undefined;
+  const tipoDeFundo = tipoDeVistaDeFundo(p, s);
+  const roof = s.view === 'plan' && tipoDeFundo === 'roof';
+  const areaPlan = s.view === 'plan' && tipoDeFundo === 'area' ? activeAreaPlan(p, areaViewIdDeFundo(p, s)) : undefined;
   const title = s.view === 'plan' ? areaPlan ? `${areaPlan.name} · ${lvl?.name ?? ''}` : `${roof ? t('prc_view_roof_plan') : t('prc_view_plan')} · ${lvl?.name ?? ''}` : s.view === 'section' ? `${section?.kind === 'elevation' ? t('prc_view_elevation') : t('prc_view_section')} · ${section?.name ?? ''}` : t('prc_view_3d');
   const kindLabel = s.view === 'plan' ? (areaPlan ? t('prc_view_area_plan') : roof ? t('prc_view_roof_plan') : t('prc_view_floor_plan')) : s.view === 'section' ? (section?.kind === 'elevation' ? t('prc_view_elevation') : t('prc_view_section')) : t('prc_view_3d');
   return (
@@ -380,7 +381,7 @@ function ViewProps(): ReactElement {
       </div>
       <Group title={t('prc_pgrp_view')} stateKey="view">
         <Row label={t('prc_fld_level')} htmlFor="v-level">
-          <select id="v-level" className="select" value={s.levelId} onChange={(e) => editor.selectLevel(e.target.value, s.planKind)}>
+          <select id="v-level" className="select" value={s.levelId} onChange={(e) => editor.selectLevel(e.target.value, tipoDeFundo === 'roof' ? 'roof' : 'floor')}>
             {p.levels.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
           </select>
         </Row>
@@ -431,7 +432,7 @@ export function Properties(): ReactElement {
   const sel = useDeferredValue(useUi((s) => s.selection));
   // Na planta de área, cotas/textos vivem em `plan.annotations`; no corte/elevação, em `SectionView.annotations`: a
   // seleção precisa procurar na vista certa, não no nível.
-  const planId = useUi((s) => (s.planKind === 'floor' ? null : planViewIdDeFundo(s)));
+  const planId = useUi((s) => (tipoDeVistaDeFundo(p, s) === 'floor' ? null : planViewIdDeFundo(s)));
   const sectionId = useUi((s) => (s.view === 'section' ? s.sectionId : null));
   const note = selectedNote(p, useUi((s) => s.levelId), sel, planId, sectionId);
   const view = selectedView(p, sel);

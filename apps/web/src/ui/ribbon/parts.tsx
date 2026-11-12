@@ -5,6 +5,7 @@ import { editor } from '../../editor/controller.ts';
 import { useAtalhos } from '../../editor/shortcutConfig.ts';
 import { t, toolLabel, type Lang } from '../../editor/i18n.ts';
 import { useUi, type ViewKind } from '../../editor/state.ts';
+import { tipoDeVistaDeFundo } from '../../editor/vistaAtiva.ts';
 import { Icon } from '../Icon.tsx';
 import { ACTIONS, type RibbonCtx } from './actions.ts';
 import { estadoNoEsboco } from './perimeterFace.ts';
@@ -51,7 +52,7 @@ function faceBase(item: RibbonItem, ctx: RibbonCtx, lang: Lang, view: ViewKind, 
       const label = item.label ? txt(item.label, lang) : toolLabel(item.tool, lang);
       const titulo = sc ? `${label} (${sc})` : label;
       // Tabela por tipo de vista: hoje piso, cobertura e área aceitam todas; o controlador também recusa, inclusive por atalho.
-      const blocked = view !== '3d' && !toolAllowedInView(ctx.planKind, item.tool);
+      const blocked = view !== '3d' && !toolAllowedInView(tipoDeVistaDeFundo(ctx.p, ctx), item.tool);
       const disabled = blocked || toolDisabledOnSheet(view, item.tool);
       const why = t(lang, blocked ? 'eds_msg_tool_not_in_view' : 'shr_not_for_sheets');
       return {

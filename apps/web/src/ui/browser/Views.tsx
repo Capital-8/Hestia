@@ -8,6 +8,7 @@ import { beginSheetDrag, endSheetDrag, SHEET_VIEW_MIME } from '../../editor/shee
 import { createAreaPlansForLevels, openAreaPlan } from '../../editor/areaPlanActions.ts';
 import { useUi, type DialogKind } from '../../editor/state.ts';
 import { activateView } from '../../editor/viewTabActions.ts';
+import { usePlanViewIdAtivo } from '../../editor/vistaAtiva.ts';
 import { atualizarPonto3DAction, excluirPonto3DAction, irParaPonto3DAction, renomearPonto3DAction, salvarPonto3DAction } from '../../editor/view3dPointActions.ts';
 import { Node, type DragData, type MenuItem } from './Tree.tsx';
 import { useUnits } from '../useUnits.ts';
@@ -149,9 +150,8 @@ export function ViewsTree(): ReactElement {
   const p = useProject();
   const units = useUnits();
   const view = useUi((s) => s.view);
-  const levelId = useUi((s) => s.levelId);
-  const planKind = useUi((s) => s.planKind);
-  const planViewId = useUi((s) => s.planViewId);
+  // Vista de planta ativa: o destaque é de quem tem este id (piso, cobertura e área têm ids distintos).
+  const ativa = usePlanViewIdAtivo();
   const areaPlans = areaPlansOf(p);
   const sections = p.views.filter((v) => v.kind === 'section');
   const elevations = p.views.filter((v) => v.kind === 'elevation');
@@ -172,7 +172,7 @@ export function ViewsTree(): ReactElement {
             id={`plan:${l.id}`}
             label={l.name}
             icon="plan"
-            bold={view === 'plan' && planKind === 'floor' && levelId === l.id}
+            bold={ativa === floorViewId(l.id)}
             title={t('cvn_br_plan_level_title', { value: formatQuantity(units, 'length', l.elevation) })}
             onOpen={() => activateView({ kind: 'plan', viewId: floorViewId(l.id) })}
             drag={dragView({ kind: 'plan', viewId: floorViewId(l.id) }, t('cvn_br_drag_plan', { name: l.name }))}
@@ -188,7 +188,7 @@ export function ViewsTree(): ReactElement {
             id={`roof:${l.id}`}
             label={l.name}
             icon="roof"
-            bold={view === 'plan' && planKind === 'roof' && levelId === l.id}
+            bold={ativa === roofViewId(l.id)}
             title={t('cvn_br_roof_plan_title', { level: l.name })}
             onOpen={() => activateView({ kind: 'plan', viewId: roofViewId(l.id) })}
             menu={[{ label: t('btn_open'), run: () => activateView({ kind: 'plan', viewId: roofViewId(l.id) }) }, { label: t('cvn_br_levels'), run: () => useUi.setState({ dialog: 'levels' }), sep: true }]}
@@ -224,7 +224,7 @@ export function ViewsTree(): ReactElement {
             id={`area:${ap.id}`}
             label={ap.name}
             icon="plan"
-            bold={view === 'plan' && planKind === 'area' && planViewId === ap.id}
+            bold={ativa === ap.id}
             title={t('cvn_br_area_plan_title')}
             onOpen={() => activateView({ kind: 'plan', viewId: ap.id })}
             drag={dragView({ kind: 'plan', viewId: ap.id }, t('cvn_br_drag_area', { name: ap.name }))}

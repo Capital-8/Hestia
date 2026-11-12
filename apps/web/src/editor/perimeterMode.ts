@@ -347,7 +347,7 @@ export class PerimeterMode {
 
   private abrir(s: Sessao): void {
     this.sessao = s;
-    useUi.setState((u) => ({ view: 'plan', sectionId: null, ...camposDeNivel(u, s.levelId), selection: [], hover: null }));
+    useUi.setState((u) => ({ view: 'plan', sectionId: null, ...camposDeNivel(this.porta.projeto(), u, s.levelId), selection: [], hover: null }));
     this.porta.ativar(s.tool);
     s.tool.setShape('line');
     this.porta.atualizar();

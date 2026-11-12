@@ -2,10 +2,10 @@ import { categoryOfElement, hiddenByUserInView, hiddenIdsInView, hiddenTargetOfV
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
 import { resolvedPlanViewOf } from '@hestia/render';
-import { nivelAtivo, planViewIdAtivo, planViewIdDeFundo, tipoDeVistaAtivo } from './vistaAtiva.ts';
+import { nivelAtivo, planViewIdAtivo, planViewIdDeFundo, tipoDeVistaAtivo, tipoDeVistaDeFundo } from './vistaAtiva.ts';
 import { annotationIdsOfActiveView, selectedAnnotations } from './viewAnnotations.ts';
 
-type ViewState = Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'planViewId' | 'sectionId'>;
+type ViewState = Pick<ReturnType<typeof useUi.getState>, 'view' | 'levelId' | 'planViewId' | 'sectionId'>;
 
 /** Estado temporário de visibilidade de uma vista (não vai para o arquivo do projeto). */
 export interface TempViewVisibility {
@@ -17,14 +17,17 @@ export interface TempViewVisibility {
   reveal?: boolean;
 }
 
-/** Chave estável da vista ativa (a mesma ideia de `Editor.viewKey`, mas para a visibilidade). */
-export function visibilityKeyOf(st: Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'planViewId' | 'sectionId'>): string | null {
+/**
+ * Chave estável da vista ativa (a mesma ideia de `Editor.viewKey`, mas para a visibilidade). O prefixo da planta vem do
+ * tipo da vista, lido do projeto `p` (o do editor, se omitido).
+ */
+export function visibilityKeyOf(st: Pick<ReturnType<typeof useUi.getState>, 'view' | 'levelId' | 'planViewId' | 'sectionId'>, p: Project = editor.project): string | null {
   if (st.view === 'sheet') return null;
   if (st.view === '3d') return '3d';
   if (st.view === 'section') return st.sectionId ? `section:${st.sectionId}` : null;
   const viewId = planViewIdAtivo(st);
   if (!viewId) return null;
-  const tipo = tipoDeVistaAtivo(st);
+  const tipo = tipoDeVistaAtivo(p, st);
   if (tipo === 'area') return `area:${viewId}`;
   return tipo === 'roof' ? `roof:${nivelAtivo(st)}` : `plan:${nivelAtivo(st)}`;
 }
@@ -33,7 +36,7 @@ export function visibilityKeyOf(st: Pick<ReturnType<typeof useUi.getState>, 'vie
  * Vista alvo de ocultação permanente para o estado atual; null na prancha ou sem vista. Com `p`, o alvo da planta sai de
  * `hiddenTargetOfView(p, viewId)`; sem `p` (ou com vista que não existe no projeto) o alvo vem do tipo da vista ativa.
  */
-export function viewHiddenTargetOf(st: Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'planViewId' | 'sectionId'>, p?: Project): ViewHiddenTarget | null {
+export function viewHiddenTargetOf(st: Pick<ReturnType<typeof useUi.getState>, 'view' | 'levelId' | 'planViewId' | 'sectionId'>, p?: Project): ViewHiddenTarget | null {
   if (st.view === 'sheet') return null;
   if (st.view === '3d') return { kind: '3d' };
   if (st.view === 'section') return st.sectionId ? { kind: 'section', viewId: st.sectionId } : null;
@@ -116,7 +119,7 @@ function hiddenForaDePlanta(p: Project, st: ReturnType<typeof useUi.getState>, t
 /** Resolve permanente + temporário + Reveal para a vista ativa. */
 export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>): ViewVisibilitySets {
   const target = viewHiddenTargetOf(st, p);
-  const key = visibilityKeyOf(st);
+  const key = visibilityKeyOf(st, p);
   if (!target || !key) return VAZIO;
   const temp = st.viewTemp[key] ?? {};
   const reveal = temp.reveal === true;
@@ -377,7 +380,7 @@ export function temporaryHideActive(): boolean {
   return temporaryActive();
 }
 
-let ultimoOcultoDaVista: { p: Project; viewId: Id; levelId: Id; view: string; planKind: string; temp: TempViewVisibility | undefined; revelando: boolean; ids: ReadonlySet<Id> } | null = null;
+let ultimoOcultoDaVista: { p: Project; viewId: Id; levelId: Id; view: string; temp: TempViewVisibility | undefined; revelando: boolean; ids: ReadonlySet<Id> } | null = null;
 
 /**
  * Ids que a vista de planta ativa (ou, em 3D, corte e prancha, a planta de fundo) esconde: a regra única
@@ -389,15 +392,15 @@ export function hiddenInActiveView(p: Project, st: ReturnType<typeof useUi.getSt
   const viewId = planViewIdDeFundo(st);
   if (!viewId) return new Set();
   const levelId = nivelAtivo(st);
-  const key = st.view === 'plan' ? visibilityKeyOf(st) : null;
+  const key = st.view === 'plan' ? visibilityKeyOf(st, p) : null;
   const temp = key ? st.viewTemp[key] : undefined;
   const revelando = temp?.reveal === true;
   const c = ultimoOcultoDaVista;
-  if (c && c.p === p && c.viewId === viewId && c.levelId === levelId && c.view === st.view && c.planKind === st.planKind && c.temp === temp && c.revelando === revelando) return c.ids;
+  if (c && c.p === p && c.viewId === viewId && c.levelId === levelId && c.view === st.view && c.temp === temp && c.revelando === revelando) return c.ids;
   // A cobertura não usa intervalo de vista (o desenho a resolve sem ele): só as vistas com intervalo têm etapa 1.
-  const outOfRange = st.planKind === 'roof' ? undefined : resolvedPlanViewOf(p, levelId, viewId).hidden;
+  const outOfRange = tipoDeVistaDeFundo(p, st) === 'roof' ? undefined : resolvedPlanViewOf(p, levelId, viewId).hidden;
   const candidatos = st.view === 'plan' ? [...Object.keys(p.elements), ...annotationIdsOfActiveView(p, st)] : Object.keys(p.elements);
   const ids = hiddenIdsInView(p, viewId, candidatos, { outOfRange, temporary: temp ? { hidden: temp.hidden, isolated: temp.isolated } : undefined, revealing: revelando });
-  ultimoOcultoDaVista = { p, viewId, levelId, view: st.view, planKind: st.planKind, temp, revelando, ids };
+  ultimoOcultoDaVista = { p, viewId, levelId, view: st.view, temp, revelando, ids };
   return ids;
 }

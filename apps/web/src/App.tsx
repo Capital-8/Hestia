@@ -7,7 +7,8 @@ import { useI18n } from './editor/i18n.ts';
 import { atalhoAtual } from './editor/shortcutConfig.ts';
 import { guardarSessao, lerSessao, limparSessao } from './editor/sessao.ts';
 import { tabOf } from './editor/viewTabActions.ts';
-import type { OpenView, PlanKind } from './editor/openViews.ts';
+import type { OpenView } from './editor/openViews.ts';
+import { tipoDeVistaDeFundo } from './editor/vistaAtiva.ts';
 import { dockWidths } from './editor/dockLayout.ts';
 import { Dock } from './ui/Dock.tsx';
 import { FileMenu } from './ui/FileMenu.tsx';
@@ -247,7 +248,6 @@ export function App(): ReactElement {
   // Estado da vista: é o que a sessão da aba devolve depois de um F5 (projeto + vista + aba + nível).
   const vista = useUi((s) => s.view);
   const nivelAtivo = useUi((s) => s.levelId);
-  const planKind = useUi((s) => s.planKind);
   const planViewId = useUi((s) => s.planViewId);
   const sectionId = useUi((s) => s.sectionId);
   const abas = useUi((s) => s.openViews);
@@ -299,7 +299,6 @@ export function App(): ReactElement {
           tela: 'editor',
           view: sessao.view,
           levelId: sessao.levelId,
-          planKind: sessao.planKind as PlanKind,
           planViewId: sessao.planViewId,
           sectionId: sessao.sectionId,
           ...(sessao.openViews.length ? { openViews: sessao.openViews as OpenView[] } : {}),
@@ -314,8 +313,10 @@ export function App(): ReactElement {
   // Guarda a sessão a cada mudança de vista/projeto: é o que o F5 reabre.
   useEffect(() => {
     if (tela !== 'editor') return;
+    // A sessão grava o tipo da planta ao lado do id (o formato guardado o inclui); o estado da interface não o guarda.
+    const planKind = tipoDeVistaDeFundo(editor.project, { levelId: nivelAtivo, planViewId });
     guardarSessao({ pasta: editor.pastaNaBiblioteca, view: vista, levelId: nivelAtivo, planKind, planViewId, sectionId, openViews: abas });
-  }, [tela, vista, nivelAtivo, planKind, planViewId, sectionId, abas]);
+  }, [tela, vista, nivelAtivo, planViewId, sectionId, abas]);
 
   // Voltar de propósito para a tela de projetos encerra a sessão da aba: F5 ali continua na tela de projetos. Durante
   // a retomada o estado ainda é `home`, mas a sessão está sendo usada — não pode ser apagada agora.

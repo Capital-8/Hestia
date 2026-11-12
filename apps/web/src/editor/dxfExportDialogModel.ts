@@ -56,7 +56,6 @@ export function dxfGroupState(targets: readonly DxfBatchTarget[], selected: read
 /** Estado da tela que interessa para achar o alvo ativo (subconjunto do `UiState`). */
 export interface DxfActiveView {
   view: string;
-  planKind: string;
   levelId: Id;
   planViewId: Id;
   sectionId: Id | null;
@@ -66,10 +65,10 @@ export interface DxfActiveView {
  * Chave do alvo que está na tela, para o diálogo abrir com ele marcado. Prancha, 3D e planta de cobertura não têm DXF
  * próprio: devolve null e o diálogo cai na primeira planta.
  */
-export function activeDxfTargetKey(ui: DxfActiveView): string | null {
-  // `DxfActiveView` guarda `view`/`planKind` como texto livre (o diálogo é anterior aos seletores); são os mesmos campos do estado.
+export function activeDxfTargetKey(p: Project, ui: DxfActiveView): string | null {
+  // `DxfActiveView` guarda `view` como texto livre (o diálogo é anterior aos seletores); é o mesmo campo do estado.
   const campos = ui as CamposDaVista;
-  const tipo = tipoDeVistaAtivo(campos);
+  const tipo = tipoDeVistaAtivo(p, campos);
   if (tipo === 'area') return `area:${planViewIdAtivo(campos)}`;
   if (ui.view === 'section' && ui.sectionId) return `section:${ui.sectionId}`;
   if (tipo === 'floor') return `plan:${nivelAtivo(ui)}`;

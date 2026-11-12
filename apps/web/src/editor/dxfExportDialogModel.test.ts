@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyProject, type Project } from '@hestia/model';
+import { createEmptyProject, DEFAULT_AREA_GRAPHICS, ProjectStore, type AreaPlan, type Project } from '@hestia/model';
 import {
   activeDxfTargetKey,
   defaultDxfSelection,
@@ -61,15 +61,20 @@ describe('agrupamento da lista', () => {
 });
 
 describe('alvo ativo e seleção inicial', () => {
-  const view = (patch: Partial<DxfActiveView>): DxfActiveView => ({ view: 'plan', planKind: 'floor', levelId: 'lv_0', planViewId: 'pv_lv_0', sectionId: null, ...patch });
+  const view = (patch: Partial<DxfActiveView>): DxfActiveView => ({ view: 'plan', levelId: 'lv_0', planViewId: 'pv_lv_0', sectionId: null, ...patch });
+  // O tipo da vista sai do projeto: a planta de área `ap1` existe nele; piso e cobertura são as principais do nível.
+  const store = new ProjectStore(createEmptyProject());
+  const plan: AreaPlan = { id: 'ap1', name: 'Área', levelId: 'lv_0', scale: 50, graphics: { ...DEFAULT_AREA_GRAPHICS }, tags: [] };
+  store.exec({ type: 'addAreaPlan', plan });
+  const p = store.project;
 
   it('planta, área e corte viram a chave do alvo; cobertura, prancha e 3D não têm DXF', () => {
-    expect(activeDxfTargetKey(view({}))).toBe('plan:lv_0');
-    expect(activeDxfTargetKey(view({ planKind: 'area', planViewId: 'ap1' }))).toBe('area:ap1');
-    expect(activeDxfTargetKey(view({ view: 'section', sectionId: 'v1' }))).toBe('section:v1');
-    expect(activeDxfTargetKey(view({ planKind: 'roof' }))).toBeNull();
-    expect(activeDxfTargetKey(view({ view: 'sheet' }))).toBeNull();
-    expect(activeDxfTargetKey(view({ view: '3d' }))).toBeNull();
+    expect(activeDxfTargetKey(p, view({}))).toBe('plan:lv_0');
+    expect(activeDxfTargetKey(p, view({ planViewId: 'ap1' }))).toBe('area:ap1');
+    expect(activeDxfTargetKey(p, view({ view: 'section', sectionId: 'v1' }))).toBe('section:v1');
+    expect(activeDxfTargetKey(p, view({ planViewId: 'pvr_lv_0' }))).toBeNull();
+    expect(activeDxfTargetKey(p, view({ view: 'sheet' }))).toBeNull();
+    expect(activeDxfTargetKey(p, view({ view: '3d' }))).toBeNull();
   });
 
   it('abre com o alvo ativo marcado e, sem ele, com a primeira planta', () => {

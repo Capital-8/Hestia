@@ -4,7 +4,7 @@ import { editor, useProject, useProjectVersion } from '../editor/controller.ts';
 import { openProjectFile } from '../editor/fileActions.ts';
 import { resolveText, t, useT, type Lang } from '../editor/i18n.ts';
 import { toggleFileMenu, useUi } from '../editor/state.ts';
-import type { PlanKind } from '../editor/openViews.ts';
+import { tipoDeVistaDeFundo } from '../editor/vistaAtiva.ts';
 import { Icon } from './Icon.tsx';
 import { InfoCenter } from './InfoCenter.tsx';
 import { act, tool, type RibbonItem } from './ribbon/model.ts';
@@ -16,7 +16,7 @@ import { useRibbonCtx } from './ribbon/useCtx.ts';
 const QUICK: RibbonItem[] = [tool('measure', 'small'), tool('dimension', 'small'), tool('text', 'small'), act('view3d', 'small'), tool('section', 'small'), act('thinLines', 'small')];
 
 /** "Planta de piso: Térreo", "Planta de cobertura: Cobertura", "Vista 3D: Modelo 3D"… como o Revit mostra na barra de título. */
-function viewTitle(p: Project, view: string, levelId: string, sectionId: string | null, sheetId: string | null, lang: Lang, planKind: PlanKind, planViewId: string): string {
+function viewTitle(p: Project, view: string, levelId: string, sectionId: string | null, sheetId: string | null, lang: Lang, planViewId: string): string {
   if (view === '3d') return t(lang, 'shc_title_view_3d');
   if (view === 'section') {
     const v = p.views.find((x) => x.id === sectionId);
@@ -27,11 +27,12 @@ function viewTitle(p: Project, view: string, levelId: string, sectionId: string 
     const sh = sheetId ? sheetOf(p, sheetId) : undefined;
     return t(lang, 'shc_title_sheet', { name: sh ? `${sh.number} ${sh.name}` : '' });
   }
-  if (planKind === 'area') {
+  const tipo = tipoDeVistaDeFundo(p, { levelId, planViewId });
+  if (tipo === 'area') {
     const ap = planViewOf(p, planViewId);
     return t(lang, 'shc_title_area_plan', { name: ap?.name ?? '' });
   }
-  const key = planKind === 'roof' ? 'shc_title_roof_plan' : 'shc_title_floor_plan';
+  const key = tipo === 'roof' ? 'shc_title_roof_plan' : 'shc_title_floor_plan';
   return t(lang, key, { name: p.levels.find((l) => l.id === levelId)?.name ?? '' });
 }
 
@@ -47,11 +48,10 @@ export function TitleBar(): ReactElement {
   const { t, lang } = useT();
   const sectionId = useUi((s) => s.sectionId);
   const sheetId = useUi((s) => s.sheetId);
-  const planKind = useUi((s) => s.planKind);
   const planViewId = useUi((s) => s.planViewId);
   const fileRef = useRef<HTMLInputElement>(null);
   const store = editor.store;
-  const title = `Hestia - [${project.name}${store.dirty ? ' *' : ''}] - ${viewTitle(project, ctx.view, ctx.levelId, sectionId, sheetId, lang, planKind, planViewId)}`;
+  const title = `Hestia - [${project.name}${store.dirty ? ' *' : ''}] - ${viewTitle(project, ctx.view, ctx.levelId, sectionId, sheetId, lang, planViewId)}`;
   const open = t('btn_open');
   const save = t('btn_save');
   const undo = t('btn_undo');

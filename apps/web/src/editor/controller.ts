@@ -6,7 +6,7 @@ import {
   ProjectStore,
   copyLinkOf, syncWholeLinkCommand,
   annotationIdsIn, projectGrids, DEFAULT_AREA_GRAPHICS, isRoom,
-  viewOwnAnnotationsOf, viewGraphicsOf, floorViewId, toolAllowedInView, planViewOf as vistaDoModelo,
+  viewOwnAnnotationsOf, viewGraphicsOf, floorViewId, roofViewId, toolAllowedInView, planViewOf as vistaDoModelo,
   levelRoomSeparators,
   sectionGraphicsOf,
   buildTemplate,
@@ -39,8 +39,8 @@ import { pedirConfirmacaoHostedLoss } from './hostedLossPrompt.ts';
 import { pedirAlerta } from './alertaPrompt.ts';
 import { fitBox, levelFrameBox, panBy, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
 import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
-import { defaultOpenViews, type PlanKind } from './openViews.ts';
-import { areaViewIdAtivo, camposDeNivel, chaveDeViewportDePlanta, patchParaAtivarVista, planViewIdAtivo, type PatchDeVista, planViewIdDe, planViewIdDeFundo, tipoDeVistaDeFundo } from './vistaAtiva.ts';
+import { defaultOpenViews } from './openViews.ts';
+import { camposDeNivel, chaveDeViewportDePlanta, patchParaAtivarVista, planViewIdAtivo, type PatchDeVista, planViewIdDeFundo, tipoDeVistaDeFundo } from './vistaAtiva.ts';
 import { ehAnotacaoDePlanta, vistaAtivaParaComando } from './vistaDoComando.ts';
 import { idsDeAnotacoes, primeiraVistaDeAreaDoNivel, vistaDeArea } from './vistaDeArea.ts';
 import { casador } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
@@ -210,11 +210,10 @@ export class Editor {
       const s = sectionGraphicsOf(this.project).scale;
       return Number.isFinite(s) && s > 0 ? s : 100;
     }
-    const areaId = areaViewIdAtivo(st);
-    if (areaId) {
-      const s = vistaDeArea(this.project, areaId)?.area?.scale;
-      if (s !== undefined && Number.isFinite(s) && s > 0) return s;
-    }
+    // A escala própria é da planta de área (`area.scale`); piso e cobertura usam a do nível.
+    const ativaId = planViewIdAtivo(st);
+    const propria = ativaId ? vistaDoModelo(this.project, ativaId)?.area?.scale : undefined;
+    if (propria !== undefined && Number.isFinite(propria) && propria > 0) return propria;
     const s = viewGraphicsOf(this.project, floorViewId(st.levelId)).scale;
     return Number.isFinite(s) && s > 0 ? s : 100;
   }
@@ -255,7 +254,7 @@ export class Editor {
     try { run(); } finally { this.nivelAvisoOculto--; }
     const depois = this.store.project;
     if (depois === antes) return;
-    const key = visibilityKeyOf(st);
+    const key = visibilityKeyOf(st, this.project);
     const temp = key ? st.viewTemp[key] : undefined;
     const categories = hiddenCreationWarning(antes, depois, viewId, { temporary: temp ? { hidden: temp.hidden, isolated: temp.isolated } : undefined, revealing: temp?.reveal === true });
     if (categories) useUi.setState({ avisoOculto: { viewId, categories, projeto: depois } });
@@ -288,7 +287,7 @@ export class Editor {
   /** Chave do viewport: cada planta tem o seu (a de cobertura tem outro, do mesmo nível); cada corte ou elevação tem o próprio. */
   private viewKey(): Id {
     const st = useUi.getState();
-    return st.view === 'section' ? `sec:${st.sectionId}` : chaveDeViewportDePlanta(st);
+    return st.view === 'section' ? `sec:${st.sectionId}` : chaveDeViewportDePlanta(this.project, st);
   }
 
   viewport(): Viewport | null {
@@ -540,7 +539,7 @@ export class Editor {
     // Tabela por tipo de vista (`toolAllowedInView`): hoje piso, cobertura e área aceitam todas (a planta de área deixou de
     // bloquear as ferramentas de modelo na Fase 3: criar onde a categoria está oculta avisa, ver `avisandoOculto`). A consulta
     // fica para os tipos que restringirem (forro, Fase 4). Vale com a planta "de fundo" em corte e prancha; o 3D não restringe.
-    if (st.view !== '3d' && !toolAllowedInView(tipoDeVistaDeFundo(st), id)) {
+    if (st.view !== '3d' && !toolAllowedInView(tipoDeVistaDeFundo(this.project, st), id)) {
       useUi.setState({ status: { key: 'eds_msg_tool_not_in_view' } });
       return;
     }
@@ -570,7 +569,7 @@ export class Editor {
     // Rótulo do ambiente: alvo do arraste na planta de piso e na de área. Só com a ferramenta Selecionar:
     // com Cota/Texto/Etiqueta/Detalhe/Medir ativos, o clique é da ferramenta (a planta de área é de anotação).
     // A posição é do MODELO (vale em todas as vistas).
-    const tipoDePlanta = tipoDeVistaDeFundo(ui);
+    const tipoDePlanta = tipoDeVistaDeFundo(this.project, ui);
     if (ui.tool === 'select' && ui.view === 'plan' && (tipoDePlanta === 'area' || tipoDePlanta === 'floor')) {
       const levelPlan = tipoDePlanta === 'area' ? vistaDeArea(this.project, planViewIdDeFundo(ui)) : primeiraVistaDeAreaDoNivel(this.project, ui.levelId);
       const planId = levelPlan?.id ?? null;
@@ -794,7 +793,7 @@ export class Editor {
     const keep = sel.filter((id) => p.elements[id] || notes.has(id) || sectionAnnotationIdsIn(p).has(id) || views.has(id) || seps.has(id) || projectGrids(p).some((g) => g.id === id));
     if (keep.length !== sel.length) useUi.setState({ selection: keep });
     const lv = useUi.getState().levelId;
-    if (!p.levels.some((l) => l.id === lv)) useUi.setState((s) => camposDeNivel(s, p.levels[0]?.id ?? 'lv_0'));
+    if (!p.levels.some((l) => l.id === lv)) useUi.setState((s) => camposDeNivel(p, s, p.levels[0]?.id ?? 'lv_0'));
     const after = useUi.getState();
     if (after.view === 'section' && !p.views.some((v) => v.id === after.sectionId)) useUi.setState({ view: 'plan', sectionId: null });
   }
@@ -889,7 +888,7 @@ export class Editor {
     }
     // Pré-aquece o 3D atrás do diálogo: quando o usuário clicar em "Pré-visualizar", a cena já está montada.
     const st = useUi.getState();
-    guardarOrigemDoColar({ view: st.view, levelId: st.levelId, sectionId: st.sectionId, planKind: st.planKind, planViewId: st.planViewId });
+    guardarOrigemDoColar({ view: st.view, levelId: st.levelId, sectionId: st.sectionId, planViewId: st.planViewId });
     limparPreviaPreparada();
     // Primeiro o diálogo aparece; o 3D começa a montar atrás dele no quadro seguinte (assim o clique não trava).
     useUi.setState({ dialog: 'selectLevels', dialogArg: null });
@@ -913,9 +912,9 @@ export class Editor {
   /** Restaura planta/corte/elevação de origem (o 3D fica montado em segundo plano). */
   private restaurarVistaDeOrigem(o: OrigemDoColar): void {
     if (o.view === 'section') {
-      useUi.setState((s) => ({ view: 'section', sectionId: o.sectionId, ...camposDeNivel(s, o.levelId) }));
+      useUi.setState((s) => ({ view: 'section', sectionId: o.sectionId, ...camposDeNivel(this.project, s, o.levelId) }));
     } else if (o.view === 'plan') {
-      useUi.setState({ view: 'plan', planKind: o.planKind, planViewId: o.planViewId, sectionId: null, levelId: o.levelId });
+      useUi.setState({ view: 'plan', planViewId: o.planViewId, sectionId: null, levelId: o.levelId });
     } else {
       useUi.setState({ view: '3d' });
     }
@@ -957,7 +956,6 @@ export class Editor {
       originView: origem?.view ?? st.view,
       originLevelId: origem?.levelId ?? st.levelId,
       originSectionId: origem?.sectionId ?? st.sectionId,
-      originPlanKind: origem?.planKind ?? st.planKind,
       originPlanViewId: origem?.planViewId ?? st.planViewId,
       link,
     };
@@ -1005,8 +1003,7 @@ export class Editor {
       view: preview.originView,
       levelId: preview.originLevelId,
       sectionId: preview.originSectionId,
-      planKind: preview.originPlanKind ?? 'floor',
-      planViewId: preview.originPlanViewId ?? planViewIdDe(preview.originLevelId, preview.originPlanKind ?? 'floor'),
+      planViewId: preview.originPlanViewId ?? floorViewId(preview.originLevelId),
     });
     useUi.setState({ status: { key: 'eds_msg_paste_cancelled' } });
   }
@@ -1096,10 +1093,11 @@ export class Editor {
   cotasAutomaticasDaPlanta(opts: AutoCotaOptions = {}): void {
     const st = useUi.getState();
     const levelId = st.levelId;
-    const areaId = areaViewIdAtivo(st);
-    const plan = areaId ? vistaDeArea(this.store.project, areaId) : undefined;
-    // Planta de área órfã (sem a vista): cai na planta de piso, como sempre.
-    const viewId = areaId && !plan ? undefined : (planViewIdAtivo(st) ?? undefined);
+    // Vista ativa no projeto; planta órfã (sem a vista) cai na planta de piso, como sempre.
+    const ativaId = planViewIdAtivo(st);
+    const ativa = ativaId ? vistaDoModelo(this.store.project, ativaId) : undefined;
+    const viewId = ativa?.id;
+    const plan = ativa?.kind === 'area' ? ativa : undefined;
     // Regra 4.5: cota nova só referencia o que a vista mostra; a que se prenderia a elemento oculto não é criada.
     const ocultos = hiddenInActiveView(this.store.project, st);
     const cotas = cotasAutomaticas(this.store.project, levelId, opts).filter((d) => !dimensionRefIds(d).some((id) => ocultos.has(id)));
@@ -1121,15 +1119,14 @@ export class Editor {
   }
 
   /**
-   * Ativa a planta do nível `id` do tipo `kind` (planta de área: `areaPlanId`). Atalho de `selectPlanView` para quem
-   * ainda pede por nível e tipo; sem `areaPlanId` a planta de área não tem vista e vale a planta de piso.
+   * Ativa a planta de piso (ou de cobertura) do nível `id`. Atalho de `selectPlanView` para quem ainda pede por nível;
+   * a planta de área se ativa por `selectPlanView` com o id dela.
    */
-  selectLevel(id: Id, kind: PlanKind = 'floor', areaPlanId: Id | null = null): void {
-    const tipo: PlanKind = kind === 'area' && !areaPlanId ? 'floor' : kind;
-    this.ativarPlanta({ view: 'plan', levelId: id, planKind: tipo, planViewId: planViewIdDe(id, tipo, areaPlanId) });
+  selectLevel(id: Id, kind: 'floor' | 'roof' = 'floor'): void {
+    this.ativarPlanta({ view: 'plan', levelId: id, planViewId: kind === 'roof' ? roofViewId(id) : floorViewId(id) });
   }
 
-  /** Ativa a vista de planta `viewId` (piso, cobertura ou área): grava `levelId`, `planKind` e `planViewId` juntos. */
+  /** Ativa a vista de planta `viewId` (piso, cobertura ou área): grava `levelId` e `planViewId` juntos. */
   selectPlanView(viewId: Id): void {
     const patch = patchParaAtivarVista(this.store.project, viewId);
     if (patch) this.ativarPlanta(patch);
@@ -1180,7 +1177,7 @@ export class Editor {
     this.viewports.clear();
     this.sectionCache.clear(); this.sectionPending.clear(); this.sectionToFrame.clear(); this.sectionClient?.cancelarTodos();
     // Abas de vista são da sessão: projeto novo começa só com o nível ativo, sem herdar abas do anterior.
-    useUi.setState({ selection: [], levelId: p.levels[0]?.id ?? 'lv_0', view: 'plan', planKind: 'floor', planViewId: floorViewId(p.levels[0]?.id ?? 'lv_0'), sectionId: null, openViews: defaultOpenViews(p.levels.map((l) => l.id)), options: { ...useUi.getState().options, wallTypeId: p.defaults.wallTypeId, doorTypeId: p.defaults.doorTypeId, windowTypeId: p.defaults.windowTypeId, floorTypeId: keptFloorType(p, useUi.getState().options.floorTypeId), slabTypeId: keptSlabType(p, useUi.getState().options.slabTypeId) } });
+    useUi.setState({ selection: [], levelId: p.levels[0]?.id ?? 'lv_0', view: 'plan', planViewId: floorViewId(p.levels[0]?.id ?? 'lv_0'), sectionId: null, openViews: defaultOpenViews(p.levels.map((l) => l.id)), options: { ...useUi.getState().options, wallTypeId: p.defaults.wallTypeId, doorTypeId: p.defaults.doorTypeId, windowTypeId: p.defaults.windowTypeId, floorTypeId: keptFloorType(p, useUi.getState().options.floorTypeId), slabTypeId: keptSlabType(p, useUi.getState().options.slabTypeId) } });
     this.setTool('select');
   }
 

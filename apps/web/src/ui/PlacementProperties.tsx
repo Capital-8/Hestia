@@ -34,9 +34,9 @@ export function PlacementProperties({ tool }: { tool: ToolId }): ReactElement {
   const format = useFormat();
   const { t } = useT();
   const levelId = useUi((s) => s.levelId);
-  const planKind = useUi((s) => s.planKind);
   const planViewId = useUi((s) => s.planViewId);
-  const areaPlan = planKind === 'area' ? planViewOf(p, planViewId) : undefined;
+  const vistaAtiva = planViewOf(p, planViewId);
+  const areaPlan = vistaAtiva?.kind === 'area' ? vistaAtiva : undefined;
   // Na planta de área, as anotações ficam na vista; a frase abaixo já reflete o destino real.
   const targetName = areaPlan
     ? t('pra_msg_area_plan_target', { name: areaPlan.name })
@@ -135,7 +135,7 @@ export function PlacementProperties({ tool }: { tool: ToolId }): ReactElement {
       )}
       {tool === 'room' && (
         <Group title={t('pra_pgrp_placement_room')}>
-          <Row label={t('pra_fld_level')} htmlFor="place-room-level"><select id="place-room-level" className="select" value={levelId} onChange={(e) => useUi.setState((s) => ({ ...camposDeNivel(s, e.target.value), selection: [] }))}>{p.levels.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></Row>
+          <Row label={t('pra_fld_level')} htmlFor="place-room-level"><select id="place-room-level" className="select" value={levelId} onChange={(e) => useUi.setState((s) => ({ ...camposDeNivel(p, s, e.target.value), selection: [] }))}>{p.levels.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></Row>
           <Row label={t('pra_fld_name')} htmlFor="place-room-name"><TextField id="place-room-name" value={o.roomName ?? ''} placeholder={t('pra_opt_automatic')} onCommit={(v) => set({ roomName: v })} /></Row>
           <Row label={t('pra_fld_number')} htmlFor="place-room-number"><TextField id="place-room-number" value={o.roomNumber ?? ''} placeholder={t('pra_opt_automatic')} onCommit={(v) => set({ roomNumber: v })} /></Row>
           <Row label={t('pra_fld_base_offset')} htmlFor="place-room-offset"><NumField id="place-room-offset" value={o.roomHeightOffset ?? 0} quantity="length" onCommit={(v) => set({ roomHeightOffset: v })} /></Row>
@@ -161,7 +161,7 @@ export function PlacementProperties({ tool }: { tool: ToolId }): ReactElement {
       )}
       {!['room', 'roomsep', 'dimension', 'text', 'section'].includes(tool) && (
         <Group title={t('pra_pgrp_level_identity')} open={false}>
-          <Row label={t('pra_fld_level')} htmlFor="place-level"><select id="place-level" className="select" value={levelId} onChange={(e) => useUi.setState((s) => ({ ...camposDeNivel(s, e.target.value), selection: [] }))}>{p.levels.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></Row>
+          <Row label={t('pra_fld_level')} htmlFor="place-level"><select id="place-level" className="select" value={levelId} onChange={(e) => useUi.setState((s) => ({ ...camposDeNivel(p, s, e.target.value), selection: [] }))}>{p.levels.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></Row>
           <Row label={t('pra_fld_mark')} htmlFor="place-mark"><TextField id="place-mark" value={o.placementMark ?? ''} onCommit={(v) => set({ placementMark: v })} /></Row>
           {tool !== 'door' && tool !== 'window' ? <Row label={t('pra_fld_comments')} htmlFor="place-comments"><TextField id="place-comments" value={o.placementComments ?? ''} onCommit={(v) => set({ placementComments: v })} /></Row> : null}
         </Group>
