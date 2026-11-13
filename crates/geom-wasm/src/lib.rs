@@ -106,10 +106,21 @@ pub mod estr_fundacao;
 pub mod estr_malha;
 pub mod estr_perfil;
 pub mod estr_prisma;
+// Ficha K4: planta, corte, junções, quantidades, avisos e apoio.
+pub mod estr_apoio;
+pub mod estr_avisos;
+pub mod estr_corte;
+pub mod estr_juncoes;
+pub mod estr_planta;
+pub mod estr_quant;
 #[cfg(test)]
 mod estr_testes;
 #[cfg(test)]
 mod estr_testes_fundacao;
+#[cfg(test)]
+mod estr_testes_planta;
+#[cfg(test)]
+mod estr_testes_juncoes;
 pub mod volume_sobreposicao;
 #[cfg(test)]
 mod teste_util;
