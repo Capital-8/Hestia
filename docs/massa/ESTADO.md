@@ -6,7 +6,7 @@ Modelo dos subagentes: padrão nas fichas comuns; modelo mais forte (fable) em R
 
 | Ficha | Estado | Commit de mescla | Devoluções | Observações |
 |---|---|---|---|---|
-| M1 | pendente | | 0 | |
+| M1 | em curso | | 0 | worktree criado da base errada; corrigido por ff-only |
 | M2 | pendente | | 0 | |
 | R1 | pendente | | 0 | |
 | R2 | pendente | | 0 | |
@@ -22,6 +22,9 @@ Modelo dos subagentes: padrão nas fichas comuns; modelo mais forte (fable) em R
 | D2 | pendente | | 0 | |
 | X1 | pendente | | 0 | |
 | Q1 | pendente | | 0 | |
+
+## Lições de processo
+- O worktree de `isolation: "worktree"` nasce do `main` local, não da branch de trabalho. Todo prompt de ficha deve mandar o agente rodar `git merge --ff-only claude/youthful-dirac-l4egd1` antes de qualquer coisa e conferir `SCHEMA_VERSION` (esperado 25 antes da M1).
 
 ## Decisões do dono durante a execução
 (nenhuma)
