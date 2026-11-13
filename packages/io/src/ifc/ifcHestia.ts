@@ -63,6 +63,8 @@ const PRODUCT_PREFIXES: Record<Element['kind'], readonly string[]> = {
   stair: ['stair'],
   ramp: ['ramp'],
   railing: ['railing'],
+  // A massa conceitual é estudo volumétrico: não vira produto IFC (saída IFC é a ficha X1).
+  mass: [],
   room: ['space', 'room', 'ifcspace'],
   generic: ['generic'],
   // O CAD importado não vira produto IFC (é desenho de referência, como no Revit).

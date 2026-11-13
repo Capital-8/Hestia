@@ -308,6 +308,14 @@ export function labelOf(c: Command): string {
       return 'Excluir perfil de norma';
     case 'setNormaGuardaCorpo':
       return 'Escolher norma do projeto';
+    case 'addMass':
+      return 'Adicionar massa';
+    case 'updateMass':
+      return 'Editar massa';
+    case 'setMassSecoes':
+      return 'Editar seções da massa';
+    case 'setMassArranjo':
+      return 'Editar arranjo da massa';
     case 'upsertColorScheme':
       return 'Editar esquema de cores';
     case 'removeColorScheme':

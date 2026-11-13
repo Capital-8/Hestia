@@ -31,6 +31,7 @@ import {
   type RampType,
   type JoinConfig,
   type Level,
+  type Mass,
   type Material,
   type Opening,
   type OpeningType,
@@ -81,6 +82,9 @@ import { applyGridCommand, type GridCommand } from './grid.ts';
 import { applyViewCommand } from './viewCommands.ts';
 import { applyCeilingCommand } from './ceilingCommands.ts';
 import { applyGuardaCorpoCommand } from './guardaCorpoCommands.ts';
+import { applyMassCommand } from './massCommands.ts';
+import { isMass, transformMass } from './mass.ts';
+import type { ArranjoMassa, SecaoMassa } from './massTypes.ts';
 import { applyCurtainCommand, prepararTipoParede } from './curtainCommands.ts';
 import type { AddedGridLine, CellOpeningPatch, CurtainHost, CurtainPanelType, LineRef, MullionType } from './wallCurtainTypes.ts';
 import { ajustarCortinasAlteradas, dimensoesCortinas } from './curtainRemap.ts';
@@ -136,6 +140,11 @@ export type Command =
   | { type: 'upsertPerfilNorma'; perfil: PerfilNorma }
   | { type: 'deletePerfilNorma'; id: Id }
   | { type: 'setNormaGuardaCorpo'; id: Id }
+  // Massa conceitual (A.3 item 4): tratados em massCommands.ts; apagar usa `deleteElements`.
+  | { type: 'addMass'; mass: Omit<Mass, 'order'> }
+  | { type: 'updateMass'; id: Id; patch: Partial<Omit<Mass, 'id' | 'kind' | 'order'>> }
+  | { type: 'setMassSecoes'; id: Id; secoes: SecaoMassa[] }
+  | { type: 'setMassArranjo'; id: Id; arranjo: ArranjoMassa | null }
   | { type: 'upsertSlabType'; slabType: SlabType }
   | { type: 'deleteSlabType'; id: Id }
   | { type: 'upsertFloorType'; floorType: FloorType }
@@ -270,6 +279,7 @@ function transformEach<E extends Element>(
 function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }>): void {
   const idMap = c.copy?.idMap;
   transformEach(p, c, isRoof, transformRoof);
+  transformEach(p, c, isMass, transformMass);
   transformEach(p, c, isStair, transformStair, (s) => remintComponents(s, (prefix) => newId(prefix)));
   transformEach(p, c, isRamp, transformRamp, (r) => remintComponents(r, (prefix) => newId(prefix)));
   transformEach(p, c, isSlab, (s, t) => transformSlab(s, t, !!c.copy?.idMap));
@@ -345,7 +355,7 @@ export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
 }
 
 function applyCommandBase(p: Project, c: Command, lang: Lang): void {
-  if (applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyCurtainCommand(p, c, lang) || applyCurtainOpeningCommand(p, c, lang) || applyCurtainHostCommand(p, c, lang)) return;
+  if (applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyMassCommand(p, c, lang) || applyCurtainCommand(p, c, lang) || applyCurtainOpeningCommand(p, c, lang) || applyCurtainHostCommand(p, c, lang)) return;
   switch (c.type) {
     case 'addWall':
       p.elements[c.wall.id] = { ...c.wall, order: p.nextOrder++ };

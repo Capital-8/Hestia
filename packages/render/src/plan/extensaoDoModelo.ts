@@ -81,6 +81,7 @@ const COLETORES: Coletores = {
       return h.tipo === 'escada' ? pontosDaEscada(p, h.escadaId) : pontosDaRampa(p, h.rampaId);
     },
   },
+  mass: { entra: false, motivo: 'massa: ficha V2 (a extensão da massa vem do kernel; a vista ainda não a desenha em corte nem em elevação).', pontos: nenhum },
   room: { entra: false, motivo: 'O ambiente é só uma área de planta (derivada das paredes); não tem desenho em corte nem em elevação.', pontos: nenhum },
   generic: {
     entra: false,

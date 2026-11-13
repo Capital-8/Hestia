@@ -7,8 +7,8 @@ import type { DetailLevel, Id, Project } from './types.ts';
  */
 
 /** Categorias com estilo gráfico próprio (Revit: Object Styles; ArchiCAD: regras de substituição). */
-export type GraphicsCategory = 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'roof' | 'stair' | 'railing' | 'room' | 'annotation' | 'generic';
-export const GRAPHICS_CATEGORIES: readonly GraphicsCategory[] = ['wall', 'door', 'window', 'floor', 'slab', 'roof', 'stair', 'railing', 'room', 'annotation', 'generic'];
+export type GraphicsCategory = 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'roof' | 'stair' | 'railing' | 'mass' | 'room' | 'annotation' | 'generic';
+export const GRAPHICS_CATEGORIES: readonly GraphicsCategory[] = ['wall', 'door', 'window', 'floor', 'slab', 'roof', 'stair', 'railing', 'mass', 'room', 'annotation', 'generic'];
 /** Nome da categoria nas mensagens de validação, no idioma pedido. */
 export function graphicsCategoryLabels(lang: Lang = 'pt'): Record<GraphicsCategory, string> {
   return {
@@ -20,6 +20,7 @@ export function graphicsCategoryLabels(lang: Lang = 'pt'): Record<GraphicsCatego
     roof: t(lang, 'md_cat_roof'),
     stair: t(lang, 'md_cat_stair'),
     railing: t(lang, 'md_cat_railing'),
+    mass: t(lang, 'md_cat_mass'),
     room: t(lang, 'md_cat_room'),
     annotation: t(lang, 'md_cat_annotation'),
     generic: t(lang, 'md_cat_generic'),
@@ -169,6 +170,7 @@ export const DEFAULT_CATEGORY_STYLES: Record<GraphicsCategory, CategoryLineStyle
   roof: { cutWeight: 4, projectionWeight: 2 },
   stair: { cutWeight: 4, projectionWeight: 2 },
   railing: { cutWeight: 3, projectionWeight: 1 },
+  mass: { cutWeight: 2, projectionWeight: 1 },
   room: { cutWeight: 1, projectionWeight: 1 },
   annotation: { cutWeight: 1, projectionWeight: 1 },
   generic: { cutWeight: 2, projectionWeight: 1 },
@@ -190,6 +192,7 @@ export const defaultOverrides = (): Record<GraphicsCategory, CategoryOverride> =
   roof: defaultOverride(),
   stair: defaultOverride(),
   railing: defaultOverride(),
+  mass: defaultOverride(),
   room: defaultOverride(),
   annotation: defaultOverride(),
   generic: defaultOverride(),
