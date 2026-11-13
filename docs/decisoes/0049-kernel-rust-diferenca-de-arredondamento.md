@@ -37,7 +37,8 @@ medição no ADR da sub-etapa; não há exceção implícita.
 - O caso da semente 1, nível 0, material 2 (o `unionClipper` do TS infla a região em 3,5e-3 m² e preenche um entalhe de 3 × 12 cm
   junto a uma parede curva) é defeito do TS: o Rust (2,382905) está a 2e-6 m² da união exata (2,382907). Segue a pendência de
   correção do TS, separada, e o caso fica numa lista de exceções nomeadas do harness (não no limite geral).
-- Faixas, `fragment`, `cut` e `raw` não usam esta regra (continuam sob 0048 e as tolerâncias gerais).
+- Faixas, `fragment`, `cut` e `raw` não usam esta regra (continuam sob 0048 e as tolerâncias gerais), com uma exceção: a propriedade
+  "faixa dentro do bruto" (sobra de cada faixa fora do bruto da camada), que usa a regra na seção "Extensão às faixas" (2026-11-12).
 
 ## Exceções nomeadas (defeitos do TS, não arredondamento)
 
@@ -186,3 +187,42 @@ Data: 2026-11-06. Decisões do dono.
 - Validação visual pelo dono (roteiro em `docs/handoff/fatia-b-validacao-e-resumo.md`).
 - Subir `VERSAO_MOTOR_GEOMETRIA` e registrar a diferença medida.
 - Migrar o forro.
+
+## Extensão às faixas (propriedade "faixa dentro do bruto", A3c)
+
+Data: 2026-11-12. Decisão do dono (opção a). Estende a regra desta ADR à propriedade "faixa dentro do bruto" de
+`tests/kernel-a3c.wasm.test.ts`: a sobra de cada faixa fora do bruto da camada (descontados os vãos da parede) tem o limite
+`1e-5 + K × perímetro × 1e-6` m², com K medido abaixo, e a guarda de erro grosseiro de `1e-2` m².
+
+- **Causa, verificada como arredondamento.** A semente 405 (parede 14, faixa [1,5; 2,15]) tem 1,59e-6 m² fora do bruto ao longo
+  de uma borda diagonal de ~4,5 m, igual no TS e no Rust. A grade de 1 µm desloca cada aresta no máximo uma grade, então a sobra
+  cresce com o perímetro, não com a área. Verificação: a razão área / (perímetro × 1e-6) fica abaixo de 1 em todas as faixas
+  medidas, nos dois motores. Se passasse de 1, a sobra não seria só arredondamento e a regra não se aplicaria.
+- **Medição.** Mesma guarda da propriedade (camada sem `faixa`, faixa com polígono e bruto); sobra = faixa menos bruto, menos os
+  vãos da parede (`aberturas_geom`); perímetro = perímetro da faixa (`perimetroDaForma`). Feita com instrumentação temporária, não
+  commitada, sobre o Rust (`cluster_resolvido`, opções padrão) e sobre a referência TS (`referenciaA3c`). 22 sementes em 39 projetos:
+
+| Conjunto (Rust) | Projetos | Faixas | Com sobra | Razão máx. | Onde |
+|---|---|---|---|---|---|
+| Estresse 1..12 (16 paredes, 2 pavimentos, com tipos de retorno) | 12 | 4523 | 1708 | 0,2047 | semente 4, parede 16 |
+| Retas 100 e 101 | 2 | 473 | 77 | 0,0433 | semente 100, parede 4 |
+| Arcos 100 e 101 | 2 | 239 | 135 | 0,0124 | semente 101, parede 2 |
+| Propriedade 400..407, parede isolada | 8 | 82 | 22 | 0,0465 | semente 402, parede 1 |
+| Propriedade 400..407, 14 paredes com arcos | 8 | 1297 | 393 | 0,1704 | semente 405, parede 14 |
+| Demais (sementes 3, 5, 7 e 11) | 4 | 912 | 385 | 0,1038 | semente 3, parede 8 |
+| Sintéticos de 10 e 20 pavimentos; casa de 2 quartos | 3 | 5097 | 10 | 0,0266 | casa, parede 9 |
+| **Total** | **39** | **12623** | **2730** | **0,2047** | estresse, semente 4, parede 16 |
+
+- **Acima de 1e-6 (Rust).** Três faixas: duas na semente 405 (1,585e-6 m² cada) e uma no estresse, semente 4 (3,2e-6 m², razão
+  0,2047). A semente 4 não entra na propriedade hoje (ela só verifica 400..407); a regra cobre as duas situações.
+- **Razões (Rust).** Máxima 0,2047 (estresse, semente 4, parede 16, faixa [0; 2,1], sobra 3,2e-6 m², perímetro 15,67 m). Média de
+  0,00137 sobre todas as faixas verificadas e de 0,00632 sobre as 2730 com sobra (p50 0,0015; p90 0,019; p99 0,040).
+  Sensibilidade: com o perímetro da sobra em vez do da faixa, a máxima seria 0,301, ainda abaixo de 0,5.
+- **TS (referência).** 12655 faixas, 1635 com sobra, 13 acima de 1e-6 (máximo 2,9e-6 m²); razão máxima 0,2313 (semente 9, parede 3).
+  Os dois motores têm a mesma ordem de grandeza da sobra, o que confirma a causa de arredondamento.
+- **Exceções nomeadas.** Nenhuma faixa foi excluída. As exceções desta ADR (semente 1, nível 0, material 2; semente 101, parede 18,
+  camada 4) são de região e silhueta e não se aplicam às faixas.
+- **K.** Máxima 0,2047 × 1,5 = 0,307, abaixo do piso de 0,5 da regra: **K = 0,5**. Limite:
+  `1e-5 + 0,5 × perímetro × 1e-6` m²; guarda `1e-2` m².
+- **Nota.** A nota antiga da semente 405 (K = 0,35) usava só a borda diagonal de 4,5 m. Pelo perímetro da faixa, como manda a regra,
+  a razão dela é 0,170.

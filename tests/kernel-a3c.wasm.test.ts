@@ -15,9 +15,16 @@ import { CenaV2 } from '../packages/geom/src/kernel/v2/cena.ts';
 import { ErroKernelLeve } from '../packages/geom/src/kernel/v2/erros.ts';
 import { GerenciadorKernelV2 } from '../packages/geom/src/kernel/v2/gerenciador.ts';
 import { fonteDeSecoes } from '../packages/geom/src/kernel/v2/quadros.ts';
+import { perimetroDaForma } from '../packages/engine/src/kernelComparaA3c.ts';
 import { areaDaForma } from '../scripts/kernel-harness-a2.mts';
 import { compararA3c, estat0049Zero, somaEstat0049, type ComparacaoA3c, type Estat0049, type ExcecaoNomeada } from '../scripts/kernel-harness-a3.mts';
 import { projetoDeEstresseA3c, projetoDeParedesSobrepostas, variantesDoNivel } from '../scripts/kernel-a3c-estresse.mts';
+
+/**
+ * 0049, extensão às faixas (decisão do dono, opção a, 2026-11-12): limite da sobra fora do bruto `1e-5 + K x perímetro x 1e-6`.
+ * K = 0,5: piso da regra (máxima medida no estresse 0,2047, x 1,5 = 0,307). Medição e razões em docs/decisoes/0049 ("Extensão às faixas").
+ */
+const K_FAIXA_0049 = 0.5;
 
 const caminho = caminhoDoWasm();
 const bytes = existsSync(caminho) ? readFileSync(caminho) : null;
@@ -196,6 +203,20 @@ const relata = (rotulo: string, c: Cobertura): void => {
 /** Acumulador do estresse: um teste por semente soma aqui; o teste agregado (no fim) confere o total. Ordem sequencial dentro do arquivo. */
 const totalEstresse = zero();
 
+describe('perimetroDaForma (perímetro usado pelo limite da 0049 nas faixas)', () => {
+  it('quadrado 1x1 tem perímetro 4; retângulo 4x2 com furo 1x1 tem 12 + 4', () => {
+    const quadrado: MultiPolygon = [[[{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }]]];
+    expect(perimetroDaForma(quadrado)).toBeCloseTo(4, 12);
+    const furado: MultiPolygon = [
+      [
+        [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 2 }, { x: 0, y: 2 }],
+        [{ x: 1, y: 0.5 }, { x: 2, y: 0.5 }, { x: 2, y: 1.5 }, { x: 1, y: 1.5 }],
+      ],
+    ];
+    expect(perimetroDaForma(furado)).toBeCloseTo(16, 12);
+  });
+});
+
 describe.skipIf(!bytes)('A3c: cluster_resolvido do Rust x motor TypeScript', () => {
   const pula = (): boolean => ger === null;
 
@@ -283,8 +304,11 @@ describe.skipIf(!bytes)('A3c: cluster_resolvido do Rust x motor TypeScript', () 
               if (!c.faixa && f.poly.length && c.raw.length) {
                 const fora = difference(f.poly, c.raw);
                 const sobra = fora.length ? difference(fora, ...(vaos.get(c.parede) ?? [])) : fora;
-                // Medido na semente 405 (parede 14, TS e Rust idênticos): 1,59e-6 m² em 4,5 m de borda, K = 0,35.
-                expect(areaDaForma(sobra), `faixa [${f.z0}, ${f.z1}] fora do bruto`).toBeLessThanOrEqual(1e-6);
+                // 0049 (extensão às faixas): a sobra é arredondamento da grade de 1 µm, que cresce com o perímetro da faixa.
+                // Medido na semente 405 (parede 14): 1,59e-6 m² na faixa [1,5; 2,15] (perímetro 9,30 m, razão 0,170); máxima do estresse 0,2047.
+                const area = areaDaForma(sobra);
+                expect(area, `faixa [${f.z0}, ${f.z1}] fora do bruto`).toBeLessThanOrEqual(1e-5 + K_FAIXA_0049 * perimetroDaForma(f.poly) * 1e-6);
+                expect(area, `faixa [${f.z0}, ${f.z1}] fora do bruto: erro grosseiro`).toBeLessThanOrEqual(1e-2);
               }
               verificadas++;
             }
