@@ -35,7 +35,7 @@ fn perfil(r: &mut Xorshift) -> Perfil {
 }
 
 /// Massa válida ao acaso (2 a 6 seções, qualquer forma, torção de até 0,9·π por trecho, com ou sem arranjo).
-fn massa_ao_acaso(r: &mut Xorshift, num: u32) -> Massa {
+pub(crate) fn massa_ao_acaso(r: &mut Xorshift, num: u32) -> Massa {
     let n = inteiro(r, 2, 6);
     let mesmo_perfil = inteiro(r, 0, 2) == 0;
     let base = perfil(r);

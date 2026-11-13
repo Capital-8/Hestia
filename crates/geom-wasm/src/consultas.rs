@@ -293,6 +293,10 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
         esquema::CONSULTA_CORTINA_RECORTE_HOSPEDEIRO => crate::cortina_hosp::consulta_cortina_recorte_hospedeiro(cena, arg_nivel(args[0])?),
         esquema::CONSULTA_CORTINA_CELULA_PORTA => crate::cortina_porta::consulta_cortina_celula_porta(cena, arg_nivel(args[0])?),
         esquema::CONSULTA_MASSA_MALHA => crate::massa_malha::consulta_massa_malha(cena, arg_nivel(args[0])?, arg_nivel(args[1])?),
+        esquema::CONSULTA_MASSA_PLANTA => crate::massa_planta::consulta_massa_planta(cena, arg_nivel(args[0])?, arg_finito(args[1])?, arg_finito(args[2])?, arg_finito(args[3])?),
+        esquema::CONSULTA_MASSA_FATIAS => crate::massa_fatia::consulta_massa_fatias(cena, arg_nivel(args[0])?),
+        esquema::CONSULTA_QUANT_MASSA => crate::massa_quant::consulta_quant_massa(cena, arg_nivel(args[0])?),
+        esquema::CONSULTA_MASSA_AVISOS => crate::massa_avisos::consulta_massa_avisos(cena, arg_nivel(args[0])?),
         _ => Err(NAO_IMPLEMENTADO),
     }
 }
@@ -519,9 +523,11 @@ mod testes {
         assert_eq!(ids, vec![(140, 2), (141, 4), (142, 1), (143, 6), (144, 1), (145, 1)]);
         let mut c = cena_com(&lote(&[(1, 0, 0.0, 0.0, 1.0, 0.0, 0.1)]));
         for (id, n) in ids {
-            // A 140 (`massa_malha`) entrou na ficha R1: sem massas na cena, devolve as três saídas vazias. As demais seguem sem implementação.
-            if id == esquema::CONSULTA_MASSA_MALHA {
-                assert_eq!(executar(&mut c, id, &vec![0.0; n]).map(|s| s.iter().map(Saida::len).collect::<Vec<_>>()), Ok(vec![0, 0, 0]));
+            // A 140 (`massa_malha`) entrou na ficha R1 e as 141, 142, 144 e 145 na R2: sem massas na cena, devolvem todas as saídas vazias. A 143
+            // (`massa_corte`, ficha R3) segue sem implementação.
+            if id != esquema::CONSULTA_MASSA_CORTE {
+                let saidas = esquema::CONSULTAS.iter().find(|q| q.id == id).map(|q| q.saidas.len());
+                assert_eq!(executar(&mut c, id, &vec![0.0; n]).map(|s| s.iter().map(Saida::len).collect::<Vec<_>>()).ok(), saidas.map(|k| vec![0; k]), "consulta {id}");
             } else {
                 assert_eq!(executar(&mut c, id, &vec![0.0; n]).err(), Some(NAO_IMPLEMENTADO), "consulta {id}");
             }
