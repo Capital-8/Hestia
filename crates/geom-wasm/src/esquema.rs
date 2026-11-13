@@ -5,7 +5,7 @@
 //! Mudou o JSON => sobe `VERSAO_ESQUEMA` e este arquivo.
 
 /// `versao` de `cena-v11.json`.
-pub const VERSAO_ESQUEMA: u32 = 18;
+pub const VERSAO_ESQUEMA: u32 = 19;
 /// `abi` de `cena-v11.json`.
 pub const VERSAO_ABI2: u32 = 2;
 
@@ -130,6 +130,15 @@ pub const SECAO_CORTINA_EXTREMIDADES: u32 = 110;
 /// Parede cortina, fase 5 (esquema v17): esquadria na célula e cortina embutida (ADR 0056 §6.1, §7 e §8). A 111 (`cortina_cadeias`) fica para a fase 4.
 pub const SECAO_CORTINA_CELULAS_ABERTURA: u32 = 112;
 pub const SECAO_CORTINA_HOSPEDES: u32 = 113;
+/// Estrutura (docs/estrutura/PLANO.md, A.5; esquema v19, ficha K1): pilar, viga, fundação, seus tipos e os vértices dos perfis personalizados.
+/// Faixa reservada: seções e consultas 200 a 229.
+pub const SECAO_PILARES: u32 = 200;
+pub const SECAO_VIGAS: u32 = 201;
+pub const SECAO_FUNDACOES: u32 = 202;
+pub const SECAO_TIPOS_PILAR: u32 = 203;
+pub const SECAO_TIPOS_VIGA: u32 = 204;
+pub const SECAO_TIPOS_FUNDACAO: u32 = 205;
+pub const SECAO_PERFIS_ESTR: u32 = 206;
 
 const fn col(nome: &'static str, tipo: Tipo) -> Coluna {
     Coluna { nome, tipo }
@@ -983,6 +992,142 @@ pub const SECOES: &[Secao] = &[
             col("altura", Tipo::F64),
         ],
     },
+    Secao {
+        id: SECAO_PILARES,
+        nome: "pilares",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("nivel_num", Tipo::U32),
+            col("tipo_num", Tipo::U32),
+            col("disciplina", Tipo::U8),
+            col("px", Tipo::F64),
+            col("py", Tipo::F64),
+            col("rotacao", Tipo::F64),
+            col("deslocamento_base", Tipo::F64),
+            col("nivel_topo_num", Tipo::U32),
+            col("deslocamento_topo", Tipo::F64),
+            col("altura", Tipo::F64),
+            col("hosp_num", Tipo::U32),
+        ],
+    },
+    Secao {
+        id: SECAO_VIGAS,
+        nome: "vigas",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("nivel_num", Tipo::U32),
+            col("tipo_num", Tipo::U32),
+            col("ax", Tipo::F64),
+            col("ay", Tipo::F64),
+            col("bx", Tipo::F64),
+            col("by", Tipo::F64),
+            col("deslocamento_z_a", Tipo::F64),
+            col("deslocamento_z_b", Tipo::F64),
+            col("alinhamento", Tipo::U8),
+            col("rotacao", Tipo::F64),
+            col("extremidade_a", Tipo::U8),
+            col("extremidade_b", Tipo::U8),
+        ],
+    },
+    Secao {
+        id: SECAO_FUNDACOES,
+        nome: "fundacoes",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("nivel_num", Tipo::U32),
+            col("tipo_num", Tipo::U32),
+            col("px", Tipo::F64),
+            col("py", Tipo::F64),
+            col("rotacao", Tipo::F64),
+            col("ax", Tipo::F64),
+            col("ay", Tipo::F64),
+            col("bx", Tipo::F64),
+            col("by", Tipo::F64),
+            col("hosp_num", Tipo::U32),
+            col("deslocamento_topo", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_TIPOS_PILAR,
+        nome: "tipos_pilar",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("disciplina", Tipo::U8),
+            col("forma", Tipo::U8),
+            col("p0", Tipo::F64),
+            col("p1", Tipo::F64),
+            col("p2", Tipo::F64),
+            col("p3", Tipo::F64),
+            col("p4", Tipo::F64),
+            col("p5", Tipo::F64),
+            col("perfil_num", Tipo::U32),
+            col("material_num", Tipo::U32),
+            col("espessura_camadas", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_TIPOS_VIGA,
+        nome: "tipos_viga",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("forma", Tipo::U8),
+            col("p0", Tipo::F64),
+            col("p1", Tipo::F64),
+            col("p2", Tipo::F64),
+            col("p3", Tipo::F64),
+            col("p4", Tipo::F64),
+            col("p5", Tipo::F64),
+            col("perfil_num", Tipo::U32),
+            col("material_num", Tipo::U32),
+        ],
+    },
+    Secao {
+        id: SECAO_TIPOS_FUNDACAO,
+        nome: "tipos_fundacao",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("modo", Tipo::U8),
+            col("forma", Tipo::U8),
+            col("base_forma", Tipo::U8),
+            col("base_p0", Tipo::F64),
+            col("base_p1", Tipo::F64),
+            col("base_p2", Tipo::F64),
+            col("base_p3", Tipo::F64),
+            col("base_p4", Tipo::F64),
+            col("base_p5", Tipo::F64),
+            col("base_perfil_num", Tipo::U32),
+            col("altura_base", Tipo::F64),
+            col("pescoco_forma", Tipo::U8),
+            col("pescoco_p0", Tipo::F64),
+            col("pescoco_p1", Tipo::F64),
+            col("pescoco_p2", Tipo::F64),
+            col("pescoco_p3", Tipo::F64),
+            col("pescoco_p4", Tipo::F64),
+            col("pescoco_p5", Tipo::F64),
+            col("pescoco_perfil_num", Tipo::U32),
+            col("altura_pescoco", Tipo::F64),
+            col("material_num", Tipo::U32),
+        ],
+    },
+    Secao {
+        id: SECAO_PERFIS_ESTR,
+        nome: "perfis",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("perfil_num", Tipo::U32),
+            col("anel", Tipo::U32),
+            col("indice", Tipo::U32),
+            col("x", Tipo::F64),
+            col("y", Tipo::F64),
+        ],
+    },
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1044,6 +1189,15 @@ pub const CONSULTA_CORTINA_AVISOS: u32 = 105;
 /// Fase 5 (esquema v17): recorte da cortina embutida no hospedeiro e vão virtual da esquadria na célula.
 pub const CONSULTA_CORTINA_RECORTE_HOSPEDEIRO: u32 = 106;
 pub const CONSULTA_CORTINA_CELULA_PORTA: u32 = 107;
+/// Estrutura (A.5; esquema v19, ficha K1). Declaradas na K1; devolvem NAO_IMPLEMENTADO até as fichas K2 a K4.
+pub const CONSULTA_ESTR_MALHA: u32 = 200;
+pub const CONSULTA_ESTR_PLANTA: u32 = 201;
+pub const CONSULTA_ESTR_CORTE: u32 = 202;
+pub const CONSULTA_ESTR_QUANT: u32 = 203;
+pub const CONSULTA_ESTR_AVISOS: u32 = 204;
+pub const CONSULTA_ESTR_PERFIL: u32 = 205;
+pub const CONSULTA_ESTR_JUNCOES: u32 = 206;
+pub const CONSULTA_ESTR_APOIO: u32 = 207;
 
 /// Códigos de `cortina_avisos.avisos[1]` (ADR 0056 §5.8): o TS decide o texto e a severidade.
 pub const AVISO_CORTINA_CELULA_PEQUENA: u32 = 1;
@@ -1428,6 +1582,94 @@ pub const CONSULTAS: &[Consulta] = &[
             SaidaDef { nome: "vaos", tipo: Tipo::F64, elementos: Elementos::Multiplo(10) },
             SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
             SaidaDef { nome: "linhas_pos", tipo: Tipo::F64, elementos: Elementos::N },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_ESTR_MALHA,
+        nome: "estr_malha",
+        args: &["nivel_num", "lod"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "grupos", tipo: Tipo::U32, elementos: Elementos::Multiplo(6) },
+            SaidaDef { nome: "vertices", tipo: Tipo::F64, elementos: Elementos::Multiplo(3) },
+            SaidaDef { nome: "indices", tipo: Tipo::U32, elementos: Elementos::N },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_ESTR_PLANTA,
+        nome: "estr_planta",
+        args: &["nivel_num", "corte_z", "detalhe"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(5) },
+            SaidaDef { nome: "pontos", tipo: Tipo::F64, elementos: Elementos::DoisN },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_ESTR_CORTE,
+        nome: "estr_corte",
+        args: &["nivel_num", "ox", "oy", "dx", "dy", "profundidade"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(5) },
+            SaidaDef { nome: "pontos", tipo: Tipo::F64, elementos: Elementos::DoisN },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_ESTR_QUANT,
+        nome: "estr_quant",
+        args: &["nivel_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "valores", tipo: Tipo::F64, elementos: Elementos::Multiplo(4) },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_ESTR_AVISOS,
+        nome: "estr_avisos",
+        args: &["nivel_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "avisos", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "valores", tipo: Tipo::F64, elementos: Elementos::Multiplo(5) },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_ESTR_PERFIL,
+        nome: "estr_perfil",
+        args: &["nivel_num", "forma", "p0", "p1", "p2", "p3", "p4", "p5", "n_aneis"],
+        args_variaveis: true,
+        saidas: &[
+            SaidaDef { nome: "aneis", tipo: Tipo::U32, elementos: Elementos::DoisN },
+            SaidaDef { nome: "pontos", tipo: Tipo::F64, elementos: Elementos::DoisN },
+            SaidaDef { nome: "medidas", tipo: Tipo::F64, elementos: Elementos::Fixo(2) },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_ESTR_JUNCOES,
+        nome: "estr_juncoes",
+        args: &["nivel_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "recortes", tipo: Tipo::U32, elementos: Elementos::Multiplo(3) },
+            SaidaDef { nome: "recortes_z", tipo: Tipo::F64, elementos: Elementos::DoisN },
+            SaidaDef { nome: "pontos", tipo: Tipo::F64, elementos: Elementos::DoisN },
+            SaidaDef { nome: "aparos", tipo: Tipo::U32, elementos: Elementos::Multiplo(3) },
+            SaidaDef { nome: "aparos_recuo", tipo: Tipo::F64, elementos: Elementos::N },
+            SaidaDef { nome: "unioes", tipo: Tipo::U32, elementos: Elementos::DoisN },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_ESTR_APOIO,
+        nome: "estr_apoio",
+        args: &["nivel_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "pontos", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "pontos_xy", tipo: Tipo::F64, elementos: Elementos::DoisN },
+            SaidaDef { nome: "segmentos", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "segmentos_xy", tipo: Tipo::F64, elementos: Elementos::Multiplo(4) },
         ],
     },
 ];

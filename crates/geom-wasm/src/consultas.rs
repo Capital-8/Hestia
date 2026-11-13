@@ -292,6 +292,15 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
         esquema::CONSULTA_CORTINA_AVISOS => crate::cortina_avisos::consulta_cortina_avisos(cena, arg_nivel(args[0])?),
         esquema::CONSULTA_CORTINA_RECORTE_HOSPEDEIRO => crate::cortina_hosp::consulta_cortina_recorte_hospedeiro(cena, arg_nivel(args[0])?),
         esquema::CONSULTA_CORTINA_CELULA_PORTA => crate::cortina_porta::consulta_cortina_celula_porta(cena, arg_nivel(args[0])?),
+        // Estrutura (ficha K1): declaradas no contrato v19; implementadas nas fichas K2 (200, 205), K3 e K4 (201 a 204, 206, 207).
+        esquema::CONSULTA_ESTR_MALHA
+        | esquema::CONSULTA_ESTR_PLANTA
+        | esquema::CONSULTA_ESTR_CORTE
+        | esquema::CONSULTA_ESTR_QUANT
+        | esquema::CONSULTA_ESTR_AVISOS
+        | esquema::CONSULTA_ESTR_PERFIL
+        | esquema::CONSULTA_ESTR_JUNCOES
+        | esquema::CONSULTA_ESTR_APOIO => Err(NAO_IMPLEMENTADO),
         _ => Err(NAO_IMPLEMENTADO),
     }
 }
@@ -530,6 +539,19 @@ mod testes {
         assert_eq!(executar(&mut c, 3, &[0.0, -0.001]), Err(ENTRADA));
         assert_eq!(executar(&mut c, 3, &[0.0, f64::NAN]), Err(ENTRADA));
         assert_eq!(executar(&mut c, 3, &[0.0]), Err(ENTRADA));
+    }
+
+    #[test]
+    fn consultas_da_estrutura_estao_registradas_e_ainda_nao_implementadas() {
+        let mut c = cena_com(&lote(&[(1, 0, 0.0, 0.0, 1.0, 0.0, 0.1)]));
+        for id in 200..=207 {
+            let def = esquema::consulta(id).expect("consulta registrada");
+            assert!(def.nome.starts_with("estr_"), "{}", def.nome);
+            let args = vec![NIVEL_TODOS as f64; def.args.len()];
+            assert_eq!(executar(&mut c, id, &args), Err(NAO_IMPLEMENTADO), "consulta {id}");
+            assert_eq!(executar(&mut c, id, &args[..args.len() - 1]), Err(ENTRADA), "consulta {id} com argumento a menos");
+        }
+        assert!(esquema::consulta(208).is_none());
     }
 
     // --- aleatórios contra força bruta ---
