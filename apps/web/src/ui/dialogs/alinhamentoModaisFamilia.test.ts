@@ -35,6 +35,13 @@ const ALINHADOS = [
   'StairCalculatorPanel.tsx',
   'StairBlondelCard.tsx',
   'guardaCorpoType/index.tsx',
+  // Estrutura (ficha U1).
+  'ColumnTypeDialog.tsx',
+  'BeamTypeDialog.tsx',
+  'FootingTypeDialog.tsx',
+  'EstrTypeParts.tsx',
+  'PerfilEditor.tsx',
+  'PerfilPreview.tsx',
 ];
 
 const PROIBIDO: Array<[RegExp, string]> = [

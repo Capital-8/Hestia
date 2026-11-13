@@ -1,11 +1,14 @@
 import { fitBox, type Viewport } from '@hestia/render';
-import { ProjectStore, isCad, isFloor, isGeneric, isOpening, isRamp, isRoof, isSlab, isStair, isWall, newId, openingType, wallTypeUsage, type Element, type FloorType, type Id, type Project } from '@hestia/model';
+import { ProjectStore, beamTypeIssue, beamTypesOf, columnTypeIssue, columnTypesOf, footingTypeIssue, footingTypesOf, isCad, isFloor, isGeneric, isOpening, isRamp, isRoof, isSlab, isStair, isWall, newId, openingType, wallTypeUsage, type BeamType, type ColumnType, type Element, type FloorType, type FootingType, type Id, type Project } from '@hestia/model';
 import { rampPoints } from './rampActions.ts';
 import { stairPoints } from './stairActions.ts';
 import { t, useI18n } from './i18n.ts';
 
 /** Tipos que o navegador de projeto lista: parede, porta, janela, piso, laje, forro, telhado, escada e rampa. */
-export type TypeKind = 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'ramp';
+export type TypeKind = 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'ramp' | EstrKind;
+
+/** Tipos de estrutura (ficha U1): pilar (as duas disciplinas), viga e fundação. */
+export type EstrKind = 'column' | 'beam' | 'footing';
 
 export interface TypeChoice {
   id: Id;
@@ -29,6 +32,7 @@ function usesType(e: Element, kind: TypeKind, typeId: Id): boolean {
   if (kind === 'roof') return isRoof(e) && e.typeId === typeId;
   if (kind === 'stair') return isStair(e) && e.typeId === typeId;
   if (kind === 'ramp') return isRamp(e) && e.typeId === typeId;
+  if (kind === 'column' || kind === 'beam' || kind === 'footing') return e.kind === kind && e.typeId === typeId;
   return isOpening(e) && e.kind === kind && e.typeId === typeId;
 }
 
@@ -75,6 +79,7 @@ export function selectAllPlan(p: Project, kind: TypeKind, typeId: Id, levelId: I
 
 /** Tipos que podem substituir `typeId`: outros tipos de parede, ou de porta/janela do mesmo tipo. */
 export function compatibleTypes(p: Project, kind: TypeKind, typeId: Id): TypeChoice[] {
+  if (kind === 'column' || kind === 'beam' || kind === 'footing') return estrCompatibleTypes(p, kind, typeId);
   const list =
     kind === 'wall'
       ? Object.values(p.wallTypes).filter((t) => t.id !== typeId)
@@ -101,7 +106,11 @@ export function replaceType(store: ProjectStore, kind: TypeKind, fromId: Id, toI
   const ids = instancesOfType(store.project, kind, fromId);
   if (ids.length === 0) return 0;
   store.transaction('eds_undo_replace_type', () => {
-    store.exec({ type: 'updateElements', ids, patch: { typeId: toId } });
+    // Estrutura troca pelos comandos próprios (o do pilar também acerta a disciplina do elemento).
+    if (kind === 'column') store.exec({ type: 'setColumnType', ids, typeId: toId });
+    else if (kind === 'beam') store.exec({ type: 'setBeamType', ids, typeId: toId });
+    else if (kind === 'footing') store.exec({ type: 'setFootingType', ids, typeId: toId });
+    else store.exec({ type: 'updateElements', ids, patch: { typeId: toId } });
   });
   return ids.length;
 }
@@ -299,3 +308,73 @@ export function floorTypeError(tipo: Pick<FloorType, 'name' | 'layers'>): string
 
 /** Tipo de piso das opções ao abrir um projeto: mantém o escolhido se existir no projeto, senão o primeiro. */
 export const keptFloorType = (p: Project, current: Id): Id => (p.floorTypes[current] ? current : (Object.keys(p.floorTypes)[0] ?? current));
+
+// ---- Estrutura: pilar, viga e fundação (ficha U1) -----------------------------------------------------------------------
+
+export type TipoEstr = ColumnType | BeamType | FootingType;
+
+/** Tipos do projeto de um tipo de estrutura (padrões por leitura quando o mapa ainda não foi gravado). */
+export function estrTypesOf(p: Project, kind: EstrKind): Record<Id, TipoEstr> {
+  return kind === 'column' ? columnTypesOf(p) : kind === 'beam' ? beamTypesOf(p) : footingTypesOf(p);
+}
+
+/** O que separa os tipos que se trocam entre si: a disciplina do pilar, o modo da fundação; a viga não tem. */
+const grupoDoTipo = (kind: EstrKind, tp: TipoEstr): string => (kind === 'column' && 'disciplina' in tp ? tp.disciplina : kind === 'footing' && 'modo' in tp ? tp.modo : '');
+
+/** Tipos que podem substituir `typeId` na estrutura: os do mesmo grupo (disciplina do pilar, modo da fundação). */
+function estrCompatibleTypes(p: Project, kind: EstrKind, typeId: Id): TypeChoice[] {
+  const todos = estrTypesOf(p, kind);
+  const grupo = todos[typeId] ? grupoDoTipo(kind, todos[typeId]!) : '';
+  return Object.values(todos)
+    .filter((tp) => tp.id !== typeId && grupoDoTipo(kind, tp) === grupo)
+    .map((tp) => ({ id: tp.id, name: tp.name }));
+}
+
+/** Elementos que usam o tipo de estrutura (todos os níveis). */
+export const estrTypeUsage = (p: Project, kind: EstrKind, typeId: Id): number => instancesOfType(p, kind, typeId).length;
+
+/** Motivo pelo qual o tipo de estrutura não pode ser excluído (em uso, ou o último do grupo); null quando pode. */
+export function estrTypeDeleteBlock(p: Project, kind: EstrKind, typeId: Id): string | null {
+  const l = lang();
+  const uso = estrTypeUsage(p, kind, typeId);
+  if (uso > 0) return t(l, uso === 1 ? 'estr_msg_in_use_one' : 'estr_msg_in_use_many', { n: uso });
+  return estrCompatibleTypes(p, kind, typeId).length === 0 ? t(l, 'estr_msg_last_type') : null;
+}
+
+/** Problema do tipo de estrutura antes de gravar (nome e as regras do modelo); null se está pronto. */
+export function estrTypeError(kind: EstrKind, tipo: TipoEstr): string | null {
+  const l = lang();
+  if (kind === 'column') return columnTypeIssue(tipo as ColumnType, l);
+  if (kind === 'beam') return beamTypeIssue(tipo as BeamType, l);
+  return footingTypeIssue(tipo as FootingType, l);
+}
+
+/** Grava o tipo de estrutura (cria ou substitui) pelo comando próprio; lança se o modelo recusar. */
+export function upsertEstrType(store: ProjectStore, kind: EstrKind, tipo: TipoEstr, label: string): void {
+  if (kind === 'column') store.exec({ type: 'upsertColumnType', columnType: tipo as ColumnType }, label);
+  else if (kind === 'beam') store.exec({ type: 'upsertBeamType', beamType: tipo as BeamType }, label);
+  else store.exec({ type: 'upsertFootingType', footingType: tipo as FootingType }, label);
+}
+
+const PREFIXO_ID: Record<EstrKind, string> = { column: 'pil', beam: 'vig', footing: 'fun' };
+
+/** Cópia do tipo de estrutura com id novo e nome "(cópia)". Devolve o id criado. */
+export function duplicateEstrType(store: ProjectStore, kind: EstrKind, typeId: Id): Id | null {
+  const src = estrTypesOf(store.project, kind)[typeId];
+  if (!src) return null;
+  const copy = { ...structuredClone(src), id: newId(PREFIXO_ID[kind]), name: t(lang(), 'eds_def_copy_suffix', { name: src.name }) };
+  upsertEstrType(store, kind, copy, t(lang(), 'estr_undo_duplicate_type'));
+  return copy.id;
+}
+
+/** Exclui o tipo de estrutura (o comando recusa se estiver em uso), devolvendo o erro em vez de lançá-lo. */
+export function tryDeleteEstrType(store: ProjectStore, kind: EstrKind, typeId: Id): DeleteResult {
+  try {
+    if (kind === 'column') store.exec({ type: 'deleteColumnType', id: typeId });
+    else if (kind === 'beam') store.exec({ type: 'deleteBeamType', id: typeId });
+    else store.exec({ type: 'deleteFootingType', id: typeId });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : t(lang(), 'eds_msg_unknown_failure') };
+  }
+}

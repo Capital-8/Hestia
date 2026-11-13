@@ -41,9 +41,20 @@ export type PreviewSubject =
   /** Tipo de guarda-corpo: a miniatura desenha a elevação do tipo (altura, trilhos, corrimãos e preenchimento). */
   | { kind: 'railing'; type: TipoGuardaCorpo }
   /** Família de cota: a miniatura desenha a cota com o estilo da família (sem tipo nem código). */
-  | { kind: 'dimension'; style: DimensionStyle };
+  | { kind: 'dimension'; style: DimensionStyle }
+  /** Tipo de estrutura (pilar, viga, fundação): a miniatura é só o código; o contorno do perfil é do kernel (A.0 item 2). */
+  | { kind: 'estr'; type: { code: string } };
 
 
+
+/** Miniatura de tipo de estrutura: o código no centro (sem desenhar contorno: a geometria é do kernel). */
+function EstrThumb({ code }: { code: string }): ReactElement {
+  return (
+    <svg viewBox="0 0 120 80" width="100%" height="100%" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
+      <text x={60} y={46} textAnchor="middle" fontSize={22} fill="currentColor" fillOpacity={0.7}>{code}</text>
+    </svg>
+  );
+}
 
 /** Código do tipo (P-02, PA-14…), ou null quando o tipo não tem código. */
 function codeOf(s: PreviewSubject): string | null {
@@ -72,6 +83,7 @@ function dimsOf(s: PreviewSubject, units: ResolvedUnits): string | null {
     case 'ramp':
     case 'railing':
     case 'dimension':
+    case 'estr':
       return null;
   }
 }
@@ -99,6 +111,8 @@ function Drawing({ subject }: { subject: PreviewSubject }): ReactElement {
       return <RailingThumb type={subject.type} />;
     case 'dimension':
       return <DimensionStylePreview style={subject.style} />;
+    case 'estr':
+      return <EstrThumb code={subject.type.code} />;
     case 'door':
       return <DoorDrawing t={subject.type} uid={uid} />;
     case 'window':
