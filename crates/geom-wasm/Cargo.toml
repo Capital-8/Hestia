@@ -18,7 +18,6 @@ crate-type = ["cdylib", "rlib"]
 # `i_overlay` cobre booleanas E offset com miter (`OutlineOffset`), então é a única dependência.
 # Licença MIT OR Apache-2.0, compatível com a MIT do projeto (ver NOTICE).
 i_overlay = "9"
-# Triangulação de Delaunay com restrições do terreno (PLANO do terreno, decisão D1). Rust puro, MIT OR Apache-2.0 (ver NOTICE).
 spade = { version = "2", default-features = false, features = ["std"] }
 
 [dev-dependencies]
