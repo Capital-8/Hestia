@@ -1,9 +1,10 @@
 # Terreno e lote: estado
 
-**Passo 0 pendente.** O plano (`docs/terreno/PLANO.md`) foi escrito em 2026-11-13 e nada foi implementado. O fiscal começa por B.2.
+Passo 0 concluído em 2026-11-13. Execução em andamento; retome da primeira ficha não mesclada.
 
-Linha de base (data, commit): a medir no passo 0.
-Modo de execução: a definir no passo 0 (A = subagentes, B = o próprio fiscal).
+Linha de base (2026-11-13, commit 159184a7, `main` em 236aa298): typecheck ✔ | lint ✔ (avisos de base antigos de rampTool/stairRun*, já existentes) | test:rapido 969 arquivos / 11316 testes (1 todo) | cargo test geom-wasm 468+6 testes | **clippy ✘ já na base: 39 avisos em código existente** | build:wasm ✔ | wasm:check ✔ | test:wasm 1334 testes (5 ignorados).
+Portão do clippy adaptado (emenda E1 do PLANO): o total de avisos não pode passar de 39 e arquivo novo ou alterado por esta frente não pode ter nenhum aviso. O componente clippy teve de ser instalado: `rustup component add --toolchain 1.97.1-x86_64-unknown-linux-gnu clippy`.
+Modo de execução: A (subagentes). Modelo: padrão nas fichas comuns; o mais forte disponível em R1, R2, R3 e V3.
 
 | Ficha | Estado | Commit de mescla | Devoluções | Observações |
 |---|---|---|---|---|
@@ -34,9 +35,7 @@ Modo de execução: a definir no passo 0 (A = subagentes, B = o próprio fiscal)
 | F2 | pendente | | 0 | opcional |
 
 ## Decisões do dono (data, pergunta, resposta)
-- Pendente: confirmar D1 a D11 de A.0 (em especial D1, dependência `spade`, e D10, não esperar a massa).
-- Pendente: autorizar subagentes e escolher o modelo das fichas R1, R2, R3 e V3.
-- Pendente: executar tudo em sequência ou parar ao fim de cada fase.
+- 2026-11-13, "agora implemente! utilize subagentes para concluir mais rápido": o dono mandou executar o plano com subagentes. Registrado como confirmação de D1 a D11 (incluída a `spade`) e autorização de subagentes. A resposta sobre modelo e sobre parar por fase não foi dada: assumido o modelo mais forte em R1, R2, R3 e V3, e execução contínua, parando só em bloqueio ou na Fase 7 (que exige o "pode" do dono, D9).
 
 ## Sincronizações com a main (data, commit da main, conflitos, o que foi renumerado)
 - 2026-11-13: branch criada a partir da `main` em `236aa298`. Massa ausente da `main` nesta data.

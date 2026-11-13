@@ -858,4 +858,6 @@ Escopo fechado: a referência é **estado de interface** (salvo na sessão, não
 
 # Emendas (registradas pelo fiscal durante a execução)
 
-(nenhuma)
+**E1 · 2026-11-13 · passo 0 (ajusta portões; não muda o escopo).**
+1. `cargo clippy -- -D warnings` já falha na linha de base (39 avisos em código existente de `consultas.rs`, `juncoes.rs`, `b2.rs`, `perfil_quant.rs`, `gc_montagem.rs`, `ops.rs`, `lib.rs`, `cena.rs`, `b3.rs`). Em B.3 e na Parte C item 10, onde se lê "`cargo clippy -- -D warnings`", vale: **rode `cargo clippy` sem `-D`; o total de avisos não pode passar de 39 e nenhum aviso pode apontar para arquivo novo desta frente** (`terreno_*.rs`, `secoes_terreno.rs`). Em arquivo existente alterado, nenhuma linha tocada por você pode gerar aviso novo.
+2. Paralelismo autorizado pelo fiscal: a ficha P1 (só `packages/engine`, arquivos novos) pode rodar junto com a M2 e com a cadeia R1 a R3, porque os arquivos são disjuntos. As demais seguem a ordem de B.4.
