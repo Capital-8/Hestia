@@ -72,3 +72,57 @@ fn tempo_50_mil_pontos() {
     let n = m.triangulos(1, 0).len();
     assert!((99_000..100_000).contains(&n), "{n} triângulos");
 }
+
+/// Casos degenerados de propósito: pontos numa grade inteira (muitos colineares e cocirculares) e linhas entre nós da grade, que se sobrepõem, passam por
+/// vértices e se cruzam em vértices. É onde uma restrição mal testada derrubaria a biblioteca.
+#[test]
+fn fuzz_grade_inteira_com_linhas_sobrepostas() {
+    let mut r = Xorshift::novo(77);
+    let no = |r: &mut Xorshift| [(r.proximo() % 9) as f64, (r.proximo() % 9) as f64];
+    for caso in 0..300 {
+        let n = 3 + r.proximo() % 40;
+        let pontos = (0..n).map(|_| no(&mut r)).map(|p| [p[0], p[1], p[0] + 2.0 * p[1]]).collect();
+        let mut fx = TerrenoFx::novo(1, pontos);
+        for _ in 0..r.proximo() % 6 {
+            let xy = (0..2 + r.proximo() % 4).map(|_| no(&mut r)).collect();
+            fx.curvas.push((r.intervalo(0.0, 30.0), xy, r.proximo().is_multiple_of(2)));
+        }
+        for _ in 0..r.proximo() % 4 {
+            fx.quebras.push((0..2 + r.proximo() % 4).map(|_| (no(&mut r), r.intervalo(0.0, 30.0))).map(|(p, z)| [p[0], p[1], z]).collect());
+        }
+        let mut cena = cena_com(std::slice::from_ref(&fx));
+        let m = malha(&mut cena, 0, 0);
+        if !m.grupos.is_empty() {
+            m.conferir(1, fx.espessura_base);
+        }
+        let outra = malha(&mut cena_com(std::slice::from_ref(&fx)), 0, 0);
+        assert_eq!((m.grupos, m.v, m.i), (outra.grupos, outra.v, outra.i), "caso {caso}");
+    }
+}
+
+/// Bordas aleatórias (polígonos estrelados, em geral não convexos, às vezes maiores que o terreno) sobre terrenos aleatórios.
+#[test]
+fn fuzz_borda() {
+    let mut r = Xorshift::novo(4242);
+    for caso in 0..80 {
+        let mut fx = terreno_aleatorio(&mut r);
+        let (cx, cy) = (r.intervalo(30.0, 70.0), r.intervalo(30.0, 70.0));
+        let lados = 3 + r.proximo() % 12;
+        let borda: Vec<[f64; 2]> = (0..lados)
+            .map(|k| {
+                let (a, raio) = (std::f64::consts::TAU * k as f64 / lados as f64, r.intervalo(8.0, 75.0));
+                [cx + raio * a.cos(), cy + raio * a.sin()]
+            })
+            .collect();
+        let area: f64 = (0..borda.len()).map(|k| (borda[k], borda[(k + 1) % borda.len()])).map(|(a, b)| (a[0] * b[1] - a[1] * b[0]) / 2.0).sum();
+        fx.borda = Some(borda);
+        let mut cena = cena_com(std::slice::from_ref(&fx));
+        let m = malha(&mut cena, 0, 0);
+        m.conferir(1, fx.espessura_base);
+        assert!((m.area_planta(1) - area).abs() < 1e-6 * area, "caso {caso}: a área em planta é a da borda ({} x {area})", m.area_planta(1));
+        let c = cotas(&mut cena, &[[cx, cy]], 0);
+        assert_eq!(c[0].0, 1, "caso {caso}: o centro da borda está no terreno");
+        let outra = malha(&mut cena_com(std::slice::from_ref(&fx)), 0, 0);
+        assert_eq!((m.grupos, m.v, m.i), (outra.grupos, outra.v, outra.i), "caso {caso}");
+    }
+}

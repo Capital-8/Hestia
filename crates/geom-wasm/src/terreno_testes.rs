@@ -98,7 +98,7 @@ impl MalhaLida {
             assert_eq!((topo_a[0], topo_a[1]), (base_a[0], base_a[1]), "parede vertical");
             assert_eq!((topo_b[0], topo_b[1]), (base_b[0], base_b[1]), "parede vertical");
             assert_eq!((base_a[2], base_b[2]), (z_base, z_base));
-            assert!(topo_a[2] >= z_base + espessura_base && topo_b[2] >= z_base + espessura_base);
+            assert!(topo_a[2] >= z_min && topo_b[2] >= z_min);
             let n = self.normal(q[0]);
             assert_eq!(n[2], 0.0);
             assert!(n[0] != 0.0 || n[1] != 0.0);

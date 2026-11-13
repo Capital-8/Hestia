@@ -30,6 +30,7 @@ pub struct Triangulacao {
 
 /// Delaunay com restrições dos pontos `p` (distintos), com as `restricoes` tentadas na ordem dada (regra 2). Restrição que cruzaria outra já inserida é
 /// pulada. Sem triângulos (menos de 3 pontos ou todos colineares), nenhuma restrição é tentada. Coordenada que a biblioteca recusa vira `ENTRADA`.
+/// Triângulo cuja área em planta calculada em `f64` não é positiva é descartado.
 pub fn triangular(p: &[[f64; 2]], restricoes: &[[u32; 2]]) -> Result<Triangulacao, u32> {
     let mut cdt = ConstrainedDelaunayTriangulation::<Point2<f64>>::new();
     let mut alcas = Vec::with_capacity(p.len());
@@ -60,6 +61,12 @@ pub fn triangular(p: &[[f64; 2]], restricoes: &[[u32; 2]]) -> Result<Triangulaca
         let mut tri = [0u32; 3];
         for (i, vert) in face.vertices().iter().enumerate() {
             tri[i] = *de_alca.get(vert.fix().index()).ok_or(INTERNO)?;
+        }
+        // A biblioteca decide a orientação com aritmética exata; um triângulo quase degenerado (três pontos alinhados a menos do arredondamento, como os da
+        // borda adensada) pode ter área não positiva em `f64`. Esses saem: toda malha entregue tem área em planta > 0 em cada triângulo.
+        let c = tri.map(|i| p[i as usize]);
+        if (c[1][0] - c[0][0]) * (c[2][1] - c[0][1]) - (c[1][1] - c[0][1]) * (c[2][0] - c[0][0]) <= 0.0 {
+            continue;
         }
         t.push(tri);
     }
@@ -284,6 +291,18 @@ mod testes {
         let r = triangular(&p, &[[0, 2], [2, 0], [0, 1]]).expect("ok");
         assert_eq!(r.aceitas, vec![true, true, true]);
         assert_eq!(r.t.len(), 4);
+    }
+
+    #[test]
+    fn triangulo_sem_area_em_f64_e_descartado() {
+        // (1, 1 + 2^-52) fica acima da reta y = x para a aritmética exata, mas o produto vetorial em f64 com o canto distante dá 0.
+        let p = [[0.0, 0.0], [1.0, 1.0 + f64::EPSILON], [1e8, 1e8], [1e8, 0.0]];
+        let r = triangular(&p, &[]).expect("ok");
+        assert!(!r.t.is_empty());
+        for t in &r.t {
+            let c = t.map(|i| p[i as usize]);
+            assert!((c[1][0] - c[0][0]) * (c[2][1] - c[0][1]) - (c[1][1] - c[0][1]) * (c[2][0] - c[0][0]) > 0.0, "{t:?}");
+        }
     }
 
     #[test]
